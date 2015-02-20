@@ -22,7 +22,7 @@ val _ = new_theory "word_transform"
   Conventions
   ---
   1) SSA program has the special conventions on stack variables
-  2) Register allocation produces an is_phy_var coloring
+  2) Register allocation produces an is_phy_var colouring
 
   Everything after allocation should be is_phy_var, and
   the stack variables should be ≥ 2*k
@@ -42,7 +42,7 @@ val word_alloc_def = Define`
   let col = reg_alloc 3 clash_graph k moves in 
   (*Get the register allocation function,
     TODO: choose the flag based on the size of graph/moves*)
-    apply_color (total_color col) prog`
+    apply_colour (total_colour col) prog`
 
 (*word_trans is the combination that does SSA/CC then Register Allocation*)
 val word_trans_def = Define`
@@ -51,14 +51,14 @@ val word_trans_def = Define`
     word_alloc k ssa_prog`
 
 
-val coloring_satisfactory_coloring_ok_alt = prove(``
+val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live.
   let spg = get_spg prog live in
-  coloring_satisfactory (f:num->num) spg
+  colouring_satisfactory (f:num->num) spg
   ⇒
-  coloring_ok_alt f prog live``,
+  colouring_ok_alt f prog live``,
   rpt strip_tac>>
-  fs[LET_THM,coloring_ok_alt_def,coloring_satisfactory_def,get_spg_def]>>
+  fs[LET_THM,colouring_ok_alt_def,colouring_satisfactory_def,get_spg_def]>>
   Cases_on`get_clash_sets prog live`>>fs[]>>
   strip_tac>>
   qabbrev_tac `ls = q::r`>>
@@ -68,10 +68,10 @@ val coloring_satisfactory_coloring_ok_alt = prove(``
   >>
   rw[EVERY_MEM]>>
   imp_res_tac clash_sets_clique>>
-  imp_res_tac coloring_satisfactory_cliques>>
+  imp_res_tac colouring_satisfactory_cliques>>
   pop_assum(qspec_then`f`mp_tac)>>
   discharge_hyps
-  >- fs[coloring_satisfactory_def,LET_THM]>>
+  >- fs[colouring_satisfactory_def,LET_THM]>>
   discharge_hyps
   >- fs[ALL_DISTINCT_MAP_FST_toAList]>>
   fs[INJ_DEF]>>rw[]>>
@@ -90,7 +90,7 @@ val call_arg_convention_preservation = prove(``
   ∀prog f.
   every_var (λx. is_phy_var x ⇒ f x = x) prog ∧ 
   call_arg_convention prog ⇒ 
-  call_arg_convention (apply_color f prog)``,
+  call_arg_convention (apply_colour f prog)``,
   ho_match_mp_tac call_arg_convention_ind>>
   rw[call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
@@ -123,14 +123,14 @@ val pre_post_conventions_word_alloc = prove(``
     (match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>rw[]>>
     metis_tac[clash_sets_to_sp_g_domain])>>
-  fs[coloring_conventional_def,LET_THM]
+  fs[colouring_conventional_def,LET_THM]
   >-
-    (match_mp_tac every_var_apply_color>>
+    (match_mp_tac every_var_apply_colour>>
     HINT_EXISTS_TAC>>fs[]>>
     rw[]>>
     metis_tac[])
   >-
-    (match_mp_tac every_stack_var_apply_color>>
+    (match_mp_tac every_stack_var_apply_colour>>
     imp_res_tac every_var_imp_every_stack_var>>
     qexists_tac `λx. (x ∈ domain clash_graph ∧ is_stack_var x)` >>rw[]
     >-

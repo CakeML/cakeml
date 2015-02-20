@@ -116,12 +116,12 @@ val irc_alloc_def =  Define`
   let s = SND (rpt_do_step s) in
   let coalesced = s.coalesced in
   let pref x y z = aux_move_pref coalesced (resort_moves(moves_to_sp moves LN)) x y z in
-  let (col,ls) = alloc_coloring s.graph k pref s.stack in
+  let (col,ls) = alloc_colouring s.graph k pref s.stack in
   let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in
   let s = sec_ra_state G k spills coalesce_map in
   let s = SND (rpt_do_step2 s) in
-  let col = spill_coloring G k coalesce_map s.stack col in
-  let col = spill_coloring G k LN ls col in
+  let col = spill_colouring G k coalesce_map s.stack col in
+  let col = spill_colouring G k LN ls col in
     col`
 
 (*Prove that irc alloc is an instance of the actual algorithm*)
@@ -145,12 +145,12 @@ val simp_alloc_def =  Define`
   let s = init_ra_state G k [] in
   let ((),s) = rpt_do_step s in
   let pref = move_pref (resort_moves (moves_to_sp moves LN)) in
-  let (col,ls) = alloc_coloring s.graph k pref s.stack in
+  let (col,ls) = alloc_colouring s.graph k pref s.stack in
   let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in 
   let s = sec_ra_state G k spills coalesce_map in
   let ((),s) = rpt_do_step2 s in
-  let col = spill_coloring G k coalesce_map s.stack col in
-  let col = spill_coloring G k LN ls col in
+  let col = spill_colouring G k coalesce_map s.stack col in
+  let col = spill_colouring G k LN ls col in
     col`
 
 val simp_alloc_reg_alloc_0 = prove(``

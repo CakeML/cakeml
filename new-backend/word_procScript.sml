@@ -63,30 +63,30 @@ val get_prefs_def = Define`
 
 
 (*Coloring expressions*)
-val apply_color_exp_def = tDefine "apply_color_exp" `
-  (apply_color_exp f (Var num) = Var (f num)) /\
-  (apply_color_exp f (Load exp) = Load (apply_color_exp f exp)) /\
-  (apply_color_exp f (Op wop ls) = Op wop (MAP (apply_color_exp f) ls)) /\
-  (apply_color_exp f (Shift sh exp nexp) = Shift sh (apply_color_exp f exp) nexp) /\
-  (apply_color_exp f expr = expr)`
+val apply_colour_exp_def = tDefine "apply_colour_exp" `
+  (apply_colour_exp f (Var num) = Var (f num)) /\
+  (apply_colour_exp f (Load exp) = Load (apply_colour_exp f exp)) /\
+  (apply_colour_exp f (Op wop ls) = Op wop (MAP (apply_colour_exp f) ls)) /\
+  (apply_colour_exp f (Shift sh exp nexp) = Shift sh (apply_colour_exp f exp) nexp) /\
+  (apply_colour_exp f expr = expr)`
 (WF_REL_TAC `measure (word_exp_size ARB o SND)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
-(*Coloring instructions*)
-val apply_color_inst_def = Define`
-  (apply_color_inst f Skip = Skip) ∧ 
-  (apply_color_inst f (Const reg w) = Const (f reg) w) ∧
-  (apply_color_inst f (Arith (Binop bop r1 r2 ri)) = 
+(*Colouring instructions*)
+val apply_colour_inst_def = Define`
+  (apply_colour_inst f Skip = Skip) ∧ 
+  (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
+  (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) = 
     Arith (Binop bop (f r1) (f r2) (case ri of Reg r3 => (Reg (f r3)) | _ => ri))) ∧ 
-  (apply_color_inst f (Arith (Shift shift r1 r2 n)) =
+  (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧ 
-  (apply_color_inst f (Mem Load r (Addr a w)) =
+  (apply_colour_inst f (Mem Load r (Addr a w)) =
     Mem Load (f r) (Addr (f a) w)) ∧ 
-  (apply_color_inst f (Mem Store r (Addr a w)) =
+  (apply_colour_inst f (Mem Store r (Addr a w)) =
     Mem Store (f r) (Addr (f a) w)) ∧
-  (apply_color_inst f x = x)` (*Catchall -- for future instructions to be added*) 
+  (apply_colour_inst f x = x)` (*Catchall -- for future instructions to be added*) 
 
 (*Apply f to the keys of a num_map, numsets are special cases with values ()*)
 val apply_nummap_key_def = Define `
@@ -97,36 +97,36 @@ val apply_nummap_key_def = Define `
 val apply_numset_key_def = Define `
   apply_numset_key f (numset:num_set) = apply_nummap_key f numset`
 
-(*Color a prog*)
-val apply_color_def = Define `
-  (apply_color f Skip = Skip) ∧
-  (apply_color f (Move pri ls) =
+(*Colour a prog*)
+val apply_colour_def = Define `
+  (apply_colour f Skip = Skip) ∧
+  (apply_colour f (Move pri ls) =
     Move pri (ZIP (MAP (f o FST) ls, MAP (f o SND) ls))) ∧ 
-  (apply_color f (Inst i) = Inst (apply_color_inst f i)) ∧
-  (apply_color f (Assign num exp) = Assign (f num) (apply_color_exp f exp)) ∧
-  (apply_color f (Get num store) = Get (f num) store) ∧  
-  (apply_color f (Store exp num) = Store (apply_color_exp f exp) (f num)) ∧ 
-  (apply_color f (Call ret dest args h) =
+  (apply_colour f (Inst i) = Inst (apply_colour_inst f i)) ∧
+  (apply_colour f (Assign num exp) = Assign (f num) (apply_colour_exp f exp)) ∧
+  (apply_colour f (Get num store) = Get (f num) store) ∧  
+  (apply_colour f (Store exp num) = Store (apply_colour_exp f exp) (f num)) ∧ 
+  (apply_colour f (Call ret dest args h) =
     let ret = case ret of NONE => NONE
                         | SOME (v,cutset,ret_handler) =>
-                          SOME (f v,apply_nummap_key f cutset,apply_color f ret_handler) in
+                          SOME (f v,apply_nummap_key f cutset,apply_colour f ret_handler) in
     let args = MAP f args in
     let h = case h of NONE => NONE
-                     | SOME (v,prog) => SOME (f v, apply_color f prog) in
+                     | SOME (v,prog) => SOME (f v, apply_colour f prog) in
       Call ret dest args h) ∧ 
-  (apply_color f (Seq s1 s2) = Seq (apply_color f s1) (apply_color f s2)) ∧  
-  (apply_color f (If e1 num e2 e3) =
-    If (apply_color f e1) (f num) (apply_color f e2) (apply_color f e3)) ∧ 
-  (apply_color f (Alloc num numset) =
+  (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧  
+  (apply_colour f (If e1 num e2 e3) =
+    If (apply_colour f e1) (f num) (apply_colour f e2) (apply_colour f e3)) ∧ 
+  (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
-  (apply_color f (Raise num) = Raise (f num)) ∧ 
-  (apply_color f (Return num) = Return (f num)) ∧
-  (apply_color f Tick = Tick) ∧
-  (apply_color f (Set n exp) = Set n (apply_color_exp f exp)) ∧
-  (apply_color f p = p )
+  (apply_colour f (Raise num) = Raise (f num)) ∧ 
+  (apply_colour f (Return num) = Return (f num)) ∧
+  (apply_colour f Tick = Tick) ∧
+  (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
+  (apply_colour f p = p )
 `
-val _ = export_rewrites ["apply_nummap_key_def","apply_color_exp_def"
-                        ,"apply_color_inst_def","apply_color_def"];
+val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
+                        ,"apply_colour_inst_def","apply_colour_def"];
 
 (*We will frequently need to express a property over every variable in the 
   program
@@ -226,7 +226,6 @@ val call_arg_convention_def = Define`
      call_arg_convention e3)) ∧ 
   (call_arg_convention p = T)`
 
-
 (*Flow of calling conventions:
 
 Input -- Any wordLang program
@@ -308,37 +307,37 @@ val every_var_conj = store_thm("every_var_conj",``
   TRY(Cases_on`x`>>fs[])>>
   TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj]))
 
-(*Composing with a function using apply_color*)
-val every_var_inst_apply_color_inst = store_thm("every_var_inst_apply_color_inst",``
+(*Composing with a function using apply_colour*)
+val every_var_inst_apply_colour_inst = store_thm("every_var_inst_apply_colour_inst",``
   ∀P inst Q f.
   every_var_inst P inst ∧
   (∀x. P x ⇒ Q (f x)) ⇒ 
-  every_var_inst Q (apply_color_inst f inst)``,
+  every_var_inst Q (apply_colour_inst f inst)``,
   ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
   EVERY_CASE_TAC>>fs[])
 
-val every_var_exp_apply_color_exp = store_thm("every_var_exp_apply_color_exp",``
+val every_var_exp_apply_colour_exp = store_thm("every_var_exp_apply_colour_exp",``
   ∀P exp Q f.
   every_var_exp P exp ∧ 
   (∀x. P x ⇒ Q (f x)) ⇒ 
-  every_var_exp Q (apply_color_exp f exp)``,
+  every_var_exp Q (apply_colour_exp f exp)``,
   ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
   fs[EVERY_MAP,EVERY_MEM])
 
-val every_var_apply_color = store_thm("every_var_apply_color",``
+val every_var_apply_colour = store_thm("every_var_apply_colour",``
   ∀P prog Q f.
   every_var P prog ∧
   (∀x. P x ⇒ Q (f x)) ⇒
-  every_var Q (apply_color f prog)``,
+  every_var Q (apply_colour f prog)``,
   ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
   fs[MAP_ZIP,(GEN_ALL o SYM o SPEC_ALL) MAP_MAP_o]>>
   fs[EVERY_MAP,EVERY_MEM]
   >-
-    metis_tac[every_var_inst_apply_color_inst]
+    metis_tac[every_var_inst_apply_colour_inst]
   >-
-    metis_tac[every_var_exp_apply_color_exp]
+    metis_tac[every_var_exp_apply_colour_exp]
   >-
-    metis_tac[every_var_exp_apply_color_exp]
+    metis_tac[every_var_exp_apply_colour_exp]
   >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_var_def,EVERY_MAP,EVERY_MEM]>>
     rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
@@ -347,7 +346,7 @@ val every_var_apply_color = store_thm("every_var_apply_color",``
     (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
   >>
-    metis_tac[every_var_exp_apply_color_exp])
+    metis_tac[every_var_exp_apply_colour_exp])
 
 (*Similar lemmas about every_stack_var*)
 val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
@@ -379,11 +378,11 @@ val every_stack_var_conj = store_thm("every_stack_var_conj",``
   TRY(Cases_on`x`>>fs[])>>
   TRY(metis_tac[EVERY_CONJ]))
 
-val every_stack_var_apply_color = store_thm("every_stack_var_apply_color",``
+val every_stack_var_apply_colour = store_thm("every_stack_var_apply_colour",``
   ∀P prog Q f.
   every_stack_var P prog ∧
   (∀x. P x ⇒ Q (f x)) ⇒
-  every_stack_var Q (apply_color f prog)``,
+  every_stack_var Q (apply_colour f prog)``,
   ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]
   >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
@@ -414,7 +413,7 @@ val in_clash_sets_def = Define`
 *)
 
 (*
-EVAL ``apply_color (\x.x+1) (Seq (Call (SOME (5,LN,Skip)) (SOME 4) [3;2;1] NONE) Skip)``
+EVAL ``apply_colour (\x.x+1) (Seq (Call (SOME (5,LN,Skip)) (SOME 4) [3;2;1] NONE) Skip)``
 *)
 (*Note that we cannot use get_var v s = get_var f v t because t is allowed to contain extra variables ==> get_var (f v) t may succeed*)
 
@@ -583,15 +582,15 @@ val MEM_fromAList = store_thm ("MEM_fromAList",
     rw[fromAList_def])
 
 (*cutting the environment on strongly related locals returns an
- exact_colored_locals *)
+ exact_coloured_locals *)
 
 val cut_env_lemma = prove(
   ``!names sloc tloc x f. INJ f UNIV UNIV /\ cut_env names sloc = SOME x /\
     (!n v. (lookup n sloc = SOME v) ==> (lookup (f n) tloc = SOME v))
     ==> (?y. cut_env (apply_nummap_key f names) tloc = SOME y /\
-              exact_colored_locals f x y)``,
+              exact_coloured_locals f x y)``,
     rpt strip_tac>>
-    fs[cut_env_def,exact_colored_locals_def]>>
+    fs[cut_env_def,exact_coloured_locals_def]>>
     CONV_TAC(lift_conjunct_conv(can dest_forall))>>
     CONJ_TAC>-
     (*lookup*)
@@ -670,12 +669,12 @@ val get_var_tactic =
   metis_tac[strong_state_rel_get_var_lemma];
 
 (*Prove that mapping (doesnt need to be injective) f over an exp + initial state vars gives the same result and a new state which contains mapped vars*)
-val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
+val inj_apply_colour_exp_invariant = store_thm("inj_apply_colour_exp_invariant",
   ``!st exp cst f res. word_exp st exp = SOME res
                         /\ strong_state_rel f st cst
-    ==> word_exp cst (apply_color_exp f exp) = SOME res``,
+    ==> word_exp cst (apply_colour_exp f exp) = SOME res``,
   ho_match_mp_tac word_exp_ind>>rw[]>>
-  fs[word_exp_def,apply_color_exp_def,strong_state_rel_def]>-
+  fs[word_exp_def,apply_colour_exp_def,strong_state_rel_def]>-
     (Cases_on`lookup st' st.locals`>>fs[]>>
       Cases_on`x`>>`lookup (f st') cst.locals = lookup st' st.locals` by
       fs[strong_state_rel_def] >> fs[]) >-
@@ -684,7 +683,7 @@ val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
       fs[mem_load_def]>>fs[])>-
     (fs[LET_THM]>>
     `MAP (\a.word_exp st a) wexps =
-     MAP (\a.word_exp cst a) (MAP (\a. apply_color_exp f a) wexps)`
+     MAP (\a.word_exp cst a) (MAP (\a. apply_colour_exp f a) wexps)`
      by  (
        simp[MAP_MAP_o] >>
        simp[MAP_EQ_f] >>
@@ -702,27 +701,27 @@ val inj_apply_color_exp_invariant = store_thm("inj_apply_color_exp_invariant",
     Cases_on`word_exp st exp`>>fs[])
 
 
-val inj_apply_color_inst_invariant = store_thm("inj_apply_color_inst_invariant",
+val inj_apply_colour_inst_invariant = store_thm("inj_apply_colour_inst_invariant",
   ``!st i cst f rst. INJ f UNIV UNIV ∧ wInst i st = SOME rst ∧ strong_state_rel f st cst
-    ⇒ ?rcst. wInst (apply_color_inst f i) cst = SOME rcst ∧ strong_state_rel f rst rcst``,
+    ⇒ ?rcst. wInst (apply_colour_inst f i) cst = SOME rcst ∧ strong_state_rel f rst rcst``,
   strip_tac>>Induct>>rw[wInst_def,word_assign_def]>-
-    (BasicProvers.EVERY_CASE_TAC>>imp_res_tac inj_apply_color_exp_invariant>>
+    (BasicProvers.EVERY_CASE_TAC>>imp_res_tac inj_apply_colour_exp_invariant>>
     fs[]>>metis_tac[strong_state_rel_set_var_lemma])>-
     (BasicProvers.EVERY_CASE_TAC>>fs[]>>
     rpt BasicProvers.VAR_EQ_TAC>>
-    assume_tac (SYM (EVAL ``apply_color_exp f (Op b [Var n0;Var n'])``))>>
+    assume_tac (SYM (EVAL ``apply_colour_exp f (Op b [Var n0;Var n'])``))>>
     pop_assum SUBST_ALL_TAC>>
-    assume_tac (SYM (EVAL ``apply_color_exp f (Op b [Var n0;Const c])``))>>
+    assume_tac (SYM (EVAL ``apply_colour_exp f (Op b [Var n0;Const c])``))>>
     pop_assum SUBST_ALL_TAC>>
-    assume_tac (SYM (EVAL ``apply_color_exp f (Shift s (Var n0) (Nat n1))``))>>
+    assume_tac (SYM (EVAL ``apply_colour_exp f (Shift s (Var n0) (Nat n1))``))>>
     pop_assum SUBST_ALL_TAC>>     
-    imp_res_tac inj_apply_color_exp_invariant>>
+    imp_res_tac inj_apply_colour_exp_invariant>>
     fs[strong_state_rel_set_var_lemma])>>
     BasicProvers.EVERY_CASE_TAC>>fs[]>>
     rpt BasicProvers.VAR_EQ_TAC>> 
-    assume_tac (SYM (EVAL ``apply_color_exp f (Load (Op Add [Var n''';Const c]))``))>>
+    assume_tac (SYM (EVAL ``apply_colour_exp f (Load (Op Add [Var n''';Const c]))``))>>
     pop_assum SUBST_ALL_TAC>>
-    imp_res_tac inj_apply_color_exp_invariant>>
+    imp_res_tac inj_apply_colour_exp_invariant>>
     fs[strong_state_rel_set_var_lemma]>>
     imp_res_tac strong_state_rel_get_var_lemma>>fs[mem_store_def,strong_state_rel_def]>>
     rfs[]>>fs[word_state_component_equality])
@@ -753,15 +752,15 @@ val ALOOKUP_key_remap = prove(
     (fs[INJ_DEF]>>metis_tac[])>>
   metis_tac[])
 
-val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
+val inj_apply_colour_invariant = store_thm ("inj_apply_colour_invariant",
   ``!prog st rst f cst res.
                   wEval(prog,st) = (res,rst)
                   /\ INJ f UNIV UNIV
-                  /\ monotonic_color f
+                  /\ monotonic_colour f
                   /\ res <> SOME Error
                   (*/\ wf st.locals*)
                   /\ strong_state_rel f st cst ==>
-     let (res',rcst) = wEval(apply_color f prog,cst) in
+     let (res',rcst) = wEval(apply_colour f prog,cst) in
       abbrev_and (res' = res)
       (case res of
         NONE => strong_state_rel f rst rcst
@@ -771,7 +770,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
   ho_match_mp_tac (wEval_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >>
   rw[] >-
    (*Skip*)
-    (rw[abbrev_and_def,apply_color_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
+    (rw[abbrev_and_def,apply_colour_def,wEval_def,EQ_SYM_EQ]>>fs[wEval_def]>>
     rw[EQ_SYM_EQ]) >-
    (*Alloc*)
     (pop_assum mp_tac>>fs[wEval_def]>>
@@ -871,12 +870,12 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       metis_tac[MAP_MAP_o]) >-
    (*Inst*)
      (fs[wEval_def]>>BasicProvers.EVERY_CASE_TAC>>fs[abbrev_and_def]>>
-     imp_res_tac inj_apply_color_inst_invariant>>rfs[])>-
+     imp_res_tac inj_apply_colour_inst_invariant>>rfs[])>-
    (*Assign*)
      (fs[wEval_def]>> pop_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>> fs[abbrev_and_def]>>
-     `word_exp cst (apply_color_exp f exp) =  word_exp st exp` by
-       metis_tac[inj_apply_color_exp_invariant]>>rfs[]>>rw[]>>
+     `word_exp cst (apply_colour_exp f exp) =  word_exp st exp` by
+       metis_tac[inj_apply_colour_exp_invariant]>>rfs[]>>rw[]>>
      metis_tac[strong_state_rel_set_var_lemma])>-
    (*Get*)
      (fs[wEval_def,abbrev_and_def]>>BasicProvers.EVERY_CASE_TAC>>
@@ -885,15 +884,15 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
    (*Set*)
      (fs[wEval_def]>>first_assum mp_tac>>last_x_assum mp_tac>>
      BasicProvers.EVERY_CASE_TAC>>fs[set_store_def,abbrev_and_def]>>
-     `word_exp cst (apply_color_exp f exp) = word_exp st exp` by
-       metis_tac[inj_apply_color_exp_invariant]>-rfs[optionTheory.SOME_11]>>
+     `word_exp cst (apply_colour_exp f exp) = word_exp st exp` by
+       metis_tac[inj_apply_colour_exp_invariant]>-rfs[optionTheory.SOME_11]>>
      fs[strong_state_rel_def,word_state_component_equality,optionTheory.SOME_11]>>
      fs[EQ_SYM_EQ]
      )>-
    (*Store*)
      (fs[wEval_def]>>pop_assum mp_tac>> last_x_assum mp_tac>>
      Cases_on`word_exp st exp`>>
-     IMP_RES_TAC inj_apply_color_exp_invariant>> fs[]>>
+     IMP_RES_TAC inj_apply_colour_exp_invariant>> fs[]>>
      Cases_on`get_var prog st`>>fs[]>>
      IMP_RES_TAC strong_state_rel_get_var_lemma>>
      fs[mem_store_def]>>Cases_on`x IN st.mdomain`>>fs[]>>
@@ -910,14 +909,14 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
       first_x_assum (qspecl_then [`r`,`f`,`cst`,`q`] assume_tac)>>
       Cases_on`q`>-
       (*prog-->NONE*)
-      (fs[apply_color_def,wEval_def]>> rfs[]>>
+      (fs[apply_colour_def,wEval_def]>> rfs[]>>
       fs[LET_THM,abbrev_and_def]>>
       first_assum(split_applied_pair_tac o concl)>>
       fs[]>>
       first_x_assum (qspecl_then [`f`,`rcst'`] assume_tac)>>
       rfs[])>>
       (*prog-->SOME*)
-      fs[apply_color_def,wEval_def,LET_THM]>>rfs[]>>
+      fs[apply_colour_def,wEval_def,LET_THM]>>rfs[]>>
       `res = SOME x` by (rw[]>> fs[LET_THM])>>
       `x<>Error` by fs[]>>
       rfs[]>> fs[LET_THM,abbrev_and_def] >>
@@ -951,7 +950,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        first_x_assum(qspecl_then [`f`,`rcst'`] assume_tac)>>rfs[])>>
        (*SOME*)
        rfs[LET_THM]>>`x<>Error`by (SPOSE_NOT_THEN assume_tac>>fs[])>>
-       Cases_on`wEval(apply_color f prog,cst)`>>fs[]>>
+       Cases_on`wEval(apply_colour f prog,cst)`>>fs[]>>
        Cases_on`res`>>fs[abbrev_and_def]>>metis_tac[])>-
    (*Call*)
      (fs[wEval_def,LET_THM]>>
@@ -984,7 +983,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
        Q.ABBREV_TAC `envy = call_env q (push_env y  (IS_SOME
                      (case handler of
                         NONE => NONE
-                      | SOME (v,prog) => SOME (f v,apply_color f prog))) (dec_clock cst))`>>
+                      | SOME (v,prog) => SOME (f v,apply_colour f prog))) (dec_clock cst))`>>
        `s_val_eq envx.stack envy.stack /\ envy = envx with stack:=envy.stack` by
          (unabbrev_all_tac>>
          BasicProvers.FULL_CASE_TAC>>
@@ -1012,7 +1011,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
          fs[]>>
          Cases_on`domain x''.locals = domain x'`>> fs[]>>
          `(IS_SOME (case handler of NONE => NONE
-           | SOME (v,prog) => SOME (f v,apply_color f prog))) = IS_SOME handler` by
+           | SOME (v,prog) => SOME (f v,apply_colour f prog))) = IS_SOME handler` by
            (BasicProvers.EVERY_CASE_TAC>>fs[])>>
          fs[]>>
          unabbrev_all_tac>>
@@ -1039,7 +1038,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
              (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
            fs[]>>metis_tac[])>>
          `domain y'.locals = domain y` by
-           (fs[exact_colored_locals_def]>>
+           (fs[exact_coloured_locals_def]>>
             `y'.locals = fromAList l /\ x''.locals = fromAList l'` by
              fs[word_state_component_equality]>>
              assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
@@ -1121,7 +1120,7 @@ val inj_apply_color_invariant = store_thm ("inj_apply_color_invariant",
                (simp[MAP_MAP_o,MAP_EQ_f]>>strip_tac>>Cases>>EVAL_TAC)>>
                fs[]>>metis_tac[])>>
            `domain (fromAList lss') = domain y` by
-           (fs[exact_colored_locals_def]>>
+           (fs[exact_coloured_locals_def]>>
              assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
              first_assum(qspec_then `lss'` assume_tac)>>
              first_x_assum(qspec_then `lss` assume_tac)>>
@@ -1229,18 +1228,18 @@ val move_locals_strong_state_rel = prove(
   Q.ISPECL_THEN [`v`,`f n'`,`ZIP(A,B)`]assume_tac (GEN_ALL alistTheory.ALOOKUP_ALL_DISTINCT_MEM)>>
   fs[])
 
-val odd_coloring_def = Define`
-  odd_coloring n:num = 2*n +1`
+val odd_colouring_def = Define`
+  odd_colouring n:num = 2*n +1`
 
-val odd_coloring_facts = prove(
-  ``INJ odd_coloring UNIV UNIV /\
-    monotonic_color odd_coloring``,
-  fs[INJ_DEF,odd_coloring_def,monotonic_color_def]>>
+val odd_colouring_facts = prove(
+  ``INJ odd_colouring UNIV UNIV /\
+    monotonic_colour odd_colouring``,
+  fs[INJ_DEF,odd_colouring_def,monotonic_colour_def]>>
   DECIDE_TAC)
 
 (*The full theorem for the first conversion*)
 val seq_move_locals_def = Define`
-  seq_move_locals n prog = Seq (move_locals odd_coloring n) (apply_color odd_coloring prog)`
+  seq_move_locals n prog = Seq (move_locals odd_colouring n) (apply_colour odd_colouring prog)`
 
 val seq_move_correct = store_thm("seq_move_correct",
   ``!prog s n res rst.
@@ -1250,15 +1249,15 @@ val seq_move_correct = store_thm("seq_move_correct",
        let (res',rcst) = wEval(seq_move_locals n prog,s) in
          res' = res /\
          (case res of
-            NONE => strong_state_rel odd_coloring rst rcst
-             | _ => weak_state_rel odd_coloring rst rcst) ``,
+            NONE => strong_state_rel odd_colouring rst rcst
+             | _ => weak_state_rel odd_colouring rst rcst) ``,
   rpt strip_tac>>
   fs[wEval_def,seq_move_locals_def]>>
-  assume_tac odd_coloring_facts>>
+  assume_tac odd_colouring_facts>>
   IMP_RES_TAC move_locals_strong_state_rel>>
-  pop_assum(qspec_then `odd_coloring` assume_tac)>> rfs[LET_THM]>>
+  pop_assum(qspec_then `odd_colouring` assume_tac)>> rfs[LET_THM]>>
   first_assum (split_applied_pair_tac o concl)>>fs[]>>
-  metis_tac[inj_apply_color_invariant,abbrev_and_def])
+  metis_tac[inj_apply_colour_invariant,abbrev_and_def])
 
 (*Start defining the second conversion...
 lim is meant to be an (odd) limit variable i.e. no larger var is mentioned in the program
@@ -1379,15 +1378,15 @@ val domain_list_insert = prove(
   Induct_on`a`>>Cases_on`b`>>fs[list_insert_def]>>rw[]>>
   metis_tac[INSERT_UNION_EQ,UNION_COMM])
 
-val apply_color_exp_I = prove(
-  ``!(f:num->num) exp. apply_color_exp I exp = exp``,
-  ho_match_mp_tac (fetch "-" "apply_color_exp_ind")>>
+val apply_colour_exp_I = prove(
+  ``!(f:num->num) exp. apply_colour_exp I exp = exp``,
+  ho_match_mp_tac (fetch "-" "apply_colour_exp_ind")>>
   rw[] >>
   fs[miscTheory.MAP_EQ_ID]) |> SPEC_ALL |>GEN_ALL
 
-val apply_color_inst_I = prove(
-  ``!(f:num->num) inst. apply_color_inst I inst = inst``,
-  ho_match_mp_tac (fetch"-" "apply_color_inst_ind")>>rw[]>>
+val apply_colour_inst_I = prove(
+  ``!(f:num->num) inst. apply_colour_inst I inst = inst``,
+  ho_match_mp_tac (fetch"-" "apply_colour_inst_ind")>>rw[]>>
   BasicProvers.EVERY_CASE_TAC>>fs[])
 
 val strong_state_rel_I_word_exp = prove(
@@ -1395,8 +1394,8 @@ val strong_state_rel_I_word_exp = prove(
       word_exp st exp = SOME res ==>
       word_exp st' exp = SOME res``,
   rw[]>>
-  IMP_RES_TAC inj_apply_color_exp_invariant>>
-  metis_tac[apply_color_exp_I])
+  IMP_RES_TAC inj_apply_colour_exp_invariant>>
+  metis_tac[apply_colour_exp_I])
 
 val tac = BasicProvers.EVERY_CASE_TAC>> IMP_RES_TAC strong_state_rel_I_word_exp>>fs[]>>
           qpat_assum `bla = rst` (SUBST_ALL_TAC o SYM)
@@ -1447,13 +1446,13 @@ val ZIP_ID = prove(
   Q.ISPECL_THEN [`ls`,`I`,`I`] assume_tac ZIP_MAP_MAP_EQ>>
   fs[MAP_ID,ALOOKUP_TABULATE])
 
-val apply_color_I = prove(
+val apply_colour_I = prove(
  ``!(f:num->num) prog. wf_cutset prog
-  ==> apply_color I prog = prog``,
-  ho_match_mp_tac (fetch "-" "apply_color_ind")>>
+  ==> apply_colour I prog = prog``,
+  ho_match_mp_tac (fetch "-" "apply_colour_ind")>>
   rw[]>>
-  fs[wf_cutset_def,apply_color_def,ZIP_MAP_MAP_EQ,apply_color_exp_I
-    ,apply_color_inst_I,check_cutset_def]>>
+  fs[wf_cutset_def,apply_colour_def,ZIP_MAP_MAP_EQ,apply_colour_exp_I
+    ,apply_colour_inst_I,check_cutset_def]>>
   unabbrev_all_tac>>
   BasicProvers.EVERY_CASE_TAC>>
   fs[fromAList_toAList])
@@ -1467,15 +1466,15 @@ val strong_state_rel_I_wEval = prove(
 		  ?rst'. wEval(prog,st') = (res,rst')
 		  /\ strong_state_rel I rst rst'``,
   rw[]>>
-  IMP_RES_TAC inj_apply_color_invariant>>
-  fs[monotonic_color_def,INJ_DEF]>>
+  IMP_RES_TAC inj_apply_colour_invariant>>
+  fs[monotonic_colour_def,INJ_DEF]>>
   pop_assum(qspecl_then [`rst`,`prog`] assume_tac)>>
   rfs[]>>
   first_x_assum(qspec_then `I` assume_tac)>>fs[]>>
   first_x_assum(qspec_then `st'` assume_tac)>>rfs[]>>
   fs[LET_THM,abbrev_and_def]>>
   first_assum(split_applied_pair_tac o concl)>>
-  IMP_RES_TAC apply_color_I>>
+  IMP_RES_TAC apply_colour_I>>
   fs[]>>
   Cases_on`res`>>fs[weak_state_rel_def,strong_state_rel_I_refl])
 
@@ -1599,10 +1598,10 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
     Q.ABBREV_TAC `y' = inter (list_insert (a ++ ls) (y ++ x) st.locals)
                        (fromAList (MAP (λx. (x,())) a))`>>
     Q.ABBREV_TAC `f = (\i.2*i +lim')`>>
-    `INJ f UNIV UNIV /\ monotonic_color f` by
-      (rw[Abbr`f`,INJ_DEF,monotonic_color_def]>>DECIDE_TAC)>>
-    `exact_colored_locals f x' y'` by
-      (fs[exact_colored_locals_def]>>rw[Abbr`y'`]>-
+    `INJ f UNIV UNIV /\ monotonic_colour f` by
+      (rw[Abbr`f`,INJ_DEF,monotonic_colour_def]>>DECIDE_TAC)>>
+    `exact_coloured_locals f x' y'` by
+      (fs[exact_coloured_locals_def]>>rw[Abbr`y'`]>-
       (*Domain Image*)
       (fs[EXTENSION]>>rw[EQ_IMP_THM]>>
       fs[domain_inter]>>fs[domain_fromAList,Abbr`a`,MEM_MAP]>-
@@ -1713,7 +1712,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
          pop_assum (mp_tac o Q.AP_TERM `MAP FST`)>>
          simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD])>>
        `domain y''.locals = domain y'` by
-           (fs[exact_colored_locals_def]>>
+           (fs[exact_coloured_locals_def]>>
             `y''.locals = fromAList l /\ x'.locals = fromAList l'` by
               fs[word_state_component_equality]>>
             assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
@@ -1828,7 +1827,7 @@ val call_conv_trans_correct = store_thm("call_conv_trans_correct",
 	  pop_assum (mp_tac o Q.AP_TERM `MAP FST`)>>
 	  simp[MAP_MAP_o,combinTheory.o_DEF,LAMBDA_PROD])>>
         `domain (fromAList lss') = domain y'` by
-           (fs[exact_colored_locals_def]>>
+           (fs[exact_coloured_locals_def]>>
             assume_tac (INST_TYPE [``:'a``|->``:'a word_loc``] domain_fromAList)>>
             first_assum(qspec_then `lss'` assume_tac)>>
             first_x_assum(qspec_then `lss` assume_tac)>>
@@ -1908,10 +1907,10 @@ val seq_move_locals_restrict_cutset = prove(
   ho_match_mp_tac (fetch "-" "restrict_cutset_ind")>>
   fs[restrict_cutset_def,seq_move_locals_def,move_locals_def,LET_THM]>>rw[]>>
   BasicProvers.EVERY_CASE_TAC>>
-  fs[check_cutset_def,odd_coloring_def]>>
+  fs[check_cutset_def,odd_colouring_def]>>
   fs[lookup_fromAList,ALOOKUP_NONE]>>
   SPOSE_NOT_THEN ASSUME_TAC>>
-  fs[MAP_ZIP,MEM_MAP,ZIP_MAP_MAP_EQ,odd_coloring_def]>>
+  fs[MAP_ZIP,MEM_MAP,ZIP_MAP_MAP_EQ,odd_colouring_def]>>
   fs[])
 
 val seq_move_locals_call_conv_trans_correct = store_thm ("seq_move_locals_call_conv_trans_correct",
@@ -1920,8 +1919,8 @@ val seq_move_locals_call_conv_trans_correct = store_thm ("seq_move_locals_call_c
   ==>
   let (res',rcst) = wEval (call_conv_trans lim (seq_move_locals n prog), s)
   in res = res' /\
-     case res of NONE => strong_state_rel odd_coloring rst rcst
-              |  _    => very_weak_state_rel odd_coloring rst rcst``,
+     case res of NONE => strong_state_rel odd_colouring rst rcst
+              |  _    => very_weak_state_rel odd_colouring rst rcst``,
   rpt strip_tac>>
   IMP_RES_TAC seq_move_correct>>
   fs[LET_THM]>>first_assum (split_applied_pair_tac o concl)>>fs[]>>

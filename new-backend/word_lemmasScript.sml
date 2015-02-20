@@ -10,7 +10,7 @@ open bvp_lemmasTheory miscTheory
 
 val _ = new_theory "word_lemmas";
 
-(*Stacks look the same except for the keys (e.g. recolored and in order)*)
+(*Stacks look the same except for the keys (e.g. recoloured and in order)*)
 val s_frame_val_eq_def = Define`
   (s_frame_val_eq (StackFrame ls NONE) (StackFrame ls' NONE)
      <=> MAP SND ls = MAP SND ls') /\
@@ -191,7 +191,7 @@ val wGC_s_val_eq_word_state = store_thm("wGC_s_val_eq_word_state",
   Q.EXISTS_TAC`y'`>>
   fs[word_state_component_equality]>>rfs[])
 
-(*Most generalized wGC_s_val_eq*)
+(*Most generalised wGC_s_val_eq*)
 val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",
 ``
   !s t s'.
@@ -847,8 +847,8 @@ val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
   SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\
   fs[BIJ_DEF,INJ_DEF]);
 
-val monotonic_color_def = Define`
-  !f. monotonic_color f <=>
+val monotonic_colour_def = Define`
+  !f. monotonic_colour f <=>
         !x:num y. x < y ==> (f x):num < f y`
 
 val rel_monotonic_def = Define`
@@ -904,8 +904,8 @@ val facts = prove(
 
 (*Pull out the definition of exactly matched locals
   We use an injective f so the 2nd condition is insufficient*)
-val exact_colored_locals_def = Define`
-exact_colored_locals f x y <=>
+val exact_coloured_locals_def = Define`
+exact_coloured_locals f x y <=>
   (domain y = IMAGE f (domain x) /\
    !z. lookup z x = lookup (f z) y)`
 
@@ -918,11 +918,11 @@ val ALL_DISTINCT_FST = store_thm("ALL_DISTINCT_FST",``
   CCONTR_TAC>>fs[]>>
   pop_assum (SUBST_ALL_TAC o SYM)>>fs[])
 
-val toAList_exact_colored_locals_permute = prove(
+val toAList_exact_coloured_locals_permute = prove(
   ``!f x y. INJ f UNIV UNIV /\
-            exact_colored_locals f x y
+            exact_coloured_locals f x y
        ==>  PERM (MAP (\a,b.(f a,b)) (toAList x)) (toAList y)``,
-  rw[]>> fs[exact_colored_locals_def]>>
+  rw[]>> fs[exact_coloured_locals_def]>>
   match_mp_tac PERM_ALL_DISTINCT>>
   rw[]
   >-
@@ -948,28 +948,28 @@ val toAList_exact_colored_locals_permute = prove(
     Q.EXISTS_TAC `z,r`>>
     fs[]>>metis_tac[PAIR,MEM_toAList])
 
-val color_fst_monotonic = prove(``
-  monotonic_color f ==> rel_monotonic key_val_compare (\x,y.f x,y)``,
-  strip_tac>>fs[monotonic_color_def,rel_monotonic_def]>>
+val colour_fst_monotonic = prove(``
+  monotonic_colour f ==> rel_monotonic key_val_compare (\x,y.f x,y)``,
+  strip_tac>>fs[monotonic_colour_def,rel_monotonic_def]>>
   Cases>>Cases>>fs[LET_THM,key_val_compare_def]>>
   metis_tac[])
 
-(*Under a monotonic coloring f rename of keys in the locals*)
+(*Under a monotonic colouring f rename of keys in the locals*)
 val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
   ``!f x y p.
-    monotonic_color f /\
+    monotonic_colour f /\
     INJ f UNIV UNIV /\
-    exact_colored_locals f x y
+    exact_coloured_locals f x y
     ==>
     let (x',p') = env_to_list x p in
     let (y',p'') = env_to_list y p in
       MAP (\x,y.f x,y) x' = y' /\
       p' = p'' ``,
   rpt strip_tac>>fs[env_to_list_def,LET_THM]>>
-  ASSUME_TAC (SPEC_ALL toAList_exact_colored_locals_permute)>>
+  ASSUME_TAC (SPEC_ALL toAList_exact_coloured_locals_permute)>>
   simp[GSYM list_rearrange_MAP]>>
   AP_TERM_TAC>>
-  assume_tac color_fst_monotonic>>
+  assume_tac colour_fst_monotonic>>
   qmatch_abbrev_tac`MAP h (QSORT R ls) = X`>>
   Q.ISPECL_THEN[`R`,`h`,`ls`]mp_tac MAP_monotonic_QSORT_EQ >>
   discharge_hyps_keep >- (
@@ -978,7 +978,7 @@ val env_to_list_monotonic_eq = store_thm("env_to_list_monotonic_eq",
   disch_then SUBST1_TAC >>
   fs[Abbr`X`] >> simp[QSORT_eq_if_PERM] >>
   unabbrev_all_tac >>
-  fs[toAList_exact_colored_locals_permute])
+  fs[toAList_exact_coloured_locals_permute])
 
 (*Theorems about sorting that ended up not used*)
 

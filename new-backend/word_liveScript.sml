@@ -99,7 +99,7 @@ val get_live_def = Define`
 
 (* For register allocation, we are concerned with the
    interference graph formed from clash sets
-   Therefore we require coloring_ok to check all the clash sets
+   Therefore we require colouring_ok to check all the clash sets
    in the prog
 
    For each instruction n, the clash set is:
@@ -119,15 +119,15 @@ val get_writes_def = Define`
   (get_writes (Get num store) = insert num () LN) ∧
   (get_writes prog = LN)`
 
-val coloring_ok_def = Define`
-  (coloring_ok f (Seq s1 s2) live =
+val colouring_ok_def = Define`
+  (colouring_ok f (Seq s1 s2) live =
     (*Normal live sets*)
     let s2_live = get_live s2 live in
     let s1_live = get_live s1 s2_live in
       INJ f (domain s1_live) UNIV ∧
       (*Internal clash sets*)
-      coloring_ok f s2 live ∧ coloring_ok f s1 s2_live) ∧
-  (coloring_ok f (If e1 num e2 e3) live =
+      colouring_ok f s2 live ∧ colouring_ok f s1 s2_live) ∧
+  (colouring_ok f (If e1 num e2 e3) live =
     let e2_live = get_live e2 live in
     let e3_live = get_live e3 live in
     (*All of them must be live at once*)
@@ -135,21 +135,21 @@ val coloring_ok_def = Define`
     let e1_live = get_live e1 merged in
       INJ f (domain e1_live) UNIV ∧
       (*Internal clash sets*)
-      coloring_ok f e2 live ∧ coloring_ok f e3 live ∧
-      coloring_ok f e1 merged) ∧
-  (coloring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
+      colouring_ok f e2 live ∧ colouring_ok f e3 live ∧
+      colouring_ok f e1 merged) ∧
+  (colouring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
     let args_set = numset_list_insert args LN in
     INJ f (domain (union cutset args_set)) UNIV ∧
     INJ f (domain (insert v () cutset)) UNIV ∧
     (*returning handler*)
-    coloring_ok f ret_handler live ∧
+    colouring_ok f ret_handler live ∧
     (*exception handler*)
     (case h of
     | NONE => T
     | SOME(v,prog) =>
         INJ f (domain (insert v () cutset)) UNIV ∧
-        coloring_ok f prog live)) ∧
-  (coloring_ok f prog live =
+        colouring_ok f prog live)) ∧
+  (colouring_ok f prog live =
     (*live before must be fine, and clash set must be fine*)
     let lset = get_live prog live in
     let iset = union (get_writes prog) live in
@@ -191,8 +191,8 @@ val get_clash_sets_def = Define`
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
 
-val coloring_ok_alt_def = Define`
-  coloring_ok_alt f prog live =
+val colouring_ok_alt_def = Define`
+  colouring_ok_alt f prog live =
     let (hd,ls) = get_clash_sets prog live in
     EVERY (λs. INJ f (domain s) UNIV) ls ∧
     INJ f (domain hd) UNIV`
@@ -858,15 +858,15 @@ val key_map_implies = prove(
 
 (*Main proof of liveness theorem starts here*)
 
-val apply_color_exp_lemma = prove(
+val apply_colour_exp_lemma = prove(
   ``∀st w cst f res.
     word_exp st w = SOME res ∧
     word_state_eq_rel st cst ∧
     strong_locals_rel f (domain (get_live_exp w)) st.locals cst.locals
     ⇒
-    word_exp cst (apply_color_exp f w) = SOME res``,
+    word_exp cst (apply_colour_exp f w) = SOME res``,
   ho_match_mp_tac word_exp_ind>>rw[]>>
-  fs[word_exp_def,apply_color_exp_def,strong_locals_rel_def
+  fs[word_exp_def,apply_colour_exp_def,strong_locals_rel_def
     ,get_live_exp_def,word_state_eq_rel_def]
   >-
     (EVERY_CASE_TAC>>fs[])
@@ -877,7 +877,7 @@ val apply_color_exp_lemma = prove(
   >-
     (fs[LET_THM]>>
     `MAP (\a.word_exp st a) wexps =
-     MAP (\a.word_exp cst a) (MAP (\a. apply_color_exp f a) wexps)` by
+     MAP (\a.word_exp cst a) (MAP (\a. apply_colour_exp f a) wexps)` by
        (simp[MAP_MAP_o] >>
        simp[MAP_EQ_f] >>
        gen_tac >>
@@ -904,11 +904,11 @@ val apply_color_exp_lemma = prove(
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
     fs[wEval_def,LET_THM,word_state_eq_rel_def
-      ,get_live_def,coloring_ok_def];
+      ,get_live_def,colouring_ok_def];
 
 val exists_tac_2 =
     Cases_on`word_exp st w`>>fs[word_exp_perm]>>
-    imp_res_tac apply_color_exp_lemma>>
+    imp_res_tac apply_colour_exp_lemma>>
     pop_assum (qspecl_then[`f`,`cst`] mp_tac)>>
     discharge_hyps
     >-
@@ -916,20 +916,20 @@ val exists_tac_2 =
                ,strong_locals_rel_subset];
 
 val setup_tac = Cases_on`word_exp st exp`>>fs[]>>
-      imp_res_tac apply_color_exp_lemma>>
+      imp_res_tac apply_colour_exp_lemma>>
       pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
 
 
-val wEval_apply_color = store_thm("wEval_apply_color",
+val wEval_apply_colour = store_thm("wEval_apply_colour",
 ``∀prog st cst f live.
-  coloring_ok f prog live ∧
+  colouring_ok f prog live ∧
   word_state_eq_rel st cst ∧
   strong_locals_rel f (domain (get_live prog live)) st.locals cst.locals
   ⇒
   ∃perm'.
   let (res,rst) = wEval(prog,st with permute:=perm') in
   if (res = SOME Error) then T else
-  let (res',rcst) = wEval(apply_color f prog,cst) in
+  let (res',rcst) = wEval(apply_colour f prog,cst) in
     res = res' ∧
     word_state_eq_rel rst rcst ∧
     (case res of
@@ -1015,7 +1015,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
           fs[SUBSET_DEF])>>
         metis_tac[strong_locals_rel_subset])
       >>
-      fs[apply_color_exp_def,word_state_eq_rel_def]>>
+      fs[apply_colour_exp_def,word_state_eq_rel_def]>>
       fs[set_var_def,strong_locals_rel_def,lookup_insert,get_writes_def
         ,get_writes_inst_def]>>
       rw[]>>
@@ -1092,7 +1092,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
   >- (*Get*)
     (exists_tac>>
     EVERY_CASE_TAC>>
-    fs[coloring_ok_def,set_var_def,strong_locals_rel_def,get_live_def]>>
+    fs[colouring_ok_def,set_var_def,strong_locals_rel_def,get_live_def]>>
     fs[LET_THM,get_writes_def]>>rw[]>>
     fs[lookup_insert]>>Cases_on`n'=n`>>fs[]>>
     `f n' ≠ f n` by
@@ -1118,7 +1118,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset
              ,domain_union,SUBSET_UNION])
   >- (*Call*)
-    (fs[wEval_def,LET_THM,coloring_ok_def,get_live_def,get_vars_perm]>>
+    (fs[wEval_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
     imp_res_tac strong_locals_rel_get_vars>>
     pop_assum kall_tac>>
@@ -1150,13 +1150,13 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     discharge_hyps>-
       fs[strong_locals_rel_def,domain_union]>>
     discharge_hyps>-
-      (fs[coloring_ok_def,LET_THM,domain_union]>>
+      (fs[colouring_ok_def,LET_THM,domain_union]>>
       `domain x'1 ⊆ x'0 INSERT domain x'1` by fs[SUBSET_DEF]>>
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
     rw[]>>fs[]>>
     Cases_on`st.clock=0`>>fs[call_env_def]>>
     `(IS_SOME (case o0 of NONE => NONE
-      | SOME (v,prog) => SOME (f v,apply_color f prog))) = IS_SOME o0` by
+      | SOME (v,prog) => SOME (f v,apply_colour f prog))) = IS_SOME o0` by
       (EVERY_CASE_TAC>>fs[])>>
     simp[]>>
     qpat_abbrev_tac `b = IS_SOME o0`>>
@@ -1203,13 +1203,13 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     last_x_assum(qspecl_then[`x'2`,`set_var x'0 a y'`
                             ,`set_var (f x'0) a y''`,`f`,`live`]mp_tac)>>
     discharge_hyps>-size_tac>>
-    fs[coloring_ok_def]>>
+    fs[colouring_ok_def]>>
     discharge_hyps>-
       (fs[set_var_def,word_state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
       assume_tac pop_env_frame>>rfs[word_state_eq_rel_def]>>
-      fs[coloring_ok_def,LET_THM,strong_locals_rel_def]>>
+      fs[colouring_ok_def,LET_THM,strong_locals_rel_def]>>
       rw[]>>
       fs[push_env_def,LET_THM,env_to_list_def]>>
       fs[s_key_eq_def,s_val_eq_def]>>
@@ -1313,10 +1313,10 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       last_x_assum(qspecl_then[`r''`,`set_var q' w r'`
                             ,`set_var (f q') w cr'`,`f`,`live`]mp_tac)>>
       discharge_hyps>-size_tac>>
-      fs[coloring_ok_def]>>
+      fs[colouring_ok_def]>>
       discharge_hyps>-
       (fs[set_var_def,word_state_component_equality,Abbr`cr'`]>>
-      fs[coloring_ok_def,LET_THM,strong_locals_rel_def]>>
+      fs[colouring_ok_def,LET_THM,strong_locals_rel_def]>>
       rw[]>-metis_tac[s_key_eq_trans,s_val_and_key_eq]>>
       Cases_on`q' = n`>>fs[lookup_insert]>>
       `f n ≠ f q'` by
@@ -1361,14 +1361,14 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       (unabbrev_all_tac>>fs[word_state_component_equality])>>
       rw[]>>fs[]>>NO_TAC))
    >- (*Seq*)
-    (rw[]>>fs[wEval_def,coloring_ok_def,LET_THM,get_live_def]>>
+    (rw[]>>fs[wEval_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`w`,`st`,`cst`,`f`,`get_live w0 live`]
       mp_tac)>>
     discharge_hyps>-size_tac>>
     rw[]>>
     Cases_on`wEval(w,st with permute:=perm')`>>fs[]
     >- (qexists_tac`perm'`>>fs[]) >>
-    Cases_on`wEval(apply_color f w,cst)`>>fs[]>>
+    Cases_on`wEval(apply_colour f w,cst)`>>fs[]>>
     REVERSE (Cases_on`q`)>>fs[]
     >-
       (qexists_tac`perm'`>>rw[])
@@ -1381,7 +1381,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     rfs[LET_THM]>>
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- (*If*)
-    (fs[wEval_def,coloring_ok_def,LET_THM,get_live_def]>>
+    (fs[wEval_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`w`,`st`,`cst`,`f`
                ,`insert n () (union (get_live w0 live) (get_live w1 live))`]
                mp_tac)>>
@@ -1389,7 +1389,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
     rw[]>>
     Cases_on`wEval(w,st with permute:=perm')`>>fs[]
     >- (qexists_tac`perm'`>>fs[])>>
-    Cases_on`wEval(apply_color f w,cst)`>>fs[]>>
+    Cases_on`wEval(apply_colour f w,cst)`>>fs[]>>
     REVERSE (Cases_on`q`)>>fs[]
     >-
       (qexists_tac`perm'`>>rw[])
@@ -1430,7 +1430,7 @@ val wEval_apply_color = store_thm("wEval_apply_color",
       qexists_tac`perm'''`>>rw[get_var_perm]>>fs[]))
   >- (*Alloc*)
     (
-    fs[wEval_def,coloring_ok_def,get_var_perm,get_live_def]>>
+    fs[wEval_def,colouring_ok_def,get_var_perm,get_live_def]>>
     Cases_on`get_var n st`>>fs[LET_THM]>>
     imp_res_tac strong_locals_rel_get_var>>fs[]>>
     Cases_on`x`>>fs[wAlloc_def]>>
@@ -1566,7 +1566,7 @@ val get_clash_sets_tl = prove(
   fs[PULL_FORALL]>>
   rpt strip_tac>>
   Cases_on`prog`>>
-  fs[coloring_ok_alt_def,LET_THM,get_clash_sets_def,get_live_def]>>
+  fs[colouring_ok_alt_def,LET_THM,get_clash_sets_def,get_live_def]>>
   fs[get_writes_def]
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
@@ -1586,14 +1586,14 @@ val get_clash_sets_tl = prove(
     discharge_hyps>-size_tac>>rw[]>>
     fs[UNCURRY]))
 
-val coloring_ok_alt_thm = prove(
+val colouring_ok_alt_thm = prove(
 ``∀f prog live.
-  coloring_ok_alt f prog live
+  colouring_ok_alt f prog live
   ⇒
-  coloring_ok f prog live``,
-  ho_match_mp_tac (fetch "-" "coloring_ok_ind")>>
+  colouring_ok f prog live``,
+  ho_match_mp_tac (fetch "-" "colouring_ok_ind")>>
   rw[]>>
-  fs[get_clash_sets_def,coloring_ok_alt_def,coloring_ok_def,LET_THM]
+  fs[get_clash_sets_def,colouring_ok_alt_def,colouring_ok_def,LET_THM]
   >-
     (Cases_on`get_clash_sets prog' live`>>
     Cases_on`get_clash_sets prog q`>>fs[]>>
