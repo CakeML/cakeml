@@ -23,6 +23,8 @@ sig
     val store_cert     : thm -> thm list -> thm -> thm
     val get_DeclAssum  : unit -> term
 
+    val get_DeclAssumExists : unit -> thm
+
     (* loading / storing state of translator *)
 
     val translation_extends   : string -> unit
@@ -31,6 +33,9 @@ sig
     val get_cert              : string -> thm * thm
     val get_decls             : unit -> term
 
+    val translate_into_module       : string -> unit
+    val finalise_module_translation : unit -> thm
+
     (* simplification of preconditions / sideconditions *)
 
     val update_precondition  : thm -> thm
@@ -38,5 +43,8 @@ sig
     (* configuration *)
 
     val print_asts           : bool ref
+    val use_full_type_names  : bool ref
+    val add_preferred_thy    : string -> unit
+    val find_def_for_const   : (term -> thm) ref
 
 end
