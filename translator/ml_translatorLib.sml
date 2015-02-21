@@ -1,4 +1,4 @@
-structure ml_translatorLib (* :> ml_translatorLib *) =
+structure ml_translatorLib :> ml_translatorLib =
 struct
 
 open HolKernel boolLib bossLib;
@@ -8,6 +8,12 @@ open terminationTheory stringLib;
 open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
+
+structure Parse =
+struct
+  open Parse
+  val (Type, Term) = parse_from_grammars ml_pmatchTheory.ml_pmatch_grammars
+end
 
 infix \\ val op \\ = op THEN;
 
