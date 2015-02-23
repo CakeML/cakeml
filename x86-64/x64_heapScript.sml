@@ -20840,11 +20840,6 @@ val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
        |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
   in (th_inr,th_inl) end
 
-(*
-  COMPILER_RUN_INV_INR
-  COMPILER_RUN_INV_INL
-*)
-
 val zHEAP_RUN_INL_UP_TO_EVAL = let
   val th =
     zHEAP_REPL_RUN_INL_START
@@ -20962,8 +20957,45 @@ val zHEAP_RUN_INL_INCLUDING_EVAL = let
     DISCH ``s_install2.local.stop_addr = ^pc + 3w`` th
     |> SIMP_RULE std_ss [word_arith_lemma1]
     |> UNDISCH_ALL
+    |> RW [GSYM BlockBool_def]
   in th end
 
+val zHEAP_RUN_INL = let
+  val th =
+    SPEC_COMPOSE_RULE [zHEAP_RUN_INL_INCLUDING_EVAL,
+      zHEAP_MOVE_13,zHEAP_MOVE_42,
+      zHEAP_1_Number_1,zHEAP_EL,
+      zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_PUSH1,zHEAP_EL,zHEAP_MOVE_14,
+      zHEAP_1_Number_1,zHEAP_EL,zHEAP_MOVE_32,zHEAP_BlockPair,
+      zHEAP_PUSH4,zHEAP_MOVE_42,zHEAP_MOVE_14,
+      zHEAP_1_Number_1,zHEAP_EL,
+      zHEAP_MOVE_12,zHEAP_1_Number_1,zHEAP_EL,
+      zHEAP_MOVE_12,zHEAP_MOVE_13,zHEAP_MOVE_41]
+        |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
+             BlockPair_def]
+  val th1 =
+    SPEC_COMPOSE_RULE [th,zHEAP_LEX_THEN_COND_TERMINATE_UPDATE_JUMP]
+      |> SIMP_RULE std_ss [isRefPtr_def,HD,TL,NOT_CONS_NIL,getRefPtr_def]
+  val Num_0 = intLib.COOPER_PROVE ``Num 0 = 0``
+  val th2 = th1
+    |> SIMP_RULE std_ss [HD,TL,NOT_CONS_NIL,getRefPtr_def,
+         getNumber_def,isNumber_def,isRefPtr_def,EL_SIMPS]
+    |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[]))
+    |> RW [zHEAP_ERROR_ERROR,Num_0]
+  val th3 = th2
+    |> DISCH ``both_refs cs.stack_trunk t1_cb_new t1_new
+                       cs.code_heap_ptr s2_new ' iptr = ValueArray [tt]``
+    |> SIMP_RULE std_ss [getValueArray_def,isValueArray_def,ADD_ASSOC,
+         EVAL ``LUPDATE x 0 [y]``,LENGTH,SEP_CLAUSES] |> UNDISCH_ALL
+  val tm = get_pc th3
+  val code_length = tm |> rand |> rand |> rand |> rator |> rand
+  val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
+  val th4 =
+    th3 |> Q.INST [`imm32`|->`0w - n2w ^code_length`]
+        |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[lemma]))
+        |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
+        |> RW [EVAL ``-1w:word8``]
+  in th4 end;
 
 
 
