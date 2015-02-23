@@ -20845,9 +20845,124 @@ val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
   COMPILER_RUN_INV_INL
 *)
 
-(*
-  zHEAP_REPL_RUN_INL_START
-*)
+val zHEAP_RUN_INL_UP_TO_EVAL = let
+  val th =
+    zHEAP_REPL_RUN_INL_START
+    |> Q.INST [`x7`|->`BlockList (MAP BlockNum3 code)`,
+               `y7`|->`new_states`]
+    |> RW [BlockInl_def,SEP_CLAUSES]
+  val th1 =
+    zHEAP_BIG_CONS
+    |> Q.INST [`l`|->`2`,`n`|->`0`,`stack`|->`y::x::stack`]
+    |> RW [EVAL ``REVERSE (TAKE 2 (y::x::xs))``,
+         EVAL ``DROP 2 (y::x::xs)``] |> DISCH_ALL |> GEN_ALL
+    |> SIMP_RULE std_ss [LENGTH,ADD1,GSYM ADD_ASSOC] |> SPEC_ALL
+  val th2 = SPEC_COMPOSE_RULE [zHEAP_PUSH1,zHEAP_PUSH4,th1]
+  val th3 =
+    SPEC_COMPOSE_RULE [th,
+      zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_EL,
+      zHEAP_MOVE_12,zHEAP_1_Number_1,zHEAP_EL,
+      zHEAP_1_Number_0,zHEAP_EL,zHEAP_MOVE_13,
+      zHEAP_1_Number_1,zHEAP_EL,zHEAP_MOVE_42,
+      zHEAP_BlockPair,zHEAP_MOVE_14,
+      zHEAP_1_Number_1,zHEAP_EL,
+      zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_EL,
+      th2,zHEAP_MOVE_14,
+      zHEAP_1_Number_0,
+      zHEAP_2_Number_0,
+      zHEAP_3_Number_0,
+      zHEAP_PUSH1,zHEAP_MOVE_41]
+      |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
+           BlockPair_def]
+  val th4 =
+    zHEAP_INSTALL_CODE
+    |> GSYM |> SIMP_RULE std_ss [SPEC_MOVE_COND]
+    |> UNDISCH_ALL
+  val th5 =
+    SPEC_COMPOSE_RULE [th3,th4]
+    |> RW [HD,TL]
+    |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+  val pat = ``install_x64_code_lists x y``
+  val tms = find_terms (can (match_term pat)) (concl th5)
+  val tm1 = hd tms
+  val tm2 = hd (tl tms) handle Empty => hd tms
+  val f1 = mk_eq(tm1,mk_var("s_install1",type_of tm1))
+  val f2 = mk_eq(tm2,mk_var("s_install2",type_of tm2))
+  val th6 = th5
+    |> DISCH f1 |> SIMP_RULE std_ss [] |> UNDISCH_ALL
+    |> DISCH f2 |> SIMP_RULE std_ss [] |> UNDISCH_ALL
+  in th6 end;
+
+val both_refs_intro = prove(
+  ``all_refs s1_cb F t s1.refs s1.globals ⊌
+    all_refs t1_cb T t t1.refs t1.globals =
+    both_refs t t1_cb t1 s1_cb s1``,
+  fs [both_refs_def]
+  \\ MATCH_MP_TAC FUNION_COMM
+  \\ fs [DISJOINT_DEF,all_refs_def,ref_globals_def,EXTENSION]
+  \\ REPEAT STRIP_TAC \\ CCONTR_TAC \\ fs []
+  \\ IMP_RES_TAC ref_adjust_IMP_ODD
+  \\ IMP_RES_TAC ref_adjust_IMP_EVEN
+  \\ fs [ODD_EVEN] \\ SRW_TAC [] []
+  \\ fs [EVAL ``ODD 0``,EVAL ``EVEN 1``])
+
+val zHEAP_RUN_INL_INCLUDING_EVAL = let
+  val th =
+    zBC_HEAP_EVAL_UNTIL_STOP_ALT
+    |> SPEC_ALL
+    |> DISCH ``(s1:bc_state).stack = []``
+    |> DISCH ``(s2:bc_state).stack = []``
+    |> DISCH ``s.local.printing_on = 0w``
+    |> Q.INST [`stack`|->`[]`,`ev`|->`F`,
+              `f2`|->`all_refs t1_cb T cs.stack_trunk t1.refs t1.globals`]
+    |> DISCH ``cs.stack_trunk - 0x8w = sb`` |> Q.GEN `sb`
+    |> SIMP_RULE std_ss [LENGTH,zBC_HEAP_def,LET_DEF,MAP,HD,TL,APPEND,SEP_CLAUSES,
+         FUNION_ASSOC,GSYM all_refs_def,ref_addr_def,IN_FDOM_all_refs,
+         EVAL ``((s2:bc_state) with stack := [x]).stack``,
+         EVAL ``((s2:bc_state) with stack := [x]).refs``,
+         EVAL ``((s2:bc_state) with stack := [x]).globals``,
+         EVAL ``((s2:bc_state) with stack := [x]).handler``,
+         bc_adjust_bool_to_val,GSYM SPEC_PRE_EXISTS]
+    |> UNDISCH_ALL
+    |> SPEC_ALL
+    |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+    |> RW [both_refs_intro]
+  val th1 = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_MOVE_23]
+    |> Q.INST [`stack`|->`[Number 0]`]
+    |> RW [HD,TL,NOT_CONS_NIL,SEP_CLAUSES]
+    |> MATCH_MP SPEC_NEW_DISJ |> Q.SPEC `zHEAP_ERROR cs`
+    |> Q.GENL [`x3`,`x2`] |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
+  val lemma = SPEC_COMPOSE |> RW1 [CONJ_COMM] |> RW [GSYM AND_IMP_INTRO]
+  val th = MATCH_MP (MATCH_MP lemma th1) th
+  val th = th |> SIMP_RULE std_ss [word_arith_lemma1]
+  val vs = free_vars (concl th)
+  fun new_sub v = v |-> mk_var((dest_var v |> fst) ^ "_new", type_of v)
+  val th = th
+    |> INST (map new_sub vs)
+    |> Q.INST [`cs_new`|->`cs`]
+  val SPEC_zHEAP_SWAP = prove(
+    ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * zPC p * ~zS) c q ==>
+      !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
+             SPEC m (zHEAP t * zPC p' * ~zS) c q``,
+    fs []);
+  val th1 =
+    MATCH_MP SPEC_zHEAP_SWAP th
+    |> Q.SPECL [`(cs,x1_3,x2_3,x3_3,x4_3,refs_3,stack_3,s_3,space_3)`,`pp`]
+    |> RW [PAIR_EQ,GSYM AND_IMP_INTRO]
+    |> RW [theorem "zheap_state_component_equality"]
+    |> SIMP_RULE (srw_ss()) []
+    |> Q.INST [`s_3`|->`s_new`] |> RW []
+    |> UNDISCH_ALL
+  val pc =
+    zHEAP_RUN_INL_UP_TO_EVAL
+    |> concl |> rator |> rand
+    |> find_terms pairSyntax.is_pair |> hd |> rator |> rand
+  val th = SPEC_COMPOSE_RULE [zHEAP_RUN_INL_UP_TO_EVAL,th1]
+  val th =
+    DISCH ``s_install2.local.stop_addr = ^pc + 3w`` th
+    |> SIMP_RULE std_ss [word_arith_lemma1]
+    |> UNDISCH_ALL
+  in th end
 
 
 
