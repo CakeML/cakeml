@@ -24,6 +24,7 @@ sig
     val get_DeclAssum  : unit -> term
 
     val get_DeclAssumExists : unit -> thm
+    val eq_lemmas : unit -> thm list
 
     (* loading / storing state of translator *)
 
