@@ -20997,6 +20997,54 @@ val zHEAP_RUN_INL = let
         |> RW [EVAL ``-1w:word8``]
   in th4 end;
 
+(* merge code segments in the three main theorems *)
+
+val (thm_inr,thm_inl,thm_inl_div) = let
+  val th1 = zHEAP_REPL_RUN_INR
+  val th2 = zHEAP_RUN_INL
+  val th3 = zHEAP_RUN_INL_UP_TO_EVAL
+  val insert_lemma = prove(
+    ``$INSERT x = $UNION {x}``,
+   fs [FUN_EQ_THM]);
+  fun part P xs = let
+    fun partition [] (ys,zs) = (rev ys,rev zs)
+      | partition (x::xs) (ys,zs) =
+          if P x then partition xs (x::ys,zs)
+                 else partition xs (ys,x::zs)
+    in partition xs ([],[]) end
+  fun f th1 = let
+    val th2 = th1 |> RW1 [insert_lemma] |> RW [UNION_EMPTY,code_abbrevs_def]
+    val c = th2 |> concl |> rator |> rand
+    val cs = list_dest pred_setSyntax.dest_union c |> all_distinct
+    val (cs1,cs2) = part pred_setSyntax.is_insert cs
+    in (map (rand o rator) cs1, cs2) end
+  val (xs1,ys1) = f th1
+  val (xs2,ys2) = f th2
+  val (xs3,ys3) = f th3
+  fun filter_same [] = []
+    | filter_same (x::xs) =
+        x :: filter_same (filter (fn y => y <> x) xs)
+  val all_xs = filter_same (xs1 @ xs2 @ xs3)
+  val all_ys = filter_same (ys1 @ ys2 @ ys3)
+  val ys_set = foldl (fn (x,y) => pred_setSyntax.mk_union (y,x))
+                  (hd all_ys) (tl all_ys)
+  val new_code = foldr pred_setSyntax.mk_insert ys_set all_xs
+  fun replace_with_new_code th = let
+    val lemma = MATCH_MP SPEC_SUBSET_CODE th |> SPEC new_code
+    val goal = lemma |> concl |> dest_imp |> fst
+    val x = prove(goal,
+      REWRITE_TAC [INSERT_SUBSET,UNION_SUBSET,EMPTY_SUBSET,code_abbrevs_def]
+      \\ REWRITE_TAC [SUBSET_DEF,IN_INSERT,IN_UNION,NOT_IN_EMPTY]
+      \\ REPEAT STRIP_TAC \\ ASM_REWRITE_TAC [])
+    val th = MP lemma x
+    in th end
+  val th1 = th1 |> replace_with_new_code
+  val th2 = th2 |> replace_with_new_code
+  val th3 = th3 |> replace_with_new_code
+  in (th1,th2,th3) end
+
+
+
 
 
 (* cheat CHEAT
