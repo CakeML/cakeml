@@ -21307,7 +21307,8 @@ val zHEAP_INR_CONTINUES = let
                 output := STRCAT s.output msg;
                 local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>,NONE) *
         ~zS * zPC p *
-        cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\ INPUT_TYPE x inp2) \/
+        cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\
+              INPUT_TYPE (SOME (ts,states)) inp2) \/
         zHEAP_ERROR cs``
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -21349,7 +21350,7 @@ val zHEAP_INR_CONTINUES = let
     \\ Q.PAT_ASSUM `COMPILER_RUN_INV bs2' grd2' inp2 out2'` MP_TAC
     \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
     \\ REPEAT STRIP_TAC
-    \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`,`(SOME (ts,states))`]
+    \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`]
     \\ fs [] \\ DISJ1_TAC
     \\ Q.PAT_ASSUM `fff s'` MP_TAC
     \\ fs [AC STAR_COMM STAR_ASSOC]
@@ -21364,6 +21365,7 @@ val zHEAP_INR_CONTINUES = let
            bc_adjust_BlockList_BlockSym])
   val th = MP th lemma
   in th end
+
 
 
 
