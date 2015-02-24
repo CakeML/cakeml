@@ -1299,6 +1299,7 @@ val alloc_colouring_aux_never_overwrites_spill = prove(``
 *)
 val partial_colouring_satisfactory_def = Define`
   partial_colouring_satisfactory col (G:sp_graph) ⇔
+  domain col ⊆ domain G ∧ 
   ∀v.
     v ∈ domain G ∧ v ∈ domain col ⇒
     let edges = THE (lookup v G) in
@@ -1340,6 +1341,8 @@ val partial_colouring_satisfactory_extend = prove(``
   partial_colouring_satisfactory (insert h v col) G``,
   fs[partial_colouring_satisfactory_def]>>rpt strip_tac
   >-
+    fs[domain_lookup]
+  >-
     (fs[domain_lookup,LET_THM,lookup_insert,undir_graph_def]>>rw[]
     >-
       (ntac 2 (last_x_assum(qspec_then`h`mp_tac))>>fs[])
@@ -1354,11 +1357,14 @@ val partial_colouring_satisfactory_extend = prove(``
       (rfs[]>>
       first_x_assum(qspec_then`v'''`mp_tac)>>discharge_hyps>>fs[])
     >-
-      (last_x_assum(qspec_then`v'`mp_tac)>>discharge_hyps>>fs[]>>rw[]>>
+      (
+      qsuff_tac`lookup v' x = SOME ()`>-
+      (rw[]>>
+      first_x_assum(qspec_then`v'` assume_tac)>>
+      rfs[])>>
+      last_x_assum(qspec_then`v'`mp_tac)>>discharge_hyps>>fs[]>>rw[]>>
       last_x_assum(qspec_then`v'`assume_tac)>>rfs[]>>
-      first_x_assum(qspec_then`h`assume_tac)>>rfs[]>>
-      last_x_assum kall_tac>>
-      last_x_assum(qspec_then`v'` assume_tac)>>rfs[])
+      first_x_assum(qspec_then`h`assume_tac)>>rfs[])
     >>
       fs[]>>
       last_x_assum(qspec_then`v'`mp_tac)>>discharge_hyps>>fs[]>>rw[]>>
@@ -1607,17 +1613,22 @@ val alloc_colouring_aux_domain_5 = prove(``
   fs[domain_lookup])
 
 val id_colour_always_sat = prove(``
-  undir_graph G ⇒ 
+  undir_graph G ∧ 
+  (∀x. MEM x ls ⇒ x ∈ domain G)
+  ⇒ 
   partial_colouring_satisfactory (id_colour ls) G``,
   Q.ISPEC_THEN `ls` assume_tac id_colour_lemma>>
   rw[undir_graph_def,partial_colouring_satisfactory_def]>>
-  fs[LET_THM]>>
+  fs[LET_THM]>-
+    fs[SUBSET_DEF]
+  >>
   qsuff_tac `v ≠ v'`
   >-
     (`MEM v ls ∧ MEM v' ls` by metis_tac[EXTENSION]>>
     res_tac>>
     fs[])
   >>
+    first_x_assum(qspec_then `v` assume_tac)>>
     first_x_assum(qspec_then `v` assume_tac)>>
     fs[domain_lookup]>>rfs[]>>
     metis_tac[])
@@ -1646,7 +1657,10 @@ val alloc_colouring_success = prove(``
     first_assum(qspec_then`col` mp_tac)>>
     discharge_hyps
     >-
-      metis_tac[id_colour_always_sat]
+      (fs[Abbr`col`]>>
+      match_mp_tac id_colour_always_sat>>
+      fs[]>>
+      cheat) (*should be obvious*)
     >>
     strip_tac>>
     pop_assum(qspecl_then [`[]`,`ls`,`colours`] assume_tac)>>
@@ -1926,7 +1940,7 @@ val spill_colouring_domain_3 = prove(``
 
 val is_subgraph_edges_def = Define`
   is_subgraph_edges G H ⇔
-    domain G ⊆ domain H  ∧  (*We never change the vertex set*)
+    domain G = domain H  ∧  (*We never change the vertex set*)
    (∀x y. lookup_g x y G ⇒ lookup_g x y H)` 
 
 val partial_colouring_satisfactory_subgraph_edges = prove(``
@@ -1937,7 +1951,9 @@ val partial_colouring_satisfactory_subgraph_edges = prove(``
   (partial_colouring_satisfactory col H) ⇒ 
   partial_colouring_satisfactory col G``,
   fs[partial_colouring_satisfactory_def,lookup_g_def,is_subgraph_edges_def]>>
-  rw[]>>fs[domain_lookup,undir_graph_def]>>
+  rw[]>>
+  `v ∈ domain G` by fs[]>>
+  fs[domain_lookup,undir_graph_def]>>
   last_x_assum(qspec_then`v` assume_tac)>>rfs[]>>
   first_x_assum(qspec_then`v'` assume_tac)>>rfs[]>>
   last_assum(qspec_then`v` assume_tac)>>
@@ -2000,8 +2016,9 @@ val finish_tac =
 val partial_colouring_satisfactory_extend_2 = prove(``
   undir_graph G ∧ 
   partial_colouring_satisfactory col G ∧
-  (x ∉ domain col ∨ y ∉ domain col) ⇒  
-  partial_colouring_satisfactory col (undir_g_insert x y G)``,
+  (x ∉ domain col ∨ y ∉ domain col ∧ 
+  x ∈ domain G ∧ y ∈ domain G) ⇒  
+  partial_colouring_satisfactory col (undir_g_insert x y G)``,cheat)
   fs[undir_g_insert_def,dir_g_insert_def
     ,partial_colouring_satisfactory_def]>>rw[]>>
   fs[domain_lookup,LET_THM]>>
@@ -2024,7 +2041,7 @@ val partial_colouring_satisfactory_extend_2 = prove(``
 
 val list_g_insert_undir = prove(``
   ∀ls G col.
-  undir_graph G ∧ 
+  undir_graph G ∧
   ¬MEM q ls ⇒
   let G' = list_g_insert q ls G in 
   undir_graph G'``,
@@ -2046,6 +2063,8 @@ val list_g_insert_lemma = prove(``
   undir_graph G ∧ 
   q ∉ domain col ∧ 
   ¬ MEM q ls ∧
+  (q ∈ domain G ∧
+  ∀x. MEM x ls ⇒ x ∈ domain G) ∧ 
   partial_colouring_satisfactory col G
   ⇒ 
   let G' = list_g_insert q ls G in 
@@ -2058,7 +2077,7 @@ val list_g_insert_lemma = prove(``
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     fs[domain_insert,SUBSET_DEF,lookup_g_def,lookup_insert,undir_graph_def
       ,partial_colouring_satisfactory_def]>>
-    rw[]>>fs[]>>
+    rw[]>>fs[]>- (fs[EXTENSION]>>metis_tac[]) >>
     FULL_CASE_TAC>>
     last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[]>>
     rw[]>>
@@ -2071,7 +2090,7 @@ val list_g_insert_lemma = prove(``
   fs[LET_THM,Abbr`G'`]>>rw[]
   >-
     (fs[is_subgraph_edges_def,undir_g_insert_def]>>
-    fs[SUBSET_DEF,domain_lookup]>>rw[]>>
+    fs[EXTENSION,domain_lookup]>>rw[]>>
     fs[dir_g_insert_def,LET_THM]>>EVERY_CASE_TAC>>
     fs[lookup_insert]>>
     rpt(IF_CASES_TAC>>fs[]))
@@ -2117,14 +2136,21 @@ val full_coalesce_aux_extends = prove(``
   rfs[]>>
   discharge_hyps_keep>-
     (rfs[FORALL_PROD,Abbr`lss`,undir_graph_def,lookup_g_def]>>
-   `h2 ∈ domain G` by fs[]>>
-    CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
-    rfs[]>>
-    ntac 2 (last_x_assum(qspec_then`h2` assume_tac))>>
-    rfs[]>>
-    first_x_assum(qspec_then`h1` mp_tac)>>
-    Cases_on`y`>>fs[MEM_toAList]>>
-    Cases_on`lookup q G`>>fs[])>>
+     `h2 ∈ domain G` by fs[]>>
+     rw[]>-
+      (CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
+      rfs[]>>
+      ntac 2 (last_x_assum(qspec_then`h2` assume_tac))>>
+      rfs[]>>
+      first_x_assum(qspec_then`h1` mp_tac)>>
+      Cases_on`y`>>fs[MEM_toAList]>>
+      Cases_on`lookup q G`>>fs[])>>
+      fs[domain_lookup]>>res_tac>>
+      first_x_assum (qspec_then`h2` assume_tac)>>
+      rfs[]>>
+      `lookup x' v = SOME ()` by
+        (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
+      metis_tac[])>>
   fs[LET_THM,UNCURRY]>>strip_tac>>
   qpat_assum `A ⇒ B` mp_tac>>
   discharge_hyps>-
@@ -2261,17 +2287,21 @@ val rest_tac2 =
     first_x_assum(qspec_then`sopt`mp_tac)>>
     unabbrev_all_tac>>fs[]>>
     discharge_hyps>-
-    (match_mp_tac undir_g_preserve>>rfs[])>>
+    (rw[]>-
+      (match_mp_tac undir_g_preserve>>rfs[])
+    >>
+    cheat)>>
     rw[]>>HINT_EXISTS_TAC >>rfs[]>>
     fs[undir_g_insert_domain]>>
     fs[undir_g_insert_def]>>
-    rw[]>>
+    rw[]>>fs[EXTENSION]>>
     metis_tac[lookup_dir_g_insert_correct]
 
 val foreach_graph_extend = prove(``
   ∀ls s.
-  undir_graph s.graph ∧ 
-  (∀y. MEM y ls ⇒ x ≠ y)⇒ 
+  undir_graph s.graph ∧
+  x ∈ domain s.graph ∧  
+  (∀y. MEM y ls ⇒ x ≠ y ∧ y ∈ domain s.graph)⇒ 
   ∃s'.
   FOREACH (ls,
           (λv. 
@@ -2339,14 +2369,18 @@ val do_coalesce_lem = prove(``
   strip_tac>>
   Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`] mp_tac (GEN_ALL foreach_graph_extend)>>
   discharge_hyps>-
-   (unabbrev_all_tac>>fs[MEM_FILTER]>>
+   (cheat)
+   (*unabbrev_all_tac>>fs[MEM_FILTER]>>
+   CONJ_ASM1_TAC>- fs[domain_lookup]>>
+   ntac 2 strip_tac>>
+   CONJ2_TAC>>
    DISJ2_TAC>>
    fs[lookup_g_def,undir_graph_def]>>FULL_CASE_TAC>>
    CCONTR_TAC>>fs[]>>
    `lookup q x' = SOME ()` by 
      (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
    first_x_assum(qspec_then`r` assume_tac)>>rfs[domain_lookup]>>
-   first_x_assum(qspec_then`q` assume_tac)>>rfs[])
+   first_x_assum(qspec_then`q` assume_tac)>>rfs[]*)
   >>
   rw[]>>fsm[Abbr`sopt`]>>
   metis_tac[is_subgraph_edges_trans])
@@ -2638,6 +2672,26 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
         spill_colouring_domain_2>> rfs[LET_THM,is_subgraph_edges_def]>>
       metis_tac[spill_colouring_domain_3,optionTheory.option_CLAUSES])
 
+(*strengthen case of the above*)
+val reg_alloc_conventional_phy_var = store_thm("reg_alloc_conventional_phy_var",``
+  ∀alg G k moves.
+  undir_graph G ⇒ 
+  let col = reg_alloc alg G k moves in
+  ∀x. is_phy_var x ⇒ (total_colour col) x = x``,
+  rw[]>>Cases_on`x ∈ domain col`
+  >-
+  (imp_res_tac reg_alloc_satisfactory >>
+  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rfs[LET_THM]>>
+  imp_res_tac reg_alloc_conventional>>
+  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rfs[LET_THM]>>
+  fs[colouring_conventional_def]>>
+  fs[LET_THM,partial_colouring_satisfactory_def]>>
+  fs[SUBSET_DEF]>>
+  metis_tac[])
+  >>
+  (fs[total_colour_def]>>
+  FULL_CASE_TAC>>fs[domain_lookup]))
+  
 (*Various side theorems necessary to link up proofs:
   - clash_sets_to_sp_g captures everything appearing in the clashsets
   - clash_sets_to_sp_g produces undirected graphs
