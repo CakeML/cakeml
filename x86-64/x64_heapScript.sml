@@ -20695,7 +20695,8 @@ val tags_eq =
   |> CONJ block_tag_def
 
 val Block_FIX = prove(
-  ``(bootstrapProof$BlockSome = x64_heap$BlockSome) /\
+  ``(bootstrapProof$BlockNum3 = x64_heap$BlockNum3) /\
+    (bootstrapProof$BlockSome = x64_heap$BlockSome) /\
     (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
     (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
     (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
@@ -20965,10 +20966,9 @@ val zHEAP_RUN_INL_UP_TO_EVAL = let
       zHEAP_1_Number_1,zHEAP_EL,
       zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_EL,
       th2,zHEAP_MOVE_14,
-      zHEAP_1_Number_0,
+      zHEAP_MOVE_34,
       zHEAP_2_Number_0,
-      zHEAP_3_Number_0,
-      zHEAP_PUSH1,zHEAP_MOVE_41]
+      zHEAP_3_Number_0,zHEAP_PUSH2]
       |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
            BlockPair_def]
   val th4 =
@@ -21278,6 +21278,13 @@ val bc_adjust_BlockList_BlockSym = prove(
     BlockNil_def,BlockCons_def,Chr_def,ORD_11,BlockSym_def]
   \\ Cases \\ EVAL_TAC \\ fs [bc_adjust_BlockList_Chr]);
 
+val bc_adjust_BlockList_BlockNum3 = prove(
+  ``bc_adjust (cb,w,b) (BlockList (MAP BlockNum3 code)) =
+    BlockList (MAP BlockNum3 code)``,
+  Induct_on `code` \\ fs [bc_adjust_def,BlockList_def,
+    BlockNil_def,BlockCons_def,Chr_def,ORD_11,BlockNum3_def]
+  \\ Cases \\ Cases_on `r` \\ EVAL_TAC \\ fs [bc_adjust_BlockList_Chr]);
+
 (* INR terminates case *)
 
 val zHEAP_INR_TERMINATES = let
@@ -21413,6 +21420,62 @@ val zHEAP_INR_CONTINUES = let
   in th end
 
 
+(* INL will-diverge case *)
+
+val zHEAP_INL_DIVERGES = let
+  val th = SMART_WEAKEN thm_inl_div
+  val th = th |> Q.INST [`s1`|->`bs1`]
+  val th = th |> SPEC
+    ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
+      INPUT_TYPE x inp1 /\
+      (bs1.pc = code_start bs1) /\
+      (basis_repl_step x = INL (code,new_states)) /\
+      code_executes_ok (install_bc_lists code bs) /\
+      (bc_eval (install_bc_lists code bs) = NONE) /\
+      (s.handler = 1) /\ (s.code_mode = SOME T) /\
+      (s.local.printing_on = 0w) /\ EVEN (w2n (cb:word64)) /\
+      (cb + n2w (2 * code_start bs1):word64 =
+       p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
+  val th = th |> SPEC
+    ``zHEAP_WILL_DIVERGE s.output cs t1_cb \/ zHEAP_ERROR cs``
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    REPEAT STRIP_TAC \\ fs []
+    \\ MP_TAC COMPILER_RUN_INV_repl_step \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `T` \\ fs []
+    \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
+    \\ IMP_RES_TAC COMPILER_RUN_INV_inst_length
+    \\ IMP_RES_TAC COMPILER_RUN_INV_handler
+    \\ fs [GSYM real_inst_length_thm] \\ fs []
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC RTC_NRC
+    \\ `(bs1 with pc := code_start bs1) = bs1` by ALL_TAC
+    THEN1 (fs [bc_state_component_equality])
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC)
+    \\ (GEN_ALL COMPILER_RUN_INV_INL
+          |> Q.SPECL [`new_states`,`out2`,`inp1`,`grd2`,`code`,`bs2`] |> MP_TAC)
+    \\ fs [] \\ REPEAT STRIP_TAC
+    \\ Q.LIST_EXISTS_TAC [`code`,`n`,
+          `bc_adjust (cb,cs.stack_trunk - 8w,T) s_bc_val`,`bs2`,`[]`]
+    \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+    \\ REPEAT STRIP_TAC
+    THEN1
+     (fs [FLOOKUP_DEF]
+      \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
+      \\ fs [BlockInl_def,BlockPair_def,bc_adjust_def,Block_FIX,
+           bc_adjust_BlockList_Chr,SEP_IMP_REFL,
+           bc_adjust_BlockList_BlockNum3 |> RW [Block_FIX]])
+    THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
+    \\ cheat) (* possible? *)
+  val th = MP th lemma
+  in th end
+
+
+
 
 
 (*
@@ -21423,6 +21486,8 @@ val zHEAP_INR_CONTINUES = let
   COMPILER_RUN_INV_references
   COMPILER_RUN_INV_ptrs
   repl_funTheory.basis_main_loop_def
+
+  print_find "install_code_def"
 
   print_find "code_executes_ok_def"
 
