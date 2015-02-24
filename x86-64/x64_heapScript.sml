@@ -20650,7 +20650,8 @@ val tags_eq =
   |> CONJ block_tag_def
 
 val Block_FIX = prove(
-  ``(bootstrapProof$BlockInr = x64_heap$BlockInr) /\
+  ``(bootstrapProof$BlockSome = x64_heap$BlockSome) /\
+    (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
     (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
     (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
     (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
@@ -21199,11 +21200,37 @@ val both_refs_FAPPLY = prove(
   \\ fs [ref_adjust_def,FUN_FMAP_DEF,LET_DEF,LEFT_ADD_DISTRIB,
          DECIDE ``(2*n = 2*m) = (n = m:num)``,DIV_2_ADD_LEMMA])
 
+val FUNION_FUPDATE_MOVE = prove(
+  ``(FUNION f1 f2) |+ (x,y) = FUNION (f1 |+ (x,y)) f2``,
+  fs [GSYM fmap_EQ,FUN_EQ_THM,FAPPLY_FUPDATE_THM,FUNION_DEF]
+  \\ METIS_TAC []);
+
+val both_refs_FUPDATE = prove(
+  ``both_refs w cb
+       (bs2 with refs := bs2.refs |+ (n, ValueArray xs)) t1_cb t1 =
+    both_refs w cb bs2 t1_cb t1 |+
+       (2 * n + 2, ValueArray (MAP (bc_adjust (cb,w-8w,T)) xs))``,
+  fs [both_refs_def,FUNION_FUPDATE_MOVE,all_refs_def]
+  \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ Q.ABBREV_TAC `q = w + 0xFFFFFFFFFFFFFFF8w` \\ POP_ASSUM (K ALL_TAC)
+  \\ fs [ref_adjust_def,LET_DEF]
+  \\ fs [fmap_EXT,FAPPLY_FUPDATE_THM,FUNION_DEF,LEFT_ADD_DISTRIB]
+  \\ STRIP_TAC \\ Cases_on `x = 2 * n + 2`
+  \\ fs [FUN_FMAP_DEF,FDOM_FINITE,IMAGE_FINITE,FINITE_INSERT]
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+  \\ fs [FUN_FMAP_DEF,IN_INSERT,DIV_2_ADD_LEMMA])
+
 val bc_adjust_BlockList_Chr = prove(
   ``!msg xs. (bc_adjust (cb,w,b) (BlockList (MAP Chr msg)) =
               BlockList (MAP Chr xs)) = (msg = xs)``,
   Induct \\ Cases_on `xs` \\ fs [bc_adjust_def,BlockList_def,
     BlockNil_def,BlockCons_def,Chr_def,ORD_11]) |> RW [Block_FIX];
+
+val bc_adjust_BlockList_BlockSym = prove(
+  ``bc_adjust (cb,w,b) (BlockList (MAP BlockSym ts)) = BlockList (MAP BlockSym ts)``,
+  Induct_on `ts` \\ fs [bc_adjust_def,BlockList_def,
+    BlockNil_def,BlockCons_def,Chr_def,ORD_11,BlockSym_def]
+  \\ Cases \\ EVAL_TAC \\ fs [bc_adjust_BlockList_Chr]);
 
 (* INR terminates case *)
 
@@ -21330,7 +21357,11 @@ val zHEAP_INR_CONTINUES = let
     \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
     \\ REVERSE (REPEAT STRIP_TAC)
     THEN1 (fs [fetch "-" "zheap_state_component_equality"])
-    \\ cheat (* easy-ish *))
+    \\ UNABBREV_ALL_TAC
+    \\ fs [both_refs_FUPDATE]
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+           bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
+           bc_adjust_BlockList_BlockSym])
   val th = MP th lemma
   in th end
 
