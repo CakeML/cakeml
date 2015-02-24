@@ -20602,7 +20602,8 @@ val Block_FIX = prove(
     (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
     (bootstrapProof$BlockList = x64_heap$BlockList) /\
     (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-    (bootstrapProof$BlockNil = x64_heap$BlockNil)``,
+    (bootstrapProof$BlockNil = x64_heap$BlockNil) /\
+    (bootstrapProof$Chr = x64_heap$Chr)``,
   cheat); (* tag numbers *)
 
 val ref_adjust_IMP_ODD = prove(
@@ -20761,14 +20762,15 @@ val EL_SIMPS =
 val zHEAP_REPL_STEP_UNTIL_INL_IF = let
   val th =
     zHEAP_EVAL_UNTIL_STOP
-    |> Q.INST [`x`|->`Block 0 [RefPtr 1; RefPtr iptr; RefPtr optr]`]
+    |> Q.INST [`x`|->`Block 0 [RefPtr 1; RefPtr (2 * iptr + 2);
+                                         RefPtr (2 * optr + 2)]`]
   val th =
     SPEC_COMPOSE_RULE [th,
        zHEAP_MOVE_42,zHEAP_1_Number_1,zHEAP_EL,
        zHEAP_MOVE_12,zHEAP_1_Number_2,zHEAP_EL,
        zHEAP_MOVE_12,zHEAP_1_Number_0,zHEAP_DEREF]
     |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def]
-    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' optr =
+    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' (2 * optr + 2) =
                  ValueArray (inl_or_inr::ys)``
     |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,getValueArray_def,
           isRefPtr_def,isValueArray_def] |> UNDISCH_ALL
@@ -20808,7 +20810,8 @@ val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
          getNumber_def,isNumber_def,isRefPtr_def,EL_SIMPS]
     |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[]))
   val th = th
-    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' iptr = ValueArray [tt]``
+    |> DISCH ``both_refs cs.stack_trunk cb s2 t1_cb t1 ' (2 * iptr + 2) =
+               ValueArray [tt]``
     |> SIMP_RULE std_ss [getValueArray_def,isValueArray_def,ADD_ASSOC,
          EVAL ``LUPDATE x 0 [y]``,LENGTH,SEP_CLAUSES] |> UNDISCH_ALL
     |> RW [zHEAP_ERROR_ERROR]
@@ -20889,8 +20892,8 @@ val zHEAP_RUN_INL_UP_TO_EVAL = let
   in th6 end;
 
 val both_refs_intro = prove(
-  ``all_refs s1_cb F t s1.refs s1.globals ⊌
-    all_refs t1_cb T t t1.refs t1.globals =
+  ``FUNION (all_refs s1_cb F t s1.refs s1.globals)
+           (all_refs t1_cb T t t1.refs t1.globals) =
     both_refs t t1_cb t1 s1_cb s1``,
   fs [both_refs_def]
   \\ MATCH_MP_TAC FUNION_COMM
@@ -20984,7 +20987,7 @@ val zHEAP_RUN_INL = let
     |> RW [zHEAP_ERROR_ERROR,Num_0]
   val th3 = th2
     |> DISCH ``both_refs cs.stack_trunk t1_cb_new t1_new
-                       cs.code_heap_ptr s2_new ' iptr = ValueArray [tt]``
+                       cs.code_heap_ptr s2_new ' (2 * iptr + 2) = ValueArray [tt]``
     |> SIMP_RULE std_ss [getValueArray_def,isValueArray_def,ADD_ASSOC,
          EVAL ``LUPDATE x 0 [y]``,LENGTH,SEP_CLAUSES] |> UNDISCH_ALL
   val tm = get_pc th3
@@ -21111,12 +21114,43 @@ fun SMART_WEAKEN th = let
 val COMPILER_RUN_INV_inst_length = prove(
   ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
     (bs1.inst_length = real_inst_length)``,
-  cheat);
+  fs [COMPILER_RUN_INV_def] \\ SRW_TAC [] []
+  \\ fs [repl_bc_state_def,initCompEnvTheory.install_code_def]
+  \\ POP_ASSUM (K ALL_TAC)
+  \\ ASSUME_TAC bootstrap_bc_state_def \\ fs[]
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+  \\ fs [initCompEnvTheory.install_code_def,
+         initCompEnvTheory.initial_bc_state_def,
+         initCompEnvTheory.empty_bc_state_def]);
 
 val COMPILER_RUN_INV_handler = prove(
   ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
     (bs1.handler = 0)``,
   cheat);
+
+(* various lemmas *)
+
+val DIV_2_ADD_LEMMA =
+  ``2 * (k + 1) DIV 2``
+  |> SIMP_CONV std_ss [RW1[MULT_COMM]MULT_DIV]
+  |> SIMP_RULE std_ss [LEFT_ADD_DISTRIB];
+
+val both_refs_FAPPLY = prove(
+  ``n IN FDOM bs2.refs /\ (bs2.refs ' n = ValueArray xs) ==>
+    (both_refs w cb bs2 t1_cb t1 ' (2 * n + 2) =
+     ValueArray (MAP (bc_adjust (cb,w-8w,T)) xs))``,
+  fs [both_refs_def,all_refs_def,FUNION_DEF,ref_globals_def,
+      FAPPLY_FUPDATE_THM]
+  \\ REPEAT STRIP_TAC
+  \\ fs [ref_adjust_def,FUN_FMAP_DEF,LET_DEF,LEFT_ADD_DISTRIB,
+         DECIDE ``(2*n = 2*m) = (n = m:num)``,DIV_2_ADD_LEMMA])
+
+val bc_adjust_BlockList_Chr = prove(
+  ``!msg xs. (bc_adjust (cb,w,b) (BlockList (MAP Chr msg)) =
+              BlockList (MAP Chr xs)) = (msg = xs)``,
+  Induct \\ Cases_on `xs` \\ fs [bc_adjust_def,BlockList_def,
+    BlockNil_def,BlockCons_def,Chr_def,ORD_11]) |> RW [Block_FIX];
 
 (* INR terminates case *)
 
@@ -21157,7 +21191,14 @@ val zHEAP_INR_TERMINATES = let
     \\ (GEN_ALL COMPILER_RUN_INV_INR
         |> Q.SPECL [`states`,`out2`,`msg`,`inp1`,`grd2`,`bs2`] |> MP_TAC)
     \\ fs [] \\ REPEAT STRIP_TAC \\ POP_ASSUM (K ALL_TAC)
-    \\ cheat)
+    \\ `?ibc. (FLOOKUP bs2.refs iptr = SOME (ValueArray [ibc]))` by
+          METIS_TAC [COMPILER_RUN_INV_references]
+    \\ fs [FLOOKUP_DEF]
+    \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+           bc_adjust_BlockList_Chr,SEP_IMP_REFL]
+    \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
   val th = MP th lemma
   in th end
 
