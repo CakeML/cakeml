@@ -1504,7 +1504,7 @@ in
     val (rws1,rws2,res) = derive_thms_for_type true ty
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
-    in res end
+    in () end
 end
 
 fun register_term_types tm = let
