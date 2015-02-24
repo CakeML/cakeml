@@ -21043,6 +21043,136 @@ val (thm_inr,thm_inl,thm_inl_div) = let
   val th3 = th3 |> replace_with_new_code
   in (th1,th2,th3) end
 
+(* a bit of automation *)
+
+val SPEC_WEAKEN_LEMMA_GEN = prove(
+  ``(b ==> SPEC m p c q1) ==>
+    !i q2. (i ==> b /\ SEP_IMP q1 q2) ==> SPEC m (p * cond i) c q2``,
+  STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC SPEC_WEAKEN_LEMMA
+  \\ Cases_on `i` \\ Cases_on `b` \\ fs [SPEC_MOVE_COND]);
+
+val IMP_SPEC_POST_COND = prove(
+  ``(b ==> SPEC m p c q) ==>
+    b ==> SPEC m p c (q * cond b)``,
+  fs [SEP_CLAUSES]);
+
+val SPEC_HIDE_ASSUM_AND_POST = prove(
+  ``(!x. a x ==> SPEC m p c (q x)) ==>
+    ($? a) ==> SPEC m p c ($SEP_EXISTS q)``,
+  REPEAT STRIP_TAC
+  \\ `?x. a x` by (CONV_TAC (RAND_CONV ETA_CONV) \\ fs [])
+  \\ RES_TAC
+  \\ IMP_RES_TAC SPEC_WEAKEN
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ fs [SEP_IMP_def,SEP_EXISTS] \\ METIS_TAC []);
+
+val SPEC_WEAKEN_EXISTS = prove(
+  ``(!x. a x ==> SPEC m p c (q x)) ==>
+    !i q1. (i ==> ?x. a x /\ SEP_IMP (q x) q1) ==>
+            i ==> SPEC m p c q1``,
+  REPEAT STRIP_TAC \\ Cases_on `i` \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ METIS_TAC [SPEC_WEAKEN]);
+
+fun SMART_WEAKEN th = let
+  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  val (a,s) = dest_imp (concl th)
+  val a_vs = free_vars a
+  val (_,pre,code,post) = dest_spec s
+  val pre_code_vs = free_vars pre @ free_vars code
+  val post_vs = free_vars post
+  fun diff xs ys = filter (fn x => not (mem x ys)) xs
+  val var_sort = sort (fn v => fn w => fst (dest_var v) <= fst (dest_var w))
+  val hide_vs = diff (a_vs @ post_vs) pre_code_vs |> var_sort |> all_distinct
+  val hide_tuple = pairSyntax.list_mk_pair hide_vs
+  val cc = PairRules.UNPBETA_CONV hide_tuple
+  val th1 = th |> CONV_RULE (BINOP1_CONV cc THENC
+                             RAND_CONV (RAND_CONV cc))
+  val v = mk_var("v",type_of hide_tuple)
+  fun foo 0 tm = ALL_CONV tm
+    | foo n tm =
+      (ONCE_REWRITE_CONV [GSYM PAIR] THENC
+       RAND_CONV (foo (n-1))) tm
+  val all_parts = foo (length hide_vs-1) v
+  val i = zip hide_vs (list_dest pairSyntax.dest_pair (all_parts |> concl |> rand))
+          |> map (fn (x,y) => x |-> y)
+  val th2 = th1 |> INST i |> RW [PAIR] |> GEN v
+  val lemma = MATCH_MP SPEC_WEAKEN_EXISTS th2
+  fun EXISTS_ALPHA_CONV [] = ALL_CONV
+    | EXISTS_ALPHA_CONV (v::vs) =
+        RAND_CONV (ALPHA_CONV v THENC ABS_CONV (EXISTS_ALPHA_CONV vs))
+   val c = SIMP_CONV bool_ss [EXISTS_PROD]
+           THENC EXISTS_ALPHA_CONV hide_vs
+           THENC SIMP_CONV std_ss []
+   val th = CONV_RULE ((QUANT_CONV o QUANT_CONV o BINOP1_CONV o RAND_CONV) c) lemma
+   in th end
+
+(* lemmas about COMPILER_RUN_INV *)
+
+val COMPILER_RUN_INV_inst_length = prove(
+  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
+    (bs1.inst_length = real_inst_length)``,
+  cheat);
+
+val COMPILER_RUN_INV_handler = prove(
+  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
+    (bs1.handler = 0)``,
+  cheat);
+
+(* INR terminates case *)
+
+val zHEAP_INR_TERMINATES = let
+  val th = SMART_WEAKEN thm_inr
+  val th = th |> Q.INST [`s1`|->`bs1`]
+  val th = th |> SPEC
+    ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
+      INPUT_TYPE x inp1 /\
+      (bs1.pc = code_start bs1) /\
+      (basis_repl_step x = (INR (msg,states))) /\
+      (lex_until_top_semicolon_alt input = NONE) /\
+      (s.input = input) /\ (s.handler = 1) /\
+      (s.local.printing_on = 0x0w) /\ EVEN (w2n (cb:word64)) /\
+      (cb + n2w (2 * code_start bs1):word64 =
+       p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
+  val th = th |> SPEC
+    ``zHEAP_OUTPUT (cs,STRCAT s.output msg) \/ zHEAP_ERROR cs``
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    REPEAT STRIP_TAC \\ fs []
+    \\ MP_TAC COMPILER_RUN_INV_repl_step \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `T` \\ fs []
+    \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
+    \\ IMP_RES_TAC COMPILER_RUN_INV_inst_length
+    \\ IMP_RES_TAC COMPILER_RUN_INV_handler
+    \\ fs [GSYM real_inst_length_thm] \\ fs []
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC RTC_NRC
+    \\ `(bs1 with pc := code_start bs1) = bs1` by ALL_TAC
+    THEN1 (fs [bc_state_component_equality])
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC)
+    \\ Q.LIST_EXISTS_TAC [`n`,`bs2`] \\ fs []
+    \\ (GEN_ALL COMPILER_RUN_INV_INR
+        |> Q.SPECL [`states`,`out2`,`msg`,`inp1`,`grd2`,`bs2`] |> MP_TAC)
+    \\ fs [] \\ REPEAT STRIP_TAC \\ POP_ASSUM (K ALL_TAC)
+    \\ cheat)
+  val th = MP th lemma
+  in th end
+
+
+
+(*
+  IMP_RES_TAC COMPILER_RUN_INV_repl_step
+  COMPILER_RUN_INV_INR
+  COMPILER_RUN_INV_INL
+  COMPILER_RUN_INV_empty_stack
+  COMPILER_RUN_INV_references
+  COMPILER_RUN_INV_ptrs
+  repl_funTheory.basis_main_loop_def
+*)
+
 
 
 
@@ -21052,6 +21182,8 @@ val (thm_inr,thm_inl,thm_inl_div) = let
 repl_funTheory.basis_repl_fun_def
 initCompEnvTheory.initial_bc_state_def
 repl_funTheory.basis_main_loop_def
+
+
 
 
 val iind_eq =
