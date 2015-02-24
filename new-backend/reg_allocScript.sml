@@ -1659,8 +1659,14 @@ val alloc_colouring_success = prove(``
     >-
       (fs[Abbr`col`]>>
       match_mp_tac id_colour_always_sat>>
-      fs[]>>
-      cheat) (*should be obvious*)
+      fs[PARTITION_DEF]>>
+      rw[]>>
+      `MEM x vertices` by 
+        (qpat_assum `A=(phy_var,others)` (assume_tac o SYM)>>
+        imp_res_tac PART_MEM>>
+        fs[])>>
+      unabbrev_all_tac>>
+      fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,domain_lookup])
     >>
     strip_tac>>
     pop_assum(qspecl_then [`[]`,`ls`,`colours`] assume_tac)>>
@@ -2018,11 +2024,14 @@ val partial_colouring_satisfactory_extend_2 = prove(``
   partial_colouring_satisfactory col G ∧
   (x ∉ domain col ∨ y ∉ domain col ∧ 
   x ∈ domain G ∧ y ∈ domain G) ⇒  
-  partial_colouring_satisfactory col (undir_g_insert x y G)``,cheat)
+  partial_colouring_satisfactory col (undir_g_insert x y G)``,
   fs[undir_g_insert_def,dir_g_insert_def
     ,partial_colouring_satisfactory_def]>>rw[]>>
   fs[domain_lookup,LET_THM]>>
-  rfs[lookup_insert]>>
+  rfs[lookup_insert]
+  >>
+    TRY(fs[SUBSET_DEF]>>NO_TAC)
+  >>
   Cases_on`v=x`>>
   Cases_on`x=y`>>
   fs[undir_graph_def]>>
@@ -2290,7 +2299,7 @@ val rest_tac2 =
     (rw[]>-
       (match_mp_tac undir_g_preserve>>rfs[])
     >>
-    cheat)>>
+    fs[undir_g_insert_domain])>>
     rw[]>>HINT_EXISTS_TAC >>rfs[]>>
     fs[undir_g_insert_domain]>>
     fs[undir_g_insert_def]>>
@@ -2301,7 +2310,7 @@ val foreach_graph_extend = prove(``
   ∀ls s.
   undir_graph s.graph ∧
   x ∈ domain s.graph ∧  
-  (∀y. MEM y ls ⇒ x ≠ y ∧ y ∈ domain s.graph)⇒ 
+  (∀y. MEM y ls ⇒ x ≠ y ∧ y ∈ domain s.graph) ⇒ 
   ∃s'.
   FOREACH (ls,
           (λv. 
@@ -2369,18 +2378,21 @@ val do_coalesce_lem = prove(``
   strip_tac>>
   Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`] mp_tac (GEN_ALL foreach_graph_extend)>>
   discharge_hyps>-
-   (cheat)
-   (*unabbrev_all_tac>>fs[MEM_FILTER]>>
+   (`∀x. MEM x (MAP FST (toAList x')) ⇒ x ∈ domain sopt.graph` by
+     (rw[]>>fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList,Abbr`sopt`]>>
+     fs[undir_graph_def]>>
+     first_x_assum(qspec_then`r` assume_tac)>>rfs[domain_lookup]>>
+     first_x_assum(qspec_then`q'` assume_tac)>>rfs[])>>
+   unabbrev_all_tac>>fs[MEM_FILTER]>>
    CONJ_ASM1_TAC>- fs[domain_lookup]>>
-   ntac 2 strip_tac>>
-   CONJ2_TAC>>
    DISJ2_TAC>>
-   fs[lookup_g_def,undir_graph_def]>>FULL_CASE_TAC>>
+   fs[lookup_g_def,undir_graph_def]>>rw[]>>
+   first_x_assum(qspec_then`q` assume_tac)>>rfs[]>>
    CCONTR_TAC>>fs[]>>
    `lookup q x' = SOME ()` by 
      (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
    first_x_assum(qspec_then`r` assume_tac)>>rfs[domain_lookup]>>
-   first_x_assum(qspec_then`q` assume_tac)>>rfs[]*)
+   first_x_assum(qspec_then`q` assume_tac)>>rfs[])
   >>
   rw[]>>fsm[Abbr`sopt`]>>
   metis_tac[is_subgraph_edges_trans])
