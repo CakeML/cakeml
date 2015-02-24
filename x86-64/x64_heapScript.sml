@@ -17707,6 +17707,51 @@ val zBC_HEAP_DIVERGES_ALT = let
   |> RW [GSYM zBYTECODE_DIVERGED_def]
   end
 
+val TEMPORAL_PRE_EXISTS = prove(
+  ``TEMPORAL X64_MODEL c (T_IMPLIES (NOW (SEP_EXISTS x. p x)) q) <=>
+    !x. TEMPORAL X64_MODEL c (T_IMPLIES (NOW (p x)) q)``,
+  fs [TEMPORAL_def,LET_DEF,T_IMPLIES_def,NOW_def,SEP_CLAUSES,
+         SEP_REFINE_def,X64_MODEL_def,SEP_EXISTS_THM,PULL_EXISTS,AND_IMP_INTRO]
+  \\ METIS_TAC []);
+
+val TEMPORAL_MOVE_COND = prove(
+  ``(b ==> TEMPORAL X64_MODEL c (T_IMPLIES (NOW p)
+        ((T_DISJ (zBYTECODE_DIVERGED out (cs,cb))
+           (EVENTUALLY (NOW (zHEAP_ERROR cs))))))) <=>
+    TEMPORAL X64_MODEL c (T_IMPLIES (NOW (p * cond b))
+        ((T_DISJ (zBYTECODE_DIVERGED out (cs,cb))
+           (EVENTUALLY (NOW (zHEAP_ERROR cs))))))``,
+  Cases_on `b`
+  \\ fs [TEMPORAL_def,LET_DEF,T_IMPLIES_def,NOW_def,SEP_CLAUSES,
+         SEP_REFINE_def,X64_MODEL_def,SEP_EXISTS_THM,PULL_EXISTS,AND_IMP_INTRO]
+  \\ fs [SEP_F_def]
+  \\ fs [T_DISJ_def,EVENTUALLY_def,zBYTECODE_DIVERGED_def,ALWAYS_def,NOW_def]
+  \\ METIS_TAC []);
+
+val zHEAP_WILL_DIVERGE_def = Define `
+  zHEAP_WILL_DIVERGE out cs cb =
+    (SEP_EXISTS f2 s x s1.
+     zBC_HEAP s1 (x,cs,[],s,out) (cb,cs.stack_trunk - 0x8w,F,f2) *
+     zPC (cb + n2w (2 * s1.pc)) * ~zS *
+     cond
+       ((s.code_mode = SOME T) /\
+        (s.code = x64_code 0 s1.code) /\
+        (s1.inst_length = x64_inst_length) /\ bc_diverges s1 /\
+        EVEN (w2n cb) /\ (!r. r IN FDOM f2 ==> EVEN r) /\
+        (s1.stack = [])))`
+
+val zBC_HEAP_BC_DIV =
+  zBC_HEAP_DIVERGES_ALT
+  |> DISCH ``(s1:bc_state).stack = []``
+  |> DISCH_ALL |> Q.INST [`stack`|->`[]`,`ev`|->`F`]
+  |> GEN_ALL
+  |> SIMP_RULE std_ss [LENGTH,AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  |> SPEC_ALL
+  |> SIMP_RULE std_ss [LET_DEF,MAP,HD,TL,APPEND,
+        SEP_CLAUSES,LENGTH,TEMPORAL_MOVE_COND]
+  |> Q.GENL [`s1`,`x`,`s`,`f2`]
+  |> SIMP_RULE std_ss [GSYM TEMPORAL_PRE_EXISTS,GSYM zHEAP_WILL_DIVERGE_def]
+
 val full_s_def = Define `
   full_s init = first_s init with
     <|handler := 1;
@@ -21227,7 +21272,8 @@ val bc_adjust_BlockList_Chr = prove(
     BlockNil_def,BlockCons_def,Chr_def,ORD_11]) |> RW [Block_FIX];
 
 val bc_adjust_BlockList_BlockSym = prove(
-  ``bc_adjust (cb,w,b) (BlockList (MAP BlockSym ts)) = BlockList (MAP BlockSym ts)``,
+  ``bc_adjust (cb,w,b) (BlockList (MAP BlockSym ts)) =
+    BlockList (MAP BlockSym ts)``,
   Induct_on `ts` \\ fs [bc_adjust_def,BlockList_def,
     BlockNil_def,BlockCons_def,Chr_def,ORD_11,BlockSym_def]
   \\ Cases \\ EVAL_TAC \\ fs [bc_adjust_BlockList_Chr]);
