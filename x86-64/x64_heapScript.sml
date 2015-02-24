@@ -20703,7 +20703,8 @@ val zHEAP_EVAL_UNTIL_STOP = let
     |> SPEC_ALL
     |> DISCH ``(s1:bc_state).stack = []``
     |> DISCH ``(s2:bc_state).stack = []``
-    |> DISCH ``s.local.printing_on = 0w``
+    |> DISCH ``(s1:bc_state).output = ""``
+    |> DISCH ``(s2:bc_state).output = ""``
     |> Q.INST [`stack`|->`[]`,`ev`|->`T`,
               `f2`|->`all_refs t1_cb F cs.stack_trunk t1.refs t1.globals`]
     |> DISCH ``cs.stack_trunk - 0x8w = sb`` |> Q.GEN `sb`
@@ -20713,12 +20714,15 @@ val zHEAP_EVAL_UNTIL_STOP = let
          EVAL ``((s2:bc_state) with stack := [x]).refs``,
          EVAL ``((s2:bc_state) with stack := [x]).globals``,
          EVAL ``((s2:bc_state) with stack := [x]).handler``,
-         bc_adjust_bool_to_val,GSYM SPEC_PRE_EXISTS]
+         bc_adjust_bool_to_val,GSYM SPEC_PRE_EXISTS,APPEND_NIL]
     |> UNDISCH_ALL
     |> SPEC_ALL
     |> DISCH ``cb + n2w (2 * s1.pc) =
                p + n2w (24 + SIGN_EXTEND 32 64 (w2n (imm32:word32))):word64``
     |> SIMP_RULE std_ss [] |> UNDISCH_ALL
+    |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss()) []))
+    |> DISCH_ALL
+    |> SIMP_RULE std_ss [APPEND_NIL] |> UNDISCH_ALL
   val SPEC_zHEAP_SWAP = prove(
     ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * zPC p * ~zS) c q ==>
       !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
@@ -21129,6 +21133,11 @@ val COMPILER_RUN_INV_handler = prove(
     (bs1.handler = 0)``,
   cheat);
 
+val COMPILER_RUN_INV_output = prove(
+  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
+    (bs1.output = "")``,
+  cheat);
+
 (* various lemmas *)
 
 val DIV_2_ADD_LEMMA =
@@ -21164,7 +21173,7 @@ val zHEAP_INR_TERMINATES = let
       (basis_repl_step x = (INR (msg,states))) /\
       (lex_until_top_semicolon_alt input = NONE) /\
       (s.input = input) /\ (s.handler = 1) /\
-      (s.local.printing_on = 0x0w) /\ EVEN (w2n (cb:word64)) /\
+      EVEN (w2n (cb:word64)) /\
       (cb + n2w (2 * code_start bs1):word64 =
        p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
   val th = th |> SPEC
@@ -21181,6 +21190,7 @@ val zHEAP_INR_TERMINATES = let
     \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
     \\ IMP_RES_TAC COMPILER_RUN_INV_inst_length
     \\ IMP_RES_TAC COMPILER_RUN_INV_handler
+    \\ IMP_RES_TAC COMPILER_RUN_INV_output
     \\ fs [GSYM real_inst_length_thm] \\ fs []
     \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
     \\ IMP_RES_TAC RTC_NRC
@@ -21202,6 +21212,86 @@ val zHEAP_INR_TERMINATES = let
   val th = MP th lemma
   in th end
 
+(* INR continues case *)
+
+val zHEAP_INR_CONTINUES = let
+  val th = SMART_WEAKEN thm_inr
+  val th = th |> Q.INST [`s1`|->`bs1`]
+  val th = th |> SPEC
+    ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
+      INPUT_TYPE x inp1 /\
+      (bs1.pc = code_start bs1) /\
+      (basis_repl_step x = (INR (msg,states))) /\
+      (lex_until_top_semicolon_alt input = SOME (ts,rest)) /\
+      (s.input = input) /\ (s.handler = 1) /\
+      EVEN (w2n (cb:word64)) /\
+      (cb + n2w (2 * code_start bs1):word64 =
+       p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
+  val th = th |> SPEC
+    ``SEP_EXISTS bs2 grd2 inp2 out2 x.
+        zHEAP (cs,Number 0,Number 0,RefPtr (2 * iptr + 2),
+          Block 0 [RefPtr 0;
+                Block 0 [RefPtr 1; RefPtr (2 * iptr + 2); RefPtr (2 * optr + 2)]],
+          both_refs cs.stack_trunk cb bs2 t1_cb t1,[],s with
+             <| input := lex_until_semi_state s.input;
+                output := STRCAT s.output msg;
+                local := <|stop_addr := 0x0w; printing_on := 0x1w|> |>,NONE) *
+        ~zS * zPC p *
+        cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\ INPUT_TYPE x inp2) \/
+        zHEAP_ERROR cs``
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    REPEAT STRIP_TAC \\ fs []
+    \\ MP_TAC COMPILER_RUN_INV_repl_step \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `T` \\ fs []
+    \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
+    \\ IMP_RES_TAC COMPILER_RUN_INV_inst_length
+    \\ IMP_RES_TAC COMPILER_RUN_INV_handler
+    \\ IMP_RES_TAC COMPILER_RUN_INV_output
+    \\ fs [GSYM real_inst_length_thm] \\ fs []
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC RTC_NRC
+    \\ `(bs1 with pc := code_start bs1) = bs1` by ALL_TAC
+    THEN1 (fs [bc_state_component_equality])
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC)
+    \\ Q.LIST_EXISTS_TAC [`n`,`bs2`] \\ fs []
+    \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+    \\ SRW_TAC [] [] \\ fs []
+    \\ (GEN_ALL COMPILER_RUN_INV_INR
+        |> Q.SPECL [`states`,`out2`,`msg`,`inp1`,`grd2`,`bs2`] |> MP_TAC)
+    \\ fs [] \\ REPEAT STRIP_TAC \\ fs [LET_DEF]
+    \\ POP_ASSUM (MP_TAC o Q.SPEC `ts`)
+    \\ REPEAT STRIP_TAC
+    \\ fs [lex_until_semi_res_def]
+    \\ `?ibc. (FLOOKUP bs2.refs iptr = SOME (ValueArray [ibc]))` by
+          METIS_TAC [COMPILER_RUN_INV_references]
+    \\ fs [FLOOKUP_DEF]
+    \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+           bc_adjust_BlockList_Chr,SEP_IMP_REFL]
+    \\ REPEAT STRIP_TAC THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
+    \\ fs [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
+    \\ REVERSE (REPEAT STRIP_TAC) THEN1 (fs [])
+    \\ fs [cond_STAR]
+    \\ Q.PAT_ASSUM `COMPILER_RUN_INV bs2' grd2' inp2 out2'` MP_TAC
+    \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
+    \\ REPEAT STRIP_TAC
+    \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`,`(SOME (ts,states))`]
+    \\ fs [] \\ DISJ1_TAC
+    \\ Q.PAT_ASSUM `fff s'` MP_TAC
+    \\ fs [AC STAR_COMM STAR_ASSOC]
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(p = b) ==> (p ==> b)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
+    \\ REVERSE (REPEAT STRIP_TAC)
+    THEN1 (fs [fetch "-" "zheap_state_component_equality"])
+    \\ cheat (* easy-ish *))
+  val th = MP th lemma
+  in th end
+
 
 
 (*
@@ -21212,6 +21302,9 @@ val zHEAP_INR_TERMINATES = let
   COMPILER_RUN_INV_references
   COMPILER_RUN_INV_ptrs
   repl_funTheory.basis_main_loop_def
+
+  print_find "code_executes_ok_def"
+
 *)
 
 
