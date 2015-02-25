@@ -699,6 +699,30 @@ val merge_moves_frame2 = prove(``
     fs[EXTENSION]>>rw[]>>
     metis_tac[domain_lookup,lookup_insert])
 
+(*Another frame proof about unchanged lookups*)
+val merge_moves_frame3 = prove(``
+  ∀ls na ssaL ssaR.
+  let(moveL,moveR,na',ssaL',ssaR') = merge_moves ls ssaL ssaR na in
+  ∀x. ¬MEM x ls ∨ x ∉ domain (inter ssaL ssaR) ⇒ 
+    lookup x ssaL' = lookup x ssaL ∧ 
+    lookup x ssaR' = lookup x ssaR``,
+  Induct>>fs[merge_moves_def]>-
+    (rw[]>>fs[])>>
+  rpt strip_tac>>
+  fs[LET_THM]>>
+  last_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`] assume_tac)>>
+  rfs[LET_THM]>>
+  Cases_on`merge_moves ls ssaL ssaR na`>>PairCases_on`r`>>rfs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(metis_tac[])>>
+  rw[]>>fs[lookup_insert]>>
+  IF_CASES_TAC>>fs[]>>
+  Q.ISPECL_THEN [`ls`,`na`,`ssaL`,`ssaR`] assume_tac merge_moves_frame2>>
+  rfs[LET_THM]>>
+  `h ∈ domain r3 ∧ h ∈ domain r2` by fs[domain_lookup]>>
+  fs[domain_inter]>>
+  metis_tac[])
+
 (*Don't know a neat way to prove this for both sides at once neatly,
 Also, the cases are basically copy pasted... *)
 
@@ -912,6 +936,123 @@ val fake_moves_frame2 = prove(``
   fs[EXTENSION,domain_inter]>>rw[]>>
   metis_tac[domain_lookup,lookup_insert])
 
+val fake_moves_frame3 = prove(``
+  ∀ls na ssaL ssaR.
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  ∀x. ¬ MEM x ls ∨ x ∈ domain(inter ssaL ssaR) ⇒ 
+    lookup x ssaL' = lookup x ssaL ∧ 
+    lookup x ssaR' = lookup x ssaR``,
+  Induct>>fs[fake_moves_def]>-
+    (rw[]>>fs[])
+  >>
+  rpt strip_tac>>
+  fs[LET_THM]>>
+  last_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`] assume_tac)>>
+  rfs[LET_THM]>>
+  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>rfs[]>>
+  Q.ISPECL_THEN[`ls`,`na`,`ssaL`,`ssaR`] assume_tac fake_moves_frame2>>
+  rfs[LET_THM]>>
+  EVERY_CASE_TAC>>
+  fs[EXTENSION,domain_inter]>>rw[]>>
+  fs[lookup_insert]>>
+  IF_CASES_TAC>>fs[]>>
+  `h ∈ domain r2` by fs[domain_lookup]>>
+  res_tac>>
+  fs[lookup_NONE_domain])
+
+val fake_moves_correctL = prove(``
+  ∀ls na ssaL ssaR stL cstL.
+  is_alloc_var na ∧
+  ALL_DISTINCT ls ∧ 
+  ssa_map_ok na ssaL
+  ⇒ 
+  let(moveL,moveR,na',ssaL',ssaR') = fake_moves ls ssaL ssaR na in
+  (ssa_locals_rel na ssaL stL.locals cstL.locals ⇒ 
+  let (resL,rcstL) = wEval(moveL,cstL) in
+    resL = NONE ∧
+    (∀x. ¬MEM x ls ⇒ lookup x ssaL' = lookup x ssaL) ∧ 
+    (∀x y. (x < na ∧ lookup x cstL.locals = SOME y)
+    ⇒  lookup x rcstL.locals = SOME y) ∧
+    ssa_locals_rel na' ssaL' stL.locals rcstL.locals ∧ 
+    word_state_eq_rel cstL rcstL)``,
+  Induct>>fs[fake_moves_def]>-
+    (rw[]>>
+    fs[wEval_def,word_state_eq_rel_def,get_vars_def,set_vars_def,list_insert_def]>>
+    rfs[]>>rw[])>>
+  rpt strip_tac>>
+  first_x_assum(qspecl_then[`na`,`ssaL`,`ssaR`,`stL`,`cstL`]mp_tac)>>
+  discharge_hyps>-
+    (rfs[LET_THM]>>
+    metis_tac[])>>
+  strip_tac>>
+  rfs[LET_THM]>>
+  Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  strip_tac>>fs[]>>
+  fs[wEval_def,LET_THM,wEval_def,fake_move_def,word_exp_def]>>
+  Cases_on`wEval(q,cstL)`>>fs[]>>
+  `na ≤ r1 ∧ ssa_map_ok r1 r2` by 
+    (imp_res_tac fake_moves_frame>>
+    fs[LET_THM]>>
+    pop_assum(qspecl_then[`ssaR`,`ssaL`,`ls`]assume_tac)>>rfs[])
+  >-
+    (fs[ssa_locals_rel_def]>>
+    res_tac>>
+    fs[domain_lookup,get_vars_def,get_var_def,set_vars_def,list_insert_def]>>
+    rw[]>>fs[lookup_insert]
+    >-
+      (`x' ≠ r1` by DECIDE_TAC>>
+      fs[lookup_insert])
+    >-
+      (IF_CASES_TAC>>fs[]>>
+      Cases_on`x'=h`>>fs[]>>
+      metis_tac[])
+    >-
+      (Cases_on`x'=h`>>fs[]>-
+      (res_tac>>fs[]>>
+      qpat_assum`lookup h r2 = SOME v'''` SUBST_ALL_TAC>>
+      fs[]>>
+      rfs[])
+      >>
+      res_tac>>fs[]>>
+      `v''' < r1` by 
+        (fs[ssa_map_ok_def]>>
+        metis_tac[])>>
+      `v''' ≠ r1` by DECIDE_TAC>>
+      fs[])
+    >-
+      (res_tac>> 
+      DECIDE_TAC)
+    >>
+      fs[word_state_eq_rel_def])
+  >-
+    (fs[ssa_locals_rel_def]>>
+    res_tac>>
+    fs[domain_lookup,set_var_def]>>
+    rw[]>>fs[lookup_insert]
+    >-
+      (`x' ≠ r1` by DECIDE_TAC>>
+      fs[lookup_insert])
+    >-
+      (IF_CASES_TAC>>fs[]>>
+      Cases_on`x'=h`>>fs[]>>
+      metis_tac[])
+    >-
+      (Cases_on`x'=h`>>fs[]>-
+        (res_tac>>fs[])
+      >>
+      res_tac>>fs[]>>
+      `v' < r1` by 
+        (fs[ssa_map_ok_def]>>
+        metis_tac[])>>
+      `v' ≠ r1` by DECIDE_TAC>>
+      fs[])
+    >-
+      (res_tac>> 
+      DECIDE_TAC)
+    >>
+      fs[word_state_eq_rel_def]))
+ 
 val fake_moves_correctR = prove(``
   ∀ls na ssaL ssaR stR cstR.
   is_alloc_var na ∧
@@ -943,7 +1084,10 @@ val fake_moves_correctR = prove(``
   strip_tac>>fs[]>>
   fs[wEval_def,LET_THM,wEval_def,fake_move_def,word_exp_def]>>
   Cases_on`wEval(r0,cstR)`>>fs[]>>
-  `na ≤ r1 ∧ ssa_map_ok r1 r3` by cheat
+  `na ≤ r1 ∧ ssa_map_ok r1 r3` by 
+    (imp_res_tac fake_moves_frame>>
+    fs[LET_THM]>>
+    pop_assum(qspecl_then[`ssaR`,`ssaL`,`ls`]assume_tac)>>rfs[])
   >-
     (fs[ssa_locals_rel_def]>>
     res_tac>>
@@ -1406,6 +1550,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       NONE => 
         ssa_locals_rel na' ssa' rst.locals rcst.locals 
     | _    => T )``,
+    cheat)    
   completeInduct_on`word_prog_size (K 0) prog`>>
   rpt strip_tac>>
   fs[PULL_FORALL,wEval_def]>>
@@ -1520,7 +1665,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
   >- (*Store*)
     cheat
   >- (*Call*)
-    (Cases_on`o'`
+    cheat
+    (*Cases_on`o'`
     >-
     (*Tail call*)
     (exists_tac>>
@@ -1953,7 +2099,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       TODO: Figure out a way to do the first part of the reasoning same as
       the other case -- probably by case splitting later..
     *)
-    cheat) 
+    cheat*) 
   >- (*Seq*)
     (rw[]>>fs[wEval_def,ssa_cc_trans_def,LET_THM]>>
     last_assum(qspecl_then[`w`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
@@ -1984,7 +2130,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     rfs[LET_THM]>>
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- (*If*)
-   (fs[wEval_def,coloring_ok_def,LET_THM,ssa_cc_trans_def]>>
+   (fs[wEval_def,colouring_ok_def,LET_THM,ssa_cc_trans_def]>>
     last_assum(qspecl_then[`w`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
     size_tac>>discharge_hyps>>fs[every_var_def]>>
     fs[]>>rw[]>>
@@ -2031,24 +2177,31 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         (Cases_on`x`>>fs[]>>
         qpat_assum`A = res'` (SUBST_ALL_TAC o SYM)>>fs[])>>
       fs[]>>
-      fs[fix_inconsistencies_def,LET_THM]>>
-      qabbrev_tac`ls = MAP FST (toAList (union r0' r0''))`>>
-      Cases_on`merge_moves ls r0' r0'' r1''`>>PairCases_on`r'''`>>fs[]>>
-      Cases_on`fake_moves ls r'''2 r'''3 r'''1` >>PairCases_on`r'''`>>fs[]>>
-      cheat)
-      (*PairCases_on`r'''`>>
-      rfs[]>>
-      Q.SPECL_THEN [`ls`,`r1''`,`r0'`,`r0''`,`r''`,`s1`] mp_tac 
+      fs[fix_inconsistencies_def]>>
+      qpat_assum`A=(q''',r0''',r1''',r2)` mp_tac>>LET_ELIM_TAC>>
+      fs[]>>
+      Q.SPECL_THEN [`var_union`,`r1''`,`r0'`,`r0''`,`r''`,`s1`,`1`] mp_tac 
         merge_moves_correctL>>
-      discharge_hyps>-
-        cheat (*separate proof*)
+      imp_res_tac ssa_cc_trans_props>>
+      fs[]>>
+      discharge_hyps_keep>- 
+        (fs[Abbr`var_union`,ALL_DISTINCT_MAP_FST_toAList]>>
+        metis_tac[ssa_map_ok_more])>>
+      LET_ELIM_TAC>>
+      ntac 2 (pop_assum mp_tac)>>discharge_hyps
+      >-
+        metis_tac[ssa_map_ok_more,ssa_locals_rel_more]
       >>
-      fs[LET_THM]>>
-      discharge_hyps>-
-        (`r1' ≤ r1''` by cheat>>
-        metis_tac[ssa_locals_rel_more])
-      >>
-      Cases_on`wEval(q''',s1)`>>fs[word_state_eq_rel_def]*)
+      rw[]>>simp[Once wEval_def]>>
+      Q.SPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`r''`,`rcstL`]mp_tac 
+        fake_moves_correctL>>
+      discharge_hyps>- 
+      (Q.ISPECL_THEN [`var_union`,`r1''`,`r0'`,`r0''`] assume_tac merge_moves_frame>>rfs[LET_THM])>>
+      LET_ELIM_TAC>>
+      ntac 2 (pop_assum mp_tac)>>discharge_hyps
+      >-
+        metis_tac[ssa_map_ok_more,ssa_locals_rel_more]>>
+      rw[]>>fs[word_state_eq_rel_def]>>rfs[])
     >>
       (first_assum(qspecl_then[`w1`,`r`,`r'`,`r0`,`r1'`] mp_tac)>>
       size_tac>>
@@ -2074,35 +2227,51 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         (Cases_on`x`>>fs[]>>
         qpat_assum`A = res'` (SUBST_ALL_TAC o SYM)>>fs[])>>
       fs[]>>
-      fs[fix_inconsistencies_def,LET_THM]>>
-      qabbrev_tac`ls = MAP FST (toAList (union r0' r0''))`>>
-      cheat))
-      (*
-      Cases_on`merge_moves ls r0' r0'' r1''`>>
-      PairCases_on`r'''`>>
-      rfs[]>>
-      Q.SPECL_THEN [`ls`,`r1''`,`r0'`,`r0''`,`r''`,`s1`] mp_tac 
+      fs[fix_inconsistencies_def]>>
+      qpat_assum`A=(q''',r0''',r1''',r2)` mp_tac>>LET_ELIM_TAC>>
+      fs[]>>
+      Q.SPECL_THEN [`var_union`,`r1''`,`r0'`,`r0''`,`r''`,`s1`,`1`] mp_tac 
         merge_moves_correctR>>
-      discharge_hyps>-
-        cheat (*separate proof*)
-      >>
-      fs[LET_THM]>>
-      Cases_on`wEval(r0''',s1)`>>fs[word_state_eq_rel_def]>>
+      imp_res_tac ssa_cc_trans_props>>
+      fs[]>>
+      discharge_hyps_keep>- 
+        (fs[Abbr`var_union`,ALL_DISTINCT_MAP_FST_toAList]>>
+        metis_tac[ssa_map_ok_more])>>
+      LET_ELIM_TAC>>
+      rw[]>>simp[Once wEval_def]>>
+      Q.SPECL_THEN [`var_union`,`na'`,`ssaL'`,`ssaR'`,`r''`,`rcstR`]mp_tac 
+        fake_moves_correctR>>
+      discharge_hyps>- 
+      (Q.ISPECL_THEN [`var_union`,`r1''`,`r0'`,`r0''`] assume_tac merge_moves_frame>>rfs[LET_THM])>>
+      LET_ELIM_TAC>>
+      ntac 2 (pop_assum mp_tac)>>discharge_hyps
+      >-
+        metis_tac[ssa_map_ok_more,ssa_locals_rel_more]>>
       rw[]>>
+      rfs[]>>
+      fs[word_state_eq_rel_def]>>
+      Q.ISPECL_THEN[`var_union`,`r1''`,`r0'`,`r0''`] assume_tac 
+        merge_moves_frame2>>
+      Q.ISPECL_THEN[`var_union`,`na'`,`ssaL'`,`ssaR'`] assume_tac
+        fake_moves_frame2>>
+      Q.ISPECL_THEN[`var_union`,`r1''`,`r0'`,`r0''`] assume_tac 
+        merge_moves_frame3>>
+      Q.ISPECL_THEN[`var_union`,`na'`,`ssaL'`,`ssaR'`] assume_tac
+        fake_moves_frame3>>
+      rfs[LET_THM]>>
       match_mp_tac (GEN_ALL ssa_eq_rel_swap)>>
       HINT_EXISTS_TAC>>rfs[]>>
-      Q.ISPECL_THEN [`ls`,`r1''`,`r0'`,`r0''`]assume_tac merge_moves_frame2>>
-      rfs[LET_THM]>>
-      fs[Abbr`ls`,EXTENSION]>>CONJ_ASM1_TAC>-
+      fs[Abbr`var_union`,EXTENSION]>>CONJ_ASM1_TAC>-
         (fs[toAList_domain,domain_union]>>
         metis_tac[])
       >>
       fs[toAList_domain]>>rw[]>>
-      Cases_on`x ∈ domain (union r0' r0'')`>>
-      fs[domain_union]>>
-      `x ∉ domain r'''3` by metis_tac[]>>
-      `x ∉ domain r'''2` by metis_tac[]>>
-      metis_tac[lookup_NONE_domain])*)
+      reverse(Cases_on`x ∈ domain (union r0' r0'')`)>-
+        (fs[domain_union]>>
+        metis_tac[lookup_NONE_domain])
+      >>
+      fs[domain_inter]>>
+      metis_tac[]))
   >- (*Alloc*)
     (fs[ssa_cc_trans_def,wEval_def,get_var_perm,LET_THM]>>
     Cases_on`get_var n st`>>
