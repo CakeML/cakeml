@@ -479,7 +479,7 @@ val good_labels_def = Define`
 val code_executes_ok_def = Define `
   code_executes_ok s1 ⇔
       (* termination *)
-      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b)) \/
+      (?s2 b. bc_next^* s1 s2 /\ bc_fetch s2 = SOME (Stop b) /\ s2.stack = [] /\ s2.handler = 0) \/
       (* or divergence with no output *)
       !n. ?s2. NRC bc_next n s1 s2 /\ (s2.output = s1.output)`;
 
