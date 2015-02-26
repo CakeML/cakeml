@@ -28,7 +28,6 @@ open repl_funProofTheory
 val _ = ParseExtras.temp_loose_equality();
 
 (*
-val _ = PolyML.SaveState.saveState "x64_heap_state";
 val _ = PolyML.SaveState.loadState "x64_heap_state";
 *)
 
@@ -13988,20 +13987,14 @@ val (res,ic_List_def,ic_List_pre_def) = x64_compile `
       let x3 = x1 in
       let (x2,stack) = (HD stack,TL stack) in
       let (x1,stack) = (HD stack,TL stack) in
-        if getNumber x1 = 18 then
-          let s = s with code_start := s.code in
-            ic_List (x1,x2,x3,x4,s,stack)
-        else
-          let (x1,x2,x3,s) = ic_Any (x1,x2,x3,s) in
-            ic_List (x1,x2,x3,x4,s,stack)`
+      let (x1,x2,x3,s) = ic_Any (x1,x2,x3,s) in
+        ic_List (x1,x2,x3,x4,s,stack)`
 
 val install_x64_code_lists_def = Define `
-  (install_x64_code_lists [] s = s) /\
-  (install_x64_code_lists ((x:num # num # num)::xs) s =
-     if FST x = 18 then
-       install_x64_code_lists xs (s with code_start := s.code)
-     else install_x64_code_lists xs
-       (s with code := s.code ++ x64_code (LENGTH s.code) [num_bc x]))`;
+  (install_x64_code_lists [] s_code = s_code) /\
+  (install_x64_code_lists ((x:num # num # num)::xs) s_code =
+     install_x64_code_lists xs
+       (s_code ++ x64_code (LENGTH s_code) [num_bc x]))`;
 
 val ic_List_thm = prove(
   ``!code x1 x2 x3 s stack.
@@ -14009,13 +14002,14 @@ val ic_List_thm = prove(
       ?y1 y2 y3.
         (ic_List_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack)) /\
         (ic_List (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) =
-           (y1,y2,y3,BlockList [],install_x64_code_lists code s,stack))``,
+           (y1,y2,y3,BlockList [],
+            s with code := install_x64_code_lists code s.code,stack))``,
   Induct \\ SIMP_TAC std_ss [MAP,APPEND] THEN1
    (FULL_SIMP_TAC std_ss [APPEND] \\ REPEAT STRIP_TAC
     \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def,BlockList_def]
     \\ FULL_SIMP_TAC std_ss [x64_code_def,APPEND_NIL,install_x64_code_lists_def]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,HD,TL,EVAL ``isSmall BlockNil``]
-    \\ EVAL_TAC)
+    \\ EVAL_TAC \\ fs [fetch "-" "zheap_state_component_equality"])
   \\ SIMP_TAC std_ss [Once ic_List_def,Once ic_List_pre_def]
   \\ SIMP_TAC std_ss [isSmall_def,x64_code_def,LET_DEF,
          APPEND_NIL,s_with_code,canCompare_def,NOT_CONS_NIL]
@@ -14028,10 +14022,6 @@ val ic_List_thm = prove(
   \\ SIMP_TAC (srw_ss()) [EVAL ``Num 0``,EVAL ``Num 1``,EL,HD,TL,getContent_def,
        isBlock_def,BlockNum3_def,isNumber_def,getNumber_def,canCompare_def,
        BlockPair_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `h1 = 18` \\ FULL_SIMP_TAC std_ss [] THEN1
-   (SEP_I_TAC "ic_List" \\ POP_ASSUM MP_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-    \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
   \\ FULL_SIMP_TAC std_ss []
   \\ MP_TAC (Q.SPECL [`h1`,`h2`,`h3`] ic_Any_thm)
   \\ REPEAT STRIP_TAC \\ fs [] \\ rfs []
@@ -14048,6 +14038,7 @@ val (ic_full_res,ic_full_def,ic_full_pre_def) = x64_compile `
     let stack = x1 :: stack in
     let stack = x2 :: stack in
     let stack = x3 :: stack in
+    let s = s with code_start := s.code in
     let (x1,x2,x3,x4,s,stack) = ic_List (x1,x2,x3,x4,s,stack) in
     let (x3,stack) = (HD stack, TL stack) in
     let (x2,stack) = (HD stack, TL stack) in
@@ -14059,18 +14050,13 @@ val ic_full_thm = prove(
   ``(s.code_mode = SOME F) ==>
     ic_full_pre (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) /\
     (ic_full (x1,x2,x3,BlockList (MAP BlockNum3 code),s,stack) =
-      (x1,x2,x3,x1,install_x64_code_lists code s,stack))``,
+      (x1,x2,x3,x1,s with <| code := install_x64_code_lists code s.code ;
+                             code_start := s.code |>, stack))``,
   Q.SPEC_TAC (`x4`,`x4`) \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [ic_full_def,ic_full_pre_def,LET_DEF]
-  \\ MP_TAC (ic_List_thm |> SPEC_ALL |> Q.INST [`stack`|->`x3::x2::x1::stack`])
-  \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
-
-val install_x64_code_lists_code_mode = prove(
-  ``!code s.
-       ((install_x64_code_lists code s).code_mode = s.code_mode) /\
-       (((install_x64_code_lists code s) with code_mode := mode) =
-        ((install_x64_code_lists code (s with code_mode := mode))))``,
-  Induct \\ SRW_TAC [] [install_x64_code_lists_def]);
+  \\ MP_TAC (ic_List_thm |> SPEC_ALL |> Q.INST [`stack`|->`x3::x2::x1::stack`,
+               `s`|->`s with code_start := s.code`])
+  \\ fs [] \\ STRIP_TAC \\ FULL_SIMP_TAC (srw_ss()) []);
 
 val zHEAP_INSTALL_CODE = let
   val th = ic_full_res
@@ -14083,10 +14069,8 @@ val zHEAP_INSTALL_CODE = let
              zHEAP_CODE_UNSAFE,th,
              zHEAP_CODE_SAFE,zHEAP_POP1,
              zHEAP_JMP_CODE_START]
-  val th = th |> CONV_RULE (PRE_CONV (SIMP_CONV (srw_ss()) [SEP_CLAUSES,
-                   install_x64_code_lists_code_mode]))
-  val th = th |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss()) [SEP_CLAUSES,
-                   install_x64_code_lists_code_mode]))
+  val th = th |> CONV_RULE (PRE_CONV (SIMP_CONV (srw_ss()) [SEP_CLAUSES]))
+  val th = th |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss()) [SEP_CLAUSES]))
   val th = abbreviate_code "install_and_run" ``cs.install_and_run_ptr`` th
   in th end;
 
@@ -20924,7 +20908,7 @@ val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
        |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
        |> RW [EVAL ``-1w:word8``]
   val code_length_inr = code_length
-  in (code_length_inr,th) end
+  in (code_length_inr,th) end;
 
 val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
@@ -20941,7 +20925,7 @@ val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
        |> Q.INST [`inl_jump`|->`^inl_jump`]
        |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[lemma]))
        |> CONV_RULE ((RATOR_CONV o RAND_CONV) (SIMP_CONV (srw_ss())[]))
-  in (th_inr,th_inl) end
+  in (th_inr,th_inl) end;
 
 val zHEAP_RUN_INL_UP_TO_EVAL = let
   val th =
@@ -21001,7 +20985,7 @@ val both_refs_intro = prove(
   \\ IMP_RES_TAC ref_adjust_IMP_ODD
   \\ IMP_RES_TAC ref_adjust_IMP_EVEN
   \\ fs [ODD_EVEN] \\ SRW_TAC [] []
-  \\ fs [EVAL ``ODD 0``,EVAL ``EVEN 1``])
+  \\ fs [EVAL ``ODD 0``,EVAL ``EVEN 1``]);
 
 val zHEAP_RUN_INL_INCLUDING_EVAL = let
   val th =
@@ -21060,7 +21044,7 @@ val zHEAP_RUN_INL_INCLUDING_EVAL = let
     |> SIMP_RULE std_ss [word_arith_lemma1]
     |> UNDISCH_ALL
     |> RW [GSYM BlockBool_def]
-  in th end
+  in th end;
 
 val zHEAP_RUN_INL = let
   val th =
@@ -21084,11 +21068,20 @@ val zHEAP_RUN_INL = let
          getNumber_def,isNumber_def,isRefPtr_def,EL_SIMPS]
     |> CONV_RULE (POST_CONV (SIMP_CONV (srw_ss())[]))
     |> RW [zHEAP_ERROR_ERROR,Num_0]
+  val c = SIMP_CONV (srw_ss()) []
+  val c1 = SIMP_CONV std_ss [word_arith_lemma1]
   val th3 = th2
     |> DISCH ``both_refs cs.stack_trunk t1_cb_new t1_new
-                       cs.code_heap_ptr s2_new ' (2 * iptr + 2) = ValueArray [tt]``
+                 cs.code_heap_ptr s2_new ' (2 * iptr + 2) = ValueArray [tt]``
     |> SIMP_RULE std_ss [getValueArray_def,isValueArray_def,ADD_ASSOC,
          EVAL ``LUPDATE x 0 [y]``,LENGTH,SEP_CLAUSES] |> UNDISCH_ALL
+    |> CONV_RULE (RAND_CONV c THENC (RATOR_CONV o RAND_CONV) c)
+    |> DISCH_ALL |> RW [AND_IMP_INTRO]
+    |> CONV_RULE ((RATOR_CONV o RAND_CONV) c)
+    |> RW [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+    |> CONV_RULE (RAND_CONV c1)
+    |> RW1 [DECIDE ``m + n + k = (m+k)+n:num``]
+    |> SIMP_RULE std_ss []
   val tm = get_pc th3
   val code_length = tm |> rand |> rand |> rand |> rator |> rand
   val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
@@ -21174,6 +21167,8 @@ val SPEC_WEAKEN_EXISTS = prove(
             i ==> SPEC m p c q1``,
   REPEAT STRIP_TAC \\ Cases_on `i` \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ METIS_TAC [SPEC_WEAKEN]);
+
+val BINOP1_CONV = RATOR_CONV o RAND_CONV
 
 fun SMART_WEAKEN th = let
   val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC]
@@ -21422,22 +21417,52 @@ val zHEAP_INR_CONTINUES = let
 
 (* INL will-diverge case *)
 
+val install_x64_code_lists_x64_code = prove(
+  ``!code ts.
+      (install_x64_code_lists code (x64_code 0 ts) =
+      x64_code 0 (ts ++ MAP num_bc code))``,
+  cheat);
+
+val TWICE_SUM = prove(
+  ``!xs. 2 * SUM xs = SUM (MAP (\n. 2 * n) xs)``,
+  Induct \\ fs [LEFT_ADD_DISTRIB]);
+
+val SUM_MAP_FILTER = prove(
+  ``!xs f P.
+      SUM (MAP f (FILTER P xs)) = SUM (MAP (\x. if P x then f x else 0) xs)``,
+  Induct \\ fs [] \\ SRW_TAC [] []);
+
+val TWO_TIMES_next_addr = prove(
+  ``2 * next_addr x64_inst_length t1.code = LENGTH (x64_code 0 t1.code)``,
+  fs [LENGTH_x64_code,TWICE_SUM] \\ fs [MAP_MAP_o,o_DEF]
+  \\ fs [SUM_MAP_FILTER]
+  \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [FUN_EQ_THM]
+  \\ Cases_on `x` \\ EVAL_TAC
+  \\ TRY (Cases_on `b` \\ EVAL_TAC)
+  \\ SRW_TAC [] []
+  \\ TRY (Cases_on `l` \\ EVAL_TAC)
+  \\ SRW_TAC [] []);
+
 val zHEAP_INL_DIVERGES = let
   val th = SMART_WEAKEN thm_inl_div
-  val th = th |> Q.INST [`s1`|->`bs1`]
+  val th = th |> Q.INST [`s1`|->`bs1`,`t1_cb`|->`cs.code_heap_ptr`,`bs`|->`t1`]
   val th = th |> SPEC
     ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
       INPUT_TYPE x inp1 /\
       (bs1.pc = code_start bs1) /\
       (basis_repl_step x = INL (code,new_states)) /\
-      code_executes_ok (install_bc_lists code bs) /\
-      (bc_eval (install_bc_lists code bs) = NONE) /\
+      code_executes_ok (install_bc_lists code t1) /\
+      (bc_eval (install_bc_lists code t1) = NONE) /\
+      (t1.inst_length = x64_inst_length) /\ (t1.handler = 0) /\
+      (t1.stack = []) /\ EVEN (w2n cs.code_heap_ptr) /\
+      (s.code = x64_code 0 t1.code) /\
       (s.handler = 1) /\ (s.code_mode = SOME T) /\
       (s.local.printing_on = 0w) /\ EVEN (w2n (cb:word64)) /\
       (cb + n2w (2 * code_start bs1):word64 =
        p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
   val th = th |> SPEC
-    ``zHEAP_WILL_DIVERGE s.output cs t1_cb \/ zHEAP_ERROR cs``
+    ``zHEAP_WILL_DIVERGE s.output cs cs.code_heap_ptr \/ zHEAP_ERROR cs``
   val goal = th |> concl |> dest_imp |> fst
 (*
   gg goal
@@ -21470,9 +21495,47 @@ val zHEAP_INL_DIVERGES = let
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,
            bc_adjust_BlockList_BlockNum3 |> RW [Block_FIX]])
     THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
-    \\ cheat) (* possible? *)
+    \\ fs [SEP_IMP_def,SEP_DISJ_def]
+    \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ1_TAC
+    \\ fs [zHEAP_WILL_DIVERGE_def,SEP_CLAUSES,SEP_EXISTS_THM,
+           zBC_HEAP_def,LET_DEF,ref_addr_def]
+    \\ fs [both_refs_def]
+    \\ Q.EXISTS_TAC `all_refs cb T cs.stack_trunk bs2.refs bs2.globals`
+    \\ Q.EXISTS_TAC `s with
+           <|output := s.output; handler := 1; code_mode := SOME T;
+             code := install_x64_code_lists code s.code;
+             code_start := s.code;
+             local := s.local with stop_addr := p + 0x321w|>`
+    \\ Q.EXISTS_TAC `Block pair_tag [Block 0 [RefPtr 0; Block 0 [RefPtr
+                      1; RefPtr (2 * iptr + 2); RefPtr (2 * optr + 2)]];
+                      bc_adjust (cb,cs.stack_trunk +
+                      0xFFFFFFFFFFFFFFF8w,T) s_bc_val]`
+    \\ Q.EXISTS_TAC `install_bc_lists code t1` \\ fs []
+    \\ Q.EXISTS_TAC `Number 0` \\ fs []
+    \\ Q.EXISTS_TAC `Number 0` \\ fs []
+    \\ SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+    \\ `bc_diverges (install_bc_lists code t1)` by
+     (fs [bc_diverges_def]
+      \\ IMP_RES_TAC repl_funProofTheory.bc_eval_NONE_NRC \\ METIS_TAC [])
+    \\ fs [] \\ STRIP_TAC THEN1
+     (fs [install_bc_lists_def]
+      \\ fs [initCompEnvTheory.install_code_def]
+      \\ fs [install_x64_code_lists_x64_code]
+      \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
+    \\ fs [install_bc_lists_def]
+    \\ fs [initCompEnvTheory.install_code_def,GSYM both_refs_def]
+    \\ FULL_SIMP_TAC std_ss [FUNION_ASSOC,both_refs_intro,GSYM all_refs_def,
+             GSYM (SIMP_CONV (srw_ss()) [] ``w-8w:word64``),
+         TWO_TIMES_next_addr]
+    \\ fs [AC STAR_ASSOC STAR_COMM]
+    \\ Q.PAT_ASSUM `ff s'` MP_TAC
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(b=c) ==> (b ==> c)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC))
   val th = MP th lemma
   in th end
+
+
+
 
 
 
@@ -21492,9 +21555,6 @@ val zHEAP_INL_DIVERGES = let
   print_find "code_executes_ok_def"
 
 *)
-
-
-
 
 
 (* cheat CHEAT
@@ -22068,6 +22128,10 @@ val spt_to_bv_def = Define `
 
 print_compiler_grammar()
 
+*)
+
+(*
+val _ = PolyML.SaveState.saveState "x64_heap_state";
 *)
 
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
