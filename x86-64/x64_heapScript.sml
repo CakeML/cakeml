@@ -21300,6 +21300,63 @@ val bc_adjust_BlockList_BlockNum3 = prove(
     BlockNil_def,BlockCons_def,Chr_def,ORD_11,BlockNum3_def]
   \\ Cases \\ Cases_on `r` \\ EVAL_TAC \\ fs [bc_adjust_BlockList_Chr]);
 
+val install_x64_code_lists_alt_def = Define `
+  (install_x64_code_lists_alt [] n = []) /\
+  (install_x64_code_lists_alt (x::xs) n =
+     x64_code n [num_bc x] ++
+     install_x64_code_lists_alt xs (n + LENGTH (x64_code n [num_bc x])))`
+
+val install_x64_code_lists_alt_thm = prove(
+  ``!xs ts.
+      install_x64_code_lists xs ts =
+      ts ++ install_x64_code_lists_alt xs (LENGTH ts)``,
+  Induct \\ fs [install_x64_code_lists_def,install_x64_code_lists_alt_def]);
+
+val install_x64_code_lists_x64_code = prove(
+  ``!code ts.
+      (install_x64_code_lists code (x64_code 0 ts) =
+      x64_code 0 (ts ++ MAP num_bc code))``,
+  fs [install_x64_code_lists_alt_thm]
+  \\ fs [x64_code_APPEND,LENGTH_x64_code]
+  \\ REPEAT STRIP_TAC
+  \\ Q.SPEC_TAC (`(SUM (MAP x64_length ts))`,`n`)
+  \\ Induct_on `code`
+  \\ fs [install_x64_code_lists_alt_def,
+         x64_code_def,x64_length_def,LENGTH_x64_IGNORE]);
+
+val TWICE_SUM = prove(
+  ``!xs. 2 * SUM xs = SUM (MAP (\n. 2 * n) xs)``,
+  Induct \\ fs [LEFT_ADD_DISTRIB]);
+
+val SUM_MAP_FILTER = prove(
+  ``!xs f P.
+      SUM (MAP f (FILTER P xs)) = SUM (MAP (\x. if P x then f x else 0) xs)``,
+  Induct \\ fs [] \\ SRW_TAC [] []);
+
+val TWO_TIMES_next_addr = prove(
+  ``2 * next_addr x64_inst_length t1.code = LENGTH (x64_code 0 t1.code)``,
+  fs [LENGTH_x64_code,TWICE_SUM] \\ fs [MAP_MAP_o,o_DEF]
+  \\ fs [SUM_MAP_FILTER]
+  \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+  \\ fs [FUN_EQ_THM]
+  \\ Cases_on `x` \\ EVAL_TAC
+  \\ TRY (Cases_on `b` \\ EVAL_TAC)
+  \\ SRW_TAC [] []
+  \\ TRY (Cases_on `l` \\ EVAL_TAC)
+  \\ SRW_TAC [] []);
+
+val bc_next_11 = prove(
+  ``!x y z. bc_next x y /\ bc_next x z ==> (y = z)``,
+  REPEAT STRIP_TAC
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_next_bc_eval1 \\ fs []);
+
+val NRC_11 = prove(
+  ``(!x y z. R x y /\ R x z ==> (y = z)) ==>
+    !x y z. NRC R n x y /\ NRC R n x z ==> (y = z)``,
+  Induct_on `n` \\ fs [NRC]
+  \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC []);
+
+
 (* INR terminates case *)
 
 val zHEAP_INR_TERMINATES = let
@@ -21349,6 +21406,7 @@ val zHEAP_INR_TERMINATES = let
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
   val th = MP th lemma
   in th end
+
 
 (* INR continues case *)
 
@@ -21436,51 +21494,6 @@ val zHEAP_INR_CONTINUES = let
 
 
 (* INL will-diverge case *)
-
-val install_x64_code_lists_alt_def = Define `
-  (install_x64_code_lists_alt [] n = []) /\
-  (install_x64_code_lists_alt (x::xs) n =
-     x64_code n [num_bc x] ++
-     install_x64_code_lists_alt xs (n + LENGTH (x64_code n [num_bc x])))`
-
-val install_x64_code_lists_alt_thm = prove(
-  ``!xs ts.
-      install_x64_code_lists xs ts =
-      ts ++ install_x64_code_lists_alt xs (LENGTH ts)``,
-  Induct \\ fs [install_x64_code_lists_def,install_x64_code_lists_alt_def]);
-
-val install_x64_code_lists_x64_code = prove(
-  ``!code ts.
-      (install_x64_code_lists code (x64_code 0 ts) =
-      x64_code 0 (ts ++ MAP num_bc code))``,
-  fs [install_x64_code_lists_alt_thm]
-  \\ fs [x64_code_APPEND,LENGTH_x64_code]
-  \\ REPEAT STRIP_TAC
-  \\ Q.SPEC_TAC (`(SUM (MAP x64_length ts))`,`n`)
-  \\ Induct_on `code`
-  \\ fs [install_x64_code_lists_alt_def,
-         x64_code_def,x64_length_def,LENGTH_x64_IGNORE]);
-
-val TWICE_SUM = prove(
-  ``!xs. 2 * SUM xs = SUM (MAP (\n. 2 * n) xs)``,
-  Induct \\ fs [LEFT_ADD_DISTRIB]);
-
-val SUM_MAP_FILTER = prove(
-  ``!xs f P.
-      SUM (MAP f (FILTER P xs)) = SUM (MAP (\x. if P x then f x else 0) xs)``,
-  Induct \\ fs [] \\ SRW_TAC [] []);
-
-val TWO_TIMES_next_addr = prove(
-  ``2 * next_addr x64_inst_length t1.code = LENGTH (x64_code 0 t1.code)``,
-  fs [LENGTH_x64_code,TWICE_SUM] \\ fs [MAP_MAP_o,o_DEF]
-  \\ fs [SUM_MAP_FILTER]
-  \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ fs [FUN_EQ_THM]
-  \\ Cases_on `x` \\ EVAL_TAC
-  \\ TRY (Cases_on `b` \\ EVAL_TAC)
-  \\ SRW_TAC [] []
-  \\ TRY (Cases_on `l` \\ EVAL_TAC)
-  \\ SRW_TAC [] []);
 
 val zHEAP_INL_DIVERGES = let
   val th = SMART_WEAKEN thm_inl_div
@@ -21575,17 +21588,6 @@ val zHEAP_INL_DIVERGES = let
 
 (* INL terminates case *)
 
-val bc_next_11 = prove(
-  ``!x y z. bc_next x y /\ bc_next x z ==> (y = z)``,
-  REPEAT STRIP_TAC
-  \\ IMP_RES_TAC bytecodeEvalTheory.bc_next_bc_eval1 \\ fs []);
-
-val NRC_11 = prove(
-  ``(!x y z. R x y /\ R x z ==> (y = z)) ==>
-    !x y z. NRC R n x y /\ NRC R n x z ==> (y = z)``,
-  Induct_on `n` \\ fs [NRC]
-  \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC []);
-
 val zHEAP_INL_TERMINATES = let
   val th = SMART_WEAKEN thm_inl
   val th = th |> Q.INST [`s1`|->`bs1`,`t1_cb`|->`cs.code_heap_ptr`,`bs`|->`t1`]
@@ -21668,7 +21670,133 @@ val zHEAP_INL_TERMINATES = let
   in th end
 
 
+(* INL continues case *)
 
+val zHEAP_INL_CONTINUES = let
+  val th = SMART_WEAKEN thm_inl
+  val th = th |> Q.INST [`s1`|->`bs1`,`t1_cb`|->`cs.code_heap_ptr`,`bs`|->`t1`]
+  val th = th |> SPEC
+    ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
+      INPUT_TYPE x inp1 /\
+      (bs1.pc = code_start bs1) /\
+      (basis_repl_step x = INL (code,new_states)) /\
+      code_executes_ok (install_bc_lists code t1) /\
+      (bc_eval (install_bc_lists code t1) = SOME t2) /\
+      (lex_until_top_semicolon_alt input = SOME (ts,rest)) /\
+      (s.input = input) /\ (t2.stack = []) /\ (t2.handler = 0) /\
+      (t1.inst_length = x64_inst_length) /\ (t1.handler = 0) /\
+      (t1.stack = []) /\ EVEN (w2n cs.code_heap_ptr) /\
+      (s.code = x64_code 0 t1.code) /\
+      (s.handler = 1) /\ (s.code_mode = SOME T) /\
+      (s.local.printing_on = 0w) /\ EVEN (w2n (cb:word64)) /\
+      (cb + n2w (2 * code_start bs1):word64 =
+       p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32))))``
+  val th = th |> SPEC
+    ``SEP_EXISTS bs2 grd2 inp2 out2 x.
+        zHEAP (cs,Number 0,Number 0,RefPtr (2 * iptr + 2),
+          Block 0 [RefPtr 0;
+                Block 0 [RefPtr 1; RefPtr (2 * iptr + 2); RefPtr (2 * optr + 2)]],
+          both_refs cs.stack_trunk cb bs2 cs.code_heap_ptr t2,[],s with
+             <| input := lex_until_semi_state s.input;
+                output := STRCAT s.output t2.output;
+                code := x64_code 0 (install_bc_lists code t1).code;
+                code_start := x64_code 0 t1.code;
+                local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>,NONE) *
+        ~zS * zPC p *
+        cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\
+              INPUT_TYPE (SOME (ts,b,new_states)) inp2) \/
+        zHEAP_ERROR cs``
+  val goal = th |> concl |> dest_imp |> fst
+(*
+  gg goal
+*)
+  val lemma = prove(goal,
+    REPEAT STRIP_TAC \\ fs []
+    \\ MP_TAC COMPILER_RUN_INV_repl_step \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Q.EXISTS_TAC `T` \\ fs []
+    \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
+    \\ IMP_RES_TAC COMPILER_RUN_INV_inst_length
+    \\ IMP_RES_TAC COMPILER_RUN_INV_handler
+    \\ fs [GSYM real_inst_length_thm] \\ fs []
+    \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+    \\ IMP_RES_TAC RTC_NRC
+    \\ `(bs1 with pc := code_start bs1) = bs1` by ALL_TAC
+    THEN1 (fs [bc_state_component_equality])
+    \\ fs [] \\ POP_ASSUM (K ALL_TAC)
+    \\ (GEN_ALL COMPILER_RUN_INV_INL
+          |> Q.SPECL [`new_states`,`out2`,`inp1`,`grd2`,`code`,`bs2`] |> MP_TAC)
+    \\ fs [] \\ REPEAT STRIP_TAC
+    \\ Q.MATCH_ASSUM_RENAME_TAC `NRC bc_next n2 bs1 bs2`
+    \\ fs [RW1 [DISJ_COMM] code_executes_ok_def]
+    THEN1
+     (FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `SUC n`)
+      \\ fs [NRC_SUC_RECURSE_LEFT] \\ fs []
+      \\ IMP_RES_TAC (MATCH_MP NRC_11 bc_next_11)
+      \\ fs [] \\ METIS_TAC [])
+    \\ Q.LIST_EXISTS_TAC [`b`,`code`] \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`n2`,`n`] \\ fs []
+    \\ Q.EXISTS_TAC `bc_adjust (cb,cs.stack_trunk - 8w,T) s_bc_val`
+    \\ Q.EXISTS_TAC `s.output`
+    \\ Q.EXISTS_TAC `install_bc_lists code t1`
+    \\ Q.EXISTS_TAC `bs2`
+    \\ Q.EXISTS_TAC `t2`
+    \\ fs [SEP_IMP_REFL]
+    \\ Q.EXISTS_TAC `s with
+          <|input := lex_until_semi_state input;
+            output := STRCAT s.output msg;
+            local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>`
+    \\ fs []
+    \\ Q.EXISTS_TAC `cb`
+    \\ Q.EXISTS_TAC `bs2`
+    \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+    \\ `?ibc. (FLOOKUP bs2.refs iptr = SOME (ValueArray [ibc]))` by
+          METIS_TAC [COMPILER_RUN_INV_references]
+    \\ fs [FLOOKUP_DEF]
+    \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
+    \\ fs [CONJ_ASSOC] \\ STRIP_TAC
+    THEN1
+     (fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+             bc_adjust_BlockList_Chr,SEP_IMP_REFL]
+      \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]
+      \\ fs [TWO_TIMES_next_addr]
+      \\ fs [both_refs_def,install_x64_code_lists_x64_code]
+      \\ `s2 = t2` by ALL_TAC THEN1
+       (`!s3. ~bc_next s2 s3` by fs [bc_next_cases]
+        \\ IMP_RES_TAC bytecodeEvalTheory.RTC_bc_next_bc_eval \\ fs [])
+      \\ fs [] \\ REVERSE (REPEAT STRIP_TAC)
+      \\ IMP_RES_TAC IN_FDOM_all_refs
+      \\ EVAL_TAC
+      \\ fs [bc_adjust_BlockList_BlockNum3]
+      \\ cheat (* something wrong with statement *))
+    \\ fs [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
+    \\ REVERSE (REPEAT STRIP_TAC) THEN1 (fs [])
+    \\ fs [cond_STAR]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ts:symbol list`,`b`])
+    \\ fs [LET_DEF] \\ REPEAT STRIP_TAC
+    \\ POP_ASSUM MP_TAC
+    \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
+    \\ REPEAT STRIP_TAC
+    \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`]
+    \\ fs [] \\ DISJ1_TAC
+    \\ Q.PAT_ASSUM `fff s'` MP_TAC
+    \\ fs [AC STAR_COMM STAR_ASSOC]
+    \\ MATCH_MP_TAC (METIS_PROVE [] ``(p = b) ==> (p ==> b)``)
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
+    \\ REVERSE (REPEAT STRIP_TAC)
+    THEN1 (fs [fetch "-" "zheap_state_component_equality",
+               install_x64_code_lists_x64_code,install_bc_lists_def,
+               initCompEnvTheory.install_code_def])
+    \\ UNABBREV_ALL_TAC
+    \\ fs [both_refs_FUPDATE]
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+           bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
+           bc_adjust_BlockList_BlockSym]
+    \\ fs [lex_until_semi_res_def]
+    \\ Cases_on `b` \\ EVAL_TAC)
+  val th = MP th lemma
+  in th end
 
 
 
