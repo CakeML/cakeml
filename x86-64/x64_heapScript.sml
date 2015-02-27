@@ -18216,8 +18216,8 @@ val x64_repl_implementation_def = Define `
 
 val diverges_def = Define `
   (diverges (Result x y) = diverges y) /\
-  (diverges Terminates = F) /\
-  (diverges Diverges = T)`
+  (diverges Terminate = F) /\
+  (diverges Diverge = T)`
 
 val repl_output_def = Define `
   (repl_output (Result x y) = x ++ repl_output y) /\
@@ -21431,7 +21431,9 @@ val zHEAP_INR_CONTINUES = let
                 local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>,NONE) *
         ~zS * zPC p *
         cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\
-              INPUT_TYPE (SOME (ts,states)) inp2) \/
+              INPUT_TYPE (SOME (ts,states)) inp2 /\
+              (bs2.code = bs1.code) /\
+              (bs2.inst_length = bs1.inst_length)) \/
         zHEAP_ERROR cs``
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -21474,7 +21476,8 @@ val zHEAP_INR_CONTINUES = let
     \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
     \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`]
-    \\ fs [] \\ DISJ1_TAC
+    \\ fs [] \\ DISJ1_TAC \\ CONJ_TAC
+    THEN1 (UNABBREV_ALL_TAC \\ fs [])
     \\ Q.PAT_ASSUM `fff s'` MP_TAC
     \\ fs [AC STAR_COMM STAR_ASSOC]
     \\ MATCH_MP_TAC (METIS_PROVE [] ``(p = b) ==> (p ==> b)``)
@@ -21700,7 +21703,9 @@ val zHEAP_INL_CONTINUES = let
                 local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>,NONE) *
         ~zS * zPC p *
         cond (COMPILER_RUN_INV bs2 grd2 inp2 out2 /\
-              INPUT_TYPE (SOME (ts,b,new_states)) inp2) \/
+              INPUT_TYPE (SOME (ts,b,new_states)) inp2 /\
+              (bs2.code = bs1.code) /\
+              (bs2.inst_length = bs1.inst_length)) \/
         zHEAP_ERROR cs``
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -21772,7 +21777,8 @@ val zHEAP_INL_CONTINUES = let
     \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
     \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`bs3`,`grd`,`new_inp`,`out2`]
-    \\ fs [] \\ DISJ1_TAC
+    \\ fs [] \\ DISJ1_TAC \\ CONJ_TAC
+    THEN1 (UNABBREV_ALL_TAC \\ fs [])
     \\ Q.PAT_ASSUM `fff s'` MP_TAC
     \\ fs [AC STAR_COMM STAR_ASSOC]
     \\ MATCH_MP_TAC (METIS_PROVE [] ``(p = b) ==> (p ==> b)``)
@@ -21793,14 +21799,182 @@ val zHEAP_INL_CONTINUES = let
   in th end
 
 
+(* basis_main_loop implemented *)
+
+val SPEC_COMPOSE_SIMPLE = SPEC_COMPOSE
+  |> Q.SPECL [`x`,`p`,`c`,`m`,`c`,`q`]
+  |> RW [UNION_IDEMPOT,GSYM AND_IMP_INTRO]
+
+val SPEC_REFL_LEMMA = prove(
+  ``SPEC m (p \/ e) c (e \/ q) <=> SPEC m p c (e \/ q)``,
+  fs [SPEC_PRE_DISJ] \\ REPEAT STRIP_TAC
+  \\ EQ_TAC \\ REPEAT STRIP_TAC \\ fs []
+  \\ MATCH_MP_TAC (MP_CANON SPEC_WEAKEN)
+  \\ Q.EXISTS_TAC `e` \\ fs [SPEC_REFL,SEP_IMP_def,SEP_DISJ_def]);
+
+val env_rs_ignore_pc = prove(
+  ``!x1 x2 x3 x4.
+      env_rs x1 x2 x3 x4 bs ==>
+      env_rs x1 x2 x3 x4 (bs with pc := x)``,
+  REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC compilerProofTheory.env_rs_with_bs_irr
+  \\ fs [] \\ Q.EXISTS_TAC `bs` \\ fs []);
+
+val COMPILER_RUN_INV_ignore_pc = prove(
+  ``COMPILER_RUN_INV bs2 grd2 inp2 out2 ==>
+    COMPILER_RUN_INV (bs2 with pc := n) grd2 inp2 out2``,
+  fs [COMPILER_RUN_INV_def] \\ REPEAT STRIP_TAC
+  \\ fs [bc_state_component_equality]
+  \\ MATCH_MP_TAC env_rs_ignore_pc \\ fs []);
+
+fun CC th = th |> UNDISCH_ALL
+               |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []))
+
+val (m,p,code,_) = zHEAP_INL_CONTINUES |> UNDISCH_ALL |> concl |> dest_spec
+
+val zHEAP_basis_main_loop = prove(
+  ``!x bs input res x2 x3 bs1 s t1 grd1 inp1 out1 t1.
+      COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
+      INPUT_TYPE x inp1 /\
+      (bs1.pc = code_start bs1) /\ (bs = t1) /\
+      (basis_main_loop x bs input = (res,T)) /\ (s.input = input) /\
+      (t1.inst_length = x64_inst_length) /\ (t1.handler = 0) /\
+      (t1.stack = []) /\ EVEN (w2n cs.code_heap_ptr) /\
+      (s.code = x64_code 0 t1.code) /\
+      (s.handler = 1) /\ (s.code_mode = SOME T) /\
+      (s.local.printing_on = 0w) /\ EVEN (w2n (cb:word64)) /\
+      (cb + n2w (2 * code_start bs1):word64 =
+       p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32)))) ==>
+      SPEC ^m ^p ^code
+        (zHEAP_ERROR cs \/
+         if diverges res then
+           zHEAP_WILL_DIVERGE (s.output ++ repl_output res) cs cs.code_heap_ptr
+         else
+           zHEAP_OUTPUT (cs,s.output ++ repl_output res))``,
+  HO_MATCH_MP_TAC repl_funTheory.basis_main_loop_ind \\ REPEAT STRIP_TAC
+  \\ Q.PAT_ASSUM `basis_main_loop x bs input = (res,T)` MP_TAC
+  \\ ONCE_REWRITE_TAC [repl_funTheory.basis_main_loop_def]
+  \\ REVERSE (Cases_on `basis_repl_step x`)
+  THEN1 (* INR *)
+   (Cases_on `y` \\ fs []
+    \\ Cases_on `lex_until_top_semicolon_alt input` \\ fs []
+    THEN1 (* terminates *)
+     (SRW_TAC [] [] \\ fs [diverges_def,repl_output_def]
+      \\ MATCH_MP_TAC
+         (MATCH_MP SPEC_WEAKEN (zHEAP_INR_TERMINATES |> CC)
+          |> SPEC_ALL |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL)
+      \\ Q.EXISTS_TAC `x` \\ fs []
+      \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`]
+      \\ fs [SEP_IMP_def,SEP_DISJ_def]
+      \\ REPEAT STRIP_TAC \\ fs [])
+    (* continues *)
+    \\ Q.PAT_ASSUM `bs = t1` (fn th => fs [th])
+    \\ Cases_on `x'` \\ fs []
+    \\ Q.MATCH_ASSUM_RENAME_TAC
+          `lex_until_top_semicolon_alt input = SOME (res1,res2)`
+    \\ Cases_on `basis_main_loop (SOME (res1,r)) t1 res2`
+    \\ fs [LET_DEF]
+    \\ SIMP_TAC std_ss [Once EQ_SYM_EQ]
+    \\ REPEAT STRIP_TAC \\ fs [diverges_def]
+    \\ fs [repl_output_def]
+    \\ MATCH_MP_TAC (MATCH_MP SPEC_COMPOSE_SIMPLE (zHEAP_INR_CONTINUES |> CC)
+         |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL)
+    \\ fs [] \\ Q.EXISTS_TAC `x` \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`]
+    \\ fs [GSYM SPEC_PRE_EXISTS] \\ REPEAT STRIP_TAC
+    \\ SIMP_TAC std_ss [SPEC_REFL_LEMMA]
+    \\ SIMP_TAC std_ss [SPEC_MOVE_COND] \\ REPEAT STRIP_TAC
+    \\ Q.ABBREV_TAC `s4 = s with
+      <|input := lex_until_semi_state input;
+        output := STRCAT s.output q;
+        local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>`
+    \\ `STRCAT s.output q = s4.output` by (UNABBREV_ALL_TAC \\ fs []) \\ fs []
+    \\ `(bs1.code = (bs2 with pc := code_start bs2).code) /\
+        (bs2.inst_length = bs1.inst_length)` by SRW_TAC [] []
+    \\ `both_refs cs.stack_trunk cb bs2 cs.code_heap_ptr t1 =
+        both_refs cs.stack_trunk cb (bs2 with pc := code_start bs2)
+          cs.code_heap_ptr t1` by fs [both_refs_def]
+    \\ FULL_SIMP_TAC std_ss []
+    \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ UNABBREV_ALL_TAC \\ fs []
+    \\ fs [lex_until_semi_state_def,code_start_def]
+    \\ Q.LIST_EXISTS_TAC [`grd2`,`inp2`,`out2`] \\ fs []
+    \\ MATCH_MP_TAC COMPILER_RUN_INV_ignore_pc \\ fs [])
+  (* INL *)
+  \\ Q.PAT_ASSUM `bs = t1` (fn th => fs [th])
+  \\ Cases_on `x'` \\ fs [LET_DEF]
+  \\ Cases_on `bc_eval (install_bc_lists q t1)` \\ fs []
+  THEN1 (* diverges *)
+   (SRW_TAC [] [] \\ fs [diverges_def,repl_output_def]
+    \\ MATCH_MP_TAC
+       (MATCH_MP SPEC_WEAKEN (zHEAP_INL_DIVERGES |> CC)
+        |> SPEC_ALL |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL)
+    \\ Q.EXISTS_TAC `x` \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`]
+    \\ fs [SEP_IMP_def,SEP_DISJ_def]
+    \\ REPEAT STRIP_TAC \\ fs [])
+  \\ Cases_on `lex_until_top_semicolon_alt input` \\ fs []
+  THEN1 (* terminates *)
+   (SRW_TAC [] [] \\ fs [diverges_def,repl_output_def]
+    \\ MATCH_MP_TAC
+       (MATCH_MP SPEC_WEAKEN (zHEAP_INL_TERMINATES |> CC)
+        |> SPEC_ALL |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL)
+    \\ Q.EXISTS_TAC `x` \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`]
+    \\ fs [SEP_IMP_def,SEP_DISJ_def]
+    \\ REPEAT STRIP_TAC \\ fs [] \\ cheat (* easy *))
+  (* continues *)
+  \\ Cases_on `x''` \\ fs []
+  \\ Q.MATCH_ASSUM_RENAME_TAC
+        `lex_until_top_semicolon_alt input = SOME (res1,res2)`
+  \\ Cases_on `basis_main_loop (SOME (res1,bc_fetch x' = SOME (Stop T),r)) x'
+      res2` \\ fs [LET_DEF]
+  \\ SIMP_TAC std_ss [Once EQ_SYM_EQ]
+  \\ REPEAT STRIP_TAC \\ fs [diverges_def]
+  \\ fs [repl_output_def]
+  \\ MATCH_MP_TAC (MATCH_MP SPEC_COMPOSE_SIMPLE (zHEAP_INL_CONTINUES |> CC)
+       |> DISCH_ALL |> RW [AND_IMP_INTRO] |> GEN_ALL)
+  \\ fs [] \\ Q.EXISTS_TAC `x` \\ fs []
+  \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`,`bc_fetch x' = SOME (Stop T)`]
+  \\ fs [GSYM SPEC_PRE_EXISTS]
+  \\ `(bc_fetch x' = SOME (Stop (bc_fetch x' = SOME (Stop T)))) /\
+      (x'.stack = []) /\ (x'.handler = 0)` by cheat (* easy *)
+  \\ fs [] \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [SPEC_REFL_LEMMA]
+  \\ SIMP_TAC std_ss [SPEC_MOVE_COND] \\ REPEAT STRIP_TAC
+  \\ Q.ABBREV_TAC `s4 = s with
+      <|input := lex_until_semi_state input;
+        output := STRCAT s.output x'.output;
+        code := x64_code 0 (install_bc_lists q t1).code;
+        code_start := x64_code 0 t1.code;
+        local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>`
+  \\ `STRCAT s.output x'.output = s4.output` by (UNABBREV_ALL_TAC \\ fs [])
+  \\ fs []
+  \\ `(bs1.code = (bs2 with pc := code_start bs2).code) /\
+      (bs2.inst_length = bs1.inst_length)` by SRW_TAC [] []
+  \\ `both_refs cs.stack_trunk cb bs2 cs.code_heap_ptr x' =
+      both_refs cs.stack_trunk cb (bs2 with pc := code_start bs2)
+        cs.code_heap_ptr x'` by fs [both_refs_def]
+  \\ FULL_SIMP_TAC std_ss []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ UNABBREV_ALL_TAC \\ fs []
+  \\ fs [lex_until_semi_state_def,code_start_def]
+  \\ Q.LIST_EXISTS_TAC [`grd2`,`inp2`,`out2`] \\ fs []
+  \\ REPEAT STRIP_TAC
+  THEN1 (MATCH_MP_TAC COMPILER_RUN_INV_ignore_pc \\ fs [])
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
+  \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]);
+
 
 (*
-  IMP_RES_TAC COMPILER_RUN_INV_repl_step
+  COMPILER_RUN_INV_repl_step
   COMPILER_RUN_INV_INR
   COMPILER_RUN_INV_INL
   COMPILER_RUN_INV_empty_stack
   COMPILER_RUN_INV_references
   COMPILER_RUN_INV_ptrs
+
   repl_funTheory.basis_main_loop_def
 
   print_find "install_code_def"
