@@ -21059,11 +21059,8 @@ val zHEAP_RUN_INL_INCLUDING_EVAL = let
     |> concl |> rator |> rand
     |> find_terms pairSyntax.is_pair |> hd |> rator |> rand
   val th = SPEC_COMPOSE_RULE [zHEAP_RUN_INL_UP_TO_EVAL,th1]
-  val th =
-    DISCH ``s_install2.local.stop_addr = ^pc + 3w`` th
-    |> SIMP_RULE std_ss [word_arith_lemma1]
-    |> UNDISCH_ALL
-    |> RW [GSYM BlockBool_def]
+  val th = th |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+              |> RW [GSYM BlockBool_def]
   in th end;
 
 val zHEAP_RUN_INL = let
@@ -21645,8 +21642,6 @@ val zHEAP_INL_TERMINATES = let
     \\ Q.EXISTS_TAC `bs2`
     \\ Q.EXISTS_TAC `t2`
     \\ fs [SEP_IMP_REFL]
-    \\ Q.EXISTS_TAC `<| local := <| stop_addr := p + 0x332w |> |>`
-    \\ fs []
     \\ Q.EXISTS_TAC `cb`
     \\ Q.EXISTS_TAC `bs2`
     \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
@@ -21682,6 +21677,7 @@ val zHEAP_INL_CONTINUES = let
       (basis_repl_step x = INL (code,new_states)) /\
       code_executes_ok (install_bc_lists code t1) /\
       (bc_eval (install_bc_lists code t1) = SOME t2) /\
+      (bc_fetch t2 = SOME (Stop b)) /\
       (lex_until_top_semicolon_alt input = SOME (ts,rest)) /\
       (s.input = input) /\ (t2.stack = []) /\ (t2.handler = 0) /\
       (t1.inst_length = x64_inst_length) /\ (t1.handler = 0) /\
@@ -21734,7 +21730,8 @@ val zHEAP_INL_CONTINUES = let
       \\ fs [NRC_SUC_RECURSE_LEFT] \\ fs []
       \\ IMP_RES_TAC (MATCH_MP NRC_11 bc_next_11)
       \\ fs [] \\ METIS_TAC [])
-    \\ Q.LIST_EXISTS_TAC [`b`,`code`] \\ fs []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `bc_fetch s2 = SOME (Stop b1)`
+    \\ Q.LIST_EXISTS_TAC [`b1`,`code`] \\ fs []
     \\ Q.LIST_EXISTS_TAC [`n2`,`n`] \\ fs []
     \\ Q.EXISTS_TAC `bc_adjust (cb,cs.stack_trunk - 8w,T) s_bc_val`
     \\ Q.EXISTS_TAC `s.output`
@@ -21742,11 +21739,6 @@ val zHEAP_INL_CONTINUES = let
     \\ Q.EXISTS_TAC `bs2`
     \\ Q.EXISTS_TAC `t2`
     \\ fs [SEP_IMP_REFL]
-    \\ Q.EXISTS_TAC `s with
-          <|input := lex_until_semi_state input;
-            output := STRCAT s.output msg;
-            local := <|stop_addr := 0x0w; printing_on := 0x0w|> |>`
-    \\ fs []
     \\ Q.EXISTS_TAC `cb`
     \\ Q.EXISTS_TAC `bs2`
     \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
@@ -21767,12 +21759,14 @@ val zHEAP_INL_CONTINUES = let
       \\ fs [] \\ REVERSE (REPEAT STRIP_TAC)
       \\ IMP_RES_TAC IN_FDOM_all_refs
       \\ EVAL_TAC
-      \\ fs [bc_adjust_BlockList_BlockNum3]
-      \\ cheat (* something wrong with statement *))
+      \\ fs [bc_adjust_BlockList_BlockNum3])
+    \\ `s2 = t2` by ALL_TAC THEN1
+       (`!s3. ~bc_next s2 s3` by fs [bc_next_cases]
+        \\ IMP_RES_TAC bytecodeEvalTheory.RTC_bc_next_bc_eval \\ fs [])
     \\ fs [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
     \\ REVERSE (REPEAT STRIP_TAC) THEN1 (fs [])
     \\ fs [cond_STAR]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ts:symbol list`,`b`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`ts:symbol list`,`b1`])
     \\ fs [LET_DEF] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM MP_TAC
     \\ Q.PAT_ABBREV_TAC `bs3 = (bs2 with refs := ttt)`
@@ -21794,7 +21788,7 @@ val zHEAP_INL_CONTINUES = let
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym]
     \\ fs [lex_until_semi_res_def]
-    \\ Cases_on `b` \\ EVAL_TAC)
+    \\ Cases_on `b1` \\ EVAL_TAC)
   val th = MP th lemma
   in th end
 
