@@ -21238,7 +21238,9 @@ val COMPILER_RUN_INV_inst_length = prove(
 val COMPILER_RUN_INV_handler = prove(
   ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
     (bs1.handler = 0)``,
-  cheat);
+  rw[COMPILER_RUN_INV_def] >> PairCases_on`grd1` >>
+  Cases_on`Tmod_state "REPL" replModule_decls`>>
+  fs[evaluateReplTheory.update_io_def,compilerProofTheory.env_rs_def]);
 
 (* various lemmas *)
 
