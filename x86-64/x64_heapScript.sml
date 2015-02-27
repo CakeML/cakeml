@@ -21966,29 +21966,33 @@ val zHEAP_basis_main_loop = prove(
   \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
   \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]);
 
+val code_start_with_pc = prove(
+  ``code_start (bs1 with pc := w) = code_start bs1``,
+  fs [code_start_def]);
 
-(*
-  COMPILER_RUN_INV_repl_step
-  COMPILER_RUN_INV_INR
-  COMPILER_RUN_INV_INL
-  COMPILER_RUN_INV_empty_stack
-  COMPILER_RUN_INV_references
-  COMPILER_RUN_INV_ptrs
+val both_refs_with_pc = prove(
+  ``both_refs t cb (bs1 with pc := w) x s =
+    both_refs t cb bs1 x s``,
+  fs [both_refs_def]);
 
-  repl_funTheory.basis_main_loop_def
+val zHEAP_both_refs_with_pc =
+  zHEAP_basis_main_loop
+  |> SIMP_RULE std_ss []
+  |> SPEC_ALL
+  |> DISCH ``s.output = ""``
+  |> SIMP_RULE std_ss [AND_IMP_INTRO,APPEND]
+  |> Q.INST [`x`|->`NONE`,`t1`|->`strip_labels initial_bc_state`]
+  |> RW [GSYM repl_funTheory.basis_repl_fun_def,
+         EVAL ``(strip_labels initial_bc_state).stack``,
+         EVAL ``(strip_labels initial_bc_state).handler``,
+         EVAL ``(strip_labels initial_bc_state).inst_length``,
+         real_inst_length_thm]
+  |> Q.INST [`bs1`|->`bs1 with pc := code_start bs1`]
+  |> SIMP_RULE (srw_ss()) [code_start_with_pc]
+  |> DISCH ``COMPILER_RUN_INV bs1 grd1 inp1 out1``
+  |> SIMP_RULE std_ss [COMPILER_RUN_INV_ignore_pc,both_refs_with_pc]
+  |> RW [AND_IMP_INTRO]
 
-  print_find "install_code_def"
-
-  print_find "code_executes_ok_def"
-
-*)
-
-
-(* cheat CHEAT
-
-print_compiler_grammar()
-
-*)
 
 (*
 val _ = PolyML.SaveState.saveState "x64_heap_state";
