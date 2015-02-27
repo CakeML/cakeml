@@ -9950,17 +9950,17 @@ val zHEAP_SWAP = let
 
 (* specific instances of CONS *)
 
-fun tag_for "nil" = ``2n``
-  | tag_for "::" = ``3n``
-  | tag_for "Pair" = ``4n``
-  | tag_for "Some" = ``5n``
-  | tag_for "Inl" = ``6n``
-  | tag_for "Inr" = ``7n``
-  | tag_for "Errors" = ``8n``
-  | tag_for "Others" = ``9n``
-  | tag_for "Longs" = ``10n``
-  | tag_for "Numbers" = ``11n``
-  | tag_for "Strings" = ``12n``
+fun tag_for "nil" = ``12n``
+  | tag_for "::" = ``13n``
+  | tag_for "Pair" = ``6n``
+  | tag_for "Some" = ``15n``
+  | tag_for "Inl" = ``17n``
+  | tag_for "Inr" = ``16n``
+  | tag_for "Errors" = ``290n``
+  | tag_for "Others" = ``291n``
+  | tag_for "Longs" = ``292n``
+  | tag_for "Numbers" = ``293n``
+  | tag_for "Strings" = ``294n``
   | tag_for _ = failwith "tag_for"
 
 val nil_tag_def  = Define `nil_tag  = ^(tag_for "nil")`;
@@ -18287,6 +18287,7 @@ val zREPL_CORRECT = store_thm("zREPL_CORRECT",
 
 
 
+
 (* COMMENT *)
 
 
@@ -20678,18 +20679,37 @@ val tags_eq =
   |> CONJ conLangTheory.none_tag_def
   |> CONJ block_tag_def
 
-val Block_FIX = prove(
-  ``(bootstrapProof$BlockNum3 = x64_heap$BlockNum3) /\
-    (bootstrapProof$BlockSome = x64_heap$BlockSome) /\
-    (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
-    (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
-    (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
-    (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
-    (bootstrapProof$BlockList = x64_heap$BlockList) /\
-    (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-    (bootstrapProof$BlockNil = x64_heap$BlockNil) /\
-    (bootstrapProof$Chr = x64_heap$Chr)``,
-  cheat); (* tag numbers *)
+local
+  val BlockConsNil_FIX = prove(
+    ``(bootstrapProof$BlockCons = x64_heap$BlockCons) /\
+      (bootstrapProof$BlockNil = x64_heap$BlockNil)``,
+    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
+    \\ REPEAT STRIP_TAC \\ EVAL_TAC);
+  val BlockList_FIX = prove(
+    ``bootstrapProof$BlockList = x64_heap$BlockList``,
+    fs [FUN_EQ_THM] \\ Induct \\ EVAL_TAC \\ fs [BlockConsNil_FIX]);
+  val Chr_lemma = prove(
+    ``(bootstrapProof$Chr = x64_heap$Chr)``,
+    fs [FUN_EQ_THM] \\ EVAL_TAC \\ SIMP_TAC std_ss []);
+in
+  val Block_FIX = prove(
+    ``(bootstrapProof$BlockNum3 = x64_heap$BlockNum3) /\
+      (bootstrapProof$BlockSome = x64_heap$BlockSome) /\
+      (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
+      (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
+      (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
+      (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
+      (bootstrapProof$BlockList = x64_heap$BlockList) /\
+      (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
+      (bootstrapProof$BlockNil = x64_heap$BlockNil) /\
+      (bootstrapProof$Chr = x64_heap$Chr)``,
+    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,BlockList_FIX]
+    \\ REPEAT STRIP_TAC \\ EVAL_TAC
+    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
+    \\ Cases_on `x` \\ EVAL_TAC
+    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
+    \\ fs [BlockList_FIX,Chr_lemma]);
+end
 
 val ref_adjust_IMP_ODD = prove(
   ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
