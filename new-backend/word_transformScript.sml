@@ -143,4 +143,55 @@ val pre_post_conventions_word_alloc = prove(``
   HINT_EXISTS_TAC>>
   metis_tac[])
 
+(*Actually, it should probably be exactly 0,2,4,6...*)
+val even_starting_locals_def = Define`
+  even_starting_locals (locs:'a word_loc num_map) ⇔ 
+    ∀x. x ∈ domain locs ⇒ is_phy_var x`
+
+fun rm_let tm = tm|> SIMP_RULE std_ss [LET_THM]
+
+(*Prove the correctness theorem for word_alloc*)
+val word_alloc_correct = prove(``
+  ∀prog k st.
+  even_starting_locals st.locals 
+  ⇒
+  ∃perm'.
+  let (res,rst) = wEval(prog,st with permute:=perm') in
+  if (res = SOME Error) then T else
+  let (res',rcst) = wEval(word_alloc k prog,st) in
+    res = res' ∧
+    word_state_eq_rel rst rcst``,
+  (*TODO: Do I need to keep the assumptions about the final locals?*)
+  rw[]>>
+  qpat_abbrev_tac`cprog = word_alloc k prog`>>
+  fs[word_alloc_def]>>pop_assum mp_tac>>LET_ELIM_TAC>>
+  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour col`,`LN:num_set`] mp_tac wEval_apply_colour>>
+  discharge_hyps>-
+    (rw[]
+    >-
+      (*Prove that the colors are okay*)
+      (match_mp_tac colouring_ok_alt_thm>>
+      match_mp_tac (colouring_satisfactory_colouring_ok_alt|>rm_let)>>
+      unabbrev_all_tac>>
+      match_mp_tac (reg_alloc_total_satisfactory|>rm_let)>>
+      rw[get_spg_def]>>
+      fs[clash_sets_to_sp_g_undir])
+    >-
+      fs[word_state_eq_rel_def]
+    >>
+      fs[strong_locals_rel_def,even_starting_locals_def]>>
+      rw[]>>
+      fs[domain_lookup]>>
+      first_x_assum(qspec_then`n` assume_tac)>>
+      rfs[]>>
+      Q.ISPECL_THEN[`3:num`,`clash_graph`,`k`,`moves`] mp_tac (reg_alloc_conventional_phy_var|>rm_let)>>
+      discharge_hyps>-
+        (rw[Abbr`clash_graph`,get_spg_def]>>fs[clash_sets_to_sp_g_undir])
+      >>
+      rw[colouring_conventional_def,LET_THM])
+  >>
+  rw[]>>
+  qexists_tac`perm'`>>rw[]>>
+  fs[LET_THM])
+
 val _ = export_theory();

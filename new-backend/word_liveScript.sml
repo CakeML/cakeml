@@ -291,7 +291,7 @@ val get_vars_perm = store_thm("get_vars_perm",``
 ∀args.get_vars args (st with permute:=perm) = get_vars args st``,
   Induct>>rw[get_vars_def,get_var_def])
 
-val pop_env_perm = prove(``
+val pop_env_perm = store_thm("pop_env_perm",``
   pop_env (rst with permute:=perm) =
   (case pop_env rst of
     NONE => NONE
@@ -309,7 +309,7 @@ val get_var_perm = store_thm("get_var_perm",``
   get_var n (st with permute:=perm) =
   (get_var n st)``,fs[get_var_def])
 
-val set_var_perm = prove(``
+val set_var_perm = store_thm("set_var_perm",``
   set_var v x (s with permute:=perm) =
   (set_var v x s) with permute:=perm``,
   fs[set_var_def])
@@ -815,13 +815,13 @@ val env_to_list_keys = prove(``
   >>
     fs[mem_list_rearrange,QSORT_MEM,MEM_toAList,domain_lookup])
 
-val list_rearrange_keys = prove(``
+val list_rearrange_keys = store_thm("list_rearrange_keys",``
   list_rearrange perm ls = e ⇒
   set(MAP FST e) = set(MAP FST ls)``,
   fs[LET_THM,EXTENSION]>>rw[EQ_IMP_THM]>>
   metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP])
 
-val push_env_pop_env_s_key_eq = prove(
+val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",(
   ``∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
        ∃l ls opt.
               t.stack = (StackFrame l opt)::ls ∧
@@ -836,7 +836,7 @@ val push_env_pop_env_s_key_eq = prove(
   fs[EXTENSION,mem_list_rearrange,MEM_MAP,QSORT_MEM,MEM_toAList
     ,EXISTS_PROD,domain_lookup])
 
-val pop_env_frame = prove(
+val pop_env_frame = store_thm("pop_env_frame",
   ``s_val_eq r'.stack st' ∧
     s_key_eq y'.stack y''.stack ∧
     pop_env (r' with stack:= st') = SOME y'' ∧
@@ -849,7 +849,7 @@ val pop_env_frame = prove(
     rw[]>>rfs[]>>
     metis_tac[s_val_and_key_eq])
 
-val key_map_implies = prove(
+val key_map_implies = store_thm("key_map_implies",
  ``MAP (λx,y.f x,y) l' = l
  ⇒ MAP f (MAP FST l') = MAP FST l``,
  rw[]>>match_mp_tac LIST_EQ>>
@@ -1586,7 +1586,7 @@ val get_clash_sets_tl = prove(
     discharge_hyps>-size_tac>>rw[]>>
     fs[UNCURRY]))
 
-val colouring_ok_alt_thm = prove(
+val colouring_ok_alt_thm = store_thm("colouring_ok_alt_thm",
 ``∀f prog live.
   colouring_ok_alt f prog live
   ⇒
