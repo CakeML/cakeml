@@ -21828,9 +21828,7 @@ val COMPILER_RUN_INV_ignore_pc = prove(
   \\ MATCH_MP_TAC env_rs_ignore_pc \\ fs []);
 
 fun CC th = th |> UNDISCH_ALL
-               |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []))
-
-val (m,p,code,_) = zHEAP_INL_CONTINUES |> UNDISCH_ALL |> concl |> dest_spec
+               |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []));
 
 val zHEAP_basis_main_loop = prove(
   ``!x bs input res x2 x3 bs1 s t1 grd1 inp1 out1 t1.
@@ -21845,7 +21843,7 @@ val zHEAP_basis_main_loop = prove(
       (s.local.printing_on = 0w) /\ EVEN (w2n (cb:word64)) /\
       (cb + n2w (2 * code_start bs1):word64 =
        p + n2w (24 + SIGN_EXTEND 32 64 (w2n (repl_step_imm32:word32)))) ==>
-      SPEC ^m ^p ^code
+      ^(zHEAP_INL_CONTINUES |> UNDISCH_ALL |> concl |> rator)
         (zHEAP_ERROR cs \/
          if diverges res then
            zHEAP_WILL_DIVERGE (s.output ++ repl_output res) cs cs.code_heap_ptr
@@ -21922,7 +21920,17 @@ val zHEAP_basis_main_loop = prove(
     \\ Q.EXISTS_TAC `x` \\ fs []
     \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`]
     \\ fs [SEP_IMP_def,SEP_DISJ_def]
-    \\ REPEAT STRIP_TAC \\ fs [] \\ cheat (* easy *))
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ REVERSE (fs [code_executes_ok_def]) THEN1
+     (IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+      \\ IMP_RES_TAC RTC_NRC
+      \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `SUC n:num`)
+      \\ fs [NRC_SUC_RECURSE_LEFT] \\ fs []
+      \\ IMP_RES_TAC (MATCH_MP NRC_11 bc_next_11)
+      \\ fs [] \\ METIS_TAC [])
+    \\ `!s3. ~bc_next s2 s3` by fs [bc_next_cases]
+    \\ IMP_RES_TAC bytecodeEvalTheory.RTC_bc_next_bc_eval
+    \\ fs [] \\ rfs [])
   (* continues *)
   \\ Cases_on `x''` \\ fs []
   \\ Q.MATCH_ASSUM_RENAME_TAC
@@ -21938,7 +21946,17 @@ val zHEAP_basis_main_loop = prove(
   \\ Q.LIST_EXISTS_TAC [`out1`,`inp1`,`grd1`,`bc_fetch x' = SOME (Stop T)`]
   \\ fs [GSYM SPEC_PRE_EXISTS]
   \\ `(bc_fetch x' = SOME (Stop (bc_fetch x' = SOME (Stop T)))) /\
-      (x'.stack = []) /\ (x'.handler = 0)` by cheat (* easy *)
+      (x'.stack = []) /\ (x'.handler = 0)` by ALL_TAC THEN1
+   (REVERSE (fs [code_executes_ok_def]) THEN1
+     (IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+      \\ IMP_RES_TAC RTC_NRC
+      \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `SUC n:num`)
+      \\ fs [NRC_SUC_RECURSE_LEFT] \\ fs []
+      \\ IMP_RES_TAC (MATCH_MP NRC_11 bc_next_11)
+      \\ fs [] \\ METIS_TAC [])
+    \\ `!s3. ~bc_next s2 s3` by fs [bc_next_cases]
+    \\ IMP_RES_TAC bytecodeEvalTheory.RTC_bc_next_bc_eval
+    \\ fs [] \\ rfs [])
   \\ fs [] \\ REPEAT STRIP_TAC
   \\ SIMP_TAC std_ss [SPEC_REFL_LEMMA]
   \\ SIMP_TAC std_ss [SPEC_MOVE_COND] \\ REPEAT STRIP_TAC
