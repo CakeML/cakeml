@@ -666,7 +666,7 @@ val env_to_list_perm = prove(``
   qexists_tac`λn. if n = 0:num then perm' else tperm (n-1)`>>
   fs[FUN_EQ_THM])
 
-val mem_list_rearrange = prove(``
+val mem_list_rearrange = store_thm("mem_list_rearrange",``
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
   fs[MEM_EL]>>rw[list_rearrange_def]>>
   imp_res_tac BIJ_IFF_INV>>
@@ -766,7 +766,7 @@ val s_key_eq_val_eq_pop_env = store_thm("s_key_eq_val_eq_pop_env",``
   metis_tac[ZIP_MAP_FST_SND_EQ])
 
 (*Less powerful form*)
-val ALOOKUP_key_remap_2 = prove(``
+val ALOOKUP_key_remap_2 = store_thm("ALOOKUP_key_remap_2",``
   ∀ls vals f.
     (∀x y. MEM x ls ∧ MEM y ls ∧ f x = f y ⇒ x = y) ∧
     LENGTH ls = LENGTH vals ∧
@@ -821,7 +821,7 @@ val list_rearrange_keys = store_thm("list_rearrange_keys",``
   fs[LET_THM,EXTENSION]>>rw[EQ_IMP_THM]>>
   metis_tac[MEM_toAList,mem_list_rearrange,MEM_MAP])
 
-val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",(
+val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
   ``∀s t x b. s_key_eq (push_env x b s).stack t.stack ⇒
        ∃l ls opt.
               t.stack = (StackFrame l opt)::ls ∧
