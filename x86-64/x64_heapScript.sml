@@ -21822,12 +21822,26 @@ val env_rs_ignore_pc = prove(
   \\ MATCH_MP_TAC compilerProofTheory.env_rs_with_bs_irr
   \\ fs [] \\ Q.EXISTS_TAC `bs` \\ fs []);
 
+val env_rs_ignore_output = prove(
+  ``!x1 x2 x3 x4.
+      env_rs x1 x2 x3 x4 (bs with output := x) <=>
+      env_rs x1 x2 x3 x4 bs``,
+  REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC compilerProofTheory.env_rs_with_bs_irr
+  THEN1 (fs [] \\ Q.EXISTS_TAC `bs with output := x` \\ fs [])
+  \\ fs [] \\ Q.EXISTS_TAC `bs` \\ fs []);
+
 val COMPILER_RUN_INV_ignore_pc = prove(
   ``COMPILER_RUN_INV bs2 grd2 inp2 out2 ==>
     COMPILER_RUN_INV (bs2 with pc := n) grd2 inp2 out2``,
   fs [COMPILER_RUN_INV_def] \\ REPEAT STRIP_TAC
   \\ fs [bc_state_component_equality]
   \\ MATCH_MP_TAC env_rs_ignore_pc \\ fs []);
+
+val repl_bc_state_output_empty = prove(
+  ``repl_bc_state.output = ""``,
+  fs [bootstrapProofTheory.repl_bc_state_def,
+      initCompEnvTheory.install_code_def]);
 
 fun CC th = th |> UNDISCH_ALL
                |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []));
@@ -21995,7 +22009,7 @@ val both_refs_with_pc = prove(
     both_refs t cb bs1 x s``,
   fs [both_refs_def]);
 
-val zHEAP_both_refs_with_pc =
+val zHEAP_basis_repl_fun =
   zHEAP_basis_main_loop
   |> SIMP_RULE std_ss []
   |> SPEC_ALL
@@ -22012,6 +22026,202 @@ val zHEAP_both_refs_with_pc =
   |> DISCH ``COMPILER_RUN_INV bs1 grd1 inp1 out1``
   |> SIMP_RULE std_ss [COMPILER_RUN_INV_ignore_pc,both_refs_with_pc]
   |> RW [AND_IMP_INTRO]
+
+
+(*
+
+
+
+  |> MATCH_MP
+
+  print_find "install_code"
+
+max_print_depth := 20
+
+init
+
+  repl_bc_state_def
+  |> RW [initCompEnvTheory.install_code_def]
+
+
+  bootstrap_bc_state_def
+  code_start_def
+
+  EVAL ``compile_call_repl_step``
+
+  print_find "compile_call_repl_step_def"
+
+  ``REVERSE compile_call_repl_step``
+
+
+val INPUT_TYPE_NONE = prove(
+  ``INPUT_TYPE NONE
+      (dest_Refv (EL iloc (SND (Tmod_state "REPL" replModule_decls))))``,
+  cheat);
+
+  print_find "strip_labels_def"
+
+
+  ``SND (SND compile_repl_module)``
+  |> (REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC EVAL)
+
+  print_find "install_code_def"
+
+print_find "compile_repl_module_eq"
+
+max_print_depth := 15
+
+
+
+
+  removeLabelsReplTheory.compile_call_repl_step_labels
+
+  removeLabelsReplTheory.bootstrap_code_def
+
+  removeLabelsReplTheory.bootstrap_code_eq
+
+  print_find "initial_bc_state_def"
+
+
+
+*)
+
+
+
+
+val bootstrap_bc_state_code = store_thm("bootstrap_bc_state_code",
+  ``bootstrap_bc_state.code =
+      initial_bc_state.code ++
+      REVERSE (SND (THE prim_env)) ++
+      REVERSE (SND (SND compile_repl_module))``,
+  STRIP_ASSUME_TAC bootstrap_bc_state_def
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_labels_RTC
+  \\ imp_res_tac RTC_bc_next_preserves
+  \\ fs [initCompEnvTheory.install_code_def,REVERSE_APPEND]);
+
+val bootstrap_code_labelled_def = Define `
+  bootstrap_code_labelled =
+    (bootstrap_bc_state.code ++ REVERSE compile_call_repl_step)`;
+
+val bootstrap_code_def = Define `
+  bootstrap_code = code_labels real_inst_length bootstrap_code_labelled`;
+
+val bc_eval_IMP_strip_labels = prove(
+  ``(bc_eval s = SOME t) /\ (bc_fetch t = SOME (Stop T)) ==>
+    length_ok s.inst_length ==>
+    (bc_eval (strip_labels s) = SOME (strip_labels t)) /\
+    (bc_fetch (strip_labels t) = SOME (Stop T)) /\
+    (t.inst_length = s.inst_length) /\
+    ((strip_labels t).code = (strip_labels s).code)``,
+  STRIP_TAC \\ STRIP_TAC
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_labels_RTC
+  \\ imp_res_tac RTC_bc_next_preserves
+  \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs []
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_fetch_strip_labels \\ fs []
+  \\ MATCH_MP_TAC (MP_CANON bytecodeEvalTheory.RTC_bc_next_bc_eval) \\ fs []
+  \\ ASM_SIMP_TAC (srw_ss()) [bc_next_cases]);
+
+val RTC_bc_next_append_code = prove(
+  ``!s t.
+      bc_next^* s t ==>
+      bc_next^* (s with code := s.code ++ x) (t with code := s.code ++ x)``,
+  HO_MATCH_MP_TAC RTC_INDUCT \\ REPEAT STRIP_TAC \\ fs []
+  \\ MATCH_MP_TAC (CONJUNCT2 (relationTheory.RTC_RULES |> SPEC_ALL))
+  \\ Q.EXISTS_TAC `(s' with code := s'.code ++ x)`
+  \\ imp_res_tac bytecodeExtraTheory.bc_next_preserves_code
+  \\ IMP_RES_TAC bytecodeExtraTheory.bc_next_append_code \\ fs []);
+
+val bc_fetch_auc_APPEND = prove(
+  ``!xs x y t.
+      (bc_fetch_aux xs x y = SOME t) ==>
+      (bc_fetch_aux (xs++ys) x y = SOME t)``,
+  Induct \\ fs [bc_fetch_aux_def] \\ SRW_TAC [] []);
+
+val bc_eval_Stop_T_IMP = prove(
+  ``(bc_eval s = SOME t) /\ (bc_fetch t = SOME (Stop T)) ==>
+    (bc_eval (s with code := s.code ++ x) = SOME (t with code := s.code ++ x)) /\
+    (bc_fetch (t with code := s.code ++ x) = SOME (Stop T))``,
+  STRIP_TAC
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next
+  \\ IMP_RES_TAC RTC_bc_next_append_code
+  \\ POP_ASSUM (MP_TAC o Q.SPEC `x`) \\ fs [] \\ STRIP_TAC
+  \\ `(bc_fetch (t with code := s.code ++ x) = SOME (Stop T))` by
+   (fs [bc_fetch_def]
+    \\ MATCH_MP_TAC bc_fetch_auc_APPEND
+    \\ imp_res_tac bytecodeExtraTheory.RTC_bc_next_preserves \\ fs []) \\ fs []
+  \\ MATCH_MP_TAC (MP_CANON bytecodeEvalTheory.RTC_bc_next_bc_eval) \\ fs []
+  \\ ASM_SIMP_TAC (srw_ss()) [bc_next_cases]);
+
+val bootstrap_pc_def = Define `
+  bootstrap_pc =
+    next_addr initial_bc_state.inst_length initial_bc_state.code`;
+
+local
+  val lemma = prove(
+    ``initial_bc_state with
+        <|code := bootstrap_code_labelled; pc := n; output := ""|> =
+      initial_bc_state with
+        <|code := bootstrap_code_labelled; pc := n|>``,
+    fs [initCompEnvTheory.initial_bc_state_def,
+        initCompEnvTheory.empty_bc_state_def]);
+  val bootstrap_bc_state_with_labels_lemma = prove(
+    ``(bc_eval
+        (install_code
+           (SND (SND compile_repl_module) ++ SND (THE prim_env))
+           initial_bc_state) = SOME bootstrap_bc_state) /\
+      (bc_fetch bootstrap_bc_state = SOME (Stop T))``,
+    fs [bootstrap_bc_state_def])
+    |> SIMP_RULE (srw_ss()) [initCompEnvTheory.install_code_def,REVERSE_APPEND]
+    |> RW [GSYM bootstrap_bc_state_code]
+    |> RW [GSYM boostrap_pc_def]
+    |> MATCH_MP bc_eval_Stop_T_IMP
+    |> SIMP_RULE (srw_ss()) [EVAL ``empty_bc_state.inst_length``]
+    |> Q.INST [`x`|->`REVERSE compile_call_repl_step`]
+    |> RW [GSYM bootstrap_code_def,GSYM bootstrap_code_labelled_def,lemma]
+  val bootstrap_bc_state_strip_labels =
+    bootstrap_bc_state_with_labels_lemma
+    |> MATCH_MP bc_eval_IMP_strip_labels
+    |> RW [bytecodeLabelsTheory.strip_labels_def]
+    |> CONV_RULE (BINOP1_CONV (RAND_CONV EVAL))
+    |> RW [GSYM real_inst_length_thm,length_ok_x64_inst_length]
+    |> SIMP_RULE (srw_ss()) [EVAL ``empty_bc_state.inst_length``]
+    |> RW [GSYM bootstrap_code_def,GSYM bootstrap_code_labelled_def]
+  val lemmas = CONJUNCTS bootstrap_bc_state_strip_labels
+in
+  val bootstrap_bc_state_with_labels =
+    bootstrap_bc_state_with_labels_lemma
+  val bootstrap_bc_state_strip_labels =
+    CONJ (el 1 lemmas) (el 2 lemmas) |> RW [el 3 lemmas,el 4 lemmas,
+      GSYM bootstrap_code_def,EVAL ``initial_bc_state.inst_length``]
+end
+
+val _ = temp_overload_on("init1",COMPILER_RUN_INV_init |> concl |> rator |> rand);
+val _ = temp_overload_on("init2",COMPILER_RUN_INV_init |> concl |> rand);
+
+val COMPILER_RUN_INV_init_alt = prove(
+  ``COMPILER_RUN_INV
+     ((bootstrap_bc_state with
+        code := bootstrap_code_labelled) with output := "")
+     bootstrap_grd init1 init2``,
+  MP_TAC (COMPILER_RUN_INV_init
+    |> RW [bootstrapProofTheory.repl_bc_state_def,
+           initCompEnvTheory.install_code_def,
+           GSYM bootstrap_code_labelled_def])
+  \\ fs [COMPILER_RUN_INV_def]
+  \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ fs [bc_state_component_equality]
+  \\ MATCH_MP_TAC compilerProofTheory.env_rs_with_bs_irr
+  \\ fs [] \\ Q.EXISTS_TAC `(bootstrap_bc_state with
+         <|code := bootstrap_code_labelled;
+           pc :=
+             next_addr bootstrap_bc_state.inst_length
+               bootstrap_bc_state.code; output := ""|>)` \\ fs []);
+
+
+
 
 
 (*

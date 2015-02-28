@@ -22,7 +22,8 @@ val x64_code_rev_eval =
   |> map (SIMP_RULE std_ss [LET_DEF] o REWRITE_CONV [x64_code_rev_def] o snd)
   |> (fn thms => LIST_CONJ (CONJUNCT1 x64_code_rev_def::thms))
   |> SIMP_RULE std_ss [x64_def,LET_DEF,APPEND,LENGTH,small_offset_def,REVERSE_DEF,
-       small_offset6_def,small_offset12_def,small_offset16_def,IMM32_def,LENGTH_IF]
+       small_offset6_def,small_offset12_def,small_offset16_def,IMM32_def,LENGTH_IF,
+       globals_count_def]
   |> REWRITE_RULE [APPEND_IF,APPEND,IF_AND]
   |> SIMP_RULE std_ss []
   |> REWRITE_RULE [GSYM IF_AND]
