@@ -13203,17 +13203,24 @@ val length_ok_x64_inst_length = prove(
 (* install code *)
 
 val append_imm_code_def = Define `
-  (append_imm_code p [] = {}) /\
-  (append_imm_code p (imm8::imms) =
-      (p,[0x4Dw; 0x8Bw; 0x79w; 0x50w]) INSERT
-      (p + 0x4w,[0x41w; 0xC6w; 0x7w; imm8]) INSERT
-      (p + 0x8w,[0x49w; 0xFFw; 0xC7w]) INSERT
-      (p + 0xBw,[0x4Dw; 0x89w; 0x79w; 0x50w]) INSERT
-      append_imm_code (p + 0xFw) imms)`;
+  (append_imm_code [] = []) /\
+  (append_imm_code (imm8::imms) =
+      0x4Dw::0x8Bw::0x79w::0x50w::
+      0x41w::0xC6w::0x7w::imm8::
+      0x49w::0xFFw::0xC7w::
+      0x4Dw::0x89w::0x79w::0x50w::
+      append_imm_code imms)`;
 
-val INSERTS_LEMMA = prove(
-  ``x1 INSERT x2 INSERT x3 INSERT x4 INSERT s = {x1;x2;x3;x4} UNION s``,
-  SIMP_TAC (srw_ss()) [EXTENSION] \\ METIS_TAC []);
+val SET_LEMMA = prove(
+  ``{x1;x2} = {x1} UNION {x2}``,
+  fs [EXTENSION]);
+
+val zHEAP_CODE_SNOC_IMM_compacted =
+  zHEAP_CODE_SNOC_IMM
+  |> MATCH_MP SPEC_X64_MERGE_CODE |> SIMP_RULE std_ss [LENGTH,LENGTH_APPEND]
+  |> MATCH_MP SPEC_X64_MERGE_CODE |> SIMP_RULE std_ss [LENGTH,LENGTH_APPEND]
+  |> MATCH_MP SPEC_X64_MERGE_CODE |> SIMP_RULE std_ss [LENGTH,LENGTH_APPEND]
+  |> RW [APPEND]
 
 val append_imm_code = prove(
   ``!imms p s.
@@ -13221,7 +13228,7 @@ val append_imm_code = prove(
       (s.code_mode = SOME F) ==>
       SPEC X64_MODEL
        (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,NONE) * ~zS * zPC p)
-       (append_imm_code p imms)
+       {(p,append_imm_code imms)}
        (zHEAP
         (cs,x1,x2,x3,x4,refs,stack,s with code := s.code ++ imms,
          NONE) * ~zS * zPC (p + n2w (15 * LENGTH imms)))``,
@@ -13230,12 +13237,17 @@ val append_imm_code = prove(
     \\ FULL_SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:zheap_state``)
     \\ FULL_SIMP_TAC std_ss [SPEC_REFL])
   \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC std_ss [append_imm_code_def,Once INSERTS_LEMMA]
+  \\ SIMP_TAC std_ss [append_imm_code_def]
+  \\ REWRITE_TAC
+      [EVAL ``0x4Dw::0x8Bw::0x79w::0x50w::0x41w::0xC6w::0x7w::h::0x49w::0xFFw::
+        0xC7w::0x4Dw::0x89w::0x79w::0x50w::[] ++ append_imm_code imms`` |> GSYM]
+  \\ MATCH_MP_TAC (MP_CANON SPEC_X64_MERGE_CODE |> GEN_ALL)
+  \\ fs [SET_LEMMA]
   \\ MATCH_MP_TAC progTheory.SPEC_COMPOSE
-  \\ Q.EXISTS_TAC `(zHEAP (cs,x1,x2,x3,x4,refs,stack,
-       s with code := SNOC h s.code,NONE) * ~zS * zPC (p + 15w))`
+  \\ Q.EXISTS_TAC `zHEAP (cs,x1,x2,x3,x4,refs,stack,
+       s with code := SNOC h s.code,NONE) * ~zS * zPC (p + 15w)`
   \\ REPEAT STRIP_TAC THEN1
-   (MATCH_MP_TAC (RW [SPEC_MOVE_COND] zHEAP_CODE_SNOC_IMM)
+   (MATCH_MP_TAC (RW [SPEC_MOVE_COND] zHEAP_CODE_SNOC_IMM_compacted)
     \\ FULL_SIMP_TAC std_ss [] \\ DECIDE_TAC)
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`p + 15w`,`s with code := SNOC h s.code`])
   \\ SIMP_TAC (srw_ss()) [] \\ MATCH_MP_TAC IMP_IMP
@@ -22195,12 +22207,24 @@ val INPUT_TYPE_NONE_LEMMA = prove(
   ``INPUT_TYPE NONE init1``,
   cheat);
 
+val COMPILER_RUN_INV_ptrs = prove(
+  ``!bs grd inp out.
+      COMPILER_RUN_INV bs grd inp out ==>
+      (EL 419 bs.globals = SOME (RefPtr iptr)) /\
+      (EL 420 bs.globals = SOME (RefPtr optr)) /\
+      420 < LENGTH bs.globals``,
+  cheat);
+
 val code_start_rwt = prove(
   ``code_start (bootstrap_bc_state with
        <|code := bootstrap_code_labelled; output := ""|>) =
     code_start empty_bc_state``,
   fs [code_start_def,bootstrap_bc_state_inst_length]
   \\ NTAC 4 (AP_TERM_TAC ORELSE AP_THM_TAC) \\ EVAL_TAC);
+
+val init_bc_code_stripped_def = Define `
+  init_bc_code_stripped =
+    code_labels real_inst_length initial_bc_state.code`
 
 val loop_thm =
   zHEAP_basis_repl_fun
@@ -22210,6 +22234,10 @@ val loop_thm =
   |> SIMP_RULE (srw_ss()) [COMPILER_RUN_INV_init_alt,code_start_rwt,
        INPUT_TYPE_NONE_LEMMA,both_refs_def]
   |> RW [GSYM both_refs_def,GSYM bootstrap_code_def]
+  |> SIMP_RULE (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,both_refs_def]
+  |> SIMP_RULE (srw_ss()) [GSYM bytecodeLabelsTheory.strip_labels_def,
+       GSYM both_refs_def,EVAL ``initial_bc_state.inst_length``,
+       GSYM init_bc_code_stripped_def]
 
 val bootstrap_bc_state_stack_handler = prove(
   ``(bootstrap_bc_state.handler = 0) /\
@@ -22302,85 +22330,218 @@ val zHEAP_bootstrap_bc_state = let
     |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL |> UNDISCH_ALL
   in th end
 
+val iptr_index =
+  COMPILER_RUN_INV_ptrs
+  |> SPEC_ALL |> concl |> rand |> dest_conj |> fst
+  |> dest_eq |> fst |> rator |> rand
 
+val optr_index =
+  COMPILER_RUN_INV_ptrs
+  |> SPEC_ALL |> concl |> rand |> dest_conj |> snd
+  |> dest_eq |> fst |> rator |> rand
 
+val zHEAP_IPTR_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`^iptr_index`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
 
-(*
+val zHEAP_OPTR_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`^optr_index`]
+  |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
 
+val rwt_lemmas = prove(
+  ``^iptr_index < globals_count /\ ^optr_index < globals_count``,
+  fs [globals_count_def]);
 
+val Cons3 =
+  zHEAP_BIG_CONS
+  |> Q.INST [`n`|->`0`,`l`|->`3`]
+  |> DISCH_ALL |> GEN_ALL
+  |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL |> UNDISCH
 
-  max_print_depth := 30
+val Cons2 =
+  zHEAP_BIG_CONS
+  |> Q.INST [`n`|->`0`,`l`|->`2`]
+  |> DISCH_ALL |> GEN_ALL
+  |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL |> UNDISCH
 
+val both_refs_0 = prove(
+  ``both_refs x1 x2 x3 x4 x5 ' 0 =
+    ValueArray (ref_globals_list
+     (OPT_MAP (bc_adjust (x2,x1 - 8w,T)) x3.globals) globals_count)``,
+  fs [both_refs_def,all_refs_def,ref_adjust_def,LET_DEF,
+      ref_globals_def,FAPPLY_FUPDATE_THM,FUNION_DEF]);
 
+val EL_ref_globals_list_alt = prove(
+  ``!xs n i.
+      i < n ==>
+      (EL i (ref_globals_list xs n) =
+       if LENGTH xs <= i then Number 0 else
+         case EL i xs of NONE => Number 0 | SOME x => x)``,
+  Induct \\ fs [ref_globals_list_def]
+  THEN1 (fs [ref_globals_list_NIL,rich_listTheory.EL_REPLICATE])
+  \\ Cases \\ Cases \\ fs [ref_globals_list_def] \\ Cases \\ fs []);
 
+val EL_iptr_index = prove(
+  ``(EL ^iptr_index (ref_globals_list
+       (OPT_MAP (bc_adjust (cb,w,T)) bootstrap_bc_state.globals)
+         globals_count) = RefPtr (2 * iptr + 2)) /\
+    (EL ^optr_index (ref_globals_list
+       (OPT_MAP (bc_adjust (cb,w,T)) bootstrap_bc_state.globals)
+         globals_count) = RefPtr (2 * optr + 2))``,
+  STRIP_ASSUME_TAC (MATCH_MP COMPILER_RUN_INV_ptrs COMPILER_RUN_INV_init_alt)
+  \\ fs []
+  \\ `^iptr_index < LENGTH bootstrap_bc_state.globals /\
+      ^optr_index < LENGTH bootstrap_bc_state.globals` by DECIDE_TAC
+  \\ `^iptr_index < globals_count /\
+      ^optr_index < globals_count` by fs [globals_count_def]
+  \\ IMP_RES_TAC EL_ref_globals_list
+  \\ fs [bc_adjust_def,LEFT_ADD_DISTRIB]);
 
+val x64_code_rev_def = Define `
+  (x64_code_rev i [] res = res) /\
+  (x64_code_rev i (b::bs) res =
+     let c = x64 i b in x64_code_rev (i + LENGTH c) bs (REVERSE c ++ res))`;
 
-    |> (fn th => MATCH_MP th )
+val x64_code_rev_eval =
+  ([],``!b. x64_code_rev i (b::bs) res =
+          let c = x64 i b in
+            x64_code_rev (i + LENGTH c) bs (REVERSE c ++ res)``)
+  |> (Cases \\ TRY (Cases_on `b'`) \\ TRY (Cases_on `l`)) |> fst
+  |> map (SIMP_RULE std_ss [LET_DEF] o REWRITE_CONV [x64_code_rev_def] o snd)
+  |> (fn thms => LIST_CONJ (CONJUNCT1 x64_code_rev_def::thms))
+  |> SIMP_RULE std_ss [x64_def,LET_DEF,APPEND,LENGTH,small_offset_def,REVERSE_DEF,
+       small_offset6_def,small_offset12_def,small_offset16_def,IMM32_def,LENGTH_IF,
+       globals_count_def]
+  |> REWRITE_RULE [APPEND_IF,APPEND,IF_AND]
+  |> SIMP_RULE std_ss []
+  |> REWRITE_RULE [GSYM IF_AND]
 
-  |> (fn th => MATCH_MP th (GSYM bc_eval_intro_lemma))
+val _ = save_thm("x64_code_rev_eval",x64_code_rev_eval);
 
+val x64_code_rev_thm = prove(
+  ``!bs i res. x64_code_rev i bs res = REVERSE (x64_code i bs) ++ res``,
+  Induct THEN1 (SRW_TAC [] [x64_code_def,x64_code_rev_def])
+  \\ SRW_TAC [] [x64_code_ALT,x64_code_rev_def] \\ SRW_TAC [] []);
 
-  m ``(?n. NRC R n x y) <=> RTC R x``
+val x64_code_rev_thm = store_thm("x64_code_rev_thm",
+  ``!bs i. x64_code i bs = REVERSE (x64_code_rev i bs [])``,
+  SRW_TAC [] [x64_code_rev_thm]);
 
+val x64_code_INTRO = prove(
+  ``(x64_code_rev n xs [] = ys) = (x64_code n xs = REVERSE ys)``,
+  SRW_TAC [] [x64_code_rev_thm]);
 
+val x64_code_init_bc_code_stripped =
+  ``x64_code_rev 0 init_bc_code_stripped []``
+  |> (REWRITE_CONV [EVAL ``init_bc_code_stripped``] THENC EVAL)
+  |> RW [x64_code_INTRO] |> CONV_RULE (RAND_CONV EVAL)
 
+fun gen tm = let
+  val th = append_imm_code |> SPEC tm |> SPEC_ALL
+      |> SIMP_RULE std_ss [LENGTH,ADD1]
+      |> PURE_REWRITE_RULE [append_imm_code_def,word_arith_lemma1]
+      |> SIMP_RULE std_ss []
+  in th end;
 
+val install_init_bc_code_stripped =
+  append_imm_code
+  |> SPEC (x64_code_init_bc_code_stripped |> concl |> rand)
+  |> SPEC_ALL
+  |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) []))
+  |> CONV_RULE (PRE_CONV (SIMP_CONV (srw_ss()) []))
+  |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss())
+        [GSYM x64_code_init_bc_code_stripped]))
+  |> PURE_REWRITE_RULE [append_imm_code_def,word_arith_lemma1]
 
+val init_loop_thm = let
+  val th1 =
+    SPEC_COMPOSE_RULE [zHEAP_bootstrap_bc_state,
+      zHEAP_MOVE_42,zHEAP_1_Number_0,zHEAP_EL,zHEAP_MOVE_13,
+      zHEAP_1_Number_1,zHEAP_EL,zHEAP_MOVE_14,zHEAP_MOVE_32,
+      zHEAP_PUSH4,
+      zHEAP_IPTR_Number_1,zHEAP_DEREF,zHEAP_PUSH1,
+      zHEAP_OPTR_Number_1,zHEAP_DEREF,zHEAP_PUSH1,
+      Cons3,zHEAP_PUSH2,zHEAP_PUSH1,Cons2,
+      zHEAP_MOVE_14,zHEAP_1_Number_0] |> DISCH_ALL
+        |> SIMP_RULE std_ss [EL_SIMPS,SEP_CLAUSES,getRefPtr_def,
+             BlockPair_def,isRefPtr_def,LENGTH,
+             EVAL ``TAKE 3 [x1;x2;x3]``,LENGTH_ref_globals_list,
+             EVAL ``DROP 3 [x1;x2;x3]``,isValueArray_def,
+             EVAL ``REVERSE [x1;x2;x3]``,both_refs_0,getValueArray_def,
+             EVAL ``REVERSE [x1;x2]``,
+             EVAL ``TAKE 2 [x1;x2]``,
+             EVAL ``DROP 2 [x1;x2]``,rwt_lemmas]
+        |> UNDISCH_ALL |> RW [EL_iptr_index]
+  val th = SPEC_COMPOSE_RULE [th1,install_init_bc_code_stripped,zHEAP_CODE_SAFE]
+  val c = SIMP_CONV (srw_ss()) []
+  val th = th |> CONV_RULE (PRE_CONV c THENC POST_CONV c)
+  val th = th |> PURE_REWRITE_RULE [SPEC_MOVE_COND,GSYM AND_IMP_INTRO]
+              |> UNDISCH_ALL
+  in th end;
 
-loop:
+val code_start_empty_bc_state = prove(
+  ``code_start empty_bc_state = 8000``,
+  cheat);
 
+val SEP_DISJ_DISJ = prove(
+  ``p \/ q \/ p = SEP_DISJ p q``,
+  fs [FUN_EQ_THM,SEP_DISJ_def] \\ METIS_TAC []);
 
-TODO:
-  - do stripped x64_code
-  - hoare triple for init
-
-
-
-
-  print_find "install_code"
-
-
-
-  repl_bc_state_def
-  |> RW [initCompEnvTheory.install_code_def]
-
-
-  bootstrap_bc_state_def
-  code_start_def
-
-  EVAL ``compile_call_repl_step``
-
-  print_find "compile_call_repl_step_def"
-
-  ``REVERSE compile_call_repl_step``
-
-
-  print_find "strip_labels_def"
-
-
-  ``SND (SND compile_repl_module)``
-  |> (REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC EVAL)
-
-  print_find "install_code_def"
-
-print_find "compile_repl_module_eq"
-
-max_print_depth := 15
-
-
-
-
-  removeLabelsReplTheory.compile_call_repl_step_labels
-
-  removeLabelsReplTheory.bootstrap_code_def
-
-  removeLabelsReplTheory.bootstrap_code_eq
-
-  print_find "initial_bc_state_def"
-
-
-
-*)
+val init_and_loop = let
+  val SPEC_zHEAP_SWAP = prove(
+    ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * ~zS * zPC p) c q ==>
+      !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
+             SPEC m (zHEAP t * ~zS * zPC p') c q``,
+    fs []);
+  val th2 =
+    MATCH_MP SPEC_zHEAP_SWAP (loop_thm |> UNDISCH_ALL)
+    |> SIMP_RULE bool_ss [FORALL_PROD]
+    |> SPEC_ALL |> RW [PAIR_EQ,FUNION_FEMPTY_FEMPTY]
+    |> UNDISCH_ALL
+  val th3 =
+    SPEC_COMPOSE_RULE [init_loop_thm,th2 |> Q.INST [`s`|->`t`]]
+    |> DISCH_ALL |> GEN_ALL |> SIMP_RULE std_ss []
+  val th4 = th3 |> SPEC_ALL |> RW [AND_IMP_INTRO]
+    |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []))
+    |> RW [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+  val (_,_,code,_) = dest_spec (concl th4)
+  val pat = ``(p:word64,xs:word8 list)``
+  fun get_code_end tm = let
+    val _ = match_term pat tm
+    val (x,y) = dest_pair tm
+    val l1 = x |> rand |> rand |> numSyntax.int_of_term
+    val l2 = listSyntax.dest_list y |> fst |> length
+    in l1 + l2 end
+  val xs = find_terms (can get_code_end) code
+  fun max_list [] = hd []
+    | max_list [x] = x
+    | max_list (x::xs) = let
+       val n = max_list xs
+       in if n < x then x else n end
+  val n = max_list (map get_code_end xs) |> numSyntax.term_of_int
+  val th5 = th4 |> Q.INST [`cb`|->`p + n2w ^n`]
+  val lemma = prove(
+    ``(w = v1+v2+v3) <=> (v2 = w-v1-v3:word64)``,
+    blastLib.BBLAST_TAC)
+    |> Q.INST [`v1`|->`n2w n1`,
+               `v2`|->`n2w n2`,
+               `v3`|->`n2w n3`,
+               `w`|->`n2w n4`]
+    |> RW [word_add_n2w]
+  val th6 =
+    th5 |> DISCH_ALL |> RW [word_arith_lemma1]
+        |> RW [WORD_EQ_ADD_CANCEL,EVAL ``bootsrap_pc``,GSYM CONJ_ASSOC,
+               code_start_empty_bc_state,lemma,AND_IMP_INTRO]
+        |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []))
+        |> RW [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+  val pat = ``k MOD n = l:num``
+  val xs = filter (can (match_term pat)) (th6 |> hyp)
+  fun foo x = let
+    val (x1,x2) = dest_eq x
+    val v = hd (free_vars x1)
+    in v|->``(n2w ^x2):word32`` end
+  val sss = map foo xs
+  val rwt = map (EVAL o fst o dest_eq o subst sss) xs
+  val th7 = INST sss th6 |> DISCH_ALL |> RW rwt |> RW [SEP_DISJ_DISJ]
+  in th7 end;
 
 
 (*
