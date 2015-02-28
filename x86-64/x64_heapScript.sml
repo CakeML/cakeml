@@ -20801,6 +20801,24 @@ val SPEC_NEW_DISJ = prove(
   \\ POP_ASSUM MATCH_MP_TAC
   \\ fs [SEP_IMP_def,SEP_DISJ_def]);
 
+val NRC_bc_next_strip_labels = prove(
+  ``!n s1 s2.
+      NRC bc_next n s1 s2 /\ (s1.inst_length = x64_inst_length) ==>
+      NRC bc_next n (strip_labels s1) (strip_labels s2)``,
+  Induct \\ fs [NRC] \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `(strip_labels z)`
+  \\ `length_ok s1.inst_length` by fs [length_ok_x64_inst_length]
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_next_strip_labels
+  \\ fs [] \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+  \\ IMP_RES_TAC bc_next_preserves_inst_length \\ fs []) |> SPEC_ALL;
+
+val bc_fetch_strip_labels = prove(
+  ``(bc_fetch s2 = SOME (Stop b)) /\ (s2.inst_length = x64_inst_length) ==>
+    (bc_fetch (strip_labels s2) = SOME (Stop b))``,
+  REPEAT STRIP_TAC
+  \\ `length_ok s2.inst_length` by fs [length_ok_x64_inst_length]
+  \\ IMP_RES_TAC bytecodeLabelsTheory.bc_fetch_strip_labels);
+
 val zHEAP_EVAL_UNTIL_STOP = let
   val th =
     zBC_HEAP_EVAL_UNTIL_STOP
@@ -20851,6 +20869,16 @@ val zHEAP_EVAL_UNTIL_STOP = let
   val lemma = SPEC_COMPOSE |> RW1 [CONJ_COMM] |> RW [GSYM AND_IMP_INTRO]
   val th = MATCH_MP (MATCH_MP lemma th1) th
   val th = th |> SIMP_RULE std_ss [word_arith_lemma1]
+  val th = th
+    |> Q.INST [`s1`|->`strip_labels s1`,`s2`|->`strip_labels s2`]
+    |> DISCH_ALL |> SIMP_RULE (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,
+         both_refs_def] |> RW [GSYM bytecodeLabelsTheory.strip_labels_def]
+    |> UNDISCH_ALL |> RW [GSYM both_refs_def]
+    |> DISCH ``NRC bc_next n (strip_labels s1) (strip_labels s2)``
+    |> (fn th => MATCH_MP th (UNDISCH NRC_bc_next_strip_labels))
+    |> DISCH ``bc_fetch (strip_labels s2) = SOME (Stop b)``
+    |> (fn th => MATCH_MP th (UNDISCH bc_fetch_strip_labels))
+    |> DISCH_ALL |> RW [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
   in th end
 
 val EL_SIMPS =
@@ -21153,7 +21181,7 @@ val (thm_inr,thm_inl,thm_inl_div) = let
   val th1 = th1 |> replace_with_new_code
   val th2 = th2 |> replace_with_new_code
   val th3 = th3 |> replace_with_new_code
-  in (th1,th2,th3) end
+  in (th1,th2,th3) end;
 
 (* a bit of automation *)
 
@@ -21404,7 +21432,7 @@ val zHEAP_INR_TERMINATES = let
     \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
   val th = MP th lemma
-  in th end
+  in th end;
 
 
 (* INR continues case *)
@@ -21492,7 +21520,7 @@ val zHEAP_INR_CONTINUES = let
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym])
   val th = MP th lemma
-  in th end
+  in th end;
 
 
 (* INL will-diverge case *)
@@ -21585,7 +21613,7 @@ val zHEAP_INL_DIVERGES = let
     \\ MATCH_MP_TAC (METIS_PROVE [] ``(b=c) ==> (b ==> c)``)
     \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC))
   val th = MP th lemma
-  in th end
+  in th end;
 
 
 (* INL terminates case *)
@@ -21667,7 +21695,7 @@ val zHEAP_INL_TERMINATES = let
     \\ EVAL_TAC
     \\ fs [bc_adjust_BlockList_BlockNum3])
   val th = MP th lemma
-  in th end
+  in th end;
 
 
 (* INL continues case *)
@@ -21798,14 +21826,14 @@ val zHEAP_INL_CONTINUES = let
     \\ fs [lex_until_semi_res_def]
     \\ Cases_on `b1` \\ EVAL_TAC)
   val th = MP th lemma
-  in th end
+  in th end;
 
 
 (* basis_main_loop implemented *)
 
 val SPEC_COMPOSE_SIMPLE = SPEC_COMPOSE
   |> Q.SPECL [`x`,`p`,`c`,`m`,`c`,`q`]
-  |> RW [UNION_IDEMPOT,GSYM AND_IMP_INTRO]
+  |> RW [UNION_IDEMPOT,GSYM AND_IMP_INTRO];
 
 val SPEC_REFL_LEMMA = prove(
   ``SPEC m (p \/ e) c (e \/ q) <=> SPEC m p c (e \/ q)``,
@@ -22028,63 +22056,6 @@ val zHEAP_basis_repl_fun =
   |> RW [AND_IMP_INTRO]
 
 
-(*
-
-
-
-  |> MATCH_MP
-
-  print_find "install_code"
-
-max_print_depth := 20
-
-init
-
-  repl_bc_state_def
-  |> RW [initCompEnvTheory.install_code_def]
-
-
-  bootstrap_bc_state_def
-  code_start_def
-
-  EVAL ``compile_call_repl_step``
-
-  print_find "compile_call_repl_step_def"
-
-  ``REVERSE compile_call_repl_step``
-
-
-val INPUT_TYPE_NONE = prove(
-  ``INPUT_TYPE NONE
-      (dest_Refv (EL iloc (SND (Tmod_state "REPL" replModule_decls))))``,
-  cheat);
-
-  print_find "strip_labels_def"
-
-
-  ``SND (SND compile_repl_module)``
-  |> (REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC EVAL)
-
-  print_find "install_code_def"
-
-print_find "compile_repl_module_eq"
-
-max_print_depth := 15
-
-
-
-
-  removeLabelsReplTheory.compile_call_repl_step_labels
-
-  removeLabelsReplTheory.bootstrap_code_def
-
-  removeLabelsReplTheory.bootstrap_code_eq
-
-  print_find "initial_bc_state_def"
-
-
-
-*)
 
 
 
@@ -22190,6 +22161,7 @@ local
     |> RW [GSYM bootstrap_code_def,GSYM bootstrap_code_labelled_def]
   val lemmas = CONJUNCTS bootstrap_bc_state_strip_labels
 in
+  val bootstrap_bc_state_inst_length = el 3 lemmas
   val bootstrap_bc_state_with_labels =
     bootstrap_bc_state_with_labels_lemma
   val bootstrap_bc_state_strip_labels =
@@ -22216,12 +22188,199 @@ val COMPILER_RUN_INV_init_alt = prove(
   \\ MATCH_MP_TAC compilerProofTheory.env_rs_with_bs_irr
   \\ fs [] \\ Q.EXISTS_TAC `(bootstrap_bc_state with
          <|code := bootstrap_code_labelled;
-           pc :=
-             next_addr bootstrap_bc_state.inst_length
-               bootstrap_bc_state.code; output := ""|>)` \\ fs []);
+           pc := next_addr bootstrap_bc_state.inst_length
+                 bootstrap_bc_state.code; output := ""|>)` \\ fs []);
+
+val INPUT_TYPE_NONE_LEMMA = prove(
+  ``INPUT_TYPE NONE init1``,
+  cheat);
+
+val code_start_rwt = prove(
+  ``code_start (bootstrap_bc_state with
+       <|code := bootstrap_code_labelled; output := ""|>) =
+    code_start empty_bc_state``,
+  fs [code_start_def,bootstrap_bc_state_inst_length]
+  \\ NTAC 4 (AP_TERM_TAC ORELSE AP_THM_TAC) \\ EVAL_TAC);
+
+val loop_thm =
+  zHEAP_basis_repl_fun
+  |> Q.INST [`bs1`|->`((bootstrap_bc_state with
+         code := bootstrap_code_labelled) with output := "")`,
+       `grd1`|->`bootstrap_grd`,`inp1`|->`init1`,`out1`|->`init2`]
+  |> SIMP_RULE (srw_ss()) [COMPILER_RUN_INV_init_alt,code_start_rwt,
+       INPUT_TYPE_NONE_LEMMA,both_refs_def]
+  |> RW [GSYM both_refs_def,GSYM bootstrap_code_def]
+
+val bootstrap_bc_state_stack_handler = prove(
+  ``(bootstrap_bc_state.handler = 0) /\
+    (bootstrap_bc_state.stack = [])``,
+  ASSUME_TAC COMPILER_RUN_INV_init_alt
+  \\ IMP_RES_TAC COMPILER_RUN_INV_empty_stack
+  \\ IMP_RES_TAC COMPILER_RUN_INV_handler \\ fs []);
+
+val bc_eval_intro_lemma = prove(
+  ``(bc_next^* s1 s2 ==>
+    (bc_fetch s2 = SOME (Stop b)) ==> b1) <=>
+    ((bc_eval s1 = SOME s2) ==>
+    (bc_fetch s2 = SOME (Stop b)) ==> b1)``,
+  REPEAT STRIP_TAC \\ Cases_on `b1` \\ fs []
+  \\ Cases_on `bc_fetch s2 = SOME (Stop b)` \\ fs []
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC bytecodeEvalTheory.bc_eval_SOME_RTC_bc_next \\ fs []
+  \\ MATCH_MP_TAC (MP_CANON bytecodeEvalTheory.RTC_bc_next_bc_eval) \\ fs []
+  \\ fs [bc_next_cases])
+
+val PUSH_FORALL =
+  METIS_PROVE [] ``(!x. P x ==> Q) <=> (?x. P x) ==> Q``
+
+val ref_globals_NIL = prove(
+  ``ref_globals (cb,w,b) [] =
+        FEMPTY |+ (if b then 0 else 1,
+          ValueArray (REPLICATE globals_count (Number 0)))``,
+  fs [ref_globals_def]
+  \\ REPEAT (AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ fs [ref_globals_list_def,OPT_MAP_def]
+  \\ Q.SPEC_TAC (`globals_count`,`n`)
+  \\ Induct \\ fs [ref_globals_list_def,rich_listTheory.REPLICATE]);
+
+val FUNION_FEMPTY_FEMPTY = prove(
+  ``FUNION (FEMPTY |+ (0,y1)) (FEMPTY |+ (1:num,y2)) =
+    FEMPTY |+ (0,y1) |+ (1,y2)``,
+  fs [fmap_EXT,FUNION_DEF,FAPPLY_FUPDATE_THM,EXTENSION]
+  \\ SRW_TAC [] [AC DISJ_COMM DISJ_ASSOC] \\ fs []);
+
+val zHEAP_bootstrap_bc_state = let
+  val th0 =
+    set_ref_addr
+    |> RW [ref_addr_def]
+    |> Q.INST [`refs`|->`FEMPTY`]
+    |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+  val th1 =
+    zHEAP_EVAL_UNTIL_STOP
+    |> DISCH ``bc_fetch s2 = SOME (Stop b)``
+    |> DISCH ``NRC bc_next n s1 s2``
+    |> Q.GEN `n` |> SIMP_RULE std_ss [PUSH_FORALL,GSYM RTC_eq_NRC]
+    |> RW [bc_eval_intro_lemma]
+    |> RW [AND_IMP_INTRO]
+    |> Q.INST [`s1`|->`(initial_bc_state with
+         <|code := bootstrap_code_labelled; pc := bootsrap_pc|>)`]
+    |> RW [bootstrap_bc_state_with_labels]
+    |> DISCH_ALL |> Q.GENL [`s2`,`b`]
+    |> SIMP_RULE (srw_ss()) [bootstrap_bc_state_with_labels,
+         bootstrap_bc_state_inst_length,
+         EVAL ``initial_bc_state.handler``,
+         EVAL ``initial_bc_state.stack``,
+         EVAL ``initial_bc_state.inst_length``,
+         real_inst_length_thm,GSYM bootstrap_code_def,
+         bootstrap_bc_state_stack_handler,
+         both_refs_def,
+         EVAL ``initial_bc_state.refs``,
+         EVAL ``initial_bc_state.globals``]
+    |> Q.INST [`t1_cb`|->`cs.code_heap_ptr`,
+               `t1`|->`initial_bc_state`,
+               `repl_step_imm32`|->`repl_step_imm32_fst`]
+    |> RW [GSYM both_refs_def]
+    |> RW [EVAL ``initial_bc_state.refs``,ref_adjust_FEMPTY,
+           EVAL ``initial_bc_state.globals``,all_refs_def,
+           ref_globals_NIL]
+    |> SIMP_RULE std_ss [Once EQ_SYM_EQ]
+    |> SIMP_RULE (srw_ss()) [FUNION_DEF]
+    |> UNDISCH_ALL
+  val SPEC_zHEAP_SWAP = prove(
+    ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * ~zS * zPC p) c q ==>
+      !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
+             SPEC m (zHEAP t * ~zS * zPC p') c q``,
+    fs []);
+  val th2 =
+    MATCH_MP SPEC_zHEAP_SWAP th1
+    |> SIMP_RULE bool_ss [FORALL_PROD]
+    |> SPEC_ALL |> RW [PAIR_EQ,FUNION_FEMPTY_FEMPTY]
+    |> UNDISCH_ALL
+  val th =
+    SPEC_COMPOSE_RULE [th0,th2]
+    |> DISCH_ALL |> GEN_ALL
+    |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL |> UNDISCH_ALL
+  in th end
 
 
 
+
+(*
+
+
+
+  max_print_depth := 30
+
+
+
+
+
+    |> (fn th => MATCH_MP th )
+
+  |> (fn th => MATCH_MP th (GSYM bc_eval_intro_lemma))
+
+
+  m ``(?n. NRC R n x y) <=> RTC R x``
+
+
+
+
+
+
+loop:
+
+
+TODO:
+  - do stripped x64_code
+  - hoare triple for init
+
+
+
+
+  print_find "install_code"
+
+
+
+  repl_bc_state_def
+  |> RW [initCompEnvTheory.install_code_def]
+
+
+  bootstrap_bc_state_def
+  code_start_def
+
+  EVAL ``compile_call_repl_step``
+
+  print_find "compile_call_repl_step_def"
+
+  ``REVERSE compile_call_repl_step``
+
+
+  print_find "strip_labels_def"
+
+
+  ``SND (SND compile_repl_module)``
+  |> (REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC EVAL)
+
+  print_find "install_code_def"
+
+print_find "compile_repl_module_eq"
+
+max_print_depth := 15
+
+
+
+
+  removeLabelsReplTheory.compile_call_repl_step_labels
+
+  removeLabelsReplTheory.bootstrap_code_def
+
+  removeLabelsReplTheory.bootstrap_code_eq
+
+  print_find "initial_bc_state_def"
+
+
+
+*)
 
 
 (*
