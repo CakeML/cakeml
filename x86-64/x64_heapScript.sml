@@ -18220,9 +18220,6 @@ val zSTANDALONE_CORRECT = curry save_thm "zSTANDALONE_CORRECT" let
 
 
 
-
-
-
 val x64_repl_implementation_def = Define `
   x64_repl_implementation = ARB`;
 
@@ -20507,9 +20504,48 @@ val init_loop_thm = let
               |> UNDISCH_ALL
   in th end;
 
-val code_start_empty_bc_state = prove(
-  ``code_start empty_bc_state = 8000``,
-  cheat);
+val sum_lengths_def = Define `
+  (sum_lengths [] n = n) /\
+  (sum_lengths (x::xs) n =
+     if is_Label x then sum_lengths xs n
+                   else sum_lengths xs (n + 1 + real_inst_length x))`
+
+val sum_lengths_LEMMA = prove(
+  ``!xs n. sum_lengths xs 0 + n = sum_lengths xs n``,
+  Induct \\ fs [sum_lengths_def]
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
+  \\ DECIDE_TAC);
+
+val code_start_eq = prove(
+  ``code_start empty_bc_state =
+    sum_lengths bootstrap_bc_state.code 0``,
+  fs [code_start_def]
+  \\ Q.SPEC_TAC (`bootstrap_bc_state.code`,`xs`)
+  \\ fs [EVAL ``empty_bc_state.inst_length``]
+  \\ Induct \\ fs [sum_lengths_def]
+  \\ SRW_TAC [] [] \\ fs []
+  \\ ONCE_REWRITE_TAC [GSYM sum_lengths_LEMMA]
+  \\ DECIDE_TAC);
+
+val sum_lengths_APPEND = prove(
+  ``!xs ys n.
+      sum_lengths (xs ++ ys) n =
+      sum_lengths xs (sum_lengths ys n)``,
+  Induct \\ fs [sum_lengths_def]
+  \\ ONCE_REWRITE_TAC [GSYM sum_lengths_LEMMA]
+  \\ ONCE_REWRITE_TAC [GSYM sum_lengths_LEMMA]
+  \\ DECIDE_TAC);
+
+val sum_lengths_REVERSE = prove(
+  ``!xs n. sum_lengths (REVERSE xs) n = sum_lengths xs n``,
+  Induct \\ fs [sum_lengths_APPEND,sum_lengths_def] \\ SRW_TAC [] []);
+
+val code_start_empty_bc_state =
+  ``code_start empty_bc_state``
+  |> (REWRITE_CONV [code_start_eq,EVAL ``empty_bc_state.inst_length``,
+        bootstrap_bc_state_code,EVAL ``initial_bc_state.code``,
+        initCompEnvTheory.prim_env_eq,SND,THE_DEF,sum_lengths_REVERSE,
+        compileReplTheory.compile_repl_module_eq,sum_lengths_APPEND] THENC EVAL)
 
 val SEP_DISJ_DISJ = prove(
   ``p \/ q \/ p = SEP_DISJ p q``,
@@ -20571,8 +20607,59 @@ val init_and_loop = let
   val sss = map foo xs
   val rwt = map (EVAL o fst o dest_eq o subst sss) xs
   val th7 = INST sss th6 |> DISCH_ALL |> RW rwt |> RW [SEP_DISJ_DISJ]
-  in th7 end;
+  in th7 |> UNDISCH_ALL end;
 
+val lex_until_top_semicolon_alt_ADD_WHITE_SPACE = prove(
+  ``lex_until_top_semicolon_alt (STRING #" " input) =
+    lex_until_top_semicolon_alt input``,
+  fs [lex_until_top_semicolon_alt_def]
+  \\ ONCE_REWRITE_TAC [lex_aux_alt_def]
+  \\ SIMP_TAC std_ss [Once next_sym_def]
+  \\ SIMP_TAC std_ss [EVAL ``isSpace #" "``]);
+
+val basis_repl_fun_ADD_WHITE_SPACE = prove(
+  ``basis_repl_fun (STRING #" " input) = basis_repl_fun input``,
+  fs [basis_repl_fun_def]
+  \\ ONCE_REWRITE_TAC [basis_main_loop_def]
+  \\ SIMP_TAC std_ss [lex_until_top_semicolon_alt_ADD_WHITE_SPACE]);
+
+val all_the_code = let
+  val SPEC_zHEAP_SWAP = prove(
+    ``SPEC m (zHEAP (cs,x1,x2,x3,x4,refs,stack,s,space) * ~zS * zPC p) c q ==>
+      !t p'. ((cs,x1,x2,x3,x4,refs,stack,s,space) = t) /\ (p = p') ==>
+             SPEC m (zHEAP t * ~zS * zPC p') c q``, fs []);
+  val th2 =
+    MATCH_MP SPEC_zHEAP_SWAP (init_and_loop |> UNDISCH_ALL)
+    |> SIMP_RULE bool_ss [FORALL_PROD]
+    |> SPEC_ALL |> RW [PAIR_EQ,FUNION_FEMPTY_FEMPTY]
+    |> UNDISCH_ALL
+  val th1 =
+    SPEC_COMPOSE_RULE [zHEAP_INIT,zHEAP_PUSH1,zWRITE_HANDLER,zHEAP_POP1,zHEAP_NOP]
+    |> SIMP_RULE std_ss [HD,TL,LENGTH]
+  val th3 = SPEC_COMPOSE_RULE [th1,th2 |> Q.INST [`s`|->`t`]]
+  val th4 =
+    th3 |> DISCH_ALL
+        |> Q.INST [`t`|->`first_s init with handler := 1`,
+                   `cs`|->`full_cs init p`,
+                   `x1`|->`Number 0`]
+        |> RW [AND_IMP_INTRO]
+        |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) [first_s_def,
+             fetch "-" "full_cs_def",first_cs_def,local_zero_def]))
+        |> RW [GSYM CONJ_ASSOC,basis_repl_fun_ADD_WHITE_SPACE,
+               NOT_CONS_NIL,SEP_CLAUSES]
+  val th5 =
+    th4 |> RW [GSYM AND_IMP_INTRO]
+        |> UNDISCH_ALL
+  val tm =
+    th5 |> hyp |> first (can (match_term ``EVEN (w2n (p + n2w kk))``))
+  val lemma = prove(
+    ``^tm = EVEN (w2n (p:word64))``,
+    fs [EVEN_w2n] \\ blastLib.BBLAST_TAC)
+  val th6 = th5 |> DISCH_ALL |> RW [lemma] |> UNDISCH_ALL
+  in th6 |> RW [EVAL ``(full_cs init p).code_heap_ptr``] end
+
+
+(* zBC_HEAP_BC_DIV *)
 
 (*
 val _ = PolyML.SaveState.saveState "x64_heap_state";
