@@ -18218,80 +18218,6 @@ val zSTANDALONE_CORRECT = curry save_thm "zSTANDALONE_CORRECT" let
     |> DISCH_ALL
   in th end;
 
-
-
-val x64_repl_implementation_def = Define `
-  x64_repl_implementation = ARB`;
-
-val diverges_def = Define `
-  (diverges (Result x y) = diverges y) /\
-  (diverges Terminate = F) /\
-  (diverges Diverge = T)`
-
-val repl_output_def = Define `
-  (repl_output (Result x y) = x ++ repl_output y) /\
-  (repl_output Terminates = "") /\
-  (repl_output Diverges = "")`
-
-val x64_repl_implementation_thm = prove(
-  ``(basis_repl_fun init.init_input = (output,T)) ==>
-    EVEN (w2n p) ==>
-    TEMPORAL X64_MODEL x64_repl_implementation
-      (T_IMPLIES (NOW (INIT_STATE init * (¬zS * zPC p)))
-        (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
-           (if diverges output then
-              zBYTECODE_DIVERGED (repl_output output) (full_cs init p,p)
-            else
-              EVENTUALLY
-                (NOW (zHEAP_OUTPUT (full_cs init p,repl_output output))))))``,
-  cheat);
-
-val T_BOOL_def = Define `T_BOOL b f s = b`
-
-val T_EXISTS = new_binder_definition("T_EXISTS",
-  ``($T_EXISTS) = \g f s. ?y. g y f s``);
-
-val SND_basis_repl_fun = prove(
-  ``SND (basis_repl_fun input)``,
-  MP_TAC (Q.SPEC `input` basis_repl_fun_thm)
-  \\ Cases_on `basis_repl_fun input` \\ fs [LET_DEF] \\ SRW_TAC [] []);
-
-val x64_repl_implementation_lemma =
-  x64_repl_implementation_thm
-  |> ONCE_REWRITE_RULE [GSYM PAIR]
-  |> PURE_REWRITE_RULE [PAIR_EQ]
-  |> Q.GEN `output`
-  |> SIMP_RULE std_ss [SND_basis_repl_fun]
-
-val TEMPORAL_IMP = prove(
-  ``(!f s. q1 f s ==> q2 f s) ==>
-    TEMPORAL m code (T_IMPLIES p q1) ==>
-    TEMPORAL m code (T_IMPLIES p q2)``,
-  PairCases_on `m` \\ fs [TEMPORAL_def,T_IMPLIES_def] \\ METIS_TAC [])
-
-val zREPL_CORRECT = store_thm("zREPL_CORRECT",
-  ``EVEN (w2n p) ==>
-    TEMPORAL X64_MODEL x64_repl_implementation
-      (T_IMPLIES (NOW (INIT_STATE init * (¬zS * zPC p)))
-        (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
-           (T_EXISTS output.
-              T_CONJ (T_BOOL (repl basis_repl_env
-                         (get_type_error_mask output) init.init_input output))
-                (if diverges output then
-                  zBYTECODE_DIVERGED (repl_output output) (full_cs init p,p)
-                else
-                  EVENTUALLY
-                    (NOW (zHEAP_OUTPUT (full_cs init p,repl_output output)))))))``,
-  REPEAT STRIP_TAC
-  \\ MP_TAC x64_repl_implementation_lemma \\ fs []
-  \\ MATCH_MP_TAC TEMPORAL_IMP
-  \\ fs [T_DISJ_def] \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ2_TAC
-  \\ fs [T_EXISTS,T_CONJ_def,T_BOOL_def]
-  \\ MP_TAC (Q.SPEC `init.init_input` basis_repl_fun_thm)
-  \\ Cases_on `basis_repl_fun init.init_input` \\ fs [LET_DEF]
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ Q.EXISTS_TAC `output` \\ fs [diverges_def,repl_output_def]);
-
 (*
 
   val (_,_,_,m1) = dest_spec (thB |> f |> concl)
@@ -19302,13 +19228,6 @@ val COMPILER_RUN_INV_inst_length = prove(
          initCompEnvTheory.initial_bc_state_def,
          initCompEnvTheory.empty_bc_state_def]);
 
-val COMPILER_RUN_INV_handler = prove(
-  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
-    (bs1.handler = 0)``,
-  rw[COMPILER_RUN_INV_def] >> PairCases_on`grd1` >>
-  Cases_on`Tmod_state "REPL" replModule_decls`>>
-  fs[evaluateReplTheory.update_io_def,compilerProofTheory.env_rs_def]);
-
 (* various lemmas *)
 
 val DIV_2_ADD_LEMMA =
@@ -19913,6 +19832,16 @@ val repl_bc_state_output_empty = prove(
 fun CC th = th |> UNDISCH_ALL
                |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []));
 
+val diverges_def = Define `
+  (diverges (Result x y) = diverges y) /\
+  (diverges Terminate = F) /\
+  (diverges Diverge = T)`
+
+val repl_output_def = Define `
+  (repl_output (Result x y) = x ++ repl_output y) /\
+  (repl_output Terminates = "") /\
+  (repl_output Diverges = "")`
+
 val zHEAP_basis_main_loop = prove(
   ``!x bs input res x2 x3 bs1 s t1 grd1 inp1 out1 t1.
       COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
@@ -20230,18 +20159,6 @@ val COMPILER_RUN_INV_init_alt = prove(
            pc := next_addr bootstrap_bc_state.inst_length
                  bootstrap_bc_state.code; output := ""|>)` \\ fs []);
 
-val INPUT_TYPE_NONE_LEMMA = prove(
-  ``INPUT_TYPE NONE init1``,
-  cheat);
-
-val COMPILER_RUN_INV_ptrs = prove(
-  ``!bs grd inp out.
-      COMPILER_RUN_INV bs grd inp out ==>
-      (EL 419 bs.globals = SOME (RefPtr iptr)) /\
-      (EL 420 bs.globals = SOME (RefPtr optr)) /\
-      420 < LENGTH bs.globals``,
-  cheat);
-
 val code_start_rwt = prove(
   ``code_start (bootstrap_bc_state with
        <|code := bootstrap_code_labelled; output := ""|>) =
@@ -20259,7 +20176,7 @@ val loop_thm =
          code := bootstrap_code_labelled) with output := "")`,
        `grd1`|->`bootstrap_grd`,`inp1`|->`init1`,`out1`|->`init2`]
   |> SIMP_RULE (srw_ss()) [COMPILER_RUN_INV_init_alt,code_start_rwt,
-       INPUT_TYPE_NONE_LEMMA,both_refs_def]
+       INPUT_TYPE_NONE,both_refs_def]
   |> RW [GSYM both_refs_def,GSYM bootstrap_code_def]
   |> SIMP_RULE (srw_ss()) [bytecodeLabelsTheory.strip_labels_def,both_refs_def]
   |> SIMP_RULE (srw_ss()) [GSYM bytecodeLabelsTheory.strip_labels_def,
@@ -20658,8 +20575,113 @@ val all_the_code = let
   val th6 = th5 |> DISCH_ALL |> RW [lemma] |> UNDISCH_ALL
   in th6 |> RW [EVAL ``(full_cs init p).code_heap_ptr``] end
 
+val DIV_COMPOSE_LEMMA = prove(
+  ``let q1 = zBYTECODE_DIVERGED out (cs,w) in
+      TEMPORAL m c (T_IMPLIES (NOW q) (T_DISJ q1 (EVENTUALLY (NOW err)))) ==>
+      SPEC m p c (err \/ if b then q else q2) ==>
+      TEMPORAL m c (T_IMPLIES (NOW p) (T_DISJ (EVENTUALLY (NOW err))
+                      (if b then q1 else EVENTUALLY (NOW q2))))``,
+  REVERSE (Cases_on `b`) \\ fs [SPEC_EQ_TEMPORAL,LET_DEF]
+  \\ PairCases_on `m` \\ fs [TEMPORAL_def,LET_DEF]
+  \\ fs [FUN_EQ_THM,T_DISJ_def,EVENTUALLY_def,NOW_def,T_IMPLIES_def,
+          SEP_CLAUSES,SEP_REFINE_def] \\ fs [SEP_DISJ_def]
+  THEN1 METIS_TAC []
+  \\ REVERSE (REPEAT STRIP_TAC) THEN1 (METIS_TAC []) \\ fs [AND_IMP_INTRO]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`state`,`seq'`,`r`])
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [] \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC
+  THENL [METIS_TAC [], ALL_TAC, METIS_TAC []]
+  \\ IMP_RES_TAC rel_sequence_shift
+  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`seq' (k:num)`,`(\j. seq' (k + j))`,`r`])
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [] \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC
+  \\ fs [zBYTECODE_DIVERGED_def,ALWAYS_def,EVENTUALLY_def,NOW_def,
+         SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ METIS_TAC [ADD_ASSOC]) |> SIMP_RULE std_ss [LET_DEF];
 
-(* zBC_HEAP_BC_DIV *)
+val x64_repl_implementation_thm = let
+  val (_,_,code,_) = dest_spec (concl all_the_code)
+  val th =
+    zBC_HEAP_BC_DIV
+    |> Q.INST [`cs`|->`full_cs init p`]
+    |> MATCH_MP (GEN_ALL (RW [GSYM AND_IMP_INTRO] TEMPORAL_SUBSET_CODE))
+    |> SPEC code
+  val goal = th |> concl |> dest_imp |> fst
+  val lemma = prove(goal,
+    PURE_REWRITE_TAC [code_abbrevs_def,UNION_SUBSET]
+    \\ PURE_REWRITE_TAC [SUBSET_DEF,IN_INSERT,IN_UNION]
+    \\ REPEAT STRIP_TAC \\ ASM_REWRITE_TAC [])
+  val th = MP th lemma
+           |> RW [EVAL ``(full_cs init p).code_heap_ptr``]
+  val th = MATCH_MP (MATCH_MP DIV_COMPOSE_LEMMA th) all_the_code
+  val f = SIMP_CONV (srw_ss()) [fetch "-" "full_cs_def"]
+  val xs = [``(full_cs init p).install_and_run_ptr``,
+            ``(full_cs init p).lex_ptr``,
+            ``(full_cs init p).equal_ptr``,
+            ``(full_cs init p).alloc_ptr``,
+            ``(full_cs init p).print_ptr``,
+            ``(full_cs init p).bignum_ptr``,
+            ``(full_cs init p).error_ptr``] |> map f
+  val th = th |> RW (code_abbrevs_def::xs)
+  in th end
+
+val x64_repl_implementation_def = Define `
+  x64_repl_implementation p =
+    ^(x64_repl_implementation_thm |> concl |> rator |> rand)`;
+
+val T_BOOL_def = Define `T_BOOL b f s = b`
+
+val T_EXISTS = new_binder_definition("T_EXISTS",
+  ``($T_EXISTS) = \g f s. ?y. g y f s``);
+
+val SND_basis_repl_fun = prove(
+  ``SND (basis_repl_fun input)``,
+  MP_TAC (Q.SPEC `input` basis_repl_fun_thm)
+  \\ Cases_on `basis_repl_fun input` \\ fs [LET_DEF] \\ SRW_TAC [] []);
+
+val x64_repl_implementation_lemma =
+  x64_repl_implementation_thm
+  |> DISCH ``basis_repl_fun init.init_input = (res,T)``
+  |> CONV_RULE (BINOP1_CONV (ONCE_REWRITE_CONV [GSYM PAIR]))
+  |> PURE_REWRITE_RULE [PAIR_EQ] |> RW [SND_basis_repl_fun]
+  |> Q.INST [`res`|->`FST (basis_repl_fun init.init_input)`]
+  |> RW [GSYM x64_repl_implementation_def]
+  |> DISCH_ALL
+
+val TEMPORAL_IMP = prove(
+  ``(!f s. q1 f s ==> q2 f s) ==>
+    TEMPORAL m code (T_IMPLIES p q1) ==>
+    TEMPORAL m code (T_IMPLIES p q2)``,
+  PairCases_on `m` \\ fs [TEMPORAL_def,T_IMPLIES_def] \\ METIS_TAC [])
+
+val zREPL_CORRECT = store_thm("zREPL_CORRECT",
+  ``EVEN (w2n p) /\ EVEN (w2n init.init_code_heap_ptr) /\
+    2048 <= w2n init.init_code_heap_size ==>
+    TEMPORAL X64_MODEL (x64_repl_implementation p)
+      (T_IMPLIES (NOW (INIT_STATE init * zPC p * ~zS))
+        (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
+           (T_EXISTS output.
+              T_CONJ (T_BOOL (repl basis_repl_env
+                         (get_type_error_mask output) init.init_input output))
+                (if diverges output then
+                  zBYTECODE_DIVERGED (repl_output output)
+                    (full_cs init p,init.init_code_heap_ptr)
+                else
+                  EVENTUALLY
+                    (NOW (zHEAP_OUTPUT (full_cs init p,repl_output output)))))))``,
+  REPEAT STRIP_TAC
+  \\ MP_TAC x64_repl_implementation_lemma \\ fs []
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 DECIDE_TAC
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ MATCH_MP_TAC TEMPORAL_IMP
+  \\ fs [T_DISJ_def] \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ2_TAC
+  \\ fs [T_EXISTS,T_CONJ_def,T_BOOL_def]
+  \\ MP_TAC (Q.SPEC `init.init_input` basis_repl_fun_thm)
+  \\ Cases_on `basis_repl_fun init.init_input` \\ fs [LET_DEF]
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ Q.EXISTS_TAC `output` \\ fs [diverges_def,repl_output_def]);
+
 
 (*
 val _ = PolyML.SaveState.saveState "x64_heap_state";

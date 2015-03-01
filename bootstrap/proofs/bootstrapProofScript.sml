@@ -167,6 +167,13 @@ val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
   Cases_on`Tmod_state "REPL" replModule_decls`>>
   fs[update_io_def,compilerProofTheory.env_rs_def])
 
+val COMPILER_RUN_INV_handler = store_thm("COMPILER_RUN_INV_handler",
+  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
+    (bs1.handler = 0)``,
+  rw[COMPILER_RUN_INV_def] >> PairCases_on`grd1` >>
+  Cases_on`Tmod_state "REPL" replModule_decls`>>
+  fs[evaluateReplTheory.update_io_def,compilerProofTheory.env_rs_def]);
+
 val LUPDATE_SAME_lem = prove(
   ``∀ls n v. (v = EL n ls) ∧ n < LENGTH ls ⇒ LUPDATE v n ls = ls``,
   metis_tac[miscTheory.LUPDATE_SAME])
@@ -734,7 +741,9 @@ val COMPILER_RUN_INV_ptrs = store_thm("COMPILER_RUN_INV_ptrs",
   ``∀bs grd inp out.
       COMPILER_RUN_INV bs grd inp out ⇒
       EL ^(rhs(concl iind_eq)) bs.globals = SOME (RefPtr iptr) ∧
-      EL ^(rhs(concl oind_eq)) bs.globals = SOME (RefPtr optr)``,
+      ^(rhs(concl iind_eq)) < LENGTH bs.globals ∧
+      EL ^(rhs(concl oind_eq)) bs.globals = SOME (RefPtr optr) ∧
+      ^(rhs(concl oind_eq)) < LENGTH bs.globals``,
   rw[COMPILER_RUN_INV_def,GSYM iind_eq,GSYM oind_eq] >>
   rw[ptrs_def])
 
