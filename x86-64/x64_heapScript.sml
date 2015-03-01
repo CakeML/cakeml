@@ -20269,7 +20269,7 @@ local
     fs [bootstrap_bc_state_def])
     |> SIMP_RULE (srw_ss()) [initCompEnvTheory.install_code_def,REVERSE_APPEND]
     |> RW [GSYM bootstrap_bc_state_code]
-    |> RW [GSYM boostrap_pc_def]
+    |> RW [GSYM bootstrap_pc_def]
     |> MATCH_MP bc_eval_Stop_T_IMP
     |> SIMP_RULE (srw_ss()) [EVAL ``empty_bc_state.inst_length``]
     |> Q.INST [`x`|->`REVERSE compile_call_repl_step`]
@@ -20390,7 +20390,7 @@ val zHEAP_bootstrap_bc_state = let
     |> RW [bc_eval_intro_lemma]
     |> RW [AND_IMP_INTRO]
     |> Q.INST [`s1`|->`(initial_bc_state with
-         <|code := bootstrap_code_labelled; pc := bootsrap_pc|>)`]
+         <|code := bootstrap_code_labelled; pc := bootstrap_pc|>)`]
     |> RW [bootstrap_bc_state_with_labels]
     |> DISCH_ALL |> Q.GENL [`s2`,`b`]
     |> SIMP_RULE (srw_ss()) [bootstrap_bc_state_with_labels,
@@ -20436,7 +20436,8 @@ val iptr_index =
 
 val optr_index =
   COMPILER_RUN_INV_ptrs
-  |> SPEC_ALL |> concl |> rand |> dest_conj |> snd
+  |> SPEC_ALL |> concl |> rand
+  |> dest_conj |> snd |> dest_conj |> snd |> dest_conj |> fst
   |> dest_eq |> fst |> rator |> rand
 
 val zHEAP_IPTR_Number_1 = zHEAP_Num1 |> Q.INST [`k`|->`^iptr_index`]
@@ -20664,12 +20665,15 @@ val init_and_loop = let
                `v3`|->`n2w n3`,
                `w`|->`n2w n4`]
     |> RW [word_add_n2w]
+  val cc =
+    REWRITE_CONV [WORD_EQ_ADD_CANCEL,EVAL ``bootstrap_pc``,
+               code_start_empty_bc_state,lemma,word_arith_lemma1]
+    THENC SIMP_CONV (srw_ss()) []
   val th6 =
-    th5 |> DISCH_ALL |> RW [word_arith_lemma1]
-        |> RW [WORD_EQ_ADD_CANCEL,EVAL ``bootsrap_pc``,GSYM CONJ_ASSOC,
-               code_start_empty_bc_state,lemma,AND_IMP_INTRO]
-        |> CONV_RULE (BINOP1_CONV (SIMP_CONV (srw_ss()) []))
-        |> RW [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+    th5 |> DISCH_ALL
+        |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+        |> CONV_RULE ((RATOR_CONV o RAND_CONV) cc)
+        |> PURE_REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
   val pat = ``k MOD n = l:num``
   val xs = filter (can (match_term pat)) (th6 |> hyp)
   fun foo x = let
