@@ -33,7 +33,7 @@ val _ = PolyML.SaveState.loadState "x64_heap_state";
 
 (* intLib blastLib bytecodeLabelsTheory *)
 
-val _ = (max_print_depth := 50);
+val _ = (max_print_depth := 5);
 
 infix \\ val op \\ = op THEN;
 
@@ -10963,6 +10963,8 @@ val zHEAP_PERFORM_BIGNUM = let
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,^inv) vals /\
             isNumber x1 /\ isNumber x2 /\
+            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
+            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0) /\
             num_size x1 + num_size x2 + 2 < 2**32)``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
@@ -10982,6 +10984,8 @@ gg goal
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s,^inv) * ~zS * zPC p *
       cond (isNumber x1 /\ isNumber x2 /\
+            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
+            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0) /\
             num_size x1 + num_size x2 + 2 < 2**32)``
   val lemma = prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
@@ -11184,7 +11188,9 @@ val zHEAP_ALLOC_THEN_BIGNUM_GOOD_PRE = let
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s, SOME (\(sp,vals).
               vals.reg14 = n2w (8 * (num_size x1 + num_size x2 + 2)))) *
-      zPC p * ~zS * cond (isNumber x1 /\ isNumber x2)``
+      zPC p * ~zS * cond (isNumber x1 /\ isNumber x2 /\
+            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
+            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0))``
   val lemma = prove(goal,
     fs [SEP_IMP_def]
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
