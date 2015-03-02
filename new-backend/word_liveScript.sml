@@ -78,13 +78,15 @@ val get_live_def = Define`
     We get the livesets for e2 and e3, union them, add the if variable
     then pass the resulting liveset upwards
   *)
-  (get_live (If e1 num e2 e3) live =
+  (get_live (If cmp r1 ri e2 e3) live =
     let e2_live = get_live e2 live in
     let e3_live = get_live e3 live in
-      get_live e1 (insert num () (union e2_live e3_live))) ∧
+    let union_live = union e2_live e3_live in
+       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+      | _ => insert r1 () union_live) ∧  
   (get_live (Alloc num numset) live = insert num () numset) ∧
   (get_live (Raise num) live = insert num () live) ∧
-  (get_live (Return num) live = insert num () live) ∧
+  (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
   (get_live (Set n exp) live = union (get_live_exp exp) live) ∧
   (*Cut-set must be live, args input must be live
@@ -127,17 +129,17 @@ val colouring_ok_def = Define`
       INJ f (domain s1_live) UNIV ∧
       (*Internal clash sets*)
       colouring_ok f s2 live ∧ colouring_ok f s1 s2_live) ∧
-  (colouring_ok f (If e1 num e2 e3) live =
+  (colouring_ok f (If cmp r1 ri e2 e3) live =
     let e2_live = get_live e2 live in
     let e3_live = get_live e3 live in
+    let union_live = union e2_live e3_live in
+    let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+                      | _ => insert r1 () union_live in
     (*All of them must be live at once*)
-    let merged = insert num () (union e2_live e3_live) in
-    let e1_live = get_live e1 merged in
-      INJ f (domain e1_live) UNIV ∧
+      INJ f (domain merged) UNIV ∧
       (*Internal clash sets*)
-      colouring_ok f e2 live ∧ colouring_ok f e3 live ∧
-      colouring_ok f e1 merged) ∧
-  (colouring_ok f (Call (SOME (v,cutset,ret_handler)) dest args h) live =
+      colouring_ok f e2 live ∧ colouring_ok f e3 live) ∧
+  (colouring_ok f (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
     let args_set = numset_list_insert args LN in
     INJ f (domain (union cutset args_set)) UNIV ∧
     INJ f (domain (insert v () cutset)) UNIV ∧
@@ -146,7 +148,7 @@ val colouring_ok_def = Define`
     (*exception handler*)
     (case h of
     | NONE => T
-    | SOME(v,prog) =>
+    | SOME(v,prog,l1,l2) =>
         INJ f (domain (insert v () cutset)) UNIV ∧
         colouring_ok f prog live)) ∧
   (colouring_ok f prog live =
@@ -160,18 +162,20 @@ val colouring_ok_def = Define`
   (hdlive,clash_sets) where hdlive is the liveset in front of
   that program and clash_sets is everything induced inside
 *)
+
 val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
     let (hd',ls') = get_clash_sets s1 hd in
       (hd',(ls' ++ ls))) ∧
-  (get_clash_sets (If e1 num e2 e3) live =
+  (get_clash_sets (If cmp r1 ri e2 e3) live =
     let (h2,ls2) = get_clash_sets e2 live in
     let (h3,ls3) = get_clash_sets e3 live in
-    let merged = insert num () (union h2 h3) in
-    let (h,ls1) = get_clash_sets e1 merged in
-      (h,ls1++ls2++ls3)) ∧
-  (get_clash_sets (Call (SOME (v,cutset,ret_handler)) dest args h) live =
+    let union_live = union h2 h3 in
+    let merged = case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+                      | _ => insert r1 () union_live in
+      (merged,ls2++ls3)) ∧
+  (get_clash_sets (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
     (*top level*)
     let args_set = numset_list_insert args LN in
     let (hd,ls) = get_clash_sets ret_handler live in
@@ -181,7 +185,7 @@ val get_clash_sets_def = Define`
     let ret_clash = insert v () cutset in
     (case h of
       NONE => (live_set,ret_clash::hd::ls)
-    | SOME(v',prog) =>
+    | SOME(v',prog,l1,l2) =>
         let (hd',ls') = get_clash_sets prog live in
         (*Handler clash set*)
         let h_clash = insert v' () cutset in
@@ -360,7 +364,7 @@ val jump_exc_perm = prove(``
   jump_exc (st with permute:=perm) =
   case jump_exc st of
     NONE => NONE
-  | SOME x => SOME (x with permute:=perm)``,
+  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)``,
   fs[jump_exc_def]>>
   EVERY_CASE_TAC>>
   fs[word_state_component_equality])
@@ -385,7 +389,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
       (Cases_on`x`>>fs[])
     >>
     FULL_CASE_TAC>>fs[]>>
-    Cases_on`wGC (push_env x F(set_store AllocSize (Word c) st))`>>
+    Cases_on`wGC (push_env x NONE (set_store AllocSize (Word c) st))`>>
     fs[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
     imp_res_tac wGC_perm>>fs[pop_env_perm]>>
     ntac 3 (FULL_CASE_TAC>>fs[])>>
@@ -441,19 +445,10 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     (fs[get_var_perm]>>EVERY_CASE_TAC>>
     fs[jump_exc_perm]>>metis_tac[word_state_component_equality])
   >-
-    (Cases_on`wEval(prog,st)`>>fs[]>>
-    Cases_on`q`>>fs[]
-    >-
-      (ntac 2(FULL_CASE_TAC>>fs[])>>
-      Cases_on`c=0w`>>fs[]>>
-      first_x_assum(qspec_then `perm` assume_tac)>>fs[LET_THM]>>rfs[]>>
-      first_x_assum(qspec_then `perm'` assume_tac)>>fs[]>>
-      qexists_tac`perm''`>>fs[get_var_perm])
+    (Cases_on`ri`>>
+    fs[get_var_perm,get_var_imm_def]>>EVERY_CASE_TAC>>fs[]
     >>
-      first_x_assum(qspec_then`perm`assume_tac)>>fs[LET_THM]>>
-      Cases_on`x`>>rfs[]>>
-      qexists_tac`perm'`>>fs[]>>
-      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
+      fs[LET_THM])
   >- (*Call*)
     (fs[wEval_def,LET_THM]>>
     fs[get_vars_perm]>>
@@ -479,44 +474,47 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         (fs[call_env_def]>>
         qexists_tac`perm`>>fs[word_state_component_equality])
       >>
-      Cases_on`wEval(r,call_env q(push_env x'
-              (IS_SOME handler) (dec_clock st)))`>>
+      Cases_on`wEval(r,call_env (Loc x'3 x'4::q) (push_env x'
+              handler (dec_clock st)))`>>
       Cases_on`q'`>>fs[]>>
       Cases_on`x''`>>fs[]
       >-
-        (Cases_on`pop_env r'`>>fs[]>>
-        Cases_on`domain x''.locals = domain x'`>>fs[]>>
-        Cases_on`wEval(x'2,set_var x'0 a x'')`>>
-        Cases_on`q'`>>fs[]>>
-        last_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
-        last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        (qpat_assum`A=(res,rst)` mp_tac>>
+        IF_CASES_TAC>>fs[]>>
+        FULL_CASE_TAC>>fs[]>>
+        IF_CASES_TAC>>fs[]>>
+        Cases_on`wEval(x'2,set_var x'0 w0 x'')`>>
+        Cases_on`q'`>>fs[]>>rw[]>>
+        first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        first_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
         qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
-        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+        Cases_on`handler`>>TRY(PairCases_on`x'''`)>>
+        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM,call_env_def]>>
         `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
         fs[word_state_component_equality,call_env_def]>>
-        fs[pop_env_perm]>>
-        fs[set_var_perm]>>Cases_on`res`>>
-        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+        fs[pop_env_perm]>>fs[set_var_perm])
       >-
         (FULL_CASE_TAC>>fs[]
         >-
           (perm_assum_tac>>
           qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
         >>
-        Cases_on`x''`>>fs[]>>
-        Cases_on`domain r'.locals = domain x'`>>fs[]>>
-        Cases_on`wEval (r'',set_var q' w r')`>>
-        Cases_on`q'' = SOME Error`>>fs[]>>
+        PairCases_on`x''`>>fs[]>>
+        qpat_assum`A=(res,rst)`mp_tac>>
+        ntac 2 (IF_CASES_TAC>>fs[])>>
+        rw[]>>
+        Cases_on`res = SOME Error`>>fs[]>>
         first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
         last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
         qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
         fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
         `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
         fs[word_state_component_equality,call_env_def]>>
-        fs[set_var_perm]>>
-        metis_tac[word_state_component_equality])
+        fs[set_var_perm])
       >>
         perm_assum_tac>>
+        Cases_on`handler`>>TRY(PairCases_on`x''`)>>
+        fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
         qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]))
 
 val size_tac= (fs[word_prog_size_def]>>DECIDE_TAC);
@@ -674,6 +672,8 @@ val mem_list_rearrange = store_thm("mem_list_rearrange",``
   rw[EQ_IMP_THM]>>fs[EL_GENLIST]
   >- metis_tac[]>>
   qexists_tac `g n`>>fs[])
+
+(****TODO: FIXED UP TO HERE****)
 
 (*Proves s_val_eq and some extra conditions on the resulting lists*)
 val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
