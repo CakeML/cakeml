@@ -46,7 +46,7 @@ val _ = Datatype `
                    ((num # word_prog # num # num) option) 
                    (* handler: varname, exception-handler code, labels l1,l2*)
             | Seq word_prog word_prog
-            | If word_prog num word_prog word_prog
+            | If cmp num ('a reg_imm) word_prog word_prog
             | Alloc num num_set
             | Raise num
             | Return num num
@@ -444,6 +444,10 @@ val wInst_def = Define `
         | _ => NONE)
     | _ => NONE`
 
+val get_var_imm_def = Define`
+  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧ 
+  (get_var_imm (Imm w) s = SOME(Word w))`
+
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
   (wEval (Alloc n names,s) =
@@ -496,15 +500,12 @@ val wEval_def = tDefine "wEval" `
        (case jump_exc s of
         | NONE => (SOME Error,s)
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
-  (wEval (If g n c1 c2,s) =
-     case wEval (g,s) of
-     | (NONE,s1) =>
-         (case get_var n s1 of
-          | SOME (Word x) => if x = 0w
-                             then wEval (c2,check_clock s1 s)
-                             else wEval (c1,check_clock s1 s)
-          | _ => (SOME Error,s1))
-     | res => res) /\
+  (wEval (If cmp r1 ri c1 c2,s) =
+    (case (get_var r1 s,get_var_imm ri s)of
+    | SOME (Word x),SOME (Word y) => 
+      if word_cmp cmp x y then wEval (c1,s)
+                          else wEval (c2,s)
+    | _ => (SOME Error,s))) /\
   (wEval (Call ret dest args handler,s) =
      case get_vars args s of
      | NONE => (SOME Error,s)
