@@ -1499,6 +1499,13 @@ val PUSH_FORALL_INTO_IMP = save_thm("PUSH_FORALL_INTO_IMP",
 val FALSE_def = Define `FALSE = F`;
 val TRUE_def = Define `TRUE = T`;
 
+val Eval_Val_BOOL_FALSE = store_thm("Eval_Val_BOOL_FALSE",
+  ``Eval env (Lit (Bool F)) (BOOL FALSE)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,FALSE_def]);
+val Eval_Val_BOOL_TRUE = store_thm("Eval_Val_BOOL_TRUE",
+  ``Eval env (Lit (Bool T)) (BOOL TRUE)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,TRUE_def]);
+
 val MEMBER_def = Define `
   (MEMBER (x:'a) [] <=> F) /\
   (MEMBER x (y::ys) <=> (x = y) \/ MEMBER x ys)`;

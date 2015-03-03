@@ -2552,7 +2552,8 @@ fun hol2deep tm =
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
-  if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
+  if (tm = ``TRUE``) then Eval_Val_BOOL_TRUE else
+  if (tm = ``FALSE``) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
   inst_cons_thm tm hol2deep handle HOL_ERR _ =>
   (* data-type pattern-matching *)
