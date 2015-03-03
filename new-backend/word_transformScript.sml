@@ -143,6 +143,9 @@ val pre_post_conventions_word_alloc = prove(``
   HINT_EXISTS_TAC>>
   metis_tac[])
 
+(*Add a version that can take and verify oracle colors*)
+
+
 (*Actually, it should probably be exactly 0,2,4,6...*)
 val even_starting_locals_def = Define`
   even_starting_locals (locs:'a word_loc num_map) ⇔ 

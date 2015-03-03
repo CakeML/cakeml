@@ -239,6 +239,15 @@ val strong_locals_rel_get_var = prove(``
   get_var (f n) cst = SOME x``,
   fs[get_var_def,strong_locals_rel_def])
 
+val strong_locals_rel_get_var_imm = prove(``
+  strong_locals_rel f live st.locals cst.locals ∧
+  (case n of Reg n => n ∈ live | _ => T) ∧
+  get_var_imm n st = SOME x
+  ⇒
+  get_var_imm (apply_colour_imm f n) cst = SOME x``,
+  Cases_on`n`>>fs[get_var_imm_def]>>
+  metis_tac[strong_locals_rel_get_var])
+
 val strong_locals_rel_get_vars = prove(``
   ∀ls y f live st cst.
   strong_locals_rel f live st.locals cst.locals ∧
@@ -312,6 +321,13 @@ val wGC_perm = prove(``
 val get_var_perm = store_thm("get_var_perm",``
   get_var n (st with permute:=perm) =
   (get_var n st)``,fs[get_var_def])
+
+val get_var_imm_perm = store_thm("get_var_imm_perm",``
+  get_var_imm n (st with permute:=perm) =
+  (get_var_imm n st)``,
+  Cases_on`n`>>
+  fs[get_var_imm_def,get_var_perm])
+
 
 val set_var_perm = store_thm("set_var_perm",``
   set_var v x (s with permute:=perm) =
@@ -682,7 +698,11 @@ val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
   st.stack = cst.stack ∧
   domain y = IMAGE f (domain x) ∧
   INJ f (domain x) UNIV ∧
-  strong_locals_rel f (domain x) x y
+  strong_locals_rel f (domain x) x y ∧ 
+  (case b of NONE => b' = NONE
+         |  SOME(w,h,l1,l2) =>
+            (case b' of NONE => F
+            |  SOME(a,b,c,d) => c = l1 ∧ d = l2))
   ⇒
   ?perm.
   (let (l,permute) = env_to_list y cst.permute in
@@ -692,8 +712,10 @@ val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
       (∀x y. MEM x (MAP FST l') ∧ MEM y (MAP FST l')
         ∧ f x = f y ⇒ x = y) ) ∧
   s_val_eq (push_env x b (st with permute:=perm)).stack
-           (push_env y b cst).stack``,
-  rw[]>>fs[push_env_def]>>
+           (push_env y b' cst).stack``,
+  rw[]>>Cases_on`b`>>
+  TRY(PairCases_on`x'`>>Cases_on`b'`>>fs[]>>PairCases_on`x'`>>fs[])>>
+  (fs[push_env_def]>>
   imp_res_tac env_to_list_perm>>
   pop_assum(qspecl_then[`tperm`,`cst.permute`]assume_tac)>>fs[LET_THM]>>
   Cases_on`env_to_list y cst.permute`>>
@@ -708,13 +730,13 @@ val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
     fs[QSORT_MEM]>>
     Cases_on`y'''`>>Cases_on`y''`>>fs[MEM_toAList]>>
     metis_tac[domain_lookup])>>
-  EVERY_CASE_TAC>>fs[s_frame_val_eq_def]>>
+  fs[s_frame_val_eq_def]>>
   qpat_abbrev_tac `q = list_rearrange A
     (QSORT key_val_compare (toAList x))`>>
   `MAP SND (MAP (λx,y.f x,y) q) = MAP SND q` by
     (fs[MAP_MAP_o]>>AP_THM_TAC>>AP_TERM_TAC>>fs[FUN_EQ_THM]>>
     rw[]>>Cases_on`x'`>>fs[])>>
-  metis_tac[])
+  metis_tac[]))
 
 val INJ_less = prove(``
   INJ f s' UNIV ∧ s ⊆ s'
@@ -754,7 +776,7 @@ val s_key_eq_val_eq_pop_env = store_thm("s_key_eq_val_eq_pop_env",``
   s_key_eq s'.stack keys ∧
   s_val_eq s'.stack rest ∧
   case opt of NONE => s'.handler = s.handler
-            | SOME h => s'.handler = h``,
+            | SOME (h,l1,l2) => s'.handler = h``,
   strip_tac>>
   fs[pop_env_def]>>
   EVERY_CASE_TAC>>
@@ -829,7 +851,8 @@ val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
                    y.locals = fromAList l ∧
                    domain x = domain y.locals ∧
                    s_key_eq s.stack y.stack)``,
-  rw[push_env_def]>>fs[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
+  rw[]>>Cases_on`b`>>TRY(PairCases_on`x'`)>>fs[push_env_def]>>
+  fs[LET_THM,env_to_list_def]>>Cases_on`t.stack`>>
   fs[s_key_eq_def,pop_env_def]>>BasicProvers.EVERY_CASE_TAC>>
   fs[domain_fromAList,s_frame_key_eq_def]>>
   qpat_assum `A = MAP FST l` (SUBST1_TAC o SYM)>>
@@ -901,6 +924,14 @@ val apply_colour_exp_lemma = prove(
     EVERY_CASE_TAC>>fs[]>>res_tac>>fs[]>>
     metis_tac[])
 
+val get_vars_length_lemma = store_thm("get_vars_length_lemma",
+  ``!ls s y. get_vars ls s = SOME y ==>
+           LENGTH y = LENGTH ls``,
+  Induct>>fs[get_vars_def]>>
+  Cases_on`get_var h s`>>fs[]>>
+  Cases_on`get_vars ls s`>>fs[]>>
+  metis_tac[LENGTH])
+
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
     fs[wEval_def,LET_THM,word_state_eq_rel_def
@@ -918,7 +949,6 @@ val exists_tac_2 =
 val setup_tac = Cases_on`word_exp st exp`>>fs[]>>
       imp_res_tac apply_colour_exp_lemma>>
       pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
-
 
 val wEval_apply_colour = store_thm("wEval_apply_colour",
 ``∀prog st cst f live.
@@ -1155,20 +1185,20 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
     rw[]>>fs[]>>
     Cases_on`st.clock=0`>>fs[call_env_def]>>
-    `(IS_SOME (case o0 of NONE => NONE
-      | SOME (v,prog) => SOME (f v,apply_colour f prog))) = IS_SOME o0` by
-      (EVERY_CASE_TAC>>fs[])>>
-    simp[]>>
-    qpat_abbrev_tac `b = IS_SOME o0`>>
-    assume_tac (GEN_ALL push_env_s_val_eq)>>
-    pop_assum (qspecl_then[
+    qpat_abbrev_tac`f_o0:(num# 'a word_prog #num # num) option = 
+      case o0 of NONE => NONE 
+      | SOME (v,prog,l1,l2) => SOME (f v,apply_colour f prog,l1,l2)`>>
+    Q.ISPECL_THEN[
       `y`,`x'`,`st with clock := st.clock-1`,
-      `f`,`cst with clock := st.clock-1`,`b`,`λn. cst.permute (n+1)`]
-      assume_tac)>>
+      `f`,`cst with clock := st.clock-1`,`f_o0`,`o0`,`λn. cst.permute (n+1)`]
+      mp_tac (GEN_ALL push_env_s_val_eq)>>
+    discharge_hyps>-
+      (rfs[LET_THM,Abbr`f_o0`]>>EVERY_CASE_TAC>>fs[])>>
+    rw[]>>
     rfs[LET_THM,env_to_list_def,dec_clock_def]>>
-    qabbrev_tac `envx = push_env x' b
+    qabbrev_tac `envx = push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`>>
+          locals := fromList2 (Loc x'3 x'4::q)`>>
     qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
     assume_tac wEval_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
@@ -1176,6 +1206,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       (rw[]>>qexists_tac`perm`>>fs[dec_clock_def])>>
     `envx with stack := envy.stack = envy` by
       (unabbrev_all_tac>>
+      Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
       fs[push_env_def,word_state_component_equality]>>
       fs[LET_THM,env_to_list_def,dec_clock_def])>>
     `s_val_eq envx.stack envy.stack` by
@@ -1190,22 +1221,31 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
        fs[word_state_component_equality,dec_clock_def])>>
     strip_tac>>fs[]>>
     rfs[]>>
+    IF_CASES_TAC>>fs[]>-
+      (qexists_tac`perm`>>fs[])>>
     (*Backwards chaining*)
     fs[Abbr`envy`,Abbr`envx`,word_state_component_equality]>>
     Q.ISPECL_THEN [`(cst with clock := st.clock-1)`,
-                  `r' with stack := st'`,`y`,`b`]
-                  assume_tac push_env_pop_env_s_key_eq>>
+                  `r' with stack := st'`,`y`,`f_o0`]
+                  mp_tac push_env_pop_env_s_key_eq>>
+    discharge_hyps>-
+      (unabbrev_all_tac>>fs[])>>
     Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
-                  `r'`,`x'`,`b`]
-                  assume_tac push_env_pop_env_s_key_eq>>
+                  `r'`,`x'`,`o0`]
+                  mp_tac push_env_pop_env_s_key_eq>>
+    discharge_hyps>-
+      (unabbrev_all_tac>>fs[])>>
+    ntac 2 strip_tac>>
     rfs[]>>
     (*Now we can finally use the IH*)
-    last_x_assum(qspecl_then[`x'2`,`set_var x'0 a y'`
-                            ,`set_var (f x'0) a y''`,`f`,`live`]mp_tac)>>
+    last_x_assum(qspecl_then[`x'2`,`set_var x'0 w0 y'`
+                            ,`set_var (f x'0) w0 y''`,`f`,`live`]mp_tac)>>
     discharge_hyps>-size_tac>>
     fs[colouring_ok_def]>>
     discharge_hyps>-
-      (fs[set_var_def,word_state_component_equality]>>
+      (Cases_on`o0`>>TRY(PairCases_on`x''`)>>fs[]>>
+      unabbrev_all_tac>>
+      fs[set_var_def,word_state_component_equality]>>
       `s_key_eq y'.stack y''.stack` by
         metis_tac[s_key_eq_trans,s_key_eq_sym]>>
       assume_tac pop_env_frame>>rfs[word_state_eq_rel_def]>>
@@ -1213,8 +1253,8 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       rw[]>>
       fs[push_env_def,LET_THM,env_to_list_def]>>
       fs[s_key_eq_def,s_val_eq_def]>>
-      Cases_on`o0`>>Cases_on`opt`>>Cases_on`opt'`>>
-      TRY(Cases_on`x''`)>>
+      Cases_on`opt`>>TRY(PairCases_on`x''`)>>
+      Cases_on`opt'`>>TRY(PairCases_on`x''`)>>
       fs[s_frame_key_eq_def,s_frame_val_eq_def]>>
       Cases_on`n=x'0`>>
       fs[lookup_insert]>>
@@ -1237,11 +1277,10 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       match_mp_tac ALOOKUP_key_remap_2>>
       fs[]>>CONJ_TAC>>
       metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
-    rw[]>>
-    qpat_abbrev_tac`b =IS_SOME A`>>
-    qspecl_then[`r`,`push_env x' b
+    strip_tac>>
+    qspecl_then[`r`,`push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`,`perm'`]
+          locals := fromList2 (Loc x'3 x'4::q)`,`perm'`]
       assume_tac permute_swap_lemma>>
     rfs[LET_THM]>>
     (*"Hot-swap" the suffix of perm, maybe move into lemma*)
@@ -1251,6 +1290,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
     qpat_abbrev_tac `env2 = push_env A B C with
                     <|locals:=D; permute:=E|>`>>
     strip_tac>>
+    Cases_on`o0`>>TRY(PairCases_on`x''`)>>fs[]>>
     `env1 = env2` by
       (unabbrev_all_tac>>
       simp[push_env_def,LET_THM,env_to_list_def
@@ -1266,9 +1306,8 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
     Cases_on`o0`
     >-
       (*No handler*)
-      (fs[]>>
+      (fs[Abbr`f_o0`]>>
       qexists_tac`perm`>>
-      Cases_on`b`>>fs[]>>
       `ls=ls'` by
         (unabbrev_all_tac>>
         fs[push_env_def,env_to_list_def,LET_THM]>>
@@ -1280,12 +1319,15 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
           rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
           simp[LAST_N_LENGTH_cond])>>
+      rfs[]>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (*Handler*)
-      Cases_on`x''`>>fs[]>>
+      PairCases_on`x''`>>fs[]>>
       unabbrev_all_tac>>
       fs[push_env_def,LET_THM,env_to_list_def]>>
+      IF_CASES_TAC>-
+        (qexists_tac`perm`>>fs[])>>
       rpt (qpat_assum `LAST_N A B = C` mp_tac)>>
       simp[LAST_N_LENGTH_cond]>>
       rpt strip_tac>>
@@ -1310,23 +1352,23 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       fs[]>>
       qpat_abbrev_tac `cr'=r' with<|locals:= A;stack:=B;handler:=C|>`>>
       (*Use the IH*)
-      last_x_assum(qspecl_then[`r''`,`set_var q' w r'`
-                            ,`set_var (f q') w cr'`,`f`,`live`]mp_tac)>>
+      last_x_assum(qspecl_then[`x''1`,`set_var x''0 w0 r'`
+                            ,`set_var (f x''0) w0 cr'`,`f`,`live`]mp_tac)>>
       discharge_hyps>-size_tac>>
       fs[colouring_ok_def]>>
       discharge_hyps>-
       (fs[set_var_def,word_state_component_equality,Abbr`cr'`]>>
       fs[colouring_ok_def,LET_THM,strong_locals_rel_def]>>
       rw[]>-metis_tac[s_key_eq_trans,s_val_and_key_eq]>>
-      Cases_on`q' = n`>>fs[lookup_insert]>>
-      `f n ≠ f q'` by
+      Cases_on`n' = x''0`>>fs[lookup_insert]>>
+      `f n' ≠ f x''0` by
         (imp_res_tac domain_lookup>>
         fs[domain_fromAList]>>
         qpat_assum `INJ f (q' INSERT A) B` mp_tac>>
         qpat_assum `INJ f A B` kall_tac>>
-        `n ∈ set (MAP FST lss)` by fs[]>>
+        `n' ∈ set (MAP FST lss)` by fs[]>>
         FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        strip_tac>>pop_assum(qspecl_then [`n`,`q'`] mp_tac)>>
+        strip_tac>>pop_assum(qspecl_then [`n'`,`x''0`] mp_tac)>>
         rw[domain_union]>>
         metis_tac[])>>
       fs[lookup_fromAList]>>
@@ -1339,10 +1381,11 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       fs[]>>CONJ_TAC>>
       metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
       rw[]>>
-      qspecl_then[`r`,`st with <|locals := fromList2 q;stack :=
+      qspecl_then[`r`,`st with <|locals := fromList2 (Loc x'3 x'4::q);
+            stack :=
             StackFrame (list_rearrange (perm 0)
               (QSORT key_val_compare ( (toAList x'))))
-              (SOME r'.handler)::st.stack;
+              (SOME (r'.handler,x''2,x''3))::st.stack;
             permute := (λn. perm (n + 1)); handler := LENGTH st.stack;
             clock := st.clock − 1|>`,`perm'`]
         assume_tac permute_swap_lemma>>
@@ -1382,35 +1425,25 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- (*If*)
     (fs[wEval_def,colouring_ok_def,LET_THM,get_live_def]>>
-    last_assum(qspecl_then[`w`,`st`,`cst`,`f`
-               ,`insert n () (union (get_live w0 live) (get_live w1 live))`]
-               mp_tac)>>
-    discharge_hyps>- size_tac>>
+    fs[get_var_perm]>>
+    Cases_on`get_var n st`>>fs[]>>imp_res_tac strong_locals_rel_get_var>>
+    pop_assum kall_tac>>pop_assum mp_tac>>discharge_hyps>-
+      (FULL_CASE_TAC>>fs[])
+    >>
     rw[]>>
-    Cases_on`wEval(w,st with permute:=perm')`>>fs[]
-    >- (qexists_tac`perm'`>>fs[])>>
-    Cases_on`wEval(apply_colour f w,cst)`>>fs[]>>
-    REVERSE (Cases_on`q`)>>fs[]
+    Cases_on`x`>>fs[]>>
+    fs[get_var_imm_perm]>>
+    Cases_on`get_var_imm r st`>>fs[]>>
+    imp_res_tac strong_locals_rel_get_var_imm>>
+    pop_assum kall_tac>>pop_assum mp_tac>>discharge_hyps>-
+      (Cases_on`r`>>fs[])>>
+    Cases_on`x`>>rw[]>>fs[]
     >-
-      (qexists_tac`perm'`>>rw[])
-    >>
-    qpat_assum `NONE = q'` (SUBST_ALL_TAC o SYM)>>
-    fs[]>>
-    Cases_on`get_var n r`>>fs[]
-    >-
-      (qexists_tac`perm'`>>rw[])
-    >>
-    imp_res_tac strong_locals_rel_get_var>>fs[]>>
-    REVERSE (Cases_on`x`)
-    >-
-      (qexists_tac`perm'`>>rw[])
-    >>
-    Cases_on`c = 0w`>>fs[]
-    >-
-      (first_assum(qspecl_then[`w1`,`r`,`r'`,`f`,`live`] mp_tac)>>
+     (first_assum(qspecl_then[`w`,`st`,`cst`,`f`,`live`] mp_tac)>>
       discharge_hyps>- size_tac>>
       discharge_hyps>-
-        (fs[domain_insert,domain_union]>>
+        (Cases_on`r`>>
+        fs[domain_insert,domain_union]>>
         metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
       rw[]>>
       qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
@@ -1418,10 +1451,10 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       rfs[LET_THM]>>
       qexists_tac`perm'''`>>rw[get_var_perm]>>fs[])
     >>
-      (first_assum(qspecl_then[`w0`,`r`,`r'`,`f`,`live`] mp_tac)>>
+      (first_assum(qspecl_then[`w0`,`st`,`cst`,`f`,`live`] mp_tac)>>
       discharge_hyps>- size_tac>>
       discharge_hyps>-
-        (fs[domain_insert,domain_union]>>
+        (Cases_on`r`>>fs[domain_insert,domain_union]>>
         metis_tac[SUBSET_OF_INSERT,SUBSET_UNION,strong_locals_rel_subset])>>
       rw[]>>
       qspecl_then[`w`,`st with permute:=perm'`,`perm''`]
@@ -1429,8 +1462,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       rfs[LET_THM]>>
       qexists_tac`perm'''`>>rw[get_var_perm]>>fs[]))
   >- (*Alloc*)
-    (
-    fs[wEval_def,colouring_ok_def,get_var_perm,get_live_def]>>
+    (fs[wEval_def,colouring_ok_def,get_var_perm,get_live_def]>>
     Cases_on`get_var n st`>>fs[LET_THM]>>
     imp_res_tac strong_locals_rel_get_var>>fs[]>>
     Cases_on`x`>>fs[wAlloc_def]>>
@@ -1446,12 +1478,12 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
     assume_tac (GEN_ALL push_env_s_val_eq)>>
     pop_assum (qspecl_then[
       `y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`,
-      `f`,`cst with store:= cst.store |+ (AllocSize,Word c)`,`F`,
+      `f`,`cst with store:= cst.store |+ (AllocSize,Word c)`,`NONE`,`NONE`,
       `cst.permute`]assume_tac)>>
     rfs[word_state_eq_rel_def]>>
     qexists_tac`perm`>>fs[]>>
-    qpat_abbrev_tac `st' = push_env x F A`>>
-    qpat_abbrev_tac `cst' = push_env y F B`>>
+    qpat_abbrev_tac `st' = push_env x NONE A`>>
+    qpat_abbrev_tac `cst' = push_env y NONE B`>>
     Cases_on`wGC st'`>>fs[]>>
     qspecl_then [`st'`,`cst'`,`x'`] mp_tac wGC_s_val_eq_gen>>
     discharge_hyps_keep>-
@@ -1476,13 +1508,13 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       qpat_abbrev_tac `lsB = list_rearrange (perm 0)
         (QSORT key_val_compare ( (toAList x)))`>>
       ntac 4 strip_tac>>
-      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:num option`
+      Q.ISPECL_THEN [`x'.stack`,`y'`,`t'`,`NONE:(num#num#num) option`
         ,`lsA`,`cst.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       discharge_hyps
       >-
         (fs[]>>metis_tac[s_key_eq_sym,s_val_eq_sym])
       >>
-      Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:num option`
+      Q.ISPECL_THEN [`t'.stack`,`x''`,`x'`,`NONE:(num#num#num) option`
         ,`lsB`,`st.stack`] mp_tac (GEN_ALL s_key_eq_val_eq_pop_env)>>
       discharge_hyps
       >-
@@ -1490,8 +1522,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       >>
       rw[]
       >-
-        (
-        simp[]>>
+        (simp[]>>
         fs[strong_locals_rel_def,lookup_fromAList]>>
         `MAP SND l = MAP SND ls'` by
           fs[s_val_eq_def,s_frame_val_eq_def]>>
@@ -1518,6 +1549,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
     >-
       (exists_tac>>
       Cases_on`get_var n st`>>fs[get_var_perm]>>
+      Cases_on`get_var n0 st`>>fs[get_var_perm]>>
       imp_res_tac strong_locals_rel_get_var>>
       fs[call_env_def])
     >>
@@ -1551,9 +1583,8 @@ val get_clash_sets_hd = prove(
     Cases_on`get_clash_sets prog q`>>fs[]>>
     metis_tac[get_live_def])
   >>
-    Cases_on`get_clash_sets prog'' live`>>
+    Cases_on`get_clash_sets prog live`>>
     Cases_on`get_clash_sets prog' live`>>
-    Cases_on`get_clash_sets prog (insert n () (union q' q))`>>fs[]>>
     fs[get_live_def,LET_THM]>>metis_tac[])
 
 (*The liveset passed in at the back is always satisfied*)
@@ -1580,7 +1611,7 @@ val get_clash_sets_tl = prove(
     first_x_assum(qspecl_then[`x2`,`live`,`f`] mp_tac)>>
     discharge_hyps >- size_tac>>rw[]>>
     fs[get_clash_sets_def,UNCURRY,LET_THM]>>
-    Cases_on`o0`>>TRY (Cases_on`x`)>>fs[])
+    Cases_on`o0`>>TRY (PairCases_on`x`)>>fs[])
   >>
     (first_x_assum(qspecl_then[`w0`,`live`,`f`]mp_tac)>>
     discharge_hyps>-size_tac>>rw[]>>
@@ -1602,17 +1633,13 @@ val colouring_ok_alt_thm = store_thm("colouring_ok_alt_thm",
     Q.ISPECL_THEN [`prog`,`q`,`f`] assume_tac get_clash_sets_tl>>
     rfs[LET_THM])
   >-
-    (Cases_on`get_clash_sets prog'' live`>>
+    (
+    Cases_on`get_clash_sets prog live`>>
     Cases_on`get_clash_sets prog' live`>>
-    Cases_on`get_clash_sets prog (insert num () (union q' q))`>>
+    FULL_CASE_TAC>>fs[]>>
     imp_res_tac get_clash_sets_hd>>
     fs[]>>
-    Q.ISPECL_THEN [`prog`,`insert num () (union q' q)`,`f`]
-      assume_tac get_clash_sets_tl>>
-    rfs[LET_THM,domain_union]>>
-    `domain q' ⊆ num INSERT domain q' ∪ domain q` by fs[SUBSET_DEF]>>
-    `domain q ⊆ num INSERT domain q' ∪ domain q` by fs[SUBSET_DEF]>>
-    metis_tac[INJ_SUBSET,SUBSET_DEF])
+    metis_tac[INJ_SUBSET,SUBSET_DEF,SUBSET_OF_INSERT,domain_union,SUBSET_UNION])
   >>
     Cases_on`h`>>fs[LET_THM]
     >-
@@ -1667,11 +1694,12 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     >-
       (Cases_on`a`>>fs1>>fs[get_writes_inst_def]>>
       EVERY_CASE_TAC>>rw[]>>
+      fs[every_var_imm_def,in_clash_sets_def]>>
       TRY(qexists_tac`union (insert n () LN) live`>>fs[domain_union]>>
           NO_TAC)>>
       TRY(qexists_tac`insert n0 () (insert n' () (delete n live))`>>fs[]>>
           NO_TAC)>>
-        qexists_tac`insert n0 () (delete n live)`>>fs[])
+      qexists_tac`insert n0 () (delete n live)`>>fs[])
     >>
       Cases_on`m`>>Cases_on`a`>>fs1>>fs[get_writes_inst_def]>>rw[]>>
       TRY(qexists_tac`union (insert n () LN) live`>>fs[domain_union]>>
@@ -1784,27 +1812,24 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
       (fs[word_prog_size_def]>>DECIDE_TAC)
     >>
     Cases_on`get_clash_sets w0 live`>>rw[]>>
-    first_assum(qspecl_then[`w1`,`live`] mp_tac)>>discharge_hyps
+    first_assum(qspecl_then[`w`,`live`] mp_tac)>>discharge_hyps
     >-
       (fs[word_prog_size_def]>>DECIDE_TAC)
     >>
-    Cases_on`get_clash_sets w1 live`>>rw[]>>
-    first_assum(qspecl_then[`w`,`insert n () (union q q')`] mp_tac)>>
-    discharge_hyps
-    >-
-      (fs[word_prog_size_def]>>DECIDE_TAC)
-    >>
-    Cases_on`get_clash_sets w (insert n () (union q q'))`>>rw[]>>
-    TRY (fs[domain_union]>>metis_tac[every_var_mono])>>
-    qpat_assum `every_var P w0` mp_tac>>
-    qpat_assum `every_var P w1` mp_tac>>
-    ntac 2 strip_tac>>
-    match_mp_tac every_var_mono>>
-    TRY(pop_assum kall_tac>>pop_assum kall_tac>>HINT_EXISTS_TAC)>>
-    TRY(pop_assum kall_tac>>HINT_EXISTS_TAC)>>
-    TRY HINT_EXISTS_TAC>>
-    rw[]>>fs[in_clash_sets_def,domain_union]>>
-    metis_tac[domain_union])
+    Cases_on`get_clash_sets w live`>>rw[]>>
+    Cases_on`r`>>fs[every_var_imm_def]>>
+    fs[in_clash_sets_def,domain_union]>>
+    TRY(match_mp_tac every_var_mono>>fs[in_clash_sets_def]>>
+      HINT_EXISTS_TAC>>rw[]>>fs[in_clash_sets_def])>>
+    TRY( match_mp_tac every_var_mono>>fs[in_clash_sets_def]>>
+    fs[CONJ_COMM]>>
+    first_assum (match_exists_tac o concl)>>rw[]>>fs[in_clash_sets_def])>>
+    res_tac>>
+    TRY(qexists_tac`insert n' () (insert n () (union q' q))`>>
+        fs[domain_union]>>metis_tac[domain_union])>>
+    TRY(HINT_EXISTS_TAC>>metis_tac[domain_union])>>
+    TRY(qexists_tac`insert n () (union q' q)`>>
+        fs[domain_union]>>metis_tac[domain_union]))
   >-
     (rw[]
     >-
@@ -1816,6 +1841,6 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     qexists_tac`insert n () live`>>fs[])
   >>
     (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
-    qexists_tac`insert n () live`>>fs[]))
+    qexists_tac`insert n () (insert n0 () live)`>>fs[]))
     
 val _ = export_theory();

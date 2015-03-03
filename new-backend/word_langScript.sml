@@ -537,7 +537,9 @@ val wEval_def = tDefine "wEval" `
 			(if domain s1.locals = domain env
 			 then
 			   (*Value restriction on the return handler (makes it easier to reason about)
-			     Don't really need it to do fancy things.*)
+			     Don't really need it to do fancy things.
+           Keep y in register 2
+           *)
 			   case wEval(ret_handler,set_var n y (check_clock s1 s)) of
 			   | (NONE,s) => (NONE,s)
 			   | (_,s) => (SOME Error,s)
@@ -549,7 +551,7 @@ val wEval_def = tDefine "wEval" `
         if x ≠ Loc l1 l2 then (SOME Error,s2)
         else
           (if domain s2.locals = domain env
-           then wEval (h, set_var n x (check_clock s2 s))
+           then wEval (h, set_var n y (check_clock s2 s))
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
 		| res => res))))) `

@@ -41,7 +41,6 @@ val convention_partitions = store_thm("convention_partitions",``
        ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
   \\ fs []);
 
-
 (*Preference edges*)
 (*Create a list of preferences from input program
   Some of these will be invalid preferences (e.g. 0<-2)
@@ -53,12 +52,12 @@ val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧ 
   (get_prefs (Seq s1 s2) acc =
     get_prefs s1 (get_prefs s2 acc)) ∧
-  (get_prefs (If e1 num e2 e3) acc =
-    get_prefs e1 (get_prefs e2 (get_prefs e3 acc))) ∧
-  (get_prefs (Call (SOME (v,cutset,ret_handler)) dest args h) acc =
+  (get_prefs (If cmp num rimm e2 e3) acc =
+    get_prefs e2 (get_prefs e3 acc)) ∧
+  (get_prefs (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h) acc =
     case h of 
       NONE => get_prefs ret_handler acc
-    | SOME (v,prog) => get_prefs prog (get_prefs ret_handler acc)) ∧ 
+    | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧ 
   (get_prefs prog acc = acc)`
 
 
@@ -74,12 +73,16 @@ val apply_colour_exp_def = tDefine "apply_colour_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
+val apply_colour_imm_def = Define`
+  (apply_colour_imm f (Reg n) = Reg (f n)) ∧ 
+  (apply_colour_imm f x = x)`
+
 (*Colouring instructions*)
 val apply_colour_inst_def = Define`
   (apply_colour_inst f Skip = Skip) ∧ 
   (apply_colour_inst f (Const reg w) = Const (f reg) w) ∧
   (apply_colour_inst f (Arith (Binop bop r1 r2 ri)) = 
-    Arith (Binop bop (f r1) (f r2) (case ri of Reg r3 => (Reg (f r3)) | _ => ri))) ∧ 
+    Arith (Binop bop (f r1) (f r2) (apply_colour_imm f ri))) ∧ 
   (apply_colour_inst f (Arith (Shift shift r1 r2 n)) =
     Arith (Shift shift (f r1) (f r2) n)) ∧ 
   (apply_colour_inst f (Mem Load r (Addr a w)) =
@@ -108,25 +111,26 @@ val apply_colour_def = Define `
   (apply_colour f (Store exp num) = Store (apply_colour_exp f exp) (f num)) ∧ 
   (apply_colour f (Call ret dest args h) =
     let ret = case ret of NONE => NONE
-                        | SOME (v,cutset,ret_handler) =>
-                          SOME (f v,apply_nummap_key f cutset,apply_colour f ret_handler) in
+                        | SOME (v,cutset,ret_handler,l1,l2) =>
+                          SOME (f v,apply_nummap_key f cutset,apply_colour f ret_handler,l1,l2) in
     let args = MAP f args in
     let h = case h of NONE => NONE
-                     | SOME (v,prog) => SOME (f v, apply_colour f prog) in
+                     | SOME (v,prog,l1,l2) => SOME (f v, apply_colour f prog,l1,l2) in
       Call ret dest args h) ∧ 
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧  
-  (apply_colour f (If e1 num e2 e3) =
-    If (apply_colour f e1) (f num) (apply_colour f e2) (apply_colour f e3)) ∧ 
+  (apply_colour f (If cmp r1 ri e2 e3) =
+    If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧ 
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧ 
-  (apply_colour f (Return num) = Return (f num)) ∧
+  (apply_colour f (Return num1 num2) = Return (f num1) (f num2)) ∧
   (apply_colour f Tick = Tick) ∧
   (apply_colour f (Set n exp) = Set n (apply_colour_exp f exp)) ∧
   (apply_colour f p = p )
 `
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
-                        ,"apply_colour_inst_def","apply_colour_def"];
+                        ,"apply_colour_inst_def","apply_colour_def"
+                        ,"apply_colour_imm_def"];
 
 (*We will frequently need to express a property over every variable in the 
   program
@@ -145,10 +149,14 @@ val every_var_exp_def = tDefine "every_var_exp" `
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC);
 
+val every_var_imm_def = Define`
+  (every_var_imm P (Reg r) = P r) ∧ 
+  (every_var_imm P _ = T)`
+
 val every_var_inst_def = Define`
   (every_var_inst P (Const reg w) = P reg) ∧ 
   (every_var_inst P (Arith (Binop bop r1 r2 ri)) = 
-    (P r1 ∧ P r2 ∧ (case ri of Reg r3 => P r3 | _ => T))) ∧ 
+    (P r1 ∧ P r2 ∧ every_var_imm P ri)) ∧ 
   (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧ 
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧ 
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧ 
@@ -165,23 +173,23 @@ val every_var_def = Define `
     ((EVERY P args) ∧
     (case ret of 
       NONE => T
-    | SOME (v,cutset,ret_handler) => 
+    | SOME (v,cutset,ret_handler,l1,l2) => 
       (P v ∧
       (∀x. x ∈ domain cutset ⇒ P x) ∧ 
       every_var P ret_handler ∧ 
       (*TODO: check if this is the best way to handle faulty Calls?*)
       (case h of 
         NONE => T
-      | SOME (v,prog) =>
+      | SOME (v,prog,l1,l2) =>
         (P v ∧ 
         every_var P prog)))))) ∧  
   (every_var P (Seq s1 s2) = (every_var P s1 ∧ every_var P s2)) ∧ 
-  (every_var P (If e1 num e2 e3) = 
-    (every_var P e1 ∧ every_var P e2 ∧ every_var P e3)) ∧ 
+  (every_var P (If cmp r1 ri e2 e3) = 
+    (P r1 ∧ every_var_imm P ri ∧ every_var P e2 ∧ every_var P e3)) ∧ 
   (every_var P (Alloc num numset) =
     (P num ∧ (∀x. x ∈ domain numset ⇒ P x))) ∧ 
   (every_var P (Raise num) = P num) ∧ 
-  (every_var P (Return num) = P num) ∧ 
+  (every_var P (Return num1 num2) = (P num1 ∧ P num2)) ∧ 
   (every_var P Tick = T) ∧
   (every_var P (Set n exp) = every_var_exp P exp) ∧ 
   (every_var P p = T)`
@@ -191,38 +199,40 @@ val every_stack_var_def = Define `
   (every_stack_var P (Call ret dest args h) =
     (case ret of 
       NONE => T
-    | SOME (v,cutset,ret_handler) => 
+    | SOME (v,cutset,ret_handler,l1,l2) => 
       (∀x. x ∈ domain cutset ⇒ P x) ∧ 
       every_stack_var P ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T
-    | SOME (v,prog) =>
+    | SOME (v,prog,l1,l2) =>
       every_stack_var P prog))) ∧ 
   (every_stack_var P (Alloc num numset) =
     (∀x. x ∈ domain numset ⇒ P x)) ∧ 
   (every_stack_var P (Seq s1 s2) = 
     (every_stack_var P s1 ∧ every_stack_var P s2)) ∧
-  (every_stack_var P (If e1 num e2 e3) = 
-    (every_stack_var P e1 ∧ every_stack_var P e2 ∧ every_stack_var P e3)) ∧ 
+  (every_stack_var P (If cmp r1 ri e2 e3) = 
+    (every_stack_var P e2 ∧ every_stack_var P e3)) ∧ 
   (every_stack_var P p = T)`
 
 (*Probably needs the restriction that
   return location and call locations are 0*)
 val call_arg_convention_def = Define`
+  (call_arg_convention (Return x y) =(y=2)) ∧
+  (call_arg_convention (Raise y) = (y=2)) ∧   
   (call_arg_convention (Call ret dest args h) =
     (args = GENLIST (\x.2*x) (LENGTH args) ∧ 
     (case ret of 
       NONE => T
-    | SOME (v,cutset,ret_handler) => 
-      call_arg_convention ret_handler ∧
+    | SOME (v,cutset,ret_handler,l1,l2) => 
+      (v = 2) ∧ call_arg_convention ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T
-    | SOME (v,prog) =>
-      call_arg_convention prog)))) ∧ 
+    | SOME (v,prog,l1,l2) =>
+      (v = 2) ∧ call_arg_convention prog)))) ∧ 
   (call_arg_convention (Seq s1 s2) = 
     (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
-  (call_arg_convention (If e1 num e2 e3) = 
-    (call_arg_convention e1 ∧ call_arg_convention e2 ∧ 
+  (call_arg_convention (If cmp r1 ri e2 e3) = 
+    (call_arg_convention e2 ∧ 
      call_arg_convention e3)) ∧ 
   (call_arg_convention p = T)`
 
@@ -259,7 +269,7 @@ val every_var_inst_mono = store_thm("every_var_inst_mono",``
   ⇒ 
   every_var_inst Q inst``,
   ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
-  EVERY_CASE_TAC>>fs[])
+  Cases_on`ri`>>fs[every_var_imm_def])
 
 val every_var_exp_mono = store_thm("every_var_exp_mono",``
   ∀P exp Q.
@@ -278,6 +288,8 @@ val every_var_mono = store_thm("every_var_mono",``
   every_var Q prog``,
   ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
   TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[])>>
+  TRY(Cases_on`r`>>fs[])>>
+  TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
   metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono])
 
 (*Conjunct*)
@@ -286,7 +298,7 @@ val every_var_inst_conj = store_thm("every_var_inst_conj",``
   every_var_inst P inst ∧ every_var_inst Q inst ⇔ 
   every_var_inst (λx. P x ∧ Q x) inst``,
   ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
-  EVERY_CASE_TAC>>fs[]>>
+  TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
   metis_tac[])
 
 val every_var_exp_conj = store_thm("every_var_exp_conj",``
@@ -305,6 +317,8 @@ val every_var_conj = store_thm("every_var_conj",``
   TRY(Cases_on`ret`>>fs[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
   TRY(Cases_on`x`>>fs[])>>
+  TRY(Cases_on`r`>>fs[])>>
+  TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
   TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj]))
 
 (*Composing with a function using apply_colour*)
@@ -314,7 +328,8 @@ val every_var_inst_apply_colour_inst = store_thm("every_var_inst_apply_colour_in
   (∀x. P x ⇒ Q (f x)) ⇒ 
   every_var_inst Q (apply_colour_inst f inst)``,
   ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
-  EVERY_CASE_TAC>>fs[])
+  TRY(Cases_on`ri`>>fs[apply_colour_imm_def])>>
+  EVERY_CASE_TAC>>fs[every_var_imm_def])
 
 val every_var_exp_apply_colour_exp = store_thm("every_var_exp_apply_colour_exp",``
   ∀P exp Q f.
@@ -343,6 +358,8 @@ val every_var_apply_colour = store_thm("every_var_apply_colour",``
     rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
   >-
+    (Cases_on`ri`>>fs[every_var_imm_def])
+  >-
     (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`x'`>>fs[MEM_toAList,domain_lookup])
   >>
@@ -357,7 +374,7 @@ val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
   Cases_on`ret`>>
   Cases_on`h`>>fs[]>>
   PairCases_on`x`>>fs[]>>
-  Cases_on`x'`>>fs[])
+  Cases_on`x'`>>Cases_on`r`>>fs[])
 
 val every_stack_var_mono = store_thm("every_stack_var_mono",``
   ∀P prog Q.
@@ -366,7 +383,7 @@ val every_stack_var_mono = store_thm("every_stack_var_mono",``
   ⇒ 
   every_stack_var Q prog``,
   ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
-  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[]))
+  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>Cases_on`r`>>fs[]))
 
 val every_stack_var_conj = store_thm("every_stack_var_conj",``
   ∀P prog Q.
@@ -375,7 +392,7 @@ val every_stack_var_conj = store_thm("every_stack_var_conj",``
   ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
   TRY(Cases_on`ret`>>fs[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
-  TRY(Cases_on`x`>>fs[])>>
+  TRY(Cases_on`x`>>Cases_on`r`>>fs[])>>
   TRY(metis_tac[EVERY_CONJ]))
 
 val every_stack_var_apply_colour = store_thm("every_stack_var_apply_colour",``
@@ -417,6 +434,7 @@ EVAL ``apply_colour (\x.x+1) (Seq (Call (SOME (5,LN,Skip)) (SOME 4) [3;2;1] NONE
 *)
 (*Note that we cannot use get_var v s = get_var f v t because t is allowed to contain extra variables ==> get_var (f v) t may succeed*)
 
+(*
 (*Abbrev the and away to make the proofs easier to handle..*)
 val abbrev_and_def = Define`
   abbrev_and a b <=> a /\ b`
@@ -1955,5 +1973,6 @@ EVAL ``FOLDL (\x y. MAX x y) 1 [1;2;3;4;5]``
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_word_exp_size
   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
   \\ DECIDE_TAC)*)
+*)
 *)
 val _ = export_theory();
