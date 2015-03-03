@@ -684,6 +684,47 @@ fun abbreviate_code name ptr = let
            THENC SIMP_CONV std_ss [UNION_EMPTY,UNION_ASSOC])
   in CONV_RULE ((RATOR_CONV o RAND_CONV) c) end
 
+val SPEC_WEAKEN_EXISTS = prove(
+  ``(!x. a x ==> SPEC m p c (q x)) ==>
+    !i q1. (i ==> ?x. a x /\ SEP_IMP (q x) q1) ==>
+            i ==> SPEC m p c q1``,
+  REPEAT STRIP_TAC \\ Cases_on `i` \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ METIS_TAC [SPEC_WEAKEN]);
+
+val BINOP1_CONV = RATOR_CONV o RAND_CONV
+
+fun SMART_WEAKEN th = let
+  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  val (a,s) = dest_imp (concl th)
+  val a_vs = free_vars a
+  val (_,pre,code,post) = dest_spec s
+  val pre_code_vs = free_vars pre @ free_vars code
+  val post_vs = free_vars post
+  fun diff xs ys = filter (fn x => not (mem x ys)) xs
+  val var_sort = sort (fn v => fn w => fst (dest_var v) <= fst (dest_var w))
+  val hide_vs = diff (a_vs @ post_vs) pre_code_vs |> var_sort |> all_distinct
+  val hide_tuple = pairSyntax.list_mk_pair hide_vs
+  val cc = PairRules.UNPBETA_CONV hide_tuple
+  val th1 = th |> CONV_RULE (BINOP1_CONV cc THENC
+                             RAND_CONV (RAND_CONV cc))
+  val v = mk_var("v",type_of hide_tuple)
+  fun foo 0 tm = ALL_CONV tm
+    | foo n tm =
+      (ONCE_REWRITE_CONV [GSYM PAIR] THENC
+       RAND_CONV (foo (n-1))) tm
+  val all_parts = foo (length hide_vs-1) v
+  val i = zip hide_vs (list_dest pairSyntax.dest_pair (all_parts |> concl |> rand))
+          |> map (fn (x,y) => x |-> y)
+  val th2 = th1 |> INST i |> RW [PAIR] |> GEN v
+  val lemma = MATCH_MP SPEC_WEAKEN_EXISTS th2
+  fun EXISTS_ALPHA_CONV [] = ALL_CONV
+    | EXISTS_ALPHA_CONV (v::vs) =
+        RAND_CONV (ALPHA_CONV v THENC ABS_CONV (EXISTS_ALPHA_CONV vs))
+   val c = SIMP_CONV bool_ss [EXISTS_PROD]
+           THENC EXISTS_ALPHA_CONV hide_vs
+           THENC SIMP_CONV std_ss []
+   val th = CONV_RULE ((QUANT_CONV o QUANT_CONV o BINOP1_CONV o RAND_CONV) c) lemma
+   in th end
 
 (* from INIT_STATE to zHEAP *)
 
@@ -10734,6 +10775,8 @@ val zBIGNUMS_ALT_THM = prove(
   SIMP_TAC std_ss [zBIGNUMS_ALT_def,x64_multiwordTheory.zBIGNUMS_def,SEP_CLAUSES]
   \\ SIMP_TAC (std_ss++sep_cond_ss) []);
 
+val res0 = compose_specs ["shr r3,2"]
+
 val res1 = thD |> CONV_RULE (RAND_CONV
   (REWRITE_CONV [zBIGNUMS_HEADER_def,zBIGNUMS_ALT_THM]))
   |> SIMP_RULE std_ss [SEP_CLAUSES,STAR_ASSOC]
@@ -10752,7 +10795,7 @@ val res5 = compose_specs ["add r6,r1"]
 fun push_pop push_th pop_th th =
   SPEC_COMPOSE_RULE [push_th,th,pop_th] |> RW [HD,TL,NOT_CONS_NIL]
 
-val thE = SPEC_COMPOSE_RULE [res1,res2,res3,res4] |> RW [STAR_ASSOC]
+val thE = SPEC_COMPOSE_RULE [res0,res1,res2,res3,res4] |> RW [STAR_ASSOC]
           |> DISCH ``ss_p = ss:word64 list`` |> SIMP_RULE std_ss []
           |> UNDISCH
           |> push_pop x64_push_r6 x64_pop_r6
@@ -10955,37 +10998,130 @@ val n2iop_def = Define `
                   if n = 6 then Mod else
                   if n = 7 then Dec else ARB`;
 
+val perform_bignum_blast_lemma = blastLib.BBLAST_PROVE
+  ``(w2w w << 1 = (w2w v << 1):word64) <=> (w = v:63 word)``
+
+val heap_lookup_limit = prove(
+  ``(heap_lookup ptr heap = SOME x) /\ heap_ok heap n ==> ptr < n``,
+  REPEAT STRIP_TAC
+  \\ IMP_RES_TAC ml_copying_gcTheory.heap_lookup_LESS
+  \\ rfs [heap_ok_def]);
+
+val mw_11 = prove(
+  ``!n k. (mw n = mw k) <=> (n = k)``,
+  HO_MATCH_MP_TAC mw_ind \\ REPEAT STRIP_TAC
+  \\ ONCE_REWRITE_TAC [mw_def]
+  \\ Cases_on `n = 0` \\ fs []
+  \\ Cases_on `k = 0` \\ fs []
+  \\ Cases_on `n = k` \\ fs []
+  \\ METIS_TAC [DIVISION,ZERO_LT_dimword]);
+
+val all_ops = prove(
+  ``0 <= i /\ i <= 7:int ==>
+    (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3) \/
+    (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``,
+  intLib.COOPER_TAC);
+
 val zHEAP_PERFORM_BIGNUM = let
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
                 |> UNDISCH_ALL |> Q.INST [`rip`|->`p`]
   val pc = get_pc th
   val inv = ``SOME (\(sp,vals:x64_vals). num_size x1 + num_size x2 + 2 <= sp:num)``
-  val target = ``~zS * zPC p * zVALS cs vals *
-      cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,^inv) vals /\
-            isNumber x1 /\ isNumber x2 /\
-            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
-            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0) /\
-            num_size x1 + num_size x2 + 2 < 2**32)``
+  val side = ``heap_inv (cs,x1,x2,x3,x4,refs,stack,s,^inv) vals /\
+               isNumber x1 /\ isNumber x2 /\ isNumber x4 /\
+               (((n2iop (getNumber x4)) = Div) ==> x2 <> Number 0) /\
+               (((n2iop (getNumber x4)) = Mod) ==> x2 <> Number 0) /\
+               0 <= getNumber x4 /\ getNumber x4 <= 7 /\
+               num_size x1 + num_size x2 + 2 < 2**32``
+  val target = ``~zS * zPC p * zVALS cs vals``
   val (th,goal) = expand_pre th target
   val lemma = prove(goal, SIMP_TAC (std_ss++star_ss) [zVALS_def,SEP_IMP_REFL])
-  val th = MP th lemma |> DISCH_ALL |> DISCH T |> PURE_REWRITE_RULE [AND_IMP_INTRO]
-  val th = MATCH_MP SPEC_WEAKEN_LEMMA th
+  val th = MP th lemma
+  val th = SMART_WEAKEN th |> SPEC side
   val th = th |> Q.SPEC `zHEAP (cs,
-     Number (int_op (n2iop (getNumber x3)) (getNumber x1) (getNumber x2)),
-     x2,x3,x4,refs,stack,if n2iop (getNumber x3) <> Dec then s else
+     Number (int_op (n2iop (getNumber x4)) (getNumber x1) (getNumber x2)),
+     x2,x3,x4,refs,stack,if n2iop (getNumber x4) <> Dec then s else
        s with output := s.output ++ int_to_str (getNumber (x1)),NONE) * ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
 (*
-gg goal
+  gg goal
 *)
   val lemma = prove(goal,cheat) (* bignum -- this is going to be a long proof! *)
-  val th = MP th lemma
+(*
+
+    REPEAT STRIP_TAC
+    \\ `vals.reg3 >>> 2 = int_op_rep (n2iop (getNumber x4))` by ALL_TAC THEN1
+     (Cases_on `x4` \\ fs [isNumber_def,getNumber_def]
+      \\ fs [heap_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,
+             bc_value_inv_def]
+      \\ MP_TAC all_ops \\ fs [] \\ REPEAT STRIP_TAC
+      \\ fs [small_int_def] \\ EVAL_TAC)
+    \\ Cases_on `vals.reg1 = vals.reg0` \\ fs []
+
+      `x2 = x1` by ALL_TAC THEN1
+       (fs [heap_inv_def] \\ Cases_on `x1` \\ Cases_on `x2`
+        \\ fs [isNumber_def,abs_ml_inv_def,bc_stack_ref_inv_def]
+        \\ fs [bc_value_inv_def]
+        \\ Cases_on `small_int i` \\ fs [] THEN1
+         (`small_int i'` by ALL_TAC THEN1
+           (CCONTR_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [x64_addr_def]
+            \\ Q.PAT_ASSUM `heap_vars_ok vs` MP_TAC
+            \\ Q.PAT_ASSUM `w1 = w2 << 1` MP_TAC
+            \\ fs [heap_vars_ok_def]
+            \\ blastLib.BBLAST_TAC)
+          \\ fs [] \\ SRW_TAC [] [] \\ fs [x64_addr_def]
+          \\ fs [perform_bignum_blast_lemma,word_mul_n2w]
+          \\ `2 * Num i < 9223372036854775808 /\
+              2 * Num i' < 9223372036854775808` by ALL_TAC THEN1
+               (NTAC 2 (POP_ASSUM MP_TAC)
+                \\ REPEAT (POP_ASSUM (K ALL_TAC))
+                \\ fs [small_int_def] \\ intLib.COOPER_TAC)
+          \\ fs [] \\ Q.PAT_ASSUM `2 * Num i' = 2 * Num i` MP_TAC
+          \\ NTAC 4 (POP_ASSUM MP_TAC)
+          \\ REPEAT (POP_ASSUM (K ALL_TAC))
+          \\ fs [small_int_def] \\ intLib.COOPER_TAC)
+        \\ `~small_int i'` by ALL_TAC THEN1
+         (CCONTR_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [x64_addr_def]
+          \\ Q.PAT_ASSUM `heap_vars_ok vs` MP_TAC
+          \\ Q.PAT_ASSUM `w2 << 1 = w1` MP_TAC
+          \\ fs [heap_vars_ok_def]
+          \\ blastLib.BBLAST_TAC)
+        \\ fs [] \\ SRW_TAC [] [] \\ fs [x64_addr_def]
+        \\ IMP_RES_TAC heap_lookup_limit
+        \\ fs [WORD_MUL_LSL,word_mul_n2w]
+        \\ `(8 * ptr) < 18446744073709551616` by DECIDE_TAC
+        \\ `(8 * ptr') < 18446744073709551616` by DECIDE_TAC
+        \\ fs [DECIDE ``(8*n=8*m:num) = (n=m)``] \\ SRW_TAC [] []
+        \\ fs [DataOnly_def,mw_11]
+        \\ Q.PAT_ASSUM `i' < 0 = i < 0` MP_TAC
+        \\ Q.PAT_ASSUM `Num (ABS i') = Num (ABS i)` MP_TAC
+        \\ REPEAT (POP_ASSUM (K ALL_TAC))
+        \\ fs [small_int_def] \\ intLib.COOPER_TAC)
+      \\ POP_ASSUM (fn th => fs [th])
+      \\ Cases_on `x1 = Number 0` \\ fs []
+
+        `vals.reg0 = 0w` by ALL_TAC THEN1
+          (fs [heap_inv_def,abs_ml_inv_def,bc_stack_ref_inv_def,
+               bc_value_inv_def,EVAL ``small_int 0``]
+           \\ SRW_TAC [] [x64_addr_def])
+        \\ fs [x64_big_setup_def,x64_big_setup_pre_def,
+               x64_move_ptr_def,x64_move_ptr_pre_def,LET_DEF,
+               x64_move_ptr2_def,x64_move_ptr2_pre_def]
+
+   x64_print_stack_def
+   x64_pop_def
+
+  x64_multiwordTheory.x64_iop_thm
+
+*)
+  val th = MP th lemma |> RW [GSYM SPEC_MOVE_COND]
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s,^inv) * ~zS * zPC p *
-      cond (isNumber x1 /\ isNumber x2 /\
-            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
-            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0) /\
+      cond (isNumber x1 /\ isNumber x2 /\ isNumber x4 /\
+            (((n2iop (getNumber x4)) = Div) ==> x2 <> Number 0) /\
+            (((n2iop (getNumber x4)) = Mod) ==> x2 <> Number 0) /\
+            0 <= getNumber x4 /\ getNumber x4 <= 7 /\
             num_size x1 + num_size x2 + 2 < 2**32)``
   val lemma = prove(goal,
     SIMP_TAC (std_ss++star_ss) [zHEAP_def,SEP_IMP_REFL,SEP_CLAUSES,
@@ -11188,9 +11324,10 @@ val zHEAP_ALLOC_THEN_BIGNUM_GOOD_PRE = let
   val (th,goal) = SPEC_STRENGTHEN_RULE th
     ``zHEAP (cs,x1,x2,x3,x4,refs,stack,s, SOME (\(sp,vals).
               vals.reg14 = n2w (8 * (num_size x1 + num_size x2 + 2)))) *
-      zPC p * ~zS * cond (isNumber x1 /\ isNumber x2 /\
-            (((n2iop (getNumber x3)) = Div) ==> x2 <> Number 0) /\
-            (((n2iop (getNumber x3)) = Mod) ==> x2 <> Number 0))``
+      zPC p * ~zS * cond (isNumber x1 /\ isNumber x2 /\ isNumber x4 /\
+            (((n2iop (getNumber x4)) = Div) ==> x2 <> Number 0) /\
+            (((n2iop (getNumber x4)) = Mod) ==> x2 <> Number 0) /\
+            0 <= getNumber x4 /\ getNumber x4 <= 7)``
   val lemma = prove(goal,
     fs [SEP_IMP_def]
     \\ FULL_SIMP_TAC (std_ss++star_ss) []
@@ -11240,10 +11377,10 @@ val zHEAP_BIGNUM_OP = let
   in th end
 
 fun get_INT_OP n = let
-  val th = zHEAP_Num3 |> Q.INST [`k`|->`^n`]
+  val th = zHEAP_Num4 |> Q.INST [`k`|->`^n`]
            |> SIMP_RULE (srw_ss()) [w2w_def,w2n_n2w,SEP_CLAUSES]
-  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH3,th,zHEAP_BIGNUM_OP]
-  val th = SPEC_COMPOSE_RULE [th,zHEAP_POP3]
+  val th = SPEC_COMPOSE_RULE [zHEAP_PUSH4,th,zHEAP_BIGNUM_OP]
+  val th = SPEC_COMPOSE_RULE [th,zHEAP_POP4]
   val th = th |> SIMP_RULE (srw_ss()) [NOT_CONS_NIL,SEP_CLAUSES,
              getNumber_def,n2iop_def,multiwordTheory.int_op_def,HD,TL]
   in th end;
@@ -19325,48 +19462,6 @@ val SPEC_HIDE_ASSUM_AND_POST = prove(
   \\ IMP_RES_TAC SPEC_WEAKEN
   \\ FIRST_X_ASSUM MATCH_MP_TAC
   \\ fs [SEP_IMP_def,SEP_EXISTS] \\ METIS_TAC []);
-
-val SPEC_WEAKEN_EXISTS = prove(
-  ``(!x. a x ==> SPEC m p c (q x)) ==>
-    !i q1. (i ==> ?x. a x /\ SEP_IMP (q x) q1) ==>
-            i ==> SPEC m p c q1``,
-  REPEAT STRIP_TAC \\ Cases_on `i` \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ METIS_TAC [SPEC_WEAKEN]);
-
-val BINOP1_CONV = RATOR_CONV o RAND_CONV
-
-fun SMART_WEAKEN th = let
-  val th = th |> DISCH_ALL |> RW [AND_IMP_INTRO,GSYM CONJ_ASSOC]
-  val (a,s) = dest_imp (concl th)
-  val a_vs = free_vars a
-  val (_,pre,code,post) = dest_spec s
-  val pre_code_vs = free_vars pre @ free_vars code
-  val post_vs = free_vars post
-  fun diff xs ys = filter (fn x => not (mem x ys)) xs
-  val var_sort = sort (fn v => fn w => fst (dest_var v) <= fst (dest_var w))
-  val hide_vs = diff (a_vs @ post_vs) pre_code_vs |> var_sort |> all_distinct
-  val hide_tuple = pairSyntax.list_mk_pair hide_vs
-  val cc = PairRules.UNPBETA_CONV hide_tuple
-  val th1 = th |> CONV_RULE (BINOP1_CONV cc THENC
-                             RAND_CONV (RAND_CONV cc))
-  val v = mk_var("v",type_of hide_tuple)
-  fun foo 0 tm = ALL_CONV tm
-    | foo n tm =
-      (ONCE_REWRITE_CONV [GSYM PAIR] THENC
-       RAND_CONV (foo (n-1))) tm
-  val all_parts = foo (length hide_vs-1) v
-  val i = zip hide_vs (list_dest pairSyntax.dest_pair (all_parts |> concl |> rand))
-          |> map (fn (x,y) => x |-> y)
-  val th2 = th1 |> INST i |> RW [PAIR] |> GEN v
-  val lemma = MATCH_MP SPEC_WEAKEN_EXISTS th2
-  fun EXISTS_ALPHA_CONV [] = ALL_CONV
-    | EXISTS_ALPHA_CONV (v::vs) =
-        RAND_CONV (ALPHA_CONV v THENC ABS_CONV (EXISTS_ALPHA_CONV vs))
-   val c = SIMP_CONV bool_ss [EXISTS_PROD]
-           THENC EXISTS_ALPHA_CONV hide_vs
-           THENC SIMP_CONV std_ss []
-   val th = CONV_RULE ((QUANT_CONV o QUANT_CONV o BINOP1_CONV o RAND_CONV) c) lemma
-   in th end
 
 (* lemmas about COMPILER_RUN_INV *)
 
