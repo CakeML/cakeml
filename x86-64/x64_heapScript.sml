@@ -10775,7 +10775,9 @@ val zBIGNUMS_ALT_THM = prove(
   SIMP_TAC std_ss [zBIGNUMS_ALT_def,x64_multiwordTheory.zBIGNUMS_def,SEP_CLAUSES]
   \\ SIMP_TAC (std_ss++sep_cond_ss) []);
 
-val res0 = compose_specs ["shr r3,2"]
+val res0 = SPEC_COMPOSE_RULE
+             [compose_specs ["shr r3,2","mov r2,0"],
+              x64_push_r2]
 
 val res1 = thD |> CONV_RULE (RAND_CONV
   (REWRITE_CONV [zBIGNUMS_HEADER_def,zBIGNUMS_ALT_THM]))
@@ -11022,6 +11024,39 @@ val all_ops = prove(
     (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``,
   intLib.COOPER_TAC);
 
+val MEM_n2l_LESS = prove(
+  ``!k n. MEM x (n2l k n) /\ (k = 10) ==> x < k``,
+  HO_MATCH_MP_TAC numposrepTheory.n2l_ind \\ REPEAT STRIP_TAC \\ fs []
+  \\ NTAC 2 (POP_ASSUM MP_TAC)
+  \\ ONCE_REWRITE_TAC [numposrepTheory.n2l_def]
+  \\ fs [] \\ SRW_TAC [] [] \\ fs []) |> SIMP_RULE std_ss [];
+
+val EVERY_ORD_int_to_str = prove(
+  ``EVERY (\x. ORD x <> 0) (int_to_str i)``,
+  fs [multiwordTheory.int_to_str_def] \\ SRW_TAC [] []
+  \\ fs [integer_wordTheory.toString_def]
+  \\ fs [ASCIInumbersTheory.num_to_dec_string_def,
+         ASCIInumbersTheory.n2s_def,rich_listTheory.EVERY_REVERSE,EVERY_MAP]
+  \\ fs [EVERY_MEM]
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_n2l_LESS
+  \\ `(x = 0) \/ (x = 1) \/ (x = 2) \/ (x = 3) \/
+      (x = 4) \/ (x = 5) \/ (x = 6) \/ (x = 7) \/
+      (x = 8) \/ (x = 9)` by DECIDE_TAC \\ fs []);
+
+val x64_print_stack_IF = prove(
+  ``x64_print_stack_pre
+      (po,output,po,
+       if b then MAP (n2w o ORD) (int_to_str i) ++ 0x0w::stack else 0x0w::stack) /\
+    (x64_print_stack
+      (po,output,po,
+       if b then MAP (n2w o ORD) (int_to_str i) ++ 0x0w::stack else 0x0w::stack) =
+      (po,output ++ if b then MAP (n2w o ORD) (int_to_str i) else [],po,stack))``,
+  REVERSE (Cases_on `b`) \\ fs []
+  THEN1 (ONCE_REWRITE_TAC [x64_print_stack_def]
+         \\ fs [LET_DEF,x64_pop_def])
+  \\ MATCH_MP_TAC x64_print_stack_thm
+  \\ fs [EVERY_ORD_int_to_str]);
+
 val zHEAP_PERFORM_BIGNUM = let
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
                 |> UNDISCH_ALL |> Q.INST [`rip`|->`p`]
@@ -11044,7 +11079,9 @@ val zHEAP_PERFORM_BIGNUM = let
        s with output := s.output ++ int_to_str (getNumber (x1)),NONE) * ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
 (*
+
   gg goal
+
 *)
   val lemma = prove(goal,cheat) (* bignum -- this is going to be a long proof! *)
 (*
@@ -11107,11 +11144,47 @@ val zHEAP_PERFORM_BIGNUM = let
         \\ fs [x64_big_setup_def,x64_big_setup_pre_def,
                x64_move_ptr_def,x64_move_ptr_pre_def,LET_DEF,
                x64_move_ptr2_def,x64_move_ptr2_pre_def]
+        \\ fs [heap_inv_def]
+        \\ `vs.base_ptr + 0x18w IN vals.memory_domain /\
+          (vals.memory (vs.base_ptr + 0x18w) = cs.putchar_ptr)` by ALL_TAC THEN1
+         (fs [x64_store_def,one_list_def,word_arith_lemma1,heap_inv_def,SEP_CLAUSES]
+          \\ SEP_R_TAC \\ fs [])
+        \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["z"]))
+        \\ Q.EXISTS_TAC `cs.putchar_ptr`
+        \\ REPEAT (Q.PAT_ASSUM `0x0w = w` (MP_TAC o GSYM))
+        \\ REPEAT STRIP_TAC \\ fs [x64_multiwordTheory.bignum_mem_def]
+        \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["xs"]))
+        \\ Q.EXISTS_TAC `[]`
+        \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["ys"]))
+        \\ Q.EXISTS_TAC `[]`
+        \\ fs [x64_multiwordTheory.array64_def,SEP_CLAUSES]
+        \\ `unused_space_inv a sp heap` by fs [abs_ml_inv_def]
+        \\ fs [unused_space_inv_def]
+        \\ `sp <> 0` by DECIDE_TAC \\ fs []
+        \\ IMP_RES_TAC heap_lookup_SPLIT
+        \\ POP_ASSUM (fn th => fs [th])
+        \\ POP_ASSUM (fn th => fs [th])
+        \\ fs [x64_heap_APPEND,x64_heap_def,x64_el_def]
+        \\ fs [DECIDE ``sp <> 0 ==> (sp - 1 + 1 = sp:num)``]
+        \\ Q.PAT_ASSUM `xx (fun2set (vals.memory,vals.memory_domain))` MP_TAC
+        \\ SIMP_TAC std_ss [Once one_list_exists_def]
+        \\ fs [SEP_CLAUSES,SEP_EXISTS_THM] \\ REPEAT STRIP_TAC
+        \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
+        \\ CONV_TAC(RESORT_EXISTS_CONV(sort_vars["zs"]))
+        \\ Q.EXISTS_TAC `TL xs`
+        \\ fs [GSYM (EVAL ``x64_header (F,[])``)]
+        \\ ASSUME_TAC (x64_multiwordTheory.x64_iop_thm |> GEN_ALL)
+        \\ SEP_I_TAC "x64_iop"
+        \\ POP_ASSUM MP_TAC
+        \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+         (fs [x64_multiwordTheory.x64_header_def]
+          \\ Cases_on `xs` \\ fs [] \\ EVAL_TAC
+          \\ SRW_TAC [] [] \\ fs []
+          \\ IMP_RES_TAC abs_ml_inv_SP_LESS_LIMIT
+          \\ DECIDE_TAC)
+        \\ REPEAT STRIP_TAC \\ fs [EVAL ``x64_header (F,[])``]
+        \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC, APPEND, x64_print_stack_IF]
 
-   x64_print_stack_def
-   x64_pop_def
-
-  x64_multiwordTheory.x64_iop_thm
 
 *)
   val th = MP th lemma |> RW [GSYM SPEC_MOVE_COND]
