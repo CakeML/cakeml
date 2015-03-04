@@ -3,7 +3,7 @@ open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheo
 open BasicProvers
 open word_procTheory word_langTheory word_liveTheory
 open reg_allocTheory 
-open word_ssaTheory
+(*open word_ssaTheory*)
 
 val _ = new_theory "word_transform"
 
@@ -44,12 +44,13 @@ val word_alloc_def = Define`
     TODO: choose the flag based on the size of graph/moves*)
     apply_colour (total_colour col) prog`
 
+(*
 (*word_trans is the combination that does SSA/CC then Register Allocation*)
 val word_trans_def = Define`
   word_trans k prog =
   let (ssa_prog,na,ns) = ssa_cc_trans prog LN 101 in (*numbers are placeholders*)
     word_alloc k ssa_prog`
-
+*)
 
 val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live.
@@ -86,6 +87,12 @@ val colouring_satisfactory_colouring_ok_alt = prove(``
   fs[MEM_EL]>>rfs[EL_MAP]>>
   metis_tac[])
 
+val is_phy_var_tac = 
+    fs[is_phy_var_def]>>
+    `0<2:num` by DECIDE_TAC>>
+    `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
+    metis_tac[arithmeticTheory.MOD_EQ_0];
+
 val call_arg_convention_preservation = prove(``
   ∀prog f.
   every_var (λx. is_phy_var x ⇒ f x = x) prog ∧ 
@@ -95,15 +102,14 @@ val call_arg_convention_preservation = prove(``
   rw[call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
   fs[call_arg_convention_def]>>
+  `is_phy_var 2` by is_phy_var_tac>>fs[]>>
   `EVERY is_phy_var args` by
     (qpat_assum`args=A` SUBST_ALL_TAC>>
-    fs[EVERY_GENLIST,is_phy_var_def]>>
-    rw[]>>
-    `0<2:num` by DECIDE_TAC>>
-    `(2:num)*x=x*2` by DECIDE_TAC>>
-    metis_tac[arithmeticTheory.MOD_EQ_0])>>
- qpat_assum`args = A` (SUBST_ALL_TAC o SYM)>>
- fs[EVERY_MEM,miscTheory.MAP_EQ_ID])
+    fs[EVERY_GENLIST]>>rw[]>>
+    is_phy_var_tac)>>
+  qpat_assum`args = A` (SUBST_ALL_TAC o SYM)>>
+  fs[EVERY_MEM,miscTheory.MAP_EQ_ID]>>
+  rfs[])
 
 val pre_post_conventions_word_alloc = prove(``
   ∀prog k.
