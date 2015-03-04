@@ -220,10 +220,10 @@ val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) =(y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧   
   (call_arg_convention (Call ret dest args h) =
-    (args = GENLIST (\x.2*x) (LENGTH args) ∧ 
     (case ret of 
-      NONE => T
+      NONE => args = GENLIST (\x.2*x) (LENGTH args)  
     | SOME (v,cutset,ret_handler,l1,l2) => 
+      args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧ 
       (v = 2) ∧ call_arg_convention ret_handler ∧
     (case h of  (*Does not check the case where Calls are ill-formed*)
       NONE => T

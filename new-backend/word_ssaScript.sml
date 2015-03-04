@@ -173,7 +173,7 @@ val ssa_cc_trans_exp_def = tDefine "ssa_cc_trans_exp" `
 val list_next_var_rename_move_def = Define`
   list_next_var_rename_move ssa n ls =
     let cur_ls = MAP (option_lookup ssa) ls in
-    let (new_ls,ssa',n') = list_next_var_rename cur_ls ssa n in
+    let (new_ls,ssa',n') = list_next_var_rename ls ssa n in
     (Move 1 (ZIP(new_ls,cur_ls)),ssa',n')`
 
 val ssa_cc_trans_def = Define`
@@ -235,7 +235,6 @@ val ssa_cc_trans_def = Define`
     let prog = (Seq (stack_mov)
                (Seq (Alloc num' stack_set) (ret_mov))) in
     (prog,ssa'',na'')) ∧
-  (*TODO: Priority? I think 0 works fine*)
   (ssa_cc_trans (Raise num) ssa na =
     let num' = option_lookup ssa num in
     let mov = Move 0 [(2,num')] in 
@@ -475,7 +474,8 @@ val list_next_var_rename_lemma_2 = prove(``
   let (ls',ssa',na') = list_next_var_rename ls ssa na in 
   ls' = MAP (λx. THE(lookup x ssa')) ls ∧ 
   domain ssa' = domain ssa ∪ set ls ∧ 
-  ∀x. ¬MEM x ls ⇒ lookup x ssa' = lookup x ssa``,
+  (∀x. ¬MEM x ls ⇒ lookup x ssa' = lookup x ssa) ∧
+  (∀x. MEM x ls ⇒ ∃y. lookup x ssa' = SOME y)``,
   Induct>>fs[list_next_var_rename_def,LET_THM,next_var_rename_def]>>
   rw[]>>
   first_x_assum(qspecl_then[`insert h na ssa`,`na+4`] assume_tac)>>
@@ -1164,8 +1164,8 @@ val toAList_domain = prove(``
   fs[EXISTS_PROD,MEM_MAP,MEM_toAList,domain_lookup])
    
 val get_vars_eq = prove(
-  ``(set ls) SUBSET domain st.locals ==> ?y. get_vars ls st = SOME y /\
-                                             y = MAP (\x. THE (lookup x st.locals)) ls``,
+  ``(set ls) SUBSET domain st.locals ==> ?z. get_vars ls st = SOME z /\
+                                             z = MAP (\x. THE (lookup x st.locals)) ls``,
   Induct_on`ls`>>fs[get_vars_def,get_var_def]>>rw[]>>
   fs[domain_lookup])
 
@@ -1179,8 +1179,24 @@ val get_var_ignore = prove(``
   rw[]>>
   Cases_on`a`>>fs[list_insert_def,lookup_insert])
 
-(*TODO: REMOVE CHEATS*)
-val list_next_var_rename_move_preserve = GEN_ALL(prove(``
+fun use_ALOOKUP_ALL_DISTINCT_MEM (g as (asl,w)) =
+  let
+    val tm = find_term(can(match_term(lhs(snd(dest_imp(concl
+      ALOOKUP_ALL_DISTINCT_MEM)))))) w
+    val (_,[al,k]) = strip_comb tm
+  in
+    mp_tac(ISPECL [al,k] (Q.GENL[`v`,`k`,`al`] ALOOKUP_ALL_DISTINCT_MEM))
+  end g
+
+val get_vars_exists = prove(``
+  ∀ls. 
+  set ls ⊆ domain st.locals ⇒ 
+  ∃z. get_vars ls st = SOME z``,
+  Induct>>fs[get_var_def,get_vars_def]>>rw[]>>
+  fs[domain_lookup])
+
+val list_next_var_rename_move_preserve = prove(``
+  ∀ssa n ls.
   ssa_locals_rel na ssa st.locals cst.locals ∧ 
   set ls ⊆ domain st.locals ∧ 
   ALL_DISTINCT ls ∧
@@ -1207,42 +1223,56 @@ val list_next_var_rename_move_preserve = GEN_ALL(prove(``
     fs[ssa_map_ok_def]>>
     metis_tac[])>>
   imp_res_tac list_next_var_rename_lemma_2>>
-  pop_assum kall_tac>>
   first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
   fs[LET_THM,wEval_def]>>rfs[]>>
-  rfs[MAP_ZIP,LENGTH_COUNT_LIST]>>fs[]>>
-  `set cur_ls ⊆ domain cst.locals` by 
-    (fs[SUBSET_DEF,Abbr`cur_ls`]>>rw[MEM_MAP]>>
-    res_tac>>
-    fs[domain_lookup]>>
-    res_tac>>
-    fs[option_lookup_def]>>
-    qpat_assum`A=SOME v''` SUBST_ALL_TAC>>fs[]>>
-    metis_tac[])>>
+  rfs[MAP_ZIP,LENGTH_COUNT_LIST,Abbr`cur_ls`]>>fs[]>>
   imp_res_tac get_vars_eq>>
-  fs[]>>qpat_assum`A=rcst` (sym_sub_tac)
+  qpat_assum`A=(res,rcst)` mp_tac>>
+  qpat_abbrev_tac`cls = MAP (option_lookup ssa) ls`>>
+  `get_vars cls cst = SOME z` by 
+    (fs[Abbr`cls`]>>
+    match_mp_tac ssa_locals_rel_get_vars>>
+    fs[ssa_locals_rel_def]>>
+    qexists_tac`na`>>
+    qexists_tac`st`>>fs[]>>
+    metis_tac[])>>
+  fs[]>>rw[]
   >-
-    (fs[set_vars_def]>>
-    Cases_on`MEM x cur_ls`>>fs[]
+    (fs[set_vars_def,domain_list_insert]>>
+    Cases_on`MEM x ls`>>res_tac>>fs[]
     >-
-      cheat
-      (*y in the first part of the list insert*)
+      (DISJ2_TAC>>fs[MEM_MAP]>>
+      HINT_EXISTS_TAC>>fs[])
     >>
-    res_tac>>
-    (*y in cst.locals already*)
-    cheat)
+      (res_tac>>
+      fs[]))
   >-
     (fs[set_vars_def,lookup_list_insert]>>
-    Cases_on`MEM x cur_ls`>>fs[]
+    res_tac>>
+    Cases_on`MEM x ls`>>fs[]
     >-
-      cheat (*should be in the ZIP*)
+      (res_tac>>
+      use_ALOOKUP_ALL_DISTINCT_MEM >>
+      simp[ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,MEM_MAP,PULL_EXISTS] >>
+      strip_tac>>
+      pop_assum(qspec_then`x` assume_tac)>>
+      rfs[])
     >>
-      (*Shouldn't be in the ZIP*)
-      cheat)
+      (qpat_abbrev_tac `opt:'b word_loc option = ALOOKUP (ZIP A) v`>>
+      qsuff_tac `opt = NONE` >>fs[Abbr`opt`]>>
+      match_mp_tac (SPEC_ALL ALOOKUP_NONE|>REWRITE_RULE[EQ_IMP_THM]|>CONJ_PAIR|>snd)>>
+      SPOSE_NOT_THEN assume_tac>>
+      fs[MAP_ZIP]>>
+      fs[domain_lookup]>>
+      `v < na` by
+        metis_tac[ssa_map_ok_def]>>
+      rfs[]>>
+      rpt (qpat_assum`A = B` sym_sub_tac)>>
+      fs[MEM_MAP]>>DECIDE_TAC))
   >-
     (res_tac>>DECIDE_TAC)
   >>
-    fs[word_state_eq_rel_def,set_vars_def]))
+    fs[word_state_eq_rel_def,set_vars_def])
 
 val get_vars_list_insert_eq_gen= prove(
 ``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT ls /\
@@ -1443,11 +1473,6 @@ val flip_rw = prove(
   `na MOD 4 < 4` by fs []>>
   imp_res_tac (DECIDE ``n:num<4⇒(n=0)∨(n=1)∨(n=2)∨(n=3)``)>>
   fs[]))
-
-
-   pop_assum (qspecl_then [`na`,`2`] (mp_tac o SYM))>>
-   simp[arithmeticTheory.MOD_MOD]
-    rw[]>>fs[]))
 
 val list_next_var_rename_props_2 =
   list_next_var_rename_props
@@ -1946,11 +1971,15 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rfs[]>>
       (*Backwards chaining*)
       fs[Abbr`envy`,Abbr`envx`,word_state_component_equality]>>
+      IF_CASES_TAC>-
+        (qexists_tac`perm`>>fs[])>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
-                    `r' with stack := st'`,`y`,`F`]
+                    `r' with stack := st'`,`y`,
+                    `NONE:(num#'a word_prog#num#num)option`]
                     assume_tac push_env_pop_env_s_key_eq>>
       Q.ISPECL_THEN [`(st with <|permute:=perm;clock := st.clock-1|>)`,
-                    `r'`,`x'`,`F`]
+                    `r'`,`x'`,
+                    `NONE:(num#'a word_prog#num#num)option`]
                     assume_tac push_env_pop_env_s_key_eq>>
       (*This went missing somewhere..*)
       `rcst'.clock = st.clock` by 
@@ -2002,7 +2031,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (*We set variable 0 but it is never in the 
         locals so the ssa_locals_rel property is preserved*)
       `ssa_locals_rel na' ssa_cut y'.locals 
-        (set_var 0 a y'').locals` by
+        (set_var 2 w0 y'').locals` by
         (match_mp_tac ssa_locals_rel_ignore_set_var>>
         fs[]>>
         rw[]
@@ -2010,7 +2039,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
           metis_tac[Abbr`ssa_cut`,ssa_map_ok_inter]
         >> is_phy_var_tac)>> (*The ssa_ok property should come automatic*)
       Q.SPECL_THEN [`y'`,`ssa_cut`,`na'+2`,`(MAP FST (toAList x1))`
-                   ,`(set_var 0 a y'')`] mp_tac 
+                   ,`(set_var 2 w0 y'')`] mp_tac 
                    list_next_var_rename_move_preserve>>
       discharge_hyps>-
       (rw[]
@@ -2031,11 +2060,11 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       LET_ELIM_TAC>>
       fs[Abbr`mov_ret_handler`,wEval_def]>>
       rfs[LET_THM]>>
-      `get_vars [0] rcst'' = SOME [a]` by cheat>>
-      (*Use the fact that ret_move doesn't overwrite 0*)
+      `get_vars [2] rcst'' = SOME [w0]` by cheat>>
+      (*Use the fact that ret_move doesn't overwrite reg 2*)
       fs[set_vars_def,list_insert_def]>>
       (*Setting up the return values, probably prove together instead of cheating stuff*)
-      qabbrev_tac`res_st = (set_var x0 a y')`>>
+      qabbrev_tac`res_st = (set_var x0 w0 y')`>>
       qpat_abbrev_tac`res_rcst = rcst'' with locals:=A`>>
       (*Probably isn't that hard but prove in a lemma instead*)
       `ssa_locals_rel na_2_p ssa_2_p res_st.locals res_rcst.locals` by 
@@ -2047,9 +2076,9 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (*Obvious frame thms*)
       cheat)>>
       rw[]>>
-      qspecl_then[`r`,`push_env x' F
+      qspecl_then[`r`,`push_env x' NONE
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 q`,`perm'`]
+          locals := fromList2 (Loc x3 x4::q)`,`perm'`]
       assume_tac permute_swap_lemma>>
       rfs[LET_THM]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
