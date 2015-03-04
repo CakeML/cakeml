@@ -251,7 +251,7 @@ val ssa_cc_trans_def = Define`
     (Set n exp',ssa,na)) ∧ 
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
-    let conv_args = even_list (LENGTH names) in
+    let conv_args = GENLIST (\x.2*x) (LENGTH names) in 
     let move_args = (Move 0 (ZIP (conv_args,names))) in
     let prog = Seq move_args (Call NONE dest conv_args h) in
       (prog,ssa,na)) ∧ 
@@ -260,7 +260,7 @@ val ssa_cc_trans_def = Define`
     let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
     let stack_set = apply_nummap_key (option_lookup ssa') numset in
     let names = MAP (option_lookup ssa') args in
-    let conv_args = even_list (LENGTH names) in
+    let conv_args = GENLIST (\x.2*(x+1)) (LENGTH names) in 
     let move_args = (Move 0 (ZIP (conv_args,names))) in
     let ssa_cut = inter ssa' numset in
     let (ret_mov,ssa'',na'') = 
@@ -1426,7 +1426,38 @@ val fix_inconsistencies_props = prove(``
   rfs[LET_THM]>>
   DECIDE_TAC)
 
-(*TODO: FIGURE OUT WHY METIS FAILS*)
+val th =
+  (MATCH_MP
+    (PROVE[]``((a ⇒ b) ∧ (c ⇒ d)) ⇒ ((a ∨ c) ⇒ b ∨ d)``)
+    (CONJ is_stack_var_flip is_alloc_var_flip))
+
+val flip_rw = prove(
+  ``is_stack_var(na+2) = is_alloc_var na ∧
+    is_alloc_var(na+2) = is_stack_var na``,
+  conj_tac >> (reverse EQ_TAC >-
+    metis_tac[is_alloc_var_flip,is_stack_var_flip]) >>
+  fs[is_alloc_var_def,is_stack_var_def]>>
+  qspec_then `4` mp_tac arithmeticTheory.MOD_PLUS >>
+  (discharge_hyps >- fs[]>>
+  disch_then(qspecl_then[`na`,`2`](SUBST1_TAC o SYM)) >>
+  `na MOD 4 < 4` by fs []>>
+  imp_res_tac (DECIDE ``n:num<4⇒(n=0)∨(n=1)∨(n=2)∨(n=3)``)>>
+  fs[]))
+
+
+   pop_assum (qspecl_then [`na`,`2`] (mp_tac o SYM))>>
+   simp[arithmeticTheory.MOD_MOD]
+    rw[]>>fs[]))
+
+val list_next_var_rename_props_2 =
+  list_next_var_rename_props
+  |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["na","na'"]))
+  |> Q.SPECL[`na+2`] |> SPEC_ALL
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+  |> C MATCH_MP (UNDISCH th)
+  |> DISCH_ALL
+  |> REWRITE_RULE[flip_rw]
+
 (*Prove the properties that hold of ssa_cc_trans independent of semantics*)
 val ssa_cc_trans_props = prove(``
   ∀prog ssa na prog' ssa' na'.
@@ -1469,16 +1500,11 @@ val ssa_cc_trans_props = prove(``
       EVERY_CASE_TAC>>fs[]>>
       metis_tac[])>>
     `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
-    (*metis_tac doesnt seem to like the theorem so we do this manually*)
-    assume_tac list_next_var_rename_props>>
-    first_assum(qspecl_then[`cur_ls`,`ssa`,`na+2`,`new_ls`,`ssa'''`,`na''`] mp_tac)>>
-    `is_stack_var (na+2)` by metis_tac[is_alloc_var_flip]>>
-    (discharge_hyps>-metis_tac[ssa_map_ok_more])>>
-    strip_tac>>
-    first_x_assum(qspecl_then[`cur_ls'`,`ssa_cut`,`na''+2`,`new_ls'`,`ssa'`,`na'`] mp_tac)>>
-    `is_alloc_var (na''+2)` by metis_tac[is_stack_var_flip]>>
-    (discharge_hyps>- metis_tac[ssa_map_ok_more]) >>
-    rw[]>>
+    imp_res_tac ssa_map_ok_more>>
+    imp_res_tac list_next_var_rename_props_2>>
+    imp_res_tac ssa_map_ok_more>>
+    res_tac>>
+    imp_res_tac list_next_var_rename_props_2>>
     DECIDE_TAC)>>
   strip_tac >-
     exp_tac>>
@@ -1491,8 +1517,73 @@ val ssa_cc_trans_props = prove(``
     rfs[])>>
   (*Calls*)
   Cases_on`h`>-
-    cheat >>
-  cheat)
+    (fs[list_next_var_rename_move_def]>>
+    rw[]>>
+    ntac 3 (pop_assum mp_tac)>>LET_ELIM_TAC>>
+    `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
+      (rw[Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
+      EVERY_CASE_TAC>>fs[]>>
+      metis_tac[])>>
+    fs[PULL_FORALL,LET_THM]>>
+     `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
+    imp_res_tac ssa_map_ok_more>>
+    imp_res_tac list_next_var_rename_props_2>>
+    imp_res_tac ssa_map_ok_more>>
+    res_tac>>
+    imp_res_tac list_next_var_rename_props_2>>
+    (last_assum mp_tac>>discharge_hyps>-
+      (fs[next_var_rename_def]>>
+      CONJ_ASM2_TAC>-
+        metis_tac[ssa_map_ok_extend,convention_partitions]
+      >>
+      metis_tac[is_alloc_var_add]))>>
+    rw[]>>
+    fs[next_var_rename_def]>>
+    DECIDE_TAC)
+  >>
+    PairCases_on`x`>>fs[list_next_var_rename_move_def]>>
+    rw[]>>
+    ntac 3 (pop_assum mp_tac)>>LET_ELIM_TAC>>
+    `∀naa. ssa_map_ok naa ssa'' ⇒ ssa_map_ok naa ssa_cut` by
+      (rw[Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
+      EVERY_CASE_TAC>>fs[]>>
+      metis_tac[])>>
+    fs[PULL_FORALL,LET_THM]>>
+    `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
+    imp_res_tac ssa_map_ok_more>>
+    imp_res_tac list_next_var_rename_props_2>>
+    imp_res_tac ssa_map_ok_more>>
+    rpt VAR_EQ_TAC>>
+    res_tac>>
+    imp_res_tac list_next_var_rename_props_2>>
+    (ntac 2 (last_x_assum mp_tac)>>
+    discharge_hyps_keep>-
+      (fs[next_var_rename_def]>>
+      CONJ_ASM2_TAC>-
+        metis_tac[ssa_map_ok_extend,convention_partitions]
+      >>
+      metis_tac[is_alloc_var_add])>> 
+    strip_tac>>
+    discharge_hyps_keep>-
+      (fs[next_var_rename_def]>>
+      CONJ_ASM2_TAC>-
+        (qpat_assum`A=na_3_p` sym_sub_tac>>
+        qpat_assum `A=ssa_3_p` sym_sub_tac>>
+        match_mp_tac ssa_map_ok_extend>>
+        `n'' ≤ na_2_p` by DECIDE_TAC>>
+        metis_tac[ssa_map_ok_more,ssa_map_ok_extend,convention_partitions])
+      >>
+      metis_tac[is_alloc_var_add]))>>
+    rw[]>>
+    fs[next_var_rename_def]>>
+    rpt VAR_EQ_TAC>>
+    `ssa_map_ok na_3 ssa_2` by 
+      (match_mp_tac (GEN_ALL ssa_map_ok_more)>>
+      qexists_tac`n'''`>>
+      fs[next_var_rename_def]>>
+      DECIDE_TAC)>>
+    imp_res_tac fix_inconsistencies_props>>
+    DECIDE_TAC)
 
 val PAIR_ZIP_MEM = prove(``
   LENGTH c = LENGTH d ∧ 
@@ -1695,7 +1786,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >-
     (*Tail call*)
     (exists_tac>>
-    fs[MAP_ZIP,even_list_def]>>
+    fs[MAP_ZIP]>>
     qpat_abbrev_tac`ls = GENLIST (λx.2*x) (LENGTH l)`>>
     `ALL_DISTINCT ls` by
       (fs[Abbr`ls`,ALL_DISTINCT_GENLIST]>>
@@ -1752,7 +1843,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
       metis_tac[ssa_map_ok_more,list_next_var_rename_move_props])>>
     rfs[]>>
-    fs[MAP_ZIP,even_list_def]>>
+    fs[MAP_ZIP]>>
     `ALL_DISTINCT conv_args` by
       (fs[Abbr`conv_args`,ALL_DISTINCT_GENLIST]>>
       rw[]>>DECIDE_TAC)>>
