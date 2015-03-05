@@ -839,7 +839,12 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 1 *)
 
-val lemma = hol2deep ``[(strlit"=", Tyapp (strlit"fun") [Tyvar (strlit"A"); Tyvar (strlit"A")])]``
+val lemma = hol2deep ``[(strlit"=",
+  Tyapp (strlit"fun")
+    [Tyvar (strlit"A");
+     Tyapp (strlit"fun")
+       [Tyvar (strlit"A");
+        Tyapp (strlit"bool") []]])]``
             |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
