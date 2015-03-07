@@ -356,7 +356,7 @@ val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
           `(λn. perm' n) = perm'` by fs[FUN_EQ_THM]>>
           simp[]);
 
-val word_exp_perm = prove(``
+val word_exp_perm = store_thm("word_exp_perm",``
   ∀s exp. word_exp (s with permute:=perm) exp =
           word_exp s exp``,
   ho_match_mp_tac word_exp_ind>>rw[word_exp_def]
