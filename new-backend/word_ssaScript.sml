@@ -1014,7 +1014,6 @@ val domain_list_insert = prove(
   Induct_on`a`>>Cases_on`b`>>fs[list_insert_def]>>rw[]>>
   metis_tac[INSERT_UNION_EQ,UNION_COMM])
 
-
 val list_next_var_rename_move_preserve = prove(``
   ∀st ssa na ls cst.
   ssa_locals_rel na ssa st.locals cst.locals ∧ 
@@ -1025,9 +1024,10 @@ val list_next_var_rename_move_preserve = prove(``
   ⇒
   let (mov,ssa',na') = list_next_var_rename_move ssa na ls in
   let (res,rcst) = wEval (mov,cst) in
-    res = NONE ∧ 
+    res = NONE ∧
     ssa_locals_rel na' ssa' st.locals rcst.locals ∧ 
-    word_state_eq_rel st rcst``,
+    word_state_eq_rel st rcst ∧ 
+    (¬is_phy_var na ⇒ ∀w. is_phy_var w ⇒ lookup w rcst.locals = lookup w cst.locals)``,
   fs[list_next_var_rename_move_def,ssa_locals_rel_def]>>
   rw[]>>
   imp_res_tac list_next_var_rename_lemma_1>>
@@ -1048,15 +1048,16 @@ val list_next_var_rename_move_preserve = prove(``
   rfs[MAP_ZIP,LENGTH_COUNT_LIST,Abbr`cur_ls`]>>fs[]>>
   imp_res_tac get_vars_eq>>
   qpat_assum`A=(res,rcst)` mp_tac>>
+  qabbrev_tac`z=get_vars ls st`>>
   qpat_abbrev_tac`cls = MAP (option_lookup ssa) ls`>>
-  `get_vars cls cst = SOME z` by 
+  `get_vars cls cst = z` by 
     (fs[Abbr`cls`]>>
     match_mp_tac ssa_locals_rel_get_vars>>
     fs[ssa_locals_rel_def]>>
     qexists_tac`na`>>
     qexists_tac`st`>>fs[]>>
     metis_tac[])>>
-  fs[]>>rw[]
+  fs[Abbr`z`]>>rw[]
   >-
     (fs[set_vars_def,domain_list_insert]>>
     Cases_on`MEM x ls`>>res_tac>>fs[]
@@ -1092,8 +1093,19 @@ val list_next_var_rename_move_preserve = prove(``
       fs[MEM_MAP]>>DECIDE_TAC))
   >-
     (res_tac>>DECIDE_TAC)
+  >-
+    fs[word_state_eq_rel_def,set_vars_def]
   >>
-    fs[word_state_eq_rel_def,set_vars_def])
+    fs[lookup_list_insert,set_vars_def]>>
+    FULL_CASE_TAC>>
+    imp_res_tac ALOOKUP_MEM>>
+    fs[MEM_ZIP]>>
+    qpat_assum`MAP A B = MAP C D` sym_sub_tac>>
+    rfs[EL_MAP,LENGTH_MAP,LENGTH_COUNT_LIST,EL_COUNT_LIST]>>
+    `is_stack_var na ∨ is_alloc_var na` by
+      metis_tac[convention_partitions]>>
+    (*obvious.. but not sure about the easiest way*)
+    cheat)
 
 val get_vars_list_insert_eq_gen= prove(
 ``!ls x locs a b. (LENGTH ls = LENGTH x /\ ALL_DISTINCT ls /\
@@ -1323,6 +1335,22 @@ val list_next_var_rename_props_2 =
   |> C MATCH_MP (UNDISCH th)
   |> DISCH_ALL
   |> REWRITE_RULE[flip_rw]
+
+val ssa_map_ok_lem = prove(``
+  ssa_map_ok na ssa ⇒ ssa_map_ok (na+2) ssa``,
+  metis_tac[ssa_map_ok_more, DECIDE``na:num ≤ na+2``])
+
+val list_next_var_rename_move_props_2 = prove(``
+  ∀ls ssa na ls' ssa' na'.
+  (is_alloc_var na ∨ is_stack_var na) ∧ ssa_map_ok na ssa ∧ 
+  list_next_var_rename_move ssa (na+2) ls = (ls',ssa',na') ⇒ 
+  (na+2) ≤ na' ∧
+  (is_alloc_var na ⇒ is_stack_var na') ∧ 
+  (is_stack_var na ⇒ is_alloc_var na') ∧
+  ssa_map_ok na' ssa'``,
+  ntac 7 strip_tac>>imp_res_tac list_next_var_rename_move_props>>
+  fs[]>>
+  metis_tac[is_stack_var_flip,is_alloc_var_flip,ssa_map_ok_lem])
 
 (*Prove the properties that hold of ssa_cc_trans independent of semantics*)
 val ssa_cc_trans_props = prove(``
@@ -1738,11 +1766,9 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[]>>DECIDE_TAC))
     >>
     LET_ELIM_TAC>>fs[]>>
-    `ssa_map_ok na' ssa'` by 
-      (rpt VAR_EQ_TAC>>
-      `na ≤ na+2` by DECIDE_TAC>>
-      `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
-      metis_tac[ssa_map_ok_more,list_next_var_rename_move_props])>>
+    Q.ISPECL_THEN [`ls`,`ssa`,`na`,`stack_mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props_2>>
+    Q.ISPECL_THEN [`ls`,`ssa_cut`,`na'`,`ret_mov`,`ssa''`,`na''`] assume_tac list_next_var_rename_move_props_2>>
+    Q.ISPECL_THEN [`x2`,`ssa_2_p`,`na_2_p`,`ren_ret_handler`,`ssa_2`,`na_2`] assume_tac ssa_cc_trans_props>>
     rfs[]>>
     fs[MAP_ZIP]>>
     `ALL_DISTINCT conv_args` by
@@ -1759,6 +1785,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     `∀x y. lookup x ssa_cut = SOME y ⇒ lookup x ssa' = SOME y` by
       (rw[]>>fs[Abbr`ssa_cut`,lookup_inter]>>
       EVERY_CASE_TAC>>fs[])>>
+    `ssa_map_ok na' ssa_cut` by
+      fs[Abbr`ssa_cut`,ssa_map_ok_inter]>>
     (*Probably need to case split here to deal with the 2 cases*)
     Cases_on`o0`>>fs[]
     >-
@@ -1903,17 +1931,13 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[cut_env_def,SUBSET_DEF]>>
         `x'' ∈ domain st.locals` by fs[domain_lookup]>>
         fs[domain_lookup])>>
-     fs[]>>
-      (*We set variable 0 but it is never in the 
+      fs[]>>
+      (*We set variable 2 but it is never in the 
         locals so the ssa_locals_rel property is preserved*)
       `ssa_locals_rel na' ssa_cut y'.locals 
         (set_var 2 w0 y'').locals` by
         (match_mp_tac ssa_locals_rel_ignore_set_var>>
-        fs[]>>
-        rw[]
-        >-
-          metis_tac[Abbr`ssa_cut`,ssa_map_ok_inter]
-        >> is_phy_var_tac)>> (*The ssa_ok property should come automatic*)
+        fs[]>> is_phy_var_tac)>> 
       Q.SPECL_THEN [`y'`,`ssa_cut`,`na'+2`,`(MAP FST (toAList x1))`
                    ,`(set_var 2 w0 y'')`] mp_tac 
                    list_next_var_rename_move_preserve>>
@@ -1936,23 +1960,35 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       LET_ELIM_TAC>>
       fs[Abbr`mov_ret_handler`,wEval_def]>>
       rfs[LET_THM]>>
-      `get_vars [2] rcst'' = SOME [w0]` by cheat>>
-      (*Use the fact that ret_move doesn't overwrite reg 2*)
+      `get_vars [2] rcst'' = SOME [w0]` by 
+        (fs[ssa_map_ok_more,DECIDE ``na:num ≤ na+2``]>>
+        `¬ is_phy_var (na'+2)` by 
+          metis_tac[is_stack_var_flip,convention_partitions]>>
+        fs[get_vars_def,get_var_def]>>
+        first_x_assum(qspec_then`2` assume_tac)>>
+        fs[is_phy_var_def,set_var_def])>>
       fs[set_vars_def,list_insert_def]>>
-      (*Setting up the return values, probably prove together instead of cheating stuff*)
       qabbrev_tac`res_st = (set_var x0 w0 y')`>>
       qpat_abbrev_tac`res_rcst = rcst'' with locals:=A`>>
-      (*Probably isn't that hard but prove in a lemma instead*)
-      `ssa_locals_rel na_2_p ssa_2_p res_st.locals res_rcst.locals` by 
-        cheat>>
+      `ssa_locals_rel na_2_p ssa_2_p res_st.locals res_rcst.locals` by
+        (unabbrev_all_tac>>fs[next_var_rename_def,set_var_def]>>
+        rpt VAR_EQ_TAC>>
+        qpat_assum`A=fromAList l'` sym_sub_tac>>
+        match_mp_tac ssa_locls_rel_set_var>>
+        fs[every_var_def]>>
+        rfs[]>>
+        DECIDE_TAC)>>
       first_x_assum(qspecl_then[`x2`,`res_st`,`res_rcst`,`ssa_2_p`,`na_2_p`] mp_tac)>>
       size_tac>>discharge_hyps>-
       (fs[word_state_eq_rel_def,Abbr`res_st`,Abbr`res_rcst`,set_var_def]>>
-      rfs[]>>
-      (*Obvious frame thms*)
-      cheat)>>
+      fs[every_var_def,next_var_rename_def]>>rw[]>>
+      TRY
+        (match_mp_tac every_var_mono>>
+        HINT_EXISTS_TAC>>fs[]>>
+        DECIDE_TAC)>>
+      metis_tac[is_alloc_var_add,ssa_map_ok_extend,convention_partitions])>>
       rw[]>>
-      qspecl_then[`r`,`push_env x' NONE
+      qspecl_then[`r`,`push_env x' (NONE:(num#'a word_prog#num#num) option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
           locals := fromList2 (Loc x3 x4::q)`,`perm'`]
       assume_tac permute_swap_lemma>>
