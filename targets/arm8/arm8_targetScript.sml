@@ -30,7 +30,6 @@ val arm8_config_def = Define`
     ; reg_count := 32
     ; avoid_regs := [31]
     ; link_reg := SOME 30
-    ; has_delay_slot := F
     ; has_icache := F
     ; has_mem_32 := T
     ; two_reg_arith := F
@@ -198,11 +197,9 @@ val arm8_enc_def = Define`
            (LoadStoreImmediate@8
               (0w, F, MemOp_STORE, AccType_NORMAL, F, F, F, F, F, ~word_msb a,
                a, n2w r2, n2w r1)))) /\
-   (arm8_enc (Jump _ (SOME _)) = []) /\
-   (arm8_enc (Jump a NONE) =
+   (arm8_enc (Jump a) =
       arm8_encode (Branch (BranchImmediate (a, BranchType_JMP)))) /\
-   (arm8_enc (JumpCmp _ _ _ _ (SOME _)) = []) /\
-   (arm8_enc (JumpCmp cmp r1 (Reg r2) a NONE) =
+   (arm8_enc (JumpCmp cmp r1 (Reg r2) a) =
       arm8_encode
          (Data (if cmp = Test then
                    LogicalShiftedRegister@64
@@ -212,7 +209,7 @@ val arm8_enc_def = Define`
                    AddSubShiftedRegister@64
                       (1w, T, T, ShiftType_LSL, n2w r2, 0w, n2w r1, 0x1Fw))) ++
       arm8_encode (Branch (BranchConditional (a - 4w, cmp_cond cmp)))) /\
-   (arm8_enc (JumpCmp cmp r (Imm i) a NONE) =
+   (arm8_enc (JumpCmp cmp r (Imm i) a) =
       arm8_encode
          (Data (if cmp = Test then
                    LogicalImmediate@64
@@ -284,24 +281,24 @@ val arm8_dec_aux_def = Define`
    | Data (AddSubImmediate@64 (1w, T, T, i, r, 0x1Fw)) =>
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, c)) =>
-              JumpCmp (cond_cmp c) (w2n r) (Imm i) (a + 4w) NONE
+              JumpCmp (cond_cmp c) (w2n r) (Imm i) (a + 4w)
          | _ => ARB)
    | Data (LogicalImmediate@64 (1w, LogicalOp_AND, T, i, r, 0x1Fw)) =>
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, 0w)) =>
-              JumpCmp Test (w2n r) (Imm i) (a + 4w) NONE
+              JumpCmp Test (w2n r) (Imm i) (a + 4w)
          | _ => ARB)
    | Data (AddSubShiftedRegister@64
              (1w, T, T, ShiftType_LSL, r2, 0w, r1, 0x1Fw)) =>
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, c)) =>
-              JumpCmp (cond_cmp c) (w2n r1) (Reg (w2n r2)) (a + 4w) NONE
+              JumpCmp (cond_cmp c) (w2n r1) (Reg (w2n r2)) (a + 4w)
          | _ => ARB)
    | Data (LogicalShiftedRegister@64
               (1w, LogicalOp_AND, F, T, ShiftType_LSL, 0, r2, r1, 0x1Fw)) =>
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, 0w)) =>
-              JumpCmp Test (w2n r1) (Reg (w2n r2)) (a + 4w) NONE
+              JumpCmp Test (w2n r1) (Reg (w2n r2)) (a + 4w)
          | _ => ARB)
    | LoadStore
         (LoadStoreImmediate@64
@@ -318,7 +315,7 @@ val arm8_dec_aux_def = Define`
            (0w, _, memop, AccType_NORMAL, F, _, _, F, F, _, a, r2, r1)) =>
         Inst (Mem (if memop = MemOp_LOAD then Load8 else Store8) (w2n r1)
                   (Addr (w2n r2) a))
-   | Branch (BranchImmediate (a, BranchType_JMP)) => Jump a NONE
+   | Branch (BranchImmediate (a, BranchType_JMP)) => Jump a
    | Branch (BranchImmediate (a, BranchType_CALL)) => Call a
    | Branch (BranchRegister (r, BranchType_JMP)) => JumpReg (w2n r)
    | Address (F, i, r) => Loc (w2n r) i
@@ -1147,7 +1144,6 @@ val arm8_encoding = Count.apply Q.prove (
         --------------*)
    >- (
       print_tac "Jump"
-      \\ Cases_on `o'`
       \\ decode_tac0
       )
    >- (
@@ -1156,8 +1152,6 @@ val arm8_encoding = Count.apply Q.prove (
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ Cases_on `r`
       \\ Cases_on `c`
       \\ simp enc_rwts
@@ -1351,7 +1345,6 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
    >- (
       print_tac "Jump"
       \\ next_tac `0`
-      \\ Cases_on `o'`
       \\ lfs enc_rwts
       \\ next_state_tac01
       \\ state_tac [arm8_stepTheory.Aligned]
@@ -1364,8 +1357,6 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
         --------------*)
       print_tac "JumpCmp"
       \\ next_tac `1`
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ Cases_on `r`
       >| [
          Cases_on `c`
@@ -1450,7 +1441,6 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
-      \\ Cases_on `i`
       \\ lfs enc_rwts
       )
    >- (
@@ -1459,8 +1449,8 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `i`
-      >| [Cases_on `ri` \\ Cases_on `cmp`, all_tac]
+      \\ Cases_on `ri`
+      \\ Cases_on `cmp`
       \\ lfs enc_rwts
       )
    >- (

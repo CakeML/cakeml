@@ -24,7 +24,6 @@ val arm6_config_def = Define`
     ; reg_count := 16
     ; avoid_regs := [15]
     ; link_reg := SOME 14
-    ; has_delay_slot := F
     ; has_icache := F
     ; has_mem_32 := F
     ; two_reg_arith := F
@@ -135,15 +134,13 @@ val arm6_enc_def = Define`
            (Store
               (StoreByte
                  (add, T, F, n2w r1, n2w r2, immediate_form1 imm12)))) /\
-   (arm6_enc (Jump _ (SOME _)) = []) /\
-   (arm6_enc (Jump a NONE) = enc (Branch (BranchTarget (a - 8w)))) /\
-   (arm6_enc (JumpCmp _ _ _ _ (SOME _)) = []) /\
-   (arm6_enc (JumpCmp cmp r1 (Reg r2) a NONE) =
+   (arm6_enc (Jump a) = enc (Branch (BranchTarget (a - 8w)))) /\
+   (arm6_enc (JumpCmp cmp r1 (Reg r2) a) =
        let (opc, c) = arm6_cmp cmp in
           enc
             (Data (TestCompareRegister (opc, n2w r1, n2w r2, SRType_LSL, 0))) ++
           arm6_encode c (Branch (BranchTarget (a - 12w)))) /\
-   (arm6_enc (JumpCmp cmp r (Imm i) a NONE) =
+   (arm6_enc (JumpCmp cmp r (Imm i) a) =
        let (opc, c) = arm6_cmp cmp
        and imm12 = THE (EncodeARMImmediate i)
        in
@@ -240,7 +237,7 @@ val arm6_dec_aux_def = Define`
    | Store (StoreByte (plus, T, F, r1, r2, immediate_form1 imm12)) =>
       Inst (Mem Store8 (w2n r1) (Addr (w2n r2)
                 (if plus then imm12 else -imm12)))
-   | Branch (BranchTarget imm32) => Jump (imm32 + 8w) NONE
+   | Branch (BranchTarget imm32) => Jump (imm32 + 8w)
    | Branch (BranchLinkExchangeImmediate (InstrSet_ARM, imm32)) =>
       Call (imm32 + 8w)
    | Branch (BranchExchange r) => JumpReg (w2n r)
@@ -248,13 +245,13 @@ val arm6_dec_aux_def = Define`
         (case decode_word rest of
             (cond2, Branch (BranchTarget imm32), _) =>
                JumpCmp (arm6_cmp_dec (opc, cond2)) (w2n r)
-                       (Imm (decode_imm12 imm12)) (imm32 + 12w) NONE
+                       (Imm (decode_imm12 imm12)) (imm32 + 12w)
           | _ => ARB)
    | Data (TestCompareRegister (opc, r1, r2, SRType_LSL, 0)) =>
         (case decode_word rest of
             (cond2, Branch (BranchTarget imm32), _) =>
                JumpCmp (arm6_cmp_dec (opc, cond2)) (w2n r1) (Reg (w2n r2))
-                       (imm32 + 12w) NONE
+                       (imm32 + 12w)
           | _ => ARB)
    | _ => ARB`
 
@@ -1053,7 +1050,6 @@ val arm6_encoding = Count.apply Q.prove (
         --------------*)
    >- (
       print_tac "Jump"
-      \\ Cases_on `o'`
       \\ decode_tac0
       )
    >- (
@@ -1062,8 +1058,6 @@ val arm6_encoding = Count.apply Q.prove (
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ Cases_on `r`
       \\ Cases_on `c`
       \\ simp ([lem8, GSYM arm_stepTheory.Aligned,
@@ -1249,7 +1243,6 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
    >- (
       print_tac "Jump"
       \\ next_tac `0`
-      \\ Cases_on `o'`
       \\ lfs ([GSYM arm_stepTheory.Aligned, arm_stepTheory.Aligned_numeric,
                lem8] @ enc_rwts)
       \\ qabbrev_tac `a = (25 >< 2) (c + 0xFFFFFFF8w): word24`
@@ -1266,8 +1259,6 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
         --------------*)
       print_tac "JumpCmp"
       \\ next_tac `1`
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ Cases_on `r`
       >- cmp_tac false
       \\ cmp_tac true
@@ -1353,7 +1344,6 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
-      \\ Cases_on `i`
       \\ lfs ([GSYM arm_stepTheory.Aligned, arm_stepTheory.Aligned_numeric,
                lem8] @ enc_rwts)
       )
@@ -1363,8 +1353,8 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
-      \\ Cases_on `i`
-      >| [Cases_on `ri` \\ Cases_on `cmp`, all_tac]
+      \\ Cases_on `ri`
+      \\ Cases_on `cmp`
       \\ lfs ([GSYM arm_stepTheory.Aligned, arm_stepTheory.Aligned_numeric,
                lem8] @ enc_rwts)
       )

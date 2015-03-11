@@ -17,7 +17,6 @@ val x64_config_def = Define`
     ; reg_count := 16
     ; avoid_regs := [4]
     ; link_reg := NONE
-    ; has_delay_slot := F
     ; has_icache := T
     ; has_mem_32 := T
     ; two_reg_arith := T
@@ -114,14 +113,12 @@ val x64_enc_def = Define`
        x64$encode (Zmov (Z_ALWAYS, Z32, st r1 r2 a))) /\
    (x64_enc (Inst (Mem Store8 r1 (Addr r2 a))) =
        x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
-   (x64_enc (Jump _ (SOME _)) = []) /\
-   (x64_enc (Jump a NONE) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
-   (x64_enc (JumpCmp _ _ _ _ (SOME _)) = []) /\
-   (x64_enc (JumpCmp cmp r1 (Reg r2) a NONE) =
+   (x64_enc (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
+   (x64_enc (JumpCmp cmp r1 (Reg r2) a) =
        x64$encode (Zbinop (if cmp = Test then Ztest else Zcmp, Z64,
                            Zrm_r (reg r1, num2Zreg r2))) ++
        x64_encode_jcc (x64_cmp cmp) (a - 9w)) /\
-   (x64_enc (JumpCmp cmp r (Imm i) a NONE) =
+   (x64_enc (JumpCmp cmp r (Imm i) a) =
        let width = if cmp <> Test /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
                       10w
                    else if r = 0 then
@@ -180,7 +177,7 @@ val x64_dec_def = Define`
             if (bop = Ztest) \/ (bop = Zcmp) then
                (case fetch_decode rest of
                    (Zjcc (c, a), _) =>
-                       JumpCmp (x64_cmp_dec (bop, c)) r1 (Reg r2) (a + 9w) NONE
+                       JumpCmp (x64_cmp_dec (bop, c)) r1 (Reg r2) (a + 9w)
                  | _ => ARB)
             else
                (case x64_bop_dec bop of
@@ -197,13 +194,13 @@ val x64_dec_def = Define`
                                  10w
                               else if r1 = 0 then 12w else 13w
                       in
-                         JumpCmp cmp r1 (Imm n) (a + w) NONE
+                         JumpCmp cmp r1 (Imm n) (a + w)
                  | _ => ARB)
             else
                (case x64_bop_dec bop of
                    INL b => Inst (Arith (Binop b r1 r1 (Imm n)))
                  | INR b => Inst (Arith (Shift b r1 r1 (w2n n))))
-    | (Zjcc (Z_ALWAYS, a), _) => Jump (a + 5w) NONE
+    | (Zjcc (Z_ALWAYS, a), _) => Jump (a + 5w)
     | (Zjmp (Zr r), _) => JumpReg (Zreg2num r)
     | (Zlea (Z64, Zr_rm (r, Zm (NONE, (ZripBase, i)))), _) =>
          Loc (Zreg2num r) (i + 7w)
@@ -1069,7 +1066,6 @@ val x64_encoding = Count.apply Q.prove (
         --------------*)
    >- (
       print_tac "Jump"
-      \\ Cases_on `o'`
       \\ lfs ([jump_lem1, const_lem2] @ enc_rwts)
       \\ decode_tac0 []
       )
@@ -1079,8 +1075,6 @@ val x64_encoding = Count.apply Q.prove (
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ qabbrev_tac `r1 = n2w n : word4`
       \\ Cases_on `r`
       >- (
@@ -1362,7 +1356,6 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
    >- (
       print_tac "Jump"
       \\ next_tac `0`
-      \\ Cases_on `o'`
       \\ lfs ([jump_lem1, const_lem2] @ enc_rwts)
       \\ next_state_tac0
       \\ state_tac [jump_lem2] []
@@ -1374,8 +1367,6 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
         --------------*)
       print_tac "JumpCmp"
       \\ next_tac `1`
-      \\ REVERSE (Cases_on `o'`)
-      >- fs enc_rwts
       \\ qabbrev_tac `r1 = n2w n : word4`
       \\ Cases_on `r`
       >- (
@@ -1451,7 +1442,6 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
-      \\ Cases_on `i`
       \\ enc_ok_tac
       \\ rw []
       \\ blastLib.FULL_BBLAST_TAC
@@ -1462,8 +1452,6 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
-      \\ REVERSE (Cases_on `i`)
-      >- enc_ok_tac
       \\ Cases_on `ri`
       >| [all_tac,
           Cases_on `cmp <> Test /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
