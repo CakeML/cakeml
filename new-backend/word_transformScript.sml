@@ -3,7 +3,7 @@ open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheo
 open BasicProvers
 open word_procTheory word_langTheory word_liveTheory
 open reg_allocTheory 
-(*open word_ssaTheory*)
+open word_ssaTheory
 
 val _ = new_theory "word_transform"
 
@@ -41,16 +41,15 @@ val word_alloc_def = Define`
   let moves = get_prefs prog [] in (*Get the moves in the graph*) 
   let col = reg_alloc 3 clash_graph k moves in 
   (*Get the register allocation function,
-    TODO: choose the flag based on the size of graph/moves*)
+    TODO: We can choose the flag based on the size of graph/moves*)
     apply_colour (total_colour col) prog`
 
-(*
-(*word_trans is the combination that does SSA/CC then Register Allocation*)
-val word_trans_def = Define`
-  word_trans k prog =
-  let (ssa_prog,na,ns) = ssa_cc_trans prog LN 101 in (*numbers are placeholders*)
-    word_alloc k ssa_prog`
+(*word_trans is the combination that does SSA/CC then Register Allocation
+  n is the number of incoming arguments, k is the number of available registers
 *)
+val word_trans_def = Define`
+  word_trans n k prog =
+  word_alloc k (full_ssa_cc_trans n prog)` 
 
 val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live.
@@ -149,8 +148,7 @@ val pre_post_conventions_word_alloc = prove(``
   HINT_EXISTS_TAC>>
   metis_tac[])
 
-(*Add a version that can take and verify oracle colors*)
-
+(*TODO: Add a version that can take and verify oracle colors*)
 
 (*Actually, it should probably be exactly 0,2,4,6...*)
 val even_starting_locals_def = Define`
@@ -202,5 +200,35 @@ val word_alloc_correct = prove(``
   rw[]>>
   qexists_tac`perm'`>>rw[]>>
   fs[LET_THM])
+
+val word_trans_correct = store_thm("word_trans_correct",
+``∀prog n k st.
+  domain st.locals = set(even_list n)
+  ⇒
+  ∃perm'.
+  let (res,rst) = wEval(prog,st with permute:=perm') in
+  if (res = SOME Error) then T else
+  let (res',rcst) = wEval(word_trans n k prog,st) in
+    res = res' ∧
+    word_state_eq_rel rst rcst``,
+  rw[word_trans_def]>>
+  Q.ISPECL_THEN [`full_ssa_cc_trans n prog`,`k`,`st`] mp_tac word_alloc_correct>>
+  discharge_hyps>-
+    (fs[even_starting_locals_def,is_phy_var_def,even_list_def,MEM_GENLIST]>>
+    rw[]>>is_phy_var_tac)>>rw[]>>
+  Q.ISPECL_THEN [`prog`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
+  rfs[LET_THM]>>
+  qexists_tac`perm''`>>fs[LET_THM]>>rw[]>>
+  qpat_assum `A= (res,rst)` (SUBST_ALL_TAC)>>
+  Cases_on`wEval(full_ssa_cc_trans n prog, st with permute:=perm')`>>
+  fs[word_state_eq_rel_def])
+
+val word_trans_conventions = store_thm("word_trans_conventions",
+``∀prog n k.
+  post_alloc_conventions k (word_trans n k prog)``,
+  rw[word_trans_def]>>
+  assume_tac (SPEC_ALL full_ssa_cc_trans_pre_alloc_conventions)>>
+  imp_res_tac pre_post_conventions_word_alloc>>
+  metis_tac[])
 
 val _ = export_theory();
