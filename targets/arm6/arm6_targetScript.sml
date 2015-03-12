@@ -27,6 +27,7 @@ val arm6_config_def = Define`
     ; has_icache := F
     ; has_mem_32 := F
     ; two_reg_arith := F
+    ; big_endian := F
     ; valid_imm := \c i. valid_immediate i
     ; addr_offset_min := ^min12
     ; addr_offset_max := ^max12

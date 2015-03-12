@@ -33,6 +33,7 @@ val arm8_config_def = Define`
     ; has_icache := F
     ; has_mem_32 := T
     ; two_reg_arith := F
+    ; big_endian := F
     ; valid_imm := valid_immediate
     ; addr_offset_min := ^off_min
     ; addr_offset_max := ^off_max
@@ -1325,6 +1326,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             Cases_on `~word_msb c /\ (c = LSL (w2w (^ext12 (LSR (c,2))),2))`
          ]
          \\ lfs enc_rwts
+         \\ rfs []
          \\ fs [arm8Theory.LSL_def, arm8Theory.LSR_def]
          \\ TRY (`Aligned (c + state.REG (n2w n'),8)`
                  by (imp_res_tac lem14 \\ NO_TAC)

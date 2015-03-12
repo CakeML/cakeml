@@ -20,6 +20,7 @@ val x64_config_def = Define`
     ; has_icache := T
     ; has_mem_32 := T
     ; two_reg_arith := T
+    ; big_endian := F
     ; valid_imm := \b i. ^min32 <= i /\ i <= ^max32
     ; addr_offset_min := ^min32
     ; addr_offset_max := ^max32
@@ -1253,6 +1254,7 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
          by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`] \\ fs enc_rwts)
          \\ Cases_on `m`
          \\ lfs enc_rwts
+         \\ rfs []
          >- (
             (*
               --------------
