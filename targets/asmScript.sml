@@ -107,8 +107,8 @@ val () = Datatype `
 
 val () = Datatype `
   asm = Inst ('a inst)
-      | Jump ('a word) ('a inst option) (* delay slot *)
-      | JumpCmp cmp reg ('a reg_imm) ('a word) ('a inst option)
+      | Jump ('a word)
+      | JumpCmp cmp reg ('a reg_imm) ('a word)
       | Call ('a word)
       | JumpReg reg
       | Loc reg ('a word)
@@ -122,10 +122,10 @@ val () = Datatype `
      ; reg_count        : num
      ; avoid_regs       : num list
      ; link_reg         : num option
-     ; has_delay_slot   : bool
      ; has_icache       : bool
      ; has_mem_32       : bool
      ; two_reg_arith    : bool
+     ; big_endian       : bool
      ; valid_imm        : (binop + cmp) -> 'a word -> bool
      ; addr_offset_min  : 'a word
      ; addr_offset_max  : 'a word
@@ -185,14 +185,8 @@ val inst_ok_def = Define `
 
 val asm_ok_def = Define `
   (asm_ok (Inst i) c = inst_ok i c) /\
-  (asm_ok (Jump w i) c =
-     jump_offset_ok w c /\
-     case i of NONE => ~c.has_delay_slot
-             | SOME x => inst_ok x c /\ c.has_delay_slot) /\
-  (asm_ok (JumpCmp cmp r ri w i) c =
-     cjump_offset_ok w c /\ cmp_ok cmp r ri c /\
-     case i of NONE => ~c.has_delay_slot
-             | SOME x => inst_ok x c /\ c.has_delay_slot) /\
+  (asm_ok (Jump w) c = jump_offset_ok w c) /\
+  (asm_ok (JumpCmp cmp r ri w) c = cjump_offset_ok w c /\ cmp_ok cmp r ri c) /\
   (asm_ok (Call w) c =
      (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
      jump_offset_ok w c) /\
@@ -211,6 +205,7 @@ val () = Datatype `
      ; pc         : 'a word
      ; lr         : reg
      ; align      : num
+     ; be         : bool
      ; failed     : bool
      |>`
 
@@ -255,13 +250,14 @@ val addr_def = Define `addr (Addr r offset) s = read_reg r s + offset`
 val read_mem_word_def = Define `
   (read_mem_word a 0 s = (0w:'a word,s)) /\
   (read_mem_word a (SUC n) s =
-     let (w,s1) = read_mem_word (a + 1w) n s in
+     let (w,s1) = read_mem_word (if s.be then a - 1w else a + 1w) n s in
        (word_or (w << 8) (w2w (read_mem a s1)),
           assert (a IN s1.mem_domain) s1))`
 
 val mem_load_def = Define `
   mem_load n r a s =
     let a = addr a s in
+    let a = if s.be then a + n2w n else a in
     let (w,s) = read_mem_word a n s in
     let s = upd_reg r w s in
       assert (a && n2w (n - 1) = 0w) s`
@@ -269,12 +265,13 @@ val mem_load_def = Define `
 val write_mem_word_def = Define `
   (write_mem_word a 0 w s = s) /\
   (write_mem_word a (SUC n) w s =
-     let s1 = write_mem_word (a + 1w) n (w >>> 8) s in
+     let s1 = write_mem_word (if s.be then a - 1w else a + 1w) n (w >>> 8) s in
        assert (a IN s1.mem_domain) (upd_mem a (w2w w) s1))`
 
 val mem_store_def = Define `
   mem_store n r a s =
     let a = addr a s in
+    let a = if s.be then a + n2w n else a in
     let w = read_reg r s in
     let s = write_mem_word a n w s in
       assert (a && n2w (n - 1) = 0w) s`
@@ -293,19 +290,15 @@ val inst_def = Define `
   (inst (Arith x) s = arith_upd x s) /\
   (inst (Mem m r a) s = mem_op m r a s)`
 
-val inst_opt_def = Define `
-  (inst_opt NONE s = s) /\
-  (inst_opt (SOME i) s = inst i s)`
-
 val jump_to_offset_def = Define `jump_to_offset w s = upd_pc (s.pc + w) s`
 
 val asm_def = Define `
   (asm (Inst i) pc s = upd_pc pc (inst i s)) /\
-  (asm (Jump l i) pc s = inst_opt i (jump_to_offset l s)) /\
-  (asm (JumpCmp cmp r ri l i) pc s =
+  (asm (Jump l) pc s = jump_to_offset l s) /\
+  (asm (JumpCmp cmp r ri l) pc s =
      if word_cmp cmp (read_reg r s) (reg_imm ri s)
-     then inst_opt i (jump_to_offset l s)
-     else inst_opt i (upd_pc pc s)) /\
+     then jump_to_offset l s
+     else upd_pc pc s) /\
   (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
   (asm (JumpReg r) pc s =
       let a = read_reg r s in
@@ -329,7 +322,7 @@ val asm_step_def = Define `
   asm_step enc c s1 s2 =
     ?i. bytes_in_memory s1.pc (enc i) s1.icache s1.mem s1.mem_domain /\
         (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
-        (s1.align = c.code_alignment) /\
+        (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
         ~s2.failed /\ asm_ok i c`
 
@@ -404,10 +397,10 @@ val enc_ok_def = Define `
     (c.code_alignment = LENGTH (enc (Inst Skip))) /\
     (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0)) /\
     (* label instantiation predictably affects length of code *)
-    (!w1 w2 i. offset_monotonic enc c w1 w2 (Jump w1 i) (Jump w2 i)) /\
-    (!cmp r ri w1 w2 i.
+    (!w1 w2. offset_monotonic enc c w1 w2 (Jump w1) (Jump w2)) /\
+    (!cmp r ri w1 w2.
        offset_monotonic enc c w1 w2
-          (JumpCmp cmp r ri w1 i) (JumpCmp cmp r ri w2 i)) /\
+          (JumpCmp cmp r ri w1) (JumpCmp cmp r ri w2)) /\
     (!w1 w2. offset_monotonic enc c w1 w2 (Call w1) (Call w2)) /\
     (!w1 w2 r. offset_monotonic enc c w1 w2 (Loc r w1) (Loc r w2)) /\
     (* no overlap between instructions with different behaviour *)

@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory pred_setTheory compilerTheory
-open HolKernel terminationTheory compilerTerminationTheory ml_translatorLib
+open HolKernel boolLib bossLib lcsymtacs listTheory pred_setTheory combinTheory compilerTheory
+open HolKernel terminationTheory compilerTerminationTheory ml_translatorTheory ml_translatorLib
 
 val _ = new_theory"compilerML"
 
@@ -29,10 +29,10 @@ fun def_of_const tm = let
             def_from_thy "compilerTermination" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> RW [MEMBER_INTRO,MAP]
+  val def = def |> REWRITE_RULE [MEMBER_INTRO,MAP]
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
-                |> RW [NOT_NIL_AND_LEMMA]
+                |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
   in def end
 
 val _ = (find_def_for_const := def_of_const);
@@ -57,13 +57,13 @@ val option_CASE_thm = prove(
   CONV_TAC (DEPTH_CONV ETA_CONV) THEN SIMP_TAC std_ss []);
 
 val _ = translate (def_of_const ``build_exh_env``
-                   |> ONCE_REWRITE_RULE [option_CASE_thm] |> RW [I_THM])
+                   |> ONCE_REWRITE_RULE [option_CASE_thm] |> REWRITE_RULE [I_THM])
 
 val NEQ_El_pat = prove(
   ``(!n. uop <> El_pat n) = case uop of El_pat n => F | _ => T``,
   Cases_on `uop` THEN SRW_TAC [] []);
 
-val _ = translate (patLangTheory.fo_pat_def |> RW [NEQ_El_pat]);
+val _ = translate (patLangTheory.fo_pat_def |> REWRITE_RULE [NEQ_El_pat]);
 val _ = translate patLangTheory.pure_pat_def;
 
 val _ = register_type ``:bc_inst``;

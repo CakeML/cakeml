@@ -1,11 +1,23 @@
 open HolKernel Parse boolLib bossLib;
-open arithmeticTheory listTheory finite_mapTheory pred_setTheory;
+open arithmeticTheory listTheory finite_mapTheory pred_setTheory pairTheory;
 open repl_funTheory libTheory;
 open cmlParseTheory cmlPEGTheory;
 open terminationTheory compilerTerminationTheory inferTheory;
 open compilerMLTheory ml_translatorLib ml_translatorTheory;
 
 val _ = new_theory "replML";
+
+val RW = REWRITE_RULE
+val RW1 = ONCE_REWRITE_RULE
+fun list_dest f tm =
+  let val (x,y) = f tm in list_dest f x @ list_dest f y end
+  handle HOL_ERR _ => [tm];
+val dest_fun_type = dom_rng
+val mk_fun_type = curry op -->;
+fun list_mk_fun_type [ty] = ty
+  | list_mk_fun_type (ty1::tys) =
+      mk_fun_type ty1 (list_mk_fun_type tys)
+  | list_mk_fun_type _ = fail()
 
 (* translator setup *)
 

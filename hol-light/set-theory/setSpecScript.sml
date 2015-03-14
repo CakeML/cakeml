@@ -2,6 +2,19 @@ open HolKernel SatisfySimps boolLib boolSimps bossLib lcsymtacs pred_setTheory c
 val _ = temp_tight_equality()
 val _ = new_theory"setSpec"
 
+(* TODO: this functionality should be implemented by Parse *)
+local val ct = current_theory () in
+fun remove_tyabbrev s =
+  let
+    val _ = Parse.temp_set_grammars(type_grammar.remove_abbreviation(Parse.type_grammar())s,Parse.term_grammar())
+    val q = String.concat["val ",ct,"_grammars = (type_grammar.remove_abbreviation(#1 ",ct,"_grammars)\"",s,"\",#2 ",ct,"_grammars);"]
+    val _ = adjoin_to_theory{sig_ps=NONE, struct_ps=SOME(fn pp => PP.add_string pp q)}
+  in () end
+end
+val _ = remove_tyabbrev"reln"
+val _ = remove_tyabbrev"inf"
+(* -- *)
+
 (* http://www.lemma-one.com/ProofPower/specs/spc002.pdf *)
 
 val mem = ``mem:'U->'U->bool``

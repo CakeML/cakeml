@@ -1,4 +1,4 @@
-structure ml_translatorLib (* :> ml_translatorLib *) =
+structure ml_translatorLib :> ml_translatorLib =
 struct
 
 open HolKernel boolLib bossLib;
@@ -8,6 +8,12 @@ open terminationTheory stringLib;
 open ml_translatorTheory intLib lcsymtacs;
 open arithmeticTheory listTheory combinTheory pairTheory pairLib;
 open integerTheory intLib ml_optimiseTheory ml_pmatchTheory;
+
+structure Parse =
+struct
+  open Parse
+  val (Type, Term) = parse_from_grammars ml_pmatchTheory.ml_pmatch_grammars
+end
 
 infix \\ val op \\ = op THEN;
 
@@ -943,30 +949,6 @@ fun rename_bound_vars_rule prefix th = let
     in ALPHA_CONV (next_var v) tm end handle HOL_ERR _ => NO_CONV tm
   in CONV_RULE (DEPTH_CONV next_alpha_conv) th end;
 
-fun list_lemma () = let
-  val _ = is_const (Parse.Term [ANTIQUOTE ``LIST_TYPE:('a -> v -> bool) -> 'a list -> v -> bool``])
-          orelse failwith("LIST_TYPE not yet defined.")
-  val list_def = LIST_CONJ [
-    EVAL ``LIST_TYPE (a:('a -> v -> bool)) [] v``,
-    EVAL ``LIST_TYPE (a:('a -> v -> bool)) (x::xs) v``]
-  val LIST_TYPE_SIMP = prove(
-    ``!xs b. CONTAINER LIST_TYPE (\x v. if b x \/ MEM x xs then p x v else ARB) xs = LIST_TYPE (p:('a -> v -> bool)) xs``,
-    Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,list_def,MEM,DISJ_ASSOC,CONTAINER_def])
-    |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss [] |> GSYM;
-  in LIST_TYPE_SIMP end handle HOL_ERR _ => TRUTH;
-
-fun pair_lemma () = let
-  val _ = is_const (Parse.Term [ANTIQUOTE ``PAIR_TYPE:('a -> v -> bool) -> ('b -> v -> bool) -> 'a # 'b -> v -> bool``])
-          orelse failwith("PAIR_TYPE not yet defined.")
-  val pair_def = LIST_CONJ [
-    EVAL ``PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) (x,y) v``]
-  val PAIR_TYPE_SIMP = prove(
-    ``!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
-                              (\y v. if y = SND x then b y v else ARB) x =
-          PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x``,
-    Cases \\ SIMP_TAC std_ss [pair_def,CONTAINER_def,FUN_EQ_THM]) |> GSYM |> SPEC_ALL
-  in PAIR_TYPE_SIMP end handle HOL_ERR _ => TRUTH;
-
 fun list_dest f tm =
   let val (x,y) = f tm in list_dest f x @ list_dest f y end
   handle HOL_ERR _ => [tm];
@@ -1004,7 +986,7 @@ fun define_ref_inv is_exn_type tys = let
   val ys = map mk_lhs all
   fun reg_type (_,_,ty,lhs,_) = new_type_inv ty (rator (rator lhs));
   val _ = map reg_type ys
-  val rw_lemmas = CONJ (list_lemma ()) (pair_lemma ())
+  val rw_lemmas = CONJ LIST_TYPE_SIMP PAIR_TYPE_SIMP
   val def_tm = let
     fun mk_lines ml_ty_name lhs ty [] input = []
       | mk_lines ml_ty_name lhs ty (x::xs) input = let
@@ -1069,11 +1051,15 @@ fun define_ref_inv is_exn_type tys = let
   Define [ANTIQUOTE def_tm]
 *)
   val inv_def = if is_list_type then LIST_TYPE_def else
+                if is_pair_type then PAIR_TYPE_def else
                   tDefine name [ANTIQUOTE def_tm] tac
   val inv_def = CONV_RULE (DEPTH_CONV ETA_CONV) inv_def
   val inv_def = REWRITE_RULE [GSYM rw_lemmas] inv_def
-  val _ = save_thm(name ^ "_def",inv_def)
-  val ind = fetch "-" (name ^ "_ind") handle HOL_ERR _ => TypeBase.induction_of (hd tys)
+  val _ = if is_list_type then inv_def else
+          if is_pair_type then inv_def else
+            save_thm(name ^ "_def",inv_def)
+  val ind = fetch "-" (name ^ "_ind")
+            handle HOL_ERR _ => TypeBase.induction_of (hd tys)
 (*
   val inv_def = tDefine name [ANTIQUOTE def_tm] ALL_TAC
 *)
@@ -1177,7 +1163,7 @@ val ty = ``:num option``; derive_thms_for_type false ty
 
 val _ = Datatype `exn = A num num | B int`;
 val ty = ``:exn``;
-val is_exn_type = true;
+val is_exn_type = false;
 
 val ty = ``:unit``; derive_thms_for_type false ty
 *)
@@ -1518,7 +1504,7 @@ in
     val (rws1,rws2,res) = derive_thms_for_type true ty
     val _ = add_type_thms (rws1,rws2,res)
     val _ = map do_translate rws1
-    in res end
+    in () end
 end
 
 fun register_term_types tm = let
@@ -2566,7 +2552,8 @@ fun hol2deep tm =
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
   if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
-  if (tm = ``TRUE``) orelse (tm = ``FALSE``) then SPEC tm Eval_Val_BOOL else
+  if (tm = ``TRUE``) then Eval_Val_BOOL_TRUE else
+  if (tm = ``FALSE``) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)
   inst_cons_thm tm hol2deep handle HOL_ERR _ =>
   (* data-type pattern-matching *)

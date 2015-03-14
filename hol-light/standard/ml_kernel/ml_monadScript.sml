@@ -12,6 +12,15 @@ open terminationTheory lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
+fun auto_prove proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  in if length rest = 0 then validation [] else let
+  in failwith("auto_prove failed for " ^ proof_name) end end
+
+fun D th = let
+  val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  in if is_imp (concl th) then th else DISCH T th end
+
 (* a few basics *)
 
 val _ = (use_full_type_names := false);
@@ -41,7 +50,6 @@ val type_ind = store_thm("type_ind",
   \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
 
-val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
 val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
 
 val LIST_TYPE_NO_CLOSURES = prove(
@@ -328,7 +336,7 @@ val HOL_STORE_EXISTS = prove(
                       the_term_constants := [] ;
                       the_context        := [] ;
                       the_axioms         := [] |>`
-  \\ FULL_SIMP_TAC (srw_ss()) [fetch "-" "LIST_TYPE_def"]);
+  \\ FULL_SIMP_TAC (srw_ss()) [LIST_TYPE_def]);
 
 val EvalM_ArrowM_IMP = store_thm("EvalM_ArrowM_IMP",
   ``EvalM env (Var x) ((a -M-> b) f) ==>
@@ -831,7 +839,12 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 1 *)
 
-val lemma = hol2deep ``[(strlit"=", Tyapp (strlit"fun") [Tyvar (strlit"A"); Tyvar (strlit"A")])]``
+val lemma = hol2deep ``[(strlit"=",
+  Tyapp (strlit"fun")
+    [Tyvar (strlit"A");
+     Tyapp (strlit"fun")
+       [Tyvar (strlit"A");
+        Tyapp (strlit"bool") []]])]``
             |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``

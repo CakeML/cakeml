@@ -22,7 +22,7 @@ fun add_asm_compset cmp =
        upd_mem_def, read_reg_def, read_mem_def, assert_def, reg_imm_def,
        binop_upd_def, word_cmp_def, word_shift_def, arith_upd_def, addr_def,
        mem_load_def, write_mem_word_def, mem_store_def, read_mem_word_def,
-       mem_op_def, inst_def, inst_opt_def, jump_to_offset_def, asm_def] cmp
+       mem_op_def, inst_def, jump_to_offset_def, asm_def] cmp
    ; utilsLib.add_datatypes
         (List.map asm_type0 ["cmp", "mem_op", "binop", "cmp", "shift"] @
          List.map asm_type  ["asm_config", "asm"])
@@ -50,7 +50,7 @@ val asm_rwts =
     arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, inst_opt_def, jump_to_offset_def, asm_def]
+    mem_op_def, inst_def, jump_to_offset_def, asm_def]
 
 (* some custom tactics ---------------------------------------------------- *)
 
