@@ -31,6 +31,7 @@ val pCompAssign_def = Define `
         need a proof to be even half-correct *)
      ARB)`;
 
+(*
 val pComp_def = Define `
   (pComp (Skip:bvp_prog) = Skip:'a word_prog) /\
   (pComp (Move dest src) = Move 0 [(var_adjust dest, var_adjust src)]) /\
@@ -52,5 +53,5 @@ val pComp_def = Define `
        (case handler of
         | NONE => NONE
         | SOME (v,p) => SOME (var_adjust v, pComp p)))`
-
+*)
 val _ = export_theory();

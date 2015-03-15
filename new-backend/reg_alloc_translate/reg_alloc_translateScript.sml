@@ -33,10 +33,10 @@ fun def_of_const tm = let
             def_from_thy "word_proc" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
-  val def = def |> RW (!extra_preprocessing)
+  val def = def |> REWRITE_RULE(!extra_preprocessing)
                 |> CONV_RULE (DEPTH_CONV BETA_CONV)
                 |> SIMP_RULE bool_ss [IN_INSERT,NOT_IN_EMPTY]
-                |> RW [NOT_NIL_AND_LEMMA]
+                |> REWRITE_RULE [NOT_NIL_AND_LEMMA]
   in def end
 
 val _ = (find_def_for_const := def_of_const);
