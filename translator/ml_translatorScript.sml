@@ -1130,7 +1130,7 @@ val do_app_lemma = prove(
                                store_alloc_def]
   \\ rw []);
 
-val pmatch_lemma = prove(
+val pmatch_empty_store = store_thm("pmatch_empty_store",
   ``(!cenv (s:v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch cenv s p v env = x)) /\
@@ -1184,12 +1184,12 @@ val evaluate_empty_store_IMP_any_store = prove(
           \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
   THEN1
    (`s = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_lemma
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_empty_store
     \\ PairCases_on `t`
     \\ FULL_SIMP_TAC (srw_ss()) [])
   THEN1
    (`s = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_lemma
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_empty_store
     \\ PairCases_on `t`
     \\ FULL_SIMP_TAC (srw_ss()) []));
 
