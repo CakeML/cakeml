@@ -312,12 +312,15 @@ fun prove_EvalMPatBind goal m2deep = let
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
     \\ STRIP_TAC \\ fs [] \\ rfs []
     \\ fs [Pmatch_def,PMATCH_option_case_rwt]
-    \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
-      \\ SRW_TAC [] [Eval_Var_SIMP]
+    (*
+    \\ TRY (SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,PreImp_def]
+      \\ SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP]
       \\ EVAL_TAC \\ NO_TAC)
+      *)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] []
-    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]
+    \\ rpt (CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,Once EvalM_Var_SIMP,lookup_cons_write,lookup_var_write]))
+    \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
+    \\ fs[GSYM FORALL_PROD]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalMPatBind_fail := goal;
@@ -351,7 +354,7 @@ fun pmatch_m2deep tm m2deep = let
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = ts
+    val ((pat,rhs_tm)::xs) = List.drop(ts,1)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -956,7 +959,7 @@ val def = mk_abs_def |> m_translate
 val def = get_type_arity_def |> m_translate
 val def = mk_type_def |> m_translate
 val def = mk_fun_ty_def |> m_translate
-val def = type_of_def |> m_translate
+val def = holKernelPmatchTheory.type_of_def |> m_translate
 val def = get_const_type_def |> m_translate
 val def = mk_comb_def |> m_translate
 val def = can_def |> m_translate
