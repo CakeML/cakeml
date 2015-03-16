@@ -625,7 +625,7 @@ val EvalM_Let = store_thm("EvalM_Let",
 
 val EvalM_PMATCH_NIL = store_thm("EvalM_PMATCH_NIL",
   ``!b x xv a.
-      EvalM env x (a xv) ==>
+      Eval env x (a xv) ==>
       CONTAINER F ==>
       EvalM env (Mat x []) (b (PMATCH xv []))``,
   rw[CONTAINER_def]);

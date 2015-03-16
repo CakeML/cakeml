@@ -73,6 +73,12 @@ sig
     val FORCE_GEN                : term -> thm -> thm
     val rename_bound_vars_rule   : string -> thm -> thm
     val clean_uppercase          : string -> string
+    val prove_EvalPatRel         : term -> (term -> thm) -> thm
+    val dest_pmatch_K_T          : term -> term * (term * term) list
+    val dest_pmatch_row_K_T      : term -> term * term
+    val is_pmatch                : term -> bool
+    val to_pattern               : term -> term
+    val pmatch_preprocess_conv   : term -> thm
     exception UnableToTranslate of term
 
 end

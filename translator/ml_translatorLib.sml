@@ -1730,7 +1730,7 @@ fun prove_EvalPatRel goal hol2deep = let
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
-    fs[Once evaluate_cases])
+    fs[Once evaluate_cases] \\ cheat)
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -1803,10 +1803,10 @@ fun to_pattern tm =
     ``Plit ^(rand tm)``
   else tm
 
-val pmatch2deep_fail = ref T;
-val tm = !pmatch2deep_fail;
+val pmatch_hol2deep_fail = ref T;
+val tm = !pmatch_hol2deep_fail;
 
-fun pmatch2deep tm hol2deep = let
+fun pmatch_hol2deep tm hol2deep = let
   val (x,ts) = dest_pmatch_K_T tm
   val v = genvar (type_of x)
   val x_res = hol2deep x |> D
@@ -1860,8 +1860,8 @@ fun pmatch2deep tm hol2deep = let
   val th = MATCH_MP th (UNDISCH x_res)
   val th = UNDISCH_ALL th
   in th end handle HOL_ERR e =>
-  (pmatch2deep_fail := tm;
-   failwith ("pmatch2deep failed (" ^ #message e ^ ")"));
+  (pmatch_hol2deep_fail := tm;
+   failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
 
 local
   (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
@@ -2769,9 +2769,9 @@ fun hol2deep tm =
     val original_tm = tm
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
-    val result = pmatch2deep tm hol2deep
+    val result = pmatch_hol2deep tm hol2deep
     val result = result |> CONV_RULE (RAND_CONV (RAND_CONV (K (GSYM lemma))))
-    in check_inv "pmatch2deep" original_tm result end else
+    in check_inv "pmatch_hol2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
