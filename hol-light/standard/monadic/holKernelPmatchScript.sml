@@ -57,6 +57,9 @@ fun fix def name rwth =
   def |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV(REWR_CONV rwth)))
       |> curry save_thm name
 
+val monadtac =
+  simp[FUN_EQ_THM,ex_bind_def] >> gen_tac
+
 val tac =
   BasicProvers.PURE_CASE_TAC >>
   FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
@@ -78,8 +81,7 @@ val type_of_PMATCH = prove(
     | Abs (Var _ ty) t
         => do x <- type_of t; mk_fun_ty ty x od
     | _ => failwith (strlit "match")``,
-  simp[FUN_EQ_THM,ex_bind_def] >> gen_tac >>
-  rpt tac)
+  monadtac >> rpt tac)
 val res = fix type_of_def "type_of_def" type_of_PMATCH
 
 val raconv_PMATCH = prove(
@@ -128,5 +130,143 @@ val mk_abs_PMATCH = prove(
     | _ => failwith (strlit "mk_abs: not a variable")``,
   rpt tac)
 val res = fix mk_abs_def "mk_abs_def" mk_abs_PMATCH
+
+val mk_comb_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL mk_comb_def))) =
+    do tyf <- type_of f ;
+       tya <- type_of a ;
+       case tyf of
+         Tyapp (strlit "fun") [ty;_] => if tya = ty then return (Comb f a) else
+                                 failwith (strlit "mk_comb: types do not agree")
+       | _ => failwith (strlit "mk_comb: types do not agree")
+    od``,
+  monadtac >> rpt tac)
+val res = fix mk_comb_def "mk_comb_def" mk_comb_PMATCH
+
+val dest_var_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL dest_var_def))) =
+    case tm of Var s ty => return (s,ty)
+            | _ => failwith (strlit "dest_var: not a variable")``,
+  rpt tac)
+val res = fix dest_var_def "dest_var_def" dest_var_PMATCH
+
+val dest_const_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL dest_const_def))) =
+    case tm of Const s ty => return (s,ty)
+            | _ => failwith (strlit "dest_const: not a constant")``,
+  rpt tac)
+val res = fix dest_const_def "dest_const_def" dest_const_PMATCH
+
+val dest_comb_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL dest_comb_def))) =
+    case tm of Comb f x => return (f,x)
+            | _ => failwith (strlit "dest_comb: not a combination")``,
+  rpt tac)
+val res = fix dest_comb_def "dest_comb_def" dest_comb_PMATCH
+
+val dest_abs_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL dest_abs_def))) =
+    case tm of Abs v b => return (v,b)
+            | _ => failwith (strlit "dest_abs: not an abstraction")``,
+  rpt tac)
+val res = fix dest_abs_def "dest_abs_def" dest_abs_PMATCH
+
+val vfree_in_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL holSyntaxExtraTheory.vfree_in_def))) =
+    case tm of
+    | Abs bv bod => v <> bv ∧ vfree_in v bod
+    | Comb s t => vfree_in v s ∨ vfree_in v t
+    | _ => tm = v``,
+  rpt tac)
+val res = fix holSyntaxExtraTheory.vfree_in_def "vfree_in_def" vfree_in_PMATCH
+
+val rator_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL rator_def))) =
+    case tm of
+      Comb l r => return l
+    | _ => failwith (strlit "rator: Not a combination")``,
+  rpt tac)
+val res = fix rator_def "rator_def" rator_PMATCH
+
+val rand_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL rand_def))) =
+    case tm of
+      Comb l r => return r
+    | _ => failwith (strlit "rand: Not a combination")``,
+  rpt tac)
+val res = fix rand_def "rand_def" rand_PMATCH
+
+val dest_eq_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL dest_eq_def))) =
+    case tm of
+      Comb (Comb (Const (strlit "=") _) l) r => return (l,r)
+    | _ => failwith (strlit "dest_eq")``,
+  rpt tac)
+val res = fix dest_eq_def "dest_eq_def" dest_eq_PMATCH
+
+val is_eq_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL is_eq_def))) =
+    case tm of
+      Comb (Comb (Const (strlit "=") _) l) r => T
+    | _ => F``,
+  rpt tac)
+val res = fix is_eq_def "is_eq_def" is_eq_PMATCH
+
+val TRANS_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL TRANS_def))) =
+    case (c1,c2) of
+      (Comb (Comb (Const (strlit "=") _) l) m1, Comb (Comb (Const (strlit "=") _) m2) r) =>
+        if aconv m1 m2 then do eq <- mk_eq(l,r);
+                               return (Sequent (term_union asl1 asl2) eq) od
+        else failwith (strlit "TRANS")
+    | _ => failwith (strlit "TRANS")``,
+  rpt tac)
+val res = fix TRANS_def "TRANS_def" TRANS_PMATCH
+
+val MK_COMB_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL MK_COMB_def))) =
+   case (c1,c2) of
+     (Comb (Comb (Const (strlit "=") _) l1) r1, Comb (Comb (Const (strlit "=") _) l2) r2) =>
+       do x1 <- mk_comb(l1,l2) ;
+          x2 <- mk_comb(r1,r2) ;
+          eq <- mk_eq(x1,x2) ;
+          return (Sequent(term_union asl1 asl2) eq) od
+   | _ => failwith (strlit "MK_COMB")``,
+  rpt tac)
+val res = fix MK_COMB_def "MK_COMB_def" MK_COMB_PMATCH
+
+val ABS_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL ABS_def))) =
+    case c of
+      Comb (Comb (Const (strlit "=") _) l) r =>
+        if EXISTS (vfree_in v) asl
+        then failwith (strlit "ABS: variable is free in assumptions")
+        else do a1 <- mk_abs(v,l) ;
+                a2 <- mk_abs(v,r) ;
+                eq <- mk_eq(a1,a2) ;
+                return (Sequent asl eq) od
+    | _ => failwith (strlit "ABS: not an equation")``,
+  BasicProvers.CASE_TAC >> rpt tac)
+val res = fix ABS_def "ABS_def" ABS_PMATCH
+
+val BETA_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL BETA_def))) =
+    case tm of
+      Comb (Abs v bod) arg =>
+        if arg = v then do eq <- mk_eq(tm,bod) ; return (Sequent [] eq) od
+        else failwith (strlit "BETA: not a trivial beta-redex")
+    | _ => failwith (strlit "BETA: not a trivial beta-redex")``,
+  rpt tac)
+val res = fix BETA_def "BETA_def" BETA_PMATCH
+
+val EQ_MP_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL EQ_MP_def))) =
+    case eq of
+      Comb (Comb (Const (strlit "=") _) l) r =>
+        if aconv l c then return (Sequent (term_union asl1 asl2) r)
+                     else failwith (strlit "EQ_MP")
+    | _ => failwith (strlit "EQ_MP")``,
+  rpt tac)
+val res = fix EQ_MP_def "EQ_MP_def" EQ_MP_PMATCH
 
 val _ = export_theory()
