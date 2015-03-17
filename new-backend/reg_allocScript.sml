@@ -2322,8 +2322,7 @@ val foreach_graph_extend = prove(``
             else
               dec_one v)) s = ((),s') ∧ 
    is_subgraph_edges s.graph s'.graph ∧
-   undir_graph s'.graph ∧ 
-   s'.clock = s.clock``,
+   undir_graph s'.graph``, 
   Induct>>rw[]>>fsm[is_subgraph_edges_def]>>
   IF_CASES_TAC>>fsm[force_add_def,inc_one_def,get_deg_def]>>
   EVERY_CASE_TAC>>
@@ -2339,6 +2338,24 @@ val foreach_graph_extend = prove(``
     (qpat_abbrev_tac`sopt = s with degs:=insert h (x'-1) s.degs`>>
     first_x_assum(qspec_then`sopt`mp_tac)>>
     unabbrev_all_tac>>fs[]))
+
+val foreach_graph_extend_2 = prove(``
+  ∀ls s s'.
+  FOREACH (ls,
+          (λv. 
+           if lookup v x_edges = NONE then
+              do
+                inc_one x;
+                force_add x v
+              od
+            else
+              dec_one v)) s = ((),s') ⇒  
+   s'.clock = s.clock``,
+  Induct>>rw[]>>fsm[is_subgraph_edges_def]>>
+  fsm[force_add_def,inc_one_def,get_deg_def]>>
+  EVERY_CASE_TAC>>fsm[set_deg_def,dec_one_def,get_deg_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  res_tac>>fs[])
 
 val split_avail_filter = prove(``
   ∀ls acc B C.
@@ -2366,8 +2383,7 @@ val do_coalesce_lem = prove(``
   ¬lookup_g q r s.graph ∧  
   do_coalesce (q,r) s = ((),s') ⇒ 
   undir_graph s'.graph ∧ 
-  is_subgraph_edges G s'.graph ∧ 
-  s'.clock = s.clock``,
+  is_subgraph_edges G s'.graph``,
   fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
      ,get_colours_def,LET_THM]>>
   EVERY_CASE_TAC>>fs[]>>
@@ -2397,6 +2413,20 @@ val do_coalesce_lem = prove(``
   rw[]>>fsm[Abbr`sopt`]>>
   metis_tac[is_subgraph_edges_trans])
 
+val do_coalesce_clock_lem=prove(``
+  do_coalesce (q,r) s = ((),s') ⇒ 
+  s'.clock = s.clock``,
+  fsm[do_coalesce_def,add_coalesce_def,get_edges_def,get_degs_def
+     ,get_colours_def,LET_THM]>>
+  EVERY_CASE_TAC>>fs[]>>
+  TRY(rw[]>>fs[]>>NO_TAC)>>
+  fsm[LET_THM]>>
+  qpat_abbrev_tac `ls = FILTER P (MAP FST (toAList x'))`>>
+  qpat_abbrev_tac `sopt = (s with coalesced:= A)`>>
+  strip_tac>>
+  Q.ISPECL_THEN [`x`,`q`,`ls`,`sopt`,`s'`] assume_tac (GEN_ALL foreach_graph_extend_2)>>
+  fsm[]>>rfs[Abbr`sopt`])
+   
 val respill_lem = prove(``
   ∀s v r. respill v s = ((),r) ⇒ 
   r.graph = s.graph ∧ r.clock = s.clock``,
@@ -2414,8 +2444,7 @@ val coalesce_graph = prove(``
     is_subgraph_edges G s.graph ∧ 
     coalesce s = (opt,s') ⇒
     undir_graph s'.graph ∧ 
-    is_subgraph_edges G s'.graph ∧ 
-    s'.clock = s.clock``,
+    is_subgraph_edges G s'.graph``, 
   ntac 5 strip_tac>>
   fsm[coalesce_def,get_avail_moves_pri_def,get_avail_moves_def,get_graph_def,get_colours_def,get_degs_def,get_move_rel_def]>>
   EVERY_CASE_TAC>>
@@ -2443,7 +2472,34 @@ val coalesce_graph = prove(``
   imp_res_tac unspill_lem>>
   unabbrev_all_tac>>fs[]>>
   rfs[])
-  
+ 
+val coalesce_graph_2 = prove(``
+∀s G s' opt.
+    coalesce s = (opt,s') ⇒
+    s'.clock = s.clock``,
+  ntac 5 strip_tac>>
+  fsm[coalesce_def,get_avail_moves_pri_def,get_avail_moves_def,get_graph_def,get_colours_def,get_degs_def,get_move_rel_def]>>
+  EVERY_CASE_TAC>>
+  fsm[set_avail_moves_pri_def,set_avail_moves_def,add_unavail_moves_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  EVERY_CASE_TAC>>fs[]>-
+    (rw[]>>fs[])>>
+  pop_assum mp_tac>>
+  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>Cases_on`do_coalesce (q''',r''') s''`)>>
+  TRY(qpat_abbrev_tac`s' = s with <|avail_moves_pri:=B;unavail_moves:=D|>`>>
+  Cases_on`do_coalesce (q'',r'') s''`)>>
+  fsm[get_unavail_moves_def,LET_THM,set_unavail_moves_def]>>
+  qpat_abbrev_tac`sopt = r with <|avail_moves_pri:=B;avail_moves:=C;unavail_moves:=D|>`>>
+  Cases_on`unspill sopt`>>fs[]>>
+  TRY(Cases_on`respill q''' r''''`)>>
+  TRY(Cases_on`respill q'' r'''`)>>
+  strip_tac>>fs[]>>
+  imp_res_tac do_coalesce_clock_lem>>
+  imp_res_tac respill_lem>> 
+  imp_res_tac unspill_lem>>
+  unabbrev_all_tac>>fs[])
+
 val do_step_graph_lemma = store_thm("do_step_graph_lemma",``
   ∀s G s'.
     undir_graph s.graph ∧
@@ -2451,7 +2507,24 @@ val do_step_graph_lemma = store_thm("do_step_graph_lemma",``
     s.clock ≠ 0 ∧ 
     do_step s = ((),s') ⇒
     undir_graph s'.graph ∧ 
-    is_subgraph_edges G s'.graph ∧ 
+    is_subgraph_edges G s'.graph``,
+    rw[]>>
+    fsm[do_step_def,dec_clock_def]>>
+    qabbrev_tac`sopt = (s with clock:=s.clock-1)`>>
+    `sopt.graph = s.graph` by fs[Abbr`sopt`]>>
+    `sopt.clock < s.clock` by (fs[Abbr`sopt`]>>DECIDE_TAC)>>
+    Cases_on`simplify sopt`>>Cases_on`q`>>fs[]>>
+    Cases_on`coalesce r`>>Cases_on`q`>>fs[]>>
+    Cases_on`freeze r'`>>Cases_on`q`>>fs[]>>
+    Cases_on`spill r''`>>Cases_on`q`>>fs[]>>
+    fsm[push_stack_def]>>
+    TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>fs[]>>
+    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
+
+val do_step_clock_lemma = store_thm("do_step_clock_lemma",``
+  ∀s G s'.
+    s.clock ≠ 0 ∧ 
+    do_step s = ((),s') ⇒
     s'.clock < s.clock``,
     rw[]>>
     fsm[do_step_def,dec_clock_def]>>
@@ -2464,7 +2537,7 @@ val do_step_graph_lemma = store_thm("do_step_graph_lemma",``
     Cases_on`spill r''`>>Cases_on`q`>>fs[]>>
     fsm[push_stack_def]>>
     TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>fs[]>>
-    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph])
+    metis_tac[spill_graph,coalesce_graph,freeze_graph,simplify_graph,coalesce_graph_2])
 
 val rpt_do_step_graph_lemma = store_thm("rpt_do_step_graph_lemma",``
   ∀s.
@@ -2489,10 +2562,31 @@ val rpt_do_step_graph_lemma = store_thm("rpt_do_step_graph_lemma",``
   (discharge_hyps>-
     (rfs[is_subgraph_edges_def]>>
     DECIDE_TAC))>>
+  Q.ISPECL_THEN[`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
+  (discharge_hyps>-
+    (fs[]>>DECIDE_TAC))>>
   rw[]>>
   pop_assum(qspec_then`r` mp_tac)>>rfs[LET_THM]>>
   metis_tac[is_subgraph_edges_trans])
 
+val do_step2_clock_lemma = store_thm("do_step2_clock_lemma",``
+  ∀s G s'.
+    s.clock ≠ 0 ∧ 
+    do_step2 s = ((),s') ⇒
+    s'.clock < s.clock``,
+  rw[]>>fsm[do_step2_def,dec_clock_def,full_simplify_def,get_simp_worklist_def,get_degs_def]>>FULL_CASE_TAC>>
+  fsm[dec_deg_def,set_simp_worklist_def,get_graph_def,push_stack_def]>>
+  TRY(FULL_CASE_TAC)>>fs[]>>
+  TRY(pop_assum (SUBST_ALL_TAC o SYM)>>fs[]>>DECIDE_TAC)>>
+  pop_assum mp_tac>>
+  qpat_abbrev_tac`ls = MAP FST (toAList x)`>>
+  qpat_abbrev_tac`sopt = s with <|simp_worklist:=A;clock:=B|>`>>
+  Q.ISPECL_THEN [`ls`,`sopt`] assume_tac foreach_graph>>fs[LET_THM]>>
+  rw[Abbr`sopt`]>>
+  fsm[]>>
+  DECIDE_TAC)
+
+(*Note:Briggs clock is not pulled out since it isn't used (yet)*)
 val do_briggs_step_graph_lemma = prove(``
   ∀s G s'.
     undir_graph s.graph ∧
@@ -2510,7 +2604,7 @@ val do_briggs_step_graph_lemma = prove(``
   Cases_on`coalesce sopt`>>Cases_on`q`>>fs[]>>
   fsm[push_stack_def]>>
   TRY(qpat_assum`A=s'` (SUBST_ALL_TAC o SYM))>>fs[]>>
-  metis_tac[coalesce_graph])
+  metis_tac[coalesce_graph,coalesce_graph_2])
 
 val briggs_coalesce_lemma = prove(``
   ∀s.

@@ -5,6 +5,8 @@ open sptreeTheory state_transformerTheory
 open astPP
 open lcsymtacs numeralTheory pred_setTheory
 open miscLib BasicProvers
+open word_transformTheory word_liveTheory word_ssaTheory
+open word_langTheory
 
 val _ = new_theory "reg_alloc_translate";
 
@@ -12,6 +14,10 @@ val _ = std_preludeLib.std_prelude ();
 
 val _ = add_preferred_thy "reg_alloc";
 val _ = add_preferred_thy "word_proc";
+val _ = add_preferred_thy "word_live";
+val _ = add_preferred_thy "word_ssa";
+val _ = add_preferred_thy "word_transform";
+val _ = add_preferred_thy "word_lang";
 
 val _ = set_trace "Goalstack.print_goal_at_top" 0; (*/"*)
 
@@ -31,6 +37,10 @@ fun def_of_const tm = let
     DB.fetch thy name
   val def = def_from_thy "reg_alloc" name handle HOL_ERR _ =>
             def_from_thy "word_proc" name handle HOL_ERR _ =>
+            def_from_thy "word_live" name handle HOL_ERR _ =>
+            def_from_thy "word_ssa" name handle HOL_ERR _ =>
+            def_from_thy "word_transform" name handle HOL_ERR _ =>
+            def_from_thy "word_lang" name handle HOL_ERR _ =>
             def_from_thy (#Thy res) name handle HOL_ERR _ =>
             failwith ("Unable to find definition of " ^ name)
   val def = def |> REWRITE_RULE(!extra_preprocessing)
@@ -41,7 +51,7 @@ fun def_of_const tm = let
 
 val _ = (find_def_for_const := def_of_const);
 
-(* translation *)
+(* Translation of the register allocator requires some termination proofs *)
 fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
 
 (*Use WHILE which is already translated in the prelude*)
@@ -57,9 +67,10 @@ val rpt_do_step_alt = prove(``
   IF_CASES_TAC>>fsm[]>>
   Cases_on`do_step s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
-  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_graph_lemma>>
+  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
   (*Need to use a different lemma without undir_graph assumption*)
-  discharge_hyps>- cheat>>
+  discharge_hyps>- 
+    (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
   fsm[]>>ntac 2 strip_tac>>
   simp[Once whileTheory.WHILE,SimpRHS])
@@ -78,20 +89,64 @@ val rpt_do_step2_alt = prove(``
   IF_CASES_TAC>>fsm[]>>
   Cases_on`do_step2 s`>>
   first_x_assum(qspec_then`r.clock` mp_tac)>>
-  discharge_hyps>- cheat>>
+  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
+  discharge_hyps>- 
+    (rfs[]>>DECIDE_TAC)>>
   (*Prove that the clock decreases*)
-  fsm[]>>strip_tac>>
+  fsm[]>>ntac 2 strip_tac>>
   simp[Once whileTheory.WHILE,SimpRHS])
 
 val _ = translate rpt_do_step2_alt
 
 (*Use the clock trick*)
 val rpt_do_step_side_def = prove(``
-  ∀s. rpt_do_step_side s ⇔ T``,cheat)|>update_precondition
+  ∀s. rpt_do_step_side s ⇔ T``,
+  fsm[fetch "-" "rpt_do_step_side_def"]>>
+  completeInduct_on`s.clock`>>
+  rw[]>>
+  fsm[whileTheory.OWHILE_def]>>
+  Cases_on`s.clock = 0`>>
+  fsm[has_work_def,get_clock_def]>-
+    (IF_CASES_TAC>>fsm[]>>pop_assum (qspec_then `0` assume_tac)>>
+    fsm[FUNPOW]>>DECIDE_TAC)>>
+  Cases_on`do_step s`>>
+  first_x_assum(qspec_then`r.clock` mp_tac)>>
+  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step_clock_lemma>>
+  (*Need to use a different lemma without undir_graph assumption*)
+  discharge_hyps>- 
+    (rfs[]>>DECIDE_TAC)>>
+  (*Prove that the clock decreases*)
+  fsm[]>>ntac 2 strip_tac>>
+  pop_assum(qspec_then`r` mp_tac)>>rfs[]>>
+  IF_CASES_TAC>>fs[]>>
+  `¬((FUNPOW (SND o do_step) (SUC n) s).clock > 0)` by
+    fs[FUNPOW]>>
+  IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
 (*Use the clock trick*)
 val rpt_do_step2_side_def = prove(``
-  ∀s. rpt_do_step2_side s ⇔ T``,cheat) |> update_precondition
+  ∀s. rpt_do_step2_side s ⇔ T``,
+  fsm[fetch "-" "rpt_do_step2_side_def"]>>
+  completeInduct_on`s.clock`>>
+  rw[]>>
+  fsm[whileTheory.OWHILE_def]>>
+  Cases_on`s.clock = 0`>>
+  fsm[has_work_def,get_clock_def]>-
+    (IF_CASES_TAC>>fsm[]>>pop_assum (qspec_then `0` assume_tac)>>
+    fsm[FUNPOW]>>DECIDE_TAC)>>
+  Cases_on`do_step2 s`>>
+  first_x_assum(qspec_then`r.clock` mp_tac)>>
+  Q.ISPECL_THEN [`s`,`s.graph`,`r`] mp_tac do_step2_clock_lemma>>
+  (*Need to use a different lemma without undir_graph assumption*)
+  discharge_hyps>- 
+    (rfs[]>>DECIDE_TAC)>>
+  (*Prove that the clock decreases*)
+  fsm[]>>ntac 2 strip_tac>>
+  pop_assum(qspec_then`r` mp_tac)>>rfs[]>>
+  IF_CASES_TAC>>fs[]>>
+  `¬((FUNPOW (SND o do_step2) (SUC n) s).clock > 0)` by
+    fs[FUNPOW]>>
+  IF_CASES_TAC>>fs[]>>metis_tac[])|>update_precondition
 
 val _ = translate init_ra_state_def
 
@@ -101,7 +156,6 @@ val init_ra_state_side_def = prove(``
   fs[MEM_FILTER,MEM_MAP]>>Cases_on`y`>>
   fs[MEM_toAList]) |> update_precondition
 
-
 val _ = translate (sec_ra_state_def |> REWRITE_RULE[MEMBER_INTRO])
 
 val sec_ra_state_side_def = prove(``
@@ -110,36 +164,9 @@ val sec_ra_state_side_def = prove(``
   fs[MEM_FILTER,MEM_MAP,quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE])
   |>update_precondition
   
-val irc_alloc_def =  Define`
-  irc_alloc G k moves =
-  let s = init_ra_state G k moves in
-  let s = SND (rpt_do_step s) in
-  let coalesced = s.coalesced in
-  let pref x y z = aux_move_pref coalesced (resort_moves(moves_to_sp moves LN)) x y z in
-  let (col,ls) = alloc_colouring s.graph k pref s.stack in
-  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in
-  let s = sec_ra_state G k spills coalesce_map in
-  let s = SND (rpt_do_step2 s) in
-  let col = spill_colouring G k coalesce_map s.stack col in
-  let col = spill_colouring G k LN ls col in
-    col`
-
-(*Prove that irc alloc is an instance of the actual algorithm*)
-val irc_alloc_reg_alloc_3 = prove(``
-  ∀G k moves.
-  irc_alloc G k moves = reg_alloc 3 G k moves``,
-  fs[irc_alloc_def,reg_alloc_def]>>
-  rw[]>>
-  `pref = pref'` by 
-    (fs[FUN_EQ_THM]>>
-    unabbrev_all_tac>>fs[])>>
-  unabbrev_all_tac>>
-  fs[]>>rfs[]>>
-  rpt VAR_EQ_TAC>>
-  fs[])
-
 val _ = translate irc_alloc_def
 
+(*The following was only used for evaluation
 val simp_alloc_def =  Define`
   simp_alloc G k moves =
   let s = init_ra_state G k [] in
@@ -167,7 +194,12 @@ val simp_alloc_reg_alloc_0 = prove(``
   fs[])
 
 val _ = translate simp_alloc_def
+*)
 
+(*Translation of the rest of the word_transform*)
+
+(*Currently fails*)
+val _ = translate get_live_def
 
 (*Dump to file*)
 val _ = enable_astPP();
