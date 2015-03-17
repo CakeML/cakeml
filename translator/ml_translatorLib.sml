@@ -1775,12 +1775,15 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
     \\ STRIP_TAC \\ fs [] \\ rfs []
     \\ fs [Pmatch_def,PMATCH_option_case_rwt]
+    (*
     \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
       \\ SRW_TAC [] [Eval_Var_SIMP]
       \\ EVAL_TAC \\ NO_TAC)
+    *)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] []
-    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]
+    \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]))
+    \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
+    \\ fs[GSYM FORALL_PROD]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
@@ -1831,7 +1834,7 @@ fun pmatch_hol2deep tm hol2deep = let
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = tl (tl ts)
+    val ((pat,rhs_tm)::xs) = List.drop(ts,0)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -2532,6 +2535,7 @@ val ord_pat = Eval_Ord |> concl |> funpow 3 rand
 
 (*
 val tm = rhs
+val tm = rhs_tm
 *)
 
 fun hol2deep tm =
