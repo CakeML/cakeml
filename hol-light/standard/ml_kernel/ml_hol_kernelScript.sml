@@ -296,7 +296,7 @@ fun prove_EvalMPatBind goal m2deep = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs |> mk_set
   val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
   (*
@@ -961,7 +961,7 @@ val def = mk_type_def |> m_translate
 val def = mk_fun_ty_def |> m_translate
 val def = holKernelPmatchTheory.type_of_def |> m_translate
 val def = get_const_type_def |> m_translate
-val def = (*TODO holKernelPmatchTheory.*)mk_comb_def |> m_translate
+val def = holKernelPmatchTheory.mk_comb_def |> m_translate
 val def = can_def |> m_translate
 val def = mk_const_def |> m_translate
 val def = image_def |> m_translate
@@ -984,9 +984,9 @@ val def = inst_aux_def (* rec *) |> m_translate
 val def = inst_def |> m_translate
 val def = mk_eq_def |> m_translate
 val def = REFL_def |> m_translate
-val def = (* TODO holKernelPmatchTheory.*)TRANS_def |> m_translate
-val def = (* TODO holKernelPmatchTheory.*)MK_COMB_def |> m_translate
-val def = (* TODO holKernelPmatchTheory.*)ABS_def |> m_translate
+val def = holKernelPmatchTheory.TRANS_def |> m_translate
+val def = holKernelPmatchTheory.MK_COMB_def |> m_translate
+val def = holKernelPmatchTheory.ABS_def |> m_translate
 val def = holKernelPmatchTheory.BETA_def |> m_translate
 val def = DEDUCT_ANTISYM_RULE_def |> m_translate
 val def = new_specification_def |> m_translate
