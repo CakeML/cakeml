@@ -1750,8 +1750,9 @@ fun prove_EvalPatBind goal hol2deep = let
   val var_assum = ``Eval env (Var n) (a (y:'a))``
   val is_var_assum = can (match_term var_assum)
   val vs = find_terms is_var_assum (concl th |> rator)
+  val vs' = filter (is_var o rand o rand) vs
   fun delete_var tm =
-    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
+    if mem tm vs' then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
               (PairRules.UNPBETA_CONV vars)) th
@@ -1759,7 +1760,7 @@ fun prove_EvalPatBind goal hol2deep = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
   val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
   (*
