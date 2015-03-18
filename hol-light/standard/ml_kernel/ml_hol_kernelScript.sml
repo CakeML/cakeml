@@ -16,6 +16,8 @@ val RW1 = ONCE_REWRITE_RULE;
 open holKernelTheory;
 open ml_monadTheory;
 
+val _ = (print_asts := true);
+
 val _ = translation_extends "ml_monad";
 
 val _ = (use_full_type_names := false);
@@ -818,7 +820,7 @@ val res = translate holSyntaxExtraTheory.union_def;
 val res = translate mk_vartype_def;
 val res = translate is_type_def;
 val res = translate is_vartype_def;
-val res = translate rev_assocd_def;
+val res = translate holKernelPmatchTheory.rev_assocd_def;
 val res = translate holKernelTheory.type_subst_def;
 val res = translate alphavars_def;
 val res = translate holKernelPmatchTheory.raconv_def;
@@ -936,7 +938,7 @@ val _ = save_thm("term_cmp_ind",
           (fetch "-" "term_compare_ind") |> RW [GSYM term_cmp_thm]);
 val res = translate (term_compare_def |> RW [GSYM term_cmp_thm]);
 
-val res = translate holSyntaxTheory.codomain_raw;
+val res = translate holKernelPmatchTheory.codomain_def;
 val res = translate holSyntaxTheory.typeof_def;
 val res = translate holSyntaxTheory.ordav_def;
 val res = translate holSyntaxTheory.orda_def;
@@ -997,7 +999,5 @@ val def = new_basic_type_definition_def |> m_translate
 
 val kernel_thm = finalise_module_translation ();
 val _ = save_thm("kernel_thm", Q.SPEC `NONE` kernel_thm);
-
-val _ = (print_asts := true);
 
 val _ = export_theory();

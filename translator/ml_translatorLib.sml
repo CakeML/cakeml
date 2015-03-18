@@ -1775,15 +1775,17 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
     \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt]
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
     (*
     \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
       \\ SRW_TAC [] [Eval_Var_SIMP]
       \\ EVAL_TAC \\ NO_TAC)
     *)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]))
+    \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
+             lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
     \\ fs[GSYM FORALL_PROD]
     \\ EVAL_TAC)

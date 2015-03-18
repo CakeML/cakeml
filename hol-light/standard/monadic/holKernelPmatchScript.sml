@@ -67,6 +67,20 @@ val tac =
 
 val () = set_trace"parse deep cases"1
 
+val codomain_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL holSyntaxTheory.codomain_raw))) =
+    case ty of Tyapp n (y::x::xs) => x | _ => ty``,
+  rpt tac)
+val res = fix holSyntaxTheory.codomain_raw "codomain_def" codomain_PMATCH
+
+val rev_assocd_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL rev_assocd_def))) =
+    case l of
+       (x,y)::l1 => if y = a then x else rev_assocd a l1 d
+     | _ => d``,
+  rpt tac)
+val res = fix rev_assocd_def "rev_assocd_def" rev_assocd_PMATCH
+
 val type_of_PMATCH = prove(
   ``^(rhs(concl(SPEC_ALL type_of_def))) =
     case tm of
