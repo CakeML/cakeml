@@ -235,11 +235,13 @@ val _ = Define `
  * The arguments are in order:
  * - the module that the declaration is in
  * - the set of all modules, and types, and exceptions that have been previously declared
+ * - the types associated with previously-declared type operator names and abbreviations
  * - the type schemes of bindings in previous modules
  * - the types of each constructor binding
  * - the type schemes of top-level bindings (plus those in the current module)
  * - the declaration
  * - the set of all modules, and types, and exceptions that have been previously declared and are declared here (cumulative)
+ * - the types of new type operator names and abbreviations
  * - the types of the new constructors
  * - the type schemes of the new bindings *)
 
