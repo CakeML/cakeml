@@ -639,13 +639,31 @@ let type_pe_determ menv cenv tenv p e =
     --> 
     tenv1 = tenv2
 
+val tenv_generalises : flat_tenvE -> flat_tenvE -> bool
+let rec
+  tenv_generalises [] [] = true
+and
+  tenv_generalises [] _ = false
+and
+  tenv_generalises _ [] = false
+and
+  tenv_generalises ((x,(tvs,t))::tenv) ((x',(tvs',t'))::tenv') =
+    x = x' &&
+    (exists subst. List.length subst = tvs && deBruijn_subst 0 subst t = t') &&
+    tenv_generalises tenv tenv'
+declare termination_argument tenv_generalises = automatic
+
 indreln [type_d : bool -> maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
 dlet_poly : forall check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
 type_p tvs cenv p t tenv' &&
-type_e menv cenv (bind_tvar tvs tenv) e t
+type_e menv cenv (bind_tvar tvs tenv) e t &&
+(forall tvs' tenv'' t'.
+  type_p tvs' cenv p t' tenv'' &&
+  type_e menv cenv (bind_tvar tvs' tenv) e t' -->
+    tenv_generalises (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls Map.empty [] (tenv_add_tvs tvs tenv')
 

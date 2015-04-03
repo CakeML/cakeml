@@ -618,11 +618,30 @@ val _ = Define `
  (tenv1 = tenv2)))`;
 
 
+(*val tenv_generalises : flat_tenvE -> flat_tenvE -> bool*)
+ val _ = Define `
+
+  (tenv_generalises [] [] = T)
+/\
+  (tenv_generalises [] _ = F)
+/\
+  (tenv_generalises _ [] = F)
+/\
+  (tenv_generalises ((x,(tvs,t))::tenv) ((x',(tvs',t'))::tenv') =
+    ((x = x') /\
+    (? subst. (LENGTH subst = tvs) /\ (deBruijn_subst( 0) subst t = t')) /\
+    tenv_generalises tenv tenv'))`;
+
+
 val _ = Hol_reln ` (! check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls.
 (is_value e /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs cenv p t tenv' /\
-type_e menv cenv (bind_tvar tvs tenv) e t)
+type_e menv cenv (bind_tvar tvs tenv) e t /\
+(! tvs' tenv'' t'.  
+(type_p tvs' cenv p t' tenv'' /\
+  type_e menv cenv (bind_tvar tvs' tenv) e t') ==>
+    tenv_generalises (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv'')))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
