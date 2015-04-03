@@ -641,10 +641,11 @@ val _ = Hol_reln ` (! check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls
 ALL_DISTINCT (pat_bindings p []) /\
 type_p tvs cenv p t tenv' /\
 type_e menv cenv (bind_tvar tvs tenv) e t /\
-(! tvs' tenv'' t'.  
+(check_unique ==>  
+(! tvs' tenv'' t'.    
 (type_p tvs' cenv p t' tenv'' /\
-  type_e menv cenv (bind_tvar tvs' tenv) e t') ==>
-    weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv'')))
+    type_e menv cenv (bind_tvar tvs' tenv) e t') ==>
+      weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
