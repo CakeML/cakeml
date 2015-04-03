@@ -639,19 +639,21 @@ let type_pe_determ menv cenv tenv p e =
     --> 
     tenv1 = tenv2
 
-val tenv_generalises : flat_tenvE -> flat_tenvE -> bool
-let rec
-  tenv_generalises [] [] = true
-and
-  tenv_generalises [] _ = false
-and
-  tenv_generalises _ [] = false
-and
-  tenv_generalises ((x,(tvs,t))::tenv) ((x',(tvs',t'))::tenv') =
-    x = x' &&
-    (exists subst. List.length subst = tvs && deBruijn_subst 0 subst t = t') &&
-    tenv_generalises tenv tenv'
-declare termination_argument tenv_generalises = automatic
+let weakE tenv_impl tenv_spec =
+  forall x.
+    match lookup x tenv_spec with
+      | Just (tvs_spec, t_spec) ->
+          match lookup x tenv_impl with
+            | Nothing -> false
+            | Just (tvs_impl, t_impl) ->
+                exists subst.
+                  List.length subst = tvs_impl &&
+                  check_freevars tvs_impl [] t_impl &&
+                  List.all (check_freevars tvs_spec []) subst &&
+                  deBruijn_subst 0 subst t_impl = t_spec
+          end
+        | Nothing -> true
+    end
 
 indreln [type_d : bool -> maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
@@ -663,7 +665,7 @@ type_e menv cenv (bind_tvar tvs tenv) e t &&
 (forall tvs' tenv'' t'.
   type_p tvs' cenv p t' tenv'' &&
   type_e menv cenv (bind_tvar tvs' tenv) e t' -->
-    tenv_generalises (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))
+    weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls Map.empty [] (tenv_add_tvs tvs tenv')
 
@@ -784,22 +786,6 @@ new_tenvT = Map.singleton tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn t
 type_specs mn (merge_mod_env (Map.empty,new_tenvT) tenvT) specs decls flat_tenvT cenv tenv
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn tn},{})) (Map.(union) flat_tenvT new_tenvT) cenv tenv
-
-let weakE tenv_impl tenv_spec =
-  forall x.
-    match lookup x tenv_spec with
-      | Just (tvs_spec, t_spec) ->
-          match lookup x tenv_impl with
-            | Nothing -> false
-            | Just (tvs_impl, t_impl) ->
-                exists subst. 
-                  List.length subst = tvs_impl &&                  
-                  check_freevars tvs_impl [] t_impl &&                  
-                  List.all (check_freevars tvs_spec []) subst &&                  
-                  deBruijn_subst 0 subst t_impl = t_spec
-          end
-        | Nothing -> true
-    end
 
 val flat_weakC : flat_tenvC -> flat_tenvC -> bool
 let flat_weakC cenv_impl cenv_spec =

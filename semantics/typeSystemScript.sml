@@ -618,19 +618,22 @@ val _ = Define `
  (tenv1 = tenv2)))`;
 
 
-(*val tenv_generalises : flat_tenvE -> flat_tenvE -> bool*)
- val _ = Define `
-
-  (tenv_generalises [] [] = T)
-/\
-  (tenv_generalises [] _ = F)
-/\
-  (tenv_generalises _ [] = F)
-/\
-  (tenv_generalises ((x,(tvs,t))::tenv) ((x',(tvs',t'))::tenv') =
-    ((x = x') /\
-    (? subst. (LENGTH subst = tvs) /\ (deBruijn_subst( 0) subst t = t')) /\
-    tenv_generalises tenv tenv'))`;
+val _ = Define `
+ (weakE tenv_impl tenv_spec =  
+(! x.
+    (case ALOOKUP tenv_spec x of
+        SOME (tvs_spec, t_spec) =>
+          (case ALOOKUP tenv_impl x of
+              NONE => F
+            | SOME (tvs_impl, t_impl) =>
+                ? subst.                  
+(LENGTH subst = tvs_impl) /\
+                  check_freevars tvs_impl [] t_impl /\
+                  EVERY (check_freevars tvs_spec []) subst /\                  
+(deBruijn_subst( 0) subst t_impl = t_spec)
+          )
+        | NONE => T
+    )))`;
 
 
 val _ = Hol_reln ` (! check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls.
@@ -641,7 +644,7 @@ type_e menv cenv (bind_tvar tvs tenv) e t /\
 (! tvs' tenv'' t'.  
 (type_p tvs' cenv p t' tenv'' /\
   type_e menv cenv (bind_tvar tvs' tenv) e t') ==>
-    tenv_generalises (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv'')))
+    weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv'')))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
@@ -736,24 +739,6 @@ type_specs mn tenvT (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn
 type_specs mn (merge_mod_env (FEMPTY,new_tenvT) tenvT) specs decls flat_tenvT cenv tenv)
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn tn},{})) (FUNION flat_tenvT new_tenvT) cenv tenv)`;
-
-val _ = Define `
- (weakE tenv_impl tenv_spec =  
-(! x.
-    (case ALOOKUP tenv_spec x of
-        SOME (tvs_spec, t_spec) =>
-          (case ALOOKUP tenv_impl x of
-              NONE => F
-            | SOME (tvs_impl, t_impl) =>
-                ? subst.                  
- (LENGTH subst = tvs_impl) /\                  
-                  check_freevars tvs_impl [] t_impl /\                  
-                  EVERY (check_freevars tvs_spec []) subst /\                  
-                  (deBruijn_subst( 0) subst t_impl = t_spec)
-          )
-        | NONE => T
-    )))`;
-
 
 (*val flat_weakC : flat_tenvC -> flat_tenvC -> bool*)
 val _ = Define `
