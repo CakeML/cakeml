@@ -516,11 +516,42 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      fs[check_env_def]>>pop_assum mp_tac>> IF_CASES_TAC>>rw[]
      >-
        (fs[sub_completion_def]>>
-       imp_res_tac pure_add_constraints_wfs>>
-       cheat)
+        Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
+        miscLib.discharge_hyps_keep>-
+          (fs[]>>
+          metis_tac[pure_add_constraints_wfs,check_t_more])
+        >>
+        rw[] >>
+        imp_res_tac inc_wfs>>
+        pop_assum kall_tac>>pop_assum (qspec_then`tvs` assume_tac)>>
+        imp_res_tac t_walkstar_no_vars>>fs[]>>
+        qpat_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
+        fs[]>>
+        qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
+        assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
+        pop_assum(qspecl_then[`t'`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
+        miscLib.discharge_hyps>-fs[]>>
+        rw[]>>
+        fs[deBruijn_inc0]>>
+        qexists_tac`MAP (deBruijn_subst 0 ls) subst`>>
+        fs[EVERY_MAP]>>
+        (*
+          Almost done:
+          Need something like num_tvs tenv ≥ tvs
+          i.e. that the type system's env is consistent
+        *)
+        fs[EVERY_MEM]>>rw[]>>
+        `num_tvs tenv ≥ tvs` by cheat>>
+        match_mp_tac deBruijn_subst_check_freevars>>
+        fs[]>>CONJ_TAC>-
+          metis_tac[check_freevars_add]
+        >>
+        cheat)
+        (*should be direct from def of ls and sub_completion_check*)
      >>
-       fs[COUNT_LIST_def,infer_deBruijn_subst_id]>>
-       cheat
+       (qexists_tac`[]`>>fs[COUNT_LIST_def,infer_deBruijn_subst_id,deBruijn_subst_id]>>
+       fs[COUNT_LIST_def,infer_deBruijn_subst_id,sub_completion_def]>>
+       metis_tac[deBruijn_subst_nothing])
      (*
      qexists_tac `convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)` >>
      qexists_tac `MAP (convert_t o t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` >>

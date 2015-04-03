@@ -3017,6 +3017,14 @@ val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
   (!ts. MAP (infer_deBruijn_subst []) ts = ts)``,
   Induct>>rw[]>>fs[infer_deBruijn_subst_def,MAP_EQ_ID])
 
-
+val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
+  ``(∀t.
+  deBruijn_subst 0 [] t = t )∧
+  ∀ts.
+  MAP (deBruijn_subst 0 []) ts = ts``,
+  ho_match_mp_tac astTheory.t_induction>>
+  fs[deBruijn_subst_def]>>rw[]>>
+  fs[LIST_EQ_REWRITE]>>rw[]>>
+  fs[MEM_EL,EL_MAP])
 
 val _ = export_theory ();
