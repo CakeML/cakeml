@@ -2217,9 +2217,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[t_compat_trans])
  >-
    (*Letrec*)
-   cheat
-   (*
-   imp_res_tac type_funs_MAP_FST>>
+   (imp_res_tac type_funs_MAP_FST>>
    imp_res_tac type_funs_distinct>>
    `MAP (λx,y,z. x) funs = MAP FST funs` by
      fs[MAP_EQ_f,FORALL_PROD]>>
@@ -2250,7 +2248,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        first_x_assum(qspecl_then[`y'1`,`y'0`,`y'2`] assume_tac)>>rfs[]>>
        imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>
        metis_tac[])
-   >>s1
+   >>
    LET_ELIM_TAC>>
    qpat_abbrev_tac `st' = st with next_uvar:=A`>>
    last_x_assum(qspecl_then [`s'`,`menv`,`new_tenv`,`st'`
@@ -2301,7 +2299,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
          `?v. ALOOKUP ls k  = SOME v` by
            metis_tac[NOT_SOME_NONE]>>
          imp_res_tac ALOOKUP_MEM>>
-       s1  fs[MEM_EL]>>
+         fs[MEM_EL]>>
          fs[ALOOKUP_NONE]>>
          first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
          Cases_on`EL n funs`>>Cases_on`r`>>fs[]>>
@@ -2313,25 +2311,8 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        >-
          (FULL_CASE_TAC>>fs[]>>metis_tac[type_funs_Tfn])
        >>
-        
-        
-        >-
-          (FULL_CASE_TAC>>fs[]>>
-          metis_tac[])
-        >-
-          (FULL_CASE_TAC>>
-          fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
-          metis_tac[])
-        >-
-          (FULL_CASE_TAC>>fs[]>>
-          metis_tac[type_funs_Tfn])
-        >>
-        FULL_CASE_TAC>>fs[ALOOKUP_APPEND]>>
-        imp_res_tac ALOOKUP_MEM>>
-        >-
-          metis_tac[]
-        >>
-          imp_res_tac ALOOKUP_MEM>>
+         FULL_CASE_TAC>>fs[ALOOKUP_APPEND]>>
+         imp_res_tac ALOOKUP_MEM>>
           `MEM x (MAP FST env)` by 
             (fs[EXISTS_PROD,MEM_MAP]>>metis_tac[])>>
           qpat_assum `A = MAP FST env` (SUBST_ALL_TAC o SYM)>>
@@ -2368,12 +2349,9 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
             metis_tac[])>>
          fs[]>>
          qpat_assum `A = EL n' env` (SUBST1_TAC o SYM)>>
-         fs[])>>
+         fs[check_t_def])>>
    qunabbrev_tac `fun_tys`>>
    rw[]>>
-
-   sub_completion_def
-   pure_add_constraints_def
    fs[PULL_EXISTS]>>
    qpat_abbrev_tac `ls=ZIP(MAP (λn.Infer_Tuvar(st.next_uvar+n))A,env')`>>
    imp_res_tac infer_funs_length>>
@@ -2418,7 +2396,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    rw[]>>
    Q.LIST_EXISTS_TAC [`constraints'''`,`s'''`,`st'''`,`t'`]>>
    fs[Abbr`nst`]>>
-   metis_tac[t_compat_trans,SUBMAP_t_compat])*)
+   metis_tac[t_compat_trans,SUBMAP_t_compat])
  >- 
    (ntac 2 HINT_EXISTS_TAC>>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >-
@@ -2440,9 +2418,6 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
  >-
    (ntac 2 HINT_EXISTS_TAC >>fs[]>>metis_tac[sub_completion_wfs,t_compat_refl])
  >>
-  (*similar to Fun*)
-   cheat
-   (*
    fs[check_freevars_def]>>
    fs[sub_completion_def]>>
    imp_res_tac pure_add_constraints_success>>
@@ -2471,10 +2446,13 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        Cases_on`n=x`>>fs[deBruijn_inc0]
        >-
          metis_tac[]
-       >- res_tac
+       >-
+         metis_tac[]
+       >-
+         fs[check_t_def]
        >>
          first_x_assum(qspecl_then [`x`,`tvs`,`t'`] assume_tac)>>rfs[]>>
-         Cases_on`tvs>0`>>
+         IF_CASES_TAC>>
          fs[] >>imp_res_tac check_freevars_to_check_t>>
          metis_tac[submap_t_walkstar_replace]))>>   
    rw[]>>
@@ -2509,9 +2487,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      imp_res_tac infer_e_check_t>>
      rfs[]>>
      imp_res_tac sub_completion_completes>>
-     AP_TERM_TAC>>metis_tac[t_walkstar_no_vars]
-     *)
-   );
+     AP_TERM_TAC>>metis_tac[t_walkstar_no_vars] ) ;
 
 val _ = export_theory ();
 
