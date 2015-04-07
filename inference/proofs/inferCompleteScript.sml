@@ -85,7 +85,7 @@ val infer_d_complete = Q.prove (
   don't know what to put here, should be the equivalent of check_env for the 
   type system but not really tenv_ok*)
   (*This should be implied by the above and generalization condition*)
-  check_env ∅ itenv ∧  
+  check_env ∅ itenv ∧
   tenvC_ok cenv ∧
   tenvT_ok tenvT ∧
   check_menv menv ∧
@@ -98,11 +98,10 @@ val infer_d_complete = Q.prove (
     set tdecls'' = tdecls' ∧
     set edecls'' = edecls' ∧
     infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv itenv d st =
-      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧ 
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     MAP FST itenv' = MAP FST tenv' ∧
-    check_env {} itenv'`,cheat)
-(*
+    check_env {} itenv'`,
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def,check_env_def]
@@ -117,7 +116,7 @@ val infer_d_complete = Q.prove (
    simp[bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def] >>
    disch_then(qspec_then`itenv`mp_tac) >>
    discharge_hyps >- (
-     fs[tenv_generalize_def,tenv_add_tvs_def,tenv_invC_def,bind_tvar_rewrites] >>
+     fs[tenv_alpha_def,tenv_invC_def,bind_tvar_rewrites] >>
      rpt gen_tac >> strip_tac >>
      qmatch_assum_abbrev_tac`lookup_tenv x tvs tenvx = SOME y` >>
      `tenv_ok tenvx ∧ num_tvs tenvx = 0` by (
@@ -126,6 +125,7 @@ val infer_d_complete = Q.prove (
          match_mp_tac tenv_ok_bind_var_list2 >>
          simp[typeSoundInvariantsTheory.tenv_ok_def,EVERY_MAP,UNCURRY] >>
          simp[EVERY_MEM,FORALL_PROD] >> rw[] >>
+         simp[num_tvs_def] >>
          cheat
          (*See first comment in thm statement
          match_mp_tac check_t_to_check_freevars >>
@@ -134,34 +134,21 @@ val infer_d_complete = Q.prove (
        simp[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] ) >>
      qspecl_then[`tvs`,`FST y`,`tenvx`,`x`]mp_tac lookup_tenv_inc_tvs >>
      simp[Abbr`y`] >>
-     simp[GSYM bvl2_lookup,Abbr`tenvx`] >>
      disch_then(qspec_then`t'`mp_tac) >> simp[] >>
-     (*tenv_invC is too restrictive
-     1. tenv and itenv needs to allow different tvs to be generalized
-     2. The lookup is not exactly equal under unconversion --> 
-        the inference environment should be allowed to 
-        generalize over the type system's
-        This probably means that the concl of infer_e_complete needs to 
-        change significantly as well
-        *)
-     cheat)>>
-     (*
-     Q.ISPECL_THEN[`λ(tvs:num,t). (tvs,convert_t t)`,`tenv`]mp_tac ALOOKUP_MAP >>
-     simp[UNCURRY,Once LAMBDA_PROD] >> disch_then kall_tac >>
-     simp[EXISTS_PROD] >> strip_tac >> simp[] >>
-     simp[t_walkstar_FEMPTY] >>
-     fs[check_env_def,EVERY_MEM] >>
-     imp_res_tac ALOOKUP_MEM >>
-     res_tac >> fs[] >>
-     imp_res_tac check_t_to_check_freevars >>
-     simp[] >>
-     metis_tac[check_t_empty_unconvert_convert_id] ) >>*)
+     disch_then(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+     strip_tac >> conj_tac >- metis_tac[] >> simp[] >>
+     reverse IF_CASES_TAC >- metis_tac[] >> fs[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] >>
+     `tvs = tvs + 0` by simp[] >> pop_assum SUBST1_TAC >>
+     match_mp_tac(MP_CANON(CONJUNCT2 check_t_more2)) >>
+     first_assum ACCEPT_TAC ) >>
    simp[check_env_def] >> strip_tac >> simp[] >>
    imp_res_tac infer_p_bindings >> fs[] >>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
    fs[init_infer_state_def] >>
-   qspecl_then[`0`,`s`,`MAP SND tenv'''`]mp_tac generalise_complete >> simp[] >>
+   qspecl_then[`0`,`s`,`MAP SND tenv'`]mp_tac generalise_complete >> simp[] >>
    disch_then(qspec_then`st'.next_uvar`mp_tac) >>
    discharge_hyps >- (
      conj_tac >- (
@@ -177,6 +164,7 @@ val infer_d_complete = Q.prove (
        conj_tac >- (
          match_mp_tac (MP_CANON(CONJUNCT1 check_t_more5)) >>
          rfs[init_infer_state_def] >>
+         rfs[check_env_def] >>
          first_assum(match_exists_tac o concl) >>
          imp_res_tac infer_p_next_uvar_mono >>
          simp[SUBSET_DEF] ) >>
@@ -187,19 +175,37 @@ val infer_d_complete = Q.prove (
        first_assum(match_exists_tac o concl) >> simp[] >>
        simp[GSYM check_cenv_tenvC_ok] >>
        simp[init_infer_state_def] >>
-       simp[check_s_def] ) >>
+       simp[check_s_def] >>
+       simp[check_env_def]) >>
      imp_res_tac infer_p_check_t >>
      fs[EVERY_MEM,EVERY_MAP,FORALL_PROD] >>
      metis_tac[] ) >>
    strip_tac >> simp[ZIP_MAP] >>
    simp[MAP_MAP_o,combinTheory.o_DEF] >>
    fs[convert_env2_def,tenv_add_tvs_def] >>
+   simp[MAP_MAP_o,EVERY_MAP,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+   imp_res_tac type_p_pat_bindings >> simp[] >>
+   reverse conj_tac >- (
+     fs[sub_completion_def] >>
+     imp_res_tac infer_p_check_t >>
+     fs[EVERY_MEM,FORALL_PROD] >>
+     rw[] >> res_tac >>
+     `count st'.next_uvar ∩ COMPL (FDOM last_sub) = {}` by (
+       simp[EXTENSION] >> fs[SUBSET_DEF] >>
+       metis_tac[] ) >>
+     (check_t_less |> CONJUNCT1 |> Q.GENL[`s`,`uvars`,`n`]
+      |> Q.SPECL[`a`,`count (st':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
+      |> mp_tac) >>
+     simp[] ) >>
+
+   res_tac >>
+   simp[tenv_alpha_def] >>
+   simp[tenv_inv_def]
+
    qpat_assum`MAP X Y = MAP A B`mp_tac >>
    simp[Once LIST_EQ_REWRITE,EL_MAP,UNCURRY,GSYM AND_IMP_INTRO] >>
    strip_tac >> strip_tac >>
    simp[LIST_EQ_REWRITE,EL_MAP] >>
-   imp_res_tac type_p_pat_bindings >>
-   `MAP FST tenv'' = MAP FST tenv'''` by metis_tac[APPEND_NIL] >>
    conj_asm1_tac >- metis_tac[LENGTH_MAP] >>
    qx_gen_tac`n` >> strip_tac >>
    first_x_assum(qspec_then`n`mp_tac) >> simp[] >> strip_tac >>
