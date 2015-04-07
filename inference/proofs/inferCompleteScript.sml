@@ -143,7 +143,8 @@ val infer_d_complete = Q.prove (
      `tvs = tvs + 0` by simp[] >> pop_assum SUBST1_TAC >>
      match_mp_tac(MP_CANON(CONJUNCT2 check_t_more2)) >>
      first_assum ACCEPT_TAC ) >>
-   simp[check_env_def] >> strip_tac >> simp[] >>
+   discharge_hyps_keep >- simp[check_env_def] >>
+   strip_tac >> simp[] >>
    imp_res_tac infer_p_bindings >> fs[] >>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
@@ -182,10 +183,10 @@ val infer_d_complete = Q.prove (
      metis_tac[] ) >>
    strip_tac >> simp[ZIP_MAP] >>
    simp[MAP_MAP_o,combinTheory.o_DEF] >>
-   fs[convert_env2_def,tenv_add_tvs_def] >>
+   rfs[convert_env2_def,tenv_add_tvs_def] >>
    simp[MAP_MAP_o,EVERY_MAP,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
    imp_res_tac type_p_pat_bindings >> simp[] >>
-   reverse conj_tac >- (
+   reverse conj_asm2_tac >- (
      fs[sub_completion_def] >>
      imp_res_tac infer_p_check_t >>
      fs[EVERY_MEM,FORALL_PROD] >>
@@ -197,11 +198,34 @@ val infer_d_complete = Q.prove (
       |> Q.SPECL[`a`,`count (st':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac) >>
      simp[] ) >>
-
-   res_tac >>
    simp[tenv_alpha_def] >>
-   simp[tenv_inv_def]
-
+   conj_tac >- (
+     simp[tenv_inv_def] >>
+     simp[LAMBDA_PROD,ALOOKUP_MAP,PULL_EXISTS,GSYM bvl2_lookup] >>
+     rw[] >>
+     fs[simp_tenv_invC_def] >>
+     res_tac >> res_tac >> simp[] >> fs[] >>
+     rpt BasicProvers.VAR_EQ_TAC >>
+     reverse IF_CASES_TAC >- (
+       imp_res_tac ALOOKUP_MEM >>
+       fs[EVERY_MEM,FORALL_PROD] >>
+       metis_tac[] ) >>
+     `convert_t (t_walkstar s' p2) = t` by (
+       metis_tac[check_freevars_empty_convert_unconvert_id] ) >>
+     BasicProvers.VAR_EQ_TAC >>
+     cheat ) >>
+   simp[tenv_invC_def] >>
+   simp[LAMBDA_PROD,ALOOKUP_MAP,PULL_EXISTS,GSYM bvl2_lookup] >>
+   rw[] >>
+   fs[simp_tenv_invC_def] >>
+   res_tac >> simp[] >>
+   reverse IF_CASES_TAC >- (
+     imp_res_tac ALOOKUP_MEM >>
+     fs[EVERY_MEM,FORALL_PROD] >>
+     metis_tac[] ) >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   simp[num_tvs_bvl2,num_tvs_def] >>
+   (*
    qpat_assum`MAP X Y = MAP A B`mp_tac >>
    simp[Once LIST_EQ_REWRITE,EL_MAP,UNCURRY,GSYM AND_IMP_INTRO] >>
    strip_tac >> strip_tac >>
@@ -245,6 +269,7 @@ val infer_d_complete = Q.prove (
      first_x_assum(CHANGED_TAC o SUBST1_TAC) >>
      (* need more assumptions from infer_pe_complete about constrs? *)
      cheat ) >>
+   *)
    cheat)
  (* Non generalised let *)
  >- (
