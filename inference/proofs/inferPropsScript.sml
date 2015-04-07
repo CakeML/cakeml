@@ -2829,7 +2829,7 @@ val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_
   >-
     (IF_CASES_TAC>>fs[deBruijn_inc0,num_tvs_def]
     >-
-      (fs[nil_deBruijn_inc]>>
+      (fs[nil_deBruijn_inc]>>CONJ_TAC>-DECIDE_TAC>>
       metis_tac[])
     >>
     (fs[check_env_def,deBruijn_inc_def,EVERY_MEM]>>
@@ -2888,7 +2888,7 @@ val tenv_inv_merge = Q.store_thm ("tenv_inv_merge",
     metis_tac[t_walkstar_no_vars])
   >>
     res_tac>>
-    fs[convert_env_def])
+    fs[convert_env_def,num_tvs_def])
 (*
 val tenv_inv_merge2 = Q.store_thm ("tenv_inv_merge2",
 `!env tenv env'' s tvs.
