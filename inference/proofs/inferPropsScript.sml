@@ -2755,7 +2755,6 @@ tenv_inv s env tenv =
     if check_t tvs {} t
     then
       (check_freevars tvs' [] t') ∧
-      (num_tvs tenv ≥ tvs') ∧  
       ∃subst.
         LENGTH subst = tvs' ∧
         EVERY (check_freevars tvs []) subst ∧ 
@@ -2829,7 +2828,7 @@ val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_
   >-
     (IF_CASES_TAC>>fs[deBruijn_inc0,num_tvs_def]
     >-
-      (fs[nil_deBruijn_inc]>>CONJ_TAC>-DECIDE_TAC>>
+      (fs[nil_deBruijn_inc]>>
       metis_tac[])
     >>
     (fs[check_env_def,deBruijn_inc_def,EVERY_MEM]>>
@@ -2838,7 +2837,6 @@ val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_
     metis_tac[]))
   >>
     fs[check_env_def]>>rfs[nil_deBruijn_inc,num_tvs_def]>>
-    CONJ_TAC>-DECIDE_TAC >>
     metis_tac[])
 
 val tenv_inv_letrec_merge = Q.store_thm ("tenv_inv_letrec_merge",
@@ -2889,6 +2887,7 @@ val tenv_inv_merge = Q.store_thm ("tenv_inv_merge",
   >>
     res_tac>>
     fs[convert_env_def,num_tvs_def])
+
 (*
 val tenv_inv_merge2 = Q.store_thm ("tenv_inv_merge2",
 `!env tenv env'' s tvs.
@@ -2947,6 +2946,7 @@ res_tac >>
 fs [t_walkstar_FEMPTY] >>
 metis_tac [convert_env2_def]);
 *)
+
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
 (unconvert_t (Tapp ts tc) = Infer_Tapp (MAP unconvert_t ts) tc)`
@@ -2994,7 +2994,7 @@ val tenv_invC_def = Define `
       (*Has no uvars*)
       ∃subst.
         LENGTH subst = tvs' ∧
-        EVERY (check_t (num_tvs tenvE) {}) subst ∧ 
+        EVERY (check_t tvs {}) subst ∧ 
         infer_deBruijn_subst subst t' = unconvert_t t 
     else 
       tvs' = 0 ∧ tvs = 0 ∧ 

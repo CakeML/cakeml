@@ -6,7 +6,6 @@ open astPropsTheory;
 open inferPropsTheory;
 open typeSysPropsTheory;
 
-
 local open typeSoundInvariantsTheory in
 val tenvT_ok_def = tenvT_ok_def;
 val flat_tenvT_ok_def = flat_tenvT_ok_def;
@@ -17,6 +16,8 @@ val o_f_id = Q.prove (
 rw [fmap_EXT]);
 
 val _ = new_theory "infer_eSound";
+
+
 
 (* ---------- sub_completion ---------- *)
 
@@ -541,13 +542,12 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
           i.e. that the type system's env is consistent
         *)
         fs[EVERY_MEM]>>rw[]>>
-        `num_tvs tenv ≥ tvs` by cheat>>
-        match_mp_tac deBruijn_subst_check_freevars>>
-        fs[]>>CONJ_TAC>-
-          metis_tac[check_freevars_add]
-        >>
-        cheat)
-        (*should be direct from def of ls and sub_completion_check*)
+        match_mp_tac deBruijn_subst_check_freevars2>>
+        fs[Abbr`ls`,LENGTH_COUNT_LIST]>>
+        fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST]>>rw[]>>
+        `st.next_uvar+ n' ∈ FDOM s` by 
+          fs[SUBSET_DEF]>>
+        metis_tac[check_t_to_check_freevars])
      >>
        (qexists_tac`[]`>>fs[COUNT_LIST_def,infer_deBruijn_subst_id,deBruijn_subst_id]>>
        fs[COUNT_LIST_def,infer_deBruijn_subst_id,sub_completion_def]>>
