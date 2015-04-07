@@ -136,13 +136,15 @@ val infer_d_complete = Q.prove (
      simp[Abbr`y`] >>
      disch_then(qspec_then`t'`mp_tac) >> simp[] >>
      disch_then(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
-     strip_tac >> conj_tac >- metis_tac[] >> simp[] >>
+     strip_tac >>
+     metis_tac[])
+     (* conj_tac >- metis_tac[] >> simp[] >>
      reverse IF_CASES_TAC >- metis_tac[] >> fs[] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      fs[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] >>
      `tvs = tvs + 0` by simp[] >> pop_assum SUBST1_TAC >>
      match_mp_tac(MP_CANON(CONJUNCT2 check_t_more2)) >>
-     first_assum ACCEPT_TAC ) >>
+     first_assum ACCEPT_TAC *) >>
    discharge_hyps_keep >- simp[check_env_def] >>
    strip_tac >> simp[] >>
    imp_res_tac infer_p_bindings >> fs[] >>
@@ -213,7 +215,42 @@ val infer_d_complete = Q.prove (
      `convert_t (t_walkstar s' p2) = t` by (
        metis_tac[check_freevars_empty_convert_unconvert_id] ) >>
      BasicProvers.VAR_EQ_TAC >>
-     cheat ) >>
+     fs[tenv_alpha_def]>>
+     `tenv_inv last_sub itenv (bind_tvar a (bind_var_list2 tenv Empty))` by metis_tac [tenv_inv_empty_to,tenv_inv_extend_tvar_empty_subst] >>
+     `type_e (convert_menv menv) cenv (bind_tvar a (bind_var_list2 tenv Empty)) e (convert_t (t_walkstar last_sub t'))` by 
+       (match_mp_tac (infer_e_sound|>CONJUNCT1)>>
+       first_assum (match_exists_tac o concl)>>
+       fs[bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def,t_wfs_def,check_cenv_tenvC_ok]>>
+       fs[sub_completion_def]>>
+       imp_res_tac infer_p_constraints>>
+       imp_res_tac infer_p_next_uvar_mono>>
+       `pure_add_constraints st'.subst [t',t''] s` by
+         fs[pure_add_constraints_def]>>
+       qexists_tac`ts++[t',t'']++ec1`>>
+       CONJ_TAC>-
+         metis_tac[pure_add_constraints_append]>>
+       fs[SUBSET_DEF]>>simp[])>>
+     `type_p a cenv p (convert_t (t_walkstar last_sub t'')) (convert_env last_sub tenv')` by 
+       (match_mp_tac(infer_p_sound|>CONJUNCT1)>>
+       first_assum (match_exists_tac o concl)>>
+       imp_res_tac infer_e_wfs>>
+       fs[t_wfs_def,check_cenv_tenvC_ok,sub_completion_def]>>
+       `pure_add_constraints st'.subst [t',t''] s` by
+         fs[pure_add_constraints_def]>>
+       metis_tac[pure_add_constraints_append])>>
+     `t_walkstar last_sub t' = t_walkstar last_sub t''`
+             by (imp_res_tac infer_e_wfs >>
+                 imp_res_tac infer_p_wfs >>
+                 imp_res_tac t_unify_wfs >>
+                 match_mp_tac sub_completion_apply>>
+                 `t_wfs FEMPTY` by fs[t_wfs_def]>>
+                 fs[]>>rfs[]>>
+                 metis_tac[t_unify_apply])>>
+     pop_assum SUBST_ALL_TAC>>
+     res_tac>>
+     fs[weakE_def,convert_env_def]>>
+     first_x_assum (qspec_then `x` mp_tac)>>
+     fs[ALOOKUP_MAP])>>
    simp[tenv_invC_def] >>
    simp[LAMBDA_PROD,ALOOKUP_MAP,PULL_EXISTS,GSYM bvl2_lookup] >>
    rw[] >>
