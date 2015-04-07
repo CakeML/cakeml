@@ -2754,12 +2754,14 @@ tenv_inv s env tenv =
     lookup_tenv x 0 tenv = SOME(tvs',t') ∧
     if check_t tvs {} t
     then
-      (check_freevars tvs' [] t') ∧ 
+      (check_freevars tvs' [] t') ∧
+      (num_tvs tenv ≥ tvs') ∧  
       ∃subst.
         LENGTH subst = tvs' ∧
         EVERY (check_freevars tvs []) subst ∧ 
         deBruijn_subst 0 subst t' = convert_t t 
-    else 
+    else
+      (*∃n. check_freevars n [] t') ∧ *)
       tvs = 0 ∧ tvs' = 0 ∧ 
       t' = convert_t (t_walkstar s t))`
 
@@ -2799,7 +2801,7 @@ val tenv_inv_extend0 = Q.store_thm ("tenv_inv_extend0",
   tenv_inv s env tenv 
   ⇒
   tenv_inv s ((x,0,t)::env) (bind_tenv x 0 (convert_t (t_walkstar s t)) tenv)`,
-  rw [tenv_inv_def] >>Cases_on`x=x'`>>fs[lookup_tenv_def,bind_tenv_def]>>
+  rw [tenv_inv_def] >>Cases_on`x=x'`>>fs[lookup_tenv_def,bind_tenv_def,num_tvs_def]>>
   IF_CASES_TAC>-
     (imp_res_tac t_walkstar_no_vars>>fs[]>>
     imp_res_tac check_t_to_check_freevars>>
@@ -2825,7 +2827,7 @@ val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_
   fs[]>>
   reverse (Cases_on`h0=x`)>>fs[]
   >-
-    (IF_CASES_TAC>>fs[deBruijn_inc0]
+    (IF_CASES_TAC>>fs[deBruijn_inc0,num_tvs_def]
     >-
       (fs[nil_deBruijn_inc]>>
       metis_tac[])
@@ -2835,7 +2837,8 @@ val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_
     res_tac>>fs[]>>
     metis_tac[]))
   >>
-    fs[check_env_def]>>rfs[nil_deBruijn_inc]>>
+    fs[check_env_def]>>rfs[nil_deBruijn_inc,num_tvs_def]>>
+    CONJ_TAC>-DECIDE_TAC >>
     metis_tac[])
 
 val tenv_inv_letrec_merge = Q.store_thm ("tenv_inv_letrec_merge",
@@ -2976,24 +2979,33 @@ val check_freevars_to_check_t = store_thm("check_freevars_to_check_t",
   fs[EVERY_MAP,EVERY_MEM])
 
 val tenv_invC_def = Define `
-tenv_invC s tenv tenvE =
-  (!x tvs t.
+  tenv_invC s tenv tenvE =
+  (∀x tvs t.
     lookup_tenv x 0 tenvE = SOME (tvs, t)
     ⇒
-    (*tvs >0 ⇒ check_freevars (num_tvs tenvE) [] t ∧ *)
-    (if tvs > 0 then check_freevars tvs [] t
-                else ?n.check_freevars n [] t) ∧
-    ?t'.
-    unconvert_t t = t_walkstar s t' ∧ 
-    (tvs > 0 ⇒ t_walkstar s t' = t') ∧
-    (*
-    (!targs. LENGTH targs ≤ tvs
-    ⇒ 
-    infer_deBruijn_subst targs (unconvert_t t) = 
-    infer_deBruijn_subst targs (t_walkstar s t')) ∧ *)
+    (∃n. check_freevars n [] t) ∧ 
+    (*Need a condition like this, not sure exactly what yet*)
+    ∃tvs' t'.
+    ALOOKUP tenv x = SOME(tvs',t') ∧
+    (*Case split on whether we are inside an expression or not
+      i.e. whether we have inferencer stuff in the types*)
+    if check_t tvs' {} t'
+    then
+      (*Has no uvars*)
+      ∃subst.
+        LENGTH subst = tvs' ∧
+        EVERY (check_t (num_tvs tenvE) {}) subst ∧ 
+        infer_deBruijn_subst subst t' = unconvert_t t 
+    else 
+      tvs' = 0 ∧ tvs = 0 ∧ 
+      unconvert_t t = t_walkstar s t')`
 
-    ALOOKUP tenv x = SOME (tvs,t'))`;
+val tenv_alpha_def = Define`
+  tenv_alpha tenv tenvE = 
+    (tenv_inv FEMPTY tenv tenvE ∧
+    tenv_invC FEMPTY tenv tenvE)` 
 
+(*
 val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
 `!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
  Induct >>
@@ -3010,7 +3022,7 @@ val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
  rw [] >>
  res_tac >>
  fs [t_walkstar_FEMPTY] >>
- metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);
+ metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);*)
 
 val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
 ``(!t. infer_deBruijn_subst [] t = t) ∧ 

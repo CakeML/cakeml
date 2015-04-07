@@ -5,7 +5,8 @@ open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTh
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
-open miscLib;
+open miscLib BasicProvers;
+
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
 open type_eDetermTheory
@@ -77,77 +78,6 @@ val generalise_uvars = prove(
   metis_tac[FST,arithmeticTheory.ADD_ASSOC,arithmeticTheory.ADD_COMM]
 *)
 
-val infer_d_not_complete = Q.prove(
-`¬!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st.
-  check_menv menv ∧
-  check_env {} tenv ∧
-  tenvC_ok cenv ∧
-  check_env ∅ tenv' ∧
-  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 (convert_env2 tenv) Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' (convert_env2 tenv')
-  ⇒
-  ?st' mdecls'' tdecls'' edecls''.
-    set mdecls'' = set mdecls' ∧
-    set tdecls'' = set tdecls' ∧
-    set edecls'' = set edecls' ∧
-    infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv tenv d st =
-      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', tenv'), st')`,
-  simp[]>>
-  Q.LIST_EXISTS_TAC [`NONE`,`[]`,`[]`,`[]`,`(FEMPTY,FEMPTY)`,`FEMPTY`,`([],[])`] >>
-  qexists_tac `Dlet (Pvar x) (Fun y (Var(Short y)))` >>
-  rw[Once type_d_cases,empty_decls_def,Once type_p_cases,is_value_def,
-     pat_bindings_def, Once type_e_cases] >>
-  rw[PULL_EXISTS] >>
-  rw[Once type_e_cases] >>
-  rw[PULL_EXISTS,t_lookup_var_id_def] >>
-  rw[typeSoundInvariantsTheory.tenvC_ok_def,
-     typeSoundInvariantsTheory.flat_tenvC_ok_def] >>
-  rw[check_menv_def,FEVERY_DEF,tenv_add_tvs_def] >>
-  qexists_tac`[]` >>
-  rw[check_freevars_def,check_env_def] >>
-  qexists_tac`[(x,100,Infer_Tapp [unconvert_t Tint;unconvert_t Tint] TC_fn)]` >>
-  rw[convert_env2_def,convert_t_def,check_t_def,unconvert_t_def] >>
-  rw[bind_tenv_def,bind_tvar_def,lookup_tenv_def] >>
-  rw[check_freevars_def,deBruijn_subst_def,deBruijn_inc_def,LENGTH_NIL_SYM] >>
-  rw[infer_d_def,infer_p_def,infer_e_def,success_eqns] >>
-  rw[init_state_def] >>
-  rw[init_infer_state_def,generalise_def,UNCURRY,success_eqns,is_value_def] >>
-  rw[LET_THM] >>
-  `t_wfs FEMPTY` by rw[t_wfs_def] >>
-  rw[METIS_PROVE[]``A ∨ B ⇔ ~A ⇒ B``] >>
-  `t_wfs s` by metis_tac[t_unify_wfs] >>
-  rator_x_assum`t_unify`mp_tac >>
-  simp[t_unify_eqn,t_walk_eqn] >>
-  simp[Once t_vwalk_eqn] >>
-  simp[t_ext_s_check_eqn] >>
-  simp[Once t_oc_eqn,t_walk_eqn] >>
-  simp[Once t_oc_eqn,t_walk_eqn,Once t_vwalk_eqn] >>
-  simp[COUNT_LIST_def,infer_deBruijn_subst_def] >>
-  simp[Once t_oc_eqn,t_walk_eqn,Once t_vwalk_eqn] >>
-  rw[] >>
-  rator_x_assum`generalise`mp_tac >>
-  simp[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn,FLOOKUP_UPDATE] >>
-  simp[Once t_vwalk_eqn,FLOOKUP_UPDATE] >>
-  simp[generalise_def,UNCURRY])
-
-(*Rough sketch of generalization of types in the type system
-  There is a substitution of the deBruijn variables in ty that yields ty'
-  Don't think tvs' actually matters here if we externally have a 
-  check_freevars tvs' {} ty'
-*)
-val type_generalize_def = Define`
-  type_generalize (tvs,ty) (tvs',ty') =
-    ∃subst. 
-    LENGTH subst = tvs ∧ 
-    deBruijn_subst 0 subst ty = ty'`
-
-(*Generalization relation on tenvs*)
-val tenv_generalize_def = Define`
-  tenv_generalize inf_tenv ts_tenv =
-    LIST_REL (λ(x,tvs,ty) (x',tvs',ty'). 
-      x=x' ∧
-      type_generalize (tvs,convert_t ty) (tvs',ty')) inf_tenv ts_tenv`
-
-(*
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
@@ -157,31 +87,22 @@ val infer_d_complete = Q.prove (
   (*This should be implied by the above and generalization condition*)
   check_env ∅ itenv ∧  
   tenvC_ok cenv ∧
-  (*check_env ∅ tenv' ∧ *)
-  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 tenv Empty) d (set mdecls',set tdecls',set edecls') tenvT' cenv' tenv' ∧
-  (*This generalization condition and its counterpart in the RHS
-    are needed for induction in infer_ds because we may end up
-    extending the tenv differently in the following way:
-
-    val f = \x.x
-    val y = f 5;
-    Type System: Puts f: int -> int into tenv
-    Inference: Puts f: 'a -> 'a into tenv
-    I think "over generalization" in the conclusion
-    does not happen due to soundness 
-  *)
-  tenv_generalize itenv tenv 
+  tenvT_ok tenvT ∧
+  check_menv menv ∧
+  tenvC_ok cenv ∧
+  type_d T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 tenv Empty) d (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
+  tenv_alpha itenv (bind_var_list2 tenv Empty)
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv'.
-    set mdecls'' = set mdecls' ∧
-    set tdecls'' = set tdecls' ∧
-    set edecls'' = set edecls' ∧
+    set mdecls'' = mdecls' ∧
+    set tdecls'' = tdecls' ∧
+    set edecls'' = edecls' ∧
     infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv itenv d st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧ 
-    (*for induction*)
-    tenv_generalize itenv' tenv' ∧ 
-    (*maybe implied as well*)
-    check_env ∅ itenv'`,
+    tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
+    MAP FST itenv' = MAP FST tenv' ∧
+    check_env {} itenv'`,cheat)
+(*
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def,check_env_def]
@@ -410,4 +331,86 @@ val infer_d_complete = Q.prove (
  >- metis_tac []
  >- fs[tenv_generalize_def]);
 *)
+
+val tenv_alpha_bind_var_list2 = prove(``
+  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
+  set (MAP FST itenv) = set (MAP FST tenv) ∧  
+  tenv_alpha itenv' (bind_var_list2 tenv' Empty)
+  ⇒ 
+  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,cheat)
+
+(*  rw[tenv_alpha_def,tenv_invC_def,tenv_inv_def]>>
+  fs[GSYM bvl2_lookup,ALOOKUP_APPEND]>>
+  EVERY_CASE_TAC >> TRY(metis_tac[])>>
+  fs[]>>
+  res_tac>>fs[num_tvs_bvl2]>>
+  Cases_on`x'`>>res_tac>>fs[]>>
+  metis_tac[ALOOKUP_MEM,ALOOKUP_NONE,optionTheory.NOT_SOME_NONE])*)
+
+val infer_ds_complete = prove(``
+!ds mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
+  check_menv menv ∧
+  (*check_env ∅ tenv ∧ 
+  don't know what to put here, should be the equivalent of check_env for the 
+  type system but not really tenv_ok*)
+  (*This should be implied by the above and generalization condition*)
+  check_env ∅ itenv ∧  
+  tenvC_ok cenv ∧
+  tenvT_ok tenvT ∧ 
+  (*check_env ∅ tenv' ∧ *)
+  type_ds T mn (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 tenv Empty) ds (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
+  tenv_alpha itenv (bind_var_list2 tenv Empty)
+  ⇒
+  ?st' mdecls'' tdecls'' edecls'' itenv'.
+    set mdecls'' = mdecls' ∧
+    set tdecls'' = tdecls' ∧
+    set edecls'' = edecls' ∧
+    infer_ds mn (mdecls,tdecls,edecls) tenvT menv cenv itenv ds st =
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧ 
+    (*for induction*)
+    tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧ 
+    MAP FST itenv' = MAP FST tenv' ∧  
+    (*maybe implied as well*)
+    check_env ∅ itenv'``,
+  Induct>-
+  (rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
+  fs[tenv_alpha_def,bind_var_list2_def,tenv_invC_def,lookup_tenv_def,tenv_inv_def])
+  >>
+  rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
+  fs[]>>
+  fs[empty_decls_def] >>
+    (infer_d_complete|>
+      CONV_RULE(
+        STRIP_QUANT_CONV(LAND_CONV(
+          lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))))
+    |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> (fn th => first_assum(mp_tac o MATCH_MP th)))>>
+  disch_then (Q.ISPECL_THEN [`st`,`itenv`] mp_tac)>>
+  discharge_hyps>-
+    fs[check_env_def]>>
+  rw[]>>
+  fs[PULL_EXISTS]>>
+  fs[GSYM AND_IMP_INTRO]>>
+  first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th))>>
+  `tenvC_ok (merge_alist_mod_env ([],cenv'') cenv)` by
+    (fs[tenvC_ok_merge]>>
+    imp_res_tac type_d_ctMap_ok >>
+    metis_tac[ctMap_ok_tenvC_ok,MAP_REVERSE,ALL_DISTINCT_REVERSE])>>
+  `tenvT_ok (merge_mod_env (FEMPTY,tenvT'') tenvT)` by 
+    (match_mp_tac tenvT_ok_merge>>
+    fs[typeSoundInvariantsTheory.tenvT_ok_def]>>
+    metis_tac[FEVERY_FEMPTY,type_d_tenvT_ok])>>
+  fs[GSYM bind_var_list2_append]>>
+  FULL_SIMP_TAC bool_ss [UNION_APPEND,union_decls_def] >>
+  `tenv_alpha (itenv'++itenv) (bind_var_list2 (tenv''++tenv) Empty)` by 
+     metis_tac[tenv_alpha_bind_var_list2]>>
+  `check_env {} (itenv'++itenv)` by 
+    fs[check_env_def]>>
+  rpt
+   (disch_then (fn th => first_x_assum (mp_tac o MATCH_MP th)))>>
+  disch_then (qspec_then `st'` strip_assume_tac)>>
+  fs[append_decls_def]>>
+  fs[check_env_def]>>
+  metis_tac[tenv_alpha_bind_var_list2])
+
 val _ = export_theory ();
