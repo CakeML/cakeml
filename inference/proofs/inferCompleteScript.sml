@@ -199,6 +199,10 @@ val infer_deBruijn_subst_infer_subst_walkstar = prove(``
   >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
   >> REFL_TAC))
 
+val tenv_alpha_empty = prove(``
+  tenv_alpha [] (bind_var_list2 [] Empty)``,
+  fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_def])
+
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
@@ -567,27 +571,60 @@ val infer_d_complete = Q.prove (
          res_tac >> 
          fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD, EXISTS_PROD] >>
          metis_tac [])
-     >- (fs[tenv_generalize_def]))
+     >- (fs[tenv_alpha_empty]))
  (* Exception definition *)
- >- fs[tenv_generalize_def]
+ >- fs[tenv_alpha_empty]
  >- metis_tac []
- >- fs[tenv_generalize_def]);
-*)
+ >- fs[tenv_alpha_empty]);
+
+val tenv_inv_bind_var_list2 = prove(``
+  tenv_inv FEMPTY itenv (bind_var_list2 tenv Empty) ∧
+  tenv_inv FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
+  set (MAP FST itenv) = set (MAP FST tenv)  
+  ⇒ 
+  tenv_inv FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  rw[tenv_inv_def]>>
+  fs[GSYM bvl2_lookup]>>
+  fs[ALOOKUP_APPEND]>>
+  Cases_on`ALOOKUP itenv x`>>fs[]
+  >-
+    (`ALOOKUP tenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
+    fs[])
+  >>
+    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    res_tac>>
+    fs[])
+
+val tenv_invC_bind_var_list2 = prove(``
+  tenv_invC FEMPTY itenv (bind_var_list2 tenv Empty) ∧
+  tenv_invC FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
+  set (MAP FST itenv) = set (MAP FST tenv)  
+  ⇒ 
+  tenv_invC FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  rw[tenv_invC_def]>>
+  fs[GSYM bvl2_lookup]>>
+  fs[ALOOKUP_APPEND]>>
+  Cases_on `ALOOKUP tenv x`>>fs[]
+  >-
+    metis_tac[]
+  >-
+    metis_tac[]
+  >-
+    (`ALOOKUP itenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
+    fs[])
+  >>
+    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    res_tac>>
+    fs[])
 
 val tenv_alpha_bind_var_list2 = prove(``
   tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
   set (MAP FST itenv) = set (MAP FST tenv) ∧  
   tenv_alpha itenv' (bind_var_list2 tenv' Empty)
   ⇒ 
-  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,cheat)
-
-(*  rw[tenv_alpha_def,tenv_invC_def,tenv_inv_def]>>
-  fs[GSYM bvl2_lookup,ALOOKUP_APPEND]>>
-  EVERY_CASE_TAC >> TRY(metis_tac[])>>
-  fs[]>>
-  res_tac>>fs[num_tvs_bvl2]>>
-  Cases_on`x'`>>res_tac>>fs[]>>
-  metis_tac[ALOOKUP_MEM,ALOOKUP_NONE,optionTheory.NOT_SOME_NONE])*)
+  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  fs[tenv_alpha_def]>>
+  metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
 
 val infer_ds_complete = prove(``
 !ds mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
