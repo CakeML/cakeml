@@ -349,48 +349,30 @@ val infer_d_complete = Q.prove (
      reverse conj_tac >- (
        simp[tenv_add_tvs_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
        imp_res_tac type_p_pat_bindings >> fs[] ) >>
-     cheat
-     (*
-     rator_x_assum`convert_env2`mp_tac >>
-     imp_res_tac type_p_pat_bindings >> rfs[] >>
-     simp[convert_env2_def,tenv_add_tvs_def] >>
-     pop_assum mp_tac >>
-     simp[Once LIST_EQ_REWRITE,GSYM AND_IMP_INTRO,EL_MAP] >>
-     ntac 2 strip_tac >>
-     simp[Once LIST_EQ_REWRITE,GSYM AND_IMP_INTRO,EL_MAP,UNCURRY] >>
-     ntac 2 strip_tac >>
-     simp[Once LIST_EQ_REWRITE,EL_MAP] >>
-     qx_gen_tac`n`>>strip_tac >>
-     Cases_on`EL n tenv'` >>
-     rpt(first_x_assum(qspec_then`n`mp_tac)) >> simp[] >>
-     Cases_on`r`>>simp[] >> rw[] >>
+     simp[tenv_alpha_def] >>
+     conj_tac >- (
+       simp[tenv_inv_def,ALOOKUP_MAP,PULL_EXISTS,GSYM bvl2_lookup,tenv_add_tvs_def] >>
+       rw[] >> fs[simp_tenv_invC_def] >>
+       res_tac >> res_tac >> simp[] >>
+       reverse IF_CASES_TAC >- (
+         fs[EVERY_MEM,FORALL_PROD] >>
+         imp_res_tac ALOOKUP_MEM >>
+         metis_tac[] ) >>
+       simp[LENGTH_NIL] >>
+       simp[deBruijn_subst_nothing] >>
+       fs[] >> rw[] >>
+       cheat ) >>
+     simp[tenv_invC_def,GSYM bvl2_lookup,tenv_add_tvs_def,PULL_EXISTS,ALOOKUP_MAP] >>
+     rw[] >>
+     qexists_tac`0` >>
      fs[simp_tenv_invC_def] >>
-     imp_res_tac type_p_pat_bindings >>
-     `ALL_DISTINCT (MAP FST tenv'')` by metis_tac[] >>
-     imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-     first_x_assum(qspecl_then[`SND (EL n tenv''')`,`FST (EL n tenv''')`]mp_tac) >>
-     first_x_assum(qspecl_then[`SND (EL n tenv'')`,`FST (EL n tenv'')`]mp_tac) >> simp[] >>
-     discharge_hyps >- metis_tac[MEM_EL] >> strip_tac >>
-     discharge_hyps >- metis_tac[MEM_EL] >> strip_tac >>
-     res_tac >> rfs[] >> rw[] >>
-     (* not sure of strategy from this point *)
-     fs[sub_completion_def] >>
-     imp_res_tac pure_add_constraints_success >>
-     fs[t_compat_def] >>
-     first_x_assum(qspec_then`SND (EL n tenv''')`(assume_tac o SYM)) >> fs[] >>
-     fs[EVERY_MEM] >>
-     first_x_assum(qspec_then`EL n tenv'''`mp_tac) >>
-     discharge_hyps >- metis_tac[MEM_EL] >> simp[UNCURRY] >> strip_tac >>
-     imp_res_tac t_walkstar_no_vars >> fs[] >>
-     qsuff_tac`unconvert_t (convert_t r') = r'`>-metis_tac[]>>
-     match_mp_tac (GEN_ALL check_t_empty_unconvert_convert_id) >>
-     fs [check_env_def, EVERY_EL] >>
-     res_tac >>
-     pop_assum mp_tac >>
-     ASM_REWRITE_TAC [] >>
-     rw [] >>
-     metis_tac []
-     *))
+     res_tac >> res_tac >> simp[] >>
+     reverse IF_CASES_TAC >- (
+       fs[EVERY_MEM,FORALL_PROD] >>
+       imp_res_tac ALOOKUP_MEM >>
+       metis_tac[] ) >>
+     simp[LENGTH_NIL,infer_deBruijn_subst_id] >>
+     cheat)
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
