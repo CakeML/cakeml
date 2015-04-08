@@ -545,7 +545,12 @@ val infer_d_complete = Q.prove (
        simp[LENGTH_NIL] >>
        simp[deBruijn_subst_nothing] >>
        fs[] >> rw[] >>
-       cheat ) >>
+       fs[sub_completion_def]>>
+       imp_res_tac pure_add_constraints_success>>
+       qpat_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
+       imp_res_tac t_walkstar_SUBMAP>>
+       first_x_assum(qspec_then `p2` SUBST_ALL_TAC)>>
+       metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])>>
      simp[tenv_invC_def,GSYM bvl2_lookup,tenv_add_tvs_def,PULL_EXISTS,ALOOKUP_MAP] >>
      rw[] >>
      qexists_tac`0` >>
@@ -556,7 +561,12 @@ val infer_d_complete = Q.prove (
        imp_res_tac ALOOKUP_MEM >>
        metis_tac[] ) >>
      simp[LENGTH_NIL,infer_deBruijn_subst_id] >>
-     cheat)
+     fs[sub_completion_def]>>
+     imp_res_tac pure_add_constraints_success>>
+     qpat_assum `unconvert_t t = B` (assume_tac o Q.AP_TERM `convert_t`) >>
+     imp_res_tac t_walkstar_SUBMAP>>
+     first_x_assum(qspec_then `t''''` SUBST_ALL_TAC)>>
+     metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
