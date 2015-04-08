@@ -310,36 +310,47 @@ val infer_d_complete = Q.prove (
    cheat)
  (* Non generalised let *)
  >- (
-     `num_tvs (bind_var_list2 (convert_env2 tenv) Empty) = 0`
-               by rw [num_tvs_bvl2, num_tvs_def] >>
-     `tenv_invC FEMPTY tenv (bind_var_list2 (convert_env2 tenv) Empty)`
-               by metis_tac [tenv_invC_convert_env2] >>
-     `∃t2 t' tenv' st st' s constrs s'.
-       infer_e menv cenv tenv e init_infer_state = (Success t2,st) ∧
-       infer_p cenv p st = (Success (t',tenv'),st') ∧
-       t_unify st'.subst t2 t' = SOME s ∧
-       sub_completion 0 st.next_uvar s constrs s' ∧
-       t = convert_t (t_walkstar s' t') ∧
-       t = convert_t (t_walkstar s' t2) ∧ t_wfs s ∧
-       simp_tenv_invC s' 0 tenv' tenv''`
-              by metis_tac [infer_pe_complete] >>
-     rw [] >>
+     simp[PULL_EXISTS] >>
+     (infer_pe_complete
+      |> CONV_RULE(LAND_CONV(lift_conjunct_conv(same_const``type_e`` o fst o strip_comb)))
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> GEN_ALL
+      |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+     simp[num_tvs_bvl2,num_tvs_def] >>
+     disch_then(
+       (fn th => first_assum(qspec_then`itenv`mp_tac o MATCH_MP th)) o
+       ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] o
+       CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``type_p`` o fst o strip_comb))))) >>
+     discharge_hyps >- (
+       fs[tenv_alpha_def,check_env_def] ) >>
+     strip_tac >> simp[] >>
      imp_res_tac infer_p_bindings >>
      pop_assum (qspecl_then [`[]`] assume_tac) >>
      fs [] >>
-     `tenv_inv FEMPTY tenv (bind_var_list2 (convert_env2 tenv) Empty)`
-               by metis_tac [tenv_inv_convert_env2] >>
-     `EVERY (λ(n,t). check_t 0 ∅ (t_walkstar s t)) tenv'''` by metis_tac [type_pe_determ_infer_e] >>
-     `EVERY (check_t 0 {}) (MAP (t_walkstar s) (MAP SND tenv'''))`
-          by (fs [EVERY_MEM, MEM_MAP] >>
-              rw [] >>
-              res_tac >>
-              PairCases_on `y'` >>
-              fs []) >>
+     (type_pe_determ_infer_e
+      |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``type_pe_determ`` o fst o strip_comb))))
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+     simp[num_tvs_bvl2,num_tvs_def] >>
+     simp[GSYM AND_IMP_INTRO] >>
+     disch_then (fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     disch_then (fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     disch_then (fn th => first_assum(mp_tac o MATCH_MP th)) >>
+     simp[check_env_def] >>
+     discharge_hyps >- fs[tenv_alpha_def] >>
+     strip_tac >>
+     `EVERY (check_t 0 {}) (MAP (t_walkstar s) (MAP SND tenv'))` by (
+       simp[EVERY_MAP,LAMBDA_PROD] ) >>
      imp_res_tac generalise_no_uvars >>
-     pop_assum (qspecl_then [`FEMPTY`, `0`, `0`] mp_tac) >>
-     rw [init_infer_state_def] >>
+     pop_assum (qspecl_then [`FEMPTY`, `0`, `init_infer_state.next_uvar`] mp_tac) >>
      simp[MAP_MAP_o,ZIP_MAP,combinTheory.o_DEF] >>
+     disch_then kall_tac >>
+     simp[EVERY_MAP,LAMBDA_PROD,UNCURRY,FST_pair] >>
+     reverse conj_tac >- (
+       simp[tenv_add_tvs_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+       imp_res_tac type_p_pat_bindings >> fs[] ) >>
+     cheat
+     (*
      rator_x_assum`convert_env2`mp_tac >>
      imp_res_tac type_p_pat_bindings >> rfs[] >>
      simp[convert_env2_def,tenv_add_tvs_def] >>
@@ -378,7 +389,8 @@ val infer_d_complete = Q.prove (
      pop_assum mp_tac >>
      ASM_REWRITE_TAC [] >>
      rw [] >>
-     metis_tac [])
+     metis_tac []
+     *))
  (* generalised letrec *)
  >- cheat
  (* Type definition *)
