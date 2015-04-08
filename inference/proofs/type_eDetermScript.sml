@@ -31,7 +31,8 @@ val infer_pe_complete = Q.store_thm ("infer_pe_complete",
       infer_e menv cenv env e init_infer_state = (Success t, st) ∧
       infer_p cenv p st = (Success (t', tenv'), st') ∧
       t_unify st'.subst t t' = SOME s ∧
-      sub_completion (num_tvs tenv) st.next_uvar s constrs s' ∧
+      sub_completion (num_tvs tenv) st'.next_uvar s constrs s' ∧
+      FDOM s' = count st'.next_uvar ∧  
       t1 = convert_t (t_walkstar s' t') ∧
       t1 = convert_t (t_walkstar s' t) ∧
       t_wfs s ∧
