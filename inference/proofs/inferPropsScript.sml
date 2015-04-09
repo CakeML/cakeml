@@ -3,6 +3,7 @@ open rich_listTheory listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
+open miscLib BasicProvers
 
 local open evalPropsTheory typeSoundInvariantsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
