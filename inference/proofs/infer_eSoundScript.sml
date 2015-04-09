@@ -397,39 +397,42 @@ val constrain_op_sound = Q.prove (
  binop_tac);
 
 val infer_e_sound = Q.store_thm ("infer_e_sound",
-`(!menv cenv env e st st' tenv t extra_constraints s.
+`(!menv cenv env e st st' tenv t extra_constraints s tenvM.
     (infer_e menv cenv env e st = (Success t, st')) ∧
     t_wfs st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
     check_env (count st.next_uvar) env ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_inv s env tenv
+    tenv_inv s env tenv ∧ 
+    menv_alpha menv tenvM
     ⇒
-    type_e (convert_menv menv) cenv tenv e 
+    type_e tenvM cenv tenv e 
            (convert_t (t_walkstar s t))) ∧
- (!menv cenv env es st st' tenv ts extra_constraints s.
+ (!menv cenv env es st st' tenv ts extra_constraints s tenvM .
     (infer_es menv cenv env es st = (Success ts, st')) ∧
     t_wfs st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
     check_env (count st.next_uvar) env ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_inv s env tenv
+    tenv_inv s env tenv ∧ 
+    menv_alpha menv tenvM
     ⇒
-    type_es (convert_menv menv) cenv tenv es 
+    type_es tenvM cenv tenv es 
             (MAP (convert_t o t_walkstar s) ts)) ∧
- (!menv cenv env pes t1 t2 st st' tenv extra_constraints s.
+ (!menv cenv env pes t1 t2 st st' tenv extra_constraints s tenvM .
     (infer_pes menv cenv env pes t1 t2 st = (Success (), st')) ∧
     t_wfs st.subst ∧
     check_menv menv ∧
     check_cenv cenv ∧
     check_env (count st.next_uvar) env ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
-    tenv_inv s env tenv
+    tenv_inv s env tenv ∧ 
+    menv_alpha menv tenvM
     ⇒
-    type_pes (convert_menv menv) cenv tenv pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s t2))) ∧
- (!menv cenv env funs st st' tenv extra_constraints s ts.
+    type_pes tenvM cenv tenv pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s t2))) ∧
+ (!menv cenv env funs st st' tenv extra_constraints s ts tenvM.
     (infer_funs menv cenv env funs st = (Success ts, st')) ∧
     t_wfs st.subst ∧
     check_menv menv ∧
@@ -437,9 +440,10 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
     check_env (count st.next_uvar) env ∧
     sub_completion (num_tvs tenv) st'.next_uvar st'.subst extra_constraints s ∧
     tenv_inv s env tenv ∧
+    menv_alpha menv tenvM ∧ 
     ALL_DISTINCT (MAP FST funs)
     ⇒
-    type_funs (convert_menv menv) cenv tenv funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`,
+    type_funs tenvM cenv tenv funs (MAP2 (\(x,y,z) t. (x, (convert_t o t_walkstar s) t)) funs ts))`,
   ho_match_mp_tac infer_e_ind >>
   rw [infer_e_def, success_eqns, remove_pair_lem] >>
   rw [check_t_def] >>
@@ -454,7 +458,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
   >-
  (* Raise *)
      (imp_res_tac sub_completion_unify >>
-     `type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t2))` by metis_tac [] >>
+     `type_e tenvM cenv tenv e (convert_t (t_walkstar s t2))` by metis_tac [] >>
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_apply >>
      imp_res_tac sub_completion_apply >>
@@ -480,7 +484,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      `st.next_uvar ≤ st''.next_uvar` by metis_tac [infer_e_next_uvar_mono] >>
      `check_env (count st''.next_uvar) env` by metis_tac [check_env_more] >>
-     `type_pes (convert_menv menv) cenv tenv pes (convert_t (t_walkstar s (Infer_Tapp [] TC_exn))) (convert_t (t_walkstar s t))`
+     `type_pes (tenvM) cenv tenv pes (convert_t (t_walkstar s (Infer_Tapp [] TC_exn))) (convert_t (t_walkstar s t))`
               by metis_tac [] >>
      fs [type_pes_def, RES_FORALL] >>
      pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
@@ -551,58 +555,59 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >>
        (qexists_tac`[]`>>fs[COUNT_LIST_def,infer_deBruijn_subst_id,deBruijn_subst_id]>>
        fs[COUNT_LIST_def,infer_deBruijn_subst_id,sub_completion_def]>>
-       metis_tac[deBruijn_subst_nothing])
-     (*
-     qexists_tac `convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)` >>
-     qexists_tac `MAP (convert_t o t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` >>
-     rw [] >|
-     [fs [sub_completion_def] >>
-          rw [] >>
-          `count st.next_uvar ⊆ FDOM s`
-                  by (fs [count_def, SUBSET_DEF] >>
-                      rw [] >>
-                      metis_tac [DECIDE ``x < y ⇒ x < y + z:num``]) >>
-          `check_t tvs (FDOM s) t`
-                     by metis_tac [check_env_lookup, check_t_more5] >>
-          metis_tac [db_subst_infer_subst_swap, pure_add_constraints_wfs],
-      rw [EVERY_MAP] >>
-          metis_tac [sub_completion_check, FST],
-      rw [LENGTH_COUNT_LIST] >>
-          fs[tenv_inv_def]
-          metis_tac [tenv_inv_def]] *))
+       metis_tac[deBruijn_subst_nothing]))
  >-
  (* Var long *)
-     (rw [t_lookup_var_id_def] >>
-     `?tvs t. v' = (tvs, t)` 
+     (
+     rw [t_lookup_var_id_def]>>
+     fs[menv_alpha_def,fmap_rel_OPTREL_FLOOKUP]>>
+     last_x_assum(qspec_then`mn` assume_tac)>>
+     rfs[optionTheory.OPTREL_def]>>
+     fs[tenv_alpha_def,tenv_inv_def]>>
+      `?tvs t. v' = (tvs, t)` 
                 by (PairCases_on `v'` >>
                     rw []) >>
-     rw [] >>
-     qexists_tac `convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)` >>
-     qexists_tac `MAP (convert_t o t_walkstar s) (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST tvs))` >>
-     rw [] >|
-     [fs [sub_completion_def] >>
-          rw [] >>
-          `check_t tvs (FDOM s) t` by 
-                     (metis_tac [check_menv_lookup, check_t_more]) >>
-          metis_tac [db_subst_infer_subst_swap, pure_add_constraints_wfs],
-      rw [EVERY_MAP] >>
-          metis_tac [sub_completion_check, FST],
-      rw [LENGTH_COUNT_LIST] >>
-          fs [convert_menv_def, check_menv_def] >>
-          fs [FLOOKUP_o_f] >>
-          `ALOOKUP (MAP (λ(x,y). (x,(\z. FST z,convert_t (SND z)) y)) env') n =
-           SOME ((\y. FST y,convert_t (SND y)) (tvs,t))`
-                    by rw [ALOOKUP_MAP] >>
-          fs [LAMBDA_PROD] >>
-          imp_res_tac FEVERY_FLOOKUP >>
-          fs [] >>
-          imp_res_tac ALOOKUP_MEM >>
-          fs [MEM_MAP] >>
-          PairCases_on `y` >>
-          fs [EVERY_MEM] >>
-          res_tac >>
-          fs [] >>
-          metis_tac [check_t_subst, sub_completion_wfs]])
+     fs[GSYM bvl2_lookup]>>
+     res_tac>>
+     fs[]>>
+     pop_assum mp_tac>>IF_CASES_TAC>>rw[]
+     >-
+       (fs[sub_completion_def]>>
+        Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
+        miscLib.discharge_hyps_keep>-
+          (fs[]>>
+          metis_tac[pure_add_constraints_wfs,check_t_more])
+        >>
+        rw[] >>
+        imp_res_tac inc_wfs>>
+        pop_assum kall_tac>>pop_assum (qspec_then`tvs` assume_tac)>>
+        imp_res_tac t_walkstar_no_vars>>fs[]>>
+        qpat_assum`A=convert_t t` (SUBST_ALL_TAC o SYM)>>
+        fs[]>>
+        qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
+        assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
+        pop_assum(qspecl_then[`t''`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
+        miscLib.discharge_hyps>-
+          fs[]>>
+        rw[]>>
+        fs[deBruijn_inc0]>>
+        qexists_tac`MAP (deBruijn_subst 0 ls) subst`>>
+        fs[EVERY_MAP]>>
+        fs[EVERY_MEM]>>rw[]>>
+        match_mp_tac deBruijn_subst_check_freevars2>>
+        fs[Abbr`ls`,LENGTH_COUNT_LIST]>>
+        fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST]>>rw[]>>
+        `st.next_uvar+ n' ∈ FDOM s` by 
+          fs[SUBSET_DEF]>>
+        metis_tac[check_t_to_check_freevars])
+     >>
+     (qexists_tac`[]`>>fs[COUNT_LIST_def,infer_deBruijn_subst_id,deBruijn_subst_id]>>
+      fs[COUNT_LIST_def,infer_deBruijn_subst_id,sub_completion_def]>>
+      fs[check_menv_def,FEVERY_ALL_FLOOKUP]>>
+      res_tac>>
+      imp_res_tac ALOOKUP_MEM>>
+      fs[EVERY_MEM,FORALL_PROD]>>
+      metis_tac[]))
  >-
  (* Tup *)
      (`?ts env. v' = (ts,env)` by (PairCases_on `v'` >> metis_tac []) >>
@@ -618,7 +623,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      rw [convert_t_def, t_walkstar_eqn1, MAP_MAP_o, combinTheory.o_DEF,
          EVERY_MAP, LENGTH_COUNT_LIST] >-
      metis_tac [sub_completion_check] >>
-     `type_es (convert_menv menv) cenv tenv es (MAP (convert_t o t_walkstar s) ts'')`
+     `type_es tenvM cenv tenv es (MAP (convert_t o t_walkstar s) ts'')`
              by (imp_res_tac sub_completion_add_constraints >>
                  `sub_completion (num_tvs tenv) st'''.next_uvar st'''.subst
                         (ZIP
@@ -703,7 +708,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      imp_res_tac sub_completion_infer >>
      fs [] >>
      imp_res_tac sub_completion_unify2 >>
-     `type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t1))`
+     `type_e tenvM cenv tenv e (convert_t (t_walkstar s t1))`
              by metis_tac [] >>
      `t_wfs st''.subst` by metis_tac [infer_e_wfs] >>
      imp_res_tac t_unify_apply >>
@@ -739,7 +744,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      `check_env (count st''''.next_uvar) env` by metis_tac [check_env_more] >>
      `?ts. sub_completion (num_tvs tenv) st'''''.next_uvar st'''''.subst ts s` 
                by metis_tac [sub_completion_unify2] >>
-     `type_e (convert_menv menv) cenv tenv e'' (convert_t (t_walkstar s t3))` by metis_tac [] >>
+     `type_e tenvM cenv tenv e'' (convert_t (t_walkstar s t3))` by metis_tac [] >>
      imp_res_tac t_unify_apply >>
      `t_wfs s''` by metis_tac [t_unify_wfs] >>
      imp_res_tac sub_completion_apply >>
@@ -750,7 +755,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
               by (imp_res_tac sub_completion_infer_pes >>
                   fs [] >>
                   metis_tac [sub_completion_more_vars]) >>
-     `type_e (convert_menv menv) cenv tenv e (convert_t (t_walkstar s t1))` by metis_tac [] >>
+     `type_e tenvM cenv tenv e (convert_t (t_walkstar s t1))` by metis_tac [] >>
      qexists_tac `convert_t (t_walkstar s t1)` >>
      rw [RES_FORALL] >>
      `?p e. x = (p,e)` by (PairCases_on `x` >> metis_tac []) >>
@@ -764,7 +769,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                   fs [] >>
                   decide_tac) >>
      `check_env (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) env` by metis_tac [check_env_more] >>
-     `type_pes (convert_menv menv) cenv tenv pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s (Infer_Tuvar st''.next_uvar)))`
+     `type_pes tenvM cenv tenv pes (convert_t (t_walkstar s t1)) (convert_t (t_walkstar s (Infer_Tuvar st''.next_uvar)))`
               by metis_tac [] >>
      fs [type_pes_def, RES_FORALL] >>
      pop_assum (mp_tac o Q.SPEC `(p,e')`) >>
@@ -819,7 +824,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                      [Q.UNABBREV_TAC `env'` >>
                           rw [check_env_letrec_lem],
                       metis_tac [check_env_more, DECIDE ``x ≤ x+y:num``]]) >>
-     `type_funs (convert_menv menv) cenv (bind_var_list 0 tenv' tenv) funs 
+     `type_funs tenvM cenv (bind_var_list 0 tenv' tenv) funs 
                 (MAP2 (\(x,y,z) t. (x, convert_t (t_walkstar s t))) funs funs_ts)`
                  by metis_tac [] >>
      `t_wfs st''''.subst` by metis_tac [infer_e_wfs, pure_add_constraints_wfs] >>
@@ -829,7 +834,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
                      fs [] >>
                      metis_tac []) >>
      fs [] >>
-     `type_e (convert_menv menv) cenv (bind_var_list 0 tenv' tenv) e (convert_t (t_walkstar s t))`
+     `type_e tenvM cenv (bind_var_list 0 tenv' tenv) e (convert_t (t_walkstar s t))`
                  by metis_tac [check_env_more] >>
      qexists_tac `tenv'` >>
      (* COMPLETENESS qexists_tac `0` >>*)
@@ -882,7 +887,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
               by (
               match_mp_tac tenv_inv_merge>>fs[]>>
               metis_tac[sub_completion_wfs])>>
-     `type_e (convert_menv menv) cenv (bind_var_list 0 (convert_env s env') tenv) e (convert_t (t_walkstar s t2'))`
+     `type_e tenvM cenv (bind_var_list 0 (convert_env s env') tenv) e (convert_t (t_walkstar s t2'))`
                by metis_tac [check_env_merge, SND, num_tvs_bind_var_list] >>
      rw [type_pes_cons] >|
      [imp_res_tac infer_p_bindings >>
@@ -916,12 +921,12 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
       check_t 0 (count (st with next_uvar := st.next_uvar + 1).next_uvar) (Infer_Tuvar st.next_uvar)`
                 by (rw [check_t_def] >>
                     metis_tac [check_env_more, DECIDE ``x ≤ x + 1:num``]) >>
-     `type_e (convert_menv menv) cenv (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tuvar st.next_uvar))) tenv)
+     `type_e tenvM cenv (bind_tenv x 0 (convert_t (t_walkstar s (Infer_Tuvar st.next_uvar))) tenv)
              e (convert_t (t_walkstar s t))`
                  by metis_tac [] >>
      `check_env (count st'''.next_uvar) env`
                  by (metis_tac [check_env_more, infer_e_next_uvar_mono]) >>
-     `type_funs (convert_menv menv) cenv tenv funs (MAP2 (\(x,y,z) t. (x, convert_t (t_walkstar s t))) funs ts')`
+     `type_funs tenvM cenv tenv funs (MAP2 (\(x,y,z) t. (x, convert_t (t_walkstar s t))) funs ts')`
                by metis_tac [] >>
      `t_wfs s` by metis_tac [sub_completion_wfs] >>
      rw [t_walkstar_eqn1, convert_t_def, Tfn_def] >|

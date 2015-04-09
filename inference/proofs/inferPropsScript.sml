@@ -3078,4 +3078,131 @@ val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
 val menv_alpha_def = Define`
   menv_alpha = fmap_rel (λitenv tenv. tenv_alpha itenv (bind_var_list2 tenv Empty))`
 
+val sym_sub_tac = SUBST_ALL_TAC o SYM;
+
+val generalise_subst_exist = store_thm("generalise_subst_exist",``
+  (t_wfs s ∧ 
+  (∀uv. uv ∈ FDOM s ⇒ check_t tvs {} (t_walkstar s (Infer_Tuvar uv))))
+  ⇒
+  (∀t subst n smap a b t'. 
+  LENGTH subst = n ∧
+  FRANGE smap ⊆ count n ∧
+  (∀x. MEM x subst ⇒ check_t tvs {} x) ∧ 
+  t_vars t ⊆ FDOM s ∧
+  check_t 0 (FDOM s) t ∧ 
+  (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  generalise 0 n smap t = (a,b,t') ⇒
+  ∃subst'. 
+    LENGTH subst' = a ∧ 
+    (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧ 
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x))) ∧ 
+  (∀ts subst n smap a b ts'. 
+  LENGTH subst = n ∧
+  FRANGE smap ⊆ count n ∧ 
+  (∀x. MEM x subst ⇒ check_t tvs {} x) ∧ 
+  EVERY (λt. t_vars t ⊆ FDOM s) ts ∧ 
+  EVERY (check_t 0 (FDOM s)) ts ∧ 
+  (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  generalise_list 0 n smap ts = (a,b,ts') ⇒
+  ∃subst'. 
+    LENGTH subst' = a ∧ 
+    (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧ 
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))``,
+  strip_tac>>
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[]>>
+  fs[check_t_def]
+  >-
+    (fs[generalise_def]>>
+    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    fs[]>>
+    first_assum match_mp_tac>>
+    ntac 2 HINT_EXISTS_TAC >>
+    fs[EVERY_MEM,t_vars_eqn,SUBSET_DEF,MEM_MAP]>>
+    metis_tac[])
+  >-
+    (imp_res_tac generalise_subst>>
+    fs[generalise_def]>>
+    FULL_CASE_TAC>>fs[]
+    >-
+      (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
+      qpat_assum`A=b` sym_sub_tac>>
+      rw[]
+      >-
+        (simp[FAPPLY_FUPDATE_THM]>>
+        `x ≠ n` by 
+          (CCONTR_TAC>>
+          fs[flookup_thm])>>
+        fs[]>>
+        `smap ' x < LENGTH subst` by fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>
+        simp[EL_APPEND1])
+      >>
+      fs[t_vars_eqn,EL_LENGTH_APPEND])
+    >>
+    qexists_tac`[]`>>fs[EXTENSION]>>
+    metis_tac[])
+  >-
+    (fs[generalise_def]>>
+    qexists_tac`[]`>>fs[])
+  >>
+    fs[generalise_def]>>
+    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    imp_res_tac generalise_subst>>
+    first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
+    rfs[]>>
+    first_x_assum(qspecl_then[`subst++subst'`,`s'`,`num_gen'`,`s''`,`ts''`] mp_tac)>>
+    discharge_hyps>-
+      (fsrw_tac [ARITH_ss] []>>
+      reverse CONJ_TAC>-
+        metis_tac[]>>
+      fs[IN_FRANGE,SUBSET_DEF,PULL_EXISTS]>>
+      gen_tac>>Cases_on`k ∈ FDOM smap`>>fs[]>>
+      fs[SUBMAP_DEF]>>
+      res_tac>>
+      DECIDE_TAC)>>
+    rw[]>>
+    qexists_tac`subst'++subst''`>>fs[]>>
+    metis_tac[])
+
+val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_infer_subst_walkstar",``
+  ∀b subst n m.
+  FRANGE b ⊆ count (LENGTH subst) ∧
+  t_wfs s 
+  ⇒
+  ((∀t.
+  (∀x. x ∈ t_vars t ⇒  EL (b ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  check_t 0 m t ∧
+  t_vars t ⊆ FDOM b
+  ⇒ 
+  infer_deBruijn_subst subst (infer_subst b t) = 
+  t_walkstar s t) ∧ 
+  (∀ts.
+  EVERY (λt.(∀x. x ∈ t_vars t ⇒  EL (b ' x) subst = t_walkstar s (Infer_Tuvar x))) ts ∧ 
+  EVERY (check_t 0 m) ts ∧ 
+  EVERY (λt.t_vars t ⊆ FDOM b) ts 
+  ⇒ 
+  MAP ((infer_deBruijn_subst subst) o (infer_subst b)) ts = 
+  MAP (t_walkstar s) ts))``,
+  ntac 5 strip_tac>>
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+  fs[infer_subst_def,t_walkstar_eqn1,check_t_def,infer_deBruijn_subst_def]
+  >-
+    (fs[LIST_EQ_REWRITE,EL_MAP,t_vars_eqn,PULL_EXISTS,SUBSET_DEF,MEM_MAP]>>
+    rw[]>>
+    first_assum (match_mp_tac o MP_CANON)>>
+    fs[EVERY_MEM]>>
+    metis_tac[])
+  >>
+  (fs[t_vars_eqn] >> imp_res_tac flookup_thm>>
+  fs[PULL_FORALL]>>
+  fs[infer_deBruijn_subst_def]>>
+  reverse IF_CASES_TAC
+  >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
+  >> REFL_TAC))
+
+val tenv_alpha_empty = store_thm("tenv_alpha_empty",``
+  tenv_alpha [] (bind_var_list2 [] Empty)``,
+  fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_def])
+
 val _ = export_theory ();
+

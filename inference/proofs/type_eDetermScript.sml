@@ -20,12 +20,13 @@ val sub_completion_empty = Q.prove (
 
 val infer_pe_complete = Q.store_thm ("infer_pe_complete",
   `check_menv menv ∧
+    menv_alpha menv tenvM ∧ 
     tenvC_ok cenv ∧
     num_tvs tenv = tvs ∧
     check_env {} env ∧
     tenv_invC FEMPTY env tenv ∧
     type_p tvs cenv p t1 tenv1 ∧
-    type_e (convert_menv menv) cenv tenv e t1
+    type_e tenvM cenv tenv e t1
     ⇒
     ?t t' tenv' st st' s constrs s'.
       infer_e menv cenv env e init_infer_state = (Success t, st) ∧
@@ -128,9 +129,10 @@ val type_p_pat_bindings = Q.store_thm ("type_p_pat_bindings",
  metis_tac [evalPropsTheory.pat_bindings_accum]);
 
 val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
-`!menv cenv env tenv p e st st' t t' tenv' s.
+`!tenvM menv cenv env tenv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
   check_menv menv ∧
+  menv_alpha menv tenvM ∧
   tenvC_ok cenv ∧
   check_env {} env ∧
   num_tvs tenv = 0 ∧
@@ -140,7 +142,7 @@ val infer_e_type_pe_determ = Q.store_thm ("infer_e_type_pe_determ",
   t_unify st'.subst t t' = SOME s ∧
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'
   ⇒
-  type_pe_determ (convert_menv menv) cenv tenv p e`,
+  type_pe_determ tenvM cenv tenv p e`,
  rw [type_pe_determ_def] >>
  mp_tac (Q.INST [`tvs`|->`0`] infer_pe_complete) >>
  rw [] >>
@@ -218,9 +220,10 @@ val t_walkstar_diff = prove(``
   metis_tac[])
 
 val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
-`!menv cenv env tenv p e st st' t t' tenv' s.
+`!tenvM menv cenv env tenv p e st st' t t' tenv' s.
   ALL_DISTINCT (MAP FST tenv') ∧
   check_menv menv ∧
+  menv_alpha menv tenvM ∧ 
   tenvC_ok cenv ∧
   check_env {} env ∧
   num_tvs tenv = 0 ∧
@@ -228,7 +231,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   infer_e menv cenv env e init_infer_state = (Success t, st) ∧
   infer_p cenv p st = (Success (t', tenv'), st') ∧
   t_unify st'.subst t t' = SOME s ∧
-  type_pe_determ (convert_menv menv) cenv tenv p e
+  type_pe_determ tenvM cenv tenv p e
   ⇒
   EVERY (\(n, t). check_t 0 {} (t_walkstar s t)) tenv'`,
  rw [type_pe_determ_def, check_cenv_tenvC_ok] >>
@@ -322,6 +325,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   (fn th => first_assum(mp_tac o MATCH_MP th))) >> simp[] >>
  simp[init_infer_state_def] >>
  disch_then(qspec_then`tenv`mp_tac) >> simp[] >>
+ disch_then(qspec_then`tenvM`mp_tac o (CONV_RULE (RESORT_FORALL_CONV List.rev))) >> simp[] >>
  fs[sub_completion_def,GSYM AND_IMP_INTRO] >>
  disch_then(fn th =>
    first_x_assum(mp_tac o MATCH_MP th) >>
