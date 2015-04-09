@@ -3075,4 +3075,7 @@ val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
   fs[LIST_EQ_REWRITE]>>rw[]>>
   fs[MEM_EL,EL_MAP])
 
+val menv_alpha_def = Define`
+  menv_alpha = fmap_rel (λitenv tenv. tenv_alpha itenv (bind_var_list2 tenv Empty))`
+
 val _ = export_theory ();

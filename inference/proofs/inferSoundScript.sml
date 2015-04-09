@@ -8,13 +8,49 @@ open typeSysPropsTheory;
 open infer_eCompleteTheory;
 open type_eDetermTheory;
 open infer_eSoundTheory;
+open infer_eCompleteTheory
+open BasicProvers miscLib
 
 local open typeSoundInvariantsTheory in
 val tenvT_ok_def = tenvT_ok_def;
 val flat_tenvT_ok_def = flat_tenvT_ok_def;
+val tenv_ok_def = tenv_ok_def;
 end
 
 val _ = new_theory "inferSound";
+
+val sym_sub_tac = SUBST_ALL_TAC o SYM
+
+val lookup_tenv_NONE = prove(``
+  ∀ls n.
+  (lookup_tenv x n ls = NONE ⇒ 
+  ∀m. lookup_tenv x m ls = NONE)``,
+  Induct>>fs[lookup_tenv_def]>>rw[]>>
+  metis_tac[])
+ 
+val lookup_tenv_SOME = prove(``
+  ∀ls n tvs t.
+  (lookup_tenv x n ls = SOME(tvs,t) ⇒ 
+  ∀m. ∃tvs' t'. lookup_tenv x m ls = SOME(tvs',t'))``,
+  Induct>>fs[lookup_tenv_def]>>rw[]>>
+  metis_tac[])
+
+val tenv_invC_extend_tvar_empty_subst = Q.store_thm ("tenv_invC_extend_tvar_empty_subst",
+`!env tvs tenv.
+  tenv_ok tenv ∧
+  num_tvs tenv = 0 ∧   
+  tenv_invC FEMPTY env tenv ⇒ tenv_invC FEMPTY env (bind_tvar tvs tenv)`,
+  rw[]>>
+  fs [tenv_invC_def,lookup_tenv_def,bind_tvar_def,tenv_ok_def] >>
+  Cases_on`tvs=0`>>fs[lookup_tenv_def]
+  >-
+    metis_tac[]
+  >>
+  rw[]>>
+  imp_res_tac lookup_tenv_SOME>>
+  pop_assum (qspec_then`0` assume_tac)>>fs[]>>
+  imp_res_tac lookup_tenv_inc_tvs>>
+  metis_tac[])
 
 val letrec_lemma2 = Q.prove (
 `!funs_ts l l' s s'.
@@ -206,17 +242,94 @@ val infer_d_sound = Q.prove (
       qexists_tac `num_tvs tenv'` >>
           qexists_tac `convert_t (t_walkstar last_sub t)` >>
           qexists_tac `(convert_env last_sub env'')` >>
-          rw [] >|
-          [rw [empty_decls_def, convert_decls_def],
-           rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
+          CONJ_TAC >-
+            rw[empty_decls_def,convert_decls_def]>>
+          fs[]>>
+          CONJ_ASM1_TAC>-
+           (rw [ZIP_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
                REPEAT (pop_assum (fn _ => all_tac)) >> 
                induct_on `env''` >>
                rw [convert_env2_def, tenv_add_tvs_def, convert_env_def] >-
                (PairCases_on `h` >>
                     rw []) >>
-               rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem],
-           imp_res_tac infer_p_bindings >>
-               fs []]])
+               rw [MAP_MAP_o, combinTheory.o_DEF, remove_pair_lem])>>
+           CONJ_ASM1_TAC>-
+             (imp_res_tac infer_p_bindings >>fs [])
+           >>
+           (*Proof of generalization*)
+           rw[weakE_def] >>
+           Cases_on`ALOOKUP (tenv_add_tvs tvs' tenv'') x`>>fs[]>>
+           Cases_on`x'`>>fs[]>>
+           CASE_TAC>- 
+             (imp_res_tac ALOOKUP_FAILS>>
+             imp_res_tac ALOOKUP_MEM>>
+             imp_res_tac type_p_pat_bindings>>
+             fs[tenv_add_tvs_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
+             pop_assum sym_sub_tac>>
+             fs[Once LIST_EQ_REWRITE,MEM_EL,PULL_EXISTS,EL_MAP]>>
+             first_x_assum(qspec_then `n` mp_tac)>>simp[EL_MAP]>>
+             metis_tac[FST,PAIR_EQ,PAIR])
+           >>
+           Cases_on`x'`>>fs[]>>
+           Q.ISPECL_THEN [`tvs'`,`tenv''`,`bind_tvar tvs' (bind_var_list2 (convert_env2 env) Empty)`,`t'`,`p`,`menv`,`env`,`e`,`cenv`] mp_tac (GEN_ALL infer_pe_complete)>>
+           discharge_hyps>-
+             (fs[check_cenv_tenvC_ok,sub_completion_def,pure_add_constraints_def]>>
+             CONJ_TAC>-
+               (Cases_on`tvs'=0`>>fs[num_tvs_bvl2,num_tvs_def,bind_tvar_def])
+             >>
+             match_mp_tac tenv_invC_extend_tvar_empty_subst>>
+             fs[tenv_invC_convert_env2,num_tvs_bvl2,num_tvs_def]>>
+             match_mp_tac tenv_ok_bind_var_list2>>
+             fs[check_env_def,tenv_ok_def,check_env_def,convert_env2_def]>>
+             fs[EVERY_MAP,num_tvs_def,EVERY_MEM]>>rw[]>>
+             res_tac>>
+             PairCases_on`x'`>>fs[]>>
+             metis_tac[check_t_to_check_freevars])
+          >>
+          rw[]>>
+          imp_res_tac ALOOKUP_MEM>>
+          qpat_assum `A=tenv_add_tvs B C` sym_sub_tac >>
+          fs[convert_env2_def,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF]>>
+          fs[MEM_MAP,PULL_EXISTS]>>
+          fs[simp_tenv_invC_def,tenv_add_tvs_def,MEM_MAP,EXISTS_PROD]>>
+          fs[ALOOKUP_MAP]>>
+          res_tac>>
+          imp_res_tac generalise_subst>>
+          fs[]>>
+          `t_walkstar last_sub (SND x') = infer_subst s' (t_walkstar s (SND x'))` by
+           (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
+           fs[MEM_EL])>>
+          fs[sub_completion_def]>>
+          Q.ISPECL_THEN [`tvs'`,`s''`] mp_tac (GEN_ALL generalise_subst_exist)>>
+          discharge_hyps>-
+            (fs[init_infer_state_def]>>
+            `t_wfs FEMPTY` by fs[t_wfs_def]>>
+            imp_res_tac infer_e_wfs>>
+            imp_res_tac infer_p_wfs>>
+            imp_res_tac t_unify_wfs>>
+            rfs[]>>
+            CONJ_TAC>-
+              metis_tac[pure_add_constraints_wfs]
+            >>
+            Cases_on`tvs'=0`>>fs[bind_tvar_def,num_tvs_bvl2,num_tvs_def])
+          >>
+          rw[]>>
+          pop_assum (qspecl_then[`MAP (t_walkstar s) (MAP SND env'')`,`[]`,`FEMPTY`,`num_tvs tenv'`,`s'`,`MAP (t_walkstar last_sub) (MAP SND env'')`] mp_tac)>>
+         discharge_hyps_keep
+         >-
+           (
+           fs[MAP_MAP_o,combinTheory.o_DEF]>>
+           cheat)
+         >>
+         rw[]>>
+       qexists_tac`MAP convert_t subst'`>>fs[]>>
+       CONJ_TAC>-
+         cheat>>
+       CONJ_TAC>-
+         (fs[EVERY_MAP,EVERY_MEM]>>
+         metis_tac[check_t_to_check_freevars])
+       >>
+       cheat])
  >- (fs [success_eqns] >>
      `?tvs s ts. generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l)))) = (tvs,s,ts)`
                  by (cases_on `generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l))))` >>

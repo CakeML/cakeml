@@ -204,7 +204,7 @@ val tenv_alpha_empty = prove(``
   fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_def])
 
 val infer_d_complete = Q.prove (
-`!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
+`!mn (mdecls:'a list) tdecls edecls tenvT menv cenv d (mdecls':'a -> bool) tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
   tenv_ok (bind_var_list2 tenv Empty) ∧ 
   (*check_env ∅ tenv ∧ 
@@ -627,7 +627,7 @@ val tenv_alpha_bind_var_list2 = prove(``
   metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
 
 val infer_ds_complete = prove(``
-!ds mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
+!ds mn (mdecls:'a list) tdecls edecls tenvT menv cenv (mdecls':'a->bool) tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
   tenv_ok (bind_var_list2 tenv Empty) ∧ 
   check_env ∅ itenv ∧  
@@ -696,5 +696,66 @@ val infer_ds_complete = prove(``
   fs[append_decls_def]>>
   fs[check_env_def]>>
   metis_tac[tenv_alpha_bind_var_list2])
+
+(*TODO move to miscLib*)
+fun any_match_mp impth th = 
+  let
+    val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
+    val c = first(can (C match_term (concl th))) h
+    val th2 = impth
+      |> CONV_RULE (STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (equal c))))
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+  in
+    MATCH_MP th2 th  end
+
+val infer_top_complete = store_thm("infer_top_complete",``
+!top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv.
+  check_menv menv ∧
+  tenv_ok (bind_var_list2 tenv Empty) ∧ 
+  check_env ∅ itenv ∧  
+  tenvC_ok cenv ∧
+  tenvT_ok tenvT ∧ 
+  (*check_env ∅ tenv' ∧ *)
+  type_top T (set mdecls,set tdecls,set edecls) tenvT (convert_menv menv) cenv (bind_var_list2 tenv Empty) top (mdecls',tdecls',edecls') tenvT' menv' cenv' tenv' ∧
+  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧ 
+  menv_alpha 
+  ⇒
+  ?st' mdecls'' tdecls'' edecls'' itenv' menv''.
+    set mdecls'' = mdecls' ∧
+    set tdecls'' = tdecls' ∧
+    set edecls'' = edecls' ∧
+    infer_top (mdecls,tdecls,edecls) tenvT menv cenv itenv top st =
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', menv'', cenv', itenv'), st') ∧ 
+    (*for induction*)
+    tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧ 
+    MAP FST itenv' = MAP FST tenv' ∧  
+    (*maybe implied as well*)
+    check_env ∅ itenv' ∧ 
+    state_rel menv' menv''``,
+  rw [Once type_top_cases]>>
+  fs[infer_top_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
+  >-
+    (first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] infer_d_complete)))>>
+    rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
+    disch_then (qspecl_then [`st`] mp_tac)>>
+    rw[check_env_def]>>fs[PULL_EXISTS]>>cheat)
+  >>
+    first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] infer_ds_complete)))>>
+    PairCases_on`decls'` >>
+    rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
+    disch_then (qspecl_then [`st`] mp_tac)>>
+    rw[check_env_def]>>fs[PULL_EXISTS] >>
+    fs[check_signature_cases]
+    >-
+      (fs[check_signature_def,success_eqns,EXTENSION,tenv_alpha_empty]>>
+      cheat)
+    >>
+      fs[check_signature_def,success_eqns]
+
+    )
+
+
+    CONV_TAC (STRIP_QUANT_CONV (lift_conjunct_conv((same_const ``infer_d``) o fst o strip_comb)))
+    first_assum (match_exists_tac o concl)>>
 
 val _ = export_theory ();
