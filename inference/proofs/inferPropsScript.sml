@@ -2931,21 +2931,32 @@ rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
 fs [t_walkstar_FEMPTY] >>
 res_tac >>
 metis_tac []);
+*)
+
 
 val tenv_inv_convert_env2 = Q.store_thm ("tenv_inv_convert_env2",
-`!env. tenv_inv FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
-Induct >>
-rw [convert_env2_def, bind_var_list2_def, tenv_inv_def] >>
-PairCases_on `h` >>
-fs [] >>
-every_case_tac >>
-fs [] >>
-rw [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
-fs [tenv_inv_def] >>
-res_tac >>
-fs [t_walkstar_FEMPTY] >>
-metis_tac [convert_env2_def]);
-*)
+`∀env. check_env {} env ⇒ 
+ tenv_inv FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
+  Induct >>
+  rw [convert_env2_def, bind_var_list2_def, tenv_inv_def] >>
+  PairCases_on `h` >>
+  Cases_on`h0=x`>>fs[lookup_tenv_def,bind_var_list2_def,bind_tenv_def,check_env_def]>>
+  fs[deBruijn_inc0]
+  >-
+    (fs[check_t_to_check_freevars]>>
+    qexists_tac`MAP (Tvar_db) (COUNT_LIST tvs)` >>
+    fs[LENGTH_COUNT_LIST]>>
+    CONJ_TAC
+    >-
+      fs[EVERY_MAP,COUNT_LIST_GENLIST,EVERY_GENLIST,check_freevars_def]
+    >>
+    match_mp_tac (deBruijn_subst_id |> CONJUNCT1)>>
+    fs[check_t_to_check_freevars])
+  >>
+  fs[tenv_inv_def]>>
+  res_tac>>
+  Cases_on`check_t tvs {} t` >> fs[convert_env2_def])
+
 
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
@@ -3005,24 +3016,49 @@ val tenv_alpha_def = Define`
     (tenv_inv FEMPTY tenv tenvE ∧
     tenv_invC FEMPTY tenv tenvE)` 
 
-(*
+val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
+  ``(∀t.
+  check_t tvs {} t ⇒  
+  infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs) t = t) ∧ 
+  (∀ts.
+  EVERY (check_t tvs {}) ts ⇒  
+  MAP (infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs)) ts = ts)``,
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[]>>fs[check_t_def]
+  >-
+    fs[infer_deBruijn_subst_def]
+  >>
+    fs[infer_deBruijn_subst_def,EVERY_MEM]>>
+    metis_tac[])
+
 val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
 `!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
- Induct >>
- rw [convert_env2_def, bind_var_list2_def, tenv_invC_def, lookup_tenv_def] >>
- PairCases_on `h` >>
- fs [check_env_def] >>
- every_case_tac >>
- fs [] >>
- fs [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
- fs [tenv_invC_def] >>
- rw [] >>
- TRY (Cases_on `h0 = x`) >>
- fs [] >>
- rw [] >>
- res_tac >>
- fs [t_walkstar_FEMPTY] >>
- metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);*)
+  Induct >>
+  rw [convert_env2_def, bind_var_list2_def, tenv_invC_def] >>
+  fs[lookup_tenv_def]>>
+  PairCases_on `h` >>
+  Cases_on`h0=x`>>fs[lookup_tenv_def,bind_var_list2_def,bind_tenv_def,check_env_def]>>
+  fs[deBruijn_inc0]
+  >-
+    metis_tac[check_t_to_check_freevars]
+  >-
+    (fs[tenv_invC_def,convert_env2_def]>>
+    metis_tac[])
+  >-
+    (fs[check_t_to_check_freevars]>>
+    qexists_tac`GENLIST Infer_Tvar_db tvs` >>
+    fs[LENGTH_COUNT_LIST]>>
+    CONJ_TAC
+    >-
+      fs[EVERY_MAP,COUNT_LIST_GENLIST,EVERY_GENLIST,check_t_def]
+    >>
+    qpat_assum `A=t` (SUBST_ALL_TAC o SYM)>>
+    imp_res_tac check_t_empty_unconvert_convert_id>>
+    fs[]>>
+    match_mp_tac (infer_deBruijn_subst_id2 |> CONJUNCT1)>>
+    fs[check_t_to_check_freevars])
+  >>
+  fs[tenv_invC_def,convert_env2_def])
 
 val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
 ``(!t. infer_deBruijn_subst [] t = t) ∧ 

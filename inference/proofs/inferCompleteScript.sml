@@ -206,6 +206,7 @@ val tenv_alpha_empty = prove(``
 val infer_d_complete = Q.prove (
 `!mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
+  tenv_ok (bind_var_list2 tenv Empty) ∧ 
   (*check_env ∅ tenv ∧ 
   don't know what to put here, should be the equivalent of check_env for the 
   type system but not really tenv_ok*)
@@ -244,19 +245,8 @@ val infer_d_complete = Q.prove (
      fs[tenv_alpha_def,tenv_invC_def,bind_tvar_rewrites] >>
      rpt gen_tac >> strip_tac >>
      qmatch_assum_abbrev_tac`lookup_tenv x tvs tenvx = SOME y` >>
-     `tenv_ok tenvx ∧ num_tvs tenvx = 0` by (
-       conj_tac >- (
-         simp[Abbr`tenvx`] >>
-         match_mp_tac tenv_ok_bind_var_list2 >>
-         simp[typeSoundInvariantsTheory.tenv_ok_def,EVERY_MAP,UNCURRY] >>
-         simp[EVERY_MEM,FORALL_PROD] >> rw[] >>
-         simp[num_tvs_def] >>
-         cheat
-         (*See first comment in thm statement
-         match_mp_tac check_t_to_check_freevars >>
-         fs[check_env_def,EVERY_MEM,num_tvs_def] >>
-         res_tac >> fs[]*)) >>
-       simp[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] ) >>
+     `num_tvs tenvx = 0` by 
+       simp[Abbr`tenvx`,num_tvs_bvl2,num_tvs_def] >>
      qspecl_then[`tvs`,`FST y`,`tenvx`,`x`]mp_tac lookup_tenv_inc_tvs >>
      simp[Abbr`y`] >>
      disch_then(qspec_then`t'`mp_tac) >> simp[] >>
@@ -639,10 +629,7 @@ val tenv_alpha_bind_var_list2 = prove(``
 val infer_ds_complete = prove(``
 !ds mn mdecls tdecls edecls tenvT menv cenv d mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
   check_menv menv ∧
-  (*check_env ∅ tenv ∧ 
-  don't know what to put here, should be the equivalent of check_env for the 
-  type system but not really tenv_ok*)
-  (*This should be implied by the above and generalization condition*)
+  tenv_ok (bind_var_list2 tenv Empty) ∧ 
   check_env ∅ itenv ∧  
   tenvC_ok cenv ∧
   tenvT_ok tenvT ∧ 
@@ -695,6 +682,14 @@ val infer_ds_complete = prove(``
      metis_tac[tenv_alpha_bind_var_list2]>>
   `check_env {} (itenv'++itenv)` by 
     fs[check_env_def]>>
+  `tenv_ok (bind_var_list2 (tenv''++tenv) Empty)` by 
+    (fs[bind_var_list2_append]>>
+    match_mp_tac tenv_ok_bvl2>>
+    fs[typeSoundInvariantsTheory.tenv_ok_def,tenv_ok_bind_var_list2]>>
+    match_mp_tac (INST_TYPE [alpha|->``:'a->bool``,beta|->alpha] type_d_tenv_ok)>>
+    first_assum (match_exists_tac o concl)>>
+    first_assum (match_exists_tac o concl)>>
+    fs[num_tvs_bvl2,num_tvs_def])>>
   rpt
    (disch_then (fn th => first_x_assum (mp_tac o MATCH_MP th)))>>
   disch_then (qspec_then `st'` strip_assume_tac)>>
