@@ -3205,5 +3205,18 @@ val tenv_alpha_empty = store_thm("tenv_alpha_empty",``
   tenv_alpha [] (bind_var_list2 [] Empty)``,
   fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_def])
 
+val tenv_alpha_convert = store_thm("tenv_alpha_convert",
+  ``check_env ∅ tenv ⇒
+    tenv_alpha tenv (bind_var_list2 (convert_env2 tenv) Empty) ``,
+  rw[tenv_alpha_def,tenv_inv_convert_env2,tenv_invC_convert_env2])
+
+val menv_alpha_convert = store_thm("menv_alpha_convert",
+  ``check_menv menv ⇒ menv_alpha menv (convert_menv menv)``,
+  rw[menv_alpha_def,convert_menv_def,fmap_rel_OPTREL_FLOOKUP,optionTheory.OPTREL_def,FLOOKUP_o_f] >>
+  CASE_TAC >>
+  fs[check_menv_def,FEVERY_ALL_FLOOKUP] >>
+  res_tac >> fs[GSYM check_env_def] >>
+  rw[GSYM convert_env2_def, tenv_alpha_convert])
+
 val _ = export_theory ();
 
