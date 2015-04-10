@@ -108,21 +108,45 @@ val type_invariants_pres = Q.prove (
     check_cenv new_infer_cenv ∧
     check_env {} new_infer_env`
               by metis_tac [inferPropsTheory.infer_top_invariant] >>
-   rw []
+   CONJ_TAC
    >- rw [tenvT_ok_merge]
+   >> CONJ_TAC
    >- (fs [check_menv_def] >>
        match_mp_tac fevery_funion >>
        rw [])
-   >- (cases_on `new_infer_cenv` >>
+   >> CONJ_TAC
+   >- (rw[]>>
+       cases_on `new_infer_cenv` >>
        cases_on `rs.tenvC` >>
        fs [semanticPrimitivesTheory.merge_alist_mod_env_def, check_cenv_def, check_flat_cenv_def])
+   >> CONJ_TAC
    >- fs [check_env_def]
-   >- (
-     simp[tenvM_ok_def] >>
-     match_mp_tac fevery_funion >>
-     simp[GSYM tenvM_ok_def] >>
-     cheat)
-   >- cheat
+   >> CONJ_TAC
+   >- (CONJ_ASM1_TAC
+     >- (
+       simp[tenvM_ok_def] >>
+       match_mp_tac fevery_funion >>
+       simp[GSYM tenvM_ok_def] >>
+       fs[tenvM_ok_def,convert_menv_def,check_menv_def,FEVERY_o_f]>>
+       fs[FEVERY_DEF,tenv_ok_def]>>
+       rw[]>>
+       match_mp_tac tenv_ok_bind_var_list2>>
+       res_tac>>
+       fs[tenv_ok_def,EVERY_MAP,EVERY_MEM]>>rw[]>>
+       res_tac>>
+       PairCases_on`x'`>>
+       fs[num_tvs_def,check_t_to_check_freevars])
+     >>
+       fs[menv_alpha_def]>>match_mp_tac fmap_rel_FUNION_rels>>
+       simp[]>>
+       fs[fmap_rel_def]>>rw[]
+       >-
+         fs[convert_menv_def]
+       >>
+       fs[convert_menv_def,tenv_alpha_convert,GSYM convert_env2_def]>>
+       match_mp_tac tenv_alpha_convert>>
+       fs[check_menv_def,check_env_def]>>
+       fs[FEVERY_DEF])
    >- (
      simp[GSYM bind_var_list2_append] >>
      qexists_tac`convert_env2 new_infer_env ++ tenv` >>
@@ -135,10 +159,13 @@ val type_invariants_pres = Q.prove (
        fs[check_env_def,convert_env2_def,EVERY_MAP,UNCURRY] >>
        fs[EVERY_MEM,UNCURRY] >>
        metis_tac[check_t_to_check_freevars]) >>
-     cheat)
-   (*
-   >- rw [convert_menv_def, o_f_FUNION]
-   >- rw [bvl2_append, convert_env2_def]*));
+     match_mp_tac tenv_alpha_bind_var_list2>>rfs[]>>
+     rw[]
+     >-
+       metis_tac[tenv_alpha_convert]
+    >>
+      fs[convert_env2_def,MAP_MAP_o,EXTENSION]>>
+      fs[MEM_MAP,UNCURRY])) 
 
 val type_invariants_pres_err = Q.prove (
   `!rs rfs.
