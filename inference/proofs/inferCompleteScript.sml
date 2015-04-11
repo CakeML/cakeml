@@ -436,55 +436,6 @@ val infer_d_complete = Q.prove (`
  >- metis_tac []
  >- fs[tenv_alpha_empty]);
 
-val tenv_inv_bind_var_list2 = prove(``
-  tenv_inv FEMPTY itenv (bind_var_list2 tenv Empty) ∧
-  tenv_inv FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
-  set (MAP FST itenv) = set (MAP FST tenv)  
-  ⇒ 
-  tenv_inv FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
-  rw[tenv_inv_def]>>
-  fs[GSYM bvl2_lookup]>>
-  fs[ALOOKUP_APPEND]>>
-  Cases_on`ALOOKUP itenv x`>>fs[]
-  >-
-    (`ALOOKUP tenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
-    fs[])
-  >>
-    qpat_assum`x'=A` SUBST_ALL_TAC>>
-    res_tac>>
-    fs[])
-
-val tenv_invC_bind_var_list2 = prove(``
-  tenv_invC FEMPTY itenv (bind_var_list2 tenv Empty) ∧
-  tenv_invC FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
-  set (MAP FST itenv) = set (MAP FST tenv)  
-  ⇒ 
-  tenv_invC FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
-  rw[tenv_invC_def]>>
-  fs[GSYM bvl2_lookup]>>
-  fs[ALOOKUP_APPEND]>>
-  Cases_on `ALOOKUP tenv x`>>fs[]
-  >-
-    metis_tac[]
-  >-
-    metis_tac[]
-  >-
-    (`ALOOKUP itenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
-    fs[])
-  >>
-    qpat_assum`x'=A` SUBST_ALL_TAC>>
-    res_tac>>
-    fs[])
-
-val tenv_alpha_bind_var_list2 = store_thm("tenv_alpha_bind_var_list2",``
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
-  set (MAP FST itenv) = set (MAP FST tenv) ∧  
-  tenv_alpha itenv' (bind_var_list2 tenv' Empty)
-  ⇒ 
-  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
-  fs[tenv_alpha_def]>>
-  metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
-
 val infer_ds_complete = prove(``
 !ds mn (mdecls:'a list) tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv tenvM. 
   check_menv menv ∧

@@ -29,14 +29,19 @@ val check_env_tenv_ok = store_thm("check_env_tenv_ok",
   match_mp_tac tenv_ok_bind_var_list2 >> fs[tenv_ok_def] >>
   fs[EVERY_MEM,tenv_alpha_def] >>
   fs[FORALL_PROD,num_tvs_def]
-
-val check_menv_tenvM_ok = store_thm("check_menv_tenvM_ok",
-  ``check_menv menv ∧ menv_alpha menv tenvM ⇒ tenvM_ok tenvM``,
-  rw[tenvM_ok_def,check_menv_def,FEVERY_ALL_FLOOKUP] >>
-  fs[menv_alpha_def,fmap_rel_OPTREL_FLOOKUP,optionTheory.OPTREL_def] >>
-  rpt(first_x_assum(qspec_then`k`mp_tac)) >> rw[] >> fs[] >>
-  fs[GSYM check_env_def] >>
 *)
+
+val check_menv_convert_menv_tenvM_ok = store_thm("check_menv_convert_menv_tenvM_ok",
+  ``check_menv menv ⇒ tenvM_ok (convert_menv menv)``,
+  rw[tenvM_ok_def,check_menv_def,FEVERY_ALL_FLOOKUP,convert_menv_def,FLOOKUP_o_f] >>
+  Cases_on`FLOOKUP menv k`>>fs[]>>
+  res_tac>>
+  match_mp_tac tenv_ok_bind_var_list2>>
+  fs[tenv_ok_def,num_tvs_def]>>
+  rpt (qpat_assum`A=B` (SUBST_ALL_TAC o SYM))>>
+  fs[EVERY_MAP,EVERY_MEM]>>rw[]>>res_tac>>
+  PairCases_on`x'`>>fs[]>>
+  metis_tac[check_t_to_check_freevars])
 
 (* -- *)
 
@@ -1198,7 +1203,7 @@ val convert_invariants = Q.prove (
  rw [GSYM PULL_EXISTS]
  >- (
    fs [type_infer_invariants_def, infer_sound_invariant_def, convert_decls_def] >>
-   cheat )
+   metis_tac[check_menv_convert_menv_tenvM_ok])
  >- fs [convert_decls_def]
  >- metis_tac []
  >- metis_tac [code_labels_ok_local_to_all,contains_primitives_MEM_Label,env_rs_def]

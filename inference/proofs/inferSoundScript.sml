@@ -317,16 +317,62 @@ val infer_d_sound = Q.prove (
          >-
            (
            fs[MAP_MAP_o,combinTheory.o_DEF]>>
-           cheat)
+           fs[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
+           fs[GSYM FORALL_AND_THM]>>fs[GSYM IMP_CONJ_THM]>>
+           ntac 2 strip_tac>>
+           CONJ_ASM2_TAC
+           >-
+             metis_tac[check_t_t_vars]
+           >>
+           last_x_assum (qspec_then `x` assume_tac)>>rfs[]>>
+           fs[UNCURRY]>>
+           match_mp_tac t_walkstar_check>> fs[]>>
+           reverse CONJ_TAC>-
+           (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+           HINT_EXISTS_TAC>>
+           fs[])
+           >>
+           match_mp_tac (check_s_more3 |> MP_CANON)>>
+           qexists_tac `count st''''.next_uvar`>>
+           fs[]>>
+           match_mp_tac t_unify_check_s>>
+           CONV_TAC (STRIP_QUANT_CONV (lift_conjunct_conv is_eq)) >>
+           first_assum (match_exists_tac o concl)>>
+           fs[]>>rw[]
+           >-
+             (match_mp_tac (check_t_more5|>CONJUNCT1|>MP_CANON)>>
+             qexists_tac`count st'''.next_uvar`>>
+             fs[]>>
+             imp_res_tac infer_e_next_uvar_mono>>
+             imp_res_tac infer_p_next_uvar_mono>>
+             fs[SUBSET_DEF]>>
+             DECIDE_TAC)
+          
+           >-
+             (match_mp_tac (infer_p_check_s|>CONJUNCT1)>>
+             first_assum (match_exists_tac o concl)>>
+             fs[]>>
+             match_mp_tac (infer_e_check_s|>CONJUNCT1)>>
+             first_assum (match_exists_tac o concl)>>
+             fs[check_s_def])
+           >>
+           `t_wfs FEMPTY` by fs[t_wfs_def]>>
+           imp_res_tac infer_p_wfs >>
+           imp_res_tac infer_e_wfs>>fs[])
          >>
          rw[]>>
        qexists_tac`MAP convert_t subst'`>>fs[]>>
        CONJ_TAC>-
-         cheat>>
+         (match_mp_tac check_t_to_check_freevars>>
+         fs[]>>
+         qpat_assum `A=infer_subst B C` sym_sub_tac>>
+         (*Should be obvious but I don't know the easiest way*)
+         cheat)>>
        CONJ_TAC>-
          (fs[EVERY_MAP,EVERY_MEM]>>
          metis_tac[check_t_to_check_freevars])
        >>
+       (*need lemmas to go back to infer_deBruijn_subst*)
        cheat])
  >- (fs [success_eqns] >>
      `?tvs s ts. generalise_list st'''.next_uvar 0 FEMPTY (MAP (t_walkstar st'''''.subst) (MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH l)))) = (tvs,s,ts)`
@@ -456,7 +502,11 @@ val infer_ds_sound = Q.prove (
      fs[check_env_def,convert_env2_def,EVERY_MAP] >>
      fs[EVERY_MEM,UNCURRY] >>
      metis_tac[check_t_to_check_freevars] ) >>
-   cheat ) >>
+   match_mp_tac tenv_alpha_bind_var_list2>>
+   rw[]>-
+     metis_tac[tenv_alpha_convert]
+   >> 
+   fs[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD,convert_env2_def])>>
  strip_tac >>
  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))) >>
  first_assum(match_exists_tac o concl) >> simp[] >>
@@ -859,7 +909,24 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          cases_on `o'` >>
          fs [check_signature_def, success_eqns] >>
          rw [])
-     >- cheat
+     >- 
+       (fs[success_eqns]>>
+       `check_menv menv'` by 
+         (qpat_assum`A=menv'` sym_sub_tac>>
+         fs[check_menv_def,FEVERY_DEF]>>
+         Cases_on`o'`>>fs[check_signature_def,success_eqns]
+         >-
+           metis_tac[check_env_def]
+         >>
+         PairCases_on`v'`>>fs[success_eqns]>>
+         `check_env {} env'''` by 
+            (`flat_tenvT_ok FEMPTY` by fs[flat_tenvT_ok_def,FEVERY_FEMPTY]>>
+            `check_env {} env'` by metis_tac[check_env_def]>>
+            imp_res_tac check_specs_check)>>
+         fs[check_env_def])>>
+       imp_res_tac menv_alpha_convert>>
+       fs[menv_alpha_def]>>
+       match_mp_tac fmap_rel_FUNION_rels>>fs[])
      >>
      fs[UNCURRY,success_eqns] >>
      rw[convert_env2_def]) >>
@@ -884,7 +951,12 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
    rw[num_tvs_bvl2,num_tvs_def,convert_env2_def,EVERY_MAP] >>
    fs[EVERY_MEM,UNCURRY,check_env_def] >>
    metis_tac[check_t_to_check_freevars])
- >- cheat);
+ >- 
+   (match_mp_tac tenv_alpha_bind_var_list2>>
+   rw[]>-
+     metis_tac[tenv_alpha_convert,infer_d_check]
+   >> 
+   fs[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD,convert_env2_def]));
 
 val infer_prog_sound = Q.store_thm ("infer_prog_sound",
 `!decls tenvT menv tenvM cenv env tenv prog st1 decls' tenvT' menv' cenv' env' st2.
