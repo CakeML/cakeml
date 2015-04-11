@@ -2531,7 +2531,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
  rpt gen_tac >>
  `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
  cases_on `top`
- >- (cases_on `o'` 
+ >- (cases_on `o'`
      >- (rw [infer_top_def, success_eqns] >>
          `?decls'' tenvT'' cenv'' env''. v' = (decls'',tenvT'',cenv'',env'')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
@@ -2552,7 +2552,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
          fs [check_signature_def, success_eqns] >>
          `?decls'''' tenvT'''' cenv'''' env''''. v''' = (decls'''',tenvT'''',cenv'''',env'''')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
-         `flat_tenvT_ok (FEMPTY:flat_tenvT) ∧ check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) alist)` 
+         `flat_tenvT_ok (FEMPTY:flat_tenvT) ∧ check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) alist)`
                    by rw [check_env_def, check_flat_cenv_def, flat_tenvT_ok_def, FEVERY_FEMPTY] >>
          `flat_tenvT_ok tenvT''' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by metis_tac [check_specs_check] >>
          rw [check_menv_def, check_env_def] >>
@@ -2579,7 +2579,7 @@ val convert_t_def = tDefine "convert_t" `
  decide_tac);
 
 val convert_menv_def = Define `
-convert_menv menv = 
+convert_menv menv =
   MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) o_f menv`;
 
 val convert_env_def = Define `
@@ -2609,7 +2609,7 @@ rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
 fs [EVERY_MEM]);
 
 val convert_inc = Q.store_thm ("convert_inc",
-`!t tvs tvs'. 
+`!t tvs tvs'.
   check_t tvs' {} t
   ⇒
   (convert_t (infer_deBruijn_inc tvs t) = deBruijn_inc 0 tvs (convert_t t))`,
