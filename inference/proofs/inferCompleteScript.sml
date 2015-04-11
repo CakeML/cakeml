@@ -66,8 +66,8 @@ val generalise_uvars = prove(
 
 val infer_d_complete = Q.prove (`
 !mn (mdecls:'a list) tdecls edecls tenvT menv cenv d (mdecls':'a->bool) tdecls' edecls' tenvT' cenv' tenv tenv' st itenv tenvM.
-  tenv_ok (bind_var_list2 tenv Empty) ∧ 
-  tenvM_ok tenvM ∧ 
+  tenv_ok (bind_var_list2 tenv Empty) ∧
+  tenvM_ok tenvM ∧
   check_env ∅ itenv ∧
   tenvC_ok cenv ∧
   tenvT_ok tenvT ∧
@@ -75,7 +75,7 @@ val infer_d_complete = Q.prove (`
   tenvC_ok cenv ∧
   type_d T mn (set mdecls,set tdecls,set edecls) tenvT tenvM cenv (bind_var_list2 tenv Empty) d (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
   tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
-  menv_alpha menv tenvM 
+  menv_alpha menv tenvM
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv'.
     set mdecls'' = mdecls' ∧
@@ -417,7 +417,43 @@ val infer_d_complete = Q.prove (`
      first_x_assum(qspec_then `t''''` SUBST_ALL_TAC)>>
      metis_tac[check_freevars_empty_convert_unconvert_id,t_walkstar_no_vars])
  (* generalised letrec *)
- >- cheat
+ >- (
+   simp[PULL_EXISTS] >>
+   imp_res_tac type_funs_distinct >> fs[FST_triple] >>
+   imp_res_tac type_funs_MAP_FST >>
+   simp[init_infer_state_def,ETA_AX] >>
+   qpat_abbrev_tac`itenv2 = x ++ itenv` >>
+   qpat_abbrev_tac`st:(num|->infer_t)infer_st = X Y` >>
+   `st.subst = FEMPTY` by simp[Abbr`st`] >>
+   `t_wfs st.subst` by simp[t_wfs_def] >>
+   `st.next_uvar = LENGTH funs` by ( simp[Abbr`st`] ) >>
+   simp[LENGTH_COUNT_LIST] >>
+   first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_complete))) >>
+   simp[num_tvs_bind_var_list] >>
+   qabbrev_tac`s = FUN_FMAP (unconvert_t o combin$C EL (MAP SND tenv'')) (count (LENGTH funs))` >>
+   qpat_abbrev_tac`ntv = num_tvs X` >>
+   `ntv = tvs` by (
+     simp[Abbr`ntv`,bind_tvar_def] >>
+     rw[num_tvs_def,num_tvs_bvl2] ) >>
+   qunabbrev_tac`ntv` >> simp[] >>
+   qabbrev_tac`cs = GENLIST (λn. (Infer_Tuvar n,unconvert_t (SND (EL n tenv'')))) (LENGTH tenv'')` >>
+   disch_then(qspecl_then[`s`,`menv`,`itenv2`,`st`,`cs`]mp_tac) >>
+   discharge_hyps >- (
+     simp[] >>
+     conj_tac >- (
+       simp[Abbr`itenv2`,MAP2_MAP,LENGTH_COUNT_LIST,check_env_merge] >>
+       reverse conj_tac >- (
+         match_mp_tac (MP_CANON check_env_more) >>
+         qexists_tac`0` >> simp[] >> simp[check_env_def] ) >>
+       simp[check_env_def,EVERY_MAP] >>
+       simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS] >>
+       simp[EL_COUNT_LIST,check_t_def] ) >>
+     conj_tac >- cheat >>
+     conj_tac >- simp[Abbr`s`] >>
+     simp[tenv_invC_def] >>
+     cheat ) >>
+   strip_tac >> simp[] >>
+   cheat)
  (* Type definition *)
  >- (rw [PULL_EXISTS] >>
      PairCases_on `tenvT` >>
