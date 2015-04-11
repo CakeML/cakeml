@@ -68,7 +68,7 @@ invariant' se ce bs ⇔
                            se.sem_envC,
                            se.sem_envE,
                            s) ∧
-    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
+    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM (convert_menv ce.inf_tenvM) ce.inf_tenvC ce.inf_tenvE (convert_env2 ce.inf_tenvE) ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
     bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ code_executes_ok' bs`;
@@ -89,7 +89,7 @@ invariant se ce bs ⇔
                            se.sem_envC,
                            se.sem_envE,
                            s) ∧
-    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM ce.inf_tenvC ce.inf_tenvE ∧
+    infer_sound_invariant ce.inf_tenvT ce.inf_tenvM (convert_menv ce.inf_tenvM) ce.inf_tenvC ce.inf_tenvE (convert_env2 ce.inf_tenvE) ∧
     mdecls = set ce.inf_mdecls ∧
     env_rs (se.sem_envM, se.sem_envC, se.sem_envE) se.sem_store (genv,gtagenv,rd) ce.comp_rs bs ∧
     bs.output = "" ∧ bs.clock = NONE ∧ code_labels_ok (local_labels bs.code) ∧ init_code_executes_ok bs`;
@@ -408,6 +408,9 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
  >- rw [tenvT_ok_def, flat_tenvT_ok_def, infer_sound_invariant_def,check_menv_def,
         check_cenv_def,check_flat_cenv_def,check_freevars_def, FEVERY_FUPDATE, 
         check_env_def, check_freevars_def, type_subst_def, FEVERY_FEMPTY,
+        convert_menv_def,convert_env2_def,
+        menv_alpha_def,tenv_alpha_empty,
+        SIMP_CONV std_ss [tenv_ok_def,bind_var_list2_def] ``tenv_ok (bind_var_list2 [] Empty)``,
         FLOOKUP_UPDATE]
  >- (simp[compilerProofTheory.env_rs_def,LENGTH_NIL_SYM] >>
      qexists_tac`
