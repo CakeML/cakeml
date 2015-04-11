@@ -476,7 +476,7 @@ val tenv_invC_bind_var_list2 = prove(``
     res_tac>>
     fs[])
 
-val tenv_alpha_bind_var_list2 = prove(``
+val tenv_alpha_bind_var_list2 = store_thm("tenv_alpha_bind_var_list2",``
   tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
   set (MAP FST itenv) = set (MAP FST tenv) ∧  
   tenv_alpha itenv' (bind_var_list2 tenv' Empty)
