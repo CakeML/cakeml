@@ -455,7 +455,7 @@ val infer_d_complete = Q.prove (`
        simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS] >>
        simp[EL_COUNT_LIST,check_t_def] ) >>
       fs[init_infer_state_def]>>
-      `LENGTH tenv'' = LENGTH funs` by 
+      `LENGTH tenv'' = LENGTH funs` by
         metis_tac[LENGTH_MAP]>>
       rw[]
       >-
@@ -466,8 +466,54 @@ val infer_d_complete = Q.prove (`
         metis_tac[check_freevars_to_check_t])
       >>
         fs[Abbr`itenv2`,tenv_invC_def]>>
-        (*tricky ALOOKUP stuff..., should be true because we bind 0
-          on both sides (so the latter case of tenv_invC applies)*)
+        simp[GSYM bvl2_to_bvl,lookup_bvl2,bind_tvar_rewrites, deBruijn_inc0,lookup_tenv_def] >>
+        `LENGTH tys = LENGTH funs` by simp[Abbr`tys`,LENGTH_COUNT_LIST] >>
+        simp[MAP2_MAP,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+        simp[tenv_add_tvs_def,ALOOKUP_MAP] >>
+        rpt gen_tac >>
+        Cases_on`ALOOKUP tenv'' x` >> simp[] >- (
+          CASE_TAC >> simp[] >>
+          CASE_TAC >> simp[] >>
+          strip_tac >>
+          `t = r` by (
+            imp_res_tac lookup_freevars >>
+            metis_tac[nil_deBruijn_inc] ) >>
+          conj_tac >- metis_tac[lookup_freevars] >>
+          simp[ALOOKUP_APPEND] >>
+          reverse CASE_TAC >- (
+            imp_res_tac ALOOKUP_MEM >>
+            `MEM x (MAP FST funs)` by (
+              rfs[MEM_MAP,MEM_ZIP,MEM_EL] >>
+              metis_tac[] ) >>
+            imp_res_tac ALOOKUP_FAILS >>
+            rfs[] >>
+            fs[MEM_MAP,EXISTS_PROD] ) >>
+          fs[tenv_alpha_def,tenv_invC_def,bvl2_lookup] >>
+          first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+          strip_tac >> simp[] >>
+          CASE_TAC >- metis_tac[] >>
+          imp_res_tac ALOOKUP_MEM >>
+          fs[EVERY_MEM,FORALL_PROD] >>
+          metis_tac[] ) >>
+        strip_tac >> rpt VAR_EQ_TAC >>
+        first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+        simp[num_tvs_bind_var_list] >>
+        simp[bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def] >>
+        strip_tac >> conj_tac >- metis_tac[] >>
+        simp[ALOOKUP_APPEND] >>
+        CASE_TAC >- (
+          imp_res_tac ALOOKUP_FAILS >>
+          imp_res_tac ALOOKUP_MEM >>
+          `MEM x (MAP FST funs)` by (
+            simp[] >>
+            simp[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+            metis_tac[] ) >>
+          rfs[MEM_MAP,MEM_ZIP,EXISTS_PROD,MEM_EL] >>
+          metis_tac[] ) >>
+        Cases_on`x'`>>simp[] >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP] >>
+        simp[check_t_def] >>
         cheat)
    >>
    rw[]>>

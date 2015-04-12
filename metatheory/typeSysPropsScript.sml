@@ -878,6 +878,16 @@ val bvl2_lookup = Q.store_thm ("bvl2_lookup",
  PairCases_on `h` >>
  rw [bind_var_list2_def, lookup_tenv_def, bind_tenv_def, deBruijn_inc0]);
 
+val lookup_bvl2 = store_thm("lookup_bvl2",
+ ``∀n tenv tenv2. lookup_tenv n m (bind_var_list2 tenv tenv2) =
+                  case ALOOKUP tenv n of
+                  | SOME (x,y) => SOME (x,deBruijn_inc x m y)
+                  | NONE => lookup_tenv n m tenv2``,
+  induct_on`tenv` >>
+  rw[bind_var_list2_def, lookup_tenv_def] >>
+  PairCases_on`h` >>
+  rw[bind_var_list2_def, lookup_tenv_def, bind_tenv_def])
+
 val bvl2_append = Q.store_thm ("bvl2_append",
 `!tenv1 tenv3 tenv2.
   (bind_var_list2 (tenv1 ++ tenv2) tenv3 = 
