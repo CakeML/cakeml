@@ -17934,8 +17934,7 @@ val zREPL_CORRECT = store_thm("zREPL_CORRECT",
       (T_IMPLIES (NOW (INIT_STATE init * (¬zS * zPC p)))
         (T_DISJ (EVENTUALLY (NOW (zHEAP_ERROR (full_cs init p))))
            (T_EXISTS output.
-              T_CONJ (T_BOOL (repl basis_repl_env
-                         (get_type_error_mask output) init.init_input output))
+              T_CONJ (T_BOOL (repl basis_repl_env init.init_input output))
                 (if diverges output then
                   zBYTECODE_DIVERGED (repl_output output) (full_cs init p,p)
                 else
