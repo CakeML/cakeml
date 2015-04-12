@@ -28,7 +28,7 @@ t_wfs s'``,
   metis_tac[SUBMAP_DEF,SUBSET_DEF,SUBMAP_t_compat,SUBMAP_TRANS])
 
 (*t_compat is preserved over certain types of pure_add_constraints*)
-val t_compat_pure_add_constraints_1 = prove(
+val t_compat_pure_add_constraints_1 = store_thm("t_compat_pure_add_constraints_1",
 ``!ls s sx.
   t_compat s sx ∧ EVERY (\x,y. t_walkstar sx x = t_walkstar sx y) ls
   ⇒ 
@@ -593,7 +593,7 @@ val submap_t_walkstar_replace = prove(
 (*Generalize extend_one_props
   ts is a list of types given by the type system
 *)
-val extend_multi_props = prove(
+val extend_multi_props = store_thm("extend_multi_props",
 ``!st constraints s ts n.  
   t_wfs st.subst ∧ 
   t_wfs s ∧ 

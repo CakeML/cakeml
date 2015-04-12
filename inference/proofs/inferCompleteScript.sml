@@ -421,6 +421,7 @@ val infer_d_complete = Q.prove (`
    simp[PULL_EXISTS] >>
    imp_res_tac type_funs_distinct >> fs[FST_triple] >>
    imp_res_tac type_funs_MAP_FST >>
+   imp_res_tac type_funs_Tfn>>
    simp[init_infer_state_def,ETA_AX] >>
    qpat_abbrev_tac`itenv2 = x ++ itenv` >>
    qpat_abbrev_tac`st:(num|->infer_t)infer_st = X Y` >>
@@ -428,19 +429,24 @@ val infer_d_complete = Q.prove (`
    `t_wfs st.subst` by simp[t_wfs_def] >>
    `st.next_uvar = LENGTH funs` by ( simp[Abbr`st`] ) >>
    simp[LENGTH_COUNT_LIST] >>
+   `EVERY (check_freevars tvs []) (MAP SND tenv'')` by
+     (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
+     rw[]>>
+     `ALOOKUP tenv'' p_1 = SOME e` by 
+       metis_tac[ALOOKUP_ALL_DISTINCT_MEM]>>
+     res_tac>>
+     fs[num_tvs_bind_var_list,bind_tvar_def]>>
+     Cases_on`tvs=0`>>fs[num_tvs_bvl2,num_tvs_def])>>
+   Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP SND tenv''`,`tvs`] mp_tac extend_multi_props>>
+   discharge_hyps>-
+       fs[init_infer_state_def,t_wfs_def,pure_add_constraints_def,count_def]
+   >>
+   LET_ELIM_TAC>>
    first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_complete))) >>
-   simp[num_tvs_bind_var_list] >>
-   qabbrev_tac`s = FUN_FMAP (unconvert_t o combin$C EL (MAP SND tenv'')) (count (LENGTH funs))` >>
-   qpat_abbrev_tac`ntv = num_tvs X` >>
-   `ntv = tvs` by (
-     simp[Abbr`ntv`,bind_tvar_def] >>
-     rw[num_tvs_def,num_tvs_bvl2] ) >>
-   qunabbrev_tac`ntv` >> simp[] >>
-   qabbrev_tac`cs = GENLIST (λn. (Infer_Tuvar n,unconvert_t (SND (EL n tenv'')))) (LENGTH tenv'')` >>
-   disch_then(qspecl_then[`s`,`menv`,`itenv2`,`st`,`cs`]mp_tac) >>
-   discharge_hyps >- (
-     simp[] >>
-     conj_tac >- (
+   disch_then(qspecl_then[`s'`,`menv`,`itenv2`,`st`,`new_constraints`]mp_tac) >>
+   discharge_hyps>-
+      (fs[]>>
+      conj_tac >- (
        simp[Abbr`itenv2`,MAP2_MAP,LENGTH_COUNT_LIST,check_env_merge] >>
        reverse conj_tac >- (
          match_mp_tac (MP_CANON check_env_more) >>
@@ -448,11 +454,66 @@ val infer_d_complete = Q.prove (`
        simp[check_env_def,EVERY_MAP] >>
        simp[EVERY_MEM,MEM_ZIP,FORALL_PROD,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS] >>
        simp[EL_COUNT_LIST,check_t_def] ) >>
-     conj_tac >- cheat >>
-     conj_tac >- simp[Abbr`s`] >>
-     simp[tenv_invC_def] >>
-     cheat ) >>
-   strip_tac >> simp[] >>
+      fs[init_infer_state_def]>>
+      `LENGTH tenv'' = LENGTH funs` by 
+        metis_tac[LENGTH_MAP]>>
+      rw[]
+      >-
+        (fs[sub_completion_def]>>
+        fs[num_tvs_bind_var_list,bind_tvar_def]>>
+        IF_CASES_TAC>>fs[num_tvs_bvl2,num_tvs_def]>>
+        fs[Abbr`targs`,EL_MAP,EVERY_EL]>>
+        metis_tac[check_freevars_to_check_t])
+      >>
+        fs[Abbr`itenv2`,tenv_invC_def]>>
+        (*tricky ALOOKUP stuff..., should be true because we bind 0
+          on both sides (so the latter case of tenv_invC applies)*)
+        cheat)
+   >>
+   rw[]>>
+   imp_res_tac infer_funs_length>>
+   fs[sub_completion_def]>>
+   `t_compat st'.subst s''` by 
+     metis_tac[pure_add_constraints_success,infer_e_wfs]>>
+   imp_res_tac t_compat_pure_add_constraints_1>>
+   pop_assum kall_tac>>
+   qpat_abbrev_tac `ls:(infer_t#infer_t)list = ZIP (A,B)`>>
+   first_x_assum(qspec_then`ls` mp_tac)>>discharge_hyps>-
+     (fs[Abbr`ls`]>>
+     fs[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,PULL_EXISTS]>>
+     rw[]>>
+     fs[EL_MAP,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
+     `LENGTH tenv'' = LENGTH env'` by metis_tac[LENGTH_MAP]>>
+     last_x_assum(qspec_then`n` assume_tac)>>
+     rfs[init_infer_state_def]>>
+     fs[t_compat_def,Abbr`targs`,EL_MAP]>>
+     fs[EL_MAP,MAP_MAP_o]>>
+     (*Using 35,43 and observing that t_walkstar s''
+       is ID under unconvert and convert*)
+     cheat)>>
+   rw[]>>
+   qexists_tac`<|next_uvar:=st'.next_uvar;subst:=si|>`>>fs[]>>
+   qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
+   `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
+   reverse (rw[])
+   >-
+     cheat
+   >-
+     cheat
+   >>
+   simp[tenv_alpha_def]>>
+   CONJ_TAC>-
+     (fs[tenv_inv_def]>>
+     (*Generalization needed here:
+       then show that
+       whatever we got from the inferencer type checks in the
+       type system at the expression level
+       ⇒ the type system's generalizes it
+     *)
+     cheat)
+   >>
+   fs[tenv_invC_def]>>
+   (*Should be same as generalized lets*)
    cheat)
  (* Type definition *)
  >- (rw [PULL_EXISTS] >>
