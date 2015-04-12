@@ -578,8 +578,59 @@ val infer_d_complete = Q.prove (`
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
    reverse (rw[])
-   >-
-     cheat
+   >- (
+     (* the use of generalise_complete here should probably be moved out for use in the second subgoal too *)
+     first_assum(mp_tac o MATCH_MP(
+       pure_add_constraints_check_s
+       |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))))
+       |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+     simp[AND_IMP_INTRO] >>
+     disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >>
+     discharge_hyps >- (
+       `check_env (count st.next_uvar) itenv2` by (
+         simp[Abbr`itenv2`,check_env_def,MAP2_MAP,LENGTH_COUNT_LIST] >>
+         reverse conj_tac >- (
+           simp[EVERY_MEM] >>
+           fs[FORALL_PROD] >>
+           rw[] >>
+           match_mp_tac(MP_CANON(CONJUNCT1 check_t_more5)) >>
+           fs[EVERY_MEM,FORALL_PROD] >>
+           res_tac >> HINT_EXISTS_TAC >> simp[] ) >>
+         simp[EVERY_MAP,UNCURRY] >>
+         simp[EVERY_MEM,MEM_ZIP,Abbr`tys`,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
+         simp[check_t_def] ) >>
+       reverse conj_tac >- (
+         match_mp_tac(last(CONJUNCTS infer_e_wfs)) >>
+         first_assum(match_exists_tac o concl) >>
+         simp[] ) >>
+       reverse conj_tac >- (
+         match_mp_tac(last(CONJUNCTS infer_e_check_s)) >>
+         first_assum(match_exists_tac o concl) >>
+         simp[GSYM check_cenv_tenvC_ok,check_s_def] ) >>
+       simp[Abbr`ls`,EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS,EL_COUNT_LIST] >>
+       simp[check_t_def] >>
+       imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
+       rw[] >- DECIDE_TAC >>
+       imp_res_tac(last(CONJUNCTS infer_e_check_t)) >>
+       fs[EVERY_MEM,PULL_EXISTS,MEM_EL] >>
+       res_tac >> imp_res_tac check_t_more2 >> fs[] ) >>
+     strip_tac >>
+     first_assum(mp_tac o MATCH_MP(
+       generalise_complete
+       |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))
+       |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+     disch_then(qspec_then`st'.next_uvar`mp_tac) >>
+     simp[AND_IMP_INTRO] >>
+     discharge_hyps >- (
+       simp[EVERY_MAP,check_t_def] >>
+       simp[EVERY_MEM,MEM_COUNT_LIST] >>
+       imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
+       rw[] >- DECIDE_TAC >>
+       metis_tac[pure_add_constraints_wfs,infer_e_wfs]) >>
+     rw[] >>
+     simp[MAP2_MAP,LENGTH_COUNT_LIST,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+     simp[EVERY_MAP] >>
+     cheat)
    >-
      cheat
    >>
