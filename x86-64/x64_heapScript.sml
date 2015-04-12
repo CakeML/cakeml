@@ -11057,6 +11057,14 @@ val x64_print_stack_IF = prove(
   \\ MATCH_MP_TAC x64_print_stack_thm
   \\ fs [EVERY_ORD_int_to_str]);
 
+fun exists_inst var q =
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars[var])) \\ Q.EXISTS_TAC q
+
+val bignum_blast_lemma = blastLib.BBLAST_PROVE
+  ``((7w && 8w * w + v = 0w) <=> (7w && v = 0w:word64)) /\
+    ((7w && 8w * w + v2 + v = 0w) <=> (7w && v2 + v = 0w:word64)) /\
+    ((7w && w = 0w) ==> ((7w && (w + v) = 0w) <=> (7w && v = 0w)))``
+
 val zHEAP_PERFORM_BIGNUM = let
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
                 |> UNDISCH_ALL |> Q.INST [`rip`|->`p`]
@@ -11184,6 +11192,10 @@ val zHEAP_PERFORM_BIGNUM = let
           \\ DECIDE_TAC)
         \\ REPEAT STRIP_TAC \\ fs [EVAL ``x64_header (F,[])``]
         \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC, APPEND, x64_print_stack_IF]
+        \\ exists_inst "q"
+             `FST (mwi_op (n2iop (getNumber x4)) (F,[]) (F,[]:word64 list))`
+        \\ exists_inst "qs" `SND (mwi_op (n2iop (getNumber x4)) (F,[]) (F,[]))`
+        \\ fs [bignum_blast_lemma,GSYM word_mul_n2w,heap_vars_ok_def]
 
 
 *)
