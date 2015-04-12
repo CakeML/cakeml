@@ -536,15 +536,76 @@ val infer_d_sound = Q.prove (
      rw [] >|
      [rw [empty_decls_def, convert_decls_def],
       rw [LENGTH_MAP, LENGTH_COUNT_LIST, MAP2_MAP, MAP_MAP_o, combinTheory.o_DEF] >>
-          REPEAT (pop_assum (fn _ => all_tac)) >> 
+          REPEAT (pop_assum (fn _ => all_tac)) >>
           induct_on `l` >>
           rw [COUNT_LIST_def, tenv_add_tvs_def, convert_env_def, convert_env2_def] >-
           (PairCases_on `h` >> rw []) >>
           rw [MAP_MAP_o, MAP2_MAP, ZIP_MAP, LENGTH_COUNT_LIST, combinTheory.o_DEF, remove_pair_lem],
       `LENGTH l = LENGTH funs_ts` by fs [LENGTH_COUNT_LIST] >>
           fs [MAP_ZIP, LENGTH_COUNT_LIST, MAP_MAP_o, combinTheory.o_DEF] >>
-          metis_tac [letrec_lemma2, LENGTH_COUNT_LIST, LENGTH_MAP, 
-                     pure_add_constraints_wfs, sub_completion_apply]])
+          metis_tac [letrec_lemma2, LENGTH_COUNT_LIST, LENGTH_MAP,
+                     pure_add_constraints_wfs, sub_completion_apply],
+      (*Proof of generalization*)
+      ntac 4 (qpat_assum`∀ts s2. P ts s2`kall_tac) >>
+          rw[weakE_def] >>
+          Cases_on`ALOOKUP (tenv_add_tvs tvs' tenv''') x`>>fs[]>>
+          Cases_on`x'`>>fs[]>>
+          CASE_TAC>-(
+            imp_res_tac ALOOKUP_FAILS>>
+            imp_res_tac ALOOKUP_MEM>>
+            imp_res_tac type_funs_MAP_FST >>
+            ntac 2 (pop_assum mp_tac) >>
+            simp[Once LIST_EQ_REWRITE,EL_MAP,GSYM AND_IMP_INTRO] >>
+            ntac 2 strip_tac >> fs[LENGTH_COUNT_LIST] >>
+            disch_then kall_tac >>
+            fs[tenv_add_tvs_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
+            fs[MAP2_MAP,MEM_MAP,PULL_EXISTS,EXISTS_PROD,LENGTH_COUNT_LIST] >>
+            fs[MEM_ZIP,LENGTH_COUNT_LIST,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+            fs[MEM_EL] >>
+            metis_tac[FST,PAIR,PAIR_EQ])
+           >>
+           Cases_on`x'`>>fs[]>>
+           imp_res_tac type_funs_distinct >> fs[FST_triple] >>
+           imp_res_tac type_funs_MAP_FST >> pop_assum kall_tac >>
+           imp_res_tac type_funs_Tfn >> pop_assum kall_tac >>
+           `EVERY (check_freevars tvs' []) (MAP SND tenv''')` by
+             (fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD]>>
+             rw[]>>
+             `ALOOKUP tenv''' p_1 = SOME e` by
+               metis_tac[ALOOKUP_ALL_DISTINCT_MEM]>>
+             res_tac>>
+             fs[num_tvs_bind_var_list,bind_tvar_def]>>
+             Cases_on`tvs'=0`>>fs[num_tvs_bvl2,num_tvs_def])>>
+           Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP SND tenv'''`,`tvs'`] mp_tac extend_multi_props>>
+           discharge_hyps>-
+               fs[init_infer_state_def,t_wfs_def,pure_add_constraints_def,count_def]
+           >>
+           simp_tac(srw_ss())[] >>
+           qpat_abbrev_tac`tys:num list = MAP X Y` >>
+           qpat_abbrev_tac`targs = MAP unconvert_t Z` >>
+           qpat_abbrev_tac`new_constraints = ZIP (MAP Infer_Tuvar tys,targs)` >>
+           simp[] >>
+           qpat_abbrev_tac`s':num|->infer_t = FEMPTY |++ Z` >>
+           strip_tac >>
+           first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_complete))) >>
+           disch_then(qspecl_then[`s'`,`menv`,`env''`,`init_infer_state with next_uvar := LENGTH l`,`new_constraints`]mp_tac) >>
+           discharge_hyps >- (
+             simp[check_cenv_tenvC_ok] >>
+             `LENGTH tenv''' = LENGTH l` by metis_tac[LENGTH_MAP] >>
+             conj_tac >- (
+               simp[sub_completion_def,num_tvs_bind_var_list] >>
+               simp[Abbr`targs`,EL_MAP] >>
+               fs[EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+               qpat_abbrev_tac`ntvs = num_tvs X` >>
+               `ntvs = tvs'` by (
+                 Cases_on`tvs'=0` >> simp[Abbr`ntvs`,bind_tvar_def,num_tvs_bvl2,num_tvs_def] ) >>
+               metis_tac[check_freevars_to_check_t] ) >>
+             simp[] >>
+             simp[Abbr`env''`,tenv_invC_def] >>
+             cheat ) >>
+           simp[] >>
+           strip_tac >>
+           cheat])
  >- (rw [convert_decls_def, convert_env2_def, EVERY_MAP, DISJOINT_DEF, EXTENSION] >>
      fs [EVERY_MAP, EVERY_MEM] >>
      Q.LIST_EXISTS_TAC [`set mdecls`, `set edecls`, `set tdecls`] >>

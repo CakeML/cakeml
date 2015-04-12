@@ -662,7 +662,11 @@ type_e menv cenv tenv e t)
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY [] (tenv_add_tvs( 0) tenv'))
 
 /\ (! check_unique mn tenvT menv cenv tenv funs tenv' tvs decls.
-(type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv')
+(type_funs menv cenv (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
+(check_unique ==>  
+(! tvs' tenv''.
+    type_funs menv cenv (bind_var_list( 0) tenv'' (bind_tvar tvs' tenv)) funs tenv'' ==>
+      weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dletrec funs) empty_decls FEMPTY [] (tenv_add_tvs tvs tenv'))
 
