@@ -1235,9 +1235,9 @@ val simple_repl_basis_lemma = prove(
    imp_res_tac convert_invariants >>
    fs[basis_repl_env_def,LET_THM] >> rfs[])
 
-(* TODO: move
+(* TODO: move?
 
-These are probably not true because of the type error mask.
+could be a nice result to have, but requires type_top determinism to be proved
 
 val ast_repl_determ = store_thm("ast_repl_determ",
   ``∀s t i o1. ast_repl s t i o1 ⇒ ∀o2. ast_repl s t i o2 ⇒ (o2 = o1)``,
