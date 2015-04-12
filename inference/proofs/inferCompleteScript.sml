@@ -519,7 +519,7 @@ val infer_d_complete = Q.prove (`
    rw[]>>
    imp_res_tac infer_funs_length>>
    fs[sub_completion_def]>>
-   `t_compat st'.subst s''` by 
+   `t_compat st'.subst s''` by
      metis_tac[pure_add_constraints_success,infer_e_wfs]>>
    imp_res_tac t_compat_pure_add_constraints_1>>
    pop_assum kall_tac>>
@@ -534,9 +534,45 @@ val infer_d_complete = Q.prove (`
      rfs[init_infer_state_def]>>
      fs[t_compat_def,Abbr`targs`,EL_MAP]>>
      fs[EL_MAP,MAP_MAP_o]>>
-     (*Using 35,43 and observing that t_walkstar s''
-       is ID under unconvert and convert*)
-     cheat)>>
+     last_x_assum(qspec_then`n`mp_tac) >>
+     simp[] >> strip_tac >>
+     last_x_assum(qspec_then`n`mp_tac) >>
+     simp[] >> strip_tac >>
+     match_mp_tac EQ_TRANS >>
+     qexists_tac`t_walkstar s'' (t_walkstar s' (Infer_Tuvar n))` >>
+     conj_asm1_tac >- simp[] >>
+     match_mp_tac EQ_TRANS >>
+     qexists_tac`t_walkstar s' (Infer_Tuvar n)` >>
+     conj_asm1_tac >- (
+       match_mp_tac t_walkstar_no_vars >>
+       metis_tac[check_t_empty_unconvert_convert_id] ) >>
+     simp[] >>
+     last_assum(qspec_then`n`mp_tac) >>
+     discharge_hyps >- (
+       imp_res_tac(last(CONJUNCTS infer_e_next_uvar_mono)) >>
+       DECIDE_TAC ) >>
+     simp[] >>
+     `EVERY (check_t 0 (count st'.next_uvar)) env'` by (
+       match_mp_tac (last(CONJUNCTS infer_e_check_t)) >>
+       first_assum (match_exists_tac o concl) >> simp[] >>
+       simp[Abbr`itenv2`,check_env_def,MAP2_MAP,LENGTH_COUNT_LIST] >>
+       reverse conj_tac >- (
+         simp[EVERY_MEM] >>
+         fs[FORALL_PROD] >>
+         rw[] >>
+         match_mp_tac(MP_CANON(CONJUNCT1 check_t_more5)) >>
+         res_tac >> HINT_EXISTS_TAC >> simp[] ) >>
+       simp[EVERY_MAP,UNCURRY] >>
+       simp[EVERY_MEM,MEM_ZIP,Abbr`tys`,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
+       simp[check_t_def] ) >>
+     strip_tac >>
+     match_mp_tac (GEN_ALL check_t_empty_unconvert_convert_id) >>
+     qexists_tac`tvs` >>
+     match_mp_tac(CONJUNCT1 check_t_walkstar) >>
+     simp[] >>
+     conj_tac >- ( fs[EVERY_MEM,MEM_EL,PULL_EXISTS] ) >>
+     rw[] >> res_tac >> pop_assum mp_tac >>
+     simp_tac(srw_ss())[num_tvs_bind_var_list,bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def] )>>
    rw[]>>
    qexists_tac`<|next_uvar:=st'.next_uvar;subst:=si|>`>>fs[]>>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
