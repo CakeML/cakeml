@@ -763,19 +763,48 @@ val check_specs_complete = store_thm("check_specs_complete",
     ∀mdecls tdecls edecls itenvT icenv env st.
     ∃decls' env' st'.
     check_specs mn tenvT (mdecls,tdecls,edecls) itenvT icenv env specs st =
-      (Success (decls',tenvT'' ⊌ itenvT,cenv'' ++ icenv,env'),st')``,
+      (Success (decls',tenvT'' ⊌ itenvT,cenv'' ++ icenv,env'++env),st') ∧
+    tenv_alpha env' (bind_var_list2 env'' Empty) ∧
+    set(MAP FST env') = set(MAP FST env'') ∧
+    set (FST decls') = FST decls ∪ set mdecls ∧
+    set (FST(SND decls')) = FST(SND decls) ∪ set tdecls ∧
+    set (SND(SND decls')) = SND(SND decls) ∪ set edecls``,
   ho_match_mp_tac type_specs_strongind >>
-  conj_tac >- simp[check_specs_def,success_eqns] >>
+  conj_tac >- (
+    simp[check_specs_def,success_eqns,tenv_alpha_empty,empty_decls_def] ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
-    imp_res_tac (INST_TYPE[alpha|->gamma]check_freevars_t_to_freevars) >>
-    pop_assum(qspec_then`st`strip_assume_tac) >> simp[] ) >>
+    imp_res_tac (INST_TYPE[alpha|->beta]check_freevars_t_to_freevars) >>
+    pop_assum(qspec_then`st`strip_assume_tac) >> simp[] >>
+    (fn g =>
+      let
+        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (vs,b) = el 3 (fst g) |> strip_forall
+        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (s,_) = match_term t2 t1
+      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
+      g) >>
+    simp[] >>
+    match_mp_tac tenv_alpha_bind_var_list2 >>
+    simp[] >>
+    cheat ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
     qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
     REWRITE_TAC[GSYM FUNION_ASSOC] >>
     REWRITE_TAC[GSYM APPEND_ASSOC] >>
     qpat_abbrev_tac`icenv2 = X ++ icenv` >>
+    PairCases_on`decls`>>simp[union_decls_def]>>fs[]>>
+    (fn g =>
+      let
+        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (vs,b) = el 3 (fst g) |> strip_forall
+        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (s,_) = match_term t2 t1
+      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
+      g) >>
+    simp[] >>
+    simp[EXTENSION,MEM_MAP,UNCURRY] >>
     metis_tac[]) >>
   conj_tac >- (
     rw[check_specs_def,success_eqns] >>
@@ -783,12 +812,31 @@ val check_specs_complete = store_thm("check_specs_complete",
     metis_tac[FUPDATE_EQ_FUNION]) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
-    ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
-    metis_tac[CONS_APPEND]) >>
+    PairCases_on`decls`>>fs[union_decls_def]>>
+    (fn g =>
+      let
+        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (vs,b) = el 2 (fst g) |> strip_forall
+        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
+        val (s,_) = match_term t2 t1
+      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
+      g) >>
+    simp[] >> simp_tac(srw_ss()++boolSimps.ETA_ss)[] >>
+    simp[EXTENSION] >> metis_tac[]) >>
   simp[check_specs_def,success_eqns] >> rw[] >>
-  simp[RIGHT_EXISTS_AND_THM] >>
+  simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- cheat >>
-  metis_tac[FUNION_ASSOC,FUPDATE_EQ_FUNION])
+  PairCases_on`decls`>>fs[union_decls_def]>>
+  (fn g =>
+    let
+      val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
+      val (vs,b) = el 1 (fst g) |> strip_forall
+      val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
+      val (s,_) = match_term t2 t1
+    in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
+    g) >>
+  simp[Once FUPDATE_EQ_FUNION,FUNION_ASSOC] >>
+  simp[EXTENSION] >> metis_tac[])
 
 val infer_top_complete = store_thm("infer_top_complete",``
 !top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
@@ -839,9 +887,11 @@ val infer_top_complete = store_thm("infer_top_complete",``
       fs[check_signature_def,success_eqns]>>
       simp[GSYM INSERT_SING_UNION,PULL_EXISTS,tenv_alpha_empty] >>
       imp_res_tac type_specs_no_mod >> fs[] >>
-      imp_res_tac (INST_TYPE[beta|->``:string list``,gamma|->``:(num|->infer_t)infer_st``]check_specs_complete) >>
+      imp_res_tac (INST_TYPE[alpha|->``:string``,beta|->``:(num|->infer_t)infer_st``]check_specs_complete) >>
       first_x_assum(qspecl_then[`[]`,`st'`,`[]`,`FEMPTY`,`[]`,`[]`,`[]`]strip_assume_tac) >>
-      simp[success_eqns] >>
+      simp[success_eqns] >> fs[] >>
+      PairCases_on`decls'`>>fs[] >>
+      simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
       cheat)
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
