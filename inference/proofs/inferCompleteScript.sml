@@ -894,28 +894,44 @@ val infer_top_complete = store_thm("infer_top_complete",``
       simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
       cheat)
 
+(* TODO: move *)
+val type_top_tenv_ok = store_thm("type_top_tenv_ok",
+  ``∀ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv'.
+    type_top ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' ⇒
+      num_tvs tenv = 0 ⇒
+      tenv_ok (bind_var_list2 tenv' Empty) ∧
+      FEVERY (λ(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) menv'``,
+  ho_match_mp_tac type_top_ind >>
+  rw[FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
+     typeSoundInvariantsTheory.tenv_ok_def] >>
+  imp_res_tac type_d_tenv_ok >>
+  fs[check_signature_cases] >>
+  imp_res_tac type_ds_tenv_ok >>
+  imp_res_tac type_specs_tenv_ok)
+(* -- *)
+
 val infer_prog_complete = store_thm("infer_prog_complete",``
 !prog mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
   check_menv menv ∧
-  tenvM_ok tenvM ∧ 
-  tenv_ok (bind_var_list2 tenv Empty) ∧ 
-  check_env ∅ itenv ∧  
+  tenvM_ok tenvM ∧
+  tenv_ok (bind_var_list2 tenv Empty) ∧
+  check_env ∅ itenv ∧
   tenvC_ok cenv ∧
-  tenvT_ok tenvT ∧ 
+  tenvT_ok tenvT ∧
   type_prog T (set mdecls,set tdecls,set edecls) tenvT tenvM cenv (bind_var_list2 tenv Empty) prog (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧ 
-  menv_alpha menv tenvM 
+  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
+  menv_alpha menv tenvM
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv' menv'.
     set mdecls'' = mdecls' ∧
     set tdecls'' = tdecls' ∧
     set edecls'' = edecls' ∧
     infer_prog (mdecls,tdecls,edecls) tenvT menv cenv itenv prog st =
-      (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧ 
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧
     (*for induction*)
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
-    menv_alpha menv' tenvM' ∧ 
-    MAP FST itenv' = MAP FST tenv' ∧  
+    menv_alpha menv' tenvM' ∧
+    MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
     check_env ∅ itenv'``,
   Induct>-
@@ -951,11 +967,17 @@ val infer_prog_complete = store_thm("infer_prog_complete",``
       metis_tac[check_menv_def,fevery_funion]
     >-
       (fs[typeSoundInvariantsTheory.tenvM_ok_def]>>
-      cheat)
-      (*type sys invariant*)
-    >-
-      (*type sys invariant*)
-      cheat
+       match_mp_tac fevery_funion >> simp[] >>
+       match_mp_tac (MP_CANON (GEN_ALL (DISCH_ALL (CONJUNCT2 (UNDISCH (UNDISCH (SPEC_ALL type_top_tenv_ok))))))) >>
+       first_assum(match_exists_tac o concl) >>
+       simp[num_tvs_bvl2,num_tvs_def] >>
+       metis_tac[])
+    >- (
+      simp[bind_var_list2_append] >>
+      match_mp_tac tenv_ok_bvl2 >> simp[] >>
+      match_mp_tac (MP_CANON (GEN_ALL (DISCH_ALL (CONJUNCT1 (UNDISCH (UNDISCH (SPEC_ALL type_top_tenv_ok))))))) >>
+      first_assum(match_exists_tac o concl) >>
+      simp[num_tvs_bvl2,num_tvs_def] )
     >-
       fs[check_env_def]
     >-
