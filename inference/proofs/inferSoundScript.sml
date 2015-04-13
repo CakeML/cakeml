@@ -632,7 +632,7 @@ val infer_d_sound = Q.prove (
             i.e. the pure_add_constraint on st'''' can be "ignored" for
             some constraint ctr
           *)
-          `sub_completion tvss st'''''.next_uvar st'''''.subst ctr s''` by cheat>>
+          `∃ctr. sub_completion tvss st'''''.next_uvar st'''''.subst ctr s''` by cheat>>
          fs[sub_completion_def]>> 
           Q.ISPECL_THEN [`tvss`,`s''`] mp_tac (GEN_ALL generalise_subst_exist)>>
           discharge_hyps>-
@@ -656,7 +656,23 @@ val infer_d_sound = Q.prove (
            >>
            fs[Abbr`ts`,MEM_MAP,MEM_GENLIST]>>
            (*inferencer invariant*)
-           cheat)
+           match_mp_tac t_walkstar_check >>
+           simp[check_t_def] >>
+           reverse conj_tac >- (
+             imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >> fs[] >>
+             DECIDE_TAC ) >>
+           match_mp_tac (check_s_more3 |> MP_CANON)>>
+           qexists_tac `count st'''''.next_uvar`>>
+           simp[] >>
+           match_mp_tac pure_add_constraints_check_s >>
+           CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))) >>
+           first_assum(match_exists_tac o concl) >> simp[] >>
+           reverse conj_tac >- (
+             first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_check_s) |>ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+             simp[check_s_def] ) >>
+           simp[EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
+           first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_check_t) |>ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+           simp[EVERY_MEM,MEM_EL,PULL_EXISTS] )
          >>
          rw[]>>
        qexists_tac`MAP convert_t subst'`>>fs[]>> 
@@ -682,20 +698,32 @@ val infer_d_sound = Q.prove (
          metis_tac[check_t_to_check_freevars]>>
        CONJ_TAC>-
          (fs[EVERY_MAP,EVERY_MEM]>>
-         (*Should have proved this earlier somewhere*)
-         `q = tvss` by cheat >>
+         `q = tvss` by (
+           simp[Abbr`tvss`,bind_tvar_rewrites,num_tvs_bind_var_list,num_tvs_bvl2,num_tvs_def] ) >>
          metis_tac[check_t_to_check_freevars])
        >>
        imp_res_tac deBruijn_subst_convert>>
        pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
        `r = convert_t (t_walkstar s'' (Infer_Tuvar n))` by
          (
-         (*because MAP FST l = MAP FST tenv''' and they are all distinct
-           and MEM(x,r) tenv'''*)
-         `r = EL n (MAP SND tenv''')` by cheat>>
-         `r = convert_t (t_walkstar s'' (EL n funs_ts))` by cheat>>
+         `r = EL n (MAP SND tenv''')` by (
+           qpat_assum`MEM X tenv'''`mp_tac >>
+           qpat_assum`X = EL n Y`mp_tac >>
+           rator_x_assum`ALL_DISTINCT`mp_tac >>
+           qpat_assum`MAP FST Y = MAP X Z`mp_tac >>
+           `n < LENGTH l` by metis_tac[] >> pop_assum mp_tac >>
+           rpt (pop_assum kall_tac) >> rw[] >>
+           fs[MEM_EL] >>
+           fs[EL_ALL_DISTINCT_EL_EQ] >>
+           first_x_assum(qspecl_then[`n`,`n'`]mp_tac) >>
+           discharge_hyps_keep >- metis_tac[LENGTH_MAP] >>
+           `EL n (MAP FST tenv''') = EL n (MAP FST l)` by metis_tac[] >>
+           pop_assum SUBST1_TAC >>
+           simp[EL_MAP] >>
+           metis_tac[FST,SND]) >>
+         `r = convert_t (t_walkstar s'' (EL n funs_ts))` by simp[EL_MAP] >>
          simp[]>>AP_TERM_TAC>>
-         `t_compat st'''''.subst s''` by cheat>>
+         `t_compat st'''''.subst s''` by metis_tac[pure_add_constraints_success] >>
          fs[t_compat_def]>>
          `t_walkstar st'''''.subst (EL n funs_ts) =
           t_walkstar st'''''.subst (Infer_Tuvar n)` by
