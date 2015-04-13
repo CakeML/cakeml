@@ -739,7 +739,7 @@ val infer_ds_complete = prove(``
   metis_tac[tenv_alpha_bind_var_list2])
 
 (*TODO move to miscLib*)
-fun any_match_mp impth th = 
+fun any_match_mp impth th =
   let
     val h = impth |> concl |> strip_forall |>snd |> dest_imp |> fst |>strip_conj
     val c = first(can (C match_term (concl th))) h
@@ -749,31 +749,72 @@ fun any_match_mp impth th =
   in
     MATCH_MP th2 th  end
 
+val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
+  ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
+      ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
+    (∀ts fvs (st:'a). EVERY (check_freevars 0 fvs) ts ⇒
+      ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
+  Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
+  simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
+
+val check_specs_complete = store_thm("check_specs_complete",
+  ``∀mn tenvT specs decls tenvT'' cenv'' env''.
+    type_specs mn tenvT specs decls tenvT'' cenv'' env'' ⇒
+    ∀mdecls tdecls edecls itenvT icenv env st.
+    ∃decls' env' st'.
+    check_specs mn tenvT (mdecls,tdecls,edecls) itenvT icenv env specs st =
+      (Success (decls',tenvT'' ⊌ itenvT,cenv'' ++ icenv,env'),st')``,
+  ho_match_mp_tac type_specs_strongind >>
+  conj_tac >- simp[check_specs_def,success_eqns] >>
+  conj_tac >- (
+    simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
+    imp_res_tac (INST_TYPE[alpha|->gamma]check_freevars_t_to_freevars) >>
+    pop_assum(qspec_then`st`strip_assume_tac) >> simp[] ) >>
+  conj_tac >- (
+    simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
+    qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
+    REWRITE_TAC[GSYM FUNION_ASSOC] >>
+    REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    qpat_abbrev_tac`icenv2 = X ++ icenv` >>
+    metis_tac[]) >>
+  conj_tac >- (
+    rw[check_specs_def,success_eqns] >>
+    REWRITE_TAC[GSYM FUNION_ASSOC] >>
+    metis_tac[FUPDATE_EQ_FUNION]) >>
+  conj_tac >- (
+    simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
+    ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+    metis_tac[CONS_APPEND]) >>
+  simp[check_specs_def,success_eqns] >> rw[] >>
+  simp[RIGHT_EXISTS_AND_THM] >>
+  conj_tac >- cheat >>
+  metis_tac[FUNION_ASSOC,FUPDATE_EQ_FUNION])
+
 val infer_top_complete = store_thm("infer_top_complete",``
 !top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
   check_menv menv ∧
-  tenvM_ok tenvM ∧ 
-  tenv_ok (bind_var_list2 tenv Empty) ∧ 
-  check_env ∅ itenv ∧  
+  tenvM_ok tenvM ∧
+  tenv_ok (bind_var_list2 tenv Empty) ∧
+  check_env ∅ itenv ∧
   tenvC_ok cenv ∧
-  tenvT_ok tenvT ∧ 
+  tenvT_ok tenvT ∧
   (*check_env ∅ tenv' ∧ *)
   type_top T (set mdecls,set tdecls,set edecls) tenvT tenvM cenv (bind_var_list2 tenv Empty) top (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧ 
-  menv_alpha menv tenvM 
+  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
+  menv_alpha menv tenvM
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv' menv'.
     set mdecls'' = mdecls' ∧
     set tdecls'' = tdecls' ∧
     set edecls'' = edecls' ∧
     infer_top (mdecls,tdecls,edecls) tenvT menv cenv itenv top st =
-      (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧ 
+      (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧
     (*for induction*)
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
-    menv_alpha menv' tenvM' ∧ 
-    MAP FST itenv' = MAP FST tenv' ∧  
+    menv_alpha menv' tenvM' ∧
+    MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
-    check_env ∅ itenv'``, 
+    check_env ∅ itenv'``,
   rw [Once type_top_cases]>>
   fs[infer_top_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]
   >-
@@ -796,6 +837,11 @@ val infer_top_complete = store_thm("infer_top_complete",``
       fs[])
     >>
       fs[check_signature_def,success_eqns]>>
+      simp[GSYM INSERT_SING_UNION,PULL_EXISTS,tenv_alpha_empty] >>
+      imp_res_tac type_specs_no_mod >> fs[] >>
+      imp_res_tac (INST_TYPE[beta|->``:string list``,gamma|->``:(num|->infer_t)infer_st``]check_specs_complete) >>
+      first_x_assum(qspecl_then[`[]`,`st'`,`[]`,`FEMPTY`,`[]`,`[]`,`[]`]strip_assume_tac) >>
+      simp[success_eqns] >>
       cheat)
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
