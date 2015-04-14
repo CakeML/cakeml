@@ -514,7 +514,21 @@ val infer_d_complete = Q.prove (`
         imp_res_tac ALOOKUP_MEM >>
         fs[MEM_MAP] >>
         simp[check_t_def] >>
-        cheat)
+        `SND p < LENGTH funs` by (
+          rfs[MEM_ZIP] >>
+          simp[Abbr`tys`,EL_COUNT_LIST] ) >>
+        simp[] >>
+        simp[Abbr`targs`,EL_MAP] >>
+        rpt VAR_EQ_TAC >>
+        rfs[MEM_ZIP] >> VAR_EQ_TAC >>
+        simp[Abbr`tys`,EL_COUNT_LIST] >>
+        rfs[EL_COUNT_LIST,LENGTH_COUNT_LIST] >>
+        `FST (EL n funs) = FST (EL n tenv'')` by (
+          qpat_assum`MAP FST x = MAP FST y`mp_tac >>
+          simp[Once LIST_EQ_REWRITE,EL_MAP] ) >>
+        `MEM (FST (EL n tenv''), SND (EL n tenv'')) tenv''` by (
+          simp[MEM_EL] >> metis_tac[] ) >>
+        imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> fs[])
    >>
    rw[]>>
    imp_res_tac infer_funs_length>>
