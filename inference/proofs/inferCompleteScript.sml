@@ -591,62 +591,68 @@ val infer_d_complete = Q.prove (`
    qexists_tac`<|next_uvar:=st'.next_uvar;subst:=si|>`>>fs[]>>
    qho_match_abbrev_tac`∃a b c. tr = (a,b,c) ∧ Q a b c` >>
    `∃a b c. tr = (a,b,c)` by metis_tac[pair_CASES] >> simp[] >> fs[Abbr`Q`,Abbr`tr`] >>
-   reverse (rw[])
-   >- (
-     (* the use of generalise_complete here should probably be moved out for use in the second subgoal too *)
-     first_assum(mp_tac o MATCH_MP(
-       pure_add_constraints_check_s
-       |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))))
-       |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
-     simp[AND_IMP_INTRO] >>
-     disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >>
-     discharge_hyps >- (
-       `check_env (count st.next_uvar) itenv2` by (
-         simp[Abbr`itenv2`,check_env_def,MAP2_MAP,LENGTH_COUNT_LIST] >>
-         reverse conj_tac >- (
-           simp[EVERY_MEM] >>
-           fs[FORALL_PROD] >>
-           rw[] >>
-           match_mp_tac(MP_CANON(CONJUNCT1 check_t_more5)) >>
-           fs[EVERY_MEM,FORALL_PROD] >>
-           res_tac >> HINT_EXISTS_TAC >> simp[] ) >>
-         simp[EVERY_MAP,UNCURRY] >>
-         simp[EVERY_MEM,MEM_ZIP,Abbr`tys`,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
-         simp[check_t_def] ) >>
+   first_assum(mp_tac o MATCH_MP(
+     pure_add_constraints_check_s
+     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))))
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+   simp[AND_IMP_INTRO] >>
+   disch_then(qspecl_then[`0`,`st'.next_uvar`]mp_tac) >>
+   discharge_hyps >- (
+     `check_env (count st.next_uvar) itenv2` by (
+       simp[Abbr`itenv2`,check_env_def,MAP2_MAP,LENGTH_COUNT_LIST] >>
        reverse conj_tac >- (
-         match_mp_tac(last(CONJUNCTS infer_e_wfs)) >>
-         first_assum(match_exists_tac o concl) >>
-         simp[] ) >>
-       reverse conj_tac >- (
-         match_mp_tac(last(CONJUNCTS infer_e_check_s)) >>
-         first_assum(match_exists_tac o concl) >>
-         simp[GSYM check_cenv_tenvC_ok,check_s_def] ) >>
-       simp[Abbr`ls`,EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS,EL_COUNT_LIST] >>
-       simp[check_t_def] >>
-       imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
-       rw[] >- DECIDE_TAC >>
-       imp_res_tac(last(CONJUNCTS infer_e_check_t)) >>
-       fs[EVERY_MEM,PULL_EXISTS,MEM_EL] >>
-       res_tac >> imp_res_tac check_t_more2 >> fs[] ) >>
-     strip_tac >>
-     first_assum(mp_tac o MATCH_MP(
-       generalise_complete
-       |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))
-       |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
-     disch_then(qspec_then`st'.next_uvar`mp_tac) >>
-     simp[AND_IMP_INTRO] >>
-     discharge_hyps >- (
-       simp[EVERY_MAP,check_t_def] >>
-       simp[EVERY_MEM,MEM_COUNT_LIST] >>
-       imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
-       rw[] >- DECIDE_TAC >>
-       metis_tac[pure_add_constraints_wfs,infer_e_wfs]) >>
-     rw[] >>
+         simp[EVERY_MEM] >>
+         fs[FORALL_PROD] >>
+         rw[] >>
+         match_mp_tac(MP_CANON(CONJUNCT1 check_t_more5)) >>
+         fs[EVERY_MEM,FORALL_PROD] >>
+         res_tac >> HINT_EXISTS_TAC >> simp[] ) >>
+       simp[EVERY_MAP,UNCURRY] >>
+       simp[EVERY_MEM,MEM_ZIP,Abbr`tys`,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
+       simp[check_t_def] ) >>
+     reverse conj_tac >- (
+       match_mp_tac(last(CONJUNCTS infer_e_wfs)) >>
+       first_assum(match_exists_tac o concl) >>
+       simp[] ) >>
+     reverse conj_tac >- (
+       match_mp_tac(last(CONJUNCTS infer_e_check_s)) >>
+       first_assum(match_exists_tac o concl) >>
+       simp[GSYM check_cenv_tenvC_ok,check_s_def] ) >>
+     simp[Abbr`ls`,EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS,EL_COUNT_LIST] >>
+     simp[check_t_def] >>
+     imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
+     rw[] >- DECIDE_TAC >>
+     imp_res_tac(last(CONJUNCTS infer_e_check_t)) >>
+     fs[EVERY_MEM,PULL_EXISTS,MEM_EL] >>
+     res_tac >> imp_res_tac check_t_more2 >> fs[] ) >>
+   strip_tac >>
+   first_assum(mp_tac o MATCH_MP(
+     generalise_complete
+     |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
+   disch_then(qspec_then`st'.next_uvar`mp_tac) >>
+   simp[AND_IMP_INTRO] >>
+   discharge_hyps >- (
+     simp[EVERY_MAP,check_t_def] >>
+     simp[EVERY_MEM,MEM_COUNT_LIST] >>
+     imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
+     rw[] >- DECIDE_TAC >>
+     metis_tac[pure_add_constraints_wfs,infer_e_wfs]) >>
+   strip_tac >>
+   reverse conj_tac >- (
      simp[MAP2_MAP,LENGTH_COUNT_LIST,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
+     conj_tac >- (
+       simp[GSYM combinTheory.o_DEF,MAP_ZIP,LENGTH_COUNT_LIST] >>
+       simp[tenv_add_tvs_def,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] ) >>
      simp[EVERY_MAP] >>
-     cheat)
-   >-
-     cheat
+     simp[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,PULL_EXISTS,EL_COUNT_LIST] >>
+     fs[sub_completion_def] >>
+     rw[] >>
+     first_x_assum match_mp_tac >>
+     fs[SUBSET_DEF] >>
+     first_x_assum match_mp_tac >>
+     imp_res_tac infer_e_next_uvar_mono >>
+     DECIDE_TAC )
    >>
    simp[tenv_alpha_def]>>
    CONJ_TAC>-
@@ -852,6 +858,100 @@ val check_specs_complete = store_thm("check_specs_complete",
   simp[Once FUPDATE_EQ_FUNION,FUNION_ASSOC] >>
   simp[EXTENSION] >> metis_tac[])
 
+val check_flat_weakT_complete = store_thm("check_flat_weakT_complete",
+  ``∀mn tenvT1 tenvT2.
+    flat_weakT mn tenvT1 tenvT2 ⇒
+    check_flat_weakT mn tenvT1 tenvT2``,
+  simp[flat_weakT_def,check_flat_weakT_def,FEVERY_ALL_FLOOKUP,FORALL_PROD] >>
+  rw[] >> first_x_assum(qspec_then`k`strip_assume_tac) >> rfs[])
+
+val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
+  ``∀tenvC1 tenvC2.
+    ALL_DISTINCT (MAP FST tenvC2) ∧
+    flat_weakC tenvC1 tenvC2 ⇒
+    check_flat_weakC tenvC1 tenvC2``,
+  simp[flat_weakC_def,check_flat_weakC_def,EVERY_MEM,FORALL_PROD] >> rw[] >>
+  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
+  first_x_assum(qspec_then`p_1`strip_assume_tac) >> rfs[])
+
+val check_weakE_complete = store_thm("check_weakE_complete",
+  ``∀itenv1 itenv2 st tenv1 tenv2.
+    weakE tenv1 tenv2 ∧
+    tenv_alpha itenv1 (bind_var_list2 tenv1 Empty) ∧
+    tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
+  ⇒
+    ∃st'.
+    check_weakE itenv1 itenv2 st = (Success(),st')``,
+  ho_match_mp_tac check_weakE_ind >>
+  rw[check_weakE_def,success_eqns] >>
+  simp[EXISTS_PROD,success_eqns,PULL_EXISTS] >>
+  simp[init_state_def,init_infer_state_def] >>
+  cheat)
+
+val check_weak_decls_complete = store_thm("check_weak_decls_complete",
+  ``ALL_DISTINCT (FST(SND decls1)) ∧
+    ALL_DISTINCT (FST(SND decls2)) ∧
+    ALL_DISTINCT (SND(SND decls1)) ∧
+    ALL_DISTINCT (SND(SND decls2)) ∧
+    (FST decls1) = (FST decls2) ∧
+    weak_decls (convert_decls decls1) (convert_decls decls2) ⇒
+    check_weak_decls decls1 decls2``,
+  PairCases_on`decls1`>>
+  PairCases_on`decls2`>>
+  rw[weak_decls_def,convert_decls_def,check_weak_decls_def,list_subset_def] >>
+  fs[EXTENSION,SUBSET_DEF,EVERY_MEM])
+
+(* TODO: move *)
+
+(* looks untrue as stated
+val type_specs_all_distinct = store_thm("type_specs_all_distinct",
+  ``∀mn tenvM specs decls tenvT tenvC tenv.
+      type_specs mn tenvM specs decls tenvT tenvC tenv ⇒
+      ALL_DISTINCT (MAP FST tenvC) (* ∧
+      DISJOINT (set (MAP FST tenvC)) (FDOM (SND tenvM))*)``,
+  ho_match_mp_tac type_specs_strongind >>
+  conj_tac >- rw[] >>
+  conj_tac >- rw[] >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    simp[ALL_DISTINCT_APPEND] >>
+    imp_res_tac check_ctor_tenv_dups >>
+    fs[check_dup_ctors_thm] >>
+    simp[build_ctor_tenv_def] >>
+    fs[FST_pair,MAP_MAP_o] >>
+    simp[MAP_REVERSE,ALL_DISTINCT_REVERSE] >>
+    qpat_abbrev_tac`f = type_name_subst X` >>
+    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+    simp[LAMBDA_PROD] >>
+    fs[check_ctor_tenv_def,Abbr`f`] >>
+    fs[EVERY_MEM,UNCURRY] >>
+    simp[MEM_FLAT] >> rw[] >>
+    simp[MEM_MAP,EXISTS_PROD] >>
+    spose_not_then strip_assume_tac >>
+    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+    simp[PULL_EXISTS,PROVE[]``a ∨ b ⇔ ¬a ⇒ b``] >> rw[] >>
+    fs[MEM_MAP,PULL_EXISTS] >> rw[] >>
+    first_assum(match_exists_tac o concl) >> rw[] >>
+    Cases_on`tenvM`>>fs[merge_mod_env_def] >>
+    cheat ) >>
+  cheat)
+*)
+
+val type_top_tenv_ok = store_thm("type_top_tenv_ok",
+  ``∀ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv'.
+    type_top ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' ⇒
+      num_tvs tenv = 0 ⇒
+      tenv_ok (bind_var_list2 tenv' Empty) ∧
+      FEVERY (λ(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) menv'``,
+  ho_match_mp_tac type_top_ind >>
+  rw[FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
+     typeSoundInvariantsTheory.tenv_ok_def] >>
+  imp_res_tac type_d_tenv_ok >>
+  fs[check_signature_cases] >>
+  imp_res_tac type_ds_tenv_ok >>
+  imp_res_tac type_specs_tenv_ok)
+(* -- *)
+
 val infer_top_complete = store_thm("infer_top_complete",``
 !top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
   check_menv menv ∧
@@ -906,23 +1006,13 @@ val infer_top_complete = store_thm("infer_top_complete",``
       simp[success_eqns] >> fs[] >>
       PairCases_on`decls'`>>fs[] >>
       simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
-      cheat)
-
-(* TODO: move *)
-val type_top_tenv_ok = store_thm("type_top_tenv_ok",
-  ``∀ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv'.
-    type_top ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' ⇒
-      num_tvs tenv = 0 ⇒
-      tenv_ok (bind_var_list2 tenv' Empty) ∧
-      FEVERY (λ(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) menv'``,
-  ho_match_mp_tac type_top_ind >>
-  rw[FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
-     typeSoundInvariantsTheory.tenv_ok_def] >>
-  imp_res_tac type_d_tenv_ok >>
-  fs[check_signature_cases] >>
-  imp_res_tac type_ds_tenv_ok >>
-  imp_res_tac type_specs_tenv_ok)
-(* -- *)
+      imp_res_tac check_flat_weakT_complete >>
+      `ALL_DISTINCT (MAP FST cenv''')` by cheat >>
+      imp_res_tac check_flat_weakC_complete >>
+      Q.ISPECL_THEN[`(decls'0,decls'1,decls'2)`,`mdecls'',tdecls'',edecls''`]mp_tac (GEN_ALL check_weak_decls_complete) >>
+      simp[convert_decls_def] >> fs[weak_decls_def] >>
+      discharge_hyps >- cheat >> simp[] >>
+      metis_tac[check_weakE_complete])
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
 !prog mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
