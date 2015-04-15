@@ -748,10 +748,27 @@ val infer_d_complete = Q.prove (`
        pop_assum kall_tac>>pop_assum mp_tac >>
        simp[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
        metis_tac[])>>
-      (*some list reasoning...
-      True because MAP FST tenv'' is ALL_DISTINCT and = to MAP FST funs
-      *)
-     `(p0,t) = EL p3 tenv'' ∧ t = EL p3 (MAP SND tenv'')` by cheat>>
+     `(p0,t) = EL p3 tenv'' ∧ t = EL p3 (MAP SND tenv'')` by 
+       (fs[MEM_EL,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
+       `p0 = EL n''' (MAP FST tenv'')` by
+         (fs[EL_MAP]>>metis_tac[FST])>>
+       qpat_assum` A = EL n B` mp_tac>>
+       `n < LENGTH funs` by metis_tac[LENGTH_ZIP,LENGTH_COUNT_LIST]>>
+       simp[EL_ZIP,EL_COUNT_LIST,LENGTH_COUNT_LIST,LENGTH_ZIP,PAIR]>>
+       strip_tac>>
+       `n = n'''` by 
+         (`EL n''' (MAP FST tenv'') = EL n (MAP FST funs)` by
+           (fs[EL_MAP]>>metis_tac[FST])>>
+         `n''' < LENGTH funs_ts` by
+           metis_tac[LENGTH_MAP]>>
+        Q.ISPEC_THEN`MAP FST funs`(mp_tac o fst o EQ_IMP_RULE) EL_ALL_DISTINCT_EL_EQ >>
+        rw[EQ_IMP_THM]>>
+        pop_assum(qspecl_then [`n`,`n'''`] assume_tac)>>rfs[LENGTH_MAP])
+       >>
+       `t = EL n''' (MAP SND tenv'')` by
+         (simp[EL_MAP]>>
+         metis_tac[SND])>>
+       fs[])>>
      fs[EL_MAP,MEM_COUNT_LIST]>>
      qpat_assum`MAP A B = MAP C D` mp_tac>>
      fs[LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>
