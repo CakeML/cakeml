@@ -40,7 +40,7 @@ val t_compat_pure_add_constraints_1 = store_thm("t_compat_pure_add_constraints_1
   fs[])
 
 (*If pure add constraints succeeds then the constraints all unify*)
-val t_compat_pure_add_constraints_2 = prove(
+val t_compat_pure_add_constraints_2 = store_thm("t_compat_pure_add_constraints_2",
 ``!ls s sx.
   t_wfs s ∧ 
   pure_add_constraints s ls sx
