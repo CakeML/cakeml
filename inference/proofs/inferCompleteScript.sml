@@ -673,31 +673,52 @@ val infer_d_complete = Q.prove (`
    pop_assum(fn th => (first_assum(
      mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO](CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(can(match_term``X = (a,b,c)``)))))th))))) >>
    simp[LENGTH_NIL] >>
-   discharge_hyps_keep >- cheat >>
+   `t_wfs st'.subst` by 
+     (imp_res_tac infer_e_wfs>>
+        fs[]>>
+        pop_assum mp_tac>>discharge_hyps>-fs[t_wfs_def]>>
+        metis_tac[pure_add_constraints_wfs])>>
+   discharge_hyps_keep >-
+      (CONJ_ASM1_TAC>-
+      (fs[EVERY_MAP,EVERY_MEM,MEM_COUNT_LIST]>>
+      rw[]>>match_mp_tac t_walkstar_check >>
+      rw[]
+      >-
+        (match_mp_tac (check_s_more3|>MP_CANON)>>
+        qexists_tac`count st'.next_uvar`>>fs[])
+      >-
+        (fs[check_t_def]>>
+        imp_res_tac infer_e_next_uvar_mono>>
+        fs[]>>DECIDE_TAC))
+      >>
+      fs[EVERY_MAP,EVERY_MEM]>>rw[]>>
+      metis_tac[check_t_t_vars])
+   >>
    rw[]>>
    qexists_tac`subst'`>>simp[] >>
    CONJ_ASM1_TAC>- fs[EVERY_MEM] >>
-   cheat
-   (*
    imp_res_tac generalise_subst>>
-   `t_walkstar last_sub t'''' = infer_subst b (t_walkstar s t'''')` by
-     (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
-     imp_res_tac ALOOKUP_MEM>>
-     fs[MEM_EL]>>
-     metis_tac[SND])>>
-
-     Q.ISPECL_THEN [`s'`,`b`,`subst'`,`tvs`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
+   PairCases_on`p`>>fs[]>>
+   `MEM p3 (COUNT_LIST (LENGTH funs_ts))` by
+     rfs[MEM_ZIP,LENGTH_COUNT_LIST,EL_COUNT_LIST,MEM_COUNT_LIST]>>
+   `t_walkstar last_sub (Infer_Tuvar p3) = infer_subst b (t_walkstar st'.subst (Infer_Tuvar p3))` by
+     (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY,EL_COUNT_LIST]>>
+     first_x_assum(qspec_then `p3` mp_tac)>>
+     fs[LENGTH_COUNT_LIST,MEM_COUNT_LIST]>>
+     rfs[EL_COUNT_LIST])>>
+    fs[]>>
+    Q.ISPECL_THEN [`s`,`b`,`subst'`,`tvs`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
      discharge_hyps>-
        (fs[SUBSET_DEF]>>
        rw[]>>
        fs[IN_FRANGE]>>
-       metis_tac[pure_add_constraints_wfs])>>
+       metis_tac[pure_add_constraints_wfs])
+     >>
      rw[]>>
      pop_assum kall_tac>>
-     pop_assum(qspec_then `t_walkstar s t''''` mp_tac)>>
+     pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar p3)` mp_tac)>>
      discharge_hyps>-
        (
-       imp_res_tac infer_p_check_t>>
        fs[EXTENSION,SUBSET_DEF]>>
        fs[MEM_MAP,PULL_EXISTS]>>
        imp_res_tac ALOOKUP_MEM>>
@@ -707,14 +728,40 @@ val infer_d_complete = Q.prove (`
        reverse CONJ_TAC>-
          metis_tac[]
        >>
-       fs[EVERY_MAP,MAP_MAP_o,EVERY_MEM,UNCURRY]>>
-       `t'''' = SND (x,t'''')` by fs[]>>
+       fs[EVERY_MEM,MEM_MAP,MAP_MAP_o,UNCURRY]>>
        metis_tac[])
      >>
      rw[]>>
-     metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success])
-     *)
-   )
+     imp_res_tac ALOOKUP_MEM>>
+     `MAP (t_walkstar s) funs_ts = 
+      MAP (t_walkstar s o Infer_Tuvar) (COUNT_LIST (LENGTH funs_ts))` by
+       (
+       simp[LENGTH_COUNT_LIST,LIST_EQ_REWRITE,PULL_EXISTS,EL_MAP,EL_ZIP,EL_COUNT_LIST]>>rw[]>>
+       `t_wfs st.subst` by (
+         imp_res_tac(last(CONJUNCTS infer_e_wfs)) >>
+         fs[t_wfs_def])>>
+       `t_compat st'.subst s` by (
+         imp_res_tac pure_add_constraints_wfs >>
+         metis_tac[sub_completion_def,pure_add_constraints_success,SUBMAP_t_compat] ) >>
+       fs[t_compat_def]>>
+       imp_res_tac t_compat_pure_add_constraints_2 >>
+       pop_assum kall_tac>>pop_assum mp_tac >>
+       simp[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
+       metis_tac[])>>
+      (*some list reasoning...
+      True because MAP FST tenv'' is ALL_DISTINCT and = to MAP FST funs
+      *)
+     `(p0,t) = EL p3 tenv'' ∧ t = EL p3 (MAP SND tenv'')` by cheat>>
+     fs[EL_MAP,MEM_COUNT_LIST]>>
+     qpat_assum`MAP A B = MAP C D` mp_tac>>
+     fs[LIST_EQ_REWRITE,LENGTH_COUNT_LIST]>>
+     disch_then (qspec_then`p3` assume_tac)>>rfs[EL_MAP]>>
+     fs[EL_MAP,LENGTH_COUNT_LIST]>>
+     simp[EL_COUNT_LIST]>>
+     `p3 < st'.next_uvar` by
+       (imp_res_tac infer_e_next_uvar_mono>>
+       fs[]>>DECIDE_TAC)>>
+     metis_tac[pure_add_constraints_wfs,t_walkstar_SUBMAP,pure_add_constraints_success,check_t_empty_unconvert_convert_id])
    >-
      (simp[MAP2_MAP,LENGTH_COUNT_LIST,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
      simp[GSYM combinTheory.o_DEF,MAP_ZIP,LENGTH_COUNT_LIST] >>
@@ -730,7 +777,7 @@ val infer_d_complete = Q.prove (`
      first_x_assum match_mp_tac >>
      imp_res_tac infer_e_next_uvar_mono >>
      fs[]>>
-     DECIDE_TAC )
+     DECIDE_TAC)
 (* Type definition *)
  >- (rw [PULL_EXISTS] >>
      PairCases_on `tenvT` >>
