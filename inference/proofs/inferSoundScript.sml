@@ -574,6 +574,10 @@ val infer_d_sound = Q.prove (
            fs[check_cenv_tenvC_ok,check_env_def,tenv_alpha_def]>>
            rpt (disch_then(fn th => first_assum(mp_tac o MATCH_MP th))) >> simp[] >>
            rw[]>>
+           `st''''' = st'` by (
+             simp[infer_st_component_equality] >>
+             metis_tac[pure_add_constraints_functional] ) >>
+           VAR_EQ_TAC >>
            imp_res_tac ALOOKUP_MEM>>
            fs[tenv_add_tvs_def,MAP2_MAP,MAP_MAP_o,LENGTH_COUNT_LIST]>>
            fs[MEM_MAP,EXISTS_PROD]>>
@@ -582,22 +586,11 @@ val infer_d_sound = Q.prove (
            rfs[EL_MAP]>>
            imp_res_tac generalise_subst>>
            fs[]>>
-          `t_walkstar last_sub (Infer_Tuvar n) = infer_subst s (t_walkstar st'''''.subst (Infer_Tuvar n))` by
+          `t_walkstar last_sub (Infer_Tuvar n) = infer_subst s (t_walkstar st'.subst (Infer_Tuvar n))` by
            (fs[MAP_MAP_o,LIST_EQ_REWRITE,EL_MAP,infer_subst_FEMPTY]>>
            metis_tac[])>>
-          (*This and the previous cheat
-            should really be pulled out into 1 proof similar to 
-            infer_pe_complete since it is used
-            in the completeness proof as well:
-            i.e. the pure_add_constraint on st'''' can be "ignored" for
-            some constraint ctr
-          *)
-          `∃ctr. sub_completion tvs' st'''''.next_uvar st'''''.subst ctr s'` by 
-            (fs[pure_add_constraints_functional,sub_completion_def]>>
-            metis_tac[pure_add_constraints_functional])>>
-            cheat>>
-         fs[sub_completion_def]>> 
-          Q.ISPECL_THEN [`tvss`,`s''`] mp_tac (GEN_ALL generalise_subst_exist)>>
+         fs[sub_completion_def]>>
+          Q.ISPECL_THEN [`tvs'`,`s'`] mp_tac (GEN_ALL generalise_subst_exist)>>
           discharge_hyps>-
             (fs[]>>metis_tac[pure_add_constraints_wfs])
           >>
@@ -618,32 +611,24 @@ val infer_d_sound = Q.prove (
              metis_tac[check_t_t_vars]
            >>
            fs[Abbr`ts`,MEM_MAP,MEM_GENLIST]>>
-           (*inferencer invariant*)
            match_mp_tac t_walkstar_check >>
+           simp[] >>
+           (*inferencer invariant*)
            simp[check_t_def] >>
            reverse conj_tac >- (
              imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >> fs[] >>
              DECIDE_TAC ) >>
            match_mp_tac (check_s_more3 |> MP_CANON)>>
-           qexists_tac `count st'''''.next_uvar`>>
-           simp[] >>
-           match_mp_tac pure_add_constraints_check_s >>
-           CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``pure_add_constraints`` o fst o strip_comb))) >>
-           first_assum(match_exists_tac o concl) >> simp[] >>
-           reverse conj_tac >- (
-             first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_check_s) |>ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
-             simp[check_s_def] ) >>
-           simp[EVERY_MEM,MEM_ZIP,PULL_EXISTS,EL_MAP] >>
-           first_assum(mp_tac o MATCH_MP(last(CONJUNCTS infer_e_check_t) |>ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
-           simp[EVERY_MEM,MEM_EL,PULL_EXISTS] )
+           qexists_tac `count st'.next_uvar`>>
+           simp[] )
          >>
          rw[]>>
-       qexists_tac`MAP convert_t subst'`>>fs[]>> 
-       `check_t (num_tvs tenv'') {} (infer_subst s (t_walkstar st'''''.subst (Infer_Tuvar n)))`
+       qexists_tac`MAP convert_t subst'`>>fs[]>>
+       `check_t (num_tvs tenv'') {} (infer_subst s (t_walkstar st'.subst (Infer_Tuvar n)))`
          by
          (qpat_assum `A = infer_subst B C` sym_sub_tac>>
         (check_t_less |> CONJUNCT1 |> Q.GENL[`s`,`uvars`,`n`]
-      |> Q.SPECL[`num_tvs tenv''`,`count (st''''':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
+      |> Q.SPECL[`num_tvs tenv''`,`count (st':(num|->infer_t) infer_st).next_uvar`,`last_sub`]
       |> mp_tac)>>simp[]>>
           disch_then (qspec_then `Infer_Tuvar n` mp_tac)>>
           discharge_hyps>-
@@ -652,7 +637,7 @@ val infer_d_sound = Q.prove (
            fs[]>>
            DECIDE_TAC)>>
           rw[]>>
-          `count st'''''.next_uvar ∩ COMPL(FDOM last_sub) = {}` by
+          `count st'.next_uvar ∩ COMPL(FDOM last_sub) = {}` by
           (simp[EXTENSION]>>fs[SUBSET_DEF]>>
           metis_tac[])>>
           fs[])
@@ -661,19 +646,18 @@ val infer_d_sound = Q.prove (
          metis_tac[check_t_to_check_freevars]>>
        CONJ_TAC>-
          (fs[EVERY_MAP,EVERY_MEM]>>
-         `q = tvss` by (
-           simp[Abbr`tvss`,bind_tvar_rewrites,num_tvs_bind_var_list,num_tvs_bvl2,num_tvs_def] ) >>
          metis_tac[check_t_to_check_freevars])
        >>
        imp_res_tac deBruijn_subst_convert>>
        pop_assum(qspec_then `subst'`assume_tac)>>fs[]>>
-       `r = convert_t (t_walkstar s'' (Infer_Tuvar n))` by
+       `r = convert_t (t_walkstar s' (Infer_Tuvar n))` by
          (
          `r = EL n (MAP SND tenv''')` by (
            qpat_assum`MEM X tenv'''`mp_tac >>
            qpat_assum`X = EL n Y`mp_tac >>
            rator_x_assum`ALL_DISTINCT`mp_tac >>
-           qpat_assum`MAP FST Y = MAP X Z`mp_tac >>
+           imp_res_tac type_funs_MAP_FST >>
+           pop_assum kall_tac >> pop_assum mp_tac >>
            `n < LENGTH l` by metis_tac[] >> pop_assum mp_tac >>
            rpt (pop_assum kall_tac) >> rw[] >>
            fs[MEM_EL] >>
@@ -684,18 +668,18 @@ val infer_d_sound = Q.prove (
            pop_assum SUBST1_TAC >>
            simp[EL_MAP] >>
            metis_tac[FST,SND]) >>
-         `r = convert_t (t_walkstar s'' (EL n funs_ts))` by simp[EL_MAP] >>
+         `r = convert_t (t_walkstar s' (EL n funs_ts))` by simp[EL_MAP] >>
          simp[]>>AP_TERM_TAC>>
-         `t_compat st'''''.subst s''` by metis_tac[pure_add_constraints_success] >>
+         `t_compat st'.subst s'` by metis_tac[pure_add_constraints_success] >>
          fs[t_compat_def]>>
-         `t_walkstar st'''''.subst (EL n funs_ts) =
-          t_walkstar st'''''.subst (Infer_Tuvar n)` by
+         `t_walkstar st'.subst (EL n funs_ts) =
+          t_walkstar st'.subst (Infer_Tuvar n)` by
            (fs[MAP_ZIP]>>
            qpat_assum`MAP (t_walkstar E) B = MAP C D` mp_tac>>
            simp[LIST_EQ_REWRITE,EL_MAP])>>
           metis_tac[])>>
        fs[]>>AP_TERM_TAC>>
-       Q.ISPECL_THEN [`s''`,`s`,`subst'`,`tvs'`,`count st''''.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
+       Q.ISPECL_THEN [`s'`,`s`,`subst'`,`tvs'`,`count st'.next_uvar`] mp_tac (GEN_ALL infer_deBruijn_subst_infer_subst_walkstar)>>
        discharge_hyps>-
          (fs[SUBSET_DEF]>>
          rw[]>>
@@ -703,7 +687,7 @@ val infer_d_sound = Q.prove (
          metis_tac[pure_add_constraints_wfs])>>
        rw[]>>
        pop_assum kall_tac>>
-       pop_assum(qspec_then `t_walkstar st'''''.subst (Infer_Tuvar n)` mp_tac)>>
+       pop_assum(qspec_then `t_walkstar st'.subst (Infer_Tuvar n)` mp_tac)>>
        discharge_hyps>-
          (
          fs[EXTENSION,SUBSET_DEF,Abbr`ts`]>>
