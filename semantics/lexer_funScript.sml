@@ -5,7 +5,7 @@ val _ = new_theory "lexer_fun";
 open preamble;
 open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
-(* This script defines the functional spec for the assmebly
+(* This script defines the functional spec for the assembly
    implementation of the lexer. This lexer specification consists of
    two phases. The first phase reads a string and returns a list of
    symbols. The second phase converts the symbol list into a list of
@@ -13,12 +13,11 @@ open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 
 (* intermediate symbols *)
 
-val _ = Hol_datatype `symbol = StringS of string
-                             | NumberS of int
-                             (* For identifier with a . in them *)
-                             | LongS of string
-                             | OtherS of string
-                             | ErrorS `;
+val _ = Datatype `symbol = StringS string
+                         | NumberS int
+                         | LongS string (* identifiers with a . in them *)
+                         | OtherS string
+                         | ErrorS `;
 
 (* helper functions *)
 
@@ -28,11 +27,17 @@ val read_while_def = Define `
      if P c then read_while P cs (c :: s)
             else (IMPLODE (REVERSE s),STRING c cs))`;
 
+val read_while_thm = prove(
+  ``!cs s cs' s'.
+       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
+  Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
+  RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
+
 val is_single_char_symbol_def = Define `
   is_single_char_symbol c = MEM c "()[]{},;"`;
 
 val isSymbol_def = Define `
-  isSymbol c = MEM c (CHR 96 :: "!%&$#+-/:<=>?@\\~^|*")`;
+  isSymbol c = MEM c (CHR 96 (* backquote *) :: "!%&$#+-/:<=>?@\\~^|*")`;
 
 val read_string_def = tDefine "read_string" `
   read_string str s =
@@ -66,8 +71,6 @@ val read_string_thm = prove(
   THEN RES_TAC THEN TRY DECIDE_TAC THEN CCONTR_TAC
   THEN FULL_SIMP_TAC std_ss [LENGTH] THEN DECIDE_TAC);
 
-(* str_to_syms turns a string into a list of symbols *)
-
 val skip_comment_def = Define `
   (skip_comment "" d = NONE) /\
   (skip_comment [x] d = NONE) /\
@@ -85,14 +88,10 @@ val skip_comment_thm = prove(
   THEN FULL_SIMP_TAC std_ss [] THEN SRW_TAC [] [] THEN RES_TAC
   THEN DECIDE_TAC);
 
-val read_while_thm = prove(
-  ``!cs s cs' s'.
-       (read_while P cs s = (s',cs')) ==> STRLEN cs' <= STRLEN cs``,
-  Induct THEN SRW_TAC [][read_while_def] THEN SRW_TAC [][] THEN
-  RES_TAC THEN FULL_SIMP_TAC std_ss [LENGTH,LENGTH_APPEND] THEN DECIDE_TAC);
-
 val isAlphaNumPrime_def = Define`
   isAlphaNumPrime c <=> isAlphaNum c \/ (c = #"'") \/ (c = #"_")`
+
+(* next_sym reads the next symbol from a string *)
 
 val next_sym_def = tDefine "next_sym" `
   (next_sym "" = NONE) /\
@@ -148,18 +147,18 @@ val next_sym_def = tDefine "next_sym" `
    THEN FULL_SIMP_TAC (srw_ss()) [LENGTH] THEN DECIDE_TAC);
 
 val lem1 = Q.prove (
-`((let (x,y) = z a in f x y) = P a) = (let (x,y) = z a in (f x y = P a))`,
-EQ_TAC THEN
-SRW_TAC [] [LET_THM] THEN
-Cases_on `z a` THEN
-FULL_SIMP_TAC std_ss []);
+  `((let (x,y) = z a in f x y) = P a) = (let (x,y) = z a in (f x y = P a))`,
+  EQ_TAC THEN
+  SRW_TAC [] [LET_THM] THEN
+  Cases_on `z a` THEN
+  FULL_SIMP_TAC std_ss []);
 
 val lem2 = Q.prove (
-`((let (x,y) = z a in f x y) ==> P a) = (let (x,y) = z a in (f x y ==> P a))`,
-EQ_TAC THEN
-SRW_TAC [] [LET_THM] THEN
-Cases_on `z a` THEN
-FULL_SIMP_TAC std_ss []);
+  `((let (x,y) = z a in f x y) ==> P a) = (let (x,y) = z a in (f x y ==> P a))`,
+  EQ_TAC THEN
+  SRW_TAC [] [LET_THM] THEN
+  Cases_on `z a` THEN
+  FULL_SIMP_TAC std_ss []);
 
 val next_sym_LESS = store_thm("next_sym_LESS",
   ``!input. (next_sym input = SOME (s,rest)) ==> LENGTH rest < LENGTH input``,
@@ -204,6 +203,8 @@ val next_sym_LESS = store_thm("next_sym_LESS",
   EVAL ``next_sym " (* hi (* there \" *) *) ~4 \" (* *)\" <= ;; "``
 
 *)
+
+(* next_token reads the next token from a string *)
 
 val processIdent_def = Define `
   processIdent s =
@@ -317,6 +318,8 @@ val lexer_fun_def = tDefine "lexer_fun" `
     EVAL ``lexer_fun "'"``
 
 *)
+
+(* split a list of tokens at top-level semicolons *)
 
 val toplevel_semi_dex_def = Define`
   (toplevel_semi_dex (i:num) (d:num) [] = NONE) /\
