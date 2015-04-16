@@ -7,7 +7,7 @@ open lcsymtacs grammarLib monadsyntax
 val _ = new_theory "gram"
 
 (* ----------------------------------------------------------------------
-    Define the Mini ML CFG
+    Define the CakeML Context-Free Grammar
    ---------------------------------------------------------------------- *)
 
 val tokmap0 =
