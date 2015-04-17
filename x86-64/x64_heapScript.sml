@@ -11258,15 +11258,120 @@ val LESS_EQ_IMP_LENGTH_n2mw_LESS_EQ = prove(
         (DECIDE ``0 < 18446744073709551616:num``)))
   \\ DECIDE_TAC) |> SPEC_ALL;
 
+val abs_simp = prove(
+  ``(ABS (&n) = &n) /\ (ABS (-&n) = &n)``,
+  intLib.COOPER_TAC);
+
+val IMP_LENGTH_FRONT = prove(
+  ``(LENGTH xs = n + 1) ==>
+    (LENGTH (FRONT xs) = n)``,
+  `(xs = []) \/ ?y ys. xs = SNOC y ys` by METIS_TAC [SNOC_CASES]
+  \\ FULL_SIMP_TAC std_ss [FRONT_SNOC] \\ fs [ADD1]);
+
+val LENGTH_FRONT_mw_mul_by_single =
+  MATCH_MP IMP_LENGTH_FRONT
+  multiwordTheory.LENGTH_mw_mul_by_single
+
+val LENGTH_mw_div = prove(
+  ``LENGTH (mw_fix ys) <> 0 /\
+    (mw_div xs ys = (xs1,ys1:'a word list,c)) ==>
+    LENGTH xs1 <= LENGTH xs /\ LENGTH ys1 <= LENGTH ys``,
+  fs [multiwordTheory.mw_div_def,LET_DEF]
+  \\ SRW_TAC [] [LENGTH,rich_listTheory.LENGTH_REPLICATE]
+  \\ SRW_TAC [] [LENGTH,rich_listTheory.LENGTH_REPLICATE]
+  \\ `LENGTH (mw_fix xs) <= LENGTH xs` by fs [multiwordTheory.LENGTH_mw_fix]
+  \\ `LENGTH (mw_fix ys) <= LENGTH ys` by fs [multiwordTheory.LENGTH_mw_fix]
+  THEN1 DECIDE_TAC
+  THEN1
+   (Cases_on `mw_simple_div 0x0w (REVERSE (mw_fix xs)) (HD (mw_fix ys))`
+    \\ Cases_on `r` \\ fs [] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC multiwordTheory.LENGTH_mw_simple_div \\ fs [] \\ DECIDE_TAC)
+  THEN1
+   (Cases_on `mw_simple_div 0x0w (REVERSE (mw_fix xs)) (HD (mw_fix ys))`
+    \\ Cases_on `r` \\ fs [] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC multiwordTheory.LENGTH_mw_simple_div \\ fs [] \\ DECIDE_TAC)
+  \\ Q.ABBREV_TAC `zs3 = (FRONT
+              (mw_mul_by_single (calc_d (LAST (mw_fix ys),0x1w))
+                 (mw_fix ys)))`
+  \\ Q.ABBREV_TAC `zs2 = (LASTN (LENGTH (mw_fix ys))
+              (mw_mul_by_single (calc_d (LAST (mw_fix ys),0x1w))
+                 (mw_fix xs) ++ [0x0w]))`
+  \\ Q.ABBREV_TAC `zs1 = (BUTLASTN (LENGTH (mw_fix ys))
+              (mw_mul_by_single (calc_d (LAST (mw_fix ys),0x1w))
+                 (mw_fix xs) ++ [0x0w]))`
+  \\ Cases_on `mw_div_aux zs1 zs2 zs3`
+  \\ `LENGTH zs3 = LENGTH (mw_fix ys)` by
+   (UNABBREV_ALL_TAC \\ fs [LENGTH_FRONT_mw_mul_by_single])
+  \\ `LENGTH zs2 = LENGTH (mw_fix ys)` by
+   (UNABBREV_ALL_TAC \\ fs [LENGTH_FRONT_mw_mul_by_single]
+    \\ MATCH_MP_TAC rich_listTheory.LENGTH_LASTN \\ fs []
+    \\ fs [multiwordTheory.LENGTH_mw_mul_by_single]
+    \\ DECIDE_TAC)
+  \\ `LENGTH zs1 = (LENGTH (mw_fix xs) + 2) - LENGTH (mw_fix ys)` by
+   (UNABBREV_ALL_TAC \\ fs [LENGTH_FRONT_mw_mul_by_single]
+    \\ `LENGTH (mw_fix xs) + 2 =
+        LENGTH (mw_mul_by_single (calc_d (LAST (mw_fix ys),0x1w))
+                 (mw_fix xs) ++ [0x0w:'a word])` by
+      (fs [multiwordTheory.LENGTH_mw_mul_by_single] \\ DECIDE_TAC)
+    \\ FULL_SIMP_TAC std_ss []
+    \\ MATCH_MP_TAC rich_listTheory.LENGTH_BUTLASTN \\ fs []
+    \\ fs [multiwordTheory.LENGTH_mw_mul_by_single]
+    \\ DECIDE_TAC)
+  \\ `LENGTH zs2 = LENGTH zs3` by fs []
+  \\ IMP_RES_TAC multiwordTheory.LENGTH_mw_div_aux
+  \\ Cases_on `calc_d (LAST (mw_fix ys),0x1w)`
+  \\ Cases_on `mw_simple_div 0x0w (REVERSE r) (n2w n)` \\ fs []
+  \\ Cases_on `r'` \\ fs [] \\ SRW_TAC [] []
+  \\ IMP_RES_TAC multiwordTheory.LENGTH_mw_simple_div \\ fs []
+  \\ DECIDE_TAC);
+
+val mw_addv_CONS_T = prove(
+  ``mw_addv (x::xs) [] T = mw_addv (x::xs) [1w] F``,
+  Cases_on `xs` \\ fs [multiwordTheory.mw_addv_def,LET_DEF]
+  \\ AP_TERM_TAC
+  \\ fs [multiwordTheory.single_add_def,multiwordTheory.b2w_def,
+         multiwordTheory.b2n_def,word_arith_lemma1]);
+
+val LENGTH_mw_addv_lemma =
+  multiwordTheory.LENGTH_mw_addv |> GEN_ALL
+  |> Q.SPECL [`[1w]`,`h::t'`] |> SIMP_RULE (srw_ss()) [ADD1];
+
+val LENGTH_mw_subv_BETTER = prove(
+  ``LENGTH (mw_subv xs ys) <= LENGTH xs``,
+  fs [multiwordTheory.mw_subv_def]
+  \\ MATCH_MP_TAC LESS_EQ_TRANS
+  \\ Q.EXISTS_TAC `LENGTH (FST (mw_sub xs ys T))`
+  \\ fs [multiwordTheory.LENGTH_mw_fix]
+  \\ Cases_on `mw_sub xs ys T`
+  \\ IMP_RES_TAC multiwordTheory.LENGTH_mw_sub
+  \\ fs []);
+
+val LENGTH_mwi_divmod = prove(
+  ``LENGTH (mw_fix ys) <> 0 /\
+    (mwi_divmod (s,xs) (t,ys) = (c,(x,xs1),(y,ys1:'a word list))) ==>
+    LENGTH xs1 <= LENGTH xs + LENGTH ys /\
+    LENGTH ys1 <= LENGTH xs + LENGTH ys``,
+  fs [multiwordTheory.mwi_divmod_def]
+  \\ Cases_on `mw_div xs ys` \\ Cases_on `r` \\ fs [LET_DEF]
+  \\ Cases_on `s = t` \\ fs [] \\ SRW_TAC [] []
+  \\ IMP_RES_TAC LENGTH_mw_div
+  \\ `LENGTH (mw_fix ys) <= LENGTH ys` by fs [multiwordTheory.LENGTH_mw_fix]
+  \\ `LENGTH (mw_fix q) <= LENGTH q` by fs [multiwordTheory.LENGTH_mw_fix]
+  \\ `LENGTH (mw_fix q') <= LENGTH q'` by fs [multiwordTheory.LENGTH_mw_fix]
+  \\ TRY DECIDE_TAC \\ fs []
+  THEN1
+   (Cases_on `mw_fix q` \\ fs [] THEN1 (EVAL_TAC \\ DECIDE_TAC)
+    \\ fs [mw_addv_CONS_T] \\ ASSUME_TAC LENGTH_mw_addv_lemma
+    \\ fs [] \\ DECIDE_TAC)
+  \\ MATCH_MP_TAC LESS_EQ_TRANS
+  \\ Q.EXISTS_TAC `LENGTH ys`
+  \\ fs [LENGTH_mw_subv_BETTER]);
+
 val LENGTH_int_op = prove(
   ``((op = Div) \/ (op = Mod) ==> j <> 0) ==>
     LENGTH (SND (i2mw (int_op op i j):(bool # word64 list))) <=
     num_size (Number i) + num_size (Number j) + 1``,
-  Cases_on `(op = Div) \/ (op = Mod)` THEN1
-   (fs [multiwordTheory.int_op_def,multiwordTheory.i2mw_def,
-        num_size_def,mw_thm]
-    \\ REPEAT STRIP_TAC \\ cheat)
-  \\ REPEAT STRIP_TAC
+  REPEAT STRIP_TAC
   \\ `mwi_op op (i2mw i) (i2mw j) =
       i2mw (int_op op i j):(bool # word64 list)` by
         (MATCH_MP_TAC multiwordTheory.mwi_op_thm \\ fs [])
@@ -11295,6 +11400,16 @@ val LENGTH_int_op = prove(
   \\ fs [] \\ REPEAT STRIP_TAC
   \\ fs [EVAL ``LENGTH (n2mw 1:word64 list)``]
   \\ fs [EVAL ``LENGTH (n2mw 0:word64 list)``]
+  \\ TRY DECIDE_TAC
+  \\ `?x1 x2 x3 x4 x5.
+         (mwi_divmod
+           (i < 0,n2mw (Num (ABS i)))
+           (j < 0,n2mw (Num (ABS j)))) =
+              (x1,(x2,x3),x4,x5:word64 list)` by METIS_TAC [PAIR]
+  \\ `LENGTH (mw_fix (n2mw (Num (ABS j))):word64 list) <> 0` by
+   (fs [LENGTH_NIL,multiwordTheory.mw_fix_NIL,multiwordTheory.mw2n_n2mw]
+    \\ intLib.COOPER_TAC)
+  \\ IMP_RES_TAC LENGTH_mwi_divmod \\ fs []
   \\ DECIDE_TAC);
 
 val num_length_lemma =
