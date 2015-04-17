@@ -11424,72 +11424,156 @@ val small_int_num_exists = prove(
 val IntData_def = Define `
   IntData i = DataOnly (i < 0) (mw (Num (ABS i)):word64 list)`;
 
-(*
+val isSomeUsed_def = Define `
+  (isSomeUsed NONE = F) /\
+  (isSomeUsed (SOME (Unused _)) = F) /\
+  (isSomeUsed _ = T)`;
+
+val isSomeUsed_heap_lookup_IntData = prove(
   ``!sp ys1 ptr.
       (sp = d + num_size (Number k) + 2) ==>
-      (isSomeDataElement (heap_lookup ptr (ys1 ++ Unused (sp-1)::ys2)) ==>
-       isSomeDataElement (heap_lookup ptr (ys1 ++ IntData k::Unused (d-1)::ys2)))``
-  fs [] \\ Induct
-
-    fs []
+      (isSomeUsed (heap_lookup ptr (ys1 ++ Unused (sp-1)::ys2)) ==>
+       (heap_lookup ptr (ys1 ++ IntData k::Unused d::ys2:(63,64) ml_heap) =
+        heap_lookup ptr (ys1 ++ Unused (sp-1)::ys2)))``,
+  fs [] \\ Induct THEN1
+   (fs []
     \\ ONCE_REWRITE_TAC [heap_lookup_def] \\ REPEAT STRIP_TAC
     \\ SIMP_TAC std_ss [heap_lookup_def]
     \\ fs [el_length_def,IntData_def,DataOnly_def,GSYM num_size_def]
-    \\ Cases_on `ptr = 0` THEN1 fs [isSomeDataElement_def] \\ fs []
+    \\ Cases_on `ptr = 0` THEN1 fs [isSomeUsed_def] \\ fs []
     \\ Cases_on `ptr < d + num_size (Number k) + 2 − 1 + 1`
-    THEN1 fs [isSomeDataElement_def] \\ fs []
+    THEN1 fs [isSomeUsed_def] \\ fs []
     \\ `~(ptr <= num_size (Number k) + 1) /\ 0 < d + 1 /\
-        ~(ptr < num_size (Number k) + 1 + (d + 1))` by DECIDE_TAC
+        ~(ptr < num_size (Number k) + 1 + (d + 1)) /\
+        ~(ptr < num_size (Number k) + 1)` by DECIDE_TAC
     \\ FULL_SIMP_TAC bool_ss [GSYM SUB_PLUS]
-    \\ `!l:num. d + l + 3 − 1 + 1 = l + 1 + (d + 1)` by ALL_TAC
+    \\ `!l:num. d + l + 2 − 1 + 1 = l + 1 + (d + 1)` by DECIDE_TAC
+    \\ fs [])
+  \\ SIMP_TAC std_ss [APPEND]
+  \\ ONCE_REWRITE_TAC [heap_lookup_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `ptr = 0` THEN1 fs [isSomeUsed_def] \\ fs []
+  \\ Cases_on `ptr < el_length h` THEN1 fs [isSomeUsed_def] \\ fs []);
 
-      fs [AC ADD_COMM ADD_ASSOC]
-      \\ REPEAT STRIP_TAC \\ REPEAT (POP_ASSUM (K ALL_TAC))
-      \\ DECIDE_TAC
-      SIMP_TAC bool_ss [DECIDE ``(3 = 1+1+1:num) /\ (2 = 1+1:num)``]
-      REWRITE_TAC [ADD_SUB,ADD_ASSOC]
+val isSomeDataElement_heap_lookup_IntData = prove(
+  ``!sp ys1 ptr.
+      (sp = d + num_size (Number k) + 2) ==>
+      (isSomeDataElement (heap_lookup ptr
+           (ys1 ++ Unused (sp-1)::ys2:(63,64) ml_heap)) ==>
+       isSomeDataElement (heap_lookup ptr
+           (ys1 ++ IntData k::Unused d::ys2)))``,
+  REPEAT STRIP_TAC
+  \\ fs [isSomeDataElement_def]
+  \\ MP_TAC (isSomeUsed_heap_lookup_IntData |> SPEC_ALL) \\ fs []
+  \\ fs [isSomeUsed_def]);
 
+val FILTER_APPEND_NIL = prove(
+  ``!xs ys. (FILTER P (xs++ys) = []) <=> (FILTER P xs = []) /\ (FILTER P ys = [])``,
+  Induct \\ fs [] \\ SRW_TAC [] []);
 
+val isForwardPointer_IntData = prove(
+  ``~isForwardPointer (IntData k)``,
+  fs [IntData_def,DataOnly_def,isForwardPointer_def]);
 
+val EVERY2_MONO = prove(
+  ``!xs ys.
+      (!x y. MEM x xs /\ MEM y ys /\ P x y ==> Q x y) ==>
+      EVERY2 P xs ys ==> EVERY2 Q xs ys``,
+  Induct \\ Cases_on `ys` \\ fs []);
 
-    `(ptr − (d + num_size (Number k) + 3 − 1 + 1)) =
-     (ptr − (num_size (Number k) + 1) − (d + 1))` by DECIDE_TAC \\ fs[]
-
-    \\ `~(ptr ≤ num_size (Number k) + 1)` by DECIDE_TAC \\ fs []
-
-
-*)
+val bc_value_inv_Unused = prove(
+  ``!x y f h:(63,64) ml_heap.
+      bc_value_inv x
+        (y,f,ys1 ++ Unused (d + num_size (Number k) + 2 - 1)::ys2) ⇒
+      bc_value_inv x (y,f,ys1 ++ IntData k::Unused d::ys2:(63,64) ml_heap)``,
+  recInduct bc_value_inv_ind \\ fs [] \\ REPEAT STRIP_TAC \\ fs [bc_value_inv_def]
+  THEN1
+   (Cases_on `small_int i` \\ fs [DataOnly_def]
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ MP_TAC (isSomeUsed_heap_lookup_IntData
+            |> SIMP_RULE std_ss [] |> SPEC_ALL) \\ fs [isSomeUsed_def])
+  \\ Cases_on `vs = []` \\ fs []
+  \\ Q.EXISTS_TAC `xs` \\ fs []
+  \\ REPEAT STRIP_TAC
+  THEN1
+   (Q.PAT_ASSUM `LIST_REL xx tt yy` MP_TAC
+    \\ MATCH_MP_TAC EVERY2_MONO \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ fs [AND_IMP_INTRO]
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+    \\ METIS_TAC [])
+  \\ Q.PAT_ASSUM `xxx = SOME (BlockRep n xs)` (fn th => fs [GSYM th]
+         THEN ASSUME_TAC th)
+  \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+  \\ fs [] \\ EVAL_TAC) |> SIMP_RULE std_ss [];
 
 val abs_ml_inv_Num_BIG_lemma = prove(
   ``abs_ml_inv (stack) refs
-      (roots,ys1 ++ Unused (sp - 1)::ys2,heap_length ys1,sp) l /\
+      (roots,ys1 ++ Unused (sp - 1)::ys2,heap_length (ys1:(63,64) ml_heap),sp) l /\
     (sp = d + num_size (Number k) + 2) ==>
     abs_ml_inv (stack) refs
       (roots,
        ys1 ++ IntData k::Unused d::ys2,
        heap_length ys1 + num_size (Number k) + 1,
        sp - num_size (Number k) - 1) l``,
-(*
   fs [abs_ml_inv_def]
   \\ REPEAT STRIP_TAC \\ fs []
-
-    fs [roots_ok_def]
+  THEN1
+   (fs [roots_ok_def]
     \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ Cases_on `heap_lookup ptr
-         (ys1 ++ Unused (d + num_size (Number k) + 3 − 1)::ys2)`
-    \\ fs [isSomeDataElement_def] \\ SRW_TAC [] []
-
-    heap_ok_def
-
-  fs [bc_stack_ref_inv_def]
+    \\ MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData)
+    \\ fs [])
+  THEN1
+   (fs [heap_ok_def,FILTER_APPEND_NIL,isForwardPointer_IntData]
+    \\ FULL_SIMP_TAC std_ss [isForwardPointer_def]
+    \\ REPEAT STRIP_TAC THEN1
+     (fs [heap_length_def,heap_length_APPEND,el_length_def,
+           IntData_def,DataOnly_def]
+      \\ fs [GSYM heap_length_def,mw_thm,num_size_def]
+      \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC)
+    \\ MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData)
+    \\ fs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
+    \\ fs [IntData_def,DataOnly_def] \\ SRW_TAC [] []
+    \\ fs [] \\ METIS_TAC [])
+  THEN1
+   (fs [unused_space_inv_def] \\ REPEAT STRIP_TAC
+    \\ fs [heap_lookup_APPEND,DECIDE ``~(n+m+1<n:num)``]
+    \\ `heap_length ys1 + num_size (Number k) + 1 - heap_length ys1 =
+        num_size (Number k) + 1` by DECIDE_TAC \\ fs []
+    \\ ONCE_REWRITE_TAC [heap_lookup_def] \\ fs []
+    \\ fs [el_length_def,IntData_def,DataOnly_def,num_size_def,mw_thm]
+    \\ ONCE_REWRITE_TAC [heap_lookup_def] \\ fs []
+    \\ DECIDE_TAC)
+  \\ fs [bc_stack_ref_inv_def]
   \\ Q.EXISTS_TAC `f` \\ fs []
-
-*)
-  cheat)
+  \\ fs [INJ_DEF] \\ REPEAT STRIP_TAC
+  THEN1 (MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData) \\ fs [])
+  THEN1
+   (Q.PAT_ASSUM `LIST_REL PP stack roots` MP_TAC
+    \\ MATCH_MP_TAC EVERY2_MONO \\ fs []
+    \\ METIS_TAC [bc_value_inv_Unused])
+  \\ fs [bc_ref_inv_def] \\ RES_TAC
+  \\ Cases_on `FLOOKUP f n` \\ fs []
+  \\ Cases_on `FLOOKUP refs n` \\ fs []
+  \\ REVERSE (Cases_on `x'`) \\ fs []
+  THEN1
+   (Q.PAT_ASSUM `xxx = SOME (Bytes l')` (fn th => fs [GSYM th]
+           THEN ASSUME_TAC th)
+    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+    \\ fs [] \\ EVAL_TAC)
+  \\ Q.EXISTS_TAC `zs` \\ fs []
+  \\ REPEAT STRIP_TAC
+  THEN1
+   (Q.PAT_ASSUM `xxx = SOME (RefBlock zs)` (fn th => fs [GSYM th]
+           THEN ASSUME_TAC th)
+    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+    \\ fs [] \\ EVAL_TAC)
+  \\ Q.PAT_ASSUM `LIST_REL xx yy tt` MP_TAC
+  \\ MATCH_MP_TAC EVERY2_MONO \\ fs []
+  \\ METIS_TAC [bc_value_inv_Unused]);
 
 val abs_ml_inv_Num_BIG = prove(
   ``abs_ml_inv (x1::stack) refs
-      (r1::roots,ys1 ++ Unused (sp - 1)::ys2,heap_length ys1,sp) l /\
+      (r1::roots,ys1 ++ Unused (sp - 1)::(ys2:(63,64) ml_heap),heap_length ys1,sp) l /\
     (sp = d + num_size (Number k) + 2) /\ ~small_int k ==>
     abs_ml_inv (Number k::stack) refs
       (Pointer (heap_length ys1)::roots,
@@ -11535,6 +11619,7 @@ val small_int_IMP_i2mw = prove(
   \\ fs [] \\ EVAL_TAC);
 
 val zHEAP_PERFORM_BIGNUM = let
+
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
                 |> UNDISCH_ALL |> Q.INST [`rip`|->`p`]
   val pc = get_pc th
@@ -12042,7 +12127,6 @@ val zHEAP_PERFORM_BIGNUM = let
         \\ fs [] \\ Q.PAT_ASSUM `xxx = sp` (ASSUME_TAC o GSYM) \\ fs []
         \\ fs [multiwordTheory.i2mw_def,num_size_def,mw_thm]
         \\ DECIDE_TAC)
-
 
 *)
   val th = MP th lemma |> RW [GSYM SPEC_MOVE_COND]
