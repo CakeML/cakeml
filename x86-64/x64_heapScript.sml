@@ -11628,8 +11628,43 @@ val heap_lookup_DataOnly_in_split = prove(
        other * x64_el (x64_addr vs.current_heap (Pointer ptr) + 1w)
          (DataOnly (i1 < 0) (n2mw (Num (ABS i1))))
             vs.current_heap vs.current_heap)``,
-  REPEAT STRIP_TAC
-  \\ cheat);
+  REPEAT STRIP_TAC \\ fs [heap_lookup_APPEND]
+  \\ Cases_on `ptr < heap_length (ys1 ++ [Unused (sp - 1)])` \\ fs []
+  THEN1
+   (Cases_on `ptr < heap_length ys1` \\ fs []
+    THEN1
+     (IMP_RES_TAC heap_lookup_SPLIT
+      \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,
+           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w,
+           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC,mw_thm]
+      \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1' vs.current_heap
+        vs.current_heap * x64_heap (vs.current_heap + n2w (8 *
+        heap_length (ys1' ++ [DataOnly (i1 < 0) (mw (Num (ABS
+        i1)))]))) ys2' vs.current_heap vs.current_heap * x64_heap
+        (vs.current_heap + n2w (8 * heap_length ((ys1':(63,64) ml_heap) ++ [DataOnly
+        (i1 < 0) (mw (Num (ABS i1)):word64 list)] ++ ys2' ++ [Unused (sp - 1)])))
+        ys2 vs.current_heap vs.current_heap`
+      \\ fs [AC STAR_ASSOC STAR_COMM,mw_thm])
+    \\ fs [heap_lookup_def,DataOnly_def])
+  \\ IMP_RES_TAC heap_lookup_SPLIT
+  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,
+           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w,
+           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC]
+  \\ IMP_RES_TAC (DECIDE ``~(n < m) /\ (n - m = k:num) ==> (n = k + m)``)
+  \\ fs [heap_length_APPEND]
+  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,LEFT_ADD_DISTRIB,
+           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w, word_add_n2w,
+           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC,mw_thm]
+  \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]
+  \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1 vs.current_heap
+       vs.current_heap * (x64_heap (vs.current_heap + n2w (heap_length
+       ys1 * 8 + 8 * heap_length ([Unused (sp - 1)]:(63,64) ml_heap))) ys1'
+       vs.current_heap vs.current_heap * x64_heap (vs.current_heap +
+       n2w (heap_length ys1 * 8 +
+       8 * heap_length ([Unused (sp - 1)]:(63,64) ml_heap) +
+       (heap_length ys1' * 8 + 8 * heap_length ([DataOnly (i1 < 0) (mw
+       (Num (ABS i1)))]:(63,64) ml_heap)))) ys2' vs.current_heap vs.current_heap)`
+  \\ fs [AC STAR_ASSOC STAR_COMM,mw_thm]);
 
 val star_reorder = prove(
   ``a1 * a2 * a3 * a4 * a5 * a6 * a7 * a8 =
@@ -12215,12 +12250,19 @@ val zHEAP_PERFORM_BIGNUM = let
       \\ fs [STAR_ASSOC,SEP_CLAUSES]
       \\ fs [star_reorder]
       \\ STRIP_TAC \\ fs []
-      \\ `(0x1w &&
-           vals.memory (x64_addr vs.current_heap (Pointer ptr) + 0x1w)) +
-          vals.memory (x64_addr vs.current_heap (Pointer ptr) + 0x1w) >>> 15 =
-          x64_header (i1 < 0,n2mw (Num (ABS i1)))` by ALL_TAC THEN1
+      \\ `((0x1w &&
+            vals.memory (x64_addr vs.current_heap (Pointer ptr) + 0x1w)) +
+           vals.memory (x64_addr vs.current_heap (Pointer ptr) + 0x1w) >>> 15 =
+           x64_header (i1 < 0,n2mw (Num (ABS i1)))) /\
+          x64_addr vs.current_heap (Pointer ptr) + 0x1w IN vals.memory_domain /\
+          (0x7w && (x64_addr vs.current_heap (Pointer ptr) + 0x1w) = 0x0w) /\
+          (0x7w && x64_addr vs.current_heap (Pointer ptr) + 0x9w = 0x0w)`
+          by ALL_TAC THEN1
        (fs [x64_el_def,DataOnly_def,x64_addr_def,x64_payload_def,LET_DEF]
         \\ SEP_R_TAC \\ fs [x64_multiwordTheory.x64_header_def]
+        \\ REVERSE (STRIP_TAC)
+        THEN1 (Q.PAT_ASSUM `heap_vars_ok vs` MP_TAC
+               \\ fs [heap_vars_ok_def] \\ blastLib.BBLAST_TAC)
         \\ Cases_on `i1 < 0` \\ fs [multiwordTheory.b2w_def,
              multiwordTheory.b2n_def,b2w_def,GSYM word_mul_n2w]
         \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
@@ -12265,12 +12307,11 @@ val zHEAP_PERFORM_BIGNUM = let
               ((i2mw i1):(bool # word64 list))
               ((i2mw i1):(bool # word64 list)))`
       \\ fs [bignum_blast_lemma,GSYM word_mul_n2w,heap_vars_ok_def]
-
-
-      (* --- works to this point --- *)
-
       \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1 vs.current_heap
             vs.current_heap *
+        one
+          (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
+           vs.current_heap + 0x8w,w6) *
         one
           (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
            vs.current_heap + 0x10w,w7) *
@@ -12305,10 +12346,15 @@ val zHEAP_PERFORM_BIGNUM = let
          (SEP_W_TAC \\ POP_ASSUM MP_TAC
           \\ fs [AC STAR_ASSOC STAR_COMM]
           \\ MATCH_MP_TAC (METIS_PROVE [] ``(x = y) ==> (x ==> y)``)
-          \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC))
-        \\ rfs [] \\ fs [mw_ok_i2mw]
+          \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ cheat)
+        \\ rfs [] \\ fs [mw_ok_i2mw,GSYM multiwordTheory.i2mw_def]
+        \\ fs [x64_addr_def]
         \\ MATCH_MP_TAC num_length_lemma \\ fs []
         \\ DECIDE_TAC)
+
+
+      (* --- works to this point --- *)
+
       \\ fs [zBIGNUMS_ALT_def,SEP_IMP_def]
       \\ SIMP_TAC (std_ss++sep_cond_ss) [SEP_CLAUSES,cond_STAR,SEP_EXISTS_THM]
       \\ REPEAT STRIP_TAC \\ fs [zHEAP_def]
@@ -12326,12 +12372,12 @@ val zHEAP_PERFORM_BIGNUM = let
             reg2 := x64_addr vs.current_heap r3 ;
             reg3 := x64_addr vs.current_heap r4 ;
             reg6 := (0x8w * n2w (heap_length ys1) + vs.current_heap +
-                     (if small_int (int_op (n2iop (getNumber x4)) i1 i2) then 0x0w
+                     (if small_int (int_op (n2iop (getNumber x4)) i1 i1) then 0x0w
                       else n2w (8 * LENGTH
                         ((SND (i2mw (int_op (n2iop (getNumber x4))
-                            i1 i2))):word64 list) + 8)) + -0x1w) ;
-            reg0 := (if small_int (int_op (n2iop (getNumber x4)) i1 i2) then
-                       small_int_to_word (int_op (n2iop (getNumber x4)) i1 i2)
+                            i1 i1))):word64 list) + 8)) + -0x1w) ;
+            reg0 := (if small_int (int_op (n2iop (getNumber x4)) i1 i1) then
+                       small_int_to_word (int_op (n2iop (getNumber x4)) i1 i1)
                      else
                        (0x8w * n2w (heap_length ys1) + vs.current_heap + -0x1w)) ;
             memory := m ;
