@@ -972,7 +972,6 @@ val check_specs_complete = store_thm("check_specs_complete",
     simp[EXTENSION] >> metis_tac[]) >>
   simp[check_specs_def,success_eqns] >> rw[] >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
-  conj_tac >- cheat >>
   PairCases_on`decls`>>fs[union_decls_def]>>
   (fn g =>
     let

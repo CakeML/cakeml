@@ -624,8 +624,7 @@ val check_specs_def = Define `
      check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' ((cn, ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn))) :: cenv) env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype_opq tvs tn :: specs) =
-  do () <- guard (~MEM (mk_id mn tn) tdecls) "Duplicate type definition";
-     () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
+  do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      new_tenvT <- return (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
      check_specs mn (merge_mod_env (FEMPTY,FEMPTY |+ new_tenvT) tenvT) (mdecls,mk_id mn tn::tdecls,edecls) (tenvT' |+ new_tenvT) cenv env specs
   od)`;
