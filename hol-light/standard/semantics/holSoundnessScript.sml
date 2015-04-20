@@ -223,7 +223,6 @@ val INST_TYPE_correct = store_thm("INST_TYPE_correct",
   TRY ( match_mp_tac term_ok_INST >> fs[EVERY_MAP,EVERY_MEM] >> metis_tac[] ) >>
   TRY ( match_mp_tac INST_HAS_TYPE >> metis_tac[TYPE_SUBST_Bool] ) >>
   qspecl_then[`sigof thy`,`c`,`tyin`]mp_tac termsem_INST >> simp[] >>
-  discharge_hyps >- metis_tac[welltyped_def] >>
   disch_then(qspecl_then[`i`,`v`]SUBST1_TAC) >>
   first_x_assum(qspec_then`i`mp_tac)>>rw[]>>
   first_x_assum(match_mp_tac o MP_CANON) >>

@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib lcsymtacs;
 
 val _ = new_theory "ml_hol_kernel";
 
@@ -21,6 +21,20 @@ val _ = translation_extends "ml_monad";
 val _ = (use_full_type_names := false);
 
 fun dest_monad_type ty = type_subst (match_type ``:'a M`` ty) ``:'a``;
+
+fun list_dest f tm =
+  let val (x,y) = f tm in list_dest f x @ list_dest f y end
+  handle HOL_ERR _ => [tm];
+val dest_fun_type = dom_rng
+fun domain ty = ty |> dest_fun_type |> fst
+
+fun dest_args tm =
+  let val (x,y) = dest_comb tm in dest_args x @ [y] end
+  handle HOL_ERR _ => []
+
+fun D th = let
+  val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  in if is_imp (concl th) then th else DISCH T th end
 
 (* ---- *)
 
@@ -59,7 +73,8 @@ val ty = ``:def``; val _ = derive_case_of ty;
 fun derive_case_of ty = let
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val name = get_name ty
-  val inv_def = fetch "ml_monad" (name ^ "_def")
+  val inv_def = fetch "ml_monad" (name ^ "_def") handle HOL_ERR _ =>
+                fetch "ml_translator" (name ^ "_def")
   val case_th = get_nchotomy_of ty
 (*
   val tm = ``Eval (write n1_2 v1_2 (write n1_1 v1_1 env)) exp1
