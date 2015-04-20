@@ -11727,6 +11727,12 @@ val word_eq_add_8 = prove(
   ``(w1 = w2) <=> (w1 + 8w = w2 + 8w:word64)``,
   fs []);
 
+val NOT_small_int_IMP_NOT_0 = prove(
+  ``~(small_int i) ==> i <> 0``,
+  fs [small_int_def] \\ intLib.COOPER_TAC);
+
+val simple_tac = REPEAT (POP_ASSUM (K ALL_TAC)) \\ SIMP_TAC std_ss []
+
 val zHEAP_PERFORM_BIGNUM = let
 
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
@@ -12591,6 +12597,9 @@ val zHEAP_PERFORM_BIGNUM = let
     \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
 
 
+    \\ Cases_on `ml_translator$CONTAINER
+         (~small_int i1 /\ ~small_int i2 /\ (i1 <> 0) /\ (i2 <> 0))`
+    THEN1 cheat
 
     \\ Cases_on `ml_translator$CONTAINER
          (~small_int i1 /\ small_int i2 /\ (i1 <> 0) /\ (i2 <> 0))`
@@ -12829,7 +12838,7 @@ val zHEAP_PERFORM_BIGNUM = let
          (IMP_RES_TAC small_int_num_exists
           \\ SRW_TAC [] [] \\ fs [GSYM word_mul_n2w]
           \\ MATCH_MP_TAC abs_ml_inv_Num_new \\ fs []
-          \\ Q.LIST_EXISTS_TAC [`Number (&k'')`,`r1`]
+          \\ Q.LIST_EXISTS_TAC [`Number i1`,`Pointer ptr`]
           \\ Q.PAT_ASSUM `abs_ml_inv xx yy tt ss` MP_TAC
           \\ MATCH_MP_TAC (METIS_PROVE [] ``(x = y) ==> (x ==> y)``)
           \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ cheat (* silly *))
@@ -15078,6 +15087,17 @@ val zHEAP_PERFORM_BIGNUM = let
       \\ fs [] \\ Q.PAT_ASSUM `xxx = sp` (ASSUME_TAC o GSYM) \\ fs []
       \\ fs [multiwordTheory.i2mw_def,num_size_def,mw_thm]
       \\ DECIDE_TAC)
+
+    \\ `F` by ALL_TAC
+    \\ REPEAT (Q.PAT_ASSUM `~(CONTAINER bbb)` MP_TAC)
+    \\ fs [ml_translatorTheory.CONTAINER_def]
+    \\ `(small_int i1 \/ small_int i2) ==> (i1 <> i2)` by cheat
+    \\ Cases_on `small_int i1` \\ fs []
+    \\ Cases_on `small_int i2` \\ fs []
+    \\ Cases_on `i1 = 0` \\ fs []
+    \\ Cases_on `i2 = 0` \\ fs []
+    \\ IMP_RES_TAC NOT_small_int_IMP_NOT_0 \\ fs []
+
 
 *)
   val th = MP th lemma |> RW [GSYM SPEC_MOVE_COND]
