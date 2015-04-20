@@ -993,12 +993,12 @@ val check_flat_weakT_complete = store_thm("check_flat_weakT_complete",
 
 val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
   ``∀tenvC1 tenvC2.
-    ALL_DISTINCT (MAP FST tenvC2) ∧
     flat_weakC tenvC1 tenvC2 ⇒
-    check_flat_weakC tenvC1 tenvC2``,
-  simp[flat_weakC_def,check_flat_weakC_def,EVERY_MEM,FORALL_PROD] >> rw[] >>
-  imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >>
-  first_x_assum(qspec_then`p_1`strip_assume_tac) >> rfs[])
+    check_flat_weakC tenvC1 (anub tenvC2 [])``,
+  simp[flat_weakC_def,check_flat_weakC_def] >> rw[] >>
+  match_mp_tac EVERY_anub >> rw[] >>
+  first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC  >> fs[])
 
 val check_weakE_complete = store_thm("check_weakE_complete",
   ``∀itenv1 itenv2 st tenv1 tenv2.
@@ -1008,7 +1008,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
     tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
   ⇒
     ∃st'.
-    check_weakE itenv1 itenv2 st = (Success(),st')``,
+    check_weakE itenv1 (anub itenv2 []) st = (Success(),st')``,
   ho_match_mp_tac check_weakE_ind >>
   rw[check_weakE_def,success_eqns] >>
   simp[EXISTS_PROD,success_eqns,PULL_EXISTS] >>
@@ -1031,8 +1031,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   PairCases_on`x`>>simp[] >> strip_tac >>
   fs[] >> strip_tac >>
 *)
-  cheat (* check_weakE looks wrong (effectively doing EVERY instead of ALOOKUP) *)
-        (* also, might want to have convert instead of the 2nd alpha (would require change in type system) *)
+  cheat (* might want to have convert instead of the 2nd alpha (would require change in type system) *)
   )
 
 val check_weak_decls_complete = store_thm("check_weak_decls_complete",
@@ -1115,8 +1114,7 @@ val infer_top_complete = store_thm("infer_top_complete",``
       PairCases_on`decls'`>>fs[] >>
       simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
       imp_res_tac check_flat_weakT_complete >>
-      `ALL_DISTINCT (MAP FST cenv''')` by cheat >> (* this is not true: *)
-      imp_res_tac check_flat_weakC_complete >> (* check_flat_weakC should not look at hidden things *)
+      imp_res_tac check_flat_weakC_complete >>
       Q.ISPECL_THEN[`(decls'0,decls'1,decls'2)`,`mdecls'',tdecls'',edecls''`]mp_tac (GEN_ALL check_weak_decls_complete) >>
       simp[convert_decls_def] >> fs[weak_decls_def] >>
       metis_tac[check_weakE_complete])

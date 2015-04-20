@@ -3339,4 +3339,20 @@ val convert_env2_anub = store_thm("convert_env2_anub",
   Cases >> fs[anub_def,UNCURRY] >> rw[] >>
   Cases_on`r`>>fs[])
 
+val EVERY_anub = store_thm("EVERY_anub",
+  ``∀ls acc.
+    (∀x. ¬MEM x acc ⇒ case ALOOKUP ls x of SOME v => P (x,v) | NONE => T)
+    ⇒ EVERY P (anub ls acc)``,
+  Induct >> simp[anub_def] >>
+  Cases >> simp[anub_def] >> rw[] >- (
+    first_x_assum(match_mp_tac) >>
+    rw[] >>
+    res_tac >>
+    pop_assum mp_tac >> IF_CASES_TAC >> fs[] )
+  >- (
+    res_tac >> fs[] ) >>
+  first_x_assum match_mp_tac >>
+  rw[] >> res_tac >> fs[] >>
+  `q ≠ x` by fs[] >> fs[])
+
 val _ = export_theory ();
