@@ -148,8 +148,8 @@ val FDOM_extend = prove (
    Cases_on`x=next_uvar`>>fs[]>>
    `x<next_uvar` by DECIDE_TAC>>fs[])
 
-val pure_add_constraints_exists = Q.prove (
-`!s ts next_uvar lim.
+val pure_add_constraints_exists = store_thm ("pure_add_constraints_exists",
+``!s ts next_uvar lim.
   t_wfs s ∧
   FDOM s = count next_uvar ∧
   EVERY (check_freevars lim []) ts
@@ -158,7 +158,7 @@ val pure_add_constraints_exists = Q.prove (
   let targs = MAP unconvert_t ts in
   let constraints = ZIP ((MAP Infer_Tuvar tys),targs) in
   let extension = ZIP (tys,targs) in
-  pure_add_constraints s constraints (s|++extension)`,
+  pure_add_constraints s constraints (s|++extension)``,
   induct_on`ts`>>
   rw[] >>unabbrev_all_tac>>
   rw [COUNT_LIST_def, pure_add_constraints_def]>-rw[FUPDATE_LIST]>>

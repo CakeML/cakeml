@@ -1000,39 +1000,167 @@ val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
   first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
   BasicProvers.EVERY_CASE_TAC  >> fs[])
 
+val weakE_anub_rev = store_thm("weakE_anub_rev",
+  ``∀env1 env2. weakE env1 env2 ⇒ weakE env1 (anub env2 [])``,
+  rw[weakE_def] >>
+  fs[Once ALOOKUP_anub])
+
+(*Convenient...*)
+val unconvert_env_def = Define`
+  unconvert_env env = MAP (λ(x,tvs,t). (x,tvs,unconvert_t t)) env`
+
+val anub_unconvert = prove(``
+  ∀env ac.
+  unconvert_env (anub env ac) = anub (unconvert_env env) ac``,
+  Induct>>fs[unconvert_env_def,anub_def]>>
+  rw[]>>PairCases_on`h`>>fs[anub_def]>>
+  rw[])
+
+val deBruijn_subst_unconvert = prove(``
+  (∀t.
+  check_freevars n [] t ⇒ 
+  unconvert_t (deBruijn_subst 0 subst t) =
+  infer_deBruijn_subst (MAP unconvert_t subst) (unconvert_t t) ) ∧
+  (∀ts.
+  EVERY (check_freevars n []) ts ⇒ 
+  MAP (unconvert_t o (deBruijn_subst 0 subst)) ts 
+  =
+  MAP ((infer_deBruijn_subst (MAP unconvert_t subst)) o unconvert_t) ts)``,
+  Induct>>fs[check_freevars_def]>>rw[]>>
+  fs[deBruijn_subst_def,unconvert_t_def,infer_deBruijn_subst_def]
+  >-
+    (IF_CASES_TAC>>fs[EL_MAP,unconvert_t_def])
+  >>
+    fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
+
+(*This might have been proven elsewhere...*)
+val infer_deBruijn_subst_twice = prove(``
+  (∀t.
+  check_t (LENGTH subst2) {} t ⇒ 
+  (infer_deBruijn_subst subst1 (infer_deBruijn_subst subst2 t) =
+  infer_deBruijn_subst (MAP (infer_deBruijn_subst subst1) subst2) t)) ∧ 
+  (∀ts. 
+  EVERY (check_t (LENGTH subst2) {}) ts ⇒ 
+  MAP ((infer_deBruijn_subst subst1) o (infer_deBruijn_subst subst2)) ts =
+  MAP (infer_deBruijn_subst(MAP(infer_deBruijn_subst subst1) subst2)) ts)``,
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,infer_deBruijn_subst_def]>>
+  simp[EL_MAP]>>
+  fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f])
+
+val t_walkstar_infer_deBruijn_subst = prove(``
+ t_wfs s ∧ 
+ LENGTH ls = tvs ∧
+ EVERY (check_t y {}) ls ∧  
+ (∀n. n < tvs ⇒ t_walkstar s (Infer_Tuvar n) = EL n ls)
+ ⇒ 
+  ((∀t.
+  check_t tvs {} t 
+  ⇒ 
+  t_walkstar s (infer_deBruijn_subst ls t) = 
+  t_walkstar s (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs) t)) ∧ 
+  (∀ts.
+  EVERY (check_t tvs {}) ts
+  ⇒ 
+  MAP ((t_walkstar s) o (infer_deBruijn_subst ls)) ts = 
+  MAP ((t_walkstar s) o (infer_deBruijn_subst (GENLIST Infer_Tuvar tvs))) ts))``,
+  strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,infer_deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_EL]
+  >-
+    metis_tac[t_walkstar_no_vars]
+  >>
+    fs[t_walkstar_eqn1,MAP_MAP_o,MAP_EQ_f])
+
+(*Definitely proved before somewhere*)
+val infer_deBruijn_subst_check_t = prove(``
+  EVERY (check_t tvs {}) ls
+  ⇒ 
+  (∀t. 
+  check_t (LENGTH ls) {} t  
+  ⇒ 
+  check_t tvs {} (infer_deBruijn_subst ls t)) ∧ 
+  (∀ts. 
+  EVERY (check_t (LENGTH ls) {}) ts
+  ⇒ 
+  EVERY (check_t tvs {}) (MAP (infer_deBruijn_subst ls) ts))``,
+  strip_tac>>ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[check_t_def,infer_deBruijn_subst_def]>>
+  fs[EVERY_MEM,MEM_EL]>>
+  metis_tac[])
+
+val anub_all_distinct_keys = prove(``
+  ∀ls acc.
+    ALL_DISTINCT acc ⇒ 
+    ALL_DISTINCT ((MAP FST (anub ls acc)) ++ acc)``,
+  Induct>>rw[anub_def]>>PairCases_on`h`>>fs[anub_def]>>
+  rw[]>>
+  `ALL_DISTINCT (h0::acc)` by fs[ALL_DISTINCT]>>res_tac>>
+  fs[ALL_DISTINCT_APPEND]>>
+  metis_tac[])
+
 val check_weakE_complete = store_thm("check_weakE_complete",
   ``∀itenv1 itenv2 st tenv1 tenv2.
     weakE tenv1 tenv2 ∧
-    tenv_alpha itenv1 (bind_var_list2 tenv1 Empty) ∧
-    (* convert_env2 itenv2 = tenv2 *)
-    tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
+    check_env {} itenv1 ∧ 
+    tenv_alpha itenv1 (bind_var_list2 tenv1 Empty)
+    (*tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
+      Either prove the above or prove that they are convert_env2
+      or prove that they are unconvert_env
+    *)
   ⇒
     ∃st'.
-    check_weakE itenv1 (anub itenv2 []) st = (Success(),st')``,
-  ho_match_mp_tac check_weakE_ind >>
-  rw[check_weakE_def,success_eqns] >>
-  simp[EXISTS_PROD,success_eqns,PULL_EXISTS] >>
-  simp[init_state_def,init_infer_state_def] >>
-  (*
-  f"weakE"
-  weakE_def
-  f"alookup_ind"
-  rator_x_assum`weakE`mp_tac >>
-  simp[weakE_def] >>
-  simp[convert_env2_def] >> rw[] >>
-  first_x_assum(qspec_then`n`mp_tac) >>
-  simp_tac(srw_ss())[] >>
-  CASE_TAC >>
-  rator_assum`tenv_alpha`mp_tac >>
-  simp_tac(std_ss)[tenv_alpha_def] >>
-  simp[tenv_invC_def,lookup_bvl2] >>
-  strip_tac >>
-  pop_assum(qspec_then`n`mp_tac) >> simp[] >>
-  PairCases_on`x`>>simp[] >> strip_tac >>
-  fs[] >> strip_tac >>
-*)
-  cheat (* might want to have convert instead of the 2nd alpha (would require change in type system) *)
-  )
+    check_weakE itenv1 (anub (unconvert_env tenv2) []) st = (Success(),st')``,
+  rw[check_weakE_EVERY]>>
+  imp_res_tac weakE_anub_rev>>
+  last_x_assum kall_tac>>
+  fs[weakE_def,EVERY_MEM]>>rw[]>>
+  fs[GSYM anub_unconvert,unconvert_env_def]>>
+  fs[MEM_MAP]>>PairCases_on`y`>>fs[]>>
+  (*Some alookup lemma for anubs*)
+  `ALOOKUP (anub tenv2 []) y0 = SOME(y1,y2)` by 
+    (Q.ISPECL_THEN [`tenv2`,`[]:tvarN list`] assume_tac anub_all_distinct_keys>>
+    fs[]>>
+    metis_tac[ALOOKUP_ALL_DISTINCT_MEM])>>
+  first_x_assum(qspec_then `y0` assume_tac)>>rfs[]>>
+  Cases_on`ALOOKUP tenv1 y0`>>
+  fs[tenv_alpha_def,tenv_invC_def,lookup_bvl2,lookup_tenv_def]>>
+  first_x_assum(qspec_then`y0` assume_tac)>>rfs[]>>
+  PairCases_on`x`>>fs[markerTheory.Abbrev_def]>>
+  imp_res_tac ALOOKUP_MEM>>
+  fs[check_env_def,EVERY_MEM]>>
+  res_tac>>fs[deBruijn_inc0]>>
+  qpat_assum`a=y2` (SUBST_ALL_TAC o SYM)>>
+  qspec_then `x1` assume_tac (deBruijn_subst_unconvert|>CONJUNCT1)>>
+  rfs[]>>
+  qpat_assum`A=unconvert_t x1` (SUBST_ALL_TAC o SYM)>>
+  simp[infer_deBruijn_subst_twice]>>
+  qpat_abbrev_tac`ls = MAP (infer_deBruijn_subst A) subst'`>>
+  `EVERY (check_t y1 {}) ls` by 
+    (fs[Abbr`ls`,EVERY_MAP,MAP_MAP_o,EVERY_MEM]>>
+    rw[]>>
+    `EVERY (check_t y1 {}) (MAP unconvert_t subst)` by
+      (fs[EVERY_MAP,EVERY_MEM]>>
+      metis_tac[check_freevars_to_check_t])>>
+    imp_res_tac (infer_deBruijn_subst_check_t|>UNDISCH|>CONJUNCT1|>DISCH_ALL)>>
+    metis_tac[LENGTH_MAP])>>
+  Q.ISPECL_THEN [`init_infer_state`,`[]:(infer_t,infer_t) alist`,`FEMPTY:num|->infer_t`,`MAP convert_t ls`,`y1`] mp_tac extend_multi_props>>
+  discharge_hyps_keep>-
+       (fs[init_infer_state_def,t_wfs_def,pure_add_constraints_def,count_def]>>
+       fs[EVERY_MAP,Abbr`ls`,EVERY_MEM]>>rw[]>>
+       metis_tac[check_t_to_check_freevars])>>
+   LET_ELIM_TAC>>fs[init_infer_state_def]>>
+   `targs = ls` by 
+     (fs[Abbr`targs`,MAP_MAP_o,MAP_EQ_ID]>>
+     metis_tac[check_t_empty_unconvert_convert_id,EVERY_MEM])>>fs[]>>
+   imp_res_tac (t_walkstar_infer_deBruijn_subst)>>
+   pop_assum kall_tac>>
+   pop_assum mp_tac>>
+   ntac 18 (pop_assum kall_tac)>>
+   simp[]>>disch_then (qspec_then`t'` mp_tac)>>
+   fs[markerTheory.Abbrev_def]>>
+   strip_tac>>
+   metis_tac[IS_SOME_EXISTS,SUBMAP_t_compat,t_compat_eqs_t_unify])
 
 val check_weak_decls_complete = store_thm("check_weak_decls_complete",
   ``(FST decls1) = (FST decls2) ∧
