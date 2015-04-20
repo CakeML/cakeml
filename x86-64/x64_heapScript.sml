@@ -11683,52 +11683,140 @@ val heap_lookup_DataOnly_in_split_two_lemma = prove(
        x64_el (x64_addr vs.current_heap (Pointer ptr2) + 1w)
          (DataOnly (i2 < 0) (n2mw (Num (ABS i2))))
             vs.current_heap vs.current_heap)``,
-  cheat);
-(*
   REPEAT STRIP_TAC \\ fs [heap_lookup_APPEND]
   \\ Cases_on `ptr1 < heap_length (ys1 ++ [Unused (sp - 1)])` \\ fs []
-
   THEN1
-   (
-
-    REVERSE (Cases_on `ptr1 < heap_length ys1`) \\ fs []
+   (REVERSE (Cases_on `ptr1 < heap_length ys1`) \\ fs []
     THEN1 (fs [heap_lookup_def,DataOnly_def])
     \\ Cases_on `ptr2 < heap_length (ys1 ++ [Unused (sp − 1)])` \\ fs []
-
     THEN1
-     (IMP_RES_TAC heap_lookup_SPLIT
-      \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,
-           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w,
-           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC,mw_thm]
+     (REVERSE (Cases_on `ptr2 < heap_length ys1`) \\ fs []
+      THEN1 (fs [heap_lookup_def,DataOnly_def])
+      \\ Q.PAT_ASSUM `heap_lookup ptr2 ys1 = xxx` MP_TAC
+      \\ IMP_RES_TAC heap_lookup_SPLIT \\ fs []
+      \\ fs [heap_lookup_APPEND]
+      \\ fs [heap_length_APPEND]
+      \\ fs [heap_length_def,el_length_def,DataOnly_def]
+      \\ fs [GSYM heap_length_def]
+      \\ `~(ptr2 < heap_length ys1')` by DECIDE_TAC \\ fs []
+      \\ Cases_on `ptr2 < heap_length ys1' +
+           (LENGTH (mw (Num (ABS i1)):word64 list) + 1)` \\ fs []
+      THEN1 (fs [heap_lookup_def] \\ REPEAT STRIP_TAC \\ `F` by DECIDE_TAC)
+      \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC heap_lookup_SPLIT \\ fs []
+      \\ fs [x64_heap_APPEND,x64_heap_def,SEP_CLAUSES,mw_thm]
+      \\ Q.ABBREV_TAC `x1 = n2mw (Num (ABS i1)):word64 list`
+      \\ Q.ABBREV_TAC `x2 = n2mw (Num (ABS i2)):word64 list`
       \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1' vs.current_heap
-        vs.current_heap * x64_heap (vs.current_heap + n2w (8 *
-        heap_length (ys1' ++ [DataOnly (i1 < 0) (mw (Num (ABS
-        i1)))]))) ys2' vs.current_heap vs.current_heap * x64_heap
-        (vs.current_heap + n2w (8 * heap_length ((ys1':(63,64) ml_heap) ++ [DataOnly
-        (i1 < 0) (mw (Num (ABS i1)):word64 list)] ++ ys2' ++ [Unused (sp - 1)])))
-        ys2 vs.current_heap vs.current_heap`
-      \\ fs [AC STAR_ASSOC STAR_COMM,mw_thm])
-    \\ fs [heap_lookup_def,DataOnly_def])
-  \\ IMP_RES_TAC heap_lookup_SPLIT
-  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,
-           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w,
-           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC]
-  \\ IMP_RES_TAC (DECIDE ``~(n < m) /\ (n - m = k:num) ==> (n = k + m)``)
+           vs.current_heap * x64_heap (n2w (8 * heap_length (ys1' ++
+           [DataElement [] (LENGTH x1) (NumTag (i1 < 0),x1)])) +
+           vs.current_heap) ys1'' vs.current_heap vs.current_heap *
+           x64_heap (n2w (8 * heap_length (ys1' ++ [DataElement []
+           (LENGTH x1) (NumTag (i1 < 0),x1)] ++ ys1'' ++ [DataElement
+           [] (LENGTH x2) (NumTag (i2 < 0),x2)])) + vs.current_heap)
+           ys2'' vs.current_heap vs.current_heap * x64_heap (n2w (8 *
+           (heap_length ys1' + (LENGTH x1 + 1) + heap_length (ys1'' ++
+           [DataElement [] (LENGTH x2) (NumTag (i2 < 0),x2)] ++ ys2'')
+           + (sp − 1 + 1))) + vs.current_heap) ys2 vs.current_heap
+           vs.current_heap` \\ fs [AC STAR_ASSOC STAR_COMM]
+      \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+      \\ fs [STAR_ASSOC]
+      \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+      \\ `ptr2 = (heap_length ys1' + (LENGTH x1 + 1)) +
+                 heap_length ys1''` by DECIDE_TAC \\ fs []
+      \\ fs [WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB,
+             heap_length_APPEND,x64_addr_def]
+      \\ fs [heap_length_def,el_length_def,AC ADD_COMM ADD_ASSOC,LEFT_ADD_DISTRIB]
+      \\ fs [AC STAR_ASSOC STAR_COMM])
+    \\ IMP_RES_TAC heap_lookup_SPLIT \\ fs []
+    \\ fs [heap_lookup_APPEND]
+    \\ fs [heap_length_APPEND]
+    \\ fs [heap_length_def,el_length_def,DataOnly_def]
+    \\ fs [GSYM heap_length_def]
+    \\ REPEAT STRIP_TAC
+    \\ fs [x64_heap_APPEND,x64_heap_def,SEP_CLAUSES,mw_thm]
+    \\ Q.ABBREV_TAC `x1 = n2mw (Num (ABS i1)):word64 list`
+    \\ Q.ABBREV_TAC `x2 = n2mw (Num (ABS i2)):word64 list`
+    \\ fs [WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB,
+           heap_length_APPEND,x64_addr_def]
+    \\ fs [heap_length_def,el_length_def,AC ADD_COMM ADD_ASSOC,LEFT_ADD_DISTRIB]
+    \\ fs [GSYM heap_length_def]
+    \\ IMP_RES_TAC (DECIDE ``~(p < n) /\ (p - n = m) ==> (p = n + m:num)``)
+    \\ fs [WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB,
+           heap_length_APPEND,x64_addr_def]
+    \\ fs [heap_length_def,el_length_def,AC ADD_COMM ADD_ASSOC,LEFT_ADD_DISTRIB]
+    \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1'' vs.current_heap
+         vs.current_heap * x64_heap (n2w (8 + (8 * LENGTH x1 + 8 * SUM
+         (MAP el_length ys1''))) + vs.current_heap) ys2''
+         vs.current_heap vs.current_heap * (x64_heap (n2w (8 + (8 + (8
+         * LENGTH x1 + (8 * SUM (MAP el_length ys1'') + (8 * SUM (MAP
+         el_length ys2'') + 8 * (sp − 1)))))) + vs.current_heap) ys1'
+         vs.current_heap vs.current_heap * x64_heap (n2w (8 + (8 + (8
+         * LENGTH x1 + (8 * SUM (MAP el_length ys1'') + (8 * SUM (MAP
+         el_length ys2'') + 8 * (sp − 1)))))) + n2w (8 + (8 * LENGTH
+         x2 + 8 * SUM (MAP el_length ys1'))) + vs.current_heap) ys2'
+         vs.current_heap vs.current_heap)`
+    \\ fs [AC STAR_COMM STAR_ASSOC,word_add_n2w,AC ADD_COMM ADD_ASSOC]
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ fs [STAR_ASSOC]
+    \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC))
+  \\ `~(ptr2 < heap_length (ys1 ++ [Unused (sp − 1)]))` by DECIDE_TAC \\ fs []
+  \\ Q.PAT_ASSUM `heap_lookup pp ys2 = xxx` MP_TAC
+  \\ IMP_RES_TAC heap_lookup_SPLIT \\ fs []
+  \\ fs [heap_lookup_APPEND]
   \\ fs [heap_length_APPEND]
-  \\ FULL_SIMP_TAC std_ss [x64_heap_APPEND,x64_heap_def,LEFT_ADD_DISTRIB,
-           SEP_CLAUSES,x64_addr_def,WORD_MUL_LSL,word_mul_n2w, word_add_n2w,
-           AC MULT_COMM MULT_ASSOC,AC WORD_ADD_COMM WORD_ADD_ASSOC,mw_thm]
-  \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC]
+  \\ fs [heap_length_def,el_length_def,DataOnly_def]
+  \\ fs [GSYM heap_length_def]
+  \\ IMP_RES_TAC (DECIDE ``~(p < n) /\ (p - n = m) ==> (p = n + m:num)``)
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
+  \\ POP_ASSUM (fn th => fs [th])
+  \\ STRIP_TAC \\ fs [DECIDE ``0 < n + (m + 1:num)``]
+  \\ POP_ASSUM (fn th => fs [th]) \\ fs [mw_thm]
+  \\ Q.ABBREV_TAC `x1 = n2mw (Num (ABS i1)):word64 list`
+  \\ Q.ABBREV_TAC `x2 = n2mw (Num (ABS i2)):word64 list`
+  \\ `~(ptr2 < heap_length ys1 + (sp − 1 + 1) + heap_length ys1')` by DECIDE_TAC
+  \\ fs []
+  \\ Cases_on `ptr2 < heap_length ys1 + (sp − 1 + 1) + (heap_length ys1'
+       + (LENGTH x1 + 1))` \\ fs [] THEN1
+   (fs [heap_lookup_def] \\ REPEAT STRIP_TAC
+    \\ IMP_RES_TAC (DECIDE ``~(p < m) /\ p <= m:num ==> (p = m)``) \\ fs [])
+  \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC heap_lookup_SPLIT \\ fs []
+  \\ fs [heap_lookup_APPEND]
+  \\ fs [heap_length_APPEND]
+  \\ fs [heap_length_def,el_length_def,DataOnly_def]
+  \\ fs [GSYM heap_length_def]
+  \\ REPEAT STRIP_TAC
+  \\ fs [x64_heap_APPEND,x64_heap_def,SEP_CLAUSES,mw_thm]
+  \\ Q.ABBREV_TAC `x1 = n2mw (Num (ABS i1)):word64 list`
+  \\ Q.ABBREV_TAC `x2 = n2mw (Num (ABS i2)):word64 list`
+  \\ fs [WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB,
+         heap_length_APPEND,x64_addr_def]
+  \\ fs [heap_length_def,el_length_def,AC ADD_COMM ADD_ASSOC,LEFT_ADD_DISTRIB]
+  \\ fs [GSYM heap_length_def]
+  \\ fs [GSYM SUB_PLUS,ADD_ASSOC]
+  \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ IMP_RES_TAC (DECIDE ``~(p < n) /\ (p - n = m) ==> (p = n + m:num)``)
+  \\ fs [WORD_MUL_LSL,word_mul_n2w,LEFT_ADD_DISTRIB,
+         heap_length_APPEND,x64_addr_def]
+  \\ fs [heap_length_def,el_length_def,AC ADD_COMM ADD_ASSOC,LEFT_ADD_DISTRIB]
+  \\ fs [GSYM SUB_PLUS,ADD_ASSOC]
+  \\ fs [AC ADD_COMM ADD_ASSOC]
   \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1 vs.current_heap
-       vs.current_heap * (x64_heap (vs.current_heap + n2w (heap_length
-       ys1 * 8 + 8 * heap_length ([Unused (sp - 1)]:(63,64) ml_heap))) ys1'
-       vs.current_heap vs.current_heap * x64_heap (vs.current_heap +
-       n2w (heap_length ys1 * 8 +
-       8 * heap_length ([Unused (sp - 1)]:(63,64) ml_heap) +
-       (heap_length ys1' * 8 + 8 * heap_length ([DataOnly (i1 < 0) (mw
-       (Num (ABS i1)))]:(63,64) ml_heap)))) ys2' vs.current_heap vs.current_heap)`
-  \\ fs [AC STAR_ASSOC STAR_COMM,mw_thm]);
-*)
+        vs.current_heap * (x64_heap (n2w (8 + (8 * SUM (MAP el_length
+        ys1) + 8 * (sp − 1))) + vs.current_heap) ys1' vs.current_heap
+        vs.current_heap * x64_heap (n2w (8 + (8 * LENGTH x1 + 8 * SUM
+        (MAP el_length ys1'))) + n2w (8 + (8 * SUM (MAP el_length ys1)
+        + 8 * (sp − 1))) + vs.current_heap) ys1'' vs.current_heap
+        vs.current_heap * x64_heap (n2w (8 + (8 * SUM (MAP el_length
+        ys1) + 8 * (sp − 1))) + n2w (16 + (8 * LENGTH x1 + (8 * LENGTH
+        x2 + (8 * SUM (MAP el_length ys1') + 8 * SUM (MAP el_length
+        ys1''))))) + vs.current_heap) ys2 vs.current_heap
+        vs.current_heap)`
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ fs [AC STAR_COMM STAR_ASSOC,word_add_n2w,AC ADD_COMM ADD_ASSOC]
+  \\ fs [ADD_ASSOC]
+  \\ fs [AC STAR_COMM STAR_ASSOC]);
 
 val star_lemma = prove(
   ``a1 * a2 * a3 = STAR a1 (a3 * a2)``,
