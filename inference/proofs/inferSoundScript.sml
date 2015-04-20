@@ -797,33 +797,46 @@ rw [convert_t_def, deBruijn_subst_def, EL_MAP, t_walkstar_eqn1,
     infer_deBruijn_subst_def, MAP_MAP_o, combinTheory.o_DEF, check_t_def,
     LENGTH_COUNT_LIST]);
 
+val weakE_anub = store_thm("weakE_anub",
+  ``∀env1 env2. weakE env1 (anub env2 []) ⇒ weakE env1 env2``,
+  rw[weakE_def] >>
+  fs[Once ALOOKUP_anub])
+
+val flat_weakC_anub = store_thm("flat_weakC_anub",
+  ``flat_weakC x (anub y []) ⇒ flat_weakC x y``,
+  rw[flat_weakC_def] >>
+  fs[Once ALOOKUP_anub])
+
 val check_weakE_sound = Q.prove (
-`!tenv1 tenv2 st st2.
-  check_env {} tenv1 ∧
-  check_env {} tenv2 ∧
-  (check_weakE tenv1 tenv2 st = (Success (), st2))
-  ⇒
-  weakE (convert_env2 tenv1) (convert_env2 tenv2)`,
-ho_match_mp_tac check_weakE_ind >>
-rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns, 
-    SIMP_RULE (srw_ss()) [] check_env_bind] >>
- cases_on `ALOOKUP tenv1 n` >>
- fs [success_eqns] >>
- `?tvs_impl t_impl. x' = (tvs_impl,t_impl)` by (PairCases_on `x'` >> metis_tac []) >>
- rw [] >>
- fs [success_eqns] >>
- rw [] >>
- `ALOOKUP (MAP (λ(x,y). (x,(λ(tvs,t). (tvs, convert_t t)) y)) tenv1) n = SOME ((λ(tvs,t). (tvs, convert_t t)) (tvs_impl,t_impl))`
-         by rw [ALOOKUP_MAP] >>
- fs [remove_pair_lem] >>
- `(λ(x,y). (x,FST y,convert_t (SND y))) = (λ(x,tvs:num,t). (x,tvs,convert_t t))`
-                 by (rw [FUN_EQ_THM] >>
-                     PairCases_on `y` >>
-                     rw []) >>
- rw [] >>
- fs [init_state_def, init_infer_state_def] >>
- rw [] 
- >- (fs [] >>
+  `!tenv1 tenv2a tenv2 acc st st2.
+    check_env {} tenv1 ∧
+    check_env {} tenv2 ∧
+    anub tenv2 acc = tenv2a ∧
+    (check_weakE tenv1 (anub tenv2 acc) st = (Success (), st2))
+    ⇒
+    weakE (convert_env2 tenv1) (convert_env2 (anub tenv2 acc))`,
+  ho_match_mp_tac check_weakE_ind >>
+  conj_tac >- (
+    rw[anub_def,weakE_def,convert_env2_def] ) >>
+  rw[] >>
+  imp_res_tac(check_weakE_EVERY |> SPEC_ALL |> EQ_IMP_RULE |> fst |> SIMP_RULE(srw_ss())[PULL_EXISTS]) >>
+  rfs[] >>
+  Cases_on`ALOOKUP tenv1 n` >> fs[] >>
+  `?tvs_impl t_impl. x = (tvs_impl,t_impl)` by metis_tac[PAIR] >> fs[] >>
+  rator_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
+  strip_tac >>
+  imp_res_tac anub_tl_anub >>
+  fs[] >>
+  first_x_assum(qspecl_then[`a`,`b`,`st`]mp_tac) >> simp[] >>
+  discharge_hyps_keep >- (
+    fs[check_env_def,SUBSET_DEF,EVERY_MEM] ) >>
+  rw [convert_env2_def, weakE_def] >>
+  rw[] >>
+  simp[Q.ISPEC`λ(tvs,t). (tvs, convert_t t)`ALOOKUP_MAP|>SIMP_RULE(srw_ss())[LAMBDA_PROD]] >>
+  fs[LET_THM,IS_SOME_EXISTS] >>
+  pop_assum kall_tac >>
+  qmatch_assum_rename_tac`t_unify FEMPTY t_spec _ = SOME s` >>
+  fs [] >>
      `t_wfs FEMPTY` by rw [t_wfs_def] >>
      imp_res_tac t_unify_wfs >>
      imp_res_tac t_unify_apply >>
@@ -848,8 +861,16 @@ rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns,
                 by (match_mp_tac t_unify_check_s >>
                     MAP_EVERY qexists_tac [`FEMPTY`, `t_spec`, 
                                            `(infer_deBruijn_subst (MAP (λn.  Infer_Tuvar n) (COUNT_LIST tvs_impl)) t_impl)`] >>
-                    rw [check_s_def, check_t_infer_db_subst2] >>
-                    metis_tac [check_t_more, check_t_more2, arithmeticTheory.ADD_0]) >>
+                    simp [check_s_def, check_t_infer_db_subst2] >>
+                    simp[COUNT_LIST_GENLIST,MAP_GENLIST,ETA_AX] >>
+                    reverse conj_tac >-
+                      metis_tac [check_t_more, check_t_more2, arithmeticTheory.ADD_COMM] >>
+                    `ALOOKUP tenv2 n = SOME (tvs_spec,t_spec)` suffices_by
+                      metis_tac[check_t_more, check_t_more2] >>
+                    `ALOOKUP tenv2 n = ALOOKUP (anub tenv2 acc) n` by (
+                      CONV_TAC(RAND_CONV(REWR_CONV ALOOKUP_anub)) >> rw[] >>
+                      metis_tac[anub_notin_acc,MEM,MAP,FST] ) >>
+                    rw[]) >>
      qexists_tac `MAP (\n. convert_t (t_walkstar (s |++ s') (Infer_Tuvar n))) (COUNT_LIST tvs_impl)` >>
      rw [LENGTH_COUNT_LIST, check_t_to_check_freevars, EVERY_MAP]
      >- (rw [EVERY_MEM] >>
@@ -868,12 +889,10 @@ rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns,
                                            by (rw [FLOOKUP_DEF, FDOM_FUPDATE_LIST]) >>
                                    fs [flookup_update_list_some] >|
                                    [imp_res_tac ALOOKUP_MEM >>
-                                        fs [MEM_MAP] >>
-                                        rw [] >>
-                                        PairCases_on `y` >>
+                                        fs[] >>
                                         imp_res_tac (GSYM mem_to_flookup) >>
-                                        fs [] >>
-                                        ntac 3 (pop_assum mp_tac) >>
+                                        fs[] >>
+                                        ntac 2 (pop_assum mp_tac) >>
                                         rw [FLOOKUP_FUN_FMAP] >>
                                         rw [check_t_def],
                                     pop_assum mp_tac >>
@@ -882,24 +901,39 @@ rw [convert_env2_def, check_weakE_def, weakE_def, success_eqns,
                               res_tac >>
                               fs [FDOM_FUPDATE_LIST]]) >>
          rw [check_t_to_check_freevars])
-     >- (imp_res_tac t_walkstar_no_vars >>
-         fs [] >>
-         rw [SIMP_RULE (srw_ss()) [MAP_MAP_o, combinTheory.o_DEF] (GSYM db_subst_infer_subst_swap2)] >>
-         match_mp_tac (METIS_PROVE [] ``x = y ⇒ f x = f y``) >>
-         match_mp_tac (SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM,AND_IMP_INTRO] no_vars_extend_subst) >>
+     >- (
+       `check_t tvs_spec {} t_spec` by (
+         first_x_assum match_mp_tac >>
+        `ALOOKUP tenv2 n = SOME (tvs_spec,t_spec)` suffices_by
+          metis_tac[check_t_more, check_t_more2] >>
+        `ALOOKUP tenv2 n = ALOOKUP (anub tenv2 acc) n` by (
+          CONV_TAC(RAND_CONV(REWR_CONV ALOOKUP_anub)) >> rw[] >>
+          metis_tac[anub_notin_acc,MEM,MAP,FST] ) >>
+        rw[] ) >>
+       imp_res_tac t_walkstar_no_vars >>
+       fs [] >>
+       rw [SIMP_RULE (srw_ss()) [MAP_MAP_o, combinTheory.o_DEF] (GSYM db_subst_infer_subst_swap2)] >>
+       AP_TERM_TAC >>
+       simp[MAP_GENLIST,COUNT_LIST_GENLIST,ETA_AX] >>
+       match_mp_tac (SIMP_RULE (srw_ss()) [GSYM RIGHT_FORALL_IMP_THM,AND_IMP_INTRO] no_vars_extend_subst) >>
          rw []
          >- (rw [DISJOINT_DEF, EXTENSION] >>
              metis_tac [])
          >- (imp_res_tac check_t_t_vars  >>
-             fs [EXTENSION, SUBSET_DEF])))
- >- metis_tac[]);
+             fs [EXTENSION, SUBSET_DEF])));
 
 val check_flat_weakC_sound = Q.prove (
-`!tenvC1 tenvC2.
-  check_flat_weakC tenvC1 tenvC2
+`!tenvC1 tenvC2 acc.
+  check_flat_weakC tenvC1 (anub tenvC2 acc)
   ⇒
-  flat_weakC tenvC1 tenvC2`,
-induct_on `tenvC2` >>
+  flat_weakC tenvC1 (anub tenvC2 acc)`,
+rpt gen_tac >>
+Induct_on`anub tenvC2 acc` >>
+rw[] >- (
+  last_x_assum(strip_assume_tac o SYM) >>
+  rw[flat_weakC_def] ) >>
+qpat_assum`X = Y`(assume_tac o SYM) >>
+imp_res_tac anub_tl_anub >> rw[] >>
 fs [check_flat_weakC_def, flat_weakC_def, success_eqns] >>
 rw [] >>
 PairCases_on `h` >>
@@ -1100,8 +1134,8 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
              PairCases_on`decls'''`>>fs[convert_decls_def,append_decls_def] >>
              simp[Once INSERT_SING_UNION,convert_menv_def,convert_env2_def] >>
              rw []
-             >- metis_tac [check_weakE_sound, convert_env2_def]
-             >- metis_tac [check_flat_weakC_sound]
+             >- metis_tac [check_weakE_sound, convert_env2_def, weakE_anub, convert_env2_anub]
+             >- metis_tac [check_flat_weakC_sound, flat_weakC_anub]
              >- (PairCases_on `decls''` >>
                  fs [convert_decls_def, weak_decls_def, check_weak_decls_def, append_decls_def,
                      list_subset_def, SUBSET_DEF, EVERY_MEM] >>
@@ -1163,7 +1197,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          cases_on `o'` >>
          fs [check_signature_def, success_eqns] >>
          rw [])
-     >- 
+     >-
        (fs[success_eqns]>>
        `check_menv menv'` by 
          (qpat_assum`A=menv'` sym_sub_tac>>
@@ -1205,11 +1239,11 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
    rw[num_tvs_bvl2,num_tvs_def,convert_env2_def,EVERY_MAP] >>
    fs[EVERY_MEM,UNCURRY,check_env_def] >>
    metis_tac[check_t_to_check_freevars])
- >- 
+ >-
    (match_mp_tac tenv_alpha_bind_var_list2>>
    rw[]>-
      metis_tac[tenv_alpha_convert,infer_d_check]
-   >> 
+   >>
    fs[EXTENSION,MEM_MAP,PULL_EXISTS,EXISTS_PROD,convert_env2_def]));
 
 val infer_prog_sound = Q.store_thm ("infer_prog_sound",

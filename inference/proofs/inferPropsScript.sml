@@ -3267,5 +3267,76 @@ val tenv_alpha_bind_var_list2 = store_thm("tenv_alpha_bind_var_list2",``
   fs[tenv_alpha_def]>>
   metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
 
-val _ = export_theory ();
+val check_weakE_EVERY = store_thm("check_weakE_EVERY",
+  ``∀env_impl env_spec st.
+      (∃st'. check_weakE env_impl env_spec st = (Success (),st')) ⇔
+      EVERY (λ(n,tvs_spec,t_spec).
+           case ALOOKUP env_impl n of
+           | NONE => F
+           | SOME (tvs_impl,t_impl) =>
+               let t = infer_deBruijn_subst (GENLIST Infer_Tuvar tvs_impl) t_impl in
+               IS_SOME (t_unify FEMPTY t_spec t)) env_spec``,
+  ho_match_mp_tac check_weakE_ind >>
+  conj_tac >- rw[check_weakE_def,success_eqns] >>
+  rw[check_weakE_def] >>
+  Cases_on`ALOOKUP env_impl n`>>simp[failwith_def] >>
+  Cases_on`x`>>simp[success_eqns,init_state_def] >> fs[] >>
+  simp[markerTheory.Abbrev_def] >>
+  simp[init_infer_state_def] >>
+  simp[COUNT_LIST_GENLIST,MAP_GENLIST,ETA_AX] >>
+  simp[IS_SOME_EXISTS,PULL_EXISTS] >>
+  rw[EQ_IMP_THM] >> rw[] >- (
+    fs[LET_THM,IS_SOME_EXISTS] >>
+    metis_tac[] ) >>
+  simp[markerTheory.Abbrev_def,IS_SOME_EXISTS] )
 
+val EVERY_anub_imp = store_thm("EVERY_anub_imp",
+  ``∀ls acc x y.
+      EVERY P (anub ((x,y)::ls) acc) ∧ x ∉ set acc
+      ⇒
+      P (x,y) ∧ EVERY P (anub ls (x::acc))``,
+  ho_match_mp_tac anub_ind >> rw[anub_def] >>
+  fs[MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD])
+
+val ALOOKUP_anub = store_thm("ALOOKUP_anub",
+  ``ALOOKUP (anub ls acc) k =
+    if MEM k acc then ALOOKUP (anub ls acc) k
+    else ALOOKUP ls k``,
+  qid_spec_tac`acc` >>
+  Induct_on`ls` >>
+  rw[anub_def] >>
+  Cases_on`h`>>rw[anub_def]>>fs[] >- (
+    first_x_assum(qspec_then`acc`mp_tac) >>
+    rw[] ) >>
+  first_x_assum(qspec_then`q::acc`mp_tac) >>
+  rw[])
+
+val anub_eq_nil = store_thm("anub_eq_nil",
+  ``anub x y = [] ⇔ EVERY (combin$C MEM y) (MAP FST x)``,
+  qid_spec_tac`y` >>
+  Induct_on`x`>>rw[anub_def]>>
+  Cases_on`h`>>rw[anub_def])
+
+val anub_notin_acc = store_thm("anub_notin_acc",
+  ``∀ls acc. MEM x acc ⇒ ¬MEM x (MAP FST (anub ls acc))``,
+  Induct >> simp[anub_def] >>
+  Cases >> simp[anub_def] >> rw[] >>
+  metis_tac[])
+
+val anub_tl_anub = store_thm("anub_tl_anub",
+  ``∀x y h t. anub x y = h::t ⇒ ∃a b. t = anub a b ∧ set a ⊆ set x ∧ set b ⊆ set ((FST h)::y)``,
+  Induct >> rw[anub_def] >>
+  Cases_on`h`>>fs[anub_def] >>
+  pop_assum mp_tac  >> rw[] >>
+  res_tac >> rw[] >>
+  fs[SUBSET_DEF] >>
+  metis_tac[MEM] )
+
+val convert_env2_anub = store_thm("convert_env2_anub",
+  ``∀ls ac. convert_env2 (anub ls ac) = anub (convert_env2 ls) ac``,
+  Induct >> fs[anub_def,convert_env2_def] >>
+  fs[UNCURRY] >>
+  Cases >> fs[anub_def,UNCURRY] >> rw[] >>
+  Cases_on`r`>>fs[])
+
+val _ = export_theory ();
