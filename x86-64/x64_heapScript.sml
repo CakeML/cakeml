@@ -11677,6 +11677,22 @@ val MOD_LESS_LEMMA = prove(
   REPEAT STRIP_TAC
   \\ `n < 18446744073709551616` by DECIDE_TAC \\ fs []);
 
+val LENGTH_n2mw_Num_ABS_EQ_0 = prove(
+  ``(LENGTH (n2mw (Num (ABS i)):word64 list) = 0) <=> (i = 0)``,
+  fs [LENGTH_NIL,multiwordTheory.n2mw_NIL] \\ intLib.COOPER_TAC);
+
+val x64_header_NOT_ZERO = prove(
+  ``num_size (Number i1) < 4294967296 /\ i1 <> 0 ==>
+    (x64_header (n,n2mw (Num (ABS i1)):word64 list) <> 0w)``,
+  fs [x64_multiwordTheory.x64_header_def,GSYM word_mul_n2w,num_size_def,mw_thm]
+  \\ fs [GSYM LENGTH_n2mw_Num_ABS_EQ_0]
+  \\ Q.SPEC_TAC (`LENGTH (n2mw (Num (ABS i1)):word64 list)`,`l`)
+  \\ NTAC 2 STRIP_TAC
+  \\ `n2w l <+ 4294967296w:word64 /\ n2w l <> 0w:word64` by ALL_TAC THEN1
+    (`l < 18446744073709551616` by DECIDE_TAC \\ fs [WORD_LO])
+  \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC
+  \\ Cases_on `n` \\ FULL_SIMP_TAC std_ss [] \\ blastLib.BBLAST_TAC);
+
 val zHEAP_PERFORM_BIGNUM = let
 
   val th = thE3 |> SIMP_RULE (std_ss++sep_cond_ss) [SPEC_MOVE_COND]
@@ -12270,8 +12286,10 @@ val zHEAP_PERFORM_BIGNUM = let
               281474976710656w:word64` by
             (fs [WORD_LO] \\ MATCH_MP_TAC MOD_LESS_LEMMA \\ fs [] \\ NO_TAC)
         \\ POP_ASSUM MP_TAC \\ blastLib.BBLAST_TAC)
-      \\ `(n2mw (Num (ABS i1))) <> ([]:word64 list)` by cheat
-      \\ `x64_header (i1 < 0,n2mw (Num (ABS i1))) <> 0x0w` by cheat
+      \\ `(n2mw (Num (ABS i1))) <> ([]:word64 list)` by ALL_TAC THEN1
+           (fs [multiwordTheory.n2mw_NIL] \\ intLib.COOPER_TAC)
+      \\ `x64_header (i1 < 0,n2mw (Num (ABS i1))) <> 0x0w` by ALL_TAC THEN1
+           (MATCH_MP_TAC x64_header_NOT_ZERO \\ fs [] \\ DECIDE_TAC)
 (*
       \\ `0x2w = x64_header (F,[x64_addr vs.current_heap r2 >>> 2])` by EVAL_TAC
       \\ `x64_addr vs.current_heap r1 = 0x0w` by fs []
@@ -12307,18 +12325,15 @@ val zHEAP_PERFORM_BIGNUM = let
               ((i2mw i1):(bool # word64 list))
               ((i2mw i1):(bool # word64 list)))`
       \\ fs [bignum_blast_lemma,GSYM word_mul_n2w,heap_vars_ok_def]
-      \\ Q.EXISTS_TAC `x64_heap vs.current_heap ys1 vs.current_heap
-            vs.current_heap *
-        one
-          (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
-           vs.current_heap + 0x8w,w6) *
-        one
-          (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
-           vs.current_heap + 0x10w,w7) *
-        x64_heap
-          (0x8w * n2w (heap_length (ys1 ++ [Unused (sp - 1)])) +
-           vs.current_heap) ys2 vs.current_heap vs.current_heap *
-        one_list_exists vs.other_heap cs.heap_limit * x64_store cs vs`
+      \\ Q.EXISTS_TAC `
+        one_list_exists vs.other_heap cs.heap_limit *
+        one (x64_addr vs.current_heap (Pointer ptr) + 0x1w,b2w (i1 < 0) +
+             n2w (LENGTH (n2mw (Num (ABS i1)):word64 list)) << 16 + 0x2w) *
+        one (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
+             vs.current_heap + 0x8w,w6) *
+        one (0x8w * n2w (LENGTH rest) + 0x8w * n2w (heap_length ys1) +
+             vs.current_heap + 0x10w,w7) *
+        other * x64_store cs vs`
       \\ REWRITE_TAC [CONJ_ASSOC] \\ STRIP_TAC
       THEN1
        (Q.ABBREV_TAC `m = vals.memory`
@@ -12345,8 +12360,11 @@ val zHEAP_PERFORM_BIGNUM = let
         THEN1
          (SEP_W_TAC \\ POP_ASSUM MP_TAC
           \\ fs [AC STAR_ASSOC STAR_COMM]
+          \\ fs [x64_el_def,DataOnly_def,x64_payload_def,LET_DEF]
+          \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
           \\ MATCH_MP_TAC (METIS_PROVE [] ``(x = y) ==> (x ==> y)``)
-          \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ cheat)
+          \\ fs [AC STAR_ASSOC STAR_COMM]
+          \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC))
         \\ rfs [] \\ fs [mw_ok_i2mw,GSYM multiwordTheory.i2mw_def]
         \\ fs [x64_addr_def]
         \\ MATCH_MP_TAC num_length_lemma \\ fs []
