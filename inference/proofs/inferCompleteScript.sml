@@ -1004,6 +1004,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   ``∀itenv1 itenv2 st tenv1 tenv2.
     weakE tenv1 tenv2 ∧
     tenv_alpha itenv1 (bind_var_list2 tenv1 Empty) ∧
+    (* convert_env2 itenv2 = tenv2 *)
     tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
   ⇒
     ∃st'.
@@ -1012,6 +1013,24 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   rw[check_weakE_def,success_eqns] >>
   simp[EXISTS_PROD,success_eqns,PULL_EXISTS] >>
   simp[init_state_def,init_infer_state_def] >>
+  (*
+  f"weakE"
+  weakE_def
+  f"alookup_ind"
+  rator_x_assum`weakE`mp_tac >>
+  simp[weakE_def] >>
+  simp[convert_env2_def] >> rw[] >>
+  first_x_assum(qspec_then`n`mp_tac) >>
+  simp_tac(srw_ss())[] >>
+  CASE_TAC >>
+  rator_assum`tenv_alpha`mp_tac >>
+  simp_tac(std_ss)[tenv_alpha_def] >>
+  simp[tenv_invC_def,lookup_bvl2] >>
+  strip_tac >>
+  pop_assum(qspec_then`n`mp_tac) >> simp[] >>
+  PairCases_on`x`>>simp[] >> strip_tac >>
+  fs[] >> strip_tac >>
+*)
   cheat (* check_weakE looks wrong (effectively doing EVERY instead of ALOOKUP) *)
         (* also, might want to have convert instead of the 2nd alpha (would require change in type system) *)
   )
@@ -1026,41 +1045,6 @@ val check_weak_decls_complete = store_thm("check_weak_decls_complete",
   fs[EXTENSION,SUBSET_DEF,EVERY_MEM])
 
 (* TODO: move *)
-
-(* looks untrue as stated
-val type_specs_all_distinct = store_thm("type_specs_all_distinct",
-  ``∀mn tenvM specs decls tenvT tenvC tenv.
-      type_specs mn tenvM specs decls tenvT tenvC tenv ⇒
-      ALL_DISTINCT (MAP FST tenvC) (* ∧
-      DISJOINT (set (MAP FST tenvC)) (FDOM (SND tenvM))*)``,
-  ho_match_mp_tac type_specs_strongind >>
-  conj_tac >- rw[] >>
-  conj_tac >- rw[] >>
-  conj_tac >- (
-    rpt gen_tac >> strip_tac >>
-    simp[ALL_DISTINCT_APPEND] >>
-    imp_res_tac check_ctor_tenv_dups >>
-    fs[check_dup_ctors_thm] >>
-    simp[build_ctor_tenv_def] >>
-    fs[FST_pair,MAP_MAP_o] >>
-    simp[MAP_REVERSE,ALL_DISTINCT_REVERSE] >>
-    qpat_abbrev_tac`f = type_name_subst X` >>
-    simp[MAP_FLAT,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
-    simp[LAMBDA_PROD] >>
-    fs[check_ctor_tenv_def,Abbr`f`] >>
-    fs[EVERY_MEM,UNCURRY] >>
-    simp[MEM_FLAT] >> rw[] >>
-    simp[MEM_MAP,EXISTS_PROD] >>
-    spose_not_then strip_assume_tac >>
-    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-    simp[PULL_EXISTS,PROVE[]``a ∨ b ⇔ ¬a ⇒ b``] >> rw[] >>
-    fs[MEM_MAP,PULL_EXISTS] >> rw[] >>
-    first_assum(match_exists_tac o concl) >> rw[] >>
-    Cases_on`tenvM`>>fs[merge_mod_env_def] >>
-    cheat ) >>
-  cheat)
-*)
-
 val type_top_tenv_ok = store_thm("type_top_tenv_ok",
   ``∀ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv'.
     type_top ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' ⇒
