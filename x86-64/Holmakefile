@@ -1,4 +1,5 @@
 INCLUDES = .. ../bytecode/ ../semantics/ ../parsing/ ../repl ../repl/proofs \
+           ../bootstrap/proofs \
            $(HOLDIR)/examples/machine-code/x64_compiler \
            $(HOLDIR)/examples/machine-code/decompiler \
            $(HOLDIR)/examples/machine-code/hoare-triple \
@@ -18,6 +19,7 @@ all: $(TARGETS) $(HOLHEAP)
 
 BARE_THYS = $(HOLDIR)/examples/machine-code/decompiler/decompilerLib \
             $(HOLDIR)/examples/machine-code/multiword/x64_multiwordTheory \
+            ../bootstrap/proofs/bootstrapProofTheory \
             ../bytecode/bytecodeTerminationTheory \
 						../repl/proofs/repl_funProofTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))

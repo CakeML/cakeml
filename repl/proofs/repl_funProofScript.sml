@@ -256,7 +256,8 @@ val inv_pres_tac =
   simp[code_executes_ok_def] >>
   disj1_tac >>
   qexists_tac`bs2 with clock := NONE` >>
-  simp[bc_fetch_with_clock]
+  simp[bc_fetch_with_clock] >>
+  PairCases_on`grd'`>>fs[env_rs_def]
 
 val type_to_string_lem = Q.prove (
   `(!t n. check_t n {} t ⇒ (inf_type_to_string t = type_to_string (convert_t t))) ∧
@@ -690,6 +691,9 @@ val repl_correct_lemma = Q.prove (
       rfs[install_code_def] >>
       qexists_tac`bs2 with clock := NONE` >>
       simp[bc_fetch_with_clock] >>
+      reverse conj_tac >- (
+        PairCases_on`grd'`>>
+        fs[env_rs_def] ) >>
       qmatch_abbrev_tac`bc_next^* a b` >>
       qmatch_assum_abbrev_tac`bc_next^* a' b` >>
       `a' = a` by simp[Abbr`a`,Abbr`a'`,bc_state_component_equality] >>
@@ -720,6 +724,8 @@ val repl_correct_lemma = Q.prove (
     rfs[install_code_def] >>
     qexists_tac`bs2 with clock := NONE` >>
     simp[bc_fetch_with_clock] >>
+    reverse conj_tac >- (
+      PairCases_on`grd'`>>fs[env_rs_def] ) >>
     qmatch_abbrev_tac`bc_next^* x b` >>
     qmatch_assum_abbrev_tac`bc_next^* x' b` >>
     `x' = x` by simp[Abbr`x`,Abbr`x'`,bc_state_component_equality] >>
@@ -1111,6 +1117,10 @@ val convert_invariants = Q.prove (
  >- (fs [init_code_executes_ok_def, code_executes_ok_def] >>
      metis_tac []));
 
+val env_rs_stack_handler = prove(
+  ``env_rs a b c d e ⇒ e.stack = [] ∧ e.handler = 0``,
+  PairCases_on`a` >> PairCases_on`b` >> PairCases_on`c` >> rw[env_rs_def])
+
 val initial_bc_state_side_basis_state = store_thm("initial_bc_state_side_basis_state",
   ``initial_bc_state_side (SND (SND basis_state))``,
    strip_assume_tac basis_env_inv >>
@@ -1119,6 +1129,7 @@ val initial_bc_state_side_basis_state = store_thm("initial_bc_state_side_basis_s
    imp_res_tac add_stop_invariant >> rfs[] >>
    fs[invariant_def,init_code_executes_ok_def] >>
    imp_res_tac bc_eval_SOME_RTC_bc_next >>
+   imp_res_tac env_rs_stack_handler >>
    fs[Once RTC_CASES1] )
 
 val simple_repl_basis_lemma = prove(

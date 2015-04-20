@@ -1226,6 +1226,7 @@ val env_rs_def = Define`
     contains_primitives bs.code ∧
     rs.next_global = LENGTH genv ∧
     bs.stack = [] ∧
+    bs.handler = 0 ∧
     EVERY (sv_every closed) s ∧
     EVERY closed (MAP SND envE) ∧
     EVERY closed (MAP SND (FLAT (MAP SND envM))) ∧
@@ -1315,6 +1316,7 @@ val env_rs_with_bs_irr = store_thm("env_rs_with_bs_irr",
     env_rs env cs grd rs bs
     ∧ bs'.globals = bs.globals
     ∧ bs'.stack = bs.stack
+    ∧ bs'.handler = bs.handler
     ∧ bs'.refs = bs.refs
     ∧ bs'.clock = bs.clock
     ∧ bs'.code = bs.code
@@ -2095,6 +2097,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
     conj_tac >- simp[Abbr`bs2`] >>
+    conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
       first_x_assum(mp_tac o MATCH_MP evaluate_dec_closed) >>
@@ -2311,6 +2314,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
+    conj_tac >- simp[Abbr`bs2`] >>
     conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
@@ -2538,6 +2542,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
     conj_tac >- simp[Abbr`bs2`] >>
+    conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
       first_x_assum(mp_tac o MATCH_MP evaluate_decs_closed) >>
@@ -2738,6 +2743,7 @@ val compile_top_thm = store_thm("compile_top_thm",
       rator_x_assum`to_i2_invariant`mp_tac >>
       simp[to_i2_invariant_def] >> strip_tac >>
       imp_res_tac EVERY2_LENGTH >> rfs[] ) >>
+    conj_tac >- simp[Abbr`bs2`] >>
     conj_tac >- simp[Abbr`bs2`] >>
     ONCE_REWRITE_TAC[CONJ_ASSOC] >>
     conj_tac >- (
