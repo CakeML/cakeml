@@ -934,7 +934,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     simp[] >>
     match_mp_tac tenv_alpha_bind_var_list2 >>
     simp[] >>
-    cheat ) >>
+    cheat  (* looks true (but hard); just prove, or change type system... *) ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
     qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
@@ -1012,14 +1012,12 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   rw[check_weakE_def,success_eqns] >>
   simp[EXISTS_PROD,success_eqns,PULL_EXISTS] >>
   simp[init_state_def,init_infer_state_def] >>
-  cheat)
+  cheat (* check_weakE looks wrong (effectively doing EVERY instead of ALOOKUP) *)
+        (* also, might want to have convert instead of the 2nd alpha (would require change in type system) *)
+  )
 
 val check_weak_decls_complete = store_thm("check_weak_decls_complete",
-  ``ALL_DISTINCT (FST(SND decls1)) ∧
-    ALL_DISTINCT (FST(SND decls2)) ∧
-    ALL_DISTINCT (SND(SND decls1)) ∧
-    ALL_DISTINCT (SND(SND decls2)) ∧
-    (FST decls1) = (FST decls2) ∧
+  ``(FST decls1) = (FST decls2) ∧
     weak_decls (convert_decls decls1) (convert_decls decls2) ⇒
     check_weak_decls decls1 decls2``,
   PairCases_on`decls1`>>
@@ -1133,11 +1131,10 @@ val infer_top_complete = store_thm("infer_top_complete",``
       PairCases_on`decls'`>>fs[] >>
       simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
       imp_res_tac check_flat_weakT_complete >>
-      `ALL_DISTINCT (MAP FST cenv''')` by cheat >>
-      imp_res_tac check_flat_weakC_complete >>
+      `ALL_DISTINCT (MAP FST cenv''')` by cheat >> (* this is not true: *)
+      imp_res_tac check_flat_weakC_complete >> (* check_flat_weakC should not look at hidden things *)
       Q.ISPECL_THEN[`(decls'0,decls'1,decls'2)`,`mdecls'',tdecls'',edecls''`]mp_tac (GEN_ALL check_weak_decls_complete) >>
       simp[convert_decls_def] >> fs[weak_decls_def] >>
-      discharge_hyps >- cheat >> simp[] >>
       metis_tac[check_weakE_complete])
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
