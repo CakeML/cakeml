@@ -158,8 +158,6 @@ let lit_same_type l1 l2 =
     | (IntLit _, IntLit _) -> true
     | (Char _, Char _) -> true
     | (StrLit _, StrLit _) -> true
-    | (Bool _, Bool _) -> true
-    | (Unit, Unit) -> true
     | (Word8 _, Word8 _) -> true
     | _ -> false
   end
@@ -399,6 +397,15 @@ let opb_lookup n : integer -> integer -> bool = match n with
   | Geq -> (>=)
 end
 
+val Boolv : bool -> v
+let Boolv b = if b
+  then Conv (Just ("true", TypeId (Short "bool"))) []
+  else Conv (Just ("false", TypeId (Short "bool"))) []
+
+type exp_or_val =
+  | Exp of exp
+  | Val of v
+
 val do_app : store v -> op -> list v -> maybe (store v * result v v)
 let do_app s op vs =
   match (op, vs) with
@@ -408,16 +415,16 @@ let do_app s op vs =
         else
           Just (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
-        Just (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
+        Just (s, Rval (Boolv (opb_lookup op n1 n2)))
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
           | Eq_closure -> Just (s, Rerr (Rraise (prim_exn "Eq")))
-          | Eq_val b -> Just (s, Rval (Litv (Bool b)))
+          | Eq_val b -> Just (s, Rval (Boolv b))
         end
     | (Opassign, [Loc lnum; v]) ->
         match store_assign lnum (Refv v) s with
-          | Just st -> Just (st, Rval (Litv Unit))
+          | Just st -> Just (st, Rval (Conv Nothing []))
           | Nothing -> Nothing
         end
     | (Opref, [v]) ->
@@ -467,7 +474,7 @@ let do_app s op vs =
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Litv Unit))
+                    | Just s' -> Just (s', Rval (Conv Nothing []))
                   end
         | _ -> Nothing
       end
@@ -480,7 +487,7 @@ let do_app s op vs =
           else
             Rval (Litv(Char(String_extra.chr(natFromInteger i)))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) ->
-        Just (s, Rval (Litv (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
+        Just (s, Rval (Boolv (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Implode, [v]) ->
           match v_to_char_list v with
           | Just ls ->
@@ -547,7 +554,7 @@ let do_app s op vs =
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Litv Unit))
+                    | Just s' -> Just (s', Rval (Conv Nothing []))
                   end
         | _ -> Nothing
       end
@@ -555,21 +562,22 @@ let do_app s op vs =
   end
 
 (* Do a logical operation *)
-val do_log : lop -> v -> exp -> maybe exp
+val do_log : lop -> v -> exp -> maybe exp_or_val
 let do_log l v e =
   match (l, v) with
-    | (And, Litv (Bool true)) -> Just e
-    | (Or, Litv (Bool false)) -> Just e
-    | (_, Litv (Bool b)) -> Just (Lit (Bool b))
+    | (And, Conv (Just ("true", TypeId (Short "bool"))) []) -> Just (Exp e)
+    | (Or, Conv (Just ("false", TypeId (Short "bool"))) []) -> Just (Exp e)
+    | (_, Conv (Just ("true", TypeId (Short "bool"))) []) -> Just (Val v)
+    | (_, Conv (Just ("false", TypeId (Short "bool"))) []) -> Just (Val v)
     | _ -> Nothing
   end
 
 (* Do an if-then-else *)
 val do_if : v -> exp -> exp -> maybe exp
 let do_if v e1 e2 =
-  if v = Litv (Bool true) then
+  if v = (Boolv true) then
     Just e1
-  else if v = Litv (Bool false) then
+  else if v = (Boolv false) then
     Just e2
   else
     Nothing

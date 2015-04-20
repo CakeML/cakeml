@@ -31,9 +31,6 @@ type ctxt = ctxt_frame * all_env
  * - the current expression to evaluate, or a value if finished
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
-type exp_or_val =
-  | Exp of exp
-  | Val of v
 
 type state = all_env * store v * exp_or_val * list ctxt
 

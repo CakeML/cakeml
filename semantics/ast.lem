@@ -6,8 +6,6 @@ type lit =
   | IntLit of integer
   | Char of char
   | StrLit of string
-  | Bool of bool
-  | Unit
   | Word8 of word8
 
 (* Built-in binary operations *)
@@ -97,8 +95,6 @@ type tctor =
   | TC_int
   | TC_char
   | TC_string
-  | TC_bool
-  | TC_unit
   | TC_ref
   | TC_word8
   | TC_word8array
@@ -121,8 +117,6 @@ type t =
 let Tint = Tapp [] TC_int
 let Tchar = Tapp [] TC_char
 let Tstring = Tapp [] TC_string
-let Tunit = Tapp [] TC_unit
-let Tbool = Tapp [] TC_bool
 let Tref t = Tapp [t] TC_ref
 let Tword8 = Tapp [] TC_word8
 let Tword8array = Tapp [] TC_word8array
