@@ -1105,8 +1105,10 @@ val check_weakE_complete = store_thm("check_weakE_complete",
     check_env {} itenv1 ∧ 
     tenv_alpha itenv1 (bind_var_list2 tenv1 Empty)
     (*tenv_alpha itenv2 (bind_var_list2 tenv2 Empty)
-      Either prove the above or prove that they are convert_env2
-      or prove that they are unconvert_env
+      Either prove the above between the inf and type sys sig envs
+      OR (the option taken in this proof)
+      Make type system canonical and then prove
+      that they are convert_env2 or unconvert_env of each other
     *)
   ⇒
     ∃st'.
@@ -1245,7 +1247,11 @@ val infer_top_complete = store_thm("infer_top_complete",``
       imp_res_tac check_flat_weakC_complete >>
       Q.ISPECL_THEN[`(decls'0,decls'1,decls'2)`,`mdecls'',tdecls'',edecls''`]mp_tac (GEN_ALL check_weak_decls_complete) >>
       simp[convert_decls_def] >> fs[weak_decls_def] >>
-      metis_tac[check_weakE_complete])
+      (*Corresponding cheat, or prove
+        tenv''' = convert_env2 env' and use the conversion lemmas
+      *)
+      `env' = unconvert_env tenv'''` by cheat>>
+      metis_tac[check_weakE_complete,check_env_def])
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
 !prog mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
