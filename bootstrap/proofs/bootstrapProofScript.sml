@@ -167,6 +167,17 @@ val COMPILER_RUN_INV_empty_stack = store_thm("COMPILER_RUN_INV_empty_stack",
   Cases_on`Tmod_state "REPL" replModule_decls`>>
   fs[update_io_def,compilerProofTheory.env_rs_def])
 
+val COMPILER_RUN_INV_handler = store_thm("COMPILER_RUN_INV_handler",
+  ``COMPILER_RUN_INV bs1 grd1 inp1 out1 ==>
+    (bs1.handler = 0)``,
+  rw[COMPILER_RUN_INV_def] >> PairCases_on`grd1` >>
+  Cases_on`Tmod_state "REPL" replModule_decls`>>
+  fs[evaluateReplTheory.update_io_def,compilerProofTheory.env_rs_def]);
+
+val LUPDATE_SAME_lem = prove(
+  ``∀ls n v. (v = EL n ls) ∧ n < LENGTH ls ⇒ LUPDATE v n ls = ls``,
+  metis_tac[miscTheory.LUPDATE_SAME])
+
 val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
   ``COMPILER_RUN_INV repl_bc_state bootstrap_grd
        (dest_Refv (EL iloc (SND (Tmod_state "REPL" replModule_decls))))
@@ -175,16 +186,15 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
     Cases_on`Tmod_state "REPL" replModule_decls` >>
     simp[update_io_def] >>
     strip_assume_tac repl_env_def >> rfs[] >>
-    Cases_on`EL iloc r`>>fs[]>>Cases_on`EL (iloc+1) r`>>fs[]>>
-    ntac 2 (pop_assum (mp_tac o SYM)) >>
-    simp[miscTheory.LUPDATE_SAME] >> rw[] >>
+    simp[LUPDATE_SAME_lem] >>
     strip_assume_tac bootstrap_bc_state_def >>
     MATCH_MP_TAC env_rs_with_bs_irr >>
     qexists_tac`bootstrap_bc_state with code := bootstrap_bc_state.code ++ REVERSE compile_call_repl_step` >>
     simp[initCompEnvTheory.install_code_def] >>
     rfs[]  >>
     MATCH_MP_TAC env_rs_append_code >>
-    rfs[] >> first_assum(match_exists_tac o concl) >> simp[] >>
+    rfs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
     simp[bytecodeTheory.bc_state_component_equality] >>
     simp[compilerTheory.compiler_state_component_equality] >>
     `∃x y z. bootstrap_grd = (x,y,z)` by metis_tac[pair_CASES] >>
@@ -731,9 +741,19 @@ val COMPILER_RUN_INV_ptrs = store_thm("COMPILER_RUN_INV_ptrs",
   ``∀bs grd inp out.
       COMPILER_RUN_INV bs grd inp out ⇒
       EL ^(rhs(concl iind_eq)) bs.globals = SOME (RefPtr iptr) ∧
-      EL ^(rhs(concl oind_eq)) bs.globals = SOME (RefPtr optr)``,
+      ^(rhs(concl iind_eq)) < LENGTH bs.globals ∧
+      EL ^(rhs(concl oind_eq)) bs.globals = SOME (RefPtr optr) ∧
+      ^(rhs(concl oind_eq)) < LENGTH bs.globals``,
   rw[COMPILER_RUN_INV_def,GSYM iind_eq,GSYM oind_eq] >>
   rw[ptrs_def])
+
+(* initial value of input reference *)
+
+val INPUT_TYPE_NONE = store_thm("INPUT_TYPE_NONE",
+  ``INPUT_TYPE NONE
+      (dest_Refv (EL iloc (SND (Tmod_state "REPL" replModule_decls))))``,
+  simp[INPUT_TYPE_def,OPTION_TYPE_def] >>
+  simp[repl_env_def])
 
 (* Changing the references preserves the invariant *)
 

@@ -21,11 +21,11 @@ val _ = Hol_datatype `
 
 val code_executes_ok'_def = Define `
 code_executes_ok' s1 ⇔
-  (∃s2. bc_next^* s1 s2 ∧ bc_fetch s2 = NONE ∧ s2.pc = next_addr s1.inst_length s1.code)`;
+  (∃s2. bc_next^* s1 s2 ∧ bc_fetch s2 = NONE ∧ s2.pc = next_addr s1.inst_length s1.code ∧ s2.stack = [] ∧ s2.handler = 0)`;
 
 val init_code_executes_ok_def = Define `
 init_code_executes_ok s1 ⇔
-  (∃s2. bc_next^* s1 s2 ∧ bc_fetch s2 = SOME (Stop T))`;
+  (∃s2. bc_next^* s1 s2 ∧ bc_fetch s2 = SOME (Stop T) ∧ s2.stack = [] ∧ s2.handler = 0)`;
 
 val code_labels_ok_local_to_all = store_thm("code_labels_ok_local_to_all",
   ``∀code. code_labels_ok (local_labels code) ∧
@@ -137,6 +137,10 @@ val install_code_def = Define `
              ; output := ""
              |>`;
 
+val env_rs_stack_handler = prove(
+  ``env_rs a b c d e ⇒ e.stack = [] ∧ e.handler = 0``,
+  PairCases_on`a` >> PairCases_on`b` >> PairCases_on`c` >> rw[compilerProofTheory.env_rs_def])
+
 val add_to_env_invariant'_lem = Q.prove (
 `!envM envC envE cnt s tids prog cnt' s' envM' envC' envE' tids' mdecls' e e' code code' bs.
   closed_prog prog ∧
@@ -239,6 +243,7 @@ val add_to_env_invariant'_lem = Q.prove (
      fs [initial_bc_state_def,empty_bc_state_def])
  >- (simp[code_executes_ok'_def] >>
      qexists_tac `(bs'' with clock := NONE)` >>
+     imp_res_tac env_rs_stack_handler >> fs[] >>
      rw [] >>
      metis_tac[bytecodeClockTheory.bc_fetch_with_clock,RTC_REFL]));
 
@@ -583,7 +588,9 @@ val add_stop_invariant = Q.store_thm ("add_stop_invariant",
      rw [] >>
      rw [code_labels_ok_def, compilerTerminationTheory.local_labels_def, uses_label_def])
  >- (fs [init_code_executes_ok_def, code_executes_ok'_def] >>
-     metis_tac [RTC_REFL]));
+     Q.PAT_ABBREV_TAC`bs2:bc_state = X Y` >>
+     qexists_tac`bs2`>>simp[] >>
+     simp[Abbr`bs2`]));
 
 val code_length_microcode = save_thm("code_length_microcode",
   ``code_length real_inst_length (VfromListCode++ImplodeCode++ExplodeCode)`` |> EVAL)
