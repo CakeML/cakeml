@@ -221,7 +221,7 @@ let type_op op ts t =
     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tint)
     | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tapp [] (TC_name (Short "bool")))
     | (Equality, [t1; t2]) -> (t1 = t2) && (t = Tapp [] (TC_name (Short "bool")))
-    | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tapp [] (TC_name (Short "unit")))
+    | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tapp [] TC_tup)
     | (Opref, [t1]) -> (t = Tapp [t1] TC_ref)
     | (Opderef, [Tapp [t1] TC_ref]) -> (t = t1)
     | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8array)
