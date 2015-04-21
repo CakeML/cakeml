@@ -694,7 +694,7 @@ val ptree_Expr_def = Define`
             assert(colon = Lf (TOK ColonT));
             t1 <- ptree_Expr nEbefore t1;
             t2 <- ptree_Type nType t2;
-            SOME t1 (* FIXME *)
+            SOME t1 (* TODO: FIXME *)
           od
         | [t] => ptree_Expr nEbefore t
         | _ => NONE

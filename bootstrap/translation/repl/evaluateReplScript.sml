@@ -38,11 +38,58 @@ val append_3 = save_thm("append_3",
   |> UNDISCH |> SYM |> REWRITE_RULE[last_3_decs]
   |> prove_hyps_by(CONV_TAC(computeLib.CBV_CONV repl_decs_cs)))
 
+val evaluate_dec_tys_NONE = prove(
+  ``∀dec ck mn env s s' tys c tds tvs tn cts cn as.
+    evaluate_dec ck (SOME mn) env s dec (s',Rval (tys,c)) ∧
+    ¬MEM cn (ctors_of_dec dec)
+    ⇒
+    (ALOOKUP tys cn = NONE)``,
+  Induct >> rw[Once evaluate_dec_cases] >>
+  simp[alistTheory.ALOOKUP_def] >>
+  simp[alistTheory.ALOOKUP_FAILS] >>
+  simp[semanticPrimitivesTheory.build_tdefs_def] >>
+  fs[MEM_FLAT,MEM_MAP,pairTheory.EXISTS_PROD,pairTheory.FORALL_PROD,PULL_EXISTS])
+
+val evaluate_decs_tys_NONE = prove(
+  ``∀decs ck mn env s s' tys c tds tvs tn cts cn as.
+    evaluate_decs ck (SOME mn) env s decs (s',tys,Rval c) ∧
+    ¬MEM cn (FLAT (MAP ctors_of_dec decs))
+    ⇒
+    (ALOOKUP tys cn = NONE)``,
+  Induct >> rw[Once evaluate_decs_cases] >>
+  simp[alistTheory.ALOOKUP_APPEND] >>
+  Cases_on`r`>>fs[semanticPrimitivesTheory.combine_dec_result_def] >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >> simp[] >>
+  imp_res_tac evaluate_dec_tys_NONE >> simp[])
+
+val evaluate_Tmod_tys_NONE = store_thm("evaluate_Tmod_tys_NONE",
+  ``evaluate_top F env s (Tmod mn NONE decs) (s',([(m,tys)],e),Rval r) ⇒
+    ¬MEM cn (FLAT (MAP ctors_of_dec decs))
+    ⇒
+    (ALOOKUP tys cn = NONE)``,
+  rw[evaluate_top_cases,miscTheory.FEMPTY_FUPDATE_EQ] >>
+  METIS_TAC[evaluate_decs_tys_NONE]) |> GEN_ALL
+
+val ALOOKUP_NONE_lemma =
+  MATCH_MP evaluate_Tmod_tys_NONE (CONJUNCT1 evaluate_replModule)
+  |> Q.SPEC`"NONE"`
+  |> CONV_RULE(LAND_CONV (computeLib.CBV_CONV repl_decs_cs THENC EVAL))
+  |> C MP TRUTH
+
+val build_conv_lemma =
+  ``build_conv (merge_alist_mod_env ([],Tmod_tys "REPL" replModule_decls)
+      (THE prim_sem_env).sem_envC) (SOME (Short "NONE")) []``
+  |> ((REWRITE_CONV[initSemEnvTheory.prim_sem_env_eq]) THENC EVAL)
+  |> SIMP_RULE std_ss [alistTheory.ALOOKUP_APPEND,alistTheory.ALOOKUP_def,ALOOKUP_NONE_lemma]
+  |> CONV_RULE(RAND_CONV EVAL)
+
 val iloc_repl_env_exist =
   MATCH_MP evalPropsTheory.evaluate_Tmod_last3 (CONJUNCT1 evaluate_replModule)
   |> SIMP_RULE (srw_ss())[]
   |> C MATCH_MP append_3
-  |> REWRITE_RULE[GSYM append_3]
+  |> REWRITE_RULE[GSYM append_3,build_conv_lemma]
+  |> SIMP_RULE std_ss []
 
 val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
 

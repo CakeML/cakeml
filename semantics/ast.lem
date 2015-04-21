@@ -40,7 +40,7 @@ let mk_id mn_opt n =
   end
 
 val id_to_n : forall 'a. id 'a -> 'a
-let id_to_n id = 
+let id_to_n id =
   match id with
     | Short n -> n
     | Long _ n -> n
@@ -108,7 +108,7 @@ type tctor =
 type t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
   | Tvar of tvarN
-  (* DeBruin indexed type variables. 
+  (* deBruijn indexed type variables.
      The type system uses these internally. *)
   | Tvar_db of nat
   | Tapp of list t * tctor
@@ -179,7 +179,7 @@ type dec =
   (* New exceptions *)
   | Dexn of conN * list t
 
-type decs = list dec 
+type decs = list dec
 
 (* Specifications
    For giving the signature of a module *)

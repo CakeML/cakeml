@@ -624,8 +624,7 @@ val check_specs_def = Define `
      check_specs mn tenvT (mdecls,tdecls,mk_id mn cn::edecls) tenvT' ((cn, ([], MAP (\x. type_name_subst tenvT x) ts, TypeExn (mk_id mn cn))) :: cenv) env specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype_opq tvs tn :: specs) =
-  do () <- guard (~MEM (mk_id mn tn) tdecls) "Duplicate type definition";
-     () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
+  do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      new_tenvT <- return (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))));
      check_specs mn (merge_mod_env (FEMPTY,FEMPTY |+ new_tenvT) tenvT) (mdecls,mk_id mn tn::tdecls,edecls) (tenvT' |+ new_tenvT) cenv env specs
   od)`;
@@ -671,14 +670,20 @@ check_weak_decls (mdecls_impl,tdecls_impl,edecls_impl) (mdecls_spec,tdecls_spec,
   list_subset tdecls_spec tdecls_impl ∧
   list_subset edecls_spec edecls_impl`;
 
+val anub_def = Define`
+  (anub [] acc = []) ∧
+  (anub ((k,v)::ls) acc =
+   if MEM k acc then anub ls acc else
+   (k,v)::(anub ls (k::acc)))`
+
 val check_signature_def = Define `
-(check_signature mn tenvT init_decls decls tenvT' cenv env NONE = 
+(check_signature mn tenvT init_decls decls tenvT' cenv env NONE =
   return (decls, tenvT', cenv, env)) ∧
 (check_signature mn tenvT init_decls decls tenvT' cenv env (SOME specs) =
   do (decls', tenvT'', cenv', env') <- check_specs mn tenvT ([],[],[]) FEMPTY [] [] specs;
      () <- guard (check_flat_weakT mn tenvT' tenvT'') "Signature mismatch";
-     () <- guard (check_flat_weakC cenv cenv') "Signature mismatch";
-     () <- check_weakE env env';
+     () <- guard (check_flat_weakC cenv (anub cenv' [])) "Signature mismatch";
+     () <- check_weakE env (anub env' []);
      () <- guard (check_weak_decls decls decls') "Signature mismatch";
      return (decls',tenvT'',cenv',env')
   od)`;

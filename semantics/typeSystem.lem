@@ -1,11 +1,10 @@
 open import Pervasives_extra
 open import Lib
 open import Ast
+open import SemanticPrimitives
 
-open import SemanticPrimitives 
-
-(* Check that the free type variables are in the given list.  Every deBruijn
- * variable must be smaller than the first argument.  So if it is 0, no deBruijn
+(* Check that the free type variables are in the given list. Every deBruijn
+ * variable must be smaller than the first argument. So if it is 0, no deBruijn
  * indices are permitted. *)
 val check_freevars : nat -> list tvarN -> t -> bool
 let rec
@@ -69,7 +68,7 @@ type tenvC = alist modN flat_tenvC * flat_tenvC
 
 type mod_env 'k 'v = Map.map modN (Map.map 'k 'v) * Map.map 'k 'v
 
-let merge_mod_env (menv1,env1) (menv2,env2) = 
+let merge_mod_env (menv1,env1) (menv2,env2) =
   (Map.(union) menv1 menv2, Map.(union) env1 env2)
 
 let lookup_mod_env id (mcenv,cenv) =
@@ -97,13 +96,13 @@ type tenvE =
 
 (* Type environments without any binding, but still an alist rather than a map,
  * so that they can be added to tenvEs *)
-type flat_tenvE = alist varN (nat * t) 
+type flat_tenvE = alist varN (nat * t)
 
 type tenvM = Map.map modN flat_tenvE
 
 let bind_tvar tvs tenv = if tvs = 0 then tenv else Bind_tvar tvs tenv
 
-val lookup_tenv : varN -> nat -> tenvE -> maybe (nat * t) 
+val lookup_tenv : varN -> nat -> tenvE -> maybe (nat * t)
 let rec
 lookup_tenv n inc Empty = Nothing
 and
@@ -121,7 +120,7 @@ val bind_tenv : varN -> nat -> t -> tenvE -> tenvE
 let bind_tenv n tvs t e = Bind_name n tvs t e
 
 val opt_bind_tenv : maybe varN -> nat -> t -> tenvE -> tenvE
-let opt_bind_tenv n tvs t e = 
+let opt_bind_tenv n tvs t e =
   match n with
     | Nothing -> e
     | Just n' -> Bind_name n' tvs t e
@@ -139,7 +138,7 @@ let t_lookup_var_id id tenvM tenvE =
   end
 
 val num_tvs : tenvE -> nat
-let rec 
+let rec
 num_tvs Empty = 0
 and
 num_tvs (Bind_tvar tvs e) = tvs + num_tvs e
@@ -250,8 +249,8 @@ check_type_names tenvT (Tvar tv) =
   true
 and
 check_type_names tenvT (Tapp ts tn) =
-  match tn with 
-     TC_name tn -> 
+  match tn with
+     TC_name tn ->
        match lookup_mod_env tn tenvT with
          | Just (tvs, t) -> List.length tvs = List.length ts
          | Nothing -> false
@@ -260,7 +259,7 @@ check_type_names tenvT (Tapp ts tn) =
   end &&
   List.all (check_type_names tenvT) ts
 and
-check_type_names tenvT (Tvar_db n) = 
+check_type_names tenvT (Tvar_db n) =
   true
 
 (* Substitution of type names for the type they abbreviate *)
@@ -271,7 +270,7 @@ and
 type_name_subst tenvT (Tapp ts tc) =
   let args = List.map (type_name_subst tenvT) ts in
     match tc with
-      | TC_name tn -> 
+      | TC_name tn ->
           match lookup_mod_env tn tenvT with
             | Just (tvs, t) -> type_subst (alistToFmap (List_extra.zipSameLength tvs args)) t
             | Nothing -> Tapp args tc
@@ -288,14 +287,14 @@ type_name_subst tenvT (Tvar_db n) = Tvar_db n
 val check_ctor_tenv :
    maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> bool
 let check_ctor_tenv mn tenvT tds =
-  check_dup_ctors tds &&  
+  check_dup_ctors tds &&
   List.all
     (fun (tvs,tn,ctors) ->
        List.allDistinct tvs &&
        List.all
          (fun (cn,ts) -> List.all (check_freevars 0 tvs) ts && List.all (check_type_names tenvT) ts)
          ctors)
-    tds &&  
+    tds &&
   List.allDistinct (List.map (fun (_,tn,_) -> tn) tds)
 
 val build_ctor_tenv : maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> flat_tenvC
@@ -315,7 +314,7 @@ let check_exn_tenv mn cn ts =
 
 (* For the value restriction on let-based polymorphism *)
 val is_value : exp -> bool
-let rec 
+let rec
 is_value (Lit _) = true
 and
 is_value (Con _ es) = List.all is_value es
@@ -453,7 +452,7 @@ handle : forall menv cenv tenv e pes t.
 type_e menv cenv tenv e t &&
 pes <> [] &&
 (forall ((p,e) MEM pes). exists tenv'.
-   List.allDistinct (pat_bindings p []) &&   
+   List.allDistinct (pat_bindings p []) &&
    type_p (num_tvs tenv) cenv p Texn tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t)
 ==>
@@ -605,11 +604,27 @@ let tenv_add_tvs tvs tenv =
 
 val type_pe_determ : tenvM -> tenvC -> tenvE -> pat -> exp -> bool
 let type_pe_determ menv cenv tenv p e =
-  forall t1 tenv1 t2 tenv2. 
-    type_p 0 cenv p t1 tenv1 && type_e menv cenv tenv e t1 && 
-    type_p 0 cenv p t2 tenv2 && type_e menv cenv tenv e t2 
-    --> 
+  forall t1 tenv1 t2 tenv2.
+    type_p 0 cenv p t1 tenv1 && type_e menv cenv tenv e t1 &&
+    type_p 0 cenv p t2 tenv2 && type_e menv cenv tenv e t2
+    -->
     tenv1 = tenv2
+
+let weakE tenv_impl tenv_spec =
+  forall x.
+    match lookup x tenv_spec with
+      | Just (tvs_spec, t_spec) ->
+          match lookup x tenv_impl with
+            | Nothing -> false
+            | Just (tvs_impl, t_impl) ->
+                exists subst.
+                  List.length subst = tvs_impl &&
+                  check_freevars tvs_impl [] t_impl &&
+                  List.all (check_freevars tvs_spec []) subst &&
+                  deBruijn_subst 0 subst t_impl = t_spec
+          end
+        | Nothing -> true
+    end
 
 indreln [type_d : bool -> maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
@@ -617,7 +632,12 @@ dlet_poly : forall check_unique tvs mn tenvT menv cenv tenv p e t tenv' decls.
 is_value e &&
 List.allDistinct (pat_bindings p []) &&
 type_p tvs cenv p t tenv' &&
-type_e menv cenv (bind_tvar tvs tenv) e t
+type_e menv cenv (bind_tvar tvs tenv) e t &&
+(check_unique -->
+  forall tvs' tenv'' t'.
+    type_p tvs' cenv p t' tenv'' &&
+    type_e menv cenv (bind_tvar tvs' tenv) e t' -->
+      weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls Map.empty [] (tenv_add_tvs tvs tenv')
 
@@ -638,7 +658,11 @@ type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls Map.emp
 and
 
 dletrec : forall check_unique mn tenvT menv cenv tenv funs tenv' tvs decls.
-type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv'
+type_funs menv cenv (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
+(check_unique -->
+  forall tvs' tenv''.
+    type_funs menv cenv (bind_var_list 0 tenv'' (bind_tvar tvs' tenv)) funs tenv'' -->
+      weakE (tenv_add_tvs tvs tenv') (tenv_add_tvs tvs' tenv''))
 ==>
 type_d check_unique mn decls tenvT menv cenv tenv (Dletrec funs) empty_decls Map.empty [] (tenv_add_tvs tvs tenv')
 
@@ -654,22 +678,22 @@ type_d check_unique mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dtype tdefs)
 
 and
 
-dtabbrev : forall check_unique mn decls tenvT menv cenv tenv tvs tn t. 
+dtabbrev : forall check_unique mn decls tenvT menv cenv tenv tvs tn t.
 check_freevars 0 tvs t &&
 check_type_names tenvT t &&
 List.allDistinct tvs
 ==>
-type_d check_unique mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (Map.singleton tn (tvs,type_name_subst tenvT t)) [] [] 
+type_d check_unique mn decls tenvT menv cenv tenv (Dtabbrev tvs tn t) empty_decls (Map.singleton tn (tvs,type_name_subst tenvT t)) [] []
 
 and
 
 dexn : forall check_unique mn menv tenvT cenv tenv cn ts mdecls edecls tdecls.
 check_exn_tenv mn cn ts &&
-not (mk_id mn cn IN edecls) && 
+not (mk_id mn cn IN edecls) &&
 List.all (check_type_names tenvT) ts
 ==>
 type_d check_unique mn (mdecls,tdecls,edecls) tenvT menv cenv tenv (Dexn cn ts) ({},{},{mk_id mn cn}) Map.empty [(cn, ([], List.map (type_name_subst tenvT) ts, TypeExn (mk_id mn cn)))] []
- 
+
 indreln [ type_ds : bool -> maybe modN -> decls -> tenvT -> tenvM -> tenvC -> tenvE -> list dec -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
 empty : forall check_unique mn tenvT menv cenv tenv decls.
@@ -687,7 +711,7 @@ type_ds check_unique mn decls tenvT menv cenv tenv (d::ds) (union_decls decls'' 
 
 indreln [type_specs : maybe modN -> tenvT -> specs -> decls -> flat_tenvT -> flat_tenvC -> flat_tenvE -> bool]
 
-empty : forall mn tenvT. 
+empty : forall mn tenvT.
 true
 ==>
 type_specs mn tenvT [] empty_decls Map.empty [] []
@@ -698,7 +722,7 @@ sval : forall mn tenvT x t specs flat_tenvT cenv tenv fvs decls.
 check_freevars 0 fvs t &&
 type_specs mn tenvT specs decls flat_tenvT cenv tenv
 ==>
-type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv++[(x,(List.length fvs, type_subst (alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs))))) t))]) 
+type_specs mn tenvT (Sval x t :: specs) decls flat_tenvT cenv (tenv++[(x,(List.length fvs, type_subst (alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs))))) t))])
 
 and
 
@@ -712,7 +736,7 @@ type_specs mn tenvT (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (
 
 and
 
-stabbrev : forall mn tenvT tvs tn t specs decls cenv tenv new_tenvT tenvT'. 
+stabbrev : forall mn tenvT tvs tn t specs decls cenv tenv new_tenvT tenvT'.
 List.allDistinct tvs &&
 check_freevars 0 tvs t &&
 check_type_names tenvT t &&
@@ -739,22 +763,6 @@ type_specs mn (merge_mod_env (Map.empty,new_tenvT) tenvT) specs decls flat_tenvT
 ==>
 type_specs mn tenvT (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn tn},{})) (Map.(union) flat_tenvT new_tenvT) cenv tenv
 
-let weakE tenv_impl tenv_spec =
-  forall x.
-    match lookup x tenv_spec with
-      | Just (tvs_spec, t_spec) ->
-          match lookup x tenv_impl with
-            | Nothing -> false
-            | Just (tvs_impl, t_impl) ->
-                exists subst. 
-                  List.length subst = tvs_impl &&                  
-                  check_freevars tvs_impl [] t_impl &&                  
-                  List.all (check_freevars tvs_spec []) subst &&                  
-                  deBruijn_subst 0 subst t_impl = t_spec
-          end
-        | Nothing -> true
-    end
-
 val flat_weakC : flat_tenvC -> flat_tenvC -> bool
 let flat_weakC cenv_impl cenv_spec =
   forall cn.
@@ -763,16 +771,16 @@ let flat_weakC cenv_impl cenv_spec =
           match lookup cn cenv_impl with
             | Nothing -> false
             | Just (tvs_impl, ts_impl, tn_impl) ->
-                tn_spec = tn_impl &&                
+                tn_spec = tn_impl &&
                 (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
-                tvs_spec = tvs_impl &&                
+                tvs_spec = tvs_impl &&
                 ts_spec = ts_impl
           end
       | Nothing -> true
     end
 
 val weak_decls : decls -> decls -> bool
-let weak_decls (mdecs_impl, tdecs_impl, edecs_impl) (mdecs_spec, tdecs_spec, edecs_spec) =  
+let weak_decls (mdecs_impl, tdecs_impl, edecs_impl) (mdecs_spec, tdecs_spec, edecs_spec) =
   mdecs_impl = mdecs_spec &&
   tdecs_spec subset tdecs_impl &&
   edecs_spec subset edecs_impl
@@ -786,7 +794,7 @@ let flat_weakT mn tenvT_impl tenvT_spec =
             | Nothing -> false
             | Just (tvs_impl, t_impl) ->
                 (* For simplicity, we reject matches that differ only by renaming of bound type variables *)
-                tvs_spec = tvs_impl &&                
+                tvs_spec = tvs_impl &&
                 (t_spec = t_impl ||
                  (* The specified type is opaque *)
                  t_spec = Tapp (List.map Tvar tvs_spec) (TC_name (mk_id mn tn)))

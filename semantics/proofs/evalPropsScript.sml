@@ -673,12 +673,14 @@ val evaluate_decs_last3 = prove(
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
       decs = decs0 ++ [Dlet (Pvar x) (App Opref [Con i []]);Dlet(Pvar y)(App Opref [Con j []]);Dlet (Pvar p) (Fun q r)]
       ⇒
-      ∃n ls1 ls2 ls.
+      ∃n ls1 ls2 ls iv jv.
       c = ((p,(Closure(FST env,merge_alist_mod_env([],b)(FST(SND env)),ls1 ++ SND(SND env)) q r))::ls1) ∧
       ls1 = ((y,Loc (n+1))::ls2) ∧ n+1 < LENGTH s1 ∧
       ls2 = ((x,Loc n)::ls) ∧
-      is_Refv (EL n s1) ∧
-      is_Refv (EL (n+1) s1)``,
+      build_conv (merge_alist_mod_env([],b)(FST(SND env))) i [] = SOME iv ∧
+      build_conv (merge_alist_mod_env([],b)(FST(SND env))) j [] = SOME jv ∧
+      (EL n s1 = Refv iv) ∧
+      (EL (n+1) s1 = Refv jv)``,
   Induct_on`decs0` >>
   rw[Once bigStepTheory.evaluate_decs_cases] >- (
     fs[Once bigStepTheory.evaluate_decs_cases]>>
@@ -703,24 +705,26 @@ val evaluate_decs_last3 = prove(
     fs[Once evaluate_cases] >> rw[] >>
     PairCases_on`cenv` >>
     rw[merge_alist_mod_env_def] >>
-    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2]) >>
+    simp[rich_listTheory.EL_APPEND1,rich_listTheory.EL_APPEND2] >>
+    fs[build_conv_def,merge_alist_mod_env_def,lookup_alist_mod_env_def,all_env_to_cenv_def]) >>
   Cases_on`r'`>>fs[semanticPrimitivesTheory.combine_dec_result_def]>>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   rfs[semanticPrimitivesTheory.all_env_to_cenv_def] >>
-  rw[] >>
   PairCases_on`cenv` >>
-  rw[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
+  fs[semanticPrimitivesTheory.merge_alist_mod_env_def, FUNION_ASSOC])
 
 val evaluate_Tmod_last3 = store_thm("evaluate_Tmod_last3",
   ``evaluate_top ck env0 st (Tmod mn NONE decs) ((cs,u),envC,Rval ([(mn,env)],v)) ⇒
     decs = decs0 ++[Dlet (Pvar x) (App Opref [Con i []]);Dlet (Pvar y) (App Opref [Con j []]);Dlet (Pvar p) (Fun q z)]
   ⇒
-    ∃n ls1 ls.
+    ∃n ls1 ls iv jv.
     env = (p,(Closure (FST env0,merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0)),ls++(SND(SND env0))) q z))::ls ∧
     (ls = (y,Loc (n+1))::(x,Loc n)::ls1) ∧
     n+1 < LENGTH (SND cs) ∧
-    is_Refv (EL n (SND cs)) ∧
-    is_Refv (EL (n+1) (SND cs))``,
+    build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) i [] = SOME iv ∧
+    build_conv (merge_alist_mod_env ([],THE (ALOOKUP (FST envC) mn)) (FST(SND env0))) j [] = SOME jv ∧
+    (EL n (SND cs) = Refv iv) ∧
+    (EL (n+1) (SND cs) = Refv jv)``,
   Cases_on`cs`>>rw[bigStepTheory.evaluate_top_cases]>>
   imp_res_tac evaluate_decs_last3 >> fs[]) |> GEN_ALL
 

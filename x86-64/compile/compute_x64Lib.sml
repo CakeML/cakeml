@@ -1,16 +1,11 @@
 structure compute_x64Lib = struct local
 open HolKernel boolLib bossLib computeLib
-open x64_code_evalTheory x64_heapTheory
+open bc_compileTheory
 in
   val add_x64_compset = add_thms
-   [prog_x64_extraTheory.IMM32_def
-   ,small_offset_def
-   ,small_offset6_def
-   ,small_offset12_def
-   ,small_offset16_def
-   ,x64_def
-   ,x64_length_def
-   ,x64_code_def]
+   [inst_compile_def
+   ,bc_compile_rev_eval
+   ,bc_compile_rev_thm]
 
   fun the_x64_compset () =
     let

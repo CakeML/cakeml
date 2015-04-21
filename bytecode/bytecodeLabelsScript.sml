@@ -557,6 +557,14 @@ val code_labels_no_labels = store_thm("code_labels_no_labels",
 
 open bytecodeExtraTheory
 
+val strip_labels_handler = store_thm("strip_labels_handler",
+  ``(strip_labels s).handler = s.handler``,
+  rw[strip_labels_def])
+
+val strip_labels_stack = store_thm("strip_labels_stack",
+  ``(strip_labels s).stack = s.stack``,
+  rw[strip_labels_def])
+
 val code_executes_ok_strip_labels = store_thm("code_executes_ok_strip_labels",
   ``code_executes_ok bs1 /\ length_ok bs1.inst_length ==>
     code_executes_ok (strip_labels bs1)``,
@@ -566,7 +574,7 @@ val code_executes_ok_strip_labels = store_thm("code_executes_ok_strip_labels",
     \\ IMP_RES_TAC bc_next_strip_labels_RTC
     \\ FULL_SIMP_TAC std_ss []
     \\ IMP_RES_TAC RTC_bc_next_preserves
-    \\ METIS_TAC [bc_fetch_strip_labels])
+    \\ METIS_TAC [bc_fetch_strip_labels,strip_labels_handler,strip_labels_stack])
   \\ DISJ2_TAC \\ REPEAT GEN_TAC
   \\ POP_ASSUM MP_TAC
   \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPECL [`n`]) \\ STRIP_TAC

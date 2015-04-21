@@ -8,27 +8,27 @@ lib.lem
     Setup some HOL library in Lem, and define environments and lookup.
 
 lexer_funScript.sml
-    A functional specification of a lexing from strings to token lists
+    A functional specification of a lexing from strings to token lists.
 
 tokens.lem
-    The tokens
+    The tokens.
 
 tokenUtilsScript.sml
-    Some theorems about tokens that the grammar needs
+    Some theorems about tokens that the grammar needs.
 
 gramScript.sml
     The grammar that specifies how token lists should be converted to concrete
     syntax trees
 
 cmlPtreeConversionScript.sml
-    Functions to convert the concrete syntax tree into a parsing AST.  Removes
-    some syntactic sugar. 
+    Functions to convert the concrete syntax tree into a parsing AST. Removes
+    some syntactic sugar.
 
 ast.lem
-    Defines the AST
+    Defines the AST.
 
 typeSystem.lem
-    Specifies the type system
+    Specifies the type system.
 
 semanticPrimitives.lem
     Definitions of semantic primitives (e.g., values, and functions for doing
@@ -36,7 +36,7 @@ semanticPrimitives.lem
     semantics.
 
 smallStep.lem
-    A small-step semantics based on the CEKS machine.  Only for expressions.
+    A small-step semantics based on the CEKS machine. Only for expressions.
 
 bigStep.lem
     A big-step semantics.  For modules, definitions, and expressions.
@@ -44,15 +44,20 @@ bigStep.lem
     metatheory directory.
 
 terminationScript.sml
-    Termination proofs for recursive functions defined in the .lem files
+    Termination proofs for recursive functions defined in the .lem files.
 
 initialProgram.lem
-    CakeML ASTs that define the initial basis environment
+    CakeML ASTs that define the initial basis environment.
+
+printScript.sml
+    Specifies printing of results.
 
 replScript.sml
-    Pulls everything together into a semantics for the CakeML repl
+    Pulls everything together into a semantics for the CakeML REPL.
+
+standaloneScript.sml
+    Pulls everything together into a semantics for whole CakeML programs.
 
 proofs/
-    Proofs of basic properties of the semantics, including determinism and a 
+    Proofs of basic properties of the semantics, including determinism and a
     clocked interpreter.
-
