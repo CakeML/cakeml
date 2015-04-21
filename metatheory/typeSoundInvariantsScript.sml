@@ -471,9 +471,18 @@ val _ = Define `
 val _ = Define `
  (ctMap_has_lists ctMap =  
 ((FLOOKUP ctMap ("nil", TypeId (Short "list")) = SOME (["'a"],[])) /\
-  (FLOOKUP ctMap ("::", TypeId (Short "list")) = 
+  (FLOOKUP ctMap ("::", TypeId (Short "list")) =
    SOME (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])) /\
   (! cn. (~ (cn = "::") /\ ~ (cn = "nil")) ==> (FLOOKUP ctMap (cn, TypeId (Short "list")) = NONE))))`;
+
+
+(* The global constructor type environment has the bool primitives in it *)
+(*val ctMap_has_bools : ctMap -> bool*)
+val _ = Define `
+ (ctMap_has_bools ctMap =  
+((FLOOKUP ctMap ("true", TypeId (Short "bool")) = SOME ([],[])) /\
+  (FLOOKUP ctMap ("false", TypeId (Short "bool")) = SOME ([],[])) /\
+  (! cn. (~ (cn = "true") /\ ~ (cn = "false")) ==> (FLOOKUP ctMap (cn, TypeId (Short "bool")) = NONE))))`;
 
 
 (* The types and exceptions that are missing are all declared in modules. *)
@@ -520,13 +529,14 @@ val _ = Define `
  * signature. *)
 val _ = Define `
  (type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =  
-(? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
+(? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
     consistent_decls decls2 decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
+    ctMap_has_bools ctMap /\
     tenvT_ok tenvT /\
-    tenvM_ok tenvM_no_sig /\ 
+    tenvM_ok tenvM_no_sig /\
     tenvM_ok tenvM /\
     consistent_mod_env tenvS ctMap envM tenvM_no_sig /\
     consistent_con_env ctMap envC tenvC_no_sig /\

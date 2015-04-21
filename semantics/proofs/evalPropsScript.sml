@@ -31,6 +31,16 @@ every_case_tac >>
 fs [] >>
 metis_tac []);
 
+val do_log_thm = store_thm("do_log_thm",
+  ``do_log l v e =
+    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
+    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
+    NONE``,
+  rw[semanticPrimitivesTheory.do_log_def] >>
+  every_case_tac >> rw[])
+
 val do_app_cases = Q.store_thm ("do_app_cases",
 `!st op st' vs v.
   (do_app st op vs = SOME (st',v))
