@@ -3355,4 +3355,31 @@ val EVERY_anub = store_thm("EVERY_anub",
   rw[] >> res_tac >> fs[] >>
   `q ≠ x` by fs[] >> fs[])
 
+val check_freevars_more = Q.prove (
+`(!t x fvs1 fvs2.
+  check_freevars x fvs1 t ⇒
+  check_freevars x (fvs2++fvs1) t ∧
+  check_freevars x (fvs1++fvs2) t) ∧
+ (!ts x fvs1 fvs2.
+  EVERY (check_freevars x fvs1) ts ⇒
+  EVERY (check_freevars x (fvs2++fvs1)) ts ∧
+  EVERY (check_freevars x (fvs1++fvs2)) ts)`,
+Induct >>
+rw [check_freevars_def] >>
+metis_tac []);
+
+val t_to_freevars_check = Q.store_thm ("t_to_freevars_check",
+`(!t st fvs st'.
+   (t_to_freevars t (st:'a) = (Success fvs, st'))
+   ⇒
+   check_freevars 0 fvs t) ∧
+ (!ts st fvs st'.
+   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
+   ⇒
+   EVERY (check_freevars 0 fvs) ts)`,
+Induct >>
+rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
+rw [] >>
+metis_tac [check_freevars_more]);
+
 val _ = export_theory ();

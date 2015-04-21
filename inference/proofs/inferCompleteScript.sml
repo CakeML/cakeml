@@ -896,6 +896,7 @@ fun any_match_mp impth th =
   in
     MATCH_MP th2 th  end
 
+(* TODO: move? *)
 val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
   ``(∀t fvs (st:'a). check_freevars 0 fvs t ⇒
       ∃fvs' st'. t_to_freevars t st = (Success fvs', st') ∧ set fvs' ⊆ set fvs) ∧
@@ -903,6 +904,50 @@ val check_freevars_t_to_freevars = store_thm("check_freevars_t_to_freevars",
       ∃fvs' st'. ts_to_freevars ts st = (Success fvs', st') ∧ set fvs' ⊆ set fvs)``,
   Induct >> simp[check_freevars_def,t_to_freevars_def,PULL_EXISTS,success_eqns] >>
   simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> simp[] >> metis_tac[])
+
+val infer_type_subst_nil = store_thm("infer_type_subst_nil",
+  ``(∀t. check_freevars n [] t ⇒ infer_type_subst [] t = unconvert_t t) ∧
+    (∀ts. EVERY (check_freevars n []) ts ⇒ MAP (infer_type_subst []) ts = MAP unconvert_t ts)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:t``)) >>
+  rw[infer_type_subst_def,convert_t_def,unconvert_t_def,check_freevars_def] >>
+  fsrw_tac[boolSimps.ETA_ss][])
+
+val check_t_infer_type_subst_dbs = store_thm("check_t_infer_type_subst_dbs",
+  ``∀m w t n u ls.
+    check_freevars m w t ∧
+    m + LENGTH ls ≤ n ∧
+    (ls = [] ⇒ 0 < m)
+    ⇒
+    check_t n u (infer_type_subst (ZIP(ls,MAP Infer_Tvar_db (COUNT_LIST (LENGTH ls)))) t)``,
+  ho_match_mp_tac check_freevars_ind >>
+  conj_tac >- (
+    simp[check_freevars_def] >>
+    simp[infer_type_subst_def] >>
+    simp[ZIP_MAP,LENGTH_COUNT_LIST] >>
+    simp[ALOOKUP_MAP,LAMBDA_PROD] >>
+    simp[COUNT_LIST_GENLIST] >>
+    simp[ZIP_GENLIST] >>
+    rw[] >>
+    BasicProvers.CASE_TAC >- (
+      simp[check_t_def] >>
+      Cases_on`LENGTH ls = 0`>-(fs[LENGTH_NIL] >> DECIDE_TAC) >>
+      DECIDE_TAC ) >>
+    fs[optionTheory.OPTION_MAP_EQ_SOME] >>
+    simp[check_t_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_GENLIST] >>
+    DECIDE_TAC ) >>
+  conj_tac >- (
+    rw[check_freevars_def,infer_type_subst_def,check_t_def] >>
+    simp[EVERY_MAP] >> fs[EVERY_MEM] ) >>
+  rw[check_freevars_def,check_t_def,infer_type_subst_def] >>
+  DECIDE_TAC)
+
+val nub_eq_nil = store_thm("nub_eq_nil",
+  ``∀ls. nub ls = [] ⇔ ls = []``,
+  Induct >> simp[nub_def] >> rw[] >>
+  Cases_on`ls`>>fs[])
+(* -- *)
 
 val check_specs_complete = store_thm("check_specs_complete",
   ``∀mn tenvT specs decls tenvT'' cenv'' env''.
@@ -934,7 +979,26 @@ val check_specs_complete = store_thm("check_specs_complete",
     simp[] >>
     match_mp_tac tenv_alpha_bind_var_list2 >>
     simp[] >>
-    cheat  (* looks true (but hard); just prove, or change type system... *) ) >>
+    simp[bind_var_list2_def,bind_tenv_def] >>
+    simp[tenv_alpha_def] >>
+    conj_tac >- (
+      simp[tenv_inv_def,lookup_tenv_def,t_walkstar_FEMPTY] >>
+      reverse IF_CASES_TAC >- (
+        `F` suffices_by rw[] >>
+        pop_assum mp_tac >> simp[] >>
+        Cases_on`nub fvs' = []` >- (
+          imp_res_tac t_to_freevars_check >>
+          fs[nub_eq_nil] >> rw[] >>
+          imp_res_tac check_freevars_empty_convert_unconvert_id >>
+          imp_res_tac infer_type_subst_nil >>
+          simp[nub_def,COUNT_LIST_def] >>
+          metis_tac[check_freevars_to_check_t] ) >>
+        match_mp_tac check_t_infer_type_subst_dbs >>
+        first_assum(match_exists_tac o concl) >> simp[] ) >>
+      simp[deBruijn_inc0] >>
+      imp_res_tac check_t_to_check_freevars >>
+      cheat ) >>
+    cheat  (* these look true; just prove, or change type system... *) ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
     qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
