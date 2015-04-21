@@ -808,6 +808,7 @@ val infer_d_complete = Q.prove (`
          fs [MEM_MAP, LAMBDA_PROD, FORALL_PROD, EXISTS_PROD] >>
          metis_tac [])
      >- (fs[tenv_alpha_empty]))
+
  (* Exception definition *)
  >- fs[tenv_alpha_empty]
  >- metis_tac []
@@ -947,7 +948,61 @@ val nub_eq_nil = store_thm("nub_eq_nil",
   ``∀ls. nub ls = [] ⇔ ls = []``,
   Induct >> simp[nub_def] >> rw[] >>
   Cases_on`ls`>>fs[])
+
+val check_freevars_more = store_thm("check_freevars_more",
+  ``∀a b c. check_freevars a b c ⇒ ∀b'. set b ⊆ set b' ⇒ check_freevars a b' c``,
+  ho_match_mp_tac check_freevars_ind >>
+  rw[check_freevars_def] >-
+    fs[SUBSET_DEF] >>
+  fs[EVERY_MEM])
 (* -- *)
+
+val t_ind = t_induction
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> SIMP_RULE (srw_ss()) []
+  |> Q.GEN`P`
+
+val rename_lemma = store_thm("rename_lemma",
+  ``∀t fvs fvs'.
+    check_freevars 0 fvs' t ∧
+    set fvs' ⊆ set fvs ∧
+    ALL_DISTINCT fvs'
+    ⇒
+    deBruijn_subst 0 (MAP (λfv. the (Tapp [] ARB) (OPTION_MAP Tvar_db (find_index fv fvs' 0))) fvs)
+      (type_subst (alist_to_fmap (ZIP (fvs, MAP Tvar_db (GENLIST I (LENGTH fvs))))) t) =
+    convert_t
+      (infer_type_subst
+        (ZIP (fvs', MAP Infer_Tvar_db (GENLIST I (LENGTH fvs')))) t)``,
+  ho_match_mp_tac t_ind >>
+  conj_tac >- (
+    simp[check_freevars_def,infer_type_subst_def,type_subst_def] >>
+    rw[] >>
+    CASE_TAC >- (
+      imp_res_tac ALOOKUP_FAILS >>
+      pop_assum mp_tac >>
+      simp[MEM_ZIP] >>
+      fs[MEM_EL,SUBSET_DEF] >>
+      metis_tac[] ) >>
+    CASE_TAC >- (
+      imp_res_tac ALOOKUP_FAILS >>
+      pop_assum mp_tac >>
+      simp[MEM_ZIP] >>
+      fs[MEM_EL,SUBSET_DEF] >>
+      metis_tac[] ) >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_ZIP] >> rw[] >>
+    simp[EL_MAP] >>
+    simp[convert_t_def,deBruijn_subst_def] >>
+    simp[EL_MAP,the_def] ) >>
+  conj_tac >- (
+    simp[check_freevars_def,infer_type_subst_def] ) >>
+  rw[infer_type_subst_def,deBruijn_subst_def,type_subst_def,convert_t_def] >>
+  simp[MAP_MAP_o] >>
+  simp[MAP_EQ_f] >>
+  fs[EVERY_MEM,check_freevars_def])
 
 val check_specs_complete = store_thm("check_specs_complete",
   ``∀mn tenvT specs decls tenvT'' cenv'' env''.
@@ -997,6 +1052,25 @@ val check_specs_complete = store_thm("check_specs_complete",
         first_assum(match_exists_tac o concl) >> simp[] ) >>
       simp[deBruijn_inc0] >>
       imp_res_tac check_t_to_check_freevars >>
+      qspecl_then[`t`,`fvs`,`nub fvs'`]mp_tac rename_lemma >>
+      discharge_hyps >- (
+        imp_res_tac t_to_freevars_check >>
+        simp[all_distinct_nub] >>
+        match_mp_tac (MP_CANON check_freevars_more) >>
+        first_assum(match_exists_tac o concl) >>
+        simp[]) >>
+      qpat_abbrev_tac2`subst = MAP XX fvs` >>
+      strip_tac >>
+      reverse conj_tac >- (
+        qexists_tac`subst` >>
+        simp[Abbr`subst`] >>
+        qpat_abbrev_tac2`I' = λx. x` >>
+        `I' = I` by simp[Abbr`I'`,FUN_EQ_THM] >>
+        simp[COUNT_LIST_GENLIST] >>
+        simp[EVERY_MAP,EVERY_MEM] >>
+        rw[] >>
+        Cases_on`find_index fv (nub fvs') 0` >> rw[the_def,check_freevars_def] >>
+        imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
       cheat ) >>
     cheat  (* these look true; just prove, or change type system... *) ) >>
   conj_tac >- (
