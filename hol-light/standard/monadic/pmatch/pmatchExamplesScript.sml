@@ -4,6 +4,73 @@ open holKernelTheory
 
 val _ = new_theory"pmatchExamples"
 
+(* TODO: stolen from deepMatchesLib.sml; should be exported? *)
+val PAIR_EQ_COLLAPSE = prove (
+``(((FST x = (a:'a)) /\ (SND x = (b:'b))) = (x = (a, b)))``,
+Cases_on `x` THEN SIMP_TAC std_ss [] THEN METIS_TAC[])
+
+val pabs_elim_ss =
+    simpLib.conv_ss
+      {name  = "PABS_ELIM_CONV",
+       trace = 2,
+       key   = SOME ([],``UNCURRY (f:'a -> 'b -> bool)``),
+       conv  = K (K pairTools.PABS_ELIM_CONV)}
+
+val select_conj_ss =
+    simpLib.conv_ss
+      {name  = "SELECT_CONJ_SS_CONV",
+       trace = 2,
+       key   = SOME ([],``$@ (f:'a -> bool)``),
+       conv  = K (K (SIMP_CONV (std_ss++boolSimps.CONJ_ss) []))};
+
+val static_ss = simpLib.merge_ss
+  [pabs_elim_ss,
+   pairSimps.paired_forall_ss,
+   pairSimps.paired_exists_ss,
+   pairSimps.gen_beta_ss,
+   select_conj_ss,
+   elim_fst_snd_select_ss,
+   boolSimps.EQUIV_EXTRACT_ss,
+   simpLib.rewrites [
+     some_var_bool_T, some_var_bool_F,
+     GSYM boolTheory.F_DEF,
+     pairTheory.EXISTS_PROD,
+     pairTheory.FORALL_PROD,
+     PMATCH_ROW_EQ_NONE,
+     PMATCH_ROW_COND_def,
+     PAIR_EQ_COLLAPSE,
+     oneTheory.one]];
+
+fun rc_ss gl = srw_ss() ++ simpLib.merge_ss (static_ss :: gl)
+(* -- *)
+
+val raconv_PMATCH_eq = prove(
+  ``^(rhs(concl(SPEC_ALL raconv_def))) =
+    CASE (tm1,tm2) OF
+    [ ||. (Var _ _, Var _ _) ~> alphavars env tm1 tm2
+    ; ||. (Const _ _, Const _ _) ~> (tm1 = tm2)
+    ; ||(s1,t1,s2,t2). (Comb s1 t1, Comb s2 t2)
+        ~> raconv env s1 s2 ∧ raconv env t1 t2
+    ; ||(v1,t1,v2,t2). (Abs v1 t1, Abs v2 t2)
+        ~> CASE (v1,v2) OF
+           [ ||(n1,ty1,n2,ty2). (Var n1 ty1,Var n2 ty2)
+               ~> (ty1 = ty2) ∧ raconv ((v1,v2)::env) t1 t2
+           ; ||. _ ~> F
+           ]
+    ; ||. _ ~> F
+    ]``,
+  rpt (
+  BasicProvers.PURE_CASE_TAC >>
+  FULL_SIMP_TAC (rc_ss []) [PMATCH_EVAL, PMATCH_ROW_COND_def,
+    PMATCH_INCOMPLETE_def] ))
+
+val raconv_PMATCH =
+  raconv_def
+  |> CONV_RULE(STRIP_QUANT_CONV(RAND_CONV(REWR_CONV raconv_PMATCH_eq)))
+  |> curry save_thm "raconv_PMATCH"
+
+(* --- old version ----
+
 (* stolen from deepMatchesLib.sml TODO *)
 
 val PAIR_EQ_COLLAPSE = prove (
@@ -243,5 +310,7 @@ val is_eq_PMATCH = save_thm("is_eq_PMATCH",
     ((REWR_CONV th THENC PMATCH_CATCHALL_INTRO_CONV)
      |> (STRIP_QUANT_CONV o RAND_CONV))
   is_eq_def)
+
+--------- *)
 
 val _ = export_theory()

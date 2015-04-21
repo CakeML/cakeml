@@ -1730,7 +1730,8 @@ fun prove_EvalPatRel goal hol2deep = let
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
-    fs[Once evaluate_cases])
+    fs[Once evaluate_cases] >>
+    rw[] >> simp[Once evaluate_cases])
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -1750,8 +1751,9 @@ fun prove_EvalPatBind goal hol2deep = let
   val var_assum = ``Eval env (Var n) (a (y:'a))``
   val is_var_assum = can (match_term var_assum)
   val vs = find_terms is_var_assum (concl th |> rator)
+  val vs' = filter (is_var o rand o rand) vs
   fun delete_var tm =
-    if mem tm vs then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
+    if mem tm vs' then MATCH_MP IMP_EQ_T (ASSUME tm) else NO_CONV tm
   val th = CONV_RULE (RATOR_CONV (DEPTH_CONV delete_var)) th
   val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
               (PairRules.UNPBETA_CONV vars)) th
@@ -1759,7 +1761,7 @@ fun prove_EvalPatBind goal hol2deep = let
   val p2 = goal |> dest_forall |> snd |> dest_forall |> snd
                 |> dest_imp |> fst |> rand |> rator
   val ws = free_vars vars
-  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs
+  val vs = filter (fn tm => not (mem (rand (rand tm)) ws)) vs'
   val new_goal = goal |> subst [``e:exp``|->exp,p2 |-> p]
   val new_goal = foldr mk_imp new_goal vs
   (*
@@ -1773,14 +1775,19 @@ fun prove_EvalPatBind goal hol2deep = let
     \\ REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
     \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt]
+    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
+    (*
     \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
       \\ SRW_TAC [] [Eval_Var_SIMP]
       \\ EVAL_TAC \\ NO_TAC)
+    *)
     \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] []
-    \\ SRW_TAC [] [Eval_Var_SIMP,lookup_cons_write,lookup_var_write]
+    \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
+             lookup_cons_write,lookup_var_write]))
+    \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
+    \\ fs[GSYM FORALL_PROD]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
@@ -1803,10 +1810,10 @@ fun to_pattern tm =
     ``Plit ^(rand tm)``
   else tm
 
-val pmatch2deep_fail = ref T;
-val tm = !pmatch2deep_fail;
+val pmatch_hol2deep_fail = ref T;
+val tm = !pmatch_hol2deep_fail;
 
-fun pmatch2deep tm hol2deep = let
+fun pmatch_hol2deep tm hol2deep = let
   val (x,ts) = dest_pmatch_K_T tm
   val v = genvar (type_of x)
   val x_res = hol2deep x |> D
@@ -1831,7 +1838,7 @@ fun pmatch2deep tm hol2deep = let
   fun trans [] = nil_lemma
     | trans ((pat,rhs_tm)::xs) = let
     (*
-    val ((pat,rhs_tm)::xs) = tl (tl ts)
+    val ((pat,rhs_tm)::xs) = List.drop(ts,0)
     *)
     val th = trans xs
     val p = pat |> dest_pabs |> snd |> hol2deep
@@ -1860,8 +1867,8 @@ fun pmatch2deep tm hol2deep = let
   val th = MATCH_MP th (UNDISCH x_res)
   val th = UNDISCH_ALL th
   in th end handle HOL_ERR e =>
-  (pmatch2deep_fail := tm;
-   failwith ("pmatch2deep failed (" ^ #message e ^ ")"));
+  (pmatch_hol2deep_fail := tm;
+   failwith ("pmatch_hol2deep failed (" ^ #message e ^ ")"));
 
 local
   (* list_conv: applies c to every xi in a term such as [x1;x2;x3;x4] *)
@@ -2532,6 +2539,7 @@ val ord_pat = Eval_Ord |> concl |> funpow 3 rand
 
 (*
 val tm = rhs
+val tm = rhs_tm
 *)
 
 fun hol2deep tm =
@@ -2769,9 +2777,9 @@ fun hol2deep tm =
     val original_tm = tm
     val lemma = pmatch_preprocess_conv tm
     val tm = lemma |> concl |> rand
-    val result = pmatch2deep tm hol2deep
+    val result = pmatch_hol2deep tm hol2deep
     val result = result |> CONV_RULE (RAND_CONV (RAND_CONV (K (GSYM lemma))))
-    in check_inv "pmatch2deep" original_tm result end else
+    in check_inv "pmatch_hol2deep" original_tm result end else
   (* normal function applications *)
   if is_comb tm then let
     val (f,x) = dest_comb tm
