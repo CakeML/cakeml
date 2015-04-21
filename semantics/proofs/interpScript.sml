@@ -176,7 +176,8 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    do v1 <- run_eval env e1;
       case do_log lop v1 e2 of
            NONE => raise Rtype_error
-         | SOME e' => run_eval env e'
+         | SOME (Val v) => return v
+         | SOME (Exp e') => run_eval env e'
    od) ∧
  (!env e1 e2 e3.
    run_eval env (If e1 e2 e3)
