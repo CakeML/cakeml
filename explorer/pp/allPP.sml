@@ -46,7 +46,7 @@ in
 exception compilationError of string;
 type allIntermediates = {
   ils:term list,
-  globMap:term list, 
+  globMap:term list,
   ctors:term list,
   modMap:term list,
   annotations:term list}
@@ -56,13 +56,13 @@ fun allIntermediates prog =
   let
       val t1 = eval ``get_all_asts ^(prog)``
       val ast = rand (rhsThm t1)
-      
+
       val _ =if ast = ``"<parse error>\n"`` then raise compilationError "Parse Error" else ();
 
       val infer = eval ``infer_all_asts ^(t1|>concl|>rhs)``
       val infer_res = rhsThm infer;
       (*Bypass type checks -- dangerous!*)
-      val _ = let val (res,msg) = dest_comb infer_res in 
+      val _ = let val (res,msg) = dest_comb infer_res in
                 if (term_to_string res) = "Failure" then raise compilationError ("Type Inference Error: "^(term_to_string msg)) else () end;
 
       (*i1 translation*)
@@ -105,10 +105,10 @@ fun allIntermediates prog =
 
       (*compileCexp*)
       val cs = rhsThm (eval ``<|out:=[];next_label:=compile_primitives.rnext_label|>``);
-      
+
       val lab_closures = eval ``label_closures (LENGTH []) (^(cs).next_label) ^(p6)``
       val (Ce,nl) = pairSyntax.dest_pair(rhsThm lab_closures)
-      
+
       val _ = (collectAnnotations := ([]:term list))
       (*Cheat and call PP internally so that the stateful annotations are updated*)
       val _ = term_to_string Ce
@@ -117,10 +117,10 @@ fun allIntermediates prog =
       val cs = rhsThm (eval ``compile_code_env (^(cs) with next_label := ^(nl)) ^(Ce)``)
 
       val compile_Cexp = eval ``compile [] TCNonTail 0 ^(cs) ^(Ce)``
-      (*val compile_Cexp = eval ``compile_Cexp [] 0 
+      (*val compile_Cexp = eval ``compile_Cexp [] 0
                            <|out:=[];next_label:=compile_primitives.rnext_label|> ^(p6)``*)
       val p7_1 = rhsThm compile_Cexp
-      
+
       (*compile print err*)
       val compile_print_err = eval ``compile_print_err ^(p7_1)``;
       val p7_2 = rhsThm compile_print_err
@@ -157,13 +157,13 @@ fun allIntermediates prog =
       val rem_labels = with_flag (quiet,true) eval ``remove_labels_all_asts real_inst_length (Success ^(p7))``
 
       (*Bytecode to asm*)
-      val asm = eval ``x64_code 0 ^(rhsThm rem_labels |> rand)``
+      val asm = eval ``bc_compile 0 ^(rhsThm rem_labels |> rand)``
       val p9 = rhsThm asm
 
       val p8 = rhsThm (eval ``(NONE,^(p8))``)
 
       val p7 = rhsThm (eval ``(SOME x,^(p7))``)
-      
+
   in
      {ils=[ast,p1,p2,p3,p4,p5,p6,p7,p8,p9],
       ctors=ctors,globMap=globMap,modMap=modMap,annotations=(!collectAnnotations)}
