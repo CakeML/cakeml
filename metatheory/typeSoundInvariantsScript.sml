@@ -144,12 +144,7 @@ val _ = Define `
  (tenvM_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_ok (bind_var_list2 tenv Empty))) tenvM))`;
 
 
-val _ = Hol_reln ` (! tvs cenv senv b.
-T
-==>
-type_v tvs cenv senv (Litv (Bool b)) Tbool)
-
-/\ (! tvs cenv senv n.
+val _ = Hol_reln ` (! tvs cenv senv n.
 T
 ==>
 type_v tvs cenv senv (Litv (IntLit n)) Tint)
@@ -163,11 +158,6 @@ type_v tvs cenv senv (Litv (Char c)) Tchar)
 T
 ==>
 type_v tvs cenv senv (Litv (StrLit s)) Tstring)
-
-/\ (! tvs cenv senv.
-T
-==>
-type_v tvs cenv senv (Litv Unit) Tunit)
 
 /\ (! tvs cenv senv w.
 T
@@ -347,15 +337,15 @@ type_op op ((REVERSE ts1 ++ [t1]) ++ ts2) t2)
 type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs ()  es) t1 t2)
 
 /\ (! tvs menv all_cenv cenv senv tenv op e.
-(type_e menv cenv tenv e Tbool)
+(type_e menv cenv tenv e (Tapp [] (TC_name (Short "bool"))))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Clog op ()  e) Tbool Tbool)
+type_ctxt tvs menv all_cenv cenv senv tenv (Clog op ()  e) (Tapp [] (TC_name (Short "bool"))) (Tapp [] (TC_name (Short "bool"))))
 
 /\ (! tvs menv all_cenv cenv senv tenv e1 e2 t.
 (type_e menv cenv tenv e1 t /\
 type_e menv cenv tenv e2 t)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cif ()  e1 e2) Tbool t)
+type_ctxt tvs menv all_cenv cenv senv tenv (Cif ()  e1 e2) (Tapp [] (TC_name (Short "bool"))) t)
 
 /\ (! tvs menv all_cenv cenv senv tenv t1 t2 pes err_v.
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars( 0) [] t2)) /\

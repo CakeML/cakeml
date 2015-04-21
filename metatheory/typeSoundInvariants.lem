@@ -120,13 +120,6 @@ and
 and
 [consistent_mod_env : tenvS -> ctMap -> envM -> tenvM -> bool]
 
-lit_bool : forall tvs cenv senv b.
-true
-==>
-type_v tvs cenv senv (Litv (Bool b)) Tbool
-
-and
-
 lit_int : forall tvs cenv senv n.
 true
 ==>
@@ -145,13 +138,6 @@ lit_string : forall tvs cenv senv s.
 true
 ==>
 type_v tvs cenv senv (Litv (StrLit s)) Tstring
-
-and
-
-lit_unit : forall tvs cenv senv.
-true
-==>
-type_v tvs cenv senv (Litv Unit) Tunit
 
 and
 
@@ -387,9 +373,9 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs () es) t1 t2
 and
 
 log : forall tvs menv all_cenv cenv senv tenv op e.
-type_e menv cenv tenv e Tbool
+type_e menv cenv tenv e (Tapp [] (TC_name (Short "bool")))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Clog op () e) Tbool Tbool
+type_ctxt tvs menv all_cenv cenv senv tenv (Clog op () e) (Tapp [] (TC_name (Short "bool"))) (Tapp [] (TC_name (Short "bool")))
 
 and
 
@@ -397,7 +383,7 @@ if_ : forall tvs menv all_cenv cenv senv tenv e1 e2 t.
 type_e menv cenv tenv e1 t &&
 type_e menv cenv tenv e2 t
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cif () e1 e2) Tbool t
+type_ctxt tvs menv all_cenv cenv senv tenv (Cif () e1 e2) (Tapp [] (TC_name (Short "bool"))) t
 
 and
 
