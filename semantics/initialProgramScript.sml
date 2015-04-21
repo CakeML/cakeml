@@ -33,6 +33,7 @@ val _ = Define `
    Tdec (Dexn "Div" []);
    Tdec (Dexn "Eq" []);
    Tdec (Dexn "Subscript" []);
+   Tdec (Dtype [([], "bool", [("true", []); ("false", [])])]);
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
    Tdec (Dtype [(["'a"], "option", [("NONE", []);("SOME", [Tvar "'a"]) ])]) ]))`;
 
@@ -42,8 +43,7 @@ val _ = Define `
  (basis_program =  
 ([Tdec (Dtabbrev [] "int" (Tapp [] TC_int));
    Tdec (Dtabbrev [] "string" (Tapp [] TC_string));
-   Tdec (Dtabbrev [] "bool" (Tapp [] TC_bool));
-   Tdec (Dtabbrev [] "unit" (Tapp [] TC_unit));
+   Tdec (Dtabbrev [] "unit" (Tapp [] TC_tup));
    Tdec (Dtabbrev ["'a"] "ref" (Tapp [Tvar "'a"] TC_ref));
    Tdec (Dtabbrev [] "exn" (Tapp [] TC_exn));
    Tdec (mk_binop "+" (Opn Plus));

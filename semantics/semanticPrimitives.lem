@@ -633,8 +633,6 @@ let tc_to_string tc =
   | TC_int -> "<int>"
   | TC_char -> "<char>"
   | TC_string -> "<string>"
-  | TC_bool -> "<bool>"
-  | TC_unit -> "<unit>"
   | TC_ref -> "<ref>"
   | TC_word8 -> "<word8>"
   | TC_word8array -> "<word8array>"

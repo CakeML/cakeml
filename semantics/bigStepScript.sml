@@ -133,10 +133,16 @@ evaluate ck env s1 (App op es) (s2, Rerr err))
 
 /\ (! ck env op e1 e2 v e' bv s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\
-(do_log op v e2 = SOME e') /\
+(do_log op v e2 = SOME (Exp e')) /\
 evaluate ck env s2 e' bv)
 ==>
 evaluate ck env s1 (Log op e1 e2) bv)
+
+/\ (! ck env op e1 e2 v bv s1 s2.
+(evaluate ck env s1 e1 (s2, Rval v) /\
+(do_log op v e2 = SOME (Val bv)))
+==>
+evaluate ck env s1 (Log op e1 e2) (s2, Rval bv))
 
 /\ (! ck env op e1 e2 v s1 s2.
 (evaluate ck env s1 e1 (s2, Rval v) /\

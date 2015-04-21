@@ -90,7 +90,8 @@ let continue s v cs =
         push env s e (Capp op (v::vs) () es) c
     | (Clog l () e, env) :: c ->
         match do_log l v e with
-          | Just e -> Estep (env, s, Exp e, c)
+          | Just (Exp e) -> Estep (env, s, Exp e, c)
+          | Just (Val v) -> return env s v c
           | Nothing -> Etype_error
         end
     | (Cif () e1 e2, env) :: c ->

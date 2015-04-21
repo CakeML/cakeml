@@ -219,18 +219,18 @@ let type_op op ts t =
   match (op,ts) with
     | (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) -> (t2 = t2') && (t = t3')
     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tint)
-    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tbool)
-    | (Equality, [t1; t2]) -> (t1 = t2) && (t = Tbool)
-    | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tunit)
+    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) -> (t = Tapp [] (TC_name (Short "bool")))
+    | (Equality, [t1; t2]) -> (t1 = t2) && (t = Tapp [] (TC_name (Short "bool")))
+    | (Opassign, [Tapp [t1] TC_ref; t2]) -> (t1 = t2) && (t = Tapp [] (TC_name (Short "unit")))
     | (Opref, [t1]) -> (t = Tapp [t1] TC_ref)
     | (Opderef, [Tapp [t1] TC_ref]) -> (t = t1)
     | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) -> (t = Tapp [] TC_word8array)
     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) -> (t = Tapp [] TC_word8)
     | (Aw8length, [Tapp [] TC_word8array]) -> (t = Tapp [] TC_int)
-    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) -> t = Tapp [] TC_unit
+    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) -> t = Tapp [] TC_tup
     | (Chr, [Tapp [] TC_int]) -> (t = Tchar)
     | (Ord, [Tapp [] TC_char]) -> (t = Tint)
-    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) -> (t = Tbool)
+    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) -> (t = Tapp [] (TC_name (Short "bool")))
     | (Explode, [Tapp [] TC_string]) -> t = Tapp [Tapp [] TC_char] (TC_name (Short "list"))
     | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) -> t = Tapp [] TC_string
     | (Strlen, [Tapp [] TC_string]) -> t = Tint
@@ -240,7 +240,7 @@ let type_op op ts t =
     | (Aalloc, [Tapp [] TC_int; t1]) -> t = Tapp [t1] TC_array
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
     | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
-    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_unit
+    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_tup
     | _ -> false
   end
 
@@ -343,13 +343,6 @@ type_p tvs cenv (Pvar n) t [(n,t)]
 
 and
 
-plit_bool : forall tvs cenv b.
-true
-==>
-type_p tvs cenv (Plit (Bool b)) Tbool []
-
-and
-
 plit_int : forall tvs cenv n.
 true
 ==>
@@ -368,13 +361,6 @@ plit_string : forall tvs cenv s.
 true
 ==>
 type_p tvs cenv (Plit (StrLit s)) Tstring []
-
-and
-
-plit_unit : forall tvs cenv.
-true
-==>
-type_p tvs cenv (Plit Unit) Tunit []
 
 and
 
@@ -427,13 +413,6 @@ and [type_es : tenvM -> tenvC -> tenvE -> list exp -> list t -> bool]
 and [type_funs : tenvM -> tenvC -> tenvE -> list (varN * varN * exp) -> list (varN * t) -> bool]
 
 
-lit_bool : forall menv cenv tenv b.
-true
-==>
-type_e menv cenv tenv (Lit (Bool b)) Tbool
-
-and
-
 lit_int : forall menv cenv tenv n.
 true
 ==>
@@ -455,13 +434,6 @@ type_e menv cenv tenv (Lit (StrLit s)) Tstring
 
 and
 
-lit_unit : forall menv cenv tenv.
-true
-==>
-type_e menv cenv tenv (Lit Unit) Tunit
-
-and
-
 lit_word8 : forall menv cenv tenv w.
 true
 ==>
@@ -471,7 +443,7 @@ and
 
 raise : forall menv cenv tenv e t.
 check_freevars (num_tvs tenv) [] t &&
-type_e menv cenv tenv e Texn 
+type_e menv cenv tenv e Texn
 ==>
 type_e menv cenv tenv (Raise e) t
 
@@ -525,22 +497,22 @@ and
 
 app : forall menv cenv tenv op es ts t.
 type_es menv cenv tenv es ts &&
-type_op op ts t 
+type_op op ts t
 ==>
 type_e menv cenv tenv (App op es) t
 
 and
 
 log : forall menv cenv tenv l e1 e2.
-type_e menv cenv tenv e1 Tbool &&
-type_e menv cenv tenv e2 Tbool
+type_e menv cenv tenv e1 (Tapp [] (TC_name (Short "bool"))) &&
+type_e menv cenv tenv e2 (Tapp [] (TC_name (Short "bool")))
 ==>
-type_e menv cenv tenv (Log l e1 e2) Tbool
+type_e menv cenv tenv (Log l e1 e2) (Tapp [] (TC_name (Short "bool")))
 
 and
 
 if' : forall menv cenv tenv e1 e2 e3 t.
-type_e menv cenv tenv e1 Tbool &&
+type_e menv cenv tenv e1 (Tapp [] (TC_name (Short "bool"))) &&
 (type_e menv cenv tenv e2 t &&
 type_e menv cenv tenv e3 t)
 ==>
@@ -552,7 +524,7 @@ mat : forall menv cenv tenv e pes t1 t2.
 type_e menv cenv tenv e t1 &&
 pes <> [] &&
 (forall ((p,e) MEM pes) . exists tenv'.
-   List.allDistinct (pat_bindings p []) &&   
+   List.allDistinct (pat_bindings p []) &&
    type_p (num_tvs tenv) cenv p t1 tenv' &&
    type_e menv cenv (bind_var_list 0 tenv' tenv) e t2)
 ==>
