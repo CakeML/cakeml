@@ -214,16 +214,12 @@ val infer_p_def = tDefine "infer_p" `
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
-(infer_p cenv (Plit (Bool b)) =
-  return (Infer_Tapp [] TC_bool, [])) ∧
 (infer_p cenv (Plit (IntLit i)) =
   return (Infer_Tapp [] TC_int, [])) ∧
 (infer_p cenv (Plit (Char s)) =
   return (Infer_Tapp [] TC_char, [])) ∧
 (infer_p cenv (Plit (StrLit s)) =
   return (Infer_Tapp [] TC_string, [])) ∧
-(infer_p cenv (Plit Unit) =
-  return (Infer_Tapp [] TC_unit, [])) ∧
 (infer_p cenv (Plit (Word8 w)) =
   return (Infer_Tapp [] TC_word8, [])) ∧
 (infer_p cenv (Pcon cn_opt ps) =
@@ -264,14 +260,14 @@ constrain_op op ts =
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_int)
        od
-   | (Opb opb, [t1;t2]) => 
+   | (Opb opb, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_int);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
-          return (Infer_Tapp [] TC_bool)
+          return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Equality, [t1;t2]) =>
        do () <- add_constraint t1 t2;
-          return (Infer_Tapp [] TC_bool)
+          return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Opapp, [t1;t2]) =>
        do uvar <- fresh_uvar;
@@ -280,7 +276,7 @@ constrain_op op ts =
        od
    | (Opassign, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [t2] TC_ref);
-          return (Infer_Tapp [] TC_unit)
+          return (Infer_Tapp [] TC_tup)
        od
    | (Opref, [t]) => return (Infer_Tapp [t] TC_ref)
    | (Opderef, [t]) =>
@@ -306,7 +302,7 @@ constrain_op op ts =
        do () <- add_constraint t1 (Infer_Tapp [] TC_word8array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
-          return (Infer_Tapp [] TC_unit)
+          return (Infer_Tapp [] TC_tup)
         od
    | (Chr, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
@@ -319,7 +315,7 @@ constrain_op op ts =
    | (Chopb opb, [t1;t2]) =>
        do () <- add_constraint t1 (Infer_Tapp [] TC_char);
           () <- add_constraint t2 (Infer_Tapp [] TC_char);
-          return (Infer_Tapp [] TC_bool)
+          return (Infer_Tapp [] (TC_name (Short "bool")))
        od
    | (Explode, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_string);
@@ -367,7 +363,7 @@ constrain_op op ts =
    | (Aupdate, [t1;t2;t3]) =>
        do () <- add_constraint t1 (Infer_Tapp [t3] TC_array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
-          return (Infer_Tapp [] TC_unit)
+          return (Infer_Tapp [] TC_tup)
        od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
@@ -386,16 +382,12 @@ val infer_e_def = tDefine "infer_e" `
        () <- infer_pes menv cenv env pes (Infer_Tapp [] TC_exn) t1;
        return t1
     od) ∧
-(infer_e menv cenv tenv (Lit (Bool b)) =
-  return (Infer_Tapp [] TC_bool)) ∧
 (infer_e menv cenv tenv (Lit (IntLit i)) =
   return (Infer_Tapp [] TC_int)) ∧
 (infer_e menv cenv tenv (Lit (Char c)) =
   return (Infer_Tapp [] TC_char)) ∧
 (infer_e menv cenv tenv (Lit (StrLit s)) =
   return (Infer_Tapp [] TC_string)) ∧
-(infer_e menv cenv tenv (Lit Unit) =
-  return (Infer_Tapp [] TC_unit)) ∧
 (infer_e menv cenv tenv (Lit (Word8 w)) =
   return (Infer_Tapp [] TC_word8)) ∧
 (infer_e menv cenv env (Var (Short n)) =
@@ -435,13 +427,13 @@ val infer_e_def = tDefine "infer_e" `
 (infer_e menv cenv env (Log log e1 e2) =
   do t1 <- infer_e menv cenv env e1;
      t2 <- infer_e menv cenv env e2;
-     () <- add_constraint t1 (Infer_Tapp [] TC_bool);
-     () <- add_constraint t2 (Infer_Tapp [] TC_bool);
-     return (Infer_Tapp [] TC_bool) 
+     () <- add_constraint t1 (Infer_Tapp [] (TC_name (Short "bool")));
+     () <- add_constraint t2 (Infer_Tapp [] (TC_name (Short "bool")));
+     return (Infer_Tapp [] (TC_name (Short "bool")))
   od) ∧
 (infer_e menv cenv env (If e1 e2 e3) =
   do t1 <- infer_e menv cenv env e1;
-     () <- add_constraint t1 (Infer_Tapp [] TC_bool);
+     () <- add_constraint t1 (Infer_Tapp [] (TC_name (Short "bool")));
      t2 <- infer_e menv cenv env e2;
      t3 <- infer_e menv cenv env e3;
      () <- add_constraint t2 t3;
@@ -730,10 +722,10 @@ val Infer_Tint = Define `
 Infer_Tint = Infer_Tapp [] TC_int`;
 
 val Infer_Tbool = Define `
-Infer_Tbool = Infer_Tapp [] TC_bool`;
+Infer_Tbool = Infer_Tapp [] (TC_name (Short "bool"))`;
 
 val Infer_Tunit = Define `
-Infer_Tunit = Infer_Tapp [] TC_unit`;
+Infer_Tunit = Infer_Tapp [] TC_tup`;
 
 val Infer_Tref = Define `
 Infer_Tref t = Infer_Tapp [t] TC_ref`;
