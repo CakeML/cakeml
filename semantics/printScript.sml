@@ -25,10 +25,7 @@ val print_lit_def = Define `
 (print_lit (IntLit i) = int_to_string i) ∧
 (print_lit (Char c) = "#"++(string_to_string [c])) ∧
 (print_lit (StrLit s) = string_to_string s) ∧
-(print_lit (Word8 w) = "0wx"++(word_to_hex_string w)) ∧
-(print_lit (Bool T) = "true") ∧
-(print_lit (Bool F) = "false") ∧
-(print_lit Unit = "()")`;
+(print_lit (Word8 w) = "0wx"++(word_to_hex_string w))`;
 
 val print_v_def = Define `
 (print_v (Litv l) = print_lit l) ∧
