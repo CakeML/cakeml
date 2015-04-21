@@ -1071,8 +1071,24 @@ val check_specs_complete = store_thm("check_specs_complete",
         rw[] >>
         Cases_on`find_index fv (nub fvs') 0` >> rw[the_def,check_freevars_def] >>
         imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
-      cheat ) >>
-    cheat  (* these look true; just prove, or change type system... *) ) >>
+      qpat_assum`check_freevars X Y t`mp_tac >>
+      map_every qid_spec_tac[`fvs`,`t`] >>
+      rpt(pop_assum kall_tac) >>
+      ho_match_mp_tac t_ind >>
+      simp[check_freevars_def] >>
+      simp[type_subst_def,check_freevars_def] >>
+      conj_tac >- (
+        rw[] >>
+        CASE_TAC >> simp[check_freevars_def] >- (
+          imp_res_tac ALOOKUP_FAILS >>
+          fs[MEM_ZIP,MEM_EL] >>
+          metis_tac[] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        rfs[MEM_ZIP,EL_MAP] >>
+        rw[check_freevars_def] ) >>
+      rw[EVERY_MAP] >>
+      fs[EVERY_MEM] ) >>
+    cheat  (* look true; just prove, or change type system... *) ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
     qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
