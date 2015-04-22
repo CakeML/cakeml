@@ -808,7 +808,7 @@ val Eval_Chr = store_thm("Eval_Chr",
   conj_tac >- intLib.COOPER_TAC >>
   simp[integerTheory.INT_ABS_NUM])
 
-val Boolv_11 = prove(
+val Boolv_11 = store_thm("Boolv_11",
   ``(Boolv b1 = Boolv b2) <=> (b1 = b2)``,
   Cases_on `b1` \\ Cases_on `b2` \\ EVAL_TAC);
 
