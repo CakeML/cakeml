@@ -670,12 +670,6 @@ check_weak_decls (mdecls_impl,tdecls_impl,edecls_impl) (mdecls_spec,tdecls_spec,
   list_subset tdecls_spec tdecls_impl ∧
   list_subset edecls_spec edecls_impl`;
 
-val anub_def = Define`
-  (anub [] acc = []) ∧
-  (anub ((k,v)::ls) acc =
-   if MEM k acc then anub ls acc else
-   (k,v)::(anub ls (k::acc)))`
-
 val check_signature_def = Define `
 (check_signature mn tenvT init_decls decls tenvT' cenv env NONE =
   return (decls, tenvT', cenv, env)) ∧

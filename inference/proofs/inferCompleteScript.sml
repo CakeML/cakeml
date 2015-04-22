@@ -1245,7 +1245,7 @@ val check_flat_weakC_complete = store_thm("check_flat_weakC_complete",
     flat_weakC tenvC1 tenvC2 ⇒
     check_flat_weakC tenvC1 (anub tenvC2 [])``,
   simp[flat_weakC_def,check_flat_weakC_def] >> rw[] >>
-  match_mp_tac EVERY_anub >> rw[] >>
+  match_mp_tac EVERY_anub_suff >> rw[] >>
   first_x_assum(qspec_then`x`mp_tac) >> rw[] >>
   BasicProvers.EVERY_CASE_TAC  >> fs[])
 
@@ -1327,26 +1327,6 @@ val infer_deBruijn_subst_check_t = prove(``
   fs[EVERY_MEM,MEM_EL]>>
   metis_tac[])
 
-val anub_all_distinct_keys = prove(``
-  ∀ls acc.
-    ALL_DISTINCT acc ⇒ 
-    ALL_DISTINCT ((MAP FST (anub ls acc)) ++ acc)``,
-  Induct>>rw[anub_def]>>PairCases_on`h`>>fs[anub_def]>>
-  rw[]>>
-  `ALL_DISTINCT (h0::acc)` by fs[ALL_DISTINCT]>>res_tac>>
-  fs[ALL_DISTINCT_APPEND]>>
-  metis_tac[])
-
-val MEM_anub_lookup = prove(``
-  MEM (k,v) (anub ls [])
-  ⇒ 
-  ALOOKUP ls k = SOME v``,
-  rw[]>>
-  Q.ISPECL_THEN[`ls`,`[]`] assume_tac anub_all_distinct_keys>>
-  Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
-  fs[]>>
-  metis_tac[ALOOKUP_ALL_DISTINCT_MEM])
-
 val check_weakE_complete = store_thm("check_weakE_complete",
   ``∀itenv1 itenv2 st tenv1 tenv2.
     weakE tenv1 tenv2 ∧
@@ -1365,7 +1345,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   fs[tenv_alpha_def,tenv_inv_def]>>
   (*Go from itenv2 to tenv2*)
   `ALOOKUP itenv2 e0 = SOME(e1,e2)` by 
-    metis_tac[MEM_anub_lookup]>>
+    metis_tac[MEM_anub_ALOOKUP]>>
   first_x_assum(qspecl_then[`e0`,`e1`,`e2`] assume_tac)>>rfs[]>>
   fs[tenv_alpha_def,tenv_invC_def,lookup_bvl2,lookup_tenv_def]>>
   (*Go from tenv2 to tenv1*)
