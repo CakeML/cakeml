@@ -1658,19 +1658,26 @@ rw [] >|
   EVERY (check_t 0 (count st''.next_uvar)) ts`
           by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
      metis_tac [constrain_op_check_s],
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_bool)` by rw [check_t_def] >>
-     `t_wfs st'''.subst ∧ 
-      t_wfs st''.subst ∧ 
+ `!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
+     `t_wfs st'''.subst ∧
+      t_wfs st''.subst ∧
       check_env (count st''.next_uvar) env ∧
       check_env (count (st'''.next_uvar)) env ∧
       check_t 0 (count (st'''.next_uvar)) t1 ∧
-      check_t 0 (count (st'''.next_uvar)) t2` 
+      check_t 0 (count (st'''.next_uvar)) t2`
                   by metis_tac [check_t_more4, infer_e_check_t, infer_e_wfs, check_env_more, infer_e_next_uvar_mono] >>
       fs [] >>
       `check_s tvs (count st'''.next_uvar) st'''.subst` by metis_tac [] >>
       `t_wfs s` by metis_tac [t_unify_wfs] >>
-      metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0],
- `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_bool)` by rw [check_t_def] >>
+      match_mp_tac t_unify_check_s >>
+      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      conj_tac >- metis_tac[check_t_more2, arithmeticTheory.ADD_0] >>
+      match_mp_tac t_unify_check_s >>
+      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      metis_tac [check_t_more2, arithmeticTheory.ADD_0],
+ `!uvs tvs. check_t tvs uvs (Infer_Tapp [] (TC_name(Short"bool")))` by rw [check_t_def] >>
      `t_wfs st''.subst ∧ t_wfs s`
                by metis_tac [infer_e_wfs, t_unify_wfs] >>
      `t_wfs st''''.subst`
@@ -1687,11 +1694,26 @@ rw [] >|
       check_t 0 (count (st'''''.next_uvar)) t3`
               by metis_tac [check_t_more4, infer_e_check_t, check_env_more, infer_e_next_uvar_mono, infer_st_rewrs] >>
      `check_s tvs (count st''.next_uvar) st''.subst` by metis_tac [] >>
-     `check_s tvs (count st''.next_uvar) s` 
-             by metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] >>
-     `check_s tvs (count st''''.next_uvar) st''''.subst` by metis_tac [infer_st_rewrs] >>
-     `check_s tvs (count st'''''.next_uvar) st'''''.subst` by metis_tac [] >>
-     metis_tac [t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs],
+     `check_s tvs (count st''.next_uvar) s` by (
+       match_mp_tac t_unify_check_s >>
+       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       metis_tac [ check_t_more2, arithmeticTheory.ADD_0, infer_st_rewrs] ) >>
+     match_mp_tac t_unify_check_s >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(is_eq))) >>
+     first_assum(match_exists_tac o concl) >>
+     conj_tac >- simp[] >>
+     reverse conj_tac >- simp[] >>
+     conj_tac >- ( metis_tac[check_t_more2,arithmeticTheory.ADD_0] ) >>
+     first_x_assum(match_mp_tac) >>
+     first_assum(match_exists_tac o concl) >>
+     conj_tac >- simp[] >>
+     conj_tac >- simp[] >>
+     conj_tac >- simp[] >>
+     conj_tac >- simp[] >>
+     conj_tac >- simp[] >>
+     first_x_assum(match_mp_tac) >>
+     first_assum(match_exists_tac o concl) >> simp[],
  `t_wfs st''.subst ∧
   check_env (count (st'' with next_uvar := st''.next_uvar + 1).next_uvar) env`
                by metis_tac [check_env_more, infer_e_next_uvar_mono, infer_e_wfs, DECIDE ``x ≤ x + 1:num``,
