@@ -193,7 +193,7 @@ CevalUpd Up1 s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   match el_check n s with
   | Just (Refv _) ->
     if i = 0 then
-      (List.update s n (Refv v), Rval (CLitv Unit))
+      (List.update s n (Refv v), Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ -> (s, Rerr Rtype_error)
   end
@@ -202,7 +202,7 @@ CevalUpd UpA s (CLoc n) (CLitv (IntLit i)) (v:Cv) =
   match el_check n s with
   | Just (Varray vs) ->
     if 0 <= i && natFromInteger i < List.length vs then
-      (List.update s n (Varray (List.update vs (natFromInteger i) v)), Rval (CLitv Unit))
+      (List.update s n (Varray (List.update vs (natFromInteger i) v)), Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ -> (s, Rerr Rtype_error)
   end
@@ -211,7 +211,7 @@ CevalUpd UpB s (CLoc n) (CLitv (IntLit i)) (CLitv (Word8 w)) =
   match el_check n s with
   | Just (W8array ws) ->
     if 0 <= i && natFromInteger i < List.length ws then
-      (List.update s n (W8array (List.update ws (natFromInteger i) w)), Rval (CLitv Unit))
+      (List.update s n (W8array (List.update ws (natFromInteger i) w)), Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ -> (s, Rerr Rtype_error)
   end
@@ -287,7 +287,7 @@ CevalPrim1 (CProj n) sg (CConv _ vs) =
 and
 CevalPrim1 (CInitG n) (s,g) v =
   if n < List.length g && List_extra.nth g n = Nothing
-  then ((s,List.update g n (Just v)),Rval (CLitv Unit))
+  then ((s,List.update g n (Just v)),Rval (CConv tuple_tag []))
   else ((s,g), Rerr Rtype_error)
 and
 CevalPrim1 CExplode sg (CLitv (StrLit s)) =
@@ -498,7 +498,7 @@ and
 extg : forall cs g env n.
 true
 ==>
-Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun _ -> Nothing) n)),Rval (CLitv Unit))
+Cevaluate (cs,g) env (CExtG n) ((cs,g++(genlist (fun _ -> Nothing) n)),Rval (CConv tuple_tag []))
 
 and
 empty : forall s env.
