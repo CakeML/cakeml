@@ -746,6 +746,29 @@ val LIST_TYPE_def = Define `
      LIST_TYPE a [] v <=>
      v = Conv (SOME ("nil",TypeId (Short "list"))) []`
 
+val LIST_TYPE_SIMP = prove(
+  ``!xs b. CONTAINER LIST_TYPE
+              (\x v. if b x \/ MEM x xs then p x v else ARB) xs =
+           LIST_TYPE (p:('a -> v -> bool)) xs``,
+  Induct THEN FULL_SIMP_TAC std_ss [FUN_EQ_THM,LIST_TYPE_def,MEM,
+    DISJ_ASSOC,CONTAINER_def])
+  |> Q.SPECL [`xs`,`\x.F`] |> SIMP_RULE std_ss [] |> GSYM
+  |> curry save_thm "LIST_TYPE_SIMP";
+
+(* pair definition *)
+
+val PAIR_TYPE_def = Define `
+  !b c x_2 x_1 v.
+    PAIR_TYPE b c (x_2:'b,x_1:'c) v <=>
+    ?v1_1 v1_2. v = Conv NONE [v1_1; v1_2] /\ b x_2 v1_1 /\ c x_1 v1_2`;
+
+val PAIR_TYPE_SIMP = prove(
+  ``!x. CONTAINER PAIR_TYPE (\y v. if y = FST x then a y v else ARB)
+                            (\y v. if y = SND x then b y v else ARB) x =
+        PAIR_TYPE (a:('a -> v -> bool)) (b:('b -> v -> bool)) x``,
+  Cases \\ SIMP_TAC std_ss [PAIR_TYPE_def,CONTAINER_def,FUN_EQ_THM])
+  |> GSYM |> SPEC_ALL |> curry save_thm "PAIR_TYPE_SIMP";
+
 (* characters *)
 
 val Eval_Ord = store_thm("Eval_Ord",
@@ -1108,7 +1131,7 @@ val do_app_lemma = prove(
                                store_alloc_def]
   \\ rw []);
 
-val pmatch_lemma = prove(
+val pmatch_empty_store = store_thm("pmatch_empty_store",
   ``(!cenv (s:v store) (p:pat) v env x.
       (pmatch cenv empty_store p v env = x) /\ x <> Match_type_error ==>
       !s. (pmatch cenv s p v env = x)) /\
@@ -1162,12 +1185,12 @@ val evaluate_empty_store_IMP_any_store = prove(
           \\ FULL_SIMP_TAC std_ss [] \\ METIS_TAC [])
   THEN1
    (`s = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_lemma
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_empty_store
     \\ PairCases_on `t`
     \\ FULL_SIMP_TAC (srw_ss()) [])
   THEN1
    (`s = empty_store` by IMP_RES_TAC evaluate_empty_store_lemma
-    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_lemma
+    \\ FULL_SIMP_TAC std_ss [] \\ IMP_RES_TAC pmatch_empty_store
     \\ PairCases_on `t`
     \\ FULL_SIMP_TAC (srw_ss()) []));
 
@@ -1476,6 +1499,13 @@ val PUSH_FORALL_INTO_IMP = save_thm("PUSH_FORALL_INTO_IMP",
 
 val FALSE_def = Define `FALSE = F`;
 val TRUE_def = Define `TRUE = T`;
+
+val Eval_Val_BOOL_FALSE = store_thm("Eval_Val_BOOL_FALSE",
+  ``Eval env (Lit (Bool F)) (BOOL FALSE)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,FALSE_def]);
+val Eval_Val_BOOL_TRUE = store_thm("Eval_Val_BOOL_TRUE",
+  ``Eval env (Lit (Bool T)) (BOOL TRUE)``,
+  SIMP_TAC (srw_ss()) [Once evaluate_cases,BOOL_def,Eval_def,TRUE_def]);
 
 val MEMBER_def = Define `
   (MEMBER (x:'a) [] <=> F) /\

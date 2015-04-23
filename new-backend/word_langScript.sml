@@ -33,22 +33,23 @@ val _ = Datatype `
 
 val _ = Datatype `
   word_prog = Skip
-            | Move ((num # num) list)
+            | Move num ((num # num) list)
             | Inst ('a inst)
             | Assign num ('a word_exp)
             | Get num store_name
             | Set store_name ('a word_exp)
             | Store ('a word_exp) num
-            | Call ((num # num_set # word_prog) option)
-                   (* return var, cut-set, return-handler code *)
+            | Call ((num # num_set # word_prog # num # num) option)
+                   (* return var, cut-set, return-handler code, labels l1,l2*)
                    (num option) (* target of call *)
                    (num list) (* arguments *)
-                   ((num # word_prog) option) (* handler: varname, exception-handler code *)
+                   ((num # word_prog # num # num) option) 
+                   (* handler: varname, exception-handler code, labels l1,l2*)
             | Seq word_prog word_prog
-            | If word_prog num word_prog word_prog
+            | If cmp num ('a reg_imm) word_prog word_prog
             | Alloc num num_set
             | Raise num
-            | Return num
+            | Return num num
             | Tick `;
 
 (* --- Semantics of word lang --- *)
@@ -57,7 +58,7 @@ val _ = Datatype `
   word_loc = Word ('a word) | Loc num num `;
 
 val _ = Datatype `
-  word_st = StackFrame ((num # ('a word_loc)) list) (num option) `;
+  word_st = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;
 
 val _ = type_abbrev("gc_fun_type",
   ``: (('a word_loc list) list) # (('a word) -> ('a word_loc)) # ('a word) set #
@@ -80,8 +81,8 @@ val _ = Datatype `
      ; output  : string |> `
 
 val _ = Datatype `
-  word_result = Result 'a
-              | Exception ('w word_loc)
+  word_result = Result ('w word_loc) ('w word_loc)
+              | Exception ('w word_loc) ('w word_loc)
               | TimeOut
               | NotEnoughSpace
               | Error `
@@ -172,10 +173,10 @@ val dec_clock_def = Define `
   dec_clock (s:'a word_state) = s with clock := s.clock - 1`;
 
 val isResult_def = Define `
-  (isResult (Result r) = T) /\ (isResult _ = F)`;
+  (isResult (Result a b) = T) /\ (isResult _ = F)`;
 
 val isException_def = Define `
-  (isException (Exception r) = T) /\ (isException _ = F)`;
+  (isException (Exception a b) = T) /\ (isException _ = F)`;
 
 val get_var_def = Define `
   get_var v (s:'a word_state) = sptree$lookup v s.locals`;
@@ -279,19 +280,23 @@ val env_to_list_def = Define `
       (l,permute)`
 
 val push_env_def = Define `
-  push_env env b s =
+  (push_env env NONE s =
     let (l,permute) = env_to_list env s.permute in
-    let handler = if b then SOME s.handler else NONE in
+      s with <| stack := StackFrame l NONE :: s.stack
+              ; permute := permute|>) ∧
+  (push_env env (SOME (w:num,h:'a word_prog,l1,l2)) s = 
+    let (l,permute) = env_to_list env s.permute in
+      let handler = SOME (s.handler,l1,l2) in
       s with <| stack := StackFrame l handler :: s.stack
               ; permute := permute
-              ; handler := if b then LENGTH s.stack else s.handler |>`;
+              ; handler := LENGTH s.stack|>)`;
 
 val pop_env_def = Define `
   pop_env s =
     case s.stack of
     | (StackFrame e NONE::xs) =>
          SOME (s with <| locals := fromAList e ; stack := xs |>)
-    | (StackFrame e (SOME n)::xs) =>
+    | (StackFrame e (SOME (n,_,_))::xs) =>
          SOME (s with <| locals := fromAList e ; stack := xs ; handler := n |>)
     | _ => NONE`;
 
@@ -299,8 +304,8 @@ val jump_exc_def = Define `
   jump_exc s =
     if s.handler < LENGTH s.stack then
       case LAST_N (s.handler+1) s.stack of
-      | StackFrame e (SOME n) :: xs =>
-          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs |>)
+      | StackFrame e (SOME (n,l1,l2)) :: xs =>
+          SOME (s with <| handler := n ; locals := fromAList e ; stack := xs |>,l1,l2)
       | _ => NONE
     else NONE`;
 
@@ -330,7 +335,7 @@ val pop_env_clock = prove(
 
 val push_env_clock = prove(
   ``(push_env env b s).clock = s.clock``,
-  Cases_on `b` \\ fs [push_env_def]
+  Cases_on `b` \\ TRY(PairCases_on`x`) \\ fs [push_env_def] 
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
 
@@ -385,13 +390,13 @@ val has_space_def = Define `
     | _ => NONE`
 
 val wAlloc_def = Define `
-  wAlloc w names s =
+  wAlloc (w:'a word) names s =
     (* prune local names *)
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
     | SOME env =>
      (* perform garbage collection *)
-     (case wGC (push_env env F (set_store AllocSize (Word w) s)) of
+     (case wGC (push_env env (NONE:(num # 'a word_prog # num # num) option) (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,s)
       | SOME s =>
        (* restore local variables *)
@@ -439,13 +444,17 @@ val wInst_def = Define `
         | _ => NONE)
     | _ => NONE`
 
+val get_var_imm_def = Define`
+  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧ 
+  (get_var_imm (Imm w) s = SOME(Word w))`
+
 val wEval_def = tDefine "wEval" `
   (wEval (Skip:'a word_prog,s) = (NONE,s:'a word_state)) /\
   (wEval (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => wAlloc w names s
      | _ => (SOME Error,s)) /\
-  (wEval (Move moves,s) =
+  (wEval (Move pri moves,s) =
      if ALL_DISTINCT (MAP FST moves) then
        case get_vars (MAP SND moves) s of
        | NONE => (SOME Error,s)
@@ -480,26 +489,23 @@ val wEval_def = tDefine "wEval" `
   (wEval (Seq c1 c2,s) =
      let (res,s1) = wEval (c1,s) in
        if res = NONE then wEval (c2,check_clock s1 s) else (res,s1)) /\
-  (wEval (Return n,s) =
-     case get_var n s of
-     | NONE => (SOME Error,s)
-     | SOME x => (SOME (Result x),call_env [] s)) /\
+  (wEval (Return n m,s) =
+     case (get_var n s ,get_var m s) of
+     | (SOME x,SOME y) => (SOME (Result x y),call_env [] s)
+     | _ => (SOME Error,s)) /\
   (wEval (Raise n,s) =
      case get_var n s of
      | NONE => (SOME Error,s)
      | SOME w =>
        (case jump_exc s of
         | NONE => (SOME Error,s)
-        | SOME s => (SOME (Exception w),s))) /\
-  (wEval (If g n c1 c2,s) =
-     case wEval (g,s) of
-     | (NONE,s1) =>
-         (case get_var n s1 of
-          | SOME (Word x) => if x = 0w
-                             then wEval (c2,check_clock s1 s)
-                             else wEval (c1,check_clock s1 s)
-          | _ => (SOME Error,s1))
-     | res => res) /\
+        | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+  (wEval (If cmp r1 ri c1 c2,s) =
+    (case (get_var r1 s,get_var_imm ri s)of
+    | SOME (Word x),SOME (Word y) => 
+      if word_cmp cmp x y then wEval (c1,s)
+                          else wEval (c2,s)
+    | _ => (SOME Error,s))) /\
   (wEval (Call ret dest args handler,s) =
      case get_vars args s of
      | NONE => (SOME Error,s)
@@ -510,39 +516,45 @@ val wEval_def = tDefine "wEval" `
 	    (case ret of
 	     | NONE (* tail call *) =>
 	       if handler = NONE then
-		 if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-		 (case wEval (prog, call_env args1 (dec_clock s)) of
-		  | (NONE,s) => (SOME Error,s)
-		  | (SOME res,s) => (SOME res,s))
-	       else (SOME Error,s)
-	     | SOME (n,names,ret_handler) (* returning call, returns into var n *) =>
+           if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
+           (case wEval (prog, call_env args1 (dec_clock s)) of
+            | (NONE,s) => (SOME Error,s)
+            | (SOME res,s) => (SOME res,s))
+               else (SOME Error,s)
+	     | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
 	       (case cut_env names s.locals of
 		| NONE => (SOME Error,s)
 		| SOME env =>
 	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case wEval (prog, call_env args1
-		       (push_env env (IS_SOME handler) (dec_clock s))) of
-		| (SOME (Result x),s2) =>
+	       (case wEval (prog, call_env ((Loc l1 l2)::args1)
+		       (push_env env handler (dec_clock s))) of
+		| (SOME (Result x y),s2) =>
+      if x ≠ Loc l1 l2 then (SOME Error,s2)
+      else 
 		   (case pop_env s2 of
 		    | NONE => (SOME Error,s2)
 		    | SOME s1 =>
 			(if domain s1.locals = domain env
 			 then
 			   (*Value restriction on the return handler (makes it easier to reason about)
-			     Don't really need it to do fancy things.*)
-			   case wEval(ret_handler,set_var n x (check_clock s1 s)) of
+			     Don't really need it to do fancy things.
+           Keep y in register 2
+           *)
+			   case wEval(ret_handler,set_var n y (check_clock s1 s)) of
 			   | (NONE,s) => (NONE,s)
 			   | (_,s) => (SOME Error,s)
 			 else (SOME Error,s1)))
-		| (SOME (Exception x),s2) =>
+		| (SOME (Exception x y),s2) =>
 		   (case handler of (* if handler is present, then handle exc *)
-		    | NONE => (SOME (Exception x),s2)
-		    | SOME (n,h) =>
-			(if domain s2.locals = domain env
-			 then wEval (h, set_var n x (check_clock s2 s))
-			 else (SOME Error,s2)))
-		| (NONE,s) => (SOME Error,s)
-		| res => res)))))`
+		    | NONE => (SOME (Exception x y),s2)
+		    | SOME (n,h,l1,l2) =>
+        if x ≠ Loc l1 l2 then (SOME Error,s2)
+        else
+          (if domain s2.locals = domain env
+           then wEval (h, set_var n y (check_clock s2 s))
+           else (SOME Error,s2)))
+        | (NONE,s) => (SOME Error,s)
+		| res => res))))) `
  (WF_REL_TAC `(inv_image (measure I LEX measure (word_prog_size (K 0)))
                             (\(xs,(s:'a word_state)). (s.clock,xs)))`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
@@ -575,10 +587,9 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
   \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
-  >- (IMP_RES_TAC wGC_clock
-     \\ ASSUME_TAC (INST_TYPE [``:'a``|->``:'b``]
-        (Q.GENL [`env`,`b`,`s`] push_env_clock))
-     \\ first_x_assum(qspecl_then [`s3`,`F`,`x'`] assume_tac)\\fs[]\\rfs[])
+  >- (IMP_RES_TAC wGC_clock \\
+     fs[push_env_def,LET_THM,env_to_list_def] \\  
+     unabbrev_all_tac>>fs[])
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
   \\ IMP_RES_TAC pop_env_clock \\ IMP_RES_TAC wGC_clock
@@ -604,7 +615,7 @@ val wEval_clock = store_thm("wEval_clock",
   recInduct (fetch "-" "wEval_ind") \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [wEval_def]
   \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC
+  \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,call_env_def]
   \\ IMP_RES_TAC wInst_clock
   \\ fs [call_env_def]
@@ -620,7 +631,7 @@ val wEval_clock = store_thm("wEval_clock",
   \\ TRY DECIDE_TAC
   \\ SRW_TAC [] []
   \\ Cases_on `wEval (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ NTAC 5 (REPEAT (BasicProvers.FULL_CASE_TAC)
+  \\ NTAC 5 ((BasicProvers.EVERY_CASE_TAC)
              \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC check_clock_IMP
@@ -756,5 +767,4 @@ val _ = map delete_binding ["wEval_AUX_def", "wEval_primitive_def"];
     sEval (wCompile wprog,r1) = (res1,r2)
 
 *)
-
 val _ = export_theory();

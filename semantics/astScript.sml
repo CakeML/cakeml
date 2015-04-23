@@ -64,7 +64,7 @@ val _ = Define `
 (*val id_to_n : forall 'a. id 'a -> 'a*)
 val _ = Define `
  (id_to_n id =  
- ((case id of
+((case id of
       Short n => n
     | Long _ n => n
   )))`;
@@ -141,7 +141,7 @@ val _ = Hol_datatype `
  t =
   (* Type variables that the user writes down ('a, 'b, etc.) *)
     Tvar of tvarN
-  (* DeBruin indexed type variables. 
+  (* deBruijn indexed type variables.
      The type system uses these internally. *)
   | Tvar_db of num
   | Tapp of t list => tctor`;
@@ -241,7 +241,7 @@ val _ = Hol_datatype `
   | Dexn of conN => t list`;
 
 
-val _ = type_abbrev( "decs" , ``: dec list``); 
+val _ = type_abbrev( "decs" , ``: dec list``);
 
 (* Specifications
    For giving the signature of a module *)

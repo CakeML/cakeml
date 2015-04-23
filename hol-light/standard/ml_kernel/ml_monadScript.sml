@@ -9,8 +9,18 @@ open holKernelTheory;
 open stringTheory listTheory pairTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory lcsymtacs;
+open miscLib ml_pmatchTheory deepMatchesTheory;
 
 infix \\ val op \\ = op THEN;
+
+fun auto_prove proof_name (goal,tac) = let
+  val (rest,validation) = tac ([],goal) handle Empty => fail()
+  in if length rest = 0 then validation [] else let
+  in failwith("auto_prove failed for " ^ proof_name) end end
+
+fun D th = let
+  val th = th |> DISCH_ALL |> PURE_REWRITE_RULE [AND_IMP_INTRO]
+  in if is_imp (concl th) then th else DISCH T th end
 
 (* a few basics *)
 
@@ -41,7 +51,6 @@ val type_ind = store_thm("type_ind",
   \\ REPEAT STRIP_TAC \\ Q.PAT_ASSUM `!x.bbb` MATCH_MP_TAC
   \\ EVAL_TAC \\ IMP_RES_TAC MEM_type_size \\ DECIDE_TAC);
 
-val LIST_TYPE_def = fetch "-" "LIST_TYPE_def"
 val TYPE_TYPE_def = fetch "-" "TYPE_TYPE_def"
 
 val LIST_TYPE_NO_CLOSURES = prove(
@@ -328,7 +337,7 @@ val HOL_STORE_EXISTS = prove(
                       the_term_constants := [] ;
                       the_context        := [] ;
                       the_axioms         := [] |>`
-  \\ FULL_SIMP_TAC (srw_ss()) [fetch "-" "LIST_TYPE_def"]);
+  \\ FULL_SIMP_TAC (srw_ss()) [LIST_TYPE_def]);
 
 val EvalM_ArrowM_IMP = store_thm("EvalM_ArrowM_IMP",
   ``EvalM env (Var x) ((a -M-> b) f) ==>
@@ -612,6 +621,98 @@ val EvalM_Let = store_thm("EvalM_Let",
   \\ IMP_RES_TAC evaluate_empty_store_IMP
   \\ FULL_SIMP_TAC std_ss [opt_bind_def,write_def]);
 
+(* PMATCH *)
+
+val EvalM_PMATCH_NIL = store_thm("EvalM_PMATCH_NIL",
+  ``!b x xv a.
+      Eval env x (a xv) ==>
+      CONTAINER F ==>
+      EvalM env (Mat x []) (b (PMATCH xv []))``,
+  rw[CONTAINER_def]);
+
+val pmatch_ignore_empty_store = prove(
+  ``(pmatch cenv empty_store p r eenv = Match x) ==>
+    (pmatch cenv s p r eenv = Match x)``,
+  REPEAT STRIP_TAC
+  \\ IMP_RES_TAC pmatch_empty_store
+  \\ fs []);
+
+val pmatch_ignore_empty_store_No_match = prove(
+  ``(pmatch cenv empty_store p r eenv = No_match) ==>
+    (pmatch cenv s p r eenv = No_match)``,
+  REPEAT STRIP_TAC
+  \\ IMP_RES_TAC pmatch_empty_store
+  \\ fs []);
+
+val EvalM_PMATCH = store_thm("EvalM_PMATCH",
+  ``!b a x xv.
+      ALL_DISTINCT (pat_bindings p []) ⇒
+      (∀v1 v2. pat v1 = pat v2 ⇒ v1 = v2) ⇒
+      Eval env x (a xv) ⇒
+      (p1 xv ⇒ EvalM env (Mat x ys) (b (PMATCH xv yrs))) ⇒
+      EvalPatRel env a p pat ⇒
+      (∀env2 vars.
+        EvalPatBind env a p pat vars env2 ∧ p2 vars ⇒
+        EvalM env2 e (b (res vars))) ⇒
+      (∀vars. PMATCH_ROW_COND pat (K T) xv vars ⇒ p2 vars) ∧
+      ((∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ⇒ p1 xv) ⇒
+      EvalM env (Mat x ((p,e)::ys))
+        (b (PMATCH xv ((PMATCH_ROW pat (K T) res)::yrs)))``,
+  rw[Eval_def,EvalM_def] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >> fs[] >>
+  `!result. evaluate F env (0,s) x result <=> (result = ((0,s),Rval res'))` by
+      METIS_TAC [determTheory.big_exp_determ,evaluate_empty_store_IMP] >>
+  rw[Once evaluate_cases,PULL_EXISTS] >>
+  `∃menv cenv eenv. env = (menv,cenv,eenv)` by METIS_TAC[PAIR] >> fs[] >>
+  Cases_on`∃vars. PMATCH_ROW_COND pat (K T) xv vars` >> fs[] >- (
+    imp_res_tac pmatch_PMATCH_ROW_COND_Match >>
+    ntac 3 (pop_assum kall_tac) >>
+    fs[EvalPatRel_def] >>
+    first_x_assum(qspec_then`vars`mp_tac)>>simp[] >>
+    qpat_assum`p1 xv ⇒ X`kall_tac >>
+    fs[EvalPatBind_def,PMATCH_ROW_COND_def,PULL_EXISTS] >>
+    first_x_assum(qspec_then`vars`mp_tac)>>simp[] >> strip_tac >>
+    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+    srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+    imp_res_tac Pmatch_imp_pmatch >>
+    imp_res_tac Pmatch_SOME_const >>
+    fs[all_env_to_cenv_def,all_env_to_env_def,pmatch_def,all_env_to_menv_def] >>
+    qpat_assum`X = Match Y` mp_tac >> BasicProvers.CASE_TAC >>
+    fs[GSYM AND_IMP_INTRO] >>
+    first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+    rfs[] >>
+    `(∃vars'. pat vars' = pat vars) = T` by metis_tac[] >>
+    fs[] >> rfs[] >>
+    simp[PMATCH_def,PMATCH_ROW_def,PMATCH_ROW_COND_def] >>
+    `(some x. pat x = pat vars) = SOME vars` by (
+      simp[optionTheory.some_def] >>
+      METIS_TAC[] ) >>
+    imp_res_tac pmatch_ignore_empty_store >>
+    simp[] >> fs[all_env_to_menv_def] >> rw[] >>
+    PairCases_on`env2`>>
+    fs[all_env_to_cenv_def,all_env_to_env_def,
+       pmatch_def,all_env_to_menv_def]) >>
+  FIRST_X_ASSUM (MP_TAC o Q.SPECL [`s:v store`,`refs`]) >> fs [] >>
+  REPEAT STRIP_TAC >>
+  qpat_assum`evaluate F X Y (Mat A B) R`mp_tac >>
+  simp[Once evaluate_cases] >> strip_tac >>
+  imp_res_tac (determTheory.big_exp_determ) >> fs[] >> rw[] >>
+  `!reslut. evaluate_match F (menv,cenv,eenv) (0,s) res' ys
+         (Conv (SOME ("Bind",TypeExn (Short "Bind"))) []) result <=>
+            (result = ((0,s2),res''))` by
+               METIS_TAC [determTheory.big_exp_determ] >>
+  fs [] >> srw_tac[boolSimps.DNF_ss][] >> disj2_tac >> disj1_tac >>
+  simp[PMATCH_def,PMATCH_ROW_def] >>
+  imp_res_tac pmatch_PMATCH_ROW_COND_No_match >>
+  imp_res_tac Pmatch_imp_pmatch >>
+  fs[all_env_to_cenv_def,all_env_to_env_def,pmatch_def] >>
+  pop_assum mp_tac >> BasicProvers.CASE_TAC >>
+  imp_res_tac pmatch_ignore_empty_store_No_match >> fs [] >- METIS_TAC[] >>
+  fs[EvalPatRel_def] >>
+  first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  simp[Once evaluate_cases] >> rw[]);
+
+
 (* declarations *)
 
 val M_DeclAssum_Dlet_INTRO = store_thm("M_DeclAssum_Dlet_INTRO",
@@ -831,7 +932,12 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 1 *)
 
-val lemma = hol2deep ``[(strlit"=", Tyapp (strlit"fun") [Tyvar (strlit"A"); Tyvar (strlit"A")])]``
+val lemma = hol2deep ``[(strlit"=",
+  Tyapp (strlit"fun")
+    [Tyvar (strlit"A");
+     Tyapp (strlit"fun")
+       [Tyvar (strlit"A");
+        Tyapp (strlit"bool") []]])]``
             |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``

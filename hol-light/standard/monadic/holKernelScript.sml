@@ -516,7 +516,7 @@ val _ = Define `
 *)
 
 val _ = Define `
-  fressl tml = itlist (union o frees) tml []`;
+  freesl tml = itlist (union o frees) tml []`;
 
 (*
   let rec freesin acc tm =

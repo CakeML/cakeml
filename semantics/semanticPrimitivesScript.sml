@@ -18,7 +18,7 @@ val _ = new_theory "semanticPrimitives"
 (* The type that a constructor builds is either a named datatype or an exception.
  * For exceptions, we also keep the module that the exception was declared in. *)
 val _ = Hol_datatype `
- tid_or_exn = 
+ tid_or_exn =
     TypeId of typeN id
   | TypeExn of conN id`;
 
@@ -32,7 +32,7 @@ val _ = Define `
 val _ = type_abbrev((* ( 'k, 'v) *) "alist_mod_env" , ``: (modN, ( ('k, 'v)alist)) alist # ('k, 'v) alist``);
 
 val _ = Define `
- (merge_alist_mod_env (menv1,env1) (menv2,env2) = 
+ (merge_alist_mod_env (menv1,env1) (menv2,env2) =
   ((menv1 ++ menv2), (env1 ++ env2)))`;
 
 
@@ -57,7 +57,7 @@ val _ = Hol_datatype `
  v =
     Litv of lit
   (* Constructor application. *)
-  | Conv of  (conN # tid_or_exn)option => v list 
+  | Conv of  (conN # tid_or_exn)option => v list
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of ( (modN, ( (varN, v)alist))alist # envC # (varN, v) alist) => varN => exp
@@ -104,12 +104,12 @@ val _ = Hol_datatype `
 
 (* Stores *)
 val _ = Hol_datatype `
- store_v = 
-  (* A ref cell *) 
-    Refv of 'a 
+ store_v =
+  (* A ref cell *)
+    Refv of 'a
   (* A byte array *)
-  | W8array of word8 list 
-  (* An array of values *) 
+  | W8array of word8 list
+  (* An array of values *)
   | Varray of 'a list`;
 
 
@@ -190,9 +190,9 @@ val _ = Define `
 val _ = Define `
  (build_conv envC cn vs =  
 ((case cn of
-      NONE => 
+      NONE =>
         SOME (Conv NONE vs)
-    | SOME id => 
+    | SOME id =>
         (case lookup_alist_mod_env id envC of
             NONE => NONE
           | SOME (len,t) => SOME (Conv (SOME (id_to_n id, t)) vs)
@@ -300,9 +300,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE*)
 val _ = Define `
  (build_rec_env funs cl_env add_to_env =  
-(FOLDR 
-    (\ (f,x,e) env' .  (f, Recclosure cl_env funs f) :: env') 
-    add_to_env 
+(FOLDR
+    (\ (f,x,e) env' .  (f, Recclosure cl_env funs f) :: env')
+    add_to_env
     funs))`;
 
 
@@ -339,7 +339,7 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
 
 val _ = Hol_datatype `
- eq_result = 
+ eq_result =
     Eq_val of bool
   | Eq_closure
   | Eq_type_error`;
@@ -379,10 +379,10 @@ val _ = Hol_datatype `
 (do_eq_list [] [] = (Eq_val T))
 /\
 (do_eq_list (v1::vs1) (v2::vs2) =  
- ((case do_eq v1 v2 of
+((case do_eq v1 v2 of
       Eq_closure => Eq_closure
     | Eq_type_error => Eq_type_error
-    | Eq_val r => 
+    | Eq_val r =>
         if ~ r then
           Eq_val F
         else
@@ -421,7 +421,7 @@ val _ = Define `
 (*val v_to_list : v -> maybe (list v)*)
  val v_to_list_defn = Hol_defn "v_to_list" `
  (v_to_list (Conv (SOME (cn, TypeId (Short tn))) []) =  
- (if (cn = "nil") /\ (tn = "list") then
+(if (cn = "nil") /\ (tn = "list") then
     SOME []
   else
     NONE))
@@ -521,7 +521,7 @@ val _ = Define `
         else
           let (s',lnum) =            
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
-          in 
+          in
             SOME (s', Rval (Loc lnum))
     | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
@@ -532,7 +532,7 @@ val _ = Define `
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH ws then
                     SOME (s, Rerr (Rraise (prim_exn "Subscript")))
-                  else 
+                  else
                     SOME (s, Rval (Litv (Word8 (EL n ws))))
           | _ => NONE
         )
@@ -547,7 +547,7 @@ val _ = Define `
           SOME (W8array ws) =>
             if i <( 0 : int) then
               SOME (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH ws then
                   SOME (s, Rerr (Rraise (prim_exn "Subscript")))
@@ -591,7 +591,7 @@ val _ = Define `
           let n = (Num (ABS ( i))) in
             if n >= LENGTH vs then
               SOME (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               SOME (s, Rval (EL n vs))
     | (Vlength, [Vectorv vs]) =>
         SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
@@ -601,7 +601,7 @@ val _ = Define `
         else
           let (s',lnum) =            
 (store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
-          in 
+          in
             SOME (s', Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
@@ -612,7 +612,7 @@ val _ = Define `
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH vs then
                     SOME (s, Rerr (Rraise (prim_exn "Subscript")))
-                  else 
+                  else
                     SOME (s, Rval (EL n vs))
           | _ => NONE
         )
@@ -627,7 +627,7 @@ val _ = Define `
           SOME (Varray vs) =>
             if i <( 0 : int) then
               SOME (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH vs then
                   SOME (s, Rerr (Rraise (prim_exn "Subscript")))

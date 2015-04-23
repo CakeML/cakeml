@@ -3011,4 +3011,174 @@ val init_ALL_DISTINCT = store_thm("init_ALL_DISTINCT",
     ALL_DISTINCT (MAP FST (type_list init_ctxt))``,
   EVAL_TAC)
 
+val updates_DISJOINT = store_thm("updates_DISJOINT",
+  ``∀upd ctxt.
+    upd updates ctxt ⇒
+    DISJOINT (FDOM (alist_to_fmap (consts_of_upd upd))) (FDOM (tmsof ctxt)) ∧
+    DISJOINT (FDOM (alist_to_fmap (types_of_upd upd))) (FDOM (tysof ctxt))``,
+  ho_match_mp_tac updates_ind >>
+  simp[IN_DISJOINT] >> rw[] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+  PROVE_TAC[])
+
+(* proofs still work in extended contexts *)
+
+val update_extension = Q.prove (
+    `!lhs tm.
+      lhs |- tm
+      ⇒
+      !ctxt tms upd.
+        lhs = (thyof ctxt,tms) ∧
+        upd updates ctxt
+        ⇒
+        (thyof (upd::ctxt),tms) |- tm`,
+  ho_match_mp_tac proves_ind >>
+  rw []
+  >- (rw [Once proves_cases] >>
+      disj1_tac >>
+      MAP_EVERY qexists_tac [`l`, `r`, `ty`, `x`] >>
+      rw [] >>
+      match_mp_tac type_ok_extend >>
+      qexists_tac `tysof (sigof (thyof ctxt))` >>
+      rw [] >>
+      match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+      fs [Once updates_cases])
+  >- (rw [Once proves_cases] >>
+      disj2_tac >>
+      disj1_tac >>
+      rw []
+      >- (imp_res_tac updates_theory_ok >>
+          fs [])
+      >- (match_mp_tac term_ok_extend >>
+          MAP_EVERY qexists_tac [`tysof ctxt`, `tmsof ctxt`] >>
+          rw []
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              fs [Once updates_cases])
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              metis_tac [updates_DISJOINT])
+          >- (Cases_on `ctxt` >>
+              fs [])))
+  >- (rw [Once proves_cases] >>
+      disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      MAP_EVERY qexists_tac [`t`, `ty`, `x`] >>
+      rw []
+      >- (imp_res_tac updates_theory_ok >>
+          fs [])
+      >- (match_mp_tac type_ok_extend >>
+          qexists_tac `tysof ctxt` >>
+          rw []
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              fs [Once updates_cases])
+          >- (Cases_on `ctxt` >>
+              fs []))
+      >- (match_mp_tac term_ok_extend >>
+          MAP_EVERY qexists_tac [`tysof ctxt`, `tmsof ctxt`] >>
+          rw []
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              fs [Once updates_cases])
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              metis_tac [updates_DISJOINT])
+          >- (Cases_on `ctxt` >>
+              fs [])))
+  >- (rw [Once proves_cases] >>
+      ntac 3 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      metis_tac [])
+  >- (rw [Once proves_cases] >>
+      ntac 4 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      metis_tac [])
+  >- (rw [Once proves_cases] >>
+      ntac 5 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      MAP_EVERY qexists_tac [`tm`, `h`, `ilist`] >>
+      rw [] >>
+      res_tac  >>
+      fs [] >>
+      rw [] >>
+      match_mp_tac term_ok_extend >>
+      MAP_EVERY qexists_tac [`tysof ctxt`, `tmsof ctxt`] >>
+      rw []
+      >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+          fs [Once updates_cases])
+      >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+          metis_tac [updates_DISJOINT]))
+  >- (rw [Once proves_cases] >>
+      ntac 6 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      MAP_EVERY qexists_tac [`tm`, `h`, `tyin`] >>
+      rw [] >>
+      fs [EVERY_MAP, EVERY_MEM] >>
+      rw [] >>
+      match_mp_tac type_ok_extend >>
+      qexists_tac `tysof ctxt` >>
+      rw [] >>
+      match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+      fs [Once updates_cases])
+  >- (rw [Once proves_cases] >>
+      ntac 7 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      metis_tac [])
+  >- (rw [Once proves_cases] >>
+      ntac 7 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      qexists_tac `t` >>
+      rw []
+      >- (imp_res_tac updates_theory_ok >>
+          fs [])
+      >- (match_mp_tac term_ok_extend >>
+          MAP_EVERY qexists_tac [`tysof ctxt`, `tmsof ctxt`] >>
+          rw []
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              fs [Once updates_cases])
+          >- (match_mp_tac (hd (tl (CONJUNCTS SUBMAP_FUNION_ID))) >>
+              metis_tac [updates_DISJOINT])
+          >- (Cases_on `ctxt` >>
+              fs [])))
+  >- (rw [Once proves_cases] >>
+      ntac 9 disj2_tac >>
+      disj1_tac >>
+      rw [] >>
+      metis_tac [])
+  >- (rw [Once proves_cases] >>
+      ntac 9 disj2_tac >>
+      rw []
+      >- (imp_res_tac updates_theory_ok >>
+          fs [])
+      >- (Cases_on `ctxt` >>
+          fs [])));
+
+val updates_proves = store_thm("updates_proves",
+  ``∀upd ctxt.  upd updates ctxt ⇒
+    ∀h c.
+    (thyof ctxt,h) |- c ⇒
+    (thyof (upd::ctxt),h) |- c``,
+  metis_tac[update_extension])
+
+(* types occurring in a term *)
+
+val types_in_def = Define`
+  types_in (Var x ty) = {ty} ∧
+  types_in (Const c ty) = {ty} ∧
+  types_in (Comb t1 t2) = types_in t1 ∪ types_in t2 ∧
+  types_in (Abs v t) = types_in v ∪ types_in t`
+val _ = export_rewrites["types_in_def"]
+
+val type_ok_types_in = store_thm("type_ok_types_in",
+  ``∀sig. is_std_sig sig ⇒ ∀tm ty. term_ok sig tm ∧ ty ∈ types_in tm ⇒ type_ok (tysof sig) ty``,
+  gen_tac >> strip_tac >> Induct >> simp[] >> rw[] >>
+  TRY (imp_res_tac term_ok_def >> NO_TAC) >> fs[term_ok_def])
+
+val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
+  ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
+  ho_match_mp_tac term_induction >> rw[] >> rw[])
+
 val _ = export_theory()

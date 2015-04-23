@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs miscLib;
-open compilerMLTheory ml_translatorLib;
+open compilerMLTheory ml_translatorTheory ml_translatorLib;
 
 val _ = new_theory "compilerSide";
 

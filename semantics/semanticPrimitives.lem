@@ -7,7 +7,7 @@ open import Ast
 
 (* The type that a constructor builds is either a named datatype or an exception.
  * For exceptions, we also keep the module that the exception was declared in. *)
-type tid_or_exn = 
+type tid_or_exn =
   | TypeId of id typeN
   | TypeExn of id conN
 
@@ -17,7 +17,7 @@ let type_defs_to_new_tdecs mn tdefs =
 
 type alist_mod_env 'k 'v = alist modN (alist 'k 'v) * alist 'k 'v
 
-let merge_alist_mod_env (menv1,env1) (menv2,env2) = 
+let merge_alist_mod_env (menv1,env1) (menv2,env2) =
   (menv1 ++ menv2, env1 ++ env2)
 
 let lookup_alist_mod_env id (mcenv,cenv) =
@@ -38,7 +38,7 @@ type envC = alist_mod_env conN (nat * tid_or_exn)
 type v =
   | Litv of lit
   (* Constructor application. *)
-  | Conv of maybe (conN * tid_or_exn) * list v 
+  | Conv of maybe (conN * tid_or_exn) * list v
   (* Function closures
      The environment is used for the free variables in the function *)
   | Closure of (alist modN (alist varN v) * envC * alist varN v) * varN * exp
@@ -73,12 +73,12 @@ type result 'a 'b =
   | Rerr of error_result 'b
 
 (* Stores *)
-type store_v 'a = 
-  (* A ref cell *) 
-    Refv of 'a 
+type store_v 'a =
+  (* A ref cell *)
+    Refv of 'a
   (* A byte array *)
-  | W8array of list word8 
-  (* An array of values *) 
+  | W8array of list word8
+  (* An array of values *)
   | Varray of list 'a
 
 val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool
@@ -143,9 +143,9 @@ let do_con_check cenv n_opt l =
 val build_conv : envC -> maybe (id conN) -> list v -> maybe v
 let build_conv envC cn vs =
   match cn with
-    | Nothing -> 
+    | Nothing ->
         Just (Conv Nothing vs)
-    | Just id -> 
+    | Just id ->
         match lookup_alist_mod_env id envC with
           | Nothing -> Nothing
           | Just (len,t) -> Just (Conv (Just (id_to_n id, t)) vs)
@@ -240,9 +240,9 @@ pmatch_list envC s _ _ env = Match_type_error
 (* Bind each function of a mutually recursive set of functions to its closure *)
 val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE
 let build_rec_env funs cl_env add_to_env =
-  foldr 
-    (fun (f,x,e) env' -> (f, Recclosure cl_env funs f) :: env') 
-    add_to_env 
+  foldr
+    (fun (f,x,e) env' -> (f, Recclosure cl_env funs f) :: env')
+    add_to_env
     funs
 
 (* Lookup in the list of mutually recursive functions *)
@@ -274,7 +274,7 @@ contains_closure (Loc n) = false
 and
 contains_closure (Vectorv vs) = List.any contains_closure vs
 
-type eq_result = 
+type eq_result =
   | Eq_val of bool
   | Eq_closure
   | Eq_type_error
@@ -311,11 +311,11 @@ do_eq _ _ = Eq_type_error
 and
 do_eq_list [] [] = Eq_val true
 and
-do_eq_list (v1::vs1) (v2::vs2) = 
+do_eq_list (v1::vs1) (v2::vs2) =
   match do_eq v1 v2 with
     | Eq_closure -> Eq_closure
     | Eq_type_error -> Eq_type_error
-    | Eq_val r -> 
+    | Eq_val r ->
         if not r then
           Eq_val false
         else
@@ -346,7 +346,7 @@ let do_opapp vs =
 
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 val v_to_list : v -> maybe (list v)
-let rec v_to_list (Conv (Just (cn, TypeId (Short tn))) []) = 
+let rec v_to_list (Conv (Just (cn, TypeId (Short tn))) []) =
   if cn = "nil" && tn = "list" then
     Just []
   else
@@ -434,7 +434,7 @@ let do_app s op vs =
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
-          in 
+          in
             Just (s', Rval (Loc lnum))
     | (Aw8sub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
@@ -445,7 +445,7 @@ let do_app s op vs =
                 let n = natFromInteger i in
                   if n >= List.length ws then
                     Just (s, Rerr (Rraise (prim_exn "Subscript")))
-                  else 
+                  else
                     Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
@@ -460,7 +460,7 @@ let do_app s op vs =
         | Just (W8array ws) ->
             if i < 0 then
               Just (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               let n = natFromInteger i in
                 if n >= List.length ws then
                   Just (s, Rerr (Rraise (prim_exn "Subscript")))
@@ -504,7 +504,7 @@ let do_app s op vs =
           let n = natFromInteger i in
             if n >= List.length vs then
               Just (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               Just (s, Rval (List_extra.nth vs n))
     | (Vlength, [Vectorv vs]) ->
         Just (s, Rval (Litv (IntLit (integerFromNat (List.length vs)))))
@@ -514,7 +514,7 @@ let do_app s op vs =
         else
           let (s',lnum) =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
-          in 
+          in
             Just (s', Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
@@ -525,7 +525,7 @@ let do_app s op vs =
                 let n = natFromInteger i in
                   if n >= List.length vs then
                     Just (s, Rerr (Rraise (prim_exn "Subscript")))
-                  else 
+                  else
                     Just (s, Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
@@ -540,7 +540,7 @@ let do_app s op vs =
         | Just (Varray vs) ->
             if i < 0 then
               Just (s, Rerr (Rraise (prim_exn "Subscript")))
-            else 
+            else
               let n = natFromInteger i in
                 if n >= List.length vs then
                   Just (s, Rerr (Rraise (prim_exn "Subscript")))

@@ -1,4 +1,4 @@
-INCLUDES = ../../.. ../../syntax-lib ../syntax
+INCLUDES = ../../.. ../../syntax-lib ../syntax $(HOLDIR)/examples/deep_matches
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

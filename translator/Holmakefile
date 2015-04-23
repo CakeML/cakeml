@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP
+INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP $(HOLDIR)/examples/deep_matches
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

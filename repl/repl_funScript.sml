@@ -94,7 +94,8 @@ val initial_bc_state_side_def = Define `
     let bs1 = initial_bc_state in
     let bs2 = install_code initial bs1 in
      ?bs3. (bc_eval bs2 = SOME bs3) /\
-           (bc_fetch bs3 = SOME (Stop T))`;
+           (bc_fetch bs3 = SOME (Stop T)) ∧
+           (bs3.stack = []) ∧ (bs3.handler = 0)`;
 
 val simple_repl_fun_def = Define `
   simple_repl_fun initial input =

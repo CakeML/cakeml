@@ -3,6 +3,7 @@ open rich_listTheory listTheory alistTheory;
 open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
+open miscLib BasicProvers
 
 local open evalPropsTheory typeSoundInvariantsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
@@ -2530,7 +2531,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
  rpt gen_tac >>
  `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
  cases_on `top`
- >- (cases_on `o'` 
+ >- (cases_on `o'`
      >- (rw [infer_top_def, success_eqns] >>
          `?decls'' tenvT'' cenv'' env''. v' = (decls'',tenvT'',cenv'',env'')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
@@ -2551,7 +2552,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
          fs [check_signature_def, success_eqns] >>
          `?decls'''' tenvT'''' cenv'''' env''''. v''' = (decls'''',tenvT'''',cenv'''',env'''')` by metis_tac [pair_CASES] >>
          fs [success_eqns] >>
-         `flat_tenvT_ok (FEMPTY:flat_tenvT) ∧ check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) alist)` 
+         `flat_tenvT_ok (FEMPTY:flat_tenvT) ∧ check_flat_cenv [] ∧ check_env {} ([]:(tvarN, num # infer_t) alist)`
                    by rw [check_env_def, check_flat_cenv_def, flat_tenvT_ok_def, FEVERY_FEMPTY] >>
          `flat_tenvT_ok tenvT''' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by metis_tac [check_specs_check] >>
          rw [check_menv_def, check_env_def] >>
@@ -2578,7 +2579,7 @@ val convert_t_def = tDefine "convert_t" `
  decide_tac);
 
 val convert_menv_def = Define `
-convert_menv menv = 
+convert_menv menv =
   MAP (\(x,(tvs,t)). (x,(tvs,convert_t t))) o_f menv`;
 
 val convert_env_def = Define `
@@ -2608,7 +2609,7 @@ rw [check_t_def, check_freevars_def, convert_t_def, EVERY_MAP] >>
 fs [EVERY_MEM]);
 
 val convert_inc = Q.store_thm ("convert_inc",
-`!t tvs tvs'. 
+`!t tvs tvs'.
   check_t tvs' {} t
   ⇒
   (convert_t (infer_deBruijn_inc tvs t) = deBruijn_inc 0 tvs (convert_t t))`,
@@ -2737,12 +2738,32 @@ convert_env2 env = MAP (λ(x,tvs,t). (x,tvs,convert_t t)) env`;
 
 (* ---------- tenv_inv, the invariant relating inference and type system * environments ---------- *)
 
+(*Soundness invariant
+Everything in the inferencer env is also in the type system env
+
+1) If we are inside an expresesion, then their tvs is just 0 and the
+   type system type is just the walk of the inferencer type
+
+2) Else,
+  the type system type scheme generalizes the inferencer's type scheme
+*)
 val tenv_inv_def = Define `
 tenv_inv s env tenv =
   (!x tvs t.
    (ALOOKUP env x = SOME (tvs,t)) ⇒
-   ((lookup_tenv x 0 tenv = 
-     SOME (tvs, convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)))))`;
+    ∃tvs' t'.
+    lookup_tenv x 0 tenv = SOME(tvs',t') ∧
+    if check_t tvs {} t
+    then
+      (check_freevars tvs' [] t') ∧
+      ∃subst.
+        LENGTH subst = tvs' ∧
+        EVERY (check_freevars tvs []) subst ∧ 
+        deBruijn_subst 0 subst t' = convert_t t 
+    else
+      (*∃n. check_freevars n [] t') ∧ *)
+      tvs = 0 ∧ tvs' = 0 ∧ 
+      t' = convert_t (t_walkstar s t))`
 
 val tenv_inv_empty_to = Q.store_thm ("tenv_inv_empty_to",
 `!s env tenv.
@@ -2759,8 +2780,10 @@ fs [] >>
 rw [GSYM check_t_subst] >>
 metis_tac [t_walkstar_FEMPTY]);
 
+(*
 val tenv_inv_extend = Q.store_thm ("tenv_inv_extend",
 `!s x tvs t env t' tenv.
+  t_wfs s ∧ 
   tenv_inv s env tenv 
   ⇒
   tenv_inv s ((x,tvs,t)::env) (bind_tenv x tvs (convert_t (t_walkstar (infer_deBruijn_inc tvs o_f s) t)) tenv)`,
@@ -2768,75 +2791,105 @@ rw [tenv_inv_def] >>
 every_case_tac >>
 rw [] >>
 rw [lookup_tenv_def, bind_tenv_def, deBruijn_inc0] >>
+imp_res_tac inc_wfs>>
+fs[t_walkstar_no_vars]
 metis_tac []);
-
+*)
 val tenv_inv_extend0 = Q.store_thm ("tenv_inv_extend0",
 `!s x t env tenv.
+  t_wfs s ∧ 
   tenv_inv s env tenv 
   ⇒
   tenv_inv s ((x,0,t)::env) (bind_tenv x 0 (convert_t (t_walkstar s t)) tenv)`,
-rw [] >>
-`infer_deBruijn_inc 0 o_f s = s` by rw [GSYM fmap_EQ_THM, infer_deBruijn_inc0] >>
-metis_tac [tenv_inv_extend]);
+  rw [tenv_inv_def] >>Cases_on`x=x'`>>fs[lookup_tenv_def,bind_tenv_def,num_tvs_def]>>
+  IF_CASES_TAC>-
+    (imp_res_tac t_walkstar_no_vars>>fs[]>>
+    imp_res_tac check_t_to_check_freevars>>
+    qpat_assum`0=tvs` (SUBST_ALL_TAC o SYM)>>
+    fs[deBruijn_inc0]>>
+    qexists_tac`[]`>>fs[deBruijn_subst_def]>>
+    imp_res_tac deBruijn_subst_id>>
+    fs[COUNT_LIST_def])
+  >>
+    metis_tac[deBruijn_inc0])
 
 val tenv_inv_extend_tvar_empty_subst = Q.store_thm ("tenv_inv_extend_tvar_empty_subst",
 `!env tvs tenv.
   check_env {} env ∧ tenv_inv FEMPTY env tenv ⇒ tenv_inv FEMPTY env (bind_tvar tvs tenv)`,
-induct_on `env` >>
-fs [tenv_inv_def] >>
-rw [] >>
-PairCases_on `h` >>
-rw [bind_tvar_def, lookup_tenv_def] >>
-fs [t_walkstar_FEMPTY] >>
-res_tac >>
-imp_res_tac lookup_tenv_inc >>
-fs [] >>
-`check_t h1 {} h2 ∧ check_env {} env` by fs [check_env_def] >>
-cases_on `h0 = x` >>
-fs [] >>
-rw [] >>
-imp_res_tac check_env_lookup >>
-metis_tac [inc_convert_t]);
+  induct_on `env` >>
+  fs [tenv_inv_def] >>
+  rw [] >>
+  PairCases_on `h` >>
+  rw [bind_tvar_def, lookup_tenv_def] >>
+  fs [t_walkstar_FEMPTY] >>
+  res_tac >>
+  imp_res_tac lookup_tenv_inc >>
+  fs[]>>
+  reverse (Cases_on`h0=x`)>>fs[]
+  >-
+    (IF_CASES_TAC>>fs[deBruijn_inc0,num_tvs_def]
+    >-
+      (fs[nil_deBruijn_inc]>>
+      metis_tac[])
+    >>
+    (fs[check_env_def,deBruijn_inc_def,EVERY_MEM]>>
+    `MEM (x,0,t) env` by metis_tac[ALOOKUP_MEM]>>
+    res_tac>>fs[]>>
+    metis_tac[]))
+  >>
+    fs[check_env_def]>>rfs[nil_deBruijn_inc,num_tvs_def]>>
+    metis_tac[])
 
 val tenv_inv_letrec_merge = Q.store_thm ("tenv_inv_letrec_merge",
 `!funs tenv' env tenv st s.
+  t_wfs s ∧ 
   tenv_inv s env tenv 
   ⇒
   tenv_inv s (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ env)
              (bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)))) tenv)`,
-induct_on `funs` >>
-rw [COUNT_LIST_def, bind_var_list_def] >>
-PairCases_on `h` >>
-rw [bind_var_list_def] >>
-match_mp_tac tenv_inv_extend0 >>
-fs [] >>
-rw [check_t_def] >>
-res_tac >>
-pop_assum (mp_tac o Q.SPEC `st with next_uvar := st.next_uvar + 1`) >>
-strip_tac >>
-fs [] >>
-metis_tac [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]);
+  induct_on `funs` >>
+  rw [COUNT_LIST_def, bind_var_list_def] >>
+  PairCases_on `h` >>
+  rw [bind_var_list_def] >>
+  match_mp_tac tenv_inv_extend0 >>
+  fs [] >>
+  rw [check_t_def] >>
+  res_tac >>
+  pop_assum (mp_tac o Q.SPEC `st with next_uvar := st.next_uvar + 1`) >>
+  strip_tac >>
+  fs [] >>
+  metis_tac [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]);
 
 val tenv_inv_merge = Q.store_thm ("tenv_inv_merge",
 `!s x uv env env' tenv. 
+  t_wfs s ∧ 
   tenv_inv s env tenv
   ⇒
   tenv_inv s (MAP (λ(n,t). (n,0,t)) env' ++ env) (bind_var_list 0 (convert_env s env') tenv)`,
-induct_on `env'` >>
-rw [convert_env_def, bind_var_list_def] >>
-res_tac >>
-fs [tenv_inv_def] >>
-rw [] >>
-PairCases_on `h` >>
-fs [] >>
-cases_on `h0 = x` >>
-fs [] >>
-rw [bind_var_list_def, bind_tenv_def, lookup_tenv_def,
-    deBruijn_inc0, infer_deBruijn_inc0_id, o_f_id] >>
-fs [] >>
-res_tac >>
-metis_tac [convert_env_def]);
+  induct_on `env'` >>
+  rw [convert_env_def, bind_var_list_def] >>
+  res_tac >>
+  fs [tenv_inv_def] >>
+  rw [] >>
+  PairCases_on `h` >>
+  fs [] >>
+  cases_on `h0 = x` >>
+  fs [] >>
+  rw [bind_var_list_def, bind_tenv_def, lookup_tenv_def,
+      deBruijn_inc0, infer_deBruijn_inc0_id, o_f_id]
+  >-
+    metis_tac[t_walkstar_no_vars,check_t_to_check_freevars]
+  >-
+    (qexists_tac`[]`>>fs[deBruijn_subst_def]>>
+    imp_res_tac check_t_to_check_freevars>>
+    imp_res_tac deBruijn_subst_id>>
+    fs[COUNT_LIST_def]>>
+    metis_tac[t_walkstar_no_vars])
+  >>
+    res_tac>>
+    fs[convert_env_def,num_tvs_def])
 
+(*
 val tenv_inv_merge2 = Q.store_thm ("tenv_inv_merge2",
 `!env tenv env'' s tvs.
   tenv_inv FEMPTY env tenv 
@@ -2879,20 +2932,32 @@ rw [deBruijn_inc0, t_walkstar_FEMPTY] >>
 fs [t_walkstar_FEMPTY] >>
 res_tac >>
 metis_tac []);
+*)
+
 
 val tenv_inv_convert_env2 = Q.store_thm ("tenv_inv_convert_env2",
-`!env. tenv_inv FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
-Induct >>
-rw [convert_env2_def, bind_var_list2_def, tenv_inv_def] >>
-PairCases_on `h` >>
-fs [] >>
-every_case_tac >>
-fs [] >>
-rw [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
-fs [tenv_inv_def] >>
-res_tac >>
-fs [t_walkstar_FEMPTY] >>
-metis_tac [convert_env2_def]);
+`∀env. check_env {} env ⇒ 
+ tenv_inv FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
+  Induct >>
+  rw [convert_env2_def, bind_var_list2_def, tenv_inv_def] >>
+  PairCases_on `h` >>
+  Cases_on`h0=x`>>fs[lookup_tenv_def,bind_var_list2_def,bind_tenv_def,check_env_def]>>
+  fs[deBruijn_inc0]
+  >-
+    (fs[check_t_to_check_freevars]>>
+    qexists_tac`MAP (Tvar_db) (COUNT_LIST tvs)` >>
+    fs[LENGTH_COUNT_LIST]>>
+    CONJ_TAC
+    >-
+      fs[EVERY_MAP,COUNT_LIST_GENLIST,EVERY_GENLIST,check_freevars_def]
+    >>
+    match_mp_tac (deBruijn_subst_id |> CONJUNCT1)>>
+    fs[check_t_to_check_freevars])
+  >>
+  fs[tenv_inv_def]>>
+  res_tac>>
+  Cases_on`check_t tvs {} t` >> fs[convert_env2_def])
+
 
 val unconvert_t_def = tDefine "unconvert_t" `
 (unconvert_t (Tvar_db n) = Infer_Tvar_db n) ∧
@@ -2926,41 +2991,337 @@ val check_freevars_to_check_t = store_thm("check_freevars_to_check_t",
   fs[EVERY_MAP,EVERY_MEM])
 
 val tenv_invC_def = Define `
-tenv_invC s tenv tenvE =
-  (!x tvs t.
+  tenv_invC s tenv tenvE =
+  (∀x tvs t.
     lookup_tenv x 0 tenvE = SOME (tvs, t)
     ⇒
-    (*tvs >0 ⇒ check_freevars (num_tvs tenvE) [] t ∧ *)
-    (if tvs > 0 then check_freevars tvs [] t
-                else ?n.check_freevars n [] t) ∧
-    ?t'.
-    unconvert_t t = t_walkstar s t' ∧ 
-    (tvs > 0 ⇒ t_walkstar s t' = t') ∧
-    (*
-    (!targs. LENGTH targs ≤ tvs
-    ⇒ 
-    infer_deBruijn_subst targs (unconvert_t t) = 
-    infer_deBruijn_subst targs (t_walkstar s t')) ∧ *)
+    (∃n. check_freevars n [] t) ∧ 
+    (*Need a condition like this, not sure exactly what yet*)
+    ∃tvs' t'.
+    ALOOKUP tenv x = SOME(tvs',t') ∧
+    (*Case split on whether we are inside an expression or not
+      i.e. whether we have inferencer stuff in the types*)
+    if check_t tvs' {} t'
+    then
+      (*Has no uvars*)
+      ∃subst.
+        LENGTH subst = tvs' ∧
+        EVERY (check_t tvs {}) subst ∧ 
+        infer_deBruijn_subst subst t' = unconvert_t t 
+    else 
+      tvs' = 0 ∧ tvs = 0 ∧ 
+      unconvert_t t = t_walkstar s t')`
 
-    ALOOKUP tenv x = SOME (tvs,t'))`;
+val tenv_alpha_def = Define`
+  tenv_alpha tenv tenvE = 
+    (tenv_inv FEMPTY tenv tenvE ∧
+    tenv_invC FEMPTY tenv tenvE)` 
+
+val infer_deBruijn_subst_id2 = store_thm("infer_deBruijn_subst_id2",
+  ``(∀t.
+  check_t tvs {} t ⇒  
+  infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs) t = t) ∧ 
+  (∀ts.
+  EVERY (check_t tvs {}) ts ⇒  
+  MAP (infer_deBruijn_subst (GENLIST (Infer_Tvar_db) tvs)) ts = ts)``,
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[]>>fs[check_t_def]
+  >-
+    fs[infer_deBruijn_subst_def]
+  >>
+    fs[infer_deBruijn_subst_def,EVERY_MEM]>>
+    metis_tac[])
 
 val tenv_invC_convert_env2 = Q.store_thm ("tenv_invC_convert_env2",
 `!env. check_env {} env ⇒ tenv_invC FEMPTY env (bind_var_list2 (convert_env2 env) Empty)`,
- Induct >>
- rw [convert_env2_def, bind_var_list2_def, tenv_invC_def, lookup_tenv_def] >>
- PairCases_on `h` >>
- fs [check_env_def] >>
- every_case_tac >>
- fs [] >>
- fs [t_walkstar_FEMPTY, deBruijn_inc0, lookup_tenv_def, bind_tenv_def, bind_var_list2_def] >>
- fs [tenv_invC_def] >>
- rw [] >>
- TRY (Cases_on `h0 = x`) >>
- fs [] >>
- rw [] >>
- res_tac >>
- fs [t_walkstar_FEMPTY] >>
- metis_tac [convert_env2_def, check_t_to_check_freevars, check_t_empty_unconvert_convert_id]);
+  Induct >>
+  rw [convert_env2_def, bind_var_list2_def, tenv_invC_def] >>
+  fs[lookup_tenv_def]>>
+  PairCases_on `h` >>
+  Cases_on`h0=x`>>fs[lookup_tenv_def,bind_var_list2_def,bind_tenv_def,check_env_def]>>
+  fs[deBruijn_inc0]
+  >-
+    metis_tac[check_t_to_check_freevars]
+  >-
+    (fs[tenv_invC_def,convert_env2_def]>>
+    metis_tac[])
+  >-
+    (fs[check_t_to_check_freevars]>>
+    qexists_tac`GENLIST Infer_Tvar_db tvs` >>
+    fs[LENGTH_COUNT_LIST]>>
+    CONJ_TAC
+    >-
+      fs[EVERY_MAP,COUNT_LIST_GENLIST,EVERY_GENLIST,check_t_def]
+    >>
+    qpat_assum `A=t` (SUBST_ALL_TAC o SYM)>>
+    imp_res_tac check_t_empty_unconvert_convert_id>>
+    fs[]>>
+    match_mp_tac (infer_deBruijn_subst_id2 |> CONJUNCT1)>>
+    fs[check_t_to_check_freevars])
+  >>
+  fs[tenv_invC_def,convert_env2_def])
 
+val infer_deBruijn_subst_id = store_thm("infer_deBruijn_subst_id",
+``(!t. infer_deBruijn_subst [] t = t) ∧ 
+  (!ts. MAP (infer_deBruijn_subst []) ts = ts)``,
+  Induct>>rw[]>>fs[infer_deBruijn_subst_def,MAP_EQ_ID])
+
+val deBruijn_subst_nothing = store_thm("deBruijn_subst_nothing",
+  ``(∀t.
+  deBruijn_subst 0 [] t = t )∧
+  ∀ts.
+  MAP (deBruijn_subst 0 []) ts = ts``,
+  ho_match_mp_tac astTheory.t_induction>>
+  fs[deBruijn_subst_def]>>rw[]>>
+  fs[LIST_EQ_REWRITE]>>rw[]>>
+  fs[MEM_EL,EL_MAP])
+
+val menv_alpha_def = Define`
+  menv_alpha = fmap_rel (λitenv tenv. tenv_alpha itenv (bind_var_list2 tenv Empty))`
+
+val sym_sub_tac = SUBST_ALL_TAC o SYM;
+
+val generalise_subst_exist = store_thm("generalise_subst_exist",``
+  (t_wfs s ∧ 
+  (∀uv. uv ∈ FDOM s ⇒ check_t tvs {} (t_walkstar s (Infer_Tuvar uv))))
+  ⇒
+  (∀t subst n smap a b t'. 
+  LENGTH subst = n ∧
+  FRANGE smap ⊆ count n ∧
+  (∀x. MEM x subst ⇒ check_t tvs {} x) ∧ 
+  t_vars t ⊆ FDOM s ∧
+  check_t 0 (FDOM s) t ∧ 
+  (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  generalise 0 n smap t = (a,b,t') ⇒
+  ∃subst'. 
+    LENGTH subst' = a ∧ 
+    (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧ 
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x))) ∧ 
+  (∀ts subst n smap a b ts'. 
+  LENGTH subst = n ∧
+  FRANGE smap ⊆ count n ∧ 
+  (∀x. MEM x subst ⇒ check_t tvs {} x) ∧ 
+  EVERY (λt. t_vars t ⊆ FDOM s) ts ∧ 
+  EVERY (check_t 0 (FDOM s)) ts ∧ 
+  (∀x. x ∈ FDOM smap ⇒ EL (smap ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  generalise_list 0 n smap ts = (a,b,ts') ⇒
+  ∃subst'. 
+    LENGTH subst' = a ∧ 
+    (∀x. MEM x subst' ⇒ check_t tvs {} x) ∧ 
+    (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))``,
+  strip_tac>>
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>
+  rw[]>>
+  fs[check_t_def]
+  >-
+    (fs[generalise_def]>>
+    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    fs[]>>
+    first_assum match_mp_tac>>
+    ntac 2 HINT_EXISTS_TAC >>
+    fs[EVERY_MEM,t_vars_eqn,SUBSET_DEF,MEM_MAP]>>
+    metis_tac[])
+  >-
+    (imp_res_tac generalise_subst>>
+    fs[generalise_def]>>
+    FULL_CASE_TAC>>fs[]
+    >-
+      (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
+      qpat_assum`A=b` sym_sub_tac>>
+      rw[]
+      >-
+        (simp[FAPPLY_FUPDATE_THM]>>
+        `x ≠ n` by 
+          (CCONTR_TAC>>
+          fs[flookup_thm])>>
+        fs[]>>
+        `smap ' x < LENGTH subst` by fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>
+        simp[EL_APPEND1])
+      >>
+      fs[t_vars_eqn,EL_LENGTH_APPEND])
+    >>
+    qexists_tac`[]`>>fs[EXTENSION]>>
+    metis_tac[])
+  >-
+    (fs[generalise_def]>>
+    qexists_tac`[]`>>fs[])
+  >>
+    fs[generalise_def]>>
+    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    imp_res_tac generalise_subst>>
+    first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
+    rfs[]>>
+    first_x_assum(qspecl_then[`subst++subst'`,`s'`,`num_gen'`,`s''`,`ts''`] mp_tac)>>
+    discharge_hyps>-
+      (fsrw_tac [ARITH_ss] []>>
+      reverse CONJ_TAC>-
+        metis_tac[]>>
+      fs[IN_FRANGE,SUBSET_DEF,PULL_EXISTS]>>
+      gen_tac>>Cases_on`k ∈ FDOM smap`>>fs[]>>
+      fs[SUBMAP_DEF]>>
+      res_tac>>
+      DECIDE_TAC)>>
+    rw[]>>
+    qexists_tac`subst'++subst''`>>fs[]>>
+    metis_tac[])
+
+val infer_deBruijn_subst_infer_subst_walkstar = store_thm("infer_deBruijn_subst_infer_subst_walkstar",``
+  ∀b subst n m.
+  FRANGE b ⊆ count (LENGTH subst) ∧
+  t_wfs s 
+  ⇒
+  ((∀t.
+  (∀x. x ∈ t_vars t ⇒  EL (b ' x) subst = t_walkstar s (Infer_Tuvar x)) ∧ 
+  check_t 0 m t ∧
+  t_vars t ⊆ FDOM b
+  ⇒ 
+  infer_deBruijn_subst subst (infer_subst b t) = 
+  t_walkstar s t) ∧ 
+  (∀ts.
+  EVERY (λt.(∀x. x ∈ t_vars t ⇒  EL (b ' x) subst = t_walkstar s (Infer_Tuvar x))) ts ∧ 
+  EVERY (check_t 0 m) ts ∧ 
+  EVERY (λt.t_vars t ⊆ FDOM b) ts 
+  ⇒ 
+  MAP ((infer_deBruijn_subst subst) o (infer_subst b)) ts = 
+  MAP (t_walkstar s) ts))``,
+  ntac 5 strip_tac>>
+  ho_match_mp_tac infer_tTheory.infer_t_induction>>rw[]>>
+  fs[infer_subst_def,t_walkstar_eqn1,check_t_def,infer_deBruijn_subst_def]
+  >-
+    (fs[LIST_EQ_REWRITE,EL_MAP,t_vars_eqn,PULL_EXISTS,SUBSET_DEF,MEM_MAP]>>
+    rw[]>>
+    first_assum (match_mp_tac o MP_CANON)>>
+    fs[EVERY_MEM]>>
+    metis_tac[])
+  >>
+  (fs[t_vars_eqn] >> imp_res_tac flookup_thm>>
+  fs[PULL_FORALL]>>
+  fs[infer_deBruijn_subst_def]>>
+  reverse IF_CASES_TAC
+  >- (fs[SUBSET_DEF,IN_FRANGE,PULL_EXISTS]>>metis_tac[])
+  >> REFL_TAC))
+
+val tenv_alpha_empty = store_thm("tenv_alpha_empty",``
+  tenv_alpha [] (bind_var_list2 [] Empty)``,
+  fs[tenv_alpha_def,bind_var_list2_def,tenv_inv_def,tenv_invC_def,lookup_tenv_def])
+
+val tenv_alpha_convert = store_thm("tenv_alpha_convert",
+  ``check_env ∅ tenv ⇒
+    tenv_alpha tenv (bind_var_list2 (convert_env2 tenv) Empty) ``,
+  rw[tenv_alpha_def,tenv_inv_convert_env2,tenv_invC_convert_env2])
+
+val menv_alpha_convert = store_thm("menv_alpha_convert",
+  ``check_menv menv ⇒ menv_alpha menv (convert_menv menv)``,
+  rw[menv_alpha_def,convert_menv_def,fmap_rel_OPTREL_FLOOKUP,optionTheory.OPTREL_def,FLOOKUP_o_f] >>
+  CASE_TAC >>
+  fs[check_menv_def,FEVERY_ALL_FLOOKUP] >>
+  res_tac >> fs[GSYM check_env_def] >>
+  rw[GSYM convert_env2_def, tenv_alpha_convert])
+
+val tenv_inv_bind_var_list2 = prove(``
+  tenv_inv FEMPTY itenv (bind_var_list2 tenv Empty) ∧
+  tenv_inv FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
+  set (MAP FST itenv) = set (MAP FST tenv)  
+  ⇒ 
+  tenv_inv FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  rw[tenv_inv_def]>>
+  fs[GSYM bvl2_lookup]>>
+  fs[ALOOKUP_APPEND]>>
+  Cases_on`ALOOKUP itenv x`>>fs[]
+  >-
+    (`ALOOKUP tenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
+    fs[])
+  >>
+    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    res_tac>>
+    fs[])
+
+val tenv_invC_bind_var_list2 = prove(``
+  tenv_invC FEMPTY itenv (bind_var_list2 tenv Empty) ∧
+  tenv_invC FEMPTY itenv' (bind_var_list2 tenv' Empty) ∧ 
+  set (MAP FST itenv) = set (MAP FST tenv)  
+  ⇒ 
+  tenv_invC FEMPTY (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  rw[tenv_invC_def]>>
+  fs[GSYM bvl2_lookup]>>
+  fs[ALOOKUP_APPEND]>>
+  Cases_on `ALOOKUP tenv x`>>fs[]
+  >-
+    metis_tac[]
+  >-
+    metis_tac[]
+  >-
+    (`ALOOKUP itenv x = NONE` by metis_tac[ALOOKUP_NONE,EXTENSION]>>
+    fs[])
+  >>
+    qpat_assum`x'=A` SUBST_ALL_TAC>>
+    res_tac>>
+    fs[])
+
+val tenv_alpha_bind_var_list2 = store_thm("tenv_alpha_bind_var_list2",``
+  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
+  set (MAP FST itenv) = set (MAP FST tenv) ∧  
+  tenv_alpha itenv' (bind_var_list2 tenv' Empty)
+  ⇒ 
+  tenv_alpha (itenv++itenv') (bind_var_list2 (tenv++tenv') Empty)``,
+  fs[tenv_alpha_def]>>
+  metis_tac[tenv_inv_bind_var_list2,tenv_invC_bind_var_list2])
+
+val check_weakE_EVERY = store_thm("check_weakE_EVERY",
+  ``∀env_impl env_spec st.
+      (∃st'. check_weakE env_impl env_spec st = (Success (),st')) ⇔
+      EVERY (λ(n,tvs_spec,t_spec).
+           case ALOOKUP env_impl n of
+           | NONE => F
+           | SOME (tvs_impl,t_impl) =>
+               let t = infer_deBruijn_subst (GENLIST Infer_Tuvar tvs_impl) t_impl in
+               IS_SOME (t_unify FEMPTY t_spec t)) env_spec``,
+  ho_match_mp_tac check_weakE_ind >>
+  conj_tac >- rw[check_weakE_def,success_eqns] >>
+  rw[check_weakE_def] >>
+  Cases_on`ALOOKUP env_impl n`>>simp[failwith_def] >>
+  Cases_on`x`>>simp[success_eqns,init_state_def] >> fs[] >>
+  simp[markerTheory.Abbrev_def] >>
+  simp[init_infer_state_def] >>
+  simp[COUNT_LIST_GENLIST,MAP_GENLIST,ETA_AX] >>
+  simp[IS_SOME_EXISTS,PULL_EXISTS] >>
+  rw[EQ_IMP_THM] >> rw[] >- (
+    fs[LET_THM,IS_SOME_EXISTS] >>
+    metis_tac[] ) >>
+  simp[markerTheory.Abbrev_def,IS_SOME_EXISTS] )
+
+val convert_env2_anub = store_thm("convert_env2_anub",
+  ``∀ls ac. convert_env2 (anub ls ac) = anub (convert_env2 ls) ac``,
+  Induct >> fs[anub_def,convert_env2_def] >>
+  fs[UNCURRY] >>
+  Cases >> fs[anub_def,UNCURRY] >> rw[] >>
+  Cases_on`r`>>fs[])
+
+val check_freevars_more = Q.prove (
+`(!t x fvs1 fvs2.
+  check_freevars x fvs1 t ⇒
+  check_freevars x (fvs2++fvs1) t ∧
+  check_freevars x (fvs1++fvs2) t) ∧
+ (!ts x fvs1 fvs2.
+  EVERY (check_freevars x fvs1) ts ⇒
+  EVERY (check_freevars x (fvs2++fvs1)) ts ∧
+  EVERY (check_freevars x (fvs1++fvs2)) ts)`,
+Induct >>
+rw [check_freevars_def] >>
+metis_tac []);
+
+val t_to_freevars_check = Q.store_thm ("t_to_freevars_check",
+`(!t st fvs st'.
+   (t_to_freevars t (st:'a) = (Success fvs, st'))
+   ⇒
+   check_freevars 0 fvs t) ∧
+ (!ts st fvs st'.
+   (ts_to_freevars ts (st:'a) = (Success fvs, st'))
+   ⇒
+   EVERY (check_freevars 0 fvs) ts)`,
+Induct >>
+rw [t_to_freevars_def, success_eqns, check_freevars_def] >>
+rw [] >>
+metis_tac [check_freevars_more]);
 
 val _ = export_theory ();
