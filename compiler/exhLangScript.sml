@@ -76,7 +76,6 @@ val _ = Hol_datatype `
   (is_unconditional p =    
 ((case p of
         Pvar_i2 _ => T
-      | (Plit_i2 Unit) => T
       | (Pcon_i2 (_,NONE) ps) => EVERY is_unconditional ps
       | (Pref_i2 p) => is_unconditional p
       | _ => F
@@ -392,6 +391,10 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_exh_defn;
 
+val _ = Define `
+ (Boolv_exh b = (Conv_exh tuple_tag []))`;
+
+
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
 val _ = Define `
  (do_app_exh ((count,s),genv) op vs =  
@@ -402,16 +405,16 @@ val _ = Define `
         else
           SOME (((count,s),genv), Rval (Litv_exh (IntLit (opn_lookup op n1 n2))))
     | (Op_i2 (Opb op), [Litv_exh (IntLit n1); Litv_exh (IntLit n2)]) =>
-        SOME (((count,s),genv), Rval (Litv_exh (Bool (opb_lookup op n1 n2))))
+        SOME (((count,s),genv), Rval (Boolv_exh (opb_lookup op n1 n2)))
     | (Op_i2 Equality, [v1; v2]) =>
         (case do_eq_exh v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (((count,s),genv), Rerr (Rraise (prim_exn_exh eq_tag)))
-          | Eq_val b => SOME (((count,s),genv), Rval (Litv_exh (Bool b)))
+          | Eq_val b => SOME (((count,s),genv), Rval (Boolv_exh b))
         )
     | (Op_i2 Opassign, [Loc_exh lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (((count,st),genv), Rval (Litv_exh Unit))
+            SOME st => SOME (((count,st),genv), Rval (Conv_exh tuple_tag []))
           | NONE => NONE
         )
     | (Op_i2 Opref, [v]) =>
@@ -425,7 +428,7 @@ val _ = Define `
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Litv_exh Unit)))
+              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Conv_exh tuple_tag [])))
             | SOME x => NONE
           )
         else
@@ -469,7 +472,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (((count,s'),genv), Rval (Litv_exh Unit))
+                    | SOME s' => SOME (((count,s'),genv), Rval (Conv_exh tuple_tag []))
                   )
         | _ => NONE
       )
@@ -482,7 +485,7 @@ val _ = Define `
           else
             Rval (Litv_exh(Char(CHR(Num (ABS ( i))))))))
     | (Op_i2 (Chopb op), [Litv_exh (Char c1); Litv_exh (Char c2)]) =>
-        SOME (((count,s),genv), Rval (Litv_exh (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+        SOME (((count,s),genv), Rval (Boolv_exh (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Op_i2 Implode, [v]) =>
           (case v_exh_to_char_list v of
             SOME ls =>
@@ -549,7 +552,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (((count,s'),genv), Rval (Litv_exh Unit))
+                    | SOME s' => SOME (((count,s'),genv), Rval (Conv_exh tuple_tag []))
                   )
         | _ => NONE
       )
@@ -560,9 +563,9 @@ val _ = Define `
 (*val do_if_exh : v_exh -> exp_exh -> exp_exh -> maybe exp_exh*)
 val _ = Define `
  (do_if_exh v e1 e2 =  
-(if v = Litv_exh (Bool T) then
+(if v = (Boolv_exh T) then
     SOME e1
-  else if v = Litv_exh (Bool F) then
+  else if v = (Boolv_exh F) then
     SOME e2
   else
     NONE))`;
@@ -737,7 +740,7 @@ evaluate_exh ck env s (Letrec_exh funs e) (s, Rerr Rtype_error))
 /\ (! ck env n s genv.
 T
 ==>
-evaluate_exh ck env (s,genv) (Extend_global_exh n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Litv_exh Unit)))
+evaluate_exh ck env (s,genv) (Extend_global_exh n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Conv_exh tuple_tag [])))
 
 /\ (! ck env s.
 T

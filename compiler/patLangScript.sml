@@ -66,13 +66,20 @@ val _ = Hol_datatype `
   | Vectorv_pat of v_pat list`;
 
 
+val _ = Define `
+ (Bool_pat b = (Con_pat (if b then true_tag else false_tag) []))`;
+
+val _ = Define `
+ (Boolv_pat b = (Conv_pat (if b then true_tag else false_tag) []))`;
+
+
 (*val sIf_pat : exp_pat -> exp_pat -> exp_pat -> exp_pat*)
 val _ = Define `
 
 (sIf_pat e1 e2 e3 =  
-(if (e2 = Lit_pat (Bool T)) /\ (e3 = Lit_pat (Bool F)) then e1 else
+(if (e2 = Bool_pat T) /\ (e3 = Bool_pat F) then e1 else
   (case e1 of
-    Lit_pat (Bool b) => if b then e2 else e3
+    Con_pat t [] => if t = true_tag then e2 else e3
   | _ => If_pat e1 e2 e3
   )))`;
 
@@ -250,7 +257,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val pats_to_pat : nat -> list pat_exh -> exp_pat*)
  val pat_to_pat_defn = Hol_defn "pat_to_pat" `
 
-(pat_to_pat (Pvar_exh _) = (Lit_pat (Bool T)))
+(pat_to_pat (Pvar_exh _) = (Bool_pat T))
 /\
 (pat_to_pat (Plit_exh l) = (App_pat (Op_pat (Op_i2 Equality)) [Var_local_pat( 0); Lit_pat l]))
 /\
@@ -260,18 +267,18 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (pat_to_pat (Pcon_exh tag ps) =  
 (sIf_pat (App_pat (Tag_eq_pat tag) [Var_local_pat( 0)])
     (Let_Els_pat( 0) (LENGTH ps) (pats_to_pat( 0) ps))
-    (Lit_pat (Bool F))))
+    (Bool_pat F)))
 /\
 (pat_to_pat (Pref_exh p) =  
 (sLet_pat (App_pat (Op_pat (Op_i2 Opderef)) [Var_local_pat( 0)])
     (pat_to_pat p)))
 /\
-(pats_to_pat _ [] = (Lit_pat (Bool T)))
+(pats_to_pat _ [] = (Bool_pat T))
 /\
 (pats_to_pat n (p::ps) =  
 (sIf_pat (sLet_pat (Var_local_pat n) (pat_to_pat p))
     (pats_to_pat (n+ 1) ps)
-    (Lit_pat (Bool F))))`;
+    (Bool_pat F)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_pat_defn;
 
@@ -328,7 +335,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_pat bvs (Var_local_exh x) =  
 ((case misc$find_index (SOME x) bvs( 0) of
     SOME k => Var_local_pat k
-  | NONE => Lit_pat Unit (* should not happen *)
+  | NONE => Lit_pat (IntLit(( 0 : int))) (* should not happen *)
   )))
 /\
 (exp_to_pat _ (Var_global_exh n) = (Var_global_pat n))
@@ -375,7 +382,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     ((case row_to_pat bvs p of (bvs,_,f) => f (exp_to_pat bvs e) ))
     (pes_to_pat bvs pes)))
 /\
-(pes_to_pat _ _ = (Lit_pat Unit))`;
+(pes_to_pat _ _ = (Lit_pat (IntLit(( 0 : int)))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_pat_defn; (* should not happen *)
 
@@ -506,16 +513,16 @@ val _ = Define `
         else
           SOME (((cnt,s),genv), Rval (Litv_pat (IntLit (opn_lookup op n1 n2))))
     | (Op_pat (Op_i2 (Opb op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) =>
-        SOME (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op n1 n2))))
+        SOME (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op n1 n2)))
     | (Op_pat (Op_i2 Equality), [v1; v2]) =>
         (case do_eq_pat v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (((cnt,s),genv), Rerr (Rraise (prim_exn_pat eq_tag)))
-          | Eq_val b => SOME (((cnt,s),genv), Rval(Litv_pat (Bool b)))
+          | Eq_val b => SOME (((cnt,s),genv), Rval(Boolv_pat b))
         )
     | (Op_pat (Op_i2 Opassign), [Loc_pat lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-          SOME st => SOME (((cnt,st),genv), Rval (Litv_pat Unit))
+          SOME st => SOME (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
         | NONE => NONE
         )
     | (Op_pat (Op_i2 Opderef), [Loc_pat n]) =>
@@ -529,7 +536,7 @@ val _ = Define `
     | (Op_pat (Init_global_var_i2 idx), [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((cnt,s), LUPDATE (SOME v) idx genv), Rval (Litv_pat Unit))
+              NONE => SOME (((cnt,s), LUPDATE (SOME v) idx genv), Rval (Conv_pat tuple_tag []))
             | SOME _ => NONE
           )
         else
@@ -573,7 +580,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME st => SOME (((cnt,st),genv), Rval (Litv_pat Unit))
+                    | SOME st => SOME (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
                   )
         | _ => NONE
         )
@@ -586,7 +593,7 @@ val _ = Define `
           else
             Rval (Litv_pat(Char(CHR(Num (ABS ( i))))))))
     | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) =>
-        SOME (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+        SOME (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Op_pat (Op_i2 Implode), [v]) =>
           (case v_pat_to_char_list v of
             SOME ls =>
@@ -653,12 +660,12 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (((cnt,s'),genv), Rval (Litv_pat Unit))
+                    | SOME s' => SOME (((cnt,s'),genv), Rval (Conv_pat tuple_tag []))
                   )
         | _ => NONE
       )
     | (Tag_eq_pat n, [Conv_pat tag _]) =>
-        SOME (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
+        SOME (((cnt,s),genv), Rval (Boolv_pat (tag = n)))
     | (El_pat n, [Conv_pat _ vs]) =>
         if n < LENGTH vs then
           SOME (((cnt,s),genv), Rval (EL n vs))
@@ -671,9 +678,9 @@ val _ = Define `
 (*val do_if_pat : v_pat -> exp_pat -> exp_pat -> maybe exp_pat*)
 val _ = Define `
  (do_if_pat v e1 e2 =  
-(if v = Litv_pat (Bool T) then
+(if v = Boolv_pat T then
     SOME e1
-  else if v = Litv_pat (Bool F) then
+  else if v = Boolv_pat F then
     SOME e2
   else
     NONE))`;
@@ -843,7 +850,7 @@ evaluate_pat ck env s (Letrec_pat funs e) bv)
 T
 ==>
 evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,(genv++GENLIST (\n .  
-  (case (n ) of ( _ ) => NONE )) n)), Rval (Litv_pat Unit)))
+  (case (n ) of ( _ ) => NONE )) n)), Rval (Conv_pat tuple_tag [])))
 
 /\ (! ck env s.
 T

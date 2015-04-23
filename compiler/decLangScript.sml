@@ -37,21 +37,21 @@ val _ = new_theory "decLang"
 
 (*val init_globals : list varN -> nat -> exp_i2*)
  val _ = Define `
- (init_globals [] idx = (Lit_i2 Unit))
+ (init_globals [] idx = (Con_i2 (tuple_tag,NONE) []))
 /\ (init_globals (x::vars) idx =  
 (Let_i2 NONE (App_i2 (Init_global_var_i2 idx) [Var_local_i2 x]) (init_globals vars (idx + 1))))`;
 
 
 (*val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2*)
  val _ = Define `
- (init_global_funs next [] = (Lit_i2 Unit))
+ (init_global_funs next [] = (Con_i2 (tuple_tag,NONE) []))
 /\ (init_global_funs next ((f,x,e)::funs) =  
 (Let_i2 NONE (App_i2 (Init_global_var_i2 next) [Fun_i2 x e]) (init_global_funs (next+ 1) funs)))`;
 
 
 (*val decs_to_i3 : nat -> list dec_i2 -> exp_i2*)
  val _ = Define `
- (decs_to_i3 next [] = (Lit_i2 Unit))
+ (decs_to_i3 next [] = (Con_i2 (tuple_tag,NONE) []))
 /\ (decs_to_i3 next (d::ds) =  
 ((case d of
       Dlet_i2 n e =>
@@ -100,7 +100,7 @@ val _ = Define `
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Litv_i2 Unit)))
+              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Conv_i2 (tuple_tag,NONE) [])))
             | SOME x => NONE
           )
         else
@@ -240,7 +240,7 @@ evaluate_i3 ck (exh,env) s (Letrec_i2 funs e) bv)
 /\ (! ck env n s genv.
 T
 ==>
-evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Litv_i2 Unit)))
+evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Conv_i2 (tuple_tag,NONE) [])))
 
 /\ (! ck env s.
 T

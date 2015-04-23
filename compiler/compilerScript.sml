@@ -193,7 +193,7 @@ val _ = Define `
 
 
  val _ = Define `
- (prog_to_i3_initial next [] = (next, Lit_i2 Unit))
+ (prog_to_i3_initial next [] = (next, Con_i2 (tuple_tag,NONE) []))
     /\ (prog_to_i3_initial next (p::ps) =      
 (let (next,p) = (prompt_to_i3_initial next p) in
       let (next',ps) = (prog_to_i3_initial next ps) in

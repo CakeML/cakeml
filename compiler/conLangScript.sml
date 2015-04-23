@@ -93,6 +93,16 @@ val _ = Define `
  (some_tag =( 9))`;
 
 
+(*val true_tag : nat*)
+val _ = Define `
+ (true_tag =( 10))`;
+
+
+(*val false_tag : nat*)
+val _ = Define `
+ (false_tag =( 11))`;
+
+
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
 
 val _ = Hol_datatype `
@@ -506,6 +516,10 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_i2_defn;
 
+val _ = Define `
+ (Boolv_i2 b = (Conv_i2 ((if b then true_tag else false_tag), SOME(TypeId(Short"bool"))) []))`;
+
+
 (*val do_app_i2 : store v_i2 -> op_i2 -> list v_i2 -> maybe (store v_i2 * result v_i2 v_i2)*)
 val _ = Define `
  (do_app_i2 s op vs =  
@@ -516,16 +530,16 @@ val _ = Define `
         else
           SOME (s, Rval (Litv_i2 (IntLit (opn_lookup op n1 n2))))
     | (Op_i2 (Opb op), [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) =>
-        SOME (s, Rval (Litv_i2 (Bool (opb_lookup op n1 n2))))
+        SOME (s, Rval (Boolv_i2 (opb_lookup op n1 n2)))
     | (Op_i2 Equality, [v1; v2]) =>
         (case do_eq_i2 v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (s, Rerr (Rraise (prim_exn_i2 eq_tag "Eq")))
-          | Eq_val b => SOME (s, Rval (Litv_i2 (Bool b)))
+          | Eq_val b => SOME (s, Rval (Boolv_i2 b))
         )
     | (Op_i2 Opassign, [Loc_i2 lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (st, Rval (Litv_i2 Unit))
+            SOME st => SOME (st, Rval (Conv_i2 (tuple_tag,NONE) []))
           | NONE => NONE
         )
     | (Op_i2 Opref, [v]) =>
@@ -576,7 +590,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv_i2 Unit))
+                    | SOME s' => SOME (s', Rval (Conv_i2 (tuple_tag,NONE) []))
                   )
         | _ => NONE
       )
@@ -589,7 +603,7 @@ val _ = Define `
           else
             Rval (Litv_i2(Char(CHR(Num (ABS ( i))))))))
     | (Op_i2 (Chopb op), [Litv_i2 (Char c1); Litv_i2 (Char c2)]) =>
-        SOME (s, Rval (Litv_i2 (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+        SOME (s, Rval (Boolv_i2 (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Op_i2 Implode, [v]) =>
           (case v_i2_to_char_list v of
             SOME ls =>
@@ -656,7 +670,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv_i2 Unit))
+                    | SOME s' => SOME (s', Rval (Conv_i2 (tuple_tag,NONE) []))
                   )
         | _ => NONE
       )
@@ -667,9 +681,9 @@ val _ = Define `
 (*val do_if_i2 : v_i2 -> exp_i2 -> exp_i2 -> maybe exp_i2*)
 val _ = Define `
  (do_if_i2 v e1 e2 =  
-(if v = Litv_i2 (Bool T) then
+(if v = (Boolv_i2 T) then
     SOME e1
-  else if v = Litv_i2 (Bool F) then
+  else if v = (Boolv_i2 F) then
     SOME e2
   else
     NONE))`;

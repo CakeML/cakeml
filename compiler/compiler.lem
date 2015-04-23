@@ -151,7 +151,7 @@ let prompt_to_i3_initial next (Prompt_i2 ds) =
   let n = num_defs ds in
   (next+n, Let_i2 Nothing (Extend_global_i2 n) (decs_to_i3 next ds))
 
-let rec prog_to_i3_initial next [] = (next, Lit_i2 Unit)
+let rec prog_to_i3_initial next [] = (next, Con_i2 (tuple_tag,Nothing) [])
     and prog_to_i3_initial next (p::ps) =
       let (next,p) = prompt_to_i3_initial next p in
       let (next',ps) = prog_to_i3_initial next ps in
