@@ -419,6 +419,11 @@ val _ = export_rewrites
   ,"patLang.ground_pat_def"
   ,"patLang.pure_op_pat_def"]
 
+val Bool_pat_eqns = save_thm("Bool_pat_eqns[simp]",
+  [``Bool_pat T``,``Bool_pat F``]
+  |> List.map (SIMP_CONV(std_ss)[Bool_pat_def])
+  |> LIST_CONJ)
+
 (* TODO: add missing *)
 val _ = export_rewrites
 ["toBytecode.emit_def","toBytecode.get_label_def","toBytecode.emit_ceref_def","toBytecode.emit_ceenv_def"
