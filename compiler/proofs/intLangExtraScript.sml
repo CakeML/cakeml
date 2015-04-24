@@ -240,7 +240,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       fs[PULL_EXISTS] >>
       metis_tac[MEM_EL]) >>
     ntac 4 gen_tac >>
-    Cases >> rw[] >>
+    Cases >> rw[CBoolv_def] >>
     fs[el_check_def,EVERY_MEM] >>
     BasicProvers.EVERY_CASE_TAC >>
     fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_list_MAP,vlabs_csg_def,store_vs_def] >> rw[] >>
@@ -286,7 +286,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
          pop_assum mp_tac >> rw[] >> fs[] >>
          fs[vlabs_list_MAP,SUBSET_DEF,PULL_EXISTS,MEM_EL,NOT_LESS_EQUAL] >>
          metis_tac[]) >>
-    Cases_on `do_Ceq v1 v2` >> fs [] >> rw []) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[CBoolv_def]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[] >>
@@ -400,7 +400,7 @@ val tac1 =
       Cases >> simp[] >> rw[] >> rw[] >>
       metis_tac[MEM_EL,optionTheory.IS_SOME_DEF,optionTheory.THE_DEF] ) >>
     ntac 4 gen_tac >>
-    Cases >> rw[] >>
+    Cases >> rw[CBoolv_def] >>
     fs[el_check_def,EVERY_MEM] >>
     TRY (
       pop_assum mp_tac >> BasicProvers.CASE_TAC>>fs[]>>
@@ -449,7 +449,7 @@ val tac1 =
          pop_assum mp_tac >> rw[] >> fs[] >>
          fs[EVERY_MEM,PULL_EXISTS,MEM_EL,NOT_LESS_EQUAL] >>
          NO_TAC) >>
-    Cases_on `do_Ceq v1 v2` >> fs [] >> rw []) >>
+    BasicProvers.EVERY_CASE_TAC >> fs[CBoolv_def] >> rw[]) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rw[] >>
@@ -548,8 +548,10 @@ val syneq_lit_loc = store_thm("syneq_lit_loc",
   ``(syneq (CLitv l1) v2 = (v2 = CLitv l1)) ∧
     (syneq v1 (CLitv l2) = (v1 = CLitv l2)) ∧
     (syneq (CLoc n1) v2 = (v2 = CLoc n1)) ∧
-    (syneq v1 (CLoc n2) = (v1 = CLoc n2))``,
-  rw[] >> fs[Once syneq_cases] >> rw[EQ_IMP_THM])
+    (syneq v1 (CLoc n2) = (v1 = CLoc n2)) ∧
+    (syneq (CBoolv b) v2 = (v2 = CBoolv b)) ∧
+    (syneq v1 (CBoolv b) = (v1 = CBoolv b))``,
+  rw[] >> fs[Once syneq_cases,CBoolv_def] >> rw[EQ_IMP_THM])
 val _ = export_rewrites["syneq_lit_loc"]
 
 val Cexp_only_ind =
@@ -1216,8 +1218,8 @@ val _ = export_rewrites["mvars_def"]
 *)
 
 val doPrim2_CLitv_type_error = store_thm("doPrim2_CLitv_type_error",
-  ``doPrim2 ty op (CLitv l) (CConv n vs) = Rerr Rtype_error ∧
-    doPrim2 ty op (CLitv l) (CRecClos env defs s) = Rerr Rtype_error``,
+  ``doPrim2 op (CLitv l) (CConv n vs) = Rerr Rtype_error ∧
+    doPrim2 op (CLitv l) (CRecClos env defs s) = Rerr Rtype_error``,
   Cases_on`l`>>rw[])
 val _ = export_rewrites["doPrim2_CLitv_type_error"]
 
@@ -1422,8 +1424,8 @@ val no_closures_syneq_equal = store_thm("no_closures_syneq_equal",
 val doPrim2_syneq = store_thm(
 "doPrim2_syneq",
 ``∀v1 v2. syneq v1 v2 ⇒
-    ∀ty op v. (doPrim2 ty op v v1 = doPrim2 ty op v v2) ∧
-              (doPrim2 ty op v1 v = doPrim2 ty op v2 v)``,
+    ∀op v. (doPrim2 op v v1 = doPrim2 op v v2) ∧
+           (doPrim2 op v1 v = doPrim2 op v2 v)``,
 ho_match_mp_tac Cv_ind >>
 rw[] >> pop_assum mp_tac >>
 simp[Once syneq_cases] >> rw[] >>
@@ -1459,7 +1461,7 @@ val CevalPrim2_syneq = store_thm("CevalPrim2_syneq",
   Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
   Cases >> TRY(Cases_on`l:lit`>>simp[]) >>
   rpt(Cases >> TRY(Cases_on`l:lit`>>simp[])) >>
-  simp[] >>
+  simp[CBoolv_def] >>
   TRY ( simp[Once syneq_cases] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
   TRY ( simp[Once syneq_cases] >> simp[Once syneq_cases,SimpR``$/\``] >> fsrw_tac[DNF_ss][] >> NO_TAC) >>
   TRY (Cases_on`l` >> Cases_on`l'` >> simp[] >> fsrw_tac[DNF_ss][] >> rw[] >> NO_TAC) >>
@@ -1547,7 +1549,7 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
   Cases >- (
     simp[] >> rw[] >> fs[EVERY2_EVERY] >> lrw[GSYM ZIP_APPEND] ) >>
   Cases >> simp[Once syneq_cases] >>
-  fsrw_tac[DNF_ss][] >>
+  fsrw_tac[DNF_ss][CBoolv_def] >>
   TRY (
     rw[CvFromList_def] >>
     BasicProvers.CASE_TAC >>
@@ -2157,14 +2159,15 @@ val (Cclosed_rules,Cclosed_ind,Cclosed_cases) = Hol_reln`
 
 val Cclosed_lit_loc = store_thm("Cclosed_lit_loc",
   ``Cclosed (CLitv l) ∧
-    Cclosed (CLoc n)``,
+    Cclosed (CLoc n) ∧
+    Cclosed (CConv t [])``,
   rw[Cclosed_rules])
 val _ = export_rewrites["Cclosed_lit_loc"]
 
 val doPrim2_closed = store_thm(
 "doPrim2_closed",
-``∀ty op v1 v2. every_result Cclosed Cclosed (doPrim2 ty op v1 v2)``,
-ntac 2 gen_tac >>
+``∀op v1 v2. every_result Cclosed Cclosed (doPrim2 op v1 v2)``,
+gen_tac >>
 Cases >> TRY (Cases_on `l`) >>
 Cases >> TRY (Cases_on `l`) >>
 rw[] >> rw[Cclosed_cases])
@@ -2179,7 +2182,10 @@ val CevalPrim2_closed = store_thm("CevalPrim2_closed",
   PairCases_on`s` >>
   `∃op. p2 = P2p op ∨ ∃op'. p2 = P2s op'` by (Cases_on`p2`>>simp[]) >>
   qmatch_assum_rename_tac`p2 = _ op` >>
-  Cases_on`op`>>simp[UNCURRY] >- (
+  Cases_on`op`>>simp[UNCURRY,CBoolv_def]
+  >- (
+    BasicProvers.EVERY_CASE_TAC >> simp[] )
+  >- (
     Cases_on `do_Ceq v1 v2` >>
     rw [Cclosed_cases]) >>
   TRY(
@@ -2217,7 +2223,7 @@ val CevalPrim1_closed = store_thm("CevalPrim1_closed",
   rw[el_check_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   rw[EL_LUPDATE] >>
-  simp[CvFromList_def] >>
+  simp[CvFromList_def,CBoolv_def] >>
   BasicProvers.EVERY_CASE_TAC >> simp[] >-
     metis_tac[sv_every_def]
   >> TRY (
