@@ -95,17 +95,18 @@ type
       clock : maybe nat
    |>
 
+let string_tag : nat = 0
+let vector_tag : nat = 1
+let closure_tag : nat = 2
+let block_tag : nat = 3
+
+let unit_tag : nat = block_tag (* + tuple_tag *)
+
 val bool_to_tag : bool -> nat
 let rec
-bool_to_tag false = 0
+bool_to_tag false = block_tag + 7 (* false_tag *)
 and
-bool_to_tag true = 1
-
-let unit_tag : nat = 2
-let string_tag : nat = 3
-let vector_tag : nat = 4
-let closure_tag : nat = 5
-let block_tag : nat = 6
+bool_to_tag true = block_tag + 6 (* true_tag *)
 
 let bool_to_val b = Block (bool_to_tag b) []
 let unit_val = Block unit_tag []

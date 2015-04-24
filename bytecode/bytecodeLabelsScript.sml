@@ -286,13 +286,13 @@ val bc_next_strip_labels = store_thm("bc_next_strip_labels",
   \\ TRY
    (Q.EXISTS_TAC `n` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def]
     \\ FULL_SIMP_TAC (srw_ss()) [bc_find_loc_def,strip_labels_pc]
-    \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
-    \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
+    \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def,block_tag_def] \\ NO_TAC)
+    \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def,block_tag_def] \\ NO_TAC)
     \\ NO_TAC)
   \\ Cases_on `s1` \\ FULL_SIMP_TAC (srw_ss()) [strip_labels_def,bump_pc_def]
-  \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
-  \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
-  \\ TRY (Q.EXISTS_TAC `ys` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def] \\ NO_TAC)
+  \\ TRY (Q.EXISTS_TAC `T` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def,block_tag_def] \\ NO_TAC)
+  \\ TRY (Q.EXISTS_TAC `F` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def,block_tag_def] \\ NO_TAC)
+  \\ TRY (Q.EXISTS_TAC `ys` \\ FULL_SIMP_TAC std_ss [bool_to_tag_def,block_tag_def] \\ NO_TAC)
   \\ METIS_TAC []);
 
 val bc_next_strip_labels_RTC = store_thm("bc_next_strip_labels_RTC",

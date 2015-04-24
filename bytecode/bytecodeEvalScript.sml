@@ -135,8 +135,8 @@ val bc_eval1_def = Define`
   | (JumpIf l, (Block b [])::xs) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. let s' = s with stack := xs in
-        if b = 0 then SOME (bump_pc s') else
-        if b = 1 then SOME (s' with pc := n) else
+        if b = 10 then SOME (bump_pc s') else
+        if b = 9 then SOME (s' with pc := n) else
         NONE)
   | (Call l, x::xs) =>
       OPTION_BIND (bc_find_loc s l)
@@ -241,7 +241,7 @@ Cases_on `inst` >> fs[GSYM bc_eval_stack_thm]
   Cases_on `h` >> fs[LET_THM] >>
   qpat_assum `X = SOME s2` mp_tac >>
   BasicProvers.EVERY_CASE_TAC >> rw[] >>
-  rw[bc_next_cases] >>
+  rw[bc_next_cases] >> fs[] >>
   ((qexists_tac `T` >> rw[] >> NO_TAC) ORELSE
    (qexists_tac `F` >> rw[] >> NO_TAC)))
 >- (
