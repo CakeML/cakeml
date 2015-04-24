@@ -51,23 +51,23 @@ let eq_tag = 4
 val subscript_tag : nat
 let subscript_tag = 5
 
-val nil_tag : nat
-let nil_tag = 6
-
-val cons_tag : nat
-let cons_tag = 7
-
-val none_tag : nat
-let none_tag = 8
-
-val some_tag : nat
-let some_tag = 9
-
 val true_tag : nat
-let true_tag = 10
+let true_tag = 6
 
 val false_tag : nat
-let false_tag = 11
+let false_tag = 7
+
+val nil_tag : nat
+let nil_tag = 8
+
+val cons_tag : nat
+let cons_tag = 9
+
+val none_tag : nat
+let none_tag = 10
+
+val some_tag : nat
+let some_tag = 11
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 

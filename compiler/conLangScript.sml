@@ -73,34 +73,34 @@ val _ = Define `
  (subscript_tag =( 5))`;
 
 
-(*val nil_tag : nat*)
-val _ = Define `
- (nil_tag =( 6))`;
-
-
-(*val cons_tag : nat*)
-val _ = Define `
- (cons_tag =( 7))`;
-
-
-(*val none_tag : nat*)
-val _ = Define `
- (none_tag =( 8))`;
-
-
-(*val some_tag : nat*)
-val _ = Define `
- (some_tag =( 9))`;
-
-
 (*val true_tag : nat*)
 val _ = Define `
- (true_tag =( 10))`;
+ (true_tag =( 6))`;
 
 
 (*val false_tag : nat*)
 val _ = Define `
- (false_tag =( 11))`;
+ (false_tag =( 7))`;
+
+
+(*val nil_tag : nat*)
+val _ = Define `
+ (nil_tag =( 8))`;
+
+
+(*val cons_tag : nat*)
+val _ = Define `
+ (cons_tag =( 9))`;
+
+
+(*val none_tag : nat*)
+val _ = Define `
+ (none_tag =( 10))`;
+
+
+(*val some_tag : nat*)
+val _ = Define `
+ (some_tag =( 11))`;
 
 
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
