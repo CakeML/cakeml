@@ -423,13 +423,14 @@ fun exists_lift_conj_tac tm =
     STRIP_BINDER_CONV(SOME existential)
       (lift_conjunct_conv(same_const tm o fst o strip_comb)))
 
-val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc",
+val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc[simp]",
   ``(v_to_exh exh (Litv_i2 l) lh ⇔ lh = Litv_exh l) ∧
     (v_to_exh exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
     (v_to_exh exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
-    (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n)``,
-  rw[] >> rw[Once v_to_exh_cases])
-val _ = export_rewrites["v_to_exh_lit_loc"];
+    (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n) ∧
+    (v_to_exh exh (Conv_i2 t []) lh ⇔ lh = Conv_exh (FST t) []) ∧
+    (v_to_exh exh (Boolv_i2 b) lh ⇔ lh = Boolv_exh b)``,
+  rw[] >> rw[Once v_to_exh_cases, Boolv_i2_def, Boolv_exh_def])
 
 val v_to_exh_extend_disjoint_helper = Q.prove (
 `(!(exh:exh_ctors_env) v1 v2.
@@ -542,7 +543,7 @@ val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
 
 val tac =
   rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def, prim_exn_i2_def,
-      prim_exn_exh_def, v_to_exh_eqn] >>
+      prim_exn_exh_def, v_to_exh_eqn, Boolv_i2_def, Boolv_exh_def] >>
   fs [] >>
   fs [store_assign_def,store_to_exh_def, store_lookup_def, store_alloc_def,
       LET_THM] >>
@@ -580,7 +581,7 @@ val do_app_exh_i2 = Q.prove (
      imp_res_tac do_eq_exh_correct >>
      fs [] >>
      rw [do_app_exh_def, result_to_exh_cases, store_to_exh_def,
-         prim_exn_i2_def, prim_exn_exh_def, v_to_exh_eqn])
+         prim_exn_i2_def, prim_exn_exh_def, v_to_exh_eqn, Boolv_i2_def, Boolv_exh_def])
  >- (tac >>
      metis_tac [v_to_exh_eqn, store_v_distinct, sv_to_exh_def])
  >- tac
@@ -620,29 +621,18 @@ val do_app_exh_i2 = Q.prove (
          res_tac))
  >- (tac >>
      metis_tac [LIST_REL_LENGTH])
- >- (tac >>
-     rw []
+ >- (tac >> rw []
      >- (CCONTR_TAC >>
          fs [] >>
-         imp_res_tac LIST_REL_LENGTH >> 
+         imp_res_tac LIST_REL_LENGTH >>
          full_simp_tac (srw_ss()++ARITH_ss) [])
      >- (CCONTR_TAC >>
          fs [] >>
-         imp_res_tac LIST_REL_LENGTH >> 
+         imp_res_tac LIST_REL_LENGTH >>
          full_simp_tac (srw_ss()++ARITH_ss) [])
-     >- (CCONTR_TAC >>
-         fs [] >>
-         imp_res_tac LIST_REL_LENGTH >> 
-         full_simp_tac (srw_ss()++ARITH_ss) [])
-     >- (fs [LIST_REL_EL_EQN] >>
-         `Num (ABS i) < LENGTH l'` by decide_tac >>
-         res_tac >>
-         pop_assum mp_tac >>
-         ASM_REWRITE_TAC [sv_to_exh_def, vs_to_exh_LIST_REL] >>
-         rw [EL_LUPDATE] >>
-         fs [] >>
-         every_case_tac >>
-         fs [])));
+     >- (ASM_REWRITE_TAC [sv_to_exh_def, vs_to_exh_LIST_REL] >>
+         match_mp_tac EVERY2_LUPDATE_same >>
+         fs [] )));
 
 val do_app_exh_i3 = prove(
   ``∀s1 op vs s2 res exh s1 s1_exh vs_exh.
@@ -700,6 +690,9 @@ val do_opapp_exh = prove(
   match_mp_tac EVERY2_refl >>
   simp[UNCURRY,env_to_exh_LIST_REL] >>
   metis_tac[]);
+
+val Boolv_i2_disjoint = EVAL``Boolv_i2 T = Boolv_i2 F``
+val Boolv_exh_disjoint = EVAL``Boolv_exh T = Boolv_exh F``
 
 val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
 `(!ck env s e r.
@@ -947,7 +940,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    first_assum(match_exists_tac o concl) >> simp[] >>
    fs[do_if_i2_def,do_if_exh_def] >>
    rw[] >> fs[] >> rw[] >>
-   every_case_tac >> fs[] >>
+   every_case_tac >> fs[Boolv_i2_disjoint,Boolv_exh_disjoint] >>
    metis_tac[] ) >>
  strip_tac >- (
    simp[exp_to_exh_def] >>
