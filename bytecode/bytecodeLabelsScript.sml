@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib lcsymtacs;
 val _ = new_theory "bytecodeLabels";
 
 open listTheory arithmeticTheory finite_mapTheory pred_setTheory rich_listTheory
-open relationTheory bytecodeTheory;
+open relationTheory bytecodeTheory bytecodeTerminationTheory;
 
 val REVERSE = Tactical.REVERSE
 
