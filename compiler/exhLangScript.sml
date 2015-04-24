@@ -392,7 +392,7 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_exh_defn;
 
 val _ = Define `
- (Boolv_exh b = (Conv_exh tuple_tag []))`;
+ (Boolv_exh b = (Conv_exh (if b then true_tag else false_tag) []))`;
 
 
 (*val do_app_exh : count_store_genv v_exh -> op_i2 -> list v_exh -> maybe (count_store_genv v_exh * result v_exh v_exh)*)
