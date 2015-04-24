@@ -347,8 +347,10 @@ val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
   LIST_REL val_rel vs vs'
   ⇒
   res_rel (Result vs) (Result vs')) ∧
-(!v.
-  res_rel (Exception v) (Exception v)) ∧
+(!v v'.
+  val_rel v v'
+  ⇒ 
+  res_rel (Exception v) (Exception v')) ∧
 (res_rel TimeOut TimeOut)`;
 
 val (ref_v_rel_rules, ref_v_rel_ind, ref_v_rel_cases) = Hol_reln `
@@ -510,6 +512,18 @@ val norm_exp_thm = Q.prove (
  fs [] >>
  metis_tac [collect_all_args_intro, HD, intro_multi_sing, intro_multi_idem]);
 
+val intro_multi_cons = Q.prove (
+`!x xs. intro_multi (x::xs) = HD (intro_multi [x])::intro_multi xs`,
+ Induct_on `xs` >>
+ rw [intro_multi_def] >>
+ Cases_on `x` >>
+ rw [intro_multi_def]);
+
+val intro_multi_sing = Q.prove (
+`!x. [HD (intro_multi [x])] = intro_multi [x]`,
+ Cases_on `x` >> 
+ rw [intro_multi_def]);
+
 
 HERE
 
@@ -541,16 +555,117 @@ val intro_multi_correct = Q.prove (
  rpt strip_tac
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def, res_rel_cases])
- >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def, res_rel_cases] >>
+     fs [intro_multi_sing] >>
+     Cases_on `cEval ([x],env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     rw []
+     >- (Cases_on `cEval (y::xs,env,r)` >>
+         fs [] >>
+         Cases_on `q` >>
+         fs [] >>
+         rw [] >>
+         res_tac >>
+         rw [] >>
+         fs [res_rel_cases] >>
+         rw [] >>
+         fs [Once intro_multi_cons] >>
+         fs [LIST_REL_EL_EQN] >>
+         rw [] >>
+         imp_res_tac cEval_length_imp >>
+         fs [] >>
+         metis_tac [EL, DECIDE ``0<1:num``]) >>
+     fs [res_rel_cases] >>
+     rw [])
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
      imp_res_tac EVERY2_LENGTH >>
      fs [LIST_REL_EL_EQN] >>
      rw [res_rel_cases])
- >- cheat
- >- cheat
- >- cheat
- >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     fs [intro_multi_sing] >>
+     Cases_on `cEval ([x1],env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     rw []
+     >- (fs [] >>
+         rw [] >>
+         `HD a = Block 0 [] ∨ HD a = Block 1 []` 
+               by (Cases_on `Block 1 [] = HD a` >> 
+                   fs [] >>
+                   Cases_on `HD a = Block 0 []` >>
+                   fs []) >>
+         fs [] >>
+         rw [] >>
+         qpat_assum `res_rel (Result a) res'` (mp_tac o SIMP_RULE (srw_ss()) [res_rel_cases]) >>
+         rw [] >>
+         res_tac >>
+         simp [] >>
+         qexists_tac `res''''` >>
+         qexists_tac `s2''''` >>
+         simp [] >>
+         imp_res_tac cEval_length_imp >>
+         `LENGTH vs' =  LENGTH [x1]` by metis_tac [intro_multi_length] >>
+         `HD vs' = HD a`
+               by (Cases_on `vs'` >>
+                   Cases_on `a` >>
+                   fs [] >>
+                   rw [] >>
+                   fs [val_rel_cases, norm_closure_def]) >>
+         fs [] >>
+         rw [] >>
+         fs []) >>
+     fs [res_rel_cases] >>
+     rw [])
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     Cases_on `cEval (xs,env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [res_rel_cases] >>
+     rw [] >>
+     `LIST_REL val_rel (a++env) (vs'++env'')` by metis_tac [EVERY2_APPEND] >>
+     last_x_assum (qspecl_then [`s2'`, `vs'++env''`] mp_tac) >>
+     rw [] >>
+     metis_tac [intro_multi_sing])
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     Cases_on `cEval ([x1],env,s)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [res_rel_cases] >>
+     rw [intro_multi_sing] >>
+     imp_res_tac cEval_length_imp >>
+     `LENGTH vs' =  LENGTH [x1]` by metis_tac [intro_multi_length] >>
+     Cases_on `vs'` >>
+     Cases_on `a` >>
+     fs [] >>
+     rw [])
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     Cases_on `cEval ([x1],env,s1)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [res_rel_cases] >>
+     rw [intro_multi_sing])
  >- cheat
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
@@ -613,8 +728,36 @@ val intro_multi_correct = Q.prove (
      fs [] >>
      imp_res_tac cEval_length_imp >>
      fs [])
- >- cheat
- >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [] >>
+     simp [cEval_def, intro_multi_def] >>
+     fs [] >>
+     Cases_on `s.clock = 0` >>
+     fs []
+     >- (fs [state_rel_def] >>
+         rw [res_rel_cases]) >>
+     `state_rel (dec_clock 1 s) (dec_clock 1 s1')` 
+                by (fs [state_rel_def] >> rw [dec_clock_def]) >>
+     res_tac >>
+     `s1'.clock ≠ 0` by (fs [state_rel_def] >> metis_tac []) >>
+     metis_tac [intro_multi_sing])
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [cEval_def, intro_multi_def] >>
+     Cases_on `cEval (xs,env,s1)` >>
+     fs [] >>
+     Cases_on `q` >>
+     fs [] >>
+     rw [] >>
+     res_tac >>
+     fs [res_rel_cases] >>
+     rw [] >>
+     Cases_on `find_code dest a r.code` >>
+     fs [] >>
+     PairCases_on `x` >>
+     fs [] >>
+     rw [] >>
+     (*`find_code dest vs' s2'.code = SOME (x0,x1)` *)
+     cheat)
  >- (fs [cEval_def] >>
      Cases_on `res` >>
      fs [res_rel_cases] >>
