@@ -53,13 +53,13 @@ val collect_args_def = Define `
 (collect_args num_args (Fn loc fvs num_args' e) =
   if num_args + num_args' ≤ max_app then
     collect_args (num_args + num_args') e
-  else 
+  else
     (max_app, Fn loc fvs (num_args + num_args' - max_app) e)) ∧
 (collect_args num_args e = (num_args, e))`;
 
 val collect_args_size = Q.prove (
 `!num_args e num_args' e'.
-  (num_args', e') = collect_args num_args e ⇒ 
+  (num_args', e') = collect_args num_args e ⇒
   num_args' + clos_exp_size e' ≤ num_args + clos_exp_size e`,
  ho_match_mp_tac (fetch "-" "collect_args_ind") >>
  rw [collect_args_def, clos_exp_size_def] >>
@@ -69,7 +69,7 @@ val collect_args_size = Q.prove (
 
 val intro_multi_def = tDefine "intro_multi"`
 (intro_multi [] = []) ∧
-(intro_multi (e1::e2::es) = 
+(intro_multi (e1::e2::es) =
   HD (intro_multi [e1]) :: HD (intro_multi [e2]) :: intro_multi es) ∧
 (intro_multi [Var n] = [Var n]) ∧
 (intro_multi [If e1 e2 e3] =
@@ -90,7 +90,7 @@ val intro_multi_def = tDefine "intro_multi"`
   let (num_args', e') = collect_args num_args e in
     [Fn loc fvs num_args' (HD (intro_multi [e']))]) ∧
 (intro_multi [Letrec loc fvs funs e] =
-  [Letrec loc fvs (MAP (\(num_args, e). 
+  [Letrec loc fvs (MAP (\(num_args, e).
                          let (num_args', e') = collect_args num_args e in
                            (num_args', HD (intro_multi [e'])))
                        funs)
@@ -101,7 +101,7 @@ val intro_multi_def = tDefine "intro_multi"`
   srw_tac [ARITH_ss] [clos_exp_size_def] >>
   imp_res_tac collect_args_size >>
   TRY decide_tac >>
-  `num_args + clos_exp_size e' ≤ clos_exp1_size funs` 
+  `num_args + clos_exp_size e' ≤ clos_exp1_size funs`
           by (Induct_on `funs` >>
               rw [clos_exp_size_def] >>
               rw [clos_exp_size_def] >>
@@ -109,7 +109,7 @@ val intro_multi_def = tDefine "intro_multi"`
               decide_tac) >>
   decide_tac);
 
-val intro_multi_length = Q.prove ( 
+val intro_multi_length = Q.prove (
 `!es. LENGTH (intro_multi es) = LENGTH es`,
  recInduct (fetch "-" "intro_multi_ind") >>
  rw [intro_multi_def] >>
@@ -193,11 +193,11 @@ val collect_all_args_def = Define `
   collect_all_args (num_args + num_args') e) ∧
 (collect_all_args num_args e = (num_args, e))`;
 
-val count_all_args_def = Define 
+val count_all_args_def = Define
 `(count_all_args (Fn loc fvs num_args e) = num_args + count_all_args e) ∧
  (count_all_args _ = 0)`;
 
-val strip_fns_def = Define 
+val strip_fns_def = Define
 `(strip_fns (Fn loc fvs num_args e) = strip_fns e) ∧
  (strip_fns x = x)`;
 
@@ -322,7 +322,7 @@ val cl_ok_def = Define `
     i < LENGTH funs ∧ 0 < num_args ∧ LENGTH args < num_args)`;
 
 val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
-(!n. 
+(!n.
   val_rel (Number n) (Number n)) ∧
 (!n vs vs'.
   LIST_REL val_rel vs vs'
@@ -349,7 +349,7 @@ val (res_rel_rules, res_rel_ind, res_rel_cases) = Hol_reln `
   res_rel (Result vs) (Result vs')) ∧
 (!v v'.
   val_rel v v'
-  ⇒ 
+  ⇒
   res_rel (Exception v) (Exception v')) ∧
 (res_rel TimeOut TimeOut)`;
 
@@ -371,7 +371,7 @@ state_rel (s:clos_state) s' ⇔
   s.restrict_envs = s'.restrict_envs`;
 
 val lookup_vars_list_rel = Q.prove (
-`!vs env env' f. 
+`!vs env env' f.
   LIST_REL f env env'
   ⇒
   OPTION_REL (LIST_REL f) (lookup_vars vs env) (lookup_vars vs env')`,
@@ -456,7 +456,7 @@ val dest_closure_partial_partial = Q.prove (
  fs [cl_ok_def, norm_exp_def, norm_closure_def, LET_THM, inferPropsTheory.remove_pair_lem]
  >- (rw [] >>
      TRY decide_tac >>
-     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST,
                 pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
  >- (ect >>
      fs [] >>
@@ -470,7 +470,7 @@ val dest_closure_partial_partial = Q.prove (
      fs [LET_THM] >>
      rw [] >>
      TRY decide_tac >>
-     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST,
                 pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
  >- (ect >>
      fs [] >>
@@ -484,7 +484,7 @@ val dest_closure_partial_partial = Q.prove (
      fs [LET_THM] >>
      rw [] >>
      TRY decide_tac >>
-     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST,
                 pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ])
  >- (ect >>
      fs [] >>
@@ -498,7 +498,7 @@ val dest_closure_partial_partial = Q.prove (
      fs [norm_exp_def, LET_THM] >>
      rw [] >>
      TRY decide_tac >>
-     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST, 
+     metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST,
                 pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ]));
 
 val norm_exp_thm = Q.prove (
@@ -521,11 +521,11 @@ val intro_multi_cons = Q.prove (
 
 val intro_multi_sing = Q.prove (
 `!x. [HD (intro_multi [x])] = intro_multi [x]`,
- Cases_on `x` >> 
+ Cases_on `x` >>
  rw [intro_multi_def]);
 
 
-HERE
+(* HERE
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
@@ -599,8 +599,8 @@ val intro_multi_correct = Q.prove (
      rw []
      >- (fs [] >>
          rw [] >>
-         `HD a = Block 0 [] ∨ HD a = Block 1 []` 
-               by (Cases_on `Block 1 [] = HD a` >> 
+         `HD a = Block 0 [] ∨ HD a = Block 1 []`
+               by (Cases_on `Block 1 [] = HD a` >>
                    fs [] >>
                    Cases_on `HD a = Block 0 []` >>
                    fs []) >>
@@ -736,7 +736,7 @@ val intro_multi_correct = Q.prove (
      fs []
      >- (fs [state_rel_def] >>
          rw [res_rel_cases]) >>
-     `state_rel (dec_clock 1 s) (dec_clock 1 s1')` 
+     `state_rel (dec_clock 1 s) (dec_clock 1 s1')`
                 by (fs [state_rel_def] >> rw [dec_clock_def]) >>
      res_tac >>
      `s1'.clock ≠ 0` by (fs [state_rel_def] >> metis_tac []) >>
@@ -835,12 +835,12 @@ val intro_multi_correct = Q.prove (
              rw []
 
              *)
-            
+
 
      (*
      * OLD VALUE RELATION
 val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
-(!n. 
+(!n.
   val_rel (Number n) (Number n)) ∧
 (!n vs vs'.
   LIST_REL val_rel vs vs'
@@ -854,7 +854,7 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
   LIST_REL val_rel extra extra' ∧
   exp_rel (num_args,e) (num_args',e')
   ⇒
-  val_rel (Closure loc args (extra++env) num_args e) 
+  val_rel (Closure loc args (extra++env) num_args e)
           (Closure loc (extra'++args') env' num_args' e')) ∧
 (!args args' env env' funs funs' i extra extra'.
   LIST_REL val_rel args args' ∧
@@ -902,7 +902,7 @@ state_rel (s:clos_state) s' ⇔
   s.restrict_envs = s'.restrict_envs`;
 
 val lookup_vars_list_rel = Q.prove (
-`!vs env env' f. 
+`!vs env env' f.
   LIST_REL f env env'
   ⇒
   OPTION_REL (LIST_REL f) (lookup_vars vs env) (lookup_vars vs env')`,
@@ -951,7 +951,7 @@ val collect_args_mono = Q.prove (
  imp_res_tac collect_args_more >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
 
-val intro_multi_length = Q.prove ( 
+val intro_multi_length = Q.prove (
 `!es. LENGTH (intro_multi es) = LENGTH es`,
  recInduct (fetch "-" "intro_multi_ind") >>
  rw [intro_multi_def] >>
@@ -1033,13 +1033,13 @@ val lastn_lemma = Q.prove (
      rw [BUTLASTN, LASTN])
  >- (`n1 = n2 ∧ n2 = n3` by decide_tac >>
      rw [BUTLASTN, LASTN]) >>
- rw_tac std_ss [LASTN, GSYM SNOC_APPEND] >> 
+ rw_tac std_ss [LASTN, GSYM SNOC_APPEND] >>
  Cases_on `n2-n3` >>
  rw [LASTN, BUTLASTN] >>
  fs []
  >- (`n2 = n3` by decide_tac >>
      rw_tac std_ss [LASTN, GSYM SNOC_APPEND]) >>
- rw_tac std_ss [BUTLASTN, GSYM SNOC_APPEND, LASTN] >> 
+ rw_tac std_ss [BUTLASTN, GSYM SNOC_APPEND, LASTN] >>
  fs [] >>
  first_x_assum (qspecl_then [`n1`, `n2`, `n3+1`] mp_tac) >>
  rw [] >>
@@ -1063,7 +1063,7 @@ val dest_closure_full_thm = Q.prove (
     LIST_REL val_rel rest_args rest_args' ∧
     exp_rel (n,e) (n',e') ∧
     n'-n ≤ LENGTH rest_args' ∧
-    dest_closure NONE f' args' = 
+    dest_closure NONE f' args' =
       SOME (Full_app e' (LASTN (n'-n) rest_args' ++ env') (BUTLASTN (n'-n) rest_args')))`,
  rw [dest_closure_def] >>
  ect >>
@@ -1076,11 +1076,11 @@ val dest_closure_full_thm = Q.prove (
      `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
      `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
      rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
-     MAP_EVERY qexists_tac [`n'`, `n`, `LASTN num_args1 args'++l++l0`, 
+     MAP_EVERY qexists_tac [`n'`, `n`, `LASTN num_args1 args'++l++l0`,
                             `BUTLASTN num_args1 args'`] >>
      rw []
      >- (rfs [] >>
-         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')` 
+         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')`
                 by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
                     rw [] >>
                     `n'' + (LENGTH args' - num_args1) < LENGTH args'` by decide_tac >>
@@ -1127,7 +1127,7 @@ val dest_closure_full_thm = Q.prove (
      simp [add_args_def] >>
      reverse (rw []) >>
      fs [NOT_LESS_EQUAL] >>
-     `q ≤ q'` by (fs [LIST_REL_EL_EQN] >> metis_tac [exp_rel_def]) 
+     `q ≤ q'` by (fs [LIST_REL_EL_EQN] >> metis_tac [exp_rel_def])
      >- (fs [LIST_REL_EL_EQN] >>
          `exp_rel (q,e) (q',r')` by metis_tac [] >>
          fs [exp_rel_def] >>
@@ -1141,11 +1141,11 @@ val dest_closure_full_thm = Q.prove (
      `num_args1 ≤ LENGTH args` by simp [Abbr `num_args1`] >>
      `num_args2 ≤ LENGTH args'` by simp [Abbr `num_args2`] >>
      rw [DROP_REVERSE, TAKE_REVERSE, LASTN_MAP, ETA_THM, BUTLASTN_MAP] >>
-     MAP_EVERY qexists_tac [`q`, `q'`, `LASTN num_args1 args'++l++GENLIST (Recclosure n0 [] l0 l1) (LENGTH l1)++l0`, 
+     MAP_EVERY qexists_tac [`q`, `q'`, `LASTN num_args1 args'++l++GENLIST (Recclosure n0 [] l0 l1) (LENGTH l1)++l0`,
                             `BUTLASTN num_args1 args'`] >>
      rw []
      >- (rfs [] >>
-         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')` 
+         `LIST_REL val_rel (LASTN num_args1 args) (LASTN num_args1 args')`
                 by (rfs [LIST_REL_EL_EQN, LENGTH_LASTN] >>
                     rw [] >>
                     `n' + (LENGTH args' - num_args1) < LENGTH args'` by decide_tac >>
@@ -1185,7 +1185,7 @@ val run_exp_rel = Q.prove (
 `!n e n' e' env env' s s' l.
   LIST_REL val_rel env env' ∧
   state_rel s s' ∧
-  exp_rel (n,e) (n',e') 
+  exp_rel (n,e) (n',e')
   ⇒
   cEval ([e], env, s) = cEval ([e'], l++env, dec_clock (n' - n) s)`,
  rw [exp_rel_def] >>
