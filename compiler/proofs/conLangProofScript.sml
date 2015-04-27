@@ -60,10 +60,16 @@ has_lists gtagenv ⇔
   FLOOKUP gtagenv ("nil", TypeId (Short "list")) = SOME (nil_tag,0:num) ∧
   FLOOKUP gtagenv ("::", TypeId (Short "list")) = SOME (cons_tag,2)`;
 
+val has_bools_def = Define`
+  has_bools gtagenv ⇔
+  FLOOKUP gtagenv ("true", TypeId(Short"bool")) = SOME (true_tag,0:num) ∧
+  FLOOKUP gtagenv ("false", TypeId(Short"bool")) = SOME (false_tag,0:num)`
+
 val gtagenv_wf_def = Define `
 gtagenv_wf gtagenv ⇔
   (∀cn l. FLOOKUP gtagenv cn ≠ SOME (tuple_tag,l)) ∧
   has_exns gtagenv ∧
+  has_bools gtagenv ∧
   has_lists gtagenv ∧
   (∀t1 t2 tag l1 l2 cn cn'.
     (* Comment out same_tid because we're not using separate tag spaces per type *)
@@ -321,6 +327,8 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_exns_def] >>
          metis_tac [FLOOKUP_SUBMAP])
+     >- (fs [has_bools_def] >>
+         metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
      >- metis_tac []
@@ -334,6 +342,8 @@ val v_to_i2_weakening = Q.prove (
      >- (res_tac >>
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_exns_def] >>
+         metis_tac [FLOOKUP_SUBMAP])
+     >- (fs [has_bools_def] >>
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
@@ -831,6 +841,17 @@ val v_i2_to_char_list_correct = Q.prove (
  res_tac >>
  fs [gtagenv_wf_def, has_lists_def])
 
+val v_to_i2_Boolv_i2 = store_thm("v_to_i2_Boolv_i2",
+  ``gtagenv_wf gtagenv ⇒
+    v_to_i2 gtagenv (Boolv_i1 b) (Boolv_i2 b) ∧
+    (∀v. v_to_i2 gtagenv (Boolv_i1 b) v ⇔ (v = Boolv_i2 b)) ∧
+    (∀v. v_to_i2 gtagenv v (Boolv_i2 b) ⇔ (v = Boolv_i1 b))``,
+  rw[Once v_to_i2_cases,Boolv_i1_def,Boolv_i2_def,
+     vs_to_i2_list_rel,gtagenv_wf_def,has_bools_def] >>
+  rw[Once v_to_i2_cases] >>
+  rw[Once v_to_i2_cases] >>
+  metis_tac[])
+
 val tac =
   fs [do_app_i1_def] >>
   every_case_tac >>
@@ -848,6 +869,7 @@ val tac =
   rw [] >>
   fs [v_to_i2_eqns] >>
   rw [v_to_i2_eqns] >>
+  fs [v_to_i2_Boolv_i2] >>
   TRY (fs [gtagenv_wf_def, has_exns_def] >> NO_TAC);
 
 val do_app_i2_correct = Q.prove (
@@ -876,7 +898,7 @@ val do_app_i2_correct = Q.prove (
      >- (every_case_tac >>
          imp_res_tac do_eq_i2 >>
          rw [do_app_i2_def, result_to_i2_cases, v_to_i2_eqns, prim_exn_i1_def, prim_exn_i2_def] >>
-         rw [] >>
+         rw [] >> fs[v_to_i2_Boolv_i2] >>
          fs [gtagenv_wf_def, has_exns_def])
      >- (every_case_tac >>
          fs []))
@@ -1041,6 +1063,14 @@ val lookup_tag_env_NONE = Q.prove (
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
+val Boolv_i2_11 = store_thm("Boolv_i2_11[simp]",
+  ``Boolv_i2 b1 = Boolv_i2 b2 ⇔ (b1 = b2)``,
+  EVAL_TAC >> rw[])
+
+val Boolv_i1_11 = store_thm("Boolv_i1_11[simp]",
+  ``Boolv_i1 b1 = Boolv_i1 b2 ⇔ (b1 = b2)``,
+  EVAL_TAC >> rw[])
+
 val exp_to_i2_correct = Q.prove (
 `(∀b env s e res.
    evaluate_i1 b env s e res ⇒
@@ -1196,12 +1226,15 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      MAP_EVERY qexists_tac [`s'_i2''`, `r_i2`] >>
      rw [] >>
-     disj1_tac
-     >- (qexists_tac `Litv_i2 (Bool F)` >>
-         fs [v_to_i2_eqns, exp_to_i2_def] >>
+     disj1_tac >> fs[] >>
+     `gtagenv_wf gtagenv` by(
+       fs[Once env_all_to_i2_cases] >>
+       fs[cenv_inv_def] )
+     >- (qexists_tac `(Boolv_i2 F)` >>
+         fs [v_to_i2_Boolv_i2, v_to_i2_eqns, exp_to_i2_def] >>
          metis_tac [])
-     >- (qexists_tac `Litv_i2 (Bool T)` >>
-         fs [v_to_i2_eqns, exp_to_i2_def] >>
+     >- (qexists_tac `(Boolv_i2 T)` >>
+         fs [v_to_i2_Boolv_i2, v_to_i2_eqns, exp_to_i2_def] >>
          metis_tac []))
  >- metis_tac []
  >- metis_tac []
@@ -1982,6 +2015,10 @@ val cenv_inv_to_mod = prove(
     rw[] >> fs[FLOOKUP_DEF,FORALL_PROD] >>
     metis_tac[] ) >>
   conj_tac >- (
+    fs[has_bools_def,FLOOKUP_UPDATE] >>
+    rw[] >> fs[FLOOKUP_DEF,FORALL_PROD] >>
+    metis_tac[] ) >>
+  conj_tac >- (
     fs[has_lists_def,FLOOKUP_UPDATE] >>
     rw[] >> fs[FLOOKUP_DEF,FORALL_PROD] >>
     metis_tac[] ) >>
@@ -2112,6 +2149,14 @@ val gtagenv_weak_galloc_tags = prove(
     imp_res_tac ALOOKUP_MEM >>
     fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY] ) >>
+  conj_tac >- (
+    fs[has_bools_def,flookup_fupdate_list] >>
+    fs[FORALL_PROD,FLOOKUP_DEF] >>
+    every_case_tac >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[galloc_tags_def,MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,MEM_ZIP,UNCURRY] >>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[EL_MAP,UNCURRY] >>
+    metis_tac[]) >>
   conj_tac >- (
     fs[has_lists_def,flookup_fupdate_list] >>
     fs[FORALL_PROD,FLOOKUP_DEF] >>
@@ -2850,6 +2895,10 @@ val decs_to_i2_correct = Q.prove (
      conj_tac >- (
        pop_assum kall_tac >>
        fs[cenv_inv_def,gtagenv_wf_def,has_exns_def,FLOOKUP_UPDATE] >>
+       rw[] >> fs[FLOOKUP_DEF] ) >>
+     conj_tac >- (
+       pop_assum kall_tac >>
+       fs[cenv_inv_def,gtagenv_wf_def,has_bools_def,FLOOKUP_UPDATE] >>
        rw[] >> fs[FLOOKUP_DEF] ) >>
      conj_tac >- (
        pop_assum kall_tac >>
