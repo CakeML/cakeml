@@ -99,7 +99,7 @@ val _ = Hol_datatype `
 
 
 val _ = Define `
- (Bool_i1 b = (Con_i1 (SOME (Short (if b then "true" else "false"))) []))`;
+ (Bool_i1 b = (App_i1 (Opb (if b then Leq else Lt)) [Lit_i1 (IntLit(( 0 : int))); Lit_i1 (IntLit(( 0 : int)))]))`;
 
 val _ = Define `
  (Boolv_i1 b = (Conv_i1 (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []))`;

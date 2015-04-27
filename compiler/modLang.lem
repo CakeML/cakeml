@@ -80,7 +80,7 @@ type v_i1 =
   | Loc_i1 of nat
   | Vectorv_i1 of list v_i1
 
-let Bool_i1 b = Con_i1 (Just (Short (if b then "true" else "false"))) []
+let Bool_i1 b = App_i1 (Opb (if b then Leq else Lt)) [Lit_i1 (IntLit 0); Lit_i1 (IntLit 0)]
 let Boolv_i1 b = Conv_i1 (Just (if b then "true" else "false", TypeId (Short "bool"))) []
 
 val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1
