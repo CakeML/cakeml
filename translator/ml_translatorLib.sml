@@ -506,7 +506,7 @@ in
     (type_mappings := (ty,target_ty) :: (!type_mappings))
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
-    if ty = ``:bool`` then ``TC_name (Short "bool")`` else
+    if ty = ``:bool`` then ``Tapp [] (TC_name (Short "bool"))`` else
     if ty = ``:word8`` then ``Tapp [] TC_word8`` else
     if ty = ``:int`` then ``Tapp [] TC_int`` else
     if ty = ``:num`` then ``Tapp [] TC_int`` else
