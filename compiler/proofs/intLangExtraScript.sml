@@ -241,6 +241,7 @@ val Cevaluate_vlabs = store_thm("Cevaluate_vlabs",
       metis_tac[MEM_EL]) >>
     ntac 4 gen_tac >>
     Cases >> rw[CBoolv_def] >>
+    TRY(Cases_on`l:Cv list`>>fs[CBoolv_def]>>NO_TAC) >>
     fs[el_check_def,EVERY_MEM] >>
     BasicProvers.EVERY_CASE_TAC >>
     fsrw_tac[DNF_ss][SUBSET_DEF,vlabs_list_MAP,vlabs_csg_def,store_vs_def] >> rw[] >>
@@ -401,6 +402,7 @@ val tac1 =
       metis_tac[MEM_EL,optionTheory.IS_SOME_DEF,optionTheory.THE_DEF] ) >>
     ntac 4 gen_tac >>
     Cases >> rw[CBoolv_def] >>
+    TRY(Cases_on`l:Cv list`>>fs[CBoolv_def]>>NO_TAC) >>
     fs[el_check_def,EVERY_MEM] >>
     TRY (
       pop_assum mp_tac >> BasicProvers.CASE_TAC>>fs[]>>
@@ -1550,6 +1552,9 @@ val CevalPrim1_syneq = store_thm("CevalPrim1_syneq",
     simp[] >> rw[] >> fs[EVERY2_EVERY] >> lrw[GSYM ZIP_APPEND] ) >>
   Cases >> simp[Once syneq_cases] >>
   fsrw_tac[DNF_ss][CBoolv_def] >>
+  TRY(Cases_on`l:Cv list`>>fs[PULL_EXISTS] >>
+      rw[el_check_def,EVERY2_EVERY] >>
+      Cases_on`n:num`>>fs[]>>NO_TAC) >>
   TRY (
     rw[CvFromList_def] >>
     BasicProvers.CASE_TAC >>
@@ -2220,6 +2225,7 @@ val CevalPrim1_closed = store_thm("CevalPrim1_closed",
     every_result Cclosed Cclosed (SND (CevalPrim1 uop s v))``,
   Cases >> Cases >> rw[LET_THM,Cclosed_rules] >> rw[] >>
   Cases_on`v`>>fs[] >>
+  TRY(Cases_on`l:Cv list`>>fs[])>>
   rw[el_check_def] >>
   fsrw_tac[DNF_ss][EVERY_MEM,MEM_EL] >>
   rw[EL_LUPDATE] >>

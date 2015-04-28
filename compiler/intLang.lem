@@ -283,6 +283,9 @@ and
 CevalPrim1 CIsBlock sg (CLitv l) =
   (sg, Rval (CBoolv (match l with IntLit _ -> false | Word8 _ -> false | Char _ -> false | _ -> true end)))
 and
+CevalPrim1 CIsBlock sg (CConv t []) =
+  (sg, Rval (CBoolv true))
+and
 CevalPrim1 (CTagEq n) sg (CConv t _) =
   (sg, Rval (CBoolv (n = t)))
 and

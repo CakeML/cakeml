@@ -2640,7 +2640,9 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     fs[s_refs_def] >> simp[SUM_APPEND,FILTER_APPEND] >>
     TRY(qexists_tac`rd.sm`) >> simp[CBoolv_def] >>
     simp[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
-    fs[good_rd_def])
+    fs[good_rd_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[CBoolv_def,conLangTheory.true_tag_def])
   >- ((*Length*)
     Cases_on`v1`>>fs[]>>
     qpat_assum`X = Rval v`mp_tac >>
