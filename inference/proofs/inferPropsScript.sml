@@ -3312,70 +3312,12 @@ val check_weakE_EVERY = store_thm("check_weakE_EVERY",
     metis_tac[] ) >>
   simp[markerTheory.Abbrev_def,IS_SOME_EXISTS] )
 
-val EVERY_anub_imp = store_thm("EVERY_anub_imp",
-  ``∀ls acc x y.
-      EVERY P (anub ((x,y)::ls) acc) ∧ x ∉ set acc
-      ⇒
-      P (x,y) ∧ EVERY P (anub ls (x::acc))``,
-  ho_match_mp_tac anub_ind >> rw[anub_def] >>
-  fs[MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD])
-
-val ALOOKUP_anub = store_thm("ALOOKUP_anub",
-  ``ALOOKUP (anub ls acc) k =
-    if MEM k acc then ALOOKUP (anub ls acc) k
-    else ALOOKUP ls k``,
-  qid_spec_tac`acc` >>
-  Induct_on`ls` >>
-  rw[anub_def] >>
-  Cases_on`h`>>rw[anub_def]>>fs[] >- (
-    first_x_assum(qspec_then`acc`mp_tac) >>
-    rw[] ) >>
-  first_x_assum(qspec_then`q::acc`mp_tac) >>
-  rw[])
-
-val anub_eq_nil = store_thm("anub_eq_nil",
-  ``anub x y = [] ⇔ EVERY (combin$C MEM y) (MAP FST x)``,
-  qid_spec_tac`y` >>
-  Induct_on`x`>>rw[anub_def]>>
-  Cases_on`h`>>rw[anub_def])
-
-val anub_notin_acc = store_thm("anub_notin_acc",
-  ``∀ls acc. MEM x acc ⇒ ¬MEM x (MAP FST (anub ls acc))``,
-  Induct >> simp[anub_def] >>
-  Cases >> simp[anub_def] >> rw[] >>
-  metis_tac[])
-
-val anub_tl_anub = store_thm("anub_tl_anub",
-  ``∀x y h t. anub x y = h::t ⇒ ∃a b. t = anub a b ∧ set a ⊆ set x ∧ set b ⊆ set ((FST h)::y)``,
-  Induct >> rw[anub_def] >>
-  Cases_on`h`>>fs[anub_def] >>
-  pop_assum mp_tac  >> rw[] >>
-  res_tac >> rw[] >>
-  fs[SUBSET_DEF] >>
-  metis_tac[MEM] )
-
 val convert_env2_anub = store_thm("convert_env2_anub",
   ``∀ls ac. convert_env2 (anub ls ac) = anub (convert_env2 ls) ac``,
   Induct >> fs[anub_def,convert_env2_def] >>
   fs[UNCURRY] >>
   Cases >> fs[anub_def,UNCURRY] >> rw[] >>
   Cases_on`r`>>fs[])
-
-val EVERY_anub = store_thm("EVERY_anub",
-  ``∀ls acc.
-    (∀x. ¬MEM x acc ⇒ case ALOOKUP ls x of SOME v => P (x,v) | NONE => T)
-    ⇒ EVERY P (anub ls acc)``,
-  Induct >> simp[anub_def] >>
-  Cases >> simp[anub_def] >> rw[] >- (
-    first_x_assum(match_mp_tac) >>
-    rw[] >>
-    res_tac >>
-    pop_assum mp_tac >> IF_CASES_TAC >> fs[] )
-  >- (
-    res_tac >> fs[] ) >>
-  first_x_assum match_mp_tac >>
-  rw[] >> res_tac >> fs[] >>
-  `q ≠ x` by fs[] >> fs[])
 
 val check_freevars_more = Q.prove (
 `(!t x fvs1 fvs2.

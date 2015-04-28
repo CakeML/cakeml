@@ -282,8 +282,10 @@ val ts_unify_side_def = store_thm("ts_unify_side_def",
   THEN FULL_SIMP_TAC std_ss [])
   |> update_precondition;
 
-
 (* type inference: rest *)
+
+val _ = save_thm("anub_ind",REWRITE_RULE[MEMBER_INTRO]miscTheory.anub_ind)
+val _ = translate (REWRITE_RULE[MEMBER_INTRO] miscTheory.anub_def)
 
 val _ = (extra_preprocessing :=
   [MEMBER_INTRO, MAP, OPTION_BIND_THM, st_ex_bind_def,

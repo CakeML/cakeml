@@ -15,6 +15,91 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val anub_def = Define`
+  (anub [] acc = []) ∧
+  (anub ((k,v)::ls) acc =
+   if MEM k acc then anub ls acc else
+   (k,v)::(anub ls (k::acc)))`
+
+val anub_ind = theorem"anub_ind"
+
+val EVERY_anub_imp = store_thm("EVERY_anub_imp",
+  ``∀ls acc x y.
+      EVERY P (anub ((x,y)::ls) acc) ∧ x ∉ set acc
+      ⇒
+      P (x,y) ∧ EVERY P (anub ls (x::acc))``,
+  ho_match_mp_tac anub_ind >> rw[anub_def] >>
+  fs[MEM_MAP,PULL_EXISTS,FORALL_PROD,EXISTS_PROD])
+
+val ALOOKUP_anub = store_thm("ALOOKUP_anub",
+  ``ALOOKUP (anub ls acc) k =
+    if MEM k acc then ALOOKUP (anub ls acc) k
+    else ALOOKUP ls k``,
+  qid_spec_tac`acc` >>
+  Induct_on`ls` >>
+  rw[anub_def] >>
+  Cases_on`h`>>rw[anub_def]>>fs[] >- (
+    first_x_assum(qspec_then`acc`mp_tac) >>
+    rw[] ) >>
+  first_x_assum(qspec_then`q::acc`mp_tac) >>
+  rw[])
+
+val anub_eq_nil = store_thm("anub_eq_nil",
+  ``anub x y = [] ⇔ EVERY (combin$C MEM y) (MAP FST x)``,
+  qid_spec_tac`y` >>
+  Induct_on`x`>>rw[anub_def]>>
+  Cases_on`h`>>rw[anub_def])
+
+val EVERY_anub_suff = store_thm("EVERY_anub_suff",
+  ``∀ls acc.
+    (∀x. ¬MEM x acc ⇒ case ALOOKUP ls x of SOME v => P (x,v) | NONE => T)
+    ⇒ EVERY P (anub ls acc)``,
+  Induct >> simp[anub_def] >>
+  Cases >> simp[anub_def] >> rw[] >- (
+    first_x_assum(match_mp_tac) >>
+    rw[] >>
+    res_tac >>
+    pop_assum mp_tac >> IF_CASES_TAC >> fs[] )
+  >- (
+    res_tac >> fs[] ) >>
+  first_x_assum match_mp_tac >>
+  rw[] >> res_tac >> fs[] >>
+  `q ≠ x` by fs[] >> fs[])
+
+val anub_notin_acc = store_thm("anub_notin_acc",
+  ``∀ls acc. MEM x acc ⇒ ¬MEM x (MAP FST (anub ls acc))``,
+  Induct >> simp[anub_def] >>
+  Cases >> simp[anub_def] >> rw[] >>
+  metis_tac[])
+
+val anub_tl_anub = store_thm("anub_tl_anub",
+  ``∀x y h t. anub x y = h::t ⇒ ∃a b. t = anub a b ∧ set a ⊆ set x ∧ set b ⊆ set ((FST h)::y)``,
+  Induct >> rw[anub_def] >>
+  Cases_on`h`>>fs[anub_def] >>
+  pop_assum mp_tac  >> rw[] >>
+  res_tac >> rw[] >>
+  fs[SUBSET_DEF] >>
+  metis_tac[MEM] )
+
+val anub_all_distinct_keys = store_thm("anub_all_distinct_keys",
+  ``∀ls acc.
+    ALL_DISTINCT acc ⇒
+    ALL_DISTINCT ((MAP FST (anub ls acc)) ++ acc)``,
+  Induct>>rw[anub_def]>>PairCases_on`h`>>fs[anub_def]>>
+  rw[]>>
+  `ALL_DISTINCT (h0::acc)` by fs[ALL_DISTINCT]>>res_tac>>
+  fs[ALL_DISTINCT_APPEND]>>
+  metis_tac[])
+
+val MEM_anub_ALOOKUP = store_thm("MEM_anub_ALOOKUP",
+  ``MEM (k,v) (anub ls []) ⇒
+    ALOOKUP ls k = SOME v``,
+  rw[]>>
+  Q.ISPECL_THEN[`ls`,`[]`] assume_tac anub_all_distinct_keys>>
+  Q.ISPECL_THEN [`ls`,`k`,`[]`] assume_tac (GEN_ALL ALOOKUP_anub)>>
+  fs[]>>
+  metis_tac[ALOOKUP_ALL_DISTINCT_MEM])
+
 val LIST_REL_REPLICATE_same = store_thm("LIST_REL_REPLICATE_same",
   ``LIST_REL P (REPLICATE n x) (REPLICATE n y) ⇔ (n > 0 ⇒ P x y)``,
   simp[LIST_REL_EL_EQN,rich_listTheory.REPLICATE_GENLIST] >>
