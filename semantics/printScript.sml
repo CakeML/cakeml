@@ -29,7 +29,11 @@ val print_lit_def = Define `
 
 val print_v_def = Define `
 (print_v (Litv l) = print_lit l) ∧
-(print_v (Conv _ _) = "<constructor>") ∧
+(print_v (Conv t _) =
+  if t = NONE then "()"
+  else if t = SOME("true",TypeId(Short"bool")) then "true"
+  else if t = SOME("false",TypeId(Short"bool")) then "false"
+  else "<constructor>") ∧
 (print_v (Vectorv _) = "<vector>") ∧
 (print_v (Closure _ _ _) = "<fn>") ∧
 (print_v (Recclosure _ _ _) = "<fn>") ∧
