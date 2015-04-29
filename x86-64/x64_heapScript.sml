@@ -7004,6 +7004,8 @@ val (pop_all_cert,pop_all_def,pop_all_pre_def) = x64_compile `
         let (x2,stack) = (HD stack, TL stack) in
           pop_all stack`
 
+val closure_tag = rhs(concl(EVAL``&closure_tag``))
+
 val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
   equal_loop (x1:bc_value,x2,x3,x4,stack:bc_value list) =
     let (x1,stack) = (HD stack, TL stack) in
@@ -7051,7 +7053,7 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                if getTag x1 = getTag x2 then
                  let x3 = x1 in
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 5 then
+                 if getNumber x1 = ^closure_tag then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
@@ -7068,14 +7070,14 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                          (x1,x2,x3,x4,stack)
                else
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 5 then
+                 if getNumber x1 = ^closure_tag then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
                  else
                    let x1 = x2 in
                    let x1 = Number (& (getTag x1)) in
-                   if getNumber x1 = 5 then
+                   if getNumber x1 = ^closure_tag then
                      let x1 = Number 0 in
                      let (x2,stack) = pop_all stack in
                        (x1,x2,x3,x4,stack)
@@ -7217,9 +7219,9 @@ val equal_loop_thm = prove(
     \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
     \\ FULL_SIMP_TAC std_ss [getTag_def,getContent_def,bc_equal_def]
     \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Cases_on `n' = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-      \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
-    \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+     (Cases_on `n' = 2` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+      \\ Cases_on `n = 2` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
+    \\ Cases_on `n = 2` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
     \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
     \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
