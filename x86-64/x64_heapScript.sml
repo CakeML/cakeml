@@ -17594,7 +17594,7 @@ val zBC_JumpIf_1 = let
   val lemma = prove(goal,
     fs [sts] \\ fs [SEP_HIDE_def,SEP_CLAUSES,SEP_IMP_def,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC
-    \\ Q.LIST_EXISTS_TAC [`x'`,`x'''`,`x`,`(SOME (x1 = Block 0 []))`,`x''''`,`x''`]
+    \\ Q.LIST_EXISTS_TAC [`x'`,`x'''`,`x`,`(SOME (x1 = Block 10 []))`,`x''''`,`x''`]
     \\ fs [AC STAR_ASSOC STAR_COMM]
     \\ POP_ASSUM MP_TAC \\ fs [STAR_ASSOC])
   val th = MP th lemma
@@ -17664,7 +17664,7 @@ val zBC_Sub = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_SUB_SMALL_INT,zH
 val zBC_Mul = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_MUL_SMALL_INT] |> fix_code
 val zBC_Div = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_DIV_SMALL_INT,zHEAP_NOP] |> fix_code
 val zBC_Mod = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_MOD_SMALL_INT,zHEAP_NOP] |> fix_code
-val zBC_Less = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SMALL_INT,zHEAP_NOP] |> fix_code
+val zBC_Less = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SMALL_INT] |> fix_code
 
 val zBC_Galloc = zBC_Tick
 
@@ -17710,6 +17710,7 @@ val (zBC_EndOfCode, end_of_code_def) = let
    [zHEAP_PUSH1,
     zHEAP_Nil1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val F``)],
+    zHEAP_NOP,
     zHEAP_JMP_STOP_ADDR] |> fix_code
   val code = th |> concl |> rator |> rand |> rator |> rand |> rand
   val end_of_code_def = Define `end_of_code = ^code`;
