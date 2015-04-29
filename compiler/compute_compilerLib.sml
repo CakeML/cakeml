@@ -22,14 +22,17 @@ fun add_intermediate_compiler_compset compset = let
   (* tags *)
   val () = add_thms
     [tuple_tag_def
-    ,div_tag_def
     ,bind_tag_def
+    ,chr_tag_def
+    ,div_tag_def
     ,eq_tag_def
-    ,cons_tag_def
-    ,nil_tag_def
-    ,some_tag_def
-    ,none_tag_def
     ,subscript_tag_def
+    ,true_tag_def
+    ,false_tag_def
+    ,nil_tag_def
+    ,cons_tag_def
+    ,none_tag_def
+    ,some_tag_def
     ] compset
   val () = compute_bytecodeLib.add_bytecode_tags_compset compset
   (* modLang compiler *)
@@ -40,6 +43,7 @@ fun add_intermediate_compiler_compset compset = let
     ,dec_to_i1_def
     ,exp_to_i1_def
     ,alloc_defs_def
+    ,Bool_i1_def
     ] compset
   val () = add_datatype ``:prompt_i1``
   val () = add_datatype ``:dec_i1``
@@ -94,6 +98,7 @@ fun add_intermediate_compiler_compset compset = let
     ,SUC_TO_NUMERAL_RULE Let_Els_pat_def
     ,pure_op_pat_def
     ,pure_op_def
+    ,Bool_pat_def
     ] compset
   val () = add_datatype ``:exp_pat``
   val () = add_datatype ``:op_pat``
