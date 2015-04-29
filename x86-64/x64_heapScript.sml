@@ -16092,18 +16092,18 @@ val (bc_print_aux_res,bc_print_aux_def,bc_print_aux_pre_def) = x64_compile `
     else if isBlock x1 then
       let x2 = x1 in
       let x1 = Number (&getTag x1) in
-        if getNumber x1 = 0 then (* true *)
+        if getNumber x1 = 10 then (* false *)
           let s = s with output := STRCAT s.output "false" in (x1,x2,s)
-        else if getNumber x1 = 1 then (* false *)
+        else if getNumber x1 = 9 then (* true *)
           let s = s with output := STRCAT s.output "true" in (x1,x2,s)
-        else if getNumber x1 = 2 then (* unit_tag *)
+        else if getNumber x1 = 3 then (* unit_tag *)
           let s = s with output := STRCAT s.output "(" in
           let s = s with output := STRCAT s.output ")" in (x1,x2,s)
-        else if getNumber x1 = 5 then (* closure_tag *)
+        else if getNumber x1 = 2 then (* closure_tag *)
           let s = s with output := STRCAT s.output "<fn>" in (x1,x2,s)
-        else if getNumber x1 = 4 then (* vector_tag *)
+        else if getNumber x1 = 1 then (* vector_tag *)
           let s = s with output := STRCAT s.output "<vector>" in (x1,x2,s)
-        else if getNumber x1 = 3 then (* string_tag *)
+        else if getNumber x1 = 0 then (* string_tag *)
           let x1 = x2 in
           let (x1,s) = bc_print_str (x1,s) in (x1,x2,s)
         else (* constructor *)
