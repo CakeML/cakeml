@@ -10122,10 +10122,10 @@ val BlockNil4 = GenBlockNil `nil_tag` zHEAP_Nil4
 val _ = map (GenBlockNil `errors_tag`) [zHEAP_Nil1,zHEAP_Nil2,zHEAP_Nil3,zHEAP_Nil4]
 
 
-(* trun if b then 1 else 0 to bool_to_val *)
+(* turn if b then 1 else 0 to bool_to_val *)
 
 val zHEAP_BOOL_INTRO = let
-  val th = compose_specs ["add r0,2"]
+  val th = compose_specs ["neg r0","add r0,42"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
@@ -10137,9 +10137,9 @@ val zHEAP_BOOL_INTRO = let
   val th = MATCH_MP SPEC_WEAKEN_LEMMA th
   val th = th |> Q.SPEC `zHEAP (cs,
        bool_to_val (x1 = Number 1),x2,x3,x4,refs,stack,s,NONE) * ~zS * ^pc`
-  val l0 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`0`]
+  val l0 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`10`]
              |> SIMP_RULE std_ss []
-  val l1 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`1`]
+  val l1 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`9`]
              |> SIMP_RULE std_ss []
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -10151,11 +10151,11 @@ gg goal
     \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
     \\ fs [cond_STAR] \\ STRIP_TAC \\ STRIP_TAC
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
-    \\ Q.EXISTS_TAC `vals with reg0 := x64_addr vs.current_heap r1 + 0x2w`
+    \\ Q.EXISTS_TAC `vals with reg0 := 0x0w - x64_addr vs.current_heap r1 + 0x2Aw`
     \\ REVERSE STRIP_TAC
     \\ TRY (fs [zVALS_def,AC STAR_COMM STAR_ASSOC] \\ NO_TAC)
     \\ fs [heap_inv_def]
-    \\ Q.LIST_EXISTS_TAC [`vs`,`if x1 = Number 0 then Data 1w else Data 3w`,
+    \\ Q.LIST_EXISTS_TAC [`vs`,`if x1 = Number 0 then Data 0x15w else Data 0x13w`,
           `r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ TRY (MATCH_MP_TAC (GEN_ALL l0) \\ METIS_TAC [])
