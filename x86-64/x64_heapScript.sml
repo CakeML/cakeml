@@ -23253,7 +23253,7 @@ val print_rev_test = let
 
 
 val zHEAP_COND_TERMINATE = let
-  val l = 0x8 + 2
+  val l = 0x8 + 7
   val (_,_,sts,_) = prog_x64Lib.x64_tools
   val th = zHEAP_TERMINATE |> RW [sts]
   val str = "jne " ^ int_to_string l
@@ -24341,7 +24341,7 @@ val zHEAP_INL_DIVERGES = let
            <|output := s.output; handler := 1; code_mode := SOME T;
              code := install_x64_code_lists code s.code;
              code_start := s.code;
-             local := <|stop_addr := p + 0x332w; printing_on := 0x1w|> |>`
+             local := <|stop_addr := p + 0x337w; printing_on := 0x1w|> |>`
     \\ Q.EXISTS_TAC `Block pair_tag [Block 0 [RefPtr 0; Block 0 [RefPtr
                       1; RefPtr (2 * iptr + 2); RefPtr (2 * optr + 2)]];
                       bc_adjust (cb,cs.stack_trunk +
@@ -25481,6 +25481,87 @@ val zREPL_CORRECT = store_thm("zREPL_CORRECT",
   \\ Cases_on `basis_repl_fun init.init_input` \\ fs [LET_DEF]
   \\ REPEAT STRIP_TAC \\ fs []
   \\ Q.EXISTS_TAC `output` \\ fs [diverges_def,repl_output_def]);
+
+(*
+
+val th = loop_thm
+
+fun n2w_to_int tm =
+  let
+    val tm = if wordsSyntax.is_w2w tm then rhs(concl(EVAL tm)) else tm
+    val tm = if numSyntax.is_numeral (rand tm) then tm else
+               rhs(concl(RAND_CONV(EVAL) tm))
+  in
+    tm |> wordsSyntax.dest_n2w |> fst |> numSyntax.int_of_term
+  end handle HOL_ERR e =>
+    (print ("\nUnable to n2w_to_int: " ^ term_to_string tm ^ "\n");
+     raise (HOL_ERR e))
+
+fun int_to_hex x =
+  String.concat["0x",Arbnum.toHexString (Arbnum.fromInt x)]
+
+fun find_overlap th = let
+  val th = th |> Q.INST [`p:word64`|->`0w`,`rip:word64`|->`0w`]
+              |> SIMP_RULE std_ss [word_add_n2w]
+  val (_,_,c,_) = dest_spec (concl (th |> SPEC_ALL |> UNDISCH_ALL))
+  val pat = ``(p:word64, x::xs:word8 list)``
+  val tms = find_terms (can (match_term pat)) c
+  val xs = map pairSyntax.dest_pair tms
+          |> map (fn (x,y) => (n2w_to_int x,
+               map n2w_to_int (fst (listSyntax.dest_list y)))
+               handle HOL_ERR _ => (0-500,[]))
+  val vs = sort (fn (x,_) => fn (y:int,_) => x <= y) xs
+  val vs = filter (fn (x,y) => 0 <= x) vs
+  fun del_repetations (x::y::xs) = if x = y then del_repetations (x::xs) else
+                                            x :: del_repetations (y::xs)
+    | del_repetations zs = zs
+  val vs = del_repetations vs
+  fun no_overlap [] = true
+    | no_overlap [(j,xs)] = true
+    | no_overlap ((i,xs)::(j,ys)::rest) =
+        if j < i + length xs
+        then (print ("has overlap at " ^ int_to_hex j ^ "\n");
+              no_overlap ((j,ys)::rest))
+        else no_overlap ((j,ys)::rest)
+  val _ = no_overlap vs
+  in () end
+
+
+
+
+has overlap at 0x172
+has overlap at 0x173
+has overlap at 0x174
+has overlap at 0x175
+has overlap at 0x176
+has overlap at 0x3FF
+has overlap at 0x400
+has overlap at 0x401
+has overlap at 0x402
+has overlap at 0x403
+
+
+th
+
+max_print_depth := 10
+
+
+  fun no_duplicates (x::y::xs) = if fst x = fst y then failwith"duplicate" else no_duplicates (y::xs)
+    | no_duplicates _ = true
+  val _ = no_duplicates vs
+  fun no_holes i [] = true
+    | no_holes i ((j,c)::xs) =
+       if i = j then no_holes (i + (length c)) xs else (print("hole at "^(Int.toString i)^"\n");
+                     no_holes (fst(hd xs)) xs)
+  val _ = no_holes 0 vs
+
+
+
+
+
+
+
+*)
 
 
 (*
