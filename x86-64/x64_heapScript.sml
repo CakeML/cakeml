@@ -10008,61 +10008,57 @@ val zHEAP_SWAP = let
 
 (* specific instances of CONS *)
 
-fun tag_for "nil" = ``12n``
-  | tag_for "::" = ``13n``
-  | tag_for "Pair" = ``6n``
-  | tag_for "Some" = ``15n``
-  | tag_for "Inl" = ``17n``
-  | tag_for "Inr" = ``16n``
-  | tag_for "Errors" = ``290n``
-  | tag_for "Others" = ``291n``
-  | tag_for "Longs" = ``292n``
-  | tag_for "Numbers" = ``293n``
-  | tag_for "Strings" = ``294n``
-  | tag_for _ = failwith "tag_for"
+val tags_eq =
+  ``(inr_tag,
+     inl_tag,
+     errors_tag,
+     longs_tag,
+     numbers_tag,
+     others_tag,
+     strings_tag)`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL) |> RW [PAIR_EQ]
+  |> CONJ conLangTheory.cons_tag_def
+  |> CONJ conLangTheory.nil_tag_def
+  |> CONJ conLangTheory.some_tag_def
+  |> CONJ conLangTheory.none_tag_def
+  |> CONJ block_tag_def
 
-val nil_tag_def  = Define `nil_tag  = ^(tag_for "nil")`;
-val cons_tag_def = Define `cons_tag = ^(tag_for "::")`;
-val pair_tag_def = Define `pair_tag = ^(tag_for "Pair")`;
+val BlockNil_def = CONV_RULE(RAND_CONV EVAL)bootstrapProofTheory.BlockNil_def
+val BlockCons_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockCons_def
+val BlockPair_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockPair_def
+val BlockSome_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockSome_def
+val BlockInl_def =
+  CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL))) bootstrapProofTheory.BlockInl_def
+val BlockInr_def =
+  CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL))) bootstrapProofTheory.BlockInr_def
 
-val BlockNil_def  = Define `BlockNil = Block nil_tag []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block cons_tag [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block pair_tag [x;y]`;
+val nil_tag_def  = Define `nil_tag = ^(BlockNil_def |> concl |> rand |> rator |> rand)`
+val cons_tag_def = Define `cons_tag = ^(BlockCons_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val pair_tag_def = Define `pair_tag = ^(BlockPair_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 
-val BlockList_def = Define `
-  (BlockList [] = BlockNil) /\
-  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
+val BlockNil_def = ONCE_REWRITE_RULE[GSYM nil_tag_def] BlockNil_def
+val BlockCons_def = ONCE_REWRITE_RULE[GSYM cons_tag_def] BlockCons_def
+val BlockPair_def = ONCE_REWRITE_RULE[GSYM pair_tag_def] BlockPair_def
 
-val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
-val BlockSome_def = Define `BlockSome x = Block ^(tag_for "Some") [x]`;
+val BlockOtherS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockOtherS_def
+val BlockLongS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockLongS_def
+val BlockNumberS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockNumberS_def
+val BlockStringS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockStringS_def
+val BlockErrorS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockErrorS_def
 
-val BlockInl_def = Define `BlockInl x = Block ^(tag_for "Inl") [x]`;
-val BlockInr_def = Define `BlockInr x = Block ^(tag_for "Inr") [x]`;
+val others_tag_def = Define`others_tag = ^(BlockOtherS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val longs_tag_def = Define`longs_tag = ^(BlockLongS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val numbers_tag_def = Define`numbers_tag = ^(BlockNumberS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val strings_tag_def = Define`strings_tag = ^(BlockStringS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val errors_tag_def = Define`errors_tag = ^(BlockErrorS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 
-val errors_tag_def  = Define `errors_tag = ^(tag_for "Errors")`;
-val others_tag_def  = Define `others_tag = ^(tag_for "Others")`;
-val longs_tag_def   = Define `longs_tag = ^(tag_for "Longs")`;
-val numbers_tag_def = Define `numbers_tag = ^(tag_for "Numbers")`;
-val strings_tag_def = Define `strings_tag = ^(tag_for "Strings")`;
-
-val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
-val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
-val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
-val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
-val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
-
-val Chr_def = Define `Chr c = Number (& (ORD c))`;
-
-val BlockSym_def = Define `
-  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
-  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
-  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
-  (BlockSym (ErrorS) = BlockErrorS) /\
-  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
-
-val BlockNum3_def = Define `
-  BlockNum3 (x,y,z) =
-    BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
+val BlockOtherS_def = ONCE_REWRITE_RULE[GSYM others_tag_def]BlockOtherS_def
+val BlockLongS_def = ONCE_REWRITE_RULE[GSYM longs_tag_def]BlockLongS_def
+val BlockNumberS_def = ONCE_REWRITE_RULE[GSYM numbers_tag_def]BlockNumberS_def
+val BlockStringS_def = ONCE_REWRITE_RULE[GSYM strings_tag_def]BlockStringS_def
+val BlockErrorS_def = ONCE_REWRITE_RULE[GSYM errors_tag_def]BlockErrorS_def
 
 fun BlockConsPair tag (n,m) = let
   fun index_to_push 1 = zHEAP_PUSH1
@@ -23474,23 +23470,6 @@ val zHEAP_IF_INL_JUMP_FALSE =
 val zHEAP_IF_INL_JUMP_TRUE =
   zHEAP_IF_INL_JUMP |> DISCH ``getTag x1 = ^inl_tag``
   |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
-
-val tags_eq =
-  ``(bootstrapProof$inr_tag,
-     bootstrapProof$inl_tag,
-     bootstrapProof$errors_tag,
-     bootstrapProof$longs_tag,
-     bootstrapProof$numbers_tag,
-     bootstrapProof$others_tag,
-     bootstrapProof$strings_tag)`` |>
-  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
-   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
-   EVAL) |> RW [PAIR_EQ]
-  |> CONJ conLangTheory.cons_tag_def
-  |> CONJ conLangTheory.nil_tag_def
-  |> CONJ conLangTheory.some_tag_def
-  |> CONJ conLangTheory.none_tag_def
-  |> CONJ block_tag_def
 
 local
   val BlockConsNil_FIX = prove(
