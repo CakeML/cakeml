@@ -85,8 +85,12 @@ fun n2w_to_int tm =
     val tm = if is_w2w tm then rhs(concl(EVAL tm)) else tm
     val tm = if is_numeral (rand tm) then tm else
                rhs(concl(RAND_CONV(EVAL) tm))
+    fun aux tm = tm |> dest_n2w |> fst |> int_of_term
+    val n = aux tm
   in
-    tm |> dest_n2w |> fst |> int_of_term
+    if n < 256 then n else
+      tm |> (ONCE_REWRITE_CONV [GSYM n2w_mod] THENC EVAL)
+         |> concl |> rand |> aux
   end
 
 fun int_to_hex x =
@@ -101,6 +105,8 @@ val int_list_to_hex = commas o (map int_to_hex)
 fun int_list_to_foo x =
   String.concat["\t.byte\t",int_list_to_hex x,"\n"]
 
+val filename = "wrapper/asm_code.s"
+
 fun write_code_to_file filename cs = let
   val vs = map (pairSyntax.dest_pair) cs
   val vs = map (fn (x,y) => (n2w_to_int x, map n2w_to_int (fst (dest_list y)))) vs
@@ -109,30 +115,32 @@ fun write_code_to_file filename cs = let
                                             x :: del_repetations (y::xs)
     | del_repetations zs = zs
   val vs = del_repetations vs
-  fun no_duplicates (x::y::xs) = if fst x = fst y then failwith"duplicate" else no_duplicates (y::xs)
+  fun no_duplicates (x::y::xs) =
+        if fst x = fst y then failwith"duplicate" else no_duplicates (y::xs)
     | no_duplicates _ = true
   val _ = no_duplicates vs
   fun no_holes i [] = true
     | no_holes i ((j,c)::xs) =
-       if i = j then no_holes (i + (length c)) xs else (print("hole at "^(Int.toString i)^"\n");
-                     no_holes (fst(hd xs)) xs)
+       if i = j then no_holes (i + (length c)) xs
+                else (print("hole at "^(Int.toString i)^"\n");
+                      no_holes (fst(hd xs)) xs)
   val _ = no_holes 0 vs
   val vs = map snd vs
-  val output = map int_list_to_foo vs
+  val ws = flatten vs
+  val _ = print ("Exporting " ^ int_to_string (length ws) ^ "-byte binary ... ")
   val t = TextIO.openOut(filename)
-  val _ = map (fn s => TextIO.output(t,s)) output
+  fun produce_output xs = let
+    val str = int_list_to_foo xs
+    in TextIO.output(t,str) end
+  fun split8 (x1::x2::x3::x4::x5::x6::x7::x8::xs) = let
+      val _ = produce_output (x1::x2::x3::x4::x5::x6::x7::x8::[])
+      in split8 xs end
+    | split8 xs = produce_output xs
+  val _ = split8 ws
   val _ = TextIO.closeOut(t)
+  val _ = print ("done.\n")
   in () end;
 
-(*
-List.drop(vs,4850)
-length(snd(el 4807 vs))
-34633+18420
-length(snd(hd(List.drop(vs, 245))))
-34633+18420
-List.drop(vs,245)
-
-val _ = write_code_to_file"cakeml_repl.s"cs
-*)
+val _ = write_code_to_file filename cs;
 
 val _ = export_theory()
