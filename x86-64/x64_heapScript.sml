@@ -31,7 +31,7 @@ val _ = ParseExtras.temp_loose_equality();
 val _ = PolyML.SaveState.loadState "x64_heap_state";
 *)
 
-(* intLib blastLib bytecodeLabelsTheory *)
+(* intLib blastLib bytecodeLabelsTheory miscLib *)
 
 val _ = (max_print_depth := 25);
 
@@ -2647,8 +2647,14 @@ fun foo th = let
             |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
   val th1 = Q.INST [`k`|->`1`] th
             |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
+  val th2 = Q.INST [`k`|->`9`] th
+            |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
+  val th3 = Q.INST [`k`|->`10`] th
+            |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
   val _ = add_compiled [th0];
   val _ = add_compiled [th1];
+  val _ = add_compiled [th2];
+  val _ = add_compiled [th3];
   in th end
 
 val zHEAP_Nil1 = zHEAP_Nil ("B8",``1:num``) |> foo
@@ -5762,7 +5768,7 @@ val _ = map zHEAP_SHIFT_BY_INT [1,2,3]
 (* cmp against bool_to_val F *)
 
 val zHEAP_CMP_FALSE = let
-  val th = spec ("cmp r0,2")
+  val th = spec ("cmp r0,42")
   val th = th |> Q.INST [`rip`|->`p`]
   val (_,_,sts,_) = prog_x64Lib.x64_tools
   val th = HIDE_STATUS_RULE false sts th
@@ -5793,7 +5799,7 @@ gg goal
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`vals`]
-    \\ `(x1 = bool_to_val F) <=> (vals.reg0 = 2w)` by ALL_TAC
+    \\ `(x1 = bool_to_val F) <=> (vals.reg0 = 42w)` by ALL_TAC
     \\ FULL_SIMP_TAC std_ss [SEP_CLAUSES]
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
@@ -5807,7 +5813,7 @@ gg goal
       \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def]
       \\ blastLib.BBLAST_TAC)
     \\ FULL_SIMP_TAC std_ss [x64_addr_def]
-    \\ Cases_on `n = 0` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+    \\ Cases_on `n = 10` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC (srw_ss()) [word_add_n2w,w2w_def,w2n_n2w]
     \\ `(2 * n + 1) < 9223372036854775808` by DECIDE_TAC
     \\ FULL_SIMP_TAC std_ss []
@@ -5815,7 +5821,8 @@ gg goal
     \\ REWRITE_TAC [GSYM (EVAL ``(2:num) * 2**63``)]
     \\ `(0:num) < 2 /\ (0:num) < 2**63` by EVAL_TAC
     \\ IMP_RES_TAC MOD_COMMON_FACTOR
-    \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ DECIDE_TAC)
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
