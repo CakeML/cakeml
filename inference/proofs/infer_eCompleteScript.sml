@@ -734,7 +734,7 @@ val replace_uvar_tac =
   rpt (qpat_assum `t_walkstar s A = B` (fn th =>     
   (((Q.SUBGOAL_THEN `t_walkstar s' h = ^(th|>concl|>rhs)` assume_tac))>-
   (metis_tac[check_t_def,submap_t_walkstar_replace,th]))) )
-    
+
 val rest_uvar_tac =
   pure_add_constraints_ignore_tac `s'`>>
   pure_add_constraints_combine_tac ``st`` ``constraints'`` ``s'``>>
@@ -782,7 +782,7 @@ t = convert_t (t_walkstar s' t')``,
     pac_tac)
   >- (*int->int->bool*)
     (unconversion_tac>>
-     Q.EXISTS_TAC`Infer_Tapp [] TC_bool`>>
+     Q.EXISTS_TAC`Infer_Tapp [] (TC_name(Short"bool"))`>>
      fs[pure_add_constraints_combine]>>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] TC_int);(h',B)]`>>
      pac_tac) 
@@ -830,7 +830,7 @@ t = convert_t (t_walkstar s' t')``,
     pac_tac)
   >-
     (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] TC_unit`>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_tup`>>
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);B;C]`>>
     pac_tac)
@@ -843,7 +843,7 @@ t = convert_t (t_walkstar s' t')``,
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
      pac_tac)
   >-(fs[Tchar_def] >> unconversion_tac >>
-     qexists_tac`Infer_Tapp [] TC_bool` >>
+     qexists_tac`Infer_Tapp [] (TC_name(Short"bool"))` >>
      fs[pure_add_constraints_combine] >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A);zZ]`>>
      pac_tac)
@@ -908,7 +908,7 @@ t = convert_t (t_walkstar s' t')``,
     rest_uvar_tac)
   >-
     (unconversion_tac>>
-    Q.EXISTS_TAC`Infer_Tapp [] TC_unit`>>
+    Q.EXISTS_TAC`Infer_Tapp [] TC_tup`>>
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [h''] A);(h',B)]`>>
     pac_tac)
@@ -1518,17 +1518,9 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      metis_tac [t_compat_refl])
  >- (qexists_tac `s` >>
      imp_res_tac sub_completion_wfs >>
-     rw [t_walkstar_eqn1, convert_t_def] >>
-     metis_tac [t_compat_refl])
- >- (qexists_tac `s` >>
-     imp_res_tac sub_completion_wfs >>
      rw [t_walkstar_eqn1, convert_t_def, Tchar_def] >>
      metis_tac [t_compat_refl])
  >- (qexists_tac `s'` >>
-     imp_res_tac sub_completion_wfs >>
-     rw [t_walkstar_eqn1, convert_t_def] >>
-     metis_tac [t_compat_refl])
- >- (qexists_tac `s` >>
      imp_res_tac sub_completion_wfs >>
      rw [t_walkstar_eqn1, convert_t_def] >>
      metis_tac [t_compat_refl])
@@ -1939,9 +1931,9 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
               ,tenv_invC_t_compat,sub_completion_wfs])
    >>
    rw[]>>simp[]>>
-   qexists_tac `Infer_Tapp [] TC_bool`>>
+   qexists_tac `Infer_Tapp [] (TC_name(Short"bool"))`>>
    fs[pure_add_constraints_combine]>>
-   qpat_abbrev_tac `ls = [(t,Infer_Tapp [] TC_bool);(t'',B)]`>>
+   qpat_abbrev_tac `ls = [(t,Infer_Tapp [] X);(t'',B)]`>>
    Q.SPECL_THEN [`s''`,`ls`] mp_tac pure_add_constraints_ignore>>
    discharge_hyps_keep
    >-

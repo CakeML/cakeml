@@ -569,12 +569,6 @@ a b c x y z
   let s = (emit s (PushAnyInt (int_of_num (LENGTH r)))) in
   pushret t (emit s [Stack (Cons string_tag)])))
 /\
-(compile _ t _ s (CLit (Bool b)) =  
-(pushret t (emit s [Stack (PushInt(( 0 : int))); Stack (Cons (bool_to_tag b))])))
-/\
-(compile _ t _ s (CLit Unit) =  
-(pushret t (emit s [Stack (PushInt(( 0 : int))); Stack (Cons unit_tag)])))
-/\
 (compile _ t _ s (CLit (Word8 w)) =  
 (pushret t (emit s [Stack (PushInt (int_of_num (w2n w)))])))
 /\

@@ -976,19 +976,19 @@ val type_op_cases = Q.store_thm ("type_op_cases",
 `!op ts t3.
   type_op op ts t3 ⇔
   (((∃op'. op = Opn op') ∧ ts = [Tint; Tint] ∧ (t3 = Tint)) ∨
-   ((∃op'. op = Opb op') ∧ ts = [Tint; Tint] ∧ (t3 = Tbool)) ∨
+   ((∃op'. op = Opb op') ∧ ts = [Tint; Tint] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
    ((op = Opapp) ∧ ?t2. ts = [Tfn t2 t3;t2]) ∨
-   ((op = Equality) ∧ ?t1. ts = [t1; t1] ∧ (t3 = Tbool)) ∨
-   ((op = Opassign) ∧ ?t2. ts = [Tref t2; t2] ∧ (t3 = Tunit)) ∨
-   ((op = Opref) ∧ ?t1. ts = [t1] ∧ t3 = Tref t1) ∨ 
+   ((op = Equality) ∧ ?t1. ts = [t1; t1] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
+   ((op = Opassign) ∧ ?t2. ts = [Tref t2; t2] ∧ (t3 = Tapp [] TC_tup)) ∨
+   ((op = Opref) ∧ ?t1. ts = [t1] ∧ t3 = Tref t1) ∨
    ((op = Opderef) ∧ ts = [Tref t3]) ∨
    ((op = Aw8alloc) ∧ ts = [Tint; Tword8] ∧ t3 = Tword8array) ∨
    ((op = Aw8sub) ∧ ts = [Tword8array; Tint] ∧ t3 = Tword8) ∨
    ((op = Aw8length) ∧ ts = [Tword8array] ∧ t3 = Tint) ∨
-   ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tunit) ∨
+   ((op = Aw8update) ∧ ts = [Tword8array; Tint; Tword8] ∧ t3 = Tapp [] TC_tup) ∨
    ((op = Ord) ∧ ts = [Tchar] ∧ t3 = Tint) ∨
    ((op = Chr) ∧ ts = [Tint] ∧ t3 = Tchar) ∨
-   ((∃op'. op = Chopb op') ∧ ts = [Tchar; Tchar] ∧ (t3 = Tbool)) ∨
+   ((∃op'. op = Chopb op') ∧ ts = [Tchar; Tchar] ∧ (t3 = Tapp [] (TC_name (Short "bool")))) ∨
    ((op = Explode) ∧ ts = [Tstring] ∧ t3 = Tapp [Tchar] (TC_name (Short "list"))) ∨
    ((op = Implode) ∧ ts = [Tapp [Tchar] (TC_name (Short "list"))] ∧ t3 = Tstring) ∨
    ((op = Strlen) ∧ ts = [Tstring] ∧ t3 = Tint) ∨
@@ -998,7 +998,7 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
    ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
    ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tunit))`,
+   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [Tchar_def] >>
@@ -2968,8 +2968,6 @@ val type_e_closed = prove(
       type_funs tmenv tcenv tenv funs ts ⇒
       FV_defs funs ⊆ (IMAGE Short (tenv_names tenv)) ∪ tmenv_dom tmenv)``,
   ho_match_mp_tac type_e_strongind >>
-  strip_tac >- simp[] >>
-  strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>
   strip_tac >- simp[] >>

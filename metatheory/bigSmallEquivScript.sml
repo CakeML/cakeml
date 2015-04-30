@@ -1012,6 +1012,14 @@ val big_exp_to_small_exp = Q.prove (
      `e_step_reln^* (env,SND s,Exp e,[(Clog op () e2,env)])
                     (env',SND s2,Val v,[(Clog op () e2,env)])`
              by metis_tac [e_step_add_ctxt, APPEND] >>
+     `e_step_reln (env',SND s2,Val v,[(Clog op () e2,env)])
+                  (env,SND s2,Val bv,[])`
+             by rw [e_step_def, e_step_reln_def, continue_def, return_def] >>
+     metis_tac [transitive_RTC, RTC_SINGLE, transitive_def, small_eval_prefix])
+ >- (fs [small_eval_def] >>
+     `e_step_reln^* (env,SND s,Exp e,[(Clog op () e2,env)])
+                    (env',SND s2,Val v,[(Clog op () e2,env)])`
+             by metis_tac [e_step_add_ctxt, APPEND] >>
      `e_step (env',SND s2,Val v,[(Clog op () e2,env)]) = Etype_error`
              by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
      metis_tac [transitive_RTC, RTC_SINGLE, transitive_def])

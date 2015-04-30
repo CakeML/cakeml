@@ -21,14 +21,16 @@ int main(int argc, char** argv) {
        "    addq $16, %%rax         \n"
        "    pushq %%rsi             \n"
        "    pushq %%rdi             \n"
+       "    pushq %%rbp             \n"
        "    jmp L2                  \n"
        "    .align 4                \n"
        "L1: .include \"asm_code.s\" \n" /* ret address on top of stack */
        "L2: call L1                 \n"
+       "    popq %%rbp              \n"
        "    popq %%rdi              \n"
        "    popq %%rsi              \n"
        : /* no output */ : /* input: heap */ "r"(heap)
-       : /* clobbered */ "%rax","%rbx","%rcx","%rdx","%rbp",
+       : /* clobbered */ "%rax","%rbx","%rcx","%rdx",
          "%r8","%r9","%r10","%r11","%r12","%r13","%r14","%r15","memory");
   printf("\n -- CakeML shutting down --\n");
   return 0;

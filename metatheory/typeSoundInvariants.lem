@@ -120,13 +120,6 @@ and
 and
 [consistent_mod_env : tenvS -> ctMap -> envM -> tenvM -> bool]
 
-lit_bool : forall tvs cenv senv b.
-true
-==>
-type_v tvs cenv senv (Litv (Bool b)) Tbool
-
-and
-
 lit_int : forall tvs cenv senv n.
 true
 ==>
@@ -145,13 +138,6 @@ lit_string : forall tvs cenv senv s.
 true
 ==>
 type_v tvs cenv senv (Litv (StrLit s)) Tstring
-
-and
-
-lit_unit : forall tvs cenv senv.
-true
-==>
-type_v tvs cenv senv (Litv Unit) Tunit
 
 and
 
@@ -387,9 +373,9 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs () es) t1 t2
 and
 
 log : forall tvs menv all_cenv cenv senv tenv op e.
-type_e menv cenv tenv e Tbool
+type_e menv cenv tenv e (Tapp [] (TC_name (Short "bool")))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Clog op () e) Tbool Tbool
+type_ctxt tvs menv all_cenv cenv senv tenv (Clog op () e) (Tapp [] (TC_name (Short "bool"))) (Tapp [] (TC_name (Short "bool")))
 
 and
 
@@ -397,7 +383,7 @@ if_ : forall tvs menv all_cenv cenv senv tenv e1 e2 t.
 type_e menv cenv tenv e1 t &&
 type_e menv cenv tenv e2 t
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cif () e1 e2) Tbool t
+type_ctxt tvs menv all_cenv cenv senv tenv (Cif () e1 e2) (Tapp [] (TC_name (Short "bool"))) t
 
 and
 
@@ -530,9 +516,16 @@ let ctMap_has_exns ctMap =
 val ctMap_has_lists : ctMap -> bool
 let ctMap_has_lists ctMap =
   (Map.lookup ("nil", TypeId (Short "list")) ctMap = Just (["'a"],[])) &&
-  (Map.lookup ("::", TypeId (Short "list")) ctMap = 
+  (Map.lookup ("::", TypeId (Short "list")) ctMap =
    Just (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))])) &&
   (forall cn. cn <> "::" && cn <> "nil" --> Map.lookup (cn, TypeId (Short "list")) ctMap = Nothing)
+
+(* The global constructor type environment has the bool primitives in it *)
+val ctMap_has_bools : ctMap -> bool
+let ctMap_has_bools ctMap =
+  (Map.lookup ("true", TypeId (Short "bool")) ctMap = Just ([],[])) &&
+  (Map.lookup ("false", TypeId (Short "bool")) ctMap = Just ([],[])) &&
+  (forall cn. cn <> "true" && cn <> "false" --> Map.lookup (cn, TypeId (Short "bool")) ctMap = Nothing)
 
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
@@ -569,13 +562,14 @@ let decls_ok (mdecls,tdecls,edecls) =
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
-  exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig. 
+  exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
     consistent_decls decls2 decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
     ctMap_has_lists ctMap &&
+    ctMap_has_bools ctMap &&
     tenvT_ok tenvT &&
-    tenvM_ok tenvM_no_sig && 
+    tenvM_ok tenvM_no_sig &&
     tenvM_ok tenvM &&
     consistent_mod_env tenvS ctMap envM tenvM_no_sig &&
     consistent_con_env ctMap envC tenvC_no_sig &&

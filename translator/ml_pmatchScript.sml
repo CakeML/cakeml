@@ -12,10 +12,10 @@ val EvalPatRel_def = Define`
   EvalPatRel env a p pat ⇔
     ∀x av. a x av ⇒
       evaluate_match F env (0,empty_store) av
-        [(p,(Lit(Unit)))] ARB
+        [(p,Con NONE [])] ARB
         ((0,empty_store),
          if ∃vars. pat vars = x
-         then Rval(Litv(Unit)) else Rerr(Rraise ARB))`
+         then Rval(Conv NONE []) else Rerr(Rraise ARB))`
 
 val Pmatch_def = tDefine"Pmatch"`
   (Pmatch env [] [] = SOME env) ∧
@@ -130,13 +130,17 @@ val pmatch_PMATCH_ROW_COND_No_match = store_thm("pmatch_PMATCH_ROW_COND_No_match
     (∀vars. ¬PMATCH_ROW_COND pat (K T) xv vars) ∧
     a xv res ⇒
     Pmatch env [p] [res] = NONE``,
+  fs [PMATCH_ROW_COND_def] >>
   rw[EvalPatRel_def] >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   `∃envM envC envE. env = (envM,envC,envE)` by METIS_TAC[PAIR] >> fs[] >>
-  qspecl_then[`envC`,`p`,`res`,`envE`]strip_assume_tac(CONJUNCT1 pmatch_imp_Pmatch) >>
-  fs[Eval_def,Once evaluate_cases] >> rfs[] >>
-  rpt(pop_assum mp_tac) >>
-  rw[Once evaluate_cases,PMATCH_ROW_COND_def]);
+  qspecl_then[`envC`,`p`,`res`,`envE`]strip_assume_tac(CONJUNCT1 pmatch_imp_Pmatch)
+  \\ Cases_on `Pmatch (envM,envC,envE) [p] [res]` \\ fs []
+  \\ Cases_on `pmatch envC empty_store p res envE` \\ fs []
+  \\ SRW_TAC [] [] \\ rw[Once evaluate_cases,PMATCH_ROW_COND_def] \\ fs []
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ rfs[]
+  \\ REPEAT (POP_ASSUM MP_TAC)
+  \\ NTAC 4 (fs[Once evaluate_cases,PMATCH_ROW_COND_def]));
 
 val pmatch_PMATCH_ROW_COND_Match = store_thm("pmatch_PMATCH_ROW_COND_Match",
   ``EvalPatRel env a p pat ∧

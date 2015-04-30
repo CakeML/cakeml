@@ -7,8 +7,6 @@ val _ = new_theory "astProps";
 
 val _ = export_rewrites ["ast.Tstring_def",
                          "ast.Tint_def",
-                         "ast.Tunit_def",
-                         "ast.Tbool_def",
                          "ast.Tref_def",
                          "ast.Tfn_def",
                          "ast.Tword8_def",

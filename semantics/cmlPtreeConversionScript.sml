@@ -438,12 +438,7 @@ val ptree_Pattern_def = Define`
           ptree_Pattern nPtuple vic ++
           do
              cname <- ptree_ConstructorName vic;
-             if cname = Short "true" then
-               SOME(Plit (Bool T))
-             else if cname = Short "false" then
-               SOME(Plit (Bool F))
-             else
-               SOME(Pcon (SOME cname) [])
+             SOME(Pcon (SOME cname) [])
           od ++
           do
              vname <- ptree_V vic;
@@ -500,7 +495,7 @@ val ptree_Pattern_def = Define`
     else if nm = mkNT nPtuple then
       case args of
           [lp; rp] => if lp = Lf (TOK LparT) ∧ rp = Lf (TOK RparT) then
-                        SOME (Plit Unit)
+                        SOME (Pcon NONE [])
                       else NONE
         | [lp; pl_pt; rp] =>
           do
@@ -591,16 +586,11 @@ val ptree_Expr_def = Define`
                 SOME (Var s)
               od ++
               do cname <- ptree_ConstructorName single;
-                 if cname = Short "true" then
-                   SOME (Lit (Bool T))
-                 else if cname = Short "false" then
-                   SOME (Lit (Bool F))
-                 else
-                   SOME (Con (SOME cname) [])
+                 SOME (Con (SOME cname) [])
               od ++
               ptree_Expr nEtuple single
           | [lp;rp] => if lp = Lf (TK LparT) ∧ rp = Lf (TK RparT) then
-                         SOME (Lit Unit)
+                         SOME (Con NONE [])
                        else if lp = Lf (TK LbrackT) ∧ rp = Lf (TK RbrackT) then
                          SOME (Con (SOME (Short "nil")) [])
                        else NONE

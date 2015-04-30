@@ -506,7 +506,7 @@ in
     (type_mappings := (ty,target_ty) :: (!type_mappings))
   fun string_tl s = s |> explode |> tl |> implode
   fun type2t ty =
-    if ty = ``:bool`` then ``Tapp [] TC_bool`` else
+    if ty = ``:bool`` then ``Tapp [] (TC_name (Short "bool"))`` else
     if ty = ``:word8`` then ``Tapp [] TC_word8`` else
     if ty = ``:int`` then ``Tapp [] TC_int`` else
     if ty = ``:num`` then ``Tapp [] TC_int`` else
@@ -528,7 +528,7 @@ in
                    full_name_of_type ty
       val tt = map type2t tt
       val name_tm = stringSyntax.fromMLstring name
-      val tt_list = listSyntax.mk_list(tt,type_of ``Tbool``)
+      val tt_list = listSyntax.mk_list(tt,type_of ``Tint``)
       in if name = "fun"  then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_fn`` else
          if name = "prod" then ``Tapp [^(el 1 tt);^(el 2 tt)] TC_tup`` else
          if name = "list" then ``Tapp ^tt_list (TC_name (Short ^name_tm))`` else
@@ -1199,7 +1199,7 @@ fun derive_thms_for_type is_exn_type ty = let
       val ys = map (fn (x,y) => (y |> rator |> rand,
                                  x |> dest_args |> map (type2t o type_of))) ys
       fun mk_line (x,y) = pairSyntax.mk_pair(x,
-                           listSyntax.mk_list(y,type_of ``Tbool``))
+                           listSyntax.mk_list(y,type_of ``Tint``))
       val lines = listSyntax.mk_list(map mk_line ys,``:tvarN # t list``)
       fun string_tl s = s |> explode |> tl |> implode
       val ts = th |> concl |> list_dest dest_conj |> hd
@@ -1733,7 +1733,8 @@ fun prove_EvalPatRel goal hol2deep = let
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
     fs[Once evaluate_cases] >>
-    rw[] >> simp[Once evaluate_cases])
+    rw[] >> simp[Once evaluate_cases] >>
+    fs [build_conv_def,do_con_check_def])
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
@@ -2561,7 +2562,8 @@ fun hol2deep tm =
   if stringSyntax.is_char_literal tm then SPEC tm Eval_Val_CHAR else
   if mlstringSyntax.is_mlstring_literal tm then
     SPEC (rand tm) Eval_Val_STRING else
-  if (tm = T) orelse (tm = F) then SPEC tm Eval_Val_BOOL else
+  if (tm = T) then Eval_Val_BOOL_T else
+  if (tm = F) then Eval_Val_BOOL_F else
   if (tm = ``TRUE``) then Eval_Val_BOOL_TRUE else
   if (tm = ``FALSE``) then Eval_Val_BOOL_FALSE else
   (* data-type constructor *)

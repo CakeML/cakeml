@@ -98,6 +98,13 @@ val _ = Hol_datatype `
   | Vectorv_i1 of v_i1 list`;
 
 
+val _ = Define `
+ (Bool_i1 b = (App_i1 (Opb (if b then Leq else Lt)) [Lit_i1 (IntLit(( 0 : int))); Lit_i1 (IntLit(( 0 : int)))]))`;
+
+val _ = Define `
+ (Boolv_i1 b = (Conv_i1 (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []))`;
+
+
 (*val exp_to_i1 : map modN (map varN nat) -> map varN nat -> exp -> exp_i1*)
 (*val exps_to_i1 : map modN (map varN nat) -> map varN nat -> list exp -> list exp_i1*)
 (*val pat_exp_to_i1 : map modN (map varN nat) -> map varN nat -> list (pat * exp) -> list (pat * exp_i1)*)
@@ -140,8 +147,8 @@ val _ = Hol_datatype `
 /\
 (exp_to_i1 menv env (Log lop e1 e2) =  
 ((case lop of
-      And => If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (Lit_i1 (Bool F))
-    | Or => If_i1 (exp_to_i1 menv env e1) (Lit_i1 (Bool T)) (exp_to_i1 menv env e2)
+      And => If_i1 (exp_to_i1 menv env e1) (exp_to_i1 menv env e2) (Bool_i1 F)
+    | Or => If_i1 (exp_to_i1 menv env e1) (Bool_i1 T) (exp_to_i1 menv env e2)
   )))
 /\
 (exp_to_i1 menv env (If e1 e2 e3) =  
@@ -411,16 +418,16 @@ val _ = Define `
         else
           SOME (s, Rval (Litv_i1 (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) =>
-        SOME (s, Rval (Litv_i1 (Bool (opb_lookup op n1 n2))))
+        SOME (s, Rval (Boolv_i1 (opb_lookup op n1 n2)))
     | (Equality, [v1; v2]) =>
         (case do_eq_i1 v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (s, Rerr (Rraise (prim_exn_i1 "Eq")))
-          | Eq_val b => SOME (s, Rval (Litv_i1 (Bool b)))
+          | Eq_val b => SOME (s, Rval (Boolv_i1 b))
         )
     | (Opassign, [Loc_i1 lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (st, Rval (Litv_i1 Unit))
+            SOME st => SOME (st, Rval (Conv_i1 NONE []))
           | NONE => NONE
         )
     | (Opref, [v]) =>
@@ -470,7 +477,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv_i1 Unit))
+                    | SOME s' => SOME (s', Rval (Conv_i1 NONE []))
                   )
         | _ => NONE
         )
@@ -483,7 +490,7 @@ val _ = Define `
           else
             Rval (Litv_i1(Char(CHR(Num (ABS ( i))))))))
     | (Chopb op, [Litv_i1 (Char c1); Litv_i1 (Char c2)]) =>
-        SOME (s, Rval (Litv_i1 (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+        SOME (s, Rval (Boolv_i1 (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_i1_to_char_list v of
             SOME ls =>
@@ -550,7 +557,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv_i1 Unit))
+                    | SOME s' => SOME (s', Rval (Conv_i1 NONE []))
                   )
         | _ => NONE
       )
@@ -561,9 +568,9 @@ val _ = Define `
 (*val do_if_i1 : v_i1 -> exp_i1 -> exp_i1 -> maybe exp_i1*)
 val _ = Define `
  (do_if_i1 v e1 e2 =  
-(if v = Litv_i1 (Bool T) then
+(if v = (Boolv_i1 T) then
     SOME e1
-  else if v = Litv_i1 (Bool F) then
+  else if v = (Boolv_i1 F) then
     SOME e2
   else
     NONE))`;

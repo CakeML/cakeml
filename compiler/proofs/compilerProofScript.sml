@@ -1570,6 +1570,9 @@ fun tac5() =
   fs[result_to_i1_cases,result_to_i2_cases] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   rpt BasicProvers.VAR_EQ_TAC >> fs[] >> BasicProvers.VAR_EQ_TAC >>
+  rator_x_assum`to_i2_invariant`mp_tac >>
+  simp[to_i2_invariant_def,cenv_inv_def] >> strip_tac >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   REWRITE_TAC[Once CONJ_COMM] >>
@@ -1775,9 +1778,11 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Abbr`Csg`] >>
       fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
     strip_tac >>
+    (*
     rator_x_assum`v_to_exh`mp_tac >>
     simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
+    *)
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -2029,6 +2034,9 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[LIST_REL_EL_EQN,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       strip_tac >>
       imp_res_tac LIST_REL_LENGTH >> fs[build_rec_env_MAP] >>
+      (conj_tac >- (
+        rator_x_assum`to_i2_invariant`mp_tac >>
+        simp[to_i2_invariant_def,cenv_inv_def])) >>
       simp[GSYM IMP_CONJ_THM,GSYM FORALL_AND_THM] >>
       qx_gen_tac`n` >> strip_tac >>
       first_x_assum(qspec_then`n`mp_tac) >> simp[] >>
@@ -2442,9 +2450,11 @@ val compile_top_thm = store_thm("compile_top_thm",
       simp[Abbr`Csg`] >>
       fs[Cenv_bs_def,s_refs_def,IS_SOME_EXISTS] ) >>
     strip_tac >>
+    (*
     rator_x_assum`v_to_exh`mp_tac >>
     simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
+    *)
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -2969,6 +2979,11 @@ val tac22=
   first_assum(match_exists_tac o concl) >> simp[]>>
   first_assum(match_exists_tac o concl) >> simp[]
 
+val gtagenv_weak_wf = store_thm("gtagenv_weak_wf",
+  ``gtagenv_wf x ∧ gtagenv_weak x y ⇒ gtagenv_wf y``,
+  rw[gtagenv_weak_def,gtagenv_wf_def,has_exns_def,has_bools_def,has_lists_def] >>
+  metis_tac[FLOOKUP_SUBMAP])
+
 val compile_prog_thm = store_thm("compile_prog_thm",
   ``∀ck env stm prog res. evaluate_whole_prog ck env stm prog res ⇒
      ∀grd rs rss rsf bc bs bc0.
@@ -3091,9 +3106,11 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
     `bc_next^* (bs0 with code := bs0.code++bcp) (bs1 with code := bs1.code++bcp)` by (
       metis_tac[RTC_bc_next_append_code] ) >>
+    (*
     rator_x_assum`v_to_exh`mp_tac >>
     simp[Once v_to_exh_cases,vs_to_exh_MAP] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
+    *)
     rator_x_assum`v_pat`mp_tac >>
     simp[Once v_pat_cases] >>
     strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -3258,9 +3275,10 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     match_mp_tac (MP_CANON print_bv_print_v) >>
     simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[Once CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[exh_Cv_def] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
     simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[GSYM CONJ_ASSOC,RIGHT_EXISTS_AND_THM] >>
@@ -3273,8 +3291,11 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     qexists_tac`Cv` >>
     conj_tac >- metis_tac[syneq_trans] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_x_assum match_mp_tac >>
-    fs[FLOOKUP_DEF]) >>
+    simp[CONJ_ASSOC] >>
+    conj_tac >- (
+      first_x_assum match_mp_tac >>
+      fs[FLOOKUP_DEF]) >>
+    fs[cenv_inv_def] ) >>
   Cases_on`res6`>>
   fs[result_to_i2_cases,result_to_i1_cases,GSYM FORALL_PROD] >>
   fs[] >> rw[] >>
@@ -3364,15 +3385,21 @@ val compile_prog_thm = store_thm("compile_prog_thm",
     pop_assum SUBST1_TAC >>
     match_mp_tac (MP_CANON print_bv_print_v) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[Once CONJ_COMM] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp[exh_Cv_def,PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     qmatch_assum_abbrev_tac`Cv_bv pp Cv bv` >>
     qexists_tac`Cv` >> qexists_tac`pp` >> simp[] >>
-    reverse conj_tac >- metis_tac[syneq_trans] >>
-    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
-    simp[csg_closed_pat_def] ) >>
+    conj_tac >- (
+      reverse conj_tac >- metis_tac[syneq_trans] >>
+      first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_pat_closed)) >>
+      simp[csg_closed_pat_def] ) >>
+    rator_x_assum`gtagenv_weak`mp_tac >>
+    rator_x_assum`to_i2_invariant`mp_tac >>
+    simp[to_i2_invariant_def,cenv_inv_def] >>
+    metis_tac[gtagenv_weak_wf]) >>
   qmatch_assum_abbrev_tac`bc_next^* bs3 bs4` >>
   qmatch_assum_abbrev_tac`bc_next^* bs0 bs1` >>
   `bs = bs0 with code := bs.code` by (
@@ -3948,10 +3975,11 @@ val prog_to_i3_initial_correct = store_thm("prog_to_i3_initial_correct",
         (res = (s',new_env,NONE)) ∧
         (prog_to_i3_initial (LENGTH genv) p = (next',e)) ⇒
         (next' = LENGTH genv + LENGTH new_env) ∧
-        evaluate_i3 ck (exh,[]) (s,genv) e ((s',genv++new_env),Rval (Litv_i2 Unit))``,
+        evaluate_i3 ck (exh,[]) (s,genv) e ((s',genv++new_env),Rval (Conv_i2 (tuple_tag,NONE) []))``,
   ho_match_mp_tac evaluate_prog_i2_ind >>
   conj_tac >- (
     simp[prog_to_i3_initial_def] >>
+    simp[Once evaluate_i3_cases] >>
     simp[Once evaluate_i3_cases] ) >>
   conj_tac >- (
     rpt gen_tac >> strip_tac >> simp[] >>
@@ -4080,6 +4108,12 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
     map_every qexists_tac[`bs0`,`bs1`] >>
     simp[Abbr`bs0`,bc_state_component_equality] >>
     rw[] ) >>
+  rator_x_assum`v_pat`mp_tac >>
+  simp[Once v_pat_cases] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
+  rpt(rator_x_assum`syneq`mp_tac) >> simp[] >>
+  simp[Once syneq_cases] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
+  simp[Once syneq_cases] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
+  simp[Once syneq_cases] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
   rator_x_assum`Cv_bv`mp_tac >>
   simp[Once Cv_bv_cases] >> strip_tac >>
   rpt BasicProvers.VAR_EQ_TAC >>
@@ -4163,7 +4197,7 @@ val compile_initial_prog_thm = store_thm("compile_initial_prog_thm",
   CONV_TAC(lift_conjunct_conv(same_const``Cenv_bs`` o fst o strip_comb)) >>
   conj_tac >- (
     match_mp_tac Cenv_bs_imp_decsz >> simp[] >>
-    qexists_tac`Block 2 []` >>
+    qexists_tac`Block (tuple_tag+3) []` >>
     match_mp_tac Cenv_bs_append_code >>
     Q.PAT_ABBREV_TAC`bs1:bc_state = X Y` >>
     qexists_tac`bs1 with code := bc0++c0'` >>

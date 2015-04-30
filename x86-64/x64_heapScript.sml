@@ -31,7 +31,7 @@ val _ = ParseExtras.temp_loose_equality();
 val _ = PolyML.SaveState.loadState "x64_heap_state";
 *)
 
-(* intLib blastLib bytecodeLabelsTheory *)
+(* intLib blastLib bytecodeLabelsTheory miscLib *)
 
 val _ = (max_print_depth := 25);
 
@@ -2647,8 +2647,14 @@ fun foo th = let
             |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
   val th1 = Q.INST [`k`|->`1`] th
             |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
+  val th2 = Q.INST [`k`|->`9`] th
+            |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
+  val th3 = Q.INST [`k`|->`10`] th
+            |> SIMP_RULE (srw_ss()) [SEP_CLAUSES] |> RW [lemmas]
   val _ = add_compiled [th0];
   val _ = add_compiled [th1];
+  val _ = add_compiled [th2];
+  val _ = add_compiled [th3];
   in th end
 
 val zHEAP_Nil1 = zHEAP_Nil ("B8",``1:num``) |> foo
@@ -5762,7 +5768,7 @@ val _ = map zHEAP_SHIFT_BY_INT [1,2,3]
 (* cmp against bool_to_val F *)
 
 val zHEAP_CMP_FALSE = let
-  val th = spec ("cmp r0,2")
+  val th = spec ("cmp r0,42")
   val th = th |> Q.INST [`rip`|->`p`]
   val (_,_,sts,_) = prog_x64Lib.x64_tools
   val th = HIDE_STATUS_RULE false sts th
@@ -5793,7 +5799,7 @@ gg goal
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`vals`]
-    \\ `(x1 = bool_to_val F) <=> (vals.reg0 = 2w)` by ALL_TAC
+    \\ `(x1 = bool_to_val F) <=> (vals.reg0 = 42w)` by ALL_TAC
     \\ FULL_SIMP_TAC std_ss [SEP_CLAUSES]
     \\ FULL_SIMP_TAC (srw_ss()) [zVALS_def,AC STAR_COMM STAR_ASSOC]
     \\ POP_ASSUM (K ALL_TAC)
@@ -5807,7 +5813,7 @@ gg goal
       \\ FULL_SIMP_TAC std_ss [heap_vars_ok_def]
       \\ blastLib.BBLAST_TAC)
     \\ FULL_SIMP_TAC std_ss [x64_addr_def]
-    \\ Cases_on `n = 0` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+    \\ Cases_on `n = 10` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC (srw_ss()) [word_add_n2w,w2w_def,w2n_n2w]
     \\ `(2 * n + 1) < 9223372036854775808` by DECIDE_TAC
     \\ FULL_SIMP_TAC std_ss []
@@ -5815,7 +5821,8 @@ gg goal
     \\ REWRITE_TAC [GSYM (EVAL ``(2:num) * 2**63``)]
     \\ `(0:num) < 2 /\ (0:num) < 2**63` by EVAL_TAC
     \\ IMP_RES_TAC MOD_COMMON_FACTOR
-    \\ FULL_SIMP_TAC std_ss [])
+    \\ FULL_SIMP_TAC std_ss []
+    \\ DECIDE_TAC)
   val th = MP th lemma
   val th = Q.GEN `vals` th |> SIMP_RULE std_ss [SPEC_PRE_EXISTS]
   val (th,goal) = SPEC_STRENGTHEN_RULE th
@@ -6997,6 +7004,8 @@ val (pop_all_cert,pop_all_def,pop_all_pre_def) = x64_compile `
         let (x2,stack) = (HD stack, TL stack) in
           pop_all stack`
 
+val closure_tag = rhs(concl(EVAL``&closure_tag``))
+
 val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
   equal_loop (x1:bc_value,x2,x3,x4,stack:bc_value list) =
     let (x1,stack) = (HD stack, TL stack) in
@@ -7044,7 +7053,7 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                if getTag x1 = getTag x2 then
                  let x3 = x1 in
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 5 then
+                 if getNumber x1 = ^closure_tag then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
@@ -7061,14 +7070,14 @@ val (_,equal_loop_def,equal_loop_pre_def) = x64_compile `
                          (x1,x2,x3,x4,stack)
                else
                  let x1 = Number (& (getTag x1)) in
-                 if getNumber x1 = 5 then
+                 if getNumber x1 = ^closure_tag then
                    let x1 = Number 0 in
                    let (x2,stack) = pop_all stack in
                      (x1,x2,x3,x4,stack)
                  else
                    let x1 = x2 in
                    let x1 = Number (& (getTag x1)) in
-                   if getNumber x1 = 5 then
+                   if getNumber x1 = ^closure_tag then
                      let x1 = Number 0 in
                      let (x2,stack) = pop_all stack in
                        (x1,x2,x3,x4,stack)
@@ -7210,9 +7219,9 @@ val equal_loop_thm = prove(
     \\ FULL_SIMP_TAC std_ss [isNumber_def,canCompare_def,isBlock_def]
     \\ FULL_SIMP_TAC std_ss [getTag_def,getContent_def,bc_equal_def]
     \\ REVERSE (Cases_on `n' = n`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
-     (Cases_on `n' = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
-      \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
-    \\ Cases_on `n = 5` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+     (Cases_on `n' = 2` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
+      \\ Cases_on `n = 2` \\ FULL_SIMP_TAC std_ss [] \\ EVAL_TAC)
+    \\ Cases_on `n = 2` \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
     \\ SIMP_TAC std_ss [explode_result_def,getContent_def]
     \\ REVERSE (Cases_on `LENGTH l' = LENGTH l`)
     \\ FULL_SIMP_TAC std_ss [] THEN1 EVAL_TAC
@@ -9999,61 +10008,57 @@ val zHEAP_SWAP = let
 
 (* specific instances of CONS *)
 
-fun tag_for "nil" = ``12n``
-  | tag_for "::" = ``13n``
-  | tag_for "Pair" = ``6n``
-  | tag_for "Some" = ``15n``
-  | tag_for "Inl" = ``17n``
-  | tag_for "Inr" = ``16n``
-  | tag_for "Errors" = ``290n``
-  | tag_for "Others" = ``291n``
-  | tag_for "Longs" = ``292n``
-  | tag_for "Numbers" = ``293n``
-  | tag_for "Strings" = ``294n``
-  | tag_for _ = failwith "tag_for"
+val tags_eq =
+  ``(inr_tag,
+     inl_tag,
+     errors_tag,
+     longs_tag,
+     numbers_tag,
+     others_tag,
+     strings_tag)`` |>
+  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
+   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
+   EVAL) |> RW [PAIR_EQ]
+  |> CONJ conLangTheory.cons_tag_def
+  |> CONJ conLangTheory.nil_tag_def
+  |> CONJ conLangTheory.some_tag_def
+  |> CONJ conLangTheory.none_tag_def
+  |> CONJ block_tag_def
 
-val nil_tag_def  = Define `nil_tag  = ^(tag_for "nil")`;
-val cons_tag_def = Define `cons_tag = ^(tag_for "::")`;
-val pair_tag_def = Define `pair_tag = ^(tag_for "Pair")`;
+val BlockNil_def = CONV_RULE(RAND_CONV EVAL)bootstrapProofTheory.BlockNil_def
+val BlockCons_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockCons_def
+val BlockPair_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockPair_def
+val BlockSome_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV EVAL))bootstrapProofTheory.BlockSome_def
+val BlockInl_def =
+  CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL))) bootstrapProofTheory.BlockInl_def
+val BlockInr_def =
+  CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL))) bootstrapProofTheory.BlockInr_def
 
-val BlockNil_def  = Define `BlockNil = Block nil_tag []`;
-val BlockCons_def = Define `BlockCons (x,y) = Block cons_tag [x;y]`;
-val BlockPair_def = Define `BlockPair (x,y) = Block pair_tag [x;y]`;
+val nil_tag_def  = Define `nil_tag = ^(BlockNil_def |> concl |> rand |> rator |> rand)`
+val cons_tag_def = Define `cons_tag = ^(BlockCons_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val pair_tag_def = Define `pair_tag = ^(BlockPair_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 
-val BlockList_def = Define `
-  (BlockList [] = BlockNil) /\
-  (BlockList (x::xs) = BlockCons(x,BlockList xs))`;
+val BlockNil_def = ONCE_REWRITE_RULE[GSYM nil_tag_def] BlockNil_def
+val BlockCons_def = ONCE_REWRITE_RULE[GSYM cons_tag_def] BlockCons_def
+val BlockPair_def = ONCE_REWRITE_RULE[GSYM pair_tag_def] BlockPair_def
 
-val BlockBool_def = Define `BlockBool b = Block (bool_to_tag b) []`;
-val BlockSome_def = Define `BlockSome x = Block ^(tag_for "Some") [x]`;
+val BlockOtherS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockOtherS_def
+val BlockLongS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockLongS_def
+val BlockNumberS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockNumberS_def
+val BlockStringS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockStringS_def
+val BlockErrorS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockErrorS_def
 
-val BlockInl_def = Define `BlockInl x = Block ^(tag_for "Inl") [x]`;
-val BlockInr_def = Define `BlockInr x = Block ^(tag_for "Inr") [x]`;
+val others_tag_def = Define`others_tag = ^(BlockOtherS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val longs_tag_def = Define`longs_tag = ^(BlockLongS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val numbers_tag_def = Define`numbers_tag = ^(BlockNumberS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val strings_tag_def = Define`strings_tag = ^(BlockStringS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val errors_tag_def = Define`errors_tag = ^(BlockErrorS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 
-val errors_tag_def  = Define `errors_tag = ^(tag_for "Errors")`;
-val others_tag_def  = Define `others_tag = ^(tag_for "Others")`;
-val longs_tag_def   = Define `longs_tag = ^(tag_for "Longs")`;
-val numbers_tag_def = Define `numbers_tag = ^(tag_for "Numbers")`;
-val strings_tag_def = Define `strings_tag = ^(tag_for "Strings")`;
-
-val BlockOtherS_def  = Define `BlockOtherS x  = Block others_tag [x]`;
-val BlockLongS_def   = Define `BlockLongS x   = Block longs_tag [x]`;
-val BlockNumberS_def = Define `BlockNumberS x = Block numbers_tag [x]`;
-val BlockStringS_def = Define `BlockStringS x = Block strings_tag [x]`;
-val BlockErrorS_def  = Define `BlockErrorS    = Block errors_tag []`;
-
-val Chr_def = Define `Chr c = Number (& (ORD c))`;
-
-val BlockSym_def = Define `
-  (BlockSym (StringS s) = BlockStringS (BlockList (MAP Chr s))) /\
-  (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
-  (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
-  (BlockSym (ErrorS) = BlockErrorS) /\
-  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
-
-val BlockNum3_def = Define `
-  BlockNum3 (x,y,z) =
-    BlockPair (Number (&x), BlockPair (Number (&y),Number (&z)))`;
+val BlockOtherS_def = ONCE_REWRITE_RULE[GSYM others_tag_def]BlockOtherS_def
+val BlockLongS_def = ONCE_REWRITE_RULE[GSYM longs_tag_def]BlockLongS_def
+val BlockNumberS_def = ONCE_REWRITE_RULE[GSYM numbers_tag_def]BlockNumberS_def
+val BlockStringS_def = ONCE_REWRITE_RULE[GSYM strings_tag_def]BlockStringS_def
+val BlockErrorS_def = ONCE_REWRITE_RULE[GSYM errors_tag_def]BlockErrorS_def
 
 fun BlockConsPair tag (n,m) = let
   fun index_to_push 1 = zHEAP_PUSH1
@@ -10117,10 +10122,10 @@ val BlockNil4 = GenBlockNil `nil_tag` zHEAP_Nil4
 val _ = map (GenBlockNil `errors_tag`) [zHEAP_Nil1,zHEAP_Nil2,zHEAP_Nil3,zHEAP_Nil4]
 
 
-(* trun if b then 1 else 0 to bool_to_val *)
+(* turn if b then 1 else 0 to bool_to_val *)
 
 val zHEAP_BOOL_INTRO = let
-  val th = compose_specs ["add r0,2"]
+  val th = compose_specs ["neg r0","add r0,42"]
   val pc = get_pc th
   val target = ``~zS * zPC p * zVALS cs vals *
       cond (heap_inv (cs,x1,x2,x3,x4,refs,stack,s,NONE) vals /\
@@ -10132,9 +10137,9 @@ val zHEAP_BOOL_INTRO = let
   val th = MATCH_MP SPEC_WEAKEN_LEMMA th
   val th = th |> Q.SPEC `zHEAP (cs,
        bool_to_val (x1 = Number 1),x2,x3,x4,refs,stack,s,NONE) * ~zS * ^pc`
-  val l0 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`0`]
+  val l0 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`10`]
              |> SIMP_RULE std_ss []
-  val l1 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`1`]
+  val l1 = abs_ml_inv_Block_NIL |> SPEC_ALL |> Q.INST [`n`|->`9`]
              |> SIMP_RULE std_ss []
   val goal = th |> concl |> dest_imp |> fst
 (*
@@ -10146,11 +10151,11 @@ gg goal
     \\ SIMP_TAC std_ss [Once heap_inv_def] \\ STRIP_TAC
     \\ fs [cond_STAR] \\ STRIP_TAC \\ STRIP_TAC
     \\ FULL_SIMP_TAC (std_ss++sep_cond_ss) [cond_STAR]
-    \\ Q.EXISTS_TAC `vals with reg0 := x64_addr vs.current_heap r1 + 0x2w`
+    \\ Q.EXISTS_TAC `vals with reg0 := 0x0w - x64_addr vs.current_heap r1 + 0x2Aw`
     \\ REVERSE STRIP_TAC
     \\ TRY (fs [zVALS_def,AC STAR_COMM STAR_ASSOC] \\ NO_TAC)
     \\ fs [heap_inv_def]
-    \\ Q.LIST_EXISTS_TAC [`vs`,`if x1 = Number 0 then Data 1w else Data 3w`,
+    \\ Q.LIST_EXISTS_TAC [`vs`,`if x1 = Number 0 then Data 0x15w else Data 0x13w`,
           `r2`,`r3`,`r4`,`roots`,`heap`,`a`,`sp`]
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ TRY (MATCH_MP_TAC (GEN_ALL l0) \\ METIS_TAC [])
@@ -16087,18 +16092,18 @@ val (bc_print_aux_res,bc_print_aux_def,bc_print_aux_pre_def) = x64_compile `
     else if isBlock x1 then
       let x2 = x1 in
       let x1 = Number (&getTag x1) in
-        if getNumber x1 = 0 then (* true *)
+        if getNumber x1 = 10 then (* false *)
           let s = s with output := STRCAT s.output "false" in (x1,x2,s)
-        else if getNumber x1 = 1 then (* false *)
+        else if getNumber x1 = 9 then (* true *)
           let s = s with output := STRCAT s.output "true" in (x1,x2,s)
-        else if getNumber x1 = 2 then (* unit_tag *)
+        else if getNumber x1 = 3 then (* unit_tag *)
           let s = s with output := STRCAT s.output "(" in
           let s = s with output := STRCAT s.output ")" in (x1,x2,s)
-        else if getNumber x1 = 5 then (* closure_tag *)
+        else if getNumber x1 = 2 then (* closure_tag *)
           let s = s with output := STRCAT s.output "<fn>" in (x1,x2,s)
-        else if getNumber x1 = 4 then (* vector_tag *)
+        else if getNumber x1 = 1 then (* vector_tag *)
           let s = s with output := STRCAT s.output "<vector>" in (x1,x2,s)
-        else if getNumber x1 = 3 then (* string_tag *)
+        else if getNumber x1 = 0 then (* string_tag *)
           let x1 = x2 in
           let (x1,s) = bc_print_str (x1,s) in (x1,x2,s)
         else (* constructor *)
@@ -17589,7 +17594,7 @@ val zBC_JumpIf_1 = let
   val lemma = prove(goal,
     fs [sts] \\ fs [SEP_HIDE_def,SEP_CLAUSES,SEP_IMP_def,SEP_EXISTS_THM]
     \\ REPEAT STRIP_TAC
-    \\ Q.LIST_EXISTS_TAC [`x'`,`x'''`,`x`,`(SOME (x1 = Block 0 []))`,`x''''`,`x''`]
+    \\ Q.LIST_EXISTS_TAC [`x'`,`x'''`,`x`,`(SOME (x1 = Block 10 []))`,`x''''`,`x''`]
     \\ fs [AC STAR_ASSOC STAR_COMM]
     \\ POP_ASSUM MP_TAC \\ fs [STAR_ASSOC])
   val th = MP th lemma
@@ -17659,7 +17664,7 @@ val zBC_Sub = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_SUB_SMALL_INT,zH
 val zBC_Mul = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_MUL_SMALL_INT] |> fix_code
 val zBC_Div = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_DIV_SMALL_INT,zHEAP_NOP] |> fix_code
 val zBC_Mod = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SWAP_12,zHEAP_MOD_SMALL_INT,zHEAP_NOP] |> fix_code
-val zBC_Less = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SMALL_INT,zHEAP_NOP] |> fix_code
+val zBC_Less = SPEC_COMPOSE_RULE [zHEAP_POP2,zHEAP_SMALL_INT] |> fix_code
 
 val zBC_Galloc = zBC_Tick
 
@@ -17690,13 +17695,13 @@ val zBC_Shift3 = zHEAP_GENERAL_Shift |> fix_code
 
 val zBC_Stop_T = SPEC_COMPOSE_RULE
    [zHEAP_PUSH1,zHEAP_NOP,
-    zHEAP_Nil1 |> Q.INST [`k`|->`1`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+    zHEAP_Nil1 |> Q.INST [`k`|->`9`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val T``)],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
 val zBC_Stop_F = SPEC_COMPOSE_RULE
    [zHEAP_PUSH1,zHEAP_NOP,
-    zHEAP_Nil1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+    zHEAP_Nil1 |> Q.INST [`k`|->`10`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val F``)],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
@@ -17705,6 +17710,7 @@ val (zBC_EndOfCode, end_of_code_def) = let
    [zHEAP_PUSH1,
     zHEAP_Nil1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val F``)],
+    zHEAP_NOP,
     zHEAP_JMP_STOP_ADDR] |> fix_code
   val code = th |> concl |> rator |> rand |> rator |> rand |> rand
   val end_of_code_def = Define `end_of_code = ^code`;
@@ -18185,8 +18191,8 @@ val tageq2 = ``[0x48w; 0xA9w; 0x1w; 0x0w; 0x0w;
       0x0w; 0x48w; 0x75w; 0x7w; 0x48w; 0x83w; 0xE8w; 0x2w; 0x48w; 0xEBw;
       0xEw; 0x48w; 0x8Bw; 0x40w; 0x1w; 0x48w; 0x25w; 0xFFw; 0xFFw; 0x0w;
       0x0w; 0x48w; 0xC1w; 0xE8w; 0x2w; 0x48w; 0x39w; 0xC8w; 0x48w;
-      0x75w; 0x8w; 0xB8w; 0x6w; 0x0w; 0x0w; 0x0w; 0x48w; 0xEBw; 0x5w;
-      0xB8w; 0x2w; 0x0w; 0x0w; 0x0w]:word8 list`` |> gen
+      0x75w; 0x8w; 0xB8w; 0x26w; 0x0w; 0x0w; 0x0w; 0x48w; 0xEBw; 0x5w;
+      0xB8w; 0x2Aw; 0x0w; 0x0w; 0x0w]:word8 list`` |> gen
 
 val (res,ic_TagEq_def,ic_TagEq_pre_def) = x64_compile `
   ic_TagEq (x2,s) =
@@ -18389,7 +18395,7 @@ val (res,ic_Call_def,ic_Call_pre_def) = x64_compile `
   ``x64 i (JumpIf (Addr a))`` |> SIMP_CONV std_ss [x64_def,small_offset_def,LET_DEF]
 *)
 
-val jumpif = ``[0x48w; 0x83w; 0xF8w; 0x2w; 0x48w; 0x58w; 0xFw;
+val jumpif = ``[0x48w; 0x83w; 0xF8w; 0x2Aw; 0x48w; 0x58w; 0xFw;
                 0x85w]:word8 list`` |> gen
 val err12 = ``[0x49w; 0xFFw; 0x61w; 0x28w; 0xFFw; 0xC0w; 0xFFw;
                0xC0w; 0xFFw; 0xC0w; 0xFFw; 0xC0w]:word8 list`` |> gen
@@ -23466,55 +23472,6 @@ val zHEAP_IF_INL_JUMP_TRUE =
   zHEAP_IF_INL_JUMP |> DISCH ``getTag x1 = ^inl_tag``
   |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
 
-val tags_eq =
-  ``(bootstrapProof$inr_tag,
-     bootstrapProof$inl_tag,
-     bootstrapProof$errors_tag,
-     bootstrapProof$longs_tag,
-     bootstrapProof$numbers_tag,
-     bootstrapProof$others_tag,
-     bootstrapProof$strings_tag)`` |>
-  (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
-   EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
-   EVAL) |> RW [PAIR_EQ]
-  |> CONJ conLangTheory.cons_tag_def
-  |> CONJ conLangTheory.nil_tag_def
-  |> CONJ conLangTheory.some_tag_def
-  |> CONJ conLangTheory.none_tag_def
-  |> CONJ block_tag_def
-
-local
-  val BlockConsNil_FIX = prove(
-    ``(bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-      (bootstrapProof$BlockNil = x64_heap$BlockNil)``,
-    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
-    \\ REPEAT STRIP_TAC \\ EVAL_TAC);
-  val BlockList_FIX = prove(
-    ``bootstrapProof$BlockList = x64_heap$BlockList``,
-    fs [FUN_EQ_THM] \\ Induct \\ EVAL_TAC \\ fs [BlockConsNil_FIX]);
-  val Chr_lemma = prove(
-    ``(bootstrapProof$Chr = x64_heap$Chr)``,
-    fs [FUN_EQ_THM] \\ EVAL_TAC \\ SIMP_TAC std_ss []);
-in
-  val Block_FIX = prove(
-    ``(bootstrapProof$BlockNum3 = x64_heap$BlockNum3) /\
-      (bootstrapProof$BlockSome = x64_heap$BlockSome) /\
-      (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
-      (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
-      (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
-      (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
-      (bootstrapProof$BlockList = x64_heap$BlockList) /\
-      (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-      (bootstrapProof$BlockNil = x64_heap$BlockNil) /\
-      (bootstrapProof$Chr = x64_heap$Chr)``,
-    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,BlockList_FIX]
-    \\ REPEAT STRIP_TAC \\ EVAL_TAC
-    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
-    \\ Cases_on `x` \\ EVAL_TAC
-    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
-    \\ fs [BlockList_FIX,Chr_lemma]);
-end
-
 val ref_adjust_IMP_ODD = prove(
   ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
   SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
@@ -23721,7 +23678,7 @@ val zHEAP_ERROR_ERROR = prove(
 val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
     |> Q.INST [`inl_or_inr`|->`BlockInr (BlockPair (msg_chars,y7))`]
-    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInr x)``]
+    |> SIMP_RULE std_ss [(REWRITE_CONV[BlockInr_def]THENC EVAL) ``getTag (BlockInr x)``]
   val th = SPEC_COMPOSE_RULE [th,zHEAP_PUSH3,zHEAP_PUSH4]
   val th =
     SPEC_COMPOSE_RULE [th,
@@ -23765,7 +23722,7 @@ val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
 val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
     |> Q.INST [`inl_or_inr`|->`BlockInl (BlockPair (x7,y7))`]
-    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInl x)``]
+    |> SIMP_RULE std_ss [(REWRITE_CONV[BlockInl_def] THENC EVAL) ``getTag (BlockInl x)``]
   val n = get_pc th |> rand |> rand |> rand |> rator |> rand
   val inl_jump = ``n2w (^code_length_inr - ^n):word32``
   val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
@@ -24066,7 +24023,7 @@ val bc_adjust_BlockList_Chr = prove(
   ``!msg xs. (bc_adjust (cb,w,b) (BlockList (MAP Chr msg)) =
               BlockList (MAP Chr xs)) = (msg = xs)``,
   Induct \\ Cases_on `xs` \\ fs [bc_adjust_def,BlockList_def,
-    BlockNil_def,BlockCons_def,Chr_def,ORD_11]) |> RW [Block_FIX];
+    BlockNil_def,BlockCons_def,Chr_def,ORD_11]);
 
 val bc_adjust_BlockList_BlockSym = prove(
   ``bc_adjust (cb,w,b) (BlockList (MAP BlockSym ts)) =
@@ -24182,7 +24139,7 @@ val zHEAP_INR_TERMINATES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
@@ -24251,7 +24208,7 @@ val zHEAP_INR_CONTINUES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ REPEAT STRIP_TAC THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
     \\ fs [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
@@ -24271,7 +24228,7 @@ val zHEAP_INR_CONTINUES = let
     THEN1 (fs [fetch "-" "zheap_state_component_equality"])
     \\ UNABBREV_ALL_TAC
     \\ fs [both_refs_FUPDATE]
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym])
   val th = MP th lemma
@@ -24327,9 +24284,9 @@ val zHEAP_INL_DIVERGES = let
     THEN1
      (fs [FLOOKUP_DEF]
       \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-      \\ fs [BlockInl_def,BlockPair_def,bc_adjust_def,Block_FIX,
+      \\ fs [BlockInl_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,
-           bc_adjust_BlockList_BlockNum3 |> RW [Block_FIX]])
+           bc_adjust_BlockList_BlockNum3])
     THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
     \\ fs [SEP_IMP_def,SEP_DISJ_def]
     \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ1_TAC
@@ -24437,7 +24394,7 @@ val zHEAP_INL_TERMINATES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]
     \\ fs [TWO_TIMES_next_addr]
@@ -24538,7 +24495,7 @@ val zHEAP_INL_CONTINUES = let
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
     \\ fs [CONJ_ASSOC] \\ STRIP_TAC
     THEN1
-     (fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+     (fs [BlockInr_def,BlockPair_def,bc_adjust_def,
              bc_adjust_BlockList_Chr,SEP_IMP_REFL]
       \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]
       \\ fs [TWO_TIMES_next_addr]
@@ -24575,7 +24532,7 @@ val zHEAP_INL_CONTINUES = let
     \\ UNABBREV_ALL_TAC
     \\ fs [both_refs_FUPDATE]
     \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym]
     \\ fs [lex_until_semi_res_def]

@@ -207,8 +207,6 @@ val _ = Define `
       (IntLit _, IntLit _) => T
     | (Char _, Char _) => T
     | (StrLit _, StrLit _) => T
-    | (Bool _, Bool _) => T
-    | (Unit, Unit) => T
     | (Word8 _, Word8 _) => T
     | _ => F
   )))`;
@@ -485,6 +483,19 @@ val _ = Define `
 )))`;
 
 
+(*val Boolv : bool -> v*)
+val _ = Define `
+ (Boolv b = (if b
+  then Conv (SOME ("true", TypeId (Short "bool"))) []
+  else Conv (SOME ("false", TypeId (Short "bool"))) []))`;
+
+
+val _ = Hol_datatype `
+ exp_or_val =
+    Exp of exp
+  | Val of v`;
+
+
 (*val do_app : store v -> op -> list v -> maybe (store v * result v v)*)
 val _ = Define `
  (do_app s op vs =  
@@ -495,16 +506,16 @@ val _ = Define `
         else
           SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        SOME (s, Rval (Litv (Bool (opb_lookup op n1 n2))))
+        SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
           | Eq_closure => SOME (s, Rerr (Rraise (prim_exn "Eq")))
-          | Eq_val b => SOME (s, Rval (Litv (Bool b)))
+          | Eq_val b => SOME (s, Rval (Boolv b))
         )
     | (Opassign, [Loc lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (st, Rval (Litv Unit))
+            SOME st => SOME (st, Rval (Conv NONE []))
           | NONE => NONE
         )
     | (Opref, [v]) =>
@@ -554,7 +565,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv Unit))
+                    | SOME s' => SOME (s', Rval (Conv NONE []))
                   )
         | _ => NONE
       )
@@ -567,7 +578,7 @@ val _ = Define `
           else
             Rval (Litv(Char(CHR(Num (ABS ( i))))))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-        SOME (s, Rval (Litv (Bool (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2))))))
+        SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
     | (Implode, [v]) =>
           (case v_to_char_list v of
             SOME ls =>
@@ -634,7 +645,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Litv Unit))
+                    | SOME s' => SOME (s', Rval (Conv NONE []))
                   )
         | _ => NONE
       )
@@ -643,13 +654,14 @@ val _ = Define `
 
 
 (* Do a logical operation *)
-(*val do_log : lop -> v -> exp -> maybe exp*)
+(*val do_log : lop -> v -> exp -> maybe exp_or_val*)
 val _ = Define `
  (do_log l v e =  
 ((case (l, v) of
-      (And, Litv (Bool T)) => SOME e
-    | (Or, Litv (Bool F)) => SOME e
-    | (_, Litv (Bool b)) => SOME (Lit (Bool b))
+      (And, Conv (SOME ("true", TypeId (Short "bool"))) []) => SOME (Exp e)
+    | (Or, Conv (SOME ("false", TypeId (Short "bool"))) []) => SOME (Exp e)
+    | (_, Conv (SOME ("true", TypeId (Short "bool"))) []) => SOME (Val v)
+    | (_, Conv (SOME ("false", TypeId (Short "bool"))) []) => SOME (Val v)
     | _ => NONE
   )))`;
 
@@ -658,9 +670,9 @@ val _ = Define `
 (*val do_if : v -> exp -> exp -> maybe exp*)
 val _ = Define `
  (do_if v e1 e2 =  
-(if v = Litv (Bool T) then
+(if v = (Boolv T) then
     SOME e1
-  else if v = Litv (Bool F) then
+  else if v = (Boolv F) then
     SOME e2
   else
     NONE))`;
@@ -734,8 +746,6 @@ val _ = Define `
   | TC_int => "<int>"
   | TC_char => "<char>"
   | TC_string => "<string>"
-  | TC_bool => "<bool>"
-  | TC_unit => "<unit>"
   | TC_ref => "<ref>"
   | TC_word8 => "<word8>"
   | TC_word8array => "<word8array>"

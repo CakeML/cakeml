@@ -69,14 +69,21 @@ evaluate_ctxt env s (Capp op vs () es) v (s', Rerr err)
 and
 
 log1 : forall env op e2 v e' bv s.
-do_log op v e2 = Just e' &&
+do_log op v e2 = Just (Exp e') &&
 evaluate false env s e' bv
 ==>
 evaluate_ctxt env s (Clog op () e2) v bv
 
 and
 
-log2 : forall env op e2 v s.
+log2 : forall env op e2 v v' s.
+do_log op v e2 = Just (Val v')
+==>
+evaluate_ctxt env s (Clog op () e2) v (s, Rval v')
+
+and
+
+log3 : forall env op e2 v s.
 (do_log op v e2 = Nothing)
 ==>
 evaluate_ctxt env s (Clog op () e2) v (s, Rerr Rtype_error)

@@ -51,17 +51,23 @@ let eq_tag = 4
 val subscript_tag : nat
 let subscript_tag = 5
 
+val true_tag : nat
+let true_tag = 6
+
+val false_tag : nat
+let false_tag = 7
+
 val nil_tag : nat
-let nil_tag = 6
+let nil_tag = 8
 
 val cons_tag : nat
-let cons_tag = 7
+let cons_tag = 9
 
 val none_tag : nat
-let none_tag = 8
+let none_tag = 10
 
 val some_tag : nat
-let some_tag = 9
+let some_tag = 11
 
 type exh_ctors_env = Map.map (id typeN) nat_set
 
@@ -420,6 +426,8 @@ let rec char_list_to_v_i2 [] = Conv_i2 (nil_tag, Just (TypeId (Short "list"))) [
 and char_list_to_v_i2 (c::cs) =
   Conv_i2 (cons_tag, Just (TypeId (Short "list"))) [Litv_i2 (Char c); char_list_to_v_i2 cs]
 
+let Boolv_i2 b = Conv_i2 (if b then true_tag else false_tag, Just(TypeId(Short"bool"))) []
+
 val do_app_i2 : store v_i2 -> op_i2 -> list v_i2 -> maybe (store v_i2 * result v_i2 v_i2)
 let do_app_i2 s op vs =
   match (op, vs) with
@@ -429,16 +437,16 @@ let do_app_i2 s op vs =
         else
           Just (s, Rval (Litv_i2 (IntLit (opn_lookup op n1 n2))))
     | (Op_i2 (Opb op), [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ->
-        Just (s, Rval (Litv_i2 (Bool (opb_lookup op n1 n2))))
+        Just (s, Rval (Boolv_i2 (opb_lookup op n1 n2)))
     | (Op_i2 Equality, [v1; v2]) ->
         match do_eq_i2 v1 v2 with
           | Eq_type_error -> Nothing
           | Eq_closure -> Just (s, Rerr (Rraise (prim_exn_i2 eq_tag "Eq")))
-          | Eq_val b -> Just (s, Rval (Litv_i2 (Bool b)))
+          | Eq_val b -> Just (s, Rval (Boolv_i2 b))
         end
     | (Op_i2 Opassign, [Loc_i2 lnum; v]) ->
         match store_assign lnum (Refv v) s with
-          | Just st -> Just (st, Rval (Litv_i2 Unit))
+          | Just st -> Just (st, Rval (Conv_i2 (tuple_tag,Nothing) []))
           | Nothing -> Nothing
         end
     | (Op_i2 Opref, [v]) ->
@@ -489,7 +497,7 @@ let do_app_i2 s op vs =
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Litv_i2 Unit))
+                    | Just s' -> Just (s', Rval (Conv_i2 (tuple_tag,Nothing) []))
                   end
         | _ -> Nothing
       end
@@ -502,7 +510,7 @@ let do_app_i2 s op vs =
           else
             Rval (Litv_i2(Char(String_extra.chr(natFromInteger i)))))
     | (Op_i2 (Chopb op), [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ->
-        Just (s, Rval (Litv_i2 (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
+        Just (s, Rval (Boolv_i2 (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Op_i2 Implode, [v]) ->
           match v_i2_to_char_list v with
           | Just ls ->
@@ -569,7 +577,7 @@ let do_app_i2 s op vs =
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Litv_i2 Unit))
+                    | Just s' -> Just (s', Rval (Conv_i2 (tuple_tag,Nothing) []))
                   end
         | _ -> Nothing
       end
@@ -578,9 +586,9 @@ let do_app_i2 s op vs =
 
 val do_if_i2 : v_i2 -> exp_i2 -> exp_i2 -> maybe exp_i2
 let do_if_i2 v e1 e2 =
-  if v = Litv_i2 (Bool true) then
+  if v = (Boolv_i2 true) then
     Just e1
-  else if v = Litv_i2 (Bool false) then
+  else if v = (Boolv_i2 false) then
     Just e2
   else
     Nothing

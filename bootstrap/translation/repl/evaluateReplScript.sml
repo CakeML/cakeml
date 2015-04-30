@@ -94,7 +94,7 @@ val iloc_repl_env_exist =
 val repl_env_def = new_specification("repl_env_def",["iloc","repl_env"],iloc_repl_env_exist)
 
 val sum_idx = ``21:num``
-val sym_idx = ``246:num``
+val sym_idx = ``249:num``
 val el_sum = computeLib.CBV_CONV repl_decs_cs ``EL ^sum_idx replModule_decls``
 val take_sum = computeLib.CBV_CONV repl_decs_cs ``TAKE ^sum_idx replModule_decls``
 val drop_sum = computeLib.CBV_CONV repl_decs_cs ``DROP (^sum_idx + 1) replModule_decls``
@@ -140,7 +140,7 @@ val sym_tags_exist = save_thm("sym_tags_exist",
 val compile_repl_module_def = zDefine`
   compile_repl_module = compile_top NONE ((FST(THE prim_env)).comp_rs) (Tmod "REPL" NONE replModule_decls)`
 
-val call_dec = ``Tdec (Dlet (Plit Unit) (App Opapp [Var(Long"REPL""call_repl_step"); Lit Unit]))``
+val call_dec = ``Tdec (Dlet (Pcon NONE []) (App Opapp [Var(Long"REPL""call_repl_step"); Con NONE []]))``
 
 val compile_call_repl_step_def = zDefine`
   compile_call_repl_step = compile_special (FST compile_repl_module) ^call_dec`
@@ -172,6 +172,9 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   rw[] >> fs[] >>
   rw[semanticPrimitivesTheory.do_opapp_def] >>
   simp[PULL_EXISTS] >>
+  simp[semanticPrimitivesTheory.do_con_check_def] >>
+  simp[semanticPrimitivesTheory.build_conv_def] >>
+  rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases] >>
@@ -201,7 +204,7 @@ val evaluate_call_repl_step = store_thm("evaluate_call_repl_step",
   simp[semanticPrimitivesTheory.store_assign_def] >>
   Cases_on`Tmod_state"REPL"replModule_decls`>>
   simp[update_io_def,PULL_EXISTS] >>
-  qexists_tac`Litv Unit` >>
+  qexists_tac`Conv NONE []` >>
   simp[pmatch_def] >>
   fs[evaluate_closure_def] >>
   simp[EL_LUPDATE] >>

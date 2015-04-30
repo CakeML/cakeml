@@ -600,7 +600,7 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[ml_translatorTheory.BOOL_def,ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
   fs[FMAP_TYPE_def] >>
-  rw[] >- (
+  rw[semanticPrimitivesTheory.Boolv_def] >- (
     qmatch_rename_tac`closed ls` >>
     qmatch_assum_abbrev_tac`LIST_TYPE A vv ls` >>
     Q.ISPECL_THEN[`A`,`vv`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>

@@ -1,7 +1,7 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs listTheory stringTheory relationTheory rich_listTheory pairTheory arithmeticTheory finite_mapTheory
 open miscLib miscTheory bytecodeTheory bytecodeExtraTheory bytecodeEvalTheory bytecodeLabelsTheory bytecodeTerminationTheory
 open intLangTheory intLangExtraTheory toBytecodeTheory compilerTheory compilerTerminationTheory
-open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory 
+open modLangProofTheory conLangProofTheory exhLangProofTheory patLangProofTheory intLangProofTheory bytecodeProofTheory free_varsTheory
 open replTheory printTheory inferPropsTheory inferSoundTheory terminationTheory
 
 val _ = new_theory"printing"
@@ -116,6 +116,7 @@ val print_bv_def = Define`
 val print_bv_print_v = prove(
   ``(∀genv v v1. v_to_i1 genv v v1 ⇒
       ∀gtagenv v2 exh vh Cv pp ty bv.
+        gtagenv_wf gtagenv ∧
         v_to_i2 gtagenv v1 v2 ∧
         v_to_exh exh v2 vh ∧ exh_Cv vh Cv ∧
         Cv_bv pp Cv bv ∧
@@ -150,7 +151,12 @@ val print_bv_print_v = prove(
   rw[Once syneq_cases,PULL_EXISTS,LET_THM] >>
   rator_x_assum`Cv_bv`mp_tac >>
   rw[Once Cv_bv_cases,PULL_EXISTS] >>
-  simp[print_v_def,print_bv_def,bv_to_string_def])
+  simp[print_v_def,print_bv_def,bv_to_string_def,conLangTheory.tuple_tag_def] >>
+  fs[gtagenv_wf_def,has_bools_def] >>
+  last_x_assum(qspec_then`cn',tn`mp_tac) >> simp[conLangTheory.tuple_tag_def] >>
+  rw[] >> res_tac >> fs[conLangTheory.true_tag_def,conLangTheory.false_tag_def] >> rw[] >> fs[] >>
+  TRY(`tag = 7` by DECIDE_TAC >> metis_tac[]) >>
+  TRY(`tag = 6` by DECIDE_TAC >> metis_tac[]))
 val print_bv_print_v = save_thm("print_bv_print_v",CONJUNCT1 print_bv_print_v)
 
 val print_bv_str_def = Define`print_bv_str (v,_,t) w = "val "++v++":"++(inf_type_to_string t)++" = "++(print_bv t w)++"\n"`
@@ -159,6 +165,7 @@ val _ = Parse.overload_on("print_bv_list",``λts ws. FLAT (MAP (UNCURRY (print_b
 
 val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   ``∀tvs bvs types env data.
+    gtagenv_wf (FST(SND data)) ∧
     LIST_REL (v_bv data) (MAP SND env) bvs ∧
     types = convert_env2 tvs ∧
     EVERY (λt. (∀n. t ≠ Infer_Tuvar n) ∧ inf_type_to_string t = type_to_string (convert_t t)) (MAP (SND o SND) tvs) ∧
@@ -174,14 +181,16 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   qx_gen_tac`x`>>PairCases_on`x` >> simp[PULL_EXISTS] >>
   rpt gen_tac >> strip_tac >> fs[] >>
   fs[GSYM AND_IMP_INTRO] >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
   `∃tv t. tvs = tv::t` by (Cases_on`tvs`>>fs[]) >> rw[] >> fs[] >> rw[] >>
+  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   PairCases_on`tv` >> fs[] >>
   simp[print_envE_def,print_bv_str_def] >>
   PairCases_on`data` >> fs[v_bv_def] >>
   first_x_assum(mp_tac o MATCH_MP print_bv_print_v) >>
   simp[GSYM AND_IMP_INTRO] >>
+  disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
   disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>

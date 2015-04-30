@@ -101,9 +101,9 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
  val _ = Define `
 
-(doPrim2 ty op (CLitv (IntLit x)) (CLitv (IntLit y)) = (Rval (CLitv (ty (op x y)))))
+(doPrim2 op (CLitv (IntLit x)) (CLitv (IntLit y)) = (Rval (CLitv (IntLit (op x y)))))
 /\
-(doPrim2 _ _ _ _ = (Rerr Rtype_error))`;
+(doPrim2 _ _ _ = (Rerr Rtype_error))`;
 
 
 (*val do_Ceq : Cv -> Cv -> eq_result*)
@@ -151,23 +151,32 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn do_Ceq_defn;
 
+val _ = Define `
+ (CBoolv b = (CConv (if b then true_tag else false_tag) []))`;
+
+
  val _ = Define `
 
-(CevalPrim2p CAdd = (doPrim2 IntLit (+)))
+(CevalPrim2p CAdd = (doPrim2 (+)))
 /\
-(CevalPrim2p CSub = (doPrim2 IntLit (-)))
+(CevalPrim2p CSub = (doPrim2 (-)))
 /\
-(CevalPrim2p CMul = (doPrim2 IntLit ( * )))
+(CevalPrim2p CMul = (doPrim2 ( * )))
 /\
-(CevalPrim2p CDiv = (doPrim2 IntLit (/)))
+(CevalPrim2p CDiv = (doPrim2 (/)))
 /\
-(CevalPrim2p CMod = (doPrim2 IntLit (%)))
+(CevalPrim2p CMod = (doPrim2 (%)))
 /\
-(CevalPrim2p CLt = (doPrim2 Bool (<)))
+(CevalPrim2p CLt = (\ v1 v2 . 
+    (case (v1,v2) of
+      (CLitv (IntLit x), CLitv (IntLit y)) =>
+        Rval (CBoolv (x < y))
+    | _ => Rerr Rtype_error
+    )))
 /\
 (CevalPrim2p CEq = (\ v1 v2 . 
   (case do_Ceq v1 v2 of
-      Eq_val b => Rval (CLitv (Bool b))
+      Eq_val b => Rval (CBoolv b)
     | Eq_closure => Rval (CLitv (IntLit(( 0 : int))))
     | Eq_type_error => Rerr Rtype_error
   )))
@@ -236,7 +245,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((case el_check n s of
     SOME (Refv _) =>
     if i =( 0 : int) then
-      (LUPDATE (Refv v) n s, Rval (CLitv Unit))
+      (LUPDATE (Refv v) n s, Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ => (s, Rerr Rtype_error)
   )))
@@ -245,7 +254,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((case el_check n s of
     SOME (Varray vs) =>
     if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH vs) then
-      (LUPDATE (Varray (LUPDATE v (Num (ABS ( i))) vs)) n s, Rval (CLitv Unit))
+      (LUPDATE (Varray (LUPDATE v (Num (ABS ( i))) vs)) n s, Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ => (s, Rerr Rtype_error)
   )))
@@ -254,7 +263,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((case el_check n s of
     SOME (W8array ws) =>
     if(( 0 : int) <= i) /\ (Num (ABS ( i)) < LENGTH ws) then
-      (LUPDATE (W8array (LUPDATE w (Num (ABS ( i))) ws)) n s, Rval (CLitv Unit))
+      (LUPDATE (W8array (LUPDATE w (Num (ABS ( i))) ws)) n s, Rval (CConv tuple_tag []))
     else (s, Rerr Rtype_error)
   | _ => (s, Rerr Rtype_error)
   )))
@@ -324,10 +333,13 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   (sg, Rval (CLitv (IntLit (int_of_num (STRLEN str))))))
 /\
 (CevalPrim1 CIsBlock sg (CLitv l) =
-  (sg, Rval (CLitv (Bool ((case l of IntLit _ => F | Word8 _ => F | Char _ => F | _ => T ))))))
+  (sg, Rval (CBoolv ((case l of IntLit _ => F | Word8 _ => F | Char _ => F | _ => T )))))
+/\
+(CevalPrim1 CIsBlock sg (CConv t []) =
+  (sg, Rval (CBoolv T)))
 /\
 (CevalPrim1 (CTagEq n) sg (CConv t _) =
-  (sg, Rval (CLitv (Bool (n = t)))))
+  (sg, Rval (CBoolv (n = t))))
 /\
 (CevalPrim1 (CProj n) sg (CConv _ vs) =
   (sg, (case el_check n vs of
@@ -337,7 +349,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 /\
 (CevalPrim1 (CInitG n) (s,g) v =  
 (if (n < LENGTH g) /\ (EL n g = NONE)
-  then ((s,LUPDATE (SOME v) n g),Rval (CLitv Unit))
+  then ((s,LUPDATE (SOME v) n g),Rval (CConv tuple_tag []))
   else ((s,g), Rerr Rtype_error)))
 /\
 (CevalPrim1 CExplode sg (CLitv (StrLit s)) =
@@ -507,7 +519,7 @@ Cevaluate s env (CUpd b e1 e2 e3) (((count,s''),g),res))
 Cevaluate s env (CUpd b e1 e2 e3) (s', Rerr err))
 
 /\ (! s env e1 e2 e3 s' b1 r.
-(Cevaluate s env e1 (s', Rval (CLitv (Bool b1))) /\
+(Cevaluate s env e1 (s', Rval (CBoolv b1)) /\
 Cevaluate s' env (if b1 then e2 else e3) r)
 ==>
 Cevaluate s env (CIf e1 e2 e3) r)
@@ -520,7 +532,7 @@ Cevaluate s env (CIf e1 e2 e3) (s', Rerr err))
 T
 ==>
 Cevaluate (cs,g) env (CExtG n) ((cs,(g++(GENLIST (\n .  
-  (case (n ) of ( _ ) => NONE )) n))),Rval (CLitv Unit)))
+  (case (n ) of ( _ ) => NONE )) n))),Rval (CConv tuple_tag [])))
 
 /\ (! s env.
 T

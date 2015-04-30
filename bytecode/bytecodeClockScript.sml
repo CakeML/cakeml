@@ -12,8 +12,8 @@ val bc_find_loc_with_clock = store_thm("bc_find_loc_with_clock",
   rw[FUN_EQ_THM]>>Cases_on`x`>>rw[bc_find_loc_def])
 
 val bool_to_tag_equals = store_thm("bool_to_tag_equals",
-  ``((1 = bool_to_tag b) ⇔ (b = T)) ∧
-    ((0 = bool_to_tag b) ⇔ (b = F))``,
+  ``((9 = bool_to_tag b) ⇔ (b = T)) ∧
+    ((10= bool_to_tag b) ⇔ (b = F))``,
   Cases_on`b`>>rw[])
 
 val bc_next_can_be_clocked = store_thm("bc_next_can_be_clocked",

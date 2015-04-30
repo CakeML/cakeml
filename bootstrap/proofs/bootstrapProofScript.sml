@@ -213,6 +213,10 @@ val COMPILER_RUN_INV_init = store_thm("COMPILER_RUN_INV_init",
 val code_start_def = Define `
   code_start bs = next_addr bs.inst_length bootstrap_bc_state.code`;
 
+val lookup_tag_env_none = prove(
+  ``lookup_tag_env NONE x = (tuple_tag,NONE)``,
+  Cases_on`x`>>rw[conLangTheory.lookup_tag_env_def])
+
 val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
   ``COMPILER_RUN_INV bs1 grd1 inp1 out1 /\
     INPUT_TYPE x inp1 ==>
@@ -249,6 +253,7 @@ val COMPILER_RUN_INV_repl_step = store_thm("COMPILER_RUN_INV_repl_step",
          modLangTheory.dec_to_i1_def,
          modLangTheory.decs_to_i1_def,
          conLangTheory.decs_to_i2_def,
+         lookup_tag_env_none,
          compilerTerminationTheory.pat_to_i2_def,
          compilerTerminationTheory.exp_to_i2_def,
          exhLangTheory.exhaustive_match_def,
@@ -979,6 +984,11 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   rw[] >> fs[] >- METIS_TAC[EL_ALL_DISTINCT_EL_EQ] >>
   METIS_TAC[EL_MAP])
 
+val v_to_pat_Boolv = EVAL``v_to_pat (Boolv_exh b) = Boolv_pat b`` |> EQT_ELIM
+val closed_pat_Boolv_pat = prove(
+  ``closed_pat (Boolv_pat b)``,
+  Cases_on`b`>>rw[patLangTheory.Boolv_pat_def])
+
 val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   ``COMPILER_RUN_INV bs grd inp outp /\ OUTPUT_TYPE (INL (code,s)) outp ==>
     ?s_bc_val.
@@ -1026,9 +1036,9 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     METIS_TAC[] ) >>
   rpt gen_tac >> strip_tac >>
   qmatch_assum_abbrev_tac`A s v1_2` >>
-  `STATE_TYPE (b,s) (Conv NONE [Litv (Bool b); v1_2])` by (
-    simp[STATE_TYPE_def,PAIR_TYPE_def] >>
-    simp[ml_translatorTheory.BOOL_def] ) >>
+  `STATE_TYPE (b,s) (Conv NONE [Boolv b; v1_2])` by (
+    simp[STATE_TYPE_def,PAIR_TYPE_def,semanticPrimitivesTheory.Boolv_def] >>
+    simp[ml_translatorTheory.BOOL_def,semanticPrimitivesTheory.Boolv_def] ) >>
   imp_res_tac INPUT_TYPE_exists >>
   first_x_assum(qspec_then`ts`strip_assume_tac) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1055,9 +1065,9 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     reverse IF_CASES_TAC >- (
       first_x_assum(qspec_then`EL j r`match_mp_tac) >>
       simp[EL_LUPDATE] >> METIS_TAC[] ) >>
-    simp[] >>
+    simp[semanticPrimitivesTheory.Boolv_def] >>
     conj_tac >- ( imp_res_tac INPUT_TYPE_closed >> fs[] ) >>
-    assume_tac (CONJUNCT2 repl_env_def) >> rfs[] >>
+    assume_tac (CONJUNCT2 repl_env_def) >> rfs[] >> rw[] >>
     fsrw_tac[boolSimps.DNF_ss][] ) >>
   exists_suff_gen_then (mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[alpha|->``:num``]to_i1_invariant_change_store) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
@@ -1094,9 +1104,13 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     simp[Abbr`inp_bc_val`,BlockSome_def] >>
     simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[modLangProofTheory.v_to_i1_eqns] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
+    `gtagenv_wf grd1` by (
+      fs[conLangProofTheory.to_i2_invariant_def,conLangProofTheory.cenv_inv_def] ) >>
+    simp[conLangProofTheory.v_to_i2_Boolv_i2] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1104,12 +1118,15 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     simp conv_rws >> simp[PULL_EXISTS] >>
     fs[printingTheory.exh_Cv_def] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[v_to_pat_Boolv,closed_pat_Boolv_pat] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp conv_rws >> simp[PULL_EXISTS] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     simp conv_rws >> simp[PULL_EXISTS] >>
-    simp[BlockBool_def]) >>
+    simp[intLangTheory.CBoolv_def,BlockBool_def] >>
+    simp conv_rws >>
+    Cases_on`b` >>EVAL_TAC) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   qmatch_assum_rename_tac`v_to_i1 grd0 inp2 v12` >>

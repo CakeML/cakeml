@@ -31,6 +31,16 @@ every_case_tac >>
 fs [] >>
 metis_tac []);
 
+val do_log_thm = store_thm("do_log_thm",
+  ``do_log l v e =
+    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
+    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
+    NONE``,
+  rw[semanticPrimitivesTheory.do_log_def] >>
+  every_case_tac >> rw[])
+
 val do_app_cases = Q.store_thm ("do_app_cases",
 `!st op st' vs v.
   (do_app st op vs = SOME (st',v))
@@ -43,15 +53,15 @@ val do_app_cases = Q.store_thm ("do_app_cases",
      (st' = st) ∧ (v = Rval (Litv (IntLit (opn_lookup op' n1 n2)))))) ∨
   (?op' n1 n2.
     (op = Opb op') ∧ (vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∧
-    (st = st') ∧ (v = Rval (Litv (Bool (opb_lookup op' n1 n2))))) ∨
+    (st = st') ∧ (v = Rval (Boolv (opb_lookup op' n1 n2)))) ∨
   ((op = Equality) ∧ (st = st') ∧
-    ((?v1 v2. 
-      (vs = [v1;v2]) ∧ 
-      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v = Rval (Litv (Bool b)))) ∨
+    ((?v1 v2.
+      (vs = [v1;v2]) ∧
+      ((?b. (do_eq v1 v2 = Eq_val b) ∧ (v = Rval (Boolv b))) ∨
        ((do_eq v1 v2 = Eq_closure) ∧ (v = Rerr (Rraise (prim_exn "Eq")))))))) ∨
   (?lnum v2.
     (op = Opassign) ∧ (vs = [Loc lnum; v2]) ∧ (store_assign lnum (Refv v2) st = SOME st') ∧
-     (v = Rval (Litv Unit))) ∨
+     (v = Rval (Conv NONE []))) ∨
   (?lnum v2.
     (op = Opref) ∧ (vs = [v2]) ∧ (store_alloc (Refv v2) st = (st',lnum)) ∧
      (v = Rval (Loc lnum))) ∨
@@ -67,7 +77,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
         v = Rval (Loc lnum)))) ∨
   (?ws lnum i.
     (op = Aw8sub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
-    store_lookup lnum st = SOME (W8array ws) ∧ 
+    store_lookup lnum st = SOME (W8array ws) ∧
     (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧
        v = Rerr (Rraise (prim_exn "Subscript")))) ∨
@@ -76,18 +86,18 @@ val do_app_cases = Q.store_thm ("do_app_cases",
       (v = Rval (Litv (Word8 (EL (Num(ABS i)) ws))))))) ∨
   (?lnum ws.
     (op = Aw8length) ∧ (vs = [Loc lnum]) ∧ st = st' ∧
-    store_lookup lnum st = SOME (W8array ws) ∧ 
+    store_lookup lnum st = SOME (W8array ws) ∧
     v = Rval (Litv (IntLit (&(LENGTH ws))))) ∨
   (?ws lnum i w.
-    (op = Aw8update) ∧ (vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∧ 
-    store_lookup lnum st = SOME (W8array ws) ∧ 
+    (op = Aw8update) ∧ (vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∧
+    store_lookup lnum st = SOME (W8array ws) ∧
     (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ st = st') ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH ws ∧ st = st' ∧
        v = Rerr (Rraise (prim_exn "Subscript")))) ∨
      (~(i < 0) ∧
       Num (ABS i) < LENGTH ws ∧
       store_assign lnum (W8array (LUPDATE w (Num (ABS i)) ws)) st = SOME st' ∧
-      v = Rval (Litv Unit)))) ∨
+      v = Rval (Conv NONE [])))) ∨
   (?n.
     (op = Chr) ∧ (vs = [Litv(IntLit n)]) ∧ st = st' ∧
     ((n < 0 ∧ v = Rerr (Rraise (prim_exn "Chr"))) ∨
@@ -98,7 +108,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
     (v = Rval(Litv(IntLit(&(ORD c)))))) ∨
   (?opb c1 c2.
     (op = Chopb opb) ∧ (vs = [Litv(Char c1);Litv(Char c2)]) ∧
-    (st = st') ∧ (v = Rval(Litv(Bool(opb_lookup opb (&(ORD c1)) (&(ORD c2))))))) ∨
+    (st = st') ∧ (v = Rval(Boolv(opb_lookup opb (&(ORD c1)) (&(ORD c2)))))) ∨
   (?str.
     (op = Explode) ∧ (vs = [Litv(StrLit str)]) ∧
     st = st' ∧
@@ -134,7 +144,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
         v = Rval (Loc lnum)))) ∨
   (?vs' lnum i.
     (op = Asub) ∧ (vs = [Loc lnum; Litv (IntLit i)]) ∧ (st = st') ∧
-    store_lookup lnum st = SOME (Varray vs') ∧ 
+    store_lookup lnum st = SOME (Varray vs') ∧
     (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript"))) ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧
        v = Rerr (Rraise (prim_exn "Subscript")))) ∨
@@ -143,18 +153,18 @@ val do_app_cases = Q.store_thm ("do_app_cases",
       (v = Rval (EL (Num(ABS i)) vs'))))) ∨
   (?lnum vs'.
     (op = Alength) ∧ (vs = [Loc lnum]) ∧ st = st' ∧
-    store_lookup lnum st = SOME (Varray vs') ∧ 
+    store_lookup lnum st = SOME (Varray vs') ∧
     v = Rval (Litv (IntLit (&(LENGTH vs'))))) ∨
   (?vs' lnum i v'.
-    (op = Aupdate) ∧ (vs = [Loc lnum; Litv (IntLit i); v']) ∧ 
-    store_lookup lnum st = SOME (Varray vs') ∧ 
+    (op = Aupdate) ∧ (vs = [Loc lnum; Litv (IntLit i); v']) ∧
+    store_lookup lnum st = SOME (Varray vs') ∧
     (((i < 0) ∧ v = Rerr (Rraise (prim_exn "Subscript")) ∧ st = st') ∨
      ((~(i < 0) ∧ Num (ABS i) ≥ LENGTH vs' ∧ st = st' ∧
        v = Rerr (Rraise (prim_exn "Subscript")))) ∨
      (~(i < 0) ∧
       Num (ABS i) < LENGTH vs' ∧
       store_assign lnum (Varray (LUPDATE v' (Num (ABS i)) vs')) st = SOME st' ∧
-      v = Rval (Litv Unit)))))`,
+      v = Rval (Conv NONE [])))))`,
  SIMP_TAC (srw_ss()) [do_app_def] >>
  cases_on `op` >>
  rw [] >>
