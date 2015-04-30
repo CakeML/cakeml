@@ -71,8 +71,8 @@ val inst_compile_def = Define `
       :word8); (72w :word8); (83w :word8); (187w :word8); (8w :word8);
     (0w :word8); (0w :word8); (0w :word8); (77w :word8); (139w :word8);
     (105w :word8); (56w :word8); (73w :word8); (255w :word8); (213w
-      :word8); (72w :word8); (91w :word8); (72w :word8); (131w :word8);
-    (192w :word8); (2w :word8); (77w :word8); (49w :word8); (255w
+      :word8); (72w :word8); (91w :word8); (72w :word8); (247w :word8);
+    (216w :word8); (72w :word8); (131w :word8); (192w :word8); (42w
       :word8)]) /\
   (inst_compile i (Stack Equal) =
    [(72w :word8); (89w :word8); (77w :word8); (49w :word8); (255w
@@ -87,9 +87,9 @@ val inst_compile_def = Define `
       :word8); (235w :word8); (11w :word8); (76w :word8); (139w
       :word8); (120w :word8); (1w :word8); (73w :word8); (247w :word8);
     (199w :word8); (7w :word8); (0w :word8); (0w :word8); (0w :word8);
-    (72w :word8); (117w :word8); (8w :word8); (184w :word8); (6w
+    (72w :word8); (117w :word8); (8w :word8); (184w :word8); (38w
       :word8); (0w :word8); (0w :word8); (0w :word8); (72w :word8);
-    (235w :word8); (5w :word8); (184w :word8); (2w :word8); (0w
+    (235w :word8); (5w :word8); (184w :word8); (42w :word8); (0w
       :word8); (0w :word8); (0w :word8)]) /\
   (inst_compile i (Stack (TagEq k)) =
    if k < (268435456 :num) then
@@ -106,9 +106,9 @@ val inst_compile_def = Define `
       (255w :word8); (255w :word8); (0w :word8); (0w :word8); (72w
         :word8); (193w :word8); (232w :word8); (2w :word8); (72w
         :word8); (57w :word8); (200w :word8); (72w :word8); (117w
-        :word8); (8w :word8); (184w :word8); (6w :word8); (0w :word8);
+        :word8); (8w :word8); (184w :word8); (38w :word8); (0w :word8);
       (0w :word8); (0w :word8); (72w :word8); (235w :word8); (5w
-        :word8); (184w :word8); (2w :word8); (0w :word8); (0w :word8);
+        :word8); (184w :word8); (42w :word8); (0w :word8); (0w :word8);
       (0w :word8)]
    else [(73w :word8); (255w :word8); (97w :word8); (40w :word8)]) /\
   (inst_compile i (Stack El) =
@@ -213,7 +213,7 @@ val inst_compile_def = Define `
   (inst_compile i (JumpIf (Addr l)) =
    if l < (268435456 :num) then
      if i < (268435456 :num) then
-       [(72w :word8); (131w :word8); (248w :word8); (2w :word8); (72w
+       [(72w :word8); (131w :word8); (248w :word8); (42w :word8); (72w
           :word8); (88w :word8); (15w :word8); (133w :word8);
         (w2w
            ((n2w ((2 :num) * l) :word32) - (n2w i :word32) - (12w
@@ -404,13 +404,13 @@ val inst_compile_def = Define `
     (255w :word8)]) /\
   (inst_compile i (Stop T) =
    [(72w :word8); (80w :word8); (77w :word8); (49w :word8); (255w
-      :word8); (184w :word8); (6w :word8); (0w :word8); (0w :word8);
+      :word8); (184w :word8); (38w :word8); (0w :word8); (0w :word8);
     (0w :word8); (77w :word8); (139w :word8); (169w :word8); (136w
       :word8); (0w :word8); (0w :word8); (0w :word8); (73w :word8);
     (255w :word8); (229w :word8)]) /\
   (inst_compile i (Stop F) =
    [(72w :word8); (80w :word8); (77w :word8); (49w :word8); (255w
-      :word8); (184w :word8); (2w :word8); (0w :word8); (0w :word8);
+      :word8); (184w :word8); (42w :word8); (0w :word8); (0w :word8);
     (0w :word8); (77w :word8); (139w :word8); (169w :word8); (136w
       :word8); (0w :word8); (0w :word8); (0w :word8); (73w :word8);
     (255w :word8); (229w :word8)]) /\
