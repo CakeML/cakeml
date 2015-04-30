@@ -17,8 +17,6 @@ val _ = Hol_datatype `
     IntLit of int
   | Char of char
   | StrLit of string
-  | Bool of bool
-  | Unit
   | Word8 of word8`;
 
 
@@ -124,8 +122,6 @@ val _ = Hol_datatype `
   | TC_int
   | TC_char
   | TC_string
-  | TC_bool
-  | TC_unit
   | TC_ref
   | TC_word8
   | TC_word8array
@@ -156,12 +152,6 @@ val _ = Define `
 
 val _ = Define `
  (Tstring = (Tapp [] TC_string))`;
-
-val _ = Define `
- (Tunit = (Tapp [] TC_unit))`;
-
-val _ = Define `
- (Tbool = (Tapp [] TC_bool))`;
 
 val _ = Define `
  (Tref t = (Tapp [t] TC_ref))`;

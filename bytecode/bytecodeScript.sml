@@ -115,29 +115,30 @@ val _ = Hol_datatype `
    |>`;
 
 
+val _ = Define `
+ (string_tag : num =( 0))`;
+
+val _ = Define `
+ (vector_tag : num =( 1))`;
+
+val _ = Define `
+ (closure_tag : num =( 2))`;
+
+val _ = Define `
+ (block_tag : num =( 3))`;
+
+
+val _ = Define `
+ (unit_tag : num = block_tag)`;
+ (* + tuple_tag *)
+
 (*val bool_to_tag : bool -> nat*)
  val _ = Define `
 
-(bool_to_tag F =( 0))
+(bool_to_tag F = (block_tag + 7)) (* false_tag *)
 /\
-(bool_to_tag T =( 1))`;
-
-
-val _ = Define `
- (unit_tag : num =( 2))`;
-
-val _ = Define `
- (string_tag : num =( 3))`;
-
-val _ = Define `
- (vector_tag : num =( 4))`;
-
-val _ = Define `
- (closure_tag : num =( 5))`;
-
-val _ = Define `
- (block_tag : num =( 6))`;
-
+(bool_to_tag T = (block_tag + 6))`;
+ (* true_tag *)
 
 val _ = Define `
  (bool_to_val b = (Block (bool_to_tag b) []))`;

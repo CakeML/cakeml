@@ -108,8 +108,6 @@ fs [] >|
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
  metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
- metis_tac [APPEND, sub_completion_more_vars],
  PairCases_on `v'` >>
      fs [] >>
      metis_tac [APPEND_ASSOC, APPEND, sub_completion_more_vars],
@@ -270,7 +268,7 @@ rw [infer_p_def, success_eqns, remove_pair_lem] >>
 rw [Once type_p_cases, convert_env_def] >>
 imp_res_tac sub_completion_wfs >>
 fs [] >>
-rw [t_walkstar_eqn1, convert_t_def, Tbool_def, Tint_def, Tstring_def, Tunit_def, Tchar_def] >|
+rw [t_walkstar_eqn1, convert_t_def, Tint_def, Tstring_def, Tchar_def] >|
 [match_mp_tac check_t_to_check_freevars >>
      rw [] >>
      fs [sub_completion_def] >>
@@ -367,7 +365,7 @@ imp_res_tac sub_completion_apply >>
 imp_res_tac t_unify_wfs >>
 imp_res_tac sub_completion_wfs >>
 fs [t_walkstar_eqn, t_walk_eqn, convert_t_def, deBruijn_inc_def, check_t_def] >>
-rw [type_op_cases, Tint_def, Tstring_def, Tbool_def, Tref_def, Tfn_def, Tunit_def, Texn_def, Tchar_def] >>
+rw [type_op_cases, Tint_def, Tstring_def, Tref_def, Tfn_def, Texn_def, Tchar_def] >>
 metis_tac [MAP, infer_e_next_uvar_mono, check_env_more];
 
 val constrain_op_sub_completion = Q.prove (
@@ -449,7 +447,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
   rw [check_t_def] >>
   fs [check_t_def, check_env_bind, check_env_merge] >>
   ONCE_REWRITE_TAC [type_e_cases] >>
-  rw [Tbool_def, Tint_def, Tunit_def, Tchar_def]
+  rw [Tint_def, Tchar_def]
   >-
   (* Raise *)
      (fs [sub_completion_def, flookup_thm, count_add1, SUBSET_DEF] >>
@@ -493,9 +491,6 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      fs [t_walkstar_eqn1, convert_t_def, Texn_def] >>
      metis_tac [])
   >-
- (* Lit bool *)
-     binop_tac
-  >-
  (* Lit int *)
      binop_tac
   >-
@@ -503,9 +498,6 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      binop_tac
   >-
  (* Lit string *)
-     binop_tac
-  >-
- (* Lit unit *)
      binop_tac
  (* Lit word8 *)
  >-

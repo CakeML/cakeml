@@ -374,14 +374,9 @@ val big_clocked_total_lem = Q.prove (
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] >-
      metis_tac [] >>
-     `(do_log l v e0 = NONE) ∨ (?lit. do_log l v e0 = SOME (Lit lit)) ∨ (do_log l v e0 = SOME e0)`
+     `(do_log l v e0 = NONE) ∨ (?lit. do_log l v e0 = SOME (Val lit)) ∨ (do_log l v e0 = SOME (Exp e0))`
                 by (rw [do_log_def] >>
-                    cases_on `v` >>
-                    rw [] >>
-                    cases_on `l'` >>
-                    rw [] >>
-                    cases_on `l` >>
-                    rw []) >-
+                    every_case_tac >> rw[]) >-
      metis_tac [] >-
      prove_tac [evaluate_rules] >>
      metis_tac [clock_monotone, arithmeticTheory.LESS_OR_EQ])

@@ -269,7 +269,7 @@ val free_vars_pat_sIf = store_thm("free_vars_pat_sIf",
   ``∀e1 e2 e3. set (free_vars_pat (sIf_pat e1 e2 e3)) ⊆ set (free_vars_pat (If_pat e1 e2 e3))``,
   rw[sIf_pat_def] >>
   BasicProvers.CASE_TAC >> simp[SUBSET_DEF] >>
-  BasicProvers.CASE_TAC >> simp[] >> rw[])
+  BasicProvers.EVERY_CASE_TAC >> simp[] >> rw[])
 
 val free_vars_ground_pat = store_thm("free_vars_ground_pat",
   ``(∀e n. ground_pat n e ⇒ set (free_vars_pat e) ⊆ count n) ∧
@@ -938,7 +938,7 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     strip_tac >> fs[] >>
     PairCases_on`s2` >>
     imp_res_tac do_app_pat_cases >>
-    fs[do_app_pat_def] >>
+    fs[do_app_pat_def,Boolv_pat_def] >>
     rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
@@ -962,7 +962,7 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     metis_tac[MEM_LUPDATE_E,sv_every_def,MEM_EL,OPTION_EVERY_def,NOT_LESS_EQUAL,GREATER_EQ] ) >>
   strip_tac >- (
     ntac 4 gen_tac >>
-    Cases >> simp[do_if_pat_def] >>
+    Cases >> simp[do_if_pat_def,Boolv_pat_def] >>
     Cases_on`l`>>simp[] >> rw[] ) >>
   strip_tac >- (
     rpt gen_tac >> ntac 2 strip_tac >>
@@ -1192,7 +1192,7 @@ val do_app_closed = store_thm("do_app_closed",
     ⇒ every_result closed closed res ∧
       EVERY (sv_every closed) s'``,
   rpt gen_tac >> strip_tac >>
-  imp_res_tac do_app_cases >> fs[do_app_def] >>
+  imp_res_tac do_app_cases >> fs[do_app_def,Boolv_def] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   fs[store_assign_def,store_alloc_def,store_lookup_def,LET_THM] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
@@ -1267,8 +1267,15 @@ val do_opapp_closed = store_thm("do_opapp_closed",
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >> rw[])
 
 val do_log_FV = store_thm("do_log_FV",
-  ``(do_log op v e2 = SOME exp) ⇒
+  ``(do_log op v e2 = SOME (Exp exp)) ⇒
     (FV exp ⊆ FV e2)``,
+  fs[do_log_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw[] >>rw[])
+
+val do_log_FV_v = store_thm("do_log_FV_v",
+  ``(do_log op v e2 = SOME (Val v2)) ⇒
+    closed v ⇒ closed v2``,
   fs[do_log_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[] >>rw[])
@@ -1355,7 +1362,7 @@ val evaluate_closed = store_thm("evaluate_closed",
     PROVE_TAC[do_log_FV,SUBSET_TRANS]) >>
   strip_tac (* Log *) >- (
     rw[] >> fs[] >> rfs[] >>
-    PROVE_TAC[do_log_FV,SUBSET_TRANS] ) >>
+    PROVE_TAC[do_log_FV_v,SUBSET_TRANS] ) >>
   strip_tac (* Log *) >- rw[] >>
   strip_tac (* If *) >- (
     rw[] >> fs[] >>
@@ -1363,6 +1370,7 @@ val evaluate_closed = store_thm("evaluate_closed",
   strip_tac (* If *) >- (
     rw[] >> fs[] >> rfs[] >>
     PROVE_TAC[do_if_FV,UNION_SUBSET,SUBSET_TRANS] ) >>
+  strip_tac (* If *) >- rw[] >>
   strip_tac (* If *) >- rw[] >>
   strip_tac (* Mat *) >- rw[] >>
   strip_tac (* Mat *) >- rw[] >>
@@ -1418,7 +1426,7 @@ val free_vars_i1_exp_to_i1 = store_thm("free_vars_i1_exp_to_i1",
   simp[exp_to_i1_def] >> rpt conj_tac >>
   TRY (
     rpt gen_tac >> strip_tac >>
-    TRY (BasicProvers.CASE_TAC >> fs[]) >>
+    TRY (BasicProvers.CASE_TAC >> fs[Bool_i1_def]) >>
     ONCE_REWRITE_TAC[EXTENSION] >>
     simp[] >> metis_tac[] ) >>
   TRY (
@@ -1848,7 +1856,7 @@ val do_app_i1_closed = store_thm("do_app_i1_closed",
     ⇒ every_result closed_i1 closed_i1 res ∧
       EVERY (sv_every closed_i1) s'``,
   rpt gen_tac >> strip_tac >>
-  imp_res_tac do_app_i1_cases >> fs[do_app_i1_def] >>
+  imp_res_tac do_app_i1_cases >> fs[do_app_i1_def,Boolv_i1_def] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
   fs[store_assign_def,store_alloc_def,store_lookup_def,LET_THM] >>
   rpt BasicProvers.VAR_EQ_TAC >> simp[] >>

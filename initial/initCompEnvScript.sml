@@ -396,6 +396,7 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
      >- rw [ctMap_has_exns_def, to_ctMap_prim_tenvC, alistTheory.flookup_fupdate_list]
      >- rw [ctMap_has_lists_def, to_ctMap_prim_tenvC, alistTheory.flookup_fupdate_list, 
             type_subst_def, FLOOKUP_UPDATE]
+     >- rw [ctMap_has_bools_def, to_ctMap_prim_tenvC, alistTheory.flookup_fupdate_list]
      >- rw [tenvM_ok_def,tenvT_ok_def,flat_tenvT_ok_def,check_freevars_def, FEVERY_FEMPTY, FEVERY_FUPDATE]
      >- rw [tenvM_ok_def, convert_menv_def, FEVERY_FEMPTY]
      >- rw [tenvM_ok_def, convert_menv_def, FEVERY_FEMPTY]
@@ -423,6 +424,8 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
               (("SOME",TypeId (Short "option")), (some_tag, 1));
               (("nil",TypeId (Short "list")), (nil_tag, 0:num));
               (("::",TypeId (Short "list")), (cons_tag, 2));
+              (("true",TypeId (Short "bool")), (true_tag, 0));
+              (("false",TypeId (Short "bool")), (false_tag, 0));
               (("Bind",TypeExn (Short "Bind")), (bind_tag,0));
               (("Chr",TypeExn (Short "Chr")), (chr_tag,0));
               (("Div",TypeExn (Short "Div")), (div_tag,0));
@@ -445,6 +448,8 @@ val prim_env_inv = Q.store_thm ("prim_env_inv",
            rpt gen_tac >>
            BasicProvers.CASE_TAC >>
            IF_CASES_TAC >- rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
+           IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>
            IF_CASES_TAC >- (rw[FLOOKUP_UPDATE,FLOOKUP_FUNION] >> simp[]) >>

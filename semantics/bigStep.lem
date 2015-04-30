@@ -163,14 +163,22 @@ and
 
 log1 : forall ck env op e1 e2 v e' bv s1 s2.
 evaluate ck env s1 e1 (s2, Rval v) &&
-do_log op v e2 = Just e' &&
+do_log op v e2 = Just (Exp e') &&
 evaluate ck env s2 e' bv
 ==>
 evaluate ck env s1 (Log op e1 e2) bv
 
 and
 
-log2 : forall ck env op e1 e2 v s1 s2.
+log2 : forall ck env op e1 e2 v bv s1 s2.
+evaluate ck env s1 e1 (s2, Rval v) &&
+do_log op v e2 = Just (Val bv)
+==>
+evaluate ck env s1 (Log op e1 e2) (s2, Rval bv)
+
+and
+
+log3 : forall ck env op e1 e2 v s1 s2.
 evaluate ck env s1 e1 (s2, Rval v) &&
 (do_log op v e2 = Nothing)
 ==>
@@ -178,7 +186,7 @@ evaluate ck env s1 (Log op e1 e2) (s2, Rerr Rtype_error)
 
 and
 
-log3 : forall ck env op e1 e2 err s s'.
+log4 : forall ck env op e1 e2 err s s'.
 evaluate ck env s e1 (s', Rerr err)
 ==>
 evaluate ck env s (Log op e1 e2) (s', Rerr err)

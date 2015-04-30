@@ -1,9 +1,11 @@
+open HolKernel Parse boolLib bossLib;
 
-open HolKernel Parse boolLib bossLib; val _ = new_theory "example_primality_test";
+val _ = new_theory "example_primality_test";
 
 open miller_rabinTheory;
 open arithmeticTheory;
 open combinTheory;
+open mini_preludeTheory;
 
 open ml_translatorLib;
 
@@ -17,9 +19,15 @@ fun find_def tm = let
 
 (* Miller-Rabin -- has higher-order functions and `MOD n` *)
 
+val _ = translation_extends "mini_prelude";
+
 val res = translate EVEN_MOD2;
 
-val _ = translate (find_def ``UNIT``);
+val UNIT_thm = prove(
+  ``UNIT x s = (x,s)``,
+  FULL_SIMP_TAC std_ss [state_transformerTheory.UNIT_DEF]);
+
+val _ = translate UNIT_thm;
 
 val def = find_def ``BIND``;
 val _ = translate (SIMP_RULE std_ss [FUN_EQ_THM] def);
@@ -29,7 +37,7 @@ val lemma = prove(
   SIMP_TAC std_ss [FUN_EQ_THM]);
 
 val def = find_def ``prob_while_cut``
-          |> RW1 [lemma] |> SIMP_RULE std_ss []
+          |> ONCE_REWRITE_RULE [lemma] |> SIMP_RULE std_ss []
 val _ = translate def;
 
 val _ = translate K_DEF;
@@ -69,6 +77,4 @@ val _ = translate miller_rabin_1_def;
 
 val _ = translate miller_rabin_def;
 
-
 val _ = export_theory();
-

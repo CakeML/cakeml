@@ -62,10 +62,15 @@ evaluate_ctxt env s1 (Capp op vs1 ()  es) v ((count,s2), Rerr Rtype_error))
 evaluate_ctxt env s (Capp op vs ()  es) v (s', Rerr err))
 
 /\ (! env op e2 v e' bv s.
-((do_log op v e2 = SOME e') /\
+((do_log op v e2 = SOME (Exp e')) /\
 evaluate F env s e' bv)
 ==>
 evaluate_ctxt env s (Clog op ()  e2) v bv)
+
+/\ (! env op e2 v v' s.
+(do_log op v e2 = SOME (Val v'))
+==>
+evaluate_ctxt env s (Clog op ()  e2) v (s, Rval v'))
 
 /\ (! env op e2 v s.
 (do_log op v e2 = NONE)

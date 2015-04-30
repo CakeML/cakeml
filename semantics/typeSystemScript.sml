@@ -259,18 +259,18 @@ val _ = Define `
 ((case (op,ts) of
       (Opapp, [Tapp [t2'; t3'] TC_fn; t2]) => (t2 = t2') /\ (t = t3')
     | (Opn _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tint)
-    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tbool)
-    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tbool)
-    | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tunit)
+    | (Opb _, [Tapp [] TC_int; Tapp [] TC_int]) => (t = Tapp [] (TC_name (Short "bool")))
+    | (Equality, [t1; t2]) => (t1 = t2) /\ (t = Tapp [] (TC_name (Short "bool")))
+    | (Opassign, [Tapp [t1] TC_ref; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
     | (Opref, [t1]) => (t = Tapp [t1] TC_ref)
     | (Opderef, [Tapp [t1] TC_ref]) => (t = t1)
     | (Aw8alloc, [Tapp [] TC_int; Tapp [] TC_word8]) => (t = Tapp [] TC_word8array)
     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
     | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
-    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_unit
+    | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_tup
     | (Chr, [Tapp [] TC_int]) => (t = Tchar)
     | (Ord, [Tapp [] TC_char]) => (t = Tint)
-    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tbool)
+    | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tapp [] (TC_name (Short "bool")))
     | (Explode, [Tapp [] TC_string]) => t = Tapp [Tapp [] TC_char] (TC_name (Short "list"))
     | (Implode, [Tapp [Tapp [] TC_char] (TC_name (Short "list"))]) => t = Tapp [] TC_string
     | (Strlen, [Tapp [] TC_string]) => t = Tint
@@ -280,7 +280,7 @@ val _ = Define `
     | (Aalloc, [Tapp [] TC_int; t1]) => t = Tapp [t1] TC_array
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
     | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
-    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_unit)
+    | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
     | _ => F
   )))`;
 
@@ -397,11 +397,6 @@ val _ = Hol_reln ` (! tvs cenv n t.
 ==>
 type_p tvs cenv (Pvar n) t [(n,t)])
 
-/\ (! tvs cenv b.
-T
-==>
-type_p tvs cenv (Plit (Bool b)) Tbool [])
-
 /\ (! tvs cenv n.
 T
 ==>
@@ -416,11 +411,6 @@ type_p tvs cenv (Plit (Char c)) Tchar [])
 T
 ==>
 type_p tvs cenv (Plit (StrLit s)) Tstring [])
-
-/\ (! tvs cenv.
-T
-==>
-type_p tvs cenv (Plit Unit) Tunit [])
 
 /\ (! tvs cenv w.
 T
@@ -456,12 +446,7 @@ type_ps tvs cenv ps ts tenv')
 ==>
 type_ps tvs cenv (p::ps) (t::ts) (tenv'++tenv))`;
 
-val _ = Hol_reln ` (! menv cenv tenv b.
-T
-==>
-type_e menv cenv tenv (Lit (Bool b)) Tbool)
-
-/\ (! menv cenv tenv n.
+val _ = Hol_reln ` (! menv cenv tenv n.
 T
 ==>
 type_e menv cenv tenv (Lit (IntLit n)) Tint)
@@ -475,11 +460,6 @@ type_e menv cenv tenv (Lit (Char c)) Tchar)
 T
 ==>
 type_e menv cenv tenv (Lit (StrLit s)) Tstring)
-
-/\ (! menv cenv tenv.
-T
-==>
-type_e menv cenv tenv (Lit Unit) Tunit)
 
 /\ (! menv cenv tenv w.
 T
@@ -534,13 +514,13 @@ type_op op ts t)
 type_e menv cenv tenv (App op es) t)
 
 /\ (! menv cenv tenv l e1 e2.
-(type_e menv cenv tenv e1 Tbool /\
-type_e menv cenv tenv e2 Tbool)
+(type_e menv cenv tenv e1 (Tapp [] (TC_name (Short "bool"))) /\
+type_e menv cenv tenv e2 (Tapp [] (TC_name (Short "bool"))))
 ==>
-type_e menv cenv tenv (Log l e1 e2) Tbool)
+type_e menv cenv tenv (Log l e1 e2) (Tapp [] (TC_name (Short "bool"))))
 
 /\ (! menv cenv tenv e1 e2 e3 t.
-(type_e menv cenv tenv e1 Tbool /\
+(type_e menv cenv tenv e1 (Tapp [] (TC_name (Short "bool"))) /\
 (type_e menv cenv tenv e2 t /\
 type_e menv cenv tenv e3 t))
 ==>

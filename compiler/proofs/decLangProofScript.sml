@@ -97,7 +97,7 @@ val eval_i3_extend_genv = Q.prove (
 `!b env s genv n s' genv' v.
   evaluate_i3 b env (s,genv) (Extend_global_i2 n) (s',r)
   ⇔
-  r = Rval (Litv_i2 Unit) ∧
+  r = Rval (Conv_i2 (tuple_tag,NONE) []) ∧
   s' = (s,genv ++ GENLIST (\x. NONE) n)`,
  rw [Once evaluate_i3_cases] >>
  metis_tac []);
@@ -165,10 +165,11 @@ val init_globals_thm = Q.prove (
   evaluate_match_i3 ck env (s, genv ++ GENLIST (λt. NONE) (LENGTH new_env)) (Conv_i2 (tuple_tag,NONE) new_env)
   [(Pcon_i2 (tuple_tag,NONE) (MAP Pvar_i2 vs), init_globals vs (LENGTH genv))]
   (Conv_i2 (bind_tag,SOME (TypeExn (Short "Bind"))) [])
-  ((s,genv ++ MAP SOME new_env), Rval (Litv_i2 Unit))`,
+  ((s,genv ++ MAP SOME new_env), Rval (Conv_i2 (tuple_tag,NONE) []))`,
   Induct >- (
     simp[Once evaluate_i3_cases,pmatch_i2_def,init_globals_def,LENGTH_NIL] >>
     simp[Once evaluate_i3_cases,pat_bindings_i2_def] >>
+    simp[Once evaluate_i3_cases] >>
     metis_tac [pair_CASES]) >>
   qx_genl_tac[`v`,`genv`,`vs0`,`env`] >> strip_tac >>
   `∃w ws. vs0 = w::ws` by (Cases_on`vs0`>>fs[])>>
@@ -204,14 +205,14 @@ val init_globals_thm = prove(
     [(Pcon_i2 (tuple_tag,NONE) (MAP Pvar_i2 (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env))),
       init_globals (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env)) (LENGTH genv))]
    (Conv_i2 (bind_tag,SOME (TypeExn (Short "Bind"))) [])
-   ((s,genv ++ MAP SOME new_env), Rval (Litv_i2 Unit))``,
+   ((s,genv ++ MAP SOME new_env), Rval (Conv_i2 (tuple_tag,NONE) []))``,
   rw[] >> match_mp_tac init_globals_thm >> simp[ALL_DISTINCT_GENLIST])
 
 val init_global_funs_thm = Q.prove (
   `!l genv.
     evaluate_i3 ck (exh,[]) (s, genv ++ GENLIST (λt. NONE) (LENGTH l)) (init_global_funs (LENGTH genv) l)
-    ((s,genv ++ MAP SOME (MAP (λ(f,x,e). Closure_i2 [] x e) l)), Rval (Litv_i2 Unit))`,
-  Induct >> simp[init_global_funs_def] >- simp[Once evaluate_i3_cases] >>
+    ((s,genv ++ MAP SOME (MAP (λ(f,x,e). Closure_i2 [] x e) l)), Rval (Conv_i2 (tuple_tag,NONE) []))`,
+  Induct >> simp[init_global_funs_def] >- (ntac 2 (simp[Once evaluate_i3_cases])) >>
   qx_gen_tac`f` >> PairCases_on`f` >>
   simp[init_global_funs_def] >>
   simp[Once evaluate_i3_cases] >>
@@ -234,7 +235,9 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
                 ((s',genv ++ MAP SOME new_env ++ GENLIST (\x. NONE) (num_defs ds - LENGTH new_env)),r_i3)`,
  induct_on `ds` >>
  rw [decs_to_i3_def]
- >- fs [Once evaluate_decs_i2_cases, Once evaluate_i3_cases, dec_result_to_i3_cases, num_defs_def] >>
+ >- (
+   fs [Once evaluate_decs_i2_cases, Once evaluate_i3_cases, dec_result_to_i3_cases, num_defs_def] >>
+   simp[Once evaluate_i3_cases] >> simp[Once evaluate_i3_cases] ) >>
  Cases_on `h` >>
  qpat_assum `evaluate_decs_i2 x0 x1 x2 x3 x4 x5` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_decs_i2_cases]) >>
  rw [num_defs_def, LET_THM] >>
@@ -255,7 +258,7 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
      qexists_tac `r_i3` >>
      srw_tac [ARITH_ss] [GENLIST_APPEND] >>
      disj1_tac >>
-     MAP_EVERY qexists_tac [`Litv_i2 Unit`, `(s2, genv ++ MAP SOME new_env' ++ GENLIST (λx. NONE) (num_defs ds))`] >>
+     MAP_EVERY qexists_tac [`Conv_i2 (tuple_tag,NONE) []`, `(s2, genv ++ MAP SOME new_env' ++ GENLIST (λx. NONE) (num_defs ds))`] >>
      rw [] >>
      fs [LENGTH_APPEND] >>
      MAP_EVERY qexists_tac [`Conv_i2 (tuple_tag,NONE) new_env'`, `(s2,genv++GENLIST (λx. NONE) (num_defs ds) ++ GENLIST (λt. NONE) (LENGTH new_env'))`] >>
@@ -271,7 +274,7 @@ val decs_to_i3_correct = Q.store_thm("decs_to_i3_correct",
      qexists_tac `r_i3` >>
      srw_tac [ARITH_ss] [GENLIST_APPEND] >>
      disj1_tac >>
-     MAP_EVERY qexists_tac [`Litv_i2 Unit`, `(s, genv ++ MAP SOME (MAP (λ(f,x,e).  Closure_i2 [] x e) l) ++ GENLIST (λx. NONE) (num_defs ds))`] >>
+     MAP_EVERY qexists_tac [`Conv_i2 (tuple_tag,NONE) []`, `(s, genv ++ MAP SOME (MAP (λ(f,x,e).  Closure_i2 [] x e) l) ++ GENLIST (λx. NONE) (num_defs ds))`] >>
      rw [] >>
      fs [LENGTH_APPEND] >>
      `!(l:v_i2 option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`

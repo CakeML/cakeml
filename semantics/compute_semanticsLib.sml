@@ -40,13 +40,11 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,terminationTheory.pmatch_def
     ,bigStepTheory.no_dup_mods_def
     ,bigStepTheory.no_dup_top_types_def
-    ,astTheory.Tbool_def
     ,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def
     ,astTheory.Tref_def
     ,astTheory.Tstring_def
-    ,astTheory.Tunit_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
     ] compset

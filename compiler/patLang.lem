@@ -51,12 +51,15 @@ type v_pat =
   | Loc_pat of nat
   | Vectorv_pat of list v_pat
 
+let Bool_pat b = Con_pat (if b then true_tag else false_tag) []
+let Boolv_pat b = Conv_pat (if b then true_tag else false_tag) []
+
 val sIf_pat : exp_pat -> exp_pat -> exp_pat -> exp_pat
 let
 sIf_pat e1 e2 e3 =
-  if e2 = Lit_pat (Bool true) && e3 = Lit_pat (Bool false) then e1 else
+  if e2 = Bool_pat true && e3 = Bool_pat false then e1 else
   match e1 with
-  | Lit_pat (Bool b) -> if b then e2 else e3
+  | Con_pat t [] -> if t = true_tag then e2 else e3
   | _ -> If_pat e1 e2 e3
   end
 
@@ -223,7 +226,7 @@ val pat_to_pat : pat_exh -> exp_pat
  * m most recently bound variables; n counts 0..m *)
 val pats_to_pat : nat -> list pat_exh -> exp_pat
 let rec
-pat_to_pat (Pvar_exh _) = Lit_pat (Bool true)
+pat_to_pat (Pvar_exh _) = Bool_pat true
 and
 pat_to_pat (Plit_exh l) = App_pat (Op_pat (Op_i2 Equality)) [Var_local_pat 0; Lit_pat l]
 and
@@ -233,18 +236,18 @@ and
 pat_to_pat (Pcon_exh tag ps) =
   sIf_pat (App_pat (Tag_eq_pat tag) [Var_local_pat 0])
     (Let_Els_pat 0 (List.length ps) (pats_to_pat 0 ps))
-    (Lit_pat (Bool false))
+    (Bool_pat false)
 and
 pat_to_pat (Pref_exh p) =
   sLet_pat (App_pat (Op_pat (Op_i2 Opderef)) [Var_local_pat 0])
     (pat_to_pat p)
 and
-pats_to_pat _ [] = Lit_pat (Bool true)
+pats_to_pat _ [] = Bool_pat true
 and
 pats_to_pat n (p::ps) =
   sIf_pat (sLet_pat (Var_local_pat n) (pat_to_pat p))
     (pats_to_pat (n+1) ps)
-    (Lit_pat (Bool false))
+    (Bool_pat false)
 
 (* given a pattern in a context of bound variables where the most recently
  * bound variable is the value to be matched, return a function that binds new
@@ -295,7 +298,7 @@ and
 exp_to_pat bvs (Var_local_exh x) =
   match find_index (Just x) bvs 0 with
   | Just k -> Var_local_pat k
-  | Nothing -> Lit_pat Unit (* should not happen *)
+  | Nothing -> Lit_pat (IntLit 0) (* should not happen *)
   end
 and
 exp_to_pat _ (Var_global_exh n) = Var_global_pat n
@@ -341,7 +344,7 @@ pes_to_pat bvs ((p,e)::pes) =
     (let (bvs,_,f) = row_to_pat bvs p in f (exp_to_pat bvs e))
     (pes_to_pat bvs pes)
 and
-pes_to_pat _ _ = Lit_pat Unit (* should not happen *)
+pes_to_pat _ _ = Lit_pat (IntLit 0) (* should not happen *)
 
 val build_rec_env_pat : list exp_pat -> list v_pat -> list v_pat
 let build_rec_env_pat funs cl_env =
@@ -455,16 +458,16 @@ let do_app_pat ((cnt,s),genv) op vs =
         else
           Just (((cnt,s),genv), Rval (Litv_pat (IntLit (opn_lookup op n1 n2))))
     | (Op_pat (Op_i2 (Opb op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ->
-        Just (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op n1 n2))))
+        Just (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op n1 n2)))
     | (Op_pat (Op_i2 Equality), [v1; v2]) ->
         match do_eq_pat v1 v2 with
           | Eq_type_error -> Nothing
           | Eq_closure -> Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat eq_tag)))
-          | Eq_val b -> Just (((cnt,s),genv), Rval(Litv_pat (Bool b)))
+          | Eq_val b -> Just (((cnt,s),genv), Rval(Boolv_pat b))
         end
     | (Op_pat (Op_i2 Opassign), [Loc_pat lnum; v]) ->
         match store_assign lnum (Refv v) s with
-        | Just st -> Just (((cnt,st),genv), Rval (Litv_pat Unit))
+        | Just st -> Just (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
         | Nothing -> Nothing
         end
     | (Op_pat (Op_i2 Opderef), [Loc_pat n]) ->
@@ -478,7 +481,7 @@ let do_app_pat ((cnt,s),genv) op vs =
     | (Op_pat (Init_global_var_i2 idx), [v]) ->
         if idx < List.length genv then
           match List_extra.nth genv idx with
-            | Nothing -> Just (((cnt,s), List.update genv idx (Just v)), Rval (Litv_pat Unit))
+            | Nothing -> Just (((cnt,s), List.update genv idx (Just v)), Rval (Conv_pat tuple_tag []))
             | Just _ -> Nothing
           end
         else
@@ -522,7 +525,7 @@ let do_app_pat ((cnt,s),genv) op vs =
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just st -> Just (((cnt,st),genv), Rval (Litv_pat Unit))
+                    | Just st -> Just (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
                   end
         | _ -> Nothing
         end
@@ -535,7 +538,7 @@ let do_app_pat ((cnt,s),genv) op vs =
           else
             Rval (Litv_pat(Char(String_extra.chr(natFromInteger i)))))
     | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) ->
-        Just (((cnt,s),genv), Rval (Litv_pat (Bool (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2))))))
+        Just (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Op_pat (Op_i2 Implode), [v]) ->
           match v_pat_to_char_list v with
           | Just ls ->
@@ -602,12 +605,12 @@ let do_app_pat ((cnt,s),genv) op vs =
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (((cnt,s'),genv), Rval (Litv_pat Unit))
+                    | Just s' -> Just (((cnt,s'),genv), Rval (Conv_pat tuple_tag []))
                   end
         | _ -> Nothing
       end
     | (Tag_eq_pat n, [Conv_pat tag _]) ->
-        Just (((cnt,s),genv), Rval (Litv_pat (Bool (tag = n))))
+        Just (((cnt,s),genv), Rval (Boolv_pat (tag = n)))
     | (El_pat n, [Conv_pat _ vs]) ->
         if n < List.length vs then
           Just (((cnt,s),genv), Rval (List_extra.nth vs n))
@@ -618,9 +621,9 @@ let do_app_pat ((cnt,s),genv) op vs =
 
 val do_if_pat : v_pat -> exp_pat -> exp_pat -> maybe exp_pat
 let do_if_pat v e1 e2 =
-  if v = Litv_pat (Bool true) then
+  if v = Boolv_pat true then
     Just e1
-  else if v = Litv_pat (Bool false) then
+  else if v = Boolv_pat false then
     Just e2
   else
     Nothing
@@ -847,7 +850,7 @@ and
 extend : forall ck env n s genv.
 true
 ==>
-evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,genv++List.genlist (fun _ -> Nothing) n), Rval (Litv_pat Unit))
+evaluate_pat ck env (s,genv) (Extend_global_pat n) ((s,genv++List.genlist (fun _ -> Nothing) n), Rval (Conv_pat tuple_tag []))
 
 and
 

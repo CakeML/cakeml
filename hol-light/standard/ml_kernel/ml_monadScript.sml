@@ -588,14 +588,14 @@ val EvalM_If = store_thm("EvalM_If",
   THEN1
    (Q.LIST_EXISTS_TAC [`s2`,`res`,`refs2`] \\ ASM_SIMP_TAC std_ss []
     \\ DISJ1_TAC
-    \\ Q.EXISTS_TAC `Litv (Bool T)` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
+    \\ Q.EXISTS_TAC `Boolv T` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
     \\ Q.EXISTS_TAC `0,s` \\ FULL_SIMP_TAC std_ss [Eval_def]
     \\ IMP_RES_TAC evaluate_empty_store_IMP
     \\ FULL_SIMP_TAC std_ss [])
   THEN1
    (Q.LIST_EXISTS_TAC [`s2`,`res`,`refs2`] \\ ASM_SIMP_TAC std_ss []
     \\ DISJ1_TAC
-    \\ Q.EXISTS_TAC `Litv (Bool F)` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def]
+    \\ Q.EXISTS_TAC `Boolv F` \\ ASM_SIMP_TAC (srw_ss()) [do_if_def,Boolv_11]
     \\ Q.EXISTS_TAC `0,s` \\ FULL_SIMP_TAC std_ss [Eval_def]
     \\ IMP_RES_TAC evaluate_empty_store_IMP
     \\ FULL_SIMP_TAC std_ss []));
@@ -953,6 +953,7 @@ val th = prove(
 
 val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
+
 (* ref 2 *)
 
 val lemma = hol2deep ``[]:thm list`` |> D |> SIMP_RULE std_ss []
@@ -969,6 +970,7 @@ val th = prove(
   tac ()) |> Q.INST [`n`|->`"the_axioms"`] |> UNDISCH;
 
 val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
+
 
 (* ref 3 *)
 
@@ -1064,7 +1066,7 @@ fun update_tac r q =
   \\ `2 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ `3 < LENGTH s` by FULL_SIMP_TAC(srw_ss()++ARITH_ss)[HOL_STORE_def]
   \\ ASM_SIMP_TAC (srw_ss()) [store_assign_def]
-  \\ Q.LIST_EXISTS_TAC [r,`Rval (Litv Unit)`,q] \\ fs []
+  \\ Q.LIST_EXISTS_TAC [r,`Rval (Conv NONE [])`,q] \\ fs []
   \\ SIMP_TAC (srw_ss()) [Once evaluate_cases]
   \\ fs [store_v_same_type_def]
   \\ FULL_SIMP_TAC std_ss [HOL_STORE_def,EL_LUPDATE]

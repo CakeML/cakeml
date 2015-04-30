@@ -1,4 +1,4 @@
-open preamble;
+open preamble miscLib;
 open alistTheory optionTheory rich_listTheory;
 open miscTheory;
 open libTheory astTheory semanticPrimitivesTheory bigStepTheory terminationTheory;
@@ -134,6 +134,7 @@ val v_to_i1_eqns = Q.store_thm ("v_to_i1_eqns",
 `(!genv l v.
   v_to_i1 genv (Litv l) v ⇔
     (v = Litv_i1 l)) ∧
+ (!genv b v. v_to_i1 genv (Boolv b) v ⇔ (v = Boolv_i1 b)) ∧
  (!genv cn vs v.
   v_to_i1 genv (Conv cn vs) v ⇔
     ?vs'. vs_to_i1 genv vs vs' ∧ (v = Conv_i1 cn vs')) ∧
@@ -175,8 +176,9 @@ val v_to_i1_eqns = Q.store_thm ("v_to_i1_eqns",
       ?map.
         FLOOKUP mods mn = SOME map ∧
         global_env_inv_flat genv map {} env'))`,
-rw [] >>
+rw [Boolv_def,Boolv_i1_def] >>
 rw [Once v_to_i1_cases] >>
+rw [Q.SPECL[`genv`,`[]`](CONJUNCT1(CONJUNCT2 v_to_i1_cases))] >>
 metis_tac []);
 
 val v_to_i1_weakening = Q.prove (
@@ -685,6 +687,12 @@ val v_i1_to_char_list_correct = Q.prove (
  every_case_tac >>
  fs [v_to_i1_eqns, v_i1_to_char_list_def]);
 
+val Boolv_i1_11 = prove(
+  ``Boolv_i1 b = Boolv_i1 b2 ⇔ (b = b2)``,
+  rw[Boolv_i1_def])
+
+val Boolv_11 = prove(``(Boolv b1 = Boolv b2) ⇔ (b1 = b2)``,rw[Boolv_def])
+
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
   do_app s1 op vs = SOME (s2, r) ∧
@@ -702,7 +710,7 @@ val do_app_i1 = Q.prove (
      prim_exn_def, prim_exn_i1_def, v_to_i1_eqns] >>
  imp_res_tac LIST_REL_LENGTH
  >- (every_case_tac >>
-     metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
+     metis_tac [Boolv_i1_11, do_eq_i1, eq_result_11, eq_result_distinct])
  >- (every_case_tac >>
      metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
  >- (fs [store_assign_def,store_v_same_type_def] >>
@@ -1018,6 +1026,23 @@ val pmatch_to_i1_correct = Q.prove (
      fs [match_result_to_i1_def] >>
      metis_tac [match_result_to_i1_def, match_result_distinct]));
 
+val evaluate_i1_con = Q.prove (
+`evaluate_i1 a0 a1 a2 (Con_i1 cn es) a4 ⇔
+      (∃vs s' v.
+         a4 = (s',Rval v) ∧
+         do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
+         build_conv_i1 (all_env_i1_to_cenv a1) cn vs = SOME v ∧
+         evaluate_list_i1 a0 a1 a2 es (s',Rval vs)) ∨
+      (a4 = (a2,Rerr Rtype_error) ∧
+       ¬do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es)) ∨
+      (∃err s'.
+         a4 = (s',Rerr err) ∧
+         do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
+         evaluate_list_i1 a0 a1 a2 es (s',Rerr err))`,
+rw [Once evaluate_i1_cases] >>
+eq_tac >>
+rw []);
+
 val exp_to_i1_correct = Q.prove (
 `(∀b env s e res.
    evaluate b env s e res ⇒
@@ -1176,51 +1201,55 @@ val exp_to_i1_correct = Q.prove (
      metis_tac [])
  >- metis_tac []
  >- metis_tac []
- >- (fs [do_log_def] >>
+ >- (fs [do_log_thm] >>
      every_case_tac >>
      fs [v_to_i1_eqns, exp_to_i1_def] >>
      rw [do_if_i1_def]
-     >- metis_tac [] >>
-     res_tac >>
-     MAP_EVERY qexists_tac [`s'_i1''`, `r_i1`] >>
-     rw []
-     >- (disj1_tac >>
-         qexists_tac `Litv_i1 (Bool F)` >>
-         rw [] >>
-         fs [exp_to_i1_def] >>
-         metis_tac [])
-     >- (disj1_tac >>
-         qexists_tac `Litv_i1 (Bool T)` >>
-         rw [] >>
-         fs [exp_to_i1_def] >>
-         metis_tac [])
-     >- (disj1_tac >>
-         qexists_tac `Litv_i1 (Bool F)` >>
-         rw [] >>
-         fs [exp_to_i1_def] >>
-         metis_tac []))
- >- (cases_on `op` >>
-     rw [] >>
-     metis_tac [])
- >- (cases_on `op` >>
-     rw [] >>
-     metis_tac [])
-  >- (fs [do_if_def, do_if_i1_def] >>
+     >- (simp[Boolv_i1_def] >> metis_tac []) >>
+     rfs[] >>
+     first_assum(fn th=>
+       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+     first_assum(fn th=>
+       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     disj1_tac >>
+     first_assum(match_exists_tac o concl) >> simp[Boolv_i1_def])
+ >- (fs [do_log_thm] >>
      every_case_tac >>
+     fs [v_to_i1_eqns, exp_to_i1_def] >>
+     rw [do_if_i1_def,v_to_i1_eqns] >>
+     first_assum(fn th=>
+       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     simp[Boolv_i1_def] >>
+     simp[Bool_i1_def] >>
+     simp[evaluate_i1_con,Once(CONJUNCT2 evaluate_i1_cases)] >>
+     cheat (* need to assume booleans in cenv *))
+ >- (fs [do_log_thm] >>
+     every_case_tac >>
+     fs [v_to_i1_eqns, exp_to_i1_def] >>
+     rw [do_if_i1_def,v_to_i1_eqns] >>
+     first_assum(fn th=>
+       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+     rw[PULL_EXISTS] >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     first_assum(match_exists_tac o concl) >> simp[])
+ >- (cases_on `op` >>
      rw [] >>
-     res_tac >>
-     rw [] >>
-     res_tac >>
-     rw [] >>
-     MAP_EVERY qexists_tac [`s'_i1''`, `r_i1`] >>
-     rw [] >>
-     disj1_tac
-     >- (qexists_tac `Litv_i1 (Bool F)` >>
-         fs [v_to_i1_eqns, exp_to_i1_def] >>
-         metis_tac [])
-     >- (qexists_tac `Litv_i1 (Bool T)` >>
-         fs [v_to_i1_eqns, exp_to_i1_def] >>
-         metis_tac []))
+     metis_tac [])
+ >- (fs [do_if_def, do_if_i1_def] >>
+    every_case_tac >> fs[Boolv_11] >> rw [] >> rfs[] >>
+    first_assum(fn th=>
+      first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+    first_assum(fn th=>
+      first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    disj1_tac >> rfs[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[v_to_i1_eqns,Boolv_i1_11])
  >- metis_tac []
  >- metis_tac []
  >- (fs [v_to_i1_eqns] >>
@@ -1332,23 +1361,6 @@ val exp_to_i1_correct = Q.prove (
      fs [match_result_to_i1_def] >>
      rw [] >>
      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``]));
-
-val evaluate_i1_con = Q.prove (
-`evaluate_i1 a0 a1 a2 (Con_i1 cn es) a4 ⇔
-      (∃vs s' v.
-         a4 = (s',Rval v) ∧
-         do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         build_conv_i1 (all_env_i1_to_cenv a1) cn vs = SOME v ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rval vs)) ∨
-      (a4 = (a2,Rerr Rtype_error) ∧
-       ¬do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es)) ∨
-      (∃err s'.
-         a4 = (s',Rerr err) ∧
-         do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rerr err))`,
-rw [Once evaluate_i1_cases] >>
-eq_tac >>
-rw []);
 
 val eval_list_i1_vars = Q.prove (
 `!b genv cenv env c s env'.

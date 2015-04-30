@@ -1,6 +1,7 @@
 open HolKernel bossLib boolLib boolSimps SatisfySimps listTheory rich_listTheory pairTheory pred_setTheory finite_mapTheory alistTheory relationTheory arithmeticTheory sortingTheory lcsymtacs quantHeuristicsLib quantHeuristicsLibAbbrev intLib
 open miscTheory libTheory evalPropsTheory miscLib bytecodeTheory bytecodeTerminationTheory bytecodeEvalTheory bytecodeExtraTheory bytecodeLabelsTheory intLangTheory toBytecodeTheory compilerTerminationTheory intLangExtraTheory
 open exhLangProofTheory patLangProofTheory
+
 val _ = new_theory "bytecodeProof"
 val _ = numLib.prefer_num()
 val _ = Parse.bring_to_front_overload"++"{Name="APPEND",Thy="list"}
@@ -19,8 +20,6 @@ val (Cv_bv_rules,Cv_bv_ind,Cv_bv_cases) = Hol_reln`
   (Cv_bv pp (CLitv (Word8 w)) (Number (&w2n w))) ∧
   (Cv_bv pp (CLitv (Char c)) (Number (& ORD c))) ∧
   (Cv_bv pp (CLitv (StrLit s)) (Block string_tag (MAP (Number o $& o ORD) s))) ∧
-  (Cv_bv pp (CLitv (Bool b)) (bool_to_val b)) ∧
-  (Cv_bv pp (CLitv Unit) unit_val) ∧
   ((el_check m (FST pp).sm = SOME p) ⇒ Cv_bv pp (CLoc m) (RefPtr p)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CConv cn vs) (Block (cn+block_tag) bvs)) ∧
   (EVERY2 (Cv_bv pp) vs bvs ⇒ Cv_bv pp (CVectorv vs) (Block vector_tag bvs)) ∧
@@ -63,8 +62,6 @@ val Cv_bv_syneq = store_thm("Cv_bv_syneq",
         (∀v1 v2. V v1 v2 ⇒ v1 < LENGTH env1 ∧ v2 < LENGTH env2 ∧ syneq (EL v1 env1) (EL v2 env2))
         ⇒ benv_bvs pp bvs ce env2 defs2)``,
   ho_match_mp_tac (Cv_bv_strongind) >>
-  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
-  strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
   strip_tac >- ( simp[Once Cv_bv_cases] ) >>
@@ -167,8 +164,6 @@ val Cv_bv_SUBMAP = store_thm("Cv_bv_SUBMAP",
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
-  strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
-  strip_tac >- rw[Once Cv_bv_cases,LENGTH_NIL] >>
   strip_tac >- (
     rw[Once Cv_bv_cases,LENGTH_NIL] >>
     fs[el_check_def,IS_PREFIX_THM,EVERY2_EVERY,EVERY_MEM,FORALL_PROD,LENGTH_NIL] >>
@@ -206,8 +201,6 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- rw[Once Cv_bv_cases] >>
-  strip_tac >- rw[Once Cv_bv_cases] >>
-  strip_tac >- rw[Once Cv_bv_cases] >>
   strip_tac >- (
     rw[] >>
     rw[Once Cv_bv_cases] >>
@@ -228,9 +221,11 @@ val Cv_bv_l2a_mono = store_thm("Cv_bv_l2a_mono",
 
 val Cv_bv_l2a_mono_mp = save_thm("Cv_bv_l2a_mono_mp",MP_CANON (GEN_ALL (CONJUNCT1 (SPEC_ALL Cv_bv_l2a_mono))))
 
+(*
 val Cv_bv_not_env = store_thm("Cv_bv_not_env",
   ``∀pp Cv bv. Cv_bv pp Cv bv ⇒ ∀vs. (bv = Block 0 vs) ⇒ (vs = [])``,
   gen_tac >> ho_match_mp_tac Cv_bv_only_ind >> simp[])
+*)
 
 val Cv_bv_cases_lit =
   Cv_bv_cases |> SPEC_ALL |> CONJUNCT1
@@ -1426,18 +1421,18 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     (Cases_on`op`)>>fs[bump_pc_with_stack] >>
     TRY (
       Cases_on `do_Ceq v1 v2` >>
-      fs [] >>
+      fs [CBoolv_def] >>
       rw [Once Cv_bv_cases, bc_eval_stack_def,bc_state_component_equality] >>
       imp_res_tac do_Ceq_to_bc_equal >>
       rw [bump_pc_def,bc_fetch_with_refs] >>
-      simp[s_refs_with_stack] >>
+      simp[s_refs_with_stack,conLangTheory.true_tag_def,conLangTheory.false_tag_def] >>
       match_mp_tac s_refs_with_irr >>
       simp[] >>
       HINT_EXISTS_TAC >> simp[]) >>
     simp[bump_pc_def,s_refs_with_pc,s_refs_with_stack] >>
     Cases_on `v1` >> TRY (Cases_on `l`) >>
     Cases_on `v2` >> TRY (Cases_on `l`) >>
-    fs[] >> rw[] >> fs[Cv_bv_cases_lit,Cv_bv_cases_conv,Cv_bv_cases_vectorv] >> rw[] >>
+    fs[] >> rw[CBoolv_def] >> fs[Cv_bv_cases_lit,Cv_bv_cases_conv,Cv_bv_cases_vectorv] >> rw[] >>
     BasicProvers.EVERY_CASE_TAC >>
     rw[bc_eval_stack_def] >> fs[] >>
     TRY (Cases_on `b` >> rw[]) >>
@@ -1446,10 +1441,12 @@ val prim2_to_bc_thm = store_thm("prim2_to_bc_thm",
     fs[EVERY2_EVERY,EVERY_MEM,FORALL_PROD] >>
     fsrw_tac[DNF_ss][EL_ALL_DISTINCT_EL_EQ,el_check_def] >>
     fs[s_refs_def,good_rd_def] >>
-    simp[bc_state_component_equality] >>
+    simp[bc_state_component_equality,
+         conLangTheory.true_tag_def,
+         conLangTheory.false_tag_def] >>
     fs[integerTheory.INT_NOT_LT] >>
     rfs[GSYM integerTheory.INT_ABS_EQ_ID] >>
-    simp[arithmeticTheory.ADD1] >>
+    simp[arithmeticTheory.ADD1,CBoolv_def] >>
     Cases_on`Num i`>>simp[] >>
     Cases_on`pp`>>fs[]>>
     first_x_assum match_mp_tac >>
@@ -2641,7 +2638,11 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     Cases_on`l`>>fs[Once Cv_bv_cases] >>
     simp[bc_eval_stack_def,bc_state_component_equality] >>
     fs[s_refs_def] >> simp[SUM_APPEND,FILTER_APPEND] >>
-    TRY(qexists_tac`rd.sm`) >> simp[] >> fs[good_rd_def])
+    TRY(qexists_tac`rd.sm`) >> simp[CBoolv_def] >>
+    simp[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
+    fs[good_rd_def] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[CBoolv_def,conLangTheory.true_tag_def])
   >- ((*Length*)
     Cases_on`v1`>>fs[]>>
     qpat_assum`X = Rval v`mp_tac >>
@@ -2726,9 +2727,9 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     rw[bc_eval_stack_def] >> simp[bc_state_component_equality] >>
     simp[Once Cv_bv_cases] >>
     simp[FILTER_APPEND,SUM_APPEND] >>
-    qexists_tac`rd.sm`>>simp[] >>
+    qexists_tac`rd.sm`>>simp[CBoolv_def] >>
     fs[s_refs_def,good_rd_def] >>
-    AP_TERM_TAC >> metis_tac[] )
+    rw[bool_to_tag_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def])
   >- ( (*Gupdate*)
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj2_tac >>
@@ -2749,7 +2750,7 @@ val prim1_to_bc_thm = store_thm("prim1_to_bc_thm",
     simp[Once RTC_CASES1] >> srw_tac[DNF_ss][] >> disj1_tac >>
     simp[bc_state_component_equality,Abbr`bs2`,bc_eval_stack_def] >>
     simp[SUM_APPEND,FILTER_APPEND] >>
-    simp[Once Cv_bv_cases] >>
+    simp[Once Cv_bv_cases,conLangTheory.tuple_tag_def] >>
     qexists_tac`rd.sm` >>
     fs[s_refs_def,good_rd_def] >>
     rfs[EVERY2_EVERY,EVERY_MEM] >>
@@ -3809,8 +3810,6 @@ val compile_append_out = store_thm("compile_append_out",
     Q.PAT_ABBREV_TAC`i:int = X` >>
     qspec_then`i`mp_tac PushAnyInt_inst_uses_label >>
     simp[EVERY_MEM] >> metis_tac[]) >>
-  strip_tac >- tac >>
-  strip_tac >- tac >>
   strip_tac >- tac >>
   strip_tac >- (
     rw[compile_def] >>
@@ -5203,7 +5202,7 @@ fun tac18 t =
       REWRITE_TAC[Once option_case_NONE_F] >> simp[EL_ZIP] >>
       disch_then(Q.X_CHOOSE_THEN`x`strip_assume_tac) >>
       strip_tac >>
-      imp_res_tac Cv_bv_not_env >> strip_tac >>
+      strip_tac >>
       strip_tac >>
       map_every qexists_tac [`[x]`,`bs.refs`,`rd`,`bs.clock`,`bs.globals`] >> rw[s_refs_with_stack] >- (
         match_mp_tac compile_varref_thm >> fs[] >>
@@ -7677,19 +7676,22 @@ fun tac18 t =
       `∃bv0 bv1 bv2. bvs = [bv0;bv1;bv2]` by (simp[]) >> fs[] >> rw[] >>
       fsrw_tac[DNF_ss][] >>
       qmatch_assum_abbrev_tac `bc_next^* bs bs0` >>
-      `∃i n. v2 = CLitv (IntLit i) ∧ v1 = CLoc n ∧ v = CLitv Unit` by (
+      `∃i n. v2 = CLitv (IntLit i) ∧ v1 = CLoc n ∧ v = CConv 0 []` by (
         Cases_on`b`>>Cases_on`v2`>>fs[]>>Cases_on`l`>>fs[]>>
         Cases_on`v1`>>fs[] >>
+        fsrw_tac[ARITH_ss][conLangTheory.tuple_tag_def] >>
         qpat_assum`(X,Y) = Z`mp_tac >>
         TRY BasicProvers.CASE_TAC >>
         TRY BasicProvers.CASE_TAC >>
         TRY BasicProvers.CASE_TAC >>
         Cases_on`v3`>>simp[]>>
         Cases_on`l`>>simp[]>>
-        rpt BasicProvers.CASE_TAC) >>
+        rpt BasicProvers.CASE_TAC >>
+        simp[conLangTheory.tuple_tag_def]) >>
       fs[Q.SPEC`CLitv l`(CONJUNCT1(SPEC_ALL Cv_bv_cases))]>>
       fs[Q.SPEC`CLoc n`(CONJUNCT1(SPEC_ALL Cv_bv_cases))]>>
       rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Q.SPEC`CConv x n`(CONJUNCT1(SPEC_ALL Cv_bv_cases))]>>
       CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
       map_every qexists_tac[`gvs`,`cks`,`sms`] >>
       simp[] >>
@@ -7732,7 +7734,7 @@ fun tac18 t =
           match_mp_tac bc_fetch_next_addr >>
           simp[Abbr`bs1`] >>
           CONV_TAC SWAP_EXISTS_CONV >>
-          qexists_tac`Stack(Cons 2)::bc1`>>simp[] >>
+          qexists_tac`Stack(Cons 3)::bc1`>>simp[] >>
           simp[FILTER_APPEND,SUM_APPEND] ) >>
         simp[Once bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
         pop_assum kall_tac >> simp[Abbr`bs1`] >>
@@ -7747,6 +7749,7 @@ fun tac18 t =
         simp[bump_pc_def] >>
         simp[Abbr`bs1`,bc_state_component_equality] >>
         simp[bc_eval_stack_def] >>
+        conj_tac >- (REWRITE_TAC[conLangTheory.tuple_tag_def] >> simp[]) >>
         conj_tac >- simp[FILTER_APPEND,SUM_APPEND] >>
         reverse conj_tac >- ( rw[] >> metis_tac[MEM_EL] ) >>
         Q.PAT_ABBREV_TAC`bs0:bc_state = X Y` >>
@@ -7759,6 +7762,7 @@ fun tac18 t =
           CONV_TAC SWAP_EXISTS_CONV >>
           qexists_tac`bs0` >>
           simp[Abbr`bs0`,bc_state_component_equality] >>
+          REWRITE_TAC[conLangTheory.tuple_tag_def] >> simp[] >>
           metis_tac[Cenv_bs_CTLet_bound] ) >>
         Q.PAT_ABBREV_TAC`bs1:bc_state = X Y` >>
         `Cenv_bs sms s0 env cenv sz (bs1 with refs := bs0.refs)` by (
@@ -7780,6 +7784,7 @@ fun tac18 t =
           rator_x_assum`LIST_REL`mp_tac >>
           simp[LIST_REL_EL_EQN,EL_LUPDATE,EL_MAP,FAPPLY_FUPDATE_THM] >>
           rw[] >> rw[] >> rw[sv_refv_rel_cases,LUPDATE_def] >>
+          simp_tac(srw_ss())[conLangTheory.tuple_tag_def,LUPDATE_def] >>
           metis_tac[EL_ALL_DISTINCT_EL_EQ] ) >>
         rw[FDOM_DRESTRICT] >>
         metis_tac[MEM_EL] )
@@ -7809,7 +7814,7 @@ fun tac18 t =
           match_mp_tac bc_fetch_next_addr >>
           simp[Abbr`bs1`] >>
           CONV_TAC SWAP_EXISTS_CONV >>
-          qexists_tac`Stack(Cons 2)::bc1`>>simp[] >>
+          qexists_tac`Stack(Cons 3)::bc1`>>simp[] >>
           simp[FILTER_APPEND,SUM_APPEND] ) >>
         simp[Once bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
         pop_assum kall_tac >> simp[Abbr`bs1`] >>
@@ -7824,6 +7829,7 @@ fun tac18 t =
         simp[bump_pc_def] >>
         simp[Abbr`bs1`,bc_state_component_equality] >>
         simp[bc_eval_stack_def] >>
+        conj_tac >- (simp_tac(srw_ss())[conLangTheory.tuple_tag_def]) >>
         conj_tac >- simp[FILTER_APPEND,SUM_APPEND] >>
         reverse conj_tac >- ( rw[] >> metis_tac[MEM_EL] ) >>
         Q.PAT_ABBREV_TAC`bs0:bc_state = X Y` >>
@@ -7836,6 +7842,8 @@ fun tac18 t =
           CONV_TAC SWAP_EXISTS_CONV >>
           qexists_tac`bs0` >>
           simp[Abbr`bs0`,bc_state_component_equality] >>
+          (simp_tac(srw_ss())[conLangTheory.tuple_tag_def]) >>
+          simp[] >>
           metis_tac[Cenv_bs_CTLet_bound] ) >>
         Q.PAT_ABBREV_TAC`bs1:bc_state = X Y` >>
         `Cenv_bs sms s0 env cenv sz (bs1 with refs := bs0.refs)` by (
@@ -7893,7 +7901,7 @@ fun tac18 t =
           match_mp_tac bc_fetch_next_addr >>
           simp[Abbr`bs1`] >>
           CONV_TAC SWAP_EXISTS_CONV >>
-          qexists_tac`Stack(Cons 2)::bc1`>>simp[] >>
+          qexists_tac`Stack(Cons 3)::bc1`>>simp[] >>
           simp[FILTER_APPEND,SUM_APPEND] ) >>
         simp[Once bc_eval1_def,bump_pc_def,bc_eval_stack_def] >>
         pop_assum kall_tac >> simp[Abbr`bs1`] >>
@@ -7908,6 +7916,7 @@ fun tac18 t =
         simp[bump_pc_def] >>
         simp[Abbr`bs1`,bc_state_component_equality] >>
         simp[bc_eval_stack_def] >>
+        qpat_assum`0 = tuple_tag`(assume_tac o SYM)>>fs[] >>rfs[] >>
         conj_tac >- simp[FILTER_APPEND,SUM_APPEND] >>
         reverse conj_tac >- ( rw[] >> metis_tac[MEM_EL] ) >>
         Q.PAT_ABBREV_TAC`bs0:bc_state = X Y` >>
@@ -7998,7 +8007,7 @@ fun tac18 t =
       metis_tac[SIMP_RULE(srw_ss())[FORALL_PROD]Cevaluate_store_SUBSET,SND,FST,PAIR_EQ,pair_CASES] ) >>
     last_x_assum(qspecl_then[`rd`,`cs`,`cenv`,`sz`,`bs`,`bce`,`bcr`,`bc0`,`REVERSE be1`]mp_tac) >>
     fs[] >>
-    disch_then(CHOOSE_THEN strip_assume_tac o SIMP_RULE (srw_ss()) [code_for_push_def,LET_THM,Once Cv_bv_cases] o CONJUNCT1) >>
+    disch_then(CHOOSE_THEN strip_assume_tac o SIMP_RULE (srw_ss()) [code_for_push_def,LET_THM,Once Cv_bv_cases,CBoolv_def] o CONJUNCT1) >>
     qmatch_assum_abbrev_tac`bc_next^* bs bs1` >>
     let
       val tac1 =
@@ -8019,9 +8028,9 @@ fun tac18 t =
                                  ,`bce`,`bcr`,`bc0 ++ REVERSE be1 ++ REVERSE lc2`,`REVERSE be2`]mp_tac) >>
         simp[Abbr`bs1`,Once SWAP_REVERSE] >>
         discharge_hyps >- (
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool T)))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv T))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
           simp[] >> strip_tac >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool T)))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv T))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
           simp[] >> strip_tac >>
           conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
           conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
@@ -8059,7 +8068,7 @@ fun tac18 t =
            qexists_tac`bc0 ++ REVERSE be1` >>
            rw[]) >>
         rw[bc_eval1_def,Abbr`bs1`,LET_THM] >>
-        rw[Abbr`bs2`,bc_state_component_equality] >>
+        rw[Abbr`bs2`,bc_state_component_equality,conLangTheory.true_tag_def] >>
         rw[bc_find_loc_def] >>
         qmatch_abbrev_tac`bc_find_loc_aux ls il nl 0 = SOME (next_addr il ls0)` >>
         `∃ls1. ls = ls0 ++ ls1` by rw[Abbr`ls`,Abbr`ls0`] >>
@@ -8097,7 +8106,7 @@ fun tac18 t =
         rw[Once bc_eval1_def] >>
         rw[Abbr`bs1`,LET_THM] >>
         srw_tac[DNF_ss][] >>
-        simp[LEFT_EXISTS_AND_THM] >>
+        simp[LEFT_EXISTS_AND_THM,conLangTheory.false_tag_def] >>
         conj_tac >- (
           qmatch_abbrev_tac`∃n. X = SOME n` >>
           qsuff_tac`~(X = NONE)` >- ( Cases_on`X`>>rw[]) >>
@@ -8156,10 +8165,10 @@ fun tac18 t =
           imp_res_tac RTC_bc_next_clock_less >>
           rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
         discharge_hyps >- (
-          qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CLitv(Bool F)))` >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+          qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CBoolv F))` >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
           simp[] >> strip_tac >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
           simp[] >> strip_tac >>
           conj_tac >- ( fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
           conj_tac >- ( fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
@@ -8204,7 +8213,7 @@ fun tac18 t =
               rw[]) >>
             rw[bc_eval1_thm] >>
             rw[bc_eval1_def,Abbr`bs03`,LET_THM] >>
-            simp[Abbr`bs05`,bc_state_component_equality] >>
+            simp[Abbr`bs05`,bc_state_component_equality,conLangTheory.true_tag_def] >>
             reverse conj_tac >- (
               imp_res_tac RTC_bc_next_clock_less >>
               rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
@@ -8256,9 +8265,9 @@ fun tac18 t =
                                  ,`bce`,`bcr`,`bc0 ++ REVERSE be1 ++ REVERSE lc2 ++ REVERSE be2 ++ REVERSE lc3`,`REVERSE be3`]mp_tac) >>
         simp[Abbr`bs1`,Once SWAP_REVERSE,Abbr`cs3`] >>
         discharge_hyps >- (
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
           simp[] >> strip_tac >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
           simp[] >> strip_tac >>
           conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
           conj_tac >- ( fsrw_tac[DNF_ss][SUBSET_DEF,EVERY_MEM,vlabs_csg_def] >> metis_tac[] ) >>
@@ -8302,7 +8311,7 @@ fun tac18 t =
           rw[bc_eval1_thm] >>
           rw[Once bc_eval1_def] >>
           rw[Abbr`bs03`,LET_THM] >>
-          srw_tac[DNF_ss][] >>
+          srw_tac[DNF_ss][conLangTheory.false_tag_def] >>
           rw[bc_find_loc_def] >>
           rw[LEFT_EXISTS_AND_THM] >- (
             qmatch_abbrev_tac`∃n. X = SOME n` >>
@@ -8362,10 +8371,10 @@ fun tac18 t =
             imp_res_tac RTC_bc_next_clock_less >>
             rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
           discharge_hyps >- (
-            qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CLitv(Bool T)))` >>
-            qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool T)))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+            qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CBoolv T))` >>
+            qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv T))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
             simp[] >> strip_tac >>
-            qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool T)))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+            qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv T))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
             simp[] >>
             discharge_hyps >- simp[Abbr`env`] >> simp[] >> strip_tac >>
             simp[] >>
@@ -8419,10 +8428,10 @@ fun tac18 t =
           imp_res_tac RTC_bc_next_clock_less >>
           rfs[optionTheory.OPTREL_def,Cenv_bs_def,s_refs_def] ) >>
         discharge_hyps >- (
-          qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CLitv(Bool F)))` >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
+          qmatch_assum_abbrev_tac`Cevaluate s env exp (s',Rval(CBoolv F))` >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_vlabs) >>
           simp[] >> strip_tac >>
-          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CLitv (Bool F)))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
+          qspecl_then[`s`,`env`,`exp`,`(s',Rval (CBoolv F))`]mp_tac(CONJUNCT1 Cevaluate_all_vlabs) >>
           simp[] >> discharge_hyps >- simp[Abbr`env`] >> simp[] >> strip_tac >>
           conj_tac >- ( fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,EVERY_MEM,Abbr`env`,vlabs_csg_def] >> metis_tac[] ) >>
           conj_tac >- ( fsrw_tac[DNF_ss,ARITH_ss][SUBSET_DEF,EVERY_MEM,Abbr`env`,vlabs_csg_def] >> metis_tac[] ) >>
@@ -8616,7 +8625,7 @@ fun tac18 t =
       simp[Abbr`bs1`,bc_state_component_equality] >>
       simp[SUM_APPEND,FILTER_APPEND] >>
       simp[bc_eval_stack_def] >>
-      simp[Once Cv_bv_cases] >>
+      simp[Once Cv_bv_cases,conLangTheory.tuple_tag_def] >>
       qexists_tac`rd` >> simp[] >>
       reverse conj_asm2_tac >- (
         simp[gvrel_def,EL_APPEND1] ) >>

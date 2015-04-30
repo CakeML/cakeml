@@ -492,6 +492,18 @@ val Cimplode_syneq = prove(
   first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   BasicProvers.CASE_TAC >> fs[optionTheory.OPTREL_def])
 
+val CBoolv_11 = store_thm("CBoolv_11[simp]",
+  ``CBoolv b1 = CBoolv b2 ⇔ (b1 = b2)``,
+  EVAL_TAC >> rw[])
+
+val v_to_Cv_Boolv = store_thm("v_to_Cv_Boolv[simp]",
+  ``v_to_Cv (Boolv_pat b) = CBoolv b``,
+  simp[Boolv_pat_def,v_to_Cv_def] >> EVAL_TAC)
+
+val CIsBlock_CBoolv = store_thm("CIsBlock_CBoolv[simp]",
+  ``CevalPrim1 CIsBlock x (CBoolv b) = (x,Rval(CBoolv T))``,
+  EVAL_TAC)
+
 val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
@@ -1405,8 +1417,10 @@ val exp_to_Cexp_correct = store_thm("exp_to_Cexp_correct",
     srw_tac[DNF_ss][] >> disj1_tac >>
     fs[] >>
     first_assum(split_pair_match o concl) >> fs[] >>
-    Cases_on`v`>>fs[do_if_pat_def]>>
-    Cases_on`l`>>fs[]>>
+    Cases_on`v`>>fs[do_if_pat_def]>>fs[Boolv_pat_def,CBoolv_def]>>
+    BasicProvers.EVERY_CASE_TAC >> fs[conLangTheory.false_tag_def,conLangTheory.true_tag_def]>>
+    rpt BasicProvers.VAR_EQ_TAC >> fs[Q.SPEC`CConv x []`syneq_cases] >> rw[] >>
+    CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >|[qexists_tac`F`,qexists_tac`T`] >> simp[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     imp_res_tac evaluate_pat_closed >>
     rw[] >> fs[] >> rw[] >> fs[] >>

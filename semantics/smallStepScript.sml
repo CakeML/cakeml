@@ -43,11 +43,6 @@ val _ = type_abbrev( "ctxt" , ``: ctxt_frame # all_env``);
  * - the current expression to evaluate, or a value if finished
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
-val _ = Hol_datatype `
- exp_or_val =
-    Exp of exp
-  | Val of v`;
-
 
 val _ = type_abbrev( "state" , ``: all_env # v store # exp_or_val # ctxt list``);
 
@@ -116,7 +111,8 @@ val _ = Define `
         push env s e (Capp op (v::vs) ()  es) c
     | (Clog l ()  e, env) :: c =>
         (case do_log l v e of
-            SOME e => Estep (env, s, Exp e, c)
+            SOME (Exp e) => Estep (env, s, Exp e, c)
+          | SOME (Val v) => return env s v c
           | NONE => Etype_error
         )
     | (Cif ()  e1 e2, env) :: c =>

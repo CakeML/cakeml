@@ -31,9 +31,6 @@ type ctxt = ctxt_frame * all_env
  * - the current expression to evaluate, or a value if finished
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
-type exp_or_val =
-  | Exp of exp
-  | Val of v
 
 type state = all_env * store v * exp_or_val * list ctxt
 
@@ -93,7 +90,8 @@ let continue s v cs =
         push env s e (Capp op (v::vs) () es) c
     | (Clog l () e, env) :: c ->
         match do_log l v e with
-          | Just e -> Estep (env, s, Exp e, c)
+          | Just (Exp e) -> Estep (env, s, Exp e, c)
+          | Just (Val v) -> return env s v c
           | Nothing -> Etype_error
         end
     | (Cif () e1 e2, env) :: c ->
