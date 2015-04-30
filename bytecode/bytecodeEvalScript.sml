@@ -135,8 +135,8 @@ val bc_eval1_def = Define`
   | (JumpIf l, (Block b [])::xs) =>
     OPTION_BIND (bc_find_loc s l)
       (λn. let s' = s with stack := xs in
-        if b = 10 then SOME (bump_pc s') else
-        if b = 9 then SOME (s' with pc := n) else
+        if b = 11 then SOME (bump_pc s') else
+        if b = 10 then SOME (s' with pc := n) else
         NONE)
   | (Call l, x::xs) =>
       OPTION_BIND (bc_find_loc s l)
