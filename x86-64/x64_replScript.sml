@@ -1,5 +1,4 @@
-open HolKernel x64_heapTheory pred_setTheory pred_setSyntax listSyntax helperLib wordsTheory wordsSyntax numSyntax fooTheory
-listTheory lcsymtacs x64_code_evalTheory
+open HolKernel boolLib bossLib x64_heapTheory pred_setTheory pred_setSyntax listSyntax helperLib wordsTheory wordsSyntax numSyntax fooTheory listTheory lcsymtacs x64_code_evalTheory intSimps
 
 val _ = new_theory"x64_evalTheory"
 
