@@ -17695,13 +17695,13 @@ val zBC_Shift3 = zHEAP_GENERAL_Shift |> fix_code
 
 val zBC_Stop_T = SPEC_COMPOSE_RULE
    [zHEAP_PUSH1,zHEAP_NOP,
-    zHEAP_Nil1 |> Q.INST [`k`|->`1`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+    zHEAP_Nil1 |> Q.INST [`k`|->`9`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val T``)],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
 val zBC_Stop_F = SPEC_COMPOSE_RULE
    [zHEAP_PUSH1,zHEAP_NOP,
-    zHEAP_Nil1 |> Q.INST [`k`|->`0`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
+    zHEAP_Nil1 |> Q.INST [`k`|->`10`] |> SIMP_RULE (srw_ss()) [SEP_CLAUSES]
         |> RW [GSYM (EVAL ``bool_to_val F``)],
     zHEAP_JMP_STOP_ADDR] |> fix_code
 
@@ -23472,38 +23472,6 @@ val zHEAP_IF_INL_JUMP_TRUE =
   zHEAP_IF_INL_JUMP |> DISCH ``getTag x1 = ^inl_tag``
   |> SIMP_RULE std_ss [] |> RW [GSYM SPEC_MOVE_COND]
 
-local
-  val BlockConsNil_FIX = prove(
-    ``(bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-      (bootstrapProof$BlockNil = x64_heap$BlockNil)``,
-    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD]
-    \\ REPEAT STRIP_TAC \\ EVAL_TAC);
-  val BlockList_FIX = prove(
-    ``bootstrapProof$BlockList = x64_heap$BlockList``,
-    fs [FUN_EQ_THM] \\ Induct \\ EVAL_TAC \\ fs [BlockConsNil_FIX]);
-  val Chr_lemma = prove(
-    ``(bootstrapProof$Chr = x64_heap$Chr)``,
-    fs [FUN_EQ_THM] \\ EVAL_TAC \\ SIMP_TAC std_ss []);
-in
-  val Block_FIX = prove(
-    ``(bootstrapProof$BlockNum3 = x64_heap$BlockNum3) /\
-      (bootstrapProof$BlockSome = x64_heap$BlockSome) /\
-      (bootstrapProof$BlockInr = x64_heap$BlockInr) /\
-      (bootstrapProof$BlockInl = x64_heap$BlockInl) /\
-      (bootstrapProof$BlockSym = x64_heap$BlockSym) /\
-      (bootstrapProof$BlockPair = x64_heap$BlockPair) /\
-      (bootstrapProof$BlockList = x64_heap$BlockList) /\
-      (bootstrapProof$BlockCons = x64_heap$BlockCons) /\
-      (bootstrapProof$BlockNil = x64_heap$BlockNil) /\
-      (bootstrapProof$Chr = x64_heap$Chr)``,
-    REPEAT STRIP_TAC \\ fs [FUN_EQ_THM,FORALL_PROD,BlockList_FIX]
-    \\ REPEAT STRIP_TAC \\ EVAL_TAC
-    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
-    \\ Cases_on `x` \\ EVAL_TAC
-    \\ REWRITE_TAC [compileReplTheory.compile_repl_module_eq] \\ EVAL_TAC
-    \\ fs [BlockList_FIX,Chr_lemma]);
-end
-
 val ref_adjust_IMP_ODD = prove(
   ``!r. r IN FDOM (ref_adjust (cb2,sb2,F) bs2.refs) ==> ODD r``,
   SIMP_TAC (srw_ss()) [ref_adjust_def,LET_DEF,PULL_EXISTS]
@@ -23710,7 +23678,7 @@ val zHEAP_ERROR_ERROR = prove(
 val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
     |> Q.INST [`inl_or_inr`|->`BlockInr (BlockPair (msg_chars,y7))`]
-    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInr x)``]
+    |> SIMP_RULE std_ss [(REWRITE_CONV[BlockInr_def]THENC EVAL) ``getTag (BlockInr x)``]
   val th = SPEC_COMPOSE_RULE [th,zHEAP_PUSH3,zHEAP_PUSH4]
   val th =
     SPEC_COMPOSE_RULE [th,
@@ -23754,7 +23722,7 @@ val (code_length_inr,zHEAP_REPL_RUN_INR_RAW) = let
 val (zHEAP_REPL_RUN_INR,zHEAP_REPL_RUN_INL_START) = let
   val th = zHEAP_REPL_STEP_UNTIL_INL_IF
     |> Q.INST [`inl_or_inr`|->`BlockInl (BlockPair (x7,y7))`]
-    |> SIMP_RULE std_ss [EVAL ``getTag (BlockInl x)``]
+    |> SIMP_RULE std_ss [(REWRITE_CONV[BlockInl_def] THENC EVAL) ``getTag (BlockInl x)``]
   val n = get_pc th |> rand |> rand |> rand |> rator |> rand
   val inl_jump = ``n2w (^code_length_inr - ^n):word32``
   val lemma = prove(``0x10000000000000000w:word64 = 0w``,fs [n2w_11])
@@ -24055,7 +24023,7 @@ val bc_adjust_BlockList_Chr = prove(
   ``!msg xs. (bc_adjust (cb,w,b) (BlockList (MAP Chr msg)) =
               BlockList (MAP Chr xs)) = (msg = xs)``,
   Induct \\ Cases_on `xs` \\ fs [bc_adjust_def,BlockList_def,
-    BlockNil_def,BlockCons_def,Chr_def,ORD_11]) |> RW [Block_FIX];
+    BlockNil_def,BlockCons_def,Chr_def,ORD_11]);
 
 val bc_adjust_BlockList_BlockSym = prove(
   ``bc_adjust (cb,w,b) (BlockList (MAP BlockSym ts)) =
@@ -24171,7 +24139,7 @@ val zHEAP_INR_TERMINATES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ IMP_RES_TAC RTC_bc_next_preserves \\ fs []
     \\ REPEAT STRIP_TAC \\ IMP_RES_TAC IN_FDOM_all_refs)
@@ -24240,7 +24208,7 @@ val zHEAP_INR_CONTINUES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ REPEAT STRIP_TAC THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
     \\ fs [SEP_IMP_def,SEP_EXISTS_THM,SEP_DISJ_def]
@@ -24260,7 +24228,7 @@ val zHEAP_INR_CONTINUES = let
     THEN1 (fs [fetch "-" "zheap_state_component_equality"])
     \\ UNABBREV_ALL_TAC
     \\ fs [both_refs_FUPDATE]
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym])
   val th = MP th lemma
@@ -24316,9 +24284,9 @@ val zHEAP_INL_DIVERGES = let
     THEN1
      (fs [FLOOKUP_DEF]
       \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-      \\ fs [BlockInl_def,BlockPair_def,bc_adjust_def,Block_FIX,
+      \\ fs [BlockInl_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,
-           bc_adjust_BlockList_BlockNum3 |> RW [Block_FIX]])
+           bc_adjust_BlockList_BlockNum3])
     THEN1 (IMP_RES_TAC IN_FDOM_all_refs)
     \\ fs [SEP_IMP_def,SEP_DISJ_def]
     \\ REPEAT STRIP_TAC \\ fs [] \\ DISJ1_TAC
@@ -24426,7 +24394,7 @@ val zHEAP_INL_TERMINATES = let
           METIS_TAC [COMPILER_RUN_INV_references]
     \\ fs [FLOOKUP_DEF]
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL]
     \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]
     \\ fs [TWO_TIMES_next_addr]
@@ -24527,7 +24495,7 @@ val zHEAP_INL_CONTINUES = let
     \\ IMP_RES_TAC both_refs_FAPPLY \\ fs []
     \\ fs [CONJ_ASSOC] \\ STRIP_TAC
     THEN1
-     (fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+     (fs [BlockInr_def,BlockPair_def,bc_adjust_def,
              bc_adjust_BlockList_Chr,SEP_IMP_REFL]
       \\ fs [install_bc_lists_def,initCompEnvTheory.install_code_def]
       \\ fs [TWO_TIMES_next_addr]
@@ -24564,7 +24532,7 @@ val zHEAP_INL_CONTINUES = let
     \\ UNABBREV_ALL_TAC
     \\ fs [both_refs_FUPDATE]
     \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC) \\ fs []
-    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,Block_FIX,
+    \\ fs [BlockInr_def,BlockPair_def,bc_adjust_def,
            bc_adjust_BlockList_Chr,SEP_IMP_REFL,BlockSome_def,
            bc_adjust_BlockList_BlockSym]
     \\ fs [lex_until_semi_res_def]
