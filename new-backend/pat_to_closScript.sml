@@ -3,6 +3,7 @@ open rich_listTheory listTheory alistTheory finite_mapTheory pred_setTheory stri
 open patLangTheory closLangTheory
 open astTheory semanticPrimitivesTheory
 open terminationTheory compilerTerminationTheory
+
 val _ = new_theory"pat_to_clos"
 
 (* TODO: move? *)
@@ -44,10 +45,10 @@ val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
   rw[] >> res_tac)
 
 val bool_to_val_thm = store_thm("bool_to_val_thm",
-  ``bool_to_val b = closLang$Block (if b then 1 else 0) []``,
+  ``bool_to_val b = closLang$Block (if b then 10 else 11) []``,
   Cases_on`b`>>rw[bool_to_val_def])
 val bool_to_tag_thm = store_thm("bool_to_tag_thm",
-  ``bool_to_tag b = if b then 1 else 0``,
+  ``bool_to_tag b = if b then 10 else 11``,
   Cases_on`b`>>rw[bytecodeTheory.bool_to_tag_def])
 (* -- *)
 
@@ -64,10 +65,6 @@ val pComp_def = tDefine"pComp"`
     Op (Const (& ORD c)) []) ∧
   (pComp (Lit_pat (StrLit s)) =
     Op (Cons string_tag) (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
-  (pComp (Lit_pat (Bool b)) =
-    Op (Cons (bool_to_tag b)) []) ∧
-  (pComp (Lit_pat Unit) =
-    Op (Cons unit_tag) []) ∧
   (pComp (Con_pat cn es) =
     Op (Cons (cn+block_tag)) (REVERSE (MAP pComp es))) ∧
   (pComp (Var_local_pat n) =
@@ -234,8 +231,6 @@ val v_to_Cv_def = tDefine"v_to_Cv"`
   (v_to_Cv (Litv_pat (Char c)) = (Number (& ORD c))) ∧
   (v_to_Cv (Litv_pat (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
-  (v_to_Cv (Litv_pat (Bool b)) = (Block (bool_to_tag b) [])) ∧
-  (v_to_Cv (Litv_pat Unit) = (Block unit_tag [])) ∧
   (v_to_Cv (Loc_pat m) = (RefPtr m)) ∧
   (v_to_Cv (Conv_pat cn vs) = (Block (cn+block_tag) (MAP (v_to_Cv) vs))) ∧
   (v_to_Cv (Vectorv_pat vs) = (Block vector_tag (MAP (v_to_Cv) vs))) ∧
@@ -325,6 +320,10 @@ val clos_from_list_correct = store_thm("clos_from_list_correct",
 val s_to_Cs_restrict_envs = prove(
   ``~(s_to_Cs s).restrict_envs``,
   Cases_on `s` \\ Cases_on `q` \\ fs [s_to_Cs_def]);
+
+val v_to_Cv_Boolv_pat = store_thm("v_to_Cv_Boolv_pat[simp]",
+  ``v_to_Cv (Boolv_pat b) = bool_to_val b``,
+  Cases_on`b`>>EVAL_TAC)
 
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
@@ -449,7 +448,7 @@ val pComp_correct = store_thm("pComp_correct",
       rw[] >> fs[sv_to_Cref_def] >>
       simp[LIST_EQ_REWRITE] >>
       REWRITE_TAC[GSYM EL] >>
-      simp[EL_LUPDATE] )
+      simp[conLangTheory.tuple_tag_def,EL_LUPDATE] )
     >- (
       simp[ETA_AX,cEval_def,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
@@ -482,7 +481,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[s_to_Cs_def,get_global_def,EL_MAP] >>
       Cases_on`EL idx s22`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      simp[s_to_Cs_def,LUPDATE_MAP] )
+      simp[s_to_Cs_def,LUPDATE_MAP,conLangTheory.tuple_tag_def] )
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[bool_to_val_thm] >>
@@ -549,7 +548,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[wordsTheory.dimword_8] >> strip_tac >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,conLangTheory.tuple_tag_def])
     >- (
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
@@ -664,7 +663,7 @@ val pComp_correct = store_thm("pComp_correct",
       fs[store_assign_def,store_v_same_type_def] >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP,conLangTheory.tuple_tag_def])
     >- (
       fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,bool_to_tag_thm] )
@@ -698,8 +697,8 @@ val pComp_correct = store_thm("pComp_correct",
     simp[cEval_def] >>
     rw[] >>
     Cases_on`v`>>fs[]>>rw[]>>fs[do_if_pat_def]>>
-    Cases_on`l`>>fs[]>>
-    Cases_on`b`>>fs[]>>rw[]>>fs[]) >>
+    fsrw_tac[ARITH_ss][Boolv_pat_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[]) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>
@@ -726,7 +725,7 @@ val pComp_correct = store_thm("pComp_correct",
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
     simp[cEval_def] >>
-    simp[cEval_REPLICATE_Op_AllocGlobal,cEvalOp_def] >>
+    simp[cEval_REPLICATE_Op_AllocGlobal,cEvalOp_def,conLangTheory.tuple_tag_def] >>
     Cases_on`s`>>simp[s_to_Cs_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (

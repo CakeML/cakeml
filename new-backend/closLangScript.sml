@@ -63,8 +63,8 @@ val get_global_def = Define `
     if n < LENGTH globals then SOME (EL n globals) else NONE`
 
 val bool_to_val_def = Define `
-  (bool_to_val T = Block 1 []) /\
-  (bool_to_val F = Block 0 [])`;
+  (bool_to_val T = Block 10 []) /\
+  (bool_to_val F = Block 11 [])`;
 
 val clos_equal_def = tDefine "clos_equal" `
   (clos_equal x y =
@@ -371,8 +371,8 @@ val cEval_def = tDefine "cEval" `
   (cEval ([If x1 x2 x3],env,s) =
      case cEval ([x1],env,s) of
      | (Result vs,s1) =>
-          if Block 1 [] = HD vs then cEval ([x2],env,check_clock s1 s) else
-          if Block 0 [] = HD vs then cEval ([x3],env,check_clock s1 s) else
+          if Block 10 [] = HD vs then cEval ([x2],env,check_clock s1 s) else
+          if Block 11 [] = HD vs then cEval ([x3],env,check_clock s1 s) else
             (Error,s1)
      | res => res) /\
   (cEval ([Let xs x2],env,s) =
