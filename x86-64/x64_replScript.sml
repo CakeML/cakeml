@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib x64_heapTheory pred_setTheory pred_setSyntax listSyntax helperLib wordsTheory wordsSyntax numSyntax fooTheory listTheory lcsymtacs x64_code_evalTheory intSimps
 
-val _ = new_theory"x64_evalTheory"
+val _ = new_theory"x64_repl"
 
 val _ = Globals.max_print_depth := 15
 
