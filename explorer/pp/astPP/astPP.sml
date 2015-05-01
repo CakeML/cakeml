@@ -144,8 +144,6 @@ fun deftypePrint typestr sys d t pg str brk blk=
 (*Fix these names*)
 val _=add_astPP("inttypeprint",``TC_int``,genPrint (deftypePrint "int"));
 val _=add_astPP("stringtypeprint",``TC_string``,genPrint (deftypePrint "string"));
-val _=add_astPP("booltypeprint",``TC_bool``,genPrint (deftypePrint "bool"));
-val _=add_astPP("unittypeprint",``TC_unit``,genPrint (deftypePrint "unit"));
 val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
 val _=add_astPP("tuptypeprint",``TC_tup``,genPrint (deftypePrint ""));
@@ -442,8 +440,8 @@ val _=add_astPP ("litprint", ``Lit x``, genPrint plitPrint);
 fun unitPrint sys d t pg str brk blk =
   str "()";
 
-val _=add_astPP ("unitprint", ``Lit Unit``,genPrint unitPrint);
-val _=add_astPP ("punitprint", ``Plit Unit``,genPrint unitPrint);
+val _=add_astPP ("unitprint", ``Con NONE []``,genPrint unitPrint);
+val _=add_astPP ("punitprint", ``Pcon NONE []``,genPrint unitPrint);
 
 (*Short Var name*)
 fun varShortPrint sys d t pg str brk blk=
