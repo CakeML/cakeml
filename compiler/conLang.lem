@@ -33,43 +33,43 @@ open import List_extra
 open import BigStep
 open import ModLang
 
+(* these must match what the prim_types_program generates *)
+
 val tuple_tag : nat
 let tuple_tag = 0
 
 val bind_tag : nat
-let bind_tag = 1
+let bind_tag = 0
 
 val chr_tag : nat
-let chr_tag = 2
+let chr_tag = 1
 
 val div_tag : nat
-let div_tag = 3
+let div_tag = 2
 
 val eq_tag : nat
-let eq_tag = 4
+let eq_tag = 3
 
 val subscript_tag : nat
-let subscript_tag = 5
+let subscript_tag = 4
 
 val true_tag : nat
-let true_tag = 6
+let true_tag = 0
 
 val false_tag : nat
-let false_tag = 7
+let false_tag = 1
 
 val nil_tag : nat
-let nil_tag = 8
+let nil_tag = 0
 
 val cons_tag : nat
-let cons_tag = 9
+let cons_tag = 0
 
 val none_tag : nat
-let none_tag = 10
+let none_tag = 0
 
 val some_tag : nat
-let some_tag = 11
-
-type exh_ctors_env = Map.map (id typeN) nat_set
+let some_tag = 0
 
 type op_i2 =
   | Op_i2 of op
@@ -105,7 +105,7 @@ type prompt_i2 =
 
 type v_i2 =
   | Litv_i2 of lit
-  | Conv_i2 of (nat * maybe tid_or_exn) * list v_i2 
+  | Conv_i2 of (nat * maybe tid_or_exn) * list v_i2
   | Closure_i2 of alist varN v_i2 * varN * exp_i2
   | Recclosure_i2 of alist varN v_i2 * list (varN * varN * exp_i2) * varN
   | Loc_i2 of nat
@@ -131,26 +131,28 @@ and
 pats_bindings_i2 (p::ps) already_bound =
   pats_bindings_i2 ps (pat_bindings_i2 p already_bound)
 
-(* Maps a constructor name to its tag and to all of the constructor names of
- * its type, for use in exhaustiveness checking *)
-type flat_tag_env = Map.map conN (nat * maybe tid_or_exn)
+(* for each type, for each arity, the number of constructors of that arity *)
+type exh_ctors_env = Map.map (id typeN) (nat_map nat)
+
+(* for each constructor, its arity, tag, and type *)
+type flat_tag_env = Map.map conN (nat * nat * maybe tid_or_exn)
 type tag_env = Map.map modN flat_tag_env * flat_tag_env
 
 val lookup_tag_flat : conN -> flat_tag_env -> (nat * maybe tid_or_exn)
 let lookup_tag_flat cn ftagenv =
   match Map.lookup cn ftagenv with
     | Nothing -> (tuple_tag, Nothing)
-    | Just (n,ctors) -> (n,ctors)
+    | Just (a,n,t) -> (n,t)
   end
 
 val lookup_tag_env : maybe (id conN) -> tag_env -> (nat * maybe tid_or_exn)
 let lookup_tag_env id (mtagenv,tagenv) =
   match id with
-    | Nothing -> (tuple_tag,Nothing) 
+    | Nothing -> (tuple_tag,Nothing)
     | Just (Short x) -> lookup_tag_flat x tagenv
     | Just (Long x y) ->
         match Map.lookup x mtagenv with
-          | Nothing -> (tuple_tag,Nothing) 
+          | Nothing -> (tuple_tag,Nothing)
           | Just tagenv -> lookup_tag_flat y tagenv
         end
   end
@@ -158,29 +160,29 @@ let lookup_tag_env id (mtagenv,tagenv) =
 val pat_to_i2 : tag_env -> pat -> pat_i2
 let rec
 pat_to_i2 tagenv (Pvar x) = Pvar_i2 x
-and 
+and
 pat_to_i2 tagenv (Plit l) = Plit_i2 l
-and 
-pat_to_i2 tagenv (Pcon con_id ps) = 
+and
+pat_to_i2 tagenv (Pcon con_id ps) =
   Pcon_i2 (lookup_tag_env con_id tagenv) (List.map (pat_to_i2 tagenv) ps)
-and 
+and
 pat_to_i2 tagenv (Pref p) = Pref_i2 (pat_to_i2 tagenv p)
 
 val exp_to_i2 : tag_env -> exp_i1 -> exp_i2
 val exps_to_i2 : tag_env -> list exp_i1 -> list exp_i2
 val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)
 val funs_to_i2 : tag_env -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)
-let rec 
-exp_to_i2 tagenv (Raise_i1 e) = 
+let rec
+exp_to_i2 tagenv (Raise_i1 e) =
   Raise_i2 (exp_to_i2 tagenv e)
 and
-exp_to_i2 tagenv (Handle_i1 e pes) = 
+exp_to_i2 tagenv (Handle_i1 e pes) =
   Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)
 and
-exp_to_i2 tagenv (Lit_i1 l) = 
-  Lit_i2 l 
+exp_to_i2 tagenv (Lit_i1 l) =
+  Lit_i2 l
 and
-exp_to_i2 tagenv (Con_i1 cn es) = 
+exp_to_i2 tagenv (Con_i1 cn es) =
   Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)
 and
 exp_to_i2 tagenv (Var_local_i1 x) = Var_local_i2 x
@@ -188,7 +190,7 @@ and
 exp_to_i2 tagenv (Var_global_i1 x) = Var_global_i2 x
 and
 exp_to_i2 tagenv (Fun_i1 x e) =
-  Fun_i2 x (exp_to_i2 tagenv e) 
+  Fun_i2 x (exp_to_i2 tagenv e)
 and
 exp_to_i2 tagenv (App_i1 op es) =
   App_i2 (Op_i2 op) (exps_to_i2 tagenv es)
@@ -203,7 +205,7 @@ exp_to_i2 tagenv (Let_i1 x e1 e2) =
   Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)
 and
 exp_to_i2 tagenv (Letrec_i1 funs e) =
-  Letrec_i2 (funs_to_i2 tagenv funs) 
+  Letrec_i2 (funs_to_i2 tagenv funs)
             (exp_to_i2 tagenv e)
 and
 exps_to_i2 tagenv [] = []
@@ -221,98 +223,114 @@ and
 funs_to_i2 tagenv ((f,x,e)::funs) =
   (f,x,exp_to_i2 tagenv e) :: funs_to_i2 tagenv funs
 
-(* The constructor names that are in scope, the global mapping of constructor
- * names (with types so that they are unique), and its inverse. *)
-type tagenv_state = (nat * tag_env * map nat (conN * tid_or_exn)) * map conN (nat * maybe tid_or_exn)
+(* next exception tag (arity-indexed),
+ * current tag env,
+ * current exh_ctors_env,
+ * accumulator (for use on module exit) *)
+type tagenv_state = nat_map nat * tag_env * exh_ctors_env
+type tagenv_state_acc = tagenv_state * flat_tag_env
 
-let get_tagenv ((next,tagenv,inv),acc) = tagenv
+let get_tagenv ((next,tagenv,exh),acc) = tagenv
+let get_exh ((next,tagenv,exh),acc) = exh
 
-val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env
+val insert_tag_env : conN -> (nat * nat * maybe tid_or_exn) -> tag_env  -> tag_env
 let insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,Map.insert cn tag ftagenv)
 
-val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state
-let alloc_tag tn cn ((next,tagenv,inv),acc) =
-  ((next+1,insert_tag_env cn (next,Just tn) tagenv, Map.insert next (cn,tn) inv), Map.insert cn (next,Just tn) acc)
+val alloc_tag : tid_or_exn -> conN -> nat -> tagenv_state_acc -> tagenv_state_acc
+let alloc_tag tn cn arity ((next,tagenv,exh),acc) =
+  match tn with
+  | TypeExn _ ->
+      let tag =
+        match nat_map_lookup next arity with
+        | Nothing -> 0
+        | Just n -> n+1
+        end in
+      ((nat_map_insert next arity tag,
+        insert_tag_env cn (arity,tag,Just tn) tagenv,
+        exh),
+       Map.insert cn (arity,tag,Just tn) acc)
+  | TypeId tid ->
+      let (tag,exh) =
+        match Map.lookup tid exh with
+        | Nothing -> (0, Map.insert tid (nat_map_insert nat_map_empty arity 1) exh)
+        | Just m -> match nat_map_lookup m arity with
+                    | Nothing -> (0, Map.insert tid (nat_map_insert m arity 1) exh)
+                    | Just t -> (t, Map.insert tid (nat_map_insert m arity (t+1)) exh)
+                    end
+        end in
+      ((next,
+        insert_tag_env cn (arity,tag,Just tn) tagenv,
+        exh),
+       Map.insert cn (arity,tag,Just tn) acc)
+  end
 
-val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state
-let rec 
+val alloc_tags : maybe modN -> tagenv_state_acc -> type_def -> tagenv_state_acc
+let rec
 alloc_tags mn st [] = st
 and
-alloc_tags mn st ((tvs,tn,constrs)::types) = 
+alloc_tags mn st ((tvs,tn,constrs)::types) =
   let st' =
-    List.foldl (fun st' (cn,ts) -> alloc_tag (TypeId (mk_id mn tn)) cn st') st constrs
+    List.foldl (fun st' (cn,ts) -> alloc_tag (TypeId (mk_id mn tn)) cn (List.length ts) st') st constrs
   in
     alloc_tags mn st' types
 
 declare termination_argument alloc_tags = automatic
 
-val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env
-let build_exh_env mn (_,acc) tds =
-  Map.fromList
-    (List.map
-      (fun (tvs,tn,constrs) ->
-        (mk_id mn tn,
-         List.foldl
-           (fun s (cn,ts) -> nat_set_insert s (fst (fromMaybe (0,Nothing) (Map.lookup cn acc))))
-           nat_set_empty constrs))
-      tds)
-
-val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * exh_ctors_env * list dec_i2
-let rec 
-decs_to_i2 st [] = (st,Map.empty,[])
+val decs_to_i2 : tagenv_state_acc -> list dec_i1 -> tagenv_state_acc * list dec_i2
+let rec
+decs_to_i2 st [] = (st,[])
 and
 decs_to_i2 st (d::ds) =
   match d with
-    | Dlet_i1 n e -> 
-        let (st', exh', ds') = decs_to_i2 st ds in
-          (st', exh', Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds')
+    | Dlet_i1 n e ->
+        let (st', ds') = decs_to_i2 st ds in
+          (st', Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds')
     | Dletrec_i1 funs ->
-        let (st', exh', ds') = decs_to_i2 st ds in
-          (st', exh', Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds')
+        let (st', ds') = decs_to_i2 st ds in
+          (st', Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds')
     | Dtype_i1 mn type_def ->
         let st'' = alloc_tags mn st type_def in
-        let exh'' = build_exh_env mn st'' type_def in
-        let (st',exh',ds') = decs_to_i2 st'' ds in
-          (st',Map.(union) exh' exh'',ds')
+        let (st',ds') = decs_to_i2 st'' ds in
+          (st', ds')
     | Dexn_i1 mn cn ts ->
-        let (st',exh',ds') = decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds in
-          (st',exh',ds')
+        let (st', ds') = decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn (List.length ts) st) ds in
+          (st', ds')
   end
 
 declare termination_argument decs_to_i2 = automatic
 
-val mod_tagenv : maybe modN -> map conN (nat * maybe tid_or_exn) -> tag_env -> tag_env
+val mod_tagenv : maybe modN -> flat_tag_env -> tag_env -> tag_env
 let mod_tagenv mn l (mtagenv,tagenv) =
   match mn with
     | Nothing -> (mtagenv,Map.(union) l tagenv)
     | Just mn -> (Map.insert mn l mtagenv,tagenv)
   end
 
-val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2
+val prompt_to_i2 : tagenv_state -> prompt_i1 -> tagenv_state * prompt_i2
 let prompt_to_i2 tagenv_st prompt =
   match prompt with
     | Prompt_i1 mn ds ->
-        let (((next',tagenv',inv'),acc'), exh', ds') = decs_to_i2 (tagenv_st,Map.empty) ds in
-          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),inv'), exh', Prompt_i2 ds')
+        let (((next',tagenv',exh'),acc'), ds') = decs_to_i2 (tagenv_st,Map.empty) ds in
+          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt_i2 ds')
   end
 
-val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * list prompt_i2
-let rec 
-prog_to_i2 st [] = (st, Map.empty, [])
-and 
-prog_to_i2 st (p::ps) = 
-  let (st',exh',p') = prompt_to_i2 st p in
-  let (st'',exh'',ps') = prog_to_i2 st' ps in
-    (st'',Map.(union) exh'' exh', p'::ps')
+val prog_to_i2 : tagenv_state -> list prompt_i1 -> tagenv_state * list prompt_i2
+let rec
+prog_to_i2 st [] = (st, [])
+and
+prog_to_i2 st (p::ps) =
+  let (st',p') = prompt_to_i2 st p in
+  let (st'',ps') = prog_to_i2 st' ps in
+    (st'',p'::ps')
 
 declare termination_argument prog_to_i2 = automatic
 
 val build_rec_env_i2 : list (varN * varN * exp_i2) -> alist varN v_i2 -> alist varN v_i2 -> alist varN v_i2
 let build_rec_env_i2 funs cl_env add_to_env =
-  foldr 
-    (fun (f,x,e) env' -> (f, Recclosure_i2 cl_env funs f) :: env') 
-    add_to_env 
+  foldr
+    (fun (f,x,e) env' -> (f, Recclosure_i2 cl_env funs f) :: env')
+    add_to_env
     funs
 
 val do_eq_i2 : v_i2 -> v_i2 -> eq_result
@@ -326,7 +344,7 @@ and
 do_eq_i2 (Conv_i2 tag1 vs1) (Conv_i2 tag2 vs2) =
   if fst tag1 = fst tag2 && (List.length vs1 = List.length vs2) then
     do_eq_list_i2 vs1 vs2
-  else 
+  else
     Eq_val false
 and
 do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =
@@ -347,11 +365,11 @@ do_eq_i2 _ _ = Eq_type_error
 and
 do_eq_list_i2 [] [] = Eq_val true
 and
-do_eq_list_i2 (v1::vs1) (v2::vs2) = 
+do_eq_list_i2 (v1::vs1) (v2::vs2) =
   match do_eq_i2 v1 v2 with
     | Eq_closure -> Eq_closure
     | Eq_type_error -> Eq_type_error
-    | Eq_val r -> 
+    | Eq_val r ->
         if not r then
           Eq_val false
         else
@@ -388,7 +406,7 @@ val prim_exn_i2 : nat -> conN -> v_i2
 let prim_exn_i2 tag cn = Conv_i2 (tag, Just (TypeExn (Short cn))) []
 
 val v_to_list_i2 : v_i2 -> maybe (list v_i2)
-let rec v_to_list_i2 (Conv_i2 (tag, Just (TypeId (Short tn))) []) = 
+let rec v_to_list_i2 (Conv_i2 (tag, Just (TypeId (Short tn))) []) =
   if tag = nil_tag && tn = "list" then
     Just []
   else
@@ -609,7 +627,7 @@ pmatch_i2 exh s (Pcon_i2 (n, Just (TypeExn _)) ps) (Conv_i2 (n', Just (TypeExn _
     if n = n' then
       if List.length ps = List.length vs then
         pmatch_list_i2 exh s ps vs env
-      else 
+      else
         Match_type_error
     else
       No_match
@@ -618,20 +636,22 @@ pmatch_i2 exh s (Pcon_i2 (n, Just (TypeId t)) ps) (Conv_i2 (n', Just (TypeId t')
   if t = t' then
     match Map.lookup t exh with
       | Nothing -> Match_type_error
-      | Just tags ->
-          if nat_set_elem tags n && nat_set_elem tags n' then
-            if n = n' then
-              if List.length ps = List.length vs then
-                pmatch_list_i2 exh s ps vs env
-              else
-                Match_type_error
-            else
-	      No_match
-          else
-            Match_type_error
+      | Just m ->
+        let arity = List.length ps in
+        if arity = List.length vs then
+          match nat_map_lookup m arity with
+          | Nothing -> Match_type_error
+          | Just z ->
+              if n < z && n' < z then
+                if n = n' then
+                  pmatch_list_i2 exh s ps vs env
+                else
+                  No_match
+              else Match_type_error
+          end
+        else Match_type_error
     end
-  else
-    Match_type_error
+  else Match_type_error
 and
 pmatch_i2 exh s (Pcon_i2 (n,Nothing) ps) (Conv_i2 (n',Nothing) vs) env =
   if List.length ps = List.length vs && n = tuple_tag && n' = tuple_tag then
@@ -1067,4 +1087,3 @@ prog_cons_err : forall ck exh genv s1 prompt prompts s2 env2 err.
 evaluate_prompt_i2 ck exh genv s1 prompt (s2, env2, Just err)
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, Just err)
-

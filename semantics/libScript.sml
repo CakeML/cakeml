@@ -58,6 +58,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val nat_set_elem : nat_set -> nat -> bool*)
 (*val nat_set_from_list : list nat -> nat_set*)
 
+(*type nat_map 'a*)
+(*val nat_map_empty : forall 'a. nat_map 'a*)
+(*val nat_map_domain : forall 'a. nat_map 'a -> set nat*)
+(*val nat_map_insert : forall 'a. nat_map 'a -> nat -> 'a -> nat_map 'a*)
+(*val nat_map_lookup : forall 'a. nat_map 'a -> nat -> maybe 'a*)
+
 (* TODO: proper support for words... *)
 (*open import {hol} `wordsTheory`*)
 (*type word8*)
