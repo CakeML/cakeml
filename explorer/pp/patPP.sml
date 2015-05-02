@@ -110,7 +110,6 @@ val _=add_patPP ("pat_raiseprint", ``Raise_pat x``,genPrint raisePrint);
 (*pat_Literals*)
 (*pat_Pattern lit*)
 val _=add_patPP ("pat_litprint", ``Lit_pat x``, genPrint plitPrint);
-val _=add_patPP ("pat_unitprint", ``Lit_pat Unit``,genPrint unitPrint);
 
 (*pat local var name debrujin indices*)
 fun pat_varlocalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
@@ -139,9 +138,6 @@ val _=add_patPP ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint
 
 (*pat_If-then-else*)
 val _=add_patPP("pat_ifthenelseprint", ``If_pat x y z``,genPrint ifthenelsePrint);
-
-val _=add_patPP("pat_truelitprint",``Lit_pat (Bool T)``,genPrint (boolPrint "true"));
-val _=add_patPP("pat_falselitprint",``Lit_pat (Bool F)``,genPrint (boolPrint "false"));
 
 (*pat binops*)
 val _=add_patPP ("pat_assignappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 10; x]``,genPrint (infixappPrint ":=")); 

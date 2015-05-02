@@ -437,11 +437,13 @@ fun plitPrint sys d t pg str brk blk=
 val _=add_astPP("plitprint", ``Plit x``, genPrint plitPrint);
 val _=add_astPP ("litprint", ``Lit x``, genPrint plitPrint);
 
+(* no special-casing required
 fun unitPrint sys d t pg str brk blk =
   str "()";
 
 val _=add_astPP ("unitprint", ``Con NONE []``,genPrint unitPrint);
 val _=add_astPP ("punitprint", ``Pcon NONE []``,genPrint unitPrint);
+*)
 
 (*Short Var name*)
 fun varShortPrint sys d t pg str brk blk=
@@ -665,12 +667,13 @@ val _=add_astPP("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
 (*Stabbrev*)
 val _ = add_astPP("stabbrevprint",``Sabbrev x y z``,genPrint (dtabbrevPrint));
 
-(*Booleans*)
+(*Booleans - no special-casing required
 fun boolPrint b sys d t pg str brk blk =
   str b;
 
 val _=add_astPP("truelitprint",``Con (SOME (Short "true")) []``,genPrint (boolPrint "true"));
 val _=add_astPP("falselitprint",``Con (SOME (Short "false")) []``,genPrint (boolPrint "false"));
+*)
 
 (*Pretty printer for ast list form, pattern to terms*)
 fun astlistPrint sys d t pg str brk blk =

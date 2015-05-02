@@ -102,7 +102,6 @@ val _=add_modPP ("i1_connilprint",``Con_i1 (SOME (Short "nil")) y``,genPrint pco
 (*i1_Literals*)
 (*i1_Pattern lit*)
 val _=add_modPP ("i1_litprint", ``Lit_i1 x``, genPrint plitPrint);
-val _=add_modPP ("i1_unitprint", ``Lit_i1 Unit``,genPrint unitPrint);
 
 (*i1 local Var name, no more long names*)
 fun i1_varlocalPrint sys d t pg str brk blk =
@@ -168,10 +167,6 @@ val _=add_modPP ("i1_negappprint", ``App_i1 Opapp [Var_global_i1 11; x]``,genPri
 
 (*i1 list form *)
 val _=add_modPP("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
-
-val _=add_modPP("i1_truelitprint",``Lit_i1 (Bool T)``,genPrint (boolPrint "true"));
-val _=add_modPP("i1_falselitprint",``Lit_i1 (Bool F)``,genPrint (boolPrint "false"));
-
 
 fun enable_modPP_verbose () = map temp_add_user_printer (!modPrettyPrinters); 
 fun enable_modPP () = (enable_modPP_verbose();())

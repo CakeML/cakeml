@@ -39,7 +39,6 @@ val _=add_exhPP ("exh_pconprint", ``Pcon_exh x y``,i2_pconPrint);
 (*exh_Literals*)
 (*exh_Pattern lit*)
 val _=add_exhPP ("exh_litprint", ``Lit_exh x``, genPrint plitPrint);
-val _=add_exhPP ("exh_unitprint", ``Lit_exh Unit``,genPrint unitPrint);
 
 (*exh local Var name, no more long names*)
 val _=add_exhPP ("exh_varlocalprint", ``Var_local_exh x``,genPrint i1_varlocalPrint);
@@ -61,9 +60,6 @@ val _=add_exhPP ("exh_handleprint", ``Handle_exh x y``,genPrint handlePrint);
 
 (*exh_If-then-else*)
 val _=add_exhPP("exh_ifthenelseprint", ``If_exh x y z``,genPrint ifthenelsePrint);
-
-val _=add_exhPP("exh_truelitprint",``Lit_exh (Bool T)``,genPrint (boolPrint "true"));
-val _=add_exhPP("exh_falselitprint",``Lit_exh (Bool F)``,genPrint (boolPrint "false"));
 
 (*exh binops*)
 val _=add_exhPP ("exh_assignappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 10; x]``,genPrint (infixappPrint ":=")); 
