@@ -133,6 +133,16 @@ val tl_append = Q.prove (
 val _ = new_theory "clos_to_bvl";
 
 (* compiler definition *)
+
+val closure_tag_def = Define`closure_tag = 0:num`
+val partial_app_tag_def = Define`partial_app_tag = 1:num`
+
+val cCompOp_def = Define`
+  cCompOp (Cons tag) = (Cons (tag+2)) ∧
+  cCompOp (TagEq tag) = (TagEq (tag+2)) ∧
+  cCompOp x = x`
+val _ = export_rewrites["cCompOp_def"];
+
 val mk_const_def = Define `
   mk_const n : bvl_exp = Op (Const (&n)) []`;
 
@@ -254,12 +264,6 @@ val init_code_def = Define `
       (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++ 
        FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1, 
                                      generate_partial_app_closure_fn m n)) max_app) max_app))`;
-
-val cCompOp_def = Define`
-  cCompOp (Cons tag) = (Cons (if tag < closure_tag then tag else tag+2)) ∧
-  cCompOp (TagEq tag) = (TagEq (if tag < closure_tag then tag else tag+2)) ∧
-  cCompOp x = x`
-val _ = export_rewrites["cCompOp_def"];
 
 val cComp_def = tDefine "cComp" `
   (cComp [] aux = ([],aux)) /\
