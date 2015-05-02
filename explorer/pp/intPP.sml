@@ -127,10 +127,6 @@ val _ = add_intPP ("cexp_letprint",``CLet b y z ``,genPrint cexp_letpatPrint);
 (*cexp_Literals*)
 (*cexp_Pattern lit*)
 val _ = add_intPP ("cexp_litprint", ``CLit x``, genPrint plitPrint);
-val _ = add_intPP ("cexp_unitprint", ``CLit Unit``,genPrint unitPrint);
-
-val _ = add_intPP("cexp_truelitprint",``CLit (Bool T)``,genPrint (boolPrint "true"));
-val _ = add_intPP("cexp_falselitprint",``CLit (Bool F)``,genPrint (boolPrint "false"));
 
 (*cexp local var name debrujin indices*)
 val _ = add_intPP ("cexp_varlocalprint", ``CVar x``,pat_varlocalPrint);

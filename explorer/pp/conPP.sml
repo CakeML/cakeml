@@ -103,7 +103,6 @@ val _=add_conPP ("i2_pconprint", ``Pcon_i2 x y``,genPrint i2_pconPrint);*)
 (*i2_Literals*)
 (*i2_Pattern lit*)
 val _=add_conPP ("i2_litprint", ``Lit_i2 x``, genPrint plitPrint);
-val _=add_conPP ("i2_unitprint", ``Lit_i2 Unit``,genPrint unitPrint);
 
 (*i2 local Var name, no more long names*)
 val _=add_conPP ("i2_varlocalprint", ``Var_local_i2 x``,genPrint i1_varlocalPrint);
@@ -125,9 +124,6 @@ val _=add_conPP ("i2_handleprint", ``Handle_i2 x y``,genPrint handlePrint);
 
 (*i2_If-then-else*)
 val _=add_conPP("i2_ifthenelseprint", ``If_i2 x y z``,genPrint ifthenelsePrint);
-
-val _=add_conPP("i2_truelitprint",``Lit_i2 (Bool T)``,genPrint (boolPrint "true"));
-val _=add_conPP("i2_falselitprint",``Lit_i2 (Bool F)``,genPrint (boolPrint "false"));
 
 (*i2 binops*)
 val _=add_conPP ("i2_assignappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 10; x]``,genPrint (infixappPrint ":=")); 

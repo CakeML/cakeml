@@ -1,7 +1,4 @@
-open HolKernel boolLib bossLib Parse astTheory terminationTheory sptreeTheory conLangProofTheory
-open cakeml_computeLib progToBytecodeTheory bytecodeLabelsTheory
-open Portable
-open smpp 
+open HolKernel boolLib bossLib allPP
 (*Nested ifs*)
 val ex1 = allIntermediates ``"exception Fail; val x = 5+4; if( (if(x>4 andalso x>5) then 5 else 4) > 3 ) then (if x>5 then 4 else 5) else (if x<2 orelse x>100 then 3 else raise Fail);"``;
 
@@ -12,7 +9,7 @@ val ex2 = allIntermediates ``"fun f x y = (g x) + (g y) and g x = x+1; f 5 4; g 
 val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Even; val x = 1; (case x of 1 => 2 | 2 => raise Even | 3 => raise Odd | _ => raise Fail 4) handle Odd => 1 | Even => 0+1+2+((raise Fail 5) handle Fail _ => 4) | Fail n => n;"``;
 
 (*Structure defn*)
-val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ n = case n of Int x => Int (x+1) end;"``; 
+val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ n = case n of Int x => Int (x+1) end;"``;
 
 (*Top lvl val, ref/deref*)
 (*ex5 should parse wrongly*)
@@ -27,7 +24,7 @@ val ex7 = allIntermediates ``"datatype 'a foo = Br of 'a * 'a foo * 'a foo | Lf 
 val ex8 = allIntermediates ``"fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2));"``;
 
 (*Datatype*)
-val ex9 = allIntermediates ``"datatype foo = Br of ((int * string) * int) * string;"`` 
+val ex9 = allIntermediates ``"datatype foo = Br of ((int * string) * int) * string;"``
 
 (*complex datatypes*)
 
@@ -94,4 +91,4 @@ val ex31 = allIntermediates ``"structure Nat :> sig type nat; type nat2 = nat*na
 
 val ex32 = allIntermediates ``"type ('a,'b) compose = 'a -> 'b;"``;
 
-val ex33 = allIntermediates ``"type t = exn;"`` 
+val ex33 = allIntermediates ``"type t = exn;"``

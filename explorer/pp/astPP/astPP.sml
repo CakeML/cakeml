@@ -144,8 +144,6 @@ fun deftypePrint typestr sys d t pg str brk blk=
 (*Fix these names*)
 val _=add_astPP("inttypeprint",``TC_int``,genPrint (deftypePrint "int"));
 val _=add_astPP("stringtypeprint",``TC_string``,genPrint (deftypePrint "string"));
-val _=add_astPP("booltypeprint",``TC_bool``,genPrint (deftypePrint "bool"));
-val _=add_astPP("unittypeprint",``TC_unit``,genPrint (deftypePrint "unit"));
 val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
 val _=add_astPP("tuptypeprint",``TC_tup``,genPrint (deftypePrint ""));
@@ -353,13 +351,19 @@ val _=add_astPP ("pvarprint", ``Pvar x``, genPrint pvarPrint);
 (*Con NONE*)
 fun pconPrint sys d t pg str brk blk =
   let
-    fun printTerms [] = str ""
-    |   printTerms [x] = sys (Top,pg,pg) (d-1) x
-    |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
     val terms = #1(listSyntax.dest_list (strip t))
-    val os =blk INCONSISTENT 0 (printTerms terms)
+  in
+    if List.null terms then
+      str"()"
+    else
+    let
+      fun printTerms [] = str ""
+      |   printTerms [x] = sys (Top,pg,pg) (d-1) x
+      |   printTerms (x::xs) = sys (Top,pg,pg) (d-1) x >> str ",">> (printTerms xs);
+      val os =blk INCONSISTENT 0 (printTerms terms)
     in
       str"(">>os>>str ")"
+    end
   end;
 
 val _=add_astPP ("pconprint", ``Pcon NONE x``,genPrint pconPrint);
@@ -439,11 +443,13 @@ fun plitPrint sys d t pg str brk blk=
 val _=add_astPP("plitprint", ``Plit x``, genPrint plitPrint);
 val _=add_astPP ("litprint", ``Lit x``, genPrint plitPrint);
 
+(* no special-casing required
 fun unitPrint sys d t pg str brk blk =
   str "()";
 
-val _=add_astPP ("unitprint", ``Lit Unit``,genPrint unitPrint);
-val _=add_astPP ("punitprint", ``Plit Unit``,genPrint unitPrint);
+val _=add_astPP ("unitprint", ``Con NONE []``,genPrint unitPrint);
+val _=add_astPP ("punitprint", ``Pcon NONE []``,genPrint unitPrint);
+*)
 
 (*Short Var name*)
 fun varShortPrint sys d t pg str brk blk=
@@ -667,12 +673,13 @@ val _=add_astPP("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
 (*Stabbrev*)
 val _ = add_astPP("stabbrevprint",``Sabbrev x y z``,genPrint (dtabbrevPrint));
 
-(*Booleans*)
+(*Booleans - no special-casing required
 fun boolPrint b sys d t pg str brk blk =
   str b;
 
 val _=add_astPP("truelitprint",``Con (SOME (Short "true")) []``,genPrint (boolPrint "true"));
 val _=add_astPP("falselitprint",``Con (SOME (Short "false")) []``,genPrint (boolPrint "false"));
+*)
 
 (*Pretty printer for ast list form, pattern to terms*)
 fun astlistPrint sys d t pg str brk blk =
