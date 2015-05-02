@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib miscLib lcsymtacs
+open HolKernel boolLib bossLib miscLib lcsymtacs intLib
 open arithmeticTheory listTheory pairTheory sortingTheory rich_listTheory finite_mapTheory
 open closLangTheory
 val _ = new_theory"clos_number"
@@ -741,6 +741,12 @@ val cEvalOp_rel = store_thm("cEvalOp_rel",
   rpt BasicProvers.VAR_EQ_TAC >>
   imp_res_tac clos_equal_rel >> simp[] >>
   BasicProvers.CASE_TAC >> simp[val_rel_simp,bool_to_val_rel])
+
+val val_rel_bool_to_val = store_thm("val_rel_bool_to_val[simp]",
+  ``(val_rel x (bool_to_val b) ⇔ (x = bool_to_val b)) ∧
+    (val_rel (bool_to_val b) x ⇔ (x = bool_to_val b))``,
+  Cases_on`b`>>rw[bool_to_val_def,Once val_rel_cases] >>
+  rw[Once val_rel_cases])
 
 val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
   ``(!tmp xs env s1 env' t1 res s2 n.
