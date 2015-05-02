@@ -1,4 +1,4 @@
-INCLUDES = .. ../compiler ../semantics/proofs ../targets ../inference/proofs
+INCLUDES = .. ../semantics/proofs ../targets ../inference/proofs
 OPTIONS=QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS =  ../targets/asmTheory ../compiler/compilerTerminationTheory ../compiler/free_varsTheory ../semantics/proofs/evalPropsTheory ../inference/proofs/inferPropsTheory
+BARE_THYS =  ../targets/asmTheory ../semantics/proofs/evalPropsTheory ../inference/proofs/inferPropsTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
