@@ -17,8 +17,7 @@ open import PatLang
 type compiler_state =
   <| next_global : nat
    ; globals_env : map modN (map varN nat) * map varN nat
-   ; contags_env : nat * tag_env * map nat (conN * tid_or_exn)
-   ; exh : exh_ctors_env
+   ; contags_env : tagenv_state
    ; rnext_label : nat
    |>
 
@@ -97,10 +96,9 @@ let compile_top types cs top =
   let n = cs.next_global in
   let (m10,m20) = cs.globals_env in
   let (_,m1,m2,p) = top_to_i1 n m10 m20 top in
-  let (c,exh,p) = prompt_to_i2 cs.contags_env p in
+  let (c,p) = prompt_to_i2 cs.contags_env p in
   let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
-  let exh = Map.(union) exh cs.exh in
-  let e = exp_to_exh exh e in
+  let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = cs.rnext_label |> e in
@@ -108,7 +106,6 @@ let compile_top types cs top =
   let cs = <| next_global = n
             ; globals_env = (m1,m2)
             ; contags_env = c
-            ; exh = exh
             ; rnext_label = r.next_label
             |> in
   (cs, <| cs with globals_env = (m1,m20) |>, r.out)
@@ -117,9 +114,9 @@ let compile_prog init_compiler_state prog =
   let n = init_compiler_state.next_global in
   let (m1,m2) = init_compiler_state.globals_env in
   let (_,_,m2,p) = prog_to_i1 n m1 m2 prog in
-  let (_,exh,p) = prog_to_i2 init_compiler_state.contags_env p in
+  let (c,p) = prog_to_i2 init_compiler_state.contags_env p in
   let (_,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
-  let e = exp_to_exh (Map.(union) exh init_compiler_state.exh) e in
+  let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <| out = []; next_label = init_compiler_state.rnext_label |> e in
@@ -138,10 +135,9 @@ let compile_special cs top =
   let n = cs.next_global in
   let (m1,m2) = cs.globals_env in
   let (_,_,_,p) = top_to_i1 n m1 m2 top in
-  let (_,exh,p) = prompt_to_i2 cs.contags_env p in
+  let (c,p) = prompt_to_i2 cs.contags_env p in
   let e = decs_to_i3 n match p with Prompt_i2 ds -> ds end in
-  let exh = Map.(union) exh cs.exh in
-  let e = exp_to_exh exh e in
+  let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile [] TCNonTail 0 <|out=[]; next_label = cs.rnext_label|> e in
@@ -162,17 +158,15 @@ let compile_initial_prog cs prog =
   let n = cs.next_global in
   let (m1,m2) = cs.globals_env in
   let (_,m1,m2,p) = prog_to_i1 n m1 m2 prog in
-  let (c,exh,p) = prog_to_i2 cs.contags_env p in
+  let (c,p) = prog_to_i2 cs.contags_env p in
   let (n,e) = prog_to_i3_initial n p in
-  let exh = Map.(union) exh cs.exh in
-  let e = exp_to_exh exh e in
+  let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
   let r = compile_Cexp [] 0 <|out = []; next_label = cs.rnext_label|> e in
   let cs = <| next_global = n
             ; globals_env = (m1,m2)
             ; contags_env = c
-            ; exh = exh
             ; rnext_label = r.next_label
             |> in
   (cs, (emit r [Stack Pop]).out)

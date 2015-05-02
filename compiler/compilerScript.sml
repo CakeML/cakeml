@@ -28,8 +28,7 @@ val _ = Hol_datatype `
  compiler_state =
   <| next_global : num
    ; globals_env : (modN, ( (varN, num)fmap)) fmap # (varN, num) fmap
-   ; contags_env : num # tag_env # (num, (conN # tid_or_exn)) fmap
-   ; exh : exh_ctors_env
+   ; contags_env : tagenv_state
    ; rnext_label : num
    |>`;
 
@@ -120,18 +119,17 @@ val _ = Define `
   let (m10,m20) = (cs.globals_env) in  
   (case top_to_i1 n m10 m20 top of
       (_,m1,m2,p) =>
-  let (c,exh,p) = (prompt_to_i2 cs.contags_env p) in
+  let (c,p) = (prompt_to_i2 cs.contags_env p) in
   let (n,e) = (prompt_to_i3 (none_tag, SOME (TypeId (Short "option")))
                  (some_tag, SOME (TypeId (Short "option"))) n p) in
-  let exh = (FUNION exh cs.exh) in
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0) <| out := []; next_label := cs.rnext_label |>
              e) in
   let r = (compile_print_top types m2 top r) in
   let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
-            ; exh := exh ; rnext_label := r.next_label |>) in
+            ; rnext_label := r.next_label |>) in
   (cs, ( cs with<| globals_env := (m1,m20) |>), r.out)
   )))`;
 
@@ -142,12 +140,11 @@ val _ = Define `
   let (m1,m2) = (init_compiler_state.globals_env) in  
   (case prog_to_i1 n m1 m2 prog of
       (_,_,m2,p) =>
-  (case prog_to_i2 init_compiler_state.contags_env p of
-      (_,exh,p) =>
+  let (c,p) = (prog_to_i2 init_compiler_state.contags_env p) in
   (case prog_to_i3 (none_tag, SOME (TypeId (Short "option")))
           (some_tag, SOME (TypeId (Short "option"))) n p of
       (_,e) =>
-  let e = (exp_to_exh (FUNION exh init_compiler_state.exh) e) in
+  let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0)
@@ -160,7 +157,6 @@ val _ = Define `
                          emit r (MAP PrintC (EXPLODE "\n"))
            )) in let r = (emit r [Stop T]) in REVERSE (r.out)
   )
-  )
   )))`;
 
 
@@ -172,17 +168,14 @@ val _ = Define `
   let (m1,m2) = (cs.globals_env) in  
   (case top_to_i1 n m1 m2 top of
       (_,_,_,p) =>
-  (case prompt_to_i2 cs.contags_env p of
-      (_,exh,p) =>
+  let (c,p) = (prompt_to_i2 cs.contags_env p) in
   let e = (decs_to_i3 n (case p of Prompt_i2 ds => ds )) in
-  let exh = (FUNION exh cs.exh) in
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile [] TCNonTail ( 0)
              <|out:=[]; next_label := cs.rnext_label|> e) in
   (emit r [Stack Pop; Stop T]).out
-  )
   )))`;
 
 
@@ -206,15 +199,14 @@ val _ = Define `
   let (m1,m2) = (cs.globals_env) in  
   (case prog_to_i1 n m1 m2 prog of
       (_,m1,m2,p) =>
-  let (c,exh,p) = (prog_to_i2 cs.contags_env p) in
+  let (c,p) = (prog_to_i2 cs.contags_env p) in
   let (n,e) = (prog_to_i3_initial n p) in
-  let exh = (FUNION exh cs.exh) in
-  let e = (exp_to_exh exh e) in
+  let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
   let r = (compile_Cexp [] ( 0) <|out := []; next_label := cs.rnext_label|> e) in
   let cs = (<| next_global := n ; globals_env := (m1,m2) ; contags_env := c
-            ; exh := exh ; rnext_label := r.next_label |>) in
+            ; rnext_label := r.next_label |>) in
   (cs, (emit r [Stack Pop]).out)
   )))`;
 

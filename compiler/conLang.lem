@@ -231,7 +231,7 @@ type tagenv_state = nat_map nat * tag_env * exh_ctors_env
 type tagenv_state_acc = tagenv_state * flat_tag_env
 
 let get_tagenv ((next,tagenv,exh),acc) = tagenv
-let get_exh ((next,tagenv,exh),acc) = exh
+let get_exh (next,tagenv,exh) = exh
 
 val insert_tag_env : conN -> (nat * nat * maybe tid_or_exn) -> tag_env  -> tag_env
 let insert_tag_env cn tag (mtagenv,ftagenv) =

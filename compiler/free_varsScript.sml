@@ -1121,10 +1121,10 @@ val pat_bindings_i2_pat_to_i2 = store_thm("pat_bindings_i2_pat_to_i2",
 val _ = export_rewrites["pat_bindings_i2_pat_to_i2"]
 
 val free_vars_i2_exp_to_i2 = store_thm("free_vars_i2_exp_to_i2",
-  ``(∀exh e. free_vars_i2 (exp_to_i2 exh e) = free_vars_i1 e) ∧
-    (∀exh es. free_vars_list_i2 (exps_to_i2 exh es) = free_vars_list_i1 es) ∧
-    (∀exh pes. free_vars_pes_i2 (pat_exp_to_i2 exh pes) = free_vars_pes_i1 pes) ∧
-    (∀exh funs. free_vars_defs_i2 (funs_to_i2 exh funs) = free_vars_defs_i1 funs)``,
+  ``(∀(exh:tag_env) e. free_vars_i2 (exp_to_i2 exh e) = free_vars_i1 e) ∧
+    (∀(exh:tag_env) es. free_vars_list_i2 (exps_to_i2 exh es) = free_vars_list_i1 es) ∧
+    (∀(exh:tag_env) pes. free_vars_pes_i2 (pat_exp_to_i2 exh pes) = free_vars_pes_i1 pes) ∧
+    (∀(exh:tag_env) funs. free_vars_defs_i2 (funs_to_i2 exh funs) = free_vars_defs_i1 funs)``,
   ho_match_mp_tac exp_to_i2_ind >>
   simp[exp_to_i2_def] >>
   rw[funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] )

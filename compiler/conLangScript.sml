@@ -43,6 +43,8 @@ val _ = new_theory "conLang"
 (*open import BigStep*)
 (*open import ModLang*)
 
+(* these must match what the prim_types_program generates *)
+
 (*val tuple_tag : nat*)
 val _ = Define `
  (tuple_tag =( 0))`;
@@ -50,60 +52,58 @@ val _ = Define `
 
 (*val bind_tag : nat*)
 val _ = Define `
- (bind_tag =( 1))`;
+ (bind_tag =( 0))`;
 
 
 (*val chr_tag : nat*)
 val _ = Define `
- (chr_tag =( 2))`;
+ (chr_tag =( 1))`;
 
 
 (*val div_tag : nat*)
 val _ = Define `
- (div_tag =( 3))`;
+ (div_tag =( 2))`;
 
 
 (*val eq_tag : nat*)
 val _ = Define `
- (eq_tag =( 4))`;
+ (eq_tag =( 3))`;
 
 
 (*val subscript_tag : nat*)
 val _ = Define `
- (subscript_tag =( 5))`;
+ (subscript_tag =( 4))`;
 
 
 (*val true_tag : nat*)
 val _ = Define `
- (true_tag =( 6))`;
+ (true_tag =( 0))`;
 
 
 (*val false_tag : nat*)
 val _ = Define `
- (false_tag =( 7))`;
+ (false_tag =( 1))`;
 
 
 (*val nil_tag : nat*)
 val _ = Define `
- (nil_tag =( 8))`;
+ (nil_tag =( 0))`;
 
 
 (*val cons_tag : nat*)
 val _ = Define `
- (cons_tag =( 9))`;
+ (cons_tag =( 0))`;
 
 
 (*val none_tag : nat*)
 val _ = Define `
- (none_tag =( 10))`;
+ (none_tag =( 0))`;
 
 
 (*val some_tag : nat*)
 val _ = Define `
- (some_tag =( 11))`;
+ (some_tag =( 0))`;
 
-
-val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id),  unit spt) fmap``);
 
 val _ = Hol_datatype `
  op_i2 =
@@ -150,7 +150,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  v_i2 =
     Litv_i2 of lit
-  | Conv_i2 of (num #  tid_or_exn option) => v_i2 list 
+  | Conv_i2 of (num #  tid_or_exn option) => v_i2 list
   | Closure_i2 of (varN, v_i2) alist => varN => exp_i2
   | Recclosure_i2 of (varN, v_i2) alist => (varN # varN # exp_i2) list => varN
   | Loc_i2 of num
@@ -180,9 +180,11 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_bindings_i2_defn;
 
-(* Maps a constructor name to its tag and to all of the constructor names of
- * its type, for use in exhaustiveness checking *)
-val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num #  tid_or_exn option)) fmap``);
+(* for each type, for each arity, the number of constructors of that arity *)
+val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id), ( num spt)) fmap``);
+
+(* for each constructor, its arity, tag, and type *)
+val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num # num #  tid_or_exn option)) fmap``);
 val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
 (*val lookup_tag_flat : conN -> flat_tag_env -> (nat * maybe tid_or_exn)*)
@@ -190,7 +192,7 @@ val _ = Define `
  (lookup_tag_flat cn ftagenv =  
 ((case FLOOKUP ftagenv cn of
       NONE => (tuple_tag, NONE)
-    | SOME (n,ctors) => (n,ctors)
+    | SOME (a,n,t) => (n,t)
   )))`;
 
 
@@ -198,11 +200,11 @@ val _ = Define `
 val _ = Define `
  (lookup_tag_env id (mtagenv,tagenv) =  
 ((case id of
-      NONE => (tuple_tag,NONE) 
+      NONE => (tuple_tag,NONE)
     | SOME (Short x) => lookup_tag_flat x tagenv
     | SOME (Long x y) =>
         (case FLOOKUP mtagenv x of
-            NONE => (tuple_tag,NONE) 
+            NONE => (tuple_tag,NONE)
           | SOME tagenv => lookup_tag_flat y tagenv
         )
   )))`;
@@ -212,12 +214,12 @@ val _ = Define `
  val pat_to_i2_defn = Hol_defn "pat_to_i2" `
 
 (pat_to_i2 tagenv (Pvar x) = (Pvar_i2 x))
-/\ 
+/\
 (pat_to_i2 tagenv (Plit l) = (Plit_i2 l))
-/\ 
+/\
 (pat_to_i2 tagenv (Pcon con_id ps) =  
- (Pcon_i2 (lookup_tag_env con_id tagenv) (MAP (pat_to_i2 tagenv) ps)))
-/\ 
+(Pcon_i2 (lookup_tag_env con_id tagenv) (MAP (pat_to_i2 tagenv) ps)))
+/\
 (pat_to_i2 tagenv (Pref p) = (Pref_i2 (pat_to_i2 tagenv p)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_i2_defn;
@@ -227,25 +229,25 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val pat_exp_to_i2 : tag_env -> list (pat * exp_i1) -> list (pat_i2 * exp_i2)*)
 (*val funs_to_i2 : tag_env -> list (varN * varN * exp_i1) -> list (varN * varN * exp_i2)*)
  val exp_to_i2_defn = Hol_defn "exp_to_i2" `
- 
+
 (exp_to_i2 tagenv (Raise_i1 e) =  
- (Raise_i2 (exp_to_i2 tagenv e)))
+(Raise_i2 (exp_to_i2 tagenv e)))
 /\
 (exp_to_i2 tagenv (Handle_i1 e pes) =  
- (Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
+(Handle_i2 (exp_to_i2 tagenv e) (pat_exp_to_i2 tagenv pes)))
 /\
 (exp_to_i2 tagenv (Lit_i1 l) =  
- (Lit_i2 l)) 
+(Lit_i2 l))
 /\
 (exp_to_i2 tagenv (Con_i1 cn es) =  
- (Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)))
+(Con_i2 (lookup_tag_env cn tagenv) (exps_to_i2 tagenv es)))
 /\
 (exp_to_i2 tagenv (Var_local_i1 x) = (Var_local_i2 x))
 /\
 (exp_to_i2 tagenv (Var_global_i1 x) = (Var_global_i2 x))
 /\
 (exp_to_i2 tagenv (Fun_i1 x e) =  
-(Fun_i2 x (exp_to_i2 tagenv e))) 
+(Fun_i2 x (exp_to_i2 tagenv e)))
 /\
 (exp_to_i2 tagenv (App_i1 op es) =  
 (App_i2 (Op_i2 op) (exps_to_i2 tagenv es)))
@@ -260,7 +262,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (Let_i2 x (exp_to_i2 tagenv e1) (exp_to_i2 tagenv e2)))
 /\
 (exp_to_i2 tagenv (Letrec_i1 funs e) =  
-(Letrec_i2 (funs_to_i2 tagenv funs) 
+(Letrec_i2 (funs_to_i2 tagenv funs)
             (exp_to_i2 tagenv e)))
 /\
 (exps_to_i2 tagenv [] = ([]))
@@ -280,75 +282,90 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn exp_to_i2_defn;
 
-(* The constructor names that are in scope, the global mapping of constructor
- * names (with types so that they are unique), and its inverse. *)
-val _ = type_abbrev( "tagenv_state" , ``: (num # tag_env # (num, (conN # tid_or_exn)) fmap) # (conN, (num #  tid_or_exn option)) fmap``);
+(* next exception tag (arity-indexed),
+ * current tag env,
+ * current exh_ctors_env,
+ * accumulator (for use on module exit) *)
+val _ = type_abbrev( "tagenv_state" , ``:  num spt # tag_env # exh_ctors_env``);
+val _ = type_abbrev( "tagenv_state_acc" , ``: tagenv_state # flat_tag_env``);
 
 val _ = Define `
- (get_tagenv ((next,tagenv,inv),acc) = tagenv)`;
+ (get_tagenv ((next,tagenv,exh),acc) = tagenv)`;
+
+val _ = Define `
+ (get_exh (next,tagenv,exh) = exh)`;
 
 
-(*val insert_tag_env : conN -> (nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
+(*val insert_tag_env : conN -> (nat * nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
 val _ = Define `
  (insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,ftagenv |+ (cn, tag)))`;
 
 
-(*val alloc_tag : tid_or_exn -> conN -> tagenv_state -> tagenv_state*)
+(*val alloc_tag : tid_or_exn -> conN -> nat -> tagenv_state_acc -> tagenv_state_acc*)
 val _ = Define `
- (alloc_tag tn cn ((next,tagenv,inv),acc) =
-  (((next+ 1),insert_tag_env cn (next,SOME tn) tagenv,inv |+ (next, (cn,tn))),acc |+ (cn, (next,SOME tn))))`;
+ (alloc_tag tn cn arity ((next,tagenv,exh),acc) =  
+((case tn of
+    TypeExn _ =>
+      let tag =        
+((case sptree$lookup arity next of
+          NONE => 0
+        | SOME n => n+ 1
+        )) in
+      ((sptree$insert arity tag next,
+        insert_tag_env cn (arity,tag,SOME tn) tagenv,
+        exh),acc |+ (cn, (arity,tag,SOME tn)))
+  | TypeId tid =>
+      let (tag,exh) =        
+((case FLOOKUP exh tid of
+          NONE => ( 0,exh |+ (tid, (sptree$insert arity ( 1) sptree$LN)))
+        | SOME m => (case sptree$lookup arity m of
+                      NONE => ( 0,exh |+ (tid, (sptree$insert arity ( 1) m)))
+                    | SOME t => (t,exh |+ (tid, (sptree$insert arity (t+ 1) m)))
+                    )
+        )) in
+      ((next,
+        insert_tag_env cn (arity,tag,SOME tn) tagenv,
+        exh),acc |+ (cn, (arity,tag,SOME tn)))
+  )))`;
 
 
-(*val alloc_tags : maybe modN -> tagenv_state -> type_def -> tagenv_state*)
+(*val alloc_tags : maybe modN -> tagenv_state_acc -> type_def -> tagenv_state_acc*)
  val _ = Define `
- 
+
 (alloc_tags mn st [] = st)
 /\
 (alloc_tags mn st ((tvs,tn,constrs)::types) =  
- (let st' =    
-(FOLDL (\ st' (cn,ts) .  alloc_tag (TypeId (mk_id mn tn)) cn st') st constrs)
+(let st' =    
+(FOLDL (\ st' (cn,ts) .  alloc_tag (TypeId (mk_id mn tn)) cn (LENGTH ts) st') st constrs)
   in
     alloc_tags mn st' types))`;
 
 
-(*val build_exh_env : maybe modN -> tagenv_state -> type_def -> exh_ctors_env*)
-val _ = Define `
- (build_exh_env mn (_,acc) tds =  
-(FUPDATE_LIST FEMPTY (MAP
-      (\ (tvs,tn,constrs) . 
-        (mk_id mn tn,
-         FOLDL
-           (\ s (cn,ts) .  sptree$insert (FST (option_CASE (FLOOKUP acc cn) ( 0,NONE) I)) ()  s)
-           sptree$LN constrs))
-      tds)))`;
-
-
-(*val decs_to_i2 : tagenv_state -> list dec_i1 -> tagenv_state * exh_ctors_env * list dec_i2*)
+(*val decs_to_i2 : tagenv_state_acc -> list dec_i1 -> tagenv_state_acc * list dec_i2*)
  val _ = Define `
- 
-(decs_to_i2 st [] = (st,FEMPTY,[]))
+
+(decs_to_i2 st [] = (st,[]))
 /\
 (decs_to_i2 st (d::ds) =  
 ((case d of
-      Dlet_i1 n e => 
-        let (st', exh', ds') = (decs_to_i2 st ds) in
-          (st', exh', (Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds'))
+      Dlet_i1 n e =>
+        let (st', ds') = (decs_to_i2 st ds) in
+          (st', (Dlet_i2 n (exp_to_i2 (get_tagenv st) e)::ds'))
     | Dletrec_i1 funs =>
-        let (st', exh', ds') = (decs_to_i2 st ds) in
-          (st', exh', (Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds'))
+        let (st', ds') = (decs_to_i2 st ds) in
+          (st', (Dletrec_i2 (funs_to_i2 (get_tagenv st) funs)::ds'))
     | Dtype_i1 mn type_def =>
         let st'' = (alloc_tags mn st type_def) in
-        let exh'' = (build_exh_env mn st'' type_def) in
-        let (st',exh',ds') = (decs_to_i2 st'' ds) in
-          (st',FUNION exh' exh'',ds')
+        let (st',ds') = (decs_to_i2 st'' ds) in
+          (st', ds')
     | Dexn_i1 mn cn ts =>
-        let (st',exh',ds') = (decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn st) ds) in
-          (st',exh',ds')
+        let (st', ds') = (decs_to_i2 (alloc_tag (TypeExn (mk_id mn cn)) cn (LENGTH ts) st) ds) in
+          (st', ds')
   )))`;
 
 
-(*val mod_tagenv : maybe modN -> map conN (nat * maybe tid_or_exn) -> tag_env -> tag_env*)
+(*val mod_tagenv : maybe modN -> flat_tag_env -> tag_env -> tag_env*)
 val _ = Define `
  (mod_tagenv mn l (mtagenv,tagenv) =  
 ((case mn of
@@ -357,33 +374,33 @@ val _ = Define `
   )))`;
 
 
-(*val prompt_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * prompt_i2*)
+(*val prompt_to_i2 : tagenv_state -> prompt_i1 -> tagenv_state * prompt_i2*)
 val _ = Define `
  (prompt_to_i2 tagenv_st prompt =  
 ((case prompt of
       Prompt_i1 mn ds =>
-        let (((next',tagenv',inv'),acc'), exh', ds') = (decs_to_i2 (tagenv_st,FEMPTY) ds) in
-          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),inv'), exh', Prompt_i2 ds')
+        let (((next',tagenv',exh'),acc'), ds') = (decs_to_i2 (tagenv_st,FEMPTY) ds) in
+          ((next',mod_tagenv mn acc' (get_tagenv (tagenv_st,acc')),exh'), Prompt_i2 ds')
   )))`;
 
 
-(*val prog_to_i2 : (nat * tag_env * map nat (conN * tid_or_exn)) -> list prompt_i1 -> (nat * tag_env * map nat (conN * tid_or_exn)) * exh_ctors_env * list prompt_i2*)
+(*val prog_to_i2 : tagenv_state -> list prompt_i1 -> tagenv_state * list prompt_i2*)
  val _ = Define `
- 
-(prog_to_i2 st [] = (st, FEMPTY, []))
-/\ 
+
+(prog_to_i2 st [] = (st, []))
+/\
 (prog_to_i2 st (p::ps) =  
- (let (st',exh',p') = (prompt_to_i2 st p) in
-  let (st'',exh'',ps') = (prog_to_i2 st' ps) in
-    (st'',FUNION exh'' exh', (p'::ps'))))`;
+(let (st',p') = (prompt_to_i2 st p) in
+  let (st'',ps') = (prog_to_i2 st' ps) in
+    (st'',(p'::ps'))))`;
 
 
 (*val build_rec_env_i2 : list (varN * varN * exp_i2) -> alist varN v_i2 -> alist varN v_i2 -> alist varN v_i2*)
 val _ = Define `
  (build_rec_env_i2 funs cl_env add_to_env =  
-(FOLDR 
-    (\ (f,x,e) env' .  (f, Recclosure_i2 cl_env funs f) :: env') 
-    add_to_env 
+(FOLDR
+    (\ (f,x,e) env' .  (f, Recclosure_i2 cl_env funs f) :: env')
+    add_to_env
     funs))`;
 
 
@@ -399,7 +416,7 @@ val _ = Define `
 (do_eq_i2 (Conv_i2 tag1 vs1) (Conv_i2 tag2 vs2) =  
 (if (FST tag1 = FST tag2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
-  else 
+  else
     Eq_val F))
 /\
 (do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =  
@@ -421,10 +438,10 @@ val _ = Define `
 (do_eq_list_i2 [] [] = (Eq_val T))
 /\
 (do_eq_list_i2 (v1::vs1) (v2::vs2) =  
- ((case do_eq_i2 v1 v2 of
+((case do_eq_i2 v1 v2 of
       Eq_closure => Eq_closure
     | Eq_type_error => Eq_type_error
-    | Eq_val r => 
+    | Eq_val r =>
         if ~ r then
           Eq_val F
         else
@@ -475,7 +492,7 @@ val _ = Define `
 (*val v_to_list_i2 : v_i2 -> maybe (list v_i2)*)
  val _ = Define `
  (v_to_list_i2 (Conv_i2 (tag, SOME (TypeId (Short tn))) []) =  
- (if (tag = nil_tag) /\ (tn = "list") then
+(if (tag = nil_tag) /\ (tn = "list") then
     SOME []
   else
     NONE))
@@ -706,7 +723,7 @@ val _ = Define `
 (if n = n' then
       if LENGTH ps = LENGTH vs then
         pmatch_list_i2 exh s ps vs env
-      else 
+      else
         Match_type_error
     else
       No_match))
@@ -715,20 +732,22 @@ val _ = Define `
 (if t = t' then
     (case FLOOKUP exh t of
         NONE => Match_type_error
-      | SOME tags =>
-          if n IN (sptree$domain tags) /\ n' IN (sptree$domain tags) then
-            if n = n' then
-              if LENGTH ps = LENGTH vs then
-                pmatch_list_i2 exh s ps vs env
-              else
-                Match_type_error
-            else
-	      No_match
-          else
-            Match_type_error
+      | SOME m =>
+        let arity = (LENGTH ps) in
+        if arity = LENGTH vs then
+          (case sptree$lookup arity m of
+            NONE => Match_type_error
+          | SOME z =>
+              if (n < z) /\ (n' < z) then
+                if n = n' then
+                  pmatch_list_i2 exh s ps vs env
+                else
+                  No_match
+              else Match_type_error
+          )
+        else Match_type_error
     )
-  else
-    Match_type_error))
+  else Match_type_error))
 /\
 (pmatch_i2 exh s (Pcon_i2 (n,NONE) ps) (Conv_i2 (n',NONE) vs) env =  
 (if (LENGTH ps = LENGTH vs) /\ (n = tuple_tag) /\ (n' = tuple_tag) then
@@ -1060,6 +1079,5 @@ evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s3, (env2++env3), r))
 (evaluate_prompt_i2 ck exh genv s1 prompt (s2, env2, SOME err))
 ==>
 evaluate_prog_i2 ck exh genv s1 (prompt::prompts) (s2, env2, SOME err))`;
-
 val _ = export_theory()
 

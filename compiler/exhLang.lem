@@ -64,12 +64,12 @@ let rec
       | _ -> false
     end
 
-val get_tags : list pat_i2 -> nat_set -> maybe(nat_set)
+val get_tags : list pat_i2 -> nat_map nat -> maybe(nat_map nat)
 let rec get_tags [] acc = Just acc
 and get_tags (p::ps) acc =
   match p with
     | Pcon_i2 (tag,t) ps' ->
-        if List.all is_unconditional ps' then get_tags ps (nat_set_insert acc tag)
+        if List.all is_unconditional ps' then get_tags ps (nat_map_insert acc (List.length ps') tag)
         else Nothing
     | _ -> Nothing
   end
@@ -81,13 +81,13 @@ let exhaustive_match exh ps =
   match ps with
     | Pcon_i2 (tag,Just (TypeId t)) ps'::ps ->
         (List.all is_unconditional ps' &&
-          match get_tags ps nat_set_empty with
+          match get_tags ps nat_map_empty with
             | Nothing -> false
             | Just tags ->
                 match Map.lookup t exh with
                   | Nothing -> false
                   | Just tags' ->
-                    (nat_set_insert tags tag) = tags'
+                    (nat_map_insert tags (List.length ps') tag) = tags'
                 end
           end)
     | _ -> false
