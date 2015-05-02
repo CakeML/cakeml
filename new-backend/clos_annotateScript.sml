@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib;
+open HolKernel Parse boolLib bossLib intLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open lcsymtacs closLangTheory sptreeTheory db_varsTheory;
@@ -809,6 +809,11 @@ val LENGTH_TAKE_EQ = prove(
   SRW_TAC [] [] \\ fs [GSYM NOT_LESS] \\ AP_TERM_TAC
   \\ MATCH_MP_TAC TAKE_LENGTH_TOO_LONG \\ DECIDE_TAC);
 
+val val_rel_bool_to_val = store_thm("val_rel_bool_to_val[simp]",
+  ``(val_rel x (bool_to_val b) ⇔ (x = bool_to_val b)) ∧
+    (val_rel (bool_to_val b) x ⇔ (x = bool_to_val b))``,
+  Cases_on`b`>>EVAL_TAC>>ntac 2(simp[Once val_rel_cases]))
+
 val cShift_correct = prove(
   ``(!xs env s1 env' t1 res s2 m l i.
       (cEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -891,8 +896,8 @@ val cShift_correct = prove(
     \\ IMP_RES_TAC cEval_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [val_rel_simp] \\ SRW_TAC [] []
-    \\ Cases_on `r1 = Block 1 []` \\ fs [val_rel_simp]
-    \\ Cases_on `r1 = Block 0 []` \\ fs [val_rel_simp])
+    \\ Cases_on `r1 = bool_to_val T` \\ fs [val_rel_simp]
+    \\ Cases_on `r1 = bool_to_val F` \\ fs [val_rel_simp])
   THEN1 (* Let *)
    (fs [cFree_def]
     \\ `?y1 l1. cFree xs = (y1,l1)` by METIS_TAC [PAIR,cFree_SING]
