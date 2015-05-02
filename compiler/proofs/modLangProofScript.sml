@@ -1226,7 +1226,14 @@ val exp_to_i1_correct = Q.prove (
      simp[Boolv_i1_def] >>
      simp[Bool_i1_def] >>
      simp[evaluate_i1_con,Once(CONJUNCT2 evaluate_i1_cases)] >>
-     cheat (* need to assume booleans in cenv *))
+     simp[Once evaluate_i1_cases,do_app_i1_def] >>
+     simp[Once evaluate_i1_cases,PULL_EXISTS] >>
+     simp[Once evaluate_i1_cases,PULL_EXISTS] >>
+     simp[Once evaluate_i1_cases,PULL_EXISTS] >>
+     simp[Once evaluate_i1_cases,PULL_EXISTS] >>
+     simp[Once evaluate_i1_cases,PULL_EXISTS] >>
+     simp[Boolv_i1_def,opb_lookup_def] >>
+     metis_tac[PAIR])
  >- (fs [do_log_thm] >>
      every_case_tac >>
      fs [v_to_i1_eqns, exp_to_i1_def] >>
