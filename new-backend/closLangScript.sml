@@ -63,8 +63,8 @@ val get_global_def = Define `
     if n < LENGTH globals then SOME (EL n globals) else NONE`
 
 val bool_to_val_def = Define `
-  (bool_to_val T = Block true_tag []) /\
-  (bool_to_val F = Block false_tag [])`;
+  (bool_to_val T = Block (true_tag+pat_tag_shift) []) /\
+  (bool_to_val F = Block (false_tag+pat_tag_shift) [])`;
 
 val clos_equal_def = tDefine "clos_equal" `
   (clos_equal x y =
@@ -107,6 +107,7 @@ val clos_to_chars_def = Define `
      else NONE) /\
   (clos_to_chars _ _ = NONE)`
 
+(*
 val clos_to_string_def = Define `
   (clos_to_string (Number i) = SOME (int_to_string i)) /\
   (clos_to_string (Block n vs) =
@@ -121,12 +122,13 @@ val clos_to_string_def = Define `
     else SOME "<constructor>")) /\
   (clos_to_string ((RefPtr v0) : clos_val) = SOME "<ref>") /\
   (clos_to_string _ = SOME "<fn>")`;
+*)
 
 val clos_from_list_def = Define`
   (clos_from_list (Block tag []) =
-     if tag = nil_tag then SOME [] else NONE) ∧
+     if tag = nil_tag+pat_tag_shift then SOME [] else NONE) ∧
   (clos_from_list (Block tag [h;bt]) =
-     if tag = cons_tag then
+     if tag = cons_tag+pat_tag_shift then
        (case clos_from_list bt of
         | SOME t => SOME (h::t)
         | _ => NONE )
@@ -134,8 +136,8 @@ val clos_from_list_def = Define`
   (clos_from_list _ = NONE)`
 
 val clos_to_list_def = Define`
-  (clos_to_list [] = Block nil_tag []) ∧
-  (clos_to_list (h::t) = Block cons_tag [h;clos_to_list t])`
+  (clos_to_list [] = Block (nil_tag+pat_tag_shift) []) ∧
+  (clos_to_list (h::t) = Block (cons_tag+pat_tag_shift) [h;clos_to_list t])`
 
 val cEvalOp_def = Define `
   cEvalOp (op:bvl_op) (vs:clos_val list) (s:clos_state) =
@@ -238,10 +240,10 @@ val cEvalOp_def = Define `
          if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
     | (Less,[Number n1; Number n2]) =>
          SOME (bool_to_val (n1 < n2),s)
-    | (Print, [x]) =>
+(*  | (Print, [x]) =>
         (case clos_to_string x of
          | SOME str => SOME (x, s with output := s.output ++ str)
-         | NONE => NONE)
+         | NONE => NONE) *)
     | (PrintC c, []) =>
           SOME (Number 0, s with output := s.output ++ [c])
     | _ => NONE`

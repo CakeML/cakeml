@@ -539,10 +539,12 @@ val val_rel_IMP_clos_to_chars = prove(
   \\ Cases_on `h` \\ fs [val_rel_simp,clos_to_chars_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ fs []);
 
+(*
 val val_rel_IMP_clos_to_string = prove(
   ``!h1 h2. val_rel h1 h2 ==> (clos_to_string h1 = clos_to_string h2)``,
   Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
+*)
 
 val EVERY2_LUPDATE = prove(
   ``!xs ys n.
@@ -627,10 +629,12 @@ val cEvalOp_thm = prove(
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] []
     \\ fs [state_rel_def])
+  (*
   THEN1 (* Print *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ SRW_TAC [] [] \\ fs [val_rel_simp] \\ SRW_TAC [] []
     \\ fs [state_rel_def] \\ IMP_RES_TAC val_rel_IMP_clos_to_string \\ fs [])
+  *)
   THEN1 (* Label *)
    (fs [cEvalOp_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
   THEN1 (* Update *)

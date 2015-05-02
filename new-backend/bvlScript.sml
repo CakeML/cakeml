@@ -2,7 +2,8 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory lcsymtacs;
+open sptreeTheory lcsymtacs;
+open conLangTheory (* for true/false tags *);
 
 infix \\ val op \\ = op THEN;
 
@@ -52,7 +53,7 @@ val _ = Datatype `
          | Deref         (* loads a value from a reference *)
          | Update        (* updates a reference *)
          | Label num     (* constructs a CodePtr *)
-         | Print         (* prints a value *)
+      (* | Print         (* prints a value *) *)
          | PrintC char   (* prints a character *)
          | Add           (* + over the integers *)
          | Sub           (* - over the integers *)
@@ -85,6 +86,57 @@ val _ = Datatype `
           | Op bvl_op (bvl_exp list) `
 
 (* --- Semantics of BVL --- *)
+
+(* these parts are shared by bytecode and, if bytecode is to be supported, need
+   to move to a common ancestor *)
+
+val _ = Datatype `
+  bc_value =
+    Number int                (* integer *)
+  | Block num (bc_value list) (* cons block: tag and payload *)
+  | CodePtr num               (* code pointer *)
+  | RefPtr num                (* pointer to ref cell *)`;
+
+val _ = Datatype`
+  ref_value =
+    ValueArray (bc_value list)
+  | ByteArray (word8 list)`;
+
+val string_tag_def = Define`string_tag = 0:num`
+val vector_tag_def = Define`vector_tag = 1:num`
+val pat_tag_shift_def = Define`pat_tag_shift = 2:num`
+val closure_tag_def = Define`closure_tag = 0:num`
+val partial_app_tag_def = Define`partial_app_tag = 1:num`
+val clos_tag_shift_def = Define`clos_tag_shift = 2:num`
+
+val bc_equal_def = tDefine"bc_equal"`
+  (bc_equal (CodePtr _) _ = Eq_type_error) ∧
+  (bc_equal _ (CodePtr _) = Eq_type_error) ∧
+  (bc_equal (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
+  (bc_equal (Number _) _ = Eq_val F) ∧
+  (bc_equal _ (Number _) = Eq_val F) ∧
+  (bc_equal (RefPtr n1) (RefPtr n2) = (Eq_val (n1 = n2))) ∧
+  (bc_equal (RefPtr _) _ = Eq_val F) ∧
+  (bc_equal _ (RefPtr _) = Eq_val F) ∧
+  (bc_equal (Block t1 l1) (Block t2 l2) =
+   if (t1 = closure_tag) ∨ (t2 = closure_tag) ∨ (t1 = partial_app_tag) ∨ (t2 = partial_app_tag)
+   then Eq_closure
+   else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
+        then bc_equal_list l1 l2
+        else Eq_val F) ∧
+  (bc_equal_list [] [] = Eq_val T) ∧
+  (bc_equal_list (v1::vs1) (v2::vs2) =
+   case bc_equal v1 v2 of
+   | Eq_val T => bc_equal_list vs1 vs2
+   | Eq_val F => Eq_val F
+   | bad => bad) ∧
+  (bc_equal_list _ _ = Eq_val F)`
+  (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => bc_value_size v1 | INR (vs1,vs2) => bc_value1_size vs1)`);
+
+val bool_to_val_def = Define`
+  bool_to_val b = Block ((if b then true_tag else false_tag) + pat_tag_shift + clos_tag_shift) []`
+
+(* -- *)
 
 val _ = Datatype `
   bvl_result = Result 'a
@@ -192,10 +244,10 @@ val bEvalOp_def = Define `
          | _ => NONE)
     | (Label n,[]) =>
         if n IN domain s.code then SOME (CodePtr n, s) else NONE
-    | (Print, [x]) =>
+(*  | (Print, [x]) =>
         (case bv_to_string x of
          | SOME str => SOME (x, s with output := s.output ++ str)
-         | NONE => NONE)
+         | NONE => NONE) *)
     | (PrintC c, []) =>
           SOME (Number 0, s with output := s.output ++ [c])
     | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)

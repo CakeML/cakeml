@@ -134,12 +134,9 @@ val _ = new_theory "clos_to_bvl";
 
 (* compiler definition *)
 
-val closure_tag_def = Define`closure_tag = 0:num`
-val partial_app_tag_def = Define`partial_app_tag = 1:num`
-
 val cCompOp_def = Define`
-  cCompOp (Cons tag) = (Cons (tag+2)) ∧
-  cCompOp (TagEq tag) = (TagEq (tag+2)) ∧
+  cCompOp (Cons tag) = (Cons (tag+clos_tag_shift)) ∧
+  cCompOp (TagEq tag) = (TagEq (tag+clos_tag_shift)) ∧
   cCompOp x = x`
 val _ = export_rewrites["cCompOp_def"];
 
@@ -517,6 +514,8 @@ val bEval_generic_app_helper = Q.prove (
  rw [] >>
  full_simp_tac (srw_ss()++ARITH_ss) [ADD1, el_append2]);
 
+val bool_to_val_11 = EVAL``bvl$bool_to_val T = bool_to_val F`` |> EQF_ELIM
+
 val bEval_generic_app1 = Q.prove (
 `!n args st total_args l fvs cl.
   partial_app_fn_location total_args n ∈ domain st.code ∧
@@ -539,12 +538,12 @@ val bEval_generic_app1 = Q.prove (
  full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
  `~(&total_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
  rw [] >>
- rfs [bEval_mk_tick, bEval_def, bEvalOp_def] >>
+ rfs [bEval_mk_tick, bEval_def, bEvalOp_def, bool_to_val_11] >>
  full_simp_tac (srw_ss() ++ ARITH_ss) [el_append2] >>
  rw [DECIDE ``x + 2 = SUC (SUC x)``, bEval_generic_app_helper, bEval_APPEND] >>
  srw_tac [ARITH_ss] [ADD1, bEval_genlist_vars_rev, bEval_def] >>
  `bEval ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
-         Number (&total_args − &(LENGTH args))::(args++[Block 5 (CodePtr l::Number (&total_args)::fvs)]),
+         Number (&total_args − &(LENGTH args))::(args++[Block closure_tag (CodePtr l::Number (&total_args)::fvs)]),
          dec_clock n st) =
    (Result [Number (&total_args)], dec_clock n st)`
          by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
@@ -555,6 +554,8 @@ val bEval_generic_app1 = Q.prove (
  rw [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB, el_append2, 
      TAKE_LENGTH_APPEND] >> 
  decide_tac);
+
+val partial_app_tag_eq_closure_tag = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
 
 val bEval_generic_app2 = Q.prove (
 `!n args st rem_args prev_args l clo cl.
@@ -577,16 +578,17 @@ val bEval_generic_app2 = Q.prove (
        dec_clock n st)`,
  rw [generate_generic_app_def, mk_const_def] >>
  rw [bEval_def, bEvalOp_def] >>
- full_simp_tac (srw_ss() ++ ARITH_ss) [bytecodeTheory.partial_app_tag_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [] >>
  `~(&rem_args − &(n+1) < 0)` by intLib.ARITH_TAC >>
  rw [el_append2] >>
- rfs [bEval_mk_tick] >>
+ rfs [bEval_mk_tick,bool_to_val_11] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  rw [bEval_def, bEvalOp_def] >>
  rw [DECIDE ``x + 2 = SUC (SUC x)``, bEval_generic_app_helper, bEval_APPEND] >>
  rw [ADD1] >>
+ fs [partial_app_tag_eq_closure_tag,bool_to_val_11] >>
  `bEval ([Op Sub [Op (Const 4) []; Op LengthBlock [Var (LENGTH args + 1)]]],
-         Number (&rem_args − &LENGTH args)::(args++[Block 6 (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock n st) =
+         Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),dec_clock n st) =
    (Result [Number (&(LENGTH prev_args - 1))], dec_clock n st)`
          by (srw_tac [ARITH_ss] [bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
              srw_tac [ARITH_ss] [EL_CONS, GSYM ADD1, el_append2] >>
@@ -602,11 +604,11 @@ val bEval_generic_app2 = Q.prove (
          Number (&(LENGTH prev_args − 1))::Number (&rem_args − &LENGTH args)::(args++[Block partial_app_tag (CodePtr l::Number (&rem_args)::clo::prev_args)]),
          dec_clock n st) =
    (Result [Number (&(LENGTH prev_args + rem_args))], dec_clock n st)`
-         by (srw_tac [ARITH_ss] [bytecodeTheory.partial_app_tag_def, bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
+         by (srw_tac [ARITH_ss] [partial_app_tag_def, bEval_def, bEvalOp_def, int_arithTheory.INT_NUM_SUB] >>
              intLib.ARITH_TAC) >>
  imp_res_tac bEval_Jump >>
  `LENGTH prev_args - 1 < max_app` by decide_tac >>
- fs [bytecodeTheory.partial_app_tag_def] >>
+ fs [partial_app_tag_def] >>
  srw_tac [ARITH_ss] [bEval_APPEND, REVERSE_APPEND, TAKE_LENGTH_APPEND, LENGTH_GENLIST, bEval_def, bEvalOp_def, mk_label_def]);
 
 val (unpack_closure_rules, unpack_closure_ind, unpack_closure_cases) = Hol_reln `
@@ -697,7 +699,7 @@ val bEval_generic_app_full = Q.prove (
       | x => x`,
  rw [generate_generic_app_def, mk_const_def] >>
  rw [bEval_def, bEvalOp_def, el_append2] >>
- full_simp_tac (srw_ss() ++ ARITH_ss) [bytecodeTheory.partial_app_tag_def] >>
+ full_simp_tac (srw_ss() ++ ARITH_ss) [partial_app_tag_def] >>
  `(&rem_args − &(LENGTH args) < 0)` by intLib.ARITH_TAC >>
  rw [] >>
  `bEval ([Op El [Op (Const (1:int)) []; Var (LENGTH args + 1)]],
@@ -779,7 +781,7 @@ val bEval_mk_cl_simpl = Q.prove (
              by srw_tac [ARITH_ss] [] >>
  srw_tac [ARITH_ss] [mk_cl_lem]);
 
-val _ = augment_srw_ss[rewrites[bytecodeTerminationTheory.bc_equal_def]];
+val _ = augment_srw_ss[rewrites[bc_equal_def]];
 
 val bEval_mk_cl_call = Q.prove (
 `!cl env s tag p n args args' exp exp2 xs.
@@ -819,7 +821,7 @@ val bEval_mk_cl_call = Q.prove (
  rw [bEval_APPEND, bEval_def, bEvalOp_def, find_code_def, FRONT_APPEND] >>
  simp [] >>
  imp_res_tac bEval_length_imp >>
- rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+ rev_full_simp_tac (srw_ss()++ARITH_ss) [bool_to_val_11] >>
  `LENGTH args' - 1 + 1 = LENGTH args'` by decide_tac >>
  `lookup p (dec_clock 1 s).code = SOME (n+2,exp)` by rw [] >>
  imp_res_tac bEval_generic_app_full >>
@@ -863,7 +865,7 @@ val genlist_deref = Q.prove (
   skip = LENGTH ys
   ⇒
   bEval (GENLIST (λi. Op Deref [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs), 
-         RefPtr r:: (args ++ Block 5 [CodePtr p; Number (&n); RefPtr r]::env),
+         RefPtr r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env),
          st)
   =
   (Result xs, st)`,
@@ -882,7 +884,7 @@ val bEval_code_for_recc_case = Q.prove (
   FLOOKUP st.refs r = SOME (ValueArray xs)
   ⇒
   bEval ([SND (code_for_recc_case (LENGTH xs) (LENGTH args) c)], args ++ Block closure_tag [CodePtr p;Number &n;RefPtr r]::env, st) =
-  bEval ([c], args ++ xs ++ [RefPtr r] ++ args ++ Block 5 [CodePtr p; Number (&n); RefPtr r]::env,st)`,
+  bEval ([c], args ++ xs ++ [RefPtr r] ++ args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env,st)`,
  simp [code_for_recc_case_def, bEval_def, bEvalOp_def] >>
  simp [bEval_APPEND, EL_LENGTH_APPEND] >>
  rpt strip_tac >>
@@ -1461,9 +1463,9 @@ val bEval_recc_Lets = prove(
   \\ simp []
   \\ rw_tac std_ss [PROVE [APPEND_ASSOC] ``!(a:'a list) b c d. a ++ b ++ c ++ d = a ++ b ++ (c ++ d)``] >>
   first_x_assum (qspecl_then [`n7`, `rr`, 
-                   `Block 5 [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr rr]::env'`,
+                   `Block closure_tag [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x'-1)); RefPtr rr]::env'`,
                    `t1`,
-                   `[Block 5 [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr rr]] ++ ys`,
+                   `[Block closure_tag [CodePtr (n7 + (num_stubs + SUC (LENGTH l))); Number (&(FST x''-1)); RefPtr rr]] ++ ys`,
                    `c8`,
                     `x`,
                     `x`,
@@ -1727,7 +1729,7 @@ val bc_equal_clos_equal = prove(
       fs [val_rel_SIMP] >> fs [add_args_def] >> rw[] >>
       rfs [] >>
       imp_res_tac EVERY2_LENGTH >>
-      fs [bytecodeTheory.partial_app_tag_def] >>
+      fs [closure_tag_def,partial_app_tag_def] >>
       BasicProvers.EVERY_CASE_TAC >>
       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
       fs [INJ_DEF, FLOOKUP_DEF] >>
@@ -1752,6 +1754,7 @@ val clos_to_chars_thm = store_thm("clos_to_chars_thm",
   `i = ABS i` by intLib.COOPER_TAC >>
   PROVE_TAC[]);
 
+(*
 val bv_to_string_clos_to_string = prove(
   ``∀x y. val_rel f r c x y ⇒ clos_to_string x = bv_to_string y``,
   ho_match_mp_tac (theorem"val_rel_strongind") >>
@@ -1774,6 +1777,7 @@ val bv_to_string_clos_to_string = prove(
   rfs [add_args_def] >>
   Cases_on`EL n xs`>>fs[val_rel_SIMP]>>fs[EL_MAP]>>
   fs[val_rel_cases]);
+*)
 
 val cEvalOp_correct = prove(
   ``(cEvalOp op xs s1 = SOME (v,s2)) /\
@@ -1807,7 +1811,7 @@ val cEvalOp_correct = prove(
     fs[state_rel_def] >>
     MATCH_MP_TAC EVERY2_LUPDATE_same >>
     rfs[opt_val_rel_def] )
-  >- ( simp[val_rel_cases] )
+  >- ( simp[val_rel_cases,closure_tag_def,clos_tag_shift_def] )
   >- fs[]
   >- (
     BasicProvers.EVERY_CASE_TAC >>
@@ -1819,18 +1823,8 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs[] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
     rw[val_rel_SIMP] >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases,LIST_REL_EL_EQN] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP]>>rw[]>>
-    TRY(fs[val_rel_cases]>>NO_TAC)>>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
-    fs[LIST_REL_EL_EQN] >> rfs[add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP]>>rw[]>>
-    TRY(fs[val_rel_cases]>>NO_TAC)>>
-    simp[val_rel_SIMP] >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases] >>
-    fs[LIST_REL_EL_EQN] >> rfs[add_args_def])
+    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases,LIST_REL_EL_EQN] >>
+    fs[cl_rel_cases] >> fs[add_args_def])
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
@@ -1858,19 +1852,16 @@ val cEvalOp_correct = prove(
     TRY(fs[val_rel_cases]>>NO_TAC) >>
     fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
     rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] )
+    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] >>
+    EVAL_TAC >> simp[] >> fs[closure_tag_def]>> fs[clos_tag_shift_def])
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     TRY(fs[val_rel_cases]>>NO_TAC) >>
     fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
     rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[bool_to_val_def,val_rel_SIMP] >>
-    rw[val_rel_SIMP] >> fs[val_rel_cases, add_args_def] )
+    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] >>
+    EVAL_TAC >> simp[] >> fs[closure_tag_def]>> fs[clos_tag_shift_def])
   >- (
     `INJ ($' f) (FDOM f) (FRANGE f)` by fs[state_rel_def] >>
     Cases_on`xs`>>fs[]>>rw[]>>
@@ -1880,7 +1871,7 @@ val cEvalOp_correct = prove(
     ntac 2 (pop_assum kall_tac) >> fs[] >>
     BasicProvers.CASE_TAC >> fs[]>>rw[val_rel_SIMP] >>
     Cases_on`b`>>simp[bool_to_val_def]>>
-    simp[val_rel_cases] )
+    EVAL_TAC >> simp[val_rel_cases] >> EVAL_TAC )
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs [] >>
     fs[val_rel_SIMP] >>
@@ -1890,10 +1881,12 @@ val cEvalOp_correct = prove(
     rw[] >> fs[add_args_def] >>
     first_x_assum match_mp_tac >>
     intLib.COOPER_TAC)
+  (*
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
     imp_res_tac bv_to_string_clos_to_string >> fs[] >>
     fs[state_rel_def] )
+  *)
   >- (
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[val_rel_SIMP] >>
     fs[state_rel_def] )
@@ -1916,7 +1909,8 @@ val cEvalOp_correct = prove(
     BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP] >>
     rw[val_rel_SIMP] >>
     Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] >>
-    fs [add_args_def] ));
+    fs [add_args_def] >>
+    EVAL_TAC >> simp[]));
 
 val bEval_rev_var = Q.prove (
 `!vs env s ys s'. 
@@ -2045,15 +2039,16 @@ val unpack_closure_thm = Q.prove (
  res_tac >>
  rfs [] >>
  TRY ARITH_TAC >>
- srw_tac [boolSimps.DNF_ss] [bytecodeTheory.partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
+ srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
  imp_res_tac EVERY2_LENGTH >>
  fs [add_args_def, get_num_args_def, EL_MAP] >>
  TRY ARITH_TAC >>
- srw_tac [boolSimps.DNF_ss] [bytecodeTheory.partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
+ srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
  TRY decide_tac >>
  TRY (Cases_on `ys`) >>
  fs [ADD1, num_remaining_args_def] >>
  srw_tac [ARITH_ss] [integerTheory.int_ge, integerTheory.INT_LE_SUB_LADD, integerTheory.INT_LE_LT1] >>
+ TRY(simp[closure_tag_def]>>NO_TAC) >>
  first_x_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
  rw [EL_MAP] >>
  decide_tac);

@@ -607,10 +607,12 @@ val val_rel_IMP_clos_to_chars = prove(
   \\ Cases_on `h` \\ fs [val_rel_simp,clos_to_chars_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ fs []);
 
+(*
 val val_rel_IMP_clos_to_string = prove(
   ``!h1 h2. val_rel h1 h2 ==> (clos_to_string h1 = clos_to_string h2)``,
   Induct \\ fs [val_rel_simp,clos_to_string_def,PULL_EXISTS]
   \\ SRW_TAC [] [] \\ IMP_RES_TAC val_rel_IMP_clos_to_chars \\ fs []);
+*)
 
 val clos_equal_list_rel = prove(
   ``∀l1 l2 l3 l4.
@@ -700,10 +702,12 @@ val cEvalOp_rel = store_thm("cEvalOp_rel",
     imp_res_tac clos_from_list_rel >>
     fs[optionTheory.OPTREL_def] >>
     rw[val_rel_simp] >> NO_TAC) >>
+  (*
   TRY (
     imp_res_tac val_rel_IMP_clos_to_string >> simp[] >>
     BasicProvers.CASE_TAC >> simp[] >>
     fs[state_rel_def] >> NO_TAC) >>
+  *)
   TRY (
     Cases_on`h`>>fs[val_rel_simp] >>
     rpt BasicProvers.VAR_EQ_TAC >>
