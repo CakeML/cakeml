@@ -45,11 +45,8 @@ val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
   rw[] >> res_tac)
 
 val bool_to_val_thm = store_thm("bool_to_val_thm",
-  ``bool_to_val b = closLang$Block (if b then 10 else 11) []``,
+  ``bool_to_val b = closLang$Block (if b then true_tag else false_tag) []``,
   Cases_on`b`>>rw[bool_to_val_def])
-val bool_to_tag_thm = store_thm("bool_to_tag_thm",
-  ``bool_to_tag b = if b then 10 else 11``,
-  Cases_on`b`>>rw[bytecodeTheory.bool_to_tag_def])
 (* -- *)
 
 val pComp_def = tDefine"pComp"`
@@ -66,7 +63,7 @@ val pComp_def = tDefine"pComp"`
   (pComp (Lit_pat (StrLit s)) =
     Op (Cons string_tag) (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
   (pComp (Con_pat cn es) =
-    Op (Cons (cn+block_tag)) (REVERSE (MAP pComp es))) ∧
+    Op (Cons cn) (REVERSE (MAP pComp es))) ∧
   (pComp (Var_local_pat n) =
     Var n) ∧
   (pComp (Var_global_pat n) =
@@ -85,12 +82,12 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 (Opn Divide))) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons (div_tag+block_tag)) []))
+          (Raise (Op (Cons div_tag) []))
           (Op Div [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opn Modulo))) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons (div_tag+block_tag)) []))
+          (Raise (Op (Cons div_tag) []))
           (Op Mod [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Lt))) es) =
     Op Less (REVERSE (MAP pComp es))) ∧
@@ -117,11 +114,11 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
     Let [Op Equal (REVERSE (MAP pComp es))]
       (If (Op IsBlock [Var 0]) (Var 0)
-          (Raise (Op (Cons (eq_tag+block_tag)) [])))) ∧
+          (Raise (Op (Cons eq_tag) [])))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opassign)) es) =
     Let (REVERSE (MAP pComp es))
       (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
-         (Op (Cons unit_tag) []))) ∧
+         (Op (Cons tuple_tag) []))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opderef)) es) =
     Op Deref ((Op (Const 0) [])::(REVERSE (MAP pComp es)))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Opref)) es) =
@@ -131,32 +128,32 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 Chr)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 0])
-        (Raise (Op (Cons (chr_tag+block_tag)) []))
+        (Raise (Op (Cons chr_tag) []))
         (If (Op Less [Var 0; Op (Const 255) []])
-          (Raise (Op (Cons (chr_tag+block_tag)) []))
+          (Raise (Op (Cons chr_tag) []))
           (Var 0)))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8alloc)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (Op RefByte [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8sub)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthByte [Var 1]; Var 0])
               (Op DerefByte [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8length)) es) =
     Op LengthByte (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aw8update)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthByte [Var 2]; Var 1])
               (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
-                 (Op (Cons unit_tag) []))
-              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+                 (Op (Cons tuple_tag) []))
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Explode)) es) =
     Op ToList (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Implode)) es) =
@@ -168,39 +165,39 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 Vsub)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthBlock [Var 1]; Var 0])
               (Op El [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Vlength)) es) =
     Op LengthBlock (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aalloc)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (Op RefArray [Var 0; Var 1]))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Asub)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op Length [Var 1]; Var 0])
               (Op Deref [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Alength)) es) =
     Op Length (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Aupdate)) es) =
     Let (REVERSE (MAP pComp es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag + block_tag)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op Length [Var 2]; Var 1])
               (Let [Op Update [Var 0; Var 1; Var 2]]
-                 (Op (Cons unit_tag) []))
-              (Raise (Op (Cons (subscript_tag + block_tag)) []))))) ∧
+                 (Op (Cons tuple_tag) []))
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (pComp (App_pat (Op_pat (Init_global_var_i2 n)) es) =
     Let [Op (SetGlobal n) (REVERSE (MAP pComp es))]
-      (Op (Cons unit_tag) [])) ∧
+      (Op (Cons tuple_tag) [])) ∧
   (pComp (App_pat (Tag_eq_pat n) es) =
-    Op (TagEq (n+block_tag)) (REVERSE (MAP pComp es))) ∧
+    Op (TagEq n) (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (El_pat n) es) =
     Let (REVERSE (MAP pComp es))
       (Op El [Op (Const &n) []; Var 0])) ∧
@@ -214,7 +211,7 @@ val pComp_def = tDefine"pComp"`
     Letrec 0 [] (MAP (λe. (1,pComp e)) es) (pComp e)) ∧
   (pComp (Extend_global_pat n) =
    Let (REPLICATE n (Op AllocGlobal []))
-     (Op (Cons unit_tag) []))`
+     (Op (Cons tuple_tag) []))`
     (WF_REL_TAC `measure exp_pat_size` >>
      simp[exp_pat_size_def] >>
      rpt conj_tac >> rpt gen_tac >>
@@ -232,7 +229,7 @@ val v_to_Cv_def = tDefine"v_to_Cv"`
   (v_to_Cv (Litv_pat (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
   (v_to_Cv (Loc_pat m) = (RefPtr m)) ∧
-  (v_to_Cv (Conv_pat cn vs) = (Block (cn+block_tag) (MAP (v_to_Cv) vs))) ∧
+  (v_to_Cv (Conv_pat cn vs) = (Block cn (MAP (v_to_Cv) vs))) ∧
   (v_to_Cv (Vectorv_pat vs) = (Block vector_tag (MAP (v_to_Cv) vs))) ∧
   (v_to_Cv (Closure_pat vs e) = (Closure 0 [] (MAP (v_to_Cv) vs) 1 (pComp e))) ∧
   (v_to_Cv (Recclosure_pat vs es k) = (Recclosure 0 [] (MAP (v_to_Cv) vs) (MAP (λe. (1,pComp e)) es) k))`
@@ -271,7 +268,7 @@ val do_eq_pat_clos_equal = store_thm("do_eq_pat_clos_equal",
   ho_match_mp_tac do_eq_pat_ind >>
   simp[do_eq_pat_def,clos_equal_def] >>
   conj_tac >- (
-    Cases >> Cases >> simp[lit_same_type_def,clos_equal_def,ORD_11,bool_to_tag_thm] >>
+    Cases >> Cases >> simp[lit_same_type_def,clos_equal_def,ORD_11] >>
     TRY(rw[] >> pop_assum mp_tac >> rw[] >> NO_TAC) >>
     qid_spec_tac`s'` >>
     Induct_on`s` >> simp[LENGTH_NIL_SYM,clos_equal_def] >> rw[] >>
@@ -283,7 +280,7 @@ val do_eq_pat_clos_equal = store_thm("do_eq_pat_clos_equal",
   rw[] >>
   Cases_on`v1`>>fs[]>>TRY(Cases_on`l:lit`>>fs[])>>
   Cases_on`v2`>>fs[]>>TRY(Cases_on`l:lit`>>fs[])>>
-  fs[do_eq_pat_def,clos_equal_def,lit_same_type_def,ORD_11,bool_to_tag_thm] >>
+  fs[do_eq_pat_def,clos_equal_def,lit_same_type_def,ORD_11] >>
   rw[]>>fs[]>>rfs[ETA_AX]>>
   BasicProvers.CASE_TAC>>fs[]>>
   rw[]>>fs[]>>
@@ -324,6 +321,8 @@ val s_to_Cs_restrict_envs = prove(
 val v_to_Cv_Boolv_pat = store_thm("v_to_Cv_Boolv_pat[simp]",
   ``v_to_Cv (Boolv_pat b) = bool_to_val b``,
   Cases_on`b`>>EVAL_TAC)
+
+val true_neq_false = EVAL``true_tag = false_tag`` |> EQF_ELIM
 
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
@@ -421,10 +420,10 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,MAP_REVERSE,SWAP_REVERSE_SYM] >>
       rw[opn_lookup_def,clos_equal_def,bool_to_val_thm] >>
       TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
       rw[prim_exn_pat_def,opn_lookup_def] )
     >- (
-      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm,
+      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,opb_lookup_def,bool_to_val_thm,
                       MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       rw[] >> COOPER_TAC )
     >- (
@@ -432,8 +431,9 @@ val pComp_correct = store_thm("pComp_correct",
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`do_eq_pat v1 v2 = Eq_type_error`>>fs[] >>
       imp_res_tac do_eq_pat_clos_equal >> fs[] >>
-      BasicProvers.CASE_TAC >> fs[] >> rw[bool_to_tag_thm,bool_to_val_thm] >>
-      fsrw_tac[ARITH_ss][prim_exn_pat_def])
+      BasicProvers.CASE_TAC >> fs[] >> rw[bool_to_val_thm] >>
+      fsrw_tac[ARITH_ss][prim_exn_pat_def] >>
+      EVAL_TAC)
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
@@ -491,7 +491,7 @@ val pComp_correct = store_thm("pComp_correct",
       Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
       simp[wordsTheory.dimword_8] >> strip_tac >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[s_to_Cs_def] >>
+      simp[s_to_Cs_def,true_neq_false] >>
       conj_asm1_tac >- (
         numLib.LEAST_ELIM_TAC >>
         simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
@@ -518,7 +518,7 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
         rw[s_to_Cs_def,prim_exn_pat_def] ) >>
       simp[ALOOKUP_GENLIST,sv_to_Cref_def] >>
-      rw[s_to_Cs_def] )
+      rw[s_to_Cs_def] >> fs[true_neq_false])
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
@@ -548,7 +548,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[wordsTheory.dimword_8] >> strip_tac >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,conLangTheory.tuple_tag_def])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,conLangTheory.tuple_tag_def,true_neq_false])
     >- (
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
@@ -567,10 +567,10 @@ val pComp_correct = store_thm("pComp_correct",
       `ABS n = n` by COOPER_TAC >>
       `Num n < 256` by COOPER_TAC >>
       `0 ≤ n` by COOPER_TAC >>
-      simp[ORD_CHR,INT_OF_NUM])
+      simp[ORD_CHR,INT_OF_NUM,true_neq_false])
     >- (
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,bool_to_tag_thm,opb_lookup_def,bool_to_val_thm] >>
+      Cases_on`z`>>fs[cEval_def,ETA_AX,cEvalOp_def,opb_lookup_def,bool_to_val_thm] >>
       simp[] >> rw[] >> COOPER_TAC )
     >- (
       fs[MAP_REVERSE] >>
@@ -598,7 +598,7 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`Num i ≥ LENGTH vs'`>>fs[] >- (
         rw[s_to_Cs_def,prim_exn_pat_def] ) >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      simp[EL_MAP] )
+      simp[EL_MAP,true_neq_false] )
     >- ( fs[MAP_REVERSE] >> simp[cEval_def,ETA_AX,cEvalOp_def])
     >- (
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
@@ -607,7 +607,7 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`n<0`>>fs[prim_exn_pat_def] >- rw[] >>
       `0 ≤ n` by COOPER_TAC >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[s_to_Cs_def] >>
+      simp[s_to_Cs_def,true_neq_false] >>
       conj_asm1_tac >- (
         numLib.LEAST_ELIM_TAC >>
         simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
@@ -635,7 +635,7 @@ val pComp_correct = store_thm("pComp_correct",
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
         rw[s_to_Cs_def,prim_exn_pat_def] ) >>
       simp[ALOOKUP_GENLIST,sv_to_Cref_def,EL_MAP] >>
-      rw[s_to_Cs_def] )
+      rw[s_to_Cs_def,true_neq_false] )
     >- (
       fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
@@ -663,10 +663,10 @@ val pComp_correct = store_thm("pComp_correct",
       fs[store_assign_def,store_v_same_type_def] >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP,conLangTheory.tuple_tag_def])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP,conLangTheory.tuple_tag_def,true_neq_false])
     >- (
       fs[MAP_REVERSE] >>
-      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm,bool_to_tag_thm] )
+      simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm] )
     >- ( fs[MAP_REVERSE] >> simp[cEval_def,ETA_AX,cEvalOp_def,EL_MAP] )) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
@@ -697,8 +697,8 @@ val pComp_correct = store_thm("pComp_correct",
     simp[cEval_def] >>
     rw[] >>
     Cases_on`v`>>fs[]>>rw[]>>fs[do_if_pat_def]>>
-    fsrw_tac[ARITH_ss][Boolv_pat_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[]) >>
+    fsrw_tac[ARITH_ss][Boolv_pat_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[bool_to_val_thm]) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >> rw[] >>

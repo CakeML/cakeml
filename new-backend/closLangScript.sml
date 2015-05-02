@@ -63,8 +63,8 @@ val get_global_def = Define `
     if n < LENGTH globals then SOME (EL n globals) else NONE`
 
 val bool_to_val_def = Define `
-  (bool_to_val T = Block 10 []) /\
-  (bool_to_val F = Block 11 [])`;
+  (bool_to_val T = Block true_tag []) /\
+  (bool_to_val F = Block false_tag [])`;
 
 val clos_equal_def = tDefine "clos_equal" `
   (clos_equal x y =
@@ -124,9 +124,9 @@ val clos_to_string_def = Define `
 
 val clos_from_list_def = Define`
   (clos_from_list (Block tag []) =
-     if tag = nil_tag + block_tag then SOME [] else NONE) ∧
+     if tag = nil_tag then SOME [] else NONE) ∧
   (clos_from_list (Block tag [h;bt]) =
-     if tag = cons_tag + block_tag then
+     if tag = cons_tag then
        (case clos_from_list bt of
         | SOME t => SOME (h::t)
         | _ => NONE )
@@ -134,8 +134,8 @@ val clos_from_list_def = Define`
   (clos_from_list _ = NONE)`
 
 val clos_to_list_def = Define`
-  (clos_to_list [] = Block (nil_tag + block_tag) []) ∧
-  (clos_to_list (h::t) = Block (cons_tag + block_tag) [h;clos_to_list t])`
+  (clos_to_list [] = Block nil_tag []) ∧
+  (clos_to_list (h::t) = Block cons_tag [h;clos_to_list t])`
 
 val cEvalOp_def = Define `
   cEvalOp (op:bvl_op) (vs:clos_val list) (s:clos_state) =
@@ -371,8 +371,8 @@ val cEval_def = tDefine "cEval" `
   (cEval ([If x1 x2 x3],env,s) =
      case cEval ([x1],env,s) of
      | (Result vs,s1) =>
-          if Block 10 [] = HD vs then cEval ([x2],env,check_clock s1 s) else
-          if Block 11 [] = HD vs then cEval ([x3],env,check_clock s1 s) else
+          if bool_to_val T = HD vs then cEval ([x2],env,check_clock s1 s) else
+          if bool_to_val F = HD vs then cEval ([x3],env,check_clock s1 s) else
             (Error,s1)
      | res => res) /\
   (cEval ([Let xs x2],env,s) =
