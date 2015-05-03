@@ -19,14 +19,13 @@ val _ = new_theory "conLang"
  * name environment.
  *
  * The semantics of conLang differ in that there is no lexical constructor name
- * environment. However, there is a mapping from types to the tags of the
- * constructors of that type. This is for use later on in determining whether a
- * pattern match is exhaustive.
+ * environment. However, there is a mapping (exh_ctors_env) from types to the
+ * (arity-indexed) tags of the constructors of that type. This is for use later
+ * on in determining whether a pattern match is exhaustive.
  *
- * The translator to conLang keeps a mapping of constructors to their tags. The
- * tuple constructor is always 0. Div, Bind, and Eq are always 1, 2, and 3.
- * Cons and nil are always 4 and 5. SOME and NONE are 6 and 6. It also keeps a
- * reverse mapping for use by the REPL printer. 
+ * The translator to conLang keeps a mapping (tag_env) of each constructor to
+ * its arity, tag, and type. Tags need only be unique for each arity-type pair,
+ * and are reused as much as possible otherwise.
  *
  * The expressions include the unary operation for initialising the global
  * store, even though it can't be used until decLang. However, including it here
