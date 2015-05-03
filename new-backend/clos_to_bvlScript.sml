@@ -2268,7 +2268,7 @@ val cl_rel_run_tac =
 
 val cl_rel_run = Q.prove (
 `!loc f1 (refs : num|-> ref_value) code args args' env env' ptr body new_env func func' rest n fvs.
-  func' = Block 5 (CodePtr ptr::Number (&n)::env') ∧
+  func' = Block closure_tag (CodePtr ptr::Number (&n)::env') ∧
   dest_closure' loc func args = SOME (Full_app body new_env rest) ∧
   val_rel f1 refs code func func' ∧
   cl_rel f1 refs code (env,fvs) func func' ∧
@@ -2287,10 +2287,10 @@ val cl_rel_run = Q.prove (
  fs [check_loc_def, LET_THM] >>
  BasicProvers.EVERY_CASE_TAC >>
  rw []
- >- (qabbrev_tac `func' = Block 5 (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
+ >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
      qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
      cl_rel_run_tac)
- >- (qabbrev_tac `func' = Block 5 (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
+ >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
      qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++[func']++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
      cl_rel_run_tac) >>
  fs [EL_MAP] >>
@@ -2307,12 +2307,12 @@ val cl_rel_run = Q.prove (
  simp [] >>
  MAP_EVERY qexists_tac [`c`, `aux`, `aux1`,
        `DROP (LENGTH args' − (n + 1)) args' ++
-        MAP (λ((n,e),p). Block 5 [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r]) 
+        MAP (λ((n,e),p). Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r]) 
             exps_ps ++ 
         fvs ++ 
         [RefPtr r] ++
         DROP (LENGTH args' − (n + 1)) args' ++
-        [Block 5 [CodePtr p; Number (&n); RefPtr r]]`] >>
+        [Block closure_tag [CodePtr p; Number (&n); RefPtr r]]`] >>
  rw []
  >- ARITH_TAC
  >- (simp [TAKE_REVERSE, LASTN_DROP] >>
@@ -2324,7 +2324,7 @@ val cl_rel_run = Q.prove (
      `LIST_REL (val_rel f1 refs code)
                (GENLIST (Recclosure loc' [] env (MAP FST exps_ps)) (LENGTH exps_ps))
                (MAP (λ((n,e),p).
-                      Block 5 [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
+                      Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
                     exps_ps)` 
            by (rw [LIST_REL_EL_EQN] >>
                simp [val_rel_cases] >>
@@ -2430,8 +2430,8 @@ val val_rel_run = Q.prove (
  imp_res_tac cl_rel_dest >>
  rw [] >>
  `val_rel f1 refs code cl (Block closure_tag (CodePtr l::Number (&num_args')::fvs'))`
-           by (rw [val_rel_cases, bytecodeTheory.partial_app_tag_def] >>
-               metis_tac [bytecodeTheory.closure_tag_def]) >>
+           by (rw [val_rel_cases, partial_app_tag_def] >>
+               metis_tac [closure_tag_def]) >>
  `LENGTH arg_env ≠ 0 ∧ LENGTH ys ≠ 0 ∧ LENGTH ys < num_args` by metis_tac [LENGTH_EQ_NUM] >>
  `LIST_REL (val_rel f1 refs code) (args++arg_env) (args'++ys)`
             by metis_tac [EVERY2_APPEND] >>
@@ -2485,7 +2485,7 @@ val val_rel_run = Q.prove (
                          `CodePtr (partial_app_fn_location (num_args − 1) (LENGTH ys − 1))`, 
                          `fvs'`,
                          `t1 with <|refs:=refs;clock := t1.clock + 1; code := code|>`] mp_tac) >>
- rw [bytecodeTheory.partial_app_tag_def] >>
+ rw [partial_app_tag_def] >>
  rw [] >>
  rw [dec_clock_def] >>
  `t1 with <|clock := t1.clock; code := code|> = t1 with code := code` 
@@ -2513,10 +2513,10 @@ val mk_call_simp2 = Q.prove(
  Cases_on `bc_equal (EL 1 l) (Number (&(n − 1)))` >>
  fs [] >>
  rw []
- >- metis_tac [DECIDE ``0 ≠ 1:num``] >>
+ >- metis_tac [bool_to_val_11] >>
  pop_assum (mp_tac o GSYM) >>
  pop_assum (mp_tac o GSYM) >>
- rw [bEval_APPEND] >>
+ rw [bool_to_val_11,bEval_APPEND] >>
  mp_tac (Q.SPECL [`0`, `TAKE n args ++ [Block n' l] ++ stuff`, `n`] bEval_genlist_vars) >>
  srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, el_take_append] >>
  rw [] >>
@@ -2605,6 +2605,15 @@ val bEval_mk_cl_call_spec = Q.prove (
  rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
  rfs [] >>
  rw []);
+
+val val_rel_bool_to_val = store_thm("val_rel_bool_to_val[simp]",
+  ``(val_rel x y z (bool_to_val b) v ⇔ (v = bool_to_val b)) ∧
+    (val_rel x y z w (bool_to_val b) ⇔ (w = bool_to_val b))``,
+  Cases_on`b`>>EVAL_TAC>>simp[val_rel_SIMP] >>
+  rw[Once val_rel_cases] >> rpt (pop_assum mp_tac) >> EVAL_TAC >>
+  rw[EQ_IMP_THM] >> DECIDE_TAC)
+
+val closure_tag_neq_1 = EVAL``closure_tag = 1``|>EQF_ELIM
 
 val cComp_correct = store_thm("cComp_correct",
   ``(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -2714,8 +2723,8 @@ val cComp_correct = store_thm("cComp_correct",
     \\ TRY (fs [res_rel_cases] \\ rw [] >> qexists_tac `ck` >> rw [] >> Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ SRW_TAC [] []
     \\ fs [res_rel_Result1]
-    \\ Cases_on `Block 1 [] = r1` \\ fs [] THEN1
-     (`Block 1 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_SIMP] >> rw [] >> fs [add_args_def] \\ NO_TAC)
+    \\ Cases_on `bool_to_val T = r1` \\ fs [] THEN1
+     (`bool_to_val T = y` by (SRW_TAC [] [] \\ fs [] \\ NO_TAC)
       \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
       \\ REPEAT STRIP_TAC
@@ -2731,8 +2740,8 @@ val cComp_correct = store_thm("cComp_correct",
       rw [ADD_ASSOC]
       \\ Q.EXISTS_TAC `f2'` \\ fs []
       \\ IMP_RES_TAC SUBMAP_TRANS \\ fs [])
-    \\ Cases_on `Block 0 [] = r1` \\ fs [] THEN1
-     (`Block 0 [] = y` by (SRW_TAC [] [] \\ fs [val_rel_SIMP] >> rw [] >> fs [add_args_def] \\ NO_TAC)
+    \\ Cases_on `bool_to_val F = r1` \\ fs [] THEN1
+     (`bool_to_val F = y` by (SRW_TAC [] [] \\ fs [] \\ NO_TAC)
       \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux4`]) \\ fs []
       \\ REPEAT STRIP_TAC
@@ -2745,7 +2754,7 @@ val cComp_correct = store_thm("cComp_correct",
       \\ imp_res_tac bEval_add_clock
       \\ fs [inc_clock_def] >>
       first_x_assum (qspec_then `ck'` mp_tac) >>
-      rw [ADD_ASSOC]
+      rw [ADD_ASSOC,bool_to_val_11]
       \\ Q.EXISTS_TAC `f2'` \\ fs []
       \\ IMP_RES_TAC SUBMAP_TRANS \\ fs []))
   THEN1 (* Let *)
@@ -3026,7 +3035,7 @@ val cComp_correct = store_thm("cComp_correct",
       fs [] >>
       fs [] >>
       first_x_assum(qspec_then`t1 with clock := s.clock` STRIP_ASSUME_TAC) >>
-      `env_rel f1 t1.refs t1.code (Recclosure loc [] x' [(num_args,body)] 0::env) (Block 5 (CodePtr (loc + num_stubs)::Number (&(num_args − 1))::ys)::env'')`
+      `env_rel f1 t1.refs t1.code (Recclosure loc [] x' [(num_args,body)] 0::env) (Block closure_tag (CodePtr (loc + num_stubs)::Number (&(num_args − 1))::ys)::env'')`
                by (rw [env_rel_def] >>
                    rw [val_rel_cases, EXISTS_OR_THM] >>
                    disj1_tac >>
@@ -3410,7 +3419,7 @@ val cComp_correct = store_thm("cComp_correct",
                 t1 with clock := s1.clock) = (Result args', t1 with clock := s1.clock)` 
                     by metis_tac [bEval_simple_genlist_vars, APPEND_ASSOC] >>
         qexists_tac `0` >>
-        rw [] >>
+        rw [bool_to_val_11] >>
         `LENGTH args' - 1 < max_app` by decide_tac >>
         `lookup (LENGTH args' - 1) t1.code = SOME (LENGTH args' + 1, generate_generic_app (LENGTH args' - 1))` 
                by (fs [state_rel_def] >>
@@ -3458,9 +3467,9 @@ val cComp_correct = store_thm("cComp_correct",
             >- (fs [dec_clock_def, closLangTheory.dec_clock_def] >>
                 fs [state_rel_def]) >>
             `args ≠ []` by (Cases_on `args` >> fs []) >>
-            fs [val_rel_cases, num_remaining_args_def] >>
+            fs [val_rel_cases, num_remaining_args_def,closure_tag_neq_1,partial_app_tag_eq_closure_tag] >>
             rw [] >>
-            fs [num_remaining_args_def, add_args_def, bytecodeTheory.partial_app_tag_def]
+            fs [num_remaining_args_def, add_args_def, partial_app_tag_eq_closure_tag]
             >- ((* Wrapping a normal closure *)
                 MAP_EVERY qexists_tac [`args`, `func`, `env'`, `fvs`, `total_args + 1`] >>
                 fs [] >>
@@ -3468,12 +3477,12 @@ val cComp_correct = store_thm("cComp_correct",
                 rw [SUB_LEFT_SUB, LESS_OR_EQ] >>
                 fs [])
             >- ((* Wrapping a partially applied closure *)
-                fs [unpack_closure_cases, bytecodeTheory.partial_app_tag_def] >>
+                fs [unpack_closure_cases] >>
                 rw [] >>
                 MAP_EVERY qexists_tac [`args++arg_env`, `cl`, `env'`, `fvs`, `total_args+1`] >>
-                fs [] >>
+                fs [partial_app_tag_eq_closure_tag] >>
                 imp_res_tac EVERY2_LENGTH >>
-                rw []
+                rw [partial_app_tag_eq_closure_tag]
                 >- simp [] >>
                 metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND])))
     >- ((* Enough arguments to do something *)
