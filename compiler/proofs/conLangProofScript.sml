@@ -47,6 +47,8 @@ val funs_to_i2_map = Q.prove (
  PairCases_on `h` >>
  rw [exp_to_i2_def]);
 
+val _ = type_abbrev("gtagenv",``:conN # tid_or_exn |-> num # num``)
+
 val has_exns_def = Define `
 has_exns gtagenv ⇔
   FLOOKUP gtagenv ("Subscript", TypeExn (Short "Subscript")) = SOME (subscript_tag,0:num) ∧
@@ -67,36 +69,34 @@ val has_bools_def = Define`
 
 val gtagenv_wf_def = Define `
 gtagenv_wf gtagenv ⇔
-  (∀cn l. FLOOKUP gtagenv cn ≠ SOME (tuple_tag,l)) ∧
   has_exns gtagenv ∧
   has_bools gtagenv ∧
   has_lists gtagenv ∧
-  (∀t1 t2 tag l1 l2 cn cn'.
-    (* Comment out same_tid because we're not using separate tag spaces per type *)
-    (* same_tid t1 t2 ∧ *)
-    FLOOKUP gtagenv (cn,t1) = SOME (tag,l1) ∧
-    FLOOKUP gtagenv (cn',t2) = SOME (tag,l2) ⇒
-    cn = cn' ∧ t1 = t2)`;
+  (∀t tag l cn cn'.
+    FLOOKUP gtagenv (cn,t) = SOME (tag,l) ∧
+    FLOOKUP gtagenv (cn',t) = SOME (tag,l) ⇒
+    cn = cn')`;
 
 val envC_tagged_def = Define `
-envC_tagged envC tagenv gtagenv =
+envC_tagged (envC:envC) (tagenv:tag_env) gtagenv =
   (!cn num_args t.
     lookup_alist_mod_env cn envC = SOME (num_args, t)
     ⇒
-    ?tag t'.
-      lookup_tag_env (SOME cn) tagenv = (tag, t') ∧
-      FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args) ∧
-      (if tag = tuple_tag then t' = NONE else t' = SOME t))`;
+    ?tag.
+      lookup_tag_env (SOME cn) tagenv = (tag, SOME t) ∧
+      FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args))`;
 
 val exhaustive_env_correct_def = Define `
-exhaustive_env_correct (exh:exh_ctors_env) gtagenv ⇔
+exhaustive_env_correct (exh:exh_ctors_env) (gtagenv:gtagenv) ⇔
   (∀t. t ∈ FRANGE exh ⇒ wf t) ∧
   (!t.
      (?cn. (cn, TypeId t) ∈ FDOM gtagenv)
      ⇒
      ?tags.
        FLOOKUP exh t = SOME tags ∧
-       (!cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ tag ∈ domain tags))`;
+       (!cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l)
+         ⇒
+         ∃max. lookup l tags = SOME max ∧ tag < max))`;
 
 val cenv_inv_def = Define `
 cenv_inv envC exh tagenv gtagenv ⇔
