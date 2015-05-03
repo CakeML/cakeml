@@ -133,8 +133,15 @@ val bc_equal_def = tDefine"bc_equal"`
   (bc_equal_list _ _ = Eq_val F)`
   (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => bc_value_size v1 | INR (vs1,vs2) => bc_value1_size vs1)`);
 
+val bool_to_tag_def = Define`
+  bool_to_tag b = ((if b then true_tag else false_tag) + pat_tag_shift + clos_tag_shift)`
+
+val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
+  ``bool_to_tag b1 = bool_to_tag b2 ⇔ (b1 = b2)``,
+  rw[bool_to_tag_def] >> EVAL_TAC >> simp[])
+
 val bool_to_val_def = Define`
-  bool_to_val b = Block ((if b then true_tag else false_tag) + pat_tag_shift + clos_tag_shift) []`
+  bool_to_val b = Block (bool_to_tag b) []`
 
 (* -- *)
 

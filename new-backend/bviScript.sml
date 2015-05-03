@@ -4,7 +4,7 @@ val _ = new_theory "bvi";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory lcsymtacs bvlTheory;
+open sptreeTheory lcsymtacs bvlTheory;
 
 infix \\ val op \\ = op THEN;
 

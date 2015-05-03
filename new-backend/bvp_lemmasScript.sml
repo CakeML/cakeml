@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp_lemmas";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bviTheory bvpTheory;
+open bvlTheory bviTheory bvpTheory;
 open sptreeTheory lcsymtacs;
 
 val bvp_state_explode = store_thm("bvp_state_explode",

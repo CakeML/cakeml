@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bvl_constTheory;
+open bvlTheory bvl_constTheory;
 open bvl_inlineTheory bvpTheory;
 open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs bviTheory;

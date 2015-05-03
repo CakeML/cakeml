@@ -1,8 +1,9 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_const";
-
+open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory lcsymtacs bvlTheory;
+open sptreeTheory lcsymtacs bvlTheory;
+
+val _ = new_theory "bvl_const";
 
 infix \\ val op \\ = op THEN;
 
@@ -138,6 +139,7 @@ val bConsts_thm = store_thm("bConsts_thm",
   \\ `t' = []` by ALL_TAC \\ fs [bConsts_def] \\ SRW_TAC [] [] \\ fs []
   \\ Cases_on `REVERSE (MAP (Number o getConst) (bConsts t'))` \\ fs []
   \\ TRY (Cases_on `t'` \\ fs [bConsts_def] \\ NO_TAC)
+  \\ TRY (simp[bool_to_val_def] \\ NO_TAC)
   \\ Cases_on `h''` \\ fs []
   \\ Cases_on `t` \\ fs []
   \\ Cases_on `h''` \\ fs []
