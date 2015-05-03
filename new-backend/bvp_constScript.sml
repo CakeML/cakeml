@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp_const";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory lcsymtacs bvlTheory bvpTheory;
+open sptreeTheory lcsymtacs bvlTheory bvpTheory;
 open bvp_lemmasTheory bvp_simpTheory alistTheory;
 
 infix \\ val op \\ = op THEN;

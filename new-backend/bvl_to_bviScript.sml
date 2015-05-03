@@ -1,10 +1,10 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_to_bvi";
-
+open HolKernel Parse boolLib bossLib intLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bvl_constTheory bviTheory;
+open bvlTheory bvl_constTheory bviTheory;
 open sptreeTheory lcsymtacs;
-open bytecodeTerminationTheory;
+
+val _ = new_theory "bvl_to_bvi";
 
 (* compilation from BVL to BVI *)
 
@@ -667,6 +667,7 @@ val iEval_bVarBound = prove(
   \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
 
+(*
 val bvs_to_chars_adjust_bv = prove(
   ``!l aux. bvs_to_chars (MAP (\a. adjust_bv b a) l) aux =
             bvs_to_chars l aux``,
@@ -677,6 +678,7 @@ val bv_to_string_adjust_bv = prove(
   ``!h b. bv_to_string (adjust_bv b h) = bv_to_string h``,
   Cases \\ fs [bv_to_string_def,adjust_bv_def]
   \\ SRW_TAC [] [bvs_to_chars_adjust_bv]);
+*)
 
 val LUPDATE_SOME_MAP = prove(
   ``!xs n f h.
@@ -715,6 +717,10 @@ val bc_equal_adjust = prove(
          \\ REV_FULL_SIMP_TAC std_ss [])
   \\ Cases_on `bc_equal h h'` \\ fs [])
   |> CONJUNCT1;
+
+val adjust_bv_bool_to_val = store_thm("adjust_bv_bool_to_val[simp]",
+  ``adjust_bv x (bool_to_val b) = bool_to_val b``,
+  Cases_on`b`>>EVAL_TAC)
 
 val bEvalOp_adjust = prove(
   ``bvl_bvi_corr s5 t2 b2 /\ (!i. op <> Const i) /\ (op <> Ref) /\
@@ -829,6 +835,7 @@ val bEvalOp_adjust = prove(
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ fs [adjust_bv_def])
+  (*
   THEN1 (* Print *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
@@ -836,6 +843,7 @@ val bEvalOp_adjust = prove(
     \\ SRW_TAC [] []
     \\ fs [bv_to_string_adjust_bv,
            bvl_bvi_corr_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
+  *)
   THEN1 (* PrintC *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def] \\ SRW_TAC [] [adjust_bv_def]
