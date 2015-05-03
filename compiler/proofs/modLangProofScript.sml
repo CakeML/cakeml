@@ -1044,14 +1044,14 @@ val evaluate_i1_con = Q.prove (
       (∃vs s' v.
          a4 = (s',Rval v) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         build_conv_i1 (all_env_i1_to_cenv a1) cn vs = SOME v ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rval vs)) ∨
+         build_conv_i1 (all_env_i1_to_cenv a1) cn (REVERSE vs) = SOME v ∧
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rval vs)) ∨
       (a4 = (a2,Rerr Rtype_error) ∧
        ¬do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es)) ∨
       (∃err s'.
          a4 = (s',Rerr err) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rerr err))`,
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rerr err))`,
 rw [Once evaluate_i1_cases] >>
 eq_tac >>
 rw []);
