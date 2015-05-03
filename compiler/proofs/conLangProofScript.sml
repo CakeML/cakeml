@@ -72,10 +72,11 @@ gtagenv_wf gtagenv ⇔
   has_exns gtagenv ∧
   has_bools gtagenv ∧
   has_lists gtagenv ∧
-  (∀t tag l cn cn'.
-    FLOOKUP gtagenv (cn,t) = SOME (tag,l) ∧
-    FLOOKUP gtagenv (cn',t) = SOME (tag,l) ⇒
-    cn = cn')`;
+  (∀t1 t2 tag l cn cn'.
+    same_tid t1 t2 ∧
+    FLOOKUP gtagenv (cn,t1) = SOME (tag,l) ∧
+    FLOOKUP gtagenv (cn',t2) = SOME (tag,l) ⇒
+    cn = cn' ∧ t1 = t2)`;
 
 val envC_tagged_def = Define `
 envC_tagged (envC:envC) (tagenv:tag_env) gtagenv =
@@ -192,11 +193,12 @@ gtagenv_weak gtagenv1 gtagenv2 ⇔
   gtagenv1 SUBMAP gtagenv2 ∧
   (* Don't weaken by adding a constructor to an existing type. This is necessary for pattern exhaustiveness checking. *)
   (!t. (?cn. (cn,t) ∈ FDOM gtagenv1) ⇒ !cn. (cn,t) ∈ FDOM gtagenv2 ⇒ (cn,t) ∈ FDOM gtagenv1) ∧
-  (!t tag cn cn' l.
-     FLOOKUP gtagenv2 (cn,t) = SOME (tag,l) ∧
-     FLOOKUP gtagenv2 (cn',t) = SOME (tag,l)
+  (!t1 t2 tag cn cn' l.
+     same_tid t1 t2 ∧
+     FLOOKUP gtagenv2 (cn,t1) = SOME (tag,l) ∧
+     FLOOKUP gtagenv2 (cn',t2) = SOME (tag,l)
      ⇒
-     cn = cn')`;
+     cn = cn' ∧ t1 = t2)`;
 
 val gtagenv' = ``(gtagenv':gtagenv)``
 
@@ -354,6 +356,7 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
+     >- metis_tac []
      >- metis_tac [])
  >- (fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
      imp_res_tac exhaustive_env_weak >>
@@ -369,6 +372,7 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
+     >- metis_tac []
      >- metis_tac []));
 
 val (result_to_i2_rules, result_to_i2_ind, result_to_i2_cases) = Hol_reln `
