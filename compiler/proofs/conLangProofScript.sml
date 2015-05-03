@@ -190,24 +190,23 @@ val vs_to_i2_list_rel = Q.prove (
 val gtagenv_weak_def = Define `
 gtagenv_weak gtagenv1 gtagenv2 ⇔
   gtagenv1 SUBMAP gtagenv2 ∧
-  (!cn l. FLOOKUP gtagenv2 cn ≠ SOME (tuple_tag,l)) ∧
   (* Don't weaken by adding a constructor to an existing type. This is necessary for pattern exhaustiveness checking. *)
   (!t. (?cn. (cn,t) ∈ FDOM gtagenv1) ⇒ !cn. (cn,t) ∈ FDOM gtagenv2 ⇒ (cn,t) ∈ FDOM gtagenv1) ∧
-  (!t1 t2 tag cn cn' l1 l2.
-     (* Comment out same_tid because we're not using separate tag spaces per type *)
-     (* same_tid t1 t2 ∧ *)
-     FLOOKUP gtagenv2 (cn,t1) = SOME (tag,l1) ∧
-     FLOOKUP gtagenv2 (cn',t2) = SOME (tag,l2)
+  (!t tag cn cn' l.
+     FLOOKUP gtagenv2 (cn,t) = SOME (tag,l) ∧
+     FLOOKUP gtagenv2 (cn',t) = SOME (tag,l)
      ⇒
-     cn = cn' ∧ t1 = t2)`;
+     cn = cn')`;
 
-val gtagenv' = ``(gtagenv':'a # tid_or_exn |-> num # num)``
+val gtagenv' = ``(gtagenv':gtagenv)``
 
 val weakened_exh_def = Define`
   ((weakened_exh ^gtagenv' (exh:exh_ctors_env)):exh_ctors_env) =
-    FUN_FMAP (λt. (FOLDL (λs n. insert n () s) LN
-                    (SET_TO_LIST ({tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)} ∪
-                                  case FLOOKUP exh t of NONE => {} | SOME tags => domain tags))))
+    FUN_FMAP (λt.
+      union
+      (fromAList (SET_TO_LIST ({(l,1+(MAX_SET {tag | ∃cn. FLOOKUP ^gtagenv' (cn, TypeId t) = SOME (tag,l)}))
+                               | l | ∃cn tag. FLOOKUP ^gtagenv' (cn, TypeId t) = SOME (tag,l)})))
+      (case FLOOKUP exh t of NONE => LN | SOME tags => tags))
       { t | ∃cn. (cn, TypeId t) ∈ FDOM gtagenv' }`
 
 val FINITE_weakened_exh_dom = prove(
@@ -226,35 +225,63 @@ val FDOM_weakened_exh = prove(
   rw[FINITE_weakened_exh_dom]);
 
 val FLOOKUP_weakened_exh_imp = prove(
-  ``(FLOOKUP (weakened_exh ^gtagenv' exh) t = SOME tags) ⇒
+  ``(∀tags. tags ∈ FRANGE exh ⇒ wf tags) ∧
+    (FLOOKUP (weakened_exh ^gtagenv' exh) t = SOME tags) ⇒
     wf tags ∧
-    (domain tags = {tag | ∃cn l. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,l)} ∪
-                   case FLOOKUP exh t of NONE => {} | SOME tags => domain tags)``,
+    (∀a max. lookup a tags = SOME max ⇒
+             (∃cn tag. FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,a) ∧ tag < max) ∨
+             (∃tags'. FLOOKUP exh t = SOME tags'  ∧ lookup a tags' = SOME max)) ∧
+    (∀cn tag a.
+      FLOOKUP gtagenv' (cn, TypeId t) = SOME (tag,a) ⇒
+      ∃max. lookup a tags = SOME max ∧ tag < max)``,
   simp[Once FLOOKUP_DEF,FDOM_weakened_exh] >>
   strip_tac >> BasicProvers.VAR_EQ_TAC >>
   simp[weakened_exh_def] >>
   qmatch_abbrev_tac`wf (FUN_FMAP f X ' t) ∧ Z` >>
   strip_assume_tac(
-    Q.ISPEC`f:string id -> unit spt`(MATCH_MP FUN_FMAP_DEF FINITE_weakened_exh_dom)) >>
+    Q.ISPEC`f:string id -> num spt`(MATCH_MP FUN_FMAP_DEF FINITE_weakened_exh_dom)) >>
   fs[Abbr`X`,PULL_EXISTS,Abbr`Z`] >>
-  simp[Once EXTENSION] >>
   res_tac >>
   pop_assum (SUBST1_TAC) >>
-  simp[Abbr`f`] >> rw[] >- (
-    match_mp_tac wf_nat_set_from_list >>
-    rw[sptreeTheory.wf_def] ) >>
-  qmatch_abbrev_tac`MEM x (SET_TO_LIST s) ⇔ Z` >>
+  simp[Abbr`f`] >>
+  conj_tac >- (
+    match_mp_tac sptreeTheory.wf_union >>
+    conj_tac >- rw[sptreeTheory.wf_fromAList] >>
+    BasicProvers.CASE_TAC >-
+      rw[sptreeTheory.wf_def] >>
+    fs[IN_FRANGE_FLOOKUP,PULL_EXISTS] >>
+    PROVE_TAC[]) >>
+  simp[sptreeTheory.lookup_union,sptreeTheory.lookup_fromAList] >>
+  qpat_abbrev_tac `s:(num#num) set = X` >>
   `FINITE s` by (
     simp[Abbr`s`,FLOOKUP_DEF] >>
-    reverse conj_tac >- rw[] >>
     qmatch_abbrev_tac`FINITE P` >>
     qsuff_tac`∃f. P ⊆ IMAGE f (FDOM gtagenv')` >-
       metis_tac[IMAGE_FINITE,SUBSET_FINITE,FDOM_FINITE] >>
-    simp[Abbr`P`,SUBSET_DEF,PULL_EXISTS] >>
-    qexists_tac`λx. FST (gtagenv' ' x)` >>
-    rw[EXISTS_PROD] >> metis_tac[FST]) >>
+    `∃f. ∀x. x ∈ P ⇒ ∃y. y ∈ FDOM gtagenv' ∧ f y = x` by (
+      simp[Abbr`P`,PULL_EXISTS] >>
+      qho_match_abbrev_tac`∃f. ∀l cn' tag. Y cn' ∈ FDOM gtagenv' ∧ Z cn' tag l ⇒ ∃y. A y ∧ f y = X l cn' tag` >>
+      qexists_tac`λp. X (SND (gtagenv' ' p)) (FST p) (FST (gtagenv' ' p))` >>
+      simp[EXISTS_PROD,Abbr`Y`,Abbr`Z`] >>
+      metis_tac[FST,SND] ) >>
+    qexists_tac`f` >>
+    simp[SUBSET_DEF] >>
+    metis_tac[]) >>
   pop_assum(strip_assume_tac o MATCH_MP (GSYM SET_TO_LIST_IN_MEM)) >>
-  simp[Abbr`s`,Abbr`Z`]);
+  conj_tac >- (
+    rpt gen_tac >>
+    rpt BasicProvers.CASE_TAC >> simp[CONJUNCT1 sptreeTheory.lookup_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    rfs[Abbr`s`] >> rw[] >>
+    cheat ) >>
+  rpt gen_tac >> strip_tac >>
+  rpt BasicProvers.CASE_TAC >> simp[CONJUNCT1 sptreeTheory.lookup_def] >>
+  TRY(
+    CHANGED_TAC(imp_res_tac ALOOKUP_FAILS) >>
+    rfs[Abbr`s`] >>
+    metis_tac[]) >>
+  imp_res_tac ALOOKUP_MEM >> rfs[Abbr`s`] >>
+  cheat)
 
 val exhaustive_env_weak = Q.prove (
 `!gtagenv gtagenv' exh.
@@ -275,24 +302,19 @@ val exhaustive_env_weak = Q.prove (
  rw []
  >- (`(cn,TypeId t) ∈ FDOM gtagenv` by metis_tac [] >>
      `?tags. FLOOKUP exh t = SOME tags ∧
-             ∀cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒ tag ∈ domain tags` by metis_tac [] >>
+             ∀cn tag l. FLOOKUP gtagenv (cn,TypeId t) = SOME (tag,l) ⇒
+             ∃max. lookup l tags = SOME max ∧ tag < max` by metis_tac [] >>
      fs [FLOOKUP_FUNION] >>
      Cases_on `FLOOKUP (weakened_exh gtagenv' exh) t` >> simp[] >- (
        fs[FLOOKUP_DEF,FDOM_weakened_exh,PULL_EXISTS] ) >>
      imp_res_tac FLOOKUP_weakened_exh_imp >>
      rw [] >>
-     `(cn'',TypeId t) ∈ FDOM gtagenv`
-               by (fs [FLOOKUP_DEF] >>
-                   metis_tac [FLOOKUP_DEF]) >>
-     `?tag l. FLOOKUP gtagenv (cn'',TypeId t) = SOME (tag,l)`
-                by (fs [FLOOKUP_DEF] >>
-                    metis_tac [SUBMAP_DEF]) >>
-     fs[Once EXTENSION] >> metis_tac[]) >>
+     metis_tac[]) >>
   simp[FLOOKUP_FUNION] >>
   BasicProvers.CASE_TAC >- (
     fs[FLOOKUP_DEF,FDOM_weakened_exh] ) >>
   imp_res_tac FLOOKUP_weakened_exh_imp >>
-  fs[Once EXTENSION] >> metis_tac[]);
+  metis_tac[]);
 
 val v_to_i2_weakening = Q.prove (
 `(!gtagenv v v_i2.
@@ -317,9 +339,10 @@ val v_to_i2_weakening = Q.prove (
  rw [v_to_i2_eqns] >>
  res_tac
  >- metis_tac [gtagenv_weak_def, FLOOKUP_SUBMAP]
- >- (fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
-     imp_res_tac exhaustive_env_weak >>
+ >- (
      rw [Once v_to_i2_cases] >>
+     fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
+     imp_res_tac exhaustive_env_weak >>
      MAP_EVERY qexists_tac [`exh'`, `tagenv`] >>
      fs [gtagenv_weak_def, cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >> 
      rw []
@@ -331,7 +354,6 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
-     >- metis_tac []
      >- metis_tac [])
  >- (fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
      imp_res_tac exhaustive_env_weak >>
@@ -347,7 +369,6 @@ val v_to_i2_weakening = Q.prove (
          metis_tac [FLOOKUP_SUBMAP])
      >- (fs [has_lists_def] >>
          metis_tac [FLOOKUP_SUBMAP])
-     >- metis_tac []
      >- metis_tac []));
 
 val (result_to_i2_rules, result_to_i2_ind, result_to_i2_cases) = Hol_reln `
