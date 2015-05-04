@@ -120,8 +120,8 @@ val _ = Define `
   (case top_to_i1 n m10 m20 top of
       (_,m1,m2,p) =>
   let (c,p) = (prompt_to_i2 cs.contags_env p) in
-  let (n,e) = (prompt_to_i3 (none_tag, SOME (TypeId (Short "option")))
-                 (some_tag, SOME (TypeId (Short "option"))) n p) in
+  let (n,e) = (prompt_to_i3 (none_tag, TypeId (Short "option"))
+                 (some_tag, TypeId (Short "option")) n p) in
   let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
   let e = (exp_to_Cexp e) in
@@ -141,8 +141,8 @@ val _ = Define `
   (case prog_to_i1 n m1 m2 prog of
       (_,_,m2,p) =>
   let (c,p) = (prog_to_i2 init_compiler_state.contags_env p) in
-  (case prog_to_i3 (none_tag, SOME (TypeId (Short "option")))
-          (some_tag, SOME (TypeId (Short "option"))) n p of
+  (case prog_to_i3 (none_tag, TypeId (Short "option"))
+          (some_tag, TypeId (Short "option")) n p of
       (_,e) =>
   let e = (exp_to_exh (get_exh c) e) in
   let e = (exp_to_pat [] e) in
@@ -186,7 +186,7 @@ val _ = Define `
 
 
  val _ = Define `
- (prog_to_i3_initial next [] = (next, Con_i2 (tuple_tag,NONE) []))
+ (prog_to_i3_initial next [] = (next, Con_i2 NONE []))
     /\ (prog_to_i3_initial next (p::ps) =      
 (let (next,p) = (prompt_to_i3_initial next p) in
       let (next',ps) = (prog_to_i3_initial next ps) in

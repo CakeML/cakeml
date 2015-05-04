@@ -5,6 +5,7 @@ open import Lib
 open import IntLang
 open import Ast
 open import ConLang
+open import ExhLang
 open import PatLang
 
 let rec

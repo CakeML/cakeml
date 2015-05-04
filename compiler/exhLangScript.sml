@@ -76,7 +76,7 @@ val _ = Hol_datatype `
   (is_unconditional p =    
 ((case p of
         Pvar_i2 _ => T
-      | (Pcon_i2 (_,NONE) ps) => EVERY is_unconditional ps
+      | (Pcon_i2 NONE ps) => EVERY is_unconditional ps
       | (Pref_i2 p) => is_unconditional p
       | _ => F
     )))`;
@@ -88,7 +88,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
  (get_tags [] acc = (SOME acc))
 /\ (get_tags (p::ps) acc =  
 ((case p of
-      Pcon_i2 (tag,t) ps' =>
+      Pcon_i2 (SOME (tag,_)) ps' =>
         if EVERY is_unconditional ps' then get_tags ps (sptree$insert (LENGTH ps') tag acc)
         else NONE
     | _ => NONE
@@ -100,7 +100,7 @@ val _ = Define `
  (exhaustive_match exh ps =  
 (EXISTS is_unconditional ps \/
   (case ps of
-      Pcon_i2 (tag,SOME (TypeId t)) ps'::ps =>
+      Pcon_i2 (SOME (tag,TypeId t)) ps'::ps =>
         (EVERY is_unconditional ps' /\
           (case get_tags ps sptree$LN of
               NONE => F
@@ -123,7 +123,12 @@ val _ = Define `
   else if is_handle then
     pes ++ [(Pvar_i2 "x", Raise_i2 (Var_local_i2 "x"))]
   else
-    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (bind_tag, SOME (TypeId (Short "option"))) []))]))`;
+    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (SOME (bind_tag, (TypeId (Short "option")))) []))]))`;
+
+
+(*val tuple_tag : nat*)
+val _ = Define `
+ (tuple_tag =( 0))`;
 
 
 (*val pat_to_exh : pat_i2 -> pat_exh*)
@@ -132,10 +137,13 @@ val _ = Define `
 (pat_to_exh (Pvar_i2 x) = (Pvar_exh x))
 /\ 
 (pat_to_exh (Plit_i2 l) = (Plit_exh l))
-/\ 
-(pat_to_exh (Pcon_i2 (tag,t) ps) =  
- (Pcon_exh tag (MAP pat_to_exh ps)))
-/\ 
+/\
+(pat_to_exh (Pcon_i2 NONE ps) =  
+(Pcon_exh tuple_tag (MAP pat_to_exh ps)))
+/\
+(pat_to_exh (Pcon_i2 (SOME (tag,_)) ps) =  
+(Pcon_exh tag (MAP pat_to_exh ps)))
+/\
 (pat_to_exh (Pref_i2 p) = (Pref_exh (pat_to_exh p)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pat_to_exh_defn;
@@ -155,8 +163,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (exp_to_exh exh (Lit_i2 l) =  
  (Lit_exh l)) 
 /\
-(exp_to_exh exh (Con_i2 t es) =  
- (Con_exh (FST t) (exps_to_exh exh es)))
+(exp_to_exh exh (Con_i2 NONE es) =  
+(Con_exh tuple_tag (exps_to_exh exh es)))
+/\
+(exp_to_exh exh (Con_i2 (SOME (tag,_)) es) =  
+(Con_exh tag (exps_to_exh exh es)))
 /\
 (exp_to_exh exh (Var_local_i2 x) = (Var_local_exh x))
 /\

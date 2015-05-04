@@ -81,7 +81,7 @@ val _ = register "do_eq_i2" (do_eq_i2_def,do_eq_i2_ind);
 val (is_unconditional_def, is_unconditional_ind) =
   tprove_no_defn((is_unconditional_def, is_unconditional_ind),
   WF_REL_TAC`measure pat_i2_size` >> gen_tac >>
-  Induct >> simp[pat_i2_size_def] >>
+  Induct_on`ps` >> simp[pat_i2_size_def] >>
   rw[] >> res_tac >> simp[pat_i2_size_def])
 val _ = register "is_unconditional" (is_unconditional_def, is_unconditional_ind);
 

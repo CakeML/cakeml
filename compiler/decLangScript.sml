@@ -37,51 +37,51 @@ val _ = new_theory "decLang"
 
 (*val init_globals : list varN -> nat -> exp_i2*)
  val _ = Define `
- (init_globals [] idx = (Con_i2 (tuple_tag,NONE) []))
+ (init_globals [] idx = (Con_i2 NONE []))
 /\ (init_globals (x::vars) idx =  
 (Let_i2 NONE (App_i2 (Init_global_var_i2 idx) [Var_local_i2 x]) (init_globals vars (idx + 1))))`;
 
 
 (*val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2*)
  val _ = Define `
- (init_global_funs next [] = (Con_i2 (tuple_tag,NONE) []))
+ (init_global_funs next [] = (Con_i2 NONE []))
 /\ (init_global_funs next ((f,x,e)::funs) =  
 (Let_i2 NONE (App_i2 (Init_global_var_i2 next) [Fun_i2 x e]) (init_global_funs (next+ 1) funs)))`;
 
 
 (*val decs_to_i3 : nat -> list dec_i2 -> exp_i2*)
  val _ = Define `
- (decs_to_i3 next [] = (Con_i2 (tuple_tag,NONE) []))
+ (decs_to_i3 next [] = (Con_i2 NONE []))
 /\ (decs_to_i3 next (d::ds) =  
 ((case d of
       Dlet_i2 n e =>
         let vars = (GENLIST (\ n .   STRCAT"x" (num_to_dec_string n)) n) in
-          Let_i2 NONE (Mat_i2 e [(Pcon_i2 (tuple_tag,NONE) (MAP Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
+          Let_i2 NONE (Mat_i2 e [(Pcon_i2 NONE (MAP Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs =>
         let n = (LENGTH funs) in
           Let_i2 NONE (init_global_funs next funs) (decs_to_i3 (next+n) ds)
   )))`;
 
 
-(*val prompt_to_i3 : (nat * maybe tid_or_exn) -> (nat * maybe tid_or_exn) -> nat -> prompt_i2 -> nat * exp_i2*)
+(*val prompt_to_i3 : (nat * tid_or_exn) -> (nat * tid_or_exn) -> nat -> prompt_i2 -> nat * exp_i2*)
 val _ = Define `
  (prompt_to_i3 none_tag some_tag next prompt =  
 ((case prompt of
       Prompt_i2 ds =>
         let n = (num_defs ds) in
-          ((next+n), Let_i2 NONE (Extend_global_i2 n) (Handle_i2 (Let_i2 NONE (decs_to_i3 next ds) (Con_i2 none_tag [])) [(Pvar_i2 "x", Con_i2 some_tag [Var_local_i2 "x"])]))
+          ((next+n), Let_i2 NONE (Extend_global_i2 n) (Handle_i2 (Let_i2 NONE (decs_to_i3 next ds) (Con_i2 (SOME none_tag) [])) [(Pvar_i2 "x", Con_i2 (SOME some_tag) [Var_local_i2 "x"])]))
   )))`;
 
 
-(*val prog_to_i3 : (nat * maybe tid_or_exn) -> (nat * maybe tid_or_exn) -> nat -> list prompt_i2 -> nat * exp_i2*)
+(*val prog_to_i3 : (nat * tid_or_exn) -> (nat * tid_or_exn) -> nat -> list prompt_i2 -> nat * exp_i2*)
  val prog_to_i3_defn = Hol_defn "prog_to_i3" `
- 
-(prog_to_i3 none_tag some_tag next [] = (next, Con_i2 none_tag [])) 
-/\ 
+
+(prog_to_i3 none_tag some_tag next [] = (next, Con_i2 (SOME none_tag) []))
+/\
 (prog_to_i3 none_tag some_tag next (p::ps) =  
- (let (next',p') = (prompt_to_i3 none_tag some_tag next p) in
+(let (next',p') = (prompt_to_i3 none_tag some_tag next p) in
   let (next'',ps') = (prog_to_i3 none_tag some_tag next' ps) in
-    (next'',Mat_i2 p' [(Pcon_i2 none_tag [], ps'); (Pvar_i2 "x", Var_local_i2 "x")])))`;
+    (next'',Mat_i2 p' [(Pcon_i2 (SOME none_tag) [], ps'); (Pvar_i2 "x", Var_local_i2 "x")])))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
@@ -100,7 +100,7 @@ val _ = Define `
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Conv_i2 (tuple_tag,NONE) [])))
+              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Conv_i2 NONE [])))
             | SOME x => NONE
           )
         else
@@ -211,7 +211,7 @@ evaluate_i3 ck env s (If_i2 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i3 ck env s1 e (s2, Rval v) /\
-evaluate_match_i3 ck env s2 v pes (Conv_i2 (bind_tag, SOME (TypeExn (Short "Bind"))) []) bv)
+evaluate_match_i3 ck env s2 v pes (Conv_i2 (SOME (bind_tag, (TypeExn (Short "Bind")))) []) bv)
 ==>
 evaluate_i3 ck env s1 (Mat_i2 e pes) bv)
 
@@ -240,7 +240,7 @@ evaluate_i3 ck (exh,env) s (Letrec_i2 funs e) bv)
 /\ (! ck env n s genv.
 T
 ==>
-evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Conv_i2 (tuple_tag,NONE) [])))
+evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Conv_i2 NONE [])))
 
 /\ (! ck env s.
 T

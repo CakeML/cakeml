@@ -59,7 +59,7 @@ let rec
   is_unconditional p =
     match p with
       | Pvar_i2 _ -> true
-      | (Pcon_i2 (_,Nothing) ps) -> List.all is_unconditional ps
+      | (Pcon_i2 Nothing ps) -> List.all is_unconditional ps
       | (Pref_i2 p) -> is_unconditional p
       | _ -> false
     end
@@ -68,7 +68,7 @@ val get_tags : list pat_i2 -> nat_map nat -> maybe(nat_map nat)
 let rec get_tags [] acc = Just acc
 and get_tags (p::ps) acc =
   match p with
-    | Pcon_i2 (tag,t) ps' ->
+    | Pcon_i2 (Just (tag,_)) ps' ->
         if List.all is_unconditional ps' then get_tags ps (nat_map_insert acc (List.length ps') tag)
         else Nothing
     | _ -> Nothing
@@ -79,7 +79,7 @@ val exhaustive_match : exh_ctors_env -> list pat_i2 -> bool
 let exhaustive_match exh ps =
   List.any is_unconditional ps ||
   match ps with
-    | Pcon_i2 (tag,Just (TypeId t)) ps'::ps ->
+    | Pcon_i2 (Just (tag,TypeId t)) ps'::ps ->
         (List.all is_unconditional ps' &&
           match get_tags ps nat_map_empty with
             | Nothing -> false
@@ -100,17 +100,23 @@ let add_default is_handle is_exh pes =
   else if is_handle then
     pes ++ [(Pvar_i2 "x", Raise_i2 (Var_local_i2 "x"))]
   else
-    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (bind_tag, Just (TypeId (Short "option"))) []))]
+    pes ++ [(Pvar_i2 "x", Raise_i2 (Con_i2 (Just (bind_tag, (TypeId (Short "option")))) []))]
+
+val tuple_tag : nat
+let tuple_tag = 0
 
 val pat_to_exh : pat_i2 -> pat_exh
 let rec
 pat_to_exh (Pvar_i2 x) = Pvar_exh x
 and 
 pat_to_exh (Plit_i2 l) = Plit_exh l
-and 
-pat_to_exh (Pcon_i2 (tag,t) ps) = 
+and
+pat_to_exh (Pcon_i2 Nothing ps) =
+  Pcon_exh tuple_tag (List.map pat_to_exh ps)
+and
+pat_to_exh (Pcon_i2 (Just (tag,_)) ps) =
   Pcon_exh tag (List.map pat_to_exh ps)
-and 
+and
 pat_to_exh (Pref_i2 p) = Pref_exh (pat_to_exh p)
 
 val exp_to_exh : exh_ctors_env -> exp_i2 -> exp_exh
@@ -127,8 +133,11 @@ and
 exp_to_exh exh (Lit_i2 l) = 
   Lit_exh l 
 and
-exp_to_exh exh (Con_i2 t es) = 
-  Con_exh (fst t) (exps_to_exh exh es)
+exp_to_exh exh (Con_i2 Nothing es) =
+  Con_exh tuple_tag (exps_to_exh exh es)
+and
+exp_to_exh exh (Con_i2 (Just (tag,_)) es) =
+  Con_exh tag (exps_to_exh exh es)
 and
 exp_to_exh exh (Var_local_i2 x) = Var_local_exh x
 and

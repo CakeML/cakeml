@@ -450,7 +450,7 @@ val pComp_correct = store_thm("pComp_correct",
       rw[] >> fs[sv_to_Cref_def] >>
       simp[LIST_EQ_REWRITE] >>
       REWRITE_TAC[GSYM EL] >>
-      simp[conLangTheory.tuple_tag_def,EL_LUPDATE] )
+      simp[exhLangTheory.tuple_tag_def,EL_LUPDATE] )
     >- (
       simp[ETA_AX,cEval_def,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
@@ -483,7 +483,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[s_to_Cs_def,get_global_def,EL_MAP] >>
       Cases_on`EL idx s22`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      simp[s_to_Cs_def,LUPDATE_MAP,conLangTheory.tuple_tag_def] )
+      simp[s_to_Cs_def,LUPDATE_MAP,exhLangTheory.tuple_tag_def] )
     >- (
       simp[cEval_def,ETA_AX,cEvalOp_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[bool_to_val_thm] >>
@@ -550,7 +550,7 @@ val pComp_correct = store_thm("pComp_correct",
       simp[wordsTheory.dimword_8] >> strip_tac >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,conLangTheory.tuple_tag_def,true_neq_false])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,exhLangTheory.tuple_tag_def,true_neq_false])
     >- (
       imp_res_tac evaluate_list_pat_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
@@ -666,7 +666,7 @@ val pComp_correct = store_thm("pComp_correct",
       fs[store_assign_def,store_v_same_type_def] >>
       rw[s_to_Cs_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
-      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP,conLangTheory.tuple_tag_def,true_neq_false])
+      rw[] >> fs[EL_LUPDATE,sv_to_Cref_def,LUPDATE_MAP,exhLangTheory.tuple_tag_def,true_neq_false])
     >- (
       fs[MAP_REVERSE] >>
       simp[cEval_def,ETA_AX,cEvalOp_def,bool_to_val_thm])
@@ -728,7 +728,7 @@ val pComp_correct = store_thm("pComp_correct",
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
     simp[cEval_def] >>
-    simp[cEval_REPLICATE_Op_AllocGlobal,cEvalOp_def,conLangTheory.tuple_tag_def] >>
+    simp[cEval_REPLICATE_Op_AllocGlobal,cEvalOp_def,exhLangTheory.tuple_tag_def] >>
     Cases_on`s`>>simp[s_to_Cs_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (

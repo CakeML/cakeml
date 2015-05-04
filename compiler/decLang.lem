@@ -26,26 +26,26 @@ open import BigStep
 open import ConLang
 
 val init_globals : list varN -> nat -> exp_i2
-let rec init_globals [] idx = Con_i2 (tuple_tag,Nothing) []
+let rec init_globals [] idx = Con_i2 Nothing []
 and init_globals (x::vars) idx =
   Let_i2 Nothing (App_i2 (Init_global_var_i2 idx) [Var_local_i2 x]) (init_globals vars (idx + 1))
 
 declare termination_argument init_globals = automatic
 
 val init_global_funs : nat -> list (varN * varN * exp_i2) -> exp_i2
-let rec init_global_funs next [] = Con_i2 (tuple_tag,Nothing) []
+let rec init_global_funs next [] = Con_i2 Nothing []
 and init_global_funs next ((f,x,e)::funs) =
   Let_i2 Nothing (App_i2 (Init_global_var_i2 next) [Fun_i2 x e]) (init_global_funs (next+1) funs)
 
 declare termination_argument init_global_funs = automatic
 
 val decs_to_i3 : nat -> list dec_i2 -> exp_i2
-let rec decs_to_i3 next [] = Con_i2 (tuple_tag,Nothing) []
+let rec decs_to_i3 next [] = Con_i2 Nothing []
 and decs_to_i3 next (d::ds) =
   match d with
     | Dlet_i2 n e ->
         let vars = List.genlist (fun n -> "x" ^ show n) n in
-          Let_i2 Nothing (Mat_i2 e [(Pcon_i2 (tuple_tag,Nothing) (List.map Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
+          Let_i2 Nothing (Mat_i2 e [(Pcon_i2 Nothing (List.map Pvar_i2 vars), init_globals vars next)]) (decs_to_i3 (next+n) ds)
     | Dletrec_i2 funs ->
         let n = List.length funs in
           Let_i2 Nothing (init_global_funs next funs) (decs_to_i3 (next+n) ds)
@@ -53,22 +53,22 @@ and decs_to_i3 next (d::ds) =
 
 declare termination_argument decs_to_i3 = automatic
 
-val prompt_to_i3 : (nat * maybe tid_or_exn) -> (nat * maybe tid_or_exn) -> nat -> prompt_i2 -> nat * exp_i2
+val prompt_to_i3 : (nat * tid_or_exn) -> (nat * tid_or_exn) -> nat -> prompt_i2 -> nat * exp_i2
 let prompt_to_i3 none_tag some_tag next prompt =
   match prompt with
     | Prompt_i2 ds ->
         let n = num_defs ds in
-          (next+n, Let_i2 Nothing (Extend_global_i2 n) (Handle_i2 (Let_i2 Nothing (decs_to_i3 next ds) (Con_i2 none_tag [])) [(Pvar_i2 "x", Con_i2 some_tag [Var_local_i2 "x"])]))
+          (next+n, Let_i2 Nothing (Extend_global_i2 n) (Handle_i2 (Let_i2 Nothing (decs_to_i3 next ds) (Con_i2 (Just none_tag) [])) [(Pvar_i2 "x", Con_i2 (Just some_tag) [Var_local_i2 "x"])]))
   end
 
-val prog_to_i3 : (nat * maybe tid_or_exn) -> (nat * maybe tid_or_exn) -> nat -> list prompt_i2 -> nat * exp_i2
-let rec 
-prog_to_i3 none_tag some_tag next [] = (next, Con_i2 none_tag []) 
-and 
-prog_to_i3 none_tag some_tag next (p::ps) = 
+val prog_to_i3 : (nat * tid_or_exn) -> (nat * tid_or_exn) -> nat -> list prompt_i2 -> nat * exp_i2
+let rec
+prog_to_i3 none_tag some_tag next [] = (next, Con_i2 (Just none_tag) [])
+and
+prog_to_i3 none_tag some_tag next (p::ps) =
   let (next',p') = prompt_to_i3 none_tag some_tag next p in
   let (next'',ps') = prog_to_i3 none_tag some_tag next' ps in
-    (next'',Mat_i2 p' [(Pcon_i2 none_tag [], ps'); (Pvar_i2 "x", Var_local_i2 "x")])
+    (next'',Mat_i2 p' [(Pcon_i2 (Just none_tag) [], ps'); (Pvar_i2 "x", Var_local_i2 "x")])
 
 declare termination_argument prog_to_i2 = automatic
 
@@ -86,7 +86,7 @@ let do_app_i3 ((count,s),genv) op vs =
     | (Init_global_var_i2 idx, [v]) ->
         if idx < List.length genv then
           match List_extra.nth genv idx with
-            | Nothing -> Just (((count,s), List.update genv idx (Just v)), (Rval (Conv_i2 (tuple_tag,Nothing) [])))
+            | Nothing -> Just (((count,s), List.update genv idx (Just v)), (Rval (Conv_i2 Nothing [])))
             | Just x -> Nothing
           end
         else
@@ -234,7 +234,7 @@ and
 
 mat1 : forall ck env e pes v bv s1 s2.
 evaluate_i3 ck env s1 e (s2, Rval v) &&
-evaluate_match_i3 ck env s2 v pes (Conv_i2 (bind_tag, Just (TypeExn (Short "Bind"))) []) bv
+evaluate_match_i3 ck env s2 v pes (Conv_i2 (Just (bind_tag, (TypeExn (Short "Bind")))) []) bv
 ==>
 evaluate_i3 ck env s1 (Mat_i2 e pes) bv
 
@@ -273,7 +273,7 @@ and
 extend : forall ck env n s genv.
 true
 ==>
-evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,genv++List.genlist (fun x -> Nothing) n), Rval (Conv_i2 (tuple_tag,Nothing) []))
+evaluate_i3 ck env (s,genv) (Extend_global_i2 n) ((s,genv++List.genlist (fun x -> Nothing) n), Rval (Conv_i2 Nothing []))
 
 and
 

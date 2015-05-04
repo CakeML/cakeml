@@ -6,6 +6,7 @@ open import Ast
 open import SemanticPrimitives
 open import DecLang
 open import ConLang
+open import ExhLang
 
 (* Syntax *)
 

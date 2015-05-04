@@ -97,7 +97,7 @@ let compile_top types cs top =
   let (m10,m20) = cs.globals_env in
   let (_,m1,m2,p) = top_to_i1 n m10 m20 top in
   let (c,p) = prompt_to_i2 cs.contags_env p in
-  let (n,e) = prompt_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
+  let (n,e) = prompt_to_i3 (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) n p in
   let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
@@ -115,7 +115,7 @@ let compile_prog init_compiler_state prog =
   let (m1,m2) = init_compiler_state.globals_env in
   let (_,_,m2,p) = prog_to_i1 n m1 m2 prog in
   let (c,p) = prog_to_i2 init_compiler_state.contags_env p in
-  let (_,e) = prog_to_i3 (none_tag, Just (TypeId (Short "option"))) (some_tag, Just (TypeId (Short "option"))) n p in
+  let (_,e) = prog_to_i3 (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) n p in
   let e = exp_to_exh (get_exh c) e in
   let e = exp_to_pat [] e in
   let e = exp_to_Cexp e in
@@ -147,7 +147,7 @@ let prompt_to_i3_initial next (Prompt_i2 ds) =
   let n = num_defs ds in
   (next+n, Let_i2 Nothing (Extend_global_i2 n) (decs_to_i3 next ds))
 
-let rec prog_to_i3_initial next [] = (next, Con_i2 (tuple_tag,Nothing) [])
+let rec prog_to_i3_initial next [] = (next, Con_i2 Nothing [])
     and prog_to_i3_initial next (p::ps) =
       let (next,p) = prompt_to_i3_initial next p in
       let (next',ps) = prog_to_i3_initial next ps in

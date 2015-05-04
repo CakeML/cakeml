@@ -44,11 +44,6 @@ val _ = new_theory "conLang"
 
 (* these must match what the prim_types_program generates *)
 
-(*val tuple_tag : nat*)
-val _ = Define `
- (tuple_tag =( 0))`;
-
-
 (*val bind_tag : nat*)
 val _ = Define `
  (bind_tag =( 0))`;
@@ -114,7 +109,7 @@ val _ = Hol_datatype `
  pat_i2 =
     Pvar_i2 of varN
   | Plit_i2 of lit
-  | Pcon_i2 of (num #  tid_or_exn option) => pat_i2 list
+  | Pcon_i2 of  (num # tid_or_exn)option => pat_i2 list
   | Pref_i2 of pat_i2`;
 
 
@@ -123,7 +118,7 @@ val _ = Hol_datatype `
     Raise_i2 of exp_i2
   | Handle_i2 of exp_i2 => (pat_i2 # exp_i2) list
   | Lit_i2 of lit
-  | Con_i2 of (num #  tid_or_exn option) => exp_i2 list
+  | Con_i2 of  (num # tid_or_exn)option => exp_i2 list
   | Var_local_i2 of varN
   | Var_global_i2 of num
   | Fun_i2 of varN => exp_i2
@@ -149,7 +144,7 @@ val _ = Hol_datatype `
 val _ = Hol_datatype `
  v_i2 =
     Litv_i2 of lit
-  | Conv_i2 of (num #  tid_or_exn option) => v_i2 list
+  | Conv_i2 of  (num # tid_or_exn)option => v_i2 list
   | Closure_i2 of (varN, v_i2) alist => varN => exp_i2
   | Recclosure_i2 of (varN, v_i2) alist => (varN # varN # exp_i2) list => varN
   | Loc_i2 of num
@@ -183,27 +178,27 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = type_abbrev( "exh_ctors_env" , ``: (( typeN id), ( num spt)) fmap``);
 
 (* for each constructor, its arity, tag, and type *)
-val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num # num #  tid_or_exn option)) fmap``);
+val _ = type_abbrev( "flat_tag_env" , ``: (conN, (num # num # tid_or_exn)) fmap``);
 val _ = type_abbrev( "tag_env" , ``: (modN, flat_tag_env) fmap # flat_tag_env``);
 
-(*val lookup_tag_flat : conN -> flat_tag_env -> (nat * maybe tid_or_exn)*)
+(*val lookup_tag_flat : conN -> flat_tag_env -> maybe (nat * tid_or_exn)*)
 val _ = Define `
  (lookup_tag_flat cn ftagenv =  
 ((case FLOOKUP ftagenv cn of
-      NONE => (tuple_tag, NONE)
-    | SOME (a,n,t) => (n,t)
+      NONE => NONE
+    | SOME (a,n,t) => SOME (n,t)
   )))`;
 
 
-(*val lookup_tag_env : maybe (id conN) -> tag_env -> (nat * maybe tid_or_exn)*)
+(*val lookup_tag_env : maybe (id conN) -> tag_env -> maybe (nat * tid_or_exn)*)
 val _ = Define `
  (lookup_tag_env id (mtagenv,tagenv) =  
 ((case id of
-      NONE => (tuple_tag,NONE)
+      NONE => NONE
     | SOME (Short x) => lookup_tag_flat x tagenv
     | SOME (Long x y) =>
         (case FLOOKUP mtagenv x of
-            NONE => (tuple_tag,NONE)
+            NONE => NONE
           | SOME tagenv => lookup_tag_flat y tagenv
         )
   )))`;
@@ -295,7 +290,7 @@ val _ = Define `
  (get_exh (next,tagenv,exh) = exh)`;
 
 
-(*val insert_tag_env : conN -> (nat * nat * maybe tid_or_exn) -> tag_env  -> tag_env*)
+(*val insert_tag_env : conN -> (nat * nat * tid_or_exn) -> tag_env  -> tag_env*)
 val _ = Define `
  (insert_tag_env cn tag (mtagenv,ftagenv) =
   (mtagenv,ftagenv |+ (cn, tag)))`;
@@ -312,8 +307,8 @@ val _ = Define `
         | SOME n => n+ 1
         )) in
       ((sptree$insert arity tag next,
-        insert_tag_env cn (arity,tag,SOME tn) tagenv,
-        exh),acc |+ (cn, (arity,tag,SOME tn)))
+        insert_tag_env cn (arity,tag,tn) tagenv,
+        exh),acc |+ (cn, (arity,tag,tn)))
   | TypeId tid =>
       let (tag,exh) =        
 ((case FLOOKUP exh tid of
@@ -324,8 +319,8 @@ val _ = Define `
                     )
         )) in
       ((next,
-        insert_tag_env cn (arity,tag,SOME tn) tagenv,
-        exh),acc |+ (cn, (arity,tag,SOME tn)))
+        insert_tag_env cn (arity,tag,tn) tagenv,
+        exh),acc |+ (cn, (arity,tag,tn)))
   )))`;
 
 
@@ -412,7 +407,13 @@ val _ = Define `
 /\
 (do_eq_i2 (Loc_i2 l1) (Loc_i2 l2) = (Eq_val (l1 = l2)))
 /\
-(do_eq_i2 (Conv_i2 tag1 vs1) (Conv_i2 tag2 vs2) =  
+(do_eq_i2 (Conv_i2 NONE vs1) (Conv_i2 NONE vs2) =  
+(if LENGTH vs1 = LENGTH vs2 then
+    do_eq_list_i2 vs1 vs2
+  else
+    Eq_val F))
+/\
+(do_eq_i2 (Conv_i2 (SOME tag1) vs1) (Conv_i2 (SOME tag2) vs2) =  
 (if (FST tag1 = FST tag2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
   else
@@ -485,17 +486,17 @@ val _ = Define `
 
 (*val prim_exn_i2 : nat -> conN -> v_i2*)
 val _ = Define `
- (prim_exn_i2 tag cn = (Conv_i2 (tag, SOME (TypeExn (Short cn))) []))`;
+ (prim_exn_i2 tag cn = (Conv_i2 (SOME (tag, (TypeExn (Short cn)))) []))`;
 
 
 (*val v_to_list_i2 : v_i2 -> maybe (list v_i2)*)
  val _ = Define `
- (v_to_list_i2 (Conv_i2 (tag, SOME (TypeId (Short tn))) []) =  
+ (v_to_list_i2 (Conv_i2 (SOME (tag, (TypeId (Short tn)))) []) =  
 (if (tag = nil_tag) /\ (tn = "list") then
     SOME []
   else
     NONE))
-/\ (v_to_list_i2 (Conv_i2 (tag,SOME (TypeId (Short tn))) [v1;v2]) =  
+/\ (v_to_list_i2 (Conv_i2 (SOME (tag, (TypeId (Short tn)))) [v1;v2]) =  
 (if (tag = cons_tag)  /\ (tn = "list") then
     (case v_to_list_i2 v2 of
         SOME vs => SOME (v1::vs)
@@ -508,12 +509,12 @@ val _ = Define `
 
 (*val v_i2_to_char_list : v_i2 -> maybe (list char)*)
  val _ = Define `
- (v_i2_to_char_list (Conv_i2 (tag, SOME (TypeId (Short tn))) []) =  
+ (v_i2_to_char_list (Conv_i2 (SOME (tag, (TypeId (Short tn)))) []) =  
 (if (tag = nil_tag) /\ (tn = "list") then
     SOME []
   else
     NONE))
-/\ (v_i2_to_char_list (Conv_i2 (tag, SOME (TypeId (Short tn))) [Litv_i2 (Char c);v]) =  
+/\ (v_i2_to_char_list (Conv_i2 (SOME (tag, (TypeId (Short tn)))) [Litv_i2 (Char c);v]) =  
 (if (tag = cons_tag)  /\ (tn = "list") then
     (case v_i2_to_char_list v of
         SOME cs => SOME (c::cs)
@@ -526,14 +527,14 @@ val _ = Define `
 
 (*val char_list_to_v_i2 : list char -> v_i2*)
  val char_list_to_v_i2_defn = Hol_defn "char_list_to_v_i2" `
- (char_list_to_v_i2 [] = (Conv_i2 (nil_tag, SOME (TypeId (Short "list"))) []))
+ (char_list_to_v_i2 [] = (Conv_i2 (SOME (nil_tag, (TypeId (Short "list")))) []))
 /\ (char_list_to_v_i2 (c::cs) =  
-(Conv_i2 (cons_tag, SOME (TypeId (Short "list"))) [Litv_i2 (Char c); char_list_to_v_i2 cs]))`;
+(Conv_i2 (SOME (cons_tag, (TypeId (Short "list")))) [Litv_i2 (Char c); char_list_to_v_i2 cs]))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_i2_defn;
 
 val _ = Define `
- (Boolv_i2 b = (Conv_i2 ((if b then true_tag else false_tag), SOME(TypeId(Short"bool"))) []))`;
+ (Boolv_i2 b = (Conv_i2 (SOME ((if b then true_tag else false_tag), TypeId(Short"bool"))) []))`;
 
 
 (*val do_app_i2 : store v_i2 -> op_i2 -> list v_i2 -> maybe (store v_i2 * result v_i2 v_i2)*)
@@ -555,7 +556,7 @@ val _ = Define `
         )
     | (Op_i2 Opassign, [Loc_i2 lnum; v]) =>
         (case store_assign lnum (Refv v) s of
-            SOME st => SOME (st, Rval (Conv_i2 (tuple_tag,NONE) []))
+            SOME st => SOME (st, Rval (Conv_i2 NONE []))
           | NONE => NONE
         )
     | (Op_i2 Opref, [v]) =>
@@ -606,7 +607,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (W8array (LUPDATE w n ws)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Conv_i2 (tuple_tag,NONE) []))
+                    | SOME s' => SOME (s', Rval (Conv_i2 NONE []))
                   )
         | _ => NONE
       )
@@ -686,7 +687,7 @@ val _ = Define `
                 else
                   (case store_assign lnum (Varray (LUPDATE v n vs)) s of
                       NONE => NONE
-                    | SOME s' => SOME (s', Rval (Conv_i2 (tuple_tag,NONE) []))
+                    | SOME s' => SOME (s', Rval (Conv_i2 NONE []))
                   )
         | _ => NONE
       )
@@ -718,38 +719,32 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch_i2 exh s (Pcon_i2 (n, SOME (TypeExn _)) ps) (Conv_i2 (n', SOME (TypeExn _)) vs) env =    
+(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn _))) ps) (Conv_i2 (SOME (n', (TypeExn _))) vs) env =  
 (if n = n' then
-      if LENGTH ps = LENGTH vs then
-        pmatch_list_i2 exh s ps vs env
-      else
-        Match_type_error
-    else
-      No_match))
+    pmatch_list_i2 exh s ps vs env
+  else
+    No_match))
 /\
-(pmatch_i2 exh s (Pcon_i2 (n, SOME (TypeId t)) ps) (Conv_i2 (n', SOME (TypeId t')) vs) env =  
+(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeId t))) ps) (Conv_i2 (SOME (n', (TypeId t'))) vs) env =  
 (if t = t' then
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME m =>
-        let arity = (LENGTH ps) in
-        if arity = LENGTH vs then
-          (case sptree$lookup arity m of
+          (case sptree$lookup (LENGTH ps) m of
             NONE => Match_type_error
-          | SOME z =>
-              if (n < z) /\ (n' < z) then
+          | SOME max =>
+              if (n < max) /\ (n' < max) then
                 if n = n' then
                   pmatch_list_i2 exh s ps vs env
                 else
                   No_match
               else Match_type_error
           )
-        else Match_type_error
     )
   else Match_type_error))
 /\
-(pmatch_i2 exh s (Pcon_i2 (n,NONE) ps) (Conv_i2 (n',NONE) vs) env =  
-(if (LENGTH ps = LENGTH vs) /\ (n = tuple_tag) /\ (n' = tuple_tag) then
+(pmatch_i2 exh s (Pcon_i2 NONE ps) (Conv_i2 NONE vs) env =  
+(if LENGTH ps = LENGTH vs then
     pmatch_list_i2 exh s ps vs env
   else
     Match_type_error))
@@ -911,7 +906,7 @@ evaluate_i2 ck env s (If_i2 e1 e2 e3) (s', Rerr err))
 
 /\ (! ck env e pes v bv s1 s2.
 (evaluate_i2 ck env s1 e (s2, Rval v) /\
-evaluate_match_i2 ck env s2 v pes (Conv_i2 (bind_tag,SOME (TypeExn (Short "Bind"))) []) bv)
+evaluate_match_i2 ck env s2 v pes (Conv_i2 (SOME (bind_tag,(TypeExn (Short "Bind")))) []) bv)
 ==>
 evaluate_i2 ck env s1 (Mat_i2 e pes) bv)
 
@@ -999,19 +994,19 @@ evaluate_match_i2 ck (exh,genv,env) (count,s) v ((p,e)::pes) err_v ((count,s), R
 evaluate_match_i2 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error))`;
 
 val _ = Hol_reln ` (! ck exh genv n e vs s1 s2.
-(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\
+(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 NONE vs)) /\
 (LENGTH vs = n))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rval vs))
 
 /\ (! ck exh genv n e vs s1 s2.
-(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 (tuple_tag,NONE) vs)) /\ ~ ((LENGTH vs) = n))
+(evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval (Conv_i2 NONE vs)) /\ ~ ((LENGTH vs) = n))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
 /\ (! ck exh genv n e v s1 s2.
 (evaluate_i2 ck (exh,genv,[]) s1 e (s2, Rval v) /\
-~ (? vs. v = Conv_i2 (tuple_tag,NONE) vs))
+~ (? vs. v = Conv_i2 NONE vs))
 ==>
 evaluate_dec_i2 ck exh genv s1 (Dlet_i2 n e) (s2, Rerr Rtype_error))
 
