@@ -14,6 +14,10 @@ open miscLib;
 
 val _ = new_theory "conLangProof";
 
+val same_tid_refl = store_thm("same_tid_refl",
+  ``same_tid t t``,
+  Cases_on`t`>>EVAL_TAC)
+
 val same_tid_diff_ctor = Q.prove (
 `!cn1 cn2 t1 t2.
   same_tid t1 t2 ∧ ~same_ctor (cn1, t1) (cn2, t2)
@@ -623,7 +627,6 @@ val pmatch_to_i2_correct = Q.prove (
            imp_res_tac length_vs_to_i2 >>
            metis_tac[gtagenv_wf_def] )
          >- metis_tac [tid_or_exn_11, gtagenv_wf_def, length_vs_to_i2]))
-
  >- (PairCases_on `tagenv` >>
      fs [pmatch_i2_def, lookup_tag_env_def] >>
      rw [] >>
@@ -759,63 +762,13 @@ val do_eq_i2 = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
+ >- metis_tac [same_tid_refl, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def])
- >- (fs [Once v_to_i2_cases] >>
-     rw [do_eq_i2_def]) >>
-  res_tac >>
- every_case_tac >>
- fs [] >>
- metis_tac []);
+ >> TRY (
+   BasicProvers.CASE_TAC >>
+   res_tac >> every_case_tac >> fs [] >> metis_tac []) >>
+ fs [Once v_to_i2_cases] >>
+ rw [do_eq_i2_def])
 
 val v_to_list_i2_correct = Q.prove (
 `!v1 v2 vs1.
@@ -874,7 +827,7 @@ val v_to_i2_Boolv_i2 = store_thm("v_to_i2_Boolv_i2",
      vs_to_i2_list_rel,gtagenv_wf_def,has_bools_def] >>
   rw[Once v_to_i2_cases] >>
   rw[Once v_to_i2_cases] >>
-  metis_tac[])
+  metis_tac[same_tid_refl])
 
 val tac =
   fs [do_app_i1_def] >>
@@ -1083,7 +1036,7 @@ val do_opapp_i2 = Q.prove (
              rw []))));
 
 val lookup_tag_env_NONE = Q.prove (
-`lookup_tag_env NONE tagenv = (tuple_tag, NONE)`,
+`lookup_tag_env NONE tagenv = NONE`,
 PairCases_on `tagenv` >>
 rw [lookup_tag_env_def]);
 
@@ -1286,7 +1239,7 @@ val exp_to_i2_correct = Q.prove (
      res_tac >>
      rw [] >>
      FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`,
-                                  `Conv_i2 (bind_tag,SOME (TypeExn (Short "Bind"))) []`, `gtagenv`] mp_tac) >>
+                                  `Conv_i2 (SOME (bind_tag,(TypeExn (Short "Bind")))) []`, `gtagenv`] mp_tac) >>
      rw [] >>
      fs [env_all_to_i2_cases] >>
      rw [] >>

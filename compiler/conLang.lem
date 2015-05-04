@@ -344,10 +344,12 @@ do_eq_i2 (Conv_i2 Nothing vs1) (Conv_i2 Nothing vs2) =
     Eq_val false
 and
 do_eq_i2 (Conv_i2 (Just tag1) vs1) (Conv_i2 (Just tag2) vs2) =
-  if fst tag1 = fst tag2 && (List.length vs1 = List.length vs2) then
+  if tag1 = tag2 && (List.length vs1 = List.length vs2) then
     do_eq_list_i2 vs1 vs2
   else
     Eq_val false
+and
+do_eq_i2 (Conv_i2 _ _) (Conv_i2 _ _) = Eq_val false
 and
 do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =
   if List.length vs1 = List.length vs2 then

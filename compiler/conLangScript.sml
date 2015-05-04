@@ -414,10 +414,12 @@ val _ = Define `
     Eq_val F))
 /\
 (do_eq_i2 (Conv_i2 (SOME tag1) vs1) (Conv_i2 (SOME tag2) vs2) =  
-(if (FST tag1 = FST tag2) /\ (LENGTH vs1 = LENGTH vs2) then
+(if (tag1 = tag2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
   else
     Eq_val F))
+/\
+(do_eq_i2 (Conv_i2 _ _) (Conv_i2 _ _) = (Eq_val F))
 /\
 (do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then
