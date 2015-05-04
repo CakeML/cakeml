@@ -720,7 +720,7 @@ val _ = Define `
     Match_type_error))
 /\
 (pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn _))) ps) (Conv_i2 (SOME (n', (TypeExn _))) vs) env =  
-(if n = n' then
+(if (n = n') /\ (LENGTH ps = LENGTH vs) then
     pmatch_list_i2 exh s ps vs env
   else
     No_match))
@@ -730,15 +730,16 @@ val _ = Define `
     (case FLOOKUP exh t of
         NONE => Match_type_error
       | SOME m =>
-          (case sptree$lookup (LENGTH ps) m of
+          let a = (LENGTH ps) in
+          (case sptree$lookup a m of
             NONE => Match_type_error
           | SOME max =>
-              if (n < max) /\ (n' < max) then
-                if n = n' then
+              if (n = n') /\ (a = LENGTH vs) then
+                if n < max then
                   pmatch_list_i2 exh s ps vs env
-                else
-                  No_match
-              else Match_type_error
+                else Match_type_error
+              else
+                No_match
           )
     )
   else Match_type_error))
