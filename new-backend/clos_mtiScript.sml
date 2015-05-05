@@ -694,7 +694,17 @@ val intro_multi_correct = Q.prove (
      rw [val_rel_cases] >>
      simp [cl_ok_def, norm_closure_def, inferPropsTheory.remove_pair_lem] >>
      metis_tac [intro_multi_sing, norm_exp_thm, HD, pair_CASES])
- >- cheat
+
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [intro_multi_def] >>
+     simp [cEval_def] >>
+     Cases_on `EVERY (λ(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns` >>
+     full_simp_tac pure_ss [] >>
+     fs [] >>
+     Cases_on `build_recc s.restrict_envs loc env names fns` >>
+     fs []
+     simp [EVERY_MAP]
+
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
      fs [intro_multi_length] >>
