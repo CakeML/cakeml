@@ -272,20 +272,8 @@ val lem1 = Q.prove(
    \\ simp [arm_stepTheory.R_x_pc]
    )
 
-val lem2 = Q.prove(
-   `!n. n < 16 ==> (v2w [BIT 3 n; BIT 2 n; BIT 1 n; BIT 0 n] = n2w n: word4)`,
-   NTAC 2 strip_tac
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ EVAL_TAC
-   )
-
-val lem3 = Q.prove(
-   `!n. n < 32 ==>
-        (v2w [BIT 4 n; BIT 3 n; BIT 2 n; BIT 1 n; BIT 0 n] = n2w n: word5)`,
-   NTAC 2 strip_tac
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ EVAL_TAC
-   )
+val lem2 = asmLib.v2w_BIT_n2w 4
+val lem3 = asmLib.v2w_BIT_n2w 5
 
 val lem4 =
    blastLib.BBLAST_PROVE ``0w <= c /\ c <= 4095w ==> c <=+ 4095w: word32``
@@ -743,11 +731,6 @@ val arm_op2 =
    HolKernel.syntax_fns "arm" 2 HolKernel.dest_binop HolKernel.mk_binop
 
 local
-   fun dest_bytes_in_memory tm =
-      case Lib.total boolSyntax.dest_strip_comb tm of
-         SOME ("asm$bytes_in_memory", [_, l, _, _, _]) =>
-            SOME (fst (listSyntax.dest_list l))
-       | _ => NONE
    fun gen_v P thm =
       let
          val vars = Term.free_vars (Thm.concl thm)
@@ -803,31 +786,16 @@ in
            end
         | NONE => NO_TAC) (asl, g)
    fun next_state_tac pick P state x (asl, g) =
-      (case List.mapPartial dest_bytes_in_memory asl of
+      (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step P state x (pick l))) (asl, g)
-end
-
-local
-   val is_byte_eq =
-      Lib.can ((wordsSyntax.dest_word_extract ## bitstringSyntax.dest_v2w) o
-               boolSyntax.dest_eq)
-in
-   val byte_eq_tac =
-      rule_assum_tac
-        (Conv.CONV_RULE
-           (Conv.DEPTH_CONV
-              (fn tm => if is_byte_eq tm
-                           then blastLib.BBLAST_CONV tm
-                        else Conv.NO_CONV tm)
-            THENC Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV))
 end
 
 fun next_state_tac0 f q l =
    next_state_tac f (K false) q l
    \\ imp_res_tac bytes_in_memory_thm
    \\ fs []
-   \\ byte_eq_tac
+   \\ asmLib.byte_eq_tac
    \\ rfs [lem2, lem3, lem4, lem6, decode_imm12_thm, combinTheory.UPDATE_APPLY,
            decode_imm_thm, arm_stepTheory.Aligned_numeric]
 

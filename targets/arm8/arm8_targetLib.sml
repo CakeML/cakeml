@@ -80,9 +80,9 @@ arm8_encode_decode_conv
       ; Inst (Mem Store 0 (Addr 1 0w))
       ; Inst (Mem Store 0 (Addr 1 0x10w))
       ; Inst (Mem Store8 0 (Addr 1 0x10w))
-      ; Jump 12w NONE
-      ; JumpCmp Less 0 (Reg 1) 12w NONE
-      ; JumpCmp Less 0 (Imm 1w) 12w NONE
+      ; Jump 12w
+      ; JumpCmp Less 0 (Reg 1) 12w
+      ; JumpCmp Less 0 (Imm 1w) 12w
       ; JumpReg 1
       ; Call 4w
       ; Loc 1 4w

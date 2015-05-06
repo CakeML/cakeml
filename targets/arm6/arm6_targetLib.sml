@@ -27,7 +27,7 @@ fun add_arm6_decode_compset cmp =
        [arm6_bop_dec_def, arm6_sh_dec_def, arm6_cmp_dec_def, decode_imm12_def,
         fetch_word_def, decode_word_def, arm6_dec_aux_def, arm6_dec_def,
         DecodeARM_def, DecodeImmShift_def, ARMExpandImm_C_def, Shift_C_def,
-        ConditionPassed_def, CurrentCond_def, SetPassCondition_def, Take_def,
+        ConditionPassed_def, CurrentCond_def, SetPassCondition_def, Do_def,
         boolify28_n2w, boolify4_n2w] cmp
    ; utilsLib.add_datatypes
        (List.map arm_type ["arm_state", "PSR", "Architecture"]) cmp
@@ -69,9 +69,9 @@ arm6_encode_decode_conv
       ; Inst (Mem Store 0 (Addr 1 0w))
       ; Inst (Mem Store 0 (Addr 1 0x100w))
       ; Inst (Mem Store8 0 (Addr 1 0x100w))
-      ; Jump 12w NONE
-      ; JumpCmp Less 0 (Reg 1) 12w NONE
-      ; JumpCmp Less 0 (Imm 1w) 12w NONE
+      ; Jump 12w
+      ; JumpCmp Less 0 (Reg 1) 12w
+      ; JumpCmp Less 0 (Imm 1w) 12w
       ; JumpReg 1
       ; Loc 1 4w
       ]``
