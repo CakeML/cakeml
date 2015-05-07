@@ -425,7 +425,7 @@ val asm_semantics_def = Define `
     (* Execution terminates if asm_steps eventually reaches exit_pc *)
     if ?s'. RTC (asm_step env c) s s' /\ (s'.pc = exit_pc) then Terminates else
     (* Execution diverges if an unbounded number of asm_steps can be performed. *)
-    if (!n. ?s'. NRC (asm_step env c) n s s') then Diverges else
+    if !n. ?s'. NRC (asm_step env c) n s s' then Diverges else
     (* In all other case, the semantics gets stuck, i.e. fails. *)
       Fails`
 
@@ -470,5 +470,84 @@ val backend_semantics_EQ_asm_semantics = prove(
   \\ cheat (* not provable because we know nothing about
               the intermediate states of executing the
               backend encoding of an asm instruction. *));
+
+(* Alternative definitions:
+
+val backend_correct_def = Define `
+  backend_correct enc (config:'a asm_config) (next:'b -> 'b) R get_pc =
+    enc_ok enc config /\
+    (!s state. R s state ==> (get_pc state = s.pc)) /\
+    !s1 s2.
+      asm_step enc config s1 s2 ==>
+      !state. R s1 state ==>
+              ?n. R s2 (FUNPOW next (n + 1) state) /\
+                  !k. k <= n ==>
+                      ?s3. R s3 (FUNPOW next k state) /\
+                           s3.pc IN s1.mem_domain /\ ~s3.failed`;
+
+val backend_semantics_def = Define `
+  backend_semantics next get_pc prog_mem state =
+    (* Execution terminates if the pc eventually becomes exit_pc *)
+    if (?n. ~(get_pc (FUNPOW next n state) IN prog_mem))
+    then Terminates else Diverges`
+
+
+
+
+    (* Execution diverges if the pc stays forever within the program memory *)
+    if (!n p. state_has_pc R (FUNPOW next n state) p ==> p IN prog_mem)
+    then Diverges
+    else
+      else
+        (* In all other cases, the execution fails. *)
+        Fails`
+
+val RTC_asm_step_imp = prove(
+  ``backend_correct enc c next R ==>
+    (!s1 s2.
+       RTC (asm_step enc c) s1 s2 ==>
+       !state. R s1 state ==> ?n. R s2 (FUNPOW next n state))``,
+  STRIP_TAC \\ HO_MATCH_MP_TAC relationTheory.RTC_INDUCT
+  \\ REPEAT STRIP_TAC THEN1 (Q.EXISTS_TAC `0` \\ fs [])
+  \\ fs [backend_correct_def] \\ RES_TAC \\ RES_TAC
+  \\ fs [GSYM arithmeticTheory.FUNPOW_ADD] \\ METIS_TAC [])
+  |> MP_CANON;
+
+val backend_semantics_EQ_asm_semantics = prove(
+  ``!enc c exit_pc s state R enc next.
+      backend_correct enc c next R /\ R s state /\
+      ~(exit_pc IN s.mem_domain) /\ ~s.failed /\
+      asm_semantics enc c exit_pc s <> Fails ==>
+      (backend_semantics next R exit_pc s.mem_domain state =
+       asm_semantics enc c exit_pc s)``,
+
+  REPEAT STRIP_TAC
+  \\ fs [backend_semantics_def,asm_semantics_NOT_Fails]
+  THEN1
+   (MATCH_MP_TAC
+     (METIS_PROVE [] ``~b /\ b2 ==>
+         ((if b then x else (if b2 then y else z)) = y)``)
+    \\ fs [] \\ cheat (* provalbe *))
+  \\ MATCH_MP_TAC (METIS_PROVE [] ``b ==> ((if b then x else y) = x)``)
+  \\ REPEAT STRIP_TAC
+
+
+
+
+  \\ SRW_TAC [] []
+
+    cheat
+
+    fs []
+
+
+  THEN1 (IMP_RES_TAC RTC_asm_step_imp \\ fs [] \\ METIS_TAC [])
+  \\ cheat (* not provable because we know nothing about
+              the intermediate states of executing the
+              backend encoding of an asm instruction. *));
+
+
+
+*)
 
 val () = export_theory ()
