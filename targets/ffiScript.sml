@@ -8,8 +8,6 @@ val () = Datatype `io_event = IO_event num ((word8 # word8) list)`;
 
 val () = type_abbrev("io_trace",``:io_event llist``);
 
-val () = type_abbrev("io_trace",``:io_event llist``);
-
 val () = type_abbrev("inf_io_trace",``:num -> io_event``);
 
 val () = type_abbrev("fin_io_trace",``:io_event list``);
