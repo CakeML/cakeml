@@ -427,6 +427,7 @@ val backend_correct_alt_def = Define `
   backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R =
     enc_ok enc config /\
     (!ms1 ms2. (proj ms1 = proj ms2) ==> !s. R s ms1 = R s ms2) /\
+    (!s1 s2 ms. R s1 ms /\ R s2 ms ==> (s1 = s2)) /\
     !s1 s2 ms.
       asm_step enc config s1 s2 /\ R s1 ms ==>
       ?n. !env. interference_ok (env:num->'b->'b) proj ==>
