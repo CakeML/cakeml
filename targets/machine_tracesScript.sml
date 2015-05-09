@@ -6,7 +6,7 @@ val _ = new_theory "machine_traces";
 
 val () = Datatype `
   trace_part =
-      Internal 'a
+      Internal_step_from 'a
     | FFI_call 'a num (word8 list) (word8 list)
     | FFI_no_return 'a num (word8 list)`
 
@@ -46,10 +46,12 @@ val is_FFI_def = Define `
 val get_state_def = Define `
   (get_state (FFI_call s _ _ _) = s) /\
   (get_state (FFI_no_return s _ _) = s) /\
-  (get_state (Internal s) = s)`;
+  (get_state (Internal_step_from s) = s)`;
 
 val trace_ok_def = Define `
   trace_ok init_state next proj (t:'a machine_trace) ffi_conf R <=>
+    (* every machine state relates to some asm_state *)
+    (!i p. (LNTH i t = SOME p) ==> ?x. R x (get_state p)) /\
     (* first state must be the init state *)
     (?p. (LNTH 0 t = SOME p) /\ (get_state p = init_state)) /\
     (* the FFI_no_return element can only appear at the end of a
@@ -60,7 +62,7 @@ val trace_ok_def = Define `
     (* consequtive states are related by the machine next-state
        functions, but may differ arbitrarily on non-projected parts *)
     (!n s1 p.
-       (LNTH n t = SOME (Internal s1)) /\
+       (LNTH n t = SOME (Internal_step_from s1)) /\
        (LNTH (n+1) t = SOME p) ==>
        (proj (next s1) = proj (get_state p))) /\
     (* state-FFI-state i.e. how returning FFI call updates states *)
