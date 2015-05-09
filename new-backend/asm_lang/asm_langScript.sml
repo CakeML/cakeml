@@ -56,7 +56,7 @@ val sec_labs_def = Define `
 val sec_name_def = Define `
   sec_name (Section k _) = k`;
 
-val all_labels_def = Define ` (* only used by semantics and proofs *)
+val all_labels_def = Define `
   (all_labels pos [] = LN) /\
   (all_labels pos (s::rest) =
      let (labs,new_pos) = sec_labs pos s in
