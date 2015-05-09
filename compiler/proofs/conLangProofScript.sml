@@ -14,6 +14,10 @@ open miscLib;
 
 val _ = new_theory "conLangProof";
 
+val no_dup_types_i1_cons_imp = prove(
+  ``no_dup_types_i1 (d::ds) ⇒ no_dup_types_i1 ds``,
+  rw[decs_to_types_i1_def,no_dup_types_i1_def,ALL_DISTINCT_APPEND]);
+
 val same_tid_refl = store_thm("same_tid_refl",
   ``same_tid t t``,
   Cases_on`t`>>EVAL_TAC)
@@ -204,6 +208,14 @@ gtagenv_weak gtagenv1 gtagenv2 ⇔
      FLOOKUP gtagenv2 (cn',t2) = SOME (tag,l)
      ⇒
      cn = cn' ∧ t1 = t2)`;
+
+val gtagenv_weak_refl = Q.prove (
+`!gtagenv envC tagenv.
+  gtagenv_wf gtagenv
+  ⇒
+  gtagenv_weak gtagenv gtagenv`,
+ rw [gtagenv_weak_def] >>
+ metis_tac [SUBMAP_REFL, gtagenv_wf_def]);
 
 val gtagenv' = ``(gtagenv':gtagenv)``
 
@@ -1326,6 +1338,120 @@ val exp_to_i2_correct = Q.prove (
      rw [] >>
      metis_tac [pat_bindings_to_i2]));
 
+val flat_envC_tagged_def = Define `
+ flat_envC_tagged (envC:flat_envC) (tagenv:flat_tag_env) gtagenv ⇔
+   ∀cn num_args t.
+     ALOOKUP envC cn = SOME (num_args,t) ⇒
+     ∃tag.
+       lookup_tag_flat cn tagenv = SOME (tag,t) ∧
+       FLOOKUP gtagenv (cn,t) = SOME (tag,num_args)`
+
+val tagenv_state_inv_def = Define`
+  tagenv_state_inv tids (tagenv_st,acc) gtagenv ⇔
+    IMAGE SND (FDOM gtagenv) ⊆ tids`
+
+(*
+val decs_to_i2_correct = store_thm("decs_to_i2_correct",
+  ``∀ck genv envC s ds r.
+      evaluate_decs_i1 ck genv envC s ds r ⇒
+    ∀res s1 tids s1_i2 genv_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' tids' gtagenv.
+      s = (s1,tids) ∧
+      r = ((s',tids'), envC', genv', res) ∧
+      res ≠ SOME Rtype_error ∧
+      no_dup_types_i1 ds ∧
+      decs_to_i2 tagenv_st ds = (tagenv_st', ds_i2) ∧
+      cenv_inv envC (get_exh (FST tagenv_st)) (get_tagenv tagenv_st) gtagenv ∧
+      s_to_i2 gtagenv s1 s1_i2 ∧
+      LIST_REL (OPTREL (v_to_i2 gtagenv)) genv genv_i2 ∧
+      tagenv_state_inv tids tagenv_st gtagenv
+      ⇒
+      ∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
+        gtagenv_weak gtagenv gtagenv' ∧
+        evaluate_decs_i2 ck (get_exh (FST tagenv_st')) genv_i2 s1_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
+        vs_to_i2 gtagenv' genv' genv'_i2 ∧
+        s_to_i2 gtagenv' s' s'_i2 ∧
+        tagenv_state_inv tids' tagenv_st' gtagenv' ∧
+        SND tagenv_st' = FUNION acc' (SND tagenv_st) ∧
+        gtagenv_wf gtagenv' ∧
+        exhaustive_env_correct (get_exh (FST tagenv_st')) gtagenv' ∧
+        (res = NONE ∧ res_i2 = NONE ∧ FDOM acc' = set (MAP FST envC') ∧
+         flat_envC_tagged envC' acc' gtagenv'
+         ∨
+         (∃err err_i2.
+           res = SOME err ∧ res_i2 = SOME err_i2 ∧
+           result_to_i2 (\a b c. T) gtagenv' (Rerr err) (Rerr err_i2)))``,
+  ho_match_mp_tac evaluate_decs_i1_strongind >>
+  conj_tac >- (
+    simp[FDOM_EQ_EMPTY,decs_to_i2_def] >>
+    rw[Once evaluate_decs_i2_cases,vs_to_i2_list_rel] >>
+    qexists_tac`gtagenv` >>
+    fs[cenv_inv_def] >>
+    simp[gtagenv_weak_refl] >>
+    simp[flat_envC_tagged_def] ) >>
+  conj_tac >- (
+    simp[decs_to_i2_def] >>
+    simp[Once evaluate_dec_i1_cases] >>
+    rw[] >> fs[] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
+    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 exp_to_i2_correct)) >> simp[] >>
+    `env_all_to_i2 (get_tagenv tagenv_st) (genv,envC,[]) (get_exh (FST tagenv_st),genv_i2,[]) gtagenv`
+                by (fs [env_all_to_i2_cases] >> rw [v_to_i2_eqns]) >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+    rw[Once evaluate_decs_i2_cases,Once evaluate_dec_i2_cases,PULL_EXISTS,vs_to_i2_list_rel] >>
+    srw_tac[boolSimps.DNF_ss][] >> disj1_tac >> rpt disj2_tac >>
+    `∃err_i2. r_i2 = Rerr err_i2` by fs[result_to_i2_cases] >> rw[] >>
+    evaluate_exp_i2_exh_weak
+
+    split_applied_pair_tac
+
+    rw[vs_to_i2_list_rel,result_to_i2_cases,PULL_EXISTS]
+
+    Cases_on`d`
+    cheat ) >>
+  rw[] >>
+  imp_res_tac no_dup_types_i1_cons_imp >>
+  rator_x_assum`decs_to_i2`mp_tac >>
+  simp[decs_to_i2_def]
+  fs[decs_to_i2_def]
+  `?tagenv_st'' ds_i2. decs_to_i2 tagenv_st' ds = (tagenv_st'', ds_i2)` by metis_tac [pair_CASES] >>
+     fs [] >>
+     rw [Once evaluate_decs_i2_cases] >>
+     fs [] >>
+     `env_all_to_i2 (get_tagenv tagenv_st) (genv,envC,[]) (exh,genv_i2,[]) gtagenv`
+                 by (fs [env_all_to_i2_cases] >>
+                     rw [v_to_i2_eqns] >>
+                     every_case_tac >>
+                     metis_tac []) >>
+     `?r_i2 s'_i2. result_to_i2 v_to_i2 gtagenv (Rval (Conv_i1 NONE new_env)) r_i2 ∧
+                s_to_i2 gtagenv s2 s'_i2 ∧
+                evaluate_i2 ck (exh,genv_i2,[]) s1_i2 (exp_to_i2 (get_tagenv tagenv_st) e) (s'_i2,r_i2)`
+                     by (imp_res_tac exp_to_i2_correct >>
+                         fs [] >>
+                         res_tac >>
+                         fs [] >>
+                         metis_tac []) >>
+     rw [evaluate_dec_i2_cases] >>
+     fs [result_to_i2_cases, v_to_i2_eqns, merge_alist_mod_env_empty] >>
+     rw [] >>
+     `LIST_REL (OPTREL (v_to_i2 gtagenv)) (MAP SOME new_env) (MAP SOME vs')`
+            by (`OPTREL (v_to_i2 gtagenv) = (\x y. OPTREL (v_to_i2 gtagenv) x y)` by metis_tac [] >>
+                ONCE_ASM_REWRITE_TAC [] >>
+                rw [LIST_REL_MAP1, LIST_REL_MAP2, combinTheory.o_DEF, OPTREL_def] >>
+                fs [vs_to_i2_list_rel, eta2]) >>
+     `LIST_REL (OPTREL (v_to_i2 gtagenv)) (genv ++ MAP SOME new_env) (genv_i2++MAP SOME vs')`
+                  by metis_tac [EVERY2_APPEND, LIST_REL_LENGTH] >>
+     FIRST_X_ASSUM (qspecl_then [`s'_i2`, `genv_i2 ++ MAP SOME vs'`, `tagenv_st`, `ds_i2'`, `tagenv_st'`, `exh'`, `gtagenv`, `exh`] mp_tac) >>
+     rw [] >>
+     fs [] >>
+     `vs_to_i2 gtagenv'' (new_env ++ new_env') (vs' ++ genv'_i2)`
+                  by metis_tac [vs_to_i2_append, length_vs_to_i2, v_to_i2_weakening] >>
+     metis_tac [length_vs_to_i2, cenv_inv_def, evaluate_exp_i2_exh_weak, SND,
+                result_distinct, result_11, error_result_distinct, mod_decs_cons_imp])
+*)
+
+(* proofs from old tagging scheme: *)
+
 val alloc_tags_flat = Q.prove (
 `!mn tagenv_st defs.
   alloc_tags mn tagenv_st defs =
@@ -1412,14 +1538,6 @@ val lookup_tag_env_insert = Q.prove (
  rw [lookup_tag_env_def, insert_tag_env_def, lookup_tag_flat_def, FLOOKUP_UPDATE] >>
  every_case_tac >>
  fs []);
-
-val gtagenv_weak_refl = Q.prove (
-`!gtagenv envC tagenv.
-  gtagenv_wf gtagenv
-  ⇒
-  gtagenv_weak gtagenv gtagenv`,
- rw [gtagenv_weak_def] >>
- metis_tac [SUBMAP_REFL, gtagenv_wf_def]);
 
 val gtagenv_weak_trans = Q.prove (
 `!gtagenv1 gtagenv2 gtagenv3.
@@ -2277,10 +2395,6 @@ val MAP_SND_o_SND_flat_alloc_tags = prove(
   rw[flat_alloc_tags_def] >>
   simp[MAP2_MAP,LENGTH_COUNT_LIST,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
   simp[LIST_EQ_REWRITE,LENGTH_COUNT_LIST,EL_MAP,EL_ZIP]);
-
-val no_dup_types_i1_cons_imp = prove(
-  ``no_dup_types_i1 (d::ds) ⇒ no_dup_types_i1 ds``,
-  rw[decs_to_types_i1_def,no_dup_types_i1_def,ALL_DISTINCT_APPEND]);
 
 val FLOOKUP_build_exh_env_imp = prove(
   ``FLOOKUP (build_exh_env mn zz tds) k = SOME tags ⇒
