@@ -113,8 +113,23 @@ exhaustive_env_correct (exh:exh_ctors_env) (gtagenv:gtagenv) ⇔
          ⇒
          ∃max. lookup l tags = SOME max ∧ tag < max))`;
 
+(* this probably doesn't work because of the accumulator inside a module...?
+val same_mod_def = Define`
+  (same_mod (Long x _) (TypeId (Long x' _)) ⇔ x = x') ∧
+  (same_mod (Long x y) (TypeExn (Long x' y')) ⇔ x = x' ∧ y = y') ∧
+  (same_mod (Short _) (TypeId (Short _)) ⇔ T) ∧
+  (same_mod (Short x) (TypeExn (Short x')) ⇔ x = x') ∧
+  (same_mod _ _ = F)`
+
+val envC_wf_def = Define`
+  envC_wf envC ⇔
+    ∀cn a t. lookup_alist_mod_env cn envC = SOME (a,t) ⇒
+             same_mod cn t`
+*)
+
 val cenv_inv_def = Define `
 cenv_inv envC exh tagenv gtagenv ⇔
+ (* envC_wf envC ∧ *)
  envC_tagged envC tagenv gtagenv ∧
  exhaustive_env_correct exh gtagenv ∧
  gtagenv_wf gtagenv`;
@@ -1552,6 +1567,35 @@ val recfun_helper = Q.prove (
  rw [OPTREL_def] >>
  rw [Once v_to_i2_cases, v_to_i2_eqns] >>
  metis_tac []);
+
+val lookup_tag_env_Long_alloc_tag = Q.prove(
+  `lookup_tag_env (SOME (Long x y)) (get_tagenv (alloc_tag a b c d)) =
+   lookup_tag_env (SOME (Long x y)) (get_tagenv d)`,
+  PairCases_on`d` >> simp[alloc_tag_def] >>
+  every_case_tac >> simp[get_tagenv_def] >>
+  simp[insert_tag_env_def] >>
+  rw[lookup_tag_env_def])
+
+val cenv_inv_to_mod = prove(
+  ``∀mn ls envC tagenv_st acc exh tagenv next gtagenv.
+    cenv_inv envC exh tagenv gtagenv ⇒
+    ∃gtagenv'.
+    cenv_inv (merge_alist_mod_env ([],build_tdefs mn ls) envC)
+      (get_exh (FST (alloc_tags mn ((next,tagenv,exh),acc) ls)))
+      (get_tagenv (alloc_tags mn ((next,tagenv,exh),acc) ls))
+      gtagenv' ∧
+    gtagenv_weak gtagenv gtagenv'``,
+  gen_tac >>
+  Induct >- (
+    simp[alloc_tags_def,build_tdefs_def,merge_alist_mod_env_empty,get_exh_def,get_tagenv_def] >>
+    metis_tac[cenv_inv_def,gtagenv_weak_refl] ) >>
+  qx_gen_tac`p` >> PairCases_on`p` >>
+  rw[build_tdefs_cons] >>
+  qpat_abbrev_tac`tdefs:flat_envC = REVERSE X` >>
+  simp[alloc_tags_def] >>
+  qpat_abbrev_tac`tagenv_st:tagenv_state_acc = FOLDL X Y Z` >>
+  first_x_assum(fn th => (first_x_assum (mp_tac o MATCH_MP  th))) >>
+  disch_then(qspecl_then[`acc`,`next`]strip_assume_tac) >>
 
 val decs_to_i2_correct = store_thm("decs_to_i2_correct",
   ``∀ck genv envC s ds r.
