@@ -1539,6 +1539,20 @@ val exhaustive_env_correct_exh_weak = store_thm("exhaustive_env_correct_exh_weak
   res_tac >> fs[] >> rw[] >>
   res_tac >> fs[] >> rw[] >> simp[])
 
+val recfun_helper = Q.prove (
+`cenv_inv envC exh tagenv gtagenv
+ ⇒
+ LIST_REL (OPTREL (v_to_i2 gtagenv))
+          (MAP SOME (MAP (\(f:string,x,e). Closure_i1 (envC,[]) x e) l))
+          (MAP SOME (MAP (\(f,x,e). Closure_i2 [] x (exp_to_i2 tagenv e)) l))`,
+ induct_on `l` >>
+ rw [] >>
+ PairCases_on `h` >>
+ rw [] >>
+ rw [OPTREL_def] >>
+ rw [Once v_to_i2_cases, v_to_i2_eqns] >>
+ metis_tac []);
+
 val decs_to_i2_correct = store_thm("decs_to_i2_correct",
   ``∀ck genv envC s ds r.
       evaluate_decs_i1 ck genv envC s ds r ⇒
@@ -1554,8 +1568,8 @@ val decs_to_i2_correct = store_thm("decs_to_i2_correct",
       tagenv_state_inv tids tagenv_st gtagenv
       ⇒
       ∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
-        gtagenv_weak gtagenv gtagenv' ∧
         evaluate_decs_i2 ck (get_exh (FST tagenv_st')) genv_i2 s1_i2 ds_i2 (s'_i2,genv'_i2,res_i2) ∧
+        gtagenv_weak gtagenv gtagenv' ∧
         vs_to_i2 gtagenv' genv' genv'_i2 ∧
         s_to_i2 gtagenv' s' s'_i2 ∧
         tagenv_state_inv tids' tagenv_st' gtagenv' ∧
@@ -1610,14 +1624,79 @@ val decs_to_i2_correct = store_thm("decs_to_i2_correct",
     metis_tac[decs_to_i2_exh_wf,decs_to_i2_exh_weak,FST]) >>
   rw[] >>
   imp_res_tac no_dup_types_i1_cons_imp >>
+  Cases_on`s'` >> rfs[] >> fs[] >>
+  qho_match_abbrev_tac`∃a b c d e. P a b c ∧ Q a b c d e` >>
+  qunabbrev_tac`P` >>
+  simp[Once evaluate_decs_i2_cases,PULL_EXISTS] >>
+  srw_tac[boolSimps.DNF_ss][] >> rpt disj2_tac >>
+  simp[Abbr`Q`] >>
   rator_x_assum`decs_to_i2`mp_tac >>
   simp[decs_to_i2_def] >>
-  Cases_on`s'`>>rfs[] >>
   BasicProvers.CASE_TAC >> strip_tac >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  BasicProvers.VAR_EQ_TAC >>
   first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   fs[evaluate_dec_i1_cases] >> rpt BasicProvers.VAR_EQ_TAC >>
   fs[merge_alist_mod_env_empty]
+  >- (
+    first_x_assum(mp_tac o MATCH_MP (CONJUNCT1 exp_to_i2_correct)) >>
+    simp[env_all_to_i2_cases,PULL_EXISTS,GSYM AND_IMP_INTRO] >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    simp[v_to_i2_eqns] >>
+    disch_then(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    fs[result_to_i2_eqns,v_to_i2_eqns,vs_to_i2_list_rel] >>
+    disch_then(qspec_then`genv_i2 ++ MAP SOME vs'`mp_tac) >>
+    discharge_hyps >- (
+      MATCH_MP_TAC EVERY2_APPEND_suff >>
+      simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
+      simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> rw[] ) >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[PULL_EXISTS] >> rpt gen_tac >>
+    qpat_abbrev_tac`D ⇔ a ∨ b` >> strip_tac >>
+    simp[evaluate_dec_i2_cases,PULL_EXISTS] >>
+    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_decs_i2`` o fst o strip_comb))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    simp[LEFT_EXISTS_AND_THM] >>
+    reverse conj_tac >- (
+      conj_tac >- (imp_res_tac LIST_REL_LENGTH) >>
+      match_mp_tac (MP_CANON (CONJUNCT1 evaluate_exp_i2_exh_weak)) >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      metis_tac[decs_to_i2_exh_weak,FST] ) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`acc'` >> simp[] >>
+    match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+    metis_tac[v_to_i2_weakening,vs_to_i2_list_rel] )
+  >- (
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    imp_res_tac recfun_helper >>
+    pop_assum(qspec_then`l`assume_tac) >>
+    qmatch_assum_abbrev_tac`LIST_REL R l1 l2` >>
+    disch_then(qspec_then`genv_i2 ++ l2`mp_tac) >>
+    discharge_hyps >- (
+      match_mp_tac EVERY2_APPEND_suff >> rw[] ) >>
+    simp[] >> unabbrev_all_tac >>
+    simp[PULL_EXISTS] >> rpt gen_tac >>
+    qpat_abbrev_tac`D ⇔ a ∨ b` >> strip_tac >>
+    simp[evaluate_dec_i2_cases,PULL_EXISTS] >>
+    simp[funs_to_i2_map] >>
+    rator_x_assum`evaluate_decs_i2`mp_tac >>
+    simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >> strip_tac >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`acc'`>>simp[]>>
+    fs[vs_to_i2_list_rel] >>
+    match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+    fs[EVERY2_MAP,optionTheory.OPTREL_def,UNCURRY] >>
+    match_mp_tac (MP_CANON (GEN_ALL LIST_REL_mono)) >>
+    rw[Once CONJ_COMM] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    metis_tac[v_to_i2_weakening] )
+  >- (
+
 
 (* proofs from old tagging scheme: *)
 
@@ -1797,20 +1876,6 @@ val flat_envC_tagged_append = Q.prove (
          `cn ∉ set (MAP FST envC1)` by fs [flookup_thm] >>
          metis_tac [flookup_thm, NOT_SOME_NONE,SUBSET_DEF])
      >- fs [REVERSE_APPEND, ALOOKUP_APPEND]));
-
-val recfun_helper = Q.prove (
-`cenv_inv envC exh tagenv gtagenv
- ⇒
- LIST_REL (OPTREL (v_to_i2 gtagenv))
-          (MAP SOME (MAP (\(f,x,e). Closure_i1 (envC,[]) x e) l))
-          (MAP SOME (MAP (\(f,x,e). Closure_i2 [] x (exp_to_i2 tagenv e)) l))`,
- induct_on `l` >>
- rw [] >>
- PairCases_on `h` >>
- rw [] >>
- rw [OPTREL_def] >>
- rw [Once v_to_i2_cases, v_to_i2_eqns] >>
- metis_tac []);
 
 val recfun_helper2 = Q.prove (
 `cenv_inv envC exh tagenv gtagenv
