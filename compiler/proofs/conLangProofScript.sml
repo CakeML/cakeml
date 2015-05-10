@@ -1353,7 +1353,7 @@ val flat_envC_tagged_def = Define `
        FLOOKUP gtagenv (cn,t) = SOME (tag,num_args)`
 
 val tagenv_state_inv_def = Define`
-  tagenv_state_inv tids (tagenv_st,acc) gtagenv ⇔
+  tagenv_state_inv tids ((next,tagenv,exh),acc) gtagenv ⇔
     IMAGE SND (FDOM gtagenv) ⊆ tids`
 
 val alloc_tag_accumulates = Q.prove(
@@ -1393,6 +1393,151 @@ val tagacc_accumulates = Q.prove (
  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
  res_tac >> rw[]
  >> metis_tac[alloc_tag_accumulates,alloc_tags_accumulates,FUNION_ASSOC])
+
+val exh_weak_def = Define`
+  exh_weak (exh:exh_ctors_env) (exh':exh_ctors_env) ⇔
+    ∀tid m. FLOOKUP exh tid = SOME m ⇒
+      ∃m'. FLOOKUP exh' tid = SOME m' ∧
+        ∀a x. lookup a m = SOME x ⇒
+           ∃y. lookup a m' = SOME y ∧ x ≤ y`
+
+val exh_weak_refl = store_thm("exh_weak_refl[simp]",
+  ``exh_weak exh exh``,
+  rw[exh_weak_def])
+
+val exh_weak_trans = store_thm("exh_weak_trans",
+  ``exh_weak exh1 exh2 ∧ exh_weak exh2 exh3 ⇒ exh_weak exh1 exh3``,
+  rw[exh_weak_def] >>
+  res_tac >> res_tac >> rw[] >> fs[] >> rw[] >>
+  res_tac >> fs[] >> rw[] >> res_tac >> rw[] >> simp[])
+
+val pmatch_i2_exh_weak = Q.prove (
+`(!(exh:exh_ctors_env) s p v env res exh'.
+  pmatch_i2 exh s p v env = res ∧
+  res ≠ Match_type_error ∧
+  exh_weak exh exh'
+  ⇒
+  pmatch_i2 exh' s p v env = res) ∧
+ (!(exh:exh_ctors_env) s ps vs env res exh'.
+  pmatch_list_i2 exh s ps vs env = res ∧
+  res ≠ Match_type_error ∧
+  exh_weak exh exh'
+  ⇒
+  pmatch_list_i2 exh' s ps vs env = res)`,
+ ho_match_mp_tac pmatch_i2_ind >>
+ rw [pmatch_i2_def, LET_THM] >>
+ every_case_tac >>
+ rw [] >>
+ TRY (
+   fs [exh_weak_def] >> res_tac >> fs[] >> rw[] >> res_tac >> fs[] >> rw[] >> DECIDE_TAC) >>
+ metis_tac [exh_weak_def,NOT_SOME_NONE,match_result_distinct, match_result_11]);
+
+val evaluate_exp_i2_exh_weak = Q.prove (
+`(∀b tmp_env s e res.
+   evaluate_i2 b tmp_env s e res ⇒
+   !exh genv env exh'.
+     SND res ≠ Rerr Rtype_error ∧
+     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
+     exh_weak exh exh' ⇒
+     evaluate_i2 b (exh',genv,env) s e res) ∧
+ (∀b tmp_env s es res.
+   evaluate_list_i2 b tmp_env s es res ⇒
+   !exh genv env exh'.
+     SND res ≠ Rerr Rtype_error ∧
+     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
+     exh_weak exh exh' ⇒
+     evaluate_list_i2 b (exh',genv,env) s es res) ∧
+ (∀b tmp_env s v pes err_v res.
+   evaluate_match_i2 b tmp_env s v pes err_v res ⇒
+   !(exh:exh_ctors_env) genv env exh'.
+     SND res ≠ Rerr Rtype_error ∧
+     tmp_env = (exh,genv,env) ∧
+     exh_weak exh exh' ⇒
+     evaluate_match_i2 b (exh',genv,env) s v pes err_v res)`,
+ ho_match_mp_tac evaluate_i2_ind >>
+ rw [] >>
+ rw [Once evaluate_i2_cases] >>
+ fs [all_env_i2_to_env_def, all_env_i2_to_genv_def] >>
+ metis_tac [pmatch_i2_exh_weak, match_result_distinct]);
+
+val alloc_tag_exh_weak = store_thm("alloc_tag_exh_weak",
+  ``exh_weak (get_exh (FST st)) (get_exh (FST (alloc_tag a b c st)))``,
+  `∃next menv env exh acc. st = ((next,(menv,env),exh),acc)` by metis_tac[PAIR] >>
+  simp[alloc_tag_def]>>
+  every_case_tac >> simp[UNCURRY,get_exh_def,exh_weak_def] >> rw[] >>
+  simp[FLOOKUP_UPDATE] >> rw[] >>
+  rw[sptreeTheory.lookup_insert] >> fs[] >> rw[] >> fs[])
+
+val alloc_tags_exh_weak = store_thm("alloc_tags_exh_weak",
+  ``∀ls mn ta. exh_weak (get_exh (FST ta)) (get_exh (FST (alloc_tags mn ta ls)))``,
+  Induct >> rw[alloc_tags_def] >>
+  PairCases_on`h`>>simp[alloc_tags_def]>>
+  qmatch_abbrev_tac`exh_weak X (get_exh (FST (alloc_tags mn ta' ls)))` >>
+  qunabbrev_tac`X` >>
+  first_x_assum(qspecl_then[`mn`,`ta'`]mp_tac) >>
+  `exh_weak (get_exh (FST ta)) (get_exh (FST ta'))` suffices_by metis_tac[exh_weak_trans] >>
+  rw[Abbr`ta'`] >>
+  qid_spec_tac`ta` >>
+  Induct_on`h2` >> rw[] >>
+  fs[UNCURRY] >>
+  qpat_abbrev_tac`ta' = alloc_tag X Y Z ta` >>
+  first_x_assum(qspec_then`ta'`mp_tac) >> rw[] >>
+  rw[Abbr`ta'`] >>
+  metis_tac[alloc_tag_exh_weak,exh_weak_trans])
+
+val decs_to_i2_exh_weak = store_thm("decs_to_i2_exh_weak",
+  ``∀ds st.
+      exh_weak (get_exh (FST st)) (get_exh (FST (FST (decs_to_i2 st ds))))``,
+  Induct >> simp[decs_to_i2_def] >> rw[] >>
+  every_case_tac >> simp[UNCURRY] >>
+  metis_tac[exh_weak_trans,alloc_tag_exh_weak,alloc_tags_exh_weak])
+
+val exh_wf_def = Define`
+  exh_wf exh = ∀t. t ∈ FRANGE exh ⇒ wf t`
+
+val alloc_tag_exh_wf = store_thm("alloc_tag_exh_wf",
+  ``exh_wf (get_exh (FST st)) ⇒ exh_wf (get_exh (FST (alloc_tag a b c st)))``,
+  `∃next menv env exh acc. st = ((next,(menv,env),exh),acc)` by metis_tac[PAIR] >>
+  simp[alloc_tag_def]>>
+  every_case_tac >> simp[UNCURRY,get_exh_def,exh_wf_def] >> rw[] >>
+  fs[IN_FRANGE_FLOOKUP,PULL_EXISTS,DOMSUB_FLOOKUP_THM] >>
+  res_tac >> fs[] >>
+  match_mp_tac sptreeTheory.wf_insert >>
+  simp[sptreeTheory.wf_def])
+
+val alloc_tags_exh_wf = store_thm("alloc_tags_exh_wf",
+  ``∀ls mn ta. exh_wf (get_exh (FST ta)) ⇒ exh_wf (get_exh (FST (alloc_tags mn ta ls)))``,
+  Induct >> rw[alloc_tags_def] >>
+  PairCases_on`h`>>simp[alloc_tags_def]>>
+  qmatch_abbrev_tac`exh_wf (get_exh (FST (alloc_tags mn ta' ls)))` >>
+  first_x_assum(qspecl_then[`mn`,`ta'`]match_mp_tac) >>
+  rw[Abbr`ta'`] >>
+  pop_assum mp_tac >>
+  qid_spec_tac`ta` >>
+  Induct_on`h2` >> rw[] >>
+  fs[UNCURRY] >>
+  qpat_abbrev_tac`ta' = alloc_tag X Y Z ta` >>
+  first_x_assum(qspec_then`ta'`mp_tac) >> rw[] >>
+  first_x_assum match_mp_tac >>
+  rw[Abbr`ta'`] >>
+  metis_tac[alloc_tag_exh_wf])
+
+val decs_to_i2_exh_wf = store_thm("decs_to_i2_exh_wf",
+  ``∀ds st.
+      exh_wf (get_exh (FST st)) ⇒ exh_wf (get_exh (FST (FST (decs_to_i2 st ds))))``,
+  Induct >> simp[decs_to_i2_def] >> rw[] >>
+  every_case_tac >> simp[UNCURRY] >>
+  metis_tac[alloc_tag_exh_wf,alloc_tags_exh_wf])
+
+val exhaustive_env_correct_exh_weak = store_thm("exhaustive_env_correct_exh_weak",
+  ``exhaustive_env_correct exh gtagenv ∧
+    exh_weak exh exh' ∧ exh_wf exh' ⇒
+    exhaustive_env_correct exh' gtagenv``,
+  rw[exhaustive_env_correct_def] >>
+  fs[PULL_EXISTS,exh_weak_def,exh_wf_def] >>
+  res_tac >> res_tac >> rw[] >>
+  res_tac >> fs[] >> rw[] >>
+  res_tac >> fs[] >> rw[] >> simp[])
 
 val decs_to_i2_correct = store_thm("decs_to_i2_correct",
   ``∀ck genv envC s ds r.
@@ -1445,10 +1590,24 @@ val decs_to_i2_correct = store_thm("decs_to_i2_correct",
     srw_tac[boolSimps.DNF_ss][] >> disj1_tac >> rpt disj2_tac >>
     `∃err_i2. r_i2 = Rerr err_i2` by fs[result_to_i2_cases] >> rw[] >>
     imp_res_tac tagacc_accumulates >> simp[] >>
-    (*
-    evaluate_exp_i2_exh_weak
-    *)
-    cheat ) >>
+    first_assum(mp_tac o MATCH_MP (CONJUNCT1 evaluate_exp_i2_exh_weak)) >> simp[] >>
+    disch_then(qspec_then`get_exh (FST st')`mp_tac) >>
+    discharge_hyps >- (
+      fs[result_to_i2_cases] >> fs[] >>
+      metis_tac[decs_to_i2_exh_weak,FST] ) >>
+    strip_tac >>
+    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_i2`` o fst o strip_comb))) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    map_every qexists_tac[`gtagenv`,`acc'`] >>
+    fs[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
+    conj_tac >- (
+      PairCases_on`tagenv_st` >>
+      PairCases_on`st'` >>
+      fs[tagenv_state_inv_def] ) >>
+    match_mp_tac (GEN_ALL exhaustive_env_correct_exh_weak) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    fs[exhaustive_env_correct_def,GSYM exh_wf_def] >>
+    metis_tac[decs_to_i2_exh_wf,decs_to_i2_exh_weak,FST]) >>
   rw[] >>
   imp_res_tac no_dup_types_i1_cons_imp >>
   rator_x_assum`decs_to_i2`mp_tac >>
@@ -1719,54 +1878,6 @@ val decs_to_i2_inv_weak = Q.prove (
      PairCases_on `tagenv_st` >>
      fs [alloc_tag_def, alloc_tags_invariant_def, get_next_def, get_tagacc_def, FLOOKUP_UPDATE] >>
      rw[] >> res_tac >> simp[]))
-
-val pmatch_i2_exh_weak = Q.prove (
-`(!(exh:exh_ctors_env) s p v env res exh'.
-  pmatch_i2 exh s p v env = res ∧
-  res ≠ Match_type_error ∧
-  DISJOINT (FDOM exh') (FDOM exh)
-  ⇒
-  pmatch_i2 (FUNION exh' exh) s p v env = res) ∧
- (!(exh:exh_ctors_env) s ps vs env res exh'.
-  pmatch_list_i2 exh s ps vs env = res ∧
-  res ≠ Match_type_error ∧
-  DISJOINT (FDOM exh') (FDOM exh)
-  ⇒
-  pmatch_list_i2 (FUNION exh' exh) s ps vs env = res)`,
- ho_match_mp_tac pmatch_i2_ind >>
- rw [pmatch_i2_def, FLOOKUP_FUNION] >>
- every_case_tac >>
- rw [] >>
- fs [FLOOKUP_DEF, DISJOINT_DEF, EXTENSION] >>
- metis_tac [match_result_distinct, match_result_11]);
-
-val evaluate_exp_i2_exh_weak = Q.prove (
-`(∀b tmp_env s e res.
-   evaluate_i2 b tmp_env s e res ⇒
-   !exh genv env exh'.
-     SND res ≠ Rerr Rtype_error ∧
-     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
-     DISJOINT (FDOM exh') (FDOM exh) ⇒
-     evaluate_i2 b (FUNION exh' exh,genv,env) s e res) ∧
- (∀b tmp_env s es res.
-   evaluate_list_i2 b tmp_env s es res ⇒
-   !exh genv env exh'.
-     SND res ≠ Rerr Rtype_error ∧
-     tmp_env = ((exh:exh_ctors_env),genv,env) ∧
-     DISJOINT (FDOM exh') (FDOM exh) ⇒
-     evaluate_list_i2 b (FUNION exh' exh,genv,env) s es res) ∧
- (∀b tmp_env s v pes err_v res.
-   evaluate_match_i2 b tmp_env s v pes err_v res ⇒
-   !(exh:exh_ctors_env) genv env exh'.
-     SND res ≠ Rerr Rtype_error ∧
-     tmp_env = (exh,genv,env) ∧
-     DISJOINT (FDOM exh') (FDOM exh) ⇒
-     evaluate_match_i2 b (FUNION exh' exh,genv,env) s v pes err_v res)`,
- ho_match_mp_tac evaluate_i2_ind >>
- rw [] >>
- rw [Once evaluate_i2_cases] >>
- fs [all_env_i2_to_env_def, all_env_i2_to_genv_def] >>
- metis_tac [pmatch_i2_exh_weak, match_result_distinct]);
 
 val FOLDL_insert_tag_env = prove(
   ``∀ls tagenv.
