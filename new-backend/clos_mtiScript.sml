@@ -524,8 +524,126 @@ val intro_multi_sing = Q.prove (
  Cases_on `x` >>
  rw [intro_multi_def]);
 
+ (*
+val intro_multi_op = Q.prove (
+`!op vs1 vs2 s1 s2 v1' s1'.
+ LIST_REL val_rel vs1 vs2 ∧
+ state_rel s1 s2 ∧
+ cEvalOp op vs1 s1 = SOME (v1',s1')
+ ⇒
+ ?v2' s2'. 
+   val_rel v1' v2' ∧
+   state_rel s1' s2' ∧
+   cEvalOp op vs2 s2 = SOME (v2', s2')`,
+ cheat);
 
-(* HERE
+val intro_multi_rec = Q.prove (
+`EVERY (λ(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns ∧
+ LIST_REL val_rel env1 env2 ∧
+ n < LENGTH fns
+ ⇒
+ val_rel (Recclosure loc [] env1 fns n)
+  (Recclosure loc [] env2
+     (MAP
+        (λ(num_args,e').
+           (λ(num_args',e''). (num_args',HD (intro_multi [e''])))
+             (collect_args num_args e')) fns) n)`,
+
+ rw [val_rel_cases, cl_ok_def, EL_MAP, PULL_FORALL] >>
+ Cases_on `EL n fns` >>
+ rw [PULL_FORALL] >>
+ Cases_on `collect_args q r` >>
+ rw [] >>
+ Cases_on `collect_all_args q r` >>
+ rw [norm_closure_def, EL_MAP, PULL_FORALL] >>
+ imp_res_tac norm_exp_thm >>
+ pop_assum (qspec_then `HD (intro_multi [r'])` assume_tac) >>
+ fs [] >>
+ assume_tac intro_multi_sing >>
+ fs [] >>
+ Cases_on `norm_exp (q,r)` >>
+ fs [EVERY_MEM] >>
+ `MEM (EL n fns) fns` by metis_tac [MEM_EL] >>
+ res_tac >>
+ pop_assum mp_tac >>
+ ASM_REWRITE_TAC [] >>
+ simp [] >>
+ rw []  
+ >- metis_tac [collect_args_zero, DECIDE ``0 < x ⇔ x ≠ 0:num``] >>
+ match_mp_tac EVERY2_APPEND_suff >>
+ rw [LIST_REL_EL_EQN, Once val_rel_cases, cl_ok_def, EL_MAP, norm_closure_def] >>
+
+
+ , norm_exp_def] >>
+ MAP_EVERY qexists_tac [`HD (intro_multi [r''])`, `q''`, 
+                        `GENLIST (Recclosure loc [] env1 fns) (LENGTH fns) ++ env1`,
+                        `GENLIST
+       (Recclosure loc [] env2
+          (MAP
+             (λ(num_args,e').
+                (λ(num_args',e''). (num_args',HD (intro_multi [e''])))
+                  (collect_args num_args e')) fns)) (LENGTH fns) ++ env2`] >>
+ rw [] >>
+ fs [EVERY_MEM] >>
+ rw [] >>
+rw []
+
+
+
+
+val intro_multi_build_recc = Q.prove (
+`!env1 env2 env1' fns.
+ EVERY (λ(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns ∧
+ LIST_REL val_rel env1 env2 ∧
+ build_recc restrict loc env1 names fns = SOME env1'
+ ⇒
+ ?env2'.
+   LIST_REL val_rel env1' env2' ∧
+   build_recc restrict loc env2 names 
+          (MAP
+            (λ(num_args,e').
+               (λ(num_args',e''). (num_args',HD (intro_multi [e''])))
+                 (collect_args num_args e')) fns) = SOME env2'`,
+
+ rw [build_recc_def, clos_env_def] >>
+ ect >>
+ fs [] >>
+ rw [LIST_REL_EL_EQN] >>
+ imp_res_tac lookup_vars_list_rel >>
+ pop_assum (qspec_then `names` assume_tac) >>
+ rfs [OPTREL_def] >>
+
+
+ >- cheat
+ >- cheat
+
+ Cases_on `EL n fns` >>
+ rw [norm_exp_def, PULL_FORALL] >>
+ Cases_on `collect_args q r` >>
+ rw [] >>
+ Cases_on `collect_all_args q r` >>
+ rw [] 
+
+ MAP_EVERY qexists_tac [`HD (intro_multi [r''])`, `q''`, 
+                        `GENLIST (Recclosure loc [] env1 fns) (LENGTH fns) ++ env1`,
+                        `GENLIST
+       (Recclosure loc [] env2
+          (MAP
+             (λ(num_args,e').
+                (λ(num_args',e''). (num_args',HD (intro_multi [e''])))
+                  (collect_args num_args e')) fns)) (LENGTH fns) ++ env2`] >>
+ rw [] >>
+ fs [EVERY_MEM] >>
+ rw [] >>
+ `MEM (EL n fns) fns` by metis_tac [MEM_EL] >>
+ res_tac >>
+ pop_assum mp_tac >>
+ ASM_REWRITE_TAC [] >>
+ simp [] >>
+ rw []
+ >- metis_tac [collect_args_zero, DECIDE ``0 < x ⇔ x ≠ 0:num``]
+ >- 
+
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
@@ -599,10 +717,10 @@ val intro_multi_correct = Q.prove (
      rw []
      >- (fs [] >>
          rw [] >>
-         `HD a = Block 0 [] ∨ HD a = Block 1 []`
-               by (Cases_on `Block 1 [] = HD a` >>
+         `HD a = bool_to_val T ∨ HD a = bool_to_val F`
+               by (Cases_on `bool_to_val T = HD a` >>
                    fs [] >>
-                   Cases_on `HD a = Block 0 []` >>
+                   Cases_on `HD a = bool_to_val F` >>
                    fs []) >>
          fs [] >>
          rw [] >>
@@ -610,15 +728,13 @@ val intro_multi_correct = Q.prove (
          rw [] >>
          res_tac >>
          simp [] >>
-         qexists_tac `res''''` >>
-         qexists_tac `s2''''` >>
          simp [] >>
          imp_res_tac cEval_length_imp >>
          `LENGTH vs' =  LENGTH [x1]` by metis_tac [intro_multi_length] >>
          `HD vs' = HD a`
                by (Cases_on `vs'` >>
                    Cases_on `a` >>
-                   fs [] >>
+                   fs [bool_to_val_def] >>
                    rw [] >>
                    fs [val_rel_cases, norm_closure_def]) >>
          fs [] >>
@@ -666,7 +782,19 @@ val intro_multi_correct = Q.prove (
      res_tac >>
      fs [res_rel_cases] >>
      rw [intro_multi_sing])
- >- cheat
+ >- (fs [cEval_def, intro_multi_def] >>
+     rw [] >>
+     ect >>
+     fs [] >>
+     rw [res_rel_cases, intro_multi_def, cEval_def] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     fs [res_rel_cases] >>
+     rw [] >>
+     `LIST_REL val_rel (REVERSE a) (REVERSE vs')` by metis_tac [EVERY2_REVERSE] >>
+     imp_res_tac intro_multi_op >>
+     rw [])
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
      rw [cEval_def] >>
@@ -702,8 +830,13 @@ val intro_multi_correct = Q.prove (
      full_simp_tac pure_ss [] >>
      fs [] >>
      Cases_on `build_recc s.restrict_envs loc env names fns` >>
-     fs []
-     simp [EVERY_MAP]
+     fs [] >>
+     simp [EVERY_MAP] >>
+     fs [EVERY_MEM, FORALL_PROD] >>
+     ect >>
+     rw []
+
+
 
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
@@ -751,6 +884,7 @@ val intro_multi_correct = Q.prove (
      res_tac >>
      `s1'.clock ≠ 0` by (fs [state_rel_def] >> metis_tac []) >>
      metis_tac [intro_multi_sing])
+
  >- (fs [cEval_def, intro_multi_def] >>
      rw [cEval_def, intro_multi_def] >>
      Cases_on `cEval (xs,env,s1)` >>
@@ -773,7 +907,7 @@ val intro_multi_correct = Q.prove (
      fs [res_rel_cases] >>
      metis_tac [])
 
->- ((* Real application *)
+ >- ((* Real application *)
      fs [cEval_def] >>
      qabbrev_tac `args = v41::v42` >>
      rw [] >>
