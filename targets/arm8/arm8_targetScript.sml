@@ -888,9 +888,7 @@ local
            |> arm8_state_rule
            |> REWRITE_RULE [th1, lem2, lem3, lem5, lem6]
       end
-   val (_, _, dest_Decode, is_Decode) =
-      HolKernel.syntax_fns "arm8" 1 HolKernel.dest_monop HolKernel.mk_monop
-         "Decode"
+   val (_, _, dest_Decode, is_Decode) = HolKernel.syntax_fns1 "arm8" "Decode"
    val find_Decode = HolKernel.bvk_find_term (is_Decode o snd) dest_Decode
 in
    val filter_reg_31 = List.filter (not o List.exists is_reg_31 o Thm.hyp)

@@ -687,9 +687,7 @@ local
       end
    fun step P state =
       gen_v P o Q.INST [`s` |-> state] o Drule.DISCH_ALL o x64_stepLib.x64_step
-   val (_, _, _, is_x64_decode) =
-      HolKernel.syntax_fns "x64" 1 HolKernel.dest_monop HolKernel.mk_monop
-                  "x64_decode"
+   val (_, _, _, is_x64_decode) = HolKernel.syntax_fns1 "x64" "x64_decode"
    val find_x64_decode = Lib.total (HolKernel.find_term is_x64_decode)
 in
    fun is_bytes_in_memory tm =

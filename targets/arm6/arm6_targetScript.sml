@@ -727,8 +727,7 @@ val bytes_in_memory_thm2 = Q.prove(
    \\ simp []
    )
 
-val arm_op2 =
-   HolKernel.syntax_fns "arm" 2 HolKernel.dest_binop HolKernel.mk_binop
+val arm_op2 = HolKernel.syntax_fns2 "arm"
 
 local
    fun gen_v P thm =

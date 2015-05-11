@@ -75,7 +75,8 @@ local
    fun mk5 tm (a, b, c, d, e) = boolSyntax.list_mk_icomb (tm, [a, b, c, d, e])
 in
    val (_, mk_bytes_in_memory, dest_bytes_in_memory, _) =
-      HolKernel.syntax_fns "asm" 5 dest5 mk5 "bytes_in_memory"
+      HolKernel.syntax_fns {n = 5, dest = dest5, make = mk5}
+        "asm" "bytes_in_memory"
 end
 
 val strip_bytes_in_memory =

@@ -1,11 +1,10 @@
 structure holSyntaxSyntax = struct
 local
   open HolKernel holSyntaxTheory
-  fun syntax_fns n m d = HolKernel.syntax_fns "holSyntax" n m d
 in
 
   local
-    val s = syntax_fns 1 dest_monop mk_monop
+    val s = HolKernel.syntax_fns1 "holSyntax"
   in
     val (Tyvar_tm,mk_Tyvar,dest_Tyvar,is_Tyvar) = s "Tyvar"
     val (welltyped_tm,mk_welltyped,dest_welltyped,is_welltyped) = s "welltyped"
@@ -13,7 +12,7 @@ in
   end
 
   local
-    val s = syntax_fns 2 dest_binop mk_binop
+    val s = HolKernel.syntax_fns2 "holSyntax"
   in
     val (Tyapp_tm,mk_Tyapp,dest_Tyapp,is_Tyapp) = s "Tyapp"
     val (Var_tm,mk_Var,dest_Var,is_Var) = s "Var"

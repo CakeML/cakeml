@@ -483,13 +483,11 @@ local
            |> v2w_n2w_rule
            |> REWRITE_RULE [th1, lem1]
       end
-   val s1 =
-      HolKernel.syntax_fns "mips" 1 HolKernel.dest_monop HolKernel.mk_monop
+   val s1 = HolKernel.syntax_fns1 "mips"
    val (_, _, dest_Decode, is_Decode) = s1 "Decode"
    val (_, mk_mips_state_BranchDelay, _, _) = s1 "mips_state_BranchDelay"
    val (_, _, dest_NextStateMIPS, is_NextStateMIPS) =
-      HolKernel.syntax_fns "mips_step" 1 HolKernel.dest_monop HolKernel.mk_monop
-         "NextStateMIPS"
+      HolKernel.syntax_fns1 "mips_step" "NextStateMIPS"
    val get_BranchDelay =
       (utilsLib.rhsc o Conv.QCONV (SIMP_CONV (srw_ss()) []) o
        mk_mips_state_BranchDelay)
