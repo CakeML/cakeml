@@ -7,9 +7,6 @@ open conLangTheory (* for true/false tags *);
 
 infix \\ val op \\ = op THEN;
 
-val _ = type_abbrev("num_map",``:'a spt``);
-val _ = type_abbrev("num_set",``:unit spt``);
-
 (* BVL = bytecode-value language *)
 
 (* BVL aims to be the point where the old and new CakeML compiler
@@ -589,7 +586,7 @@ val mk_tick_def = Define `
 
 val bEval_mk_tick = Q.store_thm ("bEval_mk_tick",
 `!exp env s n.
-  bEval ([mk_tick n exp], env, s) = 
+  bEval ([mk_tick n exp], env, s) =
     if s.clock < n then
       (TimeOut, s with clock := 0)
     else
@@ -713,7 +710,7 @@ val bEval_add_clock = Q.store_thm ("bEval_add_clock",
      rfs [inc_clock_def, dec_clock_def] >>
      rw []
      >- decide_tac >>
-     `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >> 
+     `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
      metis_tac []));
 
 (* clean up *)

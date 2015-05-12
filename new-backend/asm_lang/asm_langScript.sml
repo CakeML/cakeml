@@ -38,6 +38,11 @@ val () = Datatype `
 val () = Parse.temp_type_abbrev ("asm_prog", ``:('a sec) list``);
 
 
+(* -- SEMANTICS -- *)
+
+
+
+
 (* -- ASSEMBLER FUNCTION -- *)
 
 (* basic assemble function *)
@@ -211,7 +216,7 @@ val remove_labels_def = Define `
        number of times the lengths can be adjusted. In most cases,
        clock = 0 should be enough. If this were to hit the clock limit
        then something is badly wrong. Worth testing with the clock
-       limit set to low values to see hoq many iterations are used. *)
+       limit set to low values to see how many iterations are used. *)
     remove_labels_loop 1000000 c enc (enc_sec_list enc sec_list)`;
 
 val _ = export_theory();

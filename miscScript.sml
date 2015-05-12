@@ -1,4 +1,4 @@
-open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib
+open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib Parse
 open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
@@ -131,6 +131,9 @@ val LUPDATE_SAME = store_thm("LUPDATE_SAME",
 val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
   ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,
   Cases >> simp[])
+
+val _ = type_abbrev("num_set",``:unit spt``);
+val _ = type_abbrev("num_map",``:'a spt``);
 
 val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
@@ -1083,5 +1086,23 @@ val map_some_eq_append = Q.store_thm ("map_some_eq_append",
 metis_tac [map_some_eq, MAP_APPEND]);
 
 val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
+
+
+(* list misc *)
+
+val LAST_N_def = Define `
+  LAST_N n xs = REVERSE (TAKE n (REVERSE xs))`;
+
+val LAST_N_LENGTH = store_thm("LAST_N_LENGTH",
+  ``!xs. LAST_N (LENGTH xs) xs = xs``,
+  fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
+  \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ fs []);
+
+val LAST_N_TL = store_thm("LAST_N_TL",
+  ``n < LENGTH xs ==>
+    (LAST_N (n+1) (x::xs) = LAST_N (n+1) xs)``,
+  fs [LAST_N_def] \\ REPEAT STRIP_TAC
+  \\ `n+1 <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
+  \\ imp_res_tac TAKE_APPEND1 \\ fs []);
 
 val _ = export_theory()

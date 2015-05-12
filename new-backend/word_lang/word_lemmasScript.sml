@@ -6,7 +6,7 @@ open sortingTheory relationTheory
 open wordsLib
 *)
 (*TODO: remove the last_n lemmas*)
-open bvp_lemmasTheory miscTheory
+open miscTheory
 
 val _ = new_theory "word_lemmas";
 
@@ -197,10 +197,10 @@ val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",
   !s t s'.
   s.gc_fun = t.gc_fun ∧
   s.memory = t.memory ∧
-  s.mdomain = t.mdomain ∧ 
+  s.mdomain = t.mdomain ∧
   s.store = t.store ∧
   s_val_eq s.stack t.stack ∧
-  wGC s = SOME s' ⇒ 
+  wGC s = SOME s' ⇒
   ?t'.
   wGC t = SOME t' ∧
   s_val_eq s'.stack t'.stack ∧
@@ -215,7 +215,7 @@ val wGC_s_val_eq_gen = store_thm ("wGC_s_val_eq_gen",
   qpat_assum`A=s'` (SUBST_ALL_TAC o SYM)>>
   IMP_RES_TAC dec_stack_stack_key_eq>>fs[]>>
   metis_tac[s_val_eq_sym])
- 
+
 (*pushing and popping maintain the stack_key relation*)
 val push_env_pop_env_s_key_eq = store_thm("push_env_pop_env_s_key_eq",
   ``!s t x opt. s_key_eq (push_env x opt s).stack t.stack ==>
@@ -268,7 +268,7 @@ val s_val_eq_LAST_N = prove(
   ``!s t n. s_val_eq s t
     ==> s_val_eq (LAST_N n s) (LAST_N n t)``,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  rw[bvpTheory.LAST_N_def]>>fs[s_val_eq_def]>>
+  rw[LAST_N_def]>>fs[s_val_eq_def]>>
   `s_val_eq [x] [y]` by fs[s_val_eq_def]>>
   `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     fs[s_val_eq_APPEND,s_val_eq_REVERSE]>>
@@ -295,7 +295,7 @@ val s_key_eq_LAST_N = prove(
   ``!s t n. s_key_eq s t
     ==> s_key_eq (LAST_N n s) (LAST_N n t)``,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  rw[bvpTheory.LAST_N_def]>>fs[s_key_eq_def]>>
+  rw[LAST_N_def]>>fs[s_key_eq_def]>>
   `s_key_eq [x] [y]` by fs[s_key_eq_def]>>
   `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     fs[s_key_eq_APPEND,s_key_eq_REVERSE]>>
@@ -642,7 +642,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
         (`x'' with <|locals := insert x'0 w0 x''.locals; stack := t|> =
         r' with <|locals := insert x'0 w0 x''.locals; stack := t; handler:=s.handler|>` by
           fs[word_state_component_equality]>>
-        pop_assum SUBST_ALL_TAC>> 
+        pop_assum SUBST_ALL_TAC>>
         rw[]>>
         metis_tac[word_state_component_equality,EQ_SYM_EQ,s_key_eq_trans])))>-
      (*Exception*)
@@ -675,7 +675,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
        PairCases_on`x''`>>
        fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def]>>
        BasicProvers.EVERY_CASE_TAC>>rfs[set_var_def]>>fs[]>>
-       `r'.handler = s.handler` by 
+       `r'.handler = s.handler` by
        (`LENGTH s.stack +1 =
         LENGTH (StackFrame (list_rearrange (s.permute 0)
            (QSORT key_val_compare (toAList x')))
@@ -707,7 +707,7 @@ val wEval_stack_swap = store_thm("wEval_stack_swap",
           LENGTH s.stack +1 = LENGTH (frame::xs)` by
            fs[arithmeticTheory.ADD1,s_val_eq_length]>>
           fs[LAST_N_LENGTH_cond]>>
-          `MAP FST lss = MAP FST lss'` by metis_tac[EQ_SYM_EQ]>> 
+          `MAP FST lss = MAP FST lss'` by metis_tac[EQ_SYM_EQ]>>
           `lss = lss'` by fs[LIST_EQ_MAP_PAIR]>>
           fs[]>>
           last_x_assum(qspec_then `st` assume_tac)>>

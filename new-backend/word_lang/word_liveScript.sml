@@ -83,7 +83,7 @@ val get_live_def = Define`
     let e3_live = get_live e3 live in
     let union_live = union e2_live e3_live in
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
-      | _ => insert r1 () union_live) ∧  
+      | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
@@ -698,7 +698,7 @@ val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
   st.stack = cst.stack ∧
   domain y = IMAGE f (domain x) ∧
   INJ f (domain x) UNIV ∧
-  strong_locals_rel f (domain x) x y ∧ 
+  strong_locals_rel f (domain x) x y ∧
   (case b of NONE => b' = NONE
          |  SOME(w,h,l1,l2) =>
             (case b' of NONE => F
@@ -1185,8 +1185,8 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
     rw[]>>fs[]>>
     Cases_on`st.clock=0`>>fs[call_env_def]>>
-    qpat_abbrev_tac`f_o0:(num# 'a word_prog #num # num) option = 
-      case o0 of NONE => NONE 
+    qpat_abbrev_tac`f_o0:(num# 'a word_prog #num # num) option =
+      case o0 of NONE => NONE
       | SOME (v,prog,l1,l2) => SOME (f v,apply_colour f prog,l1,l2)`>>
     Q.ISPECL_THEN[
       `y`,`x'`,`st with clock := st.clock-1`,
@@ -1313,7 +1313,7 @@ val wEval_apply_colour = store_thm("wEval_apply_colour",
         fs[push_env_def,env_to_list_def,LET_THM]>>
         Cases_on`st.handler < LENGTH st.stack`
         >-
-          (imp_res_tac bvp_lemmasTheory.LAST_N_TL>>
+          (imp_res_tac LAST_N_TL>>
           rfs[]>>fs[])
         >>
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
@@ -1669,8 +1669,8 @@ val every_var_exp_get_live_exp = prove(
 val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
 ``∀prog live.
   let (hd,clash_sets) = get_clash_sets prog live in
-  let ls = hd::clash_sets in 
-  (∀x. x ∈ domain live ⇒ in_clash_sets ls x) ∧ 
+  let ls = hd::clash_sets in
+  (∀x. x ∈ domain live ⇒ in_clash_sets ls x) ∧
   (every_var (in_clash_sets ls) prog)``,
   completeInduct_on`word_prog_size (K 0) prog`>>
   ntac 2 (fs[Once PULL_FORALL])>>
@@ -1740,7 +1740,7 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     match_mp_tac every_var_exp_mono>>
     HINT_EXISTS_TAC>>rw[in_clash_sets_def]>>
     qexists_tac`insert n () (union (get_live_exp w) live)`>>
-    fs[domain_union]) 
+    fs[domain_union])
   >-
     (*Call*)
     (Cases_on`o'`>>fs1
@@ -1842,5 +1842,5 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
   >>
     (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
     qexists_tac`insert n () (insert n0 () live)`>>fs[]))
-    
+
 val _ = export_theory();

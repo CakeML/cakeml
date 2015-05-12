@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp_lemmas";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bvlTheory bviTheory bvpTheory;
+open bvlTheory bviTheory bvpTheory miscTheory;
 open sptreeTheory lcsymtacs;
 
 val bvp_state_explode = store_thm("bvp_state_explode",
@@ -27,18 +27,6 @@ val lookup_inter_EQ = store_thm("lookup_inter_EQ",
     ((lookup x (inter t1 t2) = NONE) <=>
        (lookup x t1 = NONE) \/ (lookup x t2 = NONE))``,
   fs [lookup_inter] \\ REPEAT BasicProvers.CASE_TAC);
-
-val LAST_N_LENGTH = store_thm("LAST_N_LENGTH",
-  ``!xs. LAST_N (LENGTH xs) xs = xs``,
-  fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
-  \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ fs []);
-
-val LAST_N_TL = store_thm("LAST_N_TL",
-  ``n < LENGTH xs ==>
-    (LAST_N (n+1) (x::xs) = LAST_N (n+1) xs)``,
-  fs [LAST_N_def] \\ REPEAT STRIP_TAC
-  \\ `n+1 <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
-  \\ imp_res_tac TAKE_APPEND1 \\ fs []);
 
 val pEval_locals_LN_lemma = prove(
   ``!c s.

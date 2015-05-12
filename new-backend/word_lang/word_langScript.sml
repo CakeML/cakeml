@@ -3,9 +3,11 @@ val _ = new_theory "word_lang";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open wordsTheory sptreeTheory lcsymtacs bvpTheory asmTheory;
+open wordsTheory sptreeTheory lcsymtacs miscTheory asmTheory;
 
 infix \\ val op \\ = op THEN;
+
+val _ = ParseExtras.tight_equality ();
 
 (* word lang = structured program with words, stack and memory *)
 
@@ -43,7 +45,7 @@ val _ = Datatype `
                    (* return var, cut-set, return-handler code, labels l1,l2*)
                    (num option) (* target of call *)
                    (num list) (* arguments *)
-                   ((num # word_prog # num # num) option) 
+                   ((num # word_prog # num # num) option)
                    (* handler: varname, exception-handler code, labels l1,l2*)
             | Seq word_prog word_prog
             | If cmp num ('a reg_imm) word_prog word_prog
@@ -284,7 +286,7 @@ val push_env_def = Define `
     let (l,permute) = env_to_list env s.permute in
       s with <| stack := StackFrame l NONE :: s.stack
               ; permute := permute|>) ∧
-  (push_env env (SOME (w:num,h:'a word_prog,l1,l2)) s = 
+  (push_env env (SOME (w:num,h:'a word_prog,l1,l2)) s =
     let (l,permute) = env_to_list env s.permute in
       let handler = SOME (s.handler,l1,l2) in
       s with <| stack := StackFrame l handler :: s.stack
@@ -335,7 +337,7 @@ val pop_env_clock = prove(
 
 val push_env_clock = prove(
   ``(push_env env b s).clock = s.clock``,
-  Cases_on `b` \\ TRY(PairCases_on`x`) \\ fs [push_env_def] 
+  Cases_on `b` \\ TRY(PairCases_on`x`) \\ fs [push_env_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
 
@@ -445,7 +447,7 @@ val wInst_def = Define `
     | _ => NONE`
 
 val get_var_imm_def = Define`
-  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧ 
+  (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧
   (get_var_imm (Imm w) s = SOME(Word w))`
 
 val wEval_def = tDefine "wEval" `
@@ -502,7 +504,7 @@ val wEval_def = tDefine "wEval" `
         | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
   (wEval (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) => 
+    | SOME (Word x),SOME (Word y) =>
       if word_cmp cmp x y then wEval (c1,s)
                           else wEval (c2,s)
     | _ => (SOME Error,s))) /\
@@ -530,7 +532,7 @@ val wEval_def = tDefine "wEval" `
 		       (push_env env handler (dec_clock s))) of
 		| (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
-      else 
+      else
 		   (case pop_env s2 of
 		    | NONE => (SOME Error,s2)
 		    | SOME s1 =>
@@ -588,7 +590,7 @@ val wAlloc_clock = store_thm("wAlloc_clock",
   \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   >- (IMP_RES_TAC wGC_clock \\
-     fs[push_env_def,LET_THM,env_to_list_def] \\  
+     fs[push_env_def,LET_THM,env_to_list_def] \\
      unabbrev_all_tac>>fs[])
   \\ REPEAT BasicProvers.FULL_CASE_TAC \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
@@ -624,7 +626,7 @@ val wEval_clock = store_thm("wEval_clock",
   \\ IMP_RES_TAC check_clock_IMP
   \\ IMP_RES_TAC wAlloc_clock
   \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,
-       add_space_def,jump_exc_def,get_var_def,push_env_clock,set_vars_def,
+       jump_exc_def,get_var_def,push_env_clock,set_vars_def,
        call_env_def,cut_state_def,set_store_def,mem_store_def]
   \\ REV_FULL_SIMP_TAC std_ss [] \\ RES_TAC
   \\ IMP_RES_TAC pop_env_clock
