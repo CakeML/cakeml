@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open wordsTheory lcsymtacs;
+open wordsTheory lcsymtacs
 
 val () = new_theory "asm"
 
@@ -432,61 +432,5 @@ val backend_correct_alt_def = Define `
       asm_step enc config s1 s2 /\ R s1 ms ==>
       ?n. !env. interference_ok (env:num->'b->'b) proj ==>
                 R s2 (num_fold (\s i. env i (next s)) ms (n + 1))`;
-
-(* -- observable semantics -- *)
-
-val () = Datatype `
-  Observable = Terminates | Diverges | Fails `;
-
-val asm_semantics_def = Define `
-  asm_semantics env c exit_pc s =
-    (* Execution terminates if asm_steps eventually reaches exit_pc *)
-    if ?s'. RTC (asm_step env c) s s' /\ (s'.pc = exit_pc) then Terminates else
-    (* Execution diverges if an unbounded number of asm_steps can be performed. *)
-    if !n. ?s'. NRC (asm_step env c) n s s' then Diverges else
-    (* In all other case, the semantics gets stuck, i.e. fails. *)
-      Fails`
-
-val backend_semantics_def = Define `
-  backend_semantics next exit_pc R state =
-    (* Execution terminates if execution eventually reaches exit_pc *)
-    if ?n s. R s (FUNPOW next n state) /\ (s.pc = exit_pc) then Terminates else
-    (* In all other cases, the backend is said to diverge *)
-      Diverges`
-
-(* equivalence proof *)
-
-val asm_semantics_NOT_Fails = prove(
-  ``asm_semantics env c exit_pc s <> Fails <=>
-    (asm_semantics env c exit_pc s = Terminates) /\
-    (?s'. RTC (asm_step env c) s s' /\ (s'.pc = exit_pc)) \/
-    (asm_semantics env c exit_pc s = Diverges) /\
-    ~(?s'. RTC (asm_step env c) s s' /\ (s'.pc = exit_pc)) /\
-    !n. ?s'. NRC (asm_step env c) n s s'``,
-  fs [asm_semantics_def] \\ SRW_TAC [] [] \\ fs []);
-
-val RTC_asm_step_imp = prove(
-  ``backend_correct enc c next R ==>
-    (!s1 s2.
-       RTC (asm_step enc c) s1 s2 ==>
-       !state. R s1 state ==> ?n. R s2 (FUNPOW next n state))``,
-  STRIP_TAC \\ HO_MATCH_MP_TAC relationTheory.RTC_INDUCT
-  \\ REPEAT STRIP_TAC THEN1 (Q.EXISTS_TAC `0` \\ fs [])
-  \\ fs [backend_correct_def] \\ RES_TAC \\ RES_TAC
-  \\ fs [GSYM arithmeticTheory.FUNPOW_ADD] \\ METIS_TAC [])
-  |> MP_CANON;
-
-val backend_semantics_EQ_asm_semantics = prove(
-  ``!enc c exit_pc s state R enc next.
-      backend_correct enc c next R /\ R s state /\
-      asm_semantics enc c exit_pc s <> Fails ==>
-      (backend_semantics next exit_pc R state =
-       asm_semantics enc c exit_pc s)``,
-  REPEAT STRIP_TAC
-  \\ fs [backend_semantics_def,asm_semantics_NOT_Fails] \\ SRW_TAC [] []
-  THEN1 (IMP_RES_TAC RTC_asm_step_imp \\ fs [] \\ METIS_TAC [])
-  \\ cheat (* not provable because we know nothing about
-              the intermediate states of executing the
-              backend encoding of an asm instruction. *));
 
 val () = export_theory ()

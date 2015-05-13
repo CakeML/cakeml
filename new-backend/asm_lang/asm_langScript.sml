@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open asmTheory wordsTheory wordsLib sptreeTheory;
+open asmTheory wordsTheory wordsLib sptreeTheory ffiTheory;
 
 val _ = new_theory "asm_lang";
 
@@ -40,8 +40,47 @@ val () = Parse.temp_type_abbrev ("asm_prog", ``:('a sec) list``);
 
 (* -- SEMANTICS -- *)
 
+val _ = Datatype `
+  asml_state =
+    <| regs       : num -> 'a word
+     ; icache     : ('a word -> word8) option
+     ; mem        : 'a word -> word8
+     ; mem_domain : 'a word set
+     ; pc         : num
+     ; lr         : reg
+     ; align      : num
+     ; be         : bool
+     ; io_events  : io_trace
+     ; code       : 'a asm_prog
+     ; clock      : num
+     |>`
 
+val _ = Datatype `
+  asml_res = Terminate
+           | Error
+           | TimeOut`
 
+val is_Label_def = Define `
+  (is_Label (Label _ _) = T) /\
+  (is_Label _ = F)`;
+
+val flat_Section_def = Define `
+  flat_Section (Section _ xs) = FILTER (\x. ~(is_Label x)) xs`;
+
+val asm_fetch_def = Define `
+  asm_fetch s =
+    let code = FLAT (MAP flat_Section s.code) in
+      if s.pc < LENGTH code then
+        SOME (EL s.pc code)
+      else
+        NONE`;
+
+val asm_eval_def = Define `
+  asm_eval s =
+    case asm_fetch s of
+    | SOME i => case asml_step i s of
+                |
+    | _ => Error`
 
 (* -- ASSEMBLER FUNCTION -- *)
 
