@@ -240,9 +240,9 @@ let alloc_tag tn cn arity ((next,tagenv,exh),acc) =
       let tag =
         match nat_map_lookup next arity with
         | Nothing -> 0
-        | Just n -> n+1
+        | Just n -> n
         end in
-      ((nat_map_insert next arity tag,
+      ((nat_map_insert next arity (tag+1),
         insert_tag_env cn (arity,tag,tn) tagenv,
         exh),
        Map.insert cn (arity,tag,tn) acc)

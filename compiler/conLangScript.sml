@@ -304,9 +304,9 @@ val _ = Define `
       let tag =        
 ((case sptree$lookup arity next of
           NONE => 0
-        | SOME n => n+ 1
+        | SOME n => n
         )) in
-      ((sptree$insert arity tag next,
+      ((sptree$insert arity (tag+ 1) next,
         insert_tag_env cn (arity,tag,tn) tagenv,
         exh),acc |+ (cn, (arity,tag,tn)))
   | TypeId tid =>
