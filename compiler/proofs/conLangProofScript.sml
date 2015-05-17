@@ -1820,6 +1820,49 @@ val alloc_tag_cenv_inv = prove(
   spose_not_then strip_assume_tac >> rpt BasicProvers.VAR_EQ_TAC >>
   res_tac >> fs[same_tid_def] >> rw[] >> fs[])
 
+val FOLDL_alloc_tag_cenv_inv = prove(
+  ``∀constrs envC st gtagenv.
+    cenv_inv envC (get_exh (FST st)) (get_tagenv st) gtagenv ∧
+    tagenv_state_inv st gtagenv ∧
+    (∀cn. MEM cn (MAP FST constrs) ⇒ (cn,TypeId(mk_id mn tn)) ∉ FDOM gtagenv) ∧
+    ALL_DISTINCT (MAP FST constrs)
+    ⇒
+    let st' = FOLDL (λst (cn,ts). alloc_tag (TypeId (mk_id mn tn)) cn (LENGTH ts) st) st constrs in
+    ∃gtagenv'.
+    cenv_inv
+      (merge_alist_mod_env ([],REVERSE (MAP (λ(cn,ts). (cn,LENGTH ts,TypeId (mk_id mn tn))) constrs)) envC)
+      (get_exh (FST st'))
+      (get_tagenv st')
+      gtagenv' ∧
+    tagenv_state_inv st' gtagenv' ∧
+    gtagenv ⊑ gtagenv' ∧
+    FDOM gtagenv' = FDOM gtagenv ∪ { (cn,TypeId(mk_id mn tn)) | MEM cn (MAP FST constrs) }``,
+  ho_match_mp_tac SNOC_INDUCT >>
+  conj_tac >- (
+    simp[merge_alist_mod_env_empty] >>
+    metis_tac[SUBMAP_REFL] ) >>
+  rw[FOLDL_SNOC] >>
+  rw[MAP_SNOC,REVERSE_SNOC] >>
+  `∃cn ts. x = (cn,ts)` by metis_tac[PAIR] >>
+  fs[] >> BasicProvers.VAR_EQ_TAC >>
+  first_x_assum(qspecl_then[`envC`,`st`,`gtagenv`]mp_tac) >>
+  discharge_hyps >- (
+    fs[MAP_SNOC,ALL_DISTINCT_SNOC] ) >>
+  BasicProvers.LET_ELIM_TAC >> rfs[] >>
+  first_x_assum(mp_tac o MATCH_MP(
+    GEN_ALL(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tag_cenv_inv))) >>
+  disch_then(qspecl_then[`TypeId(mk_id mn tn)`,`cn`,`LENGTH ts`]mp_tac) >>
+  discharge_hyps >- (
+    fs[MAP_SNOC,ALL_DISTINCT_SNOC] ) >>
+  simp[merge_alist_mod_env_assoc,merge_alist_mod_env_def] >>
+  strip_tac >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >>
+  reverse conj_tac >- (
+    simp[EXTENSION] >>
+    metis_tac[] ) >>
+  metis_tac[SUBMAP_TRANS])
+
 val cenv_inv_to_mod = prove(
   ``∀mn st ls envC gtagenv.
     cenv_inv envC (get_exh (FST st)) (get_tagenv st) gtagenv ∧
