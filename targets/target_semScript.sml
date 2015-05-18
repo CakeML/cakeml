@@ -65,7 +65,9 @@ val mEval_def = Define `
                case LPOP io of
                | NONE => (Error IO_too_short,ms,io)
                | SOME (IO_event n bs,io) =>
-                  if w2n (s.regs config.len_reg) <> LENGTH bs then
+                  if n <> i then
+                    (Error IO_wrong_input,ms,io)
+                  else if w2n (s.regs config.len_reg) <> LENGTH bs then
                     (Error IO_wrong_input,ms,io)
                   else if has_bytearray (s.regs config.ptr_reg)
                            (MAP FST bs) s then
