@@ -1,5 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open asmTheory wordsTheory wordsLib sptreeTheory ffiTheory;
+open target_semTheory word_locTheory;
 
 val _ = new_theory "asm_lang";
 
@@ -21,11 +22,13 @@ val () = Datatype `
   asm_with_lab = Jump lab
                | JumpCmp cmp reg ('a reg_imm) lab
                | Call lab
-               | Loc reg lab`;
+               | LocValue reg lab
+               | CallFFI num
+               | Halt`;
 
 val () = Datatype `
   asm_line = Label num num
-           | Asm ('a asm) (word8 list) num
+           | Asm ('a inst) (word8 list) num
            | LabAsm ('a asm_with_lab) ('a word) (word8 list) num`
 
 (* A section consists a name (num) and a list of assembly lines. *)
@@ -41,10 +44,12 @@ val () = Parse.temp_type_abbrev ("asm_prog", ``:('a sec) list``);
 (* -- SEMANTICS -- *)
 
 val _ = Datatype `
+  word8_loc = Byte word8 | LocByte num num num`;
+
+val _ = Datatype `
   asml_state =
-    <| regs       : num -> 'a word
-     ; icache     : ('a word -> word8) option
-     ; mem        : 'a word -> word8
+    <| regs       : num -> 'a word_loc
+     ; mem        : 'a word -> word8_loc
      ; mem_domain : 'a word set
      ; pc         : num
      ; lr         : reg
@@ -53,12 +58,8 @@ val _ = Datatype `
      ; io_events  : io_trace
      ; code       : 'a asm_prog
      ; clock      : num
+     ; failed     : bool
      |>`
-
-val _ = Datatype `
-  asml_res = Terminate
-           | Error
-           | TimeOut`
 
 val is_Label_def = Define `
   (is_Label (Label _ _) = T) /\
@@ -75,12 +76,132 @@ val asm_fetch_def = Define `
       else
         NONE`;
 
-val asm_eval_def = Define `
+val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
+val upd_reg_def  = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
+val upd_mem_def  = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
+val read_reg_def = Define `read_reg r s = s.regs r`
+val read_mem_def = Define `read_mem a s = s.mem a`
+
+val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
+
+val reg_imm_def = Define `
+  (reg_imm (Reg r) s = read_reg r s) /\
+  (reg_imm (Imm w) s = Word w)`
+
+val binop_upd_def = Define `
+  (binop_upd r Add w1 w2 = upd_reg r (Word (w1 + w2))) /\
+  (binop_upd r Sub w1 w2 = upd_reg r (Word (w1 - w2))) /\
+  (binop_upd r And w1 w2 = upd_reg r (Word (word_and w1 w2))) /\
+  (binop_upd r Or  w1 w2 = upd_reg r (Word (word_or w1 w2))) /\
+  (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))`
+
+val word_cmp_def = Define `
+  (word_cmp Equal w1 w2 = (w1 = w2)) /\
+  (word_cmp Less w1 w2  = (w1 < w2)) /\
+  (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
+  (word_cmp Test w1 w2  = (w1 && w2 = 0w))`
+
+val word_shift_def = Define `
+  (word_shift Lsl w n = w << n) /\
+  (word_shift Lsr w n = w >>> n) /\
+  (word_shift Asr w n = w >> n)`
+
+val arith_upd_def = Define `
+  (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
+     case (read_reg r2 s, reg_imm ri s) of
+     | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
+     | _ => assert F s) /\
+  (arith_upd (Shift l r1 r2 n) s =
+     case read_reg r2 s of
+     | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s)`
+
+val addr_def = Define `
+  addr (Addr r offset) s =
+    case read_reg r s of
+    | Word w => SOME (w + offset)
+    | _ => NONE`
+
+val read_mem_list_def = Define `
+  (read_mem_list a 0 s = ([],s)) /\
+  (read_mem_list a (SUC n) s =
+     let (w,s1) = read_mem_list (if s.be then a - 1w else a + 1w) n s in
+       (w ++ [read_mem a s1], assert (a IN s1.mem_domain) s1))`
+
+val list_to_word_loc_def = Define `
+  (list_to_word_loc [] = NONE) /\
+  (list_to_word_loc [Byte b] = SOME (Word (w2w b))) /\
+  (list_to_word_loc (Byte b::rest) =
+     case list_to_word_loc rest of
+     | SOME (Word w) => SOME (Word (word_or (w << 8) (w2w b)))
+     | _ => NONE) /\
+  (list_to_word_loc [LocByte n1 n2 i] =
+     if i = 0 then SOME (Loc n1 n2) else NONE) /\
+  (list_to_word_loc (LocByte n1 n2 i::rest) =
+     if (LENGTH rest = i) /\
+        (list_to_word_loc rest = SOME (Loc n1 n2))
+     then SOME (Loc n1 n2)
+     else NONE)`
+
+val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
+
+val mem_load_def = Define `
+  mem_load n r a (s:'a asml_state) =
+    let ax = addr a s in
+    let a = THE ax in
+    let a = if s.be then a + n2w n else a in
+    let (l,s) = read_mem_list a n s in
+    let lx = list_to_word_loc l in
+    let s = upd_reg r (THE lx) s in
+      assert ((a && n2w (n - 1) = 0w) /\ lx <> NONE /\ ax <> NONE /\
+              (is_Loc (THE lx) ==> (n = dimindex (:'a) DIV 8))) s`
+
+val write_mem_list_def = Define `
+  (write_mem_list a [] s = s) /\
+  (write_mem_list a (l::ls) s =
+     let s1 = write_mem_list (if s.be then a - 1w else a + 1w) ls s in
+       assert (a IN s1.mem_domain) (upd_mem a l s1))`
+
+val word_loc_to_list_def = Define `
+  (word_loc_to_list (Loc n1 n2) n =
+     GENLIST (\n. LocByte n1 n2 n) n) /\
+  (word_loc_to_list (Word w) n =
+     GENLIST (\n. Byte (w2w (w >>> (8 * n)))) n)`;
+
+val mem_store_def = Define `
+  mem_store n r a (s:'a asml_state) =
+    let ax = addr a s in
+    let a = THE ax in
+    let a = if s.be then a + n2w n else a in
+    let w = read_reg r s in
+    let l = word_loc_to_list w n in
+    let s = write_mem_list a l s in
+      assert ((a && n2w (n - 1) = 0w) /\ ax <> NONE /\
+              (is_Loc w ==> (n = dimindex (:'a) DIV 8))) s`
+
+val mem_op_def = Define `
+  (mem_op Load r a = mem_load (dimindex (:'a) DIV 8) r a) /\
+  (mem_op Store r a = mem_store (dimindex (:'a) DIV 8) r a) /\
+  (mem_op Load8 r a = mem_load 1 r a) /\
+  (mem_op Store8 r a = mem_store 1 r a) /\
+  (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
+  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)`
+
+val asm_inst_def = Define `
+  (asm_inst Skip s = (s:'a asml_state)) /\
+  (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
+  (asm_inst (Arith x) s = arith_upd x s) /\
+  (asm_inst (Mem m r a) s = mem_op m r a s)`
+
+val asm_eval_def = tDefine "asm_eval" `
   asm_eval s =
     case asm_fetch s of
-    | SOME i => case asml_step i s of
-                |
-    | _ => Error`
+    | SOME (Asm i _ _) =>
+        (let s1 = asm_inst i s in
+           if s1.failed then (Error Internal,s) else
+             asm_eval s1)
+    | SOME (LabAsm al _ _ _) => ARB
+    | _ => (Error Internal,s)` cheat
+
 
 (* -- ASSEMBLER FUNCTION -- *)
 
@@ -90,12 +211,14 @@ val lab_inst_def = Define `
   (lab_inst w (Jump _) = Jump w) /\
   (lab_inst w (JumpCmp c r ri _) = JumpCmp c r ri w) /\
   (lab_inst w (Call _) = Call w) /\
-  (lab_inst w (Loc r _) = Loc r (w:'a word))`;
+  (lab_inst w (LocValue r _) = Loc r (w:'a word)) /\
+  (lab_inst w (Halt) = Jump w) /\
+  (lab_inst w (CallFFI n) = Jump w)`;
 
 val enc_line_def = Define `
   (enc_line enc (Label n1 n2) = Label n1 n2) /\
   (enc_line enc (Asm a _ _) =
-     let bs = enc a in Asm a bs (LENGTH bs)) /\
+     let bs = enc (Inst a) in Asm a bs (LENGTH bs)) /\
   (enc_line enc (LabAsm l _ _ _) =
      let bs = enc (lab_inst 0w l) in
        LabAsm l 0w bs (LENGTH bs))`
@@ -137,7 +260,7 @@ val get_label_def = Define `
   (get_label (Jump l) = l) /\
   (get_label (JumpCmp c r ri l) = l) /\
   (get_label (Call l) = l) /\
-  (get_label (Loc r l) = l)`;
+  (get_label (LocValue r l) = l)`;
 
 val lookup_any_def = Define `
   lookup_any x sp d =
@@ -173,11 +296,16 @@ val sec_length_def = Define `
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
 
+val full_sec_length_def = Define `
+  full_sec_length xs =
+    let k = sec_length xs 0 in
+      if ODD k then k+1 else k`;
+
 val enc_secs_again_def = Define `
   (enc_secs_again pos labs enc [] = []) /\
   (enc_secs_again pos labs enc ((Section s lines)::rest) =
      let lines1 = enc_line_again s labs pos enc lines in
-     let pos1 = pos + sec_length lines1 0 in
+     let pos1 = pos + full_sec_length lines1 in
        (Section s lines1)::enc_secs_again pos1 labs enc rest)`
 
 (* check/update length annotations *)
@@ -257,5 +385,30 @@ val remove_labels_def = Define `
        then something is badly wrong. Worth testing with the clock
        limit set to low values to see how many iterations are used. *)
     remove_labels_loop 1000000 c enc (enc_sec_list enc sec_list)`;
+
+(* code extraction *)
+
+val sec_bytes_def = Define `
+  (sec_bytes [] nop aux = aux) /\
+  (sec_bytes ((Label _ l)::xs) nop aux =
+     sec_bytes xs nop (if l < 1 then aux else nop::aux)) /\
+  (sec_bytes ((Asm x1 x2 l)::xs) nop aux =
+     sec_bytes xs nop (REVERSE x2 ++ aux)) /\
+  (sec_bytes ((LabAsm a w bytes l)::xs) nop aux =
+     sec_bytes xs nop (REVERSE bytes ++ aux))`
+
+val all_sec_bytes_def = Define `
+  (all_sec_bytes [] nop aux = REVERSE aux) /\
+  (all_sec_bytes ((Section s lines)::rest) nop aux =
+     let k = sec_length lines 0 in
+     let aux1 = sec_bytes lines nop aux in
+       all_sec_bytes rest nop (if ODD k then nop :: aux else aux))`
+
+(* compile asm_lang *)
+
+val aComp_def = Define `
+  aComp enc sec_list =
+    let nop = (case enc (Inst Skip) of [] => 0w | (x::xs) => x) in
+      all_sec_bytes sec_list nop []`;
 
 val _ = export_theory();
