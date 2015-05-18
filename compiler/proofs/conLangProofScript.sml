@@ -324,7 +324,18 @@ val FLOOKUP_weakened_exh_imp = prove(
     rpt BasicProvers.CASE_TAC >> simp[CONJUNCT1 sptreeTheory.lookup_def] >>
     imp_res_tac ALOOKUP_MEM >>
     rfs[Abbr`s`] >> rw[] >>
-    cheat ) >>
+    TRY disj1_tac >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qho_match_abbrev_tac`tag < (MAX_SET P) + 1` >>
+    qho_match_abbrev_tac`Q (MAX_SET P)` >>
+    match_mp_tac MAX_SET_ELIM >>
+    `P ⊆ IMAGE FST (FRANGE gtagenv')` by (
+      simp[Abbr`P`,SUBSET_DEF,IN_FRANGE_FLOOKUP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    (conj_tac >- metis_tac[FINITE_FRANGE,SUBSET_FINITE,IMAGE_FINITE]) >>
+    (conj_tac >- ( simp[Abbr`P`,EXTENSION] >> metis_tac[] )) >>
+    simp[Abbr`P`,Abbr`Q`,PULL_EXISTS] >>
+    rw[] >> res_tac >> simp[]) >>
   rpt gen_tac >> strip_tac >>
   rpt BasicProvers.CASE_TAC >> simp[CONJUNCT1 sptreeTheory.lookup_def] >>
   TRY(
@@ -332,7 +343,16 @@ val FLOOKUP_weakened_exh_imp = prove(
     rfs[Abbr`s`] >>
     metis_tac[]) >>
   imp_res_tac ALOOKUP_MEM >> rfs[Abbr`s`] >>
-  cheat)
+  qho_match_abbrev_tac`tag < (MAX_SET P) + 1` >>
+  qho_match_abbrev_tac`Q (MAX_SET P)` >>
+  match_mp_tac MAX_SET_ELIM >>
+  `P ⊆ IMAGE FST (FRANGE gtagenv')` by (
+    simp[Abbr`P`,SUBSET_DEF,IN_FRANGE_FLOOKUP,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  (conj_tac >- metis_tac[FINITE_FRANGE,SUBSET_FINITE,IMAGE_FINITE]) >>
+  (conj_tac >- ( simp[Abbr`P`,EXTENSION] >> metis_tac[] )) >>
+  simp[Abbr`P`,Abbr`Q`,PULL_EXISTS] >>
+  rw[] >> res_tac >> simp[])
 
 val exhaustive_env_weak = Q.prove (
 `!gtagenv gtagenv' exh.
