@@ -16,7 +16,7 @@ INFERI = infer_t
 COMPILER = modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
-LEMI = ../lib.lem,$(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
+LEMI = ../lib.lem $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
 LEMH = $(patsubst %,%.lem,$(COMPILER))
 
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)
