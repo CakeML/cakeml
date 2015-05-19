@@ -83,13 +83,19 @@ val _ = Hol_datatype `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn is_unconditional_defn;
 
-(*val get_tags : list pat_i2 -> nat_map nat -> maybe(nat_map nat)*)
+(*val get_tags : list pat_i2 -> nat_map nat_set -> maybe (nat_map nat_set)*)
  val _ = Define `
  (get_tags [] acc = (SOME acc))
 /\ (get_tags (p::ps) acc =  
 ((case p of
       Pcon_i2 (SOME (tag,_)) ps' =>
-        if EVERY is_unconditional ps' then get_tags ps (sptree$insert (LENGTH ps') tag acc)
+        if EVERY is_unconditional ps' then
+          let a = (LENGTH ps') in
+          (case sptree$lookup a acc of
+            SOME tags =>
+              get_tags ps (sptree$insert a (sptree$delete tag tags) acc)
+          | NONE => NONE
+          )
         else NONE
     | _ => NONE
   )))`;
@@ -102,14 +108,14 @@ val _ = Define `
   (case ps of
       Pcon_i2 (SOME (tag,TypeId t)) ps'::ps =>
         (EVERY is_unconditional ps' /\
-          (case get_tags ps sptree$LN of
+          (case FLOOKUP exh t of
               NONE => F
             | SOME tags =>
-                (case FLOOKUP exh t of
-                    NONE => F
-                  | SOME tags' =>
-                    (sptree$insert (LENGTH ps') tag tags) = tags'
-                )
+              (case get_tags ps (sptree$map (\ n. sptree$fromList (GENLIST (\ _ .  () ) n)) tags) of
+                NONE => F
+              | SOME result =>
+                  EVERY (\ s. s = sptree$LN) (sptree$toList result)
+              )
           ))
     | _ => F
   )))`;
