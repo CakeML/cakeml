@@ -17,6 +17,7 @@ val () = Datatype `
    end in a non-returning FFI call. *)
 
 val _ = type_abbrev("io_trace",``:io_event llist``);
+val _ = type_abbrev("fin_io_trace",``:io_event list``);
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
