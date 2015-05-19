@@ -2,6 +2,7 @@ open import Pervasives
 open import Ast
 open import SemanticPrimitives
 open import BigStep
+open import Lib
 
 val mk_binop : string -> op -> dec
 let mk_binop name prim =
@@ -80,7 +81,7 @@ let basis_program =
 type sem_environment = <| sem_envM : envM;
                           sem_envC : envC;
                           sem_envE : envE;
-                          sem_store : count_store v * set tid_or_exn * set modN |>
+                          sem_store : count_store_trace v * set tid_or_exn * set modN |>
 
 val add_to_sem_env : sem_environment -> prog -> maybe sem_environment
 let add_to_sem_env se prog =
@@ -99,7 +100,7 @@ let add_to_sem_env se prog =
 
 val prim_sem_env : maybe sem_environment
 let prim_sem_env =
-  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[]),{},{}) |> prim_types_program
+  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[],lnil),{},{}) |> prim_types_program
 
 val basis_sem_env : maybe sem_environment
 let basis_sem_env =

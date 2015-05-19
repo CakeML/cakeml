@@ -32,11 +32,11 @@ type ctxt = ctxt_frame * all_env
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-type state = all_env * store v * exp_or_val * list ctxt
+type state = all_env * store_trace v * exp_or_val * list ctxt
 
 type e_step_result =
   | Estep of state
-  | Etype_error
+  | Eabort of abort
   | Estuck
 
 (* The semantics are deterministic, and presented functionally instead of
@@ -44,19 +44,19 @@ type e_step_result =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : all_env -> store v -> exp -> ctxt_frame -> list ctxt -> e_step_result
+val push : all_env -> store_trace v -> exp -> ctxt_frame -> list ctxt -> e_step_result
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : all_env -> store v -> v -> list ctxt -> e_step_result
+val return : all_env -> store_trace v -> v -> list ctxt -> e_step_result
 let return env s v c = Estep (env, s, Val v, c)
 
-val application : op -> all_env -> store v -> list v -> list ctxt -> e_step_result
+val application : op -> all_env -> store_trace v -> list v -> list ctxt -> e_step_result
 let application op env s vs c = 
   match op with
     | Opapp ->
       match do_opapp vs with
         | Just (env,e) -> Estep (env, s, Exp e, c)
-        | Nothing -> Etype_error
+        | Nothing -> Eabort Rtype_error
       end
     | _ ->
       match do_app s op vs with
@@ -64,14 +64,14 @@ let application op env s vs c =
           match r with
             | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
             | Rval v -> return env s' v c
-            | _ -> Etype_error
+            | _ -> Eabort Rtype_error
           end
-        | Nothing -> Etype_error
+        | Nothing -> Eabort Rtype_error
       end
     end
 
 (* apply a context to a value *)
-val continue : store v -> v -> list ctxt -> e_step_result
+val continue : store_trace v -> v -> list ctxt -> e_step_result
 let continue s v cs =
   match cs with
     | [] -> Estuck
@@ -92,39 +92,39 @@ let continue s v cs =
         match do_log l v e with
           | Just (Exp e) -> Estep (env, s, Exp e, c)
           | Just (Val v) -> return env s v c
-          | Nothing -> Etype_error
+          | Nothing -> Eabort Rtype_error
         end
     | (Cif () e1 e2, env) :: c ->
         match do_if v e1 e2 with
           | Just e -> Estep (env, s, Exp e, c)
-          | Nothing -> Etype_error
+          | Nothing -> Eabort Rtype_error
         end
     | (Cmat () [] err_v, env) :: c ->
         Estep (env, s, Val err_v, ((Craise (), env) ::c))
     | (Cmat () ((p,e)::pes) err_v, (menv, cenv, env)) :: c ->
         if List.allDistinct (pat_bindings p []) then
-          match pmatch cenv s p v env with
-            | Match_type_error -> Etype_error
+          match pmatch cenv (fst s) p v env with
+            | Match_type_error -> Eabort Rtype_error
             | No_match -> Estep ((menv, cenv, env), s, Val v, ((Cmat () pes err_v,(menv, cenv, env))::c))
             | Match env' -> Estep ((menv, cenv, env'), s, Exp e, c)
           end
         else
-          Etype_error
+          Eabort Rtype_error
     | (Clet n () e, (menv, cenv, env)) :: c ->
         Estep ((menv, cenv, opt_bind n v env), s, Exp e, c)
     | (Ccon n vs () [], env) :: c ->
         if do_con_check (all_env_to_cenv env) n (List.length vs + 1) then
            match build_conv (all_env_to_cenv env) n (v::vs) with
-             | Nothing -> Etype_error
+             | Nothing -> Eabort Rtype_error
              | Just v -> return env s v c
            end
         else
-          Etype_error
+          Eabort Rtype_error
     | (Ccon n vs () (e::es), env) :: c ->
         if do_con_check (all_env_to_cenv env) n (List.length vs + 1 + 1 + List.length es) then
           push env s e (Ccon n (v::vs) () es) c
         else
-          Etype_error
+          Eabort Rtype_error
   end
 
 (* The single step expression evaluator.  Returns None if there is nothing to
@@ -150,17 +150,17 @@ let e_step (env, s, ev, c) =
                 match List.reverse es with
                   | [] -> 
                       match build_conv (all_env_to_cenv env) n [] with
-                        | Nothing -> Etype_error
+                        | Nothing -> Eabort Rtype_error
                         | Just v -> return env s v c
                       end
                   | e::es ->
                       push env s e (Ccon n [] () es) c
                 end
               else
-                Etype_error
+                Eabort Rtype_error
           | Var n ->
               match lookup_var_id n env with
-                | Nothing -> Etype_error
+                | Nothing -> Eabort Rtype_error
                 | Just v -> 
                     return env s v c
               end
@@ -176,7 +176,7 @@ let e_step (env, s, ev, c) =
           | Let n e1 e2 -> push env s e1 (Clet n () e2) c
           | Letrec funs e ->
               if not (allDistinct (List.map (fun (x,y,z) -> x) funs)) then
-                Etype_error
+                Eabort Rtype_error
               else
                 Estep ((all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)), 
                        s, Exp e, c)
@@ -186,7 +186,7 @@ let e_step (env, s, ev, c) =
 (* Define a semantic function using the steps *)
 
 val e_step_reln : state -> state -> bool
-val small_eval : all_env -> store v -> exp -> list ctxt -> store v * result v v -> bool
+val small_eval : all_env -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -198,14 +198,14 @@ and
 small_eval env s e c (s', Rerr (Rraise v)) =
   exists env' env''. (rtc e_step_reln) (env,s,Exp e,c) (env',s',Val v,[(Craise (), env'')])
 and
-small_eval env s e c (s', Rerr Rtype_error) =
+small_eval env s e c (s', Rerr (Rabort a)) =
   exists env' e' c'.
     (rtc e_step_reln) (env,s,Exp e,c) (env',s',e',c') &&
-    (e_step (env',s',e',c') = Etype_error)
+    (e_step (env',s',e',c') = Eabort a)
 and
-small_eval env s e c (s', Rerr Rtimeout_error) = false
+small_eval env s e c (s', Rerr (Rabort Rtimeout_error)) = false
 
-val e_diverges : all_env -> store v -> exp -> bool
+val e_diverges : all_env -> store_trace v -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
     (rtc e_step_reln) (env,s,Exp e,[]) (env',s',e',c')

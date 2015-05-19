@@ -27,7 +27,8 @@ type  behaviour =
        well-typed program. *)
   | Fail
 
-let  call_FFI n bytes io_trace =
+val call_FFI : nat -> list word8 -> io_trace -> maybe (list word8 * io_trace)
+let call_FFI n bytes io_trace =
   match lhd io_trace with
   | Just (IO_event n' xs) ->
       if (n = n') && (map fst xs = bytes) then

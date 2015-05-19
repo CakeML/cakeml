@@ -79,6 +79,8 @@ type op =
   | Asub
   | Alength
   | Aupdate
+  (* Call a given foreign function *)
+  | FFI of nat
 
 (* Logical operations *)
 type lop =

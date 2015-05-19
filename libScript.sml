@@ -75,6 +75,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*type llist 'a*)
 (*val lhd : forall 'a. llist 'a -> maybe 'a*)
 (*val ltl : forall 'a. llist 'a -> maybe (llist 'a)*)
+(*val lnil : forall 'a. llist 'a*)
 
 
 (* TODO: proper support for words... *)
