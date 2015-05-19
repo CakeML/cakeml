@@ -10,13 +10,13 @@ all: $(TARGETS)
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -suppress_renaming -auxiliary_level none
 
-SEMANTICSI = lib ast semanticPrimitives bigStep
+SEMANTICSI = ast semanticPrimitives bigStep
 BYTECODEI = bytecode
 INFERI = infer_t
 COMPILER = modLang conLang decLang exhLang patLang intLang toIntLang toBytecode compiler
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(COMPILER))
 
-LEMI = $(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
+LEMI = ../lib.lem,$(patsubst %,../semantics/%.lem,$(SEMANTICSI)) $(patsubst %,../bytecode/%.lem,$(BYTECODEI)) $(patsubst %,../inference/%.lem,$(INFERI))
 LEMH = $(patsubst %,%.lem,$(COMPILER))
 
 $(GEN_SCRIPTS): $(LEMI) $(LEMH)

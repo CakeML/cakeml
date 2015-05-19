@@ -13,7 +13,7 @@ SRC = tokens ast semanticPrimitives smallStep bigStep typeSystem initialProgram
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
-$(GENS): $(LEMS)
+$(GENS): $(LEMS) ../lib.lem
  	if type lem;\
  	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -hol $(LEMS);\
  	else touch $(GENS); fi
