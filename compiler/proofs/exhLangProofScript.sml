@@ -12,13 +12,18 @@ open compilerTerminationTheory;
 
 val _ = new_theory "exhLangProof";
 
+val tag_to_exh_def = Define`
+  tag_to_exh NONE = tuple_tag ∧
+  tag_to_exh (SOME p) = FST p`
+val _ = export_rewrites["tag_to_exh_def"]
+
 val (v_to_exh_rules, v_to_exh_ind, v_to_exh_cases) = Hol_reln `
 (!exh l.
   v_to_exh exh (Litv_i2 l) (Litv_exh l)) ∧
 (!exh t vs vs'.
   vs_to_exh exh vs vs'
   ⇒
-  v_to_exh exh (Conv_i2 t vs) (Conv_exh (FST t) vs')) ∧
+  v_to_exh exh (Conv_i2 t vs) (Conv_exh (tag_to_exh t) vs')) ∧
 (!exh env x e env' exh'.
   exh' SUBMAP exh ∧
   env_to_exh exh env env'
@@ -58,7 +63,7 @@ val v_to_exh_eqn = Q.prove (
   v_to_exh exh (Conv_i2 t vs) v ⇔
    ?vs'.
     vs_to_exh exh vs vs' ∧
-    v = Conv_exh (FST t) vs') ∧
+    v = Conv_exh (tag_to_exh t) vs') ∧
  (!exh l.
   v_to_exh exh (Loc_i2 l) v ⇔
    v = Loc_exh l) ∧
@@ -127,14 +132,13 @@ val is_unconditional_thm = prove(
   Cases >> rw[] >>
   Cases_on`c`>>rw[pmatch_i2_def]
   >- (
-    fs[is_unconditional_def] >>
-    every_case_tac >> fs[lit_same_type_def] >>
-    every_case_tac >> fs[] )
+    fs[is_unconditional_def] )
   >- (
     pop_assum mp_tac >>
     rw[Once is_unconditional_def] >>
     every_case_tac >> fs[] >>
-    Cases_on`p`>>Cases_on`r`>>rw[pmatch_i2_def]>>
+    Cases_on`o''`>>rw[pmatch_i2_def] >>
+    fs[PULL_FORALL] >> rfs[EVERY_MEM] >>
     pop_assum mp_tac >>
     map_every qid_spec_tac[`l'`,`a`,`b`,`d`] >>
     Induct_on`l` >> simp[LENGTH_NIL_SYM,pmatch_i2_def] >>
@@ -155,28 +159,43 @@ val is_unconditional_list_thm = prove(
   BasicProvers.CASE_TAC >>
   metis_tac[is_unconditional_thm])
 
-val get_tags_acc = prove(
-  ``∀ls acc ts. get_tags ls acc = SOME ts ⇒ domain acc ⊆ domain ts``,
-  Induct >> simp[get_tags_def] >> Cases >> simp[] >> every_case_tac >> simp[] >>
-  rw[] >> res_tac >> fs[SUBSET_DEF])
-
-val gen_get_tags_lemma = prove(
-  ``!ps ts acc. get_tags ps acc = SOME ts ==>
-         (!p. MEM p ps ==> ?t x vs. (p = Pcon_i2 (t,x) vs) /\ EVERY is_unconditional vs /\ t IN (domain ts))
-         /\
-         (!t. t IN (domain ts) /\ t NOTIN (domain acc) ==> ?x vs. MEM (Pcon_i2(t,x) vs) ps /\ EVERY is_unconditional vs)``,
+val get_tags_thm = Q.prove(
+  `∀ps t1 t2. get_tags ps t1 = SOME t2 ⇒
+      (∀p. MEM p ps ⇒ ∃t x vs left.
+             (p = Pcon_i2 (SOME (t,x)) vs) ∧ EVERY is_unconditional vs ∧
+             lookup (LENGTH vs) t2 = SOME left ∧ t ∉ domain left) ∧
+      (∀a tags.
+        lookup a t1 = SOME tags ⇒
+        ∃left. lookup a t2 = SOME left ∧ domain left ⊆ domain tags ∧
+               (∀t. t ∈ domain tags ∧ t ∉ domain left ⇒
+                    ∃x vs. MEM (Pcon_i2 (SOME (t,x)) vs) ps ∧ EVERY is_unconditional vs ∧
+                           LENGTH vs = a))`,
   Induct >> simp[get_tags_def] >>
   Cases >> simp[] >>
-  Cases_on`p` >> simp[] >>
-  rpt gen_tac >> strip_tac >>
-  imp_res_tac get_tags_acc >>
-  first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
+  Cases_on`o'`>>simp[]>>
+  Cases_on`x`>>simp[]>>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >>
+  strip_tac >>
+  first_x_assum(fn th=> first_x_assum(mp_tac o MATCH_MP th)) >>
+  strip_tac >>
   conj_tac >- (
-    gen_tac >> reverse strip_tac >- metis_tac[] >>
-    simp[] >> fs[SUBSET_DEF] ) >>
-  gen_tac >> strip_tac >>
-  Cases_on`t=q` >>
-  rw[] >> metis_tac[])
+    gen_tac >> strip_tac >- (
+      simp[] >>
+      first_x_assum(qspec_then`LENGTH l`mp_tac) >>
+      simp[sptreeTheory.lookup_insert] >>
+      simp[SUBSET_DEF] >>
+      strip_tac >> simp[] >>
+      metis_tac[] ) >>
+    metis_tac[] ) >>
+  rw[] >>
+  first_x_assum(qspec_then`a`mp_tac) >>
+  simp[sptreeTheory.lookup_insert] >>
+  rw[] >- (
+    simp[] >> rfs[] >>
+    fs[SUBSET_DEF] >>
+    metis_tac[] ) >>
+  metis_tac[])
 
 val get_tags_lemma =
   gen_get_tags_lemma
@@ -187,10 +206,13 @@ val get_tags_lemma =
 
 val pmatch_i2_Pcon_No_match = prove(
   ``EVERY is_unconditional ps ⇒
-    ((pmatch_i2 exh s (Pcon_i2 (c,SOME (TypeId t)) ps) v env = No_match) ⇔
+    ((pmatch_i2 exh s (Pcon_i2 (SOME(c,TypeId t)) ps) v env = No_match) ⇔
      ∃cv vs tags.
-       v = Conv_i2 (cv,SOME (TypeId t)) vs ∧
+       v = Conv_i2 (SOME(cv,TypeId t)) vs ∧
        FLOOKUP exh t = SOME tags ∧
+
+       lookup
+
        c ∈ domain tags ∧ cv ∈ domain tags ∧
        c ≠ cv)``,
   Cases_on`v`>>rw[pmatch_i2_def]>>
