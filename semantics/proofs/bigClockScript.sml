@@ -31,8 +31,19 @@ val big_unclocked_unchanged = Q.prove (
      (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
      (FST s = FST (FST r1)))`,
  ho_match_mp_tac evaluate_ind >>
- rw [] >> fs[do_app_cases] >> rw [] >> fs [] >>
- cheat);
+ rw [] >> fs[do_app_cases] >> rw [] >> fs []
+ >- (Cases_on `store_alloc (Refv v1) s2` >>
+     fs [] >>
+     rw [])
+ >- (BasicProvers.EVERY_CASE_TAC >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) s2` >>
+     fs [] >>
+     rw [])
+ >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) s2` >>
+     fs [] >>
+     rw []));
 
 val big_unclocked_ignore = Q.prove (
 `(∀ck env s e r1.
@@ -159,7 +170,7 @@ val add_clock = Q.prove (
  TRY (
      srw_tac[DNF_ss][] >> disj1_tac >>
      fs [] >>
-     `evaluate_list T env (count1+(count1'+1),s0) (REVERSE es) ((0+(count1'+1),s2),Rval vs)` by
+     `evaluate_list T env (count1+(count1'+1),s0) (REVERSE es) ((0+(count1'+1),s2,t2),Rval vs)` by
              metis_tac [result_distinct, add_to_counter] >>
      `0+count1'+1 ≠ 0 ∧ 0+count1'+1-1 = count1'` by DECIDE_TAC >>
      metis_tac[arithmeticTheory.ADD_ASSOC] ) >>
@@ -263,23 +274,25 @@ val eval_match_total = Q.prove (
         evaluate T env (p_1,s) p_2 ((count'',s'),r))
 ⇒
 ?s2 count2 r2. evaluate_match T env (count',s) v l err_v ((count2,s2),r2)`,
-induct_on `l` >>
-rw [] >>
-ONCE_REWRITE_TAC [evaluate_cases] >>
-rw [] >>
-`?p e. h = (p,e)` by metis_tac [pair_CASES] >>
-rw [] >>
-`exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
- exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
-         by srw_tac [ARITH_ss] [exp_size_def] >>
-`?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
-rw [] >>
-`(pmatch cenv s p v envE = Match_type_error) ∨ 
- (pmatch cenv s p v envE = No_match) ∨ 
- (?env'. pmatch cenv s p v envE = Match env')`
-            by metis_tac [match_result_nchotomy] >>
-rw [] >>
-metis_tac [arithmeticTheory.LESS_TRANS]);
+ induct_on `l` >>
+ rw [] >>
+ ONCE_REWRITE_TAC [evaluate_cases] >>
+ rw [] >>
+ `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
+ rw [] >>
+ `exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
+  exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
+          by srw_tac [ARITH_ss] [exp_size_def] >>
+ `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
+ fs [] >>
+ PairCases_on `s` >>
+ rw [] >>
+ `(pmatch cenv s0 p v envE = Match_type_error) ∨ 
+  (pmatch cenv s0 p v envE = No_match) ∨ 
+  (?env'. pmatch cenv s0 p v envE = Match env')`
+             by metis_tac [match_result_nchotomy] >>
+ rw [] >>
+ metis_tac [arithmeticTheory.LESS_TRANS]);
 
 val eval_handle_total = Q.prove (
 `∀env s l i count' v err_v.
@@ -290,23 +303,25 @@ val eval_handle_total = Q.prove (
         evaluate T env (p_1,s) p_2 ((count'',s'),r))
 ⇒
 ?count2 s2 r2. evaluate_match T env (count',s) v l err_v ((count2,s2),r2)`,
-induct_on `l` >>
-rw [] >>
-ONCE_REWRITE_TAC [evaluate_cases] >>
-rw [] >>
-`?p e. h = (p,e)` by metis_tac [pair_CASES] >>
-rw [] >>
-`exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
- exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
-         by srw_tac [ARITH_ss] [exp_size_def] >>
-`?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
-rw [] >>
-`(pmatch cenv s p v envE = Match_type_error) ∨ 
- (pmatch cenv s p v envE = No_match) ∨ 
- (?env'. pmatch cenv s p v envE = Match env')`
-            by metis_tac [match_result_nchotomy] >>
-rw [] >>
-metis_tac [arithmeticTheory.LESS_TRANS]);
+ induct_on `l` >>
+ rw [] >>
+ ONCE_REWRITE_TAC [evaluate_cases] >>
+ rw [] >>
+ `?p e. h = (p,e)` by metis_tac [pair_CASES] >>
+ rw [] >>
+ `exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
+  exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
+          by srw_tac [ARITH_ss] [exp_size_def] >>
+ `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
+ rw [] >>
+ PairCases_on `s` >>
+ fs [] >>
+ `(pmatch cenv s0 p v envE = Match_type_error) ∨ 
+  (pmatch cenv s0 p v envE = No_match) ∨ 
+  (?env'. pmatch cenv s0 p v envE = Match env')`
+             by metis_tac [match_result_nchotomy] >>
+ rw [] >>
+ metis_tac [arithmeticTheory.LESS_TRANS]);
 
 val evaluate_raise_empty_ctor = Q.prove (
 `!ck s env x cn.
