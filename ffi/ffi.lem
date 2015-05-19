@@ -1,4 +1,5 @@
-open Pervasives
+open import Pervasives
+open import Pervasives_extra
 open import Lib
 
 (* I/O events *)
@@ -30,7 +31,7 @@ let  call_FFI n bytes io_trace =
   match lhd io_trace with
   | Just (IO_event n' xs) ->
       if (n = n') && (map fst xs = bytes) then
-        Just (map snd xs, the (ltl io_trace))
+        Just (map snd xs, fromJust (ltl io_trace))
       else Nothing
   | _ -> Nothing
   end
