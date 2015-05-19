@@ -647,7 +647,13 @@ pmatch_i2 exh s (Pcon_i2 (Just (n, (TypeId t))) ps) (Conv_i2 (Just (n', (TypeId 
                   pmatch_list_i2 exh s ps vs env
                 else Match_type_error
               else
-                No_match
+                match nat_map_lookup m (List.length vs) with
+                | Nothing -> Match_type_error
+                | Just max' ->
+                    if n < max && n' < max' then
+                      No_match
+                    else Match_type_error
+                end
           end
     end
   else Match_type_error

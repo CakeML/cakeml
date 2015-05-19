@@ -688,7 +688,8 @@ val pmatch_to_i2_correct = Q.prove (
            fs[exhaustive_env_correct_def,PULL_EXISTS] >>
            first_x_assum(qspecl_then[`tid`,`id_to_n n`]mp_tac) >>
            discharge_hyps >- fs[FLOOKUP_DEF] >> strip_tac >> simp[] >>
-           first_x_assum(qspec_then`id_to_n n`mp_tac) >> simp[] >> strip_tac >>
+           first_assum(qspec_then`id_to_n n`mp_tac) >> simp[] >> strip_tac >>
+           first_assum(qspec_then`n'`mp_tac) >> simp[] >> strip_tac >>
            imp_res_tac length_vs_to_i2 >> fs[] >>
            rw[match_result_to_i2_def] >>
            fs[gtagenv_wf_def] >>
