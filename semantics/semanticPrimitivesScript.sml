@@ -239,6 +239,16 @@ val _ = Hol_datatype `
 /\ (same_ctor (cn1, _) (cn2, _) = (cn1 = cn2))`;
 
 
+(*val ctor_same_type : maybe (conN * tid_or_exn) -> maybe (conN * tid_or_exn) -> bool*)
+val _ = Define `
+ (ctor_same_type c1 c2 =  
+((case (c1,c2) of
+      (NONE, NONE) => T
+    | (SOME (_,t1), SOME (_,t2)) => same_tid t1 t2
+    | _ => F
+  )))`;
+
+
 (* A big-step pattern matcher.  If the value matches the pattern, return an
  * environment with the pattern variables bound to the corresponding sub-terms
  * of the value; this environment extends the environment given as an argument.
@@ -362,8 +372,10 @@ val _ = Hol_datatype `
 (do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
 (if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list vs1 vs2
+  else if ctor_same_type cn1 cn2 then
+    Eq_val F
   else
-    Eq_val F))
+    Eq_type_error))
 /\
 (do_eq (Vectorv vs1) (Vectorv vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then

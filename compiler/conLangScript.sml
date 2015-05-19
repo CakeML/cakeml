@@ -741,7 +741,13 @@ val _ = Define `
                   pmatch_list_i2 exh s ps vs env
                 else Match_type_error
               else
-                No_match
+                (case sptree$lookup (LENGTH vs) m of
+                  NONE => Match_type_error
+                | SOME max' =>
+                    if (n < max) /\ (n' < max') then
+                      No_match
+                    else Match_type_error
+                )
           )
     )
   else Match_type_error))
