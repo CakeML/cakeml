@@ -2078,7 +2078,7 @@ val global_env_inv_extend_mod = Q.prove (
  rw [FLOOKUP_UPDATE] >>
  fs [v_to_i1_eqns] >>
  res_tac >>
- qexists_tac `map` >>
+ qexists_tac `map'` >>
  rw [] >>
  res_tac  >>
  qexists_tac `n` >>
