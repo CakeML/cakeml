@@ -828,7 +828,7 @@ val do_eq_i2 = Q.prove (
  rw [] >>
  rw [do_eq_i2_def, do_eq_i1_def, v_to_i2_eqns] >>
  imp_res_tac length_vs_to_i2 >>
- fs [env_all_to_i2_cases] >>
+ fs [env_all_to_i2_cases,ctor_same_type_def,same_tid_refl] >>
  rw []
  >- metis_tac []
  >- metis_tac []

@@ -413,13 +413,13 @@ val _ = Define `
   else
     Eq_val F))
 /\
-(do_eq_i2 (Conv_i2 (SOME tag1) vs1) (Conv_i2 (SOME tag2) vs2) =  
-(if (tag1 = tag2) /\ (LENGTH vs1 = LENGTH vs2) then
+(do_eq_i2 (Conv_i2 (SOME (n1,t1)) vs1) (Conv_i2 (SOME (n2,t2)) vs2) =  
+(if ((n1,t1) = (n2,t2)) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
+  else if same_tid t1 t2 then
+    Eq_val F
   else
-    Eq_val F))
-/\
-(do_eq_i2 (Conv_i2 _ _) (Conv_i2 _ _) = (Eq_val F))
+    Eq_type_error))
 /\
 (do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then
