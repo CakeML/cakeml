@@ -306,13 +306,14 @@ val eq_same_type = Q.prove (
  fs [Tchar_def] >>
  rw [] >>
  imp_res_tac type_funs_Tfn >>
- fs [lit_same_type_def]
+ fs [lit_same_type_def,ctor_same_type_def]
  >- (fs [Once type_v_cases_eqn] >>
      fs [Once type_v_cases_eqn] >>
      rw [] >>
      fs [] >>
      metis_tac [])
- >- (rpt (qpat_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
+ >> TRY ( fs[tid_exn_to_tc_11,same_tid_sym] >> NO_TAC)
+ >> TRY (rpt (qpat_assum `type_v x0 x1 x2 x3 x4` mp_tac) >>
      ONCE_REWRITE_TAC [type_v_cases] >>
      rw [] >>
      ONCE_REWRITE_TAC [type_v_cases] >>
