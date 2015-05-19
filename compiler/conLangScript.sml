@@ -416,10 +416,21 @@ val _ = Define `
 (do_eq_i2 (Conv_i2 (SOME (n1,t1)) vs1) (Conv_i2 (SOME (n2,t2)) vs2) =  
 (if ((n1,t1) = (n2,t2)) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
-  else if same_tid t1 t2 then
-    Eq_val F
   else
-    Eq_type_error))
+    (case (t1,t2) of
+      (TypeId s1,TypeId s2) =>
+        if s1 = s2 then
+          Eq_val F (* different constructors, same type *)
+        else
+          Eq_type_error (* type mismatch *)
+    | (TypeExn s1, TypeExn s2) =>
+        if s1 = s2 then
+          (* same exception with different arity or tags *)
+          Eq_type_error
+        else
+          Eq_val F
+    | _ => (* type mismatch *) Eq_type_error
+    )))
 /\
 (do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then

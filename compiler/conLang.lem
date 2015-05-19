@@ -346,10 +346,21 @@ and
 do_eq_i2 (Conv_i2 (Just (n1,t1)) vs1) (Conv_i2 (Just (n2,t2)) vs2) =
   if (n1,t1) = (n2,t2) && (List.length vs1 = List.length vs2) then
     do_eq_list_i2 vs1 vs2
-  else if same_tid t1 t2 then
-    Eq_val false
   else
-    Eq_type_error
+    match (t1,t2) with
+    | (TypeId s1,TypeId s2) ->
+        if s1 = s2 then
+          Eq_val false (* different constructors, same type *)
+        else
+          Eq_type_error (* type mismatch *)
+    | (TypeExn s1, TypeExn s2) ->
+        if s1 = s2 then
+          (* same exception with different arity or tags *)
+          Eq_type_error
+        else
+          Eq_val false
+    | _ -> (* type mismatch *) Eq_type_error
+    end
 and
 do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =
   if List.length vs1 = List.length vs2 then
