@@ -197,29 +197,21 @@ val get_tags_thm = Q.prove(
     metis_tac[] ) >>
   metis_tac[])
 
-val get_tags_lemma =
-  gen_get_tags_lemma
-  |> CONV_RULE (RESORT_FORALL_CONV List.rev)
-  |> Q.SPEC`LN`
-  |> SIMP_RULE (srw_ss())[]
-  |> GEN_ALL
-
 val pmatch_i2_Pcon_No_match = prove(
   ``EVERY is_unconditional ps ⇒
     ((pmatch_i2 exh s (Pcon_i2 (SOME(c,TypeId t)) ps) v env = No_match) ⇔
-     ∃cv vs tags.
+     ∃cv vs tags max maxv.
        v = Conv_i2 (SOME(cv,TypeId t)) vs ∧
        FLOOKUP exh t = SOME tags ∧
-
-       lookup
-
-       c ∈ domain tags ∧ cv ∈ domain tags ∧
-       c ≠ cv)``,
+       lookup (LENGTH ps) tags = SOME max ∧
+       lookup (LENGTH vs) tags = SOME maxv ∧
+       c < max ∧ cv < maxv ∧
+       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))``,
   Cases_on`v`>>rw[pmatch_i2_def]>>
-  PairCases_on`p`>>
-  Cases_on`p1`>>simp[pmatch_i2_def]>>
-  Cases_on`x`>>simp[pmatch_i2_def]>>
-  rw[] >> BasicProvers.CASE_TAC >> rw[] >>
+  Cases_on`o'`>>simp[pmatch_i2_def] >>
+  PairCases_on`x`>>simp[pmatch_i2_def]>>
+  Cases_on`x1`>>simp[pmatch_i2_def]>>
+  rw[] >> every_case_tac >> rw[] >> fs[] >>
   metis_tac[is_unconditional_list_thm])
 
 val exh_to_exists_match = Q.prove (
@@ -229,19 +221,24 @@ val exh_to_exists_match = Q.prove (
     metis_tac[is_unconditional_thm] ) >>
   every_case_tac >>
   fs [get_tags_def, pmatch_i2_def] >> rw[] >>
-  imp_res_tac get_tags_lemma >>
+  imp_res_tac get_tags_thm >>
   Q.PAT_ABBREV_TAC`pp1 = Pcon_i2 X l` >>
   Cases_on`v`>>
   TRY(qexists_tac`pp1`>>simp[pmatch_i2_def,Abbr`pp1`]>>NO_TAC) >>
   srw_tac[boolSimps.DNF_ss][]>>
   simp[Abbr`pp1`,pmatch_i2_Pcon_No_match]>>
   simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
-  strip_tac >> rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
-  res_tac >> HINT_EXISTS_TAC >> simp[] >>
-  Cases_on`x'`>>simp[pmatch_i2_def] >>
-  Cases_on`x''`>>simp[pmatch_i2_def] >>
+  strip_tac >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs[sptreeTheory.lookup_map,sptreeTheory.domain_fromList,PULL_EXISTS] >>
+  res_tac >>
+  rfs[EVERY_MEM,sptreeTheory.MEM_toList,PULL_EXISTS] >>
+  res_tac >> fs[] >> rfs[] >> rw[] >>
+  first_assum(match_exists_tac o concl) >>
+  simp[pmatch_i2_def] >>
+  Cases_on`x'''`>>simp[pmatch_i2_def] >>
   rw[] >>
-  metis_tac[is_unconditional_list_thm])
+  metis_tac[is_unconditional_list_thm,EVERY_MEM])
 
 val vs_to_exh_LIST_REL = prove(
   ``∀vs vs' exh. vs_to_exh exh vs vs' = LIST_REL (v_to_exh exh) vs vs'``,
