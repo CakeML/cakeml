@@ -576,7 +576,7 @@ let do_app (s,t) op vs =
                end
             | Nothing -> Just ((s, t), Rerr (Rabort (Rffi_error)))
             end
-        | Nothing -> Nothing
+        | _ -> Nothing
         end
     | _ -> Nothing
   end

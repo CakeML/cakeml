@@ -669,7 +669,7 @@ val _ = Define `
                )
             | NONE => SOME ((s, t), Rerr (Rabort (Rffi_error)))
             )
-        | NONE => NONE
+        | _ => NONE
         )
     | _ => NONE
   )))`;
