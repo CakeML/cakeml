@@ -1,18 +1,19 @@
-INCLUDES = $(HOLDIR)/examples/parsing lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
+INCLUDES = .. ../lem_lib_stub
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
-all: $(TARGETS)
+all: $(TARGETS) ffiTheory.uo
 .PHONY: all
 
-LEMSRC = lib
+#LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
+LEM_OPT = -wl_unused_vars ign
+
+LEMSRC = ffi
 LEMS = $(patsubst %,%.lem,$(LEMSRC))
 GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 
 $(GENS): $(LEMS)
  	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -hol $(LEMS);\
  	else touch $(GENS); fi
-
-

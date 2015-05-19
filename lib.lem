@@ -69,6 +69,17 @@ declare hol target_rep function nat_map_lookup s k = `sptree$lookup` k s
 declare hol target_rep function nat_map_to_list s = `sptree$toList` s
 declare hol target_rep function nat_map_map f s = `sptree$map` f s
 
+(* TODO: proper support for lazy lists *)
+
+open import {hol} `llistTheory`
+type llist 'a
+declare hol target_rep type llist 'a = `llist` 'a
+val lhd : forall 'a. llist 'a -> maybe 'a
+val ltl : forall 'a. llist 'a -> maybe (llist 'a)
+declare hol target_rep function lhd = `LHD`
+declare hol target_rep function ltl = `LTL`
+
+
 (* TODO: proper support for words... *)
 open import {hol} `wordsTheory`
 type word8
