@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib;
 open asmTheory wordsTheory wordsLib sptreeTheory ffiTheory;
-open target_semTheory word_locTheory;
+open target_semTheory word_locTheory lcsymtacs;
 
 val _ = new_theory "asm_lang";
 
@@ -23,12 +23,13 @@ val () = Datatype `
                | JumpCmp cmp reg ('a reg_imm) lab
                | Call lab
                | LocValue reg lab
+               (* following have no label, but have similar semantics *)
                | CallFFI num
                | Halt`;
 
 val () = Datatype `
   asm_line = Label num num
-           | Asm ('a inst) (word8 list) num
+           | Asm ('a asm) (word8 list) num
            | LabAsm ('a asm_with_lab) ('a word) (word8 list) num`
 
 (* A section consists a name (num) and a list of assembly lines. *)
@@ -59,6 +60,9 @@ val _ = Datatype `
      ; code       : 'a asm_prog
      ; clock      : num
      ; failed     : bool
+     ; ptr_reg    : num
+     ; len_reg    : num
+     ; link_reg   : num
      |>`
 
 val is_Label_def = Define `
@@ -96,10 +100,12 @@ val binop_upd_def = Define `
   (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))`
 
 val word_cmp_def = Define `
-  (word_cmp Equal w1 w2 = (w1 = w2)) /\
-  (word_cmp Less w1 w2  = (w1 < w2)) /\
-  (word_cmp Lower w1 w2 = (w1 <+ w2)) /\
-  (word_cmp Test w1 w2  = (w1 && w2 = 0w))`
+  (word_cmp Equal (Word w1) (Word w2) = SOME (w1 = w2)) /\
+  (word_cmp Less  (Word w1) (Word w2) = SOME (w1 < w2)) /\
+  (word_cmp Lower (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
+  (word_cmp Test  (Word w1) (Word w2) = SOME (w1 && w2 = 0w)) /\
+  (word_cmp Test  (Loc _ _) (Word w2) = if w2 = 1w then SOME T else NONE) /\
+  (word_cmp _ _ _ = NONE)`
 
 val word_shift_def = Define `
   (word_shift Lsl w n = w << n) /\
@@ -113,7 +119,8 @@ val arith_upd_def = Define `
      | _ => assert F s) /\
   (arith_upd (Shift l r1 r2 n) s =
      case read_reg r2 s of
-     | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s)`
+     | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s
+     | _ => assert F s)`
 
 val addr_def = Define `
   addr (Addr r offset) s =
@@ -192,15 +199,190 @@ val asm_inst_def = Define `
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s)`
 
-val asm_eval_def = tDefine "asm_eval" `
-  asm_eval s =
+val dec_clock_def = Define `
+  dec_clock s = s with clock := s.clock - 1`
+
+val inc_pc_def = Define `
+  inc_pc s = s with pc := s.pc + 1`
+
+val asm_code_length_def = Define `
+  asm_code_length code = LENGTH (FLAT (MAP flat_Section code))`;
+
+val asm_fetch_IMP = prove(
+  ``(asm_fetch s = SOME x) ==>
+    s.pc < asm_code_length s.code``,
+  fs [asm_fetch_def,LET_DEF,asm_code_length_def]);
+
+val find_section_def = Define `
+  (find_section [] (p:num) = 0:num) /\
+  (find_section ((Section k [])::xs) p = find_section xs p) /\
+  (find_section ((Section k (y::ys))::xs) p =
+     if is_Label y
+     then find_section ((Section k ys)::xs) p
+     else if p = 0 then k
+          else find_section ((Section k ys)::xs) (p-1))`
+
+val get_Loc_value_def = Define `
+  (get_Loc_value (Sec name) s = (Loc name 0) :'a word_loc) /\
+  (get_Loc_value (Local k) (s:'a asml_state) =
+     Loc (find_section s.code s.pc) (k+1))`;
+
+val loc_to_pc_def = Define `
+  (loc_to_pc n1 n2 [] = NONE) /\
+  (loc_to_pc n1 n2 ((Section k xs)::ys) =
+     if (k = n1) /\ (n2 = 0) then SOME (0:num) else
+       case xs of
+       | [] => loc_to_pc n1 n2 ys
+       | (z::zs) =>
+         if (z = Label n1 (n2-1)) /\ n2 <> 0 then SOME 0 else
+           case loc_to_pc n1 n2 ((Section k zs)::ys) of
+           | NONE => NONE
+           | SOME pos => SOME (pos + 1))`;
+
+val read_mem_list_consts = prove(
+  ``!n a s. ((SND (read_mem_list a n s)).pc = s.pc) /\
+            ((SND (read_mem_list a n s)).code = s.code) /\
+            ((SND (read_mem_list a n s)).clock = s.clock)``,
+  Induct \\ fs [read_mem_list_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [assert_def]);
+
+val write_mem_list_consts = prove(
+  ``!n a s. (((write_mem_list a n s)).pc = s.pc) /\
+            (((write_mem_list a n s)).code = s.code) /\
+            (((write_mem_list a n s)).clock = s.clock)``,
+  Induct \\ fs [write_mem_list_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ fs [assert_def,upd_mem_def]);
+
+val asm_inst_consts = prove(
+  ``((asm_inst i s).pc = s.pc) /\
+    ((asm_inst i s).code = s.code) /\
+    ((asm_inst i s).clock = s.clock)``,
+  Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
+  \\ TRY (Cases_on `a`)
+  \\ fs [asm_inst_def,upd_reg_def,arith_upd_def,read_reg_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ TRY (Cases_on `b`)
+  \\ fs [binop_upd_def,upd_reg_def,assert_def]
+  \\ Cases_on `m`
+  \\ fs [mem_op_def,mem_load_def,LET_DEF,
+         assert_def,upd_reg_def,mem_store_def]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ fs [read_mem_list_consts,write_mem_list_consts]);
+
+val get_pc_value_def = Define `
+  get_pc_value lab (s:'a asml_state) =
+    case get_Loc_value lab s of
+    | Loc n1 n2 => loc_to_pc n1 n2 s.code
+    | _ => NONE`;
+
+val read_bytearray_def = Define `
+  (read_bytearray a 0 s = SOME []) /\
+  (read_bytearray a (SUC n) s =
+     if ~(a IN s.mem_domain) then NONE else
+       case s.mem a of
+       | Byte b =>
+        (case read_bytearray (a+1w) n s of
+         | SOME bytes => SOME (b::bytes)
+         | _ => NONE)
+       | _ => NONE)`
+
+val write_bytearray_def = Define `
+  (write_bytearray a [] s = s) /\
+  (write_bytearray a (b::bs) s =
+     let s' = write_bytearray (a+1w) bs s in
+       s' with mem := (a =+ Byte b) s'.mem)`
+
+val write_bytearray_consts = prove(
+  ``!bs a s. ((write_bytearray a bs s).code = s.code) /\
+             ((write_bytearray a bs s).pc = s.pc) /\
+             ((write_bytearray a bs s).clock = s.clock)``,
+  Induct \\ fs [write_bytearray_def,LET_DEF]);
+
+val next_label_def = Define `
+  (next_label [] = NONE) /\
+  (next_label ((Section k [])::xs) = next_label xs) /\
+  (next_label ((Section k (Label n1 n2::ys))::xs) = SOME (Loc n1 n2)) /\
+  (next_label ((Section k (y::ys))::xs) = NONE)`
+
+val get_lab_after_pos_def = Define `
+  (get_lab_after pos [] = NONE) /\
+  (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
+  (get_lab_after pos ((Section k (y::ys))::xs) =
+     if pos = 0:num
+     then next_label ((Section k ys)::xs)
+     else if is_Label y
+          then get_lab_after pos ((Section k ys)::xs)
+          else get_lab_after (pos-1) ((Section k ys)::xs))`
+
+val get_ret_Loc_def = Define `
+  get_ret_Loc s = get_lab_after s.pc s.code`;
+
+val aEval_def = tDefine "aEval" `
+  aEval (s:'a asml_state) =
     case asm_fetch s of
-    | SOME (Asm i _ _) =>
-        (let s1 = asm_inst i s in
-           if s1.failed then (Error Internal,s) else
-             asm_eval s1)
-    | SOME (LabAsm al _ _ _) => ARB
-    | _ => (Error Internal,s)` cheat
+    | SOME (Asm a _ _) =>
+        (case a of
+         | Inst i =>
+            (let s1 = asm_inst i s in
+               if s1.failed then (Error Internal,s)
+               else aEval (inc_pc s1))
+         | JumpReg r =>
+            (case read_reg r s of
+             | Loc n1 n2 =>
+                 (case loc_to_pc n1 n2 s.code of
+                  | NONE => (Error Internal,s)
+                  | SOME p =>
+                      if s.clock = 0 then (TimeOut,s)
+                      else aEval (upd_pc p (dec_clock s)))
+             | _ => (Error Internal,s))
+         | _ => (Error Internal,s))
+    | SOME (LabAsm Halt _ _ _) => (Result,s)
+    | SOME (LabAsm (LocValue r lab) _ _ _) =>
+        let s1 = upd_reg r (get_Loc_value lab s) s in
+          aEval (inc_pc s1)
+    | SOME (LabAsm (Jump l) _ _ _) =>
+       (case get_pc_value l s of
+        | NONE => (Error Internal,s)
+        | SOME p => if s.clock = 0 then (TimeOut,s)
+                    else aEval (upd_pc p (dec_clock s)))
+    | SOME (LabAsm (JumpCmp c r ri l) _ _ _) =>
+       (case word_cmp c (read_reg r s) (reg_imm ri s) of
+        | NONE => (Error Internal,s)
+        | SOME F => aEval (inc_pc s)
+        | SOME T =>
+         (case get_pc_value l s of
+          | NONE => (Error Internal,s)
+          | SOME p => if s.clock = 0 then (TimeOut,s)
+                      else aEval (upd_pc p (dec_clock s))))
+    | SOME (LabAsm (Call l) _ _ _) =>
+       (case get_pc_value l s of
+        | NONE => (Error Internal,s)
+        | SOME p =>
+         (case get_ret_Loc s of
+          | NONE => (Error Internal,s)
+          | SOME k =>
+             let s1 = upd_reg s.link_reg k s in
+               if s.clock = 0 then (TimeOut,s)
+               else aEval (upd_pc p (dec_clock s1))))
+    | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
+       (case (s.regs s.len_reg,s.regs s.ptr_reg) of
+        | (Word w, Word w2) =>
+         (case read_bytearray w2 (w2n w) s of
+          | NONE => (Error Internal,s)
+          | SOME bytes =>
+           (case call_FFI ffi_index bytes s.io_events of
+            | NONE => (Error IO_mismatch,s)
+            | SOME (new_bytes,new_io) =>
+                aEval (inc_pc (write_bytearray w2
+                  new_bytes (s with io_events := new_io)))))
+        | _ => (Error Internal,s))
+    | _ => (Error Internal,s)`
+ (WF_REL_TAC `(inv_image (measure I LEX
+                          measure (\s. asm_code_length s.code - s.pc))
+                 (\s. (s.clock,s)))`
+  \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
+  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,
+         write_bytearray_consts] \\ DECIDE_TAC)
 
 
 (* -- ASSEMBLER FUNCTION -- *)
@@ -218,7 +400,7 @@ val lab_inst_def = Define `
 val enc_line_def = Define `
   (enc_line enc (Label n1 n2) = Label n1 n2) /\
   (enc_line enc (Asm a _ _) =
-     let bs = enc (Inst a) in Asm a bs (LENGTH bs)) /\
+     let bs = enc a in Asm a bs (LENGTH bs)) /\
   (enc_line enc (LabAsm l _ _ _) =
      let bs = enc (lab_inst 0w l) in
        LabAsm l 0w bs (LENGTH bs))`
@@ -374,7 +556,7 @@ val remove_labels_loop_def = Define `
     (* update length annotations *)
     let ys = all_lengths_update 0 xs in
     (* repeat *)
-    if clock = 0 then NONE else
+    if clock = 0:num then NONE else
       remove_labels_loop (clock-1) c enc ys`
 
 val remove_labels_def = Define `
