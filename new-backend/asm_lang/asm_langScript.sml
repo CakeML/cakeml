@@ -13,7 +13,7 @@ val () = Parse.temp_type_abbrev ("reg", ``:num``)
    within the current section. *)
 
 val () = Datatype `
-  lab = Local num | Sec num`
+  lab = Lab num num`
 
 (* Each line of a section consists of either a label, an assembly
    instruction (without a label) or some labelled asm instruction. *)
@@ -28,7 +28,7 @@ val () = Datatype `
                | Halt`;
 
 val () = Datatype `
-  asm_line = Label num num
+  asm_line = Label num num num
            | Asm ('a asm) (word8 list) num
            | LabAsm ('a asm_with_lab) ('a word) (word8 list) num`
 
@@ -66,7 +66,7 @@ val _ = Datatype `
      |>`
 
 val is_Label_def = Define `
-  (is_Label (Label _ _) = T) /\
+  (is_Label (Label _ _ _) = T) /\
   (is_Label _ = F)`;
 
 val flat_Section_def = Define `
@@ -213,19 +213,8 @@ val asm_fetch_IMP = prove(
     s.pc < asm_code_length s.code``,
   fs [asm_fetch_def,LET_DEF,asm_code_length_def]);
 
-val find_section_def = Define `
-  (find_section [] (p:num) = 0:num) /\
-  (find_section ((Section k [])::xs) p = find_section xs p) /\
-  (find_section ((Section k (y::ys))::xs) p =
-     if is_Label y
-     then find_section ((Section k ys)::xs) p
-     else if p = 0 then k
-          else find_section ((Section k ys)::xs) (p-1))`
-
-val get_Loc_value_def = Define `
-  (get_Loc_value (Sec name) s = (Loc name 0) :'a word_loc) /\
-  (get_Loc_value (Local k) (s:'a asml_state) =
-     Loc (find_section s.code s.pc) (k+1))`;
+val lab_to_loc_def = Define `
+  lab_to_loc (Lab n1 n2) = Loc n1 n2`
 
 val loc_to_pc_def = Define `
   (loc_to_pc n1 n2 [] = NONE) /\
@@ -234,7 +223,7 @@ val loc_to_pc_def = Define `
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
-         if (z = Label n1 (n2-1)) /\ n2 <> 0 then SOME 0 else
+         if (?k. z = Label n1 (n2-1) k) /\ n2 <> 0 then SOME 0 else
            case loc_to_pc n1 n2 ((Section k zs)::ys) of
            | NONE => NONE
            | SOME pos => SOME (pos + 1))`;
@@ -271,9 +260,8 @@ val asm_inst_consts = prove(
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:'a asml_state) =
-    case get_Loc_value lab s of
-    | Loc n1 n2 => loc_to_pc n1 n2 s.code
-    | _ => NONE`;
+    case lab of
+    | Lab n1 n2 => loc_to_pc n1 n2 s.code`;
 
 val read_bytearray_def = Define `
   (read_bytearray a 0 s = SOME []) /\
@@ -295,7 +283,7 @@ val write_bytearray_def = Define `
 val next_label_def = Define `
   (next_label [] = NONE) /\
   (next_label ((Section k [])::xs) = next_label xs) /\
-  (next_label ((Section k (Label n1 n2::ys))::xs) = SOME (Loc n1 n2)) /\
+  (next_label ((Section k (Label n1 n2 _::ys))::xs) = SOME (Loc n1 n2)) /\
   (next_label ((Section k (y::ys))::xs) = NONE)`
 
 val get_lab_after_pos_def = Define `
@@ -332,7 +320,7 @@ val aEval_def = tDefine "aEval" `
          | _ => (Error Internal,s))
     | SOME (LabAsm Halt _ _ _) => (Result,s)
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
-        let s1 = upd_reg r (get_Loc_value lab s) s in
+        let s1 = upd_reg r (lab_to_loc lab) s in
           aEval (inc_pc s1)
     | SOME (LabAsm (Jump l) _ _ _) =>
        (case get_pc_value l s of
@@ -394,7 +382,7 @@ val lab_inst_def = Define `
   (lab_inst w (CallFFI n) = Jump w)`;
 
 val enc_line_def = Define `
-  (enc_line enc (Label n1 n2) = Label n1 n2) /\
+  (enc_line enc (Label n1 n2 n3) = Label n1 n2 0) /\
   (enc_line enc (Asm a _ _) =
      let bs = enc a in Asm a bs (LENGTH bs)) /\
   (enc_line enc (LabAsm l _ _ _) =
@@ -411,8 +399,8 @@ val enc_sec_list_def = Define `
 
 val asm_line_labs_def = Define `
   (asm_line_labs pos [] acc = (acc,pos)) /\
-  (asm_line_labs pos ((Label k l)::xs) acc =
-     asm_line_labs (pos+l) xs (insert (k+1) (pos+l) acc)) /\
+  (asm_line_labs pos ((Label k1 k2 l)::xs) acc =
+     asm_line_labs (pos+l) xs (insert (k2+1) (pos+l) acc)) /\
   (asm_line_labs pos ((Asm _ _ l)::xs) acc =
      asm_line_labs (pos+l) xs acc) /\
   (asm_line_labs pos ((LabAsm _ _ _ l)::xs) acc =
@@ -447,15 +435,13 @@ val lookup_any_def = Define `
     | SOME m => m`;
 
 val find_pos_def = Define `
-  (find_pos s (Local k) labs =
-     (lookup_any (k+1) (lookup_any s labs LN) 0):num) /\
-  (find_pos s (Sec i) labs =
-     lookup_any 0 (lookup_any i labs LN) 0)`;
+  find_pos s (Lab k1 k2) labs =
+    (lookup_any k2 (lookup_any k1 labs LN) 0):num`;
 
 val enc_line_again_def = Define `
   (enc_line_again s labs pos enc [] = []) /\
-  (enc_line_again s labs pos enc ((Label k l)::xs) =
-     (Label k l) :: enc_line_again s labs (pos+l) enc xs) /\
+  (enc_line_again s labs pos enc ((Label k1 k2 l)::xs) =
+     (Label k1 k2 l) :: enc_line_again s labs (pos+l) enc xs) /\
   (enc_line_again s labs pos enc ((Asm x1 x2 l)::xs) =
      (Asm x1 x2 l) :: enc_line_again s labs (pos+l) enc xs) /\
   (enc_line_again s labs pos enc ((LabAsm a w bytes l)::xs) =
@@ -470,7 +456,7 @@ val enc_line_again_def = Define `
 
 val sec_length_def = Define `
   (sec_length [] k = k) /\
-  (sec_length ((Label _ l)::xs) k = sec_length xs (k+l)) /\
+  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
   (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
 
@@ -490,7 +476,7 @@ val enc_secs_again_def = Define `
 
 val sec_lengths_ok_def = Define `
   (sec_lengths_ok pos [] <=> T) /\
-  (sec_lengths_ok pos ((Label _ l)::xs) <=>
+  (sec_lengths_ok pos ((Label _ _ l)::xs) <=>
      if (if EVEN pos then (l = 0) else (l = 1)) then
        sec_lengths_ok (pos+l) xs
      else F) /\
@@ -507,9 +493,9 @@ val all_lengths_ok_def = Define `
 
 val sec_lengths_update_def = Define `
   (sec_lengths_update pos [] = []) /\
-  (sec_lengths_update pos ((Label n l)::xs) =
+  (sec_lengths_update pos ((Label k1 k2 l)::xs) =
      let l = if EVEN pos then 0 else 1 in
-       (Label n l) :: sec_lengths_update (pos+l) xs) /\
+       (Label k1 k2 l) :: sec_lengths_update (pos+l) xs) /\
   (sec_lengths_update pos ((Asm x1 x2 l)::xs) <=>
      (Asm x1 x2 l) :: sec_lengths_update (pos+l) xs) /\
   (sec_lengths_update pos ((LabAsm a w bytes l)::xs) <=>
@@ -527,7 +513,7 @@ val all_lengths_update_def = Define `
 
 val sec_asm_ok_def = Define `
   (sec_asm_ok c [] <=> T) /\
-  (sec_asm_ok c ((Label _ l)::xs) <=> sec_asm_ok c xs) /\
+  (sec_asm_ok c ((Label _ _ l)::xs) <=> sec_asm_ok c xs) /\
   (sec_asm_ok c ((Asm x1 x2 l)::xs) <=> sec_asm_ok c xs) /\
   (sec_asm_ok c ((LabAsm a w bytes l)::xs) <=>
      if asm_ok (lab_inst w a) c then sec_asm_ok c xs else F)`
@@ -568,7 +554,7 @@ val remove_labels_def = Define `
 
 val sec_bytes_def = Define `
   (sec_bytes [] nop aux = aux) /\
-  (sec_bytes ((Label _ l)::xs) nop aux =
+  (sec_bytes ((Label _ _ l)::xs) nop aux =
      sec_bytes xs nop (if l < 1 then aux else nop::aux)) /\
   (sec_bytes ((Asm x1 x2 l)::xs) nop aux =
      sec_bytes xs nop (REVERSE x2 ++ aux)) /\
@@ -659,10 +645,10 @@ val get_ret_Loc_merge_code = prove(
     get_ret_Loc t``,
   cheat) |> add_rewrite
 
-val get_Loc_value_merge_code = prove(
-  ``get_Loc_value l (t with code := merge_code t.code c) =
-    get_Loc_value l t``,
-  fs [get_Loc_value_def]) |> add_rewrite
+val lab_to_loc_merge_code = prove(
+  ``lab_to_loc l (t with code := merge_code t.code c) =
+    lab_to_loc l t``,
+  fs [lab_to_loc_def]) |> add_rewrite
 
 val read_bytearray_with_code = prove(
   ``!n a s. read_bytearray a n (s with code := code2) = read_bytearray a n s``,
