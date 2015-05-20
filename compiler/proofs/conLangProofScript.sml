@@ -115,23 +115,8 @@ exhaustive_env_correct (exh:exh_ctors_env) (gtagenv:gtagenv) ⇔
          ⇒
          ∃max. lookup l tags = SOME max ∧ tag < max))`;
 
-(* this probably doesn't work because of the accumulator inside a module...?
-val same_mod_def = Define`
-  (same_mod (Long x _) (TypeId (Long x' _)) ⇔ x = x') ∧
-  (same_mod (Long x y) (TypeExn (Long x' y')) ⇔ x = x' ∧ y = y') ∧
-  (same_mod (Short _) (TypeId (Short _)) ⇔ T) ∧
-  (same_mod (Short x) (TypeExn (Short x')) ⇔ x = x') ∧
-  (same_mod _ _ = F)`
-
-val envC_wf_def = Define`
-  envC_wf envC ⇔
-    ∀cn a t. lookup_alist_mod_env cn envC = SOME (a,t) ⇒
-             same_mod cn t`
-*)
-
 val cenv_inv_def = Define `
 cenv_inv envC exh tagenv gtagenv ⇔
- (* envC_wf envC ∧ *)
  envC_tagged envC tagenv gtagenv ∧
  exhaustive_env_correct exh gtagenv ∧
  gtagenv_wf gtagenv`;
@@ -368,12 +353,6 @@ val exhaustive_env_weak = Q.prove (
  conj_tac >- (
    ho_match_mp_tac IN_FRANGE_FUNION_suff >> simp[] >>
    rw[IN_FRANGE_FLOOKUP] >> imp_res_tac FLOOKUP_weakened_exh_imp) >>
- (*
- conj_tac >- (
-   fs[FDOM_weakened_exh,EXISTS_PROD] >>
-   fs[SUBMAP_DEF,SUBSET_DEF] >>
-   metis_tac[] ) >>
- *)
  rw [] >>
  cases_on `?cn. (cn,TypeId t) ∈ FDOM gtagenv` >>
  res_tac >>
@@ -558,36 +537,12 @@ val env_to_i2_el = Q.prove (
      FIRST_X_ASSUM (qspecl_then [`SUC n`] mp_tac) >>
      rw []));
 
-val vs_to_i2_lupdate = Q.prove (
-`!gtagenv v n s v_i2 n s_i2.
-  vs_to_i2 gtagenv s s_i2 ∧
-  v_to_i2 gtagenv v v_i2
-  ⇒
-  vs_to_i2 gtagenv (LUPDATE v n s) (LUPDATE v_i2 n s_i2)`,
- induct_on `n` >>
- rw [v_to_i2_eqns, LUPDATE_def] >>
- cases_on `s` >>
- fs [v_to_i2_eqns, LUPDATE_def]);
-
 val match_result_to_i2_def = Define
 `(match_result_to_i2 gtagenv (Match env) (Match env_i2) ⇔
    env_to_i2 gtagenv env env_i2) ∧
  (match_result_to_i2 gtagenv No_match No_match = T) ∧
  (match_result_to_i2 gtagenv Match_type_error Match_type_error = T) ∧
  (match_result_to_i2 gtagenv _ _ = F)`;
-
-val store_lookup_vs_to_i2_2 = Q.prove (
-`!gtagenv vs vs_i2 v v_i2 n.
-  vs_to_i2 gtagenv vs vs_i2 ∧
-  store_lookup n vs = SOME v
-  ⇒
-  ?v'. store_lookup n vs_i2 = SOME v'`,
- induct_on `vs` >>
- rw [v_to_i2_eqns] >>
- fs [store_lookup_def] >>
- cases_on `n` >>
- fs [] >>
- metis_tac []);
 
 val pat_bindings_i2_accum = Q.store_thm ("pat_bindings_i2_accum",
 `(!p acc. pat_bindings_i2 p acc = pat_bindings_i2 p [] ++ acc) ∧
@@ -779,38 +734,6 @@ val genv_to_i2_lookup = Q.prove (
  srw_tac [ARITH_ss] [] >>
  full_simp_tac (srw_ss()++ARITH_ss) [] >>
  fs [OPTREL_def]);
-
-val vs_to_i2_append1 = Q.prove (
-`!gtagenv vs v vs' v'.
-  vs_to_i2 gtagenv (vs++[v]) (vs'++[v'])
-  ⇔
-  vs_to_i2 gtagenv vs vs' ∧
-  v_to_i2 gtagenv v v'`,
- induct_on `vs` >>
- rw [] >>
- cases_on `vs'` >>
- rw [v_to_i2_eqns]
- >- (cases_on `vs` >>
-     rw [v_to_i2_eqns]) >>
- metis_tac []);
-
-val vs_to_i2_append = Q.prove (
-`!gtagenv vs1 vs1' vs2 vs2'.
-  (LENGTH vs2 = LENGTH vs2' ∨ LENGTH vs1 = LENGTH vs1')
-  ⇒
-  (vs_to_i2 gtagenv (vs1++vs2) (vs1'++vs2') ⇔
-   vs_to_i2 gtagenv vs1 vs1' ∧ vs_to_i2 gtagenv vs2 vs2')`,
- induct_on `vs1` >>
- rw [v_to_i2_eqns] >>
- eq_tac >>
- rw [] >>
- imp_res_tac length_vs_to_i2 >>
- fs [] >>
- cases_on `vs1'` >>
- fs [] >>
- rw [] >>
- full_simp_tac (srw_ss()++ARITH_ss) [] >>
- metis_tac []);
 
 val do_eq_i2 = Q.prove (
 `(!v1 v2 r v1_i2 v2_i2 gtagenv.
@@ -2122,55 +2045,8 @@ val decs_to_i2_correct = store_thm("decs_to_i2_correct",
     strip_tac >>
     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_i2`` o fst o strip_comb))) >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    (*
-    qabbrev_tac`extra:gtagenv = FUN_FMAP (K (ARB,ARB))
-      { (ARB,TypeId t) | t ∈ FDOM (get_exh (FST st')) ∧ TypeId t ∉ IMAGE SND (FDOM gtagenv) }` >>
-    map_every qexists_tac[`gtagenv ⊌ extra`,`acc'`] >>
-    qmatch_assum_abbrev_tac`Abbrev(extra = FUN_FMAP aa pp)` >>
-    `FINITE pp` by (
-      `pp ⊆ IMAGE (λt. (ARB,TypeId t)) (FDOM (get_exh (FST st')))` suffices_by (
-        metis_tac[IMAGE_FINITE,FDOM_FINITE,SUBSET_FINITE] ) >>
-      simp[Abbr`pp`,SUBSET_DEF,PULL_EXISTS] ) >>
-    `gtagenv_weak gtagenv (gtagenv ⊌ extra)` by (
-      simp[gtagenv_weak_def,SUBMAP_FUNION_ID] >>
-      conj_tac >- (
-        simp[Abbr`extra`,FUN_FMAP_DEF] >>
-        simp[Abbr`pp`,FORALL_PROD] >>
-        metis_tac[] ) >>
-      fs[cenv_inv_def,gtagenv_wf_def] >>
-      simp[FLOOKUP_FUNION] >> rpt gen_tac >>
-      strip_tac >>
-      every_case_tac >>
-      rfs[Abbr`extra`,FLOOKUP_FUN_FMAP] >>
-      fs[Abbr`pp`,Abbr`aa`,same_tid_tid] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      fs[same_tid_tid] >> rpt BasicProvers.VAR_EQ_TAC >>
-      fs[FLOOKUP_DEF,FORALL_PROD] >> metis_tac[] ) >>
-    fs[cenv_inv_def] >>
-    *)
     map_every qexists_tac[`gtagenv`,`acc'`] >>
     fs[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
-    (*
-    conj_tac >- (
-      fs[s_to_i2_cases] >>
-      metis_tac[LIST_REL_mono,sv_to_i2_weakening] ) >>
-    conj_tac >- (
-      fs[next_inv_def] >>
-      simp[FLOOKUP_FUNION] >>
-      conj_tac >- (
-        rpt gen_tac >>
-        BasicProvers.CASE_TAC >> rw[] >- (
-          rfs[Abbr`extra`,FLOOKUP_FUN_FMAP] >>
-          fs[Abbr`pp`] ) >>
-        PairCases_on`tagenv_st` >>
-        PairCases_on`st'` >>
-        fs[next_inv_def] >>
-        rw[] >> res_tac >>
-        `next_weak tagenv_st0 st'0` by metis_tac[decs_to_i2_next_weak,FST] >>
-        fs[next_weak_def] >> res_tac >> simp[] ) >>
-      simp[Abbr`extra`,FUN_FMAP_DEF] >>
-      simp[Abbr`pp`,SUBSET_DEF]
-    *)
     conj_tac >- (
       PairCases_on`tagenv_st` >>
       PairCases_on`st'` >>
@@ -2469,37 +2345,6 @@ val FDOM_decs_to_i2_exh = prove(
   pop_assum mp_tac >>
   specl_args_of_then``alloc_tag``alloc_tag_exh_FDOM strip_assume_tac >>
   fs[])
-
-val check_dup_ctors_flat = Q.prove (
-`!defs.
-  check_dup_ctors (defs:type_def) =
-  ALL_DISTINCT (MAP FST (build_tdefs mn defs))`,
- rw [check_dup_ctors_thm, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD,
-     build_tdefs_def,
-     rich_listTheory.MAP_REVERSE, ALL_DISTINCT_REVERSE]);
-
-(*
-val envC_tagged_add_empty_mod = prove(
-  ``∀ls mn tagenv g.
-      envC_tagged ([(mn,[])],[]) (mod_tagenv (SOME mn) ls tagenv) g``,
-  rpt gen_tac >> PairCases_on`tagenv`>>
-  rw[envC_tagged_def,mod_tagenv_def,lookup_alist_mod_env_def] >>
-  every_case_tac >> fs[FLOOKUP_UPDATE] >>
-  rw [] >>
-  fs [FLOOKUP_DEF]);
-*)
-
-val envC_tagged_add_empty_mod = prove(
-  ``∀ls mn tagenv g envC.
-      envC_tagged envC tagenv g ⇒
-      envC_tagged (merge_alist_mod_env ([(mn,[])],[]) envC) (mod_tagenv (SOME mn) ls tagenv) g``,
-  rpt gen_tac >> PairCases_on`tagenv`>> PairCases_on`envC` >>
-  simp[envC_tagged_def,mod_tagenv_def,lookup_alist_mod_env_def,merge_alist_mod_env_def,
-       lookup_tag_env_def,FLOOKUP_UPDATE,lookup_tag_flat_def] >>
-  rw[] >>
-  first_x_assum(qspec_then`cn`mp_tac) >>
-  fs[FLOOKUP_UPDATE, FLOOKUP_FUNION] >>
-  every_case_tac >> fs[] );
 
 val to_i2_invariant_def = Define `
 to_i2_invariant mods tids envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
@@ -2806,26 +2651,6 @@ val tids_of_prompt_def = Define`
 val tids_of_prog_def = Define`
   tids_of_prog prog = BIGUNION (set (MAP tids_of_prompt prog))`;
 
-(*
-val FDOM_prompt_to_i2_exh = prove(
-  ``∀x p y z a. prompt_to_i2 x p = (y,a) ⇒ FDOM (get_exh y) = tids_of_prompt p``,
-  rw[prompt_to_i2_def] >> every_case_tac >>
-  fs[LET_THM,UNCURRY] >> rw[get_exh_def] >>
-  rw[tids_of_prompt_def] >>
-  match_mp_tac FDOM_decs_to_i2_exh >>
-  metis_tac[pair_CASES,FST,SND,PAIR_EQ]);
-
-val FDOM_prog_to_i2_exh = prove(
-  ``∀x p y z a. prog_to_i2 x p = (y,z,a) ⇒ FDOM z = tids_of_prog p``,
-  Induct_on`p`>>rw[prog_to_i2_def,tids_of_prog_def]>>rw[]>>
-  fs[LET_THM,tids_of_prog_def] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rw[] >>
-  res_tac >> simp[] >>
-  imp_res_tac FDOM_prompt_to_i2_exh >>
-  simp[UNION_COMM]);
-*)
-
 val evaluate_decs_i1_tids_disjoint = prove(
   ``∀ck genv envC st ds res. evaluate_decs_i1 ck genv envC st ds res ⇒
       SND(SND(SND res)) = NONE ⇒
@@ -2866,28 +2691,6 @@ val evaluate_prog_i1_tids_disjoint = prove(
   imp_res_tac evaluate_prompt_i1_tids_acc >>
   fs[IN_DISJOINT,SUBSET_DEF] >>
   metis_tac[]);
-
-val mods_of_prog_def = Define`
-  mods_of_prog [] = {} ∧
-  mods_of_prog ((Prompt_i1 (SOME mn) ds)::ps) = mn INSERT mods_of_prog ps ∧
-  mods_of_prog (_::ps) = mods_of_prog ps`
-
-val IN_mods_of_prog = prove(
-  ``∀prog mn ds. MEM (Prompt_i1 (SOME mn) ds) prog ⇒ mn ∈ mods_of_prog prog``,
-  Induct >> simp[mods_of_prog_def] >> rw[] >> simp[mods_of_prog_def] >>
-  `∃x y. h = Prompt_i1 x y` by (Cases_on`h` >> simp[GSYM EXISTS_PROD]) >>
-  Cases_on`x`>>simp[mods_of_prog_def] >>
-  metis_tac[])
-
-val evaluate_prog_i1_mods_disjoint = prove(
-  ``∀ck genv envC stm p res. evaluate_prog_i1 ck genv envC stm p res ⇒
-      SND(SND(SND res)) = NONE ⇒
-      DISJOINT (SND(SND stm)) (mods_of_prog p)``,
-  ho_match_mp_tac evaluate_prog_i1_ind >> simp[] >>
-  simp[mods_of_prog_def] >> rw[] >>
-  fs[evaluate_prompt_i1_cases] >> rw[] >>
-  Cases_on`mn`>>fs[mods_of_prog_def,update_mod_state_def] >>
-  fs[IN_DISJOINT] >> metis_tac[])
 
 val evaluate_prompt_i1_mods_disjoint = prove(
   ``∀ck genv envC stm p res. evaluate_prompt_i1 ck genv envC stm p res ⇒
