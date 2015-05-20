@@ -500,8 +500,8 @@ val repl_globals_env_eq =
       PURE_ONCE_REWRITE_CONV[compile_repl_module_eq]
       THENC EVAL)
 val repl_globals_env_flookup = prove(
-  ``FLOOKUP (FST (FST compile_repl_module).globals_env) "REPL" = SOME map ⇒
-    map = repl_globals_env``,
+  ``FLOOKUP (FST (FST compile_repl_module).globals_env) "REPL" = SOME mmap ⇒
+    mmap = repl_globals_env``,
   rw[repl_globals_env_def])
 
 val iind_def = Define`
@@ -548,7 +548,7 @@ val ptrs_exist = prove(
   first_assum(qspec_then`"input"`mp_tac) >>
   first_x_assum(qspec_then`"output"`mp_tac) >>
   simp[] >> rw[] >> simp[] >>
-  `map = repl_globals_env`  by (
+  `map' = repl_globals_env`  by (
     simp[repl_globals_env_def] ) >>
   rw[] >>
   imp_res_tac inds_flookup >> rw[] >>
@@ -613,7 +613,7 @@ val COMPILER_RUN_INV_references = store_thm("COMPILER_RUN_INV_references",
   first_assum(qspec_then`"input"`mp_tac) >>
   first_x_assum(qspec_then`"output"`mp_tac) >>
   simp[] >> strip_tac >> strip_tac >> simp[] >>
-  `map = repl_globals_env`  by (
+  `map' = repl_globals_env`  by (
     simp[repl_globals_env_def] ) >>
   BasicProvers.VAR_EQ_TAC >>
   imp_res_tac inds_flookup >>
