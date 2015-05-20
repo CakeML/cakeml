@@ -287,16 +287,10 @@ val read_bytearray_def = Define `
        | _ => NONE)`
 
 val write_bytearray_def = Define `
-  (write_bytearray a [] s = s) /\
-  (write_bytearray a (b::bs) s =
-     let s' = write_bytearray (a+1w) bs s in
-       s' with mem := (a =+ Byte b) s'.mem)`
-
-val write_bytearray_consts = prove(
-  ``!bs a s. ((write_bytearray a bs s).code = s.code) /\
-             ((write_bytearray a bs s).pc = s.pc) /\
-             ((write_bytearray a bs s).clock = s.clock)``,
-  Induct \\ fs [write_bytearray_def,LET_DEF]);
+  (write_bytearray a [] m = m) /\
+  (write_bytearray a (b::bs) m =
+     let s' = write_bytearray (a+1w) bs m in
+       (a =+ Byte b) m)`
 
 val next_label_def = Define `
   (next_label [] = NONE) /\
@@ -373,16 +367,18 @@ val aEval_def = tDefine "aEval" `
            (case call_FFI ffi_index bytes s.io_events of
             | NONE => (Error IO_mismatch,s)
             | SOME (new_bytes,new_io) =>
-                aEval (inc_pc (write_bytearray w2
-                  new_bytes (s with io_events := new_io)))))
+                aEval (s with <| io_events := new_io ;
+                                 mem := write_bytearray w2 new_bytes s.mem ;
+                                 pc := s.pc + 1 |>)))
         | _ => (Error Internal,s))
     | _ => (Error Internal,s)`
  (WF_REL_TAC `(inv_image (measure I LEX
                           measure (\s. asm_code_length s.code - s.pc))
                  (\s. (s.clock,s)))`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
-  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def,
-         write_bytearray_consts] \\ DECIDE_TAC)
+  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def] \\ DECIDE_TAC)
+
+val aEval_ind = fetch "-" "aEval_ind"
 
 
 (* -- ASSEMBLER FUNCTION -- *)
@@ -589,8 +585,125 @@ val all_sec_bytes_def = Define `
 (* compile asm_lang *)
 
 val aComp_def = Define `
-  aComp enc sec_list =
-    let nop = (case enc (Inst Skip) of [] => 0w | (x::xs) => x) in
-      all_sec_bytes sec_list nop []`;
+  aComp c enc sec_list =
+    case remove_labels c enc sec_list of
+    | SOME sec_list =>
+        let nop = (case enc (Inst Skip) of [] => 0w | (x::xs) => x) in
+          SOME (all_sec_bytes sec_list nop [])
+    | NONE => NONE`;
+
+(* show that remove_labels only adds aEval-irrelevant annotations
+
+fun add_rewrite th = (augment_srw_ss [rewrites [th]];th)
+
+val merge_lines_def = Define `
+  (merge_lines [] _ = []) /\
+  (merge_lines (Label x _::xs1) (Label _ z::xs2) =
+     Label x z :: merge_lines xs1 xs2) /\
+  (merge_lines (Asm x _ _::xs1) (Asm _ bs l::xs2) =
+     Asm x bs l :: merge_lines xs1 xs2) /\
+  (merge_lines (LabAsm a _ _ _::xs1) (LabAsm _ w bs l::xs2) =
+     LabAsm a w bs l :: merge_lines xs1 xs2) /\
+  (merge_lines xs ys = xs)` |> add_rewrite
+
+val merge_code_def = Define `
+  (merge_code [] xs = []) /\
+  (merge_code (Section k lines1 :: xs1) (Section _ lines2 :: xs2) =
+     Section k (merge_lines lines1 lines2) :: merge_code xs1 xs2) /\
+  (merge_code xs _ = xs)` |> add_rewrite
+
+val asm_fetch_merge_code = prove(
+  ``asm_fetch (s with code := merge_code code code2) = asm_fetch s``,
+  cheat) |> add_rewrite
+
+val inc_pc_with_code = prove(
+  ``(inc_pc (s with code := d)) = (inc_pc s) with code := d``,
+  cheat) |> add_rewrite
+
+val upd_pc_with_code = prove(
+  ``(upd_pc p (s with code := d)) = (upd_pc p s) with code := d``,
+  cheat) |> add_rewrite
+
+val dec_clock_with_code = prove(
+  ``(dec_clock (s with code := d)) = (dec_clock s) with code := d``,
+  cheat) |> add_rewrite
+
+val asm_inst_with_code = prove(
+  ``(asm_inst i (s with code := d)) = (asm_inst i s) with code := d``,
+  cheat) |> add_rewrite
+
+val read_reg_with_code = prove(
+  ``read_reg n (s with code := c) = read_reg n s``,
+  cheat) |> add_rewrite
+
+val upd_reg_with_code = prove(
+  ``upd_reg n w (s with code := c) = (upd_reg n w s) with code := c``,
+  cheat) |> add_rewrite
+
+val reg_imm_with_code = prove(
+  ``reg_imm n (s with code := c) = reg_imm n s``,
+  cheat) |> add_rewrite
+
+val loc_to_pc_merge_code = prove(
+  ``loc_to_pc n1 n2 (merge_code code code2) =
+    loc_to_pc n1 n2 code``,
+  cheat) |> add_rewrite
+
+val get_pc_value_merge_code = prove(
+  ``get_pc_value l (s with code := merge_code s.code code2) =
+    get_pc_value l s``,
+  cheat) |> add_rewrite
+
+val get_ret_Loc_merge_code = prove(
+  ``get_ret_Loc (t with code := merge_code t.code c) =
+    get_ret_Loc t``,
+  cheat) |> add_rewrite
+
+val get_Loc_value_merge_code = prove(
+  ``get_Loc_value l (t with code := merge_code t.code c) =
+    get_Loc_value l t``,
+  fs [get_Loc_value_def]) |> add_rewrite
+
+val read_bytearray_with_code = prove(
+  ``!n a s. read_bytearray a n (s with code := code2) = read_bytearray a n s``,
+  Induct \\ fs [read_bytearray_def]) |> add_rewrite
+
+val aEval_merge_code = prove(
+  ``!s res t c enc.
+      (aEval s = (res,t)) ==>
+      (aEval (s with code := merge_code s.code code2) =
+         (res, t with code := merge_code s.code code2)) /\
+      (t.code = s.code)``,
+  HO_MATCH_MP_TAC aEval_ind \\ NTAC 6 STRIP_TAC
+  \\ ONCE_REWRITE_TAC [aEval_def] \\ fs [asm_fetch_merge_code]
+  \\ Cases_on `asm_fetch s` \\ fs []
+  \\ Cases_on `x` \\ fs []
+  THEN1
+   (Cases_on `a` \\ fs [LET_DEF,asm_inst_with_code,inc_pc_with_code]
+    THEN1
+     (BasicProvers.EVERY_CASE_TAC \\ fs []
+      \\ REPEAT STRIP_TAC \\ RES_TAC
+      \\ fs [inc_pc_def,asm_inst_consts])
+    \\ fs [read_reg_def,loc_to_pc_merge_code]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [dec_clock_with_code,upd_pc_with_code]
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [upd_pc_def,dec_clock_def])
+  \\ Cases_on `a` \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
+  \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ fs [upd_pc_def,inc_pc_def,dec_clock_def,upd_reg_def])
+
+val merge_code_remove_labels = prove(
+  ``(remove_labels c enc code = SOME code2) ==>
+    (merge_code code code2 = code2)``,
+  cheat) |> add_rewrite
+
+val aEval_remove_labels = prove(
+  ``(aEval s = (res,t)) /\ (remove_labels c enc s.code = SOME code2) ==>
+    (aEval (s with code := code2) = (res,t with code := code2))``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC merge_code_remove_labels
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
+  \\ IMP_RES_TAC aEval_merge_code \\ fs []);
+
+*)
 
 val _ = export_theory();
