@@ -63,8 +63,8 @@ let application op env s vs c =
         | Just (s',r) ->
           match r with
             | Rerr (Rraise v) -> Estep (env,s',Val v,((Craise (),env)::c))
+            | Rerr (Rabort a) -> Eabort a
             | Rval v -> return env s' v c
-            | _ -> Eabort Rtype_error
           end
         | Nothing -> Eabort Rtype_error
       end

@@ -82,8 +82,8 @@ val _ = Define `
           SOME (s',r) =>
           (case r of
               Rerr (Rraise v) => Estep (env,s',Val v,((Craise () ,env)::c))
+            | Rerr (Rabort a) => Eabort a
             | Rval v => return env s' v c
-            | _ => Eabort Rtype_error
           )
         | NONE => Eabort Rtype_error
       )

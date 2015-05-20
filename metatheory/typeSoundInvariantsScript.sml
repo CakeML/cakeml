@@ -414,7 +414,7 @@ type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) ctMap senv cs t2 t
 ==>
 type_ctxts tvs ctMap senv ((c,(envM,envC,env))::cs) t1 t3)`;
 
-val _ = Hol_reln ` (! dec_tvs tenvM tenvC ctMap senv envM envC s env e c t1 t2 tenv tvs.
+val _ = Hol_reln ` (! dec_tvs tenvM tenvC ctMap senv envM envC s env e c t1 t2 tenv tvs tr.
 (context_invariant dec_tvs c tvs /\
 consistent_con_env ctMap envC tenvC /\
 tenvM_ok tenvM /\
@@ -425,15 +425,15 @@ type_s ctMap senv s /\
 type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
 (( ~ (tvs =( 0))) ==> is_value e))
 ==>
-type_state dec_tvs ctMap senv ((envM, envC, env), s, Exp e, c) t2)
+type_state dec_tvs ctMap senv ((envM, envC, env), (s,tr), Exp e, c) t2)
 
-/\ (! dec_tvs ctMap senv envM envC s env v c t1 t2 tvs.
+/\ (! dec_tvs ctMap senv envM envC s env v c t1 t2 tvs tr.
 (context_invariant dec_tvs c tvs /\
 type_ctxts tvs ctMap senv c t1 t2 /\
 type_s ctMap senv s /\
 type_v tvs ctMap senv v t1)
 ==>
-type_state dec_tvs ctMap senv ((envM, envC, env), s, Val v, c) t2)`;
+type_state dec_tvs ctMap senv ((envM, envC, env), (s,tr), Val v, c) t2)`;
 
 (* The first argument has strictly more bindings than the second. *)
 (*val weakM_def : tenvM -> tenvM -> bool*)
