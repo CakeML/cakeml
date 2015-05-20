@@ -774,10 +774,10 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   PairCases_on`a`>>PairCases_on`env`>>fs[]>>
   res_tac >> disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["s3","new_tds'"]))) >>
+  pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars(["s3'","new_tds'","r'"])))) >>
   fs[GSYM FORALL_PROD] >>
   qmatch_assum_abbrev_tac`∀p. ¬evaluate_decs F mn envs ss ds p` >>
-  `∀p. ¬evaluate_decs F mn envs ((res0,res1),res2) ds p` by (
+  `∀p. ¬evaluate_decs F mn envs ((res0,res1,res2),res3) ds p` by (
     fs[FORALL_PROD] >> metis_tac[decs_unclocked] ) >>
   last_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   PairCases_on`r`>>fs[] >>
@@ -1007,24 +1007,24 @@ val not_evaluate_prog_timeout = store_thm("not_evaluate_prog_timeout",
   qspecl_then[`env`,`stm`,`h`]strip_assume_tac top_clocked_total >>
   imp_res_tac top_clocked_min_counter >> fs[] >>
   PairCases_on`res` >> fs[] >>
-  Cases_on`res6=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
+  Cases_on`res7=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
   reverse(Cases_on`∃r. evaluate_top F env stm h r`) >> fs[] >- (
     imp_res_tac not_evaluate_top_timeout >>
     PairCases_on`r`>>fs[]>>metis_tac[] ) >>
   PairCases_on`stm` >>
   PairCases_on`r` >>
   imp_res_tac top_unclocked >>
-  qspecl_then[`env`,`stm0`,`stm1`,`stm2,stm3`,`h`,`res1`,`res2,res3`,`(res4,res5),res6`]mp_tac (GSYM top_clocked_unclocked_equiv) >>
+  qspecl_then[`env`,`stm0`,`stm1,stm2`,`stm3,stm4`,`h`,`res1,res2`,`res3,res4`,`(res5,res6),res7`]mp_tac (GSYM top_clocked_unclocked_equiv) >>
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
   discharge_hyps >- metis_tac[] >> strip_tac >>
-  reverse(Cases_on`res6`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`res7`)>>fs[]>-metis_tac[]>>
   PairCases_on`a`>>PairCases_on`env`>>fs[]>>
   res_tac >> disj1_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["s3","new_tds'"]))) >>
   fs[GSYM FORALL_PROD] >>
   qmatch_assum_abbrev_tac`∀p. ¬evaluate_prog F envs ss ds p` >>
-  `∀p. ¬evaluate_prog F envs ((res0,res1),res2,res3) ds p` by (
+  `∀p. ¬evaluate_prog F envs ((res0,res1,res2),res3,res4) ds p` by (
     fs[FORALL_PROD] >> metis_tac[prog_unclocked] ) >>
   last_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   PairCases_on`r`>>fs[] >>
