@@ -355,7 +355,10 @@ do_eq_i2 (Conv_i2 (Just (n1,t1)) vs1) (Conv_i2 (Just (n2,t2)) vs2) =
           Eq_type_error (* type mismatch *)
     | (TypeExn s1, TypeExn s2) ->
         if s1 = s2 then
-          (* same exception with different arity or tags *)
+          (* same exception but different tags or arities *)
+          Eq_type_error
+        else if n1 = n2 && List.length vs1 = List.length vs2 then
+          (* different exceptions but same tag and arity *)
           Eq_type_error
         else
           Eq_val false

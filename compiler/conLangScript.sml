@@ -425,7 +425,10 @@ val _ = Define `
           Eq_type_error (* type mismatch *)
     | (TypeExn s1, TypeExn s2) =>
         if s1 = s2 then
-          (* same exception with different arity or tags *)
+          (* same exception but different tags or arities *)
+          Eq_type_error
+        else if (n1 = n2) /\ (LENGTH vs1 = LENGTH vs2) then
+          (* different exceptions but same tag and arity *)
           Eq_type_error
         else
           Eq_val F

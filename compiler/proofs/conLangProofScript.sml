@@ -839,7 +839,7 @@ val do_eq_i2 = Q.prove (
    res_tac >>
    every_case_tac >> fs[same_tid_def] >>
    fs[gtagenv_wf_def,FLOOKUP_DEF] >>
-   metis_tac[PAIR_EQ] )
+   metis_tac[PAIR_EQ,same_tid_def,tid_or_exn_11] )
  >- metis_tac [same_tid_refl, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >> fs [Once v_to_i2_cases] >>
