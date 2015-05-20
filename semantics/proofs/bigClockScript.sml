@@ -358,7 +358,6 @@ val big_clocked_total_lem = Q.prove (
      rw [] 
      >- (cases_on `err` >>
          fs [] >-
-         metis_tac [] >-
          (`?count2 s2 r2. evaluate_match T (menv,(mcenv,cenv),envE) (count1,s1) a l a ((count2,s2),r2)`
                   by metis_tac [eval_handle_total, arithmeticTheory.LESS_TRANS, 
                                 clock_monotone, arithmeticTheory.LESS_OR_EQ, pair_CASES] >>
@@ -389,14 +388,13 @@ val big_clocked_total_lem = Q.prove (
                   by metis_tac [optionTheory.option_nchotomy, pair_CASES] >-
        metis_tac[] >>
        cases_on `count2 = 0` >>
-       rw [] >- metis_tac [] >>
+       rw [] >- 
+         metis_tac [pair_CASES] >>
        `count2-1 < count2` by srw_tac [ARITH_ss] [] >>
        metis_tac [pair_CASES, clock_monotone, arithmeticTheory.LESS_OR_EQ, arithmeticTheory.LESS_TRANS]) >>
      `(do_app s2 o' (REVERSE v) = NONE) ∨ (?s3 e2. do_app s2 o' (REVERSE v) = SOME (s3,e2))`
-                by metis_tac [optionTheory.option_nchotomy, pair_CASES] >-
-     metis_tac [] >>
-     fs[do_app_cases] >> rw[] >>
-     prove_tac[evaluate_rules] )
+                by metis_tac [optionTheory.option_nchotomy, pair_CASES] >>
+     metis_tac [pair_CASES] )
  >- ((* Log *)
      `exp_size e' < exp_size (Log l e' e0) ∧
       exp_size e0 < exp_size (Log l e' e0)`
@@ -485,11 +483,21 @@ val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
    (ck = T)
    ⇒
    (count' = 0))`,
-ho_match_mp_tac evaluate_ind >>
-rw [] >>
-fs[do_app_cases] >>
-PairCases_on `s'` >>
-rw []);
+ ho_match_mp_tac evaluate_ind >>
+ rw [] >>
+ fs[do_app_cases] >>
+ rw [] >>
+ fs [] >>
+ TRY (PairCases_on `s'`) >>
+ rw [] 
+ >- (Cases_on `store_alloc (Refv v1) s2` >>
+     fs [])
+ >- (BasicProvers.EVERY_CASE_TAC >>
+     fs [])
+ >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) s2` >>
+     fs [])
+ >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) s2` >>
+     fs []));
 
 val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_equiv_timeout",
 `!s env e count1.
@@ -537,6 +545,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
      CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(can lhs))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      qexists_tac `s2` >>
+     qexists_tac `t2` >>
      qexists_tac `count' - extra` >>
      imp_res_tac clock_monotone >> fs[] >> rw[] >>
      `count' = count' - extra + extra` by DECIDE_TAC >>
@@ -586,9 +595,9 @@ val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
   rw[Once evaluate_dec_cases] >>
   fsrw_tac[DNF_ss][] >> rfs[] >> fs[] >>
   fs[all_env_to_cenv_def] >>
-  Cases_on`∃r. evaluate F (env0,(env1,env2),env3) (s0,s1) e r` >- (
+  Cases_on`∃r. evaluate F (env0,(env1,env2),env3) (s0,s1,s2) e r` >- (
     fs[] >> PairCases_on`r`>>fs[] >>
-    Cases_on`r2`>>fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >> res_tac >>
+    Cases_on`r3`>>fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >> res_tac >>
     metis_tac[match_result_nchotomy] ) >>
   metis_tac[big_clocked_unclocked_equiv_timeout])
 
@@ -597,8 +606,8 @@ val dec_clocked_total = store_thm("dec_clocked_total",
   rpt gen_tac >> PairCases_on`s` >>
   reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases] >>
   srw_tac[DNF_ss][] >- metis_tac[] >>
-  qspecl_then[`s0`,`s1`,`env`,`e`]strip_assume_tac big_clocked_total >>
-  Cases_on`r`>>metis_tac[match_result_nchotomy])
+  qspecl_then[`s0`,`s1,s2`,`env`,`e`]strip_assume_tac big_clocked_total >>
+  Cases_on`r`>>metis_tac[match_result_nchotomy, pair_CASES])
 
 val dec_clocked_min_counter = store_thm("dec_clocked_min_counter",
   ``∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
@@ -751,17 +760,17 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   qspecl_then[`mn`,`env`,`s`,`h`]strip_assume_tac dec_clocked_total >>
   imp_res_tac dec_clocked_min_counter >> fs[] >>
   PairCases_on`res` >> fs[] >>
-  Cases_on`res3=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
+  Cases_on`res4=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
   reverse(Cases_on`∃r. evaluate_dec F mn env s h r`) >> fs[] >- (
     imp_res_tac not_evaluate_dec_timeout >>
     Cases_on`r`>>fs[]>>metis_tac[] ) >>
   PairCases_on`s` >>
   PairCases_on`r` >>
   imp_res_tac dec_unclocked >>
-  qspecl_then[`mn`,`env`,`s0`,`s1`,`s2`,`h`,`res1`,`res2`,`res3`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
+  qspecl_then[`mn`,`env`,`s0`,`s1,s2`,`s3`,`h`,`res1,res2`,`res3`,`res4`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
   discharge_hyps >- metis_tac[] >> strip_tac >>
-  reverse(Cases_on`res3`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`res4`)>>fs[]>-metis_tac[]>>
   PairCases_on`a`>>PairCases_on`env`>>fs[]>>
   res_tac >> disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -782,7 +791,7 @@ val decs_clocked_total = store_thm("decs_clocked_total",
   srw_tac[DNF_ss][] >>
   qspecl_then[`mn`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
   PairCases_on`res` >>
-  reverse(Cases_on`res3`)>-metis_tac[] >>
+  reverse(Cases_on`res4`)>-metis_tac[] >>
   PairCases_on`a`>>PairCases_on`env`>>fs[]>>
   disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -882,11 +891,11 @@ val top_clocked_total = store_thm("top_clocked_total",
   rpt gen_tac >> PairCases_on`s` >>
   reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
   srw_tac[DNF_ss][] >- (
-    qspecl_then[`NONE`,`env`,`((s0,s1),s2)`,`d`]strip_assume_tac dec_clocked_total >>
-    PairCases_on`res`>>Cases_on`res3`>>metis_tac[pair_CASES] ) >>
-  qspecl_then[`SOME s`,`env`,`((s0,s1),s2)`,`l`]strip_assume_tac decs_clocked_total >>
+    qspecl_then[`NONE`,`env`,`((s0,s1,s2),s3)`,`d`]strip_assume_tac dec_clocked_total >>
+    PairCases_on`res`>>Cases_on`res4`>>metis_tac[pair_CASES] ) >>
+  qspecl_then[`SOME s`,`env`,`((s0,s1,s2),s3)`,`l`]strip_assume_tac decs_clocked_total >>
   PairCases_on`res`>>fs[]>>
-  Cases_on`res4`>>metis_tac[])
+  Cases_on`res5`>>metis_tac[])
 
 val top_clocked_min_counter = store_thm("top_clocked_min_counter",
   ``∀ck env s top res. evaluate_top ck env s top res ⇒
