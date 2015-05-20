@@ -868,18 +868,22 @@ val big_exp_to_small_exp = Q.prove (
    fs[SWAP_REVERSE_SYM, Once small_eval_list_cases] >> rw[] >- fs[do_app_def] >>
    rw[Once small_eval_app] >>
    fs[Once small_eval_list_cases] >> rw[] >- (
-     cheat (* I don't understand why the definition of do_app needs expanding, both semantics just call it 
-     fs[do_app_def] >>
-     Cases_on`op`>>fs[LET_THM,store_alloc_def] >> rw[] >>
-     TRY ( qpat_assum`X = SOME Y`assume_tac >> every_case_tac >> fs[] >> rw[] ) >>
      rw[small_eval_def] >>
      first_x_assum(mp_tac o MATCH_MP e_step_add_ctxt) >>
      Q.PAT_ABBREV_TAC`ctx = [(Capp A X Y Z,env)]` >>
      disch_then(qspec_then`ctx`strip_assume_tac) >> fs[] >>
-     srw_tac[boolSimps.DNF_ss][Once RTC_CASES2] >>
-     first_assum(match_exists_tac o concl) >>
-     simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
-     simp[application_thm,do_app_def,store_alloc_def,return_def] *)) >>
+     every_case_tac >>
+     simp_tac(srw_ss()++boolSimps.DNF_ss)[Once RTC_CASES2] >>
+     TRY (
+       first_assum(match_exists_tac o concl) >> simp[] >>
+       simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
+       simp[application_thm,do_app_def,store_alloc_def,return_def] ) >>
+     disj2_tac >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     simp[e_step_reln_def] >>
+     simp[Once e_step_def,continue_def,Abbr`ctx`] >>
+     simp[application_thm] >>
+     cheat (* this looks false *))
    fs[Once small_eval_list_cases] >> rw[] >- (
      fs[do_app_def] >>
      Cases_on`op`>>fs[LET_THM,store_alloc_def] >>
