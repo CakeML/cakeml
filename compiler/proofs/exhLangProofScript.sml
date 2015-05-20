@@ -297,20 +297,20 @@ val _ = augment_srw_ss[rewrites[vs_to_exh_LIST_REL,find_recfun_funs_to_exh(*,env
 
 val do_eq_exh_correct = Q.prove (
 `(!v1 v2 tagenv r v1_exh v2_exh (exh:exh_ctors_env).
-  do_eq_i2 v1 v2 = r ∧
+  do_eq_i2 v1 v2 = r ∧ r ≠ Eq_type_error ∧
   v_to_exh exh v1 v1_exh ∧
   v_to_exh exh v2 v2_exh
   ⇒
   do_eq_exh v1_exh v2_exh = r) ∧
  (!vs1 vs2 tagenv r vs1_exh vs2_exh (exh:exh_ctors_env).
-  do_eq_list_i2 vs1 vs2 = r ∧
+  do_eq_list_i2 vs1 vs2 = r ∧ r ≠ Eq_type_error ∧
   vs_to_exh exh vs1 vs1_exh ∧
   vs_to_exh exh vs2 vs2_exh
   ⇒
   do_eq_list_exh vs1_exh vs2_exh = r)`,
  ho_match_mp_tac do_eq_i2_ind >>
  reverse(rw[do_eq_exh_def,do_eq_i2_def,v_to_exh_eqn]) >>
- rw[v_to_exh_eqn, do_eq_exh_def] >> 
+ rw[v_to_exh_eqn, do_eq_exh_def] >>
  fs[do_eq_exh_def]
  >- (every_case_tac >>
      rw [] >>
@@ -319,8 +319,12 @@ val do_eq_exh_correct = Q.prove (
  fs [Once v_to_exh_cases] >>
  rw [do_eq_exh_def] >>
  fs [] >>
- metis_tac [LIST_REL_LENGTH]);
- 
+ TRY(metis_tac [LIST_REL_LENGTH])
+ >> (
+   Cases_on`t1`>>fs[] >>
+   Cases_on`t2`>>fs[] >>
+   rfs[] >> rw[] >> fs[])) ;
+
   (*
 val _ = augment_srw_ss[rewrites[do_eq_exh_correct]]
 *)
