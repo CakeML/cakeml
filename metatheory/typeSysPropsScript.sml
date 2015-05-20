@@ -998,7 +998,8 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
    ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
    ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup))`,
+   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup) ∨
+   ((?n. op = FFI n) ∧ ts = [Tword8array] ∧ t3 = Tapp [] TC_tup))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [Tchar_def] >>
