@@ -11,11 +11,7 @@ val _ = new_theory "pegComplete"
 
 val _ = set_trace "Goalstack.print_goal_at_top" 0
 
-val REVERSE_11 = store_thm(
-  "REVERSE_11",
-  ``(REVERSE l1 = REVERSE l2) ⇔ (l1 = l2)``,
-  METIS_TAC [listTheory.REVERSE_REVERSE])
-val _ = export_rewrites ["REVERSE_11"]
+val REVERSE_11 = listTheory.REVERSE_11
 
 fun PULLV v t = let
   val (bv,b) = dest_abs(rand t)
