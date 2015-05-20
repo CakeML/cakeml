@@ -63,7 +63,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   ``interp_add_to_sem_env
      <|sem_envM := []; sem_envC := ([],[]); sem_envE := [];
-       sem_store := ((0,[]),∅,∅)|> prim_types_program``
+       sem_store := ((0,([],LNIL)),∅,∅)|> prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset) 
   |> MATCH_MP interp_add_to_sem_env_thm
