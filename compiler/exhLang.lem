@@ -219,11 +219,8 @@ pmatch_exh s (Plit_exh l) (Litv_exh l') env =
     Match_type_error
 and
 pmatch_exh s (Pcon_exh n ps) (Conv_exh n' vs) env =
-  if n = n' then
-    if List.length ps = List.length vs then
-      pmatch_list_exh s ps vs env
-    else
-      Match_type_error
+  if n = n' && List.length ps = List.length vs then
+    pmatch_list_exh s ps vs env
   else
     No_match
 and
