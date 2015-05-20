@@ -304,8 +304,10 @@ val _ = Define `
 (do_eq_i1 (Conv_i1 cn1 vs1) (Conv_i1 cn2 vs2) =  
 (if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i1 vs1 vs2
+  else if ctor_same_type cn1 cn2 then
+    Eq_val F
   else
-    Eq_val F))
+    Eq_type_error))
 /\
 (do_eq_i1 (Vectorv_i1 vs1) (Vectorv_i1 vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then

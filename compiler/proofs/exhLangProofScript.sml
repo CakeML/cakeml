@@ -297,20 +297,20 @@ val _ = augment_srw_ss[rewrites[vs_to_exh_LIST_REL,find_recfun_funs_to_exh(*,env
 
 val do_eq_exh_correct = Q.prove (
 `(!v1 v2 tagenv r v1_exh v2_exh (exh:exh_ctors_env).
-  do_eq_i2 v1 v2 = r ∧
+  do_eq_i2 v1 v2 = r ∧ r ≠ Eq_type_error ∧
   v_to_exh exh v1 v1_exh ∧
   v_to_exh exh v2 v2_exh
   ⇒
   do_eq_exh v1_exh v2_exh = r) ∧
  (!vs1 vs2 tagenv r vs1_exh vs2_exh (exh:exh_ctors_env).
-  do_eq_list_i2 vs1 vs2 = r ∧
+  do_eq_list_i2 vs1 vs2 = r ∧ r ≠ Eq_type_error ∧
   vs_to_exh exh vs1 vs1_exh ∧
   vs_to_exh exh vs2 vs2_exh
   ⇒
   do_eq_list_exh vs1_exh vs2_exh = r)`,
  ho_match_mp_tac do_eq_i2_ind >>
  reverse(rw[do_eq_exh_def,do_eq_i2_def,v_to_exh_eqn]) >>
- rw[v_to_exh_eqn, do_eq_exh_def] >> 
+ rw[v_to_exh_eqn, do_eq_exh_def] >>
  fs[do_eq_exh_def]
  >- (every_case_tac >>
      rw [] >>
@@ -319,8 +319,12 @@ val do_eq_exh_correct = Q.prove (
  fs [Once v_to_exh_cases] >>
  rw [do_eq_exh_def] >>
  fs [] >>
- metis_tac [LIST_REL_LENGTH]);
- 
+ TRY(metis_tac [LIST_REL_LENGTH])
+ >> (
+   Cases_on`t1`>>fs[] >>
+   Cases_on`t2`>>fs[] >>
+   rfs[] >> rw[] >> fs[])) ;
+
   (*
 val _ = augment_srw_ss[rewrites[do_eq_exh_correct]]
 *)
@@ -384,13 +388,20 @@ val pmatch_exh_correct = Q.prove (
  fs []
  >- metis_tac []
  >- (every_case_tac >>
-     fs [] >>
+     fs [LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     rw[] >> rfs[] >> fs[] >>
      metis_tac [])
  >- (every_case_tac >>
-     fs [] >>
-     metis_tac [])
+     fs [LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[]>>
+     rw[match_result_to_exh_def])
  >- (every_case_tac >>
-     fs [match_result_to_exh_def])
+     fs[LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[]>>
+     rw[match_result_to_exh_def])
  >- metis_tac []
  >- (every_case_tac >>
      fs [match_result_error, store_lookup_def, LIST_REL_EL_EQN] >>
@@ -408,7 +419,9 @@ val pat_bindings_exh_correct = prove(
     (∀ps ls. pats_bindings_exh (MAP pat_to_exh ps) ls = pats_bindings_i2 ps ls)``,
   ho_match_mp_tac(TypeBase.induction_of(``:pat_i2``)) >>
   simp[pat_bindings_i2_def,pat_bindings_exh_def,pat_to_exh_def] >>
-  rw[] >> cases_on`p` >> rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
+  rw[] >> cases_on`o'` >>
+  TRY(cases_on`x`)>>
+  rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
 
 val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
   ``(∀(exh:exh_ctors_env) s p v env env'. pmatch_i2 exh s p v env = Match env' ⇒
@@ -419,8 +432,9 @@ val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
   rw[pmatch_i2_def] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
   BasicProvers.CASE_TAC >> fs[] >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
@@ -432,9 +446,10 @@ val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
   rw[pmatch_i2_def] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
   BasicProvers.CASE_TAC >> fs[] >>
   imp_res_tac pmatch_i2_any_match >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct]);
 
 fun exists_lift_conj_tac tm =
@@ -447,7 +462,7 @@ val v_to_exh_lit_loc = store_thm("v_to_exh_lit_loc[simp]",
     (v_to_exh exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
     (v_to_exh exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
     (v_to_exh exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n) ∧
-    (v_to_exh exh (Conv_i2 t []) lh ⇔ lh = Conv_exh (FST t) []) ∧
+    (v_to_exh exh (Conv_i2 t []) lh ⇔ lh = Conv_exh (tag_to_exh t) []) ∧
     (v_to_exh exh (Boolv_i2 b) lh ⇔ lh = Boolv_exh b)``,
   rw[] >> rw[Once v_to_exh_cases, Boolv_i2_def, Boolv_exh_def])
 
@@ -682,7 +697,7 @@ val exhaustive_match_submap = prove(
   ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
   rw[exhaustive_match_def] >>
   every_case_tac >> fs[] >>
-  imp_res_tac FLOOKUP_SUBMAP >> fs[])
+  imp_res_tac FLOOKUP_SUBMAP >> fs[] >> rw[])
 
 val do_opapp_exh = prove(
   ``∀vs env e exh vs_exh.
@@ -755,7 +770,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
     store_to_exh exh s s_exh ∧
     v_to_exh exh v v_exh ∧
     (is_handle ⇒ err_v = v) ∧
-    (¬is_handle ⇒ err_v = Conv_i2 (bind_tag, SOME(TypeExn(Short "Bind"))) []) ∧
+    (¬is_handle ⇒ err_v = Conv_i2 (SOME (bind_tag, (TypeExn(Short "Bind")))) []) ∧
     (pes' = add_default is_handle F pes ∨
      exists_match exh (SND (FST s)) (MAP FST pes) v ∧
      pes' = add_default is_handle T pes) ∧
@@ -829,6 +844,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rpt gen_tac >> strip_tac >>
    rpt gen_tac >> strip_tac >>
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
+   Cases_on`tag`>>TRY(Cases_on`x`)>>simp[exp_to_exh_def] >>
    simp[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS] >>
    metis_tac[EVERY2_REVERSE, exps_to_exh_map, MAP_REVERSE] ) >>
@@ -837,6 +853,7 @@ val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
    rpt gen_tac >> strip_tac >>
    rpt gen_tac >> strip_tac >>
    simp[Once result_to_exh_cases,PULL_EXISTS,v_to_exh_eqn] >>
+   Cases_on`tag`>>TRY(Cases_on`x`)>>simp[exp_to_exh_def] >>
    simp[Once evaluate_exh_cases] >>
    fs[Once result_to_exh_cases,PULL_EXISTS] >>
    fs [exps_to_exh_map, MAP_REVERSE] >>

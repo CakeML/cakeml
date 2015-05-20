@@ -90,7 +90,8 @@ gtagenv_wf gtagenv ⇔
     same_tid t1 t2 ∧
     FLOOKUP gtagenv (cn,t1) = SOME (tag,l) ∧
     FLOOKUP gtagenv (cn',t2) = SOME (tag,l) ⇒
-    cn = cn' ∧ t1 = t2)`;
+    cn = cn' ∧ t1 = t2) ∧
+  (∀t cn. (cn,TypeExn t) ∈ FDOM gtagenv ⇒ cn = id_to_n t)`;
 
 val envC_tagged_def = Define `
 envC_tagged (envC:envC) (tagenv:tag_env) gtagenv =
@@ -229,7 +230,8 @@ gtagenv_weak gtagenv1 gtagenv2 ⇔
      FLOOKUP gtagenv2 (cn,t1) = SOME (tag,l) ∧
      FLOOKUP gtagenv2 (cn',t2) = SOME (tag,l)
      ⇒
-     cn = cn' ∧ t1 = t2)`;
+     cn = cn' ∧ t1 = t2) ∧
+  (∀t cn.  (cn,TypeExn t) ∈ FDOM gtagenv2 ⇒ cn = id_to_n t)`;
 
 val gtagenv_weak_refl = Q.prove (
 `!gtagenv envC tagenv.
@@ -697,6 +699,8 @@ val pmatch_to_i2_correct = Q.prove (
          >- (
            imp_res_tac length_vs_to_i2 >>
            metis_tac[gtagenv_wf_def] )
+         >- metis_tac [tid_or_exn_11, gtagenv_wf_def, length_vs_to_i2]
+         >- ( fs[FLOOKUP_DEF,gtagenv_wf_def] >> metis_tac[] )
          >- metis_tac [tid_or_exn_11, gtagenv_wf_def, length_vs_to_i2]))
  >- (PairCases_on `tagenv` >>
      fs [pmatch_i2_def, lookup_tag_env_def] >>
@@ -828,17 +832,19 @@ val do_eq_i2 = Q.prove (
  rw [] >>
  rw [do_eq_i2_def, do_eq_i1_def, v_to_i2_eqns] >>
  imp_res_tac length_vs_to_i2 >>
- fs [env_all_to_i2_cases] >>
+ fs [env_all_to_i2_cases,ctor_same_type_def,same_tid_refl] >>
  rw []
  >- metis_tac []
  >- metis_tac []
- >- metis_tac []
- >- metis_tac [same_tid_refl, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
- >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
  >> TRY (
    BasicProvers.CASE_TAC >>
-   res_tac >> every_case_tac >> fs [] >> metis_tac []) >>
- fs [Once v_to_i2_cases] >>
+   res_tac >>
+   every_case_tac >> fs[same_tid_def] >>
+   fs[gtagenv_wf_def,FLOOKUP_DEF] >>
+   metis_tac[PAIR_EQ,same_tid_def,tid_or_exn_11] )
+ >- metis_tac [same_tid_refl, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
+ >- metis_tac [cenv_inv_def, gtagenv_wf_def, SOME_11, PAIR_EQ, pair_CASES]
+ >> fs [Once v_to_i2_cases] >>
  rw [do_eq_i2_def])
 
 val v_to_list_i2_correct = Q.prove (
@@ -1765,7 +1771,8 @@ val same_tid_tid = prove(
 val alloc_tag_cenv_inv = prove(
   ``cenv_inv envC (get_exh (FST st)) (get_tagenv st) gtagenv ∧
     next_inv tids (FST (FST st)) gtagenv ∧
-    (cn,tn) ∉ FDOM gtagenv ⇒
+    (cn,tn) ∉ FDOM gtagenv ∧
+    (∀x. tn = TypeExn x ⇒ cn = id_to_n x) ⇒
     ∃gtagenv'.
       cenv_inv (merge_alist_mod_env ([],[(cn,arity,tn)]) envC)
         (get_exh (FST (alloc_tag tn cn arity st)))
@@ -1864,7 +1871,7 @@ val alloc_tag_cenv_inv = prove(
     spose_not_then strip_assume_tac >> rpt BasicProvers.VAR_EQ_TAC >>
     fs[exhaustive_env_correct_def,get_exh_def,PULL_EXISTS] >>
     qmatch_assum_rename_tac`FLOOKUP gtagenv (cnz,TypeId i) = SOME _` >>
-    first_x_assum(qspecl_then[`i`,`cnz`]mp_tac) >>
+    last_x_assum(qspecl_then[`i`,`cnz`]mp_tac) >>
     (discharge_hyps >- fs[FLOOKUP_DEF] >> rw[]) >>
     first_assum(match_exists_tac o concl) >>
     simp[] ) >>
@@ -1918,14 +1925,16 @@ val alloc_tag_cenv_inv = prove(
   conj_tac >- fs[has_bools_def,FLOOKUP_UPDATE] >>
   conj_tac >- fs[has_lists_def,FLOOKUP_UPDATE] >>
   simp[FLOOKUP_UPDATE] >>
-  Cases >> Cases >> simp[same_tid_def,FLOOKUP_UPDATE] >- (
-    metis_tac[same_tid_refl] ) >>
-  simp[Abbr`tag`] >>
-  rpt gen_tac >>
-  fs[next_inv_def] >>
-  every_case_tac >> fs[] >> rw[] >>
-  spose_not_then strip_assume_tac >> rpt BasicProvers.VAR_EQ_TAC >>
-  res_tac >> fs[same_tid_def] >> rw[] >> fs[])
+  conj_tac >- (
+    Cases >> Cases >> simp[same_tid_def,FLOOKUP_UPDATE] >- (
+      metis_tac[same_tid_refl] ) >>
+    simp[Abbr`tag`] >>
+    rpt gen_tac >>
+    fs[next_inv_def] >>
+    every_case_tac >> fs[] >> rw[] >>
+    spose_not_then strip_assume_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+    res_tac >> fs[same_tid_def] >> rw[] >> fs[]) >>
+  rw[] >> metis_tac[])
 
 val next_inv_tids_subset = prove(
   ``s1 ⊆ s2 ∧ next_inv s1 st g ⇒ next_inv s2 st g``,
@@ -2329,8 +2338,9 @@ val decs_to_i2_correct = store_thm("decs_to_i2_correct",
   discharge_hyps >- (
     fs[] >>
     PairCases_on`tagenv_st`>>
-    fs[next_inv_def,SUBSET_DEF,PULL_EXISTS] >>
-    metis_tac[SND] ) >>
+    fs[next_inv_def,SUBSET_DEF,PULL_EXISTS,id_to_n_def,mk_id_def] >>
+    conj_tac >- metis_tac[SND] >>
+    BasicProvers.CASE_TAC >> simp[]) >>
   strip_tac >>
   `gtagenv_weak gtagenv gtagenv'` by (
     simp[gtagenv_weak_def] >>

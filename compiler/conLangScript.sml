@@ -413,13 +413,27 @@ val _ = Define `
   else
     Eq_val F))
 /\
-(do_eq_i2 (Conv_i2 (SOME tag1) vs1) (Conv_i2 (SOME tag2) vs2) =  
-(if (tag1 = tag2) /\ (LENGTH vs1 = LENGTH vs2) then
+(do_eq_i2 (Conv_i2 (SOME (n1,t1)) vs1) (Conv_i2 (SOME (n2,t2)) vs2) =  
+(if ((n1,t1) = (n2,t2)) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list_i2 vs1 vs2
   else
-    Eq_val F))
-/\
-(do_eq_i2 (Conv_i2 _ _) (Conv_i2 _ _) = (Eq_val F))
+    (case (t1,t2) of
+      (TypeId s1,TypeId s2) =>
+        if s1 = s2 then
+          Eq_val F (* different constructors, same type *)
+        else
+          Eq_type_error (* type mismatch *)
+    | (TypeExn s1, TypeExn s2) =>
+        if s1 = s2 then
+          (* same exception but different tags or arities *)
+          Eq_type_error
+        else if (n1 = n2) /\ (LENGTH vs1 = LENGTH vs2) then
+          (* different exceptions but same tag and arity *)
+          Eq_type_error
+        else
+          Eq_val F
+    | _ => (* type mismatch *) Eq_type_error
+    )))
 /\
 (do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =  
 (if LENGTH vs1 = LENGTH vs2 then
@@ -721,9 +735,14 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn _))) ps) (Conv_i2 (SOME (n', (TypeExn _))) vs) env =  
+(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn t))) ps) (Conv_i2 (SOME (n', (TypeExn t'))) vs) env =  
 (if (n = n') /\ (LENGTH ps = LENGTH vs) then
-    pmatch_list_i2 exh s ps vs env
+    if t = t' then
+      pmatch_list_i2 exh s ps vs env
+    else
+      Match_type_error
+  else if t = t' then
+    Match_type_error
   else
     No_match))
 /\

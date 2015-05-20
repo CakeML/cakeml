@@ -343,13 +343,27 @@ do_eq_i2 (Conv_i2 Nothing vs1) (Conv_i2 Nothing vs2) =
   else
     Eq_val false
 and
-do_eq_i2 (Conv_i2 (Just tag1) vs1) (Conv_i2 (Just tag2) vs2) =
-  if tag1 = tag2 && (List.length vs1 = List.length vs2) then
+do_eq_i2 (Conv_i2 (Just (n1,t1)) vs1) (Conv_i2 (Just (n2,t2)) vs2) =
+  if (n1,t1) = (n2,t2) && (List.length vs1 = List.length vs2) then
     do_eq_list_i2 vs1 vs2
   else
-    Eq_val false
-and
-do_eq_i2 (Conv_i2 _ _) (Conv_i2 _ _) = Eq_val false
+    match (t1,t2) with
+    | (TypeId s1,TypeId s2) ->
+        if s1 = s2 then
+          Eq_val false (* different constructors, same type *)
+        else
+          Eq_type_error (* type mismatch *)
+    | (TypeExn s1, TypeExn s2) ->
+        if s1 = s2 then
+          (* same exception but different tags or arities *)
+          Eq_type_error
+        else if n1 = n2 && List.length vs1 = List.length vs2 then
+          (* different exceptions but same tag and arity *)
+          Eq_type_error
+        else
+          Eq_val false
+    | _ -> (* type mismatch *) Eq_type_error
+    end
 and
 do_eq_i2 (Vectorv_i2 vs1) (Vectorv_i2 vs2) =
   if List.length vs1 = List.length vs2 then
@@ -627,9 +641,14 @@ pmatch_i2 exh s (Plit_i2 l) (Litv_i2 l') env =
   else
     Match_type_error
 and
-pmatch_i2 exh s (Pcon_i2 (Just (n, (TypeExn _))) ps) (Conv_i2 (Just (n', (TypeExn _))) vs) env =
+pmatch_i2 exh s (Pcon_i2 (Just (n, (TypeExn t))) ps) (Conv_i2 (Just (n', (TypeExn t'))) vs) env =
   if n = n' && List.length ps = List.length vs then
-    pmatch_list_i2 exh s ps vs env
+    if t = t' then
+      pmatch_list_i2 exh s ps vs env
+    else
+      Match_type_error
+  else if t = t' then
+    Match_type_error
   else
     No_match
 and

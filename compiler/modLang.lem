@@ -261,8 +261,10 @@ and
 do_eq_i1 (Conv_i1 cn1 vs1) (Conv_i1 cn2 vs2) =
   if cn1 = cn2 && (List.length vs1 = List.length vs2) then
     do_eq_list_i1 vs1 vs2
-  else
+  else if ctor_same_type cn1 cn2 then
     Eq_val false
+  else
+    Eq_type_error
 and
 do_eq_i1 (Vectorv_i1 vs1) (Vectorv_i1 vs2) =
   if List.length vs1 = List.length vs2 then
