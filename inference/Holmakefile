@@ -13,9 +13,9 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS)
 .PHONY: all
 
-$(GEN_SCRIPTS): $(LEMI) $(LEMH)
+$(GEN_SCRIPTS): $(LEMI) $(LEMH) ../lib.lem ../ffi/ffi.lem
 	if type lem;\
-	then lem -auxiliary_level none -i ../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
+	then lem -auxiliary_level none -i ../ffi/ffi.lem -i ../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
 
 ifdef POLY
