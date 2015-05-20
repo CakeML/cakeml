@@ -699,6 +699,8 @@ val pmatch_to_i2_correct = Q.prove (
          >- (
            imp_res_tac length_vs_to_i2 >>
            metis_tac[gtagenv_wf_def] )
+         >- metis_tac [tid_or_exn_11, gtagenv_wf_def, length_vs_to_i2]
+         >- ( fs[FLOOKUP_DEF,gtagenv_wf_def] >> metis_tac[] )
          >- metis_tac [tid_or_exn_11, gtagenv_wf_def, length_vs_to_i2]))
  >- (PairCases_on `tagenv` >>
      fs [pmatch_i2_def, lookup_tag_env_def] >>

@@ -735,9 +735,14 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn _))) ps) (Conv_i2 (SOME (n', (TypeExn _))) vs) env =  
+(pmatch_i2 exh s (Pcon_i2 (SOME (n, (TypeExn t))) ps) (Conv_i2 (SOME (n', (TypeExn t'))) vs) env =  
 (if (n = n') /\ (LENGTH ps = LENGTH vs) then
-    pmatch_list_i2 exh s ps vs env
+    if t = t' then
+      pmatch_list_i2 exh s ps vs env
+    else
+      Match_type_error
+  else if t = t' then
+    Match_type_error
   else
     No_match))
 /\
