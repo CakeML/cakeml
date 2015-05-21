@@ -85,22 +85,22 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn prog_to_i3_defn;
 
-val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store # ( 'a option) list``);
-val _ = type_abbrev((*  'a *) "store_genv" , ``: 'a store # ( 'a option) list``);
+val _ = type_abbrev((*  'a *) "count_store_genv" , ``: 'a count_store_trace # ( 'a option) list``);
+val _ = type_abbrev((*  'a *) "store_genv" , ``: 'a store_trace # ( 'a option) list``);
 
 (*val do_app_i3 : count_store_genv v_i2 -> op_i2 -> list v_i2 -> maybe (count_store_genv v_i2 * result v_i2 v_i2)*)
 val _ = Define `
- (do_app_i3 ((count,s),genv) op vs =  
+ (do_app_i3 ((count,s,t),genv) op vs =  
 ((case (op,vs) of
       (Op_i2 op, vs) =>
-        (case do_app_i2 s (Op_i2 op) vs of
+        (case do_app_i2 (s,t) (Op_i2 op) vs of
             NONE => NONE
-          | SOME (s,r) => SOME (((count,s),genv),r)
+          | SOME ((s,t),r) => SOME (((count,s,t),genv),r)
         ) 
     | (Init_global_var_i2 idx, [v]) =>
         if idx < LENGTH genv then
           (case EL idx genv of
-              NONE => SOME (((count,s), LUPDATE (SOME v) idx genv), (Rval (Conv_i2 NONE [])))
+              NONE => SOME (((count,s,t), LUPDATE (SOME v) idx genv), (Rval (Conv_i2 NONE [])))
             | SOME x => NONE
           )
         else
@@ -137,11 +137,10 @@ evaluate_match_i3 ck env s2 v pes v bv)
 ==>
 evaluate_i3 ck env s1 (Handle_i2 e pes) bv)
 
-/\ (! ck s1 s2 env e pes err.
-(evaluate_i3 ck env s1 e (s2, Rerr err) /\
-((err = Rtimeout_error) \/ (err = Rtype_error)))
+/\ (! ck s1 s2 env e pes a.
+(evaluate_i3 ck env s1 e (s2, Rerr (Rabort a)))
 ==>
-evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr err))
+evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr (Rabort a)))
 
 /\ (! ck env tag es vs s s'.
 (evaluate_list_i3 ck env s (REVERSE es) (s', Rval vs))
@@ -169,21 +168,21 @@ T
 ==>
 evaluate_i3 ck (exh,env) s (Fun_i2 n e) (s, Rval (Closure_i2 env n e)))
 
-/\ (! ck exh genv env es vs env' e bv s1 s2 count genv'.
-(evaluate_list_i3 ck (exh,env) (s1,genv) (REVERSE es) (((count,s2),genv'), Rval vs) /\
+/\ (! ck exh genv env es vs env' e bv s1 s2 t2 count genv'.
+(evaluate_list_i3 ck (exh,env) (s1,genv) (REVERSE es) (((count,s2,t2),genv'), Rval vs) /\
 (do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (ck ==> ~ (count =( 0))) /\
-evaluate_i3 ck (exh,env') (((if ck then count -  1 else count),s2),genv') e bv)
+evaluate_i3 ck (exh,env') (((if ck then count -  1 else count),s2,t2),genv') e bv)
 ==>
 evaluate_i3 ck (exh,env) (s1,genv) (App_i2 (Op_i2 Opapp) es) bv)
 
-/\ (! ck env es vs env' e s1 s2 count genv.
-(evaluate_list_i3 ck env s1 (REVERSE es) (((count,s2), genv), Rval vs) /\
+/\ (! ck env es vs env' e s1 s2 t2 count genv.
+(evaluate_list_i3 ck env s1 (REVERSE es) (((count,s2,t2), genv), Rval vs) /\
 (do_opapp_i2 (REVERSE vs) = SOME (env', e)) /\
 (count = 0) /\
 ck)
 ==>
-evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) ((( 0,s2),genv), Rerr Rtimeout_error))
+evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) ((( 0,s2,t2),genv), Rerr (Rabort Rtimeout_error)))
 
 /\ (! ck env s1 op es s2 vs s3 res.
 (evaluate_list_i3 ck env s1 (REVERSE es) (s2, Rval vs) /\
@@ -269,18 +268,18 @@ T
 ==>
 evaluate_match_i3 ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
-/\ (! ck exh env env' v p pes e bv s count genv err_v.
+/\ (! ck exh env env' v p pes e bv s t count genv err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 (pmatch_i2 exh s p v env = Match env') /\
-evaluate_i3 ck (exh,env') ((count,s),genv) e bv)
+evaluate_i3 ck (exh,env') ((count,s,t),genv) e bv)
 ==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v ((p,e)::pes) err_v bv)
 
-/\ (! ck exh genv env v p e pes bv s count err_v.
+/\ (! ck exh genv env v p e pes bv s t count err_v.
 (ALL_DISTINCT (pat_bindings_i2 p []) /\
 (pmatch_i2 exh s p v env = No_match) /\
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv)
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v pes err_v bv)
 ==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv)`;
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v ((p,e)::pes) err_v bv)`;
 val _ = export_theory()
 

@@ -72,21 +72,21 @@ prog_to_i3 none_tag some_tag next (p::ps) =
 
 declare termination_argument prog_to_i2 = automatic
 
-type count_store_genv 'a = count_store 'a * list (maybe 'a)
-type store_genv 'a = store 'a * list (maybe 'a)
+type count_store_genv 'a = count_store_trace 'a * list (maybe 'a)
+type store_genv 'a = store_trace 'a * list (maybe 'a)
 
 val do_app_i3 : count_store_genv v_i2 -> op_i2 -> list v_i2 -> maybe (count_store_genv v_i2 * result v_i2 v_i2)
-let do_app_i3 ((count,s),genv) op vs =
+let do_app_i3 ((count,s,t),genv) op vs =
   match (op,vs) with
     | (Op_i2 op, vs) ->
-        match do_app_i2 s (Op_i2 op) vs with
+        match do_app_i2 (s,t) (Op_i2 op) vs with
           | Nothing -> Nothing
-          | Just (s,r) -> Just (((count,s),genv),r)
+          | Just ((s,t),r) -> Just (((count,s,t),genv),r)
         end 
     | (Init_global_var_i2 idx, [v]) ->
         if idx < List.length genv then
           match List_extra.nth genv idx with
-            | Nothing -> Just (((count,s), List.update genv idx (Just v)), (Rval (Conv_i2 Nothing [])))
+            | Nothing -> Just (((count,s,t), List.update genv idx (Just v)), (Rval (Conv_i2 Nothing [])))
             | Just x -> Nothing
           end
         else
@@ -136,11 +136,10 @@ evaluate_i3 ck env s1 (Handle_i2 e pes) bv
 
 and
 
-handle3 : forall ck s1 s2 env e pes err.
-evaluate_i3 ck env s1 e (s2, Rerr err) &&
-(err = Rtimeout_error || (err = Rtype_error))
+handle3 : forall ck s1 s2 env e pes a.
+evaluate_i3 ck env s1 e (s2, Rerr (Rabort a))
 ==>
-evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr err)
+evaluate_i3 ck env s1 (Handle_i2 e pes) (s2, Rerr (Rabort a))
 
 and
 
@@ -180,23 +179,23 @@ evaluate_i3 ck (exh,env) s (Fun_i2 n e) (s, Rval (Closure_i2 env n e))
 
 and
 
-app1 : forall ck exh genv env es vs env' e bv s1 s2 count genv'.
-evaluate_list_i3 ck (exh,env) (s1,genv) (List.reverse es) (((count,s2),genv'), Rval vs) &&
+app1 : forall ck exh genv env es vs env' e bv s1 s2 t2 count genv'.
+evaluate_list_i3 ck (exh,env) (s1,genv) (List.reverse es) (((count,s2,t2),genv'), Rval vs) &&
 do_opapp_i2 (List.reverse vs) = Just (env', e) &&
 (ck --> count <> 0) &&
-evaluate_i3 ck (exh,env') (((if ck then count-1 else count),s2),genv') e bv
+evaluate_i3 ck (exh,env') (((if ck then count-1 else count),s2,t2),genv') e bv
 ==>
 evaluate_i3 ck (exh,env) (s1,genv) (App_i2 (Op_i2 Opapp) es) bv
 
 and
 
-app2 : forall ck env es vs env' e s1 s2 count genv.
-evaluate_list_i3 ck env s1 (List.reverse es) (((count,s2), genv), Rval vs) &&
+app2 : forall ck env es vs env' e s1 s2 t2 count genv.
+evaluate_list_i3 ck env s1 (List.reverse es) (((count,s2,t2), genv), Rval vs) &&
 do_opapp_i2 (List.reverse vs) = Just (env', e) &&
 count = 0 &&
 ck
 ==>
-evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (((0,s2),genv), Rerr Rtimeout_error)
+evaluate_i3 ck env s1 (App_i2 (Op_i2 Opapp) es) (((0,s2,t2),genv), Rerr (Rabort Rtimeout_error))
 
 and
 
@@ -314,18 +313,18 @@ evaluate_match_i3 ck env s v [] err_v (s, Rerr (Rraise err_v))
 
 and
 
-mat_cons1 : forall ck exh env env' v p pes e bv s count genv err_v.
+mat_cons1 : forall ck exh env env' v p pes e bv s t count genv err_v.
 List.allDistinct (pat_bindings_i2 p []) &&
 pmatch_i2 exh s p v env = Match env' &&
-evaluate_i3 ck (exh,env') ((count,s),genv) e bv
+evaluate_i3 ck (exh,env') ((count,s,t),genv) e bv
 ==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v ((p,e)::pes) err_v bv
 
 and
 
-mat_cons2 : forall ck exh genv env v p e pes bv s count err_v.
+mat_cons2 : forall ck exh genv env v p e pes bv s t count err_v.
 List.allDistinct (pat_bindings_i2 p []) &&
 pmatch_i2 exh s p v env = No_match &&
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v pes err_v bv
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v pes err_v bv
 ==>
-evaluate_match_i3 ck (exh,env) ((count,s),genv) v ((p,e)::pes) err_v bv
+evaluate_match_i3 ck (exh,env) ((count,s,t),genv) v ((p,e)::pes) err_v bv

@@ -42,6 +42,7 @@ open import Ast
 open import SemanticPrimitives
 open import List_extra
 open import BigStep
+open import Ffi
 
 type exp_i1 =
   | Raise_i1 of exp_i1
@@ -356,158 +357,171 @@ let rec char_list_to_v_i1 [] = Conv_i1 (Just ("nil", TypeId (Short "list"))) []
 and char_list_to_v_i1 (c::cs) =
   Conv_i1 (Just ("::", TypeId (Short "list"))) [Litv_i1 (Char c); char_list_to_v_i1 cs]
 
-val do_app_i1 : store v_i1 -> op -> list v_i1 -> maybe (store v_i1 * result v_i1 v_i1)
-let do_app_i1 s op vs =
+val do_app_i1 : store_trace v_i1 -> op -> list v_i1 -> maybe (store_trace v_i1 * result v_i1 v_i1)
+let do_app_i1 (s,t) op vs =
   match (op, vs) with
     | (Opn op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (s, Rerr (Rraise (prim_exn_i1 "Div")))
+          Just ((s,t), Rerr (Rraise (prim_exn_i1 "Div")))
         else
-          Just (s, Rval (Litv_i1 (IntLit (opn_lookup op n1 n2))))
+          Just ((s,t), Rval (Litv_i1 (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv_i1 (IntLit n1); Litv_i1 (IntLit n2)]) ->
-        Just (s, Rval (Boolv_i1 (opb_lookup op n1 n2)))
+        Just ((s,t), Rval (Boolv_i1 (opb_lookup op n1 n2)))
     | (Equality, [v1; v2]) ->
         match do_eq_i1 v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (s, Rerr (Rraise (prim_exn_i1 "Eq")))
-          | Eq_val b -> Just (s, Rval (Boolv_i1 b))
+          | Eq_closure -> Just ((s,t), Rerr (Rraise (prim_exn_i1 "Eq")))
+          | Eq_val b -> Just ((s,t), Rval (Boolv_i1 b))
         end
     | (Opassign, [Loc_i1 lnum; v]) ->
         match store_assign lnum (Refv v) s with
-          | Just st -> Just (st, Rval (Conv_i1 Nothing []))
+          | Just st -> Just ((st,t), Rval (Conv_i1 Nothing []))
           | Nothing -> Nothing
         end
     | (Opref, [v]) ->
         let (s',n) = store_alloc (Refv v) s in
-          Just (s', Rval (Loc_i1 n))
+          Just ((s',t), Rval (Loc_i1 n))
     | (Opderef, [Loc_i1 n]) ->
         match store_lookup n s with
-          | Just (Refv v) -> Just (s,Rval v)
+          | Just (Refv v) -> Just ((s,t),Rval v)
           | _ -> Nothing
         end
     | (Aw8alloc, [Litv_i1 (IntLit n); Litv_i1 (Word8 w)]) ->
         if n < 0 then
-          Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in 
-            Just (s', Rval (Loc_i1 lnum))
+            Just ((s',t), Rval (Loc_i1 lnum))
     | (Aw8sub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                    Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
                   else 
-                    Just (s, Rval (Litv_i1 (Word8 (List_extra.nth ws n))))
+                    Just ((s,t), Rval (Litv_i1 (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
     | (Aw8length, [Loc_i1 n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
-              Just (s,Rval (Litv_i1(IntLit(integerFromNat(List.length ws)))))
+              Just ((s,t),Rval (Litv_i1(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
     | (Aw8update, [Loc_i1 lnum; Litv_i1(IntLit i); Litv_i1(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
             else 
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                  Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Conv_i1 Nothing []))
+                    | Just s' -> Just ((s',t), Rval (Conv_i1 Nothing []))
                   end
         | _ -> Nothing
         end
     | (Ord, [Litv_i1 (Char c)]) ->
-          Just (s, Rval (Litv_i1(IntLit(integerFromNat(String_extra.ord c)))))
+          Just ((s,t), Rval (Litv_i1(IntLit(integerFromNat(String_extra.ord c)))))
     | (Chr, [Litv_i1 (IntLit i)]) ->
-        Just (s,
+        Just ((s,t),
           if i < 0 || i > 255 then
             Rerr (Rraise (prim_exn_i1 "Chr"))
           else
             Rval (Litv_i1(Char(String_extra.chr(natFromInteger i)))))
     | (Chopb op, [Litv_i1 (Char c1); Litv_i1 (Char c2)]) ->
-        Just (s, Rval (Boolv_i1 (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
+        Just ((s,t), Rval (Boolv_i1 (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Implode, [v]) ->
           match v_i1_to_char_list v with
           | Just ls ->
-              Just (s, Rval (Litv_i1 (StrLit (toString ls))))
+              Just ((s,t), Rval (Litv_i1 (StrLit (toString ls))))
           | Nothing -> Nothing
           end
     | (Explode, [Litv_i1 (StrLit str)]) ->
-        Just (s, Rval (char_list_to_v_i1 (toCharList str)))
+        Just ((s,t), Rval (char_list_to_v_i1 (toCharList str)))
     | (Strlen, [Litv_i1 (StrLit str)]) ->
-        Just (s, Rval (Litv_i1(IntLit(integerFromNat(stringLength str)))))
+        Just ((s,t), Rval (Litv_i1(IntLit(integerFromNat(stringLength str)))))
     | (VfromList, [v]) ->
           match v_to_list_i1 v with
             | Just vs ->
-                Just (s, Rval (Vectorv_i1 vs))
+                Just ((s,t), Rval (Vectorv_i1 vs))
             | Nothing -> Nothing
           end
     | (Vsub, [Vectorv_i1 vs; Litv_i1 (IntLit i)]) ->
         if i < 0 then
-          Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
         else
           let n = natFromInteger i in
             if n >= List.length vs then
-              Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
             else 
-              Just (s, Rval (List_extra.nth vs n))
+              Just ((s,t), Rval (List_extra.nth vs n))
     | (Vlength, [Vectorv_i1 vs]) ->
-        Just (s, Rval (Litv_i1 (IntLit (integerFromNat (List.length vs)))))
+        Just ((s,t), Rval (Litv_i1 (IntLit (integerFromNat (List.length vs)))))
     | (Aalloc, [Litv_i1 (IntLit n); v]) ->
         if n < 0 then
-          Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
         else
           let (s',lnum) =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
           in 
-            Just (s', Rval (Loc_i1 lnum))
+            Just ((s',t), Rval (Loc_i1 lnum))
     | (Asub, [Loc_i1 lnum; Litv_i1 (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (Varray vs) ->
               if i < 0 then
-                Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
               else
                 let n = natFromInteger i in
                   if n >= List.length vs then
-                    Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                    Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
                   else 
-                    Just (s, Rval (List_extra.nth vs n))
+                    Just ((s,t), Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
     | (Alength, [Loc_i1 n]) ->
         match store_lookup n s with
           | Just (Varray ws) ->
-              Just (s,Rval (Litv_i1 (IntLit(integerFromNat(List.length ws)))))
+              Just ((s,t),Rval (Litv_i1 (IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
     | (Aupdate, [Loc_i1 lnum; Litv_i1 (IntLit i); v]) ->
         match store_lookup lnum s with
         | Just (Varray vs) ->
             if i < 0 then
-              Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
             else 
               let n = natFromInteger i in
                 if n >= List.length vs then
-                  Just (s, Rerr (Rraise (prim_exn_i1 "Subscript")))
+                  Just ((s,t), Rerr (Rraise (prim_exn_i1 "Subscript")))
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Conv_i1 Nothing []))
+                    | Just s' -> Just ((s',t), Rval (Conv_i1 Nothing []))
                   end
         | _ -> Nothing
       end
+    | (FFI n, [Loc_i1 lnum]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            match call_FFI n ws t with
+            | Just (ws', t') ->
+               match store_assign lnum (W8array ws') s with
+               | Just s' -> Just ((s', t'), Rval (Conv_i1 Nothing []))
+               | Nothing -> Nothing
+               end
+            | Nothing -> Just ((s, t), Rerr (Rabort Rffi_error))
+            end
+        | _ -> Nothing
+        end
     | _ -> Nothing
   end
 
@@ -570,9 +584,9 @@ pmatch_list_i1 envC s (p::ps) (v::vs) env =
 and
 pmatch_list_i1 envC s _ _ env = Match_type_error
 
-indreln [evaluate_i1 : bool -> all_env_i1 -> count_store v_i1 -> exp_i1 -> count_store v_i1 * result v_i1 v_i1 -> bool]
-and [evaluate_list_i1 : bool -> all_env_i1 -> count_store v_i1 -> list exp_i1 -> count_store v_i1 * result (list v_i1) v_i1 -> bool]
-and [evaluate_match_i1 : bool -> all_env_i1 -> count_store v_i1 -> v_i1 -> list (pat * exp_i1) -> v_i1 -> count_store v_i1 * result v_i1 v_i1 -> bool]
+indreln [evaluate_i1 : bool -> all_env_i1 -> count_store_trace v_i1 -> exp_i1 -> count_store_trace v_i1 * result v_i1 v_i1 -> bool]
+and [evaluate_list_i1 : bool -> all_env_i1 -> count_store_trace v_i1 -> list exp_i1 -> count_store_trace v_i1 * result (list v_i1) v_i1 -> bool]
+and [evaluate_match_i1 : bool -> all_env_i1 -> count_store_trace v_i1 -> v_i1 -> list (pat * exp_i1) -> v_i1 -> count_store_trace v_i1 * result v_i1 v_i1 -> bool]
 
 lit : forall ck env l s.
 true
@@ -610,11 +624,10 @@ evaluate_i1 ck env s1 (Handle_i1 e pes) bv
 
 and
 
-handle3 : forall ck s1 s2 env e pes err.
-evaluate_i1 ck env s1 e (s2, Rerr err) &&
-(err = Rtimeout_error || (err = Rtype_error))
+handle3 : forall ck s1 s2 env e pes a.
+evaluate_i1 ck env s1 e (s2, Rerr (Rabort a))
 ==>
-evaluate_i1 ck env s1 (Handle_i1 e pes) (s2, Rerr err)
+evaluate_i1 ck env s1 (Handle_i1 e pes) (s2, Rerr (Rabort a))
 
 and
 
@@ -624,13 +637,6 @@ build_conv_i1 (all_env_i1_to_cenv env) cn (List.reverse vs) = Just v &&
 evaluate_list_i1 ck env s (List.reverse es) (s', Rval vs)
 ==>
 evaluate_i1 ck env s (Con_i1 cn es) (s', Rval v)
-
-and
-
-con2 : forall ck env cn es s.
-not (do_con_check (all_env_i1_to_cenv env) cn (List.length es))
-==>
-evaluate_i1 ck env s (Con_i1 cn es) (s, Rerr Rtype_error)
 
 and
 
@@ -649,33 +655,11 @@ evaluate_i1 ck env s (Var_local_i1 n) (s, Rval v)
 
 and
 
-var2 : forall ck env n s.
-(lookup n (all_env_i1_to_env env) = Nothing)
-==>
-evaluate_i1 ck env s (Var_local_i1 n) (s, Rerr Rtype_error)
-
-and
-
 var3 : forall ck env n v s.
 (List.length (all_env_i1_to_genv env) > n) &&
 (List_extra.nth (all_env_i1_to_genv env) n = Just v)
 ==>
 evaluate_i1 ck env s (Var_global_i1 n) (s, Rval v)
-
-and
-
-var4 : forall ck env n s.
-(List.length (all_env_i1_to_genv env) > n) &&
-(List_extra.nth (all_env_i1_to_genv env) n = Nothing)
-==>
-evaluate_i1 ck env s (Var_global_i1 n) (s, Rerr Rtype_error)
-
-and
-
-var5 : forall ck env n s.
-not (List.length (all_env_i1_to_genv env) > n)
-==>
-evaluate_i1 ck env s (Var_global_i1 n) (s, Rerr Rtype_error)
 
 and
 
@@ -686,49 +670,32 @@ evaluate_i1 ck env s (Fun_i1 n e) (s, Rval (Closure_i1 (all_env_i1_to_cenv env, 
 
 and
 
-app1 : forall ck env es vs env' e bv s1 s2 count.
-evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+app1 : forall ck env es vs env' e bv s1 s2 t2 count.
+evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2,t2), Rval vs) &&
 do_opapp_i1 (all_env_i1_to_genv env) (List.reverse vs) = Just (env', e) &&
 (ck --> count <> 0) &&
-evaluate_i1 ck env' ((if ck then count-1 else count),s2) e bv
+evaluate_i1 ck env' ((if ck then count-1 else count),s2,t2) e bv
 ==>
 evaluate_i1 ck env s1 (App_i1 Opapp es) bv
 
 and
 
-app2 : forall ck env es vs env' e s1 s2 count.
-evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
+app2 : forall ck env es vs env' e s1 s2 count t2.
+evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2,t2), Rval vs) &&
 do_opapp_i1 (all_env_i1_to_genv env) (List.reverse vs) = Just (env', e) &&
 count = 0 &&
 ck
 ==>
-evaluate_i1 ck env s1 (App_i1 Opapp es) ((0,s2), Rerr Rtimeout_error)
+evaluate_i1 ck env s1 (App_i1 Opapp es) ((0,s2,t2), Rerr (Rabort Rtimeout_error))
 
 and
 
-app3 : forall ck env es vs s1 s2.
-evaluate_list_i1 ck env s1 (List.reverse es) (s2, Rval vs) &&
-do_opapp_i1 (all_env_i1_to_genv env) (List.reverse vs) = Nothing
-==>
-evaluate_i1 ck env s1 (App_i1 Opapp es) (s2, Rerr Rtype_error)
-
-and
-
-app4 : forall ck env op es vs res s1 s2 s3 count.
-evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
-do_app_i1 s2 op (List.reverse vs) = Just (s3, res) &&
+app4 : forall ck env op es vs res s1 s2 s3 t2 t3 count.
+evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2,t2), Rval vs) &&
+do_app_i1 (s2,t2) op (List.reverse vs) = Just ((s3,t3), res) &&
 op <> Opapp
 ==>
-evaluate_i1 ck env s1 (App_i1 op es) ((count,s3), res)
-
-and
-
-app5 : forall ck env op es vs s1 s2 count.
-evaluate_list_i1 ck env s1 (List.reverse es) ((count,s2), Rval vs) &&
-do_app_i1 s2 op (List.reverse vs) = Nothing &&
-op <> Opapp
-==>
-evaluate_i1 ck env s1 (App_i1 op es) ((count,s2), Rerr Rtype_error)
+evaluate_i1 ck env s1 (App_i1 op es) ((count,s3,t3), res)
 
 and
 
@@ -745,14 +712,6 @@ do_if_i1 v e2 e3 = Just e' &&
 evaluate_i1 ck env s2 e' bv
 ==>
 evaluate_i1 ck env s1 (If_i1 e1 e2 e3) bv
-
-and
-
-if2 : forall ck env e1 e2 e3 v s1 s2.
-evaluate_i1 ck env s1 e1 (s2, Rval v) &&
-do_if_i1 v e2 e3 = Nothing
-==>
-evaluate_i1 ck env s1 (If_i1 e1 e2 e3) (s2, Rerr Rtype_error)
 
 and
 
@@ -801,13 +760,6 @@ evaluate_i1 ck (genv,cenv,env) s (Letrec_i1 funs e) bv
 
 and
 
-letrec2 : forall ck env funs e s.
-not (List.allDistinct (List.map (fun (x,y,z) -> x) funs))
-==>
-evaluate_i1 ck env s (Letrec_i1 funs e) (s, Rerr Rtype_error)
-
-and
-
 empty : forall ck env s.
 true
 ==>
@@ -845,59 +797,29 @@ evaluate_match_i1 ck env s v [] err_v (s, Rerr (Rraise err_v))
 
 and
 
-mat_cons1 : forall ck genv cenv env env' v p pes e bv err_v s count.
+mat_cons1 : forall ck genv cenv env env' v p pes e bv err_v s t count.
 List.allDistinct (pat_bindings p []) &&
 (pmatch_i1 cenv s p v env = Match env') &&
-evaluate_i1 ck (genv,cenv,env') (count,s) e bv
+evaluate_i1 ck (genv,cenv,env') (count,s,t) e bv
 ==>
-evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv
+evaluate_match_i1 ck (genv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv
 
 and
 
-mat_cons2 : forall ck genv cenv env v p e pes bv s count err_v.
+mat_cons2 : forall ck genv cenv env v p e pes bv s t count err_v.
 List.allDistinct (pat_bindings p []) &&
 (pmatch_i1 cenv s p v env = No_match) &&
-evaluate_match_i1 ck (genv,cenv,env) (count,s) v pes err_v bv
+evaluate_match_i1 ck (genv,cenv,env) (count,s,t) v pes err_v bv
 ==>
-evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v bv
+evaluate_match_i1 ck (genv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv
 
-and
-
-mat_cons3 : forall ck genv cenv env v p e pes s count err_v.
-(pmatch_i1 cenv s p v env = Match_type_error)
-==>
-evaluate_match_i1 ck (genv,cenv,env) (count,s) v ((p,e)::pes) err_v ((count,s), Rerr Rtype_error)
-
-and
-
-mat_cons4 : forall ck env v p e pes s err_v.
-not (List.allDistinct (pat_bindings p []))
-==>
-evaluate_match_i1 ck env s v ((p,e)::pes) err_v (s, Rerr Rtype_error)
-
-indreln [evaluate_dec_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn -> dec_i1 -> (count_store v_i1 * set tid_or_exn) * result (flat_envC * list v_i1)  v_i1 -> bool]
+indreln [evaluate_dec_i1 : bool -> list (maybe v_i1) -> envC -> count_store_trace v_i1 * set tid_or_exn -> dec_i1 -> (count_store_trace v_i1 * set tid_or_exn) * result (flat_envC * list v_i1)  v_i1 -> bool]
 
 dlet1 : forall ck genv cenv n e vs s1 s2 tdecs.
 evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval (Conv_i1 Nothing vs)) &&
 List.length vs = n
 ==>
 evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rval ([], vs))
-
-and
-
-dlet3 : forall ck genv cenv n e vs s1 s2 tdecs.
-evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval (Conv_i1 Nothing vs)) &&
-List.length vs <> n
-==>
-evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error)
-
-and
-
-dlet4 : forall ck genv cenv n e v s1 s2 tdecs.
-evaluate_i1 ck (genv,cenv,[]) s1 e (s2, Rval v) &&
-not (exists vs. v = Conv_i1 Nothing vs)
-==>
-evaluate_dec_i1 ck genv cenv (s1,tdecs) (Dlet_i1 n e) ((s2,tdecs), Rerr Rtype_error)
 
 and
 
@@ -925,28 +847,12 @@ evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,new_tdecs union tde
 
 and
 
-dtype2 : forall ck mn genv cenv tds s tdecs.
-not (check_dup_ctors tds) ||
-not (disjoint (type_defs_to_new_tdecs mn tds) tdecs) ||
-not (List.allDistinct (List.map (fun (tvs,tn,ctors) -> tn) tds))
-==>
-evaluate_dec_i1 ck genv cenv (s,tdecs) (Dtype_i1 mn tds) ((s,tdecs), Rerr Rtype_error)
-
-and
-
 dexn1 : forall ck mn genv cenv cn ts s tdecs.
 not (TypeExn (mk_id mn cn) IN tdecs)
 ==>
 evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s, {TypeExn (mk_id mn cn)} union tdecs), Rval ([(cn, (List.length ts, TypeExn (mk_id mn cn)))], []))
 
-and
-
-dexn2 : forall ck mn genv cenv cn ts s tdecs.
-TypeExn (mk_id mn cn) IN tdecs
-==>
-evaluate_dec_i1 ck genv cenv (s,tdecs) (Dexn_i1 mn cn ts) ((s,tdecs), Rerr Rtype_error)
-
-indreln [evaluate_decs_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn -> list dec_i1 -> (count_store v_i1 * set tid_or_exn) * flat_envC * list v_i1 * maybe (error_result v_i1) -> bool]
+indreln [evaluate_decs_i1 : bool -> list (maybe v_i1) -> envC -> count_store_trace v_i1 * set tid_or_exn -> list dec_i1 -> (count_store_trace v_i1 * set tid_or_exn) * flat_envC * list v_i1 * maybe (error_result v_i1) -> bool]
 
 empty : forall ck genv cenv s.
 true
@@ -1023,7 +929,7 @@ let prompt_mods_ok mn ds =
       end)
     ds)
 
-indreln [evaluate_prompt_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
+indreln [evaluate_prompt_i1 : bool -> list (maybe v_i1) -> envC -> count_store_trace v_i1 * set tid_or_exn * set modN -> prompt_i1 -> (count_store_trace v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prompt_val : forall ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
 (forall name. mn = Just name --> not (name IN mods)) &&
@@ -1047,21 +953,7 @@ evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds)
                                                    List.map Just env ++ List.genlist (fun _ -> Nothing) (decs_to_dummy_env ds - List.length env),
                                                    Just err)
 
-and
-
-prompt_err2 : forall ck genv cenv s1 tdecs1 mods mn ds.
-(not (no_dup_types_i1 ds) || not (prompt_mods_ok mn ds))
-==>
-evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], Just Rtype_error)
-
-and
-
-prompt_err3 : forall ck genv cenv s1 tdecs1 mods mn ds.
-(exists name. mn = Just name && name IN mods)
-==>
-evaluate_prompt_i1 ck genv cenv (s1,tdecs1,mods) (Prompt_i1 mn ds) ((s1,tdecs1,mods), ([],[]), [], Just Rtype_error)
-
-indreln [evaluate_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
+indreln [evaluate_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store_trace v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store_trace v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool]
 
 prog_empty : forall ck genv cenv s.
 true
@@ -1091,7 +983,7 @@ let prog_i1_to_mods prompts =
           | _ -> [] end)
      prompts)
 
-val no_dup_mods_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool
+val no_dup_mods_i1 : list prompt_i1 -> count_store_trace v_i1 * set tid_or_exn * set modN -> bool
 let no_dup_mods_i1 prompts (_,_,mods) =
   List.allDistinct (prog_i1_to_mods prompts) &&
   disjoint (Set.fromList (prog_i1_to_mods prompts)) mods
@@ -1104,15 +996,15 @@ let prog_i1_to_top_types prompts =
           | _ -> [] end)
      prompts) 
 
-val no_dup_top_types_i1 : list prompt_i1 -> count_store v_i1 * set tid_or_exn * set modN -> bool
+val no_dup_top_types_i1 : list prompt_i1 -> count_store_trace v_i1 * set tid_or_exn * set modN -> bool
 let no_dup_top_types_i1 prompts (_, tids, _) =
   List.allDistinct (prog_i1_to_top_types prompts) &&
   disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_i1_to_top_types prompts))) tids
 
-val evaluate_whole_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool
+val evaluate_whole_prog_i1 : bool -> list (maybe v_i1) -> envC -> count_store_trace v_i1 * set tid_or_exn * set modN -> list prompt_i1 -> (count_store_trace v_i1 * set tid_or_exn * set modN) * envC * list (maybe v_i1) * maybe (error_result v_i1) -> bool
 let evaluate_whole_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res) =
   if no_dup_mods_i1 prompts s1 && no_dup_top_types_i1 prompts s1 &&
      List.all (fun p -> match p with Prompt_i1 mn ds -> prompt_mods_ok mn ds end) prompts then
     evaluate_prog_i1 ck genv cenv s1 prompts (s2, cenv2, env2, res)
   else
-    res = Just Rtype_error 
+    res = Just (Rabort Rtype_error)
