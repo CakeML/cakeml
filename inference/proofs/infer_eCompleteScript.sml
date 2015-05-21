@@ -912,6 +912,10 @@ t = convert_t (t_walkstar s' t')``,
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [h''] A);(h',B)]`>>
     pac_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+    pac_tac)
   )
 
 val simp_tenv_invC_def = Define`

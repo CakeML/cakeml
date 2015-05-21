@@ -41,6 +41,22 @@ val do_log_thm = store_thm("do_log_thm",
   rw[semanticPrimitivesTheory.do_log_def] >>
   every_case_tac >> rw[])
 
+val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
+val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
+val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
+val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
+val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
+val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
+val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
+val eqs = LIST_CONJ (map prove_case_eq_thm 
+  [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms])
+
+val do_app_cases = save_thm ("do_app_cases",
+``do_app (s,t) op vs = SOME (st',v)`` |>
+  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, LET_THM] THENC
+   ALL_CONV));
+
+(*
 val do_app_cases = Q.store_thm ("do_app_cases",
 `!st op st' vs v.
   (do_app st op vs = SOME (st',v))
@@ -181,6 +197,7 @@ val do_app_cases = Q.store_thm ("do_app_cases",
  every_case_tac >>
  rw [] >>
  metis_tac []);
+ *)
 
 val do_opapp_cases = store_thm("do_opapp_cases",
   ``∀env' vs v.
@@ -282,17 +299,13 @@ fs []);
 
 val map_error_result_def = Define`
   (map_error_result f (Rraise e) = Rraise (f e)) ∧
-  (map_error_result f Rtype_error = Rtype_error) ∧
-  (map_error_result f Rtimeout_error = Rtimeout_error)`
+  (map_error_result f (Rabort a) = Rabort a)`
 val _ = export_rewrites["map_error_result_def"]
 
 val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
-  ``map_error_result f e = Rtype_error ⇔ e = Rtype_error``,
+  ``map_error_result f e = (Rabort a) ⇔ e = Rabort a``,
   Cases_on`e`>>simp[])
-val map_error_result_Rtimeout_error = store_thm("map_error_result_Rtimeout_error",
-  ``map_error_result f e = Rtimeout_error ⇔ e = Rtimeout_error``,
-  Cases_on`e`>>simp[])
-val _ = export_rewrites["map_error_result_Rtimeout_error","map_error_result_Rtype_error"]
+val _ = export_rewrites["map_error_result_Rtype_error"]
 
 val map_result_def = Define`
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
@@ -306,8 +319,7 @@ val _ = export_rewrites["map_result_Rerr"]
 
 val exc_rel_def = Define`
   (exc_rel R (Rraise v1) (Rraise v2) = R v1 v2) ∧
-  (exc_rel _ Rtype_error Rtype_error = T) ∧
-  (exc_rel _ Rtimeout_error Rtimeout_error = T) ∧
+  (exc_rel _ (Rabort a1) (Rabort a2) ⇔ a1 = a2) ∧
   (exc_rel _ _ _ = F)`
 val _ = export_rewrites["exc_rel_def"]
 
@@ -318,14 +330,10 @@ val exc_rel_raise2 = store_thm("exc_rel_raise2",
   ``exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v``,
   Cases_on`e`>>rw[])
 val exc_rel_type_error = store_thm("exc_rel_type_error",
-  ``(exc_rel R Rtype_error e = (e = Rtype_error)) ∧
-    (exc_rel R e Rtype_error = (e = Rtype_error))``,
-  Cases_on`e`>>rw[])
-val exc_rel_timeout_error = store_thm("exc_rel_timeout_error",
-  ``(exc_rel R Rtimeout_error e = (e = Rtimeout_error)) ∧
-    (exc_rel R e Rtimeout_error = (e = Rtimeout_error))``,
-  Cases_on`e`>>rw[])
-val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error","exc_rel_timeout_error"]
+  ``(exc_rel R (Rabort a) e = (e = Rabort a)) ∧
+    (exc_rel R e (Rabort a) = (e = Rabort a))``,
+  Cases_on`e`>>rw[]>>metis_tac [])
+val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error"]
 
 val exc_rel_refl = store_thm(
 "exc_rel_refl",
@@ -373,8 +381,7 @@ Cases_on `x` >> fs[] >> rw[] >> fs[] >> PROVE_TAC[exc_rel_trans])
 
 val every_error_result_def = Define`
   (every_error_result P (Rraise e) = P e) ∧
-  (every_error_result P Rtype_error = T) ∧
-  (every_error_result P Rtimeout_error = T)`
+  (every_error_result P (Rabort a) = T)`;
 val _ = export_rewrites["every_error_result_def"]
 
 val every_result_def = Define`
@@ -481,6 +488,7 @@ val map_match_def = Define`
   (map_match f x = x)`
 val _ = export_rewrites["map_match_def"]
 
+(* TODO see if this is actually needed
 val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_prog_MAP_Tdec",
   ``∀ck env cs tids ds res.
       evaluate_decs ck NONE env (cs,tids) ds res
@@ -526,6 +534,7 @@ val evaluate_decs_evaluate_prog_MAP_Tdec = store_thm("evaluate_decs_evaluate_pro
     Cases_on`a`>>Cases_on`e`>>fs[]>>rw[])
   >- (
     Cases_on`a`>>fs[]))
+    *)
 
 val find_recfun_ALOOKUP = store_thm(
 "find_recfun_ALOOKUP",
@@ -668,6 +677,7 @@ val all_env_dom_def = Define`
 
 (* REPL bootstrap lemmas *)
 
+(* TODO
 val evaluate_decs_last3 = prove(
   ``∀ck mn env s decs a b c k i j s1 x y decs0 decs1 v p q r.
       evaluate_decs ck mn env s decs (((k,s1),a),b,Rval c) ∧
@@ -776,5 +786,6 @@ val evaluate_Tmod_tys = store_thm("evaluate_Tmod_tys",
     (ALOOKUP tys cn = SOME (LENGTH as, TypeId (Long mn tn)))``,
   rw[evaluate_top_cases,miscTheory.FEMPTY_FUPDATE_EQ] >>
   METIS_TAC[evaluate_decs_tys]) |> GEN_ALL
+  *)
 
 val _ = export_theory ();

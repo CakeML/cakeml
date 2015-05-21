@@ -41,8 +41,9 @@ val _ = Hol_datatype `
   | Fail`;
 
 
+(*val call_FFI : nat -> list word8 -> io_trace -> maybe (list word8 * io_trace)*)
 val _ = Define `
-  (call_FFI n bytes io_trace =  
+ (call_FFI n bytes io_trace =  
 ((case LHD io_trace of
     SOME (IO_event n' xs) =>
       if (n = n') /\ (MAP FST xs = bytes) then

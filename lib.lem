@@ -76,8 +76,10 @@ type llist 'a
 declare hol target_rep type llist 'a = `llist` 'a
 val lhd : forall 'a. llist 'a -> maybe 'a
 val ltl : forall 'a. llist 'a -> maybe (llist 'a)
+val lnil : forall 'a. llist 'a
 declare hol target_rep function lhd = `LHD`
 declare hol target_rep function ltl = `LTL`
+declare hol target_rep function lnil = `LNIL`
 
 
 (* TODO: proper support for words... *)

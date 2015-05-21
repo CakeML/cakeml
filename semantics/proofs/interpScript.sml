@@ -26,7 +26,7 @@ val run_eval_spec_lem = Q.prove (
  strip_tac
  >- (induct_on `pes` >>
      rw [Once evaluate_cases] >>
-     `(?count s. st = (count,s)) ∧ (?p e. h = (p,e))` by metis_tac [pair_CASES] >>
+     `(?count s t. st = (count,(s,t))) ∧ (?p e. h = (p,e))` by metis_tac [pair_CASES] >>
      rw [] >>
      `?menv cenv env'. env = (menv,cenv,env')` by (PairCases_on `env` >> metis_tac [])>>
      rw [] >>
@@ -34,7 +34,7 @@ val run_eval_spec_lem = Q.prove (
      rw []
      >- metis_tac []
      >- metis_tac []
-     >- (`?count'' s' r. evaluate T (menv,cenv,a) (count',s) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
+     >- (`?count'' s' r. evaluate T (menv,cenv,a) (count',(s,t)) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
          metis_tac [])));
 
 val run_eval_spec = 
@@ -61,7 +61,7 @@ val evaluate_run_eval_match = Q.store_thm ("evaluate_run_eval_match",
   (run_eval_match env v pes err_v st = r)`,
 metis_tac [big_exp_determ, run_eval_spec]);
 
-val _ = type_abbrev("M", ``:v count_store -> v count_store # ('a, v) result``);
+val _ = type_abbrev("M", ``:v count_store_trace -> v count_store_trace # ('a, v) result``);
 
 val result_bind_def = Define `
 (result_bind : α M -> (α -> β M) -> β M) x f =
@@ -78,13 +78,13 @@ val result_raise_def = Define `
 result_raise err = \s. (s, Rerr err)`;
 
 val get_store_def = Define `
-(get_store : v store M) = \(count,s). ((count,s), Rval s)`;
+(get_store : v store_trace M) = \(count,s). ((count,s), Rval s)`;
 
 val set_store_def = Define `
-(set_store : v store -> unit M) s = \(count,s'). ((count,s), Rval ())`;
+(set_store : v store_trace -> unit M) s = \(count,s'). ((count,s), Rval ())`;
 
 val dec_clock_def = Define `
-(dec_clock : unit M) = (\(count,s). if count = 0 then ((0,s), Rerr Rtimeout_error) else ((count - 1, s), Rval ()))`;
+(dec_clock : unit M) = (\(count,s). if count = 0 then ((0,s), Rerr (Rabort Rtimeout_error)) else ((count - 1, s), Rval ()))`;
 
 val _ = temp_overload_on ("monad_bind", ``result_bind``);
 val _ = temp_overload_on ("monad_unitbind", ``\x y. result_bind x (\z. y)``);
@@ -132,19 +132,19 @@ val run_eval_def = Q.store_thm ("run_eval_def",
         od
     | SOME n =>
        (case lookup_alist_mod_env n (all_env_to_cenv env) of
-          | NONE => raise Rtype_error
+          | NONE => raise (Rabort Rtype_error)
           | SOME (l,t) =>
               if l = LENGTH es then
                 do vs <- run_eval_list env (REVERSE es);
                    return (Conv (SOME (id_to_n n,t)) (REVERSE vs))
                 od
               else
-                raise Rtype_error)) ∧
+                raise (Rabort Rtype_error))) ∧
  (!env n.
   run_eval env (Var n)
   =
   case lookup_var_id n env of
-       NONE => raise Rtype_error
+       NONE => raise (Rabort Rtype_error)
      | SOME v => return v) ∧
  (!env n e.
    run_eval env (Fun n e)
@@ -157,14 +157,14 @@ val run_eval_def = Q.store_thm ("run_eval_def",
       st <- get_store;
       if op = Opapp then
         case do_opapp (REVERSE vs) of
-        | NONE => raise Rtype_error
+        | NONE => raise (Rabort Rtype_error)
         | SOME (env', e3) =>
             do () <- dec_clock;
                run_eval env' e3
             od
       else
         case do_app st op (REVERSE vs) of
-        | NONE => raise Rtype_error
+        | NONE => raise (Rabort Rtype_error)
         | SOME (st',res) =>
           do () <- set_store st';
              combin$C return res
@@ -175,7 +175,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    =
    do v1 <- run_eval env e1;
       case do_log lop v1 e2 of
-           NONE => raise Rtype_error
+           NONE => raise (Rabort Rtype_error)
          | SOME (Val v) => return v
          | SOME (Exp e') => run_eval env e'
    od) ∧
@@ -184,7 +184,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    =
    do v1 <- run_eval env e1;
       case do_if v1 e2 e3 of
-           NONE => raise Rtype_error
+           NONE => raise (Rabort Rtype_error)
          | SOME e' => run_eval env e'
    od) ∧
  (!env e pes.
@@ -205,7 +205,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    if ALL_DISTINCT (MAP FST funs) then
      run_eval (all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)) e
    else
-     raise Rtype_error) ∧
+     raise (Rabort Rtype_error)) ∧
  (!env.
    run_eval_list env []
    =
@@ -226,12 +226,12 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    =
    do st <- get_store;
       if ALL_DISTINCT (pat_bindings p []) then
-        case pmatch (all_env_to_cenv env) st p v (all_env_to_env env) of
-             Match_type_error => raise Rtype_error
+        case pmatch (all_env_to_cenv env) (FST st) p v (all_env_to_env env) of
+             Match_type_error => raise (Rabort Rtype_error)
            | No_match => run_eval_match env v pes err_v
            | Match env' => run_eval (all_env_to_menv env, all_env_to_cenv env, env') e
       else
-        raise Rtype_error
+        raise (Rabort Rtype_error)
    od)`,
  rw [GSYM evaluate_run_eval, FUN_EQ_THM, result_raise_def, result_return_def,
      result_bind_def, get_store_def, set_store_def] >>
@@ -258,7 +258,6 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      every_case_tac >>
      fs [GSYM evaluate_run_eval] >>
      rw [] >>
-     fs [do_app_cases,do_opapp_cases] >>
      rw [] >> fs[state_transformerTheory.UNIT_DEF] >>
      metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
  >- (every_case_tac >>
@@ -297,39 +296,40 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      fs [] >>
      PairCases_on `x` >>
      fs [] >>
+     rw [] >>
      metis_tac [fst_lem, run_eval_spec, all_env_to_menv_def, all_env_to_cenv_def,
-               all_env_to_env_def, pair_CASES]));
+               all_env_to_env_def, pair_CASES, FST]));
 
 val run_eval_dec_def = Define `
 (run_eval_dec mn env (st,tdecs) (Dlet p e) =
   if ALL_DISTINCT (pat_bindings p []) then
     case run_eval env e st of
        | (st', Rval v) =>
-           (case pmatch (all_env_to_cenv env) (SND st') p v [] of
+           (case pmatch (all_env_to_cenv env) (FST (SND st')) p v [] of
               | Match env' => ((st',tdecs), Rval ([], env'))
               | No_match => ((st',tdecs), Rerr (Rraise (Conv (SOME ("Bind",TypeExn (Short "Bind"))) [])))
-              | Match_type_error => ((st',tdecs), Rerr Rtype_error))
+              | Match_type_error => ((st',tdecs), Rerr (Rabort Rtype_error)))
        | (st', Rerr e) => ((st',tdecs), Rerr e)
   else
-    ((st,tdecs), Rerr Rtype_error)) ∧
+    ((st,tdecs), Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env st (Dletrec funs) =
   if ALL_DISTINCT (MAP FST funs) then
     (st, Rval ([], build_rec_env funs env []))
   else
-    (st, Rerr Rtype_error)) ∧
+    (st, Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env (st,tdecs) (Dtype tds) =
   let new_tdecs = set (MAP (\(tvs,tn,ctors). TypeId (mk_id mn tn)) tds) in
     if check_dup_ctors tds ∧ DISJOINT new_tdecs tdecs ∧ ALL_DISTINCT (MAP (\(tvs,tn,ctors). tn) tds) then
       ((st, new_tdecs ∪ tdecs), Rval (build_tdefs mn tds, []))
     else
-      ((st,tdecs), Rerr Rtype_error)) ∧
+      ((st,tdecs), Rerr (Rabort Rtype_error))) ∧
 (run_eval_dec mn env (st,tdecs) (Dtabbrev tvs tn t) =
   ((st,tdecs), Rval ([], []))) ∧
 (run_eval_dec mn env (st,tdecs) (Dexn cn ts) =
   if TypeExn (mk_id mn cn) ∉ tdecs  then
     ((st, {TypeExn (mk_id mn cn)} ∪ tdecs), Rval ([(cn,(LENGTH ts, TypeExn (mk_id mn cn)))], []))
   else
-    ((st,tdecs), Rerr Rtype_error))`;
+    ((st,tdecs), Rerr (Rabort Rtype_error)))`;
 
 val run_eval_decs_def = Define `
 (run_eval_decs mn env st [] = (st, [], Rval [])) ∧
@@ -354,7 +354,7 @@ val run_eval_top_def = Define `
        | ((st',tdecls'), cenv', Rerr err) => 
            ((st',tdecls',{mn} ∪ mdecls), ([(mn,cenv')],[]), Rerr err)
   else
-    ((st,tdecls,mdecls), ([],[]), Rerr Rtype_error))`;
+    ((st,tdecls,mdecls), ([],[]), Rerr (Rabort Rtype_error)))`;
 
 val run_eval_prog_def = Define `
 (run_eval_prog env st [] = (st, ([],[]), Rval ([], []))) ∧
@@ -372,7 +372,7 @@ run_eval_whole_prog env st prog =
   if no_dup_mods prog st ∧ no_dup_top_types prog st then
     run_eval_prog env st prog
   else
-    (st,([],[]),Rerr Rtype_error)`;
+    (st,([],[]),Rerr (Rabort Rtype_error))`;
 
 val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
 `!mn st tdecs env d st' tdecs' r.
@@ -383,7 +383,7 @@ val run_eval_dec_spec = Q.store_thm ("run_eval_dec_spec",
  every_case_tac >>
  fs [GSYM evaluate_run_eval] >>
  rw [type_defs_to_new_tdecs_def] >>
- metis_tac [big_clocked_unclocked_equiv, clocked_min_counter, SND, pair_CASES, result_distinct, result_11]);
+ metis_tac [FST, big_clocked_unclocked_equiv, clocked_min_counter, SND, pair_CASES, result_distinct, result_11]);
 
 val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
 `!mn env st tdecs ds st' tdecs' cenv' r.

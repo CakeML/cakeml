@@ -47,8 +47,9 @@ val print_envE_def = Define `
 val print_result_def = Define `
 (print_result types (Tdec _) (Rval (envM,envE)) = print_envE types envE) ∧
 (print_result _ (Tmod mn _ _) (Rval _) = "structure "++mn++" = <structure>\n") ∧
-(print_result _ _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
-(print_result _ _ (Rerr Rtype_error) = "<type error>\n") ∧
+(print_result _ _ (Rerr (Rabort Rtimeout_error)) = "<timeout error>\n") ∧
+(print_result _ _ (Rerr (Rabort Rtype_error)) = "<type error>\n") ∧
+(print_result _ _ (Rerr (Rabort Rffi_error)) = "<ffi error>\n") ∧
 (print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
 
 val print_prog_result_def = Define`
@@ -56,8 +57,9 @@ val print_prog_result_def = Define`
    case ALOOKUP envE "it" of
      SOME v => print_v v ++ "\n"
    | NONE => "") ∧
-  (print_prog_result _ (Rerr Rtimeout_error) = "<timeout error>\n") ∧
-  (print_prog_result _ (Rerr Rtype_error) = "<type error>\n") ∧
+  (print_prog_result _ (Rerr (Rabort Rtimeout_error)) = "<timeout error>\n") ∧
+  (print_prog_result _ (Rerr (Rabort Rtype_error)) = "<type error>\n") ∧
+  (print_prog_result _ (Rerr (Rabort Rffi_error)) = "<ffi error>\n") ∧
   (print_prog_result _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`
 
 val _ = export_theory()

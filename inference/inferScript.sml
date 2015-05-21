@@ -365,6 +365,10 @@ constrain_op op ts =
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_tup)
        od
+   | (FFI n, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_word8array);
+          return (Infer_Tapp [] TC_tup)
+       od
    | _ => failwith "Wrong number of arguments to primitive"`;
 
 val infer_e_def = tDefine "infer_e" `

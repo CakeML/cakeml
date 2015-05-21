@@ -4,6 +4,7 @@ import List_extra
 import String
 import String_extra
 open import Ast
+open import Ffi
 
 (* The type that a constructor builds is either a named datatype or an exception.
  * For exceptions, we also keep the module that the exception was declared in. *)
@@ -63,10 +64,14 @@ let all_env_to_cenv (menv,cenv,env) = cenv
 let all_env_to_env (menv,cenv,env) = env
 
 (* The result of evaluation *)
-type error_result 'a =
+type abort =
   | Rtype_error
-  | Rraise of 'a (* Should only be a value of type exn *)
   | Rtimeout_error
+  | Rffi_error
+
+type error_result 'a =
+  | Rraise of 'a (* Should only be a value of type exn *)
+  | Rabort of abort
 
 type result 'a 'b =
   | Rval of 'a
@@ -416,158 +421,173 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-val do_app : store v -> op -> list v -> maybe (store v * result v v)
-let do_app s op vs =
+type store_trace 'v = store 'v * io_trace
+
+val do_app : store_trace v -> op -> list v -> maybe (store_trace v * result v v)
+let do_app (s,t) op vs =
   match (op, vs) with
     | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (s, Rerr (Rraise (prim_exn "Div")))
+          Just ((s,t), Rerr (Rraise (prim_exn "Div")))
         else
-          Just (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
+          Just ((s,t), Rval (Litv (IntLit (opn_lookup op n1 n2))))
     | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
-        Just (s, Rval (Boolv (opb_lookup op n1 n2)))
+        Just ((s,t), Rval (Boolv (opb_lookup op n1 n2)))
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (s, Rerr (Rraise (prim_exn "Eq")))
-          | Eq_val b -> Just (s, Rval (Boolv b))
+          | Eq_closure -> Just ((s,t), Rerr (Rraise (prim_exn "Eq")))
+          | Eq_val b -> Just ((s,t), Rval (Boolv b))
         end
     | (Opassign, [Loc lnum; v]) ->
         match store_assign lnum (Refv v) s with
-          | Just st -> Just (st, Rval (Conv Nothing []))
+          | Just s' -> Just ((s',t), Rval (Conv Nothing []))
           | Nothing -> Nothing
         end
     | (Opref, [v]) ->
         let (s',n) = store_alloc (Refv v) s in
-          Just (s', Rval (Loc n))
+          Just ((s',t), Rval (Loc n))
     | (Opderef, [Loc n]) ->
         match store_lookup n s with
-          | Just (Refv v) -> Just (s,Rval v)
+          | Just (Refv v) -> Just ((s,t),Rval v)
           | _ -> Nothing
         end
     | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) ->
         if n < 0 then
-          Just (s, Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
         else
           let (s',lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in
-            Just (s', Rval (Loc lnum))
+            Just ((s',t), Rval (Loc lnum))
     | (Aw8sub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                    Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
                   else
-                    Just (s, Rval (Litv (Word8 (List_extra.nth ws n))))
+                    Just ((s,t), Rval (Litv (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
     | (Aw8length, [Loc n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
-              Just (s,Rval (Litv(IntLit(integerFromNat(List.length ws)))))
+              Just ((s,t),Rval (Litv(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
     | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just (s, Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
             else
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                  Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Conv Nothing []))
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
                   end
         | _ -> Nothing
       end
     | (Ord, [Litv (Char c)]) ->
-          Just (s, Rval (Litv(IntLit(integerFromNat(String_extra.ord c)))))
+          Just ((s,t), Rval (Litv(IntLit(integerFromNat(String_extra.ord c)))))
     | (Chr, [Litv (IntLit i)]) ->
-        Just (s,
+        Just ((s,t),
           if i < 0 || i > 255 then
             Rerr (Rraise (prim_exn "Chr"))
           else
             Rval (Litv(Char(String_extra.chr(natFromInteger i)))))
     | (Chopb op, [Litv (Char c1); Litv (Char c2)]) ->
-        Just (s, Rval (Boolv (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
+        Just ((s,t), Rval (Boolv (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Implode, [v]) ->
           match v_to_char_list v with
           | Just ls ->
-              Just (s, Rval (Litv (StrLit (toString ls))))
+              Just ((s,t), Rval (Litv (StrLit (toString ls))))
           | Nothing -> Nothing
           end
     | (Explode, [Litv (StrLit str)]) ->
-        Just (s, Rval (char_list_to_v (toCharList str)))
+        Just ((s,t), Rval (char_list_to_v (toCharList str)))
     | (Strlen, [Litv (StrLit str)]) ->
-        Just (s, Rval (Litv(IntLit(integerFromNat(stringLength str)))))
+        Just ((s,t), Rval (Litv(IntLit(integerFromNat(stringLength str)))))
     | (VfromList, [v]) ->
           match v_to_list v with
             | Just vs ->
-                Just (s, Rval (Vectorv vs))
+                Just ((s,t), Rval (Vectorv vs))
             | Nothing -> Nothing
           end
     | (Vsub, [Vectorv vs; Litv (IntLit i)]) ->
         if i < 0 then
-          Just (s, Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
         else
           let n = natFromInteger i in
             if n >= List.length vs then
-              Just (s, Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
             else
-              Just (s, Rval (List_extra.nth vs n))
+              Just ((s,t), Rval (List_extra.nth vs n))
     | (Vlength, [Vectorv vs]) ->
-        Just (s, Rval (Litv (IntLit (integerFromNat (List.length vs)))))
+        Just ((s,t), Rval (Litv (IntLit (integerFromNat (List.length vs)))))
     | (Aalloc, [Litv (IntLit n); v]) ->
         if n < 0 then
-          Just (s, Rerr (Rraise (prim_exn "Subscript")))
+          Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
         else
           let (s',lnum) =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
           in
-            Just (s', Rval (Loc lnum))
+            Just ((s',t), Rval (Loc lnum))
     | (Asub, [Loc lnum; Litv (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (Varray vs) ->
               if i < 0 then
-                Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
               else
                 let n = natFromInteger i in
                   if n >= List.length vs then
-                    Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                    Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
                   else
-                    Just (s, Rval (List_extra.nth vs n))
+                    Just ((s,t), Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
     | (Alength, [Loc n]) ->
         match store_lookup n s with
           | Just (Varray ws) ->
-              Just (s,Rval (Litv(IntLit(integerFromNat(List.length ws)))))
+              Just ((s,t),Rval (Litv(IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
     | (Aupdate, [Loc lnum; Litv (IntLit i); v]) ->
         match store_lookup lnum s with
         | Just (Varray vs) ->
             if i < 0 then
-              Just (s, Rerr (Rraise (prim_exn "Subscript")))
+              Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
             else
               let n = natFromInteger i in
                 if n >= List.length vs then
-                  Just (s, Rerr (Rraise (prim_exn "Subscript")))
+                  Just ((s,t), Rerr (Rraise (prim_exn "Subscript")))
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (s', Rval (Conv Nothing []))
+                    | Just s' -> Just ((s',t), Rval (Conv Nothing []))
                   end
         | _ -> Nothing
       end
+    | (FFI n, [Loc lnum]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            match call_FFI n ws t with
+            | Just (ws', t') ->
+               match store_assign lnum (W8array ws') s with
+               | Just s' -> Just ((s', t'), Rval (Conv Nothing []))
+               | Nothing -> Nothing
+               end
+            | Nothing -> Just ((s, t), Rerr (Rabort (Rffi_error)))
+            end
+        | _ -> Nothing
+        end
     | _ -> Nothing
   end
 
