@@ -472,7 +472,7 @@ val lookup_tenvC_st_ex_success = Q.prove (
  fs [st_ex_return_def]);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
@@ -497,7 +497,8 @@ val op_case_expand = Q.prove (
      | Alength => f21
      | Aalloc => f22
      | Asub => f23
-     | Aupdate => f24) st
+     | Aupdate => f24
+     | FFI n => f25) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
@@ -523,7 +524,8 @@ val op_case_expand = Q.prove (
    ((op = Alength) ∧ (f21 st = (Success v, st'))) ∨
    ((op = Aalloc) ∧ (f22 st = (Success v, st'))) ∨
    ((op = Asub) ∧ (f23 st = (Success v, st'))) ∨
-   ((op = Aupdate) ∧ (f24 st = (Success v, st'))))`,
+   ((op = Aupdate) ∧ (f24 st = (Success v, st'))) ∨
+   (?n. (op = FFI n) ∧ (f25 st = (Success v, st'))))`,
 rw [] >>
 cases_on `op` >>
 rw []);
@@ -1566,7 +1568,11 @@ val constrain_op_check_s = Q.prove (
          MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [h''] TC_array`] >>
          rw [check_t_def] >>
          metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``])
-     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]));
+     >- metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``])
+ >- (match_mp_tac t_unify_check_s >>
+     MAP_EVERY qexists_tac [`st.subst`, `h`, `Infer_Tapp [] TC_word8array`] >>
+     rw [] >>
+     metis_tac [check_t_more2, check_t_more4, arithmeticTheory.ADD_0, DECIDE ``x ≤ x + 1:num``]));
 
 val infer_e_check_s = Q.store_thm ("infer_e_check_s",
 `(!menv cenv env e st st' t tvs.
