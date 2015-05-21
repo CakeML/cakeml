@@ -411,36 +411,7 @@ val valid_immediate_thm = Q.prove(
    \\ METIS_TAC [pairTheory.ABS_PAIR_THM]
    )
 
-local
-   fun bit_mod_thm n m =
-      let
-         val th = bitTheory.BITS_ZERO3 |> Q.SPEC n |> numLib.REDUCE_RULE
-         val M = Term m
-         val N = Term n
-      in
-         Tactical.prove (
-             ``BIT ^M n = BIT ^M (n MOD 2 ** (^N + 1))``,
-             simp [bitTheory.BIT_def, GSYM th, bitTheory.BITS_COMP_THM2])
-         |> numLib.REDUCE_RULE
-      end
-   fun nq i = [QUOTE (Int.toString i ^ "n")]
-   val th = GSYM wordsTheory.n2w_mod
-in
-   fun bit_mod_thms n =
-      (th |> Thm.INST_TYPE [Type.alpha |-> fcpSyntax.mk_int_numeric_type n]
-          |> CONV_RULE (DEPTH_CONV wordsLib.SIZES_CONV)) ::
-      List.tabulate (n, fn j => bit_mod_thm (nq (n - 1)) (nq j))
-end
-
-val lem1 = Q.prove(
-   `!n. v2w [BIT 4 n; BIT 3 n; BIT 2 n; BIT 1 n; BIT 0 n] = n2w n: word5`,
-   strip_tac
-   \\ once_rewrite_tac (bit_mod_thms 5)
-   \\ qabbrev_tac `m = n MOD 32`
-   \\ `m < 32` by simp [Abbr `m`]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ EVAL_TAC
-   )
+val lem1 = asmLib.v2w_BIT_n2w 5
 
 val lem2 =
    blastLib.BBLAST_PROVE
@@ -465,16 +436,7 @@ val lem4 = Q.prove(
    \\ simp []
    )
 
-val lem5 = Q.prove(
-   `!n. v2w [BIT 5 n; BIT 4 n; BIT 3 n; BIT 2 n; BIT 1 n; BIT 0 n] =
-        n2w n: word6`,
-   strip_tac
-   \\ once_rewrite_tac (bit_mod_thms 6)
-   \\ qabbrev_tac `m = n MOD 64`
-   \\ `m < 64` by simp [Abbr `m`]
-   \\ fs [wordsTheory.NUMERAL_LESS_THM]
-   \\ EVAL_TAC
-   )
+val lem5 = asmLib.v2w_BIT_n2w 6
 
 val lem6 = bitstringLib.v2w_n2w_CONV ``v2w [T; T; T; T; T; T] : word6``
 
@@ -890,11 +852,6 @@ local
                       boolSyntax.dest_eq) tm of
          SOME ((_, ty), 31) => ty = ``:5``
        | _ => false
-   fun dest_bytes_in_memory tm =
-      case Lib.total boolSyntax.dest_strip_comb tm of
-         SOME ("asm$bytes_in_memory", [_, l, _, _, _]) =>
-            SOME (fst (listSyntax.dest_list l))
-       | _ => NONE
    fun P s = Lib.mem s ["imm", "x"]
    fun gen_v thm =
       let
@@ -931,9 +888,7 @@ local
            |> arm8_state_rule
            |> REWRITE_RULE [th1, lem2, lem3, lem5, lem6]
       end
-   val (_, _, dest_Decode, is_Decode) =
-      HolKernel.syntax_fns "arm8" 1 HolKernel.dest_monop HolKernel.mk_monop
-         "Decode"
+   val (_, _, dest_Decode, is_Decode) = HolKernel.syntax_fns1 "arm8" "Decode"
    val find_Decode = HolKernel.bvk_find_term (is_Decode o snd) dest_Decode
 in
    val filter_reg_31 = List.filter (not o List.exists is_reg_31 o Thm.hyp)
@@ -955,26 +910,9 @@ in
            end
         | NONE => NO_TAC) (asl, g)
    fun next_state_tac pick fltr state (asl, g) =
-      (case List.mapPartial dest_bytes_in_memory asl of
+      (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step fltr state (pick l))) (asl, g)
-end
-
-local
-   fun dest_v2w_or_n2w tm =
-      bitstringSyntax.dest_v2w tm handle HOL_ERR _ => wordsSyntax.dest_n2w tm
-   val is_byte_eq =
-      Lib.can ((wordsSyntax.dest_word_extract ## dest_v2w_or_n2w) o
-               boolSyntax.dest_eq)
-in
-   val byte_eq_tac =
-      rule_assum_tac
-        (Conv.CONV_RULE
-           (Conv.DEPTH_CONV
-              (fn tm => if is_byte_eq tm
-                           then blastLib.BBLAST_CONV tm
-                        else Conv.NO_CONV tm)
-            THENC Conv.DEPTH_CONV bitstringLib.v2w_n2w_CONV))
 end
 
 val comm = ONCE_REWRITE_RULE [wordsTheory.WORD_ADD_COMM]
@@ -983,7 +921,7 @@ fun next_state_tac0 thm f fltr q =
    next_state_tac f fltr q
    \\ imp_res_tac thm
    \\ fs [lem1, lem2, lem3, lem5, lem6]
-   \\ byte_eq_tac
+   \\ asmLib.byte_eq_tac
    \\ rfs [lem13, lem16, lem17, lem18, lem20, lem21, lem22, lem23, lem24, lem25,
            lem26, comm lem21, comm lem22, combinTheory.UPDATE_APPLY,
            ShiftValue0, arm8_stepTheory.Aligned_numeric,

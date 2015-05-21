@@ -678,11 +678,6 @@ local
       end
    val bytes_in_memory_thm = utilsLib.cache 20 Int.compare bytes_in_memory_thm
    fun bytes_in_memory l = Drule.SPECL l (bytes_in_memory_thm (List.length l))
-   fun dest_bytes_in_memory tm =
-      case Lib.total boolSyntax.dest_strip_comb tm of
-         SOME ("asm$bytes_in_memory", [_, l, _, _, _]) =>
-            SOME (fst (listSyntax.dest_list l))
-       | _ => NONE
    fun gen_v P thm =
       let
          val vars = Term.free_vars (Thm.concl thm)
@@ -692,9 +687,7 @@ local
       end
    fun step P state =
       gen_v P o Q.INST [`s` |-> state] o Drule.DISCH_ALL o x64_stepLib.x64_step
-   val (_, _, _, is_x64_decode) =
-      HolKernel.syntax_fns "x64" 1 HolKernel.dest_monop HolKernel.mk_monop
-                  "x64_decode"
+   val (_, _, _, is_x64_decode) = HolKernel.syntax_fns1 "x64" "x64_decode"
    val find_x64_decode = Lib.total (HolKernel.find_term is_x64_decode)
 in
    fun is_bytes_in_memory tm =
@@ -702,7 +695,7 @@ in
          SOME ("asm$bytes_in_memory", [_, _, _, _, _]) => true
        | _ => false
    fun bytes_in_memory_tac (asl, g) =
-      (case List.mapPartial dest_bytes_in_memory asl of
+      (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [l] => imp_res_tac (bytes_in_memory l)
         | _ => NO_TAC) (asl, g)
    fun decode_tac thms (asl, g) =
@@ -724,7 +717,7 @@ in
            end
         | NONE => NO_TAC) (asl, g)
    fun next_state_tac pick P state (asl, g) =
-      (case List.mapPartial dest_bytes_in_memory asl of
+      (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step P state (pick l))) (asl, g)
 end

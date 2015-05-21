@@ -257,8 +257,7 @@ val read_mem_word_def = Define `
 val mem_load_def = Define `
   mem_load n r a s =
     let a = addr a s in
-    let a = if s.be then a + n2w n else a in
-    let (w,s) = read_mem_word a n s in
+    let (w,s) = read_mem_word (if s.be then a + n2w (n - 1) else a) n s in
     let s = upd_reg r w s in
       assert (a && n2w (n - 1) = 0w) s`
 
@@ -271,9 +270,8 @@ val write_mem_word_def = Define `
 val mem_store_def = Define `
   mem_store n r a s =
     let a = addr a s in
-    let a = if s.be then a + n2w n else a in
     let w = read_reg r s in
-    let s = write_mem_word a n w s in
+    let s = write_mem_word (if s.be then a + n2w (n - 1) else a) n w s in
       assert (a && n2w (n - 1) = 0w) s`
 
 val mem_op_def = Define `

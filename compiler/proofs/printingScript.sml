@@ -126,7 +126,7 @@ val print_bv_print_v = prove(
         print_bv ty bv = print_v v) ∧
     (∀genv vs vs1. vs_to_i1 genv vs vs1 ⇒ T) ∧
     (∀genv env env1. env_to_i1 genv env env1 ⇒ T) ∧
-    (∀genv map sh env. global_env_inv_flat genv map sh env ⇒ T) ∧
+    (∀genv mmap sh env. global_env_inv_flat genv mmap sh env ⇒ T) ∧
     (∀genv mods tops menv sh env. global_env_inv genv mods tops menv sh env ⇒ T)``,
   ho_match_mp_tac v_to_i1_ind >> simp[] >>
   conj_tac >- (
@@ -199,7 +199,7 @@ val print_bv_list_print_envE = store_thm("print_bv_list_print_envE",
   Cases_on`tv2`>>fs[convert_t_def])
 
 val compile_print_vals_thm = store_thm("compile_print_vals_thm",
-  ``∀tvs map cs. let cs' = compile_print_vals tvs map cs in
+  ``∀tvs mmap cs. let cs' = compile_print_vals tvs mmap cs in
     ∃code. cs'.out = REVERSE code ++ cs.out
          ∧ cs'.next_label = cs.next_label
          ∧ EVERY ($~ o is_Label) code ∧
@@ -207,7 +207,7 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
     ∀bs bc0 bvs.
     bs.code = bc0 ++ code
     ∧ bs.pc = next_addr bs.inst_length bc0
-    ∧ LIST_REL (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
+    ∧ LIST_REL (λ(v,_,t) bv. ∃n. FLOOKUP mmap v = SOME n ∧
                            el_check n bs.globals = SOME (SOME bv) ∧
                            IS_SOME (bv_to_string bv) ∧
                            (t = ^word8 ⇒
@@ -227,13 +227,13 @@ val compile_print_vals_thm = store_thm("compile_print_vals_thm",
   simp[FOLDL_emit_thm] >>
   rpt strip_tac >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  first_x_assum(qspecl_then[`map`,`cs1`]mp_tac) >>
+  first_x_assum(qspecl_then[`mmap`,`cs1`]mp_tac) >>
   simp[] >>
   disch_then(qx_choosel_then[`c1`]strip_assume_tac) >>
   simp[Abbr`cs1`,Once SWAP_REVERSE] >>
   simp[EVERY_MAP] >> fs[] >>
   Q.PAT_ABBREV_TAC`cs1 = compiler_result_out_fupd X Y` >>
-  qmatch_assum_abbrev_tac`(compile_print_vals tvs map cs1').next_label = X` >>
+  qmatch_assum_abbrev_tac`(compile_print_vals tvs mmap cs1').next_label = X` >>
   `cs1' = cs1` by (
     simp[Abbr`cs1`,Abbr`cs1'`,compiler_result_component_equality] ) >>
   fs[Abbr`cs1'`] >> pop_assum kall_tac >>
@@ -475,7 +475,7 @@ val compile_print_ctors_thm = store_thm("compile_print_ctors_thm",
   metis_tac[RTC_TRANSITIVE,transitive_def])
 
 val compile_print_dec_thm = store_thm("compile_print_dec_thm",
-  ``∀tvs map d cs. let cs' = compile_print_dec tvs map d cs in
+  ``∀tvs mmap d cs. let cs' = compile_print_dec tvs mmap d cs in
       ∃code. cs'.out = REVERSE code ++ cs.out
         ∧ EVERY ($~ o is_Label) code
         ∧ cs'.next_label = cs.next_label
@@ -484,7 +484,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
       bs.code = bc0 ++ code
       ∧ bs.pc = next_addr bs.inst_length bc0
       ∧ LIST_REL
-        (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
+        (λ(v,_,t) bv. ∃n. FLOOKUP mmap v = SOME n ∧
                     el_check n bs.globals = SOME (SOME bv) ∧
                     IS_SOME (bv_to_string bv) ∧
                     (t = ^word8 ⇒
@@ -505,12 +505,12 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   Cases_on`d` >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`tvs`, `map`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`tvs`, `mmap`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[])
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`tvs`,`map`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`tvs`,`mmap`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[] >> rpt gen_tac >> strip_tac)
   >- (
     simp[] >>
@@ -574,7 +574,7 @@ val compile_print_dec_thm = store_thm("compile_print_dec_thm",
   >- (
     simp[compile_print_dec_def] >>
     rw[] >>
-    qspecl_then[`tvs`, `map`,`cs`]mp_tac compile_print_vals_thm >>
+    qspecl_then[`tvs`, `mmap`,`cs`]mp_tac compile_print_vals_thm >>
     simp[] >> rw[] >> simp[])
   >- (
     simp[] >>
@@ -745,8 +745,8 @@ val compile_print_err_thm = store_thm("compile_print_err_thm",
   simp[SUM_APPEND])
 
 val compile_print_top_thm = store_thm("compile_print_top_thm",
-  ``∀tys map t cs.
-    let cs' = compile_print_top tys map t cs in
+  ``∀tys mmap t cs.
+    let cs' = compile_print_top tys mmap t cs in
     ∃code.
       cs'.out = REVERSE code ++ cs.out ∧
       between_labels code cs.next_label cs'.next_label ∧
@@ -760,7 +760,7 @@ val compile_print_top_thm = store_thm("compile_print_top_thm",
         (∀d. tag = none_tag ∧ t = Tdec d ⇒
          case tys of SOME tvs =>
          LIST_REL
-         (λ(v,_,t) bv. ∃n. FLOOKUP map v = SOME n ∧
+         (λ(v,_,t) bv. ∃n. FLOOKUP mmap v = SOME n ∧
                      el_check n bs.globals = SOME (SOME bv) ∧
                      IS_SOME (bv_to_string bv) ∧
                      (t = ^word8 ⇒ ∃w. bv = Number &(w2n(w:word8))) ∧

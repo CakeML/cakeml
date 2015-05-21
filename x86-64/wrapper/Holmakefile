@@ -1,0 +1,11 @@
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
+
+cake: wrapper.c asm_code.s Makefile
+	make $@
+
+asm_code.s: ../x64_replTheory.uo
+
+zip: wrapper.c asm_code.s
+	/bin/rm -f cakeml-v1.zip
+	zip -r cakeml-v1.zip Makefile wrapper.c asm_code.s
