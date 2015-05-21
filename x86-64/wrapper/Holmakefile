@@ -1,0 +1,15 @@
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
+
+all: cake
+
+.PHONY: all
+
+asm_code.s: ../x64_replTheory.uo
+
+cake: wrapper.c asm_code.s
+	gcc $< -Wno-implicit-function-declaration -o $@
+
+zip: wrapper.c asm_code.s
+	/bin/rm -f cakeml-v1.zip
+	zip -r cakeml-v1.zip Holmakefile wrapper.c asm_code.s
