@@ -1411,12 +1411,11 @@ fs [] >|
      fs [] >>
      every_case_tac >>
      fs [evaluate_state_cases, push_def, return_def] >>
-     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >- (
-       cheat >>
+     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
+     PairCases_on `s` >>
+     rw [PULL_EXISTS] >- (
        fs[application_thm] >>
        every_case_tac >> fs[return_def] >>
-       TRY(qpat_assum`do_app X Opapp Y = Z`assume_tac >>
-           fs[do_app_def]>>every_case_tac>>fs[]>>NO_TAC) >>
        rw[oneTheory.one] >>
        rw[Once evaluate_cases] >>
        rw[Once evaluate_cases] >>
@@ -1425,8 +1424,6 @@ fs [] >|
        imp_res_tac do_app_not_timeout >>
        fs[] >> rw[] >>
        metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
-     PairCases_on `s` >>
-     rw [PULL_EXISTS] >>
      rw [Once evaluate_cases] >>
      full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
      rw [Once evaluate_cases] >>
