@@ -24,5 +24,9 @@ timing.log
 *.exe
 *.cgi
 
+x86-64/wrapper/asm_code.s
+x86-64/wrapper/cake
+x86-64/wrapper/cakeml*zip
+
 # x86-64 tests
 x86-64/wrapper/test*
