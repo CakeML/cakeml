@@ -53,8 +53,6 @@ val _ = Datatype `
      ; mem        : 'a word -> word8_loc
      ; mem_domain : 'a word set
      ; pc         : num
-     ; lr         : reg
-     ; align      : num
      ; be         : bool
      ; io_events  : io_trace
      ; code       : 'a asm_prog
@@ -435,24 +433,24 @@ val lookup_any_def = Define `
     | SOME m => m`;
 
 val find_pos_def = Define `
-  find_pos s (Lab k1 k2) labs =
+  find_pos (Lab k1 k2) labs =
     (lookup_any k2 (lookup_any k1 labs LN) 0):num`;
 
 val enc_line_again_def = Define `
-  (enc_line_again s labs pos enc [] = []) /\
-  (enc_line_again s labs pos enc ((Label k1 k2 l)::xs) =
-     (Label k1 k2 l) :: enc_line_again s labs (pos+l) enc xs) /\
-  (enc_line_again s labs pos enc ((Asm x1 x2 l)::xs) =
-     (Asm x1 x2 l) :: enc_line_again s labs (pos+l) enc xs) /\
-  (enc_line_again s labs pos enc ((LabAsm a w bytes l)::xs) =
+  (enc_line_again labs pos enc [] = []) /\
+  (enc_line_again labs pos enc ((Label k1 k2 l)::xs) =
+     (Label k1 k2 l) :: enc_line_again labs (pos+l) enc xs) /\
+  (enc_line_again labs pos enc ((Asm x1 x2 l)::xs) =
+     (Asm x1 x2 l) :: enc_line_again labs (pos+l) enc xs) /\
+  (enc_line_again labs pos enc ((LabAsm a w bytes l)::xs) =
      let pos = pos + l in
-     let target = find_pos s (get_label a) labs in
+     let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
        if w = w1 then
-         (LabAsm a w bytes l)::enc_line_again s labs pos enc xs
+         (LabAsm a w bytes l)::enc_line_again labs pos enc xs
        else
          let bs = enc (lab_inst w1 a) in
-           LabAsm a 0w bs (LENGTH bs)::enc_line_again s labs pos enc xs)`
+           LabAsm a 0w bs (LENGTH bs)::enc_line_again labs pos enc xs)`
 
 val sec_length_def = Define `
   (sec_length [] k = k) /\
@@ -468,7 +466,7 @@ val full_sec_length_def = Define `
 val enc_secs_again_def = Define `
   (enc_secs_again pos labs enc [] = []) /\
   (enc_secs_again pos labs enc ((Section s lines)::rest) =
-     let lines1 = enc_line_again s labs pos enc lines in
+     let lines1 = enc_line_again labs pos enc lines in
      let pos1 = pos + full_sec_length lines1 in
        (Section s lines1)::enc_secs_again pos1 labs enc rest)`
 
@@ -568,15 +566,136 @@ val all_sec_bytes_def = Define `
      let aux1 = sec_bytes lines nop aux in
        all_sec_bytes rest nop (if ODD k then nop :: aux else aux))`
 
+val prog_to_bytes_def = Define `
+  prog_to_bytes enc sec_list =
+    let nop = (case enc (Inst Skip) of [] => 0w | (x::xs) => x) in
+      all_sec_bytes sec_list nop []`
+
 (* compile asm_lang *)
 
 val aComp_def = Define `
   aComp c enc sec_list =
     case remove_labels c enc sec_list of
-    | SOME sec_list =>
-        let nop = (case enc (Inst Skip) of [] => 0w | (x::xs) => x) in
-          SOME (all_sec_bytes sec_list nop [])
+    | SOME sec_list => SOME (prog_to_bytes enc sec_list)
     | NONE => NONE`;
+
+(* compiler correctness proof *)
+
+val sec_enc_ok_def = Define `
+  (sec_enc_ok c enc labs pos [] <=> T) /\
+  (sec_enc_ok c enc labs pos ((Label _ _ l)::xs) <=>
+     (if EVEN pos then (l = 0) else (l = 1)) /\
+     sec_enc_ok c enc labs (pos+l) xs) /\
+  (sec_enc_ok c enc labs pos ((Asm b bytes l)::xs) <=>
+     (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c /\
+     sec_enc_ok c enc labs (pos+l) xs) /\
+  (sec_enc_ok c enc labs pos ((LabAsm a w bytes l)::xs) <=>
+     let pos = pos + l in
+     let target = find_pos (get_label a) labs in
+     let w1 = n2w target - n2w pos in
+     let bs = enc (lab_inst w1 a) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
+       sec_enc_ok c enc labs (pos+l) xs)`
+
+val all_enc_ok_def = Define `
+  (all_enc_ok c enc labs pos [] = T) /\
+  (all_enc_ok c enc labs pos ((Section s lines)::rest) <=>
+     sec_enc_ok c enc labs pos lines /\
+     all_enc_ok c enc labs (pos + sec_length lines 0) rest)`
+
+val line_similar_def = Define `
+  (line_similar (Label k1 k2 l) (Label k1' k2' l') <=> (k1 = k1') /\ (k2 = k2')) /\
+  (line_similar (Asm b bytes l) (Asm b' bytes' l') <=> (b = b')) /\
+  (line_similar (LabAsm a w bytes l) (LabAsm a' w' bytes' l') <=> (a = a')) /\
+  (line_similar _ _ <=> F)`
+
+val code_similar_def = Define `
+  (code_similar [] [] = T) /\
+  (code_similar ((Section s1 lines1)::rest1) ((Section s2 lines2)::rest2) <=>
+     code_similar rest1 rest2 /\
+     EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
+  (code_similar _ _ = F)`
+
+val word_loc_val_def = Define `
+  (word_loc_val p labs (Word w) = SOME w) /\
+  (word_loc_val p labs (Loc k1 k2) =
+     case lookup k1 labs of
+     | NONE => NONE
+     | SOME f => case lookup k2 f of
+                 | NONE => NONE
+                 | SOME q => SOME (p + n2w q))`;
+
+val word8_loc_val_def = Define `
+  (word8_loc_val p labs (Byte w) = SOME w) /\
+  (word8_loc_val p labs (LocByte k1 k2 n) =
+     case lookup k1 labs of
+     | NONE => NONE
+     | SOME f => case lookup k2 f of
+                 | NONE => NONE
+                 | SOME q => SOME (w2w (p + n2w q) >> (8 * n)))`;
+
+val bytes_in_mem_def = Define `
+  (bytes_in_mem a [] m md k <=> T) /\
+  (bytes_in_mem a (b::bs) m md k <=>
+     a IN md /\ ~(a IN k) /\ (m a = b) /\
+     bytes_in_mem (a+1w) bs m md k)`
+
+val line_length_def = Define `
+  (line_length (Label k1 k2 l) = l) /\
+  (line_length (Asm b bytes l) = l) /\
+  (line_length (LabAsm a w bytes l) = l)`
+
+val pos_val_def = Define `
+  (pos_val pos [] = 0) /\
+  (pos_val pos ((Section k [])::xs) = pos_val pos xs) /\
+  (pos_val pos ((Section k (y::ys))::xs) =
+     if pos = 0:num then 0
+     else if is_Label y
+          then pos_val pos ((Section k ys)::xs) + line_length y
+          else pos_val (pos-1) ((Section k ys)::xs) + line_length y)`
+
+val state_rel_def = Define `
+  state_rel (asm_conf, mc_conf, enc, code2, labs, p) (s1:'a asml_state) ms1 <=>
+    (!r. word_loc_val p labs (s1.regs r) = SOME (ms1.regs r)) /\
+    (!a. a IN s1.mem_domain ==>
+         a IN ms1.mem_domain /\
+         (word8_loc_val p labs (s1.mem a) = SOME (ms1.mem a))) /\
+    bytes_in_mem p (prog_to_bytes enc code2) ms1.mem ms1.mem_domain s1.mem_domain /\
+    ~s1.failed /\ ~ms1.failed /\ (s1.be = ms1.be) /\
+    (ms1.pc = p + n2w (pos_val s1.pc code2)) /\
+    (p && n2w (ms1.align - 1) = 0w) /\
+    all_enc_ok asm_conf enc labs 0 code2 /\
+    code_similar s1.code code2`
+
+(*
+
+val aEval_IMP_mEval = prove(
+  ``!s1 res s2 code2 labs ms1.
+      (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
+      state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 ms1 ==>
+      ?k ms2.
+        (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
+           (res,ms2,s2.io_events)) /\
+        (s2.code = s1.code) /\
+        state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 ms2``,
+
+  HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
+  \\ ONCE_REWRITE_TAC [aEval_def]
+  \\ Cases_on `asm_fetch s1` \\ fs []
+  \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
+  \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
+
+    (* Asm (Inst ...) *)
+    Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+
+
+  ``backend_correct enc config next R /\
+    asm_step enc config s1 s2 /\ R (s1:'a asm_state) (ms1:'state) ==>
+    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\ R s2 ms2``
+  fs [backend_correct_def] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ Q.EXISTS_TAC `n+1` \\ Q.ABBREV_TAC `l = n+1` \\ POP_ASSUM (K ALL_TAC)
+
+*)
 
 (* show that remove_labels only adds aEval-irrelevant annotations
 
