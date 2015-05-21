@@ -974,7 +974,7 @@ val th = store_cert th [TRUTH] (DeclAssumExists_lemma lemma);
 
 (* ref 3 *)
 
-val lemma = hol2deep ``[]:update list`` |> D |> SIMP_RULE std_ss []
+val lemma = hol2deep (rhs(concl(holSyntaxTheory.init_ctxt_def))) |> D |> SIMP_RULE std_ss []
 val exp = lemma |> UNDISCH_ALL |> concl |> rator |> rand
 val dec = ``(Dlet (Pvar n) (App Opref [^exp])) : dec``
 val tm = get_DeclAssum () |> rator |> rator |> rand;
