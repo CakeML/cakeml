@@ -545,7 +545,11 @@ val mkAst_App_def = Define`
        Con (SOME (Short "ref")) [] => App Opapp [Var (Short "ref"); a2]
      | Con s [] =>
        (case a2 of
-            Con NONE tuple => Con s tuple
+            Con NONE [] => Con s [a2]
+              (* applying a constructor to unit has to be viewed as
+                 applying it to one argument (unit), rather than as
+                 applying it to none *)
+          | Con NONE tuple => Con s tuple
           | _ => Con s [a2])
      | _ => App Opapp [a1; a2]
 `
