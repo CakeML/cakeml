@@ -432,6 +432,7 @@ val backend_correct_alt_def = Define `
                 R s2 (num_fold (\s i. env i (next s)) ms (n + 1)) /\
                 !i. i < n ==>
                     ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
+                         (s1.mem_domain = si.mem_domain) /\
                          si.pc IN s1.mem_domain`;
 
 val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
@@ -444,7 +445,9 @@ val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
         ?n. !env i.
                interference_ok (env:num->'b->'b) proj /\ i <= n ==>
                ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
-                    if i = n then si = s2 else si.pc IN s1.mem_domain``,
+                    if i = n then si = s2
+                    else (si.pc IN s1.mem_domain /\
+                         (s1.mem_domain = si.mem_domain))``,
   fs [backend_correct_alt_def]
   \\ NTAC 20 (fs [FUN_EQ_THM] \\ REPEAT AP_TERM_TAC \\ REPEAT STRIP_TAC)
   \\ Cases_on `interference_ok env proj` \\ fs []

@@ -28,6 +28,9 @@ val _ = Datatype `
     ; state_rel : 'a asm_state -> 'b -> bool
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
+    (* assembly configuration and encode function *)
+    ; asm_config : 'a asm_config
+    ; encode : 'a asm -> word8 list
     |>`
 
 val list_find_def = Define `

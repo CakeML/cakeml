@@ -1,6 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 open asmTheory wordsTheory wordsLib sptreeTheory ffiTheory;
 open target_semTheory word_locTheory lcsymtacs;
+open arithmeticTheory
 
 val _ = new_theory "asm_lang";
 
@@ -667,7 +668,121 @@ val state_rel_def = Define `
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
 
+
+
 (*
+
+val IMP_some_EQ = prove(
+  ``(!x y. P x /\ P y ==> (x = y)) /\ P x ==> ($some P = SOME x)``,
+  fs [optionTheory.some_def] \\ METIS_TAC []);
+
+val shift_seq_def = Define `
+  shift_seq n s = \i. s (i + n:num)`;
+
+val IMP_IMP = METIS_PROVE [] ``a /\ (b ==> c) ==> ((a ==> b) ==> c)``
+
+val mEval_EQ_mEval_lemma = prove(
+  ``!n ms1 s1.
+      (c.prog_addresses = s1.mem_domain) /\
+      c.state_rel s1 ms1 /\
+      s1.pc IN s1.mem_domain /\
+      (!s1 s2 ms. c.state_rel s1 ms /\ c.state_rel s2 ms ==> (s1 = s2)) /\
+      (!i env.
+         i <= n ==>
+         ?si.
+            c.state_rel si
+              (asm$num_fold (\s i. env i (c.next s)) ms1 (i + 1)) /\
+            if i = n then si = s2 else (si.pc IN s1.mem_domain /\
+              (si.mem_domain = s1.mem_domain))) ==>
+      ?ms2.
+        (mEval c io (k + (n + 1)) ms1 = mEval c io k ms2) /\
+        c.state_rel s2 ms2``,
+  Induct THEN1
+   (fs [] \\ REPEAT STRIP_TAC
+    \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def]
+    \\ SIMP_TAC std_ss [Once mEval_def]
+    \\ `(some s. c.state_rel s ms1) = SOME s1` by
+      (MATCH_MP_TAC IMP_some_EQ \\ fs [] \\ METIS_TAC [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(c.next_interfer (k + 1) (c.next ms1))`)
+    \\ fs [] \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ fs [arithmeticTheory.ADD_CLAUSES]
+  \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1]
+  \\ `(some s. c.state_rel s ms1) = SOME s1` by
+    (MATCH_MP_TAC IMP_some_EQ \\ fs [] \\ METIS_TAC [])
+  \\ fs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ Q.PAT_ASSUM `!i. bbb`
+       (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPECL [`0`,
+         `\i. c.next_interfer (k + (n + 1) + 1)`] th))
+  \\ SIMP_TAC std_ss [] \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `si`
+  \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def,ADD_ASSOC]
+  \\ REPEAT STRIP_TAC THEN1 RES_TAC
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `i+1`) \\ fs []
+  \\ REPEAT STRIP_TAC
+  \\ cheat (* can be proved! *));
+
+val enc_ok_not_empty = prove(
+  ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
+  cheat);
+
+val asm_step_IMP_mEval_step = prove(
+  ``backend_correct_alt c.encode c.asm_config c.next proj c.state_rel /\
+    (c.prog_addresses = s1.mem_domain) /\
+    interference_ok c.next_interfer proj /\
+    asm_step c.encode c.asm_config s1 s2 /\
+    c.state_rel (s1:'a asm_state) (ms1:'state) ==>
+    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\ c.state_rel s2 ms2``,
+  fs [backend_correct_alt_thm] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
+  \\ Q.EXISTS_TAC `n+1` \\ fs []
+  \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
+  \\ Q.EXISTS_TAC `s1` \\ fs []
+  \\ REPEAT STRIP_TAC
+  THEN1 (fs [asm_step_def] \\ IMP_RES_TAC enc_ok_not_empty
+         \\ Cases_on `c.encode i` \\ fs [bytes_in_memory_def])
+  THEN1 RES_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+  \\ fs [interference_ok_def,shift_seq_def])
+
+
+
+
+
+  ``!n ms1 c io s1.
+      (c.prog_addresses = s1.mem_domain) /\
+      c.state_rel s1 ms1 /\
+      s1.pc IN s1.mem_domain /\
+      (!s1 s2 ms. c.state_rel s1 ms /\ c.state_rel s2 ms ==> (s1 = s2)) /\
+      (!i.
+         i <= n ==>
+         ?si.
+           c.state_rel si
+             (num_fold (\s i. shift_seq k c.next_interfer i (c.next s))
+                ms1 i) /\ (s1.mem_domain = si.mem_domain) /\
+             if i = n then si = s2 else si.pc IN s1.mem_domain) ==>
+      ?ms2.
+        (mEval c io (k + n) ms1 = mEval c io k ms2) /\
+        c.state_rel s2 ms2``,
+
+  Induct THEN1 (fs [num_fold_def] \\ METIS_TAC [])
+  \\ REPEAT STRIP_TAC
+  \\ fs [arithmeticTheory.ADD_CLAUSES]
+  \\ SIMP_TAC std_ss [Once mEval_def]
+  \\ fs [shift_seq_def]
+  \\ `(some s. c.state_rel s ms1) = SOME s1` by cheat \\ fs []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+  \\ Q.ABBREV_TAC `msi = (c.next_interfer (SUC (k + n)) (c.next ms1))`
+  \\ Q.PAT_ASSUM `!i. bb` (fn th => MP_TAC th THEN MP_TAC th)
+  \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPEC `1`)
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 DECIDE_TAC
+  \\ STRIP_TAC \\ REPEAT STRIP_TAC
+  \\ Q.EXISTS_TAC `si` \\ fs []
+  \\ Cases_on `n` \\ fs []
+
+    rfs[num_fold_def,EVAL ``num_fold f x 1``]
+
+
 
 val aEval_IMP_mEval = prove(
   ``!s1 res s2 code2 labs ms1.
@@ -687,13 +802,6 @@ val aEval_IMP_mEval = prove(
 
     (* Asm (Inst ...) *)
     Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-
-
-  ``backend_correct enc config next R /\
-    asm_step enc config s1 s2 /\ R (s1:'a asm_state) (ms1:'state) ==>
-    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\ R s2 ms2``
-  fs [backend_correct_def] \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ Q.EXISTS_TAC `n+1` \\ Q.ABBREV_TAC `l = n+1` \\ POP_ASSUM (K ALL_TAC)
 
 *)
 
