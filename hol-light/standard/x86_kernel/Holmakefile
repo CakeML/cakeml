@@ -1,0 +1,23 @@
+INCLUDES = ../../../initial ../ml_kernel ../../../compiler
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../ml_kernel/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS) $(HOLHEAP)
+.PHONY: all
+
+BARE_THYS = ../ml_kernel/ml_hol_kernelTheory\
+						../../../initial/initCompEnvTheory\
+						../../../compiler/compute_compilerLib\
+						../../../compiler/compilerTerminationTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
