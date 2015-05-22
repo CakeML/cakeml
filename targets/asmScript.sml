@@ -422,13 +422,35 @@ val interference_ok_def = Define `
     !(i:num) ms. proj (env i ms) = proj ms`;
 
 val backend_correct_alt_def = Define `
-  backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R =
+  backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R <=>
     enc_ok enc config /\
     (!ms1 ms2. (proj ms1 = proj ms2) ==> !s. R s ms1 = R s ms2) /\
     (!s1 s2 ms. R s1 ms /\ R s2 ms ==> (s1 = s2)) /\
     !s1 s2 ms.
       asm_step enc config s1 s2 /\ R s1 ms ==>
       ?n. !env. interference_ok (env:num->'b->'b) proj ==>
-                R s2 (num_fold (\s i. env i (next s)) ms (n + 1))`;
+                R s2 (num_fold (\s i. env i (next s)) ms (n + 1)) /\
+                !i. i < n ==>
+                    ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
+                         si.pc IN s1.mem_domain`;
+
+val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
+  ``backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R <=>
+      enc_ok enc config /\
+      (!ms1 ms2. (proj ms1 = proj ms2) ==> !s. R s ms1 = R s ms2) /\
+      (!s1 s2 ms. R s1 ms /\ R s2 ms ==> (s1 = s2)) /\
+      !s1 s2 ms.
+        asm_step enc config s1 s2 /\ R s1 ms ==>
+        ?n. !env i.
+               interference_ok (env:num->'b->'b) proj /\ i <= n ==>
+               ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
+                    if i = n then si = s2 else si.pc IN s1.mem_domain``,
+  fs [backend_correct_alt_def]
+  \\ NTAC 20 (fs [FUN_EQ_THM] \\ REPEAT AP_TERM_TAC \\ REPEAT STRIP_TAC)
+  \\ Cases_on `interference_ok env proj` \\ fs []
+  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ RES_TAC
+  THEN1 (fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
+  THEN1 (fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
+  \\ `i <= n /\ i <> n` by DECIDE_TAC \\ RES_TAC \\ METIS_TAC []);
 
 val () = export_theory ()
