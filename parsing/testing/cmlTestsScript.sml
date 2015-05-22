@@ -162,7 +162,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
                                      (OLDAPP (OLDAPP (Var (Short "<"))
                                                        (Lit (IntLit 3)))
                                               (Var (Short "x"))))
-                            (Lit (Bool T))``)
+                            (Con (SOME (Short "true")) [])``)
 
 val _ = tytest0 "'a * bool"
                 ``Tapp [Tvar "'a"; Tapp [] (TC_name (Short "bool"))] TC_tup``
