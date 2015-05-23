@@ -95,8 +95,7 @@ val pComp_def = tDefine"pComp"`
     Let (REVERSE (MAP pComp es))
       (Op Less [Var 1; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Leq))) es) =
-    Let [Op Sub (REVERSE (MAP pComp es))]
-      (Op Less [Op (Const 1) []; Var 0])) ∧
+    Op LessEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Geq))) es) =
     Let (REVERSE (MAP pComp es))
       (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧
@@ -106,8 +105,7 @@ val pComp_def = tDefine"pComp"`
     Let (REVERSE (MAP pComp es))
       (Op Less [Var 1; Var 0])) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Leq))) es) =
-    Let [Op Sub (REVERSE (MAP pComp es))]
-      (Op Less [Op (Const 1) []; Var 0])) ∧
+    Op LessEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Geq))) es) =
     Let (REVERSE (MAP pComp es))
       (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧

@@ -57,7 +57,8 @@ val _ = Datatype `
          | Mult          (* * over the integers *)
          | Div           (* div over the integers *)
          | Mod           (* mod over the integers *)
-         | Less          (* < over the integers *) `
+         | Less          (* < over the integers *)
+         | LessEq        (* <= over the integers *) `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -263,6 +264,8 @@ val bEvalOp_def = Define `
          if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
     | (Less,[Number n1; Number n2]) =>
          SOME (bool_to_val (n1 < n2),s)
+    | (LessEq,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 <= n2),s)
     | _ => NONE`;
 
 val dec_clock_def = Define `
