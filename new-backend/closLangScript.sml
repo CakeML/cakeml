@@ -242,6 +242,10 @@ val cEvalOp_def = Define `
          SOME (bool_to_val (n1 < n2),s)
     | (LessEq,[Number n1; Number n2]) =>
          SOME (bool_to_val (n1 <= n2),s)
+    | (Greater,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 > n2),s)
+    | (GreaterEq,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 >= n2),s)
 (*  | (Print, [x]) =>
         (case clos_to_string x of
          | SOME str => SOME (x, s with output := s.output ++ str)

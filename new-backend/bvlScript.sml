@@ -58,7 +58,9 @@ val _ = Datatype `
          | Div           (* div over the integers *)
          | Mod           (* mod over the integers *)
          | Less          (* < over the integers *)
-         | LessEq        (* <= over the integers *) `
+         | LessEq        (* <= over the integers *)
+         | Greater       (* > over the integers *)
+         | GreaterEq     (* >= over the integers *) `
 
 (* There are only a handful of "interesting" operations. *)
 
@@ -266,6 +268,10 @@ val bEvalOp_def = Define `
          SOME (bool_to_val (n1 < n2),s)
     | (LessEq,[Number n1; Number n2]) =>
          SOME (bool_to_val (n1 <= n2),s)
+    | (Greater,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 > n2),s)
+    | (GreaterEq,[Number n1; Number n2]) =>
+         SOME (bool_to_val (n1 >= n2),s)
     | _ => NONE`;
 
 val dec_clock_def = Define `

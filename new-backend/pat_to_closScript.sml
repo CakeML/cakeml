@@ -92,23 +92,19 @@ val pComp_def = tDefine"pComp"`
   (pComp (App_pat (Op_pat (Op_i2 (Opb Lt))) es) =
     Op Less (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Gt))) es) =
-    Let (REVERSE (MAP pComp es))
-      (Op Less [Var 1; Var 0])) ∧
+    Op Greater (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Leq))) es) =
     Op LessEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Opb Geq))) es) =
-    Let (REVERSE (MAP pComp es))
-      (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧
+    Op GreaterEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Lt))) es) =
     Op Less (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Gt))) es) =
-    Let (REVERSE (MAP pComp es))
-      (Op Less [Var 1; Var 0])) ∧
+    Op Greater (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Leq))) es) =
     Op LessEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 (Chopb Geq))) es) =
-    Let (REVERSE (MAP pComp es))
-      (Op Less [Op (Const 1) []; Op Sub [Var 1; Var 0]])) ∧
+    Op GreaterEq (REVERSE (MAP pComp es))) ∧
   (pComp (App_pat (Op_pat (Op_i2 Equality)) es) =
     Let [Op Equal (REVERSE (MAP pComp es))]
       (If (Op IsBlock [Var 0]) (Var 0)
@@ -245,7 +241,7 @@ val sv_to_Cref_def = Define `
 val s_to_Cs_def = Define`
   s_to_Cs (((c,s),g):v_pat count_store_genv) =
     <| globals := MAP (OPTION_MAP v_to_Cv) g;
-       refs := alist_to_fmap (GENLIST (λi. (i, sv_to_Cref (EL i s))) (LENGTH s));
+       refs := alist_to_fmap (GENLIST (λi. (i, sv_to_Cref (EL i (FST s)))) (LENGTH (FST s)));
        clock := c;
        code := FEMPTY;
        output := "";
@@ -254,8 +250,8 @@ val s_to_Cs_def = Define`
 val res_to_Cres_def = Define`
   (res_to_Cres f (Rval v) = Result (f v)) ∧
   (res_to_Cres f (Rerr (Rraise v)) = Exception (v_to_Cv v)) ∧
-  (res_to_Cres f (Rerr Rtimeout_error) = TimeOut) ∧
-  (res_to_Cres f (Rerr Rtype_error) = Error)`
+  (res_to_Cres f (Rerr (Rabort Rtimeout_error)) = TimeOut) ∧
+  (res_to_Cres f (Rerr (Rabort Rtype_error)) = Error)`
 val _ = export_rewrites["res_to_Cres_def"]
 
 val do_eq_pat_clos_equal = store_thm("do_eq_pat_clos_equal",
@@ -327,12 +323,12 @@ val arw = srw_tac[ARITH_ss]
 val pComp_correct = store_thm("pComp_correct",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        ck ∧
-       SND res ≠ Rerr Rtype_error ⇒
+       SND res ≠ Rerr (Rabort Rtype_error) ⇒
        cEval ([pComp e],MAP v_to_Cv env,s_to_Cs s) =
          (res_to_Cres (λv. [v_to_Cv v]) (SND res), s_to_Cs (FST res))) ∧
     (∀ck env s es res. evaluate_list_pat ck env s es res ⇒
        ck ∧
-       SND res ≠ Rerr Rtype_error ⇒
+       SND res ≠ Rerr (Rabort Rtype_error) ⇒
        cEval (MAP pComp es,MAP v_to_Cv env,s_to_Cs s) =
          (res_to_Cres (MAP v_to_Cv) (SND res), s_to_Cs (FST res)))``,
   ho_match_mp_tac evaluate_pat_strongind >>
@@ -343,7 +339,8 @@ val pComp_correct = store_thm("pComp_correct",
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >>
-    Cases_on`err`>>simp[] ) >>
+    Cases_on`err`>>simp[] >>
+    Cases_on`a`>>simp[]) >>
   strip_tac >- simp[cEval_def] >>
   strip_tac >- (
     simp[cEval_def] >>
