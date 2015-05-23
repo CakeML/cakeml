@@ -1375,6 +1375,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       simp
          [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding]
       )
+   >- cheat
    >- (
       (*
         --------------

@@ -656,7 +656,7 @@ val mEval_EQ_mEval_lemma = prove(
 
 val enc_ok_not_empty = prove(
   ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
-  cheat);
+  METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
 
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.encode c.asm_config c.next proj c.state_rel /\

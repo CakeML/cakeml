@@ -864,7 +864,8 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
         --------------*)
       simp
          [SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding]
-                                                           )
+      )
+   >- cheat
    >- (
       (*
         --------------

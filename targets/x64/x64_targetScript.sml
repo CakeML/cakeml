@@ -1431,6 +1431,7 @@ val x64_backend_correct = Count.apply Q.store_thm ("x64_backend_correct",
       \\ fs [x64Theory.num2Zreg_thm, x64Theory.Zreg2num_thm,
              x64Theory.Zreg_EQ_Zreg, x64Theory.Zreg2num_num2Zreg]
       )
+   >- cheat
    >- (
       (*
         --------------

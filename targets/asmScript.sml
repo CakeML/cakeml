@@ -390,10 +390,11 @@ val offset_monotonic_def = Define `
 
 val enc_ok_def = Define `
   enc_ok (enc: 'a asm -> word8 list) c =
-    (* code alignment *)
+    (* code alignment and length *)
     1 <= c.code_alignment /\
     (c.code_alignment = LENGTH (enc (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0)) /\
+    (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0) /\
+                        (LENGTH (enc w) <> 0)) /\
     (* label instantiation predictably affects length of code *)
     (!w1 w2. offset_monotonic enc c w1 w2 (Jump w1) (Jump w2)) /\
     (!cmp r ri w1 w2.
