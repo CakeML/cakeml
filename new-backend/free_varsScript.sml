@@ -89,8 +89,9 @@ val do_app_cases = store_thm("do_app_cases",
     (∃n v. op = Aalloc ∧ vs = [Litv (IntLit n); v]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc n]) ∨
-    (∃lnum i v. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); v])``,
-  rw[do_app_def] >>
+    (∃lnum i v. op = Aupdate ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
+    (∃n lnum. op = FFI n ∧ vs = [Loc lnum])``,
+  Cases_on`s`>>rw[do_app_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
 val do_app_i1_cases = store_thm("do_app_i1_cases",
@@ -117,8 +118,9 @@ val do_app_i1_cases = store_thm("do_app_i1_cases",
     (∃n v. op = Aalloc ∧ vs = [Litv_i1 (IntLit n); v]) ∨
     (∃lnum i. op = Asub ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i)]) ∨
     (∃n. op = Alength ∧ vs = [Loc_i1 n]) ∨
-    (∃lnum i v. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); v])``,
-  rw[do_app_i1_def] >>
+    (∃lnum i v. op = Aupdate ∧ vs = [Loc_i1 lnum; Litv_i1 (IntLit i); v]) ∨
+    (∃n lnum. op = FFI n ∧ vs = [Loc_i1 lnum])``,
+  Cases_on`s` >> rw[do_app_i1_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[])
 
 val do_app_pat_cases = store_thm("do_app_pat_cases",
@@ -148,7 +150,8 @@ val do_app_pat_cases = store_thm("do_app_pat_cases",
     (∃n. op = Op_pat (Op_i2 Alength) ∧ vs = [Loc_pat n]) ∨
     (∃lnum i v. op = Op_pat (Op_i2 Aupdate) ∧ vs = [Loc_pat lnum; Litv_pat (IntLit i); v]) ∨
     (∃n tag v. op = Tag_eq_pat n ∧ vs = [Conv_pat tag v]) ∨
-    (∃n tag v. op = El_pat n ∧ vs = [Conv_pat tag v])``,
+    (∃n tag v. op = El_pat n ∧ vs = [Conv_pat tag v]) ∨
+    (∃n lnum. op = Op_pat (Op_i2 (FFI n)) ∧ vs = [Loc_pat lnum])``,
   PairCases_on`s`>>rw[do_app_pat_def] >>
   BasicProvers.EVERY_CASE_TAC >> fs[]);
 
@@ -1190,6 +1193,8 @@ val char_list_to_v_closed = prove(
   ``∀ls. closed (char_list_to_v ls)``,
   Induct >> simp[char_list_to_v_def])
 
+(*
+
 val do_app_closed = store_thm("do_app_closed",
   ``∀s op vs s' res.
     EVERY closed vs ∧ EVERY (sv_every closed) s ∧
@@ -1291,6 +1296,7 @@ val do_if_FV = store_thm("do_if_FV",
   fs[do_if_def] >>
   BasicProvers.EVERY_CASE_TAC >>
   rw[] >>rw[])
+*)
 
 (*
 val evaluate_closed = store_thm("evaluate_closed",
