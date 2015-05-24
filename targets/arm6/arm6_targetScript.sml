@@ -1306,7 +1306,26 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       simp
          [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding]
       )
-   >- cheat
+   >- (
+      (*
+        --------------
+          enc <> [], enc_ok
+        --------------*)
+      print_tac "enc_ok: enc <> NIL"
+      \\ Cases_on `w` \\ fs []
+      \\ TRY (Cases_on `i`) \\ fs []
+      \\ TRY (Cases_on `a`) \\ fs []
+      \\ TRY (Cases_on `b`) \\ fs []
+      \\ TRY (Cases_on `m`) \\ fs []
+      \\ TRY (Cases_on `a`) \\ fs []
+      \\ TRY (Cases_on `c:cmp`) \\ fs [] (* prints ugly warning messages *)
+      \\ TRY (Cases_on `r`) \\ fs []
+      \\ lrw enc_rwts
+      \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+      \\ fs [asm_ok_def,inst_ok_def,reg_ok_def,addr_ok_def,addr_offset_ok_def,
+             jump_offset_ok_def,lem7,arm_stepTheory.Aligned]
+      \\ blastLib.FULL_BBLAST_TAC
+      )
    >- (
       (*
         --------------
