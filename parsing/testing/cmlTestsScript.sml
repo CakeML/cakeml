@@ -31,6 +31,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+  val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
