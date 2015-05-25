@@ -383,7 +383,7 @@ val pmatch_def = tDefine"pmatch"`
 
 val (evaluate_rules,evaluate_ind,evaluate_cases) = Hol_reln`
   (∀ck env s l.
-  evaluate ck (env:all_env) s ((Lit l):modLang$exp) (s, Rval ((Litv l):modLangSem$v)))
+  evaluate ck (env:all_env) (s:modLangSem$v count_store_trace) ((Lit l):modLang$exp) (s, Rval ((Litv l):modLangSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))
