@@ -1,0 +1,23 @@
+INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs
+
+OPTIONS = QUIT_ON_FAILURE
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../semantics/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = ../../semantics/terminationTheory\
+						../../semantics/proofs/evalPropsTheory\
+						../semantics/modLangSemTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif
