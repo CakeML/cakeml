@@ -6,6 +6,9 @@ open modLangTheory source_to_modTheory
 open conLangTheory mod_to_conTheory
 open decLangTheory con_to_decTheory
 open exhLangTheory dec_to_exhTheory
+open patLangTheory exh_to_patTheory
+
+val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
 
 fun add_compiler_compset compset = let
   fun add_datatype t = compute_basicLib.add_datatype t compset
@@ -79,6 +82,23 @@ fun add_compiler_compset compset = let
     ,dec_to_exhTheory.tuple_tag_def
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
+    ] compset
+  (* patLang *)
+  val () = add_datatype``:patLang$exp``
+  val () = add_datatype``:patLang$op``
+  (* exh_to_pat *)
+  val () = add_thms
+    [exh_to_patTheory.compile_exp_def
+    ,exh_to_patTheory.compile_row_def
+    ,exh_to_patTheory.compile_pat_def
+    ,exh_to_patTheory.sLet_def
+    ,exh_to_patTheory.sIf_def
+    ,exh_to_patTheory.ground_def
+    ,exh_to_patTheory.pure_def
+    ,SUC_TO_NUMERAL_RULE exh_to_patTheory.Let_Els_def
+    ,exh_to_patTheory.pure_op_def
+    ,exh_to_patTheory.pure_op_op_def
+    ,exh_to_patTheory.Bool_def
     ] compset
 in () end
 
