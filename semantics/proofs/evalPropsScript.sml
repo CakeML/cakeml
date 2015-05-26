@@ -51,9 +51,19 @@ val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
 val eqs = LIST_CONJ (map prove_case_eq_thm 
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms])
 
+val pair_case_eq = Q.prove (
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ rw []);
+
+val pair_lam_lem = Q.prove (
+`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
+ rw []);
+
 val do_app_cases = save_thm ("do_app_cases",
 ``do_app (s,t) op vs = SOME (st',v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, LET_THM] THENC
+  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
+   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
 
 (*

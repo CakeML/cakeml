@@ -31,19 +31,7 @@ val big_unclocked_unchanged = Q.prove (
      (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
      (FST s = FST (FST r1)))`,
  ho_match_mp_tac evaluate_ind >>
- rw [] >> fs[do_app_cases] >> rw [] >> fs []
- >- (Cases_on `store_alloc (Refv v1) s2` >>
-     fs [] >>
-     rw [])
- >- (BasicProvers.EVERY_CASE_TAC >>
-     fs [] >>
-     rw [])
- >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) s2` >>
-     fs [] >>
-     rw [])
- >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) s2` >>
-     fs [] >>
-     rw []));
+ rw [] >> fs[do_app_cases] >> rw [] >> fs []);
 
 val big_unclocked_ignore = Q.prove (
 `(∀ck env s e r1.
@@ -489,15 +477,7 @@ val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
  rw [] >>
  fs [] >>
  TRY (PairCases_on `s'`) >>
- rw [] 
- >- (Cases_on `store_alloc (Refv v1) s2` >>
-     fs [])
- >- (BasicProvers.EVERY_CASE_TAC >>
-     fs [])
- >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) s2` >>
-     fs [])
- >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) s2` >>
-     fs []));
+ rw []);
 
 val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_equiv_timeout",
 `!s env e count1.

@@ -1314,8 +1314,6 @@ val exp_type_preservation = Q.prove (
                      cases_on `st` >>
                      fs [EVERY_MEM] >>
                      metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl])))
-         >- (Cases_on `store_alloc (Refv v) s` >>
-             fs [])
          >- (fs [store_lookup_def] >>
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
              disj1_tac >>
@@ -1355,9 +1353,6 @@ val exp_type_preservation = Q.prove (
                      cases_on `st` >>
                      fs [EVERY_MEM] >>
                      metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl])))
-         >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) s` >>
-             fs [])
-         >- do_app_exn_tac
          >- do_app_exn_tac
          >- (rw [Once type_v_cases_eqn] >>
              fs [store_lookup_def] >>
@@ -1437,9 +1432,6 @@ val exp_type_preservation = Q.prove (
                      fs [EVERY_MEM] >>
                      metis_tac [type_v_weakening, weakS_bind, weakCT_refl, weakC_refl, weakM_refl]))
              >- fs [check_freevars_def])
-         >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) s` >>
-             fs [])
-         >- do_app_exn_tac
          >- do_app_exn_tac
          >- (fs [store_lookup_def] >>
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
@@ -1490,10 +1482,7 @@ val exp_type_preservation = Q.prove (
              rw [EL_LUPDATE] >>
              res_tac >>
              Cases_on `EL l s` >>
-             fs [])
-         >- (every_case_tac >>
-             fs [] >>
-             rw []))
+             fs []))
      >- (rw [Once type_ctxts_cases, type_ctxt_cases] >>
          ONCE_REWRITE_TAC [context_invariant_cases] >>
          rw [] >>

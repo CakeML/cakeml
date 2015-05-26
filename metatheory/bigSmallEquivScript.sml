@@ -600,13 +600,7 @@ val do_app_not_timeout = Q.prove (
  Cases_on `s` >>
  rw [do_app_cases] >>
  every_case_tac >>
- rw []
- >- (Cases_on `store_alloc (Refv v1) q` >>
-     fs [])
- >- (Cases_on `store_alloc (W8array (REPLICATE (Num (ABS n')) w)) q` >>
-     fs [])
- >- (Cases_on `store_alloc (Varray (REPLICATE (Num (ABS n''')) v2)) q` >>
-     fs []));
+ rw []);
 
 val step_e_not_timeout = Q.prove (
 `e_step (env',s3,e',c') = Eabort a ⇒ a ≠ Rtimeout_error`,
