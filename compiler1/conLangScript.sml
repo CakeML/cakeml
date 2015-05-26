@@ -29,13 +29,10 @@ val _ = Define `cons_tag  = 0`;
 val _ = Define `none_tag  = 0`;
 val _ = Define `some_tag  = 0`;
 
-(* TODO: remove this hack and switch back to Datatype, when Datatype is fixed *)
-val astOp = ``:ast$op``
-
-val _ = Hol_datatype`
+val _ = Datatype`
  op =
-    Op of ^astOp
-  | Init_global_var of num`;
+  | Op (ast$op)
+  | Init_global_var num`;
 
 val _ = Datatype`
  pat =
