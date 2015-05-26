@@ -11,8 +11,7 @@ val _ = new_theory"decLangSem"
  * type error).
  *)
 
-val _ = type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
-val _ = type_abbrev("store_genv", ``:'a store_trace # ('a option) list``);
+val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
 
 val _ = Define `
  (do_app (((count,s,t),genv):conLangSem$v count_store_genv) op vs =
