@@ -157,7 +157,7 @@ val char_list_to_v_def = Define`
   Conv (SOME ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs])`;
 
 val do_app_def = Define `
-do_app (s,t) op (vs:modLangSem$v list) =
+  do_app (s,t) op (vs:modLangSem$v list) =
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
