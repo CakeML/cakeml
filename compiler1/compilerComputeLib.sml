@@ -5,6 +5,7 @@ open HolKernel boolLib bossLib computeLib
 open modLangTheory source_to_modTheory
 open conLangTheory mod_to_conTheory
 open decLangTheory con_to_decTheory
+open exhLangTheory dec_to_exhTheory
 
 fun add_compiler_compset compset = let
   fun add_datatype t = compute_basicLib.add_datatype t compset
@@ -57,6 +58,7 @@ fun add_compiler_compset compset = let
     ,mod_to_conTheory.alloc_tag_def
     ,mod_to_conTheory.alloc_tags_def
     ] compset
+  (* decLang *)
   (* con_to_dec *)
   val () = add_thms
     [con_to_decTheory.compile_prog_def
@@ -64,6 +66,19 @@ fun add_compiler_compset compset = let
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
     ,con_to_decTheory.compile_decs_def
+    ] compset
+  (* exhLang *)
+  val () = add_datatype``:exhLang$pat``
+  val () = add_datatype``:exhLang$exp``
+  (* dec_to_exh *)
+  val () = add_thms
+    [dec_to_exhTheory.is_unconditional_def
+    ,dec_to_exhTheory.add_default_def
+    ,dec_to_exhTheory.get_tags_def
+    ,dec_to_exhTheory.exhaustive_match_def
+    ,dec_to_exhTheory.tuple_tag_def
+    ,dec_to_exhTheory.compile_exp_def
+    ,dec_to_exhTheory.compile_pat_def
     ] compset
 in () end
 
