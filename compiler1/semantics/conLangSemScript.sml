@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-     conLangTheory mod_to_conTheory
+     bigStepTheory conLangTheory mod_to_conTheory
 
 val _ = new_theory"conLangSem"
 
@@ -604,13 +604,6 @@ evaluate_decs ck exh (genv ++ MAP SOME new_env) s2 ds (s3, new_env', r))
 ==>
 evaluate_decs ck exh genv s1 (d::ds) (s3, (new_env ++ new_env'), r))`;
 
-val _ = Define `
-  (num_defs [] = 0)
-  ∧
-  (num_defs (Dlet n _::ds) = (n + num_defs ds))
-  ∧
-  (num_defs (Dletrec funs::ds) = (LENGTH funs + num_defs ds))`;
-
 val _ = Hol_reln ` (! ck exh genv s1 ds s2 env.
 (evaluate_decs ck exh genv s1 ds (s2,env,NONE))
 ==>
@@ -619,10 +612,9 @@ evaluate_prompt ck exh genv s1 (Prompt ds) (s2, MAP SOME env, NONE))
 /\ (! ck exh genv s1 ds s2 env err.
 (evaluate_decs ck exh genv s1 ds (s2,env,SOME err))
 ==>
-evaluate_prompt ck exh genv s1 (Prompt ds) (s2,                                           
- (MAP SOME env ++ GENLIST (\n .  
-  (case (n ) of ( _ ) => NONE )) (num_defs ds - LENGTH env)),
-                                           SOME err))`;
+evaluate_prompt ck exh genv s1 (Prompt ds) (s2,
+ (MAP SOME env ++ GENLIST (K NONE) (num_defs ds - LENGTH env)),
+  SOME err))`;
 
 val _ = Hol_reln ` (! ck exh genv s.
 evaluate_prog ck exh genv s [] (s, [], NONE))

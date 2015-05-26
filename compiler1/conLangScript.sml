@@ -65,4 +65,11 @@ val _ = Datatype`
  prompt =
     Prompt (dec list)`;
 
+val _ = Define `
+  (num_defs [] = 0)
+  ∧
+  (num_defs (Dlet n _::ds) = (n + num_defs ds))
+  ∧
+  (num_defs (Dletrec funs::ds) = (LENGTH funs + num_defs ds))`;
+
 val _ = export_theory()
