@@ -813,32 +813,87 @@ val do_app_i1 = Q.prove (
      imp_res_tac v_to_list_i1_correct >>
      rw [])
  >- ((* Vsub *)
-     cheat)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     rw [markerTheory.Abbrev_def] >>
+     rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     fs [arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ])
  >- ((* Vlength *)
      rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
      fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
      rw [] >>
      metis_tac [LIST_REL_LENGTH, vs_to_i1_list_rel])
  >- ((* Aalloc *)
-     cheat)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_alloc_def] >>
+     rw [sv_to_i1_cases, vs_to_i1_list_rel, LIST_REL_REPLICATE_same] >>
+     metis_tac [LIST_REL_LENGTH])
  >- ((* Asub *)
-     cheat)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+     every_case_tac >>
+     fs [] >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     decide_tac)
  >- ((* Alength *)
-    cheat)
- >- ((* Aupdate *)
-     cheat)
- >- ((* FFI *)
      rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
      fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
      rw [] >>
-     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     fs [store_lookup_def, sv_to_i1_cases] >>
      every_case_tac >>
-     rw [] >>
-     imp_res_tac LIST_REL_LENGTH >>
-     fs [] >>
      fs [LIST_REL_EL_EQN] >>
-     cheat >>
-     metis_tac [store_v_distinct, sv_to_i1_cases, store_v_11]));
+     res_tac >>
+     fs [sv_to_i1_cases] >>
+     metis_tac [store_v_distinct, store_v_11, LIST_REL_LENGTH, vs_to_i1_list_rel])
+ >- ((* Aupdate *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+     every_case_tac >>
+     fs [] >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     rw [markerTheory.Abbrev_def, EL_LUPDATE] >>
+     rw [] >>
+     decide_tac)
+ >- ((* FFI *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     rw [] >>
+     fs [] >>
+     rw [markerTheory.Abbrev_def, EL_LUPDATE] >>
+     rw [] >>
+     fs []));
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.
