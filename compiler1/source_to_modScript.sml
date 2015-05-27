@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs astTheory terminationTheory modLangTheory
+open preamble astTheory terminationTheory modLangTheory
 
 val _ = numLib.prefer_num()
 
@@ -52,16 +52,16 @@ val compile_exp_def = tDefine"compile_exp"`
     | And =>
       Mat (compile_exp menv env e1)
         [(Pcon (SOME(Short"true")) [],compile_exp menv env e2)
-        ;(Pvar"",Bool F)]
+        ;(Pcon (SOME(Short"false")) [],Bool F)]
     | Or =>
       Mat (compile_exp menv env e1)
         [(Pcon (SOME(Short"true")) [],Bool T)
-        ;(Pvar"",compile_exp menv env e2)])
+        ;(Pcon (SOME(Short"false")) [],compile_exp menv env e2)])
   ∧
   (compile_exp menv env (If e1 e2 e3) =
     Mat (compile_exp menv env e1)
       [(Pcon (SOME(Short"true")) [],compile_exp menv env e2)
-      ;(Pvar"",compile_exp menv env e3)])
+      ;(Pcon (SOME(Short"false")) [],compile_exp menv env e3)])
   ∧
   (compile_exp menv env (Mat e pes) =
     Mat (compile_exp menv env e) (compile_pes menv env pes))
@@ -97,6 +97,14 @@ val compile_exp_def = tDefine"compile_exp"`
                                         | INR (INR (INL (x,y,pes))) => pes_size pes
                                         | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
    srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
+
+val compile_funs_map = Q.store_thm("compile_funs_map",
+  `!mods tops funs.
+    compile_funs mods tops funs = MAP (\(f,x,e). (f,x,compile_exp mods (tops\\x) e)) funs`,
+  induct_on `funs` >>
+  rw [compile_exp_def] >>
+  PairCases_on `h` >>
+  rw [compile_exp_def]);
 
 val alloc_defs_def = Define `
   (alloc_defs next [] = []) ∧
