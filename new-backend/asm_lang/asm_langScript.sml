@@ -582,10 +582,6 @@ val aComp_def = Define `
 
 (* prove that asm_step implies mEval steps *)
 
-val IMP_some_EQ = prove(
-  ``(!x y. P x /\ P y ==> (x = y)) /\ P x ==> ($some P = SOME x)``,
-  fs [optionTheory.some_def] \\ METIS_TAC []);
-
 val shift_seq_def = Define `
   shift_seq n s = \i. s (i + n:num)`;
 
@@ -605,20 +601,20 @@ val num_fold_SUC_SUC = prove(
 
 val mEval_EQ_mEval_lemma = prove(
   ``!n ms1.
-      c.get_pc ms1 IN c.prog_addresses /\ c.state_ok ms1 /\
-      interference_ok c.next_interfer proj /\
-      (!s ms. c.state_rel s ms ==> c.state_ok ms) /\
-      (!ms1 ms2. (proj ms1 = proj ms2) ==>
-                 (c.state_ok ms1 = c.state_ok ms2)) /\
+      c.f.get_pc ms1 IN c.prog_addresses /\ c.f.state_ok ms1 /\
+      interference_ok c.next_interfer c.f.proj /\
+      (!s ms. c.f.state_rel s ms ==> c.f.state_ok ms) /\
+      (!ms1 ms2. (c.f.proj ms1 = c.f.proj ms2) ==>
+                 (c.f.state_ok ms1 = c.f.state_ok ms2)) /\
       (!i env.
-         interference_ok env proj /\ i <= n ==>
+         interference_ok env c.f.proj /\ i <= n ==>
          ?si.
-            let ms' = asm$num_fold (\s i. env i (c.next s)) ms1 (i + 1) in
-              if i = n then c.state_rel s2 ms'
-              else c.state_ok ms' /\ c.get_pc ms' IN c.prog_addresses) ==>
+            let ms' = asm$num_fold (\s i. env i (c.f.next s)) ms1 (i + 1) in
+              if i = n then c.f.state_rel s2 ms'
+              else c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses) ==>
       ?ms2.
         (mEval c io (k + (n + 1)) ms1 = mEval c io k ms2) /\
-        c.state_rel s2 ms2``,
+        c.f.state_rel s2 ms2``,
   Induct THEN1
    (fs [] \\ REPEAT STRIP_TAC
     \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def]
@@ -636,7 +632,7 @@ val mEval_EQ_mEval_lemma = prove(
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [interference_ok_def])
   \\ fs [] \\ REPEAT STRIP_TAC
   \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def,ADD_ASSOC]
-  \\ `c.state_ok (c.next ms1)` by METIS_TAC [interference_ok_def] \\ fs []
+  \\ `c.f.state_ok (c.f.next ms1)` by METIS_TAC [interference_ok_def] \\ fs []
   \\ FIRST_X_ASSUM MATCH_MP_TAC
   \\ fs [] \\ REPEAT STRIP_TAC THEN1 RES_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i+1`,
@@ -647,10 +643,10 @@ val mEval_EQ_mEval_lemma = prove(
   \\ `(num_fold
         (\s i'.
            (if i' = SUC i then c.next_interfer (SUC (SUC (k + n)))
-            else env i') (c.next s))
-        (c.next_interfer (SUC (SUC (k + n))) (c.next ms1)) (SUC i)) =
-      (num_fold (\s i. env i (c.next s))
-        (c.next_interfer (SUC (SUC (k + n))) (c.next ms1)) (SUC i))` by
+            else env i') (c.f.next s))
+        (c.next_interfer (SUC (SUC (k + n))) (c.f.next ms1)) (SUC i)) =
+      (num_fold (\s i. env i (c.f.next s))
+        (c.next_interfer (SUC (SUC (k + n))) (c.f.next ms1)) (SUC i))` by
    (MATCH_MP_TAC num_fold_same
     \\ fs [] \\ SRW_TAC [] [] \\ fs [] \\ `F` by DECIDE_TAC)
   \\ SRW_TAC [] [] \\ fs [] \\ rfs []);
@@ -668,21 +664,20 @@ val bytes_in_memory_IMP_SUBSET = prove(
   Induct \\ fs [all_pcs_def,bytes_in_memory_def]);
 
 val asm_step_IMP_mEval_step = prove(
-  ``backend_correct_alt c.encode c.asm_config c.next proj c.state_rel
-      c.get_pc c.get_reg c.get_byte c.state_ok /\
+  ``backend_correct_alt c.f c.asm_config /\
     (c.prog_addresses = s1.mem_domain) /\
-    interference_ok c.next_interfer (proj:'state -> 'c) /\
-    asm_step_alt c.encode c.asm_config s1 i s2 /\
-    c.state_rel (s1:'a asm_state) (ms1:'state) ==>
+    interference_ok c.next_interfer c.f.proj /\
+    asm_step_alt c.f.encode c.asm_config s1 i s2 /\
+    c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
     ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\
-            c.state_rel s2 ms2 /\ l <> 0``,
+            c.f.state_rel s2 ms2 /\ l <> 0``,
   fs [backend_correct_alt_thm] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
   \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
   \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
-         \\ Cases_on `c.encode i` \\ fs [bytes_in_memory_def])
+         \\ Cases_on `c.f.encode i` \\ fs [bytes_in_memory_def])
   \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i'`,`env`]) \\ fs []
   \\ SRW_TAC [] [] \\ fs []

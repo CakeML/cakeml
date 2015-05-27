@@ -434,40 +434,53 @@ val all_pcs_def = Define `
   (all_pcs a [] = {}) /\
   (all_pcs a (x::xs) = a INSERT all_pcs (a + 1w) xs)`;
 
+val () = Datatype `
+  target_funs =
+    <| encode : 'a asm -> word8 list
+     ; get_pc : 'b -> 'a word
+     ; get_reg : 'b -> num -> 'a word
+     ; get_byte : 'b -> 'a word -> word8
+     ; state_ok : 'b -> bool
+     ; state_rel : 'a asm_state -> 'b -> bool
+     ; proj : 'b -> 'c
+     ; next : 'b -> 'b
+     |>`
+
 val backend_correct_alt_def = Define `
-  backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj
-      R get_pc get_reg get_byte state_ok <=>
-    enc_ok enc config /\
-    (!ms1 ms2. (proj ms1 = proj ms2) ==>
-               !s. (R s ms1 = R s ms2) /\ (state_ok ms1 = state_ok ms2)) /\
-    (!ms s. R s ms ==>
-            (get_pc ms = s.pc) /\ (get_byte ms = s.mem) /\
-            (get_reg ms = s.regs) /\ state_ok ms) /\
+  backend_correct_alt t (config:'a asm_config) <=>
+    enc_ok t.encode config /\
+    (!ms1 ms2. (t.proj ms1 = t.proj ms2) ==>
+               !s. (t.state_rel s ms1 = t.state_rel s ms2) /\
+                   (t.state_ok ms1 = t.state_ok ms2)) /\
+    (!ms s. t.state_rel s ms ==>
+            (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
+            (t.get_reg ms = s.regs) /\ t.state_ok ms) /\
     !s1 i s2 ms.
-      asm_step_alt enc config s1 i s2 /\ R s1 ms ==>
+      asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
-             interference_ok (env:num->'b->'b) proj ==>
-             R s2 (num_fold (\s k. env k (next s)) ms (n + 1)) /\
+             interference_ok (env:num->'b->'b) t.proj ==>
+             t.state_rel s2 (num_fold (\s k. env k (t.next s)) ms (n + 1)) /\
              !m. m < n ==>
-               state_ok (num_fold (\s k. env k (next s)) ms (m + 1)) /\
-               get_pc (num_fold (\s k. env k (next s)) ms (m + 1))
-                 IN all_pcs s1.pc (enc i)`
+               t.state_ok (num_fold (\s k. env k (t.next s)) ms (m + 1)) /\
+               t.get_pc (num_fold (\s k. env k (t.next s)) ms (m + 1))
+                   IN all_pcs s1.pc (t.encode i)`
 
 val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
-  ``backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj
-        R get_pc get_reg get_byte state_ok <=>
-      enc_ok enc config /\
-      (!ms1 ms2. (proj ms1 = proj ms2) ==>
-                 !s. (R s ms1 = R s ms2) /\ (state_ok ms1 = state_ok ms2)) /\
-      (!ms s. R s ms ==>
-              (get_pc ms = s.pc) /\ (get_byte ms = s.mem) /\
-              (get_reg ms = s.regs) /\ state_ok ms) /\
-      !s1 i s2 ms env.
-        asm_step_alt enc config s1 i s2 /\ R s1 ms ==>
-        ?n. !k env. k <= n /\ interference_ok (env:num->'b->'b) proj ==>
-                let ms' = num_fold (\s i. env i (next s)) ms (k + 1) in
-                  if k = n then R s2 ms'
-                  else state_ok ms' /\ get_pc ms' IN all_pcs s1.pc (enc i)``,
+  ``backend_correct_alt t (config:'a asm_config) <=>
+    enc_ok t.encode config /\
+    (!ms1 ms2. (t.proj ms1 = t.proj ms2) ==>
+               !s. (t.state_rel s ms1 = t.state_rel s ms2) /\
+                   (t.state_ok ms1 = t.state_ok ms2)) /\
+    (!ms s. t.state_rel s ms ==>
+            (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
+            (t.get_reg ms = s.regs) /\ t.state_ok ms) /\
+    !s1 i s2 ms.
+      asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
+        ?n. !k env. k <= n /\ interference_ok (env:num->'b->'b) t.proj ==>
+                let ms' = num_fold (\s i. env i (t.next s)) ms (k + 1) in
+                  if k = n then t.state_rel s2 ms'
+                  else t.state_ok ms' /\
+                       t.get_pc ms' IN all_pcs s1.pc (t.encode i)``,
   fs [backend_correct_alt_def]
   \\ NTAC 20 (fs [FUN_EQ_THM] \\ REPEAT AP_TERM_TAC \\ REPEAT STRIP_TAC)
   \\ Cases_on `interference_ok env proj` \\ fs [LET_DEF]

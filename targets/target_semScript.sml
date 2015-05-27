@@ -20,21 +20,14 @@ val _ = Datatype `
     ; len_reg : num
     (* major interference by FFI calls *)
     ; ffi_interfer : num -> num -> word8 list -> 'b -> 'b
-    (* target next-state fuction *)
-    ; next : 'b -> 'b
     (* minor interference during exeuction *)
     ; next_interfer : num -> 'b -> 'b
-    (* relation between asm states and machine states *)
-    ; state_rel : 'a asm_state -> 'b -> bool
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
-    (* assembly configuration, encode function, and getters *)
+    (* assembly configuration *)
     ; asm_config : 'a asm_config
-    ; encode : 'a asm -> word8 list
-    ; get_pc : 'b -> 'a word
-    ; get_reg : 'b -> num -> 'a word
-    ; get_byte : 'b -> 'a word -> word8
-    ; state_ok : 'b -> bool
+    (* target next-state fuction etc. *)
+    ; f : ('a,'b,'c) target_funs
     |>`
 
 val list_find_def = Define `
@@ -58,23 +51,23 @@ val mEval_def = Define `
   mEval config io k (ms:'a) =
     if k = 0 then (TimeOut,ms,io)
     else
-      if config.get_pc ms IN config.prog_addresses then
-        let ms1 = config.next ms in
+      if config.f.get_pc ms IN config.prog_addresses then
+        let ms1 = config.f.next ms in
         let ms2 = config.next_interfer k ms1 in
-          if EVERY config.state_ok [ms;ms1;ms2] then
+          if EVERY config.f.state_ok [ms;ms1;ms2] then
             mEval config io (k - 1) ms2
           else
             (Error Internal,ms,io)
-      else if config.get_pc ms = config.halt_pc then
+      else if config.f.get_pc ms = config.halt_pc then
         (Result,ms,io)
       else
-        case list_find (config.get_pc ms) config.ffi_entry_pcs of
+        case list_find (config.f.get_pc ms) config.ffi_entry_pcs of
         | NONE => (Error Internal,ms,io)
         | SOME ffi_index =>
-          case read_bytearray (config.get_reg ms config.ptr_reg)
-                 (w2n (config.get_reg ms config.len_reg))
+          case read_bytearray (config.f.get_reg ms config.ptr_reg)
+                 (w2n (config.f.get_reg ms config.len_reg))
                  (\a. if a IN config.prog_addresses
-                      then SOME (config.get_byte ms a) else NONE) of
+                      then SOME (config.f.get_byte ms a) else NONE) of
           | NONE => (Error Internal,ms,io)
           | SOME bytes =>
             case call_FFI ffi_index bytes io of
