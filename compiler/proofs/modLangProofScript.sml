@@ -1124,7 +1124,6 @@ val exp_to_i1_correct = Q.prove (
        result_to_i1 v_to_i1 genv r r_i1 ∧
        s_to_i1 genv s' s'_i1 ∧
        evaluate_match_i1 b env_i1 s_i1 v_i1 pes_i1 err_v_i1 (s'_i1, r_i1))`,
-
  ho_match_mp_tac evaluate_ind >>
  rw [] >>
  rw [Once evaluate_i1_cases,exp_to_i1_def] >>
@@ -1226,21 +1225,17 @@ val exp_to_i1_correct = Q.prove (
      fs [] >>
      metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* primitive application *)
-    (cheat >>
-     srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+    (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
      rw [] >>
-     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
+     first_assum (fn th => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] do_app_i1) th)) >>
+     rfs [s_to_i1_cases] >>
+     pop_assum (qspecl_then [`genv`, `(s',t2)`, `REVERSE v''`] assume_tac) >>
+     rfs [vs_to_i1_list_rel, EVERY2_REVERSE] >>
      rw [] >>
-     fs [s_to_i1_cases] >>
-     rw [] >>
-     imp_res_tac do_app_i1 >>
-     fs [] >>
-     rw [] >>
-     `genv = all_env_i1_to_genv env_i1`
-                by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
-     fs [] >>
-     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
+     disj1_tac >>
+     MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `t2`] >>
+     fs [exps_to_i1_rev])
  >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- (fs [do_log_thm] >>
