@@ -324,6 +324,14 @@ val asm_step_def = Define `
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
         ~s2.failed /\ asm_ok i c`
 
+val asm_step_alt_def = Define `
+  asm_step_alt enc c s1 i s2 =
+    bytes_in_memory s1.pc (enc i) s1.icache s1.mem s1.mem_domain /\
+    (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
+    (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
+    (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
+    ~s2.failed /\ asm_ok i c`
+
 (* -- semantics is deterministic if encoding is deterministic enough -- *)
 
 val asm_deterministic_def = Define `
@@ -422,39 +430,50 @@ val interference_ok_def = Define `
   interference_ok env (proj:'b->'c) <=>
     !(i:num) ms. proj (env i ms) = proj ms`;
 
+val all_pcs_def = Define `
+  (all_pcs a [] = {}) /\
+  (all_pcs a (x::xs) = a INSERT all_pcs (a + 1w) xs)`;
+
 val backend_correct_alt_def = Define `
-  backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R <=>
+  backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj
+      R get_pc get_reg get_byte state_ok <=>
     enc_ok enc config /\
-    (!ms1 ms2. (proj ms1 = proj ms2) ==> !s. R s ms1 = R s ms2) /\
-    (!s1 s2 ms. R s1 ms /\ R s2 ms ==> (s1 = s2)) /\
-    !s1 s2 ms.
-      asm_step enc config s1 s2 /\ R s1 ms ==>
-      ?n. !env. interference_ok (env:num->'b->'b) proj ==>
-                R s2 (num_fold (\s i. env i (next s)) ms (n + 1)) /\
-                !i. i < n ==>
-                    ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
-                         (s1.mem_domain = si.mem_domain) /\
-                         si.pc IN s1.mem_domain`;
+    (!ms1 ms2. (proj ms1 = proj ms2) ==>
+               !s. (R s ms1 = R s ms2) /\ (state_ok ms1 = state_ok ms2)) /\
+    (!ms s. R s ms ==>
+            (get_pc ms = s.pc) /\ (get_byte ms = s.mem) /\
+            (get_reg ms = s.regs) /\ state_ok ms) /\
+    !s1 i s2 ms.
+      asm_step_alt enc config s1 i s2 /\ R s1 ms ==>
+      ?n. !env.
+             interference_ok (env:num->'b->'b) proj ==>
+             R s2 (num_fold (\s k. env k (next s)) ms (n + 1)) /\
+             !m. m < n ==>
+               state_ok (num_fold (\s k. env k (next s)) ms (m + 1)) /\
+               get_pc (num_fold (\s k. env k (next s)) ms (m + 1))
+                 IN all_pcs s1.pc (enc i)`
 
 val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
-  ``backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj R <=>
+  ``backend_correct_alt enc (config:'a asm_config) (next:'b->'b) proj
+        R get_pc get_reg get_byte state_ok <=>
       enc_ok enc config /\
-      (!ms1 ms2. (proj ms1 = proj ms2) ==> !s. R s ms1 = R s ms2) /\
-      (!s1 s2 ms. R s1 ms /\ R s2 ms ==> (s1 = s2)) /\
-      !s1 s2 ms.
-        asm_step enc config s1 s2 /\ R s1 ms ==>
-        ?n. !env i.
-               interference_ok (env:num->'b->'b) proj /\ i <= n ==>
-               ?si. R si (num_fold (\s i. env i (next s)) ms (i + 1)) /\
-                    if i = n then si = s2
-                    else (si.pc IN s1.mem_domain /\
-                         (s1.mem_domain = si.mem_domain))``,
+      (!ms1 ms2. (proj ms1 = proj ms2) ==>
+                 !s. (R s ms1 = R s ms2) /\ (state_ok ms1 = state_ok ms2)) /\
+      (!ms s. R s ms ==>
+              (get_pc ms = s.pc) /\ (get_byte ms = s.mem) /\
+              (get_reg ms = s.regs) /\ state_ok ms) /\
+      !s1 i s2 ms env.
+        asm_step_alt enc config s1 i s2 /\ R s1 ms ==>
+        ?n. !k env. k <= n /\ interference_ok (env:num->'b->'b) proj ==>
+                let ms' = num_fold (\s i. env i (next s)) ms (k + 1) in
+                  if k = n then R s2 ms'
+                  else state_ok ms' /\ get_pc ms' IN all_pcs s1.pc (enc i)``,
   fs [backend_correct_alt_def]
   \\ NTAC 20 (fs [FUN_EQ_THM] \\ REPEAT AP_TERM_TAC \\ REPEAT STRIP_TAC)
-  \\ Cases_on `interference_ok env proj` \\ fs []
+  \\ Cases_on `interference_ok env proj` \\ fs [LET_DEF]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ RES_TAC
-  THEN1 (fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
-  THEN1 (fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
-  \\ `i <= n /\ i <> n` by DECIDE_TAC \\ RES_TAC \\ METIS_TAC []);
+  \\ SRW_TAC [] [] \\ fs []
+  \\ IMP_RES_TAC (DECIDE ``n<m ==> n<=m /\ n<>m:num``)
+  \\ fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
 
 val () = export_theory ()

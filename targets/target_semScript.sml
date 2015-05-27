@@ -28,9 +28,13 @@ val _ = Datatype `
     ; state_rel : 'a asm_state -> 'b -> bool
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
-    (* assembly configuration and encode function *)
+    (* assembly configuration, encode function, and getters *)
     ; asm_config : 'a asm_config
     ; encode : 'a asm -> word8 list
+    ; get_pc : 'b -> 'a word
+    ; get_reg : 'b -> num -> 'a word
+    ; get_byte : 'b -> 'a word -> word8
+    ; state_ok : 'b -> bool
     |>`
 
 val list_find_def = Define `
@@ -42,44 +46,42 @@ val list_find_def = Define `
        | SOME n => SOME (n+1))`
 
 val read_bytearray_def = Define `
-  (read_bytearray a 0 s = SOME []) /\
-  (read_bytearray a (SUC n) s =
-     if ~(a IN s.mem_domain) then NONE else
-       case read_bytearray (a+1w) n s of
-       | SOME bytes => SOME ((s.mem a)::bytes)
-       | _ => NONE)`
-
-val write_bytearray_def = Define `
-  (write_bytearray a [] s = s) /\
-  (write_bytearray a (b::bs) s =
-     let s' = write_bytearray (a+1w) bs s in
-       s' with mem := (a =+ b) s'.mem)`
+  (read_bytearray a 0 get_byte = SOME []) /\
+  (read_bytearray a (SUC n) get_byte =
+     case get_byte a of
+     | NONE => NONE
+     | SOME b => case read_bytearray (a+1w) n get_byte of
+                 | NONE => NONE
+                 | SOME bs => SOME (b::bs))`
 
 val mEval_def = Define `
   mEval config io k (ms:'a) =
     if k = 0 then (TimeOut,ms,io)
     else
-      case some s. config.state_rel s ms of
-      | NONE => (Error Internal,ms,io)
-      | SOME s =>
-         if s.pc IN config.prog_addresses then
-           mEval config io (k - 1)
-             (config.next_interfer k (config.next ms))
-         else if s.pc = config.halt_pc then
-           (Result,ms,io)
-         else
-           case list_find s.pc config.ffi_entry_pcs of
-           | NONE => (Error Internal,ms,io)
-           | SOME ffi_index =>
-             case read_bytearray (s.regs config.ptr_reg)
-                    (w2n (s.regs config.len_reg)) s of
-             | NONE => (Error Internal,ms,io)
-             | SOME bytes =>
-               case call_FFI ffi_index bytes io of
-               | NONE => (Error IO_mismatch,ms,io)
-               | SOME (new_bytes,new_io) =>
-                   mEval config new_io (k - 1)
-                     (config.ffi_interfer k ffi_index new_bytes ms)`
+      if config.get_pc ms IN config.prog_addresses then
+        let ms1 = config.next ms in
+        let ms2 = config.next_interfer k ms1 in
+          if EVERY config.state_ok [ms;ms1;ms2] then
+            mEval config io (k - 1) ms2
+          else
+            (Error Internal,ms,io)
+      else if config.get_pc ms = config.halt_pc then
+        (Result,ms,io)
+      else
+        case list_find (config.get_pc ms) config.ffi_entry_pcs of
+        | NONE => (Error Internal,ms,io)
+        | SOME ffi_index =>
+          case read_bytearray (config.get_reg ms config.ptr_reg)
+                 (w2n (config.get_reg ms config.len_reg))
+                 (\a. if a IN config.prog_addresses
+                      then SOME (config.get_byte ms a) else NONE) of
+          | NONE => (Error Internal,ms,io)
+          | SOME bytes =>
+            case call_FFI ffi_index bytes io of
+            | NONE => (Error IO_mismatch,ms,io)
+            | SOME (new_bytes,new_io) =>
+                mEval config new_io (k - 1)
+                  (config.ffi_interfer k ffi_index new_bytes ms)`
 
 (* -- observable -- *)
 
@@ -120,28 +122,26 @@ val imprecise_machine_sem_def = Define `
   (imprecise_machine_sem config ms (Diverge io_trace) =
      !k. (FST (mEval config io_trace k ms) = TimeOut))`
 
+val call_FFI_LAPPEND = prove(
+  ``(call_FFI x' x io_trace = SOME (q,r)) ==>
+    (call_FFI x' x (LAPPEND io_trace l) = SOME (q,LAPPEND r l))``,
+  fs [call_FFI_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
+  \\ SRW_TAC [] [] \\ fs [llistTheory.LAPPEND]
+  \\ `(io_trace = [||]) ∨ ∃h t. io_trace = h:::t` by
+          METIS_TAC [llistTheory.llist_CASES]
+  \\ fs [] \\ SRW_TAC [] [] \\ fs []);
+
 val mEval_LAPPEND_io = prove(
   ``!k ms io_trace.
       (FST (mEval config io_trace k ms) = TimeOut) ==>
       (FST (mEval config (LAPPEND io_trace l) k ms) = TimeOut)``,
-  cheat
-(*
   Induct THEN1 (ONCE_REWRITE_TAC [mEval_def] \\ fs [])
-  \\ ONCE_REWRITE_TAC [mEval_def] \\ fs []
-  \\ Cases_on `some s. config.state_rel s ms` \\ fs []
-  \\ Cases_on `x.pc IN config.prog_addresses` \\ fs []
-  \\ Cases_on `x.pc = config.halt_pc` \\ fs []
-  \\ Cases_on `list_find x.pc config.ffi_entry_pcs` \\ fs []
-  \\ REPEAT STRIP_TAC
-  \\ Cases_on `LPOP io_trace` \\ fs []
-  \\ Q.MATCH_ASSUM_RENAME_TAC `LPOP io_trace = SOME i`
-  \\ fs [LPOP_def]
-  \\ `(io_trace = [||]) ∨ ∃h t. io_trace = h:::t` by
-          METIS_TAC [llistTheory.llist_CASES] \\ fs []
-  \\ SRW_TAC [] [] \\ Cases_on `h` \\ fs []
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-*)
-);
+  \\ ONCE_REWRITE_TAC [mEval_def] \\ fs [] \\ REPEAT STRIP_TAC
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
+  \\ SRW_TAC [] [] \\ fs [] \\ fs []
+  \\ IMP_RES_TAC call_FFI_LAPPEND
+  \\ fs [] \\ SRW_TAC [] []);
 
 val imprecise_machine_sem_LAPPEND = store_thm(
    "imprecise_machine_sem_LAPPEND",

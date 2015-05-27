@@ -599,82 +599,96 @@ val num_fold_same = prove(
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ REPEAT STRIP_TAC
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC);
 
+val num_fold_SUC_SUC = prove(
+  ``asm$num_fold f x (SUC (SUC n)) = num_fold f (f x (SUC n)) (SUC n)``,
+  fs [num_fold_def]);
+
 val mEval_EQ_mEval_lemma = prove(
-  ``!n ms1 s1.
-      (c.prog_addresses = s1.mem_domain) /\
-      c.state_rel s1 ms1 /\
-      s1.pc IN s1.mem_domain /\
+  ``!n ms1.
+      c.get_pc ms1 IN c.prog_addresses /\ c.state_ok ms1 /\
       interference_ok c.next_interfer proj /\
-      (!s1 s2 ms. c.state_rel s1 ms /\ c.state_rel s2 ms ==> (s1 = s2)) /\
+      (!s ms. c.state_rel s ms ==> c.state_ok ms) /\
+      (!ms1 ms2. (proj ms1 = proj ms2) ==>
+                 (c.state_ok ms1 = c.state_ok ms2)) /\
       (!i env.
          interference_ok env proj /\ i <= n ==>
          ?si.
-            c.state_rel si
-              (asm$num_fold (\s i. env i (c.next s)) ms1 (i + 1)) /\
-            if i = n then si = s2 else (si.pc IN s1.mem_domain /\
-              (s1.mem_domain = si.mem_domain))) ==>
+            let ms' = asm$num_fold (\s i. env i (c.next s)) ms1 (i + 1) in
+              if i = n then c.state_rel s2 ms'
+              else c.state_ok ms' /\ c.get_pc ms' IN c.prog_addresses) ==>
       ?ms2.
         (mEval c io (k + (n + 1)) ms1 = mEval c io k ms2) /\
         c.state_rel s2 ms2``,
   Induct THEN1
    (fs [] \\ REPEAT STRIP_TAC
     \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def]
-    \\ SIMP_TAC std_ss [Once mEval_def]
-    \\ `(some s. c.state_rel s ms1) = SOME s1` by
-      (MATCH_MP_TAC IMP_some_EQ \\ fs [] \\ METIS_TAC []) \\ fs []
-    \\ Q.EXISTS_TAC `(c.next_interfer (k + 1) (c.next ms1))` \\ fs []
+    \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer (k + 1))`)
-    \\ fs [] \\ fs [interference_ok_def])
+    \\ fs [interference_ok_def] \\ RES_TAC
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
+    \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ fs []
   \\ fs [arithmeticTheory.ADD_CLAUSES]
-  \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1]
-  \\ `(some s. c.state_rel s ms1) = SOME s1` by
-    (MATCH_MP_TAC IMP_some_EQ \\ fs [] \\ METIS_TAC [])
-  \\ fs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1] \\ fs [LET_DEF]
   \\ Q.PAT_ASSUM `!i. bbb`
        (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPECL [`0`,
          `\i. c.next_interfer (k + (n + 1) + 1)`] th))
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [interference_ok_def])
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ Q.EXISTS_TAC `si` \\ fs []
+  \\ fs [] \\ REPEAT STRIP_TAC
   \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def,ADD_ASSOC]
-  \\ REPEAT STRIP_TAC THEN1 RES_TAC
+  \\ `c.state_ok (c.next ms1)` by METIS_TAC [interference_ok_def] \\ fs []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ fs [] \\ REPEAT STRIP_TAC THEN1 RES_TAC
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i+1`,
        `\d. if d = i + 1 then c.next_interfer (k + n + 1 + 1) else env d`]) \\ fs []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-  THEN1 (fs [interference_ok_def] \\ SRW_TAC [] [])
-  \\ fs [GSYM ADD1]
-  \\ SIMP_TAC std_ss [Once asmTheory.num_fold_def]
-  \\ REPEAT STRIP_TAC \\ Q.EXISTS_TAC `si'` \\ fs []
-  \\ POP_ASSUM (K ALL_TAC)
-  \\ POP_ASSUM MP_TAC
-  \\ MATCH_MP_TAC (METIS_PROVE [] ``(x1 = x2) ==> (x1 ==> x2)``)
-  \\ AP_TERM_TAC
-  \\ MATCH_MP_TAC num_fold_same
-  \\ REPEAT STRIP_TAC
-  \\ SRW_TAC [] [] \\ fs []);
+  THEN1 (fs [interference_ok_def] \\ SRW_TAC [] [] \\ fs [])
+  \\ fs [GSYM ADD1,num_fold_SUC_SUC]
+  \\ `(num_fold
+        (\s i'.
+           (if i' = SUC i then c.next_interfer (SUC (SUC (k + n)))
+            else env i') (c.next s))
+        (c.next_interfer (SUC (SUC (k + n))) (c.next ms1)) (SUC i)) =
+      (num_fold (\s i. env i (c.next s))
+        (c.next_interfer (SUC (SUC (k + n))) (c.next ms1)) (SUC i))` by
+   (MATCH_MP_TAC num_fold_same
+    \\ fs [] \\ SRW_TAC [] [] \\ fs [] \\ `F` by DECIDE_TAC)
+  \\ SRW_TAC [] [] \\ fs [] \\ rfs []);
 
 val enc_ok_not_empty = prove(
   ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
   METIS_TAC [listTheory.LENGTH_NIL,enc_ok_def]);
 
+val SUBSET_IMP = prove(
+  ``s SUBSET t ==> (x IN s ==> x IN t)``,
+  fs [pred_setTheory.SUBSET_DEF]);
+
+val bytes_in_memory_IMP_SUBSET = prove(
+  ``!xs a. bytes_in_memory a xs c m d ==> all_pcs a xs SUBSET d``,
+  Induct \\ fs [all_pcs_def,bytes_in_memory_def]);
+
 val asm_step_IMP_mEval_step = prove(
-  ``backend_correct_alt c.encode c.asm_config c.next proj c.state_rel /\
+  ``backend_correct_alt c.encode c.asm_config c.next proj c.state_rel
+      c.get_pc c.get_reg c.get_byte c.state_ok /\
     (c.prog_addresses = s1.mem_domain) /\
     interference_ok c.next_interfer (proj:'state -> 'c) /\
-    asm_step c.encode c.asm_config s1 s2 /\
+    asm_step_alt c.encode c.asm_config s1 i s2 /\
     c.state_rel (s1:'a asm_state) (ms1:'state) ==>
-    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\ c.state_rel s2 ms2``,
+    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\
+            c.state_rel s2 ms2 /\ l <> 0``,
   fs [backend_correct_alt_thm] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
   \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
-  \\ Q.EXISTS_TAC `s1` \\ fs []
-  \\ REPEAT STRIP_TAC
-  THEN1 (fs [asm_step_def] \\ IMP_RES_TAC enc_ok_not_empty
+  \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
+  THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
          \\ Cases_on `c.encode i` \\ fs [bytes_in_memory_def])
-  THEN1 RES_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
+  \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i'`,`env`]) \\ fs []
+  \\ SRW_TAC [] [] \\ fs []
+  \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
+  \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET);
+
 
 (* compiler correctness proof *)
 
@@ -763,6 +777,7 @@ val state_rel_def = Define `
     (p && n2w (ms1.align - 1) = 0w) /\
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
+
 
 (*
 
