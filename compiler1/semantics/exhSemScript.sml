@@ -168,181 +168,181 @@ val _ = Define`
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
-val _ = Define `
- (do_app ((count,s,t),genv) op vs =
-((case (op, vs) of
-      (Op (Opn op), [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
-          SOME (((count,s,t),genv), Rerr (Rraise (prim_exn div_tag)))
-        else
-          SOME (((count,s,t),genv), Rval (Litv (IntLit (opn_lookup op n1 n2))))
-    | (Op (Opb op), [Litv (IntLit n1); Litv (IntLit n2)]) =>
-        SOME (((count,s,t),genv), Rval (Boolv (opb_lookup op n1 n2)))
-    | (Op Equality, [v1; v2]) =>
-        (case do_eq v1 v2 of
-            Eq_type_error => NONE
-          | Eq_closure => SOME (((count,s,t),genv), Rerr (Rraise (prim_exn eq_tag)))
-          | Eq_val b => SOME (((count,s,t),genv), Rval (Boolv b))
-        )
-    | (Op Opassign, [Loc lnum; v]) =>
-        (case store_assign lnum (Refv v) s of
-            SOME st => SOME (((count,st,t),genv), Rval (Conv tuple_tag []))
-          | NONE => NONE
-        )
-    | (Op Opref, [v]) =>
-        let (s',n) = (store_alloc (Refv v) s) in
-          SOME (((count,s',t),genv), Rval (Loc n))
-    | (Op Opderef, [Loc n]) =>
-        (case store_lookup n s of
-            SOME (Refv v) => SOME (((count,s,t),genv),Rval v)
-          | _ => NONE
-        )
-    | (Init_global_var idx, [v]) =>
-        if idx < LENGTH genv then
-          (case EL idx genv of
-              NONE => SOME (((count,s,t), LUPDATE (SOME v) idx genv), (Rval (Conv tuple_tag [])))
-            | SOME x => NONE
-          )
-        else
-          NONE
-    | (Op Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
-        if n <( 0 : int) then
-          SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-        else
-          let (s',lnum) =            
-(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
-          in 
-            SOME (((count,s',t),genv), Rval (Loc lnum))
-    | (Op Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
-        (case store_lookup lnum s of
-            SOME (W8array ws) =>
-              if i <( 0 : int) then
-                SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-              else
-                let n = (Num (ABS ( i))) in
-                  if n >= LENGTH ws then
-                    SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-                  else 
-                    SOME (((count,s,t),genv), Rval (Litv (Word8 (EL n ws))))
-          | _ => NONE
-        )
-    | (Op Aw8length, [Loc n]) =>
-        (case store_lookup n s of
-            SOME (W8array ws) =>
-              SOME (((count,s,t),genv),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
-          | _ => NONE
-         )
-    | (Op Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
-        (case store_lookup lnum s of
-          SOME (W8array ws) =>
-            if i <( 0 : int) then
-              SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-            else 
-              let n = (Num (ABS ( i))) in
-                if n >= LENGTH ws then
-                  SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-                else
-                  (case store_assign lnum (W8array (LUPDATE w n ws)) s of
-                      NONE => NONE
-                    | SOME s' => SOME (((count,s',t),genv), Rval (Conv tuple_tag []))
-                  )
-        | _ => NONE
-      )
-    | (Op Ord, [Litv (Char c)]) =>
-          SOME (((count,s,t),genv), Rval (Litv(IntLit(int_of_num(ORD c)))))
-    | (Op Chr, [Litv (IntLit i)]) =>
-        SOME (((count,s,t),genv),          
-(if (i <( 0 : int)) \/ (i >( 255 : int)) then
+val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
+
+val do_app_def = Define `
+  do_app (((cnt,s,t),g):exhSem$v count_store_genv) op (vs:exhSem$v list) =
+  case op of
+  | Init_global_var idx =>
+    (case vs of
+     | [v] =>
+         if idx < LENGTH g then
+           (case EL idx g of
+            | NONE => SOME (((cnt,s,t), LUPDATE (SOME v) idx g), (Rval (Conv tuple_tag [])))
+            | SOME x => NONE)
+         else NONE
+     | _ => NONE)
+  | Op op => (* copied from conSemScript.sml,
+                modifications:
+                 (s,t) -> ((cnt,s,t),g)
+                 (s, t) -> ((cnt,s,t),g)
+                 (st,t) -> ((cnt,st,t),g)
+                 (s',t) -> ((cnt,s',t),g)
+                 (s', t') -> ((cnt,s',t'),g)
+                 (* TODO: make the above consistent in earlier definitions of do_app *)
+                 prim_exn "Foo" -> prim_exn foo_tag
+                 Conv NONE -> Conv tuple_tag
+              *)
+  (
+  case (op, vs) of
+  | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+    if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
+      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn div_tag)))
+    else
+      SOME (((cnt,s,t),g), Rval (Litv (IntLit (opn_lookup op n1 n2))))
+  | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
+    SOME (((cnt,s,t),g), Rval (Boolv (opb_lookup op n1 n2)))
+  | (Equality, [v1; v2]) =>
+    (case do_eq v1 v2 of
+     | Eq_type_error => NONE
+     | Eq_closure => SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn eq_tag)))
+     | Eq_val b => SOME (((cnt,s,t),g), Rval (Boolv b)))
+  | (Opassign, [Loc lnum; v]) =>
+    (case store_assign lnum (Refv v) s of
+     | SOME st => SOME (((cnt,st,t),g), Rval (Conv tuple_tag []))
+     | NONE => NONE)
+  | (Opref, [v]) =>
+    let (s',n) = (store_alloc (Refv v) s) in
+      SOME (((cnt,s',t),g), Rval (Loc n))
+  | (Opderef, [Loc n]) =>
+    (case store_lookup n s of
+     | SOME (Refv v) => SOME (((cnt,s,t),g),Rval v)
+     | _ => NONE)
+  | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
+    if n < 0 then
+      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+    else
+      let (s',lnum) =
+        store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s
+      in
+        SOME (((cnt,s',t),g), Rval (Loc lnum))
+  | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s of
+     | SOME (W8array ws) =>
+       if i < 0 then
+         SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+       else
+         let n = (Num (ABS i)) in
+           if n >= LENGTH ws then
+             SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+           else
+             SOME (((cnt,s,t),g), Rval (Litv (Word8 (EL n ws))))
+     | _ => NONE)
+  | (Aw8length, [Loc n]) =>
+    (case store_lookup n s of
+     | SOME (W8array ws) =>
+       SOME (((cnt,s,t),g),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
+     | _ => NONE)
+  | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
+    (case store_lookup lnum s of
+     | SOME (W8array ws) =>
+       if i < 0 then
+         SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+       else
+         let n = (Num (ABS i)) in
+           if n >= LENGTH ws then
+             SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+           else
+             (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+              | NONE => NONE
+              | SOME s' => SOME (((cnt,s',t),g), Rval (Conv tuple_tag [])))
+     | _ => NONE)
+  | (Ord, [Litv (Char c)]) =>
+    SOME (((cnt,s,t),g), Rval (Litv(IntLit(int_of_num(ORD c)))))
+  | (Chr, [Litv (IntLit i)]) =>
+    SOME (((cnt,s,t),g),
+          if (i < 0) ∨ (i > 255) then
             Rerr (Rraise (prim_exn chr_tag))
           else
-            Rval (Litv(Char(CHR(Num (ABS ( i))))))))
-    | (Op (Chopb op), [Litv (Char c1); Litv (Char c2)]) =>
-        SOME (((count,s,t),genv), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
-    | (Op Implode, [v]) =>
-          (case v_to_char_list v of
-            SOME ls =>
-              SOME (((count,s,t),genv), Rval (Litv (StrLit (IMPLODE ls))))
-          | NONE => NONE
-          )
-    | (Op Explode, [Litv (StrLit str)]) =>
-        SOME (((count,s,t),genv), Rval (char_list_to_v (EXPLODE str)))
-    | (Op Strlen, [Litv (StrLit str)]) =>
-        SOME (((count,s,t),genv), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
-    | (Op VfromList, [v]) =>
-          (case v_to_list v of
-              SOME vs =>
-                SOME (((count,s,t),genv), Rval (Vectorv vs))
+            Rval (Litv(Char(CHR(Num(ABS i))))))
+  | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
+    SOME (((cnt,s,t),g), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
+  | (Implode, [v]) =>
+    (case v_to_char_list v of
+     | SOME ls =>
+       SOME (((cnt,s,t),g), Rval (Litv (StrLit (IMPLODE ls))))
+     | NONE => NONE)
+  | (Explode, [Litv (StrLit str)]) =>
+    SOME (((cnt,s,t),g), Rval (char_list_to_v (EXPLODE str)))
+  | (Strlen, [Litv (StrLit str)]) =>
+    SOME (((cnt,s,t),g), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+  | (VfromList, [v]) =>
+    (case v_to_list v of
+     | SOME vs =>
+       SOME (((cnt,s,t),g), Rval (Vectorv vs))
+     | NONE => NONE)
+  | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
+    if i < 0 then
+      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+    else
+      let n = (Num (ABS i)) in
+        if n >= LENGTH vs then
+          SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+        else
+          SOME (((cnt,s,t),g), Rval (EL n vs))
+  | (Vlength, [Vectorv vs]) =>
+    SOME (((cnt,s,t),g), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
+  | (Aalloc, [Litv (IntLit n); v]) =>
+    if n < 0 then
+      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+    else
+      let (s',lnum) =
+        store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s
+      in
+        SOME (((cnt,s',t),g), Rval (Loc lnum))
+  | (Asub, [Loc lnum; Litv (IntLit i)]) =>
+    (case store_lookup lnum s of
+     | SOME (Varray vs) =>
+     if i < 0 then
+       SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+     else
+       let n = (Num (ABS i)) in
+         if n >= LENGTH vs then
+           SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+         else
+           SOME (((cnt,s,t),g), Rval (EL n vs))
+     | _ => NONE)
+    | (Alength, [Loc n]) =>
+      (case store_lookup n s of
+       | SOME (Varray ws) =>
+         SOME (((cnt,s,t),g),Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
+       | _ => NONE)
+  | (Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
+    (case store_lookup lnum s of
+     | SOME (Varray vs) =>
+     if i < 0 then
+       SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+     else
+       let n = (Num (ABS i)) in
+         if n >= LENGTH vs then
+           SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+         else
+           (case store_assign lnum (Varray (LUPDATE v n vs)) s of
             | NONE => NONE
-          )
-    | (Op Vsub, [Vectorv vs; Litv (IntLit i)]) =>
-        if i <( 0 : int) then
-          SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-        else
-          let n = (Num (ABS ( i))) in
-            if n >= LENGTH vs then
-              SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-            else 
-              SOME (((count,s,t),genv), Rval (EL n vs))
-    | (Op Vlength, [Vectorv vs]) =>
-        SOME (((count,s,t),genv), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
-    | (Op Aalloc, [Litv (IntLit n); v]) =>
-        if n <( 0 : int) then
-          SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-        else
-          let (s',lnum) =            
-(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
-          in 
-            SOME (((count,s',t),genv), Rval (Loc lnum))
-    | (Op Asub, [Loc lnum; Litv (IntLit i)]) =>
-        (case store_lookup lnum s of
-            SOME (Varray vs) =>
-              if i <( 0 : int) then
-                SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-              else
-                let n = (Num (ABS ( i))) in
-                  if n >= LENGTH vs then
-                    SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-                  else 
-                    SOME (((count,s,t),genv), Rval (EL n vs))
-          | _ => NONE
-        )
-    | (Op Alength, [Loc n]) =>
-        (case store_lookup n s of
-            SOME (Varray ws) =>
-              SOME (((count,s,t),genv),Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
-          | _ => NONE
-         )
-    | (Op Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
-        (case store_lookup lnum s of
-          SOME (Varray vs) =>
-            if i <( 0 : int) then
-              SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-            else 
-              let n = (Num (ABS ( i))) in
-                if n >= LENGTH vs then
-                  SOME (((count,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-                else
-                  (case store_assign lnum (Varray (LUPDATE v n vs)) s of
-                      NONE => NONE
-                    | SOME s' => SOME (((count,s',t),genv), Rval (Conv tuple_tag []))
-                  )
-        | _ => NONE
-      )
-    | (Op (FFI n), [Loc lnum]) =>
-        (case store_lookup lnum s of
-          SOME (W8array ws) =>
-            (case call_FFI n ws t of
-              SOME (ws', t') =>
-               (case store_assign lnum (W8array ws') s of
-                 SOME s' => SOME (((count,s', t'),genv), Rval (Conv tuple_tag []))
-               | NONE => NONE
-               )
-            | NONE => SOME (((count,s, t),genv), Rerr (Rabort Rffi_error))
-            )
-        | _ => NONE
-        )
-    | _ => NONE
-  )))`;
+            | SOME s' => SOME (((cnt,s',t),g), Rval (Conv tuple_tag [])))
+     | _ => NONE)
+  | (FFI n, [Loc lnum]) =>
+    (case store_lookup lnum s of
+     | SOME (W8array ws) =>
+       (case call_FFI n ws t of
+        | SOME (ws', t') =>
+          (case store_assign lnum (W8array ws') s of
+           | SOME s' => SOME (((cnt,s',t'),g), Rval (Conv tuple_tag []))
+           | NONE => NONE)
+        | NONE => SOME (((cnt,s,t),g), Rerr (Rabort Rffi_error)))
+     | _ => NONE)
+  | _ => NONE
+  )`;
 
 val pat_bindings_def = Define`
   (pat_bindings (Pvar n) already_bound =
@@ -362,8 +362,6 @@ val pat_bindings_def = Define`
   ∧
   (pats_bindings (p::ps) already_bound =
    pats_bindings ps (pat_bindings p already_bound))`;
-
-val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
 
 val _ = Hol_reln ` (! ck env l s.
 evaluate ck (env:(varN,exhSem$v)alist) (s:exhSem$v count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
