@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib lcsymtacs pairTheory arithmeticTheory
      closLangTheory conLangTheory pat_to_closTheory
 
-val _ = new_theory"closLangSem"
+val _ = new_theory"closSem"
 
 (* differs from store_v by removing the single value Refv *)
 val _ = Datatype `
@@ -20,8 +20,8 @@ val _ = Datatype `
 
 val _ = Datatype `
   state =
-    <| globals : (closLangSem$v option) list
-     ; refs    : num |-> closLangSem$v ref
+    <| globals : (closSem$v option) list
+     ; refs    : num |-> closSem$v ref
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
      ; output  : string
@@ -88,9 +88,9 @@ val list_to_v_def = Define`
   (list_to_v (h::t) = Block (cons_tag+pat_tag_shift) [h;list_to_v t])`
 
 val do_app_def = Define `
-  do_app (op:closLang$op) (vs:closLangSem$v list) (s:closLangSem$state) =
+  do_app (op:closLang$op) (vs:closSem$v list) (s:closSem$state) =
     case (op,vs) of
-    | (Global n,[]:closLangSem$v list) =>
+    | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
          | SOME (SOME v) => SOME (v,s)
          | _ => NONE)
@@ -199,7 +199,7 @@ val do_app_def = Define `
     | _ => NONE`
 
 val dec_clock_def = Define `
-  dec_clock n (s:closLangSem$state) = s with clock := s.clock - n`;
+  dec_clock n (s:closSem$state) = s with clock := s.clock - n`;
 
 val find_code_def = Define `
   find_code p args code =
@@ -250,8 +250,8 @@ val check_loc_opt_def = Define `
 
 val _ = Datatype `
   app_kind =
-    | Partial_app closLangSem$v
-    | Full_app closLang$exp (closLangSem$v list) (closLangSem$v list)`;
+    | Partial_app closSem$v
+    | Full_app closLang$exp (closSem$v list) (closSem$v list)`;
 
 val dest_closure_def = Define `
   dest_closure loc_opt f args =
@@ -310,7 +310,7 @@ val build_recc_def = Define `
     | NONE => NONE`
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate ([],env:closLangSem$v list,s:closLangSem$state) = (Rval [],s)) /\
+  (evaluate ([],env:closSem$v list,s:closSem$state) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case evaluate ([x],env,s) of
      | (Rval v1,s1) =>

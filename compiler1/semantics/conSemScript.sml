@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
      bigStepTheory conLangTheory mod_to_conTheory
 
-val _ = new_theory"conLangSem"
+val _ = new_theory"conSem"
 
 (* The values of conLang differ in that the closures do not contain a constructor
  * name environment.
@@ -22,7 +22,7 @@ val _ = Datatype`
   | Vectorv (v list)`;
 
 val do_eq_def = tDefine"do_eq"`
-  (do_eq ((Litv l1):conLangSem$v) ((Litv l2):conLangSem$v) =
+  (do_eq ((Litv l1):conSem$v) ((Litv l2):conSem$v) =
    if lit_same_type l1 l2 then Eq_val (l1 = l2)
    else Eq_type_error)
   ∧
@@ -87,7 +87,7 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
                                         | INR (xs,ys) => v3_size xs)`);
 
-val _ = type_abbrev( "all_env" , ``:(exh_ctors_env # (conLangSem$v option) list # (varN, conLangSem$v) alist)``);
+val _ = type_abbrev( "all_env" , ``:(exh_ctors_env # (conSem$v option) list # (varN, conSem$v) alist)``);
 
 val _ = Define `
  (all_env_to_genv ((exh,genv,env):all_env) = genv)`;
@@ -168,7 +168,7 @@ val _ = Define `
   Boolv b = (Conv (SOME ((if b then true_tag else false_tag), TypeId(Short"bool"))) [])`;
 
 val do_app_def = Define `
-  do_app (s,t) op (vs:conLangSem$v list) =
+  do_app (s,t) op (vs:conSem$v list) =
   case op of
   | Init_global_var _ => NONE
   | Op op => (* copied from modLangSemScript.sml *) (
@@ -421,7 +421,7 @@ val pat_bindings_def = Define`
    pats_bindings ps (pat_bindings p already_bound))`;
 
 val _ = Hol_reln ` (! ck env l s.
-  evaluate ck (env:all_env) (s:conLangSem$v count_store_trace) ((Lit l):conLang$exp) (s, Rval ((Litv l):conLangSem$v)))
+  evaluate ck (env:all_env) (s:conSem$v count_store_trace) ((Lit l):conLang$exp) (s, Rval ((Litv l):conSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

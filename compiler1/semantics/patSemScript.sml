@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
      bigStepTheory dec_to_exhTheory patLangTheory
 
-val _ = new_theory"patLangSem"
+val _ = new_theory"patSem"
 
 (*
  * The values and semantics of patLang are the same as exhLang, modulo the
@@ -32,7 +32,7 @@ val _ = Define `
    | _ => NONE)`;
 
 val do_eq_def = tDefine"do_eq"`
-  (do_eq ((Litv l1):patLangSem$v) ((Litv l2):patLangSem$v) =
+  (do_eq ((Litv l1):patSem$v) ((Litv l2):patSem$v) =
    if lit_same_type l1 l2 then Eq_val (l1 = l2)
    else Eq_type_error)
   ∧
@@ -313,7 +313,7 @@ val _ = Define `
 val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:patLangSem$v list) (s:patLangSem$v count_store_genv) ((Lit l):patLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:patSem$v list) (s:patSem$v count_store_genv) ((Lit l):patLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

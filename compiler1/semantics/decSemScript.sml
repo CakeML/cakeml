@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
-     conLangSemTheory
+     conSemTheory
 
-val _ = new_theory"decLangSem"
+val _ = new_theory"decSem"
 
 (* The values of decLang are the same as conLang.
  *
@@ -14,10 +14,10 @@ val _ = new_theory"decLangSem"
 val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
 
 val _ = Define `
- (do_app (((count,s,t),genv):conLangSem$v count_store_genv) op vs =
+ (do_app (((count,s,t),genv):conSem$v count_store_genv) op vs =
   case (op,vs) of
    | (Op op, vs) =>
-     (case conLangSem$do_app (s,t) (Op op) vs of
+     (case conSem$do_app (s,t) (Op op) vs of
       | NONE => NONE
       | SOME ((s,t),r) => SOME (((count,s,t),genv),r))
    | (Init_global_var idx, [v]) =>
@@ -28,10 +28,10 @@ val _ = Define `
      else NONE
    | _ => NONE)`;
 
-val _ = type_abbrev("all_env", ``:exh_ctors_env # (varN, conLangSem$v) alist``);
+val _ = type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:all_env) (s:conLangSem$v count_store_genv) ((Lit l):conLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:all_env) (s:conSem$v count_store_genv) ((Lit l):conLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

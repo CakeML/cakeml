@@ -1,7 +1,7 @@
 open HolKernel boolLib bossLib Parse lcsymtacs
      bigStepTheory exhLangTheory dec_to_exhTheory
 
-val _ = new_theory"exhLangSem"
+val _ = new_theory"exhSem"
 
 (*
  * The values of exhLang differ from decLang in the same way as the
@@ -65,7 +65,7 @@ val _ = Define `
       add_to_env funs`;
 
 val do_eq_def = tDefine"do_eq"`
-  (do_eq ((Litv l1):exhLangSem$v) ((Litv l2):exhLangSem$v) =
+  (do_eq ((Litv l1):exhSem$v) ((Litv l2):exhSem$v) =
    if lit_same_type l1 l2 then Eq_val (l1 = l2)
    else Eq_type_error)
   ∧
@@ -366,7 +366,7 @@ val pat_bindings_def = Define`
 val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:(varN,exhLangSem$v)alist) (s:exhLangSem$v count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:(varN,exhSem$v)alist) (s:exhSem$v count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

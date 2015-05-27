@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib lcsymtacs bigStepTheory modLangTheory;
 
-val _ = new_theory "modLangSem"
+val _ = new_theory "modSem"
 
 (* The values of modLang differ in that the closures do not contain a module
  * environment.
@@ -29,7 +29,7 @@ val _ = Datatype`
 val _ = Define`
   Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
 
-val _ = type_abbrev( "all_env", ``:(modLangSem$v option) list # envC # (varN, modLangSem$v)alist``);
+val _ = type_abbrev( "all_env", ``:(modSem$v option) list # envC # (varN, modSem$v)alist``);
 
 val all_env_to_genv_def = Define `
   all_env_to_genv ((genv,cenv,env):all_env) = genv`;
@@ -106,7 +106,7 @@ val prim_exn_def = Define`
 
 (* Do an application *)
 val do_opapp_def = Define `
-  do_opapp (genv:modLangSem$v option list) vs =
+  do_opapp (genv:modSem$v option list) vs =
   case vs of
     | [Closure (cenv, env) n e; v] =>
       SOME ((genv, cenv, ((n,v) :: env)), e)
@@ -157,7 +157,7 @@ val char_list_to_v_def = Define`
   Conv (SOME ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs])`;
 
 val do_app_def = Define `
-  do_app (s,t) op (vs:modLangSem$v list) =
+  do_app (s,t) op (vs:modSem$v list) =
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
@@ -370,7 +370,7 @@ val pmatch_def = tDefine"pmatch"`
 
 val (evaluate_rules,evaluate_ind,evaluate_cases) = Hol_reln`
   (∀ck env s l.
-  evaluate ck (env:all_env) (s:modLangSem$v count_store_trace) ((Lit l):modLang$exp) (s, Rval ((Litv l):modLangSem$v)))
+  evaluate ck (env:all_env) (s:modSem$v count_store_trace) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))
