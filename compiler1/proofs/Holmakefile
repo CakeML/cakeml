@@ -15,7 +15,13 @@ all: $(HOLHEAP)
 
 BARE_THYS = ../../semantics/terminationTheory\
 						../../semantics/proofs/evalPropsTheory\
-						../semantics/modLangSemTheory
+						../semantics/modPropsTheory\
+						../semantics/conSemTheory\
+						../semantics/decSemTheory\
+						../semantics/exhSemTheory\
+						../semantics/patSemTheory\
+						../semantics/closSemTheory
+
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

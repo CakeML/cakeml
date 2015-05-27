@@ -1,4 +1,4 @@
-INCLUDES = .. ../.. ../../semantics
+INCLUDES = .. ../.. ../../semantics ../../semantics/proofs
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -14,7 +14,13 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
 BARE_THYS = ../../semantics/terminationTheory\
-						../source_to_modTheory
+						../../semantics/proofs/evalPropsTheory\
+						../source_to_modTheory\
+						../mod_to_conTheory\
+						../con_to_decTheory\
+						../dec_to_exhTheory\
+						../exh_to_patTheory\
+						../pat_to_closTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
