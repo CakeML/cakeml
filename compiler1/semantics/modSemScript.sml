@@ -21,8 +21,8 @@ val _ = Datatype`
   v =
     | Litv lit
     | Conv ((conN # tid_or_exn) option) (v list)
-    | Closure (envC # (varN, v) alist) varN exp
-    | Recclosure (envC # (varN, v) alist) ((varN # varN # exp) list) varN
+    | Closure (envC # (varN, v) alist) varN modLang$exp
+    | Recclosure (envC # (varN, v) alist) ((varN # varN # modLang$exp) list) varN
     | Loc num
     | Vectorv (v list)`;
 
@@ -582,7 +582,7 @@ val update_mod_state_def = Define `
 
 val dec_to_dummy_env_def = Define `
 
-(dec_to_dummy_env (Dlet n e) = n)
+(dec_to_dummy_env (modLang$Dlet n e) = n)
 /\
 (dec_to_dummy_env (Dletrec funs) = (LENGTH funs))
 /\

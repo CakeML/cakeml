@@ -402,7 +402,7 @@ val pmatch_def = tDefine"pmatch"`
    srw_tac [ARITH_ss] [pat_size_def]);
 
 val pat_bindings_def = Define`
-  (pat_bindings (Pvar n) already_bound =
+  (pat_bindings (conLang$Pvar n) already_bound =
    n::already_bound)
   ∧
   (pat_bindings (Plit l) already_bound =
