@@ -28,6 +28,7 @@ val _ = Datatype`
   | Var_global num
   | Fun varN exp
   | App op (exp list)
+  | If exp exp exp
   | Mat exp ((pat # exp) list)
   | Let (varN option) exp exp
   | Letrec ((varN # varN # exp) list) exp`;

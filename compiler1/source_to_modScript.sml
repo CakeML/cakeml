@@ -50,18 +50,18 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp menv env (Log lop e1 e2) =
     case lop of
     | And =>
-      Mat (compile_exp menv env e1)
-        [(Pcon (SOME(Short"true")) [],compile_exp menv env e2)
-        ;(Pcon (SOME(Short"false")) [],Bool F)]
+      If (compile_exp menv env e1)
+         (compile_exp menv env e2)
+         (Bool F)
     | Or =>
-      Mat (compile_exp menv env e1)
-        [(Pcon (SOME(Short"true")) [],Bool T)
-        ;(Pcon (SOME(Short"false")) [],compile_exp menv env e2)])
+      If (compile_exp menv env e1)
+         (Bool T)
+         (compile_exp menv env e2))
   ∧
   (compile_exp menv env (If e1 e2 e3) =
-    Mat (compile_exp menv env e1)
-      [(Pcon (SOME(Short"true")) [],compile_exp menv env e2)
-      ;(Pcon (SOME(Short"false")) [],compile_exp menv env e3)])
+    If (compile_exp menv env e1)
+       (compile_exp menv env e2)
+       (compile_exp menv env e3))
   ∧
   (compile_exp menv env (Mat e pes) =
     Mat (compile_exp menv env e) (compile_pes menv env pes))

@@ -453,6 +453,18 @@ evaluate ck env s1 (App op es) ((count,s3,t3), res))
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr err))
 
+/\ (! ck env e1 e2 e3 v e s1 s2 res.
+(evaluate ck env s1 e1 (s2, Rval v)) /\
+(do_if v e2 e3 = SOME e) /\
+(evaluate ck env s2 e res)
+==>
+evaluate ck env s1 (If e1 e2 e3) res)
+
+/\ (! ck env e1 e2 e3 s2 err.
+(evaluate ck env s1 e1 (s2, Rerr err))
+==>
+evaluate ck env s1 (If e1 e2 e3) (s2, Rerr err))
+
 /\ (! ck env e pes v bv s1 s2.
 (evaluate ck env s1 e (s2, Rval v) /\
 evaluate_match ck env s2 v pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []) bv)
