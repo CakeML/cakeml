@@ -4,61 +4,6 @@ open preamble miscLib alistTheory optionTheory rich_listTheory miscTheory
 
 val _ = new_theory "source_to_modProof";
 
-(* TODO: move *)
-
-val evaluate_con = Q.prove (
-  `evaluate a0 a1 a2 (Con cn es) a4 ⇔
-        (∃vs s' v.
-           a4 = (s',Rval v) ∧
-           do_con_check (all_env_to_cenv a1) cn (LENGTH es) ∧
-           build_conv (all_env_to_cenv a1) cn (REVERSE vs) = SOME v ∧
-           evaluate_list a0 a1 a2 (REVERSE es) (s',Rval vs)) ∨
-        (∃err s'.
-           a4 = (s',Rerr err) ∧
-           do_con_check (all_env_to_cenv a1) cn (LENGTH es) ∧
-           evaluate_list a0 a1 a2 (REVERSE es) (s',Rerr err))`,
-  rw [Once modSemTheory.evaluate_cases] >>
-  eq_tac >>
-  rw []);
-
-val compile_funs_dom = Q.prove (
-  `!funs.
-    (MAP (λ(x,y,z). x) funs)
-    =
-    (MAP (λ(x,y,z). x) (compile_funs mods tops funs))`,
-   induct_on `funs` >>
-   rw [compile_exp_def] >>
-   PairCases_on `h` >>
-   rw [compile_exp_def]);
-
-val find_recfun_thm = Q.store_thm("find_recfun_thm",
-  `!n funs f x e.
-    (find_recfun n [] = NONE) ∧
-    (find_recfun n ((f,x,e)::funs) =
-      if f = n then SOME (x,e) else find_recfun n funs)`,
-  rw [] >>
-  rw [Once find_recfun_def]);
-
-val find_recfun_lookup = Q.store_thm ("find_recfun_lookup",
-  `!n funs. find_recfun n funs = ALOOKUP funs n`,
-  Induct_on `funs` >>
-  rw [find_recfun_thm] >>
-  PairCases_on `h` >>
-  rw [find_recfun_thm]);
-
-val compile_exps_append = Q.prove (
-  `!mods tops es es'.
-    compile_exps mods tops (es ++ es') =
-    compile_exps mods tops es ++ compile_exps mods tops es'`,
-  Induct_on `es` >>
-  fs [compile_exp_def]);
-
-val compile_exps_rev = Q.prove (
-  `!mods tops es.
-    compile_exps mods tops (REVERSE es) = REVERSE (compile_exps mods tops es)`,
-  Induct_on `es` >>
-  rw [compile_exp_def, compile_exps_append]);
-
 (* value relation *)
 
 val has_bools_def = Define`
@@ -842,7 +787,7 @@ val do_opapp = Q.prove (
                `v = Recclosure (menv'',cenv'',env'') funs x` by metis_tac [lookup_build_rec_env_lem] >>
                rw [Once v_rel_cases] >>
                MAP_EVERY qexists_tac [`mods`, `tops`, `tops'`] >>
-               rw [find_recfun_lookup])
+               rw [find_recfun_ALOOKUP])
            >- fs [v_rel_eqns, modPropsTheory.build_rec_env_merge])));
 
 val build_conv = Q.prove (
@@ -1062,11 +1007,11 @@ val compile_exp_correct = Q.prove (
   >- metis_tac []
   >- metis_tac []
   >- metis_tac []
-  >- metis_tac [build_conv, do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev]
+  >- metis_tac [build_conv, do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- ((* TODO bug in metis, #259 *)res_tac >> srw_tac[boolSimps.DNF_ss][] >>
       rpt(first_assum(match_exists_tac o concl) >> simp[]) >> (* -- *)
-      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
-  >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev]
+      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
+  >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- (* Variable lookup *)
      (fs [env_all_rel_cases] >>
       cases_on `n` >>
@@ -1125,7 +1070,7 @@ val compile_exp_correct = Q.prove (
       `genv = all_env_to_genv env_i1`
                  by fs [modSemTheory.all_env_to_genv_def, env_all_rel_cases] >>
       fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
+      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
   >- (* function application *)
      (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
       res_tac >>
@@ -1139,7 +1084,7 @@ val compile_exp_correct = Q.prove (
       `genv = all_env_to_genv env_i1`
                  by fs [modSemTheory.all_env_to_genv_def, env_all_rel_cases] >>
       fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
+      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
   >- (* function application *)
      (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
       res_tac >>
@@ -1153,7 +1098,7 @@ val compile_exp_correct = Q.prove (
       `genv = all_env_to_genv env_i1`
                  by fs [modSemTheory.all_env_to_genv_def, env_all_rel_cases] >>
       fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
+      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
   >- (* primitive application *)
      (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
       res_tac >>
@@ -1165,12 +1110,12 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       disj1_tac >>
       MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `t2`] >>
-      fs [compile_exps_rev])
+      fs [compile_exps_reverse])
   >- ((* TODO bug in metis, #259 *)res_tac >> srw_tac[boolSimps.DNF_ss][] >>
       rpt(first_assum(match_exists_tac o concl) >> simp[]) >> (* -- *)
-      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
-  >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev]
-  >- (fs [do_log_thm] >>
+      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
+  >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
+  >- (fs [do_log_thm, semanticPrimitivesTheory.do_if_def] >>
       every_case_tac >>
       fs [v_rel_eqns, compile_exp_def] >>
       rw[] >> rfs[] >>
@@ -1302,7 +1247,7 @@ val compile_exp_correct = Q.prove (
   >- metis_tac []
   >- ((* TODO bug in metis, #259 *)res_tac >> srw_tac[boolSimps.DNF_ss][] >>
       rpt(first_assum(match_exists_tac o concl) >> simp[]) >> (* -- *)
-      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_rev])
+      metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
   >- metis_tac []
   >- metis_tac []
   >- metis_tac []
@@ -1654,7 +1599,7 @@ val letrec_global_env_lem3 = Q.prove (
          qexists_tac `EL n funs` >>
          rw [EL_MEM])
      >- metis_tac [FST_triple, letrec_global_env_lem2])
- >- (rw [find_recfun_lookup] >>
+ >- (rw [find_recfun_ALOOKUP] >>
      rpt (pop_assum mp_tac) >>
      Q.SPEC_TAC (`n`, `n`) >>
      induct_on `funs` >>

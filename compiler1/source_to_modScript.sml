@@ -98,6 +98,19 @@ val compile_exp_def = tDefine"compile_exp"`
                                         | INR (INR (INR (x,y,funs))) => funs_size funs)` >>
    srw_tac [ARITH_ss] [size_abbrevs, astTheory.exp_size_def]);
 
+val compile_exps_append = Q.store_thm("compile_exps_append",
+  `!mods tops es es'.
+    compile_exps mods tops (es ++ es') =
+    compile_exps mods tops es ++ compile_exps mods tops es'`,
+  Induct_on `es` >>
+  fs [compile_exp_def]);
+
+val compile_exps_reverse = Q.store_thm("compile_exps_reverse",
+  `!mods tops es.
+    compile_exps mods tops (REVERSE es) = REVERSE (compile_exps mods tops es)`,
+  Induct_on `es` >>
+  rw [compile_exp_def, compile_exps_append]);
+
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `!mods tops funs.
     compile_funs mods tops funs = MAP (\(f,x,e). (f,x,compile_exp mods (tops\\x) e)) funs`,
@@ -105,6 +118,16 @@ val compile_funs_map = Q.store_thm("compile_funs_map",
   rw [compile_exp_def] >>
   PairCases_on `h` >>
   rw [compile_exp_def]);
+
+val compile_funs_dom = Q.store_thm("compile_funs_dom",
+  `!funs.
+    (MAP (λ(x,y,z). x) funs)
+    =
+    (MAP (λ(x,y,z). x) (compile_funs mods tops funs))`,
+   induct_on `funs` >>
+   rw [compile_exp_def] >>
+   PairCases_on `h` >>
+   rw [compile_exp_def]);
 
 val alloc_defs_def = Define `
   (alloc_defs next [] = []) ∧
