@@ -86,8 +86,8 @@ evaluate ck (exh,env) s (Fun n e) (s, Rval (Closure env n e)))
 /\ (! ck exh genv env es vs env' e bv s1 s2 t2 count genv'.
 (evaluate_list ck (exh,env) (s1,genv) (REVERSE es) (((count,s2,t2),genv'), Rval vs) /\
 (do_opapp (REVERSE vs) = SOME (env', e)) /\
-(ck ==> ~ (count =( 0))) /\
-evaluate ck (exh,env') (((if ck then count -  1 else count),s2,t2),genv') e bv)
+(ck ==> count ≠ 0) /\
+evaluate ck (exh,env') (((if ck then count-1 else count),s2,t2),genv') e bv)
 ==>
 evaluate ck (exh,env) (s1,genv) (App (Op Opapp) es) bv)
 
@@ -97,7 +97,7 @@ evaluate ck (exh,env) (s1,genv) (App (Op Opapp) es) bv)
 (count = 0) /\
 ck)
 ==>
-evaluate ck env s1 (App (Op Opapp) es) ((( 0,s2,t2),genv), Rerr (Rabort Rtimeout_error)))
+evaluate ck env s1 (App (Op Opapp) es) (((0,s2,t2),genv), Rerr (Rabort Rtimeout_error)))
 
 /\ (! ck env s1 op es s2 vs s3 res.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
@@ -134,19 +134,15 @@ evaluate ck (exh,env) s1 (Let n e1 e2) bv)
 evaluate ck env s (Let n e1 e2) (s', Rerr err))
 
 /\ (! ck exh env funs e bv s.
-(ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
+(ALL_DISTINCT (MAP FST funs) /\
 evaluate ck (exh,build_rec_env funs env env) s e bv)
 ==>
 evaluate ck (exh,env) s (Letrec funs e) bv)
 
 /\ (! ck env n s genv.
-T
-==>
-evaluate ck env (s,genv) (Extend_global n) ((s,(genv++GENLIST (\ x .  NONE) n)), Rval (Conv NONE [])))
+evaluate ck env (s,genv) (Extend_global n) ((s,(genv++GENLIST (K NONE) n)), Rval (Conv NONE [])))
 
 /\ (! ck env s.
-T
-==>
 evaluate_list ck env s [] (s, Rval []))
 
 /\ (! ck env e es v vs s1 s2 s3.
