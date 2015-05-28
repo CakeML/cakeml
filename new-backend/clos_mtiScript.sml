@@ -339,6 +339,13 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
   ⇒
   val_rel cl1 cl2)`;
 
+val val_rel_sym = Q.prove (
+`!v1 v2. val_rel v1 v2 ⇒ val_rel v2 v1`,
+ ho_match_mp_tac val_rel_ind >>
+ rw [] >>
+ rw [Once val_rel_cases] >>
+ fs [LIST_REL_EL_EQN]);
+
 val exp_rel_def = Define `
 exp_rel e1 e2 ⇔ norm_exp e1 = norm_exp e2`;
 
@@ -380,7 +387,13 @@ val lookup_vars_list_rel = Q.prove (
  ect >>
  fs [OPTREL_def] >>
  res_tac >>
- fs [LIST_REL_EL_EQN] >>
+ f
+ rw [dest_closure_def] >>
+ fs [val_rel_cases] >>
+ rw [] >>
+ fs []
+
+s [LIST_REL_EL_EQN] >>
  metis_tac []);
 
 val collect_all_args_more = Q.prove (
@@ -421,6 +434,8 @@ val collect_args_mono = Q.prove (
  imp_res_tac collect_args_more >>
  full_simp_tac (srw_ss()++ARITH_ss) []);
  *)
+
+
 
 val dest_closure_some_imp = Q.prove (
 `!f args res f' args'.
@@ -501,6 +516,26 @@ val dest_closure_partial_partial = Q.prove (
      metis_tac [EVERY2_APPEND, APPEND_ASSOC, collect_all_args_more, FST,
                 pair_CASES, LESS_EQ_TRANS, LESS_IMP_LESS_OR_EQ]));
 
+                (*
+
+val dest_closure_full_full = Q.prove (
+`!f f' args args' e e' env env' rest_args rest_args'.
+  val_rel f f' ∧
+  LIST_REL val_rel args args' ∧
+  dest_closure NONE f args = SOME (Full_app e env rest_args) ∧
+  dest_closure NONE f' args' = SOME (Full_app e' env' rest_args')
+  ⇒
+  ?n n'.
+    exp_rel (n,e) (n',e) ∧
+    LIST_REL val_rel env env' ∧
+    LIST_REL val_rel rest_args rest_args'`,
+
+ rw [dest_closure_def] >>
+ fs [val_rel_cases] >>
+ rw [] >>
+ fs []
+ *)
+
 val norm_exp_thm = Q.prove (
 `!num_args e num_args' e' e''.
   collect_args num_args e = (num_args',e') ∧
@@ -524,7 +559,6 @@ val intro_multi_sing = Q.prove (
  Cases_on `x` >>
  rw [intro_multi_def]);
 
- (*
 val intro_multi_op = Q.prove (
 `!op vs1 vs2 s1 s2 v1' s1'.
  LIST_REL val_rel vs1 vs2 ∧
@@ -537,6 +571,7 @@ val intro_multi_op = Q.prove (
    cEvalOp op vs2 s2 = SOME (v2', s2')`,
  cheat);
 
+ (*
 val intro_multi_rec = Q.prove (
 `EVERY (λ(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns ∧
  LIST_REL val_rel env1 env2 ∧
@@ -644,6 +679,7 @@ val intro_multi_build_recc = Q.prove (
  >- metis_tac [collect_args_zero, DECIDE ``0 < x ⇔ x ≠ 0:num``]
  >- 
 
+ *)
 
 val intro_multi_correct = Q.prove (
 `(!tmp es env s1 res s2 s1' env'.
@@ -920,14 +956,36 @@ val intro_multi_correct = Q.prove (
      pop_assum mp_tac >>
      ntac 2 (pop_assum kall_tac) >>
      rw [] >>
+
+
      Cases_on `dest_closure loc_opt func args`  >>
      fs [] >>
-
      Cases_on `x` >>
      fs [] >>
      `loc_opt = NONE` by cheat >> (* TODO forbid App SOME in the input *)
      rw []
      >- ((* A partial application on the unoptimised side *)
+          
+         Cases_on `s1.clock < LENGTH args` >>
+         fs []
+         >- ((* A TimeOut *)
+             rw [res_rel_cases] >>
+             `s1'.clock = s1.clock` by fs [state_rel_def] >>
+             `LENGTH args' = LENGTH args` by metis_tac [EVERY2_LENGTH] >>
+             rw [] >>
+             imp_res_tac dest_closure_some_imp
+             rw [] >>
+             Cases_on `res''''` >>
+             rw []
+             >- fs [state_rel_def]
+             >- fs [state_rel_def] >>
+
+
+
+
+
+
+
          imp_res_tac dest_closure_partial_thm >>
          imp_res_tac EVERY2_LENGTH >>
          fs [] >>
