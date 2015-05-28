@@ -446,6 +446,13 @@ val () = Datatype `
      ; next : 'b -> 'b
      |>`
 
+val asserts_def = zDefine `
+  (asserts 0 next ms P Q <=>
+     let ms = next 0 ms in Q ms) /\
+  (asserts (SUC n) next ms P Q <=>
+     let ms = next (SUC n) ms in
+       (P ms /\ asserts n next ms P Q))`
+
 val backend_correct_alt_def = Define `
   backend_correct_alt t (config:'a asm_config) <=>
     enc_ok t.encode config /\
@@ -459,34 +466,21 @@ val backend_correct_alt_def = Define `
       asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
              interference_ok (env:num->'b->'b) t.proj ==>
-             t.state_rel s2 (num_fold (\s k. env k (t.next s)) ms (n + 1)) /\
-             !m. m < n ==>
-               t.state_ok (num_fold (\s k. env k (t.next s)) ms (m + 1)) /\
-               t.get_pc (num_fold (\s k. env k (t.next s)) ms (m + 1))
-                   IN all_pcs s1.pc (t.encode i)`
+             asserts n (\k s. env k (t.next s)) ms
+               (\ms'. t.state_ok ms' /\
+                      t.get_pc ms' IN all_pcs s1.pc (t.encode i))
+               (\ms'. t.state_rel s2 ms')`
 
-val backend_correct_alt_thm = store_thm("backend_correct_alt_thm",
-  ``backend_correct_alt t (config:'a asm_config) <=>
-    enc_ok t.encode config /\
-    (!ms1 ms2. (t.proj ms1 = t.proj ms2) ==>
-               !s. (t.state_rel s ms1 = t.state_rel s ms2) /\
-                   (t.state_ok ms1 = t.state_ok ms2)) /\
-    (!ms s. t.state_rel s ms ==>
-            (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
-            (t.get_reg ms = s.regs) /\ t.state_ok ms) /\
-    !s1 i s2 ms.
-      asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
-        ?n. !k env. k <= n /\ interference_ok (env:num->'b->'b) t.proj ==>
-                let ms' = num_fold (\s i. env i (t.next s)) ms (k + 1) in
-                  if k = n then t.state_rel s2 ms'
-                  else t.state_ok ms' /\
-                       t.get_pc ms' IN all_pcs s1.pc (t.encode i)``,
-  fs [backend_correct_alt_def]
-  \\ NTAC 20 (fs [FUN_EQ_THM] \\ REPEAT AP_TERM_TAC \\ REPEAT STRIP_TAC)
-  \\ Cases_on `interference_ok env proj` \\ fs [LET_DEF]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ SRW_TAC [] [] \\ fs []
-  \\ IMP_RES_TAC (DECIDE ``n<m ==> n<=m /\ n<>m:num``)
-  \\ fs [DECIDE ``(i<=n <=> (i<n \/ (i=n:num)))``] \\ METIS_TAC [])
+(* lemma for proofs *)
+
+val asserts_eval = save_thm("asserts_eval",let
+  fun genlist f 0 = []
+    | genlist f n = genlist f (n-1) @ [f (n-1)]
+  fun suc_num 0 = ``0:num``
+    | suc_num n = mk_comb(``SUC``,suc_num (n-1))
+  fun gen_rw n =
+    ``asserts ^(suc_num n) next (s:'a) P Q``
+    |> ONCE_REWRITE_CONV [asserts_def] |> SIMP_RULE std_ss []
+  in LIST_CONJ (genlist gen_rw 20) end);
 
 val () = export_theory ()

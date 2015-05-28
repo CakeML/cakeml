@@ -582,22 +582,18 @@ val aComp_def = Define `
 
 (* prove that asm_step implies mEval steps *)
 
-val shift_seq_def = Define `
-  shift_seq n s = \i. s (i + n:num)`;
-
 val IMP_IMP = METIS_PROVE [] ``a /\ (b ==> c) ==> ((a ==> b) ==> c)``
 
-val num_fold_same = prove(
-  ``!n x f g.
-      (!i x. i < n ==> (f x i = g x i)) ==>
-      (asm$num_fold f x n = num_fold g x n)``,
-  Induct \\ fs [num_fold_def] \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ REPEAT STRIP_TAC
-  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ DECIDE_TAC);
-
-val num_fold_SUC_SUC = prove(
-  ``asm$num_fold f x (SUC (SUC n)) = num_fold f (f x (SUC n)) (SUC n)``,
-  fs [num_fold_def]);
+val asserts_restrict = prove(
+  ``!n next1 next2 s P Q.
+      (!k. k <= n ==> (next1 k = next2 k)) ==>
+      (asserts n next1 s P Q ==> asserts n next2 s P Q)``,
+  Induct \\ fs [asserts_def,LET_DEF]
+  \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM MATCH_MP_TAC
+  \\ DECIDE_TAC);
 
 val mEval_EQ_mEval_lemma = prove(
   ``!n ms1.
@@ -606,18 +602,17 @@ val mEval_EQ_mEval_lemma = prove(
       (!s ms. c.f.state_rel s ms ==> c.f.state_ok ms) /\
       (!ms1 ms2. (c.f.proj ms1 = c.f.proj ms2) ==>
                  (c.f.state_ok ms1 = c.f.state_ok ms2)) /\
-      (!i env.
-         interference_ok env c.f.proj /\ i <= n ==>
-         ?si.
-            let ms' = asm$num_fold (\s i. env i (c.f.next s)) ms1 (i + 1) in
-              if i = n then c.f.state_rel s2 ms'
-              else c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses) ==>
+      (!env.
+         interference_ok env c.f.proj ==>
+         asserts n (\k s. env k (c.f.next s)) ms1
+           (\ms'. c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses)
+           (\ms'. c.f.state_rel s2 ms')) ==>
       ?ms2.
         (mEval c io (k + (n + 1)) ms1 = mEval c io k ms2) /\
         c.f.state_rel s2 ms2``,
   Induct THEN1
    (fs [] \\ REPEAT STRIP_TAC
-    \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def]
+    \\ fs [asserts_def,LET_DEF]
     \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer (k + 1))`)
     \\ fs [interference_ok_def] \\ RES_TAC
@@ -627,29 +622,22 @@ val mEval_EQ_mEval_lemma = prove(
   \\ fs [arithmeticTheory.ADD_CLAUSES]
   \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1] \\ fs [LET_DEF]
   \\ Q.PAT_ASSUM `!i. bbb`
-       (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPECL [`0`,
-         `\i. c.next_interfer (k + (n + 1) + 1)`] th))
+       (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPEC
+         `\i. c.next_interfer (k + (n + 1) + 1)` th))
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [interference_ok_def])
   \\ fs [] \\ REPEAT STRIP_TAC
-  \\ fs [num_fold_def,EVAL ``asm$num_fold f x 1``,shift_seq_def,ADD_ASSOC]
+  \\ FULL_SIMP_TAC bool_ss [GSYM ADD1,asserts_def] \\ fs [LET_DEF]
   \\ `c.f.state_ok (c.f.next ms1)` by METIS_TAC [interference_ok_def] \\ fs []
   \\ FIRST_X_ASSUM MATCH_MP_TAC
   \\ fs [] \\ REPEAT STRIP_TAC THEN1 RES_TAC
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i+1`,
-       `\d. if d = i + 1 then c.next_interfer (k + n + 1 + 1) else env d`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
+       `\d. if d = SUC n then c.next_interfer (k + n + 1 + 1) else env d`]) \\ fs []
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
   THEN1 (fs [interference_ok_def] \\ SRW_TAC [] [] \\ fs [])
-  \\ fs [GSYM ADD1,num_fold_SUC_SUC]
-  \\ `(num_fold
-        (\s i'.
-           (if i' = SUC i then c.next_interfer (SUC (SUC (k + n)))
-            else env i') (c.f.next s))
-        (c.next_interfer (SUC (SUC (k + n))) (c.f.next ms1)) (SUC i)) =
-      (num_fold (\s i. env i (c.f.next s))
-        (c.next_interfer (SUC (SUC (k + n))) (c.f.next ms1)) (SUC i))` by
-   (MATCH_MP_TAC num_fold_same
-    \\ fs [] \\ SRW_TAC [] [] \\ fs [] \\ `F` by DECIDE_TAC)
-  \\ SRW_TAC [] [] \\ fs [] \\ rfs []);
+  \\ fs [ADD1,ADD_ASSOC]
+  \\ MATCH_MP_TAC asserts_restrict
+  \\ fs [FUN_EQ_THM]
+  \\ SRW_TAC [] [] \\ fs [] \\ `F` by DECIDE_TAC);
 
 val enc_ok_not_empty = prove(
   ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
@@ -663,6 +651,13 @@ val bytes_in_memory_IMP_SUBSET = prove(
   ``!xs a. bytes_in_memory a xs c m d ==> all_pcs a xs SUBSET d``,
   Induct \\ fs [all_pcs_def,bytes_in_memory_def]);
 
+val asserts_WEAKEN = prove(
+  ``!n next s P Q.
+      (!x. P x ==> P' x) ==>
+      asserts n next s P Q ==>
+      asserts n next s P' Q``,
+  Induct \\ fs [asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC);
+
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.f c.asm_config /\
     (c.prog_addresses = s1.mem_domain) /\
@@ -671,7 +666,7 @@ val asm_step_IMP_mEval_step = prove(
     c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
     ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\
             c.f.state_rel s2 ms2 /\ l <> 0``,
-  fs [backend_correct_alt_thm] \\ REPEAT STRIP_TAC \\ RES_TAC
+  fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
   \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
@@ -679,7 +674,8 @@ val asm_step_IMP_mEval_step = prove(
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
          \\ Cases_on `c.f.encode i` \\ fs [bytes_in_memory_def])
   \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`i'`,`env`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env`]) \\ fs []
+  \\ MATCH_MP_TAC asserts_WEAKEN \\ fs []
   \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
   \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET);
