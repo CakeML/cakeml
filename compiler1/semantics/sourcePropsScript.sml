@@ -27,4 +27,23 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
 
 val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,rw[Boolv_def]);
 
+val find_recfun_el = Q.store_thm("find_recfun_el",
+  `!f funs x e n.
+    ALL_DISTINCT (MAP (\(f,x,e). f) funs) ∧
+    n < LENGTH funs ∧
+    EL n funs = (f,x,e)
+    ⇒
+    find_recfun f funs = SOME (x,e)`,
+  simp[find_recfun_ALOOKUP] >>
+  induct_on `funs` >>
+  rw [] >>
+  cases_on `n` >>
+  fs [] >>
+  PairCases_on `h` >>
+  fs [] >>
+  rw [] >>
+  res_tac >>
+  fs [MEM_MAP, MEM_EL, FORALL_PROD] >>
+  metis_tac []);
+
 val _ = export_theory()

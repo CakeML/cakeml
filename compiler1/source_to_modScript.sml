@@ -134,6 +134,16 @@ val alloc_defs_def = Define `
   (alloc_defs next (x::xs) =
     (x,next) :: alloc_defs (next + 1) xs)`;
 
+val fst_alloc_defs = Q.store_thm("fst_alloc_defs",
+  `!next l. MAP FST (alloc_defs next l) = l`,
+  induct_on `l` >>
+  rw [alloc_defs_def]);
+
+val alloc_defs_append = Q.store_thm("alloc_defs_append",
+  `!n l1 l2. alloc_defs n (l1++l2) = alloc_defs n l1 ++ alloc_defs (n + LENGTH l1) l2`,
+  induct_on `l1` >>
+  srw_tac [ARITH_ss] [alloc_defs_def, arithmeticTheory.ADD1]);
+
 val compile_dec_def = Define `
  (compile_dec next mn menv env d =
   case d of
