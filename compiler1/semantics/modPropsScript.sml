@@ -149,4 +149,8 @@ val evaluate_list_reverse = Q.store_thm("evaluate_list_reverse",
   rw [] >>
   rw [Once evaluate_cases]);
 
+val no_dup_types_cons_imp = Q.store_thm("no_dup_types_cons_imp",
+  `no_dup_types (d::ds) ⇒ no_dup_types ds`,
+  rw[decs_to_types_def,no_dup_types_def,ALL_DISTINCT_APPEND]);
+
 val _ = export_theory()

@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs modLangTheory conLangTheory
+open preamble modLangTheory conLangTheory
 
 (* The translator to conLang keeps a mapping (tag_env) of each constructor to
  * its arity, tag, and type. Tags need only be unique for each arity-type pair,
@@ -102,6 +102,14 @@ val compile_exp_def = tDefine"compile_exp"`
                                          | INR (INL (x,es)) => exp6_size es
                                          | INR (INR (INL (x,pes))) => exp3_size pes
                                          | INR (INR (INR (x,funs))) => exp1_size funs)`);
+
+val compile_funs_map = Q.store_thm("compile_funs_map",
+  `!funs.
+    compile_funs cenv funs = MAP (\(f,x,e). (f,x,compile_exp cenv e)) funs`,
+   induct_on `funs` >>
+   rw [compile_exp_def] >>
+   PairCases_on `h` >>
+   rw [compile_exp_def]);
 
 (* for each type, for each arity, the number of constructors of that arity *)
 val _ = type_abbrev( "exh_ctors_env" , ``:typeN id |-> num spt``);
