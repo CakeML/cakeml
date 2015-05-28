@@ -70,6 +70,11 @@ val compile_exp_def = tDefine"compile_exp"`
   (compile_exp tagenv (App op es) =
    App (Op op) (compile_exps tagenv es))
   ∧
+  (compile_exp tagenv (If e1 e2 e3) =
+   Mat (compile_exp tagenv e1)
+     [(Pcon(SOME(true_tag,TypeId(Short"bool")))[],compile_exp tagenv e2);
+      (Pcon(SOME(false_tag,TypeId(Short"bool")))[],compile_exp tagenv e3)])
+  ∧
   (compile_exp tagenv (Mat e pes) =
    Mat (compile_exp tagenv e) (compile_pes tagenv pes))
   ∧
