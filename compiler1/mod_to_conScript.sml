@@ -22,7 +22,7 @@ val _ = Define `
    | NONE => NONE
    | SOME (a,n,t) => SOME (n,t))`;
 
-val _ = Define `
+val lookup_tag_env_def = Define `
   lookup_tag_env id ((mtagenv,tagenv):tag_env) =
     case id of
     | NONE => NONE
@@ -31,6 +31,11 @@ val _ = Define `
       (case FLOOKUP mtagenv x of
        | NONE => NONE
        | SOME tagenv => lookup_tag_flat y tagenv)`;
+
+val lookup_tag_env_NONE = Q.store_thm("lookup_tag_env_NONE[simp]",
+  `lookup_tag_env NONE tagenv = NONE`,
+  PairCases_on `tagenv` >>
+  rw [lookup_tag_env_def]);
 
 val compile_pat_def = tDefine"compile_pat"`
   (compile_pat tagenv (Pvar x) = (Pvar x))
@@ -102,6 +107,12 @@ val compile_exp_def = tDefine"compile_exp"`
                                          | INR (INL (x,es)) => exp6_size es
                                          | INR (INR (INL (x,pes))) => exp3_size pes
                                          | INR (INR (INR (x,funs))) => exp1_size funs)`);
+
+val compile_exps_map = Q.store_thm("compile_exps_map",
+  `!tagenv es.
+    compile_exps tagenv es = MAP (compile_exp tagenv) es`,
+  Induct_on `es` >>
+  rw [compile_exp_def]);
 
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `!funs.

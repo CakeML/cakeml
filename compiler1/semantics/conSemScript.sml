@@ -322,15 +322,6 @@ val do_app_def = Define `
   | _ => NONE
   )`;
 
-val do_if_def = Define `
- (do_if v e1 e2 =
-  if v = Boolv T then
-    SOME e1
-  else if v = Boolv F then
-    SOME e2
-  else
-    NONE)`;
-
 val pmatch_def = tDefine"pmatch"`
   (pmatch exh s (Pvar x) v' env = (Match ((x,v')::env)))
   ∧
