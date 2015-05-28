@@ -153,6 +153,37 @@ val no_dup_types_cons_imp = Q.store_thm("no_dup_types_cons_imp",
   `no_dup_types (d::ds) ⇒ no_dup_types ds`,
   rw[decs_to_types_def,no_dup_types_def,ALL_DISTINCT_APPEND]);
 
+val no_dup_mods_eqn = Q.store_thm ("no_dup_mods_eqn",
+  `!p ps.
+    (no_dup_mods [] (x,y,mods) ⇔ T) ∧
+    (no_dup_mods (p::ps) (x,y,mods) ⇔
+       (case p of
+         | Prompt (SOME mn) ds =>
+             ~MEM mn (prog_to_mods ps) ∧ mn ∉ mods
+         | Prompt NONE _ => T) ∧
+      no_dup_mods ps (x,y,mods))`,
+  rw [modSemTheory.no_dup_mods_def, modSemTheory.prog_to_mods_def] >>
+  every_case_tac >>
+  rw [] >>
+  metis_tac []);
+
+val no_dup_top_types_eqn = Q.store_thm ("no_dup_top_types_eqn",
+  `!p ps.
+    (no_dup_top_types [] (x,tids,y) ⇔ T) ∧
+    (no_dup_top_types (p::ps) (x,tids,y) ⇔
+       (case p of
+         | Prompt NONE ds =>
+             ALL_DISTINCT (decs_to_types ds) ∧
+             DISJOINT (set (decs_to_types ds)) (set (prog_to_top_types ps)) ∧
+             DISJOINT (IMAGE (\tn. TypeId (Short tn)) (set (decs_to_types ds))) tids
+         | Prompt (SOME mn) _ => T) ∧
+      no_dup_top_types ps (x,tids,y))`,
+  rw [no_dup_top_types_def, prog_to_top_types_def] >>
+  every_case_tac >>
+  rw [ALL_DISTINCT_APPEND, DISJOINT_DEF, EXTENSION] >>
+  fs [MEM_MAP] >>
+  metis_tac []);
+
 val tids_of_decs_def = Define`
   tids_of_decs ds = set (FLAT (MAP (λd. case d of Dtype mn tds => MAP (mk_id mn o FST o SND) tds | _ => []) ds))`;
 
@@ -185,5 +216,44 @@ val evaluate_decs_tids = Q.store_thm("evaluate_decs_tids",
   rw[modSemTheory.evaluate_dec_cases,tids_of_decs_thm] >> fs[] >>
   simp[EXTENSION,semanticPrimitivesTheory.type_defs_to_new_tdecs_def,MEM_MAP,PULL_EXISTS,UNCURRY] >>
   metis_tac[])
+
+val evaluate_decs_tids_disjoint = Q.store_thm("evaluate_decs_tids_disjoint",
+  `∀ck genv envC st ds res. evaluate_decs ck genv envC st ds res ⇒
+     SND(SND(SND res)) = NONE ⇒
+     DISJOINT (IMAGE TypeId (tids_of_decs ds)) (SND st)`,
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >>
+  conj_tac >- simp[tids_of_decs_thm] >>
+  rw[modSemTheory.evaluate_dec_cases,tids_of_decs_thm] >> fs[DISJOINT_SYM] >>
+  fs[semanticPrimitivesTheory.type_defs_to_new_tdecs_def,IN_DISJOINT,MEM_MAP,UNCURRY] >>
+  metis_tac[]);
+
+val tids_of_prompt_def = Define`
+  tids_of_prompt (Prompt _ ds) = tids_of_decs ds`;
+
+val evaluate_prompt_tids_disjoint = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt ck genv envC stm p res ⇒
+      SND(SND(SND res)) = NONE ⇒
+      DISJOINT (IMAGE TypeId (tids_of_prompt p)) (FST(SND stm))``,
+  ho_match_mp_tac modSemTheory.evaluate_prompt_ind >> simp[] >> rw[] >>
+  imp_res_tac evaluate_decs_tids_disjoint >> fs[tids_of_prompt_def]);
+
+val evaluate_prompt_tids_acc = prove(
+  ``∀ck genv envC stm p res. evaluate_prompt ck genv envC stm p res ⇒
+      FST(SND stm) ⊆ FST(SND(FST res))``,
+  ho_match_mp_tac modSemTheory.evaluate_prompt_ind >> simp[] >> rw[] >>
+  imp_res_tac evaluate_decs_tids_acc >> fs[]);
+
+val evaluate_prompt_tids = Q.store_thm("evaluate_prompt_tids",
+  `∀ck genv envC stm p res. evaluate_prompt ck genv envC stm p res ⇒
+     SND(SND(SND res)) = NONE ⇒
+     {id | TypeId id ∈ FST(SND(FST res))} = (tids_of_prompt p) ∪ {id | TypeId id ∈ FST(SND stm)}`,
+  ho_match_mp_tac modSemTheory.evaluate_prompt_ind >> simp[] >> rw[] >>
+  imp_res_tac evaluate_decs_tids >> fs[tids_of_prompt_def]);
+
+val evaluate_prompt_mods_disjoint = Q.store_thm("evaluate_prompt_mods_disjoint",
+  `∀ck genv envC stm p res. evaluate_prompt ck genv envC stm p res ⇒
+     SND(SND(SND res)) = NONE ⇒
+     ∀mn ds. p = Prompt (SOME mn) ds ⇒ mn ∉ (SND(SND stm))`,
+  ho_match_mp_tac modSemTheory.evaluate_prompt_ind >> simp[]);
 
 val _ = export_theory()
