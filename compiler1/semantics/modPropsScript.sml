@@ -153,4 +153,37 @@ val no_dup_types_cons_imp = Q.store_thm("no_dup_types_cons_imp",
   `no_dup_types (d::ds) ⇒ no_dup_types ds`,
   rw[decs_to_types_def,no_dup_types_def,ALL_DISTINCT_APPEND]);
 
+val tids_of_decs_def = Define`
+  tids_of_decs ds = set (FLAT (MAP (λd. case d of Dtype mn tds => MAP (mk_id mn o FST o SND) tds | _ => []) ds))`;
+
+val tids_of_decs_thm = Q.store_thm("tids_of_decs_thm",
+  `(tids_of_decs [] = {}) ∧
+   (tids_of_decs (d::ds) = tids_of_decs ds ∪
+     case d of Dtype mn tds => set (MAP (mk_id mn o FST o SND) tds) | _ => {})`,
+  simp[tids_of_decs_def] >>
+  every_case_tac >> simp[] >>
+  metis_tac[UNION_COMM]);
+
+val evaluate_dec_tids_acc = store_thm("evaluate_dec_tids_acc",
+  ``∀ck genv envC st d res. evaluate_dec ck genv envC st d res ⇒
+      SND st ⊆ SND (FST res)``,
+  ho_match_mp_tac modSemTheory.evaluate_dec_ind >> simp[]);
+
+val evaluate_decs_tids_acc = store_thm("evaluate_decs_tids_acc",
+  ``∀ck genv envC st ds res. evaluate_decs ck genv envC st ds res ⇒
+      SND st ⊆ SND(FST res)``,
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >> rw[] >>
+  first_x_assum(mp_tac o MATCH_MP evaluate_dec_tids_acc) >>
+  fs[] >> metis_tac[SUBSET_TRANS]);
+
+val evaluate_decs_tids = Q.store_thm("evaluate_decs_tids",
+  `∀ck genv envC st ds res. evaluate_decs ck genv envC st ds res ⇒
+     SND(SND(SND res)) = NONE ⇒
+     {id | TypeId id ∈ SND(FST res)} = (tids_of_decs ds) ∪ {id | TypeId id ∈ SND st}`,
+  ho_match_mp_tac evaluate_decs_ind >> simp[] >>
+  conj_tac >- simp[tids_of_decs_thm] >>
+  rw[modSemTheory.evaluate_dec_cases,tids_of_decs_thm] >> fs[] >>
+  simp[EXTENSION,semanticPrimitivesTheory.type_defs_to_new_tdecs_def,MEM_MAP,PULL_EXISTS,UNCURRY] >>
+  metis_tac[])
+
 val _ = export_theory()

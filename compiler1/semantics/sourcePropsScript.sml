@@ -1,4 +1,4 @@
-open preamble semanticPrimitivesTheory astTheory evalPropsTheory
+open preamble rich_listTheory semanticPrimitivesTheory astTheory evalPropsTheory
 open terminationTheory
 
 (* TODO: this theory should be moved entirely into evalPropsTheory and/or other
@@ -24,6 +24,10 @@ val pmatch_extend = Q.store_thm("pmatch_extend",
  qexists_tac `env'''++env''` >>
  rw [] >>
  metis_tac [pat_bindings_accum]);
+
+val mk_id_11 = Q.store_thm("mk_id_11[simp]",
+  `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
+  map_every Cases_on[`a`,`c`] >> EVAL_TAC)
 
 val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,rw[Boolv_def]);
 
@@ -60,10 +64,23 @@ val same_tid_diff_ctor = Q.store_thm("same_tid_diff_ctor",
   cases_on `t2` >>
   fs [same_tid_def, same_ctor_def]);
 
+val same_tid_tid = Q.store_thm("same_tid_tid",
+  `(same_tid (TypeId x) y ⇔ (y = TypeId x)) ∧
+   (same_tid y (TypeId x) ⇔ (y = TypeId x))`,
+  Cases_on`y`>>EVAL_TAC>>rw[EQ_IMP_THM])
+
 val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty",
   `!mod_env. merge_alist_mod_env ([],[]) mod_env = mod_env`,
   rw [] >>
   PairCases_on `mod_env` >>
   rw [merge_alist_mod_env_def]);
+
+val MAP_FST_build_tdefs = store_thm("MAP_FST_build_tdefs",
+  ``set (MAP FST (build_tdefs mn ls)) =
+    set (MAP FST (FLAT (MAP (SND o SND) ls)))``,
+  Induct_on`ls`>>simp[build_tdefs_cons] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+  metis_tac[UNION_COMM])
 
 val _ = export_theory()
