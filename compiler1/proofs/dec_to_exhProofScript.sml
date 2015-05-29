@@ -1,0 +1,1228 @@
+open preamble miscLib
+     dec_to_exhTheory
+     exhSemTheory
+
+val _ = new_theory "dec_to_exhProof";
+
+(* value relation *)
+
+val get_tag_def = Define`
+  get_tag NONE = tuple_tag ∧
+  get_tag (SOME p) = FST p`
+val _ = export_rewrites["get_tag_def"]
+
+val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
+  (!exh l.
+    v_rel exh (Litv l) (Litv l)) ∧
+  (!exh t vs vs'.
+    vs_rel exh vs vs'
+    ⇒
+    v_rel exh (Conv t vs) (Conv (get_tag t) vs')) ∧
+  (!exh env x e env' exh'.
+    exh' SUBMAP exh ∧
+    env_rel exh env env'
+    ⇒
+    v_rel exh (Closure env x e) (Closure env' x (compile_exp exh' e))) ∧
+  (!exh env x funs exh'.
+    exh' SUBMAP exh ∧
+    env_rel exh env env'
+    ⇒
+    v_rel exh (Recclosure env funs x) (Recclosure env' (compile_funs exh' funs) x)) ∧
+  (!exh l.
+    v_rel exh (Loc l) (Loc l)) ∧
+  (!exh vs vs'.
+    vs_rel exh vs vs'
+    ⇒
+    v_rel exh (Vectorv vs) (Vectorv vs')) ∧
+  (!exh.
+    vs_rel exh [] []) ∧
+  (!exh v v' vs vs'.
+    v_rel exh v v' ∧
+    vs_rel exh vs vs'
+    ⇒
+    vs_rel exh (v::vs) (v'::vs')) ∧
+  (!exh.
+    env_rel exh [] []) ∧
+  (!exh x v v' env env'.
+    v_rel exh v v' ∧
+    env_rel exh env env'
+    ⇒
+    env_rel exh ((x,v)::env) ((x,v')::env'))`;
+
+val v_rel_eqn = Q.prove (
+  `(!exh l v.
+    v_rel exh (Litv l) v ⇔
+     v = Litv l) ∧
+   (!exh t vs v.
+    v_rel exh (Conv t vs) v ⇔
+     ?vs'.
+      vs_rel exh vs vs' ∧
+      v = Conv (get_tag t) vs') ∧
+   (!exh l.
+    v_rel exh (Loc l) v ⇔
+     v = Loc l) ∧
+   (!exh vs v.
+    v_rel exh (Vectorv vs) v ⇔
+     ?vs'.
+      vs_rel exh vs vs' ∧
+      v = Vectorv vs') ∧
+   (!exh vs. vs_rel exh [] vs ⇔ vs = []) ∧
+   (!exh v vs vs'.
+    vs_rel exh (v::vs) vs' ⇔
+    ?v' vs''.
+      vs' = v'::vs'' ∧
+      v_rel exh v v' ∧
+      vs_rel exh vs vs'') ∧
+   (!exh env. env_rel exh [] env ⇔ env = []) ∧
+   (!exh x v env env'.
+    env_rel exh ((x,v)::env) env' ⇔
+    ?v' env''.
+      env' = (x,v') :: env'' ∧
+      v_rel exh v v' ∧
+      env_rel exh env env'')`,
+   rw [] >>
+   rw [Once v_rel_cases] >>
+   metis_tac []);
+
+val vs_rel_LIST_REL = prove(
+  ``∀vs vs' exh. vs_rel exh vs vs' = LIST_REL (v_rel exh) vs vs'``,
+  Induct >> simp[v_rel_eqn])
+
+val env_rel_LIST_REL = Q.prove(
+  `!exh env env'. env_rel exh env env' = LIST_REL (λ(x,y) (x',y'). x = x' ∧ v_rel exh y y') env env'`,
+  Induct_on`env`>>simp[v_rel_eqn]>>Cases>>simp[v_rel_eqn] >>
+  rw [EXISTS_PROD]);
+
+val env_rel_MAP = store_thm("env_rel_MAP",
+  ``∀exh env1 env2. env_rel exh env1 env2 ⇔ MAP FST env1 = MAP FST env2 ∧
+      LIST_REL (v_rel exh) (MAP SND env1) (MAP SND env2)``,
+  Induct_on`env1`>>simp[Once v_rel_cases] >>
+  Cases >> Cases_on`env2` >> rw[] >>
+  Cases_on`h`>>rw[] >> metis_tac[])
+
+val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
+  (∀exh v v' s s'.
+    f exh v v' ∧
+    csg_rel (v_rel exh) s s'
+    ⇒
+    result_rel f exh (s,Rval v) (s',Rval v')) ∧
+  (∀exh v v' s s'.
+    v_rel exh v v' ∧
+    csg_rel (v_rel exh) s s'
+    ⇒
+    result_rel f exh (s,Rerr (Rraise v)) (s',Rerr (Rraise v'))) ∧
+  (!exh s s' a.
+    csg_rel (v_rel exh) s s'
+    ⇒
+    result_rel f exh (s,Rerr (Rabort a)) (s',Rerr (Rabort a)))`;
+
+val exists_match_def = Define `
+  exists_match exh s ps v ⇔
+    !env. ?p. MEM p ps ∧ pmatch exh s p v env ≠ No_match`;
+
+val is_unconditional_thm = prove(
+  ``∀p a b c d. is_unconditional p ⇒ pmatch a b p c d ≠ No_match``,
+  ho_match_mp_tac is_unconditional_ind >>
+  Cases >> rw[] >>
+  Cases_on`c`>>rw[conSemTheory.pmatch_def]
+  >- (
+    fs[is_unconditional_def] )
+  >- (
+    pop_assum mp_tac >>
+    rw[Once is_unconditional_def] >>
+    every_case_tac >> fs[] >>
+    Cases_on`o''`>>rw[conSemTheory.pmatch_def] >>
+    fs[PULL_FORALL] >> rfs[EVERY_MEM] >>
+    pop_assum mp_tac >>
+    map_every qid_spec_tac[`l'`,`a`,`b`,`d`] >>
+    Induct_on`l` >> simp[LENGTH_NIL_SYM,conSemTheory.pmatch_def] >>
+    rw[] >> Cases_on`l'`>>fs[] >>
+    rw[conSemTheory.pmatch_def] >>
+    BasicProvers.CASE_TAC >>
+    metis_tac[] )
+  >- (
+    pop_assum mp_tac >>
+    rw[Once is_unconditional_def] >>
+    BasicProvers.EVERY_CASE_TAC >>
+    metis_tac[]))
+
+val is_unconditional_list_thm = prove(
+  ``∀l1 l2 a b c. EVERY is_unconditional l1 ⇒ pmatch_list a b l1 l2 c ≠ No_match``,
+  Induct >> Cases_on`l2` >> simp[conSemTheory.pmatch_def] >>
+  rw[] >>
+  BasicProvers.CASE_TAC >>
+  metis_tac[is_unconditional_thm])
+
+val get_tags_thm = Q.prove(
+  `∀ps t1 t2. get_tags ps t1 = SOME t2 ⇒
+      (∀p. MEM p ps ⇒ ∃t x vs left.
+             (p = Pcon (SOME (t,x)) vs) ∧ EVERY is_unconditional vs ∧
+             lookup (LENGTH vs) t2 = SOME left ∧ t ∉ domain left) ∧
+      (∀a tags.
+        lookup a t1 = SOME tags ⇒
+        ∃left. lookup a t2 = SOME left ∧ domain left ⊆ domain tags ∧
+               (∀t. t ∈ domain tags ∧ t ∉ domain left ⇒
+                    ∃x vs. MEM (Pcon (SOME (t,x)) vs) ps ∧ EVERY is_unconditional vs ∧
+                           LENGTH vs = a))`,
+  Induct >> simp[get_tags_def] >>
+  Cases >> simp[] >>
+  Cases_on`o'`>>simp[]>>
+  Cases_on`x`>>simp[]>>
+  rpt gen_tac >>
+  BasicProvers.CASE_TAC >>
+  strip_tac >>
+  first_x_assum(fn th=> first_x_assum(mp_tac o MATCH_MP th)) >>
+  strip_tac >>
+  conj_tac >- (
+    gen_tac >> strip_tac >- (
+      simp[] >>
+      first_x_assum(qspec_then`LENGTH l`mp_tac) >>
+      simp[sptreeTheory.lookup_insert] >>
+      simp[SUBSET_DEF] >>
+      strip_tac >> simp[] >>
+      metis_tac[] ) >>
+    metis_tac[] ) >>
+  rw[] >>
+  first_x_assum(qspec_then`a`mp_tac) >>
+  simp[sptreeTheory.lookup_insert] >>
+  rw[] >- (
+    simp[] >> rfs[] >>
+    fs[SUBSET_DEF] >>
+    metis_tac[] ) >>
+  metis_tac[])
+
+val pmatch_Pcon_No_match = prove(
+  ``EVERY is_unconditional ps ⇒
+    ((pmatch exh s (Pcon (SOME(c,TypeId t)) ps) v env = No_match) ⇔
+     ∃cv vs tags max maxv.
+       v = Conv (SOME(cv,TypeId t)) vs ∧
+       FLOOKUP exh t = SOME tags ∧
+       lookup (LENGTH ps) tags = SOME max ∧
+       lookup (LENGTH vs) tags = SOME maxv ∧
+       c < max ∧ cv < maxv ∧
+       (LENGTH ps = LENGTH vs ⇒ c ≠ cv))``,
+  Cases_on`v`>>rw[conSemTheory.pmatch_def]>>
+  Cases_on`o'`>>simp[conSemTheory.pmatch_def] >>
+  PairCases_on`x`>>simp[conSemTheory.pmatch_def]>>
+  Cases_on`x1`>>simp[conSemTheory.pmatch_def]>>
+  rw[] >> every_case_tac >> rw[] >> fs[] >>
+  metis_tac[is_unconditional_list_thm])
+
+val exh_to_exists_match = Q.prove (
+`!exh ps. exhaustive_match exh ps ⇒ !s v. exists_match exh s ps v`,
+  rw [exhaustive_match_def, exists_match_def] >- (
+    fs[EXISTS_MEM] >>
+    metis_tac[is_unconditional_thm] ) >>
+  every_case_tac >>
+  fs [get_tags_def, conSemTheory.pmatch_def] >> rw[] >>
+  imp_res_tac get_tags_thm >>
+  Q.PAT_ABBREV_TAC`pp1 = Pcon X l` >>
+  Cases_on`v`>>
+  TRY(qexists_tac`pp1`>>simp[conSemTheory.pmatch_def,Abbr`pp1`]>>NO_TAC) >>
+  srw_tac[boolSimps.DNF_ss][]>>
+  simp[Abbr`pp1`,pmatch_Pcon_No_match]>>
+  simp[METIS_PROVE[]``a \/ b <=> ~a ==> b``] >>
+  strip_tac >>
+  BasicProvers.VAR_EQ_TAC >>
+  fs[sptreeTheory.lookup_map,sptreeTheory.domain_fromList,PULL_EXISTS] >>
+  res_tac >>
+  rfs[EVERY_MEM,sptreeTheory.MEM_toList,PULL_EXISTS] >>
+  res_tac >> fs[] >> rfs[] >> rw[] >>
+  first_assum(match_exists_tac o concl) >>
+  simp[conSemTheory.pmatch_def] >>
+  Cases_on`x'''`>>simp[conSemTheory.pmatch_def] >>
+  rw[] >>
+  metis_tac[is_unconditional_list_thm,EVERY_MEM])
+
+val find_recfun_compile_funs = prove(
+  ``∀ls f exh. find_recfun f (compile_funs exh ls) =
+               OPTION_MAP (λ(x,y). (x,compile_exp exh y)) (find_recfun f ls)``,
+  Induct >> simp[compile_funs_map] >- (
+    simp[find_recfun_def] ) >>
+  simp[Once find_recfun_def] >>
+  simp[Once find_recfun_def,SimpRHS] >>
+  rpt gen_tac >>
+  every_case_tac >>
+  simp[] >> fs[compile_funs_map]);
+
+val build_rec_env_i2_MAP = prove(
+  ``build_rec_env_i2 funs cle env = MAP (λ(f,cdr). (f, (Recclosure_i2 cle funs f))) funs ++ env``,
+  rw[build_rec_env_i2_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[] >>
+  PairCases_on`h` >> rw[])
+
+val build_rec_env_exh_MAP = prove(
+  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
+  rw[build_rec_env_exh_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[] >>
+  PairCases_on`h` >> rw[])
+
+val _ = augment_srw_ss[rewrites[vs_rel_LIST_REL,find_recfun_compile_funs]]
+
+val do_eq_exh_correct = Q.prove (
+`(!v1 v2 tagenv r v1_exh v2_exh (exh:exh_ctors_env).
+  do_eq_i2 v1 v2 = r ∧ r ≠ Eq_type_error ∧
+  v_rel exh v1 v1_exh ∧
+  v_rel exh v2 v2_exh
+  ⇒
+  do_eq_exh v1_exh v2_exh = r) ∧
+ (!vs1 vs2 tagenv r vs1_exh vs2_exh (exh:exh_ctors_env).
+  do_eq_list_i2 vs1 vs2 = r ∧ r ≠ Eq_type_error ∧
+  vs_rel exh vs1 vs1_exh ∧
+  vs_rel exh vs2 vs2_exh
+  ⇒
+  do_eq_list_exh vs1_exh vs2_exh = r)`,
+ ho_match_mp_tac do_eq_i2_ind >>
+ reverse(rw[do_eq_exh_def,do_eq_i2_def,v_rel_eqn]) >>
+ rw[v_rel_eqn, do_eq_exh_def] >>
+ fs[do_eq_exh_def]
+ >- (every_case_tac >>
+     rw [] >>
+     fs [] >>
+     metis_tac [eq_result_distinct, eq_result_11]) >>
+ fs [Once v_rel_cases] >>
+ rw [do_eq_exh_def] >>
+ fs [] >>
+ TRY(metis_tac [LIST_REL_LENGTH])
+ >> (
+   Cases_on`t1`>>fs[] >>
+   Cases_on`t2`>>fs[] >>
+   rfs[] >> rw[] >> fs[])) ;
+
+  (*
+val _ = augment_srw_ss[rewrites[do_eq_exh_correct]]
+*)
+
+
+val evaluate_exh_lit = prove(
+  ``evaluate_exh ck env csg (Lit_exh l) res ⇔ (res = (csg,Rval (Litv_exh l)))``,
+  simp[Once evaluate_exh_cases])
+
+val if_cons = prove(
+  ``(if b then a::c1 else a::c2) = a::(if b then c1 else c2)``,
+  rw[])
+
+val match_result_to_exh_def = Define
+`(match_result_to_exh exh (Match env) (Match env_exh) ⇔
+   env_rel exh env env_exh) ∧
+ (match_result_to_exh exh No_match No_match = T) ∧
+ (match_result_to_exh exh Match_type_error Match_type_error = T) ∧
+ (match_result_to_exh exh _ _ = F)`;
+
+val match_result_error = Q.prove (
+`(!exh r. match_result_to_exh exh r Match_type_error ⇔ r = Match_type_error) ∧
+ (!exh r. match_result_to_exh exh Match_type_error r ⇔ r = Match_type_error)`,
+ rw [] >>
+ cases_on `r` >>
+ rw [match_result_to_exh_def]);
+
+val match_result_nomatch = Q.prove (
+`(!exh r. match_result_to_exh exh r No_match ⇔ r = No_match) ∧
+ (!exh r. match_result_to_exh exh No_match r ⇔ r = No_match)`,
+ rw [] >>
+ cases_on `r` >>
+ rw [match_result_to_exh_def]);
+
+val pmatch_exh_correct = Q.prove (
+`(!(exh:exh_ctors_env) s p v env r env_exh s_exh v_exh.
+  r ≠ Match_type_error ∧
+  pmatch_i2 exh s p v env = r ∧
+  LIST_REL (sv_rel (v_rel exh)) s s_exh ∧
+  v_rel exh v v_exh ∧
+  env_rel exh env env_exh
+  ⇒
+  ?r_exh.
+    pmatch_exh s_exh (pat_to_exh p) v_exh env_exh = r_exh ∧
+    match_result_to_exh exh r r_exh) ∧
+ (!(exh:exh_ctors_env) s ps vs env r env_exh s_exh vs_exh.
+  r ≠ Match_type_error ∧
+  pmatch_list_i2 exh s ps vs env = r ∧
+  LIST_REL (sv_rel (v_rel exh)) s s_exh ∧
+  vs_rel exh vs vs_exh ∧
+  env_rel exh env env_exh
+  ⇒
+  ?r_exh.
+    pmatch_list_exh s_exh (MAP pat_to_exh ps) vs_exh env_exh = r_exh ∧
+    match_result_to_exh exh r r_exh)`,
+ ho_match_mp_tac pmatch_i2_ind >>
+ rw [pmatch_i2_def, pmatch_exh_def, pat_to_exh_def, match_result_to_exh_def] >>
+ fs [match_result_to_exh_def, v_rel_eqn] >>
+ rw [pmatch_exh_def, match_result_to_exh_def, match_result_error] >>
+ imp_res_tac LIST_REL_LENGTH >>
+ fs []
+ >- metis_tac []
+ >- (every_case_tac >>
+     fs [LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     rw[] >> rfs[] >> fs[] >>
+     metis_tac [])
+ >- (every_case_tac >>
+     fs [LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[]>>
+     rw[match_result_to_exh_def])
+ >- (every_case_tac >>
+     fs[LET_THM] >>
+     pop_assum mp_tac >> simp[] >>
+     BasicProvers.CASE_TAC >> simp[]>>
+     rw[match_result_to_exh_def])
+ >- metis_tac []
+ >- (every_case_tac >>
+     fs [match_result_error, store_lookup_def, LIST_REL_EL_EQN] >>
+     rfs[] >> metis_tac [sv_rel_def])
+ >- (every_case_tac >>
+     rw [match_result_to_exh_def] >>
+     res_tac >>
+     fs [match_result_nomatch] >>
+     cases_on `pmatch_exh s_exh (pat_to_exh p) y env_exh` >>
+     fs [match_result_to_exh_def] >>
+     metis_tac []));
+
+val pat_bindings_exh_correct = prove(
+  ``(∀p ls. pat_bindings_exh (pat_to_exh p) ls = pat_bindings_i2 p ls) ∧
+    (∀ps ls. pats_bindings_exh (MAP pat_to_exh ps) ls = pats_bindings_i2 ps ls)``,
+  ho_match_mp_tac(TypeBase.induction_of(``:pat_i2``)) >>
+  simp[pat_bindings_i2_def,pat_bindings_exh_def,pat_to_exh_def] >>
+  rw[] >> cases_on`o'` >>
+  TRY(cases_on`x`)>>
+  rw[pat_to_exh_def,pat_bindings_exh_def,ETA_AX])
+
+val pmatch_i2_any_match = store_thm("pmatch_i2_any_match",
+  ``(∀(exh:exh_ctors_env) s p v env env'. pmatch_i2 exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_i2 exh s p v env = Match env') ∧
+    (∀(exh:exh_ctors_env) s ps vs env env'. pmatch_list_i2 exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_i2 exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
+val pmatch_i2_any_no_match = store_thm("pmatch_i2_any_no_match",
+  ``(∀(exh:exh_ctors_env) s p v env. pmatch_i2 exh s p v env = No_match ⇒
+       ∀env. pmatch_i2 exh s p v env = No_match) ∧
+    (∀(exh:exh_ctors_env) s ps vs env. pmatch_list_i2 exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list_i2 exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_i2_ind >>
+  rw[pmatch_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_i2_any_match >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct]);
+
+fun exists_lift_conj_tac tm =
+  CONV_TAC(
+    STRIP_BINDER_CONV(SOME existential)
+      (lift_conjunct_conv(same_const tm o fst o strip_comb)))
+
+val v_rel_lit_loc = store_thm("v_rel_lit_loc[simp]",
+  ``(v_rel exh (Litv_i2 l) lh ⇔ lh = Litv_exh l) ∧
+    (v_rel exh l2 (Litv_exh l) ⇔ l2 = Litv_i2 l) ∧
+    (v_rel exh (Loc_i2 n) lh ⇔ lh = Loc_exh n) ∧
+    (v_rel exh l2 (Loc_exh n) ⇔ l2 = Loc_i2 n) ∧
+    (v_rel exh (Conv_i2 t []) lh ⇔ lh = Conv_exh (get_tag t) []) ∧
+    (v_rel exh (Boolv_i2 b) lh ⇔ lh = Boolv_exh b)``,
+  rw[] >> rw[Once v_rel_cases, Boolv_i2_def, Boolv_exh_def])
+
+val v_rel_extend_disjoint_helper = Q.prove (
+`(!(exh:exh_ctors_env) v1 v2.
+  v_rel exh v1 v2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    v_rel (exh' ⊌ exh) v1 v2) ∧
+ (!(exh:exh_ctors_env) vs1 vs2.
+  vs_rel exh vs1 vs2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    vs_rel (exh' ⊌ exh) vs1 vs2) ∧
+ (!(exh:exh_ctors_env) env1 env2.
+  env_rel exh env1 env2 ⇒
+  !exh'. DISJOINT (FDOM exh') (FDOM exh)
+    ⇒
+    env_rel (exh' ⊌ exh) env1 env2)`,
+ ho_match_mp_tac v_rel_ind >>
+ rw [] >>
+ rw [Once v_rel_cases] >>
+ qexists_tac `exh'` >>
+ rw [] >>
+ `DISJOINT (FDOM exh') (FDOM exh'') ∧ DISJOINT (FDOM (FEMPTY:exh_ctors_env)) (FDOM exh')` 
+       by (fs [SUBMAP_DEF, DISJOINT_DEF, EXTENSION] >>
+           rw [] >>
+           metis_tac []) >>
+ metis_tac [FUNION_FEMPTY_1, SUBMAP_FUNION]);
+
+val env_rel_submap = prove(
+  ``∀(exh:exh_ctors_env) env1 env2 exh'. env_rel exh env1 env2 ⇒ exh ⊑ exh' ⇒ env_rel exh' env1 env2``,
+  rw[] >>
+  first_x_assum(mp_tac o MATCH_MP(CONJUNCT2(CONJUNCT2 v_rel_extend_disjoint_helper))) >>
+  disch_then(qspec_then`DRESTRICT exh' (COMPL (FDOM exh)) `mp_tac) >>
+  discharge_hyps >- (
+    simp[IN_DISJOINT,FDOM_DRESTRICT] >>
+    fs[SUBMAP_DEF] >> metis_tac[] ) >>
+  Q.PAT_ABBREV_TAC`exh'' = X ⊌ exh` >>
+  `exh'' = exh'` by (
+   simp[Abbr`exh''`,GSYM fmap_EQ_THM,DRESTRICT_DEF,FUNION_DEF] >>
+   fs[SUBMAP_DEF,EXTENSION] >>
+   conj_tac >- metis_tac[] >> rw[] ) >> rw[]);
+
+val v_to_list_exh_correct = Q.prove (
+`!v1 v2 vs1.
+  v_rel genv v1 v2 ∧
+  v_to_list_i2 v1 = SOME vs1
+  ⇒
+  ?vs2.
+    v_to_list_exh v2 = SOME vs2 ∧
+    vs_rel genv vs1 vs2`,
+ ho_match_mp_tac v_to_list_i2_ind >>
+ rw [v_to_list_i2_def] >>
+ every_case_tac >>
+ fs [v_rel_eqn, v_to_list_exh_def] >>
+ rw [] >>
+ every_case_tac >>
+ fs [v_rel_eqn, v_to_list_exh_def] >>
+ rw [] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
+
+val char_list_to_v_exh_correct = prove(
+  ``∀ls. v_rel exh (char_list_to_v_i2 ls) (char_list_to_v_exh ls)``,
+  Induct >> simp[char_list_to_v_i2_def,char_list_to_v_exh_def] >>
+  simp[v_rel_eqn])
+
+val v_exh_to_char_list_correct = Q.prove (
+`!v1 v2 vs1.
+  v_rel genv v1 v2 ∧
+  v_i2_to_char_list v1 = SOME vs1
+  ⇒
+  v_exh_to_char_list v2 = SOME vs1`,
+ ho_match_mp_tac v_i2_to_char_list_ind >>
+ rw [v_i2_to_char_list_def] >>
+ every_case_tac >>
+ fs [v_rel_eqn, v_exh_to_char_list_def]);
+
+val do_app_i2_cases = Q.store_thm("do_app_i2_cases",
+  `do_app_i2 s op vs = SOME x ⇒
+    (∃z n1 n2. op = (Op_i2 (Opn z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
+    (∃z n1 n2. op = (Op_i2 (Opb z)) ∧ vs = [Litv_i2 (IntLit n1); Litv_i2 (IntLit n2)]) ∨
+    (∃v1 v2. op = (Op_i2 Equality) ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = (Op_i2 Opassign) ∧ vs = [Loc_i2 lnum; v]) ∨
+    (∃n. op = (Op_i2 Opderef) ∧ vs = [Loc_i2 n]) ∨
+    (∃v. op = (Op_i2 Opref) ∧ vs = [v]) ∨
+    (∃n w. op = (Op_i2 Aw8alloc) ∧ vs = [Litv_i2 (IntLit n); Litv_i2 (Word8 w)]) ∨
+    (∃lnum i. op = (Op_i2 Aw8sub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Aw8length) ∧ vs = [Loc_i2 n]) ∨
+    (∃lnum i w. op = (Op_i2 Aw8update) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); Litv_i2 (Word8 w)]) ∨
+    (∃c. op = (Op_i2 Ord) ∧ vs = [Litv_i2 (Char c)]) ∨
+    (∃n. op = (Op_i2 Chr) ∧ vs = [Litv_i2 (IntLit n)]) ∨
+    (∃z c1 c2. op = (Op_i2 (Chopb z)) ∧ vs = [Litv_i2 (Char c1); Litv_i2 (Char c2)]) ∨
+    (∃s. op = (Op_i2 Explode) ∧ vs = [Litv_i2 (StrLit s)]) ∨
+    (∃v ls. op = (Op_i2 Implode) ∧ vs = [v] ∧ (v_i2_to_char_list v = SOME ls)) ∨
+    (∃s. op = (Op_i2 Strlen) ∧ vs = [Litv_i2 (StrLit s)]) ∨
+    (∃v vs'. op = (Op_i2 VfromList) ∧ vs = [v] ∧ (v_to_list_i2 v = SOME vs')) ∨
+    (∃vs' i. op = (Op_i2 Vsub) ∧ vs = [Vectorv_i2 vs'; Litv_i2 (IntLit i)]) ∨
+    (∃vs'. op = (Op_i2 Vlength) ∧ vs = [Vectorv_i2 vs']) ∨
+    (∃v n. op = (Op_i2 Aalloc) ∧ vs = [Litv_i2 (IntLit n); v]) ∨
+    (∃lnum i. op = (Op_i2 Asub) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i)]) ∨
+    (∃n. op = (Op_i2 Alength) ∧ vs = [Loc_i2 n]) ∨
+    (∃lnum i v. op = (Op_i2 Aupdate) ∧ vs = [Loc_i2 lnum; Litv_i2 (IntLit i); v])`,
+  rw[do_app_i2_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >- (
+    every_case_tac >> fs[]) >>
+  Cases_on`op` >- (
+    simp[] >>
+    every_case_tac >> fs[] ) >>
+  every_case_tac >> fs[]);
+
+val tac =
+  rw [do_app_exh_def, result_to_exh_cases, prim_exn_i2_def,
+      prim_exn_exh_def, v_rel_eqn, Boolv_i2_def, Boolv_exh_def] >>
+  fs [] >>
+  fs [store_assign_def,store_lookup_def, store_alloc_def,
+      LET_THM] >>
+  rw [] >>
+  imp_res_tac LIST_REL_LENGTH >>
+  fs [prim_exn_i2_def, v_rel_eqn] >>
+  every_case_tac >>
+  fs [LIST_REL_EL_EQN, EL_LUPDATE] >>
+  rw [EL_LUPDATE, sv_rel_def] >>
+  res_tac >>
+  pop_assum mp_tac >>
+  ASM_REWRITE_TAC [sv_rel_def] >>
+  fs [v_rel_eqn, store_v_same_type_def] >>
+  every_case_tac >>
+  fs [];
+
+val do_app_exh_i2 = Q.prove (
+`!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
+  do_app_i2 s1 op vs = SOME (s2, res) ∧
+  csg_rel (v_rel exh) ((c,s1),g) s1_exh ∧
+  vs_rel exh vs vs_exh
+  ⇒
+   ∃s2_exh res_exh.
+     result_to_exh v_rel exh (((c,s2),g),res) (s2_exh,res_exh) ∧
+     do_app_exh s1_exh op vs_exh = SOME (s2_exh, res_exh)`,
+ rw [] >>
+ PairCases_on `s1_exh` >>
+ imp_res_tac do_app_i2_cases >>
+ fs [] >>
+ rw [] >>
+ fs [do_app_i2_def]
+ >- tac
+ >- tac
+ >- (every_case_tac >>
+     imp_res_tac do_eq_exh_correct >>
+     fs [] >>
+     rw [do_app_exh_def, result_to_exh_cases,
+         prim_exn_i2_def, prim_exn_exh_def, v_rel_eqn, Boolv_i2_def, Boolv_exh_def])
+ >- (tac >>
+     metis_tac [v_rel_eqn, store_v_distinct, sv_rel_def])
+ >- tac
+ >- tac
+ >- tac
+ >- (tac >>
+     metis_tac [v_rel_eqn, store_v_distinct, sv_rel_def])
+ >- tac
+ >- (tac >>
+     metis_tac [v_rel_eqn, store_v_distinct, sv_rel_def])
+ >- tac
+ >- tac
+ >- tac
+ >- ( tac >> metis_tac[char_list_to_v_exh_correct] )
+ >- ( imp_res_tac v_exh_to_char_list_correct >> tac)
+ >- tac
+ >- (imp_res_tac v_to_list_exh_correct >>
+     rw [do_app_exh_def, result_to_exh_cases, v_rel_eqn] >>
+     fs [vs_rel_LIST_REL])
+ >- (tac >>
+     full_simp_tac (srw_ss()++ARITH_ss) [])
+ >- tac
+ >- (tac >>
+     rw [LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE])
+ >- (tac >>
+     rw []
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >> 
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (fs [LIST_REL_EL_EQN] >>
+         `Num (ABS i) < LENGTH l'` by decide_tac >>
+         res_tac))
+ >- (tac >>
+     metis_tac [LIST_REL_LENGTH])
+ >- (tac >> rw []
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >>
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (CCONTR_TAC >>
+         fs [] >>
+         imp_res_tac LIST_REL_LENGTH >>
+         full_simp_tac (srw_ss()++ARITH_ss) [])
+     >- (ASM_REWRITE_TAC [sv_rel_def, vs_rel_LIST_REL] >>
+         match_mp_tac EVERY2_LUPDATE_same >>
+         fs [] )));
+
+val do_app_exh_i3 = prove(
+  ``∀s1 op vs s2 res exh s1 s1_exh vs_exh.
+      do_app_i3 s1 op vs = SOME (s2,res) ∧
+      csg_rel (v_rel exh) s1 s1_exh ∧
+      vs_rel exh vs vs_exh ⇒
+      ∃s2_exh res_exh.
+        do_app_exh s1_exh op vs_exh = SOME (s2_exh,res_exh) ∧
+        result_to_exh v_rel exh (s2,res) (s2_exh,res_exh)``,
+  rpt gen_tac >>
+  PairCases_on`s1` >>
+  PairCases_on`s1_exh` >>
+  rw[do_app_i3_def] >>
+  Cases_on`op`>>fs[] >- (
+    every_case_tac >> fs[] >>
+    first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]do_app_exh_i2)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    simp[vs_rel_LIST_REL] >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    metis_tac[] ) >>
+  simp[do_app_exh_def] >>
+  fs[LIST_REL_EL_EQN] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fs[result_to_exh_cases,LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE] >>
+  rw[] >> metis_tac[NOT_SOME_NONE]);
+
+val exhaustive_match_submap = prove(
+  ``exhaustive_match exh pes ∧ exh ⊑ exh2 ⇒ exhaustive_match exh2 pes``,
+  rw[exhaustive_match_def] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac FLOOKUP_SUBMAP >> fs[] >> rw[])
+
+val do_opapp_exh = prove(
+  ``∀vs env e exh vs_exh.
+    do_opapp_i2 vs = SOME (env,e) ∧
+    vs_rel exh vs vs_exh
+    ⇒
+    ∃exh' env_exh.
+      env_rel exh env env_exh ∧
+      exh' ⊑ exh ∧
+      do_opapp_exh vs_exh = SOME (env_exh,exp_to_exh exh' e)``,
+  rw[do_opapp_i2_def,do_opapp_exh_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  TRY (fs[Once v_rel_cases]>>NO_TAC) >>
+  fs[Q.SPECL[`exh`,`Closure_i2 X Y Z`](CONJUNCT1 v_rel_cases),env_rel_LIST_REL] >>
+  fs[Q.SPECL[`exh`,`Recclosure_i2 X Y Z`](CONJUNCT1 v_rel_cases),env_rel_LIST_REL] >>
+  rw[] >> fs[find_recfun_funs_to_exh] >> rw[] >>
+  fs[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,FST_triple,ETA_AX]
+  >- metis_tac[SUBMAP_REFL] >>
+  simp[build_rec_env_exh_MAP,build_rec_env_i2_MAP] >>
+  qexists_tac`exh'`>>simp[] >>
+  match_mp_tac EVERY2_APPEND_suff >>
+  simp[EVERY2_MAP,UNCURRY] >>
+  simp[Once v_rel_cases,compile_funs_map,MAP_EQ_f] >>
+  match_mp_tac EVERY2_refl >>
+  simp[UNCURRY,env_rel_LIST_REL] >>
+  metis_tac[]);
+
+val exps_to_exh_map = Q.prove (
+`!exh es. exps_to_exh exh es = MAP (exp_to_exh exh) es`,
+ Induct_on `es` >>
+ rw [exp_to_exh_def]);
+
+val Boolv_i2_disjoint = EVAL``Boolv_i2 T = Boolv_i2 F``
+val Boolv_exh_disjoint = EVAL``Boolv_exh T = Boolv_exh F``
+
+val exp_to_exh_correct = Q.store_thm ("exp_to_exh_correct",
+`(!ck env s e r.
+  evaluate_i3 ck env s e r
+  ⇒
+  !(exh:exh_ctors_env) env' env_exh s_exh exh'.
+    SND r ≠ Rerr Rtype_error ∧
+    env = (exh,env') ∧
+    env_rel exh env' env_exh ∧
+    csg_rel (v_rel exh) s s_exh ∧
+    exh' ⊑ exh
+    ⇒
+    ?r_exh.
+    result_to_exh v_rel exh r r_exh ∧
+    evaluate_exh ck env_exh s_exh (exp_to_exh exh' e) r_exh) ∧
+ (!ck env s es r.
+  evaluate_list_i3 ck env s es r
+  ⇒
+  !(exh:exh_ctors_env) env' env_exh s_exh exh'.
+    SND r ≠ Rerr Rtype_error ∧
+    env = (exh,env') ∧
+    env_rel exh env' env_exh ∧
+    csg_rel (v_rel exh) s s_exh ∧
+    exh' ⊑ exh
+    ⇒
+    ?r_exh.
+    result_to_exh vs_rel exh r r_exh ∧
+    evaluate_list_exh ck env_exh s_exh (exps_to_exh exh' es) r_exh) ∧
+ (!ck env s v pes err_v r.
+  evaluate_match_i3 ck env s v pes err_v r
+  ⇒
+  !(exh:exh_ctors_env) env' pes' is_handle env_exh s_exh v_exh exh'.
+    SND r ≠ Rerr Rtype_error ∧
+    env = (exh,env') ∧
+    env_rel exh env' env_exh ∧
+    csg_rel (v_rel exh) s s_exh ∧
+    v_rel exh v v_exh ∧
+    (is_handle ⇒ err_v = v) ∧
+    (¬is_handle ⇒ err_v = Conv_i2 (SOME (bind_tag, (TypeExn(Short "Bind")))) []) ∧
+    (pes' = add_default is_handle F pes ∨
+     exists_match exh (SND (FST s)) (MAP FST pes) v ∧
+     pes' = add_default is_handle T pes) ∧
+    exh' ⊑ exh
+     ⇒
+    ?r_exh.
+    result_to_exh v_rel exh r r_exh ∧
+    evaluate_match_exh ck env_exh s_exh v_exh (pat_exp_to_exh exh' pes') r_exh)`,
+ ho_match_mp_tac evaluate_i3_ind >>
+ strip_tac >- (
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[exp_to_exh_def] >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] ) >>
+ strip_tac >- (
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[exp_to_exh_def] >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[]) >>
+ strip_tac >- (
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[exp_to_exh_def] >> fs[] >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[]) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj2_tac >> disj1_tac >>
+   fs[GSYM AND_IMP_INTRO] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
+   exists_lift_conj_tac``evaluate_exh`` >> fs[] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   ONCE_REWRITE_TAC[CONJ_COMM] >>
+   first_x_assum (match_mp_tac o MP_CANON) >>
+   qexists_tac`T`>>simp[] >>
+   simp[add_default_def] >> rw[] >>
+   metis_tac[exh_to_exists_match,exhaustive_match_submap] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj2_tac >> disj2_tac >>
+   simp[Once result_to_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   Cases_on`tag`>>TRY(Cases_on`x`)>>simp[exp_to_exh_def] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[EVERY2_REVERSE, exps_to_exh_map, MAP_REVERSE] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   Cases_on`tag`>>TRY(Cases_on`x`)>>simp[exp_to_exh_def] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
+   metis_tac[EVERY2_REVERSE] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   pop_assum kall_tac >>
+   rpt (pop_assum mp_tac) >>
+   map_every qid_spec_tac[`env_exh`,`n`,`v`,`env`] >>
+   Induct >> simp[] >>
+   Cases >> fs[env_rel_LIST_REL] >>
+   rw[EXISTS_PROD] >> simp[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   Cases_on`s_exh`>>simp[] >>
+   fs[] >>
+   rfs[EVERY2_EVERY,EVERY_MEM] >>
+   fs[MEM_ZIP,PULL_EXISTS] >>
+   first_x_assum(qspec_then`n`mp_tac) >>
+   simp[optionTheory.OPTREL_def] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   simp[Once v_rel_cases] >>
+   HINT_EXISTS_TAC >> simp[]) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS] >>
+   strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   last_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   strip_tac >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   exists_lift_conj_tac``evaluate_list_exh`` >>
+   PairCases_on`s'` >>
+   PairCases_on`s_exh` >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
+   first_assum(match_exists_tac o concl) >>
+   simp[] >>
+   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]do_opapp_exh)) >>
+   simp[vs_rel_LIST_REL] >>
+   imp_res_tac EVERY2_REVERSE >>
+   disch_then(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_assum(match_exists_tac o concl) >> simp[] >> fs[] >>
+   fs[] >>
+   last_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   simp[FORALL_PROD] >>
+   ONCE_REWRITE_TAC[GSYM CONJ_ASSOC] >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   strip_tac >>
+   first_assum(match_exists_tac o concl) >> simp[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   last_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   strip_tac >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   simp[Once evaluate_exh_cases] >>
+   disj2_tac >> disj1_tac >>
+   exists_lift_conj_tac``evaluate_list_exh`` >>
+   PairCases_on`s''`>>fs[]>>rw[]>>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   imp_res_tac do_opapp_exh >>
+   metis_tac[vs_rel_LIST_REL, EVERY2_REVERSE] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   last_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+   simp[Once result_to_exh_cases] >> strip_tac >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   exists_lift_conj_tac``evaluate_list_exh`` >>
+   fs [exps_to_exh_map, MAP_REVERSE] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] do_app_exh_i3)) >>
+   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+   simp[vs_rel_LIST_REL, EVERY2_REVERSE] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   fs[] >>
+   fs[GSYM AND_IMP_INTRO] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   rpt disj2_tac >>
+   fs[result_to_exh_cases,PULL_EXISTS] >> rw[] >>
+   metis_tac[exps_to_exh_map, MAP_REVERSE] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   fs[GSYM AND_IMP_INTRO] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   exists_lift_conj_tac``evaluate_exh`` >>
+   rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >> fs[] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   fs[do_if_i2_def,do_if_exh_def] >>
+   rw[] >> fs[] >> rw[] >>
+   every_case_tac >> fs[Boolv_i2_disjoint,Boolv_exh_disjoint] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   fs[GSYM AND_IMP_INTRO] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   exists_lift_conj_tac``evaluate_exh`` >>
+   rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >> fs[] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   ONCE_REWRITE_TAC[CONJ_COMM] >>
+   first_x_assum (match_mp_tac o MP_CANON) >>
+   qexists_tac`F` >> simp[] >>
+   Cases_on`exhaustive_match exh' (MAP FST pes)`>>simp[] >>
+   metis_tac[exhaustive_match_submap,exh_to_exists_match] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   fs[GSYM AND_IMP_INTRO] >>
+   last_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP th)) >>
+   rator_x_assum`result_to_exh`(strip_assume_tac o SIMP_RULE(srw_ss())[Once result_to_exh_cases]) >>
+   exists_lift_conj_tac``evaluate_exh`` >> fs[] >>
+   first_assum(match_exists_tac o concl) >> simp[] >>
+   ONCE_REWRITE_TAC[CONJ_COMM] >>
+   first_x_assum (match_mp_tac o MP_CANON) >>
+   simp[env_rel_LIST_REL,opt_bind_def] >>
+   BasicProvers.CASE_TAC >> fs[env_rel_LIST_REL] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >>
+   simp[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   fs[FST_triple,compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+   first_x_assum (match_mp_tac o MP_CANON) >> simp[] >>
+   fs[env_rel_LIST_REL,build_rec_env_i2_MAP,build_rec_env_exh_MAP] >>
+   match_mp_tac EVERY2_APPEND_suff >>
+   simp[EVERY2_MAP] >>
+   match_mp_tac EVERY2_refl >>
+   simp[FORALL_PROD] >>
+   simp[Once v_rel_cases,compile_funs_map,MAP_EQ_f,FORALL_PROD,env_rel_LIST_REL] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[] >>
+   rw[Once evaluate_exh_cases] >>
+   rw[Once result_to_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   simp[] >>
+   Cases_on`s_exh`>>simp[] >>
+   fs[] >>
+   match_mp_tac EVERY2_APPEND_suff >>
+   simp[] >>
+   simp[EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS,optionTheory.OPTREL_def] ) >>
+ strip_tac >- (
+   rw[] >>
+   rw[Once result_to_exh_cases,PULL_EXISTS] >>
+   simp[Once evaluate_exh_cases,exp_to_exh_def] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS] >>
+   simp[Once evaluate_exh_cases,PULL_EXISTS] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rpt gen_tac >> strip_tac >>
+   rpt gen_tac >> strip_tac >> fs[] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >>
+   metis_tac[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[add_default_def] >>
+   simp[Once evaluate_exh_cases,exp_to_exh_def,pat_bindings_exh_def,pat_to_exh_def,pmatch_exh_def] >>
+   rw[Once evaluate_exh_cases] >>
+   fs[Once result_to_exh_cases,PULL_EXISTS,v_rel_eqn] >>
+   fs[exists_match_def] >>
+   rw[Once evaluate_exh_cases] >>
+   rw[Once evaluate_exh_cases] >>
+   rw[Once evaluate_exh_cases] >>
+   rw[Once evaluate_exh_cases] >>
+   PairCases_on`s_exh`>>simp[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[add_default_def] >> rw[exp_to_exh_def] >>
+   PairCases_on`s_exh` >> fs[] >> rw[] >>
+   full_simp_tac std_ss[GSYM vs_rel_LIST_REL] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj1_tac >>
+   imp_res_tac (CONJUNCT1 pmatch_exh_correct) >>
+   Cases_on`pmatch_exh s_exh1 (pat_to_exh p) v_exh env_exh`>>
+   fs[match_result_to_exh_def] >>
+   simp[pat_bindings_exh_correct] >>
+   first_x_assum match_mp_tac >>
+   simp[] ) >>
+ strip_tac >- (
+   simp[exp_to_exh_def] >>
+   rw[add_default_def] >> rw[exp_to_exh_def] >>
+   PairCases_on`s_exh` >> fs[] >> rw[] >>
+   full_simp_tac std_ss[GSYM vs_rel_LIST_REL] >>
+   simp[Once evaluate_exh_cases] >>
+   srw_tac[DNF_ss][] >> disj2_tac >> disj1_tac >>
+   imp_res_tac (CONJUNCT1 pmatch_exh_correct) >>
+   Cases_on`pmatch_exh s_exh1 (pat_to_exh p) v_exh env_exh`>>
+   fs[match_result_to_exh_def] >>
+   simp[pat_bindings_exh_correct] >>
+   first_x_assum match_mp_tac >>
+   simp[] >>
+   TRY (qexists_tac`T` >> simp[] >> NO_TAC) >>
+   TRY (qexists_tac`F` >> simp[] >> NO_TAC) >>
+   qexists_tac`is_handle`>>simp[] >> rw[] >> fs[] >>
+   fs[exists_match_def,PULL_EXISTS] >>
+   metis_tac[pmatch_i2_any_no_match] ) >>
+ rw[]);
+
+val v_rel_extend_disjoint = store_thm("v_rel_extend_disjoint",
+  ``∀(exh:exh_ctors_env) v1 v2 exh'. v_rel exh v1 v2 ∧ DISJOINT (FDOM exh') (FDOM exh) ⇒
+                     v_rel (exh ⊌ exh') v1 v2``,
+  metis_tac [v_rel_extend_disjoint_helper, FUNION_COMM])
+
+(* exhLangExtra *)
+
+val build_rec_env_exh_MAP = store_thm("build_rec_env_exh_MAP",
+  ``build_rec_env_exh funs cle env = MAP (λ(f,cdr). (f, (Recclosure_exh cle funs f))) funs ++ env``,
+  rw[build_rec_env_exh_def] >>
+  qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  unabbrev_all_tac >> simp[] >>
+  Induct >> rw[] >>
+  PairCases_on`h` >> rw[])
+
+val pmatch_exh_any_match = store_thm("pmatch_exh_any_match",
+  ``(∀s p v env env'. pmatch_exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch_exh s p v env = Match env') ∧
+    (∀s ps vs env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list_exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_no_match = store_thm("pmatch_exh_any_no_match",
+  ``(∀s p v env. pmatch_exh s p v env = No_match ⇒
+       ∀env. pmatch_exh s p v env = No_match) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list_exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_exh_any_match >>
+  metis_tac[match_result_distinct])
+
+val pmatch_exh_any_match_error = store_thm("pmatch_exh_any_match_error",
+  ``(∀s p v env. pmatch_exh s p v env = Match_type_error ⇒
+       ∀env. pmatch_exh s p v env = Match_type_error) ∧
+    (∀s ps vs env. pmatch_list_exh s ps vs env = Match_type_error ⇒
+       ∀env. pmatch_list_exh s ps vs env = Match_type_error)``,
+  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
+  metis_tac[match_result_distinct
+           ,pmatch_exh_any_no_match,pmatch_exh_any_match])
+
+val pmatch_list_exh_pairwise = store_thm("pmatch_list_exh_pairwise",
+  ``∀ps vs s env env'. pmatch_list_exh s ps vs env = Match env' ⇒
+      EVERY2 (λp v. ∀env. ∃env'. pmatch_exh s p v env = Match env') ps vs``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >>
+  rpt gen_tac >> BasicProvers.CASE_TAC >> strip_tac >>
+  res_tac >> simp[] >> metis_tac[pmatch_exh_any_match])
+
+val pmatch_list_exh_SNOC_nil = store_thm("pmatch_list_exh_SNOC_nil",
+  ``∀p ps v vs s env.
+      (pmatch_list_exh s [] (SNOC v vs) env = Match_type_error) ∧
+      (pmatch_list_exh s (SNOC p ps) [] env = Match_type_error)``,
+  Cases_on`ps`>>Cases_on`vs`>>simp[pmatch_exh_def])
+val _ = export_rewrites["pmatch_list_exh_SNOC_nil"]
+
+val pmatch_list_exh_SNOC = store_thm("pmatch_list_exh_SNOC",
+  ``∀ps vs p v s env. LENGTH ps = LENGTH vs ⇒
+      pmatch_list_exh s (SNOC p ps) (SNOC v vs) env =
+      case pmatch_list_exh s ps vs env of
+      | Match env' => pmatch_exh s p v env'
+      | res => res``,
+  Induct >> Cases_on`vs` >> simp[pmatch_exh_def] >> rw[] >>
+  BasicProvers.CASE_TAC)
+
+val pmatch_exh_APPEND = store_thm("pmatch_exh_APPEND",
+  ``(∀s p v env n.
+      (pmatch_exh s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_exh s p v (TAKE n env)))) ∧
+    (∀s ps vs env n.
+      (pmatch_list_exh s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list_exh s ps vs (TAKE n env))))``,
+  ho_match_mp_tac pmatch_exh_ind >>
+  rw[pmatch_exh_def]
+  >- ( BasicProvers.CASE_TAC >> fs[] >>
+       BasicProvers.CASE_TAC >> fs[]) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch_exh s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch_exh s p v (TAKE n env) = Match env1` >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+
+val pmatch_exh_nil = save_thm("pmatch_exh_nil",
+  LIST_CONJ [
+    pmatch_exh_APPEND
+    |> CONJUNCT1
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_exh_APPEND
+    |> CONJUNCT2
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ])
+
+val _ = export_theory ();

@@ -109,7 +109,7 @@ val p2sz_append = prove(
   Induct >> simp[e2sz_def] >>
   Cases >> simp[e2sz_def])
 
-val _ = tDefine"compile_exp"`
+val compile_exp_def = tDefine"compile_exp"`
   (compile_exp exh (Raise e) =
    Raise (compile_exp exh e))
   ∧
@@ -177,5 +177,9 @@ val _ = tDefine"compile_exp"`
 
 val _ = map delete_const ["e2sz","p2sz","l2sz","f2sz","e2sz_UNION"]
 val _ = delete_binding "e2sz_ind"
+
+val compile_funs_map = store_thm("compile_funs_map",
+  ``compile_funs exh ls = MAP (λ(x,y,z). (x,y,compile_exp exh z)) ls``,
+  Induct_on`ls`>>simp[compile_exp_def]>>qx_gen_tac`p`>>PairCases_on`p`>>simp[compile_exp_def]);
 
 val _ = export_theory()
