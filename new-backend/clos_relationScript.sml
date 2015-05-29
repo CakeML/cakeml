@@ -6,6 +6,15 @@ open lcsymtacs closLangTheory;
 
 val _ = new_theory "clos_relation";
 
+val cEval_length_imp = Q.prove (
+`!xs env s1 vs s2.
+  cEval (xs, env, s1) = (Result vs, s2)
+  ⇒
+  LENGTH xs = LENGTH vs`,
+ rw [] >>
+ assume_tac (Q.SPECL [`xs`, `env`, `s1`] (hd (CONJUNCTS cEval_LENGTH))) >>
+ rfs []);
+
 val ect = BasicProvers.EVERY_CASE_TAC;
 
 val is_closure_def = Define `
@@ -67,17 +76,19 @@ val val_rel_def = tDefine "val_rel" `
 (val_rel i (RefPtr l) (RefPtr l') ⇔ l = l') ∧
 (val_rel i v v' ⇔
   if is_closure v ∧ is_closure v' then
-    if 0 < i then
-      (!vs vs' s s' r r' s1 s1'.
-        LIST_REL (val_rel (i-1)) vs vs' ∧
-        state_rel (i-1) s s' ∧
-        cEvalApp NONE v vs s = (r,s1) ∧
-        cEvalApp NONE v' vs' s' = (r',s1')
-        ⇒ 
-        res_rel (i-1) r r' ∧
-        state_rel (i-1) s1 s1') 
-    else
-      T
+    !i'.
+      if i' < i then
+        (!vs vs' s s' r r' s1 s1'.
+          LIST_REL (val_rel i') vs vs' ∧
+          state_rel i' s s' ∧
+          cEvalApp NONE v vs s = (r,s1) ∧
+          cEvalApp NONE v' vs' s' = (r',s1') ∧
+          r ≠ Error
+          ⇒ 
+          res_rel i' r r' ∧
+          state_rel i' s1 s1') 
+      else
+        T
   else 
     F) ∧
 (ref_v_rel i (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
@@ -111,18 +122,19 @@ val val_rel_ind = fetch "-" "val_rel_ind";
 val exp_rel_def = Define `
 exp_rel es es' ⇔
   !env env' s s' r r' s1 s1' i.
+    LIST_REL (val_rel i) env env' ∧
+    state_rel i s s' ∧
     cEval (es,env,s) = (r,s1) ∧
-    cEval (es',env',s') = (r',s1')
+    cEval (es',env',s') = (r',s1') ∧
+    r ≠ Error
     ⇒
-    res_rel i r r' ∧ state_rel i s s'`;
+    res_rel i r r' ∧ state_rel i s1 s1'`;
 
-    (*
-val rel_mono = Q.prove (
+val val_rel_mono = Q.prove (
 `(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
  (!i r r'. ref_v_rel i r r' ⇒ ∀i'. i' ≤ i ⇒ ref_v_rel i' r r') ∧
  (!i s s'. state_rel i s s' ⇒ ∀i'. i' ≤ i ⇒ state_rel i' s s') ∧
  (!i res res'. res_rel i res res' ⇒ ∀i'. i' ≤ i ⇒ res_rel i' res res')`,
-
  ho_match_mp_tac val_rel_ind >>
  rw [] >>
  fs [Once val_rel_def, is_closure_def] 
@@ -132,50 +144,109 @@ val rel_mono = Q.prove (
  >- (Cases_on `v'` >>
      fs [is_closure_def] >>
      rw [Once val_rel_def, is_closure_def] >>
-     `0 < i` by decide_tac >>
-     fs []
-     `i - 1 ≤ i - 1` by decide_tac >>
-     metis_tac []
-     metis_tac [EL_MEM, DECIDE ``!x:num. x ≤ x``, DECIDE ``!x y z:num. x ≤ y ∧ y ≤ z ⇒ x ≤ z``]
-
+     `i'' < i` by decide_tac >>
+     fs [] >>
+     metis_tac [])
  >- (Cases_on `v'` >>
      fs [is_closure_def] >>
      rw [Once val_rel_def, is_closure_def] >>
-     fs [LIST_REL_EL_EQN] >>
+     `i'' < i` by decide_tac >>
+     fs [] >>
+     metis_tac [])
+ >- (fs [LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
- >- metis_tac [EL_MEM]
  >- cheat
- >- metis_tac [EL_MEM]);
+ >- (fs [LIST_REL_EL_EQN] >>
+     metis_tac [EL_MEM]));
 
+val exp_rel_empty = Q.prove (
+`exp_rel [] []`,
+ rw [exp_rel_def, cEval_def, val_rel_def]);
 
-val val_rel_sym = Q.prove (
-`(!i v v'. val_rel i v v' ⇒ val_rel i v' v) ∧
- (!i r r'. ref_v_rel i r r' ⇒ ref_v_rel i r' r) ∧
- (!i s s'. state_rel i s s' ⇒ state_rel i s' s) ∧
- (!i res res'. res_rel i res res' ⇒ res_rel i res' res)`,
- ho_match_mp_tac val_rel_ind >>
- rw [] >>
- fs [Once val_rel_def, LIST_REL_EL_EQN, is_closure_def] 
- >- (rw [val_rel_def, LIST_REL_EL_EQN] >>
-     metis_tac [EL_MEM])
- >- (Cases_on `v'` >>
-     fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
-     fs [LIST_REL_EL_EQN] >>
-     metis_tac [EL_MEM])
- >- (Cases_on `v'` >>
-     fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
-     fs [LIST_REL_EL_EQN] >>
-     metis_tac [EL_MEM])
- >- metis_tac [EL_MEM]
- >- cheat
- >- metis_tac [EL_MEM]);
-
-val exp_rel_sym = Q.prove (
-`(!es es'. exp_rel es es' ⇒ exp_rel es' es)`,
+val exp_rel_cons = Q.prove (
+`!e es e' es'.
+  exp_rel [e] [e'] ∧
+  exp_rel es es'
+  ⇒
+  exp_rel (e::es) (e'::es')`,
  rw [exp_rel_def] >>
- metis_tac [val_rel_sym]);
+ qpat_assum `cEval (e::es,env,s) = y` mp_tac >>
+ rw [Once cEval_CONS] >>
+ Cases_on `cEval ([e],env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ qpat_assum `cEval (e'::es',env',s') = y` mp_tac >>
+ rw [Once cEval_CONS] >>
+ Cases_on `cEval ([e'],env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [val_rel_def] >> NO_TAC) >>
+ ect >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [val_rel_def] >> NO_TAC) >>
+ fs [val_rel_def, LIST_REL_EL_EQN] >>
+ imp_res_tac cEval_length_imp >>
+ Cases_on `a` >>
+ fs [] >>
+ Cases_on `a'` >>
+ fs []);
+
+val exp_rel_var = Q.prove (
+`!x. exp_rel [Var x] [Var x]`,
+ rw [exp_rel_def, cEval_def] >>
+ ect >>
+ fs [] >>
+ rw [val_rel_def] >>
+ fs [LIST_REL_EL_EQN] >>
+ metis_tac []);
+
+exp_rel_if = Q.prove (
+`!e1 e2 e3 e1' e2' e3'.
+  exp_rel [e1] [e1'] ∧
+  exp_rel [e2] [e2'] ∧
+  exp_rel [e3] [e3']
+  ⇒
+  exp_rel [If e1 e2 e3] [If e1' e2' e3']`,
+ rw [exp_rel_def, cEval_def] >>
+ res_tac
+
+ Cases_on `cEval ([e1],env,s)` >>
+ Cases_on `q` >>
+ fs []
+ rw []
+
+val val_rel_refl = Q.prove (
+`(!i v. val_rel i v v) ∧
+ (!i r. ref_v_rel i r r) ∧
+ (!i s. state_rel i s s) ∧
+ (!i res. res_rel i res res)`,
+ rw []
+
+
+ `(!v. val_rel i v v) ∧
+  (!vs. LIST_REL (val_rel i) vs vs)` 
+
+ ho_match_mp_tac clos_val_induction >>
+ rw []
+ >- rw [val_rel_def]
+ >- fs [val_rel_def, LIST_REL_EL_EQN]
+ >- rw [val_rel_def]
+ >- (simp [val_rel_def, is_closure_def] >>
+     rpt gen_tac >>
+     DISCH_TAC >>
+     rpt gen_tac >>
+     DISCH_TAC >>
+     fs [cEval_def] >>
 
 val opt_def = Define `
 opt (es : clos_exp list) = ARB : clos_exp list`;
