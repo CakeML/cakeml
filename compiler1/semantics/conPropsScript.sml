@@ -44,4 +44,15 @@ val evaluate_list_length = Q.store_thm ("evaluate_list_length",
   rw [] >>
   metis_tac []);
 
+val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
+  `∀xs exh vs s env.
+     LENGTH xs = LENGTH vs ⇒
+     pmatch_list exh s (MAP Pvar xs) vs env = Match (REVERSE(ZIP(xs,vs))++env)`,
+  Induct >> simp[LENGTH_NIL_SYM,pmatch_def] >>
+  Cases_on`vs`>>simp[pmatch_def]);
+
+val pats_bindings_MAP_Pvar = Q.store_thm("pats_bindings_MAP_Pvar",
+  `∀ws ls. pats_bindings (MAP Pvar ws) ls = (REVERSE ws) ++ ls`,
+  Induct >> simp[pat_bindings_def]);
+
 val _ = export_theory()
