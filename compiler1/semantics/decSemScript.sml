@@ -11,8 +11,6 @@ val _ = new_theory"decSem"
  * type error).
  *)
 
-val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
-
 val _ = Define `
  (do_app (((count,s,t),genv):conSem$v count_store_genv) op vs =
   case (op,vs) of

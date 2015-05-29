@@ -310,8 +310,6 @@ val _ = Define `
     if v = Boolv T then SOME e1 else
     if v = Boolv F then SOME e2 else NONE`;
 
-val _ = temp_type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
-
 val _ = Hol_reln ` (! ck env l s.
 evaluate ck (env:patSem$v list) (s:patSem$v count_store_genv) ((Lit l):patLang$exp) (s, Rval (Litv l)))
 

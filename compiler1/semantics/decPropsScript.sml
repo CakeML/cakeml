@@ -3,6 +3,43 @@ open preamble optionTheory rich_listTheory
 
 val _ = new_theory"decProps"
 
+val csg_rel_def = Define`
+  csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
+    c1 = c2 ∧ LIST_REL (sv_rel R) (FST s1) (FST s2) ∧ (SND s1 = SND s2) ∧ LIST_REL (OPTION_REL R) g1 g2`
+
+val csg_rel_refl = store_thm("csg_rel_refl",
+  ``∀V x. (∀x. V x x) ⇒ csg_rel V x x``,
+  rpt gen_tac >> PairCases_on`x` >> simp[csg_rel_def] >>
+  rw[] >> match_mp_tac EVERY2_refl >>
+  rw[optionTheory.OPTREL_def] >>
+  Cases_on`x` >> rw[])
+val _ = export_rewrites["csg_rel_refl"]
+
+val csg_rel_trans = store_thm("csg_rel_trans",
+  ``∀V. (∀x y z. V x y ∧ V y z ⇒ V x z) ⇒ ∀x y z. csg_rel V x y ∧ csg_rel V y z ⇒ csg_rel V x z``,
+  rw[] >> map_every PairCases_on [`x`,`y`,`z`] >>
+  fs[csg_rel_def] >>
+  conj_tac >>
+  match_mp_tac (MP_CANON EVERY2_trans)
+  >- metis_tac[evalPropsTheory.sv_rel_trans] >>
+  simp[optionTheory.OPTREL_def] >>
+  qexists_tac`y3` >> simp[] >>
+  Cases >> Cases >> Cases >> simp[] >>
+  metis_tac[])
+
+val csg_rel_count = store_thm("csg_rel_count",
+  ``csg_rel R csg1 csg2 ⇒ FST(FST csg2) = FST(FST csg1)``,
+  PairCases_on`csg1` >>
+  PairCases_on`csg2` >>
+  simp[csg_rel_def])
+
+val map_csg_def = Define`
+  map_csg f (csg:'a count_store_genv) =
+    ((FST(FST csg), (MAP (map_sv f) (FST(SND(FST csg))),SND(SND(FST csg)))), MAP (OPTION_MAP f) (SND csg))`
+
+val csg_every_def = Define`
+  csg_every P (((c,s),g):'a count_store_genv) ⇔ EVERY (sv_every P) (FST s) ∧ EVERY (OPTION_EVERY P) g`
+
 val do_app_genv_weakening = prove(
   ``decSem$do_app (x,y) op vs = SOME ((a,b),c) ⇒
     do_app (x,y++z) op vs = SOME ((a,b++z),c)``,
