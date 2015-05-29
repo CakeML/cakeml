@@ -18,7 +18,7 @@ BARE_THYS = ../../semantics/terminationTheory\
 						../semantics/modPropsTheory\
 						../semantics/conPropsTheory\
 						../semantics/decPropsTheory\
-						../semantics/exhSemTheory\
+						../semantics/exhPropsTheory\
 						../semantics/patSemTheory\
 						../semantics/closSemTheory
 
