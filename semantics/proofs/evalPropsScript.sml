@@ -339,11 +339,13 @@ val exc_rel_raise1 = store_thm("exc_rel_raise1",
 val exc_rel_raise2 = store_thm("exc_rel_raise2",
   ``exc_rel R e (Rraise v) = ∃v'. (e = Rraise v') ∧ R v' v``,
   Cases_on`e`>>rw[])
-val exc_rel_type_error = store_thm("exc_rel_type_error",
-  ``(exc_rel R (Rabort a) e = (e = Rabort a)) ∧
-    (exc_rel R e (Rabort a) = (e = Rabort a))``,
+val exc_rel_type_error1 = store_thm("exc_rel_type_error1",
+  ``(exc_rel R (Rabort a) e = (e = Rabort a))``,
   Cases_on`e`>>rw[]>>metis_tac [])
-val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error"]
+val exc_rel_type_error2 = store_thm("exc_rel_type_error2",
+  ``(exc_rel R e (Rabort a) = (e = Rabort a))``,
+  Cases_on`e`>>rw[]>>metis_tac [])
+val _ = export_rewrites["exc_rel_raise1","exc_rel_raise2","exc_rel_type_error1","exc_rel_type_error2"]
 
 val exc_rel_refl = store_thm(
 "exc_rel_refl",
