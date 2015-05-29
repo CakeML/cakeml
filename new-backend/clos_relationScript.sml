@@ -210,7 +210,14 @@ val exp_rel_var = Q.prove (
  fs [LIST_REL_EL_EQN] >>
  metis_tac []);
 
-exp_rel_if = Q.prove (
+val val_rel_bool_to_val = Q.prove (
+`!i b v. val_rel i (bool_to_val b) v ⇔ v = bool_to_val b`,
+ rw [] >>
+ Cases_on `v` >>
+ Cases_on `b` >>
+ fs [val_rel_def, bool_to_val_def, is_closure_def]);
+
+val exp_rel_if = Q.prove (
 `!e1 e2 e3 e1' e2' e3'.
   exp_rel [e1] [e1'] ∧
   exp_rel [e2] [e2'] ∧
@@ -218,14 +225,238 @@ exp_rel_if = Q.prove (
   ⇒
   exp_rel [If e1 e2 e3] [If e1' e2' e3']`,
  rw [exp_rel_def, cEval_def] >>
- res_tac
-
  Cases_on `cEval ([e1],env,s)` >>
  Cases_on `q` >>
- fs []
- rw []
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval ([e1'],env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ `LIST_REL (val_rel i) a a'` by fs [Once val_rel_def, LIST_REL_EL_EQN] >> 
+ imp_res_tac cEval_length_imp >>
+ Cases_on `a` >>
+ fs [] >>
+ Cases_on `a'` >>
+ fs [] >>
+ rw [] >>
+ Cases_on `bool_to_val T = h` >>
+ fs [] >>
+ rw [] >>
+ fs [val_rel_bool_to_val] >>
+ Cases_on `bool_to_val F = h` >>
+ fs [] >>
+ rw [] >>
+ fs [val_rel_bool_to_val] >>
+ rw [] >>
+ metis_tac []);
 
-val val_rel_refl = Q.prove (
+val exp_rel_let = Q.prove (
+`!e e' es es'.
+  exp_rel es es' ∧
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Let es e] [Let es' e']`,
+ rw [exp_rel_def, cEval_def] >>
+ Cases_on `cEval (es,env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval (es',env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ `LIST_REL (val_rel i) (a ++ env) (a' ++ env')` 
+                 by (match_mp_tac EVERY2_APPEND_suff >>
+                     rw [] >>
+                     fs [Once val_rel_def, LIST_REL_EL_EQN]) >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ fs [Once val_rel_def]);
+
+val exp_rel_raise = Q.prove (
+`!e e'.
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Raise e] [Raise e']`,
+ rw [exp_rel_def, cEval_def] >>
+ Cases_on `cEval ([e],env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval ([e'],env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ fs [Once val_rel_def] >>
+ imp_res_tac cEval_length_imp >>
+ Cases_on `a` >>
+ fs [] >>
+ Cases_on `a'` >>
+ fs []);
+
+val exp_rel_handle = Q.prove (
+`!e1 e2 e1' e2'.
+  exp_rel [e1] [e1'] ∧
+  exp_rel [e2] [e2']
+  ⇒
+  exp_rel [Handle e1 e2] [Handle e1' e2']`,
+ rw [exp_rel_def, cEval_def] >>
+ Cases_on `cEval ([e1],env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval ([e1'],env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ `LIST_REL (val_rel i) (c::env) (c'::env')` 
+                 by (rw [] >>
+                     fs [Once val_rel_def, LIST_REL_EL_EQN]) >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw []);
+
+val state_rel_dec_clock = Q.prove (
+`!i s s' n.
+  state_rel i s s'
+  ⇒
+  state_rel i (dec_clock n s) (dec_clock n s')`,
+ rw [val_rel_def, LIST_REL_EL_EQN, dec_clock_def]);
+
+val exp_rel_tick = Q.prove (
+`!e e'.
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Tick e] [Tick e']`,
+ rw [exp_rel_def, cEval_def] >>
+ `state_rel i (dec_clock 1 s) (dec_clock 1 s')` by metis_tac [state_rel_dec_clock] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ ect >>
+ fs [val_rel_def] >>
+ rw [val_rel_def]);
+
+val exp_rel_call = Q.prove (
+`!loc es es'.
+  exp_rel es es'
+  ⇒
+  exp_rel [Call loc es] [Call loc es']`,
+ rw [exp_rel_def, cEval_def] >>
+ Cases_on `cEval (es,env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval (es',env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ `r''.code = r'''.code` by fs [Once val_rel_def] >>
+ fs [find_code_def] >>
+ ect >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ (* Need something about the call, probably in the state_rel *)
+ cheat);
+
+val exp_rel_cEvalApp = Q.prove (
+`!i loc v vs s v' vs' s' r1 r1' s1 s1'.
+  val_rel i v v' ∧
+  LIST_REL (val_rel i) vs vs' ∧
+  state_rel i s s' ∧
+  LENGTH vs > 0 ∧
+  cEvalApp loc v vs s = (r1,s1) ∧
+  cEvalApp loc v' vs' s' = (r1',s1')
+  ⇒
+  res_rel i r1 r1' ∧
+  state_rel i s1 s1'`,
+ rpt gen_tac >>
+ DISCH_TAC >>
+ fs [] >>
+ imp_res_tac EVERY2_LENGTH >>
+ Cases_on `vs` >>
+ Cases_on `vs'` >>
+ fs [cEval_def] >>
+ rpt BasicProvers.VAR_EQ_TAC >>
+ fs [] >>
+ qabbrev_tac `vs = h::t` >>
+ qabbrev_tac `vs' = h'::t'` >>
+ cheat);
+
+val exp_rel_app = Q.prove (
+`!loc e e' es es'.
+  exp_rel [e] [e'] ∧
+  exp_rel es es'
+  ⇒
+  exp_rel [App loc e es] [App loc e' es']`,
+ rw [exp_rel_def, cEval_def] >>
+ Cases_on `LENGTH es > 0` >>
+ fs [] >>
+ Cases_on `cEval (es,env,s)` >>
+ Cases_on `q` >>
+ fs [] >>
+ first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `LENGTH es' > 0` >>
+ Cases_on `cEval (es',env',s')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ `LENGTH es = LENGTH es'` by cheat >>
+ fs [] >>
+last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+ rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval ([e],env,r'')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ Cases_on `cEval ([e'],env',r''')` >>
+ Cases_on `q` >>
+ fs [] >>
+ rw [] >>
+ TRY (fs [Once val_rel_def] >> NO_TAC) >>
+ imp_res_tac cEval_length_imp >>
+ Cases_on `a''` >>
+ Cases_on `a'''` >>
+ fs [LENGTH_EQ_NUM] >>
+ rw [] >>
+ `val_rel i h h'` by fs [val_rel_def] >>
+ `LIST_REL (val_rel i) a a'` by fs [val_rel_def, LIST_REL_EL_EQN] >>
+ metis_tac [exp_rel_cEvalApp]);
+
+ (*
+ val val_rel_refl = Q.prove (
 `(!i v. val_rel i v v) ∧
  (!i r. ref_v_rel i r r) ∧
  (!i s. state_rel i s s) ∧
