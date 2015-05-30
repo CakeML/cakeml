@@ -88,4 +88,33 @@ val pats_bindings_MAP_Pvar = Q.store_thm("pats_bindings_MAP_Pvar",
   `∀ws ls. pats_bindings (MAP Pvar ws) ls = (REVERSE ws) ++ ls`,
   Induct >> simp[pat_bindings_def]);
 
+val pmatch_any_match = store_thm("pmatch_any_match",
+  ``(∀(exh:exh_ctors_env) s p v env env'. pmatch exh s p v env = Match env' ⇒
+       ∀env. ∃env'. pmatch exh s p v env = Match env') ∧
+    (∀(exh:exh_ctors_env) s ps vs env env'. pmatch_list exh s ps vs env = Match env' ⇒
+       ∀env. ∃env'. pmatch_list exh s ps vs env = Match env')``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct])
+
+val pmatch_any_no_match = store_thm("pmatch_any_no_match",
+  ``(∀(exh:exh_ctors_env) s p v env. pmatch exh s p v env = No_match ⇒
+       ∀env. pmatch exh s p v env = No_match) ∧
+    (∀(exh:exh_ctors_env) s ps vs env. pmatch_list exh s ps vs env = No_match ⇒
+       ∀env. pmatch_list exh s ps vs env = No_match)``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >>
+  fs[] >> strip_tac >> fs[LET_THM] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac pmatch_any_match >>
+  TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
+  metis_tac[semanticPrimitivesTheory.match_result_distinct]);
+
 val _ = export_theory()
