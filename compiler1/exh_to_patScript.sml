@@ -141,6 +141,8 @@ val _ = Define `
   ∧
   (ground_list n (e::es) ⇔ ground n e ∧ ground_list n es)`;
 
+val _ = export_rewrites["fo_def","pure_op_op_def","pure_op_def","pure_def","ground_def"];
+
 val _ = Define `
   sLet e1 e2 =
   if e1 = Var_local 0 then e1
@@ -221,7 +223,7 @@ val _ = tDefine"compile_row"`
 
 (* translate under a context of bound variables *)
 (* compile_pes assumes the value being matched is most recently bound *)
-val _ = tDefine"compile_exp"`
+val compile_exp_def = tDefine"compile_exp"`
   (compile_exp bvs (Raise e) = Raise (compile_exp bvs e))
   ∧
   (compile_exp bvs (Handle e1 pes) =
@@ -280,5 +282,10 @@ val _ = tDefine"compile_exp"`
                                          | INR (INL (bvs,es)) => exp6_size es
                                          | INR (INR (INL (bvs,funs))) => exp1_size funs
                                          | INR (INR (INR (bvs,pes))) => exp3_size pes)`);
+val _ = export_rewrites["compile_exp_def"];
+
+val compile_funs_map = Q.store_thm("compile_funs_map",
+  `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
+  Induct>>simp[pairTheory.FORALL_PROD])
 
 val _ = export_theory()
