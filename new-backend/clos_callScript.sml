@@ -9,6 +9,7 @@ val _ = new_theory "clos_call";
 val _ = Datatype `
   val_approx = Clos num num (num list) (* name in code table, arity, extra args *)
              | Tuple (val_approx list)
+             | Int int
              | Other
              | Impossible` (* value 'returned' by Raise *)
 
@@ -26,11 +27,19 @@ val MEM_IMP_val_approx_size = prove(
   \\ RES_TAC \\ DECIDE_TAC);
 
 val adjust_vars_def = tDefine "adjust_vars" `
-  (adjust_vars n Other = Other) /\
   (adjust_vars n (Tuple vs) = Tuple (MAP (adjust_vars n) vs)) /\
   (adjust_vars n (Clos name args extra_vars) =
-     Clos name args (MAP (\k. k + n) extra_vars))`
+     Clos name args (MAP (\k. k + n) extra_vars)) /\
+  (adjust_vars n x = x)`
  (WF_REL_TAC `measure (val_approx_size o SND)` \\ REPEAT STRIP_TAC
+  \\ IMP_RES_TAC MEM_IMP_val_approx_size \\ DECIDE_TAC)
+
+val make_context_free_def = tDefine "adjust_vars" `
+  (make_context_free (Tuple vs) = Tuple (MAP make_context_free vs)) /\
+  (make_context_free (Clos name args []) = Clos name args []) /\
+  (make_context_free (Clos name args xs) = Other) /\
+  (make_context_free x = x)`
+ (WF_REL_TAC `measure val_approx_size` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC MEM_IMP_val_approx_size \\ DECIDE_TAC)
 
 val merge_def = tDefine "merge" `
@@ -43,6 +52,7 @@ val merge_def = tDefine "merge" `
             Tuple (merge_list xs ys)
           else Other
      | (Clos _ _ _, Clos _ _ _) => if x = y then x else Other
+     | (Int i, Int j) => if i = j then Int i else Other
      | _ => Other) /\
   (merge_list xs ys =
      case (xs,ys) of
@@ -59,6 +69,23 @@ val clos_exp1_size_lemma = prove(
   \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
 val calls_op_def = Define `
+  (calls_op (Global n) as g =
+     case lookup n g of
+     | NONE => (Other,g)
+     | SOME x => (make_context_free x,g)) /\
+  (calls_op (SetGlobal n) as g =
+     case as of
+     | (a::xs) => (Other,insert n a g)
+     | _ => (Other,g)) /\
+  (calls_op (Cons _) as g = (Tuple as,g)) /\
+  (calls_op (Const i) as g = (Int i,g)) /\
+  (calls_op El as g =
+     case as of
+     | [Tuple xs; Int i] =>
+         if 0 <= i /\ i < &LENGTH xs
+         then (EL (Num i) xs,g)
+         else (Other,g)
+     | _ => (Other,g)) /\
   (calls_op op as g = (Other,g))`
 
 val calls_app_def = Define `
@@ -84,6 +111,9 @@ val list_max_def = Define `
      let m = list_max xs in
        if m < x then x else m)`
 
+(* This function avoids actually substituting in the body, instead it
+   sets up a big Let that makes the new environemnt contain that
+   equivalence original env as a prefix. *)
 val calls_body_def = Define `
   calls_body num_args (fs:num list) body =
     let m = list_max fs in
@@ -159,10 +189,11 @@ val cCallIntro_def = Define `
     let (es,code,g) = calls exps [] g in
       (MAP FST es,code)`
 
+
+
 (*
 
 TODO:
- - implement calls_op
  - implement Letrec
  - write examples to see if it works as expected
  - separate locs at the end of cCallIntro
