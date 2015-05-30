@@ -111,9 +111,9 @@ val list_max_def = Define `
      let m = list_max xs in
        if m < x then x else m)`
 
-(* This function avoids actually substituting in the body, instead it
-   sets up a big Let that makes the new environemnt contain that
-   equivalence original env as a prefix. *)
+(* This function avoids substitution in the body, instead it sets up a
+   big Let that makes the new environemnt contain that equivalence
+   original env as a prefix. *)
 val calls_body_def = Define `
   calls_body num_args (fs:num list) body =
     let m = list_max fs in
@@ -183,6 +183,8 @@ val calls_def = tDefine "calls" `
  (WF_REL_TAC `measure (clos_exp3_size o FST)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC clos_exp1_size_lemma \\ DECIDE_TAC);
 
+(* The first run of calls is just there to figure out what is assigned
+   to the globals. *)
 val cCallIntro_def = Define `
   cCallIntro exps =
     let (es,code,g) = calls exps [] LN in
