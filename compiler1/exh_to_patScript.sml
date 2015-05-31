@@ -66,7 +66,8 @@ val _ = Define `
     (op <> Aalloc) ∧
     (op <> Asub) ∧
     (op <> (Opn Divide)) ∧
-    (op <> (Opn Modulo))`;
+    (op <> (Opn Modulo)) ∧
+    (!n. op <> FFI n)`;
 
 val _ = Define `
   (pure_op (Op (Op op)) ⇔ pure_op_op op)
@@ -145,7 +146,7 @@ val _ = export_rewrites["fo_def","pure_op_op_def","pure_op_def","pure_def","grou
 
 val _ = Define `
   sLet e1 e2 =
-  if e1 = Var_local 0 then e1
+  if e2 = Var_local 0 then e1
   else if ground 0 e2 then
     if pure e1 then e2
     else Seq e1 e2
