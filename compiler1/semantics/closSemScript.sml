@@ -151,8 +151,8 @@ val do_app_def = Define `
          | _ => NONE)
     | (ToList,[Block tag xs]) =>
         SOME (list_to_v xs, s)
-    | (TagEq n,[Block tag xs]) =>
-        SOME (Boolv (tag = n),s)
+    | (TagEq n l,[Block tag xs]) =>
+        SOME (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => SOME (Boolv b, s)

@@ -148,8 +148,8 @@ val _ = tDefine"compile"`
   (compile (App (Op (Init_global_var n)) es) =
     Let [Op (SetGlobal n) (REVERSE (MAP compile es))]
       (Op (Cons (tuple_tag+pat_tag_shift)) [])) ∧
-  (compile (App (Tag_eq n) es) =
-    Op (TagEq (n+pat_tag_shift)) (REVERSE (MAP compile es))) ∧
+  (compile (App (Tag_eq n l) es) =
+    Op (TagEq (n+pat_tag_shift) l) (REVERSE (MAP compile es))) ∧
   (compile (App (El n) es) =
     Let (REVERSE (MAP compile es))
       (Op El [Op (Const &n) []; Var 0])) ∧

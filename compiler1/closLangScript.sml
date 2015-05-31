@@ -20,7 +20,7 @@ val _ = Datatype `
      | FromList num  (* convert list to packed Block *)
      | ToList        (* convert packed Block to list *)
      | Const int     (* integer *)
-     | TagEq num     (* check whether Block's tag is eq *)
+     | TagEq num num (* check Block's tag and length *)
      | IsBlock       (* is it a Block value? *)
      | Ref           (* makes a reference *)
      | Deref         (* loads a value from a reference *)

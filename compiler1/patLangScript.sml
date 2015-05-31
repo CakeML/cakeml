@@ -14,7 +14,7 @@ val _ = new_theory "patLang"
 val _ = Datatype`
   op =
    | Op (conLang$op)
-   | Tag_eq num
+   | Tag_eq num num
    | El num`;
 
 val _ = Datatype`

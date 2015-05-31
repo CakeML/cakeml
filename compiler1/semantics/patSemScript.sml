@@ -295,8 +295,8 @@ val _ = Define `
             )
         | _ => NONE
         )
-    | (Tag_eq n, [Conv tag _]) =>
-        SOME (((cnt,s,t),genv), Rval (Boolv (tag = n)))
+    | (Tag_eq n l, [Conv tag vs]) =>
+        SOME (((cnt,s,t),genv), Rval (Boolv (tag = n ∧ LENGTH vs = l)))
     | (El n, [Conv _ vs]) =>
         if n < LENGTH vs then
           SOME (((cnt,s,t),genv), Rval (EL n vs))

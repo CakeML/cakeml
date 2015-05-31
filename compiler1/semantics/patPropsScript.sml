@@ -11,7 +11,7 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃n. op = (Op (Op Opderef)) ∧ vs = [Loc n]) ∨
     (∃v. op = (Op (Op Opref)) ∧ vs = [v]) ∨
     (∃idx v. op = (Op (Init_global_var idx)) ∧ vs = [v]) ∨
-    (∃n tag v. op = Tag_eq n ∧ vs = [Conv tag v]) ∨
+    (∃n l tag v. op = Tag_eq n l ∧ vs = [Conv tag v]) ∨
     (∃n tag v. op = El n ∧ vs = [Conv tag v]) ∨
     (∃n w. op = (Op (Op Aw8alloc)) ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
     (∃lnum i. op = (Op (Op Aw8sub)) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨

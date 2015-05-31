@@ -74,7 +74,7 @@ val _ = Define `
   ∧
   (pure_op (Op (Init_global_var _)) ⇔ F)
   ∧
-  (pure_op (Tag_eq _) ⇔ T)
+  (pure_op (Tag_eq _ _) ⇔ T)
   ∧
   (pure_op (El _) ⇔ T)`;
 
@@ -174,7 +174,7 @@ val _ = tDefine"compile_pat"`
    App (Op (Op Equality)) [Var_local( 0); Con tag []])
   ∧
   (compile_pat (Pcon tag ps) =
-   sIf (App (Tag_eq tag) [Var_local 0])
+   sIf (App (Tag_eq tag (LENGTH ps)) [Var_local 0])
      (Let_Els 0 (LENGTH ps) (compile_pats 0 ps))
      (Bool F))
   ∧
