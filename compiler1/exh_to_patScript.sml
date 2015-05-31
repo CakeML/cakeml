@@ -3,8 +3,13 @@ open HolKernel boolLib bossLib lcsymtacs
 
 val _ = new_theory"exh_to_pat"
 
-val _ = Define `
+val Bool_def = Define `
   Bool b = Con (if b then true_tag else false_tag) []`;
+
+val Bool_eqns = save_thm("Bool_eqns[simp]",
+  [``Bool T``,``Bool F``]
+  |> List.map (SIMP_CONV(std_ss)[Bool_def])
+  |> LIST_CONJ)
 
 val _ = Define `
   sIf e1 e2 e3 =
@@ -15,7 +20,7 @@ val _ = Define `
      | Con t [] => if t = true_tag then e2 else e3
      | _ => If e1 e2 e3)`;
 
-val _ = Define `
+val fo_def = Define `
   (fo (Raise _) ⇔ T)
   ∧
   (fo (Handle e1 e2) ⇔ fo e1 ∧ fo e2)
@@ -51,6 +56,11 @@ val _ = Define `
   ∧
   (fo_list (e::es) ⇔ fo e ∧ fo_list es)`;
 
+val fo_list_EVERY = store_thm("fo_list_EVERY",
+  ``∀ls. fo_list ls ⇔ EVERY fo ls``,
+  Induct >> simp[fo_def])
+val _ = export_rewrites["fo_list_EVERY"]
+
 val _ = Define `
   pure_op_op op ⇔
     (op <> Opref) ∧
@@ -78,7 +88,7 @@ val _ = Define `
   ∧
   (pure_op (El _) ⇔ T)`;
 
-val _ = Define `
+val pure_def = Define `
   (pure (Raise _) ⇔ F)
   ∧
   (pure (Handle e1 _) ⇔ pure e1)
@@ -111,7 +121,12 @@ val _ = Define `
   ∧
   (pure_list (e::es) ⇔ pure e ∧ pure_list es)`;
 
-val _ = Define `
+val pure_list_EVERY = store_thm("pure_list_EVERY",
+  ``∀ls. pure_list ls ⇔ EVERY pure ls``,
+  Induct >> simp[pure_def])
+val _ = export_rewrites["pure_list_EVERY"]
+
+val ground_def = Define `
   (ground n (Raise e) ⇔ ground n e)
   ∧
   (ground n (Handle e1 e2) ⇔ ground n e1 ∧ ground (n+1) e2)
@@ -143,6 +158,11 @@ val _ = Define `
   (ground_list n (e::es) ⇔ ground n e ∧ ground_list n es)`;
 
 val _ = export_rewrites["fo_def","pure_op_op_def","pure_op_def","pure_def","ground_def"];
+
+val ground_list_EVERY = store_thm("ground_list_EVERY",
+  ``∀n ls. ground_list n ls ⇔ EVERY (ground n) ls``,
+  gen_tac >> Induct >> simp[])
+val _ = export_rewrites["ground_list_EVERY"]
 
 val _ = Define `
   sLet e1 e2 =
@@ -288,5 +308,13 @@ val _ = export_rewrites["compile_exp_def"];
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
   Induct>>simp[pairTheory.FORALL_PROD])
+
+val compile_exps_map = store_thm("compile_exps_map",
+  ``∀es. compile_exps a es = MAP (compile_exp a) es``,
+  Induct >> simp[compile_exp_def])
+
+val compile_exps_reverse = store_thm("compile_exps_reverse",
+  ``compile_exps a (REVERSE ls) = REVERSE (compile_exps a ls)``,
+  rw[compile_exps_map,rich_listTheory.MAP_REVERSE])
 
 val _ = export_theory()

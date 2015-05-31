@@ -37,6 +37,10 @@ val map_csg_def = Define`
   map_csg f (csg:'a count_store_genv) =
     ((FST(FST csg), (MAP (map_sv f) (FST(SND(FST csg))),SND(SND(FST csg)))), MAP (OPTION_MAP f) (SND csg))`
 
+val map_csg_count = Q.store_thm("map_csg_count",
+  `FST(FST (map_csg f csg)) = FST(FST csg)`,
+  PairCases_on`csg`>>simp[map_csg_def])
+
 val csg_every_def = Define`
   csg_every P (((c,s),g):'a count_store_genv) ⇔ EVERY (sv_every P) (FST s) ∧ EVERY (OPTION_EVERY P) g`
 
