@@ -150,4 +150,46 @@ val evaluate_determ = store_thm("evaluate_determ",
     rpt (res_tac >> fs[] >> rpt BasicProvers.VAR_EQ_TAC)) >>
   pop_assum mp_tac >> simp[Once evaluate_cases]);
 
+val not_evaluate_list_append = store_thm("not_evaluate_list_append",
+  ``∀l1 ck env s l2 res.
+    (∀res. ¬evaluate_list ck env s (l1 ++ l2) res) ⇔
+    ((∀res. ¬evaluate_list ck env s l1 res) ∨
+       ∃s1 v1.
+         evaluate_list ck env s l1 (s1, Rval v1) ∧
+         (∀res. ¬evaluate_list ck env s1 l2 res))``,
+  Induct >- (
+    rw[EQ_IMP_THM] >- (
+      fs[Once(CONJUNCT2(evaluate_cases))] >>
+      simp[Once(CONJUNCT2(evaluate_cases))] >>
+      simp[Once(CONJUNCT2(evaluate_cases))] >>
+      rw[] >> metis_tac[] )
+    >- (
+      fs[Once(CONJUNCT2(evaluate_cases))] ) >>
+    fs[Once(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_cases)))] >>
+    rw[] ) >>
+  fs[Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_cases))] >>
+  rw[PULL_EXISTS] >>
+  reverse(Cases_on`∃res. evaluate ck env s h res`) >- (
+    metis_tac[] ) >>
+  fs[] >>
+  `∃s1 r1. res = (s1,r1)` by metis_tac[PAIR] >>
+  reverse (Cases_on`r1`) >- (
+    srw_tac[boolSimps.DNF_ss][] >>
+    EQ_TAC >> strip_tac >>
+    metis_tac[evaluate_determ,semanticPrimitivesTheory.result_distinct,PAIR_EQ]) >>
+  srw_tac[boolSimps.DNF_ss][] >>
+  first_x_assum(qspecl_then[`ck`,`env`,`s1`,`l2`]strip_assume_tac) >>
+  Cases_on`∀res. ¬evaluate_list ck env s1 (l1++l2) res` >- (
+    fs[] >>
+    metis_tac[evaluate_determ,PAIR_EQ,
+              semanticPrimitivesTheory.result_11,
+              semanticPrimitivesTheory.result_distinct] ) >>
+  FULL_SIMP_TAC pure_ss [] >> fs[] >>
+  `∃s2 r2. res = (s2,r2)` by metis_tac[PAIR] >>
+  Cases_on`r2` >>
+  metis_tac[evaluate_determ,PAIR_EQ,pair_CASES,
+            semanticPrimitivesTheory.result_11,
+            semanticPrimitivesTheory.result_nchotomy,
+            semanticPrimitivesTheory.result_distinct] )
+
 val _ = export_theory()
