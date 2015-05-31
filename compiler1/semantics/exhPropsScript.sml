@@ -106,4 +106,35 @@ val pmatch_list_snoc = store_thm("pmatch_list_snoc",
   Induct >> Cases_on`vs` >> simp[pmatch_def] >> rw[] >>
   BasicProvers.CASE_TAC)
 
+val pmatch_append = store_thm("pmatch_append",
+  ``(∀s p v env n.
+      (pmatch s p v env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch s p v (TAKE n env)))) ∧
+    (∀s ps vs env n.
+      (pmatch_list s ps vs env =
+       map_match (combin$C APPEND (DROP n env)) (pmatch_list s ps vs (TAKE n env))))``,
+  ho_match_mp_tac pmatch_ind >>
+  rw[pmatch_def]
+  >- ( BasicProvers.CASE_TAC >> fs[] >>
+       BasicProvers.CASE_TAC >> fs[]) >>
+  pop_assum (qspec_then`n`mp_tac) >>
+  Cases_on `pmatch s p v (TAKE n env)`>>fs[] >>
+  strip_tac >> res_tac >>
+  qmatch_assum_rename_tac`pmatch s p v (TAKE n env) = Match env1` >>
+  pop_assum(qspec_then`LENGTH env1`mp_tac) >>
+  simp_tac(srw_ss())[rich_listTheory.TAKE_LENGTH_APPEND,rich_listTheory.DROP_LENGTH_APPEND] )
+
+val pmatch_nil = save_thm("pmatch_nil",
+  LIST_CONJ [
+    pmatch_append
+    |> CONJUNCT1
+    |> Q.SPECL[`s`,`p`,`v`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ,
+    pmatch_append
+    |> CONJUNCT2
+    |> Q.SPECL[`s`,`ps`,`vs`,`env`,`0`]
+    |> SIMP_RULE(srw_ss())[]
+  ])
+
 val _ = export_theory()
