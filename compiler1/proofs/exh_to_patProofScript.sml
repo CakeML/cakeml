@@ -6,6 +6,12 @@ open preamble boolSimps alistTheory pairTheory miscTheory miscLib
 
 val _ = new_theory"exh_to_patProof"
 
+val evaluate_pat_cases = patSemTheory.evaluate_cases
+
+val TAKE_CONS = prove(
+  ``TAKE (n+1) env = v::TAKE n env2 ⇔ ∃env1. env = v::env1 ∧ TAKE n env1 = TAKE n env2``,
+  Cases_on`env`>>simp[])
+
 (* value relation *)
 
 val compile_v_def = tDefine"compile_v"`
@@ -214,7 +220,7 @@ val char_list_to_v_no_closures = prove(
   ``∀ls. no_closures (char_list_to_v ls)``,
   Induct >> simp[patSemTheory.char_list_to_v_def])
 
-val fo_pat_correct = store_thm("fo_pat_correct",
+val fo_correct = store_thm("fo_correct",
   ``(∀e. fo e ⇒
        ∀ck env s s' v.
          evaluate ck env s e (s',Rval v) ⇒
@@ -269,18 +275,26 @@ val do_eq_no_closures = store_thm("do_eq_no_closures",
 val pure_correct = store_thm("pure_correct",
   ``(∀e. pure e ⇒
          ∀ck env s. (∃v. evaluate ck env s e (s,Rval v)) ∨
-                    evaluate ck env s e (s,Rerr Rtype_error)) ∧
+                    (∀res. ¬evaluate ck env s e res)) ∧
     (∀es. pure_list es ⇒
          ∀ck env s. ((∃vs. evaluate_list ck env s es (s,Rval vs)) ∨
-                     evaluate_list ck env s es (s,Rerr Rtype_error)) ∧
+                     (∀res. ¬evaluate_list ck env s es res)) ∧
                     ((∃vs. evaluate_list ck env s (REVERSE es) (s,Rval vs)) ∨
-                     evaluate_list ck env s (REVERSE es) (s,Rerr Rtype_error)))``,
+                     (∀res. ¬evaluate_list ck env s (REVERSE es) res)))``,
   ho_match_mp_tac(TypeBase.induction_of(``:patLang$exp``)) >>
   simp[pure_def] >> rw[] >> fs[]
-  >- (simp[Once patSemTheory.evaluate_cases] >> PROVE_TAC[patSemTheory.evaluate_rules])
-  >- (simp[Once patSemTheory.evaluate_cases] >> PROVE_TAC[patSemTheory.evaluate_rules])
-  >- (simp[Once patSemTheory.evaluate_cases] >> PROVE_TAC[patSemTheory.evaluate_rules])
-  >- (ntac 2 (simp[Once patSemTheory.evaluate_cases]) >> PROVE_TAC[patSemTheory.evaluate_rules,pair_CASES,optionTheory.option_CASES])
+  >- (simp[Once patSemTheory.evaluate_cases] >>
+      last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac)
+      >- metis_tac[] >> disj2_tac >>
+      simp[Once patSemTheory.evaluate_cases])
+  >- (simp[Once patSemTheory.evaluate_cases] >>
+      last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac)
+      >> TRY(metis_tac[] ) >> disj2_tac >>
+      simp[Once patSemTheory.evaluate_cases])
+  >- (simp[Once patSemTheory.evaluate_cases] >>
+      simp[Once patSemTheory.evaluate_cases])
+  >- (ntac 2 (simp[Once patSemTheory.evaluate_cases]) >>
+      PROVE_TAC[patSemTheory.evaluate_rules,pair_CASES,optionTheory.option_CASES])
   >- (simp[Once patSemTheory.evaluate_cases] >> PROVE_TAC[patSemTheory.evaluate_rules])
   >- (
     first_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >>
@@ -291,10 +305,9 @@ val pure_correct = store_thm("pure_correct",
       Cases_on`do_app s op (REVERSE vsr)` >- (
         disj2_tac >>
         simp[Once patSemTheory.evaluate_cases] >>
-        ntac 3 disj2_tac >> disj1_tac >>
-        first_assum(match_exists_tac o concl) >> simp[] >>
-        spose_not_then strip_assume_tac >>
-        fs[pure_op_op_def,pure_op_def] ) >>
+        Cases >> simp[] >>
+        Cases_on`op = Op(Op Opapp)`>>fs[] >>
+        metis_tac[evaluate_determ,result_distinct,optionTheory.NOT_SOME_NONE,PAIR_EQ,result_11]) >>
       disj1_tac >>
       srw_tac[DNF_ss][] >>
       disj2_tac >>
@@ -308,25 +321,24 @@ val pure_correct = store_thm("pure_correct",
   >- (
     last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
     TRY (
-      disj2_tac >> simp[Once evaluate_pat_cases] >> NO_TAC) >>
+      disj2_tac >> simp[Once patSemTheory.evaluate_cases] >> NO_TAC) >>
     qmatch_assum_rename_tac`evaluate_list ck env s (REVERSE es) (s,Rval vsr)` >> (
     reverse(Cases_on`LENGTH vsr = 2`) >- (
-      disj2_tac >> simp[Once evaluate_pat_cases] >>
-      disj2_tac >> disj1_tac >>
-      first_assum(match_exists_tac o concl) >> rw[] >>
+      disj2_tac >> simp[Once patSemTheory.evaluate_cases] >>
+      Cases >> simp[] >>
+      reverse conj_tac >-
+        metis_tac[evaluate_determ,result_distinct,PAIR_EQ] >>
+      spose_not_then strip_assume_tac >>
+      imp_res_tac evaluate_determ >> fs[] >> rw[] >>
       PairCases_on`s` >>
-      simp[do_app_pat_def] >>
-      Cases_on`vsr`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
+      fs[patSemTheory.do_app_def] >>
       BasicProvers.EVERY_CASE_TAC>>
-      fsrw_tac[ARITH_ss][LIST_EQ_REWRITE])
-    ) >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once (CONJUNCT1 evaluate_pat_cases)] >> (
+      fsrw_tac[ARITH_ss][LIST_EQ_REWRITE])) >>
+    simp[Once patSemTheory.evaluate_cases] >>
+    simp[Once (CONJUNCT1 patSemTheory.evaluate_cases)] >> (
     Cases_on`do_app s (Op (Op Equality)) (REVERSE vsr)` >- (
-      disj2_tac >> disj2_tac >> disj1_tac >>
-      first_assum(match_exists_tac o concl) >> rw[] )) >>
+      disj2_tac >> Cases >> simp[] >>
+      metis_tac[result_11,evaluate_determ,optionTheory.NOT_SOME_NONE,result_distinct,PAIR_EQ])) >>
     disj1_tac >>
     first_assum(match_exists_tac o concl) >> rw[] >>
     imp_res_tac fo_correct >>
@@ -340,76 +352,72 @@ val pure_correct = store_thm("pure_correct",
   >- (
     qmatch_abbrev_tac`X ∨ Y`>>
     Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>
-    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`If_pat e1 e2 e3`](CONJUNCT1 evaluate_pat_cases))] >>
+    Cases_on`X`>>fs[markerTheory.Abbrev_def]>-metis_tac[]>>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`If e1 e2 e3`](CONJUNCT1 patSemTheory.evaluate_cases))] >>
     last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    first_x_assum(qspec_then`v`strip_assume_tac)>>fs[]>>
-    qmatch_assum_rename_tac`do_if_pat v1 e2 e3 ≠ NONE`>>
-    Cases_on`do_if_pat v1 e2 e3`>>fs[]>>
-    first_x_assum(qspecl_then[`v1`,`x`,`s`]strip_assume_tac)>>fs[]>>
-    rw[] >> fs[do_if_pat_def] >>
-    CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
-    map_every qexists_tac[`s`,`x`,`v1`] >>
-    rw[] >>
-    qpat_assum`X = Y`mp_tac >> rw[] >>
-    metis_tac[] )
-  >- (
-    qmatch_abbrev_tac`X ∨ Y`>>
-    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>rw[]>>
-    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`Let_pat e1 e2`](CONJUNCT1 evaluate_pat_cases))] >>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    first_x_assum(qspecl_then[`v`,`s`]strip_assume_tac)>>fs[]>>
-    metis_tac[] )
-  >- (
-    qmatch_abbrev_tac`X ∨ Y`>>
-    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>rw[]>>
-    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`Seq_pat e1 e2`](CONJUNCT1 evaluate_pat_cases))] >>
-    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
-    first_x_assum(qspecl_then[`v`,`s`]strip_assume_tac)>>fs[]>>
-    metis_tac[] )
-  >- (
-    simp[Once evaluate_pat_cases] >>
-    Q.PAT_ABBREV_TAC`renv = build_rec_env_pat X Y ++ z` >>
-    first_x_assum(qspecl_then[`ck`,`renv`,`s`]strip_assume_tac) >> fs[] >-
-      metis_tac[] >>
-    disj2_tac >>
-    simp[Once evaluate_pat_cases] )
-  >- simp[Once evaluate_pat_cases]
-  >- (
-    simp[Once evaluate_pat_cases] >>
-    simp[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`e::es`](CONJUNCT2 evaluate_pat_cases))] >>
+    imp_res_tac evaluate_determ >> fs[] >> rw[] >>
+    qmatch_assum_rename_tac`do_if v e1 e2 = SOME x` >>
+    fs[patSemTheory.do_if_def] >>
+    first_x_assum(qspecl_then[`s`,`x`,`v`]strip_assume_tac o CONV_RULE(RESORT_FORALL_CONV List.rev)) >>
+    every_case_tac >> fs[] >> rw[] >>
     metis_tac[])
   >- (
-    rw[evaluate_list_pat_append_Rval_iff] >>
-    rw[evaluate_list_pat_append_Rerr] >>
-    simp[(Q.SPECL[`ck`,`env`,`s`,`X::[]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
-    simp[(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_pat_cases)))] >>
+    qmatch_abbrev_tac`X ∨ Y`>>
+    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>rw[]>>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`Let e1 e2`](CONJUNCT1 patSemTheory.evaluate_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    imp_res_tac evaluate_determ >> fs[] >> rw[] >>
+    metis_tac[] )
+  >- (
+    qmatch_abbrev_tac`X ∨ Y`>>
+    Cases_on`Y`>>fs[markerTheory.Abbrev_def]>>rw[]>>
+    fs[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`Seq e1 e2`](CONJUNCT1 patSemTheory.evaluate_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    imp_res_tac evaluate_determ >> fs[] >> rw[] >>
+    metis_tac[] )
+  >- (
+    simp[Once patSemTheory.evaluate_cases] >>
+    Q.PAT_ABBREV_TAC`renv = build_rec_env X Y ++ z` >>
+    first_x_assum(qspecl_then[`ck`,`renv`,`s`]strip_assume_tac) >> fs[] >-
+      metis_tac[] >>
+    simp[Once patSemTheory.evaluate_cases] )
+  >- simp[Once patSemTheory.evaluate_cases]
+  >- (
+    simp[Once patSemTheory.evaluate_cases] >>
+    simp[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`e::es`](CONJUNCT2 patSemTheory.evaluate_cases))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >> fs[] >>
+    TRY(metis_tac[]) >>
+    disj2_tac >> Cases >> simp[] >>
+    metis_tac[evaluate_determ,PAIR_EQ,result_11,result_distinct] )
+  >- (
+    rw[evaluate_list_append_Rval_iff] >>
+    rw[not_evaluate_list_append] >>
+    simp[(Q.SPECL[`ck`,`env`,`s`,`X::[]`](CONJUNCT2(patSemTheory.evaluate_cases))),PULL_EXISTS] >>
+    simp[(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(patSemTheory.evaluate_cases)))] >>
     last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
     last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
     metis_tac[]))
 
-val TAKE_CONS = prove(
-  ``TAKE (n+1) env = v::TAKE n env2 ⇔ ∃env1. env = v::env1 ∧ TAKE n env1 = TAKE n env2``,
-  Cases_on`env`>>simp[])
-
-val ground_pat_correct = store_thm("ground_pat_correct",
-  ``(∀e n. ground_pat n e ⇒
+val ground_correct = store_thm("ground_correct",
+  ``(∀e n. ground n e ⇒
       (∀ck env1 env2 s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
           (TAKE n env2 = TAKE n env1) ∧
-          evaluate_pat ck env1 s e res ⇒
-          evaluate_pat ck env2 s e res)) ∧
-    (∀es n. ground_list_pat n es ⇒
+          evaluate ck env1 s e res ⇒
+          evaluate ck env2 s e res)) ∧
+    (∀es n. ground_list n es ⇒
       (∀ck env1 env2 s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
           (TAKE n env2 = TAKE n env1) ⇒
-          (evaluate_list_pat ck env1 s es res ⇒
-           evaluate_list_pat ck env2 s es res) ∧
-          (evaluate_list_pat ck env1 s (REVERSE es) res ⇒
-           evaluate_list_pat ck env2 s (REVERSE es) res)))``,
-  ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``)) >>
+          (evaluate_list ck env1 s es res ⇒
+           evaluate_list ck env2 s es res) ∧
+          (evaluate_list ck env1 s (REVERSE es) res ⇒
+           evaluate_list ck env2 s (REVERSE es) res)))``,
+  ho_match_mp_tac(TypeBase.induction_of(``:patLang$exp``)) >>
   rw[] >> pop_assum mp_tac >- (
-    rw[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
+    rw[Once patSemTheory.evaluate_cases] >>
+    simp[Once patSemTheory.evaluate_cases] >>
     metis_tac[] )
   >- (
     first_x_assum(qspec_then`n+1`strip_assume_tac)>>
@@ -441,12 +449,11 @@ val ground_pat_correct = store_thm("ground_pat_correct",
   >- (
     reverse(rw[Once evaluate_pat_cases]) >>
     simp[Once evaluate_pat_cases]
-    >- metis_tac[]
     >- metis_tac[] >>
     disj1_tac >>
     qexists_tac`v` >>
-    qpat_assum`do_if_pat X Y Z = A`mp_tac >>
-    simp[do_if_pat_def] >>
+    qpat_assum`do_if X Y Z = A`mp_tac >>
+    simp[patSemTheory.do_if_def] >>
     rw[] >>
     metis_tac[] )
   >- (
@@ -482,17 +489,17 @@ val ground_pat_correct = store_thm("ground_pat_correct",
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     disch_then(qspecl_then[`ck`,`env1`,`env2`]mp_tac) >> simp[] >> strip_tac >>
     Cases_on`res`>>Cases_on`r`>>
-    rw[evaluate_list_pat_append_Rval_iff,evaluate_list_pat_append_Rerr] >>
+    rw[evaluate_list_append_Rval_iff,evaluate_list_append_Rerr] >>
     fs[(Q.SPECL[`ck`,`env`,`Y`,`[X]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
     fs[(Q.SPECL[`ck`,`env`,`Y`,`[]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
     metis_tac[]))
 
-val sLet_pat_correct = store_thm("sLet_pat_correct",
+val sLet_correct = store_thm("sLet_correct",
   ``∀ck env s e1 e2 res.
-    evaluate_pat ck env s (Let_pat e1 e2) res ∧
-    SND res ≠ Rerr Rtype_error ⇒
-    evaluate_pat ck env s (sLet_pat e1 e2) res``,
-  rw[sLet_pat_thm] >- (
+    evaluate ck env s (Let e1 e2) res ∧
+    SND res ≠ Rerr (Rabort Rtype_error) ⇒
+    evaluate ck env s (sLet e1 e2) res``,
+  rw[sLet_def] >- (
     last_x_assum mp_tac >>
     simp[Once evaluate_pat_cases] >>
     rw[] >> rw[] >>
@@ -500,28 +507,28 @@ val sLet_pat_correct = store_thm("sLet_pat_correct",
     rw[Once evaluate_pat_cases] )
   >- (
     qpat_assum`evaluate_pat A B C D E` mp_tac >>
-    imp_res_tac pure_pat_correct >>
+    imp_res_tac pure_correct >>
     first_x_assum(qspecl_then[`s`,`env`,`ck`]strip_assume_tac) >>
     rw[Once evaluate_pat_cases] >> rw[] >>
-    imp_res_tac evaluate_pat_determ >> fs[] >> rw[] >>
-    qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_pat_correct) >>
+    imp_res_tac evaluate_determ >> fs[] >> rw[] >>
+    qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_correct) >>
     rw[] >> res_tac >>
     metis_tac[]) >>
-  qpat_assum`evaluate_pat A B C D E` mp_tac >>
+  qpat_assum`evaluate A B C D E` mp_tac >>
   rw[Once evaluate_pat_cases] >>
-  qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_pat_correct) >>
+  qspecl_then[`e2`,`0`]mp_tac(CONJUNCT1 ground_correct) >>
   rw[] >> res_tac >>
   rw[Once evaluate_pat_cases] >> rw[] >>
   metis_tac[])
 
-val Let_Els_pat_correct = prove(
+val Let_Els_correct = prove(
   ``∀n k e tag vs env ck s res us.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
-    evaluate_pat ck (TAKE k vs ++ us ++ (Conv_pat tag vs::env)) s e res ∧
-    SND res ≠ Rerr Rtype_error ⇒
-    evaluate_pat ck (us ++ (Conv_pat tag vs::env)) s (Let_Els_pat n k e) res``,
-  ho_match_mp_tac Let_Els_pat_ind >> rw[Let_Els_pat_def] >>
-  match_mp_tac sLet_pat_correct >>
+    evaluate ck (TAKE k vs ++ us ++ (Conv tag vs::env)) s e res ∧
+    SND res ≠ Rerr (Rabort Rtype_error) ⇒
+    evaluate ck (us ++ (Conv tag vs::env)) s (Let_Els n k e) res``,
+  ho_match_mp_tac Let_Els_ind >> rw[Let_Els_def] >>
+  match_mp_tac sLet_correct >>
   rw[Once evaluate_pat_cases] >>
   disj1_tac >>
   rw[Once evaluate_pat_cases] >>
@@ -529,9 +536,9 @@ val Let_Els_pat_correct = prove(
   rw[Once evaluate_pat_cases] >>
   rw[Once evaluate_pat_cases] >>
   simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
-  PairCases_on`s`>>simp[do_app_pat_def] >>
+  PairCases_on`s`>>simp[patSemTheory.do_app_def] >>
   qmatch_assum_rename_tac`SUC k ≤ LENGTH vs` >>
-  first_x_assum(qspecl_then[`tag`,`vs`,`env`,`ck`,`(s0,s1),s2`,`res`,`EL k vs::us`]mp_tac) >>
+  first_x_assum(qspecl_then[`tag`,`vs`,`env`,`ck`,`(s0,s1,s2),s3`,`res`,`EL k vs::us`]mp_tac) >>
   simp[] >>
   discharge_hyps >- (
     fs[arithmeticTheory.ADD1] >>
@@ -540,49 +547,49 @@ val Let_Els_pat_correct = prove(
     fs[SNOC_APPEND] >>
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
   rw[])
-val Let_Els_pat_correct = prove(
+val Let_Els_correct = prove(
   ``∀n k e tag vs env ck s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
-    evaluate_pat ck (TAKE k vs ++ us ++ (Conv_pat tag vs::env)) s e res ∧
-    (enve = us ++ (Conv_pat tag vs::env)) ∧ SND res ≠ Rerr Rtype_error
+    evaluate ck (TAKE k vs ++ us ++ (Conv tag vs::env)) s e res ∧
+    (enve = us ++ (Conv tag vs::env)) ∧ SND res ≠ Rerr (Rabort Rtype_error)
     ⇒
-    evaluate_pat ck enve s (Let_Els_pat n k e) res``,
-  metis_tac[Let_Els_pat_correct])
+    evaluate ck enve s (Let_Els n k e) res``,
+  metis_tac[Let_Els_correct]);
 
-val pat_to_pat_correct = prove(
+val compile_pat_correct = prove(
   ``(∀p v s env res env4 ck count genv.
-       pmatch_exh s p v env = res ∧ res ≠ Match_type_error ⇒
-       evaluate_pat ck
+       pmatch (FST s) p v env = res ∧ res ≠ Match_type_error ⇒
+       evaluate ck
          (compile_v v::env4)
-         (map_count_store_genv compile_v ((count,s),genv))
-         (pat_to_pat p)
-         (map_count_store_genv compile_v ((count,s),genv)
-         ,Rval (Boolv_pat (∃env'. res = Match env')))) ∧
+         (map_csg compile_v ((count,s),genv))
+         (compile_pat p)
+         (map_csg compile_v ((count,s),genv)
+         ,Rval (Boolv (∃env'. res = Match env')))) ∧
     (∀n ps qs vs s env env' res env4 ck count genv.
-       pmatch_list_exh s qs (TAKE n vs) env = Match env' ∧
-       pmatch_list_exh s ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
+       pmatch_list (FST s) qs (TAKE n vs) env = Match env' ∧
+       pmatch_list (FST s) ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
-       evaluate_pat ck
+       evaluate ck
          (compile_vs vs ++ env4)
-         (map_count_store_genv compile_v ((count,s),genv))
-         (pats_to_pat n ps)
-         (map_count_store_genv compile_v ((count,s),genv)
-         ,Rval (Boolv_pat (∃env'. res = Match env'))))``,
-  ho_match_mp_tac pat_to_pat_ind >>
-  rw[pmatch_exh_def,pat_to_pat_def]
-  >- rw[evaluate_pat_Con_nil,Boolv_pat_def]
+         (map_csg compile_v ((count,s),genv))
+         (compile_pats n ps)
+         (map_csg compile_v ((count,s),genv)
+         ,Rval (Boolv (∃env'. res = Match env'))))``,
+  ho_match_mp_tac compile_pat_ind >>
+  rw[exhSemTheory.pmatch_def,compile_pat_def]
+  >- rw[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def]
   >- (
-    (Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[]) >>
+    (Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> rw[]) >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
-    rw[map_count_store_genv_def,do_app_pat_def,EXISTS_PROD] >>
-    rw[do_eq_pat_def] >>
+    rw[decPropsTheory.map_csg_def,patSemTheory.do_app_def,EXISTS_PROD] >>
+    rw[patSemTheory.do_eq_def] >>
     metis_tac[lit_same_type_sym])
   >- (
-    Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> rw[LENGTH_NIL_SYM] >>
+    Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> rw[LENGTH_NIL_SYM] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
@@ -590,23 +597,24 @@ val pat_to_pat_correct = prove(
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
     rw[Once evaluate_pat_cases] >>
-    rw[do_app_pat_def,map_count_store_genv_def] >>
-    rw[do_eq_pat_def] >>
-    simp[pmatch_exh_def])
+    rw[patSemTheory.do_app_def,decPropsTheory.map_csg_def] >>
+    rw[patSemTheory.do_eq_def] >>
+    simp[exhSemTheory.pmatch_def] >>
+    fs[LENGTH_NIL])
   >- (
-    match_mp_tac sIf_pat_correct >>
+    match_mp_tac sIf_correct >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
-    simp[do_app_pat_def,map_count_store_genv_def] >>
-    Cases_on`v`>>fs[pmatch_exh_def]>>pop_assum mp_tac >> reverse(rw[]) >- (
-      simp[PULL_EXISTS,do_if_pat_def,Boolv_pat_disjoint,evaluate_pat_Con_nil] >>
-      rw[Boolv_pat_def]) >>
-    rw[do_if_pat_def] >>
-    fs[map_count_store_genv_def] >>
-    match_mp_tac Let_Els_pat_correct >>
+    fs[LENGTH_NIL_SYM,exhSemTheory.pmatch_def] >>
+    fs[patSemTheory.do_app_def,decPropsTheory.map_csg_def] >>
+    Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>
+    reverse(Cases_on`tag=n`)>>fs[patSemTheory.do_if_def] >- (
+      simp[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def] ) >>
+
+    match_mp_tac Let_Els_correct >>
     simp[LENGTH_NIL,TAKE_LENGTH_ID_rwt] >>
     fs[LENGTH_NIL_SYM,pmatch_exh_def])
   >- (
@@ -1969,11 +1977,11 @@ val ground_pat_Let_Els = store_thm("ground_pat_Let_Els",
   first_x_assum match_mp_tac >>
   fsrw_tac[ARITH_ss][arithmeticTheory.ADD1])
 
-val pat_to_pat_ground = store_thm("pat_to_pat_ground",
-  ``(∀p. ground_pat 1 (pat_to_pat p)) ∧
+val compile_pat_ground = store_thm("compile_pat_ground",
+  ``(∀p. ground_pat 1 (compile_pat p)) ∧
     (∀n ps. ground_pat (n + LENGTH ps) (pats_to_pat n ps))``,
-  ho_match_mp_tac pat_to_pat_ind >>
-  simp[pat_to_pat_def] >>
+  ho_match_mp_tac compile_pat_ind >>
+  simp[compile_pat_def] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     match_mp_tac ground_pat_sIf >>
@@ -2208,8 +2216,8 @@ val compile_exp_shift = store_thm("compile_exp_shift",
     match_mp_tac exp_pat_sIf >>
     simp[Once exp_pat_cases] >>
     conj_tac >- (
-      qspecl_then[`pat_to_pat p`,`1`]mp_tac(CONJUNCT1 ground_exp_pat_refl) >>
-      simp[pat_to_pat_ground,bindn_pat_def] ) >>
+      qspecl_then[`compile_pat p`,`1`]mp_tac(CONJUNCT1 ground_exp_pat_refl) >>
+      simp[compile_pat_ground,bindn_pat_def] ) >>
     `∃r1 n1 f1. row_to_pat (NONE::bvs1) p = (r1,n1,f1)` by simp[GSYM EXISTS_PROD] >>
     `∃r2 n2 f2. row_to_pat (NONE::bvs2) p = (r2,n2,f2)` by simp[GSYM EXISTS_PROD] >>
     qspecl_then[`NONE::bvs1`,`p`]mp_tac(CONJUNCT1 row_to_pat_acc) >> simp[] >>
@@ -2589,7 +2597,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
       CONV_TAC SWAP_EXISTS_CONV >>
       qexists_tac`Boolv_pat T` >>
       simp[do_if_pat_def] >>
-      imp_res_tac(CONJUNCT1 pat_to_pat_correct) >> fs[] >>
+      imp_res_tac(CONJUNCT1 compile_pat_correct) >> fs[] >>
       Q.PAT_ABBREV_TAC`s2 = X:v_pat count_store_genv` >>
       CONV_TAC SWAP_EXISTS_CONV  >>
       qexists_tac`s2` >> simp[Abbr`s2`] >>
@@ -2697,7 +2705,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
     CONV_TAC SWAP_EXISTS_CONV >>
     qexists_tac`(Boolv_pat F)` >>
     simp[do_if_pat_def,Boolv_pat_11] >>
-    imp_res_tac(CONJUNCT1 pat_to_pat_correct) >> fs[] >>
+    imp_res_tac(CONJUNCT1 compile_pat_correct) >> fs[] >>
     Q.PAT_ABBREV_TAC`s2 = X:v_pat count_store_genv` >>
     CONV_TAC SWAP_EXISTS_CONV  >>
     qexists_tac`s2` >> simp[Abbr`s2`] >>
