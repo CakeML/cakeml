@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs pairTheory listTheory
+open preamble rich_listTheory
      closSemTheory
 
 val _ = new_theory"closProps"
@@ -111,5 +111,22 @@ val evaluate_app_const = store_thm("evaluate_app_const",
   REPEAT STRIP_TAC
   \\ MP_TAC (evaluate_const_lemma |> CONJUNCT2 |> Q.SPECL [`x1`,`x2`,`x3`,`x4`])
   \\ fs []);
+
+val evaluate_MAP_Op_Const = store_thm("evaluate_MAP_Op_Const",
+  ``∀f env s ls.
+      evaluate (MAP (λx. Op (Const (f x)) []) ls,env,s) =
+      (Rval (MAP (Number o f) ls),s)``,
+  ntac 3 gen_tac >> Induct >>
+  simp[evaluate_def] >>
+  simp[Once evaluate_CONS] >>
+  simp[evaluate_def,do_app_def])
+
+val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGlobal",
+  ``∀n env s. evaluate (REPLICATE n (Op AllocGlobal []),env,s) =
+              (Rval (GENLIST (K(Number 0)) n),s with globals := s.globals ++ GENLIST (K NONE) n)``,
+  Induct >> simp[evaluate_def,REPLICATE] >- (
+    simp[state_component_equality] ) >>
+  simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
+  simp[state_component_equality])
 
 val _ = export_theory();
