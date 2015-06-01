@@ -1,4 +1,4 @@
-open preamble rich_listTheory semanticPrimitivesTheory astTheory evalPropsTheory
+open preamble semanticPrimitivesTheory astTheory evalPropsTheory
 open terminationTheory
 
 (* TODO: this theory should be moved entirely into evalPropsTheory and/or other

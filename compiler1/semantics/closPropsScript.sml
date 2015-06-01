@@ -1,5 +1,4 @@
-open preamble rich_listTheory
-     closSemTheory
+open preamble closSemTheory
 
 val _ = new_theory"closProps"
 

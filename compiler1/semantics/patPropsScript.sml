@@ -1,4 +1,4 @@
-open preamble miscLib patSemTheory
+open preamble patSemTheory
 
 val _ = new_theory"patProps"
 

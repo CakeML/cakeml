@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib
-     astTheory
+open preamble astTheory
 
 val _ = new_theory "modLang"
 

@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib conLangTheory
+open preamble conLangTheory
 
 val _ = new_theory "exhLang"
 

@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib lcsymtacs bigStepTheory modLangTheory;
+open preamble bigStepTheory modLangTheory;
 
 val _ = new_theory "modSem"
 

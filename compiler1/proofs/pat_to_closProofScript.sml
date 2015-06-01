@@ -1,4 +1,4 @@
-open preamble boolSimps rich_listTheory alistTheory miscTheory integerTheory intLib
+open preamble integerTheory intLib
      semanticPrimitivesTheory
      patSemTheory patPropsTheory
      closSemTheory closPropsTheory

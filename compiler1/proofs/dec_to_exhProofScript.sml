@@ -1,4 +1,4 @@
-open preamble optionTheory rich_listTheory miscTheory boolSimps miscLib
+open preamble
      semanticPrimitivesTheory
      dec_to_exhTheory
      exhSemTheory exhPropsTheory

@@ -1,7 +1,6 @@
-open preamble rich_listTheory alistTheory optionTheory miscLib
+open preamble
      semanticPrimitivesTheory
-     con_to_decTheory
-     conSemTheory conPropsTheory
+     conSemTheory conPropsTheory con_to_decTheory
      decSemTheory decPropsTheory;
 
 val _ = new_theory "con_to_decProof";

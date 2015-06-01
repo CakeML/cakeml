@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs
-     conSemTheory
+open preamble conSemTheory
 
 val _ = new_theory"decSem"
 

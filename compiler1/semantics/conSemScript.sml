@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs
-     bigStepTheory conLangTheory mod_to_conTheory
+open preamble bigStepTheory conLangTheory mod_to_conTheory
 
 val _ = new_theory"conSem"
 

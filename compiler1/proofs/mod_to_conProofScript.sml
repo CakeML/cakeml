@@ -1,4 +1,4 @@
-open preamble miscLib alistTheory optionTheory rich_listTheory miscTheory
+open preamble
      semanticPrimitivesTheory evalPropsTheory sourcePropsTheory
      mod_to_conTheory conPropsTheory;
 

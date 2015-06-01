@@ -1,4 +1,4 @@
-open preamble alistTheory modSemTheory
+open preamble modSemTheory
 local open astTheory evalPropsTheory terminationTheory in end
 
 val _ = new_theory"modProps"

@@ -1,7 +1,6 @@
-open preamble boolSimps alistTheory pairTheory miscTheory miscLib
+open preamble
      semanticPrimitivesTheory evalPropsTheory
-     exhLangTheory
-     exh_to_patTheory
+     exhLangTheory exh_to_patTheory
      patLangTheory patPropsTheory
 
 val _ = new_theory"exh_to_patProof"

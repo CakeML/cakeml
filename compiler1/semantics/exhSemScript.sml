@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib Parse lcsymtacs
-     bigStepTheory exhLangTheory dec_to_exhTheory
+open preamble bigStepTheory exhLangTheory dec_to_exhTheory
 
 val _ = new_theory"exhSem"
 

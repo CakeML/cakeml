@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs conLangTheory
+open preamble conLangTheory
 
 val _ = new_theory"con_to_dec"
 

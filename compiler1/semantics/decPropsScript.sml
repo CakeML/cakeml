@@ -1,5 +1,4 @@
-open preamble optionTheory rich_listTheory
-     decSemTheory;
+open preamble decSemTheory;
 
 val _ = new_theory"decProps"
 

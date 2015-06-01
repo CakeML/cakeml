@@ -1,6 +1,6 @@
-open preamble miscLib alistTheory optionTheory rich_listTheory miscTheory
-     semanticPrimitivesTheory sourcePropsTheory evalPropsTheory modLangTheory modSemTheory modPropsTheory
-     source_to_modTheory
+open preamble
+     semanticPrimitivesTheory sourcePropsTheory evalPropsTheory
+     source_to_modTheory modLangTheory modSemTheory modPropsTheory
 
 val _ = new_theory "source_to_modProof";
 

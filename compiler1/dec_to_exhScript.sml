@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs
-     conLangTheory decLangTheory exhLangTheory
+open preamble conLangTheory decLangTheory exhLangTheory
 
 val _ = numLib.prefer_num()
 

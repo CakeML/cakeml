@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs pairTheory arithmeticTheory
-     closLangTheory conLangTheory pat_to_closTheory
+open preamble closLangTheory conLangTheory pat_to_closTheory
 
 val _ = new_theory"closSem"
 

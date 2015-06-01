@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs listTheory
-     patLangTheory closLangTheory dec_to_exhTheory
+open preamble patLangTheory closLangTheory dec_to_exhTheory
 
 val _ = new_theory"pat_to_clos"
 
