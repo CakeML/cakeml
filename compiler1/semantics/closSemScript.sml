@@ -25,7 +25,6 @@ val _ = Datatype `
      ; io      : io_trace
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
-     ; output  : string
      ; restrict_envs : bool |> `
 
 val max_app_def = Define `
@@ -87,6 +86,9 @@ val v_to_list_def = Define`
 val list_to_v_def = Define`
   (list_to_v [] = Block (nil_tag+pat_tag_shift) []) ∧
   (list_to_v (h::t) = Block (cons_tag+pat_tag_shift) [h;list_to_v t])`
+
+val Unit_def = Define`
+  Unit = Block (tuple_tag+pat_tag_shift) []`
 
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) (s:closSem$state) =
@@ -195,9 +197,17 @@ val do_app_def = Define `
          SOME (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
          SOME (Boolv (n1 >= n2),s)
-    | (PrintC c, []) =>
-          SOME (Number 0, s with output := s.output ++ [c])
-    | _ => NONE`
+    | (FFI n, [RefPtr ptr]) =>
+        (case FLOOKUP s.refs ptr of
+         | SOME (ByteArray ws) =>
+           (case call_FFI n ws s.io of
+            | SOME (ws',t') =>
+                SOME (Unit,
+                      s with <| refs := s.refs |+ (ptr,ByteArray ws')
+                              ; io   := t'|>)
+            | _ => NONE)
+         | _ => NONE)
+    | _ => NONE`;
 
 val dec_clock_def = Define `
   dec_clock n (s:closSem$state) = s with clock := s.clock - n`;

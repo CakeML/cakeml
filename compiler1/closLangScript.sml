@@ -26,7 +26,7 @@ val _ = Datatype `
      | Deref         (* loads a value from a reference *)
      | Update        (* updates a reference *)
      | Label num     (* constructs a CodePtr *)
-     | PrintC char   (* prints a character *)
+     | FFI num       (* calls the FFI *)
      | Equal         (* structural equality *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
