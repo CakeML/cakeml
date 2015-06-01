@@ -88,15 +88,45 @@ val calls_op_def = Define `
      | _ => (Other,g)) /\
   (calls_op op as g = (Other,g))`
 
+val is_pure_op_def = Define `
+  (is_pure_op Add = T) /\
+  (is_pure_op Sub = T) /\
+  (is_pure_op Mult = T) /\
+  (is_pure_op Div = T) /\
+  (is_pure_op Mod = T) /\
+  (is_pure_op (Const _) = T) /\
+  (is_pure_op El = T) /\
+  (is_pure_op _ = F)` (* not complete *)
+
+val clos_exp3_size_lemma = prove(
+  ``!xs a. MEM a xs ==> clos_exp_size a < clos_exp3_size xs``,
+  Induct \\ fs []
+  \\ SRW_TAC [] [clos_exp_size_def] \\ RES_TAC \\ DECIDE_TAC);
+
+val is_pure_def = tDefine "is_pure" `
+  (is_pure (Var v) = T) /\
+  (is_pure (Op op xs) <=> is_pure_op op /\ EVERY is_pure xs) /\
+  (is_pure (Fn _ _ _ _) <=> T) /\
+  (is_pure (Letrec _ _ _ x) <=> is_pure x) /\
+  (is_pure (If x1 x2 x3) <=> is_pure x1 /\ is_pure x2 /\ is_pure x3) /\
+  (is_pure (Let xs x) <=> EVERY is_pure xs /\ is_pure x) /\
+  (is_pure _ = F)`
+ (WF_REL_TAC `measure (clos_exp_size)`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC clos_exp3_size_lemma \\ DECIDE_TAC);
+
+val Seq_def = Define `
+  Seq e1 e2 =
+    if is_pure e1 then e2 else Let [e1;e2] (Var 1)`;
+
 val calls_app_def = Define `
   calls_app loc arity e1 extras xs =
     if LENGTH xs < arity then
       App NONE e1 xs
     else if LENGTH xs = arity then
-      Call loc (xs ++ MAP Var extras)
+      Seq e1 (Call loc (xs ++ MAP (\i. Var (i + arity)) extras))
     else
-      App NONE (Call loc (TAKE arity xs ++ MAP Var extras))
-        (DROP arity xs)`
+      Seq e1 (App NONE (Call loc (TAKE arity xs ++ MAP Var extras))
+        (DROP arity xs))`
 
 val adjust_all_def = Define `
   (adjust_all k [] = []) /\
@@ -111,14 +141,20 @@ val list_max_def = Define `
      let m = list_max xs in
        if m < x then x else m)`
 
+val index_of_def = Define `
+  (index_of i [] = 0) /\
+  (index_of i (x::xs) = if i = x then 0 else 1 + index_of i xs)`;
+
 (* This function avoids substitution in the body, instead it sets up a
    big Let that makes the new environemnt contain that equivalence
    original env as a prefix. *)
 val calls_body_def = Define `
-  calls_body num_args (fs:num list) body =
-    let m = list_max fs in
+  calls_body num_args (fs1:num list) body =
+    let m = list_max fs1 + 1 in
       Let (GENLIST Var num_args ++
-           GENLIST (\i. if MEM i fs then Var (i + num_args) else Op (Const 0) []) m)
+           GENLIST (\i. if MEM i fs1
+                        then Var (num_args + index_of i fs1)
+                        else Op (Const 0) []) m)
         body`
 
 val calls_def = tDefine "calls" `
@@ -175,10 +211,11 @@ val calls_def = tDefine "calls" `
   (calls [Fn loc ws num_args x1] vs g =
      let (e1,c1,g) = calls [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
-     let fs = get_free_vars [Fn loc ws num_args body] in
+     let fs1 = get_free_vars [Fn loc ws num_args body] in
+     let fs = MAP (\i. i + num_args) fs1 in
      let call = Call loc (GENLIST Var num_args ++ MAP Var fs) in
-       ([(Fn loc [] num_args call,Clos loc num_args [])],
-        (loc,num_args + LENGTH fs, calls_body num_args fs body)::c1,g)) /\
+       ([(Fn loc [] num_args call,Clos loc num_args fs)],
+        (loc,num_args + LENGTH fs, calls_body num_args fs1 body)::c1,g)) /\
   (calls [Letrec loc _ fns x1] vs g = ARB)`
  (WF_REL_TAC `measure (clos_exp3_size o FST)`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC clos_exp1_size_lemma \\ DECIDE_TAC);
@@ -192,12 +229,52 @@ val cCallIntro_def = Define `
       (MAP FST es,code)`
 
 
+(* --- tests --- *)
+
+(*
+  val g = fn [y; z] => let
+            val f = fn x => x + (y - z)
+            in f 5 end
+*)
+
+  val f = ``Fn 500 [] 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
+  val g = ``Fn 400 [] 2 (Let [^f] (App NONE (Var 0) [Op (Const 5) []]))``
+  val ev = EVAL ``cCallIntro [^f]``
+  val ev = EVAL ``cCallIntro [^g]``
+
+(*
+  val g = fn [y; z] => (fn x => x + (y - z)) 5
+*)
+
+  val f = ``Fn 500 [] 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
+  val g = ``Fn 400 [] 2 ((App NONE (^f) [Op (Const 5) []]))``
+  val ev = EVAL ``cCallIntro [^f]``
+
+(*
+  let val xy =
+        let val f = fn k => k + 1
+            val g = fn k => k - 1
+            in (f,g) end
+  in #1 xy 4 end
+  -->
+  let val xy = ...
+  in call_f 4 end
+*)
+
+  val f = ``Fn 800 [] 1 (Op Add [Var 0; Op (Const 1) []])``
+  val g = ``Fn 900 [] 1 (Op Sub [Var 0; Op (Const 1) []])``
+  val xy = ``Let [^f;^g] (Op (Cons 0) [Var 0; Var 1])``
+  val app = ``Let [^xy] (App NONE (Op El [Var 0; Op (Const 0) []]) [Op (Const 4) []])``
+  val ev = EVAL ``cCallIntro [^app]``
+
+
+
+
 
 (*
 
 TODO:
  - implement Letrec
- - write examples to see if it works as expected
  - separate locs at the end of cCallIntro
 
 Intended use:
