@@ -70,6 +70,10 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
 (res_rel TimeOut TimeOut)`;
 *)
 
+val check_clocks_def = Define `
+check_clocks i s1 s2 ⇔
+  s1.clock = i ∧ i ≤ s2.clock`;
+
 val val_rel_def = tDefine "val_rel" `
 (val_rel (i:num) (Number n) (Number n') ⇔ n = n') ∧
 (val_rel i (Block n' vs) (Block n vs') ⇔ n = n' ∧ LIST_REL (val_rel i) vs vs') ∧
@@ -78,15 +82,12 @@ val val_rel_def = tDefine "val_rel" `
   if is_closure v ∧ is_closure v' then
     !i'.
       if i' < i then
-        (!vs vs' s s' r r' s1 s1'.
+        (!vs vs' s s'.
           LIST_REL (val_rel i') vs vs' ∧
           state_rel i' s s' ∧
-          cEvalApp NONE v vs s = (r,s1) ∧
-          cEvalApp NONE v' vs' s' = (r',s1') ∧
-          r ≠ Error
+          check_clocks i' s s'
           ⇒ 
-          res_rel i' r r' ∧
-          state_rel i' s1 s1') 
+          res_rel i' (cEvalApp NONE v vs s) (cEvalApp NONE v' vs' s'))
       else
         T
   else 
@@ -97,20 +98,36 @@ val val_rel_def = tDefine "val_rel" `
 (state_rel i s s' ⇔
   LIST_REL (OPTION_REL (val_rel i)) s.globals s'.globals ∧
   fmap_rel (ref_v_rel i) s.refs s'.refs ∧
-  s.clock = s'.clock ∧
-  s.code = s'.code ∧
+  fmap_rel (λ(n,e) (n',e'). n = n' ∧ code_rel i [e] [e']) s.code s'.code ∧
   s.output = s'.output ∧
   s.restrict_envs = s'.restrict_envs) ∧
-(res_rel i (Result vs) (Result vs') ⇔ LIST_REL (val_rel i) vs vs') ∧
-(res_rel i (Exception v) (Exception v') ⇔ val_rel i v v') ∧
-(res_rel i TimeOut TimeOut ⇔ T) ∧
-(res_rel i _ _ ⇔ F)`
+(res_rel i (Result vs, s) (Result vs', s') ⇔ 
+  LIST_REL (val_rel i) vs vs' ∧
+  state_rel i s s') ∧
+(res_rel i (Exception v, s) (Exception v', s') ⇔ 
+  val_rel i v v' ∧
+  state_rel i s s') ∧
+(res_rel i (TimeOut, s) (TimeOut, s') ⇔
+  state_rel i s s' ∧
+  s.clock = s'.clock) ∧
+(res_rel i (Error, s) _ ⇔ T) ∧
+(res_rel i _ _ ⇔ F) ∧
+(code_rel i es es' ⇔
+  !env env' s s' i'.
+    i' < i 
+    ⇒
+    LIST_REL (val_rel i') env env' ∧
+    state_rel i' s s' ∧
+    check_clocks i' s s'
+    ⇒
+    res_rel i' (cEval (es,env,s)) (cEval (es',env',s')))`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<) 
              (\x. case x of 
                      | INL (i,v,v') => (i:num,0:num,clos_val_size v) 
                      | INR (INL (i,r,r')) => (i,1,0)
-                     | INR (INR (INL (i,s,s'))) => (i,2,0)
-                     | INR (INR (INR (i,res,res'))) => (i,1,0))` >>
+                     | INR (INR (INL (i,s,s'))) => (i,3,0)
+                     | INR (INR (INR (INL (i,res,res')))) => (i,4,0)
+                     | INR (INR (INR (INR (i,es,es')))) => (i,2,0))` >>
  rw [] >>
  Induct_on `vs` >>
  rw [] >>
@@ -120,44 +137,69 @@ val val_rel_def = tDefine "val_rel" `
 val val_rel_ind = fetch "-" "val_rel_ind";
 
 val exp_rel_def = Define `
-exp_rel es es' ⇔
-  !env env' s s' r r' s1 s1' i.
-    LIST_REL (val_rel i) env env' ∧
-    state_rel i s s' ∧
-    cEval (es,env,s) = (r,s1) ∧
-    cEval (es',env',s') = (r',s1') ∧
-    r ≠ Error
-    ⇒
-    res_rel i r r' ∧ state_rel i s1 s1'`;
+exp_rel es es' ⇔ !i. code_rel i es es'`;
 
 val val_rel_mono = Q.prove (
 `(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
  (!i r r'. ref_v_rel i r r' ⇒ ∀i'. i' ≤ i ⇒ ref_v_rel i' r r') ∧
  (!i s s'. state_rel i s s' ⇒ ∀i'. i' ≤ i ⇒ state_rel i' s s') ∧
- (!i res res'. res_rel i res res' ⇒ ∀i'. i' ≤ i ⇒ res_rel i' res res')`,
+ (!i res res'. res_rel i res res' ⇒ ∀i'. i' ≤ i ⇒ res_rel i' res res') ∧
+ (!i es es'. code_rel i es es' ⇒ ∀i'. i' ≤ i ⇒ code_rel i' es es')`,
  ho_match_mp_tac val_rel_ind >>
  rw [] >>
- fs [Once val_rel_def, is_closure_def] 
- >- (rw [val_rel_def] >>
+ TRY (fs [Once val_rel_def, is_closure_def]  >> NO_TAC)
+ >- (fs [val_rel_def, LIST_REL_EL_EQN] >>
+     metis_tac [EL_MEM])
+ >- (fs [Once val_rel_def] >>
+     Cases_on `v'` >>
+     fs [is_closure_def] >>
+     rw [Once val_rel_def, is_closure_def] >>
+     `i'' < i` by decide_tac >>
+     fs [] >>
+     metis_tac [])
+ >- (fs [Once val_rel_def] >>
+     Cases_on `v'` >>
+     fs [is_closure_def] >>
+     rw [Once val_rel_def, is_closure_def] >>
+     `i'' < i` by decide_tac >>
+     fs [] >>
+     metis_tac [])
+ >- (fs [Once val_rel_def, LIST_REL_EL_EQN] >>
+     metis_tac [EL_MEM])
+ >- (qpat_assum `state_rel i x y` mp_tac >>
+     simp [Once val_rel_def] >>
+     rw [] >>
+     simp [Once val_rel_def] >>
+     fs [LIST_REL_EL_EQN, fmap_rel_def] >>
+     rw []
+     >- cheat
+     >- (Cases_on `s'.code ' x` >>
+         Cases_on `s.code ' x` >>
+         rw [] >>
+         res_tac >>
+         pop_assum mp_tac >>
+         ASM_REWRITE_TAC [] >>
+         simp []))
+ >- (qpat_assum `res_rel i x y` mp_tac >>
+     simp [Once val_rel_def] >>
+     rw [] >>
+     simp [Once val_rel_def] >>
      fs [LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
- >- (Cases_on `v'` >>
-     fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
-     `i'' < i` by decide_tac >>
-     fs [] >>
-     metis_tac [])
- >- (Cases_on `v'` >>
-     fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
-     `i'' < i` by decide_tac >>
-     fs [] >>
-     metis_tac [])
- >- (fs [LIST_REL_EL_EQN] >>
+ >- (qpat_assum `res_rel i x y` mp_tac >>
+     simp [Once val_rel_def] >>
+     rw [] >>
+     simp [Once val_rel_def] >>
+     fs [LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
- >- cheat
- >- (fs [LIST_REL_EL_EQN] >>
-     metis_tac [EL_MEM]));
+ >- (qpat_assum `res_rel i x y` mp_tac >>
+     simp [Once val_rel_def] >>
+     rw [] >>
+     simp [Once val_rel_def])
+ >- (qpat_assum `code_rel i x y` mp_tac >>
+     simp [Once val_rel_def] >>
+     rw [] >>
+     simp [Once val_rel_def]));
 
 val exp_rel_empty = Q.prove (
 `exp_rel [] []`,
