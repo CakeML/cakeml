@@ -90,124 +90,126 @@ val list_to_v_def = Define`
 val Unit_def = Define`
   Unit = Block (tuple_tag+pat_tag_shift) []`
 
+val _ = Parse.temp_overload_on("Error",``Rerr(Rabort Rtype_error)``)
+
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) (s:closSem$state) =
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
-         | SOME (SOME v) => SOME (v,s)
-         | _ => NONE)
+         | SOME (SOME v) => Rval (v,s)
+         | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of
-         | SOME NONE => SOME (Number 0,
+         | SOME NONE => Rval (Unit,
              s with globals := (LUPDATE (SOME v) n s.globals))
-         | _ => NONE)
+         | _ => Error)
     | (AllocGlobal,[]) =>
-        SOME (Unit, s with globals := s.globals ++ [NONE])
-    | (Const i,[]) => SOME (Number i, s)
-    | (Cons tag,xs) => SOME (Block tag xs, s)
+        Rval (Unit, s with globals := s.globals ++ [NONE])
+    | (Const i,[]) => Rval (Number i, s)
+    | (Cons tag,xs) => Rval (Block tag xs, s)
     | (El,[Block tag xs;Number i]) =>
-        if 0 ≤ i ∧ Num i < LENGTH xs then SOME (EL (Num i) xs, s) else NONE
+        if 0 ≤ i ∧ Num i < LENGTH xs then Rval (EL (Num i) xs, s) else Error
     | (LengthBlock,[Block tag xs]) =>
-        SOME (Number (&LENGTH xs), s)
+        Rval (Number (&LENGTH xs), s)
     | (Length,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ValueArray xs) =>
-              SOME (Number (&LENGTH xs), s)
-          | _ => NONE)
+              Rval (Number (&LENGTH xs), s)
+          | _ => Error)
     | (LengthByte,[RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
           | SOME (ByteArray xs) =>
-              SOME (Number (&LENGTH xs), s)
-          | _ => NONE)
+              Rval (Number (&LENGTH xs), s)
+          | _ => Error)
     | (RefByte,[Number i;Number b]) =>
          if 0 ≤ i ∧ 0 ≤ b ∧ b < 256 then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-             SOME (RefPtr ptr, s with refs := s.refs |+
+             Rval (RefPtr ptr, s with refs := s.refs |+
                (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
-         else NONE
+         else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
           let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
-            SOME (RefPtr ptr, s with refs := s.refs |+
+            Rval (RefPtr ptr, s with refs := s.refs |+
               (ptr,ValueArray (REPLICATE (Num i) v)))
-         else NONE
+         else Error
     | (DerefByte,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
-             then SOME (Number (&(w2n (EL (Num i) ws))),s)
-             else NONE)
-         | _ => NONE)
+             then Rval (Number (&(w2n (EL (Num i) ws))),s)
+             else Error)
+         | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ 0 ≤ b ∧ b < 256
              then
-               (SOME (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs))))
-             else NONE)
-         | _ => NONE)
+               Rval (Unit, s with refs := s.refs |+
+                 (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs)))
+             else Error)
+         | _ => Error)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
-         | SOME vs => SOME (Block n vs, s)
-         | _ => NONE)
+         | SOME vs => Rval (Block n vs, s)
+         | _ => Error)
     | (ToList,[Block tag xs]) =>
-        SOME (list_to_v xs, s)
+        Rval (list_to_v xs, s)
     | (TagEq n l,[Block tag xs]) =>
-        SOME (Boolv (tag = n ∧ LENGTH xs = l),s)
+        Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
-         | Eq_val b => SOME (Boolv b, s)
-         | Eq_closure => SOME (Number 0, s)
-         | _ => NONE)
-    | (IsBlock,[Number i]) => SOME (Boolv F, s)
-    | (IsBlock,[RefPtr ptr]) => SOME (Boolv F, s)
-    | (IsBlock,[Block tag ys]) => SOME (Boolv T, s)
+         | Eq_val b => Rval (Boolv b, s)
+         | Eq_closure => Rval (Number 0, s)
+         | _ => Error)
+    | (IsBlock,[Number i]) => Rval (Boolv F, s)
+    | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
+    | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
-          SOME (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
+          Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
     | (Deref,[RefPtr ptr; Number i]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then SOME (EL (Num i) xs, s)
-             else NONE)
-         | _ => NONE)
+             then Rval (EL (Num i) xs, s)
+             else Error)
+         | _ => Error)
     | (Update,[RefPtr ptr; Number i; x]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then SOME (Unit, s with refs := s.refs |+
+             then Rval (Unit, s with refs := s.refs |+
                               (ptr,ValueArray (LUPDATE x (Num i) xs)))
-             else NONE)
-         | _ => NONE)
-    | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)
-    | (Sub,[Number n1; Number n2]) => SOME (Number (n1 - n2),s)
-    | (Mult,[Number n1; Number n2]) => SOME (Number (n1 * n2),s)
+             else Error)
+         | _ => Error)
+    | (Add,[Number n1; Number n2]) => Rval (Number (n1 + n2),s)
+    | (Sub,[Number n1; Number n2]) => Rval (Number (n1 - n2),s)
+    | (Mult,[Number n1; Number n2]) => Rval (Number (n1 * n2),s)
     | (Div,[Number n1; Number n2]) =>
-         if n2 = 0 then NONE else SOME (Number (n1 / n2),s)
+         if n2 = 0 then Error else Rval (Number (n1 / n2),s)
     | (Mod,[Number n1; Number n2]) =>
-         if n2 = 0 then NONE else SOME (Number (n1 % n2),s)
+         if n2 = 0 then Error else Rval (Number (n1 % n2),s)
     | (Less,[Number n1; Number n2]) =>
-         SOME (Boolv (n1 < n2),s)
+         Rval (Boolv (n1 < n2),s)
     | (LessEq,[Number n1; Number n2]) =>
-         SOME (Boolv (n1 <= n2),s)
+         Rval (Boolv (n1 <= n2),s)
     | (Greater,[Number n1; Number n2]) =>
-         SOME (Boolv (n1 > n2),s)
+         Rval (Boolv (n1 > n2),s)
     | (GreaterEq,[Number n1; Number n2]) =>
-         SOME (Boolv (n1 >= n2),s)
+         Rval (Boolv (n1 >= n2),s)
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI n ws s.io of
             | SOME (ws',t') =>
-                SOME (Unit,
+                Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
                               ; io   := t'|>)
-            | _ => NONE)
-         | _ => NONE)
-    | _ => NONE`;
+            | _ => Rerr(Rabort Rffi_error))
+         | _ => Error)
+    | _ => Error`;
 
 val dec_clock_def = Define `
   dec_clock n (s:closSem$state) = s with clock := s.clock - n`;
@@ -353,8 +355,8 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate ([Op op xs],env,s) =
      case evaluate (xs,env,s) of
      | (Rval vs,s) => (case do_app op (REVERSE vs) s of
-                          | NONE => (Rerr(Rabort Rtype_error),s)
-                          | SOME (v,s) => (Rval [v],s))
+                          | Rerr err => (Rerr err,s)
+                          | Rval (v,s) => (Rval [v],s))
      | res => res) /\
   (evaluate ([Fn loc vs num_args exp],env,s) =
      if num_args ≤ max_app ∧ num_args ≠ 0 then
@@ -427,7 +429,7 @@ val check_clock_IMP = prove(
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val do_app_const = store_thm("do_app_const",
-  ``(do_app op args s1 = SOME (res,s2)) ==>
+  ``(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
     (s2.code = s1.code) /\
     (s2.restrict_envs = s1.restrict_envs)``,
