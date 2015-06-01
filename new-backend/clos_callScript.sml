@@ -75,8 +75,11 @@ val calls_op_def = Define `
      | SOME x => (make_context_free x,g)) /\
   (calls_op (SetGlobal n) as g =
      case as of
-     | (a::xs) => (Other,insert n a g)
-     | _ => (Other,g)) /\
+     | [] => (Other,g)
+     | (a::xs) =>
+       case lookup n g of
+       | NONE => (Other,insert n a g)
+       | SOME other => (Other,insert n Other g)) /\
   (calls_op (Cons _) as g = (Tuple as,g)) /\
   (calls_op (Const i) as g = (Int i,g)) /\
   (calls_op El as g =
@@ -96,6 +99,7 @@ val is_pure_op_def = Define `
   (is_pure_op Mod = T) /\
   (is_pure_op (Const _) = T) /\
   (is_pure_op El = T) /\
+  (is_pure_op (Global _) = T) /\
   (is_pure_op _ = F)` (* not complete *)
 
 val clos_exp3_size_lemma = prove(
@@ -150,7 +154,7 @@ val index_of_def = Define `
    original env as a prefix. *)
 val calls_body_def = Define `
   calls_body num_args (fs1:num list) body =
-    let m = list_max fs1 + 1 in
+    let m = list_max (MAP (\i. i + 1) fs1) in
       Let (GENLIST Var num_args ++
            GENLIST (\i. if MEM i fs1
                         then Var (num_args + index_of i fs1)
@@ -209,7 +213,7 @@ val calls_def = tDefine "calls" `
        | SOME (loc,arity,extras) =>
            ([(calls_app loc arity e1 extras (MAP FST e2),Other)],c1++c2,g)) /\
   (calls [Fn loc ws num_args x1] vs g =
-     let (e1,c1,g) = calls [x1] (REPLICATE num_args Other ++ vs) g in
+     let (e1,c1,g1) = calls [x1] (REPLICATE num_args Other ++ vs) g in
      let (body,a1) = HD e1 in
      let fs1 = get_free_vars [Fn loc ws num_args body] in
      let fs = MAP (\i. i + num_args) fs1 in
@@ -267,8 +271,20 @@ val cCallIntro_def = Define `
   val app = ``Let [^xy] (App NONE (Op El [Var 0; Op (Const 0) []]) [Op (Const 4) []])``
   val ev = EVAL ``cCallIntro [^app]``
 
+(*
+  let
+    val f = fn k => (get_global 60) (k + 1)
+    val g = set_global 60 f
+  in f 4 end
+  -->
+  call-table implementation of f does not use globals
+  `f 4` is optimised to a simple call
+*)
 
-
+  val f = ``Fn 900 [] 1 (App NONE (Op (Global 60) []) [Op Add [Var 0; Op (Const 1) []]])``
+  val g = ``Op (SetGlobal 60) [Var 0]``
+  val exp = ``Let [^f] (Let [^g] (App NONE (Var 1) [Op (Const 4) []]))``
+  val ev = EVAL ``cCallIntro [^exp]``
 
 
 (*
