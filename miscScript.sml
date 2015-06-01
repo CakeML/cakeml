@@ -15,6 +15,18 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val ALOOKUP_SNOC = store_thm("ALOOKUP_SNOC",
+  ``∀ls p k. ALOOKUP (SNOC p ls) k =
+      case ALOOKUP ls k of SOME v => SOME v |
+        NONE => if k = FST p then SOME (SND p) else NONE``,
+  Induct >> simp[] >>
+  Cases >> simp[] >> rw[])
+
+val ALOOKUP_GENLIST = store_thm("ALOOKUP_GENLIST",
+  ``∀f n k. ALOOKUP (GENLIST (λi. (i,f i)) n) k = if k < n then SOME (f k) else NONE``,
+  gen_tac >> Induct >> simp[GENLIST] >> rw[] >> fs[ALOOKUP_SNOC] >>
+  rw[] >> fsrw_tac[ARITH_ss][])
+
 val anub_def = Define`
   (anub [] acc = []) ∧
   (anub ((k,v)::ls) acc =
