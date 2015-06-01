@@ -3,6 +3,8 @@ open preamble rich_listTheory
 
 val _ = new_theory"closProps"
 
+val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
+
 val evaluate_LENGTH_ind =
   evaluate_ind
   |> Q.SPEC `\(xs,s,env).
