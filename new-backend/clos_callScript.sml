@@ -161,6 +161,13 @@ val calls_body_def = Define `
                         else Op (Const 0) []) m)
         body`
 
+val EL_MEM_LEMMA = prove(
+  ``!xs i x. i < LENGTH xs /\ (x = EL i xs) ==> MEM x xs``,
+  Induct \\ fs [] \\ REPEAT STRIP_TAC \\ Cases_on `i` \\ fs []);
+
+val list_inter_def = Define `
+  list_inter xs ys = FILTER (\y. MEM y xs) ys`;
+
 val calls_def = tDefine "calls" `
   (calls [] vs (g:val_approx spt) = ([],[],g)) /\
   (calls ((x:clos_exp)::y::xs) vs g =
@@ -220,9 +227,54 @@ val calls_def = tDefine "calls" `
      let call = Call loc (GENLIST Var num_args ++ MAP Var fs) in
        ([(Fn loc [] num_args call,Clos loc num_args fs)],
         (loc,num_args + LENGTH fs, calls_body num_args fs1 body)::c1,g)) /\
-  (calls [Letrec loc _ fns x1] vs g = ARB)`
+  (calls [Letrec loc _ fns x1] vs g =
+     (* compute free variables (fs1), note: closure itself might be free
+        after call-intro if its isn't fully applied at rec calls *)
+     let fake_vs = GENLIST (\i. Clos (loc + i) (FST (EL i fns)) []) (LENGTH fns) in
+     let res = MAP (\(num_args,x).
+                       let new_vs = REPLICATE num_args Other ++ fake_vs ++ vs in
+                       let res = calls [x] new_vs g in
+                         (Fn 0 [] num_args (FST (HD (FST res))))) fns in
+     let fs1 = get_free_vars res in
+       (* If some of the mutually recursive closures were not fully
+          applied within the body, then don't perform call-intro.
+          Reason: the proofs are complicated and the
+          call-intro-generated code is only sometimes better than the
+          original. Example:
+            fun tree_map f (Tree x xs) = Tree (f x) (map (tree_map f) xs)
+          where call-intro makes the code slightly worse. *)
+       if LENGTH (list_inter (GENLIST I (LENGTH fns)) fs1) <> 0 then
+         let new_vs = MAP (K Other) fns in (* <--- could be more precise *)
+         let (e1,xs,g) = calls [x1] (new_vs++vs) g in
+         let (e1,a1) = HD e1 in
+           ([(Letrec loc [] fns e1,a1)],xs,g)
+       else
+         let fns1 = GENLIST
+             (\i. if LENGTH fns <= i then (Var 0) else
+                    let (num_args,x) = EL i fns in
+                    let fs = MAP (\i. i + num_args) fs1 in
+                    let call = Call (loc+i) (GENLIST Var num_args ++ MAP Var fs) in
+                      (Fn (loc+i:num) [] num_args call)) (LENGTH fns) in
+         let new_vs = GENLIST (\i. Clos (loc + i) (FST (EL i fns)) fs1)
+                        (LENGTH fns) in
+         let new_code = GENLIST
+             (\i. if LENGTH fns <= i then (0,0,Var 0) else
+                    let (num_args,x) = EL i fns in
+                    let fs = MAP (\i. i + num_args) fs1 in
+                    let new_vs = REPLICATE num_args Other ++ new_vs ++ vs in
+                    let res = calls [x] new_vs g in
+                    let body = FST (HD (FST res)) in
+                      (loc + i, num_args + LENGTH fs1,
+                       calls_body num_args fs1 body)) (LENGTH fns) in
+         let (e1,xs,g) = calls [x1] (new_vs++vs) g in
+         let (e1,a1) = HD e1 in
+           ([(Let fns1 e1,a1)],new_code++xs,g))`
  (WF_REL_TAC `measure (clos_exp3_size o FST)`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC clos_exp1_size_lemma \\ DECIDE_TAC);
+  \\ REPEAT STRIP_TAC
+  \\ fs [GSYM NOT_LESS]
+  \\ IMP_RES_TAC EL_MEM_LEMMA
+  \\ IMP_RES_TAC clos_exp1_size_lemma
+  \\ DECIDE_TAC);
 
 (* The first run of calls is just there to figure out what is assigned
    to the globals. *)
@@ -286,12 +338,29 @@ val cCallIntro_def = Define `
   val exp = ``Let [^f] (Let [^g] (App NONE (Var 1) [Op (Const 4) []]))``
   val ev = EVAL ``cCallIntro [^exp]``
 
+(*
+  let fun f x = f x in f end
+*)
+
+  val f = ``Letrec 200 [] [(1,App NONE (Var 1) [Var 0])] (Var 0)``
+  val ev = EVAL ``cCallIntro [^f]``
+
+(*
+  fn [t;q] => let fun f x y = f (x - t) (y - q) in f end
+*)
+
+  val f = ``Letrec 200 [] [(2,App NONE (Var 2)
+              [Op Sub [Var 0; Var 3]; Op Sub [Var 1; Var 4]])]
+                (Var 0)``
+  val exp = ``Fn 100 [] 2 ^f``
+  val ev = EVAL ``cCallIntro [^exp]``
+
 
 (*
 
 TODO:
- - implement Letrec
  - separate locs at the end of cCallIntro
+ - implement cDeadElim (and cVarSimp)
 
 Intended use:
   intro_multi --> cCallIntro --> cDeadElim --> cAnnotate --> cDeadElim --> cComp
