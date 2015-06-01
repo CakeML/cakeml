@@ -103,7 +103,7 @@ val do_app_def = Define `
              s with globals := (LUPDATE (SOME v) n s.globals))
          | _ => NONE)
     | (AllocGlobal,[]) =>
-        SOME (Number 0, s with globals := s.globals ++ [NONE])
+        SOME (Unit, s with globals := s.globals ++ [NONE])
     | (Const i,[]) => SOME (Number i, s)
     | (Cons tag,xs) => SOME (Block tag xs, s)
     | (El,[Block tag xs;Number i]) =>
@@ -144,7 +144,7 @@ val do_app_def = Define `
          | SOME (ByteArray bs) =>
             (if 0 ≤ i ∧ i < &LENGTH bs ∧ 0 ≤ b ∧ b < 256
              then
-               (SOME (Number b, s with refs := s.refs |+
+               (SOME (Unit, s with refs := s.refs |+
                  (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs))))
              else NONE)
          | _ => NONE)
@@ -178,8 +178,8 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ValueArray xs) =>
             (if 0 <= i /\ i < & (LENGTH xs)
-             then SOME (x, s with refs := s.refs |+
-                    (ptr,ValueArray (LUPDATE x (Num i) xs)))
+             then SOME (Unit, s with refs := s.refs |+
+                              (ptr,ValueArray (LUPDATE x (Num i) xs)))
              else NONE)
          | _ => NONE)
     | (Add,[Number n1; Number n2]) => SOME (Number (n1 + n2),s)

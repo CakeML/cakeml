@@ -6,8 +6,8 @@ val _ = new_theory "closLang";
 
 val _ = Datatype `
   op = Global num    (* load global var with index *)
-     | AllocGlobal   (* make space for a new global *)
      | SetGlobal num (* assign a value to a global *)
+     | AllocGlobal   (* make space for a new global *)
      | Cons num      (* construct a Block with given tag *)
      | El            (* read Block field index *)
      | LengthBlock   (* get length of Block *)
@@ -19,7 +19,6 @@ val _ = Datatype `
      | UpdateByte    (* updates a byte array *)
      | FromList num  (* convert list to packed Block *)
      | ToList        (* convert packed Block to list *)
-     | Const int     (* integer *)
      | TagEq num num (* check Block's tag and length *)
      | IsBlock       (* is it a Block value? *)
      | Ref           (* makes a reference *)
@@ -28,6 +27,7 @@ val _ = Datatype `
      | Label num     (* constructs a CodePtr *)
      | FFI num       (* calls the FFI *)
      | Equal         (* structural equality *)
+     | Const int     (* integer *)
      | Add           (* + over the integers *)
      | Sub           (* - over the integers *)
      | Mult          (* * over the integers *)

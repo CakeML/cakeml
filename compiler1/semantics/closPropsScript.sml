@@ -125,7 +125,7 @@ val evaluate_MAP_Op_Const = store_thm("evaluate_MAP_Op_Const",
 
 val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGlobal",
   ``∀n env s. evaluate (REPLICATE n (Op AllocGlobal []),env,s) =
-              (Rval (GENLIST (K(Number 0)) n),s with globals := s.globals ++ GENLIST (K NONE) n)``,
+              (Rval (GENLIST (K Unit) n),s with globals := s.globals ++ GENLIST (K NONE) n)``,
   Induct >> simp[evaluate_def,REPLICATE] >- (
     simp[state_component_equality] ) >>
   simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
