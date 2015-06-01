@@ -22,6 +22,7 @@ val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
      ; refs    : num |-> closSem$v ref
+     ; io      : io_trace
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
      ; output  : string
