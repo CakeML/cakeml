@@ -37,8 +37,7 @@ val compile_csg_def = Define`
        io := t;
        clock := c;
        code := FEMPTY;
-       output := "";
-       restrict_envs := F |>`
+       restrict_envs := F |>`;
 
 (* semantic functions respect translation *)
 
@@ -73,7 +72,7 @@ val list_to_v = store_thm("list_to_v",
          compile_v (char_list_to_v ls)``,
   Induct >> simp[list_to_v_def,char_list_to_v_def])
 
-val v_to_list_def = closSemTheory.v_to_list_def
+val v_to_list_def = closSemTheory.v_to_list_def;
 
 val v_to_char_list = store_thm("v_to_char_list",
   ``∀v ls. (v_to_char_list v = SOME ls) ⇒
@@ -108,7 +107,7 @@ val compile_csg_restrict_envs = prove(
   ``~(compile_csg s).restrict_envs``,
   PairCases_on `s` \\ fs [compile_csg_def]);
 
-val true_neq_false = EVAL``true_tag = false_tag`` |> EQF_ELIM
+val true_neq_false = EVAL``true_tag = false_tag`` |> EQF_ELIM;
 
 val arw = srw_tac[ARITH_ss]
 
@@ -118,16 +117,15 @@ val build_rec_env_pat_def = patSemTheory.build_rec_env_def
 val do_opapp_pat_def = patSemTheory.do_opapp_def
 val do_app_pat_def = patSemTheory.do_app_def
 
-val compile_correct = store_thm("compile_correct",
-  ``(∀ck env s e res. evaluate ck env s e res ⇒
-       ck ⇒
-       evaluate ([compile e],MAP compile_v env,compile_csg s) =
-         (map_result (λv. [compile_v v]) compile_v (SND res), compile_csg (FST res))) ∧
-    (∀ck env s es res. evaluate_list ck env s es res ⇒
-       ck (* ∧
-       SND res ≠ Rerr (Rabort Rtype_error) *) ⇒
-       evaluate (MAP compile es,MAP compile_v env,compile_csg s) =
-         (map_result (MAP compile_v) compile_v (SND res), compile_csg (FST res)))``,
+val compile_correct = Q.store_thm("compile_correct",
+  `(∀ck env s e res. evaluate ck env s e res ⇒
+      ck ⇒
+      evaluate ([compile e],MAP compile_v env,compile_csg s) =
+        (map_result (λv. [compile_v v]) compile_v (SND res), compile_csg (FST res))) ∧
+   (∀ck env s es res. evaluate_list ck env s es res ⇒
+      ck ⇒
+      evaluate (MAP compile es,MAP compile_v env,compile_csg s) =
+        (map_result (MAP compile_v) compile_v (SND res), compile_csg (FST res)))`,
   ho_match_mp_tac patSemTheory.evaluate_strongind >>
   strip_tac >- (
     Cases_on`l`>>
@@ -462,19 +460,26 @@ val compile_correct = store_thm("compile_correct",
       rw[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def,true_neq_false])
-
     >- (
       fs[MAP_REVERSE] >>
-      simp[evaluate_def,ETA_AX,do_app_def])
-    >- ( fs[MAP_REVERSE] >> simp[evaluate_def,ETA_AX,do_app_def,EL_MAP] )) >>
-  strip_tac >- simp[evaluate_def] >>
+      simp[evaluate_def,ETA_AX,do_app_def] >>
+      simp[compile_csg_def,ALOOKUP_GENLIST] >>
+      fs[store_lookup_def] >>
+      IF_CASES_TAC >> fs[] >>
+      Cases_on`EL lnum s21`>>fs[] >>
+      Cases_on`call_FFI n l s22`>>fs[] >- rw[compile_csg_def] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      fs[store_assign_def] >> rfs[] >>
+      fs[store_v_same_type_def] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      simp[Unit_def,compile_csg_def] >>
+      simp[fmap_eq_flookup,ALOOKUP_GENLIST,FLOOKUP_UPDATE,EL_LUPDATE] >>
+      rw[] >> fs[])) >>
   strip_tac >- (
     simp[evaluate_def] >> rw[] >>
     fs[MAP_REVERSE] >>
     Cases_on`op`>>simp[evaluate_def,ETA_AX] >>
-    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     Cases_on`o'`>>simp[evaluate_def,ETA_AX] >>
-    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     Cases_on`o''`>>simp[evaluate_def,ETA_AX] >>
     rw[evaluate_def] >>
     TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
@@ -493,11 +498,11 @@ val compile_correct = store_thm("compile_correct",
         NO_TAC) >>
     Cases_on`err`>>fs[]) >>
   strip_tac >- (
-    simp[evaluate_def] >>
-    rw[] >>
-    Cases_on`v`>>fs[]>>rw[]>>fs[do_if_pat_def]>>
-    fsrw_tac[ARITH_ss][Boolv_pat_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[bool_to_val_thm]) >>
+    simp[evaluate_def] >> rw[] >>
+    Cases_on`v`>>fs[]>>rw[]>>fs[patSemTheory.do_if_def]>>
+    fsrw_tac[ARITH_ss][patSemTheory.Boolv_def] >>
+    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    fs[closSemTheory.Boolv_def,true_neq_false]) >>
   strip_tac >- simp[evaluate_def] >>
   strip_tac >- (
     simp[evaluate_def] >> rw[] >>
@@ -505,8 +510,6 @@ val compile_correct = store_thm("compile_correct",
   strip_tac >- (
     simp[evaluate_def] >> rw[] >>
     simp[] ) >>
-  strip_tac >- (
-    simp[evaluate_def] >> Cases_on`err`>>simp[] ) >>
   strip_tac >- (
     simp[evaluate_def] >> rw[] >> fs[] >>
     rw[] >>
@@ -524,8 +527,9 @@ val compile_correct = store_thm("compile_correct",
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
     simp[evaluate_def] >>
-    simp[evaluate_REPLICATE_Op_AllocGlobal,do_app_def,exhLangTheory.tuple_tag_def] >>
-    Cases_on`s`>>simp[compile_csg_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
+    simp[evaluate_REPLICATE_Op_AllocGlobal,do_app_def,dec_to_exhTheory.tuple_tag_def] >>
+    rpt gen_tac >>
+    PairCases_on`s`>>simp[compile_csg_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
   strip_tac >- simp[evaluate_def] >>
   strip_tac >- (
     simp[evaluate_def] >> rw[] >>
@@ -535,7 +539,6 @@ val compile_correct = store_thm("compile_correct",
     simp[Once evaluate_CONS] >>
     Cases_on`err`>>fs[]) >>
   simp[evaluate_def] >> rw[] >>
-  simp[Once evaluate_CONS] >>
-  Cases_on`err`>>fs[])
+  simp[Once evaluate_CONS] );
 
 val _ = export_theory()

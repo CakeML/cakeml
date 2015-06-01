@@ -145,6 +145,8 @@ val _ = tDefine"compile"`
               (Let [Op Update [Var 0; Var 1; Var 2]]
                  (Op (Cons (tuple_tag+pat_tag_shift)) []))
               (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+  (compile (App (Op (Op (FFI n))) es) =
+    Op (FFI n) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Init_global_var n)) es) =
     Let [Op (SetGlobal n) (REVERSE (MAP compile es))]
       (Op (Cons (tuple_tag+pat_tag_shift)) [])) ∧
