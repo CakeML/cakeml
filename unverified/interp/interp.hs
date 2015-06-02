@@ -3,6 +3,7 @@ import Data.Maybe
 import Data.List as List
 import Ast
 
+{-
 data V =
     Litv Lit
   | Conv (Maybe (Id ConN)) [V]
@@ -432,4 +433,4 @@ init_envC =
              (Short (ConN "::" dummy_pos), (2, TypeId (Short (TypeN "list" dummy_pos)))) :
              List.map (\cn -> (Short (ConN cn dummy_pos), (0, TypeExn))) ["Bind", "Div", "Eq"])
 
-
+-}

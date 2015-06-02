@@ -1,6 +1,6 @@
 all:
-	ghc -O --make Main -o cakeml_uv
+	ghc -O --make Main -o cake_uv
 
 clean:
-	rm -f *.o *.hi cakeml_uv
+	rm -f *.o *.hi cake_uv
 

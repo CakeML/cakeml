@@ -38,7 +38,7 @@ tok f = token (\t -> show (fst t)) snd f
 
 tokeq t = tok (\(x,pos) -> if t == x then Just pos else Nothing)
 
-linfix exp op = exp `chainl1` fmap (\(t,pos) e1 e2 -> Ast_App (Ast_App (Ast_Var (Short (VarN t pos))) e1) e2) op
+linfix exp op = exp `chainl1` fmap (\(t,pos) e1 e2 -> App (App (Var (Short (VarN t pos))) e1) e2) op
 
 longV = 
   tok (\t -> do (str,s,pos) <- destLongidT t;
@@ -62,19 +62,19 @@ nVlist1 = many1 nV
 
 nFQV = fmap Short nV <|> longV
 
-mkAst_App e1 e2 =
+mkApp e1 e2 =
   case e1 of
-    Ast_Con (Just (Short (ConN "ref" pos))) [] pos' -> Ast_App (Ast_Var (Short (VarN "ref" pos))) e2
-    Ast_Con s [] pos ->
+    Con (Just (Short (ConN "ref" pos))) [] pos' -> App (Var (Short (VarN "ref" pos))) e2
+    Con s [] pos ->
       case e2 of
-        Ast_Con Nothing es pos' -> Ast_Con s es pos
-        _ -> Ast_Con s [e2] pos -- Because e2 is an Ebase
-    _ -> Ast_App e1 e2
+        Con Nothing es pos' -> Con s es pos
+        _ -> Con s [e2] pos -- Because e2 is an Ebase
+    _ -> App e1 e2
 
 nEapp = do exps <- many1 nEbase;
            return (case exps of
 	             [e] -> e
-		     (e:es) -> List.foldl mkAst_App e es)
+		     (e:es) -> List.foldl mkApp e es)
 
 mk_op tok str =
   tokeq tok >>= (\pos -> return (str,pos))
@@ -102,32 +102,32 @@ nCompOps =
   <|>
   (mk_op (AlphaT "o") "o")
 
-eseq_encode pos [] = Ast_Lit Unit pos
+eseq_encode pos [] = Lit (Con Nothing []) pos
 eseq_encode pos [e] = e
-eseq_encode pos (e:es) = Ast_Let (VarN "_" pos) e (eseq_encode pos es)
+eseq_encode pos (e:es) = Let (VarN "_" pos) e (eseq_encode pos es)
 
 nEbaseParen =
   do pos <- tokeq LparT;
-     ((tokeq RparT >> return (Ast_Lit Unit pos))
+     ((tokeq RparT >> return (Lit (Con Nothing []) pos))
       <|>
       do e1 <- nE;
          choice [tokeq RparT >> return e1,
 		 do tokeq CommaT;
                     es <- sepBy1 nE (tokeq CommaT);
 		    tokeq RparT;
-		    return (Ast_Con Nothing (e1:es) pos),
+		    return (Con Nothing (e1:es) pos),
 		 do tokeq SemicolonT;
  		    es <- nEseq;
 		    tokeq RparT;
 		    return (eseq_encode pos (e1:es))])
 
 
-do_let_dec (Left (x,e1)) e2 = Ast_Let x e1 e2
-do_let_dec (Right funs) e = Ast_Letrec funs e
+do_let_dec (Left (x,e1)) e2 = Let x e1 e2
+do_let_dec (Right funs) e = Letrec funs e
 
 nEbase = 
   do (i,pos) <- tok destIntT;
-     return (Ast_Lit (IntLit i) pos)
+     return (Lit (IntLit i) pos)
   <|>
   nEbaseParen
   <|>
@@ -141,15 +141,12 @@ nEbase =
   do pos <- tokeq LbrackT;
      es <- sepBy nE (tokeq CommaT);
      tokeq RbrackT;
-     return (List.foldr (\e ast -> Ast_Con (Just (Short (ConN "::" pos))) [e, ast] pos) (Ast_Con (Just (Short (ConN "nil" pos))) [] pos) es)
+     return (List.foldr (\e ast -> Con (Just (Short (ConN "::" pos))) [e, ast] pos) (Con (Just (Short (ConN "nil" pos))) [] pos) es)
   <|>
-  fmap Ast_Var nFQV
+  fmap Var nFQV
   <|>
   do n <- nConstructorName;
-     return (case n of
-               Short (ConN "true" pos) -> Ast_Lit (Bool True) pos
-               Short (ConN "false" pos) -> Ast_Lit (Bool False) pos
-	       _ -> Ast_Con (Just n) [] (getPos n))
+     return (Con (Just n) [] (getPos n))
 
 nEseq = sepBy1 nE (tokeq SemicolonT)
 
@@ -158,9 +155,9 @@ nEmult = linfix nEapp nMultOps
 nEadd = linfix nEmult nAddOps
 
 nElist = nEadd `chainr1` fmap (\(t,pos) e1 e2 -> if t == "::" then
-                                                   Ast_Con (Just (Short (ConN t pos))) [e1,e2] pos
+                                                   Con (Just (Short (ConN t pos))) [e1,e2] pos
 	                                         else
-						   Ast_App (Ast_App (Ast_Var (Short (VarN t pos))) e1) e2)
+						   App (App (Var (Short (VarN t pos))) e1) e2)
    
                               nListOps
 
@@ -174,18 +171,18 @@ nEtyped =
   do e <- nEbefore;
      option e (tokeq ColonT >> nType >> return e)
 
-nElogicAND = nEtyped `chainl1` (tokeq AndalsoT >>= (\pos -> return (\e1 e2 -> Ast_Log (And pos) e1 e2)))
+nElogicAND = nEtyped `chainl1` (tokeq AndalsoT >>= (\pos -> return (\e1 e2 -> Log (And pos) e1 e2)))
 
-nElogicOR = nElogicAND `chainl1` (tokeq OrelseT >>= (\pos -> return (\e1 e2 -> Ast_Log (Or pos) e1 e2)))
+nElogicOR = nElogicAND `chainl1` (tokeq OrelseT >>= (\pos -> return (\e1 e2 -> Log (Or pos) e1 e2)))
 
 nEhandle = 
   do e1 <- nElogicOR;
      option e1 (do tokeq HandleT;
                    pes <- nPEs;
-		   return (Ast_Handle e1 pes))
+		   return (Handle e1 pes))
 
 nE = 
-  (tokeq RaiseT >> fmap Ast_Raise nE)
+  (tokeq RaiseT >> fmap Raise nE)
   <|>
   nEhandle
   <|>
@@ -195,22 +192,22 @@ nE =
      e2 <- nE;
      tokeq ElseT;
      e3 <- nE;
-     return (Ast_If e1 e2 e3)
+     return (If e1 e2 e3)
   <|>
   do pos <- tokeq FnT;
      x <- nV;
      tokeq DarrowT;
      e <- nE;
-     return (Ast_Fun x e pos)
+     return (Fun x e pos)
   <|>
   do tokeq CaseT;
      e <- nE; 
      tokeq OfT;
      pes <- nPEs;
-     return (Ast_Mat e pes)
+     return (Mat e pes)
 
 nE' = 
-  (tokeq RaiseT >> fmap Ast_Raise nE)
+  (tokeq RaiseT >> fmap Raise nE)
   <|>
   nEhandle
   <|>
@@ -220,7 +217,7 @@ nE' =
      e2 <- nE;
      tokeq ElseT;
      e3 <- nE';
-     return (Ast_If e1 e2 e3)
+     return (If e1 e2 e3)
 
 nPEs = choice [try (do pe <- nPE'; tokeq BarT; pes <- nPEs; return (pe:pes)),
                fmap (\x -> [x]) nPE]
@@ -239,7 +236,7 @@ nPE' = do p <- nPattern;
 nAndFDecls = sepBy1 nFDecl (tokeq AndT)
 
 multi_funs x [y] e = (x,y,e)
-multi_funs x (y:ys) e = (x,y,List.foldr (\v e -> Ast_Fun v e (getPos v)) e ys)
+multi_funs x (y:ys) e = (x,y,List.foldr (\v e -> Fun v e (getPos v)) e ys)
 
 nFDecl = do x <- nV;
             ys <- nVlist1;
@@ -247,16 +244,16 @@ nFDecl = do x <- nV;
             e <- nE;
             return (multi_funs x ys e)
 
-nType = nPType `chainr1` (tokeq ArrowT >> return Ast_Tfn)
+nType = nPType `chainr1` (tokeq ArrowT >> return (\t1 t2 -> Tapp [t1,t2] TC_fn))
 
 nDType = do t <- nTbase; 
             ts <- many nTyOp; 
-            return (List.foldr (\tc t -> Ast_Tapp [t] (Just tc)) t ts)
+            return (List.foldr (\tc t -> Tapp [t] (Just tc)) t ts)
 
 nTbase = 
-  fmap Ast_Tvar (tok destTyvarT)
+  fmap Tvar (tok destTyvarT)
   <|>
-  fmap (\tc -> (Ast_Tapp [] (Just tc))) nTyOp
+  fmap (\tc -> (Tapp [] (Just tc))) nTyOp
   <|>
   do tokeq LparT;
      t <- nType;
@@ -266,7 +263,7 @@ nTbase =
          ts <- nTypeList1; 
 	 tokeq RparT; 
 	 tc <- nTyOp; 
-         return (Ast_Tapp (t:ts) (Just tc)))
+         return (Tapp (t:ts) (Just tc)))
 
 nTypeList1 = sepBy1 nType (tokeq CommaT)
 
@@ -280,7 +277,7 @@ nUQTyOp = tok destAlphaSym
 nPType = fmap tuplify (sepBy1 nDType (tokeq StarT))
 
 tuplify [ty] = ty
-tuplify tys = Ast_Tapp tys Nothing
+tuplify tys = Tapp tys Nothing
 
 nTypeName = 
   fmap (\n -> (uncurry TypeN n,[])) nUQTyOp
@@ -306,7 +303,7 @@ nDtypeDecl =
      ctors <- sepBy1 nDconstructor (tokeq BarT);
      return (tvs,tn,ctors)
 
-detuplify (Ast_Tapp args Nothing) = args
+detuplify (Tapp args Nothing) = args
 detuplify ty = [ty]
 
 nDconstructor = 
@@ -335,33 +332,30 @@ nConstructorName =
 
 mk_pat_app n p =
   case n of
-    Short (ConN "ref" pos) -> Ast_Pref p pos
+    Short (ConN "ref" pos) -> Pref p pos
     _ -> case p of 
-           Ast_Pcon Nothing ps pos' -> Ast_Pcon (Just n) ps (getPos n)
-           _ -> Ast_Pcon (Just n) [p] (getPos n)
+           Pcon Nothing ps pos' -> Pcon (Just n) ps (getPos n)
+           _ -> Pcon (Just n) [p] (getPos n)
 
 -- TODO: negative numbers
 -- TODO: underscore patterns
 nPbase = 
-  fmap Ast_Pvar nV
+  fmap Pvar nV
   <|>
   do n <- nConstructorName;
-     return (case n of 
-	       Short (ConN "true" pos) -> Ast_Plit (Bool True) pos
-	       Short (ConN "false" pos) -> Ast_Plit (Bool False) pos
-	       _ -> Ast_Pcon (Just n) [] (getPos n))
+     return (Pcon (Just n) [] (getPos n))
   <|>
   do (i,pos) <- tok destIntT;
-     return (Ast_Plit (IntLit i) pos)
+     return (Plit (IntLit i) pos)
   <|>
   nPtuple
   <|>
-  (tokeq UnderbarT >>= (\pos -> return (Ast_Pvar (VarN "_" pos))))
+  (tokeq UnderbarT >>= (\pos -> return (Pvar (VarN "_" pos))))
   <|>
   do pos <- tokeq LbrackT;
      ps <- sepBy nPattern (tokeq CommaT);
      tokeq RbrackT;
-     return (List.foldr (\p ast -> Ast_Pcon (Just (Short (ConN "::" pos))) [p, ast] pos) (Ast_Pcon (Just (Short (ConN "nil" pos))) [] pos) ps)
+     return (List.foldr (\p ast -> Pcon (Just (Short (ConN "::" pos))) [p, ast] pos) (Pcon (Just (Short (ConN "nil" pos))) [] pos) ps)
 
 
 nPapp = choice [try (do n <- nConstructorName;
@@ -369,15 +363,15 @@ nPapp = choice [try (do n <- nConstructorName;
                         return (mk_pat_app n pat)), 
                 nPbase]
 
-nPattern = nPapp `chainr1` fmap (\pos p1 p2 -> Ast_Pcon (Just (Short (ConN "::" pos))) [p1,p2] pos) (tokeq (SymbolT "::"))  
+nPattern = nPapp `chainr1` fmap (\pos p1 p2 -> Pcon (Just (Short (ConN "::" pos))) [p1,p2] pos) (tokeq (SymbolT "::"))  
 nPtuple = 
   do pos <- tokeq LparT;
-     ((tokeq RparT >> return (Ast_Plit Unit pos))
+     ((tokeq RparT >> return (Plit (Pcon Nothing []) pos))
       <|> 
       do pat <- nPattern;
          r <- option pat (do tokeq CommaT 
                              pats <- sepBy1 nPattern (tokeq CommaT)
-                             return (Ast_Pcon Nothing (pat:pats) pos));
+                             return (Pcon Nothing (pat:pats) pos));
          tokeq RparT;
          return r)
 
@@ -401,13 +395,13 @@ nDecl =
      p <- nPattern;
      tokeq EqualsT;
      e <- nE;
-     return (Ast_Dlet p e pos)
+     return (Dlet p e pos)
   <|>
-  (tokeq FunT >> fmap Ast_Dletrec nAndFDecls)
+  (tokeq FunT >> fmap Dletrec nAndFDecls)
   <|>
-  fmap Ast_Dtype nTypeDec
+  fmap Dtype nTypeDec
   <|>
-  (tokeq ExceptionT >> fmap (uncurry Ast_Dexn) nDconstructor)
+  (tokeq ExceptionT >> fmap (uncurry Dexn) nDconstructor)
 
 nDecls = 
   do d <- nDecl;
@@ -423,11 +417,11 @@ nSpecLine =
      x <- nV;
      tokeq ColonT;
      t <- nType;
-     return (Ast_Sval x t)
+     return (Sval x t)
   <|>
-  (tokeq TypeT >> fmap (\(tn,tvs) -> Ast_Stype_opq tvs tn) nTypeName)
+  (tokeq TypeT >> fmap (\(tn,tvs) -> Stype_opq tvs tn) nTypeName)
   <|>
-  fmap Ast_Stype nTypeDec
+  fmap Stype nTypeDec
 
 nSpecLineList = 
   do s <- nSpecLine;
@@ -450,22 +444,22 @@ nStructure =
      tokeq StructT;
      ds <- nDecls;
      tokeq EndT;
-     return (Ast_Tmod x s_opt ds)
+     return (Tmod x s_opt ds)
 
 nTopLevelDec = 
   nStructure
   <|>
-  fmap Ast_Tdec nDecl
+  fmap Tdec nDecl
 
-nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity Ast_top
+nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity top
 nREPLTop = 
   do e <- nE; 
      pos <- tokeq SemicolonT;
-     return (Ast_Tdec (Ast_Dlet (Ast_Pvar (VarN "_" pos)) e pos))
+     return (Tdec (Dlet (Pvar (VarN "_" pos)) e pos))
   <|>
   do d <- nTopLevelDec;
      tokeq SemicolonT;
      return d
 
-parseTop :: [(Token,SourcePos)] -> Either ParseError Ast_top
+parseTop :: [(Token,SourcePos)] -> Either ParseError top
 parseTop toks = parse nREPLTop "" toks

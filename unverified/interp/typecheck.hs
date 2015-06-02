@@ -16,6 +16,7 @@ import Unify
 import Text.Parsec.Pos (initialPos, SourcePos)
 import Data.Maybe
 
+{-
 data Infer_st = Infer_st { next_uvar :: Uvar, subst :: Subst }
 type M_st_ex = State.StateT Infer_st (Either (SourcePos, String))
 
@@ -496,3 +497,4 @@ init_tenvC =
 inferTop :: (TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (TenvM, TenvC, Tenv)
 inferTop (menv,cenv,env) top =
   evalStateT (infer_top menv cenv env top) init_infer_state
+-}
