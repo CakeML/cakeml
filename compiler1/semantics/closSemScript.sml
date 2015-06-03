@@ -26,9 +26,6 @@ val _ = Datatype `
      ; code    : num |-> (num # closLang$exp)
      ; restrict_envs : bool |> `
 
-val max_app_def = Define `
-  max_app = 15:num`;
-
 (* helper functions *)
 
 val get_global_def = Define `
