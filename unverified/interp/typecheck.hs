@@ -11,27 +11,49 @@ module Typecheck where
 import Control.Monad.State.Lazy as State
 import Data.Map as Map
 import Data.List as List
+import Data.Set as Set
 import Ast
 import Unify
 import Text.Parsec.Pos (initialPos, SourcePos)
 import Data.Maybe
+import Parse
 
-{-
+getDup :: (Eq a, Ord a) => [a] -> Maybe a
+getDup ls = check (sort ls)
+  where check [] = Nothing
+        check [x] = Nothing
+        check (x:y:zs) = if x == y then Just x else check (y:zs)
+
+envAll :: (k -> v -> Bool) -> Map k v -> Bool
+envAll f m = List.all (\(x,y) -> f x y) (Map.assocs m)
+
 data Infer_st = Infer_st { next_uvar :: Uvar, subst :: Subst }
 type M_st_ex = State.StateT Infer_st (Either (SourcePos, String))
 
 typeError :: SourcePos -> String -> M_st_ex a
 typeError pos str = lift (Left (pos,str))
 
-lookup_st_ex :: (HasPos k, Show k, Ord k) => k -> Ast.Env k v -> M_st_ex v
+lookup_st_ex :: (HasPos k, Show k, Ord k) => k -> Map.Map k v -> M_st_ex v
 lookup_st_ex k env =
-  case Ast.lookup k env of
+  case Map.lookup k env of
     Nothing -> typeError (getPos k) ("unbound identifier: " ++ (show k))
     Just v -> return v 
 
-type Tenv = Env VarN (Integer, Infer_t)
-type TenvM = Env ModN Tenv
-type TenvC = Env (Id ConN) ([TvarN], [T], Tid_or_exn)
+data Tid_or_exn =
+    TypeId (Id TypeN)
+  | TypeExn (Id ConN)
+
+instance Show Tid_or_exn where
+  show (TypeId tid) = show tid
+  show (TypeExn cid) = show cid
+
+type Tenv = Map VarN (Integer, Infer_t)
+type TenvM = Map ModN (Map VarN (Integer, Infer_t))
+type TenvC = Map (Id ConN) ([TvarN], [T], Tid_or_exn)
+type TenvT = Map (Id TypeN) ([TvarN], T)
+
+type Decls = (Set ModN, Set (Id TypeN), Set (Id ConN))
+empty_decls = (Set.empty,Set.empty,Set.empty)
 
 fresh_uvar :: M_st_ex Infer_t
 fresh_uvar =
@@ -95,9 +117,9 @@ generalise_list m n s (t:ts) =
   let (num_gen', s'', ts') = generalise_list m (num_gen + n) s' ts in
     (num_gen+num_gen', s'', t':ts')
 
-infer_type_subst :: Env TvarN Infer_t -> T -> Infer_t
+infer_type_subst :: Map TvarN Infer_t -> T -> Infer_t
 infer_type_subst s (Tvar tv) =
-  case Ast.lookup tv s of 
+  case Map.lookup tv s of 
     Just t -> t
     Nothing -> Infer_Tvar_db 0 -- should not happen
 infer_type_subst s (Tvar_db n) =
@@ -118,19 +140,22 @@ infer_deBruijn_subst s (Infer_Tuvar n) =
 
 tid_exn_to_tc :: Tid_or_exn -> Tc
 tid_exn_to_tc (TypeId tid) = TC_name tid
-tid_exn_to_tc TypeExn = TC_exn
+tid_exn_to_tc (TypeExn _) = TC_exn
 
 infer_p :: TenvC -> Pat -> Infer_t -> M_st_ex [(VarN,Infer_t)]
 infer_p cenv (Pvar n) t =
   return [(n,t)]
-infer_p cenv (Plit (Bool b) pos) t =
-  do add_constraint pos (Infer_Tapp [] TC_bool) t;
-     return []
 infer_p cenv (Plit (IntLit i) pos) t =
   do add_constraint pos (Infer_Tapp [] TC_int) t;
      return []
-infer_p cenv (Plit Unit pos) t =
-  do add_constraint pos (Infer_Tapp [] TC_unit) t;
+infer_p cenv (Plit (Char s) pos) t =
+  do add_constraint pos (Infer_Tapp [] TC_char) t;
+     return []
+infer_p cenv (Plit (StrLit s) pos) t =
+  do add_constraint pos (Infer_Tapp [] TC_string) t;
+     return []
+infer_p cenv (Plit (Word8 w) pos) t =
+  do add_constraint pos (Infer_Tapp [] TC_word8) t;
      return []
 infer_p cenv (Pcon cn_opt ps pos) t =
   case cn_opt of 
@@ -142,7 +167,7 @@ infer_p cenv (Pcon cn_opt ps pos) t =
         do (tvs',ts,tn) <- lookup_st_ex cn cenv;
            ts' <- n_fresh_uvar (List.length tvs');
            add_constraint pos (Infer_Tapp ts' (tid_exn_to_tc tn)) t;
-           infer_ps cenv ps (List.map (infer_type_subst (listToEnv (List.zip tvs' ts'))) ts)
+           infer_ps cenv ps (List.map (infer_type_subst (Map.fromList (List.zip tvs' ts'))) ts)
 infer_p cenv (Pref p pos) t =
   do t1 <- fresh_uvar;
      add_constraint pos (Infer_Tapp [t1] TC_ref) t;
@@ -155,35 +180,90 @@ infer_ps cenv (p:ps) (t:ts) =
      tenv' <- infer_ps cenv ps ts;
      return (tenv'++tenv)
 
-constrain_uop :: Uop -> Infer_t -> M_st_ex Infer_t
-constrain_uop uop t =
-  case uop of
-    Opderef -> return (Infer_Tapp [t] TC_ref)
-    Opref pos ->
-      do uvar <- fresh_uvar;
-         add_constraint pos (Infer_Tapp [uvar] TC_ref) t;
-         return uvar
+bool_type = (Infer_Tapp [] (TC_name (Short (TypeN "bool" dummy_pos))))
 
-constrain_op :: Op -> Infer_t -> M_st_ex (Infer_t,Infer_t)
+constrain_op :: Op -> Infer_t -> M_st_ex [Infer_t]
 constrain_op op t =
   case op of
     Opn opn pos ->
       do add_constraint pos (Infer_Tapp [] TC_int) t;
-         return (Infer_Tapp [] TC_int,Infer_Tapp [] TC_int)
+         return [Infer_Tapp [] TC_int, Infer_Tapp [] TC_int]
     Opb opb pos -> 
-      do add_constraint pos (Infer_Tapp [] TC_bool) t;
-         return (Infer_Tapp [] TC_int, Infer_Tapp [] TC_int)
+      do add_constraint pos bool_type t;
+         return [Infer_Tapp [] TC_int, Infer_Tapp [] TC_int]
     Equality pos ->
-      do add_constraint pos (Infer_Tapp [] TC_bool) t;
+      do add_constraint pos bool_type t;
          t1 <- fresh_uvar;
-         return (t1,t1)
+         return [t1, t1]
     Opapp ->
       do uvar <- fresh_uvar;
-         return (Infer_Tapp [uvar,t] TC_fn, uvar)
+         return [Infer_Tapp [uvar,t] TC_fn, uvar]
     Opassign pos ->
-      do add_constraint pos (Infer_Tapp [] TC_unit) t;
+      do add_constraint pos (Infer_Tapp [] TC_tup) t;
          t2 <- fresh_uvar;
-         return (Infer_Tapp [t2] TC_ref, t2)
+         return [Infer_Tapp [t2] TC_ref, t2]
+    Opref pos ->
+      do uvar <- fresh_uvar;
+         add_constraint pos (Infer_Tapp [uvar] TC_ref) t;
+         return [uvar]
+    Opderef pos -> return [Infer_Tapp [t] TC_ref]
+    Aw8alloc pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_word8array) t;
+         return [Infer_Tapp [] TC_int, Infer_Tapp [] TC_word8]
+    Aw8sub pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_word8) t;
+         return [Infer_Tapp [] TC_word8array, Infer_Tapp [] TC_int]
+    Aw8length pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_int) t;
+         return [Infer_Tapp [] TC_word8array]
+    Aw8update pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_tup) t
+         return [Infer_Tapp [] TC_word8array, Infer_Tapp [] TC_int, Infer_Tapp [] TC_word8]
+    Chr pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_char) t;
+         return [Infer_Tapp [] TC_int]
+    Ord pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_int) t;
+         return [Infer_Tapp [] TC_char]
+    Chopb opb pos -> 
+      do add_constraint pos bool_type t;
+         return [Infer_Tapp [] TC_char, Infer_Tapp [] TC_char]
+    Explode pos ->
+      do () <- add_constraint pos (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short (TypeN "list" dummy_pos)))) t;
+         return [Infer_Tapp [] TC_string]
+    Implode pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_string) t;
+         return [Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short (TypeN "list" dummy_pos)))]
+    Strlen pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_int) t;
+         return [Infer_Tapp [] TC_string]
+    VfromList pos ->
+      do uvar <- fresh_uvar;
+         () <- add_constraint pos (Infer_Tapp [uvar] TC_vector) t;
+         return [Infer_Tapp [uvar] (TC_name (Short (TypeN "list" dummy_pos)))]
+    Vsub pos ->
+      return [Infer_Tapp [t] TC_vector, Infer_Tapp [] TC_int]
+    Vlength pos ->
+      do uvar <- fresh_uvar;
+         () <- add_constraint pos (Infer_Tapp [] TC_int) t;
+         return [Infer_Tapp [uvar] TC_vector]
+    Aalloc pos ->
+      do uvar <- fresh_uvar;
+         () <- add_constraint pos (Infer_Tapp [uvar] TC_array) t;
+         return [Infer_Tapp [] TC_int, uvar]
+    Asub pos ->
+      return [Infer_Tapp [t] TC_vector, Infer_Tapp [] TC_int]
+    Alength pos ->
+      do uvar <- fresh_uvar;
+         () <- add_constraint pos (Infer_Tapp [] TC_int) t;
+         return [Infer_Tapp [uvar] TC_array]
+    Aupdate pos ->
+      do uvar <- fresh_uvar;
+         () <- add_constraint pos (Infer_Tapp [] TC_tup) t
+         return [Infer_Tapp [uvar] TC_array, Infer_Tapp [] TC_int, uvar]
+    FFI n pos ->
+      do () <- add_constraint pos (Infer_Tapp [] TC_tup) t;
+         return [Infer_Tapp [] TC_word8array]
 
 ensureDistinct msg select l =
   case getDup (List.map select l) of
@@ -196,15 +276,19 @@ infer_e :: TenvM -> TenvC -> Tenv -> Exp -> Infer_t -> M_st_ex ()
 infer_e menv cenv env (Raise e) t =
   do infer_e menv cenv env e infer_Texn;
      return ()
+infer_e menv cenv env (Handle e1 []) t =
+  error "Impossible empty handler"
 infer_e menv cenv env (Handle e1 pes) t =
   do infer_e menv cenv env e1 t;
      infer_pes menv cenv env pes infer_Texn t
-infer_e menv cenv tenv (Lit (Bool b) pos) t =
-  add_constraint pos (Infer_Tapp [] TC_bool) t
 infer_e menv cenv tenv (Lit (IntLit i) pos) t =
   add_constraint pos (Infer_Tapp [] TC_int) t
-infer_e menv cenv tenv (Lit Unit pos) t =
-  add_constraint pos (Infer_Tapp [] TC_unit) t
+infer_e menv cenv tenv (Lit (Char c) pos) t =
+  add_constraint pos (Infer_Tapp [] TC_char) t
+infer_e menv cenv tenv (Lit (StrLit s) pos) t =
+  add_constraint pos (Infer_Tapp [] TC_string) t
+infer_e menv cenv tenv (Lit (Word8 w) pos) t =
+  add_constraint pos (Infer_Tapp [] TC_word8) t
 infer_e menv cenv env (Var (Short n)) t =
   do (tvs,t') <- lookup_st_ex n env;
      uvs <- n_fresh_uvar tvs;
@@ -224,25 +308,21 @@ infer_e menv cenv env (Con cn_opt es pos) t =
        do (tvs',ts,tn) <- lookup_st_ex cn cenv;
           ts' <- n_fresh_uvar (List.length tvs');
           add_constraint pos (Infer_Tapp ts' (tid_exn_to_tc tn)) t;
-          infer_es menv cenv env es (List.map (infer_type_subst (listToEnv (List.zip tvs' ts'))) ts)
+          infer_es menv cenv env es (List.map (infer_type_subst (Map.fromList (List.zip tvs' ts'))) ts)
 infer_e menv cenv env (Fun x e pos) t =
   do t1 <- fresh_uvar;
      t2 <- fresh_uvar;
      add_constraint pos (Infer_Tapp [t1,t2] TC_fn) t
-     infer_e menv cenv (bind x (0,t1) env) e t2;
-infer_e menv cenv env (Uapp uop e) t =
-  do t' <- constrain_uop uop t;
-     infer_e menv cenv env e t'
-infer_e menv cenv env (App op e1 e2) t =
-  do (t1,t2) <- constrain_op op t
-     infer_e menv cenv env e1 t1;
-     infer_e menv cenv env e2 t2
+     infer_e menv cenv (Map.insert x (0,t1) env) e t2;
+infer_e menv cenv env (App op es) t =
+  do ts <- constrain_op op t;
+     infer_es menv cenv env es ts
 infer_e menv cenv env (Log log e1 e2) t =
-  do add_constraint (getPos log) (Infer_Tapp [] TC_bool) t;
-     infer_e menv cenv env e1 (Infer_Tapp [] TC_bool);
-     infer_e menv cenv env e2 (Infer_Tapp [] TC_bool)
+  do add_constraint (getPos log) bool_type t;
+     infer_e menv cenv env e1 bool_type;
+     infer_e menv cenv env e2 bool_type
 infer_e menv cenv env (If e1 e2 e3) t =
-  do infer_e menv cenv env e1 (Infer_Tapp [] TC_bool);
+  do infer_e menv cenv env e1 bool_type;
      infer_e menv cenv env e2 t;
      infer_e menv cenv env e3 t
 infer_e menv cenv env (Mat e pes) t =
@@ -252,14 +332,18 @@ infer_e menv cenv env (Mat e pes) t =
     do t' <- fresh_uvar;
        infer_e menv cenv env e t';
        infer_pes menv cenv env pes t' t
-infer_e menv cenv env (Let x e1 e2) t =
+infer_e menv cenv env (Let (Just x) e1 e2) t =
   do t1 <- fresh_uvar;
      infer_e menv cenv env e1 t1;
-     infer_e menv cenv (bind x (0,t1) env) e2 t
+     infer_e menv cenv (Map.insert x (0,t1) env) e2 t
+infer_e menv cenv env (Let Nothing e1 e2) t =
+  do t1 <- fresh_uvar;
+     infer_e menv cenv env e1 t1;
+     infer_e menv cenv env e2 t
 infer_e menv cenv env (Letrec funs e) t =
   do ensureDistinct "function name" (\(x,y,z) -> x) funs;
      uvars <- n_fresh_uvar (List.length funs);
-     env' <- return (merge (listToEnv (List.map (\((f,x,e), uvar) -> (f,(0,uvar))) (List.zip funs uvars))) env);
+     env' <- return (Map.union (Map.fromList (List.map (\((f,x,e), uvar) -> (f,(0,uvar))) (List.zip funs uvars))) env);
      infer_funs menv cenv env' funs uvars;
      infer_e menv cenv env' e t
 infer_es menv cenv env [] [] =
@@ -272,14 +356,14 @@ infer_pes menv cenv env [] t1 t2 =
 infer_pes menv cenv env ((p,e):pes) t1 t2 =
   do env' <- infer_p cenv p t1;
      ensureDistinct "pattern variable" fst env';
-     infer_e menv cenv (merge (listToEnv (List.map (\(n,t) -> (n,(0,t))) env')) env) e t2;
+     infer_e menv cenv (Map.union (Map.fromList (List.map (\(n,t) -> (n,(0,t))) env')) env) e t2;
      infer_pes menv cenv env pes t1 t2
 infer_funs menv cenv env [] [] = return ()
 infer_funs menv cenv env ((f, x, e):funs) (t:ts) =
   do t1 <- fresh_uvar;
      t2 <- fresh_uvar;
      add_constraint (getPos f) (Infer_Tapp [t1,t2] TC_fn) t;
-     infer_e menv cenv (bind x (0,t1) env) e t2;
+     infer_e menv cenv (Map.insert x (0,t1) env) e t2;
      infer_funs menv cenv env funs ts
 
 init_state :: M_st_ex ()
@@ -302,39 +386,65 @@ check_freevars dbmax tvs (Tapp ts tn) =
 check_freevars dbmax tvs (Tvar_db n) = 
   unless (n < dbmax) (error "deBruijn type variable in input")
 
-check_dup_ctors :: Maybe ModN -> Env (Id ConN) a -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
-check_dup_ctors mn_opt cenv tds =
-  do mapM_ (\(tvs,tn,condefs) ->
-              mapM_ (\(n,ts) -> unless (isNothing (Ast.lookup (mk_id mn_opt n) cenv)) 
-                                       (typeError (getPos n) ("duplicate constructor: " ++ (show (mk_id mn_opt n))))) 
-                    condefs)
-           tds;
-     ensureDistinct "constructor" (\x -> x) (List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 -> n : x2) x2 condefs) [] tds)
+check_dup_ctors :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
+check_dup_ctors mn_opt tds =
+  ensureDistinct "constructor" (\x -> x) (List.foldr (\(tvs, tn, condefs) x2 -> List.foldr (\(n, ts) x2 -> n : x2) x2 condefs) [] tds)
 
-check_ctor_tenv :: Maybe ModN -> TenvC -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
-check_ctor_tenv mn tenvC tds =
-  do check_dup_ctors mn tenvC tds;
+check_type_names :: TenvT -> T -> M_st_ex ()
+check_type_names tenvT (Tvar tv) =
+  return ()
+check_type_names tenvT (Tapp ts (TC_name tn)) =
+  do (tvs,t) <- lookup_st_ex tn tenvT; 
+     unless (List.length tvs == List.length ts) (typeError (getPos tn) ("type constructor " ++ show tn ++ " expected " ++ show (List.length tvs) ++ " arguments, given " ++ show (List.length ts)));
+     mapM_ (check_type_names tenvT) ts
+check_type_names tenvT (Tapp ts _) =
+  return ()
+check_type_names tenvT (Tvar_db n) =
+  return ()
+
+type_subst :: Map TvarN T -> T -> T
+type_subst s (Tvar tv) =
+  case Map.lookup tv s of
+    Nothing -> Tvar tv
+    Just t -> t
+type_subst s (Tapp ts tn) =
+  Tapp (List.map (type_subst s) ts) tn
+type_subst s (Tvar_db n) = Tvar_db n
+
+type_name_subst :: TenvT -> T -> T
+type_name_subst tenvT (Tvar tv) = 
+  Tvar tv
+type_name_subst tenvT (Tapp ts tc) =
+  let args = List.map (type_name_subst tenvT) ts in
+    case tc of
+      TC_name tn ->
+          case Map.lookup tn tenvT of
+            Just (tvs, t) -> type_subst (Map.fromList (List.zip tvs args)) t
+            Nothing -> Tapp args tc
+      _ -> Tapp args tc
+type_name_subst tenvT (Tvar_db n) = Tvar_db n
+
+
+check_ctor_tenv :: Maybe ModN -> TenvT -> [([TvarN], TypeN, [(ConN, [T])])] -> M_st_ex ()
+check_ctor_tenv mn tenvT tds =
+  do check_dup_ctors mn tds;
      mapM_ (\(tvs,tn,ctors) ->
 	      do ensureDistinct "type variable" (\x->x) tvs;
-	         mapM_ (\(cn,ts) -> mapM_ (check_freevars 0 tvs) ts) ctors)
+	         mapM_ (\(cn,ts) -> mapM_ (check_freevars 0 tvs) ts >> mapM_ (check_type_names tenvT) ts) ctors)
 	   tds;
      ensureDistinct "type name" (\(_,tn,_) -> tn) tds;
-     mapM_ (\(tvs,tn,ctors) -> 
-                 do unless (envAll (\_ (_,_,tn') -> TypeId (mk_id mn tn) /= tn') tenvC)
-                           (typeError (getPos tn) ("duplicate type: " ++ (show (mk_id mn tn)))))
-               tds
 
-build_ctor_tenv :: Maybe ModN -> [([TvarN], TypeN, [(ConN, [T])])] -> TenvC
-build_ctor_tenv mn tds =
-  listToEnv
+build_ctor_tenv :: Maybe ModN -> TenvT -> [([TvarN], TypeN, [(ConN, [T])])] -> TenvC
+build_ctor_tenv mn tenvT tds =
+  Map.fromList
     (List.concat
       (List.map
          (\(tvs,tn,ctors) ->
-            List.map (\(cn,ts) -> (mk_id mn cn,(tvs,ts, TypeId (mk_id mn tn)))) ctors)
+            List.map (\(cn,ts) -> (mk_id mn cn,(tvs,List.map (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)
          tds))
 
-infer_d :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Dec -> M_st_ex (TenvC, Tenv)
-infer_d mn menv cenv env (Dlet p e pos) = 
+infer_d :: Maybe ModN -> Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Dec -> M_st_ex (Decls,TenvT,TenvC,Tenv)
+infer_d mn decls tenvT menv cenv env (Dlet p e pos) = 
   do init_state;
      n <- get_next_uvar;
      t <- fresh_uvar;
@@ -345,34 +455,35 @@ infer_d mn menv cenv env (Dlet p e pos) =
      let (num_tvs, s, ts') = generalise_list n 0 Map.empty ts;
      unless (num_tvs == 0 || is_value e) 
             (typeError pos "Value restriction violated");
-     return (emp, listToEnv (List.zip (List.map (\(x,y) -> x) env') (List.map (\t -> (num_tvs, t)) ts')))
-infer_d mn menv cenv env (Dletrec funs) =
+     return (empty_decls,Map.empty, Map.empty, Map.fromList (List.zip (List.map (\(x,y) -> x) env') (List.map (\t -> (num_tvs, t)) ts')))
+infer_d mn decls tenvT menv cenv env (Dletrec funs) =
   do ensureDistinct "function name" (\(x,y,z) -> x) funs;
      init_state;
      next <- get_next_uvar;
      uvars <- n_fresh_uvar (List.length funs);
-     let env' = merge (listToEnv (List.map (\((f,x,e), uvar) -> (f,(0,uvar))) (List.zip funs uvars))) env;
+     let env' = Map.union (Map.fromList (List.map (\((f,x,e), uvar) -> (f,(0,uvar))) (List.zip funs uvars))) env;
      infer_funs menv cenv env' funs uvars;
      ts <- apply_subst_list uvars;
      let (num_gen,s,ts') = generalise_list next 0 Map.empty ts;
-     return (emp, listToEnv (List.map (\((f,x,e), t) -> (f,(num_gen,t))) (List.zip funs ts')))
-infer_d mn menv cenv env (Dtype tdecs) =
-  do check_ctor_tenv mn cenv tdecs; 
-     return (build_ctor_tenv mn tdecs, emp)
-infer_d mn menv cenv env (Dexn cn ts) =
-  if isJust (Ast.lookup (mk_id mn cn) cenv) then
-    typeError (getPos cn) ("duplicate constructor: " ++ show (mk_id mn cn))
-  else 
-    do mapM_ (check_freevars 0 []) ts;
-       return (bind (mk_id mn cn) ([], ts, TypeExn) emp, emp)
+     return (empty_decls,Map.empty, Map.empty, Map.fromList (List.map (\((f,x,e), t) -> (f,(num_gen,t))) (List.zip funs ts')))
+infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dtype tdecs) =
+  do new_tenvT <- return (Map.fromList (List.map (\(tvs,tn,ctors) -> (Short tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdecs));
+     tenvT' <- return (Map.union new_tenvT tenvT);
+     check_ctor_tenv mn tenvT tdecs; 
+     new_tdecls <- return (List.map (\(tvs,tn,ctors) -> mk_id mn tn) tdecs);
+     mapM_ (\new_id -> if Set.member new_id tdecls then typeError (getPos new_id) ("Dulicate type definition of: " ++ show new_id) else return ()) new_tdecls;
+     return ((Set.empty,Set.fromList new_tdecls,Set.empty), new_tenvT, build_ctor_tenv mn tenvT' tdecs, Map.empty)
+ -- TODO type abbrevs and exns
 
-infer_ds :: Maybe ModN -> TenvM -> TenvC -> Tenv -> Decs -> M_st_ex (TenvC, Tenv)
-infer_ds mn menv cenv env [] =
-  return (emp,emp)
-infer_ds mn menv cenv env (d:ds) =
-  do (cenv',env') <- infer_d mn menv cenv env d;
-     (cenv'',env'') <- infer_ds mn menv (merge cenv' cenv) (merge env' env) ds;
-     return (merge cenv'' cenv', merge env'' env')
+append_decls (m1,t1,e1) (m2,t2,e2) = (Set.union m1 m2, Set.union t1 t2, Set.union e1 e2)
+
+infer_ds :: Maybe ModN -> Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Decs -> M_st_ex (Decls,TenvT,TenvC,Tenv)
+infer_ds mn decls tenvT menv cenv env [] =
+  return (empty_decls,Map.empty, Map.empty, Map.empty)
+infer_ds mn decls tenvT menv cenv env (d:ds) =
+  do (decls',tenvT',cenv',env') <- infer_d mn decls tenvT menv cenv env d;
+     (decls'',tenvT'',cenv'',env'') <- infer_ds mn (append_decls decls' decls) (Map.union tenvT' tenvT) menv (Map.union cenv' cenv) (Map.union env' env) ds;
+     return (append_decls decls'' decls', Map.union tenvT'' tenvT', Map.union cenv'' cenv', Map.union env'' env')
 
 t_to_freevars :: T -> M_st_ex [TvarN]
 t_to_freevars (Tvar tn) = 
@@ -389,112 +500,89 @@ ts_to_freevars (t:ts) =
      fvs2 <- ts_to_freevars ts;
      return (fvs1++fvs2)
 
+{- TODO
 check_specs :: Maybe ModN -> TenvC -> Tenv -> Specs -> M_st_ex (TenvC, Tenv)
 check_specs mn cenv env [] =
   return (cenv,env)
 check_specs mn cenv env (Sval x t:specs) =
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
-     check_specs mn cenv (bind x (toInteger (List.length fvs'), 
-                          infer_type_subst (listToEnv (List.zip fvs' (List.map Infer_Tvar_db [0..toInteger (List.length fvs')]))) t) env) specs
+     check_specs mn cenv (Map.insert x (toInteger (List.length fvs'), 
+                          infer_type_subst (Map.fromList (List.zip fvs' (List.map Infer_Tvar_db [0..toInteger (List.length fvs')]))) t) env) specs
 check_specs mn cenv env (Stype td : specs) =
   do check_ctor_tenv mn cenv td;
-     check_specs mn (merge (build_ctor_tenv mn td) cenv) env specs
+     check_specs mn (Map.union (build_ctor_tenv mn td) cenv) env specs
 check_specs mn cenv env (Sexn cn ts : specs) =
-  if isJust (Ast.lookup (mk_id mn cn) cenv) then
+  if isJust (Map.lookup (mk_id mn cn) cenv) then
     typeError (getPos cn) ("duplicate constructor: " ++ show (mk_id mn cn))
   else 
     do mapM_ (check_freevars 0 []) ts;
-       check_specs mn (bind (mk_id mn cn) ([], ts, TypeExn) cenv) env specs
+       check_specs mn (Map.insert (mk_id mn cn) ([], ts, TypeExn) cenv) env specs
 check_specs mn cenv env (Stype_opq tvs tn : specs) =
   do mapM_ (\(_, (x,y,tn')) -> 
               unless (TypeId (mk_id mn tn) /= tn') 
                      (typeError (getPos tn) ("duplicate type definition: " ++ show (mk_id mn tn)))) 
-          (envToList cenv);
+          (Map.assocs cenv);
      ensureDistinct "type variable" (\x -> x) tvs;
      check_specs mn cenv env specs
 
 check_weakC :: TenvC -> TenvC -> M_st_ex ()
 check_weakC cenv_impl cenv_spec =
   mapM_ (\(cn, (tvs_spec, ts_spec, tn_spec)) ->
-            case Ast.lookup cn cenv_impl of
+            case Map.lookup cn cenv_impl of
                Nothing -> typeError (getPos cn) ("Missing implementation of " ++ show cn)
                Just (tvs_impl,ts_impl,tn_impl) ->
                   unless (tn_spec == tn_impl && tvs_spec == tvs_impl && ts_spec == ts_impl) 
                          (typeError (getPos cn) "datatype specification and implementation differ"))
-        (envToList cenv_spec)
+        (Map.assocs cenv_spec)
 
 check_weakE :: Tenv -> Tenv -> M_st_ex ()
 check_weakE env_impl env_spec =
   mapM_ 
     (\(n, (tvs_spec, t_spec)) ->
-       case Ast.lookup n env_impl of
+       case Map.lookup n env_impl of
          Nothing -> typeError (getPos n) ("Missing implementation of " ++ show n)
          Just (tvs_impl,t_impl) ->
              do init_state;
                 uvs <- n_fresh_uvar tvs_impl;
 	        let t = (infer_deBruijn_subst uvs t_impl);
                 add_constraint (getPos n) t t_spec)
-    (envToList env_spec)
+    (Map.assocs env_spec)
     
 check_signature :: Maybe ModN -> TenvC -> Tenv -> Maybe Specs -> M_st_ex (TenvC, Tenv)
 check_signature mn cenv env Nothing = 
   return (cenv, env)
 check_signature mn cenv env (Just specs) =
-  do (cenv', env') <- check_specs mn emp emp specs;
+  do (cenv', env') <- check_specs mn Map.empty Map.empty specs;
      check_weakC cenv cenv';
      check_weakE env env';
      return (cenv',env')
+-}
 
-infer_top :: TenvM -> TenvC -> Tenv -> Top -> M_st_ex (TenvM, TenvC, Tenv)
-infer_top menv cenv env (Tdec d) =
-  do (cenv',env') <- infer_d Nothing menv cenv env d;
-     return (emp, cenv', env')
+infer_top :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Top -> M_st_ex (Decls, TenvT, TenvM, TenvC, Tenv)
+infer_top decls tenvT menv cenv env (Tdec d) =
+  do (decls',tenvT',cenv',env') <- infer_d Nothing decls tenvT menv cenv env d;
+     return (decls', tenvT', Map.empty, cenv', env')
+{- TODO
 infer_top menv cenv env (Tmod mn spec ds1) =
-  do when (mn `envElem` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
+  do when (mn `Map.member` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
      (cenv',env') <- infer_ds (Just mn) menv cenv env ds1;
      (cenv'',env'') <- check_signature (Just mn) cenv' env' spec;
-     return (bind mn env'' emp, cenv'', emp)
-
-infer_prog :: TenvM -> TenvC -> Tenv -> Prog -> M_st_ex (TenvM, TenvC, Tenv)
-infer_prog menv cenv env [] = return (emp,emp,emp)
-infer_prog menv cenv env (top:ds) =
-  do (menv',cenv',env') <- infer_top menv cenv env top;
-     (menv'', cenv'', env'') <- infer_prog menv (merge cenv' cenv) (merge env' env) ds;
-     return (merge menv'' menv', merge cenv'' cenv', merge env'' env')
-
-infer_Tfn t1 t2 = Infer_Tapp [t1,t2] TC_fn
-infer_Tint = Infer_Tapp [] TC_int
-infer_Tbool = Infer_Tapp [] TC_bool
-infer_Tunit = Infer_Tapp [] TC_unit
-infer_Tref t = Infer_Tapp [t] TC_ref
-
-init_type_env =
-  listToEnv
-    (List.map (\(x,y) -> (VarN x dummy_pos,y))
-      [("+", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
-       ("-", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
-       ("*", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
-       ("div", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
-       ("mod", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tint))),
-       ("<", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tbool))),
-       (">", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tbool))),
-       ("<=", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tbool))),
-       (">=", (0, infer_Tfn infer_Tint (infer_Tfn infer_Tint infer_Tbool))),
-       ("=", (1, infer_Tfn (Infer_Tvar_db 0) (infer_Tfn (Infer_Tvar_db 0) infer_Tbool))),
-       (":=", (1, infer_Tfn (infer_Tref (Infer_Tvar_db 0)) (infer_Tfn (Infer_Tvar_db 0) infer_Tunit))),
-       ("~", (0, infer_Tfn infer_Tint infer_Tint)),
-       ("!", (1, infer_Tfn (infer_Tref (Infer_Tvar_db 0)) (Infer_Tvar_db 0))),
-       ("ref", (1, infer_Tfn (Infer_Tvar_db 0) (infer_Tref (Infer_Tvar_db 0))))])
-
-tic_a = TvarN "'a" dummy_pos
-
-init_tenvC =
-  listToEnv ((Short (ConN "nil" dummy_pos), ([tic_a], [], TypeId (Short (TypeN "list" dummy_pos)))) :
-             (Short (ConN "::" dummy_pos), ([tic_a], [Tvar tic_a, Tapp [Tvar tic_a] (TC_name (Short (TypeN "list" dummy_pos)))], TypeId (Short (TypeN "list" dummy_pos)))) :
-             List.map (\cn -> (Short (ConN cn dummy_pos) , ([], [], TypeExn))) ["Bind", "Div", "Eq"])
-
-inferTop :: (TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (TenvM, TenvC, Tenv)
-inferTop (menv,cenv,env) top =
-  evalStateT (infer_top menv cenv env top) init_infer_state
+     return (Map.insert mn env'' Map.empty, cenv'', Map.empty)
 -}
+
+infer_prog :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Prog -> M_st_ex (Decls, TenvT, TenvM, TenvC, Tenv)
+infer_prog decls tenvT menv cenv env [] = return (empty_decls, Map.empty, Map.empty,Map.empty,Map.empty)
+infer_prog decls tenvT menv cenv env (top:ds) =
+  do (decls',tenvT',menv',cenv',env') <- infer_top decls tenvT menv cenv env top;
+     (decls'',tenvT'',menv'', cenv'', env'') <- 
+         infer_prog (append_decls decls' decls) (Map.union tenvT' tenvT) (Map.union menv' menv) (Map.union cenv' cenv) (Map.union env' env) ds;
+     return (append_decls decls'' decls', Map.union tenvT'' tenvT', Map.union menv'' menv', Map.union cenv'' cenv', Map.union env'' env')
+
+inferTop :: (Decls,TenvT,TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (Decls,TenvT,TenvM, TenvC, Tenv)
+inferTop (decls,tenvT,menv,cenv,env) top =
+  evalStateT (infer_top decls tenvT menv cenv env top) init_infer_state
+
+inferProg :: (Decls,TenvT,TenvM,TenvC,Tenv) -> Prog -> Either (SourcePos,String) (Decls,TenvT,TenvM, TenvC, Tenv)
+inferProg (decls,tenvT,menv,cenv,env) top =
+  evalStateT (infer_prog decls tenvT menv cenv env top) init_infer_state

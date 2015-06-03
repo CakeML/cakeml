@@ -10,8 +10,6 @@ import Ast
 import Data.Maybe
 import Data.Functor.Identity as DFI
 
-dummy_pos = initialPos "compiler generated"
-
 o f g x = f (g x)
 
 destLongidT (LongidT x y,pos) = Just (ModN x pos,y,pos)

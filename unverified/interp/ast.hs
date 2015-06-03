@@ -5,6 +5,8 @@ import Data.Maybe as Maybe
 import Data.Word as Word
 import Text.Parsec.Pos (SourcePos, initialPos)
 
+dummy_pos = initialPos "compiler generated"
+
 class HasPos a where
   getPos :: a -> SourcePos
 
@@ -122,40 +124,40 @@ id_to_n (Long _ n) = n
 
 data Op = 
   -- Operations on integers
-    Opn Opn
-  | Opb Opb
+    Opn Opn SourcePos
+  | Opb Opb SourcePos
   -- Polymorphic =
-  | Equality
+  | Equality SourcePos
   -- Application
   | Opapp
   -- Reference operations
-  | Opassign
-  | Opref
-  | Opderef
+  | Opassign SourcePos
+  | Opref SourcePos
+  | Opderef SourcePos
   -- Word8Array operations
-  | Aw8alloc
-  | Aw8sub
-  | Aw8length
-  | Aw8update
+  | Aw8alloc SourcePos
+  | Aw8sub SourcePos
+  | Aw8length SourcePos
+  | Aw8update SourcePos
   -- Char operations
-  | Ord
-  | Chr
-  | Chopb Opb
+  | Ord SourcePos
+  | Chr SourcePos
+  | Chopb Opb SourcePos
   -- String operations
-  | Explode
-  | Implode
-  | Strlen
+  | Explode SourcePos
+  | Implode SourcePos
+  | Strlen SourcePos
   -- Vector operations
-  | VfromList
-  | Vsub
-  | Vlength
+  | VfromList SourcePos
+  | Vsub SourcePos
+  | Vlength SourcePos
   -- Array operations
-  | Aalloc
-  | Asub
-  | Alength
-  | Aupdate
+  | Aalloc SourcePos
+  | Asub SourcePos
+  | Alength SourcePos
+  | Aupdate SourcePos
   -- Call a given foreign function
-  | FFI Integer
+  | FFI Integer SourcePos
 
 data Lop = And SourcePos | Or SourcePos
 
@@ -197,6 +199,11 @@ data T =
   | Tvar_db Integer
   | Tapp [T] Tc
   deriving Eq
+
+instance Show T where
+  show (Tvar tv) = show tv
+  show (Tvar_db n) = show n
+  show (Tapp ts tc) = show ts ++ show tc
 
 tint = Tapp [] TC_int
 tchar = Tapp [] TC_char
@@ -266,9 +273,6 @@ pats_bindings (p:ps) already_bound = pats_bindings ps (pat_bindings p already_bo
 
 newtype Env k v = Env (Map k v)
 
-lookup :: Ord k => k -> Env k v -> Maybe v
-lookup k (Env m) = Map.lookup k m
-
 emp :: Env k v
 emp = Env Map.empty
 
@@ -277,12 +281,6 @@ merge (Env m1) (Env m2) = Env (Map.union m1 m2)
 
 bind :: Ord k => k -> v -> Env k v -> Env k v
 bind k v (Env m) = Env (Map.insert k v m)
-
-getDup :: (Eq a, Ord a) => [a] -> Maybe a
-getDup ls = check (sort ls)
-  where check [] = Nothing
-        check [x] = Nothing
-        check (x:y:zs) = if x == y then Just x else check (y:zs)
 
 listToEnv :: Ord k => [(k,v)] -> Env k v
 listToEnv l = Env (Map.fromList l)
@@ -324,189 +322,6 @@ instance Eq Tid_or_exn where
   (==) (TypeId tid1) (TypeId tid2) = tid1 == tid2
   (==) _ _ = False
 
-data Ast_pat = 
-    Ast_Pvar VarN
-  | Ast_Plit Lit SourcePos
-  | Ast_Pcon (Maybe (Id ConN)) [Ast_pat] SourcePos
-  | Ast_Pref Ast_pat SourcePos
 
-data Ast_exp =
-    Ast_Raise Ast_exp
-  | Ast_Handle Ast_exp [(Ast_pat, Ast_exp)]
-  | Ast_Lit Lit SourcePos
-  | Ast_Var (Id VarN)
-  | Ast_Con (Maybe (Id ConN)) [Ast_exp] SourcePos
-  | Ast_Fun VarN Ast_exp SourcePos
-  | Ast_App Ast_exp Ast_exp
-  | Ast_Log Lop Ast_exp Ast_exp
-  | Ast_If Ast_exp Ast_exp Ast_exp
-  | Ast_Mat Ast_exp [(Ast_pat, Ast_exp)]
-  | Ast_Let VarN Ast_exp Ast_exp
-  | Ast_Letrec [(VarN, VarN, Ast_exp)] Ast_exp
-
-data Ast_t =
-    Ast_Tvar TvarN
-  | Ast_Tapp [Ast_t] (Maybe (Id TypeN))
-  | Ast_Tfn Ast_t Ast_t
-
-type Ast_type_def = [([TvarN], TypeN, [(ConN, [Ast_t])])]
-
-data Ast_dec =
-    Ast_Dlet Ast_pat Ast_exp SourcePos
-  | Ast_Dletrec [(VarN, VarN, Ast_exp)]
-  | Ast_Dtype Ast_type_def
-  | Ast_Dexn ConN [Ast_t]
-
-type Ast_decs = [Ast_dec]
-
-data Ast_spec =
-    Ast_Sval VarN Ast_t
-  | Ast_Stype Ast_type_def
-  | Ast_Stype_opq [TvarN] TypeN
-
-type Ast_specs = [Ast_spec]
-
-data Ast_top =
-    Ast_Tmod ModN (Maybe Ast_specs) Ast_decs
-  | Ast_Tdec Ast_dec
-
-type Ast_prog = [Ast_top]
-
-type Ctor_env = Env ConN (Id ConN)
-
-elab_p :: Ctor_env -> Ast_pat -> Pat
-elab_p ctors (Ast_Pvar n) = Pvar n
-elab_p ctors (Ast_Plit l pos) = Plit l pos
-elab_p ctors (Ast_Pcon (Just (Short cn)) ps pos) =
-  case Ast.lookup cn ctors of
-     Just cid -> Pcon (Just cid) (elab_ps ctors ps) pos
-     Nothing -> Pcon (Just (Short cn)) (elab_ps ctors ps) pos
-elab_p ctors (Ast_Pcon cn ps pos) =
-  Pcon cn (elab_ps ctors ps) pos
-elab_p ctors (Ast_Pref p pos) = Pref (elab_p ctors p) pos
-elab_ps ctors [] = []
-elab_ps ctors (p:ps) = elab_p ctors p : elab_ps ctors ps
-
-type Tdef_env = Env TypeN Tc
-
-elab_t :: Tdef_env -> Ast_t -> T
-elab_e :: Ctor_env -> Ast_exp -> Exp
-elab_funs :: Ctor_env -> [(VarN, VarN, Ast_exp)] -> [(VarN, VarN, Exp)]
-elab_dec :: Maybe ModN -> Tdef_env -> Ctor_env -> Ast_dec -> (Tdef_env, Ctor_env, Dec)
-elab_decs :: Maybe ModN -> Tdef_env -> Ctor_env -> [Ast_dec] -> (Tdef_env, Ctor_env, [Dec])
-elab_spec :: Maybe ModN -> Tdef_env -> [Ast_spec] -> [Spec]
-elab_top :: Tdef_env -> Ctor_env -> Ast_top -> (Tdef_env, Ctor_env, Top)
-elab_prog :: Tdef_env -> Ctor_env -> [Ast_top] -> (Tdef_env, Ctor_env, Prog)
-
-elab_e ctors (Ast_Raise e) = Raise (elab_e ctors e)
-elab_e ctors (Ast_Handle e pes) =
-  Handle (elab_e ctors e) 
-         (List.map (\(p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
-elab_e ctors (Ast_Lit l pos) =
-  Lit l pos
-elab_e ctors (Ast_Var id) =
-  Var id
-elab_e ctors (Ast_Con (Just (Short cn)) es pos) =
-  case Ast.lookup cn ctors of
-    Just cid -> Con (Just cid) (List.map (elab_e ctors) es) pos
-    Nothing -> Con (Just (Short cn)) (List.map (elab_e ctors) es) pos
-elab_e ctors (Ast_Con cn es pos) =
-  Con cn (List.map (elab_e ctors) es) pos
-elab_e ctors (Ast_Fun n e pos) =
-  Fun n (elab_e ctors e) pos
-elab_e ctors (Ast_App e1 e2) =
-  App Opapp (elab_e ctors e1) (elab_e ctors e2)
-elab_e ctors (Ast_Log lop e1 e2) =
-  Log lop (elab_e ctors e1) (elab_e ctors e2)
-elab_e ctors (Ast_If e1 e2 e3) =
-  If (elab_e ctors e1) (elab_e ctors e2) (elab_e ctors e3)
-elab_e ctors (Ast_Mat e pes) =
-  Mat (elab_e ctors e) 
-      (List.map (\(p,e) -> (elab_p ctors p, elab_e ctors e)) pes)
-elab_e ctors (Ast_Let x e1 e2) =
-  Let x (elab_e ctors e1) (elab_e ctors e2)
-elab_e ctors (Ast_Letrec funs e) =
-  Letrec (elab_funs ctors funs) 
-         (elab_e ctors e)
-elab_funs ctors [] =
-  []
-elab_funs ctors ((n1,n2,e):funs) =
-  (n1,n2,elab_e ctors e) : elab_funs ctors funs
-
-elab_t type_bound (Ast_Tvar n) = Tvar n
-elab_t type_bound (Ast_Tfn t1 t2) =
-  tfn (elab_t type_bound t1) (elab_t type_bound t2)
-elab_t type_bound (Ast_Tapp ts Nothing) =
-  let ts' = List.map (elab_t type_bound) ts in
-    Tapp ts' TC_tup
-elab_t type_bound (Ast_Tapp ts (Just (Long m tn))) =
-  let ts' = List.map (elab_t type_bound) ts in
-    Tapp ts' (TC_name (Long m tn))
-elab_t type_bound (Ast_Tapp ts (Just (Short tn))) =
-  let ts' = List.map (elab_t type_bound) ts in
-    case Ast.lookup tn type_bound of
-      Nothing -> Tapp ts' (TC_name (Short tn))
-      Just tc -> Tapp ts' tc
-
-get_ctors_bindings mn t =
-  List.concat (List.map (\(tvs,tn,ctors) -> List.map (\(cn,t) -> (cn, mk_id mn cn)) ctors) t)
-   
-elab_td type_bound (tvs,tn,ctors) =
-  (tvs, tn, List.map (\(cn,t) -> (cn, List.map (elab_t type_bound) t)) ctors)
-
-elab_dec mn type_bound ctors (Ast_Dlet p e pos) =
-  let p' = elab_p ctors p in
-    (emp, emp, Dlet p' (elab_e ctors e) pos)
-elab_dec mn type_bound ctors (Ast_Dletrec funs) =
-  (emp, emp, Dletrec (elab_funs ctors funs))
-elab_dec mn type_bound ctors (Ast_Dtype t) = 
-  let type_bound' = listToEnv (List.map (\(tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) t) in
-    (type_bound',
-     listToEnv (get_ctors_bindings mn t),
-     Dtype (List.map (elab_td (merge type_bound' type_bound)) t))
-elab_dec mn type_bound ctors (Ast_Dexn cn ts) =
-  (emp,
-   bind cn (mk_id mn cn) emp,
-   Dexn cn (List.map (elab_t type_bound) ts)) 
-
-elab_decs mn type_bound ctors [] = (emp,emp,[])
-elab_decs mn type_bound ctors (d:ds) = 
-  let (type_bound', ctors', d') = elab_dec mn type_bound ctors d in
-  let (type_bound'',ctors'',ds') = elab_decs mn (merge type_bound' type_bound) (merge ctors' ctors) ds in
-    (merge type_bound'' type_bound', merge ctors'' ctors', d':ds')
-
-elab_spec mn type_bound [] = []
-elab_spec mn type_bound (Ast_Sval x t:spec) =
-  Sval x (elab_t type_bound t) : elab_spec mn type_bound spec
-elab_spec mn type_bound (Ast_Stype td : spec) =
-  let type_bound' = listToEnv (List.map (\(tvs,tn,ctors) -> (tn, TC_name (mk_id mn tn))) td) in
-    Stype (List.map (elab_td (merge type_bound' type_bound)) td) : elab_spec mn (merge type_bound' type_bound) spec
-elab_spec mn type_bound (Ast_Stype_opq tvs tn:spec) =
-  Stype_opq tvs tn : elab_spec mn (bind tn (TC_name (mk_id mn tn)) type_bound) spec
-
-elab_top type_bound ctors (Ast_Tdec d) =
-  let (type_bound', ctors', d') = elab_dec Nothing type_bound ctors d in
-      (type_bound', ctors', Tdec d')
-elab_top type_bound ctors (Ast_Tmod mn spec ds) =
-  let (type_bound',ctors',ds') = elab_decs (Just mn) type_bound ctors ds in
-      (type_bound,ctors,Tmod mn (fmap (elab_spec (Just mn) type_bound) spec) ds')
-
-elab_prog type_bound ctors [] = (emp,emp,[])
-elab_prog type_bound ctors (top:prog) =
-  let (type_bound',ctors',top') = elab_top type_bound ctors top in
-  let (type_bound'',ctors'',prog') = elab_prog (merge type_bound' type_bound) (merge ctors' ctors) prog in
-    (merge type_bound'' type_bound', merge ctors'' ctors', top':prog') 
-
-dummy_pos = initialPos "initial_env"
-
-init_elab_env =
-  listToEnv
-    (List.map (\(x,y) -> (TypeN x dummy_pos, y))
-      [("int", TC_int),
-       ("bool", TC_bool),
-       ("ref", TC_ref),
-       ("unit", TC_unit),
-       ("exn", TC_exn),
-       ("list", TC_name (Short (TypeN "list" dummy_pos)))])
 
 -}
