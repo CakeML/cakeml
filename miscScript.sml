@@ -15,6 +15,43 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val list_rel_lastn = Q.store_thm("list_rel_lastn",
+  `!f l1 l2 n.
+    n ≤ LENGTH l1 ∧
+    LIST_REL f l1 l2 ⇒
+    LIST_REL f (LASTN n l1) (LASTN n l2)`,
+  Induct_on `l1` >>
+  rw [LASTN] >>
+  imp_res_tac EVERY2_LENGTH >>
+  Cases_on `n = LENGTH l1 + 1`
+  >- metis_tac [LASTN_LENGTH_ID, ADD1, LENGTH, LIST_REL_def] >>
+  `n ≤ LENGTH l1` by decide_tac >>
+  `n ≤ LENGTH ys` by decide_tac >>
+  res_tac >>
+  fs [LASTN_CONS]);
+
+val list_rel_butlastn = Q.store_thm ("list_rel_butlastn",
+  `!f l1 l2 n.
+    n ≤ LENGTH l1 ∧
+    LIST_REL f l1 l2 ⇒
+    LIST_REL f (BUTLASTN n l1) (BUTLASTN n l2)`,
+  Induct_on `l1` >>
+  rw [BUTLASTN] >>
+  imp_res_tac EVERY2_LENGTH >>
+  Cases_on `n = LENGTH l1 + 1`
+  >- metis_tac [BUTLASTN_LENGTH_NIL, ADD1, LENGTH, LIST_REL_def] >>
+  `n ≤ LENGTH l1` by decide_tac >>
+  `n ≤ LENGTH ys` by decide_tac >>
+  res_tac >>
+  fs [BUTLASTN_CONS]);
+
+val SORTED_ALL_DISTINCT = store_thm("SORTED_ALL_DISTINCT",
+  ``irreflexive R /\ transitive R ==> !ls. SORTED R ls ==> ALL_DISTINCT ls``,
+  STRIP_TAC THEN Induct THEN SRW_TAC[][] THEN
+  IMP_RES_TAC SORTED_EQ THEN
+  FULL_SIMP_TAC (srw_ss()) [SORTED_DEF] THEN
+  METIS_TAC[relationTheory.irreflexive_def])
+
 val ALOOKUP_SNOC = store_thm("ALOOKUP_SNOC",
   ``∀ls p k. ALOOKUP (SNOC p ls) k =
       case ALOOKUP ls k of SOME v => SOME v |
