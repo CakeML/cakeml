@@ -86,14 +86,14 @@ val list_to_v_def = Define`
 val Unit_def = Define`
   Unit = Block (tuple_tag+pat_tag_shift) []`
 
-val _ = Parse.temp_overload_on("Error",``Rerr(Rabort Rtype_error)``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#closSem$state,closSem$v)result``)
 
 val do_app_def = Define `
   do_app (op:closLang$op) (vs:closSem$v list) (s:closSem$state) =
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
-         | SOME (SOME v) => Rval (v,s)
+         | SOME (SOME v) => (Rval (v,s))
          | _ => Error)
     | (SetGlobal n,[v]) =>
         (case get_global n s.globals of

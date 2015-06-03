@@ -2,7 +2,43 @@ open preamble closSemTheory
 
 val _ = new_theory"closProps"
 
+val v_ind =
+  TypeBase.induction_of``:closSem$v``
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE(srw_ss())[]
+  |> UNDISCH_ALL
+  |> CONJUNCT1
+  |> DISCH_ALL
+  |> Q.GEN`P`
+  |> curry save_thm "v_ind";
+
+val do_app_err = Q.store_thm("do_app_err",
+  `∀op ls s e.
+     do_app op ls s = Rerr e ⇒
+     ∃a. e = Rabort a`,
+  Cases >>
+  rw[do_app_def] >>
+  every_case_tac >> fs[LET_THM] >> rw[])
+
+val ref_rel_def = Define`
+  (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
+  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
+  (ref_rel _ _ _ = F)`
+val _ = export_rewrites["ref_rel_def"];
+
 val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
+
+val do_eq_list_rel = store_thm("do_eq_list_rel",
+  ``∀l1 l2 l3 l4.
+     LENGTH l1 = LENGTH l2 ∧ LENGTH l3 = LENGTH l4 ∧
+     LIST_REL (λp1 p2. UNCURRY do_eq p1 = UNCURRY do_eq p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
+     closSem$do_eq_list l1 l2 = do_eq_list l3 l4``,
+   Induct >> simp[LENGTH_NIL_SYM] >- (
+     simp[GSYM AND_IMP_INTRO, miscTheory.ZIP_EQ_NIL] ) >>
+   gen_tac >> Cases >> simp[PULL_EXISTS] >>
+   Cases >> simp[LENGTH_NIL_SYM] >>
+   Cases >> simp[CONJUNCT2 do_eq_def] >>
+   strip_tac >> BasicProvers.CASE_TAC >> rw[]);
 
 val evaluate_LENGTH_ind =
   evaluate_ind
@@ -129,5 +165,31 @@ val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGl
     simp[state_component_equality] ) >>
   simp[Once evaluate_CONS,evaluate_def,do_app_def,GENLIST_CONS] >>
   simp[state_component_equality])
+
+val lookup_vars_NONE = store_thm("lookup_vars_NONE",
+  ``!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v``,
+  Induct \\ fs [lookup_vars_def]
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ Cases_on `h < LENGTH env` \\ fs [NOT_LESS]
+  \\ Cases_on `lookup_vars vs env` \\ fs []
+  THEN1 METIS_TAC []
+  \\ CCONTR_TAC \\ fs [] \\ METIS_TAC [NOT_LESS]);
+
+val lookup_vars_SOME = store_thm("lookup_vars_SOME",
+  ``!vs env xs.
+      (lookup_vars vs env = SOME xs) ==>
+      (LENGTH vs = LENGTH xs)``,
+  Induct \\ fs [lookup_vars_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `lookup_vars vs env` \\ fs [] \\ SRW_TAC [] [] \\ RES_TAC);
+
+val lookup_vars_MEM = prove(
+  ``!ys n x (env2:closSem$v list).
+      (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
+      (EL n ys) < LENGTH env2 /\
+      (EL n x = EL (EL n ys) env2)``,
+  Induct \\ fs [lookup_vars_def] \\ NTAC 5 STRIP_TAC
+  \\ Cases_on `lookup_vars ys env2` \\ fs []
+  \\ Cases_on `n` \\ fs [] \\ SRW_TAC [] [] \\ fs []) |> SPEC_ALL
+  |> curry save_thm "lookup_vars_MEM";
 
 val _ = export_theory();
