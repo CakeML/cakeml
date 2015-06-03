@@ -21,7 +21,7 @@ string_char =
   <|>
   (try (string "\\t") >> return '\t')
   <|>
-  noneOf ['\\', '\n', '"']
+  noneOf ['\\', '\n', '"', '\t']
 
 skip_comment d =
   (try (string "(*") >> skip_comment (d + 1))
@@ -89,29 +89,23 @@ get_token_sym s =
   SymbolT s
 
 get_token_alpha s =
-  if s == "abstype" then AbstypeT else
   if s == "and" then AndT else
   if s == "andalso" then AndalsoT else
   if s == "as" then AsT else
   if s == "case" then CaseT else
   if s == "datatype" then DatatypeT else
-  if s == "do" then DoT else
   if s == "else" then ElseT else
   if s == "end" then EndT else
   if s == "eqtype" then EqtypeT else
   if s == "exception" then ExceptionT else
   if s == "fn" then FnT else
   if s == "fun" then FunT else
-  if s == "functor" then FunctorT else
   if s == "handle" then HandleT else
   if s == "if" then IfT else
   if s == "in" then InT else
   if s == "include" then IncludeT else
-  if s == "infix" then InfixT else
-  if s == "infixr" then InfixrT else
   if s == "let" then LetT else
   if s == "local" then LocalT else
-  if s == "nonfix" then NonfixT else
   if s == "of" then OfT else
   if s == "op" then OpT else
   if s == "open" then OpenT else
@@ -127,7 +121,6 @@ get_token_alpha s =
   if s == "type" then TypeT else
   if s == "val" then ValT else
   if s == "where" then WhereT else
-  if s == "while" then WhileT else
   if s == "with" then WithT else
   if s == "withtype" then WithtypeT else
   AlphaT s

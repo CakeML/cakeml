@@ -224,7 +224,7 @@ data Exp =
   | Log Lop Exp Exp
   | If Exp Exp Exp
   | Mat Exp [(Pat,Exp)]
-  | Let VarN Exp Exp
+  | Let (Maybe VarN) Exp Exp
   | Letrec [(VarN,VarN,Exp)] Exp
 
 type Type_def = [([TvarN], TypeN, [(ConN, [T])])]

@@ -38,7 +38,7 @@ tok f = token (\t -> show (fst t)) snd f
 
 tokeq t = tok (\(x,pos) -> if t == x then Just pos else Nothing)
 
-linfix exp op = exp `chainl1` fmap (\(t,pos) e1 e2 -> App (App (Var (Short (VarN t pos))) e1) e2) op
+linfix exp op = exp `chainl1` fmap (\(t,pos) e1 e2 -> App Opapp [App Opapp [Var (Short (VarN t pos)), e1], e2]) op
 
 longV = 
   tok (\t -> do (str,s,pos) <- destLongidT t;
@@ -64,12 +64,12 @@ nFQV = fmap Short nV <|> longV
 
 mkApp e1 e2 =
   case e1 of
-    Con (Just (Short (ConN "ref" pos))) [] pos' -> App (Var (Short (VarN "ref" pos))) e2
+    Con (Just (Short (ConN "ref" pos))) [] pos' -> App Opapp [Var (Short (VarN "ref" pos)), e2]
     Con s [] pos ->
       case e2 of
         Con Nothing es pos' -> Con s es pos
         _ -> Con s [e2] pos -- Because e2 is an Ebase
-    _ -> App e1 e2
+    _ -> App Opapp [e1,e2]
 
 nEapp = do exps <- many1 nEbase;
            return (case exps of
@@ -102,13 +102,13 @@ nCompOps =
   <|>
   (mk_op (AlphaT "o") "o")
 
-eseq_encode pos [] = Lit (Con Nothing []) pos
+eseq_encode pos [] = Con Nothing [] pos
 eseq_encode pos [e] = e
-eseq_encode pos (e:es) = Let (VarN "_" pos) e (eseq_encode pos es)
+eseq_encode pos (e:es) = Let Nothing e (eseq_encode pos es)
 
 nEbaseParen =
   do pos <- tokeq LparT;
-     ((tokeq RparT >> return (Lit (Con Nothing []) pos))
+     ((tokeq RparT >> return (Con Nothing [] pos))
       <|>
       do e1 <- nE;
          choice [tokeq RparT >> return e1,
@@ -157,7 +157,7 @@ nEadd = linfix nEmult nAddOps
 nElist = nEadd `chainr1` fmap (\(t,pos) e1 e2 -> if t == "::" then
                                                    Con (Just (Short (ConN t pos))) [e1,e2] pos
 	                                         else
-						   App (App (Var (Short (VarN t pos))) e1) e2)
+						   App Opapp [App Opapp [Var (Short (VarN t pos)), e1], e2])
    
                               nListOps
 
@@ -248,12 +248,12 @@ nType = nPType `chainr1` (tokeq ArrowT >> return (\t1 t2 -> Tapp [t1,t2] TC_fn))
 
 nDType = do t <- nTbase; 
             ts <- many nTyOp; 
-            return (List.foldr (\tc t -> Tapp [t] (Just tc)) t ts)
+            return (List.foldr (\tc t -> Tapp [t] (TC_name tc)) t ts)
 
 nTbase = 
   fmap Tvar (tok destTyvarT)
   <|>
-  fmap (\tc -> (Tapp [] (Just tc))) nTyOp
+  fmap (\tc -> (Tapp [] (TC_name tc))) nTyOp
   <|>
   do tokeq LparT;
      t <- nType;
@@ -263,7 +263,7 @@ nTbase =
          ts <- nTypeList1; 
 	 tokeq RparT; 
 	 tc <- nTyOp; 
-         return (Tapp (t:ts) (Just tc)))
+         return (Tapp (t:ts) (TC_name tc)))
 
 nTypeList1 = sepBy1 nType (tokeq CommaT)
 
@@ -277,7 +277,7 @@ nUQTyOp = tok destAlphaSym
 nPType = fmap tuplify (sepBy1 nDType (tokeq StarT))
 
 tuplify [ty] = ty
-tuplify tys = Tapp tys Nothing
+tuplify tys = Tapp tys TC_tup
 
 nTypeName = 
   fmap (\n -> (uncurry TypeN n,[])) nUQTyOp
@@ -303,7 +303,7 @@ nDtypeDecl =
      ctors <- sepBy1 nDconstructor (tokeq BarT);
      return (tvs,tn,ctors)
 
-detuplify (Tapp args Nothing) = args
+detuplify (Tapp args TC_tup) = args
 detuplify ty = [ty]
 
 nDconstructor = 
@@ -366,7 +366,7 @@ nPapp = choice [try (do n <- nConstructorName;
 nPattern = nPapp `chainr1` fmap (\pos p1 p2 -> Pcon (Just (Short (ConN "::" pos))) [p1,p2] pos) (tokeq (SymbolT "::"))  
 nPtuple = 
   do pos <- tokeq LparT;
-     ((tokeq RparT >> return (Plit (Pcon Nothing []) pos))
+     ((tokeq RparT >> return (Pcon Nothing [] pos))
       <|> 
       do pat <- nPattern;
          r <- option pat (do tokeq CommaT 
@@ -380,7 +380,7 @@ nLetDec =
      x <- nV;
      tokeq EqualsT;
      e <- nE;
-     return (Left (x,e))
+     return (Left (Just x,e))
   <|>
   (tokeq FunT >> fmap Right nAndFDecls)
 
@@ -451,15 +451,15 @@ nTopLevelDec =
   <|>
   fmap Tdec nDecl
 
-nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity top
+nREPLTop :: ParsecT [(Token,SourcePos)] u DFI.Identity Top
 nREPLTop = 
   do e <- nE; 
      pos <- tokeq SemicolonT;
-     return (Tdec (Dlet (Pvar (VarN "_" pos)) e pos))
+     return (Tdec (Dlet (Pvar (VarN "it" pos)) e pos))
   <|>
   do d <- nTopLevelDec;
      tokeq SemicolonT;
      return d
 
-parseTop :: [(Token,SourcePos)] -> Either ParseError top
+parseTop :: [(Token,SourcePos)] -> Either ParseError Top
 parseTop toks = parse nREPLTop "" toks
