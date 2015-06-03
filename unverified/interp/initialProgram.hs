@@ -31,6 +31,7 @@ prim_types_program =
    Tdec (Dtype [([tv "'a"], tn "list", [(cn "nil", []), (cn "::", [Tvar (tv "'a"), Tapp [Tvar (tv "'a")] (TC_name (Short (tn "list")))])])]),
    Tdec (Dtype [([tv "'a"], tn "option", [(cn "NONE", []),(cn "SOME", [Tvar (tv "'a")])])])]
 
+
 basis_program :: Prog
 basis_program =
   [Tdec (Dtabbrev [] (tn "int") (Tapp [] TC_int)),
@@ -84,4 +85,4 @@ basis_program =
      [Dtabbrev [] (tn "string") (Tapp [] TC_string),
       mk_unop "explode" Explode,
       mk_unop "implode" Implode,
-      mk_unop "size" Strlen] ]
+      mk_unop "size" Strlen]]

@@ -59,9 +59,10 @@ checkAll s =
       Left err -> putStrLn (show err)
       Right (res,output) -> putStrLn output >> checkAll res
 
+init_tenv :: (Decls,TenvT,TenvM,TenvC,Tenv)
 init_tenv = 
   case inferProg (empty_decls, Map.empty, Map.empty, Map.empty, Map.empty) (prim_types_program ++ basis_program) of
-    Left err -> error "Bad basis"
+    Left err -> error (show err ++ " in basis program.")
     Right x -> x
 
 main = 
@@ -70,7 +71,8 @@ main =
      input <- readFile name;
      checkAll (input, initialPos name, init_tenv)
 
-{-
+     {-
+
 merge3 (x',y',z') (x,y,z) =
   (Map.union x' x, Map.union y' y, Map.union z' z)
 

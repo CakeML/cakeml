@@ -469,11 +469,18 @@ infer_d mn decls tenvT menv cenv env (Dletrec funs) =
 infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dtype tdecs) =
   do new_tenvT <- return (Map.fromList (List.map (\(tvs,tn,ctors) -> (Short tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdecs));
      tenvT' <- return (Map.union new_tenvT tenvT);
-     check_ctor_tenv mn tenvT tdecs; 
+     check_ctor_tenv mn tenvT' tdecs; 
      new_tdecls <- return (List.map (\(tvs,tn,ctors) -> mk_id mn tn) tdecs);
      mapM_ (\new_id -> if Set.member new_id tdecls then typeError (getPos new_id) ("Dulicate type definition of: " ++ show new_id) else return ()) new_tdecls;
      return ((Set.empty,Set.fromList new_tdecls,Set.empty), new_tenvT, build_ctor_tenv mn tenvT' tdecs, Map.empty)
- -- TODO type abbrevs and exns
+infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dtabbrev tvs tn t) =
+  do ensureDistinct "type variable" (\x->x) tvs;
+     check_freevars 0 tvs t;
+     check_type_names tenvT t;
+     return (empty_decls, Map.insert (Short tn) (tvs,type_name_subst tenvT t) Map.empty, Map.empty, Map.empty)
+-- TODO
+infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn _ _) =
+  return (empty_decls, Map.empty, Map.empty, Map.empty)
 
 append_decls (m1,t1,e1) (m2,t2,e2) = (Set.union m1 m2, Set.union t1 t2, Set.union e1 e2)
 
@@ -563,6 +570,8 @@ infer_top :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Top -> M_st_ex (Decls, 
 infer_top decls tenvT menv cenv env (Tdec d) =
   do (decls',tenvT',cenv',env') <- infer_d Nothing decls tenvT menv cenv env d;
      return (decls', tenvT', Map.empty, cenv', env')
+infer_top decls tenvT menv cenv env (Tmod mn spec ds1) =
+  return (empty_decls, Map.empty, Map.empty, Map.empty, Map.empty)
 {- TODO
 infer_top menv cenv env (Tmod mn spec ds1) =
   do when (mn `Map.member` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
