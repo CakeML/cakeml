@@ -1,7 +1,7 @@
 open preamble integerTheory intLib
      semanticPrimitivesTheory
      patSemTheory patPropsTheory
-     closSemTheory closPropsTheory
+     closLangTheory closSemTheory closPropsTheory
 
 val _ = new_theory"pat_to_closProof"
 
