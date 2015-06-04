@@ -2,6 +2,40 @@ open preamble closSemTheory
 
 val _ = new_theory"closProps"
 
+val ref_rel_def = Define`
+  (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
+  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
+  (ref_rel _ _ _ = F)`
+val _ = export_rewrites["ref_rel_def"];
+
+val fv_def = tDefine "fv" `
+  (fv n [] <=> F) /\
+  (fv n ((x:closSem$exp)::y::xs) <=>
+     fv n [x] \/ fv n (y::xs)) /\
+  (fv n [Var v] <=> (n = v)) /\
+  (fv n [If x1 x2 x3] <=>
+     fv n [x1] \/ fv n [x2] \/ fv n [x3]) /\
+  (fv n [Let xs x2] <=>
+     fv n xs \/ fv (n + LENGTH xs) [x2]) /\
+  (fv n [Raise x1] <=> fv n [x1]) /\
+  (fv n [Tick x1] <=> fv n [x1]) /\
+  (fv n [Op op xs] <=> fv n xs) /\
+  (fv n [App loc_opt x1 x2] <=>
+     fv n [x1] \/ fv n x2) /\
+  (fv n [Fn loc vs num_args x1] <=>
+     fv (n + num_args) [x1]) /\
+  (fv n [Letrec loc vs fns x1] <=>
+     EXISTS (\(num_args, x). fv (n + num_args + LENGTH fns) [x]) fns \/ fv (n + LENGTH fns) [x1]) /\
+  (fv n [Handle x1 x2] <=>
+     fv n [x1] \/ fv (n+1) [x2]) /\
+  (fv n [Call dest xs] <=> fv n xs)`
+ (WF_REL_TAC `measure (exp3_size o SND)`
+  \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC \\
+  Induct_on `fns` >>
+  srw_tac [ARITH_ss] [exp_size_def] >>
+  res_tac >>
+  srw_tac [ARITH_ss] [exp_size_def]);
+
 val v_ind =
   TypeBase.induction_of``:closSem$v``
   |> Q.SPECL[`P`,`EVERY P`]
@@ -19,12 +53,6 @@ val do_app_err = Q.store_thm("do_app_err",
   Cases >>
   rw[do_app_def] >>
   every_case_tac >> fs[LET_THM] >> rw[])
-
-val ref_rel_def = Define`
-  (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
-  (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
-  (ref_rel _ _ _ = F)`
-val _ = export_rewrites["ref_rel_def"];
 
 val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
 

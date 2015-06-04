@@ -15,6 +15,28 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val any_el_def = Define `
+  (any_el n [] d = d) /\
+  (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)`
+
+val list_max_def = Define `
+  (list_max [] = 0:num) /\
+  (list_max (x::xs) =
+     let m = list_max xs in
+       if m < x then x else m)`
+
+val index_of_def = Define `
+  (index_of i [] = (0:num)) /\
+  (index_of i (x::xs) = if i = x then 0 else 1 + index_of i xs)`;
+
+val list_inter_def = Define `
+  list_inter xs ys = FILTER (\y. MEM y xs) ys`;
+
+val SING_HD = store_thm("SING_HD",
+  ``(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
+    ((xs = [HD xs]) <=> (LENGTH xs = 1))``,
+  Cases_on `xs` \\ fs [LENGTH_NIL] \\ METIS_TAC []);
+
 val list_rel_lastn = Q.store_thm("list_rel_lastn",
   `!f l1 l2 n.
     n ≤ LENGTH l1 ∧
