@@ -37,6 +37,15 @@ val has_var_def = Define `
   (has_var n (Var v) <=> (n = v)) /\
   (has_var n (Shift k d) <=> has_var (n + k) d) /\
   (has_var n (Union d1 d2) <=> has_var n d1 \/ has_var n d2)`;
+val _ = export_rewrites["has_var_def"];
+
+val has_var_mk_Union = store_thm("has_var_mk_Union[simp]",
+  ``has_var n (mk_Union l1 l2) <=> has_var n l1 \/ has_var n l2``,
+  SRW_TAC [] [mk_Union_def,has_var_def]);
+
+val has_var_list_mk_Union = store_thm("has_var_list_mk_Union[simp]",
+  ``!ls. has_var n (list_mk_Union ls) <=> EXISTS (has_var n) ls``,
+  Induct \\ fs [list_mk_Union_def,has_var_mk_Union,has_var_def]);
 
 val lookup_db_to_set_acc = prove(
   ``!d n k s.
