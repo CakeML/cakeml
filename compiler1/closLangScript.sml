@@ -112,6 +112,17 @@ val code_locs_cons = store_thm("code_locs_cons",
   ``∀x xs. code_locs (x::xs) = code_locs [x] ++ code_locs xs``,
   gen_tac >> Cases >> simp[code_locs_def]);
 
+val code_locs_append = store_thm("code_locs_append",
+  ``!l1 l2. code_locs (l1 ++ l2) = code_locs l1 ++ code_locs l2``,
+  Induct >> simp[code_locs_def] >>
+  simp[Once code_locs_cons] >>
+  simp[Once code_locs_cons,SimpRHS]);
+
+val code_locs_map = store_thm("code_locs_map",
+  ``!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)``,
+  Induct \\ fs [code_locs_def]
+  \\ ONCE_REWRITE_TAC [code_locs_cons] \\ fs [code_locs_def]);
+
 val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME [] ⇔ F) /\
   (contains_App_SOME (x::y::xs) ⇔

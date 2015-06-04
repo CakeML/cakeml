@@ -81,6 +81,11 @@ val LENGTH_FST_free = store_thm("LENGTH_FST_free",
   ``LENGTH (FST (free fns)) = LENGTH fns``,
   Cases_on `free fns` \\ fs [] \\ IMP_RES_TAC free_LENGTH);
 
+val HD_FST_free = store_thm("HD_FST_free",
+  ``[HD (FST (free [x1]))] = FST (free [x1])``,
+  Cases_on `free [x1]` \\ fs []
+  \\ imp_res_tac free_SING \\ fs[]);
+
 val free_CONS = store_thm("free_CONS",
   ``FST (free (x::xs)) = HD (FST (free [x])) :: FST (free xs)``,
   Cases_on `xs` \\ fs [free_def,SING_HD,LENGTH_FST_free,LET_DEF]

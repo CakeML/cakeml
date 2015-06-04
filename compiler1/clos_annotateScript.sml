@@ -93,6 +93,10 @@ val shift_CONS = store_thm("cEval_CONS",
         (HD c1 :: c2:closLang$exp list)``,
   Cases_on `xs` \\ fs [shift_def,LET_DEF,SING_HD,shift_LENGTH_LEMMA]);
 
+val HD_shift = store_thm("HD_shift[simp]",
+  ``[HD (shift [x] m l i)] = shift [x] m l i``,
+  STRIP_ASSUME_TAC shift_SING \\ fs []);
+
 (* main function *)
 
 val annotate_def = Define `
