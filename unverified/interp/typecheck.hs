@@ -478,9 +478,15 @@ infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dtabbrev tvs tn t) =
      check_freevars 0 tvs t;
      check_type_names tenvT t;
      return (empty_decls, Map.insert (Short tn) (tvs,type_name_subst tenvT t) Map.empty, Map.empty, Map.empty)
--- TODO
-infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn _ _) =
-  return (empty_decls, Map.empty, Map.empty, Map.empty)
+infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
+  do mapM_ (check_freevars 0 []) ts;
+     mapM_ (check_type_names tenvT) ts;
+     unless (not (Set.member (mk_id mn cn) edecls)) (typeError (getPos cn) ("Duplicate exception definition of" ++ show cn));
+     return ((Set.empty,Set.empty,Set.singleton (mk_id mn cn)),
+              Map.empty, 
+              Map.insert (Short cn) ([], List.map (\x -> type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) Map.empty,
+	      Map.empty)
+
 
 append_decls (m1,t1,e1) (m2,t2,e2) = (Set.union m1 m2, Set.union t1 t2, Set.union e1 e2)
 
@@ -566,12 +572,28 @@ check_signature mn cenv env (Just specs) =
      return (cenv',env')
 -}
 
-infer_top :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Top -> M_st_ex (Decls, TenvT, TenvM, TenvC, Tenv)
+data TypeState = TypeState Decls TenvT TenvM TenvC Tenv
+
+showMap :: (Show k, Show v) => Map k v -> String
+showMap m =
+  show l
+  where l = Map.toList m
+
+instance Show TypeState where
+  show (TypeState decls tenvT tenvM tenvC tenv) =
+    showMap tenvT ++ showMap tenvM ++ showMap tenvC ++ showMap tenv
+
+merge_types :: TypeState -> TypeState -> TypeState
+merge_types (TypeState decls' tenvT' menv' cenv' env') (TypeState decls tenvT menv cenv env) =
+  TypeState (append_decls decls' decls) (Map.union tenvT' tenvT) (Map.union menv' menv)
+            (Map.union cenv' cenv) (Map.union env' env)
+
+infer_top :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Top -> M_st_ex TypeState
 infer_top decls tenvT menv cenv env (Tdec d) =
   do (decls',tenvT',cenv',env') <- infer_d Nothing decls tenvT menv cenv env d;
-     return (decls', tenvT', Map.empty, cenv', env')
+     return (TypeState decls' tenvT' Map.empty cenv' env')
 infer_top decls tenvT menv cenv env (Tmod mn spec ds1) =
-  return (empty_decls, Map.empty, Map.empty, Map.empty, Map.empty)
+  return (TypeState empty_decls Map.empty Map.empty Map.empty Map.empty)
 {- TODO
 infer_top menv cenv env (Tmod mn spec ds1) =
   do when (mn `Map.member` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
@@ -580,18 +602,21 @@ infer_top menv cenv env (Tmod mn spec ds1) =
      return (Map.insert mn env'' Map.empty, cenv'', Map.empty)
 -}
 
-infer_prog :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Prog -> M_st_ex (Decls, TenvT, TenvM, TenvC, Tenv)
-infer_prog decls tenvT menv cenv env [] = return (empty_decls, Map.empty, Map.empty,Map.empty,Map.empty)
+infer_prog :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Prog -> M_st_ex TypeState
+infer_prog decls tenvT menv cenv env [] = 
+  return (TypeState empty_decls Map.empty Map.empty Map.empty Map.empty)
 infer_prog decls tenvT menv cenv env (top:ds) =
-  do (decls',tenvT',menv',cenv',env') <- infer_top decls tenvT menv cenv env top;
-     (decls'',tenvT'',menv'', cenv'', env'') <- 
+  do (TypeState decls' tenvT' menv' cenv' env') <- infer_top decls tenvT menv cenv env top;
+     (TypeState decls'' tenvT'' menv''  cenv''  env'') <- 
          infer_prog (append_decls decls' decls) (Map.union tenvT' tenvT) (Map.union menv' menv) (Map.union cenv' cenv) (Map.union env' env) ds;
-     return (append_decls decls'' decls', Map.union tenvT'' tenvT', Map.union menv'' menv', Map.union cenv'' cenv', Map.union env'' env')
+     return (TypeState (append_decls decls'' decls') (Map.union tenvT'' tenvT')
+                       (Map.union menv'' menv') (Map.union cenv'' cenv') (Map.union env'' env'))
 
-inferTop :: (Decls,TenvT,TenvM,TenvC,Tenv) -> Top -> Either (SourcePos,String) (Decls,TenvT,TenvM, TenvC, Tenv)
-inferTop (decls,tenvT,menv,cenv,env) top =
+
+inferTop :: TypeState -> Top -> Either (SourcePos,String) TypeState
+inferTop (TypeState decls tenvT menv cenv env) top =
   evalStateT (infer_top decls tenvT menv cenv env top) init_infer_state
 
-inferProg :: (Decls,TenvT,TenvM,TenvC,Tenv) -> Prog -> Either (SourcePos,String) (Decls,TenvT,TenvM, TenvC, Tenv)
-inferProg (decls,tenvT,menv,cenv,env) top =
+inferProg :: TypeState -> Prog -> Either (SourcePos,String) TypeState
+inferProg (TypeState decls tenvT menv cenv env) top =
   evalStateT (infer_prog decls tenvT menv cenv env top) init_infer_state

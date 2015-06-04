@@ -64,6 +64,9 @@ next_token =
   <|>
   do id1 <- many1 symbol_char ;
      option (get_token_sym id1) (char '.' >> do id2 <- ident; return (LongidT id1 id2))
+  <|>
+  do char '_' ;
+     return UnderbarT
   <?>
   "space, digit, letter, number, symbol, or ;"
 

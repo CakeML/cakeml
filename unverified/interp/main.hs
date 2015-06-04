@@ -5,7 +5,7 @@ import System.Environment (getArgs)
 import Lex (lex_until_toplevel_semicolon)
 import Parse (parseTop)
 import Ast as Ast
-import Typecheck (inferTop, Decls, TenvT, TenvM, TenvC, Tenv, append_decls, empty_decls, inferProg)
+import Typecheck --(inferTop, TypeState, empty_decls, inferProg, merge_types)
 import Text.Parsec.Pos (initialPos)
 import Data.Char (isSpace)
 import Data.Map as Map
@@ -36,10 +36,7 @@ getTypeError :: Either (SourcePos,String) x -> Either Main.Error x
 getTypeError (Left (pos,e)) = Left (TypeError (show pos ++ "\n" ++ e))
 getTypeError (Right e) = Right e
 
-merge_types (decls',tenvT',menv',cenv',env') (decls,tenvT,menv,cenv,env) =
-  (append_decls decls' decls, Map.union tenvT' tenvT, Map.union menv' menv, Map.union cenv' cenv, Map.union env' env)
-
-type MainState = (String, SourcePos, (Decls,TenvT,TenvM,TenvC,Tenv))
+type MainState = (String, SourcePos, TypeState)
 
 checkOne :: MainState -> Either Main.Error (MainState, String)
 checkOne (input, pos, tenvs) =
@@ -59,9 +56,9 @@ checkAll s =
       Left err -> putStrLn (show err)
       Right (res,output) -> putStrLn output >> checkAll res
 
-init_tenv :: (Decls,TenvT,TenvM,TenvC,Tenv)
+init_tenv :: TypeState
 init_tenv = 
-  case inferProg (empty_decls, Map.empty, Map.empty, Map.empty, Map.empty) (prim_types_program ++ basis_program) of
+  case inferProg (TypeState empty_decls Map.empty Map.empty Map.empty Map.empty) (prim_types_program ++ basis_program) of
     Left err -> error (show err ++ " in basis program.")
     Right x -> x
 
