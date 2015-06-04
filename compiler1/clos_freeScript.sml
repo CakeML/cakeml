@@ -4,11 +4,6 @@ open preamble db_varsTheory closLangTheory;
 
 val _ = new_theory"clos_free";
 
-val exp1_size_lemma = prove(
-  ``!fns n x. MEM (n,x) fns ==> exp_size x < exp1_size fns``,
-  Induct \\ fs [FORALL_PROD,exp_size_def] \\ REPEAT STRIP_TAC
-  \\ RES_TAC \\ SRW_TAC [] [] \\ DECIDE_TAC);
-
 val free_def = tDefine "free" `
   (free [] = ([],Empty)) /\
   (free ((x:closLang$exp)::y::xs) =
