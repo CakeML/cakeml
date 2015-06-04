@@ -9,7 +9,7 @@ open holKernelTheory;
 open stringTheory listTheory pairTheory;
 open astTheory libTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory lcsymtacs;
-open miscLib ml_pmatchTheory deepMatchesTheory;
+open miscLib ml_pmatchTheory patternMatchesTheory;
 
 infix \\ val op \\ = op THEN;
 

@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib lcsymtacs boolSimps
 open determTheory ml_translatorTheory miscLib
-open deepMatchesTheory deepMatchesLib;
+open patternMatchesTheory patternMatchesLib;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
 open terminationTheory determTheory evalPropsTheory bigClockTheory;
 open arithmeticTheory listTheory combinTheory pairTheory mlstringTheory;

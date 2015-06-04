@@ -1,5 +1,5 @@
 open HolKernel boolLib bossLib lcsymtacs
-open Parse deepMatchesLib deepMatchesSyntax deepMatchesTheory
+open Parse patternMatchesLib patternMatchesSyntax patternMatchesTheory
 open holKernelTheory monadsyntax
 
 val _ = new_theory"holKernelPmatch"

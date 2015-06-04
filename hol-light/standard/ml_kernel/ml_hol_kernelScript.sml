@@ -378,7 +378,7 @@ fun pmatch_m2deep tm m2deep = let
     val th = MATCH_MP th (prove_EvalMPatBind goal m2deep)
     val th = remove_primes th
     val th = CONV_RULE ((RATOR_CONV o RAND_CONV)
-          (SIMP_CONV std_ss [FORALL_PROD,deepMatchesTheory.PMATCH_ROW_COND_def])) th
+          (SIMP_CONV std_ss [FORALL_PROD,patternMatchesTheory.PMATCH_ROW_COND_def])) th
     val th = DISCH assm th
     in th end
   val th = trans ts
