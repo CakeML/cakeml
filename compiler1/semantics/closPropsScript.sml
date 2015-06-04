@@ -1,4 +1,4 @@
-open preamble closSemTheory
+open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
 
@@ -10,7 +10,7 @@ val _ = export_rewrites["ref_rel_def"];
 
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
-  (fv n ((x:closSem$exp)::y::xs) <=>
+  (fv n ((x:closLang$exp)::y::xs) <=>
      fv n [x] \/ fv n (y::xs)) /\
   (fv n [Var v] <=> (n = v)) /\
   (fv n [If x1 x2 x3] <=>
