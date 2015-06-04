@@ -15,6 +15,11 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val SING_HD = store_thm("SING_HD",
+  ``(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
+    ((xs = [HD xs]) <=> (LENGTH xs = 1))``,
+  Cases_on `xs` \\ fs [LENGTH_NIL] \\ METIS_TAC []);
+
 val list_rel_lastn = Q.store_thm("list_rel_lastn",
   `!f l1 l2 n.
     n ≤ LENGTH l1 ∧
