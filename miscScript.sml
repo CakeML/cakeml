@@ -15,6 +15,18 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val LIST_REL_GENLIST = store_thm("LIST_REL_GENLIST",
+  ``EVERY2 P (GENLIST f l) (GENLIST g l) <=>
+    !i. i < l ==> P (f i) (g i)``,
+  Induct_on `l`
+  \\ fs [GENLIST,rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
+  \\ fs [DECIDE ``i < SUC n <=> i < n \/ (i = n)``] \\ METIS_TAC []);
+
+val LENGTH_TAKE_EQ = store_thm("LENGTH_TAKE_EQ",
+  ``LENGTH (TAKE n xs) = if n <= LENGTH xs then n else LENGTH xs``,
+  SRW_TAC [] [] \\ fs [GSYM NOT_LESS] \\ AP_TERM_TAC
+  \\ MATCH_MP_TAC TAKE_LENGTH_TOO_LONG \\ DECIDE_TAC);
+
 val any_el_def = Define `
   (any_el n [] d = d) /\
   (any_el n (x::xs) d = if n = 0 then x else any_el (n-1:num) xs d)`
