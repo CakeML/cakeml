@@ -11,6 +11,8 @@ import Data.Char (isSpace)
 import Data.Map as Map
 --import Interp
 import InitialProgram
+import ToOCaml (progToOCaml)
+import Text.PrettyPrint
 
 data Error = 
     LexError String
@@ -38,26 +40,27 @@ getTypeError (Right e) = Right e
 
 type MainState = (String, SourcePos, TypeState)
 
-checkOne :: MainState -> Either Main.Error (MainState, String)
+checkOne :: MainState -> Either Main.Error (MainState, Maybe (String, Top))
 checkOne (input, pos, tenvs) =
   do (toks,rest,pos') <- getLexError (lex_until_toplevel_semicolon input pos);
      if toks == [] then
-       return ((rest, pos', tenvs), "") 
+       return ((rest, pos', tenvs), Nothing) 
      else
        do ast <- getParseError (parseTop toks);
           tenvs' <- getTypeError (inferTop tenvs ast);
-	  return ((rest, pos', merge_types tenvs' tenvs), show tenvs')
+	  return ((rest, pos', merge_types tenvs' tenvs), Just (show tenvs', ast))
 
 isFinished (input,_,_) = List.all isSpace input
 
-checkAll :: MainState -> IO ()
-checkAll s =
+checkAll :: MainState -> Prog -> IO Prog
+checkAll s acc =
   if isFinished s then
-    return ()
+    return acc
   else
     case checkOne s of
-      Left err -> putStrLn (show err)
-      Right (res,output) -> putStrLn output >> checkAll res
+      Left err -> putStrLn (show err) >> return []
+      Right (res,Nothing) -> return acc
+      Right (res,Just (output,ast)) -> putStrLn output >> checkAll res (ast:acc)
 
 init_tenv :: TypeState
 init_tenv = 
@@ -69,7 +72,8 @@ main =
   do args <- getArgs;
      let name = List.head args;
      input <- readFile name;
-     checkAll (input, initialPos name, init_tenv)
+     prog <- checkAll (input, initialPos name, init_tenv) [];
+     putStrLn (render (progToOCaml (List.reverse prog)))
 
      {-
 
