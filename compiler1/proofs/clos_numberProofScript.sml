@@ -2,33 +2,6 @@ open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 
 val _ = new_theory"clos_numberProof";
 
-(* TODO: move? *)
-val sorted_eq = MATCH_MP SORTED_EQ transitive_LESS
-
-val SORTED_GENLIST_PLUS = prove(
-  ``∀n k. SORTED $< (GENLIST ($+ k) n)``,
-  Induct >> simp[GENLIST_CONS,sorted_eq,MEM_GENLIST] >> gen_tac >>
-  `$+ k o SUC = $+ (k+1)` by (
-    simp[FUN_EQ_THM] ) >>
-  metis_tac[])
-
-val EXISTS_ZIP = Q.prove (
-  `!l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)`,
-  Induct_on `l` >>
-  rw [] >>
-  Cases_on `h` >>
-  fs [] >>
-  metis_tac []);
-
-val EVERY_ZIP = Q.prove (
-  `!l f. EVERY (\(x,y). f x) l = EVERY f (MAP FST l)`,
-  Induct_on `l` >>
-  rw [] >>
-  Cases_on `h` >>
-  fs [] >>
-  metis_tac []);
-(* -- *)
-
 (* properties of renumber_code_locs *)
 
 fun tac (g as (asl,w)) =
@@ -106,7 +79,7 @@ val renumber_code_locs_distinct_lemma = prove(
     NO_TAC ) >>
   TRY (
     Cases_on`renumber_code_locs (n+1) e`>>fs[] >>
-    simp[sorted_eq] >>
+    simp[less_sorted_eq] >>
     imp_res_tac renumber_code_locs_imp_inc >>
     rw[] >> fs[EVERY_MEM] >> res_tac >> fsrw_tac[ARITH_ss][] >>
     NO_TAC) >>

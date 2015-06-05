@@ -2,10 +2,6 @@ open preamble closLangTheory clos_freeTheory;
 
 val _ = new_theory "clos_annotate";
 
-(* TODO: move *)
-val tlookup_def = Define `
-  tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
-
 (* shift renames variables to use only those in the annotations *)
 
 val get_var_def = Define `

@@ -15,6 +15,31 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val less_sorted_eq = MATCH_MP SORTED_EQ transitive_LESS |> curry save_thm"less_sorted_eq";
+
+val SORTED_GENLIST_PLUS = store_thm("SORTED_GENLIST_PLUS",
+  ``∀n k. SORTED $< (GENLIST ($+ k) n)``,
+  Induct >> simp[GENLIST_CONS,less_sorted_eq,MEM_GENLIST] >> gen_tac >>
+  `$+ k o SUC = $+ (k+1)` by (
+    simp[FUN_EQ_THM] ) >>
+  metis_tac[])
+
+val EXISTS_ZIP = Q.store_thm ("EXISTS_ZIP",
+  `!l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)`,
+  Induct_on `l` >>
+  rw [] >>
+  Cases_on `h` >>
+  fs [] >>
+  metis_tac []);
+
+val EVERY_ZIP = Q.store_thm ("EVERY_ZIP",
+  `!l f. EVERY (\(x,y). f x) l = EVERY f (MAP FST l)`,
+  Induct_on `l` >>
+  rw [] >>
+  Cases_on `h` >>
+  fs [] >>
+  metis_tac []);
+
 val LIST_REL_GENLIST = store_thm("LIST_REL_GENLIST",
   ``EVERY2 P (GENLIST f l) (GENLIST g l) <=>
     !i. i < l ==> P (f i) (g i)``,
@@ -26,6 +51,9 @@ val LENGTH_TAKE_EQ = store_thm("LENGTH_TAKE_EQ",
   ``LENGTH (TAKE n xs) = if n <= LENGTH xs then n else LENGTH xs``,
   SRW_TAC [] [] \\ fs [GSYM NOT_LESS] \\ AP_TERM_TAC
   \\ MATCH_MP_TAC TAKE_LENGTH_TOO_LONG \\ DECIDE_TAC);
+
+val tlookup_def = Define `
+  tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
 
 val any_el_def = Define `
   (any_el n [] d = d) /\
