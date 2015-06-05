@@ -67,6 +67,9 @@ next_token =
   <|>
   do char '_' ;
      return UnderbarT
+  <|>
+  do eof;
+     return NoneT
   <?>
   "space, digit, letter, number, symbol, or ;"
 
@@ -135,6 +138,8 @@ lex_aux acc stk =
      token <- next_token;
      if token == SemicolonT && List.null stk then 
         return (List.reverse ((token,pos):acc))
+     else if token == NoneT then
+        return (List.reverse acc)
      else
        let new_acc = (token,pos):acc in
          if token == LetT then lex_aux new_acc (SH_END:stk)

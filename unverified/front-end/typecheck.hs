@@ -440,7 +440,7 @@ build_ctor_tenv mn tenvT tds =
     (List.concat
       (List.map
          (\(tvs,tn,ctors) ->
-            List.map (\(cn,ts) -> (mk_id mn cn,(tvs,List.map (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)
+            List.map (\(cn,ts) -> (Short cn,(tvs,List.map (type_name_subst tenvT) ts, TypeId (mk_id mn tn)))) ctors)
          tds))
 
 infer_d :: Maybe ModN -> Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Dec -> M_st_ex (Decls,TenvT,TenvC,Tenv)
@@ -481,7 +481,7 @@ infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dtabbrev tvs tn t) =
 infer_d mn (mdecls,tdecls,edecls) tenvT menv cenv env (Dexn cn ts) =
   do mapM_ (check_freevars 0 []) ts;
      mapM_ (check_type_names tenvT) ts;
-     unless (not (Set.member (mk_id mn cn) edecls)) (typeError (getPos cn) ("Duplicate exception definition of" ++ show cn));
+     when (Set.member (mk_id mn cn) edecls) (typeError (getPos cn) ("Duplicate exception definition of" ++ show cn));
      return ((Set.empty,Set.empty,Set.singleton (mk_id mn cn)),
               Map.empty, 
               Map.insert (Short cn) ([], List.map (\x -> type_name_subst tenvT x) ts, TypeExn (mk_id mn cn)) Map.empty,
@@ -561,11 +561,14 @@ check_weakE env_impl env_spec =
 	        let t = (infer_deBruijn_subst uvs t_impl);
                 add_constraint (getPos n) t t_spec)
     (Map.assocs env_spec)
-    
-check_signature :: Maybe ModN -> TenvC -> Tenv -> Maybe Specs -> M_st_ex (TenvC, Tenv)
-check_signature mn cenv env Nothing = 
-  return (cenv, env)
-check_signature mn cenv env (Just specs) =
+-}
+
+check_signature :: Maybe ModN -> TenvT -> Decls -> Decls -> TenvT -> TenvC -> Tenv -> Maybe Specs -> M_st_ex (Decls, TenvT, TenvC, Tenv)
+check_signature mn tenvT init_decls decls tenvT' cenv env Nothing = 
+  return (decls, tenvT', cenv, env)
+check_signature mn tenvT init_decls decls tenvT' cenv env (Just specs) =
+  error "Signatures not yet supported in unverified front end"
+{-
   do (cenv', env') <- check_specs mn Map.empty Map.empty specs;
      check_weakC cenv cenv';
      check_weakE env env';
@@ -592,15 +595,21 @@ infer_top :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Top -> M_st_ex TypeStat
 infer_top decls tenvT menv cenv env (Tdec d) =
   do (decls',tenvT',cenv',env') <- infer_d Nothing decls tenvT menv cenv env d;
      return (TypeState decls' tenvT' Map.empty cenv' env')
-infer_top decls tenvT menv cenv env (Tmod mn spec ds1) =
-  return (TypeState empty_decls Map.empty Map.empty Map.empty Map.empty)
-{- TODO
-infer_top menv cenv env (Tmod mn spec ds1) =
+infer_top (mdecls,tdecls,edecls) tenvT menv cenv env (Tmod mn spec ds1) =
   do when (mn `Map.member` menv) (typeError (getPos mn) ("Duplicate module: " ++ show mn));
-     (cenv',env') <- infer_ds (Just mn) menv cenv env ds1;
-     (cenv'',env'') <- check_signature (Just mn) cenv' env' spec;
-     return (Map.insert mn env'' Map.empty, cenv'', Map.empty)
--}
+     (decls',tenvT',cenv',env') <- infer_ds (Just mn) (mdecls,tdecls,edecls) tenvT menv cenv env ds1;
+     ((mdecls'',tdecls'',edecls''),tenvT'',cenv'',env'') <-
+          check_signature (Just mn) tenvT (mdecls,tdecls,edecls) decls' tenvT' cenv' env' spec;
+     return (TypeState (Set.insert mn mdecls'',tdecls'',edecls'')
+                       (addMod mn tenvT'')
+		       (Map.singleton mn env'')
+		       (addMod mn cenv'')
+		       Map.empty)
+        where addMod m env =
+                Map.fromList (List.map (\(k, v) -> (fixKey k, v)) (Map.assocs env))
+              fixKey (Short k) = Long mn k
+              fixKey (Long mn k) = error "internal error"
+
 
 infer_prog :: Decls -> TenvT -> TenvM -> TenvC -> Tenv -> Prog -> M_st_ex TypeState
 infer_prog decls tenvT menv cenv env [] = 

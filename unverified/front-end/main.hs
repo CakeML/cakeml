@@ -41,9 +41,12 @@ type MainState = (String, SourcePos, TypeState)
 checkOne :: MainState -> Either Main.Error (MainState, String)
 checkOne (input, pos, tenvs) =
   do (toks,rest,pos') <- getLexError (lex_until_toplevel_semicolon input pos);
-     ast <- getParseError (parseTop toks);
-     tenvs' <- getTypeError (inferTop tenvs ast);
-     return ((rest, pos', merge_types tenvs' tenvs), show tenvs')
+     if toks == [] then
+       return ((rest, pos', tenvs), "") 
+     else
+       do ast <- getParseError (parseTop toks);
+          tenvs' <- getTypeError (inferTop tenvs ast);
+	  return ((rest, pos', merge_types tenvs' tenvs), show tenvs')
 
 isFinished (input,_,_) = List.all isSpace input
 

@@ -28,6 +28,9 @@ destAlphaSym _ = Nothing
 destIntT (IntT i,pos) = Just (i,pos)
 destIntT _ = Nothing
 
+destStringT (StringT s,pos) = Just (s,pos)
+destStringT _ = Nothing
+
 destTyvarT (TyvarT tv,pos) = Just (TvarN tv pos)
 destTyvarT _ = Nothing
 
@@ -126,6 +129,9 @@ do_let_dec (Right funs) e = Letrec funs e
 nEbase = 
   do (i,pos) <- tok destIntT;
      return (Lit (IntLit i) pos)
+  <|>
+  do (s,pos) <- tok destStringT;
+     return (Lit (StrLit s) pos)
   <|>
   nEbaseParen
   <|>
@@ -345,6 +351,9 @@ nPbase =
   <|>
   do (i,pos) <- tok destIntT;
      return (Plit (IntLit i) pos)
+  <|>
+  do (s,pos) <- tok destStringT;
+     return (Plit (StrLit s) pos)
   <|>
   nPtuple
   <|>

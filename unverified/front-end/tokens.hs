@@ -23,5 +23,6 @@ data Token =
   | AlphaT String
   | SymbolT String
   | LongidT String String
+  | NoneT
   deriving (Eq,Show)
 -- TODO improve Show
