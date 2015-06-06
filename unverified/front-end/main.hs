@@ -13,6 +13,8 @@ import Data.Map as Map
 import InitialProgram
 import ToOCaml (progToOCaml)
 import Text.PrettyPrint
+import System.Console.GetOpt
+import Control.Monad
 
 data Error = 
     LexError String
@@ -52,15 +54,24 @@ checkOne (input, pos, tenvs) =
 
 isFinished (input,_,_) = List.all isSpace input
 
-checkAll :: MainState -> Prog -> IO Prog
-checkAll s acc =
+data CmdOpt = 
+    OCaml
+  | Types
+  deriving Eq
+
+checkAll :: [CmdOpt] -> MainState -> Prog -> IO Prog
+checkAll cmd s acc =
   if isFinished s then
     return acc
   else
     case checkOne s of
       Left err -> putStrLn (show err) >> return []
       Right (res,Nothing) -> return acc
-      Right (res,Just (output,ast)) -> putStrLn output >> checkAll res (ast:acc)
+      Right (res,Just (output,ast)) -> 
+        if List.elem Types cmd then
+          putStrLn output >> checkAll cmd res (ast:acc)
+        else
+          checkAll cmd res (ast:acc)
 
 init_tenv :: TypeState
 init_tenv = 
@@ -68,12 +79,29 @@ init_tenv =
     Left err -> error (show err ++ " in basis program.")
     Right x -> x
 
+options = [Option ['o'] ["ocaml"] (NoArg OCaml) "Produce OCaml",
+           Option ['t'] ["types"] (NoArg Types) "Print types"]
+
+-- definitions from the initial program that shouldn't be made in OCaml
+isBadDef (Tdec (Dtype [(_, name,_)])) =
+  List.elem (show name) ["bool","list"]
+isBadDef (Tdec (Dlet (Pvar n) _ _)) =
+  show n == "~"
+isBadDef _ = False
+
 main = 
   do args <- getArgs;
-     let name = List.head args;
+     let (opts, nonOpts, errors) = getOpt Permute options args;
+     unless (errors == []) (error ("Command-line error:\n" ++ (concat errors)));
+     unless (List.length nonOpts == 1) 
+            (error "Command-line error: must have exactly 1 non-optional argument")
+     let name = List.head nonOpts;
      input <- readFile name;
-     prog <- checkAll (input, initialPos name, init_tenv) [];
-     putStrLn (render (progToOCaml (List.reverse prog)))
+     prog <- checkAll opts (input, initialPos name, init_tenv) [];
+     if List.elem OCaml opts then
+       putStrLn (render (progToOCaml (List.filter (not . isBadDef) (prim_types_program ++ basis_program) ++ List.reverse prog)))
+     else
+       return ()
 
      {-
 
