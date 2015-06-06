@@ -113,7 +113,6 @@ data ExpCtxt =
     AtomicC
   | AppC
 
--- The first context is the
 expParen :: ExpCtxt -> Doc -> Doc
 expParen AtomicC d = d
 expParen AppC d = parens d
@@ -151,8 +150,8 @@ opToOCaml (Chopb Lt _) = text "Pervasives.(<)"
 opToOCaml (Chopb Gt _) = text "Pervasives.(>)"
 opToOCaml (Chopb Leq _) = text "Pervasives.(<=)"
 opToOCaml (Chopb Geq _) = text "Pervasives.(>=)"
-opToOCaml (Implode _) = text "Cake_stub.implode" -- TODO
-opToOCaml (Explode _) = text "Cake_stub.explode" --TODO
+opToOCaml (Implode _) = text "Cake_stub.implode"
+opToOCaml (Explode _) = text "Cake_stub.explode"
 opToOCaml (Strlen _) = text "String.length"
 -- OCaml doesn't have vectors, so translate to arrays
 opToOCaml (VfromList _) = text "Array.of_list"

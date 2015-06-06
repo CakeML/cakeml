@@ -12,6 +12,7 @@ import Data.Map as Map
 --import Interp
 import InitialProgram
 import ToOCaml (progToOCaml)
+import ToSML (progToSML)
 import Text.PrettyPrint
 import System.Console.GetOpt
 import Control.Monad
@@ -56,6 +57,7 @@ isFinished (input,_,_) = List.all isSpace input
 
 data CmdOpt = 
     OCaml
+  | SML
   | Types
   | Help
   deriving Eq
@@ -81,15 +83,21 @@ init_tenv =
     Right x -> x
 
 options = [Option ['o'] ["ocaml"] (NoArg OCaml) "Print OCaml",
+           Option ['s'] ["sml"] (NoArg SML) "Print SML",
            Option ['t'] ["types"] (NoArg Types) "Print types",
            Option ['h'] ["help"] (NoArg Help) "Display help"]
 
 -- definitions from the initial program that shouldn't be made in OCaml
-isBadDef (Tdec (Dtype [(_, name,_)])) =
+isBadOCaml (Tdec (Dtype [(_, name,_)])) =
   List.elem (show name) ["bool","list"]
-isBadDef (Tdec (Dlet (Pvar n) _ _)) =
+isBadOCaml (Tdec (Dlet (Pvar n) _ _)) =
   show n == "~"
-isBadDef _ = False
+isBadOCaml _ = False
+
+-- definitions from the initial program that shouldn't be made in SML
+isBadSML (Tdec (Dtype [(_, name,_)])) =
+  List.elem (show name) ["bool","list"]
+isBadSML _ = False
 
 main = 
   do args <- getArgs;
@@ -103,9 +111,14 @@ main =
           input <- readFile name;
 	  prog <- checkAll opts (input, initialPos name, init_tenv) [];
           if List.elem OCaml opts then
-            putStrLn (render (progToOCaml (List.filter (not . isBadDef) (prim_types_program ++ basis_program) ++ List.reverse prog)))
+            putStrLn (render (progToOCaml (List.filter (not . isBadOCaml) (prim_types_program ++ basis_program) ++ List.reverse prog)))
           else
-            return ()
+            return ();
+          if List.elem SML opts then
+            putStrLn (render (progToSML (List.filter (not . isBadSML) (prim_types_program ++ basis_program) ++ List.reverse prog)))
+          else
+            return ();
+           
 
      {-
 
