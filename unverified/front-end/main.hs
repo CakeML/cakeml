@@ -57,6 +57,7 @@ isFinished (input,_,_) = List.all isSpace input
 data CmdOpt = 
     OCaml
   | Types
+  | Help
   deriving Eq
 
 checkAll :: [CmdOpt] -> MainState -> Prog -> IO Prog
@@ -79,8 +80,9 @@ init_tenv =
     Left err -> error (show err ++ " in basis program.")
     Right x -> x
 
-options = [Option ['o'] ["ocaml"] (NoArg OCaml) "Produce OCaml",
-           Option ['t'] ["types"] (NoArg Types) "Print types"]
+options = [Option ['o'] ["ocaml"] (NoArg OCaml) "Print OCaml",
+           Option ['t'] ["types"] (NoArg Types) "Print types",
+           Option ['h'] ["help"] (NoArg Help) "Display help"]
 
 -- definitions from the initial program that shouldn't be made in OCaml
 isBadDef (Tdec (Dtype [(_, name,_)])) =
@@ -92,16 +94,18 @@ isBadDef _ = False
 main = 
   do args <- getArgs;
      let (opts, nonOpts, errors) = getOpt Permute options args;
-     unless (errors == []) (error ("Command-line error:\n" ++ (concat errors)));
-     unless (List.length nonOpts == 1) 
-            (error "Command-line error: must have exactly 1 non-optional argument")
-     let name = List.head nonOpts;
-     input <- readFile name;
-     prog <- checkAll opts (input, initialPos name, init_tenv) [];
-     if List.elem OCaml opts then
-       putStrLn (render (progToOCaml (List.filter (not . isBadDef) (prim_types_program ++ basis_program) ++ List.reverse prog)))
-     else
-       return ()
+     if List.elem Help opts || errors /= [] || List.length nonOpts /= 1 then
+       putStr (usageInfo "Unverified CakeML front-end and translator: \nUsage: cakeml [-oth] file" options)
+     else 
+       do unless (List.length nonOpts == 1) 
+               (error "Command-line error: must have exactly 1 non-optional argument: the CakeML source file to process")
+          let name = List.head nonOpts;
+          input <- readFile name;
+	  prog <- checkAll opts (input, initialPos name, init_tenv) [];
+          if List.elem OCaml opts then
+            putStrLn (render (progToOCaml (List.filter (not . isBadDef) (prim_types_program ++ basis_program) ++ List.reverse prog)))
+          else
+            return ()
 
      {-
 

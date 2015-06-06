@@ -1,3 +1,5 @@
+(* OCaml source file required by code produced by CakeML -> OCaml translation *)
+
 type internal_type1 = int
 type int = internal_type1
 type internal_type2 = char
