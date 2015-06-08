@@ -87,7 +87,7 @@ val val_rel_def = tDefine "val_rel" `
           state_rel i' s s' ∧
           check_clocks i' s s'
           ⇒ 
-          res_rel i' (cEvalApp NONE v vs s) (cEvalApp NONE v' vs' s'))
+          res_rel (cEvalApp NONE v vs s) (cEvalApp NONE v' vs' s'))
       else
         T
   else 
@@ -101,16 +101,16 @@ val val_rel_def = tDefine "val_rel" `
   fmap_rel (λ(n,e) (n',e'). n = n' ∧ code_rel i [e] [e']) s.code s'.code ∧
   s.output = s'.output ∧
   s.restrict_envs = s'.restrict_envs) ∧
-(res_rel i (Result vs, s) (Result vs', s') ⇔ 
-  LIST_REL (val_rel i) vs vs' ∧
-  state_rel i s s') ∧
-(res_rel i (Exception v, s) (Exception v', s') ⇔ 
-  val_rel i v v' ∧
-  state_rel i s s') ∧
-(res_rel i (TimeOut, s) (TimeOut, s') ⇔
-  state_rel i s s') ∧
-(res_rel i (Error, s) _ ⇔ T) ∧
-(res_rel i _ _ ⇔ F) ∧
+(res_rel (Result vs, s) (Result vs', s') ⇔ 
+  LIST_REL (val_rel s.clock) vs vs' ∧
+  state_rel s.clock s s') ∧
+(res_rel (Exception v, s) (Exception v', s') ⇔ 
+  val_rel s.clock v v' ∧
+  state_rel s.clock s s') ∧
+(res_rel (TimeOut, s) (TimeOut, s') ⇔
+  state_rel s.clock s s') ∧
+(res_rel (Error, s) _ ⇔ T) ∧
+(res_rel _ _ ⇔ F) ∧
 (code_rel i es es' ⇔
   !env env' s s' i'.
     i' < i 
@@ -119,15 +119,24 @@ val val_rel_def = tDefine "val_rel" `
     state_rel i' s s' ∧
     check_clocks i' s s'
     ⇒
-    res_rel i' (cEval (es,env,s)) (cEval (es',env',s')))`
+    res_rel (cEval (es,env,s)) (cEval (es',env',s')))`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<) 
              (\x. case x of 
                      | INL (i,v,v') => (i:num,0:num,clos_val_size v) 
                      | INR (INL (i,r,r')) => (i,1,0)
                      | INR (INR (INL (i,s,s'))) => (i,3,0)
-                     | INR (INR (INR (INL (i,res,res')))) => (i,4,0)
+                     | INR (INR (INR (INL (res,res')))) => ((SND res).clock,4,0)
                      | INR (INR (INR (INR (i,es,es')))) => (i,2,0))` >>
  rw [] >>
+ simp [clos_val_size_def] >>
+ fs [is_closure_def]
+ >- (Cases_on `cEval (es,env,s)` >>
+     fs [check_clocks_def] >>
+     rw [] >>
+     imp_res_tac cEval_clock >>
+     decide_tac)
+ >- cheat
+ >- cheat >>
  Induct_on `vs` >>
  rw [] >>
  res_tac >>
@@ -166,7 +175,7 @@ val val_rel_mono = Q.prove (
 `(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
  (!i r r'. ref_v_rel i r r' ⇒ ∀i'. i' ≤ i ⇒ ref_v_rel i' r r') ∧
  (!i s s'. state_rel i s s' ⇒ ∀i'. i' ≤ i ⇒ state_rel i' s s') ∧
- (!i res res'. res_rel i res res' ⇒ ∀i'. i' ≤ i ⇒ res_rel i' res res') ∧
+ (!res res'. res_rel res res' ⇒ res_rel res res') ∧
  (!i es es'. code_rel i es es' ⇒ ∀i'. i' ≤ i ⇒ code_rel i' es es')`,
  ho_match_mp_tac val_rel_ind >>
  rw [] >>
@@ -209,11 +218,13 @@ val val_rel_mono = Q.prove (
          pop_assum mp_tac >>
          ASM_REWRITE_TAC [] >>
          simp []))
- >- (qpat_assum `res_rel i x y` mp_tac >>
-     simp [Once val_rel_def] >>
+         (*
+ >- (fs [val_rel_rw] >>
      rw [] >>
-     simp [Once val_rel_def] >>
+     simp [state_rel_rw] >>
      fs [LIST_REL_EL_EQN] >>
+     rw [] >>
+     `i' - s.clock ≤ i - s.clock` by decide_tac >>
      metis_tac [EL_MEM])
  >- (qpat_assum `res_rel i x y` mp_tac >>
      simp [Once val_rel_def] >>
@@ -221,14 +232,14 @@ val val_rel_mono = Q.prove (
      simp [Once val_rel_def] >>
      fs [LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
- >- (qpat_assum `res_rel i x y` mp_tac >>
-     simp [Once val_rel_def] >>
-     rw [] >>
-     simp [Once val_rel_def])
+     *)
  >- (qpat_assum `code_rel i x y` mp_tac >>
      simp [Once val_rel_def] >>
      rw [] >>
-     simp [Once val_rel_def]));
+     simp [Once val_rel_def] >>
+     rw [] >>
+     `i'' < i` by decide_tac >>
+     metis_tac []));
 
 val val_rel_mono_list = Q.prove (
 `!i i' vs1 vs2.
@@ -241,7 +252,9 @@ val val_rel_mono_list = Q.prove (
 val exp_rel_empty = Q.prove (
 `exp_rel [] []`,
  rw [exp_rel_def, cEval_def, val_rel_rw] >>
- rw [Once val_rel_def, val_rel_rw, cEval_def]);
+ rw [code_rel_rw, val_rel_rw, cEval_def] >>
+ `i' - s.clock ≤ i'` by decide_tac >>
+ metis_tac [val_rel_mono, check_clocks_def]);
 
  (*
 val exp_rel_cons = Q.prove (
@@ -255,8 +268,7 @@ val exp_rel_cons = Q.prove (
  Cases_on `cEval ([e],env,s)` >>
  Cases_on `q` >>
  fs [] >>
- last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
- rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
+ `res_rel (cEval ([e],env,s)) (cEval ([e'],env',s'))` by metis_tac [] >>
  fs [] >>
  rw [] >>
  Cases_on `cEval ([e'],env',s')` >>
@@ -266,9 +278,11 @@ val exp_rel_cons = Q.prove (
  rfs [] >>
  fs [val_rel_rw] >>
  imp_res_tac cEval_clock >>
- `r.clock < i ∧ r.clock ≤ i'` by (fs [check_clocks_def] >> decide_tac) >>
- `check_clocks i' r r'` by cheat >>
- `res_rel i' (cEval (es,env,r)) (cEval (es',env',r'))` by metis_tac [val_rel_mono, val_rel_mono_list] >>
+ `r.clock ≤ i' ∧ r.clock < i` by (fs [check_clocks_def] >> decide_tac) >>
+ `LIST_REL (λa' a. val_rel r.clock a' a) env env'` by metis_tac [val_rel_mono_list] >>
+
+ `check_clocks r.clock r r'` by cheat >>
+ `res_rel (cEval (es,env,r)) (cEval (es',env',r'))` by metis_tac [val_rel_mono, val_rel_mono_list] >>
  ect >>
  fs [] >>
  rw [] >>
