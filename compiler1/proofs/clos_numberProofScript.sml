@@ -476,6 +476,9 @@ val do_app = prove(
     Cases_on`t` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp])
   >- (
+    Cases_on`t` >> fs[v_rel_simp]>>
+    Cases_on`h` >> fs[v_rel_simp])
+  >- (
     fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> rw[] )
   >- (
     fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> rw[] )

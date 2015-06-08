@@ -120,7 +120,9 @@ val do_app_def = Define `
                  (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs))))
              else NONE)
          | _ => NONE)
-    | (TagEq n l,[Block tag xs]) =>
+    | (TagEq n,[Block tag xs]) =>
+        SOME (Boolv (tag = n),s)
+    | (TagLenEq n l,[Block tag xs]) =>
         SOME (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of

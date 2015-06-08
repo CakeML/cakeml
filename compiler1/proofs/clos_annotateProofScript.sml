@@ -288,6 +288,10 @@ val do_app_thm = prove(
   THEN1 (* IsBlock *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp])
+  THEN1 (* TagLenEq *)
+   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
+    \\ METIS_TAC[LIST_REL_LENGTH])
   THEN1 (* TagEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
@@ -412,6 +416,7 @@ val do_app_err_thm = Q.prove(
       Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
       every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])

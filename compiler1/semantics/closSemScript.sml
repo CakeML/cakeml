@@ -152,7 +152,9 @@ val do_app_def = Define `
          | _ => Error)
     | (ToList,[Block tag xs]) =>
         Rval (list_to_v xs, s)
-    | (TagEq n l,[Block tag xs]) =>
+    | (TagEq n,[Block tag xs]) =>
+        Rval (Boolv (tag = n), s)
+    | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
