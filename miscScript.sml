@@ -15,6 +15,16 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val SPLIT_LIST = store_thm("SPLIT_LIST",
+  ``!xs.
+      ?ys zs. (xs = ys ++ zs) /\
+              (LENGTH xs DIV 2 = LENGTH ys)``,
+  REPEAT STRIP_TAC
+  \\ Q.LIST_EXISTS_TAC [`TAKE (LENGTH xs DIV 2) xs`,`DROP (LENGTH xs DIV 2) xs`]
+  \\ REPEAT STRIP_TAC \\ fs [TAKE_DROP]
+  \\ MATCH_MP_TAC (GSYM LENGTH_TAKE)
+  \\ fs [DIV_LE_X] \\ DECIDE_TAC);
+
 val less_sorted_eq = MATCH_MP SORTED_EQ transitive_LESS |> curry save_thm"less_sorted_eq";
 
 val SORTED_GENLIST_PLUS = store_thm("SORTED_GENLIST_PLUS",

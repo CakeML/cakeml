@@ -1,4 +1,4 @@
-open preamble bvlTheory closSemTheory
+open preamble bvlTheory closSemTheory clos_to_bvlTheory
 
 val _ = new_theory"bvlSem"
 
@@ -13,10 +13,6 @@ val _ = Datatype `
   | Block num (v list)  (* cons block: tag and payload *)
   | CodePtr num         (* code pointer *)
   | RefPtr num          (* pointer to ref cell *)`;
-
-val closure_tag_def = Define`closure_tag = 0:num`
-val partial_app_tag_def = Define`partial_app_tag = 1:num`
-val clos_tag_shift_def = Define`clos_tag_shift = 2:num`
 
 val do_eq_def = tDefine"do_eq"`
   (do_eq (CodePtr _) _ = Eq_type_error) ∧
