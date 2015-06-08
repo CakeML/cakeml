@@ -97,6 +97,8 @@ isBadOCaml _ = False
 -- definitions from the initial program that shouldn't be made in SML
 isBadSML (Tdec (Dtype [(_, name,_)])) =
   List.elem (show name) ["bool","list"]
+isBadSML (Tdec (Dlet (Pvar name) _ _)) =
+  List.elem (show name) ["ref", "="]
 isBadSML _ = False
 
 main = 

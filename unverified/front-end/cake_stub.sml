@@ -5,4 +5,5 @@ structure Cake_stub = struct
   type unit = unit
   val op := = op :=
   val ! = !
+  fun my_eq x y = x = y
 end

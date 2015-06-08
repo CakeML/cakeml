@@ -10,8 +10,10 @@ infixl <->
 -- TODO: might need op sometimes
 idToSML :: (Show a) => Id a -> Doc
 idToSML (Short x) = 
-  if List.elem (show x) ["*", "/", "div", "mod", "+", "-", "^", "::", "@", "=", "<", ">", "<=", ">=", "<>", ":=", "o", "before"] then
+  if List.elem (show x) ["*", "/", "div", "mod", "+", "-", "^", "::", "@", "<", ">", "<=", ">=", "<>", ":=", "o", "before"] then
     text "op" <+> text (show x)
+  else if show x == "=" then
+    text "Cake_stub.my_eq"
   else
     text (show x)
 idToSML (Long m x) = 
@@ -32,8 +34,8 @@ tcToSML TC_int = text "Int.int"
 tcToSML TC_char = text "Char.char"
 tcToSML TC_string = text "String.string"
 tcToSML TC_ref = text "Cake_stub.ref"
-tcToSML TC_word8 = text "Word8.t"
-tcToSML TC_word8array = text "Word8Array.t"
+tcToSML TC_word8 = text "Word8.word"
+tcToSML TC_word8array = text "Word8Array.array"
 tcToSML TC_exn = text "Cake_stub.exn"
 tcToSML TC_vector = text "Vector.vector"
 tcToSML TC_array = text "Array.array"
@@ -93,7 +95,7 @@ lopToSML (Or _) = text "orelse"
 
 patToSML :: Pat -> Doc
 patToSML (Pvar v) = 
-  text (show v)
+  idToSML (Short v)
 patToSML (Plit l _) =
   litToSML l
 patToSML (Pcon Nothing es _) =
@@ -124,7 +126,7 @@ opToSML :: Op -> Doc
 opToSML (Opn Plus _) = text "Int.+"
 opToSML (Opn Minus _) = text "Int.-"
 opToSML (Opn Times _) = text "Int.*"
-opToSML (Opn Divide _) = text "Int./"
+opToSML (Opn Divide _) = text "Int.div"
 opToSML (Opn Modulo _) = text "Int.mod"
 opToSML (Opb Lt _) = text "Int.<"
 opToSML (Opb Gt _) = text "Int.>"
@@ -132,12 +134,12 @@ opToSML (Opb Leq _) = text "Int.<="
 opToSML (Opb Geq _) = text "Int.>="
 opToSML (Equality _) = text "op ="
 opToSML (Opassign _) = text "Cake_stub.:="
-opToSML (Opref _) = text "op ref"
+opToSML (Opref _) = text "ref"
 opToSML (Opderef _) = text "Cake_stub.!"
 opToSML (Aw8alloc _) = text "Word8Array.array"
 opToSML (Aw8sub _) = text "Word8Array.sub"
 opToSML (Aw8length _) = text "Word8Array.length"
-opToSML (Aw8update _) = text "Word8Array.set"
+opToSML (Aw8update _) = text "Word8Array.update"
 opToSML (Ord _) = text "Char.ord"
 opToSML (Ast.Chr _) = text "Char.chr"
 opToSML (Chopb Lt _) = text "Char.<"
@@ -173,7 +175,7 @@ expToSML c (Con (Just con) es _) =
 expToSML c (Var v) =
   idToSML v
 expToSML c (Fun x e _) =
-  parens ((text "fn" <+> text (show x) <+> text "=>") <-> nest 2 (expToSML AtomicC e))
+  parens ((text "fn" <+> idToSML (Short x) <+> text "=>") <-> nest 2 (expToSML AtomicC e))
 expToSML c (App Opapp es) =
   expParen c (sep (List.map (expToSML AppC) (List.reverse (expAppToList (App Opapp es)))))
 expToSML c (App op es) =
@@ -190,7 +192,7 @@ expToSML c (Mat e pes) =
 expToSML c (Let Nothing e1 e2) =
   parens ((expToSML AtomicC e1 <> semi) <-> expToSML AtomicC e2)
 expToSML c (Let (Just v) e1 e2) =
-  (text "let val" <+> text (show v) <+> equals) <-> 
+  (text "let val" <+> idToSML (Short v) <+> equals) <-> 
    nest 2 (expToSML AtomicC e1) <-> text "in" <-> nest 2 (expToSML AtomicC e2) <-> text "end"
 expToSML c (Letrec funs e) =
   parens (letrecToSML (text "let fun") funs <->
@@ -205,10 +207,10 @@ patExpToSML (p,e) =
 letrecToSML :: Doc -> [(VarN, VarN, Exp)] -> Doc
 letrecToSML head [] = error "empty letrec"
 letrecToSML head [(f,x,e)] =
-  (head <+> text (show f) <+> text (show x) <+> equals) <->
+  (head <+> idToSML (Short f) <+> idToSML (Short x) <+> equals) <->
   nest 2 (expToSML AtomicC e)
 letrecToSML head ((f,x,e):funs) =
-  (head <+> text (show f) <+> text (show x) <+> equals) <->
+  (head <+> idToSML (Short f) <+> idToSML (Short x) <+> equals) <->
   nest 2 (expToSML AtomicC e) <->
   letrecToSML (text "and") funs
 
@@ -219,9 +221,9 @@ tvsToSML ts = parens (sep (punctuate comma (List.map (text . show) ts)))
 
 conToSML :: (ConN, [T]) -> Doc
 conToSML (cn,[]) =
-  text (show cn)
+  idToSML (Short cn)
 conToSML (cn,ts) =
-  text (show cn) <+> text "of" <+> sep (punctuate (text "*") (List.map typeToSML ts))
+  idToSML (Short cn) <+> text "of" <+> sep (punctuate (text "*") (List.map typeToSML ts))
 
 dataToSML :: ([TvarN], TypeN, [(ConN, [T])]) -> Doc
 dataToSML (tvs, tn, cons) =
