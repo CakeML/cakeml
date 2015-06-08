@@ -108,8 +108,7 @@ val val_rel_def = tDefine "val_rel" `
   val_rel i v v' ∧
   state_rel i s s') ∧
 (res_rel i (TimeOut, s) (TimeOut, s') ⇔
-  state_rel i s s' ∧
-  s.clock = s'.clock) ∧
+  state_rel i s s') ∧
 (res_rel i (Error, s) _ ⇔ T) ∧
 (res_rel i _ _ ⇔ F) ∧
 (code_rel i es es' ⇔
@@ -135,6 +134,30 @@ val val_rel_def = tDefine "val_rel" `
  simp [clos_val_size_def]);
 
 val val_rel_ind = fetch "-" "val_rel_ind";
+
+fun find_clause good_const = 
+  good_const o fst o strip_comb o fst o dest_eq o snd o strip_forall o concl;
+
+val val_rel_rw = 
+  let val clauses = CONJUNCTS val_rel_def
+      fun good_const x = same_const ``val_rel`` x orelse same_const ``ref_v_rel`` x orelse same_const ``res_rel`` x
+  in
+    LIST_CONJ (List.filter (find_clause good_const) clauses)
+  end;
+
+val code_rel_rw = 
+  let val clauses = CONJUNCTS val_rel_def
+      fun good_const x = same_const ``code_rel`` x
+  in
+    LIST_CONJ (List.filter (find_clause good_const) clauses)
+  end;
+
+val state_rel_rw = 
+  let val clauses = CONJUNCTS val_rel_def
+      fun good_const x = same_const ``state_rel`` x
+  in
+    LIST_CONJ (List.filter (find_clause good_const) clauses)
+  end;
 
 val exp_rel_def = Define `
 exp_rel es es' ⇔ !i. code_rel i es es'`;
@@ -172,7 +195,13 @@ val val_rel_mono = Q.prove (
      simp [Once val_rel_def] >>
      fs [LIST_REL_EL_EQN, fmap_rel_def] >>
      rw []
-     >- cheat
+     >- (`OPTREL (λa' a. val_rel i a' a) (EL n s.globals) (EL n s'.globals)` by metis_tac [] >>
+         pop_assum mp_tac >>
+         match_mp_tac OPTREL_MONO >>
+         rw [] >>
+         Cases_on `s.globals` >>
+         Cases_on `s'.globals` >>
+         fs [])
      >- (Cases_on `s'.code ' x` >>
          Cases_on `s.code ' x` >>
          rw [] >>
@@ -201,19 +230,28 @@ val val_rel_mono = Q.prove (
      rw [] >>
      simp [Once val_rel_def]));
 
+val val_rel_mono_list = Q.prove (
+`!i i' vs1 vs2.
+  i' ≤ i ∧ LIST_REL (\x y. val_rel i x y) vs1 vs2
+  ⇒
+  LIST_REL (\x y. val_rel i' x y) vs1 vs2`,
+ rw [LIST_REL_EL_EQN] >>
+ metis_tac [val_rel_mono]);
+
 val exp_rel_empty = Q.prove (
 `exp_rel [] []`,
- rw [exp_rel_def, cEval_def, val_rel_def]);
+ rw [exp_rel_def, cEval_def, val_rel_rw] >>
+ rw [Once val_rel_def, val_rel_rw, cEval_def]);
 
+ (*
 val exp_rel_cons = Q.prove (
 `!e es e' es'.
   exp_rel [e] [e'] ∧
   exp_rel es es'
   ⇒
   exp_rel (e::es) (e'::es')`,
- rw [exp_rel_def] >>
- qpat_assum `cEval (e::es,env,s) = y` mp_tac >>
- rw [Once cEval_CONS] >>
+ rw [exp_rel_def, code_rel_rw] >>
+ ONCE_REWRITE_TAC [cEval_CONS] >>
  Cases_on `cEval ([e],env,s)` >>
  Cases_on `q` >>
  fs [] >>
@@ -221,27 +259,27 @@ val exp_rel_cons = Q.prove (
  rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
  fs [] >>
  rw [] >>
- qpat_assum `cEval (e'::es',env',s') = y` mp_tac >>
- rw [Once cEval_CONS] >>
  Cases_on `cEval ([e'],env',s')` >>
  Cases_on `q` >>
  fs [] >>
  rw [] >>
- last_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
- rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th)))) >>
- fs [] >>
- rw [] >>
- TRY (fs [val_rel_def] >> NO_TAC) >>
+ rfs [] >>
+ fs [val_rel_rw] >>
+ imp_res_tac cEval_clock >>
+ `r.clock < i ∧ r.clock ≤ i'` by (fs [check_clocks_def] >> decide_tac) >>
+ `check_clocks i' r r'` by cheat >>
+ `res_rel i' (cEval (es,env,r)) (cEval (es',env',r'))` by metis_tac [val_rel_mono, val_rel_mono_list] >>
  ect >>
  fs [] >>
  rw [] >>
- TRY (fs [val_rel_def] >> NO_TAC) >>
- fs [val_rel_def, LIST_REL_EL_EQN] >>
+ fs [val_rel_rw, LIST_REL_EL_EQN] >>
  imp_res_tac cEval_length_imp >>
  Cases_on `a` >>
  fs [] >>
  Cases_on `a'` >>
- fs []);
+ fs [] >>
+ metis_tac []
+ );
 
 val exp_rel_var = Q.prove (
 `!x. exp_rel [Var x] [Var x]`,
@@ -530,6 +568,7 @@ cheat);
 
 
 
+*)
 *)
 
 val _ = export_theory ();
