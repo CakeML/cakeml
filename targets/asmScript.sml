@@ -422,10 +422,6 @@ val backend_correct_def = Define `
       asm_step enc config s1 s2 ==>
       !state. R s1 state ==> ?n. R s2 (FUNPOW next (n + 1) state)`
 
-val num_fold_def = Define `
-  (num_fold f x 0 = x) /\
-  (num_fold f x (SUC n) = num_fold f (f x n) n)`;
-
 val interference_ok_def = Define `
   interference_ok env (proj:'b->'c) <=>
     !(i:num) ms. proj (env i ms) = proj ms`;
