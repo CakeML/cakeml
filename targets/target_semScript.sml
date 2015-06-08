@@ -47,13 +47,18 @@ val read_bytearray_def = Define `
                  | NONE => NONE
                  | SOME bs => SOME (b::bs))`
 
+val shift_seq_def = Define `
+  shift_seq k s = \i. s (i + k:num)`;
+
 val mEval_def = Define `
   mEval config io k (ms:'a) =
     if k = 0 then (TimeOut,ms,io)
     else
       if config.f.get_pc ms IN config.prog_addresses then
         let ms1 = config.f.next ms in
-        let ms2 = config.next_interfer k ms1 in
+        let ms2 = config.next_interfer 0 ms1 in
+        let config = config with next_interfer :=
+                       shift_seq 1 config.next_interfer in
           if EVERY config.f.state_ok [ms;ms1;ms2] then
             mEval config io (k - 1) ms2
           else
@@ -70,11 +75,14 @@ val mEval_def = Define `
                       then SOME (config.f.get_byte ms a) else NONE) of
           | NONE => (Error Internal,ms,io)
           | SOME bytes =>
+            let ffi = config.ffi_interfer 0 ffi_index in
+            let config = config with ffi_interfer :=
+                           shift_seq 1 config.ffi_interfer in
             case call_FFI ffi_index bytes io of
             | NONE => (Error IO_mismatch,ms,io)
             | SOME (new_bytes,new_io) =>
-                mEval config new_io (k - 1)
-                  (config.ffi_interfer k ffi_index new_bytes ms)`
+                mEval config new_io (k - 1:num) (ffi new_bytes ms)`
+
 
 (* -- observable -- *)
 
@@ -126,7 +134,7 @@ val call_FFI_LAPPEND = prove(
   \\ fs [] \\ SRW_TAC [] [] \\ fs []);
 
 val mEval_LAPPEND_io = prove(
-  ``!k ms io_trace.
+  ``!k ms io_trace config.
       (FST (mEval config io_trace k ms) = TimeOut) ==>
       (FST (mEval config (LAPPEND io_trace l) k ms) = TimeOut)``,
   Induct THEN1 (ONCE_REWRITE_TAC [mEval_def] \\ fs [])

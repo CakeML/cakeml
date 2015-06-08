@@ -462,7 +462,7 @@ val backend_correct_alt_def = Define `
       asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
              interference_ok (env:num->'b->'b) t.proj ==>
-             asserts n (\k s. env k (t.next s)) ms
+             asserts n (\k s. env (n - k) (t.next s)) ms
                (\ms'. t.state_ok ms' /\
                       t.get_pc ms' IN all_pcs s1.pc (t.encode i))
                (\ms'. t.state_rel s2 ms')`

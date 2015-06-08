@@ -595,8 +595,16 @@ val asserts_restrict = prove(
   \\ FIRST_X_ASSUM MATCH_MP_TAC
   \\ DECIDE_TAC);
 
+val shift_interfer_def = Define `
+  shift_interfer k s =
+    s with next_interfer := shift_seq k s.next_interfer`
+
+val shift_interfer_intro = prove(
+  ``shift_interfer k1 (shift_interfer k2 c) = shift_interfer (k1+k2) c``,
+  fs [shift_interfer_def,shift_seq_def,ADD_ASSOC]);
+
 val mEval_EQ_mEval_lemma = prove(
-  ``!n ms1.
+  ``!n ms1 c.
       c.f.get_pc ms1 IN c.prog_addresses /\ c.f.state_ok ms1 /\
       interference_ok c.next_interfer c.f.proj /\
       (!s ms. c.f.state_rel s ms ==> c.f.state_ok ms) /\
@@ -608,36 +616,38 @@ val mEval_EQ_mEval_lemma = prove(
            (\ms'. c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses)
            (\ms'. c.f.state_rel s2 ms')) ==>
       ?ms2.
-        (mEval c io (k + (n + 1)) ms1 = mEval c io k ms2) /\
-        c.f.state_rel s2 ms2``,
+        !k. (mEval c io (k + (n + 1)) ms1 =
+             mEval (shift_interfer (n+1) c) io k ms2) /\
+            c.f.state_rel s2 ms2``,
   Induct THEN1
    (fs [] \\ REPEAT STRIP_TAC
     \\ fs [asserts_def,LET_DEF]
     \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer (k + 1))`)
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
     \\ fs [interference_ok_def] \\ RES_TAC
-    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
+    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [shift_interfer_def]
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ fs []
   \\ fs [arithmeticTheory.ADD_CLAUSES]
   \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1] \\ fs [LET_DEF]
   \\ Q.PAT_ASSUM `!i. bbb`
        (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPEC
-         `\i. c.next_interfer (k + (n + 1) + 1)` th))
+         `\i. c.next_interfer 0` th))
   \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (fs [interference_ok_def])
   \\ fs [] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC bool_ss [GSYM ADD1,asserts_def] \\ fs [LET_DEF]
   \\ `c.f.state_ok (c.f.next ms1)` by METIS_TAC [interference_ok_def] \\ fs []
-  \\ FIRST_X_ASSUM MATCH_MP_TAC
-  \\ fs [] \\ REPEAT STRIP_TAC THEN1 RES_TAC
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
-       `\d. if d = SUC n then c.next_interfer (k + n + 1 + 1) else env d`]) \\ fs []
-  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-  THEN1 (fs [interference_ok_def] \\ SRW_TAC [] [] \\ fs [])
-  \\ fs [ADD1,ADD_ASSOC]
-  \\ MATCH_MP_TAC asserts_restrict
-  \\ fs [FUN_EQ_THM]
-  \\ SRW_TAC [] [] \\ fs [] \\ `F` by DECIDE_TAC);
+  \\ Q.PAT_ASSUM `!ms1 c. bbb ==> ?x. bb`
+        (MP_TAC o Q.SPECL [`(c.next_interfer 0 (c.f.next ms1))`,
+                    `(c with next_interfer := shift_seq 1 c.next_interfer)`])
+  \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+   (fs [] \\ REPEAT STRIP_TAC
+    THEN1 (fs [interference_ok_def,shift_seq_def])
+    THEN1 RES_TAC
+    \\ cheat)
+  \\ REPEAT STRIP_TAC \\ fs [] \\ Q.EXISTS_TAC `ms2` \\ STRIP_TAC
+  \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`)
+  \\ fs [GSYM shift_interfer_def,shift_interfer_intro] \\ fs [GSYM ADD1]);
 
 val enc_ok_not_empty = prove(
   ``enc_ok enc c /\ asm_ok w c ==> (enc w <> [])``,
@@ -657,6 +667,9 @@ val asserts_WEAKEN = prove(
       asserts n next s P Q ==>
       asserts n next s P' Q``,
   Induct \\ fs [asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC);
+
+
+
 
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.f c.asm_config /\
