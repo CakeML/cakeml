@@ -63,13 +63,13 @@ val calls_op_def = Define `
   (calls_op (Global n) as g =
      case lookup n g of
      | NONE => (Other,g)
-     | SOME x => (make_context_free x,g)) /\
+     | SOME x => (x,g)) /\
   (calls_op (SetGlobal n) as g =
      case as of
      | [] => (Other,g)
      | (a::xs) =>
        case lookup n g of
-       | NONE => (Other,insert n a g)
+       | NONE => (Other,insert n (make_context_free a) g)
        | SOME other => (Other,insert n Other g)) /\
   (calls_op (Cons _) as g = (Tuple as,g)) /\
   (calls_op (Const i) as g = (Int i,g)) /\
@@ -120,8 +120,12 @@ val calls_app_def = Define `
     else if LENGTH xs = arity then
       Seq e1 (Call loc (xs ++ MAP (\i. Var (i + arity)) extras))
     else
-      Seq e1 (App NONE (Call loc (TAKE arity xs ++ MAP Var extras))
-        (DROP arity xs))`
+      Seq e1
+        (Let xs
+           let l = LENGTH xs in
+           let vars = MAP Var (COUNT_LIST l) in
+             App NONE (Call loc (TAKE arity vars ++ MAP (\i. Var (i + l)) extras))
+                      (DROP arity vars))`
 
 val adjust_all_def = Define `
   (adjust_all k [] = []) /\
@@ -221,7 +225,7 @@ val calls_def = tDefine "calls" `
        if LENGTH (list_inter (GENLIST I (LENGTH fns)) fs1) <> 0 then
          let new_vs = MAP (K Other) fns in (* <--- could be more precise *)
          let (e1,xs,g) = calls [x1] (new_vs++vs) g in
-         let (e1,a1) = HD e1 in
+         let (e1,a1) = HD e1 in (* TODO: should still optimise fns *)
            ([(Letrec loc [] fns e1,a1)],xs,g)
        else
          let fns1 = GENLIST
