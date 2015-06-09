@@ -6,3 +6,6 @@ interp/
 
 bytecode/
   an interpreter for CakeML bytecode written in C.  For performance testing.
+
+reg_alloc/
+  translated and pretty printed register allocator (with a few changes).

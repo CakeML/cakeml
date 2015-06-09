@@ -5,3 +5,8 @@ ml_monadScript.sml
 ml_hol_kernelScript.sml
   Proof-producing translation of all functions from
   ../monadic/hol_kernelScript.sml into CakeML
+
+ml_hol_initScript.sml
+  Prove that the result of evaluating the kernel module, according to the
+  CakeML semantics, satisfies the kernel invariant (STATE) defined in
+  ../monadic/holKernelProofScript.sml

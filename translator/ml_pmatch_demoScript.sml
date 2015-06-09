@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open deepMatchesLib ml_translatorLib;
+open patternMatchesLib ml_translatorLib;
 
 val _ = new_theory "ml_pmatch_demo";
 

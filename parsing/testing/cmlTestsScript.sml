@@ -31,6 +31,7 @@ fun parsetest0 nt sem s opt = let
   val _ = print ("**********\nLexing "^s^"\n")
   val t = time (rhs o concl o EVAL) ``lexer_fun ^s_t``
   val ttoks = rhs (concl (EVAL ``MAP TK ^t``))
+  val _ = print ("Lexes to : " ^ term_to_string ttoks ^ "\n")
   val _ = print ("Parsing\n")
   val evalth = time EVAL
                     ``peg_exec cmlPEG (nt (mkNT ^nt) I) ^t [] done failed``
@@ -97,6 +98,11 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "()"
+                   (SOME ``Con NONE []``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
+                   (SOME ``Con (SOME (Short "SOME")) [Con NONE []]``)
+
 val _ = parsetest0 ``nSpecLine`` ``ptree_SpecLine`` "type 'a foo = 'a list"
                    (SOME ``Stabbrev ["'a"] "foo"
                              (Tapp [Tvar "'a"] (TC_name (Short "list")))``)
@@ -162,7 +168,7 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
                                      (OLDAPP (OLDAPP (Var (Short "<"))
                                                        (Lit (IntLit 3)))
                                               (Var (Short "x"))))
-                            (Lit (Bool T))``)
+                            (Con (SOME (Short "true")) [])``)
 
 val _ = tytest0 "'a * bool"
                 ``Tapp [Tvar "'a"; Tapp [] (TC_name (Short "bool"))] TC_tup``
