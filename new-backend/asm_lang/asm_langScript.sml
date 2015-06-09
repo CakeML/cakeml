@@ -668,13 +668,12 @@ val bytes_in_memory_IMP_SUBSET = prove(
 
 val asserts_WEAKEN = prove(
   ``!n next s P Q.
-      (!x. P x ==> P' x) ==>
+      (!x. P x ==> P' x) /\ (!k. k <= n ==> (next k = next' k)) ==>
       asserts n next s P Q ==>
-      asserts n next s P' Q``,
-  Induct \\ fs [asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC);
-
-
-
+      asserts n next' s P' Q``,
+  Induct \\ fs [asserts_def,LET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC
+  \\ `!k. k <= n ==> (next k = next' k)` by ALL_TAC \\ RES_TAC
+  \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC \\ decide_tac);
 
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.f c.asm_config /\
@@ -685,7 +684,6 @@ val asm_step_IMP_mEval_step = prove(
     ?l ms2. !k. (mEval c io (k + l) ms1 =
                  mEval (shift_interfer l c) io k ms2) /\
                 c.f.state_rel s2 ms2 /\ l <> 0``,
-
   fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
@@ -697,13 +695,12 @@ val asm_step_IMP_mEval_step = prove(
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
   \\ MATCH_MP_TAC IMP_IMP
   \\ STRIP_TAC \\ fs [interference_ok_def]
-  \\ cheat
-(*
   \\ MATCH_MP_TAC asserts_WEAKEN \\ fs []
   \\ SRW_TAC [] [] \\ fs []
-  \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
-  \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET
-*));
+  THEN1 (POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
+         \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET)
+  \\ fs [FUN_EQ_THM] \\ REPEAT STRIP_TAC
+  \\ `n - (n - k) = k` by decide_tac \\ fs []);
 
 
 (* compiler correctness proof *)
@@ -798,13 +795,12 @@ val state_rel_def = Define `
 (*
 
 val aEval_IMP_mEval = prove(
-  ``!s1 res s2 code2 labs ms1.
+  ``!s1 res s2 code2 labs ms1 mc_conf.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
       state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 ms1 ==>
       ?k ms2.
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
-        (s2.code = s1.code) /\
         state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 ms2``,
 
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
@@ -815,6 +811,7 @@ val aEval_IMP_mEval = prove(
 
     (* Asm (Inst ...) *)
     Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+
 
 *)
 
