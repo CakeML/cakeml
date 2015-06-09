@@ -86,7 +86,7 @@ val do_eq_def = tDefine"do_eq"`
   (WF_REL_TAC `inv_image $< (\x. case x of INL (x,y) => v_size x
                                         | INR (xs,ys) => v3_size xs)`);
 
-val _ = type_abbrev( "all_env" , ``:(exh_ctors_env # (conSem$v option) list # (varN, conSem$v) alist)``);
+val _ = temp_type_abbrev( "all_env" , ``:(exh_ctors_env # (conSem$v option) list # (varN, conSem$v) alist)``);
 
 val _ = Define `
  (all_env_to_genv ((exh,genv,env):all_env) = genv)`;

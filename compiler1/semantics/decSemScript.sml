@@ -25,7 +25,7 @@ val _ = Define `
      else NONE
    | _ => NONE)`;
 
-val _ = type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
+val _ = temp_type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
 
 val _ = Hol_reln ` (! ck env l s.
 evaluate ck (env:all_env) (s:conSem$v count_store_genv) ((Lit l):conLang$exp) (s, Rval (Litv l)))

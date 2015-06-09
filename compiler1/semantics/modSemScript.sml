@@ -29,7 +29,7 @@ val _ = Datatype`
 val _ = Define`
   Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
 
-val _ = type_abbrev( "all_env", ``:(modSem$v option) list # envC # (varN, modSem$v)alist``);
+val _ = temp_type_abbrev( "all_env", ``:(modSem$v option) list # envC # (varN, modSem$v)alist``);
 
 val all_env_to_genv_def = Define `
   all_env_to_genv ((genv,cenv,env):all_env) = genv`;

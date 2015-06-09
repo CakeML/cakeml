@@ -50,6 +50,10 @@ val do_app_genv_weakening = prove(
   every_case_tac >> fs[] >> rw[] >>
   fsrw_tac[ARITH_ss][EL_APPEND1,LUPDATE_APPEND1])
 
+(* TODO: could be better if this was exported in decSem, but kept distinct from
+         other abbreviations of the same name by including the theory name *)
+val _ = temp_type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
+
 val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
   `(∀ck env s e res.
      evaluate ck (env:all_env) s e res ⇒
