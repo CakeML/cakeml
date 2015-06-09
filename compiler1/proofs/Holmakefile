@@ -21,6 +21,7 @@ BARE_THYS = ../../semantics/terminationTheory\
 						../semantics/exhPropsTheory\
 						../semantics/patPropsTheory\
 						../semantics/closPropsTheory\
+						../semantics/bvlPropsTheory\
 						../clos_mtiTheory\
 						../clos_numberTheory
 
