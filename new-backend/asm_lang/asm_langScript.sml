@@ -644,7 +644,12 @@ val mEval_EQ_mEval_lemma = prove(
    (fs [] \\ REPEAT STRIP_TAC
     THEN1 (fs [interference_ok_def,shift_seq_def])
     THEN1 RES_TAC
-    \\ cheat)
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC
+         `\k. if k = SUC n then c.next_interfer 0 else env k`) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP
+    \\ STRIP_TAC THEN1 (fs [interference_ok_def] \\ rw [])
+    \\ MATCH_MP_TAC asserts_restrict
+    \\ rw [FUN_EQ_THM] \\ `F` by decide_tac)
   \\ REPEAT STRIP_TAC \\ fs [] \\ Q.EXISTS_TAC `ms2` \\ STRIP_TAC
   \\ POP_ASSUM (ASSUME_TAC o Q.SPEC `k`)
   \\ fs [GSYM shift_interfer_def,shift_interfer_intro] \\ fs [GSYM ADD1]);
