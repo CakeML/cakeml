@@ -682,8 +682,10 @@ val asm_step_IMP_mEval_step = prove(
     interference_ok c.next_interfer c.f.proj /\
     asm_step_alt c.f.encode c.asm_config s1 i s2 /\
     c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
-    ?l ms2. (mEval c io (k + l) ms1 = mEval c io k ms2) /\
-            c.f.state_rel s2 ms2 /\ l <> 0``,
+    ?l ms2. !k. (mEval c io (k + l) ms1 =
+                 mEval (shift_interfer l c) io k ms2) /\
+                c.f.state_rel s2 ms2 /\ l <> 0``,
+
   fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
@@ -692,11 +694,16 @@ val asm_step_IMP_mEval_step = prove(
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
          \\ Cases_on `c.f.encode i` \\ fs [bytes_in_memory_def])
   \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
+  \\ MATCH_MP_TAC IMP_IMP
+  \\ STRIP_TAC \\ fs [interference_ok_def]
+  \\ cheat
+(*
   \\ MATCH_MP_TAC asserts_WEAKEN \\ fs []
   \\ SRW_TAC [] [] \\ fs []
   \\ POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
-  \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET);
+  \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET
+*));
 
 
 (* compiler correctness proof *)
