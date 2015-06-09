@@ -230,14 +230,16 @@ val loc_to_pc_def = Define `
 val read_mem_list_consts = prove(
   ``!n a s. ((SND (read_mem_list a n s)).pc = s.pc) /\
             ((SND (read_mem_list a n s)).code = s.code) /\
-            ((SND (read_mem_list a n s)).clock = s.clock)``,
+            ((SND (read_mem_list a n s)).clock = s.clock) /\
+            ((SND (read_mem_list a n s)).io_events = s.io_events)``,
   Induct \\ fs [read_mem_list_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [assert_def]);
 
 val write_mem_list_consts = prove(
   ``!n a s. (((write_mem_list a n s)).pc = s.pc) /\
             (((write_mem_list a n s)).code = s.code) /\
-            (((write_mem_list a n s)).clock = s.clock)``,
+            (((write_mem_list a n s)).clock = s.clock) /\
+            (((write_mem_list a n s)).io_events = s.io_events)``,
   Induct \\ fs [write_mem_list_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ fs [assert_def,upd_mem_def]);
@@ -245,7 +247,8 @@ val write_mem_list_consts = prove(
 val asm_inst_consts = prove(
   ``((asm_inst i s).pc = s.pc) /\
     ((asm_inst i s).code = s.code) /\
-    ((asm_inst i s).clock = s.clock)``,
+    ((asm_inst i s).clock = s.clock) /\
+    ((asm_inst i s).io_events = s.io_events)``,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def,read_reg_def]
@@ -300,41 +303,39 @@ val get_ret_Loc_def = Define `
 
 val aEval_def = tDefine "aEval" `
   aEval (s:'a asml_state) =
+    if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
     | SOME (Asm a _ _) =>
         (case a of
          | Inst i =>
             (let s1 = asm_inst i s in
                if s1.failed then (Error Internal,s)
-               else aEval (inc_pc s1))
+               else aEval (inc_pc (dec_clock s1)))
          | JumpReg r =>
             (case read_reg r s of
              | Loc n1 n2 =>
                  (case loc_to_pc n1 n2 s.code of
                   | NONE => (Error Internal,s)
                   | SOME p =>
-                      if s.clock = 0 then (TimeOut,s)
-                      else aEval (upd_pc p (dec_clock s)))
+                      aEval (upd_pc p (dec_clock s)))
              | _ => (Error Internal,s))
          | _ => (Error Internal,s))
     | SOME (LabAsm Halt _ _ _) => (Result,s)
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
         let s1 = upd_reg r (lab_to_loc lab) s in
-          aEval (inc_pc s1)
+          aEval (inc_pc (dec_clock s1))
     | SOME (LabAsm (Jump l) _ _ _) =>
        (case get_pc_value l s of
         | NONE => (Error Internal,s)
-        | SOME p => if s.clock = 0 then (TimeOut,s)
-                    else aEval (upd_pc p (dec_clock s)))
+        | SOME p => aEval (upd_pc p (dec_clock s)))
     | SOME (LabAsm (JumpCmp c r ri l) _ _ _) =>
        (case word_cmp c (read_reg r s) (reg_imm ri s) of
         | NONE => (Error Internal,s)
-        | SOME F => aEval (inc_pc s)
+        | SOME F => aEval (inc_pc (dec_clock s))
         | SOME T =>
          (case get_pc_value l s of
           | NONE => (Error Internal,s)
-          | SOME p => if s.clock = 0 then (TimeOut,s)
-                      else aEval (upd_pc p (dec_clock s))))
+          | SOME p => aEval (upd_pc p (dec_clock s))))
     | SOME (LabAsm (Call l) _ _ _) =>
        (case get_pc_value l s of
         | NONE => (Error Internal,s)
@@ -343,8 +344,7 @@ val aEval_def = tDefine "aEval" `
           | NONE => (Error Internal,s)
           | SOME k =>
              let s1 = upd_reg s.link_reg k s in
-               if s.clock = 0 then (TimeOut,s)
-               else aEval (upd_pc p (dec_clock s1))))
+               aEval (upd_pc p (dec_clock s1))))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
        (case (s.regs s.len_reg,s.regs s.ptr_reg) of
         | (Word w, Word w2) =>
@@ -356,14 +356,14 @@ val aEval_def = tDefine "aEval" `
             | SOME (new_bytes,new_io) =>
                 aEval (s with <| io_events := new_io ;
                                  mem := write_bytearray w2 new_bytes s.mem ;
-                                 pc := s.pc + 1 |>)))
+                                 pc := s.pc + 1 ;
+                                 clock := s.clock - 1 |>)))
         | _ => (Error Internal,s))
     | _ => (Error Internal,s)`
- (WF_REL_TAC `(inv_image (measure I LEX
-                          measure (\s. asm_code_length s.code - s.pc))
-                 (\s. (s.clock,s)))`
+ (WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
-  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def] \\ DECIDE_TAC)
+  \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def]
+  \\ decide_tac)
 
 val aEval_ind = fetch "-" "aEval_ind"
 
@@ -700,8 +700,8 @@ val asm_step_IMP_mEval_step = prove(
   THEN1 (POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
          \\ fs [asm_step_alt_def] \\ IMP_RES_TAC bytes_in_memory_IMP_SUBSET)
   \\ fs [FUN_EQ_THM] \\ REPEAT STRIP_TAC
-  \\ `n - (n - k) = k` by decide_tac \\ fs []);
-
+  \\ `n - (n - k) = k` by decide_tac \\ fs [])
+  |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
 (* compiler correctness proof *)
 
@@ -779,38 +779,69 @@ val pos_val_def = Define `
           else pos_val (pos-1) ((Section k ys)::xs) + line_length y)`
 
 val state_rel_def = Define `
-  state_rel (asm_conf, mc_conf, enc, code2, labs, p) (s1:'a asml_state) ms1 <=>
-    (!r. word_loc_val p labs (s1.regs r) = SOME (ms1.regs r)) /\
+  state_rel (asm_conf, mc_conf, enc, code2, labs, p) (s1:'a asml_state) t1 ms1 <=>
+    mc_conf.f.state_rel t1 ms1 /\
+    (mc_conf.prog_addresses = t1.mem_domain) /\
+    interference_ok mc_conf.next_interfer mc_conf.f.proj /\
+    (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (!a. a IN s1.mem_domain ==>
-         a IN ms1.mem_domain /\
-         (word8_loc_val p labs (s1.mem a) = SOME (ms1.mem a))) /\
-    bytes_in_mem p (prog_to_bytes enc code2) ms1.mem ms1.mem_domain s1.mem_domain /\
-    ~s1.failed /\ ~ms1.failed /\ (s1.be = ms1.be) /\
-    (ms1.pc = p + n2w (pos_val s1.pc code2)) /\
-    (p && n2w (ms1.align - 1) = 0w) /\
+         a IN t1.mem_domain /\
+         (word8_loc_val p labs (s1.mem a) = SOME (t1.mem a))) /\
+    bytes_in_mem p (prog_to_bytes enc code2) t1.mem t1.mem_domain s1.mem_domain /\
+    ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
+    (t1.pc = p + n2w (pos_val s1.pc code2)) /\
+    (p && n2w (t1.align - 1) = 0w) /\
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
-
 
 (*
 
 val aEval_IMP_mEval = prove(
-  ``!s1 res s2 code2 labs ms1 mc_conf.
+  ``!s1 res mc_conf s2 code2 labs t1 ms1.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
-      state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 ms1 ==>
-      ?k ms2.
+      backend_correct_alt mc_conf.f mc_conf.asm_config /\
+      state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 ==>
+      ?k t2 ms2.
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
-        state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 ms2``,
+        state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 t2 ms2``,
 
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
+  \\ Cases_on `s1.clock = 0` \\ fs []
+  \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ REPEAT STRIP_TAC
+  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once mEval_def] \\ metis_tac [])
   \\ Cases_on `asm_fetch s1` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
 
     (* Asm (Inst ...) *)
     Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+    \\ `asm_step_alt mc_conf.f.encode mc_conf.asm_config t1 (Inst i) t2` by cheat
+    \\ `mc_conf.f.state_rel t1 ms1 /\
+        (mc_conf.prog_addresses = t1.mem_domain) /\
+        interference_ok mc_conf.next_interfer mc_conf.f.proj` by
+      fs [state_rel_def]
+    \\ IMP_RES_TAC asm_step_IMP_mEval_step
+    \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1.io_events`)
+    \\ Q.MATCH_ASSUM_RENAME_TAC `ll <> 0:num`
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer ll mc_conf`,
+         `code2`,`labs`,`t2`,`ms2`])
+    \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC
+    THEN1 (fs [shift_interfer_def])
+    THEN1 (fs [state_rel_def,shift_interfer_def] \\ cheat)
+    \\ `((inc_pc (dec_clock (asm_inst i s1))).io_events = s1.io_events) /\
+        ((inc_pc (dec_clock (asm_inst i s1))).clock = s1.clock - 1)` by
+      fs [inc_pc_def,dec_clock_def,asm_inst_consts] \\ fs []
+    \\ FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `(s1.clock - 1 + k)`)
+    \\ Q.EXISTS_TAC `k + ll - 1`
+    \\ `s1.clock + (k + ll - 1) = s1.clock - 1 + k + ll` by DECIDE_TAC \\ fs []
+    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def]
+
+
+
+
+
 
 
 *)
