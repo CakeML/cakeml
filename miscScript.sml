@@ -15,6 +15,21 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val hd_drop = Q.store_thm ("hd_drop",
+  `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
+  Induct_on `l` >>
+  rw [] >>
+  `n - 1 < LENGTH l` by decide_tac >>
+  res_tac >>
+  `0 < n` by decide_tac >>
+  rw [EL_CONS] >>
+  `n - 1 = PRE n` by decide_tac >>
+  rw []);
+
+val take1 = Q.store_thm ("take1",
+  `!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`,
+  Induct_on `l` >> rw []);
+
 val SPLIT_LIST = store_thm("SPLIT_LIST",
   ``!xs.
       ?ys zs. (xs = ys ++ zs) /\

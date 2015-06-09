@@ -213,4 +213,80 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
       metis_tac []));
 
+val take_drop_lem = Q.prove (
+  `!skip env.
+    skip < LENGTH env ∧
+    skip + SUC n ≤ LENGTH env ∧
+    DROP skip env ≠ [] ⇒
+    EL skip env::TAKE n (DROP (1 + skip) env) = TAKE (n + 1) (DROP skip env)`,
+  Induct_on `n` >>
+  rw [take1, hd_drop] >>
+  `skip + SUC n ≤ LENGTH env` by decide_tac >>
+  res_tac >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by rw [LENGTH_DROP] >>
+  `SUC n < LENGTH (DROP skip env)` by decide_tac >>
+  `LENGTH (DROP (1 + skip) env) = LENGTH env - (1 + skip)` by rw [LENGTH_DROP] >>
+  `n < LENGTH (DROP (1 + skip) env)` by decide_tac >>
+  rw [TAKE_EL_SNOC, ADD1] >>
+  `n + (1 + skip) < LENGTH env` by decide_tac >>
+  `(n+1) + skip < LENGTH env` by decide_tac >>
+  rw [EL_DROP] >>
+  srw_tac [ARITH_ss] []);
+
+val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
+  `!skip env n st.
+    n + skip ≤ LENGTH env ⇒
+    evaluate (GENLIST (λarg. Var (arg + skip)) n, env, st)
+    =
+    (Rval (TAKE n (DROP skip env)), st)`,
+  Induct_on `n` >>
+  rw [evaluate_def, DROP_LENGTH_NIL, GSYM ADD1] >>
+  rw [Once GENLIST_CONS] >>
+  rw [Once evaluate_CONS, evaluate_def] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  first_x_assum (qspecl_then [`skip + 1`, `env`] mp_tac) >>
+  rw [] >>
+  `n + (skip + 1) ≤ LENGTH env` by decide_tac >>
+  fs [] >>
+  rw [combinTheory.o_DEF, ADD1, GSYM ADD_ASSOC] >>
+  `skip + 1 = 1 + skip ` by decide_tac >>
+  fs [] >>
+  `LENGTH (DROP skip env) = LENGTH env - skip` by rw [LENGTH_DROP] >>
+  `n < LENGTH env - skip` by decide_tac >>
+  `DROP skip env ≠ []`
+        by (Cases_on `DROP skip env` >>
+            fs [] >>
+            decide_tac) >>
+  metis_tac [take_drop_lem]);
+
+val evaluate_var_reverse = Q.store_thm ("evaluate_var_reverse",
+  `!xs env n ys st.
+   evaluate (MAP Var xs, env, st) = (Rval ys, st)
+   ⇒
+   evaluate (REVERSE (MAP Var xs), env, st) = (Rval (REVERSE ys), st)`,
+  Induct_on `xs` >>
+  rw [evaluate_def] >>
+  fs [evaluate_APPEND] >>
+  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_CONS]) >>
+  rw [] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [evaluate_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw [] >>
+  res_tac >>
+  fs []);
+
+val evaluate_genlist_vars_rev = Q.store_thm ("evaluate_genlist_vars_rev",
+  `!skip env n st.
+    n + skip ≤ LENGTH env ⇒
+    evaluate (REVERSE (GENLIST (λarg. Var (arg + skip)) n), env, st) =
+    (Rval (REVERSE (TAKE n (DROP skip env))), st)`,
+  rw [] >>
+  imp_res_tac evaluate_genlist_vars >>
+  pop_assum (qspec_then `st` assume_tac) >>
+  `GENLIST (λarg. Var (arg + skip):bvl$exp) n = MAP Var (GENLIST (\arg. arg + skip) n)`
+           by rw [MAP_GENLIST, combinTheory.o_DEF] >>
+  fs [] >>
+  metis_tac [evaluate_var_reverse]);
+
 val _ = export_theory();
