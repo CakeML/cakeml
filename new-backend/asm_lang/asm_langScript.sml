@@ -791,10 +791,40 @@ val state_rel_def = Define `
     ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
     (t1.pc = p + n2w (pos_val s1.pc code2)) /\
     (p && n2w (t1.align - 1) = 0w) /\
+    (case mc_conf.asm_config.link_reg of NONE => T | SOME r => t1.lr = r) /\
+    (t1.be <=> mc_conf.asm_config.big_endian) /\
+    (t1.align = mc_conf.asm_config.code_alignment) /\
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
 
-(*
+val asm_fetch_ok = prove(
+  ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
+    all_enc_ok asm_conf enc labs 0 code2 /\
+    code_similar s1.code code2 ==>
+    bytes_in_memory (p + n2w (pos_val s1.pc code2))
+      (mc_conf.f.encode (Inst i)) t1.icache t1.mem t1.mem_domain /\
+    asm_ok (Inst i) mc_conf.asm_config``,
+  cheat); (* provable? *)
+
+val asm_inst_failed_IMP_inst_failed = prove(
+  ``state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 /\
+    ~(asm_inst i s1).failed ==> ~(inst i t1).failed``,
+  Cases_on `i`
+  \\ TRY (Cases_on `a`) \\ TRY (Cases_on `b`) \\ TRY (Cases_on `m`)
+  \\ fs [inst_def,state_rel_def,asmTheory.upd_reg_def,asm_inst_def,
+         asmTheory.arith_upd_def,asmTheory.binop_upd_def,mem_op_def,
+         asmTheory.mem_op_def]
+  \\ cheat); (* proveable *)
+
+val IMP_asm_step_alt = prove(
+  ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
+    ~(asm_inst i s1).failed /\
+    state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 ==>
+    asm_step_alt mc_conf.f.encode mc_conf.asm_config t1 (Inst i)
+      (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1)``,
+  fs [asm_step_alt_def,asm_def,asmTheory.upd_pc_def] \\ STRIP_TAC
+  \\ IMP_RES_TAC asm_inst_failed_IMP_inst_failed \\ fs [state_rel_def]
+  \\ MATCH_MP_TAC asm_fetch_ok \\ fs []);
 
 val aEval_IMP_mEval = prove(
   ``!s1 res mc_conf s2 code2 labs t1 ms1.
@@ -814,10 +844,13 @@ val aEval_IMP_mEval = prove(
   \\ Cases_on `asm_fetch s1` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
-
-    (* Asm (Inst ...) *)
+  THEN1
+   ((* Asm (Inst ...) *)
     Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-    \\ `asm_step_alt mc_conf.f.encode mc_conf.asm_config t1 (Inst i) t2` by cheat
+    \\ `?t2. asm_step_alt mc_conf.f.encode
+             mc_conf.asm_config t1 (Inst i) t2 /\
+      (t2 = (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1))` by
+      (fs [] \\ MATCH_MP_TAC IMP_asm_step_alt \\ fs [])
     \\ `mc_conf.f.state_rel t1 ms1 /\
         (mc_conf.prog_addresses = t1.mem_domain) /\
         interference_ok mc_conf.next_interfer mc_conf.f.proj` by
@@ -829,22 +862,41 @@ val aEval_IMP_mEval = prove(
          `code2`,`labs`,`t2`,`ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC
     THEN1 (fs [shift_interfer_def])
-    THEN1 (fs [state_rel_def,shift_interfer_def] \\ cheat)
+    THEN1 (fs [state_rel_def,shift_interfer_def]
+      \\ fs [inc_pc_def,dec_clock_def,asmTheory.asm_def,asmTheory.upd_pc_def]
+      \\ cheat)
     \\ `((inc_pc (dec_clock (asm_inst i s1))).io_events = s1.io_events) /\
         ((inc_pc (dec_clock (asm_inst i s1))).clock = s1.clock - 1)` by
       fs [inc_pc_def,dec_clock_def,asm_inst_consts] \\ fs []
     \\ FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `(s1.clock - 1 + k)`)
     \\ Q.EXISTS_TAC `k + ll - 1`
     \\ `s1.clock + (k + ll - 1) = s1.clock - 1 + k + ll` by DECIDE_TAC \\ fs []
-    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def]
+    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def])
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 (* CallFFI *) cheat
+  THEN1 (* Halt *)
+   (rw [] \\ cheat));
 
 
+(*
 
+    \\ `?t2. asm_step_alt mc_conf.f.encode
+             mc_conf.asm_config t1 (Jmp ll) t2 /\
+      (t2 = (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1))` by
+      (fs [] \\ MATCH_MP_TAC IMP_asm_step_alt \\ fs [])
 
+mEval_def
 
-
+asm_step_alt_def
+asm_def
 
 *)
+
+
 
 (* show that remove_labels only adds aEval-irrelevant annotations
 
