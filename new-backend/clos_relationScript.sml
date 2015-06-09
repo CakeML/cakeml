@@ -71,76 +71,104 @@ val (val_rel_rules, val_rel_ind, val_rel_cases) = Hol_reln `
 *)
 
 val check_clocks_def = Define `
-check_clocks i s1 s2 ⇔
-  s1.clock = i ∧ i ≤ s2.clock`;
+check_clocks f i s1 s2 ⇔
+  s1.clock = i ∧ s2.clock = f i`;
+
+val dec_clock_fn_def = Define `
+dec_clock_fn f (old_start : num) new_start = (\clock. f (clock + (old_start - new_start)))`;
+
+val good_clock_fn_def = Define `
+good_clock_fn (f : num -> num) ⇔
+  (!x y. x ≤ y ⇒ f x ≤ f y) ∧
+  (!x. ?y. x < f y)`;
+
+val good_clock_fn_id = Q.store_thm ("good_clock_fn_id[simp]",
+`good_clock_fn I`,
+ rw [good_clock_fn_def] >>
+ qexists_tac `x + 1` >>
+ simp []);
+
+val dec_clock_fn_id = Q.prove (
+`!f c. dec_clock_fn f c c = f`,
+ rw [dec_clock_fn_def, FUN_EQ_THM]);
+
+val good_clock_fn_dec = Q.prove (
+`!f x y. good_clock_fn f ⇒ good_clock_fn (dec_clock_fn f x y)`,
+ rw [dec_clock_fn_def, good_clock_fn_def] >>
+ pop_assum (qspec_then `x'` mp_tac) >>
+ rw [] >>
+ qexists_tac `y'` >>
+ `y' ≤ y' + (x - y)` by decide_tac >>
+ res_tac >>
+ decide_tac);
 
 val val_rel_def = tDefine "val_rel" `
-(val_rel (i:num) (Number n) (Number n') ⇔ n = n') ∧
-(val_rel i (Block n' vs) (Block n vs') ⇔ n = n' ∧ LIST_REL (val_rel i) vs vs') ∧
-(val_rel i (RefPtr l) (RefPtr l') ⇔ l = l') ∧
-(val_rel i v v' ⇔
+(val_rel (f : num -> num) (i:num) (Number n) (Number n') ⇔ n = n') ∧
+(val_rel f i (Block n' vs) (Block n vs') ⇔ n = n' ∧ LIST_REL (val_rel f i) vs vs') ∧
+(val_rel f i (RefPtr l) (RefPtr l') ⇔ l = l') ∧
+(val_rel f i v v' ⇔
   if is_closure v ∧ is_closure v' then
-    !i'.
-      if i' < i then
-        (!vs vs' s s'.
-          LIST_REL (val_rel i') vs vs' ∧
-          state_rel i' s s' ∧
-          check_clocks i' s s'
-          ⇒ 
-          res_rel (cEvalApp NONE v vs s) (cEvalApp NONE v' vs' s'))
+    !i' vs vs' s s'.
+      if i' < i ∧ check_clocks f i' s s' then
+        LIST_REL (val_rel f i') vs vs' ∧ state_rel f s s' ⇒
+        res_rel (dec_clock_fn f s.clock) (cEvalApp NONE v vs s) (cEvalApp NONE v' vs' s')
       else
-        T
+        T 
   else 
     F) ∧
-(ref_v_rel i (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
-(ref_v_rel i (ValueArray vs) (ValueArray vs') ⇔ LIST_REL (val_rel i) vs vs') ∧
-(ref_v_rel i _ _ ⇔ F) ∧
-(state_rel i s s' ⇔
-  LIST_REL (OPTION_REL (val_rel i)) s.globals s'.globals ∧
-  fmap_rel (ref_v_rel i) s.refs s'.refs ∧
-  fmap_rel (λ(n,e) (n',e'). n = n' ∧ code_rel i [e] [e']) s.code s'.code ∧
+(ref_v_rel f i (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
+(ref_v_rel f i (ValueArray vs) (ValueArray vs') ⇔ LIST_REL (val_rel f i) vs vs') ∧
+(ref_v_rel f i _ _ ⇔ F) ∧
+(state_rel f s s' ⇔
+  LIST_REL (OPTION_REL (val_rel f s.clock)) s.globals s'.globals ∧
+  fmap_rel (ref_v_rel f s.clock) s.refs s'.refs ∧
+  fmap_rel (λ(n,e) (n',e'). n = n' ∧ code_rel f s.clock [e] [e']) s.code s'.code ∧
   s.output = s'.output ∧
   s.restrict_envs = s'.restrict_envs) ∧
-(res_rel (Result vs, s) (Result vs', s') ⇔ 
-  LIST_REL (val_rel s.clock) vs vs' ∧
-  state_rel s.clock s s') ∧
-(res_rel (Exception v, s) (Exception v', s') ⇔ 
-  val_rel s.clock v v' ∧
-  state_rel s.clock s s') ∧
-(res_rel (TimeOut, s) (TimeOut, s') ⇔
-  state_rel s.clock s s') ∧
-(res_rel (Error, s) _ ⇔ T) ∧
-(res_rel _ _ ⇔ F) ∧
-(code_rel i es es' ⇔
+(res_rel (f' : num -> num -> num) (Result vs, s) (Result vs', s') ⇔ 
+  LIST_REL (val_rel (f' s.clock) s.clock) vs vs' ∧
+  state_rel (f' s.clock) s s') ∧
+(res_rel f' (Exception v, s) (Exception v', s') ⇔ 
+  val_rel (f' s.clock) s.clock v v' ∧
+  state_rel (f' s.clock) s s') ∧
+(res_rel f' (TimeOut, s) (TimeOut, s') ⇔
+  state_rel (f' s.clock) s s') ∧
+(res_rel f' (Error, s) _ ⇔ T) ∧
+(res_rel f' _ _ ⇔ F) ∧
+(code_rel f i es es' ⇔
   !env env' s s' i'.
-    i' < i 
-    ⇒
-    LIST_REL (val_rel i') env env' ∧
-    state_rel i' s s' ∧
-    check_clocks i' s s'
-    ⇒
-    res_rel (cEval (es,env,s)) (cEval (es',env',s')))`
+    if i' < i ∧ check_clocks f i' s s' then
+      LIST_REL (val_rel f i') env env' ∧ state_rel f s s' ⇒
+      res_rel (dec_clock_fn f s.clock) (cEval (es,env,s)) (cEval (es',env',s'))
+    else
+      T)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<) 
              (\x. case x of 
-                     | INL (i,v,v') => (i:num,0:num,clos_val_size v) 
-                     | INR (INL (i,r,r')) => (i,1,0)
-                     | INR (INR (INL (i,s,s'))) => (i,3,0)
-                     | INR (INR (INR (INL (res,res')))) => ((SND res).clock,4,0)
-                     | INR (INR (INR (INR (i,es,es')))) => (i,2,0))` >>
+                     | INL (f,i,v,v') => (i:num,0:num,clos_val_size v) 
+                     | INR (INL (f,i,r,r')) => (i,1,0)
+                     | INR (INR (INL (f,s,s'))) => (s.clock,3,0)
+                     | INR (INR (INR (INL (f,res,res')))) => ((SND res).clock,4,0)
+                     | INR (INR (INR (INR (f,i,es,es')))) => (i,2,0))` >>
  rw [] >>
  simp [clos_val_size_def] >>
- fs [is_closure_def]
+ fs [is_closure_def, check_clocks_def]
+ >- (Cases_on `cEvalApp NONE (Closure v17 v18 v19 v20 v21) vs s` >>
+     fs [] >>
+     imp_res_tac cEvalApp_clock >>
+     decide_tac)
+ >- (Cases_on `cEvalApp NONE (Recclosure v22 v23 v24 v25 v26) vs s` >>
+     fs [] >>
+     imp_res_tac cEvalApp_clock >>
+     decide_tac)
  >- (Cases_on `cEval (es,env,s)` >>
      fs [check_clocks_def] >>
      rw [] >>
      imp_res_tac cEval_clock >>
      decide_tac)
- >- cheat
- >- cheat >>
- Induct_on `vs` >>
- rw [] >>
- res_tac >>
- simp [clos_val_size_def]);
+ >- (Induct_on `vs` >>
+     rw [] >>
+     res_tac >>
+     simp [clos_val_size_def]));
 
 val val_rel_ind = fetch "-" "val_rel_ind";
 
@@ -169,35 +197,36 @@ val state_rel_rw =
   end;
 
 val exp_rel_def = Define `
-exp_rel es es' ⇔ !i. code_rel i es es'`;
+exp_rel es es' ⇔ !i. ?f. good_clock_fn f ∧ code_rel f i es es'`;
 
 val val_rel_mono = Q.prove (
-`(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
- (!i r r'. ref_v_rel i r r' ⇒ ∀i'. i' ≤ i ⇒ ref_v_rel i' r r') ∧
- (!i s s'. state_rel i s s' ⇒ ∀i'. i' ≤ i ⇒ state_rel i' s s') ∧
- (!res res'. res_rel res res' ⇒ res_rel res res') ∧
- (!i es es'. code_rel i es es' ⇒ ∀i'. i' ≤ i ⇒ code_rel i' es es')`,
+`(!f i v v'. val_rel f i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel f i' v v') ∧
+ (!f i r r'. ref_v_rel f i r r' ⇒ ∀i'. i' ≤ i ⇒ ref_v_rel f i' r r') ∧
+ (!f s s'. state_rel f s s' ⇒ state_rel f s s') ∧
+ (!f res res'. res_rel f res res' ⇒ res_rel f res res') ∧
+ (!f i es es'. code_rel f i es es' ⇒ ∀i'. i' ≤ i ⇒ code_rel f i' es es')`,
  ho_match_mp_tac val_rel_ind >>
  rw [] >>
  TRY (fs [Once val_rel_def, is_closure_def]  >> NO_TAC)
  >- (fs [val_rel_def, LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
- >- (fs [Once val_rel_def] >>
+ >- (fs [val_rel_rw] >>
      Cases_on `v'` >>
      fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
+     rw [val_rel_rw, is_closure_def] >>
      `i'' < i` by decide_tac >>
      fs [] >>
      metis_tac [])
- >- (fs [Once val_rel_def] >>
+ >- (fs [val_rel_rw] >>
      Cases_on `v'` >>
      fs [is_closure_def] >>
-     rw [Once val_rel_def, is_closure_def] >>
+     rw [val_rel_rw, is_closure_def] >>
      `i'' < i` by decide_tac >>
      fs [] >>
      metis_tac [])
- >- (fs [Once val_rel_def, LIST_REL_EL_EQN] >>
+ >- (fs [val_rel_rw, LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
+     (*
  >- (qpat_assum `state_rel i x y` mp_tac >>
      simp [Once val_rel_def] >>
      rw [] >>
@@ -218,7 +247,6 @@ val val_rel_mono = Q.prove (
          pop_assum mp_tac >>
          ASM_REWRITE_TAC [] >>
          simp []))
-         (*
  >- (fs [val_rel_rw] >>
      rw [] >>
      simp [state_rel_rw] >>
@@ -233,7 +261,7 @@ val val_rel_mono = Q.prove (
      fs [LIST_REL_EL_EQN] >>
      metis_tac [EL_MEM])
      *)
- >- (qpat_assum `code_rel i x y` mp_tac >>
+ >- (qpat_assum `code_rel f i x y` mp_tac >>
      simp [Once val_rel_def] >>
      rw [] >>
      simp [Once val_rel_def] >>
@@ -242,19 +270,19 @@ val val_rel_mono = Q.prove (
      metis_tac []));
 
 val val_rel_mono_list = Q.prove (
-`!i i' vs1 vs2.
-  i' ≤ i ∧ LIST_REL (\x y. val_rel i x y) vs1 vs2
+`!f i i' vs1 vs2.
+  i' ≤ i ∧ LIST_REL (\x y. val_rel f i x y) vs1 vs2
   ⇒
-  LIST_REL (\x y. val_rel i' x y) vs1 vs2`,
+  LIST_REL (\x y. val_rel f i' x y) vs1 vs2`,
  rw [LIST_REL_EL_EQN] >>
  metis_tac [val_rel_mono]);
 
 val exp_rel_empty = Q.prove (
 `exp_rel [] []`,
  rw [exp_rel_def, cEval_def, val_rel_rw] >>
+ qexists_tac `I` >>
  rw [code_rel_rw, val_rel_rw, cEval_def] >>
- `i' - s.clock ≤ i'` by decide_tac >>
- metis_tac [val_rel_mono, check_clocks_def]);
+ metis_tac [dec_clock_fn_id, val_rel_mono, check_clocks_def]);
 
  (*
 val exp_rel_cons = Q.prove (
@@ -263,11 +291,15 @@ val exp_rel_cons = Q.prove (
   exp_rel es es'
   ⇒
   exp_rel (e::es) (e'::es')`,
- rw [exp_rel_def, code_rel_rw] >>
+
+ rw [exp_rel_def, code_rel_rw, SKOLEM_THM] >>
  ONCE_REWRITE_TAC [cEval_CONS] >>
+ ntac 2 (last_x_assum (qspec_then `i` strip_assume_tac)) >>
+ qexists_tac 
  Cases_on `cEval ([e],env,s)` >>
  Cases_on `q` >>
- fs [] >>
+
+
  `res_rel (cEval ([e],env,s)) (cEval ([e'],env',s'))` by metis_tac [] >>
  fs [] >>
  rw [] >>
@@ -279,14 +311,14 @@ val exp_rel_cons = Q.prove (
  fs [val_rel_rw] >>
  imp_res_tac cEval_clock >>
  `r.clock ≤ i' ∧ r.clock < i` by (fs [check_clocks_def] >> decide_tac) >>
- `LIST_REL (λa' a. val_rel r.clock a' a) env env'` by metis_tac [val_rel_mono_list] >>
+ `LIST_REL (λa' a. val_rel f r.clock a' a) env env'` by metis_tac [val_rel_mono_list] >>
 
- `check_clocks r.clock r r'` by cheat >>
- `res_rel (cEval (es,env,r)) (cEval (es',env',r'))` by metis_tac [val_rel_mono, val_rel_mono_list] >>
+ `check_clocks f r.clock r r'` by (fs [state_rel_rw, check_clocks_def])
+ `res_rel f (cEval (es,env,r)) (cEval (es',env',r'))` by metis_tac [val_rel_mono, val_rel_mono_list] >>
  ect >>
  fs [] >>
  rw [] >>
- fs [val_rel_rw, LIST_REL_EL_EQN] >>
+ simp [val_rel_rw, LIST_REL_EL_EQN] >>
  imp_res_tac cEval_length_imp >>
  Cases_on `a` >>
  fs [] >>

@@ -504,6 +504,11 @@ val cEval_clock = store_thm("cEval_clock",
       (cEval (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock)``,
  metis_tac [cEval_clock_help, SND]);
 
+val cEvalApp_clock = store_thm("cEvalApp_clock",
+``(!loc_opt f args s1 vs s2.
+      (cEvalApp loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
+ metis_tac [cEval_clock_help]);
+
 val cEval_check_clock = prove(
   ``!xs env s1 vs s2.
       (cEval (xs,env,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
