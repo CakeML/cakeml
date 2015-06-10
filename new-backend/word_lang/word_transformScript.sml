@@ -36,6 +36,7 @@ val get_spg_def = Define`
 
 val irc_alloc_def =  Define`
   irc_alloc G k moves =
+  let moves = MAP maybe_flip moves in
   let s = init_ra_state G k moves in
   let s = SND (rpt_do_step s) in
   let coalesced = s.coalesced in

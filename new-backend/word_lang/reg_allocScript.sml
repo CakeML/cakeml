@@ -754,11 +754,6 @@ val is_coalesceable_move_def = Define`
     if is_phy_var x then george_ok G k degs (x,y)
     else briggs_ok G k degs(x,y)`
 
-val maybe_flip_def = Define`
-  maybe_flip move =
-  let (p,x:num,y:num) = move in
-  (if is_phy_var x then (p,x,y) else (p,y,x))`
-
 (*3 way split of the available moves:
   An available move might be
   1) invalidated (P false) ⇒ can be discarded entirely
@@ -768,7 +763,6 @@ val maybe_flip_def = Define`
 val split_avail_def = Define`
   (split_avail P Q [] acc = (NONE,acc,[])) ∧
   (split_avail P Q (x::xs) acc =
-    let x = maybe_flip x in
     if P x then
       if Q x then
         (SOME x,acc,xs)
@@ -946,7 +940,7 @@ val rpt_do_step_def = Define`
   *)
 val sec_ra_state_def = Define`
   (sec_ra_state (G:sp_graph) (k:num) vertices coalesce_map =
-  (*In this instance, we care about the degree w.r.t. to other spilled
+  (*In the second stage, we care about the degree w.r.t. to other spilled
     temporaries or phy variables ≥ 2*k*)
   (*Simplify the preconditions*)
   let vertices = FILTER (λv. lookup v G ≠ NONE) vertices in
@@ -985,7 +979,7 @@ val deg_comparator_def = Define`
   not need to update the degrees in the graph
   It simply merges y into x
   Returns the new graph and a coalescing function
-  *)
+*)
 
 val full_coalesce_aux = Define`
   (full_coalesce_aux G [] = (G,LN)) ∧
@@ -1015,7 +1009,12 @@ val full_coalesce_aux = Define`
 (*Given a list of moves and spills,
   The coalesceable moves are those spilled and not already clashing
   This is tricky -- the graph should be ideally edited monadically
-  *)
+  TODO: Need to pass k here so that we know a move like
+  2*k <-> y
+  is actually coalesceable!
+
+  full_coalesce_aux probably needs to do a smarter check instead of filtering here
+*)
 val full_coalesce_def = Define`
   full_coalesce G moves spills =
   let coalesceable =
@@ -1170,8 +1169,16 @@ val briggs_coalesce_def = Define`
     set_unavail_moves []
   od`
 
+val maybe_flip_def = Define`
+  maybe_flip move =
+  let (p,x:num,y:num) = move in
+  (if is_phy_var x then (p,x,y) else (p,y,x))`
+
 val reg_alloc_def =  Define`
   reg_alloc (alg:num) G k moves =
+  (*Rotate all the moves so that if there is a phy_var
+    then it always appears on the left*)
+  let moves = MAP maybe_flip moves in
   (*First phase*)
   let s =
   (if alg =
@@ -2124,7 +2131,7 @@ val full_coalesce_aux_extends = prove(``
   partial_colouring_satisfactory col G ∧
   (∀pxy. MEM pxy ls ⇒
     let (p:num,x,y) = pxy in
-    x ∉ domain col ∧ x ∉ domain col ∧
+    x ∉ domain col ∧ 
     x ∈ domain G ∧ y ∈ domain G) ∧
   undir_graph G ⇒
   let (G',ls') = full_coalesce_aux G ls in
@@ -2223,9 +2230,9 @@ val rest_tac =
   fsm[]>>
   qpat_assum `A = ((),s'')` SUBST_ALL_TAC>>
   fsm[]>>
-  TRY(qpat_abbrev_tac`lsrs = PARTITION P r`)>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P s.spill_worklist`)>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P s''.spill_worklist`)>>
+  TRY(qpat_abbrev_tac`lsrs = PARTITION P r`)>>
   Cases_on`lsrs`>>fsm[]>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P q`)>>
   TRY(qpat_abbrev_tac`lsrs = PARTITION P q'`)>>
@@ -2648,7 +2655,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     (EVERY_CASE_TAC>>fs[]>>
     TRY(`s'.graph = G` by
       (unabbrev_all_tac>>fs[init_ra_state_def,LET_THM,UNCURRY]>>NO_TAC))>>
-    Q.ISPEC_THEN`init_ra_state G k moves` assume_tac briggs_coalesce_lemma>>
+    Q.ISPEC_THEN`init_ra_state G k moves'` assume_tac briggs_coalesce_lemma>>
     rfs[LET_THM,init_ra_state_def,UNCURRY]>>
     Q.ISPEC_THEN `s'` assume_tac rpt_do_step_graph_lemma>>
     rfs[LET_THM]>>metis_tac[is_subgraph_edges_trans])>>
@@ -2663,7 +2670,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
     metis_tac[partial_colouring_satisfactory_subgraph_edges]>>
   `is_subgraph_edges s''.graph G' ∧ undir_graph G' ∧
    partial_colouring_satisfactory col G'` by
-     (match_mp_tac full_coalesce_lemma>>
+     (match_mp_tac (GEN_ALL full_coalesce_lemma)>>
      rw[]>>
      fs[INTER_DEF,EXTENSION]>>
      metis_tac[])>>
@@ -2721,7 +2728,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
     (EVERY_CASE_TAC>>fs[]>>
     TRY(`s'.graph = G` by
       (unabbrev_all_tac>>fs[init_ra_state_def,LET_THM,UNCURRY]>>NO_TAC))>>
-    Q.ISPEC_THEN`init_ra_state G k moves` assume_tac briggs_coalesce_lemma>>
+    Q.ISPEC_THEN`init_ra_state G k moves'` assume_tac briggs_coalesce_lemma>>
     rfs[LET_THM,init_ra_state_def,UNCURRY]>>
     Q.ISPEC_THEN `s'` assume_tac rpt_do_step_graph_lemma>>
     rfs[LET_THM]>>metis_tac[is_subgraph_edges_trans])>>
@@ -2740,7 +2747,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
        (Q.ISPECL_THEN [`pref`,`s''.stack`,`k`,`s''.graph`] assume_tac
          (GEN_ALL alloc_colouring_success_2)>>
        rfs[LET_THM])>>
-     match_mp_tac full_coalesce_lemma>>
+     match_mp_tac (GEN_ALL full_coalesce_lemma)>>
      rw[]>>
      fs[INTER_DEF,EXTENSION]>>
      metis_tac[])>>
