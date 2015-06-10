@@ -154,7 +154,7 @@ val mem_load_def = Define `
   mem_load n r a (s:'a asml_state) =
     let ax = addr a s in
     let a = THE ax in
-    let a = if s.be then a + n2w n else a in
+    let a = if s.be then a + n2w (n - 1) else a in
     let (l,s) = read_mem_list a n s in
     let lx = list_to_word_loc l in
     let s = upd_reg r (THE lx) s in
@@ -177,7 +177,7 @@ val mem_store_def = Define `
   mem_store n r a (s:'a asml_state) =
     let ax = addr a s in
     let a = THE ax in
-    let a = if s.be then a + n2w n else a in
+    let a = if s.be then a + n2w (n - 1) else a in
     let w = read_reg r s in
     let l = word_loc_to_list w n in
     let s = write_mem_list a l s in
@@ -797,6 +797,34 @@ val state_rel_def = Define `
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
 
+val IMP_mem_load_failed = prove(
+  ``~s.failed /\ ((addr a s) && n2w (n - 1) = 0w) /\
+    { addr a s + n2w k | k < n } SUBSET s.mem_domain ==>
+    ~(asm$mem_load n r a s).failed``,
+  cheat);
+
+val mem_load_failed_IMP = prove(
+  ``~(mem_load n r a s).failed ==>
+    ((THE (addr a s)) && n2w (n - 1) = 0w) /\
+    { THE (addr a s) + n2w k | k < n } SUBSET s.mem_domain``,
+  cheat);
+
+val mem_load_failed = prove(
+  ``(!a. a IN s1.mem_domain ==> a IN t1.mem_domain) /\ ~t1.failed /\
+    (addr (Addr n' c) s1 = SOME (addr (Addr n' c) t1)) ==>
+    ~(mem_load k n (Addr n' c) s1).failed ==>
+    ~(asm$mem_load k n (Addr n' c) t1).failed``,
+  STRIP_TAC \\ STRIP_TAC
+  \\ MATCH_MP_TAC IMP_mem_load_failed \\ fs []
+  \\ IMP_RES_TAC mem_load_failed_IMP
+  \\ rfs [] \\ fs [pred_setTheory.SUBSET_DEF]);
+
+val mem_store_failed = prove(
+  ``(!a. a IN s1.mem_domain ==> a IN t1.mem_domain) ==>
+    ~(mem_store k n (Addr n' c) s1).failed ==>
+    ~(asm$mem_store k n (Addr n' c) t1).failed``,
+  cheat);
+
 val asm_fetch_ok = prove(
   ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
     all_enc_ok asm_conf enc labs 0 code2 /\
@@ -804,7 +832,7 @@ val asm_fetch_ok = prove(
     bytes_in_memory (p + n2w (pos_val s1.pc code2))
       (mc_conf.f.encode (Inst i)) t1.icache t1.mem t1.mem_domain /\
     asm_ok (Inst i) mc_conf.asm_config``,
-  cheat); (* provable? *)
+  cheat); (* provable? -- but there should be a more general lemma *)
 
 val asm_inst_failed_IMP_inst_failed = prove(
   ``state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 /\
@@ -814,7 +842,12 @@ val asm_inst_failed_IMP_inst_failed = prove(
   \\ fs [inst_def,state_rel_def,asmTheory.upd_reg_def,asm_inst_def,
          asmTheory.arith_upd_def,asmTheory.binop_upd_def,mem_op_def,
          asmTheory.mem_op_def]
-  \\ cheat); (* proveable *)
+  \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ fs []
+  \\ POP_ASSUM MP_TAC \\ fs []
+  \\ TRY (MATCH_MP_TAC mem_load_failed \\ fs [] \\ NO_TAC)
+  \\ TRY (MATCH_MP_TAC mem_store_failed \\ fs [] \\ NO_TAC)
+  \\ cheat);
 
 val IMP_asm_step_alt = prove(
   ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
@@ -881,20 +914,15 @@ val aEval_IMP_mEval = prove(
   THEN1 (* Halt *)
    (rw [] \\ cheat));
 
-
 (*
 
-    \\ `?t2. asm_step_alt mc_conf.f.encode
-             mc_conf.asm_config t1 (Jmp ll) t2 /\
-      (t2 = (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1))` by
-      (fs [] \\ MATCH_MP_TAC IMP_asm_step_alt \\ fs [])
-
-mEval_def
-
-asm_step_alt_def
-asm_def
+TODO:
+ - fix compilation of FFI and Halt calls
+ - define an incremental version of the compiler
+ - add ability to install code
 
 *)
+
 
 
 
