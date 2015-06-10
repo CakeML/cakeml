@@ -5,6 +5,8 @@ val _ = new_theory "clos_to_bvl";
 val closure_tag_def = Define`closure_tag = 0:num`
 val partial_app_tag_def = Define`partial_app_tag = 1:num`
 val clos_tag_shift_def = Define`clos_tag_shift = 2:num`
+val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
+  |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
 
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (tag+clos_tag_shift)) ∧
@@ -36,6 +38,13 @@ val code_for_recc_case_def = Define `
 val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
   (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
+
+val build_aux_acc = store_thm("build_aux_acc",
+  ``!k n aux.
+    ?aux1. SND (build_aux n k aux) = aux1 ++ aux``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
+  \\ fs [build_aux_def]
+  \\ first_x_assum (STRIP_ASSUME_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ rfs []);
 
 val recc_Let_def = Define `
   recc_Let n num_args i =
@@ -133,7 +142,7 @@ val generate_partial_app_closure_fn_def = Define `
 
 val init_code_def = Define `
   init_code =
-    fromList
+    sptree$fromList
       (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++
        FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
                                      generate_partial_app_closure_fn m n)) max_app) max_app))`;
