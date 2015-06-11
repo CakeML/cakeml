@@ -39,12 +39,42 @@ val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
   (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
 
-val build_aux_acc = store_thm("build_aux_acc",
-  ``!k n aux.
-    ?aux1. SND (build_aux n k aux) = aux1 ++ aux``,
+val build_aux_LENGTH = store_thm("build_aux_LENGTH",
+  ``!l n aux n1 t.
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + LENGTH l)``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
+
+val build_aux_MOVE = store_thm("build_aux_MOVE",
+  ``!xs n aux n1 aux1.
+      (build_aux n xs aux = (n1,aux1)) <=>
+      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)``,
+  Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
+  \\ ONCE_REWRITE_TAC [build_aux_def]
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ fs [PULL_EXISTS]);
+
+val build_aux_acc = Q.store_thm("build_aux_acc",
+  `!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux`,
+  METIS_TAC[build_aux_MOVE,SND,PAIR]);
+
+val build_aux_MEM = store_thm("build_aux_MEM",
+  ``!c n aux n7 aux7.
+       (build_aux n c aux = (n7,aux7)) ==>
+       !k. k < LENGTH c ==> ?d. MEM (n + k,d) aux7``,
   Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
-  \\ fs [build_aux_def]
-  \\ first_x_assum (STRIP_ASSUME_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ rfs []);
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `k` \\ fs []
+  THEN1 (MP_TAC (Q.SPECL [`c`,`n+1`,`(n,h)::aux`] build_aux_acc) \\ fs []
+         \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
+  \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC [ADD_COMM, ADD_ASSOC]);
+
+val build_aux_APPEND1 = store_thm("build_aux_APPEND1",
+  ``!xs x n aux.
+      build_aux n (xs ++ [x]) aux =
+        let (n1,aux1) = build_aux n xs aux in
+          (n1+1,(n1,x)::aux1)``,
+  Induct \\ fs [build_aux_def,LET_DEF]);
 
 val recc_Let_def = Define `
   recc_Let n num_args i =
@@ -227,5 +257,68 @@ val compile_def = tDefine "compile" `
                 full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
   pop_assum (qspec_then `v7` assume_tac) >>
   decide_tac);
+
+val compile_ind = theorem"compile_ind";
+
+val pair_lem1 = Q.prove (
+  `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
+  rw [] >>
+  PairCases_on `x` >>
+  fs []);
+
+val pair_lem2 = Q.prove (
+  `!x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z`,
+  rw [] >>
+  PairCases_on `z` >>
+  rw []);
+
+val compile_acc = Q.store_thm("compile_acc",
+  `!xs aux.
+      let (c,aux1) = compile xs aux in
+        (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux`,
+  recInduct compile_ind \\ REPEAT STRIP_TAC
+  \\ fs [compile_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
+  \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [pair_lem1] >>
+  rw [] >>
+  fs [pair_lem2] >>
+  rfs [compile_def, LET_THM] >>
+  fs [pair_lem1, pair_lem2] >>
+  metis_tac [build_aux_acc, APPEND_ASSOC]);
+
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `(compile xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)`,
+  REPEAT STRIP_TAC
+  \\ ASSUME_TAC (Q.SPECL [`xs`,`aux`] compile_acc)
+  \\ rfs [LET_DEF]);
+
+val compile_SING = Q.store_thm("compile_SING",
+  `(compile [x] aux = (c,aux1)) ==> ?d. c = [d]`,
+  REPEAT STRIP_TAC
+  \\ ASSUME_TAC (Q.SPECL [`[x]`,`aux`] compile_acc) \\ rfs [LET_DEF]
+  \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
+
+val compile_CONS = store_thm("compile_CONS",
+  ``!xs x aux.
+      compile (x::xs) aux =
+      (let (c1,aux1) = compile [x] aux in
+       let (c2,aux2) = compile xs aux1 in
+         (c1 ++ c2,aux2))``,
+  Cases_on `xs` \\ fs[compile_def] \\ fs [LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val compile_SNOC = store_thm("compile_SNOC",
+  ``!xs x aux.
+      compile (SNOC x xs) aux =
+      (let (c1,aux1) = compile xs aux in
+       let (c2,aux2) = compile [x] aux1 in
+         (c1 ++ c2,aux2))``,
+  Induct THEN1
+   (fs [compile_def,LET_DEF]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
+  \\ fs [SNOC_APPEND]
+  \\ ONCE_REWRITE_TAC [compile_CONS]
+  \\ ASM_SIMP_TAC std_ss [compile_def,LET_DEF,APPEND_NIL]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
 
 val _ = export_theory()

@@ -77,6 +77,11 @@ val evaluate_APPEND = store_thm("evaluate_APPEND",
   \\ ONCE_REWRITE_TAC [evaluate_CONS]
   \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
 
+val evaluate_SING = Q.store_thm("evaluate_SING",
+  `(evaluate ([x],env,s) = (Rval a,p1)) ==> ?d1. a = [d1]`,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
+  \\ Cases_on `a` \\ fs [LENGTH_NIL]);
+
 val evaluate_code = store_thm("evaluate_code",
   ``!xs env s1 vs s2.
       (evaluate (xs,env,s1) = (vs,s2)) ==> s2.code = s1.code``,
@@ -113,6 +118,12 @@ val evaluate_mk_tick = Q.store_thm ("evaluate_mk_tick",
       rw [])
   >- (`s.clock = n` by decide_tac >>
       fs []));
+
+val evaluate_MAP_Const = store_thm("evaluate_MAP_Const",
+  ``!exps.
+      evaluate (MAP (K (Op (Const i) [])) (exps:'a list),env,t1) =
+        (Rval (MAP (K (Number i)) exps),t1)``,
+  Induct \\ fs [evaluate_def,evaluate_CONS,do_app_def]);
 
 val inc_clock_def = Define `
   inc_clock ck s = s with clock := s.clock + ck`;
