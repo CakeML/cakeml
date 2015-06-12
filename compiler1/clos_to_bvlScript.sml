@@ -1,4 +1,5 @@
 open preamble closLangTheory bvlTheory bvl_jumpTheory;
+local open conLangTheory pat_to_closTheory in (* for list tags *) end;
 
 val _ = new_theory "clos_to_bvl";
 
@@ -101,7 +102,17 @@ val build_recc_lets_def = Define `
       (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)`;
 
 val num_stubs_def = Define `
-  num_stubs = max_app * max_app + max_app`;
+  num_stubs =
+    (* generic apps *) max_app
+    (* partial apps *) + max_app * max_app
+    (* recursive equality *) + 1
+    (* ToList *)             + 1`;
+
+val equality_location_def = Define`
+  equality_location = max_app + max_app * max_app`;
+
+val ToList_location_def = Define`
+  ToList_location = max_app + max_app * max_app + 1`;
 
 val mk_cl_call_def = Define `
   mk_cl_call cl args =
@@ -170,12 +181,27 @@ val generate_partial_app_closure_fn_def = Define `
          [Var 0] ++
          [mk_el (Var 0) (mk_const 0)]))`;
 
+val ToList_code_def = Define`
+  (* 3 arguments: block containing list, index of last converted element, accumulator *)
+  ToList_code =
+    If (Op Equal [Var 1; mk_const 0]) (Var 2)
+      (Let [Op Sub [Var 1; mk_const 1]]
+        (Call 0 (SOME ToList_location)
+         [Var 1; Var 0; Op (Cons (cons_tag+pat_tag_shift+clos_tag_shift))
+                           [mk_el (Var 0) (Var 1); (Var 3)]]))`;
+
+val equality_code_def = Define`
+  equality_code = (* TODO *)
+    ARB:bvl$exp`;
+
 val init_code_def = Define `
   init_code =
     sptree$fromList
       (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++
        FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
-                                     generate_partial_app_closure_fn m n)) max_app) max_app))`;
+                                     generate_partial_app_closure_fn m n)) max_app) max_app) ++
+       [(2,equality_code);
+        (3,ToList_code)])`;
 
 val compile_def = tDefine "compile" `
   (compile [] aux = ([],aux)) /\
@@ -201,7 +227,17 @@ val compile_def = tDefine "compile" `
        ([Tick (HD c1)], aux1)) /\
   (compile [Op op xs] aux =
      let (c1,aux1) = compile xs aux in
-       ([Op (compile_op op) c1],aux1)) /\
+     ([if op = ToList then
+         Let c1
+           (Call 0 (SOME ToList_location)
+             [Var 0; Op(LengthBlock)[Var 0];
+              (* TODO: re-use nil value (in globals?) *)
+              Op(Cons(nil_tag+pat_tag_shift+clos_tag_shift))[]])
+       else if op = Equal then
+         Call 0 (SOME equality_location) c1
+       else
+         Op (compile_op op) c1]
+     ,aux1)) /\
   (compile [App loc_opt x1 xs2] aux =
      let (c1,aux1) = compile [x1] aux in
      let (c2,aux2) = compile xs2 aux1 in
