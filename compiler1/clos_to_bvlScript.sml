@@ -206,16 +206,16 @@ val compile_def = tDefine "compile" `
      let (c1,aux1) = compile [x1] aux in
      let (c2,aux2) = compile xs2 aux1 in
        ([case loc_opt of
-         | NONE => 
+         | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
-         | SOME loc => 
+         | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
   (compile [Fn loc vs num_args x1] aux =
      let (c1,aux1) = compile [x1] aux in
-     let c2 = 
-       Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs)) 
-           (HD c1) 
+     let c2 =
+       Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
+           (HD c1)
      in
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))],
@@ -227,9 +227,9 @@ val compile_def = tDefine "compile" `
          let (c1,aux1) = compile [exp] aux in
          let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) (HD c1) in
          let (c2,aux2) = compile [x1] ((loc + num_stubs,num_args+1,c3)::aux1) in
-         let c4 = 
-           Op (Cons closure_tag) 
-              (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs)) 
+         let c4 =
+           Op (Cons closure_tag)
+              (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))
          in
            ([Let [c4] (HD c2)], aux2)
      | _ =>
