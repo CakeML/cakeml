@@ -50,7 +50,7 @@ val asm_rwts =
     arith_upd_def, addr_def, mem_load_def, write_mem_word_def, mem_store_def,
     read_mem_word ``1n``, read_mem_word ``4n``, read_mem_word ``8n``,
     write_mem_word ``1n``, write_mem_word ``4n``, write_mem_word ``8n``,
-    mem_op_def, inst_def, jump_to_offset_def, asm_def]
+    mem_op_def, inst_def, jump_to_offset_def, asm_def, all_pcs_def]
 
 (* some custom tools/tactics ---------------------------------------------- *)
 

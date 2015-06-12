@@ -444,8 +444,9 @@ val backend_correct_alt_def = Define `
                !s. (t.state_rel s ms1 = t.state_rel s ms2) /\
                    (t.state_ok ms1 = t.state_ok ms2)) /\
     (!ms s. t.state_rel s ms ==>
-            (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
-            (t.get_reg ms = s.regs) /\ t.state_ok ms) /\
+            t.state_ok ms /\ (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
+            (!i. i < config.reg_count /\ ~MEM i config.avoid_regs ==>
+                 (t.get_reg ms i = s.regs i))) /\
     !s1 i s2 ms.
       asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
