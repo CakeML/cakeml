@@ -156,15 +156,22 @@ val dec_clock0 = Q.store_thm ("dec_clock0",
 
 val _ = export_rewrites ["dec_clock_refs", "dec_clock_code", "dec_clock0"];
 
-val do_app_change_clock = store_thm("do_app_change_clock",
-  ``(do_app op args s1 = SOME (res,s2)) ==>
-    (do_app op args (s1 with clock := ck) = SOME (res,s2 with clock := ck))``,
+val do_app_change_clock = prove(
+  ``(do_app op args s1 = Rval (res,s2)) ==>
+    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))``,
   SIMP_TAC std_ss [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [] \\
   CCONTR_TAC >> fs [] >>
   rw [] >>
-  fs [do_eq_def]);
+  fs []);
+
+val do_app_change_clock_err = prove(
+  ``(do_app op args s1 = Rerr e) ==>
+    (do_app op args (s1 with clock := ck) = Rerr e)``,
+  SIMP_TAC std_ss [do_app_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);
 
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
   `!exps env s1 res s2.
@@ -199,12 +206,9 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       fs [] >>
       imp_res_tac do_app_const >>
       imp_res_tac do_app_change_clock >>
+      imp_res_tac do_app_change_clock_err >>
       fs [] >>
-      rw [] >>
-      pop_assum (qspec_then `r.clock` mp_tac) >>
-      rw [] >>
-      `r with clock := r.clock = r` by rw [state_component_equality] >>
-      fs [])
+      rw [])
   >- (rw [] >>
       fs [inc_clock_def, dec_clock_def] >>
       rw [] >>
