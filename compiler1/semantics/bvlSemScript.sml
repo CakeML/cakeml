@@ -33,10 +33,21 @@ val _ = Datatype `
      ; code    : (num # bvl$exp) num_map
      ; io      : io_trace |> `
 
+val v_to_list_def = Define`
+  (v_to_list (Block tag []) =
+     if tag = nil_tag+pat_tag_shift+clos_tag_shift then SOME [] else NONE) ∧
+  (v_to_list (Block tag [h;bt]) =
+     if tag = cons_tag+pat_tag_shift+clos_tag_shift then
+       (case v_to_list bt of
+        | SOME t => SOME (h::t)
+        | _ => NONE )
+     else NONE) ∧
+  (v_to_list _ = NONE)`
+
 val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#bvlSem$state,bvlSem$v)result``)
 
 (* same as closSem$do_app, except:
-    - FromList and ToList are removed
+    - ToList is removed
     - Equal only compares integers
     - Label is added *)
 
@@ -97,6 +108,10 @@ val do_app_def = Define `
                Rval (Unit, s with refs := s.refs |+
                  (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs)))
              else Error)
+         | _ => Error)
+    | (FromList n,[lv]) =>
+        (case v_to_list lv of
+         | SOME vs => Rval (Block n vs, s)
          | _ => Error)
     | (TagEq n,[Block tag xs]) =>
         Rval (Boolv (tag = n), s)
