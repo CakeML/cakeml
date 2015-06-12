@@ -66,21 +66,11 @@ fun using_first n thms_tac =
              \\ MAP_EVERY assume_tac x
           end)
 
-local
-   fun dest5 c e tm =
-      case Lib.with_exn boolSyntax.strip_comb tm e of
-         (t, [t1, t2, t3, t4, t5]) =>
-          if Term.same_const t c then (t1, t2, t3, t4, t5) else raise e
-       | _ => raise e
-   fun mk5 tm (a, b, c, d, e) = boolSyntax.list_mk_icomb (tm, [a, b, c, d, e])
-in
-   val (_, mk_bytes_in_memory, dest_bytes_in_memory, _) =
-      HolKernel.syntax_fns {n = 5, dest = dest5, make = mk5}
-        "asm" "bytes_in_memory"
-end
+val (_, mk_bytes_in_memory, dest_bytes_in_memory, _) =
+   HolKernel.syntax_fns4 "asm" "bytes_in_memory"
 
 val strip_bytes_in_memory =
-   Option.map (fn (_, l, _, _, _) => fst (listSyntax.dest_list l)) o
+   Option.map (fn (_, l, _, _) => fst (listSyntax.dest_list l)) o
    Lib.total dest_bytes_in_memory
 
 local
@@ -89,7 +79,6 @@ local
          (fst (Thm.EQ_IMP_RULE (Drule.SPEC_ALL bytes_in_memory_concat)))
    val w8 = ``:word8``
    val pc = Term.mk_var ("pc", ``:'a word``)
-   val icache = Term.mk_var ("icache", ``: ('a word -> word8) option``)
    val mem = Term.mk_var ("mem", ``: 'a word -> word8``)
    val mem_domain = Term.mk_var ("mem_domain", ``: 'a word -> bool``)
 in
@@ -108,19 +97,17 @@ in
                        (Conv.LAND_CONV
                           (Conv.RATOR_CONV
                              (Conv.RATOR_CONV
-                                (Conv.RATOR_CONV
-                                   (Conv.RAND_CONV listLib.APPEND_CONV))))
+                                (Conv.RAND_CONV listLib.APPEND_CONV)))
                         THENC Conv.RAND_CONV
                                 (Conv.RAND_CONV
                                    (Conv.RATOR_CONV
                                       (Conv.RATOR_CONV
-                                         (Conv.RATOR_CONV
                                             (Conv.RATOR_CONV
                                                (Conv.RAND_CONV
                                                   (Conv.DEPTH_CONV
-                                                     listLib.LENGTH_CONV))))))))
+                                                     listLib.LENGTH_CONV)))))))
             in
-               qpat_assum `asm$bytes_in_memory ^pc ^l ^icache ^mem ^mem_domain`
+               qpat_assum `asm$bytes_in_memory ^pc ^l ^mem ^mem_domain`
                   (fn thm =>
                       let
                          val (th1, th2) =

@@ -111,8 +111,7 @@ val () = Datatype `
       | JumpCmp cmp reg ('a reg_imm) ('a word)
       | Call ('a word)
       | JumpReg reg
-      | Loc reg ('a word)
-      | Cache`
+      | Loc reg ('a word)`
 
 (* -- ASM target-specific configuration -- *)
 
@@ -122,7 +121,6 @@ val () = Datatype `
      ; reg_count        : num
      ; avoid_regs       : num list
      ; link_reg         : num option
-     ; has_icache       : bool
      ; has_mem_32       : bool
      ; two_reg_arith    : bool
      ; big_endian       : bool
@@ -191,15 +189,13 @@ val asm_ok_def = Define `
      (case c.link_reg of SOME r => reg_ok r c | NONE => F) /\
      jump_offset_ok w c) /\
   (asm_ok (JumpReg r) c = reg_ok r c) /\
-  (asm_ok (Loc r w) c = reg_ok r c /\ loc_offset_ok w c) /\
-  (asm_ok Cache c = c.has_icache)`
+  (asm_ok (Loc r w) c = reg_ok r c /\ loc_offset_ok w c)`
 
 (* -- semantics of ASM program -- *)
 
 val () = Datatype `
   asm_state =
     <| regs       : num -> 'a word
-     ; icache     : ('a word -> word8) option
      ; mem        : 'a word -> word8
      ; mem_domain : 'a word set
      ; pc         : 'a word
@@ -301,24 +297,16 @@ val asm_def = Define `
   (asm (JumpReg r) pc s =
       let a = read_reg r s in
         upd_pc a (assert (a && n2w (s.align - 1) = 0w) s)) /\
-  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s)) /\
-  (asm Cache pc s =
-      (* this is a hack to simulate x86-64's CPUID instruction *)
-      upd_pc pc
-        (upd_reg 3 ARB
-           (upd_reg 2 ARB
-              (upd_reg 1 ARB
-                 (upd_reg 0 ARB (s with icache := SOME s.mem))))))`
+  (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
 
 val bytes_in_memory_def = Define `
-  (bytes_in_memory a [] icache m dm = T) /\
-  (bytes_in_memory a ((x:word8)::xs) icache m dm =
-     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs icache m dm /\
-     (case icache of SOME c => c a = x | NONE => T))`
+  (bytes_in_memory a [] m dm = T) /\
+  (bytes_in_memory a ((x:word8)::xs) m dm =
+     (m a = x) /\ a IN dm /\ bytes_in_memory (a + 1w) xs m dm)`
 
 val asm_step_def = Define `
   asm_step enc c s1 s2 =
-    ?i. bytes_in_memory s1.pc (enc i) s1.icache s1.mem s1.mem_domain /\
+    ?i. bytes_in_memory s1.pc (enc i) s1.mem s1.mem_domain /\
         (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
         (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
@@ -326,7 +314,7 @@ val asm_step_def = Define `
 
 val asm_step_alt_def = Define `
   asm_step_alt enc c s1 i s2 =
-    bytes_in_memory s1.pc (enc i) s1.icache s1.mem s1.mem_domain /\
+    bytes_in_memory s1.pc (enc i) s1.mem s1.mem_domain /\
     (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
     (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
     (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
@@ -349,8 +337,8 @@ val has_decoder_def = Define `
   has_decoder enc c = ?dec. !i x. asm_ok i c ==> (dec (enc i ++ x) = i)`
 
 val bytes_in_memory_IMP = prove(
-  ``!xs ys a icache m dm.
-      bytes_in_memory a xs icache m dm /\ bytes_in_memory a ys icache m dm ==>
+  ``!xs ys a m dm.
+      bytes_in_memory a xs m dm /\ bytes_in_memory a ys m dm ==>
       isPREFIX xs ys \/ isPREFIX ys xs``,
   Induct
   THEN Cases_on `ys`
@@ -377,10 +365,10 @@ val simple_enc_deterministic = Q.store_thm("simple_enc_deterministic",
    )
 
 val bytes_in_memory_concat = Q.store_thm("bytes_in_memory_concat",
-   `!l1 l2 pc icache mem mem_domain.
-       bytes_in_memory pc (l1 ++ l2) icache mem mem_domain =
-       bytes_in_memory pc l1 icache mem mem_domain /\
-       bytes_in_memory (pc + n2w (LENGTH l1)) l2 icache mem mem_domain`,
+   `!l1 l2 pc mem mem_domain.
+       bytes_in_memory pc (l1 ++ l2) mem mem_domain =
+       bytes_in_memory pc l1 mem mem_domain /\
+       bytes_in_memory (pc + n2w (LENGTH l1)) l2 mem mem_domain`,
    Induct
    THEN ASM_SIMP_TAC list_ss
          [bytes_in_memory_def, wordsTheory.WORD_ADD_0, wordsTheory.word_add_n2w,

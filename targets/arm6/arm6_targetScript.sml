@@ -24,7 +24,6 @@ val arm6_config_def = Define`
     ; reg_count := 16
     ; avoid_regs := [15]
     ; link_reg := SOME 14
-    ; has_icache := F
     ; has_mem_32 := F
     ; two_reg_arith := F
     ; big_endian := F
@@ -160,9 +159,7 @@ val arm6_enc_def = Define`
             and imm12b = (7 >< 0) imm32
             in
                enc (Data (ArithLogicImmediate (opc, F, n2w r, 15w, imm12t))) ++
-               enc (Data (ArithLogicImmediate (opc, F, n2w r, n2w r, imm12b))))
-        /\
-   (arm6_enc Cache = [])`
+               enc (Data (ArithLogicImmediate (opc, F, n2w r, n2w r, imm12b))))`
 
 val arm6_bop_dec_def = Define`
    (arm6_bop_dec (0b0100w: word4) = Add) /\
@@ -698,7 +695,7 @@ val dec_rwts =
 val bytes_in_memory_thm = Q.prove(
    `!s state a b c d.
       arm6_asm_state s state /\
-      bytes_in_memory s.pc [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       (state.Architecture = ARMv6) /\
       ~state.Extensions Extension_Security /\
@@ -718,7 +715,7 @@ val bytes_in_memory_thm = Q.prove(
 val bytes_in_memory_thm2 = Q.prove(
    `!s state w a b c d.
       arm6_asm_state s state /\
-      bytes_in_memory (s.pc + w) [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.REG RName_PC + w + 3w) = d) /\
       (state.MEM (state.REG RName_PC + w + 2w) = c) /\
       (state.MEM (state.REG RName_PC + w + 1w) = b) /\
@@ -951,11 +948,11 @@ val decode_tac0 =
 val arm6_encoding = Count.apply Q.prove (
    `!i. asm_ok i arm6_config ==>
         let l = arm6_enc i in
-           (!x. arm6_dec (l ++ x) = i) /\ (LENGTH l MOD 4 = 0)`,
+        let n = LENGTH l in
+           (!x. arm6_dec (l ++ x) = i) /\ (n MOD 4 = 0) /\ n <> 0`,
    Cases
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -998,8 +995,7 @@ val arm6_encoding = Count.apply Q.prove (
             \\ Cases_on `b`
             \\ decode_tac0
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -1012,8 +1008,7 @@ val arm6_encoding = Count.apply Q.prove (
       \\ Cases_on `0w <= c`
       \\ decode_tac0
       )
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -1021,8 +1016,7 @@ val arm6_encoding = Count.apply Q.prove (
       \\ decode_tac0
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -1041,8 +1035,7 @@ val arm6_encoding = Count.apply Q.prove (
       \\ rw []
       \\ blastLib.FULL_BBLAST_TAC
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -1050,37 +1043,26 @@ val arm6_encoding = Count.apply Q.prove (
       \\ decode_tac0
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ decode_tac0
       )
-   >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
-      print_tac "Loc"
-      \\ lrw ([Q.ISPEC `LENGTH:'a list -> num` COND_RAND,
-               (SIMP_RULE std_ss [] o Q.ISPEC `\x. x MOD 4`) COND_RAND] @
-              enc_rwts)
-      \\ BasicProvers.CASE_TAC
-      \\ simp dec_rwts
-      \\ SetPassCondition_tac
-      \\ (decode_tac [true] ORELSE decode_tac [true, false])
-      \\ simp [lem18, lem19]
-      \\ simp_tac (srw_ss()++boolSimps.LET_ss++wordsLib.WORD_EXTRACT_ss)
-           dec_rwts
-      \\ TRY (decode_tac [true] ORELSE decode_tac [true, false])
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-      (*
-        --------------
-          no Cache
-        --------------*)
-   \\ fs enc_rwts
+   \\ print_tac "Loc"
+   \\ lrw ([Q.ISPEC `LENGTH:'a list -> num` COND_RAND,
+            (SIMP_RULE std_ss [] o Q.ISPEC `\x. x MOD 4`) COND_RAND] @ enc_rwts)
+   \\ BasicProvers.CASE_TAC
+   \\ simp dec_rwts
+   \\ SetPassCondition_tac
+   \\ (decode_tac [true] ORELSE decode_tac [true, false])
+   \\ simp [lem18, lem19]
+   \\ simp_tac (srw_ss()++boolSimps.LET_ss++wordsLib.WORD_EXTRACT_ss) dec_rwts
+   \\ TRY (decode_tac [true] ORELSE decode_tac [true, false])
+   \\ blastLib.FULL_BBLAST_TAC
    )
 
 val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
@@ -1091,6 +1073,10 @@ val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
 val arm6_asm_deterministic_config =
    SIMP_RULE (srw_ss()) [arm6_config_def] arm6_asm_deterministic
 
+val enc_ok_rwts =
+   SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding ::
+   enc_ok_rwts
+
 val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
    `backend_correct arm6_enc arm6_config arm6_next arm6_asm_state`,
    simp [backend_correct_def]
@@ -1100,8 +1086,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -1165,8 +1150,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
             \\ next_state_tac01
             \\ state_tac []
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -1175,8 +1159,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
             \\ next_state_tac01
             \\ state_tac []
          )
-         (*
-           --------------
+         (*--------------
              Mem
            --------------*)
          \\ print_tac "Mem"
@@ -1204,8 +1187,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
              load_store_tac {word = false, neg = true, store = true}
          ]
       ) (* close Inst *)
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -1221,8 +1203,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       \\ simp [arm_stepTheory.Aligned_numeric, aligned_sum]
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -1231,8 +1212,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       >- cmp_tac false
       \\ cmp_tac true
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -1248,8 +1228,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       \\ simp [arm_stepTheory.Aligned_numeric, aligned_sum]
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
@@ -1261,8 +1240,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       \\ state_tac []
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
       print_tac "Loc"
@@ -1293,42 +1271,8 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
             [tac1, tac2, tac1, tac2]
          end
       )
-      (*
-        --------------
-          no Cache
-        --------------*)
-   >- fs enc_rwts
    >- (
-      (*
-        --------------
-          enc MOD 4 enc_ok
-        --------------*)
-      simp
-         [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding]
-      )
-   >- (
-      (*
-        --------------
-          enc <> [], enc_ok
-        --------------*)
-      print_tac "enc_ok: enc <> NIL"
-      \\ Cases_on `w` \\ fs []
-      \\ TRY (Cases_on `i`) \\ fs []
-      \\ TRY (Cases_on `a`) \\ fs []
-      \\ TRY (Cases_on `b`) \\ fs []
-      \\ TRY (Cases_on `m`) \\ fs []
-      \\ TRY (Cases_on `a`) \\ fs []
-      \\ TRY (Cases_on `c:cmp`) \\ fs [] (* prints ugly warning messages *)
-      \\ TRY (Cases_on `r`) \\ fs []
-      \\ lrw enc_rwts
-      \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-      \\ fs [asm_ok_def,inst_ok_def,reg_ok_def,addr_ok_def,addr_offset_ok_def,
-             jump_offset_ok_def,lem7,arm_stepTheory.Aligned]
-      \\ blastLib.FULL_BBLAST_TAC
-      )
-   >- (
-      (*
-        --------------
+      (*--------------
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
@@ -1336,8 +1280,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
                lem8] @ enc_rwts)
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
@@ -1347,8 +1290,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
                lem8] @ enc_rwts)
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Call enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
@@ -1356,8 +1298,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
                lem8] @ enc_rwts)
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
@@ -1365,8 +1306,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
       \\ rw []
       \\ blastLib.FULL_BBLAST_TAC
       )
-      (*
-        --------------
+      (*--------------
           asm_deterministic
         --------------*)
    \\ print_tac "asm_deterministic"

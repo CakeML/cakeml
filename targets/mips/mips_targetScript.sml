@@ -18,7 +18,6 @@ val mips_config_def = Define`
     ; reg_count := 32
     ; avoid_regs := [0; 1]
     ; link_reg := SOME 31
-    ; has_icache := F
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := T
@@ -53,7 +52,7 @@ val mips_asm_state_def = Define`
    (s.BranchDelay = NONE) /\ (s.BranchTo = NONE) /\
    (a.pc = s.PC) /\ ((1 >< 0) s.PC = 0w: word2) /\
    (!i. 1 < i /\ i < 32 ==> (a.regs i = s.gpr (n2w i))) /\
-   (a.mem_domain = univ(:word64)) /\ (a.mem = s.MEM)`
+   (a.mem = s.MEM)`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -174,8 +173,7 @@ val mips_enc_def = Define`
            [ArithI (ORI (31w, 1w, 0w));                  (* $1 := LR         *)
             Branch (BLTZAL (0w, 0w));                    (* LR := pc + 12    *)
             ArithI (DADDIU (31w, n2w r, w2w (i - 12w))); (* r := LR - 12 + i *)
-            ArithI (ORI (1w, 31w, 0w))])) /\             (* LR := $1         *)
-   (mips_enc Cache = [])`
+            ArithI (ORI (1w, 31w, 0w))]))`               (* LR := $1         *)
 
 val fetch_decode_def = Define`
    fetch_decode (b0 :: b1 :: b2 :: b3 :: (rest: word8 list)) =
@@ -345,7 +343,7 @@ val mips_asm_state =
 val bytes_in_memory_thm = Q.prove(
    `!w s state a b c d.
       mips_asm_state s state /\
-      bytes_in_memory s.pc [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       state.CP0.Config.BE /\
       ~state.CP0.Status.RE /\
@@ -364,7 +362,7 @@ val bytes_in_memory_thm = Q.prove(
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
       mips_asm_state s state /\
-      bytes_in_memory (s.pc + w) [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w) = a) /\
       (state.MEM (state.PC + w + 1w) = b) /\
       (state.MEM (state.PC + w + 2w) = c) /\
@@ -524,7 +522,7 @@ in
         | NONE => NO_TAC) (asl, g)
    fun next_state_tac (asl, g) =
      (let
-         val x as (pc, l, _, _, _) =
+         val x as (pc, l, _, _) =
             List.last
               (List.mapPartial (Lib.total asmLib.dest_bytes_in_memory) asl)
          val tm = asmLib.mk_bytes_in_memory x
@@ -600,11 +598,11 @@ val enc_ok_tac =
 val mips_encoding = Count.apply Q.prove (
    `!i. asm_ok i mips_config ==>
         let l = mips_enc i in
-           (!x. mips_dec (l ++ x) = i) /\ (LENGTH l MOD 4 = 0)`,
+        let n = LENGTH l in
+           (!x. mips_dec (l ++ x) = i) /\ (n MOD 4 = 0) /\ n <> 0`,
    Cases
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -650,8 +648,7 @@ val mips_encoding = Count.apply Q.prove (
             \\ rw []
             \\ blastLib.FULL_BBLAST_TAC
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -664,8 +661,7 @@ val mips_encoding = Count.apply Q.prove (
       \\ Cases_on `m`
       \\ decode_tac
       )
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -673,8 +669,7 @@ val mips_encoding = Count.apply Q.prove (
       \\ decode_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -682,8 +677,7 @@ val mips_encoding = Count.apply Q.prove (
       \\ Cases_on `c`
       \\ decode_tac
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -691,28 +685,18 @@ val mips_encoding = Count.apply Q.prove (
       \\ decode_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ decode_tac
       )
-   >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
-      print_tac "Loc"
-      \\ Cases_on `n = 31`
-      \\ decode_tac
-      )
-      (*
-        --------------
-          Cache
-        --------------*)
-   \\ print_tac "Cache"
-   \\ simp (enc_rwts @ dec_rwts)
+   \\ print_tac "Loc"
+   \\ Cases_on `n = 31`
+   \\ decode_tac
    )
 
 val mips_asm_deterministic = Q.store_thm("mips_asm_deterministic",
@@ -723,6 +707,10 @@ val mips_asm_deterministic = Q.store_thm("mips_asm_deterministic",
 val mips_asm_deterministic_config =
    SIMP_RULE (srw_ss()) [mips_config_def] mips_asm_deterministic
 
+val enc_ok_rwts =
+   SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding ::
+   enc_ok_rwts
+
 val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
    `backend_correct mips_enc mips_config mips_next mips_asm_state`,
    simp [backend_correct_def]
@@ -732,8 +720,7 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -776,8 +763,7 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
             \\ Cases_on `b`
             \\ bnext_tac
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -785,10 +771,10 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
             \\ Cases_on `n1 < 32`
             \\ next_tac
          )
-         (*
-           --------------
+         (*--------------
              Mem
            --------------*)
+         \\ print_tac "Mem"
          \\ Cases_on `a`
          \\ Cases_on `m`
          \\ next_tac
@@ -796,8 +782,7 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
          \\ full_simp_tac
               (srw_ss()++wordsLib.WORD_EXTRACT_ss++wordsLib.WORD_CANCEL_ss) []
       ) (* close Inst *)
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -805,8 +790,7 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       \\ bnext_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -824,8 +808,7 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       ]
       \\ bnext_tac
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -833,16 +816,14 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       \\ bnext_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ next_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
       print_tac "Loc"
@@ -850,33 +831,14 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       \\ bnext_tac
       )
    >- (
-      (*
-        --------------
-          Cache
-        --------------*)
-      print_tac "Cache"
-      \\ next_tac
-      )
-   >- (
-      (*
-        --------------
-        enc MOD 4 enc_ok
-        --------------*)
-      simp
-         [SIMP_RULE (bool_ss++boolSimps.LET_ss) [mips_config_def] mips_encoding]
-      )
-   >- cheat
-   >- (
-      (*
-        --------------
+      (*--------------
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
       \\ enc_ok_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
@@ -885,23 +847,20 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       \\ enc_ok_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Call enc_ok
         --------------*)
       enc_ok_tac
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
       \\ Cases_on `r = 31`
       \\ enc_ok_tac
       )
-      (*
-        --------------
+      (*--------------
           asm_deterministic
         --------------*)
    \\ print_tac "asm_deterministic"

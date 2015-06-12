@@ -30,7 +30,6 @@ val arm8_config_def = Define`
     ; reg_count := 32
     ; avoid_regs := [31]
     ; link_reg := SOME 30
-    ; has_icache := F
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := F
@@ -59,8 +58,7 @@ val arm8_asm_state_def = Define`
    ~s.TCR_EL1.TBI1 /\ ~s.TCR_EL1.TBI0 /\
    (s.exception = NoException) /\
    (!i. i < 31 ==> (a.regs i = s.REG (n2w i))) /\
-   (a.mem_domain = univ(:word64)) /\ (a.mem = s.MEM) /\
-   (a.pc = s.PC) /\ Aligned (s.PC, 4)`
+   (a.mem = s.MEM) /\ (a.pc = s.PC) /\ Aligned (s.PC, 4)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -222,8 +220,7 @@ val arm8_enc_def = Define`
       arm8_encode (Branch (BranchImmediate (a, BranchType_CALL)))) /\
    (arm8_enc (JumpReg r) =
       arm8_encode (Branch (BranchRegister (n2w r, BranchType_JMP)))) /\
-   (arm8_enc (Loc r i) = arm8_encode (Address (F, i, n2w r))) /\
-   (arm8_enc Cache = [])`
+   (arm8_enc (Loc r i) = arm8_encode (Address (F, i, n2w r)))`
 
 val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
 
@@ -818,7 +815,7 @@ val dec_rwts = [arm8_dec_def, decode_word_def, fetch_word_def]
 val bytes_in_memory_thm = Q.prove(
    `!s state a b c d.
       arm8_asm_state s state /\
-      bytes_in_memory s.pc [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory s.pc [a; b; c; d] s.mem s.mem_domain ==>
       (state.exception = NoException) /\
       (state.PSTATE.EL = 0w) /\
       ~state.SCTLR_EL1.E0E /\
@@ -837,7 +834,7 @@ val bytes_in_memory_thm = Q.prove(
 val bytes_in_memory_thm2 = Q.prove(
    `!w s state a b c d.
       arm8_asm_state s state /\
-      bytes_in_memory (s.pc + w) [a; b; c; d] s.icache s.mem s.mem_domain ==>
+      bytes_in_memory (s.pc + w) [a; b; c; d] s.mem s.mem_domain ==>
       (state.MEM (state.PC + w + 3w) = d) /\
       (state.MEM (state.PC + w + 2w) = c) /\
       (state.MEM (state.PC + w + 1w) = b) /\
@@ -950,6 +947,7 @@ val decode_tac0 =
    simp enc_rwts
    \\ REPEAT strip_tac
    \\ simp dec_rwts
+   \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()) []
    \\ imp_res_tac Decode_EncodeBitMask
    \\ decode_tac
    \\ blastLib.FULL_BBLAST_TAC
@@ -999,11 +997,11 @@ val ext12 = ``(11 >< 0) : word64 -> word12``
 val arm8_encoding = Count.apply Q.prove (
    `!i. asm_ok i arm8_config ==>
         let l = arm8_enc i in
-           (!x. arm8_dec (l ++ x) = i) /\ (LENGTH l MOD 4 = 0)`,
+        let n = LENGTH l in
+           (!x. arm8_dec (l ++ x) = i) /\ (n MOD 4 = 0) /\ n <> 0`,
    Cases
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -1039,6 +1037,7 @@ val arm8_encoding = Count.apply Q.prove (
          \\ imp_res_tac lem12
          \\ decode_tac
          \\ simp dec_rwts
+         \\ NO_STRIP_REV_FULL_SIMP_TAC std_ss []
          \\ decode_tac
          \\ blastLib.BBLAST_TAC
          )
@@ -1056,8 +1055,7 @@ val arm8_encoding = Count.apply Q.prove (
             \\ Cases_on `b`
             \\ decode_tac0
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -1077,8 +1075,7 @@ val arm8_encoding = Count.apply Q.prove (
       ]
       \\ decode_tac0
       )
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -1086,8 +1083,7 @@ val arm8_encoding = Count.apply Q.prove (
       \\ decode_tac0
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -1103,8 +1099,7 @@ val arm8_encoding = Count.apply Q.prove (
       \\ simp [cond_cmp_def]
       \\ blastLib.FULL_BBLAST_TAC
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -1112,26 +1107,17 @@ val arm8_encoding = Count.apply Q.prove (
       \\ decode_tac0
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
       \\ decode_tac0
       )
-   >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
-      print_tac "Loc"
-      \\ decode_tac0
-      )
-      (*
-        --------------
-          no Cache
-        --------------*)
-   \\ fs enc_rwts
+   \\ print_tac "Loc"
+   \\ decode_tac0
    )
 
 val arm8_asm_deterministic = Q.store_thm("arm8_asm_deterministic",
@@ -1142,6 +1128,10 @@ val arm8_asm_deterministic = Q.store_thm("arm8_asm_deterministic",
 val arm8_asm_deterministic_config =
    SIMP_RULE (srw_ss()) [arm8_config_def] arm8_asm_deterministic
 
+val enc_ok_rwts =
+   SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding ::
+   enc_ok_rwts
+
 val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
    `backend_correct arm8_enc arm8_config arm8_next arm8_asm_state`,
    simp [backend_correct_def]
@@ -1151,8 +1141,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
-      (*
-        --------------
+      (*--------------
           Inst
         --------------*)
       Cases_on `i'`
@@ -1231,8 +1220,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             \\ state_tac []
             \\ blastLib.FULL_BBLAST_TAC
             )
-            (*
-              --------------
+            (*--------------
                 Shift
               --------------*)
             \\ print_tac "Shift"
@@ -1247,8 +1235,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             ]
             \\ simp []
          )
-         (*
-           --------------
+         (*--------------
              Mem
            --------------*)
          \\ print_tac "Mem"
@@ -1278,8 +1265,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
          \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
       ) (* close Inst *)
-      (*
-        --------------
+      (*--------------
           Jump
         --------------*)
    >- (
@@ -1291,8 +1277,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       \\ blastLib.FULL_BBLAST_TAC
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp
         --------------*)
       print_tac "JumpCmp"
@@ -1326,8 +1311,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          ]
       ]
       )
-      (*
-        --------------
+      (*--------------
           Call
         --------------*)
    >- (
@@ -1339,8 +1323,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       \\ blastLib.FULL_BBLAST_TAC
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpReg
         --------------*)
       print_tac "JumpReg"
@@ -1351,8 +1334,7 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       \\ blastLib.FULL_BBLAST_TAC
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc
         --------------*)
       print_tac "Loc"
@@ -1362,31 +1344,15 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       \\ state_tac []
       \\ blastLib.FULL_BBLAST_TAC
       )
-      (*
-        --------------
-          no Cache
-        --------------*)
-   >- fs enc_rwts
    >- (
-      (*
-        --------------
-          enc MOD 4 enc_ok
-        --------------*)
-      simp
-         [SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding]
-      )
-   >- cheat
-   >- (
-      (*
-        --------------
+      (*--------------
           Jump enc_ok
         --------------*)
       print_tac "enc_ok: Jump"
       \\ lfs enc_rwts
       )
    >- (
-      (*
-        --------------
+      (*--------------
           JumpCmp enc_ok
         --------------*)
       print_tac "enc_ok: JumpCmp"
@@ -1395,23 +1361,20 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
       \\ lfs enc_rwts
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Call enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
       \\ lfs enc_rwts
       )
    >- (
-      (*
-        --------------
+      (*--------------
           Loc enc_ok
         --------------*)
       print_tac "enc_ok: Loc"
       \\ lfs enc_rwts
       )
-      (*
-        --------------
+      (*--------------
           asm_deterministic
         --------------*)
    \\ print_tac "asm_deterministic"
