@@ -319,12 +319,13 @@ val read_bitmap_def = Define `
   (read_bitmap _ = NONE)`
 
 val filter_bitmap_def = Define `
-  (filter_bitmap ([],rs) = SOME ([],rs)) /\
-  (filter_bitmap (F::bs,r::rs) = filter_bitmap (bs,rs)) /\
-  (filter_bitmap (T::bs,r::rs) =
-     case filter_bitmap (bs,rs) of
+  (filter_bitmap [] rs = SOME ([],rs)) /\
+  (filter_bitmap (F::bs) (r::rs) = filter_bitmap bs rs) /\
+  (filter_bitmap (T::bs) (r::rs) =
+     case filter_bitmap bs rs of
      | NONE => NONE
-     | SOME (ts,rs') => SOME (r::ts,rs'))`
+     | SOME (ts,rs') => SOME (r::ts,rs')) /\
+  (filter_bitmap _ _ = NONE)`
 
 val map_bitmap_def = Define `
   (map_bitmap [] [] rs = SOME ([],rs)) /\
@@ -340,16 +341,29 @@ val map_bitmap_def = Define `
 
 val read_bitmap_LENGTH = prove(
   ``!xs x w y. (read_bitmap xs = SOME (x,w,y)) ==> LENGTH y < LENGTH xs``,
-  cheat);
+  Induct \\ fs [read_bitmap_def] \\ Cases_on `h`
+  \\ fs [read_bitmap_def]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ decide_tac);
 
 val filter_bitmap_LENGTH = prove(
-  ``!xs x y. (filter_bitmap xs = SOME (x,y)) ==> LENGTH y <= LENGTH (SND xs)``,
-  cheat);
+  ``!bs xs x y. (filter_bitmap bs xs = SOME (x,y)) ==> LENGTH y <= LENGTH xs``,
+  Induct \\ fs [filter_bitmap_def] \\ Cases_on `xs` \\ TRY (Cases_on `h`)
+  \\ fs [filter_bitmap_def] \\ Cases \\ fs [filter_bitmap_def]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ res_tac \\ decide_tac);
 
 val map_bitmap_LENGTH = prove(
   ``!t1 t2 t3 x y. (map_bitmap t1 t2 t3 = SOME (x,y)) ==>
                    LENGTH y <= LENGTH t3``,
-  cheat);
+  Induct \\ fs [map_bitmap_def] \\ Cases_on `t2` \\ Cases_on `t3`
+  \\ TRY (Cases_on `h`)
+  \\ fs [map_bitmap_def] \\ Cases \\ fs [map_bitmap_def]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
+  \\ res_tac \\ decide_tac);
 
 val enc_stack_def = tDefine "enc_stack" `
   (enc_stack [] = SOME []) /\
@@ -357,7 +371,7 @@ val enc_stack_def = tDefine "enc_stack" `
      case read_bitmap ws of
      | NONE => NONE
      | SOME (bs,_,rs) =>
-        case filter_bitmap (bs, rs) of
+        case filter_bitmap bs rs of
         | NONE => NONE
         | SOME (ts,ws') =>
             case enc_stack ws' of
