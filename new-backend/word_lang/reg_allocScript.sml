@@ -982,17 +982,17 @@ val deg_comparator_def = Define`
 *)
 
 val full_coalesce_aux = Define`
-  (full_coalesce_aux G [] = (G,LN)) ∧
-  (full_coalesce_aux G (move::xs) =
+  (full_coalesce_aux G spills [] = (G,LN)) ∧
+  (full_coalesce_aux G spills (move::xs) =
     (*Edge List for y*)
     let (p,x,y) = move in
-    if lookup_g x y G
-    then full_coalesce_aux G xs
+    if (lookup_g x y G ∨ lookup x G = NONE)
+    then full_coalesce_aux G spills xs
     else
-    case lookup y G of NONE => full_coalesce_aux G xs (*Simplify translate*)
+    case lookup y G of NONE => full_coalesce_aux G spills xs 
     | SOME e =>
       (*For each adjacent vertex to y, make it adjacent to x*)
-      let edges = MAP FST (toAList e) in
+      let edges = FILTER (λx.MEM x spills) (MAP FST (toAList e)) in
       let G = list_g_insert x edges G in
       (*A way to work around having to use union find for coalesced aliasing
         is to completely rename the moves
@@ -1003,26 +1003,17 @@ val full_coalesce_aux = Define`
         implementation in the inferencer
         *)
       let r_xs = MAP (pair_rename x y) xs in
-      let (G,t) = full_coalesce_aux G xs in
+      let (G,t) = full_coalesce_aux G spills xs in
         (G,insert y x t))`
 
-(*Given a list of moves and spills,
-  The coalesceable moves are those spilled and not already clashing
-  This is tricky -- the graph should be ideally edited monadically
-  TODO: Need to pass k here so that we know a move like
-  2*k <-> y
-  is actually coalesceable!
-
-  full_coalesce_aux probably needs to do a smarter check instead of filtering here
-*)
 val full_coalesce_def = Define`
-  full_coalesce G moves spills =
+  full_coalesce G k moves spills =
   let coalesceable =
-    FILTER (λp,x,y. MEM x spills ∧ MEM y spills) moves in
+    FILTER (λp,x,y. (MEM x spills ∨ (is_phy_var x ∧ x ≥ 2*k)) ∧ MEM y spills) moves in
   let coalesceable = QSORT (λp:num,x,y p',x',y'. p>p') coalesceable in
   (*Maybe more efficient impl possible*)
   let (G,coalesce_map) =
-    full_coalesce_aux G coalesceable in
+    full_coalesce_aux G spills coalesceable in
     G, FILTER (λx. lookup x coalesce_map = NONE) spills, coalesce_map`
 
 (*TODO: Maybe change this to use a minheap to get slightly better performance...
@@ -1204,7 +1195,7 @@ val reg_alloc_def =  Define`
   necessarily colourable under both conditions.
   We are really only concerned when spilled nodes get coalesced
   It makes the proof easier -- 1 less assum on rpt_do_step*)
-  let (G,spills,coalesce_map) = full_coalesce s.graph moves ls in
+  let (G,spills,coalesce_map) = full_coalesce s.graph k moves ls in
   let s = sec_ra_state G k spills coalesce_map in
   let ((),s) = rpt_do_step2 s in
   let col = spill_colouring G k coalesce_map s.stack col in
@@ -2075,14 +2066,12 @@ val list_g_insert_undir = prove(``
   >>
     metis_tac[undir_g_preserve])
 
-(*TODO: delete the parts about insert_undir*)
 val list_g_insert_lemma = prove(``
   ∀ls G col.
   undir_graph G ∧
-  q ∉ domain col ∧
   ¬ MEM q ls ∧
-  (q ∈ domain G ∧
-  ∀x. MEM x ls ⇒ x ∈ domain G) ∧
+  q ∈ domain G ∧
+  (∀x. MEM x ls ⇒ x ∈ domain G ∧ x ∉ domain col) ∧
   partial_colouring_satisfactory col G
   ⇒
   let G' = list_g_insert q ls G in
@@ -2094,13 +2083,13 @@ val list_g_insert_lemma = prove(``
     (rw[list_g_insert_def,is_subgraph_edges_def]>>
     EVERY_CASE_TAC>>unabbrev_all_tac>>
     fs[domain_insert,SUBSET_DEF,lookup_g_def,lookup_insert,undir_graph_def
-      ,partial_colouring_satisfactory_def]>>
-    rw[]>>fs[]>- (fs[EXTENSION]>>metis_tac[]) >>
-    FULL_CASE_TAC>>
-    last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[]>>
-    rw[]>>
-    first_x_assum(qspec_then`q` assume_tac)>>
-    rfs[])
+      ,partial_colouring_satisfactory_def,domain_empty]>>
+    rw[]>>fs[]>- (fs[EXTENSION]>>metis_tac[]) 
+    >-
+    (FULL_CASE_TAC>>
+    last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[])
+    >>
+    unabbrev_all_tac>>fs[domain_empty])
   >>
   rw[list_g_insert_def,is_subgraph_edges_def]>>
   fs[]>>
@@ -2118,7 +2107,8 @@ val list_g_insert_lemma = prove(``
   >-
     metis_tac[undir_g_preserve]
   >>
-    match_mp_tac partial_colouring_satisfactory_extend_2>>rfs[])
+    match_mp_tac partial_colouring_satisfactory_extend_2>>
+    rfs[list_g_insert_domain])
 
 val is_subgraph_edges_trans = prove(``
   is_subgraph_edges A B ∧
@@ -2127,14 +2117,11 @@ val is_subgraph_edges_trans = prove(``
   fs[is_subgraph_edges_def]>>rw[SUBSET_DEF])
 
 val full_coalesce_aux_extends = prove(``
-  ∀(G:sp_graph) ls col.
+  ∀(G:sp_graph) (ls:(num,num#num) alist) spills col.
   partial_colouring_satisfactory col G ∧
-  (∀pxy. MEM pxy ls ⇒
-    let (p:num,x,y) = pxy in
-    x ∉ domain col ∧ 
-    x ∈ domain G ∧ y ∈ domain G) ∧
+  (∀x. MEM x spills ⇒ x ∈ domain G ∧  x ∉ domain col) ∧   
   undir_graph G ⇒
-  let (G',ls') = full_coalesce_aux G ls in
+  let (G',ls') = full_coalesce_aux G spills ls in
   is_subgraph_edges G G' ∧
   undir_graph G' ∧
   partial_colouring_satisfactory col G'``,
@@ -2146,29 +2133,29 @@ val full_coalesce_aux_extends = prove(``
     (fs[]>>metis_tac[])>>
   fs[]>>EVERY_CASE_TAC>>fs[]>>
   qpat_abbrev_tac `G'=list_g_insert h1 A G`>>
-  first_x_assum(qspecl_then[`G'`,`col`] mp_tac)>>
+  first_x_assum(qspecl_then[`G'`,`spills`,`col`] mp_tac)>>
   rfs[]>>
   rw[Abbr`G'`]>>
-  qpat_abbrev_tac`lss = MAP FST (toAList A)`>>
+  qpat_abbrev_tac`lss = FILTER P (MAP FST (toAList A))`>>
   Q.ISPECL_THEN [`h1`,`lss`,`G`,`col`] mp_tac (GEN_ALL list_g_insert_lemma)>>
   rfs[]>>
   discharge_hyps_keep>-
-    (rfs[FORALL_PROD,Abbr`lss`,undir_graph_def,lookup_g_def]>>
-     `h2 ∈ domain G` by fs[]>>
-     rw[]>-
-      (CCONTR_TAC>>fs[MEM_MAP,MEM_toAList,domain_lookup]>>
-      rfs[]>>
-      ntac 2 (last_x_assum(qspec_then`h2` assume_tac))>>
-      rfs[]>>
-      first_x_assum(qspec_then`h1` mp_tac)>>
-      Cases_on`y`>>fs[MEM_toAList]>>
-      Cases_on`lookup q G`>>fs[])>>
-      fs[domain_lookup]>>res_tac>>
-      first_x_assum (qspec_then`h2` assume_tac)>>
-      rfs[]>>
-      `lookup x' v = SOME ()` by
-        (fs[MEM_MAP]>>Cases_on`y`>>fs[MEM_toAList])>>
-      metis_tac[])>>
+    (
+    rw[]
+    >-
+      (CCONTR_TAC>>
+      fs[MEM_FILTER,Abbr`lss`,MEM_toAList,FORALL_PROD,MEM_MAP,EXISTS_PROD]>>
+      rfs[undir_graph_def,lookup_g_def]>>
+      Cases_on`lookup h1 G`>>fs[]>>
+      first_x_assum(qspec_then`h2` assume_tac)>>rfs[]>>
+      `h2 ∉ domain x'` by 
+        fs[domain_lookup]>>
+      first_x_assum(qspec_then`h1` mp_tac)>>fs[domain_lookup])
+    >-
+      metis_tac[domain_lookup,optionTheory.option_CLAUSES]
+    >>
+      fs[Abbr`lss`,MEM_FILTER]>>metis_tac[])
+  >>
   fs[LET_THM,UNCURRY]>>strip_tac>>
   qpat_assum `A ⇒ B` mp_tac>>
   discharge_hyps>-
@@ -2180,18 +2167,20 @@ val full_coalesce_lemma = prove(``
   undir_graph G ∧
   partial_colouring_satisfactory col G ∧
   (∀x. MEM x ls ⇒ x ∉ domain col ∧ x ∈ domain G) ∧
-  full_coalesce G moves ls = (G',spills,coalesce_map)
+  full_coalesce G k moves ls = (G',spills,coalesce_map)
   ⇒
   is_subgraph_edges G G' ∧
   undir_graph G' ∧
   partial_colouring_satisfactory col G'``,
   fs[full_coalesce_def,LET_THM]>>
   qpat_abbrev_tac `lss = QSORT g (FILTER f moves)`>>
-  Cases_on`full_coalesce_aux G lss`>>
+  Cases_on`full_coalesce_aux G ls lss`>>
   strip_tac>>fs[]>>
   imp_res_tac full_coalesce_aux_extends>>
   ntac 2 (pop_assum kall_tac)>>
-  pop_assum (Q.ISPEC_THEN `lss` mp_tac)>>discharge_hyps>>
+  pop_assum (Q.ISPEC_THEN `ls` mp_tac)>>discharge_hyps>>fs[]>>
+  strip_tac>>
+  pop_assum (Q.ISPEC_THEN `lss` mp_tac)>>
   fs[FORALL_PROD,MEM_FILTER,Abbr`lss`,LET_THM,QSORT_MEM])
 
 fun fsm ls = fs (ls@[BIND_DEF,UNIT_DEF,IGNORE_BIND_DEF,FOREACH_def]);
