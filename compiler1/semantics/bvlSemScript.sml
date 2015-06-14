@@ -118,6 +118,9 @@ val do_app_def = Define `
     | (TagLenEq n l,[Block tag xs]) =>
         Rval (Boolv (tag = n ∧ LENGTH xs = l),s)
     | (Equal,[Number n1;Number n2]) => Rval (Boolv (n1 = n2), s)
+    | (Equal,[RefPtr r1;RefPtr r2]) => Rval (Boolv (r1 = r2), s)
+    | (BlockCmp,[Block t1 vs1;Block t2 vs2]) =>
+        Rval (Boolv (t1 = t2 ∧ LENGTH vs1 = LENGTH vs2), s)
     | (IsBlock,[Number i]) => Rval (Boolv F, s)
     | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
     | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
