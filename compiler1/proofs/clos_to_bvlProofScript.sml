@@ -625,9 +625,8 @@ val get_num_args_def = Define `
 val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (v_rel f refs code (Number n) (Number n))
   /\
-  (EVERY2 (v_rel f refs code) xs (ys:bvlSem$v list) /\
-   (t' = if t < clos_tag_shift then t else t+clos_tag_shift) ==>
-   v_rel f refs code (Block t xs) (Block t' ys))
+  (EVERY2 (v_rel f refs code) xs (ys:bvlSem$v list) ==>
+   v_rel f refs code (Block t xs) (Block (t+clos_tag_shift) ys))
   /\
   ((FLOOKUP f r1 = SOME r2) ==>
    v_rel f refs code (RefPtr r1) (RefPtr r2))
@@ -921,6 +920,108 @@ val OPTREL_v_rel_NEW_F = prove(
 
 (* semantic functions respect relation *)
 
+val v_to_list = Q.prove(
+  `∀v l v'.
+   v_to_list v = SOME l ∧
+   v_rel f r c v v'
+   ⇒
+   ∃l'. v_to_list v' = SOME l' ∧
+        LIST_REL (v_rel f r c) l l'`,
+  ho_match_mp_tac closSemTheory.v_to_list_ind >>
+  rw[v_rel_SIMP,closSemTheory.v_to_list_def,bvlSemTheory.v_to_list_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  rw[bvlSemTheory.v_to_list_def] >> res_tac >> rw[])
+
+val do_app = Q.prove(
+  `(do_app op xs s1 = Rval (v,s2)) /\
+   state_rel f s1 t1 /\
+   LIST_REL (v_rel f t1.refs t1.code) xs ys /\
+   (* store updates need special treatment *)
+   (op <> Ref) /\ (op <> Update) ∧
+   (op ≠ RefArray) ∧ (op ≠ RefByte) ∧ (op ≠ UpdateByte) ∧
+   (∀n. op ≠ (FFI n)) ∧
+   (* implemented in code table *)
+   (op ≠ Equal) ∧ (op ≠ ToList) ==>
+   ?w t2.
+     (do_app (compile_op op) ys t1 = Rval (w,t2)) /\
+     v_rel f t1.refs t1.code v w /\
+     state_rel f s2 t2 /\
+     (t1.refs = t2.refs) /\ (t1.code = t2.code)`,
+  Cases_on`op`>>rw[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+  >- (
+    imp_res_tac state_rel_globals >>
+    fs[LIST_REL_EL_EQN] >>
+    BasicProvers.EVERY_CASE_TAC >> rfs[get_global_def]>>
+    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> rw[] >>
+    rfs[optionTheory.OPTREL_def] )
+  >- (
+    imp_res_tac state_rel_globals >>
+    fs[LIST_REL_EL_EQN] >>
+    BasicProvers.EVERY_CASE_TAC >> rfs[get_global_def]>>
+    rw[v_rel_SIMP] >>
+    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> rw[] >>
+    rfs[OPTREL_def] >>
+    fs[state_rel_def] >>
+    MATCH_MP_TAC EVERY2_LUPDATE_same >>
+    rfs[OPTREL_def] )
+  >- (
+    every_case_tac >> fs[] >> rw[] >>
+    fs[state_rel_def,OPTREL_def] )
+  >- simp[v_rel_SIMP]
+  >- fs[]
+  >- (
+    Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
+    every_case_tac >> fs[v_rel_SIMP] >> rw[]>>
+    fs[LIST_REL_EL_EQN] >> rfs[])
+  >- (
+    BasicProvers.EVERY_CASE_TAC >> fs[v_rel_SIMP] >>
+    rw[v_rel_SIMP] >> fs[LIST_REL_EL_EQN])
+  >- (
+    BasicProvers.EVERY_CASE_TAC >> fs[v_rel_SIMP] >>
+    rw[] >> fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
+    rw[] >> fs[LIST_REL_EL_EQN] )
+  >- (
+    every_case_tac >> fs[v_rel_SIMP] >>
+    rw[] >> fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
+    rw[] >> fs[LIST_REL_EL_EQN] )
+  >- (
+    Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`t`>>fs[v_rel_SIMP]>>
+    Cases_on`h'`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
+    every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
+    fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
+    rw[] >> fs[LIST_REL_EL_EQN] >>rw[]>>fs[])
+  >- (
+    every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
+    imp_res_tac v_to_list >> fs[] >> rw[] )
+  >- (
+    every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
+    fs[LIST_REL_EL_EQN])
+  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
+  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
+  >- (
+    Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`t`>>fs[v_rel_SIMP]>>
+    Cases_on`h'`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
+    every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
+    fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
+    rw[] >> fs[LIST_REL_EL_EQN] >>rw[]>>fs[] >>
+    first_x_assum match_mp_tac >> intLib.COOPER_TAC)
+  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
+  >> (
+    Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`t`>>fs[v_rel_SIMP]>>
+    Cases_on`h'`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
+    Cases_on`t'`>>fs[v_rel_SIMP]>>
+    rw[v_rel_SIMP] >>
+    last_x_assum mp_tac >>
+    rw[v_rel_SIMP] >>
+    rw[v_rel_SIMP]))
+
 (* TODO: below this line, needs cleanup *)
 
 (*
@@ -959,139 +1060,6 @@ val do_eq = prove(
   >- fs [closSemTheory.do_eq_def]
   >- fs [closSemTheory.do_eq_def]);
 *)
-
-val do_app = prove(
-  ``(do_app op xs s1 = Rval (v,s2)) /\
-    state_rel f s1 t1 /\
-    LIST_REL (v_rel f t1.refs t1.code) xs ys /\
-    (op <> RefArray) /\
-    (op <> RefByte) /\ (op <> UpdateByte) /\
-    (op <> Ref) /\ (op <> Update) ==>
-    ?w t2.
-      (do_app (compile_op op) ys t1 = SOME (w,t2)) /\
-      v_rel f t1.refs t1.code v w /\
-      state_rel f s2 t2 /\
-      (t1.refs = t2.refs) /\ (t1.code = t2.code)``,
-  Cases_on`op`>>rw[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
-  >- (
-    imp_res_tac state_rel_globals >>
-    fs[LIST_REL_EL_EQN] >>
-    BasicProvers.EVERY_CASE_TAC >> rfs[get_global_def]>>
-    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> rw[] >>
-    rfs[optionTheory.OPTREL_def] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[]>> rw[v_rel_SIMP] >>
-    fs[state_rel_def] )
-  >- (
-    imp_res_tac state_rel_globals >>
-    fs[LIST_REL_EL_EQN] >>
-    BasicProvers.EVERY_CASE_TAC >> rfs[get_global_def,closLangTheory.get_global_def]>>
-    rw[val_rel_SIMP] >>
-    first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th))>> rw[] >>
-    rfs[opt_val_rel_def] >>
-    fs[state_rel_def] >>
-    MATCH_MP_TAC EVERY2_LUPDATE_same >>
-    rfs[opt_val_rel_def] )
-  >- ( simp[val_rel_cases,closure_tag_def,clos_tag_shift_def] )
-  >- fs[]
-  >- (
-    BasicProvers.EVERY_CASE_TAC >>
-    fs[val_rel_SIMP] >> rw[] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases,LIST_REL_EL_EQN] >>
-    rfs[] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    rw[val_rel_SIMP] >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases,LIST_REL_EL_EQN] >>
-    fs[cl_rel_cases] >> fs[add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] >>
-    rw[] >> fs[] >> fs[LIST_REL_EL_EQN, add_args_def] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >>
-    fs[LET_THM] >>
-    fs [val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    rfs[state_rel_def] >> res_tac >>
-    fs[ref_rel_cases] )
-  >- cheat (* FromList *)
-  >- cheat (* ToList *)
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >>
-    rw[val_rel_SIMP] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
-    rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
-    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] >>
-    EVAL_TAC >> simp[] >> fs[closure_tag_def]>> fs[clos_tag_shift_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    TRY(fs[val_rel_cases]>>NO_TAC) >>
-    fs[Q.SPECL[`f`,`refs`,`code`,`Block a b`,`Block c d`]val_rel_cases, add_args_def] >>
-    rw[]>>fsrw_tac[ARITH_ss][bool_to_val_def] >>
-    Cases_on`n=n''`>> rw[bool_to_val_def,val_rel_cases] >>
-    EVAL_TAC >> simp[] >> fs[closure_tag_def]>> fs[clos_tag_shift_def])
-  >- (
-    `INJ ($' f) (FDOM f) (FRANGE f)` by fs[state_rel_def] >>
-    Cases_on`xs`>>fs[]>>rw[]>>
-    Cases_on`t`>>fs[]>>rw[]>>
-    Cases_on`t'`>>fs[]>>rw[]>>
-    imp_res_tac (Q.SPECL[`t1.code`,`t1.refs`](Q.GENL[`r`,`c`]bc_equal_clos_equal)) >>
-    ntac 2 (pop_assum kall_tac) >> fs[] >>
-    BasicProvers.CASE_TAC >> fs[]>>rw[val_rel_SIMP] >>
-    Cases_on`b`>>simp[bool_to_val_def]>>
-    EVAL_TAC >> simp[val_rel_cases] >> EVAL_TAC )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >>
-    fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    rfs[state_rel_def] >> res_tac >> fs[ref_rel_cases] >>
-    rw[] >> fs[] >> fs[LIST_REL_EL_EQN] >>
-    rw[] >> fs[add_args_def] >>
-    first_x_assum match_mp_tac >>
-    intLib.COOPER_TAC)
-  (*
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-    imp_res_tac bv_to_string_clos_to_string >> fs[] >>
-    fs[state_rel_def] )
-  *)
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[val_rel_SIMP] >>
-    fs[state_rel_def] )
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
-    rw[val_rel_SIMP] >> fs [add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
-    rw[val_rel_SIMP] >> fs [add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
-    rw[val_rel_SIMP] >> fs [add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
-    rw[val_rel_SIMP] >> fs [add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP, add_args_def] >>
-    rw[val_rel_SIMP] >> fs [add_args_def])
-  >- (
-    BasicProvers.EVERY_CASE_TAC >> fs [] >> fs[val_rel_SIMP] >>
-    rw[val_rel_SIMP] >>
-    Cases_on`i < i'`>> rw[bool_to_val_def,val_rel_cases] >>
-    fs [add_args_def] >>
-    EVAL_TAC >> simp[]));
 
 val EXISTS_NOT_IN_refs = prove(
   ``?x. ~(x IN FDOM (t1:bvl_state).refs)``,
