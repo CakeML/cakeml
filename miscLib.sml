@@ -1,6 +1,28 @@
 structure miscLib = struct
 open HolKernel boolLib bossLib lcsymtacs
 
+(* TODO: copied from pairLib (but not exported there) *)
+
+fun variant_of_term vs t =
+let
+   val check_vars = free_vars t;
+   val (_,sub) =
+      foldl (fn (v, (vs,sub)) =>
+	  let
+             val v' = variant vs v;
+             val vs' = v'::vs;
+             val sub' = if (aconv v v') then sub else
+			(v |-> v')::sub;
+          in
+             (vs',sub')
+          end) (vs,[]) check_vars;
+  val t' = subst sub t
+in
+  (t', sub)
+end;
+
+(* -- *)
+
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
 local
@@ -107,6 +129,7 @@ fun split_applied_pair_tac tm =
   let
     val (f,p) = dest_comb tm
     val (x,b) = pairSyntax.dest_pabs f
+    val (x,s) = variant_of_term (free_vars p) x
     val xs = pairSyntax.strip_pair x
     val g = list_mk_exists(xs,mk_eq(p,x))
     val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
