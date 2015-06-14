@@ -13,6 +13,7 @@ val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (tag+clos_tag_shift)) ∧
   compile_op (TagEq tag) = (TagEq (tag+clos_tag_shift)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (tag+clos_tag_shift) a) ∧
+  compile_op (FromList tag) = (FromList (tag+clos_tag_shift)) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
