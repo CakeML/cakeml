@@ -14,9 +14,6 @@ val _ = Datatype `
   | CodePtr num         (* code pointer *)
   | RefPtr num          (* pointer to ref cell *)`;
 
-val bool_to_tag_def = Define`
-  bool_to_tag b = ((if b then true_tag else false_tag) + pat_tag_shift + clos_tag_shift)`
-
 val Boolv_def = Define`
   Boolv b = bvlSem$Block (bool_to_tag b) []`
 
