@@ -39,10 +39,11 @@ val x64_next_def = Define `x64_next = THE o NextStateX64`
 (* --- Relate ASM and x86-64 states --- *)
 
 val x64_asm_state_def = Define`
-   x64_asm_state a x =
-   (x.exception = NoException) /\
-   (!i. i < 16 ==> (a.regs i = x.REG (num2Zreg i))) /\ (a.mem = x.MEM) /\
-   (a.pc = x.RIP)`
+   x64_asm_state s ms =
+   (ms.exception = NoException) /\
+   (!i. i < 16 ==> (s.regs i = ms.REG (num2Zreg i))) /\
+   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
+   (s.pc = ms.RIP)`
 
 (* --- Encode ASM instructions to x86-64 bytes. --- *)
 
@@ -198,7 +199,7 @@ val x64_dec_def = Define`
     | _ => ARB`
 
 val x64_proj_def = Define`
-   x64_proj s = (s.RIP, s.REG, s.MEM, s.EFLAGS, s.exception)`
+   x64_proj d s = (s.RIP, s.REG, fun2set (s.MEM, d), s.EFLAGS, s.exception)`
 
 val x64_target_funs_def = Define`
    x64_target_funs =
@@ -364,31 +365,58 @@ val binop_lem11 = Q.prove(
    rw []
    )
 
+val fun2set_eq = Q.prove(
+   `!f1 f2 d.
+      (fun2set (f1, d) = fun2set (f2, d)) = (!a. a IN d ==> (f1 a = f2 a))`,
+   rw [FUN_EQ_THM]
+   \\ eq_tac
+   \\ REPEAT strip_tac
+   >| [qpat_assum `!x. P` (Q.SPEC_THEN `(a, f1 a)` assume_tac),
+       Cases_on `x` \\ Cases_on `q IN d`
+   ]
+   \\ rfs [set_sepTheory.fun2set_thm]
+   )
+
 val mem_lem1 = Q.prove(
    `!a n s state.
-       x64_asm_state s state /\ n < 16 ==>
+       x64_asm_state s state /\ n < 16 /\
+       s.regs n + a IN s.mem_domain ==>
        (state.MEM (state.REG (num2Zreg n) + a) = s.mem (s.regs n + a))`,
-   rw [x64_asm_state_def]
+   metis_tac [x64_asm_state_def, fun2set_eq]
    )
 
 val mem_lem2 = Q.prove(
    `!a n s state.
-    x64_asm_state s state /\ n < 16 ==>
+    x64_asm_state s state /\ n < 16 /\
+    s.regs n + a IN s.mem_domain /\
+    s.regs n + a + 1w IN s.mem_domain /\
+    s.regs n + a + 2w IN s.mem_domain /\
+    s.regs n + a + 3w IN s.mem_domain ==>
     (read_mem32 state.MEM (state.REG (num2Zreg n) + a) =
      s.mem (s.regs n + a + 3w) @@ s.mem (s.regs n + a + 2w) @@
      s.mem (s.regs n + a + 1w) @@ s.mem (s.regs n + a))`,
-   rw [x64_asm_state_def, x64_stepTheory.read_mem32_def]
+   rw [x64_asm_state_def, x64_stepTheory.read_mem32_def, fun2set_eq]
+   \\ rfs []
    )
 
 val mem_lem3 = Q.prove(
    `!a n s state.
-    x64_asm_state s state /\ n < 16 ==>
+    x64_asm_state s state /\ n < 16 /\
+    s.regs n + a IN s.mem_domain /\
+    s.regs n + a + 1w IN s.mem_domain /\
+    s.regs n + a + 2w IN s.mem_domain /\
+    s.regs n + a + 3w IN s.mem_domain /\
+    s.regs n + a + 4w IN s.mem_domain /\
+    s.regs n + a + 5w IN s.mem_domain /\
+    s.regs n + a + 6w IN s.mem_domain /\
+    s.regs n + a + 7w IN s.mem_domain ==>
     (read_mem64 state.MEM (state.REG (num2Zreg n) + a) =
      s.mem (s.regs n + a + 7w) @@ s.mem (s.regs n + a + 6w) @@
      s.mem (s.regs n + a + 5w) @@ s.mem (s.regs n + a + 4w) @@
      s.mem (s.regs n + a + 3w) @@ s.mem (s.regs n + a + 2w) @@
      s.mem (s.regs n + a + 1w) @@ s.mem (s.regs n + a))`,
-   rw [x64_asm_state_def, x64_stepTheory.read_mem64_def]
+   rw [x64_asm_state_def, x64_stepTheory.read_mem64_def, fun2set_eq]
+   \\ rfs []
    )
 
 val mem_lem4 =
@@ -643,7 +671,8 @@ local
                                  else wordsSyntax.mk_word_add
                                         (rip, wordsSyntax.mk_wordii (i, 64))
                            in
-                              (b, ``state.MEM ^pc = ^b``)
+                              (b,
+                               ``(state.MEM ^pc = ^b) /\ ^pc IN s.mem_domain``)
                            end) |> ListPair.unzip
           val l = listSyntax.mk_list (b, w8)
           val r = boolSyntax.list_mk_conj r
@@ -653,7 +682,8 @@ local
                x64_asm_state s state /\
                bytes_in_memory s.pc ^l s.mem s.mem_domain ==>
                (state.exception = NoException) /\ ^r`,
-            rw [x64_asm_state_def, bytes_in_memory_def] \\ fs []
+            rw [x64_asm_state_def, bytes_in_memory_def, fun2set_eq]
+            \\ rfs []
          ) |> Thm.GENL b
       end
    val bytes_in_memory_thm = utilsLib.cache 20 Int.compare bytes_in_memory_thm
@@ -697,23 +727,22 @@ in
       (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step P state (pick l))) (asl, g)
-   fun is_env_ms tm =
+   fun dest_env tm =
       case Lib.total boolSyntax.strip_comb tm of
          SOME (env, [n, ms]) =>
-            Lib.total (fst o Term.dest_var) env = SOME "env" andalso
-            not (optionSyntax.is_the ms)
-       | _ => false
+            if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
+               not (optionSyntax.is_the ms)
+               then (n, ms)
+            else raise ERR "dest_env" ""
+       | _ => raise ERR "dest_env" ""
+   val is_env = Lib.can dest_env
+   fun mk_env (t, ms) = ``env ^t ^ms = (^ms with MEM := (env ^t ^ms).MEM)``
    fun env_tac (asl, g) =
-      (case Lib.total (HolKernel.find_term is_env_ms) g of
-          SOME tm =>
-             let
-                val ms = Term.rand tm
-             in
-                Tactical.SUBGOAL_THEN (boolSyntax.mk_eq (tm, ms))
-                  (fn th => rewrite_tac [th])
-                  >- asm_simp_tac std_ss
-                       [x64Theory.x64_state_component_equality]
-             end
+      (case Lib.total (HolKernel.find_term is_env) g of
+          SOME tm => Tactical.SUBGOAL_THEN (mk_env (dest_env tm))
+                        (fn th => once_rewrite_tac [th])
+                     >- asm_simp_tac (srw_ss())
+                           [x64Theory.x64_state_component_equality]
         | NONE => ALL_TAC) (asl, g)
 end
 
@@ -738,7 +767,7 @@ fun next_state_tac_cmp n =
          end
       )
    \\ rev_full_simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss)
-         [combinTheory.APPLY_UPDATE_THM]
+         [combinTheory.APPLY_UPDATE_THM, fun2set_eq]
 
 val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
@@ -793,7 +822,7 @@ local
    fun ls_tac tac =
       next_state_tac0
       \\ rfs [Abbr `r2`, mem_lem5, binop_lem7]
-      \\ state_tac [mem_lem8] [`r1`]
+      \\ state_tac [mem_lem8, fun2set_eq] [`r1`]
       \\ tac
       \\ blastLib.BBLAST_TAC
    fun load_store_tac decode load (asl, g) =
@@ -868,7 +897,7 @@ val cmp_tac =
    >- (
       rule_assum_tac (REWRITE_RULE [cmp_lem4])
       \\ next_state_tac_cmp 4
-      \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem5] [`r1`]
+      \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem5, fun2set_eq] [`r1`]
       \\ fs []
       \\ blastLib.FULL_BBLAST_TAC
       )
@@ -1135,7 +1164,7 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asm_step_alt_def] \\ Cases_on `i`,
-      srw_tac [] [x64_asm_state_def, x64_config_def, FUN_EQ_THM],
+      srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
       srw_tac [] [x64_proj_def, x64_asm_state_def],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
@@ -1337,7 +1366,7 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
          \\ Cases_on `c`
          \\ lfs ([jump_lem3, loc_lem2, x64Theory.Zcond2num_thm] @ enc_rwts)
          \\ next_state_tac_cmp 3
-         \\ state_tac [jump_lem2, cmp_lem1, cmp_lem3] [`r1`, `r2`]
+         \\ state_tac [jump_lem2, cmp_lem1, cmp_lem3, fun2set_eq] [`r1`, `r2`]
          \\ blastLib.FULL_BBLAST_TAC
          )
          (* Imm *)
@@ -1348,8 +1377,8 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
          Cases_on `n = 0`
          \\ fs [const_lem2, jump_lem5, jump_lem6, cmp_lem7, all_pcs_def]
          >| [next_state_tac_cmp 6, next_state_tac_cmp 7]
-         \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem6, x64Theory.num2Zreg_thm]
-                 [`r1`]
+         \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem6, fun2set_eq,
+                       x64Theory.num2Zreg_thm] [`r1`]
          \\ fs []
          \\ blastLib.FULL_BBLAST_TAC
          )

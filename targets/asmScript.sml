@@ -426,7 +426,7 @@ val () = Datatype `
      ; get_byte : 'b -> 'a word -> word8
      ; state_ok : 'b -> bool
      ; state_rel : 'a asm_state -> 'b -> bool
-     ; proj : 'b -> 'c
+     ; proj : 'a word set -> 'b -> 'c
      ; next : 'b -> 'b
      |>`
 
@@ -440,17 +440,19 @@ val asserts_def = zDefine `
 val backend_correct_alt_def = Define `
   backend_correct_alt t (config:'a asm_config) <=>
     enc_ok t.encode config /\
-    (!ms1 ms2. (t.proj ms1 = t.proj ms2) ==>
-               !s. (t.state_rel s ms1 = t.state_rel s ms2) /\
-                   (t.state_ok ms1 = t.state_ok ms2)) /\
+    (!ms1 ms2 s.
+        (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
+        (t.state_rel s ms1 = t.state_rel s ms2) /\
+        (t.state_ok ms1 = t.state_ok ms2)) /\
     (!ms s. t.state_rel s ms ==>
-            t.state_ok ms /\ (t.get_pc ms = s.pc) /\ (t.get_byte ms = s.mem) /\
+            t.state_ok ms /\ (t.get_pc ms = s.pc) /\
+            (!a. a IN s.mem_domain ==> (t.get_byte ms a = s.mem a)) /\
             (!i. i < config.reg_count /\ ~MEM i config.avoid_regs ==>
                  (t.get_reg ms i = s.regs i))) /\
     !s1 i s2 ms.
       asm_step_alt t.encode config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
-             interference_ok (env:num->'b->'b) t.proj ==>
+             interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
              asserts n (\k s. env (n - k) (t.next s)) ms
                (\ms'. t.state_ok ms' /\
                       t.get_pc ms' IN all_pcs s1.pc (t.encode i))
