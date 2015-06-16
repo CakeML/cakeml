@@ -179,18 +179,4 @@ val compile_def = tDefine"compile"`
   end
 val _ = export_rewrites["compile_def"]
 
-val compile_ind = theorem"compile_ind";
-
-val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
-  ``∀e. ¬contains_App_SOME[compile e]``,
-  ho_match_mp_tac compile_ind >>
-  simp[compile_def,contains_App_SOME_def] >>
-  rw[] >> srw_tac[ETA_ss][] >>
-  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
-  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
-  fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
-  rw[contains_App_SOME_def,max_app_def]);
-
 val _ = export_theory()

@@ -7,6 +7,12 @@ open conLangTheory mod_to_conTheory
 open decLangTheory con_to_decTheory
 open exhLangTheory dec_to_exhTheory
 open patLangTheory exh_to_patTheory
+open closLangTheory pat_to_closTheory
+open clos_mtiTheory
+open clos_numberTheory
+open clos_callTheory
+open clos_annotateTheory
+open bvlTheory clos_to_bvlTheory
 
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
 
@@ -100,6 +106,53 @@ fun add_compiler_compset compset = let
     ,exh_to_patTheory.pure_op_op_def
     ,exh_to_patTheory.Bool_def
     ] compset
+  (* closLang *)
+  val () = add_datatype``:closLang$exp``
+  val () = add_datatype``:closLang$op``
+  val () = add_thms [closLangTheory.max_app_def] compset
+  (* pat_to_clos *)
+  val () = add_thms
+    [pat_to_closTheory.compile_def
+    ,pat_to_closTheory.string_tag_def
+    ,pat_to_closTheory.vector_tag_def
+    ,pat_to_closTheory.pat_tag_shift_def
+    ] compset
+  (* clos_mti *)
+  val () = add_thms
+    [clos_mtiTheory.intro_multi_def
+    ,clos_mtiTheory.collect_args_def
+    ] compset
+  (* clos_number *)
+  val () = add_thms
+    [clos_numberTheory.renumber_code_locs_def]
+    compset
+  (* clos_call *)
+  val () = add_datatype``:clos_call$val_approx``
+  val () = add_thms
+    [clos_callTheory.get_free_vars_def
+    ,clos_callTheory.merge_def
+    ,clos_callTheory.call_intro_def
+    ,clos_callTheory.calls_def
+    ,clos_callTheory.calls_body_def
+    ,clos_callTheory.adjust_all_def
+    ,clos_callTheory.calls_app_def
+    ,clos_callTheory.Seq_def
+    ,clos_callTheory.pure_def
+    ,clos_callTheory.pure_op_def
+    ,clos_callTheory.calls_op_def
+    ,clos_callTheory.adjust_vars_def
+    ,clos_callTheory.dest_Clos_def
+    ] compset
+  (* clos_annotate *)
+  val () = add_thms
+    [clos_annotateTheory.get_var_def
+    ,clos_annotateTheory.new_env_def
+    ,clos_annotateTheory.annotate_def
+    ,clos_annotateTheory.shift_def
+    ] compset
+  (* bvl *)
+  val () = add_datatype``:bvl$exp``
+  (* clos_to_bvl *)
 in () end
 
 in

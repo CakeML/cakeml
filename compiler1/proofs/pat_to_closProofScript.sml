@@ -1,6 +1,6 @@
 open preamble integerTheory intLib
      semanticPrimitivesTheory
-     patSemTheory patPropsTheory
+     patSemTheory patPropsTheory pat_to_closTheory
      closLangTheory closSemTheory closPropsTheory
 
 val _ = new_theory"pat_to_closProof"
@@ -540,5 +540,19 @@ val compile_correct = Q.store_thm("compile_correct",
     Cases_on`err`>>fs[]) >>
   simp[evaluate_def] >> rw[] >>
   simp[Once evaluate_CONS] );
+
+(* more correctness properties *)
+
+val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
+  ``∀e. ¬contains_App_SOME[compile e]``,
+  ho_match_mp_tac compile_ind >>
+  simp[compile_def,contains_App_SOME_def] >>
+  rw[] >> srw_tac[ETA_ss][] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
+  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
+  fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
+  rw[contains_App_SOME_def,max_app_def]);
 
 val _ = export_theory()
