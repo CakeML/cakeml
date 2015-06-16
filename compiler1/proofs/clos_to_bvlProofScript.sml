@@ -8,6 +8,14 @@ val _ = new_theory"clos_to_bvlProof";
 
 (* TODO: move? *)
 
+val add_args_append = Q.prove (
+  `add_args cl arg_env = SOME func
+   ⇒
+   add_args cl (args ++ arg_env) = add_args func args`,
+  Cases_on `cl` >>
+  rw [add_args_def] >>
+  rw [add_args_def]);
+
 val SUBMAP_FDOM_SUBSET = Q.store_thm("SUBMAP_FDOM_SUBSET",
   `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`,
   rw[SUBMAP_DEF,SUBSET_DEF])
@@ -1208,11 +1216,189 @@ val evaluate_app_helper2 = Q.prove (
   Cases_on `r` >>
   rw []);
 
+val evaluate_simple_genlist_vars = Q.prove (
+  `!env1 env2 s.
+    0 < LENGTH env1
+    ⇒
+    evaluate (GENLIST Var (LENGTH env1), env1++env2, s) = (Rval env1, s)`,
+  rw [] >>
+  qspecl_then [`0`, `env1++env2`, `LENGTH env1`, `s`] assume_tac evaluate_genlist_vars >>
+  rfs [] >>
+  rpt (pop_assum mp_tac) >>
+  srw_tac [ARITH_ss] [TAKE_LENGTH_APPEND] >>
+  metis_tac []);
+
+val num_remaining_args_def = Define `
+  (num_remaining_args (Closure loc_opt args env num_args exp : closSem$v) =
+    SOME (num_args - LENGTH args)) ∧
+  (num_remaining_args (Recclosure loc_opt args env funs i : closSem$v) =
+    SOME (FST (EL i funs) - LENGTH args)) ∧
+  (num_remaining_args _ = NONE)`;
+
+val dest_closure_part_app = Q.prove (
+  `!loc_opt func args c f1 t1.
+    LENGTH args ≠ 0 ∧
+    dest_closure loc_opt func args = SOME (Partial_app c)
+    ⇒
+    loc_opt = NONE ∧
+    SOME c = add_args func args ∧
+    ?n. num_remaining_args func = SOME n ∧ LENGTH args < n ∧ LENGTH args ≤ max_app`,
+  rw [dest_closure_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [add_args_def, LET_THM, num_remaining_args_def] >>
+  TRY (Cases_on `EL n l1`) >>
+  fs [] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  Cases_on `loc_opt` >>
+  fs [check_loc_def] >>
+  decide_tac);
+
+val get_loc_def = Define `
+  (get_loc (Closure loc args env num_args exp) = SOME loc) ∧
+  (get_loc (Recclosure loc args env fns i) = SOME (loc + i)) ∧
+  (get_loc _ = NONE)`;
+
+val get_old_args_def = Define `
+  (get_old_args (Closure loc args env num_args exp) = SOME args) ∧
+  (get_old_args (Recclosure loc args env fns i) = SOME args) ∧
+  (get_old_args _ = NONE)`;
+
+val get_cl_env_def = Define `
+  (get_cl_env (Closure loc args env num_args exp) = SOME env) ∧
+  (get_cl_env (Recclosure loc args env fns i) = SOME env) ∧
+  (get_cl_env _ = NONE)`;
+
+val dest_closure_full_app = Q.prove (
+  `!loc_opt func args c f1 t1 exp args1 args2.
+    dest_closure loc_opt func args = SOME (Full_app exp args1 args2)
+    ⇒
+    ?rem_args loc num_args old_args cl_env.
+      get_loc func = SOME loc ∧
+      num_remaining_args func = SOME rem_args ∧
+      get_num_args func = SOME num_args ∧
+      get_old_args func = SOME old_args ∧
+      get_cl_env func = SOME cl_env ∧
+      rem_args ≤ LENGTH args ∧
+      rem_args ≤ num_args ∧
+      num_args ≤ LENGTH old_args + LENGTH args ∧
+      LENGTH args2 = LENGTH args - rem_args ∧
+      check_loc loc_opt loc num_args (LENGTH args) (num_args - rem_args)`,
+  rw [dest_closure_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  TRY (Cases_on `EL n l1`) >>
+  fs [LET_THM] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [get_cl_env_def, get_old_args_def, get_loc_def, num_remaining_args_def, get_num_args_def] >>
+  full_simp_tac (srw_ss()++ARITH_ss) [] >>
+  rw [] >>
+  decide_tac);
+
+val v_rel_num_rem_args = Q.prove (
+  `!f refs code v1 v2 n.
+    v_rel f refs code v1 v2 ∧
+    num_remaining_args v1 = SOME n
+    ⇒
+    ?tag ptr rest exp.
+      v2 = Block tag (CodePtr ptr::Number (&n-1)::rest) ∧
+      n ≠ 0 ∧
+      lookup ptr code = SOME (n+1, exp)`,
+  rw [v_rel_cases] >>
+  fs [num_remaining_args_def]
+  >- (fs [cl_rel_cases] >>
+      rw [] >>
+      fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB,closure_code_installed_def,
+          EVERY_EL, EL_MAP] >>
+      pop_assum (mp_tac o GSYM) >>
+      rw [] >>
+      pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+      Cases_on `EL k exps_ps` >>
+      simp [] >>
+      Cases_on `q` >>
+      fs [] >>
+      rw [] >>
+      simp [EL_MAP])
+  >- (fs [cl_rel_cases] >>
+      rw [] >>
+      fs [get_num_args_def, add_args_def] >>
+      rw [] >>
+      fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB] >>
+      intLib.ARITH_TAC));
+
+val unpack_closure_thm = Q.prove (
+  `v_rel f1 t1.refs t1.code func (Block tag (ptr::Number (&n-1)::rest)) ∧
+   num_remaining_args func = SOME n
+   ⇒
+   ?prev_args total_args clo.
+     unpack_closure (Block tag (ptr::Number (&n-1)::rest)) (prev_args, total_args, clo) ∧
+     total_args < max_app ∧
+     n = total_args − LENGTH prev_args + 1  ∧
+     (tag = closure_tag ⇒ prev_args = [] ∧ clo = Block tag (ptr::Number (&n-1)::rest))`,
+  rw [unpack_closure_cases, v_rel_cases, cl_rel_cases, num_remaining_args_def] >>
+  fs [num_remaining_args_def] >>
+  rw_tac bool_ss [] >>
+  TRY ARITH_TAC >>
+  fs [EL_MAP] >>
+  `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+  fs [closure_code_installed_def, EVERY_EL] >>
+  res_tac >>
+  rfs [] >>
+  TRY ARITH_TAC >>
+  srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
+  imp_res_tac EVERY2_LENGTH >>
+  fs [add_args_def, get_num_args_def, EL_MAP] >>
+  TRY ARITH_TAC >>
+  srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
+  TRY decide_tac >>
+  TRY (Cases_on `ys`) >>
+  fs [ADD1, num_remaining_args_def] >>
+  srw_tac [ARITH_ss] [integerTheory.int_ge, integerTheory.INT_LE_SUB_LADD, integerTheory.INT_LE_LT1] >>
+  TRY(simp[closure_tag_def]>>NO_TAC) >>
+  first_x_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  rw [EL_MAP] >>
+  decide_tac);
+
+val cl_rel_get_num_args = Q.prove (
+  `cl_rel f1 refs code (env,ys) func (Block tag (p::Number (&(total_args) - 1)::fvs))
+   ⇒
+   get_num_args func = SOME total_args`,
+  rw [cl_rel_cases] >>
+  fs [get_num_args_def, int_arithTheory.INT_NUM_SUB, EL_MAP, closure_code_installed_def, EVERY_EL] >>
+  `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+  fs [] >>
+  rw [] >>
+  pop_assum mp_tac >>
+  res_tac >>
+  rw [] >>
+  fs [] >>
+  ARITH_TAC);
+
+val arith_helper_lem = Q.prove (
+  `LENGTH args' ≠ 0 ⇒ x − 1 − (LENGTH args' − 1) = x − LENGTH args'`,
+  decide_tac);
+
+val arith_helper_lem3 = Q.prove (
+  `LENGTH args' < total_args + 1 − LENGTH prev_args ∧
+   LENGTH args' ≠ 0 ∧
+   total_args − LENGTH prev_args + 1 = num_args − LENGTH prev_args
+   ⇒
+   total_args − (LENGTH args' + LENGTH prev_args − 1) = total_args + 1 − (LENGTH args' + LENGTH prev_args) ∧
+   LENGTH args' + LENGTH prev_args < total_args + 1 ∧
+   num_args = total_args+1`,
+  rw [int_arithTheory.INT_NUM_SUB] >>
+  ARITH_TAC);
+
+val closure_tag_neq_1 = EVAL``closure_tag = 1``|>EQF_ELIM
+
 val cEval_def = closSemTheory.evaluate_def;
 val cEval_SING = closPropsTheory.evaluate_SING;
 val bEval_def = bvlSemTheory.evaluate_def;
 val bEval_CONS = bvlPropsTheory.evaluate_CONS;
 val bEval_SING = bvlPropsTheory.evaluate_SING;
+val bEval_APPEND = bvlPropsTheory.evaluate_APPEND;
+val bEvalOp_def = bvlSemTheory.do_app_def;
+val ARITH_TAC = intLib.ARITH_TAC;
 
 val compile_correct = Q.store_thm("compile_correct",
   `(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -1947,7 +2133,7 @@ val compile_correct = Q.store_thm("compile_correct",
     metis_tac [SUBMAP_REFL])
   THEN1
    ((* cEvalApp real app *)
-    qpat_assum `cEvalApp x0 x1 x2 x3 = x4` mp_tac
+    qpat_assum `evaluate_app x0 x1 x2 x3 = x4` mp_tac
     \\ simp [cEval_def]
     \\ qabbrev_tac `args = v41::v42`
     \\ DISCH_TAC
@@ -1962,27 +2148,27 @@ val compile_correct = Q.store_thm("compile_correct",
     >- ((* Partial application *)
         `LENGTH args = LENGTH args' ∧ LENGTH args ≠ 0` by metis_tac [LIST_REL_LENGTH] >>
         imp_res_tac dest_closure_part_app >>
-        rw [res_rel_cases, PULL_EXISTS] >>
-        imp_res_tac val_rel_num_rem_args >>
+        rw [PULL_EXISTS] >>
+        imp_res_tac v_rel_num_rem_args >>
         rw [mk_cl_call_def, bEval_def, bEval_APPEND, bEvalOp_def] >>
         srw_tac [ARITH_ss] [el_append3] >>
         `&n' ≠ &(LENGTH args')` by srw_tac [ARITH_ss] [] >>
-        `&n' - 1 ≠ &(LENGTH args' - 1)` 
-                   by (fs [int_arithTheory.INT_NUM_SUB] >> 
+        `&n' - 1 ≠ &(LENGTH args' - 1)`
+                   by (fs [int_arithTheory.INT_NUM_SUB] >>
                        CCONTR_TAC >>
-                       fs [] >> 
+                       fs [] >>
                        rw [] >>
                        ARITH_TAC) >>
         rw [] >>
         `0 < LENGTH args'` by decide_tac >>
-        `bEval (GENLIST Var (LENGTH args'),
+        `evaluate (GENLIST Var (LENGTH args'),
                 args' ++ [Block tag (CodePtr ptr::Number (&n'-1)::rest)] ++ env,
-                t1 with clock := s1.clock) = (Result args', t1 with clock := s1.clock)` 
-                    by metis_tac [bEval_simple_genlist_vars, APPEND_ASSOC] >>
+                t1 with clock := s1.clock) = (Rval args', t1 with clock := s1.clock)`
+                    by metis_tac [evaluate_simple_genlist_vars, APPEND_ASSOC] >>
         qexists_tac `0` >>
-        rw [bool_to_val_11] >>
+        rw [] >>
         `LENGTH args' - 1 < max_app` by decide_tac >>
-        `lookup (LENGTH args' - 1) t1.code = SOME (LENGTH args' + 1, generate_generic_app (LENGTH args' - 1))` 
+        `lookup (LENGTH args' - 1) t1.code = SOME (LENGTH args' + 1, generate_generic_app (LENGTH args' - 1))`
                by (fs [state_rel_def] >>
                    decide_tac) >>
         simp [find_code_def] >>
@@ -1994,8 +2180,8 @@ val compile_correct = Q.store_thm("compile_correct",
             qexists_tac `f1` >>
             simp [SUBMAP_REFL] >>
             fs [] >>
-            fs [clos_state_component_equality] >>
-            `s1 = s2` by rw [clos_state_component_equality] >>
+            fs [closSemTheory.state_component_equality] >>
+            `s1 = s2` by rw [closSemTheory.state_component_equality] >>
             metis_tac []) >>
         assume_tac (GEN_ALL (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] unpack_closure_thm)) >>
         rpt (pop_assum (fn th => first_assum  (strip_assume_tac o MATCH_MP th))) >>
@@ -2008,7 +2194,7 @@ val compile_correct = Q.store_thm("compile_correct",
         `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
         `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
         fs [] >>
-        assume_tac (Q.SPECL [`total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] evaluate_generic_app_partial) >>
+        qspecl_then [`total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac evaluate_generic_app_partial >>
         rfs [domain_lookup] >>
         pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
         rw []
@@ -2023,14 +2209,14 @@ val compile_correct = Q.store_thm("compile_correct",
             rw [] >>
             qexists_tac `f1` >>
             REVERSE (rw [])
-            >- (rw [dec_clock_def, closLangTheory.dec_clock_def] >>
+            >- (rw [bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
                 metis_tac [arith_helper_lem])
-            >- (fs [dec_clock_def, closLangTheory.dec_clock_def] >>
+            >- (fs [bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
                 fs [state_rel_def]) >>
             `args ≠ []` by (Cases_on `args` >> fs []) >>
-            fs [val_rel_cases, num_remaining_args_def,closure_tag_neq_1,partial_app_tag_eq_closure_tag] >>
+            fs [v_rel_cases, num_remaining_args_def,closure_tag_neq_1,partial_app_tag_neq_closure_tag] >>
             rw [] >>
-            fs [num_remaining_args_def, add_args_def, partial_app_tag_eq_closure_tag]
+            fs [num_remaining_args_def, add_args_def, partial_app_tag_neq_closure_tag]
             >- ((* Wrapping a normal closure *)
                 MAP_EVERY qexists_tac [`args`, `func`, `env'`, `fvs`, `total_args + 1`] >>
                 fs [] >>
@@ -2041,16 +2227,16 @@ val compile_correct = Q.store_thm("compile_correct",
                 fs [unpack_closure_cases] >>
                 rw [] >>
                 MAP_EVERY qexists_tac [`args++arg_env`, `cl`, `env'`, `fvs`, `total_args+1`] >>
-                fs [partial_app_tag_eq_closure_tag] >>
+                fs [partial_app_tag_neq_closure_tag] >>
                 imp_res_tac EVERY2_LENGTH >>
-                rw [partial_app_tag_eq_closure_tag]
+                rw [partial_app_tag_neq_closure_tag]
                 >- simp [] >>
                 metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND])))
     >- ((* Enough arguments to do something *)
          `SUC (LENGTH v42) = LENGTH args` by metis_tac [LENGTH] >>
          fs [] >>
          imp_res_tac dest_closure_full_app >>
-         assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] val_rel_num_rem_args) >>
+         assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] v_rel_num_rem_args) >>
          rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
          `loc_opt = NONE ∨ ?loc. loc_opt = SOME loc` by metis_tac [option_nchotomy] >>
          fs [check_loc_def] >>
@@ -2334,128 +2520,6 @@ val do_eq = prove(
   >- fs [closSemTheory.do_eq_def]);
 *)
 
-val bEval_simple_genlist_vars = Q.prove (
-`!env1 env2 s.
-  0 < LENGTH env1
-  ⇒
-  bEval (GENLIST Var (LENGTH env1), env1++env2, s) = (Result env1, s)`,
- rw [] >>
- assume_tac (Q.SPECL [`0`, `env1++env2`, `LENGTH (env1:bc_value list)`, `s`] evaluate_genlist_vars) >>
- rfs [] >>
- rpt (pop_assum mp_tac) >>
- srw_tac [ARITH_ss] [TAKE_LENGTH_APPEND] >>
- metis_tac []);
-
-val num_remaining_args_def = Define `
-  (num_remaining_args (Closure loc_opt args env num_args exp : closSem$v) =
-    SOME (num_args - LENGTH args)) ∧
-  (num_remaining_args (Recclosure loc_opt args env funs i : closSem$v) =
-    SOME (FST (EL i funs) - LENGTH args)) ∧
-  (num_remaining_args _ = NONE)`;
-
-val dest_closure_part_app = Q.prove (
-`!loc_opt func args c f1 t1.
-  LENGTH args ≠ 0 ∧
-  dest_closure loc_opt func args = SOME (Partial_app c)
-  ⇒
-  loc_opt = NONE ∧
-  SOME c = add_args func args ∧
-  ?n. num_remaining_args func = SOME n ∧ LENGTH args < n ∧ LENGTH args ≤ max_app`,
- rw [dest_closure_def] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [add_args_def, LET_THM, num_remaining_args_def] >>
- TRY (Cases_on `EL n l1`) >>
- fs [] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- Cases_on `loc_opt` >>
- fs [check_loc_def] >>
- decide_tac);
-
-val val_rel_num_rem_args = Q.prove (
-`!f (refs:num |-> ref_value) code v1 v2 n.
-  val_rel f refs code v1 v2 ∧
-  num_remaining_args v1 = SOME n
-  ⇒
-  ?tag ptr rest exp. 
-    v2 = Block tag (CodePtr ptr::Number (&n-1)::rest) ∧
-    n ≠ 0 ∧
-    lookup ptr code = SOME (n+1, exp)`,
- rw [val_rel_cases] >>
- fs [num_remaining_args_def]
- >- (fs [cl_rel_cases] >>
-     rw [] >>
-     fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB,closure_code_installed_def,
-         EVERY_EL, EL_MAP] >>
-     pop_assum (mp_tac o GSYM) >>
-     rw [] >>
-     pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
-     Cases_on `EL k exps_ps` >>
-     simp [] >>
-     Cases_on `q` >>
-     fs [] >>
-     rw [] >>
-     simp [EL_MAP])
- >- (fs [cl_rel_cases] >>
-     rw [] >>
-     fs [get_num_args_def, add_args_def] >>
-     rw [] >>
-     fs [num_remaining_args_def, int_arithTheory.INT_NUM_SUB] >>
-     ARITH_TAC));
-
-val unpack_closure_thm = Q.prove (
-`val_rel f1 t1.refs t1.code func (Block tag (ptr::Number (&n-1)::rest)) ∧
- num_remaining_args func = SOME n
- ⇒
- ?prev_args total_args clo.
-   unpack_closure (Block tag (ptr::Number (&n-1)::rest)) (prev_args, total_args, clo) ∧
-   total_args < max_app ∧
-   n = total_args − LENGTH prev_args + 1  ∧
-   (tag = closure_tag ⇒ prev_args = [] ∧ clo = Block tag (ptr::Number (&n-1)::rest))`,
- rw [unpack_closure_cases, val_rel_cases, cl_rel_cases, num_remaining_args_def] >>
- fs [num_remaining_args_def] >>
- rw_tac bool_ss [] >>
- TRY ARITH_TAC >>
- fs [EL_MAP] >>
- `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
- fs [closure_code_installed_def, EVERY_EL] >> 
- res_tac >>
- rfs [] >>
- TRY ARITH_TAC >>
- srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
- imp_res_tac EVERY2_LENGTH >>
- fs [add_args_def, get_num_args_def, EL_MAP] >>
- TRY ARITH_TAC >>
- srw_tac [boolSimps.DNF_ss] [partial_app_tag_def, int_arithTheory.INT_NUM_SUB] >>
- TRY decide_tac >>
- TRY (Cases_on `ys`) >>
- fs [ADD1, num_remaining_args_def] >>
- srw_tac [ARITH_ss] [integerTheory.int_ge, integerTheory.INT_LE_SUB_LADD, integerTheory.INT_LE_LT1] >>
- TRY(simp[closure_tag_def]>>NO_TAC) >>
- first_x_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
- rw [EL_MAP] >>
- decide_tac);
-
-val cl_rel_get_num_args = Q.prove (
-`cl_rel f1 refs code (env,ys) func (Block tag (p::Number (&(total_args) - 1)::fvs))
- ⇒
- get_num_args func = SOME total_args`,
- rw [cl_rel_cases] >>
- fs [get_num_args_def, int_arithTheory.INT_NUM_SUB, EL_MAP, closure_code_installed_def, EVERY_EL] >>
- `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
- fs [] >>
- rw [] >>
- pop_assum mp_tac >>
- res_tac >>
- rw [] >>
- fs [] >>
- ARITH_TAC);
-
-val get_loc_def = Define `
-  (get_loc (Closure loc args env num_args exp) = SOME loc) ∧
-  (get_loc (Recclosure loc args env fns i) = SOME (loc + i)) ∧
-  (get_loc _ = NONE)`;
-
 val p_genlist = Q.prove (
 `EL k exps_ps = ((n',e),p) ∧
  MAP SND exps_ps = GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps) ∧
@@ -2484,50 +2548,6 @@ val cl_rel_get_loc = Q.prove (
  `p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [p_genlist] >>
  rw [] >>
  ARITH_TAC);
-
-val get_old_args_def = Define `
-  (get_old_args (Closure loc args env num_args exp) = SOME args) ∧
-  (get_old_args (Recclosure loc args env fns i) = SOME args) ∧
-  (get_old_args _ = NONE)`;
-
-val get_cl_env_def = Define `
-  (get_cl_env (Closure loc args env num_args exp) = SOME env) ∧
-  (get_cl_env (Recclosure loc args env fns i) = SOME env) ∧
-  (get_cl_env _ = NONE)`;
-
-val dest_closure_full_app = Q.prove (
-`!loc_opt func args c f1 t1 exp args1 args2.
-  dest_closure loc_opt func args = SOME (Full_app exp args1 args2)
-  ⇒
-  ?rem_args loc num_args old_args cl_env.
-    get_loc func = SOME loc ∧
-    num_remaining_args func = SOME rem_args ∧
-    get_num_args func = SOME num_args ∧
-    get_old_args func = SOME old_args ∧
-    get_cl_env func = SOME cl_env ∧
-    rem_args ≤ LENGTH args ∧
-    rem_args ≤ num_args ∧
-    num_args ≤ LENGTH old_args + LENGTH args ∧
-    LENGTH args2 = LENGTH args - rem_args ∧
-    check_loc loc_opt loc num_args (LENGTH args) (num_args - rem_args)`,
- rw [dest_closure_def] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- TRY (Cases_on `EL n l1`) >>
- fs [LET_THM] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [get_cl_env_def, get_old_args_def, get_loc_def, num_remaining_args_def, get_num_args_def] >>
- full_simp_tac (srw_ss()++ARITH_ss) [] >>
- rw [] >>
- decide_tac);
-
-val add_args_append = Q.prove (
-`add_args cl arg_env = SOME func
- ⇒
- add_args cl (args ++ arg_env) = add_args func args`,
- Cases_on `cl` >>
- rw [add_args_def] >>
- rw [add_args_def]);
 
 val no_partial_args = Q.prove (
 `num_remaining_args func = SOME x ∧
@@ -2978,25 +2998,10 @@ val list_rel_app = Q.prove (
  fs [LIST_REL_EL_EQN, check_loc_def, num_remaining_args_def] >>
  srw_tac [ARITH_ss] [EL_TAKE, EL_REVERSE, EL_DROP, PRE_SUB1]);
 
-val arith_helper_lem = Q.prove (
-`LENGTH args' ≠ 0 ⇒ x − 1 − (LENGTH args' − 1) = x − LENGTH args'`,
-decide_tac);
-
 val arith_helper_lem2 = Q.prove (
 `&(total_args + 1) − &LENGTH prev_args − 1 = &num_args − 1 − &LENGTH prev_args
  ⇒
  num_args = total_args + 1`,
- ARITH_TAC);
-
-val arith_helper_lem3 = Q.prove (
-`LENGTH args' < total_args + 1 − LENGTH prev_args ∧
- LENGTH args' ≠ 0 ∧
- total_args − LENGTH prev_args + 1 = num_args − LENGTH prev_args
- ⇒
- total_args − (LENGTH args' + LENGTH prev_args − 1) = total_args + 1 − (LENGTH args' + LENGTH prev_args) ∧
- LENGTH args' + LENGTH prev_args < total_args + 1 ∧
- num_args = total_args+1`,
- rw [int_arithTheory.INT_NUM_SUB] >>
  ARITH_TAC);
 
 val bEval_mk_cl_call_spec = Q.prove (
@@ -3040,8 +3045,6 @@ val bEval_mk_cl_call_spec = Q.prove (
  rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
  rfs [] >>
  rw []);
-
-val closure_tag_neq_1 = EVAL``closure_tag = 1``|>EQF_ELIM
 
 (* -- *)
 
