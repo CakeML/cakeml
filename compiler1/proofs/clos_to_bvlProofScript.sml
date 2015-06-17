@@ -1055,6 +1055,91 @@ val do_app = Q.prove(
     rw[v_rel_SIMP] >>
     rw[v_rel_SIMP]))
 
+val do_app_err = Q.prove(
+  `do_app op xs s1 = Rerr err ∧
+   err ≠ Rabort Rtype_error ∧
+   state_rel f s1 t1 ∧
+   LIST_REL (v_rel f t1.refs t1.code) xs ys ∧
+   op ≠ ToList
+   ⇒
+   ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
+       exc_rel (v_rel f t1.refs t1.code) err e`,
+  Cases_on`op`>>rw[closSemTheory.do_app_def,bvlSemTheory.do_app_def]
+  >- (
+    imp_res_tac state_rel_globals >>
+    every_case_tac >> fs[get_global_def,LIST_REL_EL_EQN] >>
+    rfs[OPTREL_def] >> res_tac >> fs[])
+  >- (
+    imp_res_tac state_rel_globals >>
+    every_case_tac >> fs[get_global_def,LIST_REL_EL_EQN] >>
+    rfs[OPTREL_def] >> res_tac >> fs[])
+  >- ( every_case_tac >> fs[] )
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[v_rel_SIMP]>>rw[]>-
+    (Cases_on`h`>>fs[v_rel_SIMP]>>rw[])>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>rw[]>>
+    Cases_on`h'`>>fs[v_rel_SIMP]>>rw[]>>
+    Cases_on`t'`>>fs[v_rel_SIMP]>>rw[]>>
+    every_case_tac >> fs[] >> rw[])
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`h'`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    Cases_on`t'`>>fs[]>>rw[]>>
+    every_case_tac >> fs[LET_THM])
+  >- ( every_case_tac >> fs[LET_THM])
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`h'`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    Cases_on`t'`>>fs[]>>rw[]>>
+    every_case_tac >> fs[])
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`t'`>>fs[]>>rw[]>>
+    Cases_on`h''`>>fs[]>>rw[]>>
+    Cases_on`h'`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    every_case_tac >> fs[])
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >- ( fs[LET_THM] )
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`h'`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    every_case_tac >> fs[])
+  >- (
+    Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`t'`>>fs[]>>rw[]>>
+    Cases_on`h'`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    every_case_tac >> fs[])
+  >- (
+    every_case_tac >> fs[v_rel_SIMP] >> rw[] >>
+    rfs[state_rel_def] >> res_tac >> fs[] >> rw[] >> fs[] >>
+    rw[] >> fs[])
+  >- ( every_case_tac >> fs[] )
+  >- ( every_case_tac >> fs[] )
+  >> (
+    Cases_on`xs`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`h'`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    every_case_tac >> fs[] ))
+
 (* compiler correctness *)
 
 val EXISTS_NOT_IN_refs = prove(
@@ -2134,28 +2219,39 @@ val compile_correct = Q.store_thm("compile_correct",
   THEN1 (* Op *)
    (rw [] >>
     fs [cEval_def,compile_def] \\ SRW_TAC [] [bEval_def]
-    \\ `?p. cEval (xs,env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
+    \\ `?p. evaluate (xs,env,s) = p` by fs [] \\ PairCases_on `p` \\ fs []
     \\ `?cc. compile xs aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
     \\ fs [LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
+    THEN1 ( (* ToList *)
+      cheat )
+    THEN1 ( (* Equal *)
+      cheat)
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ IMP_RES_TAC compile_IMP_code_installed \\ REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC compile_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEval_def]
     \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
-    \\ TRY (fs [res_rel_cases] \\ qexists_tac `ck` >> rw [] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
-    \\ fs [res_rel_Result1] \\ SRW_TAC [] []
-    \\ Cases_on `cEvalOp op (REVERSE a) p1` \\ fs []
-    \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
-    \\ qexists_tac `ck` >>
-    rw []
+    \\ TRY (fs [] \\ qexists_tac `ck` >> rw [] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ SRW_TAC [] []
+    \\ qexists_tac `ck` >> simp[]
+    \\ reverse(Cases_on `do_app op (REVERSE a) p1`) \\ fs [] >- (
+      rw[] >>
+      first_x_assum(mp_tac o MATCH_MP
+        (do_app_err |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> GEN_ALL)) >>
+      simp[] >>
+      imp_res_tac EVERY2_REVERSE >>
+      rpt(disch_then(fn th => first_assum(mp_tac o MATCH_MP th))) >>
+      strip_tac >> simp[] >>
+      first_assum(match_exists_tac o concl) >> simp[])
+    \\ (Cases_on `a'`) \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `op = Ref` \\ fs []
     THEN1
-     (fs [cEvalOp_def,LET_DEF] \\ SRW_TAC [] [res_rel_Result1]
+     (fs [closSemTheory.do_app_def,LET_DEF] \\ SRW_TAC [] []
       \\ fs [PULL_EXISTS]
       \\ Q.ABBREV_TAC `pp = LEAST ptr. ptr NOTIN FDOM p1.refs`
       \\ Q.ABBREV_TAC `qq = LEAST ptr. ptr NOTIN FDOM t2.refs`
-      \\ fs [bEvalOp_def,LET_DEF]
+      \\ fs [bvlSemTheory.do_app_def,LET_DEF]
       \\ Q.EXISTS_TAC `f2 |+ (pp,qq)` \\ fs []
       \\ `~(pp IN FDOM p1.refs)` by
            (UNABBREV_ALL_TAC \\ fs [LEAST_NO_IN_FDOM] \\ NO_TAC)
@@ -2167,77 +2263,70 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ `FRANGE (f2 \\ pp) = FRANGE f2` by ALL_TAC THEN1
        (fs [FRANGE_DEF,finite_mapTheory.DOMSUB_FAPPLY_THM,EXTENSION]
         \\ METIS_TAC []) \\ fs []
-      \\ REPEAT STRIP_TAC
-      THEN1 (fs [val_rel_cases,FLOOKUP_UPDATE])
-      THEN1
+      \\ conj_tac >- (fs [v_rel_cases,FLOOKUP_UPDATE])
+      \\ conj_tac THEN1
        (fs [state_rel_def,FLOOKUP_UPDATE]
         \\ REPEAT STRIP_TAC THEN1
          (Q.PAT_ASSUM `LIST_REL ppp qqq rrr` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
-          \\ MATCH_MP_TAC opt_val_rel_NEW_REF \\ fs []
-          \\ MATCH_MP_TAC opt_val_rel_NEW_F \\ fs [])
+          \\ MATCH_MP_TAC OPTREL_v_rel_NEW_REF \\ fs []
+          \\ MATCH_MP_TAC OPTREL_v_rel_NEW_F \\ fs [])
         THEN1
          (Q.PAT_ASSUM `INJ ($' f2) (FDOM f2) (FRANGE f2)` MP_TAC
           \\ REPEAT (Q.PAT_ASSUM `INJ xx yy zz` (K ALL_TAC))
           \\ fs [INJ_DEF,FAPPLY_FUPDATE_THM,FRANGE_DEF]
           \\ REPEAT STRIP_TAC \\ METIS_TAC [])
         \\ Cases_on `n = pp` \\ fs [] THEN1
-         (SRW_TAC [] [ref_rel_cases] >>
+         (SRW_TAC [] [] >>
           imp_res_tac EVERY2_REVERSE
           \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) (REVERSE a) (REVERSE ys)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
-          \\ MATCH_MP_TAC val_rel_NEW_REF \\ fs []
-          \\ MATCH_MP_TAC val_rel_NEW_F \\ fs [])
+          \\ MATCH_MP_TAC v_rel_NEW_REF \\ fs []
+          \\ MATCH_MP_TAC v_rel_NEW_F \\ fs [])
         \\ RES_TAC \\ fs []
         \\ `qq <> m` by (REPEAT STRIP_TAC \\ fs [FLOOKUP_DEF] \\ SRW_TAC [] [])
-        \\ fs [ref_rel_cases]
-        \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) xs' ys'` MP_TAC
+        \\ Cases_on`x`>>fs []
+        \\ Q.PAT_ASSUM `LIST_REL (v_rel f2 t2.refs t2.code) xs' ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC val_rel_NEW_REF \\ fs []
-        \\ MATCH_MP_TAC val_rel_NEW_F \\ fs [])
-      THEN1
-       (fs [SUBMAP_DEF,FAPPLY_FUPDATE_THM] \\ SRW_TAC [] [] \\ METIS_TAC [])
-      \\ MATCH_MP_TAC SUBMAP_TRANS
-      \\ Q.EXISTS_TAC `FDIFF t2.refs f2` \\ fs []
-      \\ fs [SUBMAP_DEF,FDOM_FDIFF]
-      \\ REPEAT STRIP_TAC
-      \\ fs [FDIFF_def,DRESTRICT_DEF]
-      \\ SRW_TAC [] [] \\ fs [state_rel_def,SUBSET_DEF])
+        \\ MATCH_MP_TAC v_rel_NEW_REF \\ fs []
+        \\ MATCH_MP_TAC v_rel_NEW_F \\ fs [])
+      \\ conj_tac >-
+       (fs [SUBMAP_DEF,FAPPLY_FUPDATE_THM,FDOM_FDIFF] \\ SRW_TAC [][] \\ METIS_TAC [] ) >>
+      fs[SUBMAP_DEF,FDOM_FDIFF,FAPPLY_FUPDATE_THM,FDIFF_def,DRESTRICT_DEF] >> rw[] >> METIS_TAC[])
     \\ Cases_on `op = Update` \\ fs [] THEN1
-     (fs [cEvalOp_def,bEvalOp_def]
+     (fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ fs []
       \\ Cases_on `t` \\ fs []
       \\ Cases_on `t'` \\ fs []
-      \\ Cases_on `t` \\ fs []
-      \\ Cases_on `h` \\ fs []
       \\ Cases_on `h'` \\ fs []
+      \\ Cases_on `h` \\ fs []
+      \\ Cases_on `t` \\ fs []
       \\ Cases_on `FLOOKUP p1.refs n` \\ fs []
       \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
       \\ imp_res_tac EVERY2_REVERSE >>
       rfs [] >>
       rw []
-      \\ fs [val_rel_SIMP] \\ SRW_TAC [] []
+      \\ fs [v_rel_SIMP] \\ SRW_TAC [] []
       \\ `?y m.
             FLOOKUP f2 n = SOME m /\ FLOOKUP t2.refs m = SOME y /\
-            ref_rel f2 t2.refs t2.code (ValueArray l) y` by
+            ref_rel (v_rel f2 t2.refs t2.code) (ValueArray l) y` by
               METIS_TAC [state_rel_def]
-      \\ fs [] \\ SRW_TAC [] []
-      \\ fs [ref_rel_cases] \\ SRW_TAC [] []
-      \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_cases] \\ REPEAT STRIP_TAC
+      \\ fs [] \\ rpt var_eq_tac
+      \\ simp[PULL_EXISTS]
+      \\ rw[] >> fs[]
       \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-      THEN1
-       (MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
-        \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-      THEN1
+      \\ Q.EXISTS_TAC `f2` \\ fs []
+      \\ rpt var_eq_tac >> simp[]
+      \\ conj_tac >-
        (fs [state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
         THEN1
          (Q.PAT_ASSUM `LIST_REL tt yy t2.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
-          \\ MATCH_MP_TAC opt_val_rel_UPDATE_REF \\ fs []
+          \\ MATCH_MP_TAC OPTREL_v_rel_UPDATE_REF \\ fs []
           \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         THEN1 (fs [EXTENSION,FLOOKUP_DEF] \\ METIS_TAC [])
         THEN1
@@ -2245,39 +2334,41 @@ val compile_correct = Q.store_thm("compile_correct",
           \\ fs [SUBSET_DEF] \\ METIS_TAC [])
         \\ SRW_TAC [] [] \\ Cases_on `n' = n` \\ fs [] \\ SRW_TAC [] []
         THEN1
-         (fs [ref_rel_cases]
+         (fs []
           \\ MATCH_MP_TAC EVERY2_LUPDATE_same
           \\ REPEAT STRIP_TAC THEN1
-           (MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+           (MATCH_MP_TAC v_rel_UPDATE_REF \\ fs []
             \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
-          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) l ys'` MP_TAC
+          \\ Q.PAT_ASSUM `LIST_REL (v_rel f2 t2.refs t2.code) l ys'` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
-          \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+          \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ fs []
           \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
         \\ RES_TAC \\ fs []
         \\ `m' <> m''` by
          (Q.PAT_ASSUM `INJ ($' f2) (FDOM p1.refs) (FRANGE f2)` MP_TAC
           \\ SIMP_TAC std_ss [INJ_DEF,FRANGE_DEF] \\ fs [FLOOKUP_DEF]
           \\ METIS_TAC [])
-        \\ fs [] \\ SRW_TAC [] [] \\ fs [ref_rel_cases] \\ SRW_TAC [] []
-        \\ Q.PAT_ASSUM `LIST_REL pp xs' ys''` MP_TAC
+        \\ fs [] \\ SRW_TAC [] [] \\ Cases_on`x` >> fs [] \\ SRW_TAC [] []
+        \\ Q.PAT_ASSUM `LIST_REL pp xs' ws''` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ REPEAT STRIP_TAC
-        \\ MATCH_MP_TAC val_rel_UPDATE_REF \\ fs []
+        \\ MATCH_MP_TAC v_rel_UPDATE_REF \\ fs []
         \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ Cases_on `op = RefArray` \\ fs[] THEN1 cheat
     \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat
-    \\ imp_res_tac cEvalOp_const
-    \\ first_x_assum(mp_tac o MATCH_MP (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]cEvalOp_correct)))
+    \\ Cases_on `∃n. op = FFI n` \\ fs[] THEN1 cheat
+    \\ imp_res_tac closSemTheory.do_app_const
+    \\ first_x_assum(mp_tac o MATCH_MP (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th))
-    \\ imp_res_tac EVERY2_REVERSE 
+    \\ imp_res_tac EVERY2_REVERSE
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) \\ rw[] \\ rw[]
-    \\ Q.EXISTS_TAC `f2` \\ fs [res_rel_Result] >>
-    metis_tac [bEvalOp_const])
+    \\ Q.EXISTS_TAC `f2` \\ fs [] >>
+    \\ imp_res_tac bvlSemTheory.do_app_const
+    \\ simp[])
   THEN1 (* Fn *)
    (rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
@@ -2997,6 +3088,8 @@ val compile_correct = Q.store_thm("compile_correct",
              fs [] >>
              `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
              metis_tac []))));
+
+(* more correctness properties *)
 
 (* TODO: below this line, needs cleanup *)
 
