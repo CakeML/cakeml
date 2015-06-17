@@ -39,6 +39,17 @@ val LEAST_NO_IN_FDOM = prove(
   ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
 
+val INJ_FAPPLY_FUPDATE = Q.prove(
+  `INJ ($' f) (FDOM f) (FRANGE f) ∧
+   s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
+   t = v INSERT FRANGE f
+  ⇒
+   INJ ($' (f |+ (k,v))) s t`,
+  rw[INJ_DEF,FAPPLY_FUPDATE_THM] >> rw[] >>
+  pop_assum mp_tac >> rw[] >>
+  fs[IN_FRANGE] >>
+  METIS_TAC[])
+
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
 
 val EVERY_ZIP_GENLIST = prove(
@@ -2596,10 +2607,10 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ Cases_on `op = Update` \\ fs [] THEN1
      (fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ fs []
-      \\ Cases_on `t` \\ fs []
-      \\ Cases_on `t'` \\ fs []
-      \\ Cases_on `h'` \\ fs []
       \\ Cases_on `h` \\ fs []
+      \\ Cases_on `t` \\ fs []
+      \\ Cases_on `h` \\ fs []
+      \\ Cases_on `t'` \\ fs []
       \\ Cases_on `t` \\ fs []
       \\ Cases_on `FLOOKUP p1.refs n` \\ fs []
       \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
@@ -2654,7 +2665,69 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
-    \\ Cases_on `op = RefArray` \\ fs[] THEN1 cheat
+    \\ Cases_on `op = RefArray` \\ fs[] THEN1 (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def] >>
+      Cases_on`REVERSE a`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`a`>>fs[]>> rpt var_eq_tac >>
+      fs[v_rel_SIMP,LET_THM] >> rpt var_eq_tac >>
+      simp[PULL_EXISTS] >>
+      IF_CASES_TAC >> fs[] >> rw[] >>
+      qpat_abbrev_tac`pp = $LEAST P` >>
+      qpat_abbrev_tac`qq = $LEAST P` >>
+      simp[v_rel_SIMP] >>
+      qexists_tac`f2 |+ (qq,pp)` >>
+      simp[FLOOKUP_UPDATE] >>
+      `f2 \\ qq = f2` by (
+        fs[state_rel_def] >>
+        MATCH_MP_TAC DOMSUB_NOT_IN_DOM >>
+        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+      conj_tac >- (
+        fs[state_rel_def] >>
+        conj_tac >- (
+          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac OPTREL_v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          match_mp_tac OPTREL_v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+        conj_tac >- (
+          match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
+          spose_not_then strip_assume_tac >>
+          fs[SUBSET_DEF] >> res_tac >>
+          fs[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+        conj_tac >- ( fs[SUBSET_DEF] ) >>
+        simp[FLOOKUP_UPDATE] >>
+        rpt gen_tac >> reverse IF_CASES_TAC >> simp[] >- (
+          strip_tac >> res_tac >> simp[] >>
+          Cases_on`pp=m`>>simp[]>-(
+            `pp ∈ FRANGE f2` by (fs[FRANGE_FLOOKUP] >>METIS_TAC[]) >>
+            fs[SUBSET_DEF] >> res_tac >>
+            var_eq_tac >>
+            fs[Abbr`m`,LEAST_NO_IN_FDOM] ) >>
+          Cases_on`x`>>fs[] >>
+          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          match_mp_tac v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+        strip_tac >> var_eq_tac >> simp[] >>
+        simp[LIST_REL_REPLICATE_same] >> rw[] >>
+        match_mp_tac v_rel_NEW_REF >>
+        reverse conj_tac >- (
+          simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+        match_mp_tac v_rel_NEW_F >>
+        simp[Abbr`pp`,Abbr`n`,LEAST_NO_IN_FDOM] ) >>
+      cheat)
     \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat
     \\ Cases_on `∃n. op = FFI n` \\ fs[] THEN1 cheat
