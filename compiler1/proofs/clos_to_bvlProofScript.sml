@@ -1150,6 +1150,88 @@ val list_to_v = Q.prove(
      v_rel f r c (list_to_v vs) (list_to_v ws)`,
   Induct >> simp[closSemTheory.list_to_v_def,list_to_v_def,v_rel_SIMP,PULL_EXISTS])
 
+val do_eq_def = tDefine"do_eq"`
+  (do_eq (CodePtr _) _ = Eq_type_error) ∧
+  (do_eq _ (CodePtr _) = Eq_type_error) ∧
+  (do_eq (Number n1) (Number n2) = (Eq_val (n1 = n2))) ∧
+  (do_eq (Number _) _ = Eq_type_error) ∧
+  (do_eq _ (Number _) = Eq_type_error) ∧
+  (do_eq (RefPtr n1) (RefPtr n2) = (Eq_val (n1 = n2))) ∧
+  (do_eq (RefPtr _) _ = Eq_type_error) ∧
+  (do_eq _ (RefPtr _) = Eq_type_error) ∧
+  (do_eq (Block t1 l1) (Block t2 l2) =
+   if (t1 = closure_tag) ∨ (t2 = closure_tag) ∨ (t1 = partial_app_tag) ∨ (t2 = partial_app_tag)
+   then Eq_closure
+   else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
+        then do_eq_list l1 l2
+        else Eq_val F) ∧
+  (do_eq_list [] [] = Eq_val T) ∧
+  (do_eq_list (v1::vs1) (v2::vs2) =
+   case do_eq v1 v2 of
+   | Eq_val T => do_eq_list vs1 vs2
+   | Eq_val F => Eq_val F
+   | bad => bad) ∧
+  (do_eq_list _ _ = Eq_val F)`
+  (WF_REL_TAC `measure (\x. case x of INL (v1,v2) => v_size v1 | INR (vs1,vs2) => v1_size vs1)`);
+val _ = export_rewrites["do_eq_def"];
+
+val do_eq = prove(
+  ``INJ ($' f) (FDOM f) (FRANGE f) ⇒
+    (∀x y x1 y1.
+           v_rel f r c x x1 ∧
+           v_rel f r c y y1 ⇒
+           do_eq x y = do_eq x1 y1) ∧
+    (∀x y x1 y1.
+           LIST_REL (v_rel f r c) x x1 ∧
+           LIST_REL (v_rel f r c) y y1 ⇒
+           do_eq_list x y = do_eq_list x1 y1)``,
+   strip_tac >>
+   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
+   rw []
+   >- (rw [closSemTheory.do_eq_def] >>
+       Cases_on `x` >>
+       fs [v_rel_SIMP] >> fs [add_args_def] >> rw[] >>
+       Cases_on `y` >>
+       fs [v_rel_SIMP] >> fs [add_args_def] >> rw[] >>
+       rfs [] >>
+       imp_res_tac LIST_REL_LENGTH >>
+       fs [closure_tag_def,partial_app_tag_def,clos_tag_shift_def] >>
+       BasicProvers.EVERY_CASE_TAC >>
+       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
+       fs [INJ_DEF, FLOOKUP_DEF] >>
+       metis_tac [])
+  >- fs [closSemTheory.do_eq_def]
+  >- (res_tac >>
+      rw [closSemTheory.do_eq_def] >>
+      Cases_on `do_eq x y` >>
+      fs [] >>
+      qpat_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
+      rw [])
+  >- fs [closSemTheory.do_eq_def]
+  >- fs [closSemTheory.do_eq_def]);
+
+val do_eq_ind = theorem"do_eq_ind";
+
+val do_eq_imp_T = Q.prove(
+  `(∀x y. do_eq x y = Eq_val T ⇒ x = y) ∧
+   (∀x y. do_eq_list x y = Eq_val T ⇒ x = y)`,
+  ho_match_mp_tac do_eq_ind >> simp[] >>
+  rw[] >> fs[] >>
+  every_case_tac >> fs[])
+
+val do_eq_sym = Q.prove(
+  `(∀x y. do_eq x y = do_eq y x) ∧
+   (∀x y. do_eq_list x y = do_eq_list y x)`,
+  ho_match_mp_tac do_eq_ind >> simp[] >>
+  conj_tac >- ( gen_tac >> Cases >> rw[] ) >>
+  conj_tac >- METIS_TAC[] >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    IF_CASES_TAC >> fs[] >>
+    rw[] >> fs[] ) >>
+  rw[] >>
+  every_case_tac >> fs[])
+
 (* correctness of implemented primitives *)
 
 val ToList = Q.prove(
@@ -1173,6 +1255,124 @@ val ToList = Q.prove(
   first_x_assum(qspecl_then[`[x] ++ ws`,`dec_clock 1 s`]mp_tac) >>
   discharge_hyps >- simp[dec_clock_def] >>
   simp[list_to_v_def,EL_APPEND1,EL_LENGTH_APPEND,dec_clock_def,ADD1]);
+
+val eq_res_def = Define`
+  eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
+  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block (eq_tag+pat_tag_shift+clos_tag_shift)[])) ∧
+  eq_res _ = Rerr (Rabort Rtype_error)`;
+val _ = export_rewrites["eq_res_def"];
+
+val eq_res_not_timeout = Q.prove(
+  `eq_res x ≠ Rerr (Rabort Rtimeout_error)`,
+  Cases_on`x`>>simp[])
+
+val evaluate_check_closure = Q.prove(
+  `n < LENGTH env ∧
+   EL n env = bvlSem$Block t vs
+   ⇒
+   evaluate ([check_closure n e],env,s) =
+   if t = closure_tag ∨ t = partial_app_tag then
+     (eq_res Eq_closure,s)
+   else
+     evaluate ([e],env,s)`,
+  rw[check_closure_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def,RaiseEq_def] >>
+  fs[])
+
+val equality = Q.prove(
+  `(∀v1 v2 s.
+     lookup equality_location s.code = SOME equality_code ∧
+     lookup block_equality_location s.code = SOME block_equality_code ∧
+     (do_eq v1 v2 ≠ Eq_type_error) ⇒
+     ∃ck.
+     evaluate ([SND equality_code], [v1;v2], inc_clock ck s)
+       = (eq_res (do_eq v1 v2),s)) ∧
+   (∀v1 v2 t vs s.
+     lookup equality_location s.code = SOME equality_code ∧
+     lookup block_equality_location s.code = SOME block_equality_code ∧
+     (do_eq_list v1 v2 ≠ Eq_type_error) ∧
+     LENGTH v1 = LENGTH v2 ⇒
+     ∃ck.
+     evaluate ([SND block_equality_code],
+               [Block t (vs++v1);
+                Block t (vs++v2);
+                Number(&LENGTH (vs++v1));
+                Number(&LENGTH vs)],
+               inc_clock ck s)
+       = (eq_res (do_eq_list v1 v2),s))`,
+  ho_match_mp_tac do_eq_ind >> simp[] >>
+  conj_tac >- (
+    rw[] >>
+    simp[equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+    qexists_tac`0`>>simp[inc_clock_def]>>METIS_TAC[]) >>
+  conj_tac >- (
+    rw[] >>
+    simp[equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+    qexists_tac`0`>>simp[inc_clock_def]) >>
+  conj_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    simp[equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+    (* TODO: why does simp[evaluate_check_closure] not work? *)
+    qpat_abbrev_tac`env = [Block t1 v1;x]` >>
+    `0 < LENGTH env ∧ 1 < LENGTH env` by simp[Abbr`env`] >>
+    `EL 0 env = Block t1 v1 ∧ EL 1 env = Block t2 v2` by simp[Abbr`env`] >>
+    simp[evaluate_check_closure |> GEN_ALL
+      |> Q.SPECL[`v1`,`t1`,`s`,`0`,`env`,`e`]
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> UNDISCH |> UNDISCH] >>
+    simp[evaluate_check_closure |> GEN_ALL
+      |> Q.SPECL[`v2`,`t2`,`s`,`1`,`env`,`e`]
+      |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]
+      |> UNDISCH |> UNDISCH] >>
+    Cases_on`t1=closure_tag ∨ t1 = partial_app_tag` >- (
+      simp[] >> qexists_tac`0`>>simp[] ) >> simp[] >>
+    Cases_on`t2=closure_tag ∨ t2 = partial_app_tag` >- (
+      simp[] >> qexists_tac`0`>>simp[] ) >> simp[] >> fs[] >>
+    simp[equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def,Abbr`env`] >>
+    reverse(Cases_on`t1=t2 ∧ LENGTH v1=LENGTH v2`)>>simp[]>-(
+      qexists_tac`0`>>simp[]) >> fs[] >> rw[] >>
+    simp[find_code_def] >>
+    `block_equality_code = (4,SND block_equality_code)` by simp[block_equality_code_def] >>
+    pop_assum SUBST1_TAC >> simp[] >>
+    first_x_assum(qspecl_then[`t1`,`[]`,`s`]mp_tac) >>
+    discharge_hyps >- simp[] >> strip_tac >>
+    qexists_tac`ck+1` >>
+    fs[dec_clock_def,inc_clock_def]>>
+    simp[] >> fsrw_tac[ARITH_ss][]) >>
+  conj_tac >- (
+    rw[] >>
+    simp[block_equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+    qexists_tac`0`>>simp[]) >>
+  rw[] >>
+  simp[block_equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+  simp[find_code_def] >>
+  `equality_code = (2,SND equality_code)` by simp[equality_code_def] >>
+  pop_assum SUBST1_TAC >> simp[] >>
+  simp[EL_LENGTH_APPEND] >>
+  first_x_assum(qspec_then`s`mp_tac) >>
+  discharge_hyps >- (
+    simp[] >> spose_not_then strip_assume_tac >> fs[] ) >>
+  strip_tac >>
+  reverse(Cases_on`do_eq v1 v2`)>>fs[]>-(
+    qexists_tac`ck+1`>>simp[dec_clock_def,inc_clock_def] >>
+    fsrw_tac[ARITH_ss][inc_clock_def] ) >>
+  reverse(Cases_on`b`) >> fs[] >- (
+    qexists_tac`ck+1`>>simp[dec_clock_def,inc_clock_def] >>
+    fsrw_tac[ARITH_ss][inc_clock_def] ) >>
+  imp_res_tac do_eq_imp_T >>
+  first_x_assum(qspecl_then[`t`,`vs++[v1]`,`s`]mp_tac) >>
+  discharge_hyps >- ( simp[inc_clock_def] ) >> strip_tac >>
+  qexists_tac`ck+1+ck'+1` >>
+  simp[inc_clock_def,dec_clock_def] >>
+  imp_res_tac evaluate_add_clock >>fs[] >>
+  first_x_assum(qspec_then`ck'+1`mp_tac) >>
+  simp[inc_clock_def] >> disch_then kall_tac >>
+  `block_equality_code = (4,SND block_equality_code)` by simp[block_equality_code_def] >>
+  pop_assum SUBST1_TAC >> simp[] >> rw[] >>
+  simp[ADD1] >>
+  fsrw_tac[ARITH_ss][inc_clock_def] >>
+  `1 + &LENGTH vs = &(LENGTH vs + 1)` by ARITH_TAC >>
+  metis_tac[CONS_APPEND,APPEND_ASSOC])
 
 (* compiler correctness *)
 
@@ -2287,7 +2487,42 @@ val compile_correct = Q.store_thm("compile_correct",
       first_assum(match_exists_tac o concl) >> simp[] >>
       imp_res_tac LIST_REL_LENGTH >> simp[])
     THEN1 ( (* Equal *)
-      cheat)
+      first_x_assum(qspec_then`aux1`mp_tac) >> simp[] >>
+      `p0 ≠ Rerr (Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> fs[]) >>
+      disch_then(qspecl_then[`t1`,`env''`,`f1`]mp_tac) >>
+      simp[] >> strip_tac >>
+      fs[closSemTheory.do_app_def] >>
+      reverse(Cases_on`p0`)>>fs[]>>rw[]>-(
+        qexists_tac`ck`>>simp[bEval_def]>>
+        qexists_tac`f2`>>simp[]) >>
+      Cases_on`REVERSE a`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`t'`>>fs[]>> rw[]>>
+      simp[bEval_def,find_code_def] >>
+      `lookup equality_location t2.code = SOME equality_code ∧
+       lookup block_equality_location t2.code = SOME block_equality_code` by
+         fs[state_rel_def] >>
+      qmatch_assum_rename_tac`REVERSE a = [v1; v2]` >>
+      Cases_on `do_eq v1 v2 = Eq_type_error` >>fs[] >>
+      Cases_on`a`>>fs[] >> rpt var_eq_tac >>
+      `INJ ($' f2) (FDOM f2) (FRANGE f2)` by ( fs[state_rel_def] ) >>
+      qmatch_assum_rename_tac`do_eq v1 v2 ≠ Eq_type_error` >>
+      qmatch_assum_rename_tac`v_rel _ _ _ v1 w1` >>
+      qmatch_assum_rename_tac`v_rel _ _ _ v2 w2` >>
+      `do_eq w1 w2 = do_eq v1 v2` by (imp_res_tac do_eq >> simp[]) >>
+      `do_eq w2 w1 = do_eq w1 w2` by (METIS_TAC[do_eq_sym]) >>
+      qspecl_then[`w2`,`w1`,`t2`]mp_tac (CONJUNCT1 equality) >>
+      discharge_hyps >- simp[] >> strip_tac >>
+      qexists_tac`ck+ck'+1` >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      first_x_assum(qspec_then`ck'+1`mp_tac) >>
+      simp[inc_clock_def] >> disch_then kall_tac >>
+      `equality_code = (2,SND equality_code)` by simp[equality_code_def] >>
+      pop_assum SUBST1_TAC >> simp[] >>
+      simp[dec_clock_def] >>
+      fsrw_tac[ARITH_ss][inc_clock_def] >>
+      Cases_on`do_eq v1 v2`>>fs[]>>rw[v_rel_SIMP] >>
+      METIS_TAC[])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
     \\ IMP_RES_TAC compile_IMP_code_installed \\ REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
@@ -3154,43 +3389,6 @@ val compile_correct = Q.store_thm("compile_correct",
 (* more correctness properties *)
 
 (* TODO: below this line, needs cleanup *)
-
-(*
-val do_eq = prove(
-  ``INJ ($' f) (FDOM f) (FRANGE f) ⇒
-    (∀x y x1 y1.
-           v_rel f r c x x1 ∧
-           v_rel f r c y y1 ⇒
-           do_eq x y = do_eq x1 y1) ∧
-    (∀x y x1 y1.
-           LIST_REL (v_rel f r c) x x1 ∧
-           LIST_REL (v_rel f r c) y y1 ⇒
-           do_eq_list x y = do_eq_list x1 y1)``,
-   strip_tac >>
-   HO_MATCH_MP_TAC closSemTheory.do_eq_ind >>
-   rw []
-   >- (rw [closSemTheory.do_eq_def] >>
-       Cases_on `x` >>
-       fs [v_rel_SIMP] >> fs [add_args_def] >> rw[] >>
-       Cases_on `y` >>
-       fs [v_rel_SIMP] >> fs [add_args_def] >> rw[] >>
-       rfs [] >>
-       imp_res_tac LIST_REL_LENGTH >>
-       fs [closure_tag_def,partial_app_tag_def] >>
-       BasicProvers.EVERY_CASE_TAC >>
-       rev_full_simp_tac (srw_ss()++ARITH_ss) [] >>
-       fs [INJ_DEF, FLOOKUP_DEF] >>
-       metis_tac [])
-  >- fs [closSemTheory.do_eq_def]
-  >- (res_tac >>
-      rw [closSemTheory.do_eq_def] >>
-      Cases_on `do_eq x y` >>
-      fs [] >>
-      qpat_assum `X = do_eq y'' y'''` (mp_tac o GSYM) >>
-      rw [])
-  >- fs [closSemTheory.do_eq_def]
-  >- fs [closSemTheory.do_eq_def]);
-*)
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `(!n.

@@ -205,35 +205,36 @@ val RaiseEq_def = Define`
   RaiseEq = Raise (Op (Cons (eq_tag+pat_tag_shift+clos_tag_shift)) [])`;
 
 val check_closure_def = Define`
-  check_closure v = If (Op (TagEq closure_tag) [Var v]) RaiseEq
-                       (If (Op (TagEq partial_app_tag) [Var v]) RaiseEq
-                           (Bool F))`;
+  check_closure v e =
+    If (Op (TagEq closure_tag) [Var v]) RaiseEq
+      (If (Op (TagEq partial_app_tag) [Var v]) RaiseEq e)`;
 
 val equality_code_def = Define`
   equality_code = (2:num,
     If (Op IsBlock [Var 0])
        (If (Op IsBlock [Var 1])
-           (If (Op BlockCmp [Var 0; Var 1])
-               (Call 0 (SOME block_equality_location)
-                 [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
-               (Bool F))
-           (check_closure 0))
+           (check_closure 0
+             (check_closure 1
+               (If (Op BlockCmp [Var 0; Var 1])
+                   (Call 0 (SOME block_equality_location)
+                     [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
+                   (Bool F))))
+           (Bool F))
        (If (Op IsBlock [Var 1])
-           (check_closure 1)
+           (Bool F)
            (Op Equal [Var 0; Var 1])))`;
 
 val block_equality_code_def = Define`
-  (* 4 arguments: block1, block2, length, last checked index *)
+  (* 4 arguments: block1, block2, length, index to check*)
   block_equality_code = (4:num,
     If (Op Equal [Var 3; Var 2])
        (Bool T)
-       (Let [Op Add [Var 3; mk_const 1]]
-         (If (Call 0 (SOME equality_location)
-                [mk_el (Var 1) (Var 0);
-                 mk_el (Var 2) (Var 0)])
-             (Call 0 (SOME block_equality_location)
-                [Var 1; Var 2; Var 3; Var 0])
-             (Bool F))))`;
+       (If (Call 0 (SOME equality_location)
+              [mk_el (Var 0) (Var 3);
+               mk_el (Var 1) (Var 3)])
+           (Call 0 (SOME block_equality_location)
+              [Var 0; Var 1; Var 2; (Op Add [Var 3; mk_const 1])])
+           (Bool F)))`;
 
 val init_code_def = Define `
   init_code =

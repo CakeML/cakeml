@@ -125,6 +125,10 @@ val evaluate_MAP_Const = store_thm("evaluate_MAP_Const",
         (Rval (MAP (K (Number i)) exps),t1)``,
   Induct \\ fs [evaluate_def,evaluate_CONS,do_app_def]);
 
+val evaluate_Bool = Q.store_thm("evaluate_Bool[simp]",
+  `evaluate ([Bool b],env,s) = (Rval [Boolv b],s)`,
+  EVAL_TAC)
+
 val inc_clock_def = Define `
   inc_clock ck s = s with clock := s.clock + ck`;
 
