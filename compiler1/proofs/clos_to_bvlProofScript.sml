@@ -8,13 +8,7 @@ val _ = new_theory"clos_to_bvlProof";
 
 (* TODO: move? *)
 
-val add_args_append = Q.prove (
-  `add_args cl arg_env = SOME func
-   ⇒
-   add_args cl (args ++ arg_env) = add_args func args`,
-  Cases_on `cl` >>
-  rw [add_args_def] >>
-  rw [add_args_def]);
+val ARITH_TAC = intLib.ARITH_TAC;
 
 val SUBMAP_FDOM_SUBSET = Q.store_thm("SUBMAP_FDOM_SUBSET",
   `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`,
@@ -187,6 +181,16 @@ val take_drop_lemma = Q.prove (
 val ETA2_THM = Q.prove (
   `(\x y. f a b c x y) = f a b c`,
   rw [FUN_EQ_THM]);
+
+val p_genlist = Q.prove (
+  `EL k exps_ps = ((n',e),p) ∧
+   MAP SND exps_ps = GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps) ∧
+   k < LENGTH exps_ps
+   ⇒
+   p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))`,
+  rw [] >>
+  `EL k (MAP SND exps_ps) = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [] >>
+  rfs [EL_MAP]);
 
 (* -- *)
 
@@ -635,6 +639,14 @@ val add_args_def = Define `
   (add_args (Recclosure loc_opt args env funs i : closSem$v) args' =
     SOME (Recclosure loc_opt (args'++args) env funs i)) ∧
   (add_args _ _ = NONE)`;
+
+val add_args_append = Q.prove (
+  `add_args cl arg_env = SOME func
+   ⇒
+   add_args cl (args ++ arg_env) = add_args func args`,
+  Cases_on `cl` >>
+  rw [add_args_def] >>
+  rw [add_args_def]);
 
 val get_num_args_def = Define `
   (get_num_args (Closure loc_opt args env num_args exp : closSem$v) =
@@ -1398,7 +1410,513 @@ val bEval_CONS = bvlPropsTheory.evaluate_CONS;
 val bEval_SING = bvlPropsTheory.evaluate_SING;
 val bEval_APPEND = bvlPropsTheory.evaluate_APPEND;
 val bEvalOp_def = bvlSemTheory.do_app_def;
-val ARITH_TAC = intLib.ARITH_TAC;
+
+val evaluate_mk_cl_call_spec = Q.prove (
+  `!s env tag p n args exp xs.
+    lookup p s.code = SOME (n+2, exp) ∧
+    lookup (LENGTH args - 1) s.code = SOME (LENGTH args + 1, generate_generic_app (LENGTH args - 1)) ∧
+    LENGTH args - 1 ≥ n ∧
+    n < max_app ∧
+    LENGTH args ≠ 0
+    ⇒
+    evaluate ([mk_cl_call (Var (LENGTH args)) (GENLIST Var (LENGTH args))],args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
+     if n = LENGTH args - 1 then
+       if s.clock < LENGTH args
+       then (Rerr(Rabort Rtimeout_error),s with clock := 0)
+       else evaluate ([exp],
+                   args ++ [Block tag (CodePtr p::Number (&(LENGTH args − 1))::xs)],
+                   dec_clock (LENGTH args) s)
+     else
+         if s.clock < n + 2
+         then (Rerr(Rabort Rtimeout_error),s with clock := 0)
+         else
+         case evaluate ([exp],
+                     DROP (LENGTH args − (n + 1)) args ++ [Block tag (CodePtr p::Number (&n)::xs)],
+                     dec_clock (n + 2) s)
+           of
+            | (Rval [v],st') =>
+                (case evaluate ([mk_cl_call (Var 0) (GENLIST (λn. Var (n + 1)) (LENGTH args − (n + 1)))],
+                              v::(args ++ [Block tag (CodePtr p::Number (&n)::xs)]),
+                              st') of
+                    | (Rval v,s2) => (Rval [HD v],s2)
+                    | x => x)
+            | x => x`,
+  rpt strip_tac >>
+  `evaluate ([Var (LENGTH args)], args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
+   (Rval [Block tag (CodePtr p::Number (&n)::xs)], s)`
+           by simp [bEval_def, el_append3] >>
+  `evaluate (GENLIST Var (LENGTH args), args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
+    (Rval args, s)`
+           by (qspecl_then [`0`, `args++[Block tag (CodePtr p::Number (&n)::xs)]++env`, `LENGTH args`]mp_tac evaluate_genlist_vars >>
+               simp [ETA_THM] >>
+               metis_tac [APPEND_ASSOC, TAKE_LENGTH_APPEND]) >>
+  strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] evaluate_mk_cl_call) >>
+  rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
+  rfs []);
+
+val cl_rel_get_loc = Q.prove (
+  `cl_rel f1 refs code (env,fvs) func (Block tag (CodePtr p::n::ys))
+   ⇒
+   num_stubs ≤ p ∧
+   get_loc func = SOME (p-num_stubs)`,
+  rw [cl_rel_cases] >>
+  fs [get_loc_def, closure_code_installed_def, EVERY_EL] >>
+  `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+  fs [] >>
+  rw [] >>
+  pop_assum mp_tac >>
+  res_tac >>
+  rw [] >>
+  fs [EL_MAP] >>
+  rw [] >>
+  `p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [p_genlist] >>
+  rw [] >>
+  ARITH_TAC);
+
+(* Differs from check_loc and dest_closure by not checking that max_app *)
+val check_loc'_def = Define `
+  (check_loc' NONE loc num_params num_args so_far ⇔  T) ∧
+  (check_loc' (SOME p) loc num_params num_args so_far ⇔
+    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
+
+val dest_closure'_def = Define `
+  dest_closure' loc_opt f args =
+    case f of
+    | Closure loc arg_env clo_env num_args exp =>
+        if check_loc' loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
+          if ¬(LENGTH args + LENGTH arg_env < num_args) then
+            SOME (Full_app exp
+                           (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                            arg_env++clo_env)
+                           (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+          else
+            SOME (Partial_app (Closure loc (args++arg_env) clo_env num_args exp))
+        else
+          NONE
+    | Recclosure loc arg_env clo_env fns i =>
+        let (num_args,exp) = EL i fns in
+          if LENGTH fns <= i \/
+             ~(check_loc' loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ¬(LENGTH arg_env < num_args) then NONE else
+            let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
+              if ¬(LENGTH args + LENGTH arg_env < num_args) then
+                SOME (Full_app exp
+                               (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
+                                arg_env++rs++clo_env)
+                               (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
+              else
+                SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
+    | _ => NONE`;
+
+val dest_cl_imp_dest_cl' = Q.prove (
+  `dest_closure l f a = SOME x ⇒ dest_closure' l f a = SOME x`,
+  rw [dest_closure_def, dest_closure'_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  Cases_on `l` >>
+  fs [check_loc_def, check_loc'_def, LET_THM] >>
+  Cases_on `EL n l1` >>
+  fs []);
+
+val cl_rel_run_lemma1 = Q.prove (
+  `num_args ≤ LENGTH args'
+   ⇒
+   evaluate (GENLIST Var num_args, DROP (LENGTH args' - num_args) args' ++ stuff, t1) =
+   (Rval (DROP (LENGTH args' - num_args) args'), t1)`,
+  rw [] >>
+  assume_tac (Q.SPECL [`0`, `DROP (LENGTH args' - num_args) args'++stuff`, `num_args`, `t1`] evaluate_genlist_vars) >>
+  rfs [] >>
+  rpt (pop_assum mp_tac) >>
+  srw_tac [ARITH_ss] [ETA_THM] >>
+  `LENGTH (DROP (LENGTH args' - num_args) args') = num_args` by srw_tac [ARITH_ss] [] >>
+  metis_tac [TAKE_LENGTH_APPEND]);
+
+val cl_rel_run_lemma2 = Q.prove (
+  `num_args ≤ LENGTH args'
+   ⇒
+   evaluate (GENLIST Var (num_args + 1), DROP (LENGTH args' - num_args) args' ++ [f] ++ stuff, t1) =
+   (Rval (DROP (LENGTH args' - num_args) args' ++ [f]), t1)`,
+  rw [] >>
+  assume_tac (Q.SPECL [`0`, `DROP (LENGTH args' - num_args) args'++[f]++stuff`, `num_args+1`, `t1`] evaluate_genlist_vars) >>
+  rfs [] >>
+  rpt (pop_assum mp_tac) >>
+  srw_tac [ARITH_ss] [ETA_THM] >>
+  `LENGTH (DROP (LENGTH args' - num_args) args'++[f]) = num_args+1` by srw_tac [ARITH_ss] [] >>
+  metis_tac [TAKE_LENGTH_APPEND]) |> Q.INST [`stuff`|-> `[]`] |> SIMP_RULE (srw_ss()) [];
+
+val cl_rel_run_lemma3 = Q.prove (
+  `LIST_REL R args args' ⇒
+   LIST_REL R (DROP (LENGTH args' − n) args) (DROP (LENGTH args' − n) args')`,
+  fs [LIST_REL_EL_EQN] >>
+  rw [] >>
+  `n' + (LENGTH args' − n) < LENGTH args` by decide_tac >>
+  `n' + (LENGTH args' − n) < LENGTH args'` by metis_tac [] >>
+  rw [EL_DROP]);
+
+val bEval_free_let_Block = Q.prove (
+  `!ys zs.
+    evaluate ([x],env,s) = (Rval [Block n (y::z::ys ++ zs)], s)
+    ⇒
+    evaluate (free_let x (LENGTH ys),env,s) = (Rval ys,s)`,
+  ho_match_mp_tac SNOC_INDUCT >>
+  rw [free_let_def, bEval_def] >>
+  fs [SNOC_APPEND] \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
+  res_tac >>
+  fs [GENLIST, bvlPropsTheory.evaluate_SNOC, bEvalOp_def, bEval_def] >>
+  simp [EL_CONS, PRE_SUB1, el_append3])
+   |> Q.SPECL [`ys`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
+
+val cl_rel_run_tac =
+  qexists_tac `c` >>
+  qexists_tac `aux` >>
+  qexists_tac `aux1` >>
+  imp_res_tac EVERY2_LENGTH >>
+  fs [] >>
+  rw [bEval_def, bEval_APPEND] >>
+  rw_tac (std_ss) [GSYM APPEND_ASSOC] >>
+  simp [cl_rel_run_lemma1, cl_rel_run_lemma2] >>
+  `LENGTH (DROP (LENGTH args' − num_args) args') = num_args`
+             by (rw [] >> decide_tac) >>
+  qexists_tac `witness` >>
+  rw [] >>
+  `evaluate ([Var num_args], DROP (LENGTH args' − num_args) args' ++ [func'],t1 with refs := refs) = (Rval [func'],t1 with refs := refs)`
+          by (rw [bEval_def]
+              >- metis_tac [EL_LENGTH_APPEND, NULL, HD]) >>
+  simp [TAKE_REVERSE, LASTN_DROP] >>
+  unabbrev_all_tac >>
+  imp_res_tac bEval_free_let_Block >>
+  rfs [] >>
+  rw [] >>
+  metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, LASTN_LENGTH_ID, env_rel_APPEND, LIST_REL_def, cl_rel_run_lemma3];
+
+val genlist_deref = Q.prove (
+  `!skip st r xs args p n env ys.
+    FLOOKUP st.refs r = SOME (ValueArray (ys++xs)) ∧
+    skip = LENGTH ys
+    ⇒
+    evaluate (GENLIST (λi. Op Deref [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
+           RefPtr r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env),
+           st)
+    =
+    (Rval xs, st)`,
+  Induct_on `xs` >>
+  rw [evaluate_def, GENLIST_CONS] >>
+  rw [Once evaluate_CONS, evaluate_def, do_app_def, combinTheory.o_DEF] >>
+  `FLOOKUP st.refs r = SOME (ValueArray ((ys++[h])++xs))` by rw [] >>
+  first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
+  simp [ADD1] >>
+  rw [] >>
+  fs [ADD1] >>
+  rw [EL_LENGTH_APPEND]);
+
+val evaluate_code_for_recc_case = Q.prove (
+  `!st r xs args c p n env.
+    FLOOKUP st.refs r = SOME (ValueArray xs)
+    ⇒
+    evaluate ([SND (code_for_recc_case (LENGTH xs) (LENGTH args) c)],
+              args ++ Block closure_tag [CodePtr p;Number &n;RefPtr r]::env,
+              st) =
+    evaluate ([c],
+              args ++ xs ++ [RefPtr r] ++ args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env,
+              st)`,
+  simp [code_for_recc_case_def, evaluate_def, do_app_def] >>
+  simp [evaluate_APPEND, EL_LENGTH_APPEND] >>
+  rpt strip_tac >>
+  `LENGTH args + 1 ≤ LENGTH (RefPtr r::(args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env))`
+              by (rw [] >> intLib.ARITH_TAC) >>
+  imp_res_tac evaluate_genlist_vars >>
+  fs [] >>
+  mp_tac (Q.SPEC `0` genlist_deref) >>
+  simp [LENGTH_NIL_SYM] >>
+  rw [TAKE_LENGTH_APPEND]);
+
+val cl_rel_run = Q.prove (
+  `!loc f1 refs code args args' env env' ptr body new_env func func' rest n fvs.
+    func' = Block closure_tag (CodePtr ptr::Number (&n)::env') ∧
+    dest_closure' loc func args = SOME (Full_app body new_env rest) ∧
+    v_rel f1 refs code func func' ∧
+    cl_rel (FRANGE f1) refs code (env,fvs) func func' ∧
+    LIST_REL (v_rel f1 refs code) env fvs ∧
+    LIST_REL (v_rel f1 refs code) args args'
+    ⇒
+    ∃body' aux1 aux2 new_env' exp'.
+      lookup ptr code = SOME (n + 2,exp') ∧
+      compile [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
+      env_rel f1 refs code new_env new_env' ∧
+      !t1. evaluate ([exp'], DROP (LENGTH args' - (n + 1)) args'++[func'], t1 with refs := refs) =
+           evaluate ([body'], new_env', t1 with refs := refs)`,
+  rw [cl_rel_cases, dest_closure'_def] >>
+  fs [int_arithTheory.INT_NUM_SUB, closure_code_installed_def] >>
+  rfs [] >>
+  simp [] >>
+  fs [check_loc_def, LET_THM] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  rw []
+  >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
+      qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
+      cl_rel_run_tac)
+  >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
+      qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++[func']++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
+      cl_rel_run_tac) >>
+  fs [EL_MAP] >>
+  `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+  fs [] >>
+  rw [] >>
+  Cases_on `LENGTH args < n'` >>
+  fs [EVERY_EL, closure_code_installed_def] >>
+  rw [] >>
+  first_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  ASM_REWRITE_TAC [] >>
+  simp [] >>
+  rw [] >>
+  simp [] >>
+  MAP_EVERY qexists_tac [`c`, `aux`, `aux1`,
+        `DROP (LENGTH args' − (n + 1)) args' ++
+         MAP (λ((n,e),p). Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
+             exps_ps ++
+         fvs ++
+         [RefPtr r] ++
+         DROP (LENGTH args' − (n + 1)) args' ++
+         [Block closure_tag [CodePtr p; Number (&n); RefPtr r]]`] >>
+  rw []
+  >- ARITH_TAC
+  >- (simp [TAKE_REVERSE, LASTN_DROP] >>
+      `LIST_REL (v_rel f1 refs code)
+                (DROP (LENGTH args − n') args)
+                (DROP (LENGTH args' − (n + 1)) args')`
+              by (`n' = n+1` by ARITH_TAC >>
+                  metis_tac [cl_rel_run_lemma3, EVERY2_LENGTH]) >>
+      `LIST_REL (v_rel f1 refs code)
+                (GENLIST (Recclosure loc' [] env (MAP FST exps_ps)) (LENGTH exps_ps))
+                (MAP (λ((n,e),p).
+                       Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
+                     exps_ps)`
+            by (rw [LIST_REL_EL_EQN] >>
+                simp [v_rel_cases] >>
+                simp [EL_MAP, cl_rel_cases] >>
+                `?n e p. EL n'' exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+                fs [] >>
+                simp [] >>
+                qexists_tac `env` >>
+                simp [] >>
+                qexists_tac `fvs` >>
+                simp [] >>
+                DISJ2_TAC >>
+                qexists_tac `exps_ps` >>
+                simp [EL_MAP] >>
+                rw [int_arithTheory.INT_NUM_SUB] >>
+                rw [closure_code_installed_def] >>
+                rw [EVERY_EL]) >>
+      metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, EVERY2_APPEND])
+  >- (`FLOOKUP refs r = FLOOKUP (t1 with refs := refs).refs r` by rw [] >>
+      full_simp_tac std_ss [] >>
+      imp_res_tac evaluate_code_for_recc_case >>
+      fs [LENGTH_MAP] >>
+      pop_assum (qspecl_then [`p`, `n`, `[]`, `c`, `DROP (LENGTH args' − (n + 1)) args'`] mp_tac) >>
+      rw [] >>
+      imp_res_tac EVERY2_LENGTH >>
+      `LENGTH args' − (LENGTH args' − (n + 1)) = n'` by ARITH_TAC >>
+      fs [] >>
+      rw [Once ADD_COMM]));
+
+val cl_rel_dest = Q.prove (
+  `!f refs code cl cl' fvs fvs'.
+    cl_rel f refs code (fvs,fvs') cl cl'
+    ⇒
+    get_old_args cl = SOME [] ∧
+    ?l num_args fvs.
+      cl' = Block closure_tag (CodePtr l::Number (&num_args)::fvs)`,
+  rw [cl_rel_cases] >>
+  rw [get_old_args_def, EL_MAP] >>
+  `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
+  rw []);
+
+val dest_closure_full_of_part = Q.prove (
+  `dest_closure loc func args = SOME (Full_app body newenv rest) ∧
+   LENGTH arg_env ≠ 0 ∧
+   add_args cl arg_env = SOME func ∧
+   get_num_args cl = SOME num_args ∧
+   LENGTH arg_env < num_args
+   ⇒
+   dest_closure' loc cl (args++arg_env) = SOME (Full_app body newenv rest)`,
+  rw [dest_closure_def, dest_closure'_def] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [add_args_def, check_loc_def, check_loc'_def, get_num_args_def] >>
+  rw [] >>
+  fs [] >>
+  TRY decide_tac
+  >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+      rw [TAKE_APPEND2] >>
+      srw_tac [ARITH_ss] [])
+  >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+      rw [DROP_APPEND2] >>
+      srw_tac [ARITH_ss] [])
+  >- (Cases_on `loc` >> fs [check_loc_def, check_loc'_def])
+  >- (fs [LET_THM] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      rw [] >>
+      fs [] >>
+      TRY decide_tac
+      >- (Cases_on `loc` >> fs [check_loc_def, check_loc'_def])
+      >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+          rw [TAKE_APPEND2] >>
+          srw_tac [ARITH_ss] [])
+      >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
+          rw [DROP_APPEND2] >>
+          srw_tac [ARITH_ss] [])));
+
+val v_rel_run = Q.prove (
+  `!f1 refs code args args' env' ptr body newenv func func' rest tag n loc.
+    LENGTH args ≠ 0 ∧
+    func' = Block tag (CodePtr ptr::Number (&n)::env') ∧
+    dest_closure loc func args = SOME (Full_app body newenv rest) ∧
+    v_rel f1 refs code func func' ∧
+    LIST_REL (v_rel f1 refs code) args args'
+    ⇒
+    ∃ck' body' aux1 aux2 newenv' exp'.
+      lookup ptr code = SOME (n + 2,exp') ∧
+      compile [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
+      env_rel f1 refs code newenv newenv' ∧
+      !t1.
+        evaluate ([exp'], DROP (LENGTH args' - (n + 1)) args' ++ [func'], inc_clock ck' (t1 with <|refs := refs; code := code|>)) =
+        evaluate ([body'], newenv', (t1 with <| refs := refs; code := code |>))`,
+  rw [] >>
+  qpat_assum `v_rel x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [v_rel_cases] >> assume_tac x) >>
+  rw [] >>
+  imp_res_tac EVERY2_LENGTH >>
+  imp_res_tac cl_rel_get_loc
+  >- (qexists_tac `0` >>
+      rw [] >>
+      imp_res_tac dest_cl_imp_dest_cl' >>
+      metis_tac [cl_rel_run]) >>
+  CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
+  qexists_tac `generate_partial_app_closure_fn (num_args − 1) (LENGTH ys − 1)` >>
+  srw_tac [ARITH_ss] [] >>
+  imp_res_tac cl_rel_dest >>
+  rw [] >>
+  `v_rel f1 refs code cl (Block closure_tag (CodePtr l::Number (&num_args')::fvs'))`
+            by (rw [v_rel_cases, partial_app_tag_def] >>
+                metis_tac [closure_tag_def]) >>
+  `LENGTH arg_env ≠ 0 ∧ LENGTH ys ≠ 0 ∧ LENGTH ys < num_args` by metis_tac [LENGTH_EQ_NUM] >>
+  `LIST_REL (v_rel f1 refs code) (args++arg_env) (args'++ys)`
+             by metis_tac [EVERY2_APPEND] >>
+  assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_of_part |> GEN_ALL) >>
+  rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP th))) >>
+  strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] cl_rel_run) >>
+  fs [] >>
+  rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
+  MAP_EVERY qexists_tac [`new_env'`, `aux2`, `aux1`, `body'`] >>
+  rw [] >>
+  `?total_args. &num_args' = &total_args - 1`
+        by (qexists_tac `&num_args' + 1` >>
+            rw [] >>
+            ARITH_TAC) >>
+  fs [] >>
+  imp_res_tac cl_rel_get_num_args >>
+  fs [] >>
+  rw [] >>
+  qexists_tac `1` >>
+  rw [] >>
+  fs [] >>
+  `num_args' + 2 = LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args') + (LENGTH ys +1) ∧
+   0 < LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args')`
+            by (rw [LENGTH_DROP, SUB_LEFT_SUB] >>
+                fs [LESS_OR_EQ] >>
+                TRY ARITH_TAC >>
+                `num_args' = num_args -1`  by ARITH_TAC >>
+                simp [] >>
+                imp_res_tac dest_closure_full_app >>
+                `num_args'' = num_args ∧ LENGTH old_args = LENGTH ys`
+                         by (Cases_on `cl` >>
+                             fs [add_args_def] >>
+                             qpat_assum `X = func` (assume_tac o GSYM) >>
+                             fs [get_old_args_def, get_num_args_def] >>
+                             rw [] >>
+                             simp []) >>
+                decide_tac) >>
+  full_simp_tac bool_ss [] >>
+  assume_tac (SIMP_RULE (srw_ss()++ARITH_ss) [GSYM AND_IMP_INTRO] evaluate_partial_app_fn) >>
+  pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
+  fs [] >>
+  rw [] >>
+  fs [] >>
+  fs [inc_clock_def] >>
+  rw [] >>
+  rfs [] >>
+  pop_assum (qspecl_then [`Number (&num_args − 1)`,
+                          `partial_app_tag`,
+                          `Number (&(num_args − (LENGTH ys + 1)))`,
+                          `closure_tag`,
+                          `CodePtr (partial_app_fn_location (num_args − 1) (LENGTH ys − 1))`,
+                          `fvs'`,
+                          `t1 with <|refs:=refs;clock := t1.clock + 1; code := code|>`] mp_tac) >>
+  rw [partial_app_tag_def] >>
+  rw [] >>
+  rw [dec_clock_def] >>
+  `t1 with <|clock := t1.clock; code := code|> = t1 with code := code`
+         by rw [bvlSemTheory.state_component_equality] >>
+  `LENGTH args' − (LENGTH args' + LENGTH ys − num_args) + LENGTH ys − 1 = num_args -1` by ARITH_TAC >>
+  fs [] >>
+  `num_args' + 1 = num_args` by ARITH_TAC >>
+  `LENGTH args' + LENGTH ys − (num_args' + 1) ≤ LENGTH args'` by ARITH_TAC >>
+  first_x_assum (qspec_then `t1 with <| clock := t1.clock; code := code |>` mp_tac) >>
+  fs [DROP_APPEND1] >>
+  rw [dec_clock_def]);
+
+val list_rel_app = Q.prove (
+  `!R args args' l0 c l func rem_args.
+    dest_closure NONE func args = SOME (Full_app c l l0) ∧
+    num_remaining_args func = SOME rem_args ∧
+    LIST_REL R args args'
+    ⇒
+    LIST_REL R l0 (TAKE (LENGTH args' − rem_args) args')`,
+  rw [dest_closure_def, LET_THM] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  TRY (Cases_on `EL n l1`) >>
+  fs [] >>
+  rw [] >>
+  BasicProvers.EVERY_CASE_TAC >>
+  fs [] >>
+  rw [] >>
+  fs [LIST_REL_EL_EQN, check_loc_def, num_remaining_args_def] >>
+  srw_tac [ARITH_ss] [EL_TAKE, EL_REVERSE, EL_DROP, PRE_SUB1]);
+
+val mk_call_simp2 = Q.prove(
+  `!n args stuff stuff' v t.
+    n ≤ LENGTH args ∧ LENGTH stuff' ≠ 0
+    ⇒
+    evaluate ([mk_cl_call (Var n) (GENLIST Var n)], (TAKE n args) ++ [v] ++ stuff, t)
+    =
+    evaluate ([mk_cl_call (Var 0) (GENLIST (\n. Var (n+1)) n)], v::(args++stuff'), t)`,
+  strip_tac >>
+  simp [mk_cl_call_def, bEval_def, bEvalOp_def, el_take_append] >>
+  Cases_on `v` >>
+  simp [] >>
+  rw [] >>
+  Cases_on`EL 1 l`>>simp[]>>
+  simp[bEval_APPEND] >>
+  qspecl_then [`0`, `TAKE n args ++ [Block n' l] ++ stuff`, `n`]mp_tac evaluate_genlist_vars >>
+  qspecl_then [`1`, `Block n' l::(args ++ stuff')`, `n`]mp_tac evaluate_genlist_vars >>
+  srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, el_take_append] >>
+  rw [] >>
+  `n+1 ≤ SUC (LENGTH args + LENGTH stuff')` by decide_tac >>
+  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]);
+
+val no_partial_args = Q.prove (
+  `num_remaining_args func = SOME x ∧
+   get_num_args func = SOME x ∧
+   x ≠ 0 ∧
+   add_args cl arg_env = SOME func
+   ⇒
+   arg_env = []`,
+  Cases_on `cl` >>
+  rw [add_args_def] >>
+  fs [get_num_args_def, num_remaining_args_def] >>
+  rw [] >>
+  Cases_on `arg_env` >>
+  fs [] >>
+  decide_tac);
 
 val compile_correct = Q.store_thm("compile_correct",
   `(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -2244,14 +2762,14 @@ val compile_correct = Q.store_thm("compile_correct",
          >- ((* App NONE *)
              qabbrev_tac `n = rem_args - 1` >>
              imp_res_tac EVERY2_LENGTH >>
-             `lookup (LENGTH args' − 1) t1.code = 
+             `lookup (LENGTH args' − 1) t1.code =
                 SOME ((LENGTH args' - 1) + 2,generate_generic_app (LENGTH args' − 1))`
                          by (fs [state_rel_def] >>
                              `LENGTH args' - 1 < max_app` by decide_tac >>
                              metis_tac []) >>
              `LENGTH args' - 1 + 2  = LENGTH args' + 1` by decide_tac >>
              fs [] >>
-             `&rem_args - 1 = &n ∧ rem_args + 1 = n + 2` 
+             `&rem_args - 1 = &n ∧ rem_args + 1 = n + 2`
                   by (srw_tac [ARITH_ss] [Abbr `n`,int_arithTheory.INT_NUM_SUB]) >>
              `LENGTH args' − (LENGTH args' − rem_args) = rem_args` by decide_tac >>
              fs [] >>
@@ -2259,42 +2777,42 @@ val compile_correct = Q.store_thm("compile_correct",
              fs [] >>
              simp []
              >- ((* Timeout *)
-                 assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (Q.SPEC `t1 with clock := s1.clock` bEval_mk_cl_call_spec)) >>
+                 qspec_then `t1 with clock := s1.clock` (assume_tac o (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]))
+                   evaluate_mk_cl_call_spec >>
                  rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                  pop_assum mp_tac >>
                  simp [] >>
                  DISCH_TAC >>
                  qexists_tac `0` >>
-                 simp [res_rel_cases] >>
+                 simp [] >>
                  qexists_tac `f1` >>
                  rw []) >>
-             `?res' s'. cEval ([c],l,dec_clock rem_args s1) = (res', s')` by metis_tac [pair_CASES] >>
+             `?res' s'. evaluate ([e],l,dec_clock rem_args s1) = (res', s')` by metis_tac [pair_CASES] >>
              fs [] >>
-             `res' ≠ Error` by (Cases_on `res'` >> fs []) >>
+             `res' ≠ Rerr(Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> fs[]) >>
              fs [] >>
-             imp_res_tac val_rel_run >>
+             imp_res_tac v_rel_run >>
              `LENGTH args ≠ 0` by decide_tac >>
-             fs [int_arithTheory.INT_NUM_SUB, closLangTheory.dec_clock_def] >>
+             fs [int_arithTheory.INT_NUM_SUB, closSemTheory.dec_clock_def] >>
              first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
              rpt (pop_assum (fn th => (first_assum (strip_assume_tac o MATCH_MP th)))) >>
-             Cases_on `?func''. res' =  Result [func'']` >>
+             Cases_on `?func''. res' =  Rval [func'']` >>
              fs [] >>
              rw [] >>
              fs []
              >- ((* The first application succeeds *)
-                 `?v'. val_rel f2 t2.refs t2.code func'' v' ∧ res'' = Result [v']` 
-                        by (fs [res_rel_cases] >>
-                            metis_tac []) >>
-                 `LIST_REL (val_rel f2 t2.refs t2.code) l0 (TAKE (LENGTH args' − rem_args) args')`
+                 `?v'. v_rel f2 t2.refs t2.code func'' v' ∧ res'' = Rval [v']`
+                        by (fs [] >> metis_tac []) >>
+                 `LIST_REL (v_rel f2 t2.refs t2.code) l0 (TAKE (LENGTH args' − rem_args) args')`
                           by (match_mp_tac list_rel_app >>
-                              MAP_EVERY qexists_tac [`args`, `c`, `l`, `func`] >>
+                              MAP_EVERY qexists_tac [`args`, `e`, `l`, `func`] >>
                               rw [] >>
                               fs [LIST_REL_EL_EQN] >>
                               rw [] >>
-                              match_mp_tac (GEN_ALL val_rel_SUBMAP) >>
+                              match_mp_tac (GEN_ALL v_rel_SUBMAP) >>
                               rw [] >>
-                              `t1.code = t2.code` 
-                                     by (imp_res_tac bvl_inlineTheory.bEval_code >>
+                              `t1.code = t2.code`
+                                     by (imp_res_tac evaluate_code >>
                                          fs []) >>
                               metis_tac []) >>
                  first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
@@ -2304,8 +2822,8 @@ val compile_correct = Q.store_thm("compile_correct",
                  Cases_on `(LENGTH args' ≤ rem_args)` >>
                  fs []
                  >- ((* No remaining arguments *)
-                     assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] 
-                                    (Q.SPEC `t1 with clock := ck + ck' + s1.clock` bEval_mk_cl_call_spec)) >>
+                     qspec_then `t1 with clock := ck + ck' + s1.clock`
+                       (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO])evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
                      simp [] >>
@@ -2317,20 +2835,20 @@ val compile_correct = Q.store_thm("compile_correct",
                      first_x_assum (qspec_then `t1 with clock := ck + s1.clock - LENGTH args'` mp_tac) >>
                      simp [inc_clock_def, dec_clock_def] >>
                      `!ck. t1 with <| clock := ck; code := t1.code |> = t1 with clock := ck`
-                              by rw [bvl_state_explode] >>
+                              by rw [bvlSemTheory.state_component_equality] >>
                      rw [] >>
                      `ck + s1.clock − LENGTH args' = s1.clock − LENGTH args' + ck` by decide_tac >>
                      rw [] >>
                      fs [cEval_def] >>
                      `!ck. t1 with <| clock := ck; refs := t1.refs |> = t1 with clock := ck`
-                              by rw [bvl_state_explode] >>
-                     fs [] >> 
+                              by rw [bvlSemTheory.state_component_equality] >>
+                     fs [] >> rw[] >>
                      metis_tac [SUBMAP_TRANS])
                  >- ((* Extra arguments *)
                      rw [] >>
                      first_x_assum (qspec_then `SOMEENV` strip_assume_tac) >>
-                     assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]
-                               (Q.SPEC `t1 with clock := ck + ck' + ck'' + 1 + s1.clock` bEval_mk_cl_call_spec)) >>
+                     qspec_then `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
+                       (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
                      simp [] >>
@@ -2342,17 +2860,17 @@ val compile_correct = Q.store_thm("compile_correct",
                      pop_assum kall_tac >>
                      first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
                      rw [inc_clock_def, dec_clock_def, Abbr `n`] >>
-                     `ck + ck'' + s1.clock − rem_args + ck' =  
+                     `ck + ck'' + s1.clock − rem_args + ck' =
                       ck + ck' + ck'' + s1.clock + 1 − (rem_args − 1 + 2)`
                                by ARITH_TAC  >>
                      `!ck. t1 with <| clock := ck; code := t1.code |> = t1 with clock := ck`
-                              by rw [bvl_state_explode] >>
+                              by rw [bvlSemTheory.state_component_equality] >>
                      fs [] >>
                      rw [] >>
                      `s1.clock − rem_args + ck + ck'' = ck+ck''+s1.clock-rem_args` by ARITH_TAC >>
-                     `bEval ([body'],newenv',t1 with clock := ck + ck'' + s1.clock - rem_args) =
-                         (Result [v'], inc_clock ck'' t2)`
-                               by (imp_res_tac bEval_add_clock >>
+                     `evaluate ([body'],newenv',t1 with clock := ck + ck'' + s1.clock - rem_args) =
+                         (Rval [v''], inc_clock ck'' t2)`
+                               by (imp_res_tac evaluate_add_clock >>
                                    rw [] >>
                                    pop_assum (qspec_then `ck''` mp_tac) >>
                                    fs [inc_clock_def]) >>
@@ -2367,14 +2885,14 @@ val compile_correct = Q.store_thm("compile_correct",
                      Cases_on `res''''` >>
                      fs [] >>
                      imp_res_tac bEval_SING >>
-                     fs [res_rel_cases] >>
+                     fs [] >>
                      `!ck. t1 with <| clock := ck; refs := t1.refs |> = t1 with clock := ck`
-                              by rw [bvl_state_explode] >>
-                     fs [inc_clock_def] >> 
+                              by rw [bvlSemTheory.state_component_equality] >>
+                     fs [inc_clock_def] >>
                      metis_tac [SUBMAP_TRANS]))
              >- ((* The first application fails *)
-                 `res' = res ∧ s' = s2` 
-                       by (Cases_on `res'` >> 
+                 `res' = res ∧ s' = s2`
+                       by (Cases_on `res'` >>
                            fs [] >>
                            Cases_on `a` >>
                            fs [] >>
@@ -2382,13 +2900,13 @@ val compile_correct = Q.store_thm("compile_correct",
                            fs []) >>
                  fs [] >>
                  `!ck. t1 with <| refs := t1.refs; clock := ck; code := t1.code |> = t1 with clock := ck`
-                              by rw [bvl_state_explode] >>
+                              by rw [bvlSemTheory.state_component_equality] >>
                  first_x_assum (qspec_then `t1 with clock := s1.clock - rem_args + ck` assume_tac) >>
                  rfs [] >>
                  Cases_on `n = LENGTH args' - 1` >>
                  fs []
-                 >- (assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] 
-                                (Q.SPEC `t1 with clock := ck+ck' + s1.clock` bEval_mk_cl_call_spec)) >>
+                 >- (qspec_then `t1 with clock := ck+ck' + s1.clock`
+                       (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
                      simp [] >>
@@ -2397,8 +2915,8 @@ val compile_correct = Q.store_thm("compile_correct",
                      rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
                      qexists_tac `f2` >>
                      rw [])
-                 >- (assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] 
-                                (Q.SPEC `t1 with clock := ck+ck' +1+ s1.clock` bEval_mk_cl_call_spec)) >>
+                 >- (qspec_then `t1 with clock := ck+ck' +1+ s1.clock`
+                       (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
                      simp [] >>
@@ -2411,10 +2929,10 @@ val compile_correct = Q.store_thm("compile_correct",
                      rw [] >>
                      MAP_EVERY qexists_tac [`res''`, `t2`, `f2`] >>
                      rw [] >>
-                     fs [res_rel_cases] >>
-                     rw [] >>
+                     BasicProvers.CASE_TAC >>
+                     Cases_on`res`>>fs[] >>
                      imp_res_tac bEval_SING >>
-                     fs [])))
+                     fs[] >> rw[])))
          >- ((* App SOME *)
              `rem_args = LENGTH args` by ARITH_TAC >>
              fs [] >>
@@ -2423,12 +2941,12 @@ val compile_correct = Q.store_thm("compile_correct",
              fs [] >>
              `t1.code = (t1 with clock := s1.clock - LENGTH args').code` by rw [] >>
              full_simp_tac std_ss [] >>
-             strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (val_rel_run)) >>
+             strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] (v_rel_run)) >>
              rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
              fs [] >>
              rw [] >>
-             `ptr = loc + num_stubs` 
-                     by (fs [val_rel_cases] >>
+             `ptr = loc + num_stubs`
+                     by (fs [v_rel_cases] >>
                          imp_res_tac cl_rel_get_loc >>
                          fs [] >>
                          srw_tac [ARITH_ss] [] >>
@@ -2439,16 +2957,15 @@ val compile_correct = Q.store_thm("compile_correct",
              Cases_on `s1.clock < LENGTH args'` >>
              fs []
              >- ((* TimeOut *)
-                 qexists_tac `0` >>
-                 rw [res_rel_cases] >>
+                 qexists_tac `0` >> rw [] >>
                  metis_tac [SUBMAP_REFL]) >>
-             `?res' s2. cEval ([c],l,dec_clock (LENGTH args') s1) = (res',s2)` 
+             `?res' s2. evaluate ([e],l,dec_clock (LENGTH args') s1) = (res',s2)`
                           by metis_tac [pair_CASES]  >>
              fs [] >>
              `l0 = []` by (Cases_on `l0` >> fs []) >>
              rw [] >>
-             `res' = res ∧ s2' = s2` 
-                     by (Cases_on `res'` >> 
+             `res' = res ∧ s2' = s2`
+                     by (Cases_on `res'` >>
                          fs [] >>
                          Cases_on `a` >>
                          fs [] >>
@@ -2468,7 +2985,7 @@ val compile_correct = Q.store_thm("compile_correct",
              first_x_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
              fs [] >>
              pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
-             fs [dec_clock_def, closLangTheory.dec_clock_def] >>
+             fs [bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
              pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x)) >>
              qexists_tac `ck+ck'` >>
              rw [] >>
@@ -2476,7 +2993,7 @@ val compile_correct = Q.store_thm("compile_correct",
              simp [] >>
              rw [] >>
              `!ck. t1 with <| refs:=t1.refs;code:=t1.code;clock := ck|> = t1 with clock := ck`
-                   by rw [bvl_state_explode] >>
+                   by rw [bvlSemTheory.state_component_equality] >>
              fs [] >>
              `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
              metis_tac []))));
@@ -2519,534 +3036,6 @@ val do_eq = prove(
   >- fs [closSemTheory.do_eq_def]
   >- fs [closSemTheory.do_eq_def]);
 *)
-
-val p_genlist = Q.prove (
-`EL k exps_ps = ((n',e),p) ∧
- MAP SND exps_ps = GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps) ∧
- k < LENGTH exps_ps
- ⇒
- p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))`,
- rw [] >>
- `EL k (MAP SND exps_ps) = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [] >>
- rfs [EL_MAP]);
-
-val cl_rel_get_loc = Q.prove (
-`cl_rel f1 refs code (env,fvs) func (Block tag (CodePtr p::n::ys))
- ⇒
- num_stubs ≤ p ∧
- get_loc func = SOME (p-num_stubs)`,
- rw [cl_rel_cases] >>
- fs [get_loc_def, closure_code_installed_def, EVERY_EL] >>
- `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
- fs [] >> 
- rw [] >>
- pop_assum mp_tac >>
- res_tac >>
- rw [] >>
- fs [EL_MAP] >>
- rw [] >>
- `p = EL k (GENLIST (λn. loc + num_stubs + n) (LENGTH exps_ps))` by metis_tac [p_genlist] >>
- rw [] >>
- ARITH_TAC);
-
-val no_partial_args = Q.prove (
-`num_remaining_args func = SOME x ∧
- get_num_args func = SOME x ∧
- x ≠ 0 ∧
- add_args cl arg_env = SOME func
- ⇒
- arg_env = []`,
- Cases_on `cl` >>
- rw [add_args_def] >>
- fs [get_num_args_def, num_remaining_args_def] >>
- rw [] >>
- Cases_on `arg_env` >>
- fs [] >>
- decide_tac);
-
-val cl_rel_run_lemma1 = Q.prove (
-`num_args ≤ LENGTH args'
- ⇒
- bEval (GENLIST Var num_args, DROP (LENGTH args' - num_args) args' ++ stuff, t1) =
- (Result (DROP (LENGTH args' - num_args) args'), t1)`,
- rw [] >>
- assume_tac (Q.SPECL [`0`, `DROP (LENGTH args' - num_args) args'++stuff`, `num_args`, `t1`] evaluate_genlist_vars) >>
- rfs [] >>
- rpt (pop_assum mp_tac) >>
- srw_tac [ARITH_ss] [ETA_THM] >>
- `LENGTH (DROP (LENGTH args' - num_args) args') = num_args` by srw_tac [ARITH_ss] [] >>
- metis_tac [TAKE_LENGTH_APPEND]);
-
-val cl_rel_run_lemma2 = Q.prove (
-`num_args ≤ LENGTH args'
- ⇒
- bEval (GENLIST Var (num_args + 1), DROP (LENGTH args' - num_args) args' ++ [f] ++ stuff, t1) = 
- (Result (DROP (LENGTH args' - num_args) args' ++ [f]), t1)`,
- rw [] >>
- assume_tac (Q.SPECL [`0`, `DROP (LENGTH args' - num_args) args'++[f]++stuff`, `num_args+1`, `t1`] evaluate_genlist_vars) >>
- rfs [] >>
- rpt (pop_assum mp_tac) >>
- srw_tac [ARITH_ss] [ETA_THM] >>
- `LENGTH (DROP (LENGTH args' - num_args) args'++[f]) = num_args+1` by srw_tac [ARITH_ss] [] >>
- metis_tac [TAKE_LENGTH_APPEND]) |> Q.INST [`stuff`|-> `[]`] |> SIMP_RULE (srw_ss()) [];
-
-val cl_rel_run_lemma3 = Q.prove (
-`LIST_REL R args args' ⇒
- LIST_REL R (DROP (LENGTH args' − n) args) (DROP (LENGTH args' − n) args')`,
- fs [LIST_REL_EL_EQN] >>
- rw [] >>
- `n' + (LENGTH args' − n) < LENGTH args` by decide_tac >>
- `n' + (LENGTH args' − n) < LENGTH args'` by metis_tac [] >>
- rw [EL_DROP]);
-
-(* Differs from check_loc and dest_closure by not checking that max_app *)
-val check_loc'_def = Define `
-  (check_loc' NONE loc num_params num_args so_far ⇔  T) ∧
-  (check_loc' (SOME p) loc num_params num_args so_far ⇔ 
-    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
-
-val dest_closure'_def = Define `
-  dest_closure' loc_opt f args =
-    case f of
-    | Closure loc arg_env clo_env num_args exp =>
-        if check_loc' loc_opt loc num_args (LENGTH args) (LENGTH arg_env) ∧ LENGTH arg_env < num_args then
-          if ¬(LENGTH args + LENGTH arg_env < num_args) then
-            SOME (Full_app exp
-                           (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
-                            arg_env++clo_env)
-                           (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
-          else
-            SOME (Partial_app (Closure loc (args++arg_env) clo_env num_args exp))
-        else
-          NONE
-    | Recclosure loc arg_env clo_env fns i =>
-        let (num_args,exp) = EL i fns in
-          if LENGTH fns <= i \/ 
-             ~(check_loc' loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
-             ¬(LENGTH arg_env < num_args) then NONE else
-            let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
-              if ¬(LENGTH args + LENGTH arg_env < num_args) then
-                SOME (Full_app exp
-                               (REVERSE (TAKE (num_args - LENGTH arg_env) (REVERSE args))++
-                                arg_env++rs++clo_env)
-                               (REVERSE (DROP (num_args - LENGTH arg_env) (REVERSE args))))
-              else
-                SOME (Partial_app (Recclosure loc (args++arg_env) clo_env fns i))
-    | _ => NONE`;
-
-val dest_cl_imp_dest_cl' = Q.prove (
-  `dest_closure l f a = SOME x ⇒ dest_closure' l f a = SOME x`,
-  rw [dest_closure_def, dest_closure'_def] >>
-  BasicProvers.EVERY_CASE_TAC >>
-  fs [] >>
-  Cases_on `l` >>
-  fs [check_loc_def, check_loc'_def, LET_THM] >>
-  Cases_on `EL n l1` >>
-  fs []);
-
-val bEval_free_let_Block = Q.prove (
-  `!ys zs.
-    bEval ([x],env,s) = (Result [Block n (y::z::ys ++ zs)], s)
-    ⇒
-    bEval (free_let x (LENGTH ys),env,s) = (Result ys,s)`,
-  ho_match_mp_tac SNOC_INDUCT >>
-  rw [free_let_def, bEval_def] >>
-  fs [SNOC_APPEND] \\ FULL_SIMP_TAC std_ss [GSYM APPEND_ASSOC] >>
-  res_tac >>
-  fs [GENLIST, bEval_SNOC, bEvalOp_def, bEval_def] >>
-  simp [EL_CONS, PRE_SUB1, el_append3])
-   |> Q.SPECL [`ys`,`[]`] |> SIMP_RULE std_ss [APPEND_NIL];
-
-val cl_rel_run_tac =
- qexists_tac `c` >>
- qexists_tac `aux` >>
- qexists_tac `aux1` >>
- imp_res_tac EVERY2_LENGTH >>
- fs [] >>
- rw [bEval_def, bEval_APPEND] >>
- rw_tac (std_ss) [GSYM APPEND_ASSOC] >>
- simp [cl_rel_run_lemma1, cl_rel_run_lemma2] >>
- `LENGTH (DROP (LENGTH args' − num_args) args') = num_args`
-            by (rw [] >> decide_tac) >>
- qexists_tac `witness` >>
- rw [] >>
- `bEval ([Var num_args], DROP (LENGTH args' − num_args) args' ++ [func'],t1 with refs := refs) = (Result [func'],t1 with refs := refs)`
-         by (rw [bEval_def]
-             >- metis_tac [EL_LENGTH_APPEND, NULL, HD]) >>
- simp [TAKE_REVERSE, LASTN_DROP] >>
- unabbrev_all_tac >>
- imp_res_tac bEval_free_let_Block >>
- rfs [] >>
- rw [] >>
- metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, LASTN_LENGTH_ID, env_rel_APPEND, LIST_REL_def, cl_rel_run_lemma3];
-
-val genlist_deref = Q.prove (
-  `!skip st r xs args p n env ys.
-    FLOOKUP st.refs r = SOME (ValueArray (ys++xs)) ∧
-    skip = LENGTH ys
-    ⇒
-    evaluate (GENLIST (λi. Op Deref [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
-           RefPtr r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env),
-           st)
-    =
-    (Rval xs, st)`,
-  Induct_on `xs` >>
-  rw [evaluate_def, GENLIST_CONS] >>
-  rw [Once evaluate_CONS, evaluate_def, do_app_def, combinTheory.o_DEF] >>
-  `FLOOKUP st.refs r = SOME (ValueArray ((ys++[h])++xs))` by rw [] >>
-  first_x_assum (fn th => first_assum (assume_tac o MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] th))) >>
-  simp [ADD1] >>
-  rw [] >>
-  fs [ADD1] >>
-  rw [EL_LENGTH_APPEND]);
-
-val evaluate_code_for_recc_case = Q.prove (
-  `!st r xs args c p n env.
-    FLOOKUP st.refs r = SOME (ValueArray xs)
-    ⇒
-    evaluate ([SND (code_for_recc_case (LENGTH xs) (LENGTH args) c)],
-              args ++ Block closure_tag [CodePtr p;Number &n;RefPtr r]::env,
-              st) =
-    evaluate ([c],
-              args ++ xs ++ [RefPtr r] ++ args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env,
-              st)`,
-  simp [code_for_recc_case_def, evaluate_def, do_app_def] >>
-  simp [evaluate_APPEND, EL_LENGTH_APPEND] >>
-  rpt strip_tac >>
-  `LENGTH args + 1 ≤ LENGTH (RefPtr r::(args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env))`
-              by (rw [] >> intLib.ARITH_TAC) >>
-  imp_res_tac evaluate_genlist_vars >>
-  fs [] >>
-  mp_tac (Q.SPEC `0` genlist_deref) >>
-  simp [LENGTH_NIL_SYM] >>
-  rw [TAKE_LENGTH_APPEND]);
-
-val cl_rel_run = Q.prove (
-`!loc f1 (refs : num|-> ref_value) code args args' env env' ptr body new_env func func' rest n fvs.
-  func' = Block closure_tag (CodePtr ptr::Number (&n)::env') ∧
-  dest_closure' loc func args = SOME (Full_app body new_env rest) ∧
-  val_rel f1 refs code func func' ∧
-  cl_rel f1 refs code (env,fvs) func func' ∧
-  LIST_REL (val_rel f1 refs code) env fvs ∧
-  LIST_REL (val_rel f1 refs code) args args'
-  ⇒
-  ∃body' aux1 aux2 new_env' exp'.
-    lookup ptr code = SOME (n + 2,exp') ∧
-    compile [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
-    env_rel f1 refs code new_env new_env' ∧
-    !t1. bEval ([exp'], DROP (LENGTH args' - (n + 1)) args'++[func'], t1 with refs := refs) = bEval ([body'], new_env', t1 with refs := refs)`,
- rw [cl_rel_cases, dest_closure'_def] >>
- fs [int_arithTheory.INT_NUM_SUB, closure_code_installed_def] >>
- rfs [] >>
- simp [] >>
- fs [check_loc_def, LET_THM] >>
- BasicProvers.EVERY_CASE_TAC >>
- rw []
- >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
-     qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
-     cl_rel_run_tac)
- >- (qabbrev_tac `func' = Block closure_tag (CodePtr (p + num_stubs)::Number (&num_args − 1):: env')` >>
-     qabbrev_tac `witness = DROP (LENGTH args' − num_args) args'++[func']++env'++DROP (LENGTH args' − num_args) args' ++ [func']` >>
-     cl_rel_run_tac) >>
- fs [EL_MAP] >>
- `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
- fs [] >>
- rw [] >>
- Cases_on `LENGTH args < n'` >>
- fs [EVERY_EL, closure_code_installed_def] >>
- rw [] >>
- first_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
- ASM_REWRITE_TAC [] >>
- simp [] >>
- rw [] >>
- simp [] >>
- MAP_EVERY qexists_tac [`c`, `aux`, `aux1`,
-       `DROP (LENGTH args' − (n + 1)) args' ++
-        MAP (λ((n,e),p). Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r]) 
-            exps_ps ++ 
-        fvs ++ 
-        [RefPtr r] ++
-        DROP (LENGTH args' − (n + 1)) args' ++
-        [Block closure_tag [CodePtr p; Number (&n); RefPtr r]]`] >>
- rw []
- >- ARITH_TAC
- >- (simp [TAKE_REVERSE, LASTN_DROP] >>
-     `LIST_REL (val_rel f1 refs code)
-               (DROP (LENGTH args − n') args)
-               (DROP (LENGTH args' − (n + 1)) args')` 
-             by (`n' = n+1` by ARITH_TAC >>
-                 metis_tac [cl_rel_run_lemma3, EVERY2_LENGTH]) >>
-     `LIST_REL (val_rel f1 refs code)
-               (GENLIST (Recclosure loc' [] env (MAP FST exps_ps)) (LENGTH exps_ps))
-               (MAP (λ((n,e),p).
-                      Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
-                    exps_ps)` 
-           by (rw [LIST_REL_EL_EQN] >>
-               simp [val_rel_cases] >>
-               simp [EL_MAP, cl_rel_cases] >>
-               `?n e p. EL n'' exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
-               fs [] >>
-               simp [] >>
-               qexists_tac `env` >>
-               simp [] >>
-               qexists_tac `fvs` >>
-               simp [] >>
-               DISJ2_TAC >>
-               qexists_tac `exps_ps` >>
-               simp [EL_MAP] >>
-               rw [int_arithTheory.INT_NUM_SUB] >>
-               rw [closure_code_installed_def] >>
-               rw [EVERY_EL]) >>
-     metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, EVERY2_APPEND])
- >- (`FLOOKUP refs r = FLOOKUP (t1 with refs := refs).refs r` by rw [] >>
-     full_simp_tac std_ss [] >>
-     imp_res_tac evaluate_code_for_recc_case >>
-     fs [LENGTH_MAP] >>
-     pop_assum (qspecl_then [`p`, `n`, `[]`, `c`, `DROP (LENGTH args' − (n + 1)) args'`] mp_tac) >>
-     rw [] >>
-     imp_res_tac EVERY2_LENGTH >>
-     `LENGTH args' − (LENGTH args' − (n + 1)) = n'` by ARITH_TAC >>
-     fs [] >>
-     rw [Once ADD_COMM]));
-
-val dest_closure_full_of_part = Q.prove (
-`dest_closure loc func args = SOME (Full_app body newenv rest) ∧
- LENGTH arg_env ≠ 0 ∧
- add_args cl arg_env = SOME func ∧
- get_num_args cl = SOME num_args ∧
- LENGTH arg_env < num_args
- ⇒
- dest_closure' loc cl (args++arg_env) = SOME (Full_app body newenv rest)`,
- rw [dest_closure_def, dest_closure'_def] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [add_args_def, check_loc_def, check_loc'_def, get_num_args_def] >>
- rw [] >>
- fs [] >>
- TRY decide_tac
- >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
-     rw [TAKE_APPEND2] >>
-     srw_tac [ARITH_ss] [])
- >- (`LENGTH (REVERSE arg_env) ≤ n - LENGTH l` by (srw_tac [ARITH_ss] []) >>
-     rw [DROP_APPEND2] >>
-     srw_tac [ARITH_ss] []) 
- >- (Cases_on `loc` >> fs [check_loc_def, check_loc'_def])
- >- (fs [LET_THM] >>
-     BasicProvers.EVERY_CASE_TAC >>
-     rw [] >>
-     fs [] >>
-     TRY decide_tac
-     >- (Cases_on `loc` >> fs [check_loc_def, check_loc'_def])
-     >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
-         rw [TAKE_APPEND2] >>
-         srw_tac [ARITH_ss] [])
-     >- (`LENGTH (REVERSE arg_env) ≤ num_args' - LENGTH l` by (srw_tac [ARITH_ss] []) >>
-         rw [DROP_APPEND2] >>
-         srw_tac [ARITH_ss] []))); 
-
-val cl_rel_dest = Q.prove (
-`!f refs code cl cl' fvs fvs'.
-  cl_rel f refs code (fvs,fvs') cl cl'
-  ⇒
-  get_old_args cl = SOME [] ∧
-  ?l num_args fvs.
-    cl' = Block closure_tag (CodePtr l::Number (&num_args)::fvs)`,
- rw [cl_rel_cases] >>
- rw [get_old_args_def, EL_MAP] >>
- `?n e p. EL k exps_ps = ((n,e),p)` by metis_tac [pair_CASES] >>
- rw []);
-
-val val_rel_run = Q.prove (
-`!f1 (refs : num|-> ref_value) code args args' env' ptr body newenv func func' rest tag n loc.
-  LENGTH args ≠ 0 ∧
-  func' = Block tag (CodePtr ptr::Number (&n)::env') ∧
-  dest_closure loc func args = SOME (Full_app body newenv rest) ∧
-  val_rel f1 refs code func func' ∧
-  LIST_REL (val_rel f1 refs code) args args'
-  ⇒
-  ∃ck' body' aux1 aux2 newenv' exp'.
-    lookup ptr code = SOME (n + 2,exp') ∧
-    compile [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
-    env_rel f1 refs code newenv newenv' ∧
-    !t1. 
-      bEval ([exp'], DROP (LENGTH args' - (n + 1)) args' ++ [func'], inc_clock ck' (t1 with <|refs := refs; code := code|>)) =
-      bEval ([body'], newenv', (t1 with <| refs := refs; code := code |>))`,
- rw [] >>
- qpat_assum `val_rel x0 x1 x2 x3 x4` (fn x => mp_tac x >> simp [val_rel_cases] >> assume_tac x) >>
- rw [] >>
- imp_res_tac EVERY2_LENGTH >>
- imp_res_tac cl_rel_get_loc
- >- (qexists_tac `0` >>
-     rw [] >>
-     imp_res_tac dest_cl_imp_dest_cl' >>
-     metis_tac [cl_rel_run]) >>
- CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
- qexists_tac `generate_partial_app_closure_fn (num_args − 1) (LENGTH ys − 1)` >>
- srw_tac [ARITH_ss] [] >>
- imp_res_tac cl_rel_dest >>
- rw [] >>
- `val_rel f1 refs code cl (Block closure_tag (CodePtr l::Number (&num_args')::fvs'))`
-           by (rw [val_rel_cases, partial_app_tag_def] >>
-               metis_tac [closure_tag_def]) >>
- `LENGTH arg_env ≠ 0 ∧ LENGTH ys ≠ 0 ∧ LENGTH ys < num_args` by metis_tac [LENGTH_EQ_NUM] >>
- `LIST_REL (val_rel f1 refs code) (args++arg_env) (args'++ys)`
-            by metis_tac [EVERY2_APPEND] >>
- assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] dest_closure_full_of_part |> GEN_ALL) >>
- rpt (pop_assum (fn th => first_assum (assume_tac o MATCH_MP th))) >>
- strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] cl_rel_run) >>
- fs [] >>
- rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
- MAP_EVERY qexists_tac [`new_env'`, `aux2`, `aux1`, `body'`] >>
- rw [] >>
- `?total_args. &num_args' = &total_args - 1` 
-       by (qexists_tac `&num_args' + 1` >>
-           rw [] >>
-           ARITH_TAC) >>
- fs [] >>
- imp_res_tac cl_rel_get_num_args >>
- fs [] >>
- rw [] >>
- qexists_tac `1` >>
- rw [] >>
- fs [] >>
- `num_args' + 2 = LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args') + (LENGTH ys +1) ∧
-  0 < LENGTH (DROP (LENGTH args' + LENGTH ys − num_args) args')`
-           by (rw [LENGTH_DROP, SUB_LEFT_SUB] >>
-               fs [LESS_OR_EQ] >>
-               TRY ARITH_TAC >>
-               `num_args' = num_args -1`  by ARITH_TAC >>
-               simp [] >>
-               imp_res_tac dest_closure_full_app >>
-               `num_args'' = num_args ∧ LENGTH old_args = LENGTH ys` 
-                        by (Cases_on `cl` >>
-                            fs [add_args_def] >>
-                            qpat_assum `X = func` (assume_tac o GSYM) >>
-                            fs [get_old_args_def, get_num_args_def] >>
-                            rw [] >>
-                            simp []) >>
-               decide_tac) >>
- full_simp_tac bool_ss [] >>
- assume_tac (SIMP_RULE (srw_ss()++ARITH_ss) [GSYM AND_IMP_INTRO] evaluate_partial_app_fn) >>
- pop_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
- fs [] >>
- rw [] >>
- fs [] >>
- fs [inc_clock_def] >>
- rw [] >>
- rfs [] >>
- pop_assum (qspecl_then [`Number (&num_args − 1)`, 
-                         `partial_app_tag`, 
-                         `Number (&(num_args − (LENGTH ys + 1)))`, 
-                         `closure_tag`,
-                         `CodePtr (partial_app_fn_location (num_args − 1) (LENGTH ys − 1))`, 
-                         `fvs'`,
-                         `t1 with <|refs:=refs;clock := t1.clock + 1; code := code|>`] mp_tac) >>
- rw [partial_app_tag_def] >>
- rw [] >>
- rw [dec_clock_def] >>
- `t1 with <|clock := t1.clock; code := code|> = t1 with code := code` 
-        by rw [bvl_state_explode] >>
- `LENGTH args' − (LENGTH args' + LENGTH ys − num_args) + LENGTH ys − 1 = num_args -1` by ARITH_TAC >>
- fs [] >>
- `num_args' + 1 = num_args` by ARITH_TAC >>
- `LENGTH args' + LENGTH ys − (num_args' + 1) ≤ LENGTH args'` by ARITH_TAC >>
- first_x_assum (qspec_then `t1 with <| clock := t1.clock; code := code |>` mp_tac) >>
- fs [DROP_APPEND1] >>
- rw [dec_clock_def]);
-
-val mk_call_simp2 = Q.prove(
-`!n args stuff stuff' v t.
-  n ≤ LENGTH args ∧ LENGTH stuff' ≠ 0
-  ⇒
-  bEval ([mk_cl_call (Var n) (GENLIST Var n)], (TAKE n args) ++ [v] ++ stuff, t)
-  = 
-  bEval ([mk_cl_call (Var 0) (GENLIST (\n. Var (n+1)) n)], v::(args++stuff'), t)`,
- strip_tac >>
- simp [mk_cl_call_def, bEval_def, bEvalOp_def, el_take_append] >>
- Cases_on `v` >>
- simp [] >>
- rw [] >>
- Cases_on `bc_equal (EL 1 l) (Number (&(n − 1)))` >>
- fs [] >>
- rw []
- >- metis_tac [bool_to_val_11] >>
- pop_assum (mp_tac o GSYM) >>
- pop_assum (mp_tac o GSYM) >>
- rw [bool_to_val_11,bEval_APPEND] >>
- mp_tac (Q.SPECL [`0`, `TAKE n args ++ [Block n' l] ++ stuff`, `n`] evaluate_genlist_vars) >>
- srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, el_take_append] >>
- rw [] >>
- `n+1 ≤ SUC (LENGTH args + LENGTH stuff')` by decide_tac >>
- mp_tac (Q.SPECL [`1`, `Block n' l::(args ++ stuff')`, `n`] evaluate_genlist_vars) >>
- srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]);
-
-val list_rel_app = Q.prove (
-`!R args args' l0 c l func rem_args.
-  dest_closure NONE func args = SOME (Full_app c l l0) ∧
-  num_remaining_args func = SOME rem_args ∧
-  LIST_REL R args args'
-  ⇒
-  LIST_REL R l0 (TAKE (LENGTH args' − rem_args) args')`,
- rw [dest_closure_def, LET_THM] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- TRY (Cases_on `EL n l1`) >>
- fs [] >>
- rw [] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- rw [] >>
- fs [LIST_REL_EL_EQN, check_loc_def, num_remaining_args_def] >>
- srw_tac [ARITH_ss] [EL_TAKE, EL_REVERSE, EL_DROP, PRE_SUB1]);
-
-val arith_helper_lem2 = Q.prove (
-`&(total_args + 1) − &LENGTH prev_args − 1 = &num_args − 1 − &LENGTH prev_args
- ⇒
- num_args = total_args + 1`,
- ARITH_TAC);
-
-val bEval_mk_cl_call_spec = Q.prove (
-`!s env tag p n args exp xs.
-  lookup p s.code = SOME (n+2, exp) ∧
-  lookup (LENGTH args - 1) s.code = SOME (LENGTH args + 1, generate_generic_app (LENGTH args - 1)) ∧
-  LENGTH args - 1 ≥ n ∧
-  n < max_app ∧
-  LENGTH args ≠ 0
-  ⇒ 
-  bEval ([mk_cl_call (Var (LENGTH args)) (GENLIST Var (LENGTH args))],args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) =
-   if n = LENGTH args - 1 then
-     if s.clock < LENGTH args 
-     then (TimeOut,s with clock := 0)
-     else bEval ([exp], 
-                 args ++ [Block tag (CodePtr p::Number (&(LENGTH args − 1))::xs)], 
-                 dec_clock (LENGTH args) s) 
-   else
-       if s.clock < n + 2
-       then (TimeOut,s with clock := 0)
-       else
-       case bEval ([exp], 
-                   DROP (LENGTH args − (n + 1)) args ++ [Block tag (CodePtr p::Number (&n)::xs)], 
-                   dec_clock (n + 2) s)
-         of
-          | (Result [v],st') =>
-              (case bEval ([mk_cl_call (Var 0) (GENLIST (λn. Var (n + 1)) (LENGTH args − (n + 1)))],
-                            v::(args ++ [Block tag (CodePtr p::Number (&n)::xs)]),
-                            st') of
-                  | (Result v,s2) => (Result [HD v],s2)
-                  | x => x)
-          | x => x`,
- rpt strip_tac >>
- `bEval ([Var (LENGTH args)], args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) = (Result [Block tag (CodePtr p::Number (&n)::xs)], s)`
-          by simp [bEval_def, el_append3] >>
- `bEval (GENLIST Var (LENGTH args), args ++ [Block tag (CodePtr p::Number (&n)::xs)] ++ env,s) = (Result args, s)` 
-          by (mp_tac (Q.SPECL [`0`, `args++[Block tag (CodePtr p::Number (&n)::xs)]++env`, `LENGTH (args:bc_value list)`] evaluate_genlist_vars) >>
-              simp [ETA_THM] >>
-              metis_tac [APPEND_ASSOC, TAKE_LENGTH_APPEND]) >>
- strip_assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] evaluate_mk_cl_call) >>
- rpt (pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th))) >>
- rfs [] >>
- rw []);
-
-(* -- *)
 
 val init_code_ok = Q.store_thm ("init_code_ok",
   `(!n.
