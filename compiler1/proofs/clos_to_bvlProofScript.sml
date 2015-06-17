@@ -779,6 +779,9 @@ val state_rel_def = Define `
     (!n. n < max_app ⇒ lookup n t.code = SOME (n + 2, generate_generic_app n)) ∧
     (!m n. m < max_app ∧ n < max_app ⇒
       lookup (partial_app_fn_location m n) t.code = SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+    (lookup equality_location t.code = SOME equality_code) ∧
+    (lookup block_equality_location t.code = SOME block_equality_code) ∧
+    (lookup ToList_location t.code = SOME ToList_code) ∧
     (!name arity c.
       (FLOOKUP s.code name = SOME (arity,c)) ==>
       ?aux1 c2 aux2.
@@ -1139,6 +1142,40 @@ val do_app_err = Q.prove(
     Cases_on`h`>>fs[]>>
     Cases_on`t'`>>fs[]>>
     every_case_tac >> fs[] ))
+
+val list_to_v_def = Define`
+  list_to_v [] = bvlSem$Block (nil_tag+pat_tag_shift+clos_tag_shift) [] ∧
+  list_to_v (h::t) = Block (cons_tag+pat_tag_shift+clos_tag_shift) [h; list_to_v t]`;
+
+val list_to_v = Q.prove(
+  `∀vs ws.
+     LIST_REL (v_rel f r c) vs ws ⇒
+     v_rel f r c (list_to_v vs) (list_to_v ws)`,
+  Induct >> simp[closSemTheory.list_to_v_def,list_to_v_def,v_rel_SIMP,PULL_EXISTS])
+
+(* correctness of implemented primitives *)
+
+val ToList = Q.prove(
+  `∀vs ws s.
+     lookup ToList_location s.code = SOME ToList_code ∧
+     LENGTH vs ≤ s.clock ⇒
+   evaluate ([SND ToList_code],
+             [Block t (vs++ws); Number &(LENGTH vs); list_to_v ws],
+              s)
+     = (Rval [list_to_v (vs++ws)], dec_clock (LENGTH vs) s)`,
+  ho_match_mp_tac SNOC_INDUCT >>
+  conj_tac >- (
+    simp[ToList_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] ) >>
+  rw[] >>
+  simp[ToList_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
+  `&SUC (LENGTH vs) - 1 = &LENGTH vs` by ARITH_TAC >> simp[] >>
+  simp[bvlSemTheory.find_code_def] >>
+  `ToList_code = (3,SND ToList_code)` by simp[ToList_code_def] >>
+  pop_assum SUBST1_TAC >> simp[] >>
+  simp[SNOC_APPEND] >>
+  first_x_assum(qspecl_then[`[x] ++ ws`,`dec_clock 1 s`]mp_tac) >>
+  discharge_hyps >- simp[dec_clock_def] >>
+  simp[list_to_v_def,EL_APPEND1,EL_LENGTH_APPEND,dec_clock_def,ADD1]);
 
 (* compiler correctness *)
 
@@ -2223,7 +2260,35 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ `?cc. compile xs aux1 = cc` by fs [] \\ PairCases_on `cc` \\ fs []
     \\ fs [LET_DEF,PULL_FORALL] \\ SRW_TAC [] []
     THEN1 ( (* ToList *)
-      cheat )
+      first_x_assum(qspec_then`aux1`mp_tac) >> simp[] >>
+      `p0 ≠ Rerr (Rabort Rtype_error)` by (spose_not_then strip_assume_tac >> fs[]) >>
+      disch_then(qspecl_then[`t1`,`env''`,`f1`]mp_tac) >>
+      simp[] >> strip_tac >>
+      fs[closSemTheory.do_app_def] >>
+      reverse(Cases_on`p0`)>>fs[]>>rw[]>-(
+        qexists_tac`ck`>>simp[bEval_def]>>
+        qexists_tac`f2`>>simp[]) >>
+      Cases_on`REVERSE a`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>> rw[]>>
+      simp[PULL_EXISTS] >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      pop_assum(qspec_then`LENGTH l+1`strip_assume_tac) >>
+      qexists_tac`ck+LENGTH l+1`>> simp[bEval_def] >>
+      fsrw_tac[ARITH_ss][inc_clock_def] >>
+      simp[bvlSemTheory.do_app_def] >>
+      fs[v_rel_SIMP] >> var_eq_tac >>
+      simp[bvlSemTheory.find_code_def] >>
+      `lookup ToList_location t2.code = SOME ToList_code` by fs[state_rel_def] >> simp[] >>
+      `ToList_code = (3,SND ToList_code)` by simp[ToList_code_def] >>
+      pop_assum SUBST1_TAC >> simp[] >>
+      qspecl_then[`n+clos_tag_shift`,`ys`,`[]`,`t2 with clock := LENGTH l + t2.clock`]mp_tac (GEN_ALL ToList) >>
+      discharge_hyps >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
+      simp[list_to_v_def,dec_clock_def] >>
+      disch_then kall_tac >>
+      imp_res_tac list_to_v >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      imp_res_tac LIST_REL_LENGTH >> simp[])
     THEN1 ( (* Equal *)
       cheat)
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`]) \\ fs []
