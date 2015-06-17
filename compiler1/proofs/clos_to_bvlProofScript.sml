@@ -3636,29 +3636,60 @@ val compile_correct = Q.store_thm("compile_correct",
 
 (* more correctness properties *)
 
-(* TODO: below this line, needs cleanup *)
-
 val init_code_ok = Q.store_thm ("init_code_ok",
   `(!n.
       n < max_app ⇒ lookup n init_code = SOME (n + 2, generate_generic_app n)) ∧
    (!m n.
       m < max_app ∧ n < max_app ⇒
         lookup (partial_app_fn_location m n) init_code =
-          SOME (m - n + 1, generate_partial_app_closure_fn m n))`,
+          SOME (m - n + 1, generate_partial_app_closure_fn m n)) ∧
+   (lookup equality_location init_code = SOME equality_code) ∧
+   (lookup block_equality_location init_code = SOME block_equality_code) ∧
+   (lookup ToList_location init_code = SOME ToList_code)`,
   rw [init_code_def, lookup_fromList, EL_APPEND1, partial_app_fn_location_def]
   >- decide_tac
+  >- simp[EL_APPEND1]
   >- (rw [LENGTH_FLAT, MAP_GENLIST, combinTheory.o_DEF, sum_genlist_square] >>
-      rw [DECIDE ``!(x:num) y z n. x + y +n < x + z ⇔ y +n < z``] >>
-      metis_tac [less_rectangle])
+      rw [DECIDE ``!(x:num) y z n. x + y +n < x + z + a ⇔ y +n < z + a``] >>
+      `max_app * m + n < max_app * max_app` by metis_tac[less_rectangle] >>
+      DECIDE_TAC)
   >- (`max_app ≤ max_app + max_app * m + n` by decide_tac >>
-      simp [EL_APPEND2, LENGTH_GENLIST] >>
+      ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+      simp[EL_APPEND2] >>
+      `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
       `0 < max_app` by rw [max_app_def] >>
       rw [twod_table] >>
-      `n+m*max_app < max_app*max_app` by metis_tac [less_rectangle2] >>
+      asm_simp_tac std_ss [EL_APPEND1,LENGTH_GENLIST] >>
       rw [EL_GENLIST] >>
       rw [DIV_MULT, Once ADD_COMM] >>
       ONCE_REWRITE_TAC [ADD_COMM] >>
-      rw [MOD_MULT]));
+      rw [MOD_MULT])
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[equality_location_def] )
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[EL_APPEND2,equality_location_def] )
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[equality_location_def,block_equality_location_def] )
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[EL_APPEND2,block_equality_location_def,equality_location_def] )
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[ToList_location_def,equality_location_def,block_equality_location_def] )
+  >- (
+    `0 < max_app` by rw [max_app_def] >>
+    rw [twod_table] >>
+    simp[EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def] ));
+
+(* TODO: below this line, needs cleanup *)
 
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
