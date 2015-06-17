@@ -63,9 +63,7 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op (Chopb Geq))) es) =
     Op GreaterEq (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Equality)) es) =
-    Let [Op Equal (REVERSE (MAP compile es))]
-      (If (Op IsBlock [Var 0]) (Var 0)
-          (Raise (Op (Cons (eq_tag+pat_tag_shift)) [])))) ∧
+    Op Equal (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Opassign)) es) =
     Let (REVERSE (MAP compile es))
       (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]

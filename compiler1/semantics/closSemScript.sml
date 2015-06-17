@@ -159,11 +159,8 @@ val do_app_def = Define `
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
-         | Eq_closure => Rval (Number 0, s)
+         | Eq_closure => Rerr (Rraise (Block (eq_tag+pat_tag_shift) []))
          | _ => Error)
-    | (IsBlock,[Number i]) => Rval (Boolv F, s)
-    | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
-    | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))

@@ -46,6 +46,7 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#bv
 (* same as closSem$do_app, except:
     - ToList is removed
     - Equal only compares integers
+    - IsBlock is added
     - Label is added *)
 
 val do_app_def = Define `

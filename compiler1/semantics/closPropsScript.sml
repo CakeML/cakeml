@@ -162,7 +162,7 @@ val v_ind =
 val do_app_err = Q.store_thm("do_app_err",
   `∀op ls s e.
      do_app op ls s = Rerr e ⇒
-     ∃a. e = Rabort a`,
+     (op ≠ Equal ⇒ ∃a. e = Rabort a)`,
   Cases >>
   rw[do_app_def] >>
   every_case_tac >> fs[LET_THM] >> rw[])

@@ -4,9 +4,9 @@ open preamble
      clos_freeTheory clos_freeProofTheory
      clos_annotateTheory;
 
-val _ = bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
-
 val _ = new_theory"clos_annotateProof";
+
+val _ = bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
 
 val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
                 |> UNDISCH |> CONJUNCT2 |> DISCH_ALL;
@@ -277,9 +277,7 @@ val do_app_thm = prove(
     \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
     \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
     \\ fs [])
-  THEN1 (* IsBlock *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp])
+  THEN1 (* IsBlock *) fs [do_app_def]
   THEN1 (* BlockCmp *) fs [do_app_def]
   THEN1 (* TagLenEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
@@ -396,94 +394,49 @@ val do_app_err_thm = Q.prove(
   >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
-      Cases_on`h''`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
       every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
       Cases_on`t`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[v_rel_simp] >>
       rw[] >> fs[state_rel_def] >> res_tac >> fs[] >>
       rw[] >> rfs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
+      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
+  >> (Cases_on`xs`>>fs[]>>
       Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[]));
+      Cases_on`t'`>>fs[] >>
+      every_case_tac >> fs[]));
 
 (* compiler correctness *)
 
