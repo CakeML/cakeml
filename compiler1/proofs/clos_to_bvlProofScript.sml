@@ -952,7 +952,7 @@ val OPTREL_v_rel_NEW_F = prove(
     ~(qq IN FDOM t2.refs) ==>
     OPTREL (v_rel (f2 |+ (pp,qq)) t2.refs t2.code) x y``,
   Cases_on `x` \\ Cases_on `y` \\ fs [OPTREL_def]
-  \\ METIS_TAC [v_rel_NEW_F]) |> MP_CANON
+  \\ METIS_TAC [v_rel_NEW_F]) |> MP_CANON;
 
 (* semantic functions respect relation *)
 
@@ -966,7 +966,7 @@ val v_to_list = Q.prove(
   ho_match_mp_tac closSemTheory.v_to_list_ind >>
   rw[v_rel_SIMP,closSemTheory.v_to_list_def,bvlSemTheory.v_to_list_def] >>
   every_case_tac >> fs[] >> rw[] >>
-  rw[bvlSemTheory.v_to_list_def] >> res_tac >> rw[])
+  rw[bvlSemTheory.v_to_list_def] >> res_tac >> rw[]);
 
 val do_app = Q.prove(
   `(do_app op xs s1 = Rval (v,s2)) /\
@@ -1023,8 +1023,8 @@ val do_app = Q.prove(
     rw[] >> fs[LIST_REL_EL_EQN] )
   >- (
     Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
     Cases_on`t`>>fs[v_rel_SIMP]>>
-    Cases_on`h'`>>fs[v_rel_SIMP]>>
     Cases_on`h`>>fs[v_rel_SIMP]>>
     every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
     fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
@@ -1036,11 +1036,10 @@ val do_app = Q.prove(
     every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
     fs[LIST_REL_EL_EQN])
   >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
-  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
   >- (
     Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
     Cases_on`t`>>fs[v_rel_SIMP]>>
-    Cases_on`h'`>>fs[v_rel_SIMP]>>
     Cases_on`h`>>fs[v_rel_SIMP]>>
     every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
     fs[state_rel_def] >> res_tac >> fs[v_rel_SIMP] >>
@@ -1049,21 +1048,21 @@ val do_app = Q.prove(
   >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
   >> (
     Cases_on`xs`>>fs[v_rel_SIMP]>>
+    Cases_on`h`>>fs[v_rel_SIMP]>>
     Cases_on`t`>>fs[v_rel_SIMP]>>
-    Cases_on`h'`>>fs[v_rel_SIMP]>>
     Cases_on`h`>>fs[v_rel_SIMP]>>
     Cases_on`t'`>>fs[v_rel_SIMP]>>
     rw[v_rel_SIMP] >>
     last_x_assum mp_tac >>
     rw[v_rel_SIMP] >>
-    rw[v_rel_SIMP]))
+    rw[v_rel_SIMP]));
 
 val do_app_err = Q.prove(
   `do_app op xs s1 = Rerr err ∧
    err ≠ Rabort Rtype_error ∧
    state_rel f s1 t1 ∧
    LIST_REL (v_rel f t1.refs t1.code) xs ys ∧
-   op ≠ ToList
+   op ≠ ToList ∧ op ≠ Equal
    ⇒
    ∃e. do_app (compile_op op) ys t1 = Rerr e ∧
        exc_rel (v_rel f t1.refs t1.code) err e`,
@@ -1090,58 +1089,56 @@ val do_app_err = Q.prove(
   >- ( every_case_tac >> fs[] )
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[]>>rw[]>>
-    Cases_on`h'`>>fs[]>>rw[]>>
     Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t'`>>fs[]>>rw[]>>
     every_case_tac >> fs[LET_THM])
   >- ( every_case_tac >> fs[LET_THM])
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[]>>rw[]>>
-    Cases_on`h'`>>fs[]>>rw[]>>
     Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t'`>>fs[]>>rw[]>>
     every_case_tac >> fs[])
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t'`>>fs[]>>rw[]>>
-    Cases_on`h''`>>fs[]>>rw[]>>
-    Cases_on`h'`>>fs[]>>rw[]>>
     Cases_on`h`>>fs[]>>rw[]>>
     every_case_tac >> fs[])
-  >- ( every_case_tac >> fs[] )
   >- ( every_case_tac >> fs[] )
   >- ( every_case_tac >> fs[] )
   >- ( every_case_tac >> fs[] )
   >- ( fs[LET_THM] )
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[]>>rw[]>>
-    Cases_on`h'`>>fs[]>>rw[]>>
     Cases_on`h`>>fs[]>>rw[]>>
     every_case_tac >> fs[])
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
-    Cases_on`t`>>fs[]>>rw[]>>
-    Cases_on`t'`>>fs[]>>rw[]>>
-    Cases_on`h'`>>fs[]>>rw[]>>
     Cases_on`h`>>fs[]>>rw[]>>
+    Cases_on`t`>>fs[]>>rw[]>>
+    Cases_on`h`>>fs[]>>rw[]>>
+    Cases_on`t'`>>fs[]>>rw[]>>
     every_case_tac >> fs[])
   >- (
     every_case_tac >> fs[v_rel_SIMP] >> rw[] >>
     rfs[state_rel_def] >> res_tac >> fs[] >> rw[] >> fs[] >>
     rw[] >> fs[])
   >- ( every_case_tac >> fs[] )
-  >- ( every_case_tac >> fs[] )
   >> (
     Cases_on`xs`>>fs[]>>
+    Cases_on`h`>>fs[]>>
     Cases_on`t`>>fs[]>>
-    Cases_on`h'`>>fs[]>>
     Cases_on`h`>>fs[]>>
     Cases_on`t'`>>fs[]>>
-    every_case_tac >> fs[] ))
+    every_case_tac >> fs[] ));
 
 val list_to_v_def = Define`
   list_to_v [] = bvlSem$Block (nil_tag+pat_tag_shift+clos_tag_shift) [] ∧
