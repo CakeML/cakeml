@@ -41,23 +41,23 @@ val do_eq_def = tDefine "do_eq" `
      | Number i =>
          (case y of
           | Number j => Eq_val (i = j)
-          | _ => Eq_val F)
+          | _ => Eq_type_error)
      | Block t1 xs =>
          (case y of
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              do_eq_list xs ys
                            else Eq_val F
-          | Number _ => Eq_val F
-          | RefPtr _ => Eq_val F
+          | Number _ => Eq_type_error
+          | RefPtr _ => Eq_type_error
           | _ => Eq_closure)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
-          | _ => Eq_val F)
+          | _ => Eq_type_error)
      | _ =>
          (case y of
-          | Number _ => Eq_val F
-          | RefPtr _ => Eq_val F
+          | Number _ => Eq_type_error
+          | RefPtr _ => Eq_type_error
           | _ => Eq_closure)) /\
   (do_eq_list [] [] = Eq_val T) /\
   (do_eq_list (x::xs) (y::ys) =
