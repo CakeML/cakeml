@@ -194,12 +194,12 @@ val generate_partial_app_closure_fn_def = Define `
 
 val ToList_code_def = Define`
   (* 3 arguments: block containing list, index of last converted element, accumulator *)
-  ToList_code =
+  ToList_code = (3:num,
     If (Op Equal [Var 1; mk_const 0]) (Var 2)
-      (Let [Op Sub [Var 1; mk_const 1]]
+      (Let [Op Sub [mk_const 1; Var 1]]
         (Call 0 (SOME ToList_location)
          [Var 1; Var 0; Op (Cons (cons_tag+pat_tag_shift+clos_tag_shift))
-                           [mk_el (Var 0) (Var 1); (Var 3)]]))`;
+                           [Var 3; mk_el (Var 1) (Var 0)]])))`;
 
 val RaiseEq_def = Define`
   RaiseEq = Raise (Op (Cons (eq_tag+pat_tag_shift+clos_tag_shift)) [])`;
@@ -210,7 +210,7 @@ val check_closure_def = Define`
                            (Bool F))`;
 
 val equality_code_def = Define`
-  equality_code =
+  equality_code = (2:num,
     If (Op IsBlock [Var 0])
        (If (Op IsBlock [Var 1])
            (If (Op BlockCmp [Var 0; Var 1])
@@ -220,11 +220,11 @@ val equality_code_def = Define`
            (check_closure 0))
        (If (Op IsBlock [Var 1])
            (check_closure 1)
-           (Op Equal [Var 0; Var 1]))`;
+           (Op Equal [Var 0; Var 1])))`;
 
 val block_equality_code_def = Define`
   (* 4 arguments: block1, block2, length, last checked index *)
-  block_equality_code =
+  block_equality_code = (4:num,
     If (Op Equal [Var 3; Var 2])
        (Bool T)
        (Let [Op Add [Var 3; mk_const 1]]
@@ -233,7 +233,7 @@ val block_equality_code_def = Define`
                  mk_el (Var 2) (Var 0)])
              (Call 0 (SOME block_equality_location)
                 [Var 1; Var 2; Var 3; Var 0])
-             (Bool F)))`;
+             (Bool F))))`;
 
 val init_code_def = Define `
   init_code =
@@ -241,9 +241,9 @@ val init_code_def = Define `
       (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++
        FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
                                      generate_partial_app_closure_fn m n)) max_app) max_app) ++
-       [(2,equality_code);
-        (4,block_equality_code);
-        (3,ToList_code)])`;
+       [equality_code;
+        block_equality_code;
+        ToList_code])`;
 
 val compile_def = tDefine "compile" `
   (compile [] aux = ([],aux)) /\
