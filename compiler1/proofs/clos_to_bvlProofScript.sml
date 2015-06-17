@@ -2727,8 +2727,87 @@ val compile_correct = Q.store_thm("compile_correct",
           simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
         match_mp_tac v_rel_NEW_F >>
         simp[Abbr`pp`,Abbr`n`,LEAST_NO_IN_FDOM] ) >>
-      cheat)
-    \\ Cases_on `op = RefByte` \\ fs[] THEN1 cheat
+      conj_tac >- (
+        match_mp_tac SUBMAP_TRANS >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        disj1_tac >>
+        fs[state_rel_def] >>
+        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+      match_mp_tac SUBMAP_TRANS >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      simp[FDIFF_def] >>
+      simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
+      rw[] >>
+      simp[Abbr`pp`,LEAST_NO_IN_FDOM])
+    \\ Cases_on `op = RefByte` \\ fs[] THEN1 (
+      fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def] >>
+      Cases_on`REVERSE a`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`a`>>fs[]>> rpt var_eq_tac >>
+      fs[v_rel_SIMP,LET_THM] >> rpt var_eq_tac >>
+      simp[PULL_EXISTS] >>
+      IF_CASES_TAC >> fs[] >> fs[] >> rw[] >>
+      qpat_abbrev_tac`pp = $LEAST P` >>
+      qpat_abbrev_tac`qq = $LEAST P` >>
+      simp[v_rel_SIMP] >>
+      qexists_tac`f2 |+ (qq,pp)` >>
+      simp[FLOOKUP_UPDATE] >>
+      `f2 \\ qq = f2` by (
+        fs[state_rel_def] >>
+        MATCH_MP_TAC DOMSUB_NOT_IN_DOM >>
+        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+      conj_tac >- (
+        fs[state_rel_def] >>
+        conj_tac >- (
+          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac OPTREL_v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          match_mp_tac OPTREL_v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+        conj_tac >- (
+          match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
+          spose_not_then strip_assume_tac >>
+          fs[SUBSET_DEF] >> res_tac >>
+          fs[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+        conj_tac >- ( fs[SUBSET_DEF] ) >>
+        simp[FLOOKUP_UPDATE] >>
+        rpt gen_tac >> reverse IF_CASES_TAC >> simp[] >- (
+          strip_tac >> res_tac >> simp[] >>
+          Cases_on`pp=m`>>simp[]>-(
+            `pp ∈ FRANGE f2` by (fs[FRANGE_FLOOKUP] >>METIS_TAC[]) >>
+            fs[SUBSET_DEF] >> res_tac >>
+            var_eq_tac >>
+            fs[Abbr`m`,LEAST_NO_IN_FDOM] ) >>
+          Cases_on`x`>>fs[] >>
+          match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
+          ONCE_REWRITE_TAC[CONJ_COMM] >>
+          first_assum(match_exists_tac o concl) >> simp[] >>
+          rpt strip_tac >>
+          match_mp_tac v_rel_NEW_REF >>
+          reverse conj_tac >- (
+            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          match_mp_tac v_rel_NEW_F >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+        strip_tac >> var_eq_tac >> simp[]) >>
+      conj_tac >- (
+        match_mp_tac SUBMAP_TRANS >>
+        first_assum(match_exists_tac o concl) >> simp[] >>
+        disj1_tac >>
+        fs[state_rel_def] >>
+        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+      match_mp_tac SUBMAP_TRANS >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
+      simp[FDIFF_def] >>
+      simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
+      rw[] >>
+      simp[Abbr`pp`,LEAST_NO_IN_FDOM])
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 cheat
     \\ Cases_on `∃n. op = FFI n` \\ fs[] THEN1 cheat
     \\ imp_res_tac closSemTheory.do_app_const
