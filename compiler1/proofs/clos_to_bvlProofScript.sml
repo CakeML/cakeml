@@ -6,6 +6,8 @@ open preamble
 
 val _ = new_theory"clos_to_bvlProof";
 
+val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
+
 (* TODO: move? *)
 
 val ARITH_TAC = intLib.ARITH_TAC;
@@ -1924,7 +1926,7 @@ val genlist_deref = Q.prove (
     FLOOKUP st.refs r = SOME (ValueArray (ys++xs)) ∧
     skip = LENGTH ys
     ⇒
-    evaluate (GENLIST (λi. Op Deref [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
+    bvlSem$evaluate (GENLIST (λi. Op Deref [Op (Const (&(i + skip))) []; Var 0]) (LENGTH xs),
            RefPtr r:: (args ++ Block closure_tag [CodePtr p; Number (&n); RefPtr r]::env),
            st)
     =
