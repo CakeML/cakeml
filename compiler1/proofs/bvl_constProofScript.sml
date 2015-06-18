@@ -22,7 +22,7 @@ val compile_exps_thm = store_thm("compile_exps_thm",
    (SIMP_TAC std_ss [Once bEval_cons]
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
     \\ SIMP_TAC std_ss [Once bEval_cons]
-    \\ FULL_SIMP_TAC std_ss [compile_SING]
+    \\ FULL_SIMP_TAC std_ss [compile_exp_SING]
     \\ BasicProvers.EVERY_CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [compile_exps_def,bEval_def]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [compile_exps_def])
@@ -30,13 +30,13 @@ val compile_exps_thm = store_thm("compile_exps_thm",
    (SRW_TAC [] [] \\ POP_ASSUM MP_TAC \\ fs [bEval_def]
     \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
     \\ REVERSE (Cases_on `q`) \\ fs []
-    \\ fs [GSYM compile_SING,EVAL ``Bool T``,EVAL ``Bool F``]
+    \\ fs [GSYM compile_exp_SING,EVAL ``Bool T``,EVAL ``Bool F``]
     \\ fs [bEval_def,bEvalOp_def] \\ SRW_TAC [] []
     \\ fs [EVAL ``Boolv T``,EVAL ``Boolv F``])
   \\ TRY
    (ASM_SIMP_TAC std_ss [bEval_def]
     \\ BasicProvers.EVERY_CASE_TAC
-    \\ FULL_SIMP_TAC (srw_ss()) [GSYM compile_SING]
+    \\ FULL_SIMP_TAC (srw_ss()) [GSYM compile_exp_SING]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
   \\ SIMP_TAC std_ss [bEval_def,compile_op_def]
   \\ REVERSE (Cases_on `EVERY isConst (compile_exps xs)`)

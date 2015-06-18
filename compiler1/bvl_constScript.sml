@@ -28,24 +28,24 @@ val compile_op_def = Define `
 
 val compile_exps_def = tDefine "compile_exps" `
   (compile_exps [] = []) /\
-  (compile_exps (x::xs) = compile x :: compile_exps xs) /\
-  (compile (Var n) = (Var n)) /\
-  (compile (If x1 x2 x3) =
-     let y1 = compile x1 in
-       if y1 = (Bool T) then compile x2 else
-       if y1 = (Bool F) then compile x3 else
-         If y1 (compile x2) (compile x3)) /\
-  (compile (Let xs x2) = Let (compile_exps xs) (compile x2)) /\
-  (compile (Raise x1) = Raise (compile x1)) /\
-  (compile (Handle x1 x2) = Handle (compile x1) (compile x2)) /\
-  (compile (Op op xs) = compile_op op (compile_exps xs)) /\
-  (compile (Tick x) = Tick (compile x)) /\
-  (compile (Call ticks dest xs) = Call ticks dest (compile_exps xs))`
+  (compile_exps (x::xs) = compile_exp x :: compile_exps xs) /\
+  (compile_exp (Var n) = (Var n)) /\
+  (compile_exp (If x1 x2 x3) =
+     let y1 = compile_exp x1 in
+       if y1 = (Bool T) then compile_exp x2 else
+       if y1 = (Bool F) then compile_exp x3 else
+         If y1 (compile_exp x2) (compile_exp x3)) /\
+  (compile_exp (Let xs x2) = Let (compile_exps xs) (compile_exp x2)) /\
+  (compile_exp (Raise x1) = Raise (compile_exp x1)) /\
+  (compile_exp (Handle x1 x2) = Handle (compile_exp x1) (compile_exp x2)) /\
+  (compile_exp (Op op xs) = compile_op op (compile_exps xs)) /\
+  (compile_exp (Tick x) = Tick (compile_exp x)) /\
+  (compile_exp (Call ticks dest xs) = Call ticks dest (compile_exps xs))`
  (WF_REL_TAC `measure (\y. case y of INL xs => exp1_size xs
                                    | INR x => exp_size x)`)
 
-val compile_SING = store_thm("compile_SING",
-  ``!x. [compile x] = compile_exps [x]``,
+val compile_exp_SING = store_thm("compile_exp_SING",
+  ``!x. [compile_exp x] = compile_exps [x]``,
   Cases \\ SIMP_TAC std_ss [compile_exps_def])
 
 val _ = export_theory();
