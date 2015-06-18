@@ -3689,7 +3689,9 @@ val init_code_ok = Q.store_thm ("init_code_ok",
     rw [twod_table] >>
     simp[EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def] ));
 
-(* TODO: below this line, needs cleanup *)
+(* TODO: cleanup, move, or delete things below *)
+
+(*
 
 val build_aux_thm = prove(
   ``∀c n aux n7 aux7.
@@ -4297,5 +4299,7 @@ val contains_Op_Label_renumber_code_locs = store_thm("contains_Op_Label_renumber
   Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
   Cases_on`renumber_code_locs (q + LENGTH r) e`>>fs[]>>
   METIS_TAC[MAP_ZIP,renumber_code_locs_length,SND,LENGTH_MAP])
+
+*)
 
 val _ = export_theory();

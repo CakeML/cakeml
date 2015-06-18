@@ -1,4 +1,4 @@
-open preamble bvlSemTheory clos_to_bvlTheory;
+open preamble bvlSemTheory clos_to_bvlTheory bvl_constTheory;
 
 val _ = new_theory"bvlProps";
 
@@ -307,5 +307,14 @@ val evaluate_genlist_vars_rev = Q.store_thm ("evaluate_genlist_vars_rev",
            by rw [MAP_GENLIST, combinTheory.o_DEF] >>
   fs [] >>
   metis_tac [evaluate_var_reverse]);
+
+val evaluate_isConst = Q.store_thm("evaluate_isConst",
+  `!xs. EVERY isConst xs ==>
+        (evaluate (xs,env,s) = (Rval (MAP (Number o getConst) xs),s))`,
+  Induct \\ fs [evaluate_def]
+  \\ ONCE_REWRITE_TAC [evaluate_CONS]
+  \\ Cases \\ fs [isConst_def]
+  \\ Cases_on `o'` \\ fs [isConst_def]
+  \\ Cases_on `l` \\ fs [isConst_def,evaluate_def,do_app_def,getConst_def]);
 
 val _ = export_theory();
