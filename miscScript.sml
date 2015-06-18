@@ -12,8 +12,15 @@ val _ = export_rewrites["alist.MAP_KEYS_I"]
 val _ = export_rewrites["finite_map.FUNION_FEMPTY_1"]
 val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
-
 (* TODO: move/categorize *)
+
+val list_to_num_set_def = Define `
+  (list_to_num_set [] = LN) /\
+  (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
+
+val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
+  ``∀f. OPTION_BIND f SOME = f``,
+  Cases >> simp[])
 
 val hd_drop = Q.store_thm ("hd_drop",
   `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
