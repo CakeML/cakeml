@@ -14,6 +14,15 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val lookup_inter_assoc = store_thm("lookup_inter_assoc",
+  ``lookup x (inter t1 (inter t2 t3)) =
+    lookup x (inter (inter t1 t2) t3)``,
+  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC)
+
+val lookup_inter_domain = store_thm("lookup_inter_domain",
+  ``x IN domain t2 ==> (lookup x (inter t1 t2) = lookup x t1)``,
+  fs [lookup_inter,domain_lookup] \\ BasicProvers.EVERY_CASE_TAC);
+
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
