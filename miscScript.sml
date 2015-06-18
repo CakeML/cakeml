@@ -18,6 +18,10 @@ val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
 
+val list_insert_def = Define `
+  (list_insert [] t = t) /\
+  (list_insert (n::ns) t = list_insert ns (insert n () t))`;
+
 val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
   ``∀f. OPTION_BIND f SOME = f``,
   Cases >> simp[])
