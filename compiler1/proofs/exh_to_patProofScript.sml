@@ -5,7 +5,7 @@ open preamble
 
 val _ = new_theory"exh_to_patProof"
 
-val _ = bring_to_front_overload"pure_op"{Name="pure_op",Thy="exh_to_pat"};
+val _ = temp_bring_to_front_overload"pure_op"{Name="pure_op",Thy="exh_to_pat"};
 
 val map_csg_def = decPropsTheory.map_csg_def
 val map_csg_count = decPropsTheory.map_csg_count
