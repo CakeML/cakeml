@@ -18,13 +18,9 @@ val _ = new_theory "bvp_simp";
      Seq (Seq x1 x2) x3 --> Seq x1 (Seq x2 x3)
 *)
 
-val isSkip_def = Define `
-  (isSkip Skip = T) /\
-  (isSkip _ = F)`;
-
 val pSeq_def = Define `
   pSeq c1 c2 =
-    if isSkip c2 then c1 else Seq c1 c2`;
+    if c2 = Skip then c1 else Seq c1 c2`;
 
 val simp_def = Define `
   (simp Skip c = c) /\
