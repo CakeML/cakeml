@@ -23,7 +23,8 @@ BARE_THYS = ../../semantics/terminationTheory\
 						../pat_to_closTheory\
 						../clos_to_bvlTheory\
 						../bvl_constTheory\
-						../bvl_to_bviTheory
+						../bvl_to_bviTheory\
+						../bvi_to_bvpTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
