@@ -1,16 +1,7 @@
 open preamble bvpSemTheory;
+local open sourcePropsTheory in end;
 
 val _ = new_theory"bvpProps";
-
-(* TODO: move *)
-val map_error_result_I = Q.store_thm("map_error_result_I[simp]",
-  `map_error_result I e = e`,
-  Cases_on`e`>>simp[])
-
-val map_result_Rval = Q.store_thm("map_result_Rval[simp]",
-  `map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y`,
-  Cases_on`e`>>simp[EQ_IMP_THM])
-(* -- *)
 
 val get_vars_with_stack = prove(
   ``!args s. (s.locals = t.locals) ==>
@@ -65,22 +56,6 @@ val do_app_const = Q.store_thm("do_app_const",
   every_case_tac >> fs[] >> rpt var_eq_tac >>
   fs[consume_space_def] >> var_eq_tac >> simp[])
 
-(*
-val tac =
-  fs [evaluate_def]
-  \\ ntac 4 (
-    BasicProvers.FULL_CASE_TAC
-    \\ fs [call_env_def,fromList_def,set_var_def,cut_state_opt_def,
-           do_app_def,do_space_def,consume_space_def,add_space_def,
-           bvi_to_bvp_def,cut_state_def,cut_env_def,dec_clock_def,
-           get_var_def,push_env_def,set_var_def,jump_exc_def,
-           get_vars_with_stack_rwt,
-           bvi_to_bvpTheory.op_space_reset_def,
-           bvp_to_bvi_def,bviSemTheory.do_app_def]
-    \\ imp_res_tac bvlPropsTheory.do_app_err
-    \\ rw[] \\ fs[])
-*)
-
 val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   ``!c s.
       case evaluate (c,s) of
@@ -117,48 +92,64 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
     rpt var_eq_tac >> fs[do_app_with_locals] >>
     TRY(first_assum(split_applied_pair_tac o rhs o concl) >> fs[]) >>
     imp_res_tac do_app_const >> simp[] )
-  THEN1 tac THEN1 tac THEN1 (tac \\ tac) THEN1 tac
+  THEN1 (
+    fs[evaluate_def] >>
+    EVAL_TAC >>
+    every_case_tac >> fs[] )
+  THEN1 (
+    fs[evaluate_def] >>
+    EVAL_TAC >>
+    every_case_tac >> fs[] )
+  THEN1 (
+    fs[evaluate_def] >>
+    EVAL_TAC >>
+    every_case_tac >> fs[] >>
+    rpt gen_tac >>
+    every_case_tac >> fs[] >>
+    rw[] >> simp[])
+  THEN1 (
+    fs[evaluate_def] >>
+    EVAL_TAC >>
+    every_case_tac >> fs[] )
   THEN1 (* Seq *)
    (fs [evaluate_def]
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c2,r)` \\ fs [LET_DEF]
     \\ Cases_on `q = NONE` \\ fs [] \\ Cases_on `q'` \\ fs []
-    \\ TRY (Cases_on `x`) \\ fs [jump_exc_def]
-    \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
-    \\ POP_ASSUM MP_TAC
-    \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+    \\ TRY (Cases_on `x`) \\ TRY (Cases_on`e`) \\ fs [jump_exc_def]
+    \\ every_case_tac \\ fs [] \\ SRW_TAC [] [] \\ fs []
+    \\ every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-    \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs []
-    \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ SRW_TAC [] [])
+    \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
   THEN1 (* If *)
    (fs [evaluate_def]
     \\ Cases_on `evaluate (g,s)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c1,r)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c2,r)` \\ fs [LET_DEF]
     \\ REVERSE (Cases_on `q`) \\ fs []
-    THEN1 (Cases_on `x` \\ fs [] \\ REPEAT STRIP_TAC
-           \\ RES_TAC \\ fs [])
+    THEN1 (Cases_on `x` \\ fs [] \\
+           Cases_on `e` \\ fs [] \\ REPEAT STRIP_TAC
+           \\ RES_TAC \\ fs [] \\
+           Cases_on `a` \\ fs [] )
     \\ Cases_on `get_var n r` \\ fs []
-    \\ Cases_on `x = bool_to_val T` \\ fs [get_var_def] THEN1
+    \\ Cases_on `x = Boolv T` \\ fs [get_var_def] THEN1
      (Cases_on `q'` \\ fs []
       \\ Cases_on `x'` \\ fs [jump_exc_def]
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs [jump_exc_def]
-      \\ SRW_TAC [] [bvp_state_explode] \\ fs [set_var_def]
+      \\ every_case_tac \\ fs [jump_exc_def]
+      \\ SRW_TAC [] [] \\ fs [set_var_def]
       \\ POP_ASSUM MP_TAC
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+      \\ every_case_tac \\ fs []
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs []
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ SRW_TAC [] [])
-    \\ Cases_on `x = bool_to_val F` \\ fs [get_var_def] THEN1
+      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
+    \\ Cases_on `x = Boolv F` \\ fs [get_var_def] THEN1
      (Cases_on `q''` \\ fs []
       \\ Cases_on `x'` \\ fs [jump_exc_def]
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs [jump_exc_def]
-      \\ SRW_TAC [] [bvp_state_explode] \\ fs [set_var_def]
+      \\ every_case_tac \\ fs [jump_exc_def]
+      \\ SRW_TAC [] [] \\ fs [set_var_def]
       \\ POP_ASSUM MP_TAC
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+      \\ every_case_tac \\ fs []
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs []
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs [] \\ SRW_TAC [] []))
+      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs []))
   THEN1 (* Call *)
    (fs [evaluate_def]
     \\ Cases_on `s.clock = 0` \\ fs []
