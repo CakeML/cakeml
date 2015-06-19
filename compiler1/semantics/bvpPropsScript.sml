@@ -56,10 +56,19 @@ val do_app_const = Q.store_thm("do_app_const",
   every_case_tac >> fs[] >> rpt var_eq_tac >>
   fs[consume_space_def] >> var_eq_tac >> simp[])
 
+val LAST_N_LEMMA = prove(
+  ``(LAST_N (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
+    (LAST_N (LENGTH xs + 1) (x::xs) = x::xs) /\
+    (LAST_N (LENGTH xs) xs = xs)``,
+  MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
+  \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH)
+  \\ MP_TAC (Q.SPEC `xs` LAST_N_LENGTH) \\ fs [ADD1]);
+
 val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   ``!c s.
       case evaluate (c,s) of
       | (SOME (Rerr(Rabort Rtype_error)),s1) => T
+      | (SOME (Rerr(Rabort Rffi_error)),s1) => T
       | (SOME (Rerr(Rabort Rtimeout_error)),s1) => (s1.stack = []) /\
                     (!xs. (LENGTH s.stack = LENGTH xs) ==>
                             evaluate (c,s with stack := xs) =
@@ -158,12 +167,12 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
     \\ TRY (fs [call_env_def] \\ NO_TAC)
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `ret` \\ fs [get_vars_with_stack_rwt] THEN1
-     (REPEAT BasicProvers.CASE_TAC \\ fs []
+     (every_case_tac \\ fs []
       \\ fs [call_env_def,dec_clock_def,jump_exc_def]
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+      \\ every_case_tac \\ fs []
       \\ SRW_TAC [] [] \\ fs []
       \\ Q.PAT_ASSUM `xxx = SOME s7` MP_TAC
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs []
+      \\ every_case_tac \\ fs []
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
       \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
     \\ fs [get_vars_with_stack_rwt]
@@ -176,6 +185,22 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
        \\ fs [pop_env_def,call_env_def,push_env_def,set_var_def,dec_clock_def]
        \\ REPEAT STRIP_TAC
        \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `Exc x' s.handler::xs`) \\ fs [] \\ NO_TAC)
+    \\ reverse(Cases_on`e`)\\fs[] THEN1 (
+         Cases_on`a`>>fs[]>>rw[]>>
+         qpat_abbrev_tac`ss = call_env X Y` >>
+         first_x_assum(qspec_then`ss.stack`mp_tac) >>
+         discharge_hyps >- (
+           simp[Abbr`ss`] >>
+           EVAL_TAC >>
+           Cases_on`handler`>>EVAL_TAC >>
+           simp[] ) >>
+         qpat_abbrev_tac`st:bvpSem$state = X Y` >>
+         `st = ss` by (
+           simp[Abbr`ss`,Abbr`st`,bvpSemTheory.state_component_equality] >>
+           EVAL_TAC >>
+           Cases_on`handler`>>EVAL_TAC >>
+           simp[] ) >>
+         fs[])
     \\ Cases_on `handler` \\ fs [] THEN1
      (fs [pop_env_def,call_env_def,push_env_def,set_var_def,dec_clock_def]
       \\ fs [jump_exc_def]
@@ -190,18 +215,18 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ fs [] \\ REPEAT STRIP_TAC
       \\ IMP_RES_TAC LAST_N_TL \\ fs []
-      \\ REPEAT BasicProvers.CASE_TAC \\ fs []
-      \\ fs [bvp_state_explode])
+      \\ every_case_tac \\ fs []
+      \\ fs [bvpSemTheory.state_component_equality])
     \\ Cases_on `x''` \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r,call_env q (push_env x8 T (dec_clock s))) =
-          (SOME (Exception b),s9)`
+          (SOME (Rerr (Rraise b)),s9)`
     \\ Cases_on `evaluate (r''',set_var q'' b s9)` \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `evaluate (r''',set_var q'' b s9) = (res,r5)`
     \\ Cases_on `res` \\ fs []
     THEN1 (* NONE *)
      (STRIP_TAC THEN1 (fs [set_var_def,pop_env_def,jump_exc_def,call_env_def,
           push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ fs []
-        \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [])
+          \\ every_case_tac \\ fs [] \\ SRW_TAC [] [] \\ fs [])
       \\ STRIP_TAC THEN1 (fs [set_var_def,pop_env_def,jump_exc_def,call_env_def,
           push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ fs [])
       \\ REPEAT STRIP_TAC
@@ -218,12 +243,12 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => fs [GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ fs [bvp_state_explode])
+      \\ REPEAT AP_TERM_TAC \\ fs [bvpSemTheory.state_component_equality])
     \\ Cases_on `x'` \\ fs []
-    THEN1 (* SOME Result *)
+    THEN1 (* SOME Rval *)
      (STRIP_TAC THEN1 (fs [set_var_def,pop_env_def,jump_exc_def,call_env_def,
           push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ fs []
-        \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [])
+          \\ every_case_tac \\ fs [] \\ SRW_TAC [] [] \\ fs [])
       \\ STRIP_TAC THEN1 (fs [set_var_def,pop_env_def,jump_exc_def,call_env_def,
           push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ fs [])
       \\ REPEAT STRIP_TAC
@@ -240,8 +265,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => fs [GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ fs [bvp_state_explode])
-    THEN1 (* SOME Exception *)
+      \\ REPEAT AP_TERM_TAC \\ fs [bvpSemTheory.state_component_equality])
+    \\ Cases_on`e` \\ fs[]
+    THEN1 (* Rraise *)
      (FIRST_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
            (dec_clock s))).stack`)
       \\ `(call_env q (push_env x8 T (dec_clock s)) with stack :=
@@ -254,7 +280,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ SIMP_TAC std_ss [Once call_env_def]
       \\ SIMP_TAC std_ss [Once jump_exc_def]
       \\ SIMP_TAC (srw_ss()) [LAST_N_LEMMA] \\ REPEAT STRIP_TAC
-      \\ fs [bvp_state_explode]
+      \\ fs [bvpSemTheory.state_component_equality]
       \\ Q.PAT_ASSUM `jump_exc (set_var q'' b s9) = SOME s2'` MP_TAC
       \\ SIMP_TAC std_ss [Once set_var_def]
       \\ SIMP_TAC (srw_ss()) [Once jump_exc_def]
@@ -280,9 +306,10 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ `s9 with <|locals := insert q'' b s9.locals; stack := xs;
              handler := s9.handler|> =
           s9 with <|locals := insert q'' b s9.locals; stack := xs|>` by ALL_TAC
-      THEN1 (fs [bvp_state_explode]) \\ fs []
-      \\ fs [bvp_state_explode])
-    THEN1 (* SOME TimeOut *)
+      THEN1 (fs [bvpSemTheory.state_component_equality]) \\ fs []
+      \\ fs [bvpSemTheory.state_component_equality])
+    \\ Cases_on`a` \\ fs[]
+    THEN1 (* Rtimeout_error *)
      (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
            (dec_clock (s with stack := xs)))).stack`)
@@ -297,7 +324,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => fs [GSYM th])
-      \\ REPEAT AP_TERM_TAC \\ fs [bvp_state_explode])))
+      \\ REPEAT AP_TERM_TAC \\ fs [bvpSemTheory.state_component_equality])))
 
 val evaluate_stack = store_thm("evaluate_stack",
   ``!c s.
