@@ -8,6 +8,10 @@ val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
 
 val _ = Q.store_thm("Boolv_11[simp]",`bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>rw[]);
 
+val do_app_err = Q.store_thm("do_app_err",
+  `do_app op vs s = Rerr e ⇒ ∃a. e = Rabort a ∧ a ≠ Rtimeout_error ∧ (a = Rffi_error ⇒ ∃n. op = FFI n)`,
+  rw[do_app_def] >> every_case_tac >> fs[LET_THM] >> rw[]);
+
 val evaluate_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)
