@@ -104,7 +104,7 @@ val evaluate_compile = Q.prove(
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app_err
        \\ fs [state_rel_def,set_var_def,lookup_insert]
-       \\ SRW_TAC [] [] \\ IMP_RES_TAC do_app_const
+       \\ SRW_TAC [] [call_env_def] \\ IMP_RES_TAC do_app_const
        \\ fs [domain_list_insert])
      \\ fs [evaluate_def,get_var_def,LET_DEF]
      \\ every_case_tac >> fs[] \\ SRW_TAC [] []
@@ -133,7 +133,7 @@ val evaluate_compile = Q.prove(
      \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app
      \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app_err
      \\ fs [state_rel_def,set_var_def,lookup_insert]
-     \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
+     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [call_env_def]
      \\ fs [domain_inter,domain_list_insert,domain_delete]
      \\ UNABBREV_ALL_TAC
      \\ IMP_RES_TAC do_app_const
@@ -276,12 +276,11 @@ val evaluate_compile = Q.prove(
           LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
       \\ REPEAT STRIP_TAC \\ fs [] \\ fs [state_rel_def])
-    THEN Cases_on`a`>>fs[] THEN1
+    THEN Cases_on`a`>>fs[] THEN
      (fs [call_env_def,dec_clock_def] \\ REPEAT STRIP_TAC
       \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t1.stack`) \\ fs []
-      \\ SRW_TAC [] [state_rel_def])
-    THEN1 (* FFI *) cheat)
+      \\ SRW_TAC [] [state_rel_def]))
   (* Call with SOME ret *)
   \\ Cases_on `x` \\ Q.MATCH_ASSUM_RENAME_TAC
        `(d,l1) = compile (Call (SOME (v,names)) dest args handler) l2`
@@ -358,11 +357,10 @@ val evaluate_compile = Q.prove(
                 fs [state_component_equality,state_rel_def]
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [state_rel_def] \\ SRW_TAC [] [] \\ fs [])
-    THEN Cases_on`a`>>fs[] THEN1
+    THEN Cases_on`a`>>fs[] THEN
      (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-      \\ REPEAT STRIP_TAC \\ fs [state_rel_ID])
-    THEN1 (* FFI *) cheat)
+      \\ REPEAT STRIP_TAC \\ fs [state_rel_ID]))
   (* Call with SOME handler *)
   \\ `?var handle. x = (var,handle)` by METIS_TAC [PAIR]
   \\ POP_ASSUM (fn th => fs [th])
@@ -409,11 +407,10 @@ val evaluate_compile = Q.prove(
     \\ fs [dec_clock_def])
   \\ Cases_on`e`>>fs[]
   \\ TRY (
-    Cases_on`a` >> fs[] >- (
+    Cases_on`a` >> fs[] >> (
     REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `t5.stack`) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs [state_rel_ID] \\ NO_TAC) >>
-    cheat (* FFI *) )
+    \\ REPEAT STRIP_TAC \\ fs [state_rel_ID] \\ NO_TAC))
   \\ REPEAT STRIP_TAC
   \\ POP_ASSUM (MP_TAC o Q.SPECL [`t5.stack`])
   \\ UNABBREV_ALL_TAC
@@ -471,7 +468,6 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ MP_TAC (Q.SPECL [`FST (compile c LN)`,`s`] evaluate_stack)
   \\ fs [] \\ Cases_on `x` \\ fs []
   \\ Cases_on`e`>>fs[] \\ Cases_on`a`>>fs[]
-  \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
-  \\ cheat (* FFI *));
+  \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
 
 val _ = export_theory();
