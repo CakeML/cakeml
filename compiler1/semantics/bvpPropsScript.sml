@@ -10,6 +10,13 @@ val EVERY_get_vars = store_thm("EVERY_get_vars",
   Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
+val get_vars_IMP_domain = store_thm("get_vars_IMP_domain",
+  ``!args x s vs. MEM x args /\ (get_vars args s = SOME vs) ==>
+                  x IN domain s.locals``,
+  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
+  \\ every_case_tac \\ fs [] \\ SRW_TAC [] []
+  \\ fs [domain_lookup]);
+
 val get_vars_with_stack = prove(
   ``!args s. (s.locals = t.locals) ==>
              (get_vars args s = get_vars args t)``,
@@ -46,12 +53,13 @@ val do_app_with_locals = Q.prove(
 
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒
-   ∃a. e = Rabort a ∧ a ≠ Rtimeout_error`,
+   ∃a. e = Rabort a ∧ a ≠ Rtimeout_error ∧ (a ≠ Rtype_error ⇒ ∃n. op = (FFI n))`,
   rw[do_app_def] >>
   every_case_tac >> fs[] >> rw[] >>
   fs[bviSemTheory.do_app_def] >>
   every_case_tac >> fs[] >> rw[] >>
-  imp_res_tac bvlPropsTheory.do_app_err >> rw[])
+  imp_res_tac bvlPropsTheory.do_app_err >> rw[] >>
+  Cases_on`a`>>fs[])
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
@@ -62,14 +70,6 @@ val do_app_const = Q.store_thm("do_app_const",
   fs[bviSemTheory.do_app_def] >>
   every_case_tac >> fs[] >> rpt var_eq_tac >>
   fs[consume_space_def] >> var_eq_tac >> simp[])
-
-val LAST_N_LEMMA = prove(
-  ``(LAST_N (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
-    (LAST_N (LENGTH xs + 1) (x::xs) = x::xs) /\
-    (LAST_N (LENGTH xs) xs = xs)``,
-  MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
-  \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH)
-  \\ MP_TAC (Q.SPEC `xs` LAST_N_LENGTH) \\ fs [ADD1]);
 
 val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   ``!c s.
@@ -364,5 +364,24 @@ val evaluate_NONE_jump_exc_ALT = store_thm("evaluate_NONE_jump_exc_ALT",
   \\ fs [jump_exc_def] \\ REPEAT STRIP_TAC \\ fs []
   \\ every_case_tac >> fs[]
   \\ SRW_TAC [] []);
+
+val evaluate_locals_LN_lemma = prove(
+  ``!c s.
+      FST (evaluate (c,s)) <> NONE /\
+      FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
+      ((SND (evaluate (c,s))).locals = LN) \/
+      FST (evaluate (c,s)) = SOME (Rerr(Rabort Rffi_error)) ∨
+      ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))``,
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [evaluate_def]
+  \\ every_case_tac \\ fs [call_env_def,fromList_def]
+  \\ imp_res_tac do_app_err >> fs[] >> rfs[]
+  \\ SRW_TAC [] [] \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []
+  \\ Cases_on`a`>>fs[]);
+
+val evaluate_locals_LN = store_thm("evaluate_locals_LN",
+  ``!c s res t.
+      (evaluate (c,s) = (res,t)) /\ res <> NONE /\ res <> SOME (Rerr(Rabort Rtype_error)) ==>
+      (t.locals = LN) \/ res = SOME (Rerr(Rabort Rffi_error)) ∨ ?t. res = SOME (Rerr(Rraise t))``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ fs []);
 
 val _ = export_theory();

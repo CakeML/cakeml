@@ -1276,6 +1276,12 @@ val LAST_N_LENGTH = store_thm("LAST_N_LENGTH",
   fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
   \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ fs []);
 
+val LAST_N_LEMMA = store_thm("LAST_N_LEMMA",
+  ``(LAST_N (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
+    (LAST_N (LENGTH xs + 1) (x::xs) = x::xs)``,
+  MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
+  \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH) \\ fs [ADD1]);
+
 val LAST_N_TL = store_thm("LAST_N_TL",
   ``n < LENGTH xs ==>
     (LAST_N (n+1) (x::xs) = LAST_N (n+1) xs)``,
