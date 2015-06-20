@@ -371,7 +371,6 @@ val evaluate_locals_LN_lemma = prove(
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>
       ((SND (evaluate (c,s))).locals = LN) \/
-      FST (evaluate (c,s)) = SOME (Rerr(Rabort Rffi_error)) ∨
       ?t. FST (evaluate (c,s)) = SOME (Rerr(Rraise t))``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [evaluate_def]
   \\ every_case_tac \\ fs [call_env_def,fromList_def]
@@ -382,7 +381,7 @@ val evaluate_locals_LN_lemma = prove(
 val evaluate_locals_LN = store_thm("evaluate_locals_LN",
   ``!c s res t.
       (evaluate (c,s) = (res,t)) /\ res <> NONE /\ res <> SOME (Rerr(Rabort Rtype_error)) ==>
-      (t.locals = LN) \/ res = SOME (Rerr(Rabort Rffi_error)) ∨ ?t. res = SOME (Rerr(Rraise t))``,
+      (t.locals = LN) \/ ?t. res = SOME (Rerr(Rraise t))``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_locals_LN_lemma) \\ fs []);
 
 val _ = export_theory();
