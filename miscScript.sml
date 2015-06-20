@@ -23,6 +23,19 @@ val lookup_inter_domain = store_thm("lookup_inter_domain",
   ``x IN domain t2 ==> (lookup x (inter t1 t2) = lookup x t1)``,
   fs [lookup_inter,domain_lookup] \\ BasicProvers.EVERY_CASE_TAC);
 
+val lookup_inter_alt = store_thm("lookup_inter_alt",
+  ``lookup x (inter t1 t2) =
+      if x IN domain t2 then lookup x t1 else NONE``,
+  fs [lookup_inter,domain_lookup]
+  \\ Cases_on `lookup x t2` \\ fs [] \\ Cases_on `lookup x t1` \\ fs []);
+
+val lookup_inter_EQ = store_thm("lookup_inter_EQ",
+  ``((lookup x (inter t1 t2) = SOME y) <=>
+       (lookup x t1 = SOME y) /\ lookup x t2 <> NONE) /\
+    ((lookup x (inter t1 t2) = NONE) <=>
+       (lookup x t1 = NONE) \/ (lookup x t2 = NONE))``,
+  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC);
+
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
@@ -30,6 +43,15 @@ val list_to_num_set_def = Define `
 val list_insert_def = Define `
   (list_insert [] t = t) /\
   (list_insert (n::ns) t = list_insert ns (insert n () t))`;
+
+val domain_list_to_num_set = store_thm("domain_list_to_num_set",
+  ``!xs. x IN domain (list_to_num_set xs) <=> MEM x xs``,
+  Induct \\ fs [list_to_num_set_def]);
+
+val domain_list_insert = store_thm("domain_list_insert",
+  ``!xs x t.
+      x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t``,
+  Induct \\ fs [list_insert_def] \\ METIS_TAC []);
 
 val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
   ``∀f. OPTION_BIND f SOME = f``,

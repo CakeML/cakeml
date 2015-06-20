@@ -3,6 +3,13 @@ local open sourcePropsTheory in end;
 
 val _ = new_theory"bvpProps";
 
+val EVERY_get_vars = store_thm("EVERY_get_vars",
+  ``!args s1 s2.
+      EVERY (\a. lookup a s1.locals = lookup a s2.locals) args ==>
+      (get_vars args s1 = get_vars args s2)``,
+  Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+
 val get_vars_with_stack = prove(
   ``!args s. (s.locals = t.locals) ==>
              (get_vars args s = get_vars args t)``,
@@ -48,7 +55,7 @@ val do_app_err = Q.store_thm("do_app_err",
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
-    z.stack = x.stack ∧ z.handler = x.handler`,
+    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals`,
   simp[do_app_def,do_space_def] >>
   every_case_tac >> simp[bvi_to_bvp_def] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
@@ -337,5 +344,25 @@ val evaluate_stack = store_thm("evaluate_stack",
       | (_,s1) => (s1.stack = s.stack) /\ (s1.handler = s.handler)``,
   REPEAT STRIP_TAC \\ ASSUME_TAC (SPEC_ALL evaluate_stack_swap)
   \\ every_case_tac \\ fs []);
+
+val evaluate_NONE_jump_exc = store_thm("evaluate_NONE_jump_exc",
+  ``(evaluate (c,s) = (NONE,u1)) /\ (jump_exc u1 = SOME x) ==>
+    (jump_exc s = SOME (s with <| stack := x.stack ;
+                                  handler := x.handler ;
+                                  locals := x.locals |>))``,
+  REPEAT STRIP_TAC \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_stack) \\ fs []
+  \\ fs [jump_exc_def] \\ REPEAT STRIP_TAC \\ fs []
+  \\ every_case_tac >> fs[]
+  \\ SRW_TAC [] []);
+
+val evaluate_NONE_jump_exc_ALT = store_thm("evaluate_NONE_jump_exc_ALT",
+  ``(evaluate (c,s) = (NONE,u1)) /\ (jump_exc s = SOME x) ==>
+    (jump_exc u1 = SOME (u1 with <| stack := x.stack ;
+                                  handler := x.handler ;
+                                  locals := x.locals |>))``,
+  REPEAT STRIP_TAC \\ MP_TAC (Q.SPECL [`c`,`s`] evaluate_stack) \\ fs []
+  \\ fs [jump_exc_def] \\ REPEAT STRIP_TAC \\ fs []
+  \\ every_case_tac >> fs[]
+  \\ SRW_TAC [] []);
 
 val _ = export_theory();
