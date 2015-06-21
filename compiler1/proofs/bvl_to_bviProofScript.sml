@@ -109,6 +109,10 @@ val adjust_bv_def = tDefine "adjust_bv" `
 
 val adjust_bv_ind = theorem"adjust_bv_ind";
 
+val adjust_bv_Unit = Q.store_thm("adjust_bv_Unit[simp]",
+  `adjust_bv x Unit = Unit`,
+  EVAL_TAC);
+
 val adjust_bv_Boolv = store_thm("adjust_bv_Boolv[simp]",
   ``adjust_bv x (Boolv b) = Boolv b``,
   Cases_on`b`>>EVAL_TAC)
@@ -499,13 +503,17 @@ val compile_SING = prove(
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 
-val bEvalOp_adjust = prove(
+val bEvalOp_def = bvlSemTheory.do_app_def;
+val iEvalOp_def = bviSemTheory.do_app_def;
+val get_global_def = closSemTheory.get_global_def;
+
+val do_app_adjust = prove(
   ``state_rel b2 s5 t2 /\ (!i. op <> Const i) /\ (op <> Ref) /\
-    (bEvalOp op (REVERSE a) s5 = SOME (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
-    ?t3. (iEvalOp op (MAP (adjust_bv b2) (REVERSE a)) t2 =
-           SOME (adjust_bv b2 q,t3)) /\
+    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
+    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
+           Rval (adjust_bv b2 q,t3)) /\
          state_rel b2 r t3``,
-  SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,iEvalOpAux_def]
+  SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op` \\ fs []
   THEN1 (* Global *)
    (Cases_on `REVERSE a` \\ fs []
@@ -516,10 +524,7 @@ val bEvalOp_adjust = prove(
     \\ Q.EXISTS_TAC `t2` \\ fs []
     \\ fs [state_rel_def]
     \\ fs [get_global_def,EL_MAP,bvl_to_bvi_id])
-  THEN1 (* AllocGlobal *)
-   (Cases_on `REVERSE a` \\ fs [] \\ SRW_TAC [] [bEvalOp_def,adjust_bv_def]
-    \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
-  THEN1 (* SeqGlobal *)
+  THEN1 (* SetGlobal *)
    (Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ Cases_on `get_global n s5.globals` \\ fs []
     \\ Cases_on `x` \\ fs []
@@ -530,35 +535,76 @@ val bEvalOp_adjust = prove(
     THEN1 (fs [state_rel_def,LUPDATE_SOME_MAP])
     \\ fs [state_rel_def]
     \\ fs [get_global_def,EL_MAP,adjust_bv_def,bvl_to_bvi_def,bvi_to_bvl_def]
-    \\ fs [bvi_state_explode])
+    \\ fs [bviSemTheory.state_component_equality])
+  THEN1 (* AllocGlobal *)
+   (Cases_on `REVERSE a` \\ fs [] \\ SRW_TAC [] [bEvalOp_def,adjust_bv_def]
+    \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   THEN1 (* Cons *)
    (fs [bEvalOp_def]
     \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id])
   THEN1 (* El *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
+    \\ every_case_tac >> fs[]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
   THEN1 (* LengthBlock *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] [] \\ fs[adjust_bv_def,bvl_to_bvi_id])
-  THEN1 (* Length *) cheat
-  THEN1 (* LengthByte *) cheat
-  THEN1 (* RefByte *) cheat
+  THEN1 (* Length *) (
+    every_case_tac >> fs[] >> rw[] >> fs[bEvalOp_def] >>
+    every_case_tac >> fs[] >> rw[] >> fs[adjust_bv_def,bvl_to_bvi_id] >- (
+      fs[state_rel_def,bvi_to_bvl_def] >> rw[] >>
+      last_x_assum(qspec_then`n`mp_tac) >> rw[]) >>
+    spose_not_then strip_assume_tac >> rw[] >>
+    fs[bvi_to_bvl_def,state_rel_def] >>
+    last_x_assum(qspec_then`n`mp_tac) >> rw[])
+  THEN1 (* LengthByte *) (
+    every_case_tac >> fs[] >> rw[] >> fs[bEvalOp_def] >>
+    every_case_tac >> fs[] >> rw[] >> fs[adjust_bv_def,bvl_to_bvi_id] >- (
+      fs[state_rel_def,bvi_to_bvl_def] >> rw[] >>
+      last_x_assum(qspec_then`n`mp_tac) >> rw[]) >>
+    spose_not_then strip_assume_tac >> rw[] >>
+    fs[bvi_to_bvl_def,state_rel_def] >>
+    last_x_assum(qspec_then`n`mp_tac) >> rw[])
+  THEN1 (* RefByte *) (
+    Cases_on`REVERSE a`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`h'`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    IF_CASES_TAC >> simp[] >>
+    rw[] >> rw[adjust_bv_def,bvi_to_bvl_def] >>
+    cheat )
   THEN1 (* RefArray *) cheat
-  THEN1 (* DerefByte *) cheat
+  THEN1 (* DerefByte *) (
+    Cases_on`REVERSE a`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`h'`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    simp[Once bvi_to_bvl_def] >> rw[] >>
+    every_case_tac >> fs[] >>rw[] >> rw[adjust_bv_def,bvl_to_bvi_id] >>
+    fs[state_rel_def] >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    spose_not_then strip_assume_tac >> fs[])
   THEN1 (* UpdateByte *) cheat
+  THEN1 (* FromList *) cheat
+  THEN1 (* TagLenEq *) cheat
   THEN1 (* TagEq *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
-         bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
+         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
+  THEN1 (* BlockCmp *) cheat
   THEN1 (* IsBlock *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
-         bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
+         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
   THEN1 (* Deref *)
    (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
@@ -573,7 +619,12 @@ val bEvalOp_adjust = prove(
     \\ fs [state_rel_def]
     \\ Q.PAT_ASSUM `!k. bbb` (K ALL_TAC)
     \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `n`)
-    \\ fs [] \\ Cases_on `i` \\ fs [EL_MAP,bvl_to_bvi_id]
+    \\ fs [] \\ simp[] >> rw[]
+    \\ every_case_tac >> fs[EL_MAP,bvl_to_bvi_id]
+
+    \\ rw[] >> simp[EL_MAP,bvl_to_bvi_id]
+    \\ every_case_tac >> fs[]
+    Cases_on `i` \\ fs [EL_MAP,bvl_to_bvi_id]
     \\ Cases_on `l` \\ fs [])
   THEN1 (* Update *)
    (Cases_on `REVERSE a` \\ fs []
@@ -603,15 +654,6 @@ val bEvalOp_adjust = prove(
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ fs [adjust_bv_def])
-  (*
-  THEN1 (* Print *)
-   (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
-    THEN1 (fs [bv_to_string_adjust_bv] \\ CCONTR_TAC \\ fs [])
-    \\ SRW_TAC [] []
-    \\ fs [bv_to_string_adjust_bv,
-           state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
-  *)
   THEN1 (* PrintC *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [adjust_bv_def] \\ SRW_TAC [] [adjust_bv_def]
@@ -639,7 +681,7 @@ val bComp_correct = prove(
          (MAP (adjust_bv b1) env = MAP (adjust_bv b2) env) /\
          (!a. a IN FDOM s1.refs ==> (b1 a = b2 a))``,
   SIMP_TAC std_ss []
-  \\ recInduct bEval_ind \\ REPEAT STRIP_TAC
+  \\ recInduct bvlSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs [bEval_def,bComp_def,iEval_def,bEvery_def,GoodHandleLet_def]
   THEN1 (* NIL *)
    (SRW_TAC [] [iEval_def]
@@ -942,7 +984,7 @@ val bComp_correct = prove(
            (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b3`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
-      \\ fs [map_res_def,iEvalOp_def,iEvalOpAux_def,bEvalOp_def,LET_DEF]
+      \\ fs [map_res_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
       \\ Q.ABBREV_TAC `x = (LEAST ptr. ptr NOTIN FDOM s5.refs)`
       \\ Q.ABBREV_TAC `y = LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs`
       \\ `~(x IN FDOM s5.refs)` by ALL_TAC THEN1
@@ -1018,7 +1060,7 @@ val bComp_correct = prove(
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
     \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by ALL_TAC
     THEN1 (IMP_RES_TAC evaluate_ok \\ fs [rich_listTheory.EVERY_REVERSE])
-    \\ MP_TAC bEvalOp_adjust \\ fs [] \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.MAP_REVERSE])
+    \\ MP_TAC do_app_adjust \\ fs [] \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.MAP_REVERSE])
   THEN1 (* Tick *)
    (`?c1 aux1 n1. bComp n [x] = (c1,aux1,n1)` by METIS_TAC [PAIR]
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [PULL_FORALL]
