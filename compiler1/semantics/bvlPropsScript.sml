@@ -8,6 +8,19 @@ val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
 
 val _ = Q.store_thm("Boolv_11[simp]",`bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>rw[]);
 
+val find_code_EVERY_IMP = store_thm("find_code_EVERY_IMP",
+  ``(find_code dest a (r:bvlSem$state).code = SOME (q,t)) ==>
+    EVERY P a ==> EVERY P q``,
+  Cases_on `dest` \\ fs [find_code_def] \\ REPEAT STRIP_TAC
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ `?x1 l1. a = SNOC x1 l1` by METIS_TAC [SNOC_CASES] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
+  \\ FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND,FRONT_SNOC]);
+
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒ ∃a. e = Rabort a ∧ a ≠ Rtimeout_error ∧ (a = Rffi_error ⇒ ∃n. op = FFI n)`,
   rw[do_app_def] >> every_case_tac >> fs[LET_THM] >> rw[]);
