@@ -1,7 +1,7 @@
 open preamble
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
-     bviSemTheory;
+     bviSemTheory bviPropsTheory;
 
 val _ = new_theory"bvl_to_bviProof";
 
@@ -73,9 +73,6 @@ val bVarBound_def = tDefine "bVarBound" `
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
-val isVar_def = Define `
-  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)`;
-
 val GoodHandleLet_def = Define `
   (GoodHandleLet ((Handle (Let xs b) y):bvl$exp) <=>
      EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
@@ -109,6 +106,12 @@ val adjust_bv_def = tDefine "adjust_bv" `
   (WF_REL_TAC `measure (v_size o SND)`
    \\ Induct_on `vs` \\ fs [] \\ SRW_TAC [] [v_size_def]
    \\ RES_TAC \\ FIRST_X_ASSUM (ASSUME_TAC o SPEC_ALL) \\ DECIDE_TAC)
+
+val adjust_bv_ind = theorem"adjust_bv_ind";
+
+val adjust_bv_Boolv = store_thm("adjust_bv_Boolv[simp]",
+  ``adjust_bv x (Boolv b) = Boolv b``,
+  Cases_on`b`>>EVAL_TAC)
 
 val aux_code_installed_def = Define `
   (aux_code_installed [] t <=> T) /\
@@ -164,6 +167,15 @@ val bv_ok_Unit = Q.store_thm("bv_ok_Unit[simp]",
 val bv_ok_Boolv = Q.store_thm("bv_ok_Boolv[simp]",
   `bv_ok refs (Boolv b)`,
   EVAL_TAC)
+
+val bv_ok_IMP_adjust_bv_eq = prove(
+  ``!b2 a1 b3.
+      bv_ok (s5:bvlSem$state).refs a1 /\
+      (!a. a IN FDOM s5.refs ==> b2 a = b3 a) ==>
+      (adjust_bv b2 a1 = adjust_bv b3 a1)``,
+  HO_MATCH_MP_TAC adjust_bv_ind
+  \\ REPEAT STRIP_TAC \\ fs [adjust_bv_def,bv_ok_def]
+  \\ fs [MEM_EQ_IMP_MAP_EQ,EVERY_MEM]);
 
 val state_ok_def = Define `
   state_ok (s:bvlSem$state) <=>
@@ -341,9 +353,110 @@ val evaluate_ok = prove(
   \\ IMP_RES_TAC evaluate_IMP_bv_ok \\ fs [evaluate_ok_lemma]
   \\ fs [state_ok_def]);
 
-(* TODO: below this line needs cleanup *)
+(* semantics lemmas *)
 
-(* compiler lemmas *)
+val evaluate_MAP_Var = prove(
+  ``!l env vs b s.
+      EVERY isVar l /\ (get_vars (MAP destVar l) env = SOME vs) ==>
+        (evaluate (MAP (Var o destVar) l,MAP (adjust_bv b) env,s) =
+          (Rval (MAP (adjust_bv b) vs),s))``,
+  Induct THEN1 (EVAL_TAC \\ SRW_TAC [] [])
+  \\ Cases \\ fs [isVar_def,destVar_def,get_vars_def]
+  \\ Cases_on `l` \\ fs [bviSemTheory.evaluate_def,get_vars_def,EL_MAP]
+  \\ Cases_on `h` \\ fs [isVar_def,destVar_def]
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `n' < LENGTH env` \\ fs []
+  \\ Cases_on `get_vars (MAP destVar t) env` \\ fs []
+  \\ Q.PAT_ASSUM `!xx.bb` (MP_TAC o Q.SPEC `env`) \\ fs []
+  \\ SRW_TAC [] [] \\ fs [EL_MAP]);
+
+val evaluate_MAP_Var2 = prove(
+  ``!args.
+      bVarBound (LENGTH vs) args /\ EVERY isVar args ==>
+      ?ts.
+        bviSem$evaluate (MAP (Var o destVar) args,vs ++ env,s) = (Rval ts,s) /\
+        evaluate (MAP (Var o destVar) args,vs,s) = (Rval ts,s)``,
+  Induct \\ fs [MAP,bviSemTheory.evaluate_def] \\ Cases \\ fs [isVar_def]
+  \\ Cases_on `args` \\ fs [MAP,bviSemTheory.evaluate_def,destVar_def,bVarBound_def]
+  \\ REPEAT STRIP_TAC
+  \\ `n < LENGTH vs + LENGTH env` by DECIDE_TAC \\ fs []
+  \\ fs [rich_listTheory.EL_APPEND1]) |> SPEC_ALL;
+
+val bEval_bVarBound = prove(
+  ``!xs vs s env.
+      bVarBound (LENGTH vs) xs ==>
+      (bvlSem$evaluate (xs,vs ++ env,s) = evaluate (xs,vs,s))``,
+  recInduct bvlSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
+  \\ fs [bvlSemTheory.evaluate_def,bVarBound_def]
+  \\ TRY (BasicProvers.EVERY_CASE_TAC \\ fs [ADD1] \\ NO_TAC)
+  THEN1 (`n < LENGTH env + LENGTH env'` by DECIDE_TAC
+         \\ fs [rich_listTheory.EL_APPEND1])
+  THEN1 (BasicProvers.EVERY_CASE_TAC \\ fs []
+         \\ FIRST_X_ASSUM MATCH_MP_TAC \\ IMP_RES_TAC bvlPropsTheory.evaluate_IMP_LENGTH
+         \\ fs [AC ADD_COMM ADD_ASSOC]));
+
+val iEval_def = bviSemTheory.evaluate_def;
+
+val iEval_bVarBound = prove(
+  ``!(n:num) xs n vs (t:bvlSem$state) s env.
+      bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
+      (evaluate (FST (compile n xs),vs ++ env,s) =
+       evaluate (FST (compile n xs),vs,s))``,
+  recInduct (theorem "bVarBound_ind") \\ REPEAT STRIP_TAC
+  \\ fs [iEval_def,bVarBound_def,compile_def] \\ SRW_TAC [] []
+  \\ fs [bEvery_def,GoodHandleLet_def] \\ SRW_TAC [] []
+  THEN1 (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+    \\ IMP_RES_TAC compile_SING \\ SRW_TAC [] []
+    \\ ONCE_REWRITE_TAC [bviPropsTheory.evaluate_CONS] \\ fs [])
+  THEN1 (fs [rich_listTheory.EL_APPEND1])
+  THEN1 (`F` by DECIDE_TAC)
+  THEN1 (IMP_RES_TAC compile_SING \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`,`vs`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+    \\ fs [iEval_def])
+  THEN1 (IMP_RES_TAC compile_SING \\ SRW_TAC [] [] \\ fs [iEval_def]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+    \\ REPEAT STRIP_TAC
+    \\ Cases_on `evaluate (c1,vs,s)` \\ fs []
+    \\ Cases_on `q` \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`a ++ vs`]) \\ fs []
+    \\ IMP_RES_TAC bviPropsTheory.evaluate_IMP_LENGTH \\ IMP_RES_TAC compile_LENGTH
+    \\ REPEAT STRIP_TAC \\ POP_ASSUM MATCH_MP_TAC
+    \\ fs [AC ADD_COMM ADD_ASSOC])
+  \\ TRY (IMP_RES_TAC compile_SING \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+    \\ fs [iEval_def] \\ NO_TAC)
+  THEN1
+   (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+    \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm])
+  \\ fs [iEval_def]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`]) \\ fs []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ IMP_RES_TAC compile_SING \\ SRW_TAC [] []
+  \\ fs [markerTheory.Abbrev_def] \\ SRW_TAC [] []
+  \\ Cases_on `x1` \\ fs [GoodHandleLet_def,destLet_def]
+  \\ SRW_TAC [] [] \\ fs [compile_def]
+  \\ REV_FULL_SIMP_TAC std_ss [LET_DEF]
+  \\ fs [iEval_def]
+  \\ Q.PAT_ASSUM `!xx yy. bb = bbb` (ASSUME_TAC o Q.SPECL [`s`,`env`])
+  \\ IMP_RES_TAC compile_Var_list \\ fs [] \\ SRW_TAC [] []
+  \\ fs [bVarBound_def]
+  \\ (evaluate_MAP_Var2 |> MP_TAC) \\ fs []
+  \\ REPEAT STRIP_TAC \\ fs []
+  \\ Cases_on `find_code (SOME (2 * n3 + 1)) ts s.code` \\ fs []
+  \\ Cases_on `x` \\ fs [] \\ Cases_on `s.clock = 0` \\ fs []
+  \\ Cases_on `evaluate ([r],q,dec_clock 1 s)` \\ fs []
+  \\ Cases_on `q'` \\ fs []
+  \\ Cases_on `e'` \\ fs []
+  \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
+
+(* compiler correctness *)
 
 val compile_int_thm = prove(
   ``!i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)``,
@@ -376,173 +489,15 @@ val compile_LENGTH = prove(
   ``(compile n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LENGTH_lemma) \\ fs [])
 
-val bv_ok_IMP_adjust_bv_eq = prove(
-  ``!b2 a1 b3.
-      bv_ok (s5:bvl_state).refs a1 /\
-      (!a. a IN FDOM s5.refs ==> b2 a = b3 a) ==>
-      (adjust_bv b2 a1 = adjust_bv b3 a1)``,
-  HO_MATCH_MP_TAC (fetch "-" "adjust_bv_ind")
-  \\ REPEAT STRIP_TAC \\ fs [adjust_bv_def,bv_ok_def]
-  \\ fs [MEM_EQ_IMP_MAP_EQ,EVERY_MEM]);
+val compile_Var_list = prove(
+  ``!l n. EVERY isVar l ==> (compile n l = (MAP (Var o destVar) l ,[],n))``,
+  Induct \\ fs [EVERY_DEF,compile_def] \\ Cases \\ fs [isVar_def]
+  \\ Cases_on `l` \\ fs [compile_def,destVar_def,LET_DEF]);
 
-val get_vars_def = Define `
-  (get_vars [] env = SOME []) /\
-  (get_vars (n::ns) env =
-     if n < LENGTH env then
-       (case get_vars ns env of
-        | NONE => NONE
-        | SOME vs => SOME (EL n env :: vs))
-     else NONE)`
-
-val destVar_def = Define `
-  (destVar ((Var n):bvl_exp) = n)`;
-
-val bEval_Var_list = prove(
-  ``!l. EVERY isVar l ==>
-        (bEval (l,env,s) = (Error,s)) \/
-        ?vs. (bEval (l,env,s) = (Result vs,s)) /\
-             (get_vars (MAP destVar l) env = SOME vs) /\
-             (LENGTH vs = LENGTH l)``,
-  Induct \\ fs [bEval_def,get_vars_def] \\ Cases \\ fs [isVar_def]
-  \\ ONCE_REWRITE_TAC [bEval_CONS] \\ fs [bEval_def]
-  \\ Cases_on `n < LENGTH env` \\ fs []
-  \\ REPEAT STRIP_TAC \\ fs [destVar_def]);
-
-val bComp_Var_list = prove(
-  ``!l n. EVERY isVar l ==> (bComp n l = (MAP (Var o destVar) l ,[],n))``,
-  Induct \\ fs [EVERY_DEF,bComp_def] \\ Cases \\ fs [isVar_def]
-  \\ Cases_on `l` \\ fs [bComp_def,destVar_def,LET_DEF]);
-
-val iEval_MAP_Var = prove(
-  ``!l env vs b s.
-      EVERY isVar l /\ (get_vars (MAP destVar l) env = SOME vs) ==>
-        (iEval (MAP (Var o destVar) l,MAP (adjust_bv b) env,s) =
-          (Result (MAP (adjust_bv b) vs),s))``,
-  Induct THEN1 (EVAL_TAC \\ SRW_TAC [] [])
-  \\ Cases \\ fs [isVar_def,destVar_def,get_vars_def]
-  \\ Cases_on `l` \\ fs [iEval_def,get_vars_def,EL_MAP]
-  \\ Cases_on `h` \\ fs [isVar_def,destVar_def]
-  \\ REPEAT STRIP_TAC
-  \\ Cases_on `n' < LENGTH env` \\ fs []
-  \\ Cases_on `get_vars (MAP destVar t) env` \\ fs []
-  \\ Q.PAT_ASSUM `!xx.bb` (MP_TAC o Q.SPEC `env`) \\ fs []
-  \\ SRW_TAC [] [] \\ fs [EL_MAP]);
-
-val bEval_bVarBound = prove(
-  ``!xs vs s env.
-      bVarBound (LENGTH vs) xs ==>
-      (bEval (xs,vs ++ env,s) = bEval (xs,vs,s))``,
-  recInduct bEval_ind \\ REPEAT STRIP_TAC
-  \\ fs [bEval_def,bVarBound_def]
-  \\ TRY (BasicProvers.EVERY_CASE_TAC \\ fs [ADD1] \\ NO_TAC)
-  THEN1 (`n < LENGTH env + LENGTH env'` by DECIDE_TAC
-         \\ fs [rich_listTheory.EL_APPEND1])
-  THEN1 (BasicProvers.EVERY_CASE_TAC \\ fs []
-         \\ FIRST_X_ASSUM MATCH_MP_TAC \\ IMP_RES_TAC bEval_IMP_LENGTH
-         \\ fs [AC ADD_COMM ADD_ASSOC]));
-
-val bComp_SING = prove(
-  ``(bComp n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC bComp_LENGTH
+val compile_SING = prove(
+  ``(compile n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
-
-val iEval_MAP_Var2 = prove(
-  ``!args.
-      bVarBound (LENGTH vs) args /\ EVERY isVar args ==>
-      ?ts.
-        iEval (MAP (Var o destVar) args,vs ++ env,s) = (Result ts,s) /\
-        iEval (MAP (Var o destVar) args,vs,s) = (Result ts,s)``,
-  Induct \\ fs [MAP,iEval_def] \\ Cases \\ fs [isVar_def]
-  \\ Cases_on `args` \\ fs [MAP,iEval_def,destVar_def,bVarBound_def]
-  \\ REPEAT STRIP_TAC
-  \\ `n < LENGTH vs + LENGTH env` by DECIDE_TAC \\ fs []
-  \\ fs [rich_listTheory.EL_APPEND1]) |> SPEC_ALL;
-
-val iEval_bVarBound = prove(
-  ``!(n:num) xs n vs (t:bvl_state) s env.
-      bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
-      (iEval (FST (bComp n xs),vs ++ env,s) =
-       iEval (FST (bComp n xs),vs,s))``,
-  recInduct (fetch "-" "bVarBound_ind") \\ REPEAT STRIP_TAC
-  \\ fs [iEval_def,bVarBound_def,bComp_def] \\ SRW_TAC [] []
-  \\ fs [bEvery_def,GoodHandleLet_def] \\ SRW_TAC [] []
-  THEN1 (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-    \\ IMP_RES_TAC bComp_SING \\ SRW_TAC [] []
-    \\ ONCE_REWRITE_TAC [iEval_CONS] \\ fs [])
-  THEN1 (fs [rich_listTheory.EL_APPEND1])
-  THEN1 (`F` by DECIDE_TAC)
-  THEN1 (IMP_RES_TAC bComp_SING \\ SRW_TAC [] []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`,`vs`]) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-    \\ fs [iEval_def])
-  THEN1 (IMP_RES_TAC bComp_SING \\ SRW_TAC [] [] \\ fs [iEval_def]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`]) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-    \\ REPEAT STRIP_TAC
-    \\ Cases_on `iEval (c1,vs,s)` \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`a ++ vs`]) \\ fs []
-    \\ IMP_RES_TAC iEval_IMP_LENGTH \\ IMP_RES_TAC bComp_LENGTH
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM MATCH_MP_TAC
-    \\ fs [AC ADD_COMM ADD_ASSOC])
-  \\ TRY (IMP_RES_TAC bComp_SING \\ SRW_TAC [] []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-    \\ fs [iEval_def] \\ NO_TAC)
-  THEN1
-   (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-    \\ Cases_on `op` \\ fs [bCompOp_def,iEval_def,compile_int_thm]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm])
-  \\ fs [iEval_def]
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`]) \\ fs []
-  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ IMP_RES_TAC bComp_SING \\ SRW_TAC [] []
-  \\ fs [markerTheory.Abbrev_def] \\ SRW_TAC [] []
-  \\ Cases_on `x1` \\ fs [GoodHandleLet_def,destLet_def]
-  \\ SRW_TAC [] [] \\ fs [bComp_def]
-  \\ REV_FULL_SIMP_TAC std_ss [LET_DEF]
-  \\ fs [iEval_def]
-  \\ Q.PAT_ASSUM `!xx yy. bb = bbb` (ASSUME_TAC o Q.SPECL [`s`,`env`])
-  \\ IMP_RES_TAC bComp_Var_list \\ fs [] \\ SRW_TAC [] []
-  \\ fs [bVarBound_def]
-  \\ (iEval_MAP_Var2 |> MP_TAC) \\ fs []
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ Cases_on `find_code (SOME (2 * n3 + 1)) ts s.code` \\ fs []
-  \\ Cases_on `x` \\ fs [] \\ Cases_on `s.clock = 0` \\ fs []
-  \\ Cases_on `iEval ([r],q,dec_clock 1 s)` \\ fs []
-  \\ Cases_on `q'` \\ fs []
-  \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
-  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
-
-val bc_equal_adjust = prove(
-  ``(!h h'.
-       state_rel b2 s5 t2 /\ bv_ok s5.refs h /\ bv_ok s5.refs h' ==>
-       (bc_equal (adjust_bv b2 h) (adjust_bv b2 h') = bc_equal h h')) /\
-    (!hs hs'.
-       state_rel b2 s5 t2 /\ (LENGTH hs = LENGTH hs') /\
-       EVERY (bv_ok s5.refs) hs /\ EVERY (bv_ok s5.refs) hs' ==>
-       (bc_equal_list (MAP (adjust_bv b2) hs) (MAP (adjust_bv b2) hs') =
-          bc_equal_list hs hs'))``,
-  HO_MATCH_MP_TAC bc_equal_ind
-  \\ fs [] \\ REPEAT STRIP_TAC
-  \\ TRY (fs [adjust_bv_def,bc_equal_def] \\ NO_TAC)
-  THEN1 (* RefPtr eq *)
-   (fs [adjust_bv_def,bc_equal_def]
-    \\ fs [bv_ok_def,state_rel_def,INJ_DEF]
-    \\ Cases_on `n1 = n2` \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs [] \\ RES_TAC)
-  \\ fs [adjust_bv_def,bc_equal_def]
-  THEN1 (SRW_TAC [] [] \\ fs [] \\ REV_FULL_SIMP_TAC std_ss [bv_ok_def]
-         \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [EVERY_MEM]
-         \\ REV_FULL_SIMP_TAC std_ss [])
-  \\ Cases_on `bc_equal h h'` \\ fs [])
-  |> CONJUNCT1;
-
-val adjust_bv_bool_to_val = store_thm("adjust_bv_bool_to_val[simp]",
-  ``adjust_bv x (bool_to_val b) = bool_to_val b``,
-  Cases_on`b`>>EVAL_TAC)
 
 val bEvalOp_adjust = prove(
   ``state_rel b2 s5 t2 /\ (!i. op <> Const i) /\ (op <> Ref) /\
@@ -604,15 +559,6 @@ val bEvalOp_adjust = prove(
     \\ SRW_TAC [] []
     \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP,bool_to_val_def] \\ SRW_TAC [] [])
-  THEN1 (* Equal *)
-   (fs [bEvalOp_def]
-    \\ Cases_on `REVERSE a` \\ fs []
-    \\ Cases_on `t` \\ fs []
-    \\ Cases_on `t'` \\ fs []
-    \\ REPEAT STRIP_TAC
-    \\ IMP_RES_TAC bc_equal_adjust \\ fs []
-    \\ Cases_on `bc_equal h h'` \\ fs [bvl_to_bvi_id]
-    \\ SRW_TAC [] [adjust_bv_def,bvl_to_bvi_id])
   THEN1 (* Deref *)
    (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
@@ -858,11 +804,11 @@ val bComp_correct = prove(
     \\ IMP_RES_TAC bEval_SING \\ SRW_TAC [] [map_res_def])
   THEN1 (* Handle *)
    (Cases_on `x1` \\ fs [GoodHandleLet_def,destLet_def] \\ fs [LET_DEF]
-    \\ fs [bComp_Var_list]
+    \\ fs [compile_Var_list]
     \\ `?c2 aux2 n2. bComp n [b] = (c2,aux2,n2)` by METIS_TAC [PAIR]
     \\ `?c3 aux3 n3. bComp n2' [x2] = (c3,aux3,n3)` by METIS_TAC [PAIR]
     \\ fs [] \\ SRW_TAC [] [] \\ fs [bEval_def]
-    \\ MP_TAC (Q.SPEC `l` bEval_Var_list |> Q.INST [`s`|->`s1`]) \\ fs []
+    \\ MP_TAC (Q.SPEC `l` evaluate_Var_list |> Q.INST [`s`|->`s1`]) \\ fs []
     \\ STRIP_TAC \\ fs []
     \\ `bEval ([b],vs ++ env,s1) = bEval ([b],vs,s1)` by ALL_TAC
     THEN1 (MATCH_MP_TAC bEval_bVarBound \\ fs [])
@@ -876,7 +822,7 @@ val bComp_correct = prove(
     \\ REVERSE (Cases_on `q`) \\ fs []
     THEN1 (* TimeOut case *)
      (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
-      \\ fs [bComp_def,bComp_Var_list,LET_DEF]
+      \\ fs [bComp_def,compile_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
       \\ fs [map_res_def]
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs []
@@ -884,7 +830,7 @@ val bComp_correct = prove(
       \\ REPEAT STRIP_TAC
       \\ fs [] \\ SRW_TAC [] []
       \\ fs [aux_code_installed_def,iEval_def,find_code_def]
-      \\ IMP_RES_TAC (GEN_ALL iEval_MAP_Var) \\ fs []
+      \\ IMP_RES_TAC (GEN_ALL evaluate_MAP_Var) \\ fs []
       \\ `iEval ([d2],MAP (adjust_bv b2) vs ++ MAP (adjust_bv b2) env,
             inc_clock c t1) =
           iEval ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by ALL_TAC THEN1
@@ -900,7 +846,7 @@ val bComp_correct = prove(
         (EVAL_TAC \\ fs [bvi_state_explode] \\ DECIDE_TAC) \\ fs [])
     THEN1 (* Excpetion case *)
      (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
-      \\ fs [bComp_def,bComp_Var_list,LET_DEF]
+      \\ fs [bComp_def,compile_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
       \\ fs [map_res_def]
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs []
@@ -908,7 +854,7 @@ val bComp_correct = prove(
       \\ REPEAT STRIP_TAC
       \\ fs [] \\ SRW_TAC [] []
       \\ fs [aux_code_installed_def,iEval_def,find_code_def]
-      \\ IMP_RES_TAC (GEN_ALL iEval_MAP_Var) \\ fs []
+      \\ IMP_RES_TAC (GEN_ALL evaluate_MAP_Var) \\ fs []
       \\ `iEval ([d2],MAP (adjust_bv b2) vs ++ MAP (adjust_bv b2) env,
             inc_clock c t1) =
           iEval ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by ALL_TAC THEN1
@@ -945,7 +891,7 @@ val bComp_correct = prove(
       \\ fs [] \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF])
     THEN1 (* Result case *)
      (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
-      \\ fs [bComp_def,bComp_Var_list,LET_DEF]
+      \\ fs [bComp_def,compile_Var_list,LET_DEF]
       \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
       \\ fs [map_res_def]
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs []
@@ -953,7 +899,7 @@ val bComp_correct = prove(
       \\ REPEAT STRIP_TAC
       \\ fs [] \\ SRW_TAC [] []
       \\ fs [aux_code_installed_def,iEval_def,find_code_def]
-      \\ IMP_RES_TAC (GEN_ALL iEval_MAP_Var) \\ fs []
+      \\ IMP_RES_TAC (GEN_ALL evaluate_MAP_Var) \\ fs []
       \\ `iEval ([d2],MAP (adjust_bv b2) vs ++ MAP (adjust_bv b2) env,
             inc_clock c t1) =
           iEval ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by ALL_TAC THEN1

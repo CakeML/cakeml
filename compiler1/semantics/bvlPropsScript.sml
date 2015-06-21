@@ -354,4 +354,30 @@ val evaluate_refs_SUBSET = store_thm("evaluate_refs_SUBSET",
   ``(evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_refs_SUBSET_lemma) \\ fs []);
 
+val get_vars_def = Define `
+  (get_vars [] env = SOME []) /\
+  (get_vars (n::ns) env =
+     if n < LENGTH env then
+       (case get_vars ns env of
+        | NONE => NONE
+        | SOME vs => SOME (EL n env :: vs))
+     else NONE)`
+
+val isVar_def = Define `
+  (isVar ((Var n):bvl$exp) = T) /\ (isVar _ = F)`;
+
+val destVar_def = Define `
+  (destVar ((Var n):bvl$exp) = n)`;
+
+val evaluate_Var_list = Q.store_thm("evaluate_Var_list",
+  `!l. EVERY isVar l ==>
+       (evaluate (l,env,s) = (Rerr(Rabort Rtype_error),s)) \/
+       ?vs. (evaluate (l,env,s) = (Rval vs,s)) /\
+            (get_vars (MAP destVar l) env = SOME vs) /\
+            (LENGTH vs = LENGTH l)`,
+  Induct \\ fs [evaluate_def,get_vars_def] \\ Cases \\ fs [isVar_def]
+  \\ ONCE_REWRITE_TAC [evaluate_CONS] \\ fs [evaluate_def]
+  \\ Cases_on `n < LENGTH env` \\ fs []
+  \\ REPEAT STRIP_TAC \\ fs [destVar_def]);
+
 val _ = export_theory();
