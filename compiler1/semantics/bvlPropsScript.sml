@@ -321,4 +321,24 @@ val evaluate_isConst = Q.store_thm("evaluate_isConst",
   \\ Cases_on `o'` \\ fs [isConst_def]
   \\ Cases_on `l` \\ fs [isConst_def,evaluate_def,do_app_def,getConst_def]);
 
+val do_app_refs_SUBSET = store_thm("do_app_refs_SUBSET",
+  ``(do_app op a r = Rval (q,t)) ==> FDOM r.refs SUBSET FDOM t.refs``,
+  fs [do_app_def]
+  \\ NTAC 5 (fs [SUBSET_DEF,IN_INSERT] \\ SRW_TAC [] []
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [LET_DEF,dec_clock_def]));
+
+val evaluate_refs_SUBSET_lemma = prove(
+  ``!xs env s. FDOM s.refs SUBSET FDOM (SND (evaluate (xs,env,s))).refs``,
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [evaluate_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ REV_FULL_SIMP_TAC std_ss []
+  \\ IMP_RES_TAC SUBSET_TRANS
+  \\ fs [dec_clock_def] \\ fs []
+  \\ IMP_RES_TAC do_app_refs_SUBSET \\ fs [SUBSET_DEF]);
+
+val evaluate_refs_SUBSET = store_thm("evaluate_refs_SUBSET",
+  ``(evaluate (xs,env,s) = (res,t)) ==> FDOM s.refs SUBSET FDOM t.refs``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_refs_SUBSET_lemma) \\ fs []);
+
 val _ = export_theory();

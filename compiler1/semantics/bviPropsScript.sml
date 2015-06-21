@@ -2,6 +2,10 @@ open preamble bviSemTheory;
 
 val _ = new_theory"bviProps";
 
+val bvl_to_bvi_id = store_thm("bvl_to_bvi_id",
+  ``bvl_to_bvi (bvi_to_bvl s) s = s``,
+  EVAL_TAC \\ fs [bviSemTheory.state_component_equality]);
+
 val evaluate_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)
@@ -130,5 +134,21 @@ val evaluate_inv_clock = store_thm("evaluate_inv_clock",
     \\ TRY(Cases_on`e` \\ fs[] \\ Cases_on`a'` \\ fs[] \\ rw[])
     \\ RES_TAC \\ TRY (fs [inc_clock_def] \\ decide_tac)
     \\ Cases_on `handler` \\ fs [] \\ rw[]));
+
+val evaluate_code_const_lemma = prove(
+  ``!xs env s. (SND (evaluate (xs,env,s))).code = s.code``,
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [evaluate_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ REV_FULL_SIMP_TAC std_ss [] \\ fs [dec_clock_def]
+  \\ fs [do_app_def]
+  \\ REVERSE (Cases_on `do_app_aux op a r`) \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ SRW_TAC [] [] \\ fs [bvl_to_bvi_def] \\ fs [do_app_aux_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
+
+val evaluate_code_const = store_thm("evaluate_code_const",
+  ``!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ fs []);
 
 val _ = export_theory();
