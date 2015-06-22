@@ -390,7 +390,36 @@ val bEval_bVarBound = prove(
          \\ FIRST_X_ASSUM MATCH_MP_TAC \\ IMP_RES_TAC bvlPropsTheory.evaluate_IMP_LENGTH
          \\ fs [AC ADD_COMM ADD_ASSOC]));
 
+(* compiler correctness *)
+
 val iEval_def = bviSemTheory.evaluate_def;
+val bEval_def = bvlSemTheory.evaluate_def;
+
+val compile_Var_list = prove(
+  ``!l n. EVERY isVar l ==> (compile n l = (MAP (Var o destVar) l ,[],n))``,
+  Induct \\ fs [EVERY_DEF,compile_def] \\ Cases \\ fs [isVar_def]
+  \\ Cases_on `l` \\ fs [compile_def,destVar_def,LET_DEF]);
+
+val compile_int_thm = prove(
+  ``!i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)``,
+  STRIP_TAC \\ completeInduct_on `Num (ABS i)`
+  \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL] \\ POP_ASSUM (K ALL_TAC)
+  \\ REVERSE (Cases_on `i`) \\ fs [] THEN1 EVAL_TAC
+  \\ (ONCE_REWRITE_TAC [compile_int_def] \\ fs [LET_DEF]
+    \\ SRW_TAC [] [] THEN1
+     (`n <= 1073741823` by DECIDE_TAC
+      \\ fs [evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 1000000000)`,`env`,`s`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+    THEN1 (fs [integerTheory.INT_ABS_NUM,DIV_LT_X] \\ intLib.COOPER_TAC)
+    \\ REPEAT STRIP_TAC \\ fs []
+    \\ `n MOD 1000000000 < 1000000000` by fs [MOD_LESS]
+    \\ `n MOD 1000000000 <= 1073741823` by DECIDE_TAC
+    \\ fs [evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
+    \\ fs [bvl_to_bvi_id]
+    \\ STRIP_ASSUME_TAC
+         (MATCH_MP DIVISION (DECIDE ``0 < 1000000000:num``) |> Q.SPEC `n`)
+    \\ intLib.COOPER_TAC));
 
 val iEval_bVarBound = prove(
   ``!(n:num) xs n vs (t:bvlSem$state) s env.
@@ -450,34 +479,6 @@ val iEval_bVarBound = prove(
   \\ Cases_on `e'` \\ fs []
   \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
-
-(* compiler correctness *)
-
-val compile_Var_list = prove(
-  ``!l n. EVERY isVar l ==> (compile n l = (MAP (Var o destVar) l ,[],n))``,
-  Induct \\ fs [EVERY_DEF,compile_def] \\ Cases \\ fs [isVar_def]
-  \\ Cases_on `l` \\ fs [compile_def,destVar_def,LET_DEF]);
-
-val compile_int_thm = prove(
-  ``!i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)``,
-  STRIP_TAC \\ completeInduct_on `Num (ABS i)`
-  \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL] \\ POP_ASSUM (K ALL_TAC)
-  \\ REVERSE (Cases_on `i`) \\ fs [] THEN1 EVAL_TAC
-  \\ (ONCE_REWRITE_TAC [compile_int_def] \\ fs [LET_DEF]
-    \\ SRW_TAC [] [] THEN1
-     (`n <= 1073741823` by DECIDE_TAC
-      \\ fs [evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 1000000000)`,`env`,`s`])
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-    THEN1 (fs [integerTheory.INT_ABS_NUM,DIV_LT_X] \\ intLib.COOPER_TAC)
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ `n MOD 1000000000 < 1000000000` by fs [MOD_LESS]
-    \\ `n MOD 1000000000 <= 1073741823` by DECIDE_TAC
-    \\ fs [evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
-    \\ fs [bvl_to_bvi_id]
-    \\ STRIP_ASSUME_TAC
-         (MATCH_MP DIVISION (DECIDE ``0 < 1000000000:num``) |> Q.SPEC `n`)
-    \\ intLib.COOPER_TAC));
 
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
@@ -551,51 +552,6 @@ val do_app_adjust = prove(
     spose_not_then strip_assume_tac >> rw[] >>
     fs[bvi_to_bvl_def,state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> rw[])
-  (*
-  THEN1 (* RefByte *) (
-    Cases_on`REVERSE a`>>fs[]>>
-    Cases_on`t`>>fs[]>>
-    Cases_on`h'`>>fs[]>>
-    Cases_on`h`>>fs[]>>
-    Cases_on`t'`>>fs[]>>
-    simp[bEvalOp_def,adjust_bv_def] >>
-    IF_CASES_TAC >> simp[] >>
-    strip_tac >> rpt var_eq_tac >>
-    simp[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
-    simp[bvi_to_bvl_def] >>
-    conj_asm1_tac >- cheat >>
-    fs[state_rel_def] >>
-    conj_tac >- (
-      simp[INJ_INSERT] >>
-      cheat ) >>
-    simp[FLOOKUP_UPDATE] >>
-    rw[] >> fs[] >>
-    BasicProvers.CASE_TAC >>
-    `k ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
-    `b2 k ∈ FDOM t2.refs` by fs[INJ_DEF] >>
-    cheat (* LEAST_NOT_IN_FDOM *))
-  THEN1 (* RefArray *) (
-    Cases_on`REVERSE a`>>fs[]>>
-    Cases_on`t`>>fs[]>>
-    Cases_on`h`>>fs[]>>
-    Cases_on`t'`>>fs[]>>
-    simp[bEvalOp_def,adjust_bv_def] >>
-    IF_CASES_TAC >> simp[] >>
-    strip_tac >> rpt var_eq_tac >>
-    simp[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
-    simp[bvi_to_bvl_def] >>
-    conj_asm1_tac >- cheat >>
-    fs[state_rel_def] >>
-    conj_tac >- (
-      simp[INJ_INSERT] >>
-      cheat ) >>
-    simp[FLOOKUP_UPDATE] >>
-    rw[] >> fs[map_replicate] >>
-    BasicProvers.CASE_TAC >>
-    `k ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
-    `b2 k ∈ FDOM t2.refs` by fs[INJ_DEF] >>
-    cheat (* LEAST_NOT_IN_FDOM *))
-  *)
   THEN1 (* DerefByte *) (
     Cases_on`REVERSE a`>>fs[]>>
     Cases_on`t`>>fs[]>>
@@ -759,8 +715,6 @@ val do_app_adjust = prove(
     \\ every_case_tac >> fs[bvl_to_bvi_id] >> rw[]
     \\ EVAL_TAC ));
 
-val bEval_def = bvlSemTheory.evaluate_def;
-
 val compile_correct = Q.prove(
   `!xs env s1 n res s2 t1 n2 ys aux b1.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
@@ -774,7 +728,7 @@ val compile_correct = Q.prove(
            (map_result (MAP (adjust_bv b2)) (adjust_bv b2) res,t2)) /\
         state_rel b2 s2 t2 /\
         (MAP (adjust_bv b1) env = MAP (adjust_bv b2) env) /\
-        (!a. a IN FDOM s1.refs ==> (b1 a = b2 a))``,
+        (!a. a IN FDOM s1.refs ==> (b1 a = b2 a))`,
   SIMP_TAC std_ss []
   \\ recInduct bvlSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs [bEval_def,compile_def,iEval_def,bEvery_def,GoodHandleLet_def]
@@ -1102,12 +1056,12 @@ val compile_correct = Q.prove(
       \\ fs [EVAL ``do_app_aux (Const 0) [] t2``]
       \\ SRW_TAC [] [adjust_bv_def])
     \\ Cases_on `op = Ref` \\ fs [] THEN1
-     (fs [bCompOp_def,iEval_def]
+     (fs [compile_op_def,iEval_def]
       \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
            (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b3`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
-      \\ fs [map_res_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
+      \\ fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
       \\ Q.ABBREV_TAC `x = (LEAST ptr. ptr NOTIN FDOM s5.refs)`
       \\ Q.ABBREV_TAC `y = LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs`
       \\ `~(x IN FDOM s5.refs)` by ALL_TAC THEN1
@@ -1140,7 +1094,7 @@ val compile_correct = Q.prove(
       \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
           MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
        (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
-        \\ Cases_on `x'` \\ fs []
+        \\ Cases_on `e` \\ fs []
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
         \\ fs [state_ok_def,EVERY_MEM] \\ RES_TAC \\ fs []
@@ -1152,6 +1106,7 @@ val compile_correct = Q.prove(
        (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
+      \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
       \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
@@ -1176,9 +1131,189 @@ val compile_correct = Q.prove(
       \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ fs [])
-    \\ `bCompOp op c1 = Op op c1` by
-      (Cases_on `op` \\ fs [bCompOp_def] \\ NO_TAC)
-    \\ fs [iEval_def,map_res_def]
+    \\ Cases_on `op = RefArray` \\ fs[] THEN1
+     (fs [compile_op_def,iEval_def]
+      \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
+           (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b3`
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
+      \\ fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
+      \\ Q.ABBREV_TAC `x = (LEAST ptr. ptr NOTIN FDOM s5.refs)`
+      \\ Q.ABBREV_TAC `y = LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs`
+      \\ `~(x IN FDOM s5.refs)` by ALL_TAC THEN1
+       (`?p. (\ptr. ptr NOTIN FDOM s5.refs) p` by
+          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
+        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ fs []
+        \\ REV_FULL_SIMP_TAC std_ss [])
+      \\ `~(y IN FDOM t2.refs)` by ALL_TAC THEN1
+       (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
+          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
+        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ fs [bvi_to_bvl_def]
+        \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
+      \\ fs []
+      \\ SRW_TAC [] [adjust_bv_def]
+      \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ fs [EVERY_MEM] \\ RES_TAC
+        \\ IMP_RES_TAC evaluate_refs_SUBSET
+        \\ REPEAT STRIP_TAC THEN1 METIS_TAC [bv_ok_SUBSET_IMP]
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+        \\ fs [EVERY_MEM] \\ RES_TAC
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
+          MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ Cases_on `e` \\ fs []
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+        \\ fs [state_ok_def,EVERY_MEM] \\ RES_TAC \\ fs []
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ fs []
+      \\ Cases_on`REVERSE a`>>fs[]
+      \\ Cases_on`t`>>fs[]
+      \\ Cases_on`h`>>fs[]
+      \\ Cases_on`t'`>>fs[]
+      \\ Cases_on`0 ≤ i` >>fs[]
+      \\ Cases_on`a`>>fs[adjust_bv_def]
+      \\ STRIP_TAC THEN1 (
+        rpt var_eq_tac >>
+        simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
+      \\ REVERSE STRIP_TAC THEN1
+       (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] []
+        \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
+      \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
+      \\ rpt var_eq_tac \\ simp[]
+      \\ STRIP_TAC
+      THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
+      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
+      THEN1 (
+        simp[FLOOKUP_FAPPLY] >>
+        Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
+        simp[map_replicate])
+      \\ simp[FLOOKUP_FAPPLY]
+      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
+      \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
+       (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
+        \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
+      \\ `b3 k = b2 k` by ALL_TAC
+      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF])
+      \\ fs [] \\ Cases_on `FLOOKUP s5.refs k` \\ fs []
+      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
+      \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
+      \\ fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+      \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+      \\ fs [state_ok_def]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`) \\ fs []
+      \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC
+      \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+      \\ SRW_TAC [] [] \\ fs [])
+    \\ Cases_on`op = RefByte` \\ fs[] THEN1
+     (fs [compile_op_def,iEval_def]
+      \\ Q.ABBREV_TAC `b3 = ((LEAST ptr. ptr NOTIN FDOM s5.refs) =+
+           (LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs)) b2`
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b3`
+      \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
+      \\ fs [iEvalOp_def,do_app_aux_def,bEvalOp_def,LET_DEF]
+      \\ Q.ABBREV_TAC `x = (LEAST ptr. ptr NOTIN FDOM s5.refs)`
+      \\ Q.ABBREV_TAC `y = LEAST ptr. ptr NOTIN FDOM (bvi_to_bvl t2).refs`
+      \\ `~(x IN FDOM s5.refs)` by ALL_TAC THEN1
+       (`?p. (\ptr. ptr NOTIN FDOM s5.refs) p` by
+          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
+        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ fs []
+        \\ REV_FULL_SIMP_TAC std_ss [])
+      \\ `~(y IN FDOM t2.refs)` by ALL_TAC THEN1
+       (`?p. (\ptr. ptr NOTIN FDOM t2.refs) p` by
+          (SIMP_TAC std_ss [] \\ METIS_TAC [NUM_NOT_IN_FDOM])
+        \\ IMP_RES_TAC whileTheory.LEAST_INTRO \\ fs [bvi_to_bvl_def]
+        \\ REV_FULL_SIMP_TAC (srw_ss()) [bvi_to_bvl_def])
+      \\ fs []
+      \\ SRW_TAC [] [adjust_bv_def]
+      \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ fs [EVERY_MEM] \\ RES_TAC
+        \\ IMP_RES_TAC evaluate_refs_SUBSET
+        \\ REPEAT STRIP_TAC THEN1 METIS_TAC [bv_ok_SUBSET_IMP]
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+        \\ fs [EVERY_MEM] \\ RES_TAC
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
+          MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
+       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+        \\ Cases_on `e` \\ fs []
+        \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+        \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+        \\ fs [state_ok_def,EVERY_MEM] \\ RES_TAC \\ fs []
+        \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] [] \\ fs [])
+      \\ fs []
+      \\ Cases_on`REVERSE a`>>fs[]
+      \\ Cases_on`t`>>fs[]
+      \\ Cases_on`h'`>>fs[]
+      \\ Cases_on`h`>>fs[]
+      \\ Cases_on`t'`>>fs[]
+      \\ qpat_assum`X = Rval Y`mp_tac
+      \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rpt var_eq_tac
+      \\ Cases_on`a`>>fs[adjust_bv_def]
+      \\ STRIP_TAC THEN1 (
+        rpt var_eq_tac >>
+        simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
+      \\ REVERSE STRIP_TAC THEN1
+       (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
+        \\ SRW_TAC [] []
+        \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
+      \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
+      \\ rpt var_eq_tac \\ simp[]
+      \\ STRIP_TAC
+      THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
+      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
+      THEN1 (
+        simp[FLOOKUP_FAPPLY] >>
+        Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
+        simp[map_replicate])
+      \\ simp[FLOOKUP_FAPPLY]
+      \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
+      \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
+       (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
+        \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
+      \\ `b3 k = b2 k` by ALL_TAC
+      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF])
+      \\ fs [] \\ Cases_on `FLOOKUP s5.refs k` \\ fs []
+      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
+      \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
+      \\ fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+      \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
+      \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
+      \\ fs [state_ok_def]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `k`) \\ fs []
+      \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC
+      \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
+      \\ SRW_TAC [] [] \\ fs [])
+    \\ `compile_op op c1 = Op op c1` by
+      (Cases_on `op` \\ fs [compile_op_def] \\ NO_TAC)
+    \\ fs [iEval_def]
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
     \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
     \\ `EVERY (bv_ok s5.refs) (REVERSE a)` by ALL_TAC
