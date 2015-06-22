@@ -12,46 +12,6 @@ val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 
 val ARITH_TAC = intLib.ARITH_TAC;
 
-val SUBMAP_FDOM_SUBSET = Q.store_thm("SUBMAP_FDOM_SUBSET",
-  `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`,
-  rw[SUBMAP_DEF,SUBSET_DEF])
-
-val SUBMAP_FRANGE_SUBSET = Q.store_thm("SUBMAP_FRANGE_SUBSET",
-  `f1 ⊑ f2 ⇒ FRANGE f1 ⊆ FRANGE f2`,
-  rw[SUBMAP_DEF,SUBSET_DEF,IN_FRANGE] >> metis_tac[])
-
-val FDIFF_def = Define `
-  FDIFF f1 s = DRESTRICT f1 (COMPL s)`;
-
-val FDOM_FDIFF = prove(
-  ``x IN FDOM (FDIFF refs f2) <=> x IN FDOM refs /\ ~(x IN f2)``,
-  fs [FDIFF_def,DRESTRICT_DEF]);
-
-val NUM_NOT_IN_FDOM =
-  MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
-    (Q.ISPEC `f:num|->'a` FDOM_FINITE))
-  |> SIMP_RULE std_ss [IN_UNIV]
-
-val EXISTS_NOT_IN_FDOM_LEMMA = prove(
-  ``?x. ~(x IN FDOM (refs:num|->'a))``,
-  METIS_TAC [NUM_NOT_IN_FDOM]);
-
-val LEAST_NO_IN_FDOM = prove(
-  ``(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs``,
-  ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
-           SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
-
-val INJ_FAPPLY_FUPDATE = Q.prove(
-  `INJ ($' f) (FDOM f) (FRANGE f) ∧
-   s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
-   t = v INSERT FRANGE f
-  ⇒
-   INJ ($' (f |+ (k,v))) s t`,
-  rw[INJ_DEF,FAPPLY_FUPDATE_THM] >> rw[] >>
-  pop_assum mp_tac >> rw[] >>
-  fs[IN_FRANGE] >>
-  METIS_TAC[])
-
 val EVERY2_GENLIST = LIST_REL_GENLIST |> EQ_IMP_RULE |> snd |> Q.GEN`l`
 
 val EVERY_ZIP_GENLIST = prove(
@@ -2564,9 +2524,9 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs [bvlSemTheory.do_app_def,LET_DEF]
       \\ Q.EXISTS_TAC `f2 |+ (pp,qq)` \\ fs []
       \\ `~(pp IN FDOM p1.refs)` by
-           (UNABBREV_ALL_TAC \\ fs [LEAST_NO_IN_FDOM] \\ NO_TAC)
+           (UNABBREV_ALL_TAC \\ fs [LEAST_NOTIN_FDOM] \\ NO_TAC)
       \\ `~(qq IN FDOM t2.refs)` by
-           (UNABBREV_ALL_TAC \\ fs [LEAST_NO_IN_FDOM] \\ NO_TAC)
+           (UNABBREV_ALL_TAC \\ fs [LEAST_NOTIN_FDOM] \\ NO_TAC)
       \\ `~(pp IN FDOM f2)` by fs [state_rel_def]
       \\ `~(qq IN FRANGE f2)` by
         (REPEAT STRIP_TAC \\ fs [state_rel_def,SUBSET_DEF] \\ RES_TAC \\ NO_TAC)
@@ -2740,7 +2700,7 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[FDIFF_def] >>
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       rw[] >>
-      simp[Abbr`pp`,LEAST_NO_IN_FDOM])
+      simp[Abbr`pp`,LEAST_NOTIN_FDOM])
     \\ Cases_on `op = RefByte` \\ fs[] THEN1 (
       fs[closSemTheory.do_app_def,bvlSemTheory.do_app_def] >>
       Cases_on`REVERSE a`>>fs[]>>
@@ -2760,7 +2720,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `f2 \\ qq = f2` by (
         fs[state_rel_def] >>
         MATCH_MP_TAC DOMSUB_NOT_IN_DOM >>
-        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+        simp[Abbr`qq`,LEAST_NOTIN_FDOM]) >>
       conj_tac >- (
         fs[state_rel_def] >>
         conj_tac >- (
@@ -2770,14 +2730,14 @@ val compile_correct = Q.store_thm("compile_correct",
           rpt strip_tac >>
           match_mp_tac OPTREL_v_rel_NEW_REF >>
           reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
           match_mp_tac OPTREL_v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- (
           match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
           spose_not_then strip_assume_tac >>
           fs[SUBSET_DEF] >> res_tac >>
-          fs[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          fs[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- ( fs[SUBSET_DEF] ) >>
         simp[FLOOKUP_UPDATE] >>
         rpt gen_tac >> reverse IF_CASES_TAC >> simp[] >- (
@@ -2786,7 +2746,7 @@ val compile_correct = Q.store_thm("compile_correct",
             `pp ∈ FRANGE f2` by (fs[FRANGE_FLOOKUP] >>METIS_TAC[]) >>
             fs[SUBSET_DEF] >> res_tac >>
             var_eq_tac >>
-            fs[Abbr`m`,LEAST_NO_IN_FDOM] ) >>
+            fs[Abbr`m`,LEAST_NOTIN_FDOM] ) >>
           Cases_on`x`>>fs[] >>
           match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
           ONCE_REWRITE_TAC[CONJ_COMM] >>
@@ -2794,22 +2754,22 @@ val compile_correct = Q.store_thm("compile_correct",
           rpt strip_tac >>
           match_mp_tac v_rel_NEW_REF >>
           reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
           match_mp_tac v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         strip_tac >> var_eq_tac >> simp[]) >>
       conj_tac >- (
         match_mp_tac SUBMAP_TRANS >>
         first_assum(match_exists_tac o concl) >> simp[] >>
         disj1_tac >>
         fs[state_rel_def] >>
-        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+        simp[Abbr`qq`,LEAST_NOTIN_FDOM]) >>
       match_mp_tac SUBMAP_TRANS >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[FDIFF_def] >>
       simp[SUBMAP_DEF,FDOM_DRESTRICT,DRESTRICT_DEF] >>
       rw[] >>
-      simp[Abbr`pp`,LEAST_NO_IN_FDOM])
+      simp[Abbr`pp`,LEAST_NOTIN_FDOM])
     \\ Cases_on `op = UpdateByte` \\ fs[] THEN1 (
       fs [closSemTheory.do_app_def,bvlSemTheory.do_app_def]
       \\ Cases_on `REVERSE a` \\ fs []

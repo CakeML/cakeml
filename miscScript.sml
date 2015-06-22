@@ -14,6 +14,46 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val SUBMAP_FDOM_SUBSET = Q.store_thm("SUBMAP_FDOM_SUBSET",
+  `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`,
+  rw[SUBMAP_DEF,SUBSET_DEF])
+
+val SUBMAP_FRANGE_SUBSET = Q.store_thm("SUBMAP_FRANGE_SUBSET",
+  `f1 ⊑ f2 ⇒ FRANGE f1 ⊆ FRANGE f2`,
+  rw[SUBMAP_DEF,SUBSET_DEF,IN_FRANGE] >> metis_tac[])
+
+val FDIFF_def = Define `
+  FDIFF f1 s = DRESTRICT f1 (COMPL s)`;
+
+val FDOM_FDIFF = store_thm("FDOM_FDIFF",
+  ``x IN FDOM (FDIFF refs f2) <=> x IN FDOM refs /\ ~(x IN f2)``,
+  fs [FDIFF_def,DRESTRICT_DEF]);
+
+val INJ_FAPPLY_FUPDATE = Q.store_thm("INJ_FAPPLY_FUPDATE",
+  `INJ ($' f) (FDOM f) (FRANGE f) ∧
+   s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
+   t = v INSERT FRANGE f
+  ⇒
+   INJ ($' (f |+ (k,v))) s t`,
+  rw[INJ_DEF,FAPPLY_FUPDATE_THM] >> rw[] >>
+  pop_assum mp_tac >> rw[] >>
+  fs[IN_FRANGE] >>
+  METIS_TAC[])
+
+val NUM_NOT_IN_FDOM =
+  MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
+    (Q.ISPEC `f:num|->'a` FDOM_FINITE))
+  |> SIMP_RULE std_ss [IN_UNIV]
+
+val EXISTS_NOT_IN_FDOM_LEMMA = prove(
+  ``?x. ~(x IN FDOM (refs:num|->'a))``,
+  METIS_TAC [NUM_NOT_IN_FDOM]);
+
+val LEAST_NOTIN_FDOM = store_thm("LEAST_NOTIN_FDOM",
+  ``(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs``,
+  ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
+           SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
+
 val lookup_inter_assoc = store_thm("lookup_inter_assoc",
   ``lookup x (inter t1 (inter t2 t3)) =
     lookup x (inter (inter t1 t2) t3)``,
