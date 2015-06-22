@@ -507,6 +507,12 @@ val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
 val get_global_def = closSemTheory.get_global_def;
 
+val v_to_list_adjust = Q.prove(
+  `∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)`,
+  ho_match_mp_tac v_to_list_ind >>
+  simp[v_to_list_def,adjust_bv_def] >> rw[] >>
+  Cases_on`v_to_list x`>>fs[])
+
 val do_app_adjust = prove(
   ``state_rel b2 s5 t2 /\ (!i. op <> Const i) /\ (op <> Ref) /\
     (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
@@ -576,9 +582,41 @@ val do_app_adjust = prove(
     Cases_on`t'`>>fs[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
     IF_CASES_TAC >> simp[] >>
-    rw[] >> rw[adjust_bv_def,bvi_to_bvl_def] >>
-    cheat )
-  THEN1 (* RefArray *) cheat
+    strip_tac >> rpt var_eq_tac >>
+    simp[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    simp[bvi_to_bvl_def] >>
+    conj_asm1_tac >- cheat >>
+    fs[state_rel_def] >>
+    conj_tac >- (
+      simp[INJ_INSERT] >>
+      cheat ) >>
+    simp[FLOOKUP_UPDATE] >>
+    rw[] >> fs[] >>
+    BasicProvers.CASE_TAC >>
+    `k ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+    `b2 k ∈ FDOM t2.refs` by fs[INJ_DEF] >>
+    cheat (* LEAST_NOT_IN_FDOM *))
+  THEN1 (* RefArray *) (
+    Cases_on`REVERSE a`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    IF_CASES_TAC >> simp[] >>
+    strip_tac >> rpt var_eq_tac >>
+    simp[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    simp[bvi_to_bvl_def] >>
+    conj_asm1_tac >- cheat >>
+    fs[state_rel_def] >>
+    conj_tac >- (
+      simp[INJ_INSERT] >>
+      cheat ) >>
+    simp[FLOOKUP_UPDATE] >>
+    rw[] >> fs[map_replicate] >>
+    BasicProvers.CASE_TAC >>
+    `k ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+    `b2 k ∈ FDOM t2.refs` by fs[INJ_DEF] >>
+    cheat (* LEAST_NOT_IN_FDOM *))
   THEN1 (* DerefByte *) (
     Cases_on`REVERSE a`>>fs[]>>
     Cases_on`t`>>fs[]>>
@@ -591,20 +629,54 @@ val do_app_adjust = prove(
     fs[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
     spose_not_then strip_assume_tac >> fs[])
-  THEN1 (* UpdateByte *) cheat
-  THEN1 (* FromList *) cheat
-  THEN1 (* TagLenEq *) cheat
+  THEN1 (* UpdateByte *) (
+    Cases_on`REVERSE a`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    Cases_on`t'`>>fs[]>>
+    Cases_on`h''`>>fs[]>>
+    Cases_on`h'`>>fs[]>>
+    Cases_on`h`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    simp[bEvalOp_def,adjust_bv_def] >>
+    simp[Once bvi_to_bvl_def] >> rw[] >>
+    every_case_tac >> fs[] >>rw[] >>
+    rw[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
+    fs[state_rel_def] >>
+    TRY (
+      last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+      spose_not_then strip_assume_tac >> rpt var_eq_tac >> fs[] >>
+      NO_TAC) >>
+    simp[bvi_to_bvl_def] >>
+    conj_asm1_tac >- (
+      simp[INJ_INSERT] >>
+      cheat ) >>
+    simp[FLOOKUP_UPDATE] >>
+    rw[] >- (
+      last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
+    BasicProvers.CASE_TAC >>
+    `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+    metis_tac[INJ_DEF])
+  THEN1 (* FromList *) (
+    Cases_on`REVERSE a`>>fs[]>>
+    Cases_on`t`>>fs[] >>
+    simp[bEvalOp_def,v_to_list_adjust] >>
+    Cases_on`v_to_list h`>>simp[] >> strip_tac >>
+    rpt var_eq_tac >> simp[bvl_to_bvi_id,adjust_bv_def] >>
+    srw_tac[ETA_ss][])
+  THEN1 (* TagLenEq *) (
+    every_case_tac >> fs[bEvalOp_def,adjust_bv_def] >>
+    rw[] >> rw[bvl_to_bvi_id])
   THEN1 (* TagEq *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
-    \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
-         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
-  THEN1 (* BlockCmp *) cheat
+    \\ simp[bvl_to_bvi_id])
+  THEN1 (* BlockCmp *) (
+    every_case_tac >> fs[bEvalOp_def,adjust_bv_def] >>
+    rw[] >> simp[bvl_to_bvi_id])
   THEN1 (* IsBlock *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ SRW_TAC [] []
-    \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
-         bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
+    \\ simp[bvl_to_bvi_id])
   THEN1 (* Deref *)
    (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
@@ -616,16 +688,14 @@ val do_app_adjust = prove(
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
     \\ fs [bEvalOp_def] \\ SIMP_TAC std_ss [Once bvi_to_bvl_def] \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs []
-    \\ fs [state_rel_def]
-    \\ Q.PAT_ASSUM `!k. bbb` (K ALL_TAC)
-    \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `n`)
-    \\ fs [] \\ simp[] >> rw[]
-    \\ every_case_tac >> fs[EL_MAP,bvl_to_bvi_id]
-
-    \\ rw[] >> simp[EL_MAP,bvl_to_bvi_id]
-    \\ every_case_tac >> fs[]
-    Cases_on `i` \\ fs [EL_MAP,bvl_to_bvi_id]
-    \\ Cases_on `l` \\ fs [])
+    \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
+        fs [state_rel_def] >>
+        last_x_assum(qspec_then`n`mp_tac) >>
+        simp[] )
+    \\ simp[]
+    \\ IF_CASES_TAC >> fs[] >> fs[]
+    \\ `Num i < LENGTH l` by METIS_TAC[integerTheory.INT_OF_NUM,integerTheory.INT_LT]
+    \\ simp[EL_MAP,bvl_to_bvi_id])
   THEN1 (* Update *)
    (Cases_on `REVERSE a` \\ fs []
     \\ Cases_on `t` \\ fs []
@@ -642,7 +712,11 @@ val do_app_adjust = prove(
      (fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
       \\ Q.PAT_ASSUM `!k.bbb` (K ALL_TAC)
       \\ Q.PAT_ASSUM `!k.bbb` (MP_TAC o Q.SPEC `n`) \\ fs [])
-    \\ fs [] \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
+    \\ simp[]
+    \\ IF_CASES_TAC >> fs[] >> fs[]
+    \\ rpt var_eq_tac \\ simp[]
+    \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
+    \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
     \\ fs [FLOOKUP_FAPPLY]
     \\ REPEAT STRIP_TAC
     THEN1 fs [FLOOKUP_DEF,IN_INSERT_EQ]
@@ -654,17 +728,26 @@ val do_app_adjust = prove(
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ fs [adjust_bv_def])
-  THEN1 (* PrintC *)
-   (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
-    \\ SRW_TAC [] [adjust_bv_def] \\ SRW_TAC [] [adjust_bv_def]
-    \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
-  \\ TRY (* Add, Sub, Mult, Div, Mod, Less *)
+  THEN1 (* FFI *) cheat
+  THEN1 (* Equal *) (
+    simp[bEvalOp_def] >>
+    Cases_on`REVERSE a`>>fs[] >>
+    Cases_on`t`>>fs[] >>
+    Cases_on`t'`>>fs[] >>
+    Cases_on`h'`>>fs[] >>
+    Cases_on`h`>>fs[] >>
+    strip_tac >> rpt var_eq_tac >>
+    simp[adjust_bv_def,bvl_to_bvi_id] >>
+    fs[state_rel_def,bv_ok_def] >>
+    METIS_TAC[INJ_DEF] )
+  \\ (* Add, Sub, Mult, Div, Mod, Less, ... *)
    (REPEAT STRIP_TAC
     \\ Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
     \\ Cases_on `h'` \\ fs [] \\ Cases_on `h` \\ fs []
     \\ Cases_on `t'` \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEvalOp_def,adjust_bv_def,bvl_to_bvi_id]
-    \\ EVAL_TAC \\ NO_TAC));
+    \\ every_case_tac >> fs[bvl_to_bvi_id] >> rw[]
+    \\ EVAL_TAC ));
 
 val bComp_correct = prove(
   ``!xs env s1 n res s2 t1 n2 ys aux b1.

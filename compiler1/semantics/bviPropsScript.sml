@@ -6,6 +6,10 @@ val bvl_to_bvi_id = store_thm("bvl_to_bvi_id",
   ``bvl_to_bvi (bvi_to_bvl s) s = s``,
   EVAL_TAC \\ fs [bviSemTheory.state_component_equality]);
 
+val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
+  `bvl_to_bvi (x with refs := y) z = bvl_to_bvi x z with <| refs := y |>`,
+  EVAL_TAC)
+
 val evaluate_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)
