@@ -82,10 +82,7 @@ val compile_def = tDefine "compile" `
   \\ Cases_on `x1` \\ fs [destLet_def]
   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
-val compile_SING = store_thm("compile_SING",
-  ``(compile n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
-  \\ Cases_on `c` \\ fs [LENGTH_NIL]);
+val compile_ind = theorem"compile_ind";
 
 val compile_LENGTH_lemma = prove(
   ``!n xs. (LENGTH (FST (compile n xs)) = LENGTH xs)``,
@@ -96,5 +93,10 @@ val compile_LENGTH_lemma = prove(
 val compile_LENGTH = store_thm("compile_LENGTH",
   ``(compile n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_LENGTH_lemma) \\ fs [])
+
+val compile_SING = store_thm("compile_SING",
+  ``(compile n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
+  \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 
 val _ = export_theory();
