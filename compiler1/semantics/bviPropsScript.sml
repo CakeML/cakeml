@@ -10,6 +10,10 @@ val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
   `bvl_to_bvi (x with refs := y) z = bvl_to_bvi x z with <| refs := y |>`,
   EVAL_TAC)
 
+val bvl_to_bvi_with_io = Q.store_thm("bvl_to_bvi_with_io",
+  `bvl_to_bvi (x with io := y) z = bvl_to_bvi x z with io := y`,
+  EVAL_TAC)
+
 val evaluate_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)

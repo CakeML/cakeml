@@ -44,6 +44,7 @@ val NUM_NOT_IN_FDOM =
   MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
     (Q.ISPEC `f:num|->'a` FDOM_FINITE))
   |> SIMP_RULE std_ss [IN_UNIV]
+  |> curry save_thm "NUM_NOT_IN_FDOM";
 
 val EXISTS_NOT_IN_FDOM_LEMMA = prove(
   ``?x. ~(x IN FDOM (refs:num|->'a))``,
