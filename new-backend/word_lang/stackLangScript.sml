@@ -17,7 +17,7 @@ val _ = Datatype `
   stack_prog = Skip
              | Inst ('a inst)
              | Get num store_name
-             | Set store_name ('a word_exp)
+             | Set store_name num
              | Call ((stack_prog # num # num) option)
                     (* return var, return-handler code, labels l1,l2*)
                     (num + num) (* target of call *)
@@ -385,12 +385,12 @@ val sEval_def = tDefine "sEval" `
      | NONE => (SOME Error, s)) /\
   (sEval (Get v name,s) =
      case FLOOKUP s.store name of
-     | NONE => (SOME Error, s)
-     | SOME x => (NONE, set_var v x s)) /\
-  (sEval (Set v exp,s) =
-     case word_exp s exp of
-     | NONE => (SOME Error, s)
-     | SOME w => (NONE, set_store v (Word w) s)) /\
+     | SOME x => (NONE, set_var v x s)
+     | NONE => (SOME Error, s)) /\
+  (sEval (Set name v,s) =
+     case get_var v s of
+     | SOME w => (NONE, set_store name w s)
+     | NONE => (SOME Error, s)) /\
   (sEval (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,empty_env s)
                     else (NONE,dec_clock s)) /\
