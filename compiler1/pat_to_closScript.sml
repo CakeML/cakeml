@@ -5,6 +5,11 @@ val _ = new_theory"pat_to_clos"
 val string_tag_def = Define`string_tag = 0:num`
 val vector_tag_def = Define`vector_tag = 1:num`
 val pat_tag_shift_def = Define`pat_tag_shift = 2:num`
+(* TODO: remove pat_tag_shift - is it unnecessary? *)
+
+(* TODO: is patLang even necessary, or should it just be closLang already?
+         - yes it is necessary for Raise in Div, for example
+*)
 
 val compile_def = tDefine"compile"`
   (compile (Raise e) =
@@ -28,6 +33,7 @@ val compile_def = tDefine"compile"`
   (compile (Fun e) =
     Fn 0 [] 1 (compile e)) ∧
   (compile (App (Op (Op Opapp)) es) =
+    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
     App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
   (compile (App (Op (Op (Opn Plus))) es) =
@@ -65,14 +71,15 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op Equality)) es) =
     Op Equal (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Opassign)) es) =
-    Let (REVERSE (MAP compile es))
-      (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
-         (Op (Cons (tuple_tag+pat_tag_shift)) []))) ∧
+    (* TODO: check if this if is really necessary *)
+    if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
+      Op Update [compile (EL 1 es); Op (Const 0) []; compile (EL 0 es)]) ∧
   (compile (App (Op (Op Opderef)) es) =
     Op Deref ((Op (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App (Op (Op Opref)) es) =
     Op Ref (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Ord)) es) =
+    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Chr)) es) =
     Let (REVERSE (MAP compile es))
@@ -150,8 +157,9 @@ val compile_def = tDefine"compile"`
   (compile (App (Tag_eq n l) es) =
     Op (TagLenEq (n+pat_tag_shift) l) (REVERSE (MAP compile es))) ∧
   (compile (App (El n) es) =
-    Let (REVERSE (MAP compile es))
-      (Op El [Op (Const &n) []; Var 0])) ∧
+    (* TODO: check if this if is really necessary *)
+    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
+      Op El [Op (Const &n) []; compile (HD es)]) ∧
   (compile (If e1 e2 e3) =
     If (compile e1) (compile e2) (compile e3)) ∧
   (compile (Let e1 e2) =
