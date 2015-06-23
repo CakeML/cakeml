@@ -83,6 +83,13 @@ val do_app_locals = store_thm("do_app_locals",
   \\ every_case_tac >> fs[] \\ SRW_TAC [] []
   \\ fs [bvi_to_bvp_def,state_component_equality]);
 
+val do_space_alt = store_thm("do_space_alt",
+  ``do_space op s =
+      if op_space_reset op then SOME (s with space := 0)
+      else consume_space (op_space_req op) s``,
+  fs [do_space_def] \\ SRW_TAC [] [consume_space_def]
+  \\ fs [state_component_equality] \\ fs [] \\ DECIDE_TAC);
+
 val Seq_Skip = store_thm("Seq_Skip",
   ``evaluate (Seq c Skip,s) = evaluate (c,s)``,
   fs [evaluate_def] \\ Cases_on `evaluate (c,s)` \\ fs [LET_DEF] \\ SRW_TAC [] []);
@@ -438,13 +445,18 @@ val locals_ok_get_vars = store_thm("locals_ok_get_vars",
   \\ Cases_on `get_vars x s` \\ fs []
   \\ IMP_RES_TAC locals_ok_get_var \\ fs []);
 
-val bvp_to_bvi_with_locals = Q.store_thm("bvp_to_bvi_with_locals",
-  `bvp_to_bvi (s with locals := l) = bvp_to_bvi s`,
-  EVAL_TAC)
+val bvp_to_bvi_ignore = Q.store_thm("bvp_to_bvi_ignore",
+  `(bvp_to_bvi (s with space := t) = bvp_to_bvi s) ∧
+   (bvp_to_bvi (s with locals := l) = bvp_to_bvi s) ∧
+   (bvp_to_bvi (s with <| locals := l; space := t |>) = bvp_to_bvi s)`,
+  EVAL_TAC);
 
-val bvi_to_bvp_with_locals = Q.store_thm("bvi_to_bvp_with_locals",
-  `bvi_to_bvp t (s with locals := l) = (bvi_to_bvp t s) with locals := l`,
-  EVAL_TAC)
+val bvi_to_bvp_space_locals = Q.store_thm("bvi_to_bvp_space_locals",
+  `((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
+   ((bvi_to_bvp s t).locals = t.locals) /\
+   ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
+   ((bvi_to_bvp s t).space = t.space)`,
+  EVAL_TAC);
 
 val evaluate_locals = store_thm("evaluate_locals",
   ``!c s res s2 vars l.
@@ -470,8 +482,8 @@ val evaluate_locals = store_thm("evaluate_locals",
       \\ reverse(Cases_on `do_app op x s`) \\ fs [] >- (
            imp_res_tac do_app_err >> fs[] >>
            Cases_on`a`>>fs[] >> rw[] >>
-           fs[do_app_def,do_space_def,bvp_to_bvi_with_locals,
-              bvi_to_bvp_with_locals,
+           fs[do_app_def,do_space_def,bvp_to_bvi_ignore,
+              bvi_to_bvp_space_locals,
               bvi_to_bvpTheory.op_space_req_def,
               bvi_to_bvpTheory.op_space_reset_def] >>
            BasicProvers.CASE_TAC >> fs[] >- (
