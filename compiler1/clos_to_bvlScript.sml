@@ -10,7 +10,7 @@ val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
   |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
 
 val bool_to_tag_def = Define`
-  bool_to_tag b = ((if b then true_tag else false_tag) + pat_tag_shift + clos_tag_shift)`
+  bool_to_tag b = ((if b then true_tag else false_tag) + clos_tag_shift)`
 
 val Bool_def = Define`
   Bool b = Op (Cons (bool_to_tag b)) []`;
@@ -198,11 +198,11 @@ val ToList_code_def = Define`
     If (Op Equal [Var 1; mk_const 0]) (Var 2)
       (Let [Op Sub [mk_const 1; Var 1]]
         (Call 0 (SOME ToList_location)
-         [Var 1; Var 0; Op (Cons (cons_tag+pat_tag_shift+clos_tag_shift))
+         [Var 1; Var 0; Op (Cons (cons_tag+clos_tag_shift))
                            [Var 3; mk_el (Var 1) (Var 0)]])))`;
 
 val RaiseEq_def = Define`
-  RaiseEq = Raise (Op (Cons (eq_tag+pat_tag_shift+clos_tag_shift)) [])`;
+  RaiseEq = Raise (Op (Cons (eq_tag+clos_tag_shift)) [])`;
 
 val check_closure_def = Define`
   check_closure v e =
@@ -274,7 +274,7 @@ val compile_def = tDefine "compile" `
          Let c1
            (Call 0 (SOME ToList_location)
              [Var 0; Op(LengthBlock)[Var 0];
-              Op(Cons(nil_tag+pat_tag_shift+clos_tag_shift))[]])
+              Op(Cons(nil_tag+clos_tag_shift))[]])
        else if op = Equal then
          Call 0 (SOME equality_location) c1
        else

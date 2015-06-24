@@ -1114,8 +1114,8 @@ val do_app_err = Q.prove(
     every_case_tac >> fs[] ));
 
 val list_to_v_def = Define`
-  list_to_v [] = bvlSem$Block (nil_tag+pat_tag_shift+clos_tag_shift) [] ∧
-  list_to_v (h::t) = Block (cons_tag+pat_tag_shift+clos_tag_shift) [h; list_to_v t]`;
+  list_to_v [] = bvlSem$Block (nil_tag+clos_tag_shift) [] ∧
+  list_to_v (h::t) = Block (cons_tag+clos_tag_shift) [h; list_to_v t]`;
 
 val list_to_v = Q.prove(
   `∀vs ws.
@@ -1231,7 +1231,7 @@ val ToList = Q.prove(
 
 val eq_res_def = Define`
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
-  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block (eq_tag+pat_tag_shift+clos_tag_shift)[])) ∧
+  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block (eq_tag+clos_tag_shift)[])) ∧
   eq_res _ = Rerr (Rabort Rtype_error)`;
 val _ = export_rewrites["eq_res_def"];
 

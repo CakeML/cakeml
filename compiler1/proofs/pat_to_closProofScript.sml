@@ -14,7 +14,7 @@ val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
   (compile_v (Loc m) = (RefPtr m)) ∧
-  (compile_v (Conv cn vs) = (Block (cn+pat_tag_shift) (MAP (compile_v) vs))) ∧
+  (compile_v (Conv cn vs) = (Block cn (MAP (compile_v) vs))) ∧
   (compile_v (Vectorv vs) = (Block vector_tag (MAP (compile_v) vs))) ∧
   (compile_v (Closure vs e) = (Closure 0 [] (MAP (compile_v) vs) 1 (compile e))) ∧
   (compile_v (Recclosure vs es k) = (Recclosure 0 [] (MAP (compile_v) vs) (MAP (λe. (1,compile e)) es) k))`
@@ -205,17 +205,18 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[evaluate_def] >> rw[] >>
     PairCases_on`s2` >>
     imp_res_tac patPropsTheory.do_app_cases >>
-    fs[do_app_pat_def] >> rw[] >- (
+    fs[do_app_pat_def] >> rw[]
+    >- ( (* Opn *)
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE,SWAP_REVERSE_SYM] >>
       rw[opn_lookup_def,closSemTheory.do_eq_def] >>
       TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
       BasicProvers.EVERY_CASE_TAC >> fs[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
       rw[prim_exn_def,opn_lookup_def] )
-    >- (
+    >- ( (* Opb *)
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def,
                       MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       rw[] >> COOPER_TAC )
-    >- (
+    >- ( (* Equal *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`do_eq v1 v2 = Eq_type_error`>>fs[] >>
@@ -223,10 +224,18 @@ val compile_correct = Q.store_thm("compile_correct",
       BasicProvers.CASE_TAC >> fs[] >> rw[] >>
       fsrw_tac[ARITH_ss][prim_exn_def] >>
       EVAL_TAC)
-    >- (
-      simp[evaluate_def,ETA_AX,do_app_def] >>
-      fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
+    >- ( (* wrong args for Update *)
+      imp_res_tac evaluate_list_length >>
+      Cases_on`vs`>>fs[]>>rw[]>>fs[])
+    >- ( (* Update *)
+      Cases_on`es`>>fs[]>>Cases_on`t`>>fs[LENGTH_NIL] >>
+      simp[evaluate_def,ETA_AX,do_app_def] >> rw[] >>
+      Cases_on`vs`>>fs[]>>rw[]>>
       fs[store_assign_def,Once compile_csg_def] >> simp[] >>
+      pop_assum mp_tac >> IF_CASES_TAC >> simp[] >> rw[] >>
+      fs[evaluate_def] >>
+      BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
       BasicProvers.CASE_TAC >- (
         imp_res_tac ALOOKUP_FAILS >> fs[MEM_GENLIST] ) >>
       imp_res_tac ALOOKUP_MEM >> fs[MEM_GENLIST] >>
@@ -234,11 +243,11 @@ val compile_correct = Q.store_thm("compile_correct",
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       simp[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST,EL_LUPDATE] >>
-      rw[] >> fs[compile_sv_def] >>
+      rw[] >> fs[compile_sv_def] >- EVAL_TAC >>
       simp[LIST_EQ_REWRITE] >>
       REWRITE_TAC[GSYM EL] >>
-      simp[dec_to_exhTheory.tuple_tag_def,EL_LUPDATE] )
-    >- (
+      simp[EL_LUPDATE] )
+    >- ( (* Deref *)
       simp[ETA_AX,evaluate_def,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_lookup_def] >>
@@ -249,7 +258,7 @@ val compile_correct = Q.store_thm("compile_correct",
       rw[]>>fs[] >>
       Cases_on`EL n s21`>>fs[compile_sv_def] >>
       rw[compile_csg_def] )
-    >- (
+    >- ( (* Ref *)
       simp[ETA_AX,evaluate_def,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_alloc_def,LET_THM] >>
@@ -264,20 +273,24 @@ val compile_correct = Q.store_thm("compile_correct",
         DECIDE_TAC ) >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_APPEND2,compile_sv_def] )
-    >- (
+    >- ( (* SetGlobal *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[compile_csg_def,get_global_def,EL_MAP] >>
       Cases_on`EL idx s23`>>fs[] >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[compile_csg_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def] )
-    >- (
+    >- ( (* TagLenEq *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] )
-    >- (
+    >- ( (* wrong args for El *)
+      imp_res_tac evaluate_list_length >>
+      Cases_on`es`>>fs[] )
+    >- ( (* El *)
+      Cases_on`es`>>fs[LENGTH_NIL] >> rw[] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[EL_MAP] )
-    >- (
+    >- ( (* RefByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       fs[store_alloc_def,LET_THM] >>
@@ -297,7 +310,7 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
       metis_tac[INT_ABS_EQ_ID])
-    >- (
+    >- ( (* DerefByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       fs[store_lookup_def,LET_THM] >>
@@ -314,14 +327,14 @@ val compile_correct = Q.store_thm("compile_correct",
         srw_tac[ARITH_ss][compile_csg_def,prim_exn_def] ) >>
       simp[ALOOKUP_GENLIST,compile_sv_def] >>
       rw[compile_csg_def] >> fs[true_neq_false])
-    >- (
+    >- ( (* LengthByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
       simp[compile_csg_def,ALOOKUP_GENLIST] >>
       Cases_on`n < LENGTH s21`>>fs[]>>
       Cases_on`EL n s21`>>fs[compile_sv_def] >>
       rw[compile_csg_def] )
-    >- (
+    >- ( (* UpdateByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[] >>
@@ -344,10 +357,10 @@ val compile_correct = Q.store_thm("compile_correct",
       rw[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,dec_to_exhTheory.tuple_tag_def,true_neq_false])
-    >- (
+    >- ( (* wrong args for Ord *)
       imp_res_tac evaluate_list_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
-    >- (
+    >- ( (* Chr *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def,prim_exn_def])
     >- (
@@ -364,26 +377,26 @@ val compile_correct = Q.store_thm("compile_correct",
       `0 ≤ n` by COOPER_TAC >>
       EVAL_TAC >>
       simp[ORD_CHR,INT_OF_NUM])
-    >- (
+    >- ( (* Chopb *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,opb_lookup_def] >>
       simp[] >> rw[] >> COOPER_TAC )
-    >- (
+    >- ( (* Explode *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       simp[list_to_v,IMPLODE_EXPLODE_I])
-    >- (
+    >- ( (* Implode *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       imp_res_tac v_to_char_list >>
       simp[IMPLODE_EXPLODE_I])
-    >- ( fs[MAP_REVERSE] >>simp[evaluate_def,ETA_AX,do_app_def] )
-    >- (
+    >- ( (* Strlen *)fs[MAP_REVERSE] >>simp[evaluate_def,ETA_AX,do_app_def] )
+    >- ( (* FromList *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       imp_res_tac v_to_list >>
       simp[])
-    >- (
+    >- ( (* LengthBlock *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       Cases_on`i < 0` >> fs[LET_THM] >- (
@@ -396,7 +409,7 @@ val compile_correct = Q.store_thm("compile_correct",
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[EL_MAP,true_neq_false] )
     >- ( fs[MAP_REVERSE] >> simp[evaluate_def,ETA_AX,do_app_def])
-    >- (
+    >- ( (* RefArray *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_alloc_def,LET_THM] >>
@@ -415,7 +428,7 @@ val compile_correct = Q.store_thm("compile_correct",
       rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
       simp[REPLICATE_GENLIST,MAP_GENLIST] >>
       metis_tac[INT_ABS_EQ_ID])
-    >- (
+    >- ( (* Deref *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def,LET_THM] >>
@@ -432,7 +445,7 @@ val compile_correct = Q.store_thm("compile_correct",
         arw[compile_csg_def,prim_exn_def] ) >>
       simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] >>
       rw[compile_csg_def,true_neq_false] )
-    >- (
+    >- ( (* Length *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def] >>
@@ -440,7 +453,7 @@ val compile_correct = Q.store_thm("compile_correct",
       Cases_on`n < LENGTH s21`>>fs[]>>
       Cases_on`EL n s21`>>fs[compile_sv_def] >>
       rw[compile_csg_def] )
-    >- (
+    >- ( (* Update *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def,LET_THM] >>
@@ -460,7 +473,7 @@ val compile_correct = Q.store_thm("compile_correct",
       rw[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def,true_neq_false])
-    >- (
+    >- ( (* FFI *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       simp[compile_csg_def,ALOOKUP_GENLIST] >>
@@ -479,10 +492,14 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[evaluate_def] >> rw[] >>
     fs[MAP_REVERSE] >>
     Cases_on`op`>>simp[evaluate_def,ETA_AX] >>
+    TRY (
+      CHANGED_TAC(rw[]) >- (
+        simp[evaluate_def] ) >>
+      Cases_on`es`>>fs[LENGTH_NIL] >>
+      simp[evaluate_def,do_app_def] >> NO_TAC) >>
     Cases_on`o'`>>simp[evaluate_def,ETA_AX] >>
     Cases_on`o''`>>simp[evaluate_def,ETA_AX] >>
     rw[evaluate_def] >>
-    TRY( Cases_on`err`>>fs[] >> NO_TAC) >>
     TRY(Cases_on`o'`>>simp[evaluate_def,ETA_AX] >>
         Cases_on`err`>>fs[] >> NO_TAC) >>
     TRY(
@@ -496,7 +513,10 @@ val compile_correct = Q.store_thm("compile_correct",
         Cases_on`err`>>fs[]>>
         BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>
         NO_TAC) >>
-    Cases_on`err`>>fs[]) >>
+    fs[evaluate_def] >>
+    BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>rw[]>>
+    simp[do_app_def] >>
+    BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>rw[]) >>
   strip_tac >- (
     simp[evaluate_def] >> rw[] >>
     Cases_on`v`>>fs[]>>rw[]>>fs[patSemTheory.do_if_def]>>

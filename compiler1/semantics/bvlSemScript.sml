@@ -18,7 +18,7 @@ val Boolv_def = Define`
   Boolv b = bvlSem$Block (bool_to_tag b) []`
 
 val Unit_def = Define`
-  Unit = bvlSem$Block (tuple_tag+pat_tag_shift+clos_tag_shift) []`
+  Unit = bvlSem$Block (tuple_tag+clos_tag_shift) []`
 
 (* -- *)
 
@@ -32,9 +32,9 @@ val _ = Datatype `
 
 val v_to_list_def = Define`
   (v_to_list (Block tag []) =
-     if tag = nil_tag+pat_tag_shift+clos_tag_shift then SOME [] else NONE) ∧
+     if tag = nil_tag+clos_tag_shift then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
-     if tag = cons_tag+pat_tag_shift+clos_tag_shift then
+     if tag = cons_tag+clos_tag_shift then
        (case v_to_list bt of
         | SOME t => SOME (h::t)
         | _ => NONE )
