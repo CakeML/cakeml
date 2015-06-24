@@ -10,6 +10,13 @@ val mk_wf_inter = prove(
   ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
   fs []);
 
+val bvi_to_bvp_lemma = prove(
+  ``((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
+    ((bvi_to_bvp s t).locals = t.locals) /\
+    ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
+    ((bvi_to_bvp s t).space = t.space)``,
+  fs [bvi_to_bvp_def]);
+
 val evaluate_compile = prove(
   ``!c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -45,8 +52,6 @@ val evaluate_compile = prove(
            fs[do_app_def,do_space_def,bvi_to_bvpTheory.op_space_req_def,
               bvp_to_bvi_ignore,bvi_to_bvp_space_locals,
               bvi_to_bvpTheory.op_space_reset_def] >>
-           BasicProvers.CASE_TAC >> fs[] >- (
-             Cases_on`a`>>fs[] ) >>
            rpt var_eq_tac >>
            simp[call_env_def,state_component_equality] >>
            simp[locals_ok_def,lookup_fromList])
@@ -105,7 +110,8 @@ val evaluate_compile = prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ fs [] \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
-      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ fs [] \\ REPEAT STRIP_TAC
+      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
+      \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] []
       \\ Q.EXISTS_TAC `w` \\ fs [] \\ NO_TAC)
     THEN1 (* MakeSpace *)
@@ -135,12 +141,14 @@ val evaluate_compile = prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ fs [] \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
-      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ fs [] \\ REPEAT STRIP_TAC
+      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
+      \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
     THEN1 (* Assign *)
      (fs [pMakeSpace_def,space_def] \\ REVERSE (Cases_on `o0`)
       \\ fs [evaluate_def,cut_state_opt_def] THEN1
-       (fs [pMakeSpace_def,space_def,evaluate_def,cut_state_opt_def,cut_state_def]
+       (fs [pMakeSpace_def,space_def,evaluate_def,
+            cut_state_opt_def,cut_state_def]
         \\ Cases_on `cut_env x s.locals` \\ fs [] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_cut_env \\ fs []
         \\ Cases_on `get_vars l' (s with locals := x')` \\ fs []
@@ -169,88 +177,58 @@ val evaluate_compile = prove(
       \\ fs [pMakeSpace_def,space_def]
       \\ fs [evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
-      \\ simp[cut_env_def]
-      \\ `domain (list_insert l' (delete n y1)) SUBSET domain l` by
-       (Cases_on`do_app o' x s`>>fs[] >- (
-          Cases_on`a`>>fs[] >> rw[] >>
-          imp_res_tac do_app_locals >> fs[] >>
-          fs[set_var_def,state_component_equality] >> rw[] >>
-          imp_res_tac get_vars_IMP_domain >>
-          simp[SUBSET_DEF,domain_list_insert] >> fs[] >>
-          rpt strip_tac >> fs[] >>
-          res_tac >>
-          fs[cut_env_def,LET_THM] >>
-          every_case_tac >> fs[SUBSET_DEF] >>
-          METIS_TAC[] ) >>
-        imp_res_tac do_app_err >> fs[] >>
-        Cases_on`a`>>fs[]>>rw[]>>
-        every_case_tac >> fs[] >>
-        imp_res_tac get_vars_IMP_domain >>
-        simp[SUBSET_DEF,domain_list_insert] >>
-        rw[] >> fs[] >>
-        space_def
-
-      \\ reverse(Cases_on `do_app o' x s`) \\ fs [] \\ SRW_TAC [] [] >- (
-           imp_res_tac do_app_err >> fs[] >>
-           Cases_on`a`>>fs[]>>rw[]>>
-           first_x_assum(qspec_then`l`mp_tac) >> simp[] >>
-           strip_tac >>
-           imp_res_tac locals_ok_get_vars >> fs[] >>
-           `do_app (FFI n') x (s with locals := l) = Rerr(Rabort Rffi_error)` by (
-             fs[do_app_def,do_space_def,bvi_to_bvpTheory.op_space_req_def,
-                bvp_to_bvi_ignore,bvi_to_bvpTheory.op_space_reset_def] >>
-             BasicProvers.CASE_TAC >> fs[] >>
-             BasicProvers.CASE_TAC >> fs[] ) >>
-           fs[] >>
-           simp[pMakeSpace_def,evaluate_def,cut_env_def] >>
-           reverse IF_CASES_TAC >> simp[] >- (
-             pop_assum mp_tac >>
-             simp[SUBSET_DEF,domain_list_insert] >>
-             imp_res_tac get_vars_IMP_domain >>
-             rpt strip_tac >- fs[] >>
-             cheat ) >>
-           simp[cut_state_opt_def,add_space_def]
-
-      \\ Cases_on `x'` \\ fs [] \\ SRW_TAC [] []
-      \\ IMP_RES_TAC do_app_locals \\ fs []
+      \\ REVERSE (Cases_on `do_app o' x s`) \\ fs [] THEN1
+       (Cases_on `e = Rabort Rtype_error` \\ fs [] \\ SRW_TAC [] []
+        \\ IMP_RES_TAC do_app_err \\ Cases_on `a` \\ fs []
+        \\ fs [bvi_to_bvpTheory.op_space_reset_def])
+      \\ Cases_on `a`
+      \\ IMP_RES_TAC do_app_locals \\ fs [] \\ SRW_TAC [] []
       \\ NTAC 2 (Q.PAT_ASSUM `!xx.bbb` (K ALL_TAC))
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ fs []
       \\ Cases_on `cut_env y1 w` \\ fs [LET_DEF,add_space_def,set_var_def]
-      \\ REPEAT STRIP_TAC \\ fs [cut_env_def]
+      \\ POP_ASSUM MP_TAC
+      \\ REPEAT STRIP_TAC \\ fs [Once cut_env_def] \\ REPEAT STRIP_TAC
+      \\ `domain (list_insert l' (delete n y1)) SUBSET domain l` by
+       (fs [bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
+        \\ IMP_RES_TAC locals_ok_IMP
+        \\ IMP_RES_TAC get_vars_IMP_domain \\ fs []
+        \\ fs [domain_list_insert,SUBSET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC)
+      \\ fs []
       \\ `get_vars l'
            (s with <|locals := (inter l (list_insert l' (delete n y1)));
                      space := s.space + y0|>) = get_vars l' (s with locals := l)`
            by (MATCH_MP_TAC EVERY_get_vars
-               \\ fs [EVERY_MEM,lookup_inter_alt,domain_list_insert]) \\ fs []
-      \\ fs [pEvalOp_def,do_space_alt]
+               \\ fs [EVERY_MEM,lookup_inter_alt,domain_list_insert] \\ NO_TAC)
+      \\ fs [do_app_def,do_space_alt]
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ fs [consume_space_def]
-      \\ Cases_on `s.space < op_space_req b` \\ fs []
+      \\ Cases_on `s.space < op_space_req o'` \\ fs []
       \\ `(bvp_to_bvi (s with space := s.space - op_space_req b)) =
            bvp_to_bvi s` by (fs [bvp_to_bvi_def] \\ NO_TAC) \\ fs []
-      \\ `~(s.space + y0 < op_space_req b)` by DECIDE_TAC \\ fs []
+      \\ `~(s.space + y0 < op_space_req o')` by DECIDE_TAC \\ fs []
       \\ fs [bvp_to_bvi_ignore]
-      \\ Cases_on `iEvalOp b x (bvp_to_bvi s)` \\ fs []
-      \\ Cases_on `x''` \\ fs [] \\ SRW_TAC [] []
+      \\ Cases_on `do_app o' x (bvp_to_bvi s)` \\ fs []
+      \\ Cases_on `a` \\ fs [] \\ SRW_TAC [] []
       \\ fs [bvi_to_bvp_lemma]
-      \\ `s.space + y0 - op_space_req b =
-          s.space - op_space_req b + y0` by DECIDE_TAC \\ fs []
+      \\ `s.space + y0 - op_space_req o' =
+          s.space - op_space_req o' + y0` by DECIDE_TAC \\ fs []
       \\ Q.ABBREV_TAC `s7 = bvi_to_bvp r
             (s with <|locals := (inter w y1);
-                       space := s.space - op_space_req b + y0|>)`
+                       space := s.space - op_space_req o' + y0|>)`
       \\ Q.ABBREV_TAC `s8 = bvi_to_bvp r
             (s with <|locals :=
                (insert n q (inter l (list_insert l' (delete n y1))));
-                 space := s.space - op_space_req b + y0|>)`
+                 space := s.space - op_space_req o' + y0|>)`
       \\ `s8 = s7 with locals := s8.locals` by
            (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_def] \\ NO_TAC)
       \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-      \\ MP_TAC (Q.SPECL [`y2`,`s7`] pEval_locals) \\ fs []
+      \\ MP_TAC (Q.SPECL [`y2`,`s7`] evaluate_locals) \\ fs []
       \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPEC `s8.locals`)
       \\ `locals_ok s7.locals s8.locals` by ALL_TAC THEN1
        (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_lemma]
-        \\ fs [bvp_state_explode,bvi_to_bvp_lemma] \\ SRW_TAC [] []
+        \\ fs [bvpSemTheory.state_component_equality,bvi_to_bvp_lemma]
+        \\ SRW_TAC [] []
         \\ fs [locals_ok_def,lookup_insert,lookup_inter_alt]
         \\ fs [domain_delete,domain_list_insert])
       \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
@@ -258,7 +236,7 @@ val evaluate_compile = prove(
       \\ Q.EXISTS_TAC `w''` \\ fs []
       \\ METIS_TAC [locals_ok_def])
     THEN1 (* Move *)
-     (fs [pMakeSpace_def,pSpace_def]
+     (fs [pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
@@ -270,12 +248,13 @@ val evaluate_compile = prove(
       \\ IMP_RES_TAC locals_ok_get_var \\ fs []
       \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (fs [bvp_state_explode] \\ SRW_TAC [] []
+       (fs [bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
         \\ fs [locals_ok_def,set_var_def,lookup_insert])
       \\ fs [evaluate_def]
       \\ Cases_on `cut_env y1 (insert n x w)` \\ fs [LET_DEF]
       \\ REPEAT STRIP_TAC
-      \\ fs [bvp_state_explode,add_space_def,set_var_def] \\ SRW_TAC [] []
+      \\ fs [bvpSemTheory.state_component_equality,
+             add_space_def,set_var_def] \\ SRW_TAC [] []
       \\ `cut_env (insert n0 () (delete n y1)) l =
              SOME (insert n0 x (delete n x'))` by ALL_TAC THEN1
        (fs [cut_env_def] \\ SRW_TAC [] [] \\ fs []
@@ -292,9 +271,9 @@ val evaluate_compile = prove(
       \\ Q.ABBREV_TAC `ll = insert n x (insert n0 x (delete n x'))`
       \\ `s with <|locals := ll; space := s.space + y0|> =
           s4 with locals := ll` by ALL_TAC
-      THEN1 (UNABBREV_ALL_TAC \\ fs [bvp_state_explode]) \\ fs []
+      THEN1 (UNABBREV_ALL_TAC \\ fs [bvpSemTheory.state_component_equality]) \\ fs []
       \\ `locals_ok s4.locals ll` by ALL_TAC THEN1
-       (UNABBREV_ALL_TAC \\ fs [bvp_state_explode,locals_ok_def]
+       (UNABBREV_ALL_TAC \\ fs [bvpSemTheory.state_component_equality,locals_ok_def]
         \\ fs [lookup_insert,lookup_delete,cut_env_def]
         \\ Q.PAT_ASSUM `xxx = x'` (fn th => fs [GSYM th])
         \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
@@ -307,13 +286,13 @@ val evaluate_compile = prove(
         \\ fs [lookup_insert,lookup_inter_alt,lookup_delete]
         \\ REPEAT STRIP_TAC
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n0`) \\ fs [])
-      \\ MP_TAC (Q.SPECL [`y2`,`s4`] pEval_locals)
+      \\ MP_TAC (Q.SPECL [`y2`,`s4`] evaluate_locals)
       \\ fs [] \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs []
       \\ Cases_on `res` \\ fs []
-      \\ fs [bvp_state_explode] \\ SRW_TAC [] []
+      \\ fs [bvpSemTheory.state_component_equality] \\ SRW_TAC [] []
       \\ METIS_TAC [locals_ok_def])
     THEN1 (* Skip *)
-     (fs [pMakeSpace_def,pSpace_def]
+     (fs [pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ POP_ASSUM (ASSUME_TAC o REWRITE_RULE [evaluate_def])
       \\ fs [] \\ SRW_TAC [] [] \\ POP_ASSUM (K ALL_TAC)
@@ -321,7 +300,7 @@ val evaluate_compile = prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
   THEN1 (* If *)
-   (Cases_on `pEval (g,s)` \\ fs []
+   (Cases_on `evaluate (g,s)` \\ fs []
     \\ REVERSE (Cases_on `q`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
     \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
@@ -329,8 +308,7 @@ val evaluate_compile = prove(
     THEN1 METIS_TAC [locals_ok_def]
     \\ Cases_on `get_var n r` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
-    \\ Cases_on `x = bool_to_val T` \\ fs []
-    \\ Cases_on `x = bool_to_val F` \\ fs [])
+    \\ SRW_TAC [] [] \\ fs [])
   THEN1 (* Call *)
    (Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
     THEN1 (fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
@@ -343,9 +321,10 @@ val evaluate_compile = prove(
      (Cases_on `handler` \\ fs []
       \\ `call_env q (dec_clock (s with locals := l)) =
           call_env q (dec_clock s)` by
-         fs [bvp_state_explode,dec_clock_def,call_env_def] \\ fs []
+         fs [bvpSemTheory.state_component_equality,
+             dec_clock_def,call_env_def] \\ fs []
       \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_refl]
-      \\ SRW_TAC [] [bvp_state_explode])
+      \\ SRW_TAC [] [bvpSemTheory.state_component_equality])
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env r' s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_cut_env \\ fs []
@@ -354,10 +333,11 @@ val evaluate_compile = prove(
         call_env q (push_env x' (IS_SOME handler)
           (dec_clock s))` by ALL_TAC THEN1
      (Cases_on `handler`
-      \\ fs [bvp_state_explode,dec_clock_def,call_env_def,push_env_def])
+      \\ fs [bvpSemTheory.state_component_equality,
+             dec_clock_def,call_env_def,push_env_def])
     \\ fs [] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
-val _ = store_thm("compile_correct",
+val compile_correct = store_thm("compile_correct",
   ``!c s.
       FST (evaluate (c,s)) <> NONE /\
       FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) ==>

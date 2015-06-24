@@ -411,7 +411,7 @@ val locals_ok_def = Define `
   locals_ok l1 l2 =
     !v x. (sptree$lookup v l1 = SOME x) ==> (sptree$lookup v l2 = SOME x)`;
 
-val locals_ok_IMP = prove(
+val locals_ok_IMP = store_thm("locals_ok_IMP",
   ``locals_ok l1 l2 ==> domain l1 SUBSET domain l2``,
   fs [locals_ok_def,SUBSET_DEF,domain_lookup] \\ METIS_TAC []);
 
@@ -486,9 +486,7 @@ val evaluate_locals = store_thm("evaluate_locals",
               bvi_to_bvp_space_locals,
               bvi_to_bvpTheory.op_space_req_def,
               bvi_to_bvpTheory.op_space_reset_def] >>
-           BasicProvers.CASE_TAC >> fs[] >- (
-             Cases_on`a`>>fs[] ) >>
-           simp[call_env_def,locals_ok_def,lookup_fromList])
+           BasicProvers.CASE_TAC >> fs[])
       \\ Cases_on `a` \\ fs [] \\ SRW_TAC [] []
       \\ IMP_RES_TAC do_app_locals \\ fs [set_var_def]
       \\ Q.EXISTS_TAC `insert dest q l`
