@@ -24,6 +24,12 @@ val _ = Datatype `
       | Op binop (exp list)
       | Shift shift exp ('a num_exp)`
 
+val MEM_IMP_exp_size = store_thm("MEM_IMP_exp_size",
+  ``!xs a. MEM a xs ==> (exp_size l a < exp1_size l xs)``,
+  Induct \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [definition"exp_size_def"]
+  \\ RES_TAC \\ DECIDE_TAC);
+
 val _ = Datatype `
   prog = Skip
        | Move num ((num # num) list)
@@ -32,14 +38,14 @@ val _ = Datatype `
        | Get num store_name
        | Set store_name ('a exp)
        | Store ('a exp) num
-       | Call ((num # num_set # prog # num # num) option)
+       | Call ((num # num_set # wordLang$prog # num # num) option)
               (* return var, cut-set, return-handler code, labels l1,l2*)
               (num option) (* target of call *)
               (num list) (* arguments *)
-              ((num # prog # num # num) option)
+              ((num # wordLang$prog # num # num) option)
               (* handler: varname, exception-handler code, labels l1,l2*)
-       | Seq prog prog
-       | If cmp num ('a reg_imm) prog prog
+       | Seq wordLang$prog wordLang$prog
+       | If cmp num ('a reg_imm) wordLang$prog wordLang$prog
        | Alloc num num_set
        | Raise num
        | Return num num
