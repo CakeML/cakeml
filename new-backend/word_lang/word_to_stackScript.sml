@@ -16,18 +16,28 @@ val list_union_def = Define `
          of stack, should count from base of stack frame. *)
 
 val wReg1_def = Define `
-  wReg1 r k = if r < k then ([],r,insert r () LN) else ([(k,r-k)],k:num,LN)`
+  wReg1 r (k,f) = if r < k then ([],r,insert r () LN)
+                           else ([(k,f+k-r)],k:num,LN)`
 
 val wReg2_def = Define `
-  wReg2 r k = if r < k then ([],r,insert r () LN) else ([(k+1,r-k)],k+1:num,LN)`
+  wReg2 r (k,f) = if r < k then ([],r,insert r () LN)
+                           else ([(k+1,f+k-r)],k+1:num,LN)`
+
+val wRegWrite1_def = Define `
+  wRegWrite1 r (k,f) = if r < k then ([],r)
+                                else ([(f+k-r,k)],k:num)`
 
 val wRegImm2_def = Define `
   (wRegImm2 (Reg r) k = let (x,n,l) = wReg2 r k in (x,Reg n,l)) /\
   (wRegImm2 (Imm i) k = ([],Imm i,LN))`
 
-val wAttach_def = Define `
-  (wAttach [] x = x) /\
-  (wAttach ((r,i)::ps) x = Seq (StackLoad r i) (wAttach ps x))`
+val wStackLoad_def = Define `
+  (wStackLoad [] x = x) /\
+  (wStackLoad ((r,i)::ps) x = Seq (StackLoad r i) (wStackLoad ps x))`
+
+val wStackStore_def = Define `
+  (wStackStore [] x = x) /\
+  (wStackStore ((r,i)::ps) x = Seq (wStackStore ps x) (StackStore r i))`
 
 val wMove_def = Define `
   wMove xs l k = (Skip:'a stack_prog,l)`; (* TODO *)
@@ -54,14 +64,15 @@ val wComp_def = Define `
      let (q2,l2) = wComp p2 l k in
      let (x1,r',l3) = wReg1 r k in
      let (x2,ri',l4) = wRegImm2 ri k in
-       (wAttach (x1++x2) (If cmp r' ri' q1 q2),
+       (wStackLoad (x1++x2) (If cmp r' ri' q1 q2),
         list_union [l1;l2;l3] l4)) /\
   (wComp (Set name exp) l k =
      case exp of
      | Var n => let (x1,r',l) = wReg1 n k in
-                  (wAttach x1 (Set name r'),l)
+                  (wStackLoad x1 (Set name r'),l)
      | _ => (wImpossible,l)) /\
-  (wComp (Get n name) l k = (Skip,l)) /\ (* TODO *)
+  (wComp (Get n name) l k = (Skip,l)) /\
+     (* wRegWrite1 r (k,f) *)
   (wComp (Call x1 x2 x3 x4) l k = (Skip,l)) /\ (* TODO *)
   (wComp (Alloc size live) l k = (Skip,l)) /\ (* TODO *)
   (wComp _ l k = (wImpossible,l))`
