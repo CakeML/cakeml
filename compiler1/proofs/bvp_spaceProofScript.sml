@@ -10,13 +10,6 @@ val mk_wf_inter = prove(
   ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
   fs []);
 
-val bvi_to_bvp_lemma = prove(
-  ``((bvi_to_bvp s t with locals := x) = bvi_to_bvp s (t with locals := x)) /\
-    ((bvi_to_bvp s t).locals = t.locals) /\
-    ((bvi_to_bvp s t with space := y) = bvi_to_bvp s (t with space := y)) /\
-    ((bvi_to_bvp s t).space = t.space)``,
-  fs [bvi_to_bvp_def]);
-
 val evaluate_compile = prove(
   ``!c s res s2 vars l.
       res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -209,7 +202,7 @@ val evaluate_compile = prove(
       \\ fs [bvp_to_bvi_ignore]
       \\ Cases_on `do_app o' x (bvp_to_bvi s)` \\ fs []
       \\ Cases_on `a` \\ fs [] \\ SRW_TAC [] []
-      \\ fs [bvi_to_bvp_lemma]
+      \\ fs [bvi_to_bvp_space_locals]
       \\ `s.space + y0 - op_space_req o' =
           s.space - op_space_req o' + y0` by DECIDE_TAC \\ fs []
       \\ Q.ABBREV_TAC `s7 = bvi_to_bvp r
@@ -226,8 +219,8 @@ val evaluate_compile = prove(
       \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPEC `s8.locals`)
       \\ `locals_ok s7.locals s8.locals` by ALL_TAC THEN1
-       (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_lemma]
-        \\ fs [bvpSemTheory.state_component_equality,bvi_to_bvp_lemma]
+       (UNABBREV_ALL_TAC \\ fs [bvi_to_bvp_space_locals]
+        \\ fs [bvpSemTheory.state_component_equality,bvi_to_bvp_space_locals]
         \\ SRW_TAC [] []
         \\ fs [locals_ok_def,lookup_insert,lookup_inter_alt]
         \\ fs [domain_delete,domain_list_insert])
