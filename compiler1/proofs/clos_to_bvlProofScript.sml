@@ -2645,7 +2645,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `f2 \\ qq = f2` by (
         fs[state_rel_def] >>
         MATCH_MP_TAC DOMSUB_NOT_IN_DOM >>
-        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+        simp[Abbr`qq`,LEAST_NOTIN_FDOM]) >>
       conj_tac >- (
         fs[state_rel_def] >>
         conj_tac >- (
@@ -2655,14 +2655,14 @@ val compile_correct = Q.store_thm("compile_correct",
           rpt strip_tac >>
           match_mp_tac OPTREL_v_rel_NEW_REF >>
           reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
           match_mp_tac OPTREL_v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- (
           match_mp_tac INJ_FAPPLY_FUPDATE >> simp[] >>
           spose_not_then strip_assume_tac >>
           fs[SUBSET_DEF] >> res_tac >>
-          fs[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          fs[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
         conj_tac >- ( fs[SUBSET_DEF] ) >>
         simp[FLOOKUP_UPDATE] >>
         rpt gen_tac >> reverse IF_CASES_TAC >> simp[] >- (
@@ -2671,7 +2671,7 @@ val compile_correct = Q.store_thm("compile_correct",
             `pp ∈ FRANGE f2` by (fs[FRANGE_FLOOKUP] >>METIS_TAC[]) >>
             fs[SUBSET_DEF] >> res_tac >>
             var_eq_tac >>
-            fs[Abbr`m`,LEAST_NO_IN_FDOM] ) >>
+            fs[Abbr`m`,LEAST_NOTIN_FDOM] ) >>
           Cases_on`x`>>fs[] >>
           match_mp_tac(MP_CANON(GEN_ALL LIST_REL_mono)) >>
           ONCE_REWRITE_TAC[CONJ_COMM] >>
@@ -2679,22 +2679,22 @@ val compile_correct = Q.store_thm("compile_correct",
           rpt strip_tac >>
           match_mp_tac v_rel_NEW_REF >>
           reverse conj_tac >- (
-            simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+            simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
           match_mp_tac v_rel_NEW_F >>
-          simp[Abbr`pp`,Abbr`qq`,LEAST_NO_IN_FDOM] ) >>
+          simp[Abbr`pp`,Abbr`qq`,LEAST_NOTIN_FDOM] ) >>
         strip_tac >> var_eq_tac >> simp[] >>
         simp[LIST_REL_REPLICATE_same] >> rw[] >>
         match_mp_tac v_rel_NEW_REF >>
         reverse conj_tac >- (
-          simp[Abbr`pp`,LEAST_NO_IN_FDOM] ) >>
+          simp[Abbr`pp`,LEAST_NOTIN_FDOM] ) >>
         match_mp_tac v_rel_NEW_F >>
-        simp[Abbr`pp`,Abbr`n`,LEAST_NO_IN_FDOM] ) >>
+        simp[Abbr`pp`,Abbr`n`,LEAST_NOTIN_FDOM] ) >>
       conj_tac >- (
         match_mp_tac SUBMAP_TRANS >>
         first_assum(match_exists_tac o concl) >> simp[] >>
         disj1_tac >>
         fs[state_rel_def] >>
-        simp[Abbr`qq`,LEAST_NO_IN_FDOM]) >>
+        simp[Abbr`qq`,LEAST_NOTIN_FDOM]) >>
       match_mp_tac SUBMAP_TRANS >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[FDIFF_def] >>
