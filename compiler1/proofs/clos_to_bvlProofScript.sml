@@ -2832,8 +2832,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_assum_rename_tac`FLOOKUP f2 k = SOME r2`
       \\ Cases_on`FLOOKUP p1.refs k` \\ fs[]
       \\ Cases_on`x` \\ fs[]
-      \\ Cases_on`call_FFI n l p1.io` \\ fs[]
-      \\ Cases_on`x` \\ fs[] \\ rw[]
+      \\ Cases_on`call_FFI n l p1.io` \\ fs[] \\ rw[]
       \\ `?y m.
             FLOOKUP f2 k = SOME m /\ FLOOKUP t2.refs m = SOME y /\
             ref_rel (v_rel f2 t2.refs t2.code) (ByteArray l) y` by
