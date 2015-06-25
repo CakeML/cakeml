@@ -480,8 +480,7 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[store_lookup_def] >>
       IF_CASES_TAC >> fs[] >>
       Cases_on`EL lnum s21`>>fs[] >>
-      Cases_on`call_FFI n l s22`>>fs[] >- rw[compile_csg_def] >>
-      BasicProvers.CASE_TAC >> fs[] >>
+      Cases_on`call_FFI n l s22`>>fs[] >>
       fs[store_assign_def] >> rfs[] >>
       fs[store_v_same_type_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>
