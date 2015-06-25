@@ -93,8 +93,7 @@ val _ = Define `
 val _ = Hol_datatype `
  abort =
     Rtype_error
-  | Rtimeout_error
-  | Rffi_error`;
+  | Rtimeout_error`;
 
 
 val _ = Hol_datatype `

@@ -67,7 +67,6 @@ let all_env_to_env (menv,cenv,env) = env
 type abort =
   | Rtype_error
   | Rtimeout_error
-  | Rffi_error
 
 type error_result 'a =
   | Rraise of 'a (* Should only be a value of type exn *)

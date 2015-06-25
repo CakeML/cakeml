@@ -339,7 +339,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       THEN1 (fs [bvpSemTheory.state_component_equality]) \\ fs []
       \\ fs [bvpSemTheory.state_component_equality])
     \\ Cases_on`a` \\ fs[]
-    THEN (* Rtimeout_error and Rffi_error *)
+    THEN (* Rtimeout_error *)
      (REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
            (dec_clock (s with stack := xs)))).stack`)

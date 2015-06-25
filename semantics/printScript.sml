@@ -49,7 +49,6 @@ val print_result_def = Define `
 (print_result _ (Tmod mn _ _) (Rval _) = "structure "++mn++" = <structure>\n") ∧
 (print_result _ _ (Rerr (Rabort Rtimeout_error)) = "<timeout error>\n") ∧
 (print_result _ _ (Rerr (Rabort Rtype_error)) = "<type error>\n") ∧
-(print_result _ _ (Rerr (Rabort Rffi_error)) = "<ffi error>\n") ∧
 (print_result _ _ (Rerr (Rraise e)) = "raise " ++ print_v e ++ "\n")`;
 
 val print_prog_result_def = Define`
