@@ -2253,7 +2253,6 @@ val compile_correct = Q.store_thm("compile_correct",
        f1 ⊑ f2 ∧
        FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
        s2.clock = t2.clock)`,
-
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (rw [] >> fs [cEval_def,compile_def] \\ SRW_TAC [] [bEval_def]
@@ -2900,9 +2899,7 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[PULL_EXISTS] >>
     Q.LIST_EXISTS_TAC [`aux1`,`aux3`] \\ fs []
     \\ IMP_RES_TAC compile_SING \\ fs [code_installed_def])
-
   THEN1 (* Letrec *)
-
    (rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
@@ -3023,13 +3020,9 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ RES_TAC \\ fs [] \\ PairCases_on `d` \\ fs [])
     \\ fs [hd_append, tl_append]
     \\ simp [SIMP_RULE(srw_ss())[]evaluate_recc_Lets]
-    \\ cheat
-
-    \\ Q.PAT_ABBREV_TAC `(t1_refs:bvlSem$state) =
-         ((t1 with <| refs := t1.refs |+ xxx ; clock := yyy |>))`
-
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_SING \\ fs []) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1_refs`,
+    \\ qpat_abbrev_tac`t1refs = t1.refs |+ (rr,vv)`
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
        `MAP2 (\n args. Block closure_tag [CodePtr (loc + num_stubs + n); Number &(args-1); RefPtr rr])
           (GENLIST I (LENGTH (ll:(num#closLang$exp) list) + 1)) (MAP FST ll ++ [FST (x:(num#closLang$exp))]) ++ env''`,`f1`])
     \\ `~(rr IN FDOM t1.refs)` by ALL_TAC THEN1
@@ -3041,8 +3034,8 @@ val compile_correct = Q.store_thm("compile_correct",
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     \\ MATCH_MP_TAC IMP_IMP \\ reverse STRIP_TAC
     >- (REPEAT STRIP_TAC
-        \\ qexists_tac `ck'`
-        \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1_refs`]
+        \\ qexists_tac`ck'`
+        \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1refs`]
         \\ rw []
         \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
         \\ ASM_SIMP_TAC std_ss []
@@ -3054,9 +3047,8 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
              SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     THEN1
-     (`t1_refs.code = t1.code` by fs [Abbr`t1_refs`] \\ fs []
-      \\ REVERSE (REPEAT STRIP_TAC) THEN1
-       (fs [state_rel_def,Abbr`t1_refs`] \\ STRIP_TAC THEN1
+     (REVERSE (REPEAT STRIP_TAC) THEN1
+       (fs [state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
          (Q.PAT_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
@@ -3067,6 +3059,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ Q.PAT_ASSUM `LIST_REL ppp xs ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC v_rel_NEW_REF \\ fs [])
+      \\ TRY (simp[] \\ NO_TAC)
       \\ MATCH_MP_TAC env_rel_APPEND
       \\ REVERSE STRIP_TAC THEN1
        (UNABBREV_ALL_TAC \\ fs []
@@ -3083,7 +3076,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs [LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
       \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
       \\ `1 < LENGTH exps` by (fs [] \\ DECIDE_TAC)
-      \\ fs [Abbr `t1_refs`,FLOOKUP_UPDATE]
+      \\ fs [Abbr `t1refs`,FLOOKUP_UPDATE]
       \\ `MAP FST ll ++ [FST x] = MAP FST exps` by rw [Abbr `exps`]
       \\ simp [EL_MAP]
       \\ rw []
@@ -3114,7 +3107,6 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ MATCH_MP_TAC (compile_LIST_IMP_compile_EL |> SPEC_ALL)
       \\ fs [Abbr`exps`])
    )
-
   THEN1 (* App *)
    (rw [] >>
     fs [cEval_def, compile_def]
