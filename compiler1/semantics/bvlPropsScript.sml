@@ -22,7 +22,7 @@ val find_code_EVERY_IMP = store_thm("find_code_EVERY_IMP",
   \\ FULL_SIMP_TAC std_ss [GSYM SNOC_APPEND,FRONT_SNOC]);
 
 val do_app_err = Q.store_thm("do_app_err",
-  `do_app op vs s = Rerr e ⇒ ∃a. e = Rabort a ∧ a ≠ Rtimeout_error ∧ (a = Rffi_error ⇒ ∃n. op = FFI n)`,
+  `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
   rw[do_app_def] >> every_case_tac >> fs[LET_THM] >> rw[]);
 
 val evaluate_LENGTH = prove(
