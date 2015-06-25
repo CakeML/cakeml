@@ -78,9 +78,8 @@ val mEval_def = Define `
             let ffi = config.ffi_interfer 0 ffi_index in
             let config = config with ffi_interfer :=
                            shift_seq 1 config.ffi_interfer in
-            case call_FFI ffi_index bytes io of
-            | NONE => (Error IO_mismatch,ms,io)
-            | SOME (new_bytes,new_io) =>
+            let (new_bytes,new_io) = call_FFI ffi_index bytes io in
+              if new_io = NONE then (Error IO_mismatch,ms,new_io) else
                 mEval config new_io (k - 1:num) (ffi new_bytes ms)`
 
 
@@ -98,11 +97,11 @@ val LPREFIX_def = Define `
 val machine_sem_def = Define `
   (machine_sem config ms (Terminate io_list) =
      ?k ms'.
-       (mEval config (fromList io_list) k ms = (Result,ms',LNIL))) /\
+       (mEval config (SOME (fromList io_list)) k ms = (Result,ms',SOME LNIL))) /\
   (machine_sem config ms (Diverge io_trace) =
-     (!k. (FST (mEval config io_trace k ms) = TimeOut)) /\
+     (!k. (FST (mEval config (SOME io_trace) k ms) = TimeOut)) /\
      (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. (FST (mEval config io k ms) <> TimeOut))) /\
+           ?k. (FST (mEval config (SOME io) k ms) <> TimeOut))) /\
   (machine_sem config ms Fail =
      ?k io. FST (mEval config io k ms) = Error Internal)`
 
@@ -117,30 +116,31 @@ val machine_sem_def = Define `
 
 val imprecise_machine_sem_def = Define `
   (imprecise_machine_sem config ms (Terminate io_list) =
-     ?k ms' io'.
-       (mEval config (fromList io_list) k ms = (Result,ms',io')) /\
-       (LLENGTH io' = SOME 0)) /\
+     ?k ms'.
+       mEval config (SOME (fromList io_list)) k ms = (Result,ms',SOME LNIL)) /\
   (imprecise_machine_sem config ms (Diverge io_trace) =
-     !k. (FST (mEval config io_trace k ms) = TimeOut))`
+     !k. (FST (mEval config (SOME io_trace) k ms) = TimeOut))`
 
 val call_FFI_LAPPEND = prove(
-  ``(call_FFI x' x io_trace = SOME (q,r)) ==>
-    (call_FFI x' x (LAPPEND io_trace l) = SOME (q,LAPPEND r l))``,
+  ``(call_FFI x' x (SOME io_trace) = (q,SOME r)) ==>
+    (call_FFI x' x (SOME (LAPPEND io_trace l)) = (q,SOME (LAPPEND r l)))``,
   fs [call_FFI_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
   \\ SRW_TAC [] [] \\ fs [llistTheory.LAPPEND]
-  \\ `(io_trace = [||]) ∨ ∃h t. io_trace = h:::t` by
+  \\ `(io_trace = [||]) \/ ?h t. io_trace = h:::t` by
           METIS_TAC [llistTheory.llist_CASES]
   \\ fs [] \\ SRW_TAC [] [] \\ fs []);
 
 val mEval_LAPPEND_io = prove(
   ``!k ms io_trace config.
-      (FST (mEval config io_trace k ms) = TimeOut) ==>
-      (FST (mEval config (LAPPEND io_trace l) k ms) = TimeOut)``,
+      (FST (mEval config (SOME io_trace) k ms) = TimeOut) ==>
+      (FST (mEval config (SOME (LAPPEND io_trace l)) k ms) = TimeOut)``,
   Induct THEN1 (ONCE_REWRITE_TAC [mEval_def] \\ fs [])
   \\ ONCE_REWRITE_TAC [mEval_def] \\ fs [] \\ REPEAT STRIP_TAC
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
   \\ SRW_TAC [] [] \\ fs [] \\ fs []
+  \\ Cases_on `call_FFI x' x (SOME io_trace)` \\ fs []
+  \\ Cases_on `r` \\ fs []
   \\ IMP_RES_TAC call_FFI_LAPPEND
   \\ fs [] \\ SRW_TAC [] []);
 

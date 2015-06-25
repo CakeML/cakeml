@@ -161,11 +161,10 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI n ws s.io of
-            | SOME (ws',t') =>
+            | (ws',t') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
-                              ; io   := t'|>)
-            | _ => Rerr(Rabort Rffi_error))
+                              ; io   := t'|>))
          | _ => Error)
     | _ => Error`;
 
