@@ -2253,6 +2253,7 @@ val compile_correct = Q.store_thm("compile_correct",
        f1 ⊑ f2 ∧
        FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
        s2.clock = t2.clock)`,
+
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (rw [] >> fs [cEval_def,compile_def] \\ SRW_TAC [] [bEval_def]
@@ -2868,7 +2869,8 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ imp_res_tac closSemTheory.do_app_const
-    \\ first_x_assum(mp_tac o MATCH_MP (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
+    \\ first_x_assum(mp_tac o MATCH_MP
+         (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th))
     \\ imp_res_tac EVERY2_REVERSE
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) \\ rw[] \\ rw[]
@@ -2898,7 +2900,9 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[PULL_EXISTS] >>
     Q.LIST_EXISTS_TAC [`aux1`,`aux3`] \\ fs []
     \\ IMP_RES_TAC compile_SING \\ fs [code_installed_def])
+
   THEN1 (* Letrec *)
+
    (rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
@@ -3019,7 +3023,11 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ RES_TAC \\ fs [] \\ PairCases_on `d` \\ fs [])
     \\ fs [hd_append, tl_append]
     \\ simp [SIMP_RULE(srw_ss())[]evaluate_recc_Lets]
-    \\ Q.PAT_ABBREV_TAC `t1_refs  = t1 with <| refs := t1.refs |+ xxx; clock := yyy |>`
+    \\ cheat
+
+    \\ Q.PAT_ABBREV_TAC `(t1_refs:bvlSem$state) =
+         ((t1 with <| refs := t1.refs |+ xxx ; clock := yyy |>))`
+
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_SING \\ fs []) \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1_refs`,
        `MAP2 (\n args. Block closure_tag [CodePtr (loc + num_stubs + n); Number &(args-1); RefPtr rr])
@@ -3106,6 +3114,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ MATCH_MP_TAC (compile_LIST_IMP_compile_EL |> SPEC_ALL)
       \\ fs [Abbr`exps`])
    )
+
   THEN1 (* App *)
    (rw [] >>
     fs [cEval_def, compile_def]
