@@ -12,8 +12,91 @@ val _ = export_rewrites["alist.MAP_KEYS_I"]
 val _ = export_rewrites["finite_map.FUNION_FEMPTY_1"]
 val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
-
 (* TODO: move/categorize *)
+
+val SUBMAP_FDOM_SUBSET = Q.store_thm("SUBMAP_FDOM_SUBSET",
+  `f1 ⊑ f2 ⇒ FDOM f1 ⊆ FDOM f2`,
+  rw[SUBMAP_DEF,SUBSET_DEF])
+
+val SUBMAP_FRANGE_SUBSET = Q.store_thm("SUBMAP_FRANGE_SUBSET",
+  `f1 ⊑ f2 ⇒ FRANGE f1 ⊆ FRANGE f2`,
+  rw[SUBMAP_DEF,SUBSET_DEF,IN_FRANGE] >> metis_tac[])
+
+val FDIFF_def = Define `
+  FDIFF f1 s = DRESTRICT f1 (COMPL s)`;
+
+val FDOM_FDIFF = store_thm("FDOM_FDIFF",
+  ``x IN FDOM (FDIFF refs f2) <=> x IN FDOM refs /\ ~(x IN f2)``,
+  fs [FDIFF_def,DRESTRICT_DEF]);
+
+val INJ_FAPPLY_FUPDATE = Q.store_thm("INJ_FAPPLY_FUPDATE",
+  `INJ ($' f) (FDOM f) (FRANGE f) ∧
+   s = k INSERT FDOM f ∧ v ∉ FRANGE f ∧
+   t = v INSERT FRANGE f
+  ⇒
+   INJ ($' (f |+ (k,v))) s t`,
+  rw[INJ_DEF,FAPPLY_FUPDATE_THM] >> rw[] >>
+  pop_assum mp_tac >> rw[] >>
+  fs[IN_FRANGE] >>
+  METIS_TAC[])
+
+val NUM_NOT_IN_FDOM =
+  MATCH_MP IN_INFINITE_NOT_FINITE (CONJ INFINITE_NUM_UNIV
+    (Q.ISPEC `f:num|->'a` FDOM_FINITE))
+  |> SIMP_RULE std_ss [IN_UNIV]
+  |> curry save_thm "NUM_NOT_IN_FDOM";
+
+val EXISTS_NOT_IN_FDOM_LEMMA = prove(
+  ``?x. ~(x IN FDOM (refs:num|->'a))``,
+  METIS_TAC [NUM_NOT_IN_FDOM]);
+
+val LEAST_NOTIN_FDOM = store_thm("LEAST_NOTIN_FDOM",
+  ``(LEAST ptr. ptr NOTIN FDOM (refs:num|->'a)) NOTIN FDOM refs``,
+  ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
+           SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
+
+val lookup_inter_assoc = store_thm("lookup_inter_assoc",
+  ``lookup x (inter t1 (inter t2 t3)) =
+    lookup x (inter (inter t1 t2) t3)``,
+  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC)
+
+val lookup_inter_domain = store_thm("lookup_inter_domain",
+  ``x IN domain t2 ==> (lookup x (inter t1 t2) = lookup x t1)``,
+  fs [lookup_inter,domain_lookup] \\ BasicProvers.EVERY_CASE_TAC);
+
+val lookup_inter_alt = store_thm("lookup_inter_alt",
+  ``lookup x (inter t1 t2) =
+      if x IN domain t2 then lookup x t1 else NONE``,
+  fs [lookup_inter,domain_lookup]
+  \\ Cases_on `lookup x t2` \\ fs [] \\ Cases_on `lookup x t1` \\ fs []);
+
+val lookup_inter_EQ = store_thm("lookup_inter_EQ",
+  ``((lookup x (inter t1 t2) = SOME y) <=>
+       (lookup x t1 = SOME y) /\ lookup x t2 <> NONE) /\
+    ((lookup x (inter t1 t2) = NONE) <=>
+       (lookup x t1 = NONE) \/ (lookup x t2 = NONE))``,
+  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC);
+
+val list_to_num_set_def = Define `
+  (list_to_num_set [] = LN) /\
+  (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
+
+val list_insert_def = Define `
+  (list_insert [] t = t) /\
+  (list_insert (n::ns) t = list_insert ns (insert n () t))`;
+
+val domain_list_to_num_set = store_thm("domain_list_to_num_set",
+  ``!xs. x IN domain (list_to_num_set xs) <=> MEM x xs``,
+  Induct \\ fs [list_to_num_set_def]);
+
+val domain_list_insert = store_thm("domain_list_insert",
+  ``!xs x t.
+      x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t``,
+  Induct \\ fs [list_insert_def] \\ METIS_TAC []);
+
+val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
+  ``∀f. OPTION_BIND f SOME = f``,
+  Cases >> simp[])
 
 val hd_drop = Q.store_thm ("hd_drop",
   `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
@@ -1233,6 +1316,12 @@ val LAST_N_LENGTH = store_thm("LAST_N_LENGTH",
   ``!xs. LAST_N (LENGTH xs) xs = xs``,
   fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
   \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ fs []);
+
+val LAST_N_LEMMA = store_thm("LAST_N_LEMMA",
+  ``(LAST_N (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
+    (LAST_N (LENGTH xs + 1) (x::xs) = x::xs)``,
+  MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
+  \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH) \\ fs [ADD1]);
 
 val LAST_N_TL = store_thm("LAST_N_TL",
   ``n < LENGTH xs ==>

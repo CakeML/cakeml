@@ -1,15 +1,25 @@
 open preamble closLangTheory bvlTheory bvl_jumpTheory;
+local open conLangTheory pat_to_closTheory in (* for list tags *) end;
 
 val _ = new_theory "clos_to_bvl";
 
 val closure_tag_def = Define`closure_tag = 0:num`
 val partial_app_tag_def = Define`partial_app_tag = 1:num`
 val clos_tag_shift_def = Define`clos_tag_shift = 2:num`
+val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
+  |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
+
+val bool_to_tag_def = Define`
+  bool_to_tag b = ((if b then true_tag else false_tag) + clos_tag_shift)`
+
+val Bool_def = Define`
+  Bool b = Op (Cons (bool_to_tag b)) []`;
 
 val compile_op_def = Define`
   compile_op (Cons tag) = (Cons (tag+clos_tag_shift)) ∧
   compile_op (TagEq tag) = (TagEq (tag+clos_tag_shift)) ∧
   compile_op (TagLenEq tag a) = (TagLenEq (tag+clos_tag_shift) a) ∧
+  compile_op (FromList tag) = (FromList (tag+clos_tag_shift)) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -37,6 +47,43 @@ val build_aux_def = Define `
   (build_aux i [] aux = (i:num,aux)) /\
   (build_aux i ((x:num#bvl$exp)::xs) aux = build_aux (i+1) xs ((i,x) :: aux))`;
 
+val build_aux_LENGTH = store_thm("build_aux_LENGTH",
+  ``!l n aux n1 t.
+      (build_aux n l aux = (n1,t)) ==> (n1 = n + LENGTH l)``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC);
+
+val build_aux_MOVE = store_thm("build_aux_MOVE",
+  ``!xs n aux n1 aux1.
+      (build_aux n xs aux = (n1,aux1)) <=>
+      ?aux2. (build_aux n xs [] = (n1,aux2)) /\ (aux1 = aux2 ++ aux)``,
+  Induct THEN1 (fs [build_aux_def] \\ METIS_TAC [])
+  \\ ONCE_REWRITE_TAC [build_aux_def]
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ fs [PULL_EXISTS]);
+
+val build_aux_acc = Q.store_thm("build_aux_acc",
+  `!k n aux. ?aux1. SND (build_aux n k aux) = aux1 ++ aux`,
+  METIS_TAC[build_aux_MOVE,SND,PAIR]);
+
+val build_aux_MEM = store_thm("build_aux_MEM",
+  ``!c n aux n7 aux7.
+       (build_aux n c aux = (n7,aux7)) ==>
+       !k. k < LENGTH c ==> ?d. MEM (n + k,d) aux7``,
+  Induct \\ fs [build_aux_def] \\ REPEAT STRIP_TAC
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n+1`,`(n,h)::aux`]) \\ fs []
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `k` \\ fs []
+  THEN1 (MP_TAC (Q.SPECL [`c`,`n+1`,`(n,h)::aux`] build_aux_acc) \\ fs []
+         \\ REPEAT STRIP_TAC \\ fs [] \\ METIS_TAC [])
+  \\ RES_TAC \\ fs [ADD1,AC ADD_COMM ADD_ASSOC] \\ METIS_TAC [ADD_COMM, ADD_ASSOC]);
+
+val build_aux_APPEND1 = store_thm("build_aux_APPEND1",
+  ``!xs x n aux.
+      build_aux n (xs ++ [x]) aux =
+        let (n1,aux1) = build_aux n xs aux in
+          (n1+1,(n1,x)::aux1)``,
+  Induct \\ fs [build_aux_def,LET_DEF]);
+
 val recc_Let_def = Define `
   recc_Let n num_args i =
     Let [mk_el (Var 0) (mk_const 2)]
@@ -62,7 +109,21 @@ val build_recc_lets_def = Define `
       (recc_Lets n1 (TL (REVERSE nargs)) (fns_l - 1) c3)`;
 
 val num_stubs_def = Define `
-  num_stubs = max_app * max_app + max_app`;
+  num_stubs =
+    (* generic apps *)         max_app
+    (* partial apps *)       + max_app * max_app
+    (* equality of values *) + 1
+    (* equality of blocks *) + 1
+    (* ToList *)             + 1`;
+
+val equality_location_def = Define`
+  equality_location = max_app + max_app * max_app`;
+
+val block_equality_location_def = Define`
+  block_equality_location = equality_location + 1`;
+
+val ToList_location_def = Define`
+  ToList_location = block_equality_location + 1`;
 
 val mk_cl_call_def = Define `
   mk_cl_call cl args =
@@ -131,12 +192,59 @@ val generate_partial_app_closure_fn_def = Define `
          [Var 0] ++
          [mk_el (Var 0) (mk_const 0)]))`;
 
+val ToList_code_def = Define`
+  (* 3 arguments: block containing list, index of last converted element, accumulator *)
+  ToList_code = (3:num,
+    If (Op Equal [Var 1; mk_const 0]) (Var 2)
+      (Let [Op Sub [mk_const 1; Var 1]]
+        (Call 0 (SOME ToList_location)
+         [Var 1; Var 0; Op (Cons (cons_tag+clos_tag_shift))
+                           [Var 3; mk_el (Var 1) (Var 0)]])))`;
+
+val RaiseEq_def = Define`
+  RaiseEq = Raise (Op (Cons (eq_tag+clos_tag_shift)) [])`;
+
+val check_closure_def = Define`
+  check_closure v e =
+    If (Op (TagEq closure_tag) [Var v]) RaiseEq
+      (If (Op (TagEq partial_app_tag) [Var v]) RaiseEq e)`;
+
+val equality_code_def = Define`
+  equality_code = (2:num,
+    If (Op IsBlock [Var 0])
+       (If (Op IsBlock [Var 1])
+           (check_closure 0
+             (check_closure 1
+               (If (Op BlockCmp [Var 0; Var 1])
+                   (Call 0 (SOME block_equality_location)
+                     [Var 0; Var 1; Op LengthBlock [Var 0]; mk_const 0])
+                   (Bool F))))
+           (Bool F))
+       (If (Op IsBlock [Var 1])
+           (Bool F)
+           (Op Equal [Var 0; Var 1])))`;
+
+val block_equality_code_def = Define`
+  (* 4 arguments: block1, block2, length, index to check*)
+  block_equality_code = (4:num,
+    If (Op Equal [Var 3; Var 2])
+       (Bool T)
+       (If (Call 0 (SOME equality_location)
+              [mk_el (Var 0) (Var 3);
+               mk_el (Var 1) (Var 3)])
+           (Call 0 (SOME block_equality_location)
+              [Var 0; Var 1; Var 2; (Op Add [Var 3; mk_const 1])])
+           (Bool F)))`;
+
 val init_code_def = Define `
   init_code =
-    fromList
+    sptree$fromList
       (GENLIST (\n. (n + 2, generate_generic_app n)) max_app ++
        FLAT (GENLIST (\m. GENLIST (\n. (m - n + 1,
-                                     generate_partial_app_closure_fn m n)) max_app) max_app))`;
+                                     generate_partial_app_closure_fn m n)) max_app) max_app) ++
+       [equality_code;
+        block_equality_code;
+        ToList_code])`;
 
 val compile_def = tDefine "compile" `
   (compile [] aux = ([],aux)) /\
@@ -162,21 +270,30 @@ val compile_def = tDefine "compile" `
        ([Tick (HD c1)], aux1)) /\
   (compile [Op op xs] aux =
      let (c1,aux1) = compile xs aux in
-       ([Op (compile_op op) c1],aux1)) /\
+     ([if op = ToList then
+         Let c1
+           (Call 0 (SOME ToList_location)
+             [Var 0; Op(LengthBlock)[Var 0];
+              Op(Cons(nil_tag+clos_tag_shift))[]])
+       else if op = Equal then
+         Call 0 (SOME equality_location) c1
+       else
+         Op (compile_op op) c1]
+     ,aux1)) /\
   (compile [App loc_opt x1 xs2] aux =
      let (c1,aux1) = compile [x1] aux in
      let (c2,aux2) = compile xs2 aux1 in
        ([case loc_opt of
-         | NONE => 
+         | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
-         | SOME loc => 
+         | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
   (compile [Fn loc vs num_args x1] aux =
      let (c1,aux1) = compile [x1] aux in
-     let c2 = 
-       Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs)) 
-           (HD c1) 
+     let c2 =
+       Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
+           (HD c1)
      in
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))],
@@ -188,9 +305,9 @@ val compile_def = tDefine "compile" `
          let (c1,aux1) = compile [exp] aux in
          let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) (HD c1) in
          let (c2,aux2) = compile [x1] ((loc + num_stubs,num_args+1,c3)::aux1) in
-         let c4 = 
-           Op (Cons closure_tag) 
-              (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs)) 
+         let c4 =
+           Op (Cons closure_tag)
+              (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))
          in
            ([Let [c4] (HD c2)], aux2)
      | _ =>
@@ -218,5 +335,68 @@ val compile_def = tDefine "compile" `
                 full_simp_tac (srw_ss()++ARITH_ss) [closLangTheory.exp_size_def]) >>
   pop_assum (qspec_then `v7` assume_tac) >>
   decide_tac);
+
+val compile_ind = theorem"compile_ind";
+
+val pair_lem1 = Q.prove (
+  `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
+  rw [] >>
+  PairCases_on `x` >>
+  fs []);
+
+val pair_lem2 = Q.prove (
+  `!x y z. (x,y) = z ⇔ x = FST z ∧ y = SND z`,
+  rw [] >>
+  PairCases_on `z` >>
+  rw []);
+
+val compile_acc = Q.store_thm("compile_acc",
+  `!xs aux.
+      let (c,aux1) = compile xs aux in
+        (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux`,
+  recInduct compile_ind \\ REPEAT STRIP_TAC
+  \\ fs [compile_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
+  \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [pair_lem1] >>
+  rw [] >>
+  fs [pair_lem2] >>
+  rfs [compile_def, LET_THM] >>
+  fs [pair_lem1, pair_lem2] >>
+  metis_tac [build_aux_acc, APPEND_ASSOC]);
+
+val compile_LENGTH = Q.store_thm("compile_LENGTH",
+  `(compile xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)`,
+  REPEAT STRIP_TAC
+  \\ ASSUME_TAC (Q.SPECL [`xs`,`aux`] compile_acc)
+  \\ rfs [LET_DEF]);
+
+val compile_SING = Q.store_thm("compile_SING",
+  `(compile [x] aux = (c,aux1)) ==> ?d. c = [d]`,
+  REPEAT STRIP_TAC
+  \\ ASSUME_TAC (Q.SPECL [`[x]`,`aux`] compile_acc) \\ rfs [LET_DEF]
+  \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
+
+val compile_CONS = store_thm("compile_CONS",
+  ``!xs x aux.
+      compile (x::xs) aux =
+      (let (c1,aux1) = compile [x] aux in
+       let (c2,aux2) = compile xs aux1 in
+         (c1 ++ c2,aux2))``,
+  Cases_on `xs` \\ fs[compile_def] \\ fs [LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val compile_SNOC = store_thm("compile_SNOC",
+  ``!xs x aux.
+      compile (SNOC x xs) aux =
+      (let (c1,aux1) = compile xs aux in
+       let (c2,aux2) = compile [x] aux1 in
+         (c1 ++ c2,aux2))``,
+  Induct THEN1
+   (fs [compile_def,LET_DEF]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
+  \\ fs [SNOC_APPEND]
+  \\ ONCE_REWRITE_TAC [compile_CONS]
+  \\ ASM_SIMP_TAC std_ss [compile_def,LET_DEF,APPEND_NIL]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
 
 val _ = export_theory()

@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics
+INCLUDES = .. ../semantics ../targets
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -13,7 +13,7 @@ PARENT_HOLHEAP = ../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../semantics/terminationTheory
+BARE_THYS = ../semantics/terminationTheory ../targets/asmTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

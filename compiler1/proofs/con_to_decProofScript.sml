@@ -161,10 +161,10 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
       qexists_tac `r_i3` >>
       srw_tac [ARITH_ss] [GENLIST_APPEND] >>
       disj1_tac >>
-      MAP_EVERY qexists_tac [`Conv NONE []`, `(s2, genv ++ MAP SOME new_env' ++ GENLIST (λx. NONE) (num_defs ds))`] >>
+      MAP_EVERY qexists_tac [`Conv NONE []`, `(s2, genv ++ MAP SOME new_env'' ++ GENLIST (λx. NONE) (num_defs ds))`] >>
       rw [] >>
       fs [LENGTH_APPEND] >>
-      MAP_EVERY qexists_tac [`Conv NONE new_env'`, `(s2,genv++GENLIST (λx. NONE) (num_defs ds) ++ GENLIST (λt. NONE) (LENGTH new_env'))`] >>
+      MAP_EVERY qexists_tac [`Conv NONE new_env''`, `(s2,genv++GENLIST (λx. NONE) (num_defs ds) ++ GENLIST (λt. NONE) (LENGTH new_env''))`] >>
       rw []
       >- (simp_tac bool_ss [GSYM APPEND_ASSOC, GSYM GENLIST_APPEND] >>
           metis_tac [evaluate_genv_weakening, result_distinct, pair_CASES])

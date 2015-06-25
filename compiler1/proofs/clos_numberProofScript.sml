@@ -412,8 +412,8 @@ val do_app = prove(
     every_case_tac >> fs[] >>
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp])
   >- (
+    Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t` >> fs[v_rel_simp]>>
-    Cases_on`h'` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t'` >> fs[v_rel_simp]>>
     rw[] >> simp[v_rel_simp] >>
@@ -434,8 +434,8 @@ val do_app = prove(
     rw[] >> fs[] >>
     simp[LIST_REL_REPLICATE_same])
   >- (
+    Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t` >> fs[v_rel_simp]>>
-    Cases_on`h'` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t'` >> fs[v_rel_simp]>>
     imp_res_tac state_rel_refs >>
@@ -445,12 +445,12 @@ val do_app = prove(
     first_x_assum(qspec_then`n`mp_tac)>>simp[v_rel_simp]>>
     metis_tac[])
   >- (
-    Cases_on`ys` >> fs[v_rel_simp]>>
-    Cases_on`t'` >> fs[v_rel_simp]>>
-    Cases_on`h''` >> fs[v_rel_simp]>>
-    Cases_on`h'` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp]>>
-    Cases_on`xs'` >> fs[v_rel_simp]>>
+    Cases_on`t` >> fs[v_rel_simp]>>
+    Cases_on`h` >> fs[v_rel_simp]>>
+    Cases_on`t'` >> fs[v_rel_simp]>>
+    Cases_on`h` >> fs[v_rel_simp]>>
+    Cases_on`t` >> fs[v_rel_simp]>>
     rpt var_eq_tac >>
     imp_res_tac state_rel_refs >>
     fs[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
@@ -476,15 +476,12 @@ val do_app = prove(
     Cases_on`t` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp])
   >- (
-    Cases_on`t` >> fs[v_rel_simp]>>
-    Cases_on`h` >> fs[v_rel_simp])
-  >- (
     fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> rw[] )
   >- (
     fs[state_rel_def,fmap_rel_def,FAPPLY_FUPDATE_THM] >> rw[] )
   >- (
+    Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t` >> fs[v_rel_simp]>>
-    Cases_on`h'` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp]>>
     Cases_on`t'` >> fs[v_rel_simp]>>
     imp_res_tac state_rel_refs >>
@@ -493,11 +490,11 @@ val do_app = prove(
     every_case_tac >> fs[] >> rw[] >> fs[LIST_REL_EL_EQN] >> rfs[] >>
     first_x_assum match_mp_tac >> intLib.COOPER_TAC)
   >- (
-    Cases_on`ys` >> fs[v_rel_simp]>>
-    Cases_on`t'` >> fs[v_rel_simp]>>
-    Cases_on`h'` >> fs[v_rel_simp]>>
     Cases_on`h` >> fs[v_rel_simp]>>
-    Cases_on`xs'` >> fs[v_rel_simp]>>
+    Cases_on`t` >> fs[v_rel_simp]>>
+    Cases_on`h` >> fs[v_rel_simp]>>
+    Cases_on`t'` >> fs[v_rel_simp]>>
+    Cases_on`t` >> fs[v_rel_simp]>>
     imp_res_tac state_rel_refs >>
     fs[fmap_rel_OPTREL_FLOOKUP,OPTREL_def] >>
     first_x_assum(qspec_then`n`mp_tac)>>rw[v_rel_simp]>>
@@ -520,53 +517,12 @@ val do_app = prove(
     Cases_on`t'`>>fs[v_rel_simp]>>
     imp_res_tac do_eq >> simp[] >>
     every_case_tac >> simp[v_rel_simp] )
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
+  >> (
     Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
     Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
     Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp]>>
-    rw[] >> simp[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp]>>
-    rw[] >> simp[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp])
-  >- (
-    Cases_on`t`>>fs[v_rel_simp]>>
-    Cases_on`h'`>>fs[v_rel_simp]>>
-    Cases_on`h`>>fs[v_rel_simp]>>
-    Cases_on`t'`>>fs[v_rel_simp]));
+    Cases_on`t'`>>fs[v_rel_simp] >>
+    every_case_tac >> fs[v_rel_simp]));
 
 (* compiler correctness *)
 
@@ -678,7 +634,10 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     strip_tac >>
     last_x_assum mp_tac >>
     BasicProvers.CASE_TAC >> TRY(Cases_on`a'`) >> rw[] >> simp[] >>
-    imp_res_tac do_app_err >> rw[])
+    imp_res_tac do_app_err >>
+    reverse(Cases_on`op=Equal`) >> fs[] >>
+    fs[do_app_def] >>
+    every_case_tac >> fs[] >> rw[v_rel_simp])
   THEN1 (* Fn *)
    (fs [renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
     `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>

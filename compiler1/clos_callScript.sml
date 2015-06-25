@@ -48,7 +48,7 @@ val merge_def = tDefine "merge" `
             Tuple (merge_list xs ys)
           else Other
      | (Clos _ _ _, Clos _ _ _) => if x = y then x else Other
-     | (Int i, Int j) => if i = j then Int i else Other
+     | (Int _, Int _) => if x = y then x else Other
      | _ => Other) /\
   (merge_list xs ys =
      case (xs,ys) of

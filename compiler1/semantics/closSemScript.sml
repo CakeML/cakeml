@@ -33,7 +33,7 @@ val get_global_def = Define `
     if n < LENGTH globals then SOME (EL n globals) else NONE`
 
 val Boolv_def = Define `
-  (Boolv b = Block ((if b then true_tag else false_tag)+pat_tag_shift) [])`;
+  (Boolv b = Block (if b then true_tag else false_tag) [])`;
 
 val do_eq_def = tDefine "do_eq" `
   (do_eq x y =
@@ -41,23 +41,23 @@ val do_eq_def = tDefine "do_eq" `
      | Number i =>
          (case y of
           | Number j => Eq_val (i = j)
-          | _ => Eq_val F)
+          | _ => Eq_type_error)
      | Block t1 xs =>
          (case y of
           | Block t2 ys => if (t1 = t2) /\ (LENGTH xs = LENGTH ys) then
                              do_eq_list xs ys
                            else Eq_val F
-          | Number _ => Eq_val F
-          | RefPtr _ => Eq_val F
+          | Number _ => Eq_type_error
+          | RefPtr _ => Eq_type_error
           | _ => Eq_closure)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
-          | _ => Eq_val F)
+          | _ => Eq_type_error)
      | _ =>
          (case y of
-          | Number _ => Eq_val F
-          | RefPtr _ => Eq_val F
+          | Number _ => Eq_type_error
+          | RefPtr _ => Eq_type_error
           | _ => Eq_closure)) /\
   (do_eq_list [] [] = Eq_val T) /\
   (do_eq_list (x::xs) (y::ys) =
@@ -70,9 +70,9 @@ val do_eq_def = tDefine "do_eq" `
 
 val v_to_list_def = Define`
   (v_to_list (Block tag []) =
-     if tag = nil_tag+pat_tag_shift then SOME [] else NONE) ∧
+     if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
-     if tag = cons_tag+pat_tag_shift then
+     if tag = cons_tag then
        (case v_to_list bt of
         | SOME t => SOME (h::t)
         | _ => NONE )
@@ -80,11 +80,11 @@ val v_to_list_def = Define`
   (v_to_list _ = NONE)`
 
 val list_to_v_def = Define`
-  (list_to_v [] = Block (nil_tag+pat_tag_shift) []) ∧
-  (list_to_v (h::t) = Block (cons_tag+pat_tag_shift) [h;list_to_v t])`
+  (list_to_v [] = Block nil_tag []) ∧
+  (list_to_v (h::t) = Block cons_tag [h;list_to_v t])`
 
 val Unit_def = Define`
-  Unit = Block (tuple_tag+pat_tag_shift) []`
+  Unit = Block tuple_tag []`
 
 val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#closSem$state,closSem$v)result``)
 
@@ -159,11 +159,8 @@ val do_app_def = Define `
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
-         | Eq_closure => Rval (Number 0, s)
+         | Eq_closure => Rerr (Rraise (Block eq_tag []))
          | _ => Error)
-    | (IsBlock,[Number i]) => Rval (Boolv F, s)
-    | (IsBlock,[RefPtr ptr]) => Rval (Boolv F, s)
-    | (IsBlock,[Block tag ys]) => Rval (Boolv T, s)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
           Rval (RefPtr ptr, s with refs := s.refs |+ (ptr,ValueArray xs))
@@ -201,11 +198,10 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI n ws s.io of
-            | SOME (ws',t') =>
+            | (ws',t') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
-                              ; io   := t'|>)
-            | _ => Rerr(Rabort Rffi_error))
+                              ; io   := t'|>))
          | _ => Error)
     | _ => Error`;
 
@@ -256,7 +252,7 @@ val lookup_vars_def = Define `
 
 val check_loc_opt_def = Define `
   (check_loc NONE loc num_params num_args so_far ⇔ num_args ≤ max_app) /\
-  (check_loc (SOME p) loc num_params num_args so_far ⇔ 
+  (check_loc (SOME p) loc num_params num_args so_far ⇔
     (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
 
 val _ = Datatype `

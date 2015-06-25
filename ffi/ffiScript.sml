@@ -14,14 +14,14 @@ val _ = new_theory "ffi"
 
 (* I/O events *)
 
-(* An I/O event, IO_event n bytes2, calls FFI function n with input 
+(* An I/O event, IO_event n bytes2, calls FFI function n with input
    map fst bytes2 in the passed array, and the call returns with map snd bytes2
    in the array. *)
 val _ = Hol_datatype `
  io_event = IO_event of num => ( (word8 # word8)list)`;
 
 
-val _ = type_abbrev( "io_trace" , ``:  io_event llist``);
+val _ = type_abbrev( "io_trace" , ``:  ( io_event llist)option``);
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -41,15 +41,19 @@ val _ = Hol_datatype `
   | Fail`;
 
 
-(*val call_FFI : nat -> list word8 -> io_trace -> maybe (list word8 * io_trace)*)
+(*val call_FFI : nat -> list word8 -> io_trace -> list word8 * io_trace*)
 val _ = Define `
  (call_FFI n bytes io_trace =  
-((case LHD io_trace of
-    SOME (IO_event n' xs) =>
-      if (n = n') /\ (MAP FST xs = bytes) then
-        SOME (MAP SND xs, THE (LTL io_trace))
-      else NONE
-  | _ => NONE
+((case io_trace of
+    SOME events =>
+     (case LHD events of
+       SOME (IO_event n' xs) =>
+         if (n = n') /\ (MAP FST xs = bytes) then
+           (MAP SND xs, LTL events)
+         else (bytes, NONE)
+     | _ => (bytes, NONE)
+     )
+  | _ => (bytes, NONE)
   )))`;
 
 val _ = export_theory()

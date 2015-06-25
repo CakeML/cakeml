@@ -96,8 +96,8 @@ val evaluate_extend_genv = Q.store_thm ("evaluate_extend_genv",
   rw [Once evaluate_cases] >>
   metis_tac []);
 
-val _ = bring_to_front_overload "evaluate" {Name="evaluate",Thy="decSem"}
-val _ = bring_to_front_overload "evaluate_list" {Name="evaluate_list",Thy="decSem"}
+val _ = temp_bring_to_front_overload "evaluate" {Name="evaluate",Thy="decSem"}
+val _ = temp_bring_to_front_overload "evaluate_list" {Name="evaluate_list",Thy="decSem"}
 
 val eval_var =
 SIMP_CONV (srw_ss()) [Once evaluate_cases] ``evaluate b env s (Var_local var) (s',r)``

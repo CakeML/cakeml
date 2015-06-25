@@ -4,7 +4,12 @@ val _ = new_theory"pat_to_clos"
 
 val string_tag_def = Define`string_tag = 0:num`
 val vector_tag_def = Define`vector_tag = 1:num`
-val pat_tag_shift_def = Define`pat_tag_shift = 2:num`
+
+(* The translation from patLang to closLang is very simple.
+   Its main purpose is simplifying the semantics of some operations,
+   for example to explicitly raise an exception for Div so the semantics
+   in closLang can make more assumptions about the arguments.
+*)
 
 val compile_def = tDefine"compile"`
   (compile (Raise e) =
@@ -20,7 +25,7 @@ val compile_def = tDefine"compile"`
   (compile (Lit (StrLit s)) =
     Op (Cons string_tag) (REVERSE (MAP (λc. Op (Const (& ORD c)) []) s))) ∧
   (compile (Con cn es) =
-    Op (Cons (cn + pat_tag_shift)) (REVERSE (MAP compile es))) ∧
+    Op (Cons cn) (REVERSE (MAP compile es))) ∧
   (compile (Var_local n) =
     Var n) ∧
   (compile (Var_global n) =
@@ -28,6 +33,7 @@ val compile_def = tDefine"compile"`
   (compile (Fun e) =
     Fn 0 [] 1 (compile e)) ∧
   (compile (App (Op (Op Opapp)) es) =
+    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
     App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
   (compile (App (Op (Op (Opn Plus))) es) =
@@ -39,12 +45,12 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op (Opn Divide))) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons (div_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons div_tag) []))
           (Op Div [Var 0; Var 1]))) ∧
   (compile (App (Op (Op (Opn Modulo))) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Equal [Var 0; Op (Const 0) []])
-          (Raise (Op (Cons (div_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons div_tag) []))
           (Op Mod [Var 0; Var 1]))) ∧
   (compile (App (Op (Op (Opb Lt))) es) =
     Op Less (REVERSE (MAP compile es))) ∧
@@ -63,48 +69,47 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op (Chopb Geq))) es) =
     Op GreaterEq (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Equality)) es) =
-    Let [Op Equal (REVERSE (MAP compile es))]
-      (If (Op IsBlock [Var 0]) (Var 0)
-          (Raise (Op (Cons (eq_tag+pat_tag_shift)) [])))) ∧
+    Op Equal (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Opassign)) es) =
-    Let (REVERSE (MAP compile es))
-      (Let [Op Update [Var 0; Op (Const 0) []; Var 1]]
-         (Op (Cons (tuple_tag+pat_tag_shift)) []))) ∧
+    (* TODO: check if this if is really necessary *)
+    if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
+      Op Update [compile (EL 1 es); Op (Const 0) []; compile (EL 0 es)]) ∧
   (compile (App (Op (Op Opderef)) es) =
     Op Deref ((Op (Const 0) [])::(REVERSE (MAP compile es)))) ∧
   (compile (App (Op (Op Opref)) es) =
     Op Ref (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Ord)) es) =
+    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Chr)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
-        (Raise (Op (Cons (chr_tag+pat_tag_shift)) []))
+        (Raise (Op (Cons chr_tag) []))
         (If (Op Less [Var 0; Op (Const 255) []])
-          (Raise (Op (Cons (chr_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons chr_tag) []))
           (Var 0)))) ∧
   (compile (App (Op (Op Aw8alloc)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (Op RefByte [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Aw8sub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthByte [Var 1]; Var 0])
               (Op DerefByte [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Aw8length)) es) =
     Op LengthByte (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aw8update)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthByte [Var 2]; Var 1])
               (Let [Op UpdateByte [Var 0; Var 1; Var 2]]
-                 (Op (Cons (tuple_tag+pat_tag_shift)) []))
-              (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+                 (Op (Cons tuple_tag) []))
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Explode)) es) =
     Op ToList (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Implode)) es) =
@@ -116,44 +121,45 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op Vsub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op LengthBlock [Var 1]; Var 0])
               (Op El [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Vlength)) es) =
     Op LengthBlock (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aalloc)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (Op RefArray [Var 0; Var 1]))) ∧
   (compile (App (Op (Op Asub)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 0])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op Length [Var 1]; Var 0])
               (Op Deref [Var 0; Var 1])
-              (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op Alength)) es) =
     Op Length (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Aupdate)) es) =
     Let (REVERSE (MAP compile es))
       (If (Op Less [Op (Const 0) []; Var 1])
-          (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))
+          (Raise (Op (Cons subscript_tag) []))
           (If (Op Less [Op Length [Var 2]; Var 1])
               (Let [Op Update [Var 0; Var 1; Var 2]]
-                 (Op (Cons (tuple_tag+pat_tag_shift)) []))
-              (Raise (Op (Cons (subscript_tag+pat_tag_shift)) []))))) ∧
+                 (Op (Cons tuple_tag) []))
+              (Raise (Op (Cons subscript_tag) []))))) ∧
   (compile (App (Op (Op (FFI n))) es) =
     Op (FFI n) (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Init_global_var n)) es) =
     Let [Op (SetGlobal n) (REVERSE (MAP compile es))]
-      (Op (Cons (tuple_tag+pat_tag_shift)) [])) ∧
+      (Op (Cons tuple_tag) [])) ∧
   (compile (App (Tag_eq n l) es) =
-    Op (TagLenEq (n+pat_tag_shift) l) (REVERSE (MAP compile es))) ∧
+    Op (TagLenEq n l) (REVERSE (MAP compile es))) ∧
   (compile (App (El n) es) =
-    Let (REVERSE (MAP compile es))
-      (Op El [Op (Const &n) []; Var 0])) ∧
+    (* TODO: check if this if is really necessary *)
+    if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
+      Op El [Op (Const &n) []; compile (HD es)]) ∧
   (compile (If e1 e2 e3) =
     If (compile e1) (compile e2) (compile e3)) ∧
   (compile (Let e1 e2) =
@@ -164,7 +170,7 @@ val compile_def = tDefine"compile"`
     Letrec 0 [] (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global n) =
    Let (REPLICATE n (Op AllocGlobal []))
-     (Op (Cons (tuple_tag+pat_tag_shift)) []))`
+     (Op (Cons tuple_tag) []))`
   let
     val exp_size_def = patLangTheory.exp_size_def
   in
@@ -178,19 +184,5 @@ val compile_def = tDefine"compile"`
     Cases_on`t'`>>fs[exp_size_def] >> rw[] >> simp[]
   end
 val _ = export_rewrites["compile_def"]
-
-val compile_ind = theorem"compile_ind";
-
-val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
-  ``∀e. ¬contains_App_SOME[compile e]``,
-  ho_match_mp_tac compile_ind >>
-  simp[compile_def,contains_App_SOME_def] >>
-  rw[] >> srw_tac[ETA_ss][] >>
-  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
-  rw[Once contains_App_SOME_EXISTS,EVERY_MAP] >>
-  rw[contains_App_SOME_def] >> rw[EVERY_MEM] >>
-  fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
-  rw[contains_App_SOME_def,max_app_def]);
 
 val _ = export_theory()

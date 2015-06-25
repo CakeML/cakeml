@@ -299,11 +299,10 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
        (case call_FFI n ws t of
-        | SOME (ws', t') =>
+        | (ws', t') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))
-           | NONE => NONE)
-        | NONE => SOME ((s, t), Rerr (Rabort Rffi_error)))
+           | NONE => NONE))
      | _ => NONE)
   | _ => NONE`;
 
@@ -578,14 +577,14 @@ evaluate_decs ck (genv ++ MAP SOME new_env) (merge_alist_mod_env ([],new_tds) ce
 evaluate_decs ck genv cenv s1 (d::ds) (s3, (new_tds' ++ new_tds), (new_env ++ new_env'), r))`;
 
 val mod_cenv_def = Define `
- (mod_cenv (mn:modN option) (cenv:flat_envC) =  
+ (mod_cenv (mn:modN option) (cenv:flat_envC) =
 ((case mn of
       NONE => ([],cenv)
     | SOME mn => ([(mn,cenv)], [])
   )))`;
 
 val update_mod_state_def = Define `
- (update_mod_state (mn:modN option) mods =  
+ (update_mod_state (mn:modN option) mods =
 ((case mn of
       NONE => mods
     | SOME mn => {mn} UNION mods

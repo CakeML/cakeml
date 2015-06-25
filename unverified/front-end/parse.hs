@@ -409,6 +409,12 @@ nDecl =
   fmap Dtype nTypeDec
   <|>
   (tokeq ExceptionT >> fmap (uncurry Dexn) nDconstructor)
+  <|> 
+  do tokeq TypeT;
+     (tn,tvs) <- nTypeName; 
+     tokeq EqualsT;
+     t <- nType;
+     return (Dtabbrev tvs tn t)
 
 nDecls = 
   do d <- nDecl;

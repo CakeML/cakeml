@@ -154,7 +154,7 @@ val mem_load_def = Define `
   mem_load n r a (s:'a asml_state) =
     let ax = addr a s in
     let a = THE ax in
-    let a = if s.be then a + n2w n else a in
+    let a = if s.be then a + n2w (n - 1) else a in
     let (l,s) = read_mem_list a n s in
     let lx = list_to_word_loc l in
     let s = upd_reg r (THE lx) s in
@@ -177,7 +177,7 @@ val mem_store_def = Define `
   mem_store n r a (s:'a asml_state) =
     let ax = addr a s in
     let a = THE ax in
-    let a = if s.be then a + n2w n else a in
+    let a = if s.be then a + n2w (n - 1) else a in
     let w = read_reg r s in
     let l = word_loc_to_list w n in
     let s = write_mem_list a l s in
@@ -606,12 +606,12 @@ val shift_interfer_intro = prove(
 val mEval_EQ_mEval_lemma = prove(
   ``!n ms1 c.
       c.f.get_pc ms1 IN c.prog_addresses /\ c.f.state_ok ms1 /\
-      interference_ok c.next_interfer c.f.proj /\
+      interference_ok c.next_interfer (c.f.proj dm) /\
       (!s ms. c.f.state_rel s ms ==> c.f.state_ok ms) /\
-      (!ms1 ms2. (c.f.proj ms1 = c.f.proj ms2) ==>
+      (!ms1 ms2. (c.f.proj dm ms1 = c.f.proj dm ms2) ==>
                  (c.f.state_ok ms1 = c.f.state_ok ms2)) /\
       (!env.
-         interference_ok env c.f.proj ==>
+         interference_ok env (c.f.proj dm) ==>
          asserts n (\k s. env k (c.f.next s)) ms1
            (\ms'. c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses)
            (\ms'. c.f.state_rel s2 ms')) ==>
@@ -624,7 +624,7 @@ val mEval_EQ_mEval_lemma = prove(
     \\ fs [asserts_def,LET_DEF]
     \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
-    \\ fs [interference_ok_def] \\ RES_TAC
+    \\ fs [interference_ok_def] \\ RES_TAC \\ fs []
     \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [shift_interfer_def]
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ fs []
@@ -663,7 +663,7 @@ val SUBSET_IMP = prove(
   fs [pred_setTheory.SUBSET_DEF]);
 
 val bytes_in_memory_IMP_SUBSET = prove(
-  ``!xs a. bytes_in_memory a xs c m d ==> all_pcs a xs SUBSET d``,
+  ``!xs a. bytes_in_memory a xs m d ==> all_pcs a xs SUBSET d``,
   Induct \\ fs [all_pcs_def,bytes_in_memory_def]);
 
 val asserts_WEAKEN = prove(
@@ -678,7 +678,7 @@ val asserts_WEAKEN = prove(
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.f c.asm_config /\
     (c.prog_addresses = s1.mem_domain) /\
-    interference_ok c.next_interfer c.f.proj /\
+    interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
     asm_step_alt c.f.encode c.asm_config s1 i s2 /\
     c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
     ?l ms2. !k. (mEval c io (k + l) ms1 =
@@ -687,14 +687,16 @@ val asm_step_IMP_mEval_step = prove(
   fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
-  \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
+  \\ MATCH_MP_TAC (GEN_ALL mEval_EQ_mEval_lemma) \\ fs []
+  \\ Q.EXISTS_TAC `s1.mem_domain` \\ fs []
   \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
          \\ Cases_on `c.f.encode i` \\ fs [bytes_in_memory_def])
   \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
+  \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
   \\ MATCH_MP_TAC IMP_IMP
-  \\ STRIP_TAC \\ fs [interference_ok_def]
+  \\ STRIP_TAC THEN1 fs [interference_ok_def]
   \\ MATCH_MP_TAC asserts_WEAKEN \\ fs []
   \\ SRW_TAC [] [] \\ fs []
   THEN1 (POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
@@ -702,6 +704,7 @@ val asm_step_IMP_mEval_step = prove(
   \\ fs [FUN_EQ_THM] \\ REPEAT STRIP_TAC
   \\ `n - (n - k) = k` by decide_tac \\ fs [])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
+
 
 (* compiler correctness proof *)
 
@@ -791,10 +794,73 @@ val state_rel_def = Define `
     ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
     (t1.pc = p + n2w (pos_val s1.pc code2)) /\
     (p && n2w (t1.align - 1) = 0w) /\
+    (case mc_conf.asm_config.link_reg of NONE => T | SOME r => t1.lr = r) /\
+    (t1.be <=> mc_conf.asm_config.big_endian) /\
+    (t1.align = mc_conf.asm_config.code_alignment) /\
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2`
 
-(*
+val IMP_mem_load_failed = prove(
+  ``~s.failed /\ ((addr a s) && n2w (n - 1) = 0w) /\
+    { addr a s + n2w k | k < n } SUBSET s.mem_domain ==>
+    ~(asm$mem_load n r a s).failed``,
+  cheat);
+
+val mem_load_failed_IMP = prove(
+  ``~(mem_load n r a s).failed ==>
+    ((THE (addr a s)) && n2w (n - 1) = 0w) /\
+    { THE (addr a s) + n2w k | k < n } SUBSET s.mem_domain``,
+  cheat);
+
+val mem_load_failed = prove(
+  ``(!a. a IN s1.mem_domain ==> a IN t1.mem_domain) /\ ~t1.failed /\
+    (addr (Addr n' c) s1 = SOME (addr (Addr n' c) t1)) ==>
+    ~(mem_load k n (Addr n' c) s1).failed ==>
+    ~(asm$mem_load k n (Addr n' c) t1).failed``,
+  STRIP_TAC \\ STRIP_TAC
+  \\ MATCH_MP_TAC IMP_mem_load_failed \\ fs []
+  \\ IMP_RES_TAC mem_load_failed_IMP
+  \\ rfs [] \\ fs [pred_setTheory.SUBSET_DEF]);
+
+val mem_store_failed = prove(
+  ``(!a. a IN s1.mem_domain ==> a IN t1.mem_domain) ==>
+    ~(mem_store k n (Addr n' c) s1).failed ==>
+    ~(asm$mem_store k n (Addr n' c) t1).failed``,
+  cheat);
+
+val asm_fetch_ok = prove(
+  ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
+    all_enc_ok asm_conf enc labs 0 code2 /\
+    code_similar s1.code code2 ==>
+    bytes_in_memory (p + n2w (pos_val s1.pc code2))
+      (mc_conf.f.encode (Inst i)) t1.mem t1.mem_domain /\
+    asm_ok (Inst i) mc_conf.asm_config``,
+  cheat); (* provable? -- but there should be a more general lemma *)
+
+val asm_inst_failed_IMP_inst_failed = prove(
+  ``state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 /\
+    ~(asm_inst i s1).failed ==> ~(inst i t1).failed``,
+  Cases_on `i`
+  \\ TRY (Cases_on `a`) \\ TRY (Cases_on `b`) \\ TRY (Cases_on `m`)
+  \\ fs [inst_def,state_rel_def,asmTheory.upd_reg_def,asm_inst_def,
+         asmTheory.arith_upd_def,asmTheory.binop_upd_def,mem_op_def,
+         asmTheory.mem_op_def]
+  \\ REPEAT STRIP_TAC
+  \\ POP_ASSUM MP_TAC \\ fs []
+  \\ POP_ASSUM MP_TAC \\ fs []
+  \\ TRY (MATCH_MP_TAC mem_load_failed \\ fs [] \\ NO_TAC)
+  \\ TRY (MATCH_MP_TAC mem_store_failed \\ fs [] \\ NO_TAC)
+  \\ cheat);
+
+val IMP_asm_step_alt = prove(
+  ``(asm_fetch s1 = SOME (Asm (Inst i) l n)) /\
+    ~(asm_inst i s1).failed /\
+    state_rel (asm_conf,mc_conf,enc,code2,labs,p) s1 t1 ms1 ==>
+    asm_step_alt mc_conf.f.encode mc_conf.asm_config t1 (Inst i)
+      (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1)``,
+  fs [asm_step_alt_def,asm_def,asmTheory.upd_pc_def] \\ STRIP_TAC
+  \\ IMP_RES_TAC asm_inst_failed_IMP_inst_failed \\ fs [state_rel_def]
+  \\ MATCH_MP_TAC asm_fetch_ok \\ fs []);
 
 val aEval_IMP_mEval = prove(
   ``!s1 res mc_conf s2 code2 labs t1 ms1.
@@ -805,7 +871,6 @@ val aEval_IMP_mEval = prove(
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
         state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 t2 ms2``,
-
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
@@ -814,37 +879,55 @@ val aEval_IMP_mEval = prove(
   \\ Cases_on `asm_fetch s1` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
-
-    (* Asm (Inst ...) *)
+  THEN1
+   ((* Asm (Inst ...) *)
     Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-    \\ `asm_step_alt mc_conf.f.encode mc_conf.asm_config t1 (Inst i) t2` by cheat
+    \\ `?t2. asm_step_alt mc_conf.f.encode
+             mc_conf.asm_config t1 (Inst i) t2 /\
+      (t2 = (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1))` by
+      (fs [] \\ MATCH_MP_TAC IMP_asm_step_alt \\ fs [])
     \\ `mc_conf.f.state_rel t1 ms1 /\
         (mc_conf.prog_addresses = t1.mem_domain) /\
         interference_ok mc_conf.next_interfer mc_conf.f.proj` by
       fs [state_rel_def]
     \\ IMP_RES_TAC asm_step_IMP_mEval_step
+
     \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1.io_events`)
     \\ Q.MATCH_ASSUM_RENAME_TAC `ll <> 0:num`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer ll mc_conf`,
          `code2`,`labs`,`t2`,`ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC
     THEN1 (fs [shift_interfer_def])
-    THEN1 (fs [state_rel_def,shift_interfer_def] \\ cheat)
+    THEN1 (fs [state_rel_def,shift_interfer_def]
+      \\ fs [inc_pc_def,dec_clock_def,asmTheory.asm_def,asmTheory.upd_pc_def]
+      \\ cheat)
     \\ `((inc_pc (dec_clock (asm_inst i s1))).io_events = s1.io_events) /\
         ((inc_pc (dec_clock (asm_inst i s1))).clock = s1.clock - 1)` by
       fs [inc_pc_def,dec_clock_def,asm_inst_consts] \\ fs []
     \\ FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `(s1.clock - 1 + k)`)
     \\ Q.EXISTS_TAC `k + ll - 1`
     \\ `s1.clock + (k + ll - 1) = s1.clock - 1 + k + ll` by DECIDE_TAC \\ fs []
-    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def]
+    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def])
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 cheat
+  THEN1 (* CallFFI *) cheat
+  THEN1 (* Halt *)
+   (rw [] \\ cheat));
 
+(*
 
-
-
-
-
+TODO:
+ - fix compilation of FFI and Halt calls
+ - define an incremental version of the compiler
+ - add ability to install code
 
 *)
+
+
+
 
 (* show that remove_labels only adds aEval-irrelevant annotations
 

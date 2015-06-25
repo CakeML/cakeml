@@ -6,6 +6,14 @@ open terminationTheory
 
 val _ = new_theory"sourceProps"
 
+val map_error_result_I = Q.store_thm("map_error_result_I[simp]",
+  `map_error_result I e = e`,
+  Cases_on`e`>>simp[])
+
+val map_result_Rval = Q.store_thm("map_result_Rval[simp]",
+  `map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y`,
+  Cases_on`e`>>simp[EQ_IMP_THM])
+
 val pmatch_extend = Q.store_thm("pmatch_extend",
 `(!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'

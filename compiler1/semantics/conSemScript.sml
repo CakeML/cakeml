@@ -312,11 +312,10 @@ val do_app_def = Define `
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
        (case call_FFI n ws t of
-        | SOME (ws', t') =>
+        | (ws', t') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))
-           | NONE => NONE)
-        | NONE => SOME ((s, t), Rerr (Rabort Rffi_error)))
+           | NONE => NONE))
      | _ => NONE)
   | _ => NONE
   )`;

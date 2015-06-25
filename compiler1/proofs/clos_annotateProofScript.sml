@@ -6,18 +6,10 @@ open preamble
 
 val _ = new_theory"clos_annotateProof";
 
+val _ = temp_bring_to_front_overload"do_app"{Name="do_app",Thy="closSem"};
+
 val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
                 |> UNDISCH |> CONJUNCT2 |> DISCH_ALL;
-
-(* TODO: move, or delete *)
-val fv_EL_IMP = prove(
-  ``!fns n index.
-      fv n [EL index fns] /\ index < LENGTH fns ==>
-      fv n fns``,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC
-  \\ Cases_on `index` \\ fs [EL]
-  \\ Cases_on `fns` \\ fs [fv_def] \\ RES_TAC \\ fs []);
-(* -- *)
 
 (* value relation *)
 
@@ -285,9 +277,8 @@ val do_app_thm = prove(
     \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
     \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
     \\ fs [])
-  THEN1 (* IsBlock *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp])
+  THEN1 (* IsBlock *) fs [do_app_def]
+  THEN1 (* BlockCmp *) fs [do_app_def]
   THEN1 (* TagLenEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
@@ -403,94 +394,49 @@ val do_app_err_thm = Q.prove(
   >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
-      Cases_on`h''`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
       every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
   >- (fs[LET_THM]>>every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>
+      Cases_on`h`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
       Cases_on`t'`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
       Cases_on`t`>>fs[]>>
       every_case_tac >> fs[])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[v_rel_simp] >>
       rw[] >> fs[state_rel_def] >> res_tac >> fs[] >>
       rw[] >> rfs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
+      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
   >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
+  >> (Cases_on`xs`>>fs[]>>
       Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
       Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
       Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >>fs[]));
+      Cases_on`t'`>>fs[] >>
+      every_case_tac >> fs[]));
 
 (* compiler correctness *)
 
@@ -1073,5 +1019,35 @@ val annotate_correct = save_thm("annotate_correct",
   shift_correct |> CONJUNCT1
   |> SPEC_ALL |> Q.INST [`m`|->`0`,`l`|->`0`,`i`|->`LN`,`env`|->`[]`]
   |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0]);
+
+(* more correctness properties *)
+
+val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
+
+val shift_code_locs = prove(
+  ``!xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs``,
+  ho_match_mp_tac shift_ind
+  \\ simp[shift_def,code_locs_def,shift_LENGTH_LEMMA]
+  \\ rw[code_locs_append]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ ONCE_REWRITE_TAC [code_locs_map]
+  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD])
+
+val free_code_locs = prove(
+  ``!xs. code_locs (FST (free xs)) = code_locs xs``,
+  ho_match_mp_tac free_ind >>
+  simp[free_def,code_locs_def,UNCURRY] >> rw[]
+  \\ Cases_on `free [x]` \\ fs [code_locs_append,HD_FST_free]
+  \\ Cases_on `free [x1]` \\ fs [code_locs_append,HD_FST_free]
+  \\ Cases_on `free [x2]` \\ fs [code_locs_append,HD_FST_free]
+  \\ Cases_on `free xs` \\ fs [code_locs_append,HD_FST_free]
+  \\ fs [MAP_MAP_o,o_DEF]
+  \\ ONCE_REWRITE_TAC [code_locs_map] \\ AP_TERM_TAC
+  \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD,HD_FST_free]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [])
+
+val annotate_code_locs = store_thm("annotate_code_locs",
+  ``!n ls. code_locs (annotate n ls) = code_locs ls``,
+  rw[annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()
