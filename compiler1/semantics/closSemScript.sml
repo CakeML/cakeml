@@ -198,11 +198,10 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
            (case call_FFI n ws s.io of
-            | SOME (ws',t') =>
+            | (ws',t') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
-                              ; io   := t'|>)
-            | _ => Rerr(Rabort Rffi_error))
+                              ; io   := t'|>))
          | _ => Error)
     | _ => Error`;
 
@@ -253,7 +252,7 @@ val lookup_vars_def = Define `
 
 val check_loc_opt_def = Define `
   (check_loc NONE loc num_params num_args so_far ⇔ num_args ≤ max_app) /\
-  (check_loc (SOME p) loc num_params num_args so_far ⇔ 
+  (check_loc (SOME p) loc num_params num_args so_far ⇔
     (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
 
 val _ = Datatype `

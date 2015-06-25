@@ -44,9 +44,9 @@ let basis_program =
    Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) [Lit (IntLit 0); Var(Short"x")])));
    Tdec (mk_unop "!" Opderef);
    Tdec (mk_unop "ref" Opref);
-   Tmod "Word8" Nothing 
+   Tmod "Word8" Nothing
      [Dtabbrev [] "word" (Tapp [] TC_word8)];
-   Tmod "Word8Array" Nothing 
+   Tmod "Word8Array" Nothing
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);
       mk_binop "array" Aw8alloc;
@@ -58,7 +58,7 @@ let basis_program =
       mk_unop "fromList" VfromList;
       mk_unop "length" Vlength;
       mk_binop "sub" Vsub];
-   Tmod "Array" Nothing 
+   Tmod "Array" Nothing
      [Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
@@ -88,7 +88,7 @@ let add_to_sem_env se prog =
   let res = { res | evaluate_whole_prog false (se.sem_envM,se.sem_envC,se.sem_envE) se.sem_store prog res } in
     if res = {} then
       Nothing
-    else 
+    else
       match Set_extra.choose res with
         | (s,envC,Rval (envM,envE)) ->
            Just <| sem_envM = envM ++ se.sem_envM;
@@ -100,7 +100,7 @@ let add_to_sem_env se prog =
 
 val prim_sem_env : maybe sem_environment
 let prim_sem_env =
-  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[],lnil),{},{}) |> prim_types_program
+  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[],Just lnil),{},{}) |> prim_types_program
 
 val basis_sem_env : maybe sem_environment
 let basis_sem_env =

@@ -7,7 +7,6 @@ val _ = new_theory "bvi_to_bvp";
 val op_space_reset_def = Define `
   (op_space_reset Add = T) /\
   (op_space_reset Sub = T) /\
-  (op_space_reset (FFI n) = T) /\
   (op_space_reset _ = F)`;
 
 val op_space_req_def = Define `

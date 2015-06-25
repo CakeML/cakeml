@@ -148,9 +148,7 @@ val evaluate_compile = prove(
         \\ SRW_TAC [] []
         \\ reverse(Cases_on `do_app o' x'' (s with locals := x')`)
         \\ fs [] \\ SRW_TAC [] [] >- (
-             imp_res_tac do_app_err >> fs[] >>
-             Cases_on`a`>>fs[]>>rw[]>>
-             rw[call_env_def,cut_env_def,locals_ok_def,lookup_fromList] )
+             imp_res_tac do_app_err >> fs[] >> fs[]>>rw[])
         \\ Cases_on `a` \\ fs [] \\ SRW_TAC [] []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
         \\ REPEAT STRIP_TAC \\ fs []
@@ -171,9 +169,7 @@ val evaluate_compile = prove(
       \\ fs [evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
       \\ REVERSE (Cases_on `do_app o' x s`) \\ fs [] THEN1
-       (Cases_on `e = Rabort Rtype_error` \\ fs [] \\ SRW_TAC [] []
-        \\ IMP_RES_TAC do_app_err \\ Cases_on `a` \\ fs []
-        \\ fs [bvi_to_bvpTheory.op_space_reset_def])
+       (IMP_RES_TAC do_app_err \\ fs [] \\ rw [] \\ fs [])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ fs [] \\ SRW_TAC [] []
       \\ NTAC 2 (Q.PAT_ASSUM `!xx.bbb` (K ALL_TAC))

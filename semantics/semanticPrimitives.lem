@@ -51,7 +51,7 @@ type v =
   | Loc of nat
   | Vectorv of list v
 
-(* These are alists rather than finite maps because the type of values (v above) 
+(* These are alists rather than finite maps because the type of values (v above)
  * recurs through them, and HOL4 does not easily support that kind of data type
  * (although Isabelle/HOL does) *)
 type envE = alist varN v
@@ -67,7 +67,6 @@ let all_env_to_env (menv,cenv,env) = env
 type abort =
   | Rtype_error
   | Rtimeout_error
-  | Rffi_error
 
 type error_result 'a =
   | Rraise of 'a (* Should only be a value of type exn *)
@@ -579,12 +578,11 @@ let do_app (s,t) op vs =
         match store_lookup lnum s with
         | Just (W8array ws) ->
             match call_FFI n ws t with
-            | Just (ws', t') ->
+            | (ws', t') ->
                match store_assign lnum (W8array ws') s with
                | Just s' -> Just ((s', t'), Rval (Conv Nothing []))
                | Nothing -> Nothing
                end
-            | Nothing -> Just ((s, t), Rerr (Rabort (Rffi_error)))
             end
         | _ -> Nothing
         end

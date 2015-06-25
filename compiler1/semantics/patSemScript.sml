@@ -162,7 +162,7 @@ val _ = Define `
         if n <( 0 : int) then
           SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
         else
-          let (st,lnum) =            
+          let (st,lnum) =
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in
             SOME (((cnt,st,t),genv), Rval (Loc lnum))
@@ -204,7 +204,7 @@ val _ = Define `
     | (Op (Op Ord), [Litv (Char c)]) =>
           SOME (((cnt,s,t),genv), Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Op (Op Chr), [Litv (IntLit i)]) =>
-        SOME (((cnt,s,t),genv),          
+        SOME (((cnt,s,t),genv),
 (if (i <( 0 : int)) \/ (i >( 255 : int)) then
             Rerr (Rraise (prim_exn chr_tag))
           else
@@ -234,7 +234,7 @@ val _ = Define `
           let n = (Num (ABS ( i))) in
             if n >= LENGTH vs then
               SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-            else 
+            else
               SOME (((cnt,s,t),genv), Rval (EL n vs))
     | (Op (Op Vlength), [Vectorv vs]) =>
         SOME (((cnt,s,t),genv), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
@@ -242,9 +242,9 @@ val _ = Define `
         if n <( 0 : int) then
           SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
         else
-          let (s',lnum) =            
+          let (s',lnum) =
 (store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
-          in 
+          in
             SOME (((cnt,s',t),genv), Rval (Loc lnum))
     | (Op (Op Asub), [Loc lnum; Litv (IntLit i)]) =>
         (case store_lookup lnum s of
@@ -255,7 +255,7 @@ val _ = Define `
                 let n = (Num (ABS ( i))) in
                   if n >= LENGTH vs then
                     SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-                  else 
+                  else
                     SOME (((cnt,s,t),genv), Rval (EL n vs))
           | _ => NONE
         )
@@ -270,7 +270,7 @@ val _ = Define `
           SOME (Varray vs) =>
             if i <( 0 : int) then
               SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
-            else 
+            else
               let n = (Num (ABS ( i))) in
                 if n >= LENGTH vs then
                   SOME (((cnt,s,t),genv), Rerr (Rraise (prim_exn subscript_tag)))
@@ -285,15 +285,11 @@ val _ = Define `
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             (case call_FFI n ws t of
-              SOME (ws', t') =>
+              (ws', t') =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME (((cnt,s', t'),genv), Rval (Conv tuple_tag []))
-               | NONE => NONE
-               )
-            | NONE => SOME (((cnt,s,t),genv), Rerr (Rabort Rffi_error))
-            )
-        | _ => NONE
-        )
+               | NONE => NONE))
+        | _ => NONE)
     | (Tag_eq n l, [Conv tag vs]) =>
         SOME (((cnt,s,t),genv), Rval (Boolv (tag = n ∧ LENGTH vs = l)))
     | (El n, [Conv _ vs]) =>

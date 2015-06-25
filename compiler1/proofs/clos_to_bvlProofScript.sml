@@ -2832,8 +2832,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_assum_rename_tac`FLOOKUP f2 k = SOME r2`
       \\ Cases_on`FLOOKUP p1.refs k` \\ fs[]
       \\ Cases_on`x` \\ fs[]
-      \\ Cases_on`call_FFI n l p1.io` \\ fs[]
-      \\ Cases_on`x` \\ fs[] \\ rw[]
+      \\ Cases_on`call_FFI n l p1.io` \\ fs[] \\ rw[]
       \\ `?y m.
             FLOOKUP f2 k = SOME m /\ FLOOKUP t2.refs m = SOME y /\
             ref_rel (v_rel f2 t2.refs t2.code) (ByteArray l) y` by
@@ -2869,7 +2868,8 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ `m IN FRANGE f2` by (fs [FLOOKUP_DEF,FRANGE_DEF] \\ METIS_TAC [])
       \\ fs [SUBMAP_DEF,FDIFF_def,DRESTRICT_DEF,FAPPLY_FUPDATE_THM, add_args_def])
     \\ imp_res_tac closSemTheory.do_app_const
-    \\ first_x_assum(mp_tac o MATCH_MP (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
+    \\ first_x_assum(mp_tac o MATCH_MP
+         (GEN_ALL(REWRITE_RULE[GSYM AND_IMP_INTRO]do_app)))
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th))
     \\ imp_res_tac EVERY2_REVERSE
     \\ first_x_assum(fn th => disch_then (mp_tac o C MATCH_MP th)) \\ rw[] \\ rw[]
@@ -3020,9 +3020,9 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ RES_TAC \\ fs [] \\ PairCases_on `d` \\ fs [])
     \\ fs [hd_append, tl_append]
     \\ simp [SIMP_RULE(srw_ss())[]evaluate_recc_Lets]
-    \\ Q.PAT_ABBREV_TAC `t1_refs  = t1 with <| refs := t1.refs |+ xxx; clock := yyy |>`
     \\ `[HD c8] = c8` by (IMP_RES_TAC compile_SING \\ fs []) \\ fs []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1_refs`,
+    \\ qpat_abbrev_tac`t1refs = t1.refs |+ (rr,vv)`
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1 with <| refs := t1refs; clock := ck+s.clock|>`,
        `MAP2 (\n args. Block closure_tag [CodePtr (loc + num_stubs + n); Number &(args-1); RefPtr rr])
           (GENLIST I (LENGTH (ll:(num#closLang$exp) list) + 1)) (MAP FST ll ++ [FST (x:(num#closLang$exp))]) ++ env''`,`f1`])
     \\ `~(rr IN FDOM t1.refs)` by ALL_TAC THEN1
@@ -3034,8 +3034,8 @@ val compile_correct = Q.store_thm("compile_correct",
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     \\ MATCH_MP_TAC IMP_IMP \\ reverse STRIP_TAC
     >- (REPEAT STRIP_TAC
-        \\ qexists_tac `ck'`
-        \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1_refs`]
+        \\ qexists_tac`ck'`
+        \\ full_simp_tac (srw_ss()++ARITH_ss) [Abbr `t1refs`]
         \\ rw []
         \\ Q.EXISTS_TAC `f2` \\ IMP_RES_TAC SUBMAP_TRANS
         \\ ASM_SIMP_TAC std_ss []
@@ -3047,9 +3047,8 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
              SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     THEN1
-     (`t1_refs.code = t1.code` by fs [Abbr`t1_refs`] \\ fs []
-      \\ REVERSE (REPEAT STRIP_TAC) THEN1
-       (fs [state_rel_def,Abbr`t1_refs`] \\ STRIP_TAC THEN1
+     (REVERSE (REPEAT STRIP_TAC) THEN1
+       (fs [state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
          (Q.PAT_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ METIS_TAC [OPTREL_v_rel_NEW_REF])
@@ -3060,6 +3059,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ Q.PAT_ASSUM `LIST_REL ppp xs ys'` MP_TAC
         \\ MATCH_MP_TAC listTheory.LIST_REL_mono
         \\ IMP_RES_TAC v_rel_NEW_REF \\ fs [])
+      \\ TRY (simp[] \\ NO_TAC)
       \\ MATCH_MP_TAC env_rel_APPEND
       \\ REVERSE STRIP_TAC THEN1
        (UNABBREV_ALL_TAC \\ fs []
@@ -3076,7 +3076,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ fs [LENGTH_ZIP, EL_MAP, LENGTH_MAP, EL_ZIP, MAP_ZIP]
       \\ `?num e. EL n exps = (num, e)` by metis_tac [pair_CASES]
       \\ `1 < LENGTH exps` by (fs [] \\ DECIDE_TAC)
-      \\ fs [Abbr `t1_refs`,FLOOKUP_UPDATE]
+      \\ fs [Abbr `t1refs`,FLOOKUP_UPDATE]
       \\ `MAP FST ll ++ [FST x] = MAP FST exps` by rw [Abbr `exps`]
       \\ simp [EL_MAP]
       \\ rw []

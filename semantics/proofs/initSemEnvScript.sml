@@ -10,7 +10,7 @@ val interp_add_to_sem_env_def = Define `
 interp_add_to_sem_env se prog =
   case run_eval_whole_prog (se.sem_envM,se.sem_envC,se.sem_envE) (set_counter 100000 se.sem_store) prog of
      | (store,envC,Rval (envM,envE)) =>
-         SOME 
+         SOME
          <| sem_envM := envM ++ se.sem_envM;
             sem_envC := merge_alist_mod_env envC se.sem_envC;
             sem_envE := envE ++ se.sem_envE;
@@ -24,10 +24,10 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
   add_to_sem_env se prog = SOME se'`,
  simp [LET_THM, interp_add_to_sem_env_def, add_to_sem_env_def] >>
  rpt gen_tac >>
- `?count' s' tids' mdecls' cenv res. 
+ `?count' s' tids' mdecls' cenv res.
     run_eval_whole_prog (se.sem_envM,se.sem_envC,se.sem_envE) (set_counter 100000 se.sem_store) prog
     =
-    (((count',s'),tids',mdecls'),cenv,res)` 
+    (((count',s'),tids',mdecls'),cenv,res)`
              by metis_tac [pair_CASES] >>
  full_case_tac >>
  fs [] >>
@@ -63,14 +63,14 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
   ``interp_add_to_sem_env
      <|sem_envM := []; sem_envC := ([],[]); sem_envE := [];
-       sem_store := ((0,([],LNIL)),∅,∅)|> prim_types_program``
+       sem_store := ((0,([],SOME LNIL)),∅,∅)|> prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
-  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset) 
+  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset)
   |> MATCH_MP interp_add_to_sem_env_thm
   |> SIMP_RULE (srw_ss()) [GSYM prim_sem_env_def]);
 
 
-(* Too big to evaluate in a reasonable timely was due to exponential explosion in closure envs 
+(* Too big to evaluate in a reasonable timely was due to exponential explosion in closure envs
 val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
   ``basis_sem_env``
   |> SIMP_CONV(srw_ss())[basis_sem_env_def,add_to_sem_env_def,basis_program_def, mk_binop_def, mk_unop_def, prim_sem_env_eq]

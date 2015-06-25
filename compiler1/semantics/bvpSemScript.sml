@@ -164,8 +164,6 @@ val evaluate_def = tDefine "evaluate" `
        (case get_vars args s of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
-                      | Rerr(Rabort Rffi_error) =>
-                        (SOME (Rerr(Rabort Rffi_error)),call_env [] s with stack := [])
                       | Rerr e => (SOME (Rerr e),s)
                       | Rval (v,s) =>
                         (NONE, set_var dest v s)))) /\
