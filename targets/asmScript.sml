@@ -411,8 +411,8 @@ val backend_correct_def = Define `
       !state. R s1 state ==> ?n. R s2 (FUNPOW next (n + 1) state)`
 
 val interference_ok_def = Define `
-  interference_ok env (proj:'b->'c) <=>
-    !(i:num) ms. proj (env i ms) = proj ms`;
+  interference_ok env proj <=>
+    !(i:num) ms. proj dm (env i ms) = proj ms`;
 
 val all_pcs_def = Define `
   (all_pcs a [] = {}) /\

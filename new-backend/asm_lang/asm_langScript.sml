@@ -606,12 +606,12 @@ val shift_interfer_intro = prove(
 val mEval_EQ_mEval_lemma = prove(
   ``!n ms1 c.
       c.f.get_pc ms1 IN c.prog_addresses /\ c.f.state_ok ms1 /\
-      interference_ok c.next_interfer c.f.proj /\
+      interference_ok c.next_interfer (c.f.proj dm) /\
       (!s ms. c.f.state_rel s ms ==> c.f.state_ok ms) /\
-      (!ms1 ms2. (c.f.proj ms1 = c.f.proj ms2) ==>
+      (!ms1 ms2. (c.f.proj dm ms1 = c.f.proj dm ms2) ==>
                  (c.f.state_ok ms1 = c.f.state_ok ms2)) /\
       (!env.
-         interference_ok env c.f.proj ==>
+         interference_ok env (c.f.proj dm) ==>
          asserts n (\k s. env k (c.f.next s)) ms1
            (\ms'. c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses)
            (\ms'. c.f.state_rel s2 ms')) ==>
@@ -624,7 +624,7 @@ val mEval_EQ_mEval_lemma = prove(
     \\ fs [asserts_def,LET_DEF]
     \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
-    \\ fs [interference_ok_def] \\ RES_TAC
+    \\ fs [interference_ok_def] \\ RES_TAC \\ fs []
     \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [shift_interfer_def]
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ fs []
@@ -663,7 +663,7 @@ val SUBSET_IMP = prove(
   fs [pred_setTheory.SUBSET_DEF]);
 
 val bytes_in_memory_IMP_SUBSET = prove(
-  ``!xs a. bytes_in_memory a xs c m d ==> all_pcs a xs SUBSET d``,
+  ``!xs a. bytes_in_memory a xs m d ==> all_pcs a xs SUBSET d``,
   Induct \\ fs [all_pcs_def,bytes_in_memory_def]);
 
 val asserts_WEAKEN = prove(
@@ -678,7 +678,7 @@ val asserts_WEAKEN = prove(
 val asm_step_IMP_mEval_step = prove(
   ``backend_correct_alt c.f c.asm_config /\
     (c.prog_addresses = s1.mem_domain) /\
-    interference_ok c.next_interfer c.f.proj /\
+    interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
     asm_step_alt c.f.encode c.asm_config s1 i s2 /\
     c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
     ?l ms2. !k. (mEval c io (k + l) ms1 =
@@ -687,14 +687,16 @@ val asm_step_IMP_mEval_step = prove(
   fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
-  \\ MATCH_MP_TAC mEval_EQ_mEval_lemma \\ fs []
+  \\ MATCH_MP_TAC (GEN_ALL mEval_EQ_mEval_lemma) \\ fs []
+  \\ Q.EXISTS_TAC `s1.mem_domain` \\ fs []
   \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty
          \\ Cases_on `c.f.encode i` \\ fs [bytes_in_memory_def])
   \\ fs [LET_DEF] \\ Q.PAT_ASSUM `!k. bb` (K ALL_TAC)
+  \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`\k. env (n - k)`]) \\ fs []
   \\ MATCH_MP_TAC IMP_IMP
-  \\ STRIP_TAC \\ fs [interference_ok_def]
+  \\ STRIP_TAC THEN1 fs [interference_ok_def]
   \\ MATCH_MP_TAC asserts_WEAKEN \\ fs []
   \\ SRW_TAC [] [] \\ fs []
   THEN1 (POP_ASSUM MP_TAC \\ MATCH_MP_TAC SUBSET_IMP
@@ -702,6 +704,7 @@ val asm_step_IMP_mEval_step = prove(
   \\ fs [FUN_EQ_THM] \\ REPEAT STRIP_TAC
   \\ `n - (n - k) = k` by decide_tac \\ fs [])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
+
 
 (* compiler correctness proof *)
 
@@ -830,7 +833,7 @@ val asm_fetch_ok = prove(
     all_enc_ok asm_conf enc labs 0 code2 /\
     code_similar s1.code code2 ==>
     bytes_in_memory (p + n2w (pos_val s1.pc code2))
-      (mc_conf.f.encode (Inst i)) t1.icache t1.mem t1.mem_domain /\
+      (mc_conf.f.encode (Inst i)) t1.mem t1.mem_domain /\
     asm_ok (Inst i) mc_conf.asm_config``,
   cheat); (* provable? -- but there should be a more general lemma *)
 
@@ -868,7 +871,6 @@ val aEval_IMP_mEval = prove(
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
         state_rel (asm_conf,mc_conf,enc,code2,labs,p) s2 t2 ms2``,
-
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
@@ -889,6 +891,7 @@ val aEval_IMP_mEval = prove(
         interference_ok mc_conf.next_interfer mc_conf.f.proj` by
       fs [state_rel_def]
     \\ IMP_RES_TAC asm_step_IMP_mEval_step
+
     \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1.io_events`)
     \\ Q.MATCH_ASSUM_RENAME_TAC `ll <> 0:num`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer ll mc_conf`,
