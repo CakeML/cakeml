@@ -32,6 +32,12 @@ val evaluate_IMP_LENGTH = store_thm("evaluate_IMP_LENGTH",
   ``(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_LENGTH) \\ fs []);
 
+val evaluate_SING_IMP = store_thm("evaluate_SING_IMP",
+  ``(evaluate ([x],env,s1) = (Rval vs,s2)) ==> ?w. vs = [w]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
+  \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
+  \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+
 val evaluate_CONS = store_thm("evaluate_CONS",
   ``evaluate (x::xs,env,s) =
       case evaluate ([x],env,s) of
