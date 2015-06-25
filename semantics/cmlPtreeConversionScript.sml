@@ -23,6 +23,7 @@ val _ = hide "nt"
 
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+val _ = temp_overload_on ("return", ``SOME``)
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
@@ -34,6 +35,14 @@ val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
+
+val ifM_def = Define`
+  ifM bM tM eM =
+    do
+       b <- bM;
+       if b then tM else eM
+    od
+`
 
 val ptree_UQTyop_def = Define`
   ptree_UQTyop (Lf _) = NONE ∧
@@ -553,6 +562,57 @@ val mkAst_App_def = Define`
           | _ => Con s [a2])
      | _ => App Opapp [a1; a2]
 `
+
+val isSymbolicConstructor_def = Define`
+  isSymbolicConstructor (structopt : modN option) s =
+    return (s = "::")
+`;
+
+val isConstructor_def = Define`
+  isConstructor structopt s =
+    do
+      ifM (isSymbolicConstructor structopt s)
+        (return T)
+        (return (case oHD s of
+                     NONE => F
+                   | SOME c => isAlpha c ∧ isUpper c))
+    od
+`;
+
+val ptree_OpID_def = Define`
+  ptree_OpID (Lf _) = NONE ∧
+  ptree_OpID (Nd nt subs) =
+    if nt ≠ mkNT nOpID then NONE
+    else
+      case subs of
+          [Lf (TK tk)] =>
+          do
+              s <- destAlphaT tk ;
+              ifM (isConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              s <- destSymbolT tk ;
+              ifM (isSymbolicConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              (str,s) <- destLongidT tk ;
+              ifM (isConstructor (SOME str) s)
+                  (return (Con (SOME (Long str s)) []))
+                  (return (Var (Long str s)))
+          od ++
+          (if tk = StarT then
+             ifM (isSymbolicConstructor NONE "*")
+                 (return (Con (SOME (Short "*")) []))
+                 (return (Var (Short "*")))
+           else NONE)
+        | _ => NONE
+`;
+
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -597,7 +657,10 @@ val ptree_Expr_def = Define`
                          SOME (Con NONE [])
                        else if lp = Lf (TK LbrackT) ∧ rp = Lf (TK RbrackT) then
                          SOME (Con (SOME (Short "nil")) [])
-                       else NONE
+                       else if lp = Lf (TK OpT) then
+                         ptree_OpID rp
+                       else
+                         NONE
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
               assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧
