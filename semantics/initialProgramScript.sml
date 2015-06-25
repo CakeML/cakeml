@@ -61,9 +61,9 @@ val _ = Define `
    Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) [Lit (IntLit(( 0 : int))); Var(Short"x")])));
    Tdec (mk_unop "!" Opderef);
    Tdec (mk_unop "ref" Opref);
-   Tmod "Word8" NONE 
+   Tmod "Word8" NONE
      [Dtabbrev [] "word" (Tapp [] TC_word8)];
-   Tmod "Word8Array" NONE 
+   Tmod "Word8Array" NONE
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);
       mk_binop "array" Aw8alloc;
@@ -75,7 +75,7 @@ val _ = Define `
       mk_unop "fromList" VfromList;
       mk_unop "length" Vlength;
       mk_binop "sub" Vsub];
-   Tmod "Array" NONE 
+   Tmod "Array" NONE
      [Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
@@ -110,7 +110,7 @@ val _ = Define `
                   se.sem_store prog res }) in
     if res = {} then
       NONE
-    else 
+    else
       (case CHOICE res of
           (s,envC,Rval (envM,envE)) =>
            SOME <| sem_envM := (envM ++ se.sem_envM);
@@ -124,7 +124,7 @@ val _ = Define `
 (*val prim_sem_env : maybe sem_environment*)
 val _ = Define `
  (prim_sem_env =  
-(add_to_sem_env <| sem_envM := []; sem_envC := ([],[]); sem_envE := []; sem_store := (( 0,[],LNIL),{},{}) |> prim_types_program))`;
+(add_to_sem_env <| sem_envM := []; sem_envC := ([],[]); sem_envE := []; sem_store := (( 0,[],SOME LNIL),{},{}) |> prim_types_program))`;
 
 
 (*val basis_sem_env : maybe sem_environment*)

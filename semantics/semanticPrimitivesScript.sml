@@ -71,7 +71,7 @@ val _ = Hol_datatype `
   | Vectorv of v list`;
 
 
-(* These are alists rather than finite maps because the type of values (v above) 
+(* These are alists rather than finite maps because the type of values (v above)
  * recurs through them, and HOL4 does not easily support that kind of data type
  * (although Isabelle/HOL does) *)
 val _ = type_abbrev( "envE" , ``: (varN, v) alist``);
@@ -674,12 +674,11 @@ val _ = Define `
         (case store_lookup lnum s of
           SOME (W8array ws) =>
             (case call_FFI n ws t of
-              SOME (ws', t') =>
+              (ws', t') =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
                | NONE => NONE
                )
-            | NONE => SOME ((s, t), Rerr (Rabort (Rffi_error)))
             )
         | _ => NONE
         )
