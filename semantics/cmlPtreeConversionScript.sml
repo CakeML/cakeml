@@ -44,6 +44,12 @@ val ifM_def = Define`
     od
 `
 
+val mk_binop_def = Define`
+  mk_binop a_op a1 a2 =
+    if a_op = Short "::" then Con (SOME (Short "::")) [a1; a2]
+    else App Opapp [App Opapp [Var a_op; a1]; a2]
+`
+
 val ptree_UQTyop_def = Define`
   ptree_UQTyop (Lf _) = NONE ∧
   ptree_UQTyop (Nd nt args) =
@@ -699,7 +705,7 @@ val ptree_Expr_def = Define`
             a1 <- ptree_Expr nEmult t1;
             a_op <- ptree_Op opt;
             a2 <- ptree_Expr nEapp t2;
-            SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
+            return(mk_binop a_op a1 a2)
           od
         | [t] => ptree_Expr nEapp t
         | _ => NONE
@@ -709,7 +715,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nEmult t2;
-              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nEmult t
           | _ => NONE
@@ -719,9 +725,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nElistop t2;
-              SOME (if a_op = Short "::" then
-                      Con (SOME (Short "::")) [a1;a2]
-                    else App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nEadd t
           | _ => NONE
@@ -731,7 +735,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nErel t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nElistop t2;
-              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nElistop t
           | _ => NONE
@@ -741,7 +745,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEcomp t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nErel t2;
-              SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nErel t
           | _ => NONE
@@ -751,7 +755,7 @@ val ptree_Expr_def = Define`
             assert(opt = Lf(TOK(AlphaT "before")));
             a1 <- ptree_Expr nEbefore t1;
             a2 <- ptree_Expr nEcomp t2;
-            SOME(App Opapp [App Opapp [Var (Short "before"); a1]; a2])
+            return (mk_binop (Short "before") a1 a2)
           od
         | [t] => ptree_Expr nEcomp t
         | _ => NONE
