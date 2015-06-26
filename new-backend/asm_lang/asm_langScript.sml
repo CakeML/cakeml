@@ -207,12 +207,22 @@ val inc_pc_def = Define `
   inc_pc s = s with pc := s.pc + 1`
 
 val asm_code_length_def = Define `
-  asm_code_length code = LENGTH (FLAT (MAP flat_Section code))`;
+  (asm_code_length [] = 0) /\
+  (asm_code_length ((Section k [])::xs) = asm_code_length xs) /\
+  (asm_code_length ((Section k (y::ys))::xs) =
+     asm_code_length ((Section k ys)::xs) + if is_Label y then 0 else 1:num)`
 
 val asm_fetch_IMP = prove(
   ``(asm_fetch s = SOME x) ==>
     s.pc < asm_code_length s.code``,
-  fs [asm_fetch_def,LET_DEF,asm_code_length_def]);
+  fs [asm_fetch_def,asm_code_length_def]
+  \\ Q.SPEC_TAC (`s.pc`,`pc`)
+  \\ Q.SPEC_TAC (`s.code`,`xs`)
+  \\ HO_MATCH_MP_TAC (theorem "asm_code_length_ind")
+  \\ rpt strip_tac \\ fs [asm_fetch_aux_def,asm_code_length_def]
+  \\ Cases_on `is_Label y` \\ fs []
+  \\ Cases_on `pc = 0` \\ fs []
+  \\ res_tac \\ decide_tac);
 
 val lab_to_loc_def = Define `
   lab_to_loc (Lab n1 n2) = Loc n1 n2`
@@ -883,17 +893,43 @@ val IMP_asm_step_alt = prove(
   \\ IMP_RES_TAC asm_inst_failed_IMP_inst_failed \\ fs [state_rel_def]
   \\ MATCH_MP_TAC asm_fetch_ok \\ fs []);
 
+
+
+
+val get_bytes_def = Define `
+  (get_bytes (Asm _ bytes _) = SOME bytes) /\
+  (get_bytes (LabAsm _ _ bytes _) = SOME bytes) /\
+  (get_bytes _ = NONE)`
+
+  ``!pc code2 code1 i.
+       code_similar code1 code2 /\
+       (asm_fetch_aux pc code1 = SOME i) ==>
+       ?bs code2' code1'.
+         (prog_to_bytes mc_conf.f.encode code2 =
+          bs ++ prog_to_bytes mc_conf.f.encode code2') /\
+         (LENGTH bs = pos_val pc code2) /\
+         code_similar code1 code2 /\
+         (asm_fetch_aux 0 code1' = SOME i)``,
+
+  theorem "asm_code_length_ind"
+
+  all_enc_ok_def
+
 val IMP_bytes_in_memory = prove(
   ``code_similar code1 code2 /\
-    all_enc_ok asm_conf enc labs 0 code2 /\
-    (asm_fetch_aux pc code1 = SOME (Asm (JumpReg r1) l n)) /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    (asm_fetch_aux pc code1 = SOME i) /\
     bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain ==>
-    bytes_in_memory (p + n2w (pos_val pc code2))
-      (mc_conf.f.encode (JumpReg r1)) t1.mem t1.mem_domain /\
-    line_ok mc_conf.asm_config mc_conf.f.encode labs (pos_val pc code2)
-      (Asm (JumpReg r1) l n)``,
+      (t1:'a asm_state).mem_domain ==>
+    ?j.
+      (get_bytes j = SOME bytes) /\ line_similar i j /\
+      bytes_in_memory (p + n2w (pos_val pc code2)) bytes t1.mem t1.mem_domain /\
+      line_ok (mc_conf:('a,'state,'b) machine_config).asm_config
+        mc_conf.f.encode labs (pos_val pc code2) j``,
   cheat);
+
+all_enc_ok_def
+
 
 *)
 
@@ -902,8 +938,20 @@ val bytes_in_mem_IMP = prove(
   Induct \\ fs [bytes_in_mem_def,bytes_in_memory_def]);
 
 val IMP_bytes_in_memory = prove(
+  ``code_similar code1 code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    (asm_fetch_aux pc code1 = SOME (Asm (JumpReg r1) l n)) /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      (t1:'a asm_state).mem_domain ==>
+    bytes_in_memory (p + n2w (pos_val pc code2))
+      (mc_conf.f.encode (JumpReg r1)) t1.mem t1.mem_domain /\
+    line_ok (mc_conf:('a,'state,'b) machine_config).asm_config
+      mc_conf.f.encode labs (pos_val pc code2) (Asm (JumpReg r1) l n)``,
+  cheat);
+
+val IMP_bytes_in_memory_JumpReg = prove(
   ``code_similar s1.code code2 /\
-    all_enc_ok asm_conf enc labs 0 code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
     bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
       t1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (JumpReg r1) l n)) ==>
@@ -911,7 +959,10 @@ val IMP_bytes_in_memory = prove(
       (mc_conf.f.encode (JumpReg r1)) t1.mem t1.mem_domain /\
     asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
   fs [asm_fetch_def,LET_DEF]
-  \\ cheat);
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac IMP_bytes_in_memory \\ fs []
+  \\ rpt strip_tac \\ fs [line_ok_def]);
 
 val line_length_MOD_0 = prove(
   ``backend_correct_alt mc_conf.f mc_conf.asm_config /\
@@ -962,7 +1013,6 @@ val aEval_IMP_mEval = prove(
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
         state_rel (mc_conf,code2,labs,p) s2 t2 ms2``,
-
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
@@ -982,8 +1032,8 @@ val aEval_IMP_mEval = prove(
      (fs [state_rel_def,asm_def,LET_DEF]
       \\ fs [asm_step_alt_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ fs [IMP_bytes_in_memory,asmTheory.upd_pc_def,asmTheory.assert_def]
-      \\ imp_res_tac IMP_bytes_in_memory \\ fs []
+      \\ fs [IMP_bytes_in_memory_JumpReg,asmTheory.upd_pc_def,asmTheory.assert_def]
+      \\ imp_res_tac IMP_bytes_in_memory_JumpReg \\ fs []
       \\ fs [asmTheory.read_reg_def,read_reg_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
