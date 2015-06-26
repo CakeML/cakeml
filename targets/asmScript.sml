@@ -412,7 +412,7 @@ val backend_correct_def = Define `
 
 val interference_ok_def = Define `
   interference_ok env proj <=>
-    !(i:num) ms. proj dm (env i ms) = proj ms`;
+    !(i:num) ms. proj (env i ms) = proj ms`;
 
 val all_pcs_def = Define `
   (all_pcs a [] = {}) /\
