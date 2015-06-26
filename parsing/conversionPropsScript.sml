@@ -227,6 +227,19 @@ val Eseq_encode_OK = store_thm(
   Induct >> simp[] >>
   Cases_on `l` >> simp[Eseq_encode_def]);
 
+val OpID_OK = store_thm(
+  "OpID_OK",
+  ``ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
+    valid_ptree cmlG pt ⇒
+    ∃astv. ptree_OpID pt = SOME astv``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  dsimp[] >> rpt strip_tac >>
+  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND] >>
+  simp[ptree_OpID_def, isConstructor_def, isSymbolicConstructor_def, ifM_def] >>
+  rw[] >> Cases_on `s` >> fs[oHD_def] >> rw[]);
+
 val _ = print "The E_OK proof takes a while\n"
 val E_OK0 = store_thm(
   "E_OK0",
@@ -286,6 +299,7 @@ val E_OK0 = store_thm(
         by (Cases_on `pt'` >> fs[] >> simp[ptree_FQV_def]) >>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
+  >- (erule strip_assume_tac (n OpID_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nLetDec` >>
       `∀s. pt' <> Lf s` by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >> rveq >> fs[])>>
       simp[])

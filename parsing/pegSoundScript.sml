@@ -416,10 +416,8 @@ val peg_sound = store_thm(
                      DECIDE``x:num ≤ y ⇔ x < y ∨ x = y``] >> fs[] >>
       `LENGTH di < SUC (LENGTH vi)` by decide_tac >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
-  >- (print_tac "nStructName" >>
-      simp[peg_StructName_def] >>
-      disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
-      Cases_on `t` >> fs[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nStructName" >> simp[peg_StructName_def] >>
+      dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nOptionalSignatureAscription" >> strip_tac >> rveq >>
       simp[cmlG_applied, cmlG_FDOM] >> dsimp[] >>
       loseC ``NT_rank`` >> dsimp[MAP_EQ_SING] >> csimp[] >> fs[] >>
@@ -614,8 +612,7 @@ val peg_sound = store_thm(
       asm_match `destLongidT t = SOME(m,v)` >> Cases_on `t` >> fs[])
   >- (print_tac "nUQConstructorName" >>
       simp[peg_UQConstructorName_def] >>
-      disch_then (qxchl [`t`] strip_assume_tac) >> rveq >> simp[] >>
-      Cases_on `t` >> fs[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nDconstructor" >>
       `NT_rank (mkNT nUQConstructorName) < NT_rank (mkNT nDconstructor)`
         by simp[NT_rank_def] >>
@@ -1050,8 +1047,13 @@ val peg_sound = store_thm(
           lrresolve X (K true) mp_tac >> simp[] >>
           strip_tac >> rveq >> dsimp[])
       >- ((* FQV *) first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
-      >- ((* nCons *)first_x_assum (erule strip_assume_tac) >> rveq >> simp[])>>
+      >- ((* nCons *)first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
+      >- ((* nOpID *)
+          rpt (loseC ``NT_rank``) >> lrresolve X (free_in ``nOpID``) mp_tac >>
+          simp[] >> strip_tac >> rveq >> dsimp[]) >>
       IMP_RES_THEN mp_tac peg_EbaseParen_sound >> simp[])
+  >- (print_tac "nOpID" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM] >>
+      fs[] >> rveq >> fs[])
   >- (print_tac "nCompOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nListOps">> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nRelOps" >> strip_tac >> rveq >> simp[cmlG_applied, cmlG_FDOM])
@@ -1122,9 +1124,6 @@ val peg_sound = store_thm(
       asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>
   simp[peg_V_def, peg_eval_choice, sumID_def] >>
-  strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
-  >- (asm_match `destAlphaT t = SOME astring` >> Cases_on `t` >> fs[]) >>
-  asm_match `destSymbolT mytok = SOME symstring` >>
-  Cases_on `mytok` >>fs[])
+  strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]);
 
 val _ = export_theory()

@@ -204,6 +204,20 @@ val cmlPEG_def = zDefine`
               (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
                                              tokeq (AlphaT "o")])
                                    (bindNT nCompOps));
+              (mkNT nOpID,
+               choicel [tok (λt. do
+                                   (str,s) <- destLongidT t;
+                                   assert(s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        tok (λt. do
+                                   s <- destSymbolT t;
+                                   assert (s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        tok (λt. do
+                                   s <- destAlphaT t;
+                                   assert (s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        pegf (tokeq StarT) (bindNT nOpID)]);
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         tok isString (bindNT nEbase o mktokLf);
@@ -214,7 +228,8 @@ val cmlPEG_def = zDefine`
                         seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
                               tokeq EndT] (bindNT nEbase);
                         pegf (pnt nFQV) (bindNT nEbase);
-                        pegf (pnt nConstructorName) (bindNT nEbase)]);
+                        pegf (pnt nConstructorName) (bindNT nEbase);
+                        seql [tokeq OpT; pnt nOpID] (bindNT nEbase)]);
               (mkNT nEseq,
                seql [pnt nE; try (seql [tokeq SemicolonT; pnt nEseq] I)]
                     (bindNT nEseq));
@@ -569,7 +584,7 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [``nTypeDec``, ``nTypeAbbrevDec``,
+               [``nTypeDec``, ``nTypeAbbrevDec``, ``nOpID``,
                 ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
@@ -660,7 +675,8 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nPatternList``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
-                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
+                ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,

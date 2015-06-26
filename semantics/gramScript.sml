@@ -44,6 +44,7 @@ val tokmap0 =
                 ("nil", ``AlphaT "nil"``),
                 ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
+                ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
                 ("ref", ``AlphaT "ref"``),
@@ -103,9 +104,14 @@ val cmlG_def = mk_grammar_def ginfo
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
               s ∉ {"true"; "false"; "ref"; "nil"}}``) ;
+ OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
+       |  ^(``{AlphaT s | s ≠ ""}``)
+       |  ^(``{SymbolT s | s ≠ ""}``)
+       |  "*" ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]" | "[" Elist1 "]";
+        |  <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
+        | "[" Elist1 "]" | "op" OpID ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
