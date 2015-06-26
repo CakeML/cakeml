@@ -1,4 +1,5 @@
-open preamble bviTheory bvpTheory;
+open preamble bviTheory bvpTheory
+     bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 
 val _ = new_theory "bvi_to_bvp";
 
@@ -104,5 +105,17 @@ val compile_SING_IMP = store_thm("compile_SING_IMP",
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `vs` \\ FULL_SIMP_TAC (srw_ss()) []
   \\ Cases_on `t` \\ FULL_SIMP_TAC (srw_ss()) []);
+
+(* combine bvp optimisations *)
+
+val optimise_def = Define `
+  optimise prog = bvp_space$compile (FST (bvp_live$compile (simp prog Skip) LN))`;
+
+(* the top-level compiler includes the optimisations, because the correctness
+   proofs are combined *)
+
+val compile_exp = Define`
+  compile_exp arg_count exp =
+    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
 
 val _ = export_theory();
