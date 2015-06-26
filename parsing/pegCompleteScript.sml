@@ -303,8 +303,9 @@ val firstSet_nEtuple = Store_thm(
 val firstSet_nEbase = Store_thm(
   "firstSet_nEbase",
   ``firstSet cmlG [NT (mkNT nEbase)] =
-      {LetT; LparT; LbrackT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪ {IntT i | T} ∪
-      {StringT s | T} ∪ firstSet cmlG [NT (mkNT nConstructorName)]``,
+      {LetT; LparT; LbrackT; OpT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
+      {IntT i | T} ∪ {StringT s | T} ∪
+      firstSet cmlG [NT (mkNT nConstructorName)]``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
 
@@ -615,7 +616,7 @@ val NOTIN_firstSet_nV = Store_thm(
   "NOTIN_firstSet_nV",
   ``CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
     RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
-    BarT ∉ firstSet cmlG [NN nV] ∧
+    BarT ∉ firstSet cmlG [NN nV] ∧ OpT ∉ firstSet cmlG [NN nV] ∧
     FnT ∉ firstSet cmlG [NN nV] ∧ IfT ∉ firstSet cmlG [NN nV] ∧
     EqualsT ∉ firstSet cmlG [NN nV] ∧ DarrowT ∉ firstSet cmlG [NN nV] ∧
     ValT ∉ firstSet cmlG [NN nV] ∧
@@ -644,7 +645,7 @@ val NOTIN_firstSet_nFQV = Store_thm(
   ``CommaT ∉ firstSet cmlG [NN nFQV] ∧ LparT ∉ firstSet cmlG [NN nFQV] ∧
     RparT ∉ firstSet cmlG [NN nFQV] ∧ UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
     FnT ∉ firstSet cmlG [NN nFQV] ∧ IfT ∉ firstSet cmlG [NN nFQV] ∧
-    BarT ∉ firstSet cmlG [NN nFQV] ∧
+    BarT ∉ firstSet cmlG [NN nFQV] ∧ OpT ∉ firstSet cmlG [NN nFQV] ∧
     EqualsT ∉ firstSet cmlG [NN nFQV] ∧ DarrowT ∉ firstSet cmlG [NN nFQV] ∧
     ValT ∉ firstSet cmlG [NN nFQV] ∧
     ExceptionT ∉ firstSet cmlG [NN nFQV] ∧
@@ -690,6 +691,7 @@ val NOTIN_firstSet_nConstructorName = Store_thm(
     LetT ∉ firstSet cmlG [NN nConstructorName] ∧
     LparT ∉ firstSet cmlG [NN nConstructorName] ∧
     OfT ∉ firstSet cmlG [NN nConstructorName] ∧
+    OpT ∉ firstSet cmlG [NN nConstructorName] ∧
     RaiseT ∉ firstSet cmlG [NN nConstructorName] ∧
     RbrackT ∉ firstSet cmlG [NN nConstructorName] ∧
     RparT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -2012,6 +2014,10 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       strip_tac >> rw[] >> fs[MAP_EQ_CONS] >> rw[] >>
       Cases_on `sfx` >> simp[peg_eval_tok_NONE] >> fs[])
+  >- (print_tac "nOpID" >>
+      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
+      dsimp[pairTheory.EXISTS_PROD, peg_eval_tok_NONE] >> rpt strip_tac >>
+      rveq >> fs[MAP_EQ_CONS])
   >- (print_tac "nMultOps" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       rw[] >> fs[MAP_EQ_CONS, peg_eval_tok_NONE])
@@ -2304,14 +2310,20 @@ val completeness = store_thm(
           simp[peg_respects_firstSets])
       >- (note_tac "Ebase:[..] not int" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[..] not string" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[..] not LparT" >> simp[peg_eval_tok_NONE]) >>
-      note_tac "Ebase:[..]" >> DISJ2_TAC >>
-      conj_tac
-      >- (simp_tac list_ss [peg_eval_tok_NONE, peg_EbaseParen_def,
-                            peg_eval_seql_CONS, tokeq_def] >>
-          simp[]) >>
-      DISJ1_TAC >> normlist >>
-      asimp[])
+      >- (note_tac "Ebase:[..] not LparT" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:[..]" >> DISJ2_TAC >>
+          conj_tac
+          >- (simp_tac list_ss [peg_eval_tok_NONE, peg_EbaseParen_def,
+                                peg_eval_seql_CONS, tokeq_def] >>
+              simp[]) >>
+          DISJ1_TAC >> normlist >>
+          asimp[])
+      >- (note_tac "Ebase:op (not int)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:op (not string)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:op (not LparT)" >> simp[peg_eval_tok_NONE])
+      >- (note_tac "Ebase:op" >>
+          simp[peg_respects_firstSets, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
+          simp[peg_EbaseParen_def, peg_eval_tok_NONE]))
   >- (print_tac "nEapp" >> disch_then assume_tac >>
       match_mp_tac (eapp_complete
                       |> Q.INST [`master` |-> `pfx`]
