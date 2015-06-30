@@ -617,6 +617,7 @@ val aComp_def = Define `
 (* prove that asm_step implies mEval steps *)
 
 val IMP_IMP = METIS_PROVE [] ``a /\ (b ==> c) ==> ((a ==> b) ==> c)``
+val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
 
 val asserts_restrict = prove(
   ``!n next1 next2 s P Q.
@@ -837,11 +838,14 @@ val pos_val_def = Define `
           else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`
 
 val state_rel_def = Define `
-  state_rel (mc_conf, code2, labs, p) (s1:'a asml_state) t1 ms1 <=>
+  state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a asml_state) t1 ms1 <=>
     mc_conf.f.state_rel t1 ms1 /\
     (mc_conf.prog_addresses = t1.mem_domain) /\
+    ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
+    (p - n2w ffi_offset = mc_conf.halt_pc) /\
     interference_ok mc_conf.next_interfer (mc_conf.f.proj t1.mem_domain) /\
-    (!q n. (n2w (t1.align - 1) && q + n2w n = 0w:'a word) <=> (n MOD t1.align = 0)) /\
+    (!q n. (n2w (t1.align - 1) && q + n2w n = 0w:'a word) <=>
+           (n MOD t1.align = 0)) /\
     (!l1 l2 x2.
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
@@ -853,7 +857,7 @@ val state_rel_def = Define `
     bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
       t1.mem t1.mem_domain s1.mem_domain /\
     ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
-    (t1.pc = p + n2w (pos_val s1.pc 0 code2)) /\
+    (check_pc ==> (t1.pc = p + n2w (pos_val s1.pc 0 code2))) /\
     (p && n2w (t1.align - 1) = 0w) /\
     (case mc_conf.asm_config.link_reg of NONE => T | SOME r => t1.lr = r) /\
     (t1.be <=> mc_conf.asm_config.big_endian) /\
@@ -1009,6 +1013,29 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
 
+val IMP_bytes_in_memory_Halt = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
+    ?tt enc.
+      (tt = 0w - n2w (pos_val s1.pc 0 code2 + ffi_offset)) /\
+      (enc = mc_conf.f.encode (Jump tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw []
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND] \\ rw []);
+
 val line_length_MOD_0 = prove(
   ``backend_correct_alt mc_conf.f mc_conf.asm_config /\
     (~EVEN p ==> (mc_conf.asm_config.code_alignment = 1)) /\
@@ -1063,21 +1090,26 @@ val lab_lookup_IMP = prove(
   fs [lab_lookup_def,find_pos_def,lookup_any_def]
   \\ BasicProvers.EVERY_CASE_TAC);
 
+val state_rel_weaken = prove(
+  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+    state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1``,
+  fs [state_rel_def] \\ rpt strip_tac \\ fs [] \\ metis_tac []);
+
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
       backend_correct_alt mc_conf.f mc_conf.asm_config /\
-      state_rel (mc_conf,code2,labs,p) s1 t1 ms1 ==>
+      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
       ?k t2 ms2.
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (res,ms2,s2.io_events)) /\
-        state_rel (mc_conf,code2,labs,p) s2 t2 ms2``,
+        state_rel (mc_conf,code2,labs,p,F) s2 t2 ms2``,
 
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ REPEAT STRIP_TAC
-  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once mEval_def] \\ metis_tac [])
+  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once mEval_def] \\ metis_tac [state_rel_weaken])
   \\ Cases_on `asm_fetch s1` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
@@ -1169,168 +1201,52 @@ val aEval_IMP_mEval = prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
     \\ rpt strip_tac \\ res_tac)
-
   THEN1 (* JumpCmp *) cheat
   THEN1 (* Call *) cheat
   THEN1 (* LocValue *) cheat
   THEN1 (* CallFFI *) cheat
+
   THEN1 (* Halt *)
-   (rw [] \\ cheat));
+   (rw []
+    \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
+    \\ qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
+    \\ mp_tac IMP_bytes_in_memory_Halt \\ fs []
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
+         asm_step_IMP_mEval_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP2 \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rfs [] \\ unabbrev_all_tac
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+    \\ rpt strip_tac
+    \\ unabbrev_all_tac \\ fs [asm_def]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rw []
+    \\ Q.EXISTS_TAC `l'` \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`jump_to_offset
+          (-n2w (pos_val s1.pc 0 code2 + ffi_offset)) t1`]
+    \\ once_rewrite_tac [mEval_def] \\ fs []
+    \\ fs [shift_interfer_def]
+    \\ `mc_conf.f.get_pc ms2 = mc_conf.halt_pc` by
+     (fs [backend_correct_alt_def] \\ res_tac \\ fs []
+      \\ fs [jump_to_offset_def,asmTheory.upd_pc_def] \\ fs [state_rel_def]
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+           WORD_ADD_SUB] \\ fs [])
+    \\ `~(mc_conf.f.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
+    \\ fs [state_rel_def,jump_to_offset_def,asmTheory.upd_pc_def]
+    \\ rw [] \\ rfs [] \\ fs []));
 
 (*
 
 TODO:
  - define an incremental version of the compiler
  - add ability to install code
-
-
-
-   ((* Asm (Inst ...) *)
-    Cases_on `(asm_inst i s1).failed` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-    \\ `?t2. asm_step_alt mc_conf.f.encode
-             mc_conf.asm_config t1 (Inst i) t2 /\
-      (t2 = (asm (Inst i) (t1.pc + n2w (LENGTH (mc_conf.f.encode (Inst i)))) t1))` by
-      (fs [] \\ MATCH_MP_TAC IMP_asm_step_alt \\ fs [])
-    \\ `mc_conf.f.state_rel t1 ms1 /\
-        (mc_conf.prog_addresses = t1.mem_domain) /\
-        interference_ok mc_conf.next_interfer mc_conf.f.proj` by
-      fs [state_rel_def]
-    \\ IMP_RES_TAC asm_step_IMP_mEval_step
-
-    \\ POP_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s1.io_events`)
-    \\ Q.MATCH_ASSUM_RENAME_TAC `ll <> 0:num`
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer ll mc_conf`,
-         `code2`,`labs`,`t2`,`ms2`])
-    \\ MATCH_MP_TAC IMP_IMP \\ REPEAT STRIP_TAC
-    THEN1 (fs [shift_interfer_def])
-    THEN1 (fs [state_rel_def,shift_interfer_def]
-      \\ fs [inc_pc_def,dec_clock_def,asmTheory.asm_def,asmTheory.upd_pc_def]
-      \\ cheat)
-    \\ `((inc_pc (dec_clock (asm_inst i s1))).io_events = s1.io_events) /\
-        ((inc_pc (dec_clock (asm_inst i s1))).clock = s1.clock - 1)` by
-      fs [inc_pc_def,dec_clock_def,asm_inst_consts] \\ fs []
-    \\ FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `(s1.clock - 1 + k)`)
-    \\ Q.EXISTS_TAC `k + ll - 1`
-    \\ `s1.clock + (k + ll - 1) = s1.clock - 1 + k + ll` by DECIDE_TAC \\ fs []
-    \\ Q.EXISTS_TAC `t2'` \\ fs [state_rel_def,shift_interfer_def])
-
-
-*)
-
-
-
-
-(* show that remove_labels only adds aEval-irrelevant annotations
-
-fun add_rewrite th = (augment_srw_ss [rewrites [th]];th)
-
-val merge_lines_def = Define `
-  (merge_lines [] _ = []) /\
-  (merge_lines (Label x _::xs1) (Label _ z::xs2) =
-     Label x z :: merge_lines xs1 xs2) /\
-  (merge_lines (Asm x _ _::xs1) (Asm _ bs l::xs2) =
-     Asm x bs l :: merge_lines xs1 xs2) /\
-  (merge_lines (LabAsm a _ _ _::xs1) (LabAsm _ w bs l::xs2) =
-     LabAsm a w bs l :: merge_lines xs1 xs2) /\
-  (merge_lines xs ys = xs)` |> add_rewrite
-
-val merge_code_def = Define `
-  (merge_code [] xs = []) /\
-  (merge_code (Section k lines1 :: xs1) (Section _ lines2 :: xs2) =
-     Section k (merge_lines lines1 lines2) :: merge_code xs1 xs2) /\
-  (merge_code xs _ = xs)` |> add_rewrite
-
-val asm_fetch_merge_code = prove(
-  ``asm_fetch (s with code := merge_code code code2) = asm_fetch s``,
-  cheat) |> add_rewrite
-
-val inc_pc_with_code = prove(
-  ``(inc_pc (s with code := d)) = (inc_pc s) with code := d``,
-  cheat) |> add_rewrite
-
-val upd_pc_with_code = prove(
-  ``(upd_pc p (s with code := d)) = (upd_pc p s) with code := d``,
-  cheat) |> add_rewrite
-
-val dec_clock_with_code = prove(
-  ``(dec_clock (s with code := d)) = (dec_clock s) with code := d``,
-  cheat) |> add_rewrite
-
-val asm_inst_with_code = prove(
-  ``(asm_inst i (s with code := d)) = (asm_inst i s) with code := d``,
-  cheat) |> add_rewrite
-
-val read_reg_with_code = prove(
-  ``read_reg n (s with code := c) = read_reg n s``,
-  cheat) |> add_rewrite
-
-val upd_reg_with_code = prove(
-  ``upd_reg n w (s with code := c) = (upd_reg n w s) with code := c``,
-  cheat) |> add_rewrite
-
-val reg_imm_with_code = prove(
-  ``reg_imm n (s with code := c) = reg_imm n s``,
-  cheat) |> add_rewrite
-
-val loc_to_pc_merge_code = prove(
-  ``loc_to_pc n1 n2 (merge_code code code2) =
-    loc_to_pc n1 n2 code``,
-  cheat) |> add_rewrite
-
-val get_pc_value_merge_code = prove(
-  ``get_pc_value l (s with code := merge_code s.code code2) =
-    get_pc_value l s``,
-  cheat) |> add_rewrite
-
-val get_ret_Loc_merge_code = prove(
-  ``get_ret_Loc (t with code := merge_code t.code c) =
-    get_ret_Loc t``,
-  cheat) |> add_rewrite
-
-val lab_to_loc_merge_code = prove(
-  ``lab_to_loc l (t with code := merge_code t.code c) =
-    lab_to_loc l t``,
-  fs [lab_to_loc_def]) |> add_rewrite
-
-val read_bytearray_with_code = prove(
-  ``!n a s. read_bytearray a n (s with code := code2) = read_bytearray a n s``,
-  Induct \\ fs [read_bytearray_def]) |> add_rewrite
-
-val aEval_merge_code = prove(
-  ``!s res t c enc.
-      (aEval s = (res,t)) ==>
-      (aEval (s with code := merge_code s.code code2) =
-         (res, t with code := merge_code s.code code2)) /\
-      (t.code = s.code)``,
-  HO_MATCH_MP_TAC aEval_ind \\ NTAC 6 STRIP_TAC
-  \\ ONCE_REWRITE_TAC [aEval_def] \\ fs [asm_fetch_merge_code]
-  \\ Cases_on `asm_fetch s` \\ fs []
-  \\ Cases_on `x` \\ fs []
-  THEN1
-   (Cases_on `a` \\ fs [LET_DEF,asm_inst_with_code,inc_pc_with_code]
-    THEN1
-     (BasicProvers.EVERY_CASE_TAC \\ fs []
-      \\ REPEAT STRIP_TAC \\ RES_TAC
-      \\ fs [inc_pc_def,asm_inst_consts])
-    \\ fs [read_reg_def,loc_to_pc_merge_code]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs [dec_clock_with_code,upd_pc_with_code]
-    \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [upd_pc_def,dec_clock_def])
-  \\ Cases_on `a` \\ fs []
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
-  \\ REPEAT STRIP_TAC \\ RES_TAC
-  \\ fs [upd_pc_def,inc_pc_def,dec_clock_def,upd_reg_def])
-
-val merge_code_remove_labels = prove(
-  ``(remove_labels c enc code = SOME code2) ==>
-    (merge_code code code2 = code2)``,
-  cheat) |> add_rewrite
-
-val aEval_remove_labels = prove(
-  ``(aEval s = (res,t)) /\ (remove_labels c enc s.code = SOME code2) ==>
-    (aEval (s with code := code2) = (res,t with code := code2))``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC merge_code_remove_labels
-  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
-  \\ IMP_RES_TAC aEval_merge_code \\ fs []);
 
 *)
 
