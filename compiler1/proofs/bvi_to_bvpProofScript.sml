@@ -1,7 +1,12 @@
 open preamble
      bvi_to_bvpTheory
      bviSemTheory bviPropsTheory
-     bvpSemTheory bvpPropsTheory;
+     bvpSemTheory bvpPropsTheory
+     bvp_simpProofTheory
+     bvp_liveProofTheory
+     bvp_spaceProofTheory;
+
+val _ = new_theory"bvi_to_bvpProof";
 
 (* TODO: move *)
 
@@ -113,10 +118,6 @@ val lookup_list_to_num_set = prove(
   ``!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE``,
   Induct \\ srw_tac [] [list_to_num_set_def,lookup_def,lookup_insert] \\ fs []);
 
-val LIST_REL_APPEND = EVERY2_APPEND_suff |> GEN_ALL;
-
-val RW = REWRITE_RULE;
-
 val option_case_NONE = prove(
   ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,
   Cases_on `pres` \\ SRW_TAC [] []);
@@ -191,6 +192,13 @@ val do_app_bvp_to_bvi = prove(
 
 (* compiler correctness *)
 
+val optimise_correct = Q.store_thm("optimise_correct",
+  `!c s. FST (evaluate (c,s)) <> SOME (Rerr(Rabort Rtype_error)) /\
+         FST (evaluate (c,s)) <> NONE ==>
+         (evaluate (optimise c,s) = evaluate (c,s))`,
+  fs [optimise_def] \\ REPEAT STRIP_TAC \\ Cases_on `evaluate (c,s)` \\ fs []
+  \\ METIS_TAC [simp_correct,bvp_liveProofTheory.compile_correct,bvp_spaceProofTheory.compile_correct,FST]);
+
 val compile_RANGE_lemma = prove(
   ``!n env tail live xs.
       EVERY (\v. n <= v /\ v < (SND (SND (compile n env tail live xs))))
@@ -211,6 +219,8 @@ val compile_RANGE = prove(
 val _ = temp_overload_on("res_list",``map_result (λv. [v]) I``);
 val _ = temp_overload_on("isException",``λx. ∃v. x = Rerr(Rraise v)``);
 val _ = temp_overload_on("isResult",``λx. ∃v. x = Rval v``);
+
+val RW = REWRITE_RULE;
 
 val compile_correct = Q.prove(
   `!xs env s1 res s2 t1 n corr tail live.
@@ -449,7 +459,7 @@ val compile_correct = Q.prove(
     \\ FULL_SIMP_TAC std_ss []
     \\ `var_corr (a ++ env) (vs ++ corr) t2` by
      (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
-      \\ MATCH_MP_TAC LIST_REL_APPEND
+      \\ MATCH_MP_TAC (GEN_ALL EVERY2_APPEND_suff)
       \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,
          `vs ++ corr`,`tail`,`live`])
@@ -512,7 +522,7 @@ val compile_correct = Q.prove(
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
           (fs [state_rel_def] \\ NO_TAC)
     \\ reverse(Cases_on `do_app op (REVERSE a) r`) \\ fs [] >- (
-         imp_res_tac bviPropsTheory.do_app_err >> fs[] ) >>
+         imp_res_tac bviPropsTheory.do_app_err >> fs[] )
     \\ PairCases_on `a'` \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
     \\ rpt var_eq_tac >> fs[]
     \\ fs [LET_DEF,evaluate_def,iAssign_def]
@@ -643,20 +653,19 @@ val compile_correct = Q.prove(
       \\ Cases_on `evaluate (xs,env,s1)`
       \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
-      \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+      \\ rpt var_eq_tac >> fs[]>> strip_tac
       \\ Cases_on `pres`
-      \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+      \\ FULL_SIMP_TAC (srw_ss()) []
       \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `x` \\ FULL_SIMP_TAC std_ss []
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
       \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
-      \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
+      \\ fs[]
       THEN1 (
         `r.clock < ticks ∨ r.clock = ticks` by decide_tac >>
-        fs [isException_def,state_rel_def, res_list_def, funpow_dec_clock_clock])
+        fs [state_rel_def, funpow_dec_clock_clock])
       \\ `~(r.clock < ticks)` by decide_tac
       \\ `(FUNPOW dec_clock ticks t2).clock ≠ 0` by simp [funpow_dec_clock_clock]
       \\ fs []
@@ -664,37 +673,38 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
-      \\ FULL_SIMP_TAC std_ss [compile_exp_def,isException_def]
+      \\ FULL_SIMP_TAC std_ss [compile_exp_def]
       \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `tail` THEN1
        (`evaluate ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
         (Cases_on `evaluate ([exp],args,dec_clock (ticks+1) r)` \\ fs []
-           \\ Cases_on `q` \\ fs []) \\ fs []
-        \\ FIRST_X_ASSUM (MP_TAC o
-             Q.SPECL [`call_env args (FUNPOW dec_clock (ticks+1) t2)`,
-               `LENGTH (args:bc_value list)`,
-               `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+           \\ Cases_on `q` \\ fs [] \\
+           Cases_on`e` >> fs[]) \\ fs []
+        \\ FIRST_X_ASSUM (qspecl_then
+             [`call_env args (FUNPOW dec_clock (ticks+1) t2)`,
+               `LENGTH args`,
+               `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
-          bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE,call_env_def,
           funpow_dec_clock_clock])
         \\ STRIP_TAC \\ fs [LET_DEF]
         \\ MP_TAC (Q.SPECL [`prog`,
-            `call_env args (FUNPOW dec_clock (ticks+1) t2)`] pEval_pOptimise)
+            `call_env args (FUNPOW dec_clock (ticks+1) t2)`] optimise_correct)
         \\ fs [] \\ SIMP_TAC std_ss [call_env_def]
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (BasicProvers.FULL_CASE_TAC \\ fs [funpow_dec_clock_clock]
-          \\ REPEAT STRIP_TAC \\ fs [res_list_def])
-        \\ REPEAT STRIP_TAC \\ fs [get_vars_FUNPOW_dec_clock]
+          \\ REPEAT STRIP_TAC \\ fs [])
+        \\ REPEAT STRIP_TAC \\ fs [get_vars_FUNPOW_dec_clock,COUNT_LIST_GENLIST]
         \\ fs [FUNPOW_dec_clock_code]
         \\ fs [GSYM ADD1,FUNPOW_SUC]
         \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
         \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,
-           bviTheory.dec_clock_def,bvpTheory.dec_clock_def]
+           bviSemTheory.dec_clock_def,bvpSemTheory.dec_clock_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code])
       \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
        (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
@@ -706,20 +716,21 @@ val compile_correct = Q.prove(
       \\ fs [cut_env_def]
       \\ `evaluate ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
        (Cases_on `evaluate ([exp],args,dec_clock (ticks + 1) r)` \\ fs []
-        \\ Cases_on `q` \\ fs []) \\ fs []
+        \\ Cases_on `q` \\ fs []
+        \\ Cases_on`e` \\ fs[]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
+      \\ FIRST_X_ASSUM (qspecl_then
           [`call_env args (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`,
-           `LENGTH (args:bc_value list)`,
-           `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+           `LENGTH args`,
+           `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
-          bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,
           call_env_def,FUNPOW_dec_clock_code]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-          \\ `jump_exc t2 <> NONE` by FULL_SIMP_TAC std_ss []
+          \\ `jump_exc t2 <> NONE` by fs[]
           \\ Cases_on `jump_exc t2` \\ fs []
           \\ IMP_RES_TAC jump_exc_IMP
           \\ SIMP_TAC (srw_ss()) [jump_exc_def,FUNPOW_dec_clock_code]
@@ -728,23 +739,23 @@ val compile_correct = Q.prove(
       \\ STRIP_TAC \\ fs [LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
          (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`]
-            pEval_pOptimise) \\ fs []
+            optimise_correct) \\ fs []
       \\ SIMP_TAC std_ss [call_env_def]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (BasicProvers.FULL_CASE_TAC \\ fs []
-        \\ REPEAT STRIP_TAC \\ fs [res_list_def])
+        \\ REPEAT STRIP_TAC \\ fs [])
       \\ REPEAT STRIP_TAC \\ fs []
-      \\ fs [get_vars_FUNPOW_dec_clock,FUNPOW_dec_clock_code]
+      \\ fs [get_vars_FUNPOW_dec_clock,FUNPOW_dec_clock_code,COUNT_LIST_GENLIST]
       \\ fs [GSYM ADD1,FUNPOW_SUC]
       \\ Cases_on `pres` \\ fs [call_env_def]
       \\ `~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
       \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss [res_list_def] \\ SRW_TAC [] [isResult_def]
-      \\ FULL_SIMP_TAC std_ss [isResult_def,isException_def]
+      \\ rpt var_eq_tac >> fs[]
       THEN1
-       (IMP_RES_TAC jump_exc_IMP
+       (Cases_on`e`>>fs[]>>
+        IMP_RES_TAC jump_exc_IMP
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-           bvpTheory.dec_clock_def,bviTheory.dec_clock_def]
+           bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def]
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
         \\ fs [FUNPOW_dec_clock_code]
         \\ Cases_on `t2.handler = LENGTH t2.stack` THEN1
@@ -758,7 +769,7 @@ val compile_correct = Q.prove(
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1
        (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-             pop_env_def,bvpTheory.dec_clock_def,bviTheory.dec_clock_def,
+             pop_env_def,bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def,
              FUNPOW_dec_clock_code])
       \\ fs [set_var_def,state_rel_def]
       \\ IMP_RES_TAC compile_LESS_EQ
@@ -798,8 +809,8 @@ val compile_correct = Q.prove(
         \\ `k <> n1` by ALL_TAC \\ fs [] \\ CCONTR_TAC \\ fs []
         \\ RES_TAC \\ FULL_SIMP_TAC std_ss [])
       \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
-                call_env_def,push_env_def,bvpTheory.dec_clock_def,
-                bviTheory.dec_clock_def]
+                call_env_def,push_env_def,bvpSemTheory.dec_clock_def,
+                bviSemTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ BasicProvers.EVERY_CASE_TAC))
     \\ (* Call with handle *)
@@ -811,26 +822,25 @@ val compile_correct = Q.prove(
       \\ Cases_on `dest = NONE` \\ fs []
       \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
-      \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
-      \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+      \\ rpt var_eq_tac >> fs[]>> strip_tac
       \\ Cases_on `pres`
-      \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
+      \\ FULL_SIMP_TAC (srw_ss()) []
       \\ Cases_on `find_code dest a r.code` \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `x'` \\ FULL_SIMP_TAC std_ss []
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
       \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
-      \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
+      \\ fs[]
       THEN1 (`r.clock < ticks \/ r.clock <= ticks` by DECIDE_TAC
-             \\ fs [isException_def,state_rel_def,res_list_def]
+             \\ fs [state_rel_def]
              \\ SRW_TAC [] []
-             \\ fs [isException_def,state_rel_def,res_list_def])
+             \\ fs [state_rel_def])
       \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
-      \\ FULL_SIMP_TAC std_ss [compile_exp_def,isException_def]
+      \\ FULL_SIMP_TAC std_ss [compile_exp_def]
       \\ `~(r.clock < ticks) /\ ~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
       \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
@@ -846,33 +856,34 @@ val compile_correct = Q.prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC
             `evaluate ([exp],args,dec_clock (ticks + 1) r) = (res4,r4)`
       \\ Cases_on `isException res4` THEN1
-       (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
+       (Cases_on `res4` \\ fs [LET_DEF] \\ fs[]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
-        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
+        \\ FIRST_X_ASSUM (qspecl_then
             [`call_env args (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
-             `LENGTH (args:bc_value list)`,
-             `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+             `LENGTH args`,
+             `GENLIST I (LENGTH args)`,`T`,`[]`] mp_tac)
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
-            bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+         (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+            bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
             LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
         \\ REPEAT STRIP_TAC
         \\ Cases_on `pres` \\ fs []
-        \\ Cases_on `x'` \\ fs [res_list_def]
+        \\ rpt var_eq_tac \\ fs[]
         \\ MP_TAC (Q.SPECL [`prog`,`call_env args
            (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`]
-              pEval_pOptimise) \\ fs []
+              optimise_correct) \\ fs []
+        \\ fs[COUNT_LIST_GENLIST]
         \\ SIMP_TAC std_ss [call_env_def] \\ REPEAT STRIP_TAC \\ fs []
-        \\ Cases_on `evaluate (c2,set_var n1 b t2')` \\ fs []
+        \\ Cases_on `evaluate (c2,set_var n1 v' t2')` \\ fs []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
-              [`set_var n1 b t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ fs []
+              [`set_var n1 v' t2'`,`n1+1`,`n1::corr`,`F`,`live`]) \\ fs []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (fs [var_corr_def,state_rel_def,set_var_def,lookup_insert,get_var_def]
-          \\ fs [jump_exc_def,call_env_def,push_env_def,bvpTheory.dec_clock_def]
+          \\ fs [jump_exc_def,call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ fs [bvp_state_component_equality]
+          \\ fs [bvpSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ fs []
           \\ Q.UNABBREV_TAC `env2` \\ fs [lookup_inter_alt]
           \\ fs [domain_lookup,lookup_list_to_num_set]
@@ -893,21 +904,21 @@ val compile_correct = Q.prove(
         \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1, FUNPOW_SUC]
         \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpTheory.dec_clock_def]
+            push_env_def,bvpSemTheory.dec_clock_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
           \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ fs [])
         \\ Cases_on `res` \\ fs [] \\ fs []
         \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpTheory.dec_clock_def]
+            push_env_def,bvpSemTheory.dec_clock_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ fs [bvp_state_component_equality])
-        \\ Cases_on `tail` \\ fs [evaluate_def,isResult_def,isException_def]
+          \\ fs [bvpSemTheory.state_component_equality])
+        \\ Cases_on `tail` \\ fs [evaluate_def]
         THEN1
          (IMP_RES_TAC compile_LENGTH
           \\ `?v1. v = [v1]` by (Cases_on `v` \\ fs [LENGTH_NIL])
-          \\ fs [var_corr_def,res_list_def,set_var_def,call_env_def]
+          \\ fs [var_corr_def,set_var_def,call_env_def]
           \\ fs [state_rel_def])
         \\ REPEAT STRIP_TAC
         THEN1 DECIDE_TAC
@@ -923,9 +934,9 @@ val compile_correct = Q.prove(
             \\ `n <= n1` by DECIDE_TAC \\ RES_TAC \\ fs [])
           \\ UNABBREV_ALL_TAC
           \\ REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
-            push_env_def,bvpTheory.dec_clock_def]
+            push_env_def,bvpSemTheory.dec_clock_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
-          \\ fs [bvp_state_component_equality]
+          \\ fs [bvpSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
           \\ fs [lookup_inter_alt]
           \\ fs [domain_lookup,lookup_list_to_num_set] \\ METIS_TAC [])
@@ -933,20 +944,20 @@ val compile_correct = Q.prove(
         \\ fs [jump_exc_def]
         \\ Cases_on `LAST_N (t1.handler + 1) t1.stack` \\ fs []
         \\ Cases_on `h` \\ fs []
-        \\ fs [call_env_def,push_env_def,bvpTheory.dec_clock_def]
+        \\ fs [call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
         \\ Cases_on `LAST_N (r'.handler + 1) r'.stack` \\ fs []
         \\ Cases_on `h` \\ fs [])
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
-      THEN1 (Cases_on `res4` \\ fs [isException_def]) \\ fs []
+      THEN1 (Cases_on `res4` \\ fs [] \\ Cases_on`e` \\ fs[]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
+      \\ FIRST_X_ASSUM (qspecl_then
           [`call_env args (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
-           `LENGTH (args:bc_value list)`,
-           `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+           `LENGTH args`,
+           `GENLIST I (LENGTH args)`,`T`,`[]`]mp_tac)
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
-          bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+       (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
           \\ `jump_exc t2 <> NONE` by FULL_SIMP_TAC std_ss []
@@ -957,27 +968,26 @@ val compile_correct = Q.prove(
       \\ STRIP_TAC \\ fs [LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
          (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`]
-            pEval_pOptimise) \\ fs []
+            optimise_correct) \\ fs []
       \\ SIMP_TAC std_ss [call_env_def]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (BasicProvers.FULL_CASE_TAC \\ fs []
-        \\ REPEAT STRIP_TAC \\ fs [res_list_def])
+        \\ REPEAT STRIP_TAC \\ fs [])
       \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1,FUNPOW_SUC]
-      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
+      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,COUNT_LIST_GENLIST]
       \\ FULL_SIMP_TAC std_ss []
       \\ REVERSE (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
-      \\ FULL_SIMP_TAC std_ss [res_list_def]
-      \\ BasicProvers.VAR_EQ_TAC
-      \\ FULL_SIMP_TAC std_ss [isResult_def,isException_def]
+      \\ rpt BasicProvers.VAR_EQ_TAC
+      \\ fs [set_var_def,state_rel_def]
+      THEN1 ( Cases_on`e`>>fs[] )
       \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2
           ; handler := t2.handler |>)` by ALL_TAC THEN1
        (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-           pop_env_def,bvpTheory.dec_clock_def,bviTheory.dec_clock_def])
-      \\ fs [set_var_def,state_rel_def]
+           pop_env_def,bvpSemTheory.dec_clock_def,bviSemTheory.dec_clock_def])
       \\ Cases_on `tail` \\ fs [evaluate_def]
-      THEN1 (fs [get_var_def,call_env_def,res_list_def])
+      THEN1 (fs [get_var_def,call_env_def])
       \\ IMP_RES_TAC compile_LESS_EQ
       \\ IMP_RES_TAC compile_SING_IMP
       \\ fs [] \\ IMP_RES_TAC compile_RANGE \\ fs [EVERY_DEF]
@@ -1024,8 +1034,8 @@ val compile_correct = Q.prove(
         \\ Cases_on `LAST_N (t2.handler + 1) t2.stack` \\ fs []
         \\ Cases_on `h` \\ fs [])
       \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
-                call_env_def,push_env_def,bvpTheory.dec_clock_def,
-                bviTheory.dec_clock_def]
+                call_env_def,push_env_def,bvpSemTheory.dec_clock_def,
+                bviSemTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
                  \\ BasicProvers.EVERY_CASE_TAC)));
 
@@ -1041,7 +1051,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
       state_rel s2 t2 /\ res_list r = res``,
   REPEAT STRIP_TAC \\ MP_TAC compile_exp_lemma \\ fs []
   \\ REPEAT STRIP_TAC \\ fs [compile_exp_def,LET_DEF]
-  \\ MP_TAC (Q.SPECL [`prog`,`t1`] pEval_pOptimise) \\ fs []
-  \\ `r <> Error` by (REPEAT STRIP_TAC \\ fs [res_list_def]) \\ fs []);
+  \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ fs []
+  \\ discharge_hyps >- (rpt strip_tac >> fs[]) >> rw[COUNT_LIST_GENLIST]);
 
 val _ = export_theory();
