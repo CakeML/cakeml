@@ -91,10 +91,7 @@ val do_app_err = Q.store_thm("do_app_err",
   `do_app op vs s = Rerr e ⇒ (e = Rabort Rtype_error)`,
   rw[do_app_def] >>
   every_case_tac >> fs[] >> rw[] >>
-  fs[bviSemTheory.do_app_def] >>
-  every_case_tac >> fs[] >> rw[] >>
-  imp_res_tac bvlPropsTheory.do_app_err >> rw[] >>
-  Cases_on`a`>>fs[]);
+  imp_res_tac bviPropsTheory.do_app_err >> fs[]);
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒

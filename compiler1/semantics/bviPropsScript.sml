@@ -177,4 +177,10 @@ val do_app_code = store_thm("do_app_code",
   \\ Cases_on `a` \\ fs []
   \\ rw[]);
 
+val do_app_err = Q.store_thm("do_app_err",
+  `do_app op a s = Rerr e ⇒ e = Rabort Rtype_error`,
+  rw[bviSemTheory.do_app_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac bvlPropsTheory.do_app_err >> rw[]);
+
 val _ = export_theory();
