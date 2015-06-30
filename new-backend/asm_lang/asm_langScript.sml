@@ -26,6 +26,7 @@ val () = Datatype `
                | LocValue reg lab
                (* following have no label, but have similar semantics *)
                | CallFFI num
+               | ClearCache
                | Halt`;
 
 val () = Datatype `
@@ -390,6 +391,9 @@ val update_simps = store_thm("update_simps[simp]",
 
 (* -- ASSEMBLER FUNCTION -- *)
 
+val ffi_offset_def = Define `
+  ffi_offset = 8:num`;
+
 (* basic assemble function *)
 
 val lab_inst_def = Define `
@@ -398,6 +402,7 @@ val lab_inst_def = Define `
   (lab_inst w (Call _) = Call w) /\
   (lab_inst w (LocValue r _) = Loc r (w:'a word)) /\
   (lab_inst w (Halt) = Jump w) /\
+  (lab_inst w (ClearCache) = Jump w) /\
   (lab_inst w (CallFFI n) = Jump w)`;
 
 val enc_line_def = Define `
@@ -441,12 +446,6 @@ val compute_labels_def = Define `
 
 (* update code *)
 
-val get_label_def = Define `
-  (get_label (Jump l) = l) /\
-  (get_label (JumpCmp c r ri l) = l) /\
-  (get_label (Call l) = l) /\
-  (get_label (LocValue r l) = l)`;
-
 val lookup_any_def = Define `
   lookup_any x sp d =
     case lookup x sp of
@@ -457,6 +456,22 @@ val find_pos_def = Define `
   find_pos (Lab k1 k2) labs =
     (lookup_any k2 (lookup_any k1 labs LN) 0):num`;
 
+val get_label_def = Define `
+  (get_label (Jump l) = l) /\
+  (get_label (JumpCmp c r ri l) = l) /\
+  (get_label (Call l) = l) /\
+  (get_label (LocValue r l) = l)`;
+
+val get_jump_offset_def = Define `
+  (get_jump_offset (CallFFI i) labs pos =
+     0w - n2w (pos + (3 + i) * ffi_offset)) /\
+  (get_jump_offset ClearCache labs pos =
+     0w - n2w (pos + 2 * ffi_offset)) /\
+  (get_jump_offset Halt labs pos =
+     0w - n2w (pos + ffi_offset)) /\
+  (get_jump_offset a labs pos =
+     n2w (find_pos (get_label a) labs) - n2w pos)`
+
 val enc_line_again_def = Define `
   (enc_line_again labs pos enc [] = []) /\
   (enc_line_again labs pos enc ((Label k1 k2 l)::xs) =
@@ -464,14 +479,13 @@ val enc_line_again_def = Define `
   (enc_line_again labs pos enc ((Asm x1 x2 l)::xs) =
      (Asm x1 x2 l) :: enc_line_again labs (pos+l) enc xs) /\
   (enc_line_again labs pos enc ((LabAsm a w bytes l)::xs) =
-     let pos = pos + l in
-     let target = find_pos (get_label a) labs in
-     let w1 = n2w target - n2w pos in
+     let w1 = get_jump_offset a labs pos in
        if w = w1 then
-         (LabAsm a w bytes l)::enc_line_again labs pos enc xs
+         (LabAsm a w bytes l)::enc_line_again labs (pos + l) enc xs
        else
          let bs = enc (lab_inst w1 a) in
-           LabAsm a 0w bs (LENGTH bs)::enc_line_again labs pos enc xs)`
+         let l = LENGTH bs in
+           LabAsm a w1 bs l::enc_line_again labs (pos + l) enc xs)`
 
 val sec_length_def = Define `
   (sec_length [] k = k) /\
@@ -730,10 +744,22 @@ val asm_step_IMP_mEval_step = prove(
 (* compiler correctness proof *)
 
 val line_ok_def = Define `
-  (line_ok c enc labs pos (Label _ _ l) <=>
+  (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
      if EVEN pos then (l = 0) else (l = 1)) /\
   (line_ok c enc labs pos (Asm b bytes l) <=>
      (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c) /\
+  (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c enc labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
@@ -988,7 +1014,7 @@ val line_length_MOD_0 = prove(
     (~EVEN p ==> (mc_conf.asm_config.code_alignment = 1)) /\
     line_ok mc_conf.asm_config mc_conf.f.encode labs p h ==>
     (line_length h MOD mc_conf.asm_config.code_alignment = 0)``,
-  Cases_on `h` \\ fs [line_ok_def,line_length_def]
+  Cases_on `h` \\ TRY (Cases_on `a`) \\ fs [line_ok_def,line_length_def]
   \\ rw [] \\ fs [backend_correct_alt_def,enc_ok_def]
   \\ Q.PAT_ASSUM `xxx = LENGTH yy` (ASSUME_TAC o GSYM)
   \\ `0 < mc_conf.asm_config.code_alignment` by
@@ -1151,12 +1177,9 @@ val aEval_IMP_mEval = prove(
   THEN1 (* Halt *)
    (rw [] \\ cheat));
 
-
-
 (*
 
 TODO:
- - fix compilation of FFI and Halt calls
  - define an incremental version of the compiler
  - add ability to install code
 
