@@ -817,10 +817,9 @@ val state_rel_def = Define `
     (mc_conf.prog_addresses = t1.mem_domain) /\
     interference_ok mc_conf.next_interfer (mc_conf.f.proj t1.mem_domain) /\
     (!q n. (n2w (t1.align - 1) && q + n2w n = 0w:'a word) <=> (n MOD t1.align = 0)) /\
-    (!l1 l2 x1 x2.
-       (lab_lookup l1 l2 labs = SOME x1) /\
+    (!l1 l2 x2.
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
-       (pos_val x2 0 code2 = x1)) /\
+       (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (!a. a IN s1.mem_domain ==>
          a IN t1.mem_domain /\
@@ -1038,6 +1037,12 @@ val pos_val_MOD_0 = prove(
   |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
   |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
 
+val lab_lookup_IMP = prove(
+  ``(lab_lookup l1 l2 labs = SOME x) ==>
+    (find_pos (Lab l1 l2) labs = x)``,
+  fs [lab_lookup_def,find_pos_def,lookup_any_def]
+  \\ BasicProvers.EVERY_CASE_TAC);
+
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
@@ -1076,7 +1081,7 @@ val aEval_IMP_mEval = prove(
       \\ fs [word_loc_val_def]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ fs []
       \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
-      \\ `pos_val x 0 code2 = x'` by metis_tac [] \\ rw []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
       \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
@@ -1093,6 +1098,7 @@ val aEval_IMP_mEval = prove(
       \\ fs [word_loc_val_def]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ fs []
       \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
       \\ RES_TAC \\ fs [] \\ rpt strip_tac \\ res_tac \\ rw []
       \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
     \\ rpt strip_tac
@@ -1133,9 +1139,13 @@ val aEval_IMP_mEval = prove(
              dec_clock_def,upd_pc_def,assert_def,read_reg_def,asm_def,
              jump_to_offset_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
-      \\ strip_tac \\ rfs []
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
-            WORD_ADD_SUB] \\ cheat)
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ Cases_on `target` \\ fs []
+      \\ qmatch_assum_rename_tac `loc_to_pc l1 l2 s1.code = SOME x`
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
+      \\ imp_res_tac lab_lookup_IMP \\ fs []
+      \\ cheat)
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
     \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
