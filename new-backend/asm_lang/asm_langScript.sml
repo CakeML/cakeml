@@ -735,7 +735,6 @@ val line_ok_def = Define `
   (line_ok c enc labs pos (Asm b bytes l) <=>
      (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c) /\
   (line_ok c enc labs pos (LabAsm a w bytes l) <=>
-     let pos = pos + l in
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
      let bs = enc (lab_inst w1 a) in
@@ -968,7 +967,7 @@ val IMP_bytes_in_memory_Jump = prove(
     (asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)) ==>
     ?tt enc.
       (tt = n2w (find_pos target labs) -
-            n2w (pos_val s1.pc 0 code2 + LENGTH enc)) /\
+            n2w (pos_val s1.pc 0 code2)) /\
       (enc = mc_conf.f.encode (Jump tt)) /\
       bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
         enc t1.mem t1.mem_domain /\
@@ -980,14 +979,9 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def] \\ rw []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def]
-  \\ Q.EXISTS_TAC `l'` \\ fs []
-  \\ rw [asm_fetch_aux_def,all_bytes_def]
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []
-  \\ Q.PAT_ASSUM `bytes_in_memory (p + n2w (pos_val pc 0 code2)) l' t1.mem
-        t1.mem_domain` MP_TAC
-  \\ Q.PAT_ASSUM `l' = bbb` (fn th => simp [Once th]));
+         bytes_in_memory_APPEND] \\ rw []);
 
 val line_length_MOD_0 = prove(
   ``backend_correct_alt mc_conf.f mc_conf.asm_config /\
@@ -1107,9 +1101,7 @@ val aEval_IMP_mEval = prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
     \\ rpt strip_tac \\ res_tac)
-
   THEN1 (* Jump *)
-
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (Jump target) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)`
@@ -1144,8 +1136,7 @@ val aEval_IMP_mEval = prove(
       \\ Cases_on `target` \\ fs []
       \\ qmatch_assum_rename_tac `loc_to_pc l1 l2 s1.code = SOME x`
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
-      \\ imp_res_tac lab_lookup_IMP \\ fs []
-      \\ cheat)
+      \\ imp_res_tac lab_lookup_IMP \\ fs [])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
     \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
