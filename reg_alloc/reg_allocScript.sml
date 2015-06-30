@@ -1,13 +1,38 @@
 open HolKernel Parse boolLib bossLib miscLib
 open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
 open BasicProvers
-open word_procTheory word_langTheory
 open sortingTheory
 open monadsyntax state_transformerTheory
 
 val _ = ParseExtras.tight_equality ();
 
 val _ = new_theory "reg_alloc";
+
+(*Distinguish 3 kinds of variables:
+  Evens are physical registers
+  4n+1 are allocatable registers
+  4n+3 are stack registers*)
+
+val is_stack_var_def = Define`
+  is_stack_var (n:num) = (n MOD 4 = 3)`
+val is_phy_var_def = Define`
+  is_phy_var (n:num) = (n MOD 2 = 0)`
+val is_alloc_var_def = Define`
+  is_alloc_var (n:num) = (n MOD 4 = 1)`
+
+val convention_partitions = store_thm("convention_partitions",``
+  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))``,
+  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
+  \\ `n MOD 2 = (n MOD 4) MOD 2` by
+   (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
+    \\ fs [arithmeticTheory.MOD_MULT_MOD])
+  \\ fs []
+  \\ `n MOD 4 < 4` by fs []
+  \\ IMP_RES_TAC (DECIDE
+       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
+  \\ fs []);
 
 (*Defines a graph colouring algorithm*)
 
@@ -2826,14 +2851,5 @@ val clique_g_insert_domain = prove(``
   Induct>>fs[clique_g_insert_def]>>rw[]>>
   fs[list_g_insert_domain]>>
   rw[EXTENSION]>>metis_tac[])
-
-(*Every variable that appears in the clash sets will also be in the domain of the graph*)
-val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
-∀ls x.
-  in_clash_sets ls x ⇒
-  x ∈ domain (clash_sets_to_sp_g ls)``,
-  Induct>>fs[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>rw[]>>res_tac>>
-  fs[clique_g_insert_domain]>>
-  fs[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
 
 val _ = export_theory()
