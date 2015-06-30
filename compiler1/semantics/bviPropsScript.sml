@@ -165,4 +165,16 @@ val evaluate_code_const = store_thm("evaluate_code_const",
   ``!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ fs []);
 
+val do_app_code = store_thm("do_app_code",
+  ``!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)``,
+  SIMP_TAC std_ss [do_app_def] \\ REPEAT STRIP_TAC
+  \\ every_case_tac \\ fs []
+  \\ Cases_on `do_app_aux op a s1` \\ fs []
+  \\ Cases_on `x` \\ fs [] THEN1
+   (Cases_on `do_app op a (bvi_to_bvl s1)` \\ fs []
+    \\ rw[bvl_to_bvi_def])
+  \\ Cases_on `op` \\ fs [do_app_aux_def]
+  \\ Cases_on `a` \\ fs []
+  \\ rw[]);
+
 val _ = export_theory();

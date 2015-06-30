@@ -1,4 +1,4 @@
-open preamble bvpSemTheory;
+open preamble bvpTheory bvpSemTheory;
 local open sourcePropsTheory in end;
 
 val _ = new_theory"bvpProps";
@@ -6,6 +6,33 @@ val _ = new_theory"bvpProps";
 val with_same_locals = store_thm("with_same_locals",
   ``(s with locals := s.locals) = s``,
   fs [state_component_equality]);
+
+val var_corr_def = Define `
+  var_corr env corr t <=>
+    EVERY2 (\v x. get_var v t = SOME x) corr env`;
+
+val get_vars_thm = store_thm("get_vars_thm",
+  ``!vs a t2. var_corr a vs t2 ==> (get_vars vs t2 = SOME a)``,
+  Induct \\ Cases_on `a` \\ FULL_SIMP_TAC std_ss [get_vars_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def] \\ REPEAT STRIP_TAC
+  \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
+
+val get_vars_add_space = store_thm("get_vars_add_space",
+  ``!vs s x. (get_vars vs (add_space s x) = get_vars vs s) /\
+             (get_vars vs (add_space s x with locals := y) =
+              get_vars vs (s with locals := y))``,
+  Induct \\ fs [get_vars_def,get_var_def,add_space_def]);
+
+val get_vars_append = store_thm("get_vars_append",
+  ``∀l1 l2 s. get_vars (l1 ++ l2) s = OPTION_BIND (get_vars l1 s)(λy1. OPTION_BIND (get_vars l2 s)(λy2. SOME(y1 ++ y2)))``,
+  Induct >> simp[get_vars_def,OPTION_BIND_SOME,ETA_AX] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[]);
+
+val get_vars_reverse = store_thm("get_vars_reverse",
+  ``∀ls s ys. get_vars ls s = SOME ys ⇒ get_vars (REVERSE ls) s = SOME (REVERSE ys)``,
+  Induct >> simp[get_vars_def] >> rw[get_vars_append] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[get_vars_def]);
 
 val EVERY_get_vars = store_thm("EVERY_get_vars",
   ``!args s1 s2.
@@ -36,6 +63,11 @@ val get_vars_with_stack_rwt = prove(
 val cut_state_opt_with_stack = Q.prove(
   `cut_state_opt x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (cut_state_opt x y)`,
   EVAL_TAC >> every_case_tac >> simp[]);
+
+val consume_space_add_space = store_thm("consume_space_add_space",
+  ``consume_space k (add_space t k with locals := env1) =
+    SOME (t with locals := env1)``,
+  fs [consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC);
 
 val consume_space_with_stack = Q.prove(
   `consume_space x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (consume_space x y)`,
@@ -560,5 +592,60 @@ val evaluate_locals = store_thm("evaluate_locals",
      (Cases_on `handler`
       \\ fs [state_component_equality,dec_clock_def,call_env_def,push_env_def])
     \\ fs [] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
+
+val funpow_dec_clock_clock = Q.store_thm ("funpow_dec_clock_clock",
+  `!n s. FUNPOW dec_clock n s = (s with clock := s.clock - n)`,
+  Induct_on `n` >>
+  rw [FUNPOW, state_component_equality, dec_clock_def, ADD1] >>
+  decide_tac);
+
+val evaluate_mk_ticks = Q.store_thm ("evaluate_mk_ticks",
+  `!p s n.
+    evaluate (mk_ticks n p, s)
+    =
+    if s.clock < n then
+      (SOME (Rerr(Rabort Rtimeout_error)), s with <| clock := 0; locals := fromList []; stack := [] |>)
+    else
+      evaluate (p, FUNPOW dec_clock n s)`,
+  Induct_on `n` >>
+  rw [evaluate_def, mk_ticks_def, FUNPOW] >>
+  fs [mk_ticks_def, evaluate_def] >>
+  rw [funpow_dec_clock_clock, dec_clock_def] >>
+  simp [call_env_def] >>
+  `s.clock - n = 0` by decide_tac >>
+  `s.clock - (n+1) = 0` by decide_tac >>
+  rw [] >>
+  fs [ADD1, LESS_OR_EQ] >>
+  full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val FUNPOW_dec_clock_code = store_thm("FUNPOW_dec_clock_code[simp]",
+  ``((FUNPOW dec_clock n t).code = t.code) /\
+    ((FUNPOW dec_clock n t).stack = t.stack) /\
+    ((FUNPOW dec_clock n t).handler = t.handler) /\
+    ((FUNPOW dec_clock n t).globals = t.globals) /\
+    ((FUNPOW dec_clock n t).refs = t.refs) /\
+    ((FUNPOW dec_clock n t).io = t.io) /\
+    ((FUNPOW dec_clock n t).locals = t.locals) /\
+    ((FUNPOW dec_clock n t).clock = t.clock - n)``,
+  Induct_on `n` \\ fs [FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC);
+
+val get_vars_FUNPOW_dec_clock = store_thm("get_vars_FUNPOW_dec_clock[simp]",
+  ``!vs t. get_vars vs (FUNPOW dec_clock n t) = get_vars vs t``,
+  Induct \\ fs [get_vars_def,get_var_def,FUNPOW_dec_clock_code]);
+
+val jump_exc_NONE = store_thm("jump_exc_NONE",
+  ``(jump_exc (t with locals := x) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (t with clock := c) = NONE <=> jump_exc t = NONE)``,
+  FULL_SIMP_TAC (srw_ss()) [jump_exc_def] \\ REPEAT STRIP_TAC
+  \\ every_case_tac \\ FULL_SIMP_TAC std_ss []);
+
+val jump_exc_IMP = store_thm("jump_exc_IMP",
+  ``(jump_exc s = SOME t) ==>
+    s.handler < LENGTH s.stack /\
+    ?n e xs. (LAST_N (s.handler + 1) s.stack = Exc e n::xs) /\
+             (t = s with <|handler := n; locals := e; stack := xs|>)``,
+  SIMP_TAC std_ss [jump_exc_def]
+  \\ Cases_on `LAST_N (s.handler + 1) s.stack` \\ fs []
+  \\ Cases_on `h` \\ fs []);
 
 val _ = export_theory();
