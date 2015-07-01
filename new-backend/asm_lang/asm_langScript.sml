@@ -828,7 +828,8 @@ val bytes_in_mem_def = Define `
      bytes_in_mem (a+1w) bs m md k)`
 
 val pos_val_def = Define `
-  (pos_val i pos [] = pos) /\
+  (pos_val i pos [] =
+     if EVEN pos then pos else pos + 1) /\
   (pos_val i pos ((Section k [])::xs) =
      if EVEN pos then pos_val i pos xs else pos_val i (pos + 1) xs) /\
   (pos_val i pos ((Section k (y::ys))::xs) =
@@ -1094,6 +1095,7 @@ val pos_val_MOD_0 = prove(
   \\ HO_MATCH_MP_TAC (theorem "pos_val_ind")
   \\ rpt strip_tac \\ fs [pos_val_def] \\ fs [all_enc_ok_def]
   THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
+  THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
   \\ Cases_on `is_Label y` \\ fs []
   \\ Cases_on `x = 0` \\ fs []
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [] \\ rw []
@@ -1324,6 +1326,8 @@ val aEval_IMP_mEval = prove(
 (*
 
 TODO:
+ - use word-granularity for memory in aEval
+ - fix semantics of CallFFI, finish proof
  - define an incremental version of the compiler
  - add ability to install code
 
