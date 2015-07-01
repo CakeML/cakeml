@@ -356,16 +356,16 @@ val aEval_def = tDefine "aEval" `
              let s1 = upd_reg s.link_reg k s in
                aEval (upd_pc p (dec_clock s1))))
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
-       (case (s.regs s.len_reg,s.regs s.ptr_reg) of
-        | (Word w, Word w2) =>
-         (case read_bytearray w2 (w2n w) s of
-          | NONE => (Error Internal,s)
-          | SOME bytes =>
+       (case (s.regs s.len_reg,s.regs s.ptr_reg,s.regs s.link_reg) of
+        | (Word w, Word w2, Loc n1 n2) =>
+         (case (read_bytearray w2 (w2n w) s,loc_to_pc n1 n2 s.code) of
+          | (SOME bytes, SOME new_pc) =>
               let (new_bytes,new_io) = call_FFI ffi_index bytes s.io_events in
                 aEval (write_bytearray w2 new_bytes s
                          with <| io_events := new_io ;
-                                 pc := s.pc + 1 ;
-                                 clock := s.clock - 1 |>))
+                                 pc := new_pc ;
+                                 clock := s.clock - 1 |>)
+          | _ => (Error Internal,s))
         | _ => (Error Internal,s))
     | _ => (Error Internal,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
@@ -1228,6 +1228,7 @@ val aEval_IMP_mEval = prove(
   THEN1 (* Call *) cheat
   THEN1 (* LocValue *) cheat
 
+
   THEN1 (* CallFFI *)
 
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
@@ -1235,8 +1236,10 @@ val aEval_IMP_mEval = prove(
          `asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ fs []
     \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
+    \\ Cases_on `s1.regs s1.link_reg` \\ fs []
     \\ Cases_on `read_bytearray c' (w2n c) s1` \\ fs []
     \\ qmatch_assum_rename_tac `read_bytearray c1 (w2n c2) s1 = SOME x`
+    \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
     \\ Cases_on `call_FFI index x s1.io_events` \\ fs []
     \\ qmatch_assum_rename_tac `call_FFI index x s1.io_events = (new_bytes,new_io)`
     \\ mp_tac IMP_bytes_in_memory_CallFFI \\ fs []
@@ -1254,6 +1257,8 @@ val aEval_IMP_mEval = prove(
       \\ rfs [] \\ unabbrev_all_tac
       \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
     \\ rpt strip_tac
+    \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ fs []
+    \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
