@@ -52,7 +52,7 @@ val _ = Datatype `
 val _ = Datatype `
   asml_state =
     <| regs       : num -> 'a word_loc
-     ; mem        : 'a word -> word8_loc
+     ; mem        : 'a word -> 'a word_loc
      ; mem_domain : 'a word set
      ; pc         : num
      ; be         : bool
@@ -83,10 +83,9 @@ val asm_fetch_def = Define `
   asm_fetch s = asm_fetch_aux s.pc s.code`
 
 val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
-val upd_reg_def  = Define `upd_reg r v s = s with regs := (r =+ v) s.regs`
-val upd_mem_def  = Define `upd_mem a b s = s with mem := (a =+ b) s.mem`
+val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
+val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
 val read_reg_def = Define `read_reg r s = s.regs r`
-val read_mem_def = Define `read_mem a s = s.mem a`
 
 val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
 
@@ -130,70 +129,103 @@ val addr_def = Define `
     | Word w => SOME (w + offset)
     | _ => NONE`
 
-val read_mem_list_def = Define `
-  (read_mem_list a 0 s = ([],s)) /\
-  (read_mem_list a (SUC n) s =
-     let (w,s1) = read_mem_list (if s.be then a - 1w else a + 1w) n s in
-       (w ++ [read_mem a s1], assert (a IN s1.mem_domain) s1))`
-
-val list_to_word_loc_def = Define `
-  (list_to_word_loc [] = NONE) /\
-  (list_to_word_loc [Byte b] = SOME (Word (w2w b))) /\
-  (list_to_word_loc (Byte b::rest) =
-     case list_to_word_loc rest of
-     | SOME (Word w) => SOME (Word (word_or (w << 8) (w2w b)))
-     | _ => NONE) /\
-  (list_to_word_loc [LocByte n1 n2 i] =
-     if i = 0 then SOME (Loc n1 n2) else NONE) /\
-  (list_to_word_loc (LocByte n1 n2 i::rest) =
-     if (LENGTH rest = i) /\
-        (list_to_word_loc rest = SOME (Loc n1 n2))
-     then SOME (Loc n1 n2)
-     else NONE)`
-
 val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
 
-val mem_load_def = Define `
-  mem_load n r a (s:'a asml_state) =
-    let ax = addr a s in
-    let a = THE ax in
-    let a = if s.be then a + n2w (n - 1) else a in
-    let (l,s) = read_mem_list a n s in
-    let lx = list_to_word_loc l in
-    let s = upd_reg r (THE lx) s in
-      assert ((a && n2w (n - 1) = 0w) /\ lx <> NONE /\ ax <> NONE /\
-              (is_Loc (THE lx) ==> (n = dimindex (:'a) DIV 8))) s`
-
-val write_mem_list_def = Define `
-  (write_mem_list a [] s = s) /\
-  (write_mem_list a (l::ls) s =
-     let s1 = write_mem_list (if s.be then a - 1w else a + 1w) ls s in
-       assert (a IN s1.mem_domain) (upd_mem a l s1))`
-
-val word_loc_to_list_def = Define `
-  (word_loc_to_list (Loc n1 n2) n =
-     GENLIST (\n. LocByte n1 n2 n) n) /\
-  (word_loc_to_list (Word w) n =
-     GENLIST (\n. Byte (w2w (w >>> (8 * n)))) n)`;
-
 val mem_store_def = Define `
-  mem_store n r a (s:'a asml_state) =
-    let ax = addr a s in
-    let a = THE ax in
-    let a = if s.be then a + n2w (n - 1) else a in
-    let w = read_reg r s in
-    let l = word_loc_to_list w n in
-    let s = write_mem_list a l s in
-      assert ((a && n2w (n - 1) = 0w) /\ ax <> NONE /\
-              (is_Loc w ==> (n = dimindex (:'a) DIV 8))) s`
+  mem_store r a (s:'a asml_state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
+                        w IN s.mem_domain)
+                  (upd_mem w (read_reg r s) s)`
+
+val mem_load_def = Define `
+  mem_load r a (s:'a asml_state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
+                        w IN s.mem_domain)
+                  (upd_reg r (s.mem w) s)`
+
+val align_addr_def = Define `
+  align_addr (a:'a word) = n2w (w2n a - (w2n a MOD (dimindex (:'a) DIV 8)))`
+
+val get_byte_def = Define `
+  get_byte (a:'a word) (w:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian
+      then (w2w (w >>> ((d - 1) - w2n a MOD d))):word8
+      else (w2w (w >>> (w2n a MOD d))):word8`
+
+val mem_load_byte_aux_def = Define `
+  mem_load_byte_aux w s =
+    case s.mem (align_addr w) of
+    | Loc _ _ => NONE
+    | Word v =>
+        if align_addr w IN s.mem_domain
+        then SOME (get_byte w v s.be) else NONE`
+
+val read_bytearray_def = Define `
+  (read_bytearray a 0 s = SOME []) /\
+  (read_bytearray a (SUC n) s =
+     case mem_load_byte_aux a s of
+     | NONE => NONE
+     | SOME b => case read_bytearray (a + 1w) n s of
+                 | NONE => NONE
+                 | SOME bs => SOME (b::bs))`
+
+val mem_load_byte_def = Define `
+  mem_load_byte r a (s:'a asml_state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w =>
+        case mem_load_byte_aux w s of
+        | SOME v => upd_reg r (Word (w2w v)) s
+        | NONE => assert F s`
+
+val upd_byte_def = Define `
+  upd_byte i w b = ~(w2w (~0w:word8) << (8 * i)) && w || w2w b << (8 * i)`;
+
+val set_byte_def = Define `
+  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian
+      then upd_byte ((d - 1) - (w2n a MOD d)) w b
+      else upd_byte (w2n a MOD d) w b`
+
+val mem_store_byte_aux_def = Define `
+  mem_store_byte_aux w b s =
+    case s.mem (align_addr w) of
+    | Word v =>
+        if align_addr w IN s.mem_domain
+        then SOME (upd_mem (align_addr w) (Word (set_byte w b v s.be)) s)
+        else NONE
+    | _ => NONE`
+
+val mem_store_byte_def = Define `
+  mem_store_byte r a (s:'a asml_state) =
+    case addr a s of
+    | NONE => assert F s
+    | SOME w =>
+        case read_reg r s of
+        | Word b =>
+           (case mem_store_byte_aux w (w2w b) s of
+            | SOME s1 => s1
+            | NONE => assert F s)
+        | _ => assert F s`
+
+val write_bytearray_def = Define `
+  (write_bytearray a [] s = s) /\
+  (write_bytearray a (b::bs) s =
+     THE (mem_store_byte_aux a b (write_bytearray (a+1w) bs s)))`
 
 val mem_op_def = Define `
-  (mem_op Load r a = mem_load (dimindex (:'a) DIV 8) r a) /\
-  (mem_op Store r a = mem_store (dimindex (:'a) DIV 8) r a) /\
-  (mem_op Load8 r a = mem_load 1 r a) /\
-  (mem_op Store8 r a = mem_store 1 r a) /\
-  (mem_op Load32 r (a:'a addr) = mem_load 4 r a) /\
-  (mem_op Store32 r (a:'a addr) = mem_store 4 r a)`
+  (mem_op Load r a = mem_load r a) /\
+  (mem_op Store r a = mem_store r a) /\
+  (mem_op Load8 r a = mem_load_byte r a) /\
+  (mem_op Store8 r a = mem_store_byte r a) /\
+  (mem_op Load32 r (a:'a addr) = assert F) /\
+  (mem_op Store32 r (a:'a addr) = assert F)`
 
 val asm_inst_def = Define `
   (asm_inst Skip s = (s:'a asml_state)) /\
@@ -240,23 +272,6 @@ val loc_to_pc_def = Define `
            | NONE => NONE
            | SOME pos => SOME (pos + 1))`;
 
-val read_mem_list_consts = prove(
-  ``!n a s. ((SND (read_mem_list a n s)).pc = s.pc) /\
-            ((SND (read_mem_list a n s)).code = s.code) /\
-            ((SND (read_mem_list a n s)).clock = s.clock) /\
-            ((SND (read_mem_list a n s)).io_events = s.io_events)``,
-  Induct \\ fs [read_mem_list_def,LET_DEF]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [assert_def]);
-
-val write_mem_list_consts = prove(
-  ``!n a s. (((write_mem_list a n s)).pc = s.pc) /\
-            (((write_mem_list a n s)).code = s.code) /\
-            (((write_mem_list a n s)).clock = s.clock) /\
-            (((write_mem_list a n s)).io_events = s.io_events)``,
-  Induct \\ fs [write_mem_list_def,LET_DEF]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ fs [assert_def,upd_mem_def]);
-
 val asm_inst_consts = prove(
   ``((asm_inst i s).pc = s.pc) /\
     ((asm_inst i s).code = s.code) /\
@@ -266,34 +281,16 @@ val asm_inst_consts = prove(
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def,read_reg_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ TRY (Cases_on `b`)
-  \\ fs [binop_upd_def,upd_reg_def,assert_def]
-  \\ Cases_on `m`
-  \\ fs [mem_op_def,mem_load_def,LET_DEF,
-         assert_def,upd_reg_def,mem_store_def]
-  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-  \\ fs [read_mem_list_consts,write_mem_list_consts]);
+  \\ fs [binop_upd_def,upd_reg_def,assert_def] \\ Cases_on `m`
+  \\ fs [mem_op_def,mem_load_def,LET_DEF,mem_load_byte_def,upd_mem_def,
+         assert_def,upd_reg_def,mem_store_def,mem_store_byte_def,
+         mem_store_byte_aux_def,addr_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
 val get_pc_value_def = Define `
   get_pc_value lab (s:'a asml_state) =
     case lab of
     | Lab n1 n2 => loc_to_pc n1 n2 s.code`;
-
-val read_bytearray_def = Define `
-  (read_bytearray a 0 s = SOME []) /\
-  (read_bytearray a (SUC n) s =
-     if ~(a IN s.mem_domain) then NONE else
-       case s.mem a of
-       | Byte b =>
-        (case read_bytearray (a+1w) n s of
-         | SOME bytes => SOME (b::bytes)
-         | _ => NONE)
-       | _ => NONE)`
-
-val write_bytearray_def = Define `
-  (write_bytearray a [] m = m) /\
-  (write_bytearray a (b::bs) m =
-     let s' = write_bytearray (a+1w) bs m in
-       (a =+ Byte b) m)`
 
 val next_label_def = Define `
   (next_label [] = NONE) /\
@@ -365,8 +362,8 @@ val aEval_def = tDefine "aEval" `
           | NONE => (Error Internal,s)
           | SOME bytes =>
               let (new_bytes,new_io) = call_FFI ffi_index bytes s.io_events in
-                aEval (s with <| io_events := new_io ;
-                                 mem := write_bytearray w2 new_bytes s.mem ;
+                aEval (write_bytearray w2 new_bytes s
+                         with <| io_events := new_io ;
                                  pc := s.pc + 1 ;
                                  clock := s.clock - 1 |>))
         | _ => (Error Internal,s))
@@ -836,7 +833,7 @@ val pos_val_def = Define `
      if is_Label y
      then pos_val i (pos + line_length y) ((Section k ys)::xs)
      else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`
+          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
 
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a asml_state) t1 ms1 <=>
@@ -851,9 +848,10 @@ val state_rel_def = Define `
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
-    (!a. a IN s1.mem_domain ==>
+    (!a. align_addr a IN s1.mem_domain ==>
          a IN t1.mem_domain /\
-         (word8_loc_val p labs (s1.mem a) = SOME (t1.mem a))) /\
+         ?w. (word_loc_val p labs (s1.mem (align_addr a)) = SOME w) /\
+             (get_byte a w s1.be = t1.mem a)) /\
     (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 1)) /\
     bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
       t1.mem t1.mem_domain s1.mem_domain /\
@@ -1326,7 +1324,6 @@ val aEval_IMP_mEval = prove(
 (*
 
 TODO:
- - use word-granularity for memory in aEval
  - fix semantics of CallFFI, finish proof
  - define an incremental version of the compiler
  - add ability to install code
