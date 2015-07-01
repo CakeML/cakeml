@@ -56,7 +56,8 @@ val _ = Datatype `
      ; mem_domain : 'a word set
      ; pc         : num
      ; be         : bool
-     ; io_events  : io_trace
+     ; io_events  : io_trace  (* oracle *)
+     ; io_regs    : num -> num -> 'a word_loc -> 'a word_loc  (* oracle *)
      ; code       : 'a asm_prog
      ; clock      : num
      ; failed     : bool
@@ -217,7 +218,7 @@ val mem_store_byte_def = Define `
 val write_bytearray_def = Define `
   (write_bytearray a [] s = s) /\
   (write_bytearray a (b::bs) s =
-     THE (mem_store_byte_aux a b (write_bytearray (a+1w) bs s)))`
+     THE (mem_store_byte_aux a b (write_bytearray (a+1w) bs s)))`;
 
 val mem_op_def = Define `
   (mem_op Load r a = mem_load r a) /\
@@ -225,13 +226,13 @@ val mem_op_def = Define `
   (mem_op Load8 r a = mem_load_byte r a) /\
   (mem_op Store8 r a = mem_store_byte r a) /\
   (mem_op Load32 r (a:'a addr) = assert F) /\
-  (mem_op Store32 r (a:'a addr) = assert F)`
+  (mem_op Store32 r (a:'a addr) = assert F)`;
 
 val asm_inst_def = Define `
   (asm_inst Skip s = (s:'a asml_state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
-  (asm_inst (Mem m r a) s = mem_op m r a s)`
+  (asm_inst (Mem m r a) s = mem_op m r a s)`;
 
 val dec_clock_def = Define `
   dec_clock s = s with clock := s.clock - 1`
@@ -361,8 +362,11 @@ val aEval_def = tDefine "aEval" `
          (case (read_bytearray w2 (w2n w) s,loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME new_pc) =>
               let (new_bytes,new_io) = call_FFI ffi_index bytes s.io_events in
+              let new_io_regs = shift_seq 1 s.io_regs in
                 aEval (write_bytearray w2 new_bytes s
                          with <| io_events := new_io ;
+                                 io_regs := new_io_regs ;
+                                 regs := (\a. s.io_regs 0 a (s.regs a));
                                  pc := new_pc ;
                                  clock := s.clock - 1 |>)
           | _ => (Error Internal,s))
@@ -1117,6 +1121,8 @@ val state_rel_weaken = prove(
   ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
     state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1``,
   fs [state_rel_def] \\ rpt strip_tac \\ fs [] \\ metis_tac []);
+
+
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
