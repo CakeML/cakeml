@@ -33,7 +33,6 @@ val compile_def = tDefine"compile"`
   (compile (Fun e) =
     Fn 0 [] 1 (compile e)) ∧
   (compile (App (Op (Op Opapp)) es) =
-    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
     App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
   (compile (App (Op (Op (Opn Plus))) es) =
@@ -71,7 +70,6 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op Equality)) es) =
     Op Equal (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Opassign)) es) =
-    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
       Op Update [compile (EL 1 es); Op (Const 0) []; compile (EL 0 es)]) ∧
   (compile (App (Op (Op Opderef)) es) =
@@ -79,7 +77,6 @@ val compile_def = tDefine"compile"`
   (compile (App (Op (Op Opref)) es) =
     Op Ref (REVERSE (MAP compile es))) ∧
   (compile (App (Op (Op Ord)) es) =
-    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else compile (HD es)) ∧
   (compile (App (Op (Op Chr)) es) =
     Let (REVERSE (MAP compile es))
@@ -157,7 +154,6 @@ val compile_def = tDefine"compile"`
   (compile (App (Tag_eq n l) es) =
     Op (TagLenEq n l) (REVERSE (MAP compile es))) ∧
   (compile (App (El n) es) =
-    (* TODO: check if this if is really necessary *)
     if LENGTH es ≠ 1 then Op Sub (REVERSE (MAP compile es)) else
       Op El [Op (Const &n) []; compile (HD es)]) ∧
   (compile (If e1 e2 e3) =
@@ -169,8 +165,8 @@ val compile_def = tDefine"compile"`
   (compile (Letrec es e) =
     Letrec 0 [] (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global n) =
-   Let (REPLICATE n (Op AllocGlobal []))
-     (Op (Cons tuple_tag) []))`
+    Let (REPLICATE n (Op AllocGlobal []))
+      (Op (Cons tuple_tag) []))`
   let
     val exp_size_def = patLangTheory.exp_size_def
   in
