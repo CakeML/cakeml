@@ -343,7 +343,7 @@ val evaluate_ok = prove(
   \\ IMP_RES_TAC evaluate_IMP_bv_ok
   \\ IMP_RES_TAC do_app_ok
   \\ REPEAT (Q.PAT_ASSUM `!xx.bb` (K ALL_TAC))
-  \\ imp_res_tac do_app_err \\ fs[]
+  \\ imp_res_tac bvlPropsTheory.do_app_err \\ fs[]
   \\ IMP_RES_TAC find_code_EVERY_IMP \\ fs [rich_listTheory.EVERY_REVERSE]
   \\ IMP_RES_TAC evaluate_IMP_bv_ok \\ fs [evaluate_ok_lemma]
   \\ fs [state_ok_def]);
