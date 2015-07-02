@@ -1145,13 +1145,19 @@ val IMP_io_has_index = prove(
   \\ Q.LIST_EXISTS_TAC [`0`,`l`] \\ fs [llistTheory.LNTH]);
 
 val read_bytearray_state_rel = prove(
-  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
-    (read_bytearray c1 n s1 = SOME x) ==>
-    (read_bytearray c1 n
-      (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
-     SOME x)``,
-  cheat);
-
+  ``!n a x.
+      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
+      (read_bytearray a n s1 = SOME x) ==>
+      (read_bytearray a n
+        (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
+       SOME x)``,
+  Induct \\ fs [read_bytearray_def,target_semTheory.read_bytearray_def]
+  \\ rpt strip_tac \\ Cases_on `mem_load_byte_aux a s1` \\ fs []
+  \\ Cases_on `read_bytearray (a + 1w) n s1` \\ fs []
+  \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
+  \\ Cases_on `s1.mem (align_addr a)` \\ fs [] \\ rw []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
+  \\ rpt strip_tac \\ fs [word_loc_val_def]);
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1388,6 +1394,7 @@ val aEval_IMP_mEval = prove(
 
 TODO:
  - fix semantics of CallFFI, finish proof
+ - weaken all_enc_ok
  - define an incremental version of the compiler
  - add ability to install code
 
