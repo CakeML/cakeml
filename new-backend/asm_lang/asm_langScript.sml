@@ -1374,7 +1374,7 @@ val aEval_IMP_mEval = prove(
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
          `code2`,`labs`,
-         `(asm jj (t1.pc + n2w (LENGTH (mc_conf.f.encode jj))) t1)`,
+         `t1 with pc := p + n2w (pos_val new_pc 0 (code2:'a asm_prog))`,
          `mc_conf.ffi_interfer 0 index new_bytes ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
 
@@ -1393,10 +1393,11 @@ val aEval_IMP_mEval = prove(
       \\ full_simp_tac bool_ss [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
             WORD_ADD_SUB] \\ fs [get_pc_value_def]
       \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
-             (mc_conf.f.proj t1.mem_domain)` by
-              (fs [interference_ok_def,shift_seq_def] \\ NO_TAC) \\ fs []
+            (mc_conf.f.proj t1.mem_domain)` by
+               (fs [interference_ok_def,shift_seq_def] \\ NO_TAC) \\ fs []
 
       \\ cheat)
+
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
