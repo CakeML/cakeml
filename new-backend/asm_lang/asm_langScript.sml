@@ -1154,16 +1154,36 @@ val read_bytearray_state_rel = prove(
   \\ rpt strip_tac \\ fs [word_loc_val_def]);
 
 val aEval_pres_io_events_NONE = prove(
-  ``!s1 res s2.
-      (aEval s1 = (res,s2)) /\
-      (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
-  cheat);
+  ``!s1.
+      (aEval s1 = (res,s2)) /\ (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
+  completeInduct_on `s1.clock`
+  \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
+  \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once aEval_def,LET_DEF]
+  \\ Cases_on `s1.clock = 0` \\ fs []
+  \\ `0 < s1.clock` by decide_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF] \\ rpt strip_tac
+  \\ fs [AND_IMP_INTRO]
+  \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
+  \\ rfs [call_FFI_def] \\ res_tac \\ fs []);
 
 val IMP_has_io_index = prove(
   ``(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
     has_io_index index s1.code``,
-  cheat);
+  fs [asm_fetch_def]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`)
+  \\ Q.SPEC_TAC (`s1.code`,`code`)
+  \\ HO_MATCH_MP_TAC (theorem "asm_code_length_ind") \\ rpt strip_tac
+  \\ fs [asm_fetch_aux_def,has_io_index_def] \\ res_tac
+  \\ Cases_on `is_Label y` \\ fs []
+  THEN1 (Cases_on `y` \\ fs [is_Label_def] \\ res_tac)
+  \\ Cases_on `pc = 0` \\ fs [] \\ res_tac \\ fs []);
 
+val write_bytearray_simp = prove(
+  ``(read_bytearray (c1:'a word) (w2n (c2:'a word)) s1 = SOME x) /\
+    (call_FFI index x s1.io_events = (new_bytes,new_io)) ==>
+    (write_bytearray c1 new_bytes s1 =
+       s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
+  cheat);
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1357,11 +1377,26 @@ val aEval_IMP_mEval = prove(
          `(asm jj (t1.pc + n2w (LENGTH (mc_conf.f.encode jj))) t1)`,
          `mc_conf.ffi_interfer 0 index new_bytes ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (rpt strip_tac
+
+     (
+
+      rpt strip_tac
       THEN1 (fs [backend_correct_alt_def,shift_interfer_def] \\ metis_tac [])
       \\ unabbrev_all_tac
       \\ fs [state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
-             asmTheory.upd_pc_def] \\ rfs[] \\ cheat)
+             asmTheory.upd_pc_def] \\ rfs[]
+      \\ mp_tac write_bytearray_simp \\ fs []
+      \\ strip_tac \\ pop_assum (fn th => once_rewrite_tac [th] THEN fs [] THEN
+                         fs [GSYM th])
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ full_simp_tac bool_ss [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
+             (mc_conf.f.proj t1.mem_domain)` by
+              (fs [interference_ok_def,shift_seq_def] \\ NO_TAC) \\ fs []
+
+      \\ cheat)
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
