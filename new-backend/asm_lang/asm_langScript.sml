@@ -839,10 +839,12 @@ val pos_val_def = Define `
      else if i = 0:num then pos
           else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
 
-val io_has_index_def = Define `
-  (io_has_index index NONE = F) /\
-  (io_has_index index (SOME events) =
-     ?k bytes. LNTH k events = SOME (IO_event index bytes))`
+val has_io_index_def = Define `
+  (has_io_index index [] = F) /\
+  (has_io_index index ((Section k [])::xs) = has_io_index index xs) /\
+  (has_io_index index ((Section k (y::ys))::xs) <=>
+     has_io_index index ((Section k ys)::xs) \/
+     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)`
 
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a asml_state) t1 ms1 <=>
@@ -853,7 +855,7 @@ val state_rel_def = Define `
     reg_ok s1.len_reg mc_conf.asm_config /\ (mc_conf.len_reg = s1.len_reg) /\
     reg_ok s1.link_reg mc_conf.asm_config /\
     (!index.
-       io_has_index index s1.io_events ==>
+       has_io_index index s1.code ==>
        ~(p - n2w ((3 + index) * ffi_offset) IN mc_conf.prog_addresses) /\
        ~(p - n2w ((3 + index) * ffi_offset) = mc_conf.halt_pc) /\
        (list_find (p - n2w ((3 + index) * ffi_offset))
@@ -1136,14 +1138,6 @@ val state_rel_weaken = prove(
     state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1``,
   fs [state_rel_def] \\ rpt strip_tac \\ fs [] \\ metis_tac []);
 
-val IMP_io_has_index = prove(
-  ``(call_FFI index x s1.io_events = (new_bytes,new_io)) /\
-    new_io <> NONE ==> io_has_index index s1.io_events``,
-  fs [call_FFI_def]
-  \\ Cases_on `s1.io_events` \\ fs [] \\ rw []
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs[] \\ rw [io_has_index_def]
-  \\ Q.LIST_EXISTS_TAC [`0`,`l`] \\ fs [llistTheory.LNTH]);
-
 val read_bytearray_state_rel = prove(
   ``!n a x.
       state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
@@ -1159,15 +1153,29 @@ val read_bytearray_state_rel = prove(
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
   \\ rpt strip_tac \\ fs [word_loc_val_def]);
 
+val aEval_pres_io_events_NONE = prove(
+  ``!s1 res s2.
+      (aEval s1 = (res,s2)) /\
+      (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
+  cheat);
+
+val IMP_has_io_index = prove(
+  ``(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
+    has_io_index index s1.code``,
+  cheat);
+
+
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
-      (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\
+      (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
       backend_correct_alt mc_conf.f mc_conf.asm_config /\
       state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
       ?k t2 ms2.
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
-           (res,ms2,s2.io_events)) /\
-        state_rel (mc_conf,code2,labs,p,F) s2 t2 ms2``,
+           (if s2.io_events = NONE then Error IO_mismatch
+            else res,ms2,s2.io_events)) /\
+        ((s2.io_events <> NONE) ==>
+         state_rel (mc_conf,code2,labs,p,F) s2 t2 ms2)``,
 
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
@@ -1269,8 +1277,6 @@ val aEval_IMP_mEval = prove(
   THEN1 (* Call *) cheat
   THEN1 (* LocValue *) cheat
 
-
-
   THEN1 (* CallFFI *)
 
    (
@@ -1303,6 +1309,47 @@ val aEval_IMP_mEval = prove(
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ fs []
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
+    \\ `mc_conf.f.get_pc ms2 = p - n2w ((3 + index) * ffi_offset)` by
+     (fs [state_rel_def] \\ rfs []
+      \\ fs [backend_correct_alt_def]
+      \\ Q.PAT_ASSUM `!ms s. mc_conf.f.state_rel s ms ==> bbb` imp_res_tac
+      \\ fs [] \\ unabbrev_all_tac
+      \\ fs [asm_def,jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rewrite_tac [GSYM word_sub_def,WORD_SUB_PLUS,
+           GSYM word_add_n2w,WORD_ADD_SUB]) \\ fs []
+    \\ `has_io_index index s1.code` by
+          (imp_res_tac IMP_has_io_index \\ NO_TAC)
+    \\ `~(mc_conf.f.get_pc ms2 IN mc_conf.prog_addresses) /\
+        ~(mc_conf.f.get_pc ms2 = mc_conf.halt_pc) /\
+        (list_find (mc_conf.f.get_pc ms2) mc_conf.ffi_entry_pcs =
+           SOME index)` by
+      (fs [state_rel_def]
+       \\ Q.PAT_ASSUM `!kk. has_io_index kk s1.code ==> bbb` imp_res_tac
+       \\ rfs [])
+    \\ `(mc_conf.f.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
+        (mc_conf.f.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
+        !a. a IN mc_conf.prog_addresses ==>
+            (mc_conf.f.get_byte ms2 a = t1.mem a)` by
+     (fs [backend_correct_alt_def |> REWRITE_RULE [GSYM reg_ok_def]]
+      \\ res_tac \\ unabbrev_all_tac \\ fs [state_rel_def,asm_def,
+           jump_to_offset_def,asmTheory.upd_pc_def] \\ NO_TAC) \\ fs []
+    \\ `(t1.regs mc_conf.ptr_reg = c1) /\
+        (t1.regs mc_conf.len_reg = c2)` by
+     (fs [state_rel_def]
+      \\ Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
+           (fn th =>
+          MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+      \\ Q.PAT_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+      \\ fs [word_loc_val_def] \\ NO_TAC) \\ fs []
+    \\ imp_res_tac read_bytearray_state_rel \\ fs []
+    \\ Cases_on `new_io = NONE` THEN1
+     (imp_res_tac aEval_pres_io_events_NONE \\ fs [] \\ rfs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rpt strip_tac
+      \\ Q.EXISTS_TAC `l'` \\ fs [ADD_ASSOC]
+      \\ once_rewrite_tac [mEval_def] \\ fs []
+      \\ fs [shift_interfer_def,LET_DEF]) \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
@@ -1316,45 +1363,14 @@ val aEval_IMP_mEval = prove(
       \\ fs [state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
              asmTheory.upd_pc_def] \\ rfs[] \\ cheat)
     \\ rpt strip_tac
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rw []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
     \\ Q.LIST_EXISTS_TAC [`t2`,`ms2'`] \\ fs []
     \\ simp_tac std_ss [Once mEval_def]
-    \\ simp [shift_interfer_def]
-    \\ `mc_conf.f.get_pc ms2 = p - n2w ((3 + index) * ffi_offset)` by
-     (fs [state_rel_def] \\ rfs []
-      \\ fs [backend_correct_alt_def] \\ res_tac \\ fs []
-      \\ unabbrev_all_tac
-      \\ fs [asm_def,jump_to_offset_def,asmTheory.upd_pc_def]
-      \\ rewrite_tac [GSYM word_sub_def,WORD_SUB_PLUS,
-           GSYM word_add_n2w,WORD_ADD_SUB]) \\ fs []
-    \\ Cases_on `new_io = NONE` THEN1 cheat
-    \\ imp_res_tac IMP_io_has_index
-    \\ `~(mc_conf.f.get_pc ms2 IN mc_conf.prog_addresses) /\
-        ~(mc_conf.f.get_pc ms2 = mc_conf.halt_pc) /\
-        (list_find (mc_conf.f.get_pc ms2) mc_conf.ffi_entry_pcs =
-           SOME index)` by (fs [state_rel_def] \\ res_tac \\ rfs[])
-    \\ `(mc_conf.f.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
-        (mc_conf.f.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
-        !a. a IN mc_conf.prog_addresses ==>
-            (mc_conf.f.get_byte ms2 a = t1.mem a)` by
-     (fs [backend_correct_alt_def |> REWRITE_RULE [GSYM reg_ok_def],state_rel_def]
-      \\ res_tac \\ unabbrev_all_tac \\ fs [asm_def,jump_to_offset_def,
-           asmTheory.upd_pc_def] \\ rfs [] \\ NO_TAC) \\ fs []
-    \\ `(t1.regs mc_conf.ptr_reg = c1) /\
-        (t1.regs mc_conf.len_reg = c2)` by
-     (fs [state_rel_def]
-      \\ Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
-           (fn th =>
-          MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
-          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
-      \\ Q.PAT_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
-      \\ Q.PAT_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
-      \\ fs [word_loc_val_def] \\ NO_TAC) \\ fs []
-    \\ imp_res_tac read_bytearray_state_rel \\ fs []
     \\ fs [shift_interfer_def]
-    \\ `k + s1.clock - 1 = s1.clock - 1 + k` by decide_tac \\ fs []
-    \\ fs [state_rel_def] \\ rfs [])
+    \\ fs [AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC] \\ rfs [LET_DEF]
+    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ fs []
+    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs [])
   THEN1 (* Halt *)
    (rw []
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
