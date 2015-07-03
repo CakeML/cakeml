@@ -57,7 +57,7 @@ val _ = Datatype `
      ; pc         : num
      ; be         : bool
      ; io_events  : io_trace  (* oracle *)
-     ; io_regs    : num -> num -> 'a word_loc -> 'a word_loc  (* oracle *)
+     ; io_regs    : num -> num -> 'a word option  (* oracle *)
      ; code       : 'a asm_prog
      ; clock      : num
      ; failed     : bool
@@ -314,6 +314,10 @@ val get_lab_after_pos_def = Define `
 val get_ret_Loc_def = Define `
   get_ret_Loc s = get_lab_after s.pc s.code`;
 
+val get_reg_value_def = Define `
+  (get_reg_value NONE w f = w) /\
+  (get_reg_value (SOME v) _ f = f v)`
+
 val aEval_def = tDefine "aEval" `
   aEval (s:'a asml_state) =
     if s.clock = 0 then (TimeOut,s) else
@@ -368,7 +372,8 @@ val aEval_def = tDefine "aEval" `
                 aEval (write_bytearray w2 new_bytes s
                          with <| io_events := new_io ;
                                  io_regs := new_io_regs ;
-                                 regs := (\a. s.io_regs 0 a (s.regs a));
+                                 regs := (\a. get_reg_value (s.io_regs 0 a)
+                                                (s.regs a) Word);
                                  pc := new_pc ;
                                  clock := s.clock - 1 |>)
           | _ => (Error Internal,s))
@@ -848,6 +853,14 @@ val has_io_index_def = Define `
      has_io_index index ((Section k ys)::xs) \/
      case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)`
 
+val option_ldrop_def = Define `
+  (option_ldrop n NONE = NONE) /\
+  (option_ldrop n (SOME l) = LDROP n l)`
+
+val asm_write_bytearray_def = Define `
+  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
+  (asm_write_bytearray a (x::xs) m = asm_write_bytearray (a+1w) xs ((a =+ x) m))`
+
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a asml_state) t1 ms1 <=>
     mc_conf.f.state_rel t1 ms1 /\
@@ -856,6 +869,19 @@ val state_rel_def = Define `
     reg_ok s1.ptr_reg mc_conf.asm_config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
     reg_ok s1.len_reg mc_conf.asm_config /\ (mc_conf.len_reg = s1.len_reg) /\
     reg_ok s1.link_reg mc_conf.asm_config /\
+    (!ms2 k index new_bytes new_io t1 x.
+       mc_conf.f.state_rel
+         (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
+       (read_bytearray (t1.regs s1.ptr_reg) (LENGTH new_bytes)
+         (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) = SOME x) /\
+       (call_FFI index x (option_ldrop k s1.io_events) = (new_bytes,new_io)) /\
+       new_io <> NONE ==>
+       mc_conf.f.state_rel
+         (t1 with
+         <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
+           mem := asm_write_bytearray (t1.regs s1.ptr_reg) new_bytes t1.mem;
+           pc := t1.regs s1.link_reg|>)
+        (mc_conf.ffi_interfer k index new_bytes ms2)) /\
     (!index.
        has_io_index index s1.code ==>
        ~(p - n2w ((3 + index) * ffi_offset) IN mc_conf.prog_addresses) /\
@@ -871,7 +897,7 @@ val state_rel_def = Define `
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (!a. align_addr a IN s1.mem_domain ==>
-         a IN t1.mem_domain /\
+         a IN t1.mem_domain /\ a IN s1.mem_domain /\
          ?w. (word_loc_val p labs (s1.mem (align_addr a)) = SOME w) /\
              (get_byte a w s1.be = t1.mem a)) /\
     (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 1)) /\
@@ -1218,10 +1244,6 @@ val write_bytearray_simp = prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac
   \\ fs [listTheory.LENGTH_MAP]) |> SPEC_ALL;
 
-val asm_write_bytearray_def = Define `
-  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
-  (asm_write_bytearray a (x::xs) m = asm_write_bytearray (a+1w) xs ((a =+ x) m))`
-
 val call_FFI_LENGTH = prove(
   ``(call_FFI index x io = (new_bytes,new_io)) ==>
     (LENGTH x = LENGTH new_bytes)``,
@@ -1236,7 +1258,8 @@ val bytes_in_mem_asm_write_bytearray_lemma = prove(
   Induct \\ fs [bytes_in_mem_def]);
 
 val bytes_in_mem_asm_write_bytearray = prove(
-  ``(read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) ==>
+  ``state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
+    (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
     bytes_in_mem p xs
       (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
@@ -1255,7 +1278,13 @@ val bytes_in_mem_asm_write_bytearray = prove(
   \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
   \\ fs [mem_load_byte_aux_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
-  \\ cheat (* needs to be more precise... *));
+  \\ rw [combinTheory.APPLY_UPDATE_THM]
+  \\ fs [state_rel_def] \\ res_tac);
+
+val option_ldrop_0 = prove(
+  ``!ll. option_ldrop 0 ll = ll``,
+  Cases \\ fs [option_ldrop_def]);
+
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1448,16 +1477,16 @@ val aEval_IMP_mEval = prove(
          `code2`,`labs`,
          `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a asm_prog)) ;
                      mem := asm_write_bytearray c1 new_bytes t1.mem ;
-                 regs := (\r. THE (word_loc_val p labs (s1.io_regs 0 r (s1.regs r)))) |>`,
+                     regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
          `mc_conf.ffi_interfer 0 index new_bytes ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-
 
      (
 
       rpt strip_tac
       THEN1 (fs [backend_correct_alt_def,shift_interfer_def] \\ metis_tac [])
       \\ unabbrev_all_tac
+      \\ imp_res_tac bytes_in_mem_asm_write_bytearray
       \\ fs [state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
              asmTheory.upd_pc_def] \\ rfs[]
       \\ mp_tac write_bytearray_simp \\ fs []
@@ -1479,10 +1508,17 @@ val aEval_IMP_mEval = prove(
       \\ `w2n c2 = LENGTH new_bytes` by
        (imp_res_tac read_bytearray_LENGTH
         \\ imp_res_tac call_FFI_LENGTH \\ fs [])
-      \\ fs [] \\ imp_res_tac bytes_in_mem_asm_write_bytearray \\ fs []
-
-      \\ cheat)
-
+      \\ res_tac \\ fs [] \\ rpt strip_tac
+      THEN1
+       (fs [PULL_FORALL,AND_IMP_INTRO] \\ rfs[]
+        \\ Q.PAT_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
+        \\ fs [] \\ first_x_assum match_mp_tac
+        \\ fs [] \\ qexists_tac `new_io` \\ fs [option_ldrop_0])
+      THEN1 cheat (* shifts and the similar *)
+      THEN1
+       (Cases_on `s1.io_regs 0 r`
+        \\ fs [get_reg_value_def,word_loc_val_def])
+      \\ cheat (* requires messing around with bytearrays *))
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
@@ -1491,7 +1527,10 @@ val aEval_IMP_mEval = prove(
     \\ fs [shift_interfer_def]
     \\ fs [AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC] \\ rfs [LET_DEF]
     \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ fs []
-    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs [])
+    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs []
+    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs []
+    \\ Q.PAT_ASSUM `!x y z q1 q2. bbb` MP_TAC
+    \\ cheat (* do we really need to establish state_rel on exit? *))
   THEN1 (* Halt *)
    (rw []
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
