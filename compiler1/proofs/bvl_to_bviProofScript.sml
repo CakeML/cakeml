@@ -5,44 +5,6 @@ open preamble
 
 val _ = new_theory"bvl_to_bviProof";
 
-(* TODO: move *)
-
-val FLOOKUP_FAPPLY = FLOOKUP_UPDATE;
-
-val IMP_EVERY_LUPDATE = prove(
-  ``!xs h i. P h /\ EVERY P xs ==> EVERY P (LUPDATE h i xs)``,
-  Induct \\ fs [LUPDATE_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `i` \\ fs [LUPDATE_def]);
-
-val MEM_EQ_IMP_MAP_EQ = MAP_EQ_f;
-
-val MAP_APPEND_MAP_EQ = prove(
-  ``!xs ys.
-      ((MAP f1 xs ++ MAP g1 ys) = (MAP f2 xs ++ MAP g2 ys)) <=>
-      (MAP f1 xs = MAP f2 xs) /\ (MAP g1 ys = MAP g2 ys)``,
-  Induct \\ fs [] \\ METIS_TAC []);
-
-val LUPDATE_SOME_MAP = prove(
-  ``!xs n f h.
-      LUPDATE (SOME (f h)) n (MAP (OPTION_MAP f) xs) =
-      MAP (OPTION_MAP f) (LUPDATE (SOME h) n xs)``,
-  Induct THEN1 (EVAL_TAC \\ fs []) \\ Cases_on `n` \\ fs [LUPDATE_def]);
-
-val IN_INSERT_EQ = prove(
-  ``n IN s ==> (n INSERT s = s)``,
-  fs [EXTENSION] \\ METIS_TAC []);
-
-val MAP_LUPDATE = prove(
-  ``!xs y x f. MAP f (LUPDATE x y xs) = LUPDATE (f x) y (MAP f xs)``,
-  Induct THEN1 (EVAL_TAC \\ fs []) \\ Cases_on `y` \\ fs [LUPDATE_def]);
-
-val INJ_EXTEND = prove(
-  ``INJ b s t /\ ~(x IN s) /\ ~(y IN t) ==>
-    INJ ((x =+ y) b) (x INSERT s) (y INSERT t)``,
-  fs [INJ_DEF,APPLY_UPDATE_THM] \\ METIS_TAC []);
-
-(* -- *)
-
 (* value relation *)
 
 val bVarBound_def = tDefine "bVarBound" `
@@ -170,7 +132,7 @@ val bv_ok_IMP_adjust_bv_eq = prove(
       (adjust_bv b2 a1 = adjust_bv b3 a1)``,
   HO_MATCH_MP_TAC adjust_bv_ind
   \\ REPEAT STRIP_TAC \\ fs [adjust_bv_def,bv_ok_def]
-  \\ fs [MEM_EQ_IMP_MAP_EQ,EVERY_MEM]);
+  \\ fs [MAP_EQ_f,EVERY_MEM]);
 
 val state_ok_def = Define `
   state_ok (s:bvlSem$state) <=>
@@ -277,7 +239,7 @@ val do_app_ok_lemma = prove(
       \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
     THEN1
-     (fs [FLOOKUP_FAPPLY] \\ Cases_on `k = n` \\ fs [] THEN1
+     (fs [FLOOKUP_UPDATE] \\ Cases_on `k = n` \\ fs [] THEN1
        (MATCH_MP_TAC IMP_EVERY_LUPDATE \\ REPEAT STRIP_TAC
         THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
           \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
@@ -525,13 +487,13 @@ val do_app_adjust = prove(
     \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   THEN1 (* Cons *)
    (fs [bEvalOp_def]
-    \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id]
-    \\ SRW_TAC [] [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id])
+    \\ SRW_TAC [] [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id]
+    \\ SRW_TAC [] [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id])
   THEN1 (* El *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
     \\ every_case_tac >> fs[]
     \\ SRW_TAC [] []
-    \\ fs [adjust_bv_def,MEM_EQ_IMP_MAP_EQ,bvl_to_bvi_id,
+    \\ fs [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id,
          bEvalOp_def,EL_MAP] \\ SRW_TAC [] [])
   THEN1 (* LengthBlock *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [adjust_bv_def,bEvalOp_def]
@@ -656,10 +618,10 @@ val do_app_adjust = prove(
     \\ rpt var_eq_tac \\ simp[]
     \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
     \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
-    \\ fs [FLOOKUP_FAPPLY]
+    \\ fs [FLOOKUP_UPDATE]
     \\ REPEAT STRIP_TAC
-    THEN1 fs [FLOOKUP_DEF,IN_INSERT_EQ]
-    \\ Cases_on `k = n` \\ fs [MAP_LUPDATE]
+    THEN1 fs [FLOOKUP_DEF,ABSORPTION_RWT]
+    \\ Cases_on `k = n` \\ fs [LUPDATE_MAP]
     \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs []
     \\ `b2 k <> b2 n` by ALL_TAC \\ fs []
     \\ fs [INJ_DEF,FLOOKUP_DEF]
@@ -690,8 +652,8 @@ val do_app_adjust = prove(
     fs[state_rel_def] >>
     conj_tac >- (
       fs[FLOOKUP_DEF] >>
-      simp[IN_INSERT_EQ] ) >>
-    simp[FLOOKUP_FAPPLY] >> rw[] >>
+      simp[ABSORPTION_RWT] ) >>
+    simp[FLOOKUP_UPDATE] >> rw[] >>
     BasicProvers.CASE_TAC >>
     fs[FLOOKUP_DEF] >>
     METIS_TAC[INJ_DEF])
@@ -978,7 +940,7 @@ val compile_correct = Q.prove(
         (EVAL_TAC \\ fs [bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ fs []
       \\ IMP_RES_TAC evaluate_inv_clock \\ fs [inc_clock_ADD]
       \\ `MAP (adjust_bv b2) vs = MAP (adjust_bv b2') vs` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
         \\ Q.EXISTS_TAC `r` \\ fs []
         \\ IMP_RES_TAC evaluate_ok \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
@@ -1077,7 +1039,7 @@ val compile_correct = Q.prove(
       \\ fs []
       \\ SRW_TAC [] [adjust_bv_def]
       \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ fs [EVERY_MEM] \\ RES_TAC
         \\ IMP_RES_TAC evaluate_refs_SUBSET
@@ -1085,7 +1047,7 @@ val compile_correct = Q.prove(
         \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
         \\ fs [EVERY_MEM] \\ RES_TAC
@@ -1093,7 +1055,7 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
           MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ Cases_on `e` \\ fs []
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
@@ -1107,7 +1069,7 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
       \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
       \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
@@ -1123,7 +1085,7 @@ val compile_correct = Q.prove(
       \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+      \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
       \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
       \\ fs [state_ok_def]
@@ -1153,7 +1115,7 @@ val compile_correct = Q.prove(
       \\ fs []
       \\ SRW_TAC [] [adjust_bv_def]
       \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ fs [EVERY_MEM] \\ RES_TAC
         \\ IMP_RES_TAC evaluate_refs_SUBSET
@@ -1161,7 +1123,7 @@ val compile_correct = Q.prove(
         \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
         \\ fs [EVERY_MEM] \\ RES_TAC
@@ -1169,7 +1131,7 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
           MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ Cases_on `e` \\ fs []
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
@@ -1191,16 +1153,16 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
       \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ rpt var_eq_tac \\ simp[]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
       \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
       THEN1 (
-        simp[FLOOKUP_FAPPLY] >>
+        simp[FLOOKUP_UPDATE] >>
         Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
         simp[map_replicate])
-      \\ simp[FLOOKUP_FAPPLY]
+      \\ simp[FLOOKUP_UPDATE]
       \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
@@ -1212,7 +1174,7 @@ val compile_correct = Q.prove(
       \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+      \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
       \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
       \\ fs [state_ok_def]
@@ -1242,7 +1204,7 @@ val compile_correct = Q.prove(
       \\ fs []
       \\ SRW_TAC [] [adjust_bv_def]
       \\ `MAP (adjust_bv b3) env = MAP (adjust_bv b2) env` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ fs [EVERY_MEM] \\ RES_TAC
         \\ IMP_RES_TAC evaluate_refs_SUBSET
@@ -1250,7 +1212,7 @@ val compile_correct = Q.prove(
         \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (adjust_bv b3) a = MAP (adjust_bv b2) a` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
         \\ fs [EVERY_MEM] \\ RES_TAC
@@ -1258,7 +1220,7 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] [] \\ fs [])
       \\ `MAP (OPTION_MAP (adjust_bv b2)) s5.globals =
           MAP (OPTION_MAP (adjust_bv b3)) s5.globals` by ALL_TAC THEN1
-       (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+       (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
         \\ Cases_on `e` \\ fs []
         \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
         \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
@@ -1282,16 +1244,16 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
       \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
-      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_FAPPLY]
+      \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ rpt var_eq_tac \\ simp[]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
       \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
       THEN1 (
-        simp[FLOOKUP_FAPPLY] >>
+        simp[FLOOKUP_UPDATE] >>
         Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
         simp[map_replicate])
-      \\ simp[FLOOKUP_FAPPLY]
+      \\ simp[FLOOKUP_UPDATE]
       \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
@@ -1303,7 +1265,7 @@ val compile_correct = Q.prove(
       \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
-      \\ fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+      \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC bv_ok_IMP_adjust_bv_eq
       \\ IMP_RES_TAC evaluate_ok \\ REV_FULL_SIMP_TAC std_ss [] \\ fs []
       \\ fs [state_ok_def]
@@ -1418,7 +1380,7 @@ val compile_correct = Q.prove(
     \\ fs [inc_clock_ADD]
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ `MAP (adjust_bv b2') env = MAP (adjust_bv b2) env` by
-     (fs [MEM_EQ_IMP_MAP_EQ] \\ REPEAT STRIP_TAC
+     (fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
       \\ MATCH_MP_TAC (bv_ok_IMP_adjust_bv_eq |> GEN_ALL)
       \\ Q.EXISTS_TAC `s5` \\ fs [bvlSemTheory.dec_clock_def]
       \\ IMP_RES_TAC evaluate_refs_SUBSET

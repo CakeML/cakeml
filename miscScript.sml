@@ -14,6 +14,28 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val INJ_EXTEND = store_thm("INJ_EXTEND",
+  ``INJ b s t /\ ~(x IN s) /\ ~(y IN t) ==>
+    INJ ((x =+ y) b) (x INSERT s) (y INSERT t)``,
+  fs [INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
+
+val IMP_EVERY_LUPDATE = store_thm("IMP_EVERY_LUPDATE",
+  ``!xs h i. P h /\ EVERY P xs ==> EVERY P (LUPDATE h i xs)``,
+  Induct \\ fs [LUPDATE_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `i` \\ fs [LUPDATE_def]);
+
+val MAP_APPEND_MAP_EQ = store_thm("MAP_APPEND_MAP_EQ",
+  ``!xs ys.
+      ((MAP f1 xs ++ MAP g1 ys) = (MAP f2 xs ++ MAP g2 ys)) <=>
+      (MAP f1 xs = MAP f2 xs) /\ (MAP g1 ys = MAP g2 ys)``,
+  Induct \\ fs [] \\ METIS_TAC []);
+
+val LUPDATE_SOME_MAP = store_thm("LUPDATE_SOME_MAP",
+  ``!xs n f h.
+      LUPDATE (SOME (f h)) n (MAP (OPTION_MAP f) xs) =
+      MAP (OPTION_MAP f) (LUPDATE (SOME h) n xs)``,
+  Induct THEN1 (EVAL_TAC \\ fs []) \\ Cases_on `n` \\ fs [LUPDATE_def]);
+
 val MEM_LIST_REL = store_thm("MEM_LIST_REL",
   ``!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y``,
   Induct \\ Cases_on `ys` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
