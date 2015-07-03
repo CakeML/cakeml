@@ -906,6 +906,10 @@ val call_arg_convention_def = Define`
      call_arg_convention e3)) ∧
   (call_arg_convention p = T)`
 
+(*TODO: fix these (should probably be defined elsewhere) *)
+val is_stack_var_def = Define`is_stack_var = ARB`;
+val is_phy_var_def = Define`is_phy_var = ARB`;
+
 val pre_alloc_conventions_def = Define`
   pre_alloc_conventions p =
     (every_stack_var is_stack_var p ∧
