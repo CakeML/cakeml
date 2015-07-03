@@ -8,122 +8,6 @@ open preamble
 
 val _ = new_theory"bvi_to_bvpProof";
 
-(* TODO: move *)
-
-val LIST_REL_APPEND_IMP = prove(
-  ``!xs ys xs1 ys1.
-      LIST_REL P (xs ++ xs1) (ys ++ ys1) /\ (LENGTH xs = LENGTH ys) ==>
-      LIST_REL P xs ys /\ LIST_REL P xs1 ys1``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC []);
-
-val LIST_REL_REVERSE = prove(
-  ``!xs ys. LIST_REL P (REVERSE xs) (REVERSE ys) <=> LIST_REL P xs ys``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
-  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss [LIST_REL_APPEND_SING] \\ METIS_TAC []);
-
-val LIST_REL_GENLIST_I = prove(
-  ``!xs. LIST_REL P (GENLIST I (LENGTH xs)) xs =
-         !n. n < LENGTH xs ==> P n (EL n xs)``,
-  HO_MATCH_MP_TAC SNOC_INDUCT
-  \\ FULL_SIMP_TAC (srw_ss()) [LENGTH,GENLIST,SNOC_APPEND]
-  \\ FULL_SIMP_TAC std_ss [LIST_REL_APPEND_SING]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC THEN1
-   (Cases_on `n < LENGTH xs`
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1]
-    \\ `n = LENGTH xs` by DECIDE_TAC
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD])
-  THEN1 (`n < SUC (LENGTH xs)` by DECIDE_TAC \\ RES_TAC
-    \\ POP_ASSUM MP_TAC \\ Q.PAT_ASSUM `!x.bb` (K ALL_TAC)
-    \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND1])
-  \\ POP_ASSUM (MP_TAC o Q.SPEC `LENGTH xs`)
-  \\ FULL_SIMP_TAC std_ss [rich_listTheory.EL_APPEND2,EL,HD]);
-
-val LIST_REL_lookup_fromList = prove(
-  ``LIST_REL (\v x. lookup v (fromList args) = SOME x)
-     (GENLIST I (LENGTH args)) args``,
-  SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
-
-val MEM_LIST_REL = prove(
-  ``!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y``,
-  Induct \\ Cases_on `ys` \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-  \\ RES_TAC \\ METIS_TAC []);
-
-val LIST_REL_MEM = prove(
-  ``!xs ys P. LIST_REL P xs ys <=>
-              LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys``,
-  fs [LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
-
-val lookup_fromList_NONE = prove(
-  ``!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)``,
-  SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
-
-val map_LN = prove(
-  ``!t. map f t = LN <=> t = LN``,
-  Cases \\ EVAL_TAC);
-
-val wf_map = prove(
-  ``!t f. wf (map f t) = wf t``,
-  Induct \\ fs [wf_def,map_def,map_LN]);
-
-val map_map_ARB = prove(
-  ``!t. map (K ARB) (map (K ARB) t) = map (K ARB) t``,
-  Induct \\ fs [map_def]);
-
-val lemmas = prove(
-  ``(2 + 2 * n - 1 = 2 * n + 1:num) /\
-    (2 + 2 * n' = 2 * n'' + 2 <=> n' = n'':num) /\
-    (2 * m = 2 * n <=> (m = n)) /\
-    ((2 * n'' + 1) DIV 2 = n'') /\
-    ((2 * n) DIV 2 = n) /\
-    (2 + 2 * n' <> 2 * n'' + 1) /\
-    (2 * m + 1 <> 2 * n' + 2)``,
-  REPEAT STRIP_TAC \\ SIMP_TAC std_ss []
-  THEN1 DECIDE_TAC
-  THEN1 DECIDE_TAC
-  THEN1 DECIDE_TAC
-  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
-  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] DIV_MULT]
-  \\ IMP_RES_TAC (METIS_PROVE [] ``(m = n) ==> (m MOD 2 = n MOD 2)``)
-  \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss []
-  \\ ONCE_REWRITE_TAC [MATCH_MP (GSYM MOD_PLUS) (DECIDE ``0 < 2:num``)]
-  \\ EVAL_TAC \\ fs [MOD_EQ_0,ONCE_REWRITE_RULE [MULT_COMM] MOD_EQ_0]);
-
-val IN_domain = store_thm("IN_domain",
-  ``!n x t1 t2.
-      (n IN domain LN <=> F) /\
-      (n IN domain (LS x) <=> (n = 0)) /\
-      (n IN domain (BN t1 t2) <=>
-         n <> 0 /\ (if EVEN n then ((n-1) DIV 2) IN domain t1
-                              else ((n-1) DIV 2) IN domain t2)) /\
-      (n IN domain (BS t1 x t2) <=>
-         n = 0 \/ (if EVEN n then ((n-1) DIV 2) IN domain t1
-                             else ((n-1) DIV 2) IN domain t2))``,
-  fs [domain_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `n = 0` \\ fs []
-  \\ Cases_on `EVEN n` \\ fs []
-  \\ fs [GSYM ODD_EVEN]
-  \\ IMP_RES_TAC EVEN_ODD_EXISTS
-  \\ fs [ADD1] \\ fs [lemmas]
-  \\ Cases_on `m` \\ fs [MULT_CLAUSES]
-  \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
-  \\ fs [lemmas])
-
-val lookup_map_K = prove(
-  ``!t n. lookup n (map (K x) t) = if n IN domain t then SOME x else NONE``,
-  Induct \\ fs [IN_domain,map_def,lookup_def]
-  \\ REPEAT STRIP_TAC \\ Cases_on `n = 0` \\ fs []
-  \\ Cases_on `EVEN n` \\ fs []);
-
-val lookup_list_to_num_set = prove(
-  ``!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE``,
-  Induct \\ srw_tac [] [list_to_num_set_def,lookup_def,lookup_insert] \\ fs []);
-
-val option_case_NONE = prove(
-  ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,
-  Cases_on `pres` \\ SRW_TAC [] []);
-
-(* -- *)
-
 (* value relation *)
 
 val code_rel_def = Define `
@@ -184,8 +68,8 @@ val do_app_bvp_to_bvi = prove(
    (Cases_on `op` \\ fs [do_app_aux_def]
     \\ every_case_tac \\ fs [])
   \\ `bvi_to_bvl (bvp_to_bvi t1) = bvi_to_bvl s1` by ALL_TAC THEN1
-   (fs [bvi_to_bvl_def,bvp_to_bvi_def,code_rel_def,wf_map,
-        spt_eq_thm,map_map_ARB,lookup_map_K]) \\ fs []
+   (fs [bvi_to_bvl_def,bvp_to_bvi_def,code_rel_def,
+        spt_eq_thm,lookup_map_K,domain_map]) \\ fs []
   \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ fs []
   \\ Cases_on `a'` \\ fs []
   \\ fs [bvl_to_bvi_def,bvp_to_bvi_def]);
@@ -460,7 +344,7 @@ val compile_correct = Q.prove(
     \\ `var_corr (a ++ env) (vs ++ corr) t2` by
      (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ MATCH_MP_TAC (GEN_ALL EVERY2_APPEND_suff)
-      \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE])
+      \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE_EQ])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t2`,`n1`,
          `vs ++ corr`,`tail`,`live`])
     \\ `EVERY (\n. lookup n t2.locals <> NONE) live` by
@@ -688,7 +572,7 @@ val compile_correct = Q.prove(
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
-          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE,call_env_def,
           funpow_dec_clock_clock])
         \\ STRIP_TAC \\ fs [LET_DEF]
@@ -726,7 +610,7 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
-          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,
           call_env_def,FUNPOW_dec_clock_code]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
@@ -865,7 +749,7 @@ val compile_correct = Q.prove(
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
-            bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+            bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
             LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
         \\ REPEAT STRIP_TAC
@@ -957,7 +841,7 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
-          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
+          bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
           LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
           \\ `jump_exc t2 <> NONE` by FULL_SIMP_TAC std_ss []
@@ -1041,7 +925,7 @@ val compile_correct = Q.prove(
 
 val compile_exp_lemma = compile_correct
   |> Q.SPECL [`[exp]`,`env`,`s1`,`res`,`s2`,`t1`,`n`,`GENLIST I n`,`T`,`[]`]
-  |> SIMP_RULE std_ss [LENGTH,GSYM compile_exp_def,option_case_NONE,
+  |> SIMP_RULE std_ss [LENGTH,GSYM compile_exp_def,option_case_NONE_F,
        PULL_EXISTS,EVERY_DEF];
 
 val compile_exp_correct = store_thm("compile_exp_correct",
