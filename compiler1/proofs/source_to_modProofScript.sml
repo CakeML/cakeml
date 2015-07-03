@@ -2006,8 +2006,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   rw [LET_THM, compile_prog_def]
   >- fs [Once bigStepTheory.evaluate_prog_cases, Once modSemTheory.evaluate_prog_cases] >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
-  (* TODO: why does this fail? first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >> *)
-  `?next' mods' tops' prog_i1. compile_prog next'' menv' env' prog = (next',mods',tops',prog_i1)` by metis_tac [pair_CASES] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
   fs [] >>
   rw [] >>
   rator_x_assum `bigStep$evaluate_prog` (mp_tac o SIMP_RULE (srw_ss()) [Once bigStepTheory.evaluate_prog_cases]) >>
