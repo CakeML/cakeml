@@ -218,7 +218,9 @@ val mem_store_byte_def = Define `
 val write_bytearray_def = Define `
   (write_bytearray a [] s = s) /\
   (write_bytearray a (b::bs) s =
-     THE (mem_store_byte_aux a b (write_bytearray (a+1w) bs s)))`;
+     case mem_store_byte_aux a b (write_bytearray (a+1w) bs s) of
+     | SOME s => s
+     | NONE => s)`;
 
 val mem_op_def = Define `
   (mem_op Load r a = mem_load r a) /\
@@ -1178,12 +1180,82 @@ val IMP_has_io_index = prove(
   THEN1 (Cases_on `y` \\ fs [is_Label_def] \\ res_tac)
   \\ Cases_on `pc = 0` \\ fs [] \\ res_tac \\ fs []);
 
+val write_bytearray_simp_lemma = prove(
+  ``!new_bytes c1 s1 x.
+      (read_bytearray (c1:'a word) (LENGTH new_bytes) s1 = SOME x) ==>
+      (write_bytearray c1 new_bytes s1 =
+         s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
+  Induct \\ fs [write_bytearray_def]
+  THEN1 (fs [theorem "asml_state_component_equality"])
+  \\ fs [read_bytearray_def]
+  \\ REPEAT STRIP_TAC
+  \\ Cases_on `mem_load_byte_aux c1 s1` \\ fs []
+  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH new_bytes) s1` \\ fs []
+  \\ rw [] \\ res_tac \\ fs []
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
+  \\ Cases_on `mem_store_byte_aux c1 h
+     (s1 with mem := (write_bytearray (c1 + 1w) new_bytes s1).mem)` \\ fs []
+  THEN1 (fs [theorem "asml_state_component_equality"])
+  \\ fs [mem_store_byte_aux_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [upd_mem_def] \\ rw []);
+
+val read_bytearray_LENGTH = prove(
+  ``!n a s x.
+      (read_bytearray a n s = SOME x) ==> (LENGTH x = n)``,
+  Induct \\ fs [read_bytearray_def] \\ REPEAT STRIP_TAC
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac);
+
 val write_bytearray_simp = prove(
   ``(read_bytearray (c1:'a word) (w2n (c2:'a word)) s1 = SOME x) /\
     (call_FFI index x s1.io_events = (new_bytes,new_io)) ==>
     (write_bytearray c1 new_bytes s1 =
        s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
-  cheat);
+  REPEAT STRIP_TAC
+  \\ MATCH_MP_TAC (GEN_ALL write_bytearray_simp_lemma)
+  \\ imp_res_tac read_bytearray_LENGTH
+  \\ fs [call_FFI_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac
+  \\ fs [listTheory.LENGTH_MAP]) |> SPEC_ALL;
+
+val asm_write_bytearray_def = Define `
+  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
+  (asm_write_bytearray a (x::xs) m = asm_write_bytearray (a+1w) xs ((a =+ x) m))`
+
+val call_FFI_LENGTH = prove(
+  ``(call_FFI index x io = (new_bytes,new_io)) ==>
+    (LENGTH x = LENGTH new_bytes)``,
+  fs [call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
+  \\ rw [] \\ fs [listTheory.LENGTH_MAP]);
+
+val bytes_in_mem_asm_write_bytearray_lemma = prove(
+  ``!xs p.
+      (!a. ~(a IN k) ==> (m1 a = m2 a)) ==>
+      bytes_in_mem p xs m1 d k ==>
+      bytes_in_mem p xs m2 d k``,
+  Induct \\ fs [bytes_in_mem_def]);
+
+val bytes_in_mem_asm_write_bytearray = prove(
+  ``(read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) ==>
+    bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
+    bytes_in_mem p xs
+      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
+  STRIP_TAC \\ match_mp_tac bytes_in_mem_asm_write_bytearray_lemma
+  \\ POP_ASSUM MP_TAC
+  \\ Q.SPEC_TAC (`c1`,`a`)
+  \\ Q.SPEC_TAC (`x`,`x`)
+  \\ Q.SPEC_TAC (`t1.mem`,`m`)
+  \\ Induct_on `new_bytes`
+  \\ fs [asm_write_bytearray_def]
+  \\ REPEAT STRIP_TAC
+  \\ fs [read_bytearray_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ fs [PULL_FORALL]
+  \\ res_tac
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
+  \\ fs [mem_load_byte_aux_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ cheat (* needs to be more precise... *));
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1374,9 +1446,12 @@ val aEval_IMP_mEval = prove(
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
          `code2`,`labs`,
-         `t1 with pc := p + n2w (pos_val new_pc 0 (code2:'a asm_prog))`,
+         `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a asm_prog)) ;
+                     mem := asm_write_bytearray c1 new_bytes t1.mem ;
+                 regs := (\r. THE (word_loc_val p labs (s1.io_regs 0 r (s1.regs r)))) |>`,
          `mc_conf.ffi_interfer 0 index new_bytes ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+
 
      (
 
@@ -1395,6 +1470,16 @@ val aEval_IMP_mEval = prove(
       \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
             (mc_conf.f.proj t1.mem_domain)` by
                (fs [interference_ok_def,shift_seq_def] \\ NO_TAC) \\ fs []
+      \\ `p + n2w (pos_val new_pc 0 code2) = t1.regs s1.link_reg` by
+       (Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
+           (MP_TAC o Q.SPEC `s1.link_reg`) \\ fs [word_loc_val_def]
+        \\ Cases_on `lab_lookup n1 n2 labs` \\ fs []
+        \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ fs []
+        \\ res_tac \\ fs []) \\ fs []
+      \\ `w2n c2 = LENGTH new_bytes` by
+       (imp_res_tac read_bytearray_LENGTH
+        \\ imp_res_tac call_FFI_LENGTH \\ fs [])
+      \\ fs [] \\ imp_res_tac bytes_in_mem_asm_write_bytearray \\ fs []
 
       \\ cheat)
 
