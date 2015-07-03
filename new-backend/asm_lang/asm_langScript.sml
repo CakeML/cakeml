@@ -1286,6 +1286,7 @@ val option_ldrop_0 = prove(
   Cases \\ fs [option_ldrop_def]);
 
 
+
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
@@ -1294,9 +1295,7 @@ val aEval_IMP_mEval = prove(
       ?k t2 ms2.
         (mEval mc_conf s1.io_events (s1.clock + k) ms1 =
            (if s2.io_events = NONE then Error IO_mismatch
-            else res,ms2,s2.io_events)) /\
-        ((s2.io_events <> NONE) ==>
-         state_rel (mc_conf,code2,labs,p,F) s2 t2 ms2)``,
+            else res,ms2,s2.io_events))``,
 
   HO_MATCH_MP_TAC aEval_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [aEval_def]
@@ -1519,18 +1518,15 @@ val aEval_IMP_mEval = prove(
        (Cases_on `s1.io_regs 0 r`
         \\ fs [get_reg_value_def,word_loc_val_def])
       \\ cheat (* requires messing around with bytearrays *))
+
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
-    \\ Q.LIST_EXISTS_TAC [`t2`,`ms2'`] \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`ms2'`] \\ fs []
     \\ simp_tac std_ss [Once mEval_def]
     \\ fs [shift_interfer_def]
     \\ fs [AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC] \\ rfs [LET_DEF]
-    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ fs []
-    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs []
-    \\ rpt strip_tac \\ fs [state_rel_def] \\ rfs []
-    \\ Q.PAT_ASSUM `!x y z q1 q2. bbb` MP_TAC
-    \\ cheat (* do we really need to establish state_rel on exit? *))
+    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ fs [])
   THEN1 (* Halt *)
    (rw []
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
@@ -1553,8 +1549,6 @@ val aEval_IMP_mEval = prove(
     \\ unabbrev_all_tac \\ fs [asm_def]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rw []
     \\ Q.EXISTS_TAC `l'` \\ fs []
-    \\ Q.LIST_EXISTS_TAC [`jump_to_offset
-          (-n2w (pos_val s1.pc 0 code2 + ffi_offset)) t1`]
     \\ once_rewrite_tac [mEval_def] \\ fs []
     \\ fs [shift_interfer_def]
     \\ `mc_conf.f.get_pc ms2 = mc_conf.halt_pc` by
@@ -1563,8 +1557,7 @@ val aEval_IMP_mEval = prove(
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
            WORD_ADD_SUB] \\ fs [])
     \\ `~(mc_conf.f.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
-    \\ fs [state_rel_def,jump_to_offset_def,asmTheory.upd_pc_def]
-    \\ rw [] \\ rfs [] \\ fs []));
+    \\ fs [state_rel_def,jump_to_offset_def,asmTheory.upd_pc_def]));
 
 (*
 
