@@ -14,12 +14,9 @@ let rec mapM f = function
                  mapM f xs >>= fun ys ->
                  return (y :: ys)
 
-let print_value_binding vb =
-  Bad "Value bindings not supported."
-
 let paren s = "(" ^ s ^ ")"
 
-let fix_type_name x = x
+let fix_var_name x = x
 
 let rec print_longident = function
   | Lident s -> return s
@@ -28,6 +25,45 @@ let rec print_longident = function
   | Lapply (a, b) -> print_longident a >>= fun aname ->
                      print_longident b >>= fun bname ->
                      return @@ paren (aname ^ " " ^ bname)
+
+let rec print_pattern pat =
+  match pat.pat_desc with
+  | Tpat_any -> return "_"
+  | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
+  | Tpat_tuple ps -> mapM print_pattern ps >>= fun ts ->
+                   return @@ paren (BatString.concat ", " ts)
+  | _ -> Bad "Some pattern syntax not implemented."
+
+let fun_or_var desc = "val"
+
+let rec print_expression expr : (string,string) result =
+  match expr.exp_desc with
+  | Texp_ident (path, longident, desc) ->
+    print_longident longident.txt
+  | Texp_constant c ->
+  return @@ (match c with
+    | Const_int x -> string_of_int x
+    | Const_char x -> "#\"" ^ BatChar.escaped x ^ "\""
+    | Const_string (x, y) -> "\"" ^ BatString.escaped x ^ "\""
+    | Const_float x -> x
+    | Const_int32 x -> BatInt32.to_string x
+    | Const_int64 x -> BatInt64.to_string x
+    | Const_nativeint x -> BatNativeint.to_string x
+    )
+  | Texp_let (r, bs, e) ->
+    mapM print_value_binding bs >>= fun bs' ->
+    print_expression e >>= fun e' ->
+    return @@ "let\n" ^ BatString.concat "\n" bs' ^ "\nin\n" ^ e' ^ "\nend"
+  | _ -> Bad "Some expression syntax not implemented."
+
+and print_value_binding vb =
+  print_pattern vb.vb_pat >>= fun pat ->
+  match vb.vb_expr with
+  | Texp_function (l, cs, p) -> Bad "Haven't implemented this"
+  | _ -> print_expression vb.vb_expr >>= fun expr ->
+         return @@ "val " ^ pat ^ " = " ^ expr
+
+let fix_type_name x = x
 
 let rec print_core_type ctyp =
   match ctyp.ctyp_desc with
