@@ -1285,7 +1285,35 @@ val option_ldrop_0 = prove(
   ``!ll. option_ldrop 0 ll = ll``,
   Cases \\ fs [option_ldrop_def]);
 
+val LDROP_ADD = prove(
+  ``!k1 k2 x.
+      LDROP (k1 + k2) x = case LDROP k1 x of
+                          | NONE => NONE
+                          | SOME ll => LDROP k2 ll``,
+  Induct \\ fs [ADD_CLAUSES] \\ fs [llistTheory.LDROP] \\ REPEAT STRIP_TAC
+  \\ Cases_on `LTL x` \\ fs []
+  \\ Cases_on `LDROP k1 x'` \\ fs []);
 
+val option_ldrop_SUC = prove(
+  ``!k1 ll. option_ldrop (SUC k1) ll = option_ldrop 1 (option_ldrop k1 ll)``,
+  Cases_on `ll` \\ fs [option_ldrop_def]
+  \\ REPEAT STRIP_TAC \\ fs [ADD1] \\ fs [LDROP_ADD]
+  \\ Cases_on `LDROP k1 x` \\ fs [option_ldrop_def]);
+
+val option_ldrop_option_ldrop = prove(
+  ``!k1 ll k2.
+      option_ldrop k1 (option_ldrop k2 ll) = option_ldrop (k1 + k2) ll``,
+  Induct \\ fs [option_ldrop_def,option_ldrop_0]
+  \\ REPEAT STRIP_TAC \\ fs [option_ldrop_SUC,ADD_CLAUSES]);
+
+val option_ldrop_lemma = prove(
+  ``(call_FFI index x io = (new_bytes,new_io)) /\ new_io <> NONE ==>
+    (new_io = option_ldrop 1 io)``,
+  fs [call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
+  \\ rw [option_ldrop_def]
+  \\ Q.MATCH_ASSUM_RENAME_TAC `LTL ll <> NONE`
+  \\ `(ll = [||]) \/ ?h t. ll = h:::t` by metis_tac [llistTheory.llist_CASES]
+  \\ fs [llistTheory.LDROP1_THM]);
 
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1513,7 +1541,12 @@ val aEval_IMP_mEval = prove(
         \\ Q.PAT_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
         \\ fs [] \\ first_x_assum match_mp_tac
         \\ fs [] \\ qexists_tac `new_io` \\ fs [option_ldrop_0])
-      THEN1 cheat (* shifts and the similar *)
+      THEN1
+       (fs [shift_seq_def,PULL_FORALL,AND_IMP_INTRO]
+        \\ Q.PAT_ASSUM `!(ms:'state) x2 x3 x4 x5 x6 x7. bbb` match_mp_tac
+        \\ qexists_tac `new_io'` \\ qexists_tac `x'` \\ fs []
+        \\ imp_res_tac option_ldrop_lemma \\ fs [] \\ rfs []
+        \\ fs [option_ldrop_option_ldrop])
       THEN1
        (Cases_on `s1.io_regs 0 r`
         \\ fs [get_reg_value_def,word_loc_val_def])
