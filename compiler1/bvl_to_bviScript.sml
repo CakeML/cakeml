@@ -47,7 +47,7 @@ val num_stubs_def = Define`
   num_stubs = 2:num`;
 
 val AllocGlobal_code_def = Define`
-  AllocGlobal_code = (0,
+  AllocGlobal_code = (0:num,
     Let [get_globals_ptr; get_globals_count]
       (If (Op Less [Op Length [Var 0]; Var 1])
           (set_globals_count (Op Add [Var 1; Op(Const 1)[]]))
@@ -57,7 +57,7 @@ val AllocGlobal_code_def = Define`
                  (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE))))))`;
 
 val CopyGlobals_code_def = Define`
-  CopyGlobals_code = (3, (* ptr to new array, ptr to old array, index to copy *)
+  CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
     Let [Op Update [Op Deref [Var 2; Var 1]; Var 2; Var 0]]
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
@@ -104,14 +104,14 @@ val compile_def = tDefine "compile" `
      let (c3,aux3,n3) = compile n2 [x2] in
      let aux4 = [(n3,LENGTH args,HD c2)] in
      let n4 = n3 + 1 in
-       ([Call 0 (SOME (2 * n3 + 1)) c1 (SOME (HD c3))],
+       ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
   (compile n [Call ticks dest xs] =
      let (c1,aux1,n1) = compile n xs in
        ([Call ticks
               (case dest of
                | NONE => NONE
-               | SOME n => SOME (2 * n)) c1 NONE],aux1,n1))`
+               | SOME n => SOME (num_stubs + 2 * n)) c1 NONE],aux1,n1))`
  (WF_REL_TAC `measure (exp1_size o SND)`
   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
   \\ Cases_on `x1` \\ fs [destLet_def]

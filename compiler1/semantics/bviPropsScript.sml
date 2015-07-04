@@ -75,6 +75,20 @@ val evaluate_SNOC = store_thm("evaluate_SNOC",
   \\ Cases_on `a''` \\ fs [LENGTH]
   \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
 
+val evaluate_APPEND = store_thm("evaluate_APPEND",
+  ``!xs env s ys.
+      evaluate (xs ++ ys,env,s) =
+      case evaluate (xs,env,s) of
+        (Rval vs,s2) =>
+          (case evaluate (ys,env,s2) of
+             (Rval ws,s1) => (Rval (vs ++ ws),s1)
+           | res => res)
+      | res => res``,
+  Induct \\ fs [APPEND,evaluate_def] \\ REPEAT STRIP_TAC
+  THEN1 REPEAT BasicProvers.CASE_TAC
+  \\ ONCE_REWRITE_TAC [evaluate_CONS]
+  \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
+
 val inc_clock_def = Define `
   inc_clock n (s:bviSem$state) = s with clock := s.clock + n`;
 

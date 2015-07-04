@@ -94,11 +94,12 @@ val state_rel_def = Define `
     (s.io = t.io) /\
     (∀k. k ∈ FDOM s.refs ⇒ b k ≠ 0) ∧
     (∃globals_ptr array_size.
+       (∀k. k ∈ FDOM s.refs ⇒ b k ≠ globals_ptr) ∧
        FLOOKUP t.refs 0 = SOME (ValueArray [RefPtr globals_ptr; Number(&LENGTH s.globals)]) ∧
        LENGTH s.globals ≤ array_size ∧
        FLOOKUP t.refs globals_ptr =
          SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
-                           GENLIST (Number 0) (array_size - LENGTH s.globals)))) ∧
+                           REPLICATE (array_size - LENGTH s.globals) (Number 0)))) ∧
     (s.clock = t.clock) /\
     (lookup AllocGlobal_location t.code = SOME AllocGlobal_code) ∧
     (lookup CopyGlobals_location t.code = SOME CopyGlobals_code) ∧
@@ -364,6 +365,7 @@ val bEval_bVarBound = prove(
 
 val iEval_def = bviSemTheory.evaluate_def;
 val bEval_def = bvlSemTheory.evaluate_def;
+val iEval_append = bviPropsTheory.evaluate_APPEND;
 
 val compile_Var_list = prove(
   ``!l n. EVERY isVar l ==> (compile n l = (MAP (Var o destVar) l ,[],n))``,
@@ -391,11 +393,15 @@ val compile_int_thm = prove(
          (MATCH_MP DIVISION (DECIDE ``0 < 1000000000:num``) |> Q.SPEC `n`)
     \\ intLib.COOPER_TAC));
 
-val iEval_bVarBound = prove(
-  ``!(n:num) xs n vs (t:bvlSem$state) s env.
-      bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
-      (evaluate (FST (compile n xs),vs ++ env,s) =
-       evaluate (FST (compile n xs),vs,s))``,
+val evaluate_get_globals_ptr_ignore_env = Q.prove(
+  `evaluate ([get_globals_ptr],env1,s) =
+   evaluate ([get_globals_ptr],
+
+val iEval_bVarBound = Q.prove(
+  `!(n:num) xs n vs (t:bvlSem$state) s env.
+     bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
+     (evaluate (FST (compile n xs),vs ++ env,s) =
+      evaluate (FST (compile n xs),vs,s))`,
   recInduct (theorem "bVarBound_ind") \\ REPEAT STRIP_TAC
   \\ fs [iEval_def,bVarBound_def,compile_def] \\ SRW_TAC [] []
   \\ fs [bEvery_def,GoodHandleLet_def] \\ SRW_TAC [] []
@@ -426,6 +432,8 @@ val iEval_bVarBound = prove(
   THEN1
    (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
     \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm]
+    \\ simp[get_globals_ptr_def,iEval_def]
+    \\ simp[iEval_append,iEval_def]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm])
   \\ fs [iEval_def]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`]) \\ fs []
@@ -452,7 +460,6 @@ val iEval_bVarBound = prove(
 
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
-val get_global_def = closSemTheory.get_global_def;
 
 val v_to_list_adjust = Q.prove(
   `∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)`,
@@ -460,39 +467,16 @@ val v_to_list_adjust = Q.prove(
   simp[v_to_list_def,adjust_bv_def] >> rw[] >>
   Cases_on`v_to_list x`>>fs[])
 
-val do_app_adjust = prove(
-  ``state_rel b2 s5 t2 /\
-    (!i. op <> Const i) /\ (op <> Ref) /\ (op ≠ RefByte) ∧ (op ≠ RefArray) ∧
-    (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
-    ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
-           Rval (adjust_bv b2 q,t3)) /\
-         state_rel b2 r t3``,
+val do_app_adjust = Q.prove(
+  `state_rel b2 s5 t2 /\
+   (!i. op <> Const i) /\ (op <> Ref) /\ (op ≠ RefByte) ∧ (op ≠ RefArray) ∧
+   (∀n. op ≠ Global n) ∧ (∀n. op ≠ SetGlobal n) ∧ (op ≠ AllocGlobal) ∧
+   (do_app op (REVERSE a) s5 = Rval (q,r)) /\ EVERY (bv_ok s5.refs) (REVERSE a) ==>
+   ?t3. (do_app op (MAP (adjust_bv b2) (REVERSE a)) t2 =
+          Rval (adjust_bv b2 q,t3)) /\
+        state_rel b2 r t3`,
   SIMP_TAC std_ss [Once bEvalOp_def,iEvalOp_def,do_app_aux_def]
   \\ Cases_on `op` \\ fs []
-  THEN1 (* Global *)
-   (Cases_on `REVERSE a` \\ fs []
-    \\ Cases_on `get_global n s5.globals` \\ fs []
-    \\ Cases_on `x` \\ fs []
-    \\ SRW_TAC [] [bEvalOp_def]
-    \\ SIMP_TAC std_ss [Once bvi_to_bvl_def] \\ fs []
-    \\ Q.EXISTS_TAC `t2` \\ fs []
-    \\ fs [state_rel_def]
-    \\ fs [get_global_def,EL_MAP,bvl_to_bvi_id])
-  THEN1 (* SetGlobal *)
-   (Cases_on `REVERSE a` \\ fs [] \\ Cases_on `t` \\ fs []
-    \\ Cases_on `get_global n s5.globals` \\ fs []
-    \\ Cases_on `x` \\ fs []
-    \\ SRW_TAC [] [bEvalOp_def]
-    \\ SIMP_TAC std_ss [Once bvi_to_bvl_def] \\ fs []
-    \\ Q.EXISTS_TAC `t2 with globals := LUPDATE (SOME (adjust_bv b2 h)) n t2.globals`
-    \\ fs [] \\ REVERSE (REPEAT STRIP_TAC)
-    THEN1 (fs [state_rel_def,LUPDATE_SOME_MAP])
-    \\ fs [state_rel_def]
-    \\ fs [get_global_def,EL_MAP,adjust_bv_def,bvl_to_bvi_def,bvi_to_bvl_def]
-    \\ fs [bviSemTheory.state_component_equality])
-  THEN1 (* AllocGlobal *)
-   (Cases_on `REVERSE a` \\ fs [] \\ SRW_TAC [] [bEvalOp_def,adjust_bv_def]
-    \\ fs [state_rel_def,bvi_to_bvl_def,bvl_to_bvi_def,adjust_bv_def])
   THEN1 (* Cons *)
    (fs [bEvalOp_def]
     \\ SRW_TAC [] [adjust_bv_def,MAP_EQ_f,bvl_to_bvi_id]
@@ -562,9 +546,14 @@ val do_app_adjust = prove(
     simp[FLOOKUP_UPDATE] >>
     rw[] >- (
       last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
-    BasicProvers.CASE_TAC >>
-    `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
-    metis_tac[INJ_DEF])
+    fs[bv_ok_def] >>
+    TRY (
+      qexists_tac`array_size`>>simp[]>>
+      rw[] >> fs[FLOOKUP_DEF] >> NO_TAC) >>
+    TRY (
+      BasicProvers.CASE_TAC >>
+      `k ∈ FDOM s5.refs ∧ n ∈ FDOM s5.refs` by fs[FLOOKUP_DEF] >>
+      metis_tac[INJ_DEF]))
   THEN1 (* FromList *) (
     Cases_on`REVERSE a`>>fs[]>>
     Cases_on`t`>>fs[] >>
@@ -619,21 +608,21 @@ val do_app_adjust = prove(
     \\ `FLOOKUP t2.refs (b2 n) =
         SOME (ValueArray (MAP (adjust_bv b2) l))` by ALL_TAC THEN1
      (fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
-      \\ Q.PAT_ASSUM `!k.bbb` (K ALL_TAC)
-      \\ Q.PAT_ASSUM `!k.bbb` (MP_TAC o Q.SPEC `n`) \\ fs [])
+      \\ last_x_assum (MP_TAC o Q.SPEC `n`) \\ fs [])
     \\ simp[]
     \\ IF_CASES_TAC >> fs[] >> fs[]
     \\ rpt var_eq_tac \\ simp[]
     \\ simp[bvl_to_bvi_with_refs,bvl_to_bvi_id]
     \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def]
     \\ fs [FLOOKUP_UPDATE]
-    \\ REPEAT STRIP_TAC
-    THEN1 fs [FLOOKUP_DEF,ABSORPTION_RWT]
-    \\ Cases_on `k = n` \\ fs [LUPDATE_MAP]
-    \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs []
-    \\ `b2 k <> b2 n` by ALL_TAC \\ fs []
-    \\ fs [INJ_DEF,FLOOKUP_DEF]
-    \\ REPEAT STRIP_TAC \\ RES_TAC)
+    \\ conj_tac >- fs [FLOOKUP_DEF,ABSORPTION_RWT]
+    \\ rw[] \\ fs[LUPDATE_MAP,bv_ok_def]
+    THEN1 (
+      BasicProvers.CASE_TAC >>
+      fs[FLOOKUP_DEF,INJ_DEF] >>
+      METIS_TAC[] )
+    THEN1 res_tac >>
+    qexists_tac`array_size`>>simp[]>>rw[]>>fs[])
   THEN1 (* Label *)
    (BasicProvers.EVERY_CASE_TAC \\ fs [bEvalOp_def,bvl_to_bvi_id]
     \\ SRW_TAC [] [] \\ fs [adjust_bv_def])
@@ -662,6 +651,8 @@ val do_app_adjust = prove(
       fs[FLOOKUP_DEF] >>
       simp[ABSORPTION_RWT] ) >>
     simp[FLOOKUP_UPDATE] >> rw[] >>
+    fs[bv_ok_def] >>
+    TRY ( qexists_tac`array_size`>>fs[]>>rw[]>>fs[]) >>
     BasicProvers.CASE_TAC >>
     fs[FLOOKUP_DEF] >>
     METIS_TAC[INJ_DEF])
