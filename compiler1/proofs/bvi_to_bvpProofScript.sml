@@ -22,7 +22,6 @@ val state_rel_def = Define `
   state_rel (s:bviSem$state) (t:bvpSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
-    (s.globals = t.globals) /\
     (s.refs = t.refs) /\
     (s.io = t.io)`;
 
@@ -69,7 +68,8 @@ val do_app_bvp_to_bvi = prove(
     \\ every_case_tac \\ fs [])
   \\ `bvi_to_bvl (bvp_to_bvi t1) = bvi_to_bvl s1` by ALL_TAC THEN1
    (fs [bvi_to_bvl_def,bvp_to_bvi_def,code_rel_def,
-        spt_eq_thm,lookup_map_K,domain_map]) \\ fs []
+        spt_eq_thm,lookup_map_K,domain_map,
+        bvlSemTheory.state_component_equality]) \\ fs []
   \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ fs []
   \\ Cases_on `a'` \\ fs []
   \\ fs [bvl_to_bvi_def,bvp_to_bvi_def]);

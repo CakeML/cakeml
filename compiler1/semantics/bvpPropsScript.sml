@@ -619,7 +619,6 @@ val FUNPOW_dec_clock_code = store_thm("FUNPOW_dec_clock_code[simp]",
   ``((FUNPOW dec_clock n t).code = t.code) /\
     ((FUNPOW dec_clock n t).stack = t.stack) /\
     ((FUNPOW dec_clock n t).handler = t.handler) /\
-    ((FUNPOW dec_clock n t).globals = t.globals) /\
     ((FUNPOW dec_clock n t).refs = t.refs) /\
     ((FUNPOW dec_clock n t).io = t.io) /\
     ((FUNPOW dec_clock n t).locals = t.locals) /\

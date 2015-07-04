@@ -9,8 +9,7 @@ val _ = Datatype `
 
 val _ = Datatype `
   state =
-    <| globals : (bvlSem$v option) list
-     ; locals  : bvlSem$v num_map
+    <| locals  : bvlSem$v num_map
      ; stack   : stack list
      ; handler : num
      ; refs    : num |-> bvlSem$v ref
@@ -28,16 +27,14 @@ val LESS_EQ_dec_clock = prove(
 
 val bvp_to_bvi_def = Define `
   (bvp_to_bvi:bvpSem$state->bviSem$state) s =
-    <| globals := s.globals
-     ; refs := s.refs
+    <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; io := s.io |>`;
 
 val bvi_to_bvp_def = Define `
   (bvi_to_bvp:bviSem$state->bvpSem$state->bvpSem$state) s t =
-    t with <| globals := s.globals
-            ; refs := s.refs
+    t with <| refs := s.refs
             ; clock := s.clock
             ; io := s.io |>`;
 

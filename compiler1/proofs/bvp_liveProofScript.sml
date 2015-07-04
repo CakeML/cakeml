@@ -8,8 +8,7 @@ val SPLIT_PAIR = prove(
 
 val state_rel_def = Define `
   state_rel (s1:bvpSem$state) (t1:bvpSem$state) (live:num_set) <=>
-    s1.code = t1.code /\ s1.clock = t1.clock /\
-    s1.globals = t1.globals /\ s1.space = t1.space /\
+    s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
     s1.io = t1.io /\ s1.refs = t1.refs /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;

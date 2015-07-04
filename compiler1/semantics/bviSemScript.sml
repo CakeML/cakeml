@@ -5,8 +5,7 @@ val _ = new_theory"bviSem";
 
 val _ = Datatype `
   state =
-    <| globals : (bvlSem$v option) list
-     ; refs    : num |-> bvlSem$v ref
+    <| refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; code    : (num # bvi$exp) num_map
      ; io      : io_trace |> `
@@ -20,16 +19,14 @@ val LESS_EQ_dec_clock = prove(
 
 val bvi_to_bvl_def = Define `
   (bvi_to_bvl:bviSem$state->bvlSem$state) s =
-    <| globals := s.globals
-     ; refs := s.refs
+    <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
      ; io := s.io |>`;
 
 val bvl_to_bvi_def = Define `
   (bvl_to_bvi:bvlSem$state->bviSem$state->bviSem$state) s t =
-    t with <| globals := s.globals
-            ; refs := s.refs
+    t with <| refs := s.refs
             ; clock := s.clock
             ; io := s.io |>`;
 
