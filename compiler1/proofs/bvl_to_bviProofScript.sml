@@ -361,9 +361,22 @@ val bEval_bVarBound = prove(
          \\ FIRST_X_ASSUM MATCH_MP_TAC \\ IMP_RES_TAC bvlPropsTheory.evaluate_IMP_LENGTH
          \\ fs [AC ADD_COMM ADD_ASSOC]));
 
+val iEval_def = bviSemTheory.evaluate_def;
+
+val evaluate_get_globals_ptr = Q.prove(
+  `state_rel b s t ⇒
+   ∃p l.
+     evaluate ([get_globals_ptr],env,inc_clock x t) = (Rval [RefPtr p],inc_clock x t) ∧
+     FLOOKUP t.refs p =
+       SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
+                         REPLICATE (l - LENGTH s.globals) (Number 0)))`,
+   rw[get_globals_ptr_def,iEval_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def] >>
+   rw[bvlSemTheory.do_app_def,Once bvi_to_bvl_def,Once inc_clock_def] >>
+   fs[state_rel_def,bvl_to_bvi_id] >>
+   metis_tac[])
+
 (* compiler correctness *)
 
-val iEval_def = bviSemTheory.evaluate_def;
 val bEval_def = bvlSemTheory.evaluate_def;
 val iEval_append = bviPropsTheory.evaluate_APPEND;
 
@@ -392,10 +405,6 @@ val compile_int_thm = prove(
     \\ STRIP_ASSUME_TAC
          (MATCH_MP DIVISION (DECIDE ``0 < 1000000000:num``) |> Q.SPEC `n`)
     \\ intLib.COOPER_TAC));
-
-val evaluate_get_globals_ptr_ignore_env = Q.prove(
-  `evaluate ([get_globals_ptr],env1,s) =
-   evaluate ([get_globals_ptr],
 
 val iEval_bVarBound = Q.prove(
   `!(n:num) xs n vs (t:bvlSem$state) s env.
@@ -433,7 +442,7 @@ val iEval_bVarBound = Q.prove(
    (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n`,`vs`]) \\ fs []
     \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm]
     \\ simp[get_globals_ptr_def,iEval_def]
-    \\ simp[iEval_append,iEval_def]
+    \\ simp[iEval_append,iEval_def,compile_int_thm]
     \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm])
   \\ fs [iEval_def]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n2`]) \\ fs []
@@ -450,7 +459,7 @@ val iEval_bVarBound = Q.prove(
   \\ fs [bVarBound_def]
   \\ (evaluate_MAP_Var2 |> MP_TAC) \\ fs []
   \\ REPEAT STRIP_TAC \\ fs []
-  \\ Cases_on `find_code (SOME (2 * n3 + 1)) ts s.code` \\ fs []
+  \\ Cases_on `find_code (SOME (num_stubs + 2 * n3 + 1)) ts s.code` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `s.clock = 0` \\ fs []
   \\ Cases_on `evaluate ([r],q,dec_clock 1 s)` \\ fs []
   \\ Cases_on `q'` \\ fs []
@@ -976,9 +985,29 @@ val compile_correct = Q.prove(
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
     \\ REVERSE (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
     \\ first_x_assum (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
-    THEN1 (REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH \\ fs [iEval_def]
-      \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs []
-      \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm]
+    THEN1 (
+      REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH \\ fs [iEval_def]
+      \\ Q.LIST_EXISTS_TAC [`t2`,`b2`] \\ fs []
+      \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm,iEval_append]
+      \\ TRY(
+        qexists_tac`c`>>simp[]>>
+        every_case_tac \\ fs [iEval_def,compile_int_thm] \\ NO_TAC) >>
+      simp[Once inc_clock_def,find_code_def] >>
+      `lookup AllocGlobal_location t1.code = SOME (0,SND(AllocGlobal_code))` by (
+        fs[state_rel_def,AllocGlobal_code_def] ) >>
+      simp[] >>
+      qexists_tac`c+1`>>simp[inc_clock_def,dec_clock_def]
+
+        simp[AllocGlobal_code_def,inc_clock_def]
+
+        imp_res_tac evaluate_get_globals_ptr >>
+        pop_assum(qspecl_then[`c`,`MAP (adjust_bv b2) env`]strip_assume_tac) >>
+        simp[] >>
+        simp[bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
+             Once bvi_to_bvl_def,Once inc_clock_def,LENGTH_REPLICATE] >>
+        IF_CASES_TAC >> simp[]
+
+      \\ fs[get_globals_ptr_def,iEval_def,bviSemTheory.do_app_def]
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm] \\ NO_TAC)
     \\ REPEAT STRIP_TAC \\ Cases_on `do_app op (REVERSE a) s5` \\ fs []
     \\ TRY(

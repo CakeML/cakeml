@@ -67,9 +67,11 @@ val compile_op_def = Define `
     case op of
     | Const i => (case c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
-    | Global n => Op Deref [Op(Const(&n))[]; get_globals_ptr]
-    | SetGlobal n => Op Update (c1++[Op(Const(&n))[]; get_globals_ptr])
-    | AllocGlobal => Call 0 (SOME AllocGlobal_location) [] NONE
+    | Global n => Op Deref (c1++[compile_int(&n); get_globals_ptr])
+    | SetGlobal n => Op Update (c1++[compile_int(&n); get_globals_ptr])
+    | AllocGlobal =>
+        (case c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
+         | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | _ => Op op c1`
 
 val compile_def = tDefine "compile" `
