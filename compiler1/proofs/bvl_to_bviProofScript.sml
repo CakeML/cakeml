@@ -73,7 +73,7 @@ val adjust_bv_Boolv = store_thm("adjust_bv_Boolv[simp]",
 val aux_code_installed_def = Define `
   (aux_code_installed [] t <=> T) /\
   (aux_code_installed ((name,arg_count,body)::rest) t <=>
-     (sptree$lookup (2 * name + 1) t = SOME (arg_count,body)) /\
+     (sptree$lookup (num_stubs + 2 * name + 1) t = SOME (arg_count,body)) /\
      aux_code_installed rest t)`
 
 val aux_code_installed_APPEND = prove(
@@ -92,12 +92,19 @@ val state_rel_def = Define `
              (FLOOKUP t.refs (b k) = SOME (ValueArray (MAP (adjust_bv b) vs)))
          | SOME res => (FLOOKUP t.refs (b k) = SOME res)) /\
     (s.io = t.io) /\
-    (t.globals = MAP (OPTION_MAP (adjust_bv b)) s.globals) /\
+    (∀k. k ∈ FDOM s.refs ⇒ b k ≠ 0) ∧
+    (∃globals_ptr array_size.
+       FLOOKUP t.refs 0 = SOME (ValueArray [RefPtr globals_ptr; Number(&LENGTH s.globals)]) ∧
+       LENGTH s.globals ≤ array_size ∧
+       FLOOKUP t.refs globals_ptr =
+         SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
+                           GENLIST (Number 0) (array_size - LENGTH s.globals)))) ∧
     (s.clock = t.clock) /\
+    (lookup AllocGlobal_location t.code = SOME AllocGlobal_code) ∧
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
        ?n. let (c1,aux1,n1) = compile n [exp] in
-             (lookup (2 * name) t.code = SOME (arity,HD c1)) /\
+             (lookup (num_stubs + 2 * name) t.code = SOME (arity,HD c1)) /\
              aux_code_installed aux1 t.code /\
              bEvery GoodHandleLet [exp])`;
 

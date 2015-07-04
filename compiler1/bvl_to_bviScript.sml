@@ -30,11 +30,29 @@ val compile_int_def = tDefine "compile_int" `
  (WF_REL_TAC `measure (Num o ABS)`
   \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
 
+val get_globals_ptr_def = Define`
+  get_globals_ptr = Op Deref [Op (Const 0) []; Op AllocGlobal []]`;
+val get_globals_size_def = Define`
+  get_globals_size = Op Deref [Op (Const 1) []; Op AllocGlobal []]`;
+
+val AllocGlobal_location_def = Define`
+  AllocGlobal_location = 0:num`;
+val num_stubs_def = Define`
+  num_stubs = 1:num`;
+
+val AllocGlobal_code_def = Define`
+  AllocGlobal_code = (0,
+    ARB:bvi$exp (* TODO *)
+    )`;
+
 val compile_op_def = Define `
   compile_op op c1 =
     case op of
     | Const i => (case c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
+    | Global n => Op Deref [Op(Const(&n))[]; get_globals_ptr]
+    | SetGlobal n => Op Update (c1++[Op(Const(&n))[]; get_globals_ptr])
+    | AllocGlobal => Call 0 (SOME AllocGlobal_location) [] NONE
     | _ => Op op c1`
 
 val compile_def = tDefine "compile" `
