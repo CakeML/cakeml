@@ -32,18 +32,35 @@ val compile_int_def = tDefine "compile_int" `
 
 val get_globals_ptr_def = Define`
   get_globals_ptr = Op Deref [Op (Const 0) []; Op GlobalsPtr []]`;
-val get_globals_size_def = Define`
-  get_globals_size = Op Deref [Op (Const 1) []; Op GlobalsPtr []]`;
+val set_globals_ptr_def = Define`
+  set_globals_ptr e = Op Update [e; Op(Const 0)[]; Op GlobalsPtr []]`;
+val get_globals_count_def = Define`
+  get_globals_count = Op Deref [Op (Const 1) []; Op GlobalsPtr []]`;
+val set_globals_count_def = Define`
+  set_globals_count e = Op Update [e; Op(Const 1)[]; Op GlobalsPtr []]`;
 
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = 0:num`;
+val CopyGlobals_location_def = Define`
+  CopyGlobals_location = 1:num`;
 val num_stubs_def = Define`
-  num_stubs = 1:num`;
+  num_stubs = 2:num`;
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0,
-    ARB:bvi$exp (* TODO *)
-    )`;
+    Let [get_globals_ptr; get_globals_count]
+      (If (Op Less [Op Length [Var 0]; Var 1])
+          (set_globals_count (Op Add [Var 1; Op(Const 1)[]]))
+          (Let [Op RefArray [Op(Const 0)[];Op Mult [Op Length [Var 0]; Op(Const 2)[]]]]
+            (Let [set_globals_ptr (Var 0)]
+               (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
+                 (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE))))))`;
+
+val CopyGlobals_code_def = Define`
+  CopyGlobals_code = (3, (* ptr to new array, ptr to old array, index to copy *)
+    Let [Op Update [Op Deref [Var 2; Var 1]; Var 2; Var 0]]
+      (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
+        (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
 val compile_op_def = Define `
   compile_op op c1 =

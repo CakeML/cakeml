@@ -101,6 +101,7 @@ val state_rel_def = Define `
                            GENLIST (Number 0) (array_size - LENGTH s.globals)))) ∧
     (s.clock = t.clock) /\
     (lookup AllocGlobal_location t.code = SOME AllocGlobal_code) ∧
+    (lookup CopyGlobals_location t.code = SOME CopyGlobals_code) ∧
     (!name arity exp.
        (lookup name s.code = SOME (arity,exp)) ==>
        ?n. let (c1,aux1,n1) = compile n [exp] in
