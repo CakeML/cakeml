@@ -31,9 +31,9 @@ val compile_int_def = tDefine "compile_int" `
   \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
 
 val get_globals_ptr_def = Define`
-  get_globals_ptr = Op Deref [Op (Const 0) []; Op AllocGlobal []]`;
+  get_globals_ptr = Op Deref [Op (Const 0) []; Op GlobalsPtr []]`;
 val get_globals_size_def = Define`
-  get_globals_size = Op Deref [Op (Const 1) []; Op AllocGlobal []]`;
+  get_globals_size = Op Deref [Op (Const 1) []; Op GlobalsPtr []]`;
 
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = 0:num`;

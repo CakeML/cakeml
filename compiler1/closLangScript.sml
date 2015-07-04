@@ -11,6 +11,7 @@ val _ = Datatype `
   op = Global num    (* load global var with index *)
      | SetGlobal num (* assign a value to a global *)
      | AllocGlobal   (* make space for a new global *)
+     | GlobalsPtr    (* get pointer to globals array *)
      | Cons num      (* construct a Block with given tag *)
      | El            (* read Block field index *)
      | LengthBlock   (* get length of Block *)

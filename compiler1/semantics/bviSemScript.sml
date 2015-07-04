@@ -42,6 +42,10 @@ val do_app_aux_def = Define `
     | (Label l,xs) => (case xs of
                        | [] => SOME (SOME (CodePtr (2 * l), s))
                        | _ => NONE)
+    | (GlobalsPtr,xs) =>
+        (case xs of
+         | [] => SOME (SOME (RefPtr 0, s))
+         | _ => NONE)
     | _ => SOME NONE`
 
 val do_app_def = Define `
