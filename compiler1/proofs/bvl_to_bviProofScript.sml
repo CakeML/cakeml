@@ -54,7 +54,7 @@ val bEvery_def = tDefine "bEvery" `
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\
   (adjust_bv b (RefPtr r) = RefPtr (b r)) /\
-  (adjust_bv b (CodePtr c) = CodePtr (2 * c)) /\
+  (adjust_bv b (CodePtr c) = CodePtr (num_stubs + 2 * c)) /\
   (adjust_bv b (Block tag vs) = Block tag (MAP (adjust_bv b) vs))`
   (WF_REL_TAC `measure (v_size o SND)`
    \\ Induct_on `vs` \\ fs [] \\ SRW_TAC [] [v_size_def]
@@ -474,7 +474,7 @@ val v_to_list_adjust = Q.prove(
   `∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)`,
   ho_match_mp_tac v_to_list_ind >>
   simp[v_to_list_def,adjust_bv_def] >> rw[] >>
-  Cases_on`v_to_list x`>>fs[])
+  Cases_on`v_to_list x`>>fs[]);
 
 val do_app_adjust = Q.prove(
   `state_rel b2 s5 t2 /\
@@ -989,54 +989,14 @@ val compile_correct = Q.prove(
       REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH \\ fs [iEval_def]
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`] \\ fs []
       \\ Cases_on `op` \\ fs [compile_op_def,iEval_def,compile_int_thm,iEval_append]
-      \\ TRY(
-        qexists_tac`c`>>simp[]>>
-        every_case_tac \\ fs [iEval_def,compile_int_thm] \\ NO_TAC) >>
-      simp[Once inc_clock_def,find_code_def] >>
-      `lookup AllocGlobal_location t1.code = SOME (0,SND(AllocGlobal_code))` by (
-        fs[state_rel_def,AllocGlobal_code_def] ) >>
-      simp[] >>
-      qexists_tac`c+1`>>simp[inc_clock_def,dec_clock_def]
-
-        simp[AllocGlobal_code_def,inc_clock_def]
-
-        imp_res_tac evaluate_get_globals_ptr >>
-        pop_assum(qspecl_then[`c`,`MAP (adjust_bv b2) env`]strip_assume_tac) >>
-        simp[] >>
-        simp[bviSemTheory.do_app_def,do_app_aux_def,bvlSemTheory.do_app_def,
-             Once bvi_to_bvl_def,Once inc_clock_def,LENGTH_REPLICATE] >>
-        IF_CASES_TAC >> simp[]
-
-      \\ fs[get_globals_ptr_def,iEval_def,bviSemTheory.do_app_def]
-      \\ BasicProvers.EVERY_CASE_TAC \\ fs [iEval_def,compile_int_thm] \\ NO_TAC)
+      \\ qexists_tac`c`>>simp[]>>
+         every_case_tac \\ fs [iEval_def,compile_int_thm])
     \\ REPEAT STRIP_TAC \\ Cases_on `do_app op (REVERSE a) s5` \\ fs []
     \\ TRY(
       rw[] >>
-      CHANGED_TAC(imp_res_tac bvlPropsTheory.do_app_err) >>
-      rw[] >> Cases_on`a'`>>fs[] >> rw[] >>
-      simp[compile_op_def,iEval_def] >>
-      CONV_TAC (RESORT_EXISTS_CONV(List.rev)) >>
-      map_every qexists_tac[`c`,`b2`] >> simp[] >>
-      fs[bEvalOp_def] >>
-      Cases_on`REVERSE a`>>fs[]>>
-      Cases_on`h`>>fs[]>> Cases_on`t`>>fs[]>>
-      simp[adjust_bv_def,iEvalOp_def,do_app_aux_def,bEvalOp_def] >>
-      simp[Once bvi_to_bvl_def] >> rw[] >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >>
-      qmatch_assum_rename_tac`FLOOKUP s2.refs k = SOME x` >>
-      Cases_on`x`>>simp[] >>
-      `FLOOKUP t2.refs (b2 k) = SOME (ByteArray l) ∧ s2.io = t2.io` by (
-        first_x_assum(qspec_then`a`strip_assume_tac) >>
-        fs[state_rel_def] >>
-        first_x_assum(qspec_then`k`kall_tac) >>
-        first_x_assum(qspec_then`k`mp_tac) >>
-        simp[] )
-      \\ simp[Once bvi_to_bvl_def]
-      \\ BasicProvers.CASE_TAC >> simp[]
-      \\ Cases_on `x` \\ fs [] )
+      CHANGED_TAC(imp_res_tac bvlPropsTheory.do_app_err))
     \\ fs [GSYM PULL_FORALL]
     \\ Cases_on`a'`>>fs[]\\rw[]
-    \\ fs [iEvalOp_def]
     \\ Cases_on `?i. op = Const i` \\ fs [] THEN1
      (CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `b2`
       \\ CONV_TAC SWAP_EXISTS_CONV \\ Q.EXISTS_TAC `c`
@@ -1100,17 +1060,28 @@ val compile_correct = Q.prove(
       \\ fs [state_rel_def,bvl_to_bvi_def,bvi_to_bvl_def,FLOOKUP_UPDATE]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
-      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
-      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM])
+      \\ `y ≠ 0` by (
+        simp[Abbr`y`] >>
+        numLib.LEAST_ELIM_TAC >>
+        rw[] >- METIS_TAC[] >>
+        spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF] )
+      \\ rw[MAP_REVERSE] \\ fs[]
+      \\ TRY ( fs[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
+      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
+      \\ TRY ( fs[FLOOKUP_DEF] >> NO_TAC)
+      \\ TRY (
+        qexists_tac`array_size'`>>simp[]>>
+        simp[GSYM MAP_MAP_o] >> rw[] >>
+        simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
       \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
         \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
-      \\ `b3 k = b2 k` by ALL_TAC
-      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF])
+      \\ (`b3 k = b2 k` by ALL_TAC
+           THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]))
+      THEN1 ( fs[FLOOKUP_DEF] >> METIS_TAC[INJ_DEF] )
       \\ fs [] \\ Cases_on `FLOOKUP s5.refs k` \\ fs []
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ ntac 4 (Q.PAT_ASSUM `!k. bbb` MP_TAC)
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
@@ -1185,21 +1156,30 @@ val compile_correct = Q.prove(
       \\ rpt var_eq_tac \\ simp[]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
-      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
-      THEN1 (
-        simp[FLOOKUP_UPDATE] >>
-        Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
-        simp[map_replicate])
+      \\ `y ≠ 0` by (
+        simp[Abbr`y`] >>
+        numLib.LEAST_ELIM_TAC >>
+        rw[] >- METIS_TAC[] >>
+        spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF] )
       \\ simp[FLOOKUP_UPDATE]
+      \\ rw[MAP_REVERSE] \\ fs[]
+      \\ TRY ( fs[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
+      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
+      \\ TRY ( fs[FLOOKUP_DEF] >> NO_TAC)
+      \\ TRY (
+        qexists_tac`array_size'`>>simp[]>>
+        simp[GSYM MAP_MAP_o] >> rw[] >>
+        simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
+      \\ simp[map_replicate]
       \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
         \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
-      \\ `b3 k = b2 k` by ALL_TAC
-      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF])
+      \\ (`b3 k = b2 k` by ALL_TAC
+           THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]))
+      THEN1 ( fs[FLOOKUP_DEF] >> METIS_TAC[INJ_DEF] )
       \\ fs [] \\ Cases_on `FLOOKUP s5.refs k` \\ fs []
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ ntac 4 (Q.PAT_ASSUM `!k. bbb` MP_TAC)
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
@@ -1276,21 +1256,28 @@ val compile_correct = Q.prove(
       \\ rpt var_eq_tac \\ simp[]
       \\ STRIP_TAC
       THEN1 (Q.UNABBREV_TAC `b3` \\ MATCH_MP_TAC INJ_EXTEND \\ fs [])
-      \\ REPEAT STRIP_TAC \\ Cases_on `k = x` \\ fs [rich_listTheory.MAP_REVERSE]
-      THEN1 (
-        simp[FLOOKUP_UPDATE] >>
-        Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM] >>
-        simp[map_replicate])
-      \\ simp[FLOOKUP_UPDATE]
+      \\ `y ≠ 0` by (
+        simp[Abbr`y`] >>
+        numLib.LEAST_ELIM_TAC >>
+        rw[] >- METIS_TAC[] >>
+        spose_not_then strip_assume_tac >> fs[FLOOKUP_DEF] )
+      \\ rw[MAP_REVERSE] \\ fs[]
+      \\ TRY ( fs[Abbr`b3`,APPLY_UPDATE_THM] \\ NO_TAC)
+      \\ TRY ( simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
+      \\ TRY ( fs[FLOOKUP_DEF] >> NO_TAC)
+      \\ TRY (
+        qexists_tac`array_size'`>>simp[]>>
+        simp[GSYM MAP_MAP_o] >> rw[] >>
+        simp[Abbr`b3`,APPLY_UPDATE_THM] >> rw[] >> NO_TAC)
       \\ Cases_on `FLOOKUP s5.refs k = NONE` \\ fs [rich_listTheory.MAP_REVERSE]
       \\ `b3 k <> y` by ALL_TAC \\ fs [] THEN1
        (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]
         \\ fs [INJ_DEF] \\ RES_TAC \\ REPEAT STRIP_TAC \\ fs [])
-      \\ `b3 k = b2 k` by ALL_TAC
-      THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF])
+      \\ (`b3 k = b2 k` by ALL_TAC
+           THEN1 (Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM,FLOOKUP_DEF]))
+      THEN1 ( fs[FLOOKUP_DEF] >> METIS_TAC[INJ_DEF] )
       \\ fs [] \\ Cases_on `FLOOKUP s5.refs k` \\ fs []
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
-      \\ Q.PAT_ASSUM `!k. bbb` MP_TAC
+      \\ ntac 4 (Q.PAT_ASSUM `!k. bbb` MP_TAC)
       \\ Q.PAT_ASSUM `!k. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [MAP_EQ_f] \\ REPEAT STRIP_TAC
@@ -1301,6 +1288,9 @@ val compile_correct = Q.prove(
       \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ fs [])
+    \\ Cases_on`∃n. op = Global n` \\ fs[] THEN1 cheat
+    \\ Cases_on`∃n. op = SetGlobal n` \\ fs[] THEN1 cheat
+    \\ Cases_on`op = AllocGlobal` \\ fs[] THEN1 cheat
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ fs [compile_op_def] \\ NO_TAC)
     \\ fs [iEval_def]
@@ -1327,7 +1317,8 @@ val compile_correct = Q.prove(
     \\ REV_FULL_SIMP_TAC std_ss [dec_clock_inv_clock1]
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     THEN1 (fs [evaluate_ok_lemma]
-           \\ fs [state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def])
+           \\ fs [state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def]
+           \\ metis_tac[])
     \\ fs [GSYM PULL_FORALL])
   THEN1 (* Call *)
    (`?c1 aux1 n1. compile n xs = (c1,aux1,n1)` by METIS_TAC [PAIR]
@@ -1344,7 +1335,7 @@ val compile_correct = Q.prove(
     \\ Cases_on `s5.clock < ticks + 1` \\ fs [] THEN1
      (Q.LIST_EXISTS_TAC [`t2 with clock := 0`,`b2`,`c`] \\ fs []
       \\ SRW_TAC [] []
-      \\ TRY (fs [state_rel_def] \\ NO_TAC)
+      \\ TRY (fs [state_rel_def] \\ qexists_tac`array_size'` \\ simp[])
       \\ `t2.clock < ticks + 1` by (fs [state_rel_def] \\ rfs [])
       \\ fs []
       \\ REVERSE (Cases_on `dest`)
@@ -1364,7 +1355,7 @@ val compile_correct = Q.prove(
       \\ fs [LET_DEF])
     \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a s5.code = SOME (args,body)`
     \\ `?n7. let (c7,aux7,n8) = compile n7 [body] in
-               (find_code (case dest of NONE => NONE | SOME n => SOME (2 * n))
+               (find_code (case dest of NONE => NONE | SOME n => SOME (num_stubs + 2 * n))
                  (MAP (adjust_bv b2) a) t2.code =
                  SOME (MAP (adjust_bv b2) args,HD c7)) /\
                aux_code_installed aux7 t2.code /\
@@ -1400,7 +1391,8 @@ val compile_correct = Q.prove(
       \\ IMP_RES_TAC evaluate_ok
       \\ fs [evaluate_ok_lemma] \\ REV_FULL_SIMP_TAC std_ss []
       \\ STRIP_TAC THEN1
-        (fs [state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def])
+        (fs [state_rel_def,dec_clock_def,bvlSemTheory.dec_clock_def] >>
+         METIS_TAC[])
       \\ IMP_RES_TAC find_code_EVERY_IMP)
     \\ STRIP_TAC
     \\ Q.LIST_EXISTS_TAC [`t2'`,`b2'`,`c' + c`] \\ fs []
