@@ -49,12 +49,12 @@ val num_stubs_def = Define`
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
     Let [get_globals_ptr; get_globals_count]
-      (If (Op Less [Op Length [Var 0]; Var 1])
-          (set_globals_count (Op Add [Var 1; Op(Const 1)[]]))
-          (Let [Op RefArray [Op(Const 0)[];Op Mult [Op Length [Var 0]; Op(Const 2)[]]]]
-            (Let [set_globals_ptr (Var 0)]
-               (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
-                 (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE))))))`;
+      (Let [set_globals_count (Op Add [Var 1; Op(Const 1)[]])]
+         (If (Op Less [Op Length [Var 1]; Var 2]) (Var 0)
+             (Let [Op RefArray [Op(Const 0)[];Op Mult [Op Length [Var 1]; Op(Const 2)[]]]]
+               (Let [set_globals_ptr (Var 0)]
+                  (If (Op Equal [Op(Const 0)[]; Var 4]) (Var 0)
+                    (Call 0 (SOME CopyGlobals_location) [Var 1; Var 3; Op Sub [Op(Const 1)[];Var 4]] NONE)))))))`;
 
 val CopyGlobals_code_def = Define`
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)

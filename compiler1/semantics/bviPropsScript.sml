@@ -14,6 +14,9 @@ val bvl_to_bvi_with_io = Q.store_thm("bvl_to_bvi_with_io",
   `bvl_to_bvi (x with io := y) z = bvl_to_bvi x z with io := y`,
   EVAL_TAC)
 
+val bvi_to_bvl_refs = Q.store_thm("bvi_to_bvl_refs[simp]",
+  `(bvi_to_bvl x).refs = x.refs`, EVAL_TAC)
+
 val evaluate_LENGTH = prove(
   ``!xs s env. (\(xs,s,env).
       (case evaluate (xs,s,env) of (Rval res,s1) => (LENGTH xs = LENGTH res)
@@ -99,6 +102,9 @@ val inc_clock_ZERO = store_thm("inc_clock_ZERO",
 val inc_clock_ADD = store_thm("inc_clock_ADD",
   ``inc_clock n (inc_clock m s) = inc_clock (n+m) s``,
   fs [inc_clock_def,state_component_equality,AC ADD_ASSOC ADD_COMM]);
+
+val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
+  `(inc_clock n s).refs = s.refs`,EVAL_TAC)
 
 val dec_clock_inv_clock = store_thm("dec_clock_inv_clock",
   ``¬(t1.clock < ticks + 1) ==>

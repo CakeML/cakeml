@@ -14,6 +14,15 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val REPLICATE_NIL = Q.store_thm("REPLICATE_NIL",
+  `REPLICATE x y = [] ⇔ x = 0`,
+  Cases_on`x`>>EVAL_TAC>>simp[]);
+
+val REPLICATE_APPEND = Q.store_thm("REPLICATE_APPEND",
+  `REPLICATE n a ++ REPLICATE m a = REPLICATE (n+m) a`,
+  simp[LIST_EQ_REWRITE,LENGTH_REPLICATE] >> rw[] >>
+  Cases_on`x < n` >> simp[EL_APPEND1,LENGTH_REPLICATE,EL_REPLICATE,EL_APPEND2])
+
 val INJ_EXTEND = store_thm("INJ_EXTEND",
   ``INJ b s t /\ ~(x IN s) /\ ~(y IN t) ==>
     INJ ((x =+ y) b) (x INSERT s) (y INSERT t)``,

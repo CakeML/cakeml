@@ -96,7 +96,7 @@ val state_rel_def = Define `
     (∃globals_ptr array_size.
        (∀k. k ∈ FDOM s.refs ⇒ b k ≠ globals_ptr) ∧
        FLOOKUP t.refs 0 = SOME (ValueArray [RefPtr globals_ptr; Number(&LENGTH s.globals)]) ∧
-       LENGTH s.globals ≤ array_size ∧
+       LENGTH s.globals ≤ array_size ∧ 0 < array_size ∧ globals_ptr ≠ 0 ∧
        FLOOKUP t.refs globals_ptr =
          SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
                            REPLICATE (array_size - LENGTH s.globals) (Number 0)))) ∧
@@ -363,6 +363,20 @@ val bEval_bVarBound = prove(
 
 val iEval_def = bviSemTheory.evaluate_def;
 
+val evaluate_get_globals_ptr_abs = Q.prove(
+  `FLOOKUP s.refs 0 = SOME (ValueArray [RefPtr p; Number &n])
+   ⇒
+   evaluate ([get_globals_ptr],env,inc_clock c s) = (Rval [RefPtr p],inc_clock c s)`,
+  rw[get_globals_ptr_def,iEval_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def] >>
+  rw[bvlSemTheory.do_app_def] >> fs[bvl_to_bvi_id]);
+
+val evaluate_get_globals_count_abs = Q.prove(
+  `FLOOKUP s.refs 0 = SOME (ValueArray [RefPtr p; Number &n])
+   ⇒
+   evaluate ([get_globals_count],env,inc_clock c s) = (Rval [Number &n],inc_clock c s)`,
+  rw[get_globals_count_def,iEval_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def] >>
+  rw[bvlSemTheory.do_app_def] >> fs[bvl_to_bvi_id]);
+
 val evaluate_get_globals_ptr = Q.prove(
   `state_rel b s t ⇒
    ∃p l.
@@ -372,10 +386,72 @@ val evaluate_get_globals_ptr = Q.prove(
      FLOOKUP t.refs p =
        SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
                          REPLICATE (l - LENGTH s.globals) (Number 0)))`,
-   rw[get_globals_ptr_def,iEval_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def] >>
-   rw[bvlSemTheory.do_app_def,Once bvi_to_bvl_def,Once inc_clock_def] >>
-   fs[state_rel_def,bvl_to_bvi_id] >>
-   metis_tac[])
+   rw[state_rel_def]>>rw[evaluate_get_globals_ptr_abs] >> metis_tac[])
+
+(* correctness of stubs *)
+
+val bEvalOp_def = bvlSemTheory.do_app_def;
+val iEvalOp_def = bviSemTheory.do_app_def;
+
+val evaluate_AllocGlobal_code = Q.prove(
+  `FLOOKUP s.refs 0 = SOME (ValueArray [RefPtr p; Number &n]) ∧
+   FLOOKUP s.refs p = SOME (ValueArray ls) ∧ 0 ≠ p ∧ ls ≠ []
+   ⇒
+   ∃p1 c.
+     (p1 ≠ p ⇒ p1 ∉ FDOM s.refs) ∧
+     evaluate ([SND AllocGlobal_code],[],inc_clock c s) =
+       (Rval [Unit],
+        s with refs := s.refs
+          |+ (0, ValueArray [RefPtr p1; Number &(n+1)])
+          |+ (p1, ValueArray (if n < LENGTH ls then ls
+                              else ls ++ (REPLICATE (LENGTH ls) (Number 0)))))`,
+  strip_tac >>
+  simp[AllocGlobal_code_def] >>
+  simp[Ntimes iEval_def 2] >>
+  REWRITE_TAC[UNDISCH evaluate_get_globals_ptr_abs] >> simp[] >>
+  REWRITE_TAC[UNDISCH evaluate_get_globals_count_abs] >> simp[] >>
+  simp[Ntimes iEval_def 8,set_globals_count_def] >>
+  simp[iEvalOp_def,do_app_aux_def,small_enough_int_def,bEvalOp_def,bvl_to_bvi_id] >>
+  simp[Ntimes iEval_def 3] >> simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 2] >> simp[iEvalOp_def,do_app_aux_def] >>
+  simp[Ntimes iEval_def 5] >>
+  simp[bvl_to_bvi_with_refs,bvl_to_bvi_id,iEvalOp_def,do_app_aux_def,bEvalOp_def,FLOOKUP_UPDATE] >>
+  simp[Ntimes iEval_def 2,bvl_to_bvi_with_refs] >>
+  Cases_on`n < LENGTH ls` >> simp[] >- (
+    Q.LIST_EXISTS_TAC[`p`,`0`] >>
+    simp[inc_clock_ZERO,bvl_to_bvi_id] >>
+    simp[state_component_equality] >>
+    EVAL_TAC >>
+    simp[fmap_eq_flookup,FLOOKUP_UPDATE] >>
+    rw[] >> simp[] >> intLib.COOPER_TAC) >>
+  simp[Ntimes iEval_def 5] >> simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 4] >>
+  simp[iEvalOp_def,do_app_aux_def,bvl_to_bvi_id,bEvalOp_def,FLOOKUP_UPDATE] >>
+  simp[Ntimes iEval_def 2] >> simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 2,bvl_to_bvi_id,set_globals_ptr_def,bvl_to_bvi_with_refs] >>
+  simp[Ntimes iEval_def 5] >> simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 2] >>
+  simp[iEvalOp_def,do_app_aux_def,bEvalOp_def,FLOOKUP_UPDATE] >>
+  `(λptr. ptr ≠ 0 ∧ ptr ∉ FDOM s.refs) = (λptr. ptr ∉ FDOM s.refs)` by (
+    simp[FUN_EQ_THM] >> fs[FLOOKUP_DEF] >> metis_tac[]) >> simp[] >>
+  pop_assum kall_tac >>
+  IF_CASES_TAC >- (
+    `F` suffices_by rw[] >>
+    fs[FLOOKUP_DEF] >>
+    metis_tac[LEAST_NOTIN_FDOM] ) >>
+  simp[] >>
+  simp[Ntimes iEval_def 5,bvl_to_bvi_id] >>
+  simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 1,bvl_to_bvi_id,bvl_to_bvi_with_refs] >>
+  simp[bEvalOp_def,bvl_to_bvi_id] >>
+  qmatch_assum_abbrev_tac`p1 ≠ 0:num` >>
+  Cases_on`n=0`>>simp[] >- (
+    Cases_on`ls`>>fs[] ) >>
+  qexists_tac`p1` >>
+  simp[GSYM PULL_EXISTS] >>
+  conj_tac >- simp[Abbr`p1`,LEAST_NOTIN_FDOM] >>
+  simp[LUPDATE_compute,FUPDATE_COMMUTES] >>
+  cheat)
 
 (* compiler correctness *)
 
@@ -469,9 +545,6 @@ val iEval_bVarBound = Q.prove(
   \\ ONCE_REWRITE_TAC [APPEND |> SPEC_ALL |> CONJUNCT2 |> GSYM]
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1]);
 
-val bEvalOp_def = bvlSemTheory.do_app_def;
-val iEvalOp_def = bviSemTheory.do_app_def;
-
 val v_to_list_adjust = Q.prove(
   `∀x. v_to_list (adjust_bv f x) = OPTION_MAP (MAP (adjust_bv f)) (v_to_list x)`,
   ho_match_mp_tac v_to_list_ind >>
@@ -524,7 +597,7 @@ val do_app_adjust = Q.prove(
     Cases_on`h`>>fs[]>>
     Cases_on`t'`>>fs[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
-    simp[Once bvi_to_bvl_def] >> rw[] >>
+    simp[] >> rw[] >>
     every_case_tac >> fs[] >>rw[] >> rw[adjust_bv_def,bvl_to_bvi_id] >>
     fs[state_rel_def] >>
     last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
@@ -538,7 +611,7 @@ val do_app_adjust = Q.prove(
     Cases_on`h`>>fs[]>>
     Cases_on`t`>>fs[]>>
     simp[bEvalOp_def,adjust_bv_def] >>
-    simp[Once bvi_to_bvl_def] >> rw[] >>
+    simp[] >> rw[] >>
     every_case_tac >> fs[] >>rw[] >>
     rw[adjust_bv_def,bvl_to_bvi_with_refs,bvl_to_bvi_id] >>
     fs[state_rel_def] >>
@@ -595,7 +668,7 @@ val do_app_adjust = Q.prove(
     \\ Cases_on `FLOOKUP s5.refs n` \\ fs []
     \\ Cases_on `x` \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [adjust_bv_def]
-    \\ fs [bEvalOp_def] \\ SIMP_TAC std_ss [Once bvi_to_bvl_def] \\ fs []
+    \\ fs [bEvalOp_def]
     \\ Q.EXISTS_TAC `t2` \\ fs []
     \\ `FLOOKUP t2.refs (b2 n) = SOME(ValueArray(MAP (adjust_bv b2) l))` by (
         fs [state_rel_def] >>
@@ -646,7 +719,6 @@ val do_app_adjust = Q.prove(
     qmatch_assum_rename_tac`bv_ok s5.refs (RefPtr k)` >>
     Cases_on`FLOOKUP s5.refs k`>>fs[]>>
     Cases_on`x`>>fs[]>>
-    simp[Once bvi_to_bvl_def] >>
     `FLOOKUP t2.refs (b2 k) = SOME (ByteArray l)` by (
       fs[state_rel_def] >>
       last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
@@ -1303,7 +1375,7 @@ val compile_correct = Q.prove(
          qpat_assum`!x. bbb`kall_tac >>
          simp[] >>
          simp[iEvalOp_def,do_app_aux_def] >>
-         simp[bEvalOp_def,Once bvi_to_bvl_def,LENGTH_REPLICATE,Once inc_clock_def] >>
+         simp[bEvalOp_def,LENGTH_REPLICATE] >>
          fs[closSemTheory.get_global_def] >>
          imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >> fs[LENGTH_NIL] >>
          fs[bEval_def] >> rpt var_eq_tac >>
@@ -1334,7 +1406,7 @@ val compile_correct = Q.prove(
          first_x_assum(qspecl_then[`0`,`MAP (adjust_bv b2) env`]strip_assume_tac) >>
          fs[inc_clock_ZERO] >>
          simp[iEvalOp_def,do_app_aux_def] >>
-         simp[bEvalOp_def,Once bvi_to_bvl_def,LENGTH_REPLICATE] >>
+         simp[bEvalOp_def,LENGTH_REPLICATE] >>
          fs[closSemTheory.get_global_def] >>
          simp[] >>
          simp[bvl_to_bvi_with_refs,bvl_to_bvi_id,LUPDATE_APPEND1] >>
@@ -1355,7 +1427,64 @@ val compile_correct = Q.prove(
            qexists_tac`k`>>simp[Abbr`ls`,EL_MAP,EL_APPEND1,libTheory.the_def] ) >>
          rfs[Abbr`x`,Abbr`y`] >>
          fs[LENGTH_NIL_SYM] )
-    \\ Cases_on`op = AllocGlobal` \\ fs[] THEN1 cheat
+    \\ Cases_on`op = AllocGlobal` \\ fs[] THEN1 (
+         simp[compile_op_def] >>
+         fs[bEvalOp_def] >>
+         Cases_on`REVERSE a`>>fs[]>>rw[]>>
+         imp_res_tac evaluate_IMP_LENGTH >>
+         fs[LENGTH_NIL] >> rw[] >>
+         rw[iEval_def] >>
+         simp[Once inc_clock_def] >>
+         simp[find_code_def] >>
+         `lookup AllocGlobal_location t1.code = SOME(0,SND AllocGlobal_code)` by (
+           fs[state_rel_def] >> simp[AllocGlobal_code_def] ) >>
+         simp[] >>
+         let
+           val th = (Q.SPEC`inc_clock c t1`(Q.GEN`s`evaluate_AllocGlobal_code))
+         in
+         Q.SUBGOAL_THEN `∃p n ls. ^(fst(dest_imp(concl th)))` assume_tac
+         THEN1 (
+           fs[state_rel_def,REPLICATE_NIL] >>
+           Cases_on`array_size = LENGTH s.globals`>>simp[]>>
+           rpt strip_tac >> fs[] )
+         end >>
+         rpt(pop_assum CHOOSE_TAC) >>
+         first_assum(mp_tac o MATCH_MP evaluate_AllocGlobal_code) >>
+         disch_then(qx_choosel_then[`p1`,`ck`]strip_assume_tac) >>
+         CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
+         Q.LIST_EXISTS_TAC[`c+ck+1`,`b2`] >>
+         simp[Once inc_clock_def] >>
+         `dec_clock 1 (inc_clock (c + (ck+1)) t1) =
+          inc_clock ck (inc_clock c t1)` by (
+           EVAL_TAC >> simp[state_component_equality] ) >>
+         simp[] >>
+         ntac 2 (pop_assum kall_tac) >>
+         fs[iEval_def] >> var_eq_tac >>
+         last_x_assum kall_tac >>
+         fs[state_rel_def,LENGTH_REPLICATE,FLOOKUP_UPDATE] >>
+         conj_tac >- fs[INJ_DEF] >>
+         conj_tac >- (
+           gen_tac >>
+           Cases_on`FLOOKUP s5.refs k`>>simp[]>>
+           `p ≠ b2 k ∧ 0 ≠ b2 k` by ( fs[FLOOKUP_DEF] ) >>
+           `p1 ≠ b2 k` by (
+             fs[INJ_DEF,FLOOKUP_DEF] >>
+             METIS_TAC[] ) >>
+           simp[] >>
+           rpt(first_x_assum(qspec_then`k`mp_tac)) >>
+           simp[] ) >>
+         `p1 ≠ 0` by (
+           Cases_on`p1=p`>>fs[]>>
+           rpt strip_tac >> fs[FLOOKUP_DEF] ) >>
+         simp[GSYM PULL_EXISTS] >>
+         conj_tac >- metis_tac[INJ_DEF] >>
+         IF_CASES_TAC >- (
+           qexists_tac`array_size`>>simp[libTheory.the_def]>>
+           simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,EL_REPLICATE] >>
+           Cases >> simp[EL_REPLICATE] ) >>
+         qexists_tac`array_size * 2`>>simp[libTheory.the_def] >>
+         simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,REPLICATE_APPEND] >>
+         Cases >> simp[EL_REPLICATE])
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ fs [compile_op_def] \\ NO_TAC)
     \\ fs [iEval_def]
