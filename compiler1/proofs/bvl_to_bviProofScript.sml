@@ -366,6 +366,7 @@ val iEval_def = bviSemTheory.evaluate_def;
 val evaluate_get_globals_ptr = Q.prove(
   `state_rel b s t ⇒
    ∃p l.
+     FLOOKUP t.refs 0 = SOME (ValueArray [RefPtr p;Number &LENGTH s.globals]) ∧
      evaluate ([get_globals_ptr],env,inc_clock x t) = (Rval [RefPtr p],inc_clock x t) ∧
      LENGTH s.globals ≤ l ∧
      FLOOKUP t.refs p =
@@ -1316,7 +1317,44 @@ val compile_correct = Q.prove(
          fs[state_ok_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
          first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
          simp[])
-    \\ Cases_on`∃n. op = SetGlobal n` \\ fs[] THEN1 cheat
+    \\ Cases_on`∃n. op = SetGlobal n` \\ fs[] THEN1 (
+         simp[compile_op_def] >>
+         fs[bEvalOp_def] >>
+         Cases_on`REVERSE a`>>fs[] >>
+         Cases_on`t`>>fs[] >> rw[] >>
+         imp_res_tac evaluate_IMP_LENGTH >>
+         Cases_on`c1`>>fs[LENGTH_NIL] >> rw[] >>
+         every_case_tac >> fs[] >> rw[] >>
+         simp[iEval_def] >>
+         CONV_TAC(RESORT_EXISTS_CONV(List.rev)) >>
+         Q.LIST_EXISTS_TAC[`c`,`b2`] >>
+         simp[compile_int_thm] >>
+         imp_res_tac evaluate_get_globals_ptr >>
+         qpat_assum`!x. bbb`kall_tac >>
+         first_x_assum(qspecl_then[`0`,`MAP (adjust_bv b2) env`]strip_assume_tac) >>
+         fs[inc_clock_ZERO] >>
+         simp[iEvalOp_def,do_app_aux_def] >>
+         simp[bEvalOp_def,Once bvi_to_bvl_def,LENGTH_REPLICATE] >>
+         fs[closSemTheory.get_global_def] >>
+         simp[] >>
+         simp[bvl_to_bvi_with_refs,bvl_to_bvi_id,LUPDATE_APPEND1] >>
+         simp[Once bvi_to_bvl_def] >>
+         fs[state_rel_def] >>
+         simp[FLOOKUP_UPDATE] >>
+         conj_tac >- fs[INJ_DEF] >>
+         rw[] >- ( fs[FLOOKUP_DEF] >> rw[] >> METIS_TAC[] ) >>
+         TRY (
+           qexists_tac`array_size'`>>simp[LUPDATE_MAP,libTheory.the_def] >>
+           NO_TAC) >>
+         fs[] >>
+         qmatch_assum_abbrev_tac`ls = [x;y]` >>
+         `MEM (Number 0) ls` by (
+           qpat_assum`ls = X`kall_tac >>
+           simp[MEM_EL] >>
+           qmatch_assum_rename_tac`EL k _ = NONE` >>
+           qexists_tac`k`>>simp[Abbr`ls`,EL_MAP,EL_APPEND1,libTheory.the_def] ) >>
+         rfs[Abbr`x`,Abbr`y`] >>
+         fs[LENGTH_NIL_SYM] )
     \\ Cases_on`op = AllocGlobal` \\ fs[] THEN1 cheat
     \\ `compile_op op c1 = Op op c1` by
       (Cases_on `op` \\ fs [compile_op_def] \\ NO_TAC)
