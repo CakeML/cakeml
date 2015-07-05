@@ -367,6 +367,7 @@ val evaluate_get_globals_ptr = Q.prove(
   `state_rel b s t ⇒
    ∃p l.
      evaluate ([get_globals_ptr],env,inc_clock x t) = (Rval [RefPtr p],inc_clock x t) ∧
+     LENGTH s.globals ≤ l ∧
      FLOOKUP t.refs p =
        SOME (ValueArray (MAP (the (Number 0) o OPTION_MAP (adjust_bv b)) s.globals ++
                          REPLICATE (l - LENGTH s.globals) (Number 0)))`,
@@ -1288,7 +1289,33 @@ val compile_correct = Q.prove(
       \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `b3` \\ fs [APPLY_UPDATE_THM]
       \\ SRW_TAC [] [] \\ fs [])
-    \\ Cases_on`∃n. op = Global n` \\ fs[] THEN1 cheat
+    \\ Cases_on`∃n. op = Global n` \\ fs[] THEN1 (
+         simp[compile_op_def] >>
+         fs[bEvalOp_def] >>
+         Cases_on`REVERSE a`>>fs[] >>
+         imp_res_tac evaluate_IMP_LENGTH >>
+         fs[LENGTH_NIL] >>
+         simp[iEval_def,compile_int_thm] >>
+         Q.LIST_EXISTS_TAC[`t2`,`b2`,`c`] >>
+         imp_res_tac evaluate_get_globals_ptr >>
+         first_x_assum(qspecl_then[`c`,`MAP (adjust_bv b2) env`]strip_assume_tac) >>
+         qpat_assum`!x. bbb`kall_tac >>
+         simp[] >>
+         simp[iEvalOp_def,do_app_aux_def] >>
+         simp[bEvalOp_def,Once bvi_to_bvl_def,LENGTH_REPLICATE,Once inc_clock_def] >>
+         fs[closSemTheory.get_global_def] >>
+         imp_res_tac bvlPropsTheory.evaluate_IMP_LENGTH >> fs[LENGTH_NIL] >>
+         fs[bEval_def] >> rpt var_eq_tac >>
+         reverse IF_CASES_TAC >- ( fsrw_tac[ARITH_ss][] ) >>
+         simp[bvl_to_bvi_id] >>
+         fs[iEval_def] >>
+         every_case_tac >> fs[] >> rw[] >>
+         simp[EL_APPEND1,EL_MAP,libTheory.the_def] >>
+         MATCH_MP_TAC (GEN_ALL bv_ok_IMP_adjust_bv_eq) >>
+         qexists_tac`r`>>simp[] >>
+         fs[state_ok_def,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+         first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+         simp[])
     \\ Cases_on`∃n. op = SetGlobal n` \\ fs[] THEN1 cheat
     \\ Cases_on`op = AllocGlobal` \\ fs[] THEN1 cheat
     \\ `compile_op op c1 = Op op c1` by
