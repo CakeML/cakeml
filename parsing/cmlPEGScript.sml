@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open gramTheory pegexecTheory
+open gramTheory pegexecTheory pegTheory
 
 local open monadsyntax in end
 
@@ -59,15 +59,6 @@ val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
 val bindNT_def = Define`
   bindNT ntnm l = [Nd (mkNT ntnm) l]
 `
-
-val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
-
-val choicel_def = Define`
-  choicel [] = not (empty []) [] ∧
-  choicel (h::t) = choice h (choicel t) sumID
-`;
-
-
 
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
@@ -519,7 +510,7 @@ val peg_range =
 
 val peg_start = SIMP_CONV(srw_ss()) [cmlPEG_def]``cmlPEG.start``
 
-val wfpeg_rwts = pegTheory.wfpeg_cases
+val wfpeg_rwts = wfpeg_cases
                    |> ISPEC ``cmlPEG``
                    |> (fn th => map (fn t => Q.SPEC t th)
                                     [`seq e1 e2 f`, `choice e1 e2 f`, `tok P f`,
@@ -532,12 +523,12 @@ val wfpeg_rwts = pegTheory.wfpeg_cases
                                                    [choicel_def, seql_def, tokeq_def,
                                                     pegf_def])))
 
-val wfpeg_pnt = pegTheory.wfpeg_cases
+val wfpeg_pnt = wfpeg_cases
                   |> ISPEC ``cmlPEG``
                   |> Q.SPEC `pnt n`
                   |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def]))
 
-val peg0_rwts = pegTheory.peg0_cases
+val peg0_rwts = peg0_cases
                   |> ISPEC ``cmlPEG`` |> CONJUNCTS
                   |> map (fn th => map (fn t => Q.SPEC t th)
                                        [`tok P f`, `choice e1 e2 f`, `seq e1 e2 f`,
@@ -560,7 +551,7 @@ in
   List.filter filterthis peg0_rwts
 end
 
-val pegnt_case_ths = pegTheory.peg0_cases
+val pegnt_case_ths = peg0_cases
                       |> ISPEC ``cmlPEG`` |> CONJUNCTS
                       |> map (Q.SPEC `pnt n`)
                       |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
@@ -603,22 +594,22 @@ val npeg0_rwts =
 val pegfail_empty = Store_thm(
   "pegfail_empty",
   ``pegfail G (empty r) = F``,
-  simp[Once pegTheory.peg0_cases]);
+  simp[Once peg0_cases]);
 
 val peg0_empty = Store_thm(
   "peg0_empty",
   ``peg0 G (empty r) = T``,
-  simp[Once pegTheory.peg0_cases]);
+  simp[Once peg0_cases]);
 
 val peg0_not = Store_thm(
   "peg0_not",
   ``peg0 G (not s r) ⇔ pegfail G s``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
+  simp[Once peg0_cases, SimpLHS]);
 
 val peg0_choice = Store_thm(
   "peg0_choice",
   ``peg0 G (choice s1 s2 f) ⇔ peg0 G s1 ∨ pegfail G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
+  simp[Once peg0_cases, SimpLHS]);
 
 val peg0_choicel = Store_thm(
   "peg0_choicel",
@@ -629,7 +620,7 @@ val peg0_choicel = Store_thm(
 val peg0_seq = Store_thm(
   "peg0_seq",
   ``peg0 G (seq s1 s2 f) ⇔ peg0 G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS])
+  simp[Once peg0_cases, SimpLHS])
 
 val peg0_pegf = Store_thm(
   "peg0_pegf",
@@ -645,7 +636,7 @@ val peg0_seql = Store_thm(
 val peg0_tok = Store_thm(
   "peg0_tok",
   ``peg0 G (tok P f) = F``,
-  simp[Once pegTheory.peg0_cases])
+  simp[Once peg0_cases])
 
 val peg0_tokeq = Store_thm(
   "peg0_tokeq",
@@ -701,13 +692,13 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
 
 val subexprs_pnt = prove(
   ``subexprs (pnt n) = {pnt n}``,
-  simp[pegTheory.subexprs_def, pnt_def]);
+  simp[subexprs_def, pnt_def]);
 
 val PEG_exprs = save_thm(
   "PEG_exprs",
   ``Gexprs cmlPEG``
     |> SIMP_CONV (srw_ss())
-         [pegTheory.Gexprs_def, pegTheory.subexprs_def,
+         [Gexprs_def, subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_V_def, peg_nonfix_def, peg_EbaseParen_def,
           peg_longV_def, peg_linfix_def, peg_StructName_def,
@@ -718,7 +709,7 @@ val PEG_exprs = save_thm(
 val PEG_wellformed = store_thm(
   "PEG_wellformed",
   ``wfG cmlPEG``,
-  simp[pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
+  simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,
