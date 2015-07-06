@@ -7,6 +7,7 @@ open preamble
 val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
+val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
 
 (* TODO: move? *)
 
@@ -1049,6 +1050,7 @@ val do_app_err = Q.prove(
     every_case_tac >> fs[get_global_def,LIST_REL_EL_EQN] >>
     rfs[OPTREL_def] >> res_tac >> fs[])
   >- ( every_case_tac >> fs[] )
+  >- metis_tac[]
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[v_rel_SIMP]>>rw[]>-

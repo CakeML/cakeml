@@ -186,12 +186,13 @@ val do_app_IMP_case = prove(
   fs [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
-val do_app_thm = prove(
-  ``state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
-    (do_app op xs s1 = Rval (v,s2)) ==>
-    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
-           v_rel v w /\ state_rel s2 t2``,
+val do_app_thm = Q.prove(
+  `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
+   (do_app op xs s1 = Rval (v,s2)) ==>
+   ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
+          v_rel v w /\ state_rel s2 t2`,
   REVERSE (Cases_on `op`) \\ rpt STRIP_TAC
+  \\ TRY (fs[do_app_def] >> NO_TAC)
   THEN1 (* GreaterEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
@@ -234,9 +235,6 @@ val do_app_thm = prove(
     \\ rfs[state_rel_def]
     \\ res_tac >> fs[FLOOKUP_UPDATE] >> rw[] >> fs[] >>
     fs[FLOOKUP_DEF] >> rfs[])
-  THEN1 (* Label *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\
-    rw[] >> rw[])
   THEN1 (* Update *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] []
@@ -277,13 +275,11 @@ val do_app_thm = prove(
     \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
     \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
     \\ fs [])
-  THEN1 (* IsBlock *) fs [do_app_def]
-  THEN1 (* BlockCmp *) fs [do_app_def]
-  THEN1 (* TagLenEq *)
+  THEN1 (* TagEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
-  THEN1 (* TagEq *)
+  THEN1 (* TagLenEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
     \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
