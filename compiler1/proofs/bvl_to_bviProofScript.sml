@@ -393,9 +393,56 @@ val evaluate_get_globals_ptr = Q.prove(
 val bEvalOp_def = bvlSemTheory.do_app_def;
 val iEvalOp_def = bviSemTheory.do_app_def;
 
+val evaluate_CopyGlobals_code = Q.prove(
+  `∀n l1 s.
+   lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code) ∧
+   FLOOKUP s.refs p = SOME (ValueArray ls) ∧
+   FLOOKUP s.refs p1 = SOME (ValueArray l1) ∧
+   p ≠ p1 ∧
+   n < LENGTH ls ∧ n < LENGTH l1
+   ⇒
+   ∃c.
+     evaluate ([SND CopyGlobals_code],
+               [RefPtr p1; RefPtr p; Number &n],
+               inc_clock c s) =
+     (Rval [Unit], s with refs := s.refs |+ (p1, ValueArray (TAKE (SUC n) ls ++ DROP (SUC n) l1)))`,
+  Induct >> rw[] >> rw[CopyGlobals_code_def] >>
+  rw[iEval_def,iEvalOp_def,do_app_aux_def,bEvalOp_def,bvl_to_bvi_id,small_enough_int_def,bvl_to_bvi_with_refs] >- (
+    qexists_tac`0`>>simp[inc_clock_ZERO,state_component_equality] >>
+    rpt AP_TERM_TAC >>
+    simp[LIST_EQ_REWRITE,EL_LUPDATE] >>
+    rw[] >> simp[EL_APPEND2,EL_DROP] >>
+    Cases_on`ls`>>fs[]) >>
+  simp[find_code_def] >>
+  simp[Once inc_clock_def] >>
+  qpat_abbrev_tac`l2 = LUPDATE x y z` >>
+  qpat_abbrev_tac`rf = s.refs |+ X` >>
+  first_x_assum(qspecl_then[`l2`,`s with refs := rf`]mp_tac) >>
+  discharge_hyps >- (
+    simp[Abbr`rf`,FLOOKUP_UPDATE] >>
+    simp[Abbr`l2`] ) >>
+  strip_tac >>
+  qexists_tac`c+1` >>
+  simp[Once inc_clock_def] >>
+  qpat_abbrev_tac`ss = dec_clock 1 Z` >>
+  `ss = inc_clock c (s with refs := rf)` by (
+    simp[Abbr`ss`] >> EVAL_TAC >>
+    simp[state_component_equality] ) >>
+  simp[Abbr`ss`] >>
+  `&SUC n - 1 = &n` by (
+    simp[ADD1] >> intLib.COOPER_TAC ) >>
+  simp[state_component_equality] >>
+  simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+  rw[] >>
+  simp[LIST_EQ_REWRITE,Abbr`l2`] >> rw[] >>
+  Cases_on`x < SUC n` >> simp[EL_APPEND1,EL_TAKE] >>
+  simp[EL_APPEND2,EL_DROP,EL_LUPDATE] >>
+  Cases_on`x = SUC n` >> simp[EL_APPEND1,EL_TAKE,EL_APPEND2,EL_DROP]);
+
 val evaluate_AllocGlobal_code = Q.prove(
   `FLOOKUP s.refs 0 = SOME (ValueArray [RefPtr p; Number &n]) ∧
-   FLOOKUP s.refs p = SOME (ValueArray ls) ∧ 0 ≠ p ∧ ls ≠ []
+   FLOOKUP s.refs p = SOME (ValueArray ls) ∧ 0 ≠ p ∧ ls ≠ [] ∧ n ≤ LENGTH ls ∧
+   lookup CopyGlobals_location s.code = SOME (3,SND CopyGlobals_code)
    ⇒
    ∃p1 c.
      (p1 ≠ p ⇒ p1 ∉ FDOM s.refs) ∧
@@ -451,7 +498,32 @@ val evaluate_AllocGlobal_code = Q.prove(
   simp[GSYM PULL_EXISTS] >>
   conj_tac >- simp[Abbr`p1`,LEAST_NOTIN_FDOM] >>
   simp[LUPDATE_compute,FUPDATE_COMMUTES] >>
-  cheat)
+  simp[Ntimes iEval_def 9] >> simp[iEvalOp_def,do_app_aux_def,small_enough_int_def] >>
+  simp[Ntimes iEval_def 1] >> simp[bEvalOp_def,bvl_to_bvi_id] >>
+  simp[find_code_def,Once inc_clock_def] >>
+  qpat_abbrev_tac`l1 = REPLICATE x y` >>
+  qpat_abbrev_tac`rf = s.refs |+ x |+ y` >>
+  qspecl_then[`n-1`,`l1`,`s with refs := rf`]mp_tac evaluate_CopyGlobals_code >>
+  discharge_hyps >- (
+    simp[Abbr`rf`,FLOOKUP_UPDATE] >>
+    IF_CASES_TAC >> simp[] >- (
+      fs[FLOOKUP_DEF] >> metis_tac[LEAST_NOTIN_FDOM] ) >>
+    simp[Abbr`l1`,LENGTH_REPLICATE] ) >>
+  strip_tac >>
+  qexists_tac`c+1` >>
+  simp[Once inc_clock_def] >>
+  qpat_abbrev_tac`ss = dec_clock 1 Z` >>
+  `ss = inc_clock c (s with refs := rf)` by (
+    simp[Abbr`ss`] >> EVAL_TAC >>
+    simp[state_component_equality] ) >>
+  simp[Abbr`ss`] >>
+  `&n - 1 = &(n-1)` by (Cases_on`n`>>fs[]>>simp[ADD1]>>intLib.COOPER_TAC) >>
+  simp[state_component_equality] >>
+  simp[Abbr`rf`,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+  reverse(rw[]) >> simp[] >- intLib.COOPER_TAC >>
+  `n = LENGTH ls`by decide_tac >>
+  simp[ADD1] >>
+  simp[Abbr`l1`,DROP_REPLICATE])
 
 (* compiler correctness *)
 
@@ -1445,6 +1517,8 @@ val compile_correct = Q.prove(
          Q.SUBGOAL_THEN `∃p n ls. ^(fst(dest_imp(concl th)))` assume_tac
          THEN1 (
            fs[state_rel_def,REPLICATE_NIL] >>
+           simp[Once inc_clock_def] >>
+           simp[CopyGlobals_code_def] >>
            Cases_on`array_size = LENGTH s.globals`>>simp[]>>
            rpt strip_tac >> fs[] )
          end >>
