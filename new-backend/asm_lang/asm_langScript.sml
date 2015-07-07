@@ -1,7 +1,7 @@
 open HolKernel Parse boolLib bossLib;
 open asmTheory wordsTheory wordsLib sptreeTheory ffiTheory;
 open target_semTheory word_locTheory lcsymtacs;
-open arithmeticTheory
+open arithmeticTheory alignmentTheory
 
 val _ = new_theory "asm_lang";
 
@@ -148,9 +148,6 @@ val mem_load_def = Define `
                         w IN s.mem_domain)
                   (upd_reg r (s.mem w) s)`
 
-val align_addr_def = Define `
-  align_addr (a:'a word) = n2w (w2n a - (w2n a MOD (dimindex (:'a) DIV 8)))`
-
 val get_byte_def = Define `
   get_byte (a:'a word) (w:'a word) is_bigendian =
     let d = dimindex (:'a) DIV 8 in
@@ -160,10 +157,10 @@ val get_byte_def = Define `
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux w s =
-    case s.mem (align_addr w) of
+    case s.mem (byte_align w) of
     | Loc _ _ => NONE
     | Word v =>
-        if align_addr w IN s.mem_domain
+        if byte_align w IN s.mem_domain
         then SOME (get_byte w v s.be) else NONE`
 
 val read_bytearray_def = Define `
@@ -196,10 +193,10 @@ val set_byte_def = Define `
 
 val mem_store_byte_aux_def = Define `
   mem_store_byte_aux w b s =
-    case s.mem (align_addr w) of
+    case s.mem (byte_align w) of
     | Word v =>
-        if align_addr w IN s.mem_domain
-        then SOME (upd_mem (align_addr w) (Word (set_byte w b v s.be)) s)
+        if byte_align w IN s.mem_domain
+        then SOME (upd_mem (byte_align w) (Word (set_byte w b v s.be)) s)
         else NONE
     | _ => NONE`
 
@@ -896,9 +893,9 @@ val state_rel_def = Define `
        (loc_to_pc l1 l2 s1.code = SOME x2) ==>
        (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
-    (!a. align_addr a IN s1.mem_domain ==>
+    (!a. byte_align a IN s1.mem_domain ==>
          a IN t1.mem_domain /\ a IN s1.mem_domain /\
-         ?w. (word_loc_val p labs (s1.mem (align_addr a)) = SOME w) /\
+         ?w. (word_loc_val p labs (s1.mem (byte_align a)) = SOME w) /\
              (get_byte a w s1.be = t1.mem a)) /\
     (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 1)) /\
     bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
@@ -1177,7 +1174,7 @@ val read_bytearray_state_rel = prove(
   \\ rpt strip_tac \\ Cases_on `mem_load_byte_aux a s1` \\ fs []
   \\ Cases_on `read_bytearray (a + 1w) n s1` \\ fs []
   \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
-  \\ Cases_on `s1.mem (align_addr a)` \\ fs [] \\ rw []
+  \\ Cases_on `s1.mem (byte_align a)` \\ fs [] \\ rw []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
   \\ rpt strip_tac \\ fs [word_loc_val_def]);
 
