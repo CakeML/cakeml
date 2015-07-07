@@ -14,12 +14,18 @@ open stringTheory stringLib listTheory tokensTheory ASCIInumbersTheory intLib;
 (* intermediate symbols *)
 
 val _ = Datatype `symbol = StringS string
+                         | CharS char
                          | NumberS int
                          | LongS string (* identifiers with a . in them *)
                          | OtherS string
                          | ErrorS `;
 
 (* helper functions *)
+val mkCharS_def = Define`
+  (mkCharS (StringS s) = if LENGTH s = 1 then CharS (HD s)
+                         else ErrorS) /\
+  (mkCharS _ = ErrorS)
+`;
 
 val read_while_def = Define `
   (read_while P "" s = (IMPLODE (REVERSE s),"")) /\
@@ -112,6 +118,9 @@ val next_sym_def = tDefine "next_sym" `
          SOME (t, rest)
      else if isPREFIX "*)" (c::str) then
        SOME (ErrorS, TL str)
+     else if isPREFIX "#\"" (c::str) then
+       let (t,rest) = read_string (TL str) "" in
+         SOME (mkCharS t, rest)
      else if isPREFIX "(*" (c::str) then
        case skip_comment (TL str) 0 of
        | NONE => SOME (ErrorS, "")
@@ -278,6 +287,7 @@ val token_of_sym_def = Define `
     case s of
     | ErrorS    => LexErrorT
     | StringS s => StringT s
+    | CharS c => CharT c
     | NumberS i => IntT i
     | LongS s => let (s1,s2) = SPLITP (\x. x = #".") s in
                    LongidT s1 (case s2 of "" => "" | (c::cs) => cs)

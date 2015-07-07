@@ -110,7 +110,7 @@ val cmlG_def = mk_grammar_def ginfo
        |  "*" ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
+        |  <CharT> | <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
         | "[" Elist1 "]" | "op" OpID ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";

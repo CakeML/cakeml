@@ -24,11 +24,10 @@ val _ = Hol_datatype `
 | HexintT of string
 | RealT of string
 | StringT of string
-| CharT of string
+| CharT of char
 | TyvarT of string
 | AlphaT of string
 | SymbolT of string
 | LongidT of string => string`;
 
 val _ = export_theory()
-

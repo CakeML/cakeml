@@ -1030,6 +1030,7 @@ val peg_sound = store_thm(
       rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC))
       >- (asm_match `isInt h` >> Cases_on `h` >> fs[])
       >- (asm_match `isString h` >> Cases_on `h` >> fs[])
+      >- (qcase_tac `isCharT h` >> Cases_on `h` >> fs[])
       >- (* () *) dsimp[]
       >- ((* peg_EbaseParen 1 *)
           IMP_RES_THEN match_mp_tac peg_EbaseParen_sound >> simp[])

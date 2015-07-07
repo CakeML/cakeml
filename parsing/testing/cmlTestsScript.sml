@@ -394,5 +394,6 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                   \in f1 (3 + y)\n\
                   \end"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "fn v => v + 2"
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "#\"a\" + 1"
 
 val _ = export_theory()

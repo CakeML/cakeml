@@ -642,14 +642,9 @@ val ptree_Expr_def = Define`
               do
                 lf <- destLf single;
                 t <- destTOK lf;
-                i <- destIntT t ;
-                SOME (Lit (IntLit i))
-              od ++
-              do
-                lf <- destLf single;
-                t <- destTOK lf;
-                s <- destStringT t;
-                SOME (Lit (StrLit s))
+                (do i <- destIntT t ; SOME (Lit (IntLit i)) od ++
+                 do c <- destCharT t ; SOME (Lit (Char c)) od ++
+                 do s <- destStringT t ; SOME (Lit (StrLit s)) od)
               od ++
               do
                 s <- ptree_FQV single;

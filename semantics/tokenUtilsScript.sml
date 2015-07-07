@@ -45,6 +45,12 @@ val isWhitespaceT_def = Define`
   (isWhitespaceT _ ⇔ F)
 `
 
+val isCharT_def = Define`
+  (isCharT (CharT _) ⇔ T) ∧
+  (isCharT _ ⇔ F)
+`;
+val _ = export_rewrites ["isCharT_def"]
+
 val isLongidT_def = Define`
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
@@ -100,6 +106,12 @@ val destIntT_def = Define`
   (destIntT _ = NONE)
 `;
 val _ = export_rewrites ["destIntT_def"]
+
+val destCharT_def = Define`
+  (destCharT (CharT c) = SOME c) ∧
+  (destCharT _ = NONE)
+`;
+val _ = export_rewrites ["destCharT_def"]
 
 val destStringT_def = Define`
   (destStringT (StringT s) = SOME s) ∧

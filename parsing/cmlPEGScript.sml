@@ -212,6 +212,7 @@ val cmlPEG_def = zDefine`
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         tok isString (bindNT nEbase o mktokLf);
+                        tok isCharT (bindNT nEbase o mktokLf);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         peg_EbaseParen;
                         seql [tokeq LbrackT; try (pnt nElist1); tokeq RbrackT]
