@@ -160,15 +160,15 @@ val addr_offset_ok_def = Define `
 
 val jump_offset_ok_def = Define `
   jump_offset_ok w c = c.jump_offset_min <= w /\ w <= c.jump_offset_max /\
-                       (w2n w MOD c.code_alignment = 0)`
+                       (w2n w MOD 2 EXP c.code_alignment = 0)`
 
 val cjump_offset_ok_def = Define `
   cjump_offset_ok w c = c.cjump_offset_min <= w /\ w <= c.cjump_offset_max /\
-                        (w2n w MOD c.code_alignment = 0)`
+                        (w2n w MOD 2 EXP c.code_alignment = 0)`
 
 val loc_offset_ok_def = Define `
   loc_offset_ok w c = c.loc_offset_min <= w /\ w <= c.loc_offset_max /\
-                      (w2n w MOD c.code_alignment = 0)`
+                      (w2n w MOD 2 EXP c.code_alignment = 0)`
 
 val addr_ok_def = Define `
   addr_ok (Addr r w) c = reg_ok r c /\ addr_offset_ok w c`
@@ -200,7 +200,7 @@ val () = Datatype `
      ; mem_domain : 'a word set
      ; pc         : 'a word
      ; lr         : reg
-     ; align      : num
+     ; align      : 'a word
      ; be         : bool
      ; failed     : bool
      |>`
@@ -295,8 +295,7 @@ val asm_def = Define `
      else upd_pc pc s) /\
   (asm (Call l) pc s = jump_to_offset l (upd_reg s.lr pc s)) /\
   (asm (JumpReg r) pc s =
-      let a = read_reg r s in
-        upd_pc a (assert (a && n2w (s.align - 1) = 0w) s)) /\
+     let a = read_reg r s in upd_pc a (assert (a && s.align = 0w) s)) /\
   (asm (Loc r l) pc s = upd_pc pc (upd_reg r (s.pc + l) s))`
 
 val bytes_in_memory_def = Define `
@@ -308,7 +307,8 @@ val asm_step_def = Define `
   asm_step enc c s1 s2 =
     ?i. bytes_in_memory s1.pc (enc i) s1.mem s1.mem_domain /\
         (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
-        (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
+        (s1.be = c.big_endian) /\
+        (s1.align = n2w (2 EXP c.code_alignment - 1)) /\
         (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
         ~s2.failed /\ asm_ok i c`
 
@@ -316,7 +316,8 @@ val asm_step_alt_def = Define `
   asm_step_alt enc c s1 i s2 =
     bytes_in_memory s1.pc (enc i) s1.mem s1.mem_domain /\
     (case c.link_reg of SOME r => s1.lr = r | NONE => T) /\
-    (s1.be = c.big_endian) /\ (s1.align = c.code_alignment) /\
+    (s1.be = c.big_endian) /\
+    (s1.align = n2w (2 EXP c.code_alignment - 1)) /\
     (asm i (s1.pc + n2w (LENGTH (enc i))) s1 = s2) /\
     ~s2.failed /\ asm_ok i c`
 
@@ -387,9 +388,8 @@ val offset_monotonic_def = Define `
 val enc_ok_def = Define `
   enc_ok (enc: 'a asm -> word8 list) c =
     (* code alignment and length *)
-    1 <= c.code_alignment /\
-    (c.code_alignment = LENGTH (enc (Inst Skip))) /\
-    (!w. asm_ok w c ==> (LENGTH (enc w) MOD c.code_alignment = 0) /\
+    (2 EXP c.code_alignment = LENGTH (enc (Inst Skip))) /\
+    (!w. asm_ok w c ==> (LENGTH (enc w) MOD 2 EXP c.code_alignment = 0) /\
                         (LENGTH (enc w) <> 0)) /\
     (* label instantiation predictably affects length of code *)
     (!w1 w2. offset_monotonic enc c w1 w2 (Jump w1) (Jump w2)) /\

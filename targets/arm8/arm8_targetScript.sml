@@ -42,7 +42,7 @@ val arm8_config_def = Define`
     ; cjump_offset_max := ^cjump_max
     ; loc_offset_min := ^loc_min
     ; loc_offset_max := ^loc_max
-    ; code_alignment := 4
+    ; code_alignment := 2
     |>`
 
 (* --- The next-state function --- *)

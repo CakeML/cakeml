@@ -36,7 +36,7 @@ val arm6_config_def = Define`
     ; cjump_offset_max := ^max26
     ; loc_offset_min := ^min16
     ; loc_offset_max := ^max16
-    ; code_alignment := 4
+    ; code_alignment := 2
     |>`
 
 (* --- The next-state function --- *)
@@ -45,14 +45,18 @@ val arm6_next_def = Define `arm6_next = THE o NextStateARM`
 
 (* --- Relate ASM and ARMv6 states --- *)
 
+val arm6_ok_def = Define`
+   arm6_ok ms =
+   GoodMode ms.CPSR.M /\ ~ms.CPSR.E /\ ~ms.CPSR.J /\ ~ms.CPSR.T /\
+   (ms.Architecture = ARMv6) /\ ~ms.Extensions Extension_Security /\
+   (ms.exception = NoException) /\ Aligned (ms.REG RName_PC, 4)`
+
 val arm6_asm_state_def = Define`
-   arm6_asm_state a s =
-   GoodMode s.CPSR.M /\ ~s.CPSR.E /\ ~s.CPSR.J /\ ~s.CPSR.T /\
-   (s.Architecture = ARMv6) /\ ~s.Extensions Extension_Security /\
-   (s.exception = NoException) /\
-   (!i. i < 15 ==> (a.regs i = s.REG (R_mode s.CPSR.M (n2w i)))) /\
-   (a.mem_domain = univ(:word32)) /\ (a.mem = s.MEM) /\
-   (a.pc = s.REG RName_PC) /\ Aligned (s.REG RName_PC, 4)`
+   arm6_asm_state s ms =
+   arm6_ok ms /\
+   (!i. i < 15 ==> (s.regs i = ms.REG (R_mode ms.CPSR.M (n2w i)))) /\
+   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
+   (s.pc = ms.REG RName_PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -254,6 +258,23 @@ val arm6_dec_aux_def = Define`
    | _ => ARB`
 
 val arm6_dec_def = Define `arm6_dec = arm6_dec_aux o SND o decode_word`
+
+val arm6_proj_def = Define`
+   arm6_proj d s =
+   (s.CPSR, s.Architecture, s.Extensions, s.exception,
+    s.REG o R_mode s.CPSR.M, fun2set (s.MEM,d))`
+
+val arm6_target_funs_def = Define`
+   arm6_target_funs =
+   <| encode := arm6_enc
+    ; get_pc := (\s. s.REG RName_PC)
+    ; get_reg := (\s. s.REG o R_mode s.CPSR.M o n2w)
+    ; get_byte := arm_state_MEM
+    ; state_ok := arm6_ok
+    ; state_rel := arm6_asm_state
+    ; proj := arm6_proj
+    ; next := arm6_next
+    |>`
 
 (* ------------------------------------------------------------------------- *)
 
@@ -668,6 +689,19 @@ in
         |> REWRITE_RULE [wordsTheory.w2n_eq_0]
 end
 
+val reg_mode_eq = Q.prove(
+   `!m ms1 ms2.
+       (ms1.REG o R_mode m = ms2.REG o R_mode m) =
+       (!i. ms1.REG (R_mode m (n2w i)) = ms2.REG (R_mode m (n2w i))) /\
+       (ms1.REG RName_PC = ms2.REG RName_PC)`,
+   rw [FUN_EQ_THM]
+   \\ eq_tac
+   \\ strip_tac
+   >- metis_tac [arm_stepTheory.R_mode]
+   \\ Cases
+   \\ simp []
+   )
+
 (* some rewrites ---------------------------------------------------------- *)
 
 val encode_rwts =
@@ -707,9 +741,14 @@ val bytes_in_memory_thm = Q.prove(
       (state.MEM (state.REG RName_PC + 3w) = d) /\
       (state.MEM (state.REG RName_PC + 2w) = c) /\
       (state.MEM (state.REG RName_PC + 1w) = b) /\
-      (state.MEM (state.REG RName_PC) = a)`,
-   rw [arm6_asm_state_def, bytes_in_memory_def]
-   \\ simp []
+      (state.MEM (state.REG RName_PC) = a) /\
+      state.REG RName_PC + 3w IN s.mem_domain /\
+      state.REG RName_PC + 2w IN s.mem_domain /\
+      state.REG RName_PC + 1w IN s.mem_domain /\
+      state.REG RName_PC IN s.mem_domain`,
+   rw [arm6_asm_state_def, arm6_ok_def, bytes_in_memory_def,
+       set_sepTheory.fun2set_eq]
+   \\ rfs []
    )
 
 val bytes_in_memory_thm2 = Q.prove(
@@ -719,9 +758,14 @@ val bytes_in_memory_thm2 = Q.prove(
       (state.MEM (state.REG RName_PC + w + 3w) = d) /\
       (state.MEM (state.REG RName_PC + w + 2w) = c) /\
       (state.MEM (state.REG RName_PC + w + 1w) = b) /\
-      (state.MEM (state.REG RName_PC + w) = a)`,
-   rw [arm6_asm_state_def, bytes_in_memory_def]
-   \\ simp []
+      (state.MEM (state.REG RName_PC + w) = a) /\
+      state.REG RName_PC + w + 3w IN s.mem_domain /\
+      state.REG RName_PC + w + 2w IN s.mem_domain /\
+      state.REG RName_PC + w + 1w IN s.mem_domain /\
+      state.REG RName_PC + w IN s.mem_domain`,
+   rw [arm6_asm_state_def, arm6_ok_def, bytes_in_memory_def,
+       set_sepTheory.fun2set_eq]
+   \\ rfs []
    )
 
 val arm_op2 = HolKernel.syntax_fns2 "arm"
@@ -795,25 +839,85 @@ fun next_state_tac0 f q l =
    \\ rfs [lem2, lem3, lem4, lem6, decode_imm12_thm, combinTheory.UPDATE_APPLY,
            decode_imm_thm, arm_stepTheory.Aligned_numeric]
 
-val next_state_tac01 = next_state_tac0 List.last `state` [true]
+val next_state_tac01 = next_state_tac0 List.last `ms` [true]
+
+val enc_ok_tac = full_simp_tac (srw_ss()++boolSimps.LET_ss) enc_ok_rwts
+
+fun next_tac n =
+   qexists_tac n
+   \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
+         [arm6_next_def, asmTheory.asserts_eval, reg_mode_eq,
+          asmTheory.interference_ok_def, arm6_proj_def]
+   \\ NTAC 2 strip_tac
+
+local
+   val i_tm = ``R_mode ms.CPSR.M (n2w i)``
+in
+   val reg_tac =
+      asmLib.env_tac
+        (fn (t, s) =>
+           let
+              val r = utilsLib.rhsc (SIMP_CONV (srw_ss()) [] ``^s.REG``)
+           in
+              (``!i. (env ^t ^s).REG ^i_tm = ^r ^i_tm``,
+               qpat_assum `!i:num s:arm_state. P`
+                  (fn th =>
+                     strip_assume_tac
+                        (SIMP_RULE (srw_ss()) [] (Q.SPECL [`^t`, `^s`] th))
+                     \\ assume_tac th)
+               \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc,
+                      combinTheory.UPDATE_APPLY]
+              )
+           end)
+end
 
 fun next_state_tac1 f l (asl, g) =
    let
-      val tm = g |> rand |> rand |> rand
+      val (t, tm) = Option.valOf (asmLib.find_env g)
    in
-      next_state_tac0 f `^tm` l (asl, g)
-   end
+      simp [arm6_ok_def, combinTheory.APPLY_UPDATE_THM,
+            arm_stepTheory.Aligned_numeric]
+      \\ imp_res_tac bytes_in_memory_thm2
+      \\ `!a. a IN s1.mem_domain ==> ((env ^t ^tm).MEM a = ms.MEM a)`
+      by qpat_assum `!i:num s:arm_state. P`
+            (qspecl_then [`^t`, `^tm`]
+               (strip_assume_tac o SIMP_RULE (srw_ss())
+                  [set_sepTheory.fun2set_eq]))
+      \\ next_state_tac0 f `env ^t ^tm` l
+   end (asl, g)
 
-val enc_ok_tac = full_simp_tac (srw_ss()++boolSimps.LET_ss) enc_ok_rwts
-fun next_tac n =
-   qexists_tac n \\ simp [arm6_next_def, numeralTheory.numeral_funpow]
 fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
-fun state_tac thms =
-   REPEAT (qpat_assum `NextStateARM q = z` (K all_tac))
-   \\ fs ([arm6_asm_state, decode_imm_thm] @ thms)
-   \\ rw [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.Aligned_numeric,
-          arm_stepTheory.R_mode_11, lem1]
+local
+   val th = REWRITE_RULE [arm6_ok_def] arm6_asm_state
+in
+   fun state_tac thms =
+      REPEAT (qpat_assum `NextStateARM q = z` (K all_tac))
+      \\ fs ([th, decode_imm_thm, combinTheory.APPLY_UPDATE_THM,
+              arm_stepTheory.Aligned_numeric] @ thms)
+      \\ reg_tac
+      \\ rw [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.Aligned_numeric,
+             updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+end
+
+local
+   val th = REWRITE_RULE [arm6_ok_def] arm6_asm_state
+in
+   fun state_tac1 thms =
+      REPEAT (qpat_assum `NextStateARM q = z` kall_tac)
+      \\ REPEAT (qpat_assum `ms.MEM a = b` kall_tac)
+      \\ REPEAT (qpat_assum `a IN s1.mem_domain` kall_tac)
+      \\ REPEAT (qpat_assum `bytes_in_memory q0 q1 q2 q3` kall_tac)
+      \\ pop_assum kall_tac
+      \\ fs ([th, combinTheory.APPLY_UPDATE_THM,
+              arm_stepTheory.Aligned_numeric] @ thms)
+      \\ REPEAT strip_tac
+      \\ reg_tac
+      \\ fs [DISCH_ALL arm_stepTheory.R_x_not_pc, combinTheory.UPDATE_APPLY]
+      \\ reg_tac
+      \\ rw [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.Aligned_numeric,
+             updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+end
 
 fun load_store_tac {word, neg, store} =
    (if neg then qabbrev_tac `d = -1w * c` \\ imp_res_tac decode_neg_imm12_thm
@@ -821,12 +925,13 @@ fun load_store_tac {word, neg, store} =
    \\ (if word then imp_res_tac lem6 else all_tac)
    \\ (if store
           then next_state_tac01
-               \\ state_tac [FUN_EQ_THM]
+               \\ state_tac [FUN_EQ_THM, set_sepTheory.fun2set_eq]
                \\ srw_tac [wordsLib.WORD_EXTRACT_ss] []
                \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
-       else next_state_tac0 List.last `state` [true, false]
-            \\ state_tac []
-            \\ blastLib.BBLAST_TAC)
+       else next_state_tac0 List.last `ms` [true, false]
+            \\ state_tac [set_sepTheory.fun2set_eq]
+            \\ blastLib.BBLAST_TAC
+            )
 
 local
    val BLAST_BYTE_EQ_CONV =
@@ -846,11 +951,10 @@ end
 
 local
    fun tac b =
-      imp_res_tac bytes_in_memory_thm2
-      \\ fs []
-      \\ blast_byte_eq_tac
+      blast_byte_eq_tac
       \\ qunabbrev_tac `p`
-      \\ state_tac []
+      \\ simp []
+      \\ state_tac1 []
       \\ imp_res_tac lem15
       \\ imp_res_tac lem16
       \\ fs [Q.SPEC `F` markerTheory.Abbrev_def,
@@ -869,16 +973,15 @@ in
       \\ qabbrev_tac `r = c0 + 0xFFFFFFF4w`
       \\ (if imm then
             qabbrev_tac
-                 `p = add_with_carry
-                         (state.REG (R_mode state.CPSR.M (n2w n)), ~c',T)`
+                 `p = add_with_carry (ms.REG (R_mode ms.CPSR.M (n2w n)), ~c',T)`
             \\ qabbrev_tac
-                 `q = -1w * c' + state.REG (R_mode state.CPSR.M (n2w n))`
+                 `q = -1w * c' + ms.REG (R_mode ms.CPSR.M (n2w n))`
           else
             qabbrev_tac `p = add_with_carry
-                               (state.REG (R_mode state.CPSR.M (n2w n)),
-                                ~state.REG (R_mode state.CPSR.M (n2w n')),T)`
-            \\ qabbrev_tac `q = state.REG (R_mode state.CPSR.M (n2w n)) +
-                                -1w * state.REG (R_mode state.CPSR.M (n2w n'))`)
+                               (ms.REG (R_mode ms.CPSR.M (n2w n)),
+                                ~ms.REG (R_mode ms.CPSR.M (n2w n')),T)`
+            \\ qabbrev_tac `q = ms.REG (R_mode ms.CPSR.M (n2w n)) +
+                                -1w * ms.REG (R_mode ms.CPSR.M (n2w n'))`)
       >| [
          (* Equal *)
          Cases_on `q = 0w`
@@ -903,9 +1006,9 @@ in
          \\ tac true,
          (* Test *)
          (if imm
-             then Cases_on `state.REG (R_mode state.CPSR.M (n2w n)) && c' = 0w`
-          else Cases_on `state.REG (R_mode state.CPSR.M (n2w n)) &&
-                         state.REG (R_mode state.CPSR.M (n2w n')) = 0w`)
+             then Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) && c' = 0w`
+          else Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) &&
+                         ms.REG (R_mode ms.CPSR.M (n2w n')) = 0w`)
          >| [
             next_state_tac1 hd [false, true],
             next_state_tac1 hd [true, false]
@@ -1077,12 +1180,39 @@ val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm6_config_def] arm6_encoding ::
    enc_ok_rwts
 
-val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
-   `backend_correct arm6_enc arm6_config arm6_next arm6_asm_state`,
-   simp [backend_correct_def]
-   \\ REVERSE conj_tac
+val tac1 =
+   next_tac `0`
+   \\ lfs enc_rwts
+   \\ next_state_tac01
+   \\ state_tac [lem14, decode_imm8_thm2, decode_imm8_thm5]
+
+val tac2 =
+   next_tac `1`
+   \\ lfs enc_rwts
+   \\ asmLib.split_bytes_in_memory_tac 4
+   \\ next_state_tac01
+   \\ next_state_tac1 hd [true]
+   \\ fs []
+   \\ blast_byte_eq_tac
+   \\ pop_assum SUBST1_TAC
+   \\ state_tac1 [lem14]
+   \\ asm_simp_tac std_ss [decode_imm8_thm4, decode_imm8_thm6]
+   \\ reg_tac
+   \\ rw [combinTheory.APPLY_UPDATE_THM, arm_stepTheory.Aligned_numeric,
+          updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
+
+val arm6_backend_correct_alt = Count.apply Q.store_thm
+  ("arm6_backend_correct_alt",
+   `backend_correct_alt arm6_target_funs arm6_config`,
+   simp [backend_correct_alt_def, arm6_target_funs_def]
+   \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asm_step_def] \\ Cases_on `i`,
+      rw [asm_step_alt_def] \\ Cases_on `i`,
+      srw_tac [] [arm6_asm_state_def, arm6_config_def, set_sepTheory.fun2set_eq]
+      \\  `i < 15` by decide_tac
+      \\ simp [],
+      srw_tac [] [arm6_proj_def, arm6_asm_state_def, arm6_ok_def]
+      \\ rfs [reg_mode_eq],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
@@ -1128,9 +1258,8 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
          \\ next_state_tac01
          \\ asmLib.split_bytes_in_memory_tac 4
          \\ fs []
-         \\ imp_res_tac bytes_in_memory_thm2
          \\ next_state_tac1 (hd o tl) [true]
-         \\ state_tac []
+         \\ state_tac1 []
          \\ blastLib.BBLAST_TAC
          )
       >- (
@@ -1249,27 +1378,7 @@ val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
            Cases_on `c + 0xFFFFFFF8w <+ 256w`,
            Cases_on `-1w * c + 0x8w <+ 256w`
       ]
-      >| let
-            val tac1 =
-               next_tac `0`
-               \\ lfs enc_rwts
-               \\ next_state_tac01
-               \\ state_tac [lem14, decode_imm8_thm2, decode_imm8_thm5]
-            val tac2 =
-               next_tac `1`
-               \\ lfs enc_rwts
-               \\ asmLib.split_bytes_in_memory_tac 4
-               \\ next_state_tac01
-               \\ next_state_tac1 hd [true]
-               \\ imp_res_tac bytes_in_memory_thm2
-               \\ fs []
-               \\ blast_byte_eq_tac
-               \\ pop_assum SUBST1_TAC
-               \\ state_tac [lem14]
-               \\ asm_simp_tac std_ss [decode_imm8_thm4, decode_imm8_thm6]
-         in
-            [tac1, tac2, tac1, tac2]
-         end
+      >| [tac1, tac2, tac1, tac2]
       )
    >- (
       (*--------------

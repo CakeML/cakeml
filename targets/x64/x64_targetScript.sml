@@ -29,7 +29,7 @@ val x64_config_def = Define`
     ; cjump_offset_max := ^max32 + 5w
     ; loc_offset_min := ^min32 + 7w
     ; loc_offset_max := ^max32 + 7w
-    ; code_alignment := 1
+    ; code_alignment := 0
     |>`
 
 (* --- The next-state function --- *)
@@ -365,17 +365,7 @@ val binop_lem11 = Q.prove(
    rw []
    )
 
-val fun2set_eq = Q.prove(
-   `!f1 f2 d.
-      (fun2set (f1, d) = fun2set (f2, d)) = (!a. a IN d ==> (f1 a = f2 a))`,
-   rw [FUN_EQ_THM]
-   \\ eq_tac
-   \\ REPEAT strip_tac
-   >| [qpat_assum `!x. P` (Q.SPEC_THEN `(a, f1 a)` assume_tac),
-       Cases_on `x` \\ Cases_on `q IN d`
-   ]
-   \\ rfs [set_sepTheory.fun2set_thm]
-   )
+val fun2set_eq = set_sepTheory.fun2set_eq
 
 val mem_lem1 = Q.prove(
    `!a n s state.
@@ -727,23 +717,11 @@ in
       (case List.mapPartial asmLib.strip_bytes_in_memory asl of
           [] => NO_TAC
         | l => assume_tac (step P state (pick l))) (asl, g)
-   fun dest_env tm =
-      case Lib.total boolSyntax.strip_comb tm of
-         SOME (env, [n, ms]) =>
-            if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
-               not (optionSyntax.is_the ms)
-               then (n, ms)
-            else raise ERR "dest_env" ""
-       | _ => raise ERR "dest_env" ""
-   val is_env = Lib.can dest_env
-   fun mk_env (t, ms) = ``env ^t ^ms = (^ms with MEM := (env ^t ^ms).MEM)``
-   fun env_tac (asl, g) =
-      (case Lib.total (HolKernel.find_term is_env) g of
-          SOME tm => Tactical.SUBGOAL_THEN (mk_env (dest_env tm))
-                        (fn th => once_rewrite_tac [th])
-                     >- asm_simp_tac (srw_ss())
-                           [x64Theory.x64_state_component_equality]
-        | NONE => ALL_TAC) (asl, g)
+   val env_tac =
+      asmLib.env_tac
+         (fn (t, ms) =>
+            (``env ^t ^ms = (^ms with MEM := (env ^t ^ms).MEM)``,
+             asm_simp_tac (srw_ss()) [x64Theory.x64_state_component_equality]))
 end
 
 val next_state_tac0 =

@@ -182,4 +182,28 @@ in
                else ALL_CONV tm))
 end
 
+local
+   fun dest_env tm =
+      case Lib.total boolSyntax.strip_comb tm of
+         SOME (env, [n, ms]) =>
+            if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
+               not (optionSyntax.is_the ms)
+               then (n, ms)
+            else raise ERR "dest_env" ""
+       | _ => raise ERR "dest_env" ""
+   val is_env = Lib.can dest_env
+in
+   val find_env = HolKernel.bvk_find_term (is_env o snd) dest_env
+   fun env_tac f (asl, g) =
+      (case find_env g of
+          SOME t_tm =>
+            let
+               val (tm2, tac) = f t_tm
+            in
+               Tactical.SUBGOAL_THEN tm2 (fn th => once_rewrite_tac [th])
+               >| [tac, all_tac]
+            end
+        | NONE => ALL_TAC) (asl, g)
+end
+
 end

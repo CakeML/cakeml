@@ -36,7 +36,7 @@ val mips_config_def = Define`
     ; cjump_offset_max := ^max16
     ; loc_offset_min := ^min16 + 12w
     ; loc_offset_max := ^max16 + 8w
-    ; code_alignment := 4
+    ; code_alignment := 2
     |>`
 
 (* --- The next-state function --- *)
