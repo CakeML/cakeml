@@ -182,7 +182,9 @@ val mem_load_byte_def = Define `
         | NONE => assert F s`
 
 val upd_byte_def = Define `
-  upd_byte i w b = ~(w2w (~0w:word8) << (8 * i)) && w || w2w b << (8 * i)`;
+  upd_byte i (w:'a word) (b:word8) =
+    (dimindex (:'a) - 1 '' 8 * i + 8) w || w2w b << (8 * i) ||
+    (8 * i - 1 '' 0) w`;
 
 val set_byte_def = Define `
   set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
