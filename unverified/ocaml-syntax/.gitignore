@@ -1,0 +1,4 @@
+*.cmi
+*.cmx
+ocamlToCakeML
+typedOCamlToCakeML

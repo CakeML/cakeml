@@ -16,7 +16,12 @@ let rec mapM f = function
 
 let paren s = "(" ^ s ^ ")"
 
-let fix_var_name x = x
+let id x = x
+let ifThen x f = if x then f else id
+
+let fix_identifier x = if startsWith "_" x then "u" ^ x else x
+
+let fix_var_name = fix_identifier
 
 let rec print_longident = function
   | Lident s -> return s
@@ -26,44 +31,96 @@ let rec print_longident = function
                      print_longident b >>= fun bname ->
                      return @@ paren (aname ^ " " ^ bname)
 
+let print_constant = function
+  | Const_int x -> string_of_int x
+  | Const_char x -> "#\"" ^ BatChar.escaped x ^ "\""
+  | Const_string (x, y) -> "\"" ^ BatString.escaped x ^ "\""
+  | Const_float x -> x
+  | Const_int32 x -> BatInt32.to_string x
+  | Const_int64 x -> BatInt64.to_string x
+  | Const_nativeint x -> BatNativeint.to_string x
+
+
 let rec print_pattern pat =
   match pat.pat_desc with
   | Tpat_any -> return "_"
   | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
+  | Tpat_constant c -> return @@ print_constant c
   | Tpat_tuple ps -> mapM print_pattern ps >>= fun ts ->
-                   return @@ paren (BatString.concat ", " ts)
+                     return @@ paren (BatString.concat ", " ts)
   | _ -> Bad "Some pattern syntax not implemented."
 
-let fun_or_var desc = "val"
+(*let fun_or_var desc = "val"*)
 
-let rec print_expression expr : (string,string) result =
+let rec print_expression parenth expr : (string,string) result =
+  let thisParen = ifThen parenth paren in
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) ->
     print_longident longident.txt
-  | Texp_constant c ->
-  return @@ (match c with
-    | Const_int x -> string_of_int x
-    | Const_char x -> "#\"" ^ BatChar.escaped x ^ "\""
-    | Const_string (x, y) -> "\"" ^ BatString.escaped x ^ "\""
-    | Const_float x -> x
-    | Const_int32 x -> BatInt32.to_string x
-    | Const_int64 x -> BatInt64.to_string x
-    | Const_nativeint x -> BatNativeint.to_string x
-    )
+  | Texp_constant c -> return @@ print_constant c
   | Texp_let (r, bs, e) ->
-    mapM print_value_binding bs >>= fun bs' ->
-    print_expression e >>= fun e' ->
-    return @@ "let\n" ^ BatString.concat "\n" bs' ^ "\nin\n" ^ e' ^ "\nend"
+    mapM (print_value_binding r) bs >>= fun bs' ->
+    print_expression false e >>= fun e' ->
+    return @@ thisParen @@
+      "let\n" ^ BatString.concat "\n" bs' ^ "\nin\n" ^ e' ^ "\nend"
+  | Texp_function (l, [c], p) ->
+    print_case " => " c >>= fun c' ->
+    return @@ thisParen @@ "fn " ^ c'
+  | Texp_function (l, cs, p) ->
+    print_case_cases cs >>= fun cs' ->
+    return @@ thisParen @@
+      "fn case_variable__ => case case_variable__ of" ^ cs'
+  | Texp_apply (e0, es) ->
+    print_expression true e0 >>= fun e0' ->
+    mapM (function
+    | l, Some e, Required -> print_expression true e
+    | _ -> Bad "Optional and named arguments not supported."
+    ) es >>= fun es' ->
+    return @@ thisParen @@ e0' ^ " " ^ BatString.concat " " es'
+  | Texp_match (exp, cs, _, p) -> print_expression false exp >>= fun exp' ->
+                                  print_case_cases cs >>= fun cs' ->
+                                  return @@ "case " ^ exp' ^ " of" ^ cs'
   | _ -> Bad "Some expression syntax not implemented."
 
-and print_value_binding vb =
-  print_pattern vb.vb_pat >>= fun pat ->
-  match vb.vb_expr with
-  | Texp_function (l, cs, p) -> Bad "Haven't implemented this"
-  | _ -> print_expression vb.vb_expr >>= fun expr ->
-         return @@ "val " ^ pat ^ " = " ^ expr
+and print_case conn c =
+  case_parts c >>= fun (pat, exp) ->
+  match c.c_guard with
+  | None -> return @@ pat ^ conn ^ exp
+  | _ -> Bad "Pattern guards not supported."
 
-let fix_type_name x = x
+and print_case_cases = function
+  | [] -> return ""
+  | c :: cs -> print_case " => " c >>= fun c' ->
+               print_case_cases cs >>= fun rest ->
+               return @@ "\n  " ^ c' ^ rest
+
+and case_parts c =
+  print_pattern c.c_lhs >>= fun pat ->
+  print_expression false c.c_rhs >>= fun exp ->
+  return (pat, exp)
+
+and print_value_binding rec_flag vb =
+  print_pattern vb.vb_pat >>= fun name ->
+  match vb.vb_expr.exp_desc, rec_flag with
+  | Texp_function (l, cs', p), Recursive -> (
+    match cs' with
+    | [] -> Bad "Pattern match with no patterns."
+    | c :: cs -> print_case " = " c >>= fun c' ->
+                 print_fun_cases name cs >>= fun rest ->
+                 return @@ "fun " ^ name ^ " " ^ c' ^ rest
+    )
+  | _, Recursive -> Bad "Recursive values not supported in CakeML"
+  | _, Nonrecursive ->
+    print_expression false vb.vb_expr >>= fun expr ->
+    return @@ "val " ^ name ^ " = " ^ expr
+
+and print_fun_cases name = function
+  | [] -> return ""
+  | c :: cs -> print_case " = " c >>= fun c' ->
+               print_fun_cases name cs >>= fun rest ->
+               return @@ "\n  | " ^ name ^ " " ^ c' ^ rest
+
+let fix_type_name = fix_identifier
 
 let rec print_core_type ctyp =
   match ctyp.ctyp_desc with
@@ -99,8 +156,9 @@ let print_typ_params = function
       | (typ, _) :: ys -> print_core_type typ >>= fun core_type ->
                            f ys >>= fun rest ->
                            return @@ core_type ^ " , " ^ rest
-    in f xs >>= fun rest ->
-       return @@ " ( " ^ rest
+    in
+    f xs >>= fun rest ->
+    return @@ " ( " ^ rest
 
 (* constructor_arguments is new (and necessary) in OCaml 4.03, in which
    support for value constructors for record types was added. *)
@@ -118,15 +176,16 @@ let print_constructor_declaration decl =
 
 let print_ttyp_variant =
   let rec f = function
-  | [] -> return ""
-  | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
-               f ds >>= fun rest ->
-               return @@ "\n| " ^ constructor_decl ^ rest
-  in function
-  | [] -> return ""
-  | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
-               f ds >>= fun rest ->
-               return @@ "\n  " ^ constructor_decl ^ rest
+    | [] -> return ""
+    | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
+                 f ds >>= fun rest ->
+                 return @@ "\n| " ^ constructor_decl ^ rest
+  in
+  function
+    | [] -> return ""
+    | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
+                 f ds >>= fun rest ->
+                 return @@ "\n  " ^ constructor_decl ^ rest
 
 let print_type_declaration typ =
   let keyword = match typ.typ_kind with
@@ -149,8 +208,8 @@ let print_type_declaration typ =
 
 let print_structure_item str =
   match str.str_desc with
-  | Tstr_value (_, bs) ->
-    mapM (fun b -> print_value_binding b >>= fun x ->
+  | Tstr_value (r, bs) ->
+    mapM (fun b -> print_value_binding r b >>= fun x ->
                    return (x ^ ";\n")) bs >>= fun ss ->
     return @@ fold_right (^) ss ""
   | Tstr_type ds ->
