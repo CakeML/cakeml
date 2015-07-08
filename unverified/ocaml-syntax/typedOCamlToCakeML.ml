@@ -20,18 +20,55 @@ let paren s = "(" ^ s ^ ")"
 let id x = x
 let ifThen x f = if x then f else id
 
+type assoc = Neither | Left | Right
+type fixity = assoc * int
+
+let starts_with_any starts str =
+  BatList.exists (fun s -> BatString.starts_with s str) starts
+
+let fixity_of = function
+  | x when BatString.starts_with "!" x
+        || (BatString.length x >= 2 && starts_with_any ["?"; "~"] x) ->
+    Neither, 0
+  | "." | ".(" | ".[" | ".{" -> Neither, 1
+  | "#" -> Neither, 2
+  | " " -> Left, 3
+  | "-" | "-." -> Neither, 4
+  | "lsl" | "lsr" | "asr" -> Right, 5
+  | x when BatString.starts_with "**" x -> Right, 5
+  | "mod" | "land" | "lor" | "lxor" -> Left, 6
+  | x when starts_with_any ["*"; "/"; "%"] x -> Left, 6
+  | x when starts_with_any ["+"; "-"] x -> Left, 7
+  | "::" -> Right, 8
+  | x when starts_with_any ["@"; "^"] x -> Right, 9
+  | "!=" -> Left, 10
+  | x when starts_with_any ["="; "<"; ">"; "|"; "&"; "$"] x -> Left, 10
+  | "&" | "&&" -> Right, 11
+  | "||" | "or" -> Right, 12
+  | "," -> Neither, 13
+  | "<-" | ":=" -> Right, 14
+  | "if" -> Neither, 15
+  | ";" -> Right, 16
+  | "let" | "match" | "fun" | "function" | "try" -> Neither, 17
+  | _ -> Neither, ~-1
+
 let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
     | "sharing" | "signature" | "structure" | "where" | "withtype") as x ->
     x ^ "__"
   | x when BatString.starts_with "_" x -> "u" ^ x
+  | x when
+    (match fixity_of x with
+    | Neither, _ -> false
+    | _ -> true
+    ) -> "op" ^ x
   | x -> x
 
 let fix_var_name = fix_identifier
 
 let rec print_longident = function
-  | Lident s -> return s
+  | Lident s -> return @@ fix_identifier s
   | Ldot (t, s) -> print_longident t >>= fun ct ->
                    Bad "I don't know what this feature is. Please tell me."
   | Lapply (a, b) -> print_longident a >>= fun aname ->
@@ -65,43 +102,11 @@ let rec print_pattern parenth pat =
   | Tpat_any -> return "_"
   | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
   | Tpat_constant c -> return @@ print_constant c
-  | Tpat_tuple ps -> mapM (print_pattern false) ps >>= fun ts ->
-                     return @@ paren (BatString.concat ", " ts)
+  | Tpat_tuple ps -> mapM (print_pattern false) ps >>= fun ps' ->
+                     return @@ thisParen @@ BatString.concat ", " ps'
   | Tpat_construct (lident, desc, ps) ->
     print_construct parenth print_pattern lident desc ps
   | _ -> Bad "Some pattern syntax not implemented."
-
-type assoc = Neither | Left | Right
-type fixity = assoc * int
-
-let starts_with_any starts str =
-  BatList.exists (fun s -> BatString.starts_with s str) starts
-
-let fixity_of = function
-  | x when BatString.starts_with "!" x
-        || (BatString.length x >= 2 && starts_with_any ["?"; "~"] x) ->
-    Neither, 0
-  | "." | ".(" | ".[" | ".{" -> Neither, 1
-  | "#" -> Neither, 2
-  | " " -> Left, 3
-  | "-" | "-." -> Neither, 4
-  | "lsl" | "lsr" | "asr" -> Right, 5
-  | x when BatString.starts_with "**" x -> Right, 5
-  | "mod" | "land" | "lor" | "lxor" -> Left, 6
-  | x when starts_with_any ["*"; "/"; "%"] x -> Left, 6
-  | x when starts_with_any ["+"; "-"] x -> Left, 7
-  | "::" -> Right, 8
-  | x when starts_with_any ["@"; "^"] x -> Right, 9
-  | "!=" -> Left, 10
-  | x when starts_with_any ["="; "<"; ">"; "|"; "&"; "$"] x -> Left, 10
-  | "&" | "&&" -> Right, 11
-  | "||" | "or" -> Right, 12
-  | "," -> Neither, 13
-  | "<-" | ":=" -> Right, 14
-  | "if" -> Neither, 15
-  | ";" -> Right, 16
-  | "let" | "match" | "fun" | "function" | "try" -> Neither, 17
-  | _ -> Neither, ~-1
 
 let rec print_expression parenth expr : (string,string) result =
   let thisParen = ifThen parenth paren in
@@ -119,8 +124,7 @@ let rec print_expression parenth expr : (string,string) result =
     return @@ thisParen @@ "fn " ^ c'
   | Texp_function (l, cs, p) ->
     print_case_cases cs >>= fun cs' ->
-    return @@ thisParen @@
-      "fn case_variable__ => case case_variable__ of" ^ cs'
+    return @@ thisParen @@ "fn tmp__ => case tmp__ of" ^ cs'
   | Texp_apply (e0, es) ->
     print_expression true e0 >>= fun e0' ->
     mapM (function
@@ -131,6 +135,8 @@ let rec print_expression parenth expr : (string,string) result =
   | Texp_match (exp, cs, _, p) -> print_expression false exp >>= fun exp' ->
                                   print_case_cases cs >>= fun cs' ->
                                   return @@ "case " ^ exp' ^ " of" ^ cs'
+  | Texp_tuple es -> mapM (print_expression false) es >>= fun es' ->
+                     return @@ thisParen @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
     print_construct parenth print_expression lident desc es
   | _ -> Bad "Some expression syntax not implemented."
@@ -161,13 +167,25 @@ and case_parts parenthPat c =
 and print_value_binding rec_flag vb =
   print_pattern false vb.vb_pat >>= fun name ->
   match vb.vb_expr.exp_desc, rec_flag with
-  | Texp_function (l, cs, p), Recursive -> print_fun_cases name cs
+  (* Special case for trivial patterns *)
+  | Texp_function (l, [c], p), Recursive when
+      (match c.c_lhs.pat_desc, c.c_guard with
+      | Tpat_var (_,_), None -> true
+      | _ -> false
+      ) ->
+    print_case true " = " c >>= fun c' ->
+    return @@ "fun " ^ name ^ " " ^ c'
+  | Texp_function (l, cs, p), Recursive -> (*print_fun_cases name cs*)
+    print_case_cases cs >>= fun cs' ->
+    return @@ "fun " ^ name ^ " tmp__ = case tmp__ of" ^ cs'
   | _, Recursive -> Bad "Recursive values not supported in CakeML"
   | _, Nonrecursive ->
     print_expression false vb.vb_expr >>= fun expr ->
     return @@ "val " ^ name ^ " = " ^ expr
 
-and print_fun_cases name =
+(* CakeML doesn't support SML-style LHS pattern matching in function
+   definitions *)
+(*and print_fun_cases name =
   let rec f name = function
   | [] -> return ""
   | c :: cs -> print_case true " = " c >>= fun c' ->
@@ -177,7 +195,7 @@ and print_fun_cases name =
   | [] -> Bad "Pattern match with no patterns."
   | c :: cs -> print_case true " = " c >>= fun c' ->
                f name cs >>= fun rest ->
-               return @@ "fun " ^ name ^ " " ^ c' ^ rest
+               return @@ "fun " ^ name ^ " " ^ c' ^ rest*)
 
 let fix_type_name = fix_identifier
 
@@ -279,6 +297,20 @@ let print_structure_item str =
 let print_result = function
   | Ok r -> nwrite stdout r
   | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
+
+let rec preprocess_structure_item str =
+  match str.str_desc with
+  | Tstr_value (r, bs) ->
+    Tstr_value (r, map (preprocess_value_binding r) bs)
+  | _ -> str
+and preprocess_value_binding rec_flag vb =
+  match vb.vb_expr.exp_desc, rec_flag with
+  | desc, Recursive when
+    (match desc with
+    | Texp_function (_,_,_) -> false
+    | _ -> true
+    ) -> vb
+  | _ -> vb
 
 let lexbuf = Lexing.from_channel stdin
 let parsetree = Parse.implementation lexbuf
