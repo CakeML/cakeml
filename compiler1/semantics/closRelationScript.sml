@@ -1,13 +1,13 @@
-open preamble closLangTheory closSemTheory;
+open preamble closLangTheory closSemTheory closPropsTheory;
 
-val _ = new_theory "closProps";
+val _ = new_theory "closRelation";
 
 val is_closure_def = Define `
 (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
 (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
 (is_closure _ ⇔ F)`;
 
-val val_rel_def = Define `
+val val_rel_def = tDefine "val_rel" `
 (val_rel (i:num) (Number n) (Number n') ⇔
   n = n') ∧
 (val_rel (i:num) (Block n vs) (Block n' vs') ⇔ 
@@ -83,9 +83,7 @@ val val_rel_def = Define `
                  T)
            s.code s'.code ∧
   s.io = s'.io ∧
-  s.restrict_envs = s'.restrict_envs)`;
-
-(*
+  s.restrict_envs = s'.restrict_envs)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<) 
              \x. case x of 
                      | INL (i,v,v') => (i:num,0:num,v_size v) 
@@ -99,14 +97,10 @@ val val_rel_def = Define `
  imp_res_tac evaluate_clock >>
  fs [] >>
  TRY decide_tac
-  
- *)
-           
-
-
-      
-
-
-
+ >- (Induct_on `vs` >>
+     rw [v_size_def] >>
+     res_tac >>
+     decide_tac) >>
+     cheat); 
 
 val _ = export_theory ();

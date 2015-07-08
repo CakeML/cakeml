@@ -454,7 +454,9 @@ val evaluate_clock_help = prove (
 
 val evaluate_clock = store_thm("evaluate_clock",
 ``(!xs env s1 vs s2.
-      (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock)``,
+      (evaluate (xs,env,s1) = (vs,s2)) ==> s2.clock <= s1.clock) ∧
+    (!loc_opt f args s1 vs s2.
+      (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
  metis_tac [evaluate_clock_help, SND]);
 
 val evaluate_check_clock = prove(
