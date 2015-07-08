@@ -2215,10 +2215,8 @@ val completeness = store_thm(
       conj_tac >- simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV,
                        stringTheory.isUpper_def]>>
       fs[])
-  >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart
-      >- (note_tac "Ebase:Eseq (not Int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:Eseq (not String)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:Eseq (not Char)" >> simp[peg_eval_tok_NONE])
+  >- (print_tac "nEbase" >> note_tac "** Slow nEbase beginning" >> stdstart >>
+      TRY (simp[peg_eval_tok_NONE] >> NO_TAC)
       >- (note_tac "Ebase:Eseq (not ())" >> simp[peg_eval_tok_NONE] >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_Eseq) >>
           simp[] >> asm_match `ptree_fringe pt = MAP TK f` >> Cases_on `f` >>
@@ -2262,9 +2260,6 @@ val completeness = store_thm(
           DISJ1_TAC >> normlist >> first_assum (unify_firstconj kall_tac) >>
           CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
           asimp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
-      >- (note_tac "Ebase:() (not Int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:() (not String)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:() (not Char)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:FQV" >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
@@ -2298,31 +2293,16 @@ val completeness = store_thm(
           `h ∈ firstSet cmlG [NN nConstructorName]`
             by metis_tac [firstSet_nonempty_fringe] >>
           fs[firstSet_nConstructorName])
-      >- (note_tac "Ebase:char (not Int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:char (not String)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:string (not Int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:let (not Int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:let (not String)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:let (not Char)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:let (not LparT)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:let-in-end" >> DISJ2_TAC >> conj_tac
           >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
           simp[peg_eval_tok_NONE] >>
           DISJ1_TAC >> normlist >>
           first_assum (unify_firstconj kall_tac) >> asimp[] >>
           normlist >> simp[])
-      >- (note_tac "Ebase:[] not int" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[] not string" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[] not char" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[] not LparT" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[]" >> simp[peg_eval_tok_NONE] >>
           DISJ2_TAC >> conj_tac
           >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
           simp[peg_respects_firstSets])
-      >- (note_tac "Ebase:[..] not int" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[..] not string" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[..] not char" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:[..] not LparT" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:[..]" >> DISJ2_TAC >>
           conj_tac
           >- (simp_tac list_ss [peg_eval_tok_NONE, peg_EbaseParen_def,
@@ -2330,10 +2310,6 @@ val completeness = store_thm(
               simp[]) >>
           DISJ1_TAC >> normlist >>
           asimp[])
-      >- (note_tac "Ebase:op (not int)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:op (not string)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:op (not char)" >> simp[peg_eval_tok_NONE])
-      >- (note_tac "Ebase:op (not LparT)" >> simp[peg_eval_tok_NONE])
       >- (note_tac "Ebase:op" >>
           simp[peg_respects_firstSets, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
           simp[peg_EbaseParen_def, peg_eval_tok_NONE]))
