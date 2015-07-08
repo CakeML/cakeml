@@ -14,7 +14,6 @@ all: $(TARGETS) $(HOLHEAP)
 
 PRE_BARE_THYS1 = astTheory \
 		tokensTheory \
-		libTheory \
 		initialProgramTheory \
 		semanticPrimitivesTheory
 
