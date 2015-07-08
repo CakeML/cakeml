@@ -1314,6 +1314,19 @@ val option_ldrop_lemma = prove(
   \\ `(ll = [||]) \/ ?h t. ll = h:::t` by metis_tac [llistTheory.llist_CASES]
   \\ fs [llistTheory.LDROP1_THM]);
 
+val CallFFI_bytearray_lemma = prove(
+  ``byte_align a IN s1.mem_domain /\
+    a IN t1.mem_domain /\
+    a IN s1.mem_domain /\
+    (word_loc_val p labs (s1.mem (byte_align a)) = SOME (w:'a word)) /\
+    (get_byte a w (mc_conf: ('a,'state,'b) machine_config).asm_config.big_endian = t1.mem a) ==>
+    ?w.
+      (word_loc_val p labs
+         ((write_bytearray c1 new_bytes s1).mem (byte_align a)) = SOME w) /\
+      (get_byte a w mc_conf.asm_config.big_endian =
+       asm_write_bytearray c1 new_bytes t1.mem a)``,
+  cheat);
+
 val aEval_IMP_mEval = prove(
   ``!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
       (aEval s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
@@ -1420,15 +1433,13 @@ val aEval_IMP_mEval = prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
     \\ rpt strip_tac \\ res_tac \\ rfs [])
+
   THEN1 (* JumpCmp *) cheat
   THEN1 (* Call *) cheat
   THEN1 (* LocValue *) cheat
 
   THEN1 (* CallFFI *)
-
-   (
-
-    qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
+   (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ fs []
@@ -1506,10 +1517,7 @@ val aEval_IMP_mEval = prove(
                      regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
          `mc_conf.ffi_interfer 0 index new_bytes ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-
-     (
-
-      rpt strip_tac
+     (rpt strip_tac
       THEN1 (fs [backend_correct_alt_def,shift_interfer_def] \\ metis_tac [])
       \\ unabbrev_all_tac
       \\ imp_res_tac bytes_in_mem_asm_write_bytearray
@@ -1549,8 +1557,10 @@ val aEval_IMP_mEval = prove(
       THEN1
        (Cases_on `s1.io_regs 0 r`
         \\ fs [get_reg_value_def,word_loc_val_def])
-      \\ cheat (* requires messing around with bytearrays *))
-
+      \\ qpat_assum `!a.
+           byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
+      \\ fs [] \\ REPEAT STRIP_TAC
+      \\ match_mp_tac CallFFI_bytearray_lemma \\ fs [])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
@@ -1594,7 +1604,6 @@ val aEval_IMP_mEval = prove(
 (*
 
 TODO:
- - fix semantics of CallFFI, finish proof
  - weaken all_enc_ok
  - define an incremental version of the compiler
  - add ability to install code
