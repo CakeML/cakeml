@@ -63,6 +63,18 @@ type EnvM = Env ModN EnvE
 
 newtype M_st_ex s a = M_st_ex { run_M_st_ex :: (s -> (s, Result a)) }
 
+instance Functor (M_st_ex s) where
+  fmap f v = M_st_ex (\s -> case (run_M_st_ex v) s of
+                              (s,Rval x) -> (s,Rval (f x))
+                              (s,Rerr e) -> (s,Rerr e))
+
+instance Applicative (M_st_ex s) where
+  pure v = M_st_ex (\s -> (s, Rval v))
+  (<*>) f v =
+    M_st_ex (\s -> case (run_M_st_ex f) s of
+                     (s,Rval f) -> run_M_st_ex (fmap f v) s
+                     (s,Rerr e) -> (s,Rerr e))
+
 instance Monad (M_st_ex s) where
   return v = M_st_ex (\s -> (s, Rval v))
   (>>=) v f =

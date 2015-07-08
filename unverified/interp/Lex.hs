@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 module Lex where
 import Data.List as List
 import Data.Char as Char
