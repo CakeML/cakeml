@@ -341,7 +341,8 @@ val cmlPEG_def = zDefine`
               (mkNT nPbase,
                pegf
                  (choicel [pnt nV; pnt nConstructorName; tok isInt mktokLf;
-                           tok isString mktokLf; pnt nPtuple; tokeq UnderbarT;
+                           tok isString mktokLf; tok isCharT mktokLf;
+                           pnt nPtuple; tokeq UnderbarT;
                            seql [tokeq LbrackT; try (pnt nPatternList);
                                  tokeq RbrackT] I])
                  (bindNT nPbase));

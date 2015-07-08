@@ -594,6 +594,8 @@ val peg_sound = store_thm(
           Cases_on `h` >> fs[])
       >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isString h` >>
           Cases_on `h` >> fs[])
+      >- (simp[cmlG_FDOM, cmlG_applied] >> asm_match `isCharT h` >>
+          Cases_on `h` >> fs[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >>
           dsimp[cmlG_applied, cmlG_FDOM])
       >- simp[cmlG_FDOM, cmlG_applied]

@@ -572,6 +572,7 @@ val firstSet_nPbase = Store_thm(
   "firstSet_nPbase",
   ``firstSet cmlG (NN nPbase :: rest) =
       {LparT; UnderbarT; LbrackT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
+      {CharT c | T } ∪
       firstSet cmlG [NN nConstructorName] ∪ firstSet cmlG [NN nV]``,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -1177,14 +1178,16 @@ val stoppers_def = Define`
   (stoppers nOptTypEqn =
      UNIV DIFF ({ArrowT; StarT; EqualsT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nPapp =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪ { StringT s | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT} ∪ { IntT i | T } ∪
+                { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPattern =
-     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪ { StringT s | T } ∪
+     UNIV DIFF ({LparT; UnderbarT; LbrackT; SymbolT "::"} ∪ { IntT i | T } ∪
+                { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPatternList =
      UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; SymbolT "::"} ∪
-                {IntT i | T} ∪ { StringT s | T } ∪
+                {IntT i | T} ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
   (stoppers nPE = nestoppers) ∧
   (stoppers nPE' = BarT INSERT nestoppers) ∧
@@ -1882,7 +1885,8 @@ val completeness = store_thm(
           strip_tac >> rw[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
       normlist >> simp[])
-  >- (print_tac "nPbase" >> stdstart
+  >- (print_tac "nPbase" >> stdstart >>
+      TRY (simp[peg_respects_firstSets, peg_eval_tok_NONE] >> NO_TAC)
       >- simp[NT_rank_def]
       >- (DISJ2_TAC >> reverse conj_tac >- simp[NT_rank_def] >>
           erule mp_tac
@@ -1890,18 +1894,14 @@ val completeness = store_thm(
           simp[] >> Cases_on `pfx` >> fs[] >>
           match_mp_tac peg_respects_firstSets >> simp[] >>
           metis_tac [firstSets_nV_nConstructorName, firstSet_nonempty_fringe])
-      >- simp[peg_respects_firstSets]
-      >- simp[peg_respects_firstSets,peg_eval_tok_NONE]
       >- (simp[NT_rank_def] >>
           erule mp_tac
             (MATCH_MP fringe_length_not_nullable nullable_Ptuple) >>
           simp[] >> Cases_on `pfx` >> fs[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
           simp[peg_respects_firstSets, peg_eval_tok_NONE])
-      >- simp[peg_respects_firstSets, peg_eval_tok_NONE]
-      >- simp[peg_respects_firstSets, peg_eval_tok_NONE] >>
-      simp[peg_respects_firstSets, peg_eval_tok_NONE] >>
-      normlist >> asimp[])
+      >- (simp[peg_respects_firstSets, peg_eval_tok_NONE] >>
+          normlist >> asimp[]))
   >- (print_tac "nPatternList" >> stdstart
       >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
@@ -1940,6 +1940,7 @@ val completeness = store_thm(
           asm_match `ptree_fringe pt = MAP TK pfx` >> qexists_tac `pt` >>
           simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_respects_firstSets, not_peg0_peg_eval_NIL_NONE])
+      >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
       >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
       >- (fs[MAP_EQ_CONS] >> simp[peg_respects_firstSets])
       >- (DISJ1_TAC >>

@@ -455,24 +455,15 @@ val ptree_Pattern_def = Define`
              cname <- ptree_ConstructorName vic;
              SOME(Pcon (SOME cname) [])
           od ++
-          do
-             vname <- ptree_V vic;
-             SOME(Pvar vname)
-          od ++
+          do vname <- ptree_V vic; SOME(Pvar vname) od ++
           do
             lf <- destLf vic;
             t <- destTOK lf;
-            i <- destIntT t ;
-            SOME (Plit (IntLit i))
+            (do i <- destIntT t ; return (Plit (IntLit i)) od ++
+             do s <- destStringT t ; return (Plit (StrLit s)) od ++
+             do c <- destCharT t ; return (Plit (Char c)) od)
           od ++
-          do
-            lf <- destLf vic;
-            t <- destTOK lf;
-            s <- destStringT t ;
-            SOME (Plit (StrLit s))
-          od ++
-          if vic = Lf (TOK UnderbarT) then SOME (Pvar "_")
-          else NONE
+          do assert(vic = Lf (TOK UnderbarT)) ; return (Pvar "_") od
         | [lb; rb] =>
           if lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT) then
             SOME(Pcon (SOME (Short "nil")) [])

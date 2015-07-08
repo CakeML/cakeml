@@ -395,5 +395,9 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                   \end"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "fn v => v + 2"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "#\"a\" + 1"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
+                   (SOME ``Mat (Var (Short "c"))
+                               [(Plit (Char #"a"), Lit (IntLit 1));
+                                (Pvar "_", Lit (IntLit 2))]``)
 
 val _ = export_theory()
