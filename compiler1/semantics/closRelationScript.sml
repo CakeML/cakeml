@@ -22,6 +22,7 @@ val val_rel_def = tDefine "val_rel" `
     !i' args args' s s'.
       if i' < i then
         state_rel i' s s' ∧
+        args ≠ [] ∧
         LIST_REL (val_rel i') args args'
         ⇒
         exec_cl_rel i' (cl, args, s) (cl', args', s')
@@ -313,7 +314,13 @@ val compat_nil = Q.store_thm ("compat_nil",
  rw [exp_rel_def, exec_rel_rw, evaluate_def, res_rel_rw] >>
  metis_tac [val_rel_mono]);
 
-(* compat_cons, or compat_append? *)
+val compat_cons = Q.store_thm ("compat_cons",
+`!e es e' es'.
+  exp_rel [e] [e'] ∧
+  exp_rel es es'
+  ⇒
+  exp_rel (e::es) (e'::es')`,
+ cheat);
 
 val compat_var = Q.store_thm ("compat_var",
 `!n. exp_rel [Var n] [Var n]`,
@@ -356,7 +363,167 @@ val compat_if = Q.store_thm ("compat_if",
      fs [val_rel_rw] >>
      fs []));
 
+val compat_let = Q.store_thm ("compat_let",
+`!e es e' es'.
+  exp_rel es es' ∧
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Let es e] [Let es' e']`,
+ cheat);
 
+val compat_raise = Q.store_thm ("compat_raise",
+`!e e'.
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Raise e] [Raise e']`,
+ cheat);
 
+val compat_handle = Q.store_thm ("compat_handle",
+`!e1 e2 e1' e2'.
+  exp_rel [e1] [e1'] ∧
+  exp_rel [e2] [e2']
+  ⇒
+  exp_rel [Handle e1 e2] [Handle e1' e2']`,
+ cheat);
+
+val compat_tick = Q.store_thm ("compat_tick",
+`!e e'.
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Tick e] [Tick e']`,
+ cheat);
+
+val compat_call = Q.store_thm ("compat_call",
+`!n es es'.
+  exp_rel es es'
+  ⇒
+  exp_rel [Call n es] [Call n es']`,
+ cheat);
+
+val compat_app = Q.store_thm ("compat_app",
+`!loc e es e' es'.
+  exp_rel [e] [e'] ∧
+  exp_rel es es'
+  ⇒
+  exp_rel [App loc e es] [App loc e' es']`,
+ rw [exp_rel_def] >>
+ simp [exec_rel_rw, evaluate_def] >>
+ Cases_on `LENGTH es > 0` >>
+ simp [res_rel_rw] >>
+ gen_tac >>
+ DISCH_TAC >>
+ first_x_assum (qspecl_then [`i'`, `env`, `env'`, `s`, `s'`] mp_tac) >>
+ imp_res_tac val_rel_mono >>
+ imp_res_tac val_rel_mono_list >>
+ simp [exec_rel_rw] >>
+ DISCH_TAC >>
+ pop_assum (qspec_then `i'` assume_tac) >>
+ fs [] >>
+ reverse (strip_assume_tac (Q.ISPEC `evaluate (es,env,s with clock := i')`
+                         result_store_cases)) >>
+ fs [res_rel_rw]
+ >- (Cases_on `es'` >>
+     rw [] >>
+     fs [evaluate_def])
+ >- (Cases_on `es'` >>
+     rw [] >>
+     fs [evaluate_def]) >>
+ imp_res_tac evaluate_IMP_LENGTH >>
+ imp_res_tac LIST_REL_LENGTH >>
+ fs [] >>
+ first_x_assum (qspecl_then [`s''.clock`, `env`, `env'`, `s''`, `s'''`] mp_tac) >>
+ imp_res_tac evaluate_clock >>
+ fs [] >>
+ `s''.clock ≤ i` by decide_tac >>
+ imp_res_tac val_rel_mono_list >>
+ simp [exec_rel_rw] >>
+ rw [] >>
+ pop_assum (qspec_then `s'''.clock` assume_tac) >>
+ fs [] >>
+ reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],env,s'')`
+                         result_store_cases)) >>
+ fs [res_rel_rw, clock_lemmas] >>
+ `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
+ fs [res_rel_rw]
+ >- metis_tac [] >>
+ `?v v'. vs'' = [v] ∧ vs''' = [v']` by metis_tac [evaluate_SING] >>
+ rw [] >>
+ fs [] >>
+ cheat);
+
+val compat_fn = Q.store_thm ("compat_fn",
+`!loc vars num_args e e'.
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Fn loc vars num_args e] [Fn loc vars num_args e']`,
+ rw [exp_rel_def] >>
+ simp [exec_rel_rw, evaluate_def] >>
+ rw [res_rel_rw] >>
+ cheat);
+
+val compat_letrec = Q.store_thm ("compat_letrec",
+`!loc names funs e funs' e'.
+  LIST_REL (\(n,e) (n',e'). n = n' ∧ exp_rel [e] [e']) funs funs' ∧
+  exp_rel [e] [e']
+  ⇒
+  exp_rel [Letrec loc names funs e] [Letrec loc names funs' e']`,
+ cheat);
+
+val compat_op = Q.store_thm ("compat_op",
+`!op es es'.
+  exp_rel es es'
+  ⇒
+  exp_rel [Op op es] [Op op es']`,
+ cheat);
+
+val compat = save_thm ("compat",
+  LIST_CONJ [compat_nil, compat_cons, compat_var, compat_if, compat_let, compat_raise,
+             compat_handle, compat_tick, compat_call, compat_app, compat_fn,
+             compat_letrec, compat_op]);
+
+val exp_rel_refl = Q.store_thm ("exp_rel_refl",
+`(!e. exp_rel [e] [e]) ∧
+ (!es. exp_rel es es) ∧
+ (!(ne :num # closLang$exp). FST ne = FST ne ∧ exp_rel [SND ne] [SND ne]) ∧
+ (!funs. LIST_REL (\(n:num,e) (n',e'). n = n' ∧ exp_rel [e] [e']) funs funs)`,
+ Induct >>
+ rw [] >>
+ TRY (PairCases_on `ne`) >>
+ fs [] >>
+ metis_tac [compat]);
+
+val val_rel_refl = Q.store_thm ("val_rel_refl",
+`(!v. val_rel i v v) ∧
+ (!vs. LIST_REL (val_rel i) vs vs)`,
+ ho_match_mp_tac v_induction >>
+ rw [val_rel_rw, is_closure_def] >>
+ `exp_rel [e] [e]` by metis_tac [exp_rel_refl] >>
+ fs [exp_rel_def] >>
+ cheat);
+
+val state_rel_refl = Q.store_thm ("state_rel_refl",
+`(!s. state_rel i s s)`,
+ cheat);
+
+val val_rel_trans = Q.store_thm ("val_rel_trans",
+`(!i v1 v2. val_rel i v1 v2 ⇒ 
+    !v3. (!i'. val_rel i' v2 v3) ⇒ val_rel i v1 v3) ∧
+ (!i st1 st2. exec_rel i st1 st2 ⇒ 
+     !st3. (!i'. exec_rel i' st2 st3) ⇒ exec_rel i st1 st3) ∧
+ (!i st1 st2. exec_cl_rel i st1 st2 ⇒ 
+     !st3. (!i'. exec_cl_rel i' st2 st3) ⇒ exec_cl_rel i st1 st3) ∧
+ (!i rv1 rv2. ref_v_rel i rv1 rv2 ⇒ 
+     !rv3. (!i'. ref_v_rel i' rv2 rv3) ⇒ ref_v_rel i rv1 rv3) ∧
+ (!i s1 s2. state_rel i s1 s2 ⇒ 
+     !s3. (!i'. state_rel i' s2 s3) ⇒ state_rel i s1 s3)`,
+ ho_match_mp_tac val_rel_ind >>
+ rw [val_rel_rw] >>
+ cheat);
+
+val exp_rel_trans = Q.store_thm ("exp_rel_trans",
+`!e1 e2 e3. exp_rel e1 e2 ∧ exp_rel e2 e3 ⇒ exp_rel e1 e3`,
+ rw [exp_rel_def] >>
+ `!i. state_rel i s' s' ∧ LIST_REL (val_rel i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
+ metis_tac [val_rel_trans]);
 
 val _ = export_theory ();
