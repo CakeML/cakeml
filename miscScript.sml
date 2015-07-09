@@ -156,6 +156,12 @@ val lookup_map_K = store_thm("lookup_map_K",
   \\ REPEAT STRIP_TAC \\ Cases_on `n = 0` \\ fs []
   \\ Cases_on `EVEN n` \\ fs []);
 
+val lookup_any_def = Define `
+  lookup_any x sp d =
+    case lookup x sp of
+    | NONE => d
+    | SOME m => m`;
+
 val alist_insert_def = Define `
   (alist_insert [] xs t = t) /\
   (alist_insert vs [] t = t) /\
