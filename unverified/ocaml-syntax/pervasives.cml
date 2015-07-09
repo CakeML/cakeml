@@ -1,0 +1,6 @@
+(* Name format:
+   All names here are made of "ocaml__" followed by the name of the value in
+   OCaml. Infix operators are transcribed symbol-for-symbol into words
+   separated by underscores. All names here are letter-like and not infix. *)
+
+fun ocaml__plus x y = x + y;

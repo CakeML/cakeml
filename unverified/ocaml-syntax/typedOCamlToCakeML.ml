@@ -5,7 +5,9 @@ open BatResult
 open BatResult.Monad
 
 open Asttypes
+open Ident
 open Longident
+open Path
 open Types
 open Typedtree
 
@@ -108,11 +110,34 @@ let rec print_pattern parenth pat =
     print_construct parenth print_pattern lident desc ps
   | _ -> Bad "Some pattern syntax not implemented."
 
+let show_ident i = "{ " ^ BatInt.to_string i.stamp ^ ", " ^ i.name ^ ", " ^ BatInt.to_string i.flags ^ " }"
+let rec show_path = function
+  | Pident ident -> "Pident (" ^ show_ident ident ^ ")"
+  | Pdot (path, s, i) -> "Pdot (" ^ show_path path ^ ", " ^ s ^ ", " ^ BatInt.to_string i ^ ")"
+  | Papply (p0, p1) -> "Papply (" ^ show_path p0 ^ ", " ^ show_path p1 ^ ")"
+
+let rec convertPervasive =
+  let f = function
+    | '+' :: xs -> "_plus" ^ convertPervasive xs
+    | xs -> "_" ^ BatString.from_list xs
+  in
+  BatString.tail 1 -| f -| BatString.to_list
+
+let rec print_path = function
+  | Pident ident -> return @@ ident.name
+  | Pdot (left, right, _) -> print_path left >>= fun left ->
+                             return @@ left ^ "." ^ right
+  | Papply (p0, p1) -> print_path p0 >>= fun p0 ->
+                       print_path p1 >>= fun p1 ->
+                       let p1 = ifThen (p0 = "Pervasives") convertPervasive p1
+                       return @@ p0 ^ " " ^ p1
+
 let rec print_expression parenth expr : (string,string) result =
   let thisParen = ifThen parenth paren in
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) ->
-    print_longident longident.txt
+    (*print_longident longident.txt*)
+    print_path path
   | Texp_constant c -> return @@ print_constant c
   | Texp_let (r, bs, e) ->
     mapM (print_value_binding r) bs >>= fun bs' ->
@@ -301,19 +326,35 @@ let print_result = function
 let rec preprocess_structure_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
-    Tstr_value (r, map (preprocess_value_binding r) bs)
+    { str with str_desc = Tstr_value (r, preprocess_value_bindings [] r bs) }
   | _ -> str
-and preprocess_value_binding rec_flag vb =
-  match vb.vb_expr.exp_desc, rec_flag with
-  | desc, Recursive when
-    (match desc with
-    | Texp_function (_,_,_) -> false
-    | _ -> true
-    ) -> vb
-  | _ -> vb
+and preprocess_value_bindings acc rec_flag = function
+  | [] -> acc
+  | vb :: vbs ->
+    match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc, rec_flag with
+    (* This is fairly tricky; commenting out for now *)
+    (*| exp_desc, Tpat_var (ident, name), Recursive when
+      (match desc, vb.vb_pat.pat_desc with
+      | Texp_function (_,_,_), _ -> false
+      | _ -> true
+      ) -> let new_name = name.txt ^ "__" in
+           let new_ident = create new_name in
+           let new_pat = Tpat_var (new_ident, { name with txt = new_name }) in
+           let new_subexpr = Texp_apply (
+             Texp_ident (Pident new_ident, Lident new_name,
+                         { val_type = { vb.vb_pat.pat_type with
+                                        desc = Tarrow (l, u, vb.vb_pat.pat_type, Cok) };
+                           val_kind = Val_reg;
+                           val_loc = ;
+                           val_attributes = ;
+                         }),
+             []) in
+           vb' :: preprocess_value_bindings acc' rec_flag vbs*)
+    | _ -> vb :: preprocess_value_bindings acc rec_flag vbs
 
 let lexbuf = Lexing.from_channel stdin
 let parsetree = Parse.implementation lexbuf
+let _ = Compmisc.init_path false
 let typedtree, signature, env =
-  Typemod.type_structure Env.empty parsetree Location.none
+  Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
 let _ = map (print_result % print_structure_item) typedtree.str_items
