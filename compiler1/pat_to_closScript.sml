@@ -31,7 +31,7 @@ val compile_def = tDefine"compile"`
   (compile (Var_global n) =
     Op (Global n) []) ∧
   (compile (Fun e) =
-    Fn 0 [] 1 (compile e)) ∧
+    Fn NONE [] 1 (compile e)) ∧
   (compile (App (Op (Op Opapp)) es) =
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
     App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧
@@ -163,7 +163,7 @@ val compile_def = tDefine"compile"`
   (compile (Seq e1 e2) =
     Let [compile e1;compile e2] (Var 1)) ∧
   (compile (Letrec es e) =
-    Letrec 0 [] (MAP (λe. (1,compile e)) es) (compile e)) ∧
+    Letrec NONE [] (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global n) =
     Let (REPLICATE n (Op AllocGlobal []))
       (Op (Cons tuple_tag) []))`

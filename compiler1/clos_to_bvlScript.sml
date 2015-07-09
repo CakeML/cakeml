@@ -289,7 +289,8 @@ val compile_def = tDefine "compile" `
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
-  (compile [Fn loc vs num_args x1] aux =
+  (compile [Fn loc_opt vs num_args x1] aux =
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
      let (c1,aux1) = compile [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
@@ -298,7 +299,8 @@ val compile_def = tDefine "compile" `
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + num_stubs,num_args+1,c2) :: aux1)) /\
-  (compile [Letrec loc vs fns x1] aux =
+  (compile [Letrec loc_opt vs fns x1] aux =
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
      case fns of
      | [] => compile [x1] aux
      | [(num_args, exp)] =>

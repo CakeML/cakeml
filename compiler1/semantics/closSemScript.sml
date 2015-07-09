@@ -14,8 +14,8 @@ val _ = Datatype `
     Number int
   | Block num (v list)
   | RefPtr num
-  | Closure num (v list) (v list) num closLang$exp
-  | Recclosure num (v list) (v list) ((num # closLang$exp) list) num`
+  | Closure (num option) (v list) (v list) num closLang$exp
+  | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
 val _ = Datatype `
   state =
@@ -251,9 +251,10 @@ val lookup_vars_def = Define `
      else NONE)`
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args so_far ⇔ num_args ≤ max_app) /\
+  (check_loc NONE loc num_params num_args so_far ⇔ 
+    loc = NONE ∧ num_args ≤ max_app) /\
   (check_loc (SOME p) loc num_params num_args so_far ⇔
-    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
+    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)`;
 
 val _ = Datatype `
   app_kind =
@@ -277,7 +278,7 @@ val dest_closure_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ~(check_loc loc_opt (OPTION_MAP ((+)i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
              ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
