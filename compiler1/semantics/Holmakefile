@@ -1,4 +1,4 @@
-INCLUDES = .. ../.. ../../semantics ../../semantics/proofs
+INCLUDES = .. ../.. ../../semantics ../../semantics/proofs ../../targets
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -15,6 +15,7 @@ all: $(HOLHEAP)
 
 BARE_THYS = ../../semantics/terminationTheory\
 						../../semantics/proofs/evalPropsTheory\
+						../../targets/target_semTheory\
 						../source_to_modTheory\
 						../mod_to_conTheory\
 						../con_to_decTheory\
