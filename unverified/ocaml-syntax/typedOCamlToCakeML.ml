@@ -3,6 +3,7 @@ open BatIO
 open BatList
 open BatResult
 open BatResult.Monad
+open BatTuple
 
 open Asttypes
 open Ident
@@ -110,34 +111,45 @@ let rec print_pattern parenth pat =
     print_construct parenth print_pattern lident desc ps
   | _ -> Bad "Some pattern syntax not implemented."
 
-let show_ident i = "{ " ^ BatInt.to_string i.stamp ^ ", " ^ i.name ^ ", " ^ BatInt.to_string i.flags ^ " }"
-let rec show_path = function
-  | Pident ident -> "Pident (" ^ show_ident ident ^ ")"
-  | Pdot (path, s, i) -> "Pdot (" ^ show_path path ^ ", " ^ s ^ ", " ^ BatInt.to_string i ^ ")"
-  | Papply (p0, p1) -> "Papply (" ^ show_path p0 ^ ", " ^ show_path p1 ^ ")"
+let rec convertPervasive : string -> string =
+  let rec f : char list -> string list = function
+    | [] -> []
 
-let rec convertPervasive =
-  let f = function
-    | '+' :: xs -> "_plus" ^ convertPervasive xs
-    | xs -> "_" ^ BatString.from_list xs
+    | '=' :: xs -> "equals" :: f xs
+    | '<' :: xs -> "lt" :: f xs
+    | '>' :: xs -> "gt" :: f xs
+
+    | '&' :: xs -> "amp" :: f xs
+    | '|' :: xs -> "bar" :: f xs
+
+    | '@' :: xs -> "at" :: f xs
+
+    | '~' :: xs -> "tilde" :: f xs
+    | '+' :: xs -> "plus" :: f xs
+    | '-' :: xs -> "minus" :: f xs
+    | '*' :: xs -> "star" :: f xs
+    | '/' :: xs -> "slash" :: f xs
+
+    | xs -> [BatString.of_list xs]
   in
-  BatString.tail 1 -| f -| BatString.to_list
+  BatString.concat "_" % f % BatString.to_list
+
+let fix_path_name name = BatString.uncapitalize name
 
 let rec print_path = function
   | Pident ident -> return @@ ident.name
-  | Pdot (left, right, _) -> print_path left >>= fun left ->
-                             return @@ left ^ "." ^ right
+  | Pdot (left, right, _) ->
+    print_path left >>= fun left ->
+    let right = ifThen (left = "Pervasives") convertPervasive right in
+    return @@ fix_path_name left ^ "__" ^ right
   | Papply (p0, p1) -> print_path p0 >>= fun p0 ->
                        print_path p1 >>= fun p1 ->
-                       let p1 = ifThen (p0 = "Pervasives") convertPervasive p1
                        return @@ p0 ^ " " ^ p1
 
-let rec print_expression parenth expr : (string,string) result =
+let rec print_expression parenth expr =
   let thisParen = ifThen parenth paren in
   match expr.exp_desc with
-  | Texp_ident (path, longident, desc) ->
-    (*print_longident longident.txt*)
-    print_path path
+  | Texp_ident (path, longident, desc) -> print_path path
   | Texp_constant c -> return @@ print_constant c
   | Texp_let (r, bs, e) ->
     mapM (print_value_binding r) bs >>= fun bs' ->
@@ -164,6 +176,15 @@ let rec print_expression parenth expr : (string,string) result =
                      return @@ thisParen @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
     print_construct parenth print_expression lident desc es
+  | Texp_ifthenelse (p, et, Some ef) ->
+    print_expression false p >>= fun p' ->
+    print_expression false et >>= fun et' ->
+    print_expression false ef >>= fun ef' ->
+    return @@ thisParen @@ "if " ^ p' ^ " then " ^ et' ^ " else " ^ ef'
+  | Texp_sequence (e0, e1) ->
+    print_expression false e0 >>= fun e0' ->
+    print_expression false e1 >>= fun e1' ->
+    return @@ paren @@ e0' ^ "; " ^ e1'
   | _ -> Bad "Some expression syntax not implemented."
 
 and print_case parenthPat conn c =
@@ -224,43 +245,37 @@ and print_value_binding rec_flag vb =
 
 let fix_type_name = fix_identifier
 
-let rec print_core_type ctyp =
+let rec print_core_type parenth ctyp =
+  let thisParen = ifThen parenth paren in
   match ctyp.ctyp_desc with
   | Ttyp_any -> return "_"
   | Ttyp_var name -> return @@ "'" ^ fix_type_name name
   | Ttyp_arrow (l, dom, cod) ->
-    print_core_type dom >>= fun a ->
-    print_core_type cod >>= fun b ->
-    return @@ paren ((if l = "" then l ^ ":" else "") ^ a ^ " -> " ^ b)
+    print_core_type true dom >>= fun a ->
+    print_core_type false cod >>= fun b ->
+    return @@ thisParen @@ (if l = "" then "" else l ^ ":") ^ a ^ " -> " ^ b
     (* ^^ label type changes in 4.03 ^^ *)
   | Ttyp_tuple ts -> print_ttyp_tuple ts >>= fun t ->
                      return @@ paren t
-  | Ttyp_constr (path, lid, ts) -> print_longident lid.txt >>= fun name ->
-                                   return @@ name
+  | Ttyp_constr (path, lid, ts) ->
+    print_path path >>= fun name ->
+    print_typ_params ts >>= fun params ->
+    return @@ params ^ name
   | _ -> Bad "Some core types syntax not supported."
+
+and print_typ_params = function
+  | [] -> return ""
+  | [t] -> print_core_type true t >>= fun t' ->
+           return @@ t' ^ " "
+  | ts -> mapM (print_core_type false) ts >>= fun ts' ->
+         return @@ "(" ^ BatString.concat ", " ts' ^ ") "
 
 and print_ttyp_tuple = function
   | [] -> return ""
-  | [t] -> print_core_type t
-  | t :: ts -> print_core_type t >>= fun core_type ->
+  | [t] -> print_core_type false t
+  | t :: ts -> print_core_type false t >>= fun core_type ->
                  print_ttyp_tuple ts >>= fun rest ->
                  return @@ core_type ^ " * " ^ rest
-
-let print_typ_params = function
-  | [] -> return ""
-  | [(typ, _)] -> print_core_type typ >>= fun core_type ->
-                   return @@ " " ^ core_type
-  | xs ->
-    let rec f = function
-      | [] -> Bad "How did we get here?"
-      | [typ, _] -> print_core_type typ >>= fun core_type ->
-                       return @@ core_type ^ " )"
-      | (typ, _) :: ys -> print_core_type typ >>= fun core_type ->
-                           f ys >>= fun rest ->
-                           return @@ core_type ^ " , " ^ rest
-    in
-    f xs >>= fun rest ->
-    return @@ " ( " ^ rest
 
 (* constructor_arguments is new (and necessary) in OCaml 4.03, in which
    support for value constructors for record types was added. *)
@@ -294,21 +309,23 @@ let print_type_declaration typ =
                 | Ttype_abstract -> "type"
                 | _ -> "datatype"
   in
-  print_typ_params typ.typ_params >>= fun params ->
+  print_typ_params (map Tuple2.first typ.typ_params) >>= fun params ->
   (match typ.typ_manifest, typ.typ_kind with
-  | Some m, Ttype_abstract -> print_core_type m >>= fun manifest ->
+  | Some m, Ttype_abstract -> print_core_type false m >>= fun manifest ->
                               return @@ " = " ^ manifest
-  | Some m, Ttype_variant ds -> print_core_type m >>= fun manifest ->
+  | Some m, Ttype_variant ds -> print_core_type false m >>= fun manifest ->
                                 return @@ " = datatype " ^ manifest
   | None, Ttype_abstract -> return ""
   | None, Ttype_variant ds -> print_ttyp_variant ds >>= fun expr ->
                               return @@ " =" ^ expr
-  | _ -> Bad "Type of type declaration not supported."
+  | _ -> Bad "Some type declarations not implemented."
   ) >>= fun rest ->
-  return @@ keyword ^ params ^ " " ^ fix_type_name typ.typ_name.txt ^ rest
+  return @@ keyword ^ " " ^ params ^ fix_type_name typ.typ_name.txt ^ rest
 
 let print_structure_item str =
   match str.str_desc with
+  | Tstr_eval (e, attrs) -> print_expression false e >>= fun e' ->
+                            return @@ e' ^ ";\n"
   | Tstr_value (r, bs) ->
     mapM (fun b -> print_value_binding r b >>= fun x ->
                    return (x ^ ";\n")) bs >>= fun ss ->
@@ -317,7 +334,7 @@ let print_structure_item str =
     mapM (fun d -> print_type_declaration d >>= fun x ->
                    return (x ^ ";\n")) ds >>= fun ss ->
     return @@ fold_right (^) ss ""
-  | _ -> Bad "Structure feature not supported."
+  | _ -> Bad "Some structure items not implemented."
 
 let print_result = function
   | Ok r -> nwrite stdout r
