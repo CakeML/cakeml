@@ -67,13 +67,12 @@ val geq_opt = Q.store_thm ("geq_opt",
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
-(* This cheat isn't true, because the theorem isn't right with respect to the vars *)
 val fn_add_arg = Q.store_thm ("fn_add_arg",
-`!vars num_args num_args' e.
+`!vars vars2 num_args num_args' e.
   num_args ≠ 0 ∧ 
   num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ⇒
-  exp_rel [Fn NONE vars num_args (Fn NONE vars num_args' e)]
+  exp_rel [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
           [Fn NONE vars (num_args + num_args') e]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
  rw [res_rel_rw] >>
@@ -111,7 +110,15 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  Cases_on `i''''' < LENGTH args''` >>
  simp [res_rel_rw]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- (simp [rev_take_rev_all, rev_drop_rev_all, dec_clock_def] >>
+ >- (fs [dec_clock_def] >>
+     `i'' ≤ i` by decide_tac >>
+     `LIST_REL (val_rel i'') (args ++ x) (args' ++ vs2')` 
+                by metis_tac [EVERY2_APPEND, val_rel_mono_list, LIST_REL_LENGTH] >>
+     `?vs2''.
+       clos_env s''.restrict_envs vars2 (args' ++ vs2') = SOME vs2'' ∧
+       LIST_REL (val_rel i'') x' vs2''`
+                  by metis_tac [val_rel_clos_env] >>
+     simp [rev_take_rev_all, rev_drop_rev_all, dec_clock_def] >>
      qabbrev_tac `l = LENGTH args'''` >>
      `LENGTH args'' = l` by metis_tac [] >>
      `exp_rel [e] [e]` by metis_tac [exp_rel_refl] >>
@@ -124,8 +131,11 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
      `i''''' - l ≤ i''''` by decide_tac >>
      imp_res_tac val_rel_mono >>
      simp [] >>
+     rfs [] >>
+     `i'''''-l ≤ i'' ∧ i''''' -l ≤ i''''` by decide_tac >>
      `LIST_REL (val_rel (i''''' − l)) (args'' ++ x') (args''' ++ args' ++ vs2')`
-             by cheat >>
+             by (`vs2'' = args'++vs2'` by cheat >>
+                 metis_tac [APPEND_ASSOC, EVERY2_APPEND, val_rel_mono_list]) >>
      simp [exec_rel_rw] >>
      DISCH_TAC >>
      pop_assum (qspec_then `i'''''-l` mp_tac) >>
