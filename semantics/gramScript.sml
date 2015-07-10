@@ -149,7 +149,7 @@ val cmlG_def = mk_grammar_def ginfo
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | <StringT> | Ptuple | "_"
+ Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]";
  Papp ::= ConstructorName Pbase | Pbase;
  Pattern ::= Papp "::" Pattern | Papp ;

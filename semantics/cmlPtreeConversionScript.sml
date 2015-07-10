@@ -16,6 +16,80 @@ val _ = new_theory "cmlPtreeConversion"
    This is a disgusting failing of our theory mechanism.  *)
 val _ = hide "nt"
 
+(* handling constructor arities gets very complicated when "open" is
+   implemented *)
+val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
+                               ctr_arities : string id |-> num |>`
+(* recording a fixity of NONE is what you have to do to represent an
+   explicit nonfix declaration *)
+
+val _ = temp_type_abbrev
+            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+
+val empty_PCstate0 = Define`
+  empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
+`;
+
+val mpushPC_scope_def = Define`
+  mpushPC_scope : unit M = λpcs. SOME ((), empty_PCstate0 :: pcs)
+`;
+
+val fixity_lookup_def = Define`
+  fixity_lookup nm pcs =
+    case pcs of
+        [] => NONE
+      | pc0 :: rest =>
+          case FLOOKUP pc0.fixities nm of
+              NONE => fixity_lookup nm rest
+            | SOME NONE => NONE
+            | SOME r => r
+`;
+
+
+(* mfixity_lookup : string -> num M
+    'fails' if the string has no fixity, even though it is perfectly
+    reasonable for a string to be nonfix.
+*)
+val mfixity_lookup_def = Define`
+  mfixity_lookup nm : num M =
+    λpcs. OPTION_MAP (λr. (r, pcs)) (fixity_lookup nm pcs)
+`
+
+val mFUPD_HD_def = Define`
+  mFUPD_HD f pcs =
+    case pcs of
+        [] => NONE
+      | h :: t => SOME((), f h :: t)
+`
+
+(* msetfix : string -> num option -> unit M *)
+val msetfix_def = Define`
+  msetfix nm fix : unit M =
+    mFUPD_HD (λs0. s0 with fixities updated_by (λfm. fm |+ (nm, fix)))
+`
+
+(* mpop_anonscope : unit M *)
+val mpop_anonscope_def = Define`
+  mpopscope : unit M = λpcs.
+    case pcs of
+      [] => NONE
+    | _ :: t => SOME((), t)
+`
+
+val mpop_namedscope_def = Define`
+  mpop_namedscope (s : string) : unit M = λpcs.
+    case pcs of
+      [] => NONE
+    | [_] => NONE
+    | curr :: next :: rest => SOME((), next :: rest)
+`;
+(* needs to be adjusted so that constructors (only) declared in the current
+   scope get recorded in the next level up with the given name as a prefix.
+
+   Does nothing different at this stage, when I expect just to be handling
+   fixities (which are handled in a non-exportable way).
+ *)
+
 
 (* ----------------------------------------------------------------------
     We'll be using the option monad quite a bit in what follows
@@ -455,24 +529,15 @@ val ptree_Pattern_def = Define`
              cname <- ptree_ConstructorName vic;
              SOME(Pcon (SOME cname) [])
           od ++
-          do
-             vname <- ptree_V vic;
-             SOME(Pvar vname)
-          od ++
+          do vname <- ptree_V vic; SOME(Pvar vname) od ++
           do
             lf <- destLf vic;
             t <- destTOK lf;
-            i <- destIntT t ;
-            SOME (Plit (IntLit i))
+            (do i <- destIntT t ; return (Plit (IntLit i)) od ++
+             do s <- destStringT t ; return (Plit (StrLit s)) od ++
+             do c <- destCharT t ; return (Plit (Char c)) od)
           od ++
-          do
-            lf <- destLf vic;
-            t <- destTOK lf;
-            s <- destStringT t ;
-            SOME (Plit (StrLit s))
-          od ++
-          if vic = Lf (TOK UnderbarT) then SOME (Pvar "_")
-          else NONE
+          do assert(vic = Lf (TOK UnderbarT)) ; return (Pvar "_") od
         | [lb; rb] =>
           if lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT) then
             SOME(Pcon (SOME (Short "nil")) [])
