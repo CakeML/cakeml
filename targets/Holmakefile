@@ -1,1 +1,1 @@
-INCLUDES = $(HOLDIR)/examples/l3-machine-code/common ../ffi
+INCLUDES = .. $(HOLDIR)/examples/l3-machine-code/common ../ffi

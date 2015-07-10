@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib Parse
-open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
+open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -13,6 +13,15 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_1"]
 val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
+
+val LPREFIX_def = Define `
+  LPREFIX l1 l2 =
+    case llist$toList l1 of
+    | NONE => (l1 = l2)
+    | SOME xs =>
+        case toList l2 of
+        | NONE => LTAKE (LENGTH xs) l2 = SOME xs
+        | SOME ys => isPREFIX xs ys`
 
 val REPLICATE_NIL = Q.store_thm("REPLICATE_NIL",
   `REPLICATE x y = [] ⇔ x = 0`,

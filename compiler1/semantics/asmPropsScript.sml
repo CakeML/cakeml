@@ -1,4 +1,4 @@
-open preamble asmTheory target_semTheory;
+open preamble asmTheory targetSemTheory;
 
 (* TODO: this theory should probably be moved to somewhere under targets/ *)
 
@@ -8,7 +8,7 @@ val SUBSET_IMP = prove(
   ``s SUBSET t ==> (x IN s ==> x IN t)``,
   fs [pred_setTheory.SUBSET_DEF]);
 
-(* prove that asm_step implies mEval steps *)
+(* prove that asm_step implies machine evaluation steps *)
 
 val asserts_restrict = prove(
   ``!n next1 next2 s P Q.
@@ -29,7 +29,7 @@ val shift_interfer_intro = prove(
   ``shift_interfer k1 (shift_interfer k2 c) = shift_interfer (k1+k2) c``,
   fs [shift_interfer_def,shift_seq_def,ADD_ASSOC]);
 
-val mEval_EQ_mEval_lemma = prove(
+val evaluate_EQ_evaluate_lemma = prove(
   ``!n ms1 c.
       c.f.get_pc ms1 IN c.prog_addresses /\ c.f.state_ok ms1 /\
       interference_ok c.next_interfer (c.f.proj dm) /\
@@ -42,20 +42,20 @@ val mEval_EQ_mEval_lemma = prove(
            (\ms'. c.f.state_ok ms' /\ c.f.get_pc ms' IN c.prog_addresses)
            (\ms'. c.f.state_rel s2 ms')) ==>
       ?ms2.
-        !k. (mEval c io (k + (n + 1)) ms1 =
-             mEval (shift_interfer (n+1) c) io k ms2) /\
+        !k. (evaluate c io (k + (n + 1)) ms1 =
+             evaluate (shift_interfer (n+1) c) io k ms2) /\
             c.f.state_rel s2 ms2``,
   Induct THEN1
    (fs [] \\ REPEAT STRIP_TAC
     \\ fs [asserts_def,LET_DEF]
-    \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [LET_DEF]
+    \\ SIMP_TAC std_ss [Once evaluate_def] \\ fs [LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `K (c.next_interfer 0)`)
     \\ fs [interference_ok_def] \\ RES_TAC \\ fs []
     \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [shift_interfer_def]
     \\ METIS_TAC [])
   \\ REPEAT STRIP_TAC \\ fs []
   \\ fs [arithmeticTheory.ADD_CLAUSES]
-  \\ SIMP_TAC std_ss [Once mEval_def] \\ fs [ADD1] \\ fs [LET_DEF]
+  \\ SIMP_TAC std_ss [Once evaluate_def] \\ fs [ADD1] \\ fs [LET_DEF]
   \\ Q.PAT_ASSUM `!i. bbb`
        (fn th => ASSUME_TAC th THEN MP_TAC (Q.SPEC
          `\i. c.next_interfer 0` th))
@@ -97,7 +97,7 @@ val asserts_WEAKEN = prove(
   \\ `!k. k <= n ==> (next k = next' k)` by ALL_TAC \\ RES_TAC
   \\ REPEAT STRIP_TAC \\ FIRST_X_ASSUM MATCH_MP_TAC \\ decide_tac);
 
-val asm_step_IMP_mEval_step = store_thm("asm_step_IMP_mEval_step",
+val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
   ``!c s1 ms1 io i s2.
       backend_correct_alt c.f c.asm_config /\
       (c.prog_addresses = s1.mem_domain) /\
@@ -105,13 +105,13 @@ val asm_step_IMP_mEval_step = store_thm("asm_step_IMP_mEval_step",
       asm_step_alt c.f.encode c.asm_config s1 i s2 /\
       (s2 = asm i (s1.pc + n2w (LENGTH (c.f.encode i))) s1) /\
       c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
-      ?l ms2. !k. (mEval c io (k + l) ms1 =
-                   mEval (shift_interfer l c) io k ms2) /\
+      ?l ms2. !k. (evaluate c io (k + l) ms1 =
+                   evaluate (shift_interfer l c) io k ms2) /\
                   c.f.state_rel s2 ms2 /\ l <> 0``,
   fs [backend_correct_alt_def] \\ REPEAT STRIP_TAC \\ RES_TAC
   \\ fs [] \\ NTAC 2 (POP_ASSUM (K ALL_TAC))
   \\ Q.EXISTS_TAC `n+1` \\ fs []
-  \\ MATCH_MP_TAC (GEN_ALL mEval_EQ_mEval_lemma) \\ fs []
+  \\ MATCH_MP_TAC (GEN_ALL evaluate_EQ_evaluate_lemma) \\ fs []
   \\ Q.EXISTS_TAC `s1.mem_domain` \\ fs []
   \\ REPEAT STRIP_TAC \\ TRY (RES_TAC \\ NO_TAC)
   THEN1 (fs [asm_step_alt_def] \\ IMP_RES_TAC enc_ok_not_empty

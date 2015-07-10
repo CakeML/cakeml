@@ -1,5 +1,5 @@
 open preamble labLangTheory;
-local open wordSemTheory alignmentTheory target_semTheory in end;
+local open wordSemTheory alignmentTheory targetSemTheory in end;
 
 val _ = new_theory"labSem";
 
