@@ -1,6 +1,6 @@
-open preamble labLangTheory asmTheory;
+open preamble labLangTheory;
 
-val _ = new_theory"lab_to_asm";
+val _ = new_theory"lab_to_target";
 
 val ffi_offset_def = Define `
   ffi_offset = 8:num`;
