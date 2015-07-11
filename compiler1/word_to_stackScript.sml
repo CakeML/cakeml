@@ -14,6 +14,10 @@ val list_union_def = Define `
   (list_union [] l = l) /\
   (list_union (x::xs) l = list_union xs (union x l))`
 
+val MAX_LIST_def = Define `
+  (MAX_LIST [] = 0) /\
+  (MAX_LIST (n::ns) = MAX n (MAX_LIST ns))`
+
 (* -- *)
 
 (* Here k = number of regsiters
@@ -117,30 +121,42 @@ val comp_def = Define `
      (Seq (wLive live kf) (Alloc size),live)) /\
   (comp _ l kf = (wImpossible,l))`
 
+val inst_vars_def = Define `
+  (inst_vars Skip = []) /\
+  (inst_vars (Const n _) = [n]) /\
+  (inst_vars (Arith (Binop _ n1 n2 (Imm _))) = [n1;n2]) /\
+  (inst_vars (Arith (Binop _ n1 n2 (Reg n3))) = [n1;n2;n3]) /\
+  (inst_vars (Arith (Shift _ n1 n2 _)) = [n1;n2]) /\
+  (inst_vars (Mem _ n1 (Addr n2 _)) = [n1;n2])`
+
 val max_var_def = Define `
   (max_var (Skip:'a wordLang$prog) = 0) /\
-  (max_var (Move _ xs) = ARB) /\
-  (max_var (Inst i) = ARB) /\
+  (max_var (Move _ xs) = MAX_LIST (MAP (\(x,y). MAX x y) xs)) /\
+  (max_var (Inst i) = MAX_LIST (inst_vars i)) /\
   (max_var (Return v1 v2) = MAX v1 v2) /\
   (max_var (Raise v) = v) /\
-  (max_var (Tick) = 0) /\
   (max_var (Seq p1 p2) = MAX (max_var p1) (max_var p2)) /\
-  (max_var (If cmp r ri p1 p2) = ARB) /\
+  (max_var (If cmp r ri p1 p2) =
+     MAX (case ri of Reg n => n | _ => 0)
+       (MAX r (MAX (max_var p1) (max_var p2)))) /\
   (max_var (Set name exp) = case exp of Var n => n | _ => 0) /\
   (max_var (Get n name) = n) /\
-  (max_var (Call x1 x2 x3 x4) = ARB) /\
-  (max_var (Alloc size live) = 0) /\
+  (max_var (Call ret x2 args handler) =
+     MAX (MAX_LIST args)
+         (MAX (case ret of SOME (x,_) => x | _ => 0)
+              (case handler of SOME (x,_) => x | _ => 0))) /\
   (max_var _ = 0)`
 
 val compile_def = Define `
-  compile (prog:'a wordLang$prog) arg_count k =
-    let stack_arg_count = arg_count - k in
-    let stack_var_count = MAX (max_var prog - k) stack_arg_count in
+  compile (prog:'a wordLang$prog) arg_count reg_count =
+    let stack_arg_count = arg_count - reg_count in
+    let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
       if stack_var_count = 0 then
-        FST (comp prog LN (k,0))
+        FST (comp prog LN (reg_count,0))
       else
         let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
         let f = stack_var_count + bitmap_size in
-          Seq (StackAlloc (f - stack_arg_count)) (FST (comp prog LN (k,f)))`
+          Seq (StackAlloc (f - stack_arg_count))
+              (FST (comp prog LN (reg_count,f)))`
 
 val _ = export_theory();
