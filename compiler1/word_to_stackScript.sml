@@ -8,9 +8,13 @@ open stackLangTheory;
 
 val _ = ParseExtras.tight_equality ();
 
+(* TODO: move *)
+
 val list_union_def = Define `
   (list_union [] l = l) /\
   (list_union (x::xs) l = list_union xs (union x l))`
+
+(* -- *)
 
 (* Here k = number of regsiters
     and f = size of stack frame
@@ -83,34 +87,60 @@ val wLiveAux_def = tDefine "wLiveAux" `
 val wLive_def = Define `
   wLive live (k,f) = wLiveAux (write_bitmap live k f) k 0`;
 
-val wComp_def = Define `
-  (wComp (Skip:'a wordLang$prog) l kf = (Skip:'a stackLang$prog,l)) /\
-  (wComp (Move _ xs) l kf = wMove xs l kf) /\
-  (wComp (Inst i) l kf = wInst i l kf) /\
-  (wComp (Return v1 v2) l kf = (Return v1 v2,insert v1 () (insert v2 () LN))) /\
-  (wComp (Raise v) l kf = (Raise v,insert v () LN)) /\ (* TODO *)
-  (wComp (Tick) l kf = (Tick,l)) /\
-  (wComp (Seq p1 p2) l kf =
-     let (q2,l2) = wComp p2 l kf in
-     let (q1,l1) = wComp p1 l2 kf in
+val comp_def = Define `
+  (comp (Skip:'a wordLang$prog) l kf = (Skip:'a stackLang$prog,l)) /\
+  (comp (Move _ xs) l kf = wMove xs l kf) /\
+  (comp (Inst i) l kf = wInst i l kf) /\
+  (comp (Return v1 v2) l kf = (Return v1 v2,insert v1 () (insert v2 () LN))) /\
+  (comp (Raise v) l kf = (Raise v,insert v () LN)) /\ (* TODO *)
+  (comp (Tick) l kf = (Tick,l)) /\
+  (comp (Seq p1 p2) l kf =
+     let (q2,l2) = comp p2 l kf in
+     let (q1,l1) = comp p1 l2 kf in
        (Seq q1 q2,l1)) /\
-  (wComp (If cmp r ri p1 p2) l kf =
-     let (q1,l1) = wComp p1 l kf in
-     let (q2,l2) = wComp p2 l kf in
+  (comp (If cmp r ri p1 p2) l kf =
+     let (q1,l1) = comp p1 l kf in
+     let (q2,l2) = comp p2 l kf in
      let (x1,r',l3) = wReg1 r kf in
      let (x2,ri',l4) = wRegImm2 ri kf in
        (wStackLoad (x1++x2) (If cmp r' ri' q1 q2),
         list_union [l1;l2;l3] l4)) /\
-  (wComp (Set name exp) l kf =
+  (comp (Set name exp) l kf =
      case exp of
      | Var n => let (x1,r',l) = wReg1 n kf in
                   (wStackLoad x1 (Set name r'),l)
      | _ => (wImpossible,l)) /\
-  (wComp (Get n name) l kf =
+  (comp (Get n name) l kf =
      (wRegWrite1 (\r. Get r name) n kf, delete n l)) /\
-  (wComp (Call x1 x2 x3 x4) l kf = (Skip,l)) /\ (* TODO *)
-  (wComp (Alloc size live) l kf =
+  (comp (Call x1 x2 x3 x4) l kf = (Skip,l)) /\ (* TODO *)
+  (comp (Alloc size live) l kf =
      (Seq (wLive live kf) (Alloc size),live)) /\
-  (wComp _ l kf = (wImpossible,l))`
+  (comp _ l kf = (wImpossible,l))`
+
+val max_var_def = Define `
+  (max_var (Skip:'a wordLang$prog) = 0) /\
+  (max_var (Move _ xs) = ARB) /\
+  (max_var (Inst i) = ARB) /\
+  (max_var (Return v1 v2) = MAX v1 v2) /\
+  (max_var (Raise v) = v) /\
+  (max_var (Tick) = 0) /\
+  (max_var (Seq p1 p2) = MAX (max_var p1) (max_var p2)) /\
+  (max_var (If cmp r ri p1 p2) = ARB) /\
+  (max_var (Set name exp) = case exp of Var n => n | _ => 0) /\
+  (max_var (Get n name) = n) /\
+  (max_var (Call x1 x2 x3 x4) = ARB) /\
+  (max_var (Alloc size live) = 0) /\
+  (max_var _ = 0)`
+
+val compile_def = Define `
+  compile (prog:'a wordLang$prog) arg_count k =
+    let stack_arg_count = arg_count - k in
+    let stack_var_count = MAX (max_var prog - k) stack_arg_count in
+      if stack_var_count = 0 then
+        FST (comp prog LN (k,0))
+      else
+        let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
+        let f = stack_var_count + bitmap_size in
+          Seq (StackAlloc (f - stack_arg_count)) (FST (comp prog LN (k,f)))`
 
 val _ = export_theory();
