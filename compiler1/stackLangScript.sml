@@ -20,8 +20,12 @@ val _ = Datatype `
        | Tick
        (* new in stackLang, compared to wordLang, below *)
        | StackAlloc num
-       | StackStore num num
-       | StackLoad num num
-       | StackFree num `;
+       | StackFree num
+       | StackStore num num     (* offset, fast *)
+       | StackStoreAny num num  (* reg contains offset, slow, used by GC *)
+       | StackLoad num num      (* offset, fast *)
+       | StackLoadAny num num   (* reg contains offset, slow, used by GC *)
+       | StackGetSize           (* used when installing exc handler *)
+       | StackSetSize           (* used by implementation of raise *)`;
 
 val _ = export_theory();
