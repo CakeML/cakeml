@@ -154,5 +154,57 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]);
 
+val fn_add_loc = Q.store_thm ("fn_add_loc",
+`!vars num_args e l. exp_rel [Fn NONE vars num_args e] [Fn (SOME l) vars num_args e]`,
+ rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
+ Cases_on `clos_env s.restrict_envs vars env` >>
+ rw [res_rel_rw] >>
+ `s.restrict_envs = s'.restrict_envs` by fs [Once state_rel_rw] >>
+ imp_res_tac val_rel_clos_env >>
+ rfs [] >>
+ fs [val_rel_rw, is_closure_def, closure_to_num_args_def] >>
+ reverse (rw [])
+ >- metis_tac [val_rel_mono] >>
+ rw [exec_rel_rw] >>
+ `args ≠ [] ∧ args' ≠ []` by (Cases_on `args` >> Cases_on `args'` >> fs []) >>
+ simp [evaluate_app_rw, dest_closure_def] >>
+ Cases_on `loc ` >>
+ fs [check_loc_def, res_rel_rw] >>
+ rw [res_rel_rw] >>
+ simp [] >>
+ imp_res_tac LIST_REL_LENGTH >>
+ fs []
+ >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
+ fs [dec_clock_def] >>
+ simp [rev_take_rev_all, rev_drop_rev_all] >>
+ qabbrev_tac `l = LENGTH args'` >>
+ `LENGTH args = l` by metis_tac [] >>
+ `exp_rel [e] [e]` by metis_tac [exp_rel_refl] >>
+ fs [exp_rel_def] >>
+ pop_assum (qspecl_then [`i''' - l`,
+              `args++x`,
+              `args' ++ vs2'`,
+              `s'' with clock := i''' - l`,
+              `s''' with clock := i''' - l`] mp_tac) >>
+              `i'''- l ≤ i''` by decide_tac >>
+ imp_res_tac val_rel_mono >>
+ simp [state_rel_clock] >>
+ rfs [] >>
+ `i'''- l ≤ i'' ∧ i'''- l ≤ i` by decide_tac >>
+ `LIST_REL (val_rel (i''' − l)) (args ++ x) (args' ++ vs2')`
+           by metis_tac [EVERY2_APPEND, val_rel_mono_list] >>
+ simp [exec_rel_rw] >>
+ DISCH_TAC >>
+ pop_assum (qspec_then `i'''-l` mp_tac) >>
+ simp [] >>
+ reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],args ++ x,s'' with clock := i''' − l)`
+           result_store_cases)) >>
+ simp [res_rel_rw] >>
+ DISCH_TAC >>
+ fs []
+ >- metis_tac [] >>
+ imp_res_tac evaluate_SING >>
+ fs [] >>
+ rw [evaluate_def, res_rel_rw]);
 
 val _ = export_theory ();
