@@ -25,7 +25,7 @@ val _ = Datatype `
        | StackStoreAny num num  (* reg contains offset, slow, used by GC *)
        | StackLoad num num      (* offset, fast *)
        | StackLoadAny num num   (* reg contains offset, slow, used by GC *)
-       | StackGetSize           (* used when installing exc handler *)
-       | StackSetSize           (* used by implementation of raise *)`;
+       | StackGetSize num       (* used when installing exc handler *)
+       | StackSetSize num       (* used by implementation of raise *)`;
 
 val _ = export_theory();
