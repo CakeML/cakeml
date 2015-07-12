@@ -4,7 +4,7 @@ val _ = new_theory "word_to_stack";
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory sptreeTheory lcsymtacs miscTheory asmTheory wordLangTheory;
-open stackLangTheory;
+open stackLangTheory parmoveTheory;
 
 val _ = ParseExtras.tight_equality ();
 
@@ -49,8 +49,28 @@ val wStackStore_def = Define `
   (wStackStore [] x = x) /\
   (wStackStore ((r,i)::ps) x = Seq (wStackStore ps x) (StackStore r i))`
 
+val wMoveSingle_def = Define `
+  wMoveSingle (x,y) (k,f) =
+    case (y,x) of
+    | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
+    | (INL r1, INR r2) => StackLoad r1 (f+k-r2)
+    | (INR r1, INL r2) => StackStore r2 (f+k-r1)
+    | (INL r1, INL r2) => Seq (StackLoad (k+1) (f+k-r2))
+                              (StackStore (k+1) (f+k-r1))`
+
+val wMoveAux_def = Define `
+  (wMoveAux [] kf = Skip) /\
+  (wMoveAux [xy] kf = wMoveSingle xy kf) /\
+  (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))`
+
+val split_reg_stack_def = Define `
+  split_reg_stack k (x,y) =
+    (if y < k then INL y else INR y,
+     if x < k:num then INL x else INR x)`
+
 val wMove_def = Define `
-  wMove xs kf = (Skip:'a stackLang$prog)`; (* TODO *)
+  wMove xs (k,f) =
+    wMoveAux (parmove (MAP (split_reg_stack k) xs) (INL (k+1))) (k,f)`;
 
 val wInst_def = Define `
   (wInst Skip kf = Inst Skip) /\
