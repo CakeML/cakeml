@@ -1128,41 +1128,6 @@ val every_stack_var_def = Define `
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
   (every_stack_var P p = T)`
 
-val call_arg_convention_def = Define`
-  (call_arg_convention (Return x y) = (y=2)) ∧
-  (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (Call ret dest args h) =
-    (case ret of
-      NONE => args = GENLIST (\x.2*x) (LENGTH args)
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (v = 2) ∧ call_arg_convention ret_handler ∧
-    (case h of  (*Does not check the case where Calls are ill-formed*)
-      NONE => T
-    | SOME (v,prog,l1,l2) =>
-      (v = 2) ∧ call_arg_convention prog))) ∧
-  (call_arg_convention (Seq s1 s2) =
-    (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
-  (call_arg_convention (If cmp r1 ri e2 e3) =
-    (call_arg_convention e2 ∧
-     call_arg_convention e3)) ∧
-  (call_arg_convention p = T)`
-
-(*TODO: fix these (should probably be defined elsewhere) *)
-val is_stack_var_def = Define`is_stack_var = ARB`;
-val is_phy_var_def = Define`is_phy_var = ARB`;
-
-val pre_alloc_conventions_def = Define`
-  pre_alloc_conventions p =
-    (every_stack_var is_stack_var p ∧
-    call_arg_convention p)`
-
-val post_alloc_conventions_def = Define`
-  post_alloc_conventions k prog =
-    (every_var is_phy_var prog ∧
-    every_stack_var (λx. x ≥ 2*k) prog ∧
-    call_arg_convention prog)`
-
 (*Monotonicity*)
 val every_var_inst_mono = store_thm("every_var_inst_mono",``
   ∀P inst Q.
