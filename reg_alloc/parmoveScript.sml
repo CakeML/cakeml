@@ -131,6 +131,11 @@ val wf_step = Q.store_thm("wf_step",
   TRY (match_mp_tac path_change_start) >>
   metis_tac[SND,path_tail]);
 
+val wf_steps = Q.store_thm("wf_steps",
+  `∀s1 s2. ⊢ s1 ∧ s1 ▷* s2 ⇒ ⊢ s2`,
+  ho_match_mp_tac RTC_lifts_invariants >>
+  metis_tac[wf_step])
+
 (* semantics of moves *)
 
 val parsem_def = Define`
@@ -270,6 +275,9 @@ val _ = add_infix("\226\137\161",450,NONASSOC);
 val eqenv_def = xDefine"eqenv"`
   ρ1 ≡ ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
 
+val eqenv_sym = Q.prove(
+  `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
+
 val step_sem = Q.prove(
   `∀s1 s2. s1 ▷ s2 ⇒ ⊢ s1 ⇒ (∀ρ. sem s1 ρ ≡ sem s2 ρ)`,
   ho_match_mp_tac step_ind >>
@@ -368,10 +376,208 @@ val steps_correct = Q.store_thm("steps_correct",
   discharge_hyps >- simp[wf_def] >>
   simp[sem_def,seqsem_def]);
 
+(* deterministic algorithm *)
+
+val _ = add_infix("\226\134\170",450,NONASSOC);
+
+val (dstep_rules,dstep_ind,dstep_cases) = xHol_reln"dstep"`
+ (([(r,r)]++μ,[],τ) ↪ (μ,[],τ)) ∧
+ (s ≠ d ⇒
+  ([(s,d)]++μ,[],τ) ↪ (μ,[(s,d)],τ)) ∧
+ (NoRead μ1 d ⇒
+  (μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ↪
+  (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
+ (NoRead μ r ⇒
+  (μ,[(s,r)]++σ++[(r,d)],τ) ↪
+  (μ,σ++[(NONE,d)],[(s,r);(r,NONE)]++τ)) ∧
+ (NoRead μ dn ∧ dn ≠ s0 ⇒
+  (μ,[(sn,dn)]++σ++[(s0,d0)],τ) ↪
+  (μ,σ++[(s0,d0)],[(sn,dn)]++τ)) ∧
+ (NoRead μ d ⇒
+  (μ,[(s,d)],τ) ↪ (μ,[],[(s,d)]++τ))`;
+
+(* ⊢ s1 condition not included in paper;
+   not sure if necessary, but couldn't get
+   their proof to work *)
+val dstep_step = Q.prove(
+  `∀s1 s2. s1 ↪ s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
+  ho_match_mp_tac dstep_ind >> rw[] >>
+  TRY(
+    qpat_abbrev_tac`n = NONE` >>
+    rw[Once RTC_CASES1,Abbr`n`] >>
+    fs[wf_def] >>
+    `r ≠ NONE` by (strip_tac >> fs[]) >>
+    srw_tac[DNF_ss][step_cases]) >>
+  match_mp_tac RTC_SUBSET >> rw[step_cases] >>
+  metis_tac[CONS_APPEND,APPEND] );
+
+val _ = add_infix("\226\134\170*",450,NONASSOC);
+val _ = overload_on("\226\134\170*",``RTC $↪``);
+
+val dsteps_steps = Q.store_thm("dsteps_steps",
+  `∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
+  ho_match_mp_tac RTC_INDUCT >> rw[] >>
+  metis_tac[dstep_step,wf_steps,RTC_CASES_RTC_TWICE])
+
+(* functional algorithm *)
+
+val fstep_def = Define`
+  fstep st =
+  case st of
+  | ([],[],_) => st
+  | ((s,d)::t,[],l) =>
+    if s = d
+    then (t,[],l)
+    else (t,[(s,d)],l)
+  | (t,(s,d)::b,l) =>
+    splitAtPki (λi p. FST p = d)
+      (λt1 rt2.
+        case rt2 of
+        | (dr::t2) => (t1++t2,dr::(s,d)::b,l)
+        | [] => if NULL b then (t,[],(s,d)::l) else
+                let (b',(s',d')) = (FRONT b,LAST b) in
+                if s' = d
+                then (t,SNOC (NONE,d') b',(s,d)::(d,NONE)::l)
+                else (t,b,(s,d)::l))
+      t`;
+
+val not_or = METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``;
+
+val tac =
+  simp[UNCURRY] >> rw[] >- (
+      rw[dstep_cases] >>
+      qexists_tac`[]` >> simp[] )
+  >> (
+  rw[splitAtPki_EQN] >>
+  BasicProvers.CASE_TAC >- (
+      rw[dstep_cases] >>
+      TRY(map_every qexists_tac[`SND(LAST t')`,`FST(LAST t')`,`FRONT t'`]) >>
+      rw[APPEND_FRONT_LAST] >>
+      fs[whileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
+      metis_tac[] ) >>
+  fs[whileTheory.OLEAST_def] >>
+  BasicProvers.CASE_TAC >- (
+      fs[DROP_NIL] >> rw[] >>
+      pop_assum mp_tac >>
+      numLib.LEAST_ELIM_TAC >>
+      conj_tac >- metis_tac[] >>
+      rw[] >> decide_tac ) >>
+  rw[dstep_cases] >>
+  pop_assum mp_tac >>
+  numLib.LEAST_ELIM_TAC >>
+  conj_tac >- metis_tac[] >>
+  rw[] >> Cases_on`h`>>fs[] >>
+  rfs[DROP_CONS_EL] >> fs[] >>
+  qpat_abbrev_tac`qq = (q,_)` >>
+  qexists_tac`qq::(TAKE n t)` >>
+  simp[Abbr`qq`] >> rpt var_eq_tac >>
+  conj_tac >- (
+      qspec_then`SUC n`(CONV_TAC o LAND_CONV o REWR_CONV o GSYM)TAKE_DROP >>
+      simp[ADD1] >>
+      simp[TAKE_EL_SNOC] ) >>
+  simp[MEM_MAP] >>
+  simp[not_or] >>
+  Cases >> rw[] >>
+  simp[MEM_EL,not_or,EL_TAKE] >>
+  rpt strip_tac >>
+  res_tac >> fsrw_tac[ARITH_ss][] >>
+  metis_tac[FST,PAIR])
+
+val fstep_dstep = Q.prove(
+  `(∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s`,
+  rw[fstep_def] >>
+  every_case_tac >> fs[NULL_LENGTH,LENGTH_NIL] >>
+  simp[splitAtPki_DEF]
+  >- ( simp[UNCURRY] >> simp[dstep_cases] )
+  >- (
+    simp[UNCURRY] >> rw[] >>
+    simp[dstep_cases] >-
+      metis_tac[APPEND_FRONT_LAST] >>
+    Q.ISPEC_THEN`t`FULL_STRUCT_CASES_TAC SNOC_CASES >> fs[] >>
+    Cases_on`x`>>fs[] )
+  >> TRY (rw[dstep_cases]>>NO_TAC)
+  >> tac)
+
+val pmov_def = tDefine"pmov"`
+  pmov s = case s of
+    | ([],[],_) => s
+    | _ => pmov (fstep s)`
+  (WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
+   rw[fstep_def] >- (
+     fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_DEF] >>
+     simp[UNCURRY] >> rw[] >>
+     simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] )
+   >- (
+     simp[splitAtPki_DEF,UNCURRY] >>
+     rw[] >> simp[] >>
+     fs[NULL_LENGTH,LENGTH_NIL] >>
+     simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] )
+   >> (
+     every_case_tac >> simp[splitAtPki_DEF,UNCURRY] >>
+     rw[] >> simp[splitAtPki_DEF,UNCURRY] >>
+     simp[splitAtPki_EQN] >>
+     every_case_tac >> simp[] >>
+     TRY (
+       fs[NULL_LENGTH,LENGTH_NIL] >>
+       simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] >>
+       NO_TAC) >>
+     fs[whileTheory.OLEAST_def] >> rw[] >>
+     pop_assum mp_tac >>
+     numLib.LEAST_ELIM_TAC >>
+     conj_tac >- metis_tac[] >>
+     rw[] >> simp[LENGTH_TAKE,ADD1] >>
+     rfs[DROP_CONS_EL] >> rw[] >>
+     simp[ADD1] >>
+     metis_tac[]))
+
+val pmov_ind = theorem"pmov_ind";
+
+val pmov_dsteps = Q.prove(
+  `∀s. s ↪* pmov s`,
+  ho_match_mp_tac pmov_ind >>
+  rw[] >> PairCases_on`s` >>
+  ONCE_REWRITE_TAC[pmov_def] >>
+  every_case_tac >> simp[] >> rw[] >> fs[] >>
+  simp[Once RTC_CASES1] >> disj2_tac >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  match_mp_tac fstep_dstep >> simp[])
+
+val pmov_final = Q.prove(
+  `∀s. ∃τ. pmov s = ([],[],τ)`,
+  ho_match_mp_tac pmov_ind >>
+  rw[] >> PairCases_on`s` >>
+  ONCE_REWRITE_TAC[pmov_def] >>
+  every_case_tac >> simp[]);
+
 (* The top-level parallel move compiler *)
 
 val parmove_def = Define `
   parmove (xs:('a # 'a) list) =
-    MAP (\(x,y). (SOME x, SOME y)) xs`; (* TODO *)
+    REVERSE(SND(SND(pmov (MAP (\(x,y). (SOME x, SOME y)) xs, [],[]))))`;
+
+val parmove_correct = Q.store_thm("parmove_correct",
+  `windmill xs ⇒
+   ∀ρ. seqsem (parmove xs) ρ ≡
+       parsem (MAP (\(x,y). (SOME x, SOME y)) xs) ρ`,
+  rw[parmove_def] >>
+  qpat_abbrev_tac`μ = MAP _ xs` >>
+  `∃τ. pmov (μ,[],[]) = ([],[],τ)` by metis_tac[pmov_final] >>
+  simp[] >>
+  `(μ,[],[]) ↪* ([],[],τ)` by metis_tac[pmov_dsteps] >>
+  imp_res_tac dsteps_steps >>
+  pop_assum mp_tac >>
+  discharge_hyps_keep >- (
+    match_mp_tac wf_init >>
+    simp[Abbr`μ`,EVERY_MAP,UNCURRY] >>
+    fs[windmill_def] >>
+    simp[MAP_MAP_o,o_DEF,UNCURRY] >>
+    simp[GSYM MAP_MAP_o,GSYM o_DEF] >>
+    match_mp_tac ALL_DISTINCT_MAP_INJ >>
+    simp[] ) >>
+  strip_tac >>
+  match_mp_tac eqenv_sym >>
+  match_mp_tac steps_correct >>
+  fs[wf_def]);
 
 val _ = export_theory();
