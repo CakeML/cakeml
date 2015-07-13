@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../targets
+INCLUDES = .. ../semantics ../targets ../reg_alloc
 
 OPTIONS = QUIT_ON_FAILURE
 

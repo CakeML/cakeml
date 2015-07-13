@@ -63,14 +63,19 @@ val wMoveAux_def = Define `
   (wMoveAux [xy] kf = wMoveSingle xy kf) /\
   (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))`
 
-val split_reg_stack_def = Define `
-  split_reg_stack k (x,y) =
-    (if y < k then INL y else INR y,
-     if x < k:num then INL x else INR x)`
+val pair_swap_def = Define `
+  pair_swap (x,y) = (y,x)`
+
+val format_var_def = Define `
+  (format_var k NONE = INL (k+1)) /\
+  (format_var k (SOME x) = if x < k:num then INL x else INR x)`;
+
+val format_result_def = Define `
+  format_result k (y,x) = (format_var k x, format_var k y)`;
 
 val wMove_def = Define `
   wMove xs (k,f) =
-    wMoveAux (parmove (MAP (split_reg_stack k) xs) (INL (k+1))) (k,f)`;
+    wMoveAux (MAP (format_result k) (parmove (MAP pair_swap xs))) (k,f)`;
 
 val wInst_def = Define `
   (wInst Skip kf = Inst Skip) /\

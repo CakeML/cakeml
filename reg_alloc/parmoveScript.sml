@@ -91,6 +91,7 @@ val wf_step = Q.store_thm("wf_step",
 (* The top-level parallel move compiler *)
 
 val parmove_def = Define `
-  parmove (xs:('a # 'a) list) (temp:'a) = xs (* TODO *)`
+  parmove (xs:('a # 'a) list) =
+    MAP (\(x,y). (SOME x, SOME y)) xs`; (* TODO *)
 
 val _ = export_theory();
