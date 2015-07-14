@@ -69,15 +69,17 @@ val read_bitmap_LENGTH = prove(
 
 val _ = Datatype `
   state =
-    <| regs  : ('a word_loc) num_map
+    <| regs    : ('a word_loc) num_map
      ; store   : store_name |-> 'a word_loc
      ; stack   : ('a word_loc) list
-     ; stack_shadow : ('a word_loc) list
+     ; stack_space : num
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
      ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; gc_fun  : 'a gc_fun_type
-     ; handler : num (*position of current handle frame on stack*)
+     ; handler : num (* position of current handle frame on stack *)
+     ; use_stack : bool
+     ; use_store : bool
      ; clock   : num
      ; code    : ('a stackLang$prog) num_map
      ; io      : io_trace |> `
@@ -362,21 +364,45 @@ val evaluate_def = tDefine "evaluate" `
            | (NONE,s) => (SOME Error,s)
            | res => res)) /\
   (evaluate (StackAlloc n,s) =
-     if LENGTH s.stack_shadow < n then (SOME NotEnoughSpace,empty_env s) else
-       (NONE, s with <| stack := TAKE n s.stack_shadow ++ s.stack ;
-                        stack_shadow := DROP n s.stack_shadow |>)) /\
+     if ~s.use_stack then (SOME Error,s) else
+     if s.stack_space < n then (SOME NotEnoughSpace,empty_env s) else
+       (NONE, s with stack_space := s.stack_space - n)) /\
   (evaluate (StackFree n,s) =
-     if LENGTH s.stack < n then (SOME Error,empty_env s) else
-       (NONE, s with <| stack := DROP n s.stack ;
-                        stack_shadow := TAKE n s.stack ++ s.stack_shadow |>)) /\
+     if ~s.use_stack then (SOME Error,s) else
+     if LENGTH s.stack < s.stack_space + n then (SOME Error,empty_env s) else
+       (NONE, s with stack_space := s.stack_space + n)) /\
   (evaluate (StackLoad r n,s) =
-     if LENGTH s.stack < n then (SOME Error,empty_env s) else
-       (NONE, set_var r (EL n s.stack) s)) /\
+     if ~s.use_stack then (SOME Error,s) else
+     if LENGTH s.stack < s.stack_space + n then (SOME Error,empty_env s) else
+       (NONE, set_var r (EL (s.stack_space + n) s.stack) s)) /\
+  (evaluate (StackLoadAny r rn,s) =
+     if ~s.use_stack then (SOME Error,s) else
+       case get_var r s of
+       | SOME (Word w) =>
+           if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
+           else (NONE, set_var r (EL (s.stack_space + w2n w) s.stack) s)
+       | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackStore r n,s) =
+     if ~s.use_stack then (SOME Error,s) else
      if LENGTH s.stack < n then (SOME Error,empty_env s) else
        case get_var r s of
        | NONE => (SOME Error,empty_env s)
-       | SOME v => (NONE, s with stack := LUPDATE v n s.stack))`
+       | SOME v => (NONE, s with stack := LUPDATE v (s.stack_space + n) s.stack)) /\
+  (evaluate (StackStoreAny r rn,s) =
+     if ~s.use_stack then (SOME Error,s) else
+       case (get_var r s, get_var rn s) of
+       | (SOME v, SOME (Word w)) =>
+           if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
+           else (NONE, s with stack := LUPDATE v (s.stack_space + w2n w) s.stack)
+       | _ => (SOME Error,empty_env s)) /\
+  (evaluate (StackGetSize r,s) =
+     (NONE, set_var r (Word (n2w s.stack_space)) s)) /\
+  (evaluate (StackSetSize r,s) =
+     case get_var r s of
+     | SOME (Word w) =>
+         if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
+         else (NONE, s with stack_space := w2n w)
+     | _ => (SOME Error,s))`
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:'a stackSem$state)). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
