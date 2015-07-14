@@ -23,6 +23,21 @@ val is_phy_var_def = Define`
 val is_alloc_var_def = Define`
   is_alloc_var (n:num) = (n MOD 4 = 1)`
 
+val convention_partitions = store_thm("convention_partitions",``
+  ∀n. (is_stack_var n ⇔ (¬is_phy_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_phy_var n ⇔ (¬is_stack_var n) ∧ ¬(is_alloc_var n)) ∧
+      (is_alloc_var n ⇔ (¬is_phy_var n) ∧ ¬(is_stack_var n))``,
+  rw[is_stack_var_def,is_phy_var_def,is_alloc_var_def,EQ_IMP_THM]
+  \\ `n MOD 2 = (n MOD 4) MOD 2` by
+   (ONCE_REWRITE_TAC [GSYM (EVAL ``2*2:num``)]
+    \\ fs [arithmeticTheory.MOD_MULT_MOD])
+  \\ fs []
+  \\ `n MOD 4 < 4` by fs []
+  \\ IMP_RES_TAC (DECIDE
+       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
+  \\ fs []);
+
+
 (*Graph representation is sptree of unit sptrees*)
 val _ = type_abbrev("sp_graph",
   ``:(num_set) num_map``);

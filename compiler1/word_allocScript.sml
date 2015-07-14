@@ -58,7 +58,7 @@ val merge_moves_def = Define`
 
 (*Separately do the fake moves*)
 val fake_moves_def = Define`
-  (fake_moves [] ssa_L ssa_R (na:num) = (Skip,Skip,na,ssa_L,ssa_R)) ∧
+  (fake_moves [] ssa_L ssa_R (na:num) = (Skip:'a wordLang$prog,Skip:'a wordLang$prog,na,ssa_L,ssa_R)) ∧
   (fake_moves (x::xs) ssa_L ssa_R na =
     let (seqL,seqR,na',ssa_L',ssa_R') =
       fake_moves xs ssa_L ssa_R na in
@@ -468,7 +468,6 @@ val get_prefs_def = Define`
     | SOME (v,prog,l1,l2) => get_prefs prog (get_prefs ret_handler acc)) ∧
   (get_prefs prog acc = acc)`
 
-
 (*allocate*)
 val word_alloc_def = Define`
   word_alloc k prog =
@@ -479,6 +478,106 @@ val word_alloc_def = Define`
     TODO: We can choose the flag based on the size of graph/moves*)
     apply_colour (total_colour col) prog`
 
+(*The initial move, ssa and limit vars*)
+val setup_ssa_def = Define`
+  setup_ssa n lim (prog:'a wordLang$prog) =
+  let args = even_list n in
+    list_next_var_rename_move LN lim (even_list n)`
+
+(*I'm pretty sure this is already in HOL*)
+val max2_def = Define`
+  max2 (x:num) y = if x > y then x else y`
+
+val max3_def = Define`
+  max3 (x:num) y z = if x > y then (if z > x then z else x)
+                     else (if z > y then z else y)`
+
+val _ = export_rewrites["max2_def","max3_def"];
+
+val list_max_def = Define`
+  (list_max [] acc:num = acc) ∧
+  (list_max (x::xs) acc = list_max xs (max2 x acc))`
+
+(*Find the maximum variable*)
+val max_var_exp_def = tDefine "max_var_exp" `
+  (max_var_exp (Var num) = num) ∧
+  (max_var_exp (Load exp) = max_var_exp exp) ∧
+  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls) (0:num))∧
+  (max_var_exp (Shift sh exp nexp) = max_var_exp exp) ∧
+  (max_var_exp exp = 0:num)`
+(WF_REL_TAC `measure (exp_size ARB )`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC);
+
+val max_var_inst_def = Define`
+  (max_var_inst Skip = 0) ∧
+  (max_var_inst (Const reg w) = reg) ∧
+  (max_var_inst (Arith (Binop bop r1 r2 ri)) =
+    case ri of Reg r => max3 r1 r2 r | _ => max2 r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) = max2 r1 r2) ∧
+  (max_var_inst (Mem Load r (Addr a w)) = max2 a r) ∧
+  (max_var_inst (Mem Store r (Addr a w)) = max2 a r) ∧
+  (max_var_inst _ = 0)`
+
+val max_var_def = Define `
+  (max_var Skip = 0) ∧
+  (max_var (Move pri ls) =
+    list_max (MAP FST ls ++ MAP SND ls) 0) ∧
+  (max_var (Inst i) = max_var_inst i) ∧
+  (max_var (Assign num exp) = max2 num (max_var_exp exp)) ∧
+  (max_var (Get num store) = num) ∧
+  (max_var (Store exp num) = max2 num (max_var_exp exp)) ∧
+  (max_var (Call ret dest args h) =
+    let n =
+    (case ret of
+      NONE => 0
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      let ret_handler_max = max_var ret_handler in
+      let cutset_max = list_max (MAP FST (toAList cutset)) 0 in
+        max3 v ret_handler_max cutset_max) in
+    let n = max2 n (list_max args 0) in
+    case h of
+      NONE => n
+    | SOME (v,prog,l1,l2) =>
+      let exc_handler_max = max_var prog in
+      max3 n v exc_handler_max) ∧
+  (max_var (Seq s1 s2) = max2 (max_var s1) (max_var s2)) ∧
+  (max_var (If cmp r1 ri e2 e3) =
+    let r = case ri of Reg r => max2 r r1 | _ => r1 in
+      max3 r (max_var e2) (max_var e3)) ∧
+  (max_var (Alloc num numset) =
+    max2 num (list_max (MAP FST (toAList numset)) 0)) ∧
+  (max_var (Raise num) = num) ∧
+  (max_var (Return num1 num2) = max2 num1 num2) ∧
+  (max_var Tick = 0) ∧
+  (max_var (Set n exp) = max_var_exp exp) ∧
+  (max_var p = 0)`
+
+val limit_var_def = Define`
+  limit_var prog = 
+    let x = max_var prog in
+    x + (4 - (x MOD 4)) +1`
+    
+    (*
+    Cases: x MOD 4
+    0 => x+1
+    1 => x+4
+    2 => x+3
+    3 => x+2
+    In all cases, the result is a var that is 1 MOD 4
+    *)
+    
+val full_ssa_cc_trans_def = Define`
+  full_ssa_cc_trans n prog =
+    let lim = limit_var prog in
+    let (mov,ssa,na) = setup_ssa n lim prog in
+    let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+      Seq mov prog'`
+
+val word_trans_def = Define`
+  word_trans n k prog =
+  word_alloc k (full_ssa_cc_trans n prog)` 
 
 val _ = export_theory();
 
