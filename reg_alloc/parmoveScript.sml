@@ -41,7 +41,8 @@ val (step_rules,step_ind,step_cases) = xHol_reln"step"`
    (μ,[(s,d)],τ) ▷ (μ,[],[(s,d)]++τ))`;
 
 val _ = add_infix("\226\150\183*",450,NONASSOC);
-val _ = overload_on("\226\150\183*",``RTC $▷``)
+(* TODO: this overload is temporary until HOL issue #268 is resolved *)
+val _ = temp_overload_on("\226\150\183*",``RTC $▷``)
 
 (* invariant on states *)
 
@@ -412,7 +413,8 @@ val dstep_step = Q.prove(
   metis_tac[CONS_APPEND,APPEND] );
 
 val _ = add_infix("\226\134\170*",450,NONASSOC);
-val _ = overload_on("\226\134\170*",``RTC $↪``);
+(* TODO: this overload is temporary until HOL issue #268 is resolved *)
+val _ = temp_overload_on("\226\134\170*",``RTC $↪``);
 
 val dsteps_steps = Q.store_thm("dsteps_steps",
   `∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
