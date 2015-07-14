@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs asmTheory asmLib x64_stepLib;
+open lcsymtacs asmLib x64_stepLib;
 
 val () = new_theory "x64_target"
 
@@ -637,7 +637,7 @@ val enc_rwts =
   asmLib.asm_rwts
 
 val enc_ok_rwts =
-  encode_rwts @ asmLib.asm_ok_rwts @ [enc_ok_def, x64_config_def]
+  encode_rwts @ asmLib.asm_ok_rwts @ [asmPropsTheory.enc_ok_def, x64_config_def]
 
 val dec_rwts =
    [x64_dec_def, fetch_decode_def, const_lem1, const_lem3, const_lem4,
@@ -672,7 +672,7 @@ local
                x64_asm_state s state /\
                bytes_in_memory s.pc ^l s.mem s.mem_domain ==>
                (state.exception = NoException) /\ ^r`,
-            rw [x64_asm_state_def, bytes_in_memory_def, fun2set_eq]
+            rw [x64_asm_state_def, asmSemTheory.bytes_in_memory_def, fun2set_eq]
             \\ rfs []
          ) |> Thm.GENL b
       end
@@ -749,12 +749,12 @@ fun next_state_tac_cmp n =
 
 val enc_ok_tac =
    full_simp_tac (srw_ss()++boolSimps.LET_ss)
-      (offset_monotonic_def :: enc_ok_rwts)
+      (asmPropsTheory.offset_monotonic_def :: enc_ok_rwts)
 
 fun next_tac n =
    qexists_tac n
-   \\ simp [x64_next_def, asmTheory.asserts_eval, asmTheory.interference_ok_def,
-            x64_proj_def]
+   \\ simp [asmPropsTheory.asserts_eval, asmPropsTheory.interference_ok_def,
+            x64_next_def, x64_proj_def]
    \\ NTAC 2 STRIP_TAC
 
 fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
@@ -871,7 +871,8 @@ end
 val cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
    \\ asmLib.using_first 1
-        (fn thms => fs ([const_lem2, jump_lem1, jump_lem4, all_pcs_def] @ thms))
+        (fn thms => fs ([const_lem2, jump_lem1, jump_lem4,
+                         asmPropsTheory.all_pcs_def] @ thms))
    >- (
       rule_assum_tac (REWRITE_RULE [cmp_lem4])
       \\ next_state_tac_cmp 4
@@ -1126,7 +1127,8 @@ val x64_encoding = Count.apply Q.prove (
 
 val x64_asm_deterministic = Q.store_thm("x64_asm_deterministic",
    `asm_deterministic x64_enc x64_config`,
-   metis_tac [decoder_asm_deterministic, has_decoder_def, x64_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic,
+              asmPropsTheory.has_decoder_def, x64_encoding]
    )
 
 val x64_asm_deterministic_config =
@@ -1138,10 +1140,10 @@ val enc_ok_rwts =
 
 val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
    `backend_correct_alt x64_target_funs x64_config`,
-   simp [backend_correct_alt_def, x64_target_funs_def]
+   simp [asmPropsTheory.backend_correct_alt_def, x64_target_funs_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asm_step_alt_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,
       srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
       srw_tac [] [x64_proj_def, x64_asm_state_def],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
@@ -1353,7 +1355,8 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
       >| [cmp_tac, cmp_tac, cmp_tac, all_tac]
       \\ (
          Cases_on `n = 0`
-         \\ fs [const_lem2, jump_lem5, jump_lem6, cmp_lem7, all_pcs_def]
+         \\ fs [const_lem2, jump_lem5, jump_lem6, cmp_lem7,
+                asmPropsTheory.all_pcs_def]
          >| [next_state_tac_cmp 6, next_state_tac_cmp 7]
          \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem6, fun2set_eq,
                        x64Theory.num2Zreg_thm] [`r1`]

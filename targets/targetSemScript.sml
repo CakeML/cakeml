@@ -1,4 +1,4 @@
-open preamble ffiTheory asmTheory;
+open preamble ffiTheory asmPropsTheory;
 
 val _ = new_theory "targetSem";
 

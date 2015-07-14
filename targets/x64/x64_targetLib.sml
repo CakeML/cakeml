@@ -80,7 +80,6 @@ x64_encode_decode_conv
       ; JumpCmp Less 0 (Imm 1w) 12w
       ; JumpReg 1
       ; Loc 1 4w
-      ; Cache
       ]``
 
 *)
