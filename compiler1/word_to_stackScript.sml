@@ -159,7 +159,7 @@ val comp_def = Define `
   (comp (Inst i) kf = wInst i kf) /\
   (comp (Return v1 v2) kf =
      SeqStackFree (SND kf) (Return v1 v2)) /\
-  (comp (Raise v) kf = Raise v) /\ (* TODO *)
+  (comp (Raise v) kf = Call NONE (INL 0) NONE) /\
   (comp (Tick) kf = Tick) /\
   (comp (Seq p1 p2) kf =
      let q2 = comp p2 kf in
@@ -217,6 +217,16 @@ val max_var_def = Define `
          (MAX (case ret of SOME (x,_) => x | _ => 0)
               (case handler of SOME (x,_) => x | _ => 0))) /\
   (max_var _ = 0)`
+
+val raise_stub_def = Define `
+  raise_stub k =
+     Seq (Get k Handler)
+    (Seq (StackSetSize k)
+    (Seq (StackLoad k 2) (* next handler *)
+    (Seq (Set Handler k)
+    (Seq (StackLoad k 1) (* handler pc *)
+    (Seq (StackFree 3)
+         (Raise k))))))`;
 
 val compile_def = Define `
   compile (prog:'a wordLang$prog) arg_count reg_count =

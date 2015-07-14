@@ -59,7 +59,7 @@ val read_bitmap_def = Define `
        SOME (GENLIST (\i. w ' i) (bit_length w - 1),[Word w],ws)) /\
   (read_bitmap _ = NONE)`
 
-val read_bitmap_LENGTH = prove(
+val read_bitmap_LENGTH = store_thm("read_bitmap_LENGTH",
   ``!xs x w y. (read_bitmap xs = SOME (x,w,y)) ==> LENGTH y < LENGTH xs``,
   Induct \\ fs [read_bitmap_def] \\ Cases_on `h`
   \\ fs [read_bitmap_def]
@@ -75,11 +75,10 @@ val _ = Datatype `
      ; stack_space : num
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
-     ; permute : num -> num -> num (* sequence of bijective mappings *)
      ; gc_fun  : 'a gc_fun_type
-     ; handler : num (* position of current handle frame on stack *)
      ; use_stack : bool
      ; use_store : bool
+     ; use_alloc : bool
      ; clock   : num
      ; code    : ('a stackLang$prog) num_map
      ; io      : io_trace |> `
@@ -174,15 +173,6 @@ val check_clock_IMP = prove(
 
 val empty_env_def = Define `
   empty_env (s:'a stackSem$state) = s with <| regs := LN ; stack := [] |>`;
-
-val jump_exc_def = Define `
-  jump_exc s =
-    if s.handler < LENGTH s.stack then
-      case LAST_N (s.handler+1) s.stack of
-      | Word _ :: Loc l1 l2 :: Word w :: xs =>
-          SOME (s with <| handler := w2n w ; stack := xs |>,l1,l2)
-      | _ => NONE
-    else NONE`;
 
 val enc_stack_def = tDefine "enc_stack" `
   (enc_stack [] = SOME []) /\
@@ -296,6 +286,7 @@ val find_code_def = Define `
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:'a stackSem$state)) /\
   (evaluate (Alloc n,s) =
+     if ~s.use_alloc then (SOME Error,s) else
      case get_var n s of
      | SOME (Word w) => alloc w s
      | _ => (SOME Error,s)) /\
@@ -324,10 +315,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Raise n,s) =
      case get_var n s of
      | NONE => (SOME Error,s)
-     | SOME w =>
-       (case jump_exc s of
-        | NONE => (SOME Error,s)
-        | SOME (s,l1,l2) => (SOME (Exception (Loc l1 l2) w)),s)) /\
+     | SOME w => (SOME (Exception w w),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
