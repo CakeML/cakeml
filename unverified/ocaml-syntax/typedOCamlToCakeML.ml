@@ -168,6 +168,18 @@ let rec print_expression indent parenth expr =
   | Texp_function (l, cs, p) ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@ thisParen @@ "fn tmp__ => case tmp__ of" ^ cs'
+  | Texp_apply ({
+      exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _)
+    }, [(_, Some e0, _); (_, Some e1, _)])
+      when m.name = "Pervasives" && mem n ["&&"; "&"; "||"; "or"] ->
+    let op = match n with
+      | "&&" |  "&" -> "andalso"
+      | "||" |  "or" -> "orelse"
+      | x -> x
+    in
+    print_expression indent true e0 >>= fun e0' ->
+    print_expression indent true e1 >>= fun e1' ->
+    return @@ e0' ^ " " ^ op ^ " " ^ e1'
   | Texp_apply (e0, es) ->
     print_expression indent true e0 >>= fun e0' ->
     mapM (function
@@ -175,10 +187,15 @@ let rec print_expression indent parenth expr =
     | _ -> Bad "Optional and named arguments not supported."
     ) es >>= fun es' ->
     return @@ thisParen @@ e0' ^ " " ^ BatString.concat " " es'
-  | Texp_match (exp, cs, _, p) ->
+  | Texp_match (exp, cs, [], p) ->
     print_expression indent false exp >>= fun exp' ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@ "case " ^ exp' ^ " of" ^ cs'
+  | Texp_match (_, _, _, _) -> Bad "Exception cases not supported."
+  | Texp_try (exp, cs) ->
+    print_expression indent true exp >>= fun exp' ->
+    print_case_cases (indent + 1) cs >>= fun cs' ->
+    return @@ exp' ^ " handle" ^ cs'
   | Texp_tuple es -> mapM (print_expression indent false) es >>= fun es' ->
                      return @@ thisParen @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
