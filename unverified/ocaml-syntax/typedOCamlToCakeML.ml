@@ -87,28 +87,41 @@ let print_constant = function
   | Const_int64 x -> BatInt64.to_string x
   | Const_nativeint x -> BatNativeint.to_string x
 
+(* Precedence rules (for parenthesization):
+   Low number => loose association
+   0: case expression, case pattern, let expression, if condition,
+      tuple term, list term
+   1: Case RHS
+   2: Application
+
+   case x of
+     p => ...
+   | q => (case y of ...)
+   | r => ...
+ *)
+
 (* Works in both patterns and expressions. `f` is the function that prints
    subpatterns/subexpressions. *)
-let print_construct parenth (f : bool -> 'a -> (string, string) result) lident cstr (xs : 'a list) =
+let print_construct prec (f : int -> 'a -> (string, string) result)
+                    lident cstr (xs : 'a list) =
   (match xs with
   | [] -> return ""
-  | [x] -> f true x >>= fun x' ->
+  | [x] -> f 2 x >>= fun x' ->
            return @@ " " ^ x'
-  | _ -> mapM (f false) xs >>= fun xs' ->
+  | _ -> mapM (f 0) xs >>= fun xs' ->
          return @@ " (" ^ BatString.concat ", " xs' ^ ")"
   ) >>= fun args ->
-  return @@ ifThen (parenth && not ([] = xs)) paren @@ cstr.cstr_name ^ args
+  return @@ ifThen (prec > 1 && not ([] = xs)) paren @@ cstr.cstr_name ^ args
 
-let rec print_pattern parenth pat =
-  let thisParen = ifThen parenth paren in
+let rec print_pattern prec pat =
   match pat.pat_desc with
   | Tpat_any -> return "_"
   | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
   | Tpat_constant c -> return @@ print_constant c
-  | Tpat_tuple ps -> mapM (print_pattern false) ps >>= fun ps' ->
-                     return @@ thisParen @@ BatString.concat ", " ps'
+  | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
+                     return @@ paren @@ BatString.concat ", " ps'
   | Tpat_construct (lident, desc, ps) ->
-    print_construct parenth print_pattern lident desc ps
+    print_construct prec print_pattern lident desc ps
   | _ -> Bad "Some pattern syntax not implemented."
 
 let rec convertPervasive : string -> string =
@@ -146,8 +159,7 @@ let rec print_path = function
                        print_path p1 >>= fun p1 ->
                        return @@ p0 ^ " " ^ p1
 
-let rec print_expression indent parenth expr =
-  let thisParen = ifThen parenth paren in
+let rec print_expression indent prec expr =
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) -> print_path path
   | Texp_constant c -> return @@ print_constant c
@@ -155,19 +167,19 @@ let rec print_expression indent parenth expr =
     mapM (fun b -> print_value_binding (indent + 1) r b >>= fun b' ->
                    return @@ BatString.repeat "  " (indent + 1))
          bs >>= fun bs' ->
-    print_expression (indent + 1) false e >>= fun e' ->
-    return @@ thisParen @@
+    print_expression (indent + 1) 0 e >>= fun e' ->
+    return @@ ifThen (prec > 0) paren @@
       "let" ^
       BatString.concat "" bs' ^ "\n" ^
       BatString.repeat "  " indent ^ "in\n" ^
       BatString.repeat "  " (indent + 1) ^ e' ^ "\n" ^
       BatString.repeat "  " indent ^ "end"
   | Texp_function (l, [c], p) ->
-    print_case (indent + 1) true " => " c >>= fun c' ->
-    return @@ thisParen @@ "fn " ^ c'
+    print_case (indent + 1) 2 " => " c >>= fun c' ->
+    return @@ ifThen (prec > 1) paren @@ "fn " ^ c'
   | Texp_function (l, cs, p) ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ thisParen @@ "fn tmp__ => case tmp__ of" ^ cs'
+    return @@ ifThen (prec > 1) paren @@ "fn tmp__ => case tmp__ of" ^ cs'
   | Texp_apply ({
       exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _)
     }, [(_, Some e0, _); (_, Some e1, _)])
@@ -177,46 +189,46 @@ let rec print_expression indent parenth expr =
       | "||" |  "or" -> "orelse"
       | x -> x
     in
-    print_expression indent true e0 >>= fun e0' ->
-    print_expression indent true e1 >>= fun e1' ->
+    print_expression indent 2 e0 >>= fun e0' ->
+    print_expression indent 2 e1 >>= fun e1' ->
     return @@ e0' ^ " " ^ op ^ " " ^ e1'
   | Texp_apply (e0, es) ->
-    print_expression indent true e0 >>= fun e0' ->
+    print_expression indent 2 e0 >>= fun e0' ->
     mapM (function
-    | l, Some e, Required -> print_expression indent true e
+    | l, Some e, Required -> print_expression indent 2 e
     | _ -> Bad "Optional and named arguments not supported."
     ) es >>= fun es' ->
-    return @@ thisParen @@ e0' ^ " " ^ BatString.concat " " es'
+    return @@ ifThen (prec > 1) paren @@ e0' ^ " " ^ BatString.concat " " es'
   | Texp_match (exp, cs, [], p) ->
-    print_expression indent false exp >>= fun exp' ->
+    print_expression indent 0 exp >>= fun exp' ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ "case " ^ exp' ^ " of" ^ cs'
+    return @@ ifThen (prec > 0) paren @@ "case " ^ exp' ^ " of" ^ cs'
   | Texp_match (_, _, _, _) -> Bad "Exception cases not supported."
   | Texp_try (exp, cs) ->
-    print_expression indent true exp >>= fun exp' ->
+    print_expression indent 0 exp >>= fun exp' ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ exp' ^ " handle" ^ cs'
-  | Texp_tuple es -> mapM (print_expression indent false) es >>= fun es' ->
-                     return @@ thisParen @@ BatString.concat ", " es'
+    return @@ ifThen (prec > 1) paren @@ exp' ^ " handle" ^ cs'
+  | Texp_tuple es -> mapM (print_expression indent 0) es >>= fun es' ->
+                     return @@ paren @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
-    print_construct parenth (print_expression indent) lident desc es
+    print_construct prec (print_expression indent) lident desc es
   | Texp_ifthenelse (p, et, Some ef) ->
-    print_expression indent false p >>= fun p' ->
-    print_expression (indent + 1) false et >>= fun et' ->
-    print_expression (indent + 1) false ef >>= fun ef' ->
-    return @@ thisParen @@
+    print_expression indent 0 p >>= fun p' ->
+    print_expression (indent + 1) 0 et >>= fun et' ->
+    print_expression (indent + 1) 0 ef >>= fun ef' ->
+    return @@ ifThen (prec > 1) paren @@
       "if " ^ p' ^ " then\n" ^
       BatString.repeat "  " (indent + 1) ^ et' ^ "\n" ^
       BatString.repeat "  " indent ^ "else\n" ^
       BatString.repeat "  " (indent + 1) ^ ef'
   | Texp_sequence (e0, e1) ->
-    print_expression indent false e0 >>= fun e0' ->
-    print_expression indent false e1 >>= fun e1' ->
+    print_expression indent 0 e0 >>= fun e0' ->
+    print_expression indent 0 e1 >>= fun e1' ->
     return @@ paren @@ e0' ^ ";\n" ^ BatString.repeat "  " indent ^ e1'
   | _ -> Bad "Some expression syntax not implemented."
 
-and print_case indent parenthPat conn c =
-  case_parts indent parenthPat c >>= fun (pat, exp) ->
+and print_case indent prec conn c =
+  case_parts indent prec c >>= fun (pat, exp) ->
   match c.c_guard with
   | None -> return @@ pat ^ conn ^ exp
   | _ -> Bad "Pattern guards not supported."
@@ -225,23 +237,23 @@ and print_case_cases indent =
   let rec f = function
   | [] -> return ""
   | c :: cs ->
-    print_case indent false " => " c >>= fun c' ->
+    print_case indent 0 " => " c >>= fun c' ->
     f cs >>= fun rest ->
     return @@ "\n" ^ BatString.repeat "  " indent ^ "| " ^ c' ^ rest
   in function
   | [] -> return ""
   | c :: cs ->
-    print_case indent false " => " c >>= fun c' ->
+    print_case indent 0 " => " c >>= fun c' ->
     f cs >>= fun rest ->
     return @@ "\n" ^ BatString.repeat "  " indent ^ "  " ^ c' ^ rest
 
-and case_parts indent parenthPat c =
-  print_pattern parenthPat c.c_lhs >>= fun pat ->
-  print_expression (indent + 1) false c.c_rhs >>= fun exp ->
+and case_parts indent prec c =
+  print_pattern prec c.c_lhs >>= fun pat ->
+  print_expression (indent + 1) 1 c.c_rhs >>= fun exp ->
   return (pat, exp)
 
 and print_value_binding indent rec_flag vb =
-  print_pattern false vb.vb_pat >>= fun name ->
+  print_pattern 0 vb.vb_pat >>= fun name ->
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
   | Texp_function (l, [c], p), Recursive when
@@ -249,7 +261,7 @@ and print_value_binding indent rec_flag vb =
       | Tpat_var (_,_), None -> true
       | _ -> false
       ) ->
-    print_case (indent + 1) true " = " c >>= fun c' ->
+    print_case (indent + 1) 0 " = " c >>= fun c' ->
     return @@ BatString.repeat "  " indent ^ "fun " ^ name ^ " " ^ c'
   | Texp_function (l, cs, p), Recursive -> (*print_fun_cases name cs*)
     print_case_cases (indent + 1) cs >>= fun cs' ->
@@ -257,7 +269,7 @@ and print_value_binding indent rec_flag vb =
               "fun " ^ name ^ " tmp__ = case tmp__ of" ^ cs'
   | _, Recursive -> Bad "Recursive values not supported in CakeML"
   | _, Nonrecursive ->
-    print_expression indent false vb.vb_expr >>= fun expr ->
+    print_expression indent 0 vb.vb_expr >>= fun expr ->
     return @@ BatString.repeat "  " indent ^ "val " ^ name ^ " = " ^ expr
 
 (* CakeML doesn't support SML-style LHS pattern matching in function
@@ -276,14 +288,14 @@ and print_value_binding indent rec_flag vb =
 
 let fix_type_name = fix_identifier
 
-let rec print_core_type parenth ctyp =
-  let thisParen = ifThen parenth paren in
+let rec print_core_type prec ctyp =
+  let thisParen = ifThen (prec > 1) paren in
   match ctyp.ctyp_desc with
   | Ttyp_any -> return "_"
   | Ttyp_var name -> return @@ "'" ^ fix_type_name name
   | Ttyp_arrow (l, dom, cod) ->
-    print_core_type true dom >>= fun a ->
-    print_core_type false cod >>= fun b ->
+    print_core_type 2 dom >>= fun a ->
+    print_core_type 1 cod >>= fun b ->
     return @@ thisParen @@ (if l = "" then "" else l ^ ":") ^ a ^ " -> " ^ b
     (* ^^ label type changes in 4.03 ^^ *)
   | Ttyp_tuple ts -> print_ttyp_tuple ts >>= fun t ->
@@ -296,15 +308,15 @@ let rec print_core_type parenth ctyp =
 
 and print_typ_params = function
   | [] -> return ""
-  | [t] -> print_core_type true t >>= fun t' ->
+  | [t] -> print_core_type 2 t >>= fun t' ->
            return @@ t' ^ " "
-  | ts -> mapM (print_core_type false) ts >>= fun ts' ->
+  | ts -> mapM (print_core_type 0) ts >>= fun ts' ->
          return @@ "(" ^ BatString.concat ", " ts' ^ ") "
 
 and print_ttyp_tuple = function
   | [] -> return ""
-  | [t] -> print_core_type false t
-  | t :: ts -> print_core_type false t >>= fun core_type ->
+  | [t] -> print_core_type 2 t
+  | t :: ts -> print_core_type 0 t >>= fun core_type ->
                  print_ttyp_tuple ts >>= fun rest ->
                  return @@ core_type ^ " * " ^ rest
 
@@ -344,9 +356,9 @@ let print_type_declaration indent typ =
   in
   print_typ_params (map Tuple2.first typ.typ_params) >>= fun params ->
   (match typ.typ_manifest, typ.typ_kind with
-  | Some m, Ttype_abstract -> print_core_type false m >>= fun manifest ->
+  | Some m, Ttype_abstract -> print_core_type 0 m >>= fun manifest ->
                               return @@ " = " ^ manifest
-  | Some m, Ttype_variant ds -> print_core_type false m >>= fun manifest ->
+  | Some m, Ttype_variant ds -> print_core_type 0 m >>= fun manifest ->
                                 return @@ " = datatype " ^ manifest
   | None, Ttype_abstract -> return ""
   | None, Ttype_variant ds ->
@@ -376,7 +388,7 @@ and print_module_binding indent mb =
 and print_structure_item indent str =
   match str.str_desc with
   | Tstr_eval (e, attrs) ->
-    print_expression indent false e >>= fun e' ->
+    print_expression indent 0 e >>= fun e' ->
     return @@ BatString.repeat "  " indent ^ e' ^ ";\n"
   | Tstr_value (r, bs) ->
     mapM (fun b -> print_value_binding indent r b >>= fun x ->
