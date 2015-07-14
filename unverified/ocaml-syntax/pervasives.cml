@@ -1,51 +1,48 @@
 (* Name format:
-   All names here are made of "pervasives__" followed by the name of the
-   value in OCaml. Symbol-like names are transcribed symbol-for-symbol into
-   words separated by underscores. All names here are letter-like and not
-   infix. *)
+   Letter-like names stay as they are. Symbol-like names are transcribed
+   symbol-for-symbol into words separated by underscores. All names here are
+   letter-like and not infix. *)
 (* Reference:
    http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html *)
 
-fun pervasives__equals x y = x = y;
-fun pervasives__lt_gt x y = x <> y;
-fun pervasives__lt x y = x < y;
-fun pervasives__gt x y = x > y;
-fun pervasives__lt_equals x y = x <= y;
-fun pervasives__gt_equals x y = x >= y;
-fun pervasives__compare x y =
-  if x = y then
-    0
-  else if x < y then
-    ~1
-  else
-    1;
-fun pervasives__min x y = if x <= y then x else y;
-fun pervasives__max x y = if x >= y then x else y;
+structure Pervasives = struct
+  fun equals x y = x = y;
+  fun lt_gt x y = x <> y;
+  fun lt x y = x < y;
+  fun gt x y = x > y;
+  fun lt_equals x y = x <= y;
+  fun gt_equals x y = x >= y;
+  fun compare x y =
+    if x = y then
+      0
+    else if x < y then
+      ~1
+    else
+      1;
+  fun min x y = if x <= y then x else y;
+  fun max x y = if x >= y then x else y;
 
-fun pervasives__not x = case x of
-    false => true
-  | true => false;
-fun pervasives__amp_amp x y = case x of
-    false => false
-  | true => y;
-fun pervasives__bar_bar x y = case x of
-    false => y
-  | true => true;
-val pervasives__amp = pervasives__amp_amp;
-val pervasives__or = pervasives__bar_bar;
+  fun not x = case x of
+      false => true
+    | true => false;
+  fun amp_amp x y = x andalso y
+  fun bar_bar x y = x orelse y
+  val amp = amp_amp;
+  val or = bar_bar;
 
-fun pervasives__bar_gt x f = f x;
-fun pervasives__at_at f x = f x;
+  fun bar_gt x f = f x;
+  fun at_at f x = f x;
 
-fun pervasives__tilde_minus x = ~x;
-fun pervasives__tilde_plus x = x;
-fun pervasives__succ x = 1 + x;
-fun pervasives__pred x = x - 1;
-fun pervasives__plus x y = x + y;
-fun pervasives__minus x y = x - y;
-fun pervasives__star x y = x * y;
-fun pervasives__slash x y = x / y;
-fun pervasives__mod x y = x mod y;
-fun pervasives__abs x = if x < 0 then ~x else x;
+  fun tilde_minus x = ~x;
+  fun tilde_plus x = x;
+  fun succ x = 1 + x;
+  fun pred x = x - 1;
+  fun plus x y = x + y;
+  fun minus x y = x - y;
+  fun star x y = x * y;
+  fun slash x y = x / y;
+  fun mod x y = x mod y;
+  fun abs x = if x < 0 then ~x else x;
 
-fun pervasives__ignore x = ();
+  fun ignore x = ();
+end;

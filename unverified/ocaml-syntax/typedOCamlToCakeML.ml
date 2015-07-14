@@ -134,83 +134,96 @@ let rec convertPervasive : string -> string =
   in
   BatString.concat "_" % f % BatString.to_list
 
-let fix_path_name name = BatString.uncapitalize name
+let fix_path_name = fix_identifier
 
 let rec print_path = function
   | Pident ident -> return @@ ident.name
   | Pdot (left, right, _) ->
     print_path left >>= fun left ->
     let right = ifThen (left = "Pervasives") convertPervasive right in
-    return @@ fix_path_name left ^ "__" ^ right
+    return @@ fix_path_name left ^ "." ^ right
   | Papply (p0, p1) -> print_path p0 >>= fun p0 ->
                        print_path p1 >>= fun p1 ->
                        return @@ p0 ^ " " ^ p1
 
-let rec print_expression parenth expr =
+let rec print_expression indent parenth expr =
   let thisParen = ifThen parenth paren in
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) -> print_path path
   | Texp_constant c -> return @@ print_constant c
   | Texp_let (r, bs, e) ->
-    mapM (print_value_binding r) bs >>= fun bs' ->
-    print_expression false e >>= fun e' ->
+    mapM (fun b -> print_value_binding (indent + 1) r b >>= fun b' ->
+                   return @@ BatString.repeat "  " (indent + 1))
+         bs >>= fun bs' ->
+    print_expression (indent + 1) false e >>= fun e' ->
     return @@ thisParen @@
-      "let\n" ^ BatString.concat "\n" bs' ^ "\nin\n" ^ e' ^ "\nend"
+      "let" ^
+      BatString.concat "" bs' ^ "\n" ^
+      BatString.repeat "  " indent ^ "in\n" ^
+      BatString.repeat "  " (indent + 1) ^ e' ^ "\n" ^
+      BatString.repeat "  " indent ^ "end"
   | Texp_function (l, [c], p) ->
-    print_case true " => " c >>= fun c' ->
+    print_case (indent + 1) true " => " c >>= fun c' ->
     return @@ thisParen @@ "fn " ^ c'
   | Texp_function (l, cs, p) ->
-    print_case_cases cs >>= fun cs' ->
+    print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@ thisParen @@ "fn tmp__ => case tmp__ of" ^ cs'
   | Texp_apply (e0, es) ->
-    print_expression true e0 >>= fun e0' ->
+    print_expression indent true e0 >>= fun e0' ->
     mapM (function
-    | l, Some e, Required -> print_expression true e
+    | l, Some e, Required -> print_expression indent true e
     | _ -> Bad "Optional and named arguments not supported."
     ) es >>= fun es' ->
     return @@ thisParen @@ e0' ^ " " ^ BatString.concat " " es'
-  | Texp_match (exp, cs, _, p) -> print_expression false exp >>= fun exp' ->
-                                  print_case_cases cs >>= fun cs' ->
-                                  return @@ "case " ^ exp' ^ " of" ^ cs'
-  | Texp_tuple es -> mapM (print_expression false) es >>= fun es' ->
+  | Texp_match (exp, cs, _, p) ->
+    print_expression indent false exp >>= fun exp' ->
+    print_case_cases (indent + 1) cs >>= fun cs' ->
+    return @@ "case " ^ exp' ^ " of" ^ cs'
+  | Texp_tuple es -> mapM (print_expression indent false) es >>= fun es' ->
                      return @@ thisParen @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
-    print_construct parenth print_expression lident desc es
+    print_construct parenth (print_expression indent) lident desc es
   | Texp_ifthenelse (p, et, Some ef) ->
-    print_expression false p >>= fun p' ->
-    print_expression false et >>= fun et' ->
-    print_expression false ef >>= fun ef' ->
-    return @@ thisParen @@ "if " ^ p' ^ " then " ^ et' ^ " else " ^ ef'
+    print_expression indent false p >>= fun p' ->
+    print_expression (indent + 1) false et >>= fun et' ->
+    print_expression (indent + 1) false ef >>= fun ef' ->
+    return @@ thisParen @@
+      "if " ^ p' ^ " then\n" ^
+      BatString.repeat "  " (indent + 1) ^ et' ^ "\n" ^
+      BatString.repeat "  " indent ^ "else\n" ^
+      BatString.repeat "  " (indent + 1) ^ ef'
   | Texp_sequence (e0, e1) ->
-    print_expression false e0 >>= fun e0' ->
-    print_expression false e1 >>= fun e1' ->
-    return @@ paren @@ e0' ^ "; " ^ e1'
+    print_expression indent false e0 >>= fun e0' ->
+    print_expression indent false e1 >>= fun e1' ->
+    return @@ paren @@ e0' ^ ";\n" ^ BatString.repeat "  " indent ^ e1'
   | _ -> Bad "Some expression syntax not implemented."
 
-and print_case parenthPat conn c =
-  case_parts parenthPat c >>= fun (pat, exp) ->
+and print_case indent parenthPat conn c =
+  case_parts indent parenthPat c >>= fun (pat, exp) ->
   match c.c_guard with
   | None -> return @@ pat ^ conn ^ exp
   | _ -> Bad "Pattern guards not supported."
 
-and print_case_cases =
+and print_case_cases indent =
   let rec f = function
   | [] -> return ""
-  | c :: cs -> print_case false " => " c >>= fun c' ->
-               f cs >>= fun rest ->
-               return @@ "\n  | " ^ c' ^ rest
+  | c :: cs ->
+    print_case indent false " => " c >>= fun c' ->
+    f cs >>= fun rest ->
+    return @@ "\n" ^ BatString.repeat "  " indent ^ "| " ^ c' ^ rest
   in function
   | [] -> return ""
-  | c :: cs -> print_case false " => " c >>= fun c' ->
-               f cs >>= fun rest ->
-               return @@ "\n    " ^ c' ^ rest
+  | c :: cs ->
+    print_case indent false " => " c >>= fun c' ->
+    f cs >>= fun rest ->
+    return @@ "\n" ^ BatString.repeat "  " indent ^ "  " ^ c' ^ rest
 
-and case_parts parenthPat c =
+and case_parts indent parenthPat c =
   print_pattern parenthPat c.c_lhs >>= fun pat ->
-  print_expression false c.c_rhs >>= fun exp ->
+  print_expression (indent + 1) false c.c_rhs >>= fun exp ->
   return (pat, exp)
 
-and print_value_binding rec_flag vb =
+and print_value_binding indent rec_flag vb =
   print_pattern false vb.vb_pat >>= fun name ->
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
@@ -219,15 +232,16 @@ and print_value_binding rec_flag vb =
       | Tpat_var (_,_), None -> true
       | _ -> false
       ) ->
-    print_case true " = " c >>= fun c' ->
-    return @@ "fun " ^ name ^ " " ^ c'
+    print_case (indent + 1) true " = " c >>= fun c' ->
+    return @@ BatString.repeat "  " indent ^ "fun " ^ name ^ " " ^ c'
   | Texp_function (l, cs, p), Recursive -> (*print_fun_cases name cs*)
-    print_case_cases cs >>= fun cs' ->
-    return @@ "fun " ^ name ^ " tmp__ = case tmp__ of" ^ cs'
+    print_case_cases (indent + 1) cs >>= fun cs' ->
+    return @@ BatString.repeat "  " indent ^
+              "fun " ^ name ^ " tmp__ = case tmp__ of" ^ cs'
   | _, Recursive -> Bad "Recursive values not supported in CakeML"
   | _, Nonrecursive ->
-    print_expression false vb.vb_expr >>= fun expr ->
-    return @@ "val " ^ name ^ " = " ^ expr
+    print_expression indent false vb.vb_expr >>= fun expr ->
+    return @@ BatString.repeat "  " indent ^ "val " ^ name ^ " = " ^ expr
 
 (* CakeML doesn't support SML-style LHS pattern matching in function
    definitions *)
@@ -291,20 +305,22 @@ let print_constructor_declaration decl =
   return @@ decl.cd_name.txt ^
     if constructor_args = "" then "" else " of " ^ constructor_args
 
-let print_ttyp_variant =
+let print_ttyp_variant indent =
   let rec f = function
     | [] -> return ""
     | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
                  f ds >>= fun rest ->
-                 return @@ "\n  | " ^ constructor_decl ^ rest
+                 return @@ "\n" ^ BatString.repeat "  " indent ^ "| " ^
+                           constructor_decl ^ rest
   in
   function
     | [] -> return ""
     | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
                  f ds >>= fun rest ->
-                 return @@ "\n    " ^ constructor_decl ^ rest
+                 return @@ "\n" ^ BatString.repeat "  " indent ^ "  " ^
+                           constructor_decl ^ rest
 
-let print_type_declaration typ =
+let print_type_declaration indent typ =
   let keyword = match typ.typ_kind with
                 | Ttype_abstract -> "type"
                 | _ -> "datatype"
@@ -316,27 +332,49 @@ let print_type_declaration typ =
   | Some m, Ttype_variant ds -> print_core_type false m >>= fun manifest ->
                                 return @@ " = datatype " ^ manifest
   | None, Ttype_abstract -> return ""
-  | None, Ttype_variant ds -> print_ttyp_variant ds >>= fun expr ->
-                              return @@ " =" ^ expr
+  | None, Ttype_variant ds ->
+    print_ttyp_variant (indent + 1) ds >>= fun expr ->
+    return @@ " =" ^ expr
   | _ -> Bad "Some type declarations not implemented."
   ) >>= fun rest ->
-  return @@ keyword ^ " " ^ params ^ fix_type_name typ.typ_name.txt ^ rest
+  return @@ BatString.repeat "  " indent ^ keyword ^ " " ^ params ^
+            fix_type_name typ.typ_name.txt ^ rest
 
-let print_structure_item str =
+let rec print_module_expr indent expr =
+  match expr.mod_desc with
+  | Tmod_structure str ->
+    mapM (print_structure_item (indent + 1)) str.str_items >>= fun items ->
+    return @@ "struct\n" ^ fold_right (^) items "end"
+  | _ -> Bad "Some module types not implemented."
+
+and print_module_binding indent mb =
+  print_module_expr indent mb.mb_expr >>= fun expr ->
+  let name = mb.mb_id.name in
+  match mb.mb_expr.mod_desc with
+  | Tmod_structure str ->
+    return @@
+      BatString.repeat "  " indent ^ "structure " ^ name ^ " = " ^ expr
+  | _ -> Bad "Some module types not implemented."
+
+and print_structure_item indent str =
   match str.str_desc with
-  | Tstr_eval (e, attrs) -> print_expression false e >>= fun e' ->
-                            return @@ e' ^ ";\n"
+  | Tstr_eval (e, attrs) ->
+    print_expression indent false e >>= fun e' ->
+    return @@ BatString.repeat "  " indent ^ e' ^ ";\n"
   | Tstr_value (r, bs) ->
-    mapM (fun b -> print_value_binding r b >>= fun x ->
+    mapM (fun b -> print_value_binding indent r b >>= fun x ->
                    return (x ^ ";\n")) bs >>= fun ss ->
     return @@ fold_right (^) ss ""
   | Tstr_type ds ->
-    mapM (fun d -> print_type_declaration d >>= fun x ->
+    mapM (fun d -> print_type_declaration indent d >>= fun x ->
                    return (x ^ ";\n")) ds >>= fun ss ->
     return @@ fold_right (^) ss ""
+  | Tstr_module b ->
+    print_module_binding indent b >>= fun b' ->
+    return @@ b' ^ ";\n"
   | _ -> Bad "Some structure items not implemented."
 
-let print_result = function
+let output_result = function
   | Ok r -> nwrite stdout r
   | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
 
@@ -374,4 +412,4 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
-let _ = map (print_result % print_structure_item) typedtree.str_items
+let _ = map (output_result % print_structure_item 0) typedtree.str_items
