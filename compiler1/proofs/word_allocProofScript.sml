@@ -5,7 +5,7 @@ open BasicProvers
 
 val _ = new_theory "word_allocProof";
 
-(*TODO: Fix all the list_insert to alist_insert*)
+(*TODO: Fix all the list_insert theorem names to alist_insert*)
 
 (*Define syntactic invariants on the conventions*)
 
@@ -4091,18 +4091,13 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (exists_tac>>
     EVERY_CASE_TAC>>fs[call_env_def,dec_clock_def]))
 
+(*DONE main correctness proofs*)
+
 val get_vars_eq = prove(
   ``(set ls) SUBSET domain st.locals ==> ?y. get_vars ls st = SOME y /\
                                              y = MAP (\x. THE (lookup x st.locals)) ls``,
   Induct_on`ls`>>fs[get_vars_def,get_var_def]>>rw[]>>
   fs[domain_lookup])
-
-(*TODO:MOVE to word_alloc*)
-(*The initial move, ssa and limit vars*)
-val setup_ssa_def = Define`
-  setup_ssa n lim (prog:'a wordLang$prog) =
-  let args = even_list n in
-    list_next_var_rename_move LN lim (even_list n)`
 
 (*For starting up*)
 val setup_ssa_props = prove(``
@@ -4177,20 +4172,6 @@ val setup_ssa_props = prove(``
     `is_phy_var x` by is_phy_var_tac>>
     metis_tac[convention_partitions])
 
-(*I'm pretty sure this is already in HOL*)
-val max2_def = Define`
-  max2 (x:num) y = if x > y then x else y`
-
-val max3_def = Define`
-  max3 (x:num) y z = if x > y then (if z > x then z else x)
-                     else (if z > y then z else y)`
-
-val _ = export_rewrites["max2_def","max3_def"];
-
-val list_max_def = Define`
-  (list_max [] acc:num = acc) ∧
-  (list_max (x::xs) acc = list_max xs (max2 x acc))`
-
 val list_max_max = prove(``
   ∀ls acc.
   acc ≤ list_max ls acc ∧
@@ -4199,66 +4180,10 @@ val list_max_max = prove(``
   TRY(first_x_assum(qspec_then`h` assume_tac)>>fs[]>>DECIDE_TAC)>>
   TRY(first_x_assum(qspec_then`acc` assume_tac)>>fs[]>>DECIDE_TAC))
 
-(*Find the maximum variable*)
-val max_var_exp_def = tDefine "max_var_exp" `
-  (max_var_exp (Var num) = num) ∧
-  (max_var_exp (Load exp) = max_var_exp exp) ∧
-  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls) (0:num))∧
-  (max_var_exp (Shift sh exp nexp) = max_var_exp exp) ∧
-  (max_var_exp exp = 0:num)`
-(WF_REL_TAC `measure (exp_size ARB )`
-  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
-  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
-  \\ DECIDE_TAC);
-
-val max_var_inst_def = Define`
-  (max_var_inst Skip = 0) ∧
-  (max_var_inst (Const reg w) = reg) ∧
-  (max_var_inst (Arith (Binop bop r1 r2 ri)) =
-    case ri of Reg r => max3 r1 r2 r | _ => max2 r1 r2) ∧
-  (max_var_inst (Arith (Shift shift r1 r2 n)) = max2 r1 r2) ∧
-  (max_var_inst (Mem Load r (Addr a w)) = max2 a r) ∧
-  (max_var_inst (Mem Store r (Addr a w)) = max2 a r) ∧
-  (max_var_inst _ = 0)`
-
-val max_var_def = Define `
-  (max_var Skip = 0) ∧
-  (max_var (Move pri ls) =
-    list_max (MAP FST ls ++ MAP SND ls) 0) ∧
-  (max_var (Inst i) = max_var_inst i) ∧
-  (max_var (Assign num exp) = max2 num (max_var_exp exp)) ∧
-  (max_var (Get num store) = num) ∧
-  (max_var (Store exp num) = max2 num (max_var_exp exp)) ∧
-  (max_var (Call ret dest args h) =
-    let n =
-    (case ret of
-      NONE => 0
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      let ret_handler_max = max_var ret_handler in
-      let cutset_max = list_max (MAP FST (toAList cutset)) 0 in
-        max3 v ret_handler_max cutset_max) in
-    let n = max2 n (list_max args 0) in
-    case h of
-      NONE => n
-    | SOME (v,prog,l1,l2) =>
-      let exc_handler_max = max_var prog in
-      max3 n v exc_handler_max) ∧
-  (max_var (Seq s1 s2) = max2 (max_var s1) (max_var s2)) ∧
-  (max_var (If cmp r1 ri e2 e3) =
-    let r = case ri of Reg r => max2 r r1 | _ => r1 in
-      max3 r (max_var e2) (max_var e3)) ∧
-  (max_var (Alloc num numset) =
-    max2 num (list_max (MAP FST (toAList numset)) 0)) ∧
-  (max_var (Raise num) = num) ∧
-  (max_var (Return num1 num2) = max2 num1 num2) ∧
-  (max_var Tick = 0) ∧
-  (max_var (Set n exp) = max_var_exp exp) ∧
-  (max_var p = 0)`
-
 val max_var_exp_max = prove(``
   ∀exp.
     every_var_exp (λx. x≤ max_var_exp exp) exp``,
-  ho_match_mp_tac (fetch "-" "max_var_exp_ind")>>
+  ho_match_mp_tac max_var_exp_ind>>
   rw[every_var_exp_def,max_var_exp_def]>>
   fs[EVERY_MEM]>>rw[]>>res_tac>>
   match_mp_tac every_var_exp_mono>>
@@ -4272,7 +4197,7 @@ val max_var_exp_max = prove(``
 val max_var_inst_max = prove(``
   ∀inst.
     every_var_inst (λx. x ≤ max_var_inst inst) inst``,
-  ho_match_mp_tac (fetch "-" "max_var_inst_ind")>>
+  ho_match_mp_tac max_var_inst_ind>>
   rw[every_var_inst_def,max_var_inst_def]>>
   TRY(Cases_on`ri`)>>fs[every_var_imm_def]>>
   TRY(IF_CASES_TAC)>>fs[]>>
@@ -4281,7 +4206,7 @@ val max_var_inst_max = prove(``
 val max_var_max = prove(``
   ∀prog.
     every_var (λx. x ≤ max_var prog) prog``,
-  ho_match_mp_tac (fetch "-" "max_var_ind")>>
+  ho_match_mp_tac max_var_ind>>
   rw[every_var_def,max_var_def]>>
   TRY(Cases_on`ri`)>>fs[every_var_imm_def]>>
   rpt IF_CASES_TAC>>fs[]>>
@@ -4328,35 +4253,41 @@ val max_var_max = prove(``
     fs[Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup]>>
     res_tac>>DECIDE_TAC)
 
-(*TODO: doesn't need to be 4*n+1, just the next largest is fine*)
-val limit_var_def = Define`
-  limit_var prog = 4*(max_var prog)+1:num`
-
 val limit_var_props = prove(``
   limit_var prog = lim ⇒
   is_alloc_var lim ∧
   every_var (λx. x< lim) prog``,
-  rw[limit_var_def,is_alloc_var_def]>>
-  `(4 * max_var prog) MOD 4 = 0` by
-    (qspec_then `4` assume_tac arithmeticTheory.MOD_EQ_0>>
-    fs[]>>pop_assum(qspec_then `max_var prog` assume_tac)>>
-    DECIDE_TAC)>>
+  reverse (rw[limit_var_def,is_alloc_var_def])
+  >-
+    (qspec_then `prog` assume_tac max_var_max >>
+    match_mp_tac every_var_mono>>
+    HINT_EXISTS_TAC>>
+    rw[]>>
+    fs[Abbr`x'`]>>
+    DECIDE_TAC)
+  >>
   qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>
-  fs[]>>pop_assum(qspecl_then [`4*max_var prog`,`1`] assume_tac)>>
-  rfs[]>>
-  qspec_then `prog` assume_tac max_var_max >>
-  match_mp_tac every_var_mono>>
-  HINT_EXISTS_TAC>>
-  rw[]>>
-  DECIDE_TAC)
-
-val full_ssa_cc_trans_def = Define`
-  full_ssa_cc_trans n prog =
-    let lim = limit_var prog in
-    let (mov,ssa,na) = setup_ssa n lim prog in
-    let (prog',ssa',na') = ssa_cc_trans prog ssa na in
-      Seq mov prog'`
-
+  `(x + (4 - x MOD 4)) MOD 4 = 0` by
+   (`x MOD 4 < 4` by fs[]>>
+    `(x MOD 4 = 0) ∨ (x MOD 4 = 1) ∨ (x MOD 4 = 2) ∨ (x MOD 4 = 3)` by
+      DECIDE_TAC>>
+    fs[]>>
+    (*Fastest way I could find*)
+    `(0 MOD 4 = 0) ∧ 
+    (1 MOD 4 = 1) ∧ 
+    (2 MOD 4 = 2) ∧ 
+    (3 MOD 4 = 3) ∧ 
+    (4 MOD 4 = 0)` by fs[]>>
+    `((0+0)MOD 4 = 0) ∧ 
+    ((1+3)MOD 4 = 0) ∧ 
+    ((2+2)MOD 4 = 0) ∧ 
+    ((3+1)MOD 4 = 0)` by fs[]>>
+    metis_tac[])>>
+  fs[]>>
+  first_x_assum(qspecl_then [`x+(4- x MOD 4)`,`1`] assume_tac)>>
+  pop_assum sym_sub_tac>>
+  fs[])
+  
 (*Full correctness theorem*)
 val full_ssa_cc_trans_correct = store_thm("full_ssa_cc_trans_correct",
 ``∀prog st n.
@@ -4464,9 +4395,9 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
       (Cases_on`e`>>
       fs[EXISTS_PROD,MEM_MAP])>>
     fs[domain_lookup])>>
-    fs[MEM_MAP]
-    fs[MEM_MAP]
-    fs[is_stack_var_def])>>
+    pop_assum sym_sub_tac>>
+    fs[MEM_MAP,EXISTS_PROD]>>
+    metis_tac[])>>
   rfs[MEM_MAP,is_stack_var_def]>>
   qspec_then `4` mp_tac arithmeticTheory.MOD_PLUS >>
   discharge_hyps>-simp[]>>
@@ -4529,7 +4460,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   Q.SPECL_THEN [`ssa2`,`ssa3`,`na3`] assume_tac fix_inconsistencies_conventions>>
   rfs[LET_THM])
   >>
-  (*Alloc*)
+  (*Alloc -- old proof broke for some reason*)
   fs[Abbr`prog`,list_next_var_rename_move_def]>>
   ntac 2 (qpat_assum `A = (B,C,D)` mp_tac)>>
   LET_ELIM_TAC>>fs[]>>
@@ -4553,17 +4484,23 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
     fs[option_lookup_def]>>
     HINT_EXISTS_TAC>>
     fs[])>>
+  `MEM x lss'` by 
+    (unabbrev_all_tac>>
+    fs[MEM_MAP,MAP_MAP_o,EXISTS_PROD]>>
+    metis_tac[])>>
   res_tac>>
   qpat_assum`A = lss` sym_sub_tac>>
   fs[MEM_MAP]>>
   `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
-  fs[is_stack_var_def]>>
-  `(4 * x) MOD 4 = 0` by
+  `(4 * x') MOD 4 = 0` by
     (qspec_then `4` assume_tac arithmeticTheory.MOD_EQ_0>>
-    fs[]>>pop_assum(qspec_then `x` assume_tac)>>
+    fs[]>>pop_assum(qspec_then `x'` assume_tac)>>
     DECIDE_TAC)>>
+  `(na +2) MOD 4 = 3` by fs[is_stack_var_def]>>
   qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>
-  fs[]>>pop_assum(qspecl_then [`4*x`,`na+2`] assume_tac)>>
+  pop_assum mp_tac >>discharge_hyps>-
+    fs[]>>
+  disch_then(qspecl_then [`4*x'`,`na+2`] assume_tac)>>
   rfs[])
 
 val setup_ssa_props_2 = prove(``
@@ -4594,7 +4531,7 @@ val full_ssa_cc_trans_pre_alloc_conventions = store_thm("full_ssa_cc_trans_pre_a
   Q.ISPECL_THEN [`prog`,`ssa`,`na`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
   rfs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM])
 
-
+(*Finally, we reach the linking theorems*)
 
 
 
