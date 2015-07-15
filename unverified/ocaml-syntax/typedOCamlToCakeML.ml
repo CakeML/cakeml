@@ -58,7 +58,8 @@ let fixity_of = function
 let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
-    | "sharing" | "signature" | "structure" | "where" | "withtype") as x ->
+    | "sharing" | "signature" | "structure" | "where" | "withtype" | "div")
+    as x ->
     x ^ "__"
   | x when BatString.starts_with "_" x -> "u" ^ x
   | x when
@@ -142,6 +143,7 @@ let rec convertPervasive : string -> string =
     | '-' :: xs -> "minus" :: f xs
     | '*' :: xs -> "star" :: f xs
     | '/' :: xs -> "slash" :: f xs
+    | ['m'; 'o'; 'd'] -> ["modulo"]
 
     | xs -> [BatString.of_list xs]
   in
@@ -311,14 +313,14 @@ and print_typ_params = function
   | [t] -> print_core_type 2 t >>= fun t' ->
            return @@ t' ^ " "
   | ts -> mapM (print_core_type 0) ts >>= fun ts' ->
-         return @@ "(" ^ BatString.concat ", " ts' ^ ") "
+          return @@ "(" ^ BatString.concat ", " ts' ^ ") "
 
 and print_ttyp_tuple = function
   | [] -> return ""
   | [t] -> print_core_type 2 t
   | t :: ts -> print_core_type 0 t >>= fun core_type ->
-                 print_ttyp_tuple ts >>= fun rest ->
-                 return @@ core_type ^ " * " ^ rest
+               print_ttyp_tuple ts >>= fun rest ->
+               return @@ core_type ^ " * " ^ rest
 
 (* constructor_arguments is new (and necessary) in OCaml 4.03, in which
    support for value constructors for record types was added. *)
@@ -326,11 +328,12 @@ and print_ttyp_tuple = function
 (*let print_constructor_arguments = function
   | Pcstr_tuple ts -> print_ttyp_tuple ts
   | Pcstr_record ds -> Bad "Record syntax not supported."*)
+let print_constructor_arguments = print_ttyp_tuple
 
 let print_constructor_declaration decl =
   (* Replace `print_ttyp_tuple` with `print_constructor_arguments
      in OCaml 4.03. *)
-  print_ttyp_tuple decl.cd_args >>= fun constructor_args ->
+  print_constructor_arguments decl.cd_args >>= fun constructor_args ->
   return @@ decl.cd_name.txt ^
     if constructor_args = "" then "" else " of " ^ constructor_args
 
@@ -398,6 +401,16 @@ and print_structure_item indent str =
     mapM (fun d -> print_type_declaration indent d >>= fun x ->
                    return (x ^ ";\n")) ds >>= fun ss ->
     return @@ fold_right (^) ss ""
+  | Tstr_exception constructor ->
+    (match constructor.ext_kind with
+    | Text_decl ([], None) -> return ""
+    | Text_decl (ts, None) -> print_constructor_arguments ts >>= fun ts' ->
+                              return @@ " of " ^ ts'
+    | Text_rebind (path, lident) -> print_path path >>= fun p ->
+                                    return @@ " = " ^ p
+    | _ -> Bad "Some exception declaration syntax not supported."
+    ) >>= fun rest ->
+    return @@ "exception " ^ constructor.ext_name.txt ^ rest ^ ";\n"
   | Tstr_module b ->
     print_module_binding indent b >>= fun b' ->
     return @@ b' ^ ";\n"

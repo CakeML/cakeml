@@ -1,13 +1,14 @@
 (* Name format:
    Letter-like names stay as they are. Symbol-like names are transcribed
    symbol-for-symbol into words separated by underscores. All names here are
-   letter-like and not infix. *)
+   letter-like and not infix. `mod` was changed to `modulo` to avoid built-in
+   `mod`. *)
 (* Reference:
    http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html *)
 
 structure Pervasives = struct
   fun equals x y = x = y;
-  fun lt_gt x y = x <> y;
+  (*fun lt_gt x y = x <> y;*) (* Defined below *)
   fun lt x y = x < y;
   fun gt x y = x > y;
   fun lt_equals x y = x <= y;
@@ -30,6 +31,8 @@ structure Pervasives = struct
   val amp = amp_amp;
   val or = bar_bar;
 
+  fun lt_gt x y = not (x = y);
+
   fun bar_gt x f = f x;
   fun at_at f x = f x;
 
@@ -40,8 +43,14 @@ structure Pervasives = struct
   fun plus x y = x + y;
   fun minus x y = x - y;
   fun star x y = x * y;
-  fun slash x y = x / y;
-  fun mod x y = x mod y;
+  (* OCaml:         |  CakeML:
+     # ~-5 / 3;;    |  ~5 div 3;
+     - : int = -1   |  val it:<int> = ~2
+     # ~-5 mod 3;;  |  ~5 mod 3;
+     - : int = -2   |  val it:<int> = 1
+   *)
+  fun slash x y = if x < 0 then ~(~x div y) else x div y;
+  fun modulo x y = x - y * slash x y
   fun abs x = if x < 0 then ~x else x;
 
   fun ignore x = ();
