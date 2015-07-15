@@ -26,11 +26,14 @@ val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
 
 (* NONE is a temporary register; real registers are SOME x. *)
 
-val _ = add_infix("\226\150\183",450,NONASSOC);
-
 val _ = temp_overload_on("NoRead",``λμ dn. ¬MEM dn (MAP FST μ)``);
 
-val (step_rules,step_ind,step_cases) = xHol_reln"step"`
+fun replace_quote from to (QUOTE s) = QUOTE(replace_string from to s)
+  | replace_quote _ _ x = x
+
+val _ = add_infix("step",450,NONASSOC);
+
+val (step_rules,step_ind,step_cases) = (Hol_reln o List.map(replace_quote "\226\150\183" "step"))`
   ((μ1++[(r,r)]++μ2,σ,τ) ▷ (μ1++μ2,σ,τ)) ∧
   ((μ1++[(s,d)]++μ2,[],τ) ▷ (μ1++μ2,[(s,d)],τ)) ∧
   ((μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ▷ (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
@@ -40,9 +43,10 @@ val (step_rules,step_ind,step_cases) = xHol_reln"step"`
   (NoRead μ d ⇒
    (μ,[(s,d)],τ) ▷ (μ,[],[(s,d)]++τ))`;
 
+val _ = Unicode.uset_fixity"\226\150\183"(Infix(NONASSOC,450));
+val _ = Unicode.uoverload_on("\226\150\183",``$step``);
 val _ = add_infix("\226\150\183*",450,NONASSOC);
-(* TODO: this overload is temporary until HOL issue #268 is resolved *)
-val _ = temp_overload_on("\226\150\183*",``RTC $▷``)
+val _ = overload_on("\226\150\183*",``RTC $▷``);
 
 (* invariant on states *)
 
@@ -106,14 +110,15 @@ val NoRead_path = Q.prove(
   imp_res_tac path_imp_mem2 >>
   fs[] >> metis_tac[] )
 
-val wf_def = xDefine"wf"`
-  ⊢ (μ,σ,τ) ⇔
+val wf_def = Define`
+  wf (μ,σ,τ) ⇔
     windmill (μ++σ) ∧
     EVERY IS_SOME (MAP FST μ) ∧
     EVERY IS_SOME (MAP SND μ) ∧
     (¬NULL σ ⇒ EVERY IS_SOME (MAP FST (FRONT σ))) ∧
     EVERY IS_SOME (MAP SND σ) ∧
     path σ`;
+val _ = Unicode.uoverload_on(UnicodeChars.turnstile,``wf``);
 
 val wf_init = Q.store_thm("wf_init",
   `windmill μ ∧
@@ -271,10 +276,10 @@ val sem_final = Q.store_thm("sem_final",
 
 (* semantic preservation *)
 
-val _ = add_infix("\226\137\161",450,NONASSOC);
-
-val eqenv_def = xDefine"eqenv"`
-  ρ1 ≡ ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
+val eqenv_def = Define`
+  eqenv ρ1 ρ2 ⇔ ∀r. IS_SOME r ⇒ (ρ1 r = ρ2 r)`;
+val _ = Unicode.uset_fixity"\226\137\161"(Infix(NONASSOC,450));
+val _ = Unicode.uoverload_on("\226\137\161",``eqenv``);
 
 val eqenv_sym = Q.prove(
   `p1 ≡ p2 ⇒ p2 ≡ p1`, rw[eqenv_def]);
@@ -379,23 +384,28 @@ val steps_correct = Q.store_thm("steps_correct",
 
 (* deterministic algorithm *)
 
-val _ = add_infix("\226\134\170",450,NONASSOC);
+val _ = add_infix("dstep",450,NONASSOC);
 
-val (dstep_rules,dstep_ind,dstep_cases) = xHol_reln"dstep"`
- (([(r,r)]++μ,[],τ) ↪ (μ,[],τ)) ∧
- (s ≠ d ⇒
-  ([(s,d)]++μ,[],τ) ↪ (μ,[(s,d)],τ)) ∧
- (NoRead μ1 d ⇒
-  (μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ↪
-  (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
- (NoRead μ r ⇒
-  (μ,[(s,r)]++σ++[(r,d)],τ) ↪
-  (μ,σ++[(NONE,d)],[(s,r);(r,NONE)]++τ)) ∧
- (NoRead μ dn ∧ dn ≠ s0 ⇒
-  (μ,[(sn,dn)]++σ++[(s0,d0)],τ) ↪
-  (μ,σ++[(s0,d0)],[(sn,dn)]++τ)) ∧
- (NoRead μ d ⇒
-  (μ,[(s,d)],τ) ↪ (μ,[],[(s,d)]++τ))`;
+val (dstep_rules,dstep_ind,dstep_cases) = (Hol_reln o List.map(replace_quote "\226\134\170" "dstep"))`
+  (([(r,r)]++μ,[],τ) ↪ (μ,[],τ)) ∧
+  (s ≠ d ⇒
+   ([(s,d)]++μ,[],τ) ↪ (μ,[(s,d)],τ)) ∧
+  (NoRead μ1 d ⇒
+   (μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ↪
+   (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
+  (NoRead μ r ⇒
+   (μ,[(s,r)]++σ++[(r,d)],τ) ↪
+   (μ,σ++[(NONE,d)],[(s,r);(r,NONE)]++τ)) ∧
+  (NoRead μ dn ∧ dn ≠ s0 ⇒
+   (μ,[(sn,dn)]++σ++[(s0,d0)],τ) ↪
+   (μ,σ++[(s0,d0)],[(sn,dn)]++τ)) ∧
+  (NoRead μ d ⇒
+   (μ,[(s,d)],τ) ↪ (μ,[],[(s,d)]++τ))`;
+
+val _ = Unicode.uset_fixity"\226\134\170"(Infix(NONASSOC,450));
+val _ = Unicode.uoverload_on("\226\134\170",``$dstep``);
+val _ = add_infix("\226\134\170*",450,NONASSOC);
+val _ = overload_on("\226\134\170*",``RTC $↪``);
 
 (* ⊢ s1 condition not included in paper;
    not sure if necessary, but couldn't get
@@ -411,10 +421,6 @@ val dstep_step = Q.prove(
     srw_tac[DNF_ss][step_cases]) >>
   match_mp_tac RTC_SUBSET >> rw[step_cases] >>
   metis_tac[CONS_APPEND,APPEND] );
-
-val _ = add_infix("\226\134\170*",450,NONASSOC);
-(* TODO: this overload is temporary until HOL issue #268 is resolved *)
-val _ = temp_overload_on("\226\134\170*",``RTC $↪``);
 
 val dsteps_steps = Q.store_thm("dsteps_steps",
   `∀s1 s2. s1 ↪* s2 ⇒ ⊢ s1 ⇒ s1 ▷* s2`,
