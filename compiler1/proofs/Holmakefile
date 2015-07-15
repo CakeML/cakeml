@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs
+INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../reg_alloc/proofs
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -33,7 +33,8 @@ BARE_THYS = ../../semantics/terminationTheory\
 						../bvl_constTheory\
 						../bvl_handleTheory\
 						../bvp_liveTheory\
-						../bvp_simpTheory
+						../bvp_simpTheory\
+						../../reg_alloc/proofs/reg_allocProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

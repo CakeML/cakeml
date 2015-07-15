@@ -1,16 +1,15 @@
-open HolKernel Parse boolLib bossLib miscLib
-
+open preamble
 open wordLangTheory wordSemTheory
-open listTheory sptreeTheory pred_setTheory pairTheory optionTheory
-open sortingTheory relationTheory
-open miscTheory
+open BasicProvers
 
 (*
-Defines a stack swap lemma and some basic coventions for wordlang
+Defines a stack swap lemma and a permutation swap lemma
 *)
 (*TODO: remove the last_n lemmas*)
 
 val _ = new_theory "wordProps";
+
+(*--Stack Swap Lemma--*)
 
 (*Stacks look the same except for the keys (e.g. recoloured and in order)*)
 val s_frame_val_eq_def = Define`
@@ -805,9 +804,252 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
      first_x_assum(qspec_then `frame::xs` assume_tac)>>
      rfs[call_env_def]>>
      `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])>>
+    (*FFI case*)
     cheat))
 
-(*Stack swap lemma DONE*)
+(*--Stack Swap Lemma DONE--*)
+
+(*--Permute Swap Lemma--*)
+
+val ignore_inc = prove(``
+∀perm:num->num->num.
+  (λn. perm(n+0)) = perm``,rw[FUN_EQ_THM])
+
+val ignore_perm = prove(``
+∀st. st with permute := st.permute = st`` ,
+ rw[]>>fs[state_component_equality])
+
+val get_vars_perm = store_thm("get_vars_perm",``
+∀args.get_vars args (st with permute:=perm) = get_vars args st``,
+  Induct>>rw[get_vars_def,get_var_def])
+
+val pop_env_perm = store_thm("pop_env_perm",``
+  pop_env (rst with permute:=perm) =
+  (case pop_env rst of
+    NONE => NONE
+  | SOME rst' => SOME (rst' with permute:=perm))``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>
+  fs[state_component_equality])
+
+val gc_perm = prove(``
+  gc st = SOME x ⇒
+  gc (st with permute:=perm) = SOME (x with permute := perm)``,
+  fs[gc_def,LET_THM]>>EVERY_CASE_TAC>>
+  fs[state_component_equality])
+
+val get_var_perm = store_thm("get_var_perm",``
+  get_var n (st with permute:=perm) =
+  (get_var n st)``,fs[get_var_def])
+
+val get_var_imm_perm = store_thm("get_var_imm_perm",``
+  get_var_imm n (st with permute:=perm) =
+  (get_var_imm n st)``,
+  Cases_on`n`>>
+  fs[get_var_imm_def,get_var_perm])
+
+val set_var_perm = store_thm("set_var_perm",``
+  set_var v x (s with permute:=perm) =
+  (set_var v x s) with permute:=perm``,
+  fs[set_var_def])
+
+val get_vars_perm = prove(``
+  ∀ls. get_vars ls (st with permute:=perm) =
+  (get_vars ls st)``,
+  Induct>>fs[get_vars_def,get_var_perm])
+
+val set_vars_perm = prove(``
+  ∀ls. set_vars ls x (st with permute := perm) =
+       (set_vars ls x st) with permute:=perm``,
+  fs[set_vars_def])
+
+val word_state_rewrites = prove(``
+  (st with clock:=A) with permute:=B =
+  (st with <|clock:=A ;permute:=B|>)``,
+  fs[])
+
+val perm_assum_tac = (first_x_assum(qspec_then`perm`assume_tac)>>
+          fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+          qexists_tac`λx. if x = 0 then st.permute 0 else perm' (x-1)`>>
+          fs[call_env_def]>>
+          `(λn. perm' n) = perm'` by fs[FUN_EQ_THM]>>
+          simp[]);
+
+val word_exp_perm = store_thm("word_exp_perm",``
+  ∀s exp. word_exp (s with permute:=perm) exp =
+          word_exp s exp``,
+  ho_match_mp_tac word_exp_ind>>rw[word_exp_def]
+  >-
+    (EVERY_CASE_TAC>>fs[mem_load_def])
+  >>
+    `ws=ws'` by
+      (unabbrev_all_tac>>
+      fs[MAP_EQ_f])>>
+    fs[])
+
+val mem_store_perm = prove(``
+  mem_store a (w:'a word_loc) (s with permute:=perm) =
+  case mem_store a w s of
+    NONE => NONE
+  | SOME x => SOME(x with permute:=perm)``,
+  fs[mem_store_def]>>EVERY_CASE_TAC>>
+  fs[state_component_equality])
+
+val jump_exc_perm = prove(``
+  jump_exc (st with permute:=perm) =
+  case jump_exc st of
+    NONE => NONE
+  | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)``,
+  fs[jump_exc_def]>>
+  EVERY_CASE_TAC>>
+  fs[state_component_equality])
+
+(*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
+val permute_swap_lemma = store_thm("permute_swap_lemma",``
+  ∀prog st perm.
+  let (res,rst) = evaluate(prog,st) in
+    res ≠ SOME Error  (*Provable without this assum*)
+    ⇒
+    ∃perm'. evaluate(prog,st with permute := perm') =
+    (res,rst with permute:=perm)``,
+  ho_match_mp_tac (evaluate_ind |> Q.SPEC`UNCURRY P` |> SIMP_RULE (srw_ss())[] |> Q.GEN`P`) >> rw[]>>fs[evaluate_def]
+  >-
+    metis_tac[ignore_perm]
+  >-
+    (fs[alloc_def]>>
+    qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
+    fs[get_var_perm]>>
+    FULL_CASE_TAC>>FULL_CASE_TAC>>fs[]
+    >-
+      (Cases_on`x`>>fs[])
+    >>
+    FULL_CASE_TAC>>fs[]>>
+    Cases_on`gc (push_env x NONE (set_store AllocSize (Word c) st))`>>
+    fs[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
+    imp_res_tac gc_perm>>fs[pop_env_perm]>>
+    ntac 3 (FULL_CASE_TAC>>fs[])>>
+    fs[has_space_def]>>
+    IF_CASES_TAC>>
+    fs[state_component_equality,FUN_EQ_THM,call_env_def])
+  >-
+    (qexists_tac`perm`>>fs[get_vars_perm]>>
+    ntac 2 (FULL_CASE_TAC>>fs[])>>
+    fs[set_vars_perm])
+  >-
+    (qexists_tac`perm`>>
+    fs[inst_def,assign_def]>>EVERY_CASE_TAC>>
+    fs[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm]>>
+    TRY(metis_tac[word_exp_perm,state_component_equality])>>
+    rfs[]>>fs[])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[set_var_perm]>>
+    metis_tac[state_component_equality])
+  >-
+    (EVERY_CASE_TAC>>fs[set_var_perm]>>
+    metis_tac[state_component_equality])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[set_store_def]>>
+    qexists_tac`perm`>>fs[state_component_equality])
+  >-
+    (fs[word_exp_perm]>>EVERY_CASE_TAC>>
+    fs[get_var_perm,mem_store_perm]>>
+    metis_tac[state_component_equality])
+  >-
+    (qexists_tac`perm`>>
+    EVERY_CASE_TAC>>fs[dec_clock_def,call_env_def]>>
+    fs[state_component_equality])
+  >- (*Seq*)
+    (fs[evaluate_def,LET_THM]>>
+    Cases_on`evaluate(prog,st)`>>fs[]>>
+    Cases_on`q`>>fs[]
+    >-
+      (last_x_assum(qspec_then `perm` assume_tac)>>fs[]>>
+      last_x_assum(qspec_then `perm'` assume_tac)>>fs[]>>
+      qexists_tac`perm''`>>fs[])
+    >>
+      first_x_assum(qspecl_then[`perm`]assume_tac)>>rfs[]>>
+      Cases_on`x`>>fs[]>>
+      qexists_tac`perm'`>>fs[]>>
+      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
+  >-
+    (fs[get_var_perm]>>EVERY_CASE_TAC>>
+    fs[call_env_def,state_component_equality])
+  >-
+    (fs[get_var_perm]>>EVERY_CASE_TAC>>
+    fs[jump_exc_perm]>>metis_tac[state_component_equality])
+  >-
+    (Cases_on`ri`>>
+    fs[get_var_perm,get_var_imm_def]>>EVERY_CASE_TAC>>fs[]
+    >>
+      fs[LET_THM])
+  >- (*Call*)
+    (fs[evaluate_def,LET_THM]>>
+    fs[get_vars_perm]>>
+    Cases_on`get_vars args st`>>fs[]>>
+    Cases_on`find_code dest x st.code`>>fs[]>>
+    Cases_on`x'`>>
+    Cases_on`ret`>>fs[]
+    >- (*Tail Call*)
+      (EVERY_CASE_TAC>>
+      TRY(qexists_tac`perm`>>
+        fs[state_component_equality,call_env_def]>>NO_TAC)>>
+      Cases_on`x'`>>
+      fs[dec_clock_def]>>
+      first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+      qexists_tac`perm'`>>
+      fs[state_component_equality,call_env_def]>>
+      qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
+    >>
+      PairCases_on`x'`>>fs[]>>
+      Cases_on`cut_env x'1 st.locals`>>fs[]>>
+      Cases_on`st.clock=0`>>fs[]
+      >-
+        (fs[call_env_def]>>
+        qexists_tac`perm`>>fs[state_component_equality])
+      >>
+      Cases_on`evaluate(r,call_env (Loc x'3 x'4::q) (push_env x'
+              handler (dec_clock st)))`>>
+      Cases_on`q'`>>fs[]>>
+      Cases_on`x''`>>fs[]
+      >-
+        (qpat_assum`A=(res,rst)` mp_tac>>
+        IF_CASES_TAC>>fs[]>>
+        FULL_CASE_TAC>>fs[]>>
+        IF_CASES_TAC>>fs[]>>
+        Cases_on`evaluate(x'2,set_var x'0 w0 x'')`>>
+        Cases_on`q'`>>fs[]>>rw[]>>
+        first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        first_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
+        Cases_on`handler`>>TRY(PairCases_on`x'''`)>>
+        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM,call_env_def]>>
+        `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
+        fs[state_component_equality,call_env_def]>>
+        fs[pop_env_perm]>>fs[set_var_perm])
+      >-
+        (FULL_CASE_TAC>>fs[]
+        >-
+          (perm_assum_tac>>
+          qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[])
+        >>
+        PairCases_on`x''`>>fs[]>>
+        qpat_assum`A=(res,rst)`mp_tac>>
+        ntac 2 (IF_CASES_TAC>>fs[])>>
+        rw[]>>
+        Cases_on`res = SOME Error`>>fs[]>>
+        first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
+        fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
+        `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
+        fs[state_component_equality,call_env_def]>>
+        fs[set_var_perm])
+      >>
+        perm_assum_tac>>
+        Cases_on`handler`>>TRY(PairCases_on`x''`)>>
+        fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
+        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]))
 
 (*Defines some conventions for the allocator*)
 val every_var_exp_def = tDefine "every_var_exp" `
@@ -885,41 +1127,6 @@ val every_stack_var_def = Define `
   (every_stack_var P (If cmp r1 ri e2 e3) =
     (every_stack_var P e2 ∧ every_stack_var P e3)) ∧
   (every_stack_var P p = T)`
-
-val call_arg_convention_def = Define`
-  (call_arg_convention (Return x y) = (y=2)) ∧
-  (call_arg_convention (Raise y) = (y=2)) ∧
-  (call_arg_convention (Call ret dest args h) =
-    (case ret of
-      NONE => args = GENLIST (\x.2*x) (LENGTH args)
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      args = GENLIST (\x.2*(x+1)) (LENGTH args) ∧
-      (v = 2) ∧ call_arg_convention ret_handler ∧
-    (case h of  (*Does not check the case where Calls are ill-formed*)
-      NONE => T
-    | SOME (v,prog,l1,l2) =>
-      (v = 2) ∧ call_arg_convention prog))) ∧
-  (call_arg_convention (Seq s1 s2) =
-    (call_arg_convention s1 ∧ call_arg_convention s2)) ∧
-  (call_arg_convention (If cmp r1 ri e2 e3) =
-    (call_arg_convention e2 ∧
-     call_arg_convention e3)) ∧
-  (call_arg_convention p = T)`
-
-(*TODO: fix these (should probably be defined elsewhere) *)
-val is_stack_var_def = Define`is_stack_var = ARB`;
-val is_phy_var_def = Define`is_phy_var = ARB`;
-
-val pre_alloc_conventions_def = Define`
-  pre_alloc_conventions p =
-    (every_stack_var is_stack_var p ∧
-    call_arg_convention p)`
-
-val post_alloc_conventions_def = Define`
-  post_alloc_conventions k prog =
-    (every_var is_phy_var prog ∧
-    every_stack_var (λx. x ≥ 2*k) prog ∧
-    call_arg_convention prog)`
 
 (*Monotonicity*)
 val every_var_inst_mono = store_thm("every_var_inst_mono",``

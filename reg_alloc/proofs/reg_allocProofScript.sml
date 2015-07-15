@@ -24,6 +24,9 @@ val convention_partitions = store_thm("convention_partitions",``
        ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
   \\ fs []);
 
+val in_clash_sets_def = Define`
+  in_clash_sets (ls: ('a num_map) list) x = ∃y. MEM y ls ∧ x ∈ domain y`
+
 (* 
   Clash sets always appear as cliques in the graph
   colouring_satisfactory guarantees that cliques have all distinct colours
@@ -1766,4 +1769,12 @@ val clique_g_insert_domain = prove(``
   fs[list_g_insert_domain]>>
   rw[EXTENSION]>>metis_tac[])
 
+val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
+∀ls x.
+  in_clash_sets ls x ⇒ 
+  x ∈ domain (clash_sets_to_sp_g ls)``,
+  Induct>>fs[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>rw[]>>res_tac>>
+  fs[clique_g_insert_domain]>>
+  fs[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
+ 
 val _ = export_theory()
