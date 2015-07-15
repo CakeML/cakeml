@@ -23,6 +23,25 @@ end;
 
 (* -- *)
 
+fun replace_string from to =
+  let
+    val next = Substring.position from
+    val drop = Substring.triml (String.size from)
+    val to = Substring.full to
+    fun f acc s =
+      let
+        val (prefix,s) = next s
+        val acc = prefix::acc
+      in
+        if Substring.isEmpty s then
+          Substring.concat(List.rev acc)
+        else
+          f (to::acc) (drop s)
+      end
+  in
+    f [] o Substring.full
+  end
+
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
 local
