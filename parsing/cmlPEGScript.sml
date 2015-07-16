@@ -60,6 +60,13 @@ val bindNT_def = Define`
   bindNT ntnm l = [Nd (mkNT ntnm) l]
 `
 
+val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
+
+val choicel_def = Define`
+  choicel [] = not (empty []) [] ∧
+  choicel (h::t) = choice h (choicel t) sumID
+`;
+
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
 `;
@@ -158,7 +165,6 @@ val peg_StructName_def = Define`
              od = SOME ())
         (bindNT nStructName o mktokLf)
 `;
-
 
 val cmlPEG_def = zDefine`
   cmlPEG = <|
