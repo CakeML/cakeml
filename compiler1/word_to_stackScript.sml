@@ -4,7 +4,7 @@ val _ = new_theory "word_to_stack";
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
 open wordsTheory sptreeTheory lcsymtacs miscTheory asmTheory wordLangTheory;
-open stackLangTheory parmoveTheory;
+open stackLangTheory parmoveTheory word_allocTheory;
 
 val _ = ParseExtras.tight_equality ();
 
@@ -191,32 +191,6 @@ val comp_def = Define `
   (comp (Alloc size live) kf =
      (Seq (wLive live kf) (Alloc size))) /\
   (comp _ kf = wImpossible)`
-
-val inst_vars_def = Define `
-  (inst_vars Skip = []) /\
-  (inst_vars (Const n _) = [n]) /\
-  (inst_vars (Arith (Binop _ n1 n2 (Imm _))) = [n1;n2]) /\
-  (inst_vars (Arith (Binop _ n1 n2 (Reg n3))) = [n1;n2;n3]) /\
-  (inst_vars (Arith (Shift _ n1 n2 _)) = [n1;n2]) /\
-  (inst_vars (Mem _ n1 (Addr n2 _)) = [n1;n2])`
-
-val max_var_def = Define `
-  (max_var (Skip:'a wordLang$prog) = 0) /\
-  (max_var (Move _ xs) = MAX_LIST (MAP (\(x,y). MAX x y) xs)) /\
-  (max_var (Inst i) = MAX_LIST (inst_vars i)) /\
-  (max_var (Return v1 v2) = MAX v1 v2) /\
-  (max_var (Raise v) = v) /\
-  (max_var (Seq p1 p2) = MAX (max_var p1) (max_var p2)) /\
-  (max_var (If cmp r ri p1 p2) =
-     MAX (case ri of Reg n => n | _ => 0)
-       (MAX r (MAX (max_var p1) (max_var p2)))) /\
-  (max_var (Set name exp) = case exp of Var n => n | _ => 0) /\
-  (max_var (Get n name) = n) /\
-  (max_var (Call ret x2 args handler) =
-     MAX (MAX_LIST args)
-         (MAX (case ret of SOME (x,_) => x | _ => 0)
-              (case handler of SOME (x,_) => x | _ => 0))) /\
-  (max_var _ = 0)`
 
 val raise_stub_def = Define `
   raise_stub k =

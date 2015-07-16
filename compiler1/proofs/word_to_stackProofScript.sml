@@ -142,7 +142,7 @@ val compile_correct = prove(
   THEN1 (* Seq *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
-    \\ Cases_on `evaluate (c1,s)` \\ fs [max_var_def,MAX_LE]
+    \\ Cases_on `evaluate (c1,s)` \\ fs []
     \\ Cases_on `q` \\ fs []
     \\ cheat (* easy? *))
   THEN1 (* Return *) cheat
