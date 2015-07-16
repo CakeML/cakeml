@@ -71,10 +71,35 @@ val is_closure_def = Define `
 (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
 (is_closure _ ⇔ F)`;
 
-val closure_to_num_args_def = Define `
-(closure_to_num_args (Closure _ args _ n _) = n - LENGTH args) ∧
-(closure_to_num_args (Recclosure _ args _ fns i) = 
-  FST (EL i fns) - LENGTH args)`;
+val clo_to_loc_def = Define `
+(clo_to_loc (Closure l _ _ _ _) = l) ∧
+(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
+
+val clo_to_partial_args_def = Define `
+(clo_to_partial_args (Closure _ args _ _ _) = args) ∧
+(clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
+
+val clo_to_num_params_def = Define `
+(clo_to_num_params (Closure _ _ _ n _) = n) ∧
+(clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))`;
+
+val rec_clo_ok_def = Define `
+(rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
+(rec_clo_ok (Closure _ _ _ _ _) ⇔ T)`;
+
+val clo_can_apply_def = Define `
+clo_can_apply loc cl num_args ⇔
+  LENGTH (clo_to_partial_args cl) < clo_to_num_params cl ∧
+  rec_clo_ok cl ∧
+  (loc ≠ NONE ⇒ 
+   loc = clo_to_loc cl ∧
+   num_args = clo_to_num_params cl ∧
+   clo_to_partial_args cl = [])`;
+
+val check_closures_def = Define `
+check_closures cl cl' ⇔
+  !loc num_args.
+    clo_can_apply loc cl num_args ⇒ clo_can_apply loc cl' num_args`;
 
 val val_rel_def = tDefine "val_rel" `
 (val_rel (i:num) (Number n) (Number n') ⇔
@@ -83,11 +108,11 @@ val val_rel_def = tDefine "val_rel" `
   n = n' ∧ LIST_REL (val_rel i) vs vs') ∧
 (val_rel (i:num) (RefPtr p) (RefPtr p') ⇔ p = p') ∧
 (val_rel (i:num) cl cl' ⇔
-  if is_closure cl ∧ is_closure cl' then
+  if is_closure cl ∧ is_closure cl' ∧ check_closures cl cl' then
     !i' args args' s s'.
       if i' < i then
         state_rel i' s s' ∧
-        LENGTH args = closure_to_num_args cl ∧
+        LENGTH args = clo_to_num_params cl - LENGTH (clo_to_partial_args cl) ∧
         LIST_REL (val_rel i') args args'
         ⇒
         exec_cl_rel i' (cl, args, s) (cl', args', s')
@@ -331,12 +356,12 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
   is_closure v
   ⇒
   (val_rel c v v' ⇔
-    if is_closure v' then
+    if is_closure v' ∧ check_closures v v' then
       !i' args args' s s'.
         i' < c
         ⇒
         state_rel i' s s' ∧
-        LENGTH args = closure_to_num_args v ∧
+        LENGTH args = clo_to_num_params v - LENGTH (clo_to_partial_args v) ∧
         LIST_REL (val_rel i') args args'
         ⇒
         exec_cl_rel i' (v, args, s) (v', args', s')
@@ -392,7 +417,7 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
          rw [] >>
          `i'' < i` by decide_tac >>
          metis_tac [])));
-  
+
 val val_rel_mono_list = Q.store_thm ("val_rel_mono_list",
 `!i i' vs1 vs2.
   i' ≤ i ∧ LIST_REL (val_rel i) vs1 vs2
@@ -441,6 +466,54 @@ val find_code_related = Q.store_thm ("find_code_related",
  `c-1 ≤ c` by decide_tac >>
  metis_tac [val_rel_mono_list]);
 
+val dest_closure_opt = Q.store_thm ("dest_closure_opt",
+`!c loc v vs v' vs' x.
+  check_closures v v' ∧
+  is_closure v ∧
+  is_closure v' ∧
+  LENGTH vs = LENGTH vs' ∧
+  dest_closure loc v vs = SOME x
+  ⇒
+  ?x'. dest_closure loc v' vs' = SOME x'`,
+ rw [] >>
+ Cases_on `loc`
+ >- (Cases_on `v` >>
+     Cases_on `v'` >>
+     fs [dest_closure_def, check_closures_def, is_closure_def, clo_to_num_params_def, 
+         clo_to_partial_args_def, clo_can_apply_def, check_loc_def, rec_clo_ok_def,
+         clo_to_loc_def]
+     >- metis_tac []
+     >- (Cases_on `EL n' l1` >>
+         simp [] >>
+         rw [] >>
+         fs [NOT_LESS_EQUAL] >>
+         metis_tac [])
+     >- (Cases_on `EL n l1` >>
+         simp [] >>
+         rw [] >>
+         fs [LET_THM] >>
+         metis_tac [NOT_LESS_EQUAL])
+     >- (Cases_on `EL n l1` >>
+         Cases_on `EL n' l1'` >>
+         fs [LET_THM] >>
+         rw [] >>
+         metis_tac [NOT_LESS_EQUAL])) >>
+ Cases_on `v` >>
+ Cases_on `v'` >>
+ fs [dest_closure_def, check_loc_def, is_closure_def, check_closures_def, clo_to_loc_def,
+     clo_can_apply_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
+ rfs [] >>
+ simp []
+ >- metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM]
+ >- (Cases_on `EL n' l1` >>
+     fs [] >>
+     Cases_on `o''` >>
+     fs [] >>
+     rw [] >>
+     metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL])
+ >- cheat
+ >- cheat);
+
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' s s' loc.
   val_rel c v v' ∧
@@ -456,9 +529,38 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  rw [evaluate_app_rw] >>
  Cases_on `dest_closure loc v vs` >>
  simp [res_rel_rw] >>
- Cases_on `dest_closure loc v' vs'` >>
- simp [res_rel_rw] >>
+ `is_closure v ∧ is_closure v' ∧ check_closures v v'`
+          by (Cases_on `v` >>
+              Cases_on `v'` >>
+              fs [val_rel_rw, dest_closure_def, is_closure_def]) >>
+ imp_res_tac LIST_REL_LENGTH >>
+ `?x'. dest_closure loc v' vs' = SOME x'` by metis_tac [dest_closure_opt] >>
+ simp [] >>
  cheat);
+
+ (*
+ >- ((* Partial app *)
+     rw [res_rel_rw]
+     >- ((* Timeout *)
+         simp [dest_closure_def] >>
+         Cases_on `v'` >>
+         simp [] >>
+         TRY (fs [is_closure_def] >> NO_TAC) >>
+         simp [] >>
+         Cases_on `loc` >> 
+         fs [check_loc_def] >>
+         rw []  >>
+         simp [] >>
+         rw [] 
+         >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
+         >- cheat
+         >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
+         >- cheat
+         >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
+         >- cheat
+         >- cheat
+         >- cheat
+         *)
 
 val state_rel_refs = Q.prove (
 `!c s s' n rv p.
@@ -951,6 +1053,7 @@ val compat_app = Q.store_thm ("compat_app",
   exp_rel es es'
   ⇒
   exp_rel [App loc e es] [App loc e' es']`,
+
  rw [exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
@@ -1013,18 +1116,18 @@ val compat_fn = Q.store_thm ("compat_fn",
  rw [] >>
  imp_res_tac val_rel_clos_env >>
  imp_res_tac val_rel_mono >>
- rw [is_closure_def , val_rel_rw, exec_rel_rw] >>
+ rw [is_closure_def , val_rel_rw, exec_rel_rw, check_closures_def] >>
+ fs [clo_can_apply_def, clo_to_partial_args_def, clo_to_num_params_def, rec_clo_ok_def,
+     clo_to_loc_def] >>
  `LENGTH args = LENGTH args'` by metis_tac [LIST_REL_LENGTH] >>
  `args ≠ [] ∧ args' ≠ []` 
-       by (Cases_on `args` >> Cases_on `args'` >> fs [closure_to_num_args_def]) >>
+       by (Cases_on `args` >> Cases_on `args'` >> fs []) >>
  simp [evaluate_app_rw, dest_closure_def, res_rel_rw] >>
  Cases_on `check_loc loc' loc num_args (LENGTH args') 0` >>
  simp [res_rel_rw] >>
  Cases_on `LENGTH args' < num_args` >>
  rw [res_rel_rw] >>
- fs [closure_to_num_args_def] >>
- rw [] >>
- fs []
+ rfs [] 
  >- (`0 ≤ i''` by decide_tac >>
      metis_tac [val_rel_mono]) >>
  fs [dec_clock_def] >>

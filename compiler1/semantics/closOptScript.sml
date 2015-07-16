@@ -81,7 +81,9 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  `s'.restrict_envs = s.restrict_envs` by fs [Once state_rel_rw] >>
  imp_res_tac val_rel_clos_env >>
  imp_res_tac val_rel_mono >>
- rw [val_rel_rw, is_closure_def, closure_to_num_args_def] >>
+ rw [val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def, clo_to_loc_def,
+     clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
+ simp [] >>
  imp_res_tac LIST_REL_LENGTH >>
  `args ≠ [] ∧ args' ≠ []` by (Cases_on `args` >> Cases_on `args'` >> fs []) >>
  rw [exec_rel_rw, evaluate_app_rw, dest_closure_def, res_rel_rw] >>
@@ -99,7 +101,8 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  `i''' - LENGTH args' ≤ i''` by decide_tac >>
  imp_res_tac val_rel_mono >>
  simp [] >>
- rw [val_rel_rw, is_closure_def, closure_to_num_args_def, exec_rel_rw] >>
+ rw [val_rel_rw, is_closure_def, exec_rel_rw, check_closures_def, clo_can_apply_def, 
+     clo_to_loc_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
  `args'' ≠ [] ∧ args''' ≠ []` by (Cases_on `args''` >> Cases_on `args'''` >> fs []) >>
  simp [evaluate_app_rw, dest_closure_def] >>
  Cases_on `loc` >>
@@ -162,7 +165,8 @@ val fn_add_loc = Q.store_thm ("fn_add_loc",
  `s.restrict_envs = s'.restrict_envs` by fs [Once state_rel_rw] >>
  imp_res_tac val_rel_clos_env >>
  rfs [] >>
- fs [val_rel_rw, is_closure_def, closure_to_num_args_def] >>
+ fs [val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def, 
+     clo_to_loc_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
  reverse (rw [])
  >- metis_tac [val_rel_mono] >>
  rw [exec_rel_rw] >>
