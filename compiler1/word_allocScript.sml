@@ -199,7 +199,8 @@ val ssa_cc_trans_def = Define`
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Alloc num' stack_set) (ret_mov))) in
+               (Seq (Move 0 [(2,num')]) 
+               (Seq (Alloc 2 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Raise num) ssa na =
     let num' = option_lookup ssa num in
