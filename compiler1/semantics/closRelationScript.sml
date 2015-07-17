@@ -511,8 +511,19 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
      fs [] >>
      rw [] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL])
- >- cheat
- >- cheat);
+ >- (Cases_on `EL n l1` >>
+     fs [LET_THM] >>
+     rfs [] >>
+     rw [] >>
+     fs [OPTION_MAP_DEF] >>
+     metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL])
+ >- (Cases_on `EL n l1` >>
+     Cases_on `EL n' l1'` >>
+     fs [LET_THM] >>
+     rfs [] >>
+     rw [] >>
+     fs [OPTION_MAP_DEF] >>
+     metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL]));
 
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' s s' loc.
@@ -524,6 +535,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
   s'.clock = c
   ⇒
   res_rel (evaluate_app loc v vs s) (evaluate_app loc v' vs' s')`, 
+
  rw [] >>
  `vs' ≠ []` by (Cases_on `vs'` >> fs []) >>
  rw [evaluate_app_rw] >>
@@ -536,30 +548,18 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  imp_res_tac LIST_REL_LENGTH >>
  `?x'. dest_closure loc v' vs' = SOME x'` by metis_tac [dest_closure_opt] >>
  simp [] >>
- cheat);
-
+ qabbrev_tac `full_arg_num = clo_to_num_params v - LENGTH (clo_to_partial_args v)` >>
+ qabbrev_tac `full_arg_num' = clo_to_num_params v' - LENGTH (clo_to_partial_args v')` >>
+ Cases_on `x` >>
+ fs []
+ >> cheat);
  (*
  >- ((* Partial app *)
      rw [res_rel_rw]
      >- ((* Timeout *)
-         simp [dest_closure_def] >>
-         Cases_on `v'` >>
-         simp [] >>
-         TRY (fs [is_closure_def] >> NO_TAC) >>
-         simp [] >>
-         Cases_on `loc` >> 
-         fs [check_loc_def] >>
-         rw []  >>
-         simp [] >>
-         rw [] 
+         Cases_on `x'` >>
+         fs []
          >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
-         >- cheat
-         >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
-         >- cheat
-         >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
-         >- cheat
-         >- cheat
-         >- cheat
          *)
 
 val state_rel_refs = Q.prove (
