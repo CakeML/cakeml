@@ -58,9 +58,12 @@ let fixity_of = function
 let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
-    | "sharing" | "signature" | "structure" | "where" | "withtype" | "div")
+    | "sharing" | "signature" | "structure" | "where" | "withtype" | "div"
+    | "SOME" | "NONE")
     as x ->
     x ^ "__"
+  | "Some" -> "SOME"
+  | "None" -> "NONE"
   | x when BatString.starts_with "_" x -> "u" ^ x
   | x when
     (match fixity_of x with
@@ -112,7 +115,8 @@ let print_construct prec (f : int -> 'a -> (string, string) result)
   | _ -> mapM (f 0) xs >>= fun xs' ->
          return @@ " (" ^ BatString.concat ", " xs' ^ ")"
   ) >>= fun args ->
-  return @@ ifThen (prec > 1 && not ([] = xs)) paren @@ cstr.cstr_name ^ args
+  return @@ ifThen (prec > 1 && not ([] = xs)) paren @@
+    fix_identifier cstr.cstr_name ^ args
 
 let rec print_pattern prec pat =
   match pat.pat_desc with
@@ -143,7 +147,13 @@ let rec convertPervasive : string -> string =
     | '-' :: xs -> "minus" :: f xs
     | '*' :: xs -> "star" :: f xs
     | '/' :: xs -> "slash" :: f xs
-    | ['m'; 'o'; 'd'] -> ["modulo"]
+
+    | '^' :: xs -> "hat" :: f xs
+
+    | '!' :: xs -> "bang" :: f xs
+
+    | ['m'; 'o'; 'd'] -> ["oc_mod"]
+    | ['r'; 'a'; 'i'; 's'; 'e'] -> ["oc_raise"]
 
     | xs -> [BatString.of_list xs]
   in
@@ -182,9 +192,8 @@ let rec print_expression indent prec expr =
   | Texp_function (l, cs, p) ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@ ifThen (prec > 1) paren @@ "fn tmp__ => case tmp__ of" ^ cs'
-  | Texp_apply ({
-      exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _)
-    }, [(_, Some e0, _); (_, Some e1, _)])
+  | Texp_apply ({ exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _) },
+                [(_, Some e0, _); (_, Some e1, _)])
       when m.name = "Pervasives" && mem n ["&&"; "&"; "||"; "or"] ->
     let op = match n with
       | "&&" |  "&" -> "andalso"
@@ -437,15 +446,15 @@ and preprocess_value_bindings acc rec_flag = function
       ) -> let new_name = name.txt ^ "__" in
            let new_ident = create new_name in
            let new_pat = Tpat_var (new_ident, { name with txt = new_name }) in
-           let new_subexpr = Texp_apply (
-             Texp_ident (Pident new_ident, Lident new_name,
-                         { val_type = { vb.vb_pat.pat_type with
-                                        desc = Tarrow (l, u, vb.vb_pat.pat_type, Cok) };
-                           val_kind = Val_reg;
-                           val_loc = ;
-                           val_attributes = ;
-                         }),
-             []) in
+           let new_subexpr = Texp_apply (Texp_ident
+             (Pident new_ident, Lident new_name,
+              { val_type = { vb.vb_pat.pat_type with
+                             desc = Tarrow (l, u, vb.vb_pat.pat_type, Cok) };
+                val_kind = Val_reg;
+                val_loc = ;
+                val_attributes = ;
+              }),
+              []) in
            vb' :: preprocess_value_bindings acc' rec_flag vbs*)
     | _ -> vb :: preprocess_value_bindings acc rec_flag vbs
 
