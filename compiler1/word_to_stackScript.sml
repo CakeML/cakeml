@@ -88,9 +88,6 @@ val wInst_def = Define `
   (wInst (Mem mop n1 (Addr n2 offset)) kf =
     wRegWrite1 (\n1. Inst (Mem mop n1 (Addr n2 offset))) n1 kf)`
 
-val wImpossible_def = Define `
-  wImpossible = Skip:'a stackLang$prog`
-
 val bits_to_word_def = Define `
   (bits_to_word [] = 0w) /\
   (bits_to_word (T::xs) = (bits_to_word xs << 1 || 1w)) /\
@@ -106,7 +103,7 @@ val word_list_def = tDefine "word_list" `
 val write_bitmap_def = Define `
   (write_bitmap live k f):'a word list =
     let names = MAP (\(r,y). f+k-r) (toAList live) in
-      word_list (GENLIST (\x. MEM x names) f) (dimindex(:'a) - 1)`
+      word_list (GENLIST (\x. MEM x names) f ++ [T]) (dimindex(:'a) - 1)`
 
 val wLiveAux_def = tDefine "wLiveAux" `
   wLiveAux (xs:'a word list) r index =
@@ -171,7 +168,7 @@ val comp_def = Define `
   (comp (Set name exp) kf =
      case exp of
      | Var n => let (x1,r') = wReg1 n kf in wStackLoad x1 (Set name r')
-     | _ => wImpossible) /\
+     | _ => Skip (* impossible *)) /\
   (comp (Get n name) kf =
      wRegWrite1 (\r. Get r name) n kf) /\
   (comp (Call ret dest args handler) kf =
@@ -185,9 +182,9 @@ val comp_def = Define `
                           (CallAny (SOME (comp ret_code kf,l1,l2))
                              dest args NONE kf))
          | SOME (handle_var, handle_code, h1, h2) => Skip (* TODO *)) /\
-  (comp (Alloc size live) kf =
-     (Seq (wLive live kf) (Alloc size))) /\
-  (comp _ kf = wImpossible)`
+  (comp (Alloc r live) kf =
+     Seq (wLive live kf) (Alloc 1)) /\
+  (comp _ kf = Skip (* impossible *))`
 
 val raise_stub_def = Define `
   raise_stub k =
@@ -203,11 +200,8 @@ val compile_def = Define `
   compile (prog:'a wordLang$prog) arg_count reg_count =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
-      if stack_var_count = 0 then
-        comp prog (reg_count,0)
-      else
-        let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
-        let f = stack_var_count + bitmap_size in
-          Seq (StackAlloc (f - stack_arg_count)) (comp prog (reg_count,f))`
+    let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
+    let f = stack_var_count + bitmap_size in
+      Seq (StackAlloc (f - stack_arg_count)) (comp prog (reg_count,f))`
 
 val _ = export_theory();

@@ -158,11 +158,34 @@ val convs_def = LIST_CONJ
    wordPropsTheory.every_var_def,
    wordPropsTheory.every_stack_var_def]
 
+val evaluate_wLive = prove(
+  ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
+    (cut_env names s.locals = SOME env) ==>
+    ?t5. (evaluate (wLive names (k,f),t) = (NONE,t5)) /\
+         state_rel k 0 0 (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) s) t5 /\
+         state_rel k f f' s t5 /\
+         (get_var 1 t5 = get_var 1 t)``,
+  cheat);
+
+val alloc_IMP_alloc = prove(
+  ``(alloc c names (s:'a wordSem$state) = (res:'a result option,s1)) /\
+    state_rel k f f' s t5 /\
+    state_rel k 0 0 (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) s) t5 /\
+    (cut_env names s.locals = SOME env) /\
+    res <> SOME Error ==>
+    ?t1 res1.
+      (alloc c t5 = (res1,t1)) /\
+      if res = NONE then
+        res1 = NONE /\ state_rel k f f' s1 t1
+      else
+        res = SOME NotEnoughSpace /\ res1 = res``,
+  cheat);
+
 val compile_correct = prove(
   ``!(prog:'a wordLang$prog) s k f f' res s1 t.
       (evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
-      max_var prog <= 2 * f' + 2 * k ==>
+      max_var prog <= 2 * f' + 2 * k /\ 1 <= f ==>
       ?t1 res1. (evaluate (comp prog (k,f),t) = (res1,t1)) /\
                 if res <> res1 then (res1 = SOME NotEnoughSpace) else
                   case res of
@@ -170,12 +193,26 @@ val compile_correct = prove(
                   | SOME (Result v1 v2) => state_rel k 0 0 s1 t1
                   | SOME (Exception v1 v2) => state_rel k 0 0 s1 t1
                   | SOME _ => T``,
-
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)
    (fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw [])
-  THEN1 (* Alloc *) cheat
+  THEN1 (* Alloc *)
+   (fs [wordSemTheory.evaluate_def,
+        stackSemTheory.evaluate_def,comp_def] \\ rw []
+    \\ `n = 2` by (fs [convs_def] \\ cheat) \\ rw []
+    \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
+    \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
+       (fs [state_rel_def,get_var_def,LET_DEF]
+        \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+        \\ fs [stackSemTheory.get_var_def])
+    \\ Cases_on `cut_env names s.locals`
+    THEN1 fs [wordSemTheory.alloc_def]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
+    \\ mp_tac evaluate_wLive \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+    \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
+    \\ mp_tac alloc_IMP_alloc \\ fs [] \\ REPEAT STRIP_TAC
+    \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
   THEN1 (* Move *) cheat
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
@@ -220,7 +257,7 @@ val compile_correct = prove(
       \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
-      \\ imp_res_tac DROP_DROP \\ fs [])
+      \\ imp_res_tac DROP_DROP \\ fs [] \\ rfs [] \\ fs [])
     \\ `~(LENGTH t.stack < t.stack_space + (f + k - n DIV 2)) /\
         (EL (t.stack_space + (f + k - n DIV 2)) t.stack = x) /\
         (get_var 1 t = SOME x')` by
