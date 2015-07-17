@@ -21,16 +21,14 @@ val MAX_LIST_def = Define `
     and kf = (k,f) *)
 
 val wReg1_def = Define `
-  wReg1 r (k,f) = if r < k then ([],r)
-                           else ([(k,f+k-r)],k:num)`
+  wReg1 r (k,f) =
+    let r = r DIV 2 in
+      if r < k then ([],r) else ([(k,f+k-r)],k:num)`
 
 val wReg2_def = Define `
-  wReg2 r (k,f) = if r < k then ([],r)
-                           else ([(k+1,f+k-r)],k+1:num)`
-
-val wRegWrite1_def = Define `
-  wRegWrite1 r (k,f) = if r < k then ([],r)
-                       else ([(f+k-r,k)],k:num)`
+  wReg2 r (k,f) =
+    let r = r DIV 2 in
+      if r < k then ([],r) else ([(k+1,f+k-r)],k+1:num)`
 
 val wRegImm2_def = Define `
   (wRegImm2 (Reg r) kf = let (x,n) = wReg2 r kf in (x,Reg n)) /\
@@ -38,8 +36,8 @@ val wRegImm2_def = Define `
 
 val wRegWrite1_def = Define `
   wRegWrite1 g r (k,f) =
-    if r < k then g r
-    else Seq (g k) (StackStore k (f+k-r))`
+    let r = r DIV 2 in
+      if r < k then g r else Seq (g k) (StackStore k (f+k-r))`
 
 val wStackLoad_def = Define `
   (wStackLoad [] x = x) /\
@@ -64,7 +62,7 @@ val wMoveAux_def = Define `
   (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))`
 
 val pair_swap_def = Define `
-  pair_swap (x,y) = (y,x)`
+  pair_swap (x,y) = (y DIV 2, x DIV 2)`
 
 val format_var_def = Define `
   (format_var k NONE = INL (k+1)) /\
@@ -158,7 +156,8 @@ val comp_def = Define `
   (comp (Move _ xs) kf = wMove xs kf) /\
   (comp (Inst i) kf = wInst i kf) /\
   (comp (Return v1 v2) kf =
-     SeqStackFree (SND kf) (Return v1 v2)) /\
+     let (xs,x) = wReg1 v1 kf in
+       wStackLoad xs (SeqStackFree (SND kf) (Return x 1))) /\
   (comp (Raise v) kf = Call NONE (INL 0) NONE) /\
   (comp (Tick) kf = Tick) /\
   (comp (Seq p1 p2) kf =
@@ -166,11 +165,9 @@ val comp_def = Define `
      let q1 = comp p1 kf in
        Seq q1 q2) /\
   (comp (If cmp r ri p1 p2) kf =
-     let q1 = comp p1 kf in
-     let q2 = comp p2 kf in
      let (x1,r') = wReg1 r kf in
      let (x2,ri') = wRegImm2 ri kf in
-       wStackLoad (x1++x2) (If cmp r' ri' q1 q2)) /\
+       wStackLoad (x1++x2) (If cmp r' ri' (comp p1 kf) (comp p2 kf))) /\
   (comp (Set name exp) kf =
      case exp of
      | Var n => let (x1,r') = wReg1 n kf in wStackLoad x1 (Set name r')
@@ -179,8 +176,8 @@ val comp_def = Define `
      wRegWrite1 (\r. Get r name) n kf) /\
   (comp (Call ret dest args handler) kf =
      case ret of
-     | NONE => SeqStackFree (stack_free dest (LENGTH args) kf)
-                 (CallAny NONE dest args NONE kf)
+     | NONE => SeqStackFree (stack_free dest (LENGTH args - 1) kf)
+                 (CallAny NONE dest (TL args) NONE kf)
      | SOME (ret_var, live, ret_code, l1, l2) =>
          case handler of
          | NONE => Seq (wLive live kf)

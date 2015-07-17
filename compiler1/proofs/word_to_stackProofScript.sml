@@ -4,10 +4,42 @@ open preamble
 
 val _ = new_theory "word_to_stackProof";
 
-(* state relation *)
+(* TODO: move? *)
 
 val ANY_EL_def = Define `
-  ANY_EL n xs = if n < LENGTH xs then SOME (EL n xs) else NONE`;
+  (ANY_EL n [] = NONE) /\
+  (ANY_EL n (x::xs) = if n = 0n then SOME x else ANY_EL (n-1) xs)`
+
+val ANY_EL_THM = prove(
+  ``!xs n. ANY_EL n xs = if n < LENGTH xs then SOME (EL n xs) else NONE``,
+  Induct \\ fs [ANY_EL_def] \\ rw [] THEN1 decide_tac
+  \\ Cases_on `xs` \\ fs [] \\ Cases_on `n` \\ fs [] \\ decide_tac);
+
+val LENGTH_TAKE_EQ = prove(
+  ``!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)``,
+  Induct \\ fs [TAKE_def] \\ Cases \\ fs [TAKE_def]
+  \\ fs [MIN_DEF] \\ decide_tac);
+
+val EL_TAKE_EQ = prove(
+  ``!n xs i. i < n ==> EL i (TAKE n xs) = EL i xs``,
+  Induct \\ fs [] \\ Cases \\ fs [TAKE_def] \\ Cases \\ fs []);
+
+val ANY_EL_TAKE_IMP = prove(
+  ``(ANY_EL n (TAKE f xs) = SOME x) ==>
+    (ANY_EL n xs = SOME x)``,
+  fs [ANY_EL_THM] \\ rw []
+  \\ fs [LENGTH_TAKE_EQ]
+  \\ match_mp_tac (GSYM EL_TAKE_EQ) \\ fs []);
+
+val ANY_EL_DROP = prove(
+  ``(ANY_EL n (DROP f xs) = ANY_EL (f + n) xs)``,
+  Cases_on `DROP f xs = []` \\ fs [] \\ fs [DROP_NIL]
+  \\ fs [ANY_EL_THM] THEN1 decide_tac
+  \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ fs []
+  \\ rw [] \\ ONCE_REWRITE_TAC [ADD_COMM]
+  \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
+
+(* state relation *)
 
 val stack_names_def = Define `
   stack_names = { Handler }`;
@@ -91,7 +123,7 @@ val state_rel_def = Define `
   state_rel k f f' (s:'a wordSem$state) (t:'a stackSem$state) <=>
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.io = s.io) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
-    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\
+    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 1 < k /\
     s.store SUBMAP t.store /\ DISJOINT (FDOM s.store) stack_names /\
     (!n ignore word_prog arg_count.
        (lookup n s.code = SOME (ignore,word_prog,arg_count)) ==>
@@ -106,16 +138,31 @@ val state_rel_def = Define `
         rest_of_stack (LENGTH t.stack) /\
       (!n v.
         (lookup n s.locals = SOME v) ==>
-        if n < k then (lookup n t.regs = SOME v)
-        else (ANY_EL (f+k-n) current_frame = SOME v) /\ n < k + f')`
+        EVEN n /\
+        if n DIV 2 < k then (lookup (n DIV 2) t.regs = SOME v)
+        else (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\ n DIV 2 < k + f')`
 
 (* correctness proof *)
+
+val evaluate_SeqStackFree = prove(
+  ``t.use_stack /\ t.stack_space <= LENGTH t.stack ==>
+    evaluate (SeqStackFree f p,t) =
+    evaluate (Seq (StackFree f) p,t)``,
+  fs [SeqStackFree_def] \\ rw [stackSemTheory.evaluate_def]
+  THEN1 (`F` by decide_tac) \\ AP_TERM_TAC
+  \\ fs [stackSemTheory.state_component_equality]);
+
+val convs_def = LIST_CONJ
+  [word_allocProofTheory.post_alloc_conventions_def,
+   word_allocProofTheory.call_arg_convention_def,
+   wordPropsTheory.every_var_def,
+   wordPropsTheory.every_stack_var_def]
 
 val compile_correct = prove(
   ``!(prog:'a wordLang$prog) s k f f' res s1 t.
       (evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
-      state_rel k f f' s t /\
-      max_var prog <= 2 * f' ==>
+      state_rel k f f' s t /\ post_alloc_conventions k prog /\
+      max_var prog <= 2 * f' + 2 * k ==>
       ?t1 res1. (evaluate (comp prog (k,f),t) = (res1,t1)) /\
                 if res <> res1 then (res1 = SOME NotEnoughSpace) else
                   case res of
@@ -123,6 +170,7 @@ val compile_correct = prove(
                   | SOME (Result v1 v2) => state_rel k 0 0 s1 t1
                   | SOME (Exception v1 v2) => state_rel k 0 0 s1 t1
                   | SOME _ => T``,
+
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)
    (fs [wordSemTheory.evaluate_def,
@@ -143,9 +191,57 @@ val compile_correct = prove(
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
     \\ Cases_on `evaluate (c1,s)` \\ fs []
+    \\ `max_var c1 <= 2 * f' + 2 * k /\ max_var c2 <= 2 * f' + 2 * k` by
+      (fs [word_allocTheory.max_var_def] \\ decide_tac)
+    \\ `post_alloc_conventions k c1 /\
+        post_alloc_conventions k c2` by fs [convs_def]
+    \\ first_x_assum (mp_tac o Q.SPECL [`k`,`f`,`f'`,`t`])
+    \\ Cases_on `q = SOME Error` \\ fs []
+    \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `q` \\ fs []
-    \\ cheat (* easy? *))
-  THEN1 (* Return *) cheat
+    \\ Cases_on `res1` \\ fs [] \\ rw [])
+  THEN1 (* Return *)
+   (fs [wordSemTheory.evaluate_def,LET_DEF,
+        stackSemTheory.evaluate_def,comp_def,wReg1_def]
+    \\ Cases_on `get_var n s` \\ fs []
+    \\ Cases_on `get_var m s` \\ fs [] \\ rw []
+    \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
+    \\ fs [reg_allocTheory.is_phy_var_def,word_allocTheory.max_var_def]
+    \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
+        t.stack_space <= LENGTH t.stack` by
+     (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
+    \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
+    THEN1
+     (`(get_var (n DIV 2) t = SOME x) /\ (get_var 1 t = SOME x')` by
+       (fs [state_rel_def,get_var_def,LET_DEF]
+        \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+        \\ fs [stackSemTheory.get_var_def])
+      \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
+      \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+             fromList2_def,lookup_def]
+      \\ fs [AC ADD_ASSOC ADD_COMM]
+      \\ imp_res_tac DROP_DROP \\ fs [])
+    \\ `~(LENGTH t.stack < t.stack_space + (f + k - n DIV 2)) /\
+        (EL (t.stack_space + (f + k - n DIV 2)) t.stack = x) /\
+        (get_var 1 t = SOME x')` by
+     (fs [state_rel_def,get_var_def,LET_DEF]
+      \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+      \\ fs [stackSemTheory.get_var_def]
+      \\ imp_res_tac ANY_EL_TAKE_IMP
+      \\ fs [ANY_EL_DROP] \\ fs [ANY_EL_THM] \\ decide_tac)
+    \\ fs [LET_DEF]
+    \\ `(set_var k x t).use_stack /\
+        (set_var k x t).stack_space <= LENGTH (set_var k x t).stack` by
+      fs [stackSemTheory.set_var_def]
+    \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
+    \\ fs [stackSemTheory.set_var_def,LET_DEF]
+    \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
+    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,
+           lookup_insert]
+    \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
+           fromList2_def,lookup_def]
+    \\ fs [AC ADD_ASSOC ADD_COMM]
+    \\ imp_res_tac DROP_DROP \\ fs [])
   THEN1 (* Raise *) cheat
   THEN1 (* If *) cheat
   \\ (* Call *) cheat);
@@ -154,9 +250,7 @@ val _ = save_thm("compile_correct",compile_correct);
 
 (*
    TODO:
-    - assume syntax restrictions on word progs (based on reg alloc)
     - also assume absence of Assign and Store, and only simple form of Set
-    - add DIV 2 in appropriate places
     - prove cases in order that should set correct state_rel_def
       sooner rather than later:
        - Alloc
