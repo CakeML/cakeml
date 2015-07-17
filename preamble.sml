@@ -1,6 +1,6 @@
 structure preamble =
 struct
-local open intLib in end
+local open intLib wordsLib in end
 open HolKernel bossLib boolLib boolSimps pairLib lcsymtacs
      Parse Defn Tactic res_quanTheory
      pairTheory optionTheory sumTheory combinTheory

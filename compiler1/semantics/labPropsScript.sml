@@ -24,4 +24,8 @@ val no_Label_def = Define `
   (no_Label (Section k (x::xs)::ys) = ~(is_Label x)) /\ (no_Label _ = F)`;
 val _ = export_rewrites["no_Label_def"];
 
+val no_Label_eq = store_thm("no_Label_eq",
+  ``no_Label p = ?k x xs ys. (p = Section k (x::xs)::ys) /\ ~is_Label x``,
+  Cases_on `p` \\ fs [] \\ Cases_on `h` \\ fs [] \\ Cases_on `l` \\ fs []);
+
 val _ = export_theory();
