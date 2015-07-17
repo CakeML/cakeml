@@ -39,6 +39,25 @@ val ANY_EL_DROP = prove(
   \\ rw [] \\ ONCE_REWRITE_TAC [ADD_COMM]
   \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
 
+(* move to props? *)
+
+val LENGTH_word_list_lemma = prove(
+  ``!xs d. 0 < d ==> (LENGTH (word_list xs d) = LENGTH xs DIV d + 1)``,
+  recInduct word_list_ind
+  \\ rpt strip_tac \\ fs []
+  \\ once_rewrite_tac [word_list_def] \\ fs [] \\ rw []
+  \\ imp_res_tac ZERO_DIV \\ fs [] \\ res_tac
+  \\ imp_res_tac LESS_DIV_EQ_ZERO \\ fs []
+  \\ fs [ADD1] \\ fs [NOT_LESS]
+  \\ imp_res_tac (ONCE_REWRITE_RULE [ADD_COMM] LESS_EQ_EXISTS)
+  \\ ASSUME_TAC (ADD_DIV_ADD_DIV |> Q.SPECL [`d`] |> UNDISCH
+      |> Q.SPECL [`1`,`p`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []);
+
+val LENGTH_word_list = store_thm("LENGTH_word_list",
+  ``!xs d. LENGTH (word_list xs d) = if d = 0 then 1 else LENGTH xs DIV d + 1``,
+  rw [] THEN1 (once_rewrite_tac [word_list_def] \\ fs [])
+  \\ match_mp_tac LENGTH_word_list_lemma \\ decide_tac);
+
 (* state relation *)
 
 val stack_names_def = Define `
@@ -128,9 +147,9 @@ val state_rel_def = Define `
     (!n ignore word_prog arg_count.
        (lookup n s.code = SOME (ignore,word_prog,arg_count)) ==>
        (lookup n t.code = SOME (word_to_stack$compile word_prog arg_count k))) /\
-    (lookup 0 t.code = SOME (raise_stub k)) /\
+    (lookup 0 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\
-    (if f = 0 then f' = 0 else (f = f' + (f' DIV (dimindex (:'a) - 1)) + 1)) /\
+    (if f = 0 then f' = 0 else (f = f' + (f' + 1) DIV (dimindex (:'a) - 1) + 1)) /\
     let stack = DROP t.stack_space t.stack in
     let current_frame = TAKE f stack in
     let rest_of_stack = DROP f stack in
@@ -158,19 +177,51 @@ val convs_def = LIST_CONJ
    wordPropsTheory.every_var_def,
    wordPropsTheory.every_stack_var_def]
 
+val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
+
+val LENGTH_write_bitmap = prove(
+  ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f ==>
+    (LENGTH ((write_bitmap names k f f'):'a word list) + f' = f)``,
+  fs [state_rel_def,write_bitmap_def,LET_DEF]
+  \\ fs [LENGTH_word_list] \\ rpt strip_tac
+  \\ `~(dimindex (:'a) <= 1) /\ f <> 0` by decide_tac \\ fs []
+  \\ decide_tac);
+
 val evaluate_wLive = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
     (cut_env names s.locals = SOME env) ==>
-    ?t5. (evaluate (wLive names (k,f),t) = (NONE,t5)) /\
-         state_rel k 0 0 (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) s) t5 /\
+    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
+         state_rel k 0 0 (push_env env ^nn s) t5 /\
          state_rel k f f' s t5 /\
          (get_var 1 t5 = get_var 1 t)``,
+  fs [wLive_def]
+  \\ cheat);
+
+val push_env_set_store = prove(
+  ``push_env env ^nn (set_store AllocSize (Word c) s) =
+    set_store AllocSize (Word c) (push_env env ^nn s)``,
+  fs [push_env_def,set_store_def,env_to_list_def,LET_DEF]);
+
+val state_rel_set_store = prove(
+  ``state_rel k 0 0 s5 t5 ==>
+    state_rel k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5)``,
+  fs [state_rel_def,set_store_def,stackSemTheory.set_store_def,LET_DEF,
+      FLOOKUP_DEF,stack_names_def] \\ REPEAT STRIP_TAC \\ rfs[]
+  \\ fs [SUBMAP_DEF] \\ rw [FAPPLY_FUPDATE_THM]);
+
+val gc_state_rel = prove(
+  ``(gc s1 = SOME s2) /\ state_rel k 0 0 s1 t1 ==>
+    ?t2. gc t1 = SOME t2 /\ state_rel k 0 0 s2 t2``,
   cheat);
+
+val FLOOKUP_SUBMAP = prove(
+  ``(FLOOKUP f n = SOME x) /\ f SUBMAP g ==> (FLOOKUP g n = SOME x)``,
+  fs [FLOOKUP_DEF,SUBMAP_DEF] \\ metis_tac []);
 
 val alloc_IMP_alloc = prove(
   ``(alloc c names (s:'a wordSem$state) = (res:'a result option,s1)) /\
     state_rel k f f' s t5 /\
-    state_rel k 0 0 (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) s) t5 /\
+    state_rel k 0 0 (push_env env ^nn s) t5 /\
     (cut_env names s.locals = SOME env) /\
     res <> SOME Error ==>
     ?t1 res1.
@@ -179,14 +230,29 @@ val alloc_IMP_alloc = prove(
         res1 = NONE /\ state_rel k f f' s1 t1
       else
         res = SOME NotEnoughSpace /\ res1 = res``,
-  cheat);
+  fs [wordSemTheory.alloc_def,stackSemTheory.alloc_def]
+  \\ REPEAT STRIP_TAC \\ fs [push_env_set_store]
+  \\ imp_res_tac state_rel_set_store
+  \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
+  \\ Cases_on `gc (set_store AllocSize (Word c) (push_env env ^nn s))`
+  \\ fs [] \\ imp_res_tac gc_state_rel \\ NTAC 3 (POP_ASSUM (K ALL_TAC)) \\ fs []
+  \\ Cases_on `pop_env x` \\ fs []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
+  \\ `state_rel k f f' s3 t2` by cheat
+  \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fs []
+  \\ Cases_on `has_space x s3` \\ fs []
+  \\ `s3.store SUBMAP t2.store` by fs [state_rel_def]
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+  \\ fs [has_space_def,stackSemTheory.has_space_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []);
 
 val compile_correct = prove(
   ``!(prog:'a wordLang$prog) s k f f' res s1 t.
       (evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
       max_var prog <= 2 * f' + 2 * k /\ 1 <= f ==>
-      ?t1 res1. (evaluate (comp prog (k,f),t) = (res1,t1)) /\
+      ?t1 res1. (evaluate (comp prog (k,f,f'),t) = (res1,t1)) /\
                 if res <> res1 then (res1 = SOME NotEnoughSpace) else
                   case res of
                   | NONE => state_rel k f f' s1 t1
@@ -200,7 +266,7 @@ val compile_correct = prove(
   THEN1 (* Alloc *)
    (fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw []
-    \\ `n = 2` by (fs [convs_def] \\ cheat) \\ rw []
+    \\ `n = 2` by (fs [convs_def]) \\ rw []
     \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
        (fs [state_rel_def,get_var_def,LET_DEF]

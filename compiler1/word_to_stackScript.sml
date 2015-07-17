@@ -8,25 +8,20 @@ open stackLangTheory parmoveTheory word_allocTheory;
 
 val _ = ParseExtras.tight_equality ();
 
-(* TODO: move *)
-
-val MAX_LIST_def = Define `
-  (MAX_LIST [] = 0) /\
-  (MAX_LIST (n::ns) = MAX n (MAX_LIST ns))`
-
 (* -- *)
 
 (* Here k = number of regsiters
     and f = size of stack frame
-    and kf = (k,f) *)
+    and f' = number of slots in stack frame (= f - bitmap_size)
+    and kf = (k,f,f') *)
 
 val wReg1_def = Define `
-  wReg1 r (k,f) =
+  wReg1 r (k,f,f':num) =
     let r = r DIV 2 in
       if r < k then ([],r) else ([(k,f+k-r)],k:num)`
 
 val wReg2_def = Define `
-  wReg2 r (k,f) =
+  wReg2 r (k,f,f':num) =
     let r = r DIV 2 in
       if r < k then ([],r) else ([(k+1,f+k-r)],k+1:num)`
 
@@ -35,7 +30,7 @@ val wRegImm2_def = Define `
   (wRegImm2 (Imm i) kf = ([],Imm i))`
 
 val wRegWrite1_def = Define `
-  wRegWrite1 g r (k,f) =
+  wRegWrite1 g r (k,f,f':num) =
     let r = r DIV 2 in
       if r < k then g r else Seq (g k) (StackStore k (f+k-r))`
 
@@ -48,7 +43,7 @@ val wStackStore_def = Define `
   (wStackStore ((r,i)::ps) x = Seq (wStackStore ps x) (StackStore r i))`
 
 val wMoveSingle_def = Define `
-  wMoveSingle (x,y) (k,f) =
+  wMoveSingle (x,y) (k,f,f':num) =
     case (y,x) of
     | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
     | (INL r1, INR r2) => StackLoad r1 (f+k-r2)
@@ -72,8 +67,8 @@ val format_result_def = Define `
   format_result k (y,x) = (format_var k x, format_var k y)`;
 
 val wMove_def = Define `
-  wMove xs (k,f) =
-    wMoveAux (MAP (format_result k) (parmove (MAP pair_swap xs))) (k,f)`;
+  wMove xs (k,f:num,f':num) =
+    wMoveAux (MAP (format_result k) (parmove (MAP pair_swap xs))) (k,f,f')`;
 
 val wInst_def = Define `
   (wInst Skip kf = Inst Skip) /\
@@ -101,9 +96,9 @@ val word_list_def = tDefine "word_list" `
   \\ fs [LENGTH_DROP] \\ DECIDE_TAC)
 
 val write_bitmap_def = Define `
-  (write_bitmap live k f):'a word list =
+  (write_bitmap live k f f'):'a word list =
     let names = MAP (\(r,y). f+k-r) (toAList live) in
-      word_list (GENLIST (\x. MEM x names) f ++ [T]) (dimindex(:'a) - 1)`
+      word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
 
 val wLiveAux_def = tDefine "wLiveAux" `
   wLiveAux (xs:'a word list) r index =
@@ -115,7 +110,7 @@ val wLiveAux_def = tDefine "wLiveAux" `
  (WF_REL_TAC `measure (LENGTH o FST)` \\ fs [] \\ decide_tac);
 
 val wLive_def = Define `
-  wLive live (k,f) = wLiveAux (write_bitmap live k f) k 0`;
+  wLive live (k,f,f') = wLiveAux (write_bitmap live k f f') k 0`;
 
 val SeqStackFree_def = Define `
   SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`
@@ -134,7 +129,7 @@ val stack_arg_count_def = Define `
     | NONE => ((arg_count - 1) - k:num)`
 
 val stack_free_def = Define `
-  stack_free dest arg_count (k,f) =
+  stack_free dest arg_count (k,f,f':num) =
     f - stack_arg_count dest arg_count k`
 
 val stack_move_def = Define `
@@ -144,7 +139,7 @@ val stack_move_def = Define `
          (Seq (StackLoad i k1) (StackStore i k2)))`
 
 val StackArgs_def = Define `
-  StackArgs dest arg_count (k,f) =
+  StackArgs dest arg_count (k,f,f':num) =
     let n = stack_arg_count dest arg_count k in
       stack_move n f 0 k (StackAlloc n)`
 
@@ -154,7 +149,7 @@ val comp_def = Define `
   (comp (Inst i) kf = wInst i kf) /\
   (comp (Return v1 v2) kf =
      let (xs,x) = wReg1 v1 kf in
-       wStackLoad xs (SeqStackFree (SND kf) (Return x 1))) /\
+       wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1))) /\
   (comp (Raise v) kf = Call NONE (INL 0) NONE) /\
   (comp (Tick) kf = Tick) /\
   (comp (Seq p1 p2) kf =
@@ -200,8 +195,9 @@ val compile_def = Define `
   compile (prog:'a wordLang$prog) arg_count reg_count =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
-    let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
+    let bitmap_size = (stack_var_count + 1) DIV (dimindex (:'a) - 1) + 1 in
     let f = stack_var_count + bitmap_size in
-      Seq (StackAlloc (f - stack_arg_count)) (comp prog (reg_count,f))`
+      Seq (StackAlloc (f - stack_arg_count))
+          (comp prog (reg_count,f,stack_var_count))`
 
 val _ = export_theory();
