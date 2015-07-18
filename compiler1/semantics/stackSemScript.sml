@@ -69,7 +69,7 @@ val read_bitmap_LENGTH = store_thm("read_bitmap_LENGTH",
 
 val _ = Datatype `
   state =
-    <| regs    : ('a word_loc) num_map
+    <| regs    : num |-> 'a word_loc
      ; store   : store_name |-> 'a word_loc
      ; stack   : ('a word_loc) list
      ; stack_space : num
@@ -101,7 +101,7 @@ val dec_clock_def = Define `
 val word_exp_def = tDefine "word_exp" `
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
-     case lookup v s.regs of
+     case FLOOKUP s.regs v of
      | SOME (Word w) => SOME w
      | _ => NONE) /\
   (word_exp s (Lookup name) =
@@ -127,7 +127,7 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:'a stackSem$state) = sptree$lookup v s.regs`;
+  get_var v (s:'a stackSem$state) = FLOOKUP s.regs v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -140,11 +140,7 @@ val get_vars_def = Define `
 
 val set_var_def = Define `
   set_var v x (s:'a stackSem$state) =
-    (s with regs := (insert v x s.regs))`;
-
-val set_vars_def = Define `
-  set_vars vs xs (s:'a stackSem$state) =
-    (s with regs := (alist_insert vs xs s.regs))`;
+    (s with regs := (s.regs |+ (v,x)))`;
 
 val set_store_def = Define `
   set_store v x (s:'a stackSem$state) = (s with store := s.store |+ (v,x))`;
@@ -172,7 +168,7 @@ val check_clock_IMP = prove(
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val empty_env_def = Define `
-  empty_env (s:'a stackSem$state) = s with <| regs := LN ; stack := [] |>`;
+  empty_env (s:'a stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
 val enc_stack_def = tDefine "enc_stack" `
   (enc_stack [] = SOME []) /\
@@ -279,7 +275,7 @@ val get_var_imm_def = Define`
 val find_code_def = Define `
   (find_code (INL p) regs code = sptree$lookup p code) /\
   (find_code (INR r) regs code =
-     case lookup r regs of
+     case FLOOKUP regs r of
        SOME (Loc loc 0) => lookup loc code
      | other => NONE)`
 

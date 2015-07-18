@@ -39,6 +39,18 @@ val ANY_EL_DROP = prove(
   \\ rw [] \\ ONCE_REWRITE_TAC [ADD_COMM]
   \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
 
+val list_LUPDATE_def = Define `
+  (list_LUPDATE [] n ys = ys) /\
+  (list_LUPDATE (x::xs) n ys = list_LUPDATE xs (n+1) (LUPDATE x n ys))`
+
+val LENGTH_list_LUPDATE = store_thm("LENGTH_list_LUPDATE[simp]",
+  ``!xs n ys. LENGTH (list_LUPDATE xs n ys) = LENGTH ys``,
+  Induct \\ fs [list_LUPDATE_def]);
+
+val FLOOKUP_FUPDATE_THM = store_thm("FLOOKUP_FUPDATE_THM",
+  ``FLOOKUP (f |+ (k1,v)) k2 = if k1 = k2 then SOME v else FLOOKUP f k2``,
+  fs [FLOOKUP_DEF] \\ rw [FAPPLY_FUPDATE_THM] \\ fs []);
+
 (* move to props? *)
 
 val LENGTH_word_list_lemma = prove(
@@ -158,7 +170,7 @@ val state_rel_def = Define `
       (!n v.
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
-        if n DIV 2 < k then (lookup (n DIV 2) t.regs = SOME v)
+        if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
         else (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\ n DIV 2 < k + f')`
 
 (* correctness proof *)
@@ -181,20 +193,59 @@ val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
 val LENGTH_write_bitmap = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f ==>
-    (LENGTH ((write_bitmap names k f f'):'a word list) + f' = f)``,
+    (LENGTH ((write_bitmap (names:num_set) k f f'):'a word list) + f' = f)``,
   fs [state_rel_def,write_bitmap_def,LET_DEF]
   \\ fs [LENGTH_word_list] \\ rpt strip_tac
   \\ `~(dimindex (:'a) <= 1) /\ f <> 0` by decide_tac \\ fs []
   \\ decide_tac);
 
+val evaluate_wLiveAux = prove(
+  ``!xs k i t.
+      xs <> [] /\ t.stack_space + i + LENGTH xs <= LENGTH t.stack /\
+      t.use_stack ==>
+      evaluate (wLiveAux xs k i,t) = (NONE,
+        t with <| stack := list_LUPDATE (MAP Word xs) (t.stack_space + i) t.stack ;
+                  regs := t.regs |+ (k, (Word (LAST xs))) |>)``,
+  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ once_rewrite_tac [wLiveAux_def]
+  \\ simp_tac bool_ss [Once wLiveAux_def] \\ fs []
+  \\ fs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+         stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_DEF,
+         stackSemTheory.set_var_def,stackSemTheory.get_var_def]
+  \\ rpt strip_tac
+  \\ qmatch_assum_rename_tac `s.use_stack`
+  \\ `~(LENGTH s.stack < i)` by decide_tac
+  \\ fs [list_LUPDATE_def,FLOOKUP_FUPDATE_THM]
+  \\ first_x_assum (mp_tac o Q.SPECL [`k`,`i+1`,`s with
+   <|regs := s.regs |+ (k, Word h');
+     stack := LUPDATE (Word h') (s.stack_space + i) s.stack|>`])
+  \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 decide_tac
+  \\ rpt strip_tac \\ fs []
+  \\ fs [stackSemTheory.state_component_equality,AC ADD_COMM ADD_ASSOC])
+  |> Q.SPECL [`write_bitmap (names:num_set) k f f'`,`k`,`0`,`t`]
+  |> SIMP_RULE std_ss []
+
 val evaluate_wLive = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
     (cut_env names s.locals = SOME env) ==>
     ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
-         state_rel k 0 0 (push_env env ^nn s) t5 /\
+         state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
          state_rel k f f' s t5 /\
-         (get_var 1 t5 = get_var 1 t)``,
-  fs [wLive_def]
+         !i. i < k ==> get_var i t5 = get_var i t``,
+  fs [wLive_def] \\ rpt strip_tac
+  \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
+  \\ mp_tac evaluate_wLiveAux
+  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
+   (imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
+    \\ fs [state_rel_def,GSYM LENGTH_NIL]
+    \\ `f <> 0` by decide_tac
+    \\ fs [] \\ rfs[] \\ decide_tac)
+  \\ rpt strip_tac \\ fs [] \\ pop_assum (K all_tac)
+  \\ fs [stackSemTheory.get_var_def,FLOOKUP_FUPDATE_THM,
+         DECIDE ``i < k ==> i <> k:num``]
+  \\ fs [push_env_def,LET_DEF,state_rel_def,env_to_list_def,FUN_EQ_THM,
+         FLOOKUP_FUPDATE_THM,DECIDE ``i < k ==> i <> k:num``]
+  \\ `t.stack_space <= LENGTH t.stack` by decide_tac \\ fs [lookup_def]
   \\ cheat);
 
 val push_env_set_store = prove(
@@ -218,10 +269,39 @@ val FLOOKUP_SUBMAP = prove(
   ``(FLOOKUP f n = SOME x) /\ f SUBMAP g ==> (FLOOKUP g n = SOME x)``,
   fs [FLOOKUP_DEF,SUBMAP_DEF] \\ metis_tac []);
 
+val alloc_alt = prove(
+  ``FST (alloc c names (s:'a wordSem$state)) <> SOME (Error:'a result) ==>
+    (alloc c names (s:'a wordSem$state) =
+     case cut_env names s.locals of
+       NONE => (SOME Error,s)
+     | SOME env =>
+         case gc (set_store AllocSize (Word c)
+                    (push_env env ^nn s with locals := LN)) of
+           NONE => (SOME Error,s)
+         | SOME s' =>
+             case pop_env s' of
+               NONE => (SOME Error,s')
+             | SOME s' =>
+                 case FLOOKUP s'.store AllocSize of
+                   NONE => (SOME Error,s')
+                 | SOME w =>
+                     case has_space w s' of
+                       NONE => (SOME Error,s')
+                     | SOME T => (NONE,s')
+                     | SOME F =>
+                         (SOME NotEnoughSpace,
+                          call_env [] s' with stack := []))``,
+  fs [alloc_def]
+  \\ Cases_on `cut_env names s.locals` \\ fs []
+  \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,env_to_list_def,pop_env_def]
+  \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [state_component_equality] \\ rw []
+  \\ fs [state_component_equality] \\ rw []);
+
 val alloc_IMP_alloc = prove(
   ``(alloc c names (s:'a wordSem$state) = (res:'a result option,s1)) /\
     state_rel k f f' s t5 /\
-    state_rel k 0 0 (push_env env ^nn s) t5 /\
+    state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
     (cut_env names s.locals = SOME env) /\
     res <> SOME Error ==>
     ?t1 res1.
@@ -230,11 +310,14 @@ val alloc_IMP_alloc = prove(
         res1 = NONE /\ state_rel k f f' s1 t1
       else
         res = SOME NotEnoughSpace /\ res1 = res``,
-  fs [wordSemTheory.alloc_def,stackSemTheory.alloc_def]
+  Cases_on `FST (alloc c names (s:'a wordSem$state)) = SOME (Error:'a result)`
+  THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
+  \\ fs [alloc_alt,stackSemTheory.alloc_def]
   \\ REPEAT STRIP_TAC \\ fs [push_env_set_store]
   \\ imp_res_tac state_rel_set_store
   \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
-  \\ Cases_on `gc (set_store AllocSize (Word c) (push_env env ^nn s))`
+  \\ Cases_on `gc (set_store AllocSize (Word c)
+                     (push_env env ^nn s with locals := LN))`
   \\ fs [] \\ imp_res_tac gc_state_rel \\ NTAC 3 (POP_ASSUM (K ALL_TAC)) \\ fs []
   \\ Cases_on `pop_env x` \\ fs []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
@@ -276,6 +359,7 @@ val compile_correct = prove(
     THEN1 fs [wordSemTheory.alloc_def]
     \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
     \\ mp_tac evaluate_wLive \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+    \\ `1 < k` by fs [state_rel_def] \\ res_tac
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
     \\ mp_tac alloc_IMP_alloc \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
@@ -340,7 +424,7 @@ val compile_correct = prove(
     \\ fs [stackSemTheory.set_var_def,LET_DEF]
     \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
     \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,
-           lookup_insert]
+           FLOOKUP_FUPDATE_THM]
     \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
