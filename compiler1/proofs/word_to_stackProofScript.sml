@@ -333,11 +333,38 @@ val evaluate_wLiveAux = prove(
 val DROP_list_LUPDATE_lemma =
   MATCH_MP DROP_list_LUPDATE (SPEC_ALL LESS_EQ_REFL) |> SIMP_RULE std_ss []
 
+val bits_to_word_bit = prove(
+  ``!bs i.
+      i < dimindex (:'a) /\ i < LENGTH bs ==>
+      ((bits_to_word bs:'a word) ' i = EL i bs)``,
+  Induct \\ fs [] \\ Cases_on `i` \\ fs []
+  \\ Cases \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
+       word_index,word_lsl_def,ADD1] \\ rpt strip_tac
+  \\ first_x_assum match_mp_tac \\ fs [] \\ decide_tac);
+
+val bits_to_word_NOT_0 = prove(
+  ``!bs. LENGTH bs <= dimindex (:'a) /\ EXISTS I bs ==>
+         (bits_to_word bs <> 0w:'a word)``,
+  fs [fcpTheory.CART_EQ] \\ rpt strip_tac
+  \\ fs [EXISTS_MEM,MEM_EL]
+  \\ Q.EXISTS_TAC `n`   \\ fs []
+  \\ `n < dimindex (:'a)` by decide_tac \\ fs [word_0]
+  \\ fs [bits_to_word_bit]);
+
+val MIN_ADD = prove(
+  ``MIN m1 m2 + n = MIN (m1 + n) (m2 + n)``,
+  fs [MIN_DEF] \\ decide_tac);
+
 val list_LUPDATE_write_bitmap_NOT_NIL = prove(
-  ``list_LUPDATE (MAP Word (write_bitmap names k f f')) 0 xs <> [Word 0w]``,
+  ``8 <= dimindex (:'a) ==>
+    (list_LUPDATE (MAP Word (write_bitmap names k f f')) 0 xs <>
+     [Word (0w:'a word)])``,
   Cases_on `xs` \\ fs [list_LUPDATE_NIL]
   \\ fs [write_bitmap_def,LET_DEF,Once word_list_def]
-  \\ rw [] \\ cheat (* true *));
+  \\ strip_tac \\ `~(dimindex (:'a) <= 1)` by decide_tac \\ fs []
+  \\ rw [] \\ rpt disj1_tac
+  \\ match_mp_tac bits_to_word_NOT_0 \\ fs [LENGTH_TAKE_EQ]
+  \\ fs [MIN_LE,MIN_ADD] \\ decide_tac);
 
 val read_bitmap_write_bitmap = prove(
   ``t.stack_space + f <= LENGTH t.stack /\
