@@ -2,7 +2,7 @@ open preamble ffiTheory
      labSemTheory labPropsTheory
      lab_to_targetTheory
      asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory;
+     targetSemTheory targetPropsTheory;
 
 val _ = new_theory "lab_to_targetProof";
 
@@ -502,7 +502,7 @@ val CallFFI_bytearray_lemma = prove(
        asm_write_bytearray c1 new_bytes t1.mem a)``,
   cheat);
 
-val state_rel_correct = Q.prove(
+val compile_correct = Q.prove(
   `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
      backend_correct_alt mc_conf.f mc_conf.asm_config /\
@@ -511,7 +511,6 @@ val state_rel_correct = Q.prove(
        (evaluate mc_conf s1.io_events (s1.clock + k) ms1 =
           (if s2.io_events = NONE then Error IO_mismatch
            else res,ms2,s2.io_events))`,
-
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
@@ -526,31 +525,31 @@ val state_rel_correct = Q.prove(
     \\ qmatch_assum_rename_tac `read_reg r1 s1 = Loc l1 l2`
     \\ Cases_on `loc_to_pc l1 l2 s1.code` \\ fs []
     \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`JumpReg r1`]
-         asm_step_IMP_mEval_step) \\ fs []
+         asm_step_IMP_evaluate_step) \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [state_rel_def,asm_def,LET_DEF]
       \\ fs [asm_step_alt_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ fs [IMP_bytes_in_memory_JumpReg,asmTheory.upd_pc_def,asmTheory.assert_def]
+      \\ fs [IMP_bytes_in_memory_JumpReg,asmSemTheory.upd_pc_def,asmSemTheory.assert_def]
       \\ imp_res_tac IMP_bytes_in_memory_JumpReg \\ fs []
-      \\ fs [asmTheory.read_reg_def,read_reg_def]
-      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ fs [asmSemTheory.read_reg_def,labSemTheory.read_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def,labSemTheory.read_reg_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
       \\ strip_tac \\ rfs []
       \\ fs [word_loc_val_def]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ fs []
       \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
-      \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
+      \\ cheat )
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
          `code2`,`labs`,`(asm (JumpReg r1)
             (t1.pc + n2w (LENGTH (mc_conf.f.encode (JumpReg r1)))) t1)`,`ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
-      \\ fs [asmTheory.upd_pc_def,asmTheory.assert_def,asmTheory.read_reg_def,
-             dec_clock_def,upd_pc_def,assert_def,read_reg_def]
-      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,asmSemTheory.read_reg_def,
+             dec_clock_def,labSemTheory.upd_pc_def,labSemTheory.assert_def,labSemTheory.read_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def,labSemTheory.read_reg_def]
       \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
       \\ strip_tac \\ rfs []
@@ -559,13 +558,12 @@ val state_rel_correct = Q.prove(
       \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
       \\ RES_TAC \\ fs [] \\ rpt strip_tac \\ res_tac \\ rw []
-      \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
+      \\ cheat)
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
     \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
-    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
-    \\ rpt strip_tac \\ res_tac \\ rfs [])
+    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def])
   THEN1 (* Jump *)
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (Jump target) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
@@ -577,14 +575,14 @@ val state_rel_correct = Q.prove(
     \\ rpt strip_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
     \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
-         asm_step_IMP_mEval_step) \\ fs []
+         asm_step_IMP_evaluate_step) \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [state_rel_def,asm_def,LET_DEF]
       \\ fs [asm_step_alt_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ fs [asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
       \\ rfs [] \\ unabbrev_all_tac
-      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+      \\ fs [asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def,asm_def])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
          `code2`,`labs`,
@@ -592,8 +590,8 @@ val state_rel_correct = Q.prove(
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (unabbrev_all_tac
       \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
-      \\ fs [asmTheory.upd_pc_def,asmTheory.assert_def,asmTheory.read_reg_def,
-             dec_clock_def,upd_pc_def,assert_def,read_reg_def,asm_def,
+      \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,asmSemTheory.read_reg_def,
+             dec_clock_def,labSemTheory.upd_pc_def,labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
              jump_to_offset_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
@@ -606,8 +604,7 @@ val state_rel_correct = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
     \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
-    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
-    \\ rpt strip_tac \\ res_tac \\ rfs [])
+    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def])
 
   THEN1 (* JumpCmp *) cheat
   THEN1 (* Call *) cheat
@@ -618,8 +615,8 @@ val state_rel_correct = Q.prove(
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)`
     \\ Cases_on `s1.regs s1.len_reg` \\ fs []
-    \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
     \\ Cases_on `s1.regs s1.link_reg` \\ fs []
+    \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
     \\ Cases_on `read_bytearray c' (w2n c) s1` \\ fs []
     \\ qmatch_assum_rename_tac `read_bytearray c1 (w2n c2) s1 = SOME x`
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
@@ -631,14 +628,14 @@ val state_rel_correct = Q.prove(
     \\ rpt strip_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
     \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
-         asm_step_IMP_mEval_step) \\ fs []
+         asm_step_IMP_evaluate_step) \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (fs [state_rel_def,asm_def,LET_DEF]
       \\ fs [asm_step_alt_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ fs [asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
       \\ rfs [] \\ unabbrev_all_tac
-      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+      \\ fs [asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def,asm_def])
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ fs []
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
@@ -647,25 +644,26 @@ val state_rel_correct = Q.prove(
       \\ fs [backend_correct_alt_def]
       \\ Q.PAT_ASSUM `!ms s. mc_conf.f.state_rel s ms ==> bbb` imp_res_tac
       \\ fs [] \\ unabbrev_all_tac
-      \\ fs [asm_def,jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ fs [asm_def,asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
       \\ rewrite_tac [GSYM word_sub_def,WORD_SUB_PLUS,
-           GSYM word_add_n2w,WORD_ADD_SUB]) \\ fs []
+           GSYM word_add_n2w,WORD_ADD_SUB]
+      \\ cheat) \\ fs[]
     \\ `has_io_index index s1.code` by
           (imp_res_tac IMP_has_io_index \\ NO_TAC)
     \\ `~(mc_conf.f.get_pc ms2 IN mc_conf.prog_addresses) /\
         ~(mc_conf.f.get_pc ms2 = mc_conf.halt_pc) /\
-        (list_find (mc_conf.f.get_pc ms2) mc_conf.ffi_entry_pcs =
+        (find_index (mc_conf.f.get_pc ms2) mc_conf.ffi_entry_pcs 0 =
            SOME index)` by
       (fs [state_rel_def]
        \\ Q.PAT_ASSUM `!kk. has_io_index kk s1.code ==> bbb` imp_res_tac
-       \\ rfs [])
+       \\ rfs [] \\ NO_TAC)
     \\ `(mc_conf.f.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
         (mc_conf.f.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
         !a. a IN mc_conf.prog_addresses ==>
             (mc_conf.f.get_byte ms2 a = t1.mem a)` by
      (fs [backend_correct_alt_def |> REWRITE_RULE [GSYM reg_ok_def]]
       \\ res_tac \\ unabbrev_all_tac \\ fs [state_rel_def,asm_def,
-           jump_to_offset_def,asmTheory.upd_pc_def] \\ NO_TAC) \\ fs []
+           jump_to_offset_def,asmSemTheory.upd_pc_def] \\ cheat \\ NO_TAC) \\ fs []
     \\ `(t1.regs mc_conf.ptr_reg = c1) /\
         (t1.regs mc_conf.len_reg = c2)` by
      (fs [state_rel_def]
@@ -681,7 +679,7 @@ val state_rel_correct = Q.prove(
      (imp_res_tac evaluate_pres_io_events_NONE \\ fs [] \\ rfs []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rpt strip_tac
       \\ Q.EXISTS_TAC `l'` \\ fs [ADD_ASSOC]
-      \\ once_rewrite_tac [mEval_def] \\ fs []
+      \\ once_rewrite_tac [targetSemTheory.evaluate_def] \\ fs []
       \\ fs [shift_interfer_def,LET_DEF]) \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
          `shift_interfer l' mc_conf with
