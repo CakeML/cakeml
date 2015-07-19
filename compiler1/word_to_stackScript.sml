@@ -195,7 +195,7 @@ val compile_def = Define `
   compile (prog:'a wordLang$prog) arg_count reg_count =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
-    let bitmap_size = (stack_var_count + 1) DIV (dimindex (:'a) - 1) + 1 in
+    let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
     let f = stack_var_count + bitmap_size in
       Seq (StackAlloc (f - stack_arg_count))
           (comp prog (reg_count,f,stack_var_count))`

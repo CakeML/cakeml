@@ -493,8 +493,7 @@ val APPEND_LEMMA = prove(
 val read_bitmap_write_bitmap = prove(
   ``t.stack_space + f <= LENGTH t.stack /\ 8 <= dimindex (:'a) /\
     (LENGTH (write_bitmap names k f f': 'a word list) + f' = f) /\
-    (if f = 0 then f' = 0
-       else f = f' + (f' + 1) DIV (dimindex (:'a) - 1) + 1) /\
+    (if f = 0 then f' = 0 else f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
     (1 <= f) ==>
     read_bitmap
       (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f f')) 0
@@ -528,8 +527,6 @@ val evaluate_wLive = prove(
          state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
          state_rel k f f' s t5 /\
          !i. i < k ==> get_var i t5 = get_var i t``,
-  cheat)
-(*
   fs [wLive_def] \\ rpt strip_tac
   \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
   \\ mp_tac evaluate_wLiveAux
@@ -579,7 +576,6 @@ val evaluate_wLive = prove(
     \\ match_mp_tac (MP_CANON LASTN_CONS)
     \\ imp_res_tac join_stacks_IMP_LENGTH \\ fs [])
   \\ cheat);
-*)
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
