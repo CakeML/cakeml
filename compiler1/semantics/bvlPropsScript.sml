@@ -146,6 +146,25 @@ val evaluate_Bool = Q.store_thm("evaluate_Bool[simp]",
   `evaluate ([Bool b],env,s) = (Rval [Boolv b],s)`,
   EVAL_TAC)
 
+fun split_tac q = Cases_on q \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) []
+
+val evaluate_expand_env = Q.store_thm("evaluate_expand_env",
+  `!xs a s env.
+     FST (evaluate (xs,a,s)) <> Rerr(Rabort Rtype_error) ==>
+     (evaluate (xs,a ++ env,s) = evaluate (xs,a,s))`,
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ POP_ASSUM MP_TAC
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss []
+  THEN1 (split_tac `evaluate ([x],env,s)` \\ split_tac `evaluate (y::xs,env,r)`)
+  THEN1 (Cases_on `n < LENGTH env` \\ FULL_SIMP_TAC (srw_ss()) []
+         \\ SRW_TAC [] [rich_listTheory.EL_APPEND1] \\ DECIDE_TAC)
+  THEN1 (split_tac `evaluate ([x1],env,s)` \\ SRW_TAC [] [])
+  THEN1 (split_tac `evaluate (xs,env,s)`)
+  THEN1 (split_tac `evaluate ([x1],env,s)`)
+  THEN1 (split_tac `evaluate ([x1],env,s1)` \\ BasicProvers.CASE_TAC >> simp[])
+  THEN1 (split_tac `evaluate (xs,env,s)`)
+  THEN1 (SRW_TAC [] [])
+  THEN1 (split_tac `evaluate (xs,env,s1)`));
+
 val inc_clock_def = Define `
   inc_clock ck s = s with clock := s.clock + ck`;
 
