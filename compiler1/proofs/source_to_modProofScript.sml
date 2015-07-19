@@ -1227,8 +1227,7 @@ val compile_exp_correct = Q.prove (
        rw [] >>
        fs [drestrict_iter_list]
        >- metis_tac [compile_funs_dom]
-       >- (`(\(x,y,z). x) = FST:tvarN # tvarN # exp -> tvarN` by (rw [FUN_EQ_THM] >>PairCases_on `x` >> rw []) >>
-           rw [] >>
+       >- (rw [FST_triple] >>
            fs [COMPL_UNION] >>
            metis_tac [INTER_COMM]))
   >- metis_tac []
