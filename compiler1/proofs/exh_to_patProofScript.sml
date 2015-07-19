@@ -6,6 +6,7 @@ open preamble
 val _ = new_theory"exh_to_patProof"
 
 val _ = temp_bring_to_front_overload"pure_op"{Name="pure_op",Thy="exh_to_pat"};
+val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
 
 val map_csg_def = decPropsTheory.map_csg_def
 val map_csg_count = decPropsTheory.map_csg_count
@@ -682,39 +683,39 @@ val compile_pat_correct = prove(
            ,exhPropsTheory.pmatch_any_no_match
            ,match_result_distinct])
 
-val compile_row_correct = prove(
-  ``(∀Nbvs0 p bvs0 s v menv bvs1 n f.
-       (Nbvs0 = NONE::bvs0) ∧
-       (pmatch (FST s) p v [] = Match menv) ∧
-       (compile_row Nbvs0 p = (bvs1,n,f))
-     ⇒ ∃menv4 bvs.
-        (bvs1 = bvs ++ bvs0) ∧
-        (LENGTH bvs = SUC n) ∧
-        (LENGTH menv4 = SUC n) ∧
-        (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
-         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
-        ∀ck env count genv e res.
-          evaluate ck (menv4++env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) e res ∧
-          SND res ≠ Rerr (Rabort Rtype_error) ⇒
-          evaluate ck (compile_v v::env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) (f e) res) ∧
-    (∀bvsk0 nk k ps tag s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
-      (pmatch_list (FST s) qs (TAKE k vs) [] = Match menvk) ∧
-      (pmatch_list (FST s) ps (DROP k vs) [] = Match menv) ∧
-      (compile_cols bvsk0 nk k ps = (bvs1,n1,f)) ∧
-      (bvsk0 = bvsk ++ NONE::bvs0) ∧
-      (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
-      (LENGTH menv4k = LENGTH bvsk) ∧
-      (FILTER (IS_SOME o FST) (ZIP(bvsk,menv4k)) =
-       MAP (λ(x,v). (SOME x, compile_v v)) menvk)
+val compile_row_correct = Q.prove(
+  `(∀Nbvs0 p bvs0 s v menv bvs1 n f.
+      (Nbvs0 = NONE::bvs0) ∧
+      (pmatch (FST s) p v [] = Match menv) ∧
+      (compile_row Nbvs0 p = (bvs1,n,f))
     ⇒ ∃menv4 bvs.
-        (bvs1 = bvs ++ bvsk ++ NONE::bvs0) ∧
-        (LENGTH bvs = n1) ∧ (LENGTH menv4 = n1) ∧
-        (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
-         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
-        ∀ck env count genv e res.
-          evaluate ck (menv4++menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) e res ∧
-          SND res ≠ Rerr (Rabort Rtype_error) ⇒
-          evaluate ck (menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) (f e) res)``,
+       (bvs1 = bvs ++ bvs0) ∧
+       (LENGTH bvs = SUC n) ∧
+       (LENGTH menv4 = SUC n) ∧
+       (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
+        MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
+       ∀ck env count genv e res.
+         evaluate ck (menv4++env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) e res ∧
+         SND res ≠ Rerr (Rabort Rtype_error) ⇒
+         evaluate ck (compile_v v::env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) (f e) res) ∧
+   (∀bvsk0 nk k ps tag s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+     (pmatch_list (FST s) qs (TAKE k vs) [] = Match menvk) ∧
+     (pmatch_list (FST s) ps (DROP k vs) [] = Match menv) ∧
+     (compile_cols bvsk0 nk k ps = (bvs1,n1,f)) ∧
+     (bvsk0 = bvsk ++ NONE::bvs0) ∧
+     (k = LENGTH qs) ∧ k ≤ LENGTH vs ∧ (LENGTH bvsk = nk) ∧
+     (LENGTH menv4k = LENGTH bvsk) ∧
+     (FILTER (IS_SOME o FST) (ZIP(bvsk,menv4k)) =
+      MAP (λ(x,v). (SOME x, compile_v v)) menvk)
+   ⇒ ∃menv4 bvs.
+       (bvs1 = bvs ++ bvsk ++ NONE::bvs0) ∧
+       (LENGTH bvs = n1) ∧ (LENGTH menv4 = n1) ∧
+       (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
+        MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
+       ∀ck env count genv e res.
+         evaluate ck (menv4++menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) e res ∧
+         SND res ≠ Rerr (Rabort Rtype_error) ⇒
+         evaluate ck (menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) (f e) res)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
     rw[pmatch_exh_def,compile_row_def] >> rw[] >>

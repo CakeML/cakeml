@@ -2,6 +2,8 @@ open preamble bvp_simpTheory bvpSemTheory;
 
 val _ = new_theory"bvp_simpProof";
 
+val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvpSem"};
+
 val evaluate_Seq_Skip = prove(
   ``!c s. evaluate (Seq c Skip,s) = evaluate (c,s)``,
   fs [evaluate_def,LET_DEF] \\ REPEAT STRIP_TAC
