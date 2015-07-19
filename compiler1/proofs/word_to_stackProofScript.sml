@@ -133,23 +133,41 @@ val list_LUPDATE_NIL = store_thm("list_LUPDATE_NIL[simp]",
   ``!xs i. list_LUPDATE xs i [] = []``,
   Induct \\ fs [list_LUPDATE_def,LUPDATE_def]);
 
+val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
+  ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
+  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
+
+val LUPDATE_TAKE_LEMMA = prove(
+  ``!xs n w. LUPDATE w n xs = TAKE n xs ++ LUPDATE w 0 (DROP n xs)``,
+  Induct \\ Cases_on `n` \\ fs [LUPDATE_def]);
+
+val TAKE_TAKE_MIN = prove(
+  ``!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs``,
+  Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
+  \\ rw [] \\ fs [] \\ TRY (`F` by decide_tac)
+  \\ `n = 1` by decide_tac \\ fs []);
+
+val TAKE_DROP_EQ = prove(
+  ``!xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)``,
+  Induct \\ fs [] \\ rw [] \\ fs []
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
+
 val list_LUPDATE_TAKE_DROP = store_thm("list_LUPDATE_TAKE_DROP",
-  ``!xs ys n.
+  ``!xs (ys:'a list) n.
        list_LUPDATE xs n ys = TAKE n ys ++ list_LUPDATE xs 0 (DROP n ys)``,
   Induct \\ simp_tac std_ss [Once list_LUPDATE_def]
   \\ once_rewrite_tac [list_LUPDATE_def] THEN1 fs []
   \\ pop_assum (fn th => once_rewrite_tac [th])
-  \\ fs [DROP_LUPDATE] \\ cheat);
+  \\ fs [DROP_LUPDATE,DROP_DROP_EQ,AC ADD_COMM ADD_ASSOC]
+  \\ simp_tac std_ss [Once LUPDATE_TAKE_LEMMA,TAKE_TAKE_MIN] \\ rpt strip_tac
+  \\ `MIN (n + 1) n = n`  by (fs [MIN_DEF] \\ decide_tac) \\ fs []
+  \\ AP_TERM_TAC \\ fs [TAKE_DROP_EQ,AC ADD_COMM ADD_ASSOC]);
 
 val list_LUPDATE_0_CONS = store_thm("list_LUPDATE_0_CONS[simp]",
   ``!xs x ys y. list_LUPDATE (x::xs) 0 (y::ys) = x :: list_LUPDATE xs 0 ys``,
   fs [list_LUPDATE_def,LUPDATE_def]
   \\ simp_tac std_ss [Once list_LUPDATE_TAKE_DROP] \\ fs []);
-
-val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
-  ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
-  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
-  \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
 (* move to stackProps? *)
 
