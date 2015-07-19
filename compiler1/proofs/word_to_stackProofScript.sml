@@ -6,6 +6,16 @@ val _ = new_theory "word_to_stackProof";
 
 (* TODO: move? *)
 
+val GENLIST_ID = prove(
+  ``!x. GENLIST (\i. EL i x) (LENGTH x) = x``,
+  HO_MATCH_MP_TAC SNOC_INDUCT
+  \\ fs [] \\ simp_tac std_ss [GENLIST,GSYM ADD1]
+  \\ fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
+  \\ rpt strip_tac \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ pop_assum (fn th => simp_tac std_ss [Once (GSYM th)])
+  \\ fs [GENLIST_FUN_EQ] \\ rw []
+  \\ match_mp_tac (GSYM rich_listTheory.EL_APPEND1) \\ fs []);
+
 val ANY_EL_def = Define `
   (ANY_EL n [] = NONE) /\
   (ANY_EL n (x::xs) = if n = 0n then SOME x else ANY_EL (n-1) xs)`
@@ -51,7 +61,97 @@ val FLOOKUP_FUPDATE_THM = store_thm("FLOOKUP_FUPDATE_THM",
   ``FLOOKUP (f |+ (k1,v)) k2 = if k1 = k2 then SOME v else FLOOKUP f k2``,
   fs [FLOOKUP_DEF] \\ rw [FAPPLY_FUPDATE_THM] \\ fs []);
 
-(* move to props? *)
+val TAKE_LUPDATE = store_thm("TAKE_LUPDATE[simp]",
+  ``!xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)``,
+  Induct \\ fs [LUPDATE_def]
+  \\ Cases_on `i` \\ fs [LUPDATE_def] \\ rw [LUPDATE_def]);
+
+val TAKE_list_LUPDATE = store_thm("TAKE_list_LUPDATE[simp]",
+  ``!ys xs n i. TAKE n (list_LUPDATE ys i xs) = list_LUPDATE ys i (TAKE n xs)``,
+  Induct \\ fs [list_LUPDATE_def]);
+
+val ANY_EL_LUPDATE = store_thm("ANY_EL_LUPDATE",
+  ``!xs i n x. ANY_EL n (LUPDATE x i xs) =
+               if i <> n then ANY_EL n xs else
+               if i < LENGTH xs then SOME x else NONE``,
+  Induct \\ fs [ANY_EL_def,LUPDATE_def]
+  \\ Cases_on `i` \\ fs [ANY_EL_def,LUPDATE_def]
+  \\ rpt strip_tac \\ rw [] \\ fs [] \\ `F` by decide_tac);
+
+val ANY_EL_list_LUPDATE_IGNORE = prove(
+  ``!xs i n ys.
+      i + LENGTH xs <= n ==>
+      ANY_EL n (list_LUPDATE xs i ys) = ANY_EL n ys``,
+  Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
+  \\ `(i+1) + LENGTH xs <= n` by decide_tac \\ res_tac
+  \\ `i <> n` by decide_tac \\ fs [ANY_EL_LUPDATE]);
+
+local
+  val DROP_LUPDATE_lemma1 = prove(
+    ``!xs n m h. n <= m ==>
+                 DROP n (LUPDATE h m xs) = LUPDATE h (m - n) (DROP n xs)``,
+    Induct \\ fs [LUPDATE_def] \\ rw []
+    \\ Cases_on `m` \\ fs [LUPDATE_def]
+    \\ qmatch_assum_rename_tac `n <= SUC i`
+    \\ `n - 1 <= i /\ (SUC i - n = i - (n - 1))` by decide_tac \\ fs [])
+  val DROP_LUPDATE_lemma2 = prove(
+    ``!xs n m h. m < n ==> DROP n (LUPDATE h m xs) = DROP n xs``,
+    Induct \\ fs [LUPDATE_def] \\ rw []
+    \\ Cases_on `m` \\ fs [LUPDATE_def]
+    \\ qmatch_assum_rename_tac `SUC i < n`
+    \\ first_x_assum match_mp_tac \\ decide_tac)
+in
+  val DROP_LUPDATE = store_thm("DROP_LUPDATE",
+    ``!n h m xs.
+        DROP n (LUPDATE h m xs) =
+        if m < n then DROP n xs else LUPDATE h (m - n) (DROP n xs)``,
+    rw [DROP_LUPDATE_lemma2]
+    \\ match_mp_tac DROP_LUPDATE_lemma1
+    \\ fs [NOT_LESS])
+end
+
+val DROP_list_LUPDATE = prove(
+  ``!ys n m xs.
+      n <= m ==>
+      DROP n (list_LUPDATE ys m xs) =
+      list_LUPDATE ys (m - n) (DROP n xs)``,
+  Induct
+  \\ fs [list_LUPDATE_def,LENGTH_NIL,PULL_FORALL]
+  \\ rpt strip_tac \\ `n <= m + 1` by decide_tac
+  \\ rw [] \\ `m + 1 - n = m - n + 1 /\ ~(m < n)` by decide_tac
+  \\ fs [DROP_LUPDATE]);
+
+val DROP_list_LUPDATE_IGNORE = prove(
+  ``!xs i ys n.
+      LENGTH xs + i <= n ==>
+      DROP n (list_LUPDATE xs i ys) = DROP n ys``,
+  Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
+  \\ `LENGTH xs + (i+1) <= n /\ i < n` by decide_tac
+  \\ fs [DROP_LUPDATE]);
+
+val list_LUPDATE_NIL = store_thm("list_LUPDATE_NIL[simp]",
+  ``!xs i. list_LUPDATE xs i [] = []``,
+  Induct \\ fs [list_LUPDATE_def,LUPDATE_def]);
+
+val list_LUPDATE_TAKE_DROP = store_thm("list_LUPDATE_TAKE_DROP",
+  ``!xs ys n.
+       list_LUPDATE xs n ys = TAKE n ys ++ list_LUPDATE xs 0 (DROP n ys)``,
+  Induct \\ simp_tac std_ss [Once list_LUPDATE_def]
+  \\ once_rewrite_tac [list_LUPDATE_def] THEN1 fs []
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [DROP_LUPDATE] \\ cheat);
+
+val list_LUPDATE_0_CONS = store_thm("list_LUPDATE_0_CONS[simp]",
+  ``!xs x ys y. list_LUPDATE (x::xs) 0 (y::ys) = x :: list_LUPDATE xs 0 ys``,
+  fs [list_LUPDATE_def,LUPDATE_def]
+  \\ simp_tac std_ss [Once list_LUPDATE_TAKE_DROP] \\ fs []);
+
+val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
+  ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
+  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
+
+(* move to stackProps? *)
 
 val LENGTH_word_list_lemma = prove(
   ``!xs d. 0 < d ==> (LENGTH (word_list xs d) = LENGTH xs DIV d + 1)``,
@@ -70,14 +170,21 @@ val LENGTH_word_list = store_thm("LENGTH_word_list",
   rw [] THEN1 (once_rewrite_tac [word_list_def] \\ fs [])
   \\ match_mp_tac LENGTH_word_list_lemma \\ decide_tac);
 
+(* move to wordProps? *)
+
+val list_rearrange_I = prove(
+  ``(list_rearrange I = I)``,
+  fs [list_rearrange_def,FUN_EQ_THM]
+  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF,GENLIST_ID]);
+
 (* state relation *)
 
 val stack_names_def = Define `
   stack_names = { Handler }`;
 
 val abs_stack_def = tDefine "abs_stack" `
-  (abs_stack [] = NONE) /\
-  (abs_stack xs =
+  abs_stack xs =
+    if xs = [] then NONE else
     if xs = [Word 0w] then SOME [] else
     case read_bitmap xs of
     | NONE => NONE
@@ -87,7 +194,7 @@ val abs_stack_def = tDefine "abs_stack" `
           let xs2 = DROP (LENGTH bs) rs in
             case abs_stack xs2 of
             | NONE => NONE
-            | SOME ys => SOME ((bs,rs1,xs1)::ys))`
+            | SOME ys => SOME ((bs,rs1,xs1)::ys)`
  (WF_REL_TAC `measure LENGTH`
   \\ REPEAT STRIP_TAC
   \\ imp_res_tac read_bitmap_LENGTH
@@ -119,9 +226,8 @@ val handler_val_def = Define `
     Word (n2w (t_stack_length - sum_abs_length (LASTN s_handler joined)))`
 
 val index_list_def = Define `
-  (index_list [] n = ([],n)) /\
-  (index_list (x::xs) n =
-     let (ys,k) = index_list xs n in ((k:num,x)::ys,k+1))`
+  (index_list [] n = []) /\
+  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
 
 val alist_eq_def = Define `
   alist_eq l1 l2 <=>
@@ -131,9 +237,8 @@ val joined_ok_def = Define `
   (joined_ok k [] len <=> T) /\
   (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1)])::rest) len <=>
      joined_ok k rest len /\
-     ?l2.
-       (filter_bitmap bs1 (FST (index_list xs1 k)) = SOME (l2,[])) /\
-       alist_eq l1 l2) /\
+     ?l2. (filter_bitmap bs1 (index_list xs1 k) = SOME (l2,[])) /\
+          alist_eq l1 l2) /\
   (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
                [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
      (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
@@ -225,6 +330,35 @@ val evaluate_wLiveAux = prove(
   |> Q.SPECL [`write_bitmap (names:num_set) k f f'`,`k`,`0`,`t`]
   |> SIMP_RULE std_ss []
 
+val DROP_list_LUPDATE_lemma =
+  MATCH_MP DROP_list_LUPDATE (SPEC_ALL LESS_EQ_REFL) |> SIMP_RULE std_ss []
+
+val list_LUPDATE_write_bitmap_NOT_NIL = prove(
+  ``list_LUPDATE (MAP Word (write_bitmap names k f f')) 0 xs <> [Word 0w]``,
+  Cases_on `xs` \\ fs [list_LUPDATE_NIL]
+  \\ fs [write_bitmap_def,LET_DEF,Once word_list_def]
+  \\ rw [] \\ cheat (* true *));
+
+val read_bitmap_write_bitmap = prove(
+  ``t.stack_space + f <= LENGTH t.stack /\
+    (if f = 0 then f' = 0
+       else f = f' + (f' + 1) DIV (dimindex (:'a) - 1) + 1) /\
+    (1 <= f) ==>
+    read_bitmap
+      (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f f')) 0
+         (DROP t.stack_space t.stack)) =
+    SOME (GENLIST (\x. MEM x (MAP (\(r,y). f + k - r) (toAList names))) f',
+          MAP Word (write_bitmap names k f f'): 'a word_loc list,
+          (DROP (f - f') (DROP t.stack_space t.stack)))``,
+  cheat);
+
+val join_stacks_IMP_LENGTH = prove(
+  ``!s aa joined.
+      join_stacks s aa = SOME joined ==> (LENGTH joined = LENGTH s)``,
+  recInduct (theorem "join_stacks_ind")
+  \\ fs [join_stacks_def] \\ rpt strip_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []);
+
 val evaluate_wLive = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
     (cut_env names s.locals = SOME env) ==>
@@ -243,9 +377,43 @@ val evaluate_wLive = prove(
   \\ rpt strip_tac \\ fs [] \\ pop_assum (K all_tac)
   \\ fs [stackSemTheory.get_var_def,FLOOKUP_FUPDATE_THM,
          DECIDE ``i < k ==> i <> k:num``]
+  \\ imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
   \\ fs [push_env_def,LET_DEF,state_rel_def,env_to_list_def,FUN_EQ_THM,
          FLOOKUP_FUPDATE_THM,DECIDE ``i < k ==> i <> k:num``]
   \\ `t.stack_space <= LENGTH t.stack` by decide_tac \\ fs [lookup_def]
+  \\ fs [DROP_list_LUPDATE_lemma]
+  \\ REVERSE (rpt strip_tac)
+  THEN1
+   (res_tac \\ rw [] \\ fs []
+    \\ qpat_assum `xx = SOME v` (fn th => once_rewrite_tac [GSYM th])
+    \\ match_mp_tac ANY_EL_list_LUPDATE_IGNORE \\ fs []
+    \\ decide_tac)
+  THEN1
+   (qpat_assum `stack_rel k s.handler s.stack xx yy tt` mp_tac
+    \\ match_mp_tac (METIS_PROVE [] ``(b1 = b2) ==> (b1 ==> b2)``)
+    \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE)
+    \\ fs [] \\ decide_tac)
+  \\ fs [stack_rel_def]
+  \\ simp_tac std_ss [Once abs_stack_def,GSYM LENGTH_NIL]
+  \\ fs [list_LUPDATE_write_bitmap_NOT_NIL]
+  \\ mp_tac read_bitmap_write_bitmap \\ fs []
+  \\ rpt strip_tac \\ pop_assum (K all_tac)
+  \\ `f' + (f - f') + t.stack_space = f + t.stack_space` by decide_tac
+  \\ fs [DROP_DROP_EQ,LET_DEF]
+  \\ `~(LENGTH t.stack <= t.stack_space) /\
+      ~(LENGTH t.stack < t.stack_space + (f - f' + f'))` by decide_tac
+  \\ fs [join_stacks_def]
+  \\ fs [joined_ok_def]
+  \\ `s.handler <= SUC (LENGTH s.stack)` by decide_tac
+  \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [list_rearrange_I]
+  \\ rpt strip_tac
+  THEN1
+   (fs [handler_val_def]
+    \\ NTAC 4 (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ match_mp_tac (MP_CANON LASTN_CONS)
+    \\ imp_res_tac join_stacks_IMP_LENGTH \\ fs [])
   \\ cheat);
 
 val push_env_set_store = prove(
