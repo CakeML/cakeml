@@ -1,6 +1,5 @@
-open preamble
-open wordLangTheory wordSemTheory
-open BasicProvers
+open preamble BasicProvers
+     wordLangTheory wordSemTheory
 
 (*
 Defines a stack swap lemma and a permutation swap lemma
@@ -8,6 +7,14 @@ Defines a stack swap lemma and a permutation swap lemma
 (*TODO: remove the last_n lemmas*)
 
 val _ = new_theory "wordProps";
+
+val get_vars_length_lemma = store_thm("get_vars_length_lemma",
+  ``!ls s y. get_vars ls s = SOME y ==>
+           LENGTH y = LENGTH ls``,
+  Induct>>fs[get_vars_def]>>
+  Cases_on`get_var h s`>>fs[]>>
+  Cases_on`get_vars ls s`>>fs[]>>
+  metis_tac[LENGTH])
 
 (*--Stack Swap Lemma--*)
 

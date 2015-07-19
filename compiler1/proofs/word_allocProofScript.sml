@@ -1,11 +1,13 @@
-open preamble
-open reg_allocTheory reg_allocProofTheory
-open wordLangTheory wordPropsTheory word_allocTheory wordSemTheory
-open BasicProvers
+open preamble BasicProvers
+     reg_allocTheory reg_allocProofTheory
+     wordLangTheory wordPropsTheory word_allocTheory wordSemTheory
 
 val _ = new_theory "word_allocProof";
 
+val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
+
 (*TODO: Fix all the list_insert theorem names to alist_insert*)
+(*TODO: refactor lemmas into Props etc. theories as appropriate *)
 
 (*Define syntactic invariants on the conventions*)
 
@@ -570,14 +572,6 @@ val apply_colour_exp_lemma = prove(
   >>
     EVERY_CASE_TAC>>fs[]>>res_tac>>fs[]>>
     metis_tac[])
-
-val get_vars_length_lemma = store_thm("get_vars_length_lemma",
-  ``!ls s y. get_vars ls s = SOME y ==>
-           LENGTH y = LENGTH ls``,
-  Induct>>fs[get_vars_def]>>
-  Cases_on`get_var h s`>>fs[]>>
-  Cases_on`get_vars ls s`>>fs[]>>
-  metis_tac[LENGTH])
 
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
