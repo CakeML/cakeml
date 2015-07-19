@@ -169,10 +169,21 @@ val list_LUPDATE_0_CONS = store_thm("list_LUPDATE_0_CONS[simp]",
   fs [list_LUPDATE_def,LUPDATE_def]
   \\ simp_tac std_ss [Once list_LUPDATE_TAKE_DROP] \\ fs []);
 
+val list_LUPDATE_APPEND = store_thm("list_LUPDATE_APPEND",
+  ``!xs ys zs.
+      LENGTH xs = LENGTH ys ==> (list_LUPDATE xs 0 (ys ++ zs) = xs ++ zs)``,
+  Induct \\ Cases_on `ys` \\ fs [list_LUPDATE_def]);
+
 (* move to stackProps? *)
 
+val DIV_ADD_1 = prove(
+  ``0 < d ==> (m DIV d + 1 = (m + d) DIV d)``,
+  rpt strip_tac
+  \\ ASSUME_TAC (ADD_DIV_ADD_DIV |> Q.SPECL [`d`] |> UNDISCH
+      |> Q.SPECL [`1`,`m`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []);
+
 val LENGTH_word_list_lemma = prove(
-  ``!xs d. 0 < d ==> (LENGTH (word_list xs d) = LENGTH xs DIV d + 1)``,
+  ``!xs d. 0 < d ==> (LENGTH (word_list xs d) = (LENGTH xs - 1) DIV d + 1)``,
   recInduct word_list_ind
   \\ rpt strip_tac \\ fs []
   \\ once_rewrite_tac [word_list_def] \\ fs [] \\ rw []
@@ -180,11 +191,14 @@ val LENGTH_word_list_lemma = prove(
   \\ imp_res_tac LESS_DIV_EQ_ZERO \\ fs []
   \\ fs [ADD1] \\ fs [NOT_LESS]
   \\ imp_res_tac (ONCE_REWRITE_RULE [ADD_COMM] LESS_EQ_EXISTS)
-  \\ ASSUME_TAC (ADD_DIV_ADD_DIV |> Q.SPECL [`d`] |> UNDISCH
-      |> Q.SPECL [`1`,`p`] |> ONCE_REWRITE_RULE [ADD_COMM]) \\ fs []);
+  THEN1 (`LENGTH xs - 1 < d` by decide_tac
+         \\ imp_res_tac LESS_DIV_EQ_ZERO \\ fs [])
+  \\ imp_res_tac DIV_ADD_1 \\ fs []
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ decide_tac);
 
 val LENGTH_word_list = store_thm("LENGTH_word_list",
-  ``!xs d. LENGTH (word_list xs d) = if d = 0 then 1 else LENGTH xs DIV d + 1``,
+  ``!xs d. LENGTH (word_list xs d) =
+           if d = 0 then 1 else (LENGTH xs - 1) DIV d + 1``,
   rw [] THEN1 (once_rewrite_tac [word_list_def] \\ fs [])
   \\ match_mp_tac LENGTH_word_list_lemma \\ decide_tac);
 
@@ -247,16 +261,11 @@ val index_list_def = Define `
   (index_list [] n = []) /\
   (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
 
-val alist_eq_def = Define `
-  alist_eq l1 l2 <=>
-    !x. lookup x (fromAList l1) = lookup x (fromAList l2)`;
-
 val joined_ok_def = Define `
   (joined_ok k [] len <=> T) /\
   (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1)])::rest) len <=>
      joined_ok k rest len /\
-     ?l2. (filter_bitmap bs1 (index_list xs1 k) = SOME (l2,[])) /\
-          alist_eq l1 l2) /\
+     (filter_bitmap bs1 (index_list xs1 k) = SOME (l1,[]))) /\
   (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
                [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
      (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
@@ -284,7 +293,7 @@ val state_rel_def = Define `
        (lookup n t.code = SOME (word_to_stack$compile word_prog arg_count k))) /\
     (lookup 0 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\
-    (if f = 0 then f' = 0 else (f = f' + (f' + 1) DIV (dimindex (:'a) - 1) + 1)) /\
+    (if f = 0 then f' = 0 else (f = f' + f' DIV (dimindex (:'a) - 1) + 1)) /\
     let stack = DROP t.stack_space t.stack in
     let current_frame = TAKE f stack in
     let rest_of_stack = DROP f stack in
@@ -360,6 +369,16 @@ val bits_to_word_bit = prove(
        word_index,word_lsl_def,ADD1] \\ rpt strip_tac
   \\ first_x_assum match_mp_tac \\ fs [] \\ decide_tac);
 
+val bits_to_word_miss = prove(
+  ``!bs i.
+      i < dimindex (:'a) /\ LENGTH bs <= i ==>
+      ~((bits_to_word bs:'a word) ' i)``,
+  Induct \\ fs [] THEN1 (EVAL_TAC \\ fs [word_0])
+  \\ Cases_on `i` \\ fs [] \\ NTAC 2 strip_tac
+  \\ `n < dimindex (:'a)` by decide_tac \\ res_tac
+  \\ Cases_on `h` \\ fs [bits_to_word_def,word_or_def,fcpTheory.FCP_BETA,
+       word_index,word_lsl_def,ADD1]);
+
 val bits_to_word_NOT_0 = prove(
   ``!bs. LENGTH bs <= dimindex (:'a) /\ EXISTS I bs ==>
          (bits_to_word bs <> 0w:'a word)``,
@@ -384,18 +403,116 @@ val list_LUPDATE_write_bitmap_NOT_NIL = prove(
   \\ match_mp_tac bits_to_word_NOT_0 \\ fs [LENGTH_TAKE_EQ]
   \\ fs [MIN_LE,MIN_ADD] \\ decide_tac);
 
+val LESS_EQ_LENGTH = prove(
+  ``!xs n. n <= LENGTH xs ==> ?xs1 xs2. xs = xs1 ++ xs2 /\ n = LENGTH xs1``,
+  once_rewrite_tac [EQ_SYM_EQ]
+  \\ Induct_on `n` \\ fs [LENGTH_NIL] \\ rpt strip_tac
+  \\ Cases_on `xs` \\ fs [] \\ res_tac \\ rw []
+  \\ Q.LIST_EXISTS_TAC [`h::xs1`,`xs2`] \\ fs []);
+
+val bit_length_bits_to_word = prove(
+  ``!qs.
+      LENGTH qs + 1 < dimindex (:'a) ==>
+      bit_length (bits_to_word (qs ++ [T])) = LENGTH qs + 1``,
+  cheat);
+
+val GENLIST_bits_to_word_alt = prove(
+  ``LENGTH (xs ++ ys) <= dimindex (:'a) ==>
+    GENLIST (\i. (bits_to_word (xs ++ ys):'a word) ' i) (LENGTH xs) = xs``,
+  fs [LIST_EQ_REWRITE] \\ rpt strip_tac
+  \\ `EL x xs = EL x (xs ++ ys)` by fs [EL_APPEND1]
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ match_mp_tac bits_to_word_bit
+  \\ fs [] \\ decide_tac);
+
+val GENLIST_bits_to_word = prove(
+  ``LENGTH qs' + 1 < dimindex (:'a) ==>
+    GENLIST (\i. (bits_to_word (qs' ++ [T]):'a word) ' i) (LENGTH qs') = qs'``,
+  rpt strip_tac \\ match_mp_tac GENLIST_bits_to_word_alt
+  \\ fs [] \\ decide_tac);
+
+val read_bitmap_word_list = prove(
+  ``8 <= dimindex (:'a) ==>
+    read_bitmap
+      (MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++
+        xs:'a word_loc list) =
+    SOME (qs,MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1)),xs)``,
+  completeInduct_on `LENGTH (qs:bool list)` \\ rpt strip_tac \\ fs [PULL_FORALL]
+  \\ rw [] \\ once_rewrite_tac [word_list_def]
+  \\ `dimindex (:'a) - 1 <> 0` by decide_tac \\ fs []
+  \\ Cases_on `LENGTH qs + 1 <= dimindex (:'a) - 1` \\ fs []
+  THEN1
+   (fs [read_bitmap_def]
+    \\ `~word_msb (bits_to_word (qs ++ [T]))` by
+     (fs [word_msb_def] \\ match_mp_tac bits_to_word_miss
+      \\ fs [] \\ decide_tac) \\ fs []
+    \\ `LENGTH qs + 1 < dimindex (:'a)` by decide_tac
+    \\ fs [bit_length_bits_to_word,GENLIST_bits_to_word])
+  \\ fs [read_bitmap_def]
+  \\ `dimindex (:'a) - 1 =
+        LENGTH (TAKE (dimindex (:'a) - 1) (qs ++ [T]))` by
+    (fs [LENGTH_TAKE_EQ,MIN_DEF] \\ decide_tac)
+  \\ `word_msb (bits_to_word (TAKE (dimindex (:'a) - 1)
+         (qs ++ [T]) ++ [T]) :'a word)` by
+   (fs [word_msb_def]
+    \\ (bits_to_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
+          |> SIMP_RULE std_ss [] |> MP_CANON |> match_mp_tac) \\ fs []
+    \\ REVERSE (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
+    \\ pop_assum (fn th => simp_tac std_ss [Once th])
+    \\ fs [EL_LENGTH_APPEND]) \\ fs []
+  \\ `DROP (dimindex (:'a) - 1) (qs ++ [T]) =
+      DROP (dimindex (:'a) - 1) qs ++ [T]` by
+   (match_mp_tac DROP_APPEND1 \\ fs [NOT_LESS] \\ decide_tac)
+  \\ `TAKE (dimindex (:'a) - 1) (qs ++ [T]) =
+      TAKE (dimindex (:'a) - 1) qs` by
+   (match_mp_tac TAKE_APPEND1 \\ fs [NOT_LESS] \\ decide_tac) \\ fs []
+  \\ first_x_assum (mp_tac o Q.SPEC `DROP (dimindex (:'a) - 1) qs`)
+  \\ match_mp_tac IMP_IMP \\ strip_tac
+  THEN1 (fs [LENGTH_DROP] \\ decide_tac)
+  \\ rpt strip_tac \\ fs []
+  \\ CONV_TAC (RAND_CONV (ONCE_REWRITE_CONV
+        [GSYM (Q.SPEC `dimindex (:'a) - 1`
+          (INST_TYPE [``:'a``|->``:bool``] TAKE_DROP))]))
+  \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ Q.ABBREV_TAC `ts = TAKE (dimindex (:'a) - 1) qs` \\ fs []
+  \\ match_mp_tac GENLIST_bits_to_word_alt \\ fs []
+  \\ decide_tac);
+
+val APPEND_LEMMA = prove(
+  ``n1 + n2 + n3 <= LENGTH xs ==>
+    ?xs2 xs3. (DROP n1 xs = xs2 ++ xs3) /\ n2 = LENGTH xs2``,
+  rpt strip_tac
+  \\ `n1 <= LENGTH xs` by decide_tac
+  \\ Q.PAT_ASSUM `n1 + n2 + n3 <= LENGTH xs` MP_TAC
+  \\ imp_res_tac LESS_EQ_LENGTH
+  \\ rw [DROP_LENGTH_APPEND]  \\ fs []
+  \\ `n2 <= LENGTH xs2` by decide_tac
+  \\ imp_res_tac LESS_EQ_LENGTH
+  \\ rw [] \\ metis_tac []);
+
 val read_bitmap_write_bitmap = prove(
-  ``t.stack_space + f <= LENGTH t.stack /\
+  ``t.stack_space + f <= LENGTH t.stack /\ 8 <= dimindex (:'a) /\
+    (LENGTH (write_bitmap names k f f': 'a word list) + f' = f) /\
     (if f = 0 then f' = 0
        else f = f' + (f' + 1) DIV (dimindex (:'a) - 1) + 1) /\
     (1 <= f) ==>
     read_bitmap
       (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f f')) 0
          (DROP t.stack_space t.stack)) =
-    SOME (GENLIST (\x. MEM x (MAP (\(r,y). f + k - r) (toAList names))) f',
+    SOME (GENLIST (\x. MEM x (MAP (\(r,y). f + k - (r DIV 2)) (toAList names))) f',
           MAP Word (write_bitmap names k f f'): 'a word_loc list,
           (DROP (f - f') (DROP t.stack_space t.stack)))``,
-  cheat);
+  fs [write_bitmap_def,LET_DEF]
+  \\ Q.ABBREV_TAC `qs = GENLIST
+           (\x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names))) f'`
+  \\ rpt strip_tac
+  \\ `t.stack_space + (f - f') + f' <= LENGTH t.stack` by
+    (`f <> 0` by decide_tac \\ fs [] \\ decide_tac)
+  \\ imp_res_tac APPEND_LEMMA
+  \\ fs [DROP_LENGTH_APPEND]
+  \\ `LENGTH (MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1) :'a word list)) =
+      LENGTH xs2` by (fs [] \\ decide_tac)
+  \\ imp_res_tac list_LUPDATE_APPEND \\ fs [read_bitmap_word_list]);
 
 val join_stacks_IMP_LENGTH = prove(
   ``!s aa joined.
@@ -411,6 +528,8 @@ val evaluate_wLive = prove(
          state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
          state_rel k f f' s t5 /\
          !i. i < k ==> get_var i t5 = get_var i t``,
+  cheat)
+(*
   fs [wLive_def] \\ rpt strip_tac
   \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
   \\ mp_tac evaluate_wLiveAux
@@ -460,6 +579,7 @@ val evaluate_wLive = prove(
     \\ match_mp_tac (MP_CANON LASTN_CONS)
     \\ imp_res_tac join_stacks_IMP_LENGTH \\ fs [])
   \\ cheat);
+*)
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =

@@ -90,14 +90,14 @@ val bits_to_word_def = Define `
 
 val word_list_def = tDefine "word_list" `
   word_list (xs:bool list) d =
-    if LENGTH xs < d \/ (d = 0) then [bits_to_word xs]
+    if LENGTH xs <= d \/ (d = 0) then [bits_to_word xs]
     else bits_to_word (TAKE d xs ++ [T]) :: word_list (DROP d xs) d`
  (WF_REL_TAC `measure (LENGTH o FST)`
   \\ fs [LENGTH_DROP] \\ DECIDE_TAC)
 
 val write_bitmap_def = Define `
   (write_bitmap live k f f'):'a word list =
-    let names = MAP (\(r,y). f+k-r) (toAList live) in
+    let names = MAP (\(r,y). f+k-(r DIV 2)) (toAList live) in
       word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
 
 val wLiveAux_def = tDefine "wLiveAux" `
