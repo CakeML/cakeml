@@ -1,0 +1,788 @@
+open preamble ffiTheory
+     labSemTheory labPropsTheory
+     lab_to_targetTheory
+     asmTheory asmSemTheory asmPropsTheory
+     targetSemTheory;
+
+val _ = new_theory "lab_to_targetProof";
+
+(* TODO: move *)
+
+val call_FFI_LENGTH = prove(
+  ``(call_FFI index x io = (new_bytes,new_io)) ==>
+    (LENGTH x = LENGTH new_bytes)``,
+  fs [call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
+  \\ rw [] \\ fs [listTheory.LENGTH_MAP]);
+
+(* -- *)
+
+val _ = Parse.temp_overload_on("option_ldrop",``λn l. OPTION_JOIN (OPTION_MAP (LDROP n) l)``)
+
+val option_ldrop_0 = prove(
+  ``!ll. option_ldrop 0 ll = ll``,
+  Cases \\ fs []);
+
+val option_ldrop_SUC = prove(
+  ``!k1 ll. option_ldrop (SUC k1) ll = option_ldrop 1 (option_ldrop k1 ll)``,
+  Cases_on `ll` \\ fs []
+  \\ REPEAT STRIP_TAC \\ fs [ADD1] \\ fs [LDROP_ADD]
+  \\ Cases_on `LDROP k1 x` \\ fs []);
+
+val option_ldrop_option_ldrop = prove(
+  ``!k1 ll k2.
+      option_ldrop k1 (option_ldrop k2 ll) = option_ldrop (k1 + k2) ll``,
+  Induct \\ fs [option_ldrop_0]
+  \\ REPEAT STRIP_TAC \\ fs [option_ldrop_SUC,ADD_CLAUSES]);
+
+val option_ldrop_lemma = prove(
+  ``(call_FFI index x io = (new_bytes,new_io)) /\ new_io <> NONE ==>
+    (new_io = option_ldrop 1 io)``,
+  fs [call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
+  \\ rw []
+  \\ Q.MATCH_ASSUM_RENAME_TAC `LTL ll <> NONE`
+  \\ `(ll = [||]) \/ ?h t. ll = h:::t` by metis_tac [llistTheory.llist_CASES]
+  \\ fs [llistTheory.LDROP1_THM]);
+
+val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
+
+val line_ok_def = Define `
+  (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
+     if EVEN pos then (l = 0) else (l = 1)) /\
+  (line_ok c enc labs pos (Asm b bytes l) <=>
+     (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c) /\
+  (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
+     let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
+     let bs = enc (Jump w1) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm a w bytes l) <=>
+     let target = find_pos (get_label a) labs in
+     let w1 = n2w target - n2w pos in
+     let bs = enc (lab_inst w1 a) in
+       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c)`
+
+val all_enc_ok_def = Define `
+  (all_enc_ok c enc labs pos [] = T) /\
+  (all_enc_ok c enc labs pos ((Section k [])::xs) =
+     all_enc_ok c enc labs (if EVEN pos then pos else pos+1) xs) /\
+  (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
+     line_ok c enc labs pos y /\
+     all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
+
+val has_odd_inst_def = Define `
+  (has_odd_inst [] = F) /\
+  (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
+  (has_odd_inst ((Section k (y::ys))::xs) <=>
+     ~EVEN (line_length y) \/ has_odd_inst ((Section k ys)::xs))`
+
+val line_similar_def = Define `
+  (line_similar (Label k1 k2 l) (Label k1' k2' l') <=> (k1 = k1') /\ (k2 = k2')) /\
+  (line_similar (Asm b bytes l) (Asm b' bytes' l') <=> (b = b')) /\
+  (line_similar (LabAsm a w bytes l) (LabAsm a' w' bytes' l') <=> (a = a')) /\
+  (line_similar _ _ <=> F)`
+
+val code_similar_def = Define `
+  (code_similar [] [] = T) /\
+  (code_similar ((Section s1 lines1)::rest1) ((Section s2 lines2)::rest2) <=>
+     code_similar rest1 rest2 /\
+     EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
+  (code_similar _ _ = F)`
+
+val lab_lookup_def = Define `
+  lab_lookup k1 k2 labs =
+    case lookup k1 labs of
+    | NONE => NONE
+    | SOME f => lookup k2 f`
+
+val lab_lookup_IMP = prove(
+  ``(lab_lookup l1 l2 labs = SOME x) ==>
+    (find_pos (Lab l1 l2) labs = x)``,
+  fs [lab_lookup_def,find_pos_def,lookup_any_def]
+  \\ BasicProvers.EVERY_CASE_TAC);
+
+val word_loc_val_def = Define `
+  (word_loc_val p labs (Word w) = SOME w) /\
+  (word_loc_val p labs (Loc k1 k2) =
+     case lab_lookup k1 k2 labs of
+     | NONE => NONE
+     | SOME q => SOME (p + n2w q))`;
+
+val word8_loc_val_def = Define `
+  (word8_loc_val p labs (Byte w) = SOME w) /\
+  (word8_loc_val p labs (LocByte k1 k2 n) =
+     case lookup k1 labs of
+     | NONE => NONE
+     | SOME f => case lookup k2 f of
+                 | NONE => NONE
+                 | SOME q => SOME (w2w (p + n2w q) >> (8 * n)))`;
+
+val bytes_in_mem_def = Define `
+  (bytes_in_mem a [] m md k <=> T) /\
+  (bytes_in_mem a (b::bs) m md k <=>
+     a IN md /\ ~(a IN k) /\ (m a = b) /\
+     bytes_in_mem (a+1w) bs m md k)`
+
+val bytes_in_mem_IMP = prove(
+  ``!xs p. bytes_in_mem p xs m dm dm1 ==> bytes_in_memory p xs m dm``,
+  Induct \\ fs [bytes_in_mem_def,bytes_in_memory_def]);
+
+val pos_val_def = Define `
+  (pos_val i pos [] =
+     if EVEN pos then pos else pos + 1) /\
+  (pos_val i pos ((Section k [])::xs) =
+     if EVEN pos then pos_val i pos xs else pos_val i (pos + 1) xs) /\
+  (pos_val i pos ((Section k (y::ys))::xs) =
+     if is_Label y
+     then pos_val i (pos + line_length y) ((Section k ys)::xs)
+     else if i = 0:num then pos
+          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
+
+val has_io_index_def = Define `
+  (has_io_index index [] = F) /\
+  (has_io_index index ((Section k [])::xs) = has_io_index index xs) /\
+  (has_io_index index ((Section k (y::ys))::xs) <=>
+     has_io_index index ((Section k ys)::xs) \/
+     case y of LabAsm (CallFFI i) _ _ _ => (i = index) | _ => F)`
+
+val asm_write_bytearray_def = Define `
+  (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
+  (asm_write_bytearray a (x::xs) m = asm_write_bytearray (a+1w) xs ((a =+ x) m))`
+
+val state_rel_def = Define `
+  state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a labSem$state) t1 ms1 <=>
+    mc_conf.f.state_rel t1 ms1 /\
+    (mc_conf.prog_addresses = t1.mem_domain) /\
+    ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
+    reg_ok s1.ptr_reg mc_conf.asm_config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
+    reg_ok s1.len_reg mc_conf.asm_config /\ (mc_conf.len_reg = s1.len_reg) /\
+    reg_ok s1.link_reg mc_conf.asm_config /\
+    (!ms2 k index new_bytes new_io t1 x.
+       mc_conf.f.state_rel
+         (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
+       (read_bytearray (t1.regs s1.ptr_reg) (LENGTH new_bytes)
+         (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) = SOME x) /\
+       (call_FFI index x (option_ldrop k s1.io_events) = (new_bytes,new_io)) /\
+       new_io <> NONE ==>
+       mc_conf.f.state_rel
+         (t1 with
+         <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
+           mem := asm_write_bytearray (t1.regs s1.ptr_reg) new_bytes t1.mem;
+           pc := t1.regs s1.link_reg|>)
+        (mc_conf.ffi_interfer k index new_bytes ms2)) /\
+    (!index.
+       has_io_index index s1.code ==>
+       ~(p - n2w ((3 + index) * ffi_offset) IN mc_conf.prog_addresses) /\
+       ~(p - n2w ((3 + index) * ffi_offset) = mc_conf.halt_pc) /\
+       (find_index (p - n2w ((3 + index) * ffi_offset))
+          mc_conf.ffi_entry_pcs 0 = SOME index)) /\
+    (p - n2w ffi_offset = mc_conf.halt_pc) /\
+    interference_ok mc_conf.next_interfer (mc_conf.f.proj t1.mem_domain) /\
+    (!q n. ((n2w (t1.align - 1) && q + n2w n) = 0w:'a word) <=>
+           (n MOD t1.align = 0)) /\
+    (!l1 l2 x2.
+       (loc_to_pc l1 l2 s1.code = SOME x2) ==>
+       (lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2))) /\
+    (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
+    (!a. byte_align a IN s1.mem_domain ==>
+         a IN t1.mem_domain /\ a IN s1.mem_domain /\
+         ?w. (word_loc_val p labs (s1.mem (byte_align a)) = SOME w) /\
+             (get_byte a w s1.be = t1.mem a)) /\
+    (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 1)) /\
+    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
+      t1.mem t1.mem_domain s1.mem_domain /\
+    ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
+    (check_pc ==> (t1.pc = p + n2w (pos_val s1.pc 0 code2))) /\
+    ((p && n2w (t1.align - 1)) = 0w) /\
+    (case mc_conf.asm_config.link_reg of NONE => T | SOME r => t1.lr = r) /\
+    (t1.be <=> mc_conf.asm_config.big_endian) /\
+    (t1.align = mc_conf.asm_config.code_alignment) /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    code_similar s1.code code2`
+
+val all_bytes_lemma = Q.prove(
+  `!code2 code1 pc i pos.
+      code_similar code1 code2 /\
+      all_enc_ok (mc_conf:('a,'state,'b) machine_config).asm_config
+        mc_conf.f.encode labs pos code2 /\
+      (asm_fetch_aux pc code1 = SOME i) ==>
+      ?bs code2' j.
+        (all_bytes pos (nop_byte mc_conf.f.encode) code2  =
+         bs ++ all_bytes (pos + LENGTH bs) (nop_byte mc_conf.f.encode) code2') /\
+        (LENGTH bs + pos = pos_val pc pos code2) /\
+        (asm_fetch_aux 0 code2' = SOME j) /\
+        line_similar i j /\ no_Label code2' /\
+        line_ok mc_conf.asm_config mc_conf.f.encode
+          labs (pos_val pc pos code2) j`,
+  HO_MATCH_MP_TAC asm_code_length_ind \\ REPEAT STRIP_TAC
+  THEN1 (Cases_on `code1` \\ fs [code_similar_def,asm_fetch_aux_def])
+  THEN1
+   (Cases_on `code1` \\ fs [code_similar_def]
+    \\ Cases_on `h` \\ fs [code_similar_def]
+    \\ Cases_on `l` \\ fs [asm_fetch_aux_def,pos_val_def] \\ rw []
+    \\ fs [all_bytes_def,all_enc_ok_def] THEN1 (metis_tac [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t`,`pc`,`i`,`pos + 1`]) \\ fs []
+    \\ rpt strip_tac \\ fs []
+    \\ Q.EXISTS_TAC `nop_byte mc_conf.f.encode::bs` \\ fs []
+    \\ Q.EXISTS_TAC `code2'` \\ fs []
+    \\ rpt strip_tac
+    \\ fs [ADD1,AC ADD_COMM ADD_ASSOC])
+  \\ Cases_on `code1` \\ fs [code_similar_def]
+  \\ Cases_on `h` \\ fs [code_similar_def]
+  \\ Cases_on`l` \\ fs [asm_fetch_aux_def,pos_val_def]
+  \\ rpt var_eq_tac
+  \\ Q.MATCH_ASSUM_RENAME_TAC `line_similar x1 x2`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `LIST_REL line_similar ys1 ys2`
+  \\ `is_Label x2 = is_Label x1` by
+    (Cases_on `x1` \\ Cases_on `x2` \\ fs [line_similar_def,is_Label_def])
+  \\ fs [] \\ Cases_on `is_Label x1` \\ fs []
+  THEN1
+   (fs [all_bytes_def,LET_DEF]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc`,`i`,
+       `(pos + LENGTH (line_bytes x2 (nop_byte mc_conf.f.encode)))`])
+    \\ fs [all_enc_ok_def,code_similar_def] \\ rpt strip_tac
+    \\ fs [prog_to_bytes_def,LET_DEF]
+    \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
+         `code2'`]
+    \\ fs [AC ADD_COMM ADD_ASSOC])
+  \\ Cases_on `pc = 0` \\ fs [] \\ rw []
+  THEN1
+   (fs [listTheory.LENGTH_NIL]
+    \\ Q.EXISTS_TAC `Section k (x2::ys2)::xs`
+    \\ fs [asm_fetch_aux_def,all_enc_ok_def])
+  \\ fs [all_bytes_def,LET_DEF]
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc-1`,`i`,
+       `(pos + LENGTH (line_bytes x2 (nop_byte mc_conf.f.encode)))`])
+  \\ fs [all_enc_ok_def,code_similar_def]
+  \\ rpt strip_tac \\ fs []
+  \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
+        `code2'`,`j`] \\ fs []
+  \\ fs [AC ADD_COMM ADD_ASSOC])
+
+val prog_to_bytes_lemma = all_bytes_lemma
+  |> Q.SPECL [`code2`,`code1`,`pc`,`i`,`0`]
+  |> SIMP_RULE std_ss [GSYM prog_to_bytes_def];
+
+val IMP_bytes_in_memory = prove(
+  ``code_similar code1 code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    (asm_fetch_aux pc code1 = SOME i) /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) m (dm:'a word set) ==>
+    ?j code2'.
+      bytes_in_memory (p + n2w (pos_val pc 0 code2))
+        (all_bytes (pos_val pc 0 code2) (nop_byte mc_conf.f.encode) code2') m dm /\
+      line_ok (mc_conf:('a,'state,'b) machine_config).asm_config
+        mc_conf.f.encode labs (pos_val pc 0 code2) j /\
+      (asm_fetch_aux 0 code2' = SOME j) /\
+      line_similar i j /\ no_Label code2'``,
+  rpt strip_tac
+  \\ mp_tac prog_to_bytes_lemma \\ fs [] \\ rpt strip_tac
+  \\ fs [bytes_in_memory_APPEND]
+  \\ Q.EXISTS_TAC `j` \\ Q.EXISTS_TAC `code2'` \\ fs []);
+
+val IMP_bytes_in_memory_JumpReg = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (Asm (JumpReg r1) l n)) ==>
+    bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+      (mc_conf.f.encode (JumpReg r1)) t1.mem t1.mem_domain /\
+    asm_ok (JumpReg r1) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw [] \\ fs [no_Label_eq]
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND]);
+
+val IMP_bytes_in_memory_Jump = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)) ==>
+    ?tt enc.
+      (tt = n2w (find_pos target labs) -
+            n2w (pos_val s1.pc 0 code2)) /\
+      (enc = mc_conf.f.encode (Jump tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw []
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND] \\ rw []);
+
+val IMP_bytes_in_memory_CallFFI = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
+    ?tt enc.
+      (tt = 0w - n2w (pos_val s1.pc 0 code2 + (3 + index) * ffi_offset)) /\
+      (enc = mc_conf.f.encode (Jump tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw []
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND] \\ rw []);
+
+val IMP_bytes_in_memory_Halt = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
+    ?tt enc.
+      (tt = 0w - n2w (pos_val s1.pc 0 code2 + ffi_offset)) /\
+      (enc = mc_conf.f.encode (Jump tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Jump tt) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw []
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND] \\ rw []);
+
+(*
+val line_length_MOD_0 = prove(
+  ``backend_correct_alt mc_conf.f mc_conf.asm_config /\
+    (~EVEN p ==> (mc_conf.asm_config.code_alignment = 1)) /\
+    line_ok mc_conf.asm_config mc_conf.f.encode labs p h ==>
+    (line_length h MOD mc_conf.asm_config.code_alignment = 0)``,
+  Cases_on `h` \\ TRY (Cases_on `a`) \\ fs [line_ok_def,line_length_def]
+  \\ rw [] \\ fs [backend_correct_alt_def,enc_ok_def]
+  \\ Q.PAT_ASSUM `xxx = LENGTH yy` (ASSUME_TAC o GSYM)
+  \\ `0 < mc_conf.asm_config.code_alignment` by
+       (fs [backend_correct_alt_def,enc_ok_def] \\ DECIDE_TAC)
+  \\ fs [LET_DEF] \\ rw []
+  \\ Q.PAT_ASSUM `l = xxx` (fn th => once_rewrite_tac [th]) \\ fs []);
+
+val pos_val_MOD_0_lemma = prove(
+  ``backend_correct_alt mc_conf.f mc_conf.asm_config ==>
+    (0 MOD mc_conf.asm_config.code_alignment = 0)``,
+  rpt strip_tac
+  \\ `0 < mc_conf.asm_config.code_alignment` by ALL_TAC
+  THEN1 (fs [backend_correct_alt_def,enc_ok_def] \\ DECIDE_TAC) \\ fs []);
+
+val pos_val_MOD_0 = prove(
+  ``!x pos code2.
+      backend_correct_alt mc_conf.f mc_conf.asm_config /\
+      (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 1)) /\
+      (~EVEN pos ==> (mc_conf.asm_config.code_alignment = 1)) /\
+      (pos MOD mc_conf.asm_config.code_alignment = 0) /\
+      all_enc_ok mc_conf.asm_config mc_conf.f.encode labs pos code2 ==>
+      (pos_val x pos code2 MOD mc_conf.asm_config.code_alignment = 0)``,
+  REVERSE (Cases_on `backend_correct_alt mc_conf.f mc_conf.asm_config`)
+  \\ asm_simp_tac pure_ss [] THEN1 fs []
+  \\ `0 < mc_conf.asm_config.code_alignment` by ALL_TAC
+  THEN1 (fs [backend_correct_alt_def,enc_ok_def] \\ DECIDE_TAC)
+  \\ HO_MATCH_MP_TAC (theorem "pos_val_ind")
+  \\ rpt strip_tac \\ fs [pos_val_def] \\ fs [all_enc_ok_def]
+  THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
+  THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
+  \\ Cases_on `is_Label y` \\ fs []
+  \\ Cases_on `x = 0` \\ fs []
+  \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [] \\ rw []
+  \\ fs [has_odd_inst_def]
+  \\ Cases_on `EVEN pos` \\ fs []
+  \\ fs [EVEN_ADD]
+  \\ imp_res_tac (GSYM MOD_PLUS)
+  \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ imp_res_tac line_length_MOD_0 \\ fs [])
+  |> Q.SPECL [`x`,`0`,`y`] |> SIMP_RULE std_ss [GSYM AND_IMP_INTRO]
+  |> SIMP_RULE std_ss [pos_val_MOD_0_lemma]
+  |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC];
+*)
+
+val state_rel_weaken = prove(
+  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+    state_rel (mc_conf,code2,labs,p,F) s1 t1 ms1``,
+  fs [state_rel_def] \\ rpt strip_tac \\ fs [] \\ metis_tac []);
+
+val read_bytearray_state_rel = prove(
+  ``!n a x.
+      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
+      (read_bytearray a n s1 = SOME x) ==>
+      (read_bytearray a n
+        (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
+       SOME x)``,
+  Induct \\ fs [labSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
+  \\ rpt strip_tac \\ Cases_on `mem_load_byte_aux a s1` \\ fs []
+  \\ Cases_on `read_bytearray (a + 1w) n s1` \\ fs []
+  \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
+  \\ Cases_on `s1.mem (byte_align a)` \\ fs [] \\ rw []
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
+  \\ rpt strip_tac \\ fs [word_loc_val_def]);
+
+val IMP_has_io_index = prove(
+  ``(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
+    has_io_index index s1.code``,
+  fs [asm_fetch_def]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`)
+  \\ Q.SPEC_TAC (`s1.code`,`code`)
+  \\ HO_MATCH_MP_TAC asm_code_length_ind \\ rpt strip_tac
+  \\ fs [asm_fetch_aux_def,has_io_index_def] \\ res_tac
+  \\ Cases_on `is_Label y` \\ fs []
+  THEN1 (Cases_on `y` \\ fs [is_Label_def] \\ res_tac)
+  \\ Cases_on `pc = 0` \\ fs [] \\ res_tac \\ fs []);
+
+val bytes_in_mem_asm_write_bytearray_lemma = prove(
+  ``!xs p.
+      (!a. ~(a IN k) ==> (m1 a = m2 a)) ==>
+      bytes_in_mem p xs m1 d k ==>
+      bytes_in_mem p xs m2 d k``,
+  Induct \\ fs [bytes_in_mem_def]);
+
+val bytes_in_mem_asm_write_bytearray = prove(
+  ``state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
+    (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) ==>
+    bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
+    bytes_in_mem p xs
+      (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
+  STRIP_TAC \\ match_mp_tac bytes_in_mem_asm_write_bytearray_lemma
+  \\ POP_ASSUM MP_TAC
+  \\ Q.SPEC_TAC (`c1`,`a`)
+  \\ Q.SPEC_TAC (`x`,`x`)
+  \\ Q.SPEC_TAC (`t1.mem`,`m`)
+  \\ Induct_on `new_bytes`
+  \\ fs [asm_write_bytearray_def]
+  \\ REPEAT STRIP_TAC
+  \\ fs [labSemTheory.read_bytearray_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ fs [PULL_FORALL]
+  \\ res_tac
+  \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [GSYM th])
+  \\ fs [mem_load_byte_aux_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ rw [combinTheory.APPLY_UPDATE_THM]
+  \\ fs [state_rel_def] \\ res_tac);
+
+val CallFFI_bytearray_lemma = prove(
+  ``byte_align a IN s1.mem_domain /\
+    a IN t1.mem_domain /\
+    a IN s1.mem_domain /\
+    (word_loc_val p labs (s1.mem (byte_align a)) = SOME (w:'a word)) /\
+    (get_byte a w (mc_conf: ('a,'state,'b) machine_config).asm_config.big_endian = t1.mem a) ==>
+    ?w.
+      (word_loc_val p labs
+         ((write_bytearray c1 new_bytes s1).mem (byte_align a)) = SOME w) /\
+      (get_byte a w mc_conf.asm_config.big_endian =
+       asm_write_bytearray c1 new_bytes t1.mem a)``,
+  cheat);
+
+val state_rel_correct = Q.prove(
+  `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
+     (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
+     backend_correct_alt mc_conf.f mc_conf.asm_config /\
+     state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+     ?k t2 ms2.
+       (evaluate mc_conf s1.io_events (s1.clock + k) ms1 =
+          (if s2.io_events = NONE then Error IO_mismatch
+           else res,ms2,s2.io_events))`,
+
+  HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
+  \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
+  \\ Cases_on `s1.clock = 0` \\ fs []
+  \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ REPEAT STRIP_TAC
+  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once targetSemTheory.evaluate_def] \\ metis_tac [state_rel_weaken])
+  \\ Cases_on `asm_fetch s1` \\ fs []
+  \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
+  \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
+  THEN1 (* Asm Inst *) cheat
+  THEN1 (* Asm JumpReg *)
+   (Cases_on `read_reg n' s1` \\ fs []
+    \\ qmatch_assum_rename_tac `read_reg r1 s1 = Loc l1 l2`
+    \\ Cases_on `loc_to_pc l1 l2 s1.code` \\ fs []
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`JumpReg r1`]
+         asm_step_IMP_mEval_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ fs [IMP_bytes_in_memory_JumpReg,asmTheory.upd_pc_def,asmTheory.assert_def]
+      \\ imp_res_tac IMP_bytes_in_memory_JumpReg \\ fs []
+      \\ fs [asmTheory.read_reg_def,read_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
+      \\ strip_tac \\ rfs []
+      \\ fs [word_loc_val_def]
+      \\ Cases_on `lab_lookup l1 l2 labs` \\ fs []
+      \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
+      \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
+         `code2`,`labs`,`(asm (JumpReg r1)
+            (t1.pc + n2w (LENGTH (mc_conf.f.encode (JumpReg r1)))) t1)`,`ms2`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
+      \\ fs [asmTheory.upd_pc_def,asmTheory.assert_def,asmTheory.read_reg_def,
+             dec_clock_def,upd_pc_def,assert_def,read_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
+      \\ strip_tac \\ rfs []
+      \\ fs [word_loc_val_def]
+      \\ Cases_on `lab_lookup l1 l2 labs` \\ fs []
+      \\ Q.PAT_ASSUM `xx = t1.regs r1` (fn th => fs [GSYM th])
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
+      \\ RES_TAC \\ fs [] \\ rpt strip_tac \\ res_tac \\ rw []
+      \\ MATCH_MP_TAC pos_val_MOD_0 \\ fs [])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
+    \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
+    \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
+    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
+    \\ rpt strip_tac \\ res_tac \\ rfs [])
+  THEN1 (* Jump *)
+   (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (Jump target) l1 l2 l3)`
+    \\ qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)`
+    \\ Cases_on `get_pc_value target s1` \\ fs []
+    \\ mp_tac IMP_bytes_in_memory_Jump \\ fs []
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
+         asm_step_IMP_mEval_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rfs [] \\ unabbrev_all_tac
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
+         `code2`,`labs`,
+         `(asm jj (t1.pc + n2w (LENGTH (mc_conf.f.encode jj))) t1)`,`ms2`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (unabbrev_all_tac
+      \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
+      \\ fs [asmTheory.upd_pc_def,asmTheory.assert_def,asmTheory.read_reg_def,
+             dec_clock_def,upd_pc_def,assert_def,read_reg_def,asm_def,
+             jump_to_offset_def]
+      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ Cases_on `target` \\ fs []
+      \\ qmatch_assum_rename_tac `loc_to_pc l1 l2 s1.code = SOME x`
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l1`,`l2`]) \\ fs [] \\ rw []
+      \\ imp_res_tac lab_lookup_IMP \\ fs [])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
+    \\ `s1.clock - 1 + k + l' = s1.clock + (k + l' - 1)` by DECIDE_TAC
+    \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
+    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def]
+    \\ rpt strip_tac \\ res_tac \\ rfs [])
+
+  THEN1 (* JumpCmp *) cheat
+  THEN1 (* Call *) cheat
+  THEN1 (* LocValue *) cheat
+
+  THEN1 (* CallFFI *)
+   (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
+    \\ qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)`
+    \\ Cases_on `s1.regs s1.len_reg` \\ fs []
+    \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
+    \\ Cases_on `s1.regs s1.link_reg` \\ fs []
+    \\ Cases_on `read_bytearray c' (w2n c) s1` \\ fs []
+    \\ qmatch_assum_rename_tac `read_bytearray c1 (w2n c2) s1 = SOME x`
+    \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
+    \\ Cases_on `call_FFI index x s1.io_events` \\ fs []
+    \\ qmatch_assum_rename_tac `call_FFI index x s1.io_events = (new_bytes,new_io)`
+    \\ mp_tac IMP_bytes_in_memory_CallFFI \\ fs []
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
+         asm_step_IMP_mEval_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rfs [] \\ unabbrev_all_tac
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+    \\ rpt strip_tac
+    \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ fs []
+    \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
+    \\ `mc_conf.f.get_pc ms2 = p - n2w ((3 + index) * ffi_offset)` by
+     (fs [state_rel_def] \\ rfs []
+      \\ fs [backend_correct_alt_def]
+      \\ Q.PAT_ASSUM `!ms s. mc_conf.f.state_rel s ms ==> bbb` imp_res_tac
+      \\ fs [] \\ unabbrev_all_tac
+      \\ fs [asm_def,jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rewrite_tac [GSYM word_sub_def,WORD_SUB_PLUS,
+           GSYM word_add_n2w,WORD_ADD_SUB]) \\ fs []
+    \\ `has_io_index index s1.code` by
+          (imp_res_tac IMP_has_io_index \\ NO_TAC)
+    \\ `~(mc_conf.f.get_pc ms2 IN mc_conf.prog_addresses) /\
+        ~(mc_conf.f.get_pc ms2 = mc_conf.halt_pc) /\
+        (list_find (mc_conf.f.get_pc ms2) mc_conf.ffi_entry_pcs =
+           SOME index)` by
+      (fs [state_rel_def]
+       \\ Q.PAT_ASSUM `!kk. has_io_index kk s1.code ==> bbb` imp_res_tac
+       \\ rfs [])
+    \\ `(mc_conf.f.get_reg ms2 mc_conf.ptr_reg = t1.regs mc_conf.ptr_reg) /\
+        (mc_conf.f.get_reg ms2 mc_conf.len_reg = t1.regs mc_conf.len_reg) /\
+        !a. a IN mc_conf.prog_addresses ==>
+            (mc_conf.f.get_byte ms2 a = t1.mem a)` by
+     (fs [backend_correct_alt_def |> REWRITE_RULE [GSYM reg_ok_def]]
+      \\ res_tac \\ unabbrev_all_tac \\ fs [state_rel_def,asm_def,
+           jump_to_offset_def,asmTheory.upd_pc_def] \\ NO_TAC) \\ fs []
+    \\ `(t1.regs mc_conf.ptr_reg = c1) /\
+        (t1.regs mc_conf.len_reg = c2)` by
+     (fs [state_rel_def]
+      \\ Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
+           (fn th =>
+          MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).ptr_reg` th)
+          \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
+      \\ Q.PAT_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
+      \\ Q.PAT_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
+      \\ fs [word_loc_val_def] \\ NO_TAC) \\ fs []
+    \\ imp_res_tac read_bytearray_state_rel \\ fs []
+    \\ Cases_on `new_io = NONE` THEN1
+     (imp_res_tac evaluate_pres_io_events_NONE \\ fs [] \\ rfs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rpt strip_tac
+      \\ Q.EXISTS_TAC `l'` \\ fs [ADD_ASSOC]
+      \\ once_rewrite_tac [mEval_def] \\ fs []
+      \\ fs [shift_interfer_def,LET_DEF]) \\ fs []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [
+         `shift_interfer l' mc_conf with
+          ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
+         `code2`,`labs`,
+         `t1 with <| pc := p + n2w (pos_val new_pc 0 (code2:'a asm_prog)) ;
+                     mem := asm_write_bytearray c1 new_bytes t1.mem ;
+                     regs := \a. get_reg_value (s1.io_regs 0 a) (t1.regs a) I |>`,
+         `mc_conf.ffi_interfer 0 index new_bytes ms2`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (rpt strip_tac
+      THEN1 (fs [backend_correct_alt_def,shift_interfer_def] \\ metis_tac [])
+      \\ unabbrev_all_tac
+      \\ imp_res_tac bytes_in_mem_asm_write_bytearray
+      \\ fs [state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
+             asmTheory.upd_pc_def] \\ rfs[]
+      \\ mp_tac write_bytearray_simp \\ fs []
+      \\ strip_tac \\ pop_assum (fn th => once_rewrite_tac [th] THEN fs [] THEN
+                         fs [GSYM th])
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ full_simp_tac bool_ss [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
+            (mc_conf.f.proj t1.mem_domain)` by
+               (fs [interference_ok_def,shift_seq_def] \\ NO_TAC) \\ fs []
+      \\ `p + n2w (pos_val new_pc 0 code2) = t1.regs s1.link_reg` by
+       (Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
+           (MP_TAC o Q.SPEC `s1.link_reg`) \\ fs [word_loc_val_def]
+        \\ Cases_on `lab_lookup n1 n2 labs` \\ fs []
+        \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ fs []
+        \\ res_tac \\ fs []) \\ fs []
+      \\ `w2n c2 = LENGTH new_bytes` by
+       (imp_res_tac read_bytearray_LENGTH
+        \\ imp_res_tac call_FFI_LENGTH \\ fs [])
+      \\ res_tac \\ fs [] \\ rpt strip_tac
+      THEN1
+       (fs [PULL_FORALL,AND_IMP_INTRO] \\ rfs[]
+        \\ Q.PAT_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
+        \\ fs [] \\ first_x_assum match_mp_tac
+        \\ fs [] \\ qexists_tac `new_io` \\ fs [option_ldrop_0])
+      THEN1
+       (fs [shift_seq_def,PULL_FORALL,AND_IMP_INTRO]
+        \\ Q.PAT_ASSUM `!(ms:'state) x2 x3 x4 x5 x6 x7. bbb` match_mp_tac
+        \\ qexists_tac `new_io'` \\ qexists_tac `x'` \\ fs []
+        \\ imp_res_tac option_ldrop_lemma \\ fs [] \\ rfs []
+        \\ fs [option_ldrop_option_ldrop])
+      THEN1
+       (Cases_on `s1.io_regs 0 r`
+        \\ fs [get_reg_value_def,word_loc_val_def])
+      \\ qpat_assum `!a.
+           byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
+      \\ fs [] \\ REPEAT STRIP_TAC
+      \\ match_mp_tac CallFFI_bytearray_lemma \\ fs [])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock + k`) \\ rpt strip_tac
+    \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]
+    \\ Q.LIST_EXISTS_TAC [`ms2'`] \\ fs []
+    \\ simp_tac std_ss [Once mEval_def]
+    \\ fs [shift_interfer_def]
+    \\ fs [AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC] \\ rfs [LET_DEF]
+    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ fs [])
+  THEN1 (* Halt *)
+   (rw []
+    \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
+    \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
+    \\ mp_tac IMP_bytes_in_memory_Halt \\ fs []
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
+         asm_step_IMP_mEval_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP2 \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def]
+      \\ rfs [] \\ unabbrev_all_tac
+      \\ fs [asmTheory.jump_to_offset_def,asmTheory.upd_pc_def,asm_def])
+    \\ rpt strip_tac
+    \\ unabbrev_all_tac \\ fs [asm_def]
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock`) \\ rw []
+    \\ Q.EXISTS_TAC `l'` \\ fs []
+    \\ once_rewrite_tac [mEval_def] \\ fs []
+    \\ fs [shift_interfer_def]
+    \\ `mc_conf.f.get_pc ms2 = mc_conf.halt_pc` by
+     (fs [backend_correct_alt_def] \\ res_tac \\ fs []
+      \\ fs [jump_to_offset_def,asmTheory.upd_pc_def] \\ fs [state_rel_def]
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+           WORD_ADD_SUB] \\ fs [])
+    \\ `~(mc_conf.f.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
+    \\ fs [state_rel_def,jump_to_offset_def,asmTheory.upd_pc_def]));
+
+(*
+
+TODO:
+ - weaken all_enc_ok
+ - define an incremental version of the compiler
+ - add ability to install code
+
+*)
+
+val _ = export_theory();
