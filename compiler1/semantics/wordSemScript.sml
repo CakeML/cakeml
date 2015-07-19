@@ -285,15 +285,22 @@ val find_code_def = Define `
 val enc_stack_def = Define `
   (enc_stack [] = []) /\
   (enc_stack ((StackFrame l handler :: st)) =
-     (MAP SND l) :: enc_stack st)`;
+     if IS_SOME handler
+     then [] :: (MAP SND l) :: enc_stack st
+     else (MAP SND l) :: enc_stack st)`;
 
 val dec_stack_def = Define `
   (dec_stack [] [] = SOME []) /\
-  (dec_stack (ws::xs) ((StackFrame l handler :: st)) =
+  (dec_stack (ws::xs) ((StackFrame l NONE :: st)) =
      if LENGTH ws <> LENGTH l then NONE else
        case dec_stack xs st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s)) /\
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) NONE :: s)) /\
+  (dec_stack ([]::ws::xs) ((StackFrame l (SOME h) :: st)) =
+     if LENGTH ws <> LENGTH l then NONE else
+       case dec_stack xs st of
+       | NONE => NONE
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) (SOME h) :: s)) /\
   (dec_stack _ _ = NONE)`
 
 val gc_def = Define `  (* gc runs the garbage collector algorithm *)

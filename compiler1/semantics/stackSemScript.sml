@@ -171,17 +171,18 @@ val empty_env_def = Define `
   empty_env (s:'a stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
 val enc_stack_def = tDefine "enc_stack" `
-  (enc_stack [] = SOME []) /\
   (enc_stack ws =
-     case read_bitmap ws of
-     | NONE => NONE
-     | SOME (bs,_,rs) =>
-        case filter_bitmap bs rs of
-        | NONE => NONE
-        | SOME (ts,ws') =>
-            case enc_stack ws' of
-            | NONE => NONE
-            | SOME rs => SOME (ts :: rs))`
+     if ws = [] then NONE else
+     if ws = [Word 0w] then SOME [] else
+       case read_bitmap ws of
+       | NONE => NONE
+       | SOME (bs,_,rs) =>
+          case filter_bitmap bs rs of
+          | NONE => NONE
+          | SOME (ts,ws') =>
+              case enc_stack ws' of
+              | NONE => NONE
+              | SOME rs => SOME (ts :: rs))`
  (WF_REL_TAC `measure LENGTH` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC read_bitmap_LENGTH
   \\ IMP_RES_TAC filter_bitmap_LENGTH
@@ -200,20 +201,24 @@ val dec_stack_def = Define `
            | NONE => NONE
            | SOME ws3 => SOME (w1 ++ ws1 ++ ws3))`
 
-val gc_def = Define`
+val gc_def = Define `
   gc s =
-    case enc_stack s.stack of
-    | NONE => NONE
-    | SOME wl_list =>
-      case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
-      | NONE => NONE
-      | SOME (wl,m,st) =>
-       (case dec_stack wl s.stack of
+    if LENGTH s.stack < s.stack_space then NONE else
+      let unused = TAKE s.stack_space s.stack in
+      let stack = DROP s.stack_space s.stack in
+        case enc_stack (DROP s.stack_space s.stack) of
         | NONE => NONE
-        | SOME stack =>
-            SOME (s with <| stack := stack
-                          ; store := st
-                          ; memory := m |>))`
+        | SOME wl_list =>
+          case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
+          | NONE => NONE
+          | SOME (wl,m,st) =>
+           (case dec_stack wl stack of
+            | NONE => NONE
+            | SOME stack =>
+                SOME (s with <| stack := unused ++ stack
+                              ; store := st
+                              ; regs := FEMPTY
+                              ; memory := m |>))`
 
 val has_space_def = Define `
   has_space wl (s:'a stackSem$state) =
