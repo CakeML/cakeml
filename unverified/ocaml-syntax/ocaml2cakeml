@@ -1,0 +1,3 @@
+#!/usr/bin/env bash
+
+cat pervasives.cml <(echo; ./typedOCamlToCakeML <<< "$1")
