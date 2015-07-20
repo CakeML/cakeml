@@ -75,6 +75,11 @@ val clo_to_loc_def = Define `
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
 (clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
 
+val clo_to_env_def = Define `
+(clo_to_env (Closure _ _ env _ _) = env) ∧
+(clo_to_env (Recclosure loc _ env fns _) = 
+  GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)`;
+
 val clo_to_partial_args_def = Define `
 (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
 (clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
@@ -112,7 +117,8 @@ val val_rel_def = tDefine "val_rel" `
     !i' args args' s s'.
       if i' < i then
         state_rel i' s s' ∧
-        LENGTH args = clo_to_num_params cl - LENGTH (clo_to_partial_args cl) ∧
+        args ≠ [] ∧
+        (*LENGTH args = clo_to_num_params cl - LENGTH (clo_to_partial_args cl) ∧*)
         LIST_REL (val_rel i') args args'
         ⇒
         exec_cl_rel i' (cl, args, s) (cl', args', s')
@@ -361,7 +367,8 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
         i' < c
         ⇒
         state_rel i' s s' ∧
-        LENGTH args = clo_to_num_params v - LENGTH (clo_to_partial_args v) ∧
+        args ≠ [] ∧
+        (* LENGTH args = clo_to_num_params v - LENGTH (clo_to_partial_args v) ∧*)
         LIST_REL (val_rel i') args args'
         ⇒
         exec_cl_rel i' (v, args, s) (v', args', s')
@@ -525,6 +532,24 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
      fs [OPTION_MAP_DEF] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL]));
 
+val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
+`!l v vs e args rest.
+  dest_closure l v vs = SOME (Full_app e args rest)
+  ⇒
+  LENGTH vs + LENGTH (clo_to_partial_args v) = clo_to_num_params v + LENGTH rest ∧
+  LENGTH args = clo_to_num_params v + LENGTH (clo_to_env v)`,
+ rpt gen_tac >>
+ simp [dest_closure_def] >>
+ BasicProvers.EVERY_CASE_TAC >>
+ fs [is_closure_def, clo_to_partial_args_def, clo_to_num_params_def, clo_to_env_def]
+ >- (`n - LENGTH l' ≤ LENGTH vs` by decide_tac >>
+     rw [] >>
+     simp [LENGTH_TAKE]) >>
+ Cases_on `EL n l1` >>
+ fs [] >>
+ rw [] >>
+ simp []);
+
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' s s' loc.
   val_rel c v v' ∧
@@ -535,7 +560,9 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
   s'.clock = c
   ⇒
   res_rel (evaluate_app loc v vs s) (evaluate_app loc v' vs' s')`, 
+  cheat);
 
+  (*
  rw [] >>
  `vs' ≠ []` by (Cases_on `vs'` >> fs []) >>
  rw [evaluate_app_rw] >>
@@ -549,9 +576,19 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  `?x'. dest_closure loc v' vs' = SOME x'` by metis_tac [dest_closure_opt] >>
  simp [] >>
  qabbrev_tac `full_arg_num = clo_to_num_params v - LENGTH (clo_to_partial_args v)` >>
- qabbrev_tac `full_arg_num' = clo_to_num_params v' - LENGTH (clo_to_partial_args v')` >>
+ Cases_on `LENGTH vs < full_arg_num` 
+ >- ((* A partial application on the left *)
+     reverse (Cases_on `x`) >>
+     fs [] 
+     >- (imp_res_tac dest_closure_full_length >>
+         full_simp_tac (srw_ss()++ARITH_ss) [Abbr `full_arg_num`]) >>
+     rw [res_rel_rw]
+     >- ((* Timeout *)
+
+
  Cases_on `x` >>
  fs []
+
  >> cheat);
  (*
  >- ((* Partial app *)
@@ -560,6 +597,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          Cases_on `x'` >>
          fs []
          >- metis_tac [val_rel_mono, ZERO_LESS_EQ]     
+         *)
          *)
 
 val state_rel_refs = Q.prove (
@@ -1053,7 +1091,6 @@ val compat_app = Q.store_thm ("compat_app",
   exp_rel es es'
   ⇒
   exp_rel [App loc e es] [App loc e' es']`,
-
  rw [exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
