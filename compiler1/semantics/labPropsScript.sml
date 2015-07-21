@@ -56,7 +56,7 @@ val write_bytearray_simp_lemma = prove(
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [upd_mem_def] \\ rw[]);
 
-val read_bytearray_LENGTH = prove(
+val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
   ``!n a s x.
       (read_bytearray a n s = SOME x) ==> (LENGTH x = n)``,
   Induct \\ fs [read_bytearray_def] \\ REPEAT STRIP_TAC
