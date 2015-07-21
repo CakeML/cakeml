@@ -266,10 +266,20 @@ val adjust_names_def = Define `
 
 val joined_ok_def = Define `
   (joined_ok k [] len <=> T) /\
-  (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1)])::rest) len <=>
+  (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1:'a word_loc list)])::rest) len <=>
      joined_ok k rest len /\
      (filter_bitmap bs1 (index_list xs1 k) =
-      SOME (MAP_FST (adjust_names k (LENGTH (rs1 ++ xs1))) l1,[]))) /\
+      SOME (MAP_FST (adjust_names k (LENGTH (rs1 ++ xs1))) l1,[])) /\
+     (* the following is an experimental alternative to the above *)
+     let current_frame = rs1 ++ xs1 in
+     let f' = LENGTH xs1 in
+     let f = LENGTH rs1 + LENGTH xs1 in
+       (f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
+       !n v.
+         (lookup n (fromAList l1) = SOME v) <=>
+         EVEN n /\ k <= n DIV 2 /\ n DIV 2 < k + f' /\
+         (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\
+         (ANY_EL (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T)) /\
   (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
                [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
      (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
@@ -576,6 +586,13 @@ val LENGTH_index_list = prove(
   ``!l n. LENGTH (index_list l n) = LENGTH l``,
   Induct \\ fs [index_list_def]);
 
+val EL_index_list = prove(
+  ``!xs x k.
+      x < LENGTH xs ==>
+      EL x (index_list xs k) = (k + (LENGTH xs - x) - 1, EL x xs)``,
+  Induct \\ fs [index_list_def] \\ rpt strip_tac \\ Cases_on `x`
+  \\ fs [ADD1,ADD_ASSOC]);
+
 val evaluate_wLive = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
     (cut_env names s.locals = SOME env) ==>
@@ -631,20 +648,23 @@ val evaluate_wLive = prove(
     \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ match_mp_tac (MP_CANON LASTN_CONS)
     \\ imp_res_tac join_stacks_IMP_LENGTH \\ fs [])
-  \\ match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
-  \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ match_mp_tac (METIS_PROVE [] ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
-  \\ strip_tac THEN1 (fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF] \\ decide_tac)
-  \\ fs [ZIP_GENLIST] \\ rpt strip_tac \\ pop_assum (K all_tac)
-  \\ `!x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names)) <=>
-          ?n. x = f + k - n DIV 2 /\ n IN domain env` by
-   (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
-    \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
-    \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
-  \\ `(LENGTH ((write_bitmap names k f f'): 'a word list) +
-      MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
-       (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
-  \\ cheat (* true, but is the statement ideal? *));
+  THEN1
+   (match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
+    \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
+    \\ match_mp_tac (METIS_PROVE [] ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
+    \\ strip_tac THEN1 (fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF] \\ decide_tac)
+    \\ fs [ZIP_GENLIST] \\ rpt strip_tac \\ pop_assum (K all_tac)
+    \\ `!x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names)) <=>
+            ?n. x = f + k - n DIV 2 /\ n IN domain env` by
+     (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
+      \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
+      \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
+    \\ `(LENGTH ((write_bitmap names k f f'): 'a word list) +
+        MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
+         (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
+    \\ cheat (* true, but is the statement ideal? *))
+  THEN1
+    cheat (* proof of experimental extension to state_rel *));
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
