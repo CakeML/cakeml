@@ -24,7 +24,7 @@ structure Pervasives = struct
   fun invalid_arg s = raise (Invalid_argument s);
   fun failwith s = raise (Failure s);
 
-  fun equals x y = x = y handle Eq => invalid_arg "";
+  fun equals x y = x = y handle Eq => invalid_arg "equal: functional value";
   (*fun lt_gt x y = x <> y;*) (* Defined below *)
   fun lt x y = x < y;
   fun gt x y = x > y;
@@ -114,11 +114,126 @@ structure Pervasives = struct
   fun fst x = case x of (y, z) => y;
   fun snd x = case x of (y, z) => z;
 
-  type 'a ref = 'a ref;
+  type 'a oc_ref = 'a ref;
+  fun oc_ref x = ref x;
   fun bang x = !x;
   fun colon_equals r x = r := x;
   fun incr r = r := succ (!r);
   fun decr r = r := pred (!r);
 
   fun ignore x = ();
+end;
+
+structure List = struct
+  fun length xs = case xs of
+      [] => 0
+    | x :: xs => 1 + length xs;
+  fun hd xs = case xs of
+      [] => Pervasives.failwith "hd"
+    | x :: xs => x;
+  fun tl xs = case xs of
+      [] => Pervasives.failwith "tl"
+    | x :: xs => xs;
+  fun nth xs i =
+    let
+      fun f xs i = case xs of
+          [] => Pervasives.failwith "nth"
+        | x :: xs => f xs (i - 1)
+    in
+      if i < 0 then Pervasives.invalid_arg "List.nth" else f xs i
+    end;
+  val rev =
+    let
+      fun f acc xs = case xs of
+          [] => acc
+        | x :: xs => f (x :: acc) xs
+    in
+      f []
+    end;
+  fun append xs ys = case xs of
+      [] => ys
+    | x :: xs => x :: append xs ys;
+  fun rev_append xs ys = case xs of
+      [] => ys
+    | x :: xs => append xs (x :: ys);
+  fun concat xss = case xss of
+      [] => []
+    | xs :: xss => append xs (concat xss);
+  val flatten = concat;
+
+  fun iter f =
+    let
+      fun inner xs = case xs of
+          [] => ()
+        | x :: xs => (f x; inner xs)
+    in
+      inner
+    end;
+  fun iteri f =
+    let
+      fun inner i xs = case xs of
+          [] => ()
+        | x :: xs => (f i x; inner (1 + i) xs)
+    in
+      inner 0
+    end;
+  fun map f =
+    let
+      fun inner xs = case xs of
+          [] => []
+        | x :: xs => f x :: inner xs
+    in
+      inner
+    end;
+  fun mapi f =
+    let
+      fun inner i xs = case xs of
+          [] => []
+        | x :: xs => f i x :: inner (1 + i) xs
+    in
+      inner 0
+    end;
+  fun rev_map f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f x :: acc) xs
+    in
+      inner []
+    end;
+  fun fold_left f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f acc x) xs
+    in
+      inner
+    end;
+  fun fold_right f acc =
+    let
+      fun inner xs = case xs of
+          [] => acc
+        | x :: xs => f x (inner xs)
+    in
+      inner
+    end;
+
+  fun iter2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => ()
+        | (x :: xs, y :: ys) => (f x y; inner xs ys)
+        | z => Pervasives.invalid_arg "List.iter2"
+    in
+      inner
+    end;
+  fun map2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => []
+        | (x :: xs, y :: ys) => f x y :: inner xs ys
+        | z => Pervasives.invalid_arg "List.map2"
+    in
+      inner
+    end;
 end;
