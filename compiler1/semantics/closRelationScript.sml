@@ -106,6 +106,15 @@ check_closures cl cl' ⇔
   !loc num_args.
     clo_can_apply loc cl num_args ⇒ clo_can_apply loc cl' num_args`;
 
+val _ = Datatype `
+val_or_exp = 
+  | Val closSem$v closSem$state
+  | Exp (closLang$exp list) (closSem$v list) closSem$state`; 
+
+val evaluate_ev_def = Define `
+(evaluate_ev i (Val v s) = (Rval [v], s with clock := i)) ∧
+(evaluate_ev i (Exp es env s) = evaluate (es, env, s with clock := i))`;
+
 val val_rel_def = tDefine "val_rel" `
 (val_rel (i:num) (Number n) (Number n') ⇔
   n = n') ∧
@@ -114,45 +123,31 @@ val val_rel_def = tDefine "val_rel" `
 (val_rel (i:num) (RefPtr p) (RefPtr p') ⇔ p = p') ∧
 (val_rel (i:num) cl cl' ⇔
   if is_closure cl ∧ is_closure cl' ∧ check_closures cl cl' then
-    !i' args args' s s'.
+    !i' a a' s s'.
       if i' < i then
         state_rel i' s s' ∧
-        args ≠ [] ∧
-        (*LENGTH args = clo_to_num_params cl - LENGTH (clo_to_partial_args cl) ∧*)
-        LIST_REL (val_rel i') args args'
+        val_rel i' a a'
         ⇒
-        exec_cl_rel i' (cl, args, s) (cl', args', s')
+        case (dest_closure NONE cl [a], dest_closure NONE cl' [a']) of
+           | (NONE, _) => T
+           | (_, NONE) => F
+           | (SOME (Partial_app v), SOME (Partial_app v')) =>
+               exec_rel i' (Val v s) (Val v' s')
+           | (SOME (Partial_app v), SOME (Full_app e' env' _)) =>
+               exec_rel i' (Val v s) (Exp [e'] env' s')
+           | (SOME (Full_app e env _), SOME (Partial_app v')) =>
+               exec_rel i' (Exp [e] env s) (Val v' s')
+           | (SOME (Full_app e env _), SOME (Full_app e' env' _)) =>
+               exec_rel i' (Exp [e] env s) (Exp [e'] env' s')
       else
         T
   else
     F) ∧
-(exec_rel i (es, env, s) (es', env', s') ⇔
+(exec_rel i (x:val_or_exp) (x':val_or_exp) ⇔
   !i'.
     if i' ≤ i then
-      let (r, s1) = evaluate (es, env, s with clock := i') in
-      let (r', s1') = evaluate (es', env', s' with clock := i') in
-        case (r, r') of
-           | (Rval vs, Rval vs') =>
-               s1.clock = s1'.clock ∧
-               state_rel s1.clock s1 s1' ∧
-               LIST_REL (val_rel s1'.clock) vs vs'
-           | (Rerr (Rraise v), Rerr (Rraise v')) =>
-               s1.clock = s1'.clock ∧
-               state_rel s1.clock s1 s1' ∧
-               val_rel s1.clock v v'
-           | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
-               state_rel s1.clock s1 s1'
-           | (Rerr (Rabort Rtype_error), _) => T
-           | _ => F
-    else
-      T) ∧
-(exec_cl_rel i (cl, args, s) (cl', args', s') ⇔
-  !i' loc.
-    if i' ≤ i then
-      (* Possibly allow different locations, constrained by a parameter relating
-       * locations *)
-      let (r, s1) = evaluate_app loc cl args (s with clock := i') in
-      let (r', s1') = evaluate_app loc cl' args' (s' with clock := i') in
+      let (r, s1) = evaluate_ev i' x in
+      let (r', s1') = evaluate_ev i' x' in
         case (r, r') of
            | (Rval vs, Rval vs') =>
                s1.clock = s1'.clock ∧
@@ -182,7 +177,7 @@ val val_rel_def = tDefine "val_rel" `
                  state_rel i' s s' ∧
                  LIST_REL (val_rel i') env env'
                  ⇒
-                 exec_rel i' ([e],env,s) ([e'],env',s')
+                 exec_rel i' (Exp [e] env s) (Exp [e'] env' s')
                else
                  T)
            s.code s'.code ∧
@@ -192,12 +187,13 @@ val val_rel_def = tDefine "val_rel" `
              \x. case x of 
                      | INL (i,v,v') => (i:num,0:num,v_size v) 
                      | INR (INL (i,st,st')) => (i,3,0)
-                     | INR (INR (INL (i,st,st'))) => (i,3,0)
-                     | INR (INR (INR (INL (i,rv,rv')))) => (i,1,0)
-                     | INR (INR (INR (INR (i,s,s')))) => (i,2,0)` >>
+                     | INR (INR (INL (i,rv,rv'))) => (i,1,0)
+                     | INR (INR (INR (i,s,s'))) => (i,2,0)` >>
  rw [] >>
  rpt (first_x_assum (mp_tac o GSYM)) >>
- rw [] >>
+ TRY (Cases_on `x`) >>
+ TRY (Cases_on `x'`) >>
+ rw [evaluate_ev_def] >>
  imp_res_tac evaluate_clock >>
  fs [] >>
  TRY decide_tac
@@ -247,7 +243,7 @@ exp_rel es es' ⇔
   !i env env' s s'.
     state_rel i s s' ∧
     LIST_REL (val_rel i) env env' ⇒
-    exec_rel i (es, env, s) (es', env', s')`;
+    exec_rel i (Exp es env s) (Exp es' env' s')`;
 
 val val_rel_ind = theorem "val_rel_ind";
 
@@ -306,52 +302,24 @@ val ref_v_rel_rw = Q.store_thm ("ref_v_rel_rw",
  metis_tac []);
 
 val exec_rel_rw = Q.store_thm ("exec_rel_rw",
-`(exec_rel i (es,env,s) (es',env',s') ⇔
+`exec_rel i x x' ⇔
   !i'. i' ≤ i ⇒
-    res_rel (evaluate (es,env,s with clock := i')) 
-            (evaluate (es',env',s' with clock := i'))) ∧
- (exec_cl_rel i (cl,args,s) (cl',args',s') ⇔
-  !i' loc. i' ≤ i ⇒
-    res_rel (evaluate_app loc cl args (s with clock := i')) 
-            (evaluate_app loc cl' args' (s' with clock := i')))`,
+  res_rel (evaluate_ev i' x) (evaluate_ev i' x')`,
  rw [] >>
  ONCE_REWRITE_TAC [val_rel_def] >>
  rw [fun_lemma] >>
  eq_tac >>
  fs [] >>
  rw []
- >- (strip_assume_tac (Q.ISPEC `evaluate (es,env,s with clock := i')`
-                         result_store_cases) >>
-     strip_assume_tac (Q.ISPEC `evaluate (es',env',s' with clock := i')` 
-                         result_store_cases) >>
+ >- (strip_assume_tac (Q.ISPEC `evaluate_ev i' x` result_store_cases) >>
+     strip_assume_tac (Q.ISPEC `evaluate_ev i' x'` result_store_cases) >>
      simp [res_rel_rw] >>
      res_tac >>
-     fs [] >>
-     rfs [])
+     fs [])
  >- (first_x_assum (qspec_then `i'` mp_tac) >>
      rw [] >>
-     strip_assume_tac (Q.ISPEC `evaluate (es,env,s with clock := i')` 
-                         result_store_cases) >>
-     strip_assume_tac (Q.ISPEC `evaluate (es',env',s' with clock := i')` 
-                         result_store_cases) >>
-     fs [] >>
-     rw [] >>
-     fs [res_rel_rw] >>
-     fs [])
- >- (strip_assume_tac (Q.ISPEC `evaluate_app loc cl args (s with clock := i')`
-                         result_store_cases) >>
-     strip_assume_tac (Q.ISPEC `evaluate_app loc cl' args' (s' with clock := i')` 
-                         result_store_cases) >>
-     simp [res_rel_rw] >>
-     res_tac >>
-     fs [] >>
-     rfs [])
- >- (first_x_assum (qspecl_then [`i'`, `loc`] mp_tac) >>
-     rw [] >>
-     strip_assume_tac (Q.ISPEC `evaluate_app loc cl args (s with clock := i')` 
-                         result_store_cases) >>
-     strip_assume_tac (Q.ISPEC `evaluate_app loc cl' args' (s' with clock := i')` 
-                         result_store_cases) >>
+     strip_assume_tac (Q.ISPEC `evaluate_ev i' x` result_store_cases) >>
+     strip_assume_tac (Q.ISPEC `evaluate_ev i' x'` result_store_cases) >>
      fs [] >>
      rw [] >>
      fs [res_rel_rw] >>
@@ -363,15 +331,24 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
   ⇒
   (val_rel c v v' ⇔
     if is_closure v' ∧ check_closures v v' then
-      !i' args args' s s'.
-        i' < c
-        ⇒
+    !i' a a' s s'.
+      if i' < c then
         state_rel i' s s' ∧
-        args ≠ [] ∧
-        (* LENGTH args = clo_to_num_params v - LENGTH (clo_to_partial_args v) ∧*)
-        LIST_REL (val_rel i') args args'
+        val_rel i' a a'
         ⇒
-        exec_cl_rel i' (v, args, s) (v', args', s')
+        case (dest_closure NONE v [a], dest_closure NONE v' [a']) of
+           | (NONE, _) => T
+           | (_, NONE) => F
+           | (SOME (Partial_app v), SOME (Partial_app v')) =>
+               exec_rel i' (Val v s) (Val v' s')
+           | (SOME (Partial_app v), SOME (Full_app e' env' _)) =>
+               exec_rel i' (Val v s) (Exp [e'] env' s')
+           | (SOME (Full_app e env _), SOME (Partial_app v')) =>
+               exec_rel i' (Exp [e] env s) (Val v' s')
+           | (SOME (Full_app e env _), SOME (Full_app e' env' _)) =>
+               exec_rel i' (Exp [e] env s) (Exp [e'] env' s')
+      else
+        T
     else
       F)`,
  rw [] >>
@@ -383,7 +360,6 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
 val val_rel_mono = Q.store_thm ("val_rel_mono",
 `(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
  (!i st st'. exec_rel i st st' ⇒ !i'. i' ≤ i ⇒ exec_rel i' st st') ∧
- (!i st st'. exec_cl_rel i st st' ⇒ !i'. i' ≤ i ⇒ exec_cl_rel i' st st') ∧
  (!i rv rv'. ref_v_rel i rv rv' ⇒ !i'. i' ≤ i ⇒ ref_v_rel i' rv rv') ∧
  (!i s s'. state_rel i s s' ⇒ !i'. i' ≤ i ⇒ state_rel i' s s')`,
  ho_match_mp_tac val_rel_ind >>
@@ -393,11 +369,9 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
  >- (fs [LIST_REL_EL_EQN] >>
      rw [] >>
      metis_tac [MEM_EL])
- >- (`i''' < i ∧ i'' < i` by decide_tac >>
+ >- (`i'' < i` by decide_tac >>
      metis_tac [])
- >- (`i''' < i ∧ i'' < i` by decide_tac >>
-     metis_tac [])
- >- (`i'' ≤ i` by decide_tac >>
+ >- (`i'' < i` by decide_tac >>
      metis_tac [])
  >- (`i'' ≤ i` by decide_tac >>
      metis_tac [])
@@ -450,7 +424,7 @@ val find_code_related = Q.store_thm ("find_code_related",
   ?args' e'.
     find_code n vs' s'.code = SOME (args',e') ∧
     LIST_REL (val_rel c) args args' ∧
-    (c ≠ 0 ⇒ exec_rel (c-1) ([e],args,s) ([e'],args',s'))`,
+    (c ≠ 0 ⇒ exec_rel (c-1) (Exp [e] args s) (Exp [e'] args' s'))`,
  rw [find_code_def] >>
  `c-1 ≤ c` by decide_tac >>
  `state_rel (c-1) s s'` by metis_tac [val_rel_mono] >>
@@ -536,6 +510,7 @@ val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
 `!l v vs e args rest.
   dest_closure l v vs = SOME (Full_app e args rest)
   ⇒
+  LENGTH (clo_to_partial_args v) < clo_to_num_params v ∧
   LENGTH vs + LENGTH (clo_to_partial_args v) = clo_to_num_params v + LENGTH rest ∧
   LENGTH args = clo_to_num_params v + LENGTH (clo_to_env v)`,
  rpt gen_tac >>
@@ -550,6 +525,7 @@ val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
  rw [] >>
  simp []);
 
+ (*
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' s s' loc.
   val_rel c v v' ∧
@@ -560,9 +536,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
   s'.clock = c
   ⇒
   res_rel (evaluate_app loc v vs s) (evaluate_app loc v' vs' s')`, 
-  cheat);
 
-  (*
  rw [] >>
  `vs' ≠ []` by (Cases_on `vs'` >> fs []) >>
  rw [evaluate_app_rw] >>
@@ -575,10 +549,51 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  imp_res_tac LIST_REL_LENGTH >>
  `?x'. dest_closure loc v' vs' = SOME x'` by metis_tac [dest_closure_opt] >>
  simp [] >>
- qabbrev_tac `full_arg_num = clo_to_num_params v - LENGTH (clo_to_partial_args v)` >>
- Cases_on `LENGTH vs < full_arg_num` 
+ `LENGTH vs ≠ 0` by (Cases_on `vs` >> fs []) >>
+ Cases_on `x` >>
+ Cases_on `x'` >>
+ fs []
+ >- (rw [res_rel_rw, dec_clock_def]
+     >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
+     >- (
+
+
+
+ Cases_on `s'.clock = 0`
+ >- (fs [] >>
+     simp [] >>
+     Cases_on `x` >>
+     Cases_on `x'` >>
+     simp [] >>
+     fs [] >>
+     imp_res_tac dest_closure_full_length >>
+     fs [res_rel_rw] >>
+     `0 < LENGTH vs' - LENGTH l0` by decide_tac >>
+     simp [res_rel_rw]) >>
+ fs [val_rel_cl_rw] >>
+ `s'.clock - 1 < s'.clock` by decide_tac >>
+ `exec_cl_rel (s'.clock - 1) (v, vs, s) (v',vs',s')`
+              by metis_tac [val_rel_mono, val_rel_mono_list, LESS_IMP_LESS_OR_EQ] >>
+ fs [exec_rel_rw] >>
+ Cases_on `x` >>
+ Cases_on `x'` >>
+ fs []
+
+ >- ((* Partial, Partial *)
+
+     rw [res_rel_rw, dec_clock_def]
+     >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
+     >- (`s'.clock - LENGTH vs' ≤ s'.clock - 1` by decide_tac >>
+         first_x_assum (qspecl_then [`s'.clock - LENGTH vs'`, `loc`] mp_tac) >>
+         simp [evaluate_app_rw, res_rel_rw] >>
+         rw [] >>
+         fs [res_rel_rw, dec_clock_def]
+         rev_full_simp_tac (srw_ss()++ARITH_ss) []
+         decide_tac
+
+
+
  >- ((* A partial application on the left *)
-     reverse (Cases_on `x`) >>
      fs [] 
      >- (imp_res_tac dest_closure_full_length >>
          full_simp_tac (srw_ss()++ARITH_ss) [Abbr `full_arg_num`]) >>
@@ -1153,6 +1168,7 @@ val compat_fn = Q.store_thm ("compat_fn",
  rw [] >>
  imp_res_tac val_rel_clos_env >>
  imp_res_tac val_rel_mono >>
+ rw [is_closure_def]
  rw [is_closure_def , val_rel_rw, exec_rel_rw, check_closures_def] >>
  fs [clo_can_apply_def, clo_to_partial_args_def, clo_to_num_params_def, rec_clo_ok_def,
      clo_to_loc_def] >>
@@ -1162,8 +1178,9 @@ val compat_fn = Q.store_thm ("compat_fn",
  simp [evaluate_app_rw, dest_closure_def, res_rel_rw] >>
  Cases_on `check_loc loc' loc num_args (LENGTH args') 0` >>
  simp [res_rel_rw] >>
+
  Cases_on `LENGTH args' < num_args` >>
- rw [res_rel_rw] >>
+ simp [res_rel_rw] >>
  rfs [] 
  >- (`0 ≤ i''` by decide_tac >>
      metis_tac [val_rel_mono]) >>
@@ -1273,5 +1290,5 @@ val exp_rel_trans = Q.store_thm ("exp_rel_trans",
  rw [exp_rel_def] >>
  `!i. state_rel i s' s' ∧ LIST_REL (val_rel i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
  metis_tac [val_rel_trans]);
-
+ *)
 val _ = export_theory ();
