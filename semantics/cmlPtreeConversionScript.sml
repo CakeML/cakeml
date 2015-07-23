@@ -102,10 +102,13 @@ val _ = temp_overload_on ("return", ``SOME``)
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
                                         "option.OPTION_GUARD_def",
+                                        "option.OPTION_MAP_DEF",
+                                        "option.OPTION_MAP2_DEF",
                                         "option.OPTION_CHOICE_def"]
 
 val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
+val _ = overload_on ("lift", ``option$OPTION_MAP``)
 
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
@@ -609,6 +612,20 @@ val ptree_Pattern_def = Define`
          | _ => NONE)
 `;
 
+val ptree_PbaseList1_def = Define`
+  (ptree_PbaseList1 (Lf _) = NONE) ∧
+  (ptree_PbaseList1 (Nd nm args) =
+     if nm <> mkNT nPbaseList1 then NONE
+     else
+       case args of
+           [p_pt] => lift SINGL (ptree_Pattern nPbase p_pt)
+         | [p_pt; pl_pt] =>
+               lift2 CONS
+                     (ptree_Pattern nPbase p_pt)
+                     (ptree_PbaseList1 pl_pt))
+`;
+
+
 val Eseq_encode_def = Define`
   (Eseq_encode [] = NONE) ∧
   (Eseq_encode [e] = SOME e) ∧
@@ -682,6 +699,15 @@ val ptree_OpID_def = Define`
            else NONE)
         | _ => NONE
 `;
+
+val dePat_def = Define`
+  (dePat (Pvar v) b = (v, b)) ∧
+  (dePat p b = ("", Mat (Var (Short "")) [(p, b)]))
+`
+
+val mkFun_def = Define`
+  mkFun p b = UNCURRY Fun (dePat p b)
+`
 
 
 val ptree_Expr_def = Define`
@@ -869,15 +895,15 @@ val ptree_Expr_def = Define`
               e <- ptree_Expr nE ept;
               SOME(Raise e)
             od
-          | [fnt; vnt; arrowt; ent] =>
+          | [fnt; pnt; arrowt; ent] =>
             do
               assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
-              v <- ptree_V vnt;
+              p <- ptree_Pattern nPattern pnt;
               e <- ptree_Expr nE ent;
-              SOME(Fun v e)
+              SOME(mkFun p e)
             od ++ do
               assert (fnt = Lf (TOK CaseT) ∧ arrowt = Lf (TOK OfT));
-              e <- ptree_Expr nE vnt;
+              e <- ptree_Expr nE pnt;
               pes <- ptree_PEs ent;
               SOME(Mat e pes)
             od
@@ -965,14 +991,14 @@ val ptree_Expr_def = Define`
       | Nd nt subs =>
         if nt = mkNT nFDecl then
           case subs of
-              [fname_pt; vnames_pt; eqt; body_pt] =>
+              [fname_pt; pats_pt; eqt; body_pt] =>
               do
                 assert(eqt = Lf (TOK EqualsT));
                 fname <- ptree_V fname_pt;
-                vs <- ptree_Vlist1 vnames_pt;
-                v1 <- oHD vs;
+                ps <- ptree_PbaseList1 pats_pt;
+                p1 <- oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,v1,FOLDR Fun body0 (safeTL vs))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (safeTL ps)))
               od
             | _ => NONE
         else NONE) ∧
