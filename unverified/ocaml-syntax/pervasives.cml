@@ -1,13 +1,30 @@
 (* Name format:
    Letter-like names stay as they are. Symbol-like names are transcribed
    symbol-for-symbol into words separated by underscores. All names here are
-   letter-like and not infix. `mod` was changed to `modulo` to avoid built-in
-   `mod`. *)
+   letter-like and not infix.
+
+   To avoid CakeML builtins, the following substitutions are made:
+     mod |-> oc_mod
+   raise |-> oc_raise
+   *)
 (* Reference:
    http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html *)
 
+(* First, some super-pervasives: *)
+exception Invalid_argument of string;
+exception Failure of string;
+exception Exit;
+exception Sys_error;
+exception End_of_file;
+exception Division_by_zero;
+
 structure Pervasives = struct
-  fun equals x y = x = y;
+  fun oc_raise e = raise e;
+  val raise_notrace = oc_raise;
+  fun invalid_arg s = raise (Invalid_argument s);
+  fun failwith s = raise (Failure s);
+
+  fun equals x y = x = y handle Eq => invalid_arg "equal: functional value";
   (*fun lt_gt x y = x <> y;*) (* Defined below *)
   fun lt x y = x < y;
   fun gt x y = x > y;
@@ -25,9 +42,11 @@ structure Pervasives = struct
 
   fun not x = case x of
       false => true
-    | true => false;
-  fun amp_amp x y = x andalso y
-  fun bar_bar x y = x orelse y
+    | true => false
+    ;
+  (* These will have been dealt with earlier *)
+  fun amp_amp x y = x andalso y;
+  fun bar_bar x y = x orelse y;
   val amp = amp_amp;
   val or = bar_bar;
 
@@ -49,9 +68,172 @@ structure Pervasives = struct
      # ~-5 mod 3;;  |  ~5 mod 3;
      - : int = -2   |  val it:<int> = 1
    *)
-  fun slash x y = if x < 0 then ~(~x div y) else x div y;
-  fun modulo x y = x - y * slash x y
+  fun slash x y =
+    if y = 0 then
+      oc_raise Division_by_zero
+    else
+      if y < 0 then
+        if x < 0 then ~x div ~y else ~(x div ~y)
+      else
+        if x < 0 then ~(~x div y) else x div y
+    ;
+  fun oc_mod x y = x - y * slash x y;
   fun abs x = if x < 0 then ~x else x;
 
+  val int_of_char = Char.ord;
+  val char_of_int = Char.chr;
+
+  fun at xs ys = case xs of
+      [] => ys
+    | x :: xs => x :: at xs ys
+    ;
+
+  fun hat s t = String.implode (at (String.explode s) (String.explode t));
+
+  fun string_of_bool x = if x then "true" else "false";
+  fun bool_of_string x = case x of
+      "true" => true
+    | "false" => false
+    | x => invalid_arg x
+    ;
+  (*fun string_of_int x =
+    let
+      fun digit x =
+        case x of 0 => "0" | 1 => "1" | 2 => "2" | 3 => "3" | 4 => "4"
+                | 5 => "5" | 6 => "6" | 7 => "7" | 8 => "8" | 9 => "9"
+                | x => invalid_arg x;
+      fun f x = case x of
+          0 => ""
+        | x => hat (f (x div 10)) (digit (x mod 10));
+    in
+      if x = 0 then "0"
+      else if x > 0 then f x
+      else hat "-" (f (~x)))
+    end;*)
+
+  fun fst x = case x of (y, z) => y;
+  fun snd x = case x of (y, z) => z;
+
+  type 'a oc_ref = 'a ref;
+  fun oc_ref x = ref x;
+  fun bang x = !x;
+  fun colon_equals r x = r := x;
+  fun incr r = r := succ (!r);
+  fun decr r = r := pred (!r);
+
   fun ignore x = ();
+end;
+
+structure List = struct
+  fun length xs = case xs of
+      [] => 0
+    | x :: xs => 1 + length xs;
+  fun hd xs = case xs of
+      [] => Pervasives.failwith "hd"
+    | x :: xs => x;
+  fun tl xs = case xs of
+      [] => Pervasives.failwith "tl"
+    | x :: xs => xs;
+  fun nth xs i =
+    let
+      fun f xs i = case xs of
+          [] => Pervasives.failwith "nth"
+        | x :: xs => f xs (i - 1)
+    in
+      if i < 0 then Pervasives.invalid_arg "List.nth" else f xs i
+    end;
+  val rev =
+    let
+      fun f acc xs = case xs of
+          [] => acc
+        | x :: xs => f (x :: acc) xs
+    in
+      f []
+    end;
+  fun append xs ys = case xs of
+      [] => ys
+    | x :: xs => x :: append xs ys;
+  fun rev_append xs ys = case xs of
+      [] => ys
+    | x :: xs => append xs (x :: ys);
+  fun concat xss = case xss of
+      [] => []
+    | xs :: xss => append xs (concat xss);
+  val flatten = concat;
+
+  fun iter f =
+    let
+      fun inner xs = case xs of
+          [] => ()
+        | x :: xs => (f x; inner xs)
+    in
+      inner
+    end;
+  fun iteri f =
+    let
+      fun inner i xs = case xs of
+          [] => ()
+        | x :: xs => (f i x; inner (1 + i) xs)
+    in
+      inner 0
+    end;
+  fun map f =
+    let
+      fun inner xs = case xs of
+          [] => []
+        | x :: xs => f x :: inner xs
+    in
+      inner
+    end;
+  fun mapi f =
+    let
+      fun inner i xs = case xs of
+          [] => []
+        | x :: xs => f i x :: inner (1 + i) xs
+    in
+      inner 0
+    end;
+  fun rev_map f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f x :: acc) xs
+    in
+      inner []
+    end;
+  fun fold_left f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f acc x) xs
+    in
+      inner
+    end;
+  fun fold_right f acc =
+    let
+      fun inner xs = case xs of
+          [] => acc
+        | x :: xs => f x (inner xs)
+    in
+      inner
+    end;
+
+  fun iter2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => ()
+        | (x :: xs, y :: ys) => (f x y; inner xs ys)
+        | z => Pervasives.invalid_arg "List.iter2"
+    in
+      inner
+    end;
+  fun map2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => []
+        | (x :: xs, y :: ys) => f x y :: inner xs ys
+        | z => Pervasives.invalid_arg "List.map2"
+    in
+      inner
+    end;
 end;

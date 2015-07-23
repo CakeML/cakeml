@@ -168,6 +168,7 @@ val INPUT_TYPE_no_closures = store_thm("INPUT_TYPE_no_closures",
       EqualityType_LIST_TYPE,
       EqualityType_def,
       find_equality_type_thm``LEXER_FUN_SYMBOL_TYPE``,
+      EqualityType_CHAR,
       EqualityType_LIST_TYPE_CHAR,
       EqualityType_INT] ) >>
   match_mp_tac PAIR_TYPE_no_closures >>
@@ -392,6 +393,7 @@ val INPUT_TYPE_exists = store_thm("INPUT_TYPE_exists",
   Cases >>
   simp[LEXER_FUN_SYMBOL_TYPE_def] >> rw[] >>
   simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+  TRY (simp[ml_translatorTheory.CHAR_def] >> NO_TAC) >>
   ltchartac )
 
 val LIST_TYPE_closed = prove(
@@ -607,6 +609,7 @@ val INPUT_TYPE_closed = store_thm("INPUT_TYPE_closed",
     simp[Abbr`A`] >>
     Cases >> simp[LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
     simp[ml_translatorTheory.NUM_def,ml_translatorTheory.INT_def] >>
+    TRY(simp[ml_translatorTheory.CHAR_def]>>NO_TAC)>>
     rw[] >>
     qmatch_assum_abbrev_tac`LIST_TYPE B s bb` >>
     Q.ISPECL_THEN[`B`,`s`](match_mp_tac o MP_CANON) (GEN_ALL LIST_TYPE_closed) >>
