@@ -99,6 +99,41 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn x => x"
+                   (SOME ``Fun "x" (Var (Short "x"))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn (x,y) => x + y"
+                   (SOME ``Fun "" (Mat (Var (Short ""))
+                                       [(Pcon NONE [Pvar "x"; Pvar "y"],
+                                         vbinop (Short "+")
+                                                (Var (Short "x"))
+                                                (Var (Short "y")))])``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "fun f 0 NONE = 3"
+                   (SOME ``Dletrec
+                            [("f","",
+                              Mat (Var (Short ""))
+                                  [(Plit (IntLit 0),
+                                    Fun ""
+                                        (Mat (Var (Short ""))
+                                             [(Pcon (SOME (Short "NONE")) [],
+                                               Lit (IntLit 3))]))])]``)
+
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "fun f (x,y) (SOME z) = x * y + z"
+                   (SOME
+                      ``Dletrec
+                         [("f","",
+                           Mat (Var (Short ""))
+                               [(Pcon NONE [Pvar "x"; Pvar "y"],
+                                 Fun ""
+                                     (Mat (Var (Short ""))
+                                          [(Pcon (SOME (Short "SOME"))
+                                                 [Pvar "z"],
+                                            vbinop (Short "+")
+                                                   (vbinop (Short "*")
+                                                           (Var (Short "x"))
+                                                           (Var (Short "y")))
+                                                   (Var (Short "z")))]))])]``)
+
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op*" (SOME ``Var (Short "*")``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f op* 10"
                    (SOME ``OLDAPP (OLDAPP (Var (Short "f")) (Var (Short "*")))

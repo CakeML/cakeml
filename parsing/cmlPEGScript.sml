@@ -262,7 +262,7 @@ val cmlPEG_def = zDefine`
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
                              (bindNT nE);
-                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE]
+                        seql [tokeq FnT; pnt nPattern; tokeq DarrowT; pnt nE]
                              (bindNT nE);
                         seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
@@ -281,8 +281,11 @@ val cmlPEG_def = zDefine`
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
-               seql [pnt nV; pnt nVlist1; tokeq EqualsT; pnt nE]
+               seql [pnt nV; pnt nPbaseList1; tokeq EqualsT; pnt nE]
                     (bindNT nFDecl));
+              (mkNT nPbaseList1,
+               seql [pnt nPbase; try (pnt nPbaseList1)]
+                    (bindNT nPbaseList1));
               (mkNT nType,
                seql [pnt nPType; try (seql [tokeq ArrowT; pnt nType] I)]
                     (bindNT nType));
@@ -590,7 +593,7 @@ val npeg0_rwts =
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
                 ``nTypeList1``, ``nTypeList2``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
-                ``nPatternList``,
+                ``nPatternList``, ``nPbaseList1``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
@@ -671,7 +674,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
-                ``nPatternList``, ``nPE``,
+                ``nPatternList``, ``nPbaseList1``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
                 ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
