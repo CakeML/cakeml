@@ -613,6 +613,11 @@ val firstSet_nPatternList = Store_thm(
   ``firstSet cmlG (NN nPatternList :: rest) = firstSet cmlG [NN nPattern]``,
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
 
+val firstSet_nPbaseList1 = Store_thm(
+  "firstSet_nPbaseList1",
+  ``firstSet cmlG (NN nPbaseList1 :: rest) = firstSet cmlG [NN nPbase]``,
+  simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
+
 val NOTIN_firstSet_nV = Store_thm(
   "NOTIN_firstSet_nV",
   ``CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
@@ -1189,6 +1194,7 @@ val stoppers_def = Define`
      UNIV DIFF ({CommaT; LparT; UnderbarT; LbrackT; SymbolT "::"} ∪
                 {IntT i | T} ∪ { StringT s | T } ∪ { CharT c | T } ∪
                 firstSet cmlG [NN nV] ∪ firstSet cmlG [NN nConstructorName])) ∧
+  (stoppers nPbaseList1 = UNIV DIFF firstSet cmlG [NN nPbase]) ∧
   (stoppers nPE = nestoppers) ∧
   (stoppers nPE' = BarT INSERT nestoppers) ∧
   (stoppers nPEs = nestoppers) ∧
@@ -1885,6 +1891,24 @@ val completeness = store_thm(
           strip_tac >> rw[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[]) >>
       normlist >> simp[])
+  >- (print_tac "nPbaseList1" >> stdstart
+      >- (first_x_assum (unify_firstconj mp_tac) >> simp[] >>
+          asm_match `ptree_fringe pt = MAP TK pfx` >>
+          disch_then (qspec_then `pt` mp_tac) >> simp[NT_rank_def] >>
+          strip_tac >> disj2_tac >> qcase_tac `sfx ≠ []` >>
+          Cases_on `sfx` >> simp[not_peg0_peg_eval_NIL_NONE] >>
+          match_mp_tac peg_respects_firstSets >> simp[] >> fs[]) >>
+      normlist >> first_assum (unify_firstconj mp_tac) >>
+      simp_tac (srw_ss()) [] >>
+      erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_PbaseList1) >>
+      simp[] >> qcase_tac `0 < LENGTH plf` >> strip_tac >>
+      qcase_tac `ptree_head ppt = NN nPbase` >>
+      disch_then (qspec_then `ppt` mp_tac) >> simp[] >>
+      strip_tac >> first_x_assum match_mp_tac >> simp[] >>
+      erule mp_tac
+            (MATCH_MP fringe_length_not_nullable nullable_Pbase) >>
+      simp[])
   >- (print_tac "nPbase" >> stdstart >>
       TRY (simp[peg_respects_firstSets, peg_eval_tok_NONE] >> NO_TAC)
       >- simp[NT_rank_def]
@@ -2070,11 +2094,11 @@ val completeness = store_thm(
       dsimp[] >>
       asm_match `ptree_head vpt = NN nV` >>
       asm_match `ptree_fringe vpt = MAP TK vf` >>
-      asm_match `ptree_head vlpt = NN nVlist1` >>
-      asm_match `ptree_fringe vlpt = MAP TK vlf` >>
+      asm_match `ptree_head plpt = NN nPbaseList1` >>
+      asm_match `ptree_fringe plpt = MAP TK plf` >>
       asm_match `ptree_head ept = NN nE` >>
       asm_match `MAP TK ef = ptree_fringe ept` >>
-      map_every qexists_tac [`[vpt]`, `vlf ++ EqualsT::ef ++ sfx`, `[vlpt]`,
+      map_every qexists_tac [`[vpt]`, `plf ++ EqualsT::ef ++ sfx`, `[plpt]`,
                              `ef ++ sfx`, `[ept]`] >> asimp[] >>
       normlist >>
       asimp[])
