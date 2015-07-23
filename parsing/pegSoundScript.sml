@@ -792,6 +792,15 @@ val peg_sound = store_thm(
           asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
+  >- (print_tac "nPbaseList1" >> strip_tac >> rveq >>
+      simp[cmlG_FDOM, cmlG_applied] >>
+      `NT_rank (mkNT nPbase) < NT_rank (mkNT nPbaseList1)`
+        by simp[NT_rank_def] >>
+      first_x_assum (erule strip_assume_tac) >> rveq >>
+      dsimp[MAP_EQ_CONS] >> csimp[] >>
+      fs[MAP_EQ_APPEND] >> disj2_tac >>
+      erule assume_tac (MATCH_MP not_peg0_LENGTH_decreases peg0_nPbase) >>
+      first_x_assum (erule strip_assume_tac) >> simp[])
   >- (print_tac "nFDecl" >> strip_tac >> rveq >> simp[] >>
       `NT_rank (mkNT nV) < NT_rank (mkNT nFDecl)` by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
@@ -799,7 +808,7 @@ val peg_sound = store_thm(
         (MATCH_MP not_peg0_LENGTH_decreases peg0_nV |> GEN_ALL) >>
       first_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
       first_assum (assume_tac o MATCH_MP length_no_greater o
-                   assert (free_in ``nVlist1`` o concl)) >> fs[] >>
+                   assert (free_in ``nPbaseList1`` o concl)) >> fs[] >>
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
@@ -909,10 +918,10 @@ val peg_sound = store_thm(
           rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
           first_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                         assert (free_in ``nV``) o concl)) >>
+                         assert (free_in ``nPattern``) o concl)) >>
           rpt kill_asm_guard >> strip_tac >> rveq >>
           first_assum (assume_tac o MATCH_MP length_no_greater o
-                       assert (free_in ``nV`` o concl)) >> fs[] >>
+                       assert (free_in ``nPattern`` o concl)) >> fs[] >>
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
