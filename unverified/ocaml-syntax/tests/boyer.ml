@@ -27,8 +27,6 @@ module Terms = struct
     | Prop (_, [left; right]) -> r := (left, right) :: !r
     | _ -> invalid_arg ""
 
-  exception Failure of string
-
   type binding = Bind of int * term
 
   let get_binding v =

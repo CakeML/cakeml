@@ -190,6 +190,12 @@ let rec print_path = function
                        print_path p1 >>= fun p1 ->
                        return @@ p0 ^ " " ^ p1
 
+let case_is_trivial c =
+  match c.c_lhs.pat_desc, c.c_guard with
+  | Tpat_any, None -> true
+  | Tpat_var (_, _), None -> true
+  | _ -> false
+
 let rec print_expression indent prec expr =
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) -> print_path path
@@ -205,7 +211,7 @@ let rec print_expression indent prec expr =
       indent_by (indent + 1) ^ e' ^ "\n" ^
       indent_by indent ^ "end"
   | Texp_function (l, [c], p) ->
-    print_case indent 2 " => " c >>= fun c' ->
+    print_case indent 0 " => " c >>= fun c' ->
     return @@ ifThen (prec > 1) paren @@ "fn " ^ (match c.c_lhs.pat_desc with
     | Tpat_var (_, _) -> ""
     | _ -> "tmp__ => case tmp__ of ") ^ c'
@@ -292,17 +298,21 @@ and print_value_binding first_binding indent rec_flag vb =
   print_pattern 0 vb.vb_pat >>= fun name ->
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
-  | Texp_function (l, [c], p), Recursive when
-      (match c.c_lhs.pat_desc, c.c_guard with
-      | Tpat_var (_,_), None -> true
-      | _ -> false
-      ) ->
-    print_case (indent + 1) 0 " = " c >>= fun c' ->
-    return @@ indent_by indent ^ keyword ^ name ^ " " ^ c'
+  | Texp_function (l, [c], p), Recursive when case_is_trivial c ->
+    let rec reduce_fn acc lastc =
+      match lastc.c_rhs.exp_desc with
+      | Texp_function (_, [nextc], _) when case_is_trivial nextc ->
+        reduce_fn (lastc.c_lhs :: acc) nextc
+      | _ -> mapM (print_pattern 0) (BatList.rev acc) >>= fun vs ->
+             print_case indent 0 " = " lastc >>= fun c' ->
+             return @@ indent_by indent ^ keyword ^ name ^ " " ^
+                       BatString.concat " " vs ^ " " ^ c'
+    in
+    reduce_fn [] c
   | Texp_function (l, cs, p), Recursive ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ indent_by indent ^
-              keyword ^ name ^ " tmp__ = case tmp__ of" ^ cs'
+    return @@
+      indent_by indent ^ keyword ^ name ^ " tmp__ = case tmp__ of" ^ cs'
   | _, Recursive -> Bad "Recursive values not supported in CakeML"
   | _, Nonrecursive ->
     print_expression indent 0 vb.vb_expr >>= fun expr ->
@@ -411,7 +421,10 @@ let rec print_module_expr indent expr =
   match expr.mod_desc with
   | Tmod_structure str ->
     mapM (print_structure_item (indent + 1)) str.str_items >>= fun items ->
-    return @@ "struct\n" ^ fold_right (^) items "end"
+    return @@
+      indent_by indent ^ "struct\n" ^
+      BatString.concat "\n\n" (map (fun x -> x ^ ";") items) ^ "\n" ^
+      indent_by indent ^ "end"
   | _ -> Bad "Some module types not implemented."
 
 and print_module_binding indent mb =
@@ -419,21 +432,20 @@ and print_module_binding indent mb =
   let name = mb.mb_id.name in
   match mb.mb_expr.mod_desc with
   | Tmod_structure str ->
-    return @@
-      indent_by indent ^ "structure " ^ name ^ " = " ^ expr
+    return @@ indent_by indent ^ "structure " ^ name ^ " = " ^ expr
   | _ -> Bad "Some module types not implemented."
 
 and print_structure_item indent str =
   match str.str_desc with
   | Tstr_eval (e, attrs) ->
     print_expression indent 0 e >>= fun e' ->
-    return @@ indent_by indent ^ e' ^ ";\n"
+    return @@ indent_by indent ^ e'
   | Tstr_value (r, bs) ->
     mapiM (fun i -> print_value_binding (i = 0) indent r) bs >>= fun ss ->
-    return @@ BatString.concat "\n" ss ^ ";\n\n"
+    return @@ BatString.concat "\n" ss
   | Tstr_type ds ->
     mapiM (fun i -> print_type_declaration (i = 0) indent) ds >>= fun ss ->
-    return @@ BatString.concat "\n" ss ^ ";\n\n"
+    return @@ BatString.concat "\n" ss
   | Tstr_exception constructor ->
     (match constructor.ext_kind with
     | Text_decl ([], None) -> return ""
@@ -444,14 +456,14 @@ and print_structure_item indent str =
     | _ -> Bad "Some exception declaration syntax not supported."
     ) >>= fun rest ->
     return @@ indent_by indent ^ "exception " ^ constructor.ext_name.txt ^
-              rest ^ ";\n\n"
+              rest
   | Tstr_module b ->
     print_module_binding indent b >>= fun b' ->
-    return @@ b' ^ ";\n\n"
+    return @@ b'
   | _ -> Bad "Some structure items not implemented."
 
 let output_result = function
-  | Ok r -> nwrite stdout r
+  | Ok r -> nwrite stdout @@ r ^ "\n"
   | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
 
 let rec preprocess_structure_item str =
@@ -553,4 +565,7 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
-let _ = map (output_result % print_structure_item 0) typedtree.str_items
+let _ = output_result (
+  mapM (print_structure_item 0) typedtree.str_items >>= fun is ->
+  return @@ BatString.concat "\n\n" @@ map (fun x -> x ^ ";") is
+)
