@@ -415,13 +415,18 @@ let print_type_declaration first_binding indent typ =
   return @@ indent_by indent ^ keyword ^ params ^
             fix_type_name typ.typ_name.txt ^ rest
 
+let concat_items =
+  filter (fun x -> "" <> x)
+  %> map (fun x -> x ^ ";")
+  %> BatString.concat "\n\n"
+
 let rec print_module_expr indent expr =
   match expr.mod_desc with
   | Tmod_structure str ->
     mapM (print_structure_item (indent + 1)) str.str_items >>= fun items ->
     return @@
       indent_by indent ^ "struct\n" ^
-      BatString.concat "\n\n" (map (fun x -> x ^ ";") items) ^ "\n" ^
+      concat_items items ^ "\n" ^
       indent_by indent ^ "end"
   | _ -> Bad "Some module types not implemented."
 
@@ -565,10 +570,5 @@ let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
 let _ = output_result (
-  mapM (print_structure_item 0) typedtree.str_items >>=
-  (  filter (fun x -> "" <> x)
-  %> map (fun x -> x ^ ";")
-  %> BatString.concat "\n\n"
-  %> return
-  )
+  mapM (print_structure_item 0) typedtree.str_items >>= (return % concat_items)
 )
