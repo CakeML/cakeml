@@ -86,66 +86,6 @@ let fix_identifier = function
 
 let fix_var_name = fix_identifier
 
-let rec print_longident = function
-  | Lident s -> return @@ fix_identifier s
-  | Ldot (t, s) -> print_longident t >>= fun ct ->
-                   Bad "I don't know what this feature is. Please tell me."
-  | Lapply (a, b) -> print_longident a >>= fun aname ->
-                     print_longident b >>= fun bname ->
-                     return @@ paren (aname ^ " " ^ bname)
-
-let print_constant = function
-  | Const_int x -> string_of_int x
-  | Const_char x -> "#\"" ^ BatChar.escaped x ^ "\""
-  | Const_string (x, y) -> "\"" ^ BatString.escaped x ^ "\""
-  | Const_float x -> x
-  | Const_int32 x -> BatInt32.to_string x
-  | Const_int64 x -> BatInt64.to_string x
-  | Const_nativeint x -> BatNativeint.to_string x
-
-(* Precedence rules (for parenthesization):
-   Low number => loose association
-   0: case expression, case pattern, let expression, if condition,
-      tuple term, list term
-   1: Case RHS
-   2: Application
-
-   case x of
-     p => ...
-   | q => (case y of ...)
-   | r => ...
- *)
-
-(* Works in both patterns and expressions. `f` is the function that prints
-   subpatterns/subexpressions. *)
-let print_construct prec (f : int -> 'a -> (string, string) result)
-                    lident cstr (xs : 'a list) =
-  match cstr.cstr_name, xs with
-  | "::", [x; y] -> f 2 x >>= fun x' ->
-                    f 1 y >>= fun y' ->
-                    return @@ ifThen (prec > 1) paren @@ x' ^ " :: " ^ y'
-  | _ ->
-    (match xs with
-    | [] -> return ""
-    | [x] -> f 2 x >>= fun x' ->
-             return @@ " " ^ x'
-    | _ -> mapM (f 0) xs >>= fun xs' ->
-           return @@ " (" ^ BatString.concat ", " xs' ^ ")"
-    ) >>= fun args ->
-    return @@ ifThen (prec > 1 && not ([] = xs)) paren @@
-      fix_identifier cstr.cstr_name ^ args
-
-let rec print_pattern prec pat =
-  match pat.pat_desc with
-  | Tpat_any -> return "unused__"
-  | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
-  | Tpat_constant c -> return @@ print_constant c
-  | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
-                     return @@ paren @@ BatString.concat ", " ps'
-  | Tpat_construct (lident, desc, ps) ->
-    print_construct prec print_pattern lident desc ps
-  | _ -> Bad "Some pattern syntax not implemented."
-
 let rec convertPervasive : string -> string =
   let rec f : char list -> string list = function
     | [] -> []
@@ -178,17 +118,75 @@ let rec convertPervasive : string -> string =
   in
   BatString.concat "_" % f % BatString.to_list
 
-let fix_path_name = fix_identifier
-
-let rec print_path = function
-  | Pident ident -> return @@ ident.name
-  | Pdot (left, right, _) ->
-    print_path left >>= fun left ->
+let rec print_longident = function
+  | Lident ident -> return @@ fix_identifier ident
+  | Ldot (left, right) ->
+    print_longident left >>= fun left ->
     let right = ifThen (left = "Pervasives") convertPervasive right in
-    return @@ fix_path_name left ^ "." ^ right
-  | Papply (p0, p1) -> print_path p0 >>= fun p0 ->
-                       print_path p1 >>= fun p1 ->
+    return @@ fix_identifier left ^ "." ^ right
+  | Lapply (p0, p1) -> print_longident p0 >>= fun p0 ->
+                       print_longident p1 >>= fun p1 ->
                        return @@ p0 ^ " " ^ p1
+
+let rec longident_of_path = function
+  | Pident i -> Lident i.name
+  | Pdot (l, r, _) -> Ldot (longident_of_path l, r)
+  | Papply (l, r) -> Lapply (longident_of_path l, longident_of_path r)
+
+let print_path = print_longident % longident_of_path
+
+let print_constant = function
+  | Const_int x -> string_of_int x
+  | Const_char x -> "#\"" ^ BatChar.escaped x ^ "\""
+  | Const_string (x, y) -> "\"" ^ BatString.escaped x ^ "\""
+  | Const_float x -> x
+  | Const_int32 x -> BatInt32.to_string x
+  | Const_int64 x -> BatInt64.to_string x
+  | Const_nativeint x -> BatNativeint.to_string x
+
+(* Precedence rules (for parenthesization):
+   Low number => loose association
+   0: case expression, case pattern, let expression, if condition,
+      tuple term, list term
+   1: Case RHS
+   2: Application
+
+   case x of
+     p => ...
+   | q => (case y of ...)
+   | r => ...
+ *)
+
+(* Works in both patterns and expressions. `f` is the function that prints
+   subpatterns/subexpressions. *)
+let print_construct prec (f : int -> 'a -> (string, string) result)
+                    lident cstr (xs : 'a list) =
+  match cstr.cstr_name, xs with
+  | "::", [x; y] -> f 1 x >>= fun x' ->
+                    f 0 y >>= fun y' ->
+                    return @@ ifThen (prec > 0) paren @@ x' ^ " :: " ^ y'
+  | _ ->
+    print_longident lident.txt >>= fun name ->
+    (match xs with
+    | [] -> return ""
+    | [x] -> f 2 x >>= fun x' ->
+             return @@ " " ^ x'
+    | _ -> mapM (f 0) xs >>= fun xs' ->
+           return @@ " (" ^ BatString.concat ", " xs' ^ ")"
+    ) >>= fun args ->
+    return @@ ifThen (prec > 1 && not ([] = xs)) paren @@
+      fix_identifier name ^ args
+
+let rec print_pattern prec pat =
+  match pat.pat_desc with
+  | Tpat_any -> return "unused__"
+  | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
+  | Tpat_constant c -> return @@ print_constant c
+  | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
+                     return @@ paren @@ BatString.concat ", " ps'
+  | Tpat_construct (lident, desc, ps) ->
+    print_construct prec print_pattern lident desc ps
+  | _ -> Bad "Some pattern syntax not implemented."
 
 let case_is_trivial c =
   match c.c_lhs.pat_desc, c.c_guard with
@@ -242,9 +240,9 @@ let rec print_expression indent prec expr =
     return @@ ifThen (prec > 0) paren @@ "case " ^ exp' ^ " of" ^ cs'
   | Texp_match (_, _, _, _) -> Bad "Exception cases not supported."
   | Texp_try (exp, cs) ->
-    print_expression indent 0 exp >>= fun exp' ->
+    print_expression indent 1 exp >>= fun exp' ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ ifThen (prec > 1) paren @@ exp' ^ " handle" ^ cs'
+    return @@ ifThen (prec > 0) paren @@ exp' ^ " handle" ^ cs'
   | Texp_tuple es -> mapM (print_expression indent 0) es >>= fun es' ->
                      return @@ paren @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
@@ -252,8 +250,8 @@ let rec print_expression indent prec expr =
   | Texp_ifthenelse (p, et, Some ef) ->
     print_expression indent 0 p >>= fun p' ->
     print_expression (indent + 1) 0 et >>= fun et' ->
-    print_expression (indent + 1) 0 ef >>= fun ef' ->
-    return @@ ifThen (prec > 1) paren @@
+    print_expression (indent + 1) prec ef >>= fun ef' ->
+    return @@ ifThen (prec > 0) paren @@
       "if " ^ p' ^ " then\n" ^
       indent_by (indent + 1) ^ et' ^ "\n" ^
       indent_by indent ^ "else\n" ^
@@ -460,6 +458,7 @@ and print_structure_item indent str =
   | Tstr_module b ->
     print_module_binding indent b >>= fun b' ->
     return @@ b'
+  | Tstr_open _ -> return ""
   | _ -> Bad "Some structure items not implemented."
 
 let output_result = function
@@ -566,6 +565,10 @@ let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
 let _ = output_result (
-  mapM (print_structure_item 0) typedtree.str_items >>= fun is ->
-  return @@ BatString.concat "\n\n" @@ map (fun x -> x ^ ";") is
+  mapM (print_structure_item 0) typedtree.str_items >>=
+  (  filter (fun x -> "" <> x)
+  %> map (fun x -> x ^ ";")
+  %> BatString.concat "\n\n"
+  %> return
+  )
 )

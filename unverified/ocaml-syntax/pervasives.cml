@@ -270,7 +270,7 @@ structure List = struct
     let
       fun inner xs = case xs of
           [] => true
-        | x :: xs => if p x then inner xs else false
+        | x :: xs => p x andalso inner xs
     in
       inner
     end;
@@ -278,7 +278,7 @@ structure List = struct
     let
       fun inner xs = case xs of
           [] => false
-        | x :: xs => if p x then true else inner xs
+        | x :: xs => p x orelse inner xs
     in
       inner
     end;
@@ -286,7 +286,7 @@ structure List = struct
     let
       fun inner xs ys = case (xs, ys) of
           ([], []) => true
-        | (x :: xs, y :: ys) => if p x y then inner xs ys else false
+        | (x :: xs, y :: ys) => p x y andalso inner xs ys
         | z => Pervasives.invalid_arg "List.for_all2"
     in
       inner
@@ -295,7 +295,7 @@ structure List = struct
     let
       fun inner xs ys = case (xs, ys) of
           ([], []) => false
-        | (x :: xs, y :: ys) => if p x y then true else inner xs ys
+        | (x :: xs, y :: ys) => p x y orelse inner xs ys
         | z => Pervasives.invalid_arg "List.exists2"
     in
       inner
