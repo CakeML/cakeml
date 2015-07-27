@@ -473,31 +473,79 @@ let output_result = function
 let rec preprocess_structure_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
-    { str with str_desc = Tstr_value (r, preprocess_value_bindings [] r bs) }
+    { str with str_desc = Tstr_value (r, preprocess_value_bindings r bs) }
   | _ -> str
-and preprocess_value_bindings acc rec_flag = function
-  | [] -> acc
+and preprocess_value_bindings rec_flag = function
+  | [] -> []
   | vb :: vbs ->
     match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc, rec_flag with
-    (* This is fairly tricky; commenting out for now *)
-    (*| exp_desc, Tpat_var (ident, name), Recursive when
-      (match desc, vb.vb_pat.pat_desc with
+    (* Rephrase recursive value bindings to turn them into functions taking
+       unit. *)
+    | exp_desc, Tpat_var (ident, name), Recursive when
+      (match exp_desc, vb.vb_pat.pat_desc with
       | Texp_function (_,_,_), _ -> false
       | _ -> true
-      ) -> let new_name = name.txt ^ "__" in
-           let new_ident = create new_name in
-           let new_pat = Tpat_var (new_ident, { name with txt = new_name }) in
-           let new_subexpr = Texp_apply (Texp_ident
-             (Pident new_ident, Lident new_name,
-              { val_type = { vb.vb_pat.pat_type with
-                             desc = Tarrow (l, u, vb.vb_pat.pat_type, Cok) };
-                val_kind = Val_reg;
-                val_loc = ;
-                val_attributes = ;
-              }),
-              []) in
-           vb' :: preprocess_value_bindings acc' rec_flag vbs*)
-    | _ -> vb :: preprocess_value_bindings acc rec_flag vbs
+      ) ->
+      let new_name = name.txt ^ "__" in
+      let new_ident = Ident.create new_name in
+      let new_pat = Tpat_var (new_ident, { name with txt = new_name }) in
+      let unit_type_expr = {
+        desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
+        level = 0; id = 0;
+      } in
+      let unit_constr_desc = {
+        cstr_name = "()";
+        cstr_res = unit_type_expr;
+        cstr_existentials = [];
+        cstr_args = [];
+        cstr_arity = 0;
+        cstr_tag = Cstr_constant 0;
+        cstr_consts = 1;
+        cstr_nonconsts = 0;
+        cstr_normal = 1;
+        cstr_generalized = false;
+        cstr_private = Public;
+        cstr_loc = Location.none;
+        cstr_attributes = [];
+      } in
+      let new_subexpr = Texp_apply ({ vb.vb_expr with
+        exp_desc = Texp_ident (Pident new_ident,
+                               Location.mknoloc (Lident new_name), {
+          val_type = { vb.vb_pat.pat_type with
+            desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cok);
+          };
+          val_kind = Val_reg;
+          val_loc = Location.none;
+          val_attributes = [];
+        }); },
+        [("", Some {
+            exp_desc = Texp_construct (Location.mknoloc (Lident "()"),
+                                       unit_constr_desc, []);
+            exp_loc = Location.none;
+            exp_extra = [];
+            exp_type = unit_type_expr;
+            exp_env = vb.vb_expr.exp_env;
+            exp_attributes = [];
+          }, Required)]
+      ) in
+      let module MyMapArgument : MapArgument = struct
+        include DefaultMapArgument
+        let leave_expression expr =
+          match expr.exp_desc with
+          | Texp_ident (Pident ident', _, _) when ident = ident' ->
+            { expr with exp_desc = new_subexpr; }
+          | _ -> expr
+      end in
+      let module MyMap = MakeMap(MyMapArgument) in
+      let vb' = { vb with
+        vb_pat = new_pat;
+        vb_expr = MyMap.map_expression vb.vb_expr;
+      } in
+
+      let newb = { vb with
+        vb_expr = { vb.vb_expr with exp_desc = new_subexpr; }; } in
+      vb' :: newb :: preprocess_value_bindings rec_flag vbs
+    | _ -> vb :: preprocess_value_bindings rec_flag vbs
 
 (*let return_ident = Ident.create "return";
 let ok_ident = Ident.create "ok";
