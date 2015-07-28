@@ -118,7 +118,15 @@ let rec convertPervasive : string -> string =
   in
   BatString.concat "_" % f % BatString.to_list
 
-let rec print_longident = function
+let rec print_longident_pure = function
+  | Lident ident -> fix_identifier ident
+  | Ldot (left, right) ->
+    let left = print_longident_pure left in
+    let right = ifThen (left = "Pervasives") convertPervasive right in
+    fix_identifier left ^ "." ^ right
+  | Lapply (p0, p1) -> print_longident_pure p0 ^ " " ^ print_longident_pure p1
+
+(*let rec print_longident = function
   | Lident ident -> return @@ fix_identifier ident
   | Ldot (left, right) ->
     print_longident left >>= fun left ->
@@ -126,13 +134,15 @@ let rec print_longident = function
     return @@ fix_identifier left ^ "." ^ right
   | Lapply (p0, p1) -> print_longident p0 >>= fun p0 ->
                        print_longident p1 >>= fun p1 ->
-                       return @@ p0 ^ " " ^ p1
+                       return @@ p0 ^ " " ^ p1*)
+let print_longident = return % print_longident_pure
 
 let rec longident_of_path = function
   | Pident i -> Lident i.name
   | Pdot (l, r, _) -> Ldot (longident_of_path l, r)
   | Papply (l, r) -> Lapply (longident_of_path l, longident_of_path r)
 
+let print_path_pure = print_longident_pure % longident_of_path
 let print_path = print_longident % longident_of_path
 
 let print_constant = function
@@ -157,6 +167,16 @@ let print_constant = function
    | r => ...
  *)
 
+let rec path_prefix = function
+  | Pident _ -> ""
+  | Pdot (p, _, _) -> print_path_pure p ^ "."
+  | Papply (p, _) -> print_path_pure p ^ " "
+
+let make_constructor_path { cstr_name; cstr_res = { desc; }; } =
+  match desc with
+  | Tconstr (p, _, _) -> return @@ path_prefix p ^ cstr_name
+  | _ -> Bad "Can't deduce path of constructor"
+
 (* Works in both patterns and expressions. `f` is the function that prints
    subpatterns/subexpressions. *)
 let print_construct prec (f : int -> 'a -> (string, string) result)
@@ -166,7 +186,7 @@ let print_construct prec (f : int -> 'a -> (string, string) result)
                     f 0 y >>= fun y' ->
                     return @@ ifThen (prec > 0) paren @@ x' ^ " :: " ^ y'
   | _ ->
-    print_longident lident.txt >>= fun name ->
+    make_constructor_path cstr >>= fun name ->
     (match xs with
     | [] -> return ""
     | [x] -> f 2 x >>= fun x' ->
