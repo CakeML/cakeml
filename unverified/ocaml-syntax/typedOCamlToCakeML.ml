@@ -442,56 +442,6 @@ let concat_items =
   %> map (fun x -> x ^ ";")
   %> BatString.concat "\n\n"
 
-let rec print_module_expr indent expr =
-  match expr.mod_desc with
-  | Tmod_structure str ->
-    mapM (print_structure_item (indent + 1)) str.str_items >>= fun items ->
-    return @@
-      indent_by indent ^ "struct\n" ^
-      concat_items items ^ "\n" ^
-      indent_by indent ^ "end"
-  | _ -> Bad "Some module types not implemented."
-
-and print_module_binding indent mb =
-  print_module_expr indent mb.mb_expr >>= fun expr ->
-  let name = mb.mb_id.name in
-  match mb.mb_expr.mod_desc with
-  | Tmod_structure str ->
-    return @@ indent_by indent ^ "structure " ^ name ^ " = " ^ expr
-  | _ -> Bad "Some module types not implemented."
-
-and print_structure_item indent str =
-  match str.str_desc with
-  | Tstr_eval (e, attrs) ->
-    print_expression indent 0 e >>= fun e' ->
-    return @@ indent_by indent ^ e'
-  | Tstr_value (r, bs) ->
-    mapiM (fun i -> print_value_binding (i = 0) indent r) bs >>= fun ss ->
-    return @@ BatString.concat "\n" ss
-  | Tstr_type ds ->
-    mapiM (fun i -> print_type_declaration (i = 0) indent) ds >>= fun ss ->
-    return @@ BatString.concat "\n" ss
-  | Tstr_exception constructor ->
-    (match constructor.ext_kind with
-    | Text_decl ([], None) -> return ""
-    | Text_decl (ts, None) -> print_constructor_arguments ts >>= fun ts' ->
-                              return @@ " of " ^ ts'
-    | Text_rebind (path, lident) -> print_path path >>= fun p ->
-                                    return @@ " = " ^ p
-    | _ -> Bad "Some exception declaration syntax not supported."
-    ) >>= fun rest ->
-    return @@ indent_by indent ^ "exception " ^ constructor.ext_name.txt ^
-              rest
-  | Tstr_module b ->
-    print_module_binding indent b >>= fun b' ->
-    return @@ b'
-  | Tstr_open _ -> return ""
-  | _ -> Bad "Some structure items not implemented."
-
-let output_result = function
-  | Ok r -> nwrite stdout @@ r ^ "\n"
-  | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
-
 (* Fixes to typed AST *)
 
 let rec vb_inner oldbs newbs sub_fn = function
@@ -590,19 +540,75 @@ let rec vb_inner oldbs newbs sub_fn = function
     | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
 
 let preprocess_value_bindings = function
+  (* Rephrase recursive values *)
   | Recursive -> vb_inner [] [] (fun x -> x)
-  | _ -> fun bs -> bs, [], (fun x -> x)
+  (* Split non-recursive definitions joined by `and` *)
+  | Nonrecursive -> fun bs -> [], bs, (fun x -> x)
 
 let rec preprocess_structure_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
     let oldbs, newbs, sub_fn = preprocess_value_bindings r bs in
-    { str with
-      str_desc = Tstr_value (r, map sub_fn oldbs);
-    } :: map (fun b -> { str with
+    let strs = map (fun b -> { str with
       str_desc = Tstr_value (Nonrecursive, [b]);
-    }) newbs
+    }) newbs in
+    (match oldbs with
+    | [] -> strs
+    | _ -> { str with str_desc = Tstr_value (r, map sub_fn oldbs); } :: strs
+    )
   | _ -> [str]
+
+let rec print_module_expr indent expr =
+  match expr.mod_desc with
+  | Tmod_structure str ->
+    let str_items =
+      BatList.concat (BatList.map preprocess_structure_item str.str_items) in
+    mapM (print_structure_item (indent + 1)) str_items >>= fun items ->
+    return @@
+      indent_by indent ^ "struct\n" ^
+      concat_items items ^ "\n" ^
+      indent_by indent ^ "end"
+  | _ -> Bad "Some module types not implemented."
+
+and print_module_binding indent mb =
+  print_module_expr indent mb.mb_expr >>= fun expr ->
+  let name = mb.mb_id.name in
+  match mb.mb_expr.mod_desc with
+  | Tmod_structure str ->
+    return @@ indent_by indent ^ "structure " ^ name ^ " = " ^ expr
+  | _ -> Bad "Some module types not implemented."
+
+and print_structure_item indent str =
+  match str.str_desc with
+  | Tstr_eval (e, attrs) ->
+    print_expression indent 0 e >>= fun e' ->
+    return @@ indent_by indent ^ "val eval__ = " ^ e'
+  | Tstr_value (r, bs) ->
+    mapiM (fun i -> print_value_binding (i = 0) indent r) bs >>= fun ss ->
+    return @@ BatString.concat "\n" ss
+  | Tstr_type ds ->
+    mapiM (fun i -> print_type_declaration (i = 0) indent) ds >>= fun ss ->
+    return @@ BatString.concat "\n" ss
+  | Tstr_exception constructor ->
+    (match constructor.ext_kind with
+    | Text_decl ([], None) -> return ""
+    | Text_decl (ts, None) -> print_constructor_arguments ts >>= fun ts' ->
+                              return @@ " of " ^ ts'
+    | Text_rebind (path, lident) -> print_path path >>= fun p ->
+                                    return @@ " = " ^ p
+    | _ -> Bad "Some exception declaration syntax not supported."
+    ) >>= fun rest ->
+    return @@ indent_by indent ^ "exception " ^ constructor.ext_name.txt ^
+              rest
+  | Tstr_module b ->
+    print_module_binding indent b >>= fun b' ->
+    return @@ b'
+  | Tstr_open _ -> return ""
+  | _ -> Bad "Some structure items not implemented."
+
+let output_result = function
+  | Ok r -> nwrite stdout @@ r ^ "\n"
+  | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
 
 (*let return_ident = Ident.create "return";
 let ok_ident = Ident.create "ok";
