@@ -2,6 +2,16 @@ open preamble closLangTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "closRelation";
 
+val butlastn_nil = Q.store_thm ("butlastn_nil",
+`!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
+ Induct_on `n` >>
+ rw [BUTLASTN]
+ >- (Cases_on `l` >> rw []) >>
+ `l = [] ∨ ?x y. l = SNOC x y` by metis_tac [SNOC_CASES] >>
+ ASM_REWRITE_TAC [BUTLASTN] >>
+ simp [] >>
+ fs [ADD1]);
+
 (* Move to props *)
 
 val clock_lemmas = Q.store_thm ("clock_lemmas",
@@ -100,6 +110,12 @@ val clo_to_partial_args_def = Define `
 (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
 (clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
 
+val clo_add_partial_args_def = Define `
+(clo_add_partial_args args (Closure x1 args' x2 x3 x4) = 
+  Closure x1 (args ++ args') x2 x3 x4) ∧
+(clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) = 
+  Recclosure x1 (args ++ args') x2 x3 x4)`;
+
 val clo_to_num_params_def = Define `
 (clo_to_num_params (Closure _ _ _ n _) = n) ∧
 (clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))`;
@@ -148,6 +164,11 @@ val evaluate_app_clock_less = Q.store_thm ("evaluate_app_clock_less",
  Cases_on `args` >> 
  fs [] >>
  decide_tac);
+
+val clo_add_partial_args_nil = Q.store_thm ("clo_add_partial_args_nil[simp]",
+`!x. is_closure x ⇒ clo_add_partial_args [] x = x`,
+ Cases_on `x` >>
+ rw [is_closure_def, clo_add_partial_args_def]);
 
 (* END MOVE *)
 
@@ -582,6 +603,81 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
      fs [OPTION_MAP_DEF] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL]));
 
+val dest_closure_partial_split = Q.prove (
+`!v1 vs v2 n.
+  dest_closure NONE v1 vs = SOME (Partial_app v2) ∧
+  n ≤ LENGTH vs
+  ⇒
+  ?v3.
+    dest_closure NONE v1 (DROP n vs) = SOME (Partial_app v3) ∧
+    v2 = clo_add_partial_args (TAKE n vs) v3`,
+ rw [dest_closure_def] >>
+ Cases_on `v1` >>
+ simp [] >>
+ fs [check_loc_def]
+ >- (Cases_on `LENGTH vs + LENGTH l < n'` >>
+     fs [] >>
+     rw [clo_add_partial_args_def] >>
+     decide_tac) >>
+ fs [LET_THM] >>
+ Cases_on `EL n' l1` >>
+ fs [] >>
+ rw [clo_add_partial_args_def] >>
+ fs [] >>
+ simp [] >>
+ Cases_on `LENGTH vs + LENGTH l < q` >>
+ fs [] >>
+ decide_tac);
+
+val dest_closure_full_split = Q.prove (
+`!v1 vs e env rest.
+  dest_closure NONE v1 vs = SOME (Full_app e env rest)
+  ⇒
+  dest_closure NONE v1 (DROP (LENGTH rest) vs) = SOME (Full_app e env []) ∧
+  rest = TAKE (LENGTH rest) vs`,
+ rpt gen_tac >>
+ simp [dest_closure_def] >>
+ Cases_on `v1` >>
+ simp [] >>
+ fs [check_loc_def]
+ >- (DISCH_TAC >>
+     Cases_on `LENGTH l + LENGTH vs < n` >>
+     fs [] >>
+     simp [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [DROP_NIL] >>
+     Cases_on `LENGTH vs − LENGTH rest + LENGTH l < n` >>
+     simp [] >>
+     rw [] >> 
+     fs []
+     >- decide_tac >>
+     fs [REVERSE_DROP] >>
+     simp [] >>
+     qabbrev_tac `i = n - LENGTH l` >>
+     `0 < i` by decide_tac >>
+     `i ≤ LENGTH vs` by full_simp_tac (srw_ss()++ARITH_ss) [Abbr `i`] >>
+     simp [TAKE_REVERSE, DROP_REVERSE, LENGTH_LASTN, LASTN_LASTN, BUTLASTN_LASTN_NIL] >>
+     simp [BUTLASTN_TAKE, Abbr `i`])
+ >- (Cases_on `EL n l1` >>
+     fs [] >>
+     DISCH_TAC >>
+     fs [] >>
+     Cases_on `LENGTH l + LENGTH vs < q` >>
+     fs [] >>
+     simp [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [DROP_NIL] >>
+     Cases_on `LENGTH vs − LENGTH rest + LENGTH l < q` >>
+     simp [] >>
+     rw [] >> 
+     fs []
+     >- decide_tac >>
+     fs [REVERSE_DROP] >>
+     simp [] >>
+     qabbrev_tac `i = q - LENGTH l` >>
+     `0 < i` by decide_tac >>
+     `i ≤ LENGTH vs` by full_simp_tac (srw_ss()++ARITH_ss) [Abbr `i`] >>
+     simp [TAKE_REVERSE, DROP_REVERSE, LENGTH_LASTN, LASTN_LASTN, BUTLASTN_LASTN_NIL] >>
+     simp [BUTLASTN_TAKE, Abbr `i`]));
+
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' s s' loc.
   val_rel c v v' ∧
@@ -637,12 +733,21 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      `loc = NONE` by metis_tac [dest_closure_none_loc] >>
      imp_res_tac dest_closure_full_length >>
      fs [val_rel_cl_rw] >>
-     first_x_assum (qspecl_then [`s'.clock - (LENGTH vs - LENGTH l0)`, `vs`, `vs'`, `s`, `s'`] mp_tac) >>
+     first_x_assum (qspecl_then [`s'.clock - (LENGTH vs - LENGTH l0)`, `DROP (LENGTH l0) vs`, `DROP (LENGTH l0) vs'`, `s`, `s'`] mp_tac) >>
      simp [exec_rel_rw, evaluate_ev_def, res_rel_def] >>
      `LENGTH l0 + s'.clock − LENGTH vs' ≤ s'.clock` by decide_tac >>
      imp_res_tac val_rel_mono >>
      imp_res_tac val_rel_mono_list >>
      simp [] >>
+     `LENGTH l0 ≠ LENGTH vs` by decide_tac >>
+     simp [DROP_NIL, EVERY2_DROP] >>
+     `LENGTH l0 ≤ LENGTH vs` by decide_tac >>
+     imp_res_tac dest_closure_partial_split >>
+     simp [] >>
+     fs [] >>
+     rfs [] >>
+     imp_res_tac dest_closure_full_split >>
+     fs [] >>
      DISCH_TAC >>
      pop_assum (qspec_then `LENGTH l0 + s'.clock − LENGTH vs'` mp_tac) >>
      simp [] >>
@@ -662,28 +767,30 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          `s'''.clock = s''.clock` by decide_tac >>
          fs [] >>
          Cases_on `l0 = []` >>
-         fs [] >>
-         imp_res_tac evaluate_app_clock_less >>
-         fs [] >>
-         decide_tac)
+         fs [evaluate_def] >>
+         rw [] >>
+         fs [evaluate_app_rw] >>
+         cheat)
      >- ((* Partial timeout, Full not timeout, impossible *)
          fs [] >>
          simp [])
      >- ((* No timeouts *)
+         fs [dec_clock_def] >>
          reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],l,s' with clock := s''.clock)`
                          result_store_cases)) >>
          fs [] >>
          imp_res_tac evaluate_SING >>
-         fs [dec_clock_def] >>
+         fs [] >>
          simp [] >>
          `s'.clock - LENGTH vs' ≤ s''.clock` by decide_tac >>
          imp_res_tac val_rel_mono >>
          simp [] >>
          rw [] >>
-         `l0 = []` by cheat >> (* NOT TRUE *)
+         Cases_on `l0 = []` >>
+         fs [evaluate_def]
+         >- metis_tac [] >>
          rw [] >>
-         fs []))
-          >>
+         cheat)) >>
  cheat);
 
          (*
