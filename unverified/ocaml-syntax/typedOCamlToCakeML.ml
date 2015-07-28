@@ -303,8 +303,10 @@ and print_value_binding first_binding indent rec_flag vb =
         reduce_fn (lastc.c_lhs :: acc) nextc
       | _ -> mapM (print_pattern 0) (BatList.rev acc) >>= fun vs ->
              print_case indent 0 " = " lastc >>= fun c' ->
-             return @@ indent_by indent ^ keyword ^ name ^ " " ^
-                       BatString.concat " " vs ^ " " ^ c'
+             return @@
+               indent_by indent ^ keyword ^ name ^
+               BatString.concat "" (BatList.map (fun v -> " " ^ v) vs) ^
+               " " ^ c'
     in
     reduce_fn [] c
   | Texp_function (l, cs, p), Recursive ->
@@ -470,25 +472,22 @@ let output_result = function
   | Ok r -> nwrite stdout @@ r ^ "\n"
   | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
 
-let rec preprocess_structure_item str =
-  match str.str_desc with
-  | Tstr_value (r, bs) ->
-    { str with str_desc = Tstr_value (r, preprocess_value_bindings r bs) }
-  | _ -> str
-and preprocess_value_bindings rec_flag = function
-  | [] -> []
+(* Fixes to typed AST *)
+
+let rec vb_inner oldbs newbs sub_fn = function
+  | [] -> BatList.rev oldbs, BatList.rev newbs, sub_fn
   | vb :: vbs ->
-    match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc, rec_flag with
+    match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc with
     (* Rephrase recursive value bindings to turn them into functions taking
        unit. *)
-    | exp_desc, Tpat_var (ident, name), Recursive when
+    | exp_desc, Tpat_var (ident, name) when
       (match exp_desc, vb.vb_pat.pat_desc with
       | Texp_function (_,_,_), _ -> false
       | _ -> true
       ) ->
       let new_name = name.txt ^ "__" in
       let new_ident = Ident.create new_name in
-      let new_pat = Tpat_var (new_ident, { name with txt = new_name }) in
+      let new_pat_desc = Tpat_var (new_ident, { name with txt = new_name }) in
       let unit_type_expr = {
         desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
         level = 0; id = 0;
@@ -512,7 +511,7 @@ and preprocess_value_bindings rec_flag = function
         exp_desc = Texp_ident (Pident new_ident,
                                Location.mknoloc (Lident new_name), {
           val_type = { vb.vb_pat.pat_type with
-            desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cok);
+            desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cunknown);
           };
           val_kind = Val_reg;
           val_loc = Location.none;
@@ -528,6 +527,7 @@ and preprocess_value_bindings rec_flag = function
             exp_attributes = [];
           }, Required)]
       ) in
+
       let module MyMapArgument : MapArgument = struct
         include DefaultMapArgument
         let leave_expression expr =
@@ -537,15 +537,52 @@ and preprocess_value_bindings rec_flag = function
           | _ -> expr
       end in
       let module MyMap = MakeMap(MyMapArgument) in
+
       let vb' = { vb with
-        vb_pat = new_pat;
-        vb_expr = MyMap.map_expression vb.vb_expr;
+        vb_pat = { vb.vb_pat with pat_desc = new_pat_desc };
+        vb_expr = { vb.vb_expr with
+          exp_desc = Texp_function ("", [{
+            c_lhs = {
+              pat_desc = Tpat_any;
+              pat_loc = Location.none;
+              pat_extra = [];
+              pat_type = unit_type_expr;
+              pat_env = vb.vb_expr.exp_env;
+              pat_attributes = [];
+            };
+            c_guard = None;
+            c_rhs = vb.vb_expr;
+          }], Total);
+          exp_type = {
+            desc = Tarrow ("", unit_type_expr, vb.vb_expr.exp_type, Cunknown);
+            level = 0; id = 0;
+          };
+        };
       } in
 
+      let sub_fn' = (fun b -> { b with
+        vb_expr = MyMap.map_expression b.vb_expr }) % sub_fn in
+
       let newb = { vb with
-        vb_expr = { vb.vb_expr with exp_desc = new_subexpr; }; } in
-      vb' :: newb :: preprocess_value_bindings rec_flag vbs
-    | _ -> vb :: preprocess_value_bindings rec_flag vbs
+        vb_expr = { vb.vb_expr with exp_desc = new_subexpr; };
+      } in
+      vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
+    | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
+
+let preprocess_value_bindings = function
+  | Recursive -> vb_inner [] [] (fun x -> x)
+  | _ -> fun bs -> bs, [], (fun x -> x)
+
+let rec preprocess_structure_item str =
+  match str.str_desc with
+  | Tstr_value (r, bs) ->
+    let oldbs, newbs, sub_fn = preprocess_value_bindings r bs in
+    { str with
+      str_desc = Tstr_value (r, map sub_fn oldbs);
+    } :: map (fun b -> { str with
+      str_desc = Tstr_value (Nonrecursive, [b]);
+    }) newbs
+  | _ -> [str]
 
 (*let return_ident = Ident.create "return";
 let ok_ident = Ident.create "ok";
@@ -617,6 +654,10 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
+let str_items =
+  BatList.concat (BatList.map preprocess_structure_item typedtree.str_items)
 let _ = output_result (
-  mapM (print_structure_item 0) typedtree.str_items >>= (return % concat_items)
+  mapM (print_structure_item 0) str_items >>= (return % concat_items)
 )
+(*let () = Printtyped.implementation Format.std_formatter
+  { typedtree with str_items; }*)
