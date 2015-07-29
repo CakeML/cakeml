@@ -2,6 +2,9 @@ open preamble bvp_liveTheory bvpSemTheory bvpPropsTheory;
 
 val _ = new_theory"bvp_liveProof";
 
+val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="bvpSem"};
+
 val SPLIT_PAIR = prove(
   ``!x y z. (x = (y,z)) <=> (y = FST x) /\ (z = SND x)``,
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
@@ -97,7 +100,7 @@ val evaluate_compile = Q.prove(
     (Cases_on `names_opt` THEN1
       (fs [evaluate_def,get_var_def,LET_DEF]
        \\ every_case_tac >> fs[] \\ SRW_TAC [] []
-       \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def]
+       \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def] \\ rw[]
        \\ qmatch_assum_rename_tac`get_vars args s1 = SOME xx`
        \\ `get_vars args t1 = SOME xx` by IMP_RES_TAC state_rel_IMP_get_vars
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app

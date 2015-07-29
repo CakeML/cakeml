@@ -2,6 +2,10 @@ open preamble bvp_spaceTheory bvpSemTheory bvpPropsTheory;
 
 val _ = new_theory"bvp_spaceProof";
 
+val _ = temp_bring_to_front_overload"get_vars"{Name="get_vars",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"cut_env"{Name="cut_env",Thy="bvpSem"};
+val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvpSem"};
+
 val IMP_sptree_eq = prove(
   ``wf x /\ wf y /\ (!a. lookup a x = lookup a y) ==> (x = y)``,
   METIS_TAC [spt_eq_thm]);
@@ -10,14 +14,14 @@ val mk_wf_inter = prove(
   ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
   fs []);
 
-val evaluate_compile = prove(
-  ``!c s res s2 vars l.
-      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
-      locals_ok s.locals l ==>
-      ?w. (evaluate (compile c, s with locals := l) =
-             (res,if res = NONE then s2 with locals := w
-                                else s2)) /\
-          locals_ok s2.locals w``,
+val evaluate_compile = Q.prove(
+  `!c s res s2 vars l.
+     res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
+     locals_ok s.locals l ==>
+     ?w. (evaluate (compile c, s with locals := l) =
+            (res,if res = NONE then s2 with locals := w
+                               else s2)) /\
+         locals_ok s2.locals w`,
   SIMP_TAC std_ss [compile_def]
   \\ recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ fs [evaluate_def,space_def,pMakeSpace_def]

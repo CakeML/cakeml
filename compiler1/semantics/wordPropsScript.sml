@@ -1,6 +1,5 @@
-open preamble
-open wordLangTheory wordSemTheory
-open BasicProvers
+open preamble BasicProvers
+     wordLangTheory wordSemTheory
 
 (*
 Defines a stack swap lemma and a permutation swap lemma
@@ -8,6 +7,14 @@ Defines a stack swap lemma and a permutation swap lemma
 (*TODO: remove the last_n lemmas*)
 
 val _ = new_theory "wordProps";
+
+val get_vars_length_lemma = store_thm("get_vars_length_lemma",
+  ``!ls s y. get_vars ls s = SOME y ==>
+           LENGTH y = LENGTH ls``,
+  Induct>>fs[get_vars_def]>>
+  Cases_on`get_var h s`>>fs[]>>
+  Cases_on`get_vars ls s`>>fs[]>>
+  metis_tac[LENGTH])
 
 (*--Stack Swap Lemma--*)
 
@@ -117,7 +124,7 @@ val dec_stack_stack_key_eq = prove(
   first_x_assum mp_tac>>BasicProvers.FULL_CASE_TAC>>
   fs[s_key_eq_def]>>rfs[]>>
   rw[]>> fs[s_key_eq_def]>>
-  Cases_on`handler`>>fs[MAP_ZIP,s_frame_key_eq_def])
+  fs[MAP_ZIP,s_frame_key_eq_def])
 
 (*gc preserves the stack_key relation*)
 val gc_s_key_eq = store_thm("gc_s_key_eq",
@@ -142,9 +149,14 @@ val s_val_eq_dec_stack = prove(
    first_x_assum(qspecl_then [`t`,`x'`] assume_tac)>> rfs[]>>
    strip_tac>>pop_assum (SUBST1_TAC o SYM)>>
    fs[s_frame_val_eq_def,s_val_eq_def]>>
-   Cases_on`handler`>>Cases_on`o'`>>
-   fs[s_frame_val_eq_def,MAP_ZIP,ZIP_MAP]>>
-   `LENGTH l = LENGTH l'` by metis_tac[LENGTH_MAP]>>fs[MAP_ZIP])
+   TRY (Cases_on `h'`) >>
+   Cases_on`o'`>>
+   fs[s_frame_val_eq_def,MAP_ZIP,ZIP_MAP,dec_stack_def]>>rw [] >>
+   fs[s_frame_val_eq_def,s_val_eq_def]>>
+   `LENGTH l = LENGTH l'` by metis_tac[LENGTH_MAP]>>fs[MAP_ZIP] >>
+   fs [MAP_MAP_o,o_DEF,MAP_ZIP]>>
+   CONV_TAC (DEPTH_CONV ETA_CONV)>>
+   fs [MAP_MAP_o,o_DEF,MAP_ZIP])
 
 (*gc succeeds on all stacks related by stack_val and there are relations
   in the result*)

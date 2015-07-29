@@ -69,7 +69,7 @@ val read_bitmap_LENGTH = store_thm("read_bitmap_LENGTH",
 
 val _ = Datatype `
   state =
-    <| regs    : ('a word_loc) num_map
+    <| regs    : num |-> 'a word_loc
      ; store   : store_name |-> 'a word_loc
      ; stack   : ('a word_loc) list
      ; stack_space : num
@@ -101,7 +101,7 @@ val dec_clock_def = Define `
 val word_exp_def = tDefine "word_exp" `
   (word_exp s (Const w) = SOME w) /\
   (word_exp s (Var v) =
-     case lookup v s.regs of
+     case FLOOKUP s.regs v of
      | SOME (Word w) => SOME w
      | _ => NONE) /\
   (word_exp s (Lookup name) =
@@ -127,7 +127,7 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:'a stackSem$state) = sptree$lookup v s.regs`;
+  get_var v (s:'a stackSem$state) = FLOOKUP s.regs v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -140,11 +140,7 @@ val get_vars_def = Define `
 
 val set_var_def = Define `
   set_var v x (s:'a stackSem$state) =
-    (s with regs := (insert v x s.regs))`;
-
-val set_vars_def = Define `
-  set_vars vs xs (s:'a stackSem$state) =
-    (s with regs := (alist_insert vs xs s.regs))`;
+    (s with regs := (s.regs |+ (v,x)))`;
 
 val set_store_def = Define `
   set_store v x (s:'a stackSem$state) = (s with store := s.store |+ (v,x))`;
@@ -172,20 +168,21 @@ val check_clock_IMP = prove(
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val empty_env_def = Define `
-  empty_env (s:'a stackSem$state) = s with <| regs := LN ; stack := [] |>`;
+  empty_env (s:'a stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
 val enc_stack_def = tDefine "enc_stack" `
-  (enc_stack [] = SOME []) /\
   (enc_stack ws =
-     case read_bitmap ws of
-     | NONE => NONE
-     | SOME (bs,_,rs) =>
-        case filter_bitmap bs rs of
-        | NONE => NONE
-        | SOME (ts,ws') =>
-            case enc_stack ws' of
-            | NONE => NONE
-            | SOME rs => SOME (ts :: rs))`
+     if ws = [] then NONE else
+     if ws = [Word 0w] then SOME [] else
+       case read_bitmap ws of
+       | NONE => NONE
+       | SOME (bs,_,rs) =>
+          case filter_bitmap bs rs of
+          | NONE => NONE
+          | SOME (ts,ws') =>
+              case enc_stack ws' of
+              | NONE => NONE
+              | SOME rs => SOME (ts :: rs))`
  (WF_REL_TAC `measure LENGTH` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC read_bitmap_LENGTH
   \\ IMP_RES_TAC filter_bitmap_LENGTH
@@ -204,20 +201,24 @@ val dec_stack_def = Define `
            | NONE => NONE
            | SOME ws3 => SOME (w1 ++ ws1 ++ ws3))`
 
-val gc_def = Define`
+val gc_def = Define `
   gc s =
-    case enc_stack s.stack of
-    | NONE => NONE
-    | SOME wl_list =>
-      case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
-      | NONE => NONE
-      | SOME (wl,m,st) =>
-       (case dec_stack wl s.stack of
+    if LENGTH s.stack < s.stack_space then NONE else
+      let unused = TAKE s.stack_space s.stack in
+      let stack = DROP s.stack_space s.stack in
+        case enc_stack (DROP s.stack_space s.stack) of
         | NONE => NONE
-        | SOME stack =>
-            SOME (s with <| stack := stack
-                          ; store := st
-                          ; memory := m |>))`
+        | SOME wl_list =>
+          case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
+          | NONE => NONE
+          | SOME (wl,m,st) =>
+           (case dec_stack wl stack of
+            | NONE => NONE
+            | SOME stack =>
+                SOME (s with <| stack := unused ++ stack
+                              ; store := st
+                              ; regs := FEMPTY
+                              ; memory := m |>))`
 
 val has_space_def = Define `
   has_space wl (s:'a stackSem$state) =
@@ -279,7 +280,7 @@ val get_var_imm_def = Define`
 val find_code_def = Define `
   (find_code (INL p) regs code = sptree$lookup p code) /\
   (find_code (INR r) regs code =
-     case lookup r regs of
+     case FLOOKUP regs r of
        SOME (Loc loc 0) => lookup loc code
      | other => NONE)`
 
@@ -310,7 +311,7 @@ val evaluate_def = tDefine "evaluate" `
        if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
-     | (SOME x,SOME y) => (SOME (Result x y),empty_env s)
+     | (SOME x,SOME y) => (SOME (Result x y),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of

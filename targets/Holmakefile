@@ -1,1 +1,2 @@
-INCLUDES = .. $(HOLDIR)/examples/l3-machine-code/common ../ffi
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = .. ../ffi asm

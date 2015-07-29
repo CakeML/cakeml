@@ -14,6 +14,15 @@ val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
 
 (* TODO: move/categorize *)
 
+val LDROP_ADD = store_thm("LDROP_ADD",
+  ``!k1 k2 x.
+      LDROP (k1 + k2) x = case LDROP k1 x of
+                          | NONE => NONE
+                          | SOME ll => LDROP k2 ll``,
+  Induct \\ fs [ADD_CLAUSES] \\ fs [llistTheory.LDROP] \\ REPEAT STRIP_TAC
+  \\ Cases_on `LTL x` \\ fs []
+  \\ Cases_on `LDROP k1 x'` \\ fs []);
+
 val LPREFIX_def = Define `
   LPREFIX l1 l2 =
     case llist$toList l1 of

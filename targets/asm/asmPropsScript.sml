@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib
-open asmSemTheory
+open preamble asmSemTheory
 
 val () = new_theory "asmProps"
 
@@ -151,5 +150,13 @@ val asserts_eval = save_thm("asserts_eval",let
     ``asserts ^(suc_num n) next (s:'a) P Q``
     |> ONCE_REWRITE_CONV [asserts_def] |> SIMP_RULE std_ss []
   in LIST_CONJ (genlist gen_rw 20) end);
+
+val bytes_in_memory_APPEND = Q.store_thm("bytes_in_memory_APPEND",
+  `!bs bs1 p.
+     bytes_in_memory p (bs ++ bs1) m dm <=>
+     bytes_in_memory p bs m dm /\
+     bytes_in_memory (p + n2w (LENGTH bs)) bs1 m dm`,
+  Induct \\ fs [bytes_in_memory_def,ADD1,word_add_n2w]
+  \\ REWRITE_TAC [GSYM WORD_ADD_ASSOC,word_add_n2w,CONJ_ASSOC]);
 
 val () = export_theory ()

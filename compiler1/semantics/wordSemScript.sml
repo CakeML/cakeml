@@ -184,11 +184,11 @@ val key_val_compare_def = Define `
   key_val_compare x y =
     let (a:num,b) = x in
     let (a':num,b') = y in
-      (a < a') \/
+      (a > a') \/
       (a = a' /\
         case b of
           Word x => (case b' of Word y => x <= y | _ => T)
-        | Loc a b => case b' of Loc a' b' => (a<a') \/ (a=a' /\ b<=b') | _ => F)`
+        | Loc a b => case b' of Loc a' b' => (a>a') \/ (a=a' /\ b>=b') | _ => F)`
 
 (*
 EVAL ``key_val_compare (1,Loc 3 4) (1,Loc 1 2)``
@@ -285,15 +285,22 @@ val find_code_def = Define `
 val enc_stack_def = Define `
   (enc_stack [] = []) /\
   (enc_stack ((StackFrame l handler :: st)) =
-     (MAP SND l) :: enc_stack st)`;
+     if IS_SOME handler
+     then [] :: (MAP SND l) :: enc_stack st
+     else (MAP SND l) :: enc_stack st)`;
 
 val dec_stack_def = Define `
   (dec_stack [] [] = SOME []) /\
-  (dec_stack (ws::xs) ((StackFrame l handler :: st)) =
+  (dec_stack (ws::xs) ((StackFrame l NONE :: st)) =
      if LENGTH ws <> LENGTH l then NONE else
        case dec_stack xs st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) handler :: s)) /\
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) NONE :: s)) /\
+  (dec_stack ([]::ws::xs) ((StackFrame l (SOME h) :: st)) =
+     if LENGTH ws <> LENGTH l then NONE else
+       case dec_stack xs st of
+       | NONE => NONE
+       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) (SOME h) :: s)) /\
   (dec_stack _ _ = NONE)`
 
 val gc_def = Define `  (* gc runs the garbage collector algorithm *)

@@ -234,7 +234,7 @@ val loc_to_pc_def = Define `
            | NONE => NONE
            | SOME pos => SOME (pos + 1))`;
 
-val asm_inst_consts = prove(
+val asm_inst_consts = store_thm("asm_inst_consts",
   ``((asm_inst i s).pc = s.pc) /\
     ((asm_inst i s).code = s.code) /\
     ((asm_inst i s).clock = s.clock) /\

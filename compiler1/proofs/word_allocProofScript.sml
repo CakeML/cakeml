@@ -1,17 +1,20 @@
-open preamble
-open reg_allocTheory reg_allocProofTheory
-open wordLangTheory wordPropsTheory word_allocTheory wordSemTheory
-open BasicProvers
+open preamble BasicProvers
+     reg_allocTheory reg_allocProofTheory
+     wordLangTheory wordPropsTheory word_allocTheory wordSemTheory
 
 val _ = new_theory "word_allocProof";
 
+val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
+
 (*TODO: Fix all the list_insert theorem names to alist_insert*)
+(*TODO: refactor lemmas into Props etc. theories as appropriate *)
 
 (*Define syntactic invariants on the conventions*)
 
 val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
+  (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of
       NONE => args = GENLIST (\x.2*x) (LENGTH args)
@@ -569,14 +572,6 @@ val apply_colour_exp_lemma = prove(
   >>
     EVERY_CASE_TAC>>fs[]>>res_tac>>fs[]>>
     metis_tac[])
-
-val get_vars_length_lemma = store_thm("get_vars_length_lemma",
-  ``!ls s y. get_vars ls s = SOME y ==>
-           LENGTH y = LENGTH ls``,
-  Induct>>fs[get_vars_def]>>
-  Cases_on`get_var h s`>>fs[]>>
-  Cases_on`get_vars ls s`>>fs[]>>
-  metis_tac[LENGTH])
 
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
@@ -3905,9 +3900,11 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qabbrev_tac`f = option_lookup ssa'`>>
     Q.ISPECL_THEN [`ls`,`ssa`,`na+2`,`mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props>>
     `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
-    rfs[]>>fs[]>>
+    rfs[]>>
+    fs[get_vars_def,get_var_def,set_vars_def,alist_insert_def]>>
+    qpat_abbrev_tac `rcstlocs = insert 2 A rcst.locals`>>
     (*Try to use cut_env_lemma from word_live*)
-    Q.ISPECL_THEN [`s`,`st.locals`,`rcst.locals`,`x`
+    Q.ISPECL_THEN [`s`,`st.locals`,`rcstlocs`,`x`
                   ,`f` ] mp_tac cut_env_lemma>>
     discharge_hyps>-
       (rfs[Abbr`f`]>>
@@ -3921,10 +3918,13 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[]>>
         metis_tac[])
       >>
-        fs[option_lookup_def,domain_lookup]>>
+        fs[option_lookup_def,domain_lookup,Abbr`rcstlocs`,lookup_insert]>>
         res_tac>>
-        fs[]>>
-        qpat_assum`A=SOME v'` SUBST_ALL_TAC>>fs[])
+        fs[ssa_map_ok_def]>>
+        first_x_assum(qspecl_then [`n'`,`v'`] mp_tac)>>
+        simp[]>>
+        qpat_assum`A=SOME v'` SUBST_ALL_TAC>>fs[]>>
+        rw[is_phy_var_def])
     >>
     rw[]>>fs[set_store_def]>>
     Q.ISPECL_THEN [`y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`
