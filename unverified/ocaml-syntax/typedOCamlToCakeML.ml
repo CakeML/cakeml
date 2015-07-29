@@ -113,6 +113,7 @@ let rec convertPervasive : string -> string =
     | ['m'; 'o'; 'd'] -> ["oc_mod"]
     | ['r'; 'a'; 'i'; 's'; 'e'] -> ["oc_raise"]
     | ['r'; 'e'; 'f'] -> ["oc_ref"]
+    | ['A'; 'r'; 'r'; 'a'; 'y'] -> ["Oc_Array"]
 
     | xs -> [BatString.of_list xs]
   in
