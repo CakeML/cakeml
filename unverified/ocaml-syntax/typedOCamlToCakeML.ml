@@ -76,6 +76,7 @@ let fix_identifier = function
     x ^ "__"
   | "Some" -> "SOME"
   | "None" -> "NONE"
+  | "Array" -> "Oc_Array"
   | x when BatString.starts_with "_" x -> "u" ^ x
   | x when
     (match fixity_of x with
@@ -113,7 +114,6 @@ let rec convertPervasive : string -> string =
     | ['m'; 'o'; 'd'] -> ["oc_mod"]
     | ['r'; 'a'; 'i'; 's'; 'e'] -> ["oc_raise"]
     | ['r'; 'e'; 'f'] -> ["oc_ref"]
-    | ['A'; 'r'; 'r'; 'a'; 'y'] -> ["Oc_Array"]
 
     | xs -> [BatString.of_list xs]
   in

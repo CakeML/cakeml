@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
 
 cat "${BASH_SOURCE%/*}/pervasives.cml" "${BASH_SOURCE%/*}/list.cml" \
+  "${BASH_SOURCE%/*}/array.cml" \
   <(echo; "${BASH_SOURCE%/*}/typedOCamlToCakeML" <<< `cat $1`)
