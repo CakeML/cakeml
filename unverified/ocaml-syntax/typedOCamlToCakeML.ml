@@ -175,7 +175,7 @@ let rec path_prefix = function
 let make_constructor_path { cstr_name; cstr_res = { desc; }; } =
   match desc with
   | Tconstr (p, _, _) -> return @@ path_prefix p ^ cstr_name
-  | _ -> Bad "Can't deduce path of constructor"
+  | _ -> Bad ("Can't deduce path of constructor " ^ cstr_name)
 
 (* Works in both patterns and expressions. `f` is the function that prints
    subpatterns/subexpressions. *)
@@ -607,8 +607,8 @@ and print_structure_item indent str =
   | _ -> Bad "Some structure items not implemented."
 
 let output_result = function
-  | Ok r -> nwrite stdout @@ r ^ "\n"
-  | Bad e -> nwrite stdout @@ "Error: " ^ e ^ "\n"
+  | Ok r -> print_endline r
+  | Bad e -> print_endline @@ "Error: " ^ e; exit 1
 
 (*let return_ident = Ident.create "return";
 let ok_ident = Ident.create "ok";
