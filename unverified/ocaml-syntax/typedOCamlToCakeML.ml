@@ -71,7 +71,7 @@ let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
     | "sharing" | "signature" | "structure" | "where" | "withtype" | "div"
-    | "SOME" | "NONE")
+    | "SOME" | "NONE" | "Oc_Array")
     as x ->
     x ^ "__"
   | "Some" -> "SOME"
@@ -546,6 +546,44 @@ let preprocess_value_bindings = function
   (* Split non-recursive definitions joined by `and` *)
   | Nonrecursive -> fun bs -> [], bs, (fun x -> x)
 
+let rec preprocess_match expr cs es p =
+  match cs with
+  | [] -> []
+  | ({ c_guard = None; _ } as c) :: cs -> c :: preprocess_match expr cs es p
+  | { c_lhs; c_guard = Some g; c_rhs; } :: cs ->
+    let cs' = preprocess_match expr cs es p in
+    {
+      c_lhs = c_lhs;
+      c_guard = None;
+      c_rhs = { c_rhs with
+        exp_desc = Texp_ifthenelse (g, c_rhs, Some ({ c_rhs with
+          exp_desc = Texp_match (expr, cs', es, p);
+        }));
+      };
+    } :: cs'
+
+module MatchMapArgument = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    { exp with
+      exp_desc =
+        match exp.exp_desc with
+        | Texp_match (expr, cs, es, p) ->
+          Texp_match (expr, preprocess_match expr cs es p, es, p)
+        | x -> x
+    }
+end
+module MatchMap = MakeMap (MatchMapArgument)
+
+(*let preprocess_case (c as { c_lhs; c_guard; c_rhs; }) =
+  match c_lhs with
+  | Tpat_alias (p, ident, s) ->
+  | _ -> c
+
+let preprocess_expression_desc = function
+  | Texp_function (l, cs, p) ->
+    Texp_function (l, BatList.map preprocess_case cs, p)*)
+
 let rec preprocess_structure_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
@@ -622,13 +660,25 @@ let return_type ok bad : type_expr = {
 }
 let ok_desc : constructor_description = {
   cstr_name = "Ok";
-  cstr_res = ;
+  cstr_res = {
+    desc = return_type (Tvar (Some "a")) (Tvar (Some "b"));
+    level = 0;
+    id = return_ident.stamp;
+  };
   cstr_existentials = [];
   cstr_args = [{
     desc = Tvar (Some "a");
     level = 0;
-    id = ok_ident;
+    id = ok_ident.stamp;
   }];
+  cstr_arity = 1;
+  cstr_tag = ;
+  cstr_consts = ;
+  cstr_nonconsts = ;
+  cstr_normal = ;
+  cstr_generalized = false;
+  cstr_loc = Location.none;
+  cstr_attributes = [];
 }
 let bad_desc : constructor_description = _
 
@@ -681,8 +731,9 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
+let str = MatchMap.map_structure typedtree
 let str_items =
-  BatList.concat (BatList.map preprocess_structure_item typedtree.str_items)
+  BatList.concat (BatList.map preprocess_structure_item str.str_items)
 let _ = output_result (
   mapM (print_structure_item 0) str_items >>= (return % concat_items)
 )
