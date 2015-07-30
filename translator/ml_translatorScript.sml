@@ -910,14 +910,11 @@ val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
 
-val VEC_LENGTH_def = Define `
-  VEC_LENGTH (Vector l) = LENGTH l`;
-
 val Eval_sub = store_thm("Eval_sub",
  ``!env x1 x2 a n v.
      Eval env x1 (VECTOR_TYPE a v) ==>
      Eval env x2 (NUM n) ==>
-     n < VEC_LENGTH v ==>
+     n < length v ==>
      Eval env (App Vsub [x1; x2]) (a (sub v n))``,
   rw [Eval_def] >>
   rw [Once evaluate_cases] >>
@@ -926,7 +923,7 @@ val Eval_sub = store_thm("Eval_sub",
   rw [PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
-  fs [VECTOR_TYPE_def, VEC_LENGTH_def, NUM_def, sub_def, INT_def] >>
+  fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   MAP_EVERY qexists_tac [`(0,empty_store)`, `l'`, `&n`] >>
   fs [INT_ABS_NUM, LIST_REL_EL_EQN] >>
   metis_tac []);

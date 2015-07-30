@@ -1512,7 +1512,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``]
+  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``,``:'a vector``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
