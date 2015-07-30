@@ -1,4 +1,4 @@
-FILES = boyer fib
+FILES = boyer countGraphs fib
 
 all: $(FILES)
 
