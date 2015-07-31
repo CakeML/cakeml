@@ -215,14 +215,14 @@ let case_is_trivial c =
   | Tpat_var (_, _), None -> true
   | _ -> false
 
-let rec print_expression indent prec expr =
+let rec print_expression indent incase prec expr =
   match expr.exp_desc with
   | Texp_ident (path, longident, desc) -> print_path path
   | Texp_constant c -> return @@ print_constant c
   | Texp_let (r, bs, e) ->
     mapiM (fun i -> print_value_binding (i = 0) (indent + 1) r)
           bs >>= fun bs' ->
-    print_expression (indent + 1) 0 e >>= fun e' ->
+    print_expression (indent + 1) false 0 e >>= fun e' ->
     return @@ ifThen (prec > 1) paren @@
       "let\n" ^
       BatString.concat "" bs' ^ "\n" ^
@@ -235,8 +235,9 @@ let rec print_expression indent prec expr =
     | Tpat_var (_, _) -> ""
     | _ -> "tmp__ => case tmp__ of ") ^ c'
   | Texp_function (l, cs, p) ->
-    print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ ifThen (prec > 1) paren @@ "fn tmp__ => case tmp__ of" ^ cs'
+    print_case_cases (indent) cs >>= fun cs' ->
+    return @@ ifThen (prec > 1 || incase) paren @@
+      "fn tmp__ => case tmp__ of" ^ cs'
   | Texp_apply ({ exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _) },
                 [(_, Some e0, _); (_, Some e1, _)])
       when m.name = "Pervasives" && mem n ["&&"; "&"; "||"; "or"] ->
@@ -245,41 +246,41 @@ let rec print_expression indent prec expr =
       | "||" |  "or" -> "orelse"
       | x -> x
     in
-    print_expression indent 2 e0 >>= fun e0' ->
-    print_expression indent 2 e1 >>= fun e1' ->
+    print_expression indent false 2 e0 >>= fun e0' ->
+    print_expression indent incase 2 e1 >>= fun e1' ->
     return @@ e0' ^ " " ^ op ^ " " ^ e1'
   | Texp_apply (e0, es) ->
-    print_expression indent 2 e0 >>= fun e0' ->
+    print_expression indent false 2 e0 >>= fun e0' ->
     mapM (function
-    | l, Some e, Required -> print_expression indent 2 e
+    | l, Some e, Required -> print_expression indent incase 2 e
     | _ -> Bad "Optional and named arguments not supported."
     ) es >>= fun es' ->
     return @@ ifThen (prec > 1) paren @@ e0' ^ " " ^ BatString.concat " " es'
   | Texp_match (exp, cs, [], p) ->
-    print_expression indent 0 exp >>= fun exp' ->
+    print_expression indent false 0 exp >>= fun exp' ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
-    return @@ ifThen (prec > 0) paren @@ "case " ^ exp' ^ " of" ^ cs'
+    return @@ ifThen (prec > 0 || incase) paren @@ "case " ^ exp' ^ " of" ^ cs'
   | Texp_match (_, _, _, _) -> Bad "Exception cases not supported."
   | Texp_try (exp, cs) ->
-    print_expression indent 1 exp >>= fun exp' ->
-    print_case_cases (indent + 1) cs >>= fun cs' ->
+    print_expression indent false 1 exp >>= fun exp' ->
+    print_case_cases (indent) cs >>= fun cs' ->
     return @@ ifThen (prec > 0) paren @@ exp' ^ " handle" ^ cs'
-  | Texp_tuple es -> mapM (print_expression indent 0) es >>= fun es' ->
+  | Texp_tuple es -> mapM (print_expression indent false 0) es >>= fun es' ->
                      return @@ paren @@ BatString.concat ", " es'
   | Texp_construct (lident, desc, es) ->
-    print_construct prec (print_expression indent) lident desc es
+    print_construct prec (print_expression indent incase) lident desc es
   | Texp_ifthenelse (p, et, Some ef) ->
-    print_expression indent 0 p >>= fun p' ->
-    print_expression (indent + 1) 0 et >>= fun et' ->
-    print_expression (indent + 1) prec ef >>= fun ef' ->
+    print_expression indent false 0 p >>= fun p' ->
+    print_expression (indent + 1) false 0 et >>= fun et' ->
+    print_expression (indent + 1) incase prec ef >>= fun ef' ->
     return @@ ifThen (prec > 0) paren @@
       "if " ^ p' ^ " then\n" ^
       indent_by (indent + 1) ^ et' ^ "\n" ^
       indent_by indent ^ "else\n" ^
       indent_by (indent + 1) ^ ef'
   | Texp_sequence (e0, e1) ->
-    print_expression indent 0 e0 >>= fun e0' ->
-    print_expression indent 0 e1 >>= fun e1' ->
+    print_expression indent false 0 e0 >>= fun e0' ->
+    print_expression indent incase 0 e1 >>= fun e1' ->
     return @@ paren @@ e0' ^ ";\n" ^ indent_by indent ^ e1'
   | _ -> Bad "Some expression syntax not implemented."
 
@@ -293,19 +294,19 @@ and print_case_cases indent =
   let rec f = function
   | [] -> return ""
   | c :: cs ->
-    print_case indent 0 " => " c >>= fun c' ->
+    print_case (indent + 1) 0 " => " c >>= fun c' ->
     f cs >>= fun rest ->
     return @@ "\n" ^ indent_by indent ^ "| " ^ c' ^ rest
   in function
   | [] -> return ""
   | c :: cs ->
-    print_case indent 0 " => " c >>= fun c' ->
+    print_case (indent + 1) 0 " => " c >>= fun c' ->
     f cs >>= fun rest ->
     return @@ "\n" ^ indent_by indent ^ "  " ^ c' ^ rest
 
 and case_parts indent prec c =
   print_pattern prec c.c_lhs >>= fun pat ->
-  print_expression (indent + 1) 1 c.c_rhs >>= fun exp ->
+  print_expression (indent) true 1 c.c_rhs >>= fun exp ->
   return (pat, exp)
 
 and print_value_binding first_binding indent rec_flag vb =
@@ -336,7 +337,7 @@ and print_value_binding first_binding indent rec_flag vb =
       indent_by indent ^ keyword ^ name ^ " tmp__ = case tmp__ of" ^ cs'
   | _, Recursive -> Bad "Recursive values not supported in CakeML"
   | _, Nonrecursive ->
-    print_expression indent 0 vb.vb_expr >>= fun expr ->
+    print_expression indent false 0 vb.vb_expr >>= fun expr ->
     return @@ indent_by indent ^ keyword ^ name ^ " = " ^ expr
 
 (* CakeML doesn't support SML-style LHS pattern matching in function
@@ -620,7 +621,7 @@ and print_module_binding indent mb =
 and print_structure_item indent str =
   match str.str_desc with
   | Tstr_eval (e, attrs) ->
-    print_expression indent 0 e >>= fun e' ->
+    print_expression indent false 0 e >>= fun e' ->
     return @@ indent_by indent ^ "val eval__ = " ^ e'
   | Tstr_value (r, bs) ->
     mapiM (fun i -> print_value_binding (i = 0) indent r) bs >>= fun ss ->
