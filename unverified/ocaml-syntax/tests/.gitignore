@@ -1,4 +1,5 @@
 *.cml
+*.out
 boyer
 countGraphs
 fib

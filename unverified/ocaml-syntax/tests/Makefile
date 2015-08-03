@@ -1,4 +1,5 @@
-FILES = boyer countGraphs fib
+#FILES = boyer countGraphs fib
+FILES = $(basename $(wildcard *.ml))
 
 all: $(FILES)
 
@@ -8,4 +9,12 @@ $(FILES):
 	[ -f $@-patch ] && ./$@-patch || :
 
 clean:
-	rm -f *.cmi *.cmx *.o *.cml $(FILES)
+	rm -f *.cmi *.cmx *.o *.cml *.out $(FILES)
+
+TESTS = $(addsuffix .out, $(FILES))
+CAKE = ~/cakeml-v1-beta/cake
+
+%.out: %.cml $(CAKE)
+	cat $< | $(CAKE) > $@
+
+test: $(TESTS)
