@@ -1,9 +1,5 @@
 open Batteries
-open BatIO
-open BatList
-open BatResult
 open BatResult.Monad
-open BatTuple
 
 open Asttypes
 open Ident
@@ -71,7 +67,7 @@ let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
     | "sharing" | "signature" | "structure" | "where" | "withtype" | "div"
-    | "SOME" | "NONE" | "Oc_Array")
+    | "SOME" | "NONE" | "oc_mod" | "oc_ref" | "oc_raise" | "Oc_Array")
     as x ->
     x ^ "__"
   | "Some" -> "SOME"
@@ -127,15 +123,6 @@ let rec print_longident_pure = function
     fix_identifier left ^ "." ^ right
   | Lapply (p0, p1) -> print_longident_pure p0 ^ " " ^ print_longident_pure p1
 
-(*let rec print_longident = function
-  | Lident ident -> return @@ fix_identifier ident
-  | Ldot (left, right) ->
-    print_longident left >>= fun left ->
-    let right = ifThen (left = "Pervasives") convertPervasive right in
-    return @@ fix_identifier left ^ "." ^ right
-  | Lapply (p0, p1) -> print_longident p0 >>= fun p0 ->
-                       print_longident p1 >>= fun p1 ->
-                       return @@ p0 ^ " " ^ p1*)
 let print_longident = return % print_longident_pure
 
 let rec longident_of_path = function
@@ -173,6 +160,7 @@ let rec path_prefix = function
   | Pdot (p, _, _) -> print_path_pure p ^ "."
   | Papply (p, _) -> print_path_pure p ^ " "
 
+(* Constructors don't have a fully specified path. Infer it from the type. *)
 let make_constructor_path { cstr_name; cstr_res = { desc; }; } =
   match desc with
   | Tconstr (p, _, _) -> return @@ path_prefix p ^ cstr_name
@@ -200,6 +188,7 @@ let print_construct prec (f : int -> 'a -> (string, string) result)
 
 let rec print_pattern prec pat =
   match pat.pat_desc with
+  (* _ *)
   | Tpat_any -> return "unused__"
   | Tpat_var (ident, name) -> return @@ fix_var_name name.txt
   | Tpat_constant c -> return @@ print_constant c
@@ -209,6 +198,7 @@ let rec print_pattern prec pat =
     print_construct prec print_pattern lident desc ps
   | _ -> Bad "Some pattern syntax not implemented."
 
+(* Pattern can be matched on LHS; no need for case expression *)
 let case_is_trivial c =
   match c.c_lhs.pat_desc, c.c_guard with
   | Tpat_any, None -> true
@@ -232,15 +222,19 @@ let rec print_expression indent incase prec expr =
   | Texp_function (l, [c], p) ->
     print_case indent 0 " => " c >>= fun c' ->
     return @@ ifThen (prec > 1) paren @@ "fn " ^ (match c.c_lhs.pat_desc with
+    (* fn x => E *)
     | Tpat_var (_, _) -> ""
+    (* fn tmp__ => case tmp of P => E *)
     | _ -> "tmp__ => case tmp__ of ") ^ c'
+  (* fn tmp__ => case tmp of P0 => E0 | P1 => E1 | ... *)
   | Texp_function (l, cs, p) ->
     print_case_cases (indent) cs >>= fun cs' ->
     return @@ ifThen (prec > 1 || incase) paren @@
       "fn tmp__ => case tmp__ of" ^ cs'
+  (* Special cases *)
   | Texp_apply ({ exp_desc = Texp_ident (Pdot (Pident m, n, _), _, _) },
                 [(_, Some e0, _); (_, Some e1, _)])
-      when m.name = "Pervasives" && mem n ["&&"; "&"; "||"; "or"] ->
+      when m.name = "Pervasives" && BatList.mem n ["&&"; "&"; "||"; "or"] ->
     let op = match n with
       | "&&" |  "&" -> "andalso"
       | "||" |  "or" -> "orelse"
@@ -249,6 +243,7 @@ let rec print_expression indent incase prec expr =
     print_expression indent false 2 e0 >>= fun e0' ->
     print_expression indent incase 2 e1 >>= fun e1' ->
     return @@ e0' ^ " " ^ op ^ " " ^ e1'
+  (* Normal function application *)
   | Texp_apply (e0, es) ->
     print_expression indent false 2 e0 >>= fun e0' ->
     mapM (function
@@ -261,6 +256,7 @@ let rec print_expression indent incase prec expr =
     print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@ ifThen (prec > 0 || incase) paren @@ "case " ^ exp' ^ " of" ^ cs'
   | Texp_match (_, _, _, _) -> Bad "Exception cases not supported."
+  (* E handle with X0 => E0 | X1 => E1 *)
   | Texp_try (exp, cs) ->
     print_expression indent false 1 exp >>= fun exp' ->
     print_case_cases (indent) cs >>= fun cs' ->
@@ -278,6 +274,7 @@ let rec print_expression indent incase prec expr =
       indent_by (indent + 1) ^ et' ^ "\n" ^
       indent_by indent ^ "else\n" ^
       indent_by (indent + 1) ^ ef'
+  (* E0; E1 *)
   | Texp_sequence (e0, e1) ->
     print_expression indent false 0 e0 >>= fun e0' ->
     print_expression indent incase 0 e1 >>= fun e1' ->
@@ -291,18 +288,14 @@ and print_case indent prec conn c =
   | _ -> Bad "Pattern guards not supported."
 
 and print_case_cases indent =
-  let rec f = function
+  let rec f linePrefix = function
   | [] -> return ""
   | c :: cs ->
     print_case (indent + 1) 0 " => " c >>= fun c' ->
-    f cs >>= fun rest ->
-    return @@ "\n" ^ indent_by indent ^ "| " ^ c' ^ rest
-  in function
-  | [] -> return ""
-  | c :: cs ->
-    print_case (indent + 1) 0 " => " c >>= fun c' ->
-    f cs >>= fun rest ->
-    return @@ "\n" ^ indent_by indent ^ "  " ^ c' ^ rest
+    f "| " cs >>= fun rest ->
+    return @@ "\n" ^ indent_by indent ^ linePrefix ^ c' ^ rest
+  in
+  f "  "  (* First case has no '|' *)
 
 and case_parts indent prec c =
   print_pattern prec c.c_lhs >>= fun pat ->
@@ -319,6 +312,7 @@ and print_value_binding first_binding indent rec_flag vb =
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
   | Texp_function (l, [c], p), Recursive when case_is_trivial c ->
+    (* Try to turn `fun f x = fn y => fn z => ...` into `fun f x y z = ...` *)
     let rec reduce_fn acc lastc =
       match lastc.c_rhs.exp_desc with
       | Texp_function (_, [nextc], _) when case_is_trivial nextc ->
@@ -331,11 +325,14 @@ and print_value_binding first_binding indent rec_flag vb =
                " " ^ c'
     in
     reduce_fn [] c
+  (* fun tmp__ = case tmp__ of P0 => E0 | ... *)
   | Texp_function (l, cs, p), Recursive ->
     print_case_cases (indent + 1) cs >>= fun cs' ->
     return @@
       indent_by indent ^ keyword ^ name ^ " tmp__ = case tmp__ of" ^ cs'
-  | _, Recursive -> Bad "Recursive values not supported in CakeML"
+  (* Should have been removed by the AST preprocessor *)
+  | _, Recursive -> Bad "Recursive values are not supported in CakeML"
+  (* val x = E *)
   | _, Nonrecursive ->
     print_expression indent false 0 vb.vb_expr >>= fun expr ->
     return @@ indent_by indent ^ keyword ^ name ^ " = " ^ expr
@@ -404,19 +401,14 @@ let print_constructor_declaration decl =
     if constructor_args = "" then "" else " of " ^ constructor_args
 
 let print_ttyp_variant indent =
-  let rec f = function
+  let rec f linePrefix = function
     | [] -> return ""
     | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
-                 f ds >>= fun rest ->
-                 return @@ "\n" ^ indent_by indent ^ "| " ^
+                 f "| " ds >>= fun rest ->
+                 return @@ "\n" ^ indent_by indent ^ linePrefix ^
                            constructor_decl ^ rest
   in
-  function
-    | [] -> return ""
-    | d :: ds -> print_constructor_declaration d >>= fun constructor_decl ->
-                 f ds >>= fun rest ->
-                 return @@ "\n" ^ indent_by indent ^ "  " ^
-                           constructor_decl ^ rest
+  f "  "
 
 let print_type_declaration first_binding indent typ =
   let keyword = match first_binding, typ.typ_kind with
@@ -424,13 +416,17 @@ let print_type_declaration first_binding indent typ =
                 | true, Ttype_abstract -> "type "
                 | true, _ -> "datatype "
   in
-  print_typ_params (map Tuple2.first typ.typ_params) >>= fun params ->
+  print_typ_params (BatList.map Tuple2.first typ.typ_params) >>= fun params ->
   (match typ.typ_manifest, typ.typ_kind with
+  (* type t' = t *)
   | Some m, Ttype_abstract -> print_core_type 0 m >>= fun manifest ->
                               return @@ " = " ^ manifest
+  (* datatype t' = datatype t *)
   | Some m, Ttype_variant ds -> print_core_type 0 m >>= fun manifest ->
                                 return @@ " = datatype " ^ manifest
+  (* type t *)
   | None, Ttype_abstract -> return ""
+  (* datatype t = A | B | ... *)
   | None, Ttype_variant ds ->
     print_ttyp_variant (indent + 1) ds >>= fun expr ->
     return @@ " =" ^ expr
@@ -440,14 +436,22 @@ let print_type_declaration first_binding indent typ =
             fix_type_name typ.typ_name.txt ^ rest
 
 let concat_items =
-  filter (fun x -> "" <> x)
-  %> map (fun x -> x ^ ";")
+  BatList.filter (fun x -> "" <> x)
+  %> BatList.map (fun x -> x ^ ";")
   %> BatString.concat "\n\n"
 
 (* Fixes to typed AST *)
 
+(*
+oldbs: accumulator for possibly modified existing bindings. Only the LHS is
+  changed at this stage.
+newbs: accumulator for new bindings
+sub_fn: accumulator for function to substitute expressions like `x__ ()` for
+  `x` in oldbs. This is applied at the base case in order to deal with mutual
+  recursion.
+*)
 let rec vb_inner oldbs newbs sub_fn = function
-  | [] -> BatList.rev oldbs, BatList.rev newbs, sub_fn
+  | [] -> BatList.rev_map sub_fn oldbs, BatList.rev newbs
   | vb :: vbs ->
     match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc with
     (* Rephrase recursive value bindings to turn them into functions taking
@@ -545,12 +549,14 @@ let preprocess_value_bindings = function
   (* Rephrase recursive values *)
   | Recursive -> vb_inner [] [] (fun x -> x)
   (* Split non-recursive definitions joined by `and` *)
-  | Nonrecursive -> fun bs -> [], bs, (fun x -> x)
+  | Nonrecursive -> fun bs -> [], bs
 
 let rec preprocess_match expr cs es p =
   match cs with
   | [] -> []
   | ({ c_guard = None; _ } as c) :: cs -> c :: preprocess_match expr cs es p
+  (* Unroll guards into `if` expressions, where the `else` clause is a `case`
+     expression containing the remaining cases. *)
   | { c_lhs; c_guard = Some g; c_rhs; } :: cs ->
     let cs' = preprocess_match expr cs es p in
     {
@@ -588,13 +594,17 @@ let preprocess_expression_desc = function
 let rec preprocess_structure_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
-    let oldbs, newbs, sub_fn = preprocess_value_bindings r bs in
-    let strs = map (fun b -> { str with
+    let oldbs, newbs = preprocess_value_bindings r bs in
+    let strs = BatList.map (fun b -> { str with
       str_desc = Tstr_value (Nonrecursive, [b]);
     }) newbs in
     (match oldbs with
+    (* If no existing bindings remain, remove that structure item, and just
+       keep the new items. *)
     | [] -> strs
-    | _ -> { str with str_desc = Tstr_value (r, map sub_fn oldbs); } :: strs
+    (* Otherwise, replace the existing bindings with the updated bindings, and
+       add the new items after the existing item. *)
+    | _ -> { str with str_desc = Tstr_value (r, oldbs); } :: strs
     )
   | _ -> [str]
 
@@ -616,7 +626,7 @@ and print_module_binding indent mb =
   match mb.mb_expr.mod_desc with
   | Tmod_structure str ->
     return @@ indent_by indent ^ "structure " ^ name ^ " = " ^ expr
-  | _ -> Bad "Some module types not implemented."
+  | _ -> Bad "Some types of module not implemented."
 
 and print_structure_item indent str =
   match str.str_desc with
@@ -643,6 +653,7 @@ and print_structure_item indent str =
   | Tstr_module b ->
     print_module_binding indent b >>= fun b' ->
     return @@ b'
+  (* Things are annotated with full module paths, making `open` unnecessary. *)
   | Tstr_open _ -> return ""
   | _ -> Bad "Some structure items not implemented."
 
