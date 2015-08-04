@@ -369,6 +369,7 @@ let rec print_core_type prec ctyp =
     print_path path >>= fun name ->
     print_typ_params ts >>= fun params ->
     return @@ params ^ name
+  | Ttyp_poly (_, t) -> print_core_type prec t
   | _ -> Bad "Some core types syntax not supported."
 
 and print_typ_params = function
@@ -569,7 +570,7 @@ let rec preprocess_match expr cs es p =
       };
     } :: cs'
 
-module MatchMapArgument = struct
+module MatchMapArgument : MapArgument = struct
   include DefaultMapArgument
   let enter_expression exp =
     { exp with
@@ -590,6 +591,68 @@ module MatchMap = MakeMap (MatchMapArgument)
 let preprocess_expression_desc = function
   | Texp_function (l, cs, p) ->
     Texp_function (l, BatList.map preprocess_case cs, p)*)
+
+let record_cstr_name_desc bs lbl_res path =
+  let cstr_name = "Mk" ^ BatString.capitalize (Path.last path) in
+  (cstr_name, {
+    cstr_name = cstr_name;
+    cstr_res = lbl_res;
+    cstr_existentials = [];
+    cstr_args = BatList.map (fun (_, { lbl_arg; _ }, _) -> lbl_arg) bs;
+    cstr_arity = BatList.length bs;
+    cstr_tag = Cstr_block 0;
+    cstr_consts = 0;
+    cstr_nonconsts = 1;
+    cstr_normal = 1;
+    cstr_generalized = false;
+    cstr_private = Public;
+    cstr_loc = Location.none;
+    cstr_attributes = [];
+  })
+
+let preprocess_record_expr bs =
+  let (_, { lbl_res; _ }, _) = BatList.hd bs in function
+  | None ->
+    (match lbl_res.desc with
+    (* Should be this sort of type (by construction) *)
+    | Tconstr (p, _, _) ->
+      let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
+      Texp_construct (Location.mknoloc (Longident.Lident cstr_name),
+                      cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
+    | _ -> Texp_record (bs, None)
+    )
+  | Some base -> Texp_record (bs, Some base)
+
+let preprocess_type_declaration typ =
+  match typ.typ_kind with
+  (* Paraphrase record type declarations *)
+  | Ttype_record lds ->
+    let cstr_name = "Mk" ^ BatString.capitalize typ.typ_name.txt in
+    { typ with
+      (*typ_cstrs = [cstr];*)
+      typ_kind = Ttype_variant [{
+        cd_id = Ident.create cstr_name;
+        cd_name = Location.mknoloc cstr_name;
+        cd_args = BatList.map (fun ld -> ld.ld_type) lds;
+        cd_res = None;
+        cd_loc = Location.none;
+        cd_attributes = [];
+      }];
+    }
+  | _ -> typ
+
+module RecordMapArgument : MapArgument = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    { exp with
+      exp_desc =
+        match exp.exp_desc with
+        | Texp_record (bs, base) -> preprocess_record_expr bs base
+        | x -> x
+    }
+  let enter_type_declaration = preprocess_type_declaration
+end
+module RecordMap = MakeMap (RecordMapArgument)
 
 let rec preprocess_structure_item str =
   match str.str_desc with
@@ -743,7 +806,7 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
-let str = MatchMap.map_structure typedtree
+let str = RecordMap.map_structure (MatchMap.map_structure typedtree)
 let str_items =
   BatList.concat (BatList.map preprocess_structure_item str.str_items)
 let _ = output_result (
