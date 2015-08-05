@@ -3,7 +3,6 @@ open BatResult.Monad
 
 open Asttypes
 open Ident
-open Longident
 open Path
 open Types
 open Typedtree
@@ -116,19 +115,21 @@ let rec convertPervasive : string -> string =
   BatString.concat "_" % f % BatString.to_list
 
 let rec print_longident_pure = function
-  | Lident ident -> fix_identifier ident
-  | Ldot (left, right) ->
+  | Longident.Lident ident -> fix_identifier ident
+  | Longident.Ldot (left, right) ->
     let left = print_longident_pure left in
     let right = ifThen (left = "Pervasives") convertPervasive right in
     fix_identifier left ^ "." ^ right
-  | Lapply (p0, p1) -> print_longident_pure p0 ^ " " ^ print_longident_pure p1
+  | Longident.Lapply (p0, p1) ->
+    print_longident_pure p0 ^ " " ^ print_longident_pure p1
 
 let print_longident = return % print_longident_pure
 
 let rec longident_of_path = function
-  | Pident i -> Lident i.name
-  | Pdot (l, r, _) -> Ldot (longident_of_path l, r)
-  | Papply (l, r) -> Lapply (longident_of_path l, longident_of_path r)
+  | Pident i -> Longident.Lident i.name
+  | Pdot (l, r, _) -> Longident.Ldot (longident_of_path l, r)
+  | Papply (l, r) ->
+    Longident.Lapply (longident_of_path l, longident_of_path r)
 
 let print_path_pure = print_longident_pure % longident_of_path
 let print_path = print_longident % longident_of_path
@@ -486,7 +487,7 @@ let rec vb_inner oldbs newbs sub_fn = function
       } in
       let new_subexpr = Texp_apply ({ vb.vb_expr with
         exp_desc = Texp_ident (Pident new_ident,
-                               Location.mknoloc (Lident new_name), {
+                               mknoloc (Longident.Lident new_name), {
           val_type = { vb.vb_pat.pat_type with
             desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cunknown);
           };
@@ -495,7 +496,7 @@ let rec vb_inner oldbs newbs sub_fn = function
           val_attributes = [];
         }); },
         [("", Some {
-            exp_desc = Texp_construct (Location.mknoloc (Lident "()"),
+            exp_desc = Texp_construct (mknoloc (Longident.Lident "()"),
                                        unit_constr_desc, []);
             exp_loc = Location.none;
             exp_extra = [];
@@ -546,7 +547,7 @@ let rec vb_inner oldbs newbs sub_fn = function
       vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
     | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
 
-let preprocess_value_bindings = function
+let preprocess_valrec_value_bindings = function
   (* Rephrase recursive values *)
   | Recursive -> vb_inner [] [] (fun x -> x)
   (* Split non-recursive definitions joined by `and` *)
@@ -610,6 +611,29 @@ let record_cstr_name_desc bs lbl_res path =
     cstr_attributes = [];
   })
 
+(*let preprocess_record_pat_expr mkConstruct mkRecord bs =
+  let (_, { lbl_res; _ }, _) = BatList.hd bs in function
+  | None ->
+    (match lbl_res.desc with
+    (* Should be this sort of type (by construction) *)
+    | Tconstr (p, _, _) ->
+      let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
+      Tpat_construct (mknoloc (Longident.Lident cstr_name),
+                      cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
+    | _ -> Tpat_record (bs, None)
+    )
+  | Some base -> Tpat_record (bs, Some base)*)
+
+let preprocess_record_pat bs closed =
+  let (_, { lbl_res; _ }, _) = BatList.hd bs in
+  match lbl_res.desc with
+  (* Should be this sort of type (by construction) *)
+  | Tconstr (p, _, _) ->
+    let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
+    Tpat_construct (mknoloc (Longident.Lident cstr_name),
+                    cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
+  | _ -> Tpat_record (bs, closed)
+
 let preprocess_record_expr bs =
   let (_, { lbl_res; _ }, _) = BatList.hd bs in function
   | None ->
@@ -617,47 +641,135 @@ let preprocess_record_expr bs =
     (* Should be this sort of type (by construction) *)
     | Tconstr (p, _, _) ->
       let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
-      Texp_construct (Location.mknoloc (Longident.Lident cstr_name),
+      Texp_construct (mknoloc (Longident.Lident cstr_name),
                       cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
     | _ -> Texp_record (bs, None)
     )
   | Some base -> Texp_record (bs, Some base)
 
-let preprocess_type_declaration typ =
+let make_record_accessor typ ({ ld_name; ld_type; } as ld) =
+  let type_expr = {
+    desc = Tarrow ("", typ, ld_type.ctyp_type, Cunknown);
+    level = 0; id = 0;
+  } in
+  let name = "record_" ^ ld_name.txt in
+  let ident = Ident.create name in
+  Tstr_value (Recursive, [{
+    vb_pat = {
+      pat_desc = Tpat_var (ident, mknoloc name);
+      pat_loc = Location.none;
+      pat_extra = [];
+      pat_type = type_expr;
+      pat_env = Env.empty;
+      pat_attributes = [];
+    };
+    vb_expr = {
+      exp_desc = Texp_function ("", [{
+        c_lhs = {
+          pat_desc = Tpat_record (
+            [mknoloc (Longident.Lident ld_name.txt),
+             ld,
+             Tpat_var (ident, mknoloc ld_name.txt)], Open);
+          pat_loc = Location.none;
+          pat_extra = [];
+          pat_type = typ;
+          pat_env = Env.empty;
+          pat_attributes = [];
+        };
+        c_guard = None;
+        c_rhs = {
+          exp_desc = Texp_ident (
+            (match ld_type.desc with
+            | Tconstr (Pdot (p, _, pos), _, _) -> Pdot (p, name, pos)
+            | _ -> failwith "make_record_accessor"
+            ),
+            mknoloc (Longident.Lident name),
+            {
+              val_type = ld_type;
+              val_kind = Val_reg;
+              val_loc = Location.none;
+              val_attributes = [];
+            }
+          );
+          exp_loc = Location.none;
+          exp_extra = [];
+          exp_type = ld_type;
+          exp_env = Exp.empty;
+          exp_attributes = [];
+        };
+      }], Total);
+      exp_loc = Location.none;
+      exp_extra = [];
+      exp_type = typ;
+      exp_env = Exp.empty;
+      exp_attributes = [];
+    };
+    vb_attributes = [];
+    vb_loc = Location.none;
+  }])
+
+let preprocess_record_type_declaration typ =
   match typ.typ_kind with
   (* Paraphrase record type declarations *)
   | Ttype_record lds ->
     let cstr_name = "Mk" ^ BatString.capitalize typ.typ_name.txt in
-    { typ with
+    let typ' = { typ with
       (*typ_cstrs = [cstr];*)
       typ_kind = Ttype_variant [{
         cd_id = Ident.create cstr_name;
-        cd_name = Location.mknoloc cstr_name;
+        cd_name = mknoloc cstr_name;
         cd_args = BatList.map (fun ld -> ld.ld_type) lds;
         cd_res = None;
         cd_loc = Location.none;
         cd_attributes = [];
       }];
-    }
-  | _ -> typ
+    } in
+    Tstr_type [typ'],
+    BatList.map (make_record_accessor typ') lds
+  | _ -> typ, []
+
+let preprocess_record_type_declaractions =
+  let rec inner acc = function
+    | [] -> acc
+    | d :: ds ->
+      let d', additional = preprocess_record_type_declaration d in
+      d' :: inner (acc ^ additional) ds
+  in
+  inner []
+
+let preprocess_record_str_item = function
+  | Tstr_type ds -> preprocess_record_type_declarations ds
+  | x -> [x]
 
 module RecordMapArgument : MapArgument = struct
   include DefaultMapArgument
-  let enter_expression exp =
+  let leave_pattern pat =
+    { pat with
+      pat_desc =
+        match pat.pat_desc with
+        | Tpat_record (bs, closed) -> preprocess_record_pat bs closed
+        | x -> x
+    }
+  let leave_expression exp =
     { exp with
       exp_desc =
         match exp.exp_desc with
         | Texp_record (bs, base) -> preprocess_record_expr bs base
         | x -> x
     }
-  let enter_type_declaration = preprocess_type_declaration
+  (*let enter_type_declaration = preprocess_type_declaration*)
+  let enter_structure str =
+    { str with
+      str_items =
+        BatList.concat (BatList.map preprocess_record_str_item str.str_items)
+    }
 end
 module RecordMap = MakeMap (RecordMapArgument)
 
-let rec preprocess_structure_item str =
+let rec preprocess_valrec_str_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
-    let oldbs, newbs = preprocess_value_bindings r bs in
+    let oldbs, newbs = preprocess_valrec_value_bindings r bs in
     let strs = BatList.map (fun b -> { str with
       str_desc = Tstr_value (Nonrecursive, [b]);
     }) newbs in
@@ -675,7 +787,7 @@ let rec print_module_expr indent expr =
   match expr.mod_desc with
   | Tmod_structure str ->
     let str_items =
-      BatList.concat (BatList.map preprocess_structure_item str.str_items) in
+      BatList.concat (BatList.map preprocess_valrec_str_item str.str_items) in
     mapM (print_structure_item (indent + 1)) str_items >>= fun items ->
     return @@
       indent_by indent ^ "struct\n" ^
@@ -808,7 +920,7 @@ let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
 let str = RecordMap.map_structure (MatchMap.map_structure typedtree)
 let str_items =
-  BatList.concat (BatList.map preprocess_structure_item str.str_items)
+  BatList.concat (BatList.map preprocess_valrec_str_item str.str_items)
 let _ = output_result (
   mapM (print_structure_item 0) str_items >>= (return % concat_items)
 )
