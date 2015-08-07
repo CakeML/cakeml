@@ -780,7 +780,9 @@ let make_record_accessor typ rr all_labels i { ld_name; ld_type; ld_mutable } =
 let preprocess_record_type_declaration typ =
   match typ.typ_kind, typ.typ_type.type_kind with
   (* Paraphrase record type declarations *)
-  | Ttype_record lds, Type_record (ld :: _, rr) ->
+  (* `lds` comes from Typedtree and `lds'` comes from Types.
+     They're subtly different, and we end up needing both. *)
+  | Ttype_record lds, Type_record (lds', rr) ->
     let cstr_name = "Mk" ^ BatString.capitalize typ.typ_name.txt in
     let cstr_id = Ident.create cstr_name in
     let typ' = { typ with
@@ -798,7 +800,21 @@ let preprocess_record_type_declaration typ =
       desc = Tconstr (Path.Pident typ'.typ_id, [], ref Mnil);
       level = 0; id = 0;
     } in
-    let all_labels = [||] in
+    let all_labels = BatArray.of_list (BatList.mapi (fun i ld ->
+      let open BatOption in
+      {
+        lbl_name = ld.ld_name.txt;
+        lbl_res = typ.typ_type.type_manifest |? type_expr;
+        lbl_arg = ld.ld_type.ctyp_type;
+        lbl_mut = ld.ld_mutable;
+        lbl_pos = i;
+        (* Should be `all_labels`, but I don't know how to achieve that. *)
+        lbl_all = [||];
+        lbl_repres = rr;
+        lbl_private = Public;
+        lbl_loc = Location.none;
+        lbl_attributes = [];
+      }) lds) in
     typ', BatList.mapi (make_record_accessor type_expr rr all_labels) lds
   | _ -> typ, []
 
@@ -996,8 +1012,8 @@ let typedtree, signature, env =
 let str = RecordMap.map_structure (MatchMap.map_structure typedtree)
 let str_items =
   BatList.concat (BatList.map preprocess_valrec_str_item str.str_items)
-(*let _ = output_result (
+let _ = output_result (
   mapM (print_structure_item 0) str_items >>= (return % concat_items)
-)*)
-let () = Printtyped.implementation Format.std_formatter
-  { typedtree with str_items; }
+)
+(*let () = Printtyped.implementation Format.std_formatter
+  { typedtree with str_items; }*)
