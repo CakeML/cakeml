@@ -682,9 +682,31 @@ let preprocess_record_pat bs closed =
                     cstr_desc, get_patterns bs)
   | _ -> Tpat_record (bs, closed)
 
-let preprocess_record_expr bs =
-  let (_, { lbl_res; _ }, _) = BatList.hd bs in function
+let make_with_binding base lbl =
+  let lidentloc = mknoloc (Longident.Lident lbl.lbl_name) in
+  (lidentloc, lbl, {
+    exp_desc = Texp_field (base, lidentloc, lbl);
+    exp_loc = Location.none;
+    exp_extra = [];
+    exp_type = lbl.lbl_res;
+    exp_env = Env.empty;
+    exp_attributes = [];
+  })
+
+let rec make_with_bindings base = function
+  | [] -> BatList.map (make_with_binding base)
+  | ((_, blbl, _) as b) :: bs -> function
+    | [] -> b :: bs
+    | lbl :: lbls ->
+      if blbl.lbl_name = lbl.lbl_name then
+        b :: make_with_bindings base bs lbls
+      else
+        make_with_binding base lbl :: make_with_bindings base (b :: bs) lbls
+
+let rec preprocess_record_expr bs =
+  let (_, { lbl_res; lbl_all; _ }, _) = BatList.hd bs in function
   | None ->
+    (* No `with` *)
     (match lbl_res.desc with
     (* Should be this sort of type (by construction) *)
     | Tconstr (p, _, _) ->
@@ -693,7 +715,10 @@ let preprocess_record_expr bs =
                       cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
     | _ -> Texp_record (bs, None)
     )
-  | Some base -> Texp_record (bs, Some base)
+  | Some base -> (*Texp_record (bs, Some base)*)
+    (* Expand `with` clause, then do preprocessing *)
+    let bs' = make_with_bindings base bs (BatArray.to_list lbl_all) in
+    preprocess_record_expr bs' None
 
 let make_record_accessor typ rr all_labels i { ld_name; ld_type; ld_mutable } =
   let type_expr = {
@@ -832,21 +857,59 @@ let preprocess_record_str_item item =
     { item with str_desc = Tstr_type ds' } :: additional
   | _ -> [item]
 
+let rec replaceEndOfPath ident = function
+  | Pident _ -> Pident ident
+  | Pdot (p, _, i) -> Pdot (p, Ident.name ident, i)
+  | Papply (p, q) -> Papply (p, replaceEndOfPath ident q)
+
+let rec unlink = function
+  | Tlink t -> unlink t.desc
+  | t -> t
+
+let preprocess_field_expr exp record_exp lbl =
+  match unlink record_exp.exp_type.desc with
+  | Tconstr (p, _, _) ->
+    let accessorName = "record_" ^ lbl.lbl_name in
+    let accessorIdent = Ident.create accessorName in
+    Texp_apply ({
+      exp_desc = Texp_ident (
+        replaceEndOfPath accessorIdent p,
+        Location.mknoloc (Longident.Lident accessorName),
+        {
+          val_type = {
+            desc = Tarrow ("", record_exp.exp_type, exp.exp_type, Cunknown);
+            level = 0; id = 0;
+          };
+          val_kind = Val_reg;
+          val_loc = Location.none;
+          val_attributes = [];
+        }
+      );
+      exp_loc = Location.none;
+      exp_extra = [];
+      exp_type = exp.exp_type;
+      exp_env = Env.empty;
+      exp_attributes = [];
+    }, ["", Some record_exp, Required])
+  | _ -> exp.exp_desc
+
 module RecordMapArgument : MapArgument = struct
   include DefaultMapArgument
-  let leave_pattern pat =
+  let enter_pattern pat =
     { pat with
       pat_desc =
         match pat.pat_desc with
         | Tpat_record (bs, closed) -> preprocess_record_pat bs closed
         | x -> x
     }
-  let leave_expression exp =
+  let enter_expression exp =
     { exp with
       exp_desc =
         match exp.exp_desc with
         | Texp_record (bs, base) -> preprocess_record_expr bs base
-        | x -> x
+        | Texp_field (record_exp, _, lbl) ->
+          preprocess_field_expr exp record_exp lbl
+        | _ -> exp.exp_desc
     }
   (*let enter_type_declaration = preprocess_type_declaration*)
   let enter_structure str =

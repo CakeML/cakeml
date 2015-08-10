@@ -6,17 +6,17 @@ let map f =
   map_rec
 
 module Terms = struct
-  type head = MkHead of string * (term * term) list ref
+  type head = { name : string; props : (term * term) list ref }
   and term = Var of int | Prop of head * term list
 
   let lemmas = ref ([] : head list)
 
-  let headname (MkHead (n, _)) = n
+  let headname { name; _ } = name
 
   let get name =
     let rec get_rec = function
       | hd :: hdl -> if headname hd = name then hd else get_rec hdl
-      | [] -> let entry = MkHead (name, ref []) in
+      | [] -> let entry = { name = name; props = ref [] } in
               lemmas := entry :: !lemmas;
               entry
     in
@@ -72,8 +72,8 @@ module Terms = struct
 
   let rec rewrite = function
     | Var v -> Var v
-    | Prop (MkHead (n, p), argl) ->
-      rewrite_with_lemmas (Prop (MkHead (n, p), map rewrite argl)) !p
+    | Prop ({ name; props; }, argl) ->
+      rewrite_with_lemmas (Prop ({ name; props; }, map rewrite argl)) !props
   and rewrite_with_lemmas term = function
     | [] -> term
     | (t1, t2) :: rest ->
