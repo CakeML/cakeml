@@ -153,7 +153,13 @@ val has_io_index_def = Define `
 
 val asm_write_bytearray_def = Define `
   (asm_write_bytearray a [] (m:'a word -> word8) = m) /\
-  (asm_write_bytearray a (x::xs) m = asm_write_bytearray (a+1w) xs ((a =+ x) m))`
+  (asm_write_bytearray a (x::xs) m = (a =+ x) (asm_write_bytearray (a+1w) xs m))`
+
+val word_loc_val_byte_def = Define `
+  word_loc_val_byte p labs m a be =
+    case word_loc_val p labs (m (byte_align a)) of
+    | SOME w => SOME (get_byte a w be)
+    | NONE => NONE`
 
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a labSem$state) t1 ms1 <=>
@@ -192,8 +198,7 @@ val state_rel_def = Define `
     (!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)) /\
     (!a. byte_align a IN s1.mem_domain ==>
          a IN t1.mem_domain /\ a IN s1.mem_domain /\
-         ?w. (word_loc_val p labs (s1.mem (byte_align a)) = SOME w) /\
-             (get_byte a w s1.be = t1.mem a)) /\
+         (word_loc_val_byte p labs s1.mem a s1.be = SOME (t1.mem a))) /\
     (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 0)) /\
     bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
       t1.mem t1.mem_domain s1.mem_domain /\
@@ -435,7 +440,8 @@ val read_bytearray_state_rel = prove(
   \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
   \\ Cases_on `s1.mem (byte_align a)` \\ fs [] \\ rw []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
-  \\ rpt strip_tac \\ fs [word_loc_val_def]);
+  \\ rpt strip_tac \\ fs [word_loc_val_def]
+  \\ rfs [word_loc_val_byte_def,word_loc_val_def]);
 
 val IMP_has_io_index = prove(
   ``(asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
@@ -484,14 +490,22 @@ val CallFFI_bytearray_lemma = prove(
   ``byte_align a IN s1.mem_domain /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
-    (word_loc_val p labs (s1.mem (byte_align a)) = SOME (w:'a word)) /\
-    (get_byte a w (mc_conf: ('a,'state,'b) machine_config).asm_config.big_endian = t1.mem a) ==>
-    ?w.
-      (word_loc_val p labs
-         ((write_bytearray c1 new_bytes s1).mem (byte_align a)) = SOME w) /\
-      (get_byte a w mc_conf.asm_config.big_endian =
-       asm_write_bytearray c1 new_bytes t1.mem a)``,
-  cheat);
+    (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) /\
+    (word_loc_val_byte p labs s1.mem a mc_conf.asm_config.big_endian =
+       SOME (t1.mem a)) ==>
+    (word_loc_val_byte p labs (write_bytearray c1 new_bytes s1).mem a
+       mc_conf.asm_config.big_endian =
+     SOME (asm_write_bytearray c1 new_bytes t1.mem a))``,
+  Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`t1`,`t1`) \\ Q.SPEC_TAC (`c1`,`c1`)
+  \\ Q.SPEC_TAC (`x`,`x`) \\ Q.SPEC_TAC (`new_bytes`,`xs`) \\ Induct
+  \\ fs [asm_write_bytearray_def,write_bytearray_def,labSemTheory.read_bytearray_def]
+  \\ rpt strip_tac
+  \\ Cases_on `mem_load_byte_aux c1 s1` \\ fs []
+  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1` \\ fs [] \\ rw []
+  \\ qmatch_assum_rename_tac `read_bytearray (c1 + 1w) (LENGTH xs) s1 = SOME y`
+  \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y`,`c1+1w`,`t1`,`s1`])
+  \\ fs [] \\ rpt strip_tac
+  \\ cheat);
 
 val compile_correct = Q.prove(
   `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
