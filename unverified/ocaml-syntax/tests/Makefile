@@ -16,5 +16,6 @@ CAKE = ~/cakeml-v1-beta/cake
 
 %.out: %.cml $(CAKE)
 	cat $< | $(CAKE) > $@
+	grep "error>" $@ && echo "Failure" || echo "Success"
 
 test: $(TESTS)
