@@ -85,6 +85,8 @@ structure Pervasives = struct
   val int_of_char = Char.ord;
   val char_of_int = Char.chr;
 
+  fun ignore x = ();
+
   fun at xs ys = case xs of
       [] => ys
     | x :: xs => x :: at xs ys
@@ -166,5 +168,11 @@ structure Pervasives = struct
   fun incr r = r := succ (!r);
   fun decr r = r := pred (!r);
 
-  fun ignore x = ();
+  fun print_char x = ()
+  fun print_string x = ()
+  fun print_bytes x = ()
+  fun print_int x = ()
+  fun print_float x = ()
+  fun print_endline x = ()
+  fun print_newline x = ()
 end;
