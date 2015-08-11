@@ -444,6 +444,29 @@ let concat_items =
 
 (* Fixes to typed AST *)
 
+let unit_type_expr =
+  {
+    desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
+    level = 0; id = 0;
+  }
+
+let unit_constr_desc =
+  {
+    cstr_name = "()";
+    cstr_res = unit_type_expr;
+    cstr_existentials = [];
+    cstr_args = [];
+    cstr_arity = 0;
+    cstr_tag = Cstr_constant 0;
+    cstr_consts = 1;
+    cstr_nonconsts = 0;
+    cstr_normal = 1;
+    cstr_generalized = false;
+    cstr_private = Public;
+    cstr_loc = Location.none;
+    cstr_attributes = [];
+  }
+
 (*
 oldbs: accumulator for possibly modified existing bindings. Only the LHS is
   changed at this stage.
@@ -466,25 +489,6 @@ let rec vb_inner oldbs newbs sub_fn = function
       let new_name = name.txt ^ "__" in
       let new_ident = Ident.create new_name in
       let new_pat_desc = Tpat_var (new_ident, { name with txt = new_name }) in
-      let unit_type_expr = {
-        desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
-        level = 0; id = 0;
-      } in
-      let unit_constr_desc = {
-        cstr_name = "()";
-        cstr_res = unit_type_expr;
-        cstr_existentials = [];
-        cstr_args = [];
-        cstr_arity = 0;
-        cstr_tag = Cstr_constant 0;
-        cstr_consts = 1;
-        cstr_nonconsts = 0;
-        cstr_normal = 1;
-        cstr_generalized = false;
-        cstr_private = Public;
-        cstr_loc = Location.none;
-        cstr_attributes = [];
-      } in
       let new_subexpr = Texp_apply ({ vb.vb_expr with
         exp_desc = Texp_ident (Pident new_ident,
                                mknoloc (Longident.Lident new_name), {
@@ -655,6 +659,51 @@ let gaps =
   in
   inner 0
 
+let ref_type_ident = Ident.create "ref"
+
+let ref_type_expr arg =
+  {
+    desc = Tconstr (Pident ref_type_ident, [arg], ref Mnil);
+    level = 0; id = 0;
+  }
+
+let ref_cstr arg =
+  {
+    cstr_name = "ref";
+    cstr_res = ref_type_expr arg;
+    cstr_existentials = [];
+    cstr_args = [arg];
+    cstr_arity = 1;
+    cstr_tag = Cstr_block 0;
+    cstr_consts = 0;
+    cstr_nonconsts = 1;
+    cstr_normal = 1;
+    cstr_generalized = false;
+    cstr_private = Public;
+    cstr_loc = Location.none;
+    cstr_attributes = [];
+  }
+
+let ref_wrap_mutable_pat (_, { lbl_mut; _ }, pat) =
+  match lbl_mut with
+  | Immutable -> pat
+  | Mutable -> {
+      pat with
+      pat_desc = Tpat_construct (mknoloc (Longident.Lident "ref"),
+                                 ref_cstr pat.pat_type, [pat]);
+      pat_type = ref_type_expr pat.pat_type;
+    }
+
+let ref_wrap_mutable_expr (_, { lbl_mut; _ }, exp) =
+  match lbl_mut with
+  | Immutable -> exp
+  | Mutable -> {
+      exp with
+      exp_desc = Texp_construct (mknoloc (Longident.Lident "ref"),
+                                 ref_cstr exp.exp_type, [exp]);
+      exp_type = ref_type_expr exp.exp_type;
+    }
+
 let get_patterns bs =
   let filled_positions = BatList.map (fun (_, { lbl_pos }, _) -> lbl_pos) bs in
   let unfilled_positions =
@@ -670,7 +719,7 @@ let get_patterns bs =
     pat_type = { desc = Tnil; level = 0; id = 0; };
     pat_env = Env.empty;
     pat_attributes = [];
-  } (gaps unfilled_positions) (BatList.map (fun (_, _, x) -> x) bs)
+  } (gaps unfilled_positions) (BatList.map ref_wrap_mutable_pat bs)
 
 let preprocess_record_pat bs closed =
   let (_, { lbl_res; _ }, _) = BatList.hd bs in
@@ -688,7 +737,7 @@ let make_with_binding base lbl =
     exp_desc = Texp_field (base, lidentloc, lbl);
     exp_loc = Location.none;
     exp_extra = [];
-    exp_type = lbl.lbl_res;
+    exp_type = lbl.lbl_arg;
     exp_env = Env.empty;
     exp_attributes = [];
   })
@@ -712,13 +761,17 @@ let rec preprocess_record_expr bs =
     | Tconstr (p, _, _) ->
       let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
       Texp_construct (mknoloc (Longident.Lident cstr_name),
-                      cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
+                      cstr_desc, BatList.map ref_wrap_mutable_expr bs)
     | _ -> Texp_record (bs, None)
     )
   | Some base -> (*Texp_record (bs, Some base)*)
     (* Expand `with` clause, then do preprocessing *)
     let bs' = make_with_bindings base bs (BatArray.to_list lbl_all) in
     preprocess_record_expr bs' None
+
+let mut_and = function
+  | Immutable -> fun _ -> Immutable
+  | Mutable -> fun x -> x
 
 let make_record_accessor typ rr all_labels i { ld_name; ld_type; ld_mutable } =
   let type_expr = {
@@ -729,78 +782,101 @@ let make_record_accessor typ rr all_labels i { ld_name; ld_type; ld_mutable } =
   let varident = Ident.create varname in
   let name = "record_" ^ ld_name.txt in
   let ident = Ident.create name in
-  {
-    str_desc = Tstr_value (Recursive, [{
-      vb_pat = {
-        pat_desc = Tpat_var (ident, mknoloc name);
-        pat_loc = Location.none;
-        pat_extra = [];
-        pat_type = type_expr;
-        pat_env = Env.empty;
-        pat_attributes = [];
-      };
-      vb_expr = {
-        exp_desc = Texp_function ("", [{
-          c_lhs = {
-            pat_desc = Tpat_record (
-              [mknoloc (Longident.Lident ld_name.txt),
-               {
-                 lbl_name = ld_name.txt;
-                 lbl_res = typ;
-                 lbl_arg = ld_type.ctyp_type;
-                 lbl_mut = ld_mutable;
-                 lbl_pos = i;
-                 lbl_all = all_labels;
-                 lbl_repres = rr;
-                 lbl_private = Public;
-                 lbl_loc = Location.none;
-                 lbl_attributes = [];
-               },
-               {
-                 pat_desc = Tpat_var (varident, mknoloc varname);
-                 pat_loc = Location.none;
-                 pat_extra = [];
-                 pat_type = ld_type.ctyp_type;
-                 pat_env = Env.empty;
-                 pat_attributes = [];
-               }], Open);
-            pat_loc = Location.none;
-            pat_extra = [];
-            pat_type = typ;
-            pat_env = Env.empty;
-            pat_attributes = [];
-          };
-          c_guard = None;
-          c_rhs = {
-            exp_desc = Texp_ident (
-              Pident varident,
-              mknoloc (Longident.Lident varname),
-              {
-                val_type = ld_type.ctyp_type;
-                val_kind = Val_reg;
-                val_loc = Location.none;
-                val_attributes = [];
-              }
-            );
-            exp_loc = Location.none;
-            exp_extra = [];
-            exp_type = ld_type.ctyp_type;
-            exp_env = Env.empty;
-            exp_attributes = [];
-          };
-        }], Total);
-        exp_loc = Location.none;
-        exp_extra = [];
-        exp_type = type_expr;
-        exp_env = Env.empty;
-        exp_attributes = [];
-      };
-      vb_attributes = [];
-      vb_loc = Location.none;
-    }]);
-    str_loc = Location.none;
-    str_env = Env.empty;
+
+  let make_accessor name ident make_mutable =
+    {
+      str_desc = Tstr_value (Recursive, [{
+        vb_pat = {
+          pat_desc = Tpat_var (ident, mknoloc name);
+          pat_loc = Location.none;
+          pat_extra = [];
+          pat_type = type_expr;
+          pat_env = Env.empty;
+          pat_attributes = [];
+        };
+        vb_expr = {
+          exp_desc = Texp_function ("", [{
+            c_lhs = {
+              pat_desc = Tpat_record (
+                [mknoloc (Longident.Lident ld_name.txt),
+                 {
+                   lbl_name = ld_name.txt;
+                   lbl_res = typ;
+                   lbl_arg = ld_type.ctyp_type;
+                   lbl_mut = mut_and ld_mutable make_mutable;
+                   lbl_pos = i;
+                   lbl_all = all_labels;
+                   lbl_repres = rr;
+                   lbl_private = Public;
+                   lbl_loc = Location.none;
+                   lbl_attributes = [];
+                 },
+                 {
+                   pat_desc = Tpat_var (varident, mknoloc varname);
+                   pat_loc = Location.none;
+                   pat_extra = [];
+                   pat_type = ld_type.ctyp_type;
+                   pat_env = Env.empty;
+                   pat_attributes = [];
+                 }], Open);
+              pat_loc = Location.none;
+              pat_extra = [];
+              pat_type = typ;
+              pat_env = Env.empty;
+              pat_attributes = [];
+            };
+            c_guard = None;
+            c_rhs = {
+              exp_desc = Texp_ident (
+                Pident varident,
+                mknoloc (Longident.Lident varname),
+                {
+                  val_type = ld_type.ctyp_type;
+                  val_kind = Val_reg;
+                  val_loc = Location.none;
+                  val_attributes = [];
+                }
+              );
+              exp_loc = Location.none;
+              exp_extra = [];
+              exp_type = ld_type.ctyp_type;
+              exp_env = Env.empty;
+              exp_attributes = [];
+            };
+          }], Total);
+          exp_loc = Location.none;
+          exp_extra = [];
+          exp_type = type_expr;
+          exp_env = Env.empty;
+          exp_attributes = [];
+        };
+        vb_attributes = [];
+        vb_loc = Location.none;
+      }]);
+      str_loc = Location.none;
+      str_env = Env.empty;
+    } in
+
+  match ld_mutable with
+  | Immutable -> [make_accessor name ident Immutable]
+  | Mutable ->
+    let setname = "recordset_" ^ ld_name.txt in
+    let setident = Ident.create setname in
+    [make_accessor name ident Mutable;
+     make_accessor setname setident Immutable]
+
+let ref_core_type core_type =
+  { core_type with
+    ctyp_desc =
+      Ttyp_constr (Pident ref_type_ident,
+                   mknoloc (Longident.Lident "ref"), [core_type]);
+    ctyp_type = ref_type_expr core_type.ctyp_type;
   }
+
+let get_ld_type ld =
+  match ld.ld_mutable with
+  | Immutable -> ld.ld_type
+  | Mutable -> ref_core_type ld.ld_type
 
 let preprocess_record_type_declaration typ =
   match typ.typ_kind, typ.typ_type.type_kind with
@@ -815,7 +891,7 @@ let preprocess_record_type_declaration typ =
       typ_kind = Ttype_variant [{
         cd_id = cstr_id;
         cd_name = mknoloc cstr_name;
-        cd_args = BatList.map (fun ld -> ld.ld_type) lds;
+        cd_args = BatList.map get_ld_type lds;
         cd_res = None;
         cd_loc = Location.none;
         cd_attributes = [];
@@ -840,7 +916,8 @@ let preprocess_record_type_declaration typ =
         lbl_loc = Location.none;
         lbl_attributes = [];
       }) lds) in
-    typ', BatList.mapi (make_record_accessor type_expr rr all_labels) lds
+    typ', BatList.concat (BatList.mapi
+      (make_record_accessor type_expr rr all_labels) lds)
   | _ -> typ, []
 
 let rec preprocess_record_type_declarations = function
@@ -866,15 +943,16 @@ let rec unlink = function
   | Tlink t -> unlink t.desc
   | t -> t
 
-let preprocess_field_expr exp record_exp lbl =
+let preprocess_field_expr doset exp record_exp lidentloc lbl =
   match unlink record_exp.exp_type.desc with
   | Tconstr (p, _, _) ->
-    let accessorName = "record_" ^ lbl.lbl_name in
+    let accessorName =
+      (if doset then "recordset_" else "record_") ^ lbl.lbl_name in
     let accessorIdent = Ident.create accessorName in
-    Texp_apply ({
+    Texp_apply ({ exp with
       exp_desc = Texp_ident (
         replaceEndOfPath accessorIdent p,
-        Location.mknoloc (Longident.Lident accessorName),
+        lidentloc,
         {
           val_type = {
             desc = Tarrow ("", record_exp.exp_type, exp.exp_type, Cunknown);
@@ -885,13 +963,43 @@ let preprocess_field_expr exp record_exp lbl =
           val_attributes = [];
         }
       );
-      exp_loc = Location.none;
-      exp_extra = [];
-      exp_type = exp.exp_type;
-      exp_env = Env.empty;
-      exp_attributes = [];
     }, ["", Some record_exp, Required])
   | _ -> exp.exp_desc
+
+let pervasives_assign =
+  let dash_a = { desc = Tvar (Some "'a"); level = 0; id = 0; } in
+  let type_expr = {
+    desc = Tarrow ("", ref_type_expr dash_a, {
+      desc = Tarrow ("", dash_a, unit_type_expr, Cunknown);
+      level = 0; id = 0;
+    }, Cunknown);
+    level = 0; id = 0;
+  } in
+  {
+    exp_desc = Texp_ident (
+      Pdot (Pident (Ident.create "Pervasives"), ":=", 0),
+      mknoloc (Longident.Lident ":="),
+      {
+        val_type = type_expr;
+        val_kind = Val_reg;
+        val_loc = Location.none;
+        val_attributes = [];
+      }
+    );
+    exp_loc = Location.none;
+    exp_extra = [];
+    exp_type = type_expr;
+    exp_env = Env.empty;
+    exp_attributes = [];
+  }
+
+let preprocess_setfield_expr exp record_exp lidentloc lbl val_exp =
+  let bound_exp = { exp with
+    exp_desc = preprocess_field_expr true exp record_exp lidentloc lbl;
+    exp_type = ref_type_expr val_exp.exp_type;
+  } in
+  Texp_apply (pervasives_assign, ["", Some bound_exp, Required;
+                                  "", Some val_exp, Required]);
 
 module RecordMapArgument : MapArgument = struct
   include DefaultMapArgument
@@ -907,8 +1015,10 @@ module RecordMapArgument : MapArgument = struct
       exp_desc =
         match exp.exp_desc with
         | Texp_record (bs, base) -> preprocess_record_expr bs base
-        | Texp_field (record_exp, _, lbl) ->
-          preprocess_field_expr exp record_exp lbl
+        | Texp_field (record_exp, lidentloc, lbl) ->
+          preprocess_field_expr false exp record_exp lidentloc lbl
+        | Texp_setfield (record_exp, lidentloc, lbl, val_exp) ->
+          preprocess_setfield_expr exp record_exp lidentloc lbl val_exp
         | _ -> exp.exp_desc
     }
   (*let enter_type_declaration = preprocess_type_declaration*)
