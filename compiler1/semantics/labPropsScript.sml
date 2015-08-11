@@ -75,4 +75,11 @@ val write_bytearray_simp = prove(
   \\ fs [listTheory.LENGTH_MAP]) |> SPEC_ALL
   |> curry save_thm "write_bytearray_simp";
 
+val write_bytearray_const = store_thm("write_bytearray_const[simp]",
+  ``!xs c1 s1. (write_bytearray c1 xs s1).mem_domain = s1.mem_domain /\
+               (write_bytearray c1 xs s1).be = s1.be``,
+  Induct \\ fs [write_bytearray_def,mem_store_byte_aux_def]
+  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC
+  \\ fs [labSemTheory.upd_mem_def]);
+
 val _ = export_theory();

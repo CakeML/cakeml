@@ -486,10 +486,31 @@ val bytes_in_mem_asm_write_bytearray = prove(
   \\ rw [combinTheory.APPLY_UPDATE_THM]
   \\ fs [state_rel_def] \\ res_tac);
 
+val write_bytearray_NOT_Loc = prove(
+  ``!xs c1 s1 a c.
+      (s1.mem a = Word c) ==>
+      (write_bytearray c1 xs s1).mem a <> Loc n n0``,
+  Induct \\ fs [write_bytearray_def,mem_store_byte_aux_def]
+  \\ rpt strip_tac \\ res_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+  \\ fs [labSemTheory.upd_mem_def] \\ rw [] \\ fs [APPLY_UPDATE_THM]
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []);
+
+val get_byte_set_byte = prove(
+  ``!be a x w. get_byte a (set_byte a x w be) be = x``,
+  cheat);
+
+val get_byte_set_byte_diff = prove(
+  ``!be a x w.
+       (byte_align a = byte_align b) /\ a <> b ==>
+       (get_byte a (set_byte b x w be) be = get_byte a w be)``,
+  cheat);
+
 val CallFFI_bytearray_lemma = prove(
   ``byte_align a IN s1.mem_domain /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
+    (s1.be = mc_conf.asm_config.big_endian) /\
     (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) /\
     (word_loc_val_byte p labs s1.mem a mc_conf.asm_config.big_endian =
        SOME (t1.mem a)) ==>
@@ -504,8 +525,19 @@ val CallFFI_bytearray_lemma = prove(
   \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1` \\ fs [] \\ rw []
   \\ qmatch_assum_rename_tac `read_bytearray (c1 + 1w) (LENGTH xs) s1 = SOME y`
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y`,`c1+1w`,`t1`,`s1`])
-  \\ fs [] \\ rpt strip_tac
-  \\ cheat);
+  \\ fs [] \\ rpt strip_tac \\ fs [mem_store_byte_aux_def]
+  \\ REVERSE (Cases_on `(write_bytearray (c1 + 1w) xs s1).mem (byte_align c1)`)
+  \\ fs [] THEN1
+   (fs [mem_load_byte_aux_def]
+    \\ Cases_on `s1.mem (byte_align c1)` \\ fs []
+    \\ imp_res_tac write_bytearray_NOT_Loc)
+  \\ `byte_align c1 IN (write_bytearray (c1 + 1w) xs s1).mem_domain` by
+   (fs [mem_load_byte_aux_def]
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
+  \\ fs [labSemTheory.upd_mem_def,word_loc_val_byte_def,APPLY_UPDATE_THM]
+  \\ Cases_on `a = c1` \\ fs [word_loc_val_def,get_byte_set_byte]
+  \\ Cases_on `byte_align c1 = byte_align a` \\ fs [word_loc_val_def]
+  \\ fs [get_byte_set_byte_diff]);
 
 val compile_correct = Q.prove(
   `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
