@@ -163,7 +163,7 @@ val word_loc_val_byte_def = Define `
 
 val state_rel_def = Define `
   state_rel (mc_conf, code2, labs, p, check_pc) (s1:'a labSem$state) t1 ms1 <=>
-    mc_conf.f.state_rel t1 ms1 /\
+    mc_conf.f.state_rel t1 ms1 /\ good_dimindex (:'a) /\
     (mc_conf.prog_addresses = t1.mem_domain) /\
     ~(mc_conf.halt_pc IN mc_conf.prog_addresses) /\
     reg_ok s1.ptr_reg mc_conf.asm_config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
@@ -496,18 +496,8 @@ val write_bytearray_NOT_Loc = prove(
   \\ fs [labSemTheory.upd_mem_def] \\ rw [] \\ fs [APPLY_UPDATE_THM]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []);
 
-val get_byte_set_byte = prove(
-  ``!be a x w. get_byte a (set_byte a x w be) be = x``,
-  cheat);
-
-val get_byte_set_byte_diff = prove(
-  ``!be a x w.
-       (byte_align a = byte_align b) /\ a <> b ==>
-       (get_byte a (set_byte b x w be) be = get_byte a w be)``,
-  cheat);
-
 val CallFFI_bytearray_lemma = prove(
-  ``byte_align a IN s1.mem_domain /\
+  ``byte_align (a:'a word) IN s1.mem_domain /\ good_dimindex (:'a) /\
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
     (s1.be = mc_conf.asm_config.big_endian) /\
@@ -553,7 +543,8 @@ val compile_correct = Q.prove(
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
   \\ Cases_on `s1.clock = 0` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ REPEAT STRIP_TAC
-  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once targetSemTheory.evaluate_def] \\ metis_tac [state_rel_weaken])
+  THEN1 (Q.EXISTS_TAC `0` \\ fs [Once targetSemTheory.evaluate_def]
+         \\ metis_tac [state_rel_weaken])
   \\ Cases_on `asm_fetch s1` \\ fs []
   \\ Cases_on `x` \\ fs [] \\ Cases_on `a` \\ fs []
   \\ REPEAT (Q.PAT_ASSUM `T` (K ALL_TAC)) \\ fs [LET_DEF]
@@ -632,8 +623,9 @@ val compile_correct = Q.prove(
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (unabbrev_all_tac
       \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
-      \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,asmSemTheory.read_reg_def,
-             dec_clock_def,labSemTheory.upd_pc_def,labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+      \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
+             asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
+             labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
              jump_to_offset_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
