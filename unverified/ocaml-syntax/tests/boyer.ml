@@ -832,5 +832,14 @@ module Main = struct
                       Prop (get "implies",[Var 20; Var 22])])])]);
                 Prop (get "implies",[Var 23; Var 22])])
 
-  let testit = tautp (apply_subst subst term)
+  let testit =
+    if tautp (apply_subst subst term) then "Proved!" else "Cannot prove!"
+  let doit () = ignore testit
+  let rec loop = function
+    | 0 -> ()
+    | n -> doit (); loop (n - 1)
 end
+
+let testit = Main.testit
+let () = print_endline testit
+let doit = Main.loop 24
