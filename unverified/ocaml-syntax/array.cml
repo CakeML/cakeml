@@ -75,9 +75,22 @@ structure Oc_Array = struct
     in
       inner 0
     end;
-  (*fun from_list xs =
+  fun from_list xs =
     let
-      val r = make 0 ()*)
+      val l = List.length xs
+    in
+      if l = 0 then
+        init l (List.nth xs)
+      else
+        let
+          val r = make l (List.hd xs)
+          fun inner i xs = case xs of
+              [] => ()
+            | x :: xs => (set r i x; inner (i + 1) xs)
+        in
+          inner 0 xs; r
+        end
+    end;
   fun iter f xs =
     let
       val l = length xs
