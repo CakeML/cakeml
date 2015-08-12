@@ -77,7 +77,7 @@ fun dexnPrint modn sys d t pg str brk blk =
     add_newline >> str "exception " >> (if(modn="") then str"" else str modn>>str ".") >>str (toString x) >>
     (case args of [] => str ""
     | [x] => str " of ">>printTerms args
-    | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")
+    | (_::_) => str " of" >> brk (1,2) >> str "(" >> printTerms args >>str ")")>>str ";"
   end;
 
 val _=add_astPP ("dexnprint", ``Dexn x y``,genPrint (dexnPrint""));
@@ -113,7 +113,7 @@ fun dtypePrint modn sys d t pg str brk blk =
           end
     |   printTerms (x::xs) = printTerms [x] >> printTerms xs
   in
-    printTerms dtypelist
+    printTerms dtypelist >>str ";"
   end;
 
 val _=add_astPP ("dtypeprint", ``Dtype x``,genPrint (dtypePrint ""));
@@ -128,7 +128,7 @@ fun dtabbrevPrint sys d t pg str brk blk =
              | (x::y::xs) => str " (">>printTuple " , " (str o toString) str typaram >> str")"
              | _ => str" ">>printTuple " , " (str o toString) str typaram)>>str" "
              >> str (toString name)
-             >> str" ">>blk CONSISTENT 0 (str "= " >> sys (pg,pg,pg) d typ)
+             >> str" ">>blk CONSISTENT 0 (str "= " >> sys (pg,pg,pg) d typ>>str ";")
   end;
 
 val _ = add_astPP ("dtabbrevprint",``Dtabbrev x y z``,genPrint (dtabbrevPrint ));
@@ -215,7 +215,7 @@ fun dletrecPrint sys d t pg str brk blk =
         end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and " >> (printTerms xs)
   in
-    add_newline>>(blk CONSISTENT 0 (str "fun " >> printTerms fundef))
+    add_newline>>(blk CONSISTENT 0 (str "fun " >> printTerms fundef>>str ";"))
   end;
 
 val _=add_astPP ("dletrecprint", ``Dletrec x``, genPrint dletrecPrint);
@@ -282,7 +282,7 @@ fun dletfunPrint sys d t pg str brk blk =
   in
     add_newline>>blk CONSISTENT 2
     (str "fun " >> str (toString name) >> str " " >> str (toString arg) >> str " = " >> brk (1,0) >>
-     sys (Top,pg,pg) (d-1) expr)
+     sys (Top,pg,pg) (d-1) expr>>str ";")
   end
 val _ = add_astPP("dletfunPrint", ``Dlet (Pvar x) (Fun y z)``,genPrint dletfunPrint);
 
@@ -294,7 +294,7 @@ fun dletvalPrint sys d t pg str brk blk=
   in
     add_newline>>blk CONSISTENT 2 (str "val " >>
     sys (pg,pg,pg) (d-1) l >>
-    str " =" >> brk (1,0) >> sys (Top,pg,pg) (d-1) r)
+    str " =" >> brk (1,0) >> sys (Top,pg,pg) (d-1) r>>str ";")
   end;
 
 val _=add_astPP ("dletvalprint", ``Dlet x y``,genPrint dletvalPrint);
@@ -650,7 +650,7 @@ fun svalPrint sys d t pg str brk blk =
   let
     val (_,[v,ty]) = strip_comb t
   in
-    add_newline>>str"val ">>str (toString v)>>str " : ">>sys (pg,pg,pg) d ty
+    add_newline>>str"val ">>str (toString v)>>str " : ">>sys (pg,pg,pg) d ty>>str ";"
   end;
 
 val _=add_astPP("svalprint",``Sval v t``,genPrint svalPrint);
@@ -665,7 +665,7 @@ fun stypeopqPrint sys d t pg str brk blk =
     (case typaram of [] => str""
                   | (x::y::xs) => str "(">>printTuple " , " (str o toString) str typaram >> str") "
                   | _ => printTuple " , " (str o toString) str typaram >>str" ")
-    >>str (toString ty)
+    >>str (toString ty)>>str ";"
   end;
 
 val _=add_astPP("stypeopqprint",``Stype_opq l t``,genPrint stypeopqPrint);
@@ -685,7 +685,7 @@ val _=add_astPP("falselitprint",``Con (SOME (Short "false")) []``,genPrint (bool
 fun astlistPrint sys d t pg str brk blk =
   let val ls = #1(listSyntax.dest_list t)
   fun printterms [] = str""
-  |   printterms [x] = sys(pg,pg,pg) d x>>str";"
+  |   printterms [x] = sys(pg,pg,pg) d x
   |   printterms (x::xs) = (printterms [x])>>printterms xs
   in
     printterms ls
