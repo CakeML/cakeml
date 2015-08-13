@@ -631,13 +631,7 @@ val _=add_astPP ("arrayAsubrealprint", ``App Asub ls``,genPrint (prefixargsPrint
 val _=add_astPP ("arrayAlengthrealprint", ``App Alength ls``,genPrint (prefixargsPrint "Array.length"));
 val _=add_astPP ("arrayAupdaterealprint", ``App Aupdate ls``,genPrint (prefixargsPrint "Array.update"));
 
-
-val _=add_astPP ("gteqrealcharprint", ``App (Chopb Geq) [x;y]``,genPrint (infixrealPrint ">="));
-val _=add_astPP ("lteqrealcharprint", ``App (Chopb Leq) [x;y]``,genPrint (infixrealPrint "<="));
-val _=add_astPP ("gtrealcharprint", ``App (Chopb Gt) [x;y]``,genPrint (infixrealPrint ">"));
-val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixrealPrint "<"));
-
-(*End App not appearing*)
+(*End Apps*)
 
 (*raise expr*)
 fun raisePrint sys d t pg str brk blk=
