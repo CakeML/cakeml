@@ -10,3 +10,5 @@ typedOCamlToCakeML:
 
 formatted:
 	ocamlfind opt -o formatted -package compiler-libs.common -package batteries -linkpkg preprocessor.ml formatDecl.ml formatted.ml
+
+.PHONY: all clean
