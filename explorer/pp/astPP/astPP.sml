@@ -592,10 +592,10 @@ val _=add_astPP ("minusrealprint", ``App (Opn Minus) [x;y]``,genPrint (infixreal
 val _=add_astPP ("addrealprint", ``App (Opn Plus) [x;y]``,genPrint (infixrealPrint "+"));
 
 (*Word8Array curried, not checking arity*)
-val _=add_astPP ("w8allocrealprint", ``App (Aw8alloc) ls``,genPrint (prefixargsPrint "Array.array"));
-val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint "Array.sub"));
-val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Array.length"));
-val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Array.update"));
+val _=add_astPP ("w8allocrealprint", ``App (Aw8alloc) ls``,genPrint (prefixargsPrint "Word8Array.array"));
+val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint "Word8Array.sub"));
+val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Word8Array.length"));
+val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Word8Array.update"));
 
 (*Char curried, not checking arity*)
 
