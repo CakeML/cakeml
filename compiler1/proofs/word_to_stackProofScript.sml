@@ -269,7 +269,7 @@ val joined_ok_def = Define `
   (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1:'a word_loc list)])::rest) len <=>
      joined_ok k rest len /\
      (filter_bitmap bs1 (index_list xs1 k) =
-      SOME (MAP_FST (adjust_names k (LENGTH (rs1 ++ xs1))) l1,[])) /\
+      SOME (MAP_FST (adjust_names k (LENGTH (rs1 ++ xs1))) l1,[])) (* /\
      (* the following is an experimental alternative to the above *)
      let current_frame = rs1 ++ xs1 in
      let f' = LENGTH xs1 in
@@ -279,7 +279,7 @@ val joined_ok_def = Define `
          (lookup n (fromAList l1) = SOME v) <=>
          EVEN n /\ k <= n DIV 2 /\ n DIV 2 < k + f' /\
          (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\
-         (ANY_EL (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T)) /\
+         (ANY_EL (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T) *)) /\
   (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
                [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
      (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
@@ -326,7 +326,8 @@ val state_rel_def = Define `
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
-        else (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\ n DIV 2 < k + f')`
+        else (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\
+             n DIV 2 < k + f')`
 
 (* correctness proof *)
 
@@ -593,6 +594,58 @@ val EL_index_list = prove(
   Induct \\ fs [index_list_def] \\ rpt strip_tac \\ Cases_on `x`
   \\ fs [ADD1,ADD_ASSOC]);
 
+val SORTED_FST_LESS_IMP = prove(
+  ``!xs x.
+      SORTED (\x y. FST x < FST y:num) (x::xs) ==>
+      SORTED (\x y. FST x < FST y) xs /\ ~(MEM x xs) /\
+      (!y. MEM y xs ==> FST x < FST y)``,
+  Induct \\ fs [SORTED_DEF]
+  \\ ntac 3 strip_tac \\ res_tac \\ rpt strip_tac
+  \\ rw [] \\ fs [] \\ res_tac \\ decide_tac);
+
+val SORTED_IMP_EQ_LISTS = prove(
+  ``!xs ys.
+      SORTED (\x y. FST x < FST y:num) ys /\
+      SORTED (\x y. FST x < FST y) xs /\
+      (!x. MEM x ys <=> MEM x xs) ==>
+      (xs = ys)``,
+  Induct \\ fs [] \\ Cases_on `ys` \\ fs [] THEN1 metis_tac []
+  THEN1 (CCONTR_TAC THEN fs [] THEN metis_tac [])
+  \\ ntac 2 strip_tac
+  \\ Cases_on `h = h'` \\ fs [] THEN1
+   (first_x_assum match_mp_tac
+    \\ imp_res_tac SORTED_FST_LESS_IMP
+    \\ metis_tac [])
+  \\ Cases_on `FST h < FST h'`
+  THEN1
+   (first_assum (mp_tac o Q.SPEC `h`)
+    \\ imp_res_tac SORTED_FST_LESS_IMP
+    \\ rpt strip_tac \\ fs [] \\ fs []
+    \\ res_tac \\ decide_tac)
+  THEN1
+   (first_assum (mp_tac o Q.SPEC `h'`)
+    \\ imp_res_tac SORTED_FST_LESS_IMP
+    \\ rpt strip_tac \\ fs [] \\ fs []));
+
+val MEM_QSORT = prove(
+  ``SORTS QSORT key_val_compare``,
+  match_mp_tac QSORT_SORTS
+  \\ fs [transitive_def,total_def,FORALL_PROD,key_val_compare_def,LET_DEF]
+  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC \\ TRY decide_tac
+  \\ imp_res_tac WORD_LESS_EQ_TRANS \\ fs []
+  \\ CCONTR_TAC \\ fs [] \\ TRY decide_tac
+  \\ fs [GSYM WORD_NOT_LESS]
+  \\ wordsLib.WORD_DECIDE_TAC)
+  |> SIMP_RULE std_ss [SORTS_DEF]
+  |> SPEC_ALL |> CONJUNCT1
+  |> MATCH_MP MEM_PERM |> GSYM |> GEN_ALL
+
+val EL_index_list = prove(
+  ``!xs i. i < LENGTH xs ==>
+           (EL i (index_list xs k) = (k + LENGTH xs - i - 1, EL i xs))``,
+  Induct \\ fs [index_list_def]
+  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
+
 val evaluate_wLive = prove(
   ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
     (cut_env names s.locals = SOME env) ==>
@@ -648,23 +701,29 @@ val evaluate_wLive = prove(
     \\ once_rewrite_tac [EQ_SYM_EQ]
     \\ match_mp_tac (MP_CANON LASTN_CONS)
     \\ imp_res_tac join_stacks_IMP_LENGTH \\ fs [])
-  THEN1
-   (match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
-    \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
-    \\ match_mp_tac (METIS_PROVE [] ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
-    \\ strip_tac THEN1 (fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF] \\ decide_tac)
-    \\ fs [ZIP_GENLIST] \\ rpt strip_tac \\ pop_assum (K all_tac)
-    \\ `!x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names)) <=>
-            ?n. x = f + k - n DIV 2 /\ n IN domain env` by
-     (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
-      \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
-      \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
-    \\ `(LENGTH ((write_bitmap names k f f'): 'a word list) +
-        MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
-         (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
-    \\ cheat (* true, but is the statement ideal? *))
-  THEN1
-    cheat (* proof of experimental extension to state_rel *));
+  \\ match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
+  \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ match_mp_tac (METIS_PROVE [] ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
+  \\ strip_tac THEN1 (fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF]
+                      \\ decide_tac)
+  \\ fs [ZIP_GENLIST] \\ rpt strip_tac \\ pop_assum (K all_tac)
+  \\ `!x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names)) <=>
+          ?n. x = f + k - n DIV 2 /\ n IN domain env` by
+   (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
+    \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
+    \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
+  \\ `(LENGTH ((write_bitmap names k f f'): 'a word list) +
+      MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
+     (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
+  \\ fs [MAP_FST_def,adjust_names_def]
+  \\ match_mp_tac SORTED_IMP_EQ_LISTS
+  \\ rpt strip_tac
+  THEN1 cheat (* easy *)
+  THEN1 cheat (* easy *)
+  \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
+      MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
+  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC]
+  \\ cheat (* likely to be true, but very messy *));
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -755,7 +814,8 @@ val enc_stack_lemma = prove(
   \\ once_rewrite_tac [stackSemTheory.enc_stack_def]
   \\ once_rewrite_tac [stackSemTheory.enc_stack_def] \\ fs [LET_DEF]
   \\ `filter_bitmap [F; F] x2 = SOME ([],DROP 2 x2)` by
-    (Cases_on `x2` \\ fs [] \\ Cases_on `t''` \\ fs [filter_bitmap_def]) \\ fs []
+    (Cases_on `x2` \\ fs [] \\ Cases_on `t''`
+     \\ fs [filter_bitmap_def]) \\ fs []
   \\ qpat_assum `abs_stack (DROP 2 x2) = SOME yyy` mp_tac
   \\ once_rewrite_tac [abs_stack_def]
   \\ Cases_on `DROP 2 x2 = []` \\ fs []
@@ -785,6 +845,9 @@ val DROP_TAKE_NIL = prove(
 
 val dec_stack_lemma = prove(
   ``enc_stack (DROP t1.stack_space t1.stack) = SOME (enc_stack s1.stack) /\
+    (dec_stack x0 s1.stack = SOME x) /\
+    stack_rel k s1.handler s1.stack (SOME (t1.store ' Handler))
+      (DROP t1.stack_space t1.stack) (LENGTH t1.stack) /\
     (MAP LENGTH (enc_stack s1.stack) = MAP LENGTH x0) ==>
     ?yy. dec_stack x0 (DROP t1.stack_space t1.stack) = SOME yy /\
          (t1.stack_space + LENGTH yy = LENGTH t1.stack) /\
@@ -809,9 +872,10 @@ val gc_state_rel = prove(
     \\ fs [FLOOKUP_DEF,stack_rel_def,LET_DEF])
   \\ fs [gc_fun_ok_def] \\ res_tac \\ fs []
   \\ mp_tac dec_stack_lemma \\ fs [] \\ rpt strip_tac \\ fs []
-  \\ fs [state_rel_def,FLOOKUP_FUPDATE_THM,LET_DEF,lookup_def] \\ rw[]
+  \\ fs [state_rel_def,FLOOKUP_FUPDATE_THM,LET_DEF,lookup_def,FLOOKUP_DEF]
+  \\ rfs [FLOOKUP_DEF] \\ rw[]
   THEN1 (fs [fmap_EXT,EXTENSION,DOMSUB_FAPPLY_THM] \\ metis_tac [])
-  \\ fs [FLOOKUP_DEF] \\ fs [DROP_APPEND,DROP_TAKE_NIL]);
+  \\ fs [DROP_APPEND,DROP_TAKE_NIL]);
 
 val FLOOKUP_SUBMAP = prove(
   ``(FLOOKUP f n = SOME x) /\ f SUBMAP g ==> (FLOOKUP g n = SOME x)``,
@@ -841,7 +905,8 @@ val alloc_alt = prove(
                           call_env [] s' with stack := []))``,
   fs [alloc_def]
   \\ Cases_on `cut_env names s.locals` \\ fs []
-  \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,env_to_list_def,pop_env_def]
+  \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
+         env_to_list_def,pop_env_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [state_component_equality] \\ rw []
   \\ fs [state_component_equality] \\ rw []);
@@ -871,7 +936,8 @@ val alloc_IMP_alloc = prove(
   THEN1 (fs [set_store_def,push_env_def]) \\ rpt strip_tac
   \\ fs [] \\ Cases_on `pop_env x` \\ fs []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
-  \\ `state_rel k f f' s3 t2` by cheat (* continue here --
+  \\ `state_rel k f f' s3 t2` by ALL_TAC
+  THEN1 cheat (* continue here --
         need to prove that gc doesn't change the shape of the
         stack frame (stackSem) or the var names in env (wordSem) *)
   \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fs []
