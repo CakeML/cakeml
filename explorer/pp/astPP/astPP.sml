@@ -556,40 +556,88 @@ val _=add_astPP ("timesappprint", ``App Opapp [Var (Short"*"); x]``,genPrint (in
 val _=add_astPP ("minusappprint", ``App Opapp [Var (Short"-"); x]``,genPrint (infixappPrint "-"));
 val _=add_astPP ("addappprint", ``App Opapp [Var (Short"+"); x]``,genPrint (infixappPrint "+"));
 
+(*These are primitive ops that do not appear using the lexer/parser*)
 
+fun prefixargsPrint uop sys d t pg str brk blk =
+  let
+    val (_,ls) = dest_comb t
+    val ls = #1(listSyntax.dest_list ls)
+    fun printList [] = str ""
+      | printList (x::xs) = str " " >> sys (Prec(0,"app"),pg,pg) d x >> printList xs
+  in
+    m_brack str pg ( str uop >> printList ls)
+  end;
 
-(*These do not appear in the lex/parse*)
+(*Assignment & References*)
 val _=add_astPP ("assignrealprint", ``App Opassign [x;y]``,genPrint (infixrealPrint ":="));
 val _=add_astPP ("eqrealprint", ``App Equality [x;y]``,genPrint (infixrealPrint "="));
+
+(*TODO: should the PP rules check for correct arity?
+  TODO: bracketing -may be- broken*)
+(*For example, these should take lists of 1 element*)
+val _=add_astPP ("refrealprint", ``App Opref x``,genPrint (prefixargsPrint "ref"))
+val _=add_astPP ("derefrealprint", ``App Opderef x``,genPrint (prefixargsPrint "!"))
+
+(*Opb*)
 val _=add_astPP ("gteqrealprint", ``App (Opb Geq) [x;y]``,genPrint (infixrealPrint ">="));
 val _=add_astPP ("lteqrealprint", ``App (Opb Leq) [x;y]``,genPrint (infixrealPrint "<="));
 val _=add_astPP ("gtrealprint", ``App (Opb Gt) [x;y]``,genPrint (infixrealPrint ">"));
 val _=add_astPP ("ltrealprint", ``App (Opb Lt) [x;y]``,genPrint (infixrealPrint "<"));
+
+(*Opn*)
 val _=add_astPP ("modrealprint", ``App (Opn Modulo) [x;y]``,genPrint (infixrealPrint "mod"));
 val _=add_astPP ("divrealprint", ``App (Opn Divide) [x;y]``,genPrint (infixrealPrint "div"));
 val _=add_astPP ("timesrealprint", ``App (Opn Times) [x;y]``,genPrint (infixrealPrint "*"));
 val _=add_astPP ("minusrealprint", ``App (Opn Minus) [x;y]``,genPrint (infixrealPrint "-"));
 val _=add_astPP ("addrealprint", ``App (Opn Plus) [x;y]``,genPrint (infixrealPrint "+"));
 
+(*Word8Array curried, not checking arity*)
+val _=add_astPP ("w8allocrealprint", ``App (Aw8alloc) ls``,genPrint (prefixargsPrint "Array.array"));
+val _=add_astPP ("w8subrealprint", ``App (Aw8sub) ls``,genPrint (prefixargsPrint "Array.sub"));
+val _=add_astPP ("w8lengthrealprint", ``App (Aw8length) ls``,genPrint (prefixargsPrint "Array.length"));
+val _=add_astPP ("w8updaterealprint", ``App (Aw8update) ls``,genPrint (prefixargsPrint "Array.update"));
+
+(*Char curried, not checking arity*)
+
+val _=add_astPP ("charordrealprint", ``App Ord ls``,genPrint (prefixargsPrint "Char.ord"));
+val _=add_astPP ("charchrrealprint", ``App Chr ls``,genPrint (prefixargsPrint "Char.chr"));
+(*I think these are currently prefixes*)
+val _=add_astPP ("chargteqrealprint", ``App (Chopb Geq) [x;y]``,genPrint (prefixargsPrint "Char.>="));
+val _=add_astPP ("charlteqrealrealprint", ``App (Chopb Leq) [x;y]``,genPrint (prefixargsPrint "Char.<="));
+val _=add_astPP ("chargtrealprint", ``App (Chopb Gt) [x;y]``,genPrint (prefixargsPrint "Char.>"));
+val _=add_astPP ("charltrealprint", ``App (Chopb Lt) [x;y]``,genPrint (prefixargsPrint "Char.<"));
+
+(* These are the infix versions
+val _=add_astPP ("gteqrealcharprint", ``App (Chopb Geq) [x;y]``,genPrint (infixrealPrint ">="));
+val _=add_astPP ("lteqrealcharprint", ``App (Chopb Leq) [x;y]``,genPrint (infixrealPrint "<="));
+val _=add_astPP ("gtrealcharprint", ``App (Chopb Gt) [x;y]``,genPrint (infixrealPrint ">"));
+val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixrealPrint "<"));
+*)
+
+(*String curried, not checking arity*)
+val _=add_astPP ("stringexploderealprint", ``App Explode ls``,genPrint (prefixargsPrint "String.explode"));
+val _=add_astPP ("stringimploderealprint", ``App Implode ls``,genPrint (prefixargsPrint "String.implode"));
+(*Confusing name??*)
+val _=add_astPP ("stringstrlenrealprint", ``App Strlen ls``,genPrint (prefixargsPrint "String.size"));
+
+(*Vector curried, not checking arity*)
+val _=add_astPP ("vectorvfromlistrealprint", ``App VfromList ls``,genPrint (prefixargsPrint "Vector.fromList"));
+val _=add_astPP ("vectorvsubrealprint", ``App Vsub ls``,genPrint (prefixargsPrint "Vector.sub"));
+val _=add_astPP ("vectorvlengthrealprint", ``App Vlength ls``,genPrint (prefixargsPrint "Vector.length"));
+
+(*Array curried, not checking arity*)
+val _=add_astPP ("arrayAallocrealprint", ``App Aalloc ls``,genPrint (prefixargsPrint "Array.array"));
+val _=add_astPP ("arrayAsubrealprint", ``App Asub ls``,genPrint (prefixargsPrint "Array.sub"));
+val _=add_astPP ("arrayAlengthrealprint", ``App Alength ls``,genPrint (prefixargsPrint "Array.length"));
+val _=add_astPP ("arrayAupdaterealprint", ``App Aupdate ls``,genPrint (prefixargsPrint "Array.update"));
+
+
 val _=add_astPP ("gteqrealcharprint", ``App (Chopb Geq) [x;y]``,genPrint (infixrealPrint ">="));
 val _=add_astPP ("lteqrealcharprint", ``App (Chopb Leq) [x;y]``,genPrint (infixrealPrint "<="));
 val _=add_astPP ("gtrealcharprint", ``App (Chopb Gt) [x;y]``,genPrint (infixrealPrint ">"));
 val _=add_astPP ("ltrealcharprint", ``App (Chopb Lt) [x;y]``,genPrint (infixrealPrint "<"));
 
-(*Special case for Char.char ops and other ops?*)
-fun appchrPrint sys d t pg str brk blk =
-  let
-    open Portable smpp
-    val (_,ls) = dest_comb t
-    val ([tl]) = #1(listSyntax.dest_list ls)
-    val output = str"Char.chr ">>sys (Prec(0,"app"),pg,pg) d tl
-  in
-    case pg of
-      Prec(0,"app2") => output
-    | _ => m_brack str pg output
-  end
-
-val _=add_astPP ("appcharprint", ``App Chr [c]``,genPrint (appchrPrint));
+(*End App not appearing*)
 
 (*raise expr*)
 fun raisePrint sys d t pg str brk blk=
@@ -693,8 +741,6 @@ fun astlistPrint sys d t pg str brk blk =
 
 val _=add_astPP("astlistprint",``x:prog``,genPrint astlistPrint);
 
-(*TODO: Word8*)
-
 fun enable_astPP_verbose () = map temp_add_user_printer (!astPrettyPrinters);
 fun enable_astPP () = (enable_astPP_verbose();())
 fun disable_astPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!astPrettyPrinters);
@@ -703,6 +749,15 @@ fun disable_astPP () = (disable_astPP_verbose();())
 enable_astPP_verbose();
 ``Var(Long "asdf" "asdf")``
 disable_astPP_verbose();
+``Dlet x (App Ord [App Chr [a;b];z])``
+``App (Aw8sub) [x;y]``
+``App (Aw8length) [x]``
+``Dlet a (App Opref [App (Aw8update) [x;y;z]])``
+``App Vsub [v1;v2]``
+``App Vlength [v1]``
+``App VfromList [as]``
+disable_astPP_verbose();
+``Dlet x (App Ord [App Chr [a;b];z])``
 *)
 
 end;
