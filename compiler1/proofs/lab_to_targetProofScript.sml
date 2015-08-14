@@ -14,6 +14,10 @@ val call_FFI_LENGTH = prove(
   fs [call_FFI_def] \\ BasicProvers.EVERY_CASE_TAC
   \\ rw [] \\ fs [listTheory.LENGTH_MAP]);
 
+val SUM_REPLICATE = store_thm("SUM_REPLICATE",
+  ``!n k. SUM (REPLICATE n k) = n * k``,
+  Induct \\ fs [REPLICATE,MULT_CLAUSES,AC ADD_COMM ADD_ASSOC]);
+
 (* -- *)
 
 val _ = Parse.temp_overload_on("option_ldrop",``λn l. OPTION_JOIN (OPTION_MAP (LDROP n) l)``)
@@ -45,6 +49,10 @@ val option_ldrop_lemma = prove(
 
 val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
 
+val enc_with_nop_def = Define `
+  enc_with_nop enc (b:'a asm) bytes =
+    ?n. bytes = enc b ++ FLAT (REPLICATE n (enc (asm$Inst Skip)))`
+
 val line_ok_def = Define `
   (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
      if EVEN pos then (l = 0) else (l = 1)) /\
@@ -52,21 +60,21 @@ val line_ok_def = Define `
      (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c) /\
   (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
-     let bs = enc (Jump w1) in
-       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+       enc_with_nop enc (Jump w1) bytes /\
+       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
-     let bs = enc (Jump w1) in
-       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+       enc_with_nop enc (Jump w1) bytes /\
+       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
      let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
-     let bs = enc (Jump w1) in
-       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+       enc_with_nop enc (Jump w1) bytes /\
+       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
   (line_ok c enc labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
-     let bs = enc (lab_inst w1 a) in
-       (bytes = bs) /\ (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c)`
+       enc_with_nop enc (lab_inst w1 a) bytes /\
+       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c)`
 
 val all_enc_ok_def = Define `
   (all_enc_ok c enc labs pos [] = T) /\
@@ -329,10 +337,10 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
-  \\ fs [line_ok_def] \\ rw []
+  \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []);
+         bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_LocValue = prove(
   ``code_similar s1.code code2 /\
@@ -353,10 +361,10 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
-  \\ fs [line_ok_def] \\ rw []
+  \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []);
+         bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_CallFFI = prove(
   ``code_similar s1.code code2 /\
@@ -376,10 +384,10 @@ val IMP_bytes_in_memory_CallFFI = prove(
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
-  \\ fs [line_ok_def] \\ rw []
+  \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []);
+         bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_Halt = prove(
   ``code_similar s1.code code2 /\
@@ -399,10 +407,14 @@ val IMP_bytes_in_memory_Halt = prove(
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
-  \\ fs [line_ok_def] \\ rw []
+  \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []);
+         bytes_in_memory_APPEND]);
+
+val ADD_MODULUS_LEMMA = prove(
+  ``!k m n. 0 < n ==> (m + k * n) MOD n = m MOD n``,
+  Induct \\ fs [MULT_CLAUSES,ADD_ASSOC,ADD_MODULUS]);
 
 val line_length_MOD_0 = prove(
   ``backend_correct_alt mc_conf.f mc_conf.asm_config /\
@@ -411,8 +423,10 @@ val line_length_MOD_0 = prove(
     (line_length h MOD 2 ** mc_conf.asm_config.code_alignment = 0)``,
   Cases_on `h` \\ TRY (Cases_on `a`) \\ fs [line_ok_def,line_length_def]
   \\ rw [] \\ fs [backend_correct_alt_def,enc_ok_def]
-  \\ qpat_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM)
-  \\ fs [LET_DEF] \\ rw []);
+  \\ fs [LET_DEF,enc_with_nop_def] \\ rw [LENGTH_FLAT,LENGTH_REPLICATE]
+  \\ qpat_assum `2 ** nn = xx:num` (ASSUME_TAC o GSYM) \\ fs []
+  \\ fs [LET_DEF,map_replicate,SUM_REPLICATE] \\ rw []
+  \\ res_tac \\ fs [ADD_MODULUS_LEMMA]);
 
 val pos_val_MOD_0_lemma = prove(
   ``(0 MOD 2 ** mc_conf.asm_config.code_alignment = 0)``,
@@ -885,7 +899,6 @@ val compile_correct = Q.prove(
 (*
 
 TODO:
- - weaken all_enc_ok
  - define an incremental version of the compiler
  - add ability to install code
 
