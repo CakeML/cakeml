@@ -904,4 +904,106 @@ TODO:
 
 *)
 
+val asm_step_nop_def = Define `
+  asm_step_nop enc bytes c s1 i s2 <=>
+    bytes_in_memory s1.pc bytes s1.mem s1.mem_domain /\
+    enc_with_nop enc i bytes /\
+    (case c.link_reg of NONE => T | SOME r => s1.lr = r) /\
+    (s1.be <=> c.big_endian) /\ s1.align = c.code_alignment /\
+    asm i (s1.pc + n2w (LENGTH bytes)) s1 = s2 /\ ~s2.failed /\
+    asm_ok i c`
+
+val asm_step_IMP_evaluate_step_nops = prove(
+  ``!c s1 ms1 io i s2 bytes.
+      backend_correct_alt c.f c.asm_config /\
+      c.prog_addresses = s1.mem_domain /\
+      interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
+      asm_step_alt c.f.encode bytes c.asm_config s1 i s2 /\
+
+val evaluate_nop_step =
+  asm_step_IMP_evaluate_step
+    |> SIMP_RULE std_ss [asm_step_alt_def]
+    |> SPEC_ALL |> Q.INST [`i`|->`Inst Skip`]
+    |> SIMP_RULE (srw_ss()) [asm_def,inst_def,asm_ok_def,inst_ok_def,
+         Once upd_pc_def,GSYM CONJ_ASSOC]
+
+val shift_interfer_0 = prove(
+  ``shift_interfer 0 = I``,
+  fs [shift_interfer_def,FUN_EQ_THM,shift_seq_def,
+      machine_config_component_equality]);
+
+val upd_pc_with_pc = prove(
+  ``upd_pc s1.pc s1 = s1:'a asm_state``,
+  fs [asm_state_component_equality,upd_pc_def]);
+
+val shift_interfer_twice = store_thm("shift_interfer_twice[simp]",
+  ``shift_interfer l' (shift_interfer l c) =
+    shift_interfer (l + l') c``,
+  fs [shift_interfer_def,shift_seq_def,AC ADD_COMM ADD_ASSOC]);
+
+val evaluate_nop_steps = prove(
+  ``!n s1 ms1 c.
+      backend_correct_alt c.f c.asm_config /\
+      c.prog_addresses = s1.mem_domain /\
+      interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
+      bytes_in_memory s1.pc (FLAT (REPLICATE n (c.f.encode (Inst Skip)))) s1.mem
+        s1.mem_domain /\
+      (case c.asm_config.link_reg of NONE => T | SOME r => s1.lr = r) /\
+      (s1.be <=> c.asm_config.big_endian) /\
+      s1.align = c.asm_config.code_alignment /\ ~s1.failed /\
+      c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
+      ?l ms2.
+        !k.
+          evaluate c io (k + l) ms1 =
+          evaluate (shift_interfer l c) io k ms2 /\
+          c.f.state_rel
+            (upd_pc (s1.pc + n2w (n * LENGTH (c.f.encode (Inst Skip)))) s1)
+            ms2``,
+  Induct \\ fs [] THEN1
+   (rpt strip_tac \\ Q.LIST_EXISTS_TAC [`0`,`ms1`]
+    \\ fs [shift_interfer_0,upd_pc_with_pc])
+  \\ rpt strip_tac \\ fs [REPLICATE,bytes_in_memory_APPEND]
+  \\ mp_tac evaluate_nop_step \\ fs [] \\ rpt strip_tac
+  \\ fs [GSYM PULL_FORALL]
+  \\ first_x_assum (mp_tac o
+       Q.SPECL [`(upd_pc (s1.pc +
+          n2w (LENGTH ((c:('a,'state,'b) machine_config).f.encode
+            (Inst Skip)))) s1)`,`ms2`,`shift_interfer l c`])
+  \\ match_mp_tac IMP_IMP \\ strip_tac
+  THEN1 (fs [shift_interfer_def,upd_pc_def,interference_ok_def,shift_seq_def])
+  \\ rpt strip_tac
+  \\ `(shift_interfer l c).f = c.f` by fs [shift_interfer_def]
+  \\ fs [upd_pc_def]
+  \\ Q.LIST_EXISTS_TAC [`l'+l`,`ms2'`]
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,
+       word_add_n2w,AC ADD_COMM ADD_ASSOC,MULT_CLAUSES]
+  \\ fs [ADD_ASSOC] \\ rpt strip_tac
+  \\ first_x_assum (mp_tac o Q.SPEC `k`)
+  \\ first_x_assum (mp_tac o Q.SPEC `k+l'`)
+  \\ fs [AC ADD_COMM ADD_ASSOC]);
+
+val asm_step_IMP_evaluate_step_nop = prove(
+  ``!c s1 ms1 io i s2 bytes.
+      backend_correct_alt c.f c.asm_config /\
+      c.prog_addresses = s1.mem_domain /\
+      interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
+      asm_step_nop c.f.encode bytes c.asm_config s1 i s2 /\
+      s2 = asm i (s1.pc + n2w (LENGTH bytes)) s1 /\
+      c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
+      ?l ms2.
+        !k.
+          evaluate c io (k + l) ms1 =
+          evaluate (shift_interfer l c) io k ms2 /\
+          c.f.state_rel s2 ms2 /\ l <> 0``,
+  fs [asm_step_nop_def] \\ rpt strip_tac
+  \\ (asm_step_IMP_evaluate_step
+      |> SIMP_RULE std_ss [asm_step_alt_def] |> SPEC_ALL |> mp_tac) \\ fs []
+  \\ fs [enc_with_nop_def]
+  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
+   (fs [bytes_in_memory_APPEND] \\ Cases_on `i`
+    \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def,
+           LET_DEF,assert_def] \\ rw [] \\ fs [] \\ rfs [])
+  \\ rpt strip_tac \\ fs []
+  \\ cheat);
+
 val _ = export_theory();
