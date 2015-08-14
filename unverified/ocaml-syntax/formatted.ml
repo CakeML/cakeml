@@ -30,6 +30,8 @@ let mapiM f =
 let ( <&> ) x f = x >>= return % f
 let ( <$> ) f x = x <&> f
 
+let some x = Some x
+
 let indent = 2
 
 let cut = Break (0, 0)
@@ -41,7 +43,7 @@ let paren s =
 let id x = x
 let ifThen x f = if x then f else id
 
-let indent_by = BatString.repeat "  "
+let cat_options = BatList.filter_map id
 
 type assoc = Neither | Left | Right
 type fixity = assoc * int
@@ -332,10 +334,9 @@ and print_case_cases cs =
   mapM (print_case true) cs <&> (function
     | [] -> []
     | c' :: cs' ->
-      Box (H, 0, [Lit "  "; c']) ::
-        BatList.map (fun c -> Box (H, 0, [Lit "| "; c])) cs')
+      c' :: BatList.map (fun c -> Box (H, 0, [Lit "| "; c])) cs')
   <&> fun cs' ->
-  Box (Hv, 0, intersperse sp cs')
+  Box (Hv, -2, intersperse sp cs')
 
 and print_value_binding first_binding rec_flag vb =
   let keyword = match first_binding, rec_flag with
@@ -343,7 +344,7 @@ and print_value_binding first_binding rec_flag vb =
                 | true, Recursive -> "fun"
                 | false, Recursive -> "and"
   in
-  print_pattern 0 vb.vb_pat >>= fun name ->
+  print_pattern 0 vb.vb_pat >>= fun pat ->
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
   | Texp_function (l, [c], p), Recursive when case_is_trivial c ->
@@ -357,7 +358,7 @@ and print_value_binding first_binding rec_flag vb =
         print_pattern 2 lastc.c_lhs >>= fun pat ->
         print_expression false 0 lastc.c_rhs >>= fun exp ->
         return @@ Box (Hovp, indent,
-          [Lit keyword; sp; name] @
+          [Lit keyword; sp; pat] @
           BatList.concat (BatList.map (fun x -> [sp; x]) vs) @
           [sp; pat; sp; Lit "="; sp; exp]
         )
@@ -367,18 +368,19 @@ and print_value_binding first_binding rec_flag vb =
   | Texp_function (l, cs, p), Recursive ->
     print_case_cases cs >>= fun cs' ->
     return @@ Box (Hovp, indent, [
-      Lit keyword; sp; name; sp; Lit "tmp__"; sp; Lit "="; sp;
+      Lit keyword; sp; pat; sp; Lit "tmp__"; sp; Lit "="; sp;
       Box (Hovp, 2 * indent, [Lit "case"; sp; Lit "tmp__"; sp; Lit "of"]);
       sp; cs'
     ])
   (* Should have been removed by the AST preprocessor *)
   | _, Recursive -> Bad "Recursive values not supported in CakeML."
   (* val x = E *)
-  | _, Nonrecursive ->
+  | _, Nonrecursive when pattern_is_trivial vb.vb_pat ->
     print_expression false 0 vb.vb_expr >>= fun expr ->
     return @@ Box (Hovp, indent, [
-      Lit keyword; sp; name; sp; Lit "="; sp; expr
+      Lit keyword; sp; pat; sp; Lit "="; sp; expr
     ])
+  | _, Nonrecursive -> Bad "`val` LHS pattern matching not supported."
 
 let rec print_core_type prec ctyp =
   let thisParen = ifThen (prec > 1) paren in
@@ -393,66 +395,70 @@ let rec print_core_type prec ctyp =
                      return @@ paren t
   | Ttyp_constr (path, _, ts) ->
     print_path path >>= fun name ->
-    print_typ_params ts >>= fun params ->
-    return @@ Box (Hovp, indent, [params; sp; name])
+    print_typ_params ts >>= (function
+      | None -> return @@ name
+      | Some params -> return @@ Box (Hovp, indent, [params; sp; name])
+      )
   | Ttyp_poly (_, t) -> print_core_type prec t
   | _ -> Bad "Some core types syntax not supported."
 
 and print_typ_params = function
-  | [] -> return @@ Lit ""
-  | [t] -> print_core_type 2 t
-  | ts -> mapM (print_core_type 0) ts <&> print_tupled
+  | [] -> return @@ None
+  | [t] -> print_core_type 2 t <&> some
+  | ts -> mapM (print_core_type 0) ts <&> print_tupled <&> some
 
 and print_ttyp_tuple ts =
-  mapM (print_core_type 0) ts >>= fun ts' ->
+  mapM (print_core_type 2) ts >>= fun ts' ->
   return @@ Box (Hovp, indent, intersperseMany [sp; Lit "*"; sp] ts')
 
-let print_constructor_arguments = print_ttyp_tuple
+let print_constructor_arguments = function
+  | [] -> return None
+  | ts -> some <$> print_ttyp_tuple ts
 
 let print_constructor_declaration decl =
-  print_constructor_arguments decl.cd_args >>= fun constructor_args ->
-  return @@ Box (Hovp, indent, [Lit decl.cd_name.txt] @
-    if constructor_args = Lit ""
-      then []
-      else [sp; Lit "of"; sp; constructor_args]
-  )
+  let name = Lit decl.cd_name.txt in
+  print_constructor_arguments decl.cd_args <&> function
+    | None -> name
+    | Some constructor_args ->
+      Box (Hovp, indent, [name; sp; Lit "of"; sp; constructor_args])
 
 let print_ttyp_variant ds =
-  (mapM (print_constructor_declaration) ds <&> function
+  mapM (print_constructor_declaration) ds <&> (function
     | [] -> []
     | d' :: ds' ->
-      Box (H, 0, [Lit "  "; sp; d']) ::
-        BatList.map (fun d -> Box (H, 0, [Lit " |"; sp; d])) ds')
-  >>= fun ds' ->
-  return @@ Box (Hv, 0, ds')
+      d' :: BatList.map (fun d -> Box (H, 0, [Lit "| "; d])) ds')
+  <&> fun ds' ->
+  Box (Hv, -2, intersperse sp ds')
 
 let print_type_declaration first_binding typ =
   let keyword = match first_binding, typ.typ_kind with
-                | false, _ -> "and"
-                | true, Ttype_abstract -> "type"
-                | true, _ -> "datatype"
+                | false, _ -> "and "
+                | true, Ttype_abstract -> "type "
+                | true, _ -> "datatype "
   in
-  print_typ_params (BatList.map Tuple2.first typ.typ_params) >>= fun params ->
   (match typ.typ_manifest, typ.typ_kind with
   (* type t' = t *)
   | Some m, Ttype_abstract ->
     print_core_type 0 m >>= fun manifest ->
-    return [Lit "="; sp; manifest]
+    return [Lit " ="; sp; manifest]
   (* datatype t' = datatype t *)
   | Some m, Ttype_variant ds ->
     print_core_type 0 m >>= fun manifest ->
-    return [Lit "="; sp; Lit "datatype"; sp; manifest]
+    return [Lit " ="; sp; Lit "datatype "; manifest]
   (* type t *)
   | None, Ttype_abstract -> return []
   (* datatype t = A | B | ... *)
   | None, Ttype_variant ds ->
     print_ttyp_variant ds >>= fun expr ->
-    return [Lit "="; sp; expr]
+    return [Lit " ="; sp; expr]
   | _ -> Bad "Some type declarations not supported."
   ) >>= fun rest ->
-  return @@ Box (Hovp, indent, [
-    Lit keyword; sp; params; Lit (fix_type_name typ.typ_name.txt); sp
-  ] @ rest)
+  print_typ_params (BatList.map Tuple2.first typ.typ_params) <&> (function
+    | None -> []
+    | Some params -> [params; sp]
+    ) >>= fun params ->
+  return @@ Box (Hovp, indent, [Lit keyword] @ params @
+    [Lit (fix_type_name typ.typ_name.txt)] @ rest)
 
 let rec print_module_expr expr =
   match expr.mod_desc with
@@ -477,50 +483,49 @@ and print_module_binding mb =
 and print_structure_item str =
   match str.str_desc with
   | Tstr_eval (e, attrs) ->
-    print_expression false 0 e >>= fun e' ->
-    return @@ Box (Hovp, indent, [
+    print_expression false 0 e <&> fun e' ->
+    some @@ Box (Hovp, indent, [
       Lit "val"; sp; Lit "eval__"; sp; Lit "="; sp; e'
     ])
   | Tstr_value (r, bs) ->
-    mapiM (fun i -> print_value_binding (i = 0) r) bs >>= fun bs' ->
-    return @@ Box (Hovs, 0, bs')
+    mapiM (fun i -> print_value_binding (i = 0) r) bs <&> fun bs' ->
+    some @@ Box (Hovs, 0, intersperse sp bs')
   | Tstr_type ds ->
-    mapiM (fun i -> print_type_declaration (i = 0)) ds >>= fun ds' ->
-    return @@ Box (Hovs, 0, ds')
+    mapiM (fun i -> print_type_declaration (i = 0)) ds <&> fun ds' ->
+    some @@ Box (Hv, 0, intersperse sp ds')
   | Tstr_exception constructor ->
     (match constructor.ext_kind with
-    | Text_decl ([], None) -> return @@ Lit ""
+    | Text_decl ([], None) -> return @@ None
     | Text_decl (ts, None) ->
-      print_constructor_arguments ts >>= fun ts' ->
-      return @@ Box (Hovp, indent, [Lit "of"; sp; ts'])
+      print_constructor_arguments ts <&>
+      BatOption.map (fun ts' -> Box (Hovp, indent, [Lit "of"; sp; ts']))
     | Text_rebind (path, _) ->
-      print_path path >>= fun p ->
-      return @@ Box (Hovp, indent, [Lit "="; sp; p])
+      print_path path <&> fun p ->
+      some @@ Box (Hovp, indent, [Lit "="; sp; p])
     | _ -> Bad "Some exception declaration syntax not supported."
-    ) >>= fun rest ->
-    return @@ Box (Hovp, indent, [
-      Lit "exception"; sp; Lit constructor.ext_name.txt; sp; rest
-    ])
-  | Tstr_module b -> print_module_binding b
+    ) <&> (some % function
+      | None ->
+        Box (Hovp, indent, [Lit "exception "; Lit constructor.ext_name.txt;])
+      | Some rest ->
+        Box (Hovp, indent, [
+          Lit "exception "; Lit constructor.ext_name.txt; sp; rest
+        ])
+      )
+  | Tstr_module b -> some <$> print_module_binding b
   (* Things are annotated with full module paths, making `open` unnecessary. *)
-  | Tstr_open _ -> return @@ Lit ""
+  | Tstr_open _ -> return @@ None
   | _ -> Bad "Some structure items not supported."
 
 and print_str_items ss =
   mapM print_structure_item ss <&>
-  BatList.filter (fun x -> Lit "" <> x)
+  cat_options
   %> BatList.map (fun x -> Box (H, 0, [x; Lit ";"]))
-  %> fun xs -> Box (V, 0, intersperseMany [Newline; Newline] xs)
+  %> fun xs -> Box (V, 0, intersperseMany [sp] xs)
   (*return @@ Box (V, 0, ss')*)
 
 let output_result = function
   | Ok r -> interp r
   | Bad e -> print_endline @@ "Error: " ^ e; exit 1
-
-(*let concat_items =
-  BatList.filter (fun x -> Lit "" <> x)
-  %> BatList.map (fun x -> Box (H, 0, [x; Lit ";"]))
-  %> fun xs -> Box (V, 0, intersperseMany [Newline; Newline] xs)*)
 
 let lexbuf = Lexing.from_channel stdin
 let parsetree = Parse.implementation lexbuf
