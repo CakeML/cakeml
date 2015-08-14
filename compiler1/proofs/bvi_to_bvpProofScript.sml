@@ -573,7 +573,7 @@ val compile_correct = Q.prove(
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
-          LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE,call_env_def,
+          LIST_REL_lookup_fromList,lookup_fromList_outside,jump_exc_NONE,call_env_def,
           funpow_dec_clock_clock])
         \\ STRIP_TAC \\ fs [LET_DEF]
         \\ MP_TAC (Q.SPECL [`prog`,
@@ -611,7 +611,7 @@ val compile_correct = Q.prove(
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
-          LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,
+          LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,
           call_env_def,FUNPOW_dec_clock_code]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
           \\ `jump_exc t2 <> NONE` by fs[]
@@ -750,7 +750,7 @@ val compile_correct = Q.prove(
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
             bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
-            LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
+            LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,call_env_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
         \\ REPEAT STRIP_TAC
         \\ Cases_on `pres` \\ fs []
@@ -842,7 +842,7 @@ val compile_correct = Q.prove(
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
           bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
-          LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
+          LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,call_env_def]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
           \\ `jump_exc t2 <> NONE` by FULL_SIMP_TAC std_ss []
           \\ Cases_on `jump_exc t2` \\ fs []
