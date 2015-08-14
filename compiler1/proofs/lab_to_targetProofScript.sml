@@ -334,6 +334,30 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
 
+val IMP_bytes_in_memory_LocValue = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      t1.mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) l bytes n)) ==>
+    ?tt enc.
+      (tt = n2w (find_pos (Lab l1 l2) labs) -
+            n2w (pos_val s1.pc 0 code2)) /\
+      (enc = mc_conf.f.encode (Loc reg tt)) /\
+      bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
+        enc t1.mem t1.mem_domain /\
+      asm_ok (Loc reg tt) (mc_conf: ('a,'state,'b) machine_config).asm_config``,
+  fs [asm_fetch_def,LET_DEF]
+  \\ Q.SPEC_TAC (`s1.pc`,`pc`) \\ strip_tac
+  \\ Q.SPEC_TAC (`s1.code`,`code1`) \\ strip_tac \\ strip_tac
+  \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`i`,`dm`,`m`]) \\ fs []
+  \\ strip_tac \\ res_tac
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rw []
+  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+         bytes_in_memory_APPEND] \\ rw []);
+
 val IMP_bytes_in_memory_CallFFI = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
@@ -531,13 +555,14 @@ val CallFFI_bytearray_lemma = prove(
 
 val compile_correct = Q.prove(
   `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
-     (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\ s1.io_events <> NONE /\
+     (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\
+     s1.io_events <> NONE /\
      backend_correct_alt mc_conf.f mc_conf.asm_config /\
      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.io_events (s1.clock + k) ms1 =
-          (if s2.io_events = NONE then Error IO_mismatch
-           else res,ms2,s2.io_events))`,
+          (if s2.io_events = NONE then Error IO_mismatch else res,
+           ms2,s2.io_events))`,
 
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
@@ -598,7 +623,8 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def])
   THEN1 (* Jump *)
-   (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (Jump target) l1 l2 l3)`
+   (qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (Jump target) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)`
     \\ Cases_on `get_pc_value target s1` \\ fs []
@@ -641,7 +667,49 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def])
   THEN1 (* JumpCmp *) cheat
   THEN1 (* Call *) cheat
-  THEN1 (* LocValue *) cheat
+
+  THEN1 (* LocValue *)
+
+   (qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (LocValue reg lab) x1 x2 x3)`
+    \\ Cases_on `lab`
+    \\ qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) ww bytes len)`
+    \\ fs [lab_to_loc_def]
+    \\ mp_tac (Q.INST [`l`|->`ww`,`n`|->`len`]
+               IMP_bytes_in_memory_LocValue) \\ fs []
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ rpt strip_tac \\ pop_assum mp_tac
+    \\ qpat_abbrev_tac `jj = asm$Loc reg lll` \\ rpt strip_tac
+    \\ MP_TAC (Q.SPECL [`mc_conf`,`t1`,`ms1`,`s1.io_events`,`jj`]
+         asm_step_IMP_evaluate_step) \\ fs []
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (fs [state_rel_def,asm_def,LET_DEF]
+      \\ fs [asm_step_alt_def,asm_def,LET_DEF]
+      \\ imp_res_tac bytes_in_mem_IMP
+      \\ unabbrev_all_tac \\ fs [asm_def,upd_pc_def,upd_reg_def])
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`shift_interfer l' mc_conf`,
+         `code2`,`labs`,
+         `(asm jj (t1.pc + n2w (LENGTH (mc_conf.f.encode jj))) t1)`,`ms2`])
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
+     (unabbrev_all_tac
+      \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
+      \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
+             asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
+             labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+             jump_to_offset_def,inc_pc_def,asmSemTheory.upd_reg_def,
+             labSemTheory.upd_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
+      \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
+            WORD_ADD_SUB] \\ fs [get_pc_value_def]
+      \\ cheat)
+    \\ rpt strip_tac
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `s1.clock - 1 + k`) \\ rw []
+    \\ `s1.clock - 1 + k + l = s1.clock + (k + l - 1)` by DECIDE_TAC
+    \\ Q.EXISTS_TAC `k + l - 1` \\ fs []
+    \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def] \\ cheat)
 
   THEN1 (* CallFFI *)
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
@@ -654,7 +722,8 @@ val compile_correct = Q.prove(
     \\ qmatch_assum_rename_tac `read_bytearray c1 (w2n c2) s1 = SOME x`
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
     \\ Cases_on `call_FFI index x s1.io_events` \\ fs []
-    \\ qmatch_assum_rename_tac `call_FFI index x s1.io_events = (new_bytes,new_io)`
+    \\ qmatch_assum_rename_tac
+         `call_FFI index x s1.io_events = (new_bytes,new_io)`
     \\ mp_tac IMP_bytes_in_memory_CallFFI \\ fs []
     \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
