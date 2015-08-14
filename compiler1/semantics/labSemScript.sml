@@ -108,12 +108,24 @@ val mem_load_def = Define `
                         w IN s.mem_domain)
                   (upd_reg r (s.mem w) s)`
 
+val byte_index_def = Define `
+  byte_index (a:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
+
 val get_byte_def = Define `
   get_byte (a:'a word) (w:'a word) is_bigendian =
-    let d = dimindex (:'a) DIV 8 in
-      if is_bigendian
-      then (w2w (w >>> ((d - 1) - w2n a MOD d))):word8
-      else (w2w (w >>> (w2n a MOD d))):word8`
+    (w2w (w >>> byte_index a is_bigendian)):word8`
+
+val word_slice_alt_def = Define `
+  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
+
+val set_byte_def = Define `
+  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
+    let i = byte_index a is_bigendian in
+      (word_slice_alt (dimindex (:'a)) (i + 8) w
+       || w2w b << i
+       || word_slice_alt i 0 w)`;
 
 val mem_load_byte_aux_def = Define `
   mem_load_byte_aux w s =
@@ -140,18 +152,6 @@ val mem_load_byte_def = Define `
         case mem_load_byte_aux w s of
         | SOME v => upd_reg r (Word (w2w v)) s
         | NONE => assert F s`
-
-val upd_byte_def = Define `
-  upd_byte i (w:'a word) (b:word8) =
-    ((dimindex (:'a) - 1 '' 8 * i + 8) w || w2w b << (8 * i) ||
-     (8 * i - 1 '' 0) w)`;
-
-val set_byte_def = Define `
-  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
-    let d = dimindex (:'a) DIV 8 in
-      if is_bigendian
-      then upd_byte ((d - 1) - (w2n a MOD d)) w b
-      else upd_byte (w2n a MOD d) w b`
 
 val mem_store_byte_aux_def = Define `
   mem_store_byte_aux w b s =

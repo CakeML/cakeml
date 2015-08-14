@@ -177,7 +177,7 @@ val do_eq_list_rel = store_thm("do_eq_list_rel",
      LIST_REL (λp1 p2. UNCURRY do_eq p1 = UNCURRY do_eq p2) (ZIP(l1,l2)) (ZIP(l3,l4)) ⇒
      closSem$do_eq_list l1 l2 = do_eq_list l3 l4``,
    Induct >> simp[LENGTH_NIL_SYM] >- (
-     simp[GSYM AND_IMP_INTRO, miscTheory.ZIP_EQ_NIL] ) >>
+     simp[GSYM AND_IMP_INTRO, ZIP_EQ_NIL] ) >>
    gen_tac >> Cases >> simp[PULL_EXISTS] >>
    Cases >> simp[LENGTH_NIL_SYM] >>
    Cases >> simp[CONJUNCT2 do_eq_def] >>

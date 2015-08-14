@@ -149,7 +149,7 @@ val evaluate_compile = Q.prove(
    (fs [evaluate_def,compile_def,get_var_def,state_rel_def,LET_DEF,cut_env_def]
     \\ Cases_on `domain names SUBSET domain s.locals` \\ fs []
     \\ SRW_TAC [] [add_space_def]
-    \\ fs [domain_inter,lookup_inter_assoc,lookup_inter_domain]
+    \\ fs [domain_inter,lookup_inter_assoc,lookup_inter_alt]
     \\ fs [domain_lookup,PULL_EXISTS,lookup_inter_EQ,SUBSET_DEF]
     \\ Cases_on `lookup x names` \\ fs [lookup_inter,oneTheory.one]
     \\ REPEAT BasicProvers.CASE_TAC \\ METIS_TAC [])

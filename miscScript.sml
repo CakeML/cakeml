@@ -5,67 +5,23 @@ open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_li
 val _ = new_theory "misc"
 val _ = ParseExtras.temp_tight_equality()
 
-val _ = export_rewrites["list.EVERY2_THM"]
-val _ = export_rewrites["rich_list.LIST_REL_APPEND_SING"]
-val _ = export_rewrites["alist.set_MAP_FST_fmap_to_alist"]
-val _ = export_rewrites["alist.MAP_KEYS_I"]
-val _ = export_rewrites["finite_map.FUNION_FEMPTY_1"]
-val _ = export_rewrites["finite_map.FUNION_FEMPTY_2"]
-
 (* TODO: move/categorize *)
 
-val LDROP_ADD = store_thm("LDROP_ADD",
-  ``!k1 k2 x.
-      LDROP (k1 + k2) x = case LDROP k1 x of
-                          | NONE => NONE
-                          | SOME ll => LDROP k2 ll``,
-  Induct \\ fs [ADD_CLAUSES] \\ fs [llistTheory.LDROP] \\ REPEAT STRIP_TAC
-  \\ Cases_on `LTL x` \\ fs []
-  \\ Cases_on `LDROP k1 x'` \\ fs []);
-
-val LPREFIX_def = Define `
-  LPREFIX l1 l2 =
-    case llist$toList l1 of
-    | NONE => (l1 = l2)
-    | SOME xs =>
-        case toList l2 of
-        | NONE => LTAKE (LENGTH xs) l2 = SOME xs
-        | SOME ys => isPREFIX xs ys`
-
-val REPLICATE_NIL = Q.store_thm("REPLICATE_NIL",
-  `REPLICATE x y = [] ⇔ x = 0`,
-  Cases_on`x`>>EVAL_TAC>>simp[]);
-
-val REPLICATE_APPEND = Q.store_thm("REPLICATE_APPEND",
-  `REPLICATE n a ++ REPLICATE m a = REPLICATE (n+m) a`,
-  simp[LIST_EQ_REWRITE,LENGTH_REPLICATE] >> rw[] >>
-  Cases_on`x < n` >> simp[EL_APPEND1,LENGTH_REPLICATE,EL_REPLICATE,EL_APPEND2])
-
-val DROP_REPLICATE = Q.store_thm("DROP_REPLICATE",
-  `DROP n (REPLICATE m a) = REPLICATE (m-n) a`,
-  simp[LIST_EQ_REWRITE,LENGTH_REPLICATE,EL_REPLICATE,EL_DROP])
+val hd_drop = Q.store_thm ("hd_drop",
+  `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
+  Induct_on `l` >>
+  rw [] >>
+  `n - 1 < LENGTH l` by decide_tac >>
+  res_tac >>
+  `0 < n` by decide_tac >>
+  rw [EL_CONS] >>
+  `n - 1 = PRE n` by decide_tac >>
+  rw []);
 
 val INJ_EXTEND = store_thm("INJ_EXTEND",
   ``INJ b s t /\ ~(x IN s) /\ ~(y IN t) ==>
     INJ ((x =+ y) b) (x INSERT s) (y INSERT t)``,
   fs [INJ_DEF,combinTheory.APPLY_UPDATE_THM] \\ METIS_TAC []);
-
-val IMP_EVERY_LUPDATE = store_thm("IMP_EVERY_LUPDATE",
-  ``!xs h i. P h /\ EVERY P xs ==> EVERY P (LUPDATE h i xs)``,
-  Induct \\ fs [LUPDATE_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `i` \\ fs [LUPDATE_def]);
-
-val MAP_APPEND_MAP_EQ = store_thm("MAP_APPEND_MAP_EQ",
-  ``!xs ys.
-      ((MAP f1 xs ++ MAP g1 ys) = (MAP f2 xs ++ MAP g2 ys)) <=>
-      (MAP f1 xs = MAP f2 xs) /\ (MAP g1 ys = MAP g2 ys)``,
-  Induct \\ fs [] \\ METIS_TAC []);
-
-val LUPDATE_SOME_MAP = store_thm("LUPDATE_SOME_MAP",
-  ``!xs n f h.
-      LUPDATE (SOME (f h)) n (MAP (OPTION_MAP f) xs) =
-      MAP (OPTION_MAP f) (LUPDATE (SOME h) n xs)``,
-  Induct THEN1 (EVAL_TAC \\ fs []) \\ Cases_on `n` \\ fs [LUPDATE_def]);
 
 val MEM_LIST_REL = store_thm("MEM_LIST_REL",
   ``!xs ys P x. LIST_REL P xs ys /\ MEM x xs ==> ?y. MEM y ys /\ P x y``,
@@ -76,17 +32,6 @@ val LIST_REL_MEM = store_thm("LIST_REL_MEM",
   ``!xs ys P. LIST_REL P xs ys <=>
               LIST_REL (\x y. MEM x xs /\ MEM y ys ==> P x y) xs ys``,
   fs [LIST_REL_EL_EQN] \\ METIS_TAC [MEM_EL]);
-
-val lookup_fromList_NONE = store_thm("lookup_fromList_NONE",
-  ``!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)``,
-  SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
-
-(* similar to half of EVERY2_APPEND, which could maybe be strengthened? *)
-val LIST_REL_APPEND_IMP = store_thm("LIST_REL_APPEND_IMP",
-  ``!xs ys xs1 ys1.
-      LIST_REL P (xs ++ xs1) (ys ++ ys1) /\ (LENGTH xs = LENGTH ys) ==>
-      LIST_REL P xs ys /\ LIST_REL P xs1 ys1``,
-  Induct \\ Cases_on `ys` \\ FULL_SIMP_TAC (srw_ss()) [] \\ METIS_TAC []);
 
 val LIST_REL_REVERSE_EQ =
   IMP_ANTISYM_RULE
@@ -116,6 +61,10 @@ val LIST_REL_lookup_fromList = store_thm("LIST_REL_lookup_fromList",
   ``LIST_REL (\v x. lookup v (fromList args) = SOME x)
      (GENLIST I (LENGTH args)) args``,
   SIMP_TAC std_ss [lookup_fromList,LIST_REL_GENLIST_I]);
+
+val lookup_fromList_outside = store_thm("lookup_fromList_outside",
+  ``!k. LENGTH args <= k ==> (lookup k (fromList args) = NONE)``,
+  SIMP_TAC std_ss [lookup_fromList] \\ DECIDE_TAC);
 
 val lemmas = prove(
   ``(2 + 2 * n - 1 = 2 * n + 1:num) /\
@@ -155,14 +104,6 @@ val IN_domain = store_thm("IN_domain",
   \\ Cases_on `m` \\ fs [MULT_CLAUSES]
   \\ REPEAT STRIP_TAC \\ EQ_TAC \\ REPEAT STRIP_TAC
   \\ fs [lemmas])
-
-val map_LN = store_thm("map_LN[simp]",
-  ``!t. map f t = LN <=> t = LN``,
-  Cases \\ EVAL_TAC);
-
-val wf_map = store_thm("wf_map[simp]",
-  ``!t f. wf (map f t) = wf t``,
-  Induct \\ fs [wf_def,map_def]);
 
 val map_map_K = store_thm("map_map_K",
   ``!t. map (K a) (map (K a) t) = map (K a) t``,
@@ -246,28 +187,6 @@ val LEAST_NOTIN_FDOM = store_thm("LEAST_NOTIN_FDOM",
   ASSUME_TAC (EXISTS_NOT_IN_FDOM_LEMMA |>
            SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs []);
 
-val lookup_inter_assoc = store_thm("lookup_inter_assoc",
-  ``lookup x (inter t1 (inter t2 t3)) =
-    lookup x (inter (inter t1 t2) t3)``,
-  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC)
-
-val lookup_inter_domain = store_thm("lookup_inter_domain",
-  ``x IN domain t2 ==> (lookup x (inter t1 t2) = lookup x t1)``,
-  fs [lookup_inter,domain_lookup] \\ BasicProvers.EVERY_CASE_TAC);
-
-val lookup_inter_alt = store_thm("lookup_inter_alt",
-  ``lookup x (inter t1 t2) =
-      if x IN domain t2 then lookup x t1 else NONE``,
-  fs [lookup_inter,domain_lookup]
-  \\ Cases_on `lookup x t2` \\ fs [] \\ Cases_on `lookup x t1` \\ fs []);
-
-val lookup_inter_EQ = store_thm("lookup_inter_EQ",
-  ``((lookup x (inter t1 t2) = SOME y) <=>
-       (lookup x t1 = SOME y) /\ lookup x t2 <> NONE) /\
-    ((lookup x (inter t1 t2) = NONE) <=>
-       (lookup x t1 = NONE) \/ (lookup x t2 = NONE))``,
-  fs [lookup_inter] \\ BasicProvers.EVERY_CASE_TAC);
-
 val list_to_num_set_def = Define `
   (list_to_num_set [] = LN) /\
   (list_to_num_set (n::ns) = insert n () (list_to_num_set ns))`;
@@ -293,17 +212,6 @@ val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
   ``∀f. OPTION_BIND f SOME = f``,
   Cases >> simp[])
 
-val hd_drop = Q.store_thm ("hd_drop",
-  `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,
-  Induct_on `l` >>
-  rw [] >>
-  `n - 1 < LENGTH l` by decide_tac >>
-  res_tac >>
-  `0 < n` by decide_tac >>
-  rw [EL_CONS] >>
-  `n - 1 = PRE n` by decide_tac >>
-  rw []);
-
 val take1 = Q.store_thm ("take1",
   `!l. l ≠ [] ⇒ TAKE 1 l = [EL 0 l]`,
   Induct_on `l` >> rw []);
@@ -317,15 +225,6 @@ val SPLIT_LIST = store_thm("SPLIT_LIST",
   \\ REPEAT STRIP_TAC \\ fs [TAKE_DROP]
   \\ MATCH_MP_TAC (GSYM LENGTH_TAKE)
   \\ fs [DIV_LE_X] \\ DECIDE_TAC);
-
-val less_sorted_eq = MATCH_MP SORTED_EQ transitive_LESS |> curry save_thm"less_sorted_eq";
-
-val SORTED_GENLIST_PLUS = store_thm("SORTED_GENLIST_PLUS",
-  ``∀n k. SORTED $< (GENLIST ($+ k) n)``,
-  Induct >> simp[GENLIST_CONS,less_sorted_eq,MEM_GENLIST] >> gen_tac >>
-  `$+ k o SUC = $+ (k+1)` by (
-    simp[FUN_EQ_THM] ) >>
-  metis_tac[])
 
 val EXISTS_ZIP = Q.store_thm ("EXISTS_ZIP",
   `!l f. EXISTS (\(x,y). f x) l = EXISTS f (MAP FST l)`,
@@ -342,18 +241,6 @@ val EVERY_ZIP = Q.store_thm ("EVERY_ZIP",
   Cases_on `h` >>
   fs [] >>
   metis_tac []);
-
-val LIST_REL_GENLIST = store_thm("LIST_REL_GENLIST",
-  ``EVERY2 P (GENLIST f l) (GENLIST g l) <=>
-    !i. i < l ==> P (f i) (g i)``,
-  Induct_on `l`
-  \\ fs [GENLIST,rich_listTheory.LIST_REL_APPEND_SING,SNOC_APPEND]
-  \\ fs [DECIDE ``i < SUC n <=> i < n \/ (i = n)``] \\ METIS_TAC []);
-
-val LENGTH_TAKE_EQ = store_thm("LENGTH_TAKE_EQ",
-  ``LENGTH (TAKE n xs) = if n <= LENGTH xs then n else LENGTH xs``,
-  SRW_TAC [] [] \\ fs [GSYM NOT_LESS] \\ AP_TERM_TAC
-  \\ MATCH_MP_TAC TAKE_LENGTH_TOO_LONG \\ DECIDE_TAC);
 
 val tlookup_def = Define `
   tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
@@ -379,43 +266,6 @@ val SING_HD = store_thm("SING_HD",
   ``(([HD xs] = xs) <=> (LENGTH xs = 1)) /\
     ((xs = [HD xs]) <=> (LENGTH xs = 1))``,
   Cases_on `xs` \\ fs [LENGTH_NIL] \\ METIS_TAC []);
-
-val list_rel_lastn = Q.store_thm("list_rel_lastn",
-  `!f l1 l2 n.
-    n ≤ LENGTH l1 ∧
-    LIST_REL f l1 l2 ⇒
-    LIST_REL f (LASTN n l1) (LASTN n l2)`,
-  Induct_on `l1` >>
-  rw [LASTN] >>
-  imp_res_tac EVERY2_LENGTH >>
-  Cases_on `n = LENGTH l1 + 1`
-  >- metis_tac [LASTN_LENGTH_ID, ADD1, LENGTH, LIST_REL_def] >>
-  `n ≤ LENGTH l1` by decide_tac >>
-  `n ≤ LENGTH ys` by decide_tac >>
-  res_tac >>
-  fs [LASTN_CONS]);
-
-val list_rel_butlastn = Q.store_thm ("list_rel_butlastn",
-  `!f l1 l2 n.
-    n ≤ LENGTH l1 ∧
-    LIST_REL f l1 l2 ⇒
-    LIST_REL f (BUTLASTN n l1) (BUTLASTN n l2)`,
-  Induct_on `l1` >>
-  rw [BUTLASTN] >>
-  imp_res_tac EVERY2_LENGTH >>
-  Cases_on `n = LENGTH l1 + 1`
-  >- metis_tac [BUTLASTN_LENGTH_NIL, ADD1, LENGTH, LIST_REL_def] >>
-  `n ≤ LENGTH l1` by decide_tac >>
-  `n ≤ LENGTH ys` by decide_tac >>
-  res_tac >>
-  fs [BUTLASTN_CONS]);
-
-val SORTED_ALL_DISTINCT = store_thm("SORTED_ALL_DISTINCT",
-  ``irreflexive R /\ transitive R ==> !ls. SORTED R ls ==> ALL_DISTINCT ls``,
-  STRIP_TAC THEN Induct THEN SRW_TAC[][] THEN
-  IMP_RES_TAC SORTED_EQ THEN
-  FULL_SIMP_TAC (srw_ss()) [SORTED_DEF] THEN
-  METIS_TAC[relationTheory.irreflexive_def])
 
 val ALOOKUP_SNOC = store_thm("ALOOKUP_SNOC",
   ``∀ls p k. ALOOKUP (SNOC p ls) k =
@@ -514,13 +364,6 @@ val MEM_anub_ALOOKUP = store_thm("MEM_anub_ALOOKUP",
   fs[]>>
   metis_tac[ALOOKUP_ALL_DISTINCT_MEM])
 
-val LIST_REL_REPLICATE_same = store_thm("LIST_REL_REPLICATE_same",
-  ``LIST_REL P (REPLICATE n x) (REPLICATE n y) ⇔ (n > 0 ⇒ P x y)``,
-  simp[LIST_REL_EL_EQN,rich_listTheory.REPLICATE_GENLIST] >>
-  Cases_on`n`>>simp[EQ_IMP_THM] >> rw[] >>
-  first_x_assum MATCH_MP_TAC >>
-  qexists_tac`0`>>simp[])
-
 val FEMPTY_FUPDATE_EQ = store_thm("FEMPTY_FUPDATE_EQ",
   ``∀x y. (FEMPTY |+ x = FEMPTY |+ y) ⇔ (x = y)``,
   Cases >> Cases >> rw[fmap_eq_flookup,FDOM_FUPDATE,FLOOKUP_UPDATE] >>
@@ -529,18 +372,10 @@ val FEMPTY_FUPDATE_EQ = store_thm("FEMPTY_FUPDATE_EQ",
     pop_assum(qspec_then`q`mp_tac) >> rw[] ) >>
   qexists_tac`q`>>rw[])
 
-val ZIP_EQ_NIL = store_thm("ZIP_EQ_NIL",
-  ``∀l1 l2. LENGTH l1 = LENGTH l2 ⇒ (ZIP (l1,l2) = [] ⇔ (l1 = [] ∧ l2 = []))``,
-  rpt gen_tac >> Cases_on`l1`>>rw[LENGTH_NIL_SYM]>> Cases_on`l2`>>fs[])
-
 val FUPDATE_LIST_EQ_FEMPTY = store_thm("FUPDATE_LIST_EQ_FEMPTY",
   ``∀fm ls. fm |++ ls = FEMPTY ⇔ fm = FEMPTY ∧ ls = []``,
   rw[EQ_IMP_THM,FUPDATE_LIST_THM] >>
   fs[GSYM fmap_EQ_THM,FDOM_FUPDATE_LIST])
-
-val LUPDATE_SAME = store_thm("LUPDATE_SAME",
-  ``∀n ls. n < LENGTH ls ⇒ (LUPDATE (EL n ls) n ls = ls)``,
-  rw[LIST_EQ_REWRITE,EL_LUPDATE]>>rw[])
 
 val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
   ``∀opt. IS_SOME opt ⇔ ∃x. opt = SOME x``,

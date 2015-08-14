@@ -76,8 +76,10 @@ val env_rel_def = Define`
 
 (*
 val calls_correct = Q.prove(
-  `evaluate xs
-   calls xs env g0 = (ys,as,g) ⇒
+  `evaluate (xs,env,s0) = (res,s) ∧
+   calls xs aenv g0 = (ys,as,g) ⇒
+   ∃res' s'.
+   evaluate (MAP FST ys,env,s0 with code := s0.code |++ as) = (res',s')`,
 *)
 
 val _ = export_theory();
