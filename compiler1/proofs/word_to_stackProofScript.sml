@@ -174,6 +174,13 @@ val list_LUPDATE_APPEND = store_thm("list_LUPDATE_APPEND",
       LENGTH xs = LENGTH ys ==> (list_LUPDATE xs 0 (ys ++ zs) = xs ++ zs)``,
   Induct \\ Cases_on `ys` \\ fs [list_LUPDATE_def]);
 
+val SORTED_FILTER = Q.store_thm("SORTED_FILTER",
+  `∀R ls. transitive R ⇒ SORTED R ls ⇒ SORTED R (FILTER P ls)`,
+  HO_MATCH_MP_TAC SORTED_IND >>
+  rw[SORTED_DEF] >> fs[] >>
+  rfs[SORTED_EQ,MEM_FILTER] >>
+  rw[] >> metis_tac[transitive_def])
+
 (* move to stackProps? *)
 
 val DIV_ADD_1 = prove(
@@ -646,13 +653,13 @@ val EL_index_list = prove(
   Induct \\ fs [index_list_def]
   \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
 
-val evaluate_wLive = prove(
-  ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
-    (cut_env names s.locals = SOME env) ==>
-    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
-         state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
-         state_rel k f f' s t5 /\
-         !i. i < k ==> get_var i t5 = get_var i t``,
+val evaluate_wLive = Q.prove(
+  `state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
+   (cut_env names s.locals = SOME env) ==>
+   ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
+        state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
+        state_rel k f f' s t5 /\
+        !i. i < k ==> get_var i t5 = get_var i t`,
   fs [wLive_def] \\ rpt strip_tac
   \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
   \\ mp_tac evaluate_wLiveAux
@@ -718,8 +725,35 @@ val evaluate_wLive = prove(
   \\ fs [MAP_FST_def,adjust_names_def]
   \\ match_mp_tac SORTED_IMP_EQ_LISTS
   \\ rpt strip_tac
-  THEN1 cheat (* easy *)
-  THEN1 cheat (* easy *)
+  THEN1 (
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    REWRITE_TAC[GSYM inv_image_def] >>
+    conj_tac >-(
+      match_mp_tac transitive_inv_image >>
+      ACCEPT_TAC transitive_LESS ) >>
+    cheat (* QSORT with one relation is sorted according to another? *)
+  )
+  THEN1 (
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    REWRITE_TAC[GSYM inv_image_def] >>
+    conj_tac >-(
+      match_mp_tac transitive_inv_image >>
+      ACCEPT_TAC transitive_LESS ) >>
+    qmatch_abbrev_tac `SORTED R (FILTER SND (GENLIST ff n))` >>
+    match_mp_tac (MP_CANON SORTED_FILTER) >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    simp[MAP_GENLIST,combinTheory.o_DEF] >>
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    conj_tac >- ACCEPT_TAC transitive_LESS >>
+    simp[MAP_GENLIST,combinTheory.o_DEF] >>
+    cheat (* should be easy; possibly the wrong way around (ascending vs descending) *)
+  )
   \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
       MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
   \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC]
