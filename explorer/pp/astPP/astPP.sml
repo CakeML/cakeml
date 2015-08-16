@@ -394,6 +394,21 @@ fun pconsomePrint sys d t pg str brk blk=
 val _=add_astPP ("pconsomeprint", ``Pcon (SOME x) y``,genPrint pconsomePrint);
 val _=add_astPP ("consomeprint", ``Con (SOME x) y``,genPrint pconsomePrint);
 
+(*Special case for constructor applied on a tuple
+  TODO: Remove once fixed since this makes the code more verbose
+*)
+fun contupPrint sys d t pg str brk blk=
+ let
+    val (temp,r) = dest_comb t
+    val [r] = #1(listSyntax.dest_list r)
+    val (_,l) = dest_comb temp
+    val t = ``Let (SOME "x") ^(r) (^(temp) [Var (Short "x")])``
+ in
+   letvalPrint sys d t pg str brk blk
+ end
+
+val _=add_astPP ("contupprint", ``Con (SOME x) [Con NONE y]``,genPrint contupPrint);
+
 (*Special case for list syntax
 check_tail checks whether it is a fully specified list*)
 fun check_tail t =
