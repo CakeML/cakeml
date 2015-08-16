@@ -18,6 +18,49 @@ val SUM_REPLICATE = store_thm("SUM_REPLICATE",
   ``!n k. SUM (REPLICATE n k) = n * k``,
   Induct \\ fs [REPLICATE,MULT_CLAUSES,AC ADD_COMM ADD_ASSOC]);
 
+val asm_failed_ignore_new_pc = store_thm("asm_failed_ignore_new_pc",
+  ``!i v w s. (asm i w s).failed <=> (asm i v s).failed``,
+  Cases \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ rw [] \\ fs []);
+
+val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
+  ``!i v w s. (asm i w s).mem = (asm i v s).mem``,
+  Cases \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ rw [] \\ fs []);
+
+local
+  val SND_read_mem_word_consts = prove(
+    ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+              ((SND (read_mem_word a n s)).lr = s.lr) /\
+              ((SND (read_mem_word a n s)).align = s.align) /\
+              ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
+    Induct \\ fs [read_mem_word_def,LET_DEF]
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+    \\ fs [assert_def])
+  val write_mem_word_consts = prove(
+    ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
+                ((write_mem_word a n w s).lr = s.lr) /\
+                ((write_mem_word a n w s).align = s.align) /\
+                ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
+    Induct \\ fs [write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+in
+  val asm_consts = store_thm("asm_consts[simp]",
+    ``!i w s. ((asm i w s).be = s.be) /\
+              ((asm i w s).lr = s.lr) /\
+              ((asm i w s).align = s.align) /\
+              ((asm i w s).mem_domain = s.mem_domain)``,
+    Cases \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+    \\ TRY (Cases_on `i'`) \\ fs [inst_def]
+    \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+    \\ TRY (Cases_on `m`)
+    \\ TRY (Cases_on `a`) \\ fs [arith_upd_def,mem_op_def]
+    \\ TRY (Cases_on `b`)
+    \\ TRY (Cases_on `r`)
+    \\ EVAL_TAC \\ fs [] \\ rw []
+    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+    \\ fs [SND_read_mem_word,write_mem_word_consts])
+end
+
 (* -- *)
 
 val _ = Parse.temp_overload_on("option_ldrop",``λn l. OPTION_JOIN (OPTION_MAP (LDROP n) l)``)
@@ -70,6 +113,8 @@ val line_ok_def = Define `
      let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
        enc_with_nop enc (Jump w1) bytes /\
        (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
+  (line_ok c enc labs pos (LabAsm (Call v24) w bytes l) <=>
+     F (* Call not yet supported *)) /\
   (line_ok c enc labs pos (LabAsm a w bytes l) <=>
      let target = find_pos (get_label a) labs in
      let w1 = n2w target - n2w pos in
@@ -341,6 +386,19 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
+
+val IMP_bytes_in_memory_Call = prove(
+  ``code_similar s1.code code2 /\
+    all_enc_ok (mc_conf: ('a,'state,'b) machine_config).asm_config mc_conf.f.encode labs 0 code2 /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+      (t1:'a asm_state).mem_domain /\
+    (asm_fetch s1 = SOME (LabAsm (Call ww) l bytes n)) ==>
+    (1 = 2)``,
+  rpt strip_tac
+  \\ fs [asm_fetch_def,LET_DEF]
+  \\ imp_res_tac IMP_bytes_in_memory
+  \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
+  \\ fs [line_ok_def] \\ rfs []);
 
 val IMP_bytes_in_memory_LocValue = prove(
   ``code_similar s1.code code2 /\
@@ -680,8 +738,18 @@ val compile_correct = Q.prove(
     \\ Q.EXISTS_TAC `k + l' - 1` \\ fs []
     \\ Q.EXISTS_TAC `t2` \\ fs [state_rel_def,shift_interfer_def])
   THEN1 (* JumpCmp *) cheat
-  THEN1 (* Call *) cheat
 
+  THEN1 (* Call *)
+   (qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (Call lab) x1 x2 x3)`
+    \\ Cases_on `lab`
+    \\ qmatch_assum_rename_tac
+         `asm_fetch s1 = SOME (LabAsm (Call (Lab l1 l2)) l bytes len)`
+    \\ mp_tac (Q.INST [`ww`|->`Lab l1 l2`,`n`|->`len`]
+            IMP_bytes_in_memory_Call)
+    \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ fs [])
+    \\ fs [])
   THEN1 (* LocValue *)
 
    (qmatch_assum_rename_tac
@@ -913,13 +981,6 @@ val asm_step_nop_def = Define `
     asm i (s1.pc + n2w (LENGTH bytes)) s1 = s2 /\ ~s2.failed /\
     asm_ok i c`
 
-val asm_step_IMP_evaluate_step_nops = prove(
-  ``!c s1 ms1 io i s2 bytes.
-      backend_correct_alt c.f c.asm_config /\
-      c.prog_addresses = s1.mem_domain /\
-      interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
-      asm_step_alt c.f.encode bytes c.asm_config s1 i s2 /\
-
 val evaluate_nop_step =
   asm_step_IMP_evaluate_step
     |> SIMP_RULE std_ss [asm_step_alt_def]
@@ -987,9 +1048,11 @@ val asm_step_IMP_evaluate_step_nop = prove(
       backend_correct_alt c.f c.asm_config /\
       c.prog_addresses = s1.mem_domain /\
       interference_ok c.next_interfer (c.f.proj s1.mem_domain) /\
+      bytes_in_memory s1.pc bytes s2.mem s1.mem_domain /\
       asm_step_nop c.f.encode bytes c.asm_config s1 i s2 /\
       s2 = asm i (s1.pc + n2w (LENGTH bytes)) s1 /\
-      c.f.state_rel (s1:'a asm_state) (ms1:'state) ==>
+      c.f.state_rel (s1:'a asm_state) (ms1:'state) /\
+      (!x. i <> Call x) ==>
       ?l ms2.
         !k.
           evaluate c io (k + l) ms1 =
@@ -1003,7 +1066,41 @@ val asm_step_IMP_evaluate_step_nop = prove(
    (fs [bytes_in_memory_APPEND] \\ Cases_on `i`
     \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def,
            LET_DEF,assert_def] \\ rw [] \\ fs [] \\ rfs [])
-  \\ rpt strip_tac \\ fs []
-  \\ cheat);
+  \\ rpt strip_tac \\ fs [GSYM PULL_FORALL]
+  \\ Cases_on `?w. i = Jump w` \\ fs []
+  THEN1 (fs [asm_def] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`] \\ fs [])
+  \\ Cases_on `?c n r w. (i = JumpCmp c n r w) /\
+                  word_cmp c (read_reg n s1) (reg_imm r s1)` \\ fs []
+  THEN1 (rw [] \\ fs [asm_def] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`] \\ fs [])
+  \\ Cases_on `?r. (i = JumpReg r)` \\ fs []
+  THEN1 (rw [] \\ fs [asm_def,LET_DEF] \\ Q.LIST_EXISTS_TAC [`l`,`ms2`]
+               \\ fs [] \\ rfs [])
+  \\ qspecl_then [`n`,`asm i (s1.pc + n2w (LENGTH (c.f.encode i))) s1`,`ms2`,
+       `shift_interfer l c`] mp_tac evaluate_nop_steps
+  \\ match_mp_tac IMP_IMP \\ strip_tac
+  THEN1 (fs [shift_interfer_def] \\ rpt strip_tac
+    THEN1 (fs [interference_ok_def,shift_seq_def])
+    THEN1
+     (Q.ABBREV_TAC `mm = (asm i (s1.pc + n2w (LENGTH (c.f.encode i))) s1).mem`
+      \\ fs [Once (asm_mem_ignore_new_pc |> Q.SPECL [`i`,`0w`])]
+      \\ `!w. (asm i w s1).pc = w` by (Cases_on `i` \\ fs [asm_def,upd_pc_def])
+      \\ fs [bytes_in_memory_APPEND])
+    \\ metis_tac [asm_failed_ignore_new_pc])
+  \\ rpt strip_tac \\ fs [GSYM PULL_FORALL]
+  \\ Q.LIST_EXISTS_TAC [`l+l'`,`ms2'`]
+  \\ fs [PULL_FORALL] \\ strip_tac
+  \\ first_x_assum (mp_tac o Q.SPEC `k:num`)
+  \\ qpat_assum `!k. xx = yy` (mp_tac o Q.SPEC `k+l':num`)
+  \\ rpt strip_tac \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ fs [shift_interfer_def]
+  \\ qpat_assum `c.f.state_rel xx yy` mp_tac
+  \\ match_mp_tac (METIS_PROVE [] ``(x = z) ==> (f x y ==> f z y)``)
+  \\ Cases_on `i` \\ fs [asm_def]
+  \\ fs [LENGTH_FLAT,SUM_REPLICATE,map_replicate]
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]
+  THEN1 (Cases_on `i'` \\ fs [inst_def,upd_pc_def]
+    \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w])
+  \\ fs [jump_to_offset_def,upd_pc_def]
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,word_add_n2w]);
 
 val _ = export_theory();
