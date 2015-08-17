@@ -811,7 +811,7 @@ val Eval_Ord = store_thm("Eval_Ord",
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(preamble.match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS] >>
   fs[CHAR_def,NUM_def,INT_def])
@@ -823,7 +823,7 @@ val Eval_Chr = store_thm("Eval_Chr",
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(preamble.match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS] >>
   fs[CHAR_def,NUM_def,INT_def] >>
@@ -838,8 +838,8 @@ val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases),PULL_EXISTS])) >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(preamble.match_exists_tac o concl) >> rw[] >>
+  first_assum(preamble.match_exists_tac o concl) >> rw[] >>
   rw[do_app_cases,PULL_EXISTS] >> fs[CHAR_def] >>
   rw[BOOL_def,opb_lookup_def,Boolv_11]
 
@@ -886,7 +886,7 @@ val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(preamble.match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS]
 

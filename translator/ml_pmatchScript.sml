@@ -1,9 +1,8 @@
-open HolKernel boolLib bossLib lcsymtacs boolSimps
-open determTheory ml_translatorTheory miscLib
-open patternMatchesTheory patternMatchesLib;
+open preamble
+     determTheory ml_translatorTheory
+     patternMatchesTheory patternMatchesLib;
 open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory determTheory evalPropsTheory bigClockTheory;
-open arithmeticTheory listTheory combinTheory pairTheory mlstringTheory;
+open determTheory evalPropsTheory bigClockTheory mlstringTheory;
 open integerTheory terminationTheory;
 
 val _ = new_theory "ml_pmatch";
