@@ -275,6 +275,10 @@ val all_enc_ok_def = Define `
      line_ok c enc labs pos y /\
      all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
 
+val line_bytes_def = Define ` (* delete *)
+  (line_bytes (Asm b bytes l) = bytes) /\
+  (line_bytes (LabAsm a w bytes l) = bytes)`;
+
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
@@ -321,10 +325,8 @@ val bytes_in_mem_IMP = prove(
   Induct \\ fs [bytes_in_mem_def,bytes_in_memory_def]);
 
 val pos_val_def = Define `
-  (pos_val i pos [] =
-     if EVEN pos then pos else pos + 1) /\
-  (pos_val i pos ((Section k [])::xs) =
-     if EVEN pos then pos_val i pos xs else pos_val i (pos + 1) xs) /\
+  (pos_val i pos [] = pos) /\
+  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
   (pos_val i pos ((Section k (y::ys))::xs) =
      if is_Label y
      then pos_val i (pos + line_length y) ((Section k ys)::xs)
@@ -398,18 +400,26 @@ val state_rel_def = Define `
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
     code_similar s1.code code2`
 
+val pos_val_0 = prove(
+  ``!xs c enc labs pos.
+      all_enc_ok c enc labs pos xs ==> (pos_val 0 pos xs = pos)``,
+  Induct \\ fs [pos_val_def] \\ Cases_on `h`
+  \\ Induct_on `l` \\ fs [pos_val_def,all_enc_ok_def]
+  \\ rpt strip_tac  \\ res_tac  \\ rw []
+  \\ Cases_on `h` \\ fs [line_ok_def,line_length_def,is_Label_def]);
+
 val all_bytes_lemma = Q.prove(
   `!code2 code1 pc i pos.
       code_similar code1 code2 /\
       all_enc_ok (mc_conf:('a,'state,'b) machine_config).asm_config
         mc_conf.f.encode labs pos code2 /\
       (asm_fetch_aux pc code1 = SOME i) ==>
-      ?bs code2' j.
+      ?bs j bs2.
         (all_bytes pos (nop_byte mc_conf.f.encode) code2  =
-         bs ++ all_bytes (pos + LENGTH bs) (nop_byte mc_conf.f.encode) code2') /\
+         bs ++ line_bytes j ++ bs2) /\
         (LENGTH bs + pos = pos_val pc pos code2) /\
-        (asm_fetch_aux 0 code2' = SOME j) /\
-        line_similar i j /\ no_Label code2' /\
+        (LENGTH bs + pos + LENGTH (line_bytes j) = pos_val (pc+1) pos code2) /\
+        line_similar i j /\
         line_ok mc_conf.asm_config mc_conf.f.encode
           labs (pos_val pc pos code2) j`,
   HO_MATCH_MP_TAC asm_code_length_ind \\ REPEAT STRIP_TAC
@@ -418,13 +428,7 @@ val all_bytes_lemma = Q.prove(
    (Cases_on `code1` \\ fs [code_similar_def]
     \\ Cases_on `h` \\ fs [code_similar_def]
     \\ Cases_on `l` \\ fs [asm_fetch_aux_def,pos_val_def] \\ rw []
-    \\ fs [all_bytes_def,all_enc_ok_def] THEN1 (metis_tac [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t`,`pc`,`i`,`pos + 1`]) \\ fs []
-    \\ rpt strip_tac \\ fs []
-    \\ Q.EXISTS_TAC `nop_byte mc_conf.f.encode::bs` \\ fs []
-    \\ Q.EXISTS_TAC `code2'` \\ fs []
-    \\ rpt strip_tac
-    \\ fs [ADD1,AC ADD_COMM ADD_ASSOC])
+    \\ fs [all_bytes_def,all_enc_ok_def] \\ metis_tac [])
   \\ Cases_on `code1` \\ fs [code_similar_def]
   \\ Cases_on `h` \\ fs [code_similar_def]
   \\ Cases_on`l` \\ fs [asm_fetch_aux_def,pos_val_def]
@@ -441,20 +445,26 @@ val all_bytes_lemma = Q.prove(
     \\ fs [all_enc_ok_def,code_similar_def] \\ rpt strip_tac
     \\ fs [prog_to_bytes_def,LET_DEF]
     \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
-         `code2'`]
+         `j`,`bs2`]
     \\ fs [AC ADD_COMM ADD_ASSOC])
   \\ Cases_on `pc = 0` \\ fs [] \\ rw []
   THEN1
-   (fs [listTheory.LENGTH_NIL]
-    \\ Q.EXISTS_TAC `Section k (x2::ys2)::xs`
-    \\ fs [asm_fetch_aux_def,all_enc_ok_def])
+   (fs [listTheory.LENGTH_NIL] \\ qexists_tac `x2`
+    \\ fs [all_bytes_def,LET_DEF,all_enc_ok_def]
+    \\ `line_bytes x2 (nop_byte mc_conf.f.encode) = line_bytes x2` by
+     (Cases_on `x2`
+      \\ fs [lab_to_targetTheory.line_bytes_def,is_Label_def,line_bytes_def])
+    \\ fs [pos_val_0]
+    \\ imp_res_tac pos_val_0
+    \\ fs [] \\ Cases_on `x2`
+    \\ fs [line_ok_def,is_Label_def,line_bytes_def,line_length_def] \\ rw [])
   \\ fs [all_bytes_def,LET_DEF]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc-1`,`i`,
        `(pos + LENGTH (line_bytes x2 (nop_byte mc_conf.f.encode)))`])
   \\ fs [all_enc_ok_def,code_similar_def]
   \\ rpt strip_tac \\ fs []
   \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
-        `code2'`,`j`] \\ fs []
+        `j`,`bs2`] \\ fs [] \\ `pc - 1 + 1 = pc` by decide_tac
   \\ fs [AC ADD_COMM ADD_ASSOC])
 
 val prog_to_bytes_lemma = all_bytes_lemma
@@ -465,18 +475,18 @@ val IMP_bytes_in_memory = prove(
   ``code_similar code1 code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
-    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2) m (dm:'a word set) ==>
-    ?j code2'.
-      bytes_in_memory (p + n2w (pos_val pc 0 code2))
-        (all_bytes (pos_val pc 0 code2) (nop_byte mc_conf.f.encode) code2') m dm /\
+    bytes_in_memory p (prog_to_bytes mc_conf.f.encode code2)
+         m (dm:'a word set) ==>
+    ?j.
+      bytes_in_memory (p + n2w (pos_val pc 0 code2)) (line_bytes j) m dm /\
       line_ok (mc_conf:('a,'state,'b) machine_config).asm_config
         mc_conf.f.encode labs (pos_val pc 0 code2) j /\
-      (asm_fetch_aux 0 code2' = SOME j) /\
-      line_similar i j /\ no_Label code2'``,
+      (pos_val (pc+1) 0 code2 = pos_val pc 0 code2 + LENGTH (line_bytes j)) /\
+      line_similar i j``,
   rpt strip_tac
   \\ mp_tac prog_to_bytes_lemma \\ fs [] \\ rpt strip_tac
   \\ fs [bytes_in_memory_APPEND]
-  \\ Q.EXISTS_TAC `j` \\ Q.EXISTS_TAC `code2'` \\ fs []);
+  \\ Q.EXISTS_TAC `j` \\ fs [] \\ decide_tac);
 
 val IMP_bytes_in_memory_JumpReg = prove(
   ``code_similar s1.code code2 /\
@@ -560,8 +570,7 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ qexists_tac `n'` \\ fs []
   \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
-         bytes_in_memory_APPEND] \\ rw []
-  \\ cheat);
+         bytes_in_memory_APPEND] \\ rw []);
 
 val IMP_bytes_in_memory_CallFFI = prove(
   ``code_similar s1.code code2 /\
@@ -642,7 +651,6 @@ val pos_val_MOD_0 = prove(
   \\ HO_MATCH_MP_TAC (theorem "pos_val_ind")
   \\ rpt strip_tac \\ fs [pos_val_def] \\ fs [all_enc_ok_def]
   THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
-  THEN1 (rw [] \\ fs [PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
   \\ Cases_on `is_Label y` \\ fs []
   \\ Cases_on `x = 0` \\ fs []
   \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [] \\ rw []
@@ -669,7 +677,8 @@ val read_bytearray_state_rel = prove(
       (read_bytearray a n
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
        SOME x)``,
-  Induct \\ fs [labSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
+  Induct
+  \\ fs [labSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
   \\ rpt strip_tac \\ Cases_on `mem_load_byte_aux a s1` \\ fs []
   \\ Cases_on `read_bytearray (a + 1w) n s1` \\ fs []
   \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
@@ -1104,7 +1113,6 @@ val compile_correct = Q.prove(
 (*
 
 TODO:
- - force all labels to have length 0, and no padding at the end of sections
  - define an incremental version of the compiler
  - add ability to install code
 
