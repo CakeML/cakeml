@@ -364,7 +364,6 @@ val exp_type_progress = Q.prove (
   ctMap_has_bools ctMap ∧
   ¬(final_state ((menv,cenv,env), st, e, c))
   ⇒
-  e_step ((menv,cenv,env), st, e, c) = Eabort Rffi_error ∨
   (∃menv' cenv' env' st' e' c'. e_step ((menv,cenv,env), st, e, c) = Estep ((menv',cenv',env'), st', e', c'))`,
  rw [] >>
  rw [e_step_def] >>
@@ -434,7 +433,7 @@ val exp_type_progress = Q.prove (
          imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
          rw [do_opapp_def, do_app_def, return_def]
          >- every_case_tac
-         >- (disj2_tac >>
+         >- (
              every_case_tac >>
              fs [is_ccon_def] >>
              fs [Once type_v_cases] >>
@@ -444,13 +443,15 @@ val exp_type_progress = Q.prove (
              fs [Once context_invariant_cases] >>
              srw_tac [ARITH_ss] [] >> 
              metis_tac [eq_same_type])
-         >- (disj2_tac >>
+         >- (
              qpat_assum `type_v a ctMap senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
              fs [store_assign_def, store_lookup_def] >>
              simp[store_v_same_type_def] >>
              every_case_tac >> fs[])
+         >- (every_case_tac >>
+             fs [store_alloc_def])
          >- (qpat_assum `type_v a ctMap senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
@@ -458,7 +459,9 @@ val exp_type_progress = Q.prove (
              rw [] >>
              every_case_tac >>
              fs [])
-         >- (disj2_tac >>
+         >- (every_case_tac >>
+             fs [store_alloc_def])
+         >- (
              qpat_assum `type_v a ctMap senv (Loc n') z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
@@ -469,7 +472,7 @@ val exp_type_progress = Q.prove (
              rw [] >>
              every_case_tac >>
              fs [])
-         >- (disj2_tac >>
+         >- (
              qpat_assum `type_v a ctMap senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
@@ -477,7 +480,7 @@ val exp_type_progress = Q.prove (
              rw [] >>
              every_case_tac >>
              fs [])
-         >- (disj2_tac >>
+         >- (
              fs [METIS_PROVE [REVERSE_REVERSE] ``REVERSE x = y ⇔ x = REVERSE y``] >>
              rw [] >>
              imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
@@ -494,11 +497,9 @@ val exp_type_progress = Q.prove (
              fs[store_v_same_type_def])
          >- every_case_tac
          >- srw_tac [boolSimps.DNF_ss] [markerTheory.Abbrev_def]
-         (*
          >- (every_case_tac >>
              fs [store_alloc_def])
-             *)
-         >- (disj2_tac >>
+         >- (
              qpat_assum `type_v a ctMap senv (Loc n') z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
@@ -509,7 +510,7 @@ val exp_type_progress = Q.prove (
              rw [] >>
              every_case_tac >>
              fs [])
-         >- (disj2_tac >>
+         >- (
              qpat_assum `type_v a ctMap senv (Loc n) z` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
              fs [type_s_def] >>
              res_tac >>
@@ -517,7 +518,7 @@ val exp_type_progress = Q.prove (
              rw [] >>
              every_case_tac >>
              fs [])
-         >- (disj2_tac >>
+         >- (
              fs [METIS_PROVE [REVERSE_REVERSE] ``REVERSE x = y ⇔ x = REVERSE y``] >>
              rw [] >>
              imp_res_tac (SIMP_RULE (srw_ss()) [] canonical_values_thm) >>
@@ -1746,8 +1747,8 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
  `?tenvS'. type_state tvs ctMap tenvS' (env',s',e',c') t ∧ store_type_extension tenvS tenvS'`
          by metis_tac [exp_type_soundness_help, consistent_con_env_def] >>
  fs [e_step_reln_def] >>
- `final_state (env',s',e',c') ∨ e_step (env',s',e',c') = Eabort Rffi_error` by (PairCases_on `env'` >> metis_tac [exp_type_progress])
- >- (Cases_on `e'` >>
+ `final_state (env',s',e',c')` by (PairCases_on `env'` >> metis_tac [exp_type_progress])
+ >> (Cases_on `e'` >>
      Cases_on `c'` >>
      TRY (Cases_on `e''`) >>
      fs [final_state_def] >>
@@ -1767,15 +1768,7 @@ val exp_type_soundness = Q.store_thm ("exp_type_soundness",
          fs [final_state_def, type_ctxt_cases] >>
          qexists_tac `Rerr (Rraise v)` >>
          rw [] >>
-         metis_tac [small_eval_def, result_distinct, result_11, error_result_distinct]))
- >- (qexists_tac `s'` >>
-     qexists_tac `Rerr (Rabort Rffi_error)` >>
-     rw [small_eval_def]
-     >- metis_tac [] >>
-     qexists_tac `tenvS'` >>
-     rw [] >>
-     fs [type_state_cases]));
-
+         metis_tac [small_eval_def, result_distinct, result_11, error_result_distinct])))
 
 val store_type_extension_refl = Q.prove (
 `!s. store_type_extension s s`,
