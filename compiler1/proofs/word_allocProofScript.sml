@@ -1056,7 +1056,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     Cases_on`evaluate(p,st with permute:=perm')`>>fs[]
     >- (qexists_tac`perm'`>>fs[]) >>
     Cases_on`evaluate(apply_colour f p,cst)`>>fs[]>>
-    REVERSE (Cases_on`q`)>>fs[]
+    reverse (Cases_on`q`)>>fs[]
     >-
       (qexists_tac`perm'`>>rw[])
     >>

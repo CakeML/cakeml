@@ -133,7 +133,7 @@ val evaluate_inv_clock = store_thm("evaluate_inv_clock",
   \\ fs [evaluate_def]
   THEN1 (`?res5 s5. evaluate ([x],env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ `?res6 s6. evaluate (y::xs,env,s5) = (res6,s6)` by METIS_TAC [PAIR]
-    \\ fs [] \\ REVERSE (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
+    \\ fs [] \\ reverse (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `res6` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on`e` \\ fs[])
   THEN1 (Cases_on `n < LENGTH env` \\ fs [] \\ SRW_TAC [] [])
@@ -175,7 +175,7 @@ val evaluate_code_const_lemma = prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ REV_FULL_SIMP_TAC std_ss [] \\ fs [dec_clock_def]
   \\ fs [do_app_def]
-  \\ REVERSE (Cases_on `do_app_aux op a r`) \\ fs []
+  \\ reverse (Cases_on `do_app_aux op a r`) \\ fs []
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs [bvl_to_bvi_def] \\ fs [do_app_aux_def]

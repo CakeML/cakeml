@@ -637,7 +637,7 @@ val pos_val_MOD_0 = prove(
       (pos MOD 2 ** mc_conf.asm_config.code_alignment = 0) /\
       all_enc_ok mc_conf.asm_config mc_conf.f.encode labs pos code2 ==>
       (pos_val x pos code2 MOD 2 ** mc_conf.asm_config.code_alignment = 0)``,
-  REVERSE (Cases_on `backend_correct_alt mc_conf.f mc_conf.asm_config`)
+  reverse (Cases_on `backend_correct_alt mc_conf.f mc_conf.asm_config`)
   \\ asm_simp_tac pure_ss [] THEN1 fs []
   \\ HO_MATCH_MP_TAC (theorem "pos_val_ind")
   \\ rpt strip_tac \\ fs [pos_val_def] \\ fs [all_enc_ok_def]
@@ -751,7 +751,7 @@ val CallFFI_bytearray_lemma = prove(
   \\ qmatch_assum_rename_tac `read_bytearray (c1 + 1w) (LENGTH xs) s1 = SOME y`
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y`,`c1+1w`,`t1`,`s1`])
   \\ fs [] \\ rpt strip_tac \\ fs [mem_store_byte_aux_def]
-  \\ REVERSE (Cases_on `(write_bytearray (c1 + 1w) xs s1).mem (byte_align c1)`)
+  \\ reverse (Cases_on `(write_bytearray (c1 + 1w) xs s1).mem (byte_align c1)`)
   \\ fs [] THEN1
    (fs [mem_load_byte_aux_def]
     \\ Cases_on `s1.mem (byte_align c1)` \\ fs []

@@ -1,6 +1,4 @@
 open preamble;
-open pairTheory optionTheory alistTheory rich_listTheory;
-open miscTheory;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
 open smallStepTheory bigStepTheory replTheory;
 open terminationTheory;

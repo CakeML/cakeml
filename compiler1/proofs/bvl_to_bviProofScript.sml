@@ -539,7 +539,7 @@ val compile_int_thm = prove(
   ``!i env s. evaluate ([compile_int i],env,s) = (Rval [Number i],s)``,
   STRIP_TAC \\ completeInduct_on `Num (ABS i)`
   \\ REPEAT STRIP_TAC \\ fs [PULL_FORALL] \\ POP_ASSUM (K ALL_TAC)
-  \\ REVERSE (Cases_on `i`) \\ fs [] THEN1 EVAL_TAC
+  \\ reverse (Cases_on `i`) \\ fs [] THEN1 EVAL_TAC
   \\ (ONCE_REWRITE_TAC [compile_int_def] \\ fs [LET_DEF]
     \\ SRW_TAC [] [] THEN1
      (`n <= 1073741823` by DECIDE_TAC
@@ -860,7 +860,7 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_ok \\ fs []
     \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
     \\ rpt var_eq_tac
     \\ TRY (discharge_hyps >- (spose_not_then strip_assume_tac >> fs[]))
@@ -908,7 +908,7 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_ok \\ fs []
     \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
     \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs [GSYM PULL_FORALL]
     \\ TRY (
@@ -964,7 +964,7 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_ok \\ fs []
     \\ IMP_RES_TAC aux_code_installed_APPEND \\ SRW_TAC [] []
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
     \\ TRY (
       discharge_hyps >- (rpt strip_tac >> fs[])
@@ -1002,7 +1002,7 @@ val compile_correct = Q.prove(
     \\ `?d. c1 = [d]` by (Cases_on `c1` \\ fs [LENGTH_NIL]) \\ fs []
     \\ SRW_TAC [] []
     \\ `?res5 s5. evaluate ([x1],env,s) = (res5,s5)` by METIS_TAC [PAIR]
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ REPEAT STRIP_TAC
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
     \\ TRY (SRW_TAC [] [] \\ fs []
       \\ REPEAT STRIP_TAC \\ RES_TAC
@@ -1129,7 +1129,7 @@ val compile_correct = Q.prove(
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [PULL_FORALL]
     \\ `?res5 s5. evaluate (xs,env,s) = (res5,s5)` by METIS_TAC [PAIR]
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
     \\ first_x_assum (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
     THEN1 (
       REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH \\ fs [iEval_def]
@@ -1198,7 +1198,7 @@ val compile_correct = Q.prove(
         \\ SRW_TAC [] [] \\ fs [])
       \\ fs [] \\ STRIP_TAC
       THEN1 (UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM])
-      \\ REVERSE STRIP_TAC THEN1
+      \\ reverse STRIP_TAC THEN1
        (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
@@ -1293,7 +1293,7 @@ val compile_correct = Q.prove(
       \\ STRIP_TAC THEN1 (
         rpt var_eq_tac >>
         simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
-      \\ REVERSE STRIP_TAC THEN1
+      \\ reverse STRIP_TAC THEN1
        (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
@@ -1393,7 +1393,7 @@ val compile_correct = Q.prove(
       \\ STRIP_TAC THEN1 (
         rpt var_eq_tac >>
         simp[Abbr`b3`,adjust_bv_def,APPLY_UPDATE_THM] )
-      \\ REVERSE STRIP_TAC THEN1
+      \\ reverse STRIP_TAC THEN1
        (REPEAT STRIP_TAC \\ UNABBREV_ALL_TAC \\ fs [APPLY_UPDATE_THM]
         \\ SRW_TAC [] []
         \\ IMP_RES_TAC evaluate_refs_SUBSET \\ fs [SUBSET_DEF] \\ RES_TAC)
@@ -1593,7 +1593,7 @@ val compile_correct = Q.prove(
     \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs [PULL_FORALL]
     \\ `?res5 s5. evaluate (xs,env,s1) = (res5,s5)` by METIS_TAC [PAIR]
     \\ fs [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`) \\ fs []
-    \\ REVERSE (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `res5`) \\ fs [] \\ SRW_TAC [] []
     \\ first_x_assum (MP_TAC o Q.SPECL [`t1`,`b1`]) \\ fs []
     \\ TRY (REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH \\ fs [iEval_def]
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c`] \\ fs [] \\ NO_TAC)
@@ -1606,7 +1606,7 @@ val compile_correct = Q.prove(
       \\ TRY (fs [state_rel_def] \\ qexists_tac`array_size'` \\ simp[])
       \\ `t2.clock < ticks + 1` by (fs [state_rel_def] \\ rfs [])
       \\ fs []
-      \\ REVERSE (Cases_on `dest`)
+      \\ reverse (Cases_on `dest`)
       \\ fs [bvlSemTheory.find_code_def,find_code_def]
       THEN1
        (Cases_on `lookup x s5.code` \\ fs []
@@ -1628,7 +1628,7 @@ val compile_correct = Q.prove(
                  SOME (MAP (adjust_bv b2) args,HD c7)) /\
                aux_code_installed aux7 t2.code /\
                bEvery GoodHandleLet [body]` by ALL_TAC THEN1
-     (REVERSE (Cases_on `dest`) \\ fs [state_rel_def,find_code_def]
+     (reverse (Cases_on `dest`) \\ fs [state_rel_def,find_code_def]
       THEN1 (Cases_on `lookup x s5.code` \\ fs [] \\ Cases_on `x'` \\ fs []
         \\ SRW_TAC [] []
         \\ FIRST_X_ASSUM (qspecl_then

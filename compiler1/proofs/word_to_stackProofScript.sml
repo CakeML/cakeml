@@ -519,7 +519,7 @@ val read_bitmap_word_list = prove(
    (fs [word_msb_def]
     \\ (bits_to_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
           |> SIMP_RULE std_ss [] |> MP_CANON |> match_mp_tac) \\ fs []
-    \\ REVERSE (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
+    \\ reverse (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
     \\ pop_assum (fn th => simp_tac std_ss [Once th])
     \\ fs [EL_LENGTH_APPEND]) \\ fs []
   \\ `DROP (dimindex (:'a) - 1) (qs ++ [T]) =
@@ -685,7 +685,7 @@ val evaluate_wLive = Q.prove(
          FLOOKUP_FUPDATE_THM,DECIDE ``i < k ==> i <> k:num``]
   \\ `t.stack_space <= LENGTH t.stack` by decide_tac \\ fs [lookup_def]
   \\ fs [DROP_list_LUPDATE_lemma]
-  \\ REVERSE (rpt strip_tac)
+  \\ reverse (rpt strip_tac)
   THEN1
    (res_tac \\ rw [] \\ fs []
     \\ qpat_assum `xx = SOME v` (fn th => once_rewrite_tac [GSYM th])

@@ -2277,7 +2277,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ pop_assum mp_tac >> discharge_hyps >- (
          spose_not_then STRIP_ASSUME_TAC >> fs[] )
     \\ strip_tac
-    \\ REVERSE (Cases_on `v3`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `v3`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [] \\ rw[] \\ qexists_tac`ck` >> simp[] >>
             first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ FIRST_X_ASSUM (qspecl_then[`aux1'`,`t2`]mp_tac) >> simp[]
@@ -2320,7 +2320,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ strip_tac
     \\ imp_res_tac compile_SING >> rw[]
-    \\ REVERSE (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ SRW_TAC [] []
     \\ fs []
@@ -2364,7 +2364,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ strip_tac
     \\ imp_res_tac compile_SING >> rw[]
-    \\ REVERSE (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ rfs[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1'`]) \\ fs []
@@ -2391,7 +2391,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ IMP_RES_TAC compile_SING \\ fs []
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ fs [bEval_def]
-    \\ REVERSE (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ fs []
     \\ IMP_RES_TAC bEval_SING \\ fs [] \\ SRW_TAC [] []
@@ -2409,9 +2409,9 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs []
     \\ disch_then (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
-    \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
-    \\ REVERSE (Cases_on `e`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `e`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux3`]) \\ fs []
     \\ disch_then (MP_TAC o Q.SPECL [`t2`,`v'::env''`,`f2`]) \\ fs []
@@ -2503,7 +2503,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
     \\ IMP_RES_TAC compile_SING \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEval_def]
-    \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [] \\ qexists_tac `ck` >> rw [] \\ Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [] \\ SRW_TAC [] []
     \\ qexists_tac `ck` >> simp[]
@@ -3049,7 +3049,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ ASSUME_TAC (EXISTS_NOT_IN_refs |>
              SIMP_RULE std_ss [whileTheory.LEAST_EXISTS]) \\ fs [])
     THEN1
-     (REVERSE (REPEAT STRIP_TAC) THEN1
+     (reverse (REPEAT STRIP_TAC) THEN1
        (fs [state_rel_def,Abbr`t1refs`] \\ STRIP_TAC THEN1
          (Q.PAT_ASSUM `LIST_REL ppp s.globals t1.globals` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
@@ -3063,7 +3063,7 @@ val compile_correct = Q.store_thm("compile_correct",
         \\ IMP_RES_TAC v_rel_NEW_REF \\ fs [])
       \\ TRY (simp[] \\ NO_TAC)
       \\ MATCH_MP_TAC env_rel_APPEND
-      \\ REVERSE STRIP_TAC THEN1
+      \\ reverse STRIP_TAC THEN1
        (UNABBREV_ALL_TAC \\ fs []
         \\ MATCH_MP_TAC (env_rel_NEW_REF |> GEN_ALL) \\ fs [])
       \\ rw [LIST_REL_EL_EQN, LENGTH_GENLIST, LENGTH_MAP2, el_map2]
@@ -3120,7 +3120,7 @@ val compile_correct = Q.store_thm("compile_correct",
           METIS_TAC [PAIR,compile_SING]
     \\ fs [LET_DEF] \\ SRW_TAC [] []
     \\ Cases_on `LENGTH args > 0` >> fs []
-    \\ REVERSE (Cases_on `res6`) \\ fs []
+    \\ reverse (Cases_on `res6`) \\ fs []
     >- (res_tac >> rw[] >> fs[] >> rw[] >>
         imp_res_tac evaluate_app_helper >> fs [] >>
         metis_tac [])
@@ -3137,7 +3137,7 @@ val compile_correct = Q.store_thm("compile_correct",
     `evaluate (c8,env'',t1 with clock := s.clock + ck + ck') = (Rval v',inc_clock ck' t2)`
                 by (imp_res_tac evaluate_add_clock >>
                     fs [inc_clock_def])
-    \\ REVERSE (Cases_on `res5`) \\ fs [inc_clock_def]
+    \\ reverse (Cases_on `res5`) \\ fs [inc_clock_def]
     >- (rw[] >>
         imp_res_tac evaluate_app_helper2 >>
         rfs [] >>
@@ -3165,7 +3165,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp [bEval_def, bvlPropsTheory.evaluate_APPEND]
     \\ fs [] >> rw [ADD_ASSOC] >> rw [] >- metis_tac [SUBMAP_TRANS, inc_clock_def]
     \\ rfs []
-    \\ REVERSE (Cases_on `find_code (SOME (x + num_stubs)) (v' ++ [y]) t1.code`)
+    \\ reverse (Cases_on `find_code (SOME (x + num_stubs)) (v' ++ [y]) t1.code`)
     \\ fs []
     >- (Cases_on `x'` >>
         rw [inc_clock_def] >>
@@ -3209,7 +3209,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
-    \\ REVERSE (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
+    \\ reverse (Cases_on `p0`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (fs [] \\ qexists_tac `ck` >> rw [] >> Q.EXISTS_TAC `f2` \\ fs [] \\ NO_TAC)
     \\ fs [closSemTheory.find_code_def,bvlSemTheory.find_code_def]
     \\ Cases_on `FLOOKUP p1.code dest` \\ fs []
@@ -3326,7 +3326,7 @@ val compile_correct = Q.store_thm("compile_correct",
             fs [] >>
             rw [] >>
             qexists_tac `f1` >>
-            REVERSE (rw [])
+            reverse (rw [])
             >- (rw [bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>
                 metis_tac [arith_helper_lem])
             >- (fs [bvlSemTheory.dec_clock_def, closSemTheory.dec_clock_def] >>

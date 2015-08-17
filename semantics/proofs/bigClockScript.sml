@@ -4,7 +4,7 @@
 open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory evalPropsTheory determTheory;
-open miscLib boolSimps;
+open boolSimps;
 
 val _ = new_theory "bigClock";
 

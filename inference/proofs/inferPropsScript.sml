@@ -1,9 +1,6 @@
 open preamble;
-open rich_listTheory listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory typeSysPropsTheory;
-open miscLib BasicProvers
 
 local open evalPropsTheory typeSoundInvariantsTheory in
 val check_dup_ctors_cons = check_dup_ctors_cons;
@@ -1498,13 +1495,13 @@ val constrain_op_check_s = Q.prove (
  >- (match_mp_tac t_unify_check_s >>
      metis_tac[check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(miscLib.lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
-     first_assum(miscLib.match_exists_tac o concl) >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     first_assum(match_exists_tac o concl) >>
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [] TC_char)` by rw [check_t_def] >>
      metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
-     CONV_TAC(STRIP_QUANT_CONV(miscLib.lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
-     first_assum(miscLib.match_exists_tac o concl) >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``t_unify`` o fst o strip_comb o lhs))) >>
+     first_assum(match_exists_tac o concl) >>
      metis_tac[t_unify_check_s, t_unify_wfs, check_t_more2, arithmeticTheory.ADD_0])
  >- (match_mp_tac t_unify_check_s >>
      `!uvs tvs. check_t tvs uvs (Infer_Tapp [Infer_Tapp [] TC_char] (TC_name (Short "list")))` by rw [check_t_def] >>
@@ -3143,7 +3140,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
   fs[check_t_def]
   >-
     (fs[generalise_def]>>
-    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     fs[]>>
     first_assum match_mp_tac>>
     ntac 2 HINT_EXISTS_TAC >>
@@ -3152,7 +3149,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
   >-
     (imp_res_tac generalise_subst>>
     fs[generalise_def]>>
-    FULL_CASE_TAC>>fs[]
+    full_case_tac>>fs[]
     >-
       (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
       qpat_assum`A=b` sym_sub_tac>>
@@ -3175,7 +3172,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     qexists_tac`[]`>>fs[])
   >>
     fs[generalise_def]>>
-    qpat_assum`A=(a,b,t')` mp_tac>>LET_ELIM_TAC>>
+    qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     imp_res_tac generalise_subst>>
     first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
     rfs[]>>

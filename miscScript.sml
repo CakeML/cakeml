@@ -1,9 +1,14 @@
-open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib Parse
+open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
 open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.temp_tight_equality()
+
+(* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
+val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
+val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
+(* -- *)
 
 (* TODO: move/categorize *)
 

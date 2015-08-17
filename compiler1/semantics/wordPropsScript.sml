@@ -410,7 +410,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   (*Skip*)
   (fs[evaluate_def,s_key_eq_refl]>>rw[]>>HINT_EXISTS_TAC>>fs[s_key_eq_refl])>-
   (*Alloc*)
-  (fs[evaluate_def,alloc_def]>>REVERSE BasicProvers.EVERY_CASE_TAC>>
+  (fs[evaluate_def,alloc_def]>>reverse BasicProvers.EVERY_CASE_TAC>>
   (BasicProvers.EVERY_CASE_TAC>>
   IMP_RES_TAC gc_s_key_eq>>
   IMP_RES_TAC push_env_pop_env_s_key_eq>>

@@ -191,7 +191,7 @@ val do_app_thm = Q.prove(
    (do_app op xs s1 = Rval (v,s2)) ==>
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
           v_rel v w /\ state_rel s2 t2`,
-  REVERSE (Cases_on `op`) \\ rpt STRIP_TAC
+  reverse (Cases_on `op`) \\ rpt STRIP_TAC
   \\ TRY (fs[do_app_def] >> NO_TAC)
   THEN1 (* GreaterEq *)
    (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
@@ -543,7 +543,7 @@ val shift_correct = prove(
     \\ fs [SUBSET_DEF,IN_DEF,fv_def]
     \\ Cases_on `l + m <= n`
     THEN1 (fs [env_ok_def] \\ rfs [] \\ `F` by DECIDE_TAC)
-    \\ REVERSE (`get_var m l i n < LENGTH env' /\
+    \\ reverse (`get_var m l i n < LENGTH env' /\
         v_rel (EL n env) (EL (get_var m l i n) env')` by ALL_TAC)
     THEN1 (fs [] \\ SRW_TAC [] [] \\ fs [])
     \\ fs [get_var_def,env_ok_def]
@@ -744,7 +744,7 @@ val shift_correct = prove(
     \\ fs [SUBSET_DEF,IN_DEF,fv_def]
     \\ REPEAT STRIP_TAC
     \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ fs []
-    \\ REVERSE (REPEAT STRIP_TAC) THEN1
+    \\ reverse (REPEAT STRIP_TAC) THEN1
      (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ2_TAC
       \\ UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
       \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ fs [])
@@ -843,11 +843,11 @@ val shift_correct = prove(
     \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock 1 t2`,`0`,
          `LENGTH v'`,`LN`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (fs [] \\ REVERSE (REPEAT STRIP_TAC)
+     (fs [] \\ reverse (REPEAT STRIP_TAC)
       THEN1 (fs [state_rel_def,dec_clock_def])
       \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
       \\ SIMP_TAC std_ss [env_ok_def]
-      \\ REVERSE (Cases_on `x < LENGTH v'`) \\ fs [] THEN1 DECIDE_TAC
+      \\ reverse (Cases_on `x < LENGTH v'`) \\ fs [] THEN1 DECIDE_TAC
       \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
     \\ REPEAT STRIP_TAC \\ fs [] \\ rfs [])
   THEN1 (* evaluate_app NIL *)
@@ -858,7 +858,7 @@ val shift_correct = prove(
     \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ fs []
     \\ Cases_on `x` \\ fs []
     THEN1 (* Partial_app *)
-     (REVERSE (`?z. (dest_closure loc_opt f' (y::ys) = SOME (Partial_app z)) /\
+     (reverse (`?z. (dest_closure loc_opt f' (y::ys) = SOME (Partial_app z)) /\
            v_rel v z` by ALL_TAC) THEN1
        (fs [] \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
         \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
@@ -928,11 +928,11 @@ val shift_correct = prove(
         \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
         \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
       \\ REPEAT STRIP_TAC \\ fs []
-      \\ REVERSE (Cases_on `q`) \\ fs []
+      \\ reverse (Cases_on `q`) \\ fs []
       \\ SRW_TAC [] [] \\ fs []
-      \\ REVERSE (Cases_on `a`) \\ fs []
+      \\ reverse (Cases_on `a`) \\ fs []
       \\ SRW_TAC [] [] \\ fs []
-      \\ REVERSE (Cases_on `t`) \\ fs []
+      \\ reverse (Cases_on `t`) \\ fs []
       \\ SRW_TAC [] [] \\ fs []
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
       \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
@@ -994,11 +994,11 @@ val shift_correct = prove(
       \\ fs [v_rel_simp] \\ REPEAT STRIP_TAC
       \\ fs [])
     \\ REPEAT STRIP_TAC \\ fs []
-    \\ REVERSE (Cases_on `q''`) \\ fs []
+    \\ reverse (Cases_on `q''`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
-    \\ REVERSE (Cases_on `a`) \\ fs []
+    \\ reverse (Cases_on `a`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
-    \\ REVERSE (Cases_on `t`) \\ fs []
+    \\ reverse (Cases_on `t`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []

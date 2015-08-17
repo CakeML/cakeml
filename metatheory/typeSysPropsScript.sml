@@ -1,7 +1,6 @@
 (* Theorems about the type system. *)
 
-open preamble rich_listTheory optionTheory;
-open miscTheory alistTheory finite_mapTheory;
+open preamble
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 open astPropsTheory;
 
@@ -47,7 +46,7 @@ val type_env_list_rel_append = store_thm("type_env_list_rel_append",
   PairCases_on`h'` >>
   fs [bind_var_list2_def] >>
   PairCases_on`h`>>simp[] >>
-  miscLib.rator_x_assum`type_env`mp_tac >>
+  rator_x_assum`type_env`mp_tac >>
   simp[Once type_v_cases] >>
   rw[bind_tenv_def] >>
   metis_tac[])

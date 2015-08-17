@@ -15,7 +15,7 @@ val evaluate_pSeq = prove(
 
 val evaluate_simp = prove(
   ``!c1 s c2. evaluate (simp c1 c2,s) = evaluate (Seq c1 c2,s)``,
-  recInduct evaluate_ind \\ REVERSE (REPEAT STRIP_TAC) THEN1
+  recInduct evaluate_ind \\ reverse (REPEAT STRIP_TAC) THEN1
    (Cases_on `handler` \\ fs [simp_def,evaluate_pSeq]
     \\ Cases_on `x` \\ fs [simp_def,evaluate_pSeq]
     \\ fs [evaluate_def]
