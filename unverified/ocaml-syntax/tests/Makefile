@@ -3,7 +3,7 @@ FILES = $(basename $(wildcard *.ml))
 
 all: $(FILES)
 
-$(FILES):
+$(FILES): ../ocaml2cakeml
 	ocamlfind opt -o $@ $@.ml
 	../ocaml2cakeml $@.ml > $@.cml
 	[ -f $@-patch ] && ./$@-patch || :
@@ -18,4 +18,8 @@ CAKE = ~/cakeml-v1-beta/cake
 	cat $< | $(CAKE) > $@
 	grep "error>" $@ || echo "Success"
 
-test: $(TESTS)
+%.cml: ../ocaml2cakeml
+	../ocaml2cakeml $@.ml > $@.cml
+	[ -f $@-patch ] && ./$@-patch || :
+
+test: $(TESTS) all
