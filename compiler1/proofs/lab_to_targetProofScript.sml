@@ -359,13 +359,12 @@ val state_rel_def = Define `
     reg_ok s1.ptr_reg mc_conf.asm_config /\ (mc_conf.ptr_reg = s1.ptr_reg) /\
     reg_ok s1.len_reg mc_conf.asm_config /\ (mc_conf.len_reg = s1.len_reg) /\
     reg_ok s1.link_reg mc_conf.asm_config /\
-    (!ms2 k index new_bytes new_io t1 x.
+    (!ms2 k index new_bytes t1 x.
        mc_conf.f.state_rel
          (t1 with pc := p - n2w ((3 + index) * ffi_offset)) ms2 /\
        (read_bytearray (t1.regs s1.ptr_reg) (LENGTH new_bytes)
-         (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) = SOME x) /\
-       (call_FFI index x (option_ldrop k s1.io_events) = (new_bytes,new_io)) /\
-       new_io <> NONE ==>
+         (\a. if a ∈ t1.mem_domain then SOME (t1.mem a) else NONE) =
+           SOME x) ==>
        mc_conf.f.state_rel
          (t1 with
          <|regs := (\a. get_reg_value (s1.io_regs k a) (t1.regs a) I);
@@ -923,6 +922,11 @@ val Inst_lemma = prove(
     \\ fs [APPLY_UPDATE_THM] \\ rw [word_loc_val_def])
   \\ cheat);
 
+val state_rel_ignore_io_events = prove(
+  ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
+    state_rel (mc_conf,code2,labs,p,T) (s1 with io_events := io) t1 ms1``,
+  fs [state_rel_def] \\ rpt strip_tac \\ res_tac \\ rfs [] \\ fs []);
+
 val compile_correct = Q.prove(
   `!s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
      (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\
@@ -1377,6 +1381,121 @@ val compile_correct = Q.prove(
            WORD_ADD_SUB] \\ fs [])
     \\ `~(mc_conf.f.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
     \\ fs [state_rel_def,jump_to_offset_def,asmSemTheory.upd_pc_def]));
+
+(* relating observable semantics *)
+
+val evaluate_with_io_def = Define `
+  evaluate_with_io s1 io k =
+    labSem$evaluate (s1 with <| io_events := io ; clock := k |> )`;
+
+val lab_sem_def = Define `
+  (lab_sem s1 (Terminate io_list) <=>
+     ?k s2. evaluate_with_io s1 (SOME (fromList io_list)) k = (Result,s2) /\
+            s2.io_events = SOME LNIL) /\
+  (lab_sem s1 (Diverge io_trace) <=>
+     (!k. ?s2. (evaluate_with_io s1 (SOME io_trace) k = (TimeOut,s2)) /\
+               s2.io_events <> NONE) /\
+     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
+           ?k. ((SND (evaluate_with_io s1 (SOME io) k)).io_events = NONE))) /\
+  (lab_sem s1 Fail <=>
+     ?k io. FST (evaluate_with_io s1 (SOME io) k) = Error Internal)`
+
+val init_ok_def = Define `
+  init_ok (mc_conf, p) s ms =
+    ?code2 labs t1.
+      state_rel (mc_conf,code2,labs,p,T) s t1 ms`
+
+val evaluate_internal_error = prove(
+  ``!k k'.
+      FST (evaluate mc_conf (SOME io) k ms) <> TimeOut ==>
+      evaluate mc_conf (SOME io) (k + k') ms =
+      evaluate mc_conf (SOME io) k ms``,
+  cheat);
+
+val evaluate_TimeOut = prove(
+  ``!k k'.
+      evaluate mc_conf (SOME io) (k + k') ms = (TimeOut,s,i) /\ i <> NONE ==>
+      FST (evaluate mc_conf (SOME io) k ms) = TimeOut``,
+  cheat);
+
+val evaluate_TimeOut_or_not = prove(
+  ``FST (evaluate mc_conf (SOME io) k ms) <> TimeOut /\
+    FST (evaluate mc_conf (SOME l) k ms) = TimeOut ==>
+    FST (evaluate mc_conf (SOME io) k ms) = Error IO_mismatch``,
+  cheat);
+
+val machine_sem_EQ_lab_sem = prove(
+  ``!(mc_conf: ('a,'state,'b) machine_config) p ms s.
+      backend_correct_alt mc_conf.f mc_conf.asm_config /\
+      init_ok (mc_conf,p) s ms /\ ~(Fail IN lab_sem s) ==>
+      machine_sem mc_conf ms = lab_sem s``,
+  fs [init_ok_def,IN_DEF,lab_sem_def] \\ rpt strip_tac
+  \\ fs [FUN_EQ_THM] \\ reverse Cases
+  \\ fs [machine_sem_def,lab_sem_def,evaluate_with_io_def]
+  \\ rpt strip_tac
+  THEN1 (* Fail *)
+   (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ rpt strip_tac
+    \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+    \\ mp_tac (Q.SPEC `s with <|io_events := SOME io; clock := k|>`
+         compile_correct) \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`mc_conf`,`code2`,`labs`,`t1`,`ms`] \\ fs []
+    \\ rpt strip_tac
+    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+    \\ rfs [evaluate_internal_error]
+    \\ Cases_on `r.io_events = NONE` \\ fs [])
+  THEN1 (* Terminate *)
+   (reverse EQ_TAC \\ rpt strip_tac
+    THEN1
+     (mp_tac (Q.SPEC `s with <|io_events := SOME (fromList l); clock := k|>`
+         compile_correct) \\ fs [] \\ strip_tac
+      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+      \\ rpt strip_tac \\ qexists_tac `k+k'` \\ fs [])
+    \\ mp_tac (Q.SPEC `s with <|io_events := SOME (fromList l); clock := k|>`
+         compile_correct) \\ fs [] \\ strip_tac
+    \\ Cases_on `evaluate
+          (s with <|io_events := SOME (fromList l); clock := k|>)` \\ fs []
+    \\ first_x_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1
+     (first_x_assum (mp_tac o Q.SPECL [`k`,`fromList l`]) \\ fs []
+      \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+    \\ rpt strip_tac \\ rfs [evaluate_internal_error]
+    \\ rw [] \\ Cases_on `r.io_events = NONE` \\ fs [] \\ rw []
+    \\ qexists_tac `k` \\ fs [])
+  THEN1 (* Diverge *)
+   (reverse EQ_TAC \\ rpt strip_tac
+    THEN1
+     (first_x_assum (mp_tac o Q.SPEC `k:num`) \\ rpt strip_tac
+      \\ Cases_on `evaluate (s with <|io_events := SOME l; clock := k|>)`
+      \\ mp_tac (Q.SPEC `s with <|io_events := SOME l; clock := k|>`
+           compile_correct) \\ fs [] \\ strip_tac
+      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+      \\ rpt strip_tac \\ rw [] \\ imp_res_tac evaluate_TimeOut)
+    THEN1 cheat (* probably true *)
+    THEN1 cheat
+    THEN1
+     (first_x_assum (mp_tac o Q.SPEC `io`)
+      \\ fs [] \\ rpt strip_tac
+      \\ first_x_assum (mp_tac o Q.SPEC `k`)
+      \\ rpt strip_tac
+      \\ imp_res_tac evaluate_TimeOut_or_not
+      \\ qexists_tac `k` \\ fs []
+      \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+      \\ mp_tac (Q.SPEC `s with <|io_events := SOME io; clock := k|>`
+           compile_correct) \\ fs [] \\ strip_tac
+      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+      THEN1
+       (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ fs []
+        \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+      \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
+      \\ rfs [evaluate_internal_error] \\ fs [] \\ rw []
+      \\ cheat)));
+
 
 (*
 

@@ -83,15 +83,16 @@ val evaluate_def = Define `
 (* -- observable -- *)
 
 val machine_sem_def = Define `
-  (machine_sem config ms (Terminate io_list) =
+  (machine_sem config ms (Terminate io_list) <=>
      ?k ms'.
-       (evaluate config (SOME (fromList io_list)) k ms = (Result,ms',SOME LNIL))) /\
-  (machine_sem config ms (Diverge io_trace) =
+       evaluate config (SOME (fromList io_list)) k ms =
+       (Result,ms',SOME LNIL)) /\
+  (machine_sem config ms (Diverge io_trace) <=>
      (!k. (FST (evaluate config (SOME io_trace) k ms) = TimeOut)) /\
      (!io. LPREFIX io io_trace /\ io <> io_trace ==>
            ?k. (FST (evaluate config (SOME io) k ms) <> TimeOut))) /\
-  (machine_sem config ms Fail =
-     ?k io. FST (evaluate config io k ms) = Error Internal)`
+  (machine_sem config ms Fail <=>
+     ?k io. FST (evaluate config (SOME io) k ms) = Error Internal)`
 
 (* Note: we need to prove that every well-typed program has some
    behaviour, i.e. machine_sem config ms should never be the empty set
