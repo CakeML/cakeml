@@ -5,10 +5,10 @@ all: $(FILES)
 clean:
 	rm -f *.cmi *.cmx *.o $(FILES)
 
-typedOCamlToCakeML:
+typedOCamlToCakeML: preprocessor.ml typedOCamlToCakeML.ml
 	ocamlfind opt -o typedOCamlToCakeML -package compiler-libs.common -package batteries -linkpkg preprocessor.ml typedOCamlToCakeML.ml
 
-formatted:
+formatted: preprocessor.ml formatDecl.ml formatted.ml
 	ocamlfind opt -o formatted -package compiler-libs.common -package batteries -linkpkg preprocessor.ml formatDecl.ml formatted.ml
 
 .PHONY: all clean
