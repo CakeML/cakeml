@@ -841,5 +841,5 @@ module Main = struct
 end
 
 let testit = Main.testit
-let () = print_endline testit
+let _ = print_endline testit
 let doit = Main.loop 24

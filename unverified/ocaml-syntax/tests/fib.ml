@@ -16,5 +16,5 @@ module Main = struct
 end
 
 let x = "Start"
-let () = Main.doit 1
+let x = Main.doit 1
 let x = "Stop"
