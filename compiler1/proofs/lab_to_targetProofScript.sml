@@ -243,7 +243,7 @@ val lab_lookup_IMP = prove(
 
 val line_ok_def = Define `
   (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
-     if EVEN pos then (l = 0) else (l = 1)) /\
+     EVEN pos /\ (l = 0)) /\
   (line_ok c enc labs pos (Asm b bytes l) <=>
      (bytes = enc b) /\ (LENGTH bytes = l) /\ asm_ok b c) /\
   (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
@@ -269,8 +269,8 @@ val line_ok_def = Define `
 
 val all_enc_ok_def = Define `
   (all_enc_ok c enc labs pos [] = T) /\
-  (all_enc_ok c enc labs pos ((Section k [])::xs) =
-     all_enc_ok c enc labs (if EVEN pos then pos else pos+1) xs) /\
+  (all_enc_ok c enc labs pos ((Section k [])::xs) <=>
+     EVEN pos /\ all_enc_ok c enc labs pos xs) /\
   (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
      line_ok c enc labs pos y /\
      all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
