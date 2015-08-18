@@ -8,6 +8,8 @@ open Types
 open Typedtree
 open TypedtreeMap
 
+open PatternZipper
+
 (* Fixes to typed AST *)
 
 let unit_type_expr =
@@ -612,3 +614,105 @@ let rec preprocess_valrec_str_item str =
     | _ -> { str with str_desc = Tstr_value (r, oldbs); } :: strs
     )
   | _ -> [str]
+
+module ValrecMapArgument = struct
+  include DefaultMapArgument
+  let enter_structure ({ str_items; _ } as str) =
+    { str with
+      str_items =
+        BatList.concat (BatList.map preprocess_valrec_str_item str_items);
+    }
+end
+module ValrecMap = MakeMap (ValrecMapArgument)
+
+let vb_from_zipper basevb tmpident (((i, n), patctxt) as z) =
+  { basevb with
+    vb_pat = { basevb.vb_pat with
+      pat_desc = Tpat_var (i, n);
+      pat_type = patctxt.patctxt_type;
+    };
+    vb_expr = { basevb.vb_expr with
+      exp_desc = Texp_match ({
+        exp_desc =
+          Texp_ident (Pident tmpident,
+                      mknoloc (Longident.Lident tmpident.name), {
+            val_type = patctxt.patctxt_type;
+            val_kind = Val_reg;
+            val_loc = Location.none;
+            val_attributes = [];
+          });
+        exp_loc = Location.none;
+        exp_extra = [];
+        exp_type = basevb.vb_expr.exp_type;
+        exp_env = Env.empty;
+        exp_attributes = [];
+      }, [{
+        c_lhs = pattern_of_zipper z;
+        c_guard = None;
+        c_rhs =
+          let t = (inner_pattern_context patctxt).patctxt_type in
+          {
+            exp_desc = Texp_ident (Pident i,
+                                   mknoloc (Longident.Lident n.txt), {
+              val_type = t;
+              val_kind = Val_reg;
+              val_loc = Location.none;
+              val_attributes = [];
+            });
+            exp_loc = Location.none;
+            exp_extra = [];
+            exp_type = t;
+            exp_env = Env.empty;
+            exp_attributes = [];
+          };
+      }], [], Partial);
+      exp_type = patctxt.patctxt_type;
+    };
+  }
+
+let preprocess_valpat_value_binding vb =
+  match vb.vb_pat.pat_desc with
+  | Tpat_any | Tpat_var _ -> [vb]
+  | _ ->
+    let tmpname = "tmp__" in
+    let tmpnameloc = mkloc tmpname vb.vb_pat.pat_loc in
+    let tmpident = Ident.create tmpname in
+    let vb' = { vb with
+      vb_pat = { vb.vb_pat with pat_desc = Tpat_var (tmpident, tmpnameloc); };
+    } in
+    let zs = pattern_zippers vb.vb_pat in
+    let vbs = BatList.map (vb_from_zipper vb tmpident) zs in
+    vb' :: vbs
+
+let preprocess_valpat_value_bindings =
+  BatList.concat % BatList.map preprocess_valpat_value_binding
+
+let preprocess_valpat_str_item str =
+  match str.str_desc with
+  | Tstr_value (Nonrecursive, bs) ->
+    let bs' = preprocess_valpat_value_bindings bs in
+    BatList.map (fun b -> { str with
+      str_desc = Tstr_value (Nonrecursive, [b]);
+    }) bs'
+  | _ -> [str]
+
+module ValpatMapArgument = struct
+  include DefaultMapArgument
+  let enter_structure ({ str_items; _ } as str) =
+    { str with
+      str_items =
+        BatList.concat (BatList.map preprocess_valpat_str_item str_items);
+    }
+end
+module ValpatMap = MakeMap (ValpatMapArgument)
+
+module PreprocessorMapArgument = struct
+  include DefaultMapArgument
+  let enter_pattern = RecordMapArgument.enter_pattern
+  let enter_expression = MatchMapArgument.enter_expression
+                      %> RecordMapArgument.enter_expression
+  let enter_structure = RecordMapArgument.enter_structure
+                     %> ValrecMapArgument.enter_structure
+                     %> ValpatMapArgument.enter_structure
+end
+module PreprocessorMap = MakeMap (PreprocessorMapArgument)

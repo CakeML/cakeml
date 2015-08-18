@@ -227,14 +227,18 @@ let rec print_pattern prec pat =
   | Tpat_var (ident, name) -> return @@ Lit (fix_var_name name.txt)
   | Tpat_constant c -> return @@ print_constant c
   | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
-                     return @@ paren @@ print_tupled ps'
+                     return @@ print_tupled ps'
   | Tpat_construct (_, desc, ps) -> print_construct prec print_pattern desc ps
   | _ -> Bad "Some pattern syntax not implemented"
 
+let pattern_is_trivial { pat_desc; _ } =
+  match pat_desc with
+  | Tpat_any | Tpat_var _ -> true
+  | _ -> false
 (* Pattern can be matched on LHS; no need for case expression *)
 let case_is_trivial c =
-  match c.c_lhs.pat_desc, c.c_guard with
-  | (Tpat_any | Tpat_var _), None -> true
+  match c.c_lhs, c.c_guard with
+  | p, None when pattern_is_trivial p -> true
   | _ -> false
 
 let rec print_expression casesfollow prec expr =
@@ -355,12 +359,12 @@ and print_value_binding first_binding rec_flag vb =
         reduce_fn (lastc.c_lhs :: acc) nextc
       | _ ->
         mapM (print_pattern 0) (BatList.rev acc) >>= fun vs ->
-        print_pattern 2 lastc.c_lhs >>= fun pat ->
+        print_pattern 2 lastc.c_lhs >>= fun last_pat ->
         print_expression false 0 lastc.c_rhs >>= fun exp ->
         return @@ Box (Hovp, indent,
           [Lit keyword; sp; pat] @
           BatList.concat (BatList.map (fun x -> [sp; x]) vs) @
-          [sp; pat; sp; Lit "="; sp; exp]
+          [sp; last_pat; sp; Lit "="; sp; exp]
         )
     in
     reduce_fn [] c
@@ -532,9 +536,7 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
-let str = RecordMap.map_structure (MatchMap.map_structure typedtree)
-let str_items =
-  BatList.concat (BatList.map preprocess_valrec_str_item str.str_items)
-let _ = output_result (print_str_items str_items)
+let str = PreprocessorMap.map_structure typedtree
+let _ = output_result (print_str_items str.str_items)
 (*let () = Printtyped.implementation Format.std_formatter
   { typedtree with str_items; }*)
