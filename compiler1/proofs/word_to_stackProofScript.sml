@@ -6,13 +6,6 @@ val _ = new_theory "word_to_stackProof";
 
 (* TODO: move? *)
 
-val SORTED_FILTER = Q.store_thm("SORTED_FILTER",
-  `∀R ls. transitive R ⇒ SORTED R ls ⇒ SORTED R (FILTER P ls)`,
-  HO_MATCH_MP_TAC SORTED_IND >>
-  rw[SORTED_DEF] >> fs[] >>
-  rfs[SORTED_EQ,MEM_FILTER] >>
-  rw[] >> metis_tac[transitive_def])
-
 val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
   ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
   Induct \\ fs [] \\ Cases_on `xs` \\ fs []
@@ -699,7 +692,7 @@ val evaluate_wLive = Q.prove(
     conj_tac >-(
       match_mp_tac transitive_inv_image >>
       ACCEPT_TAC transitive_LESS ) >>
-    match_mp_tac (MP_CANON SORTED_FILTER) >>
+    match_mp_tac (MP_CANON sorted_filter) >>
     conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
