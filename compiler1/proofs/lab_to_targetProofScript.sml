@@ -920,7 +920,7 @@ val Inst_lemma = prove(
         dec_clock_def,asmSemTheory.upd_reg_def,labSemTheory.upd_reg_def]
     \\ rpt strip_tac \\ rfs [] \\ res_tac \\ fs [GSYM word_add_n2w]
     \\ fs [APPLY_UPDATE_THM] \\ rw [word_loc_val_def])
-  \\ cheat);
+  \\ cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));
 
 val state_rel_ignore_io_events = prove(
   ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
@@ -1384,64 +1384,19 @@ val compile_correct = Q.prove(
 
 (* relating observable semantics *)
 
-val evaluate_with_io_def = Define `
-  evaluate_with_io s1 io k =
-    labSem$evaluate (s1 with <| io_events := io ; clock := k |> )`;
-
-val lab_sem_def = Define `
-  (lab_sem s1 (Terminate io_list) <=>
-     ?k s2. evaluate_with_io s1 (SOME (fromList io_list)) k = (Result,s2) /\
-            s2.io_events = SOME LNIL) /\
-  (lab_sem s1 (Diverge io_trace) <=>
-     (!k. ?s2. (evaluate_with_io s1 (SOME io_trace) k = (TimeOut,s2)) /\
-               s2.io_events <> NONE) /\
-     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. ((SND (evaluate_with_io s1 (SOME io) k)).io_events = NONE))) /\
-  (lab_sem s1 Fail <=>
-     ?k io. FST (evaluate_with_io s1 (SOME io) k) = Error Internal)`
-
 val init_ok_def = Define `
   init_ok (mc_conf, p) s ms =
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p,T) s t1 ms`
 
-val evaluate_internal_error = prove(
-  ``!k k'.
-      FST (evaluate mc_conf (SOME io) k ms) <> TimeOut ==>
-      evaluate mc_conf (SOME io) (k + k') ms =
-      evaluate mc_conf (SOME io) k ms``,
-  cheat);
-
-val evaluate_TimeOut = prove(
-  ``!k k'.
-      evaluate mc_conf (SOME io) (k + k') ms = (TimeOut,s,i) /\ i <> NONE ==>
-      FST (evaluate mc_conf (SOME io) k ms) = TimeOut``,
-  cheat);
-
-val evaluate_TimeOut_or_not = prove(
-  ``FST (evaluate mc_conf (SOME io) k ms) <> TimeOut /\
-    FST (evaluate mc_conf (SOME l) k ms) = TimeOut ==>
-    FST (evaluate mc_conf (SOME io) k ms) = Error IO_mismatch``,
-  cheat);
-
-val evaluate_IO_mismatch = prove(
-  ``evaluate mc_conf (SOME io) k ms = (Error IO_mismatch,ms2,new_io) ==>
-    (new_io = NONE)``,
-  cheat);
-
-val evaluate_io_events_NONE_IMP = prove(
-  ``evaluate (s with <|io_events := SOME io; clock := k|>) = (q,r) /\
-    r.io_events = NONE ==> q = Error IO_mismatch``,
-  cheat);
-
-val machine_sem_EQ_lab_sem = prove(
+val machine_sem_EQ_sem = prove(
   ``!(mc_conf: ('a,'state,'b) machine_config) p ms s.
       backend_correct_alt mc_conf.f mc_conf.asm_config /\
-      init_ok (mc_conf,p) s ms /\ ~(Fail IN lab_sem s) ==>
-      machine_sem mc_conf ms = lab_sem s``,
-  fs [init_ok_def,IN_DEF,lab_sem_def] \\ rpt strip_tac
+      init_ok (mc_conf,p) s ms /\ ~(Fail IN sem s) ==>
+      machine_sem mc_conf ms = sem s``,
+  fs [init_ok_def,IN_DEF,labSemTheory.sem_def] \\ rpt strip_tac
   \\ fs [FUN_EQ_THM] \\ reverse Cases
-  \\ fs [machine_sem_def,lab_sem_def,evaluate_with_io_def]
+  \\ fs [machine_sem_def,labSemTheory.sem_def,evaluate_with_io_def]
   \\ rpt strip_tac
   THEN1 (* Fail *)
    (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ rpt strip_tac
@@ -1451,7 +1406,7 @@ val machine_sem_EQ_lab_sem = prove(
     \\ Q.LIST_EXISTS_TAC [`mc_conf`,`code2`,`labs`,`t1`,`ms`] \\ fs []
     \\ rpt strip_tac
     THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rfs [evaluate_internal_error]
+    \\ rfs [evaluate_without_TimeOut]
     \\ Cases_on `r.io_events = NONE` \\ fs [])
   THEN1 (* Terminate *)
    (reverse EQ_TAC \\ rpt strip_tac
@@ -1471,7 +1426,7 @@ val machine_sem_EQ_lab_sem = prove(
     THEN1
      (first_x_assum (mp_tac o Q.SPECL [`k`,`fromList l`]) \\ fs []
       \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rpt strip_tac \\ rfs [evaluate_internal_error]
+    \\ rpt strip_tac \\ rfs [evaluate_without_TimeOut]
     \\ rw [] \\ Cases_on `r.io_events = NONE` \\ fs [] \\ rw []
     \\ qexists_tac `k` \\ fs [])
   THEN1 (* Diverge *)
@@ -1523,7 +1478,7 @@ val machine_sem_EQ_lab_sem = prove(
        (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ fs []
         \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
       \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
-      \\ rfs [evaluate_internal_error] \\ fs [] \\ rw [] \\ fs []
+      \\ rfs [evaluate_without_TimeOut] \\ fs [] \\ rw [] \\ fs []
       \\ imp_res_tac evaluate_IO_mismatch \\ fs [])));
 
 (*
