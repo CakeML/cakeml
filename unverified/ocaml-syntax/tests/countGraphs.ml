@@ -119,7 +119,7 @@ let refine size classes connected =
     if merged then
       true, rev cls :: classes
     else
-      let x = List.hd cls in
+      let x :: _ = cls in
       if sizeMatch x then
         true, fold cls (fun x y -> x :: y) [size] :: classes
       else
