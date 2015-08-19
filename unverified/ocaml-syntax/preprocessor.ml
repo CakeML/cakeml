@@ -35,96 +35,6 @@ let unit_constr_desc =
     cstr_attributes = [];
   }
 
-(*
-oldbs: accumulator for possibly modified existing bindings. Only the LHS is
-  changed at this stage.
-newbs: accumulator for new bindings
-sub_fn: accumulator for function to substitute expressions like `x__ ()` for
-  `x` in oldbs. This is applied at the base case in order to deal with mutual
-  recursion.
-*)
-let rec vb_inner oldbs newbs sub_fn = function
-  | [] -> BatList.rev_map sub_fn oldbs, BatList.rev newbs
-  | vb :: vbs ->
-    match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc with
-    (* Rephrase recursive value bindings to turn them into functions taking
-       unit. *)
-    | exp_desc, Tpat_var (ident, name) when
-      (match exp_desc, vb.vb_pat.pat_desc with
-      | Texp_function (_,_,_), _ -> false
-      | _ -> true
-      ) ->
-      let new_name = name.txt ^ "__" in
-      let new_ident = Ident.create new_name in
-      let new_pat_desc = Tpat_var (new_ident, { name with txt = new_name }) in
-      let new_subexpr = Texp_apply ({ vb.vb_expr with
-        exp_desc = Texp_ident (Pident new_ident,
-                               mknoloc (Longident.Lident new_name), {
-          val_type = { vb.vb_pat.pat_type with
-            desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cunknown);
-          };
-          val_kind = Val_reg;
-          val_loc = Location.none;
-          val_attributes = [];
-        }); },
-        [("", Some {
-            exp_desc = Texp_construct (mknoloc (Longident.Lident "()"),
-                                       unit_constr_desc, []);
-            exp_loc = Location.none;
-            exp_extra = [];
-            exp_type = unit_type_expr;
-            exp_env = vb.vb_expr.exp_env;
-            exp_attributes = [];
-          }, Required)]
-      ) in
-
-      let module MyMapArgument : MapArgument = struct
-        include DefaultMapArgument
-        let leave_expression expr =
-          match expr.exp_desc with
-          | Texp_ident (Pident ident', _, _) when ident = ident' ->
-            { expr with exp_desc = new_subexpr; }
-          | _ -> expr
-      end in
-      let module MyMap = MakeMap(MyMapArgument) in
-
-      let vb' = { vb with
-        vb_pat = { vb.vb_pat with pat_desc = new_pat_desc };
-        vb_expr = { vb.vb_expr with
-          exp_desc = Texp_function ("", [{
-            c_lhs = {
-              pat_desc = Tpat_any;
-              pat_loc = Location.none;
-              pat_extra = [];
-              pat_type = unit_type_expr;
-              pat_env = vb.vb_expr.exp_env;
-              pat_attributes = [];
-            };
-            c_guard = None;
-            c_rhs = vb.vb_expr;
-          }], Total);
-          exp_type = {
-            desc = Tarrow ("", unit_type_expr, vb.vb_expr.exp_type, Cunknown);
-            level = 0; id = 0;
-          };
-        };
-      } in
-
-      let sub_fn' = (fun b -> { b with
-        vb_expr = MyMap.map_expression b.vb_expr }) % sub_fn in
-
-      let newb = { vb with
-        vb_expr = { vb.vb_expr with exp_desc = new_subexpr; };
-      } in
-      vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
-    | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
-
-let preprocess_valrec_value_bindings = function
-  (* Rephrase recursive values *)
-  | Recursive -> vb_inner [] [] (fun x -> x)
-  (* Split non-recursive definitions joined by `and` *)
-  | Nonrecursive -> fun bs -> [], bs
-
 let rec preprocess_match expr cs es p =
   match cs with
   | [] -> []
@@ -598,6 +508,103 @@ module RecordMapArgument : MapArgument = struct
 end
 module RecordMap = MakeMap (RecordMapArgument)
 
+(*
+oldbs: accumulator for possibly modified existing bindings. Only the LHS is
+  changed at this stage.
+newbs: accumulator for new bindings
+sub_fn: accumulator for function to substitute expressions like `x__ ()` for
+  `x` in oldbs. This is applied at the base case in order to deal with mutual
+  recursion.
+*)
+let rec vb_inner oldbs newbs sub_fn = function
+  | [] -> BatList.rev_map sub_fn oldbs, BatList.rev newbs
+  | vb :: vbs ->
+    match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc with
+    (* Rephrase recursive value bindings to turn them into functions taking
+       unit. *)
+    | exp_desc, Tpat_var (ident, name) when
+      (match exp_desc, vb.vb_pat.pat_desc with
+      | Texp_function (_,_,_), _ -> false
+      | _ -> true
+      ) ->
+      let new_name = name.txt ^ "__" in
+      let new_ident = Ident.create new_name in
+      let new_pat_desc = Tpat_var (new_ident, { name with txt = new_name }) in
+      let new_subexpr = Texp_apply ({ vb.vb_expr with
+        exp_desc = Texp_ident (Pident new_ident,
+                               mknoloc (Longident.Lident new_name), {
+          val_type = { vb.vb_pat.pat_type with
+            desc = Tarrow ("", unit_type_expr, vb.vb_pat.pat_type, Cunknown);
+          };
+          val_kind = Val_reg;
+          val_loc = Location.none;
+          val_attributes = [];
+        }); },
+        [("", Some {
+            exp_desc = Texp_construct (mknoloc (Longident.Lident "()"),
+                                       unit_constr_desc, []);
+            exp_loc = Location.none;
+            exp_extra = [];
+            exp_type = unit_type_expr;
+            exp_env = vb.vb_expr.exp_env;
+            exp_attributes = [];
+          }, Required)]
+      ) in
+
+      let module MyMapArgument : MapArgument = struct
+        include DefaultMapArgument
+        let leave_expression expr =
+          match expr.exp_desc with
+          | Texp_ident (Pident ident', _, _) when ident = ident' ->
+            { expr with exp_desc = new_subexpr; }
+          | _ -> expr
+      end in
+      let module MyMap = MakeMap(MyMapArgument) in
+
+      let vb' = { vb with
+        vb_pat = { vb.vb_pat with pat_desc = new_pat_desc };
+        vb_expr = { vb.vb_expr with
+          exp_desc = Texp_function ("", [{
+            c_lhs = {
+              pat_desc = Tpat_any;
+              pat_loc = Location.none;
+              pat_extra = [];
+              pat_type = unit_type_expr;
+              pat_env = vb.vb_expr.exp_env;
+              pat_attributes = [];
+            };
+            c_guard = None;
+            c_rhs = vb.vb_expr;
+          }], Total);
+          exp_type = {
+            desc = Tarrow ("", unit_type_expr, vb.vb_expr.exp_type, Cunknown);
+            level = 0; id = 0;
+          };
+        };
+      } in
+
+      let sub_fn' = (fun b -> { b with
+        vb_expr = MyMap.map_expression b.vb_expr }) % sub_fn in
+
+      let newb = { vb with
+        vb_expr = { vb.vb_expr with exp_desc = new_subexpr; };
+      } in
+      vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
+    | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
+
+let preprocess_valrec_value_bindings = function
+  (* Rephrase recursive values *)
+  | Recursive -> vb_inner [] [] (fun x -> x)
+  (* Split non-recursive definitions joined by `and` *)
+  | Nonrecursive -> fun bs -> [], bs
+
+let preprocess_valrec_expr exp =
+  match exp.exp_desc with
+  | Texp_let (r, bs, e) ->
+    let oldbs, newbs = preprocess_valrec_value_bindings r bs in
+    { exp with exp_desc = Texp_let (r, oldbs @ newbs, e); }
+  | _ -> exp
+
 let rec preprocess_valrec_str_item str =
   match str.str_desc with
   | Tstr_value (r, bs) ->
@@ -622,6 +629,7 @@ module ValrecMapArgument = struct
       str_items =
         BatList.concat (BatList.map preprocess_valrec_str_item str_items);
     }
+  let enter_expression = preprocess_valrec_expr
 end
 module ValrecMap = MakeMap (ValrecMapArgument)
 
@@ -687,6 +695,13 @@ let preprocess_valpat_value_binding vb =
 let preprocess_valpat_value_bindings =
   BatList.concat % BatList.map preprocess_valpat_value_binding
 
+let preprocess_valpat_expr exp =
+  match exp.exp_desc with
+  | Texp_let (r, bs, e) ->
+    let bs' = preprocess_valpat_value_bindings bs in
+    { exp with exp_desc = Texp_let (r, bs', e); }
+  | _ -> exp
+
 let preprocess_valpat_str_item str =
   match str.str_desc with
   | Tstr_value (Nonrecursive, bs) ->
@@ -703,6 +718,7 @@ module ValpatMapArgument = struct
       str_items =
         BatList.concat (BatList.map preprocess_valpat_str_item str_items);
     }
+  let enter_expression = preprocess_valpat_expr
 end
 module ValpatMap = MakeMap (ValpatMapArgument)
 
@@ -711,6 +727,8 @@ module PreprocessorMapArgument = struct
   let enter_pattern = RecordMapArgument.enter_pattern
   let enter_expression = MatchMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
+                      %> ValrecMapArgument.enter_expression
+                      %> ValpatMapArgument.enter_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
                      %> ValpatMapArgument.enter_structure
