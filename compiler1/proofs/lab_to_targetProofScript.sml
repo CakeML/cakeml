@@ -900,17 +900,17 @@ val state_rel_shift_interfer = prove(
   \\ rpt strip_tac \\ fs [] \\ rfs [] \\ res_tac
   \\ fs [interference_ok_def,shift_seq_def]);
 
-val Inst_lemma = prove(
-  ``~(asm_inst i s1).failed /\
-    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
-    (pos_val (s1.pc + 1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes') ==>
-    ~(inst i t1).failed /\
-     (!a. ~(a IN s1.mem_domain) ==> (inst i t1).mem a = t1.mem a) /\
-    (mc_conf.f.state_rel
-       (upd_pc (t1.pc + n2w (LENGTH bytes')) (inst i t1)) ms2 ==>
-     state_rel (mc_conf,code2,labs,p,T)
-       (inc_pc (dec_clock (asm_inst i s1)))
-       (upd_pc (t1.pc + n2w (LENGTH (bytes':word8 list))) (inst i t1)) ms2)``,
+val Inst_lemma = Q.prove(
+  `~(asm_inst i s1).failed /\
+   state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
+   (pos_val (s1.pc + 1) 0 code2 = pos_val s1.pc 0 code2 + LENGTH bytes') ==>
+   ~(inst i t1).failed /\
+    (!a. ~(a IN s1.mem_domain) ==> (inst i t1).mem a = t1.mem a) /\
+   (mc_conf.f.state_rel
+      (upd_pc (t1.pc + n2w (LENGTH bytes')) (inst i t1)) ms2 ==>
+    state_rel (mc_conf,code2,labs,p,T)
+      (inc_pc (dec_clock (asm_inst i s1)))
+      (upd_pc (t1.pc + n2w (LENGTH (bytes':word8 list))) (inst i t1)) ms2)`,
   Cases_on `i` \\ fs [asm_inst_def,inst_def]
   THEN1
    (fs [state_rel_def,inc_pc_def,shift_interfer_def,upd_pc_def,dec_clock_def]
@@ -920,6 +920,21 @@ val Inst_lemma = prove(
         dec_clock_def,asmSemTheory.upd_reg_def,labSemTheory.upd_reg_def]
     \\ rpt strip_tac \\ rfs [] \\ res_tac \\ fs [GSYM word_add_n2w]
     \\ fs [APPLY_UPDATE_THM] \\ rw [word_loc_val_def])
+  >- (
+    strip_tac >>
+    conj_tac >- (
+      Cases_on`a`>> fs[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
+      every_case_tac >> fs[labSemTheory.assert_def] >- (
+        Cases_on`b`>>EVAL_TAC >> fs[state_rel_def] )
+      >> EVAL_TAC >> fs[state_rel_def] ) >>
+    conj_tac >- (
+      rw[] >>
+      Cases_on`a`>>fs[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
+      every_case_tac >> fs[labSemTheory.assert_def] >- (
+        Cases_on`b`>>EVAL_TAC ) >>
+      EVAL_TAC ) >>
+    rw[] >>
+    cheat )
   \\ cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));
 
 val state_rel_ignore_io_events = prove(
