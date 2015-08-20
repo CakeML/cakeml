@@ -1,6 +1,4 @@
 open preamble;
-open rich_listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;
 open inferPropsTheory;
@@ -514,7 +512,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >-
        (fs[sub_completion_def]>>
         Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
-        miscLib.discharge_hyps_keep>-
+        discharge_hyps_keep>-
           (fs[]>>
           metis_tac[pure_add_constraints_wfs,check_t_more])
         >>
@@ -527,7 +525,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
         pop_assum(qspecl_then[`t'`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
-        miscLib.discharge_hyps>-fs[]>>
+        discharge_hyps>-fs[]>>
         rw[]>>
         fs[deBruijn_inc0]>>
         qexists_tac`MAP (deBruijn_subst 0 ls) subst`>>
@@ -566,7 +564,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
      >-
        (fs[sub_completion_def]>>
         Q.ISPECL_THEN [`t`,`s`,`tvs`,`st.next_uvar`,`num_tvs tenv`] mp_tac (db_subst_infer_subst_swap|>CONJ_PAIR|>fst) >>
-        miscLib.discharge_hyps_keep>-
+        discharge_hyps_keep>-
           (fs[]>>
           metis_tac[pure_add_constraints_wfs,check_t_more])
         >>
@@ -579,7 +577,7 @@ val infer_e_sound = Q.store_thm ("infer_e_sound",
         qpat_abbrev_tac `ls:t list = MAP A (MAP B (COUNT_LIST tvs))`>>
         assume_tac (deBruijn_subst2|>CONJ_PAIR|>fst)>>
         pop_assum(qspecl_then[`t''`,`0`,`subst`,`ls`,`ARB`] mp_tac)>>
-        miscLib.discharge_hyps>-
+        discharge_hyps>-
           fs[]>>
         rw[]>>
         fs[deBruijn_inc0]>>

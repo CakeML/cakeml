@@ -1,11 +1,8 @@
 open preamble;
-open rich_listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
-open miscLib;
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
 

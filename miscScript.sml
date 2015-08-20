@@ -1,11 +1,63 @@
-open HolKernel bossLib boolLib boolSimps lcsymtacs miscLib Parse
+open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
 open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
 val _ = ParseExtras.temp_tight_equality()
 
+(* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
+val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
+val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
+(* -- *)
+
 (* TODO: move/categorize *)
+
+val el_opt_def = Define `
+  (el_opt n [] = NONE) /\
+  (el_opt n (x::xs) = if n = 0n then SOME x else el_opt (n-1) xs)`
+
+val el_opt_THM = store_thm("el_opt_THM",
+  ``!xs n. el_opt n xs = if n < LENGTH xs then SOME (EL n xs) else NONE``,
+  Induct \\ fs [el_opt_def] \\ rw [] THEN1 decide_tac
+  \\ Cases_on `xs` \\ fs [] \\ Cases_on `n` \\ fs [] \\ decide_tac);
+
+val el_opt_DROP = store_thm("el_opt_DROP",
+  ``(el_opt n (DROP f xs) = el_opt (f + n) xs)``,
+  Cases_on `DROP f xs = []` \\ fs [] \\ fs [DROP_NIL]
+  \\ fs [el_opt_THM] THEN1 decide_tac
+  \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ fs []
+  \\ rw [] \\ ONCE_REWRITE_TAC [ADD_COMM]
+  \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
+
+val el_opt_TAKE_IMP = store_thm("el_opt_TAKE_IMP",
+  ``(el_opt n (TAKE f xs) = SOME x) ==>
+    (el_opt n xs = SOME x)``,
+  simp[el_opt_THM,LENGTH_TAKE_EQ] >>
+  srw_tac[ARITH_ss][]
+  \\ match_mp_tac (GSYM EL_TAKE)
+  \\ fsrw_tac[ARITH_ss][]);
+
+val el_opt_LUPDATE = store_thm("el_opt_LUPDATE",
+  ``!xs i n x. el_opt n (LUPDATE x i xs) =
+               if i <> n then el_opt n xs else
+               if i < LENGTH xs then SOME x else NONE``,
+  Induct \\ fs [el_opt_def,LUPDATE_def]
+  \\ Cases_on `i` \\ fs [el_opt_def,LUPDATE_def]
+  \\ rpt strip_tac \\ rw [] \\ fs [] \\ `F` by decide_tac);
+
+val GENLIST_ID = store_thm("GENLIST_ID",
+  ``!x. GENLIST (\i. EL i x) (LENGTH x) = x``,
+  HO_MATCH_MP_TAC SNOC_INDUCT
+  \\ fs [] \\ simp_tac std_ss [GENLIST,GSYM ADD1]
+  \\ fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
+  \\ rpt strip_tac \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ pop_assum (fn th => simp_tac std_ss [Once (GSYM th)])
+  \\ fs [GENLIST_FUN_EQ] \\ rw []
+  \\ match_mp_tac (GSYM rich_listTheory.EL_APPEND1) \\ fs []);
+
+val LENGTH_TAKE_EQ_MIN = store_thm("LENGTH_TAKE_EQ_MIN",
+  ``!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)``,
+  simp[LENGTH_TAKE_EQ] \\ fs [MIN_DEF] \\ decide_tac);
 
 val hd_drop = Q.store_thm ("hd_drop",
   `!n l. n < LENGTH l ⇒ HD (DROP n l) = EL n l`,

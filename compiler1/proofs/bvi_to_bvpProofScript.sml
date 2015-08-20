@@ -33,7 +33,7 @@ val find_code_lemma = prove(
   ``state_rel r t2 /\
     (find_code dest a r.code = SOME (args,exp)) ==>
     (find_code dest a t2.code = SOME (args,compile_exp (LENGTH args) exp))``,
-  REVERSE (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
+  reverse (Cases_on `dest`) \\ SIMP_TAC std_ss [find_code_def]
   \\ FULL_SIMP_TAC (srw_ss()) [state_rel_def,code_rel_def]
   \\ REPEAT STRIP_TAC THEN1
    (Cases_on `lookup x r.code` \\ FULL_SIMP_TAC (srw_ss()) []
@@ -56,7 +56,7 @@ val do_app_bvp_to_bvi = prove(
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ fs []
   \\ fs [bviSemTheory.do_app_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `do_app_aux op a s1` \\ fs []
-  \\ REVERSE (Cases_on `x`) \\ fs [] THEN1
+  \\ reverse (Cases_on `x`) \\ fs [] THEN1
    (Cases_on `op` \\ fs [do_app_aux_def]
     \\ SRW_TAC [] [] \\ fs [] \\ SRW_TAC [] []
     \\ fs [bvp_to_bvi_def,bviSemTheory.state_component_equality]
@@ -334,7 +334,7 @@ val compile_correct = Q.prove(
                    (c2,v2,n2)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)`
-    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
     \\ rpt var_eq_tac >> fs[] >> strip_tac
     \\ Cases_on `pres`
@@ -381,7 +381,7 @@ val compile_correct = Q.prove(
    (`?c1 vs n1. compile n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
     \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def]
     \\ Cases_on `evaluate (xs,env,s)`
-    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+    \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
     \\ rpt var_eq_tac >> fs[] >> strip_tac
     \\ Cases_on `pres`
@@ -410,9 +410,9 @@ val compile_correct = Q.prove(
     \\ PairCases_on `a'` \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
     \\ rpt var_eq_tac >> fs[]
     \\ fs [LET_DEF,evaluate_def,iAssign_def]
-    \\ (fn (hs,goal) => (REVERSE (`let tail = F in ^goal` by ALL_TAC))
+    \\ (fn (hs,goal) => (reverse (`let tail = F in ^goal` by ALL_TAC))
            (hs,goal)) THEN1
-     (fs [LET_DEF] \\ REVERSE (Cases_on `tail`) THEN1 METIS_TAC []
+     (fs [LET_DEF] \\ reverse (Cases_on `tail`) THEN1 METIS_TAC []
       \\ fs [evaluate_def,LET_DEF] \\ REV_FULL_SIMP_TAC std_ss []
       \\ Cases_on `pres` \\ fs []
       \\ fs [var_corr_def,call_env_def,state_rel_def])
@@ -535,7 +535,7 @@ val compile_correct = Q.prove(
       \\ FULL_SIMP_TAC std_ss [LET_DEF,evaluate_def,call_env_def,compile_def,
            evaluate_mk_ticks]
       \\ Cases_on `evaluate (xs,env,s1)`
-      \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
       \\ rpt var_eq_tac >> fs[]>> strip_tac
       \\ Cases_on `pres`
@@ -633,7 +633,7 @@ val compile_correct = Q.prove(
       \\ fs [GSYM ADD1,FUNPOW_SUC]
       \\ Cases_on `pres` \\ fs [call_env_def]
       \\ `~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
-      \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ reverse (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ rpt var_eq_tac >> fs[]
       THEN1
        (Cases_on`e`>>fs[]>>
@@ -704,7 +704,7 @@ val compile_correct = Q.prove(
       \\ fs [LET_DEF,evaluate_def,evaluate_mk_ticks,call_env_def,compile_def]
       \\ Cases_on `evaluate (xs,env,s1)`
       \\ Cases_on `dest = NONE` \\ fs []
-      \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
       \\ rpt var_eq_tac >> fs[]>> strip_tac
       \\ Cases_on `pres`
@@ -786,7 +786,7 @@ val compile_correct = Q.prove(
           \\ Cases_on `LAST_N (t2'.handler + 1) t2'.stack` \\ fs []
           \\ Cases_on `h` \\ fs [])
         \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1, FUNPOW_SUC]
-        \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
+        \\ reverse (Cases_on `q`) \\ fs [] THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpSemTheory.dec_clock_def]
           \\ fs [jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
@@ -811,7 +811,7 @@ val compile_correct = Q.prove(
           \\ REPEAT STRIP_TAC \\ RES_TAC \\ DECIDE_TAC)
         THEN1 (fs [var_corr_def])
         THEN1
-         (FIRST_X_ASSUM MATCH_MP_TAC \\ REVERSE STRIP_TAC THEN1 METIS_TAC []
+         (FIRST_X_ASSUM MATCH_MP_TAC \\ reverse STRIP_TAC THEN1 METIS_TAC []
           \\ fs [set_var_def,lookup_insert]
           \\ `k <> n1` by ALL_TAC \\ fs [] THEN1
            (REPEAT STRIP_TAC \\ fs []
@@ -860,7 +860,7 @@ val compile_correct = Q.prove(
       \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1,FUNPOW_SUC]
       \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,COUNT_LIST_GENLIST]
       \\ FULL_SIMP_TAC std_ss []
-      \\ REVERSE (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
+      \\ reverse (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ rpt BasicProvers.VAR_EQ_TAC
       \\ fs [set_var_def,state_rel_def]
       THEN1 ( Cases_on`e`>>fs[] )

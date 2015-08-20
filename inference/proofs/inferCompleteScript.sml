@@ -1,11 +1,8 @@
 open preamble;
-open rich_listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
-open miscLib BasicProvers;
 
 open infer_eSoundTheory;
 open infer_eCompleteTheory;
@@ -585,7 +582,7 @@ val infer_d_complete = Q.prove (`
       simp[MEM_ZIP,PULL_EXISTS,LENGTH_COUNT_LIST] >> rpt gen_tac >> strip_tac >>
       pop_assum mp_tac >>
       simp[EL_MAP,LENGTH_COUNT_LIST,t_walkstar_FEMPTY,EL_COUNT_LIST] >>
-      strip_tac >> VAR_EQ_TAC >>
+      strip_tac >> var_eq_tac >>
       fs[sub_completion_def] >>
       `n ∈ FDOM last_sub` by (
         fs[SUBSET_DEF] >>
@@ -599,7 +596,7 @@ val infer_d_complete = Q.prove (`
       ntac 2 (pop_assum mp_tac) >>
       simp[tenv_add_tvs_def] >>
       simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD] ) >>
-    rpt VAR_EQ_TAC >> simp[] >>
+    rpt var_eq_tac >> simp[] >>
     imp_res_tac ALOOKUP_MEM >>
     ntac 2 (pop_assum mp_tac) >>
     simp[MAP2_MAP,LENGTH_COUNT_LIST,MEM_MAP,PULL_EXISTS,EXISTS_PROD,tenv_add_tvs_def] >>
@@ -627,7 +624,7 @@ val infer_d_complete = Q.prove (`
    simp[num_tvs_bind_var_list,bind_tvar_rewrites,num_tvs_bvl2,num_tvs_def] >>
    strip_tac >> simp[] >>
    first_assum(match_exists_tac o concl) >> simp[] >>
-   rpt VAR_EQ_TAC >>
+   rpt var_eq_tac >>
    qmatch_assum_abbrev_tac`check_freevars tvs [] t` >>
    simp[MAP2_MAP,LENGTH_COUNT_LIST,ZIP_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY] >>
    qpat_abbrev_tac2`ls = MAP X Z` >>
@@ -1364,7 +1361,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   imp_res_tac ALOOKUP_MEM>>
   fs[check_env_def,EVERY_MEM]>>
   res_tac>>fs[]>>rfs[]>>
-  rpt VAR_EQ_TAC>>
+  rpt var_eq_tac>>
   (*change e2 into something nicer*)
   qpat_assum`A=convert_t e2` (mp_tac o Q.AP_TERM`unconvert_t`)>>
   `unconvert_t (convert_t e2) = e2` by 
@@ -1399,7 +1396,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
        (fs[init_infer_state_def,t_wfs_def,pure_add_constraints_def,count_def]>>
        fs[EVERY_MAP,Abbr`ls`,EVERY_MEM]>>rw[]>>
        metis_tac[check_t_to_check_freevars])>>
-   LET_ELIM_TAC>>fs[init_infer_state_def]>>
+   BasicProvers.LET_ELIM_TAC>>fs[init_infer_state_def]>>
    `targs = ls` by 
      (fs[Abbr`targs`,MAP_MAP_o,MAP_EQ_ID]>>
      metis_tac[check_t_empty_unconvert_convert_id,EVERY_MEM])>>fs[]>>

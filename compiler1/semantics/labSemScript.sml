@@ -343,4 +343,20 @@ val evaluate_def = tDefine "evaluate" `
   \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def]
   \\ decide_tac)
 
+val evaluate_with_io_def = Define `
+  evaluate_with_io s1 io k =
+    labSem$evaluate (s1 with <| io_events := io ; clock := k |> )`;
+
+val sem_def = Define `
+  (sem s1 (Terminate io_list) <=>
+     ?k s2. evaluate_with_io s1 (SOME (fromList io_list)) k = (Result,s2) /\
+            s2.io_events = SOME LNIL) /\
+  (sem s1 (Diverge io_trace) <=>
+     (!k. ?s2. (evaluate_with_io s1 (SOME io_trace) k = (TimeOut,s2)) /\
+               s2.io_events <> NONE) /\
+     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
+           ?k. ((SND (evaluate_with_io s1 (SOME io) k)).io_events = NONE))) /\
+  (sem s1 Fail <=>
+     ?k io. FST (evaluate_with_io s1 (SOME io) k) = Error Internal)`
+
 val _ = export_theory();

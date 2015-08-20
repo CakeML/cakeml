@@ -1,9 +1,4 @@
-open HolKernel Parse boolLib bossLib miscLib
-open monadsyntax state_transformerTheory
-
-open listTheory sptreeTheory pred_setTheory pairTheory rich_listTheory alistTheory
-open BasicProvers
-open sortingTheory
+open preamble monadsyntax state_transformerTheory
 
 val _ = ParseExtras.tight_equality ();
 

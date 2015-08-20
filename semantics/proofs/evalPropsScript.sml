@@ -2,10 +2,9 @@
  * semantic primitives. *)
 
 open preamble;
-open optionTheory alistTheory;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory;
-open miscLib boolSimps;
+open boolSimps;
 
 val _ = new_theory "evalProps";
 

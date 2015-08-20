@@ -2,7 +2,7 @@ open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory initialProgramTheory;
 open terminationTheory evalPropsTheory determTheory bigClockTheory interpTheory;
 open compute_interpLib;
-open miscLib boolSimps;
+open boolSimps;
 
 val _ = new_theory "initSemEnv";
 

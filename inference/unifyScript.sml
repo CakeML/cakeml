@@ -1091,7 +1091,7 @@ val t_unify_mgu = store_thm ("t_unify_mgu",
   (Q.ISPECL_THEN [`encode_infer_t o_f s`,`encode_infer_t t1`,
                  `encode_infer_t t2`,`s`,`t1`,`t2`] 
 		 mp_tac encode_unify>>
-  miscLib.discharge_hyps>>fs[])>>
+  discharge_hyps>>fs[])>>
   conj_asm1_tac>- fs[t_wfs_def]>>
   qpat_assum `decode_infer_t A = B` mp_tac>> 
   fs[encode_walkstar,decode_left_inverse])

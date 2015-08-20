@@ -102,7 +102,7 @@ val evaluate_compile = Q.prove(
       \\ Q.EXISTS_TAC `w` \\ fs [])
     \\ PairCases_on `y` \\ fs []
     \\ Cases_on `evaluate (c1,s)` \\ fs []
-    \\ REVERSE (Cases_on `c1`) \\ fs []
+    \\ reverse (Cases_on `c1`) \\ fs []
     \\ TRY (fs [pMakeSpace_def,space_def]
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ fs [] \\ SRW_TAC [] []
@@ -142,7 +142,7 @@ val evaluate_compile = Q.prove(
       \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
     THEN1 (* Assign *)
-     (fs [pMakeSpace_def,space_def] \\ REVERSE (Cases_on `o0`)
+     (fs [pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ fs [evaluate_def,cut_state_opt_def] THEN1
        (fs [pMakeSpace_def,space_def,evaluate_def,
             cut_state_opt_def,cut_state_def]
@@ -172,7 +172,7 @@ val evaluate_compile = Q.prove(
       \\ fs [pMakeSpace_def,space_def]
       \\ fs [evaluate_def,cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
-      \\ REVERSE (Cases_on `do_app o' x s`) \\ fs [] THEN1
+      \\ reverse (Cases_on `do_app o' x s`) \\ fs [] THEN1
        (IMP_RES_TAC do_app_err \\ fs [] \\ rw [] \\ fs [])
       \\ Cases_on `a`
       \\ IMP_RES_TAC do_app_locals \\ fs [] \\ SRW_TAC [] []
@@ -294,7 +294,7 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
   THEN1 (* If *)
    (Cases_on `evaluate (g,s)` \\ fs []
-    \\ REVERSE (Cases_on `q`) \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
     \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
     \\ REV_FULL_SIMP_TAC (srw_ss()) []

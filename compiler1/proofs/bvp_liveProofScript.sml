@@ -178,7 +178,7 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `res1 = SOME (Rerr (Rabort Rtype_error))` \\ fs []
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1 (METIS_TAC [])
     \\ REPEAT STRIP_TAC
-    \\ REVERSE (Cases_on `res1 = NONE`) \\ fs []
+    \\ reverse (Cases_on `res1 = NONE`) \\ fs []
     THEN1 (SRW_TAC [] [] \\ Cases_on `res` \\ fs [])
     \\ Q.PAT_ASSUM `!x y. bb` (MP_TAC o GSYM o Q.SPECL [`l2`,`t2`]) \\ fs []
     \\ REV_FULL_SIMP_TAC std_ss []
@@ -201,7 +201,7 @@ val evaluate_compile = Q.prove(
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`insert n () (union l2 l3)`,`t1`])
     \\ fs [evaluate_def] \\ REPEAT STRIP_TAC
     \\ POP_ASSUM (ASSUME_TAC o GSYM)
-    \\ REVERSE (Cases_on `q`) \\ fs [] THEN1 (Cases_on `x` \\ fs [] \\ Cases_on`e`\\fs[] \\ Cases_on`a`\\fs[])
+    \\ reverse (Cases_on `q`) \\ fs [] THEN1 (Cases_on `x` \\ fs [] \\ Cases_on`e`\\fs[] \\ Cases_on`a`\\fs[])
     \\ Cases_on `get_var n r` \\ fs []
     \\ `state_rel r t2 l2 /\ state_rel r t2 l3 /\
         (get_var n r = get_var n t2)` by
@@ -297,7 +297,7 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env names s.locals` \\ fs []
-    \\ fs [cut_env_def] \\ REVERSE (SRW_TAC [] []) THEN1
+    \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) THEN1
      (POP_ASSUM MP_TAC \\ fs []
       \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
              domain_delete,state_rel_def]
@@ -376,7 +376,7 @@ val evaluate_compile = Q.prove(
   \\ Cases_on `find_code dest x s.code` \\ fs []
   \\ Cases_on `x'` \\ fs []
   \\ Cases_on `cut_env names s.locals` \\ fs []
-  \\ fs [cut_env_def] \\ REVERSE (SRW_TAC [] []) THEN1
+  \\ fs [cut_env_def] \\ reverse (SRW_TAC [] []) THEN1
    (POP_ASSUM MP_TAC \\ fs []
     \\ fs [SUBSET_DEF,domain_list_insert,domain_inter,
            domain_delete,state_rel_def]

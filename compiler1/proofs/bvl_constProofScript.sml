@@ -29,7 +29,7 @@ val compile_exps_thm = store_thm("compile_exps_thm",
   THEN1
    (SRW_TAC [] [] \\ POP_ASSUM MP_TAC \\ fs [bEval_def]
     \\ Cases_on `evaluate ([x1],env,s)` \\ fs []
-    \\ REVERSE (Cases_on `q`) \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs []
     \\ fs [GSYM compile_exp_SING,EVAL ``Bool T``,EVAL ``Bool F``]
     \\ fs [bEval_def,bEvalOp_def] \\ SRW_TAC [] []
     \\ fs [EVAL ``Boolv T``,EVAL ``Boolv F``])
@@ -39,7 +39,7 @@ val compile_exps_thm = store_thm("compile_exps_thm",
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM compile_exp_SING]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
   \\ SIMP_TAC std_ss [bEval_def,compile_op_def]
-  \\ REVERSE (Cases_on `EVERY isConst (compile_exps xs)`)
+  \\ reverse (Cases_on `EVERY isConst (compile_exps xs)`)
   THEN1 (FULL_SIMP_TAC std_ss [bEval_def]
          \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC (srw_ss()) []
          \\ Cases_on `q` \\ FULL_SIMP_TAC (srw_ss()) [])

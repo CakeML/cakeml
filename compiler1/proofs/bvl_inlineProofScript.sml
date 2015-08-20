@@ -11,9 +11,9 @@ val evaluate_inline = Q.store_thm("evaluate_inline",
      (lookup n s.code = SOME (arity,code)) /\
      FST (evaluate (xs,env,s)) <> Rerr(Rabort Rtype_error) ==>
      (evaluate (inline n code arity xs,env,s) = evaluate (xs,env,s))`,
-  recInduct inline_ind \\ REVERSE (REPEAT STRIP_TAC)
+  recInduct inline_ind \\ reverse (REPEAT STRIP_TAC)
   \\ POP_ASSUM MP_TAC \\ SIMP_TAC std_ss [Once inline_def,LET_DEF] \\ RES_TAC
-  THEN1 (REVERSE (Cases_on `(dest = SOME n) /\ (LENGTH xs = arity)`)
+  THEN1 (reverse (Cases_on `(dest = SOME n) /\ (LENGTH xs = arity)`)
     \\ ASM_SIMP_TAC std_ss []
     \\ ONCE_REWRITE_TAC [evaluate_def] \\ ASM_SIMP_TAC std_ss [HD_inline]
     \\ Cases_on `evaluate (xs,env,s)` \\ FULL_SIMP_TAC std_ss []

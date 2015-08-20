@@ -323,7 +323,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
   (* set_goal([],goal) *)
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
-    \\ REVERSE (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
+    \\ reverse (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
     THEN1 (Q.PAT_ASSUM `!ticks dest xs env s1. bb ==> bbb` MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC evaluate_clock

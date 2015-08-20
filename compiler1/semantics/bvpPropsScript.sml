@@ -193,7 +193,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `evaluate (g,s)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c1,r)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c2,r)` \\ fs [LET_DEF]
-    \\ REVERSE (Cases_on `q`) \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs []
     THEN1 (Cases_on `x` \\ fs [] \\
            Cases_on `e` \\ fs [] \\ REPEAT STRIP_TAC
            \\ RES_TAC \\ fs [] \\
@@ -555,7 +555,7 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
   THEN1 (* If *)
    (Cases_on `evaluate (g,s)` \\ fs []
-    \\ REVERSE (Cases_on `q`) \\ fs []
+    \\ reverse (Cases_on `q`) \\ fs []
     \\ SRW_TAC [] [] \\ fs []
     \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
     \\ REV_FULL_SIMP_TAC (srw_ss()) []

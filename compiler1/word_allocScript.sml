@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib miscLib
-open wordLangTheory reg_allocTheory
+open preamble wordLangTheory reg_allocTheory
 
 val _ = ParseExtras.tight_equality ();
 val _ = new_theory "word_alloc";

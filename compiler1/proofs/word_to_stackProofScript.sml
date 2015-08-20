@@ -6,85 +6,30 @@ val _ = new_theory "word_to_stackProof";
 
 (* TODO: move? *)
 
-val GENLIST_ID = prove(
-  ``!x. GENLIST (\i. EL i x) (LENGTH x) = x``,
-  HO_MATCH_MP_TAC SNOC_INDUCT
-  \\ fs [] \\ simp_tac std_ss [GENLIST,GSYM ADD1]
-  \\ fs [SNOC_APPEND,rich_listTheory.EL_LENGTH_APPEND]
-  \\ rpt strip_tac \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ pop_assum (fn th => simp_tac std_ss [Once (GSYM th)])
-  \\ fs [GENLIST_FUN_EQ] \\ rw []
-  \\ match_mp_tac (GSYM rich_listTheory.EL_APPEND1) \\ fs []);
+val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
+  ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
+  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
+  \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
-val ANY_EL_def = Define `
-  (ANY_EL n [] = NONE) /\
-  (ANY_EL n (x::xs) = if n = 0n then SOME x else ANY_EL (n-1) xs)`
+val TAKE_TAKE_MIN = prove(
+  ``!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs``,
+  Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
+  \\ rw [] \\ fs [] \\ TRY (`F` by decide_tac)
+  \\ `n = 1` by decide_tac \\ fs []);
 
-val ANY_EL_THM = prove(
-  ``!xs n. ANY_EL n xs = if n < LENGTH xs then SOME (EL n xs) else NONE``,
-  Induct \\ fs [ANY_EL_def] \\ rw [] THEN1 decide_tac
-  \\ Cases_on `xs` \\ fs [] \\ Cases_on `n` \\ fs [] \\ decide_tac);
+val TAKE_DROP_EQ = prove(
+  ``!xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)``,
+  Induct \\ fs [] \\ rw [] \\ fs []
+  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
-val LENGTH_TAKE_EQ = prove(
-  ``!n xs. LENGTH (TAKE n xs) = MIN n (LENGTH xs)``,
-  Induct \\ fs [TAKE_def] \\ Cases \\ fs [TAKE_def]
-  \\ fs [MIN_DEF] \\ decide_tac);
-
-val EL_TAKE_EQ = prove(
-  ``!n xs i. i < n ==> EL i (TAKE n xs) = EL i xs``,
-  Induct \\ fs [] \\ Cases \\ fs [TAKE_def] \\ Cases \\ fs []);
-
-val ANY_EL_TAKE_IMP = prove(
-  ``(ANY_EL n (TAKE f xs) = SOME x) ==>
-    (ANY_EL n xs = SOME x)``,
-  fs [ANY_EL_THM] \\ rw []
-  \\ fs [LENGTH_TAKE_EQ]
-  \\ match_mp_tac (GSYM EL_TAKE_EQ) \\ fs []);
-
-val ANY_EL_DROP = prove(
-  ``(ANY_EL n (DROP f xs) = ANY_EL (f + n) xs)``,
-  Cases_on `DROP f xs = []` \\ fs [] \\ fs [DROP_NIL]
-  \\ fs [ANY_EL_THM] THEN1 decide_tac
-  \\ `f + n < LENGTH xs <=> n < LENGTH xs - f` by decide_tac \\ fs []
-  \\ rw [] \\ ONCE_REWRITE_TAC [ADD_COMM]
-  \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac);
-
-val list_LUPDATE_def = Define `
-  (list_LUPDATE [] n ys = ys) /\
-  (list_LUPDATE (x::xs) n ys = list_LUPDATE xs (n+1) (LUPDATE x n ys))`
-
-val LENGTH_list_LUPDATE = store_thm("LENGTH_list_LUPDATE[simp]",
-  ``!xs n ys. LENGTH (list_LUPDATE xs n ys) = LENGTH ys``,
-  Induct \\ fs [list_LUPDATE_def]);
-
-val FLOOKUP_FUPDATE_THM = store_thm("FLOOKUP_FUPDATE_THM",
-  ``FLOOKUP (f |+ (k1,v)) k2 = if k1 = k2 then SOME v else FLOOKUP f k2``,
-  fs [FLOOKUP_DEF] \\ rw [FAPPLY_FUPDATE_THM] \\ fs []);
+val DROP_TAKE_NIL = prove(
+  ``DROP n (TAKE n xs) = []``,
+  fs [GSYM LENGTH_NIL,LENGTH_TAKE_EQ] >> simp[]);
 
 val TAKE_LUPDATE = store_thm("TAKE_LUPDATE[simp]",
   ``!xs n x i. TAKE n (LUPDATE x i xs) = LUPDATE x i (TAKE n xs)``,
   Induct \\ fs [LUPDATE_def]
   \\ Cases_on `i` \\ fs [LUPDATE_def] \\ rw [LUPDATE_def]);
-
-val TAKE_list_LUPDATE = store_thm("TAKE_list_LUPDATE[simp]",
-  ``!ys xs n i. TAKE n (list_LUPDATE ys i xs) = list_LUPDATE ys i (TAKE n xs)``,
-  Induct \\ fs [list_LUPDATE_def]);
-
-val ANY_EL_LUPDATE = store_thm("ANY_EL_LUPDATE",
-  ``!xs i n x. ANY_EL n (LUPDATE x i xs) =
-               if i <> n then ANY_EL n xs else
-               if i < LENGTH xs then SOME x else NONE``,
-  Induct \\ fs [ANY_EL_def,LUPDATE_def]
-  \\ Cases_on `i` \\ fs [ANY_EL_def,LUPDATE_def]
-  \\ rpt strip_tac \\ rw [] \\ fs [] \\ `F` by decide_tac);
-
-val ANY_EL_list_LUPDATE_IGNORE = prove(
-  ``!xs i n ys.
-      i + LENGTH xs <= n ==>
-      ANY_EL n (list_LUPDATE xs i ys) = ANY_EL n ys``,
-  Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
-  \\ `(i+1) + LENGTH xs <= n` by decide_tac \\ res_tac
-  \\ `i <> n` by decide_tac \\ fs [ANY_EL_LUPDATE]);
 
 local
   val DROP_LUPDATE_lemma1 = prove(
@@ -110,6 +55,30 @@ in
     \\ fs [NOT_LESS])
 end
 
+val MIN_ADD = prove(
+  ``MIN m1 m2 + n = MIN (m1 + n) (m2 + n)``,
+  fs [MIN_DEF] \\ decide_tac);
+
+val list_LUPDATE_def = Define `
+  (list_LUPDATE [] n ys = ys) /\
+  (list_LUPDATE (x::xs) n ys = list_LUPDATE xs (n+1) (LUPDATE x n ys))`
+
+val LENGTH_list_LUPDATE = store_thm("LENGTH_list_LUPDATE[simp]",
+  ``!xs n ys. LENGTH (list_LUPDATE xs n ys) = LENGTH ys``,
+  Induct \\ fs [list_LUPDATE_def]);
+
+val TAKE_list_LUPDATE = store_thm("TAKE_list_LUPDATE[simp]",
+  ``!ys xs n i. TAKE n (list_LUPDATE ys i xs) = list_LUPDATE ys i (TAKE n xs)``,
+  Induct \\ fs [list_LUPDATE_def]);
+
+val el_opt_list_LUPDATE_IGNORE = prove(
+  ``!xs i n ys.
+      i + LENGTH xs <= n ==>
+      el_opt n (list_LUPDATE xs i ys) = el_opt n ys``,
+  Induct \\ fs [list_LUPDATE_def] \\ rpt strip_tac
+  \\ `(i+1) + LENGTH xs <= n` by decide_tac \\ res_tac
+  \\ `i <> n` by decide_tac \\ fs [el_opt_LUPDATE]);
+
 val DROP_list_LUPDATE = prove(
   ``!ys n m xs.
       n <= m ==>
@@ -133,25 +102,9 @@ val list_LUPDATE_NIL = store_thm("list_LUPDATE_NIL[simp]",
   ``!xs i. list_LUPDATE xs i [] = []``,
   Induct \\ fs [list_LUPDATE_def,LUPDATE_def]);
 
-val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
-  ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
-  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
-  \\ rpt strip_tac \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
-
 val LUPDATE_TAKE_LEMMA = prove(
   ``!xs n w. LUPDATE w n xs = TAKE n xs ++ LUPDATE w 0 (DROP n xs)``,
   Induct \\ Cases_on `n` \\ fs [LUPDATE_def]);
-
-val TAKE_TAKE_MIN = prove(
-  ``!xs m n. TAKE n (TAKE m xs) = TAKE (MIN m n) xs``,
-  Induct \\ Cases_on `m` \\ Cases_on `n` \\ fs [MIN_DEF]
-  \\ rw [] \\ fs [] \\ TRY (`F` by decide_tac)
-  \\ `n = 1` by decide_tac \\ fs []);
-
-val TAKE_DROP_EQ = prove(
-  ``!xs n m. TAKE m (DROP n xs) = DROP n (TAKE (m + n) xs)``,
-  Induct \\ fs [] \\ rw [] \\ fs []
-  \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC) \\ decide_tac);
 
 val list_LUPDATE_TAKE_DROP = store_thm("list_LUPDATE_TAKE_DROP",
   ``!xs (ys:'a list) n.
@@ -278,8 +231,8 @@ val joined_ok_def = Define `
        !n v.
          (lookup n (fromAList l1) = SOME v) <=>
          EVEN n /\ k <= n DIV 2 /\ n DIV 2 < k + f' /\
-         (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\
-         (ANY_EL (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T) *)) /\
+         (el_opt (f+k-(n DIV 2)) current_frame = SOME v) /\
+         (el_opt (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T) *)) /\
   (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
                [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
      (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
@@ -326,7 +279,7 @@ val state_rel_def = Define `
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
-        else (ANY_EL (f+k-(n DIV 2)) current_frame = SOME v) /\
+        else (el_opt (f+k-(n DIV 2)) current_frame = SOME v) /\
              n DIV 2 < k + f')`
 
 (* correctness proof *)
@@ -371,7 +324,7 @@ val evaluate_wLiveAux = prove(
   \\ rpt strip_tac
   \\ qmatch_assum_rename_tac `s.use_stack`
   \\ `~(LENGTH s.stack < i)` by decide_tac
-  \\ fs [list_LUPDATE_def,FLOOKUP_FUPDATE_THM]
+  \\ fs [list_LUPDATE_def,FLOOKUP_UPDATE]
   \\ first_x_assum (mp_tac o Q.SPECL [`k`,`i+1`,`s with
    <|regs := s.regs |+ (k, Word h');
      stack := LUPDATE (Word h') (s.stack_space + i) s.stack|>`])
@@ -411,10 +364,6 @@ val bits_to_word_NOT_0 = prove(
   \\ Q.EXISTS_TAC `n`   \\ fs []
   \\ `n < dimindex (:'a)` by decide_tac \\ fs [word_0]
   \\ fs [bits_to_word_bit]);
-
-val MIN_ADD = prove(
-  ``MIN m1 m2 + n = MIN (m1 + n) (m2 + n)``,
-  fs [MIN_DEF] \\ decide_tac);
 
 val list_LUPDATE_write_bitmap_NOT_NIL = prove(
   ``8 <= dimindex (:'a) ==>
@@ -512,7 +461,7 @@ val read_bitmap_word_list = prove(
    (fs [word_msb_def]
     \\ (bits_to_word_bit |> SPEC_ALL |> DISCH ``EL i (bs:bool list)``
           |> SIMP_RULE std_ss [] |> MP_CANON |> match_mp_tac) \\ fs []
-    \\ REVERSE (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
+    \\ reverse (rpt strip_tac) THEN1 decide_tac THEN1 decide_tac
     \\ pop_assum (fn th => simp_tac std_ss [Once th])
     \\ fs [EL_LENGTH_APPEND]) \\ fs []
   \\ `DROP (dimindex (:'a) - 1) (qs ++ [T]) =
@@ -587,13 +536,6 @@ val LENGTH_index_list = prove(
   ``!l n. LENGTH (index_list l n) = LENGTH l``,
   Induct \\ fs [index_list_def]);
 
-val EL_index_list = prove(
-  ``!xs x k.
-      x < LENGTH xs ==>
-      EL x (index_list xs k) = (k + (LENGTH xs - x) - 1, EL x xs)``,
-  Induct \\ fs [index_list_def] \\ rpt strip_tac \\ Cases_on `x`
-  \\ fs [ADD1,ADD_ASSOC]);
-
 val SORTED_FST_LESS_IMP = prove(
   ``!xs x.
       SORTED (\x y. FST x < FST y:num) (x::xs) ==>
@@ -627,15 +569,24 @@ val SORTED_IMP_EQ_LISTS = prove(
     \\ imp_res_tac SORTED_FST_LESS_IMP
     \\ rpt strip_tac \\ fs [] \\ fs []));
 
-val MEM_QSORT = prove(
-  ``SORTS QSORT key_val_compare``,
-  match_mp_tac QSORT_SORTS
-  \\ fs [transitive_def,total_def,FORALL_PROD,key_val_compare_def,LET_DEF]
+val transitive_key_val_compare = Q.store_thm("transitive_key_val_compare",
+  `transitive key_val_compare`,
+  fs[transitive_def,key_val_compare_def,FORALL_PROD,LET_DEF]
   \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC \\ TRY decide_tac
-  \\ imp_res_tac WORD_LESS_EQ_TRANS \\ fs []
+  \\ imp_res_tac WORD_LESS_EQ_TRANS \\ fs [])
+
+val total_key_val_compare = Q.store_thm("total_key_val_compare",
+  `total key_val_compare`,
+  fs[total_def,key_val_compare_def,FORALL_PROD,LET_DEF]
+  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC \\ TRY decide_tac
   \\ CCONTR_TAC \\ fs [] \\ TRY decide_tac
   \\ fs [GSYM WORD_NOT_LESS]
   \\ wordsLib.WORD_DECIDE_TAC)
+
+val MEM_QSORT = prove(
+  ``SORTS QSORT key_val_compare``,
+  match_mp_tac QSORT_SORTS >>
+  MATCH_ACCEPT_TAC (CONJ transitive_key_val_compare total_key_val_compare))
   |> SIMP_RULE std_ss [SORTS_DEF]
   |> SPEC_ALL |> CONJUNCT1
   |> MATCH_MP MEM_PERM |> GSYM |> GEN_ALL
@@ -646,13 +597,13 @@ val EL_index_list = prove(
   Induct \\ fs [index_list_def]
   \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
 
-val evaluate_wLive = prove(
-  ``state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
-    (cut_env names s.locals = SOME env) ==>
-    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
-         state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
-         state_rel k f f' s t5 /\
-         !i. i < k ==> get_var i t5 = get_var i t``,
+val evaluate_wLive = Q.prove(
+  `state_rel k f f' (s:'a wordSem$state) t /\ 1 <= f /\
+   (cut_env names s.locals = SOME env) ==>
+   ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
+        state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
+        state_rel k f f' s t5 /\
+        !i. i < k ==> get_var i t5 = get_var i t`,
   fs [wLive_def] \\ rpt strip_tac
   \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
   \\ mp_tac evaluate_wLiveAux
@@ -662,18 +613,18 @@ val evaluate_wLive = prove(
     \\ `f <> 0` by decide_tac
     \\ fs [] \\ rfs[] \\ decide_tac)
   \\ rpt strip_tac \\ fs [] \\ pop_assum (K all_tac)
-  \\ fs [stackSemTheory.get_var_def,FLOOKUP_FUPDATE_THM,
+  \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,
          DECIDE ``i < k ==> i <> k:num``]
   \\ imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
   \\ fs [push_env_def,LET_DEF,state_rel_def,env_to_list_def,FUN_EQ_THM,
-         FLOOKUP_FUPDATE_THM,DECIDE ``i < k ==> i <> k:num``]
+         FLOOKUP_UPDATE,DECIDE ``i < k ==> i <> k:num``]
   \\ `t.stack_space <= LENGTH t.stack` by decide_tac \\ fs [lookup_def]
   \\ fs [DROP_list_LUPDATE_lemma]
-  \\ REVERSE (rpt strip_tac)
+  \\ reverse (rpt strip_tac)
   THEN1
    (res_tac \\ rw [] \\ fs []
     \\ qpat_assum `xx = SOME v` (fn th => once_rewrite_tac [GSYM th])
-    \\ match_mp_tac ANY_EL_list_LUPDATE_IGNORE \\ fs []
+    \\ match_mp_tac el_opt_list_LUPDATE_IGNORE \\ fs []
     \\ decide_tac)
   THEN1
    (qpat_assum `stack_rel k s.handler s.stack xx yy tt` mp_tac
@@ -718,8 +669,50 @@ val evaluate_wLive = prove(
   \\ fs [MAP_FST_def,adjust_names_def]
   \\ match_mp_tac SORTED_IMP_EQ_LISTS
   \\ rpt strip_tac
-  THEN1 cheat (* easy *)
-  THEN1 cheat (* easy *)
+  THEN1 (
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    REWRITE_TAC[GSYM inv_image_def] >>
+    conj_tac >-(
+      match_mp_tac transitive_inv_image >>
+      ACCEPT_TAC transitive_LESS ) >>
+    qmatch_abbrev_tac`SORTED R' (QSORT R ls)` >>
+    `SORTED R (QSORT R ls)` by (
+      match_mp_tac QSORT_SORTED >>
+      metis_tac[transitive_key_val_compare,total_key_val_compare] ) >>
+    match_mp_tac SORTED_weaken >> (* this could be wrong *)
+    qexists_tac`R` >>
+    simp[MEM_QSORT,Abbr`R`] >>
+    simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
+    cheat (* maybe? *))
+  THEN1 (
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    REWRITE_TAC[GSYM inv_image_def] >>
+    conj_tac >-(
+      match_mp_tac transitive_inv_image >>
+      ACCEPT_TAC transitive_LESS ) >>
+    match_mp_tac (MP_CANON sorted_filter) >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    simp[MAP_GENLIST,combinTheory.o_DEF] >>
+    (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
+     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    conj_tac >- ACCEPT_TAC transitive_LESS >>
+    simp[MAP_GENLIST,combinTheory.o_DEF] >>
+    qmatch_abbrev_tac`SORTED prim_rec$< (GENLIST g m)` >>
+    `GENLIST g m = GENLIST (λx. k + m - (x + 1)) m` by (
+      simp[LIST_EQ_REWRITE,Abbr`g`] >>
+      rw[] >>
+      qmatch_abbrev_tac`FST (EL x (index_list ls k)) = Z` >>
+      `x < LENGTH ls` by ( simp[Abbr`ls`] ) >>
+      asm_simp_tac std_ss [EL_index_list] >>
+      simp[Abbr`ls`,Abbr`Z`] ) >>
+    pop_assum SUBST1_TAC >>
+    cheat (* looks the wrong way around (ascending vs descending) *)
+  )
   \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
       MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
   \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC]
@@ -839,10 +832,6 @@ val IMP_enc_stack = prove(
   fs [state_rel_def,LET_DEF] \\ rpt strip_tac
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma);
 
-val DROP_TAKE_NIL = prove(
-  ``DROP n (TAKE n xs) = []``,
-  fs [GSYM LENGTH_NIL,LENGTH_TAKE_EQ]);
-
 val dec_stack_lemma = prove(
   ``enc_stack (DROP t1.stack_space t1.stack) = SOME (enc_stack s1.stack) /\
     (dec_stack x0 s1.stack = SOME x) /\
@@ -872,14 +861,10 @@ val gc_state_rel = prove(
     \\ fs [FLOOKUP_DEF,stack_rel_def,LET_DEF])
   \\ fs [gc_fun_ok_def] \\ res_tac \\ fs []
   \\ mp_tac dec_stack_lemma \\ fs [] \\ rpt strip_tac \\ fs []
-  \\ fs [state_rel_def,FLOOKUP_FUPDATE_THM,LET_DEF,lookup_def,FLOOKUP_DEF]
+  \\ fs [state_rel_def,FLOOKUP_UPDATE,LET_DEF,lookup_def,FLOOKUP_DEF]
   \\ rfs [FLOOKUP_DEF] \\ rw[]
   THEN1 (fs [fmap_EXT,EXTENSION,DOMSUB_FAPPLY_THM] \\ metis_tac [])
   \\ fs [DROP_APPEND,DROP_TAKE_NIL]);
-
-val FLOOKUP_SUBMAP = prove(
-  ``(FLOOKUP f n = SOME x) /\ f SUBMAP g ==> (FLOOKUP g n = SOME x)``,
-  fs [FLOOKUP_DEF,SUBMAP_DEF] \\ metis_tac []);
 
 val alloc_alt = prove(
   ``FST (alloc c names (s:'a wordSem$state)) <> SOME (Error:'a result) ==>
@@ -1033,8 +1018,8 @@ val compile_correct = prove(
      (fs [state_rel_def,get_var_def,LET_DEF]
       \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
       \\ fs [stackSemTheory.get_var_def]
-      \\ imp_res_tac ANY_EL_TAKE_IMP
-      \\ fs [ANY_EL_DROP] \\ fs [ANY_EL_THM] \\ decide_tac)
+      \\ imp_res_tac el_opt_TAKE_IMP
+      \\ fs [el_opt_DROP] \\ fs [el_opt_THM] \\ decide_tac)
     \\ fs [LET_DEF]
     \\ `(set_var k x t).use_stack /\
         (set_var k x t).stack_space <= LENGTH (set_var k x t).stack` by
@@ -1043,7 +1028,7 @@ val compile_correct = prove(
     \\ fs [stackSemTheory.set_var_def,LET_DEF]
     \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
     \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,
-           FLOOKUP_FUPDATE_THM]
+           FLOOKUP_UPDATE]
     \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
