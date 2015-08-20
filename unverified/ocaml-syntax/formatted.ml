@@ -200,25 +200,60 @@ let rec intersperseMany xs = function
 
 let print_tupled xs = paren @@ Box (Hovp, 0, intersperseMany [Lit ","; sp] xs)
 
-let print_construct prec (f : int -> 'a -> (format_decl, string) result)
+let rec print_list_items (print : int -> 'a -> (format_decl, string) result)
+    (deconstruct : constructor_description -> 'a list ->
+                   ('a * constructor_description * 'a list) option)
+    cstr (xs : 'a list) =
+  match cstr.cstr_name, xs with
+  | "[]", [] -> return @@ Some []
+  | _ ->
+    match deconstruct cstr xs with
+    | None -> return None
+    | Some (y, cstr', xs') ->
+      print 0 y >>= fun y' ->
+      print_list_items print deconstruct cstr' xs' <&> fun z' ->
+      match z' with
+      | None -> None
+      | Some z' -> Some (y' :: z')
+
+let print_construct prec (print : int -> 'a -> (format_decl, string) result)
                     cstr (xs : 'a list) =
   match cstr.cstr_name, xs with
   | "::", [x; y] ->
-    f 1 x >>= fun x' ->
-    f 0 y >>= fun y' ->
+    print 1 x >>= fun x' ->
+    print 0 y >>= fun y' ->
     return @@ ifThen (prec > 0) paren @@
       Box (Hovs, indent, [x'; sp; Lit "::"; sp; y'])
   | _ ->
     make_constructor_path cstr >>= fun name ->
     (match xs with
     | [] -> return @@ Lit ""
-    | [x] -> f 2 x >>= fun x' ->
+    | [x] -> print 2 x >>= fun x' ->
              return @@ Box (Hovp, 0, [sp; x'])
-    | _ -> mapM (f 0) xs >>= fun xs' ->
+    | _ -> mapM (print 0) xs >>= fun xs' ->
            return @@ Box (Hovp, 0, [sp; print_tupled xs'])
     ) >>= fun args ->
     return @@ ifThen (prec > 1 && not ([] = xs)) paren @@
       Box (Hovp, indent, [fix_formatted_identifier name; args])
+
+let print_list_or_construct prec print deconstruct cstr xs =
+  print_list_items print deconstruct cstr xs >>= fun xs' ->
+  match xs' with
+  | Some xs' -> return @@
+      Box (Hovp, 1, [Lit "["] @ intersperseMany [Lit ","; sp] xs' @ [Lit "]"])
+  | None -> print_construct prec print cstr xs
+
+let deconstruct_list_pattern cstr xs =
+  match cstr.cstr_name, xs with
+  | "::", [x; { pat_desc = Tpat_construct (_, cstr', xs') }] ->
+    Some (x, cstr', xs')
+  | _ -> None
+
+let deconstruct_list_expression cstr xs =
+  match cstr.cstr_name, xs with
+  | "::", [x; { exp_desc = Texp_construct (_, cstr', xs') }] ->
+    Some (x, cstr', xs')
+  | _ -> None
 
 let rec print_pattern prec pat =
   match pat.pat_desc with
@@ -228,7 +263,9 @@ let rec print_pattern prec pat =
   | Tpat_constant c -> return @@ print_constant c
   | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
                      return @@ print_tupled ps'
-  | Tpat_construct (_, desc, ps) -> print_construct prec print_pattern desc ps
+  | Tpat_construct (_, desc, ps) ->
+    (*print_construct prec print_pattern desc ps*)
+    print_list_or_construct prec print_pattern deconstruct_list_pattern desc ps
   | _ -> Bad "Some pattern syntax not implemented"
 
 let pattern_is_trivial { pat_desc; _ } =
@@ -311,7 +348,9 @@ let rec print_expression casesfollow prec expr =
     ])
   | Texp_tuple es -> mapM (print_expression false 0) es <&> print_tupled
   | Texp_construct (_, desc, es) ->
-    print_construct prec (print_expression casesfollow) desc es
+    (*print_construct prec (print_expression casesfollow) desc es*)
+    print_list_or_construct prec (print_expression casesfollow)
+      deconstruct_list_expression desc es
   | Texp_ifthenelse (p, et, Some ef) ->
     print_expression false 0 p >>= fun p' ->
     print_expression false 0 et >>= fun et' ->
@@ -464,24 +503,19 @@ let print_type_declaration first_binding typ =
   return @@ Box (Hovp, indent, [Lit keyword] @ params @
     [Lit (fix_type_name typ.typ_name.txt)] @ rest)
 
-let rec print_module_expr expr =
-  match expr.mod_desc with
+let rec print_module_binding mb =
+  let name = mb.mb_id.name in
+  match mb.mb_expr.mod_desc with
   | Tmod_structure str ->
     let str_items =
       BatList.concat (BatList.map preprocess_valrec_str_item str.str_items) in
     print_str_items str_items >>= fun items ->
-    return @@ Box (Hovs, indent, [Lit "struct"; sp; items;
-      Break (1, -indent); Lit "end"])
-  | _ -> Bad "Some module types not supported."
-
-and print_module_binding mb =
-  print_module_expr mb.mb_expr >>= fun expr ->
-  let name = mb.mb_id.name in
-  match mb.mb_expr.mod_desc with
-  | Tmod_structure str ->
-    return @@ Box (Hovp, indent, [
-      Lit "structure"; sp; Lit name; sp; Lit "="; sp; expr
+    return @@ Box (Hovs, indent, [
+      Lit "structure "; Lit name; sp; Lit "= struct"; sp; items;
+      Break (1, -indent); Lit "end"
     ])
+  | Tmod_constraint (mexpr, mtype, constr, coe) ->
+    print_module_binding { mb with mb_expr = mexpr; }
   | _ -> Bad "Some module types not supported."
 
 and print_structure_item str =
