@@ -12,7 +12,7 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
     in ("cake_ffi" ^ (int_to_string n) ^ ":") ::
        "     pushq   %r15"::
        "     jmp     cdecl(ffi" ^ (int_to_string n) ^ ")"::
-       "     .align  8, 0x90"::
+       "     .p2align 3"::
        "":: ffi_asm n end
   in
   ["#### Preprocessor to get around Mac OS and Linux differences in naming",
@@ -28,13 +28,13 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "#### Data section -- modify the numbers to change stack/heap size",
    "",
    "     .bss",
-   "     .align  16",
+   "     .p2align 3",
    "cake_heap:",
    heap_line,
-   "     .align  16",
+   "     .p2align 3",
    "cake_stack:",
    stack_line,
-   "     .align  16",
+   "     .p2align 3",
    "cake_end:",
    "",
    "#### Start up code",
@@ -52,16 +52,16 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
    "",
-   "     .align       8, 0x90",
+   "     .p2align 3",
    ""] @
    ffi_asm ffi_count @
   ["cake_clear:",
    "     callq   cdecl(exit)",
-   "     .align  8, 0x90",
+   "     .p2align 3",
    "",
    "cake_exit:",
    "     callq   cdecl(exit)",
-   "     .align  8, 0x90",
+   "     .p2align 3",
    "",
    "cake_main:",
    "",
