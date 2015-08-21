@@ -276,10 +276,6 @@ val all_enc_ok_def = Define `
      line_ok c enc labs pos y /\
      all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
 
-val line_bytes_def = Define ` (* delete *)
-  (line_bytes (Asm b bytes l) = bytes) /\
-  (line_bytes (LabAsm a w bytes l) = bytes)`;
-
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
   (has_odd_inst ((Section k [])::xs) = has_odd_inst xs) /\
@@ -391,7 +387,7 @@ val state_rel_def = Define `
          a IN t1.mem_domain /\ a IN s1.mem_domain /\
          (word_loc_val_byte p labs s1.mem a s1.be = SOME (t1.mem a))) /\
     (has_odd_inst code2 ==> (mc_conf.asm_config.code_alignment = 0)) /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
+    bytes_in_mem p (prog_to_bytes code2)
       t1.mem t1.mem_domain s1.mem_domain /\
     ~s1.failed /\ ~t1.failed /\ (s1.be = t1.be) /\
     (check_pc ==> (t1.pc = p + n2w (pos_val s1.pc 0 code2))) /\
@@ -417,8 +413,7 @@ val all_bytes_lemma = Q.prove(
         mc_conf.f.encode labs pos code2 /\
       (asm_fetch_aux pc code1 = SOME i) ==>
       ?bs j bs2.
-        (all_bytes pos (nop_byte mc_conf.f.encode) code2  =
-         bs ++ line_bytes j ++ bs2) /\
+        (all_bytes code2 = bs ++ line_bytes j ++ bs2) /\
         (LENGTH bs + pos = pos_val pc pos code2) /\
         (LENGTH bs + pos + LENGTH (line_bytes j) = pos_val (pc+1) pos code2) /\
         line_similar i j /\
@@ -443,29 +438,25 @@ val all_bytes_lemma = Q.prove(
   THEN1
    (fs [all_bytes_def,LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc`,`i`,
-       `(pos + LENGTH (line_bytes x2 (nop_byte mc_conf.f.encode)))`])
+       `(pos + LENGTH (line_bytes x2))`])
     \\ fs [all_enc_ok_def,code_similar_def] \\ rpt strip_tac
     \\ fs [prog_to_bytes_def,LET_DEF]
-    \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
-         `j`,`bs2`]
+    \\ Cases_on `x2` \\ fs [line_ok_def,is_Label_def] \\ rw []
+    \\ fs [line_length_def,line_bytes_def]
     \\ fs [AC ADD_COMM ADD_ASSOC])
   \\ Cases_on `pc = 0` \\ fs [] \\ rw []
   THEN1
    (fs [listTheory.LENGTH_NIL] \\ qexists_tac `x2`
-    \\ fs [all_bytes_def,LET_DEF,all_enc_ok_def]
-    \\ `line_bytes x2 (nop_byte mc_conf.f.encode) = line_bytes x2` by
-     (Cases_on `x2`
-      \\ fs [lab_to_targetTheory.line_bytes_def,is_Label_def,line_bytes_def])
-    \\ fs [pos_val_0]
+    \\ fs [all_bytes_def,LET_DEF,all_enc_ok_def] \\ fs [pos_val_0]
     \\ imp_res_tac pos_val_0
     \\ fs [] \\ Cases_on `x2`
     \\ fs [line_ok_def,is_Label_def,line_bytes_def,line_length_def] \\ rw [])
   \\ fs [all_bytes_def,LET_DEF]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc-1`,`i`,
-       `(pos + LENGTH (line_bytes x2 (nop_byte mc_conf.f.encode)))`])
+       `(pos + LENGTH (line_bytes x2))`])
   \\ fs [all_enc_ok_def,code_similar_def]
   \\ rpt strip_tac \\ fs []
-  \\ Q.LIST_EXISTS_TAC [`line_bytes x2 (nop_byte mc_conf.f.encode) ++ bs`,
+  \\ Q.LIST_EXISTS_TAC [`line_bytes x2 ++ bs`,
         `j`,`bs2`] \\ fs [] \\ `pc - 1 + 1 = pc` by decide_tac
   \\ fs [AC ADD_COMM ADD_ASSOC])
 
@@ -484,8 +475,7 @@ val IMP_bytes_in_memory = prove(
   ``code_similar code1 code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
     (asm_fetch_aux pc code1 = SOME i) /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2)
-         m (dm:'a word set) dm1 ==>
+    bytes_in_mem p (prog_to_bytes code2) m (dm:'a word set) dm1 ==>
     ?j.
       bytes_in_mem (p + n2w (pos_val pc 0 code2)) (line_bytes j) m dm dm1 /\
       line_ok (mc_conf:('a,'state,'b) machine_config).asm_config
@@ -500,8 +490,7 @@ val IMP_bytes_in_memory = prove(
 val IMP_bytes_in_memory_JumpReg = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (JumpReg r1) l n)) ==>
     bytes_in_memory ((p:'a word) + n2w (pos_val s1.pc 0 code2))
       (mc_conf.f.encode (JumpReg r1)) t1.mem t1.mem_domain /\
@@ -512,7 +501,7 @@ val IMP_bytes_in_memory_JumpReg = prove(
   \\ mp_tac (IMP_bytes_in_memory |> Q.GENL [`dm1`,`i`,`dm`,`m`]) \\ fs []
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
-  \\ fs [line_ok_def,enc_with_nop_def] \\ rw [] \\ fs [no_Label_eq]
+  \\ fs [line_ok_def,enc_with_nop_def] \\ rw [] \\ fs []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
@@ -520,8 +509,7 @@ val IMP_bytes_in_memory_JumpReg = prove(
 val IMP_bytes_in_memory_Jump = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Jump target) l bytes n)) ==>
     ?tt enc.
       (tt = n2w (find_pos target labs) -
@@ -537,7 +525,7 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
@@ -545,8 +533,7 @@ val IMP_bytes_in_memory_Jump = prove(
 val IMP_bytes_in_memory_JumpCmp = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri target) l bytes n)) ==>
     ?tt enc.
       (tt = n2w (find_pos target labs) -
@@ -562,7 +549,7 @@ val IMP_bytes_in_memory_JumpCmp = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
@@ -570,8 +557,7 @@ val IMP_bytes_in_memory_JumpCmp = prove(
 val IMP_bytes_in_memory_JumpCmp_1 = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri target) l bytes n)) ==>
     ?tt bytes.
       (tt = n2w (find_pos target labs) -
@@ -590,7 +576,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
   \\ fs [line_ok_def,LET_DEF] \\ rw []
   \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS]
   \\ qexists_tac `n'` \\ fs []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
@@ -598,7 +584,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
 val IMP_bytes_in_memory_Call = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok (mc_conf: ('a,'state,'b) machine_config).asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
+    bytes_in_mem p (prog_to_bytes code2) t1.mem
       (t1:'a asm_state).mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (Call ww) l bytes n)) ==>
     F``,
@@ -611,8 +597,7 @@ val IMP_bytes_in_memory_Call = prove(
 val IMP_bytes_in_memory_LocValue = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (LocValue reg (Lab l1 l2)) l bytes n)) ==>
     ?tt bytes.
       (tt = n2w (find_pos (Lab l1 l2) labs) -
@@ -632,7 +617,7 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ fs [line_ok_def,LET_DEF] \\ rw []
   \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS]
   \\ qexists_tac `n'` \\ fs []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
@@ -640,8 +625,7 @@ val IMP_bytes_in_memory_LocValue = prove(
 val IMP_bytes_in_memory_Inst = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (Asm (Inst i) bytes len)) ==>
     ?bytes.
       enc_with_nop mc_conf.f.encode (Inst i) bytes /\
@@ -660,7 +644,7 @@ val IMP_bytes_in_memory_Inst = prove(
   \\ fs [line_ok_def,LET_DEF] \\ rw []
   \\ Q.EXISTS_TAC `l` \\ fs [enc_with_nop_def,PULL_EXISTS]
   \\ qexists_tac `n` \\ fs []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
@@ -668,8 +652,7 @@ val IMP_bytes_in_memory_Inst = prove(
 val IMP_bytes_in_memory_CallFFI = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm (CallFFI index) l bytes n)) ==>
     ?tt enc.
       (tt = 0w - n2w (pos_val s1.pc 0 code2 + (3 + index) * ffi_offset)) /\
@@ -684,7 +667,7 @@ val IMP_bytes_in_memory_CallFFI = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
@@ -692,8 +675,7 @@ val IMP_bytes_in_memory_CallFFI = prove(
 val IMP_bytes_in_memory_Halt = prove(
   ``code_similar s1.code code2 /\
     all_enc_ok mc_conf.asm_config mc_conf.f.encode labs 0 code2 /\
-    bytes_in_mem p (prog_to_bytes mc_conf.f.encode code2) t1.mem
-      t1.mem_domain s1.mem_domain /\
+    bytes_in_mem p (prog_to_bytes code2) t1.mem t1.mem_domain s1.mem_domain /\
     (asm_fetch s1 = SOME (LabAsm Halt l bytes n)) ==>
     ?tt enc.
       (tt = 0w - n2w (pos_val s1.pc 0 code2 + ffi_offset)) /\
@@ -708,7 +690,7 @@ val IMP_bytes_in_memory_Halt = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
-  \\ fs [no_Label_eq,LET_DEF,lab_inst_def,get_label_def] \\ rw []
+  \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
   \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);

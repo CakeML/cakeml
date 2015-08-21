@@ -161,6 +161,10 @@ val all_asm_ok_def = Define `
   (all_asm_ok c ((Section s lines)::rest) =
      if sec_asm_ok c lines then all_asm_ok c rest else F)`
 
+(* pad with nop byte, and nop instruction *)
+
+(* TODO *)
+
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
@@ -191,32 +195,25 @@ val remove_labels_def = Define `
 (* code extraction *)
 
 val line_bytes_def = Define `
-  (line_bytes (Label _ _ l) nop = if l = 0 then [] else [nop]) /\
-  (line_bytes (Asm _ bytes _) nop = bytes) /\
-  (line_bytes (LabAsm _ _ bytes _) nop = bytes)`
+  (line_bytes (Label _ _ l) = []) /\
+  (line_bytes (Asm _ bytes _) = bytes) /\
+  (line_bytes (LabAsm _ _ bytes _) = bytes)`
 
 val all_bytes_def = Define `
-  (all_bytes pos nop [] = []) /\
-  (all_bytes pos nop ((Section k [])::xs) =
-     if EVEN pos then all_bytes pos nop xs
-                 else [nop] ++ all_bytes (pos+1) nop xs) /\
-  (all_bytes pos nop ((Section k (y::ys))::xs) =
-     let bytes = line_bytes y nop in
-       bytes ++
-       all_bytes (pos + LENGTH bytes) nop ((Section k ys)::xs))`
-
-val nop_byte_def = Define `
-  nop_byte enc = (case enc (Inst Skip) of [] => 0w | (x::xs) => x)`;
+  (all_bytes [] = []) /\
+  (all_bytes ((Section k [])::xs) = all_bytes xs) /\
+  (all_bytes ((Section k (y::ys))::xs) =
+     line_bytes y ++ all_bytes ((Section k ys)::xs))`
 
 val prog_to_bytes_def = Define `
-  prog_to_bytes enc sec_list = all_bytes 0 (nop_byte enc) sec_list`
+  prog_to_bytes sec_list = all_bytes sec_list`
 
 (* compile labLang *)
 
 val compile_def = Define `
   compile c enc sec_list =
     case remove_labels c enc sec_list of
-    | SOME sec_list => SOME (prog_to_bytes enc sec_list)
+    | SOME sec_list => SOME (prog_to_bytes sec_list)
     | NONE => NONE`;
 
 val _ = export_theory();
