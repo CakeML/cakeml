@@ -7,8 +7,8 @@ val _ = Datatype `
        | Inst ('a inst)
        | Get num store_name
        | Set store_name num
-       | Call ((stackLang$prog # num # num) option)
-              (* return var, return-handler code, labels l1,l2*)
+       | Call ((stackLang$prog # num # num # num) option)
+              (* return-handler code, link reg, labels l1,l2*)
               (num + num) (* target of call *)
               ((stackLang$prog # num # num) option)
               (* handler: exception-handler code, labels l1,l2*)

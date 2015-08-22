@@ -336,7 +336,7 @@ val evaluate_def = tDefine "evaluate" `
            | (NONE,s) => (SOME Error,s)
            | (SOME res,s) => (SOME res,s))
      (* returning call, returns into var n *)
-     | SOME (ret_handler,l1,l2) =>
+     | SOME (ret_handler,link_reg,l1,l2) =>
         if s.clock = 0 then (SOME TimeOut,empty_env s) else
           (case evaluate (prog, dec_clock s) of
            | (SOME (Result x y),s2) =>
