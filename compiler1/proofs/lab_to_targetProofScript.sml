@@ -406,14 +406,14 @@ val pos_val_0 = prove(
   \\ rpt strip_tac  \\ res_tac  \\ rw []
   \\ Cases_on `h` \\ fs [line_ok_def,line_length_def,is_Label_def]);
 
-val all_bytes_lemma = Q.prove(
+val prog_to_bytes_lemma = Q.prove(
   `!code2 code1 pc i pos.
       code_similar code1 code2 /\
       all_enc_ok (mc_conf:('a,'state,'b) machine_config).asm_config
         mc_conf.f.encode labs pos code2 /\
       (asm_fetch_aux pc code1 = SOME i) ==>
       ?bs j bs2.
-        (all_bytes code2 = bs ++ line_bytes j ++ bs2) /\
+        (prog_to_bytes code2 = bs ++ line_bytes j ++ bs2) /\
         (LENGTH bs + pos = pos_val pc pos code2) /\
         (LENGTH bs + pos + LENGTH (line_bytes j) = pos_val (pc+1) pos code2) /\
         line_similar i j /\
@@ -425,7 +425,7 @@ val all_bytes_lemma = Q.prove(
    (Cases_on `code1` \\ fs [code_similar_def]
     \\ Cases_on `h` \\ fs [code_similar_def]
     \\ Cases_on `l` \\ fs [asm_fetch_aux_def,pos_val_def] \\ rw []
-    \\ fs [all_bytes_def,all_enc_ok_def] \\ metis_tac [])
+    \\ fs [prog_to_bytes_def,all_enc_ok_def] \\ metis_tac [])
   \\ Cases_on `code1` \\ fs [code_similar_def]
   \\ Cases_on `h` \\ fs [code_similar_def]
   \\ Cases_on`l` \\ fs [asm_fetch_aux_def,pos_val_def]
@@ -436,7 +436,7 @@ val all_bytes_lemma = Q.prove(
     (Cases_on `x1` \\ Cases_on `x2` \\ fs [line_similar_def,is_Label_def])
   \\ fs [] \\ Cases_on `is_Label x1` \\ fs []
   THEN1
-   (fs [all_bytes_def,LET_DEF]
+   (fs [prog_to_bytes_def,LET_DEF]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc`,`i`,
        `(pos + LENGTH (line_bytes x2))`])
     \\ fs [all_enc_ok_def,code_similar_def] \\ rpt strip_tac
@@ -447,11 +447,11 @@ val all_bytes_lemma = Q.prove(
   \\ Cases_on `pc = 0` \\ fs [] \\ rw []
   THEN1
    (fs [listTheory.LENGTH_NIL] \\ qexists_tac `x2`
-    \\ fs [all_bytes_def,LET_DEF,all_enc_ok_def] \\ fs [pos_val_0]
+    \\ fs [prog_to_bytes_def,LET_DEF,all_enc_ok_def] \\ fs [pos_val_0]
     \\ imp_res_tac pos_val_0
     \\ fs [] \\ Cases_on `x2`
     \\ fs [line_ok_def,is_Label_def,line_bytes_def,line_length_def] \\ rw [])
-  \\ fs [all_bytes_def,LET_DEF]
+  \\ fs [prog_to_bytes_def,LET_DEF]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`(Section k ys1)::t`,`pc-1`,`i`,
        `(pos + LENGTH (line_bytes x2))`])
   \\ fs [all_enc_ok_def,code_similar_def]
@@ -460,9 +460,9 @@ val all_bytes_lemma = Q.prove(
         `j`,`bs2`] \\ fs [] \\ `pc - 1 + 1 = pc` by decide_tac
   \\ fs [AC ADD_COMM ADD_ASSOC])
 
-val prog_to_bytes_lemma = all_bytes_lemma
+val prog_to_bytes_lemma = prog_to_bytes_lemma
   |> Q.SPECL [`code2`,`code1`,`pc`,`i`,`0`]
-  |> SIMP_RULE std_ss [GSYM prog_to_bytes_def];
+  |> SIMP_RULE std_ss [];
 
 val bytes_in_mem_APPEND = prove(
   ``!xs ys a m md md1.
@@ -503,7 +503,7 @@ val IMP_bytes_in_memory_JumpReg = prove(
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,enc_with_nop_def] \\ rw [] \\ fs []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_Jump = prove(
@@ -527,7 +527,7 @@ val IMP_bytes_in_memory_Jump = prove(
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_JumpCmp = prove(
@@ -551,7 +551,7 @@ val IMP_bytes_in_memory_JumpCmp = prove(
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_JumpCmp_1 = prove(
@@ -578,7 +578,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
   \\ qexists_tac `n'` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
 
 val IMP_bytes_in_memory_Call = prove(
@@ -619,7 +619,7 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ qexists_tac `n'` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
 
 val IMP_bytes_in_memory_Inst = prove(
@@ -646,7 +646,7 @@ val IMP_bytes_in_memory_Inst = prove(
   \\ qexists_tac `n` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND] \\ rw []);
 
 val IMP_bytes_in_memory_CallFFI = prove(
@@ -669,7 +669,7 @@ val IMP_bytes_in_memory_CallFFI = prove(
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val IMP_bytes_in_memory_Halt = prove(
@@ -692,7 +692,7 @@ val IMP_bytes_in_memory_Halt = prove(
   \\ fs [line_ok_def,enc_with_nop_def,LET_DEF] \\ rw []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
-  \\ fs [asm_fetch_aux_def,all_bytes_def,LET_DEF,line_bytes_def,
+  \\ fs [asm_fetch_aux_def,prog_to_bytes_def,LET_DEF,line_bytes_def,
          bytes_in_memory_APPEND]);
 
 val ADD_MODULUS_LEMMA = prove(
@@ -1481,6 +1481,7 @@ val machine_sem_EQ_sem = prove(
 (*
 
 TODO:
+ - add support for skipping sections of code
  - define an incremental version of the compiler
  - add ability to install code
 
