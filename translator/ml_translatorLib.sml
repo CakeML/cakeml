@@ -2999,11 +2999,19 @@ val (fname,def,lemma,pre_var) = hd thms2
     val y = pre |> concl |> dest_eq |> fst |> repeat rator
     in x |-> y end
   val ss = map get_sub thms3
+  val pat = ``Eq (a:'a->v->bool) x --> (b:'b->v->bool)``
+  fun list_dest_Eq_Arrow tm =
+    if can (match_term pat) tm then
+      (tm |> rator |> rand |> rand) :: list_dest_Eq_Arrow (rand tm)
+    else []
 (*
 val (pre,(fname,def,lemma,pre_var)) = hd thms3
 *)
   fun compact_pre (pre,(fname,def,lemma,pre_var)) = let
-    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM pre))
+    val vs = pre |> concl |> dest_eq |> fst |> list_dest dest_comb |> tl
+    val ws = lemma |> UNDISCH_ALL |> concl |> rand |> rator |> list_dest_Eq_Arrow
+    val i = map (fn (x,y) => x |-> y) (zip vs ws) handle HOL_ERR _ => []
+    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM (INST i pre)))
     val lemma = lemma |> INST ss |> CONV_RULE c
                       |> MATCH_MP IMP_PreImp_LEMMA
     val pre = pre |> PURE_REWRITE_RULE [CONTAINER_def]
