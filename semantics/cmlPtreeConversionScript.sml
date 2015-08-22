@@ -622,7 +622,8 @@ val ptree_PbaseList1_def = Define`
          | [p_pt; pl_pt] =>
                lift2 CONS
                      (ptree_Pattern nPbase p_pt)
-                     (ptree_PbaseList1 pl_pt))
+                     (ptree_PbaseList1 pl_pt)
+         | _ => NONE)
 `;
 
 
