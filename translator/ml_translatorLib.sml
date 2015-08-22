@@ -3284,6 +3284,7 @@ val _ = (max_print_depth := 25)
                          |> SPEC_ALL |> CONV_RULE c |> (fn th => MATCH_MP th TRUTH)
     (* collect precondition *)
     val thms = extract_precondition_rec thms
+(*
     (* derive rewrites for the precondition *)
     val pre_rw1 = thms |> map (fn (_,_,_,x) =>
        case x of NONE => [] | SOME pre_def => let
@@ -3294,6 +3295,7 @@ val _ = (max_print_depth := 25)
              [auto_prove "pre_rw1" (mk_eq(lhs,subst s lhs),
                 ONCE_REWRITE_TAC [pre_def] THEN REWRITE_TAC [])]
          end) |> flatten
+*)
     (* apply induction *)
     fun get_goal (fname,def,th,pre) = let
       val th = REWRITE_RULE [CONTAINER_def] th
@@ -3357,9 +3359,11 @@ val _ = (max_print_depth := 25)
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+(*
         \\ REPEAT (POP_ASSUM MP_TAC)
         \\ ONCE_REWRITE_TAC pre_rw1
         \\ REPEAT STRIP_TAC
+*)
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>
