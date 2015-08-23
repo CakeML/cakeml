@@ -62,6 +62,8 @@ val flatten_def = Define `
             compile_jump dest; Label l1 l2 0] ++ xs ++
            [LabAsm (Jump (Lab n m)) 0w [] 0;
             Label k1 k2 0] ++ ys ++ [Label n m 0],m+1)
+    | JumpLess r1 r2 target =>
+        ([LabAsm (JumpCmp Less r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
     | _  => ([],m)`
 
 val prog_to_section_def = Define `

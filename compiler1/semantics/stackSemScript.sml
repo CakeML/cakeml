@@ -323,6 +323,19 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (JumpLess r1 r2 dest,s) =
+    case (get_var r1 s, get_var r2 s) of
+    | SOME (Word x),SOME (Word y) =>
+      if word_cmp Less x y then
+       (case find_code (INL dest) s.regs s.code of
+        | NONE => (SOME Error,s)
+        | SOME prog =>
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (prog,dec_clock s) of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s)))
+      else (NONE,s)
+    | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
      case find_code dest s.regs s.code of
      | NONE => (SOME Error,s)
@@ -437,9 +450,9 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ IMP_RES_TAC alloc_clock
   \\ fs [set_var_def,set_store_def,dec_clock_def,jump_exc_def]
   \\ Cases_on `evaluate (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ simp[]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ IMP_RES_TAC check_clock_IMP);
+  \\ simp[] \\ every_case_tac \\ fs[] \\ rw[]
+  \\ IMP_RES_TAC check_clock_IMP
+  \\ res_tac \\ fs [] \\ decide_tac);
 
 val evaluate_check_clock = prove(
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
