@@ -10015,6 +10015,7 @@ val tags_eq =
      longs_tag,
      numbers_tag,
      others_tag,
+     chars_tag,
      strings_tag)`` |>
   (EVAL THENC REWRITE_CONV [bootstrapProofTheory.repl_contags_env_def] THENC
    EVAL THENC REWRITE_CONV [compileReplTheory.compile_repl_module_eq] THENC
@@ -10045,18 +10046,21 @@ val BlockPair_def = ONCE_REWRITE_RULE[GSYM pair_tag_def] BlockPair_def
 val BlockOtherS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockOtherS_def
 val BlockLongS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockLongS_def
 val BlockNumberS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockNumberS_def
+val BlockCharS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockCharS_def
 val BlockStringS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockStringS_def
 val BlockErrorS_def = CONV_RULE(STRIP_QUANT_CONV(RAND_CONV (ONCE_REWRITE_CONV[tags_eq] THENC EVAL)))BlockErrorS_def
 
 val others_tag_def = Define`others_tag = ^(BlockOtherS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 val longs_tag_def = Define`longs_tag = ^(BlockLongS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 val numbers_tag_def = Define`numbers_tag = ^(BlockNumberS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
+val chars_tag_def = Define`chars_tag = ^(BlockCharS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 val strings_tag_def = Define`strings_tag = ^(BlockStringS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 val errors_tag_def = Define`errors_tag = ^(BlockErrorS_def |> SPEC_ALL |> concl |> rand |> rator |> rand)`
 
 val BlockOtherS_def = ONCE_REWRITE_RULE[GSYM others_tag_def]BlockOtherS_def
 val BlockLongS_def = ONCE_REWRITE_RULE[GSYM longs_tag_def]BlockLongS_def
 val BlockNumberS_def = ONCE_REWRITE_RULE[GSYM numbers_tag_def]BlockNumberS_def
+val BlockCharS_def = ONCE_REWRITE_RULE[GSYM chars_tag_def]BlockCharS_def
 val BlockStringS_def = ONCE_REWRITE_RULE[GSYM strings_tag_def]BlockStringS_def
 val BlockErrorS_def = ONCE_REWRITE_RULE[GSYM errors_tag_def]BlockErrorS_def
 
@@ -10100,12 +10104,13 @@ fun Block1 tag = let
                             GSYM BlockLongS_def,
                             GSYM BlockOtherS_def,
                             GSYM BlockNumberS_def,
-                            GSYM BlockStringS_def]
+                            GSYM BlockStringS_def,
+                            GSYM BlockCharS_def]
   val _ = add_compiled [th]
   in th end
 
 val thms = map Block1
-  [`others_tag`, `longs_tag`, `numbers_tag`, `strings_tag`]
+  [`others_tag`, `longs_tag`, `numbers_tag`, `strings_tag`,`chars_tag`]
 
 fun GenBlockNil tag th = let
   val th = th |> Q.INST [`k`|->tag]
@@ -19400,6 +19405,220 @@ val read_num_thm = prove(
   \\ FULL_SIMP_TAC std_ss [EVAL ``bool2int T < 0``]
   \\ FULL_SIMP_TAC std_ss [AC MULT_COMM MULT_ASSOC, AC ADD_ASSOC ADD_COMM]);
 
+
+val (res,read_single_def,read_single_pre_def) = x64_compile `
+  read_single (x2:bc_value,s:zheap_state,stack) =
+    if s.input = "" then
+      (x2:bc_value,s,stack) (* error *)
+    else if HD s.input = #"\"" then
+      let s = s with input := DROP 1 s.input in
+      (x2,s,stack)
+    else if HD s.input = #"\n" then
+      let s = s with input := DROP 1 s.input in
+        (x2,s,stack) (* error *)
+    else if HD s.input <> #"\\" then
+      let x1 = Number (&ORD (HD s.input)) in
+      let stack = x1::stack in
+      let s = s with input := DROP 1 s.input in
+      let x2 = Number 6 in
+        (x2,s,stack)
+    else
+      let s = s with input := DROP 1 s.input in
+        if s.input = "" then
+          (x2:bc_value,s,stack) (* error *)
+        else if HD s.input = #"\\" then
+          let x1 = Number (&ORD (HD s.input)) in
+          let stack = x1::stack in
+          let s = s with input := DROP 1 s.input in
+          let x2 = Number 6 in
+            (x2,s,stack)
+        else if HD s.input = #"\"" then
+          let x1 = Number (&ORD (HD s.input)) in
+          let stack = x1::stack in
+          let s = s with input := DROP 1 s.input in
+          let x2 = Number 6 in
+            (x2,s,stack)
+        else if HD s.input = #"n" then
+          let x1 = Number 10 in
+          let stack = x1::stack in
+          let s = s with input := DROP 1 s.input in
+          let x2 = Number 6 in
+            (x2,s,stack)
+        else if HD s.input = #"t" then
+          let x1 = Number 9 in
+          let stack = x1::stack in
+          let s = s with input := DROP 1 s.input in
+          let x2 = Number 6 in
+            (x2,s,stack)
+        else
+          (x2:bc_value,s,stack) (* error *)`
+
+val (res,read_char_def,read_char_pre_def) = x64_compile `
+  read_char (x2:bc_value,s:zheap_state,stack) =
+  let x2 = Number 0 in
+  let (x2,s,stack) = read_single (x2,s,stack) in
+    if getNumber x2 <> 6 then
+        (x2,s,stack)
+    else 
+    if s.input = "" then
+      let x2 = Number 0 in
+        (x2,s,stack)
+    else 
+    if HD s.input = #"\"" then
+      let s = s with input := DROP 1 s.input in
+        (x2,s,stack)
+    else
+      let x2 = Number 0 in
+      let (x2,s,stack) = read_str (x2,s,stack) in
+      let x2 = Number 0 in
+        (x2,s,stack)`
+
+val read_string_length = prove(``
+  ∀a b c d.
+  (read_string a b = (StringS c,d)) ⇒
+  STRLEN b ≤ STRLEN c``,
+  completeInduct_on `STRLEN a`
+  \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `a`
+  \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
+  \\ pop_assum mp_tac
+  \\ ONCE_REWRITE_TAC [read_string_def]
+  \\TRY (Cases_on`t`) \\ fs[] \\ rpt IF_CASES_TAC \\fs[]
+  \\ strip_tac
+  \\ fs[AND_IMP_INTRO]
+  \\ res_tac \\ fs[] \\ DECIDE_TAC)
+ 
+val read_string_not_single = prove(``
+  ∀x y s.
+  (x ≠ #"\"" ∧ (read_string (STRING x y) s = (StringS s',r))) ⇒ 
+  STRLEN s' > STRLEN s``,
+  rw[]
+  \\ fs[Once read_string_def] \\pop_assum mp_tac \\rpt  IF_CASES_TAC
+  \\ fs[]
+  \\ Cases_on`y`\\ fs[] \\ rpt IF_CASES_TAC
+  \\ strip_tac\\imp_res_tac read_string_length\\fs[]\\DECIDE_TAC)
+
+val read_char_thm = prove(
+  ``!s stack.
+      ?ts.
+        read_char_pre (Number 0,s,stack) /\
+        (read_char (Number 0,s,stack) =
+           case read_string s.input "" of
+           | (StringS [ch], rest) =>
+               (Number 6,s with input := rest, (Chr ch) :: stack)
+           | (_, rest) =>
+               (Number 0,s with input := rest, MAP Chr (REVERSE ts) ++ stack))``,
+  REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
+  \\ Cases_on `s.input`
+  \\ FULL_SIMP_TAC std_ss [PULL_FORALL]
+  \\ REWRITE_TAC [read_char_def,read_char_pre_def,read_single_def]
+  \\ SIMP_TAC std_ss [Once read_string_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+  THEN1 (
+    FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_str_pre_def,Once read_str_def]
+    \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_str_pre_def,Once read_str_def]
+    \\ Cases_on `s`
+    \\ FULL_SIMP_TAC (srw_ss()) (TypeBase.updates_of ``:zheap_state``))
+  \\ Cases_on `h = #"\""` \\ FULL_SIMP_TAC (srw_ss()) []
+  THEN1 (ntac 3 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_str_pre_def,Once read_str_def,LET_THM]))
+  \\ Cases_on `h = #"\n"` \\ FULL_SIMP_TAC (srw_ss()) []
+  THEN1 (ntac 3 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_str_pre_def,Once read_str_def,LET_THM]))
+  \\ Cases_on `h ≠ #"\\"` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  THEN1 (
+    Cases_on`t` 
+    THEN1 
+    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+    \\
+    Cases_on`h'= #"\""` \\ fs[]
+    THEN1
+    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+    \\
+    qpat_abbrev_tac `s' = s with input:= A`>>
+    Q.SPECL_THEN [`[h]`,`s'`,`stack`] assume_tac read_str_thm >>
+    fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+    Cases_on`read_string s'.input (STRING h "")`>>Cases_on`q`>>fs[Abbr`s'`]>>
+    TRY( metis_tac[]) >>
+    `STRLEN s'' > STRLEN(STRING h "")` by
+      (match_mp_tac (GEN_ALL read_string_not_single)>>
+      metis_tac[])>>
+    Cases_on`s''`>>fs[]>>
+    Cases_on`t`>>fs[]>>
+    qexists_tac`h''::h'''::t''`>>fs[])
+  \\ Cases_on`t` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def] 
+  THEN1 
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\
+  Cases_on`h''= #"\""` \\ fs[]
+  THEN1
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\
+  (qpat_abbrev_tac `s' = s with input:=A`>>
+  Q.SPECL_THEN [`[#"\\"]`,`s'`,`stack`] assume_tac read_str_thm >>
+  fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+  Cases_on`read_string s'.input ("\\")`>>Cases_on`q`>>fs[Abbr`s'`]>>
+  TRY( metis_tac[]) >>
+  `STRLEN s'' > STRLEN("\\")` by
+      (match_mp_tac (GEN_ALL read_string_not_single)>>
+      metis_tac[])>>
+   Cases_on`s''`>>fs[]>>
+   Cases_on`t'`>>fs[]>>
+   qexists_tac`h'''::h''''::t''`>>fs[]))
+  THEN1 
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\""]`\\fs[Chr_def])
+  \\
+  Cases_on`h''= #"\""` \\ fs[]
+  THEN1
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\
+  (qpat_abbrev_tac `s' = s with input:=A`>>
+  Q.SPECL_THEN [`[#"\""]`,`s'`,`stack`] assume_tac read_str_thm >>
+  fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+  Cases_on`read_string s'.input ("\"")`>>Cases_on`q`>>fs[Abbr`s'`]>>
+  TRY( metis_tac[]) >>
+  `STRLEN s'' > STRLEN("\"")` by
+      (match_mp_tac (GEN_ALL read_string_not_single)>>
+      metis_tac[])>>
+   Cases_on`s''`>>fs[]>>
+   Cases_on`t'`>>fs[]>>
+   qexists_tac`h'''::h''''::t''`>>fs[]))
+  THEN1
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\n"]`\\fs[Chr_def])
+  \\
+  Cases_on`h''= #"\""` \\ fs[]
+  THEN1
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\
+  (qpat_abbrev_tac `s' = s with input:=A`>>
+  Q.SPECL_THEN [`[#"\n"]`,`s'`,`stack`] assume_tac read_str_thm >>
+  fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+  Cases_on`read_string s'.input ("\n")`>>Cases_on`q`>>fs[Abbr`s'`]>>
+  TRY( metis_tac[]) >>
+  `STRLEN s'' > STRLEN("\n")` by
+      (match_mp_tac (GEN_ALL read_string_not_single)>>
+      metis_tac[])>>
+   Cases_on`s''`>>fs[]>>
+   Cases_on`t'`>>fs[]>>
+   qexists_tac`h'''::h''''::t''`>>fs[]))
+  \\
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\t"]`\\fs[Chr_def])
+  \\
+  Cases_on`h''= #"\""` \\ fs[]
+  THEN1
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\
+  (qpat_abbrev_tac `s' = s with input:=A`>>
+  Q.SPECL_THEN [`[#"\t"]`,`s'`,`stack`] assume_tac read_str_thm >>
+  fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+  Cases_on`read_string s'.input ("\t")`>>Cases_on`q`>>fs[Abbr`s'`]>>
+  TRY( metis_tac[]) >>
+  `STRLEN s'' > STRLEN("\t")` by
+      (match_mp_tac (GEN_ALL read_string_not_single)>>
+      metis_tac[])>>
+   Cases_on`s''`>>fs[]>>
+   Cases_on`t'`>>fs[]>>
+   qexists_tac`h'''::h''''::t''`>>fs[])))
+
 (* next symbol *)
 
 val (res,next_symbol_def,next_symbol_pre_def) = x64_compile `
@@ -19421,6 +19640,46 @@ val (res,next_symbol_def,next_symbol_pre_def) = x64_compile `
       let (x2,s,stack) = read_str (x2,s,stack) in
       let x1 = x2 in
         (x1,x2,s,stack)
+    else if HD s.input = #"#" then
+      let s = s with input := DROP 1 s.input in
+      if s.input = "" then
+        let x1 = Number 35 in
+        let stack = x1 :: stack in
+        let (s,stack) = read_sym (s,stack) in
+        let x2 = Number 4 in
+        let x1 = x2 in
+          (x1,x2,s,stack)
+      else
+      if HD s.input = #"\"" then
+        let s = s with input := DROP 1 s.input in
+        let x2 = Number 0 in
+        let (x2,s,stack) = read_single (x2,s,stack) in
+        if getNumber x2 <> 6 then
+          let x1 = x2 in
+          (x1,x2,s,stack)
+        else 
+        if s.input = "" then
+          let x2 = Number 0 in
+          let x1 = x2 in
+            (x1,x2,s,stack)
+        else 
+        if HD s.input = #"\"" then
+          let s = s with input := DROP 1 s.input in
+          let x1 = x2 in
+            (x1,x2,s,stack)
+        else
+          let x2 = Number 0 in
+          let (x2,s,stack) = read_str (x2,s,stack) in
+          let x2 = Number 0 in
+          let x1 = x2 in
+            (x1,x2,s,stack)
+      else
+        let x1 = Number 35 in
+        let stack = x1 :: stack in
+        let (s,stack) = read_sym (s,stack) in
+        let x2 = Number 4 in
+        let x1 = x2 in
+          (x1,x2,s,stack)
     else
     let (x1,s) = is_digit s in
     if getNumber x1 <> 0 then
@@ -19641,6 +19900,8 @@ val next_symbol_thm = prove(
        (next_symbol (x1,x2,s,stack) =
         case next_sym s.input of
         | NONE => (Number 2,Number 2, s with input := "", stack)
+        | SOME (CharS ch,rest) =>
+          (Number 6, Number 6, s with input := rest, (Chr ch) :: stack)
         | SOME (StringS text, rest) =>
           (Number 1,Number 1,s with input := rest, MAP Chr (REVERSE text) ++ stack)
         | SOME (OtherS text, rest) =>
@@ -19673,6 +19934,127 @@ val next_symbol_thm = prove(
     \\ Cases_on `read_string v ""` \\ FULL_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC read_string_IMP
     \\ FULL_SIMP_TAC (srw_ss()) [isNumber_def] \\ METIS_TAC [])
+  \\ Cases_on `h= #"#"` \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+  (Cases_on`v=""` \\ fs[] THEN1
+       (FULL_SIMP_TAC (srw_ss()) [isDigit_def,isNumber_def
+         ,is_single_char_symbol_def,isSymbol_def,read_while_def]
+       \\ ASSUME_TAC (read_sym_thm |> Q.SPEC `[]` |> RW [MAP,APPEND,REVERSE_DEF])
+       \\ SEP_I_TAC "read_sym" \\ POP_ASSUM MP_TAC
+       \\ rw[] \\ fs[Chr_def,LET_THM,read_while_def] \\ metis_tac[])
+  (*Save*)
+  \\ Cases_on`v`\\ fs[] \\ Cases_on`h'= #"\""` \\fs[isDigit_def,read_single_def]
+  THEN1
+    (Cases_on`t=""` THEN1 ((fs[getNumber_def,isNumber_def,mkCharS_def,Once read_string_def]))
+    \\ Cases_on`t` \\ fs[LET_DEF,getNumber_def,isNumber_def] 
+    \\ Cases_on`h''= #"\""`
+      THEN1 (fs[getNumber_def,isNumber_def,mkCharS_def,Once read_string_def])
+    \\ Cases_on`h''= #"\n"` \\ fs[getNumber_def,isNumber_def]
+      THEN1 (fs[Once read_string_def,mkCharS_def])
+    \\ Cases_on`h''≠ #"\\"` \\ fs[getNumber_def,isNumber_def]
+      THEN1 (
+      fs[getNumber_def,isNumber_def,mkCharS_def]
+      \\ simp[Once read_string_def]
+      \\ Cases_on`t'` \\fs[]
+      THEN1 
+        (fs [getNumber_def,isNumber_def,Once read_string_def,Chr_def]
+        \\ fs[Once read_string_def,mkCharS_def]\\ qexists_tac`[h'']`
+        \\ fs[Chr_def])
+      \\ Cases_on`h''' = #"\""` \\fs[]
+      THEN1
+        ntac 2 (fs[Once read_string_def,mkCharS_def,Chr_def])
+      \\
+      qpat_abbrev_tac `s' = s with input:= A`>>
+      Q.SPECL_THEN [`[h'']`,`s'`,`stack`] assume_tac read_str_thm >>
+      fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+      Cases_on`read_string s'.input (STRING h'' "")`>>Cases_on`q`>>fs[Abbr`s'`,mkCharS_def]>>
+      TRY( metis_tac[]) >>
+      `STRLEN s'' > STRLEN(STRING h'' "")` by
+        (match_mp_tac (GEN_ALL read_string_not_single)>>
+        metis_tac[])>>
+      Cases_on`s''`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      qexists_tac`h''''::h'''''::t''`>>fs[])
+      \\ Cases_on`t'` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+      \\ simp[Once read_string_def,mkCharS_def]
+      \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def] 
+      THEN1 
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h'']`\\fs[Chr_def])
+      \\ Cases_on`h''''= #"\""` \\ fs[]
+      THEN1
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h'']`\\fs[Chr_def])
+      \\
+      (qpat_abbrev_tac `s' = s with input:=A`>>
+      Q.SPECL_THEN [`[#"\\"]`,`s'`,`stack`] assume_tac read_str_thm >>
+      fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+      Cases_on`read_string s'.input ("\\")`>>Cases_on`q`>>fs[Abbr`s'`,mkCharS_def]>>
+      TRY( metis_tac[]) >>
+      `STRLEN s'' > STRLEN("\\")` by
+          (match_mp_tac (GEN_ALL read_string_not_single)>>
+          metis_tac[])>>
+       Cases_on`s''`>>fs[]>>
+       Cases_on`t`>>fs[]>>
+       qexists_tac`h'''''::h''''''::t''`>>fs[]))
+      THEN1 
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\""]`\\fs[Chr_def])
+      \\
+      Cases_on`h''''= #"\""` \\ fs[]
+      THEN1
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      \\
+      (qpat_abbrev_tac `s' = s with input:=A`>>
+      Q.SPECL_THEN [`[#"\""]`,`s'`,`stack`] assume_tac read_str_thm >>
+      fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+      Cases_on`read_string s'.input ("\"")`>>Cases_on`q`>>fs[Abbr`s'`,mkCharS_def]>>
+      TRY( metis_tac[]) >>
+      `STRLEN s'' > STRLEN("\"")` by
+          (match_mp_tac (GEN_ALL read_string_not_single)>>
+          metis_tac[])>>
+       Cases_on`s''`>>fs[]>>
+       Cases_on`t`>>fs[]>>
+       qexists_tac`h'''''::h''''''::t''`>>fs[]))
+      THEN1
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\n"]`\\fs[Chr_def])
+      \\
+      Cases_on`h''''= #"\""` \\ fs[]
+      THEN1
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      \\
+      (qpat_abbrev_tac `s' = s with input:=A`>>
+      Q.SPECL_THEN [`[#"\n"]`,`s'`,`stack`] assume_tac read_str_thm >>
+      fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+      Cases_on`read_string s'.input ("\n")`>>Cases_on`q`>>fs[Abbr`s'`,mkCharS_def]>>
+      TRY( metis_tac[]) >>
+      `STRLEN s'' > STRLEN("\n")` by
+          (match_mp_tac (GEN_ALL read_string_not_single)>>
+          metis_tac[])>>
+       Cases_on`s''`>>fs[]>>
+       Cases_on`t`>>fs[]>>
+       qexists_tac`h'''''::h''''''::t''`>>fs[]))
+      \\
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\t"]`\\fs[Chr_def])
+      \\
+      Cases_on`h''''= #"\""` \\ fs[]
+      THEN1
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      \\
+      (qpat_abbrev_tac `s' = s with input:=A`>>
+      Q.SPECL_THEN [`[#"\t"]`,`s'`,`stack`] assume_tac read_str_thm >>
+      fs[PULL_EXISTS,PULL_FORALL,Chr_def]>>
+      Cases_on`read_string s'.input ("\t")`>>Cases_on`q`>>fs[Abbr`s'`,mkCharS_def]>>
+      TRY( metis_tac[]) >>
+      `STRLEN s'' > STRLEN("\t")` by
+          (match_mp_tac (GEN_ALL read_string_not_single)>>
+          metis_tac[])>>
+       Cases_on`s''`>>fs[]>>
+       Cases_on`t`>>fs[]>>
+       qexists_tac`h'''''::h''''''::t''`>>fs[])))
+   \\
+     (FULL_SIMP_TAC (srw_ss()) [isDigit_def,isNumber_def
+         ,is_single_char_symbol_def,isSymbol_def]
+       \\ ASSUME_TAC (read_sym_thm |> Q.SPEC `[]` |> RW [MAP,APPEND,REVERSE_DEF])
+       \\ SEP_I_TAC "read_sym" \\ POP_ASSUM MP_TAC
+       \\ ONCE_REWRITE_TAC [read_while_lemma] \\
+       BasicProvers.LET_ELIM_TAC \\ fs[Chr_def]))
   \\ Cases_on `isDigit h` \\ FULL_SIMP_TAC std_ss [] THEN1
    (STRIP_ASSUME_TAC (LIST_PREFIX_PROP |> Q.SPECL [`h::v`,`isDigit`])
     \\ FULL_SIMP_TAC std_ss []
@@ -19969,6 +20351,12 @@ val (res,next_sym_full_def,next_sym_full_pre_def) = x64_compile `
       if getNumber x1 = 2 then
         let (x1,stack) = (HD stack, TL stack) in
         let x2 = Number 0 in
+          (x1,x2,x3,s,stack)
+      else if getNumber x1 = 6 then
+        let (x1,stack) = (HD stack,TL stack) in
+        let x1 = BlockCharS x1 in
+        let (x2,stack) = (HD stack, TL stack) in
+        let x2 = Number 1 in
           (x1,x2,x3,s,stack)
       else if getNumber x1 = 1 then
         let (x1,x2,stack) = cons_list stack in
