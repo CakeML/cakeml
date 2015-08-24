@@ -12,6 +12,7 @@ open PatternZipper
 
 (* Fixes to typed AST *)
 
+(* Counter for new variable names *)
 module type StampRef = sig
   val v : int ref
 end
@@ -20,12 +21,16 @@ let create_ident current_stamp name =
   current_stamp := !current_stamp + 1;
   { stamp = !current_stamp; name = name; flags = 0; }
 
+(* Stock OCaml entities *)
+
+(* unit *)
 let unit_type_expr =
   {
     desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
     level = 0; id = 0;
   }
 
+(* () *)
 let unit_constr_desc =
   {
     cstr_name = "()";
@@ -43,14 +48,27 @@ let unit_constr_desc =
     cstr_attributes = [];
   }
 
-let rec preprocess_match expr cs es p =
+(* Remove `when` guards
+match x with       \->  match x with
+| P0 -> E0         |->  | P0 -> E0
+| P1 when p -> E1  |->  | P1 -> if p then E1
+| P2 -> E2         |->               else (match x with
+| _ -> E3          |->                    | P2 -> E2
+                   |->                    | _ -> E3
+                   |->                    )
+                   |->  | P2 -> E2
+                   /->  | _ -> E3
+*)
+
+let rec preprocess_guard_match expr cs es p =
   match cs with
   | [] -> []
-  | ({ c_guard = None; _ } as c) :: cs -> c :: preprocess_match expr cs es p
+  | ({ c_guard = None; _ } as c) :: cs ->
+    c :: preprocess_guard_match expr cs es p
   (* Unroll guards into `if` expressions, where the `else` clause is a `case`
      expression containing the remaining cases. *)
   | { c_lhs; c_guard = Some g; c_rhs; } :: cs ->
-    let cs' = preprocess_match expr cs es p in
+    let cs' = preprocess_guard_match expr cs es p in
     {
       c_lhs = c_lhs;
       c_guard = None;
@@ -61,27 +79,39 @@ let rec preprocess_match expr cs es p =
       };
     } :: cs'
 
-module MatchMapArgument : MapArgument = struct
+module GuardMapArgument : MapArgument = struct
   include DefaultMapArgument
   let enter_expression exp =
     { exp with
       exp_desc =
         match exp.exp_desc with
         | Texp_match (expr, cs, es, p) ->
-          Texp_match (expr, preprocess_match expr cs es p, es, p)
+          Texp_match (expr, preprocess_guard_match expr cs es p, es, p)
         | x -> x
     }
 end
-module MatchMap = MakeMap (MatchMapArgument)
+module GuardMap = MakeMap (GuardMapArgument)
 
-(*let preprocess_case (c as { c_lhs; c_guard; c_rhs; }) =
-  match c_lhs with
-  | Tpat_alias (p, ident, s) ->
-  | _ -> c
+(* Convert records into normal ADTs with accessor functions
 
-let preprocess_expression_desc = function
-  | Texp_function (l, cs, p) ->
-    Texp_function (l, BatList.map preprocess_case cs, p)*)
+type foo = { bar : int; mutable quux : string; }
+
+let f { quux = x; _ } = { quux = x; bar = 0; }
+
+let g x = x.quux <- "newstring"
+
+||||||||||||||||||||||||||||||||||||||||||||||||
+VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+
+type foo = MkFoo of int * string
+let record_bar (MkFoo (x, _)) = x
+let record_quux (MkFoo (_, ref x)) = x
+let recordset_quux (MkFoo (_, x)) = x
+
+let f (MkFoo (_, x)) = MkFoo (0, x)
+
+let g x = recordset_quux x := "newstring"
+*)
 
 let record_cstr_name_desc bs lbl_res path =
   let cstr_name = "Mk" ^ BatString.capitalize (Path.last path) in
@@ -101,19 +131,7 @@ let record_cstr_name_desc bs lbl_res path =
     cstr_attributes = [];
   })
 
-(*let preprocess_record_pat_expr mkConstruct mkRecord bs =
-  let (_, { lbl_res; _ }, _) = BatList.hd bs in function
-  | None ->
-    (match lbl_res.desc with
-    (* Should be this sort of type (by construction) *)
-    | Tconstr (p, _, _) ->
-      let (cstr_name, cstr_desc) = record_cstr_name_desc bs lbl_res p in
-      Tpat_construct (mknoloc (Longident.Lident cstr_name),
-                      cstr_desc, BatList.map (fun (_, _, x) -> x) bs)
-    | _ -> Tpat_record (bs, None)
-    )
-  | Some base -> Tpat_record (bs, Some base)*)
-
+(* complement_positions 7 [2;3;5] = [0;1;4;6] *)
 let complement_positions l =
   let rec inner i xs =
     if i = l then []
@@ -138,6 +156,10 @@ let insert_at_gaps e =
   in
   inner
 
+(* gaps [0;3;4;8] =
+         [3;1;4]
+   Difference between adjacent items
+*)
 let gaps =
   let rec inner last = function
     | [] -> []
@@ -516,6 +538,24 @@ module RecordMapArgument : MapArgument = struct
 end
 module RecordMap = MakeMap (RecordMapArgument)
 
+(* Rewriting non-function recursive definitions
+
+let rec zeros = Cons (fun _ -> 0, zeros)
+
+|||||||||||||||||||||||||||||||||||||||||||||||||
+VVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVVV
+
+let rec zeros__ _ = Cons (fun _ -> 0, zeros__ ())
+let zeros = zeros__ ()
+*)
+
+(* Also, split up non-recursive bindings joined by `and`. Maybe this should be
+   moved somewhere else, but it fits neatly.
+
+let x = 0  \->  let x = 0
+and y = 2  /->  let y = 2
+*)
+
 (*
 oldbs: accumulator for possibly modified existing bindings. Only the LHS is
   changed at this stage.
@@ -641,6 +681,13 @@ module ValrecMapArgument = struct
 end
 module ValrecMap = MakeMap (ValrecMapArgument)
 
+(* Rewrite pattern matching definitions
+
+let x, y = 0, 2  \->  let tmp__ = 0, 2
+                 |->  let x = match tmp__ with x, _ -> x
+                 /->  let y = match tmp__ with _, y -> y
+*)
+
 let vb_from_zipper basevb tmpident (((i, n), patctxt) as z) =
   { basevb with
     vb_pat = { basevb.vb_pat with
@@ -730,6 +777,11 @@ module ValpatMapArgument = struct
 end
 module ValpatMap = MakeMap (ValpatMapArgument)
 
+(* Replace `_` in patterns with variables. Helps when rewriting `as` patterns
+
+let const x _ = x  >->  let const x unused_1012 = x
+*)
+
 let largest_stamp env =
   let open Env in
   let rec inner acc = function
@@ -771,6 +823,13 @@ let rec get_aliaspats pat : (pattern * Ident.t * string loc) list =
   | Tpat_record (ls, c) ->
     BatList.concat (BatList.map (fun (_, _, p) -> get_aliaspats p) ls)
 
+(* Turn `as` patterns into non-`as` patterns, with a `let` expression in the
+   corresponding expression
+
+TODO: example
+*)
+
+(* This module is used selectively, despite looking like the other modules *)
 module RemoveAliaspatMapArgument = struct
   include DefaultMapArgument
   let enter_pattern pat =
@@ -878,7 +937,7 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
 
   let enter_pattern = AnypatMapArgument.enter_pattern
                    %> RecordMapArgument.enter_pattern
-  let enter_expression = MatchMapArgument.enter_expression
+  let enter_expression = GuardMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
                       %> ValrecMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression

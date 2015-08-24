@@ -194,7 +194,7 @@ module Main = struct
       if mem oper infixes then
         match sons with
         | [s0; s1] -> pretty_close s0; print_string oper; pretty_close s1
-        | _ -> failwith "pretty_term : infix arity <> @"
+        | _ -> failwith "pretty_term : infix arity <> 2"
       else
         print_string oper;
         match sons with
