@@ -92,62 +92,101 @@ let rec match_or_bindings xs ys :
     )
   | _ -> failwith "Or pattern invariant broken"
 
-let rec pattern_desc_zippers : pattern_desc -> pattern_desc_zipper list =
+let rec pattern_zippers pattern_desc_zippers ({ pat_desc; _ } as pat)
+    : pattern_zipper list =
+  let open BatTuple.Tuple2 in
+  BatList.map (map2 (make_pattern_context pat))
+              (pattern_desc_zippers pat_desc)
+
+and pattern_list_zippers pattern_desc_zippers (ps : pattern list) :
+    (pattern_zipper, pattern) list_zipper list =
+  let rec inner before = function
+    | [] -> []
+    | x :: xs ->
+      BatList.map (fun z -> z, (before, xs))
+                  (pattern_zippers pattern_desc_zippers x) @
+      inner (x :: before) xs
+  in
+  inner [] ps
+
+and binding_list_zippers pattern_desc_zippers (bs : binding list)
+    : (binding_zipper, binding) list_zipper list =
+  let rec inner before = function
+    | [] -> []
+    | ((l, d, p) as b) :: bs ->
+      BatList.map (fun (v, x) -> (v, (l, d, x)), (before, bs))
+                  (pattern_zippers pattern_desc_zippers p) @
+      inner (b :: before) bs
+  in
+  inner [] bs
+
+let rec varpat_desc_zippers : pattern_desc -> pattern_desc_zipper list =
   function
   | Tpat_any -> []
   | Tpat_var (i, n) -> [(i, n), Tpatctxt_var]
   | Tpat_alias (p, i, n) ->
     ((i, n), Tpatctxt_alias p) ::
     BatList.map (fun (v, x) -> v, Tpatctxt_alias_inner (x, i, n))
-                (pattern_zippers p)
+                (pattern_zippers varpat_desc_zippers p)
   | Tpat_constant _ -> []
   | Tpat_tuple ps ->
     BatList.map (fun ((v, x), ps) -> v, Tpatctxt_tuple (x, ps))
-                (pattern_list_zippers ps)
+                (pattern_list_zippers varpat_desc_zippers ps)
   | Tpat_construct (l, d, ps) ->
     BatList.map (fun ((v, x), ps) -> v, Tpatctxt_construct (l, d, (x, ps)))
-                (pattern_list_zippers ps)
+                (pattern_list_zippers varpat_desc_zippers ps)
   | Tpat_variant (_, None, _) -> []
   | Tpat_variant (l, Some p, r) ->
     BatList.map (fun (v, x) -> v, Tpatctxt_variant (l, x, r))
-                (pattern_zippers p)
+                (pattern_zippers varpat_desc_zippers p)
   | Tpat_record (bs, c) ->
     BatList.map (fun ((v, x), bs) -> v, Tpatctxt_record ((x, bs), c))
-                (binding_list_zippers bs)
+                (binding_list_zippers varpat_desc_zippers bs)
   | Tpat_array ps ->
     BatList.map (fun ((v, x), ps) -> v, Tpatctxt_array (x, ps))
-                (pattern_list_zippers ps)
+                (pattern_list_zippers varpat_desc_zippers ps)
   | Tpat_or (p, q, r) ->
     BatList.map (fun (v, x, y) -> v, Tpatctxt_or (x, y, r))
-                (match_or_bindings (pattern_zippers p) (pattern_zippers q))
+                (match_or_bindings (pattern_zippers varpat_desc_zippers p)
+                                   (pattern_zippers varpat_desc_zippers q))
   | Tpat_lazy p ->
-    BatList.map (fun (v, x) -> v, Tpatctxt_lazy x) (pattern_zippers p)
+    BatList.map (fun (v, x) -> v, Tpatctxt_lazy x)
+                (pattern_zippers varpat_desc_zippers p)
+let varpat_zippers = pattern_zippers varpat_desc_zippers
 
-and pattern_zippers ({ pat_desc; _ } as pat) : pattern_zipper list =
-  let open BatTuple.Tuple2 in
-  BatList.map (map2 (make_pattern_context pat))
-              (pattern_desc_zippers pat_desc)
-
-and pattern_list_zippers (ps : pattern list) :
-    (pattern_zipper, pattern) list_zipper list =
-  let rec inner before = function
-    | [] -> []
-    | x :: xs ->
-      BatList.map (fun z -> z, (before, xs)) (pattern_zippers x) @
-      inner (x :: before) xs
-  in
-  inner [] ps
-
-and binding_list_zippers (bs : binding list) :
-    (binding_zipper, binding) list_zipper list =
-  let rec inner before = function
-    | [] -> []
-    | ((l, d, p) as b) :: bs ->
-      BatList.map (fun (v, x) -> (v, (l, d, x)), (before, bs))
-                  (pattern_zippers p) @
-      inner (b :: before) bs
-  in
-  inner [] bs
+let rec aliaspat_desc_zippers : pattern_desc -> pattern_desc_zipper list =
+  function
+  | Tpat_any -> []
+  | Tpat_var (i, n) -> []
+  | Tpat_alias (p, i, n) ->
+    ((i, n), Tpatctxt_alias p) ::
+    BatList.map (fun (v, x) -> v, Tpatctxt_alias_inner (x, i, n))
+                (pattern_zippers aliaspat_desc_zippers p)
+  | Tpat_constant _ -> []
+  | Tpat_tuple ps ->
+    BatList.map (fun ((v, x), ps) -> v, Tpatctxt_tuple (x, ps))
+                (pattern_list_zippers aliaspat_desc_zippers ps)
+  | Tpat_construct (l, d, ps) ->
+    BatList.map (fun ((v, x), ps) -> v, Tpatctxt_construct (l, d, (x, ps)))
+                (pattern_list_zippers aliaspat_desc_zippers ps)
+  | Tpat_variant (_, None, _) -> []
+  | Tpat_variant (l, Some p, r) ->
+    BatList.map (fun (v, x) -> v, Tpatctxt_variant (l, x, r))
+                (pattern_zippers aliaspat_desc_zippers p)
+  | Tpat_record (bs, c) ->
+    BatList.map (fun ((v, x), bs) -> v, Tpatctxt_record ((x, bs), c))
+                (binding_list_zippers aliaspat_desc_zippers bs)
+  | Tpat_array ps ->
+    BatList.map (fun ((v, x), ps) -> v, Tpatctxt_array (x, ps))
+                (pattern_list_zippers aliaspat_desc_zippers ps)
+  | Tpat_or (p, q, r) ->
+    BatList.map (fun (v, x, y) -> v, Tpatctxt_or (x, y, r))
+                (match_or_bindings (pattern_zippers aliaspat_desc_zippers p)
+                                   (pattern_zippers aliaspat_desc_zippers q))
+  | Tpat_lazy p ->
+    BatList.map (fun (v, x) -> v, Tpatctxt_lazy x)
+                (pattern_zippers aliaspat_desc_zippers p)
+let aliaspat_zippers = pattern_zippers aliaspat_desc_zippers
 
 let rec pattern_of_zipper ((i, n) as v, x) =
   make_pattern x (match x.patctxt_desc with

@@ -570,6 +570,8 @@ let parsetree = Parse.implementation lexbuf
 let _ = Compmisc.init_path false
 let typedtree, signature, env =
   Typemod.type_structure (Compmisc.initial_env ()) parsetree Location.none
+module PreprocessorMap =
+  PreprocessorMap (struct let env = typedtree.str_final_env end)
 let str = PreprocessorMap.map_structure typedtree
 let _ = output_result (print_str_items str.str_items)
 (*let () = Printtyped.implementation Format.std_formatter

@@ -12,6 +12,14 @@ open PatternZipper
 
 (* Fixes to typed AST *)
 
+module type StampRef = sig
+  val v : int ref
+end
+
+let create_ident current_stamp name =
+  current_stamp := !current_stamp + 1;
+  { stamp = !current_stamp; name = name; flags = 0; }
+
 let unit_type_expr =
   {
     desc = Tconstr (Pident (Ident.create "unit"), [], ref Mnil);
@@ -688,7 +696,7 @@ let preprocess_valpat_value_binding vb =
     let vb' = { vb with
       vb_pat = { vb.vb_pat with pat_desc = Tpat_var (tmpident, tmpnameloc); };
     } in
-    let zs = pattern_zippers vb.vb_pat in
+    let zs = varpat_zippers vb.vb_pat in
     let vbs = BatList.map (vb_from_zipper vb tmpident) zs in
     vb' :: vbs
 
@@ -722,15 +730,162 @@ module ValpatMapArgument = struct
 end
 module ValpatMap = MakeMap (ValpatMapArgument)
 
-module PreprocessorMapArgument = struct
+let largest_stamp env =
+  let open Env in
+  let rec inner acc = function
+    | Env_empty -> acc
+    | Env_value (summary, { stamp; _ }, _)
+    | Env_type (summary, { stamp; _ }, _)
+    | Env_extension (summary, { stamp; _ }, _)
+    | Env_module (summary, { stamp; _ }, _)
+    | Env_modtype (summary, { stamp; _ }, _)
+    | Env_class (summary, { stamp; _ }, _)
+    | Env_cltype (summary, { stamp; _ }, _)
+    | Env_functor_arg (summary, { stamp; _ }) -> inner (max acc stamp) summary
+    | Env_open (summary, _) -> inner acc summary
+  in
+  inner 0 (summary env)
+
+let create_unused_var current_stamp =
+  let name = "unused_" ^ BatString.of_int !current_stamp in
+  Tpat_var (create_ident current_stamp name, mknoloc name)
+
+module AnypatMapArgument (CurrentStamp : StampRef) = struct
   include DefaultMapArgument
-  let enter_pattern = RecordMapArgument.enter_pattern
+  let enter_pattern pat =
+    match pat.pat_desc with
+    | Tpat_any -> { pat with pat_desc = create_unused_var CurrentStamp.v }
+    | _ -> pat
+end
+module AnypatMap (CurrentStamp : StampRef) =
+  MakeMap (AnypatMapArgument (CurrentStamp))
+
+let rec get_aliaspats pat : (pattern * Ident.t * string loc) list =
+  match pat.pat_desc with
+  | Tpat_any | Tpat_var _ | Tpat_constant _ | Tpat_variant (_, None, _) -> []
+  | Tpat_alias (p, i, l) -> (p, i, l) :: get_aliaspats p
+  | Tpat_tuple ps | Tpat_construct (_, _, ps) | Tpat_array ps ->
+    BatList.concat (BatList.map get_aliaspats ps)
+  | Tpat_variant (_, Some p, _) | Tpat_or (p, _, _) | Tpat_lazy p ->
+    get_aliaspats p
+  | Tpat_record (ls, c) ->
+    BatList.concat (BatList.map (fun (_, _, p) -> get_aliaspats p) ls)
+
+module RemoveAliaspatMapArgument = struct
+  include DefaultMapArgument
+  let enter_pattern pat =
+    match pat.pat_desc with
+    | Tpat_alias (p, _, _) -> p
+    | _ -> pat
+end
+module RemoveAliaspatMap = MakeMap (RemoveAliaspatMapArgument)
+
+let rec expression_of_pattern
+  { pat_desc; pat_loc; pat_extra; pat_type; pat_env; pat_attributes } =
+  match pat_desc with
+  | Tpat_alias (p, _, _) | Tpat_or (p, _, _) -> expression_of_pattern p
+  | _ -> {
+    exp_desc = (match pat_desc with
+      | Tpat_var (i, l) ->
+        Texp_ident (Pident i, mkloc (Longident.Lident l.txt) l.loc, {
+          val_type = pat_type;
+          val_kind = Val_reg;
+          val_loc = Location.none;
+          val_attributes = [];
+        })
+      | Tpat_constant c -> Texp_constant c
+      | Tpat_tuple ps -> Texp_tuple (BatList.map expression_of_pattern ps)
+      | Tpat_construct (l, cd, ps) ->
+        Texp_construct (l, cd, BatList.map expression_of_pattern ps)
+      | Tpat_variant (l, p, r) ->
+        Texp_variant (l, BatOption.map expression_of_pattern p)
+      | Tpat_record (ls, Closed) ->
+        Texp_record
+          (BatList.map (BatTuple.Tuple3.map3 expression_of_pattern) ls, None)
+      | Tpat_record (ls, Open) -> failwith "`_` not removed"
+      | Tpat_array ps -> Texp_array (BatList.map expression_of_pattern ps)
+      | Tpat_lazy p -> Texp_lazy (expression_of_pattern p)
+      | Tpat_any -> failwith "`_` not removed"
+      | Tpat_alias _ | Tpat_or _ ->
+        failwith "Should have been guarded against above"
+      );
+    exp_loc = pat_loc;
+    exp_extra = [];
+    exp_type = pat_type;
+    exp_env = pat_env;
+    exp_attributes = pat_attributes;
+  }
+
+let value_binding_of_alias_pattern (pat, i, l) = {
+  vb_pat = {
+    pat_desc = Tpat_var (i, l);
+    pat_loc = Location.none;
+    pat_extra = [];
+    pat_type = pat.pat_type;
+    pat_env = Env.empty;
+    pat_attributes = [];
+  };
+  vb_expr = expression_of_pattern pat;
+  vb_attributes = [];
+  vb_loc = Location.none;
+}
+
+let preprocess_aliaspat_case ({ c_lhs; c_guard; c_rhs; } as c) =
+  (*let zs = aliaspat_zippers c_lhs in
+  if zs = [] then c else
+  {
+    c_lhs = remove_aliaspats c_lhs;
+    c_guard = c_guard;
+    c_rhs = ;
+  }*)
+  let aliaspats = get_aliaspats c_lhs in
+  {
+    c_lhs = RemoveAliaspatMap.map_pattern c_lhs;
+    c_guard = c_guard;
+    c_rhs = if aliaspats = [] then c_rhs else
+      let vbs = BatList.map value_binding_of_alias_pattern aliaspats in
+      { c_rhs with
+        exp_desc = Texp_let (Nonrecursive, vbs, c_rhs);
+      };
+  }
+
+module AliaspatMapArgument = struct
+  include DefaultMapArgument
+  let leave_expression exp =
+    match exp.exp_desc with
+    | Texp_match (e, cs, es, p) ->
+      { exp with
+        exp_desc = Texp_match (e, BatList.map preprocess_aliaspat_case cs,
+                               BatList.map preprocess_aliaspat_case es, p);
+      }
+    | Texp_function (l, cs, p) ->
+      { exp with
+        exp_desc =
+          Texp_function (l, BatList.map preprocess_aliaspat_case cs, p);
+      }
+    | _ -> exp
+end
+module AliaspatMap = MakeMap (AliaspatMapArgument)
+
+module type EnvProvider = sig val env : Env.t end
+
+module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
+  include DefaultMapArgument
+
+  let current_stamp = ref (largest_stamp FinalEnv.env)
+  module CurrentStamp = struct let v = current_stamp end
+  module AnypatMapArgument = AnypatMapArgument (CurrentStamp)
+
+  let enter_pattern = AnypatMapArgument.enter_pattern
+                   %> RecordMapArgument.enter_pattern
   let enter_expression = MatchMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
                       %> ValrecMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression
+  let leave_expression = AliaspatMapArgument.leave_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
                      %> ValpatMapArgument.enter_structure
 end
-module PreprocessorMap = MakeMap (PreprocessorMapArgument)
+module PreprocessorMap (FinalEnv : EnvProvider) =
+  MakeMap (PreprocessorMapArgument (FinalEnv))
