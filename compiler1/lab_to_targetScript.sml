@@ -161,6 +161,31 @@ val all_asm_ok_def = Define `
   (all_asm_ok c ((Section s lines)::rest) =
      if sec_asm_ok c lines then all_asm_ok c rest else F)`
 
+(* pad with nop byte, and nop instruction *)
+
+val pad_bytes_def = Define `
+  pad_bytes bytes len nop =
+    let len_bytes = LENGTH bytes in
+      if len <= len_bytes then bytes else
+        TAKE len (bytes ++ FLAT (REPLICATE len nop))`
+
+val pad_section_def = Define `
+  (pad_section nop n [] aux = REVERSE aux) /\
+  (pad_section nop n ((Label l1 l2 len)::xs) aux =
+     pad_section nop (n+len) xs ((Label l1 l2 0)::aux)) /\
+  (pad_section nop n ((Asm x bytes len)::xs) aux =
+     let len = len + n in
+       pad_section nop 0 xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
+  (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
+     let len = len + n in
+       pad_section nop 0 xs (LabAsm y w (pad_bytes bytes len nop) len::aux))`
+
+val pad_code_def = Define `
+  (pad_code nop [] = []) /\
+  (pad_code nop ((Section n xs)::ys) =
+     let k = if EVEN (sec_length xs 0) then 0 else 1 in
+       Section n (pad_section nop k (REVERSE xs) []) :: pad_code nop ys)`
+
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
@@ -171,7 +196,7 @@ val remove_labels_loop_def = Define `
     let xs = enc_secs_again 0 labs enc sec_list in
     (* check length annotations *)
     if all_lengths_ok 0 xs then
-      if all_asm_ok c xs then SOME xs else NONE
+      if all_asm_ok c xs then SOME (pad_code (enc (Inst Skip)) xs) else NONE
     else
     (* update length annotations *)
     let ys = all_lengths_update 0 xs in
@@ -186,37 +211,27 @@ val remove_labels_def = Define `
        clock = 0 should be enough. If this were to hit the clock limit
        then something is badly wrong. Worth testing with the clock
        limit set to low values to see how many iterations are used. *)
-    remove_labels_loop 1000000 c enc (enc_sec_list enc sec_list)`;
+     remove_labels_loop 1000000 c enc (enc_sec_list enc sec_list)`;
 
 (* code extraction *)
 
 val line_bytes_def = Define `
-  (line_bytes (Label _ _ l) nop = if l = 0 then [] else [nop]) /\
-  (line_bytes (Asm _ bytes _) nop = bytes) /\
-  (line_bytes (LabAsm _ _ bytes _) nop = bytes)`
-
-val all_bytes_def = Define `
-  (all_bytes pos nop [] = []) /\
-  (all_bytes pos nop ((Section k [])::xs) =
-     if EVEN pos then all_bytes pos nop xs
-                 else [nop] ++ all_bytes (pos+1) nop xs) /\
-  (all_bytes pos nop ((Section k (y::ys))::xs) =
-     let bytes = line_bytes y nop in
-       bytes ++
-       all_bytes (pos + LENGTH bytes) nop ((Section k ys)::xs))`
-
-val nop_byte_def = Define `
-  nop_byte enc = (case enc (Inst Skip) of [] => 0w | (x::xs) => x)`;
+  (line_bytes (Label _ _ l) = []) /\
+  (line_bytes (Asm _ bytes _) = bytes) /\
+  (line_bytes (LabAsm _ _ bytes _) = bytes)`
 
 val prog_to_bytes_def = Define `
-  prog_to_bytes enc sec_list = all_bytes 0 (nop_byte enc) sec_list`
+  (prog_to_bytes [] = []) /\
+  (prog_to_bytes ((Section k [])::xs) = prog_to_bytes xs) /\
+  (prog_to_bytes ((Section k (y::ys))::xs) =
+     line_bytes y ++ prog_to_bytes ((Section k ys)::xs))`
 
 (* compile labLang *)
 
 val compile_def = Define `
   compile c enc sec_list =
     case remove_labels c enc sec_list of
-    | SOME sec_list => SOME (prog_to_bytes enc sec_list)
+    | SOME sec_list => SOME (prog_to_bytes sec_list)
     | NONE => NONE`;
 
 val _ = export_theory();

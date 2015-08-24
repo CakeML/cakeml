@@ -26,6 +26,12 @@ val _ = Define `
 (Dlet (Pvar name) (Fun "x" (App prim [Var (Short "x")]))))`;
 
 
+(*val mk_ffi : nat -> dec*)
+val _ = Define `
+ (mk_ffi n =  
+(Dlet (Pvar ( STRCAT"ffi" (num_to_dec_string n))) (Fun "x" (App (FFI n) [Var (Short "x")]))))`;
+
+
 (*val prim_types_program : prog*)
 val _ = Define `
  (prim_types_program =  
@@ -93,7 +99,18 @@ val _ = Define `
      [Dtabbrev [] "string" (Tapp [] TC_string);
       mk_unop "explode" Explode;
       mk_unop "implode" Implode;
-      mk_unop "size" Strlen] ]))`;
+      mk_unop "size" Strlen];
+   Tmod "Ffi" NONE
+     [mk_ffi( 0);
+      mk_ffi( 1);
+      mk_ffi( 2);
+      mk_ffi( 3);
+      mk_ffi( 4);
+      mk_ffi( 5);
+      mk_ffi( 6);
+      mk_ffi( 7);
+      mk_ffi( 8);
+      mk_ffi( 9)] ]))`;
 
 
 val _ = Hol_datatype `
