@@ -1,4 +1,4 @@
-open preamble labLangTheory;
+open preamble labLangTheory lab_filterTheory;
 
 val _ = new_theory"lab_to_target";
 
@@ -226,12 +226,18 @@ val prog_to_bytes_def = Define `
   (prog_to_bytes ((Section k (y::ys))::xs) =
      line_bytes y ++ prog_to_bytes ((Section k ys)::xs))`
 
+(* compile labels *)
+
+val compile_lab_def = Define `
+  compile_lab c enc sec_list =
+    case remove_labels c enc sec_list of
+    | SOME sec_list => SOME (prog_to_bytes sec_list)
+    | NONE => NONE`;
+
 (* compile labLang *)
 
 val compile_def = Define `
   compile c enc sec_list =
-    case remove_labels c enc sec_list of
-    | SOME sec_list => SOME (prog_to_bytes sec_list)
-    | NONE => NONE`;
+    compile_lab c enc (filter_skip sec_list)`;
 
 val _ = export_theory();
