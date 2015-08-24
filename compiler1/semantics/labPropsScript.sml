@@ -178,4 +178,10 @@ val evaluate_io_events_NONE_IMP = store_thm("evaluate_io_events_NONE_IMP",
       q = Error IO_mismatch``,
   cheat (* easy *));
 
+val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
+  ``!s res r k.
+      evaluate s = (res,r) /\ res <> TimeOut ==>
+      evaluate (s with clock := s.clock + k) = (res,r)``,
+  cheat (* easy *));
+
 val _ = export_theory();

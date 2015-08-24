@@ -77,6 +77,31 @@ val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
   *)
 
+
+(* recursively decend into the test position of case expressions and apply to conversion to the inner-most *)
+fun CASE_CONV conv tm =
+let 
+  fun CASE_CONV0 tm =
+    if TypeBase.is_case tm then
+      let
+        val (case_const, (test::rest)) = strip_comb tm
+      in
+        List.foldl (fn (a,th) => AP_THM th a) (AP_TERM case_const (CASE_CONV0 test)) rest
+      end
+    else
+      conv tm
+in
+  if TypeBase.is_case tm then
+    CASE_CONV0 tm
+  else
+    raise UNCHANGED
+end;
+
+fun do1_tac t = 
+  (REWRITE_TAC [Once run_eval_prog_def, run_eval_top_def, Once run_eval_decs_def, run_eval_dec_def] >>
+   CONV_TAC (RAND_CONV (LAND_CONV (CASE_CONV (computeLib.CBV_CONV the_interp_compset)))) >>
+   simp [combine_dec_result_def, all_env_to_menv_def, merge_alist_mod_env_def,pmatch_def, all_env_to_cenv_def, all_env_to_env_def, pat_bindings_def]) t;
+
 val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
 `?se. basis_sem_env = SOME se`,
  simp [basis_sem_env_def] >>
@@ -91,67 +116,15 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
  pop_assum mp_tac >>
  simp[basis_program_def, run_eval_whole_prog_def] >>
  rw []
- >- (REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl1 = ("+",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl2 = ("-",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl3 = ("*",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl4 = ("div",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl5 = ("mod",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl6 = ("<",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl7 = (">",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl8 = ("<=",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl9 = (">=",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl10 = ("=",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl11 = (":=",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl12 = ("~",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl13 = ("!",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl14 = ("ref",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl15 = ("array",Closure X Y Z)` >>
-     REWRITE_TAC[Once mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl16 = ("sub",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl17 = ("length",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl18 = ("update",Closure X Y Z)` >>
-     REWRITE_TAC[mk_binop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     REWRITE_TAC[Once mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl19 = ("fromList",Closure X Y Z)` >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl20 = ("length",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl21 = ("sub",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl22 = ("array",Closure X Y Z)` >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl23 = ("sub",Closure X Y Z)` >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl24 = ("length",Closure X Y Z)` >>
-     Q.PAT_ABBREV_TAC`cl25 = ("update",Closure X Y Z)` >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     CHANGED_TAC(REWRITE_TAC[Once mk_unop_def]) >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     Q.PAT_ABBREV_TAC`cl26 = ("ord",Closure X Y Z)` >>
-     REWRITE_TAC[mk_unop_def] >> CONV_TAC(computeLib.CBV_CONV the_interp_compset) >>
-     rw[]) >>
- fs [] >>
- pop_assum mp_tac >>
- match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
- rw [mk_binop_def, mk_unop_def] >>
- CONV_TAC(computeLib.CBV_CONV the_interp_compset));
+ >- (pop_assum kall_tac >>
+     pop_assum kall_tac >>
+     simp ([mk_ffi_def, mk_binop_def, mk_unop_def, Once run_eval_prog_def, run_eval_top_def, set_counter_def, run_eval_dec_def,
+            all_env_to_menv_def, merge_alist_mod_env_def,pmatch_def, all_env_to_cenv_def, all_env_to_env_def, pat_bindings_def]) >>
+     rpt (do1_tac >> TRY (Q.PAT_ABBREV_TAC`cl = (X0,Closure X Y Z)`)))
+ >- (fs [] >>
+     pop_assum mp_tac >>
+     match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
+     rw [mk_binop_def, mk_unop_def] >>
+     CONV_TAC(computeLib.CBV_CONV the_interp_compset)));
 
 val _ = export_theory ();
