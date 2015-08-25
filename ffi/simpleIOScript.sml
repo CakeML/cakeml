@@ -55,32 +55,23 @@ val _ = Define `
   )))`;
 
 
-(*val system_step : io_state -> io_trace -> io_state * io_trace*)
+(*val system_step : io_state -> io_event -> io_state -> bool*)
 val _ = Define `
- (system_step st tr =  
-((case tr of
-    SOME events =>
-      (case LHD events of
-        SOME (IO_event n xs) =>
-          let rest = (LTL events) in
-            if (n = 0) /\ isEof st xs then
-              (st, rest)
-            else if n = 1 then
-              (case getChar st xs of
-                SOME st' => (st', rest)
-              | NONE => (st, NONE)
-              )
-            else if n = 2 then
-              (case putChar st xs of
-                SOME st' => (st', rest)
-              | NONE => (st, NONE)
-              )
-            else
-              (st, NONE)
-      | NONE => (st, NONE)
-      )
-  | NONE =>(st, NONE)
-  )))`;
+ (system_step st1 (IO_event n xs) st2 =  
+(if (n = 0) /\ isEof st1 xs then
+    st1 = st2
+  else if n = 1 then
+    (case getChar st1 xs of
+      SOME st' => st' = st2
+    | NONE => F
+    )
+  else if n = 2 then
+    (case putChar st1 xs of
+      SOME st' => st' = st2
+    | NONE => F
+    )
+  else
+    F))`;
 
 val _ = export_theory()
 

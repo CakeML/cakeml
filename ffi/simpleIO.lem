@@ -37,28 +37,19 @@ let putChar st io =
         Nothing
   end
 
-val system_step : io_state -> io_trace -> io_state * io_trace
-let system_step st tr =
-  match tr with
-  | Just events ->
-      match lhd events with
-      | Just (IO_event n xs) ->
-          let rest = ltl events in
-            if n = 0 && isEof st xs then
-              (st, rest)
-            else if n = 1 then
-              match getChar st xs with
-              | Just st' -> (st', rest)
-              | Nothing -> (st, Nothing)
-              end
-            else if n = 2 then
-              match putChar st xs with
-              | Just st' -> (st', rest)
-              | Nothing -> (st, Nothing)
-              end
-            else
-              (st, Nothing)
-      | Nothing -> (st, Nothing)
-      end
-  | Nothing ->(st, Nothing)
-  end
+val system_step : io_state -> io_event -> io_state -> bool
+let system_step st1 (IO_event n xs) st2 =
+  if n = 0 && isEof st1 xs then
+    st1 = st2
+  else if n = 1 then
+    match getChar st1 xs with
+    | Just st' -> st' = st2
+    | Nothing -> false
+    end
+  else if n = 2 then
+    match putChar st1 xs with
+    | Just st' -> st' = st2
+    | Nothing -> false
+    end
+  else
+    false
