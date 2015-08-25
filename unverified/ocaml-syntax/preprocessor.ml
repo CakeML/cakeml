@@ -826,7 +826,10 @@ let rec get_aliaspats pat : (pattern * Ident.t * string loc) list =
 (* Turn `as` patterns into non-`as` patterns, with a `let` expression in the
    corresponding expression
 
-TODO: example
+let rec f = function           \->  let rec f = function
+  | [] -> []                   |->    | [] -> []
+  | [x] as xs -> xs            |->    | [x] -> let xs = [x] in xs
+  | x :: y :: xs -> x :: f xs  /->    | x :: y :: xs -> x :: f xs
 *)
 
 (* This module is used selectively, despite looking like the other modules *)
@@ -864,7 +867,7 @@ let rec expression_of_pattern
       | Tpat_record (ls, Open) -> failwith "`_` not removed"
       | Tpat_array ps -> Texp_array (BatList.map expression_of_pattern ps)
       | Tpat_lazy p -> Texp_lazy (expression_of_pattern p)
-      | Tpat_any -> failwith "`_` not removed"
+      | Tpat_any -> failwith "`_` should have been removed"
       | Tpat_alias _ | Tpat_or _ ->
         failwith "Should have been guarded against above"
       );
@@ -926,6 +929,66 @@ module AliaspatMapArgument = struct
 end
 module AliaspatMap = MakeMap (AliaspatMapArgument)
 
+(* Turn non-trivial `function` expressions into `fun`-`match` expressions.
+   This is required for `when` rewriting, and helps when printing.
+*)
+
+let has_guard { c_guard; _ } = BatOption.is_some c_guard
+
+let pattern_is_trivial { pat_desc; _ } =
+  match pat_desc with
+  | Tpat_any | Tpat_var _ -> true
+  | _ -> false
+let case_is_trivial c =
+  match c.c_lhs, c.c_guard with
+  | p, None when pattern_is_trivial p -> true
+  | _ -> false
+
+module FunctionMapArgument (CurrentStamp : StampRef) = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    match exp.exp_desc with
+    | Texp_function (l, [c], p) when case_is_trivial c -> exp
+    | Texp_function (l, cs, p) (*when BatList.exists has_guard cs*) ->
+      let tmp_ident = create_ident CurrentStamp.v @@
+        "tmp_" ^ BatString.of_int !CurrentStamp.v in
+      let from_type, to_type =
+        match unlink exp.exp_type.desc with
+        | Tarrow (_, f, t, _) -> f, t
+        | _ -> failwith "Function expression without function type (!?)"
+      in
+      { exp with
+        exp_desc = Texp_function (l, [{
+          c_lhs = {
+            pat_desc = Tpat_var (tmp_ident, mknoloc tmp_ident.name);
+            pat_loc = exp.exp_loc;
+            pat_extra = [];
+            pat_type = from_type;
+            pat_env = exp.exp_env;
+            pat_attributes = [];
+          };
+          c_guard = None;
+          c_rhs = { exp with
+            exp_desc = Texp_match ({ exp with
+              exp_desc =
+                Texp_ident (Pident tmp_ident,
+                            mknoloc (Longident.Lident tmp_ident.name), {
+                  val_type = from_type;
+                  val_kind = Val_reg;
+                  val_loc = exp.exp_loc;
+                  val_attributes = [];
+                });
+              exp_type = from_type;
+            }, cs, [], p);
+            exp_type = to_type;
+          };
+        }], Total);
+      }
+    | _ -> exp
+end
+module FunctionMap (CurrentStamp : StampRef) =
+  MakeMap (FunctionMapArgument (CurrentStamp))
+
 module type EnvProvider = sig val env : Env.t end
 
 module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
@@ -934,10 +997,12 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
   let current_stamp = ref (largest_stamp FinalEnv.env)
   module CurrentStamp = struct let v = current_stamp end
   module AnypatMapArgument = AnypatMapArgument (CurrentStamp)
+  module FunctionMapArgument = FunctionMapArgument (CurrentStamp)
 
   let enter_pattern = AnypatMapArgument.enter_pattern
                    %> RecordMapArgument.enter_pattern
-  let enter_expression = GuardMapArgument.enter_expression
+  let enter_expression = FunctionMapArgument.enter_expression
+                      %> GuardMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
                       %> ValrecMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression

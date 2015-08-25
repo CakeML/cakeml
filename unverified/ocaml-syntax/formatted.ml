@@ -26,7 +26,7 @@ let mapiM f =
   in
   g 0
 
-(* Flipped map for monads *)
+(* Flipped `map` for monads *)
 let ( <&> ) x f = x >>= return % f
 let ( <$> ) f x = x <&> f
 
@@ -51,7 +51,7 @@ type fixity = assoc * int
 let starts_with_any starts str =
   BatList.exists (fun s -> BatString.starts_with s str) starts
 
-let fixity_of = function
+(*let fixity_of = function
   | x when BatString.starts_with "!" x
         || (BatString.length x >= 2 && starts_with_any ["?"; "~"] x) ->
     Neither, 0
@@ -75,7 +75,7 @@ let fixity_of = function
   | "if" -> Neither, 15
   | ";" -> Right, 16
   | "let" | "match" | "fun" | "function" | "try" -> Neither, 17
-  | _ -> Neither, ~-1
+  | _ -> Neither, ~-1*)
 
 let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
@@ -88,11 +88,11 @@ let fix_identifier = function
   | "None" -> "NONE"
   | "Array" -> "Oc_Array"
   | x when BatString.starts_with "_" x -> "u" ^ x
-  | x when
+  (*| x when
     (match fixity_of x with
     | Neither, _ -> false
     | _ -> true
-    ) -> "op" ^ x
+    ) -> "op" ^ x*)
   | x -> x
 
 let fix_var_name = fix_identifier
@@ -163,19 +163,6 @@ let print_constant = function
   | Const_int64 x -> Lit (BatInt64.to_string x)
   | Const_nativeint x -> Lit (BatNativeint.to_string x)
 
-(* Precedence rules (for parenthesization):
-   Low number => loose association
-   0: case expression, case pattern, let expression, if condition,
-      tuple term, list term
-   1: Case RHS
-   2: Application
-
-   case x of
-     p => ...
-   | q => (case y of ...)
-   | r => ...
- *)
-
 let rec path_prefix = function
   | Pident _ -> Lit ""
   | Pdot (p, _, _) -> Box (H, indent, [print_path_pure p; cut; Lit "."])
@@ -215,6 +202,19 @@ let rec print_list_items (print : int -> 'a -> (format_decl, string) result)
       match z' with
       | None -> None
       | Some z' -> Some (y' :: z')
+
+(* Precedence rules (for parenthesization):
+   Low number => loose association
+   0: case expression, case pattern, let expression, if condition,
+      tuple term, list term
+   1: Case RHS
+   2: Application
+
+   case x of
+     p => ...
+   | q => (case y of ...)
+   | r => ...
+ *)
 
 let print_construct prec (print : int -> 'a -> (format_decl, string) result)
                     cstr (xs : 'a list) =
@@ -292,16 +292,17 @@ let rec print_expression casesfollow prec expr =
     ])
   | Texp_function (l, [c], p) ->
     print_case false c >>= fun c' ->
-    return @@ ifThen (prec > 1) paren @@ Box (Hovp, indent, [Lit "fn "] @
-      if case_is_trivial c then
-        (* fn x => E *)
-        [c']
-      else
-        (* fn tmp__ => case tmp__ of P => E *)
-        [Lit "tmp__"; sp; Lit "=>"; sp; Box (Hovs, indent, [
-          Lit "case"; sp; Lit "tmp__"; sp; Lit "of"; sp; c'
-        ])]
-    )
+    return @@ ifThen (prec > 1 || casesfollow) paren @@
+      Box (Hovp, indent, [Lit "fn "] @
+        if case_is_trivial c then
+          (* fn x => E *)
+          [c']
+        else
+          (* fn tmp__ => case tmp__ of P => E *)
+          [Lit "tmp__"; sp; Lit "=>"; sp; Box (Hovs, indent, [
+            Lit "case"; sp; Lit "tmp__"; sp; Lit "of"; sp; c'
+          ])]
+      )
   (* fn tmp__ => case tmp__ of P0 => E0 | P1 => E1 | ... *)
   | Texp_function (l, cs, p) ->
     print_case_cases cs >>= fun cs' ->
@@ -361,10 +362,17 @@ let rec print_expression casesfollow prec expr =
     ])
   (* E0; E1 *)
   | Texp_sequence (e0, e1) ->
-    print_expression false 0 e0 >>= fun e0' ->
-    print_expression casesfollow 0 e1 >>= fun e1' ->
-    return @@ paren @@ Box (Hovs, 0, [e0'; Lit ";"; sp; e1'])
+    paren <$> print_sequence casesfollow e0 e1
   | _ -> Bad "Some expression syntax not implemented."
+
+(* Print successive commands without parentheses *)
+and print_sequence casesfollow e0 e1 =
+  print_expression false 0 e0 >>= fun e0' ->
+  (match e1.exp_desc with
+  | Texp_sequence (e0, e1) -> print_sequence casesfollow e0 e1
+  | _ -> print_expression casesfollow 0 e1
+  ) <&> fun e1' ->
+  Box (Hovs, 0, [e0'; Lit ";"; sp; e1'])
 
 and print_case casesfollow c =
   print_pattern 0 c.c_lhs >>= fun pat ->
@@ -573,6 +581,7 @@ let typedtree, signature, env =
 module PreprocessorMap =
   PreprocessorMap (struct let env = typedtree.str_final_env end)
 let str = PreprocessorMap.map_structure typedtree
-let _ = output_result (print_str_items str.str_items)
-(*let () = Printtyped.implementation Format.std_formatter
-  { typedtree with str_items; }*)
+let () = output_result (print_str_items str.str_items)
+(*
+let () = Printtyped.implementation Format.std_formatter str
+*)
