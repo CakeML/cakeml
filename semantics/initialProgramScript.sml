@@ -60,6 +60,10 @@ val _ = Define `
    Tdec (Dlet (Pvar "~") (Fun "x" (App (Opn Minus) [Lit (IntLit(( 0 : int))); Var(Short"x")])));
    Tdec (mk_unop "!" Opderef);
    Tdec (mk_unop "ref" Opref);
+   Tdec (Dtabbrev [] "word" (Tapp [] TC_word8));
+   Tdec (Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
+   Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
+   Tdec (Dtabbrev [] "char" (Tapp [] TC_char));
    Tmod "Word8" NONE 
      [Dtabbrev [] "word" (Tapp [] TC_word8)];
    Tmod "Word8Array" NONE 
