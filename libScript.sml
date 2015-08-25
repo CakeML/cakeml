@@ -76,6 +76,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val lhd : forall 'a. llist 'a -> maybe 'a*)
 (*val ltl : forall 'a. llist 'a -> maybe (llist 'a)*)
 (*val lnil : forall 'a. llist 'a*)
+(*val lcons : forall 'a. 'a -> llist 'a -> llist 'a*)
 
 
 (* TODO: proper support for words... *)
@@ -83,6 +84,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*type word8*)
 (*val natFromWord8 : word8 -> nat*)
 (*val word_to_hex_string : word8 -> string*)
+(*val word8FromNat : nat -> word8*)
 
 (*open import {hol} `alistTheory`*)
 val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);

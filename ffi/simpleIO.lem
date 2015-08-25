@@ -1,0 +1,64 @@
+open import Pervasives
+open import Pervasives_extra
+open import Lib
+open import Ffi
+
+type io_state = <| input : llist word8; output : llist word8 |>
+
+val isEof : io_state -> list (word8 * word8) -> bool
+let isEof st io =
+  match io with
+  | [] -> false
+  | (x,y)::io ->
+      List.all (fun (x,y) -> x = y) io &&
+      ((st.input = lnil && y = 1) ||
+       (st.input <> lnil && y = 0))
+  end
+
+val getChar : io_state -> list (word8 * word8) -> maybe io_state
+let getChar st io =
+  match io with
+  | [] -> Nothing
+  | (x,y)::io ->
+      if List.all (fun (x,y) -> x = y) io && Just y = lhd st.input then
+        Just <| st with input = fromJust (ltl st.input) |>
+      else
+        Nothing
+  end
+
+val putChar : io_state -> list (word8 * word8) -> maybe io_state
+let putChar st io =
+  match io with
+  | [] -> Nothing
+  | (x,y)::io ->
+      if x = y && List.all (fun (x,y) -> x = y) io then
+        Just <| st with output = lcons x st.output |>
+      else
+        Nothing
+  end
+
+val system_step : io_state -> io_trace -> io_state * io_trace
+let system_step st tr =
+  match tr with
+  | Just events ->
+      match lhd events with
+      | Just (IO_event n xs) ->
+          let rest = ltl events in
+            if n = 0 && isEof st xs then
+              (st, rest)
+            else if n = 1 then
+              match getChar st xs with
+              | Just st' -> (st', rest)
+              | Nothing -> (st, Nothing)
+              end
+            else if n = 2 then
+              match putChar st xs with
+              | Just st' -> (st', rest)
+              | Nothing -> (st, Nothing)
+              end
+            else
+              (st, Nothing)
+      | Nothing -> (st, Nothing)
+      end
+  | Nothing ->(st, Nothing)
+  end
