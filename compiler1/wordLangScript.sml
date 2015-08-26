@@ -6,7 +6,7 @@ val _ = new_theory "wordLang";
 
 val _ = Datatype `
   store_name =
-    NextFree | LastFree | FreeCount |
+    NextFree | LastFree | FreeCount | ProgStart |
     CurrHeap | OtherHeap | AllocSize | Handler`
 
 val _ = Datatype `

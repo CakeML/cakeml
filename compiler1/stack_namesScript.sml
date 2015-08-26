@@ -28,6 +28,7 @@ val inst_find_name_def = Define `
 val comp_def = Define `
   comp f p =
     case p of
+    | Halt r => Halt (find_name f r)
     | Raise r => Raise (find_name f r)
     | Return r1 r2 => Return (find_name f r1) (find_name f r2)
     | Inst i => Inst (inst_find_name f i)

@@ -28,6 +28,6 @@ val _ = Datatype `
        | StackLoadAny num num   (* reg contains offset, slow, used by GC *)
        | StackGetSize num       (* used when installing exc handler *)
        | StackSetSize num       (* used by implementation of raise *)
-       | Halt ('a word)`;
+       | Halt num`;
 
 val _ = export_theory();

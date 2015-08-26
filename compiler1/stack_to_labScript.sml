@@ -16,6 +16,7 @@ val max_lab_def = Define `
 val no_ret_def = Define `
   no_ret (p:'a stackLang$prog) =
     case p of
+    | Halt _ => T
     | Raise _ => T
     | Return _ _ => T
     | Seq p1 p2 => no_ret p1 \/ no_ret p2
@@ -34,6 +35,7 @@ val flatten_def = Define `
     case p of
     | Tick => ([Asm (Inst (Skip)) [] 0],m)
     | Inst a => ([Asm (Inst a) [] 0],m)
+    | Halt _ => ([LabAsm Halt 0w [] 0],m)
     | Seq p1 p2 =>
         let (xs,m) = flatten p1 n m in
         let (ys,m) = flatten p2 n m in

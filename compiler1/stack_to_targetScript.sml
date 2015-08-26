@@ -24,20 +24,32 @@ val seq_list_def = Define `
   (seq_list [x] = x) /\
   (seq_list (x::xs) = Seq x (seq_list xs))`
 
-val stubs_def = Define `
-  stubs sp bp =
-    [(0:num, seq_list [move_inst bp 3; (* init base pointer *)
-                       move_inst sp 4; (* init stack pointer *)
-                       const_inst 4 (word_offset store_length);
-                       sub_inst 3 4;
-                       (* heap start is in 2, heap end is in 3 *)
-                       Call (SOME (Skip,0,0,1)) (INL 5) NONE;
-                       Halt 0w (* success! *)]);
-     (1, Halt 2w (* not enough stack space *))]`;
+val stub0_def = Define `
+  stub0 sp bp =
+    (0:num, seq_list [move_inst bp 3; (* init base pointer *)
+                      move_inst sp 4; (* init stack pointer *)
+                      move_inst 0 sp;
+                      sub_inst 0 bp;
+                      const_inst 4 (word_offset store_length);
+                      sub_inst 3 4
+                      (* stack length in 0,
+                         first program point in 1,
+                         heap start is in 2,
+                         heap end is in 3 *)
+                      Call NONE (INL 1) NONE])`;
+
+val stub1_def = Define `
+  stub1 =
+    (1:num, seq_list [Set Handler 0;
+                      Set ProgStart 1;
+                      Set CurrHeap 2;
+                      Set LastFree 3;
+                      Call NONE (INL 5) NONE])`
 
 val compile_def = Define `
   compile f sp bp prog =
-    let without_stack = stubs sp bp ++ stack_remove$compile (sp,bp) prog in
+    let prog' = stub1 :: prog in
+    let without_stack = stub0 sp bp :: stack_remove$compile (sp,bp) prog' in
     let with_target_names = stack_names$compile f without_stack in
       stack_to_lab$compile with_target_names`;
 
