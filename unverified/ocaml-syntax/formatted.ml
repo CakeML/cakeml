@@ -51,6 +51,57 @@ type fixity = assoc * int
 let starts_with_any starts str =
   BatList.exists (fun s -> BatString.starts_with s str) starts
 
+type exp_paren_context =
+  | Infix of bool * int
+    (* subexpression is to (false => left; true => right) of parent *)
+  | Hanging of bool
+    (* case body, else body, &c. true iff there are cases following *)
+  | Enclosed
+
+type cml_exp_type =
+  | Atomic  (* identifier, constant, let, &c *)
+  | Fn
+  | CaseOf
+  | Handle
+  | IfThenElse
+  | InfixApply of int * int
+  | Sequence  (* ; *)
+
+(* Infix operators have two precedece numbers - one for the left and another
+   for the right. Small number means tight binding.
+
+   Here is the complete table for current CakeML:
+   precedences | operators      | notes
+   ------------+----------------+-------------------------
+    1,  0      | application    | f x
+    3,  2      | * div mod /    | left associating: 1 > 0
+    5,  4      | + -            |
+    6,  7      | @ ::           | right associating: 4 < 5
+    9,  8      | < > <= >= <> = |
+   11, 10      | o :=           |
+   13, 12      | before         |
+   15, 14      | orelse andalso |
+
+   Take the expression `(3 + 2) :: []`. The right precedence of `+` (2) is
+   compared against the left precedence of `::` (4). 4 > 2, so `+` binds closer
+   and the parentheses can be elided.
+     Contrast to `8 - (4 + 1)`. `-` has right precedence 2 and `+` has left
+   precedence 3. 2 <= 3, so parentheses are required.
+*)
+
+let needs_parens ctxt exp =
+  match ctxt, exp with
+  | _, Sequence -> true
+  | _, Atomic -> false
+  | Enclosed, _ -> false
+  | Infix (false, m), InfixApply (_, n)
+  | Infix (true, m), InfixApply (n, _) -> m <= n
+  | Infix _, _ -> true
+  | Hanging _, Fn -> false
+  | Hanging follow, (CaseOf | Handle) -> follow
+  | Hanging _, IfThenElse -> false
+  | Hanging _, InfixApply _ -> false
+
 (*let fixity_of = function
   | x when BatString.starts_with "!" x
         || (BatString.length x >= 2 && starts_with_any ["?"; "~"] x) ->
@@ -187,7 +238,8 @@ let rec intersperseMany xs = function
 
 let print_tupled xs = paren @@ Box (Hovp, 0, intersperseMany [Lit ","; sp] xs)
 
-let rec print_list_items (print : int -> 'a -> (format_decl, string) result)
+let rec print_list_items
+    (print : exp_paren_context -> 'a -> (format_decl, string) result)
     (deconstruct : constructor_description -> 'a list ->
                    ('a * constructor_description * 'a list) option)
     cstr (xs : 'a list) =
@@ -197,51 +249,39 @@ let rec print_list_items (print : int -> 'a -> (format_decl, string) result)
     match deconstruct cstr xs with
     | None -> return None
     | Some (y, cstr', xs') ->
-      print 0 y >>= fun y' ->
+      print Enclosed y >>= fun y' ->
       print_list_items print deconstruct cstr' xs' <&> fun z' ->
       match z' with
       | None -> None
       | Some z' -> Some (y' :: z')
 
-(* Precedence rules (for parenthesization):
-   Low number => loose association
-   0: case expression, case pattern, let expression, if condition,
-      tuple term, list term
-   1: Case RHS
-   2: Application
-
-   case x of
-     p => ...
-   | q => (case y of ...)
-   | r => ...
- *)
-
-let print_construct prec (print : int -> 'a -> (format_decl, string) result)
-                    cstr (xs : 'a list) =
+let print_construct
+    ctxt (print : exp_paren_context -> 'a -> (format_decl, string) result)
+    cstr (xs : 'a list) =
   match cstr.cstr_name, xs with
   | "::", [x; y] ->
-    print 1 x >>= fun x' ->
-    print 0 y >>= fun y' ->
-    return @@ ifThen (prec > 0) paren @@
+    print (Infix (false, 6)) x >>= fun x' ->
+    print (Infix (true, 7)) y <&> fun y' ->
+    ifThen (needs_parens ctxt (InfixApply (6, 7))) paren @@
       Box (Hovs, indent, [x'; sp; Lit "::"; sp; y'])
   | _ ->
     make_constructor_path cstr >>= fun name ->
     (match xs with
-    | [] -> return @@ Lit ""
-    | [x] -> print 2 x >>= fun x' ->
-             return @@ Box (Hovp, 0, [sp; x'])
-    | _ -> mapM (print 0) xs >>= fun xs' ->
-           return @@ Box (Hovp, 0, [sp; print_tupled xs'])
-    ) >>= fun args ->
-    return @@ ifThen (prec > 1 && not ([] = xs)) paren @@
+    | [] -> return (Atomic, Lit "")
+    | [x] -> print (Infix (true, 0)) x <&> fun x' ->
+             InfixApply (1, 0), Box (Hovp, 0, [sp; x'])
+    | _ -> mapM (print Enclosed) xs <&> fun xs' ->
+           InfixApply (1, 0), Box (Hovp, 0, [sp; print_tupled xs'])
+    ) <&> fun (paren_type, args) ->
+    ifThen (needs_parens ctxt paren_type) paren @@
       Box (Hovp, indent, [fix_formatted_identifier name; args])
 
-let print_list_or_construct prec print deconstruct cstr xs =
+let print_list_or_construct ctxt print deconstruct cstr xs =
   print_list_items print deconstruct cstr xs >>= fun xs' ->
   match xs' with
   | Some xs' -> return @@
       Box (Hovp, 1, [Lit "["] @ intersperseMany [Lit ","; sp] xs' @ [Lit "]"])
-  | None -> print_construct prec print cstr xs
+  | None -> print_construct ctxt print cstr xs
 
 let deconstruct_list_pattern cstr xs =
   match cstr.cstr_name, xs with
@@ -255,17 +295,17 @@ let deconstruct_list_expression cstr xs =
     Some (x, cstr', xs')
   | _ -> None
 
-let rec print_pattern prec pat =
+let rec print_pattern ctxt pat =
   match pat.pat_desc with
   (* _ *)
   | Tpat_any -> return @@ Lit "unused__"
   | Tpat_var (ident, name) -> return @@ Lit (fix_var_name name.txt)
   | Tpat_constant c -> return @@ print_constant c
-  | Tpat_tuple ps -> mapM (print_pattern 0) ps >>= fun ps' ->
+  | Tpat_tuple ps -> mapM (print_pattern Enclosed) ps >>= fun ps' ->
                      return @@ print_tupled ps'
   | Tpat_construct (_, desc, ps) ->
     (*print_construct prec print_pattern desc ps*)
-    print_list_or_construct prec print_pattern deconstruct_list_pattern desc ps
+    print_list_or_construct ctxt print_pattern deconstruct_list_pattern desc ps
   | _ -> Bad "Some pattern syntax not implemented"
 
 let pattern_is_trivial { pat_desc; _ } =
@@ -278,35 +318,45 @@ let case_is_trivial c =
   | p, None when pattern_is_trivial p -> true
   | _ -> false
 
-let rec print_expression casesfollow prec expr =
+let rec print_expression ctxt expr =
+  let paren_if_necessary exp = if needs_parens ctxt exp then paren else id in
   match expr.exp_desc with
   | Texp_ident (path, _, desc) -> print_path path
   | Texp_constant c ->  return @@ print_constant c
   | Texp_let (r, bs, e) ->
     mapiM (fun i -> print_value_binding (i = 0) r) bs >>= fun bs' ->
-    print_expression false 0 e >>= fun e' ->
-    return @@ ifThen (prec > 1) paren @@ Box (Hv, 0, [
+    print_expression Enclosed e <&> fun e' ->
+    Box (Hv, 0, [
       Box (Hv, indent, [Lit "let"; sp; Box (V, 0, intersperse sp bs')]); sp;
       Box (Hv, indent, [Lit "in"; sp; e']); sp;
       Lit "end"
     ])
   | Texp_function (l, [c], p) ->
-    print_case false c >>= fun c' ->
-    return @@ ifThen (prec > 1 || casesfollow) paren @@
-      Box (Hovp, indent, [Lit "fn "] @
+    print_case false c <&> fun c' ->
+    paren_if_necessary Fn @@
+      Box (Hovp, 0, [Lit "fn "] @
         if case_is_trivial c then
           (* fn x => E *)
           [c']
         else
           (* fn tmp__ => case tmp__ of P => E *)
+          (*
           [Lit "tmp__"; sp; Lit "=>"; sp; Box (Hovs, indent, [
             Lit "case"; sp; Lit "tmp__"; sp; Lit "of"; sp; c'
+          ])]
+          *)
+          [Box (Hovs, indent, [
+            Lit "tmp__"; sp; Lit "=>"; sp;
+            Box (Hv, indent, [
+              Box (Hovp, 0, [Lit "case"; sp; Lit "tmp__"; sp; Lit "of"]);
+              sp; c'
+            ])
           ])]
       )
   (* fn tmp__ => case tmp__ of P0 => E0 | P1 => E1 | ... *)
   | Texp_function (l, cs, p) ->
-    print_case_cases cs >>= fun cs' ->
-    return @@ ifThen (prec > 1 || casesfollow) paren @@ Box (Hovp, indent, [
+    print_case_cases cs <&> fun cs' ->
+    paren_if_necessary CaseOf @@ Box (Hovp, indent, [
       Lit "fn "; Box (Hovs, indent, [
         Lit "tmp__"; sp; Lit "=>"; sp;
         Box (Hv, indent, [
@@ -323,70 +373,76 @@ let rec print_expression casesfollow prec expr =
       | "||" | "or" -> "orelse"
       | x -> x
     in
-    print_expression false 2 e0 >>= fun e0' ->
-    print_expression casesfollow 2 e1 >>= fun e1' ->
-    return @@ Box (Hovp, indent, [e0'; sp; Lit op; sp; e1'])
+    print_expression (Infix (false, 15)) e0 >>= fun e0' ->
+    print_expression (Infix (true, 14)) e1 <&> fun e1' ->
+    paren_if_necessary (InfixApply (15, 14)) @@
+      Box (Hovp, indent, [e0'; sp; Lit op; sp; e1'])
   (* Normal function application *)
   | Texp_apply (e0, es) ->
-    print_expression false 2 e0 >>= fun e0' ->
+    print_expression (Infix (false, 1)) e0 >>= fun e0' ->
     mapM (function
-      | l, Some e, Required -> print_expression casesfollow 2 e
+      | l, Some e, Required -> print_expression (Infix (true, 0)) e
       | _ -> Bad "Optional and named arguments not supported."
-    ) es >>= fun es' ->
-    return @@ ifThen (prec > 1) paren @@
+    ) es <&> fun es' ->
+    paren_if_necessary (InfixApply (1, 0)) @@
       Box (Hv, indent, intersperse sp (e0' :: es'))
   | Texp_match (exp, cs, [], p) ->
-    print_expression false 0 exp >>= fun exp' ->
-    print_case_cases cs >>= fun cs' ->
-    return @@ ifThen (prec > 0 || casesfollow) paren @@ Box (Hovs, indent, [
+    print_expression Enclosed exp >>= fun exp' ->
+    print_case_cases cs <&> fun cs' ->
+    paren_if_necessary CaseOf @@ Box (Hovs, indent, [
       Box (Hovp, 2 * indent, [Lit "case"; sp; exp'; sp; Lit "of"]); sp; cs'
     ])
   | Texp_try (exp, cs) ->
-    print_expression false 1 exp >>= fun exp' ->
-    print_case_cases cs >>= fun cs' ->
-    return @@ ifThen (prec > 0) paren @@ Box (Hovp, indent, [
+    print_expression Enclosed exp >>= fun exp' ->
+    print_case_cases cs <&> fun cs' ->
+    paren_if_necessary Handle @@ Box (Hovp, indent, [
       exp'; sp; Lit "handle"; sp; cs'
     ])
-  | Texp_tuple es -> mapM (print_expression false 0) es <&> print_tupled
+  | Texp_tuple es -> mapM (print_expression Enclosed) es <&> print_tupled
   | Texp_construct (_, desc, es) ->
-    (*print_construct prec (print_expression casesfollow) desc es*)
-    print_list_or_construct prec (print_expression casesfollow)
+    print_list_or_construct ctxt print_expression
       deconstruct_list_expression desc es
   | Texp_ifthenelse (p, et, Some ef) ->
-    print_expression false 0 p >>= fun p' ->
-    print_expression false 0 et >>= fun et' ->
-    print_expression casesfollow prec ef >>= fun ef' ->
-    return @@ ifThen (prec > 0) paren @@ Box (Hovs, 0, [
+    let casesfollow = match ctxt with Hanging follow -> follow | _ -> false in
+    print_expression Enclosed p >>= fun p' ->
+    print_expression Enclosed et >>= fun et' ->
+    print_expression (Hanging casesfollow) ef <&> fun ef' ->
+    paren_if_necessary IfThenElse @@ Box (Hovs, 0, [
       Box (Hovp, indent, [Lit "if"; sp; p'; sp; Lit "then"; sp; et']);
       sp; Box (Hovp, indent, [Lit "else"; sp; ef'])
     ])
   (* E0; E1 *)
   | Texp_sequence (e0, e1) ->
-    paren <$> print_sequence casesfollow e0 e1
+    paren <$> print_sequence e0 e1
   | _ -> Bad "Some expression syntax not implemented."
 
 (* Print successive commands without parentheses *)
-and print_sequence casesfollow e0 e1 =
-  print_expression false 0 e0 >>= fun e0' ->
+and print_sequence e0 e1 =
+  print_expression Enclosed e0 >>= fun e0' ->
   (match e1.exp_desc with
-  | Texp_sequence (e0, e1) -> print_sequence casesfollow e0 e1
-  | _ -> print_expression casesfollow 0 e1
+  | Texp_sequence (e0, e1) -> print_sequence e0 e1
+  | _ -> print_expression Enclosed e1
   ) <&> fun e1' ->
   Box (Hovs, 0, [e0'; Lit ";"; sp; e1'])
 
 and print_case casesfollow c =
-  print_pattern 0 c.c_lhs >>= fun pat ->
-  print_expression casesfollow 1 c.c_rhs >>= fun exp ->
+  print_pattern Enclosed c.c_lhs >>= fun pat ->
+  print_expression (Hanging casesfollow) c.c_rhs >>= fun exp ->
   match c.c_guard with
   | None -> return @@ Box (Hovp, indent, [pat; sp; Lit "=>"; sp; exp])
   | _ -> Bad "Pattern guards not supported."
 
 and print_case_cases cs =
-  mapM (print_case true) cs <&> (function
+  let open BatTuple.Tuple2 in
+  let open BatList in
+  mapM (uncurry print_case)
+       (second (fold_right (fun x (casesfollow, acc) ->
+                            true, (casesfollow, x) :: acc) cs (false, [])))
+  <&> (function
     | [] -> []
     | c' :: cs' ->
-      c' :: BatList.map (fun c -> Box (H, 0, [Lit "| "; c])) cs')
-  <&> fun cs' ->
+      c' :: map (fun c -> Box (H, 0, [Lit "| "; c])) cs'
+    ) <&> fun cs' ->
   Box (Hv, -2, intersperse sp cs')
 
 and print_value_binding first_binding rec_flag vb =
@@ -395,7 +451,7 @@ and print_value_binding first_binding rec_flag vb =
                 | true, Recursive -> "fun"
                 | false, Recursive -> "and"
   in
-  print_pattern 0 vb.vb_pat >>= fun pat ->
+  print_pattern Enclosed vb.vb_pat >>= fun pat ->
   match vb.vb_expr.exp_desc, rec_flag with
   (* Special case for trivial patterns *)
   | Texp_function (l, [c], p), Recursive when case_is_trivial c ->
@@ -405,9 +461,9 @@ and print_value_binding first_binding rec_flag vb =
       | Texp_function (_, [nextc], _) when case_is_trivial nextc ->
         reduce_fn (lastc.c_lhs :: acc) nextc
       | _ ->
-        mapM (print_pattern 0) (BatList.rev acc) >>= fun vs ->
-        print_pattern 2 lastc.c_lhs >>= fun last_pat ->
-        print_expression false 0 lastc.c_rhs >>= fun exp ->
+        mapM (print_pattern (Infix (true, 0))) (BatList.rev acc) >>= fun vs ->
+        print_pattern (Infix (true, 0)) lastc.c_lhs >>= fun last_pat ->
+        print_expression (Hanging false) lastc.c_rhs >>= fun exp ->
         return @@ Box (Hovp, indent,
           [Lit keyword; sp; pat] @
           BatList.concat (BatList.map (fun x -> [sp; x]) vs) @
@@ -427,7 +483,7 @@ and print_value_binding first_binding rec_flag vb =
   | _, Recursive -> Bad "Recursive values not supported in CakeML."
   (* val x = E *)
   | _, Nonrecursive when pattern_is_trivial vb.vb_pat ->
-    print_expression false 0 vb.vb_expr >>= fun expr ->
+    print_expression (Hanging false) vb.vb_expr >>= fun expr ->
     return @@ Box (Hovp, indent, [
       Lit keyword; sp; pat; sp; Lit "="; sp; expr
     ])
@@ -529,7 +585,7 @@ let rec print_module_binding mb =
 and print_structure_item str =
   match str.str_desc with
   | Tstr_eval (e, attrs) ->
-    print_expression false 0 e <&> fun e' ->
+    print_expression (Hanging false) e <&> fun e' ->
     some @@ Box (Hovp, indent, [
       Lit "val"; sp; Lit "eval__"; sp; Lit "="; sp; e'
     ])
