@@ -3,23 +3,32 @@ local open conLangTheory pat_to_closTheory in (* for list tags *) end;
 
 val _ = new_theory "clos_to_bvl";
 
-val closure_tag_def = Define`closure_tag = 0:num`
-val partial_app_tag_def = Define`partial_app_tag = 1:num`
-val clos_tag_shift_def = Define`clos_tag_shift = 2:num`
+val closure_tag_def = Define`closure_tag = 30:num`
+val partial_app_tag_def = Define`partial_app_tag = 31:num`
+val clos_tag_shift_def = Define`clos_tag_shift tag = if tag < 30 then tag:num else tag+2`
 val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
   |> curry save_thm"partial_app_tag_neq_closure_tag[simp]";
+val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
+  |> curry save_thm"clos_tag_shift_nil_tag[simp]";
+val _ = EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
+  |> curry save_thm"clos_tag_shift_eq_tag[simp]";
+val _ = EVAL``clos_tag_shift eq_tag = eq_tag`` |> EQT_ELIM
+  |> curry save_thm"clos_tag_shift_cons_tag[simp]";
+val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
+  `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
+  EVAL_TAC >> rw[] >> simp[])
 
 val bool_to_tag_def = Define`
-  bool_to_tag b = ((if b then true_tag else false_tag) + clos_tag_shift)`
+  bool_to_tag b = if b then true_tag else false_tag`
 
 val Bool_def = Define`
   Bool b = Op (Cons (bool_to_tag b)) []`;
 
 val compile_op_def = Define`
-  compile_op (Cons tag) = (Cons (tag+clos_tag_shift)) ∧
-  compile_op (TagEq tag) = (TagEq (tag+clos_tag_shift)) ∧
-  compile_op (TagLenEq tag a) = (TagLenEq (tag+clos_tag_shift) a) ∧
-  compile_op (FromList tag) = (FromList (tag+clos_tag_shift)) ∧
+  compile_op (Cons tag) = (Cons (clos_tag_shift tag)) ∧
+  compile_op (TagEq tag) = (TagEq (clos_tag_shift tag)) ∧
+  compile_op (TagLenEq tag a) = (TagLenEq (clos_tag_shift tag) a) ∧
+  compile_op (FromList tag) = (FromList (clos_tag_shift tag)) ∧
   compile_op x = x`
 val _ = export_rewrites["compile_op_def"];
 
@@ -198,11 +207,11 @@ val ToList_code_def = Define`
     If (Op Equal [Var 1; mk_const 0]) (Var 2)
       (Let [Op Sub [mk_const 1; Var 1]]
         (Call 0 (SOME ToList_location)
-         [Var 1; Var 0; Op (Cons (cons_tag+clos_tag_shift))
+         [Var 1; Var 0; Op (Cons cons_tag)
                            [Var 3; mk_el (Var 1) (Var 0)]])))`;
 
 val RaiseEq_def = Define`
-  RaiseEq = Raise (Op (Cons (eq_tag+clos_tag_shift)) [])`;
+  RaiseEq = Raise (Op (Cons eq_tag) [])`;
 
 val check_closure_def = Define`
   check_closure v e =
@@ -274,7 +283,7 @@ val compile_def = tDefine "compile" `
          Let c1
            (Call 0 (SOME ToList_location)
              [Var 0; Op(LengthBlock)[Var 0];
-              Op(Cons(nil_tag+clos_tag_shift))[]])
+              Op(Cons nil_tag)[]])
        else if op = Equal then
          Call 0 (SOME equality_location) c1
        else
