@@ -74,9 +74,9 @@ type cml_exp_type =
    precedences | operators      | notes
    ------------+----------------+-------------------------
     1,  0      | application    | f x
-    3,  2      | * div mod /    | left associating: 1 > 0
+    3,  2      | * div mod /    | left associating: 3 > 2
     5,  4      | + -            |
-    6,  7      | @ ::           | right associating: 4 < 5
+    6,  7      | @ ::           | right associating: 6 < 7
     9,  8      | < > <= >= <> = |
    11, 10      | o :=           |
    13, 12      | before         |
@@ -97,7 +97,7 @@ let needs_parens ctxt exp =
   | Infix (false, m), InfixApply (_, n)
   | Infix (true, m), InfixApply (n, _) -> m <= n
   | Infix _, _ -> true
-  | Hanging _, Fn -> false
+  | Hanging follow, Fn -> follow
   | Hanging follow, (CaseOf | Handle) -> follow
   | Hanging _, IfThenElse -> false
   | Hanging _, InfixApply _ -> false
@@ -304,7 +304,6 @@ let rec print_pattern ctxt pat =
   | Tpat_tuple ps -> mapM (print_pattern Enclosed) ps >>= fun ps' ->
                      return @@ print_tupled ps'
   | Tpat_construct (_, desc, ps) ->
-    (*print_construct prec print_pattern desc ps*)
     print_list_or_construct ctxt print_pattern deconstruct_list_pattern desc ps
   | _ -> Bad "Some pattern syntax not implemented"
 
@@ -324,7 +323,16 @@ let rec print_expression ctxt expr =
   | Texp_ident (path, _, desc) -> print_path path
   | Texp_constant c ->  return @@ print_constant c
   | Texp_let (r, bs, e) ->
-    mapiM (fun i -> print_value_binding (i = 0) r) bs >>= fun bs' ->
+    let open BatTuple.Tuple2 in
+    let rec make_rbss_e e =
+      match e.exp_desc with
+      | Texp_let (r, bs, e') ->
+        map1 (fun rbss -> (r, bs) :: rbss) (make_rbss_e e')
+      | _ -> [], e
+    in
+    let rbss, e = map1 (fun rbss -> (r, bs) :: rbss) (make_rbss_e e) in
+    BatList.concat <$> (mapM (fun (r, bs) -> print_value_bindings r bs) rbss)
+    >>= fun bs' ->
     print_expression Enclosed e <&> fun e' ->
     Box (Hv, 0, [
       Box (Hv, indent, [Lit "let"; sp; Box (V, 0, intersperse sp bs')]); sp;
@@ -445,11 +453,27 @@ and print_case_cases cs =
     ) <&> fun cs' ->
   Box (Hv, -2, intersperse sp cs')
 
+and print_value_bindings rec_flag =
+  let rec inner = function
+    | [] -> return []
+    | [vb] -> print_value_binding false rec_flag vb <&> fun vb' ->
+              [Box (H, 0, [vb'; Lit ";"])]
+    | vb :: vbs -> print_value_binding false rec_flag vb >>= fun vb' ->
+                   inner vbs <&> fun vbs' ->
+                   vb' :: vbs'
+  in function
+    | [] -> return []
+    | [vb] -> print_value_binding true rec_flag vb <&> fun vb' ->
+              [Box (H, 0, [vb'; Lit ";"])]
+    | vb :: vbs -> print_value_binding true rec_flag vb >>= fun vb' ->
+                   inner vbs <&> fun vbs' ->
+                   vb' :: vbs'
+
 and print_value_binding first_binding rec_flag vb =
   let keyword = match first_binding, rec_flag with
-                | _, Nonrecursive -> "val"
+                | true, Nonrecursive -> "val"
                 | true, Recursive -> "fun"
-                | false, Recursive -> "and"
+                | false, _ -> "and"
   in
   print_pattern Enclosed vb.vb_pat >>= fun pat ->
   match vb.vb_expr.exp_desc, rec_flag with

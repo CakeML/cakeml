@@ -650,7 +650,12 @@ let preprocess_valrec_expr exp =
   match exp.exp_desc with
   | Texp_let (r, bs, e) ->
     let oldbs, newbs = preprocess_valrec_value_bindings r bs in
-    { exp with exp_desc = Texp_let (r, oldbs @ newbs, e); }
+    let rec expand_lets e = function
+      | [] -> e
+      | b :: bs ->
+        { exp with exp_desc = Texp_let (Nonrecursive, [b], expand_lets e bs); }
+    in
+    { exp with exp_desc = Texp_let (r, oldbs, expand_lets e newbs) }
   | _ -> exp
 
 let rec preprocess_valrec_str_item str =
@@ -677,7 +682,7 @@ module ValrecMapArgument = struct
       str_items =
         BatList.concat (BatList.map preprocess_valrec_str_item str_items);
     }
-  let enter_expression = preprocess_valrec_expr
+  let leave_expression = preprocess_valrec_expr
 end
 module ValrecMap = MakeMap (ValrecMapArgument)
 
@@ -1004,9 +1009,9 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
   let enter_expression = FunctionMapArgument.enter_expression
                       %> GuardMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
-                      %> ValrecMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression
   let leave_expression = AliaspatMapArgument.leave_expression
+                       %> ValrecMapArgument.leave_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
                      %> ValpatMapArgument.enter_structure
