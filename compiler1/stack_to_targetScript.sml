@@ -31,7 +31,7 @@ val stub0_def = Define `
                       move_inst 0 sp;
                       sub_inst 0 bp;
                       const_inst 4 (word_offset store_length);
-                      sub_inst 3 4
+                      sub_inst 3 4;
                       (* stack length in 0,
                          first program point in 1,
                          heap start is in 2,
