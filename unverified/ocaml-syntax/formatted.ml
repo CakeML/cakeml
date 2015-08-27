@@ -331,8 +331,8 @@ let rec print_expression ctxt expr =
       | _ -> [], e
     in
     let rbss, e = map1 (fun rbss -> (r, bs) :: rbss) (make_rbss_e e) in
-    BatList.concat <$> (mapM (fun (r, bs) -> print_value_bindings r bs) rbss)
-    >>= fun bs' ->
+    mapM (fun (r, bs) -> print_value_bindings true r bs) rbss
+    <&> BatList.concat >>= fun bs' ->
     print_expression Enclosed e <&> fun e' ->
     Box (Hv, 0, [
       Box (Hv, indent, [Lit "let"; sp; Box (V, 0, intersperse sp bs')]); sp;
@@ -453,21 +453,32 @@ and print_case_cases cs =
     ) <&> fun cs' ->
   Box (Hv, -2, intersperse sp cs')
 
-and print_value_bindings rec_flag =
-  let rec inner = function
-    | [] -> return []
-    | [vb] -> print_value_binding false rec_flag vb <&> fun vb' ->
-              [Box (H, 0, [vb'; Lit ";"])]
-    | vb :: vbs -> print_value_binding false rec_flag vb >>= fun vb' ->
-                   inner vbs <&> fun vbs' ->
-                   vb' :: vbs'
-  in function
-    | [] -> return []
-    | [vb] -> print_value_binding true rec_flag vb <&> fun vb' ->
-              [Box (H, 0, [vb'; Lit ";"])]
-    | vb :: vbs -> print_value_binding true rec_flag vb >>= fun vb' ->
-                   inner vbs <&> fun vbs' ->
-                   vb' :: vbs'
+and print_value_bindings add_semicolon = function
+  | Recursive ->
+    let rec inner = function
+      | [] -> return []
+      | [vb] -> print_value_binding false Recursive vb <&> fun vb' ->
+                if add_semicolon
+                  then [Box (H, 0, [vb'; Lit ";"])]
+                  else [vb']
+      | vb :: vbs -> print_value_binding false Recursive vb >>= fun vb' ->
+                     inner vbs <&> fun vbs' ->
+                     vb' :: vbs'
+    in (function
+      | [] -> return []
+      | [vb] -> print_value_binding true Recursive vb <&> fun vb' ->
+                if add_semicolon
+                  then [Box (H, 0, [vb'; Lit ";"])]
+                  else [vb']
+      | vb :: vbs -> print_value_binding true Recursive vb >>= fun vb' ->
+                     inner vbs <&> fun vbs' ->
+                     vb' :: vbs'
+      )
+  | Nonrecursive ->
+    mapM (fun b -> print_value_binding true Nonrecursive b <&> fun b' ->
+                   if add_semicolon
+                     then Box (H, 0, [b'; Lit ";"])
+                     else b')
 
 and print_value_binding first_binding rec_flag vb =
   let keyword = match first_binding, rec_flag with
@@ -614,7 +625,7 @@ and print_structure_item str =
       Lit "val"; sp; Lit "eval__"; sp; Lit "="; sp; e'
     ])
   | Tstr_value (r, bs) ->
-    mapiM (fun i -> print_value_binding (i = 0) r) bs <&> fun bs' ->
+    print_value_bindings false r bs <&> fun bs' ->
     some @@ Box (Hovs, 0, intersperse sp bs')
   | Tstr_type ds ->
     mapiM (fun i -> print_type_declaration (i = 0)) ds <&> fun ds' ->

@@ -549,13 +549,6 @@ let rec zeros__ _ = Cons (fun _ -> 0, zeros__ ())
 let zeros = zeros__ ()
 *)
 
-(* Also, split up non-recursive bindings joined by `and`. Maybe this should be
-   moved somewhere else, but it fits neatly.
-
-let x = 0  \->  let x = 0
-and y = 2  /->  let y = 2
-*)
-
 (*
 oldbs: accumulator for possibly modified existing bindings. Only the LHS is
   changed at this stage.
@@ -640,28 +633,23 @@ let rec vb_inner oldbs newbs sub_fn = function
       vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
     | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
 
-let preprocess_valrec_value_bindings = function
-  (* Rephrase recursive values *)
-  | Recursive -> vb_inner [] [] (fun x -> x)
-  (* Split non-recursive definitions joined by `and` *)
-  | Nonrecursive -> fun bs -> [], bs
+let preprocess_valrec_value_bindings = vb_inner [] [] (fun x -> x)
 
 let preprocess_valrec_expr exp =
   match exp.exp_desc with
-  | Texp_let (r, bs, e) ->
-    let oldbs, newbs = preprocess_valrec_value_bindings r bs in
-    let rec expand_lets e = function
-      | [] -> e
-      | b :: bs ->
-        { exp with exp_desc = Texp_let (Nonrecursive, [b], expand_lets e bs); }
-    in
-    { exp with exp_desc = Texp_let (r, oldbs, expand_lets e newbs) }
+  | Texp_let (Recursive, bs, e) ->
+    let oldbs, newbs = preprocess_valrec_value_bindings bs in
+    (if oldbs = [] then
+      fun inner -> inner
+    else
+      fun inner -> { exp with exp_desc = Texp_let (Recursive, oldbs, inner); }
+    ) { exp with exp_desc = Texp_let (Nonrecursive, newbs, e) }
   | _ -> exp
 
 let rec preprocess_valrec_str_item str =
   match str.str_desc with
-  | Tstr_value (r, bs) ->
-    let oldbs, newbs = preprocess_valrec_value_bindings r bs in
+  | Tstr_value (Recursive, bs) ->
+    let oldbs, newbs = preprocess_valrec_value_bindings bs in
     let strs = BatList.map (fun b -> { str with
       str_desc = Tstr_value (Nonrecursive, [b]);
     }) newbs in
@@ -671,7 +659,7 @@ let rec preprocess_valrec_str_item str =
     | [] -> strs
     (* Otherwise, replace the existing bindings with the updated bindings, and
        add the new items after the existing item. *)
-    | _ -> { str with str_desc = Tstr_value (r, oldbs); } :: strs
+    | _ -> { str with str_desc = Tstr_value (Recursive, oldbs); } :: strs
     )
   | _ -> [str]
 
@@ -682,7 +670,7 @@ module ValrecMapArgument = struct
       str_items =
         BatList.concat (BatList.map preprocess_valrec_str_item str_items);
     }
-  let leave_expression = preprocess_valrec_expr
+  let enter_expression = preprocess_valrec_expr
 end
 module ValrecMap = MakeMap (ValrecMapArgument)
 
@@ -897,14 +885,7 @@ let value_binding_of_alias_pattern (pat, i, l) = {
   vb_loc = Location.none;
 }
 
-let preprocess_aliaspat_case ({ c_lhs; c_guard; c_rhs; } as c) =
-  (*let zs = aliaspat_zippers c_lhs in
-  if zs = [] then c else
-  {
-    c_lhs = remove_aliaspats c_lhs;
-    c_guard = c_guard;
-    c_rhs = ;
-  }*)
+let preprocess_aliaspat_case { c_lhs; c_guard; c_rhs; } =
   let aliaspats = get_aliaspats c_lhs in
   {
     c_lhs = RemoveAliaspatMap.map_pattern c_lhs;
@@ -1010,8 +991,8 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
                       %> GuardMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression
+                      %> ValrecMapArgument.enter_expression
   let leave_expression = AliaspatMapArgument.leave_expression
-                       %> ValrecMapArgument.leave_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
                      %> ValpatMapArgument.enter_structure
