@@ -606,8 +606,10 @@ let rec print_module_binding mb =
   let name = mb.mb_id.name in
   match mb.mb_expr.mod_desc with
   | Tmod_structure str ->
-    let str_items =
+    let str_items = str.str_items in
+    (*
       BatList.concat (BatList.map preprocess_valrec_str_item str.str_items) in
+    *)
     print_str_items str_items >>= fun items ->
     return @@ Box (Hovs, indent, [
       Lit "structure "; Lit name; sp; Lit "= struct"; sp; items;

@@ -557,7 +557,7 @@ sub_fn: accumulator for function to substitute expressions like `x__ ()` for
   `x` in oldbs. This is applied at the base case in order to deal with mutual
   recursion.
 *)
-let rec vb_inner oldbs newbs sub_fn = function
+let rec vb_inner oldbs newbs sub_fn current_stamp = function
   | [] -> BatList.rev_map sub_fn oldbs, BatList.rev newbs
   | vb :: vbs ->
     match vb.vb_expr.exp_desc, vb.vb_pat.pat_desc with
@@ -568,8 +568,8 @@ let rec vb_inner oldbs newbs sub_fn = function
       | Texp_function (_,_,_), _ -> false
       | _ -> true
       ) ->
-      let new_name = name.txt ^ "__" in
-      let new_ident = Ident.create new_name in
+      let new_name = name.txt ^ "_" ^ BatString.of_int !current_stamp in
+      let new_ident = create_ident current_stamp new_name in
       let new_pat_desc = Tpat_var (new_ident, { name with txt = new_name }) in
       let new_subexpr = Texp_apply ({ vb.vb_expr with
         exp_desc = Texp_ident (Pident new_ident,
@@ -630,15 +630,15 @@ let rec vb_inner oldbs newbs sub_fn = function
       let newb = { vb with
         vb_expr = { vb.vb_expr with exp_desc = new_subexpr; };
       } in
-      vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' vbs
-    | _ -> vb_inner (vb :: oldbs) newbs sub_fn vbs
+      vb_inner (vb' :: oldbs) (newb :: newbs) sub_fn' current_stamp vbs
+    | _ -> vb_inner (vb :: oldbs) newbs sub_fn current_stamp vbs
 
 let preprocess_valrec_value_bindings = vb_inner [] [] (fun x -> x)
 
-let preprocess_valrec_expr exp =
+let preprocess_valrec_expr current_stamp exp =
   match exp.exp_desc with
   | Texp_let (Recursive, bs, e) ->
-    let oldbs, newbs = preprocess_valrec_value_bindings bs in
+    let oldbs, newbs = preprocess_valrec_value_bindings current_stamp bs in
     (if oldbs = [] then
       fun inner -> inner
     else
@@ -646,10 +646,10 @@ let preprocess_valrec_expr exp =
     ) { exp with exp_desc = Texp_let (Nonrecursive, newbs, e) }
   | _ -> exp
 
-let rec preprocess_valrec_str_item str =
+let rec preprocess_valrec_str_item current_stamp str =
   match str.str_desc with
   | Tstr_value (Recursive, bs) ->
-    let oldbs, newbs = preprocess_valrec_value_bindings bs in
+    let oldbs, newbs = preprocess_valrec_value_bindings current_stamp bs in
     let strs = BatList.map (fun b -> { str with
       str_desc = Tstr_value (Nonrecursive, [b]);
     }) newbs in
@@ -663,16 +663,16 @@ let rec preprocess_valrec_str_item str =
     )
   | _ -> [str]
 
-module ValrecMapArgument = struct
+module ValrecMapArgument (CurrentStamp : StampRef) = struct
   include DefaultMapArgument
   let enter_structure ({ str_items; _ } as str) =
     { str with
-      str_items =
-        BatList.concat (BatList.map preprocess_valrec_str_item str_items);
+      str_items = BatList.concat (BatList.map
+        (preprocess_valrec_str_item CurrentStamp.v) str_items);
     }
-  let enter_expression = preprocess_valrec_expr
+  let enter_expression = preprocess_valrec_expr CurrentStamp.v
 end
-module ValrecMap = MakeMap (ValrecMapArgument)
+module ValrecMap (S : StampRef) = MakeMap (ValrecMapArgument (S))
 
 (* Rewrite pattern matching definitions
 
@@ -775,18 +775,52 @@ module ValpatMap = MakeMap (ValpatMapArgument)
 let const x _ = x  >->  let const x unused_1012 = x
 *)
 
+let map_tails f =
+  let rec inner xs =
+    f xs :: match xs with | [] -> [] | _ :: xs -> inner xs
+  in
+  inner
+
+let ( <$> ) f = function
+  | None -> None
+  | Some x -> Some (f x)
+let ( <*> ) = function
+  | None -> fun _ -> None
+  | Some f -> fun x -> f <$> x
+
+let rec first_some = function
+  | [] -> None
+  | None :: xs -> first_some xs
+  | (Some _ as x) :: _ -> x
+
+let digits = ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9']
+let int_of_charlist = BatList.fold_left (fun acc x ->
+  (fun acc x -> 10 * acc + x) <$> acc <*> BatList.index_of x digits) (Some 0)
+let number_suffix =
+  let f = function
+    | '_' :: xs -> int_of_charlist xs
+    | _ -> None
+  in
+  first_some % map_tails f % BatString.to_list
+
 let largest_stamp env =
   let open Env in
   let rec inner acc = function
     | Env_empty -> acc
-    | Env_value (summary, { stamp; _ }, _)
-    | Env_type (summary, { stamp; _ }, _)
-    | Env_extension (summary, { stamp; _ }, _)
-    | Env_module (summary, { stamp; _ }, _)
-    | Env_modtype (summary, { stamp; _ }, _)
-    | Env_class (summary, { stamp; _ }, _)
-    | Env_cltype (summary, { stamp; _ }, _)
-    | Env_functor_arg (summary, { stamp; _ }) -> inner (max acc stamp) summary
+    | Env_value (summary, { stamp; name; }, _)
+    | Env_type (summary, { stamp; name; }, _)
+    | Env_extension (summary, { stamp; name; }, _)
+    | Env_module (summary, { stamp; name; }, _)
+    | Env_modtype (summary, { stamp; name; }, _)
+    | Env_class (summary, { stamp; name; }, _)
+    | Env_cltype (summary, { stamp; name; }, _)
+    | Env_functor_arg (summary, { stamp; name; }) ->
+      let new_number =
+        match number_suffix name with
+        | None -> stamp
+        | Some n -> max n stamp
+      in
+      inner (max acc new_number) summary
     | Env_open (summary, _) -> inner acc summary
   in
   inner 0 (summary env)
@@ -802,8 +836,7 @@ module AnypatMapArgument (CurrentStamp : StampRef) = struct
     | Tpat_any -> { pat with pat_desc = create_unused_var CurrentStamp.v }
     | _ -> pat
 end
-module AnypatMap (CurrentStamp : StampRef) =
-  MakeMap (AnypatMapArgument (CurrentStamp))
+module AnypatMap (S : StampRef) = MakeMap (AnypatMapArgument (S))
 
 let rec get_aliaspats pat : (pattern * Ident.t * string loc) list =
   match pat.pat_desc with
@@ -972,8 +1005,7 @@ module FunctionMapArgument (CurrentStamp : StampRef) = struct
       }
     | _ -> exp
 end
-module FunctionMap (CurrentStamp : StampRef) =
-  MakeMap (FunctionMapArgument (CurrentStamp))
+module FunctionMap (S : StampRef) = MakeMap (FunctionMapArgument (S))
 
 module type EnvProvider = sig val env : Env.t end
 
@@ -982,6 +1014,7 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
 
   let current_stamp = ref (largest_stamp FinalEnv.env)
   module CurrentStamp = struct let v = current_stamp end
+  module ValrecMapArgument = ValrecMapArgument (CurrentStamp)
   module AnypatMapArgument = AnypatMapArgument (CurrentStamp)
   module FunctionMapArgument = FunctionMapArgument (CurrentStamp)
 
