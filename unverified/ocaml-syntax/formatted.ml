@@ -1,6 +1,3 @@
-open Batteries
-open BatResult.Monad
-
 open Asttypes
 open Ident
 open Path
@@ -10,6 +7,9 @@ open TypedtreeMap
 
 open FormatDecl
 open Preprocessor
+
+open Batteries
+open BatResult.Monad
 
 let rec mapM f = function
   | [] -> return []
@@ -300,12 +300,17 @@ let rec print_pattern ctxt pat =
   (* _ *)
   | Tpat_any -> return @@ Lit "unused__"
   | Tpat_var (ident, name) -> return @@ Lit (fix_var_name name.txt)
+  | Tpat_alias _ -> Bad "Unconverted `as` pattern found by pretty printer."
   | Tpat_constant c -> return @@ print_constant c
   | Tpat_tuple ps -> mapM (print_pattern Enclosed) ps >>= fun ps' ->
                      return @@ print_tupled ps'
   | Tpat_construct (_, desc, ps) ->
     print_list_or_construct ctxt print_pattern deconstruct_list_pattern desc ps
-  | _ -> Bad "Some pattern syntax not implemented"
+  | Tpat_variant _ -> Bad "Variant patterns not supported."
+  | Tpat_record _ -> Bad "Unconverted record found by pretty printer."
+  | Tpat_array _ -> Bad "Array patterns not supported."
+  | Tpat_or _ -> Bad "Or patterns not supported."
+  | Tpat_lazy _ -> Bad "Lazy patterns not supported."
 
 let pattern_is_trivial { pat_desc; _ } =
   match pat_desc with

@@ -1,5 +1,4 @@
 open Batteries
-open BatResult.Monad
 
 open Asttypes
 open Ident
@@ -9,6 +8,19 @@ open Typedtree
 open TypedtreeMap
 
 open PatternZipper
+
+(* Monadic notation for lists (nondeterminism) *)
+let ( <$> ) = BatList.map
+let pure x = [x]
+let ( <*> ) fs xs = BatList.concat (BatList.map (fun f -> f <$> xs) fs)
+let ( >>= ) xs f = BatList.concat (BatList.map f xs)
+
+let ( <&> ) xs fs = fs <$> xs
+let rec mapM f = function
+  | [] -> pure []
+  | m :: ms -> f m >>= fun y ->
+               mapM f ms >>= fun ys ->
+               pure (y :: ys)
 
 (* Fixes to typed AST *)
 
@@ -781,21 +793,20 @@ let map_tails f =
   in
   inner
 
-let ( <$> ) f = function
-  | None -> None
-  | Some x -> Some (f x)
-let ( <*> ) = function
-  | None -> fun _ -> None
-  | Some f -> fun x -> f <$> x
-
 let rec first_some = function
   | [] -> None
   | None :: xs -> first_some xs
   | (Some _ as x) :: _ -> x
 
+let map_option2 f x y =
+  match x, y with
+  | Some x, Some y -> Some (f x y)
+  | _ -> None
+
 let digits = ['0'; '1'; '2'; '3'; '4'; '5'; '6'; '7'; '8'; '9']
 let int_of_charlist = BatList.fold_left (fun acc x ->
-  (fun acc x -> 10 * acc + x) <$> acc <*> BatList.index_of x digits) (Some 0)
+  map_option2 (fun acc x -> 10 * acc + x) acc (BatList.index_of x digits))
+  (Some 0)
 let number_suffix =
   let f = function
     | '_' :: xs -> int_of_charlist xs
@@ -949,7 +960,12 @@ end
 module AliaspatMap = MakeMap (AliaspatMapArgument)
 
 (* Turn non-trivial `function` expressions into `fun`-`match` expressions.
-   This is required for `when` rewriting, and helps when printing.
+   This is required for `when` and `|` rewriting, and helps when printing.
+
+let f x = function  \->  let f x = fun tmp_2520 ->
+  | 1 when x -> 2   |->    match tmp_2520 with
+  | _ -> 0          |->    | 1 when x -> 2
+                    /->    | _ -> 0
 *)
 
 let has_guard { c_guard; _ } = BatOption.is_some c_guard
@@ -1007,6 +1023,61 @@ module FunctionMapArgument (CurrentStamp : StampRef) = struct
 end
 module FunctionMap (S : StampRef) = MakeMap (FunctionMapArgument (S))
 
+(* Split up cases involving or patterns.
+
+match x with     \->    match x with
+| A | B -> true  |->    | A -> true
+| C -> false     |->    | B -> true
+                 /->    | C -> false
+*)
+
+let rec split_or_pattern pat =
+  match pat.pat_desc with
+  | Tpat_any | Tpat_var _ | Tpat_constant _ -> pure pat
+  | Tpat_alias (p, i, l) ->
+    (fun p -> { pat with pat_desc = Tpat_alias (p, i, l); }) <$>
+    split_or_pattern p
+  | Tpat_tuple ps ->
+    (fun ps -> { pat with pat_desc = Tpat_tuple ps; }) <$>
+    (mapM split_or_pattern ps)
+  | Tpat_construct (l, d, ps) ->
+    (fun ps -> { pat with pat_desc = Tpat_construct (l, d, ps); }) <$>
+    (mapM split_or_pattern ps)
+  | Tpat_variant (l, p, r) ->
+    (match p with
+    | None -> pure pat
+    | Some p ->
+      (fun p -> { pat with pat_desc = Tpat_variant (l, Some p, r); }) <$>
+      split_or_pattern p
+    )
+  | Tpat_record (ls, c) ->
+    (fun ls -> { pat with pat_desc = Tpat_record (ls, c); }) <$>
+    mapM (fun (l, d, p) -> (fun p -> l, d, p) <$> split_or_pattern p) ls
+  | Tpat_array ps ->
+    (fun ps -> { pat with pat_desc = Tpat_array ps; }) <$>
+    (mapM split_or_pattern ps)
+  | Tpat_or (p, q, r) -> [p; q]
+  | Tpat_lazy p ->
+    (fun p -> { pat with pat_desc = Tpat_lazy p; }) <$> split_or_pattern p
+
+let preprocess_or_case c =
+  (fun p -> { c with c_lhs = p; }) <$> (split_or_pattern c.c_lhs)
+
+let preprocess_or_cases cs = BatList.concat (BatList.map preprocess_or_case cs)
+
+module OrpatMapArgument = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    { exp with
+      exp_desc =
+        match exp.exp_desc with
+        | Texp_match (expr, cs, es, p) ->
+          Texp_match (expr, preprocess_or_cases cs, preprocess_or_cases es, p)
+        | x -> x
+    }
+end
+module OrpatMap = MakeMap (OrpatMapArgument)
+
 module type EnvProvider = sig val env : Env.t end
 
 module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
@@ -1021,6 +1092,7 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
   let enter_pattern = AnypatMapArgument.enter_pattern
                    %> RecordMapArgument.enter_pattern
   let enter_expression = FunctionMapArgument.enter_expression
+                      %> OrpatMapArgument.enter_expression
                       %> GuardMapArgument.enter_expression
                       %> RecordMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression
