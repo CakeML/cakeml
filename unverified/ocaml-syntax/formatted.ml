@@ -1,3 +1,6 @@
+open Batteries
+open BatResult.Monad
+
 open Asttypes
 open Ident
 open Path
@@ -7,9 +10,6 @@ open TypedtreeMap
 
 open FormatDecl
 open Preprocessor
-
-open Batteries
-open BatResult.Monad
 
 let rec mapM f = function
   | [] -> return []
