@@ -286,6 +286,7 @@ val find_code_def = Define `
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:'a stackSem$state)) /\
+  (evaluate (Halt _,s) = (NONE,s)) /\ (* TODO: Correct semantics for Halt *)
   (evaluate (Alloc n,s) =
      if ~s.use_alloc then (SOME Error,s) else
      case get_var n s of
