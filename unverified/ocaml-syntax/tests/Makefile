@@ -20,6 +20,7 @@ CAKE = ~/cakeml-v1-beta/cake
 
 %.cml: ../ocaml2cakeml
 	../ocaml2cakeml $@.ml > $@.cml
+	grep -E "^Error:" $@.cml
 	[ -f $@-patch ] && ./$@-patch || :
 
 test: $(TESTS) all
