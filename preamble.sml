@@ -285,4 +285,14 @@ fun exists_suff_then ttac th (g as (_,w)) =
     val th = (PART_MATCH (hd o strip_conj o snd o strip_exists o snd o dest_imp) th (hd bs))
   in ttac th end g
 
+(* treat the given eq_tms (list of equations) as rewrite thereoms,
+   return the resulting term, note we can't return a theorem because
+   the equations might not be theorems -- indeed, in many cases they
+   won't be theorems. *)
+fun term_rewrite eq_tms tm = let
+  fun get_rw_thm eq_tm =
+    ASSUME (list_mk_forall (free_vars eq_tm, eq_tm))
+  in tm |> QCONV (PURE_REWRITE_CONV (map get_rw_thm eq_tms))
+        |> concl |> dest_eq |> snd end
+
 end
