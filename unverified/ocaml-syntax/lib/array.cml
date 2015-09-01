@@ -29,7 +29,30 @@ structure Oc_Array = struct
     in
       init (lx + ly) (fn i => if i < lx then get xs i else get ys (i - lx))
     end;
-  (*val concat = List.fold_left append (make 0 ());*)
+  fun concat xss =
+    let
+      val ls = List.map length xss
+      val index_pair =
+        let
+          fun inner acc ls i = case ls of
+              [] => (acc, i)
+            | l :: ls => if i < l then (acc, i)
+                                  else inner (1 + acc) ls (i - acc)
+        in
+          inner 0
+        end
+      val sum =
+        let
+          fun inner acc xs = case xs of
+              [] => acc
+            | x :: xs => inner (x + acc) xs
+        in
+          inner 0
+        end
+    in
+      init (sum ls) (fn i => case index_pair ls i of (j, k) =>
+        get (List.nth xss j) k)
+    end;
   fun sub xs start len =
     if start < 0 orelse len < 0 orelse start + len > length xs then
       Pervasives.invalid_arg "Array.sub"

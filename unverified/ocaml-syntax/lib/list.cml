@@ -15,7 +15,7 @@ structure List = struct
     let
       fun inner xs i = case xs of
           [] => Pervasives.failwith "nth"
-        | x :: xs => inner xs (i - 1)
+        | x :: xs => if i = 0 then x else inner xs (i - 1)
     in
       if i < 0 then Pervasives.invalid_arg "List.nth" else inner xs i
     end;
