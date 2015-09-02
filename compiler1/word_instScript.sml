@@ -13,10 +13,36 @@ val num_exp_def = Define `
   (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
 (*
+  Convert all 3 register instructions to 2 register instructions
+*)
+val three_to_two_reg_def = Define`
+  (three_to_two_reg (Inst (Arith (Binop bop r1 r2 ri))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))) ∧
+  (three_to_two_reg (Inst (Arith (Shift l r1 r2 n))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧ 
+  (three_to_two_reg (Seq p1 p2) =
+    Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧ 
+  (three_to_two_reg (If cmp r1 ri c1 c2) =
+    If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧ 
+  (three_to_two_reg (Call ret dest args handler) =
+    let retsel =
+      case ret of 
+        NONE => NONE
+      | SOME (n,names,ret_handler,l1,l2) =>
+        SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
+    let handlersel = 
+      case handler of
+        NONE => NONE
+      | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
+    Call retsel dest args handlersel) ∧ 
+  (three_to_two_reg prog = prog)`
+
+(*
 Core of the expression flattening step
 - Takes a target variable, next temporary and expression
 - Returns a flattened program such that the value of that expr 
   is stored in the target
+- This works for 2 reg code but is not good for 3 reg 
 *)
 val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧

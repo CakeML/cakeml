@@ -6,6 +6,96 @@ val _ = new_theory "word_instProof";
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
+val distinct_tar_reg_def = Define`
+  (distinct_tar_reg (Inst (Arith (Binop bop r1 r2 ri))) 
+    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧ 
+  (distinct_tar_reg (Inst (Arith (Shift l r1 r2 n)))
+    ⇔ r1 ≠ r2) ∧ 
+  (distinct_tar_reg (Seq p1 p2)
+    ⇔ (distinct_tar_reg p1 ∧ distinct_tar_reg p2)) ∧ 
+  (distinct_tar_reg (If cmp r1 ri c1 c2)
+    ⇔ (distinct_tar_reg c1 ∧ distinct_tar_reg c2)) ∧ 
+  (distinct_tar_reg (Call ret dest args handler)
+    ⇔ ((case ret of 
+        NONE => T
+      | SOME (n,names,ret_handler,l1,l2) => distinct_tar_reg ret_handler) ∧ 
+      (case handler of
+        NONE => T
+      | SOME (n,h,l1,l2) => distinct_tar_reg h))) ∧ 
+  (distinct_tar_reg prog = T)`
+
+(*Instructions are 2 register code for arith ok*)
+val two_reg_insts_def = Define`
+  (two_reg_insts (Inst (Arith (Binop bop r1 r2 ri))) 
+    ⇔ (r1 = r2)) ∧ 
+  (two_reg_insts (Inst (Arith (Shift l r1 r2 n)))
+    ⇔ (r1 = r2)) ∧ 
+  (two_reg_insts (Seq p1 p2)
+    ⇔ (two_reg_insts p1 ∧ two_reg_insts p2)) ∧ 
+  (two_reg_insts (If cmp r1 ri c1 c2)
+    ⇔ (two_reg_insts c1 ∧ two_reg_insts c2)) ∧ 
+  (two_reg_insts (Call ret dest args handler)
+    ⇔ ((case ret of 
+        NONE => T
+      | SOME (n,names,ret_handler,l1,l2) => two_reg_insts ret_handler) ∧ 
+      (case handler of
+        NONE => T
+      | SOME (n,h,l1,l2) => two_reg_insts h))) ∧ 
+  (two_reg_insts prog = T)`
+
+(*TODO: Couldn't find this in sptree theory
+  Not sure if this is provable without assuming that t is well formed
+  -- Either the 3 to 2 reg needs to carry that assumption
+  -- or the state relation has to be relaxed so that the result states are not exactly equal. This makes the proof more annoying (because of Call)
+*)
+val insert_shadow = prove(``
+  ∀t a b c.
+  insert a b (insert a c t) = insert a b t``,
+  cheat)
+ 
+(*Semantics preservation*)
+val three_to_two_reg_correct = prove(``
+  ∀prog s res s'.
+  distinct_tar_reg prog ∧ 
+  evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
+  ⇒ 
+  evaluate(three_to_two_reg prog,s) = (res,s')``,
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>fs[three_to_two_reg_def,evaluate_def,state_component_equality]>>
+  TRY
+    (ntac 2 (pop_assum mp_tac)>>fs[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def]>>
+    EVERY_CASE_TAC >>
+    fs[LET_THM,alist_insert_def,distinct_tar_reg_def,word_exp_def,lookup_insert,set_var_def,insert_shadow]>>NO_TAC)
+  >-
+    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[distinct_tar_reg_def]>>
+    Cases_on`res'' = SOME Error`>>fs[]>>res_tac>>
+    EVERY_CASE_TAC>>fs[]>>
+    metis_tac[])
+  >-
+    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[distinct_tar_reg_def]>>
+    unabbrev_all_tac>>
+    Cases_on`ret`>>Cases_on`handler`>>fs[evaluate_def]
+    >-
+      (EVERY_CASE_TAC>>fs[])
+    >-
+      (EVERY_CASE_TAC>>fs[]>>
+      res_tac>>fs[]>>
+      rfs[])
+    >>
+      PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
+      Cases_on`get_vars args s`>>fs[]>>
+      Cases_on`find_code dest x s.code`>>fs[]>>
+      Cases_on`x'`>>Cases_on`cut_env x1 s.locals`>>fs[]>>
+      IF_CASES_TAC>>fs[push_env_def,LET_THM]>>
+      EVERY_CASE_TAC>>fs[]>>
+      res_tac>>fs[]>>
+      rfs[]))
+
+(*Syntactic correctness*)
+val three_to_two_reg_syn = prove(``
+  ∀prog. two_reg_insts (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>fs[two_reg_insts_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[])
+
 val inst_select_exp_thm = prove(``
   ∀s exp tar temp w.
   word_exp s exp = SOME w ∧
