@@ -139,7 +139,7 @@ val _ = Define `
 (evaluate ([Mat e pes],env,s) =  
 ((case evaluate ([e],env,s) of
     (Rval v,s') =>
-      evaluate_match (pes,HD v,Conv(SOME("Bind",TypeExn(Short"Bind")))[],env,check_clock s' s)
+      evaluate_match (pes,HD v,Bindv,env,check_clock s' s)
   | res => res
   )))
 /\

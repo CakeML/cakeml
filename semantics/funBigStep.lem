@@ -120,7 +120,7 @@ and
 evaluate ([Mat e pes],env,s) =
   match evaluate ([e],env,s) with
   | (Rval v,s') ->
-      evaluate_match (pes,head v,Conv(Just("Bind",TypeExn(Short"Bind")))[],env,check_clock s' s)
+      evaluate_match (pes,head v,Bindv,env,check_clock s' s)
   | res -> res
   end
 and

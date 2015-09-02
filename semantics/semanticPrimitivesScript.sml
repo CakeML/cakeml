@@ -71,6 +71,10 @@ val _ = Hol_datatype `
   | Vectorv of v list`;
 
 
+val _ = Define `
+ (Bindv = (Conv (SOME("Bind",TypeExn(Short"Bind"))) []))`;
+
+
 (* These are alists rather than finite maps because the type of values (v above)
  * recurs through them, and HOL4 does not easily support that kind of data type
  * (although Isabelle/HOL does) *)

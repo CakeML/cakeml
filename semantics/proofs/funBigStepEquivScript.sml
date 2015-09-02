@@ -46,6 +46,7 @@ val evaluate_eq_run_eval = Q.store_thm("evaluate_eq_run_eval",
      result_return_def,result_bind_def,get_store_state_to_cst] >>
   every_case_tac >>
   fs[swap_result_def] >> rw[] >>
+  fs[semanticPrimitivesTheory.Bindv_def] >>
   fs[swap_result_def,result_raise_def,list_result_def] >> rw[] >>
   (TRY (
     qmatch_assum_rename_tac`get_store st = _` >>
