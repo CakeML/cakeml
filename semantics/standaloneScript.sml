@@ -1,6 +1,8 @@
-open HolKernel boolLib bossLib
+open preamble
 open lexer_funTheory printTheory initialProgramTheory gramTheory cmlPtreeConversionTheory terminationTheory
 val _ = new_theory"standalone"
+
+val _ = hide"state";
 
 val (ast_standalone_rules,ast_standalone_ind,ast_standalone_cases) = Hol_reln`
   (type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧

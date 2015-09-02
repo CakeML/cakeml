@@ -217,4 +217,69 @@ val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
     ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
 metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
 
+val do_log_thm = store_thm("do_log_thm",
+  ``do_log l v e =
+    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
+    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
+    NONE``,
+  rw[semanticPrimitivesTheory.do_log_def] >>
+  every_case_tac >> rw[])
+
+open funBigStepTheory
+
+val (evaluate_def,evaluate_ind) =
+  tprove_no_defn ((evaluate_def,evaluate_ind),
+  wf_rel_tac`inv_image ($< LEX $<)
+    (λx. case x of
+         | INL(es,_,s) => (s.clock,exps_size es)
+         | INR(pes,_,_,_,s) => (s.clock,pes_size pes))` >>
+  rw[size_abbrevs,exp_size_def,
+  check_clock_def,dec_clock_def,LESS_OR_EQ,
+  do_if_def,do_log_thm] >>
+  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
+
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `(∀p r s2. evaluate p = (r,s2) ⇒ s2.clock ≤ (SND(SND p)).clock) ∧
+   (∀p r s2. evaluate_match p = (r,s2) ⇒ s2.clock ≤ (SND(SND(SND(SND p)))).clock)`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  fs[check_clock_def,dec_clock_def] >> simp[])
+
+val check_clock_id = Q.store_thm("check_clock_id",
+  `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
+  EVAL_TAC >> rw[state_component_equality])
+
+val clean_term = term_rewrite
+  [``check_clock s' s = s'``,
+   ``s'.clock = 0 ∨ s.clock = 0 ⇔ s'.clock = 0``]
+
+val evaluate_ind = let
+  val goal = evaluate_ind |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac evaluate_ind >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[] >> fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_clock >>
+  fsrw_tac[ARITH_ss][check_clock_id])
+end
+
+val evaluate_def = let
+  val goal = evaluate_def |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt strip_tac >>
+  rw[Once evaluate_def] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs[check_clock_id] >>
+  `F` suffices_by rw[] >> decide_tac)
+end
+
+val _ = register "evaluate" evaluate_def evaluate_ind
+
 val _ = export_theory ();
