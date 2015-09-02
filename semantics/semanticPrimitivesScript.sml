@@ -88,6 +88,9 @@ val _ = Define `
 val _ = Define `
  (all_env_to_env (menv,cenv,env) = env)`;
 
+val _ = Define `
+ (all_env_with_env (menv,cenv,_) env = (menv,cenv,env))`;
+
 
 (* The result of evaluation *)
 val _ = Hol_datatype `

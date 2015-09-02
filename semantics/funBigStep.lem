@@ -1,0 +1,148 @@
+open import Pervasives_extra
+open import Lib
+open import Ast
+open import SemanticPrimitives
+open import Ffi
+
+type state =
+  <| clock : nat
+   ; refs  : store v
+   ; io    : io_trace
+   |>
+
+(* The semantics is defined here using check_clock so that HOL4 generates
+ * provable termination conditions. However, after termination is proved, we
+ * clean up the definition (in HOL4) to remove occurrences of check_clock. *)
+
+let check_clock s' s =
+  <| s' with clock = if s'.clock <= s.clock
+                     then s'.clock else s.clock |>
+
+let dec_clock s = <| s with clock = s.clock - 1 |>
+
+(* list_result is equivalent to map_result (\v. [v]) I, where map_result is
+ * defined in evalPropsTheory *)
+let rec
+list_result (Rval v) = Rval [v]
+and
+list_result (Rerr e) = Rerr e
+
+val evaluate : list exp * all_env * state -> result (list v) v * state
+val evaluate_match : list (pat * exp) * v * v * all_env * state -> result (list v) v * state
+let rec
+evaluate ([],env,s) = (Rval [],s)
+and
+evaluate (e1::e2::es,env,s) =
+  match evaluate ([e1],env,s) with
+  | (Rval v1,s') ->
+      match evaluate (e2::es,env,check_clock s' s) with
+      | (Rval vs,s) -> (Rval (head v1::vs),s)
+      | res -> res
+      end
+  | res -> res
+  end
+and
+evaluate ([Lit l],env,s) = (Rval [Litv l],s)
+and
+evaluate ([Raise e],env,s) =
+  match evaluate ([e],env,s) with
+  | (Rval v,s) -> (Rerr (Rraise (head v)),s)
+  | res -> res
+  end
+and
+evaluate ([Handle e pes],env,s) =
+  match evaluate ([e],env,s) with
+  | (Rerr(Rraise v),s') -> evaluate_match (pes,v,v,env,check_clock s' s)
+  | res -> res
+  end
+and
+evaluate ([Con cn es],env,s) =
+  if do_con_check (all_env_to_cenv env) cn (length es) then
+    match evaluate (reverse es,env,s) with
+    | (Rval vs,s) ->
+        match build_conv (all_env_to_cenv env) cn (reverse vs) with
+        | Just v -> (Rval [v],s)
+        | Nothing -> (Rerr (Rabort Rtype_error),s)
+        end
+    | res -> res
+    end
+  else (Rerr (Rabort Rtype_error),s)
+and
+evaluate ([Var n],env,s) =
+  match lookup_var_id n env with
+  | Just v -> (Rval [v],s)
+  | Nothing -> (Rerr (Rabort Rtype_error),s)
+  end
+and
+evaluate ([Fun x e],env,s) = (Rval [Closure env x e],s)
+and
+evaluate ([App op es],env,s) =
+  match evaluate (reverse es,env,s) with
+  | (Rval vs,s') ->
+      if op = Opapp then
+        match do_opapp (reverse vs) with
+        | Just (env,e) ->
+            if s'.clock = 0 || s.clock = 0 then
+              (Rerr (Rabort Rtimeout_error),s')
+            else
+              evaluate ([e],env,dec_clock (check_clock s' s))
+        | Nothing -> (Rerr (Rabort Rtype_error),s')
+        end
+      else
+        match do_app (s'.refs,s'.io) op (reverse vs) with
+        | Just ((refs,io),r) -> (list_result r, <| s with refs = refs; io = io |>)
+        | Nothing -> (Rerr (Rabort Rtype_error),s)
+        end
+  | res -> res
+  end
+and
+evaluate ([Log lop e1 e2],env,s) =
+  match evaluate ([e1],env,s) with
+  | (Rval v1,s') ->
+      match do_log lop (head v1) e2 with
+      | Just (Exp e) -> evaluate ([e],env,check_clock s' s)
+      | Just (Val v) -> (Rval [v],s')
+      | Nothing -> (Rerr (Rabort Rtype_error),s')
+      end
+  | res -> res
+  end
+and
+evaluate ([If e1 e2 e3],env,s) =
+  match evaluate ([e1],env,s) with
+  | (Rval v,s') ->
+      match do_if (head v) e2 e3 with
+      | Just e -> evaluate ([e],env,check_clock s' s)
+      | Nothing -> (Rerr (Rabort Rtype_error),s')
+      end
+  | res -> res
+  end
+and
+evaluate ([Mat e pes],env,s) =
+  match evaluate ([e],env,s) with
+  | (Rval v,s') ->
+      evaluate_match (pes,head v,Conv(Just("Bind",TypeExn(Short"Bind")))[],env,check_clock s' s)
+  | res -> res
+  end
+and
+evaluate ([Let xo e1 e2],env,s) =
+  match evaluate ([e1],env,s) with
+  | (Rval v,s') -> evaluate ([e2],all_env_with_env env (opt_bind xo (head v) (all_env_to_env env)),check_clock s' s)
+  | res -> res
+  end
+and
+evaluate ([Letrec funs e],env,s) =
+  if allDistinct (map (fun (x,y,z) -> x) funs) then
+    evaluate ([e],all_env_with_env env (build_rec_env funs env (all_env_to_env env)),s)
+  else
+    (Rerr (Rabort Rtype_error),s)
+and
+evaluate_match ([],v,err_v,env,s) = (Rerr (Rraise err_v),s)
+and
+evaluate_match ((p,e)::pes,v,err_v,env,s) =
+  if allDistinct (pat_bindings p []) then
+    match pmatch (all_env_to_cenv env) s.refs p v (all_env_to_env env) with
+    | Match env' -> evaluate ([e],all_env_with_env env env',s)
+    | No_match -> evaluate_match (pes,v,err_v,env,s)
+    | Match_type_error -> (Rerr (Rabort Rtype_error),s)
+    end
+  else (Rerr (Rabort Rtype_error),s)

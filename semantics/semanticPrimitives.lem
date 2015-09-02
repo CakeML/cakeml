@@ -62,6 +62,7 @@ type all_env = envM * envC * envE
 let all_env_to_menv (menv,cenv,env) = menv
 let all_env_to_cenv (menv,cenv,env) = cenv
 let all_env_to_env (menv,cenv,env) = env
+let all_env_with_env (menv,cenv,_) env = (menv,cenv,env)
 
 (* The result of evaluation *)
 type abort =
