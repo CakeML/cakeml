@@ -306,6 +306,10 @@ val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
   Cases_on`e`>>simp[])
 val _ = export_rewrites["map_error_result_Rtype_error"]
 
+val map_error_result_I = Q.store_thm("map_error_result_I[simp]",
+  `map_error_result I e = e`,
+  Cases_on`e`>>EVAL_TAC);
+
 val map_result_def = Define`
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
   (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))`
