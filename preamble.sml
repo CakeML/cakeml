@@ -65,6 +65,29 @@ fun replace_string from to =
     f [] o Substring.full
   end
 
+(* treat the given eq_tms (list of equations) as rewrite thereoms,
+   return the resulting term, note we can't return a theorem because
+   the equations might not be theorems -- indeed, in many cases they
+   won't be theorems. *)
+fun term_rewrite eq_tms tm = let
+  fun get_rw_thm eq_tm =
+    ASSUME (list_mk_forall (free_vars eq_tm, eq_tm))
+  in tm |> QCONV (PURE_REWRITE_CONV (map get_rw_thm eq_tms))
+        |> concl |> dest_eq |> snd end
+
+(* replace (syntactically equal) subterms of one term by another *)
+fun replace_term from to =
+  let
+    fun f tm =
+      if tm = from then to else
+        case dest_term tm of
+          COMB(t1,t2) => mk_comb(f t1, f t2)
+        | LAMB(t1,t2) => mk_abs(f t1, f t2)
+        | _ => tm
+  in
+    f
+  end
+
 local
   fun find t asl =
     case total (first (can (match_term t) o fst o strip_comb)) asl of SOME x => x
@@ -284,15 +307,5 @@ fun exists_suff_then ttac th (g as (_,w)) =
     val bs = strip_conj b
     val th = (PART_MATCH (hd o strip_conj o snd o strip_exists o snd o dest_imp) th (hd bs))
   in ttac th end g
-
-(* treat the given eq_tms (list of equations) as rewrite thereoms,
-   return the resulting term, note we can't return a theorem because
-   the equations might not be theorems -- indeed, in many cases they
-   won't be theorems. *)
-fun term_rewrite eq_tms tm = let
-  fun get_rw_thm eq_tm =
-    ASSUME (list_mk_forall (free_vars eq_tm, eq_tm))
-  in tm |> QCONV (PURE_REWRITE_CONV (map get_rw_thm eq_tms))
-        |> concl |> dest_eq |> snd end
 
 end
