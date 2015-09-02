@@ -109,8 +109,8 @@ val _ = Define `
         )
       else
         (case do_app (s'.refs,s'.io) op (REVERSE vs) of
-          SOME ((refs,io),r) => (list_result r, ( s with<| refs := refs; io := io |>))
-        | NONE => (Rerr (Rabort Rtype_error),s)
+          SOME ((refs,io),r) => (list_result r, ( s' with<| refs := refs; io := io |>))
+        | NONE => (Rerr (Rabort Rtype_error),s')
         )
   | res => res
   )))

@@ -90,8 +90,8 @@ evaluate ([App op es],env,s) =
         end
       else
         match do_app (s'.refs,s'.io) op (reverse vs) with
-        | Just ((refs,io),r) -> (list_result r, <| s with refs = refs; io = io |>)
-        | Nothing -> (Rerr (Rabort Rtype_error),s)
+        | Just ((refs,io),r) -> (list_result r, <| s' with refs = refs; io = io |>)
+        | Nothing -> (Rerr (Rabort Rtype_error),s')
         end
   | res -> res
   end
