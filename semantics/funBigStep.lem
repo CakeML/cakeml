@@ -146,3 +146,61 @@ evaluate_match ((p,e)::pes,v,err_v,env,s) =
     | Match_type_error -> (Rerr (Rabort Rtype_error),s)
     end
   else (Rerr (Rabort Rtype_error),s)
+
+val evaluate_decs : (list dec * maybe modN * all_env * (state * set tid_or_exn)) -> result envE v * flat_envC * (state * set tid_or_exn)
+let rec
+evaluate_decs ([],mn,env,s) = (Rval [],[],s)
+and
+evaluate_decs (d1::d2::ds,mn,env,s) =
+  match evaluate_decs ([d1],mn,env,s) with
+  | (Rval new_env,new_tds,s) ->
+      match
+        evaluate_decs (d2::ds,mn,
+          match env with (menv,cenv,env) ->
+            (menv, merge_alist_mod_env ([],new_tds) cenv, new_env++env)
+          end,s)
+      with (r,new_tds',s) ->
+        (combine_dec_result new_env r, new_tds'++new_tds, s)
+      end
+  | res -> res
+  end
+and
+evaluate_decs ([Dlet p e],mn,env,(s,tdecs)) =
+  if allDistinct (pat_bindings p []) then
+    match evaluate ([e],env,s) with
+    | (Rval v,s) ->
+        (match pmatch (all_env_to_cenv env) s.refs p (head v) [] with
+         | Match env' -> Rval env'
+         | No_match -> Rerr (Rraise Bindv)
+         | Match_type_error -> Rerr (Rabort Rtype_error)
+         end,[],(s,tdecs))
+    | (Rerr err,s) -> (Rerr err,[],(s,tdecs))
+    end
+  else
+    (Rerr (Rabort Rtype_error),[],(s,tdecs))
+and
+evaluate_decs ([Dletrec funs],mn,env,s) =
+  (if allDistinct (map (fun (x,y,z) -> x) funs) then
+     Rval (build_rec_env funs env [])
+   else
+     Rerr (Rabort Rtype_error)
+  ,[],s)
+and
+evaluate_decs ([Dtype tds],mn,env,(s,tdecs)) =
+  let new_tdecs = type_defs_to_new_tdecs mn tds in
+    if check_dup_ctors tds &&
+       disjoint new_tdecs tdecs &&
+       allDistinct (map (fun (tvs,tn,ctors) -> tn) tds)
+    then
+      (Rval [],build_tdefs mn tds,(s,new_tdecs union tdecs))
+    else
+      (Rerr (Rabort Rtype_error),[],(s,tdecs))
+and
+evaluate_decs ([Dtabbrev tvs tn t],mn,env,s) =
+  (Rval [],[],s)
+and
+evaluate_decs ([Dexn cn ts],mn,env,(s,tdecs)) =
+  if TypeExn (mk_id mn cn) IN tdecs then
+    (Rerr (Rabort Rtype_error),[],(s,tdecs))
+  else
+    (Rval [],[(cn, (length ts, TypeExn (mk_id mn cn)))],(s,{TypeExn (mk_id mn cn)} union tdecs))

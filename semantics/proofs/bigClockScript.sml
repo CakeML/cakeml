@@ -6,9 +6,10 @@ open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory evalPropsTheory determTheory;
 open boolSimps;
 
-val evaluate_ind = bigStepTheory.evaluate_ind;
-
 val _ = new_theory "bigClock";
+
+val evaluate_ind = bigStepTheory.evaluate_ind;
+val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
 
 val set_counter_def = Define `
   set_counter counter ((_,s),tids,mdecls) = ((counter,s),tids,mdecls)`;

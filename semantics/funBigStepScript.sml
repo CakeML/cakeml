@@ -167,5 +167,66 @@ val _ = Define `
   else (Rerr (Rabort Rtype_error),s)))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_defn;
+
+(*val evaluate_decs : (list dec * maybe modN * all_env * (state * set tid_or_exn)) -> result envE v * flat_envC * (state * set tid_or_exn)*)
+ val evaluate_decs_defn = Hol_defn "evaluate_decs" `
+
+(evaluate_decs ([],mn,env,s) = (Rval [],[],s))
+/\
+(evaluate_decs (d1::d2::ds,mn,env,s) =  
+((case evaluate_decs ([d1],mn,env,s) of
+    (Rval new_env,new_tds,s) =>
+      (case
+        evaluate_decs ((d2::ds),mn,
+          (case env of (menv,cenv,env) =>
+            (menv, merge_alist_mod_env ([],new_tds) cenv, (new_env++env))
+          ),s)
+      of (r,new_tds',s) =>
+        (combine_dec_result new_env r, (new_tds'++new_tds), s)
+      )
+  | res => res
+  )))
+/\
+(evaluate_decs ([Dlet p e],mn,env,(s,tdecs)) =  
+(if ALL_DISTINCT (pat_bindings p []) then
+    (case evaluate ([e],env,s) of
+      (Rval v,s) =>
+        ((case pmatch (all_env_to_cenv env) s.refs p (HD v) [] of
+           Match env' => Rval env'
+         | No_match => Rerr (Rraise Bindv)
+         | Match_type_error => Rerr (Rabort Rtype_error)
+         ),[],(s,tdecs))
+    | (Rerr err,s) => (Rerr err,[],(s,tdecs))
+    )
+  else
+    (Rerr (Rabort Rtype_error),[],(s,tdecs))))
+/\
+(evaluate_decs ([Dletrec funs],mn,env,s) =
+  ((if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
+     Rval (build_rec_env funs env [])
+   else
+     Rerr (Rabort Rtype_error))
+  ,[],s))
+/\
+(evaluate_decs ([Dtype tds],mn,env,(s,tdecs)) =  
+(let new_tdecs = (type_defs_to_new_tdecs mn tds) in
+    if check_dup_ctors tds /\
+       DISJOINT new_tdecs tdecs /\
+       ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds)
+    then
+      (Rval [],build_tdefs mn tds,(s,(new_tdecs UNION tdecs)))
+    else
+      (Rerr (Rabort Rtype_error),[],(s,tdecs))))
+/\
+(evaluate_decs ([Dtabbrev tvs tn t],mn,env,s) =
+  (Rval [],[],s))
+/\
+(evaluate_decs ([Dexn cn ts],mn,env,(s,tdecs)) =  
+(if TypeExn (mk_id mn cn) IN tdecs then
+    (Rerr (Rabort Rtype_error),[],(s,tdecs))
+  else
+    (Rval [],[(cn, (LENGTH ts, TypeExn (mk_id mn cn)))],(s,({TypeExn (mk_id mn cn)} UNION tdecs)))))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_decs_defn;
 val _ = export_theory()
 
