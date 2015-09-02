@@ -461,17 +461,9 @@ val evaluate_check_clock = prove(
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
-fun sub f tm = f tm handle HOL_ERR _ =>
-  let val (v,t) = dest_abs tm in mk_abs (v, sub f t) end
-  handle HOL_ERR _ =>
-  let val (t1,t2) = dest_comb tm in mk_comb (sub f t1, sub f t2) end
-  handle HOL_ERR _ => tm
-
-val remove_check_clock = sub (fn tm =>
-  if can (match_term ``check_clock s1 (s2:'a stackSem$state)``) tm
-  then tm |> rator |> rand else fail())
-
-val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
+val clean_term = term_rewrite
+                   [``check_clock s1 s2 = s1:'a stackSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'a stackSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
@@ -479,7 +471,7 @@ val set_var_check_clock = prove(
 
 val evaluate_ind = curry save_thm "evaluate_ind" let
   val raw_ind = evaluate_ind
-  val goal = raw_ind |> concl |> remove_check_clock |> remove_disj
+  val goal = raw_ind |> concl |> clean_term
   (* set_goal([],goal) *)
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
@@ -497,7 +489,7 @@ val evaluate_ind = curry save_thm "evaluate_ind" let
   in ind end;
 
 val evaluate_def = curry save_thm "evaluate_def" let
-  val goal = evaluate_def |> concl |> remove_check_clock |> remove_disj
+  val goal = evaluate_def |> concl |> clean_term
   (* set_goal([],goal) *)
   val def = prove(goal,
     REPEAT STRIP_TAC
