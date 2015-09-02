@@ -45,6 +45,16 @@ let ifThen x f = if x then f else id
 
 let cat_options = BatList.filter_map id
 
+let rec intersperse x = function
+  | [] -> []
+  | [y] -> [y]
+  | y :: ys -> y :: x :: intersperse x ys
+
+let rec intersperseMany xs = function
+  | [] -> []
+  | [y] -> [y]
+  | y :: ys -> y :: xs @ intersperseMany xs ys
+
 type assoc = Neither | Left | Right
 type fixity = assoc * int
 
@@ -102,32 +112,6 @@ let needs_parens ctxt exp =
   | Hanging _, IfThenElse -> false
   | Hanging _, InfixApply _ -> false
 
-(*let fixity_of = function
-  | x when BatString.starts_with "!" x
-        || (BatString.length x >= 2 && starts_with_any ["?"; "~"] x) ->
-    Neither, 0
-  | "." | ".(" | ".[" | ".{" -> Neither, 1
-  | "#" -> Neither, 2
-  | " " -> Left, 3
-  | "-" | "-." -> Neither, 4
-  | "lsl" | "lsr" | "asr" -> Right, 5
-  | x when BatString.starts_with "**" x -> Right, 5
-  | "mod" | "land" | "lor" | "lxor" -> Left, 6
-  | x when starts_with_any ["*"; "/"; "%"] x -> Left, 6
-  | x when starts_with_any ["+"; "-"] x -> Left, 7
-  | "::" -> Right, 8
-  | x when starts_with_any ["@"; "^"] x -> Right, 9
-  | "!=" -> Left, 10
-  | x when starts_with_any ["="; "<"; ">"; "|"; "&"; "$"] x -> Left, 10
-  | "&" | "&&" -> Right, 11
-  | "||" | "or" -> Right, 12
-  | "," -> Neither, 13
-  | "<-" | ":=" -> Right, 14
-  | "if" -> Neither, 15
-  | ";" -> Right, 16
-  | "let" | "match" | "fun" | "function" | "try" -> Neither, 17
-  | _ -> Neither, ~-1*)
-
 let fix_identifier = function
   | ("abstype" | "andalso" | "case" | "datatype" | "eqtype" | "fn" | "handle"
     | "infix" | "infixr" | "local" | "nonfix" | "op" | "orelse" | "raise"
@@ -139,11 +123,6 @@ let fix_identifier = function
   | "None" -> "NONE"
   | "Array" -> "Oc_Array"
   | x when BatString.starts_with "_" x -> "u" ^ x
-  (*| x when
-    (match fixity_of x with
-    | Neither, _ -> false
-    | _ -> true
-    ) -> "op" ^ x*)
   | x -> x
 
 let fix_var_name = fix_identifier
@@ -184,6 +163,10 @@ let rec convertPervasive : string -> string =
     | xs -> [BatString.of_list xs]
   in
   BatString.concat "_" % f % BatString.to_list
+
+(* The Longident.t data structure can hold all of the information necessary
+   for printing a full path. However, Longident.t values are usually products
+   of the parser, so shouldn't be printed directly. *)
 
 let rec print_longident_pure = function
   | Longident.Lident ident -> Lit (fix_identifier ident)
@@ -226,18 +209,12 @@ let make_constructor_path { cstr_name; cstr_res = { desc; }; } =
     return @@ Box (H, 0, [path_prefix p; Lit cstr_name])
   | _ -> Bad ("Can't deduce path of constructor " ^ cstr_name)
 
-let rec intersperse x = function
-  | [] -> []
-  | [y] -> [y]
-  | y :: ys -> y :: x :: intersperse x ys
-
-let rec intersperseMany xs = function
-  | [] -> []
-  | [y] -> [y]
-  | y :: ys -> y :: xs @ intersperseMany xs ys
-
 let print_tupled xs = paren @@ Box (Hovp, 0, intersperseMany [Lit ","; sp] xs)
 
+(* Try to print a complete list (`[x, y, z]`, but not `x :: xs`).
+   Returns `Ok None` if a complete list can't be formed.
+   Returns `Ok (Some printed_items)` if a complete list can be formed.
+   Returns `Bad err` if there was an error in printing an item. *)
 let rec print_list_items
     (print : exp_paren_context -> 'a -> (format_decl, string) result)
     (deconstruct : constructor_description -> 'a list ->
@@ -276,6 +253,18 @@ let print_construct
     ifThen (needs_parens ctxt paren_type) paren @@
       Box (Hovp, indent, [fix_formatted_identifier name; args])
 
+(* ctxt : exp_paren_context, parenthesization information
+   print : exp_paren_context -> 'a -> (format_decl, string) result,
+     how to print the subpatterns/subexpressions
+   deconstruct : constructor_description -> 'a list ->
+                 ('a * constructor_description * 'a list) option,
+     given a constructor and its arguments, if the construct is of the form
+     `x :: C (x0, ..., x{n-1})`, return `Some (x, C, [x0; ...; x{n-1}])`.
+     The idea is that C will hopefully always be `::` until we reach a `[]`,
+     and then we can print a literal list.
+   cstr : constructor_description, the constructor to print
+   xs : 'a list, the constructor arguments (either patterns or expressions)
+*)
 let print_list_or_construct ctxt print deconstruct cstr xs =
   print_list_items print deconstruct cstr xs >>= fun xs' ->
   match xs' with
@@ -415,6 +404,14 @@ let rec print_expression ctxt expr =
   | Texp_construct (_, desc, es) ->
     print_list_or_construct ctxt print_expression
       deconstruct_list_expression desc es
+  | Texp_variant _ -> Bad "Variant expressions not supported."
+  | Texp_record _ ->
+    Bad "Unconverted record expression found by pretty printer."
+  | Texp_field _ ->
+    Bad "Unconverted record field accessor found by pretty printer."
+  | Texp_setfield _ ->
+    Bad "Unconverted record field setter found by pretty printer."
+  | Texp_array _ -> Bad "Array literal expressions not supported."
   | Texp_ifthenelse (p, et, Some ef) ->
     let casesfollow = match ctxt with Hanging follow -> follow | _ -> false in
     print_expression Enclosed p >>= fun p' ->
@@ -424,10 +421,14 @@ let rec print_expression ctxt expr =
       Box (Hovp, indent, [Lit "if"; sp; p'; sp; Lit "then"; sp; et']);
       sp; Box (Hovp, indent, [Lit "else"; sp; ef'])
     ])
+  | Texp_ifthenelse (_, _, None) ->
+    Bad "`if` expression without `else` not supported."
   (* E0; E1 *)
   | Texp_sequence (e0, e1) ->
     paren <$> print_sequence e0 e1
-  | _ -> Bad "Some expression syntax not implemented."
+  | Texp_while _ -> Bad "`while` loops not supported."
+  | Texp_for _ -> Bad "`for` loops not supported."
+  | _ -> Bad "Some expression syntax not supported."
 
 (* Print successive commands without parentheses *)
 and print_sequence e0 e1 =

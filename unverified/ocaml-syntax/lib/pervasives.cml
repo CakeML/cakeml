@@ -168,11 +168,30 @@ structure Pervasives = struct
   fun incr r = r := succ (!r);
   fun decr r = r := pred (!r);
 
-  fun print_char x = ()
-  fun print_string x = ()
-  fun print_bytes x = ()
-  fun print_int x = ()
-  fun print_float x = ()
-  fun print_endline x = ()
-  fun print_newline x = ()
+  fun print_char x = ();
+  fun print_string x = ();
+  fun print_bytes x = ();
+  fun print_int x = ();
+  fun print_float x = ();
+  fun print_endline x = ();
+  fun print_newline x = ();
+
+  (* Also, some utility functions not strictly in OCaml's Pervasives: *)
+  fun for_up first last f =
+    let
+      fun inner i = if i <= last then (f i; inner (i + 1)) else ()
+    in inner first
+    end;
+
+  fun for_down first last f =
+    let
+      fun inner i = if i >= last then (f i; inner (i - 1)) else ()
+    in inner first
+    end;
+
+  fun while cond f =
+    let
+      fun inner u = if cond () then (f (); inner ()) else ()
+    in inner ()
+    end;
 end;

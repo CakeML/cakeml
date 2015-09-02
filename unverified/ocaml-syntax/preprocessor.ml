@@ -60,6 +60,20 @@ let unit_constr_desc =
     cstr_attributes = [];
   }
 
+let bool_type_expr = {
+  desc = Tconstr (Pident (Ident.create "bool"), [], ref Mnil);
+  level = 0; id = 0;
+}
+
+let int_type_expr = {
+  desc = Tconstr (Pident (Ident.create "int"), [], ref Mnil);
+  level = 0; id = 0;
+}
+
+let var_type_expr = { desc = Tvar None; level = 0; id = 0; }
+
+let pervasives_path = Pident (Ident.create "Pervasives")
+
 (* Remove `when` guards
 match x with       \->  match x with
 | P0 -> E0         |->  | P0 -> E0
@@ -1032,36 +1046,34 @@ match x with     \->    match x with
 *)
 
 let rec split_or_pattern pat =
+  let wrap_pat_desc d = { pat with pat_desc = d; } in
   match pat.pat_desc with
   | Tpat_any | Tpat_var _ | Tpat_constant _ -> pure pat
   | Tpat_alias (p, i, l) ->
-    (fun p -> { pat with pat_desc = Tpat_alias (p, i, l); }) <$>
-    split_or_pattern p
+    (fun p -> wrap_pat_desc (Tpat_alias (p, i, l))) <$> split_or_pattern p
   | Tpat_tuple ps ->
-    (fun ps -> { pat with pat_desc = Tpat_tuple ps; }) <$>
-    (mapM split_or_pattern ps)
+    (fun ps -> wrap_pat_desc (Tpat_tuple ps)) <$> mapM split_or_pattern ps
   | Tpat_construct (l, d, ps) ->
-    (fun ps -> { pat with pat_desc = Tpat_construct (l, d, ps); }) <$>
-    (mapM split_or_pattern ps)
+    (fun ps -> wrap_pat_desc (Tpat_construct (l, d, ps))) <$>
+    mapM split_or_pattern ps
   | Tpat_variant (l, p, r) ->
     (match p with
     | None -> pure pat
     | Some p ->
-      (fun p -> { pat with pat_desc = Tpat_variant (l, Some p, r); }) <$>
+      (fun p -> wrap_pat_desc (Tpat_variant (l, Some p, r))) <$>
       split_or_pattern p
     )
   | Tpat_record (ls, c) ->
-    (fun ls -> { pat with pat_desc = Tpat_record (ls, c); }) <$>
+    (fun ls -> wrap_pat_desc (Tpat_record (ls, c))) <$>
     mapM (fun (l, d, p) -> (fun p -> l, d, p) <$> split_or_pattern p) ls
   | Tpat_array ps ->
-    (fun ps -> { pat with pat_desc = Tpat_array ps; }) <$>
-    (mapM split_or_pattern ps)
+    (fun ps -> wrap_pat_desc (Tpat_array ps)) <$> mapM split_or_pattern ps
   | Tpat_or (p, q, r) -> [p; q]
   | Tpat_lazy p ->
-    (fun p -> { pat with pat_desc = Tpat_lazy p; }) <$> split_or_pattern p
+    (fun p -> wrap_pat_desc (Tpat_lazy p)) <$> split_or_pattern p
 
 let preprocess_or_case c =
-  (fun p -> { c with c_lhs = p; }) <$> (split_or_pattern c.c_lhs)
+  (fun p -> { c with c_lhs = p; }) <$> split_or_pattern c.c_lhs
 
 let preprocess_or_cases cs = BatList.concat (BatList.map preprocess_or_case cs)
 
@@ -1077,6 +1089,138 @@ module OrpatMapArgument = struct
     }
 end
 module OrpatMap = MakeMap (OrpatMapArgument)
+
+(* In case anyone feels like writing a `while` or `for` loop.
+*)
+
+let lambda_wrap ident exp = { exp with
+  exp_desc = Texp_function ("", [{
+      c_lhs = {
+        pat_desc = Tpat_var (ident, mkloc ident.name exp.exp_loc);
+        pat_loc = exp.exp_loc;
+        pat_extra = [];
+        pat_type = int_type_expr;
+        pat_env = exp.exp_env;
+        pat_attributes = [];
+      };
+      c_guard = None;
+      c_rhs = exp;
+    }], Total);
+  exp_type = {
+    desc = Tarrow ("", int_type_expr, exp.exp_type, Cunknown);
+    level = 0; id = 0;
+  };
+ }
+
+(* Tpat_any to be cleaned up later *)
+let lazy_wrap exp = { exp with
+  exp_desc = Texp_function ("", [{
+      c_lhs = {
+        pat_desc = Tpat_any;
+        pat_loc = exp.exp_loc;
+        pat_extra = [];
+        pat_type = unit_type_expr;
+        pat_env = exp.exp_env;
+        pat_attributes = [];
+      };
+      c_guard = None;
+      c_rhs = exp;
+    }], Total);
+  exp_type = {
+    desc = Tarrow ("", unit_type_expr, exp.exp_type, Cunknown);
+    level = 0; id = 0;
+  };
+ }
+
+let while_type_expr = {
+  desc = Tarrow ("", {
+      desc = Tarrow ("", unit_type_expr, bool_type_expr, Cunknown);
+      level = 0; id = 0;
+    }, {
+      desc = Tarrow ("", {
+          desc = Tarrow ("", unit_type_expr, var_type_expr, Cunknown);
+          level = 0; id = 0;
+        }, unit_type_expr, Cunknown);
+      level = 0; id = 0;
+    }, Cunknown);
+  level = 0; id = 0;
+}
+
+let while_path = Pdot (pervasives_path, "while", 0)
+
+let while_expr base = { base with
+  exp_desc =
+    Texp_ident (while_path, mkloc (Longident.Lident "while") base.exp_loc, {
+      val_type = while_type_expr;
+      val_kind = Val_reg;
+      val_loc = base.exp_loc;
+      val_attributes = [];
+    });
+  exp_type = while_type_expr;
+}
+
+let for_type_expr = {
+  desc = Tarrow ("", int_type_expr, {
+      desc = Tarrow ("", int_type_expr, {
+          desc = Tarrow ("", {
+              desc = Tarrow ("", int_type_expr, var_type_expr, Cunknown);
+              level = 0; id = 0;
+            }, unit_type_expr, Cunknown);
+          level = 0; id = 0;
+        }, Cunknown);
+      level = 0; id = 0;
+    }, Cunknown);
+  level = 0; id = 0;
+}
+
+let for_up_path = Pdot (pervasives_path, "for_up", 0)
+
+let for_up base = { base with
+  exp_desc =
+    Texp_ident (for_up_path, mkloc (Longident.Lident "for_up") base.exp_loc, {
+      val_type = for_type_expr;
+      val_kind = Val_reg;
+      val_loc = base.exp_loc;
+      val_attributes = [];
+    });
+  exp_type = for_type_expr;
+}
+
+let for_down_path = Pdot (pervasives_path, "for_down", 0)
+
+let for_down base = { base with
+  exp_desc =
+    Texp_ident (for_down_path,
+                mkloc (Longident.Lident "for_down") base.exp_loc, {
+      val_type = for_type_expr;
+      val_kind = Val_reg;
+      val_loc = base.exp_loc;
+      val_attributes = [];
+    });
+  exp_type = for_type_expr;
+}
+
+module LoopMapArgument = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    { exp with
+      exp_desc =
+        match exp.exp_desc with
+        | Texp_while (cond, f) ->
+          Texp_apply (while_expr exp, ["", Some (lazy_wrap cond), Required;
+                                       "", Some (lazy_wrap f), Required])
+        | Texp_for (ident, pat, first, last, Upto, f) ->
+          Texp_apply (for_up exp, ["", Some first, Required;
+                                   "", Some last, Required;
+                                   "", Some (lambda_wrap ident f), Required])
+        | Texp_for (ident, pat, first, last, Downto, f) ->
+          Texp_apply (for_down exp, ["", Some first, Required;
+                                     "", Some last, Required;
+                                     "", Some (lambda_wrap ident f), Required])
+        | x -> x
+    }
+end
+module LoopMap = MakeMap (LoopMapArgument)
 
 module type EnvProvider = sig val env : Env.t end
 
@@ -1097,6 +1241,7 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
                       %> RecordMapArgument.enter_expression
                       %> ValpatMapArgument.enter_expression
                       %> ValrecMapArgument.enter_expression
+                      %> LoopMapArgument.enter_expression
   let leave_expression = AliaspatMapArgument.leave_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
