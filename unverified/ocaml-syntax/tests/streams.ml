@@ -43,8 +43,8 @@ module Main = struct
     if n = 0 then
       ()
     else
-      let _ = if 165580141 <> fib 41 then failwith "fibs" else () in
-      let _ = if at streamsLike n then () else failwith "streamsLike" in
+      let _ = if 165580141 <> fib 41 then failwith "fibs" in
+      let _ = if not (at streamsLike n) then failwith "streamsLike" in
       doit (n - 1)
 end
 

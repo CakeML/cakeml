@@ -1090,7 +1090,12 @@ module OrpatMapArgument = struct
 end
 module OrpatMap = MakeMap (OrpatMapArgument)
 
-(* In case anyone feels like writing a `while` or `for` loop.
+(* In case anyone feels like writing a `while` or `for` loop, it will be
+   translated to a function application.
+
+while c do a done               >->  Pervasives.while (fun _ -> c) (fun _ -> a)
+for i = a to b do f i done      >->  Pervasives.for_up a b (fun i -> f i)
+for i = a downto b do f i done  >->  Pervasives.for_down a b (fun i -> f i)
 *)
 
 let lambda_wrap ident exp = { exp with
@@ -1222,6 +1227,32 @@ module LoopMapArgument = struct
 end
 module LoopMap = MakeMap (LoopMapArgument)
 
+(* Add `else ()` to `if` expressions without an `else` clause.
+
+if p then                        \->  if p then
+  print_endline "Hello, world!"  |->    print_endline "Hello, world!"
+                                 |->  else
+                                 /->    ()
+*)
+
+module ElselessMapArgument = struct
+  include DefaultMapArgument
+  let enter_expression exp =
+    { exp with
+      exp_desc =
+        match exp.exp_desc with
+        | Texp_ifthenelse (p, et, None) ->
+          Texp_ifthenelse (p, et, Some { exp with
+              exp_desc =
+                Texp_construct (mkloc (Longident.Lident "()") exp.exp_loc,
+                                unit_constr_desc, []);
+              exp_type = unit_type_expr;
+            })
+        | x -> x
+    }
+end
+module ElselessMap = MakeMap (ElselessMapArgument)
+
 module type EnvProvider = sig val env : Env.t end
 
 module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
@@ -1242,6 +1273,7 @@ module PreprocessorMapArgument (FinalEnv : EnvProvider) = struct
                       %> ValpatMapArgument.enter_expression
                       %> ValrecMapArgument.enter_expression
                       %> LoopMapArgument.enter_expression
+                      %> ElselessMapArgument.enter_expression
   let leave_expression = AliaspatMapArgument.leave_expression
   let enter_structure = RecordMapArgument.enter_structure
                      %> ValrecMapArgument.enter_structure
