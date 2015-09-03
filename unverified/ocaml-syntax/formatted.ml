@@ -394,6 +394,8 @@ let rec print_expression ctxt expr =
     paren_if_necessary CaseOf @@ Box (Hovs, indent, [
       Box (Hovp, 2 * indent, [Lit "case"; sp; exp'; sp; Lit "of"]); sp; cs'
     ])
+  | Texp_match (exp, cs, es, p) ->
+    Bad "Error cases in `match` expression not supported."
   | Texp_try (exp, cs) ->
     print_expression Enclosed exp >>= fun exp' ->
     print_case_cases cs <&> fun cs' ->
@@ -422,13 +424,19 @@ let rec print_expression ctxt expr =
       sp; Box (Hovp, indent, [Lit "else"; sp; ef'])
     ])
   | Texp_ifthenelse (_, _, None) ->
-    Bad "`if` expression without `else` not supported."
+    Bad "Unconverted `if` expression without `else` found by pretty printer."
   (* E0; E1 *)
   | Texp_sequence (e0, e1) ->
     paren <$> print_sequence e0 e1
-  | Texp_while _ -> Bad "`while` loops not supported."
-  | Texp_for _ -> Bad "`for` loops not supported."
-  | _ -> Bad "Some expression syntax not supported."
+  | Texp_while _ ->
+    Bad "Unconverted `while` expression found by pretty printer."
+  | Texp_for _ -> Bad "Unconverted `for` expression found by pretty printer."
+  | Texp_send _ | Texp_new _ | Texp_instvar _ | Texp_setinstvar _
+  | Texp_override _ | Texp_object _ -> Bad "OO features not supported."
+  | Texp_letmodule _ -> Bad "`let module` expressions not supported."
+  | Texp_assert e -> Bad "`assert` expressions not supported."
+  | Texp_lazy e -> Bad "`lazy` expressions not supported."
+  | Texp_pack _ -> Bad "Modules in expressions not supported."
 
 (* Print successive commands without parentheses *)
 and print_sequence e0 e1 =
@@ -444,7 +452,7 @@ and print_case casesfollow c =
   print_expression (Hanging casesfollow) c.c_rhs >>= fun exp ->
   match c.c_guard with
   | None -> return @@ Box (Hovp, indent, [pat; sp; Lit "=>"; sp; exp])
-  | _ -> Bad "Pattern guards not supported."
+  | _ -> Bad "Unconverted pattern guard found by pretty printer."
 
 and print_case_cases cs =
   let open BatTuple.Tuple2 in
@@ -521,14 +529,16 @@ and print_value_binding first_binding rec_flag vb =
       sp; cs'
     ])
   (* Should have been removed by the AST preprocessor *)
-  | _, Recursive -> Bad "Recursive values not supported in CakeML."
+  | _, Recursive ->
+    Bad "Unconverted recursive non-function found by pretty printer."
   (* val x = E *)
   | _, Nonrecursive when pattern_is_trivial vb.vb_pat ->
     print_expression (Hanging false) vb.vb_expr >>= fun expr ->
     return @@ Box (Hovp, indent, [
       Lit keyword; sp; pat; sp; Lit "="; sp; expr
     ])
-  | _, Nonrecursive -> Bad "`val` LHS pattern matching not supported."
+  | _, Nonrecursive ->
+    Bad "Unconverted `val` pattern match found by pretty printer."
 
 let rec print_core_type prec ctyp =
   let thisParen = ifThen (prec > 1) paren in
@@ -539,6 +549,7 @@ let rec print_core_type prec ctyp =
     print_core_type 2 dom >>= fun a ->
     print_core_type 1 cod >>= fun b ->
     return @@ thisParen @@ Box (Hovp, indent, [a; sp; Lit "->"; sp; b])
+  | Ttyp_arrow _ -> Bad "Labelled arguments not supported."
   | Ttyp_tuple ts -> print_ttyp_tuple ts >>= fun t ->
                      return @@ paren t
   | Ttyp_constr (path, _, ts) ->
@@ -547,8 +558,11 @@ let rec print_core_type prec ctyp =
       | None -> return @@ name
       | Some params -> return @@ Box (Hovp, indent, [params; sp; name])
       )
+  | Ttyp_object _ | Ttyp_class _ -> Bad "OO features not supported."
+  | Ttyp_alias _ -> Bad "Type alias declarations not supported."
+  | Ttyp_variant _ -> Bad "Variants not supported."
   | Ttyp_poly (_, t) -> print_core_type prec t
-  | _ -> Bad "Some core types syntax not supported."
+  | Ttyp_package _ -> Bad "Package types not supported."
 
 and print_typ_params = function
   | [] -> return @@ None
@@ -623,7 +637,7 @@ let rec print_module_binding mb =
     ])
   | Tmod_constraint (mexpr, mtype, constr, coe) ->
     print_module_binding { mb with mb_expr = mexpr; }
-  | _ -> Bad "Some module types not supported."
+  | _ -> Bad "Some module syntax not supported."
 
 and print_structure_item str =
   match str.str_desc with
