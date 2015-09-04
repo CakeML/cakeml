@@ -15,16 +15,16 @@ module Terms = struct
 
   let get name =
     let rec get_rec = function
-      | hd :: hdl -> if headname hd = name then hd else get_rec hdl
+      | ({ name = n; _ } as hd) :: hdl -> if n = name then hd else get_rec hdl
       | [] -> let entry = { name = name; props = ref [] } in
               lemmas := entry :: !lemmas;
               entry
     in
     get_rec (!lemmas)
 
-  let r = ref ([] : (term * term) list)
   let add_lemma = function
-    | Prop (_, [left; right]) -> r := (left, right) :: !r
+    | Prop (_, [Prop ({ props = r; _ }, _) as left; right]) ->
+      r := (left, right) :: !r
     | _ -> invalid_arg "Terms.add_lemma"
 
   type binding = Bind of int * term
@@ -38,7 +38,7 @@ module Terms = struct
 
   let apply_subst alist =
     let rec as_rec = function
-      | Var v -> (try get_binding v alist with Failure _ -> Var v)
+      | Var v as term -> (try get_binding v alist with Failure _ -> term)
       | Prop (head, argl) -> Prop (head, map as_rec argl)
     in
     as_rec
@@ -63,17 +63,17 @@ module Terms = struct
         else
           raise Unify
       )
-  and unify1_lst x y z =
-    match x, y, z with
-    | [], [], unify_subst -> unify_subst
-    | h1 :: r1, h2 :: r2, unify_subst ->
+  and unify1_lst x y unify_subst =
+    match x, y with
+    | [], [] -> unify_subst
+    | h1 :: r1, h2 :: r2 ->
       unify1_lst r1 r2 (unify1 h1 h2 unify_subst)
     | _ -> raise Unify
 
   let rec rewrite = function
-    | Var v -> Var v
-    | Prop ({ name; props; }, argl) ->
-      rewrite_with_lemmas (Prop ({ name; props; }, map rewrite argl)) !props
+    | Var _ as term -> term
+    | Prop ({ props = p; _ } as head, argl) ->
+      rewrite_with_lemmas (Prop (head, map rewrite argl)) !p
   and rewrite_with_lemmas term = function
     | [] -> term
     | (t1, t2) :: rest ->
@@ -807,39 +807,39 @@ module Main = struct
 
   let subst =
   [Bind(23, Prop (get "f",
-                 [Prop (get "plus", [Prop (get "plus",[Var 0; Var 1]);
-                  Prop (get "plus",[Var 2; Prop (get "zero",[])])])]));
+                  [Prop (get "plus", [Prop (get "plus",[Var 0; Var 1]);
+                   Prop (get "plus",[Var 2; Prop (get "zero",[])])])]));
    Bind(24, Prop (get "f",
-                 [Prop (get "times", [Prop (get "times",[Var 0; Var 1]);
-                  Prop (get "plus",[Var 2; Var 3])])]));
+                  [Prop (get "times", [Prop (get "times",[Var 0; Var 1]);
+                   Prop (get "plus",[Var 2; Var 3])])]));
    Bind(25, Prop (get "f",
-                 [Prop (get "reverse", [Prop (get "append",
-                 [Prop (get "append",[Var 0; Var 1]);
-                  Prop (get "nil",[])])])]));
+                  [Prop (get "reverse", [Prop (get "append",
+                  [Prop (get "append",[Var 0; Var 1]);
+                   Prop (get "nil",[])])])]));
    Bind(20, Prop (get "equal",
-                 [Prop (get "plus",[Var 0; Var 1]);
-                  Prop (get "difference",[Var 23; Var 24])]));
+                  [Prop (get "plus",[Var 0; Var 1]);
+                   Prop (get "difference",[Var 23; Var 24])]));
    Bind(22, Prop (get "lt",
-                 [Prop (get "remainder",[Var 0; Var 1]);
-                  Prop (get "member",[Var 0; Prop (get "length",[Var 1])])]))]
+                  [Prop (get "remainder",[Var 0; Var 1]);
+                   Prop (get "member",[Var 0; Prop (get "length",[Var 1])])]))]
 
   let term = Prop (get "implies", [Prop (get "and",
-                 [Prop (get "implies",[Var 23; Var 24]);
-                  Prop (get "and",
-                   [Prop (get "implies",[Var 24; Var 25]);
-                    Prop (get "and",
-                     [Prop (get "implies",[Var 25; Var 20]);
-                      Prop (get "implies",[Var 20; Var 22])])])]);
-                Prop (get "implies",[Var 23; Var 22])])
+                [Prop (get "implies",[Var 23; Var 24]);
+                 Prop (get "and",
+                  [Prop (get "implies",[Var 24; Var 25]);
+                   Prop (get "and",
+                    [Prop (get "implies",[Var 25; Var 20]);
+                     Prop (get "implies",[Var 20; Var 22])])])]);
+               Prop (get "implies",[Var 23; Var 22])])
 
-  let testit =
+  let testit () =
     if tautp (apply_subst subst term) then "Proved!" else "Cannot prove!"
-  let doit () = ignore testit
+  let doit () = ignore (testit ())
   let rec loop = function
     | 0 -> ()
     | n -> doit (); loop (n - 1)
 end
 
-let testit = Main.testit
+let testit = Main.testit ()
 let _ = print_endline testit
 let doit = Main.loop 24

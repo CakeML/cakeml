@@ -31,3 +31,8 @@ make test
 ```
 
 Translation failures are shown in the output of `make`, and begin with “Error:”. Errors from the CakeML interpreter are shown in the output of `make test`, and look like either “<parse error>” or “<type error>”. In the absence of these, “Success” will be printed. The full output of the interpreter is written to the relevant .out files. The binary file produced by `make` is a byproduct of the OCaml compiler.
+
+The output `.cml` files can be patched after translation. File `a.cml` is fed to `a-patch`. See `boyer-patch` (which uses `boyer-patch.sed`) for an example. Current patches:
+* boyer – avoid falling to the value restriction. The OCaml file has type annotations (e.g `ref ([] : head list)`), which can't be used in CakeML.
+
+countGraphs currently fails due to trying to match against the pattern `Ok (newPacc, acc)`, where `Ok` is a unary constructor and `(newPacc, acc)` is supposed to be a tuple pattern. This is a known issue with CakeML, so fixing this doesn't seem necessary. boyer currently fails because I've botched the translation from SML (or maybe I've hit a problem with OCaml equality between references).
