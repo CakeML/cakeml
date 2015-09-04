@@ -3,21 +3,18 @@ module Main = struct
 
   type term = Var of int | Term of string * term list
 
-  let length =
+  let length xs =
     let rec j k = function
       | [] -> k
       | _ :: xs -> j (k + 1) xs
     in
-    j 0
-  (* let rec ( @ ) = function
-    | [] -> fun ys -> ys
-    | x :: xs -> fun ys -> x :: (xs @ ys) *)
-  let rev =
+    j 0 xs
+  let rev xs =
     let rec f acc = function
       | [] -> acc
       | x :: xs -> f (x :: acc) xs
     in
-    f []
+    f [] xs
   let app f =
     let rec app_rec = function
       | [] -> ()
@@ -222,15 +219,15 @@ module Main = struct
     k - 1, (substitute subst m, substitute subst n)
 
   (* checks that rules are numbered in seqence and returns their number *)
-  let check_rules = it_list (fun n (k, _) ->
-    if k = n + 1 then k else failwith "Rule numbers not in sequence") 0
+  let check_rules xs = it_list (fun n (k, _) ->
+    if k = n + 1 then k else failwith "Rule numbers not in sequence") 0 xs
 
   let pretty_rule (k, (_, (m, n))) =
     print_num k; print_string " : ";
     pretty_term m; print_string " = "; pretty_term n;
     print_newline ()
 
-  let pretty_rules = app pretty_rule
+  let pretty_rules xs = app pretty_rule xs
 
   (* Rewriting *)
 
@@ -557,12 +554,12 @@ module Main = struct
 
   let doit () = kb_complete greater [] geom_rules
 
-  let doit =
+  let doit i =
     let rec loop n =
       if n = 0 then () else
       doit (); loop (n - 1)
     in
-    loop
+    loop i
 
   let testit _ = ()
 end
