@@ -14,28 +14,34 @@ val rev_drop_rev_all = Q.prove (
 
 val add_opt = Q.store_thm ("add_opt",
 `!n1 n2. exp_rel [Op Add [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 + n1)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
+     val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val sub_opt = Q.store_thm ("sub_opt",
 `!n1 n2. exp_rel [Op Sub [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 - n1)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
+     val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val mult_opt = Q.store_thm ("mult_opt",
 `!n1 n2. exp_rel [Op Mult [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 * n1)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
+     res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val div_opt = Q.store_thm ("div_opt",
 `!n1 n2. exp_rel [Op Div [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 / n1)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
+     val_rel_rw, evaluate_ev_def] >>
  rw [res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val mod_opt = Q.store_thm ("mod_opt",
-`!n1 n2. exp_rel [Op Mod [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 % n1)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw] >>
+`!n1 n2. exp_rel [Op Mod [Op (Const n1) []; Op (Const n2) []]]
+                 [Op (Const (n2 % n1)) []]`,
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
+     res_rel_rw, val_rel_rw] >>
  rw [res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
@@ -43,28 +49,32 @@ val less_opt = Q.store_thm ("less_opt",
 `!n1 n2. 
   exp_rel [Op Less [Op (Const n1) []; Op (Const n2) []]] 
           [Op (Cons (if n2 < n1 then true_tag else false_tag)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw, Boolv_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
+     val_rel_rw, Boolv_def, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val leq_opt = Q.store_thm ("leq_opt",
-`!n1 n2. 
-  exp_rel [Op LessEq [Op (Const n1) []; Op (Const n2) []]] 
+`!n1 n2.
+  exp_rel [Op LessEq [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 ≤ n1 then true_tag else false_tag)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw, Boolv_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
+     res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
 val greater_opt = Q.store_thm ("greater_opt",
-`!n1 n2. 
-  exp_rel [Op Greater [Op (Const n1) []; Op (Const n2) []]] 
+`!n1 n2.
+  exp_rel [Op Greater [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 > n1 then true_tag else false_tag)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw, Boolv_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
+     res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
 val geq_opt = Q.store_thm ("geq_opt",
 `!n1 n2. 
   exp_rel [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]] 
           [Op (Cons (if n2 ≥ n1 then true_tag else false_tag)) []]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw, val_rel_rw, Boolv_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
+     res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
 val fn_add_arg = Q.store_thm ("fn_add_arg",
@@ -74,7 +84,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
   num_args + num_args' ≤ max_app ⇒
   exp_rel [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
           [Fn NONE vars (num_args + num_args') e]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  rw [res_rel_rw] >>
  Cases_on `clos_env s.restrict_envs vars env` >>
  fs [res_rel_rw] >>
