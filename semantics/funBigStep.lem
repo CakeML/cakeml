@@ -206,6 +206,7 @@ evaluate_decs ([Dexn cn ts],mn,env,(s,tdecs)) =
     (Rerr (Rabort Rtype_error),[],(s,tdecs))
   else
     (Rval [],[(cn, (length ts, TypeExn (mk_id mn cn)))],(s,{TypeExn (mk_id mn cn)} union tdecs))
+declare termination_argument evaluate_decs = automatic
 
 type prog_state = decs_state * set modN
 
@@ -252,6 +253,7 @@ evaluate_tops [Tmod mn specs ds] env (s,mdecls) =
     end
   else
     (Rerr (Rabort Rtype_error), ([],[]), (s,mdecls))
+declare termination_argument evaluate_tops = automatic
 
 let convert_prog_state ((s,tdecls),mdecls) =
   ((s.clock,s.refs,s.io),tdecls,mdecls)

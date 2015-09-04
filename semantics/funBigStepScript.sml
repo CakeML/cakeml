@@ -171,7 +171,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 val _ = type_abbrev( "decs_state" , ``: state # tid_or_exn set``);
 
 (*val evaluate_decs : (list dec * maybe modN * all_env * decs_state) -> result envE v * flat_envC * decs_state*)
- val evaluate_decs_defn = Hol_defn "evaluate_decs" `
+ val _ = Define `
 
 (evaluate_decs ([],mn,env,s) = (Rval [],[],s))
 /\
@@ -229,12 +229,11 @@ val _ = type_abbrev( "decs_state" , ``: state # tid_or_exn set``);
   else
     (Rval [],[(cn, (LENGTH ts, TypeExn (mk_id mn cn)))],(s,({TypeExn (mk_id mn cn)} UNION tdecs)))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_decs_defn;
 
 val _ = type_abbrev( "prog_state" , ``: decs_state # modN set``);
 
 (*val evaluate_tops : list top -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state*)
- val evaluate_tops_defn = Hol_defn "evaluate_tops" `
+ val _ = Define `
 
 (evaluate_tops [] env s = (Rval ([],[]), ([],[]), s))
 /\
@@ -278,7 +277,6 @@ val _ = type_abbrev( "prog_state" , ``: decs_state # modN set``);
   else
     (Rerr (Rabort Rtype_error), ([],[]), (s,mdecls))))`;
 
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_tops_defn;
 
 val _ = Define `
  (convert_prog_state ((s,tdecls),mdecls) =
