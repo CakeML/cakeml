@@ -168,7 +168,9 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_defn;
 
-(*val evaluate_decs : (list dec * maybe modN * all_env * (state * set tid_or_exn)) -> result envE v * flat_envC * (state * set tid_or_exn)*)
+val _ = type_abbrev( "decs_state" , ``: state # tid_or_exn set``);
+
+(*val evaluate_decs : (list dec * maybe modN * all_env * decs_state) -> result envE v * flat_envC * decs_state*)
  val evaluate_decs_defn = Hol_defn "evaluate_decs" `
 
 (evaluate_decs ([],mn,env,s) = (Rval [],[],s))
@@ -228,5 +230,69 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (Rval [],[(cn, (LENGTH ts, TypeExn (mk_id mn cn)))],(s,({TypeExn (mk_id mn cn)} UNION tdecs)))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_decs_defn;
+
+val _ = type_abbrev( "prog_state" , ``: decs_state # modN set``);
+
+(*val evaluate_tops : list top -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state*)
+ val evaluate_tops_defn = Hol_defn "evaluate_tops" `
+
+(evaluate_tops [] env s = (Rval ([],[]), ([],[]), s))
+/\
+(evaluate_tops (top1::top2::tops) env s =  
+((case evaluate_tops [top1] env s of
+    (Rval (new_mods,new_env), new_tds, s) =>
+      (case evaluate_tops (top2::tops)
+              (case env of (menv,cenv,env) =>
+                ((new_mods++menv),
+                 merge_alist_mod_env new_tds cenv,                 
+(new_env++env))
+              ) s of
+        (r,new_tds',s) => (combine_mod_result new_mods new_env r,
+                           merge_alist_mod_env new_tds' new_tds,
+                           s)
+      )
+  | res => res
+  )))
+/\
+(evaluate_tops [Tdec d] env (s,mdecls) =  
+((case evaluate_decs ([d],NONE,env,s) of
+    (Rval new_env, new_tds, s) =>
+      (Rval ([],new_env), ([],new_tds), (s,mdecls))
+  | (Rerr err, new_tds, s) =>
+      (Rerr err, ([],[]), (s,mdecls))
+  )))
+/\
+(evaluate_tops [Tmod mn specs ds] env (s,mdecls) =  
+(if ~ (mn IN mdecls) /\
+     no_dup_types ds
+  then
+    (case evaluate_decs (ds,SOME mn,env,s) of
+      (r, new_tds, s) =>
+        ((case r of
+           Rval new_env => Rval ([(mn,new_env)],[])
+         | Rerr err => Rerr err
+         ),
+         ([(mn,new_tds)],[]),
+         (s,({mn} UNION mdecls)))
+    )
+  else
+    (Rerr (Rabort Rtype_error), ([],[]), (s,mdecls))))`;
+
+val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_tops_defn;
+
+val _ = Define `
+ (convert_prog_state ((s,tdecls),mdecls) =
+  ((s.clock,s.refs,s.io),tdecls,mdecls))`;
+
+
+(*val evaluate_prog : prog -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state*)
+val _ = Define `
+
+(evaluate_prog prog env s =  
+(if no_dup_mods prog (convert_prog_state s) /\ no_dup_top_types prog (convert_prog_state s) then
+    evaluate_tops prog env s
+  else
+    (Rerr (Rabort Rtype_error), ([],[]), s)))`;
+
 val _ = export_theory()
 

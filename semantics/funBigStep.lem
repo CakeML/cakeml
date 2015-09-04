@@ -147,7 +147,9 @@ evaluate_match ((p,e)::pes,v,err_v,env,s) =
     end
   else (Rerr (Rabort Rtype_error),s)
 
-val evaluate_decs : (list dec * maybe modN * all_env * (state * set tid_or_exn)) -> result envE v * flat_envC * (state * set tid_or_exn)
+type decs_state = state * set tid_or_exn
+
+val evaluate_decs : (list dec * maybe modN * all_env * decs_state) -> result envE v * flat_envC * decs_state
 let rec
 evaluate_decs ([],mn,env,s) = (Rval [],[],s)
 and
@@ -204,3 +206,60 @@ evaluate_decs ([Dexn cn ts],mn,env,(s,tdecs)) =
     (Rerr (Rabort Rtype_error),[],(s,tdecs))
   else
     (Rval [],[(cn, (length ts, TypeExn (mk_id mn cn)))],(s,{TypeExn (mk_id mn cn)} union tdecs))
+
+type prog_state = decs_state * set modN
+
+val evaluate_tops : list top -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state
+let rec
+evaluate_tops [] env s = (Rval ([],[]), ([],[]), s)
+and
+evaluate_tops (top1::top2::tops) env s =
+  match evaluate_tops [top1] env s with
+  | (Rval (new_mods,new_env), new_tds, s) ->
+      match evaluate_tops (top2::tops)
+              match env with (menv,cenv,env) ->
+                (new_mods++menv,
+                 merge_alist_mod_env new_tds cenv,
+                 new_env++env)
+              end s with
+      | (r,new_tds',s) -> (combine_mod_result new_mods new_env r,
+                           merge_alist_mod_env new_tds' new_tds,
+                           s)
+      end
+  | res -> res
+  end
+and
+evaluate_tops [Tdec d] env (s,mdecls) =
+  match evaluate_decs ([d],Nothing,env,s) with
+  | (Rval new_env, new_tds, s) ->
+      (Rval ([],new_env), ([],new_tds), (s,mdecls))
+  | (Rerr err, new_tds, s) ->
+      (Rerr err, ([],[]), (s,mdecls))
+  end
+and
+evaluate_tops [Tmod mn specs ds] env (s,mdecls) =
+  if not (mn IN mdecls) &&
+     no_dup_types ds
+  then
+    match evaluate_decs (ds,Just mn,env,s) with
+    | (r, new_tds, s) ->
+        (match r with
+         | Rval new_env -> Rval ([(mn,new_env)],[])
+         | Rerr err -> Rerr err
+         end,
+         ([(mn,new_tds)],[]),
+         (s,{mn} union mdecls))
+    end
+  else
+    (Rerr (Rabort Rtype_error), ([],[]), (s,mdecls))
+
+let convert_prog_state ((s,tdecls),mdecls) =
+  ((s.clock,s.refs,s.io),tdecls,mdecls)
+
+val evaluate_prog : prog -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state
+let
+evaluate_prog prog env s =
+  if no_dup_mods prog (convert_prog_state s) && no_dup_top_types prog (convert_prog_state s) then
+    evaluate_tops prog env s
+  else
+    (Rerr (Rabort Rtype_error), ([],[]), s)
