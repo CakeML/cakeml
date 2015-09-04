@@ -767,6 +767,58 @@ val _ = Define `
  (remove_count ((count,store),tdecls,mods) = (store,tdecls,mods))`;
 
 
+val _ = type_abbrev((*  'a *) "count_store_trace" , ``: num # 'a store # io_trace``);
+
+(*val decs_to_types : list dec -> list typeN*)
+val _ = Define `
+ (decs_to_types ds =  
+(FLAT (MAP (\ d . 
+        (case d of
+            Dtype tds => MAP (\ (tvs,tn,ctors) .  tn) tds
+          | _ => [] ))
+     ds)))`;
+
+
+(*val no_dup_types : list dec -> bool*)
+val _ = Define `
+ (no_dup_types ds =  
+(ALL_DISTINCT (decs_to_types ds)))`;
+
+
+(*val prog_to_mods : list top -> list modN*)
+val _ = Define `
+ (prog_to_mods tops =  
+(FLAT (MAP (\ top . 
+        (case top of
+            Tmod mn _ _ => [mn]
+          | _ => [] ))
+     tops)))`;
+
+
+(*val no_dup_mods : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool*)
+val _ = Define `
+ (no_dup_mods tops (_,_,mods) =  
+(ALL_DISTINCT (prog_to_mods tops) /\
+  DISJOINT (LIST_TO_SET (prog_to_mods tops)) mods))`;
+
+
+(*val prog_to_top_types : list top -> list typeN*)
+val _ = Define `
+ (prog_to_top_types tops =  
+(FLAT (MAP (\ top . 
+        (case top of
+            Tdec d => decs_to_types [d]
+          | _ => [] ))
+     tops)))`;
+
+
+(*val no_dup_top_types : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool*)
+val _ = Define `
+ (no_dup_top_types tops (_,tids,_) =  
+(ALL_DISTINCT (prog_to_top_types tops) /\
+  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) tids))`;
+
+
 (* conversions to strings *)
 
 (*import Show_extra*)
