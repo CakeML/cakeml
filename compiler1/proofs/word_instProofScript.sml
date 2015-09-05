@@ -6,6 +6,42 @@ val _ = new_theory "word_instProof";
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
+(*First step: Make expressions have ≤ 2 args*)
+(*Semantics*)
+val flatten_exp_ok = prove(``
+  ∀exp s.
+  word_exp s exp = word_exp s (flatten_exp exp)``,
+  ho_match_mp_tac flatten_exp_ind>>rw[]>>
+  fs[flatten_exp_def]
+  >-
+    (fs[flatten_exp_def,word_exp_def]>>LET_ELIM_TAC>>
+    `ws = ws'` by 
+      (match_mp_tac LIST_EQ>>unabbrev_all_tac>>fs[EL_MAP,EL_MEM])>>
+    metis_tac[])
+  >>
+    fs[word_exp_def,LET_THM]>>IF_CASES_TAC>>fs[word_op_def]>>
+    TRY(first_x_assum(qspec_then `s` assume_tac)>>rfs[]>>
+    pop_assum sym_sub_tac>>fs[])>>metis_tac[option_CLAUSES])
+
+(*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that*)
+val binary_branch_exp_def = tDefine "binary_branch_exp" `
+  (binary_branch_exp (Op Sub exps) = EVERY (binary_branch_exp) exps) ∧ 
+  (binary_branch_exp (Op op xs) = (LENGTH xs ≤ 2 ∧ EVERY (binary_branch_exp) xs)) ∧
+  (binary_branch_exp (Load exp) = binary_branch_exp exp) ∧ 
+  (binary_branch_exp (Shift shift exp nexp) = binary_branch_exp exp) ∧  
+  (binary_branch_exp exp = T)`
+  (WF_REL_TAC `measure (exp_size ARB)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ fs[exp_size_def]
+   \\ TRY (DECIDE_TAC))
+
+(*Syntax*)
+val flatten_exp_binary_branch_exp = prove(``
+  ∀exp.
+  binary_branch_exp (flatten_exp exp)``,
+  ho_match_mp_tac flatten_exp_ind>>fs[flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP])
+
 val distinct_tar_reg_def = Define`
   (distinct_tar_reg (Inst (Arith (Binop bop r1 r2 ri))) 
     ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧ 
@@ -43,15 +79,100 @@ val two_reg_insts_def = Define`
       | SOME (n,h,l1,l2) => two_reg_insts h))) ∧ 
   (two_reg_insts prog = T)`
 
-(*TODO: Couldn't find this in sptree theory
-  Not sure if this is provable without assuming that t is well formed
-  -- Either the 3 to 2 reg needs to carry that assumption
-  -- or the state relation has to be relaxed so that the result states are not exactly equal. This makes the proof more annoying (because of Call)
-*)
+(*TODO: move to HOL*)
 val insert_shadow = prove(``
   ∀t a b c.
   insert a b (insert a c t) = insert a b t``,
-  cheat)
+  completeInduct_on`a`>>
+  Induct>>
+  simp[Once insert_def]>>
+  rw[]>>
+  simp[Once insert_def]>>
+  simp[Once insert_def,SimpRHS]>>
+  `(a-1) DIV 2 < a` by 
+    (`0 < (2:num)` by fs[] >>
+    imp_res_tac DIV_LT_X>>
+    first_x_assum match_mp_tac>>
+    DECIDE_TAC)>>
+  metis_tac[])
+
+val alist_insert_wf = prove(``
+  ∀a b s.
+  wf s ⇒ 
+  wf(alist_insert a b s)``,
+  ho_match_mp_tac alist_insert_ind>>rw[alist_insert_def]>>
+  metis_tac[wf_insert])
+
+val red_tac = 
+  EVERY_CASE_TAC>>
+  fs[get_vars_def,set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,fromList2_def,dec_clock_def]>>
+  metis_tac[alist_insert_wf,wf_insert,wf_def]
+
+val wf_preservation = prove(``
+  ∀prog s res s'.
+  wf s.locals ∧  
+  evaluate(prog,s) = (res,s')
+  ⇒ 
+  wf s'.locals``,
+  completeInduct_on`prog_size (K 0) prog`>>
+  rpt strip_tac>>
+  Cases_on`prog`>>
+  fs[evaluate_def,LET_THM,state_component_equality]
+  >-
+    red_tac
+  >-
+    (Cases_on`i`>>fs[inst_def,assign_def]>>
+    red_tac)
+  >-
+    red_tac
+  >-
+    red_tac
+  >-
+    red_tac
+  >-
+    red_tac
+  >-
+    cheat
+  >-
+    (fs[PULL_FORALL,AND_IMP_INTRO]>>
+    Cases_on`evaluate(p,s)`>>fs[]>>
+    res_tac>>fs[prog_size_def]>>pop_assum mp_tac>>discharge_hyps>-DECIDE_TAC>>
+    Cases_on`q=NONE`>>fs[]>>rw[]>>
+    res_tac>>
+    pop_assum kall_tac >> pop_assum mp_tac >> discharge_hyps>-DECIDE_TAC >>
+    metis_tac[])
+  >-
+    (EVERY_CASE_TAC>>
+    fs[PULL_FORALL,AND_IMP_INTRO,prog_size_def]>>
+    res_tac>>pop_assum mp_tac >> discharge_hyps>> TRY DECIDE_TAC>>metis_tac[])
+  >-
+    EVERY_CASE_TAC>>fs[alloc_def]>>
+    EVERY_CASE_TAC>>fs[gc_def,push_env_def,pop_env_def]
+
+    rpt (qpat_assum`A=SOME B` mp_tac)>>EVERY_CASE_TAC>>
+    LET_ELIM_TAC>>
+    fs[LET_THM,set_store_def]>>EVERY_CASE_TAC>>fs[state_component_equality]>>
+    metis_tac[wf_fromAList]   
+    EVERY_CASE_TAC>>fs[push_env
+
+    fs[set_store_def,push_env_def]>>
+     
+    IF_CASES_TAC>>
+    first_x_assum(qspec_then `p` mp_tac)>> 
+    discharge_hyps>-
+
+    discharge_hyps
+    cheat
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    cheat
+  >-
+    red_tac
+)
+
  
 (*Semantics preservation*)
 val three_to_two_reg_correct = prove(``

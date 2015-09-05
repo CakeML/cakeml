@@ -12,30 +12,32 @@ val num_exp_def = Define `
   (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
   (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
-(*
-  Convert all 3 register instructions to 2 register instructions
+(*Flatten list expressions to trees -- of the form:
+   +
+  /\
+  a +
+    /\
+    b +
+      /\
+      c d
+  Resulting expressions are all (at most) binary branching
 *)
-val three_to_two_reg_def = Define`
-  (three_to_two_reg (Inst (Arith (Binop bop r1 r2 ri))) =
-    Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))) ∧
-  (three_to_two_reg (Inst (Arith (Shift l r1 r2 n))) =
-    Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧ 
-  (three_to_two_reg (Seq p1 p2) =
-    Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧ 
-  (three_to_two_reg (If cmp r1 ri c1 c2) =
-    If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧ 
-  (three_to_two_reg (Call ret dest args handler) =
-    let retsel =
-      case ret of 
-        NONE => NONE
-      | SOME (n,names,ret_handler,l1,l2) =>
-        SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
-    let handlersel = 
-      case handler of
-        NONE => NONE
-      | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
-    Call retsel dest args handlersel) ∧ 
-  (three_to_two_reg prog = prog)`
+
+val flatten_exp_def = tDefine "flatten_exp" ` 
+  (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧ 
+  (flatten_exp (Op op []) = Op op []) ∧ (*I guess this should never occur..*) 
+  (flatten_exp (Op op [x]) = flatten_exp x) ∧
+  (flatten_exp (Op op (x::xs)) = Op op [flatten_exp x;flatten_exp (Op op xs)]) ∧
+  (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧ 
+  (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧ 
+  (flatten_exp exp = exp)`
+  (WF_REL_TAC `measure (exp_size ARB)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ fs[exp_size_def]
+   \\ TRY (DECIDE_TAC))
+
+(*val test = EVAL ``flatten_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w]] ; Const 8w])``*)
 
 (*
 Core of the expression flattening step
@@ -96,6 +98,34 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
 (*
 EVAL ``inst_select_exp 0 1 (Op And [Op Add [Var 2;Var 3; Var 4]; Const 0w; Const 0w])``
 *)
+
+
+
+
+(*
+  Convert all 3 register instructions to 2 register instructions
+*)
+val three_to_two_reg_def = Define`
+  (three_to_two_reg (Inst (Arith (Binop bop r1 r2 ri))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Binop bop r1 r1 ri)))) ∧
+  (three_to_two_reg (Inst (Arith (Shift l r1 r2 n))) =
+    Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧ 
+  (three_to_two_reg (Seq p1 p2) =
+    Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧ 
+  (three_to_two_reg (If cmp r1 ri c1 c2) =
+    If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧ 
+  (three_to_two_reg (Call ret dest args handler) =
+    let retsel =
+      case ret of 
+        NONE => NONE
+      | SOME (n,names,ret_handler,l1,l2) =>
+        SOME (n,names,three_to_two_reg ret_handler,l1,l2) in
+    let handlersel = 
+      case handler of
+        NONE => NONE
+      | SOME (n,h,l1,l2) => SOME (n,three_to_two_reg h,l1,l2) in
+    Call retsel dest args handlersel) ∧ 
+  (three_to_two_reg prog = prog)`
 
 (*Flattens all expressions in program, temporary must a fresh var*)
 val inst_select_def = Define`
