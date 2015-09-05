@@ -20,12 +20,18 @@ val num_exp_def = Define `
     b +
       /\
       c d
-  Resulting expressions are all (at most) binary branching
+  Resulting expressions are all binary branching
+  TODO: Should add a phase before this to pull constants up
+  e.g.
+     +
+    /\
+    5 ..
 *)
 
 val flatten_exp_def = tDefine "flatten_exp" ` 
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧ 
-  (flatten_exp (Op op []) = Op op []) ∧ (*I guess this should never occur..*) 
+  (flatten_exp (Op And []) = Const (~0w)) ∧ (*I guess this should never occur..*) 
+  (flatten_exp (Op op []) = Const (0w)) ∧ (*I guess this should never occur..*) 
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp x;flatten_exp (Op op xs)]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧ 
@@ -39,57 +45,35 @@ val flatten_exp_def = tDefine "flatten_exp" `
 
 (*val test = EVAL ``flatten_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w]] ; Const 8w])``*)
 
-(*
-Core of the expression flattening step
-- Takes a target variable, next temporary and expression
-- Returns a flattened program such that the value of that expr 
-  is stored in the target
-- This works for 2 reg code but is not good for 3 reg 
+(* Next, perform instruction selection assuming input is binary branching
+  Each step takes tar and temp where we are allowed to store temporaries 
+  in temp and the value of the whole expression must be saved in tar
 *)
 val inst_select_exp_def = tDefine "inst_select_exp" `
-  (inst_select_exp (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
   (*TODO: Add special cases so we never need to reach this case*)
+  (inst_select_exp (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
   (inst_select_exp (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
-  (*Not sure about Lookup and Load -- there's no equivalent instruction*) 
   (inst_select_exp tar temp (Lookup store_name) = 
     Get tar store_name) ∧ 
-  (*For Load, flatten the expression into a temp*)
+  (*For Load, flatten the expression into a temp
+    Can be improved (by matching an offset in the nested exp)
+  *)
   (inst_select_exp tar temp (Load exp) = 
-    let prog = inst_select_exp temp (temp+1) exp in
-    Seq prog (Inst (Mem Load tar (Addr temp (0w)))))
-    (*Seq prog (Assign tar (Load (Var temp))))*) ∧ 
-  (*Minus needs special case*)
-  (inst_select_exp tar temp (Op Sub [e1;e2]) =
-    let p1 = inst_select_exp tar temp e1 in
-    let p2 = inst_select_exp temp (temp+1) e2 in
-    Seq p1 (Seq p2 ((Inst (Arith (Binop Sub tar tar (Reg temp))))))) ∧ 
-  (*Everything else use a full match*)
-  (inst_select_exp tar temp (Op op exprs) = 
-    (*Put ~0w into target*)
-    let init = 
-      case op of 
-      And => Inst (Const tar ((~0w):'a word))
-    | _ => Inst (Const tar ((0w):'a word)) in 
-    (*& (e1,e2,e3) becomes
-      tar = ~0;
-      t1 = ...;
-      tar = tar & t1; (*can just be the first line*)
-      t2 = ...;
-      tar = tar & t2;
-      ...
-      TODO: Special case Var --> no need to copy to temporary
-    *)
-    FOLDL (λprog expr. 
-        Seq prog 
-        (Seq (inst_select_exp temp (temp+1) expr) 
-        (Inst (Arith (Binop op tar tar (Reg temp))))))
-        init exprs) ∧ 
+    let prog = inst_select_exp temp temp exp in
+    Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧ 
+  (*All ops are binary branching*)
+  (inst_select_exp tar temp (Op op [e1;e2]) =
+    let p1 = inst_select_exp temp temp e1 in
+    let p2 = inst_select_exp (temp+1) (temp+1) e2 in
+    Seq p1 (Seq p2 ((Inst (Arith (Binop op tar temp (Reg (temp+1)))))))) ∧ 
   (inst_select_exp tar temp (Shift sh exp nexp) =
-    let prog = inst_select_exp temp (temp+1) exp in
+    let prog = inst_select_exp temp temp exp in
     (*nexp should be evaluated at compile time*) 
     let n = num_exp nexp in 
-    Seq prog (Inst (Arith (Shift sh tar temp n))))`
+    Seq prog (Inst (Arith (Shift sh tar temp n)))) ∧ 
+  (*Make it total*)
+  (inst_select_exp _ _ _ = Skip)`
   (WF_REL_TAC `measure (exp_size ARB o SND o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
@@ -98,8 +82,6 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
 (*
 EVAL ``inst_select_exp 0 1 (Op And [Op Add [Var 2;Var 3; Var 4]; Const 0w; Const 0w])``
 *)
-
-
 
 
 (*
