@@ -83,7 +83,6 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
 EVAL ``inst_select_exp 0 1 (Op And [Op Add [Var 2;Var 3; Var 4]; Const 0w; Const 0w])``
 *)
 
-
 (*
   Convert all 3 register instructions to 2 register instructions
 *)
@@ -112,12 +111,13 @@ val three_to_two_reg_def = Define`
 (*Flattens all expressions in program, temporary must a fresh var*)
 val inst_select_def = Define`
   (inst_select temp (Assign v exp) = 
-    inst_select_exp v temp exp) ∧ 
+    (inst_select_exp v temp o flatten_exp) exp) ∧ 
   (inst_select temp (Set store exp) =
-    let prog = inst_select_exp temp (temp+1) exp in
-    Seq prog (Set store (Var temp))) ∧ 
+    let prog = (inst_select_exp temp temp o flatten_exp) exp in
+    Seq prog (Set store (Var temp))) ∧
+  (*Can be optimised further*) 
   (inst_select temp (Store exp var) =
-    let prog = inst_select_exp temp (temp+1) exp in
+    let prog = (inst_select_exp temp temp o flatten_exp) exp in
     Seq prog (Inst (Mem Store var (Addr temp 0w)))) ∧ 
   (inst_select temp (Seq p1 p2) =
     Seq (inst_select temp p1) (inst_select temp p2)) ∧ 
@@ -136,7 +136,6 @@ val inst_select_def = Define`
     Call retsel dest args handlersel) ∧ 
   (inst_select temp prog = prog)`
   
-
 val _ = export_theory();
 
 
