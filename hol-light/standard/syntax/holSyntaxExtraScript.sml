@@ -62,6 +62,10 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
+val type1_size_append = store_thm("type1_size_append",
+  ``∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2``,
+  Induct >> simp[type_size_def])
+
 (* deconstructing variables *)
 
 val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
@@ -3180,5 +3184,175 @@ val type_ok_types_in = store_thm("type_ok_types_in",
 val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
   ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
   ho_match_mp_tac term_induction >> rw[] >> rw[])
+
+(* a type matching algorithm, based on the implementation in HOL4 *)
+
+val tymatch_def = tDefine"tymatch"`
+  (tymatch [] [] sids = SOME sids) ∧
+  (tymatch [] _ _ = NONE) ∧
+  (tymatch _ [] _ = NONE) ∧
+  (tymatch (Tyvar name::ps) (ty::obs) sids =
+   let (s,ids) = sids in
+   let v = REV_ASSOCD (Tyvar name) s (Tyvar name) in
+   case if v = Tyvar name then
+          if MEM name ids then SOME v else NONE
+        else SOME v
+   of NONE => if v=ty then tymatch ps obs (s,name::ids) else tymatch ps obs ((ty,v)::s,ids)
+    | SOME ty1 => if ty1=ty then tymatch ps obs sids else NONE) ∧
+  (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
+   if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
+  (tymatch _ _ _ = NONE)`
+  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
+   simp[type1_size_append])
+val tymatch_ind = theorem "tymatch_ind";
+
+val arities_match_def = tDefine"arities_match"`
+  (arities_match [] [] ⇔ T) ∧
+  (arities_match [] _ ⇔ F) ∧
+  (arities_match _ [] ⇔ F) ∧
+  (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
+   ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
+  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)`
+  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`)
+val arities_match_ind = theorem "arities_match_ind"
+
+val arities_match_length = store_thm("arities_match_length",
+  ``∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)``,
+  ho_match_mp_tac arities_match_ind >> simp[arities_match_def])
+
+val arities_match_nil = store_thm("arities_match_nil[simp]",
+  ``(arities_match [] ls = (ls = [])) ∧
+    (arities_match ls [] = (ls = []))``,
+  Cases_on`ls`>> simp[arities_match_def])
+
+val arities_match_Tyvar = store_thm("arities_match_Tyvar[simp]",
+  ``arities_match (Tyvar v::ps) (ty::obs) = arities_match ps obs``,
+  Cases_on`ty`>>simp[arities_match_def])
+
+val arities_match_append = store_thm("arities_match_append",
+  ``∀l1 l2 l3 l4.
+    arities_match l1 l2 ∧ arities_match l3 l4 ⇒
+    arities_match (l1++l3) (l2++l4)``,
+  ho_match_mp_tac arities_match_ind >>
+  simp[arities_match_def])
+
+val tymatch_SOME = store_thm("tymatch_SOME",
+  ``∀ps obs sids s' ids'.
+     arities_match ps obs ∧
+      DISJOINT (set (MAP SND (FST sids))) (set (MAP Tyvar (SND sids))) ∧
+      (∀name. ¬MEM (Tyvar name,Tyvar name) (FST sids)) ∧
+      ALL_DISTINCT (MAP SND (FST sids)) ∧
+      (tymatch ps obs sids = SOME (s',ids')) ⇒
+       ∃s1 ids1.
+         (s' = s1++(FST sids)) ∧ (ids' = ids1++(SND sids)) ∧
+         DISJOINT (set (MAP SND s')) (set (MAP Tyvar ids')) ∧
+         (∀name. ¬MEM (Tyvar name,Tyvar name) s') ∧
+         ALL_DISTINCT (MAP SND s') ∧
+         (MAP (TYPE_SUBST s') ps = obs)``,
+  ho_match_mp_tac tymatch_ind >>
+  simp[tymatch_def,arities_match_def] >>
+  conj_tac >- (
+    rpt gen_tac >>
+    `∃s ids. sids = (s,ids)` by metis_tac[pairTheory.pair_CASES] >>
+    simp[] >> strip_tac >>
+    rpt gen_tac >>
+    reverse IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[arities_match_def] >> rfs[] >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND,ALL_DISTINCT_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[] >> rfs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND,ALL_DISTINCT_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[] >> rfs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      `¬MEM (Tyvar name) (MAP SND s)` by (
+        fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+        BasicProvers.EVERY_CASE_TAC >- (
+          imp_res_tac ALOOKUP_FAILS >> fs[MEM_MAP,EXISTS_PROD] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      reverse BasicProvers.EVERY_CASE_TAC >> fs[] >- (
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[ALL_DISTINCT_APPEND] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    strip_tac >> fs[] >> rfs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    `¬MEM (Tyvar name) (MAP SND s)` by (
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+      BasicProvers.EVERY_CASE_TAC >- (
+        imp_res_tac ALOOKUP_FAILS >> fs[MEM_MAP,EXISTS_PROD] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    `¬MEM (Tyvar name) (MAP Tyvar ids)` by fs[MEM_MAP] >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+    BasicProvers.CASE_TAC >>
+    fs[ALL_DISTINCT_APPEND] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >> fs[] >>
+  `arities_match (a1++ps) (a2++obs)` by
+    (imp_res_tac arities_match_append) >>
+  fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp_tac (std_ss++ETA_ss) [] >>
+  imp_res_tac arities_match_length >>
+  fs[APPEND_EQ_APPEND] >>
+  rfs[] >>
+  `LENGTH l = 0` by DECIDE_TAC >>
+  fs[LENGTH_NIL])
+
+val match_type_def = Define`
+  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))`
+
+val type_ok_arities_match = store_thm("type_ok_arities_match",
+  ``∀tys ty1 ty2.
+    type_ok tys ty1 ∧ type_ok tys ty2 ⇒ arities_match [ty1] [ty2]``,
+  gen_tac >> ho_match_mp_tac type_ind >> simp[] >>
+  gen_tac >> strip_tac >>
+  gen_tac >> Cases >> simp[arities_match_def] >>
+  rw[type_ok_def] >> fs[] >>
+  fs[EVERY_MEM] >>
+  `∀ty1 ty2. MEM ty1 l ∧ MEM ty2 l' ⇒ arities_match [ty1] [ty2]` by metis_tac[] >>
+  pop_assum mp_tac >>
+  qpat_assum`LENGTH X = Y`mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  map_every qid_spec_tac[`l'`,`l`] >>
+  Induct >> simp[LENGTH_NIL] >>
+  gen_tac >> Cases >> rw[] >>
+  `arities_match l t` by metis_tac[] >>
+  `arities_match [h] [h']` by metis_tac[] >>
+  metis_tac[arities_match_append,APPEND])
+
+val match_type_SOME = store_thm("match_type_SOME",
+  ``∀ty1 ty2 s. arities_match [ty1] [ty2] ⇒
+    (match_type ty1 ty2 = SOME s) ⇒
+    (TYPE_SUBST s ty1 = ty2)``,
+  rw[match_type_def] >>
+  qspecl_then[`[ty1]`,`[ty2]`,`[],[]`]mp_tac tymatch_SOME >>
+  simp[] >>
+  Cases_on`z`>>simp[])
 
 val _ = export_theory()
