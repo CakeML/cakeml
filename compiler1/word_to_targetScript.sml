@@ -30,6 +30,11 @@ val compile_single_def = Define`
 
 (*TODO: Compilation function probably needs to take an alist of (argcount,prog) -- this is a guess*)
 
+val compile_def = Define`
+  compile c enc f sp bp prog_ls = 
+    let prog = MAP (λname_num,arg_count,prog.(name_num,compile_single arg_count c prog)) prog_ls in
+    stack_to_target$compile c enc f sp bp prog`
+
 val _ = export_theory ();
 
 
