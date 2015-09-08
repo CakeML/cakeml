@@ -872,6 +872,26 @@ val _ = Define`
   PROVE_HYP (Sequent asl1 c1) (Sequent asl2 c2) =
     return (Sequent (term_union asl2 (term_remove c2 asl1)) c1)`;
 
+val _ = Define`
+  (list_to_hypset [] a = a) ∧
+  (list_to_hypset (h::hs) a =
+   list_to_hypset hs (term_union [h] a))`;
+
+val _ = Define`
+  ALPHA_THM (Sequent h c) (h',c') =
+  if aconv c c' then
+    let h' = list_to_hypset h' [] in
+    if EVERY (λx. EXISTS (aconv x) h') h then
+      do
+        bty <- bool_ty;
+        tys <- map type_of h';
+        if EVERY (λty. ty = bty) tys then
+          return (Sequent h' c')
+        else failwith (strlit "ALPHA_THM")
+      od
+    else failwith (strlit "ALPHA_THM")
+  else failwith (strlit "ALPHA_THM")`;
+
 (* -- *)
 
 (*

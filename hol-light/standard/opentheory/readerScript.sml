@@ -358,7 +358,7 @@ val readLine_def = Define`
       (obj,s) <- pop s; c <- getTerm obj;
       (obj,s) <- pop s; h <- getList obj; h <- map getTerm h;
       (obj,s) <- pop s; th <- getThm obj;
-      (* TODO: need to do the alpha-conversion *)
+      th <- ALPHA_THM th (h,c);
       return (s with <| thms := th::s.thms |>)
     od
   else if line = strlit"trans" then
