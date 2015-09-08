@@ -7,27 +7,6 @@ val _ = temp_overload_on ("return", ``ex_return``);
 
 val _ = new_theory"reader"
 
-(* TODO: move *)
-
-val SYM_def = Define`
-  SYM (Sequent asl eq) =
-    case eq of
-      Comb (Comb (Const (strlit "=") t) l) r =>
-        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
-    | _ => failwith (strlit "SYM")`;
-
-val PROVE_HYP_def = Define`
-  PROVE_HYP (Sequent asl1 c1) (Sequent asl2 c2) =
-    return (Sequent (term_union asl2 (term_remove c1 asl1)) c1)`;
-
-val first_def = Define`
-  first p l =
-    case l of
-    | [] => NONE
-    | (h::t) => if p h then SOME h else first p t`;
-
-(* -- *)
-
 (* We just represent names in the string (dotted) format.
    To make the namespace more explicit, the following functions could
    be useful.
@@ -126,6 +105,12 @@ val insert_dict_def = Define`
 val delete_dict_def = Define`
   delete_dict k s =
     s with <| dict := delete k s.dict |>`;
+
+val first_def = Define`
+  first p l =
+    case l of
+    | [] => NONE
+    | (h::t) => if p h then SOME h else first p t`;
 
 val find_axiom_def = Define`
   find_axiom (ls,tm) =

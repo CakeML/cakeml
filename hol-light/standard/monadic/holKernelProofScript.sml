@@ -1422,6 +1422,29 @@ val TRANS_thm = store_thm("TRANS_thm",
   MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
   METIS_TAC[])
 
+val SYM_thm = store_thm("SYM_thm",
+  ``THM defs th /\ STATE defs s /\
+    (SYM th s = (res, s')) ==>
+    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
+  Cases_on`th`>>rw[EQ_SYM_EQ]>>fs[SYM_def]>>
+  every_case_tac >> fs[failwith_def,ex_return_def] >>
+  fs[THM_def] >> rw[] >>
+  qmatch_assum_rename_tac`_ |- Comb (Comb (Const _ ty) _) _` >>
+  `∃a. ty = Fun a (Fun a Bool)` by (
+    fs[STATE_def] >> imp_res_tac CONTEXT_std_sig >>
+    imp_res_tac proves_term_ok >> rfs[term_ok_clauses] >> rw[] >>
+    fs[codomain_def] >> rw[] >>
+    rfs[term_ok_def,is_std_sig_def] ) >>
+  rw[] >> match_mp_tac sym >> rw[])
+
+val PROVE_HYP_thm = Q.store_thm("PROVE_HYP_thm",
+  `THM defs th1 ∧ THM defs th2 ∧ STATE defs s ∧
+   (PROVE_HYP th1 th2 s = (res, s')) ⇒
+   (s' = s) ∧ ∀th. (res = HolRes th) ⇒ THM defs th`,
+  Cases_on`th1`>>Cases_on`th2`>>rw[EQ_SYM_EQ]>>
+  fs[PROVE_HYP_def,ex_return_def,THM_def]>>
+  match_mp_tac proveHyp >> rw[]);
+
 val MK_COMB_thm = store_thm("MK_COMB_thm",
   ``THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (MK_COMB (th1,th2) s = (res, s')) ==>

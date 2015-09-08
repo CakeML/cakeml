@@ -859,6 +859,21 @@ val _ = PmatchHeuristics.with_classic_heuristic Define `
         else failwith (strlit "TRANS")
     | _ => failwith (strlit "TRANS")`
 
+(* some in-kernel but derivable rules (TRANS is also in this category) *)
+
+val _ = Define`
+  SYM (Sequent asl eq) =
+    case eq of
+      Comb (Comb (Const (strlit "=") t) l) r =>
+        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
+    | _ => failwith (strlit "SYM")`;
+
+val _ = Define`
+  PROVE_HYP (Sequent asl1 c1) (Sequent asl2 c2) =
+    return (Sequent (term_union asl2 (term_remove c2 asl1)) c1)`;
+
+(* -- *)
+
 (*
   let MK_COMB (Sequent(asl1,c1),Sequent(asl2,c2)) =
      match (c1,c2) with
