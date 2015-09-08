@@ -20,19 +20,6 @@ val PROVE_HYP_def = Define`
   PROVE_HYP (Sequent asl1 c1) (Sequent asl2 c2) =
     return (Sequent (term_union asl2 (term_remove c1 asl1)) c1)`;
 
-val TRANS_def = Define`
-  TRANS (Sequent asl1 eq1) (Sequent asl2 eq2) =
-    do
-      (l1,r1) <- dest_eq eq1;
-      (l2,r2) <- dest_eq eq2 ;
-      if aconv r1 l2 then
-        do
-          eq <- mk_eq(l1,r2);
-          return (Sequent (term_union asl1 asl2) eq)
-        od
-      else failwith (strlit"TRANS")
-    od`;
-
 val first_def = Define`
   first p l =
     case l of
