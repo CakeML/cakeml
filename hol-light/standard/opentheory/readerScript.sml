@@ -143,6 +143,20 @@ val getTms_def = Define`
       return (t,mk_var v)
     od`;
 
+val getNvs_def = Define`
+  getNvs p =
+    do
+      (n,v) <- getPair p; n <- getName n; v <- getVar v;
+      return (mk_var (n,SND v),mk_var v)
+    od`;
+
+val getCns_def = Define`
+  getCns p =
+    do
+      (n,_) <- dest_var (FST p);
+      return (Const n)
+    od`;
+
 val readLine_def = Define`
   readLine line s =
   if line = strlit"absTerm" then
@@ -241,17 +255,11 @@ val readLine_def = Define`
   else if line = strlit"defineConstList" then
     do
       (obj,s) <- pop s; th <- getThm obj;
-      (obj,s) <- pop s; ls <- getList obj;
-      (* TODO: we assume the variables are already named correctly,
-      and ignore the substitution in ls; instead we could now
-      substitute variables in th by differently named variables
-      according to ls. (in fact we don't just ignore ls, but use it
-      to produce the named constants below, which is an even stronger
-      assumption.) *)
+      (obj,s) <- pop s; ls <- getList obj; ls <- map getNvs ls;
+      th <- INST ls th;
       th <- new_specification th;
-      ls <- map getPair ls;
-      ls <- map (λp. getName (FST p)) ls;
-      return (push (Thm th) (push (List (MAP Const ls)) s))
+      ls <- map getCns ls;
+      return (push (Thm th) (push (List ls) s))
     od
   else if line = strlit"defineTypeOp" then
     do
