@@ -1106,7 +1106,7 @@ val compile_exp_correct = Q.prove (
       fs [compile_exps_reverse])
   >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
-  >- (fs [do_log_thm, semanticPrimitivesTheory.do_if_def] >>
+  >- (fs [terminationTheory.do_log_thm, semanticPrimitivesTheory.do_if_def] >>
       every_case_tac >>
       fs [v_rel_eqns, compile_exp_def] >>
       rw[] >> rfs[] >>
@@ -1119,7 +1119,7 @@ val compile_exp_correct = Q.prove (
       disj1_tac >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       rw[modSemTheory.do_if_def] >> fs[] >> fs[Boolv_def])
-  >- (fs [do_log_thm] >>
+  >- (fs [terminationTheory.do_log_thm] >>
       every_case_tac >>
       fs [v_rel_eqns, compile_exp_def] >>
       rw [v_rel_eqns] >>
@@ -1137,7 +1137,7 @@ val compile_exp_correct = Q.prove (
       rw[Once evaluate_cases,PULL_EXISTS] >>
       rw[do_app_def,Boolv_def,opb_lookup_def] >>
       metis_tac[PAIR])
-  >- (fs [do_log_thm] >>
+  >- (fs [terminationTheory.do_log_thm] >>
       every_case_tac >>
       fs [v_rel_eqns, compile_exp_def] >>
       rw [v_rel_eqns] >>
@@ -1858,7 +1858,7 @@ val no_dup_types = Q.prove(
     no_dup_types ds_i1`,
   induct_on `ds` >>
   rw [compile_decs_def]
-  >- fs [bigStepTheory.no_dup_types_def, modSemTheory.no_dup_types_def, modSemTheory.decs_to_types_def] >>
+  >- fs [semanticPrimitivesTheory.no_dup_types_def, modSemTheory.no_dup_types_def, modSemTheory.decs_to_types_def] >>
   `?next1 new_env1 d'. compile_dec next mn menv env h = (next1,new_env1,d')` by metis_tac [pair_CASES] >>
   fs [LET_THM] >>
   `?next2 new_env2 ds'. (compile_decs next1 mn menv (FOLDL (λenv (k,v). env |+ (k,v)) env new_env1) ds) = (next2,new_env2,ds')` by metis_tac [pair_CASES] >>
@@ -1868,7 +1868,7 @@ val no_dup_types = Q.prove(
   cases_on `h` >>
   fs [compile_dec_def, LET_THM] >>
   rw [] >>
-  fs [bigStepTheory.decs_to_types_def, bigStepTheory.no_dup_types_def,
+  fs [semanticPrimitivesTheory.decs_to_types_def, semanticPrimitivesTheory.no_dup_types_def,
       modSemTheory.decs_to_types_def, modSemTheory.no_dup_types_def, ALL_DISTINCT_APPEND] >>
   rw [] >>
   metis_tac [no_dup_types_helper]);
@@ -2041,7 +2041,7 @@ val compile_prog_mods = Q.prove (
     =
     prog_to_mods prog_i1`,
   induct_on `prog` >>
-  rw [compile_prog_def, LET_THM, modSemTheory.prog_to_mods_def, bigStepTheory.prog_to_mods_def] >>
+  rw [compile_prog_def, LET_THM, modSemTheory.prog_to_mods_def, semanticPrimitivesTheory.prog_to_mods_def] >>
   rw [] >>
   `?w x y z. compile_top l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
   fs [] >>
@@ -2057,9 +2057,9 @@ val compile_prog_mods = Q.prove (
   >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
       fs [])
   >- (`?a b c. compile_decs l (SOME s) mods tops l'' = (a,b,c)` by metis_tac [pair_CASES] >>
-      fs [bigStepTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
+      fs [semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
       metis_tac [])
-  >- (fs [bigStepTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
+  >- (fs [semanticPrimitivesTheory.prog_to_mods_def, modSemTheory.prog_to_mods_def] >>
       metis_tac [])
   >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
       fs []));
@@ -2075,7 +2075,7 @@ val compile_prog_top_types = Q.prove (
   rw [compile_prog_def, LET_THM] >>
   rw [] >>
   `?w x y z. compile_top l mods tops h = (w,x,y,z)` by metis_tac [pair_CASES] >>
-  fs [bigStepTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
+  fs [semanticPrimitivesTheory.prog_to_top_types_def, modSemTheory.prog_to_top_types_def] >>
   `?w' x' y' z'. compile_prog w x y prog = (w',x',y',z')` by metis_tac [pair_CASES] >>
   fs [] >>
   rw [] >>
@@ -2096,7 +2096,7 @@ val compile_prog_top_types = Q.prove (
       fs [compile_dec_def] >>
       every_case_tac >>
       fs [LET_THM] >>
-      rw [bigStepTheory.decs_to_types_def, modSemTheory.decs_to_types_def])
+      rw [semanticPrimitivesTheory.decs_to_types_def, modSemTheory.decs_to_types_def])
   >- (`?a b c. compile_dec l NONE mods tops d = (a,b,c)` by metis_tac [pair_CASES] >>
       fs [] >>
       rw []));
@@ -2168,8 +2168,8 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   CCONTR_TAC >>
   fs [] >>
   rw [] >>
-  fs [bigStepTheory.no_dup_mods_def, modSemTheory.no_dup_mods_def,
-      bigStepTheory.no_dup_top_types_def, modSemTheory.no_dup_top_types_def] >>
+  fs [semanticPrimitivesTheory.no_dup_mods_def, modSemTheory.no_dup_mods_def,
+      semanticPrimitivesTheory.no_dup_top_types_def, modSemTheory.no_dup_top_types_def] >>
   metis_tac [compile_prog_mods, compile_prog_top_types, compile_prog_mods_ok, NOT_EVERY]);
 
 val _ = export_theory ();
