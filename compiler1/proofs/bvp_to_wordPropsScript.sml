@@ -73,11 +73,8 @@ val heap_lookup_APPEND1 = prove(
   ``∀h1 z h2.
     heap_length h1 ≤ z ⇒
     (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)``,
-  Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >- (
-    Cases_on`h`>>fs[el_length_def] )
-  >- (
-    fsrw_tac[ARITH_ss][] ) >>
-  simp[])
+  Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >> simp[]
+  >> fsrw_tac[ARITH_ss][] >> Cases_on`h`>>fs[el_length_def])
 
 val heap_lookup_APPEND2 = prove(
   ``∀h1 z h2.
@@ -95,12 +92,7 @@ val heap_lookup_APPEND = store_thm("heap_lookup_APPEND",
   simp[heap_lookup_APPEND1])
 
 
-
-
 (* refinement invariant *)
-
-val small_int_def = Define `
-  small_int i <=> 0 <= i /\ (i:int) < & (2 ** 62)`;
 
 val mw_def = tDefine "mw" `
   mw n = if n = 0 then []:'a word list else
@@ -242,34 +234,42 @@ val wordsToBytesToWords = store_thm("wordsToBytesToWords",
 val Bytes_def = Define`
   Bytes (bs:word8 list) =
     let ws = bytesToWords bs in
-    DataElement [] (LENGTH ws) (BytesTag (LENGTH bs MOD 8), ws)`
+      DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), ws)`
 
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
 
-val _ = type_abbrev("ml_el",``:('a word, tag # ('b word list)) heap_element``);
-val _ = type_abbrev("ml_heap",``:('a,'b) ml_el list``);
+val _ = type_abbrev("ml_el",``:('a word, tag # ('a word list)) heap_element``);
+val _ = type_abbrev("ml_heap",``:'a ml_el list``);
+
+val Smallnum_def = Define `
+  Smallnum i =
+    if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
+
+val Bignum_def = Define `
+  Bignum i = DataOnly (i < 0) (mw (Num (ABS i)))`;
+
+val BlockNil_def = Define `
+  BlockNil n = 4w * n2w n + 2w`;
+
+val small_int_def = Define `
+  small_int (:'a) i <=> w2i (((Smallnum i) >> 2):'a word) = i`;
 
 val v_inv_def = tDefine "v_inv" `
-  (v_inv (Number i) (x,f,heap:('a,'b) ml_heap) <=>
-     if small_int i then
-       (x = Data (((2w * (n2w (Num i))))))
-     else
-       ?ptr. (x = Pointer ptr) /\
-             (heap_lookup ptr heap =
-                SOME (DataOnly (i < 0) ((mw (Num (ABS i))):'b word list)))) /\
-  (v_inv (CodePtr n) (x,f,heap) = (x = Data (n2w n))) /\
+  (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
+     if small_int (:'a) i then (x = Data (Smallnum i)) else
+       ?ptr. (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
+  (v_inv (CodePtr n) (x,f,heap) <=>
+     (x = Data (n2w n))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
      (x = Pointer (f ' n)) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
-     if vs = [] then (x = Data ((2w * n2w n + 1w):'a word)) /\ (n < 2 ** 61) else
+     if vs = [] then (x = Data (BlockNil n)) else
        ?ptr xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
-         (x = Pointer ptr) /\ n < 4096 /\ LENGTH vs < 2**32 /\
-         (heap_lookup ptr heap =
-            SOME (BlockRep n xs)))`
+         (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (BlockRep n xs)))`
  (WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
   \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC);
 
@@ -342,7 +342,7 @@ val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 
 val v_inv_related = prove(
   ``!w x f.
-      gc_related g heap1 heap2 /\
+      gc_related g heap1 (heap2:'a ml_heap) /\
       (!ptr. (x = Pointer ptr) ==> ptr IN FDOM g) /\
       v_inv w (x,f,heap1) ==>
       v_inv w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,heap2) /\
@@ -350,8 +350,8 @@ val v_inv_related = prove(
   completeInduct_on `v_size w` \\ NTAC 5 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
-    \\ Cases_on `small_int i`
-    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,DataOnly_def]
+    \\ Cases_on `small_int (:'a) i`
+    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,DataOnly_def,Bignum_def]
     \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
     \\ full_simp_tac std_ss [ADDR_MAP_def])
   THEN1
@@ -709,7 +709,7 @@ val v_inv_SUBMAP = prove(
       v_inv w (x,f1,heap1) ``,
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
-   (full_simp_tac std_ss [v_inv_def,DataOnly_def] \\ srw_tac [] []
+   (full_simp_tac std_ss [v_inv_def,DataOnly_def,Bignum_def] \\ srw_tac [] []
     \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac std_ss [])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
@@ -731,7 +731,7 @@ val v_inv_SUBMAP = prove(
 
 val cons_thm = store_thm("cons_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,a,sp) limit /\
-    LENGTH xs < sp /\ xs <> [] /\ tag < 4096 /\ LENGTH xs < 2**32 ==>
+    LENGTH xs < sp /\ xs <> [] ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused a sp (BlockRep tag rs) heap = (heap2,T)) /\
@@ -788,17 +788,17 @@ val cons_thm = store_thm("cons_thm",
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) []
   THEN1 (
     imp_res_tac heap_store_rel_lemma \\ full_simp_tac (srw_ss()) []
-  \\ qpat_assum `EVERY2 PP zs l` MP_TAC
-  \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
-  \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP
-  \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL] \\ res_tac)
-  THEN ( fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma ))
+    \\ qpat_assum `EVERY2 PP zs l` MP_TAC
+    \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
+    \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP
+    \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL] \\ res_tac)
+  \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma)
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
-  ``abs_ml_inv stack refs (roots,heap:('a,'b) ml_heap,a,sp) limit /\
+  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,a,sp) limit /\
     tag < 2 ** 61 ==>
     abs_ml_inv ((Block tag [])::stack) refs
-                (Data (2w * n2w tag + 1w)::roots,heap,a,sp) limit``,
+                (Data (BlockNil tag)::roots,heap,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
@@ -959,9 +959,9 @@ val heap_store_RefBlock = prove(
   \\ metis_tac []);
 
 val NOT_isRefBlock = prove(
-  ``~(isRefBlock (DataOnly x y)) /\
+  ``~(isRefBlock (Bignum x)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))``,
-  simp_tac (srw_ss()) [isRefBlock_def,DataOnly_def,RefBlock_def]);
+  simp_tac (srw_ss()) [isRefBlock_def,DataOnly_def,RefBlock_def,Bignum_def]);
 
 val v_inv_Ref = prove(
   ``RefBlock_inv heap heap2 ==>
@@ -1550,6 +1550,7 @@ val heap_el_byte_def = Define`
     | _ => (ARB,F)) /\
   (heap_el_byte _ _ _ = (ARB,F))`
 
+(*
 val deref_byte_thm = store_thm("deref_byte_thm",
   ``abs_ml_inv (RefPtr ptr::stack) refs ((roots: 63 word heap_address list),heap,a,sp) limit ==>
     ?r roots2.
@@ -1613,6 +1614,7 @@ val deref_byte_thm = store_thm("deref_byte_thm",
   \\ full_simp_tac (srw_ss()) [MEM_FLAT,MEM_MAP,PULL_EXISTS]
   \\ qexists_tac `(EL n l)` \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac []);
+*)
 
 (* el *)
 

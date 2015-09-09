@@ -22,8 +22,8 @@ val assign_def = Define `
         (* bvl_to_bvi compilation ensures that all literal
            constants fit into a machine word *)
         if i < 0
-        then (Assign (adjust_var dest) (Const (0w - n2w (Num (2 * (0 - i))))),l)
-        else (Assign (adjust_var dest) (Const (n2w (Num (2 * i)))),l)
+        then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
+        else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
     | _ => (Skip:'a wordLang$prog,l)`;
 
 val comp_def = Define `
