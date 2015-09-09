@@ -1,12 +1,10 @@
-open HolKernel Parse boolLib bossLib;
+open preamble
+open astTheory libTheory semanticPrimitivesTheory bigStepTheory
+     determTheory evalPropsTheory bigClockTheory;
+open mlstringTheory integerTheory;
+open terminationTheory;
+
 val _ = new_theory "ml_translator";
-local open intLib in end;
-open astTheory libTheory semanticPrimitivesTheory bigStepTheory;
-open terminationTheory determTheory evalPropsTheory bigClockTheory;
-open arithmeticTheory listTheory combinTheory pairTheory mlstringTheory;
-open wordsTheory wordsLib;
-open integerTheory terminationTheory;
-open lcsymtacs;
 
 infix \\ val op \\ = op THEN;
 
@@ -443,7 +441,7 @@ val PULL_FORALL = save_thm("PULL_FORALL",
 val FUN_FORALL_PUSH1 = prove(
   ``(FUN_FORALL x. a --> (b x)) = (a --> FUN_FORALL x. b x)``,
   FULL_SIMP_TAC std_ss [Arrow_def,FUN_EQ_THM,AppReturns_def,FUN_FORALL,
-    Eval_def,evaluate_closure_def] \\ REPEAT STRIP_TAC \\ REVERSE EQ_TAC
+    Eval_def,evaluate_closure_def] \\ REPEAT STRIP_TAC \\ reverse EQ_TAC
   THEN1 METIS_TAC [evaluate_11_Rval]
   \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
@@ -811,7 +809,7 @@ val Eval_Ord = store_thm("Eval_Ord",
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS] >>
   fs[CHAR_def,NUM_def,INT_def])
@@ -823,7 +821,7 @@ val Eval_Chr = store_thm("Eval_Chr",
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS] >>
   fs[CHAR_def,NUM_def,INT_def] >>
@@ -838,8 +836,8 @@ val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases),PULL_EXISTS])) >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
   rw[do_app_cases,PULL_EXISTS] >> fs[CHAR_def] >>
   rw[BOOL_def,opb_lookup_def,Boolv_11]
 
@@ -886,7 +884,7 @@ val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  first_assum(miscLib.match_exists_tac o concl) >> rw[] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS]
 
@@ -932,14 +930,11 @@ val VECTOR_TYPE_def = Define `
   VECTOR_TYPE a (Vector l) v <=>
     ?l'. v = Vectorv l' /\ LENGTH l = LENGTH l' /\ LIST_REL a l l'`;
 
-val VEC_LENGTH_def = Define `
-  VEC_LENGTH (Vector l) = LENGTH l`;
-
 val Eval_sub = store_thm("Eval_sub",
  ``!env x1 x2 a n v.
      Eval env x1 (VECTOR_TYPE a v) ==>
      Eval env x2 (NUM n) ==>
-     n < VEC_LENGTH v ==>
+     n < length v ==>
      Eval env (App Vsub [x1; x2]) (a (sub v n))``,
   rw [Eval_def] >>
   rw [Once evaluate_cases] >>
@@ -948,7 +943,7 @@ val Eval_sub = store_thm("Eval_sub",
   rw [PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
-  fs [VECTOR_TYPE_def, VEC_LENGTH_def, NUM_def, sub_def, INT_def] >>
+  fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
   MAP_EVERY qexists_tac [`EL n l'`,`empty_store`,`SOME LNIL`,
         `0,empty_store,SOME LNIL`,`res`,`&n`] >>
   fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS] >>

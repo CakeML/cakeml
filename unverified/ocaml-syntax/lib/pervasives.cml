@@ -1,0 +1,197 @@
+(* Name format:
+   Letter-like names stay as they are. Symbol-like names are transcribed
+   symbol-for-symbol into words separated by underscores. All names here are
+   letter-like and not infix.
+
+   To avoid CakeML builtins, the following substitutions are made:
+     mod |-> oc_mod
+   raise |-> oc_raise
+   *)
+(* Reference:
+   http://caml.inria.fr/pub/docs/manual-ocaml/libref/Pervasives.html *)
+
+(* First, some super-pervasives: *)
+exception Invalid_argument of string;
+exception Failure of string;
+exception Exit;
+exception Sys_error;
+exception End_of_file;
+exception Division_by_zero;
+
+exception Not_found;
+
+structure Pervasives = struct
+  fun oc_raise e = raise e;
+  val raise_notrace = oc_raise;
+  fun invalid_arg s = raise (Invalid_argument s);
+  fun failwith s = raise (Failure s);
+
+  fun equals x y = x = y handle Eq => invalid_arg "equal: functional value";
+  (*fun lt_gt x y = x <> y;*) (* Defined below *)
+  fun lt x y = x < y;
+  fun gt x y = x > y;
+  fun lt_equals x y = x <= y;
+  fun gt_equals x y = x >= y;
+  fun compare x y =
+    if x = y then
+      0
+    else if x < y then
+      ~1
+    else
+      1;
+  fun min x y = if x <= y then x else y;
+  fun max x y = if x >= y then x else y;
+
+  fun not x = case x of
+      false => true
+    | true => false
+    ;
+  (* These will have been dealt with earlier *)
+  fun amp_amp x y = x andalso y;
+  fun bar_bar x y = x orelse y;
+  val amp = amp_amp;
+  val or = bar_bar;
+
+  fun lt_gt x y = not (x = y);
+
+  fun bar_gt x f = f x;
+  fun at_at f x = f x;
+
+  fun tilde_minus x = ~x;
+  fun tilde_plus x = x;
+  fun succ x = 1 + x;
+  fun pred x = x - 1;
+  fun plus x y = x + y;
+  fun minus x y = x - y;
+  fun star x y = x * y;
+  (* OCaml:         |  CakeML:
+     # ~-5 / 3;;    |  ~5 div 3;
+     - : int = -1   |  val it:<int> = ~2
+     # ~-5 mod 3;;  |  ~5 mod 3;
+     - : int = -2   |  val it:<int> = 1
+   *)
+  fun slash x y =
+    if y = 0 then
+      oc_raise Division_by_zero
+    else
+      if y < 0 then
+        if x < 0 then ~x div ~y else ~(x div ~y)
+      else
+        if x < 0 then ~(~x div y) else x div y
+    ;
+  fun oc_mod x y = x - y * slash x y;
+  fun abs x = if x < 0 then ~x else x;
+
+  val int_of_char = Char.ord;
+  val char_of_int = Char.chr;
+
+  fun ignore x = ();
+
+  fun at xs ys = case xs of
+      [] => ys
+    | x :: xs => x :: at xs ys
+    ;
+
+  fun hat s t = String.implode (at (String.explode s) (String.explode t));
+
+  fun string_of_bool x = if x then "true" else "false";
+  fun bool_of_string x = case x of
+      "true" => true
+    | "false" => false
+    | x => invalid_arg "bool_of_string"
+    ;
+  fun string_of_int x =
+    let
+      fun digit x =
+        case x of 0 => "0" | 1 => "1" | 2 => "2" | 3 => "3" | 4 => "4"
+                | 5 => "5" | 6 => "6" | 7 => "7" | 8 => "8" | 9 => "9"
+                | x => invalid_arg "string_of_int internal";
+      fun f x = case x of
+          0 => ""
+        | x => hat (f (x div 10)) (digit (x mod 10));
+    in
+      if x = 0 then "0"
+      else if x > 0 then f x
+      else hat "-" (f (~x))
+    end;
+  fun int_of_string x =
+    let
+      fun undigit x =
+        case String.implode [x] of
+            "0" => 0 | "1" => 1 | "2" => 2 | "3" => 3 | "4" => 4 | "5" => 5
+          | "6" => 6 | "7" => 7 | "8" => 8 | "9" => 9 | "a" => 10 | "A" => 10
+          | "b" => 11 | "B" => 11 | "c" => 12 | "C" => 12 | "d" => 13
+          | "D" => 13 | "e" => 14 | "E" => 14 | "f" => 15 | "F" => 15
+          | x => failwith "int_of_string"
+      fun undigit_checked b x =
+        let val r = undigit x in
+          if r < b then r else failwith "int_of_string"
+        end
+      fun f acc b xs = case xs of
+          [] => acc
+        | x :: xs => f (plus (star b acc) (undigit_checked b x)) b xs
+      fun take n xs = case xs of
+          [] => []
+        | x :: xs => if n = 0 then [] else x :: take (n - 1) xs
+      fun drop n xs = case xs of
+          [] => []
+        | x :: xs => if n = 0 then x :: xs else drop (n - 1) xs
+      fun base x =
+        let
+          val xs = String.explode x
+          val prefix = take 2 xs
+        in
+          if prefix = String.explode "0b" orelse
+             prefix = String.explode "0B" then
+            (2, drop 2 xs)
+          else if prefix = String.explode "0o" orelse
+             prefix = String.explode "0O" then
+            (8, drop 2 xs)
+          else if prefix = String.explode "0x" orelse
+             prefix = String.explode "0X" then
+            (16, drop 2 xs)
+          else
+            (10, xs)
+        end
+      fun uncurry f xy = case xy of (x, y) => f x y
+    in
+      uncurry (f 0) (base x)
+    end;
+
+  fun fst x = case x of (y, z) => y;
+  fun snd x = case x of (y, z) => z;
+
+  type 'a oc_ref = 'a ref;
+  fun oc_ref x = ref x;
+  fun bang x = !x;
+  fun colon_equals r x = r := x;
+  fun incr r = r := succ (!r);
+  fun decr r = r := pred (!r);
+
+  fun print_char x = ();
+  fun print_string x = ();
+  fun print_bytes x = ();
+  fun print_int x = ();
+  fun print_float x = ();
+  fun print_endline x = ();
+  fun print_newline x = ();
+
+  (* Also, some utility functions not strictly in OCaml's Pervasives: *)
+  fun for_up first last f =
+    let
+      fun inner i = if i <= last then (f i; inner (i + 1)) else ()
+    in inner first
+    end;
+
+  fun for_down first last f =
+    let
+      fun inner i = if i >= last then (f i; inner (i - 1)) else ()
+    in inner first
+    end;
+
+  fun while cond f =
+    let
+      fun inner u = if cond () then (f (); inner ()) else ()
+    in inner ()
+    end;
+end;

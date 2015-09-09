@@ -1,0 +1,272 @@
+(* OCaml's List module.
+   http://caml.inria.fr/pub/docs/manual-ocaml/libref/List.html *)
+
+structure List = struct
+  fun length xs = case xs of
+      [] => 0
+    | x :: xs => 1 + length xs;
+  fun hd xs = case xs of
+      [] => Pervasives.failwith "hd"
+    | x :: xs => x;
+  fun tl xs = case xs of
+      [] => Pervasives.failwith "tl"
+    | x :: xs => xs;
+  fun nth xs i =
+    let
+      fun inner xs i = case xs of
+          [] => Pervasives.failwith "nth"
+        | x :: xs => if i = 0 then x else inner xs (i - 1)
+    in
+      if i < 0 then Pervasives.invalid_arg "List.nth" else inner xs i
+    end;
+  fun rev xs =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (x :: acc) xs
+    in
+      inner [] xs
+    end;
+  fun append xs ys = case xs of
+      [] => ys
+    | x :: xs => x :: append xs ys;
+  fun rev_append xs ys = case xs of
+      [] => ys
+    | x :: xs => append xs (x :: ys);
+  fun concat xss = case xss of
+      [] => []
+    | xs :: xss => append xs (concat xss);
+  val flatten = concat;
+
+  fun iter f =
+    let
+      fun inner xs = case xs of
+          [] => ()
+        | x :: xs => (f x; inner xs)
+    in
+      inner
+    end;
+  fun iteri f =
+    let
+      fun inner i xs = case xs of
+          [] => ()
+        | x :: xs => (f i x; inner (1 + i) xs)
+    in
+      inner 0
+    end;
+  fun map f =
+    let
+      fun inner xs = case xs of
+          [] => []
+        | x :: xs => f x :: inner xs
+    in
+      inner
+    end;
+  fun mapi f =
+    let
+      fun inner i xs = case xs of
+          [] => []
+        | x :: xs => f i x :: inner (1 + i) xs
+    in
+      inner 0
+    end;
+  fun rev_map f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f x :: acc) xs
+    in
+      inner []
+    end;
+  fun fold_left f =
+    let
+      fun inner acc xs = case xs of
+          [] => acc
+        | x :: xs => inner (f acc x) xs
+    in
+      inner
+    end;
+  fun fold_right f xs acc =
+    let
+      fun inner xs = case xs of
+          [] => acc
+        | x :: xs => f x (inner xs)
+    in
+      inner xs
+    end;
+
+  fun iter2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => ()
+        | (x :: xs, y :: ys) => (f x y; inner xs ys)
+        | z => Pervasives.invalid_arg "List.iter2"
+    in
+      inner
+    end;
+  fun map2 f =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => []
+        | (x :: xs, y :: ys) => f x y :: inner xs ys
+        | z => Pervasives.invalid_arg "List.map2"
+    in
+      inner
+    end;
+  fun rev_map2 f =
+    let
+      fun inner acc xs ys = case (xs, ys) of
+          ([], []) => acc
+        | (x :: xs, y :: ys) => inner (f x y :: acc) xs ys
+        | z => Pervasives.invalid_arg "List.rev_map2"
+    in
+      inner []
+    end;
+  fun fold_left2 f =
+    let
+      fun inner acc xs ys = case (xs, ys) of
+          ([], []) => acc
+        | (x :: xs, y :: ys) => inner (f acc x y) xs ys
+        | z => Pervasives.invalid_arg "List.fold_left2"
+    in
+      inner []
+    end;
+  fun fold_right2 f xs ys acc =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => acc
+        | (x :: xs, y :: ys) => f x y (inner xs ys)
+        | z => Pervasives.invalid_arg "List.fold_right2"
+    in
+      inner xs ys
+    end;
+
+  fun for_all p =
+    let
+      fun inner xs = case xs of
+          [] => true
+        | x :: xs => p x andalso inner xs
+    in
+      inner
+    end;
+  fun exists p =
+    let
+      fun inner xs = case xs of
+          [] => false
+        | x :: xs => p x orelse inner xs
+    in
+      inner
+    end;
+  fun for_all2 p =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => true
+        | (x :: xs, y :: ys) => p x y andalso inner xs ys
+        | z => Pervasives.invalid_arg "List.for_all2"
+    in
+      inner
+    end;
+  fun exists2 p =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], []) => false
+        | (x :: xs, y :: ys) => p x y orelse inner xs ys
+        | z => Pervasives.invalid_arg "List.exists2"
+    in
+      inner
+    end;
+  fun mem x = exists (fn y => x = y);
+
+  fun find p =
+    let
+      fun inner xs = case xs of
+          [] => Pervasives.oc_raise Not_found
+        | x :: xs => if p x then x else inner xs
+    in
+      inner
+    end;
+  fun filter p =
+    let
+      fun inner xs = case xs of
+          [] => []
+        | x :: xs => if p x then x :: inner xs else inner xs
+    in
+      inner
+    end;
+  val find_all = filter;
+  fun partition p =
+    let
+      fun inner xs = case xs of
+          [] => ([], [])
+        | x :: xs =>
+          case inner xs of (ys, zs) =>
+            if p x then (x :: ys, zs) else (ys, x :: zs)
+    in
+      inner
+    end;
+
+  fun assoc x =
+    let
+      fun inner xs = case xs of
+          [] => Pervasives.oc_raise Not_found
+        | (k, v) :: xs => if k = x then v else inner xs
+    in
+      inner
+    end;
+  fun mem_assoc x = exists (fn kv => case kv of (k, v) => k = x);
+  fun remove_assoc x =
+    let
+      fun inner xs = case xs of
+          [] => []
+        | (k, v) :: xs => if k = x then xs else (k, v) :: inner xs
+    in
+      inner
+    end;
+
+  fun split xs = case xs of
+      [] => ([], [])
+    | (y, z) :: xs => case split xs of (ys, zs) => (y :: ys, z :: zs)
+    ;
+  fun combine xs ys = map2 (fn x => fn y => (x, y)) xs ys
+    handle Invalid_argument _ => Pervasives.invalid_arg "List.combine";
+
+  fun merge cmp =
+    let
+      fun inner xs ys = case (xs, ys) of
+          ([], ys) => ys
+        | (xs, []) => xs
+        | (x :: xs, y :: ys) => if cmp x y <= 0
+            then x :: inner xs (y :: ys)
+            else y :: inner (x :: xs) ys
+    in
+      inner
+    end;
+  fun sort cmp =
+    let
+      val mg = merge cmp
+      fun part xs = case xs of
+          [] => ([], [])
+        | [x] => ([x], [])
+        | y :: z :: xs => case part xs of (ys, zs) => (y :: ys, z :: zs)
+      fun inner xs = case xs of
+          [] => []
+        | [x] => [x]
+        | xs => case part xs of (ys, zs) => mg (inner ys) (inner zs)
+    in
+      inner
+    end;
+  val stable_sort = sort;
+  val fast_sort = sort;
+  fun sort_uniq cmp xs =
+    let
+      fun remove_duplicates xs = case xs of
+          [] => []
+        | [x] => [x]
+        | x :: y :: xs =>
+          if cmp x y = 0
+            then      remove_duplicates (y :: xs)
+            else x :: remove_duplicates (y :: xs)
+    in
+      remove_duplicates (sort cmp xs)
+    end;
+end;

@@ -1514,7 +1514,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``]
+  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``,``:'a vector``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -2915,6 +2915,9 @@ in
     SPEC tm DEFAULT_IMP
 end
 
+fun diff [] ys = []
+  | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys
+
 fun extract_precondition_rec thms = let
   fun rephrase_pre (fname,def,th) = let
     val (lhs,_) = dest_eq (concl def)
@@ -2945,6 +2948,7 @@ val (fname,def,th) = hd thms
           |> QCONV (REWRITE_CONV [rw2,PreImp_def,PRECONDITION_def,CONTAINER_def])
           |> concl |> rand) = T)
   val no_pre = every (map is_true_pre thms)
+
   (* if no pre then remove pre_var from thms *)
   in if no_pre then let
     fun remove_pre_var (fname,def,th,pre_var,tm1,tm2,rw2) = let
@@ -2955,10 +2959,10 @@ val (fname,def,th) = hd thms
                                 (RATOR_CONV o RAND_CONV) (REWRITE_CONV []))
       in (fname,def,th5,NONE) end
     in map remove_pre_var thms end else let
+
   val combine_lemma = prove(
     ``!b1 b2 b3 b4. (b1 /\ b2 ==> b3) /\ (b3 ==> b4) ==> b2 ==> b1 ==> b4``,
     REPEAT Cases THEN SIMP_TAC std_ss [])
-
 (*
   val (fname,def,th,pre_var,tm1,tm2,rw2) = hd thms
 *)
@@ -2969,8 +2973,6 @@ val (fname,def,th) = hd thms
                      (PURE_REWRITE_CONV [PRECONDITION_def]))
     in (fname,def,lemma,pre_var) end;
   val thms2 = map separate_pre thms
-  fun diff [] ys = []
-    | diff (x::xs) ys = if mem x ys then diff xs ys else x :: diff xs ys
   val all_pre_vars = map (fn (fname,def,lemma,pre_var) =>
                             repeat rator pre_var) thms2
 (*
@@ -2979,7 +2981,9 @@ val (fname,def,lemma,pre_var) = hd thms2
   val all_pres = map (fn (fname,def,lemma,pre_var) => let
     val tm = lemma |> concl |> dest_imp |> fst
     val vs = diff (free_vars tm) all_pre_vars
-    in list_mk_forall(vs,mk_imp(tm,pre_var)) end) thms2
+    val ws = tl (list_dest dest_comb pre_var)
+    val ws = ws @ diff vs ws
+    in list_mk_forall(ws,mk_imp(tm,pre_var)) end) thms2
     |> list_mk_conj
   val (_,_,pre_def) = Hol_reln [ANTIQUOTE all_pres]
   val clean_pre_def = pre_def |> PURE_REWRITE_RULE [CONTAINER_def]
@@ -2997,11 +3001,19 @@ val (fname,def,lemma,pre_var) = hd thms2
     val y = pre |> concl |> dest_eq |> fst |> repeat rator
     in x |-> y end
   val ss = map get_sub thms3
+  val pat = ``Eq (a:'a->v->bool) x --> (b:'b->v->bool)``
+  fun list_dest_Eq_Arrow tm =
+    if can (match_term pat) tm then
+      (tm |> rator |> rand |> rand) :: list_dest_Eq_Arrow (rand tm)
+    else []
 (*
 val (pre,(fname,def,lemma,pre_var)) = hd thms3
 *)
   fun compact_pre (pre,(fname,def,lemma,pre_var)) = let
-    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM pre))
+    val vs = pre |> concl |> dest_eq |> fst |> list_dest dest_comb |> tl
+    val ws = lemma |> UNDISCH_ALL |> concl |> rand |> rator |> list_dest_Eq_Arrow
+    val i = map (fn (x,y) => x |-> y) (zip vs ws) handle HOL_ERR _ => []
+    val c = (RATOR_CONV o RAND_CONV) (REWR_CONV (SYM (INST i pre)))
     val lemma = lemma |> INST ss |> CONV_RULE c
                       |> MATCH_MP IMP_PreImp_LEMMA
     val pre = pre |> PURE_REWRITE_RULE [CONTAINER_def]
@@ -3274,6 +3286,18 @@ val _ = (max_print_depth := 25)
                          |> SPEC_ALL |> CONV_RULE c |> (fn th => MATCH_MP th TRUTH)
     (* collect precondition *)
     val thms = extract_precondition_rec thms
+(*
+    (* derive rewrites for the precondition *)
+    val pre_rw1 = thms |> map (fn (_,_,_,x) =>
+       case x of NONE => [] | SOME pre_def => let
+         val (lhs,rhs) = pre_def |> SPEC_ALL |> concl |> dest_eq
+         val vs = diff (free_vars lhs) (free_vars rhs)
+         val s = map (fn v => v |-> mk_arb(type_of v)) vs
+         in if vs = [] then [] else
+             [auto_prove "pre_rw1" (mk_eq(lhs,subst s lhs),
+                ONCE_REWRITE_TAC [pre_def] THEN REWRITE_TAC [])]
+         end) |> flatten
+*)
     (* apply induction *)
     fun get_goal (fname,def,th,pre) = let
       val th = REWRITE_RULE [CONTAINER_def] th
@@ -3337,6 +3361,11 @@ val _ = (max_print_depth := 25)
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
         \\ REPEAT STRIP_TAC
         \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
+(*
+        \\ REPEAT (POP_ASSUM MP_TAC)
+        \\ ONCE_REWRITE_TAC pre_rw1
+        \\ REPEAT STRIP_TAC
+*)
         \\ FULL_SIMP_TAC std_ss [UNCURRY_SIMP,PRECONDITION_def]
         \\ METIS_TAC [])
       handle HOL_ERR _ =>

@@ -44,6 +44,7 @@ val tokmap0 =
                 ("nil", ``AlphaT "nil"``),
                 ("o", ``AlphaT "o"``),
                 ("of", ``OfT``),
+                ("op", ``OpT``),
                 ("orelse", ``OrelseT``),
                 ("raise", ``RaiseT``),
                 ("ref", ``AlphaT "ref"``),
@@ -103,9 +104,14 @@ val cmlG_def = mk_grammar_def ginfo
       |  ^(``{LongidT str s | str,s |
               s ≠ "" ∧ (isAlpha (HD s) ⇒ ¬isUpper (HD s)) ∧
               s ∉ {"true"; "false"; "ref"; "nil"}}``) ;
+ OpID ::= ^(``{LongidT str s | str,s | s ≠ ""}``)
+       |  ^(``{AlphaT s | s ≠ ""}``)
+       |  ^(``{SymbolT s | s ≠ ""}``)
+       |  "*" ;
  Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
-        |  <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]" | "[" Elist1 "]";
+        |  <CharT> | <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
+        | "[" Elist1 "]" | "op" OpID ;
  Eseq ::= E ";" Eseq | E;
  Etuple ::= "(" Elist2 ")";
  Elist2 ::= E "," Elist1;
@@ -128,12 +134,12 @@ val cmlG_def = mk_grammar_def ginfo
  ElogicAND ::= ElogicAND "andalso" Etyped | Etyped;
  ElogicOR ::= ElogicOR "orelse" ElogicAND | ElogicAND;
  Ehandle ::= ElogicOR | ElogicOR "handle" PEs ;
- E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" V "=>" E | "raise" E
-    |  Ehandle;
+ E ::= "if" E "then" E "else" E | "case" E "of" PEs | "fn" Pattern "=>" E
+    | "raise" E |  Ehandle;
  E' ::= "if" E "then" E "else" E' | "raise" E' | ElogicOR ;
 
  (* function and value declarations *)
- FDecl ::= V Vlist1 "=" E ;
+ FDecl ::= V PbaseList1 "=" E ;
  AndFDecls ::= FDecl | AndFDecls "and" FDecl;
  Decl ::= "val" Pattern "=" E  | "fun" AndFDecls |  TypeDec
        |  "exception" Dconstructor
@@ -143,12 +149,13 @@ val cmlG_def = mk_grammar_def ginfo
  LetDecs ::= LetDec LetDecs | ";" LetDecs | ;
 
  (* patterns *)
- Pbase ::= V | ConstructorName | <IntT> | <StringT> | Ptuple | "_"
+ Pbase ::= V | ConstructorName | <IntT> | <StringT> | <CharT> | Ptuple | "_"
         |  "[" "]" | "[" PatternList "]";
  Papp ::= ConstructorName Pbase | Pbase;
  Pattern ::= Papp "::" Pattern | Papp ;
  Ptuple ::= "(" ")" | "(" PatternList ")";
  PatternList ::= Pattern | Pattern "," PatternList ;
+ PbaseList1 ::= Pbase | Pbase PbaseList1 ;
  PE ::= Pattern "=>" E;
  PE' ::= Pattern "=>" E';
  PEs ::= PE | PE' "|" PEs;

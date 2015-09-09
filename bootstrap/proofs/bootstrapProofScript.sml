@@ -340,6 +340,7 @@ val errors_tag_def  = Define`errors_tag  = ^(mktm "Errors")`
 val others_tag_def  = Define`others_tag  = ^(mktm "Others")`
 val longs_tag_def   = Define`longs_tag   = ^(mktm "Longs")`
 val numbers_tag_def = Define`numbers_tag = ^(mktm "Numbers")`
+val chars_tag_def = Define`chars_tag = ^(mktm "Chars")`
 val strings_tag_def = Define`strings_tag = ^(mktm "Strings")`
 
 val BlockNil_def  = Define `BlockNil = Block (block_tag+conLang$nil_tag) []`;
@@ -359,6 +360,7 @@ val BlockInr_def = Define `BlockInr x = Block (block_tag+inr_tag) [x]`;
 val BlockOtherS_def  = Define `BlockOtherS x  = Block (block_tag+others_tag) [x]`;
 val BlockLongS_def   = Define `BlockLongS x   = Block (block_tag+longs_tag) [x]`;
 val BlockNumberS_def = Define `BlockNumberS x = Block (block_tag+numbers_tag) [x]`;
+val BlockCharS_def = Define `BlockCharS x = Block (block_tag+chars_tag) [x]`;
 val BlockStringS_def = Define `BlockStringS x = Block (block_tag+strings_tag) [x]`;
 val BlockErrorS_def  = Define `BlockErrorS    = Block (block_tag+errors_tag) []`;
 
@@ -369,7 +371,8 @@ val BlockSym_def = Define `
   (BlockSym (OtherS s) = BlockOtherS (BlockList (MAP Chr s))) /\
   (BlockSym (LongS s) = BlockLongS (BlockList (MAP Chr s))) /\
   (BlockSym (ErrorS) = BlockErrorS) /\
-  (BlockSym (NumberS n) = BlockNumberS (Number n))`;
+  (BlockSym (NumberS n) = BlockNumberS (Number n)) /\
+  (BlockSym (CharS c) = BlockCharS (Chr c))`;
 
 val BlockNum3_def = Define `
   BlockNum3 (x,y,z) =
@@ -460,6 +463,7 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
     (FLOOKUP (FST(SND d)) ("Others",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (others_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("Longs",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (longs_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("Numbers",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (numbers_tag,1)) ∧
+    (FLOOKUP (FST(SND d)) ("Chars",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (chars_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("Strings",TypeId(Long"REPL""lexer_fun_symbol")) = SOME (strings_tag,1)) ∧
     (FLOOKUP (FST(SND d)) ("nil",TypeId(Short"list")) = SOME (conLang$nil_tag,0)) ∧
     (FLOOKUP (FST(SND d)) ("::",TypeId(Short"list")) = SOME (conLang$cons_tag,2))
@@ -468,11 +472,13 @@ val LEXER_FUN_SYMBOL_TYPE_v_bv = prove(
   strip_tac >> PairCases_on`d`>>fs[]>>
   Cases >> simp[LEXER_FUN_SYMBOL_TYPE_def,PULL_EXISTS] >>
   simp(ml_translatorTheory.INT_def::PULL_EXISTS::conv_rws) >>
-  simp[BlockSym_def] >>
+  simp(ml_translatorTheory.CHAR_def::PULL_EXISTS::conv_rws) >>
+  simp[BlockSym_def,Chr_def] >>
   simp[BlockStringS_def,
        BlockNumberS_def,
        BlockLongS_def,
        BlockOtherS_def,
+       BlockCharS_def,
        BlockErrorS_def] >>
   rw[] >>
   (LIST_TYPE_v_bv
@@ -873,7 +879,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
     rw[Abbr`b`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def] >>
+    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def] >>
     NO_TAC) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
@@ -1093,7 +1099,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
     rw[Abbr`z`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def]) >>
+    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def]) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   CONV_TAC SWAP_EXISTS_CONV >>

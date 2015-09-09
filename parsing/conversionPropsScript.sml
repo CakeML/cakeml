@@ -227,6 +227,39 @@ val Eseq_encode_OK = store_thm(
   Induct >> simp[] >>
   Cases_on `l` >> simp[Eseq_encode_def]);
 
+val OpID_OK = store_thm(
+  "OpID_OK",
+  ``ptree_head pt = NN nOpID ∧ MAP TK toks = ptree_fringe pt ∧
+    valid_ptree cmlG pt ⇒
+    ∃astv. ptree_OpID pt = SOME astv``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  dsimp[] >> rpt strip_tac >>
+  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
+  fs[MAP_EQ_CONS, MAP_EQ_APPEND] >>
+  simp[ptree_OpID_def, isConstructor_def, isSymbolicConstructor_def, ifM_def] >>
+  rw[] >> Cases_on `s` >> fs[oHD_def] >> rw[]);
+
+val PbaseList1_OK = store_thm(
+  "PbaseList1_OK",
+  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ∧
+    ptree_head pt = NT (mkNT nPbaseList1) ⇒
+    ∃pl. ptree_PbaseList1 pt = SOME pl ∧ 0 < LENGTH pl``,
+  map_every qid_spec_tac [`toks`, `pt`] >>
+  ho_match_mp_tac grammarTheory.ptree_ind >>
+  dsimp[] >> rpt strip_tac >>
+  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
+  fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
+  dsimp[Once ptree_PbaseList1_def]
+  >- (erule strip_assume_tac (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`] |> n) >>
+      fs[])
+  >- (qcase_tac `ptree_head pbt = NN nPbase` >>
+      qcase_tac `ptree_fringe pbt = MAP TK pbtoks` >>
+      mp_tac
+        (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`, `pt` |-> `pbt`,
+                                `toks` |-> `pbtoks`] |> n) >>
+      simp[] >> fs[]))
+
 val _ = print "The E_OK proof takes a while\n"
 val E_OK0 = store_thm(
   "E_OK0",
@@ -260,7 +293,7 @@ val E_OK0 = store_thm(
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
   rpt (Q.UNDISCH_THEN `bool$T` (K ALL_TAC)) >>
   TRY (std >> NO_TAC)
-  >- (erule strip_assume_tac (n V_OK) >> std)
+  >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (match_mp_tac (GEN_ALL Ops_OK0) >> simp[])
   >- (match_mp_tac (GEN_ALL Ops_OK0) >> simp[])
   >- (match_mp_tac (GEN_ALL Ops_OK0) >> simp[])
@@ -286,15 +319,16 @@ val E_OK0 = store_thm(
         by (Cases_on `pt'` >> fs[] >> simp[ptree_FQV_def]) >>
       erule strip_assume_tac (n ConstructorName_OK) >> rw[])
   >- (erule strip_assume_tac (n Eseq_encode_OK) >> simp[])
+  >- (erule strip_assume_tac (n OpID_OK) >> simp[])
   >- (asm_match `ptree_head pt' = NN nLetDec` >>
       `∀s. pt' <> Lf s` by (Cases_on `pt'` >> fs[MAP_EQ_CONS] >> rveq >> fs[])>>
       simp[])
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
   >- (erule strip_assume_tac (n Pattern_OK) >> std)
-  >- (erule strip_assume_tac (n V_OK) >> std) >>
-  dsimp[] >>
-  map_every (erule strip_assume_tac o n) [V_OK, Vlist1_OK] >>
-  asm_match `vl <> []` >> Cases_on `vl` >> fs[oHD_def] >> std)
+  >- (erule strip_assume_tac (n V_OK) >> std)
+  >- (dsimp[] >>
+      map_every (erule strip_assume_tac o n) [V_OK, PbaseList1_OK] >>
+      asm_match `0 < LENGTH pl` >> Cases_on `pl` >> fs[oHD_def] >> std))
 
 val E_OK = save_thm("E_OK", okify CONJUNCT1 `nE` E_OK0)
 val AndFDecls_OK = save_thm(
