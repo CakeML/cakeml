@@ -18,6 +18,12 @@ val assign_def = Define `
   assign (c:config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
     case op of
+    | Const i =>
+        (* bvl_to_bvi compilation ensures that all literal
+           constants fit into a machine word *)
+        if i < 0
+        then (Assign (adjust_var dest) (Const (0w - n2w (Num (2 * (0 - i))))),l)
+        else (Assign (adjust_var dest) (Const (n2w (Num (2 * i)))),l)
     | _ => (Skip:'a wordLang$prog,l)`;
 
 val comp_def = Define `
