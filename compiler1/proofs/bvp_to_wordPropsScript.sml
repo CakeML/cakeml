@@ -2,6 +2,12 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory;
 
 val _ = new_theory "bvp_to_wordProps";
 
+(* ----------------------------------------------------
+    TODO:
+     - byte arrays are too specific to word64
+     - bignums ought to be stored in two's complement
+   ---------------------------------------------------- *)
+
 val MOD_EQ_0_0 = prove(
   ``∀n b. 0 < b ⇒ (n MOD b = 0) ⇒ n < b ⇒ (n = 0)``,
   rw[MOD_EQ_0_DIVISOR] >> Cases_on`d`>>fs[])
@@ -102,7 +108,7 @@ val mw_def = tDefine "mw" `
     \\ DECIDE_TAC);
 
 val _ = Datatype `
-  tag = BlockTag num | RefTag | NumTag bool | BytesTag num`;
+  tag = BlockTag num | RefTag num | NumTag bool`;
 
 val DataOnly_def = Define `
   DataOnly b xs = DataElement [] (LENGTH xs) (NumTag b,xs)`;
@@ -234,7 +240,7 @@ val wordsToBytesToWords = store_thm("wordsToBytesToWords",
 val Bytes_def = Define`
   Bytes (bs:word8 list) =
     let ws = bytesToWords bs in
-      DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), ws)`
+      DataElement [] (LENGTH ws) (RefTag (LENGTH bs), ws)`
 
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
@@ -292,7 +298,7 @@ val reachable_refs_def = Define `
     ?x r. MEM x roots /\ MEM r (get_refs x) /\ RTC (ref_edge refs) r t`;
 
 val RefBlock_def = Define `
-  RefBlock xs = DataElement xs (LENGTH xs) (RefTag,[])`;
+  RefBlock xs = DataElement xs (LENGTH xs) (RefTag 0,[])`;
 
 val bc_ref_inv_def = Define `
   bc_ref_inv n refs (f,heap) =
@@ -1062,26 +1068,14 @@ val update_ref_thm = store_thm("update_ref_thm",
     \\ imp_res_tac EVERY2_SWAP \\ full_simp_tac std_ss []) \\ res_tac
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
-  THEN1 (
-    full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ srw_tac [] []
-    \\ qexists_tac `zs'` \\ full_simp_tac std_ss []
-    \\ FIRST_X_ASSUM match_mp_tac
-    \\ full_simp_tac (srw_ss()) [INJ_DEF]
-    \\ metis_tac [])
-  THEN (
-    full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ fs[Bytes_def,LET_THM] >>
-    first_x_assum(qspec_then`x''`mp_tac) >>
-    simp[] >> disch_then match_mp_tac >>
-    spose_not_then strip_assume_tac >>
-    fs[RefBlock_def]));
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ rw []
+  \\ Cases_on `refs ' n` \\ full_simp_tac (srw_ss()) []
+  \\ full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
 
 val heap_deref_def = Define `
   (heap_deref a heap =
     case heap_lookup a heap of
-    | SOME (DataElement xs l (RefTag,[])) => SOME xs
+    | SOME (DataElement xs l (RefTag _,[])) => SOME xs
     | _ => NONE)`;
 
 val update_ref_thm1 = store_thm("update_ref_thm1",
@@ -1153,21 +1147,9 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ res_tac
   \\ Cases_on `FLOOKUP f n` \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
-  \\ Cases_on `x'''` \\ full_simp_tac (srw_ss()) []
-  THEN1 (
-    full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ srw_tac [] []
-    \\ qexists_tac `zs'` \\ full_simp_tac std_ss []
-    \\ FIRST_X_ASSUM match_mp_tac
-    \\ full_simp_tac (srw_ss()) [INJ_DEF]
-    \\ metis_tac [])
-  THEN (
-    full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ fs[Bytes_def,LET_THM] >>
-    first_x_assum(qspec_then`x''`mp_tac) >>
-    simp[] >> disch_then match_mp_tac >>
-    spose_not_then strip_assume_tac >>
-    fs[RefBlock_def]));
+  \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ rw []
+  \\ Cases_on `refs ' n` \\ full_simp_tac (srw_ss()) []
+  \\ full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
 
 (* new ref *)
 
@@ -1543,16 +1525,16 @@ val deref_thm = store_thm("deref_thm",
 val heap_el_byte_def = Define`
   (heap_el_byte (Pointer a) n heap =
     case heap_lookup a heap of
-    | SOME (DataElement x l (BytesTag y, ws)) =>
+    | SOME (DataElement x l (RefTag _, ws)) =>
         if n < LENGTH (wordsToBytes ws)
         then (w2w(EL n (wordsToBytes ws)),T)
-        else (ARB:word64,F)
+        else (ARB,F)
     | _ => (ARB,F)) /\
   (heap_el_byte _ _ _ = (ARB,F))`
 
 (*
 val deref_byte_thm = store_thm("deref_byte_thm",
-  ``abs_ml_inv (RefPtr ptr::stack) refs ((roots: 63 word heap_address list),heap,a,sp) limit ==>
+  ``abs_ml_inv (RefPtr ptr::stack) refs (roots,heap,a,sp) limit ==>
     ?r roots2.
       (roots = r::roots2) /\ ptr IN FDOM refs /\
       case refs ' ptr of
