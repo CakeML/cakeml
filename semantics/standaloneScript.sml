@@ -1,32 +1,71 @@
-open preamble
-open lexer_funTheory printTheory initialProgramTheory gramTheory cmlPtreeConversionTheory terminationTheory
-val _ = new_theory"standalone"
+open HolKernel boolLib bossLib;
+open lexer_funTheory printTheory initialProgramTheory gramTheory cmlPtreeConversionTheory;
+open ffiTheory simpleIOTheory;
+open terminationTheory;
+open pathTheory;
 
-val _ = hide"state";
-
-val (ast_standalone_rules,ast_standalone_ind,ast_standalone_cases) = Hol_reln`
-  (type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
-   evaluate_whole_prog F (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) state.sem_env.sem_store prog (store',envC',r)
-   ⇒
-   ast_standalone state F prog (SOME (print_prog_result tenv' r))) ∧
-  (type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv' ∧
-   prog_diverges (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE) (remove_count state.sem_env.sem_store) prog
-   ⇒
-   ast_standalone state F prog NONE) ∧
-  (ast_standalone state T prog (SOME "<type error>\n"))`
+val _ = new_theory "standalone";
 
 val parse_def = Define`
-  parse toks =
-    case some pt. valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
-                  ptree_fringe pt = MAP TOK toks
-    of
-       NONE => NONE
-     | SOME p => ptree_TopLevelDecs p`
+parse toks =
+  case some pt. valid_ptree cmlG pt ∧ ptree_head pt = NT (mkNT nTopLevelDecs) ∧
+                ptree_fringe pt = MAP TOK toks
+  of
+     NONE => NONE
+   | SOME p => ptree_TopLevelDecs p`;
 
-val standalone_def = Define`
-  standalone init_state type_error input =
-    case parse (lexer_fun input) of
-    | NONE => SOME "<parse error>\n"
-    | SOME prog => OPTION_JOIN (some output. ast_standalone init_state type_error prog output)`
+val _ = hide "state";
 
-val _ = export_theory()
+val can_type_prog_def = Define `
+can_type_prog state prog =
+  ∃tdecs' tenvT' tenvM' tenvC' tenv'. 
+    type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv 
+        prog 
+        tdecs' tenvT' tenvM' tenvC' tenv'`;
+
+val evaluate_prog_with_io_def = Define `
+evaluate_prog_with_io prog state io k =
+  evaluate_prog prog 
+                (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE)
+                ((<| clock := k; 
+                     refs := FST (SND (FST state.sem_env.sem_store)); 
+                     io := io |>,
+                  FST (SND state.sem_env.sem_store)),
+                 SND (SND state.sem_env.sem_store))`;
+
+val sem_def = Define `
+(sem state prog (Terminate io_list) ⇔
+  can_type_prog state prog ∧
+  ?k state' r envC.
+    evaluate_prog_with_io prog state (SOME (fromList io_list)) k = (Rval r, envC, state') ∧
+    (FST (FST state')).io = SOME LNIL) ∧
+(sem state prog (Diverge io_trace) ⇔
+  can_type_prog state prog ∧
+  (!k. ?state' envC.
+    (evaluate_prog_with_io prog state (SOME io_trace) k = 
+        (Rerr (Rabort Rtimeout_error), envC, state')) ∧
+     (FST (FST state')).io = SOME LNIL) ∧
+     (* for every proper prefix of the I/O trace: evaluate causes the
+        I/O component to disagree with the given I/O trace prefix *)
+   (!io. LPREFIX io io_trace ∧ io ≠ io_trace ⇒
+      ?k. ((FST (FST (SND (SND (evaluate_prog_with_io prog state (SOME io) k))))).io = NONE))) ∧
+(sem state prog Fail ⇔
+  ¬(can_type_prog state prog))`;
+
+val compose_system_sem_def = Define `
+(compose_system_sem path (Terminate io_list) ⇔
+  (fromList io_list = labels path)) ∧
+(compose_system_sem path (Diverge io_trace) ⇔
+  io_trace = labels path ∧
+  (LFINITE io_trace ⇒ ¬(last path).has_exited)) ∧
+(compose_system_sem path Fail ⇔ T)`;
+
+val system_sem_def = Define `
+system_sem init_state toks res =
+  case parse toks of
+  | NONE => res = Fail
+  | SOME prog =>
+      sem init_state prog res ∧
+      ?p. okpath system_step p ∧ compose_system_sem p res`;
+
+val _ = export_theory();
