@@ -13,6 +13,7 @@ repl_result =
 
 val _ = hide"state";
 
+(*
 val update_repl_state_def = Define `
 update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
   case r of
@@ -22,16 +23,16 @@ update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
            tenvM := FUNION tenvM state.tenvM;
            tenvC := merge_alist_mod_env tenvC state.tenvC;
            tenv := bind_var_list2 tenv state.tenv;
-           sem_env := <| sem_store := store;
-                         sem_envM := envM ++ state.sem_env.sem_envM;
-                         sem_envC := merge_alist_mod_env envC state.sem_env.sem_envC;
-                         sem_envE := envE ++ state.sem_env.sem_envE |> |>
+           sem_env :=  SOME (store, 
+                        <| m := envM ++ (SND state.sem_env).m;
+                           c := merge_alist_mod_env envC (SND state.sem_env).c;
+                           v := envE ++ (SND state.sem_env).v |>) |>
     | Rerr _ =>
         (* We need to record the attempted module names (if any), so that it
         * can't be defined later.  To avoid the situation where a failing module
         * defines some datatype constructors and puts them into the store before
         * failing. *)
-        state with <| sem_env := state.sem_env with sem_store := store;
+        state with <| sem_env := SOME (store, SND state.sem_env); 
                       tdecs := tdecs |>`;
 
 val (ast_repl_rules, ast_repl_ind, ast_repl_cases) = Hol_reln `
@@ -75,5 +76,6 @@ val parse_def = Define`
 
 val repl_def = Define `
 repl init_repl_state input = ast_repl init_repl_state (MAP parse (split_top_level_semi (lexer_fun input)))`;
+*)
 
 val _ = export_theory ();

@@ -25,14 +25,7 @@ can_type_prog state prog =
 
 val evaluate_prog_with_io_def = Define `
 evaluate_prog_with_io state io k prog =
-  evaluate_prog 
-      <| clock := k; 
-         refs := FST (SND (FST state.sem_env.sem_store)); 
-         io := io;
-         defined_types := FST (SND state.sem_env.sem_store);
-         defined_mods := SND (SND state.sem_env.sem_store) |>
-      <| m := state.sem_env.sem_envM; c := state.sem_env.sem_envC; v := state.sem_env.sem_envE |>
-      prog`;
+  evaluate_prog (state.sem_st with <| clock := k; io := io |>) state.sem_env prog`;
                 
 val sem_def = Define `
 (sem state prog (Terminate io_list) ⇔

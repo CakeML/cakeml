@@ -97,37 +97,35 @@ let basis_program =
       mk_ffi 8;
       mk_ffi 9] ]
 
-type sem_environment = <| sem_envM : env_mod;
-                          sem_envC : env_ctor;
-                          sem_envE : env_val;
-                          sem_store : count_store_trace v * set tid_or_exn * set modN |>
 
-val add_to_sem_env : sem_environment -> prog -> maybe sem_environment
-let add_to_sem_env se prog =
-  let res = { res | evaluate_whole_prog false <| m = se.sem_envM; c = se.sem_envC; v = se.sem_envE |> se.sem_store prog res } in
+val add_to_sem_env : (state * environment v) -> prog -> maybe (state * environment v)
+let add_to_sem_env (st, env) prog =
+  let res = { res | evaluate_whole_prog false env st prog res } in
     if res = {} then
       Nothing
     else
       match Set_extra.choose res with
         | (s,envC,Rval (envM,envE)) ->
-           Just <| sem_envM = envM ++ se.sem_envM;
-                   sem_envC = merge_alist_mod_env envC se.sem_envC;
-                   sem_envE = envE ++ se.sem_envE;
-                   sem_store = s |>
+           Just (s, <| env with m = envM ++ env.m;
+                                c = merge_alist_mod_env envC env.c;
+                                v = envE ++ env.v |>)
         | _ -> Nothing
       end
 
-val prim_sem_env : maybe sem_environment
+val prim_sem_env : maybe (state * environment v)
 let prim_sem_env =
-  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[],Just lnil),{},{}) |> prim_types_program
+  add_to_sem_env (<| clock = 0; io = Just lnil; refs = []; defined_mods = {}; defined_types = {} |>,
+                  <| m = []; c= ([],[]); v = [] |>)
+        prim_types_program
 
-val basis_sem_env : maybe sem_environment
+val basis_sem_env : maybe (state * environment v)
 let basis_sem_env =
   add_to_sem_env (Maybe_extra.fromJust prim_sem_env) basis_program
 
 open import TypeSystem
-type semantics_state =
-             <| (* Type system state *)
-                tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
-                (* Semantics state *)
-                sem_env : sem_environment |>
+type top_state =
+         <| (* Type system state *)
+            tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+            (* Semantics state *)
+            sem_st : state;
+            sem_env : environment v |>

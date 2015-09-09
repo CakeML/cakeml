@@ -4,14 +4,6 @@ open import Ast
 open import SemanticPrimitives
 open import Ffi
 
-type state =
-  <| clock : nat
-   ; refs  : store v
-   ; io    : io_trace
-   ; defined_types : set tid_or_exn
-   ; defined_mods : set modN
-   |>
-
 (* The semantics is defined here using check_clock so that HOL4 generates
  * provable termination conditions. However, after termination is proved, we
  * clean up the definition (in HOL4) to remove occurrences of check_clock. *)
@@ -250,13 +242,10 @@ evaluate_tops st env [Tmod mn specs ds] =
     (st, ([],[]), Rerr (Rabort Rtype_error))
 declare termination_argument evaluate_tops = automatic
 
-let convert_prog_state st =
-  ((st.clock,st.refs,st.io),st.defined_types,st.defined_mods)
-
 val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v
 let
 evaluate_prog st env prog =
-  if no_dup_mods prog (convert_prog_state st) && no_dup_top_types prog (convert_prog_state st) then
+  if no_dup_mods prog st && no_dup_top_types prog st then
     evaluate_tops st env prog
   else
     (st, ([],[]), Rerr (Rabort Rtype_error))

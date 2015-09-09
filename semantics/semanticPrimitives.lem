@@ -133,6 +133,14 @@ let lookup_var_id id env =
         end
   end
 
+type state =
+  <| clock : nat
+   ; refs  : store v
+   ; io    : io_trace
+   ; defined_types : set tid_or_exn
+   ; defined_mods : set modN
+   |>
+
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
 val do_con_check : env_ctor -> maybe (id conN) -> nat -> bool
@@ -654,10 +662,6 @@ val extend_top_env : env_mod -> env_val -> env_ctor -> environment v -> environm
 let extend_top_env new_m new_v new_c env =
   <| m = new_m ++ env.m; c = merge_alist_mod_env new_c env.c; v = new_v ++ env.v |>
 
-let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)
-
-type count_store_trace 'a = nat * store 'a * io_trace
-
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =
   List.concat (List.map (fun d ->
@@ -678,10 +682,10 @@ let prog_to_mods tops =
           | _ -> [] end)
      tops)
 
-val no_dup_mods : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool
-let no_dup_mods tops (_,_,mods) =
+val no_dup_mods : list top -> state -> bool
+let no_dup_mods tops st =
   List.allDistinct (prog_to_mods tops) &&
-  disjoint (Set.fromList (prog_to_mods tops)) mods
+  disjoint (Set.fromList (prog_to_mods tops)) st.defined_mods
 
 val prog_to_top_types : list top -> list typeN
 let prog_to_top_types tops =
@@ -691,10 +695,10 @@ let prog_to_top_types tops =
           | _ -> [] end)
      tops)
 
-val no_dup_top_types : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool
-let no_dup_top_types tops (_,tids,_) =
+val no_dup_top_types : list top -> state -> bool
+let no_dup_top_types tops st =
   List.allDistinct (prog_to_top_types tops) &&
-  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) tids
+  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) st.defined_types
 
 
 (* conversions to strings *)

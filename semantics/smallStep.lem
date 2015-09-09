@@ -32,10 +32,10 @@ type ctxt = ctxt_frame * environment v
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-type state = environment v * store_trace v * exp_or_val * list ctxt
+type small_state = environment v * store_trace v * exp_or_val * list ctxt
 
 type e_step_result =
-  | Estep of state
+  | Estep of small_state
   | Eabort of abort
   | Estuck
 
@@ -133,7 +133,7 @@ let continue s v cs =
  * if given to a primitive.  Returns Bind_error when no pattern in a match
  * matches the value.  Otherwise it returns the next state *)
 
-val e_step : state -> e_step_result
+val e_step : small_state -> e_step_result
 let e_step (env, s, ev, c) =
   match ev with
     | Val v  ->
@@ -185,7 +185,7 @@ let e_step (env, s, ev, c) =
 
 (* Define a semantic function using the steps *)
 
-val e_step_reln : state -> state -> bool
+val e_step_reln : small_state -> small_state -> bool
 val small_eval : environment v -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool
 
 let e_step_reln st1 st2 =

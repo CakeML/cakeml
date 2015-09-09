@@ -44,11 +44,11 @@ val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v environment``);
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-val _ = type_abbrev( "state" , ``: v environment # v store_trace # exp_or_val # ctxt list``);
+val _ = type_abbrev( "small_state" , ``: v environment # v store_trace # exp_or_val # ctxt list``);
 
 val _ = Hol_datatype `
  e_step_result =
-    Estep of state
+    Estep of small_state
   | Eabort of abort
   | Estuck`;
 
@@ -155,7 +155,7 @@ val _ = Define `
  * if given to a primitive.  Returns Bind_error when no pattern in a match
  * matches the value.  Otherwise it returns the next state *)
 
-(*val e_step : state -> e_step_result*)
+(*val e_step : small_state -> e_step_result*)
 val _ = Define `
  (e_step (env, s, ev, c) =  
 ((case ev of
@@ -209,7 +209,7 @@ val _ = Define `
 
 (* Define a semantic function using the steps *)
 
-(*val e_step_reln : state -> state -> bool*)
+(*val e_step_reln : small_state -> small_state -> bool*)
 (*val small_eval : environment v -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool*)
 
 val _ = Define `
