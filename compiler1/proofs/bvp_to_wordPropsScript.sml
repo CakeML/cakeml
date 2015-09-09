@@ -1,11 +1,11 @@
-open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory;
+open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
+     int_bitwiseTheory;
 
 val _ = new_theory "bvp_to_wordProps";
 
 (* ----------------------------------------------------
     TODO:
      - byte arrays are too specific to word64
-     - bignums ought to be stored in two's complement
    ---------------------------------------------------- *)
 
 val MOD_EQ_0_0 = prove(
@@ -100,18 +100,8 @@ val heap_lookup_APPEND = store_thm("heap_lookup_APPEND",
 
 (* refinement invariant *)
 
-val mw_def = tDefine "mw" `
-  mw n = if n = 0 then []:'a word list else
-           n2w (n MOD dimword (:'a)) :: mw (n DIV dimword(:'a))`
-   (WF_REL_TAC `measure I`
-    \\ simp_tac std_ss [MATCH_MP DIV_LT_X ZERO_LT_dimword,ONE_LT_dimword]
-    \\ DECIDE_TAC);
-
 val _ = Datatype `
-  tag = BlockTag num | RefTag num | NumTag bool`;
-
-val DataOnly_def = Define `
-  DataOnly b xs = DataElement [] (LENGTH xs) (NumTag b,xs)`;
+  tag = BlockTag num | RefTag num | NumTag`;
 
 val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
@@ -254,8 +244,22 @@ val Smallnum_def = Define `
   Smallnum i =
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
+val words_of_bits_def = tDefine "words_of_bits" `
+  (words_of_bits [] = []:'a word list) /\
+  (words_of_bits xs =
+     let n = dimindex (:'a) in
+       n2w (num_of_bits (TAKE n xs)) :: words_of_bits (DROP n xs))`
+  (WF_REL_TAC `measure LENGTH` \\ fs [LENGTH_DROP])
+
+val words_of_int_def = Define `
+  words_of_int i =
+    if 0 <= i then words_of_bits (bits_of_num (Num i)) else
+      MAP (~) (words_of_bits (bits_of_num (Num (int_not i))))`
+
 val Bignum_def = Define `
-  Bignum i = DataOnly (i < 0) (mw (Num (ABS i)))`;
+  Bignum i =
+    DataElement [] (LENGTH ((words_of_int i):'a word list))
+      (NumTag, (words_of_int i):'a word list)`;
 
 val BlockNil_def = Define `
   BlockNil n = 4w * n2w n + 2w`;
@@ -357,7 +361,7 @@ val v_inv_related = prove(
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,get_refs_def,EVERY_DEF]
     \\ Cases_on `small_int (:'a) i`
-    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,DataOnly_def,Bignum_def]
+    \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
     \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
     \\ full_simp_tac std_ss [ADDR_MAP_def])
   THEN1
@@ -715,7 +719,7 @@ val v_inv_SUBMAP = prove(
       v_inv w (x,f1,heap1) ``,
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
-   (full_simp_tac std_ss [v_inv_def,DataOnly_def,Bignum_def] \\ srw_tac [] []
+   (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
     \\ imp_res_tac heap_store_rel_lemma \\ full_simp_tac std_ss [])
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
@@ -967,7 +971,7 @@ val heap_store_RefBlock = prove(
 val NOT_isRefBlock = prove(
   ``~(isRefBlock (Bignum x)) /\
     ~(isRefBlock (DataElement xs (LENGTH xs) (BlockTag n,[])))``,
-  simp_tac (srw_ss()) [isRefBlock_def,DataOnly_def,RefBlock_def,Bignum_def]);
+  simp_tac (srw_ss()) [isRefBlock_def,RefBlock_def,Bignum_def]);
 
 val v_inv_Ref = prove(
   ``RefBlock_inv heap heap2 ==>
