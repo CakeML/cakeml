@@ -8,7 +8,7 @@ val _ = new_theory "initSemEnv";
 
 val interp_add_to_sem_env_def = Define `
 interp_add_to_sem_env se prog =
-  case run_eval_whole_prog (se.sem_envM,se.sem_envC,se.sem_envE) (set_counter 100000 se.sem_store) prog of
+  case run_eval_whole_prog <| m := se.sem_envM; c := se.sem_envC; v := se.sem_envE |> (set_counter 100000 se.sem_store) prog of
      | (store,envC,Rval (envM,envE)) =>
          SOME
          <| sem_envM := envM ++ se.sem_envM;
@@ -25,7 +25,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
  simp [LET_THM, interp_add_to_sem_env_def, add_to_sem_env_def] >>
  rpt gen_tac >>
  `?count' s' tids' mdecls' cenv res.
-    run_eval_whole_prog (se.sem_envM,se.sem_envC,se.sem_envE) (set_counter 100000 se.sem_store) prog
+    run_eval_whole_prog <| m := se.sem_envM; c := se.sem_envC; v := se.sem_envE |> (set_counter 100000 se.sem_store) prog
     =
     (((count',s'),tids',mdecls'),cenv,res)`
              by metis_tac [pair_CASES] >>
@@ -39,7 +39,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
      every_case_tac >>
      fs []) >>
  fs [] >>
- `evaluate_whole_prog F (se.sem_envM,se.sem_envC,se.sem_envE) ((count'',s),tids,mdecls) prog (((count'',s'),tids',mdecls'),cenv,res)`
+ `evaluate_whole_prog F <| m := se.sem_envM; c := se.sem_envC; v := se.sem_envE |> ((count'',s),tids,mdecls) prog (((count'',s'),tids',mdecls'),cenv,res)`
         by (fs [evaluate_whole_prog_def, no_dup_mods_def, no_dup_top_types_def] >>
             every_case_tac >>
             rw [] >>
@@ -51,7 +51,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
  fs [] >>
  rw [EXTENSION]
  >- metis_tac [] >>
- `{res | evaluate_whole_prog F (se.sem_envM,se.sem_envC,se.sem_envE) ((count'',s),tids,mdecls) prog res}
+ `{res | evaluate_whole_prog F <| m := se.sem_envM; c := se.sem_envC; v := se.sem_envE |> ((count'',s),tids,mdecls) prog res}
   =
   {(((count'',s'),tids',mdecls'),cenv,Rval (envM,envE))}`
             by (rw [EXTENSION] >>

@@ -118,16 +118,17 @@ val _ = Define `
 
 
 val _ = Hol_datatype `
- sem_environment = <| sem_envM : envM;
-                          sem_envC : envC;
-                          sem_envE : envE;
+ sem_environment = <| sem_envM : env_mod;
+                          sem_envC : env_ctor;
+                          sem_envE : env_val;
                           sem_store : v count_store_trace # tid_or_exn set # modN set |>`;
 
 
 (*val add_to_sem_env : sem_environment -> prog -> maybe sem_environment*)
 val _ = Define `
  (add_to_sem_env se prog =  
-(let res = ({ res | res | evaluate_whole_prog F (se.sem_envM,se.sem_envC,se.sem_envE)
+(let res = ({ res | res | evaluate_whole_prog F
+                  <| m := se.sem_envM; c := se.sem_envC; v := se.sem_envE |>
                   se.sem_store prog res }) in
     if res = {} then
       NONE

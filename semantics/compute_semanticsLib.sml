@@ -28,9 +28,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.string_to_string_def
     ,semanticPrimitivesTheory.string_escape_def
     ,semanticPrimitivesTheory.build_tdefs_def
-    ,semanticPrimitivesTheory.all_env_to_menv_def
-    ,semanticPrimitivesTheory.all_env_to_cenv_def
-    ,semanticPrimitivesTheory.all_env_to_env_def
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.merge_alist_mod_env_def
     ,semanticPrimitivesTheory.match_result_case_def
@@ -62,6 +59,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     val () = add_datatype ``:'a id`` compset
     val () = add_datatype ``:eq_result`` compset
     val () = add_datatype ``:tctor`` compset
+    val () = add_datatype ``:'a environment`` compset
   in
     ()
   end

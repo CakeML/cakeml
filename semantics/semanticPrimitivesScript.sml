@@ -50,8 +50,16 @@ val _ = Define `
 
 
 (* Maps each constructor to its arity and which type it is from *)
-val _ = type_abbrev( "flat_envC" , ``: (conN, (num # tid_or_exn)) alist``);
-val _ = type_abbrev( "envC" , ``: (conN, (num # tid_or_exn)) alist_mod_env``);
+val _ = type_abbrev( "flat_env_ctor" , ``: (conN, (num # tid_or_exn)) alist``);
+val _ = type_abbrev( "env_ctor" , ``: (conN, (num # tid_or_exn)) alist_mod_env``);
+
+val _ = Hol_datatype `
+(*  'v *) environment =
+  <| v : (varN, 'v) alist
+   ; c : (conN, (num # tid_or_exn)) alist_mod_env
+   ; m : (modN, ( (varN, 'v)alist)) alist
+   |>`;
+
 
 (* Value forms *)
 val _ = Hol_datatype `
@@ -61,12 +69,12 @@ val _ = Hol_datatype `
   | Conv of  (conN # tid_or_exn)option => v list
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of ( (modN, ( (varN, v)alist))alist # envC # (varN, v) alist) => varN => exp
+  | Closure of v environment => varN => exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of ( (modN, ( (varN, v)alist))alist # envC # (varN, v) alist) => (varN # varN # exp) list => varN
+  | Recclosure of v environment => (varN # varN # exp) list => varN
   | Loc of num
   | Vectorv of v list`;
 
@@ -78,23 +86,8 @@ val _ = Define `
 (* These are alists rather than finite maps because the type of values (v above)
  * recurs through them, and HOL4 does not easily support that kind of data type
  * (although Isabelle/HOL does) *)
-val _ = type_abbrev( "envE" , ``: (varN, v) alist``);
-val _ = type_abbrev( "envM" , ``: (modN, envE) alist``);
-
-val _ = type_abbrev( "all_env" , ``: envM # envC # envE``);
-
-val _ = Define `
- (all_env_to_menv (menv,cenv,env) = menv)`;
-
-val _ = Define `
- (all_env_to_cenv (menv,cenv,env) = cenv)`;
-
-val _ = Define `
- (all_env_to_env (menv,cenv,env) = env)`;
-
-val _ = Define `
- (all_env_with_env (menv,cenv,_) env = (menv,cenv,env))`;
-
+val _ = type_abbrev( "env_val" , ``: (varN, v) alist``);
+val _ = type_abbrev( "env_mod" , ``: (modN, env_val) alist``);
 
 (* The result of evaluation *)
 val _ = Hol_datatype `
@@ -171,13 +164,13 @@ val _ = Define `
     NONE))`;
 
 
-(*val lookup_var_id : id varN -> all_env -> maybe v*)
+(*val lookup_var_id : id varN -> environment v -> maybe v*)
 val _ = Define `
- (lookup_var_id id (menv,cenv,env) =  
+ (lookup_var_id id env =  
 ((case id of
-      Short x => ALOOKUP env x
+      Short x => ALOOKUP env.v x
     | Long x y =>
-        (case ALOOKUP menv x of
+        (case ALOOKUP env.m x of
             NONE => NONE
           | SOME env => ALOOKUP env y
         )
@@ -186,7 +179,7 @@ val _ = Define `
 
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-(*val do_con_check : envC -> maybe (id conN) -> nat -> bool*)
+(*val do_con_check : env_ctor -> maybe (id conN) -> nat -> bool*)
 val _ = Define `
  (do_con_check cenv n_opt l =  
 ((case n_opt of
@@ -199,7 +192,7 @@ val _ = Define `
   )))`;
 
 
-(*val build_conv : envC -> maybe (id conN) -> list v -> maybe v*)
+(*val build_conv : env_ctor -> maybe (id conN) -> list v -> maybe v*)
 val _ = Define `
  (build_conv envC cn vs =  
 ((case cn of
@@ -263,7 +256,7 @@ val _ = Define `
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-(*val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE*)
+(*val pmatch : env_ctor -> store v -> pat -> v -> env_val -> match_result env_val*)
  val pmatch_defn = Hol_defn "pmatch" `
 
 (pmatch envC s (Pvar x) v' env = (Match ((x,v')::env)))
@@ -318,7 +311,7 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn pmatch_defn;
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-(*val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE*)
+(*val build_rec_env : list (varN * varN * exp) -> environment v -> env_val -> env_val*)
 val _ = Define `
  (build_rec_env funs cl_env add_to_env =  
 (FOLDR
@@ -422,16 +415,16 @@ val _ = Define `
 
 
 (* Do an application *)
-(*val do_opapp : list v -> maybe (all_env * exp)*)
+(*val do_opapp : list v -> maybe (environment v * exp)*)
 val _ = Define `
  (do_opapp vs =  
 ((case vs of
-    [Closure (menv, cenv, env) n e; v] =>
-      SOME ((menv, cenv, ((n,v)::env)), e)
-  | [Recclosure (menv, cenv, env) funs n; v] =>
+    [Closure env n e; v] =>
+      SOME (( env with<| v := (n,v)::env.v |>), e)
+  | [Recclosure env funs n; v] =>
       if ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) then
         (case find_recfun n funs of
-            SOME (n,e) => SOME ((menv, cenv, ((n,v)::(build_rec_env funs (menv, cenv, env) env))), e)
+            SOME (n,e) => SOME (( env with<| v := (n,v)::build_rec_env funs env env.v |>), e)
           | NONE => NONE
         )
       else
@@ -720,7 +713,7 @@ val _ = Define `
 (* Semantic helpers for definitions *)
 
 (* Build a constructor environment for the type definition tds *)
-(*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC*)
+(*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_env_ctor*)
 val _ = Define `
  (build_tdefs mn tds =  
 (REVERSE
@@ -761,6 +754,18 @@ val _ = Define `
       Rerr e => Rerr e
     | Rval (menv',env') => Rval ((menv'++menv), (env'++env))
   )))`;
+
+
+(*val extend_dec_env : env_val -> flat_env_ctor -> environment v -> environment v*)
+val _ = Define `
+ (extend_dec_env new_v new_c env =  
+(<| m := env.m; c := (merge_alist_mod_env ([],new_c) env.c); v := (new_v ++ env.v) |>))`;
+
+
+(*val extend_top_env : env_mod -> env_val -> env_ctor -> environment v -> environment v*)
+val _ = Define `
+ (extend_top_env new_m new_v new_c env =  
+(<| m := (new_m ++ env.m); c := (merge_alist_mod_env new_c env.c); v := (new_v ++ env.v) |>))`;
 
 
 val _ = Define `
@@ -817,6 +822,7 @@ val _ = Define `
  (no_dup_top_types tops (_,tids,_) =  
 (ALL_DISTINCT (prog_to_top_types tops) /\
   DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) tids))`;
+
 
 
 (* conversions to strings *)

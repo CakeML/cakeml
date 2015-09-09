@@ -97,14 +97,14 @@ let basis_program =
       mk_ffi 8;
       mk_ffi 9] ]
 
-type sem_environment = <| sem_envM : envM;
-                          sem_envC : envC;
-                          sem_envE : envE;
+type sem_environment = <| sem_envM : env_mod;
+                          sem_envC : env_ctor;
+                          sem_envE : env_val;
                           sem_store : count_store_trace v * set tid_or_exn * set modN |>
 
 val add_to_sem_env : sem_environment -> prog -> maybe sem_environment
 let add_to_sem_env se prog =
-  let res = { res | evaluate_whole_prog false (se.sem_envM,se.sem_envC,se.sem_envE) se.sem_store prog res } in
+  let res = { res | evaluate_whole_prog false <| m = se.sem_envM; c = se.sem_envC; v = se.sem_envE |> se.sem_store prog res } in
     if res = {} then
       Nothing
     else

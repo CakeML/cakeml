@@ -56,19 +56,19 @@ evaluate ck env s1 (Handle e pes) bv)
 evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a)))
 
 /\ (! ck env cn es vs s s' v.
-(do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-(build_conv (all_env_to_cenv env) cn (REVERSE vs) = SOME v) /\
+(do_con_check env.c cn (LENGTH es) /\
+(build_conv env.c cn (REVERSE vs) = SOME v) /\
 evaluate_list ck env s (REVERSE es) (s', Rval vs))
 ==>
 evaluate ck env s (Con cn es) (s', Rval v))
 
 /\ (! ck env cn es s.
-(~ (do_con_check (all_env_to_cenv env) cn (LENGTH es)))
+(~ (do_con_check env.c cn (LENGTH es)))
 ==>
 evaluate ck env s (Con cn es) (s, Rerr (Rabort Rtype_error)))
 
 /\ (! ck env cn es err s s'.
-(do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
+(do_con_check env.c cn (LENGTH es) /\
 evaluate_list ck env s (REVERSE es) (s', Rerr err))
 ==>
 evaluate ck env s (Con cn es) (s', Rerr err))
@@ -182,22 +182,22 @@ evaluate ck env s1 (Mat e pes) bv)
 ==>
 evaluate ck env s (Mat e pes) (s', Rerr err))
 
-/\ (! ck menv cenv env n e1 e2 v bv s1 s2.
-(evaluate ck (menv,cenv,env) s1 e1 (s2, Rval v) /\
-evaluate ck (menv,cenv,opt_bind n v env) s2 e2 bv)
+/\ (! ck env n e1 e2 v bv s1 s2.
+(evaluate ck env s1 e1 (s2, Rval v) /\
+evaluate ck ( env with<| v := opt_bind n v env.v |>) s2 e2 bv)
 ==>
-evaluate ck (menv,cenv,env) s1 (Let n e1 e2) bv)
+evaluate ck env s1 (Let n e1 e2) bv)
 
 /\ (! ck env n e1 e2 err s s'.
 (evaluate ck env s e1 (s', Rerr err))
 ==>
 evaluate ck env s (Let n e1 e2) (s', Rerr err))
 
-/\ (! ck menv cenv env funs e bv s.
+/\ (! ck env funs e bv s.
 (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-evaluate ck (menv,cenv,build_rec_env funs (menv,cenv,env) env) s e bv)
+evaluate ck ( env with<| v := build_rec_env funs env env.v |>) s e bv)
 ==>
-evaluate ck (menv,cenv,env) s (Letrec funs e) bv)
+evaluate ck env s (Letrec funs e) bv)
 
 /\ (! ck env funs e s.
 (~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)))
@@ -231,24 +231,24 @@ T
 ==>
 evaluate_match ck env s v [] err_v (s, Rerr (Rraise err_v)))
 
-/\ (! ck menv cenv env env' v p pes e bv err_v s t count.
+/\ (! ck env env' v p pes e bv err_v s t count.
 (ALL_DISTINCT (pat_bindings p []) /\
-(pmatch cenv s p v env = Match env') /\
-evaluate ck (menv,cenv,env') (count,s,t) e bv)
+(pmatch env.c s p v env.v = Match env') /\
+evaluate ck ( env with<| v := env' |>) (count,s,t) e bv)
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv)
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v bv)
 
-/\ (! ck menv cenv env v p e pes bv s t count err_v.
+/\ (! ck env v p e pes bv s t count err_v.
 (ALL_DISTINCT (pat_bindings p []) /\
-(pmatch cenv s p v env = No_match) /\
-evaluate_match ck (menv,cenv,env) (count,s,t) v pes err_v bv)
+(pmatch env.c s p v env.v = No_match) /\
+evaluate_match ck env (count,s,t) v pes err_v bv)
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv)
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v bv)
 
-/\ (! ck menv cenv env v p e pes s t count err_v.
-(pmatch cenv s p v env = Match_type_error)
+/\ (! ck env v p e pes s t count err_v.
+(pmatch env.c s p v env.v = Match_type_error)
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v ((count,s,t), Rerr (Rabort Rtype_error)))
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v ((count,s,t), Rerr (Rabort Rtype_error)))
 
 /\ (! ck env v p e pes s err_v.
 (~ (ALL_DISTINCT (pat_bindings p [])))
@@ -260,21 +260,21 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error)))`;
 val _ = Hol_reln ` (! ck mn env p e v env' s1 s2 t2 count tdecs.
 (evaluate ck env s1 e ((count,s2,t2), Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v [] = Match env'))
+(pmatch env.c s2 p v [] = Match env'))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2),tdecs), Rval ([], env')))
 
 /\ (! ck mn env p e v s1 s2 t2 count tdecs.
 (evaluate ck env s1 e ((count,s2,t2), Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v [] = No_match))
+(pmatch env.c s2 p v [] = No_match))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2), tdecs), Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []))))
 
 /\ (! ck mn env p e v s1 s2 t2 count tdecs.
 (evaluate ck env s1 e ((count,s2,t2), Rval v) /\
 ALL_DISTINCT (pat_bindings p []) /\
-(pmatch (all_env_to_cenv env) s2 p v [] = Match_type_error))
+(pmatch env.c s2 p v [] = Match_type_error))
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2),tdecs), Rerr (Rabort Rtype_error)))
 
@@ -339,11 +339,11 @@ evaluate_decs ck mn env s [] (s, [], Rval []))
 ==>
 evaluate_decs ck mn env s1 (d::ds) (s2, [], Rerr e))
 
-/\ (! ck mn s1 s2 s3 menv cenv env d ds new_tds' new_tds new_env r.
-(evaluate_dec ck mn (menv,cenv,env) s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs ck mn (menv, merge_alist_mod_env ([],new_tds) cenv, (new_env++env)) s2 ds (s3, new_tds', r))
+/\ (! ck mn s1 s2 s3 env d ds new_tds' new_tds new_env r.
+(evaluate_dec ck mn env s1 d (s2, Rval (new_tds,new_env)) /\
+evaluate_decs ck mn (extend_dec_env new_env new_tds env) s2 ds (s3, new_tds', r))
 ==>
-evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, (new_tds' ++ new_tds), combine_dec_result new_env r))`;
+evaluate_decs ck mn env s1 (d::ds) (s3, (new_tds' ++ new_tds), combine_dec_result new_env r))`;
 
 
 val _ = Hol_reln ` (! ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
@@ -385,11 +385,11 @@ T
 ==>
 evaluate_prog ck env s [] (s, ([],[]), Rval ([], [])))
 
-/\ (! ck s1 s2 s3 menv cenv env top tops new_mods new_tds new_tds' new_env r.
-(evaluate_top ck (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods,new_env)) /\
-evaluate_prog ck ((new_mods++menv), merge_alist_mod_env new_tds cenv, (new_env++env)) s2 tops (s3,new_tds',r))
+/\ (! ck s1 s2 s3 env top tops new_mods new_tds new_tds' new_env r.
+(evaluate_top ck env s1 top (s2, new_tds, Rval (new_mods,new_env)) /\
+evaluate_prog ck (extend_top_env new_mods new_env new_tds env) s2 tops (s3,new_tds',r))
 ==>
-evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r))
+evaluate_prog ck env s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r))
 
 /\ (! ck s1 s2 env top tops err new_tds.
 (evaluate_top ck env s1 top (s2, new_tds, Rerr err))
@@ -397,7 +397,8 @@ evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_alist_mod_env new_tds
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err))`;
 
 
-(*val evaluate_whole_prog : bool -> all_env -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> (count_store_trace v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool*)
+(*val evaluate_whole_prog : bool -> environment v -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> 
+          (count_store_trace v * set tid_or_exn * set modN) * env_ctor * result (env_mod * env_val) v -> bool*)
 val _ = Define `
  (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
 (if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
@@ -422,11 +423,11 @@ val _ = Hol_reln ` (! mn st env d ds.
 ==>
 decs_diverges mn env st (d::ds)) 
 
-/\ (! mn s1 s2 menv cenv env d ds new_tds new_env count tdecs tdecs' t1 t2.
-(evaluate_dec F mn (menv,cenv,env) ((count,s1,t1),tdecs) d (((count,s2,t2),tdecs'), Rval (new_tds, new_env)) /\
-decs_diverges mn (menv,merge_alist_mod_env ([],new_tds) cenv, (new_env++env)) ((s2,t2),tdecs') ds)
+/\ (! mn s1 s2 env d ds new_tds new_env count tdecs tdecs' t1 t2.
+(evaluate_dec F mn env ((count,s1,t1),tdecs) d (((count,s2,t2),tdecs'), Rval (new_tds, new_env)) /\
+decs_diverges mn (extend_dec_env new_env new_tds env) ((s2,t2),tdecs') ds)
 ==>
-decs_diverges mn (menv,cenv,env) ((s1,t1),tdecs) (d::ds))`;
+decs_diverges mn env ((s1,t1),tdecs) (d::ds))`;
 
 val _ = Hol_reln ` (! st env d tdecls mdecls.
 (dec_diverges env (st,tdecls) d)
@@ -445,10 +446,10 @@ val _ = Hol_reln ` (! st env top tops.
 ==>
 prog_diverges env st (top::tops))
 
-/\ (! s1 s2 t1 t2 menv cenv env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
-(evaluate_top F (menv,cenv,env) ((count,s1,t1),tdecs,mods) top (((count,s2,t2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) /\
-prog_diverges ((new_mods++menv), merge_alist_mod_env new_tds cenv, (new_env++env)) ((s2,t2),tdecs',mods') tops)
+/\ (! s1 s2 t1 t2 env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
+(evaluate_top F env ((count,s1,t1),tdecs,mods) top (((count,s2,t2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) /\
+prog_diverges (extend_top_env new_mods new_env new_tds env) ((s2,t2),tdecs',mods') tops)
 ==>
-prog_diverges (menv,cenv,env) ((s1,t1),tdecs,mods) (top::tops))`;
+prog_diverges env ((s1,t1),tdecs,mods) (top::tops))`;
 val _ = export_theory()
 

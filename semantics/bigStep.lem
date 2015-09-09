@@ -14,9 +14,9 @@ open import SmallStep
    functions applications have happened, and raises an exception when the counter
    runs out. *)
 
-indreln [evaluate : bool -> all_env -> count_store_trace v -> exp -> count_store_trace v * result v v -> bool]
-and [evaluate_list : bool -> all_env -> count_store_trace v -> list exp -> count_store_trace v * result (list v) v -> bool]
-and [evaluate_match : bool -> all_env -> count_store_trace v -> v -> list (pat * exp) -> v -> count_store_trace v * result v v -> bool]
+indreln [evaluate : bool -> environment v -> count_store_trace v -> exp -> count_store_trace v * result v v -> bool]
+and [evaluate_list : bool -> environment v -> count_store_trace v -> list exp -> count_store_trace v * result (list v) v -> bool]
+and [evaluate_match : bool -> environment v -> count_store_trace v -> v -> list (pat * exp) -> v -> count_store_trace v * result v v -> bool]
 
 lit : forall ck env l s.
 true
@@ -62,8 +62,8 @@ evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a))
 and
 
 con1 : forall ck env cn es vs s s' v.
-do_con_check (all_env_to_cenv env) cn (List.length es) &&
-build_conv (all_env_to_cenv env) cn (List.reverse vs) = Just v &&
+do_con_check env.c cn (List.length es) &&
+build_conv env.c cn (List.reverse vs) = Just v &&
 evaluate_list ck env s (List.reverse es) (s', Rval vs)
 ==>
 evaluate ck env s (Con cn es) (s', Rval v)
@@ -71,14 +71,14 @@ evaluate ck env s (Con cn es) (s', Rval v)
 and
 
 con2 : forall ck env cn es s.
-not (do_con_check (all_env_to_cenv env) cn (List.length es))
+not (do_con_check env.c cn (List.length es))
 ==>
 evaluate ck env s (Con cn es) (s, Rerr (Rabort Rtype_error))
 
 and
 
 con3 : forall ck env cn es err s s'.
-do_con_check (all_env_to_cenv env) cn (List.length es) &&
+do_con_check env.c cn (List.length es) &&
 evaluate_list ck env s (List.reverse es) (s', Rerr err)
 ==>
 evaluate ck env s (Con cn es) (s', Rerr err)
@@ -86,7 +86,7 @@ evaluate ck env s (Con cn es) (s', Rerr err)
 and
 
 var1 : forall ck env n v s.
-(lookup_var_id n env = Just v)
+lookup_var_id n env = Just v
 ==>
 evaluate ck env s (Var n) (s, Rval v)
 
@@ -230,11 +230,11 @@ evaluate ck env s (Mat e pes) (s', Rerr err)
 
 and
 
-let1 : forall ck menv cenv env n e1 e2 v bv s1 s2.
-evaluate ck (menv,cenv,env) s1 e1 (s2, Rval v) &&
-evaluate ck (menv,cenv,opt_bind n v env) s2 e2 bv
+let1 : forall ck env n e1 e2 v bv s1 s2.
+evaluate ck env s1 e1 (s2, Rval v) &&
+evaluate ck <| env with v = opt_bind n v env.v |> s2 e2 bv
 ==>
-evaluate ck (menv,cenv,env) s1 (Let n e1 e2) bv
+evaluate ck env s1 (Let n e1 e2) bv
 
 and
 
@@ -245,11 +245,11 @@ evaluate ck env s (Let n e1 e2) (s', Rerr err)
 
 and
 
-letrec1 : forall ck menv cenv env funs e bv s.
+letrec1 : forall ck env funs e bv s.
 List.allDistinct (List.map (fun (x,y,z) -> x) funs) &&
-evaluate ck (menv,cenv,build_rec_env funs (menv,cenv,env) env) s e bv
+evaluate ck <| env with v = build_rec_env funs env env.v |> s e bv
 ==>
-evaluate ck (menv,cenv,env) s (Letrec funs e) bv
+evaluate ck env s (Letrec funs e) bv
 
 and
 
@@ -297,28 +297,28 @@ evaluate_match ck env s v [] err_v (s, Rerr (Rraise err_v))
 
 and
 
-mat_cons1 : forall ck menv cenv env env' v p pes e bv err_v s t count.
+mat_cons1 : forall ck env env' v p pes e bv err_v s t count.
 List.allDistinct (pat_bindings p []) &&
-pmatch cenv s p v env = Match env' &&
-evaluate ck (menv,cenv,env') (count,s,t) e bv
+pmatch env.c s p v env.v = Match env' &&
+evaluate ck <| env with v = env' |> (count,s,t) e bv
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v bv
 
 and
 
-mat_cons2 : forall ck menv cenv env v p e pes bv s t count err_v.
+mat_cons2 : forall ck env v p e pes bv s t count err_v.
 List.allDistinct (pat_bindings p []) &&
-pmatch cenv s p v env = No_match &&
-evaluate_match ck (menv,cenv,env) (count,s,t) v pes err_v bv
+pmatch env.c s p v env.v = No_match &&
+evaluate_match ck env (count,s,t) v pes err_v bv
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v bv
 
 and
 
-mat_cons3 : forall ck menv cenv env v p e pes s t count err_v.
-pmatch cenv s p v env = Match_type_error
+mat_cons3 : forall ck env v p e pes s t count err_v.
+pmatch env.c s p v env.v = Match_type_error
 ==>
-evaluate_match ck (menv,cenv,env) (count,s,t) v ((p,e)::pes) err_v ((count,s,t), Rerr (Rabort Rtype_error))
+evaluate_match ck env (count,s,t) v ((p,e)::pes) err_v ((count,s,t), Rerr (Rabort Rtype_error))
 
 and
 
@@ -329,12 +329,13 @@ evaluate_match ck env s v ((p,e)::pes) err_v (s, Rerr (Rabort Rtype_error))
 
 (* The set tid_or_exn part of the state tracks all of the types and exceptions
  * that have been declared *)
-indreln [evaluate_dec : bool -> maybe modN -> all_env -> (count_store_trace v * set tid_or_exn) -> dec -> (count_store_trace v * set tid_or_exn) * result (flat_envC * envE) v -> bool]
+indreln [evaluate_dec : bool -> maybe modN -> environment v -> (count_store_trace v * set tid_or_exn) -> dec -> 
+                (count_store_trace v * set tid_or_exn) * result (flat_env_ctor * env_val) v -> bool]
 
 dlet1 : forall ck mn env p e v env' s1 s2 t2 count tdecs.
 evaluate ck env s1 e ((count,s2,t2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
-pmatch (all_env_to_cenv env) s2 p v [] = Match env'
+pmatch env.c s2 p v [] = Match env'
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2),tdecs), Rval ([], env'))
 
@@ -343,7 +344,7 @@ and
 dlet2 : forall ck mn env p e v s1 s2 t2 count tdecs.
 evaluate ck env s1 e ((count,s2,t2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
-pmatch (all_env_to_cenv env) s2 p v [] = No_match
+pmatch env.c s2 p v [] = No_match
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2), tdecs), Rerr (Rraise (Conv (Just ("Bind", TypeExn (Short "Bind"))) [])))
 
@@ -352,7 +353,7 @@ and
 dlet3 : forall ck mn env p e v s1 s2 t2 count tdecs.
 evaluate ck env s1 e ((count,s2,t2), Rval v) &&
 List.allDistinct (pat_bindings p []) &&
-pmatch (all_env_to_cenv env) s2 p v [] = Match_type_error
+pmatch env.c s2 p v [] = Match_type_error
 ==>
 evaluate_dec ck mn env (s1,tdecs) (Dlet p e) (((count,s2,t2),tdecs), Rerr (Rabort Rtype_error))
 
@@ -425,7 +426,8 @@ TypeExn (mk_id mn cn) IN tdecs
 ==>
 evaluate_dec ck mn env (s,tdecs) (Dexn cn ts) ((s,tdecs), Rerr (Rabort Rtype_error))
 
-indreln [evaluate_decs : bool -> maybe modN -> all_env -> (count_store_trace v * set tid_or_exn) -> list dec -> (count_store_trace v * set tid_or_exn) * flat_envC * result envE v -> bool]
+indreln [evaluate_decs : bool -> maybe modN -> environment v -> (count_store_trace v * set tid_or_exn) -> list dec -> 
+            (count_store_trace v * set tid_or_exn) * flat_env_ctor * result env_val v -> bool]
 
 empty : forall ck mn env s.
 true
@@ -441,14 +443,15 @@ evaluate_decs ck mn env s1 (d::ds) (s2, [], Rerr e)
 
 and
 
-cons2 : forall ck mn s1 s2 s3 menv cenv env d ds new_tds' new_tds new_env r.
-evaluate_dec ck mn (menv,cenv,env) s1 d (s2, Rval (new_tds,new_env)) &&
-evaluate_decs ck mn (menv, merge_alist_mod_env ([],new_tds) cenv, new_env++env) s2 ds (s3, new_tds', r)
+cons2 : forall ck mn s1 s2 s3 env d ds new_tds' new_tds new_env r.
+evaluate_dec ck mn env s1 d (s2, Rval (new_tds,new_env)) &&
+evaluate_decs ck mn (extend_dec_env new_env new_tds env) s2 ds (s3, new_tds', r)
 ==>
-evaluate_decs ck mn (menv,cenv,env) s1 (d::ds) (s3, new_tds' ++ new_tds, combine_dec_result new_env r)
+evaluate_decs ck mn env s1 (d::ds) (s3, new_tds' ++ new_tds, combine_dec_result new_env r)
 
 
-indreln [evaluate_top : bool -> all_env -> (count_store_trace v * set tid_or_exn * set modN) -> top -> (count_store_trace v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
+indreln [evaluate_top : bool -> environment v -> (count_store_trace v * set tid_or_exn * set modN) -> top -> 
+              (count_store_trace v * set tid_or_exn * set modN) * env_ctor * result (env_mod * env_val) v -> bool]
 
 tdec1 : forall ck s1 s2 env d new_tds new_env tdecls1 tdecls2 mdecls.
 evaluate_dec ck Nothing env (s1,tdecls1) d ((s2,tdecls2), Rval (new_tds, new_env))
@@ -494,7 +497,8 @@ mn IN mdecls
 ==>
 evaluate_top ck env (s,tdecls,mdecls) (Tmod mn specs ds) ((s,tdecls,mdecls), ([],[]), Rerr (Rabort Rtype_error))
 
-indreln [evaluate_prog : bool -> all_env -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> (count_store_trace v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool]
+indreln [evaluate_prog : bool -> environment v -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> 
+             (count_store_trace v * set tid_or_exn * set modN) * env_ctor * result (env_mod * env_val) v -> bool]
 
 empty : forall ck env s.
 true
@@ -503,11 +507,11 @@ evaluate_prog ck env s [] (s, ([],[]), Rval ([], []))
 
 and
 
-cons1 : forall ck s1 s2 s3 menv cenv env top tops new_mods new_tds new_tds' new_env r.
-evaluate_top ck (menv,cenv,env) s1 top (s2, new_tds, Rval (new_mods,new_env)) &&
-evaluate_prog ck (new_mods++menv, merge_alist_mod_env new_tds cenv, new_env++env) s2 tops (s3,new_tds',r)
+cons1 : forall ck s1 s2 s3 env top tops new_mods new_tds new_tds' new_env r.
+evaluate_top ck env s1 top (s2, new_tds, Rval (new_mods,new_env)) &&
+evaluate_prog ck (extend_top_env new_mods new_env new_tds env) s2 tops (s3,new_tds',r)
 ==>
-evaluate_prog ck (menv,cenv,env) s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r)
+evaluate_prog ck env s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, combine_mod_result new_mods new_env r)
 
 and
 
@@ -517,7 +521,8 @@ evaluate_top ck env s1 top (s2, new_tds, Rerr err)
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err)
 
 
-val evaluate_whole_prog : bool -> all_env -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> (count_store_trace v * set tid_or_exn * set modN) * envC * result (envM * envE) v -> bool
+val evaluate_whole_prog : bool -> environment v -> (count_store_trace v * set tid_or_exn * set modN) -> prog -> 
+          (count_store_trace v * set tid_or_exn * set modN) * env_ctor * result (env_mod * env_val) v -> bool
 let evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =
   if no_dup_mods tops s1 && no_dup_top_types tops s1 then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
@@ -533,7 +538,7 @@ let dec_diverges env (st,tdecs) d =
     | Dexn cn ts -> false
   end
 
-indreln [decs_diverges : maybe modN -> all_env -> (store_trace v * set tid_or_exn) -> decs -> bool]
+indreln [decs_diverges : maybe modN -> environment v -> (store_trace v * set tid_or_exn) -> decs -> bool]
 
 cons1 : forall mn st env d ds.
 dec_diverges env st d
@@ -542,13 +547,13 @@ decs_diverges mn env st (d::ds)
 
 and
 
-cons2 : forall mn s1 s2 menv cenv env d ds new_tds new_env count tdecs tdecs' t1 t2.
-evaluate_dec false mn (menv,cenv,env) ((count,s1,t1),tdecs) d (((count,s2,t2),tdecs'), Rval (new_tds, new_env)) &&
-decs_diverges mn (menv,merge_alist_mod_env ([],new_tds) cenv, new_env++env) ((s2,t2),tdecs') ds
+cons2 : forall mn s1 s2 env d ds new_tds new_env count tdecs tdecs' t1 t2.
+evaluate_dec false mn env ((count,s1,t1),tdecs) d (((count,s2,t2),tdecs'), Rval (new_tds, new_env)) &&
+decs_diverges mn (extend_dec_env new_env new_tds env) ((s2,t2),tdecs') ds
 ==>
-decs_diverges mn (menv,cenv,env) ((s1,t1),tdecs) (d::ds)
+decs_diverges mn env ((s1,t1),tdecs) (d::ds)
 
-indreln [top_diverges : all_env -> (store_trace v * set tid_or_exn * set modN) -> top -> bool]
+indreln [top_diverges : environment v -> (store_trace v * set tid_or_exn * set modN) -> top -> bool]
 
 tdec : forall st env d tdecls mdecls.
 dec_diverges env (st,tdecls) d
@@ -564,7 +569,7 @@ decs_diverges (Just mn) env (s1,tdecls) ds
 ==>
 top_diverges env (s1,tdecls,mdecls) (Tmod mn specs ds)
 
-indreln [prog_diverges : all_env -> (store_trace v * set tid_or_exn * set modN) -> prog -> bool]
+indreln [prog_diverges : environment v -> (store_trace v * set tid_or_exn * set modN) -> prog -> bool]
 
 cons1 : forall st env top tops.
 top_diverges env st top
@@ -573,8 +578,8 @@ prog_diverges env st (top::tops)
 
 and
 
-cons2 : forall s1 s2 t1 t2 menv cenv env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
-evaluate_top false (menv,cenv,env) ((count,s1,t1),tdecs,mods) top (((count,s2,t2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) &&
-prog_diverges (new_mods++menv, merge_alist_mod_env new_tds cenv, new_env++env) ((s2,t2),tdecs',mods') tops
+cons2 : forall s1 s2 t1 t2 env top tops new_mods new_tds new_env tdecs tdecs' mods mods' count.
+evaluate_top false env ((count,s1,t1),tdecs,mods) top (((count,s2,t2), tdecs',mods'), new_tds, Rval (new_mods, new_env)) &&
+prog_diverges (extend_top_env new_mods new_env new_tds env) ((s2,t2),tdecs',mods') tops
 ==>
-prog_diverges (menv,cenv,env) ((s1,t1),tdecs,mods) (top::tops)
+prog_diverges env ((s1,t1),tdecs,mods) (top::tops)

@@ -18,10 +18,10 @@ val lit_same_type_sym = store_thm("lit_same_type_sym",
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
 
 val pmatch_append = Q.store_thm ("pmatch_append",
-`(!(cenv : envC) (st : v store) p v env env' env''.
+`(!(cenv : env_ctor) (st : v store) p v env env' env''.
     (pmatch cenv st p v env = Match env') ⇒
     (pmatch cenv st p v (env++env'') = Match (env'++env''))) ∧
- (!(cenv : envC) (st : v store) ps v env env' env''.
+ (!(cenv : env_ctor) (st : v store) ps v env env' env''.
     (pmatch_list cenv st ps v env = Match env') ⇒
     (pmatch_list cenv st ps v (env++env'') = Match (env'++env'')))`,
 ho_match_mp_tac pmatch_ind >>
@@ -202,14 +202,14 @@ val do_opapp_cases = store_thm("do_opapp_cases",
   ``∀env' vs v.
     (do_opapp vs = SOME (env',v))
     =
-  ((∃v2 menv'' cenv'' env'' n e.
-    (vs = [Closure (menv'',cenv'',env'') n e; v2]) ∧
-    (env' = (menv'',cenv'', (n,v2)::env'')) ∧ (v = e)) ∨
-  (?v2 menv'' cenv'' env'' funs n' n'' e.
-    (vs = [Recclosure (menv'',cenv'',env'') funs n'; v2]) ∧
+  ((∃v2 env'' n e.
+    (vs = [Closure env'' n e; v2]) ∧
+    (env' = env'' with <| v := (n,v2)::env''.v |>) ∧ (v = e)) ∨
+  (?v2 env'' funs n' n'' e.
+    (vs = [Recclosure env'' funs n'; v2]) ∧
     (find_recfun n' funs = SOME (n'',e)) ∧
     (ALL_DISTINCT (MAP (\(f,x,e). f) funs)) ∧
-    (env' = (menv'',cenv'', (n'',v2)::build_rec_env funs (menv'',cenv'',env'') env'')) ∧ (v = e)))``,
+    (env' = env'' with <| v := (n'',v2)::build_rec_env funs env'' env''.v |> ∧ (v = e))))``,
   rw[do_opapp_def] >>
   cases_on `vs` >> rw [] >>
   every_case_tac >> metis_tac []);

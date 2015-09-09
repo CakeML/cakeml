@@ -19,6 +19,8 @@ val _ = Hol_datatype `
   <| clock : num
    ; refs  : v store
    ; io    : io_trace
+   ; defined_types : tid_or_exn set
+   ; defined_mods : modN set
    |>`;
 
 
@@ -45,252 +47,245 @@ val _ = Define `
 (list_result (Rerr e) = (Rerr e))`;
 
 
-(*val evaluate : list exp * all_env * state -> result (list v) v * state*)
-(*val evaluate_match : list (pat * exp) * v * v * all_env * state -> result (list v) v * state*)
+(*val evaluate : state -> environment v -> list exp -> state * result (list v) v*)
+(*val evaluate_match : state -> environment v -> v -> list (pat * exp) -> v -> state * result (list v) v*)
  val evaluate_defn = Hol_defn "evaluate" `
 
-(evaluate ([],env,s) = (Rval [],s))
+(evaluate st env [] = (st, Rval []))
 /\
-(evaluate (e1::e2::es,env,s) =  
-((case evaluate ([e1],env,s) of
-    (Rval v1,s') =>
-      (case evaluate ((e2::es),env,check_clock s' s) of
-        (Rval vs,s) => (Rval (HD v1::vs),s)
+(evaluate st env (e1::e2::es) =  
+((case evaluate st env [e1] of
+    (st', Rval v1) =>
+      (case evaluate (check_clock st' st) env (e2::es) of
+        (st'', Rval vs) => (st'', Rval (HD v1::vs))
       | res => res
       )
   | res => res
   )))
 /\
-(evaluate ([Lit l],env,s) = (Rval [Litv l],s))
+(evaluate st env [Lit l] = (st, Rval [Litv l]))
 /\
-(evaluate ([Raise e],env,s) =  
-((case evaluate ([e],env,s) of
-    (Rval v,s) => (Rerr (Rraise (HD v)),s)
+(evaluate st env [Raise e] =  
+((case evaluate st env [e] of
+    (st', Rval v) => (st', Rerr (Rraise (HD v)))
   | res => res
   )))
 /\
-(evaluate ([Handle e pes],env,s) =  
-((case evaluate ([e],env,s) of
-    (Rerr(Rraise v),s') => evaluate_match (pes,v,v,env,check_clock s' s)
+(evaluate st env [Handle e pes] =  
+((case evaluate st env [e] of
+    (st', Rerr (Rraise v)) => evaluate_match (check_clock st' st) env v pes v
   | res => res
   )))
 /\
-(evaluate ([Con cn es],env,s) =  
-(if do_con_check (all_env_to_cenv env) cn (LENGTH es) then
-    (case evaluate (REVERSE es,env,s) of
-      (Rval vs,s) =>
-        (case build_conv (all_env_to_cenv env) cn (REVERSE vs) of
-          SOME v => (Rval [v],s)
-        | NONE => (Rerr (Rabort Rtype_error),s)
+(evaluate st env [Con cn es] =  
+(if do_con_check env.c cn (LENGTH es) then
+    (case evaluate st env (REVERSE es) of
+      (st', Rval vs) =>
+        (case build_conv env.c cn (REVERSE vs) of
+          SOME v => (st', Rval [v])
+        | NONE => (st', Rerr (Rabort Rtype_error))
         )
     | res => res
     )
-  else (Rerr (Rabort Rtype_error),s)))
+  else (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate ([Var n],env,s) =  
+(evaluate st env [Var n] =  
 ((case lookup_var_id n env of
-    SOME v => (Rval [v],s)
-  | NONE => (Rerr (Rabort Rtype_error),s)
+    SOME v => (st, Rval [v])
+  | NONE => (st, Rerr (Rabort Rtype_error))
   )))
 /\
-(evaluate ([Fun x e],env,s) = (Rval [Closure env x e],s))
+(evaluate st env [Fun x e] = (st, Rval [Closure env x e]))
 /\
-(evaluate ([App op es],env,s) =  
-((case evaluate (REVERSE es,env,s) of
-    (Rval vs,s') =>
+(evaluate st env [App op es] =  
+((case evaluate st env (REVERSE es) of
+    (st', Rval vs) =>
       if op = Opapp then
         (case do_opapp (REVERSE vs) of
-          SOME (env,e) =>
-            if (s'.clock = 0) \/ (s.clock = 0) then
-              (Rerr (Rabort Rtimeout_error),s')
+          SOME (env',e) =>
+            if (st'.clock = 0) \/ (st.clock = 0) then
+              (st', Rerr (Rabort Rtimeout_error))
             else
-              evaluate ([e],env,dec_clock (check_clock s' s))
-        | NONE => (Rerr (Rabort Rtype_error),s')
+              evaluate (dec_clock (check_clock st' st)) env' [e]
+        | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else
-        (case do_app (s'.refs,s'.io) op (REVERSE vs) of
-          SOME ((refs,io),r) => (list_result r, ( s' with<| refs := refs; io := io |>))
-        | NONE => (Rerr (Rabort Rtype_error),s')
+        (case do_app (st'.refs,st'.io) op (REVERSE vs) of
+          SOME ((refs,io),r) => (( st' with<| refs := refs; io := io |>), list_result r)
+        | NONE => (st', Rerr (Rabort Rtype_error))
         )
   | res => res
   )))
 /\
-(evaluate ([Log lop e1 e2],env,s) =  
-((case evaluate ([e1],env,s) of
-    (Rval v1,s') =>
+(evaluate st env [Log lop e1 e2] =  
+((case evaluate st env [e1] of
+    (st', Rval v1) =>
       (case do_log lop (HD v1) e2 of
-        SOME (Exp e) => evaluate ([e],env,check_clock s' s)
-      | SOME (Val v) => (Rval [v],s')
-      | NONE => (Rerr (Rabort Rtype_error),s')
+        SOME (Exp e) => evaluate (check_clock st' st) env [e]
+      | SOME (Val v) => (st', Rval [v])
+      | NONE => (st', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
-(evaluate ([If e1 e2 e3],env,s) =  
-((case evaluate ([e1],env,s) of
-    (Rval v,s') =>
+(evaluate st env [If e1 e2 e3] =  
+((case evaluate st env [e1] of
+    (st', Rval v) =>
       (case do_if (HD v) e2 e3 of
-        SOME e => evaluate ([e],env,check_clock s' s)
-      | NONE => (Rerr (Rabort Rtype_error),s')
+        SOME e => evaluate (check_clock st' st) env [e]
+      | NONE => (st', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
-(evaluate ([Mat e pes],env,s) =  
-((case evaluate ([e],env,s) of
-    (Rval v,s') =>
-      evaluate_match (pes,HD v,Bindv,env,check_clock s' s)
+(evaluate st env [Mat e pes] =  
+((case evaluate st env [e] of
+    (st', Rval v) =>
+      evaluate_match (check_clock st' st) env (HD v) pes Bindv
   | res => res
   )))
 /\
-(evaluate ([Let xo e1 e2],env,s) =  
-((case evaluate ([e1],env,s) of
-    (Rval v,s') => evaluate ([e2],all_env_with_env env (opt_bind xo (HD v) (all_env_to_env env)),check_clock s' s)
+(evaluate st env [Let xo e1 e2] =  
+((case evaluate st env [e1] of
+    (st', Rval v) => evaluate (check_clock st' st) ( env with<| v := opt_bind xo (HD v) env.v |>) [e2]
   | res => res
   )))
 /\
-(evaluate ([Letrec funs e],env,s) =  
+(evaluate st env [Letrec funs e] =  
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
-    evaluate ([e],all_env_with_env env (build_rec_env funs env (all_env_to_env env)),s)
+    evaluate st ( env with<| v := build_rec_env funs env env.v |>) [e]
   else
-    (Rerr (Rabort Rtype_error),s)))
+    (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_match ([],v,err_v,env,s) = (Rerr (Rraise err_v),s))
+(evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v)))
 /\
-(evaluate_match ((p,e)::pes,v,err_v,env,s) =  
+(evaluate_match st env v ((p,e)::pes) err_v  =  
 (if ALL_DISTINCT (pat_bindings p []) then
-    (case pmatch (all_env_to_cenv env) s.refs p v (all_env_to_env env) of
-      Match env' => evaluate ([e],all_env_with_env env env',s)
-    | No_match => evaluate_match (pes,v,err_v,env,s)
-    | Match_type_error => (Rerr (Rabort Rtype_error),s)
+    (case pmatch env.c st.refs p v env.v of
+      Match env_v' => evaluate st ( env with<| v := env_v' |>) [e]
+    | No_match => evaluate_match st env v pes err_v
+    | Match_type_error => (st, Rerr (Rabort Rtype_error))
     )
-  else (Rerr (Rabort Rtype_error),s)))`;
+  else (st, Rerr (Rabort Rtype_error))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_defn;
 
-val _ = type_abbrev( "decs_state" , ``: state # tid_or_exn set``);
-
-(*val evaluate_decs : (list dec * maybe modN * all_env * decs_state) -> result envE v * flat_envC * decs_state*)
+(*val evaluate_decs : maybe modN -> state -> environment v -> list dec -> state * flat_env_ctor * result env_val v*)
  val _ = Define `
 
-(evaluate_decs ([],mn,env,s) = (Rval [],[],s))
+(evaluate_decs mn st env [] = (st, [], Rval []))
 /\
-(evaluate_decs (d1::d2::ds,mn,env,s) =  
-((case evaluate_decs ([d1],mn,env,s) of
-    (Rval new_env,new_tds,s) =>
+(evaluate_decs mn st env (d1::d2::ds) =  
+((case evaluate_decs mn st env [d1] of
+    (st, new_ctors, Rval new_vals) =>
       (case
-        evaluate_decs ((d2::ds),mn,
-          (case env of (menv,cenv,env) =>
-            (menv, merge_alist_mod_env ([],new_tds) cenv, (new_env++env))
-          ),s)
-      of (r,new_tds',s) =>
-        (combine_dec_result new_env r, (new_tds'++new_tds), s)
+        evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
+      of (st',new_ctors',r) =>
+        (st, (new_ctors'++new_ctors), combine_dec_result new_vals r)
       )
   | res => res
   )))
 /\
-(evaluate_decs ([Dlet p e],mn,env,(s,tdecs)) =  
+(evaluate_decs mn st env [Dlet p e] =  
 (if ALL_DISTINCT (pat_bindings p []) then
-    (case evaluate ([e],env,s) of
-      (Rval v,s) =>
-        ((case pmatch (all_env_to_cenv env) s.refs p (HD v) [] of
-           Match env' => Rval env'
+    (case evaluate st env [e] of
+      (st', Rval v) =>
+        (st',
+         [],
+         (case pmatch env.c st'.refs p (HD v) [] of
+           Match new_vals => Rval new_vals
          | No_match => Rerr (Rraise Bindv)
          | Match_type_error => Rerr (Rabort Rtype_error)
-         ),[],(s,tdecs))
-    | (Rerr err,s) => (Rerr err,[],(s,tdecs))
+         ))
+    | (st', Rerr err) => (st', [], Rerr err)
     )
   else
-    (Rerr (Rabort Rtype_error),[],(s,tdecs))))
+    (st, [], Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs ([Dletrec funs],mn,env,s) =
-  ((if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
+(evaluate_decs mn st env [Dletrec funs] =
+  (st,
+   [],   
+(if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
      Rval (build_rec_env funs env [])
    else
-     Rerr (Rabort Rtype_error))
-  ,[],s))
+     Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs ([Dtype tds],mn,env,(s,tdecs)) =  
+(evaluate_decs mn st env [Dtype tds] =  
 (let new_tdecs = (type_defs_to_new_tdecs mn tds) in
     if check_dup_ctors tds /\
-       DISJOINT new_tdecs tdecs /\
+       DISJOINT new_tdecs st.defined_types /\
        ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds)
     then
-      (Rval [],build_tdefs mn tds,(s,(new_tdecs UNION tdecs)))
+      (( st with<| defined_types := new_tdecs UNION st.defined_types |>), build_tdefs mn tds, Rval [])
     else
-      (Rerr (Rabort Rtype_error),[],(s,tdecs))))
+      (st, [], Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs ([Dtabbrev tvs tn t],mn,env,s) =
-  (Rval [],[],s))
+(evaluate_decs mn st env [Dtabbrev tvs tn t] =
+  (st, [], Rval []))
 /\
-(evaluate_decs ([Dexn cn ts],mn,env,(s,tdecs)) =  
-(if TypeExn (mk_id mn cn) IN tdecs then
-    (Rerr (Rabort Rtype_error),[],(s,tdecs))
+(evaluate_decs mn st env [Dexn cn ts] =  
+(if TypeExn (mk_id mn cn) IN st.defined_types then
+    (st, [], Rerr (Rabort Rtype_error))
   else
-    (Rval [],[(cn, (LENGTH ts, TypeExn (mk_id mn cn)))],(s,({TypeExn (mk_id mn cn)} UNION tdecs)))))`;
+    (( st with<| defined_types := {TypeExn (mk_id mn cn)} UNION st.defined_types |>),
+     [(cn, (LENGTH ts, TypeExn (mk_id mn cn)))],
+     Rval [])))`;
 
 
-val _ = type_abbrev( "prog_state" , ``: decs_state # modN set``);
-
-(*val evaluate_tops : list top -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state*)
+(*val evaluate_tops : state -> environment v -> list top -> state * env_ctor * result (env_mod * env_val) v*)
  val _ = Define `
 
-(evaluate_tops [] env s = (Rval ([],[]), ([],[]), s))
+(evaluate_tops st env [] = (st, ([],[]), Rval ([],[])))
 /\
-(evaluate_tops (top1::top2::tops) env s =  
-((case evaluate_tops [top1] env s of
-    (Rval (new_mods,new_env), new_tds, s) =>
-      (case evaluate_tops (top2::tops)
-              (case env of (menv,cenv,env) =>
-                ((new_mods++menv),
-                 merge_alist_mod_env new_tds cenv,                 
-(new_env++env))
-              ) s of
-        (r,new_tds',s) => (combine_mod_result new_mods new_env r,
-                           merge_alist_mod_env new_tds' new_tds,
-                           s)
+(evaluate_tops st env (top1::top2::tops) =  
+((case evaluate_tops st env [top1] of
+    (st', new_ctors, Rval (new_mods,new_vals)) =>
+      (case evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) of
+        (st'', new_ctors', r) => 
+        (st'',
+         merge_alist_mod_env new_ctors' new_ctors,
+         combine_mod_result new_mods new_vals r)
       )
   | res => res
   )))
 /\
-(evaluate_tops [Tdec d] env (s,mdecls) =  
-((case evaluate_decs ([d],NONE,env,s) of
-    (Rval new_env, new_tds, s) =>
-      (Rval ([],new_env), ([],new_tds), (s,mdecls))
-  | (Rerr err, new_tds, s) =>
-      (Rerr err, ([],[]), (s,mdecls))
+(evaluate_tops st env [Tdec d] =  
+((case evaluate_decs NONE st env [d] of
+    (st', new_ctors, Rval new_vals) =>
+      (st', ([],new_ctors), Rval ([],new_vals))
+  | (st', new_ctors, Rerr err) =>
+      (st', ([],[]), Rerr err)
   )))
 /\
-(evaluate_tops [Tmod mn specs ds] env (s,mdecls) =  
-(if ~ (mn IN mdecls) /\
-     no_dup_types ds
+(evaluate_tops st env [Tmod mn specs ds] =  
+(if ~ (mn IN st.defined_mods) /\ no_dup_types ds
   then
-    (case evaluate_decs (ds,SOME mn,env,s) of
-      (r, new_tds, s) =>
-        ((case r of
-           Rval new_env => Rval ([(mn,new_env)],[])
+    (case evaluate_decs (SOME mn) st env ds of
+      (st', new_ctors, r) =>
+        (( st' with<| defined_mods := {mn} UNION st'.defined_mods |>),
+         ([(mn,new_ctors)],[]),
+         (case r of
+           Rval new_vals => Rval ([(mn,new_vals)],[])
          | Rerr err => Rerr err
-         ),
-         ([(mn,new_tds)],[]),
-         (s,({mn} UNION mdecls)))
+         ))
     )
   else
-    (Rerr (Rabort Rtype_error), ([],[]), (s,mdecls))))`;
+    (st, ([],[]), Rerr (Rabort Rtype_error))))`;
 
 
 val _ = Define `
- (convert_prog_state ((s,tdecls),mdecls) =
-  ((s.clock,s.refs,s.io),tdecls,mdecls))`;
+ (convert_prog_state st =
+  ((st.clock,st.refs,st.io),st.defined_types,st.defined_mods))`;
 
 
-(*val evaluate_prog : prog -> all_env -> prog_state -> result (envM * envE) v * envC * prog_state*)
+(*val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v*)
 val _ = Define `
 
-(evaluate_prog prog env s =  
-(if no_dup_mods prog (convert_prog_state s) /\ no_dup_top_types prog (convert_prog_state s) then
-    evaluate_tops prog env s
+(evaluate_prog st env prog =  
+(if no_dup_mods prog (convert_prog_state st) /\ no_dup_top_types prog (convert_prog_state st) then
+    evaluate_tops st env prog
   else
-    (Rerr (Rabort Rtype_error), ([],[]), s)))`;
+    (st, ([],[]), Rerr (Rabort Rtype_error))))`;
 
 val _ = export_theory()
 

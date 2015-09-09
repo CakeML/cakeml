@@ -28,13 +28,12 @@ val run_eval_spec_lem = Q.prove (
      rw [Once evaluate_cases] >>
      `(?count s t. st = (count,(s,t))) ∧ (?p e. h = (p,e))` by metis_tac [pair_CASES] >>
      rw [] >>
-     `?menv cenv env'. env = (menv,cenv,env')` by (PairCases_on `env` >> metis_tac [])>>
      rw [] >>
-     cases_on `pmatch cenv s p v env'` >>
+     cases_on `pmatch env.c s p v env.v` >>
      rw []
      >- metis_tac []
      >- metis_tac []
-     >- (`?count'' s' r. evaluate T (menv,cenv,a) (count',(s,t)) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
+     >- (`?count'' s' r. evaluate T (env with v := a) (count',(s,t)) e ((count'',s'),r)` by metis_tac [big_clocked_total, pair_CASES] >>
          metis_tac [])));
 
 val run_eval_spec = 
@@ -131,7 +130,7 @@ val run_eval_def = Q.store_thm ("run_eval_def",
            return (Conv NONE (REVERSE vs))
         od
     | SOME n =>
-       (case lookup_alist_mod_env n (all_env_to_cenv env) of
+       (case lookup_alist_mod_env n env.c of
           | NONE => raise (Rabort Rtype_error)
           | SOME (l,t) =>
               if l = LENGTH es then
@@ -197,13 +196,13 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    run_eval env (Let x e1 e2)
    =
    do v1 <- run_eval env e1;
-      run_eval (all_env_to_menv env, all_env_to_cenv env, opt_bind x v1 (all_env_to_env env)) e2
+      run_eval (env with v := opt_bind x v1 env.v) e2
    od) ∧
  (!env funs e.
    run_eval env (Letrec funs e)
    =
    if ALL_DISTINCT (MAP FST funs) then
-     run_eval (all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)) e
+     run_eval (env with v := build_rec_env funs env env.v) e
    else
      raise (Rabort Rtype_error)) ∧
  (!env.
@@ -226,10 +225,10 @@ val run_eval_def = Q.store_thm ("run_eval_def",
    =
    do st <- get_store;
       if ALL_DISTINCT (pat_bindings p []) then
-        case pmatch (all_env_to_cenv env) (FST st) p v (all_env_to_env env) of
+        case pmatch env.c (FST st) p v env.v of
              Match_type_error => raise (Rabort Rtype_error)
            | No_match => run_eval_match env v pes err_v
-           | Match env' => run_eval (all_env_to_menv env, all_env_to_cenv env, env') e
+           | Match env' => run_eval (env with v := env') e
       else
         raise (Rabort Rtype_error)
    od)`,
@@ -275,10 +274,8 @@ val run_eval_def = Q.store_thm ("run_eval_def",
  >- (every_case_tac >>
      rw [] >>
      fs [remove_lambda_pair, GSYM evaluate_run_eval] >>
-     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec,
-                all_env_to_menv_def, all_env_to_cenv_def, all_env_to_env_def])
- >- metis_tac [fst_lem, run_eval_spec, all_env_to_menv_def, all_env_to_cenv_def,
-               all_env_to_env_def, pair_CASES]
+     metis_tac [PAIR_EQ, pair_CASES, SND, FST, run_eval_spec])
+ >- metis_tac [fst_lem, run_eval_spec, pair_CASES]
  >- metis_tac [fst_lem, run_eval_spec]
  >- (rw [GSYM evaluate_run_eval_list] >>
      rw [Once evaluate_cases])
@@ -297,15 +294,14 @@ val run_eval_def = Q.store_thm ("run_eval_def",
      PairCases_on `x` >>
      fs [] >>
      rw [] >>
-     metis_tac [fst_lem, run_eval_spec, all_env_to_menv_def, all_env_to_cenv_def,
-               all_env_to_env_def, pair_CASES, FST]));
+     metis_tac [fst_lem, run_eval_spec, pair_CASES, FST]));
 
 val run_eval_dec_def = Define `
 (run_eval_dec mn env (st,tdecs) (Dlet p e) =
   if ALL_DISTINCT (pat_bindings p []) then
     case run_eval env e st of
        | (st', Rval v) =>
-           (case pmatch (all_env_to_cenv env) (FST (SND st')) p v [] of
+           (case pmatch env.c (FST (SND st')) p v [] of
               | Match env' => ((st',tdecs), Rval ([], env'))
               | No_match => ((st',tdecs), Rerr (Rraise (Conv (SOME ("Bind",TypeExn (Short "Bind"))) [])))
               | Match_type_error => ((st',tdecs), Rerr (Rabort Rtype_error)))
@@ -336,7 +332,7 @@ val run_eval_decs_def = Define `
 (run_eval_decs mn env st (d::ds) =
   case run_eval_dec mn env st d of
       (st', Rval (cenv',env')) =>
-         (case run_eval_decs mn (all_env_to_menv env, merge_alist_mod_env ([],cenv') (all_env_to_cenv env), env' ++ all_env_to_env env) st' ds of
+         (case run_eval_decs mn (extend_dec_env env' cenv' env) st' ds of
                (st'', cenv'', r) =>
                  (st'', cenv'' ++ cenv', combine_dec_result env' r))
     | (st',Rerr err) => (st',[],Rerr err))`;
@@ -361,7 +357,7 @@ val run_eval_prog_def = Define `
 (run_eval_prog env st (top::prog) =
   case run_eval_top env st top of
        (st', cenv', Rval (menv', env')) =>
-          (case run_eval_prog (menv' ++ all_env_to_menv env, merge_alist_mod_env cenv' (all_env_to_cenv env), env' ++ all_env_to_env env) st' prog of
+          (case run_eval_prog (extend_top_env menv' env' cenv' env) st' prog of
               | (st'', cenv'', Rval (menv'', env'')) =>
                   (st'', merge_alist_mod_env cenv'' cenv', Rval (menv'' ++ menv', env'' ++ env'))
               | (st'', cenv'', Rerr err) => (st'', merge_alist_mod_env cenv'' cenv', Rerr err))
@@ -402,8 +398,7 @@ val run_eval_decs_spec = Q.store_thm ("run_eval_decs_spec",
  fs [combine_dec_result_def] >>
  every_case_tac >>
  fs [] >>
- PairCases_on `env` >>
- fs [all_env_to_cenv_def, all_env_to_menv_def, all_env_to_env_def] >>
+ fs [] >>
  rw []
  >- (MAP_EVERY qexists_tac [`s,tdecs''`, `q'''`, `q'`, `r'`, `Rval a`] >>
      rw [])
@@ -438,8 +433,7 @@ val run_eval_prog_spec = Q.store_thm ("run_eval_prog_spec",
  imp_res_tac run_eval_top_spec >>
  fs [] >>
  rw [] >>
- PairCases_on `env` >>
- fs [all_env_to_cenv_def, all_env_to_menv_def, all_env_to_env_def]
+ fs []
  >- (MAP_EVERY qexists_tac [`s,tdecs'',mdecs''`, `q''`, `q'`, `q''''`, `r'`, `Rval (q''''', r'')`] >>
      rw [combine_mod_result_def])
  >- (disj1_tac >>

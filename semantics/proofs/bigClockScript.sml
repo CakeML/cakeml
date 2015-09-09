@@ -274,13 +274,12 @@ val eval_match_total = Q.prove (
  `exp_size e < exp_size (Mat e' ((p,e)::l)) ∧
   exp_size (Mat e' l) < exp_size (Mat e' ((p,e)::l))`
           by srw_tac [ARITH_ss] [exp_size_def] >>
- `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
  fs [] >>
  PairCases_on `s` >>
  rw [] >>
- `(pmatch cenv s0 p v envE = Match_type_error) ∨ 
-  (pmatch cenv s0 p v envE = No_match) ∨ 
-  (?env'. pmatch cenv s0 p v envE = Match env')`
+ `(pmatch env.c s0 p v env.v = Match_type_error) ∨ 
+  (pmatch env.c s0 p v env.v = No_match) ∨ 
+  (?env'. pmatch env.c s0 p v env.v = Match env')`
              by metis_tac [match_result_nchotomy] >>
  rw [] >>
  metis_tac [arithmeticTheory.LESS_TRANS]);
@@ -303,13 +302,12 @@ val eval_handle_total = Q.prove (
  `exp_size e < exp_size (Handle e' ((p,e)::l)) ∧
   exp_size (Handle e' l) < exp_size (Handle e' ((p,e)::l))`
           by srw_tac [ARITH_ss] [exp_size_def] >>
- `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
  rw [] >>
  PairCases_on `s` >>
  fs [] >>
- `(pmatch cenv s0 p v envE = Match_type_error) ∨ 
-  (pmatch cenv s0 p v envE = No_match) ∨ 
-  (?env'. pmatch cenv s0 p v envE = Match env')`
+ `(pmatch env.c s0 p v env.v = Match_type_error) ∨ 
+  (pmatch env.c s0 p v env.v = No_match) ∨ 
+  (?env'. pmatch env.c s0 p v env.v = Match env')`
              by metis_tac [match_result_nchotomy] >>
  rw [] >>
  metis_tac [arithmeticTheory.LESS_TRANS]);
@@ -342,14 +340,13 @@ val big_clocked_total_lem = Q.prove (
      metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES])
  >- ((* Handle *)
      `exp_size e' < exp_size (Handle e' l)` by srw_tac [ARITH_ss] [exp_size_def] >>
-     `?menv mcenv cenv envE. env = (menv,(mcenv,cenv),envE)` by (PairCases_on `env` >> metis_tac []) >>
      rw [] >>
-     `?count1 s1 r1. evaluate T (menv,(mcenv,cenv),envE) (count',s) e' ((count1,s1),r1)` by metis_tac [] >>
+     `?count1 s1 r1. evaluate T env (count',s) e' ((count1,s1),r1)` by metis_tac [] >>
      `(?err. r1 = Rerr err) ∨ (?v. r1 = Rval v)` by (cases_on `r1` >> metis_tac []) >>
      rw [] 
      >- (cases_on `err` >>
          fs [] >-
-         (`?count2 s2 r2. evaluate_match T (menv,(mcenv,cenv),envE) (count1,s1) a l a ((count2,s2),r2)`
+         (`?count2 s2 r2. evaluate_match T env (count1,s1) a l a ((count2,s2),r2)`
                   by metis_tac [eval_handle_total, arithmeticTheory.LESS_TRANS, 
                                 clock_monotone, arithmeticTheory.LESS_OR_EQ, pair_CASES] >>
           metis_tac []) >-
@@ -569,7 +566,7 @@ val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
   ``∀mn env s d.
       (∀r. ¬evaluate_dec F mn env s d r) ⇒
       ∃r. evaluate_dec T mn env s d r ∧ (SND r = Rerr (Rabort Rtimeout_error))``,
-  rpt gen_tac >> PairCases_on`s` >> PairCases_on`env` >>
+  rpt gen_tac >> PairCases_on`s` >> 
   reverse(Cases_on`d`)>> simp[Once evaluate_dec_cases]
   >- metis_tac[]
   >- metis_tac[]
@@ -577,8 +574,8 @@ val not_evaluate_dec_timeout = store_thm("not_evaluate_dec_timeout",
   rw[] >>
   rw[Once evaluate_dec_cases] >>
   fsrw_tac[DNF_ss][] >> rfs[] >> fs[] >>
-  fs[all_env_to_cenv_def] >>
-  Cases_on`∃r. evaluate F (env0,(env1,env2),env3) (s0,s1,s2) e r` >- (
+  fs[] >>
+  Cases_on`∃r. evaluate F env (s0,s1,s2) e r` >- (
     fs[] >> PairCases_on`r`>>fs[] >>
     Cases_on`r3`>>fs[METIS_PROVE[]``P ∨ Q ⇔ ¬P ⇒ Q``] >> res_tac >>
     metis_tac[match_result_nchotomy] ) >>
@@ -754,7 +751,7 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
   discharge_hyps >- metis_tac[] >> strip_tac >>
   reverse(Cases_on`res4`)>>fs[]>-metis_tac[]>>
-  PairCases_on`a`>>PairCases_on`env`>>fs[]>>
+  PairCases_on`a`>>fs[]>>
   res_tac >> disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars(["s3'","new_tds'","r'"])))) >>
@@ -775,7 +772,7 @@ val decs_clocked_total = store_thm("decs_clocked_total",
   qspecl_then[`mn`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
   PairCases_on`res` >>
   reverse(Cases_on`res4`)>-metis_tac[] >>
-  PairCases_on`a`>>PairCases_on`env`>>fs[]>>
+  PairCases_on`a`>>fs[]>>
   disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   fs[EXISTS_PROD])
@@ -1001,7 +998,7 @@ val not_evaluate_prog_timeout = store_thm("not_evaluate_prog_timeout",
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
   discharge_hyps >- metis_tac[] >> strip_tac >>
   reverse(Cases_on`res7`)>>fs[]>-metis_tac[]>>
-  PairCases_on`a`>>PairCases_on`env`>>fs[]>>
+  PairCases_on`a`>>fs[]>>
   res_tac >> disj1_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["s3","new_tds'"]))) >>

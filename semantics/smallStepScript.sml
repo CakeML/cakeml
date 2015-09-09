@@ -34,7 +34,7 @@ val _ = Hol_datatype `
    * The v list should be in reverse order. *)
   | Ccon of  ( conN id)option => v list => unit => exp list`;
 
-val _ = type_abbrev( "ctxt" , ``: ctxt_frame # all_env``);
+val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v environment``);
 
 (* State for CEK-style expression evaluation
  * - constructor data
@@ -44,7 +44,7 @@ val _ = type_abbrev( "ctxt" , ``: ctxt_frame # all_env``);
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-val _ = type_abbrev( "state" , ``: all_env # v store_trace # exp_or_val # ctxt list``);
+val _ = type_abbrev( "state" , ``: v environment # v store_trace # exp_or_val # ctxt list``);
 
 val _ = Hol_datatype `
  e_step_result =
@@ -58,17 +58,17 @@ val _ = Hol_datatype `
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-(*val push : all_env -> store_trace v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
+(*val push : environment v -> store_trace v -> exp -> ctxt_frame -> list ctxt -> e_step_result*)
 val _ = Define `
  (push env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
-(*val return : all_env -> store_trace v -> v -> list ctxt -> e_step_result*)
+(*val return : environment v -> store_trace v -> v -> list ctxt -> e_step_result*)
 val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
-(*val application : op -> all_env -> store_trace v -> list v -> list ctxt -> e_step_result*)
+(*val application : op -> environment v -> store_trace v -> list v -> list ctxt -> e_step_result*)
 val _ = Define `
  (application op env s vs c =  
  ((case op of
@@ -122,27 +122,27 @@ val _ = Define `
         )
     | (Cmat ()  [] err_v, env) :: c =>
         Estep (env, s, Val err_v, ((Craise () , env) ::c))
-    | (Cmat ()  ((p,e)::pes) err_v, (menv, cenv, env)) :: c =>
+    | (Cmat ()  ((p,e)::pes) err_v, env) :: c =>
         if ALL_DISTINCT (pat_bindings p []) then
-          (case pmatch cenv (FST s) p v env of
+          (case pmatch env.c (FST s) p v env.v of
               Match_type_error => Eabort Rtype_error
-            | No_match => Estep ((menv, cenv, env), s, Val v, ((Cmat ()  pes err_v,(menv, cenv, env))::c))
-            | Match env' => Estep ((menv, cenv, env'), s, Exp e, c)
+            | No_match => Estep (env, s, Val v, ((Cmat ()  pes err_v,env)::c))
+            | Match env' => Estep (env, s, Exp e, c)
           )
         else
           Eabort Rtype_error
-    | (Clet n ()  e, (menv, cenv, env)) :: c =>
-        Estep ((menv, cenv, opt_bind n v env), s, Exp e, c)
+    | (Clet n ()  e, env) :: c =>
+        Estep (( env with<| v := opt_bind n v env.v |>), s, Exp e, c)
     | (Ccon n vs ()  [], env) :: c =>
-        if do_con_check (all_env_to_cenv env) n (LENGTH vs + 1) then
-           (case build_conv (all_env_to_cenv env) n (v::vs) of
+        if do_con_check env.c n (LENGTH vs + 1) then
+           (case build_conv env.c n (v::vs) of
                NONE => Eabort Rtype_error
              | SOME v => return env s v c
            )
         else
           Eabort Rtype_error
     | (Ccon n vs ()  (e::es), env) :: c =>
-        if do_con_check (all_env_to_cenv env) n (((LENGTH vs + 1) + 1) + LENGTH es) then
+        if do_con_check env.c n (((LENGTH vs + 1) + 1) + LENGTH es) then
           push env s e (Ccon n (v::vs) ()  es) c
         else
           Eabort Rtype_error
@@ -169,10 +169,10 @@ val _ = Define `
           | Handle e pes =>
               push env s e (Chandle ()  pes) c
           | Con n es =>
-              if do_con_check (all_env_to_cenv env) n (LENGTH es) then
+              if do_con_check env.c n (LENGTH es) then
                 (case REVERSE es of
                     [] => 
-                      (case build_conv (all_env_to_cenv env) n [] of
+                      (case build_conv env.c n [] of
                           NONE => Eabort Rtype_error
                         | SOME v => return env s v c
                       )
@@ -201,7 +201,7 @@ val _ = Define `
               if ~ (ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs)) then
                 Eabort Rtype_error
               else
-                Estep ((all_env_to_menv env, all_env_to_cenv env, build_rec_env funs env (all_env_to_env env)), 
+                Estep (( env with<| v := build_rec_env funs env env.v |>), 
                        s, Exp e, c)
         )
   )))`;
@@ -210,7 +210,7 @@ val _ = Define `
 (* Define a semantic function using the steps *)
 
 (*val e_step_reln : state -> state -> bool*)
-(*val small_eval : all_env -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool*)
+(*val small_eval : environment v -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool*)
 
 val _ = Define `
  (e_step_reln st1 st2 =
@@ -219,26 +219,21 @@ val _ = Define `
 
  val _ = Define `
 
-(small_eval env s e c p =((case (env,s,e,c,p) of
-     ( env, s, e, c, (s', Rval v) ) => ? env'.
-                                         (RTC e_step_reln) (env,s,Exp e,c)
-                                           (env',s',Val v,[])
-   | ( env, s, e, c, (s', Rerr (Rraise v)) ) => ? env' env''.
-                                                  (RTC e_step_reln)
-                                                    (env,s,Exp e,c)
-                                                    (env',s',Val v,[(
-                                                                    Craise
-                                                                    () , env'')])
-   | ( env, s, e, c, (s', Rerr (Rabort a)) ) => ? env' e' c'.
-                                                  (RTC e_step_reln)
-                                                    (env,s,Exp e,c)
-                                                    (env',s',e',c') /\
-                                                    (e_step (env',s',e',c') =
-                                                       Eabort a)
- )))`;
+(small_eval env s e c (s', Rval v) =  
+(? env'. (RTC e_step_reln) (env,s,Exp e,c) (env',s',Val v,[])))
+/\
+(small_eval env s e c (s', Rerr (Rraise v)) =  
+(? env' env''. (RTC e_step_reln) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
+/\
+(small_eval env s e c (s', Rerr (Rabort Rtimeout_error)) = F)
+/\
+(small_eval env s e c (s', Rerr (Rabort a)) =  
+(? env' e' c'.
+    (RTC e_step_reln) (env,s,Exp e,c) (env',s',e',c') /\
+    (e_step (env',s',e',c') = Eabort a)))`;
 
 
-(*val e_diverges : all_env -> store_trace v -> exp -> bool*)
+(*val e_diverges : environment v -> store_trace v -> exp -> bool*)
 val _ = Define `
  (e_diverges env s e =  
 (! env' s' e' c'.
