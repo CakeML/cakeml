@@ -115,11 +115,14 @@ val optimise_def = Define `
    proofs are combined *)
 
 val compile_exp = Define `
-  compile_exp (name:num, arg_count, exp) =
-    (name, arg_count,
-     optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp])))`
+  compile_exp arg_count exp =
+    optimise (FST (compile arg_count (COUNT_LIST arg_count) T [] [exp]))`
+
+val compile_part = Define `
+  compile_part (name:num, arg_count, exp) =
+    (name, arg_count, compile_exp arg_count exp)`
 
 val compile_prog_def = Define `
-  compile_prog prog = MAP compile_exp prog`;
+  compile_prog prog = MAP compile_part prog`;
 
 val _ = export_theory();

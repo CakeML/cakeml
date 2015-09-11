@@ -40,11 +40,11 @@ val set_globals_count_def = Define`
   set_globals_count e = Op Update [e; Op(Const 1)[]; Op GlobalsPtr []]`;
 
 val AllocGlobal_location_def = Define`
-  AllocGlobal_location = 0:num`;
+  AllocGlobal_location = 100:num`;
 val CopyGlobals_location_def = Define`
-  CopyGlobals_location = 1:num`;
+  CopyGlobals_location = 101:num`;
 val num_stubs_def = Define`
-  num_stubs = 2:num`;
+  num_stubs = 102:num`;
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -140,13 +140,22 @@ val compile_SING = store_thm("compile_SING",
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 
+val compile_single_def = Define `
+  compile_single n (name,arg_count,exp) =
+    let (c,aux,n1) = compile n [exp] in
+      (MAP (\(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux ++
+       [(num_stubs + 2 * name,arg_count,HD c)],n1)`
+
 val compile_list_def = Define `
-  (compile_list n [] = []) /\
-  (compile_list n ((name,arg_count,exp)::progs) =
-     let (c,aux,n1) = compile n [exp] in
-       aux ++ [(num_stubs + 2 * name,arg_count,HD c)] ++ compile_list n1 progs)`
+  (compile_list n [] = ([],n)) /\
+  (compile_list n (p::progs) =
+     let (code1,n1) = compile_single n p in
+     let (code2,n2) = compile_list n1 progs in
+       (code1 ++ code2,n2))`
 
 val compile_prog_def = Define `
-  compile_prog prog = bvi_stubs ++ compile_list 0 prog`;
+  compile_prog n prog =
+    let (code,n1) = compile_list n prog in
+      (bvi_stubs ++ code, n1)`;
 
 val _ = export_theory();
