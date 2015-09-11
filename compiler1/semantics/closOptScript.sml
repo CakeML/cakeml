@@ -84,7 +84,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
   num_args + num_args' ≤ max_app ⇒
   exp_rel [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
           [Fn NONE vars (num_args + num_args') e]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
+ cheat (* rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  rw [res_rel_rw] >>
  Cases_on `clos_env s.restrict_envs vars env` >>
  fs [res_rel_rw] >>
@@ -165,11 +165,12 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ]);
+ >- metis_tac [val_rel_mono, ZERO_LESS_EQ] *));
 
 val fn_add_loc = Q.store_thm ("fn_add_loc",
 `!vars num_args e l. exp_rel [Fn NONE vars num_args e] [Fn (SOME l) vars num_args e]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
+  cheat
+ (* rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
  Cases_on `clos_env s.restrict_envs vars env` >>
  rw [res_rel_rw] >>
  `s.restrict_envs = s'.restrict_envs` by fs [Once state_rel_rw] >>
@@ -219,6 +220,6 @@ val fn_add_loc = Q.store_thm ("fn_add_loc",
  >- metis_tac [] >>
  imp_res_tac evaluate_SING >>
  fs [] >>
- rw [evaluate_def, res_rel_rw]);
+ rw [evaluate_def, res_rel_rw] *));
 
 val _ = export_theory ();
