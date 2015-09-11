@@ -1,5 +1,5 @@
 structure compute_semanticsLib = struct
-open HolKernel boolLib bossLib lcsymtacs replTheory
+open HolKernel boolLib bossLib lcsymtacs
 
   val add_datatype = compute_basicLib.add_datatype
 

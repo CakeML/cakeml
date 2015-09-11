@@ -11,63 +11,56 @@ val _ = new_theory "bigClock";
 val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
 
-val set_counter_def = Define `
-  set_counter counter ((_,s),tids,mdecls) = ((counter,s),tids,mdecls)`;
-
 val big_unclocked_unchanged = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
      (ck = F)
      ⇒
      (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1))) ∧
+     (s.clock = (FST r1).clock)) ∧
  (∀ck env s es r1.
    evaluate_list ck env s es r1 ⇒
      (ck = F)
      ⇒
      (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1))) ∧
+     (s.clock = (FST r1).clock)) ∧
  (∀ck env s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
      (ck = F)
      ⇒
      (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1)))`,
+     (s.clock = (FST r1).clock))`,
  ho_match_mp_tac evaluate_ind >>
  rw [] >> fs[do_app_cases] >> rw [] >> fs []);
 
 val big_unclocked_ignore = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
+     !count2 st' r.
+       (r1 = (st', r)) ∧
        (r ≠ Rerr (Rabort Rtimeout_error))
        ⇒
-       evaluate F env (count2,st) e ((count2, st'), r)) ∧
+       evaluate F env (s with clock := count2) e (st' with clock := count2, r)) ∧
  (∀ck env s es r1.
    evaluate_list ck env s es r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
+     !count2 st' r.
+       (r1 = (st', r)) ∧
        (r ≠ Rerr (Rabort Rtimeout_error))
        ⇒
-       evaluate_list F env (count2,st) es ((count2, st'), r)) ∧
+       evaluate_list F env (s with clock := count2) es (st' with clock := count2, r)) ∧
  (∀ck env s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
+     !count2 st' r.
+       (r1 = (st', r)) ∧
        (r ≠ Rerr (Rabort Rtimeout_error))
        ⇒
-       evaluate_match F env (count2,st) v pes err_v ((count2, st'), r))`,
-ho_match_mp_tac evaluate_ind >>
-rw [] >>
-rw [Once evaluate_cases]>>
-TRY (PairCases_on `s'`) >>
-fs [] >>
-rw [] >>
-metis_tac []);
+       evaluate_match F env (s with clock := count2) v pes err_v (st' with clock := count2, r))`,
+ ho_match_mp_tac evaluate_ind >>
+ rw [] >>
+ rw [Once evaluate_cases]>>
+ fs [] >>
+ rw [] >>
+ metis_tac [state_component_equality]
 
 val big_unclocked = Q.store_thm ("big_unclocked",
 `!count s env e count' s' r env.
