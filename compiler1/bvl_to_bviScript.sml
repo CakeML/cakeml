@@ -62,6 +62,10 @@ val CopyGlobals_code_def = Define`
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
+val bvi_stubs_def = Define `
+  bvi_stubs = [(AllocGlobal_location, AllocGlobal_code);
+               (CopyGlobals_location, CopyGlobals_code)]`;
+
 val compile_op_def = Define `
   compile_op op c1 =
     case op of
@@ -135,5 +139,14 @@ val compile_SING = store_thm("compile_SING",
   ``(compile n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC compile_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
+
+val compile_list_def = Define `
+  (compile_list n [] = []) /\
+  (compile_list n ((name,arg_count,exp)::progs) =
+     let (c,aux,n1) = compile n [exp] in
+       aux ++ [(num_stubs + 2 * name,arg_count,HD c)] ++ compile_list n1 progs)`
+
+val compile_prog_def = Define `
+  compile_prog prog = bvi_stubs ++ compile_list 0 prog`;
 
 val _ = export_theory();

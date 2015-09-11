@@ -59,7 +59,7 @@ val comp_def = Define `
                     (Call ret target (MAP adjust_var args) handler, l1)`
 
 val compile_part_def = Define `
-  compile_part c (n,arg_count,p) = (n,arg_count,comp c n 1 p)`
+  compile_part c (n,arg_count,p) = (n,arg_count,FST (comp c n 1 p))`
 
 val compile_def = Define `
   compile c prog = MAP (compile_part c) prog`;
