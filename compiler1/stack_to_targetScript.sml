@@ -3,7 +3,7 @@ open preamble stackLangTheory
      stack_removeTheory
      stack_namesTheory
      lab_to_targetTheory;
-     
+
 
 val _ = new_theory "stack_to_target";
 
@@ -48,12 +48,17 @@ val stub1_def = Define `
                       Set LastFree 3;
                       Call NONE (INL 5) NONE])`
 
+val _ = type_abbrev("stack_conf",
+  ``:num num_map # num # num # 'a lab_conf``);
+
 val compile_def = Define `
-  compile c enc f sp bp prog =
+  compile ((f,sp,bp,conf):'a stack_conf) prog =
     let prog' = stub1 :: prog in
     let without_stack = stub0 sp bp :: stack_remove$compile (sp,bp) prog' in
     let with_target_names = stack_names$compile f without_stack in
-    let sec_list = stack_to_lab$compile with_target_names in 
-      lab_to_target$compile c enc sec_list`;
+    let sec_list = stack_to_lab$compile with_target_names in
+      case lab_to_target$compile conf sec_list of
+      | NONE => NONE
+      | SOME (bytes,conf) => SOME (bytes,(f,sp,bp,conf))`;
 
 val _ = export_theory();
