@@ -19,7 +19,7 @@ val compile_def = Define`
   (* TODO: dead code elimination *)
   let (es,aux) = clos_to_bvl$compile es [] in
     OPTION_MAP
-      (λ(bytes,c). SOME (bytes,(c,next_loc)))
+      (λ(bytes,c). (bytes,(c,next_loc)))
       (* TODO: (0,0,e) is probably not correct *)
       (bvl_to_target$compile c ((MAP (λe. (0,0,e)) es)++aux))`;
 
