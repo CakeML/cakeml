@@ -8,6 +8,7 @@ val _ = new_theory "ml_translator";
 
 infix \\ val op \\ = op THEN;
 
+val evaluate_ind = bigStepTheory.evaluate_ind;
 
 (* Definitions *)
 
