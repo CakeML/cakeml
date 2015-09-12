@@ -304,7 +304,7 @@ val dest_closure_v_rel_full = Q.prove (
   rw [] >>
   `k < LENGTH es` by decide_tac >>
   fs [EL_ZIP, EL_MAP] >>
-  `LIST_REL v_rel (GENLIST (Recclosure n0 [] env es) (LENGTH es))
+  `LIST_REL v_rel (GENLIST (Recclosure o' [] env es) (LENGTH es))
                     (GENLIST (Recclosure p' [] env' (ZIP (MAP FST es,r))) (LENGTH es))`
                  by (rw [LIST_REL_EL_EQN] >>
                      rw [v_rel_cases] >>
