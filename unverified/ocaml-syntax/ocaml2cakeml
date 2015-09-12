@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+cat "${BASH_SOURCE%/*}/lib/pervasives.cml" "${BASH_SOURCE%/*}/lib/list.cml" \
+  "${BASH_SOURCE%/*}/lib/array.cml" \
+  <(echo; "${BASH_SOURCE%/*}/formatted" <<< `cat $1`)

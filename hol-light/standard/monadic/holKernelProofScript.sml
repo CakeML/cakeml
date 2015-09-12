@@ -1422,6 +1422,105 @@ val TRANS_thm = store_thm("TRANS_thm",
   MATCH_MP_TAC(List.nth(CONJUNCTS proves_rules,9)) >>
   METIS_TAC[])
 
+val SYM_thm = store_thm("SYM_thm",
+  ``THM defs th /\ STATE defs s /\
+    (SYM th s = (res, s')) ==>
+    (s' = s) /\ !th. (res = HolRes th) ==> THM defs th``,
+  Cases_on`th`>>rw[EQ_SYM_EQ]>>fs[SYM_def]>>
+  every_case_tac >> fs[failwith_def,ex_return_def] >>
+  fs[THM_def] >> rw[] >>
+  qmatch_assum_rename_tac`_ |- Comb (Comb (Const _ ty) _) _` >>
+  `∃a. ty = Fun a (Fun a Bool)` by (
+    fs[STATE_def] >> imp_res_tac CONTEXT_std_sig >>
+    imp_res_tac proves_term_ok >> rfs[term_ok_clauses] >> rw[] >>
+    fs[codomain_def] >> rw[] >>
+    rfs[term_ok_def,is_std_sig_def] ) >>
+  rw[] >> match_mp_tac sym >> rw[])
+
+val PROVE_HYP_thm = Q.store_thm("PROVE_HYP_thm",
+  `THM defs th1 ∧ THM defs th2 ∧ STATE defs s ∧
+   (PROVE_HYP th1 th2 s = (res, s')) ⇒
+   (s' = s) ∧ ∀th. (res = HolRes th) ⇒ THM defs th`,
+  Cases_on`th1`>>Cases_on`th2`>>rw[EQ_SYM_EQ]>>
+  fs[PROVE_HYP_def,ex_return_def,THM_def]>>
+  match_mp_tac proveHyp >> rw[]);
+
+val map_type_of = Q.prove(
+  `∀ls s r s'.
+      EVERY (TERM defs) ls ∧ STATE defs s ∧
+      (map type_of ls s = (HolRes r,s')) ⇒
+      (s' = s) ∧
+      (r = MAP term_type ls)`,
+  Induct >> simp[Once map_def] >- (
+    simp[ex_return_def] ) >>
+  rw[ex_bind_def] >>
+  every_case_tac >> fs[ex_return_def] >> rw[] >>
+  imp_res_tac type_of_thm >> fs[] >> rw[] >>
+  METIS_TAC[])
+
+val map_type_of_state = Q.prove(
+  `∀ls s r s'.
+      (map type_of ls s = (r,s')) ⇒
+      (s' = s)`,
+  Induct >> simp[Once map_def] >- (
+    simp[ex_return_def] ) >>
+  rw[ex_bind_def] >>
+  every_case_tac >> fs[ex_return_def] >> rw[] >>
+  METIS_TAC[type_of_state,PAIR,FST,SND])
+
+val hypset_ok_list_to_hypset = Q.store_thm("hypset_ok_list_to_hypset[simp]",
+  `∀ls a. hypset_ok a ⇒ hypset_ok (list_to_hypset ls a)`,
+  Induct >> simp[list_to_hypset_def])
+
+val MEM_list_to_hypset_imp = Q.store_thm("MEM_list_to_hypset_imp",
+  `∀ls a. MEM x (list_to_hypset ls a) ⇒ MEM x ls ∨ MEM x a`,
+  Induct >> rw[list_to_hypset_def] >>
+  res_tac >> simp[] >>
+  imp_res_tac MEM_term_union_imp >> fs[])
+
+val ALPHA_THM_thm = Q.store_thm("ALPHA_THM_thm",
+  `THM defs th ∧ EVERY (TERM defs) h ∧ TERM defs c ∧ STATE defs s ∧
+   (ALPHA_THM th (h,c) s = (res,s')) ⇒
+   (s' = s) ∧ ∀th. (res = HolRes th) ⇒ THM defs th`,
+  Cases_on`th`>>simp[ALPHA_THM_def]>>
+  IF_CASES_TAC>>strip_tac>>fs[failwith_def]>>
+  rpt var_eq_tac >> simp[] >>
+  pop_assum mp_tac >>
+  IF_CASES_TAC>>strip_tac>>fs[failwith_def]>>
+  rpt var_eq_tac >> simp[] >>
+  fs[ex_bind_def,ex_return_def] >>
+  BasicProvers.FULL_CASE_TAC >> fs[]>>
+  BasicProvers.FULL_CASE_TAC >> fs[]>>
+  IMP_RES_TAC map_type_of_state >> var_eq_tac >>
+  every_case_tac >> fs[] >>
+  rpt var_eq_tac >> simp[] >>
+  qspecl_then[`strlit"bool"`,`[]`,`s`]mp_tac mk_type_thm >>
+  simp[] >> strip_tac >>
+  rpt var_eq_tac >> simp[] >>
+  fs[THM_def] >>
+  match_mp_tac proves_ACONV >>
+  first_assum(match_exists_tac o concl) >>
+  `TERM defs t` by (
+    fs[TERM_def] >>
+    imp_res_tac proves_term_ok >> fs[] ) >>
+  `ACONV t c` by METIS_TAC[aconv_thm] >> fs[] >>
+  qspecl_then[`list_to_hypset h []`,`r`]mp_tac map_type_of >>
+  simp[] >>
+  discharge_hyps_keep >- (
+    rw[EVERY_MEM] >>
+    imp_res_tac MEM_list_to_hypset_imp >> fs[EVERY_MEM] ) >>
+  strip_tac >>
+  conj_tac >- METIS_TAC[term_ok_welltyped,TERM_def] >>
+  conj_asm2_tac >- (
+    rw[] >> res_tac >>
+    fs[EXISTS_MEM] >>
+    imp_res_tac proves_term_ok >> fs[EVERY_MEM] >>
+    METIS_TAC[aconv_thm,TERM_def] ) >>
+  fs[EVERY_MEM] >>
+  rw[] >> fs[TERM_def] >>
+  fs[MEM_MAP,PULL_EXISTS] >>
+  METIS_TAC[term_type,STATE_def,TERM_def,WELLTYPED_LEMMA,WELLTYPED,term_ok_welltyped])
+
 val MK_COMB_thm = store_thm("MK_COMB_thm",
   ``THM defs th1 /\ THM defs th2 /\ STATE defs s /\
     (MK_COMB (th1,th2) s = (res, s')) ==>

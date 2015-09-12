@@ -42,18 +42,14 @@ val asm_line_labs_def = Define `
      asm_line_labs (pos+l) xs acc)`
 
 val sec_labs_def = Define `
-  sec_labs pos (Section k lines) =
+  sec_labs pos lines =
     asm_line_labs pos lines (insert 0 pos LN)`;
 
-val sec_name_def = Define `
-  sec_name (Section k _) = k`;
-
 val compute_labels_def = Define `
-  (compute_labels pos [] = LN) /\
-  (compute_labels pos (s::rest) =
-     let (labs,new_pos) = sec_labs pos s in
-     let rest_labs = compute_labels new_pos rest in
-       insert (sec_name s) labs rest_labs)`
+  (compute_labels pos [] aux = aux) /\
+  (compute_labels pos ((Section k lines)::rest) aux =
+     let (labs,new_pos) = sec_labs pos lines in
+       compute_labels new_pos rest (insert k labs aux))`
 
 (* update code *)
 
@@ -188,21 +184,27 @@ val pad_code_def = Define `
 
 (* top-level assembler function *)
 
+val filter_labs_def = Define `
+  filter_labs f = map (\t. case lookup 0 t of NONE => LN
+                           | SOME x => insert 0 x LN) f`
+
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c enc sec_list =
+  remove_labels_loop clock c enc sec_list l =
     (* compute labels *)
-    let labs = compute_labels 0 sec_list in
+    let labs = compute_labels 0 sec_list l in
     (* update jump encodings *)
     let xs = enc_secs_again 0 labs enc sec_list in
     (* check length annotations *)
     if all_lengths_ok 0 xs then
-      if all_asm_ok c xs then SOME (pad_code (enc (Inst Skip)) xs) else NONE
+      if all_asm_ok c xs then
+        SOME (pad_code (enc (Inst Skip)) xs,filter_labs labs)
+      else NONE
     else
     (* update length annotations *)
     let ys = all_lengths_update 0 xs in
     (* repeat *)
     if clock = 0:num then NONE else
-      remove_labels_loop (clock-1) c enc ys`
+      remove_labels_loop (clock-1) c enc ys l`
 
 val remove_labels_def = Define `
   remove_labels c enc sec_list =
@@ -229,15 +231,18 @@ val prog_to_bytes_def = Define `
 (* compile labels *)
 
 val compile_lab_def = Define `
-  compile_lab c enc sec_list =
-    case remove_labels c enc sec_list of
-    | SOME sec_list => SOME (prog_to_bytes sec_list)
+  compile_lab (c,enc,l) sec_list =
+    case remove_labels c enc sec_list l of
+    | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,(c,enc,l1))
     | NONE => NONE`;
 
 (* compile labLang *)
 
+val _ = type_abbrev("lab_conf",
+  ``:'a asm_config # ('a asm -> word8 list) # num num_map num_map``);
+
 val compile_def = Define `
-  compile c enc sec_list =
-    compile_lab c enc (filter_skip sec_list)`;
+  compile (conf:'a lab_conf) sec_list =
+    compile_lab conf (filter_skip sec_list)`;
 
 val _ = export_theory();

@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../targets ../../reg_alloc/proofs
+INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../targets ../../reg_alloc/proofs ../../gc
 
 OPTIONS = QUIT_ON_FAILURE
 

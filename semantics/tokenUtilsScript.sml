@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open tokensTheory
+open tokensTheory lcsymtacs
 
 val _ = new_theory "tokenUtils"
 
@@ -45,6 +45,12 @@ val isWhitespaceT_def = Define`
   (isWhitespaceT _ ⇔ F)
 `
 
+val isCharT_def = Define`
+  (isCharT (CharT _) ⇔ T) ∧
+  (isCharT _ ⇔ F)
+`;
+val _ = export_rewrites ["isCharT_def"]
+
 val isLongidT_def = Define`
   (isLongidT (LongidT _ _) ⇔ T) ∧
   (isLongidT _ ⇔ F)
@@ -56,6 +62,11 @@ val destLongidT_def = Define`
   (destLongidT _ = NONE)
 `
 val _ = export_rewrites ["destLongidT_def"]
+
+val destLongidT_EQ_SOME = store_thm(
+  "destLongidT_EQ_SOME[simp]",
+  ``destLongidT t = SOME strs ⇔ ∃str s. t = LongidT str s ∧ strs = (str, s)``,
+  Cases_on `t` >> simp[] >> metis_tac[]);
 
 val destTyvarPT_def = Define`
   (destTyvarPT (Lf (TOK (TyvarT s))) = SOME s) ∧
@@ -74,17 +85,33 @@ val destAlphaT_def = Define`
 `;
 val _ = export_rewrites ["destAlphaT_def"]
 
+val destAlphaT_EQ_SOME = store_thm(
+  "destAlphaT_EQ_SOME[simp]",
+  ``destAlphaT t = SOME s ⇔ t = AlphaT s``,
+  Cases_on `t` >> simp[]);
+
 val destSymbolT_def = Define`
   (destSymbolT (SymbolT s) = SOME s) ∧
   (destSymbolT _ = NONE)
 `;
 val _ = export_rewrites ["destSymbolT_def"]
 
+val destSymbolT_EQ_SOME = store_thm(
+  "destSymbolT_EQ_SOME[simp]",
+  ``destSymbolT t = SOME s ⇔ t = SymbolT s``,
+  Cases_on `t` >> simp[]);
+
 val destIntT_def = Define`
   (destIntT (IntT i) = SOME i) ∧
   (destIntT _ = NONE)
 `;
 val _ = export_rewrites ["destIntT_def"]
+
+val destCharT_def = Define`
+  (destCharT (CharT c) = SOME c) ∧
+  (destCharT _ = NONE)
+`;
+val _ = export_rewrites ["destCharT_def"]
 
 val destStringT_def = Define`
   (destStringT (StringT s) = SOME s) ∧

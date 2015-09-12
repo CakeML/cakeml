@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open gramTheory pegexecTheory
+open gramTheory pegexecTheory pegTheory
 
 local open monadsyntax in end
 
@@ -66,8 +66,6 @@ val choicel_def = Define`
   choicel [] = not (empty []) [] ∧
   choicel (h::t) = choice h (choicel t) sumID
 `;
-
-
 
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
@@ -168,7 +166,6 @@ val peg_StructName_def = Define`
         (bindNT nStructName o mktokLf)
 `;
 
-
 val cmlPEG_def = zDefine`
   cmlPEG = <|
     start := pnt nREPLTop;
@@ -204,9 +201,24 @@ val cmlPEG_def = zDefine`
               (mkNT nCompOps, pegf (choicel [tokeq (SymbolT ":=");
                                              tokeq (AlphaT "o")])
                                    (bindNT nCompOps));
+              (mkNT nOpID,
+               choicel [tok (λt. do
+                                   (str,s) <- destLongidT t;
+                                   assert(s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        tok (λt. do
+                                   s <- destSymbolT t;
+                                   assert (s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        tok (λt. do
+                                   s <- destAlphaT t;
+                                   assert (s ≠ "")
+                                 od = SOME ()) (bindNT nOpID o mktokLf);
+                        pegf (tokeq StarT) (bindNT nOpID)]);
               (mkNT nEbase,
                choicel [tok isInt (bindNT nEbase o mktokLf);
                         tok isString (bindNT nEbase o mktokLf);
+                        tok isCharT (bindNT nEbase o mktokLf);
                         seql [tokeq LparT; tokeq RparT] (bindNT nEbase);
                         peg_EbaseParen;
                         seql [tokeq LbrackT; try (pnt nElist1); tokeq RbrackT]
@@ -214,7 +226,8 @@ val cmlPEG_def = zDefine`
                         seql [tokeq LetT; pnt nLetDecs; tokeq InT; pnt nEseq;
                               tokeq EndT] (bindNT nEbase);
                         pegf (pnt nFQV) (bindNT nEbase);
-                        pegf (pnt nConstructorName) (bindNT nEbase)]);
+                        pegf (pnt nConstructorName) (bindNT nEbase);
+                        seql [tokeq OpT; pnt nOpID] (bindNT nEbase)]);
               (mkNT nEseq,
                seql [pnt nE; try (seql [tokeq SemicolonT; pnt nEseq] I)]
                     (bindNT nEseq));
@@ -249,7 +262,7 @@ val cmlPEG_def = zDefine`
                         seql [tokeq IfT; pnt nE; tokeq ThenT; pnt nE;
                               tokeq ElseT; pnt nE]
                              (bindNT nE);
-                        seql [tokeq FnT; pnt nV; tokeq DarrowT; pnt nE]
+                        seql [tokeq FnT; pnt nPattern; tokeq DarrowT; pnt nE]
                              (bindNT nE);
                         seql [tokeq CaseT; pnt nE; tokeq OfT; pnt nPEs]
                              (bindNT nE)]);
@@ -268,8 +281,11 @@ val cmlPEG_def = zDefine`
               (mkNT nAndFDecls,
                peg_linfix (mkNT nAndFDecls) (pnt nFDecl) (tokeq AndT));
               (mkNT nFDecl,
-               seql [pnt nV; pnt nVlist1; tokeq EqualsT; pnt nE]
+               seql [pnt nV; pnt nPbaseList1; tokeq EqualsT; pnt nE]
                     (bindNT nFDecl));
+              (mkNT nPbaseList1,
+               seql [pnt nPbase; try (pnt nPbaseList1)]
+                    (bindNT nPbaseList1));
               (mkNT nType,
                seql [pnt nPType; try (seql [tokeq ArrowT; pnt nType] I)]
                     (bindNT nType));
@@ -334,7 +350,8 @@ val cmlPEG_def = zDefine`
               (mkNT nPbase,
                pegf
                  (choicel [pnt nV; pnt nConstructorName; tok isInt mktokLf;
-                           tok isString mktokLf; pnt nPtuple; tokeq UnderbarT;
+                           tok isString mktokLf; tok isCharT mktokLf;
+                           pnt nPtuple; tokeq UnderbarT;
                            seql [tokeq LbrackT; try (pnt nPatternList);
                                  tokeq RbrackT] I])
                  (bindNT nPbase));
@@ -504,7 +521,7 @@ val peg_range =
 
 val peg_start = SIMP_CONV(srw_ss()) [cmlPEG_def]``cmlPEG.start``
 
-val wfpeg_rwts = pegTheory.wfpeg_cases
+val wfpeg_rwts = wfpeg_cases
                    |> ISPEC ``cmlPEG``
                    |> (fn th => map (fn t => Q.SPEC t th)
                                     [`seq e1 e2 f`, `choice e1 e2 f`, `tok P f`,
@@ -517,12 +534,12 @@ val wfpeg_rwts = pegTheory.wfpeg_cases
                                                    [choicel_def, seql_def, tokeq_def,
                                                     pegf_def])))
 
-val wfpeg_pnt = pegTheory.wfpeg_cases
+val wfpeg_pnt = wfpeg_cases
                   |> ISPEC ``cmlPEG``
                   |> Q.SPEC `pnt n`
                   |> CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def]))
 
-val peg0_rwts = pegTheory.peg0_cases
+val peg0_rwts = peg0_cases
                   |> ISPEC ``cmlPEG`` |> CONJUNCTS
                   |> map (fn th => map (fn t => Q.SPEC t th)
                                        [`tok P f`, `choice e1 e2 f`, `seq e1 e2 f`,
@@ -545,7 +562,7 @@ in
   List.filter filterthis peg0_rwts
 end
 
-val pegnt_case_ths = pegTheory.peg0_cases
+val pegnt_case_ths = peg0_cases
                       |> ISPEC ``cmlPEG`` |> CONJUNCTS
                       |> map (Q.SPEC `pnt n`)
                       |> map (CONV_RULE (RAND_CONV (SIMP_CONV (srw_ss()) [pnt_def])))
@@ -569,14 +586,14 @@ end
 
 val npeg0_rwts =
     List.foldl pegnt []
-               [``nTypeDec``, ``nTypeAbbrevDec``,
+               [``nTypeDec``, ``nTypeAbbrevDec``, ``nOpID``,
                 ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
                 ``nTypeList1``, ``nTypeList2``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
-                ``nPatternList``,
+                ``nPatternList``, ``nPbaseList1``,
                 ``nLetDec``, ``nMultOps``, ``nListOps``,
                 ``nFQV``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``, ``nEcomp``,
@@ -588,22 +605,22 @@ val npeg0_rwts =
 val pegfail_empty = Store_thm(
   "pegfail_empty",
   ``pegfail G (empty r) = F``,
-  simp[Once pegTheory.peg0_cases]);
+  simp[Once peg0_cases]);
 
 val peg0_empty = Store_thm(
   "peg0_empty",
   ``peg0 G (empty r) = T``,
-  simp[Once pegTheory.peg0_cases]);
+  simp[Once peg0_cases]);
 
 val peg0_not = Store_thm(
   "peg0_not",
   ``peg0 G (not s r) ⇔ pegfail G s``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
+  simp[Once peg0_cases, SimpLHS]);
 
 val peg0_choice = Store_thm(
   "peg0_choice",
   ``peg0 G (choice s1 s2 f) ⇔ peg0 G s1 ∨ pegfail G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS]);
+  simp[Once peg0_cases, SimpLHS]);
 
 val peg0_choicel = Store_thm(
   "peg0_choicel",
@@ -614,7 +631,7 @@ val peg0_choicel = Store_thm(
 val peg0_seq = Store_thm(
   "peg0_seq",
   ``peg0 G (seq s1 s2 f) ⇔ peg0 G s1 ∧ peg0 G s2``,
-  simp[Once pegTheory.peg0_cases, SimpLHS])
+  simp[Once peg0_cases, SimpLHS])
 
 val peg0_pegf = Store_thm(
   "peg0_pegf",
@@ -630,7 +647,7 @@ val peg0_seql = Store_thm(
 val peg0_tok = Store_thm(
   "peg0_tok",
   ``peg0 G (tok P f) = F``,
-  simp[Once pegTheory.peg0_cases])
+  simp[Once peg0_cases])
 
 val peg0_tokeq = Store_thm(
   "peg0_tokeq",
@@ -657,10 +674,11 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,
-                ``nPatternList``, ``nPE``,
+                ``nPatternList``, ``nPbaseList1``, ``nPE``,
                 ``nPE'``, ``nPEs``, ``nMultOps``, ``nLetDec``, ``nLetDecs``,
                 ``nFQV``,
-                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nEbase``, ``nEapp``,
+                ``nFDecl``, ``nAddOps``, ``nCompOps``, ``nOpID``,
+                ``nEbase``, ``nEapp``,
                 ``nEmult``, ``nEadd``, ``nElistop``, ``nErel``,
                 ``nEcomp``, ``nEbefore``, ``nEtyped``, ``nElogicAND``,
                 ``nElogicOR``, ``nEhandle``, ``nE``, ``nE'``,
@@ -685,13 +703,13 @@ set_diff (TypeBase.constructors_of ``:MMLnonT``)
 
 val subexprs_pnt = prove(
   ``subexprs (pnt n) = {pnt n}``,
-  simp[pegTheory.subexprs_def, pnt_def]);
+  simp[subexprs_def, pnt_def]);
 
 val PEG_exprs = save_thm(
   "PEG_exprs",
   ``Gexprs cmlPEG``
     |> SIMP_CONV (srw_ss())
-         [pegTheory.Gexprs_def, pegTheory.subexprs_def,
+         [Gexprs_def, subexprs_def,
           subexprs_pnt, peg_start, peg_range, choicel_def, tokeq_def, try_def,
           seql_def, pegf_def, peg_V_def, peg_nonfix_def, peg_EbaseParen_def,
           peg_longV_def, peg_linfix_def, peg_StructName_def,
@@ -702,7 +720,7 @@ val PEG_exprs = save_thm(
 val PEG_wellformed = store_thm(
   "PEG_wellformed",
   ``wfG cmlPEG``,
-  simp[pegTheory.wfG_def, pegTheory.Gexprs_def, pegTheory.subexprs_def,
+  simp[wfG_def, Gexprs_def, subexprs_def,
        subexprs_pnt, peg_start, peg_range, DISJ_IMP_THM, FORALL_AND_THM,
        choicel_def, seql_def, pegf_def, tokeq_def, try_def,
        peg_linfix_def, peg_UQConstructorName_def, peg_TypeDec_def,

@@ -1,0 +1,160 @@
+(* OCaml's Array module, renamed to avoid conflict with CakeML's Array module.
+   http://caml.inria.fr/pub/docs/manual-ocaml/libref/Array.html *)
+
+structure Oc_Array = struct
+  val length = Array.length;
+  fun get xs i = Array.sub xs i
+    handle _ => Pervasives.invalid_arg "index out of bounds";
+  fun set xs i x = Array.update xs i x
+    handle _ => Pervasives.invalid_arg "index out of bounds";
+  fun make n x = Array.array n x
+    handle _ => Pervasives.invalid_arg "Array.make";
+  val create = make;
+  fun init n f =
+    let
+      val r = make n (f 0)
+      fun inner i =
+        if i >= n
+          then ()
+          else (set r i (f i); inner (1 + i))
+    in
+      inner 1; r
+    end;
+  fun make_matrix x y e = init x (fn i => make y e);
+  val create_matrix = make_matrix;
+  fun append xs ys =
+    let
+      val lx = length xs
+      val ly = length ys
+    in
+      init (lx + ly) (fn i => if i < lx then get xs i else get ys (i - lx))
+    end;
+  fun concat xss =
+    let
+      val ls = List.map length xss
+      val index_pair =
+        let
+          fun inner acc ls i = case ls of
+              [] => (acc, i)
+            | l :: ls => if i < l then (acc, i)
+                                  else inner (1 + acc) ls (i - acc)
+        in
+          inner 0
+        end
+      val sum =
+        let
+          fun inner acc xs = case xs of
+              [] => acc
+            | x :: xs => inner (x + acc) xs
+        in
+          inner 0
+        end
+    in
+      init (sum ls) (fn i => case index_pair ls i of (j, k) =>
+        get (List.nth xss j) k)
+    end;
+  fun sub xs start len =
+    if start < 0 orelse len < 0 orelse start + len > length xs then
+      Pervasives.invalid_arg "Array.sub"
+    else
+      init len (fn i => get xs (start + i));
+  fun copy xs = sub xs 0 (length xs);
+  fun fill xs start len x =
+    let
+      fun inner start len =
+        if len = 0 then ()
+        else (
+          set xs start x;
+          inner (start + 1) (len - 1)
+        );
+    in
+      if start < 0 orelse len < 0 orelse start + len > length xs then
+        Pervasives.invalid_arg "Array.fill"
+      else
+        inner start len
+    end;
+  fun blit xs startx ys starty len =
+    if startx < 0 orelse starty < 0 orelse len < 0 orelse
+       startx + len > length xs orelse starty + len > length ys then
+      Pervasives.invalid_arg "Array.blit"
+    else
+      let
+        val zs = sub xs startx len
+        fun inner i len =
+          if len = 0 then ()
+          else (
+            set ys (starty + i) (get zs i);
+            inner (i + 1) (len - 1)
+          );
+      in
+        inner 0 len
+      end;
+  fun to_list xs =
+    let
+      val l = length xs
+      fun inner i =
+        if i >= l then []
+        else get xs i :: inner (i + 1)
+    in
+      inner 0
+    end;
+  fun from_list xs =
+    let
+      val l = List.length xs
+    in
+      if l = 0 then
+        init l (List.nth xs)
+      else
+        let
+          val r = make l (List.hd xs)
+          fun inner i xs = case xs of
+              [] => ()
+            | x :: xs => (set r i x; inner (i + 1) xs)
+        in
+          inner 0 xs; r
+        end
+    end;
+  fun iter f xs =
+    let
+      val l = length xs
+      fun inner i =
+        if i >= l then ()
+        else (
+          f (get xs i);
+          inner (i + 1)
+        );
+    in
+      inner 0
+    end;
+  fun map f xs = init (length xs) (fn i => f (get xs i));
+  fun iteri f xs =
+    let
+      val l = length xs
+      fun inner i =
+        if i >= l then ()
+        else (
+          f i (get xs i);
+          inner (i + 1)
+        );
+    in
+      inner 0
+    end;
+  fun mapi f xs = init (length xs) (fn i => f i (get xs i));
+  fun fold_left f xs =
+    let
+      val l = length xs
+      fun inner i acc =
+        if i >= l then acc
+        else inner (i + 1) (f acc (get xs i))
+    in
+      inner 0
+    end;
+  fun fold_right f xs =
+    let
+      fun inner i acc =
+        if i < 0 then acc
+        else inner (i - 1) (f (get xs i) acc)
+    in
+      inner (length xs - 1)
+    end;
+end;

@@ -96,6 +96,6 @@ val HD_shift = store_thm("HD_shift[simp]",
 (* main function *)
 
 val annotate_def = Define `
-  annotate env_size xs = shift (FST (free xs)) 0 env_size LN`;
+  annotate xs = shift (FST (free xs)) 0 0 LN`;
 
 val _ = export_theory();

@@ -11,6 +11,8 @@ repl_result =
   | Diverge
   | Result of string => repl_result`;
 
+val _ = hide"state";
+
 val update_repl_state_def = Define `
 update_repl_state ast state tdecs tenvT tenvM tenvC tenv store envC r =
   case r of

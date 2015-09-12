@@ -62,6 +62,10 @@ val type_ind = save_thm("type_ind",
   |> DISCH_ALL
   |> Q.GEN`P`)
 
+val type1_size_append = store_thm("type1_size_append",
+  ``∀l1 l2. type1_size (l1 ++ l2) = type1_size l1 + type1_size l2``,
+  Induct >> simp[type_size_def])
+
 (* deconstructing variables *)
 
 val ALOOKUP_MAP_dest_var = store_thm("ALOOKUP_MAP_dest_var",
@@ -1376,6 +1380,24 @@ val term_ok_equation = store_thm("term_ok_equation",
   qexists_tac`[(typeof s,Tyvar (strlit "A"))]` >>
   rw[holSyntaxLibTheory.REV_ASSOCD_def])
 
+val term_ok_clauses = store_thm("term_ok_clauses",
+  ``is_std_sig sig ⇒
+    (term_ok sig (Var s ty) ⇔ type_ok (tysof sig) ty) ∧
+    (type_ok (tysof sig) (Tyvar a) ⇔ T) ∧
+    (type_ok (tysof sig) Bool ⇔ T) ∧
+    (type_ok (tysof sig) (Fun ty1 ty2) ⇔ type_ok (tysof sig) ty1 ∧ type_ok (tysof sig) ty2) ∧
+    (term_ok sig (Comb t1 t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ welltyped (Comb t1 t2)) ∧
+    (term_ok sig (Equal ty) ⇔ type_ok (tysof sig) ty) ∧
+    (term_ok sig (t1 === t2) ⇔ term_ok sig t1 ∧ term_ok sig t2 ∧ typeof t1 = typeof t2) ∧
+    (term_ok sig (Abs (Var s ty) t) ⇔ type_ok (tysof sig) ty ∧ term_ok sig t)``,
+  rw[term_ok_def,type_ok_def,term_ok_equation] >>
+  fs[is_std_sig_def] >>
+  TRY (
+    rw[EQ_IMP_THM] >>
+    qexists_tac`[(ty,Tyvar(strlit"A"))]` >>
+    EVAL_TAC >> NO_TAC) >>
+  metis_tac[])
+
 val term_ok_VSUBST = store_thm("term_ok_VSUBST",
   ``∀sig tm ilist.
     term_ok sig tm ∧
@@ -2635,36 +2657,43 @@ val proves_term_ok = store_thm("proves_term_ok",
     match_mp_tac EVERY_term_union >> fs[] ) >>
   rw[theory_ok_def])
 
-(* a simple derived rule, used below *)
+(* some derived rules *)
 
 val assume = proves_rules |> CONJUNCTS |> el 2
-val deductAntisym = proves_rules |> CONJUNCTS |> el 4
-val eqMp = proves_rules |> CONJUNCTS |> el 5
-val refl =  proves_rules |> CONJUNCTS |> el 9
+val deductAntisym_equation = save_thm("deductAntisym_equation",
+  proves_rules |> CONJUNCTS |> el 4)
+val eqMp_equation = save_thm("eqMp_equation",
+  proves_rules |> CONJUNCTS |> el 5
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
+val refl_equation =  save_thm("refl_equation",
+  proves_rules |> CONJUNCTS |> el 9)
+val appThm_equation = save_thm("appThm_equation",
+  proves_rules |> CONJUNCTS |> el 8
+  |> REWRITE_RULE[GSYM AND_IMP_INTRO])
 
 val addAssum = store_thm("addAssum",
   ``∀thy h c a. (thy,h) |- c ∧ term_ok (sigof thy) a ∧ (a has_type Bool) ⇒
       (thy,term_union [a] h) |- c``,
   rw[] >>
-  ho_match_mp_tac (MP_CANON eqMp) >>
+  ho_match_mp_tac (MP_CANON eqMp_equation) >>
   map_every qexists_tac[`c`,`c`] >> simp[] >>
   qspecl_then[`a`,`thy`]mp_tac assume >>
   imp_res_tac proves_theory_ok >> fs[] >> strip_tac >>
   Cases_on`ACONV (c === c) a` >- (
-    qspecl_then[`c === c`,`thy`]mp_tac refl >>
+    qspecl_then[`c === c`,`thy`]mp_tac refl_equation >>
     imp_res_tac theory_ok_sig >>
     imp_res_tac proves_term_ok >>
     fs[term_ok_equation] >> strip_tac >>
-    imp_res_tac eqMp >>
+    imp_res_tac eqMp_equation >>
     fs[term_union_thm] ) >>
-  qspecl_then[`c`,`thy`]mp_tac refl >>
+  qspecl_then[`c`,`thy`]mp_tac refl_equation >>
   imp_res_tac proves_term_ok >> fs[] >> strip_tac >>
-  qspecl_then[`a`,`c === c`,`[a]`,`[]`,`thy`]mp_tac deductAntisym >>
+  qspecl_then[`a`,`c === c`,`[a]`,`[]`,`thy`]mp_tac deductAntisym_equation >>
   simp[term_union_thm] >>
   `term_remove (c === c) [a] = [a]` by (
     simp[Once term_remove_def,GSYM ACONV_eq_orda] ) >>
   rw[] >>
-  imp_res_tac eqMp >>
+  imp_res_tac eqMp_equation >>
   metis_tac[ACONV_REFL,term_union_idem])
 
 (* inference system respects alpha-equivalence *)
@@ -2680,12 +2709,12 @@ val rws = [
 val proves_concl_ACONV = prove(
   ``∀thyh c c'. thyh |- c ∧ ACONV c c' ∧ welltyped c' ⇒ thyh |- c'``,
   rw[] >>
-  qspecl_then[`c'`,`FST thyh`]mp_tac refl >>
+  qspecl_then[`c'`,`FST thyh`]mp_tac refl_equation >>
   imp_res_tac proves_theory_ok >>
   imp_res_tac proves_term_ok >> fs[] >>
   imp_res_tac term_ok_aconv >> pop_assum kall_tac >> simp[] >>
   Cases_on`thyh`>>fs[]>>
-  metis_tac[eqMp,term_union_thm,ACONV_SYM] )
+  metis_tac[eqMp_equation,term_union_thm,ACONV_SYM] )
 
 val proves_ACONV_lemma = prove(
   ``∀thy c h' h1 h.
@@ -2785,6 +2814,118 @@ val proves_ACONV = store_thm("proves_ACONV",
   qpat_assum`welltyped c'`kall_tac >>
   qpat_assum`ACONV c c'`kall_tac >>
   metis_tac[proves_ACONV_lemma,APPEND])
+
+(* more derived rules *)
+
+val sym_equation = store_thm("sym_equation",
+  ``∀thyh p q. thyh |- p === q ⇒ thyh |- q === p``,
+  rpt strip_tac >>
+  imp_res_tac proves_theory_ok >>
+  imp_res_tac proves_term_ok >>
+  imp_res_tac theory_ok_sig >>
+  `(FST thyh,[]) |- p === p` by (
+    match_mp_tac refl_equation >> simp[] >>
+    fs[term_ok_equation]) >>
+  `(FST thyh,[]) |- Equal (typeof p) === Equal (typeof p)` by (
+    match_mp_tac refl_equation >> simp[term_ok_clauses] >>
+    fs[term_ok_equation] >>
+    metis_tac[term_ok_type_ok] ) >>
+  qspecl_then[`[]`,`SND thyh`,`Equal (typeof p)`,`p`]mp_tac appThm_equation >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  simp[] >> discharge_hyps_keep
+    >- fs[term_ok_equation,EQUATION_HAS_TYPE_BOOL] >>
+  simp[term_union_thm] >>
+  strip_tac >> mp_tac appThm_equation >>
+  Cases_on`thyh`>>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  full_simp_tac std_ss [] >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+  fs[term_ok_equation] >>
+  simp[GSYM equation_def,term_union_thm] >>
+  qpat_assum`typeof p = typeof q`(assume_tac o SYM) >>
+  simp[GSYM equation_def] >>
+  fs[EQUATION_HAS_TYPE_BOOL] >>
+  metis_tac[eqMp_equation,term_union_thm,ACONV_REFL])
+
+val sym = store_thm("sym",
+  ``∀thyh p q ty.
+      thyh |- Comb (Comb (Equal ty) p) q ⇒
+      thyh |- Comb (Comb (Equal ty) q) p``,
+  rw[] >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  imp_res_tac term_ok_welltyped >> fs[] >>
+  metis_tac[equation_def,sym_equation])
+
+(* TODO: isn't trans already proved sound since it is in the kernel?
+         could replace that proof with this one *)
+val trans_equation = store_thm("trans_equation",
+  ``∀thy h1 h2 t1 t2a t2b t3.
+      (thy,h2) |- t2b === t3 ⇒
+      (thy,h1) |- t1 === t2a ⇒
+      ACONV t2a t2b ⇒
+      (thy,term_union h1 h2) |- t1 === t3``,
+  rw[] >>
+  imp_res_tac proves_theory_ok >> fs[] >>
+  imp_res_tac theory_ok_sig >>
+  imp_res_tac proves_term_ok >>
+  rfs[term_ok_equation] >>
+  qspecl_then[`Comb (Equal (typeof t3)) t3`,`thy`]mp_tac refl_equation >>
+  simp[term_ok_clauses] >>
+  discharge_hyps >- metis_tac[term_ok_type_ok,term_ok_welltyped] >>
+  disch_then(mp_tac o MATCH_MP appThm_equation) >>
+  disch_then(qspecl_then[`h1`,`t2a`,`t1`]mp_tac) >>
+  discharge_hyps >- metis_tac[sym_equation] >>
+  fs[EQUATION_HAS_TYPE_BOOL] >>
+  imp_res_tac ACONV_TYPE >> rfs[] >>
+  qpat_assum`typeof t3 = X`(assume_tac o SYM) >>
+  simp[GSYM equation_def] >>
+  disch_then(mp_tac o MATCH_MP eqMp_equation) >>
+  disch_then(qspecl_then[`h2`,`t3 === t2b`]mp_tac) >>
+  simp[term_union_thm] >>
+  discharge_hyps >- metis_tac[sym_equation] >>
+  discharge_hyps >- (
+    simp[ACONV_def,RACONV,equation_def] >>
+    simp[GSYM ACONV_def] ) >>
+  metis_tac[sym_equation])
+
+val trans = store_thm("trans",
+  ``∀thy h1 h2 t1 t2a t2b t3 ty.
+      (thy,h2) |- Comb (Comb (Equal ty) t2b) t3 ⇒
+      (thy,h1) |- Comb (Comb (Equal ty) t1) t2a ⇒
+      ACONV t2a t2b ⇒
+      (thy,term_union h1 h2) |- Comb (Comb (Equal ty) t1) t3``,
+  rw[] >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  imp_res_tac term_ok_welltyped >> fs[] >>
+  metis_tac[trans_equation,equation_def])
+
+val proveHyp = store_thm("proveHyp",
+  ``∀thy h1 c1 h2 c2. (thy,h1) |- c1 ∧ (thy,h2) |- c2 ⇒
+      (thy,term_union h2 (term_remove c2 h1)) |- c1``,
+  rw[] >>
+  imp_res_tac proves_term_ok >>
+  imp_res_tac proves_theory_ok >> fs[] >>
+  qspecl_then[`c2`,`c1`,`h2`,`h1`,`thy`]mp_tac deductAntisym_equation >>
+  simp[] >> strip_tac >>
+  qmatch_assum_abbrev_tac`(thy,h3) |- c2 === c1` >>
+  qspecl_then[`h3`,`h2`,`c2`,`c2`,`c1`,`thy`]mp_tac eqMp_equation >>
+  simp[] >>
+  strip_tac >>
+  match_mp_tac proves_ACONV >>
+  first_assum(match_exists_tac o concl) >>
+  simp[] >>
+  conj_tac >- metis_tac[welltyped_def] >>
+  unabbrev_all_tac >>
+  simp[EVERY_MEM,EXISTS_MEM] >>
+  conj_tac >> gen_tac >>
+  disch_then(mp_tac o MATCH_MP MEM_term_union_imp) >>
+  strip_tac >>
+  TRY(pop_assum(mp_tac o MATCH_MP MEM_term_union_imp)) >>
+  TRY strip_tac >>
+  imp_res_tac MEM_term_remove_imp >>
+  TRY(fs[EVERY_MEM]>>NO_TAC) >>
+  metis_tac[MEM_term_union,hypset_ok_term_union,hypset_ok_term_remove,ACONV_REFL])
 
 (* extension is transitive *)
 
@@ -3180,5 +3321,175 @@ val type_ok_types_in = store_thm("type_ok_types_in",
 val VFREE_IN_types_in = store_thm("VFREE_IN_types_in",
   ``∀t2 t1. VFREE_IN t1 t2 ⇒ typeof t1 ∈ types_in t2``,
   ho_match_mp_tac term_induction >> rw[] >> rw[])
+
+(* a type matching algorithm, based on the implementation in HOL4 *)
+
+val tymatch_def = tDefine"tymatch"`
+  (tymatch [] [] sids = SOME sids) ∧
+  (tymatch [] _ _ = NONE) ∧
+  (tymatch _ [] _ = NONE) ∧
+  (tymatch (Tyvar name::ps) (ty::obs) sids =
+   let (s,ids) = sids in
+   let v = REV_ASSOCD (Tyvar name) s (Tyvar name) in
+   case if v = Tyvar name then
+          if MEM name ids then SOME v else NONE
+        else SOME v
+   of NONE => if v=ty then tymatch ps obs (s,name::ids) else tymatch ps obs ((ty,v)::s,ids)
+    | SOME ty1 => if ty1=ty then tymatch ps obs sids else NONE) ∧
+  (tymatch (Tyapp c1 a1::ps) (Tyapp c2 a2::obs) sids =
+   if c1=c2 then tymatch (a1++ps) (a2++obs) sids else NONE) ∧
+  (tymatch _ _ _ = NONE)`
+  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (FST(SND x)))` >>
+   simp[type1_size_append])
+val tymatch_ind = theorem "tymatch_ind";
+
+val arities_match_def = tDefine"arities_match"`
+  (arities_match [] [] ⇔ T) ∧
+  (arities_match [] _ ⇔ F) ∧
+  (arities_match _ [] ⇔ F) ∧
+  (arities_match (Tyapp c1 a1::xs) (Tyapp c2 a2::ys) ⇔
+   ((c1 = c2) ⇒ arities_match a1 a2) ∧ arities_match xs ys) ∧
+  (arities_match (_::xs) (_::ys) ⇔ arities_match xs ys)`
+  (WF_REL_TAC`measure (λx. type1_size (FST x) + type1_size (SND x))`)
+val arities_match_ind = theorem "arities_match_ind"
+
+val arities_match_length = store_thm("arities_match_length",
+  ``∀l1 l2. arities_match l1 l2 ⇒ (LENGTH l1 = LENGTH l2)``,
+  ho_match_mp_tac arities_match_ind >> simp[arities_match_def])
+
+val arities_match_nil = store_thm("arities_match_nil[simp]",
+  ``(arities_match [] ls = (ls = [])) ∧
+    (arities_match ls [] = (ls = []))``,
+  Cases_on`ls`>> simp[arities_match_def])
+
+val arities_match_Tyvar = store_thm("arities_match_Tyvar[simp]",
+  ``arities_match (Tyvar v::ps) (ty::obs) = arities_match ps obs``,
+  Cases_on`ty`>>simp[arities_match_def])
+
+val arities_match_append = store_thm("arities_match_append",
+  ``∀l1 l2 l3 l4.
+    arities_match l1 l2 ∧ arities_match l3 l4 ⇒
+    arities_match (l1++l3) (l2++l4)``,
+  ho_match_mp_tac arities_match_ind >>
+  simp[arities_match_def])
+
+val tymatch_SOME = store_thm("tymatch_SOME",
+  ``∀ps obs sids s' ids'.
+     arities_match ps obs ∧
+      DISJOINT (set (MAP SND (FST sids))) (set (MAP Tyvar (SND sids))) ∧
+      (∀name. ¬MEM (Tyvar name,Tyvar name) (FST sids)) ∧
+      ALL_DISTINCT (MAP SND (FST sids)) ∧
+      (tymatch ps obs sids = SOME (s',ids')) ⇒
+       ∃s1 ids1.
+         (s' = s1++(FST sids)) ∧ (ids' = ids1++(SND sids)) ∧
+         DISJOINT (set (MAP SND s')) (set (MAP Tyvar ids')) ∧
+         (∀name. ¬MEM (Tyvar name,Tyvar name) s') ∧
+         ALL_DISTINCT (MAP SND s') ∧
+         (MAP (TYPE_SUBST s') ps = obs)``,
+  ho_match_mp_tac tymatch_ind >>
+  simp[tymatch_def,arities_match_def] >>
+  conj_tac >- (
+    rpt gen_tac >>
+    `∃s ids. sids = (s,ids)` by metis_tac[pairTheory.pair_CASES] >>
+    simp[] >> strip_tac >>
+    rpt gen_tac >>
+    reverse IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[arities_match_def] >> rfs[] >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND,ALL_DISTINCT_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[] >> rfs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND,ALL_DISTINCT_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.EVERY_CASE_TAC >> fs[] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    IF_CASES_TAC >> fs[] >- (
+      strip_tac >> fs[] >> rfs[] >>
+      rpt BasicProvers.VAR_EQ_TAC >> fs[] >>
+      `¬MEM (Tyvar name) (MAP SND s)` by (
+        fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+        BasicProvers.EVERY_CASE_TAC >- (
+          imp_res_tac ALOOKUP_FAILS >> fs[MEM_MAP,EXISTS_PROD] ) >>
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      reverse BasicProvers.EVERY_CASE_TAC >> fs[] >- (
+        imp_res_tac ALOOKUP_MEM >>
+        fs[MEM_MAP,EXISTS_PROD] >>
+        metis_tac[] ) >>
+      rpt BasicProvers.VAR_EQ_TAC >>
+      fs[ALL_DISTINCT_APPEND] >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[IN_DISJOINT,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    strip_tac >> fs[] >> rfs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    `¬MEM (Tyvar name) (MAP SND s)` by (
+      fs[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+      BasicProvers.EVERY_CASE_TAC >- (
+        imp_res_tac ALOOKUP_FAILS >> fs[MEM_MAP,EXISTS_PROD] ) >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD] >>
+      metis_tac[] ) >>
+    `¬MEM (Tyvar name) (MAP Tyvar ids)` by fs[MEM_MAP] >> fs[] >>
+    rpt BasicProvers.VAR_EQ_TAC >>
+    simp[REV_ASSOCD_ALOOKUP,ALOOKUP_APPEND] >>
+    BasicProvers.CASE_TAC >>
+    fs[ALL_DISTINCT_APPEND] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+    metis_tac[] ) >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >> fs[] >>
+  `arities_match (a1++ps) (a2++obs)` by
+    (imp_res_tac arities_match_append) >>
+  fs[] >>
+  rpt BasicProvers.VAR_EQ_TAC >>
+  simp_tac (std_ss++ETA_ss) [] >>
+  imp_res_tac arities_match_length >>
+  fs[APPEND_EQ_APPEND] >>
+  rfs[] >>
+  `LENGTH l = 0` by DECIDE_TAC >>
+  fs[LENGTH_NIL])
+
+val match_type_def = Define`
+  match_type ty1 ty2 = OPTION_MAP FST (tymatch [ty1] [ty2] ([],[]))`
+
+val type_ok_arities_match = store_thm("type_ok_arities_match",
+  ``∀tys ty1 ty2.
+    type_ok tys ty1 ∧ type_ok tys ty2 ⇒ arities_match [ty1] [ty2]``,
+  gen_tac >> ho_match_mp_tac type_ind >> simp[] >>
+  gen_tac >> strip_tac >>
+  gen_tac >> Cases >> simp[arities_match_def] >>
+  rw[type_ok_def] >> fs[] >>
+  fs[EVERY_MEM] >>
+  `∀ty1 ty2. MEM ty1 l ∧ MEM ty2 l' ⇒ arities_match [ty1] [ty2]` by metis_tac[] >>
+  pop_assum mp_tac >>
+  qpat_assum`LENGTH X = Y`mp_tac >>
+  rpt (pop_assum kall_tac) >>
+  map_every qid_spec_tac[`l'`,`l`] >>
+  Induct >> simp[LENGTH_NIL] >>
+  gen_tac >> Cases >> rw[] >>
+  `arities_match l t` by metis_tac[] >>
+  `arities_match [h] [h']` by metis_tac[] >>
+  metis_tac[arities_match_append,APPEND])
+
+val match_type_SOME = store_thm("match_type_SOME",
+  ``∀ty1 ty2 s. arities_match [ty1] [ty2] ⇒
+    (match_type ty1 ty2 = SOME s) ⇒
+    (TYPE_SUBST s ty1 = ty2)``,
+  rw[match_type_def] >>
+  qspecl_then[`[ty1]`,`[ty2]`,`[],[]`]mp_tac tymatch_SOME >>
+  simp[] >>
+  Cases_on`z`>>simp[])
 
 val _ = export_theory()

@@ -14,6 +14,10 @@ open clos_callTheory
 open clos_annotateTheory
 open bvlTheory clos_to_bvlTheory
 
+open wordLangTheory
+open stackLangTheory stack_removeTheory stack_namesTheory stack_to_labTheory stack_to_targetTheory
+open labLangTheory lab_to_targetTheory
+
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
 
 fun add_compiler_compset compset = let
@@ -115,7 +119,7 @@ fun add_compiler_compset compset = let
     [pat_to_closTheory.compile_def
     ,pat_to_closTheory.string_tag_def
     ,pat_to_closTheory.vector_tag_def
-    ,pat_to_closTheory.pat_tag_shift_def
+    (*,pat_to_closTheory.pat_tag_shift_def*)
     ] compset
   (* clos_mti *)
   val () = add_thms
@@ -153,6 +157,99 @@ fun add_compiler_compset compset = let
   (* bvl *)
   val () = add_datatype``:bvl$exp``
   (* clos_to_bvl *)
+
+  (* wordLang*)
+  val () = add_datatype``:'a wordLang$num_exp``
+  val () = add_datatype``:'a wordLang$exp``
+  val () = add_datatype``:'a wordLang$prog``
+  
+  (*stackLang*)
+  val () = add_datatype``:'a stackLang$prog``
+
+  (*stack_remove*)
+  val () = add_thms
+    [stack_removeTheory.compile_def,
+    stack_removeTheory.prog_comp_def,
+    stack_removeTheory.comp_def,
+    stack_removeTheory.stack_err_lab_def,
+    stack_removeTheory.store_length_def,
+    stack_removeTheory.store_offset_def,
+    stack_removeTheory.store_pos_def,
+    stack_removeTheory.word_offset_def
+    ] compset
+
+  (*stack names*)
+  val () = add_thms
+    [stack_namesTheory.find_name_def,
+    stack_namesTheory.inst_find_name_def,
+    stack_namesTheory.compile_def,
+    stack_namesTheory.prog_comp_def,
+    stack_namesTheory.comp_def,
+    stack_namesTheory.ri_find_name_def
+    ] compset
+
+  (*stack_to_lab*)
+  val () = add_thms
+    [stack_to_labTheory.max_lab_def,
+    stack_to_labTheory.no_ret_def,
+    stack_to_labTheory.compile_def,
+    stack_to_labTheory.prog_to_section_def,
+    stack_to_labTheory.flatten_def,
+    stack_to_labTheory.compile_jump_def
+    ] compset
+ 
+  (*stack_to_target*)
+  val () = add_thms
+    [stack_to_targetTheory.move_inst_def,
+    stack_to_targetTheory.stub1_def,
+    stack_to_targetTheory.compile_def,
+    stack_to_targetTheory.seq_list_def,
+    stack_to_targetTheory.stub0_def,
+    stack_to_targetTheory.sub_inst_def,
+    stack_to_targetTheory.const_inst_def
+    ] compset
+
+  (*labLang*)
+  val () = add_datatype``:lab``
+  val () = add_datatype``:'a asm_with_lab``
+  val () = add_datatype``:'a line``
+  val () = add_datatype``:'a sec``
+
+  (*lab_to_target*)
+  val () = add_thms
+    [lab_to_targetTheory.ffi_offset_def,
+    lab_to_targetTheory.sec_lengths_update_def,
+    lab_to_targetTheory.compile_def,
+    lab_to_targetTheory.compile_lab_def,
+    lab_to_targetTheory.prog_to_bytes_def,
+    lab_to_targetTheory.line_bytes_def,
+    lab_to_targetTheory.remove_labels_def,
+    lab_to_targetTheory.remove_labels_loop_def,
+    lab_to_targetTheory.filter_labs_def,
+    lab_to_targetTheory.pad_code_def,
+    lab_to_targetTheory.pad_section_def,
+    lab_to_targetTheory.pad_bytes_def,
+    lab_to_targetTheory.all_asm_ok_def,
+    lab_to_targetTheory.sec_asm_ok_def,
+    lab_to_targetTheory.all_lengths_update_def,
+    lab_to_targetTheory.sec_length_def,
+    lab_to_targetTheory.all_lengths_ok_def,
+    lab_to_targetTheory.sec_lengths_ok_def,
+    lab_to_targetTheory.enc_secs_again_def,
+    lab_to_targetTheory.full_sec_length_def,
+    lab_to_targetTheory.find_pos_def,
+    lab_to_targetTheory.enc_line_again_def,
+    lab_to_targetTheory.get_jump_offset_def,
+    lab_to_targetTheory.get_label_def,
+    lab_to_targetTheory.lab_inst_def,
+    lab_to_targetTheory.compute_labels_def,
+    lab_to_targetTheory.sec_labs_def,
+    lab_to_targetTheory.asm_line_labs_def,
+    lab_to_targetTheory.enc_sec_list_def,
+    lab_to_targetTheory.enc_sec_def,
+    lab_to_targetTheory.enc_line_def
+    ] compset
+
 in () end
 
 in
@@ -162,11 +259,20 @@ val add_compiler_compset = add_compiler_compset
 val the_compiler_compset =
   let
     val c = compute_basicLib.the_basic_compset
-    val () = compute_semanticsLib.add_ast_compset c
+    (*Needs fixing val () = compute_semanticsLib.add_ast_compset c*)
     val () = add_compiler_compset c
   in
     c
   end
+
+(*Testing*)
+(*
+val compset = the_compiler_compset
+val eval = computeLib.CBV_CONV compset
+
+val foo = eval`` stack_to_lab$compile [(0:num,Skip)]``
+val foo2 = eval ``stack_to_target$compile (LN,1:num,2:num,c) [0,(Seq Skip (StackStore 5 3 ))]``
+*)
 
 end
 end

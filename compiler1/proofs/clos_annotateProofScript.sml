@@ -1043,7 +1043,7 @@ val free_code_locs = prove(
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [])
 
 val annotate_code_locs = store_thm("annotate_code_locs",
-  ``!n ls. code_locs (annotate n ls) = code_locs ls``,
+  ``!ls. code_locs (annotate ls) = code_locs ls``,
   rw[annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()

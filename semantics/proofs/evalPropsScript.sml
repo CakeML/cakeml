@@ -30,16 +30,6 @@ every_case_tac >>
 fs [] >>
 metis_tac []);
 
-val do_log_thm = store_thm("do_log_thm",
-  ``do_log l v e =
-    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
-    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
-    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
-    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
-    NONE``,
-  rw[semanticPrimitivesTheory.do_log_def] >>
-  every_case_tac >> rw[])
-
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
@@ -315,6 +305,10 @@ val map_error_result_Rtype_error = store_thm("map_error_result_Rtype_error",
   ``map_error_result f e = (Rabort a) ⇔ e = Rabort a``,
   Cases_on`e`>>simp[])
 val _ = export_rewrites["map_error_result_Rtype_error"]
+
+val map_error_result_I = Q.store_thm("map_error_result_I[simp]",
+  `map_error_result I e = e`,
+  Cases_on`e`>>EVAL_TAC);
 
 val map_result_def = Define`
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧

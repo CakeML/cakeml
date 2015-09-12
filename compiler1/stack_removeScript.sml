@@ -16,7 +16,11 @@ val store_pos_def = Define `
     | CurrHeap => 3
     | OtherHeap => 4
     | AllocSize => 5
-    | Handler => 6:num`
+    | Handler => 6:num
+    | LastFree => 7`
+
+val store_length_def = Define `
+  store_length = 8n`; (* must be even and <= store_pos n, for any n *)
 
 val store_offset_def = Define `
   store_offset name = 0w - word_offset (store_pos name)`;

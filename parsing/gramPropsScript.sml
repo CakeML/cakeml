@@ -84,6 +84,7 @@ val NT_rank_def = Define`
         else if n = nSpecLine          then  2
         else if n = nPtuple            then  2
         else if n = nPbase             then  3
+        else if n = nPbaseList1        then  4
         else if n = nPapp              then  4
         else if n = nPattern           then  5
         else if n = nPatternList       then  6
@@ -240,7 +241,8 @@ val nullacc =
                              ``nTyVarList``, ``nDtypeDecl``, ``nDecl``, ``nE'``,
                              ``nElist1``, ``nCompOps``, ``nListOps``,
                              ``nPapp``, ``nPattern``, ``nRelOps``, ``nMultOps``,
-                             ``nAddOps``, ``nDconstructor``, ``nFDecl``, ``nPatternList``,
+                             ``nAddOps``, ``nDconstructor``, ``nFDecl``,
+                             ``nPatternList``, ``nPbaseList1``,
                              ``nEseq``, ``nEtuple``, ``nTopLevelDecs``, ``nTopLevelDec``]
 
 local
