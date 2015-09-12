@@ -585,7 +585,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
    ⇒
    cl_rel fs refs code
           (env,ys)
-          (Closure p [] env num_args x)
+          (Closure (SOME p) [] env num_args x)
           (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys))) ∧
   ( num_args ≤ max_app ∧
     num_args ≠ 0 ∧
@@ -595,7 +595,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
       SOME (num_args + 1:num,Let (GENLIST Var (num_args+1)++free_let (Var num_args) (LENGTH env)) c)
     ⇒
     cl_rel fs refs code (env,ys)
-           (Recclosure p [] env [(num_args, x)] 0)
+           (Recclosure (SOME p) [] env [(num_args, x)] 0)
            (Block closure_tag (CodePtr (p + num_stubs) :: Number (&(num_args-1)) :: ys)))
     /\
     ((exps = MAP FST exps_ps) /\
@@ -605,7 +605,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
      (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
      1 < LENGTH exps /\ k < LENGTH exps /\
      closure_code_installed code exps_ps env ==>
-     cl_rel fs refs code (env,ys) (Recclosure loc [] env exps k) (EL k rs))`;
+     cl_rel fs refs code (env,ys) (Recclosure (SOME loc) [] env exps k) (EL k rs))`;
 
 val add_args_def = Define `
   (add_args (Closure loc_opt args env num_args exp : closSem$v) args' =
@@ -1562,8 +1562,8 @@ val dest_closure_part_app = Q.prove (
   decide_tac);
 
 val get_loc_def = Define `
-  (get_loc (Closure loc args env num_args exp) = SOME loc) ∧
-  (get_loc (Recclosure loc args env fns i) = SOME (loc + i)) ∧
+  (get_loc (Closure (SOME loc) args env num_args exp) = SOME loc) ∧
+  (get_loc (Recclosure (SOME loc) args env fns i) = SOME (loc + i)) ∧
   (get_loc _ = NONE)`;
 
 val get_old_args_def = Define `
@@ -1581,7 +1581,7 @@ val dest_closure_full_app = Q.prove (
     dest_closure loc_opt func args = SOME (Full_app exp args1 args2)
     ⇒
     ?rem_args loc num_args old_args cl_env.
-      get_loc func = SOME loc ∧
+      get_loc func = loc ∧
       num_remaining_args func = SOME rem_args ∧
       get_num_args func = SOME num_args ∧
       get_old_args func = SOME old_args ∧
@@ -1600,6 +1600,9 @@ val dest_closure_full_app = Q.prove (
   fs [get_cl_env_def, get_old_args_def, get_loc_def, num_remaining_args_def, get_num_args_def] >>
   full_simp_tac (srw_ss()++ARITH_ss) [] >>
   rw [] >>
+  TRY (Cases_on `o'`) >>
+  fs [get_loc_def] >>
+  simp [] >>
   decide_tac);
 
 val v_rel_num_rem_args = Q.prove (
@@ -1772,7 +1775,7 @@ val cl_rel_get_loc = Q.prove (
 val check_loc'_def = Define `
   (check_loc' NONE loc num_params num_args so_far ⇔  T) ∧
   (check_loc' (SOME p) loc num_params num_args so_far ⇔
-    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
+    (num_params = num_args) ∧ (so_far = 0:num) ∧ (SOME p = loc))`;
 
 val dest_closure'_def = Define `
   dest_closure' loc_opt f args =
@@ -1791,7 +1794,7 @@ val dest_closure'_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc' loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ~(check_loc' loc_opt (lift ($+ i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
              ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
@@ -1982,7 +1985,7 @@ val cl_rel_run = Q.prove (
               by (`n' = n+1` by ARITH_TAC >>
                   metis_tac [cl_rel_run_lemma3, EVERY2_LENGTH]) >>
       `LIST_REL (v_rel f1 refs code)
-                (GENLIST (Recclosure loc' [] env (MAP FST exps_ps)) (LENGTH exps_ps))
+                (GENLIST (Recclosure (SOME loc') [] env (MAP FST exps_ps)) (LENGTH exps_ps))
                 (MAP (λ((n,e),p).
                        Block closure_tag [CodePtr p; Number (if n = 0 then 0 else &n − 1); RefPtr r])
                      exps_ps)`
