@@ -486,24 +486,24 @@ val EL_shift_free = prove(
   \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
   \\ fs [SING_HD,LENGTH_FST_free]);
 
-val shift_correct = prove(
-  ``(!xs env s1 env' t1 res s2 m l i.
-      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
-      (LENGTH env = m + l) /\
-      fv_set xs SUBSET env_ok m l i env env' /\
-      state_rel s1 t1 ==>
-      ?res' t2.
-         (evaluate (shift (FST (free xs)) m l i,env',t1) = (res',t2)) /\
-         result_rel (LIST_REL v_rel) v_rel res res' /\
-         state_rel s2 t2) /\
-    (!loc_opt f args s1 res s2 f' args' s1'.
-      (evaluate_app loc_opt f args s1 = (res,s2)) /\
-      v_rel f f' /\ EVERY2 v_rel args args' /\
-      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
-      ?res' s2'.
-        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
+val shift_correct = Q.prove(
+  `(!xs env s1 env' t1 res s2 m l i.
+     (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
+     (LENGTH env = m + l) /\
+     fv_set xs SUBSET env_ok m l i env env' /\
+     state_rel s1 t1 ==>
+     ?res' t2.
+        (evaluate (shift (FST (free xs)) m l i,env',t1) = (res',t2)) /\
         result_rel (LIST_REL v_rel) v_rel res res' /\
-        state_rel s2 s2')``,
+        state_rel s2 t2) /\
+   (!loc_opt f args s1 res s2 f' args' s1'.
+     (evaluate_app loc_opt f args s1 = (res,s2)) /\
+     v_rel f f' /\ EVERY2 v_rel args args' /\
+     state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
+     ?res' s2'.
+       (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
+       result_rel (LIST_REL v_rel) v_rel res res' /\
+       state_rel s2 s2')`,
   HO_MATCH_MP_TAC (evaluate_ind |> Q.SPEC `\(x1,x2,x3). P0 x1 x2 x3` |> Q.GEN `P0`
                              |> SIMP_RULE std_ss [FORALL_PROD])
   \\ REPEAT STRIP_TAC
@@ -952,14 +952,14 @@ val shift_correct = prove(
     THEN1 (SRW_TAC [] [] \\ fs [state_rel_def])
     \\ Q.ABBREV_TAC `env3 =
          REVERSE (TAKE (q - LENGTH vals') (REVERSE v42 ++ [v41])) ++
-            l' ++ GENLIST (Recclosure n0 [] l0' l1) (LENGTH cs') ++ l0'`
+            l' ++ GENLIST (Recclosure o' [] l0' l1) (LENGTH cs') ++ l0'`
     \\ Q.ABBREV_TAC `n3 =
            (SUC (LENGTH ys) - (LENGTH ys + 1 - (q - LENGTH vals')))`
     \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ fs []
     \\ `q'' <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
     \\ Q.ABBREV_TAC `env3' =
            REVERSE (TAKE (q - LENGTH vals') (REVERSE ys ++ [y])) ++ vals' ++
-           GENLIST (Recclosure n0 [] env' cs') (LENGTH cs') ++ env'`
+           GENLIST (Recclosure o' [] env' cs') (LENGTH cs') ++ env'`
     \\ `n < LENGTH l1` by fs []
     \\ IMP_RES_TAC EVERY2_EL
     \\ rfs []
