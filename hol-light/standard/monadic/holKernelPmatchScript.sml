@@ -283,4 +283,13 @@ val EQ_MP_PMATCH = prove(
   rpt tac)
 val res = fix EQ_MP_def "EQ_MP_def" EQ_MP_PMATCH
 
+val SYM_PMATCH = prove(
+  ``^(rhs(concl(SPEC_ALL SYM_def))) =
+    case eq of
+      Comb (Comb (Const (strlit "=") t) l) r =>
+        return (Sequent asl (Comb (Comb (Const (strlit "=") t) r) l))
+    | _ => failwith (strlit "SYM")``,
+  rpt tac)
+val res = fix SYM_def "SYM_def" SYM_PMATCH
+
 val _ = export_theory()

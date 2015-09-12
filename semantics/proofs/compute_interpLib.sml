@@ -1,5 +1,5 @@
 structure compute_interpLib = struct
-open HolKernel boolLib bossLib lcsymtacs bigStepTheory replTheory
+open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory replTheory
 
   val add_datatype = compute_basicLib.add_datatype
   fun add_interp_compset compset = let

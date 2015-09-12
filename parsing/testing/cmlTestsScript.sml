@@ -24,6 +24,7 @@ val _ = overload_on (
 val _ = overload_on ("OLDAPP", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("", ``λt1 t2. App Opapp [t1; t2]``)
 val _ = overload_on ("SOME", ``TC_name``)
+val _ = overload_on ("vbinop", ``λopn a1 a2. App Opapp [App Opapp [Var opn; a1]; a2]``)
 
 val result_t = ``Result``
 fun parsetest0 nt sem s opt = let
@@ -98,6 +99,60 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn x => x"
+                   (SOME ``Fun "x" (Var (Short "x"))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn (x,y) => x + y"
+                   (SOME ``Fun "" (Mat (Var (Short ""))
+                                       [(Pcon NONE [Pvar "x"; Pvar "y"],
+                                         vbinop (Short "+")
+                                                (Var (Short "x"))
+                                                (Var (Short "y")))])``)
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "fun f 0 NONE = 3"
+                   (SOME ``Dletrec
+                            [("f","",
+                              Mat (Var (Short ""))
+                                  [(Plit (IntLit 0),
+                                    Fun ""
+                                        (Mat (Var (Short ""))
+                                             [(Pcon (SOME (Short "NONE")) [],
+                                               Lit (IntLit 3))]))])]``)
+
+val _ = parsetest0 ``nDecl`` ``ptree_Decl`` "fun f (x,y) (SOME z) = x * y + z"
+                   (SOME
+                      ``Dletrec
+                         [("f","",
+                           Mat (Var (Short ""))
+                               [(Pcon NONE [Pvar "x"; Pvar "y"],
+                                 Fun ""
+                                     (Mat (Var (Short ""))
+                                          [(Pcon (SOME (Short "SOME"))
+                                                 [Pvar "z"],
+                                            vbinop (Short "+")
+                                                   (vbinop (Short "*")
+                                                           (Var (Short "x"))
+                                                           (Var (Short "y")))
+                                                   (Var (Short "z")))]))])]``)
+
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op*" (SOME ``Var (Short "*")``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f op* 10"
+                   (SOME ``OLDAPP (OLDAPP (Var (Short "f")) (Var (Short "*")))
+                                  (Lit (IntLit 10))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "f op+ 10"
+                   (SOME ``OLDAPP (OLDAPP (Var (Short "f")) (Var (Short "+")))
+                                  (Lit (IntLit 10))``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op*(2,3)"
+                   (SOME ``OLDAPP (Var (Short "*"))
+                              (Con NONE [Lit (IntLit 2); Lit (IntLit 3)])``)
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "op tHEN(t1,t2)"
+                   (SOME ``OLDAPP (Var (Short "tHEN"))
+                              (Con NONE [Var (Short "t1"); Var (Short "t2")])``)
+
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "2 * 3"
+                   (SOME ``vbinop (Short "*")
+                              (Lit (IntLit 2))
+                              (Lit (IntLit 3))``)
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "()"
                    (SOME ``Con NONE []``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "SOME ()"
@@ -163,12 +218,11 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3::t = l"
                                                Var (Short "t")]))
                             (Var (Short "l"))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "3 < x = true"
-                   (SOME ``OLDAPP
-                            (OLDAPP (Var (Short "="))
-                                     (OLDAPP (OLDAPP (Var (Short "<"))
-                                                       (Lit (IntLit 3)))
-                                              (Var (Short "x"))))
-                            (Con (SOME (Short "true")) [])``)
+                   (SOME ``vbinop (Short "=")
+                                  (vbinop (Short "<")
+                                          (Lit (IntLit 3))
+                                          (Var (Short "x")))
+                                  (Con (SOME (Short "true")) [])``)
 
 val _ = tytest0 "'a * bool"
                 ``Tapp [Tvar "'a"; Tapp [] (TC_name (Short "bool"))] TC_tup``
@@ -248,9 +302,9 @@ val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Handle (Lit (IntLit 4))
                                       [(Pcon (SOME (Short "IntError"))
                                                 [Pvar "x"],
-                                        OLDAPP (OLDAPP (Var (Short "+"))
-                                                         (Lit (IntLit 3)))
-                                                (Lit (IntLit 4)))]``)
+                                        vbinop (Short "+")
+                                               (Lit (IntLit 3))
+                                               (Lit (IntLit 4)))]``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE``
                    "if raise IntError 4 then 2 else 3 handle IntError f => 23"
                    (SOME ``If (Raise
@@ -357,13 +411,11 @@ val _ = parsetest ``nElogicOR`` ``ptree_Expr nElogicOR``
                   "3 < x andalso x < 10 orelse p andalso q"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x < 10 then f x else C(x,3,g x)"
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "1 + 2 + 3"
-                   (SOME ``OLDAPP
-                             (OLDAPP (Var (Short "+"))
-                                      (OLDAPP
-                                         (OLDAPP (Var (Short "+"))
-                                                  (Lit (IntLit 1)))
-                                         (Lit (IntLit 2))))
-                             (Lit (IntLit 3))``)
+                   (SOME ``vbinop (Short "+")
+                                  (vbinop (Short "+")
+                                          (Lit (IntLit 1))
+                                          (Lit (IntLit 2)))
+                                  (Lit (IntLit 3))``)
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "x = 3"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "if x = 10 then 3 else 4"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "let val x = 3 in x + 4 end"
@@ -377,5 +429,10 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
                   \in f1 (3 + y)\n\
                   \end"
 val _ = parsetest ``nE`` ``ptree_Expr nE`` "fn v => v + 2"
+val _ = parsetest ``nE`` ``ptree_Expr nE`` "#\"a\" + 1"
+val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "case c of #\"a\" => 1 | _ => 2"
+                   (SOME ``Mat (Var (Short "c"))
+                               [(Plit (Char #"a"), Lit (IntLit 1));
+                                (Pvar "_", Lit (IntLit 2))]``)
 
 val _ = export_theory()

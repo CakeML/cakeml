@@ -18,7 +18,7 @@ val Boolv_def = Define`
   Boolv b = bvlSem$Block (bool_to_tag b) []`
 
 val Unit_def = Define`
-  Unit = bvlSem$Block (tuple_tag+clos_tag_shift) []`
+  Unit = bvlSem$Block (tuple_tag) []`
 
 (* -- *)
 
@@ -32,9 +32,9 @@ val _ = Datatype `
 
 val v_to_list_def = Define`
   (v_to_list (Block tag []) =
-     if tag = nil_tag+clos_tag_shift then SOME [] else NONE) ∧
+     if tag = nil_tag then SOME [] else NONE) ∧
   (v_to_list (Block tag [h;bt]) =
-     if tag = cons_tag+clos_tag_shift then
+     if tag = cons_tag then
        (case v_to_list bt of
         | SOME t => SOME (h::t)
         | _ => NONE )
@@ -305,21 +305,13 @@ val evaluate_check_clock = prove(
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
-fun sub f tm = f tm handle HOL_ERR _ =>
-  let val (v,t) = dest_abs tm in mk_abs (v, sub f t) end
-  handle HOL_ERR _ =>
-  let val (t1,t2) = dest_comb tm in mk_comb (sub f t1, sub f t2) end
-  handle HOL_ERR _ => tm
-
-val remove_check_clock = sub (fn tm =>
-  if can (match_term ``check_clock s1 s2``) tm
-  then tm |> rator |> rand else fail())
-
-val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
+val clean_term = term_rewrite
+                   [``check_clock s1 s2 = s1:bvlSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:bvlSem$state).clock < k:num``]
 
 val evaluate_ind = save_thm("evaluate_ind",let
   val raw_ind = fetch "-" "evaluate_ind"
-  val goal = raw_ind |> concl |> remove_check_clock |> remove_disj
+  val goal = raw_ind |> concl |> clean_term
   (* set_goal([],goal) *)
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
@@ -340,37 +332,27 @@ val evaluate_ind = save_thm("evaluate_ind",let
   in ind end);
 
 val evaluate_def = save_thm("evaluate_def",let
-  val tm = fetch "-" "evaluate_AUX_def"
-           |> concl |> rand |> dest_abs |> snd |> rand |> rand
-  val tm = ``^tm evaluate (xs,env,s)``
-  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
-  val goal = ``!xs env s. evaluate (xs,env,s) = ^rhs`` |> remove_check_clock |> remove_disj
+  val goal = evaluate_def |> concl |> clean_term
   (* set_goal([],goal) *)
   val def = prove(goal,
-    recInduct evaluate_ind
-    \\ REPEAT STRIP_TAC
+    REPEAT STRIP_TAC
     \\ SIMP_TAC (srw_ss()) []
-    \\ TRY (SIMP_TAC std_ss [Once evaluate_def] \\ NO_TAC)
-    \\ REPEAT (POP_ASSUM (K ALL_TAC))
-    \\ SIMP_TAC std_ss [Once evaluate_def]
-    \\ Cases_on `evaluate (xs,env,s1)`
-    \\ Cases_on `evaluate (xs,env,s)`
-    \\ Cases_on `evaluate ([x],env,s)`
-    \\ Cases_on `evaluate ([x1],env,s)`
-    \\ Cases_on `evaluate ([x2],env,s)`
-    \\ Cases_on `evaluate ([x1],env,s1)`
-    \\ Cases_on `evaluate ([x2],env,s1)`
+    \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [evaluate_def] \\ rfs []
     \\ IMP_RES_TAC evaluate_check_clock
     \\ IMP_RES_TAC evaluate_clock
-    \\ FULL_SIMP_TAC (srw_ss()) [EVAL ``pair_CASE (x,y) f``]
-    \\ Cases_on `r.clock < ticks + 1` \\ FULL_SIMP_TAC std_ss []
-    \\ Cases_on `s1.clock < ticks + 1` \\ FULL_SIMP_TAC std_ss [] >>
-    `r.clock = s1.clock` by decide_tac >>
-    fs [])
-  val new_def = evaluate_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
-                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
-                  |> LIST_CONJ
-  in new_def end);
+    \\ IMP_RES_TAC LESS_EQ_TRANS
+    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ IMP_RES_TAC do_app_const
+    \\ SRW_TAC [] []
+    \\ fs [check_clock_thm]
+    \\ rfs [check_clock_thm]
+    \\ fs [check_clock_thm, dec_clock_def]
+    \\ IMP_RES_TAC LESS_EQ_TRANS
+    \\ REPEAT (Q.PAT_ASSUM `!x. bbb` (K ALL_TAC))
+    \\ fs [check_clock_thm]
+    \\ imp_res_tac LESS_EQ_LESS_TRANS)
+  in def end);
 
 (* clean up *)
 

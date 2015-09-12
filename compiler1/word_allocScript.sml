@@ -1,8 +1,7 @@
 open preamble wordLangTheory reg_allocTheory
 
-val _ = ParseExtras.tight_equality ();
+val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_alloc";
-
 
 (*Defines the algorithms related to the register allocator, currently:
 1) SSA form

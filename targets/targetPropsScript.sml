@@ -163,4 +163,30 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
   \\ `n - (n - k) = k` by decide_tac \\ fs [])
   |> SIMP_RULE std_ss [GSYM PULL_FORALL];
 
+(* basic properties *)
+
+val evaluate_without_TimeOut = store_thm("evaluate_without_TimeOut",
+  ``!k k'.
+      FST (evaluate mc_conf (SOME io) k ms) <> TimeOut ==>
+      (evaluate mc_conf (SOME io) (k + k') ms =
+       evaluate mc_conf (SOME io) k ms)``,
+  cheat (* easy *));
+
+val evaluate_TimeOut = store_thm("evaluate_TimeOut",
+  ``!k k'.
+      (evaluate mc_conf (SOME io) (k + k') ms = (TimeOut,s,i)) /\ i <> NONE ==>
+      (FST (evaluate mc_conf (SOME io) k ms) = TimeOut)``,
+  cheat (* easy *));
+
+val evaluate_TimeOut_or_not = store_thm("evaluate_TimeOut_or_not",
+  ``FST (evaluate mc_conf (SOME io) k ms) <> TimeOut /\
+    (FST (evaluate mc_conf (SOME l) k ms) = TimeOut) ==>
+    (FST (evaluate mc_conf (SOME io) k ms) = Error IO_mismatch)``,
+  cheat (* easy *));
+
+val evaluate_IO_mismatch = store_thm("evaluate_IO_mismatch",
+  ``(evaluate mc_conf (SOME io) k ms = (Error IO_mismatch,ms2,new_io)) ==>
+    (new_io = NONE)``,
+  cheat (* easy *));
+
 val _ = export_theory();

@@ -633,7 +633,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   (v_rel f refs code (Number n) (Number n))
   /\
   (EVERY2 (v_rel f refs code) xs (ys:bvlSem$v list) ==>
-   v_rel f refs code (Block t xs) (Block (t+clos_tag_shift) ys))
+   v_rel f refs code (Block t xs) (Block (clos_tag_shift t) ys))
   /\
   ((FLOOKUP f r1 = SOME r2) ==>
    v_rel f refs code (RefPtr r1) (RefPtr r2))
@@ -1008,8 +1008,9 @@ val do_app = Q.prove(
     imp_res_tac v_to_list >> fs[] >> rw[] )
   >- (
     every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
-    fs[LIST_REL_EL_EQN])
-  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] )
+    fs[LIST_REL_EL_EQN] >> metis_tac[clos_tag_shift_inj])
+  >- ( every_case_tac >> fs[v_rel_SIMP] >> rw[v_rel_SIMP] >>
+       metis_tac[clos_tag_shift_inj])
   >- (
     Cases_on`xs`>>fs[v_rel_SIMP]>>
     Cases_on`h`>>fs[v_rel_SIMP]>>
@@ -1116,8 +1117,8 @@ val do_app_err = Q.prove(
     every_case_tac >> fs[] ));
 
 val list_to_v_def = Define`
-  list_to_v [] = bvlSem$Block (nil_tag+clos_tag_shift) [] ∧
-  list_to_v (h::t) = Block (cons_tag+clos_tag_shift) [h; list_to_v t]`;
+  list_to_v [] = bvlSem$Block nil_tag [] ∧
+  list_to_v (h::t) = Block cons_tag [h; list_to_v t]`;
 
 val list_to_v = Q.prove(
   `∀vs ws.
@@ -1233,7 +1234,7 @@ val ToList = Q.prove(
 
 val eq_res_def = Define`
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
-  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block (eq_tag+clos_tag_shift)[])) ∧
+  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block eq_tag[])) ∧
   eq_res _ = Rerr (Rabort Rtype_error)`;
 val _ = export_rewrites["eq_res_def"];
 
@@ -2454,7 +2455,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `lookup ToList_location t2.code = SOME ToList_code` by fs[state_rel_def] >> simp[] >>
       `ToList_code = (3,SND ToList_code)` by simp[ToList_code_def] >>
       pop_assum SUBST1_TAC >> simp[] >>
-      qspecl_then[`n+clos_tag_shift`,`ys`,`[]`,`t2 with clock := LENGTH l + t2.clock`]mp_tac (GEN_ALL ToList) >>
+      qspecl_then[`clos_tag_shift n`,`ys`,`[]`,`t2 with clock := LENGTH l + t2.clock`]mp_tac (GEN_ALL ToList) >>
       discharge_hyps >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
       simp[list_to_v_def,dec_clock_def] >>
       disch_then kall_tac >>

@@ -16,6 +16,80 @@ val _ = new_theory "cmlPtreeConversion"
    This is a disgusting failing of our theory mechanism.  *)
 val _ = hide "nt"
 
+(* handling constructor arities gets very complicated when "open" is
+   implemented *)
+val _ = Datatype`PCstate0 = <| fixities : string |-> num option ;
+                               ctr_arities : string id |-> num |>`
+(* recording a fixity of NONE is what you have to do to represent an
+   explicit nonfix declaration *)
+
+val _ = temp_type_abbrev
+            ("M", ``:PCstate0 list -> ('a # PCstate0 list) option``)
+
+val empty_PCstate0 = Define`
+  empty_PCstate0 = <| fixities := FEMPTY ; ctr_arities := FEMPTY |>
+`;
+
+val mpushPC_scope_def = Define`
+  mpushPC_scope : unit M = λpcs. SOME ((), empty_PCstate0 :: pcs)
+`;
+
+val fixity_lookup_def = Define`
+  fixity_lookup nm pcs =
+    case pcs of
+        [] => NONE
+      | pc0 :: rest =>
+          case FLOOKUP pc0.fixities nm of
+              NONE => fixity_lookup nm rest
+            | SOME NONE => NONE
+            | SOME r => r
+`;
+
+
+(* mfixity_lookup : string -> num M
+    'fails' if the string has no fixity, even though it is perfectly
+    reasonable for a string to be nonfix.
+*)
+val mfixity_lookup_def = Define`
+  mfixity_lookup nm : num M =
+    λpcs. OPTION_MAP (λr. (r, pcs)) (fixity_lookup nm pcs)
+`
+
+val mFUPD_HD_def = Define`
+  mFUPD_HD f pcs =
+    case pcs of
+        [] => NONE
+      | h :: t => SOME((), f h :: t)
+`
+
+(* msetfix : string -> num option -> unit M *)
+val msetfix_def = Define`
+  msetfix nm fix : unit M =
+    mFUPD_HD (λs0. s0 with fixities updated_by (λfm. fm |+ (nm, fix)))
+`
+
+(* mpop_anonscope : unit M *)
+val mpop_anonscope_def = Define`
+  mpopscope : unit M = λpcs.
+    case pcs of
+      [] => NONE
+    | _ :: t => SOME((), t)
+`
+
+val mpop_namedscope_def = Define`
+  mpop_namedscope (s : string) : unit M = λpcs.
+    case pcs of
+      [] => NONE
+    | [_] => NONE
+    | curr :: next :: rest => SOME((), next :: rest)
+`;
+(* needs to be adjusted so that constructors (only) declared in the current
+   scope get recorded in the next level up with the given name as a prefix.
+
+   Does nothing different at this stage, when I expect just to be handling
+   fixities (which are handled in a non-exportable way).
+ *)
+
 
 (* ----------------------------------------------------------------------
     We'll be using the option monad quite a bit in what follows
@@ -23,17 +97,35 @@ val _ = hide "nt"
 
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
+val _ = temp_overload_on ("return", ``SOME``)
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
                                         "option.OPTION_GUARD_def",
+                                        "option.OPTION_MAP_DEF",
+                                        "option.OPTION_MAP2_DEF",
                                         "option.OPTION_CHOICE_def"]
 
 val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
+val _ = overload_on ("lift", ``option$OPTION_MAP``)
 
 val oHD_def = Define`oHD l = case l of [] => NONE | h::_ => SOME h`
 val safeTL_def = Define`safeTL [] = [] ∧ safeTL (h::t) = t`
+
+val ifM_def = Define`
+  ifM bM tM eM =
+    do
+       b <- bM;
+       if b then tM else eM
+    od
+`
+
+val mk_binop_def = Define`
+  mk_binop a_op a1 a2 =
+    if a_op = Short "::" then Con (SOME (Short "::")) [a1; a2]
+    else App Opapp [App Opapp [Var a_op; a1]; a2]
+`
 
 val ptree_UQTyop_def = Define`
   ptree_UQTyop (Lf _) = NONE ∧
@@ -440,24 +532,15 @@ val ptree_Pattern_def = Define`
              cname <- ptree_ConstructorName vic;
              SOME(Pcon (SOME cname) [])
           od ++
-          do
-             vname <- ptree_V vic;
-             SOME(Pvar vname)
-          od ++
+          do vname <- ptree_V vic; SOME(Pvar vname) od ++
           do
             lf <- destLf vic;
             t <- destTOK lf;
-            i <- destIntT t ;
-            SOME (Plit (IntLit i))
+            (do i <- destIntT t ; return (Plit (IntLit i)) od ++
+             do s <- destStringT t ; return (Plit (StrLit s)) od ++
+             do c <- destCharT t ; return (Plit (Char c)) od)
           od ++
-          do
-            lf <- destLf vic;
-            t <- destTOK lf;
-            s <- destStringT t ;
-            SOME (Plit (StrLit s))
-          od ++
-          if vic = Lf (TOK UnderbarT) then SOME (Pvar "_")
-          else NONE
+          do assert(vic = Lf (TOK UnderbarT)) ; return (Pvar "_") od
         | [lb; rb] =>
           if lb = Lf (TK LbrackT) ∧ rb = Lf (TK RbrackT) then
             SOME(Pcon (SOME (Short "nil")) [])
@@ -529,6 +612,21 @@ val ptree_Pattern_def = Define`
          | _ => NONE)
 `;
 
+val ptree_PbaseList1_def = Define`
+  (ptree_PbaseList1 (Lf _) = NONE) ∧
+  (ptree_PbaseList1 (Nd nm args) =
+     if nm <> mkNT nPbaseList1 then NONE
+     else
+       case args of
+           [p_pt] => lift SINGL (ptree_Pattern nPbase p_pt)
+         | [p_pt; pl_pt] =>
+               lift2 CONS
+                     (ptree_Pattern nPbase p_pt)
+                     (ptree_PbaseList1 pl_pt)
+         | _ => NONE)
+`;
+
+
 val Eseq_encode_def = Define`
   (Eseq_encode [] = NONE) ∧
   (Eseq_encode [e] = SOME e) ∧
@@ -553,6 +651,66 @@ val mkAst_App_def = Define`
           | _ => Con s [a2])
      | _ => App Opapp [a1; a2]
 `
+
+val isSymbolicConstructor_def = Define`
+  isSymbolicConstructor (structopt : modN option) s =
+    return (s = "::")
+`;
+
+val isConstructor_def = Define`
+  isConstructor structopt s =
+    do
+      ifM (isSymbolicConstructor structopt s)
+        (return T)
+        (return (case oHD s of
+                     NONE => F
+                   | SOME c => isAlpha c ∧ isUpper c))
+    od
+`;
+
+val ptree_OpID_def = Define`
+  ptree_OpID (Lf _) = NONE ∧
+  ptree_OpID (Nd nt subs) =
+    if nt ≠ mkNT nOpID then NONE
+    else
+      case subs of
+          [Lf (TK tk)] =>
+          do
+              s <- destAlphaT tk ;
+              ifM (isConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              s <- destSymbolT tk ;
+              ifM (isSymbolicConstructor NONE s)
+                  (return (Con (SOME (Short s)) []))
+                  (return (Var (Short s)))
+          od ++
+          do
+              (str,s) <- destLongidT tk ;
+              ifM (isConstructor (SOME str) s)
+                  (return (Con (SOME (Long str s)) []))
+                  (return (Var (Long str s)))
+          od ++
+          (if tk = StarT then
+             ifM (isSymbolicConstructor NONE "*")
+                 (return (Con (SOME (Short "*")) []))
+                 (return (Var (Short "*")))
+           else NONE)
+        | _ => NONE
+`;
+
+val dePat_def = Define`
+  (dePat (Pvar v) b = (v, b)) ∧
+  (dePat p b = ("", Mat (Var (Short "")) [(p, b)]))
+`
+
+val mkFun_def = Define`
+  mkFun p b = UNCURRY Fun (dePat p b)
+`
+
+
 val ptree_Expr_def = Define`
   ptree_Expr ent (Lf _) = NONE ∧
   ptree_Expr ent (Nd nt subs) =
@@ -576,14 +734,9 @@ val ptree_Expr_def = Define`
               do
                 lf <- destLf single;
                 t <- destTOK lf;
-                i <- destIntT t ;
-                SOME (Lit (IntLit i))
-              od ++
-              do
-                lf <- destLf single;
-                t <- destTOK lf;
-                s <- destStringT t;
-                SOME (Lit (StrLit s))
+                (do i <- destIntT t ; SOME (Lit (IntLit i)) od ++
+                 do c <- destCharT t ; SOME (Lit (Char c)) od ++
+                 do s <- destStringT t ; SOME (Lit (StrLit s)) od)
               od ++
               do
                 s <- ptree_FQV single;
@@ -597,7 +750,10 @@ val ptree_Expr_def = Define`
                          SOME (Con NONE [])
                        else if lp = Lf (TK LbrackT) ∧ rp = Lf (TK RbrackT) then
                          SOME (Con (SOME (Short "nil")) [])
-                       else NONE
+                       else if lp = Lf (TK OpT) then
+                         ptree_OpID rp
+                       else
+                         NONE
           | [lett;letdecs_pt;intok;ept;endt] =>
             do
               assert(lett = Lf (TOK LetT) ∧ intok = Lf (TOK InT) ∧
@@ -636,7 +792,7 @@ val ptree_Expr_def = Define`
             a1 <- ptree_Expr nEmult t1;
             a_op <- ptree_Op opt;
             a2 <- ptree_Expr nEapp t2;
-            SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
+            return(mk_binop a_op a1 a2)
           od
         | [t] => ptree_Expr nEapp t
         | _ => NONE
@@ -646,7 +802,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nEmult t2;
-              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nEmult t
           | _ => NONE
@@ -656,9 +812,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEadd t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nElistop t2;
-              SOME (if a_op = Short "::" then
-                      Con (SOME (Short "::")) [a1;a2]
-                    else App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nEadd t
           | _ => NONE
@@ -668,7 +822,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nErel t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nElistop t2;
-              SOME (App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nElistop t
           | _ => NONE
@@ -678,7 +832,7 @@ val ptree_Expr_def = Define`
               a1 <- ptree_Expr nEcomp t1;
               a_op <- ptree_Op opt;
               a2 <- ptree_Expr nErel t2;
-              SOME(App Opapp [App Opapp [Var a_op; a1]; a2])
+              return (mk_binop a_op a1 a2)
             od
           | [t] => ptree_Expr nErel t
           | _ => NONE
@@ -688,7 +842,7 @@ val ptree_Expr_def = Define`
             assert(opt = Lf(TOK(AlphaT "before")));
             a1 <- ptree_Expr nEbefore t1;
             a2 <- ptree_Expr nEcomp t2;
-            SOME(App Opapp [App Opapp [Var (Short "before"); a1]; a2])
+            return (mk_binop (Short "before") a1 a2)
           od
         | [t] => ptree_Expr nEcomp t
         | _ => NONE
@@ -742,15 +896,15 @@ val ptree_Expr_def = Define`
               e <- ptree_Expr nE ept;
               SOME(Raise e)
             od
-          | [fnt; vnt; arrowt; ent] =>
+          | [fnt; pnt; arrowt; ent] =>
             do
               assert (fnt = Lf (TOK FnT) ∧ arrowt = Lf (TOK DarrowT));
-              v <- ptree_V vnt;
+              p <- ptree_Pattern nPattern pnt;
               e <- ptree_Expr nE ent;
-              SOME(Fun v e)
+              SOME(mkFun p e)
             od ++ do
               assert (fnt = Lf (TOK CaseT) ∧ arrowt = Lf (TOK OfT));
-              e <- ptree_Expr nE vnt;
+              e <- ptree_Expr nE pnt;
               pes <- ptree_PEs ent;
               SOME(Mat e pes)
             od
@@ -838,14 +992,14 @@ val ptree_Expr_def = Define`
       | Nd nt subs =>
         if nt = mkNT nFDecl then
           case subs of
-              [fname_pt; vnames_pt; eqt; body_pt] =>
+              [fname_pt; pats_pt; eqt; body_pt] =>
               do
                 assert(eqt = Lf (TOK EqualsT));
                 fname <- ptree_V fname_pt;
-                vs <- ptree_Vlist1 vnames_pt;
-                v1 <- oHD vs;
+                ps <- ptree_PbaseList1 pats_pt;
+                p1 <- oHD ps;
                 body0 <- ptree_Expr nE body_pt;
-                SOME(fname,v1,FOLDR Fun body0 (safeTL vs))
+                SOME(fname,dePat p1 (FOLDR mkFun body0 (safeTL ps)))
               od
             | _ => NONE
         else NONE) ∧

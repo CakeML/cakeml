@@ -17,16 +17,8 @@ val line_length_def = Define `
   (line_length (LabAsm a w bytes l) = LENGTH bytes)`
 
 val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
-  `!x2. LENGTH (line_bytes x2 b) = line_length x2`,
-  Cases \\ fs [line_bytes_def,line_length_def] \\ rw []);
-
-val no_Label_def = Define `
-  (no_Label (Section k (x::xs)::ys) = ~(is_Label x)) /\ (no_Label _ = F)`;
-val _ = export_rewrites["no_Label_def"];
-
-val no_Label_eq = store_thm("no_Label_eq",
-  ``no_Label p = ?k x xs ys. (p = Section k (x::xs)::ys) /\ ~is_Label x``,
-  Cases_on `p` \\ fs [] \\ Cases_on `h` \\ fs [] \\ Cases_on `l` \\ fs []);
+  `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
+  Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
 
 val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
   ``!s1.
@@ -179,5 +171,17 @@ val get_byte_set_byte_diff = store_thm("get_byte_set_byte_diff",
   \\ imp_res_tac byte_index_LESS_IMP
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
+
+val evaluate_io_events_NONE_IMP = store_thm("evaluate_io_events_NONE_IMP",
+  ``!k s io q r.
+      s.io_events = SOME io /\ evaluate s = (q,r) /\ r.io_events = NONE ==>
+      q = Error IO_mismatch``,
+  cheat (* easy *));
+
+val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
+  ``!s res r k.
+      evaluate s = (res,r) /\ res <> TimeOut ==>
+      evaluate (s with clock := s.clock + k) = (res,r)``,
+  cheat (* easy *));
 
 val _ = export_theory();

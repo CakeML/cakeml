@@ -38,8 +38,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.lookup_alist_mod_env_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
-    ,bigStepTheory.no_dup_mods_def
-    ,bigStepTheory.no_dup_top_types_def
+    ,semanticPrimitivesTheory.no_dup_mods_def
+    ,semanticPrimitivesTheory.no_dup_top_types_def
     ,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def

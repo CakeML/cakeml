@@ -1,0 +1,3 @@
+#!/bin/sh
+
+sed -f boyer-patch.sed -i boyer.cml

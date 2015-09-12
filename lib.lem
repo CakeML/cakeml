@@ -77,9 +77,11 @@ declare hol target_rep type llist 'a = `llist` 'a
 val lhd : forall 'a. llist 'a -> maybe 'a
 val ltl : forall 'a. llist 'a -> maybe (llist 'a)
 val lnil : forall 'a. llist 'a
+val lcons : forall 'a. 'a -> llist 'a -> llist 'a
 declare hol target_rep function lhd = `LHD`
 declare hol target_rep function ltl = `LTL`
 declare hol target_rep function lnil = `LNIL`
+declare hol target_rep function lcons = `LCONS`
 
 
 (* TODO: proper support for words... *)
@@ -90,6 +92,11 @@ val natFromWord8 : word8 -> nat
 declare hol target_rep function natFromWord8 = `w2n`
 val word_to_hex_string : word8 -> string
 declare hol target_rep function word_to_hex_string = `word_to_hex_string`
+val word8FromNat : nat -> word8
+declare hol target_rep function word8FromNat = `n2w`
+instance (Numeral word8)
+  let fromNumeral w = word8FromNat (fromNumeral w)
+end
 
 open import {hol} `alistTheory`
 type alist 'a 'b = list ('a * 'b)

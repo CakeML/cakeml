@@ -286,6 +286,7 @@ val find_code_def = Define `
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:'a stackSem$state)) /\
+  (evaluate (Halt _,s) = (NONE,s)) /\ (* TODO: Correct semantics for Halt *)
   (evaluate (Alloc n,s) =
      if ~s.use_alloc then (SOME Error,s) else
      case get_var n s of
@@ -323,6 +324,19 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (JumpLess r1 r2 dest,s) =
+    case (get_var r1 s, get_var r2 s) of
+    | SOME (Word x),SOME (Word y) =>
+      if word_cmp Less x y then
+       (case find_code (INL dest) s.regs s.code of
+        | NONE => (SOME Error,s)
+        | SOME prog =>
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (prog,dec_clock s) of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s)))
+      else (NONE,s)
+    | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
      case find_code dest s.regs s.code of
      | NONE => (SOME Error,s)
@@ -336,7 +350,7 @@ val evaluate_def = tDefine "evaluate" `
            | (NONE,s) => (SOME Error,s)
            | (SOME res,s) => (SOME res,s))
      (* returning call, returns into var n *)
-     | SOME (ret_handler,l1,l2) =>
+     | SOME (ret_handler,link_reg,l1,l2) =>
         if s.clock = 0 then (SOME TimeOut,empty_env s) else
           (case evaluate (prog, dec_clock s) of
            | (SOME (Result x y),s2) =>
@@ -437,9 +451,9 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ IMP_RES_TAC alloc_clock
   \\ fs [set_var_def,set_store_def,dec_clock_def,jump_exc_def]
   \\ Cases_on `evaluate (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ simp[]
-  \\ every_case_tac \\ fs[] \\ rw[]
-  \\ IMP_RES_TAC check_clock_IMP);
+  \\ simp[] \\ every_case_tac \\ fs[] \\ rw[]
+  \\ IMP_RES_TAC check_clock_IMP
+  \\ res_tac \\ fs [] \\ decide_tac);
 
 val evaluate_check_clock = prove(
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
@@ -447,17 +461,9 @@ val evaluate_check_clock = prove(
 
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
-fun sub f tm = f tm handle HOL_ERR _ =>
-  let val (v,t) = dest_abs tm in mk_abs (v, sub f t) end
-  handle HOL_ERR _ =>
-  let val (t1,t2) = dest_comb tm in mk_comb (sub f t1, sub f t2) end
-  handle HOL_ERR _ => tm
-
-val remove_check_clock = sub (fn tm =>
-  if can (match_term ``check_clock s1 (s2:'a stackSem$state)``) tm
-  then tm |> rator |> rand else fail())
-
-val remove_disj = sub (fn tm => if is_disj tm then tm |> rator |> rand else fail())
+val clean_term = term_rewrite
+                   [``check_clock s1 s2 = s1:'a stackSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'a stackSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
@@ -465,7 +471,7 @@ val set_var_check_clock = prove(
 
 val evaluate_ind = curry save_thm "evaluate_ind" let
   val raw_ind = evaluate_ind
-  val goal = raw_ind |> concl |> remove_check_clock |> remove_disj
+  val goal = raw_ind |> concl |> clean_term
   (* set_goal([],goal) *)
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
@@ -483,7 +489,7 @@ val evaluate_ind = curry save_thm "evaluate_ind" let
   in ind end;
 
 val evaluate_def = curry save_thm "evaluate_def" let
-  val goal = evaluate_def |> concl |> remove_check_clock |> remove_disj
+  val goal = evaluate_def |> concl |> clean_term
   (* set_goal([],goal) *)
   val def = prove(goal,
     REPEAT STRIP_TAC
