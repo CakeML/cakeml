@@ -35,8 +35,8 @@ val peg_eval_tok_SOME = store_thm(
   ``peg_eval G (i0, tok P f) (SOME (i,r)) ⇔ ∃h. P h ∧ i0 = h::i ∧ r = f h``,
   simp[Once peg_eval_cases] >> metis_tac[]);
 
-val peg_eval_empty = Store_thm(
-  "peg_eval_empty",
+val peg_eval_empty = store_thm(
+  "peg_eval_empty[simp]",
   ``peg_eval G (i, empty r) x ⇔ (x = SOME(i,r))``,
   simp[Once peg_eval_cases])
 
@@ -58,8 +58,8 @@ val peg_eval_choice = store_thm(
   simp[Once peg_eval_cases, SimpLHS] >>
   simp[optionTheory.FORALL_OPTION, pairTheory.FORALL_PROD] >> metis_tac[]);
 
-val peg_eval_choicel_NIL = Store_thm(
-  "peg_eval_choicel_NIL",
+val peg_eval_choicel_NIL = store_thm(
+  "peg_eval_choicel_NIL[simp]",
   ``peg_eval G (i0, choicel []) x = (x = NONE)``,
   simp[choicel_def, Once peg_eval_cases]);
 
@@ -71,8 +71,8 @@ val peg_eval_choicel_CONS = store_thm(
   simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
   simp[sumID_def, pairTheory.FORALL_PROD, optionTheory.FORALL_OPTION]);
 
-val peg_eval_seql_NIL = Store_thm(
-  "peg_eval_seql_NIL",
+val peg_eval_seql_NIL = store_thm(
+  "peg_eval_seql_NIL[simp]",
   ``peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))``,
   simp[seql_def, pegf_def] >> simp[Once peg_eval_cases]);
 
@@ -263,8 +263,8 @@ val length_no_greater = store_thm(
   metis_tac[peg_eval_suffix',
             DECIDE ``x ≤ y:num ⇔ x < y ∨ x = y``]);
 
-val MAP_TK_11 = Store_thm(
-  "MAP_TK_11",
+val MAP_TK_11 = store_thm(
+  "MAP_TK_11[simp]",
   ``MAP TK x = MAP TK y ⇔ x = y``,
   eq_tac >> simp[] >> strip_tac >>
   match_mp_tac
@@ -315,7 +315,7 @@ val peg_EbaseParen_sound = store_thm(
       rlresolve X (free_in ``nElist1``) mp_tac >>
       first_assum (mp_tac o MATCH_MP length_no_greater o
                    assert (free_in ``nE`` o concl)) >>
-      asimp[] >> rw[] >>
+      simp[] >> rw[] >>
       simp[peg_EbaseParenFn_def, cmlG_applied, cmlG_FDOM,
            DISJ_IMP_THM, FORALL_AND_THM]) >>
   rlresolve KEEP (free_in ``nE``) mp_tac >> rpt kill_asm_guard >>
@@ -323,7 +323,7 @@ val peg_EbaseParen_sound = store_thm(
   rlresolve X (free_in ``nEseq``) mp_tac >>
   first_assum (mp_tac o MATCH_MP length_no_greater o
                assert (free_in ``nE`` o concl)) >>
-  asimp[] >> rpt strip_tac >>rveq >>
+  simp[] >> rpt strip_tac >>rveq >>
   simp[peg_EbaseParenFn_def, cmlG_applied, cmlG_FDOM,
        DISJ_IMP_THM, FORALL_AND_THM])
 
@@ -563,7 +563,7 @@ val peg_sound = store_thm(
           csimp[] >>
           imp_res_tac length_no_greater >> fs[GSYM CONJ_ASSOC] >>
           rpt (loseC ``NT_rank``) >> lrresolve X (K true) mp_tac >>
-          asimp[])
+          simp[])
       >- (lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
           strip_tac >> rveq >> simp[]) >>
       lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
@@ -709,7 +709,7 @@ val peg_sound = store_thm(
                                    |> Q.ISPEC `nt (mkNT nType) I` |> GEN_ALL) >>
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          fs[] >> asimp[] >> rpt strip_tac >> rveq >> simp[])
+          fs[] >> simp[] >> rpt strip_tac >> rveq >> simp[])
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[])
   >- (print_tac "nTypeList2" >> strip_tac >> rveq >>
@@ -721,7 +721,7 @@ val peg_sound = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
       erule assume_tac
             (length_no_greater |> Q.GEN `sym` |> Q.ISPEC `nt (mkNT nType) I`
-                               |> GEN_ALL) >> fs[] >> asimp[] >>
+                               |> GEN_ALL) >> fs[] >> simp[] >>
       strip_tac >> rveq >> simp[])
   >- (print_tac "nTbase" >> strip_tac >> rveq >>
       fs[cmlG_FDOM, cmlG_applied, peg_eval_nTyOp_wrongtok] >>
@@ -731,7 +731,7 @@ val peg_sound = store_thm(
       >- (lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
           rpt kill_asm_guard >> strip_tac >> rveq >> dsimp[] >>
           imp_res_tac length_no_greater >>
-          lrresolve X (free_in ``nTyOp``) mp_tac >> fs[] >> asimp[] >>
+          lrresolve X (free_in ``nTyOp``) mp_tac >> fs[] >> simp[] >>
           strip_tac >> rveq >> dsimp[])
       >- (asm_match `isTyvarT h` >> Cases_on`h` >> fs[])
       >- (`NT_rank (mkNT nTyOp) < NT_rank (mkNT nTbase)` by simp[NT_rank_def] >>
@@ -739,12 +739,12 @@ val peg_sound = store_thm(
       >- (lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
           rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
           imp_res_tac length_no_greater >> fs[] >>
-          lrresolve X (free_in ``nTyOp``) mp_tac >> asimp[] >>
+          lrresolve X (free_in ``nTyOp``) mp_tac >> simp[] >>
           strip_tac >> rveq >> dsimp[]) >>
       lrresolve KEEP (free_in ``nTypeList2``) mp_tac >>
       rpt kill_asm_guard >> strip_tac >> rveq >> simp[] >>
       imp_res_tac length_no_greater >> fs[] >>
-      lrresolve X (free_in ``nTyOp``) mp_tac >> asimp[] >>
+      lrresolve X (free_in ``nTyOp``) mp_tac >> simp[] >>
       strip_tac >> rveq >> dsimp[])
   >- (print_tac "nDType" >> strip_tac >> rveq >> simp[] >>
       `NT_rank (mkNT nTbase) < NT_rank (mkNT nDType)`
@@ -789,7 +789,7 @@ val peg_sound = store_thm(
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
           fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
           lrresolve X (free_in ``nType``) mp_tac >>
-          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
+          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]) >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nPbaseList1" >> strip_tac >> rveq >>
@@ -812,7 +812,7 @@ val peg_sound = store_thm(
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied])
+      simp[] >> strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nAndFDecls" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[SUBSET_DEF, pegsym_to_sym_def, DISJ_IMP_THM, FORALL_AND_THM,
@@ -826,7 +826,7 @@ val peg_sound = store_thm(
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE'``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+      simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nPE" >> strip_tac >> rveq >> simp[] >>
       `NT_rank (mkNT nPattern) < NT_rank (mkNT nPE)` by simp[NT_rank_def] >>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
@@ -835,7 +835,7 @@ val peg_sound = store_thm(
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+      simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nPEs" >>
       `NT_rank (mkNT nPE') < NT_rank (mkNT nPEs) ∧
        NT_rank (mkNT nPE) < NT_rank (mkNT nPEs)`
@@ -847,7 +847,7 @@ val peg_sound = store_thm(
       first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nPEs``) o concl)) >>
-      asimp[] >> strip_tac >> rveq >> dsimp[])
+      simp[] >> strip_tac >> rveq >> dsimp[])
   >- (print_tac "nE'" >> strip_tac >> rveq >> simp[] >> fs[]
       >- ((* raise case *)
           loseC ``NT_rank`` >>
@@ -913,7 +913,7 @@ val peg_sound = store_thm(
           loseC ``NT_rank`` >>
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-          asimp[] >> metis_tac[])
+          simp[] >> metis_tac[])
       >- ((* fn x => e case *) loseC ``NT_rank`` >>
           rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
           first_assum (fn patth =>
@@ -925,7 +925,7 @@ val peg_sound = store_thm(
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nE``) o concl)) >>
-          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
+          simp[] >> strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied])
       >- ((* "case" E "of" PEs case *) loseC ``NT_rank`` >>
           rpt (qpat_assum `peg_eval G X NONE` (K ALL_TAC)) >>
           first_assum (fn patth =>
@@ -937,7 +937,7 @@ val peg_sound = store_thm(
                          assert (free_in ``nPEs``) o concl)) >>
           first_assum (assume_tac o MATCH_MP length_no_greater o
                        assert (free_in ``nE`` o concl)) >> fs[] >>
-          asimp[] >> strip_tac >> rveq >> dsimp[cmlG_applied, cmlG_FDOM]) >>
+          simp[] >> strip_tac >> rveq >> dsimp[cmlG_applied, cmlG_FDOM]) >>
       (* raise-ehandle case *)
       loseC ``LENGTH`` >> first_x_assum (fn patth =>
         first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
@@ -971,7 +971,7 @@ val peg_sound = store_thm(
                      assert (free_in ``nEbefore`` o concl)) >> fs[] >>
       first_x_assum (fn patth =>
          first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
-                      assert (free_in ``nType``) o concl)) >> asimp[] >>
+                      assert (free_in ``nType``) o concl)) >> simp[] >>
       strip_tac >> rveq >> dsimp[])
   >- (print_tac "nEbefore" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
@@ -999,7 +999,7 @@ val peg_sound = store_thm(
       rveq >> dsimp[MAP_EQ_CONS] >> csimp[] >>
       first_x_assum (assume_tac o MATCH_MP length_no_greater o
                      assert (free_in ``nListOps`` o concl)) >>
-      asimp[GSYM CONJ_ASSOC])
+      simp[GSYM CONJ_ASSOC])
   >- (print_tac "nEadd" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
@@ -1020,7 +1020,7 @@ val peg_sound = store_thm(
           first_x_assum (fn patth =>
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nEseq``) o concl)) >>
-          asimp[] >> strip_tac >> rveq >> simp[] >>
+          simp[] >> strip_tac >> rveq >> simp[] >>
           fs[MAP_EQ_APPEND, MAP_EQ_CONS])
       >- (DISJ2_TAC >>
           first_x_assum (fn patth =>
@@ -1076,7 +1076,7 @@ val peg_sound = store_thm(
         by simp[NT_rank_def] >> strip_tac >> rveq
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >>
           lrresolve X (free_in ``nElist1``) mp_tac >> simp[] >>
-          IMP_RES_TAC length_no_greater >> fs[] >> asimp[] >> strip_tac >>
+          IMP_RES_TAC length_no_greater >> fs[] >> simp[] >> strip_tac >>
           rveq >> dsimp[cmlG_FDOM, cmlG_applied])
       >- (first_x_assum (erule mp_tac) >> dsimp[cmlG_applied, cmlG_FDOM]) >>
       first_x_assum (erule mp_tac) >> dsimp[cmlG_FDOM, cmlG_applied])

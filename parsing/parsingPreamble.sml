@@ -15,15 +15,9 @@ fun loseC c =
       (K ALL_TAC o assert (can (find_term (same_const c)) o concl))
 fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 
-fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
-
-fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
-fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
-fun csimp thl = asm_simp_tac (srw_ss() ++ CONJ_ss) thl
-
 val kill_asm_guard =
     disch_then (fn th => SUBGOAL_THEN (lhand (concl th))
-                                      (MP_TAC o MATCH_MP th)) >- asimp[]
+                                      (MP_TAC o MATCH_MP th)) >- simp[]
 
 fun qispl_then [] ttac = ttac
   | qispl_then (q::qs) ttac = Q.ISPEC_THEN q (qispl_then qs ttac)
