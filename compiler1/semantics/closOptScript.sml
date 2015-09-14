@@ -46,8 +46,8 @@ val mod_opt = Q.store_thm ("mod_opt",
  metis_tac [val_rel_mono]);
 
 val less_opt = Q.store_thm ("less_opt",
-`!n1 n2. 
-  exp_rel [Op Less [Op (Const n1) []; Op (Const n2) []]] 
+`!n1 n2.
+  exp_rel [Op Less [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 < n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, Boolv_def, evaluate_ev_def] >>
@@ -70,8 +70,8 @@ val greater_opt = Q.store_thm ("greater_opt",
  metis_tac [val_rel_mono]);
 
 val geq_opt = Q.store_thm ("geq_opt",
-`!n1 n2. 
-  exp_rel [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]] 
+`!n1 n2.
+  exp_rel [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 ≥ n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
@@ -79,7 +79,7 @@ val geq_opt = Q.store_thm ("geq_opt",
 
 val fn_add_arg = Q.store_thm ("fn_add_arg",
 `!vars vars2 num_args num_args' e.
-  num_args ≠ 0 ∧ 
+  num_args ≠ 0 ∧
   num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ⇒
   exp_rel [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
@@ -102,7 +102,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  fs [check_loc_def] >>
  rw [res_rel_rw] >>
  fs []
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >> 
+ >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
  simp [evaluate_def, rev_take_rev_all] >>
  CASE_TAC >>
  rw [res_rel_rw] >>
@@ -111,7 +111,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  `i''' - LENGTH args' ≤ i''` by decide_tac >>
  imp_res_tac val_rel_mono >>
  simp [] >>
- rw [val_rel_rw, is_closure_def, exec_rel_rw, check_closures_def, clo_can_apply_def, 
+ rw [val_rel_rw, is_closure_def, exec_rel_rw, check_closures_def, clo_can_apply_def,
      clo_to_loc_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
  `args'' ≠ [] ∧ args''' ≠ []` by (Cases_on `args''` >> Cases_on `args'''` >> fs []) >>
  simp [evaluate_app_rw, dest_closure_def] >>
@@ -125,7 +125,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- (fs [dec_clock_def] >>
      `i'' ≤ i` by decide_tac >>
-     `LIST_REL (val_rel i'') (args ++ x) (args' ++ vs2')` 
+     `LIST_REL (val_rel i'') (args ++ x) (args' ++ vs2')`
                 by metis_tac [EVERY2_APPEND, val_rel_mono_list, LIST_REL_LENGTH] >>
      `?vs2''.
        clos_env s''.restrict_envs vars2 (args' ++ vs2') = SOME vs2'' ∧
@@ -176,7 +176,7 @@ val fn_add_loc = Q.store_thm ("fn_add_loc",
  `s.restrict_envs = s'.restrict_envs` by fs [Once state_rel_rw] >>
  imp_res_tac val_rel_clos_env >>
  rfs [] >>
- fs [val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def, 
+ fs [val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def,
      clo_to_loc_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
  reverse (rw [])
  >- metis_tac [val_rel_mono] >>
