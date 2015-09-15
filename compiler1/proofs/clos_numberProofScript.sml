@@ -815,4 +815,14 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
         BasicProvers.EVERY_CASE_TAC >>
         fs [] >> rw[])));
 
+val renumber_code_locs_every_Fn_SOME = Q.store_thm("renumber_code_locs_every_Fn_SOME",
+  `(∀n es. every_Fn_SOME (SND (renumber_code_locs_list n es))) ∧
+   (∀n e. every_Fn_SOME [SND (renumber_code_locs n e)])`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  rw[renumber_code_locs_def] >> rw[every_Fn_SOME_def] >> fs[] >>
+  fs[Once every_Fn_SOME_EVERY] >>
+  imp_res_tac renumber_code_locs_list_length >>
+  fs[EVERY_MAP,ZIP_MAP] >>
+  fs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
+
 val _ = export_theory()
