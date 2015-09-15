@@ -3,7 +3,7 @@ open HolKernel Parse boolLib bossLib;
 open pred_setTheory
 open pegTheory cmlPEGTheory gramTheory gramPropsTheory
 open lcsymtacs boolSimps
-open parsingPreamble
+open preamble
 
 val _ = new_theory "pegSound";
 
@@ -563,7 +563,7 @@ val peg_sound = store_thm(
           csimp[] >>
           imp_res_tac length_no_greater >> fs[GSYM CONJ_ASSOC] >>
           rpt (loseC ``NT_rank``) >> lrresolve X (K true) mp_tac >>
-          simp[])
+          simp[] >> metis_tac[])
       >- (lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
           strip_tac >> rveq >> simp[]) >>
       lrresolve X (K true) mp_tac >> rpt kill_asm_guard >>
@@ -688,7 +688,7 @@ val peg_sound = store_thm(
       >- (first_x_assum (erule mp_tac) >> simp[MAP_EQ_APPEND, MAP_EQ_CONS] >>
           strip_tac >> rveq >> lrresolve X (free_in ``nPType``) mp_tac >>
           simp[] >> strip_tac >> rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS] >>
-          dsimp[])
+          dsimp[] >> metis_tac[])
       >- (first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[]) >>
       first_x_assum (erule mp_tac) >> strip_tac >> rveq >> simp[])
   >- (print_tac "nUQTyOp" >> dsimp[cmlG_FDOM, cmlG_applied] >>
@@ -999,7 +999,7 @@ val peg_sound = store_thm(
       rveq >> dsimp[MAP_EQ_CONS] >> csimp[] >>
       first_x_assum (assume_tac o MATCH_MP length_no_greater o
                      assert (free_in ``nListOps`` o concl)) >>
-      simp[GSYM CONJ_ASSOC])
+      metis_tac[DECIDE ``x ≤ y ∧ y < z ⇒ x < z:num``])
   >- (print_tac "nEadd" >>
       disch_then (match_mp_tac o MATCH_MP peg_linfix_correct_lemma) >>
       simp[cmlG_applied, cmlG_FDOM, pegsym_to_sym_def, DISJ_IMP_THM,
@@ -1021,7 +1021,7 @@ val peg_sound = store_thm(
             first_assum (mp_tac o PART_MATCH (lhand o rand) patth o
                          assert (free_in ``nEseq``) o concl)) >>
           simp[] >> strip_tac >> rveq >> simp[] >>
-          fs[MAP_EQ_APPEND, MAP_EQ_CONS])
+          fs[MAP_EQ_APPEND, MAP_EQ_CONS] >> metis_tac[])
       >- (DISJ2_TAC >>
           first_x_assum (fn patth =>
            first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>

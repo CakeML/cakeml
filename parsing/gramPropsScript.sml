@@ -4,7 +4,7 @@ open lcsymtacs boolSimps
 open gramTheory
 open NTpropertiesTheory
 open pred_setTheory
-open parsingPreamble
+open preamble
 
 fun dsimp thl = asm_simp_tac (srw_ss() ++ DNF_ss) thl
 fun asimp thl = asm_simp_tac (srw_ss() ++ ARITH_ss) thl
@@ -28,7 +28,6 @@ in
   c th
 end
 
-val MAP_EQ_SING = grammarTheory.MAP_EQ_SING
 val APPEND_EQ_SING' = CONV_RULE (LAND_CONV (ONCE_REWRITE_CONV [EQ_SYM_EQ]))
                                 listTheory.APPEND_EQ_SING
 val _ = augment_srw_ss [rewrites [APPEND_EQ_SING']]

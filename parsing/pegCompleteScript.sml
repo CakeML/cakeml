@@ -3,7 +3,7 @@ open HolKernel boolLib bossLib
 open pred_setTheory
 open pegTheory cmlPEGTheory gramTheory gramPropsTheory
 open lcsymtacs boolSimps
-open parsingPreamble
+open preamble
 
 open pegSoundTheory
 
@@ -11,7 +11,25 @@ val _ = new_theory "pegComplete"
 
 val _ = set_trace "Goalstack.print_goal_at_top" 0
 
-val REVERSE_11 = listTheory.REVERSE_11
+
+val MAP_EQ_CONS = prove(
+  ``MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t``,
+  metis_tac[MAP_EQ_CONS])
+
+fun FIXEQ_CONV t = let
+  val (l,r) = dest_eq t
+in
+  if null (free_vars l) andalso not (null (free_vars r)) then
+    REWR_CONV EQ_SYM_EQ
+  else NO_CONV
+end t
+
+val FIXEQ_TAC = CONV_TAC (DEPTH_CONV FIXEQ_CONV) >>
+                RULE_ASSUM_TAC (CONV_RULE (DEPTH_CONV FIXEQ_CONV))
+
+fun simp thl = lcsymtacs.simp thl >> FIXEQ_TAC
+fun fs thl = lcsymtacs.fs thl >> FIXEQ_TAC
+
 
 fun PULLV v t = let
   val (bv,b) = dest_abs(rand t)
@@ -907,7 +925,7 @@ val lassoc_reassociated = store_thm(
       simp[left_insert_def]) >>
   asm_match `ptree_head ppt = NT P` >>
   asm_match `ptree_head s0pt = ptree_head spt` >>
-  asm_match `ptree_head c0pt = ptree_head cpt` >>
+  asm_match `ptree_head cpt = ptree_head c0pt` >>
   fs [MAP_EQ_APPEND] >> rveq >>
   asm_match `ptree_fringe ppt = MAP TOK pf` >>
   asm_match `ptree_fringe s0pt = MAP TOK sf0` >>
@@ -1620,7 +1638,7 @@ val completeness = store_thm(
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
       rpt strip_tac >> rveq >> fs[]
       >- (DISJ1_TAC >> fs[MAP_EQ_SING] >> rveq >>
-          asm_match `NN nUQTyOp = ptree_head pt` >>
+          asm_match `ptree_head pt = NN nUQTyOp` >>
           first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `sfx`] mp_tac)>>
           simp[NT_rank_def] >> fs[])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> simp[peg_eval_seq_NONE] >> rveq >>
@@ -2186,7 +2204,7 @@ val completeness = store_thm(
                        fs[]) >>
           normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
           normlist >> first_assum (match_mp_tac o has_length) >>
-          simp[] >>
+          simp[] >> CONV_TAC NumRelNorms.sum_lt_norm >>
           metis_tac [fringe_length_not_nullable,
                      nullable_Eadd, listTheory.LENGTH_MAP,
                      arithmeticTheory.ZERO_LESS_ADD]) >>
@@ -2342,7 +2360,7 @@ val completeness = store_thm(
       match_mp_tac (eapp_complete
                       |> Q.INST [`master` |-> `pfx`]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def])
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nEadd" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
@@ -2417,9 +2435,11 @@ val completeness = store_thm(
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       Q.REFINE_EXISTS_TAC `[pt]` >> simp[] >> normlist >>
       first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
+      qcase_tac `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [`P` |-> `nDtypeCons`, `SEP` |-> `TK BarT`,
-                                 `C` |-> `NN nDconstructor`, `master` |-> `es`]
+                                 `C` |-> `NN nDconstructor`,
+                                 `master` |-> `ppfx`]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -2484,7 +2504,7 @@ val completeness = store_thm(
       match_mp_tac (dtype_complete
                       |> Q.INST [`master` |-> `pfx`]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def])
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nConstructorName" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
