@@ -163,47 +163,46 @@ val add_clock = Q.prove (
              result_distinct, error_result_distinct, result_11]);
 
 val clock_monotone = Q.prove (
-`(∀ck env s e r1.
-   evaluate ck env s e r1 ⇒
-   !s0 count count' s' r'.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),r')) ∧
-   (ck = T) ⇒
-   (count' ≤ count)) ∧
- (∀ck env s es r1.
-   evaluate_list ck env s es r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (ck = T) ⇒
-   (count' ≤ count)) ∧
- (∀ck env s v pes err_v r1.
-   evaluate_match ck env s v pes err_v r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (ck = T) ⇒
-   (count' ≤ count))`,
-ho_match_mp_tac evaluate_ind >>
-rw [] >>
-rw [Once evaluate_cases] >>
-TRY (PairCases_on `s'`) >>
-full_simp_tac (srw_ss()++ARITH_ss) [] >>
-cases_on `op` >>
-full_simp_tac (srw_ss()++ARITH_ss) []);
+  `(∀ck env s e r1.
+     evaluate ck env s e r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = T) ⇒
+     (s'.clock ≤ s.clock)) ∧
+   (∀ck env s es r1.
+     evaluate_list ck env s es r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = T) ⇒
+     (s'.clock ≤ s.clock)) ∧
+   (∀ck env s v pes err_v r1.
+     evaluate_match ck env s v pes err_v r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = T) ⇒
+     (s'.clock ≤ s.clock))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw [] >>
+  rw [Once evaluate_cases] >>
+  full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val with_same_clock = Q.prove(
+  `(s with clock := s.clock) = s`,rw[state_component_equality])
 
 val big_clocked_unclocked_equiv = Q.store_thm ("big_clocked_unclocked_equiv",
-`!s env e s' r1 count1.
-  evaluate F env (count1,s) e ((count1, s'), r1) = 
-  ?count. evaluate T env (count,s) e ((0,s'),r1) ∧ 
-          (r1 ≠ Rerr (Rabort Rtimeout_error))`, 
-metis_tac [add_clock, big_unclocked_ignore, big_unclocked]);
+  `!s env e s' r1 count1.
+    evaluate F env s e (s', r1) =
+    ?c. evaluate T env (s with clock := c) e (s' with clock := 0,r1) ∧
+          (r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
+          (s.clock = s'.clock)`,
+  metis_tac [with_clock_clock, with_same_clock, add_clock,
+             big_unclocked_ignore, big_unclocked]);
 
 val wf_lem = Q.prove (
-`WF (($< :(num->num->bool)) LEX measure exp_size)`,
-rw [] >>
-match_mp_tac WF_LEX >>
-rw [prim_recTheory.WF_LESS]);
+  `WF (($< :(num->num->bool)) LEX measure exp_size)`,
+  rw [] >>
+  match_mp_tac WF_LEX >>
+  rw [prim_recTheory.WF_LESS]);
 
 val ind = SIMP_RULE (srw_ss()) [wf_lem] (Q.ISPEC `(($< :(num->num->bool)) LEX measure exp_size)` WF_INDUCTION_THM)
 
