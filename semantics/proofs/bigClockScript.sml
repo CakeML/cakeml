@@ -87,7 +87,7 @@ val big_unclocked = Q.store_thm ("big_unclocked",
    evaluate F env (s with clock := count2) e (s' with clock := count2, r))`,
  rw [] >>
  metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, lemma]);
-
+  
 val add_to_counter = Q.store_thm ("add_to_counter",
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
