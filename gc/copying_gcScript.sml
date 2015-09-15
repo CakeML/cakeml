@@ -44,13 +44,13 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
 
 (* The ML heap is represented as a list of heap_elements. *)
 
-val _ = Hol_datatype `
-  heap_address = Pointer of num | Data of 'a`;
+val _ = Datatype `
+  heap_address = Pointer num | Data 'a`;
 
-val _ = Hol_datatype `
-  heap_element = Unused of num
-               | ForwardPointer of num => num
-               | DataElement of ('a heap_address) list => num => 'b`;
+val _ = Datatype `
+  heap_element = Unused num
+               | ForwardPointer num num
+               | DataElement (('a heap_address) list) num 'b`;
 
 (* The heap is accessed using the following lookup function. *)
 
