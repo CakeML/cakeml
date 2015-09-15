@@ -3486,12 +3486,14 @@ val compile_correct = Q.store_thm("compile_correct",
                      metis_tac [SUBMAP_TRANS])
                  >- ((* Extra arguments *)
                      rw [] >>
-                     (* RK: this is all I added in this case *)
-                     `s'.code = s1.code` by (
-                       imp_res_tac evaluate_const >> fs[] ) >>
-                     fs[] >> rfs[] >>
-                     (* -- *)
-                     first_x_assum (qspec_then `SOMEENV` strip_assume_tac) >>
+                     `FEVERY (λp. every_Fn_SOME [SND (SND p)]) s'.code` by (
+                       `s'.code = s1.code` by (
+                         imp_res_tac evaluate_const >> fs[] ) >>
+                       fs[] ) >> fs[] >>
+                     first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+                     disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
+                     simp[] >>
+                     disch_then (qspec_then `SOMEENV` strip_assume_tac) >>
                      qspec_then `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
                        (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
@@ -3500,42 +3502,44 @@ val compile_correct = Q.store_thm("compile_correct",
                      DISCH_TAC >>
                      qexists_tac `ck + ck' + ck'' + 1` >>
                      simp [] >>
-                     rw [] >>
-                     fs [ADD_ASSOC] >>
                      pop_assum kall_tac >>
                      first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
-                     rw [inc_clock_def, dec_clock_def, Abbr `n`] >>
-                     `ck + ck'' + s1.clock − rem_args + ck' =
-                      ck + ck' + ck'' + s1.clock + 1 − (rem_args − 1 + 2)`
-                               by ARITH_TAC  >>
-                     `!ck. t1 with <| clock := ck; code := t1.code |> = t1 with clock := ck`
-                              by rw [bvlSemTheory.state_component_equality] >>
-                     fs [] >>
-                     rw [] >>
-                     `s1.clock − rem_args + ck + ck'' = ck+ck''+s1.clock-rem_args` by ARITH_TAC >>
-                     `evaluate ([body'],newenv',t1 with clock := ck + ck'' + s1.clock - rem_args) =
-                         (Rval [v''], inc_clock ck'' t2)`
-                               by (imp_res_tac evaluate_add_clock >>
-                                   rw [] >>
-                                   pop_assum (qspec_then `ck''` mp_tac) >>
-                                   fs [inc_clock_def]) >>
-                     rw [] >>
+                     qpat_abbrev_tac`t11:bvlSem$state = inc_clock ck' Z` >>
+                     qpat_abbrev_tac`t12:bvlSem$state = dec_clock X Y` >>
+                     `t11 = t12` by (
+                       simp[Abbr`t11`,Abbr`t12`] >>
+                       rw[inc_clock_def,dec_clock_def,bvlSemTheory.state_component_equality] >>
+                       fsrw_tac[ARITH_ss][]) >>
+                     pop_assum SUBST1_TAC >>
+                     disch_then SUBST1_TAC >>
+                     map_every qunabbrev_tac[`t11`,`t12`] >>
+                     qmatch_assum_abbrev_tac`evaluate (_,_,t11) = (_,t2)` >>
+                     qpat_abbrev_tac`t12:bvlSem$state = X Y` >>
+                     `t12 = inc_clock ck'' t11` by (
+                       unabbrev_all_tac >>
+                       rw[bvlSemTheory.state_component_equality,inc_clock_def] >>
+                       fsrw_tac[ARITH_ss][]) >>
+                     pop_assum SUBST1_TAC >>
+                     imp_res_tac evaluate_add_clock >>
+                     unabbrev_all_tac >> fs[] >>
+                     ntac 2 (pop_assum kall_tac) >>
+                     `SUC (LENGTH ys) - (rem_args - 1 + 1) = LENGTH args'' - rem_args` by (
+                       fsrw_tac[ARITH_ss][ADD1] ) >>
+                     pop_assum SUBST_ALL_TAC >>
                      `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by rw [] >>
-                     `LENGTH args' − rem_args ≤ LENGTH args'` by ARITH_TAC >>
+                     `LENGTH args'' − rem_args ≤ LENGTH args''` by ARITH_TAC >>
                      first_x_assum (fn th => strip_assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] mk_call_simp2) th)) >>
                      pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
-                     fs [] >>
-                     `rem_args - 1 + 1 = rem_args` by ARITH_TAC >>
-                     rw [inc_clock_def] >>
-                     cheat >>
-                     Cases_on `res''''` >>
-                     fs [] >>
-                     imp_res_tac bEval_SING >>
-                     fs [] >>
-                     `!ck. t1 with <| clock := ck; refs := t1.refs |> = t1 with clock := ck`
-                              by rw [bvlSemTheory.state_component_equality] >>
-                     fs [inc_clock_def] >>
-                     metis_tac [SUBMAP_TRANS]))
+                     pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
+                     var_eq_tac >>
+                     simp_tac(srw_ss())[inc_clock_def] >>
+                     disch_then kall_tac >>
+                     rator_x_assum`evaluate`mp_tac >>
+                     simp_tac(srw_ss()++ARITH_ss)[] >>
+                     strip_tac >>
+                     Cases_on`res''''`>> fs [] >>
+                     imp_res_tac bEval_SING >> fs [] >>
+                     metis_tac[SUBMAP_TRANS]))
              >- ((* The first application fails *)
                  `res' = res ∧ s' = s2`
                        by (Cases_on `res'` >>
