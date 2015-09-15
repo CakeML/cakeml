@@ -87,43 +87,39 @@ val big_unclocked = Q.store_thm ("big_unclocked",
    evaluate F env (s with clock := count2) e (s' with clock := count2, r))`,
  rw [] >>
  metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, lemma]);
-  
+
 val add_to_counter = Q.store_thm ("add_to_counter",
-`(∀ck env s e r1.
-   evaluate ck env s e r1 ⇒
-   !s0 count count' s' r' extra.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),r')) ∧
-   (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (ck = T) ⇒
-   evaluate T env (count+extra,s0) e ((count'+extra,s'),r')) ∧
- (∀ck env s es r1.
-   evaluate_list ck env s es r1 ⇒
-   !s0 count count' s' r' extra.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (ck = T) ⇒
-   evaluate_list T env (count+extra,s0) es ((count'+extra,s'),r')) ∧
- (∀ck env s v pes err_v r1.
-   evaluate_match ck env s v pes err_v r1 ⇒
-   !s0 count count' s' r' extra.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (ck = T) ⇒
-   evaluate_match T env (count+extra,s0) v pes err_v ((count'+extra,s'),r'))`,
+  `(∀ck env s e r1.
+     evaluate ck env s e r1 ⇒
+     !s' r' extra.
+     (r1 = (s',r')) ∧
+     (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
+     (ck = T) ⇒
+     evaluate T env (s with clock := s.clock+extra) e ((s' with clock := s'.clock+extra),r')) ∧
+   (∀ck env s es r1.
+     evaluate_list ck env s es r1 ⇒
+     !s' r' extra.
+     (r1 = (s',r')) ∧
+     (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
+     (ck = T) ⇒
+     evaluate_list T env (s with clock := s.clock+extra) es ((s' with clock := s'.clock+extra),r')) ∧
+   (∀ck env s v pes err_v r1.
+     evaluate_match ck env s v pes err_v r1 ⇒
+     !s' r' extra.
+     (r1 = (s',r')) ∧
+     (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
+     (ck = T) ⇒
+     evaluate_match T env (s with clock := s.clock+extra) v pes err_v ((s' with clock := s'.clock+extra),r'))`,
   ho_match_mp_tac evaluate_ind >>
-  rw [] >>
-  rw [Once evaluate_cases] >>
-  TRY (PairCases_on`s'` >> fs[] >> metis_tac[]) >>
+  rw [] >> rw [Once evaluate_cases] >>
+  fs[] >> rfs[] >>
   TRY (metis_tac[]) >>
   disj1_tac >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_list`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o (snd o strip_forall o concl)) >>
-  simp[] >> ONCE_REWRITE_TAC[arithmeticTheory.ADD_SYM] >>
   simp[] >>
-  fs [] >>
-  `count' + extra - 1 = count' - 1 + extra` by DECIDE_TAC >>
+  fsrw_tac[ARITH_ss][] >>
+  `extra + s2.clock - 1 = s2.clock -1 + extra` by DECIDE_TAC >>
   metis_tac []);
 
 val tac =
