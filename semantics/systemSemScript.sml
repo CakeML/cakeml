@@ -4,7 +4,7 @@ open ffiTheory simpleIOTheory;
 open terminationTheory;
 open pathTheory;
 
-val _ = new_theory "standalone";
+val _ = new_theory "systemSem";
 
 val parse_def = Define`
 parse toks =
