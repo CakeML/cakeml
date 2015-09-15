@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../targets ../../reg_alloc/proofs ../../gc
+INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../targets ../../reg_alloc/proofs ../../gc $(HOLDIR)/examples/machine-code/hoare-triple
 
 OPTIONS = QUIT_ON_FAILURE
 

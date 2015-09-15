@@ -1,5 +1,5 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
-     int_bitwiseTheory wordSemTheory;
+     int_bitwiseTheory wordSemTheory bvp_to_wordTheory set_sepTheory;
 
 val _ = new_theory "bvp_to_wordProps";
 
@@ -1762,5 +1762,94 @@ val LESS_LENGTH = store_thm("LESS_LENGTH",
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
+
+
+(* -------------------------------------------------------
+    representation in memory
+   ------------------------------------------------------- *)
+
+val allones_def = Define `
+  allones m n = (m -- n) (~0w)`
+
+val maxout_bits_def = Define `
+  maxout_bits n rep_len k =
+    if n < 2 ** rep_len then n2w n << k else allones (k + rep_len) k`
+
+val pointer_bits_def = Define `
+  pointer_bits conf abs_heap n =
+    case heap_lookup n abs_heap of
+    | SOME (DataElement xs l (BlockTag tag,[])) =>
+        maxout_bits (LENGTH xs) conf.len_bits (conf.tag_bits + 1) ||
+        maxout_bits tag conf.tag_bits 1 || 1w
+    | _ => allones (conf.len_bits + conf.tag_bits + 1) 0`
+
+val get_addr_def = Define `
+  get_addr conf abs_heap n =
+    (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) ||
+     pointer_bits conf abs_heap n)`;
+
+val word_addr_def = Define `
+  (word_addr conf abs_heap (Data w) = w) /\
+  (word_addr conf abs_heap (Pointer n) = Word (get_addr conf abs_heap n))`
+
+val one_list_def = Define `
+  (one_list a [] = emp) /\
+  (one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs)`;
+
+val one_list_exists_def = Define `
+  one_list_exists a n =
+    SEP_EXISTS xs. one_list a xs * cond (LENGTH xs = n)`;
+
+val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
+
+val word_payload_def = Define `
+  (word_payload ys l (BlockTag n) qs conf abs_heap =
+     if (n < 2 ** conf.tag_bits - 1 /\
+         LENGTH ys - 1 < 2 ** conf.len_bits - 1)
+     then (NONE, (* no header *)
+           MAP (word_addr conf abs_heap) ys,
+           (qs = []) /\ (LENGTH ys - 1 = l))
+     else (SOME (n2w n << 2), (* header: ...00 *)
+           MAP (word_addr conf abs_heap) ys,
+           (qs = []) /\ (LENGTH ys = l))) /\
+  (word_payload ys l (RefTag) qs conf abs_heap =
+     (SOME 1w, (* header: ...01 *)
+      MAP (word_addr conf abs_heap) ys,
+      (qs = []) /\ (LENGTH ys = l))) /\
+  (word_payload ys l (NumTag b) qs conf abs_heap =
+     (SOME (b2w b << 2 || 2w), (* header: ...110 or ...010 *)
+      qs, (ys = []) /\ (LENGTH qs = l))) /\
+  (word_payload ys l (BytesTag n) qs conf abs_heap =
+     (SOME (n2w n << 2 || 3w), (* header: ...11 *)
+      qs, (ys = []) /\ (LENGTH qs = l)))`;
+
+val decode_tag_bits_def = Define `
+  decode_tag_bits conf w =
+    let h = (w >>> (3 + conf.len_size)) in
+      if h = 0b001w then RefTag else
+      if h = 0b110w then NumTag T else
+      if h = 0b010w then NumTag F else
+      if (h && 3w) = 3w then BytesTag (w2n (h >>> 2)) else
+        BlockTag (w2n (h >>> 2))`
+
+val word_el_def = Define `
+  (word_el a (Unused l) conf abs_heap = one_list_exists a (l+1)) /\
+  (word_el a (ForwardPointer n l) conf abs_heap =
+     one (a,Word (n2w n << 3 || 7w)) *
+     one_list_exists (a + bytes_in_word) l) /\
+  (word_el a (DataElement ys l (tag,qs)) conf abs_heap =
+     case word_payload ys l tag qs conf abs_heap of
+     | (NONE,ts,c) => one_list a ts * cond c
+     | (SOME h,ts,c) =>
+         let w = (h << (3 + conf.len_size) || n2w (LENGTH ts) << 3 || 3w) in
+           one (a,Word w) * one_list (a + bytes_in_word) ts *
+           cond (c /\ LENGTH ts < 2 ** conf.len_size /\
+                 decode_tag_bits conf w = tag))`;
+
+val word_heap_def = Define `
+  (word_heap a [] conf abs_heap = emp) /\
+  (word_heap a (x::xs) conf abs_heap =
+     word_el a x conf abs_heap *
+     word_heap (a + bytes_in_word * n2w (el_length x)) xs conf abs_heap)`;
 
 val _ = export_theory();
