@@ -17,69 +17,79 @@ val set_counter_def = Define `
 val big_unclocked_unchanged = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
-     (ck = F)
+     ck = F
      ⇒
-     (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1))) ∧
+     SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
+     s.clock = (FST r1).clock) ∧
  (∀ck env s es r1.
    evaluate_list ck env s es r1 ⇒
-     (ck = F)
+     ck = F
      ⇒
-     (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1))) ∧
+     SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
+     s.clock = (FST r1).clock) ∧
  (∀ck env s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
-     (ck = F)
+     ck = F
      ⇒
-     (SND r1 ≠ Rerr (Rabort Rtimeout_error)) ∧
-     (FST s = FST (FST r1)))`,
+     SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
+     s.clock = (FST r1).clock)`,
  ho_match_mp_tac evaluate_ind >>
  rw [] >> fs[do_app_cases] >> rw [] >> fs []);
+
+val lemma = Q.prove (
+`((s with clock := c) with <| refs := r; io := io |>) =
+ s with <| clock := c; refs := r; io := io |>`,
+ rw []);
 
 val big_unclocked_ignore = Q.prove (
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
-       (r ≠ Rerr (Rabort Rtimeout_error))
+     !count st' r.
+       r1 = (st', r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error)
        ⇒
-       evaluate F env (count2,st) e ((count2, st'), r)) ∧
+       evaluate F env (s with clock := count) e (st' with clock := count, r)) ∧
  (∀ck env s es r1.
    evaluate_list ck env s es r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
-       (r ≠ Rerr (Rabort Rtimeout_error))
+     !count st' r.
+       r1 = (st', r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error)
        ⇒
-       evaluate_list F env (count2,st) es ((count2, st'), r)) ∧
+       evaluate_list F env (s with clock := count) es (st' with clock := count, r)) ∧
  (∀ck env s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
-     !count1 count1' count2 count2' st st' r.
-       (s = (count1,st)) ∧
-       (r1 = ((count1', st'), r)) ∧
-       (r ≠ Rerr (Rabort Rtimeout_error))
+     !count st' r.
+       r1 = (st', r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error)
        ⇒
-       evaluate_match F env (count2,st) v pes err_v ((count2, st'), r))`,
-ho_match_mp_tac evaluate_ind >>
-rw [] >>
-rw [Once evaluate_cases]>>
-TRY (PairCases_on `s'`) >>
-fs [] >>
-rw [] >>
-metis_tac []);
+       evaluate_match F env (s with clock := count) v pes err_v (st' with clock := count, r))`,
+ ho_match_mp_tac evaluate_ind >>
+ rw [] >>
+ rw [Once evaluate_cases]>>
+ fs [] >>
+ rw [] >>
+ TRY (disj1_tac >>
+      qexists_tac `vs` >>
+      qexists_tac `s2 with clock := count'` >>
+      rw [] >>
+      NO_TAC) >>
+ metis_tac []);
+
+val lemma = Q.prove (
+`(s with clock := a) with clock := b = (s with clock := b)`,
+ rw [state_component_equality]);
 
 val big_unclocked = Q.store_thm ("big_unclocked",
-`!count s env e count' s' r env.
-  (evaluate F env (count, s) e ((count',s'), r)
+`!s env e s' r env count1 count2.
+  (evaluate F env s e (s', r)
    ⇒
-   (r ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (count = count')) ∧
-  (evaluate F env (count, s) e ((count,s'), r)
-   =
-   evaluate F env (count', s) e ((count',s'), r))`,
-rw [] >>
-metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND]);
+   r ≠ Rerr (Rabort Rtimeout_error) ∧
+   s.clock = s'.clock) ∧
+  (evaluate F env (s with clock := count1) e (s' with clock := count1, r)
+   ⇒
+   evaluate F env (s with clock := count2) e (s' with clock := count2, r))`,
+ rw [] >>
+ metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, lemma]);
 
 val add_to_counter = Q.store_thm ("add_to_counter",
 `(∀ck env s e r1.
