@@ -16,8 +16,8 @@ val compile_v_def = tDefine"compile_v"`
   (compile_v (Loc m) = (RefPtr m)) ∧
   (compile_v (Conv cn vs) = (Block cn (MAP (compile_v) vs))) ∧
   (compile_v (Vectorv vs) = (Block vector_tag (MAP (compile_v) vs))) ∧
-  (compile_v (Closure vs e) = (Closure 0 [] (MAP (compile_v) vs) 1 (compile e))) ∧
-  (compile_v (Recclosure vs es k) = (Recclosure 0 [] (MAP (compile_v) vs) (MAP (λe. (1,compile e)) es) k))`
+  (compile_v (Closure vs e) = (Closure NONE [] (MAP (compile_v) vs) 1 (compile e))) ∧
+  (compile_v (Recclosure vs es k) = (Recclosure NONE [] (MAP (compile_v) vs) (MAP (λe. (1,compile e)) es) k))`
     (WF_REL_TAC`measure (patSem$v_size)` >> simp[patSemTheory.v_size_def] >>
      rpt conj_tac >> rpt gen_tac >>
      Induct_on`vs` >> simp[patSemTheory.v_size_def] >>
