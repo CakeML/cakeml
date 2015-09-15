@@ -1,5 +1,5 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
-     int_bitwiseTheory;
+     int_bitwiseTheory wordSemTheory;
 
 val _ = new_theory "bvp_to_wordProps";
 
@@ -14,7 +14,9 @@ val _ = Datatype `
 val BlockRep_def = Define `
   BlockRep tag xs = DataElement xs (LENGTH xs) (BlockTag tag,[])`;
 
-val _ = type_abbrev("ml_el",``:('a word, tag # ('a word list)) heap_element``);
+val _ = type_abbrev("ml_el",
+  ``:('a word_loc, tag # ('a word_loc list)) heap_element``);
+
 val _ = type_abbrev("ml_heap",``:'a ml_el list``);
 
 val words_of_bits_def = tDefine "words_of_bits" `
@@ -32,7 +34,7 @@ val bits_of_words_def = Define `
 val Bytes_def = Define`
   ((Bytes (bs:word8 list)):'a ml_el) =
     let ws = words_of_bits (bits_of_words bs) in
-      DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), ws)`
+      DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), MAP Word ws)`
 
 val words_of_int_def = Define `
   words_of_int i =
@@ -42,7 +44,7 @@ val words_of_int_def = Define `
 val Bignum_def = Define `
   Bignum i =
     DataElement [] (LENGTH ((words_of_int i):'a word list))
-           (NumTag (i < 0), (words_of_int i):'a word list)`;
+      (NumTag (i < 0), MAP Word ((words_of_int i):'a word list))`;
 
 val Smallnum_def = Define `
   Smallnum i =
@@ -52,7 +54,7 @@ val small_int_def = Define `
   small_int (:'a) i <=> w2i (((Smallnum i) >> 2):'a word) = i`;
 
 val BlockNil_def = Define `
-  BlockNil n = 4w * n2w n + 2w`;
+  BlockNil n = n2w n << 2 + 2w`;
 
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
@@ -61,14 +63,14 @@ val v_size_LEMMA = prove(
 
 val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
-     if small_int (:'a) i then (x = Data (Smallnum i)) else
+     if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
        ?ptr. (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
   (v_inv (CodePtr n) (x,f,heap) <=>
-     (x = Data (n2w n))) /\
+     (x = Data (Loc n 0))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
      (x = Pointer (f ' n)) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
-     if vs = [] then (x = Data (BlockNil n)) else
+     if vs = [] then (x = Data (Word (BlockNil n))) else
        ?ptr xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
          (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (BlockRep n xs)))`
@@ -809,7 +811,7 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   ``abs_ml_inv stack refs (roots,heap:'a ml_heap,a,sp) limit /\
     tag < 2 ** 61 ==>
     abs_ml_inv ((Block tag [])::stack) refs
-                (Data (BlockNil tag)::roots,heap,a,sp) limit``,
+                (Data (Word (BlockNil tag))::roots,heap,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
