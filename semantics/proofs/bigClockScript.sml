@@ -72,7 +72,7 @@ val big_unclocked_ignore = Q.prove (
       NO_TAC) >>
  metis_tac []);
 
-val lemma = Q.prove (
+val with_clock_with_clock = Q.prove (
 `(s with clock := a) with clock := b = (s with clock := b)`,
  rw [state_component_equality]);
 
@@ -86,7 +86,7 @@ val big_unclocked = Q.store_thm ("big_unclocked",
    ⇒
    evaluate F env (s with clock := count2) e (s' with clock := count2, r))`,
  rw [] >>
- metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, lemma]);
+ metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, with_clock_with_clock]);
 
 val add_to_counter = Q.store_thm ("add_to_counter",
   `(∀ck env s e r1.
@@ -122,53 +122,45 @@ val add_to_counter = Q.store_thm ("add_to_counter",
   `extra + s2.clock - 1 = s2.clock -1 + extra` by DECIDE_TAC >>
   metis_tac []);
 
-val tac =
-  TRY (PairCases_on `s'`) >>
-  fs [] >>
-  metis_tac [add_to_counter, arithmeticTheory.ADD_COMM,
-             arithmeticTheory.ADD_0, result_distinct, error_result_distinct,
-             result_11];
+val with_clock_clock = Q.prove(
+  `(s with clock := a).clock = a`,rw[]);
 
 val add_clock = Q.prove (
-`(∀ck env s e r1.
-   evaluate ck env s e r1 ⇒
-   !s0 count count' s' r'.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),r')) ∧
-   (ck = F) ⇒
-   ∃count1. evaluate T env (count1,s0) e ((0,s'),r')) ∧
- (∀ck env s es r1.
-   evaluate_list ck env s es r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (ck = F) ⇒
-   ∃count1. evaluate_list T env (count1,s0) es ((0,s'),r')) ∧
- (∀ck env s v pes err_v r1.
-   evaluate_match ck env s v pes err_v r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count',s'),r')) ∧
-   (s = (count, s0)) ∧
-   (ck = F) ⇒
-   ∃count1. evaluate_match T env (count1,s0) v pes err_v ((0,s'),r'))`,
- ho_match_mp_tac evaluate_ind >>
- rw [] >>
- rw [Once evaluate_cases] >>
- TRY (
-     srw_tac[DNF_ss][] >> disj1_tac >>
-     fs [] >>
-     `evaluate_list T env (count1+(count1'+1),s0) es ((0+(count1'+1),s2),Rval vs)` by
-             metis_tac [result_distinct, add_to_counter] >>
-     `0+count1'+1 ≠ 0 ∧ 0+count1'+1-1 = count1'` by DECIDE_TAC >>
-     metis_tac[arithmeticTheory.ADD_ASSOC] ) >>
- TRY (
-     srw_tac[DNF_ss][] >> disj1_tac >>
-     fs [] >>
-     `evaluate_list T env (count1+(count1'+1),s0) (REVERSE es) ((0+(count1'+1),s2,t2),Rval vs)` by
-             metis_tac [result_distinct, add_to_counter] >>
-     `0+count1'+1 ≠ 0 ∧ 0+count1'+1-1 = count1'` by DECIDE_TAC >>
-     metis_tac[arithmeticTheory.ADD_ASSOC] ) >>
- tac);
+  `(∀ck env s e r1.
+     evaluate ck env s e r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = F) ⇒
+     ∃c. evaluate T env (s with clock := c) e (s' with clock := 0,r')) ∧
+   (∀ck env s es r1.
+     evaluate_list ck env s es r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = F) ⇒
+     ∃c. evaluate_list T env (s with clock := c) es (s' with clock := 0,r')) ∧
+   (∀ck env s v pes err_v r1.
+     evaluate_match ck env s v pes err_v r1 ⇒
+     !s' r'.
+     (r1 = (s',r')) ∧
+     (ck = F) ⇒
+     ∃c. evaluate_match T env (s with clock := c) v pes err_v (s' with clock := 0,r'))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw [] >>
+  rw [Once evaluate_cases] >>
+  srw_tac[DNF_ss][] >> fs[] >>
+  TRY(fs[state_component_equality]>>NO_TAC) >>
+  TRY (
+      srw_tac[DNF_ss][] >> disj1_tac >>
+      imp_res_tac (CONJUNCT1 (CONJUNCT2 add_to_counter)) >> fs[] >>
+      first_x_assum(qspec_then`c+1`strip_assume_tac)>>
+      first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
+  TRY (
+      srw_tac[DNF_ss][] >> disj1_tac >>
+      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``evaluate_list`` o fst o strip_comb))) >>
+      first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC) >>
+  metis_tac [add_to_counter, with_clock_with_clock, with_clock_clock,
+             arithmeticTheory.ADD_COMM, arithmeticTheory.ADD_0,
+             result_distinct, error_result_distinct, result_11]);
 
 val clock_monotone = Q.prove (
 `(∀ck env s e r1.
