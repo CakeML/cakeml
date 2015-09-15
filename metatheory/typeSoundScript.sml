@@ -1808,9 +1808,7 @@ val store_type_extension_refl = Q.prove (
 
 val mem_lem = Q.prove (
 `(!v. ~MEM (x,v) l) ⇔ ~MEM x (MAP FST l)`,
- Induct_on `l` >>
- rw [] >>
- metis_tac [FST, pair_CASES]);
+ simp[FORALL_PROD, MEM_MAP])
 
 val decs_type_sound_invariant_def = Define `
 decs_type_sound_invariant mn tdecs1 tdecs2 ctMap tenvS tenvT tenvM tenvC tenv st menv cenv env ⇔
