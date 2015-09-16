@@ -485,51 +485,64 @@ val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_eq
 val sub_from_counter = Q.store_thm ("sub_from_counter",
 `(∀ck env s e r1.
    evaluate ck env s e r1 ⇒
-   !s0 count count' s' r'.
-   (s = (count+extra, s0)) ∧
-   (r1 = ((count'+extra,s'),r')) ∧
+   !count count' s' r'.
+   (s.clock = count+extra) ∧
+   (r1 = (s',r')) ∧
+   s'.clock = count' + extra ∧
    (ck = T) ⇒
-   evaluate T env (count,s0) e ((count',s'),r')) ∧
+   evaluate T env (s with clock := count) e (s' with clock := count',r')) ∧
  (∀ck env s es r1.
    evaluate_list ck env s es r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count'+extra,s'),r')) ∧
-   (s = (count+extra, s0)) ∧
+   !count count' s' r'.
+   (s.clock = count+extra) ∧
+   (r1 = (s',r')) ∧
+   s'.clock = count' + extra ∧
    (ck = T) ⇒
-   evaluate_list T env (count,s0) es ((count',s'),r')) ∧
+   evaluate_list T env (s with clock := count) es (s' with clock := count',r')) ∧
  (∀ck env s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
-   !s0 count count' s' r'.
-   (r1 = ((count'+extra,s'),r')) ∧
-   (s = (count+extra, s0)) ∧
+   !count count' s' r'.
+   (s.clock = count+extra) ∧
+   (r1 = (s',r')) ∧
+   s'.clock = count' + extra ∧
    (ck = T) ⇒
-   evaluate_match T env (count,s0) v pes err_v ((count',s'),r'))`,
+   evaluate_match T env (s with clock := count) v pes err_v (s' with clock := count',r'))`,
  ho_match_mp_tac evaluate_strongind >>
  rw [] >>
  rw [Once evaluate_cases] >>
- full_simp_tac (srw_ss()++ARITH_ss) []
+ full_simp_tac (srw_ss()++ARITH_ss) [state_component_equality]
  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
  >- (fs [] >>
      disj1_tac >>
      CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(can lhs))) >>
      first_assum(match_exists_tac o concl) >> simp[] >>
-     qexists_tac `s2` >>
-     qexists_tac `t2` >>
-     qexists_tac `count' - extra` >>
-     imp_res_tac clock_monotone >> fs[] >> rw[] >>
-     `count' = count' - extra + extra` by DECIDE_TAC >>
-     res_tac >> simp[]) >>
+     imp_res_tac clock_monotone >>
+     fs [] >>
+     `?count'''. s2.clock = count''' + extra` 
+                by (qexists_tac `s2.clock - extra` >>
+                    simp []) >>
+     qexists_tac `s2 with clock := count'''` >>
+     simp [])
+ >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]
+ >- (fs [] >>
+     disj1_tac >>
+     imp_res_tac clock_monotone >>
+     fs [] >>
+     qexists_tac `vs` >>
+     qexists_tac `s2 with clock := count''` >>
+     rw []) >>
  metis_tac [pair_CASES, FST, clock_monotone, DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
 
 val clocked_min_counter = Q.store_thm ("clocked_min_counter",
-`!count s0 env e count' s' r'.
-evaluate T env (count,s0) e ((count',s'),r')
+`!count s env e count' s' r'.
+evaluate T env s e (s',r')
 ⇒
-evaluate T env (count-count',s0) e ((0, s'), r')`,
+evaluate T env (s with clock := s.clock - s'.clock) e (s' with clock := 0, r')`,
  rw [] >>
- `count'' ≤ count'` by metis_tac [clock_monotone, PAIR_EQ, FST, SND, pair_CASES] >>
- `count'' = 0 + count'' ∧ count' = (count' - count'') + count'':num` by decide_tac >>
+ `s'.clock ≤ s.clock` by metis_tac [clock_monotone, PAIR_EQ, FST, SND, pair_CASES] >>
+ `s'.clock = 0 + s'.clock ∧ s.clock = (s.clock - s'.clock) + s'.clock:num` by decide_tac >>
  metis_tac [sub_from_counter]);
 
 val dec_evaluate_not_timeout = Q.store_thm ("dec_evaluate_not_timeout",
