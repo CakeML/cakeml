@@ -2033,7 +2033,6 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      >- (rw [store_type_extension_def] >>
          qexists_tac `FEMPTY` >>
          rw [])
-     >- rw []
      >- (rw [union_decls_def] >>
          metis_tac [consistent_ctMap_extend_exn])
      >- (match_mp_tac (SIMP_RULE (srw_ss()) [] extend_consistent_con_exn) >>
