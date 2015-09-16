@@ -1924,7 +1924,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          >- (rw [store_type_extension_def] >>
              metis_tac [small_big_exp_equiv])))
  >- (imp_res_tac type_funs_distinct >>
-     `type_env2 ctMap tenvS tvs (MAP (\(fn,n,e). (fn, Recclosure (menv,cenv,env) funs fn)) funs) tenv''`
+     `type_env2 ctMap tenvS tvs (MAP (λ(fn,n,e). (fn, Recclosure (menv,cenv,env) funs fn)) funs) tenv''`
                   by metis_tac [type_recfun_env] >>
      imp_res_tac type_env_merge_lem1 >>
      MAP_EVERY qexists_tac [`st`, `Rval ([],build_rec_env funs (menv,cenv,env) [])`, `tenvS`, `tdecs2`] >>
