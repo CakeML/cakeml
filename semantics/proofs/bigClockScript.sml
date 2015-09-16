@@ -442,50 +442,45 @@ val big_clocked_total = Q.store_thm ("big_clocked_total",
   metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]);
 
 val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
-`(∀ck env s e r1.
-   evaluate ck env s e r1 ⇒
-   !s0 count count' s'.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),Rerr (Rabort Rtimeout_error))) ∧
-   (ck = T)
-   ⇒
-   (count' = 0)) ∧
- (∀ck env s es r1.
-   evaluate_list ck env s es r1 ⇒
-   !s0 count count' s'.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),Rerr (Rabort Rtimeout_error))) ∧
-   (ck = T)
-   ⇒
-   (count' = 0)) ∧
- (∀ck env s v pes err_v r1.
-   evaluate_match ck env s v pes err_v r1 ⇒
-   !s0 count count' s'.
-   (s = (count, s0)) ∧
-   (r1 = ((count',s'),Rerr (Rabort Rtimeout_error))) ∧
-   (ck = T)
-   ⇒
-   (count' = 0))`,
- ho_match_mp_tac evaluate_ind >>
- rw [] >>
- fs[do_app_cases] >>
- rw [] >>
- fs [] >>
- TRY (PairCases_on `s'`) >>
- rw []);
+  `(∀ck env s e r1.
+     evaluate ck env s e r1 ⇒
+     !s'.
+     (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
+     (ck = T)
+     ⇒
+     (s'.clock = 0)) ∧
+   (∀ck env s es r1.
+     evaluate_list ck env s es r1 ⇒
+     !s'.
+     (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
+     (ck = T)
+     ⇒
+     (s'.clock = 0)) ∧
+   (∀ck env s v pes err_v r1.
+     evaluate_match ck env s v pes err_v r1 ⇒
+     !s'.
+     (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
+     (ck = T)
+     ⇒
+     (s'.clock = 0))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw [] >>
+  fs[do_app_cases] >>
+  rw [] >>
+  fs []);
 
 val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_equiv_timeout",
-`!s env e count1.
-  (!r. ¬evaluate F env (count1,s) e r) = 
-  (∀count. ?s'. evaluate T env (count,s) e ((0,s'),Rerr (Rabort Rtimeout_error)))`,
-rw [] >>
-eq_tac >>
-rw [] >|
-[`?count1 s1 r1. evaluate T env (count',s) e ((count1,s1),r1)` 
-             by metis_tac [big_clocked_total] >>
-     metis_tac [big_unclocked_ignore, big_unclocked,big_clocked_timeout_0,
-                result_distinct,result_11, error_result_distinct,result_nchotomy, error_result_nchotomy],
- metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
+  `!s env e.
+    (!r. ¬evaluate F env s e r) =
+    (∀c. ?s'. evaluate T env (s with clock := c) e (s',Rerr (Rabort Rtimeout_error)) ∧ s'.clock = 0)`,
+  rw [] >>
+  eq_tac >>
+  rw [] >|
+  [`?s1 r1. evaluate T env (s with clock := c) e (s1,r1)`
+               by metis_tac [big_clocked_total] >>
+       metis_tac [big_unclocked_ignore, big_unclocked,big_clocked_timeout_0, with_clock_clock, with_same_clock,
+                  result_distinct,result_11, error_result_distinct,result_nchotomy, error_result_nchotomy],
+   metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
 
 val sub_from_counter = Q.store_thm ("sub_from_counter",
 `(∀ck env s e r1.
