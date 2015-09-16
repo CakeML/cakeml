@@ -2005,8 +2005,13 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      PairCases_on `cenv` >>
      PairCases_on `tenvC` >>
      rw [merge_alist_mod_env_def])
- >- (Q.LIST_EXISTS_TAC [`st`, `Rval ([(cn,LENGTH ts,TypeExn (mk_id mn cn))],[])`, `tenvS`, `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
-     `DISJOINT (FDOM (flat_to_ctMap [(cn, ([]:tvarN list,ts,TypeExn (mk_id mn cn)))])) (FDOM ctMap)`
+ >- (Q.LIST_EXISTS_TAC [`st`,
+                        `Rval ([(cn,LENGTH ts,TypeExn (mk_id mn cn))],[])`,
+                        `tenvS`,
+                        `{TypeExn (mk_id mn cn)} ∪ tdecs2`] >>
+     `DISJOINT
+        (FDOM (flat_to_ctMap [(cn, ([]:tvarN list,ts,TypeExn (mk_id mn cn)))]))
+        (FDOM ctMap)`
                  by metis_tac [consistent_decls_disjoint_exn] >>
      rw []
      >- (fs [consistent_decls_def, RES_FORALL] >>
