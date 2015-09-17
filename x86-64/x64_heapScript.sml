@@ -19525,13 +19525,13 @@ val read_char_thm = prove(
   THEN1 (ntac 3 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_str_pre_def,Once read_str_def,LET_THM]))
   \\ Cases_on `h ≠ #"\\"` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
   THEN1 (
-    Cases_on`t` 
-    THEN1 
-    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+    Cases_on`t`
+    THEN1
+    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`h` \\ simp[])
     \\
     Cases_on`h'= #"\""` \\ fs[]
     THEN1
-    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+    (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def])
     \\
     qpat_abbrev_tac `s' = s with input:= A`>>
     Q.SPECL_THEN [`[h]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19545,13 +19545,13 @@ val read_char_thm = prove(
     Cases_on`t`>>fs[]>>
     qexists_tac`h''::h'''::t''`>>fs[])
   \\ Cases_on`t` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
-  \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def] 
-  THEN1 
-  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+  THEN1
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`h`\\simp[])
   \\
   Cases_on`h''= #"\""` \\ fs[]
   THEN1
-  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def])
   \\
   (qpat_abbrev_tac `s' = s with input:=A`>>
   Q.SPECL_THEN [`[#"\\"]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19563,13 +19563,15 @@ val read_char_thm = prove(
       metis_tac[])>>
    Cases_on`s''`>>fs[]>>
    Cases_on`t'`>>fs[]>>
-   qexists_tac`h'''::h''''::t''`>>fs[]))
-  THEN1 
-  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\""]`\\fs[Chr_def])
+   qcase_tac `SUC (SUC (STRLEN tt)) > 1` >>
+   qcase_tac `STRING hh1 (STRING hh2 tt)` >>
+   qexists_tac`hh1::hh2::tt`>>simp[]))
+  THEN1
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`#"\""`\\simp[])
   \\
   Cases_on`h''= #"\""` \\ fs[]
   THEN1
-  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def])
   \\
   (qpat_abbrev_tac `s' = s with input:=A`>>
   Q.SPECL_THEN [`[#"\""]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19583,11 +19585,11 @@ val read_char_thm = prove(
    Cases_on`t'`>>fs[]>>
    qexists_tac`h'''::h''''::t''`>>fs[]))
   THEN1
-  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\n"]`\\fs[Chr_def])
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`#"\n"`\\simp[])
   \\
   Cases_on`h''= #"\""` \\ fs[]
   THEN1
-  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def])
   \\
   (qpat_abbrev_tac `s' = s with input:=A`>>
   Q.SPECL_THEN [`[#"\n"]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19601,11 +19603,11 @@ val read_char_thm = prove(
    Cases_on`t'`>>fs[]>>
    qexists_tac`h'''::h''''::t''`>>fs[]))
   \\
-  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[#"\t"]`\\fs[Chr_def])
+  (Cases_on`t'` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`#"\t"`\\simp[])
   \\
   Cases_on`h''= #"\""` \\ fs[]
   THEN1
-  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+  (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def])
   \\
   (qpat_abbrev_tac `s' = s with input:=A`>>
   Q.SPECL_THEN [`[#"\t"]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19893,6 +19895,10 @@ val LENGTH_skip_comment = prove(
   \\ SRW_TAC [] [] \\ RES_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ DECIDE_TAC);
 
+val ORD_EQ_N = prove(
+  ``(ORD c = n) <=> (CHR n = c) /\ n < 256``,
+  METIS_TAC[char_BIJ, ORD_BOUND, ORD_CHR]);
+
 val next_symbol_thm = prove(
   ``!xs s stack x1 x2.
       ?ts.
@@ -19955,9 +19961,9 @@ val next_symbol_thm = prove(
       fs[getNumber_def,isNumber_def,mkCharS_def]
       \\ simp[Once read_string_def]
       \\ Cases_on`t'` \\fs[]
-      THEN1 
+      THEN1
         (fs [getNumber_def,isNumber_def,Once read_string_def,Chr_def]
-        \\ fs[Once read_string_def,mkCharS_def]\\ qexists_tac`[h'']`
+        \\ fs[Once read_string_def,mkCharS_def]\\ qexists_tac`h''`
         \\ fs[Chr_def])
       \\ Cases_on`h''' = #"\""` \\fs[]
       THEN1
@@ -19976,12 +19982,12 @@ val next_symbol_thm = prove(
       qexists_tac`h''''::h'''''::t''`>>fs[])
       \\ Cases_on`t'` \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
       \\ simp[Once read_string_def,mkCharS_def]
-      \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def] 
-      THEN1 
-      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h'']`\\fs[Chr_def])
+      \\ rpt IF_CASES_TAC \\ FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def]
+      THEN1
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def,ORD_EQ_N])
       \\ Cases_on`h''''= #"\""` \\ fs[]
       THEN1
-      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h'']`\\fs[Chr_def])
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def])
       \\
       (qpat_abbrev_tac `s' = s with input:=A`>>
       Q.SPECL_THEN [`[#"\\"]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -19994,12 +20000,12 @@ val next_symbol_thm = prove(
        Cases_on`s''`>>fs[]>>
        Cases_on`t`>>fs[]>>
        qexists_tac`h'''''::h''''''::t''`>>fs[]))
-      THEN1 
-      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\""]`\\fs[Chr_def])
+      THEN1
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def,ORD_EQ_N])
       \\
       Cases_on`h''''= #"\""` \\ fs[]
       THEN1
-      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def])
       \\
       (qpat_abbrev_tac `s' = s with input:=A`>>
       Q.SPECL_THEN [`[#"\""]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -20013,11 +20019,11 @@ val next_symbol_thm = prove(
        Cases_on`t`>>fs[]>>
        qexists_tac`h'''''::h''''''::t''`>>fs[]))
       THEN1
-      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\n"]`\\fs[Chr_def])
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def,ORD_EQ_N])
       \\
       Cases_on`h''''= #"\""` \\ fs[]
       THEN1
-      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def])
       \\
       (qpat_abbrev_tac `s' = s with input:=A`>>
       Q.SPECL_THEN [`[#"\n"]`,`s'`,`stack`] assume_tac read_str_thm >>
@@ -20031,11 +20037,11 @@ val next_symbol_thm = prove(
        Cases_on`t`>>fs[]>>
        qexists_tac`h'''''::h''''''::t''`>>fs[]))
       \\
-      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[#"\t"]`\\fs[Chr_def])
+      (Cases_on`t` THEN1 (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def,ORD_EQ_N])
       \\
       Cases_on`h''''= #"\""` \\ fs[]
       THEN1
-      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def] \\ qexists_tac`[h]`\\fs[Chr_def])
+      (FULL_SIMP_TAC (srw_ss()) [getNumber_def,isNumber_def,Once read_string_def,Chr_def,mkCharS_def])
       \\
       (qpat_abbrev_tac `s' = s with input:=A`>>
       Q.SPECL_THEN [`[#"\t"]`,`s'`,`stack`] assume_tac read_str_thm >>
