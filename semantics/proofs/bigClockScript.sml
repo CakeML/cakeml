@@ -729,25 +729,25 @@ val not_evaluate_decs_timeout = store_thm("not_evaluate_decs_timeout",
   qspecl_then[`mn`,`env`,`s`,`h`]strip_assume_tac dec_clocked_total >>
   imp_res_tac dec_clocked_min_counter >> fs[] >>
   PairCases_on`res` >> fs[] >>
-  Cases_on`res4=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
+  Cases_on`res1=Rerr (Rabort Rtimeout_error)`>-metis_tac[]>>
   reverse(Cases_on`∃r. evaluate_dec F mn env s h r`) >> fs[] >- (
     imp_res_tac not_evaluate_dec_timeout >>
     Cases_on`r`>>fs[]>>metis_tac[] ) >>
-  PairCases_on`s` >>
   PairCases_on`r` >>
   imp_res_tac dec_unclocked >>
-  qspecl_then[`mn`,`env`,`s0`,`s1,s2`,`s3`,`h`,`res1,res2`,`res3`,`res4`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
+  qspecl_then[`mn`,`env`,`s`,`res0 with clock := s.clock`,`h`,`res1`]mp_tac (GSYM dec_clocked_unclocked_equiv) >>
   fs[] >> disch_then (mp_tac o fst o EQ_IMP_RULE) >>
   discharge_hyps >- metis_tac[] >> strip_tac >>
-  reverse(Cases_on`res4`)>>fs[]>-metis_tac[]>>
+  reverse(Cases_on`res1`)>>fs[]>-metis_tac[]>>
   PairCases_on`a`>>fs[]>>
   res_tac >> disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars(["s3'","new_tds'","r'"])))) >>
+  pop_assum(assume_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars(["s3","new_tds'","r'"])))) >>
   fs[GSYM FORALL_PROD] >>
   qmatch_assum_abbrev_tac`∀p. ¬evaluate_decs F mn envs ss ds p` >>
-  `∀p. ¬evaluate_decs F mn envs ((res0,res1,res2),res3) ds p` by (
-    fs[FORALL_PROD] >> metis_tac[decs_unclocked] ) >>
+  `∀p. ¬evaluate_decs F mn envs res0 ds p` by (
+    fs[Abbr`ss`,FORALL_PROD] >>
+    metis_tac[decs_unclocked,with_same_clock] ) >>
   last_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
   PairCases_on`r`>>fs[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -760,7 +760,7 @@ val decs_clocked_total = store_thm("decs_clocked_total",
   srw_tac[DNF_ss][] >>
   qspecl_then[`mn`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
   PairCases_on`res` >>
-  reverse(Cases_on`res4`)>-metis_tac[] >>
+  reverse(Cases_on`res1`)>-metis_tac[] >>
   PairCases_on`a`>>fs[]>>
   disj2_tac >>
   first_assum(match_exists_tac o concl) >> simp[] >>
@@ -768,20 +768,19 @@ val decs_clocked_total = store_thm("decs_clocked_total",
 
 val decs_clock_monotone = store_thm("decs_clock_monotone",
   ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
-      ck ⇒ FST(FST(FST res)) ≤ FST(FST s)``,
+      ck ⇒ (FST res).clock ≤ s.clock``,
   ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   imp_res_tac dec_clock_monotone >> fsrw_tac[ARITH_ss][])
 
-val decs_sub_from_counter = store_thm("decs_sub_from_counter",
-  ``∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
-      ∀extra count count' s0 s1 r0 r1 r2.
-         s = ((count + extra,s0),s1) ∧
-         res = (((count' + extra,r0),r1),r2) ∧ ck ⇒
-        evaluate_decs ck mn env ((count,s0),s1) d (((count',r0),r1),r2)``,
+val decs_sub_from_counter = Q.store_thm("decs_sub_from_counter",
+  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+     ∀extra count count' s0 r0.
+        s.clock = count + extra ∧ s0.clock = count' + extra ∧
+        res = (s0,r0) ∧ ck ⇒
+       evaluate_decs ck mn env (s with clock := count) d (s0 with clock := count',r0)`,
   ho_match_mp_tac evaluate_decs_strongind >> rw[] >>
   rw[Once evaluate_decs_cases] >>
   imp_res_tac dec_sub_from_counter >> fs[] >>
-  PairCases_on`s'`>>fs[]>>
   imp_res_tac dec_clock_monotone >>
   imp_res_tac decs_clock_monotone >>
   fs[] >> rw[] >>
