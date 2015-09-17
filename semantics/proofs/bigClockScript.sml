@@ -6,6 +6,8 @@ open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory evalPropsTheory determTheory;
 open boolSimps;
 
+local open quantHeuristicsLib in end;
+
 val _ = new_theory "bigClock";
 
 val evaluate_ind = bigStepTheory.evaluate_ind;
@@ -1068,7 +1070,7 @@ val prog_clocked_min_counter = Q.store_thm("prog_clocked_min_counter",
 val prog_add_clock = Q.store_thm("prog_add_clock",
   `∀ck env s d res. evaluate_prog ck env s d res ⇒
         ¬ck ⇒
-          ∃count. evaluate_prog T env (s with clock := c) d (FST res with clock := 0, SND res)`,
+          ∃c. evaluate_prog T env (s with clock := c) d (FST res with clock := 0, SND res)`,
   ho_match_mp_tac evaluate_prog_ind >> rw[] >>
   rw[Once evaluate_prog_cases] >>
   imp_res_tac top_add_clock >> fs[state_component_equality] 
@@ -1079,32 +1081,29 @@ val prog_add_clock = Q.store_thm("prog_add_clock",
       metis_tac [])
   >- metis_tac[]);
 
-val prog_unclocked_ignore = store_thm("prog_unclocked_ignore",
-  ``∀ck env s d res. evaluate_prog ck env s d res ⇒
-      ∀count1 s0 s1 count2 r1 r2 r3 count.
-        s = ((count1,s0),s1) ∧ res = (((count2,r1),r2),r3) ∧ SND r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
-          evaluate_prog F env ((count,s0),s1) d (((count,r1),r2),r3)``,
-  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
-  rw[Once evaluate_prog_cases] >>
-  imp_res_tac top_unclocked_ignore >> fs[] >>
-  PairCases_on`s'`>>fs[] >>
-  Cases_on`r=Rerr (Rabort Rtimeout_error)`>-fs[combine_mod_result_def]>>fs[]>>
-  metis_tac[]);
+val prog_unclocked_ignore = Q.store_thm("prog_unclocked_ignore",
+`∀ck env s d res. evaluate_prog ck env s d res ⇒
+    ∀c s' r.
+        res = (s',r) ∧ SND r ≠ Rerr (Rabort Rtimeout_error) ⇒
+        evaluate_prog F env (s with clock := c) d (s' with clock := c,r)`,
+ ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+ rw[Once evaluate_prog_cases] >>
+ imp_res_tac top_unclocked_ignore >> fs[] >>
+ Cases_on`r=Rerr (Rabort Rtimeout_error)`>-fs[combine_mod_result_def]>>fs[]>>
+ metis_tac[]);
 
-val prog_clocked_unclocked_equiv = store_thm("prog_clocked_unclocked_equiv",
-  ``∀env count1 s1 s2 s3 p r1 r2 r3 r4.
-      evaluate_prog F env ((count1,s1),s2,s3) p (((count1,r1),r2,r4),r3) ⇔
-      ∃count. evaluate_prog T env ((count,s1),s2,s3) p (((0,r1),r2,r4),r3) ∧
-              SND r3 ≠ Rerr (Rabort Rtimeout_error)``,
- rw [] >>
+val prog_clocked_unclocked_equiv = Q.store_thm("prog_clocked_unclocked_equiv",
+`∀env s p s' r.
+  evaluate_prog F env s p (s',r) ⇔
+  ∃c. evaluate_prog T env (s with clock:= c) p (s' with clock := 0, r) ∧
+      SND r ≠ Rerr (Rabort Rtimeout_error) ∧
+      s.clock = s'.clock`,
  simp[FORALL_PROD] >> rw[EQ_IMP_THM] >>
- PairCases_on `r3` >>
- fs [] >>
  imp_res_tac prog_unclocked >>
- rw [] >>
  imp_res_tac prog_clocked_min_counter >>
  imp_res_tac prog_add_clock >>
  imp_res_tac prog_unclocked_ignore >> fs[] >>
- metis_tac[]);
+ rfs [] >>
+ metis_tac[with_same_clock]);
 
 val _ = export_theory ();
