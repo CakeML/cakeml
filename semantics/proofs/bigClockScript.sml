@@ -831,37 +831,39 @@ rw [evaluate_top_cases] >>
 metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
 
 val top_unclocked = Q.store_thm ("top_unclocked",
-`!count s env top count' s' r env tdecls tdecls' mods mods' cenv.
-  (evaluate_top F env ((count, s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r)
+`!s env top s' r env cenv count count'.
+  (evaluate_top F env s top (s',cenv,r)
    ⇒
    (r ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (count = count')) ∧
-  (evaluate_top F env ((count, s),tdecls,mods) top (((count,s'), tdecls',mods'),cenv,r)
+   (s.clock = s'.clock)) ∧
+  (evaluate_top F env (s with clock := count) top (s' with clock := count,cenv,r)
    =
-   evaluate_top F env ((count', s),tdecls,mods) top (((count',s'), tdecls',mods'),cenv,r))`,
- rw [evaluate_top_cases] >>
+   evaluate_top F env (s with clock := count') top (s' with clock := count',cenv,r))`,
+ reverse (rw [evaluate_top_cases]) >>
+ simp [state_component_equality]
+ >- cheat >>
  metis_tac [dec_unclocked, decs_unclocked]);
 
-val not_evaluate_top_timeout = store_thm("not_evaluate_top_timeout",
-  ``∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
-    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr (Rabort Rtimeout_error)``,
+val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
+  `∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
+    ∃r. evaluate_top T env stm top r ∧ SND(SND r) = Rerr (Rabort Rtimeout_error)`,
   Cases_on`top`>>simp[Once evaluate_top_cases]>> srw_tac[DNF_ss][] >>
   simp[Once evaluate_top_cases] >> srw_tac[DNF_ss][] >>
-  PairCases_on`stm`>>fs[] >- (
+  fs[] >- (
     Cases_on`no_dup_types l`>>fs[] >>
     metis_tac[not_evaluate_decs_timeout,SND,result_nchotomy,pair_CASES]) >>
   metis_tac[not_evaluate_dec_timeout,SND,result_nchotomy,pair_CASES]);
 
-val top_clocked_total = store_thm("top_clocked_total",
-  ``∀env s t. ∃res. evaluate_top T env s t res``,
-  rpt gen_tac >> PairCases_on`s` >>
+val top_clocked_total = Q.store_thm("top_clocked_total",
+  `∀env s t. ∃res. evaluate_top T env s t res`,
+  rpt gen_tac >> 
   reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
   srw_tac[DNF_ss][] >- (
-    qspecl_then[`NONE`,`env`,`((s0,s1,s2),s3)`,`d`]strip_assume_tac dec_clocked_total >>
-    PairCases_on`res`>>Cases_on`res4`>>metis_tac[pair_CASES] ) >>
-  qspecl_then[`SOME s`,`env`,`((s0,s1,s2),s3)`,`l`]strip_assume_tac decs_clocked_total >>
+    qspecl_then[`NONE`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
+    PairCases_on`res`>>Cases_on`res1`>>metis_tac[pair_CASES] ) >>
+  qspecl_then[`SOME s'`,`env`,`s`,`l`]strip_assume_tac decs_clocked_total >>
   PairCases_on`res`>>fs[]>>
-  Cases_on`res5`>>metis_tac[])
+  Cases_on`res2`>>metis_tac[]);
 
 val top_clocked_min_counter = store_thm("top_clocked_min_counter",
   ``∀ck env s top res. evaluate_top ck env s top res ⇒
