@@ -831,18 +831,18 @@ rw [evaluate_top_cases] >>
 metis_tac [dec_evaluate_not_timeout, decs_evaluate_not_timeout]);
 
 val top_unclocked = Q.store_thm ("top_unclocked",
-`!s env top s' r env cenv count count'.
-  (evaluate_top F env s top (s',cenv,r)
-   ⇒
-   (r ≠ Rerr (Rabort Rtimeout_error)) ∧
-   (s.clock = s'.clock)) ∧
-  (evaluate_top F env (s with clock := count) top (s' with clock := count,cenv,r)
-   =
-   evaluate_top F env (s with clock := count') top (s' with clock := count',cenv,r))`,
- reverse (rw [evaluate_top_cases]) >>
- simp [state_component_equality]
- >- cheat >>
- metis_tac [dec_unclocked, decs_unclocked]);
+  `!s env top s' r env cenv count count'.
+    (evaluate_top F env s top (s',cenv,r)
+     ⇒
+     (r ≠ Rerr (Rabort Rtimeout_error)) ∧
+     (s.clock = s'.clock)) ∧
+    (evaluate_top F env (s with clock := count) top (s' with clock := count,cenv,r)
+     =
+     evaluate_top F env (s with clock := count') top (s' with clock := count',cenv,r))`,
+  reverse (rw [evaluate_top_cases]) >>
+  simp [state_component_equality] >>
+  simp_tac((srw_ss())++quantHeuristicsLib.QUANT_INST_ss[quantHeuristicsLib.record_default_qp])[] >>
+  metis_tac [dec_unclocked, decs_unclocked]);
 
 val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
   `∀env stm top. (∀res. ¬evaluate_top F env stm top res) ⇒
