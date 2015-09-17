@@ -3,7 +3,7 @@ local
 
 open HolKernel boolLib bossLib computeLib
 open modLangTheory source_to_modTheory
-open conLangTheory mod_to_conTheory
+open conLangTheory mod_to_conTheory 
 open decLangTheory con_to_decTheory
 open exhLangTheory dec_to_exhTheory
 open patLangTheory exh_to_patTheory
@@ -13,11 +13,14 @@ open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
 open bvlTheory clos_to_bvlTheory
-
+open bviTheory bvl_to_bviTheory
+open bvpTheory bvi_to_bvpTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
-open wordLangTheory word_instTheory word_allocTheory word_to_stackTheory word_to_targetTheory
-open stackLangTheory stack_removeTheory stack_namesTheory stack_to_labTheory stack_to_targetTheory
-open labLangTheory lab_to_targetTheory
+open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
+open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory
+open labLangTheory stack_to_labTheory
+
+open source_to_targetTheory mod_to_targetTheory con_to_targetTheory dec_to_targetTheory exh_to_targetTheory pat_to_targetTheory clos_to_targetTheory bvl_to_targetTheory bvi_to_targetTheory bvp_to_targetTheory word_to_targetTheory stack_to_targetTheory lab_to_targetTheory 
 
 val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
 
@@ -169,13 +172,95 @@ fun add_compiler_compset compset = let
   (* bvl *)
   val () = add_datatype``:bvl$exp``
   (* clos_to_bvl *)
+  val () = add_thms
+    [clos_to_bvlTheory.closure_tag_def,
+    clos_to_bvlTheory.recc_Let0_def,
+    clos_to_bvlTheory.compile_def,
+    clos_to_bvlTheory.init_code_def,
+    clos_to_bvlTheory.block_equality_code_def,
+    clos_to_bvlTheory.equality_code_def,
+    clos_to_bvlTheory.check_closure_def,
+    clos_to_bvlTheory.RaiseEq_def,
+    clos_to_bvlTheory.ToList_code_def,
+    clos_to_bvlTheory.generate_partial_app_closure_fn_def,
+    clos_to_bvlTheory.generate_generic_app_def,
+    clos_to_bvlTheory.mk_tick_def,
+    clos_to_bvlTheory.partial_app_fn_location_def,
+    clos_to_bvlTheory.mk_cl_call_def,
+    clos_to_bvlTheory.ToList_location_def,
+    clos_to_bvlTheory.block_equality_location_def,
+    clos_to_bvlTheory.equality_location_def,
+    clos_to_bvlTheory.num_stubs_def,
+    clos_to_bvlTheory.build_recc_lets_def,
+    clos_to_bvlTheory.recc_Let_def,
+    clos_to_bvlTheory.recc_Lets_def,
+    clos_to_bvlTheory.mk_el_def,
+    clos_to_bvlTheory.build_aux_def,
+    clos_to_bvlTheory.code_for_recc_case_def,
+    clos_to_bvlTheory.free_let_def,
+    clos_to_bvlTheory.mk_label_def,
+    clos_to_bvlTheory.compile_op_def,
+    clos_to_bvlTheory.mk_const_def,
+    clos_to_bvlTheory.partial_app_tag_def,
+    clos_to_bvlTheory.Bool_def,
+    clos_to_bvlTheory.bool_to_tag_def,
+    clos_to_bvlTheory.clos_tag_shift_def
+    ] compset
+  (*TODO:bvl to bvp compilation steps*)
+  (* bvi *)
+  val () = add_datatype``:bvi$exp``
+  (* bvl_to_bvi *)
+  val () = add_thms
+    [bvl_to_bviTheory.destLet_def,
+    bvl_to_bviTheory.num_stubs_def,
+    bvl_to_bviTheory.compile_prog_def,
+    bvl_to_bviTheory.compile_list_def,
+    bvl_to_bviTheory.compile_single_def,
+    bvl_to_bviTheory.compile_def,
+    bvl_to_bviTheory.compile_op_def,
+    bvl_to_bviTheory.bvi_stubs_def,
+    bvl_to_bviTheory.CopyGlobals_code_def,
+    bvl_to_bviTheory.AllocGlobal_code_def,
+    bvl_to_bviTheory.set_globals_count_def,
+    bvl_to_bviTheory.CopyGlobals_location_def,
+    bvl_to_bviTheory.AllocGlobal_location_def,
+    bvl_to_bviTheory.get_globals_count_def,
+    bvl_to_bviTheory.get_globals_ptr_def,
+    bvl_to_bviTheory.set_globals_ptr_def,
+    bvl_to_bviTheory.compile_int_def
+    ] compset
+  (*TODO: bvi to bvi compilation steps*)
 
-  (* wordLang*)
+  (* bvp *)
+  val () = add_datatype``:bvp$prog``
+  (* bvi_to_bvp *)
+  val () = add_thms
+    [bvi_to_bvpTheory.op_space_reset_def,
+    bvi_to_bvpTheory.optimise_def,
+    bvi_to_bvpTheory.compile_prog_def,
+    bvi_to_bvpTheory.compile_part_def,
+    bvi_to_bvpTheory.compile_exp_def,
+    bvi_to_bvpTheory.compile_def,
+    bvi_to_bvpTheory.iAssign_def,
+    bvi_to_bvpTheory.op_space_req_def
+    ] compset
+
+  (*TODO: bvp to bvp compilation steps*)
+
+  (* wordLang *)
   val () = add_datatype``:wordLang$store_name``
   val () = add_datatype``:'a wordLang$num_exp``
   val () = add_datatype``:'a wordLang$exp``
   val () = add_datatype``:'a wordLang$prog``
-
+  (* bvp_to_word *)
+  val () = add_thms
+    [bvp_to_wordTheory.adjust_var_def,
+    bvp_to_wordTheory.compile_def,
+    bvp_to_wordTheory.compile_part_def,
+    bvp_to_wordTheory.assign_def,
+    bvp_to_wordTheory.comp_def,
+    bvp_to_wordTheory.adjust_set_def
+    ] compset
   (*wordLang inst_select and inst flattening*) 
   val () = add_thms
     [word_instTheory.num_exp_def,
@@ -364,7 +449,6 @@ fun add_compiler_compset compset = let
 
   (*stackLang*)
   val () = add_datatype``:'a stackLang$prog``
-
   (*word_to_stack*)
   val () = add_thms
     [word_to_stackTheory.wReg1_def,
@@ -396,7 +480,6 @@ fun add_compiler_compset compset = let
     word_to_stackTheory.wReg2_def,
     word_to_stackTheory.wRegImm2_def
     ] compset
-
   (*stack_remove*)
   val () = add_thms
     [stack_removeTheory.compile_def,
@@ -408,7 +491,6 @@ fun add_compiler_compset compset = let
     stack_removeTheory.store_pos_def,
     stack_removeTheory.word_offset_def
     ] compset
-
   (*stack names*)
   val () = add_thms
     [stack_namesTheory.find_name_def,
@@ -418,7 +500,6 @@ fun add_compiler_compset compset = let
     stack_namesTheory.comp_def,
     stack_namesTheory.ri_find_name_def
     ] compset
-
   (*stack_to_lab*)
   val () = add_thms
     [stack_to_labTheory.max_lab_def,
@@ -428,13 +509,11 @@ fun add_compiler_compset compset = let
     stack_to_labTheory.flatten_def,
     stack_to_labTheory.compile_jump_def
     ] compset
-  
   (*labLang*)
   val () = add_datatype``:lab``
   val () = add_datatype``:'a asm_with_lab``
   val () = add_datatype``:'a line``
   val () = add_datatype``:'a sec``
-
   (*lab_to_target*)
   val () = add_thms
     [lab_to_targetTheory.ffi_offset_def,
@@ -469,7 +548,6 @@ fun add_compiler_compset compset = let
     lab_to_targetTheory.enc_sec_def,
     lab_to_targetTheory.enc_line_def
     ] compset
-
   (*asm -- 'a should be 64*)
   val () = add_datatype ``:'a asm_config``
   val () = add_datatype ``:'a reg_imm``
@@ -481,7 +559,6 @@ fun add_compiler_compset compset = let
   val () = add_datatype ``:mem_op``
   val () = add_datatype ``:'a inst``
   val () = add_datatype ``:'a asm``
-
   (*stack_to_target*)
   val () = add_thms
     [stack_to_targetTheory.move_inst_def,
@@ -492,12 +569,51 @@ fun add_compiler_compset compset = let
     stack_to_targetTheory.sub_inst_def,
     stack_to_targetTheory.const_inst_def
     ] compset
-
   (*word_to_target*)
   val () = add_thms
     [word_to_targetTheory.compile_single_def,
     word_to_targetTheory.get_conf_props_def,
     word_to_targetTheory.compile_def
+    ] compset
+  (*bvp_to_target*)
+  val () = add_thms
+    [bvp_to_targetTheory.compile_def
+    ] compset
+  (*bvi_to_target*)
+  val () = add_thms
+    [bvi_to_targetTheory.compile_def
+    ] compset
+  (*bvl_to_target*)
+  val () = add_thms
+    [bvl_to_targetTheory.compile_def
+    ] compset
+  (*clos_to_target*)
+  val () = add_thms
+    [clos_to_targetTheory.compile_def
+    ] compset
+  (*pat_to_target*)
+  val () = add_thms
+    [pat_to_targetTheory.compile_def
+    ] compset
+  (*exh_to_target*)
+  val () = add_thms
+    [exh_to_targetTheory.compile_def
+    ] compset
+  (*dec_to_target*)
+  val () = add_thms
+    [dec_to_targetTheory.compile_def
+    ] compset
+  (*con_to_target*)
+  val () = add_thms
+    [con_to_targetTheory.compile_def
+    ] compset
+  (*mod_to_target*)
+  val () = add_thms
+    [mod_to_targetTheory.compile_def
+    ] compset
+  (*source_to_target*)
+  val () = add_thms
+    [source_to_targetTheory.compile_def
     ] compset
 
 in () end
@@ -520,10 +636,12 @@ val the_compiler_compset =
 val compset = the_compiler_compset
 val eval = computeLib.CBV_CONV compset
 
+eval``source_to_target$compile``
 eval ``get_conf_props (LN,0:num,0:num,c with <|two_reg_arith:=T;reg_count:=5|>,enc,LN)``
 
-val foo = eval``word_to_target$compile_single T 1 (1,2,(Seq (Move 0 [1:num,2]) (Move 0 [3,1])))``
- 
+val foo = eval``word_to_target$compile_single T 5 (10,10,(Seq (Seq (Move 0 [1:num,2;3,4;5,6]) (Move 0 [1,1;3,3;5,5])) (Return 1 2)):64 wordLang$prog)``
+
+-- Doesn't run--
 val foo = eval``word_to_target$compile (LN,0:num,0:num,c with <|two_reg_arith:=T;reg_count:=5|>,enc,LN) [1,2,(Seq (Move 0 [1:num,2]) Skip)]``
 
 val foo = eval`` stack_to_lab$compile [(0:num,Skip:8 stackLang$prog)]``
