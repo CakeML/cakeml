@@ -198,8 +198,6 @@ and
 small_eval env s e c (s', Rerr (Rraise v)) =
   exists env' env''. (rtc e_step_reln) (env,s,Exp e,c) (env',s',Val v,[(Craise (), env'')])
 and
-small_eval env s e c (s', Rerr (Rabort Rtimeout_error)) = false
-and
 small_eval env s e c (s', Rerr (Rabort a)) =
   exists env' e' c'.
     (rtc e_step_reln) (env,s,Exp e,c) (env',s',e',c') &&

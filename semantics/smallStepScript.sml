@@ -225,8 +225,6 @@ val _ = Define `
 (small_eval env s e c (s', Rerr (Rraise v)) =  
 (? env' env''. (RTC e_step_reln) (env,s,Exp e,c) (env',s',Val v,[(Craise () , env'')])))
 /\
-(small_eval env s e c (s', Rerr (Rabort Rtimeout_error)) = F)
-/\
 (small_eval env s e c (s', Rerr (Rabort a)) =  
 (? env' e' c'.
     (RTC e_step_reln) (env,s,Exp e,c) (env',s',e',c') /\
