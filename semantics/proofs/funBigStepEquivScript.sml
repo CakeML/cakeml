@@ -61,48 +61,22 @@ val functional_evaluate_decs = Q.store_thm("functional_evaluate_decs",
    evaluate_decs T mn env s decs (s',cenv,r)`,
   rw[evaluate_decs_eq_run_eval_decs,run_eval_decs_spec])
 
-(*
 val evaluate_tops_eq_run_eval_prog = Q.store_thm("evaluate_tops_eq_run_eval_prog",
-  `∀tops env s r cenv s' t' m'.
-    evaluate_tops tops env s = (r,cenv,((s',t'),m')) ⇔
-    run_eval_prog env (state_to_cst (FST(FST s)),(SND(FST s)),SND s) tops =
-    ((state_to_cst s',t',m'),cenv,r)`,
+  `∀s env tops.
+    evaluate_tops s env tops = run_eval_prog env s tops`,
   recInduct evaluate_tops_ind >>
-  rw[evaluate_tops_def,run_eval_prog_def,run_eval_top_def] >-
-    ( rw[EQ_IMP_THM,PAIR_FST_SND_EQ] )
-  >- (
-    every_case_tac >>
-    fs[semanticPrimitivesTheory.combine_mod_result_def] >>
-    every_case_tac >>
-    fs[semanticPrimitivesTheory.all_env_to_menv_def,
-       semanticPrimitivesTheory.all_env_to_cenv_def,
-       semanticPrimitivesTheory.all_env_to_env_def,
-       evalPropsTheory.merge_alist_mod_env_empty_assoc,
-       evaluate_decs_eq_run_eval_decs,run_eval_decs_def,
-       semanticPrimitivesTheory.combine_mod_result_def] >>
-    metis_tac[PAIR,FST,SND,
-              semanticPrimitivesTheory.merge_alist_mod_env_def,APPEND,APPEND_ASSOC,
-              semanticPrimitivesTheory.result_11,
-              semanticPrimitivesTheory.result_distinct])>>
-  every_case_tac >>
-  fs[evaluate_decs_eq_run_eval_decs,run_eval_decs_def] >>
-  rw[] >>
-  fs[semanticPrimitivesTheory.combine_dec_result_def,
-     semanticPrimitivesTheory.merge_alist_mod_env_def] >>
-  rw[EQ_IMP_THM]>>fs[])
+  rw[evaluate_tops_def,run_eval_prog_def,run_eval_top_def] >>
+  every_case_tac >> fs[combine_mod_result_def,evaluate_decs_eq_run_eval_decs] >>
+  fs[run_eval_decs_def,combine_dec_result_def]);
 
 val functional_evaluate_tops = Q.store_thm("functional_evaluate_tops",
-  `evaluate_tops tops env ((s,tdecs),mdecs) = (r,cenv,((s',tdecs'),mdecs')) ⇒
-   evaluate_prog T env (state_to_cst s,tdecs,mdecs) tops ((state_to_cst s',tdecs',mdecs'),cenv,r)`,
+  `evaluate_tops s env tops = (s',cenv,r) ⇒ evaluate_prog T env s tops (s',cenv,r)`,
   rw[evaluate_tops_eq_run_eval_prog,run_eval_prog_spec])
 
 val functional_evaluate_prog = Q.store_thm("functional_evaluate_prog",
-  `evaluate_prog prog env s = (r,cenv,s') ⇒
-   evaluate_whole_prog T env (convert_prog_state s) prog ((convert_prog_state s'),cenv,r)`,
+  `evaluate_prog s env prog = (s',cenv,r) ⇒
+   evaluate_whole_prog T env s prog (s',cenv,r)`,
   rw[evaluate_prog_def,bigStepTheory.evaluate_whole_prog_def] >>
-  PairCases_on`s`>>PairCases_on`s'`>>
-  imp_res_tac functional_evaluate_tops >>
-  fs[convert_prog_state_def,state_to_cst_def])
-*)
+  imp_res_tac functional_evaluate_tops);
 
 val _ = export_theory()
