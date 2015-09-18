@@ -171,7 +171,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
       (case
         evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
       of (st',new_ctors',r) =>
-        (st, (new_ctors'++new_ctors), combine_dec_result new_vals r)
+        (st', (new_ctors'++new_ctors), combine_dec_result new_vals r)
       )
   | res => res
   )))

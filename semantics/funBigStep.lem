@@ -151,7 +151,7 @@ evaluate_decs mn st env (d1::d2::ds) =
       match
         evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
       with (st',new_ctors',r) ->
-        (st, new_ctors'++new_ctors, combine_dec_result new_vals r)
+        (st', new_ctors'++new_ctors, combine_dec_result new_vals r)
       end
   | res -> res
   end
