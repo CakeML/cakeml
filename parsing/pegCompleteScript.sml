@@ -3,7 +3,7 @@ open HolKernel boolLib bossLib
 open pred_setTheory
 open pegTheory cmlPEGTheory gramTheory gramPropsTheory
 open lcsymtacs boolSimps
-open parsingPreamble
+open preamble
 
 open pegSoundTheory
 
@@ -11,7 +11,25 @@ val _ = new_theory "pegComplete"
 
 val _ = set_trace "Goalstack.print_goal_at_top" 0
 
-val REVERSE_11 = listTheory.REVERSE_11
+
+val MAP_EQ_CONS = prove(
+  ``MAP f l = h::t <=> ∃h0 t0. l = h0::t0 ∧ f h0 = h ∧ MAP f t0 = t``,
+  metis_tac[MAP_EQ_CONS])
+
+fun FIXEQ_CONV t = let
+  val (l,r) = dest_eq t
+in
+  if null (free_vars l) andalso not (null (free_vars r)) then
+    REWR_CONV EQ_SYM_EQ
+  else NO_CONV
+end t
+
+val FIXEQ_TAC = CONV_TAC (DEPTH_CONV FIXEQ_CONV) >>
+                RULE_ASSUM_TAC (CONV_RULE (DEPTH_CONV FIXEQ_CONV))
+
+fun simp thl = lcsymtacs.simp thl >> FIXEQ_TAC
+fun fs thl = lcsymtacs.fs thl >> FIXEQ_TAC
+
 
 fun PULLV v t = let
   val (bv,b) = dest_abs(rand t)
@@ -97,21 +115,21 @@ val ptree_head_eq_tok = save_thm(
 val _ = export_rewrites ["ptree_head_eq_tok"]
 
 open NTpropertiesTheory
-val firstSet_nUQTyOp = Store_thm(
-  "firstSet_nUQTyOp",
+val firstSet_nUQTyOp = store_thm(
+  "firstSet_nUQTyOp[simp]",
   ``firstSet cmlG (NN nUQTyOp::rest) = {AlphaT s | T} ∪ {SymbolT s | T}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nTyOp = Store_thm(
-  "firstSet_nTyOp",
+val firstSet_nTyOp = store_thm(
+  "firstSet_nTyOp[simp]",
   ``firstSet cmlG (NN nTyOp :: rest) =
       {AlphaT s | T} ∪ {SymbolT s | T} ∪ {LongidT s1 s2 | T}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nTyVarList = Store_thm(
-  "firstSet_nTyVarList",
+val firstSet_nTyVarList = store_thm(
+  "firstSet_nTyVarList[simp]",
   ``firstSet cmlG [NT (mkNT nTyVarList)] = { TyvarT s | T }``,
   simp[firstSetML_eqn] >> simp[firstSetML_def] >>
   simp[cmlG_applied, cmlG_FDOM] >> simp[firstSetML_def] >>
@@ -122,38 +140,38 @@ val _ =
     firstSetML_def |> CONJUNCTS |> (fn l => List.take(l,2)) |> rewrites
                    |> (fn ss => augment_srw_ss [ss])
 
-val firstSet_nLetDec = Store_thm(
-  "firstSet_nLetDec",
+val firstSet_nLetDec = store_thm(
+  "firstSet_nLetDec[simp]",
   ``firstSet cmlG [NT (mkNT nLetDec)] = {ValT; FunT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
        cmlG_applied, INSERT_UNION_EQ]);
 
-val firstSet_nLetDecs = Store_thm(
-  "firstSet_nLetDecs",
+val firstSet_nLetDecs = store_thm(
+  "firstSet_nLetDecs[simp]",
   ``firstSet cmlG [NT (mkNT nLetDecs)] = {ValT; FunT; SemicolonT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM,
        cmlG_applied] >>
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ]);
 
-val firstSet_nTypeDec = Store_thm(
-  "firstSet_nTypeDec",
+val firstSet_nTypeDec = store_thm(
+  "firstSet_nTypeDec[simp]",
   ``firstSet cmlG [NT (mkNT nTypeDec)] = {DatatypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nTypeAbbrevDec = Store_thm(
-  "firstSet_nTypeAbbrevDec",
+val firstSet_nTypeAbbrevDec = store_thm(
+  "firstSet_nTypeAbbrevDec[simp]",
   ``firstSet cmlG [NT (mkNT nTypeAbbrevDec)] = {TypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied])
 
-val firstSet_nDecl = Store_thm(
-  "firstSet_nDecl",
+val firstSet_nDecl = store_thm(
+  "firstSet_nDecl[simp]",
   ``firstSet cmlG [NT (mkNT nDecl)] =
       {ValT; FunT; DatatypeT;ExceptionT;TypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
-val firstSet_nDecls = Store_thm(
-  "firstSet_nDecls",
+val firstSet_nDecls = store_thm(
+  "firstSet_nDecls[simp]",
   ``firstSet cmlG [NN nDecls] =
       {ValT; DatatypeT; FunT; SemicolonT; ExceptionT; TypeT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
@@ -161,35 +179,35 @@ val firstSet_nDecls = Store_thm(
   ONCE_REWRITE_TAC [firstSetML_def] >>
   simp[cmlG_applied, cmlG_FDOM, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nMultOps = Store_thm(
-  "firstSet_nMultOps",
+val firstSet_nMultOps = store_thm(
+  "firstSet_nMultOps[simp]",
   ``firstSet cmlG (NT (mkNT nMultOps)::rest) =
       {AlphaT "div"; AlphaT"mod"; StarT; SymbolT "/"}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ]);
 
-val firstSet_nRelOps = Store_thm(
-  "firstSet_nRelOps",
+val firstSet_nRelOps = store_thm(
+  "firstSet_nRelOps[simp]",
   ``firstSet cmlG (NT (mkNT nRelOps)::rest) =
       {SymbolT "<"; SymbolT ">"; SymbolT "<="; SymbolT ">="; SymbolT "<>";
        EqualsT}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nAddOps = Store_thm(
-  "firstSet_nAddOps",
+val firstSet_nAddOps = store_thm(
+  "firstSet_nAddOps[simp]",
   ``firstSet cmlG (NT (mkNT nAddOps)::rest) = {SymbolT "+"; SymbolT "-"}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_applied, cmlG_FDOM,
        INSERT_UNION_EQ]);
 
-val firstSet_nCompOps = Store_thm(
-  "firstSet_nCompOps",
+val firstSet_nCompOps = store_thm(
+  "firstSet_nCompOps[simp]",
   ``firstSet cmlG (NT (mkNT nCompOps)::rest) = {AlphaT "o"; SymbolT ":="}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ])
 
-val firstSet_nListOps = Store_thm(
-  "firstSet_nListOps",
+val firstSet_nListOps = store_thm(
+  "firstSet_nListOps[simp]",
   ``firstSet cmlG (NT (mkNT nListOps)::rest) = {SymbolT "::"; SymbolT "@"}``,
   simp[firstSetML_eqn, Once firstSetML_def, cmlG_FDOM, cmlG_applied,
        INSERT_UNION_EQ, INSERT_COMM])
@@ -201,33 +219,33 @@ val firstSet_nUQTyOp = store_thm(
   simp[Once relationTheory.RTC_CASES1, cmlG_applied, cmlG_FDOM] >>
   dsimp[]);
 
-val firstSet_nStructure = Store_thm(
-  "firstSet_nStructure",
+val firstSet_nStructure = store_thm(
+  "firstSet_nStructure[simp]",
   ``firstSet cmlG [NT (mkNT nStructure)] = {StructureT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
 
-val firstSet_nTopLevelDec = Store_thm(
-  "firstSet_nTopLevelDec",
+val firstSet_nTopLevelDec = store_thm(
+  "firstSet_nTopLevelDec[simp]",
   ``firstSet cmlG [NT (mkNT nTopLevelDec)] =
     {ValT; FunT; DatatypeT; StructureT; ExceptionT; TypeT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nTopLevelDecs = Store_thm(
-  "firstSet_nTopLevelDecs",
+val firstSet_nTopLevelDecs = store_thm(
+  "firstSet_nTopLevelDecs[simp]",
   ``firstSet cmlG [NN nTopLevelDecs] =
       {ValT; FunT; SemicolonT; DatatypeT; StructureT; ExceptionT; TypeT}``,
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   simp[INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nSpecLine = Store_thm(
-  "firstSet_nSpecLine",
+val firstSet_nSpecLine = store_thm(
+  "firstSet_nSpecLine[simp]",
   ``firstSet cmlG [NT (mkNT nSpecLine)] = {ValT; DatatypeT; TypeT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, INSERT_UNION_EQ, INSERT_COMM]);
 
-val firstSet_nSpecLineList = Store_thm(
-  "firstSet_nSpecLineList",
+val firstSet_nSpecLineList = store_thm(
+  "firstSet_nSpecLineList[simp]",
   ``firstSet cmlG [NT (mkNT nSpecLineList)] =
       {ValT; DatatypeT; TypeT; SemicolonT; ExceptionT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
@@ -246,8 +264,8 @@ val firstSet_nV = store_thm(
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nVlist1 = Store_thm(
-  "firstSet_nVlist1",
+val firstSet_nVlist1 = store_thm(
+  "firstSet_nVlist1[simp]",
   ``firstSet cmlG (NN nVlist1 :: rest) = firstSet cmlG [NN nV]``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, firstSet_nV]);
 
@@ -270,8 +288,8 @@ val firstSet_nConstructorName = store_thm(
   ntac 2 (simp [Once firstSet_NT, cmlG_applied, cmlG_FDOM]) >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nConstructorName = Store_thm(
-  "firstSetML_nConstructorName",
+val firstSetML_nConstructorName = store_thm(
+  "firstSetML_nConstructorName[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ⇒
     (firstSetML cmlG sn (NN nConstructorName::rest) =
      firstSet cmlG [NN nConstructorName])``,
@@ -279,29 +297,29 @@ val firstSetML_nConstructorName = Store_thm(
   ntac 2 (simp[firstSetML_def] >> simp[cmlG_applied, cmlG_FDOM]) >>
   strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[firstSetML_def]);
 
-val firstSetML_nV = Store_thm(
-  "firstSetML_nV",
+val firstSetML_nV = store_thm(
+  "firstSetML_nV[simp]",
   ``mkNT nV ∉ sn ⇒
     (firstSetML cmlG sn (NN nV::rest) = firstSet cmlG [NN nV])``,
   simp[firstSetML_eqn] >> simp[firstSetML_def] >>
   simp[cmlG_FDOM, cmlG_applied] >> strip_tac >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nFQV = Store_thm(
-  "firstSetML_nFQV",
+val firstSetML_nFQV = store_thm(
+  "firstSetML_nFQV[simp]",
   ``mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
     (firstSetML cmlG sn (NN nFQV::rest) = firstSet cmlG [NN nFQV])``,
   simp[firstSetML_eqn] >>
   ntac 2 (simp[firstSetML_def] >> simp[cmlG_FDOM, cmlG_applied]) >>
   strip_tac >> simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEtuple = Store_thm(
-  "firstSet_nEtuple",
+val firstSet_nEtuple = store_thm(
+  "firstSet_nEtuple[simp]",
   ``firstSet cmlG [NT (mkNT nEtuple)] = {LparT}``,
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nEbase = Store_thm(
-  "firstSet_nEbase",
+val firstSet_nEbase = store_thm(
+  "firstSet_nEbase[simp]",
   ``firstSet cmlG [NT (mkNT nEbase)] =
       {LetT; LparT; LbrackT; OpT} ∪ firstSet cmlG [NT (mkNT nFQV)] ∪
       {IntT i | T} ∪ {StringT s | T} ∪ {CharT c | T} ∪
@@ -309,8 +327,8 @@ val firstSet_nEbase = Store_thm(
   simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION] >> gen_tac >> eq_tac >> rw[] >> simp[]);
 
-val firstSetML_nEbase = Store_thm(
-  "firstSetML_nEbase",
+val firstSetML_nEbase = store_thm(
+  "firstSetML_nEbase[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ⇒
     firstSetML cmlG sn (NT (mkNT nEbase)::rest) =
@@ -320,15 +338,15 @@ val firstSetML_nEbase = Store_thm(
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEapp = Store_thm(
-  "firstSet_nEapp",
+val firstSet_nEapp = store_thm(
+  "firstSet_nEapp[simp]",
   ``firstSet cmlG [NT (mkNT nEapp)] = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[Once firstSetML_eqn, SimpLHS] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nEapp = Store_thm(
-  "firstSetML_nEapp",
+val firstSetML_nEapp = store_thm(
+  "firstSetML_nEapp[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ⇒
     firstSetML cmlG sn (NT (mkNT nEapp) :: rest) =
@@ -336,14 +354,14 @@ val firstSetML_nEapp = Store_thm(
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEmult = Store_thm(
-  "firstSet_nEmult",
+val firstSet_nEmult = store_thm(
+  "firstSet_nEmult[simp]",
   ``firstSet cmlG [NT (mkNT nEmult)] = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEmult = Store_thm(
-  "firstSetML_nEmult",
+val firstSetML_nEmult = store_thm(
+  "firstSetML_nEmult[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ⇒
@@ -351,14 +369,14 @@ val firstSetML_nEmult = Store_thm(
     firstSet cmlG [NT (mkNT nEbase)]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEadd = Store_thm(
-  "firstSet_nEadd",
+val firstSet_nEadd = store_thm(
+  "firstSet_nEadd[simp]",
   ``firstSet cmlG [NT (mkNT nEadd)] = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEadd = Store_thm(
-  "firstSetML_nEadd",
+val firstSetML_nEadd = store_thm(
+  "firstSetML_nEadd[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ⇒
@@ -366,15 +384,15 @@ val firstSetML_nEadd = Store_thm(
     firstSet cmlG [NT(mkNT nEbase)]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElistop = Store_thm(
-  "firstSet_nElistop",
+val firstSet_nElistop = store_thm(
+  "firstSet_nElistop[simp]",
   ``firstSet cmlG (NT (mkNT nElistop)::rest) =
        firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nElistop = Store_thm(
-  "firstSetML_nElistop",
+val firstSetML_nElistop = store_thm(
+  "firstSetML_nElistop[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nElistop ∉ sn ⇒
@@ -382,28 +400,28 @@ val firstSetML_nElistop = Store_thm(
     firstSet cmlG [NT(mkNT nEbase)]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nErel = Store_thm(
-  "firstSet_nErel",
+val firstSet_nErel = store_thm(
+  "firstSet_nErel[simp]",
   ``firstSet cmlG (NT(mkNT nErel)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nErel = Store_thm(
-  "firstSetML_nErel",
+val firstSetML_nErel = store_thm(
+  "firstSetML_nErel[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nElistop ∉ sn ⇒
     firstSetML cmlG sn (NT (mkNT nErel) :: rest) = firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEcomp = Store_thm(
-  "firstSet_nEcomp",
+val firstSet_nEcomp = store_thm(
+  "firstSet_nEcomp[simp]",
   ``firstSet cmlG (NT(mkNT nEcomp)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEcomp = Store_thm(
-  "firstSetML_nEcomp",
+val firstSetML_nEcomp = store_thm(
+  "firstSetML_nEcomp[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -411,15 +429,15 @@ val firstSetML_nEcomp = Store_thm(
     firstSetML cmlG sn (NT (mkNT nEcomp) :: rest) = firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEbefore = Store_thm(
-  "firstSet_nEbefore",
+val firstSet_nEbefore = store_thm(
+  "firstSet_nEbefore[simp]",
   ``firstSet cmlG (NT(mkNT nEbefore)::rest) =
       firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEbefore = Store_thm(
-  "firstSetML_nEbefore",
+val firstSetML_nEbefore = store_thm(
+  "firstSetML_nEbefore[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -427,14 +445,14 @@ val firstSetML_nEbefore = Store_thm(
     firstSetML cmlG sn (NT (mkNT nEbefore)::rest) = firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEtyped = Store_thm(
-  "firstSet_nEtyped",
+val firstSet_nEtyped = store_thm(
+  "firstSet_nEtyped[simp]",
   ``firstSet cmlG (NT(mkNT nEtyped)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEtyped = Store_thm(
-  "firstSetML_nEtyped",
+val firstSetML_nEtyped = store_thm(
+  "firstSetML_nEtyped[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -442,14 +460,14 @@ val firstSetML_nEtyped = Store_thm(
     firstSetML cmlG sn (NT (mkNT nEtyped)::rest) = firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElogicAND = Store_thm(
-  "firstSet_nElogicAND",
+val firstSet_nElogicAND = store_thm(
+  "firstSet_nElogicAND[simp]",
   ``firstSet cmlG (NT(mkNT nElogicAND)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nElogicAND = Store_thm(
-  "firstSetML_nElogicAND",
+val firstSetML_nElogicAND = store_thm(
+  "firstSetML_nElogicAND[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -459,14 +477,14 @@ val firstSetML_nElogicAND = Store_thm(
       firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nElogicOR = Store_thm(
-  "firstSet_nElogicOR",
+val firstSet_nElogicOR = store_thm(
+  "firstSet_nElogicOR[simp]",
   ``firstSet cmlG (NT(mkNT nElogicOR)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nElogicOR = Store_thm(
-  "firstSetML_nElogicOR",
+val firstSetML_nElogicOR = store_thm(
+  "firstSetML_nElogicOR[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -476,14 +494,14 @@ val firstSetML_nElogicOR = Store_thm(
       firstSet cmlG [NN nEbase]``,
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSet_nEhandle = Store_thm(
-  "firstSet_nEhandle",
+val firstSet_nEhandle = store_thm(
+  "firstSet_nEhandle[simp]",
   ``firstSet cmlG (NT(mkNT nEhandle)::rest) = firstSet cmlG [NT (mkNT nEbase)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]));
 
-val firstSetML_nEhandle = Store_thm(
-  "firstSetML_nEhandle",
+val firstSetML_nEhandle = store_thm(
+  "firstSetML_nEhandle[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -501,14 +519,14 @@ val firstSet_nE = store_thm(
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nEseq = Store_thm(
-  "firstSet_nEseq",
+val firstSet_nEseq = store_thm(
+  "firstSet_nEseq[simp]",
   ``firstSet cmlG (NN nEseq :: rest) = firstSet cmlG [NN nE]``,
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >>
   simp[firstSet_nE]);
 
-val NOTIN_firstSet_nE = Store_thm(
-  "NOTIN_firstSet_nE",
+val NOTIN_firstSet_nE = store_thm(
+  "NOTIN_firstSet_nE[simp]",
   ``ValT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     StructureT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
     FunT ∉ firstSet cmlG (NT (mkNT nE) :: rest) ∧
@@ -521,8 +539,8 @@ val NOTIN_firstSet_nE = Store_thm(
   simp[firstSet_nE, firstSet_nFQV] >>
   rpt (dsimp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, disjImpI]))
 
-val firstSetML_nE = Store_thm(
-  "firstSetML_nE",
+val firstSetML_nE = store_thm(
+  "firstSetML_nE[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -541,8 +559,8 @@ val firstSet_nE' = store_thm(
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSetML_nE' = Store_thm(
-  "firstSetML_nE'",
+val firstSetML_nE' = store_thm(
+  "firstSetML_nE'[simp]",
   ``mkNT nConstructorName ∉ sn ∧ mkNT nUQConstructorName ∉ sn ∧
     mkNT nEbase ∉ sn ∧ mkNT nFQV ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nEapp ∉ sn ∧
     mkNT nEmult ∉ sn ∧ mkNT nEadd ∉ sn ∧ mkNT nErel ∉ sn ∧ mkNT nEcomp ∉ sn ∧
@@ -552,24 +570,24 @@ val firstSetML_nE' = Store_thm(
   ntac 2 (simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM, firstSet_nE']) >>
   simp[Once EXTENSION, EQ_IMP_THM] >> dsimp[]);
 
-val firstSet_nElist1 = Store_thm(
-  "firstSet_nElist1",
+val firstSet_nElist1 = store_thm(
+  "firstSet_nElist1[simp]",
   ``firstSet cmlG (NT (mkNT nElist1)::rest) = firstSet cmlG [NT (mkNT nE)]``,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM]);
 
-val firstSetML_nPtuple = Store_thm(
-  "firstSetML_nPtuple",
+val firstSetML_nPtuple = store_thm(
+  "firstSetML_nPtuple[simp]",
   ``mkNT nPtuple ∉ sn ⇒ (firstSetML cmlG sn (NN nPtuple :: rest) = {LparT})``,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied]);
 
-val firstSet_nPtuple = Store_thm(
-  "firstSet_nPtuple",
+val firstSet_nPtuple = store_thm(
+  "firstSet_nPtuple[simp]",
   ``firstSet cmlG (NN nPtuple :: rest) = {LparT}``,
   simp[firstSetML_eqn, firstSetML_nPtuple]);
 
-val firstSet_nPbase = Store_thm(
-  "firstSet_nPbase",
+val firstSet_nPbase = store_thm(
+  "firstSet_nPbase[simp]",
   ``firstSet cmlG (NN nPbase :: rest) =
       {LparT; UnderbarT; LbrackT} ∪ {IntT i | T } ∪ {StringT s | T } ∪
       {CharT c | T } ∪
@@ -578,48 +596,48 @@ val firstSet_nPbase = Store_thm(
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nPbase = Store_thm(
-  "firstSetML_nPbase",
+val firstSetML_nPbase = store_thm(
+  "firstSetML_nPbase[simp]",
   ``mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
     mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ⇒
     firstSetML cmlG sn (NN nPbase :: rest) = firstSet cmlG [NN nPbase]``,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPapp = Store_thm(
-  "firstSet_nPapp",
+val firstSet_nPapp = store_thm(
+  "firstSet_nPapp[simp]",
   ``firstSet cmlG (NN nPapp :: rest) = firstSet cmlG [NN nPbase]``,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSetML_nPapp = Store_thm(
-  "firstSetML_nPapp",
+val firstSetML_nPapp = store_thm(
+  "firstSetML_nPapp[simp]",
   ``mkNT nPbase ∉ sn ∧ mkNT nV ∉ sn ∧ mkNT nConstructorName ∉ sn ∧
     mkNT nUQConstructorName ∉ sn ∧ mkNT nPtuple ∉ sn ∧ mkNT nPapp ∉ sn ⇒
     firstSetML cmlG sn (NN nPapp :: rest) = firstSet cmlG [NN nPbase]``,
   simp[Once firstSetML_def, cmlG_FDOM, cmlG_applied] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPattern = Store_thm(
-  "firstSet_nPattern",
+val firstSet_nPattern = store_thm(
+  "firstSet_nPattern[simp]",
   ``firstSet cmlG (NN nPattern :: rest) = firstSet cmlG [NN nPbase]``,
   simp[SimpLHS, firstSetML_eqn] >>
   simp[Once firstSetML_def, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nPatternList = Store_thm(
-  "firstSet_nPatternList",
+val firstSet_nPatternList = store_thm(
+  "firstSet_nPatternList[simp]",
   ``firstSet cmlG (NN nPatternList :: rest) = firstSet cmlG [NN nPattern]``,
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
 
-val firstSet_nPbaseList1 = Store_thm(
-  "firstSet_nPbaseList1",
+val firstSet_nPbaseList1 = store_thm(
+  "firstSet_nPbaseList1[simp]",
   ``firstSet cmlG (NN nPbaseList1 :: rest) = firstSet cmlG [NN nPbase]``,
   simp[SimpLHS, Once firstSet_NT, cmlG_FDOM, cmlG_applied] >> simp[]);
 
-val NOTIN_firstSet_nV = Store_thm(
-  "NOTIN_firstSet_nV",
+val NOTIN_firstSet_nV = store_thm(
+  "NOTIN_firstSet_nV[simp]",
   ``CommaT ∉ firstSet cmlG [NN nV] ∧ LparT ∉ firstSet cmlG [NN nV] ∧
     RparT ∉ firstSet cmlG [NN nV] ∧ UnderbarT ∉ firstSet cmlG [NN nV] ∧
     BarT ∉ firstSet cmlG [NN nV] ∧ OpT ∉ firstSet cmlG [NN nV] ∧
@@ -647,8 +665,8 @@ val NOTIN_firstSet_nV = Store_thm(
     SemicolonT ∉ firstSet cmlG [NN nV] ∧ ColonT ∉ firstSet cmlG [NN nV]``,
   simp[firstSet_nV]);
 
-val NOTIN_firstSet_nFQV = Store_thm(
-  "NOTIN_firstSet_nFQV",
+val NOTIN_firstSet_nFQV = store_thm(
+  "NOTIN_firstSet_nFQV[simp]",
   ``CommaT ∉ firstSet cmlG [NN nFQV] ∧ LparT ∉ firstSet cmlG [NN nFQV] ∧
     RparT ∉ firstSet cmlG [NN nFQV] ∧ UnderbarT ∉ firstSet cmlG [NN nFQV] ∧
     FnT ∉ firstSet cmlG [NN nFQV] ∧ IfT ∉ firstSet cmlG [NN nFQV] ∧
@@ -676,8 +694,8 @@ val NOTIN_firstSet_nFQV = Store_thm(
     SemicolonT ∉ firstSet cmlG [NN nFQV] ∧ ColonT ∉ firstSet cmlG [NN nFQV]``,
   simp[firstSet_nFQV]);
 
-val NOTIN_firstSet_nConstructorName = Store_thm(
-  "NOTIN_firstSet_nConstructorName",
+val NOTIN_firstSet_nConstructorName = store_thm(
+  "NOTIN_firstSet_nConstructorName[simp]",
   ``AndT ∉ firstSet cmlG [NN nConstructorName] ∧
     BarT ∉ firstSet cmlG [NN nConstructorName] ∧
     ColonT ∉ firstSet cmlG [NN nConstructorName] ∧
@@ -907,7 +925,7 @@ val lassoc_reassociated = store_thm(
       simp[left_insert_def]) >>
   asm_match `ptree_head ppt = NT P` >>
   asm_match `ptree_head s0pt = ptree_head spt` >>
-  asm_match `ptree_head c0pt = ptree_head cpt` >>
+  asm_match `ptree_head cpt = ptree_head c0pt` >>
   fs [MAP_EQ_APPEND] >> rveq >>
   asm_match `ptree_fringe ppt = MAP TOK pf` >>
   asm_match `ptree_fringe s0pt = MAP TOK sf0` >>
@@ -1015,7 +1033,7 @@ val nE'_nE = store_thm(
       simp[peg_respects_firstSets] >>
       first_x_assum match_mp_tac >> simp[] >>
       rpt (first_x_assum (assume_tac o MATCH_MP elim_det)) >>
-      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+      imp_res_tac length_no_greater >> fs[] >> simp[]) >>
   fs[eOR_wrongtok]);
 
 
@@ -1070,7 +1088,7 @@ val nE'_bar_nE = store_thm(
       asm_match `peg_eval cmlPEG (IfT::i1, nt (mkNT nEhandle) I) NONE` >>
       fs[] >>
       `LENGTH ii < SUC (LENGTH i1)` suffices_by metis_tac[] >>
-      imp_res_tac length_no_greater >> fs[] >> asimp[]) >>
+      imp_res_tac length_no_greater >> fs[] >> simp[]) >>
   asm_simp_tac list_ss [Once peg_eval_choicel_CONS] >>
   full_simp_tac list_ss [pnt_def, pegf_def, peg_eval_seq_SOME, peg_eval_seq_NONE,
                          peg_eval_empty] >>
@@ -1285,11 +1303,11 @@ val eapp_complete = store_thm(
       simp[] >> ntac 2 strip_tac >>
       `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
       conj_tac
-      >- (normlist >> first_assum (match_mp_tac o has_length) >> asimp[]) >>
+      >- (normlist >> first_assum (match_mp_tac o has_length) >> simp[]) >>
       simp[] >>
       first_x_assum (qspecl_then [`af'`, `apt'`, `sfx`] mp_tac) >> simp[] >>
       `LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'`
-        by metis_tac [listTheory.LENGTH_APPEND] >> asimp[] >>
+        by metis_tac [listTheory.LENGTH_APPEND] >> simp[] >>
       fs[rich_listTheory.IS_SUFFIX_compute, listTheory.REVERSE_APPEND] >>
       imp_res_tac rich_listTheory.IS_PREFIX_APPEND1 >> simp[] >>
       disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
@@ -1367,11 +1385,11 @@ val dtype_complete = store_thm(
       simp[] >> ntac 2 strip_tac >>
       `LENGTH (bf' ++ af') ≤ LENGTH master` by metis_tac[] >> fs[] >>
       conj_tac
-      >- (normlist >> first_assum (match_mp_tac o has_length) >> asimp[]) >>
+      >- (normlist >> first_assum (match_mp_tac o has_length) >> simp[]) >>
       simp[] >>
       first_x_assum (qspecl_then [`af'`, `apt'`, `sfx`] mp_tac) >> simp[] >>
       `LENGTH af + LENGTH bf = LENGTH bf' + LENGTH af'`
-        by metis_tac [listTheory.LENGTH_APPEND] >> asimp[] >>
+        by metis_tac [listTheory.LENGTH_APPEND] >> simp[] >>
       fs[rich_listTheory.IS_SUFFIX_compute, listTheory.REVERSE_APPEND] >>
       imp_res_tac rich_listTheory.IS_PREFIX_APPEND1 >> simp[] >>
       disch_then (qxchl [`bpt_list`, `ii`, `blist`] strip_assume_tac) >>
@@ -1512,7 +1530,7 @@ val peg_linfix_complete = store_thm(
       conj_tac
       >- (fs[rich_listTheory.IS_SUFFIX_compute] >>
           IMP_RES_THEN mp_tac rich_listTheory.IS_PREFIX_LENGTH >>
-          asimp[]) >>
+          simp[]) >>
       Cases_on `sf'` >> fs[] >>
       rpt (first_x_assum (kall_tac o has_length)) >> rpt strip_tac >>
       fs[] >>
@@ -1522,7 +1540,7 @@ val peg_linfix_complete = store_thm(
       metis_tac[]) >>
   first_x_assum (qspecl_then [`pf'`, `ppt'`, `sfx`] mp_tac) >>
   first_assum (SUBST1_TAC o assert (listSyntax.is_append o lhs o concl)) >>
-  asimp[] >>
+  simp[] >>
   `IS_SUFFIX master pf'`
     by (first_x_assum (SUBST_ALL_TAC o
                        assert (listSyntax.is_append o lhs o concl)) >>
@@ -1538,7 +1556,7 @@ val peg_linfix_complete = store_thm(
   Q.UNDISCH_THEN `IS_SUFFIX master (pf ++ sf ++ cf)` mp_tac >>
   simp[rich_listTheory.IS_SUFFIX_compute] >>
   disch_then (mp_tac o MATCH_MP rich_listTheory.IS_PREFIX_LENGTH) >>
-  asimp[] >> strip_tac >> attack_asmguard
+  simp[] >> strip_tac >> attack_asmguard
   >- (gen_tac >> disch_then (CONJUNCTS_THEN assume_tac) >> fs[]) >>
   strip_tac >>
   simp[Once peg_eval_cases] >> dsimp[] >> DISJ2_TAC >>
@@ -1620,7 +1638,7 @@ val completeness = store_thm(
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
       rpt strip_tac >> rveq >> fs[]
       >- (DISJ1_TAC >> fs[MAP_EQ_SING] >> rveq >>
-          asm_match `NN nUQTyOp = ptree_head pt` >>
+          asm_match `ptree_head pt = NN nUQTyOp` >>
           first_x_assum (qspecl_then [`pt`, `nUQTyOp`, `sfx`] mp_tac)>>
           simp[NT_rank_def] >> fs[])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> simp[peg_eval_seq_NONE] >> rveq >>
@@ -1636,7 +1654,7 @@ val completeness = store_thm(
           simp[] >>
           asm_match `ptree_fringe tyvl_pt = MAP TK vlf` >>
           normlist >>
-          asimp[FDOM_cmlPEG]) >>
+          simp[FDOM_cmlPEG]) >>
       DISJ2_TAC >> fs[MAP_EQ_CONS] >> rveq >> fs[MAP_EQ_CONS] >> rveq >>
       simp[peg_eval_seq_NONE, peg_eval_tok_NONE] >>
       simp[Once peg_eval_cases, FDOM_cmlPEG, cmlpeg_rules_applied,
@@ -1740,7 +1758,7 @@ val completeness = store_thm(
           `peg_eval cmlPEG (df ++ (sf ++ sfx), nt (mkNT nTopLevelDec) I)
                            (SOME (sf ++ sfx, [tldpt]))` by simp[FDOM_cmlPEG] >>
           `peg_eval cmlPEG (sf ++ sfx, nt (mkNT nTopLevelDecs) I)
-                           (SOME (sfx, [tldspt]))` by asimp[FDOM_cmlPEG] >>
+                           (SOME (sfx, [tldspt]))` by simp[FDOM_cmlPEG] >>
           pop_assum (qxchl [`tds`] strip_assume_tac o
                      SIMP_RULE (srw_ss()) [cmlpeg_rules_applied, FDOM_cmlPEG,
                                            peg_eval_rpt] o
@@ -1827,7 +1845,7 @@ val completeness = store_thm(
           Cases_on `lf = []` >> fs[] >- simp[NT_rank_def] >>
           `0 < LENGTH lf` by (Cases_on `lf` >> fs[]) >>
           REWRITE_TAC [GSYM APPEND_ASSOC] >>
-          first_x_assum (match_mp_tac o has_length) >> asimp[] >>
+          first_x_assum (match_mp_tac o has_length) >> simp[] >>
           Cases_on `lf` >> fs[] >> rpt strip_tac >> rw[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >> simp[])
       >- (DISJ2_TAC >> fs[MAP_EQ_CONS] >> rw[] >>
@@ -1859,7 +1877,7 @@ val completeness = store_thm(
   >- (print_tac "nSignatureValue" >> dsimp[MAP_EQ_CONS] >>
       simp[peg_eval_NT_SOME] >> simp[FDOM_cmlPEG, cmlpeg_rules_applied] >>
       rw[] >> fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
-      rw[] >> normlist >> asimp[])
+      rw[] >> normlist >> simp[])
   >- (print_tac "nRelOps" >> simp[peg_eval_NT_SOME] >>
       simp[FDOM_cmlPEG, cmlpeg_rules_applied, MAP_EQ_SING] >>
       strip_tac >> fs[MAP_EQ_SING,peg_eval_tok_NONE])
@@ -1879,9 +1897,9 @@ val completeness = store_thm(
                 by metis_tac [firstSet_nonempty_fringe] >>
               match_mp_tac peg_respects_firstSets >>
               simp[PEG_exprs] >> fs[]) >>
-          normlist >> asimp[]) >>
+          normlist >> simp[]) >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied, FDOM_cmlPEG] >>
-      normlist >> asimp[])
+      normlist >> simp[])
   >- (print_tac "nPtuple" >> stdstart
       >- (simp[peg_eval_tok_NONE] >>
           erule mp_tac
@@ -1925,7 +1943,7 @@ val completeness = store_thm(
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
           simp[peg_respects_firstSets, peg_eval_tok_NONE])
       >- (simp[peg_respects_firstSets, peg_eval_tok_NONE] >>
-          normlist >> asimp[]))
+          normlist >> simp[]))
   >- (print_tac "nPatternList" >> stdstart
       >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
@@ -1945,7 +1963,7 @@ val completeness = store_thm(
             (MATCH_MP fringe_length_not_nullable nullable_Pbase) >>
           rw[] >> normlist >>
           first_assum (unify_firstconj kall_tac) >> simp[] >>
-          normlist >> asimp[] >>
+          normlist >> simp[] >>
           erule mp_tac
             (MATCH_MP fringe_length_not_nullable nullable_ConstructorName) >>
           rw[]) >>
@@ -2011,8 +2029,8 @@ val completeness = store_thm(
       map_every qexists_tac [`[pept]`, `psf ++ sfx`, `[pspt]`] >>
       normlist >>
       conj_tac
-      >- asimp[firstSet_nConstructorName, firstSet_nV, firstSet_nFQV] >>
-      asimp[])
+      >- simp[firstSet_nConstructorName, firstSet_nV, firstSet_nFQV] >>
+      simp[])
   >- (print_tac "nPE'" >> simp[MAP_EQ_CONS] >> strip_tac >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> dsimp[] >>
       rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -2022,7 +2040,7 @@ val completeness = store_thm(
       asm_match `ptree_head e'pt = NN nE'` >>
       asm_match `MAP TK ef = ptree_fringe e'pt` >>
       map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[e'pt]`] >> simp[] >>
-      normlist >> asimp[])
+      normlist >> simp[])
   >- (print_tac "nPE" >> simp[MAP_EQ_CONS] >> strip_tac >>
       simp[Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> dsimp[] >>
       rveq >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -2032,7 +2050,7 @@ val completeness = store_thm(
       asm_match `ptree_head ept = NN nE` >>
       asm_match `MAP TK ef = ptree_fringe ept` >>
       map_every qexists_tac [`[ppt]`, `ef ++ sfx`, `[ept]`] >> simp[] >>
-      normlist >> asimp[])
+      normlist >> simp[])
   >- (print_tac "nOptionalSignatureAscription" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied]>>
       strip_tac >>
@@ -2082,7 +2100,7 @@ val completeness = store_thm(
       asm_match `MAP TK ef = ptree_fringe ept` >>
       map_every qexists_tac [`[vpt]`, `ef ++ sfx`, `[ept]`] >>
       normlist >>
-      asimp[])
+      simp[])
   >- (print_tac "nFQV" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied,
            peg_longV_def] >> rw[] >> fs[MAP_EQ_SING] >> rveq >>
@@ -2099,9 +2117,9 @@ val completeness = store_thm(
       asm_match `ptree_head ept = NN nE` >>
       asm_match `MAP TK ef = ptree_fringe ept` >>
       map_every qexists_tac [`[vpt]`, `plf ++ EqualsT::ef ++ sfx`, `[plpt]`,
-                             `ef ++ sfx`, `[ept]`] >> asimp[] >>
+                             `ef ++ sfx`, `[ept]`] >> simp[] >>
       normlist >>
-      asimp[])
+      simp[])
   >- (print_tac "nEtyped" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
@@ -2109,7 +2127,7 @@ val completeness = store_thm(
           simp[peg_eval_tok_NONE] >> Cases_on `sfx` >> fs[]) >>
       dsimp[] >> DISJ1_TAC >>
       normlist >>
-      first_assum (unify_firstconj kall_tac o has_length) >> asimp[])
+      first_assum (unify_firstconj kall_tac o has_length) >> simp[])
   >- (print_tac "nEtuple" >> fs[FDOM_cmlPEG])
   >- (print_tac "nEseq" >> stdstart
       >- (normlist >> first_assum (unify_firstconj kall_tac) >> simp[]) >>
@@ -2182,11 +2200,11 @@ val completeness = store_thm(
                 rw[firstSet_nFQV, firstSet_nV, firstSet_nConstructorName,
                    disjImpI]) >>
           conj_tac >- (normlist >> loseC ``NT_rank`` >>
-                       first_x_assum match_mp_tac >> asimp[] >>
+                       first_x_assum match_mp_tac >> simp[] >>
                        fs[]) >>
           normlist >> first_assum (unify_firstconj kall_tac) >> simp[] >>
           normlist >> first_assum (match_mp_tac o has_length) >>
-          simp[] >>
+          simp[] >> CONV_TAC NumRelNorms.sum_lt_norm >>
           metis_tac [fringe_length_not_nullable,
                      nullable_Eadd, listTheory.LENGTH_MAP,
                      arithmeticTheory.ZERO_LESS_ADD]) >>
@@ -2198,7 +2216,7 @@ val completeness = store_thm(
   >- (print_tac "nElist1" >> stdstart
       >- (first_assum (unify_firstconj kall_tac) >> simp[NT_rank_def] >>
           Cases_on `sfx` >> fs[peg_eval_tok_NONE]) >>
-      normlist >> first_assum (unify_firstconj kall_tac) >> asimp[])
+      normlist >> first_assum (unify_firstconj kall_tac) >> simp[])
   >- (print_tac "nEhandle" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       strip_tac >>
@@ -2212,7 +2230,7 @@ val completeness = store_thm(
       asm_match `MAP TK pesf = ptree_fringe pespt` >>
       qexists_tac `[ept]` >> dsimp[] >>
       qexists_tac `pesf ++ sfx` >> normlist >>
-      asimp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
+      simp[firstSet_nConstructorName, firstSet_nFQV, firstSet_nV])
   >- (print_tac "nEcomp" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
@@ -2284,7 +2302,7 @@ val completeness = store_thm(
           DISJ1_TAC >> simp[peg_EbaseParen_def] >> dsimp[] >> DISJ2_TAC >>
           DISJ1_TAC >> normlist >> first_assum (unify_firstconj kall_tac) >>
           CONV_TAC SWAP_VARS_CONV >> Q.REFINE_EXISTS_TAC `[pt2]` >>
-          asimp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
+          simp[peg_EbaseParenFn_def, peg_eval_tok_NONE])
       >- (note_tac "Ebase:FQV" >>
           erule mp_tac (MATCH_MP fringe_length_not_nullable nullable_FQV) >>
           simp[] >> Cases_on `pfx` >> fs[] >> DISJ2_TAC >>
@@ -2322,7 +2340,7 @@ val completeness = store_thm(
           >- simp[peg_eval_tok_NONE, peg_EbaseParen_def] >>
           simp[peg_eval_tok_NONE] >>
           DISJ1_TAC >> normlist >>
-          first_assum (unify_firstconj kall_tac) >> asimp[] >>
+          first_assum (unify_firstconj kall_tac) >> simp[] >>
           normlist >> simp[])
       >- (note_tac "Ebase:[]" >> simp[peg_eval_tok_NONE] >>
           DISJ2_TAC >> conj_tac
@@ -2334,7 +2352,7 @@ val completeness = store_thm(
                                 peg_eval_seql_CONS, tokeq_def] >>
               simp[]) >>
           DISJ1_TAC >> normlist >>
-          asimp[])
+          simp[])
       >- (note_tac "Ebase:op" >>
           simp[peg_respects_firstSets, peg_eval_tok_NONE, peg_eval_seq_NONE] >>
           simp[peg_EbaseParen_def, peg_eval_tok_NONE]))
@@ -2342,7 +2360,7 @@ val completeness = store_thm(
       match_mp_tac (eapp_complete
                       |> Q.INST [`master` |-> `pfx`]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def])
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nEadd" >> disch_then assume_tac >>
       simp[peg_eval_NT_SOME, cmlpeg_rules_applied] >>
       match_mp_tac (peg_linfix_complete
@@ -2378,7 +2396,7 @@ val completeness = store_thm(
           first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
           Q.REFINE_EXISTS_TAC `[somept]` >> simp[] >>
           first_assum (unify_firstconj kall_tac o has_length) >>
-          asimp[])
+          simp[])
       >- (DISJ1_TAC >> simp[]) >>
       DISJ2_TAC >>
       `0 < LENGTH (MAP TK pfx)`
@@ -2416,10 +2434,12 @@ val completeness = store_thm(
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >> rw[] >>
       Q.REFINE_EXISTS_TAC `[pt]` >> simp[] >> normlist >>
-      first_assum (unify_firstconj kall_tac o has_length) >> asimp[] >>
+      first_assum (unify_firstconj kall_tac o has_length) >> simp[] >>
+      qcase_tac `peg_eval cmlPEG (ppfx ++ sfx, _) _` >>
       match_mp_tac (peg_linfix_complete
                       |> Q.INST [`P` |-> `nDtypeCons`, `SEP` |-> `TK BarT`,
-                                 `C` |-> `NN nDconstructor`, `master` |-> `es`]
+                                 `C` |-> `NN nDconstructor`,
+                                 `master` |-> `ppfx`]
                       |> SIMP_RULE (srw_ss() ++ DNF_ss)
                            [sym2peg_def, cmlG_applied, MAP_EQ_CONS,
                             AND_IMP_INTRO]) >>
@@ -2438,7 +2458,7 @@ val completeness = store_thm(
           `0 < LENGTH(MAP TK df)`
             by metis_tac [fringe_length_not_nullable, nullable_Decl] >>
           fs[] >>
-          Cases_on `dsf` >- (fs[] >> asimp[NT_rank_def]) >>
+          Cases_on `dsf` >- (fs[] >> simp[NT_rank_def]) >>
           normlist >> first_x_assum (match_mp_tac o has_length) >>
           simp[] >>
           IMP_RES_THEN mp_tac firstSet_nonempty_fringe >>
@@ -2484,7 +2504,7 @@ val completeness = store_thm(
       match_mp_tac (dtype_complete
                       |> Q.INST [`master` |-> `pfx`]
                       |> SIMP_RULE (bool_ss ++ DNF_ss) [AND_IMP_INTRO]) >>
-      simp[cmlG_applied, cmlG_FDOM, NT_rank_def])
+      simp[cmlG_applied, cmlG_FDOM, NT_rank_def] >> simp[])
   >- (print_tac "nConstructorName" >>
       simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
       fs[MAP_EQ_CONS, MAP_EQ_APPEND, DISJ_IMP_THM, FORALL_AND_THM] >>
