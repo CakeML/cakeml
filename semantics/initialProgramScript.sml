@@ -117,7 +117,6 @@ val _ = Define `
       mk_ffi( 9)] ]))`;
 
 
-
 (*val add_to_sem_env : (state * environment v) -> prog -> maybe (state * environment v)*)
 val _ = Define `
  (add_to_sem_env (st, env) prog =  
@@ -126,11 +125,9 @@ val _ = Define `
       NONE
     else
       (case CHOICE res of
-          (s,envC,Rval (envM,envE)) =>
-           SOME (s, ( env with<| m := envM ++ env.m;
-                                c := merge_alist_mod_env envC env.c;
-                                v := envE ++ env.v |>))
-        | _ => NONE
+        (st', new_ctors, Rval (new_mods, new_vals)) =>
+        SOME (st', extend_top_env new_mods new_vals new_ctors env)
+      | _ => NONE
       )))`;
 
 
@@ -138,7 +135,7 @@ val _ = Define `
 val _ = Define `
  (prim_sem_env =  
 (add_to_sem_env (<| clock :=( 0); io := (SOME LNIL); refs := []; defined_mods := {}; defined_types := {} |>,
-                  <| m := []; c:= ([],[]); v := [] |>)
+                  <| m := []; c := ([],[]); v := [] |>)
         prim_types_program))`;
 
 
