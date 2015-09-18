@@ -15,10 +15,10 @@ val compile_def = Define`
   let es = intro_multi [exp] in
   (* TODO: introduce multi-argument applications, #70 *)
   (* TODO: let (exp,calls) = call_intro es in *)
-  (* TODO: dead code elimination *)
+  (* TODO: dead code elimination, #75 *)
   let (next_loc,es) = renumber_code_locs_list next_loc es in
   let es = annotate es in
-  (* TODO: dead code elimination *)
+  (* TODO: dead code elimination, #75 too *)
   let (es,aux) = clos_to_bvl$compile es [] in
     OPTION_MAP
       (λ(bytes,c). (bytes,(next_loc,c)))
