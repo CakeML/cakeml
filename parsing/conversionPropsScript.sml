@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib;
-open lcsymtacs parsingPreamble boolSimps
+open lcsymtacs preamble boolSimps
 
 open cmlPtreeConversionTheory
 open gramPropsTheory
@@ -10,12 +10,13 @@ val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
 val ptree_head_TOK = store_thm(
   "ptree_head_TOK",
-  ``ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)``,
-  Cases_on `pt` >> simp[]);
+  ``(ptree_head pt = TOK sym ⇔ pt = Lf (TOK sym)) ∧
+    (TOK sym = ptree_head pt ⇔ pt = Lf (TOK sym))``,
+  Cases_on `pt` >> simp[] >> metis_tac[]);
 val _ = export_rewrites ["ptree_head_TOK"]
 
 val start =
-  Cases_on `pt` >> simp[grammarTheory.MAP_EQ_SING]
+  Cases_on `pt` >> simp[]
   >- (rw[] >> fs[]) >>
   strip_tac >> rveq >> fs[cmlG_FDOM, cmlG_applied, MAP_EQ_CONS] >>
   rveq >> fs[MAP_EQ_CONS] >> rveq
@@ -105,8 +106,8 @@ val Type_OK0 = store_thm(
   >- metis_tac[tuplify_OK]
   >- metis_tac[TyOp_OK]
   >- metis_tac[]
-  >- (asm_match `ptree_head pt' = NN nTyOp` >>
-      `destTyvarPT pt' = NONE` by (Cases_on `pt'` >> fs[]) >>
+  >- (qcase_tac `ptree_head pt'` >>
+      `destTyvarPT pt' = NONE` by (Cases_on `pt'` >> fs[] >> fs[]) >>
       simp[] >> metis_tac[TyOp_OK])
   >- metis_tac [TyOp_OK]
   >- metis_tac[]
@@ -184,6 +185,7 @@ val Pattern_OK0 = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
+  rpt (Q.PAT_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
   simp[Once ptree_Pattern_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -249,6 +251,7 @@ val PbaseList1_OK = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >> rveq >>
+  rpt (Q.PAT_ASSUM `Y = ptree_head X` (assume_tac o SYM)) >>
   fs[MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
   dsimp[Once ptree_PbaseList1_def]
   >- (erule strip_assume_tac (Pattern_OK0 |> Q.INST [`N` |-> `nPbase`] |> n) >>
@@ -288,6 +291,7 @@ val E_OK0 = store_thm(
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >>
   fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
+  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
   simp[Once ptree_Expr_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM] >>
@@ -430,6 +434,7 @@ val Decls_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
   simp[ptree_Decls_def]
   >- (asm_match `ptree_head pt' = NN nDecl` >>
@@ -464,6 +469,7 @@ val SpecLineList_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   simp[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >> rpt strip_tac >> rveq >>
+  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   full_simp_tac (srw_ss() ++ DNF_ss) [MAP_EQ_APPEND, MAP_EQ_CONS] >>
   simp[ptree_SpeclineList_def]
   >- (erule strip_assume_tac (n SpecLine_OK) >> simp[] >>
@@ -495,6 +501,7 @@ val Structure_OK = store_thm(
     ∃s. ptree_Structure pt = SOME s``,
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, FORALL_AND_THM, DISJ_IMP_THM] >>
   rveq >> simp[ptree_Structure_def] >>
+  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   map_every (erule strip_assume_tac o n) [Decls_OK, StructName_OK] >> simp[] >>
   asm_match `ptree_head pt' = NN nOptionalSignatureAscription` >>
   Cases_on `pt'` >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
@@ -510,7 +517,8 @@ val TopLevelDec_OK = store_thm(
   start
   >- (erule strip_assume_tac (n Structure_OK) >> simp[ptree_TopLevelDec_def]) >>
   erule strip_assume_tac (n Decl_OK) >> simp[ptree_TopLevelDec_def] >>
-  Cases_on `ptree_Structure e` >> simp[]);
+  qcase_tac `ptree_Structure pt` >>
+  Cases_on `ptree_Structure pt` >> simp[]);
 
 val TopLevelDecs_OK = store_thm(
   "TopLevelDecs_OK",
@@ -520,6 +528,7 @@ val TopLevelDecs_OK = store_thm(
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
+  rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   rveq >> dsimp[ptree_TopLevelDecs_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
   TRY (Cases_on`toks`>>fs[]>>metis_tac[]) >>
@@ -534,7 +543,8 @@ val REPLTop_OK = store_thm(
   start >> fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >>
   simp[ptree_REPLTop_def]
   >- (erule strip_assume_tac (n TopLevelDec_OK) >> simp[]) >>
-  Cases_on `ptree_TopLevelDec e` >> simp[] >>
+  qcase_tac `ptree_TopLevelDec pt0` >>
+  Cases_on `ptree_TopLevelDec pt0` >> simp[] >>
   erule strip_assume_tac (n E_OK) >> simp[]);
 
 val _ = export_theory();

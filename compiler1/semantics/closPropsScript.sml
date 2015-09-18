@@ -2,6 +2,10 @@ open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
 
+val dec_clock_code = Q.store_thm("dec_clock_code",
+  `(dec_clock x y).code = y.code`,
+  EVAL_TAC);
+
 val ref_rel_def = Define`
   (ref_rel R (ValueArray vs) (ValueArray ws) ⇔ LIST_REL R vs ws) ∧
   (ref_rel R (ByteArray as) (ByteArray bs) ⇔ as = bs) ∧
@@ -39,10 +43,12 @@ val code_locs_def = tDefine "code_locs" `
      let c1 = code_locs [x1] in
      let c2 = code_locs xs in
          c1++c2) /\
-  (code_locs [Fn loc vs num_args x1] =
+  (code_locs [Fn loc_opt vs num_args x1] =
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs [x1] in
        c1 ++ [loc]) /\
-  (code_locs [Letrec loc vs fns x1] =
+  (code_locs [Letrec loc_opt vs fns x1] =
+     let loc = case loc_opt of NONE => 0 | SOME n => n in
      let c1 = code_locs (MAP SND fns) in
      let c2 = code_locs [x1] in
      c1 ++ GENLIST ($+ loc) (LENGTH fns) ++ c2) /\
@@ -120,6 +126,54 @@ val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
   ``∀ls. contains_App_SOME ls ⇔ EXISTS (λx. contains_App_SOME [x]) ls``,
   Induct >> simp[contains_App_SOME_def] >>
   Cases_on`ls`>>fs[contains_App_SOME_def])
+
+val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
+  (every_Fn_SOME [] ⇔ T) ∧
+  (every_Fn_SOME (x::y::xs) ⇔
+     every_Fn_SOME [x] ∧
+     every_Fn_SOME (y::xs)) ∧
+  (every_Fn_SOME [Var v] ⇔ T) ∧
+  (every_Fn_SOME [If x1 x2 x3] ⇔
+     every_Fn_SOME [x1] ∧
+     every_Fn_SOME [x2] ∧
+     every_Fn_SOME [x3]) ∧
+  (every_Fn_SOME [Let xs x2] ⇔
+     every_Fn_SOME [x2] ∧
+     every_Fn_SOME xs) ∧
+  (every_Fn_SOME [Raise x1] ⇔
+     every_Fn_SOME [x1]) ∧
+  (every_Fn_SOME [Tick x1] ⇔
+     every_Fn_SOME [x1]) ∧
+  (every_Fn_SOME [Op op xs] ⇔
+     every_Fn_SOME xs) ∧
+  (every_Fn_SOME [App loc_opt x1 x2] ⇔
+     every_Fn_SOME [x1] ∧
+     every_Fn_SOME x2) ∧
+  (every_Fn_SOME [Fn loc_opt vs num_args x1] ⇔
+     IS_SOME loc_opt ∧
+     every_Fn_SOME [x1]) ∧
+  (every_Fn_SOME [Letrec loc_opt vs fns x1] ⇔
+     IS_SOME loc_opt ∧
+     every_Fn_SOME (MAP SND fns) ∧
+     every_Fn_SOME [x1]) ∧
+  (every_Fn_SOME [Handle x1 x2] ⇔
+     every_Fn_SOME [x1] ∧
+     every_Fn_SOME [x2]) ∧
+  (every_Fn_SOME [Call dest xs] ⇔
+     every_Fn_SOME xs)`
+  (WF_REL_TAC `measure (exp3_size)`
+   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
+   Induct_on `fns` >>
+   srw_tac [ARITH_ss] [exp_size_def] >>
+   Cases_on `h` >>
+   fs [exp_size_def] >>
+   decide_tac);
+val _ = export_rewrites["every_Fn_SOME_def"];
+
+val every_Fn_SOME_EVERY = store_thm("every_Fn_SOME_EVERY",
+  ``∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls``,
+  Induct >> simp[every_Fn_SOME_def] >>
+  Cases_on`ls`>>fs[every_Fn_SOME_def])
 
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\

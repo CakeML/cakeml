@@ -14,8 +14,8 @@ val _ = Datatype `
     Number int
   | Block num (v list)
   | RefPtr num
-  | Closure num (v list) (v list) num closLang$exp
-  | Recclosure num (v list) (v list) ((num # closLang$exp) list) num`
+  | Closure (num option) (v list) (v list) num closLang$exp
+  | Recclosure (num option) (v list) (v list) ((num # closLang$exp) list) num`
 
 val _ = Datatype `
   state =
@@ -251,9 +251,10 @@ val lookup_vars_def = Define `
      else NONE)`
 
 val check_loc_opt_def = Define `
-  (check_loc NONE loc num_params num_args so_far ⇔ num_args ≤ max_app) /\
+  (check_loc NONE loc num_params num_args so_far ⇔
+    num_args ≤ max_app) /\
   (check_loc (SOME p) loc num_params num_args so_far ⇔
-    (num_params = num_args) ∧ (so_far = 0:num) ∧ (p = loc))`;
+    num_params = num_args ∧ so_far = (0:num) ∧ SOME p = loc)`;
 
 val _ = Datatype `
   app_kind =
@@ -277,7 +278,7 @@ val dest_closure_def = Define `
     | Recclosure loc arg_env clo_env fns i =>
         let (num_args,exp) = EL i fns in
           if LENGTH fns <= i \/
-             ~(check_loc loc_opt (loc+i) num_args (LENGTH args) (LENGTH arg_env)) ∨
+             ~(check_loc loc_opt (OPTION_MAP ((+)i) loc) num_args (LENGTH args) (LENGTH arg_env)) ∨
              ¬(LENGTH arg_env < num_args) then NONE else
             let rs = GENLIST (Recclosure loc [] clo_env fns) (LENGTH fns) in
               if ¬(LENGTH args + LENGTH arg_env < num_args) then
@@ -521,5 +522,33 @@ val evaluate_def = save_thm("evaluate_def",let
     \\ IMP_RES_TAC LESS_EQ_TRANS
     \\ fs [check_clock_def])
   in thm end);
+
+(* observational semantics *)
+
+val evaluate_with_io_def = Define `
+  evaluate_with_io exp s io k =
+    evaluate (exp,[],s with <| io := io ; clock := k |> )`;
+
+val sem_def = Define `
+  (sem exp s1 (Terminate io_list) <=>
+     (* there is some clock k such that evaluate reaches a result and
+        consumes the entire I/O trace, leaving nothing, i.e. SOME LNIL *)
+     ?k s2 r.
+       evaluate_with_io exp s1 (SOME (fromList io_list)) k = (Rval r,s2) /\
+       s2.io = SOME LNIL) /\
+  (sem exp s1 (Diverge io_trace) <=>
+     (* for every clock k: evaluate fails to terminate and never
+        disagrees with the I/O trace, i.e. s2.io <> NONE *)
+     (!k. ?s2. (evaluate_with_io exp s1 (SOME io_trace) k =
+                 (Rerr (Rabort Rtimeout_error),s2)) /\
+               s2.io <> NONE) /\
+     (* for every proper prefix of the I/O trace: evaluate causes the
+        I/O component to disagree with the given I/O trace prefix *)
+     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
+           ?k. ((SND (evaluate_with_io exp s1 (SOME io) k)).io = NONE))) /\
+  (sem exp s1 Fail <=>
+     (* evaluate fails internally for some clock and some I/O trace *)
+     ?k io. FST (evaluate_with_io exp s1 (SOME io) k) =
+            Rerr (Rabort Rtype_error))`
 
 val _ = export_theory()
