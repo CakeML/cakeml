@@ -6,8 +6,6 @@ open libTheory astTheory bigStepTheory semanticPrimitivesTheory;
 open terminationTheory evalPropsTheory determTheory;
 open boolSimps;
 
-local open quantHeuristicsLib in end;
-
 val _ = new_theory "bigClock";
 
 val evaluate_ind = bigStepTheory.evaluate_ind;
@@ -843,7 +841,7 @@ val top_unclocked = Q.store_thm ("top_unclocked",
      evaluate_top F env (s with clock := count') top (s' with clock := count',cenv,r))`,
   reverse (rw [evaluate_top_cases]) >>
   simp [state_component_equality] >>
-  simp_tac((srw_ss())++quantHeuristicsLib.QUANT_INST_ss[quantHeuristicsLib.record_default_qp])[] >>
+  simp_tac((srw_ss())++QUANT_INST_ss[record_default_qp])[] >>
   metis_tac [dec_unclocked, decs_unclocked]);
 
 val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
