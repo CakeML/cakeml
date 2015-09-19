@@ -1039,7 +1039,7 @@ val exp_type_preservation = Q.prove (
              ONCE_REWRITE_TAC [context_invariant_cases] >>
              rw [] >>
              fs [type_es_list_rel, type_vs_list_rel, list_rel_split, GSYM
-                 EVERY2_REVERSE1,grammarTheory.MAP_EQ_APPEND, grammarTheory.MAP_EQ_SING] >>
+                 EVERY2_REVERSE1,MAP_EQ_APPEND, MAP_EQ_SING] >>
              rw [] >>
              MAP_EVERY qexists_tac [`tenvS`, `tenvM`, `tenvC`, `y`, `tenv`, `tvs`, 
                                     `tenvM`, `tenvC`, `tenv`] >>
