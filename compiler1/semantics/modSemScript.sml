@@ -21,15 +21,15 @@ val _ = Datatype`
   v =
     | Litv lit
     | Conv ((conN # tid_or_exn) option) (v list)
-    | Closure (envC # (varN, v) alist) varN modLang$exp
-    | Recclosure (envC # (varN, v) alist) ((varN # varN # modLang$exp) list) varN
+    | Closure (env_ctor # (varN, v) alist) varN modLang$exp
+    | Recclosure (env_ctor # (varN, v) alist) ((varN # varN # modLang$exp) list) varN
     | Loc num
     | Vectorv (v list)`;
 
 val _ = Define`
   Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
 
-val _ = temp_type_abbrev( "all_env", ``:(modSem$v option) list # envC # (varN, modSem$v)alist``);
+val _ = temp_type_abbrev( "all_env", ``:(modSem$v option) list # env_ctor # (varN, modSem$v)alist``);
 
 val all_env_to_genv_def = Define `
   all_env_to_genv ((genv,cenv,env):all_env) = genv`;
@@ -41,7 +41,7 @@ val all_env_to_env_def = Define `
   all_env_to_env ((genv,cenv,env):all_env) = env`;
 
 val build_conv_def = Define`
-  build_conv (envC:envC) cn vs =
+  build_conv (envC:env_ctor) cn vs =
   case cn of
   | NONE => SOME (Conv NONE vs)
   | SOME id =>
@@ -369,7 +369,7 @@ val pmatch_def = tDefine"pmatch"`
 
 val (evaluate_rules,evaluate_ind,evaluate_cases) = Hol_reln`
   (∀ck env s l.
-  evaluate ck (env:all_env) (s:modSem$v count_store_trace) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
+  evaluate ck (env:all_env) (s:(num # modSem$v store_trace)) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))
@@ -577,7 +577,7 @@ evaluate_decs ck (genv ++ MAP SOME new_env) (merge_alist_mod_env ([],new_tds) ce
 evaluate_decs ck genv cenv s1 (d::ds) (s3, (new_tds' ++ new_tds), (new_env ++ new_env'), r))`;
 
 val mod_cenv_def = Define `
- (mod_cenv (mn:modN option) (cenv:flat_envC) =
+ (mod_cenv (mn:modN option) (cenv:flat_env_ctor) =
 ((case mn of
       NONE => ([],cenv)
     | SOME mn => ([(mn,cenv)], [])

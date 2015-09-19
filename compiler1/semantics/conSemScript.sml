@@ -410,7 +410,7 @@ val pat_bindings_def = Define`
    pats_bindings ps (pat_bindings p already_bound))`;
 
 val _ = Hol_reln ` (! ck env l s.
-  evaluate ck (env:all_env) (s:conSem$v count_store_trace) ((Lit l):conLang$exp) (s, Rval ((Litv l):conSem$v)))
+  evaluate ck (env:all_env) (s:(num # conSem$v store_trace)) ((Lit l):conLang$exp) (s, Rval ((Litv l):conSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

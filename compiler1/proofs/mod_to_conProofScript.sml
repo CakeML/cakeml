@@ -39,7 +39,7 @@ val gtagenv_wf_def = Define `
     (∀t cn. (cn,TypeExn t) ∈ FDOM gtagenv ⇒ cn = id_to_n t)`;
 
 val envC_tagged_def = Define `
-  envC_tagged (envC:envC) (tagenv:tag_env) gtagenv =
+  envC_tagged (envC:env_ctor) (tagenv:tag_env) gtagenv =
     (!cn num_args t.
       lookup_alist_mod_env cn envC = SOME (num_args, t)
       ⇒
@@ -48,7 +48,7 @@ val envC_tagged_def = Define `
         FLOOKUP gtagenv (id_to_n cn, t) = SOME (tag,num_args))`;
 
 val flat_envC_tagged_def = Define `
- flat_envC_tagged (envC:flat_envC) (tagenv:flat_tag_env) gtagenv ⇔
+ flat_envC_tagged (envC:flat_env_ctor) (tagenv:flat_tag_env) gtagenv ⇔
    ∀cn num_args t.
      ALOOKUP envC cn = SOME (num_args,t) ⇒
      ∃tag.
