@@ -25,6 +25,9 @@ let
 (* rich_list doesnt' provide a compset :( *)
   val () = computeLib.add_thms
   [rich_listTheory.SPLITP_compute
+  ,rich_listTheory.TAKE
+  ,rich_listTheory.FLAT
+  ,rich_listTheory.REPLICATE
   ,rich_listTheory.SPLITP_AUX_def
   ] compset
 (* sptree doesn't provide a compset :( *)
@@ -45,6 +48,11 @@ let
   ,sptreeTheory.toListA_def
   ,sptreeTheory.toList_def
   ,sptreeTheory.mk_wf_def
+  ,sptreeTheory.toAList_def
+  ,sptreeTheory.fromAList_def
+  ,sptreeTheory.foldi_def
+  ,sptreeTheory.difference_def
+  ,sptreeTheory.map_def
   ] compset
   val () = computeLib.add_thms 
   [miscTheory.find_index_def

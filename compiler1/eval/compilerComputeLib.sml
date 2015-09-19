@@ -324,13 +324,9 @@ fun add_compiler_compset compset = let
     state_transformerTheory.IGNORE_BIND_DEF
     ] compset
 
-  (*Missing things in basic compset TODO: Move?*)
+  (*sorting*)
   val _ = computeLib.add_thms
-    [sptreeTheory.toAList_def,
-    sptreeTheory.fromAList_def,
-    sptreeTheory.foldi_def,
-    sptreeTheory.difference_def,
-    sortingTheory.PARTITION_DEF,
+    [sortingTheory.PARTITION_DEF,
     sortingTheory.PART_DEF,
     sortingTheory.QSORT_DEF
     ] compset 
