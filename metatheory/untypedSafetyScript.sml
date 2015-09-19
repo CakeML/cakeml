@@ -63,42 +63,43 @@ val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
 val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-`!mn s tdecls env d count. (∃r. evaluate_dec F mn env ((count,s),tdecls) d r) = ~dec_diverges env (s,tdecls) d`,
+`!mn s env d. (∃r. evaluate_dec F mn env s d r) = ~dec_diverges env s d`,
  rw [] >>
  rw [Once evaluate_dec_cases, dec_diverges_def] >>
  cases_on `d` >>
  rw []
  >- (eq_tac >>
      rw [GSYM untyped_safety_exp] >-
-     metis_tac [small_big_exp_equiv, big_unclocked] >-
-     metis_tac [small_big_exp_equiv, big_unclocked] >-
-     metis_tac [small_big_exp_equiv, big_unclocked] >-
-     metis_tac [small_big_exp_equiv, big_unclocked] >-
-     metis_tac [pair_CASES, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [small_big_exp_equiv, big_unclocked] >>
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >>
      `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw [] >>
      cases_on `ALL_DISTINCT (pat_bindings p [])` >>
      fs []
-     >- (qexists_tac `(((count',s'),tdecls),Rerr err)` >>
+     >- (qexists_tac `(s with <| io := SND s'; refs := FST s' |>, Rerr err)` >>
          rw [] >>
-         metis_tac [small_big_exp_equiv])
-     >- (cases_on `pmatch (all_env_to_cenv env) (FST s') p v []` >>
+         fs [GSYM small_big_exp_equiv, to_small_st_def])
+     >- (cases_on `pmatch env.c (FST s') p v []` >>
          fs []
-         >- (MAP_EVERY qexists_tac [`(((count',s'),tdecls), Rerr (Rraise (Conv (SOME ("Bind", TypeExn (Short "Bind"))) [])))`] >>
-             rw [] >>
-             metis_tac [pair_CASES, small_big_exp_equiv, big_unclocked, FST])
-         >- (MAP_EVERY qexists_tac [`(((count',s'),tdecls), Rerr (Rabort Rtype_error))`] >>
-             rw [] >>
-             metis_tac [pair_CASES, FST, small_big_exp_equiv, big_unclocked])
-         >- (fs [] >-
-             metis_tac [pair_CASES, FST, small_big_exp_equiv, big_unclocked])))
+         >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
+             fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+             metis_tac [])
+         >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
+             fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+             metis_tac [])
+         >- cheat)) (*(fs [] >-
+             metis_tac [pair_CASES, FST, small_big_exp_equiv,
+             big_unclocked]))*)
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
-`!mn s tdecls env ds count. (?r. evaluate_decs F mn env ((count,s),tdecls) ds r) = ~decs_diverges mn env (s,tdecls) ds`,
+`!mn s env ds. (?r. evaluate_decs F mn env s ds r) = ~decs_diverges mn env s ds`,
  induct_on `ds` >>
  rw [] >-
  rw [Once evaluate_decs_cases, Once decs_diverges_cases] >>
@@ -114,19 +115,18 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
      pop_assum mp_tac >>
      rw []
      >- metis_tac [untyped_safety_dec]
-     >- metis_tac [dec_unclocked, result_distinct, dec_determ, PAIR_EQ, pair_CASES]
      >- metis_tac [untyped_safety_dec]
-     >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked])
+     >- metis_tac [dec_unclocked, result_distinct, dec_determ, PAIR_EQ, pair_CASES])
  >- (rw [] >>
      imp_res_tac (GSYM untyped_safety_dec) >>
-     pop_assum (qspecl_then [`mn`, `count'`] strip_assume_tac) >>
+     pop_assum (qspecl_then [`mn`] strip_assume_tac) >>
      `?s. (?err. r = (s,Rerr err)) ∨ (?cenv env'. r = (s,Rval (cenv,env')))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw []
      >- metis_tac []
      >- metis_tac [PAIR_EQ, result_11, pair_CASES, dec_determ, dec_unclocked]));
 
 val untyped_safety_top = Q.store_thm ("untyped_safety_top",
-`!s env top count tdecls mods. (?r. evaluate_top F env ((count,s),tdecls,mods) top r) = ~top_diverges env (s,tdecls,mods) top`,
+`!s env top. (?r. evaluate_top F env s top r) = ~top_diverges env s top`,
 rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
@@ -137,7 +137,7 @@ rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
 
 val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
-`!s env tops count tdecls mods. (?r. evaluate_prog F env ((count,s),tdecls,mods) tops r) = ~prog_diverges env (s,tdecls,mods) tops`,
+`!s env tops. (?r. evaluate_prog F env s tops r) = ~prog_diverges env s tops`,
  induct_on `tops` >>
  rw [] >-
  rw [Once evaluate_prog_cases, Once prog_diverges_cases] >>
@@ -151,14 +151,10 @@ val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
      fs [] >>
      rw [] >>
      pop_assum mp_tac >>
-     rw []
-     >- metis_tac [untyped_safety_top]
-     >- metis_tac [top_unclocked, result_distinct, top_determ, PAIR_EQ, pair_CASES, result_11]
-     >- metis_tac [untyped_safety_top]
-     >- metis_tac [PAIR_EQ, result_distinct, result_11, pair_CASES, top_determ, top_unclocked])
+     rw [] >>
+     metis_tac [untyped_safety_top])
  >- (rw [] >>
      imp_res_tac (GSYM untyped_safety_top) >>
-     pop_assum (qspecl_then [`count'`] strip_assume_tac) >>
      `?s cenv. (?err. r = (s,cenv,Rerr err)) ∨ (?menv env'. r = (s,cenv,Rval (menv,env')))` by metis_tac [pair_CASES, result_nchotomy] >>
      rw []
      >- metis_tac []
