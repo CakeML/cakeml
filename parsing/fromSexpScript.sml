@@ -265,7 +265,31 @@ val sexpexp_def = tDefine "sexpexp" `
                 dstrip_sexp_size]
    >- metis_tac[rich_listTheory.EL_MEM, listTheory.EL, DECIDE ``0n < 1``,
                 dstrip_sexp_size])
-(*
+
+val sexptype_def_def = Define`
+  sexptype_def =
+  sexplist
+    (sexppair (sexplist odestSXSTR)
+      (sexppair odestSXSTR
+        (sexplist (sexppair odestSXSTR (sexplist sexptype)))))`;
+
+val sexpdec_def = Define`
+  sexpdec s =
+    do
+      (nm, args) <- dstrip_sexp s;
+      guard (nm = "Dlet" ∧ LENGTH args = 2)
+            (lift2 Dlet (sexppat (EL 0 args)) (sexpexp (EL 1 args))) ++
+      guard (nm = "Dletrec" ∧ LENGTH args = 1)
+            (lift Dletrec (sexplist (sexppair odestSXSTR (sexppair odestSXSTR sexpexp)) (HD args))) ++
+      guard (nm = "Dtype" ∧ LENGTH args = 1)
+            (lift Dtype (sexptype_def (HD args))) ++
+      guard (nm = "Dtabbrev" ∧ LENGTH args = 3)
+            (lift Dtabbrev (sexplist odestSXSTR (EL 0 args)) <*>
+                           (odestSXSTR (EL 1 args)) <*>
+                           (sexptype (EL 2 args))) ++
+      guard (nm = "Dexn" ∧ LENGTH args = 2)
+            (lift2 Dexn (odestSXSTR (EL 0 args)) (sexplist sexptype (EL 1 args)))
+    od`;
 
 val sexpspec_def = Define`
   sexpspec s =
@@ -273,27 +297,28 @@ val sexpspec_def = Define`
        (nm, args) <- dstrip_sexp s ;
        if nm = "Sval" then
          guard (LENGTH args = 2)
-               (lift2 Sval (odestSXSTR (HD args)) (sexpt (EL 1 args)))
+               (lift2 Sval (odestSXSTR (HD args)) (sexptype (EL 1 args)))
        else if nm = "Stype" then
          guard (LENGTH args = 1)
                (lift Stype (sexptype_def (HD args)))
        else if nm = "Stabbrev" then
          guard (LENGTH args = 3)
                (lift Stabbrev
-                       (sexplist destSXSTR (HD args)) <*>
-                       (destSXSTR (EL 1 args)) <*>
-                       (sexptype_def (EL 2 args)))
+                       (sexplist odestSXSTR (HD args)) <*>
+                       (odestSXSTR (EL 1 args)) <*>
+                       (sexptype (EL 2 args)))
        else if nm = "Stype_opq" then
          guard (LENGTH args = 2)
                (lift2 Stype_opq
-                      (sexplist destSXSTR (EL 0 args))
-                      (destSXSTR (EL 1 args)))
+                      (sexplist odestSXSTR (EL 0 args))
+                      (odestSXSTR (EL 1 args)))
        else if nm = "Sexn" then
          guard (LENGTH args = 2)
-               (lift2 Sexn (destSXSTR (EL 0 args))
+               (lift2 Sexn (odestSXSTR (EL 0 args))
                       (sexplist sexptype (EL 1 args)))
        else fail
-`
+    od
+`;
 
 val sexptop_def = Define`
   sexptop s =
@@ -302,7 +327,7 @@ val sexptop_def = Define`
         if nm = "Tmod" then
           do
              assert (LENGTH args = 3);
-             modN <- destSXSTR (HD args);
+             modN <- odestSXSTR (HD args);
              specopt <- sexpopt (sexplist sexpspec) (EL 1 args);
              declist <- sexplist sexpdec (EL 2 args);
              return (Tmod modN specopt declist)
@@ -310,13 +335,10 @@ val sexptop_def = Define`
         else if nm = "Tdec" then
           do
              assert (LENGTH args = 1);
-             lift Tdec sexpdec (HD args)
+             lift Tdec (sexpdec (HD args))
           od
         else fail
     od
 `;
-
-*)
-
 
 val _ = export_theory();
