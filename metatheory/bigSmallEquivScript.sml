@@ -1358,12 +1358,8 @@ val one_step_backward = Q.prove (
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
          rw [] >>
          metis_tac [FST])
-     >- cheat
-     (*
      >- (ONCE_REWRITE_TAC [evaluate_cases] >>
-         rw [] >>
-         metis_tac [FST])
-         *)
+         rw [] >> fs[] >> metis_tac [])
      >- metis_tac [] >>
      every_case_tac >>
      full_simp_tac (srw_ss()++ARITH_ss++boolSimps.DNF_ss) [] >>
