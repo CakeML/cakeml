@@ -127,7 +127,7 @@ val _ = Define `
           (case pmatch env.c (FST s) p v env.v of
               Match_type_error => Eabort Rtype_error
             | No_match => Estep (env, s, Val v, ((Cmat ()  pes err_v,env)::c))
-            | Match env' => Estep (env, s, Exp e, c)
+            | Match env' => Estep ((env with<| v := env'|>), s, Exp e, c)
           )
         else
           Eabort Rtype_error

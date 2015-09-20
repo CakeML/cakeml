@@ -106,7 +106,7 @@ let continue s v cs =
           match pmatch env.c (fst s) p v env.v with
             | Match_type_error -> Eabort Rtype_error
             | No_match -> Estep (env, s, Val v, ((Cmat () pes err_v,env)::c))
-            | Match env' -> Estep (env, s, Exp e, c)
+            | Match env' -> Estep (<|env with v = env'|>, s, Exp e, c)
           end
         else
           Eabort Rtype_error
