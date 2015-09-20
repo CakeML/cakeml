@@ -62,41 +62,45 @@ val untyped_safety_exp = Q.store_thm ("untyped_safety_exp",
 `!s env e. (?r. small_eval env s e [] r) = ¬e_diverges env s e`,
 metis_tac [small_exp_safety2, small_exp_safety1]);
 
+val to_small_st_surj = Q.prove(
+  `∀s. ∃y. s = to_small_st y`,
+  srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][to_small_st_def]);
+
 val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
-`!mn s env d. (∃r. evaluate_dec F mn env s d r) = ~dec_diverges env s d`,
- rw [] >>
- rw [Once evaluate_dec_cases, dec_diverges_def] >>
- cases_on `d` >>
- rw []
- >- (eq_tac >>
-     rw [GSYM untyped_safety_exp] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
-     metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >>
-     `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))` by metis_tac [pair_CASES, result_nchotomy] >>
-     rw [] >>
-     cases_on `ALL_DISTINCT (pat_bindings p [])` >>
-     fs []
-     >- (qexists_tac `(s with <| io := SND s'; refs := FST s' |>, Rerr err)` >>
-         rw [] >>
-         fs [GSYM small_big_exp_equiv, to_small_st_def])
-     >- (cases_on `pmatch env.c (FST s') p v []` >>
-         fs []
-         >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
-             fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-             metis_tac [])
-         >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
-             fs [GSYM small_big_exp_equiv, to_small_st_def] >>
-             metis_tac [])
-         >- cheat)) (*(fs [] >-
-             metis_tac [pair_CASES, FST, small_big_exp_equiv,
-             big_unclocked]))*)
- >- metis_tac []
- >- metis_tac []
- >- metis_tac []);
+  `!mn s env d. (∃r. evaluate_dec F mn env s d r) = ~dec_diverges env s d`,
+  rw [] >>
+  rw [Once evaluate_dec_cases, dec_diverges_def] >>
+  cases_on `d` >>
+  rw []
+  >- (eq_tac >>
+      rw [GSYM untyped_safety_exp] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >-
+      metis_tac [to_small_st_def, small_big_exp_equiv, big_unclocked] >>
+      `?s. (?err. r = (s,Rerr err)) ∨ (?v. r = (s,Rval v))` by metis_tac [pair_CASES, result_nchotomy] >>
+      rw [] >>
+      cases_on `ALL_DISTINCT (pat_bindings p [])` >>
+      fs []
+      >- (qexists_tac `(s with <| io := SND s'; refs := FST s' |>, Rerr err)` >>
+          rw [] >>
+          fs [GSYM small_big_exp_equiv, to_small_st_def])
+      >- (cases_on `pmatch env.c (FST s') p v []` >>
+          fs []
+          >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
+              fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+              metis_tac [])
+          >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
+              fs [GSYM small_big_exp_equiv, to_small_st_def] >>
+              metis_tac [])
+          >- (fs [] >>
+              metis_tac [pair_CASES, FST, small_big_exp_equiv,
+                         to_small_st_def,big_unclocked,to_small_st_surj])))
+  >- metis_tac []
+  >- metis_tac []
+  >- metis_tac []);
 
 val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
 `!mn s env ds. (?r. evaluate_decs F mn env s ds r) = ~decs_diverges mn env s ds`,
