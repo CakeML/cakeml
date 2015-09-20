@@ -17,7 +17,8 @@ val store_pos_def = Define `
     | OtherHeap => 4
     | AllocSize => 5
     | Handler => 6:num
-    | LastFree => 7`
+    | LastFree => 7
+    | ProgStart => 8`
 
 val store_length_def = Define `
   store_length = 8n`; (* must be even and <= store_pos n, for any n *)

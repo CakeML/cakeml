@@ -14,11 +14,11 @@ open clos_callTheory
 open clos_annotateTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory
-open bvpTheory bvi_to_bvpTheory
+open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
 open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory
-open labLangTheory stack_to_labTheory
+open labLangTheory stack_to_labTheory lab_filterTheory
 
 open source_to_targetTheory mod_to_targetTheory con_to_targetTheory dec_to_targetTheory exh_to_targetTheory pat_to_targetTheory clos_to_targetTheory bvl_to_targetTheory bvi_to_targetTheory bvp_to_targetTheory word_to_targetTheory stack_to_targetTheory lab_to_targetTheory 
 
@@ -233,6 +233,9 @@ fun add_compiler_compset compset = let
 
   (* bvp *)
   val () = add_datatype``:bvp$prog``
+  (*TODO: Not sure why this is in bvpTheory*)
+  val () = add_thms
+    [bvpTheory.mk_ticks_def] compset
   (* bvi_to_bvp *)
   val () = add_thms
     [bvi_to_bvpTheory.op_space_reset_def,
@@ -244,9 +247,22 @@ fun add_compiler_compset compset = let
     bvi_to_bvpTheory.iAssign_def,
     bvi_to_bvpTheory.op_space_req_def
     ] compset
-
-  (*TODO: bvp to bvp compilation steps*)
-
+  (*bvp_simp*)
+  val () = add_thms
+    [bvp_simpTheory.pSeq_def,
+    bvp_simpTheory.simp_def
+    ] compset
+  (*bvp_space*)
+  val () = add_thms
+    [bvp_spaceTheory.pMakeSpace_def,
+    bvp_spaceTheory.space_def,
+    bvp_spaceTheory.compile_def
+    ] compset
+  (*bvp_live*)
+  val () = add_thms
+    [bvp_liveTheory.compile_def
+    ] compset
+ 
   (* wordLang *)
   val () = add_datatype``:wordLang$store_name``
   val () = add_datatype``:'a wordLang$num_exp``
@@ -510,6 +526,11 @@ fun add_compiler_compset compset = let
   val () = add_datatype``:'a asm_with_lab``
   val () = add_datatype``:'a line``
   val () = add_datatype``:'a sec``
+  (*lab_filter*)
+  val () = add_thms
+    [lab_filterTheory.not_skip_def,
+    lab_filterTheory.filter_skip_def
+    ] compset
   (*lab_to_target*)
   val () = add_thms
     [lab_to_targetTheory.ffi_offset_def,
@@ -544,6 +565,11 @@ fun add_compiler_compset compset = let
     lab_to_targetTheory.enc_sec_def,
     lab_to_targetTheory.enc_line_def
     ] compset
+  
+  (*Missing def from miscTheory used in lab_to_target.
+  TODO: Move into HOL or move into lab_to_target itself?*)
+  val () = add_thms[miscTheory.lookup_any_def] compset
+
   (*asm -- 'a should be 64*)
   val () = add_datatype ``:'a asm_config``
   val () = add_datatype ``:'a reg_imm``
@@ -621,7 +647,7 @@ val add_compiler_compset = add_compiler_compset
 val the_compiler_compset =
   let
     val c = compute_basicLib.the_basic_compset
-    (*Needs fixing val () = compute_semanticsLib.add_ast_compset c*)
+    val () = compute_semanticsLib.add_ast_compset c
     val () = add_compiler_compset c
   in
     c

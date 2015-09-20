@@ -4,6 +4,8 @@ open HolKernel boolLib bossLib lcsymtacs
 fun add_datatype tm compset =
   (computeLib.add_datatype_info compset o valOf o TypeBase.fetch) tm
 
+val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
+
 (* compset needs to have at least wordsLib.words_compset in it *)
 fun add_basic_compset compset =
 let
@@ -27,8 +29,10 @@ let
   [rich_listTheory.SPLITP_compute
   ,rich_listTheory.TAKE
   ,rich_listTheory.FLAT
-  ,rich_listTheory.REPLICATE
+  ,SUC_TO_NUMERAL_RULE rich_listTheory.REPLICATE
   ,rich_listTheory.SPLITP_AUX_def
+  ,rich_listTheory.COUNT_LIST_compute
+  ,rich_listTheory.COUNT_LIST_AUX_def_compute
   ] compset
 (* sptree doesn't provide a compset :( *)
   val () = computeLib.add_thms
@@ -58,6 +62,9 @@ let
   [miscTheory.find_index_def
   ,miscTheory.LEAST_thm
   ,miscTheory.least_from_thm
+  ,miscTheory.lookup_any_def
+  ,miscTheory.list_insert_def
+  ,miscTheory.list_to_num_set_def
   ] compset
   val () = add_datatype ``:'a spt`` compset
 in

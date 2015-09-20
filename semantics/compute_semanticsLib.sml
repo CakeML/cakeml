@@ -49,19 +49,19 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,astTheory.Tword8array_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
-    val () = add_datatype ``:top`` compset
-    val () = add_datatype ``:dec`` compset
-    val () = add_datatype ``:pat`` compset
-    val () = add_datatype ``:exp`` compset
+    val () = add_datatype ``:ast$top`` compset
+    val () = add_datatype ``:ast$dec`` compset
+    val () = add_datatype ``:ast$pat`` compset
+    val () = add_datatype ``:ast$exp`` compset
     val () = add_datatype ``:tid_or_exn`` compset
-    val () = add_datatype ``:op`` compset
-    val () = add_datatype ``:lop`` compset
-    val () = add_datatype ``:lit`` compset
+    val () = add_datatype ``:ast$op`` compset
+    val () = add_datatype ``:ast$lop`` compset
+    val () = add_datatype ``:ast$lit`` compset
     val () = add_datatype ``:opb`` compset
     val () = add_datatype ``:opn`` compset
-    val () = add_datatype ``:'a id`` compset
+    val () = add_datatype ``:'a ast$id`` compset
     val () = add_datatype ``:eq_result`` compset
-    val () = add_datatype ``:tctor`` compset
+    val () = add_datatype ``:ast$tctor`` compset
   in
     ()
   end
