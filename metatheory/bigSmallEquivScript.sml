@@ -961,15 +961,14 @@ val big_exp_to_small_exp = Q.prove (
        first_assum(match_exists_tac o concl) >> simp[] >>
        simp[e_step_def,continue_def,Abbr`ctx`,application_thm]) >>
      fs[do_app_cases] >> rw[] >> fs[])
-   >- cheat
-   (*
    >- (
      fs[] >>
      rw[small_eval_def] >>
      rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,application_thm,do_app_def] >>
      srw_tac[boolSimps.DNF_ss][] >>
      rw[Once e_step_def,application_thm,do_app_def] >>
-     BasicProvers.CASE_TAC >- fs[Once small_eval_list_cases] >>
+     Cases_on`REVERSE es` >- (
+       fs[Once small_eval_list_cases,to_small_st_def] >> rfs[] ) >>
      disj2_tac >>
      rw[push_def] >>
      fs[Once small_eval_list_cases, SWAP_REVERSE_SYM] >>
@@ -982,7 +981,7 @@ val big_exp_to_small_exp = Q.prove (
        first_assum(match_exists_tac o concl) >>
        rw[e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
        rw[Once RTC_CASES1,e_step_reln_def,Once e_step_def,continue_def,application_thm] >>
-       rw[e_step_def,continue_def,application_thm] ) >>
+       rw[e_step_def,continue_def,application_thm,to_small_st_def] ) >>
      Cases_on`t'` >- (
        fs[Once small_eval_list_cases] >> rw[] >>
        fs[Once small_eval_list_cases] >> rw[] >>
@@ -994,7 +993,7 @@ val big_exp_to_small_exp = Q.prove (
        Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
        last_x_assum(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> fs[] >>
        first_assum(match_exists_tac o concl) >>
-       rw[e_step_def,continue_def,Abbr`ctx`,application_thm] ) >>
+       rw[e_step_def,continue_def,Abbr`ctx`,application_thm,to_small_st_def] ) >>
      Cases_on`t''` >- (
        fs[Once small_eval_list_cases] >> rw[] >>
        fs[Once small_eval_list_cases] >> rw[] >>
@@ -1013,18 +1012,17 @@ val big_exp_to_small_exp = Q.prove (
        Q.PAT_ABBREV_TAC`ctx = [(Capp op X Y Z,env)]` >>
        qpat_assum`e_step_reln^* (env,X,Exp h,[]) Y`(qspec_then`ctx`strip_assume_tac o MATCH_MP e_step_add_ctxt) >> fs[] >>
        first_assum(match_exists_tac o concl) >> rw[] >>
-       rw[e_step_def,continue_def,Abbr`ctx`,application_thm] ) >>
+       rw[e_step_def,continue_def,Abbr`ctx`,application_thm,to_small_st_def] ) >>
      imp_res_tac small_eval_app_err >> fs[] >>
      first_x_assum(qspec_then`op`mp_tac) >> simp[] >>
      disch_then(qspec_then`[]`strip_assume_tac) >>
      fs [] >>
-     `LENGTH t > 2` 
+     `LENGTH t > 2`
                 by (imp_res_tac small_eval_list_length >>
                     fs [] >>
                     DECIDE_TAC) >>
      fs [] >>
-     metis_tac[transitive_RTC,transitive_def])
-     *)
+     metis_tac[transitive_RTC,transitive_def,to_small_st_def])
    >- (
      fs[] >>
      rw[Once small_eval_app] >>
@@ -1161,12 +1159,9 @@ val big_exp_to_small_exp = Q.prove (
        metis_tac [APPEND,e_step_add_ctxt, small_eval_list_rules] >>
        fs [Once small_eval_list_cases])
    >- metis_tac [small_eval_match_rules]
-   >- cheat
-   >- cheat
-   >- cheat
-   (*>- metis_tac [small_eval_match_rules, FST, pair_CASES]
-   >- metis_tac [small_eval_match_rules, FST, pair_CASES]
-   >- metis_tac [small_eval_match_rules, FST, pair_CASES]*)
+   >- metis_tac [small_eval_match_rules, FST, pair_CASES, to_small_st_def]
+   >- metis_tac [small_eval_match_rules, FST, pair_CASES, to_small_st_def]
+   >- metis_tac [small_eval_match_rules, FST, pair_CASES, to_small_st_def]
    >- metis_tac [small_eval_match_rules]);
 
 val evaluate_ctxts_cons = Q.prove (
