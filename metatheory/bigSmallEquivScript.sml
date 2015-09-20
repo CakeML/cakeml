@@ -1208,8 +1208,6 @@ metis_tac [DECIDE ``SUC x = x + 1``, pair_CASES, REVERSE_APPEND]
 val evaluate_state_app_cons = Q.prove(
   `evaluate_state (env,s,Exp e,(Capp op [] () es,env)::c) bv
     ⇒ evaluate_state (env,s,Exp (App op (REVERSE es++[e])),c) bv`,
- cheat);
- (*
   rw[evaluate_state_cases] >>
   rw[Once evaluate_cases] >>
   fs[evaluate_ctxts_cons] >> rw[] >>
@@ -1220,6 +1218,8 @@ val evaluate_state_app_cons = Q.prove(
     fs [] >>
     TRY (
       disj1_tac >>
+      CONV_TAC(STRIP_QUANT_CONV
+        (lift_conjunct_conv(same_const``bigStep$evaluate`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> rw[] >>
       TRY(first_assum(split_pair_match o concl)) >>
       first_assum(match_exists_tac o concl) >> rw[] >> NO_TAC) >>
@@ -1233,7 +1233,6 @@ val evaluate_state_app_cons = Q.prove(
     first_assum(match_exists_tac o concl) >> rw[]) >>
   rpt disj2_tac >>
   rw[Once evaluate_cases]);
-  *)
 
 val one_step_backward = Q.prove (
 `!env s e c s' env' e' c' bv.
