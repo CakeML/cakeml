@@ -440,8 +440,8 @@ val (small_eval_match_rules, small_eval_match_ind, small_eval_match_cases) = Hol
 (!env s err_v v. small_eval_match env s v [] err_v (s, Rerr (Rraise err_v))) ∧
 (!env s p e pes r v err_v.
   ALL_DISTINCT (pat_bindings p []) ∧
-  pmatch env.c (FST s) p v env.v = Match new_vals ∧
-  small_eval (env with v := new_vals ++ env.v) s e [] r
+  pmatch env.c (FST s) p v env.v = Match env' ∧
+  small_eval (env with v := env') s e [] r
   ⇒
   small_eval_match env s v ((p,e)::pes) err_v r) ∧
 (!env s e p pes r v err_v.
@@ -471,74 +471,65 @@ val alt_small_eval_def = Define `
       (e_step (env',s2,e',c') = Eabort a))`;
 
 val small_eval_match_thm = Q.prove (
-`!env s v pes err_v r. 
-  small_eval_match env s v pes err_v r ⇒
-  !env2. alt_small_eval env2 s (Val v) [(Cmat () pes err_v,env)] r`,
- HO_MATCH_MP_TAC small_eval_match_ind >>
- rw [alt_small_eval_def]
- >- (qexists_tac `env` >>
-     qexists_tac `env` >>
-     match_mp_tac RTC_SINGLE >>
-     rw [e_step_reln_def, e_step_def, continue_def])
- >- cheat
- >- cheat
- (*
- >- (PairCases_on `r` >>
-     cases_on `r2` >|
-     [all_tac,
-      cases_on `e'`] >>
-     fs [alt_small_eval_def, small_eval_def] >|
-     [qexists_tac `env''` >>
-          rw [Once RTC_CASES1, e_step_reln_def] >>
-          rw [e_step_def, continue_def],
-      qexists_tac `env''` >>
-          rw [Once RTC_CASES1, e_step_reln_def] >>
+  `!env s v pes err_v r.
+    small_eval_match env s v pes err_v r ⇒
+    !env2. alt_small_eval env2 s (Val v) [(Cmat () pes err_v,env)] r`,
+  HO_MATCH_MP_TAC small_eval_match_ind >>
+  rw [alt_small_eval_def]
+  >- (qexists_tac `env` >>
+      qexists_tac `env` >>
+      match_mp_tac RTC_SINGLE >>
+      rw [e_step_reln_def, e_step_def, continue_def])
+  >- (PairCases_on `r` >>
+      cases_on `r2` >|
+      [all_tac,
+       cases_on `e'`] >>
+      fs [alt_small_eval_def, small_eval_def]
+      >- (rw [Once RTC_CASES1, e_step_reln_def] >>
           rw [e_step_def, continue_def] >>
-          metis_tac [],
+          metis_tac[])
+      >- (rw [Once RTC_CASES1, e_step_reln_def] >>
+          rw [e_step_def, continue_def] >>
+          metis_tac []) >>
       rw [] >>
-      qexists_tac `env''` >>
       rw [Once RTC_CASES1, e_step_reln_def] >>
+      qexists_tac `env''` >>
       qexists_tac `e'` >>
       qexists_tac `c'` >>
       rw [] >>
-      rw [e_step_def, continue_def]] >>
-     metis_tac [])
- >- (PairCases_on `r` >>
-     cases_on `r2` >|
-     [all_tac,
-      cases_on `e'`] >>
-     fs [alt_small_eval_def] >>
-     rw [Once RTC_CASES1, e_step_reln_def] >>
-     `?menv cenv envE. env = (menv,cenv,envE)` by (PairCases_on `env` >> metis_tac []) >>
-     fs [] >|
-     [rw [e_step_def, push_def, continue_def] >>
-          metis_tac [],
-      rw [e_step_def, push_def, continue_def] >>
-          metis_tac [],
-      rw [] >>
-          pop_assum (ASSUME_TAC o Q.SPEC `(menv,cenv,envE)`) >>
-          fs [] >>
-          qexists_tac `env'` >>
-          qexists_tac `e'` >>
-          qexists_tac `c'` >>
-          rw [] >>
-          rw [e_step_def, push_def, continue_def]])
-          *)
- >- (qexists_tac `env2` >>
-     qexists_tac `Val v` >>
-     qexists_tac `[(Cmat () ((p,e)::pes) err_v,env)]` >>
-     rw [RTC_REFL] >>
-     rw [e_step_def, continue_def] >>
-     PairCases_on `env` >>
-     fs [] >>
-     metis_tac [])
- >- (qexists_tac `env2` >>
-     qexists_tac `Val v` >>
-     qexists_tac `[(Cmat () ((p,e)::pes) err_v,env)]` >>
-     rw [RTC_REFL] >>
-     rw [e_step_def, continue_def] >>
-     PairCases_on `env` >>
-     fs []));
+      rw [e_step_def, continue_def])
+  >- (PairCases_on `r` >>
+      cases_on `r2` >|
+      [all_tac,
+       cases_on `e'`] >>
+      fs [alt_small_eval_def] >>
+      rw [Once RTC_CASES1, e_step_reln_def] >> fs [] >|
+      [rw [e_step_def, push_def, continue_def] >>
+           metis_tac [],
+       rw [e_step_def, push_def, continue_def] >>
+           metis_tac [],
+       rw [] >>
+           pop_assum (qspec_then`env`strip_assume_tac) >>
+           qexists_tac `env'` >>
+           qexists_tac `e'` >>
+           qexists_tac `c'` >>
+           rw [] >>
+           rw [e_step_def, push_def, continue_def]])
+  >- (qexists_tac `env2` >>
+      qexists_tac `Val v` >>
+      qexists_tac `[(Cmat () ((p,e)::pes) err_v,env)]` >>
+      rw [RTC_REFL] >>
+      rw [e_step_def, continue_def] >>
+      PairCases_on `env` >>
+      fs [] >>
+      metis_tac [])
+  >- (qexists_tac `env2` >>
+      qexists_tac `Val v` >>
+      qexists_tac `[(Cmat () ((p,e)::pes) err_v,env)]` >>
+      rw [RTC_REFL] >>
+      rw [e_step_def, continue_def] >>
+      PairCases_on `env` >>
+      fs []));
 
 val result_cases = Q.prove (
 `!r.
