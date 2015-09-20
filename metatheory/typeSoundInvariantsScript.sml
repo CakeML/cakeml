@@ -528,9 +528,9 @@ val _ = Define `
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,env,store) =  
+ (type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,st,env) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
-    consistent_decls decls2 decls_no_sig /\
+    consistent_decls st.defined_types decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
@@ -541,22 +541,23 @@ val _ = Define `
     consistent_mod_env tenvS ctMap env.m tenvM_no_sig /\
     consistent_con_env ctMap env.c tenvC_no_sig /\
     type_env ctMap tenvS env.v tenv /\
-    type_s ctMap tenvS store /\
+    type_s ctMap tenvS st.refs /\
     weakM tenvM_no_sig tenvM /\
     weakC tenvC_no_sig tenvC /\
     decls_ok decls_no_sig /\
     weak_decls decls_no_sig decls1 /\
     weak_decls_only_mods decls_no_sig decls1 /\
-    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn)))`;
+    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn) /\
+    (case decls1 of (mods,x,y) => mods = st.defined_mods )))`;
 
 
 val _ = Define `
- (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2: tid_or_exn set),(env: v environment),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' new_ctors r =  
+ (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(st:state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
 ((case r of
        Rval (new_mods, new_vals) => 
          (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
-          decls2',extend_top_env new_mods new_vals new_ctors env,store')
-     | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',env,store')
+          st',extend_top_env new_mods new_vals new_ctors env)
+     | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,st',env)
   )))`;
 
 val _ = export_theory()
