@@ -12,6 +12,7 @@ open clos_mtiTheory
 open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
+open clos_freeTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
@@ -64,6 +65,7 @@ fun add_compiler_compset compset = let
     ,cons_tag_def
     ,none_tag_def
     ,some_tag_def
+    ,num_defs_def
     ] compset
   val () = add_datatype``:conLang$op``
   val () = add_datatype``:conLang$pat``
@@ -168,6 +170,10 @@ fun add_compiler_compset compset = let
     ,clos_annotateTheory.new_env_def
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
+    ] compset
+  (* clos_free *)
+  val () = add_thms
+    [clos_freeTheory.free_def
     ] compset
   (* bvl *)
   val () = add_datatype``:bvl$exp``
