@@ -95,39 +95,6 @@ val ACONV_def = Define`
    ALPHAVARS, ACONV, TERM_UNION, etc., which don't
    lead to canonical hypothesis sets-as-lists *)
 
-(* TODO: move, see HOL issue #219 *)
-local open pairTheory relationTheory in
-val LEX_CONG = store_thm("LEX_CONG",
-  ``(R1 x1 x2 <=> R1' x1' x2') /\
-    (~(R1 x1 x2) ==> ((x1 = x2) <=> (x1' = x2'))) /\
-    (~(R1 x1 x2) ==> (R2 y1 y2 <=> R2' y1' y2'))
-    ==> ((R1 LEX R2) (x1,y1) (x2,y2) <=> (R1' LEX R2') (x1',y1') (x2',y2'))``,
-  SRW_TAC[][LEX_DEF_THM] THEN METIS_TAC[])
-val () = DefnBase.export_cong"LEX_CONG"
-val LEX_MONO = store_thm("LEX_MONO",
-  ``(!x y. R1 x y ==> R2 x y) /\
-    (!x y. R3 x y ==> R4 x y)
-    ==>
-    (R1 LEX R3) x y ==> (R2 LEX R4) x y``,
-  STRIP_TAC THEN
-  Cases_on`x` THEN Cases_on`y` THEN
-  SRW_TAC[][LEX_DEF_THM] THEN
-  PROVE_TAC[])
-val () = IndDefLib.export_mono"LEX_MONO"
-val LLEX_MONO = store_thm("LLEX_MONO",
-  ``(!x y. R1 x y ==> R2 x y)
-    ==>
-    LLEX R1 x y ==> LLEX R2 x y``,
-  STRIP_TAC THEN
-  Q.ID_SPEC_TAC`y` THEN
-  Induct_on`x` THEN
-  Cases_on`y` THEN
-  SRW_TAC[][LLEX_THM] THEN
-  PROVE_TAC[])
-val () = IndDefLib.export_mono"LLEX_MONO"
-end
-(* -- *)
-
 val (type_lt_rules,type_lt_ind,type_lt_cases) = Hol_reln`
   (mlstring_lt x1 x2 ⇒ type_lt (Tyvar x1) (Tyvar x2)) ∧
   (type_lt (Tyvar x1) (Tyapp x2 args2)) ∧

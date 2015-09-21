@@ -1778,9 +1778,7 @@ val store_type_extension_refl = Q.prove (
 
 val mem_lem = Q.prove (
 `(!v. ~MEM (x,v) l) ⇔ ~MEM x (MAP FST l)`,
- Induct_on `l` >>
- rw [] >>
- metis_tac [FST, pair_CASES]);
+ simp[FORALL_PROD, MEM_MAP])
 
 val decs_type_sound_invariant_def = Define `
 decs_type_sound_invariant mn tdecs1 ctMap tenvS tenvT tenvM tenvC tenv st env ⇔
@@ -1894,7 +1892,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          rw [] >>
          rw [GSYM small_big_exp_equiv, to_small_st_def, store_type_extension_def]))
  >- (imp_res_tac type_funs_distinct >>
-     `type_env2 ctMap tenvS tvs (MAP (\(fn,n,e). (fn, Recclosure env funs fn)) funs) tenv''`
+     `type_env2 ctMap tenvS tvs (MAP (λ(fn,n,e). (fn, Recclosure env funs fn)) funs) tenv''`
                   by metis_tac [type_recfun_env] >>
      imp_res_tac type_env_merge_lem1 >>
      MAP_EVERY qexists_tac [`st`, `Rval ([],build_rec_env funs env [])`, `tenvS`] >>
@@ -1975,8 +1973,12 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      Cases_on `env.c` >>
      PairCases_on `tenvC` >>
      rw [merge_alist_mod_env_def])
- >- (Q.LIST_EXISTS_TAC [`st with <| defined_types := {TypeExn (mk_id mn cn)} ∪ st.defined_types |>`, `Rval ([(cn,LENGTH ts,TypeExn (mk_id mn cn))],[])`, `tenvS`] >>
-     `DISJOINT (FDOM (flat_to_ctMap [(cn, ([]:tvarN list,ts,TypeExn (mk_id mn cn)))])) (FDOM ctMap)`
+ >- (Q.LIST_EXISTS_TAC [`st with <| defined_types := {TypeExn (mk_id mn cn)} ∪ st.defined_types |>`,
+                        `Rval ([(cn,LENGTH ts,TypeExn (mk_id mn cn))],[])`,
+                        `tenvS`] >>
+     `DISJOINT
+       (FDOM (flat_to_ctMap [(cn, ([]:tvarN list,ts,TypeExn (mk_id mn cn)))]))
+       (FDOM ctMap)`
                  by metis_tac [consistent_decls_disjoint_exn] >>
      rw []
      >- (fs [consistent_decls_def, RES_FORALL] >>

@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/parsing/ .. ../lem_lib_stub ../ffi
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../lem_lib_stub ../ffi
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -22,7 +22,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/parsing/grammarLib ../compute_basicLib
+BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../compute_basicLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)
