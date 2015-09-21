@@ -341,4 +341,105 @@ val sexptop_def = Define`
     od
 `;
 
+(* now the reverse: toSexp *)
+
+val listsexp_def = Define`
+  listsexp = FOLDR SX_CONS nil`;
+
+val optsexp_def = Define`
+  (optsexp NONE = listsexp [SX_SYM "NONE"]) ∧
+  (optsexp (SOME x) = listsexp [SX_SYM "SOME"; x])`;
+
+val idsexp_def = Define`
+  (idsexp (Short n) = listsexp [SX_SYM"Short"; SX_STR n]) ∧
+  (idsexp (Long ns n) = listsexp [SX_SYM"Long"; SX_STR ns; SX_STR n])`;
+
+val tctorsexp_def = Define`
+  (tctorsexp (TC_name id) = listsexp [SX_SYM "TC_name"; idsexp id]) ∧
+  (tctorsexp TC_int = SX_SYM "TC_int") ∧
+  (tctorsexp TC_char = SX_SYM "TC_char") ∧
+  (tctorsexp TC_string = SX_SYM "TC_string") ∧
+  (tctorsexp TC_ref = SX_SYM "TC_ref") ∧
+  (tctorsexp TC_word = SX_SYM "TC_word") ∧
+  (tctorsexp TC_word8array = SX_SYM "TC_word8array") ∧
+  (tctorsexp TC_fn = SX_SYM "TC_fn") ∧
+  (tctorsexp TC_tup = SX_SYM "TC_tup") ∧
+  (tctorsexp TC_exn = SX_SYM "TC_exn") ∧
+  (tctorsexp TC_vector = SX_SYM "TC_vector") ∧
+  (tctorsexp TC_array = SX_SYM "TC_array")`;
+
+val typesexp_def = tDefine"typesexp"`
+  (typesexp (Tvar s) = listsexp [SX_SYM "Tvar"; SX_STR s]) ∧
+  (typesexp (Tvar_db n) = listsexp [SX_SYM "Tvar_db"; SX_NUM n]) ∧
+  (typesexp (Tapp ts ct) = listsexp [SX_SYM "Tapp"; listsexp (MAP typesexp ts); tctorsexp ct])`
+  (WF_REL_TAC`measure t_size` >>
+   Induct_on`ts` >> simp[t_size_def] >>
+   rw[] >> res_tac >> simp[] >>
+   first_x_assum(qspec_then`ct`strip_assume_tac)>>
+   decide_tac);
+
+val litsexp_def = Define`
+  (litsexp (IntLit i) =
+   if i < 0 then listsexp [SX_SYM "-"; SX_NUM (Num(-i))]
+            else SX_NUM (Num i)) ∧
+  (litsexp (Char c) = listsexp [SX_SYM "char"; SX_STR [c]]) ∧
+  (litsexp (StrLit s) = SX_STR s) ∧
+  (litsexp (Word8 w) = listsexp [SX_SYM "word8"; SX_NUM (w2n w)])`;
+
+val patsexp_def = tDefine"patsexp"`
+  (patsexp (Pvar s) = SX_STR s) ∧
+  (patsexp (Plit l) = listsexp [SX_SYM "Plit"; litsexp l]) ∧
+  (patsexp (Pcon cn ps) = listsexp [SX_SYM "Pcon"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP patsexp ps)]) ∧
+  (patsexp (Pref p) = listsexp [SX_SYM "Pref"; patsexp p])`
+  (WF_REL_TAC`measure pat_size` >>
+   Induct_on`ps`>>simp[pat_size_def] >>
+   rw[] >> simp[] >> res_tac >>
+   first_x_assum(qspec_then`cn`strip_assume_tac)>>
+   decide_tac )
+
+val expsexp_def = tDefine"expsexp"`
+  (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
+  (expsexp (Handle e pes) = listsexp [SX_SYM "Handle"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
+  (expsexp (Lit l) = listsexp [SX_SYM "Lit"; litsexp l]) ∧
+  (expsexp (Con cn es) = listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP expsexp es)]) ∧
+  (expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id])`
+  (* TODO: both this and sexpexp are incomplete *)
+  (WF_REL_TAC`measure exp_size` >>
+   rpt conj_tac >>
+   (Induct_on`pes` ORELSE Induct_on`es`) >>
+   simp[exp_size_def] >> rw[] >> simp[exp_size_def] >>
+   res_tac >>
+   first_x_assum(strip_assume_tac o SPEC_ALL) >>
+   decide_tac)
+
+val type_defsexp_def = Define`
+  type_defsexp = listsexp o
+    MAP (λ(xs,x,ls).
+      SX_CONS (listsexp (MAP SX_STR xs))
+        (SX_CONS (SX_STR x)
+          (listsexp (MAP (λ(y,ts). SX_CONS (SX_STR y) (listsexp (MAP typesexp ts))) ls))))`;
+
+val decsexp_def = Define`
+  (decsexp (Dlet p e) = listsexp [SX_SYM "Dlet"; patsexp p; expsexp e]) ∧
+  (decsexp (Dletrec funs) =
+     listsexp [SX_SYM "Dletrec";
+               listsexp (MAP (λ(f,x,e). SX_CONS (SX_STR f) (SX_CONS (SX_STR x) (expsexp e))) funs)]) ∧
+  (decsexp (Dtype td) = listsexp [SX_SYM "Dtype"; type_defsexp td]) ∧
+  (decsexp (Dtabbrev ns x t) = listsexp [SX_SYM "Dtabbrev"; listsexp (MAP SX_STR ns); SX_STR x; typesexp t]) ∧
+  (decsexp (Dexn x ts) = listsexp [SX_SYM "Dexn"; SX_STR x; listsexp (MAP typesexp ts)])`;
+
+val specsexp_def = Define`
+  (specsexp (Sval x t) = listsexp [SX_SYM "Sval"; SX_STR x; typesexp t]) ∧
+  (specsexp (Stype t) = listsexp [SX_SYM "Stype"; type_defsexp t]) ∧
+  (specsexp (Stabbrev ns x t) = listsexp [SX_SYM "Stabbrev"; listsexp (MAP SX_STR ns); SX_STR x; typesexp t]) ∧
+  (specsexp (Stype_opq ns x) = listsexp [SX_SYM "Stype_opq"; listsexp (MAP SX_STR ns); SX_STR x]) ∧
+  (specsexp (Sexn x ts) = listsexp [SX_SYM "Sexn"; SX_STR x; listsexp (MAP typesexp ts)])`;
+
+val topsexp_def = Define`
+  (topsexp (Tmod modN specopt declist) =
+     listsexp [SX_SYM "Tmod"; SX_STR modN; optsexp (OPTION_MAP (listsexp o MAP specsexp) specopt);
+               listsexp (MAP decsexp declist)]) ∧
+  (topsexp (Tdec dec) =
+     listsexp [SX_SYM "Tdec"; decsexp dec])`;
+
 val _ = export_theory();
