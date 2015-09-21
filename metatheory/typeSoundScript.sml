@@ -2,6 +2,7 @@ open preamble;
 open libTheory astTheory typeSystemTheory semanticPrimitivesTheory;
 open smallStepTheory bigStepTheory;
 open terminationTheory;
+open evalPropsTheory;
 open weakeningTheory typeSysPropsTheory bigSmallEquivTheory;
 open typeSoundInvariantsTheory evalPropsTheory;
 
@@ -2325,6 +2326,18 @@ val type_ds_no_dup_types = Q.prove (
  >- metis_tac []
  >- metis_tac []);
 
+val no_new_mods = Q.prove (
+`!x uniq mn decls1 tenvT tenvM tenvC tenv d decls1' tenvT' tenvC' tenv'.
+  type_d uniq mn decls1 tenvT tenvM tenvC tenv d decls1' tenvT' tenvC' tenv' ∧
+  (case decls1 of (mods,v1) => mods = x)
+  ⇒
+  (case union_decls decls1' decls1 of (mods,v1) => mods = x)`,
+ rw [] >>
+ imp_res_tac type_d_mod >>
+ PairCases_on `decls1'` >>
+ PairCases_on `decls1` >>
+ fs [union_decls_def]);
+
 val top_type_soundness_lem = Q.prove (
 `!decls1 tenvT tenvM tenvC tenv (env : v environment) st decls1' tenvT' tenvM' tenvC' tenv' top.
   type_sound_invariants NONE (decls1,tenvT,tenvM,tenvC,tenv,st,env) ∧
@@ -2382,7 +2395,7 @@ val top_type_soundness_lem = Q.prove (
              metis_tac [])
          >- metis_tac [weak_decls_union]
          >- metis_tac [weak_decls_only_mods_union]
-         >- cheat)
+         >- metis_tac [no_new_mods, eval_d_no_new_mods, FST])
      >- (MAP_EVERY qexists_tac [`Rval ([],env1)`,`([],cenv1)`, `st'`] >>
          rw [type_sound_invariants_def, update_type_sound_inv_def] >>
          `weakCT (FUNION (flat_to_ctMap cenv') ctMap) ctMap`
@@ -2405,7 +2418,7 @@ val top_type_soundness_lem = Q.prove (
              metis_tac [])
          >- metis_tac [weak_decls_union]
          >- metis_tac [weak_decls_only_mods_union]
-         >- cheat))
+         >- metis_tac [no_new_mods, eval_d_no_new_mods, FST]))
  >- (fs [] >>
      metis_tac [type_ds_no_dup_types])
  >- metis_tac [type_ds_no_dup_types]

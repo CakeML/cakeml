@@ -680,6 +680,32 @@ val all_env_dom_def = Define`
     IMAGE Short (set (MAP FST envE)) ∪
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`
 
+val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_type_mods",
+`(!ck env st e r. evaluate ck env st e r ⇒ 
+   st.defined_types = (FST r).defined_types ∧
+   st.defined_mods = (FST r).defined_mods) ∧
+ (!ck env st es r. evaluate_list ck env st es r ⇒ 
+   st.defined_types = (FST r).defined_types ∧
+   st.defined_mods = (FST r).defined_mods) ∧
+ (!ck env st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒ 
+   st.defined_types = (FST r).defined_types ∧
+   st.defined_mods = (FST r).defined_mods)`,
+ ho_match_mp_tac bigStepTheory.evaluate_ind >>
+ rw []);
+
+val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
+`!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
+ rw [evaluate_dec_cases] >>
+ imp_res_tac evaluate_no_new_types_mods >>
+ fs []);
+
+val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
+`!ck mn env st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
+ ho_match_mp_tac evaluate_decs_ind >>
+ rw [] >>
+ imp_res_tac eval_d_no_new_mods >>
+ fs []);
+
 (* REPL bootstrap lemmas *)
 
 (* TODO
