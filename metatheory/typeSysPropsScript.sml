@@ -1954,16 +1954,15 @@ fs [lookup_tenv_def] >>
 metis_tac []);
 
 val type_lookup_id = Q.store_thm ("type_lookup_id",
-`∀tenvS tenvC env tenvM tenv.
+`∀tenvS tenvC tenvM tenv.
   type_env tenvC tenvS env.v tenv ∧
-  consistent_mod_env tenvS tenvC env.m tenvM 
+  consistent_mod_env tenvS tenvC env.m tenvM
   ⇒
-  ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒ 
+  ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒
      (∃v. (lookup_var_id n env = SOME v)))`,
- cheat);
- (*
  induct_on `env.m` >>
  rw [t_lookup_var_id_def, lookup_var_id_def] >>
+ qpat_assum`X = env.m`(assume_tac o SYM) >> fs[] >>
  cases_on `n` >>
  fs [] >>
  rw [lookup_var_id_def, t_lookup_var_id_def] >>
@@ -1972,13 +1971,14 @@ val type_lookup_id = Q.store_thm ("type_lookup_id",
  qpat_assum `consistent_mod_env tenvS x0 x1 x2` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  fs [] >>
  rw [] >>
- fs [t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE]
- >- (match_mp_tac type_lookup >>
-     every_case_tac >>
-     fs [lookup_tenv_def, bind_tvar_def, bvl2_lookup] >>
-     metis_tac [SAME_KEY_UPDATES_DIFFER])
- >- metis_tac []);
- *)
+ fs [t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE] >- (
+   match_mp_tac type_lookup >>
+   every_case_tac >>
+   fs [lookup_tenv_def, bind_tvar_def, bvl2_lookup] >>
+   metis_tac [SAME_KEY_UPDATES_DIFFER]) >>
+ first_x_assum(qspec_then`env with m := v`mp_tac) >> simp[] >>
+ disch_then (match_mp_tac o MP_CANON) >>
+ metis_tac[]);
 
 val type_subst = Q.store_thm ("type_subst",
 `(!tvs ctMap tenvS v t. type_v tvs ctMap tenvS v t ⇒
