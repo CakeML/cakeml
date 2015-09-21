@@ -21,6 +21,26 @@ val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
 val _ = overload_on ("assert", ``option$OPTION_GUARD : bool -> unit option``)
 val _ = overload_on ("++", ``option$OPTION_CHOICE``)
 
+(* TODO: move*)
+val OPTION_CHOICE_NONE = Q.store_thm("OPTION_CHOICE_NONE[simp]",
+  `OPTION_CHOICE x NONE = x`,
+  Cases_on`x`>>simp[]);
+
+val type_ind =
+  (TypeBase.induction_of``:t``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE list_ss []
+  |> UNDISCH_ALL |> CONJUNCT1
+  |> DISCH_ALL |> Q.GEN`P`
+
+val pat_ind =
+  (TypeBase.induction_of``:pat``)
+  |> Q.SPECL[`P`,`EVERY P`]
+  |> SIMP_RULE list_ss []
+  |> UNDISCH_ALL |> CONJUNCT1
+  |> DISCH_ALL |> Q.GEN`P`
+(* -- *)
+
 
 val odestSXSTR_def = Define`
   (odestSXSTR (SX_STR s) = SOME s) ∧
@@ -141,7 +161,7 @@ val sexptctor_def = Define`
        guard (nm = "TC_char") (return TC_char) ++
        guard (nm = "TC_string") (return TC_string) ++
        guard (nm = "TC_ref") (return TC_ref) ++
-       guard (nm = "TC_word") (return TC_word8) ++
+       guard (nm = "TC_word8") (return TC_word8) ++
        guard (nm = "TC_word8array") (return TC_word8array) ++
        guard (nm = "TC_fn") (return TC_fn) ++
        guard (nm = "TC_tup") (return TC_tup) ++
@@ -347,7 +367,7 @@ val listsexp_def = Define`
   listsexp = FOLDR SX_CONS nil`;
 
 val optsexp_def = Define`
-  (optsexp NONE = listsexp [SX_SYM "NONE"]) ∧
+  (optsexp NONE = SX_SYM "NONE") ∧
   (optsexp (SOME x) = listsexp [SX_SYM "SOME"; x])`;
 
 val idsexp_def = Define`
@@ -360,7 +380,7 @@ val tctorsexp_def = Define`
   (tctorsexp TC_char = SX_SYM "TC_char") ∧
   (tctorsexp TC_string = SX_SYM "TC_string") ∧
   (tctorsexp TC_ref = SX_SYM "TC_ref") ∧
-  (tctorsexp TC_word = SX_SYM "TC_word") ∧
+  (tctorsexp TC_word8 = SX_SYM "TC_word8") ∧
   (tctorsexp TC_word8array = SX_SYM "TC_word8array") ∧
   (tctorsexp TC_fn = SX_SYM "TC_fn") ∧
   (tctorsexp TC_tup = SX_SYM "TC_tup") ∧
@@ -441,5 +461,135 @@ val topsexp_def = Define`
                listsexp (MAP decsexp declist)]) ∧
   (topsexp (Tdec dec) =
      listsexp [SX_SYM "Tdec"; decsexp dec])`;
+
+(* round trip *)
+
+val odestSXSTR_SX_STR = Q.store_thm("odestSXSTR_SX_STR[simp]",
+  `odestSXSTR (SX_STR s) = SOME s`,
+  rw[odestSXSTR_def])
+
+val odestSXNUM_SX_NUM = Q.store_thm("odestSXNUM_SX_NUM[simp]",
+  `odestSXNUM (SX_NUM n) = SOME n`,
+  EVAL_TAC)
+
+val odestSXSYM_SX_SYM = Q.store_thm("odestSXSYM_SX_SYM[simp]",
+  `odestSXSYM (SX_SYM s) = SOME s`,
+  EVAL_TAC)
+
+val odestSXNUM_SX_STR = Q.store_thm("odestSXNUM_SX_STR[simp]",
+  `odestSXNUM (SX_STR s) = NONE`,
+  EVAL_TAC)
+
+val odestSXSTR_listsexp = Q.store_thm("odestSXSTR_listsexp[simp]",
+  `odestSXSTR (listsexp l) = NONE`,
+  Cases_on`l`>>EVAL_TAC)
+
+val odestSXNUM_listsexp = Q.store_thm("odestSXNUM_listsexp[simp]",
+  `odestSXNUM (listsexp l) = NONE`,
+  Cases_on`l`>>EVAL_TAC)
+
+val dstrip_sexp_SX_STR = Q.store_thm("dstrip_sexp_SX_STR[simp]",
+  `dstrip_sexp (SX_STR s) = NONE`,
+  EVAL_TAC)
+
+val strip_sxcons_listsexp = Q.store_thm("strip_sxcons_listsexp[simp]",
+  `strip_sxcons (listsexp ls) = SOME ls`,
+  Induct_on`ls`>>rw[listsexp_def,Once strip_sxcons_def] >>
+  fs[listsexp_def])
+
+val dstrip_sexp_listsexp = Q.store_thm("dstrip_sexp_listsexp[simp]",
+  `(dstrip_sexp (listsexp ls) =
+    case ls of (SX_SYM x::xs) => SOME (x,xs) | _ => NONE)`,
+  BasicProvers.CASE_TAC >> rw[dstrip_sexp_def,listsexp_def] >>
+  BasicProvers.CASE_TAC >> rw[GSYM listsexp_def]);
+
+val sexplist_listsexp_matchable = Q.store_thm("sexplist_listsexp_matchable",
+  `∀g gl. (∀x. MEM x l ⇒ f (g x) = SOME x) ∧ (gl = MAP g l) ⇒
+   sexplist f (listsexp gl) = SOME l`,
+  Induct_on`l` >> simp[listsexp_def,Once sexplist_def] >>
+  simp[GSYM listsexp_def] >> metis_tac[]);
+
+val sexplist_listsexp_rwt = Q.store_thm("sexplist_listsexp_rwt[simp]",
+  `(∀x. MEM x l ⇒ f (g x) = SOME x) ⇒
+   (sexplist f (listsexp (MAP g l)) = SOME l)`,
+  metis_tac[sexplist_listsexp_matchable]);
+
+val sexpopt_optsexp = Q.store_thm("sexpopt_optsexp[simp]",
+  `(∀y. (x = SOME y) ⇒ (f (g y) = x)) ⇒
+   (sexpopt f (optsexp (OPTION_MAP g x)) = SOME x)`,
+  Cases_on`x`>>EVAL_TAC >> simp[])
+
+val sexpid_odestSXSTR_idsexp = Q.store_thm("sexpid_odestSXSTR_idsexp[simp]",
+  `sexpid odestSXSTR (idsexp i) = SOME i`,
+  Cases_on`i` >> EVAL_TAC)
+
+val sexptctor_tctorsexp = Q.store_thm("sexptctor_tctorsexp[simp]",
+  `sexptctor (tctorsexp t) = SOME t`,
+  Cases_on`t`>>simp[tctorsexp_def,sexptctor_def] >>
+  simp[dstrip_sexp_def])
+
+val sexptype_typesexp = Q.store_thm("sexptype_typesexp[simp]",
+  `sexptype (typesexp t) = SOME t`,
+  qid_spec_tac`t` >>
+  ho_match_mp_tac type_ind >>
+  conj_tac >- rw[Once sexptype_def,typesexp_def] >>
+  conj_tac >- rw[Once sexptype_def,typesexp_def] >>
+  Induct_on`l`>>rw[typesexp_def] >- (
+    rw[Once sexptype_def,sexplist_listsexp_matchable] ) >> fs[] >>
+  rw[Once sexptype_def] >>
+  fsrw_tac[boolSimps.ETA_ss][] >>
+  match_mp_tac sexplist_listsexp_matchable >>
+  fs[typesexp_def] >> rw[] >> rw[] >>
+  fs[listTheory.EVERY_MEM] >>
+  metis_tac[]);
+
+val sexptype_def_type_defsexp = Q.store_thm("sexptype_def_type_defsexp[simp]",
+  `sexptype_def (type_defsexp l) = SOME l`,
+  Induct_on`l` >> rw[type_defsexp_def] >> rw[sexptype_def_def] >>
+  match_mp_tac sexplist_listsexp_matchable >> simp[] >>
+  (fn (g as (asl,w)) =>
+    let
+      val (x,b) = dest_exists w
+      val tm = find_term (fn y => type_of x = type_of y andalso not (is_var y)) b
+    in EXISTS_TAC tm end g) >>
+  simp[] >>
+  qx_gen_tac`p`>>PairCases_on`p` >> simp[] >>
+  fs[type_defsexp_def,sexptype_def_def] >>
+  cheat )
+
+val sexplit_litsexp = Q.store_thm("sexplit_litsexp[simp]",
+  `sexplit (litsexp l) = SOME l`,
+  Cases_on`l`>>simp[sexplit_def,litsexp_def] >- (
+    rw[] >> intLib.ARITH_TAC ) >>
+  ONCE_REWRITE_TAC[GSYM wordsTheory.dimword_8] >>
+  ONCE_REWRITE_TAC[wordsTheory.w2n_lt] >>
+  rw[])
+
+val sexppat_patsexp = Q.store_thm("sexppat_patsexp[simp]",
+  `sexppat (patsexp p) = SOME p`,
+  qid_spec_tac`p` >>
+  ho_match_mp_tac pat_ind >>
+  conj_tac >- simp[patsexp_def,Once sexppat_def] >>
+  conj_tac >- simp[patsexp_def,Once sexppat_def] >>
+  conj_tac >- ( cheat) >>
+  rw[] >> simp[patsexp_def,Once sexppat_def]);
+
+val sexpdec_decsexp = Q.store_thm("sexpdec_decsexp[simp]",
+  `sexpdec (decsexp d) = SOME d`,
+  Cases_on`d`>>simp[decsexp_def,sexpdec_def] >>
+  cheat )
+
+val sexpspec_specsexp = Q.store_thm("sexpspec_specsexp[simp]",
+  `sexpspec (specsexp s) = SOME s`,
+  Cases_on`s`>>simp[specsexp_def,sexpspec_def]);
+
+val sexptop_topsexp = Q.store_thm("sexptop_topsexp",
+  `sexptop (topsexp t) = SOME t`,
+  Cases_on`t` >> simp[topsexp_def,sexptop_def]);
+
+val topsexp_sexptop = Q.store_thm("topsexp_sexptop",
+  `sexptop s = SOME t ⇒ topsexp t = s`,
+  Cases_on`t` >> simp[topsexp_def,sexptop_def] >>
+  cheat)
 
 val _ = export_theory();
