@@ -1375,63 +1375,70 @@ rw [Once evaluate_ctxts_cases] >>
 PairCases_on `h` >>
 rw []);
 
-val one_step_backward_type_error = Q.prove (
-`!env s e c.
-  (e_step (env,to_small_st s,e,c) = Eabort a)
-  ⇒
-  evaluate_state (env,to_small_st s,e,c) ((s with <| defined_mods := {}; defined_types := {}; clock := 0 |>), Rerr (Rabort a))`,
- cheat);
- (*
+val evaluate_ctxts_type_error_matchable = Q.prove (
+`!a s c. s' = s ⇒ evaluate_ctxts s c (Rerr (Rabort a)) (s',Rerr (Rabort a))`,
+metis_tac[evaluate_ctxts_type_error])
 
- rw [e_step_def] >>
- cases_on `e` >>
- fs []
- >- (reverse (cases_on `e'`) >>
-     fs [push_def, return_def] >>
-     every_case_tac >>
-     rw [evaluate_state_cases] >>
-     rw [Once evaluate_cases] >>
-     fs [] >>
-     rw [to_small_st_def]
-     >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE, pair_CASES]
-     >- (
-       fs[application_thm] >>
-       pop_assum mp_tac >> rw[] >>
-       every_case_tac >> fs[] >>
-       TRY(PairCases_on `s` >>fs[do_app_def]>>NO_TAC) >>
-       rw[Once evaluate_cases] >>
-       rw[Once evaluate_cases] >>
-       rw[Once evaluate_cases] >>
-       fs [return_def] >>
-       metis_tac[evaluate_ctxts_type_error,FORALL_PROD, pair_CASES]) >>
-     metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE, pair_CASES],
- fs [continue_def] >>
-     cases_on `c` >>
-     fs [] >>
-     cases_on `h` >>
-     fs [] >>
-     cases_on `q` >>
-     fs [] >>
-     every_case_tac >>
-     fs [evaluate_state_cases, push_def, return_def] >>
-     rw [evaluate_ctxts_cons, evaluate_ctxt_cases] >>
-     PairCases_on `s` >>
-     rw [PULL_EXISTS] >- (
-       fs[application_thm] >>
-       every_case_tac >> fs[return_def] >>
-       rw[oneTheory.one] >>
-       rw[Once evaluate_cases] >>
-       rw[Once evaluate_cases] >>
-       rw[Once evaluate_cases] >>
-       imp_res_tac do_app_type_error >>
-       imp_res_tac do_app_not_timeout >>
-       fs[] >> rw[] >>
-       metis_tac[evaluate_ctxts_type_error,FORALL_PROD]) >>
-     rw [Once evaluate_cases] >>
-     full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
-     rw [Once evaluate_cases] >>
-     metis_tac [FST, pair_CASES,oneTheory.one, evaluate_ctxts_type_error, do_con_check_build_conv, NOT_SOME_NONE]])
-     *)
+val one_step_backward_type_error = Q.prove (
+  `!env s e c.
+    (e_step (env,to_small_st s,e,c) = Eabort a)
+    ⇒
+    evaluate_state (env,to_small_st s,e,c)
+      ((s with <| defined_mods := {}; defined_types := {}; clock := 0 |>),
+       Rerr (Rabort a))`,
+  rw [e_step_def] >>
+  cases_on `e` >>
+  fs []
+  >- (
+    reverse (cases_on `e'`) >>
+    fs [push_def, return_def] >>
+    every_case_tac >>
+    rw [evaluate_state_cases] >>
+    rw [Once evaluate_cases] >>
+    fs [] >>
+    rw [to_small_st_def]
+    >> TRY (
+      match_mp_tac evaluate_ctxts_type_error_matchable >>
+      rw[state_component_equality] )
+    >- (
+      fs[application_thm] >>
+      pop_assum mp_tac >> rw[] >>
+      every_case_tac >> fs[to_small_st_def] >> rw[] >>
+      TRY(fs[do_app_def]>>NO_TAC) >>
+      rw[Once evaluate_cases] >>
+      rw[Once evaluate_cases] >>
+      rw[Once evaluate_cases] >>
+      fs [return_def] >>
+      match_mp_tac evaluate_ctxts_type_error_matchable >>
+      rw[state_component_equality] ) >>
+    metis_tac[do_con_check_build_conv,NOT_SOME_NONE]) >>
+  fs [continue_def] >>
+  cases_on `c` >> fs [] >>
+  cases_on `h` >> fs [] >>
+  cases_on `q` >> fs [] >>
+  every_case_tac >>
+  fs [evaluate_state_cases, push_def, return_def] >>
+  rw [evaluate_ctxts_cons, evaluate_ctxt_cases, to_small_st_def] >>
+  rw [PULL_EXISTS] >- (
+    fs[application_thm] >>
+    every_case_tac >> fs[return_def] >>
+    rw[oneTheory.one] >>
+    rw[Once evaluate_cases] >>
+    rw[Once evaluate_cases] >>
+    rw[Once evaluate_cases] >>
+    imp_res_tac do_app_type_error >>
+    imp_res_tac do_app_not_timeout >>
+    fs[to_small_st_def] >> rw[] >>
+    srw_tac[DNF_ss][] >>
+    match_mp_tac evaluate_ctxts_type_error_matchable >>
+    rw[state_component_equality] ) >>
+  rw [Once evaluate_cases] >>
+  full_simp_tac (srw_ss() ++ ARITH_ss) [arithmeticTheory.ADD1] >>
+  rw [Once evaluate_cases] >>
+  srw_tac[DNF_ss][] >> fs[to_small_st_def] >>
+  ((match_mp_tac evaluate_ctxts_type_error_matchable >>
+    rw[state_component_equality]) ORELSE
+   metis_tac[do_con_check_build_conv,NOT_SOME_NONE]));
 
 val small_exp_to_big_exp = Q.prove (
 `!st st'. e_step_reln^* st st' ⇒
