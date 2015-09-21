@@ -1379,19 +1379,20 @@ val one_step_backward_type_error = Q.prove (
 `!env s e c.
   (e_step (env,to_small_st s,e,c) = Eabort a)
   ⇒
-  evaluate_state (env,to_small_st s,e,c) (s, Rerr (Rabort a))`,
-cheat);
-(*
-rw [e_step_def] >>
-cases_on `e` >>
-fs [] >|
-[reverse (cases_on `e'`) >>
+  evaluate_state (env,to_small_st s,e,c) ((s with <| defined_mods := {}; defined_types := {}; clock := 0 |>), Rerr (Rabort a))`,
+ cheat);
+ (*
+
+ rw [e_step_def] >>
+ cases_on `e` >>
+ fs []
+ >- (reverse (cases_on `e'`) >>
      fs [push_def, return_def] >>
      every_case_tac >>
      rw [evaluate_state_cases] >>
      rw [Once evaluate_cases] >>
      fs [] >>
-     rw []
+     rw [to_small_st_def]
      >- metis_tac [evaluate_ctxts_type_error,do_con_check_build_conv, NOT_SOME_NONE, pair_CASES]
      >- (
        fs[application_thm] >>
@@ -1447,51 +1448,77 @@ rw [] >>
 metis_tac [one_step_backward]);
 
 val evaluate_state_no_ctxt = Q.prove (
-`!env s e r. evaluate_state (env,to_small_st s,Exp e,[]) r = evaluate F env s e r`,
- cheat);
- (*
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-cases_on `r` >>
-rw [] >>
-metis_tac [pair_CASES]);
-*)
+`!env s e r.
+  evaluate_state (env,to_small_st s,Exp e,[]) r 
+  ⇔ 
+  evaluate F env (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>) e r`,
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ fs [to_small_st_def] >>
+ eq_tac >>
+ rw [] >>
+ metis_tac [state_accfupds, K_DEF, state_component_equality, PAIR]);
 
 val evaluate_state_val_no_ctxt = Q.prove (
-`!env s e. evaluate_state (env,to_small_st s,Val e,[]) r = (r = (s, Rval e))`,
- cheat);
- (*
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-metis_tac [pair_CASES]);
-*)
+`!env s e. 
+  evaluate_state (env,to_small_st s,Val e,[]) r
+  ⇔ 
+  (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rval e))`,
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ fs [to_small_st_def] >>
+ eq_tac >>
+ rw [] >>
+ fs [state_component_equality]);
 
 val evaluate_state_val_raise_ctxt = Q.prove (
-`!env s v env'. evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r = (r = (s, Rerr (Rraise v)))`,
-cheat);
-(*
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-rw [evaluate_ctxt_cases] >>
-rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
-metis_tac [pair_CASES]);
-*)
+`!env s v env'. 
+  evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r 
+  ⇔ 
+  (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rerr (Rraise v)))`,
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ rw [evaluate_ctxt_cases] >>
+ rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
+ fs [to_small_st_def] >>
+ eq_tac >>
+ rw [] >>
+ fs [state_component_equality]);
 
 val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
 `!env s e s' r. 
-  small_eval env (to_small_st s) e [] (to_small_st s',r) = evaluate F env s e (s',r)`,
+  (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧ 
+   s.clock = s'.clock ∧ s.defined_types = s'.defined_types ∧ s.defined_mods = s'.defined_mods)
+  ⇔ 
+  evaluate F env s e (s',r)`,
  rw [] >>
- cases_on `r` >|
- [all_tac,
-  cases_on `e'`] >>
- rw [small_eval_def] >>
- eq_tac >>
- rw [] >>
- imp_res_tac big_exp_to_small_exp >>
- imp_res_tac small_exp_to_big_exp >>
- fs [small_eval_def, to_small_res_def] >>
- metis_tac [big_unclocked, evaluate_state_no_ctxt, 
-            evaluate_state_val_raise_ctxt, one_step_backward_type_error, 
-            evaluate_state_val_no_ctxt, to_small_st_def]);
+ eq_tac 
+ >- (rw [] >>
+     cases_on `r` >|
+     [all_tac,
+      cases_on `e'`] >>
+     fs [small_eval_def] >>
+     imp_res_tac small_exp_to_big_exp >>
+     fs [evaluate_state_val_no_ctxt, evaluate_state_no_ctxt, evaluate_state_val_raise_ctxt] >>
+     imp_res_tac evaluate_ignores_type_mods >>
+     fs []
+     >- (pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+         rw [] >>
+         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors])
+     >- (pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+         rw [] >>
+         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors])
+     >- (imp_res_tac one_step_backward_type_error >>
+         fs [] >>
+         res_tac >>
+         imp_res_tac evaluate_ignores_type_mods >>
+         pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+         rw [] >>
+         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors]))
+ >- (rw [] >>
+     imp_res_tac big_exp_to_small_exp >>
+     fs [small_eval_def, to_small_res_def] >>
+     metis_tac [evaluate_no_new_type_mods, FST, big_unclocked]));
 
 (* ---------------------- Small step determinacy ------------------------- *)
 

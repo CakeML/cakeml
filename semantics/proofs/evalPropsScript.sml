@@ -693,6 +693,24 @@ val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_type_mods",
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  rw []);
 
+val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_type_mods",
+`(∀ck env st e r.
+   evaluate ck env st e r ⇒
+   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e 
+            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
+ (∀ck env st es r.
+   evaluate_list ck env st es r ⇒
+   !x y. evaluate_list ck env (st with <| defined_types:= x; defined_mods := y |>) es
+            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
+ (∀ck env st v pes err_v r.
+   evaluate_match ck env st v pes err_v r ⇒
+   !x y. evaluate_match ck env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
+            ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r))`,
+ ho_match_mp_tac bigStepTheory.evaluate_ind >>
+ rw [] >>
+ rw [Once evaluate_cases, state_component_equality] >>
+ metis_tac [state_accfupds, K_DEF]);
+
 val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
 `!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
  rw [evaluate_dec_cases] >>
