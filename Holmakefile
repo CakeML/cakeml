@@ -1,2 +1,2 @@
-INCLUDES = $(HOLDIR)/examples/parsing
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free
 OPTIONS = QUIT_ON_FAILURE
