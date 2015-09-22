@@ -1935,9 +1935,12 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[GSYM CONJ_ASSOC] >>
-      conj_tac >- cheat >>
+      conj_tac >- (
+        imp_res_tac eval_d_no_new_mods >>
+        fs []) >>
       conj_tac >- metis_tac[global_env_inv_extend2, v_rel_weakening] >>
-      reverse conj_tac >- cheat >>
+      imp_res_tac eval_d_no_new_mods >>
+      fs [] >>
       simp[prompt_mods_ok_def, modSemTheory.no_dup_types_def,decs_to_types_def] >>
       fs[modSemTheory.evaluate_dec_cases] >> rw[] >>
       fs[compile_dec_def,LET_THM] >- (
@@ -1961,14 +1964,17 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       conj_tac >- (
         fs[result_rel_cases] >>
         metis_tac[v_rel_weakening] ) >>
-      conj_tac >- cheat >>
+      conj_tac >- (
+        imp_res_tac eval_d_no_new_mods >>
+        fs []) >>
       conj_tac >- metis_tac[v_rel_weakening] >>
       conj_tac >- (
         fs[s_rel_cases] >>
         metis_tac[sv_rel_weakening, LIST_REL_mono]) >>
-      reverse conj_tac >- cheat >>
+      imp_res_tac eval_d_no_new_mods >>
+      fs []>>
       simp[prompt_mods_ok_def, no_dup_types_def, decs_to_types_def] >>
-      fs[modSemTheory.evaluate_dec_cases] >> rw[] )
+      fs[modSemTheory.evaluate_dec_cases] )
   >- (first_assum(split_applied_pair_tac o lhs o concl) >>
       fs [] >>
       rw [] >>
@@ -1980,9 +1986,17 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[fupdate_list_foldl,update_mod_state_def] >>
       simp[GSYM CONJ_ASSOC] >>
-      cheat (*
-      conj_tac >- fs[SUBSET_DEF] >>
-      metis_tac[prompt_mods_ok,global_env_inv_extend_mod,no_dup_types]*))
+      conj_tac >- (
+        imp_res_tac eval_ds_no_new_mods >>
+        fs [SUBSET_DEF]) >>
+      conj_tac >- metis_tac[global_env_inv_extend_mod] >>
+      conj_tac >- (
+        fs [s_rel_cases] >>
+        metis_tac [sv_rel_weakening, LIST_REL_mono]) >>
+      conj_tac >- metis_tac[prompt_mods_ok] >>
+      conj_tac >- metis_tac [no_dup_types] >>
+      imp_res_tac eval_ds_no_new_mods >>
+      fs [])
   >- (first_assum(split_applied_pair_tac o lhs o concl) >>
       fs [] >>
       rw [] >>
@@ -1997,18 +2011,22 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       conj_tac >- (
         fs[result_rel_cases] >>
         metis_tac[v_rel_weakening] ) >>
-      cheat (*
-      conj_tac >- fs[SUBSET_DEF] >>
-      simp[fupdate_list_foldl] >>
       conj_tac >- (
-          `mn ∉ set (MAP FST menv)`
-                     by (fs [SUBSET_DEF] >>
-                         metis_tac []) >>
-          metis_tac [global_env_inv_extend_mod_err]) >>
+        imp_res_tac eval_ds_no_new_mods >>
+        fs [SUBSET_DEF]) >>
+      conj_tac >- (
+        simp[fupdate_list_foldl] >>
+        match_mp_tac global_env_inv_extend_mod_err >>
+        simp [] >>
+        fs [SUBSET_DEF] >>
+        metis_tac []) >>
       conj_tac >- (
         fs [s_rel_cases] >>
-        metis_tac [sv_rel_weakening, LIST_REL_mono] ) >>
-      metis_tac[prompt_mods_ok,no_dup_types])*)));
+        metis_tac [sv_rel_weakening, LIST_REL_mono]) >>
+      conj_tac >- metis_tac[prompt_mods_ok] >>
+      conj_tac >- metis_tac[no_dup_types] >>
+      imp_res_tac eval_ds_no_new_mods >>
+      fs []));
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
