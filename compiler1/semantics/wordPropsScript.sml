@@ -4,7 +4,6 @@ open preamble BasicProvers
 (*
 Defines a stack swap lemma and a permutation swap lemma
 *)
-(*TODO: remove the last_n lemmas*)
 
 val _ = new_theory "wordProps";
 
@@ -1229,5 +1228,19 @@ val every_stack_var_conj = store_thm("every_stack_var_conj",``
   TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
   TRY(Cases_on`x`>>Cases_on`r`>>fs[])>>
   TRY(metis_tac[EVERY_CONJ]))
+
+(*Recursor for instructions since we use it a lot when flattening*)
+val every_inst_def = Define`
+  (every_inst P (Inst i) ⇔ P i) ∧ 
+  (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧ 
+  (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧ 
+  (every_inst P (Call ret dest args handler)
+    ⇔ ((case ret of 
+        NONE => T
+      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler) ∧ 
+      (case handler of
+        NONE => T
+      | SOME (n,h,l1,l2) => every_inst P h))) ∧ 
+  (every_inst P prog ⇔ T)`
 
 val _ = export_theory();

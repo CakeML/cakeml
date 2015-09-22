@@ -33,7 +33,7 @@ val list_next_var_rename_def = Define`
       (y::ys,ssa'',na''))`
 
 val fake_move_def = Define`
-  fake_move v = Assign v (Const 0w)`
+  fake_move v = Inst (Const v 0w)`
 
 (*Do the merging moves only*)
 val merge_moves_def = Define`

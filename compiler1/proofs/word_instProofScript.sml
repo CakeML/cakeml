@@ -1,6 +1,6 @@
 open preamble BasicProvers
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
-     asmTheory
+     asmTheory word_allocTheory
 
 val _ = new_theory "word_instProof";
 
@@ -23,7 +23,7 @@ val flatten_exp_ok = prove(``
     TRY(first_x_assum(qspec_then `s` assume_tac)>>rfs[]>>
     pop_assum sym_sub_tac>>fs[])>>metis_tac[option_CLAUSES])
 
-(*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that*)
+(*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that and it will get removed later*)
 val binary_branch_exp_def = tDefine "binary_branch_exp" `
   (binary_branch_exp (Op Sub exps) = EVERY (binary_branch_exp) exps) ∧ 
   (binary_branch_exp (Op op xs) = (LENGTH xs = 2 ∧ EVERY (binary_branch_exp) xs)) ∧
@@ -163,110 +163,12 @@ val inst_select_thm = prove(``
   >> cheat)
 *)
 
-val distinct_tar_reg_def = Define`
-  (distinct_tar_reg (Inst (Arith (Binop bop r1 r2 ri))) 
-    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧ 
-  (distinct_tar_reg (Inst (Arith (Shift l r1 r2 n)))
-    ⇔ r1 ≠ r2) ∧ 
-  (distinct_tar_reg (Seq p1 p2)
-    ⇔ (distinct_tar_reg p1 ∧ distinct_tar_reg p2)) ∧ 
-  (distinct_tar_reg (If cmp r1 ri c1 c2)
-    ⇔ (distinct_tar_reg c1 ∧ distinct_tar_reg c2)) ∧ 
-  (distinct_tar_reg (Call ret dest args handler)
-    ⇔ ((case ret of 
-        NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => distinct_tar_reg ret_handler) ∧ 
-      (case handler of
-        NONE => T
-      | SOME (n,h,l1,l2) => distinct_tar_reg h))) ∧ 
-  (distinct_tar_reg prog = T)`
-
-(*Instructions are 2 register code for arith ok*)
-val two_reg_insts_def = Define`
-  (two_reg_insts (Inst (Arith (Binop bop r1 r2 ri))) 
-    ⇔ (r1 = r2)) ∧ 
-  (two_reg_insts (Inst (Arith (Shift l r1 r2 n)))
-    ⇔ (r1 = r2)) ∧ 
-  (two_reg_insts (Seq p1 p2)
-    ⇔ (two_reg_insts p1 ∧ two_reg_insts p2)) ∧ 
-  (two_reg_insts (If cmp r1 ri c1 c2)
-    ⇔ (two_reg_insts c1 ∧ two_reg_insts c2)) ∧ 
-  (two_reg_insts (Call ret dest args handler)
-    ⇔ ((case ret of 
-        NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => two_reg_insts ret_handler) ∧ 
-      (case handler of
-        NONE => T
-      | SOME (n,h,l1,l2) => two_reg_insts h))) ∧ 
-  (two_reg_insts prog = T)`
-
-(*TODO: move to HOL*)
-val insert_shadow = prove(``
-  ∀t a b c.
-  insert a b (insert a c t) = insert a b t``,
-  completeInduct_on`a`>>
-  Induct>>
-  simp[Once insert_def]>>
-  rw[]>>
-  simp[Once insert_def]>>
-  simp[Once insert_def,SimpRHS]>>
-  `(a-1) DIV 2 < a` by 
-    (`0 < (2:num)` by fs[] >>
-    imp_res_tac DIV_LT_X>>
-    first_x_assum match_mp_tac>>
-    DECIDE_TAC)>>
-  metis_tac[])
- 
-(*Semantics preservation*)
-val three_to_two_reg_correct = prove(``
-  ∀prog s res s'.
-  distinct_tar_reg prog ∧ 
-  evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
-  ⇒ 
-  evaluate(three_to_two_reg prog,s) = (res,s')``,
-  ho_match_mp_tac three_to_two_reg_ind>>
-  rw[]>>fs[three_to_two_reg_def,evaluate_def,state_component_equality]>>
-  TRY
-    (ntac 2 (pop_assum mp_tac)>>fs[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def]>>
-    EVERY_CASE_TAC >>
-    fs[LET_THM,alist_insert_def,distinct_tar_reg_def,word_exp_def,lookup_insert,set_var_def,insert_shadow]>>NO_TAC)
-  >-
-    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[distinct_tar_reg_def]>>
-    Cases_on`res'' = SOME Error`>>fs[]>>res_tac>>
-    EVERY_CASE_TAC>>fs[]>>
-    metis_tac[])
-  >-
-    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[distinct_tar_reg_def]>>
-    unabbrev_all_tac>>
-    Cases_on`ret`>>Cases_on`handler`>>fs[evaluate_def]
-    >-
-      (EVERY_CASE_TAC>>fs[])
-    >-
-      (EVERY_CASE_TAC>>fs[]>>
-      res_tac>>fs[]>>
-      rfs[])
-    >>
-      PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
-      Cases_on`get_vars args s`>>fs[]>>
-      Cases_on`find_code dest x s.code`>>fs[]>>
-      Cases_on`x'`>>Cases_on`cut_env x1 s.locals`>>fs[]>>
-      IF_CASES_TAC>>fs[push_env_def,LET_THM]>>
-      EVERY_CASE_TAC>>fs[]>>
-      res_tac>>fs[]>>
-      rfs[]))
-
-(*Syntactic correctness*)
-val three_to_two_reg_syn = prove(``
-  ∀prog. two_reg_insts (three_to_two_reg prog)``,
-  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>fs[two_reg_insts_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[])
-
-    
 (*No expressions nesting*)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
   (flat_exp_conventions (Assign v exp) = F) ∧
   (flat_exp_conventions (Store exp num) = F) ∧ 
-  (*Only top level vars allowed*)
+  (*The only place where top level (expression) vars are allowed*)
   (flat_exp_conventions (Set store_name (Var r)) = T) ∧ 
   (flat_exp_conventions (Set store_name _) = F) ∧
   (flat_exp_conventions (Seq p1 p2) =
@@ -297,5 +199,153 @@ val inst_select_conventions = prove(``
   fs[flat_exp_conventions_def,inst_select_def,LET_THM]>>
   EVERY_CASE_TAC>>
   metis_tac[inst_select_exp_conventions])
+
+(*3rd step: 3 to 2 reg if necessary*)
+
+val distinct_tar_reg_def = Define`
+  (distinct_tar_reg (Arith (Binop bop r1 r2 ri)) 
+    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧ 
+  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
+    ⇔ r1 ≠ r2) ∧ 
+  (distinct_tar_reg _ ⇔ T)`
+
+(*Instructions are 2 register code for arith ok*)
+val two_reg_inst_def = Define`
+  (two_reg_inst (Arith (Binop bop r1 r2 ri)) 
+    ⇔ (r1 = r2)) ∧ 
+  (two_reg_inst (Arith (Shift l r1 r2 n))
+    ⇔ (r1 = r2)) ∧ 
+  (two_reg_inst _ ⇔ T)`
+
+(*TODO: move to HOL*)
+val insert_shadow = prove(``
+  ∀t a b c.
+  insert a b (insert a c t) = insert a b t``,
+  completeInduct_on`a`>>
+  Induct>>
+  simp[Once insert_def]>>
+  rw[]>>
+  simp[Once insert_def]>>
+  simp[Once insert_def,SimpRHS]>>
+  `(a-1) DIV 2 < a` by 
+    (`0 < (2:num)` by fs[] >>
+    imp_res_tac DIV_LT_X>>
+    first_x_assum match_mp_tac>>
+    DECIDE_TAC)>>
+  metis_tac[])
+ 
+(*Semantics preservation*)
+val three_to_two_reg_correct = prove(``
+  ∀prog s res s'.
+  every_inst distinct_tar_reg prog ∧ 
+  evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error
+  ⇒ 
+  evaluate(three_to_two_reg prog,s) = (res,s')``,
+  ho_match_mp_tac three_to_two_reg_ind>>
+  rw[]>>fs[three_to_two_reg_def,evaluate_def,state_component_equality]>>
+  TRY
+    (ntac 2 (pop_assum mp_tac)>>fs[inst_def,assign_def,word_exp_def,get_vars_def,get_var_def,set_vars_def,alist_insert_def]>>
+    EVERY_CASE_TAC >>
+    fs[LET_THM,alist_insert_def,every_inst_def,distinct_tar_reg_def,word_exp_def,lookup_insert,set_var_def,insert_shadow]>>NO_TAC)
+  >-
+    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[every_inst_def]>>
+    Cases_on`res'' = SOME Error`>>fs[]>>res_tac>>
+    EVERY_CASE_TAC>>fs[]>>
+    metis_tac[])
+  >-
+    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[every_inst_def]>>
+    unabbrev_all_tac>>
+    Cases_on`ret`>>Cases_on`handler`>>fs[evaluate_def]
+    >-
+      (EVERY_CASE_TAC>>fs[])
+    >-
+      (EVERY_CASE_TAC>>fs[]>>
+      res_tac>>fs[]>>
+      rfs[])
+    >>
+      PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
+      Cases_on`get_vars args s`>>fs[]>>
+      Cases_on`find_code dest x s.code`>>fs[]>>
+      Cases_on`x'`>>Cases_on`cut_env x1 s.locals`>>fs[]>>
+      IF_CASES_TAC>>fs[push_env_def,LET_THM]>>
+      EVERY_CASE_TAC>>fs[]>>
+      res_tac>>fs[]>>
+      rfs[]))
+
+(*Syntactic correctness*)
+val three_to_two_reg_syn = prove(``
+  ∀prog. every_inst two_reg_inst (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>rw[]>>fs[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[])
+
+(*word_alloc preserves all syntactic program convs*)
+val word_alloc_two_reg_inst_lem = prove(``
+  ∀f prog. 
+  every_inst two_reg_inst prog ⇒ 
+  every_inst two_reg_inst (apply_colour f prog)``,
+  ho_match_mp_tac apply_colour_ind>>fs[every_inst_def]>>rw[]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    fs[apply_colour_inst_def,two_reg_inst_def])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_inst_def])
+
+val word_alloc_two_reg_inst = prove(``
+  ∀k prog.
+  every_inst two_reg_inst prog ⇒ 
+  every_inst two_reg_inst (word_alloc k prog)``,
+  fs[word_alloc_two_reg_inst_lem,word_alloc_def,LET_THM])
+
+val word_alloc_flat_exp_conventions_lem = prove(``
+  ∀f prog. 
+  flat_exp_conventions prog ⇒ 
+  flat_exp_conventions (apply_colour f prog)``,
+  ho_match_mp_tac apply_colour_ind>>fs[flat_exp_conventions_def]>>rw[]
+  >-
+    (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[flat_exp_conventions_def])
+  >>
+    Cases_on`exp`>>fs[flat_exp_conventions_def])
+
+val word_alloc_flat_exp_conventions = prove(``
+  ∀k prog.
+  flat_exp_conventions prog ⇒ 
+  flat_exp_conventions (word_alloc k prog)``,
+  fs[word_alloc_flat_exp_conventions_lem,word_alloc_def,LET_THM])
+
+val fake_moves_flat_exp_conventions = prove(``
+  ∀ls ssal ssar na l r a b c.
+  fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒ 
+  flat_exp_conventions l ∧ 
+  flat_exp_conventions r``,
+  Induct>>fs[fake_moves_def]>>rw[]>>fs[flat_exp_conventions_def]>>
+  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> fs[LET_THM]>>unabbrev_all_tac>>
+  metis_tac[flat_exp_conventions_def,fake_move_def])
+
+(*ssa generates distinct regs and also preserves flattening*)
+val ssa_cc_trans_flat_exp_conventions_lem = prove(``
+  ∀prog ssa na.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (FST (ssa_cc_trans prog ssa na))``,
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[ssa_cc_trans_def]>>rw[]>>
+  unabbrev_all_tac>>
+  fs[flat_exp_conventions_def]
+  >-
+    (pop_assum mp_tac>>fs[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>fs[flat_exp_conventions_def]>>
+    metis_tac[fake_moves_flat_exp_conventions,flat_exp_conventions_def])
+  >-
+    (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>fs[flat_exp_conventions_def,EQ_SYM_EQ])
+  >-
+    (Cases_on`exp`>>fs[ssa_cc_trans_exp_def,flat_exp_conventions_def])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>fs[flat_exp_conventions_def]
+    >-
+      (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+      LET_ELIM_TAC>>fs[flat_exp_conventions_def,EQ_SYM_EQ])
+    >>
+      LET_ELIM_TAC>>unabbrev_all_tac>>
+      fs[list_next_var_rename_move_def,flat_exp_conventions_def]>>
+      fs[fix_inconsistencies_def]>>
+      rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>fs[]>>
+      metis_tac[fake_moves_flat_exp_conventions,flat_exp_conventions_def])
 
 val _ = export_theory ();

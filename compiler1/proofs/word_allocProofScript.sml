@@ -1966,7 +1966,7 @@ val fake_moves_correctL = prove(``
   Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>fs[]>>
   EVERY_CASE_TAC>>fs[]>>
   strip_tac>>fs[]>>
-  fs[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def]>>
+  fs[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def,inst_def,assign_def]>>
   Cases_on`evaluate(q,cstL)`>>fs[]>>
   `na ≤ r1 ∧ ssa_map_ok r1 r2` by
     (imp_res_tac fake_moves_frame>>
@@ -2059,7 +2059,7 @@ val fake_moves_correctR = prove(``
   Cases_on`fake_moves ls ssaL ssaR na`>>PairCases_on`r`>>fs[]>>
   EVERY_CASE_TAC>>fs[]>>
   strip_tac>>fs[]>>
-  fs[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def]>>
+  fs[evaluate_def,LET_THM,evaluate_def,fake_move_def,word_exp_def,inst_def,assign_def]>>
   Cases_on`evaluate(r0,cstR)`>>fs[]>>
   `na ≤ r1 ∧ ssa_map_ok r1 r3` by
     (imp_res_tac fake_moves_frame>>
