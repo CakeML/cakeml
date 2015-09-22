@@ -1507,7 +1507,7 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
      fs [small_eval_def] >>
      imp_res_tac small_exp_to_big_exp >>
      fs [evaluate_state_val_no_ctxt, evaluate_state_no_ctxt, evaluate_state_val_raise_ctxt] >>
-     imp_res_tac evaluate_ignores_type_mods >>
+     imp_res_tac evaluate_ignores_types_mods >>
      fs []
      >- (pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
          rw [] >>
@@ -1518,14 +1518,14 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
      >- (imp_res_tac one_step_backward_type_error >>
          fs [] >>
          res_tac >>
-         imp_res_tac evaluate_ignores_type_mods >>
+         imp_res_tac evaluate_ignores_types_mods >>
          pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
          rw [] >>
          metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors]))
  >- (rw [] >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def, to_small_res_def] >>
-     metis_tac [evaluate_no_new_type_mods, FST, big_unclocked]));
+     metis_tac [evaluate_no_new_types_mods, FST, big_unclocked]));
 
 (* ---------------------- Small step determinacy ------------------------- *)
 
