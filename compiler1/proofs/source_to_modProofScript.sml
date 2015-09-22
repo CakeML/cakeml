@@ -1706,14 +1706,14 @@ val compile_dec_correct = Q.prove (
 val compile_decs_correct = Q.prove (
   `!ck mn mods tops ds menv cenv env s s' r genv s_i1 tdecs s'_i1 tdecs' next' tops' ds_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_decs ck mn (menv,cenv,env) (s,tdecs) ds ((s',tdecs'),cenv',r) ∧
-    global_env_inv genv mods tops menv {} env ∧
+    evaluate_decs ck mn env s ds (s',cenv',r) ∧
+    global_env_inv genv mods tops env.m {} env.v ∧
     s_rel genv s s_i1 ∧
     compile_decs (LENGTH genv) mn mods tops ds = (next',tops',ds_i1)
     ⇒
     ∃s'_i1 new_genv new_genv' new_env' r_i1.
      new_genv' = MAP SND new_genv ∧
-     evaluate_decs ck genv cenv (s_i1,tdecs) ds_i1 ((s'_i1,tdecs'),cenv',new_genv',r_i1) ∧
+     evaluate_decs ck genv env.c (s_i1,s.defined_types) ds_i1 ((s'_i1,s'.defined_types),cenv',new_genv',r_i1) ∧
      s_rel (genv ++ MAP SOME new_genv') s' s'_i1 ∧
      (!new_env.
        r = Rval new_env
@@ -1755,14 +1755,9 @@ val compile_decs_correct = Q.prove (
       imp_res_tac compile_decs_num_bindings >>
       decide_tac)
   >- (
-     Cases_on`s2` >>
-     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-     simp[] >> strip_tac >> rw[] >>
-     srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
      first_x_assum(fn th => first_x_assum(mp_tac o
        MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
+     simp[Ntimes extend_dec_env_def 2] >>
      simp[Once AND_IMP_INTRO] >>
      ONCE_REWRITE_TAC[CONJ_COMM,CONJ_ASSOC] >>
      simp[GSYM AND_IMP_INTRO] >>
@@ -1775,8 +1770,12 @@ val compile_decs_correct = Q.prove (
        match_mp_tac (GEN_ALL global_env_inv_extend2) >> simp[] >>
        metis_tac[v_rel_weakening] ) >>
      discharge_hyps >- (
-       Cases_on`r'`>>fs[combine_dec_result_def] ) >>
+       rpt strip_tac >> fs[combine_dec_result_def] ) >>
      strip_tac >>
+     srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[extend_dec_env_def] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      rator_x_assum`s_rel`mp_tac >>
      REWRITE_TAC[GSYM MAP_APPEND,GSYM APPEND_ASSOC] >> strip_tac >>
