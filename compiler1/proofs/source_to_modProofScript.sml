@@ -1898,7 +1898,7 @@ val no_dup_types = Q.prove(
   metis_tac [no_dup_types_helper]);
 
 val compile_top_correct = Q.store_thm ("compile_top_correct",
-  `!mods tops t ck menv cenv env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv' tdecs tdecs' mod_names mod_names'.
+  `!mods tops t ck env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
     invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
     evaluate_top ck env s t (s',cenv',r) ∧
@@ -2029,26 +2029,26 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       fs []));
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
-  `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
+  `!mods tops ck env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_prog ck (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
-    invariant genv mods tops menv env s s_i1 mod_names ∧
+    evaluate_prog ck env s prog (s',cenv',r) ∧
+    invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
     compile_prog (LENGTH genv) mods tops prog = (next',mods',tops',prog_i1)
     ⇒
     ∃s'_i1 new_genv r_i1.
-     evaluate_prog ck genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+     evaluate_prog ck genv env.c (s_i1,s.defined_types,s.defined_mods) prog_i1 ((s'_i1,s'.defined_types,s'.defined_mods),cenv',new_genv,r_i1) ∧
      (!new_menv new_env.
        r = Rval (new_menv, new_env)
        ⇒
        next' = LENGTH (genv ++ new_genv) ∧
        r_i1 = NONE ∧
-       invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+       invariant (genv ++ new_genv) mods' tops' (new_menv++env.m) (new_env++env.v) s' s'_i1 s'.defined_mods) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧
-         result_rel (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1))`,
+         result_rel (\a b c. T) (genv ++ new_genv) r (Rerr err_i1))`,
   induct_on `prog` >>
   rw [LET_THM, compile_prog_def]
   >- fs [Once bigStepTheory.evaluate_prog_cases, Once modSemTheory.evaluate_prog_cases] >>
@@ -2059,7 +2059,6 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   rator_x_assum `bigStep$evaluate_prog` (mp_tac o SIMP_RULE (srw_ss()) [Once bigStepTheory.evaluate_prog_cases]) >>
   rw [] >>
   rw [Once modSemTheory.evaluate_prog_cases] >>
-  `?s2' tdecs2' mod_names2'. s2 = (s2',tdecs2',mod_names2')` by metis_tac [pair_CASES] >>
   rw []
   >- (
     first_x_assum(
@@ -2067,6 +2066,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
     first_x_assum(fn th => first_x_assum(
       mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
+    simp[extend_top_env_def] >>
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> fs[] >>
     discharge_hyps >- (Cases_on `r'` >> fs [combine_mod_result_def]) >>
     srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
@@ -2185,33 +2185,33 @@ val compile_prog_mods_ok = Q.prove (
       metis_tac []));
 
 val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
-  `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
+  `!mods tops ck env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_whole_prog ck (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
-    invariant genv mods tops menv env s s_i1 mod_names ∧
+    evaluate_whole_prog ck env s prog (s',cenv',r) ∧
+    invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
     compile_prog (LENGTH genv) mods tops prog = (next',mods',tops',prog_i1)
     ⇒
     ∃s'_i1 new_genv r_i1.
-     evaluate_whole_prog ck genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+     evaluate_whole_prog ck genv env.c (s_i1,s.defined_types,s.defined_mods) prog_i1 ((s'_i1,s'.defined_types,s'.defined_mods),cenv',new_genv,r_i1) ∧
      (!new_menv new_env.
        r = Rval (new_menv, new_env)
        ⇒
        next' = LENGTH (genv ++ new_genv) ∧
        r_i1 = NONE ∧
-       invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+       invariant (genv ++ new_genv) mods' tops' (new_menv++env.m) (new_env++env.v) s' s'_i1 s'.defined_mods) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧
-         result_rel (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1))`,
+         result_rel (\a b c. T) (genv ++ new_genv) r (Rerr err_i1))`,
   rw [modSemTheory.evaluate_whole_prog_def, bigStepTheory.evaluate_whole_prog_def] >>
   every_case_tac
   >- (imp_res_tac compile_prog_correct >>
       fs [] >>
       cases_on `r` >>
       fs [] >>
-      metis_tac []) >>
+      first_assum(match_exists_tac o concl) >> simp[]) >>
   rw [result_rel_cases] >>
   CCONTR_TAC >>
   fs [] >>
