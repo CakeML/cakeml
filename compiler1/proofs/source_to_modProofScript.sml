@@ -112,7 +112,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
    (!genv vs.
     vs_rel genv [] vs ⇔
       (vs = [])) ∧
-   (!genv l v vs vs'.
+   (!genv v vs vs'.
     vs_rel genv (v::vs) vs' ⇔
       ?v' vs''. v_rel genv v v' ∧ vs_rel genv vs vs'' ∧ vs' = v'::vs'') ∧
    (!genv env'.
@@ -121,7 +121,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
    (!genv x v env env'.
     env_rel genv ((x,v)::env) env' ⇔
       ?v' env''. v_rel genv v v' ∧ env_rel genv env env'' ∧ env' = ((x,v')::env'')) ∧
-   (!genv map shadowers env genv.
+   (!genv map shadowers env.
     global_env_inv_flat genv map shadowers env ⇔
       (!x v.
         x ∉ shadowers ∧
@@ -132,7 +132,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
           n < LENGTH genv ∧
           EL n genv = SOME v_i1 ∧
           v_rel genv v v_i1)) ∧
-  (!genv mods tops menv shadowers env genv.
+  (!genv mods tops menv shadowers env.
     global_env_inv genv mods tops menv shadowers env ⇔
       global_env_inv_flat genv tops shadowers env ∧
       (!mn env'.
