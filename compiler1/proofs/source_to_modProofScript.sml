@@ -4,6 +4,12 @@ open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
 
+(* TODO: move *)
+val with_same_v = Q.store_thm("with_same_v[simp]",
+  `env with v := env.v = env`,
+  rw[environment_component_equality]);
+(* -- *)
+
 (* value relation *)
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
@@ -1178,8 +1184,7 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       cases_on `n` >>
       fs [libTheory.opt_bind_def, compile_exp_def]
-      >- cheat >>
-      (*>- metis_tac [compl_insert, DRESTRICT_DOMSUB] >>*)
+      >- metis_tac [compl_insert, DRESTRICT_DOMSUB] >>
       `env_all_rel genv mods tops (env with v := (x, v) :: env.v)
                      (genv, env.c, (x,v')::env_i1') (x INSERT locals)`
                  by (fs [env_all_rel_cases] >>
@@ -1193,20 +1198,19 @@ val compile_exp_correct = Q.prove (
   >- (cases_on `n` >>
       fs [compile_exp_def] >>
       metis_tac [])
-  >- cheat
-  (*
   >- (* Letrec *)
      (rw [markerTheory.Abbrev_def] >>
       pop_assum mp_tac >>
       rw [] >>
-      `?env'. env_i1 = (genv,cenv,env')` by fs [env_all_rel_cases] >>
+      `?env'. env_i1 = (genv,env.c,env')` by fs [env_all_rel_cases] >>
       rw [] >>
-      `env_all_rel genv mods tops (menv,cenv,build_rec_env funs (menv,cenv,env) env)
-                                    (genv,cenv,build_rec_env (compile_funs mods (FOLDR (λk m. m \\ k) (DRESTRICT tops (COMPL locals)) (MAP FST funs)) funs) (cenv, env') env')
+      qpat_abbrev_tac`env'' = (genv,env.c,X)` >>
+      `env_all_rel genv mods tops (env with v := build_rec_env funs env env.v) env''
                                     (set (MAP FST funs) ∪ locals)`
-                             by (fs [env_all_rel_cases] >>
-                                 MAP_EVERY qexists_tac [`build_rec_env funs (menv,cenv,env'' ++ env''') env''`, `env'''`] >>
-                                 rw [evalPropsTheory.build_rec_env_merge, EXTENSION]
+                             by (fs[Abbr`env''`]>>fs [env_all_rel_cases] >>
+                                 qpat_abbrev_tac`bre = build_rec_env funs Y` >>
+                                 MAP_EVERY qexists_tac [`env'' with v := bre env''.v`, `env'''`] >>
+                                 rw [Abbr`bre`,evalPropsTheory.build_rec_env_merge, EXTENSION]
                                  >- (rw [MEM_MAP, EXISTS_PROD] >>
                                     imp_res_tac env_rel_dom >>
                                     metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
@@ -1236,14 +1240,11 @@ val compile_exp_correct = Q.prove (
        >- (rw [FST_triple] >>
            fs [COMPL_UNION] >>
            metis_tac [INTER_COMM]))
-           *)
   >- metis_tac []
   >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- metis_tac []
   >- metis_tac []
   >- metis_tac []
-  >- cheat
-  (*
   >- (* Pattern matching *)
      (pop_assum mp_tac >>
       rw [] >>
@@ -1252,25 +1253,20 @@ val compile_exp_correct = Q.prove (
       fs [] >>
       `match_result_rel genv env''' (Match env') (pmatch env''.c s'' p v_i1 env_i1')`
                     by metis_tac [pmatch] >>
-      cases_on `pmatch env.c s'' p v_i1 env_i1'` >>
+      cases_on `pmatch env''.c s'' p v_i1 env_i1'` >>
       fs [match_result_rel_def] >>
       rw [] >>
       fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env''''`, `env'''`, `a`, `s''`] mp_tac) >>
+      imp_res_tac sourcePropsTheory.pmatch_extend >> fs[] >> rw[] >>
+      FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env'' with v := env''''' ++ env''.v`, `env'''`, `a`, `s''`] mp_tac) >>
       rw [] >>
-      fs [] >>
-      imp_res_tac sourcePropsTheory.pmatch_extend >>
-      fs [APPEND_11] >>
+      first_x_assum(fn th => mp_tac th  >> discharge_hyps) >- (
+        metis_tac[global_env_inv_add_locals] ) >> strip_tac >>
       rw [] >>
-      imp_res_tac global_env_inv_add_locals >>
-      fs [] >>
-      rw [] >>
-      MAP_EVERY qexists_tac [`(c,s'''',t')`, `r_i1`] >>
-      rw [] >>
+      first_assum(match_exists_tac o concl) >> simp[PULL_EXISTS] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
       fs [COMPL_UNION, drestrict_iter_list] >>
       metis_tac [INTER_COMM])
-      *)
-  >- cheat(*
   >- (* Pattern matching *)
      (pop_assum mp_tac >>
       rw [] >>
@@ -1282,7 +1278,8 @@ val compile_exp_correct = Q.prove (
       cases_on `pmatch env'.c s'' p v_i1 env_i1'` >>
       fs [match_result_rel_def] >>
       rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``])*));
+      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
+      metis_tac[]));
 
 val global_env_inv_flat_extend_lem = Q.prove (
   `!genv genv' env env_i1 x n v.
@@ -1435,7 +1432,7 @@ val alookup_alloc_defs_bounds_rev = Q.prove(
   DECIDE_TAC);
 
 val letrec_global_env_lem = Q.prove (
-  `!funs funs' env v x x' genv.
+  `!funs funs' (env:v environment) v x.
     ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) x = SOME v ∧
     ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
     ⇒
