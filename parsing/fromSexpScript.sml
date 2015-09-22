@@ -423,20 +423,69 @@ val patsexp_def = tDefine"patsexp"`
    first_x_assum(qspec_then`cn`strip_assume_tac)>>
    decide_tac )
 
+val lopsexp_def = Define`
+  (lopsexp And = SX_SYM "And") ∧
+  (lopsexp Or = SX_SYM "Or")`;
+
+val opsexp_def = Define`
+  (opsexp (Opn Plus) = SX_SYM "OpnPlus") ∧
+  (opsexp (Opn Minus) = SX_SYM "OpnMinus") ∧
+  (opsexp (Opn Times) = SX_SYM "OpnTimes") ∧
+  (opsexp (Opn Divide) = SX_SYM "OpnDivide") ∧
+  (opsexp (Opn Modulo) = SX_SYM "OpnModulo") ∧
+  (opsexp (Opb Lt) = SX_SYM "OpbLt") ∧
+  (opsexp (Opb Gt) = SX_SYM "OpbGt") ∧
+  (opsexp (Opb Leq) = SX_SYM "OpbLeq") ∧
+  (opsexp (Opb Geq) = SX_SYM "OpbGeq") ∧
+  (opsexp Equality = SX_SYM "Equality") ∧
+  (opsexp Opapp = SX_SYM "Opapp") ∧
+  (opsexp Opassign = SX_SYM "Opassign") ∧
+  (opsexp Opref = SX_SYM "Opref") ∧
+  (opsexp Opderef = SX_SYM "Opderef") ∧
+  (opsexp Aw8alloc = SX_SYM "Aw8alloc") ∧
+  (opsexp Aw8sub = SX_SYM "Aw8sub") ∧
+  (opsexp Aw8length = SX_SYM "Aw8length") ∧
+  (opsexp Aw8update = SX_SYM "Aw8update") ∧
+  (opsexp Ord = SX_SYM "Ord") ∧
+  (opsexp Chr = SX_SYM "Chr") ∧
+  (opsexp (Chopb Lt) = SX_SYM "ChopbLt") ∧
+  (opsexp (Chopb Gt) = SX_SYM "ChopbGt") ∧
+  (opsexp (Chopb Leq)= SX_SYM "ChopbLeq") ∧
+  (opsexp (Chopb Geq)= SX_SYM "ChopbLeq") ∧
+  (opsexp Explode = SX_SYM "Explode") ∧
+  (opsexp Implode = SX_SYM "Implode") ∧
+  (opsexp Strlen = SX_SYM "Strlen") ∧
+  (opsexp VfromList = SX_SYM "VfromList") ∧
+  (opsexp Vsub = SX_SYM "Vsub") ∧
+  (opsexp Vlength = SX_SYM "Vlength") ∧
+  (opsexp Aalloc = SX_SYM "Aalloc") ∧
+  (opsexp Asub = SX_SYM "Asub") ∧
+  (opsexp Alength = SX_SYM "Alength") ∧
+  (opsexp Aupdate = SX_SYM "Aupdate")`;
+
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
   (expsexp (Handle e pes) = listsexp [SX_SYM "Handle"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
   (expsexp (Lit l) = listsexp [SX_SYM "Lit"; litsexp l]) ∧
   (expsexp (Con cn es) = listsexp [SX_SYM "Con"; optsexp (OPTION_MAP idsexp cn); listsexp (MAP expsexp es)]) ∧
-  (expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id])`
-  (* TODO: both this and sexpexp are incomplete *)
+  (expsexp (Var id) = listsexp [SX_SYM "Var"; idsexp id]) ∧
+  (expsexp (Fun x e) = listsexp [SX_SYM "Fun"; SX_STR x; expsexp e]) ∧
+  (expsexp (App op es) = listsexp [SX_SYM "App"; opsexp op; listsexp (MAP expsexp es)]) ∧
+  (expsexp (Log lop e1 e2) = listsexp [SX_SYM "Log"; lopsexp lop; expsexp e1; expsexp e2]) ∧
+  (expsexp (If e1 e2 e3) = listsexp [SX_SYM "If"; expsexp e1; expsexp e2; expsexp e3]) ∧
+  (expsexp (Mat e pes) = listsexp [SX_SYM "Mat"; expsexp e; listsexp (MAP (λ(p,e). SX_CONS (patsexp p) (expsexp e)) pes)]) ∧
+  (expsexp (Let so e1 e2) = listsexp [SX_SYM "Let"; optsexp (OPTION_MAP SX_STR so); expsexp e1; expsexp e2]) ∧
+  (expsexp (Letrec funs e) = listsexp
+    [SX_SYM "Letrec";
+     listsexp (MAP (λ(x,y,z). SX_CONS (SX_STR x) (SX_CONS (SX_STR y) (expsexp z))) funs);
+     expsexp e])`
   (WF_REL_TAC`measure exp_size` >>
-   rpt conj_tac >>
-   (Induct_on`pes` ORELSE Induct_on`es`) >>
+   rpt conj_tac >> simp[] >>
+   (Induct_on`pes` ORELSE Induct_on`es` ORELSE Induct_on`funs`) >>
    simp[exp_size_def] >> rw[] >> simp[exp_size_def] >>
    res_tac >>
    first_x_assum(strip_assume_tac o SPEC_ALL) >>
-   decide_tac)
+   decide_tac);
 
 val type_defsexp_def = Define`
   type_defsexp = listsexp o
