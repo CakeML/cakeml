@@ -1569,8 +1569,10 @@ val compile_dec_correct = Q.prove (
   every_case_tac >>
   fs [LET_THM] >>
   rw [FUPDATE_LIST, result_rel_eqns]
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -1579,6 +1581,7 @@ val compile_dec_correct = Q.prove (
       fs [s_rel_cases] >>
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 pmatch))) >>
@@ -1586,12 +1589,12 @@ val compile_dec_correct = Q.prove (
       pop_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       rw[v_rel_eqns] >>
-      cases_on`pmatch cenv s' p v'' []` >> fs[match_result_rel_def]>>
+      cases_on`pmatch env.c s'' p v'' []` >> fs[match_result_rel_def]>>
       simp[Once modSemTheory.evaluate_cases] >>
       simp[Once modSemTheory.evaluate_cases] >>
       simp[do_con_check_def,build_conv_def,PULL_EXISTS] >>
       imp_res_tac pmatch_evaluate_list >> rfs[] >>
-      pop_assum (qspecl_then [`t2`, `genv`, `count'`, `ck`] strip_assume_tac) >>
+      pop_assum (qspecl_then [`s'.io`, `genv`, `s'.clock`, `ck`] strip_assume_tac) >>
       simp[MAP_REVERSE] >>
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_list`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1621,8 +1624,10 @@ val compile_dec_correct = Q.prove (
         simp[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
       strip_tac >> simp[] >>
       fs[MAP_REVERSE])
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -1630,6 +1635,7 @@ val compile_dec_correct = Q.prove (
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[Once evaluate_cases] >>
       first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 pmatch))) >>
@@ -1637,10 +1643,13 @@ val compile_dec_correct = Q.prove (
       pop_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       rw[v_rel_eqns] >>
-      cases_on`pmatch cenv s' p v'' []` >> fs[match_result_rel_def]>>
-      simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] )
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+      cases_on`pmatch env.c s'' p v'' []` >> fs[match_result_rel_def]>>
+      simp[Once modSemTheory.evaluate_cases,PULL_EXISTS,Bindv_def] >>
+      rw[v_rel_eqns])
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >> rfs[] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
@@ -1648,10 +1657,11 @@ val compile_dec_correct = Q.prove (
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       first_assum(match_exists_tac o concl) >> simp[])
   >- (rw [fupdate_list_foldl] >>
       Q.PAT_ABBREV_TAC `tops' = (tops |++ X)` >>
-      qexists_tac `MAP (λ(f,x,e). (f, Closure (cenv,[]) x e)) (compile_funs mods tops' (REVERSE funs))` >>
+      qexists_tac `MAP (λ(f,x,e). (f, Closure (env.c,[]) x e)) (compile_funs mods tops' (REVERSE funs))` >>
       simp[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,fst_alloc_defs,
            evalPropsTheory.build_rec_env_merge,MAP_REVERSE,ETA_AX] >>
       conj_tac >- (
@@ -1662,8 +1672,8 @@ val compile_dec_correct = Q.prove (
           UNABBREV_ALL_TAC >>
           rw [SUBSET_DEF, FDOM_FUPDATE_LIST, FUPDATE_LIST_THM]
           >- (fs [v_rel_eqns] >>
-              `~(ALOOKUP env x = NONE)` by metis_tac [ALOOKUP_NONE] >>
-              cases_on `ALOOKUP env x` >>
+              `~(ALOOKUP env.v x = NONE)` by metis_tac [ALOOKUP_NONE] >>
+              cases_on `ALOOKUP env.v x` >>
               fs [] >>
               res_tac >>
               fs [FLOOKUP_DEF])
@@ -1678,6 +1688,7 @@ val compile_dec_correct = Q.prove (
         unabbrev_all_tac >>
         metis_tac[letrec_global_env,FUPDATE_LIST,FST_triple]))
   >- fs [v_rel_eqns]
+  >- fs[s_rel_cases]
   >- fs [v_rel_eqns]
   >- (rw [PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def, check_dup_ctors_def] >>
       unabbrev_all_tac >>
@@ -1686,7 +1697,11 @@ val compile_dec_correct = Q.prove (
   >- EVAL_TAC
   >- (EVAL_TAC >> simp[])
   >- EVAL_TAC
-  >> fs [v_rel_eqns]);
+  >- fs [v_rel_eqns]
+  >- fs [v_rel_eqns]
+  >- fs [v_rel_eqns]
+  >- fs [s_rel_cases]
+  >- fs [v_rel_eqns]);
 
 val compile_decs_correct = Q.prove (
   `!ck mn mods tops ds menv cenv env s s' r genv s_i1 tdecs s'_i1 tdecs' next' tops' ds_i1 cenv'.
