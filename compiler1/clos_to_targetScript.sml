@@ -18,11 +18,9 @@ val compile_def = Define`
   (* TODO: dead code elimination, #75 *)
   let (next_loc,es) = renumber_code_locs_list next_loc es in
   let es = annotate es in
-  (* TODO: dead code elimination, #75 too *)
   let (es,aux) = clos_to_bvl$compile es [] in
     OPTION_MAP
       (λ(bytes,c). (bytes,(next_loc,c)))
-      (* TODO: (0,0,e) is probably not correct *)
-      (bvl_to_target$compile c ((MAP (λe. (0,0,e)) es)++aux))`;
+      (bvl_to_target$compile 0 c ((MAP (λe. (0,0,e)) es)++aux))`;
 
 val _ = export_theory();

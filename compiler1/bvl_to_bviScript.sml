@@ -43,8 +43,10 @@ val AllocGlobal_location_def = Define`
   AllocGlobal_location = 100:num`;
 val CopyGlobals_location_def = Define`
   CopyGlobals_location = 101:num`;
+val InitGlobals_location_def = Define`
+  InitGlobals_location = 102:num`;
 val num_stubs_def = Define`
-  num_stubs = 102:num`;
+  num_stubs = 103:num`;
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
@@ -62,9 +64,15 @@ val CopyGlobals_code_def = Define`
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
+val InitGlobals_code_def = Define`
+  InitGlobals_code start = (0:num,
+    Let [(* TODO: insert code that sets up the globals implementation *)]
+      (Call 0 (SOME start) [] NONE))`;
+
 val bvi_stubs_def = Define `
-  bvi_stubs = [(AllocGlobal_location, AllocGlobal_code);
-               (CopyGlobals_location, CopyGlobals_code)]`;
+  bvi_stubs start = [(AllocGlobal_location, AllocGlobal_code);
+                     (CopyGlobals_location, CopyGlobals_code);
+                     (InitGlobals_location, InitGlobals_code start)]`;
 
 val compile_op_def = Define `
   compile_op op c1 =
@@ -154,8 +162,8 @@ val compile_list_def = Define `
        (code1 ++ code2,n2))`
 
 val compile_prog_def = Define `
-  compile_prog n prog =
+  compile_prog start n prog =
     let (code,n1) = compile_list n prog in
-      (bvi_stubs ++ code, n1)`;
+      (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) ++ code, n1)`;
 
 val _ = export_theory();

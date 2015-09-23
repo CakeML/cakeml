@@ -41,19 +41,19 @@ val stub0_def = Define `
                       Call NONE (INL 1) NONE])`;
 
 val stub1_def = Define `
-  stub1 =
+  stub1 (start:num) =
     (1:num, seq_list [Set Handler 0;
                       Set ProgStart 1;
                       Set CurrHeap 2;
                       Set LastFree 3;
-                      Call NONE (INL 5) NONE])`
+                      Call NONE (INL start) NONE])`
 
 val _ = type_abbrev("stack_conf",
   ``:num num_map # num # num # 'a lab_conf``);
 
 val compile_def = Define `
-  compile ((f,sp,bp,conf):'a stack_conf) prog =
-    let prog' = stub1 :: prog in
+  compile start ((f,sp,bp,conf):'a stack_conf) prog =
+    let prog' = stub1 start :: prog in
     let without_stack = stub0 sp bp :: stack_remove$compile (sp,bp) prog' in
     let with_target_names = stack_names$compile f without_stack in
     let sec_list = stack_to_lab$compile with_target_names in

@@ -35,9 +35,9 @@ val get_conf_props_def = Define `
     (c.two_reg_arith, c.reg_count - 4)`;
 
 val compile_def = Define `
-  compile (conf:'a stack_conf) prog =
+  compile start (conf:'a stack_conf) prog =
     let (two_reg_arith,reg_count) = get_conf_props conf in
     let prog = MAP (compile_single two_reg_arith reg_count) prog in
-      stack_to_target$compile conf prog`
+      stack_to_target$compile start conf prog`
 
 val _ = export_theory ();
