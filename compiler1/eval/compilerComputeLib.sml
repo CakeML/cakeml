@@ -13,12 +13,13 @@ open clos_numberTheory
 open clos_callTheory
 open clos_annotateTheory
 open clos_freeTheory
+open clos_removeTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
-open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory
+open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 
 open source_to_targetTheory mod_to_targetTheory con_to_targetTheory dec_to_targetTheory exh_to_targetTheory pat_to_targetTheory clos_to_targetTheory bvl_to_targetTheory bvi_to_targetTheory bvp_to_targetTheory word_to_targetTheory stack_to_targetTheory lab_to_targetTheory 
@@ -175,6 +176,13 @@ fun add_compiler_compset compset = let
   val () = add_thms
     [clos_freeTheory.free_def
     ] compset
+  (* clos_remove *)
+  val () = add_thms
+    [clos_removeTheory.no_overlap_def
+    ,clos_removeTheory.no_overlap_def_compute
+    ,clos_removeTheory.remove_def
+    ,clos_removeTheory.const_0_def
+    ] compset
   (* bvl *)
   val () = add_datatype``:bvl$exp``
   (* clos_to_bvl *)
@@ -227,9 +235,11 @@ fun add_compiler_compset compset = let
     bvl_to_bviTheory.bvi_stubs_def,
     bvl_to_bviTheory.CopyGlobals_code_def,
     bvl_to_bviTheory.AllocGlobal_code_def,
+    bvl_to_bviTheory.InitGlobals_code_def,
     bvl_to_bviTheory.set_globals_count_def,
     bvl_to_bviTheory.CopyGlobals_location_def,
     bvl_to_bviTheory.AllocGlobal_location_def,
+    bvl_to_bviTheory.InitGlobals_location_def,
     bvl_to_bviTheory.get_globals_count_def,
     bvl_to_bviTheory.get_globals_ptr_def,
     bvl_to_bviTheory.set_globals_ptr_def,
@@ -509,6 +519,16 @@ fun add_compiler_compset compset = let
     stack_removeTheory.store_pos_def,
     stack_removeTheory.word_offset_def
     ] compset
+  (*db_vars*)
+  val () = add_datatype``:db_var_set``
+  val () = add_thms
+    [db_varsTheory.mk_Union_def,
+    db_varsTheory.vars_to_list_def,
+    db_varsTheory.has_var_def,
+    db_varsTheory.db_to_set_acc_def,
+    db_varsTheory.db_to_set_def,
+    db_varsTheory.list_mk_Union_def
+    ] compset
   (*stack names*)
   val () = add_thms
     [stack_namesTheory.find_name_def,
@@ -516,7 +536,8 @@ fun add_compiler_compset compset = let
     stack_namesTheory.compile_def,
     stack_namesTheory.prog_comp_def,
     stack_namesTheory.comp_def,
-    stack_namesTheory.ri_find_name_def
+    stack_namesTheory.ri_find_name_def,
+    stack_namesTheory.x64_names_def
     ] compset
   (*stack_to_lab*)
   val () = add_thms

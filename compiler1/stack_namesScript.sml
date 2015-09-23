@@ -71,7 +71,7 @@ val x64_names_def = Define `
      (* the rest just ensures that the mapping is well-formed *)
      insert 7 1 o
      insert 8 14 o
-     insert 9 15) LN`
+     insert 9 15) LN:num num_map`
 
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
