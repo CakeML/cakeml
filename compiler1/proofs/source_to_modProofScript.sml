@@ -1,8 +1,14 @@
-open preamble
-     semanticPrimitivesTheory sourcePropsTheory evalPropsTheory
-     source_to_modTheory modLangTheory modSemTheory modPropsTheory
+open preamble;
+open semanticPrimitivesTheory sourcePropsTheory evalPropsTheory;
+open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
+
+(* TODO: move *)
+val with_same_v = Q.store_thm("with_same_v[simp]",
+  `env with v := env.v = env`,
+  rw[environment_component_equality]);
+(* -- *)
 
 (* value relation *)
 
@@ -13,25 +19,25 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
     vs_rel genv vs vs'
     ⇒
     v_rel genv (Conv cn vs) (Conv cn vs')) ∧
-  (!genv mods tops menv cenv env x e env' env_i1.
-    env_rel genv env env_i1 ∧
-    set (MAP FST env') DIFF set (MAP FST env) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops menv (set (MAP FST env_i1)) env'
+  (!genv mods tops env x e env' env_i1.
+    env_rel genv env.v env_i1 ∧
+    set (MAP FST env') DIFF set (MAP FST env.v) ⊆ FDOM tops ∧
+    global_env_inv genv mods tops env.m (set (MAP FST env_i1)) env'
     ⇒
-    v_rel genv (Closure (menv,cenv,env++env') x e)
-                 (Closure (cenv, env_i1) x (compile_exp mods (DRESTRICT tops (COMPL (set (MAP FST env_i1))) \\ x) e))) ∧
+    v_rel genv (Closure (env with v := env.v ++ env') x e)
+                 (Closure (env.c, env_i1) x (compile_exp mods (DRESTRICT tops (COMPL (set (MAP FST env_i1))) \\ x) e))) ∧
   (* For expression level let recs *)
-  (!genv mods tops menv cenv env funs x env' env_i1.
-    env_rel genv env env_i1 ∧
-    set (MAP FST env') DIFF set (MAP FST env) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops menv (set (MAP FST env_i1)) env'
+  (!genv mods tops env funs x env' env_i1.
+    env_rel genv env.v env_i1 ∧
+    set (MAP FST env') DIFF set (MAP FST env.v) ⊆ FDOM tops ∧
+    global_env_inv genv mods tops env.m (set (MAP FST env_i1)) env'
     ⇒
-    v_rel genv (Recclosure (menv,cenv,env++env') funs x)
-                 (Recclosure (cenv,env_i1) (compile_funs mods (DRESTRICT tops (COMPL (set (MAP FST env_i1) ∪ set (MAP FST funs)))) funs) x)) ∧
+    v_rel genv (Recclosure (env with v := env.v ++ env') funs x)
+                 (Recclosure (env.c,env_i1) (compile_funs mods (DRESTRICT tops (COMPL (set (MAP FST env_i1) ∪ set (MAP FST funs)))) funs) x)) ∧
   (* For top-level let recs *)
-  (!genv mods tops menv cenv env funs x y e tops'.
-    set (MAP FST env) ⊆ FDOM tops ∧
-    global_env_inv genv mods tops menv {} env ∧
+  (!genv mods tops env funs x y e tops'.
+    set (MAP FST env.v) ⊆ FDOM tops ∧
+    global_env_inv genv mods tops env.m {} env.v ∧
     MAP FST (REVERSE tops') = MAP FST funs ∧
     find_recfun x funs = SOME (y,e) ∧
     (* A syntactic way of relating the recursive function environment, rather
@@ -42,10 +48,10 @@ val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
            FLOOKUP (FEMPTY |++ tops') x = SOME n ∧
            n < LENGTH genv ∧
            find_recfun x funs = SOME (y,e) ∧
-           EL n genv = SOME (Closure (cenv,[]) y (compile_exp mods ((tops |++ tops') \\ y) e)))
+           EL n genv = SOME (Closure (env.c,[]) y (compile_exp mods ((tops |++ tops') \\ y) e)))
     ⇒
-    v_rel genv (Recclosure (menv,cenv,env) funs x)
-                 (Closure (cenv,[]) y (compile_exp mods ((tops |++ tops') \\ y) e))) ∧
+    v_rel genv (Recclosure env funs x)
+                 (Closure (env.c,[]) y (compile_exp mods ((tops |++ tops') \\ y) e))) ∧
   (!genv loc.
     v_rel genv (Loc loc) (Loc loc)) ∧
   (!vs.
@@ -106,7 +112,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
    (!genv vs.
     vs_rel genv [] vs ⇔
       (vs = [])) ∧
-   (!genv l v vs vs'.
+   (!genv v vs vs'.
     vs_rel genv (v::vs) vs' ⇔
       ?v' vs''. v_rel genv v v' ∧ vs_rel genv vs vs'' ∧ vs' = v'::vs'') ∧
    (!genv env'.
@@ -115,7 +121,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
    (!genv x v env env'.
     env_rel genv ((x,v)::env) env' ⇔
       ?v' env''. v_rel genv v v' ∧ env_rel genv env env'' ∧ env' = ((x,v')::env'')) ∧
-   (!genv map shadowers env genv.
+   (!genv map shadowers env.
     global_env_inv_flat genv map shadowers env ⇔
       (!x v.
         x ∉ shadowers ∧
@@ -126,7 +132,7 @@ val v_rel_eqns = Q.store_thm ("v_rel_eqns",
           n < LENGTH genv ∧
           EL n genv = SOME v_i1 ∧
           v_rel genv v v_i1)) ∧
-  (!genv mods tops menv shadowers env genv.
+  (!genv mods tops menv shadowers env.
     global_env_inv genv mods tops menv shadowers env ⇔
       global_env_inv_flat genv tops shadowers env ∧
       (!mn env'.
@@ -344,17 +350,19 @@ val sv_rel_weakening = Q.prove (
 
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!genv c s s'.
-    LIST_REL (sv_rel genv) s s'
+    LIST_REL (sv_rel genv) s.refs s' ∧
+    s.clock = c ∧
+    s.io = t
     ⇒
-    s_rel genv (c,s,t) (c,s',t))`;
+    s_rel genv s (c,s',t))`;
 
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
-  (!genv mods tops menv cenv env env' env_i1 locals.
-    locals = set (MAP FST env) ∧
-    global_env_inv genv mods tops menv locals env' ∧
-    env_rel genv env env_i1
+  (!genv mods tops env env' env_i1 locals.
+    locals = set (MAP FST env.v) ∧
+    global_env_inv genv mods tops env.m locals env' ∧
+    env_rel genv env.v env_i1
     ⇒
-    env_all_rel genv mods tops (menv,cenv,env++env') (genv,cenv,env_i1) locals)`;
+    env_all_rel genv mods tops (env with v := env.v ++ env') (genv,env.c,env_i1) locals)`;
 
 val match_result_rel_def = Define
   `(match_result_rel genv env' (Match env) (Match env_i1) =
@@ -407,7 +415,7 @@ val do_eq = Q.prove (
 
 val do_con_check = Q.prove (
   `!genv mods tops env cn es env_i1 locals.
-    do_con_check (all_env_to_cenv env) cn (LENGTH es) ∧
+    do_con_check env.c cn (LENGTH es) ∧
     env_all_rel genv mods tops env env_i1 locals
     ⇒
     do_con_check (all_env_to_cenv env_i1) cn (LENGTH (compile_exps mods (DRESTRICT tops (COMPL locals)) es))`,
@@ -415,7 +423,7 @@ val do_con_check = Q.prove (
   every_case_tac >>
   fs [env_all_rel_cases] >>
   rw [] >>
-  fs [semanticPrimitivesTheory.all_env_to_cenv_def, modSemTheory.all_env_to_cenv_def] >>
+  fs [all_env_to_cenv_def] >>
   rw [] >>
   ntac 3 (pop_assum (fn _ => all_tac)) >>
   induct_on `es` >>
@@ -676,19 +684,19 @@ val find_recfun = Q.prove (
    fs [Once find_recfun_def, compile_exp_def]);
 
 val do_app_rec_help = Q.prove (
-  `!genv menv'' cenv'' env' funs env''' env_i1' mods' tops' funs'.
-    env_rel genv env' env_i1' ∧
-    set (MAP FST env''') DIFF set (MAP FST env') ⊆ FDOM tops' ∧
-    global_env_inv genv mods' tops' menv'' (set (MAP FST env_i1')) env'''
+  `!genv env'' funs env''' env_i1' mods' tops' funs'.
+    env_rel genv env''.v env_i1' ∧
+    set (MAP FST env''') DIFF set (MAP FST env''.v) ⊆ FDOM tops' ∧
+    global_env_inv genv mods' tops' env''.m (set (MAP FST env_i1')) env'''
     ⇒
     env_rel genv
     (MAP
-       (λ(fn,n,e). (fn,Recclosure (menv'',cenv'',env' ++ env''') funs' fn))
+       (λ(fn,n,e). (fn,Recclosure (env'' with v := env''.v ++ env''') funs' fn))
        funs)
     (MAP
        (λ(fn,n,e).
           (fn,
-           Recclosure (cenv'',env_i1')
+           Recclosure (env''.c,env_i1')
              (compile_funs mods'
                 (DRESTRICT tops'
                    (COMPL (set (MAP FST env_i1') ∪ set (MAP FST funs'))))
@@ -701,7 +709,7 @@ val do_app_rec_help = Q.prove (
   PairCases_on `h` >>
   rw [v_rel_eqns, compile_exp_def] >>
   rw [Once v_rel_cases] >>
-  MAP_EVERY qexists_tac [`mods'`, `tops'`, `env'`, `env'''`] >>
+  MAP_EVERY qexists_tac [`mods'`, `tops'`, `env''`, `env'''`] >>
   rw [] >>
   fs [v_rel_eqns]);
 
@@ -757,16 +765,16 @@ val do_opapp = Q.prove (
    rw [do_opapp_cases, modSemTheory.do_opapp_def, vs_rel_list_rel] >>
    fs [LIST_REL_CONS1] >>
    rw []
-   >- (qpat_assum `v_rel genv (Closure (menv'',cenv'',env'') n e) v1_i1` mp_tac >>
+   >- (qpat_assum `v_rel genv (Closure env'' n e) v1_i1` mp_tac >>
        rw [Once v_rel_cases] >>
        rw [] >>
        MAP_EVERY qexists_tac [`mods`, `tops`, `n INSERT set (MAP FST env_i1)`] >>
        rw [DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
-       MAP_EVERY qexists_tac [`(n, v2) :: env`, `env'`] >>
+       MAP_EVERY qexists_tac [`env with v := (n, v2) :: env.v`, `env'`] >>
        rw [v_rel_eqns]
        >- metis_tac [env_rel_dom] >>
        fs [v_rel_eqns])
-   >- (qpat_assum `v_rel genv (Recclosure (menv'',cenv'',env'') funs n') v1_i1` mp_tac >>
+   >- (qpat_assum `v_rel genv (Recclosure env'' funs n') v1_i1` mp_tac >>
        rw [Once v_rel_cases] >>
        rw [] >>
        imp_res_tac find_recfun >>
@@ -774,7 +782,7 @@ val do_opapp = Q.prove (
        >- (MAP_EVERY qexists_tac [`mods`, `tops`, `n'' INSERT set (MAP FST env_i1) ∪ set (MAP FST funs)`] >>
            rw [DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
            rw []
-           >- (MAP_EVERY qexists_tac [`(n'', v2)::build_rec_env funs (menv'',cenv'',env ++ env') env`, `env'`] >>
+           >- (MAP_EVERY qexists_tac [`env with v := (n'', v2)::build_rec_env funs (env with v := env.v ++ env') env.v`, `env'`] >>
                rw [evalPropsTheory.build_rec_env_merge, EXTENSION]
                >- (rw [MEM_MAP, EXISTS_PROD] >>
                    imp_res_tac env_rel_dom >>
@@ -791,8 +799,9 @@ val do_opapp = Q.prove (
             fs[FST_triple]))
        >- (MAP_EVERY qexists_tac [`mods`, `tops|++tops'`, `{n''}`] >>
            rw [DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
-           MAP_EVERY qexists_tac [`[(n'',v2)]`, `build_rec_env funs (menv'',cenv'',env'') env''`] >>
-           rw [evalPropsTheory.build_rec_env_merge, EXTENSION]
+           MAP_EVERY qexists_tac [`<| m := env''.m; c := env''.c; v := [(n'',v2)] |>`,
+                                  `build_rec_env funs env'' env''.v`] >>
+           rw [environment_component_equality, evalPropsTheory.build_rec_env_merge, EXTENSION]
            >- (match_mp_tac global_env_inv_extend2 >>
                rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_triple, GSYM MAP_REVERSE]
                >- metis_tac [global_env_inv_add_locals, UNION_EMPTY] >>
@@ -807,7 +816,7 @@ val do_opapp = Q.prove (
                res_tac >>
                qexists_tac `n` >>
                rw [] >>
-               `v = Recclosure (menv'',cenv'',env'') funs x` by metis_tac [lookup_build_rec_env_lem] >>
+               `v = Recclosure env'' funs x` by metis_tac [lookup_build_rec_env_lem] >>
                rw [Once v_rel_cases] >>
                MAP_EVERY qexists_tac [`mods`, `tops`, `tops'`] >>
                rw [find_recfun_ALOOKUP])
@@ -815,7 +824,7 @@ val do_opapp = Q.prove (
 
 val build_conv = Q.prove (
   `!genv mods tops env cn vs v vs' env_i1 locals.
-    (build_conv (all_env_to_cenv env) cn vs = SOME v) ∧
+    (build_conv env.c cn vs = SOME v) ∧
     env_all_rel genv mods tops env env_i1 locals ∧
     vs_rel genv vs vs'
     ⇒
@@ -827,7 +836,7 @@ val build_conv = Q.prove (
   rw [Once v_rel_cases] >>
   fs [env_all_rel_cases] >>
   rw [] >>
-  fs [semanticPrimitivesTheory.all_env_to_cenv_def, modSemTheory.all_env_to_cenv_def]);
+  fs [all_env_to_cenv_def]);
 
 val pmatch = Q.prove (
   `(!cenv s p v env r env' env'' genv env_i1 s_i1 v_i1.
@@ -952,7 +961,7 @@ val global_env_inv_lookup_mod3 = Q.prove (
 
 val compile_exp_correct = Q.prove (
   `(∀b env s e res.
-     evaluate b env s e res ⇒
+     bigStep$evaluate b env s e res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !genv mods tops s' r env_i1 s_i1 e_i1 locals.
        (res = (s',r)) ∧
@@ -1098,11 +1107,11 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       first_assum (fn th => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] do_app) th)) >>
       rfs [s_rel_cases] >>
-      pop_assum (qspecl_then [`genv`, `(s',t2)`, `REVERSE v''`] assume_tac) >>
+      pop_assum (qspecl_then [`genv`, `(s',s2.io)`, `REVERSE v''`] assume_tac) >>
       rfs [vs_rel_list_rel, EVERY2_REVERSE] >>
       rw [] >>
       disj1_tac >>
-      MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `t2`] >>
+      MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `s2.io`] >>
       fs [compile_exps_reverse])
   >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
@@ -1168,7 +1177,7 @@ val compile_exp_correct = Q.prove (
   >- metis_tac []
   >- metis_tac []
   >- (* Let *)
-     (`?env'. env_i1 = (genv,cenv,env')` by fs [env_all_rel_cases] >>
+     (`?env_i1'. env_i1 = (genv,env.c,env_i1')` by fs [env_all_rel_cases] >>
       rw [] >>
       res_tac >>
       fs [] >>
@@ -1176,10 +1185,10 @@ val compile_exp_correct = Q.prove (
       cases_on `n` >>
       fs [libTheory.opt_bind_def, compile_exp_def]
       >- metis_tac [compl_insert, DRESTRICT_DOMSUB] >>
-      `env_all_rel genv mods tops (menv,cenv,(x, v) :: env)
-                     (genv, cenv, (x,v')::env') (x INSERT locals)`
+      `env_all_rel genv mods tops (env with v := (x, v) :: env.v)
+                     (genv, env.c, (x,v')::env_i1') (x INSERT locals)`
                  by (fs [env_all_rel_cases] >>
-                     MAP_EVERY qexists_tac [`(x, v) :: env''`, `env'''`] >>
+                     MAP_EVERY qexists_tac [`env' with v := (x, v) :: env'.v`, `env''`] >>
                      fs [v_rel_eqns] >>
                      rw []) >>
       metis_tac [compl_insert, DRESTRICT_DOMSUB])
@@ -1193,14 +1202,15 @@ val compile_exp_correct = Q.prove (
      (rw [markerTheory.Abbrev_def] >>
       pop_assum mp_tac >>
       rw [] >>
-      `?env'. env_i1 = (genv,cenv,env')` by fs [env_all_rel_cases] >>
+      `?env'. env_i1 = (genv,env.c,env')` by fs [env_all_rel_cases] >>
       rw [] >>
-      `env_all_rel genv mods tops (menv,cenv,build_rec_env funs (menv,cenv,env) env)
-                                    (genv,cenv,build_rec_env (compile_funs mods (FOLDR (λk m. m \\ k) (DRESTRICT tops (COMPL locals)) (MAP FST funs)) funs) (cenv, env') env')
+      qpat_abbrev_tac`env'' = (genv,env.c,X)` >>
+      `env_all_rel genv mods tops (env with v := build_rec_env funs env env.v) env''
                                     (set (MAP FST funs) ∪ locals)`
-                             by (fs [env_all_rel_cases] >>
-                                 MAP_EVERY qexists_tac [`build_rec_env funs (menv,cenv,env'' ++ env''') env''`, `env'''`] >>
-                                 rw [evalPropsTheory.build_rec_env_merge, EXTENSION]
+                             by (fs[Abbr`env''`]>>fs [env_all_rel_cases] >>
+                                 qpat_abbrev_tac`bre = build_rec_env funs Y` >>
+                                 MAP_EVERY qexists_tac [`env'' with v := bre env''.v`, `env'''`] >>
+                                 rw [Abbr`bre`,evalPropsTheory.build_rec_env_merge, EXTENSION]
                                  >- (rw [MEM_MAP, EXISTS_PROD] >>
                                     imp_res_tac env_rel_dom >>
                                     metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
@@ -1240,23 +1250,21 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       fs [s_rel_cases, env_all_rel_cases] >>
       rw [] >>
-      `match_result_rel genv env''' (Match env') (pmatch cenv s'' p v_i1 env_i1')`
+      fs [] >>
+      `match_result_rel genv env''' (Match env') (pmatch env''.c s'' p v_i1 env_i1')`
                     by metis_tac [pmatch] >>
-      cases_on `pmatch cenv s'' p v_i1 env_i1'` >>
+      cases_on `pmatch env''.c s'' p v_i1 env_i1'` >>
       fs [match_result_rel_def] >>
       rw [] >>
       fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env''''`, `env'''`, `a`, `s''`] mp_tac) >>
+      imp_res_tac sourcePropsTheory.pmatch_extend >> fs[] >> rw[] >>
+      FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env'' with v := env''''' ++ env''.v`, `env'''`, `a`, `s''`] mp_tac) >>
       rw [] >>
-      fs [] >>
-      imp_res_tac sourcePropsTheory.pmatch_extend >>
-      fs [APPEND_11] >>
+      first_x_assum(fn th => mp_tac th  >> discharge_hyps) >- (
+        metis_tac[global_env_inv_add_locals] ) >> strip_tac >>
       rw [] >>
-      imp_res_tac global_env_inv_add_locals >>
-      fs [] >>
-      rw [] >>
-      MAP_EVERY qexists_tac [`(c,s'''',t')`, `r_i1`] >>
-      rw [] >>
+      first_assum(match_exists_tac o concl) >> simp[PULL_EXISTS] >>
+      first_assum(match_exists_tac o concl) >> simp[] >>
       fs [COMPL_UNION, drestrict_iter_list] >>
       metis_tac [INTER_COMM])
   >- (* Pattern matching *)
@@ -1264,12 +1272,14 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       fs [s_rel_cases, env_all_rel_cases] >>
       rw [] >>
-      `match_result_rel genv env'' (No_match) (pmatch cenv s'' p v_i1 env_i1')`
+      fs [] >>
+      `match_result_rel genv env'' No_match (pmatch env'.c s'' p v_i1 env_i1')`
                     by metis_tac [pmatch] >>
-      cases_on `pmatch cenv s'' p v_i1 env_i1'` >>
+      cases_on `pmatch env'.c s'' p v_i1 env_i1'` >>
       fs [match_result_rel_def] >>
       rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``]));
+      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
+      metis_tac[]));
 
 val global_env_inv_flat_extend_lem = Q.prove (
   `!genv genv' env env_i1 x n v.
@@ -1422,11 +1432,11 @@ val alookup_alloc_defs_bounds_rev = Q.prove(
   DECIDE_TAC);
 
 val letrec_global_env_lem = Q.prove (
-  `!funs funs' menv cenv env v x x' genv.
-    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs) x = SOME v ∧
+  `!funs funs' (env:v environment) v x.
+    ALOOKUP (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs) x = SOME v ∧
     ALOOKUP (REVERSE (alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))) x = SOME x'
     ⇒
-    v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure (menv,cenv,env) funs' fn)) funs))`,
+    v = SND (EL (LENGTH funs + LENGTH genv - (SUC x')) (MAP (λ(fn,n,e). (fn,Recclosure env funs' fn)) funs))`,
   induct_on `funs` >>
   rw [alloc_defs_append] >>
   PairCases_on `h` >>
@@ -1444,16 +1454,16 @@ val letrec_global_env_lem = Q.prove (
 val letrec_global_env = Q.prove (
   `!genv.
     ALL_DISTINCT (MAP (\(x,y,z). x) funs) ∧
-    global_env_inv genv mods tops menv {} env
+    global_env_inv genv mods tops env.m {} env.v
     ⇒
-    global_env_inv (genv ++ (MAP (λ(p1,p1',p2). SOME (Closure (cenv,[]) p1' p2))
+    global_env_inv (genv ++ (MAP (λ(p1,p1',p2). SOME (Closure (env.c,[]) p1' p2))
                                  (compile_funs mods (tops |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))
                                                   (REVERSE funs))))
                  FEMPTY
                  (FEMPTY |++ alloc_defs (LENGTH genv) (REVERSE (MAP (λ(f,x,e). f) funs)))
                  []
                  ∅
-                 (build_rec_env funs (menv,cenv,env) [])`,
+                 (build_rec_env funs env [])`,
   rw [evalPropsTheory.build_rec_env_merge] >>
   rw [v_rel_eqns, flookup_fupdate_list] >>
   every_case_tac >>
@@ -1485,8 +1495,8 @@ val letrec_global_env = Q.prove (
       rw []
       >- (fs [v_rel_eqns, SUBSET_DEF] >>
           rw [] >>
-          `¬(ALOOKUP env x''' = NONE)` by metis_tac [ALOOKUP_NONE] >>
-          cases_on `ALOOKUP env x'''` >>
+          `¬(ALOOKUP env.v x''' = NONE)` by metis_tac [ALOOKUP_NONE] >>
+          cases_on `ALOOKUP env.v x'''` >>
           fs [] >>
           res_tac >>
           fs [FLOOKUP_DEF])
@@ -1529,15 +1539,15 @@ val compile_decs_num_bindings = Q.prove(
   decide_tac);
 
 val compile_dec_correct = Q.prove (
-  `!ck mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1 tdecs tdecs'.
+  `!ck mn mods tops d env s s' r genv s_i1 next' tops' d_i1.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_dec ck mn (menv,cenv,env) (s,tdecs) d ((s',tdecs'),r) ∧
-    global_env_inv genv mods tops menv {} env ∧
+    evaluate_dec ck mn env s d (s',r) ∧
+    global_env_inv genv mods tops env.m {} env.v ∧
     s_rel genv s s_i1 ∧
     compile_dec (LENGTH genv) mn mods tops d = (next',tops',d_i1)
     ⇒
     ?s'_i1 r_i1.
-      evaluate_dec ck genv cenv (s_i1,tdecs) d_i1 ((s'_i1,tdecs'),r_i1) ∧
+      evaluate_dec ck genv env.c (s_i1,s.defined_types) d_i1 ((s'_i1,s'.defined_types),r_i1) ∧
       (!cenv' env'.
         r = Rval (cenv',env')
         ⇒
@@ -1559,16 +1569,19 @@ val compile_dec_correct = Q.prove (
   every_case_tac >>
   fs [LET_THM] >>
   rw [FUPDATE_LIST, result_rel_eqns]
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-      fs [DRESTRICT_UNIV, result_rel_cases, semanticPrimitivesTheory.all_env_to_cenv_def] >>
+      fs [DRESTRICT_UNIV, result_rel_cases] >>
       rw [] >>
       fs [s_rel_cases] >>
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       ONCE_REWRITE_TAC[CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 pmatch))) >>
@@ -1576,12 +1589,12 @@ val compile_dec_correct = Q.prove (
       pop_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       rw[v_rel_eqns] >>
-      cases_on`pmatch cenv s' p v'' []` >> fs[match_result_rel_def]>>
+      cases_on`pmatch env.c s'' p v'' []` >> fs[match_result_rel_def]>>
       simp[Once modSemTheory.evaluate_cases] >>
       simp[Once modSemTheory.evaluate_cases] >>
       simp[do_con_check_def,build_conv_def,PULL_EXISTS] >>
       imp_res_tac pmatch_evaluate_list >> rfs[] >>
-      pop_assum (qspecl_then [`t2`, `genv`, `count'`, `ck`] strip_assume_tac) >>
+      pop_assum (qspecl_then [`s'.io`, `genv`, `s'.clock`, `ck`] strip_assume_tac) >>
       simp[MAP_REVERSE] >>
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_list`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1611,15 +1624,18 @@ val compile_dec_correct = Q.prove (
         simp[MEM_MAP,EXISTS_PROD] >> metis_tac[] ) >>
       strip_tac >> simp[] >>
       fs[MAP_REVERSE])
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-      fs [DRESTRICT_UNIV, result_rel_cases, semanticPrimitivesTheory.all_env_to_cenv_def, s_rel_cases] >>
+      fs [DRESTRICT_UNIV, result_rel_cases, s_rel_cases] >>
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
       srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[Once evaluate_cases] >>
       first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO] (CONJUNCT1 pmatch))) >>
@@ -1627,21 +1643,25 @@ val compile_dec_correct = Q.prove (
       pop_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       rw[v_rel_eqns] >>
-      cases_on`pmatch cenv s' p v'' []` >> fs[match_result_rel_def]>>
-      simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] )
-  >- (`env_all_rel genv mods tops (menv,cenv,env) (genv,cenv,[]) {}`
-            by fs [env_all_rel_cases, v_rel_eqns] >>
+      cases_on`pmatch env.c s'' p v'' []` >> fs[match_result_rel_def]>>
+      simp[Once modSemTheory.evaluate_cases,PULL_EXISTS,Bindv_def] >>
+      rw[v_rel_eqns])
+  >- (`env_all_rel genv mods tops env (genv,env.c,[]) {}`
+            by (fs [env_all_rel_cases, v_rel_eqns] >>
+                srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][] >>
+                rw[environment_component_equality,v_rel_eqns] ) >>
       imp_res_tac compile_exp_correct >> fs [] >> rfs[] >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
       first_x_assum(fn th => first_x_assum(strip_assume_tac o MATCH_MP th)) >>
-      fs [DRESTRICT_UNIV, result_rel_cases, semanticPrimitivesTheory.all_env_to_cenv_def, s_rel_cases] >>
+      fs [DRESTRICT_UNIV, result_rel_cases, s_rel_cases] >>
       rw [PULL_EXISTS] >>
       simp[Once modSemTheory.evaluate_cases,PULL_EXISTS] >>
       srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+      imp_res_tac evaluate_no_new_types_mods >> fs[] >>
       first_assum(match_exists_tac o concl) >> simp[])
   >- (rw [fupdate_list_foldl] >>
       Q.PAT_ABBREV_TAC `tops' = (tops |++ X)` >>
-      qexists_tac `MAP (λ(f,x,e). (f, Closure (cenv,[]) x e)) (compile_funs mods tops' (REVERSE funs))` >>
+      qexists_tac `MAP (λ(f,x,e). (f, Closure (env.c,[]) x e)) (compile_funs mods tops' (REVERSE funs))` >>
       simp[compile_funs_map,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,fst_alloc_defs,
            evalPropsTheory.build_rec_env_merge,MAP_REVERSE,ETA_AX] >>
       conj_tac >- (
@@ -1652,8 +1672,8 @@ val compile_dec_correct = Q.prove (
           UNABBREV_ALL_TAC >>
           rw [SUBSET_DEF, FDOM_FUPDATE_LIST, FUPDATE_LIST_THM]
           >- (fs [v_rel_eqns] >>
-              `~(ALOOKUP env x = NONE)` by metis_tac [ALOOKUP_NONE] >>
-              cases_on `ALOOKUP env x` >>
+              `~(ALOOKUP env.v x = NONE)` by metis_tac [ALOOKUP_NONE] >>
+              cases_on `ALOOKUP env.v x` >>
               fs [] >>
               res_tac >>
               fs [FLOOKUP_DEF])
@@ -1668,6 +1688,7 @@ val compile_dec_correct = Q.prove (
         unabbrev_all_tac >>
         metis_tac[letrec_global_env,FUPDATE_LIST,FST_triple]))
   >- fs [v_rel_eqns]
+  >- fs[s_rel_cases]
   >- fs [v_rel_eqns]
   >- (rw [PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def, check_dup_ctors_def] >>
       unabbrev_all_tac >>
@@ -1676,19 +1697,23 @@ val compile_dec_correct = Q.prove (
   >- EVAL_TAC
   >- (EVAL_TAC >> simp[])
   >- EVAL_TAC
-  >> fs [v_rel_eqns]);
+  >- fs [v_rel_eqns]
+  >- fs [v_rel_eqns]
+  >- fs [v_rel_eqns]
+  >- fs [s_rel_cases]
+  >- fs [v_rel_eqns]);
 
 val compile_decs_correct = Q.prove (
   `!ck mn mods tops ds menv cenv env s s' r genv s_i1 tdecs s'_i1 tdecs' next' tops' ds_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_decs ck mn (menv,cenv,env) (s,tdecs) ds ((s',tdecs'),cenv',r) ∧
-    global_env_inv genv mods tops menv {} env ∧
+    evaluate_decs ck mn env s ds (s',cenv',r) ∧
+    global_env_inv genv mods tops env.m {} env.v ∧
     s_rel genv s s_i1 ∧
     compile_decs (LENGTH genv) mn mods tops ds = (next',tops',ds_i1)
     ⇒
     ∃s'_i1 new_genv new_genv' new_env' r_i1.
      new_genv' = MAP SND new_genv ∧
-     evaluate_decs ck genv cenv (s_i1,tdecs) ds_i1 ((s'_i1,tdecs'),cenv',new_genv',r_i1) ∧
+     evaluate_decs ck genv env.c (s_i1,s.defined_types) ds_i1 ((s'_i1,s'.defined_types),cenv',new_genv',r_i1) ∧
      s_rel (genv ++ MAP SOME new_genv') s' s'_i1 ∧
      (!new_env.
        r = Rval new_env
@@ -1730,14 +1755,9 @@ val compile_decs_correct = Q.prove (
       imp_res_tac compile_decs_num_bindings >>
       decide_tac)
   >- (
-     Cases_on`s2` >>
-     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-     simp[] >> strip_tac >> rw[] >>
-     srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
-     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
      first_x_assum(fn th => first_x_assum(mp_tac o
        MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
+     simp[Ntimes extend_dec_env_def 2] >>
      simp[Once AND_IMP_INTRO] >>
      ONCE_REWRITE_TAC[CONJ_COMM,CONJ_ASSOC] >>
      simp[GSYM AND_IMP_INTRO] >>
@@ -1750,8 +1770,12 @@ val compile_decs_correct = Q.prove (
        match_mp_tac (GEN_ALL global_env_inv_extend2) >> simp[] >>
        metis_tac[v_rel_weakening] ) >>
      discharge_hyps >- (
-       Cases_on`r'`>>fs[combine_dec_result_def] ) >>
+       rpt strip_tac >> fs[combine_dec_result_def] ) >>
      strip_tac >>
+     srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     fs[extend_dec_env_def] >>
      first_assum(match_exists_tac o concl) >> simp[] >>
      rator_x_assum`s_rel`mp_tac >>
      REWRITE_TAC[GSYM MAP_APPEND,GSYM APPEND_ASSOC] >> strip_tac >>
@@ -1874,27 +1898,27 @@ val no_dup_types = Q.prove(
   metis_tac [no_dup_types_helper]);
 
 val compile_top_correct = Q.store_thm ("compile_top_correct",
-  `!mods tops t ck menv cenv env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv' tdecs tdecs' mod_names mod_names'.
+  `!mods tops t ck env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    invariant genv mods tops menv env s s_i1 mod_names ∧
-    evaluate_top ck (menv,cenv,env) (s,tdecs,mod_names) t ((s',tdecs',mod_names'),cenv',r) ∧
+    invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
+    evaluate_top ck env s t (s',cenv',r) ∧
     compile_top (LENGTH genv) mods tops t = (next',mods',tops',prompt_i1)
     ⇒
     ∃s'_i1 new_genv r_i1.
-     evaluate_prompt ck genv cenv (s_i1,tdecs,mod_names) prompt_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+     evaluate_prompt ck genv env.c (s_i1,s.defined_types,s.defined_mods) prompt_i1 ((s'_i1,s'.defined_types,s'.defined_mods),cenv',new_genv,r_i1) ∧
      next' = LENGTH  (genv ++ new_genv) ∧
      (!new_menv new_env.
        r = Rval (new_menv, new_env)
        ⇒
        r_i1 = NONE ∧
-       invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+       invariant (genv ++ new_genv) mods' tops' (new_menv++env.m) (new_env++env.v) s' s'_i1 s'.defined_mods) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧
          result_rel (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1) ∧
-         invariant (genv ++ new_genv) mods' tops menv env s' s'_i1 mod_names')`,
+         invariant (genv ++ new_genv) mods' tops env.m env.v s' s'_i1 s'.defined_mods)`,
   rw [bigStepTheory.evaluate_top_cases, evaluate_prompt_cases, compile_top_def, LET_THM, invariant_def] >>
   fs [] >>
   rw []
@@ -1911,7 +1935,12 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_dec`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[GSYM CONJ_ASSOC] >>
+      conj_tac >- (
+        imp_res_tac eval_d_no_new_mods >>
+        fs []) >>
       conj_tac >- metis_tac[global_env_inv_extend2, v_rel_weakening] >>
+      imp_res_tac eval_d_no_new_mods >>
+      fs [] >>
       simp[prompt_mods_ok_def, modSemTheory.no_dup_types_def,decs_to_types_def] >>
       fs[modSemTheory.evaluate_dec_cases] >> rw[] >>
       fs[compile_dec_def,LET_THM] >- (
@@ -1935,12 +1964,17 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       conj_tac >- (
         fs[result_rel_cases] >>
         metis_tac[v_rel_weakening] ) >>
+      conj_tac >- (
+        imp_res_tac eval_d_no_new_mods >>
+        fs []) >>
       conj_tac >- metis_tac[v_rel_weakening] >>
       conj_tac >- (
         fs[s_rel_cases] >>
         metis_tac[sv_rel_weakening, LIST_REL_mono]) >>
+      imp_res_tac eval_d_no_new_mods >>
+      fs []>>
       simp[prompt_mods_ok_def, no_dup_types_def, decs_to_types_def] >>
-      fs[modSemTheory.evaluate_dec_cases] >> rw[] )
+      fs[modSemTheory.evaluate_dec_cases] )
   >- (first_assum(split_applied_pair_tac o lhs o concl) >>
       fs [] >>
       rw [] >>
@@ -1952,8 +1986,17 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       first_assum(match_exists_tac o concl) >> simp[] >>
       simp[fupdate_list_foldl,update_mod_state_def] >>
       simp[GSYM CONJ_ASSOC] >>
-      conj_tac >- fs[SUBSET_DEF] >>
-      metis_tac[prompt_mods_ok,global_env_inv_extend_mod,no_dup_types])
+      conj_tac >- (
+        imp_res_tac eval_ds_no_new_mods >>
+        fs [SUBSET_DEF]) >>
+      conj_tac >- metis_tac[global_env_inv_extend_mod] >>
+      conj_tac >- (
+        fs [s_rel_cases] >>
+        metis_tac [sv_rel_weakening, LIST_REL_mono]) >>
+      conj_tac >- metis_tac[prompt_mods_ok] >>
+      conj_tac >- metis_tac [no_dup_types] >>
+      imp_res_tac eval_ds_no_new_mods >>
+      fs [])
   >- (first_assum(split_applied_pair_tac o lhs o concl) >>
       fs [] >>
       rw [] >>
@@ -1968,39 +2011,44 @@ val compile_top_correct = Q.store_thm ("compile_top_correct",
       conj_tac >- (
         fs[result_rel_cases] >>
         metis_tac[v_rel_weakening] ) >>
-      conj_tac >- fs[SUBSET_DEF] >>
-      simp[fupdate_list_foldl] >>
       conj_tac >- (
-          `mn ∉ set (MAP FST menv)`
-                     by (fs [SUBSET_DEF] >>
-                         metis_tac []) >>
-          metis_tac [global_env_inv_extend_mod_err]) >>
+        imp_res_tac eval_ds_no_new_mods >>
+        fs [SUBSET_DEF]) >>
+      conj_tac >- (
+        simp[fupdate_list_foldl] >>
+        match_mp_tac global_env_inv_extend_mod_err >>
+        simp [] >>
+        fs [SUBSET_DEF] >>
+        metis_tac []) >>
       conj_tac >- (
         fs [s_rel_cases] >>
-        metis_tac [sv_rel_weakening, LIST_REL_mono] ) >>
-      metis_tac[prompt_mods_ok,no_dup_types]));
+        metis_tac [sv_rel_weakening, LIST_REL_mono]) >>
+      conj_tac >- metis_tac[prompt_mods_ok] >>
+      conj_tac >- metis_tac[no_dup_types] >>
+      imp_res_tac eval_ds_no_new_mods >>
+      fs []));
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
-  `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
+  `!mods tops ck env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_prog ck (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
-    invariant genv mods tops menv env s s_i1 mod_names ∧
+    evaluate_prog ck env s prog (s',cenv',r) ∧
+    invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
     compile_prog (LENGTH genv) mods tops prog = (next',mods',tops',prog_i1)
     ⇒
     ∃s'_i1 new_genv r_i1.
-     evaluate_prog ck genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+     evaluate_prog ck genv env.c (s_i1,s.defined_types,s.defined_mods) prog_i1 ((s'_i1,s'.defined_types,s'.defined_mods),cenv',new_genv,r_i1) ∧
      (!new_menv new_env.
        r = Rval (new_menv, new_env)
        ⇒
        next' = LENGTH (genv ++ new_genv) ∧
        r_i1 = NONE ∧
-       invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+       invariant (genv ++ new_genv) mods' tops' (new_menv++env.m) (new_env++env.v) s' s'_i1 s'.defined_mods) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧
-         result_rel (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1))`,
+         result_rel (\a b c. T) (genv ++ new_genv) r (Rerr err_i1))`,
   induct_on `prog` >>
   rw [LET_THM, compile_prog_def]
   >- fs [Once bigStepTheory.evaluate_prog_cases, Once modSemTheory.evaluate_prog_cases] >>
@@ -2011,7 +2059,6 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   rator_x_assum `bigStep$evaluate_prog` (mp_tac o SIMP_RULE (srw_ss()) [Once bigStepTheory.evaluate_prog_cases]) >>
   rw [] >>
   rw [Once modSemTheory.evaluate_prog_cases] >>
-  `?s2' tdecs2' mod_names2'. s2 = (s2',tdecs2',mod_names2')` by metis_tac [pair_CASES] >>
   rw []
   >- (
     first_x_assum(
@@ -2019,6 +2066,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
     first_x_assum(fn th => first_x_assum(
       mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
+    simp[extend_top_env_def] >>
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> fs[] >>
     discharge_hyps >- (Cases_on `r'` >> fs [combine_mod_result_def]) >>
     srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
@@ -2137,33 +2185,33 @@ val compile_prog_mods_ok = Q.prove (
       metis_tac []));
 
 val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
-  `!mods tops ck menv cenv env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1 tdecs mod_names tdecs' mod_names'.
+  `!mods tops ck env s prog s' r genv s_i1 next' tops' mods'  cenv' prog_i1.
     r ≠ Rerr (Rabort Rtype_error) ∧
-    evaluate_whole_prog ck (menv,cenv,env) (s,tdecs,mod_names) prog ((s',tdecs',mod_names'),cenv',r) ∧
-    invariant genv mods tops menv env s s_i1 mod_names ∧
+    evaluate_whole_prog ck env s prog (s',cenv',r) ∧
+    invariant genv mods tops env.m env.v s s_i1 s.defined_mods ∧
     compile_prog (LENGTH genv) mods tops prog = (next',mods',tops',prog_i1)
     ⇒
     ∃s'_i1 new_genv r_i1.
-     evaluate_whole_prog ck genv cenv (s_i1,tdecs,mod_names) prog_i1 ((s'_i1,tdecs',mod_names'),cenv',new_genv,r_i1) ∧
+     evaluate_whole_prog ck genv env.c (s_i1,s.defined_types,s.defined_mods) prog_i1 ((s'_i1,s'.defined_types,s'.defined_mods),cenv',new_genv,r_i1) ∧
      (!new_menv new_env.
        r = Rval (new_menv, new_env)
        ⇒
        next' = LENGTH (genv ++ new_genv) ∧
        r_i1 = NONE ∧
-       invariant (genv ++ new_genv) mods' tops' (new_menv++menv) (new_env++env) s' s'_i1 mod_names') ∧
+       invariant (genv ++ new_genv) mods' tops' (new_menv++env.m) (new_env++env.v) s' s'_i1 s'.defined_mods) ∧
      (!err.
        r = Rerr err
        ⇒
        ?err_i1.
          r_i1 = SOME err_i1 ∧
-         result_rel (\a b c. T) (genv ++ new_genv) (Rerr err) (Rerr err_i1))`,
+         result_rel (\a b c. T) (genv ++ new_genv) r (Rerr err_i1))`,
   rw [modSemTheory.evaluate_whole_prog_def, bigStepTheory.evaluate_whole_prog_def] >>
   every_case_tac
   >- (imp_res_tac compile_prog_correct >>
       fs [] >>
       cases_on `r` >>
       fs [] >>
-      metis_tac []) >>
+      first_assum(match_exists_tac o concl) >> simp[]) >>
   rw [result_rel_cases] >>
   CCONTR_TAC >>
   fs [] >>

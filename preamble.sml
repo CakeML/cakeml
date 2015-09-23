@@ -2,7 +2,7 @@ structure preamble =
 struct
 local open intLib wordsLib in end
 open HolKernel bossLib boolLib boolSimps pairLib lcsymtacs
-     Parse Defn Tactic res_quanTheory
+     Parse Defn Tactic res_quanTheory quantHeuristicsLib
      pairTheory optionTheory sumTheory combinTheory
      listTheory rich_listTheory alistTheory llistTheory
      arithmeticTheory finite_mapTheory sptreeTheory

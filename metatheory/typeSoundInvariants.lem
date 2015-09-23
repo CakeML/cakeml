@@ -59,12 +59,12 @@ let decls_to_mods (mdecls,tdecls,edecls) =
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
-val consistent_con_env : ctMap -> envC -> tenvC -> bool
-let consistent_con_env ctMap envC tenvC =
+val consistent_con_env : ctMap -> env_ctor -> tenvC -> bool
+let consistent_con_env ctMap env_c tenvC =
   tenvC_ok tenvC &&
   ctMap_ok ctMap &&
   (forall cn n t.
-    lookup_alist_mod_env cn envC = Just (n, t)
+    lookup_alist_mod_env cn env_c = Just (n, t)
     -->
     exists tvs ts.
       lookup_alist_mod_env cn tenvC = Just (tvs, ts, t) &&
@@ -72,7 +72,7 @@ let consistent_con_env ctMap envC tenvC =
       List.length ts = n)
   &&
   (forall cn.
-    lookup_alist_mod_env cn envC = Nothing
+    lookup_alist_mod_env cn env_c = Nothing
     -->
     lookup_alist_mod_env cn tenvC = Nothing)
 
@@ -84,7 +84,7 @@ val type_v : nat -> ctMap -> tenvS -> v -> t -> bool
  * entries in the environment are values, and values have no free variables,
  * each entry in the environment can be typed in the empty environment (if at
  * all) *)
-val type_env : ctMap -> tenvS -> envE -> tenvE -> bool
+val type_env : ctMap -> tenvS -> env_val -> tenvE -> bool
 
 (* The type of the store *)
 val type_s : ctMap -> tenvS -> store v -> bool
@@ -96,7 +96,7 @@ val type_s : ctMap -> tenvS -> store v -> bool
  * ensures that no other contexts can be created under a let binding. *)
 val type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
 val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool
-val type_state : nat -> ctMap -> tenvS -> state -> t -> bool
+val type_state : nat -> ctMap -> tenvS -> small_state -> t -> bool
 val context_invariant : nat -> list ctxt -> nat -> bool
 
 let rec 
@@ -116,9 +116,9 @@ indreln
 and
 [type_vs : nat -> ctMap -> tenvS -> list v -> list t -> bool]
 and
-[type_env : ctMap -> tenvS -> envE -> tenvE -> bool]
+[type_env : ctMap -> tenvS -> env_val -> tenvE -> bool]
 and
-[consistent_mod_env : tenvS -> ctMap -> envM -> tenvM -> bool]
+[consistent_mod_env : tenvS -> ctMap -> env_mod -> tenvM -> bool]
 
 lit_int : forall tvs cenv senv n.
 true
@@ -165,29 +165,29 @@ type_v tvs cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 
 and
 
-closure : forall tvs menv tenvC ctMap senv envC envM env tenv n e t1 t2.
-consistent_con_env ctMap envC tenvC &&
+closure : forall tvs menv tenvC ctMap senv env tenv n e t1 t2.
+consistent_con_env ctMap env.c tenvC &&
 tenvM_ok menv &&
-consistent_mod_env senv ctMap envM menv &&
-type_env ctMap senv env tenv &&
+consistent_mod_env senv ctMap env.m menv &&
+type_env ctMap senv env.v tenv &&
 check_freevars tvs [] t1 &&
 type_e menv tenvC (bind_tenv n 0 t1 (bind_tvar tvs tenv)) e t2
 ==>
-type_v tvs ctMap senv (Closure (envM, envC, env) n e) (Tfn t1 t2)
+type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2)
 
 and
 
-recclosure : forall tvs menv tenvC ctMap senv envM envC env funs n t tenv tenv'.
-consistent_con_env ctMap envC tenvC &&
+recclosure : forall tvs menv tenvC ctMap senv env funs n t tenv tenv'.
+consistent_con_env ctMap env.c tenvC &&
 tenvM_ok menv &&
-consistent_mod_env senv ctMap envM menv &&
-type_env ctMap senv env tenv &&
+consistent_mod_env senv ctMap env.m menv &&
+type_env ctMap senv env.v tenv &&
 type_funs menv tenvC (bind_var_list 0 tenv' (bind_tvar tvs tenv)) funs tenv' &&
 lookup n tenv' = Just t &&
 allDistinct (List.map (fun (f,x,e) -> f) funs) &&
 List.elem n (List.map (fun (f,x,e) -> f) funs)
 ==>
-type_v tvs ctMap senv (Recclosure (envM, envC, env) funs n) t
+type_v tvs ctMap senv (Recclosure env funs n) t
 
 and
 
@@ -451,41 +451,41 @@ type_ctxts tvs tenvC senv [] t t
 
 and
 
-cons : forall tvs tenvM tenvC ctMap senv c envM envC env cs tenv t1 t2 t3.
-type_env ctMap senv env tenv &&
-consistent_con_env ctMap envC tenvC &&
+cons : forall tvs tenvM tenvC ctMap senv c env cs tenv t1 t2 t3.
+type_env ctMap senv env.v tenv &&
+consistent_con_env ctMap env.c tenvC &&
 tenvM_ok tenvM &&
-consistent_mod_env senv ctMap envM tenvM &&
+consistent_mod_env senv ctMap env.m tenvM &&
 type_ctxt tvs tenvM ctMap tenvC senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) ctMap senv cs t2 t3
 ==>
-type_ctxts tvs ctMap senv ((c,(envM,envC,env))::cs) t1 t3
+type_ctxts tvs ctMap senv ((c,env)::cs) t1 t3
 
 indreln
-[type_state : nat -> ctMap -> tenvS -> state -> t -> bool]
+[type_state : nat -> ctMap -> tenvS -> small_state -> t -> bool]
 
-exp : forall dec_tvs tenvM tenvC ctMap senv envM envC s env e c t1 t2 tenv tvs tr.
+exp : forall dec_tvs tenvM tenvC ctMap senv s env e c t1 t2 tenv tvs tr.
 context_invariant dec_tvs c tvs &&
-consistent_con_env ctMap envC tenvC &&
+consistent_con_env ctMap env.c tenvC &&
 tenvM_ok tenvM &&
-consistent_mod_env senv ctMap envM tenvM &&
+consistent_mod_env senv ctMap env.m tenvM &&
 type_ctxts tvs ctMap senv c t1 t2 &&
-type_env ctMap senv env tenv &&
+type_env ctMap senv env.v tenv &&
 type_s ctMap senv s &&
 type_e tenvM tenvC (bind_tvar tvs tenv) e t1 &&
 ((tvs <> 0) --> is_value e)
 ==>
-type_state dec_tvs ctMap senv ((envM, envC, env), (s,tr), Exp e, c) t2
+type_state dec_tvs ctMap senv (env, (s,tr), Exp e, c) t2
 
 and
 
-vl : forall dec_tvs ctMap senv envM envC s env v c t1 t2 tvs tr.
+vl : forall dec_tvs ctMap senv s env v c t1 t2 tvs tr.
 context_invariant dec_tvs c tvs &&
 type_ctxts tvs ctMap senv c t1 t2 &&
 type_s ctMap senv s &&
 type_v tvs ctMap senv v t1
 ==>
-type_state dec_tvs ctMap senv ((envM, envC, env), (s,tr), Val v, c) t2
+type_state dec_tvs ctMap senv (env, (s,tr), Val v, c) t2
 
 (* The first argument has strictly more bindings than the second. *)
 val weakM_def : tenvM -> tenvM -> bool
@@ -561,9 +561,9 @@ let decls_ok (mdecls,tdecls,edecls) =
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
-let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE,store) =
+let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,st,env) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
-    consistent_decls decls2 decls_no_sig &&
+    consistent_decls st.defined_types decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
     ctMap_has_lists ctMap &&
@@ -571,21 +571,22 @@ let type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,decls2,envM,envC,envE
     tenvT_ok tenvT &&
     tenvM_ok tenvM_no_sig &&
     tenvM_ok tenvM &&
-    consistent_mod_env tenvS ctMap envM tenvM_no_sig &&
-    consistent_con_env ctMap envC tenvC_no_sig &&
-    type_env ctMap tenvS envE tenv &&
-    type_s ctMap tenvS store &&
+    consistent_mod_env tenvS ctMap env.m tenvM_no_sig &&
+    consistent_con_env ctMap env.c tenvC_no_sig &&
+    type_env ctMap tenvS env.v tenv &&
+    type_s ctMap tenvS st.refs &&
     weakM tenvM_no_sig tenvM &&
     weakC tenvC_no_sig tenvC &&
     decls_ok decls_no_sig &&
     weak_decls decls_no_sig decls1 &&
     weak_decls_only_mods decls_no_sig decls1 &&
-    (forall err. r = Just (Rerr (Rraise err)) --> type_v 0 ctMap tenvS err Texn)
+    (forall err. r = Just (Rerr (Rraise err)) --> type_v 0 ctMap tenvS err Texn) &&
+    match decls1 with (mods,x,y) -> mods = st.defined_mods end
 
-let update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(decls2:set tid_or_exn),(envM:envM),(envC:envC),(envE:envE),store) decls1' tenvT' tenvM' tenvC' tenv' store' decls2' envC' r =
+let update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(st:state),(env:environment v)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =
   match r with
-     | Rval (envM',envE') -> 
+     | Rval (new_mods, new_vals) -> 
          (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, Map.(union) tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
-          decls2',envM'++envM,merge_alist_mod_env envC' envC,envE'++envE,store')
-     | Rerr _ -> (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,decls2',envM,envC,envE,store')
+          st',extend_top_env new_mods new_vals new_ctors env)
+     | Rerr _ -> (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,st',env)
   end

@@ -7,6 +7,8 @@ val _ = new_theory "decLang"
  * level, the program is represented by an expressions.
  *)
 
+ (*
 val _ = type_abbrev("count_store_genv", ``:'a count_store_trace # ('a option) list``);
+*)
 
 val _ = export_theory()

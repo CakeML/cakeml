@@ -4,7 +4,7 @@ open ffiTheory simpleIOTheory;
 open terminationTheory;
 open pathTheory;
 
-val _ = new_theory "standalone";
+val _ = new_theory "systemSem";
 
 val parse_def = Define`
 parse toks =
@@ -24,32 +24,26 @@ can_type_prog state prog =
         tdecs' tenvT' tenvM' tenvC' tenv'`;
 
 val evaluate_prog_with_io_def = Define `
-evaluate_prog_with_io prog state io k =
-  evaluate_prog prog 
-                (state.sem_env.sem_envM, state.sem_env.sem_envC, state.sem_env.sem_envE)
-                ((<| clock := k; 
-                     refs := FST (SND (FST state.sem_env.sem_store)); 
-                     io := io |>,
-                  FST (SND state.sem_env.sem_store)),
-                 SND (SND state.sem_env.sem_store))`;
-
+evaluate_prog_with_io state io k prog =
+  evaluate_prog (state.sem_st with <| clock := k; io := io |>) state.sem_env prog`;
+                
 val sem_def = Define `
 (sem state prog (Terminate io_list) ⇔
   can_type_prog state prog ∧
   ?k state' r envC.
     r ≠ Rerr (Rabort Rtimeout_error) ∧
-    evaluate_prog_with_io prog state (SOME (fromList io_list)) k = (r, envC, state') ∧
-    (FST (FST state')).io = SOME LNIL) ∧
+    evaluate_prog_with_io state (SOME (fromList io_list)) k prog = (state', envC, r) ∧
+    state'.io = SOME LNIL) ∧
 (sem state prog (Diverge io_trace) ⇔
   can_type_prog state prog ∧
   (!k. ?state' envC.
-    (evaluate_prog_with_io prog state (SOME io_trace) k = 
-        (Rerr (Rabort Rtimeout_error), envC, state')) ∧
-     IS_SOME (FST (FST state')).io) ∧
+    (evaluate_prog_with_io state (SOME io_trace) k prog = 
+        (state', envC, Rerr (Rabort Rtimeout_error))) ∧
+     IS_SOME state'.io) ∧
      (* for every proper prefix of the I/O trace: evaluate causes the
         I/O component to disagree with the given I/O trace prefix *)
    (!io. LPREFIX io io_trace ∧ io ≠ io_trace ⇒
-      ?k. ((FST (FST (SND (SND (evaluate_prog_with_io prog state (SOME io) k))))).io = NONE))) ∧
+      ?k. (FST (evaluate_prog_with_io state (SOME io) k prog)).io = NONE)) ∧
 (sem state prog Fail ⇔
   ¬(can_type_prog state prog))`;
 

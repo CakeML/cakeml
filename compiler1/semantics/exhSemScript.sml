@@ -167,8 +167,10 @@ val _ = Define`
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
+val _ = type_abbrev("count_store_genv", ``:(num # 'a store # io_trace) # ('a option) list``);
+
 val do_app_def = Define `
-  do_app (((cnt,s,t),g):exhSem$v count_store_genv) op (vs:exhSem$v list) =
+  do_app (((cnt,s,t),g):(exhSem$v count_store_genv)) op (vs:exhSem$v list) =
   case op of
   | Init_global_var idx =>
     (case vs of

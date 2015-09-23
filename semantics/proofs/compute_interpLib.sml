@@ -1,11 +1,12 @@
 structure compute_interpLib = struct
-open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory replTheory
+open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory
 
   val add_datatype = compute_basicLib.add_datatype
   fun add_interp_compset compset = let
     local open interpTheory in
       val () = compute_semanticsLib.add_ast_compset compset
       
+      val () = add_datatype ``:state`` compset
       val () = computeLib.add_thms
       [run_eval_def
       ,run_eval_dec_def
@@ -22,7 +23,8 @@ open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory 
       ,prog_to_mods_def
       ,no_dup_top_types_def
       ,prog_to_top_types_def
-      ,bigClockTheory.set_counter_def
+      ,extend_top_env_def
+      ,extend_dec_env_def
       ] compset
     end
     in

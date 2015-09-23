@@ -395,7 +395,7 @@ rw [weakCT_def] >>
 metis_tac [SUBMAP_FUNION, DISJOINT_SYM, SUBMAP_REFL]);
 
 val consistent_con_env_weakening = Q.prove (
-`!ctMap (tenvC:tenvC) (envC:envC) ctMap'.
+`!ctMap (tenvC:tenvC) (envC:env_ctor) ctMap'.
   consistent_con_env ctMap envC tenvC ∧
   ctMap_ok ctMap' ∧
   weakCT ctMap' ctMap

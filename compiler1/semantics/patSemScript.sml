@@ -306,7 +306,7 @@ val _ = Define `
     if v = Boolv F then SOME e2 else NONE`;
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:patSem$v list) (s:patSem$v count_store_genv) ((Lit l):patLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:patSem$v list) (s:(num # patSem$v store_trace) # patSem$v option list) ((Lit l):patLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

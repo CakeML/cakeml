@@ -7,10 +7,8 @@ open import BigStep
 
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
-val evaluate_state : state -> count_store_trace v * result v v -> bool
-
 indreln
-[evaluate_ctxt : all_env -> count_store_trace v -> ctxt_frame -> v -> count_store_trace v * result v v -> bool]
+[evaluate_ctxt : environment v -> state -> ctxt_frame -> v -> state * result v v -> bool]
 
 raise : forall env s v.
 true
@@ -43,21 +41,21 @@ evaluate_ctxt env s1 (Capp Opapp vs1 () es) v (s2, Rerr (Rabort Rtype_error))
 
 and
 
-app3 : forall env op v vs1 vs2 es res s1 s2 s3 t2 t3 count.
+app3 : forall env op v vs1 vs2 es res s1 s2 new_refs new_io.
 op <> Opapp &&
-evaluate_list false env s1 es ((count,s2,t2), Rval vs2) &&
-do_app (s2,t2) op (List.reverse vs2 ++ [v] ++ vs1) = Just ((s3,t3),res)
+evaluate_list false env s1 es (s2, Rval vs2) &&
+do_app (s2.refs,s2.io) op (List.reverse vs2 ++ [v] ++ vs1) = Just ((new_refs, new_io) ,res)
 ==>
-evaluate_ctxt env s1 (Capp op vs1 () es) v ((count,s3,t3), res)
+evaluate_ctxt env s1 (Capp op vs1 () es) v (<| s2 with io = new_io; refs = new_refs |>, res)
 
 and
 
-app4 : forall env op v vs1 vs2 es s1 s2 t2 count.
+app4 : forall env op v vs1 vs2 es s1 s2.
 op <> Opapp &&
-evaluate_list false env s1 es ((count,s2,t2), Rval vs2) &&
-do_app (s2,t2) op (List.reverse vs2 ++ [v] ++ vs1) = Nothing
+evaluate_list false env s1 es (s2, Rval vs2) &&
+do_app (s2.refs, s2.io) op (List.reverse vs2 ++ [v] ++ vs1) = Nothing
 ==>
-evaluate_ctxt env s1 (Capp op vs1 () es) v ((count,s2,t2), Rerr (Rabort Rtype_error))
+evaluate_ctxt env s1 (Capp op vs1 () es) v (s2, Rerr (Rabort Rtype_error))
 
 and
 
@@ -111,16 +109,16 @@ evaluate_ctxt env s (Cmat () pes err_v) v bv
 
 and
 
-lt : forall menv cenv env n e2 v bv s.
-evaluate false (menv, cenv, opt_bind n v env) s e2 bv
+lt : forall env n e2 v bv s.
+evaluate false <| env with v = opt_bind n v env.v |> s e2 bv
 ==>
-evaluate_ctxt (menv,cenv,env) s (Clet n () e2) v bv
+evaluate_ctxt env s (Clet n () e2) v bv
 
 and
 
 con1 : forall env cn es vs v vs' s1 s2 v'.
-do_con_check (all_env_to_cenv env) cn (List.length vs + List.length es + 1) &&
-build_conv (all_env_to_cenv env) cn (List.reverse vs' ++ [v] ++ vs) = Just v' &&
+do_con_check env.c cn (List.length vs + List.length es + 1) &&
+build_conv env.c cn (List.reverse vs' ++ [v] ++ vs) = Just v' &&
 evaluate_list false env s1 es (s2, Rval vs')
 ==>
 evaluate_ctxt env s1 (Ccon cn vs () es) v (s2, Rval v')
@@ -128,20 +126,20 @@ evaluate_ctxt env s1 (Ccon cn vs () es) v (s2, Rval v')
 and
 
 con2 : forall env cn es vs v s.
-not (do_con_check (all_env_to_cenv env) cn (List.length vs + List.length es + 1))
+not (do_con_check env.c cn (List.length vs + List.length es + 1))
 ==>
 evaluate_ctxt env s (Ccon cn vs () es) v (s, Rerr (Rabort Rtype_error))
 
 and
 
 con3 : forall env cn es vs v err s s'.
-do_con_check (all_env_to_cenv env) cn (List.length vs + List.length es + 1) &&
+do_con_check env.c cn (List.length vs + List.length es + 1) &&
 evaluate_list false env s es (s', Rerr err)
 ==>
 evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
 indreln
-[evaluate_ctxts : count_store_trace v -> list ctxt -> result v v -> count_store_trace v * result v v -> bool]
+[evaluate_ctxts : state -> list ctxt -> result v v -> state * result v v -> bool]
 
 empty : forall res s.
 true
@@ -174,17 +172,17 @@ evaluate_ctxts s' cs res1 res2
 evaluate_ctxts s ((Chandle () pes,env)::cs) (Rerr (Rraise v)) res2
 
 indreln
-[evaluate_state : state -> count_store_trace v * result v v -> bool]
+[evaluate_state : small_state -> state * result v v -> bool]
 
-exp : forall env e c res bv s1 t1 s2.
-evaluate false env (0,s1,t1) e (s2, res) &&
-evaluate_ctxts s2 c res bv
+exp : forall env e c res bv io refs st.
+evaluate false env <| io = io; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> e (st, res) &&
+evaluate_ctxts st c res bv
 ==>
-evaluate_state (env, (s1,t1), Exp e, c) bv
+evaluate_state (env, (refs, io), Exp e, c) bv
 
 and
 
-vl : forall env s t v c bv.
-evaluate_ctxts (0,s,t) c (Rval v) bv
+vl : forall env io refs v c bv.
+evaluate_ctxts <| io = io; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> c (Rval v) bv
 ==>
-evaluate_state (env, (s,t), Val v, c) bv
+evaluate_state (env, (refs, io), Val v, c) bv

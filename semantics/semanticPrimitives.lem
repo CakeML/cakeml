@@ -32,8 +32,14 @@ let lookup_alist_mod_env id (mcenv,cenv) =
   end
 
 (* Maps each constructor to its arity and which type it is from *)
-type flat_envC = alist conN (nat * tid_or_exn)
-type envC = alist_mod_env conN (nat * tid_or_exn)
+type flat_env_ctor = alist conN (nat * tid_or_exn)
+type env_ctor = alist_mod_env conN (nat * tid_or_exn)
+
+type environment 'v =
+  <| v : alist varN 'v
+   ; c : alist_mod_env conN (nat * tid_or_exn)
+   ; m : alist modN (alist varN 'v)
+   |>
 
 (* Value forms *)
 type v =
@@ -42,12 +48,12 @@ type v =
   | Conv of maybe (conN * tid_or_exn) * list v
   (* Function closures
      The environment is used for the free variables in the function *)
-  | Closure of (alist modN (alist varN v) * envC * alist varN v) * varN * exp
+  | Closure of environment v * varN * exp
   (* Function closure for recursive functions
    * See Closure and Letrec above
    * The last variable name indicates which function from the mutually
    * recursive bundle this closure value represents *)
-  | Recclosure of (alist modN (alist varN v) * envC * alist varN v) * list (varN * varN * exp) * varN
+  | Recclosure of environment v * list (varN * varN * exp) * varN
   | Loc of nat
   | Vectorv of list v
 
@@ -56,15 +62,8 @@ let Bindv = Conv (Just("Bind",TypeExn(Short"Bind"))) []
 (* These are alists rather than finite maps because the type of values (v above)
  * recurs through them, and HOL4 does not easily support that kind of data type
  * (although Isabelle/HOL does) *)
-type envE = alist varN v
-type envM = alist modN envE
-
-type all_env = envM * envC * envE
-
-let all_env_to_menv (menv,cenv,env) = menv
-let all_env_to_cenv (menv,cenv,env) = cenv
-let all_env_to_env (menv,cenv,env) = env
-let all_env_with_env (menv,cenv,_) env = (menv,cenv,env)
+type env_val = alist varN v
+type env_mod = alist modN env_val
 
 (* The result of evaluation *)
 type abort =
@@ -123,20 +122,28 @@ let store_assign n v st =
   else
     Nothing
 
-val lookup_var_id : id varN -> all_env -> maybe v
-let lookup_var_id id (menv,cenv,env) =
+val lookup_var_id : id varN -> environment v -> maybe v
+let lookup_var_id id env =
   match id with
-    | Short x -> lookup x env
+    | Short x -> lookup x env.v
     | Long x y ->
-        match lookup x menv with
+        match lookup x env.m with
           | Nothing -> Nothing
           | Just env -> lookup y env
         end
   end
 
+type state =
+  <| clock : nat
+   ; refs  : store v
+   ; io    : io_trace
+   ; defined_types : set tid_or_exn
+   ; defined_mods : set modN
+   |>
+
 (* Other primitives *)
 (* Check that a constructor is properly applied *)
-val do_con_check : envC -> maybe (id conN) -> nat -> bool
+val do_con_check : env_ctor -> maybe (id conN) -> nat -> bool
 let do_con_check cenv n_opt l =
   match n_opt with
     | Nothing -> true
@@ -147,7 +154,7 @@ let do_con_check cenv n_opt l =
         end
   end
 
-val build_conv : envC -> maybe (id conN) -> list v -> maybe v
+val build_conv : env_ctor -> maybe (id conN) -> list v -> maybe v
 let build_conv envC cn vs =
   match cn with
     | Nothing ->
@@ -199,7 +206,7 @@ let ctor_same_type c1 c2 =
  * number of arguments, and constructors in corresponding positions in the
  * pattern and value come from the same type.  Match_type_error is returned
  * when one of these conditions is violated *)
-val pmatch : envC -> store v -> pat -> v -> envE -> match_result envE
+val pmatch : env_ctor -> store v -> pat -> v -> env_val -> match_result env_val
 let rec
 pmatch envC s (Pvar x) v' env = Match ((x,v')::env)
 and
@@ -251,7 +258,7 @@ and
 pmatch_list envC s _ _ env = Match_type_error
 
 (* Bind each function of a mutually recursive set of functions to its closure *)
-val build_rec_env : list (varN * varN * exp) -> all_env -> envE -> envE
+val build_rec_env : list (varN * varN * exp) -> environment v -> env_val -> env_val
 let build_rec_env funs cl_env add_to_env =
   foldr
     (fun (f,x,e) env' -> (f, Recclosure cl_env funs f) :: env')
@@ -343,15 +350,15 @@ val prim_exn : conN -> v
 let prim_exn cn = Conv (Just (cn, TypeExn (Short cn))) []
 
 (* Do an application *)
-val do_opapp : list v -> maybe (all_env * exp)
+val do_opapp : list v -> maybe (environment v * exp)
 let do_opapp vs =
   match vs with
-  | [Closure (menv, cenv, env) n e; v] ->
-      Just ((menv, cenv, (n,v)::env), e)
-  | [Recclosure (menv, cenv, env) funs n; v] ->
+  | [Closure env n e; v] ->
+      Just (<| env with v = (n,v)::env.v |>, e)
+  | [Recclosure env funs n; v] ->
       if allDistinct (List.map (fun (f,x,e) -> f) funs) then
         match find_recfun n funs with
-          | Just (n,e) -> Just ((menv, cenv, (n,v)::(build_rec_env funs (menv, cenv, env) env)), e)
+          | Just (n,e) -> Just (<| env with v = (n,v)::build_rec_env funs env env.v |>, e)
           | Nothing -> Nothing
         end
       else
@@ -616,7 +623,7 @@ let do_if v e1 e2 =
 (* Semantic helpers for definitions *)
 
 (* Build a constructor environment for the type definition tds *)
-val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_envC
+val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_env_ctor
 let build_tdefs mn tds =
   List.reverse
     (List.concat
@@ -647,9 +654,13 @@ let combine_mod_result menv env r =
     | Rval (menv',env') -> Rval (menv'++menv, env'++env)
   end
 
-let remove_count ((count,store),tdecls,mods) = (store,tdecls,mods)
+val extend_dec_env : env_val -> flat_env_ctor -> environment v -> environment v
+let extend_dec_env new_v new_c env =
+  <| m = env.m; c = merge_alist_mod_env ([],new_c) env.c; v = new_v ++ env.v |>
 
-type count_store_trace 'a = nat * store 'a * io_trace
+val extend_top_env : env_mod -> env_val -> env_ctor -> environment v -> environment v
+let extend_top_env new_m new_v new_c env =
+  <| m = new_m ++ env.m; c = merge_alist_mod_env new_c env.c; v = new_v ++ env.v |>
 
 val decs_to_types : list dec -> list typeN
 let decs_to_types ds =
@@ -671,10 +682,10 @@ let prog_to_mods tops =
           | _ -> [] end)
      tops)
 
-val no_dup_mods : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool
-let no_dup_mods tops (_,_,mods) =
+val no_dup_mods : list top -> state -> bool
+let no_dup_mods tops st =
   List.allDistinct (prog_to_mods tops) &&
-  disjoint (Set.fromList (prog_to_mods tops)) mods
+  disjoint (Set.fromList (prog_to_mods tops)) st.defined_mods
 
 val prog_to_top_types : list top -> list typeN
 let prog_to_top_types tops =
@@ -684,10 +695,11 @@ let prog_to_top_types tops =
           | _ -> [] end)
      tops)
 
-val no_dup_top_types : list top -> (count_store_trace v * set tid_or_exn * set modN) -> bool
-let no_dup_top_types tops (_,tids,_) =
+val no_dup_top_types : list top -> state -> bool
+let no_dup_top_types tops st =
   List.allDistinct (prog_to_top_types tops) &&
-  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) tids
+  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) st.defined_types
+
 
 (* conversions to strings *)
 

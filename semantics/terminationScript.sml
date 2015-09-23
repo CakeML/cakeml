@@ -1,5 +1,6 @@
 open preamble intSimps;
 open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
+open funBigStepTheory;
 
 val _ = new_theory "termination";
 
@@ -9,9 +10,9 @@ val exps_size_def = Define `exps_size = exp6_size`;
 val pes_size_def = Define `pes_size = exp3_size`;
 val funs_size_def = Define `funs_size = exp1_size`;
 
-val vs_size_def = Define `vs_size = v7_size`;
-val envE_size_def = Define `envE_size = v5_size`;
-val envM_size_def = Define `envM_size = v3_size`;
+val vs_size_def = Define `vs_size = v6_size`;
+val envE_size_def = Define `envE_size = v2_size`;
+val envM_size_def = Define `envM_size = v4_size`;
 
 val size_abbrevs = save_thm ("size_abbrevs",
 LIST_CONJ [pats_size_def, 
@@ -30,8 +31,8 @@ val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
 val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
 val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
 val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
-val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v6_size``;
-val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v4_size``;
+val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
+val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -227,22 +228,21 @@ val do_log_thm = store_thm("do_log_thm",
   rw[semanticPrimitivesTheory.do_log_def] >>
   every_case_tac >> rw[])
 
-open funBigStepTheory
 
 val (evaluate_def,evaluate_ind) =
   tprove_no_defn ((evaluate_def,evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
-         | INL(es,_,s) => (s.clock,exps_size es)
-         | INR(pes,_,_,_,s) => (s.clock,pes_size pes))` >>
+         | INL(s,_,es) => (s.clock,exps_size es)
+         | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   check_clock_def,dec_clock_def,LESS_OR_EQ,
   do_if_def,do_log_thm] >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀p r s2. evaluate p = (r,s2) ⇒ s2.clock ≤ (SND(SND p)).clock) ∧
-   (∀p r s2. evaluate_match p = (r,s2) ⇒ s2.clock ≤ (SND(SND(SND(SND p)))).clock)`,
+  `(∀s1 env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀s1 env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[check_clock_def,dec_clock_def] >> simp[])
