@@ -184,13 +184,6 @@ val sexptctor_def = Define`
     od
 `;
 
-val sxMEM_sizelt = store_thm(
-  "sxMEM_sizelt",
-  ``∀s1 s2. sxMEM s1 s2 ⇒ sexp_size s1 < sexp_size s2``,
-  dsimp[sxMEM_def] >> Induct_on `s2` >>
-  dsimp[Once strip_sxcons_def, sexp_size_def] >> rpt strip_tac >>
-  res_tac >> simp[]);
-
 val dstrip_sexp_size = store_thm(
   "dstrip_sexp_size",
   ``∀s sym args. dstrip_sexp s = SOME (sym, args) ⇒
