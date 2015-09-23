@@ -19,7 +19,7 @@ val eval = computeLib.CBV_CONV compset
 val x64_lab_conf = ``(x64_config,x64_enc,LN):64 lab_conf``
 val labtest = eval ``lab_to_target$compile ^(x64_lab_conf) [Section 0 [LabAsm Halt 0w [] 0]]``
 
-val x64_stack_conf = ``(LN,0,0,^(x64_lab_conf)):64 stack_conf``
+val x64_stack_conf = ``(x64_names,5,6,^(x64_lab_conf)):64 stack_conf``
 val stacktest = eval ``stack_to_target$compile 50 ^(x64_stack_conf) [0,(Seq (Skip:64 stackLang$prog) (StackStore 5 3 ))]``
 
 (*Maybe make word take configs for the allocator too*)
@@ -27,10 +27,10 @@ val x64_word_conf = x64_stack_conf
 val wordtest = eval ``word_to_target$compile 50 ^(x64_word_conf) [0,2,(Seq (Assign 5 (Op Add [(Var 0);(Var 2)])) (Return 5 5))]``
 
 val x64_bvp_conf =
-            ``(<| tag_bits:=8
+        ``(<| tag_bits:=8
             ; len_bits:=8
-            ; pad_bits:=8
-            ; len_size:=8|>,^(x64_word_conf)):64 bvp_conf``
+            ; pad_bits:=0
+            ; len_size:=16|>,^(x64_word_conf)):64 bvp_conf``
 val bvptest = eval ``bvp_to_target$compile 50 ^(x64_bvp_conf) [0,2,(Seq (Move 5 0) (Return 5))]``
 
 val bvitest = eval ``bvi_to_bvp$compile_part (0,5,(Var 3))``
