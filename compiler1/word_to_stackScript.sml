@@ -174,7 +174,7 @@ val comp_def = Define `
          case handler of
          | NONE => Seq (wLive live kf)
                      (Seq (StackArgs dest (LENGTH args) kf)
-                          (CallAny (SOME (comp ret_code kf,ARB,l1,l2))
+                          (CallAny (SOME (comp ret_code kf,0,l1,l2))
                              dest args NONE kf))
          | SOME (handle_var, handle_code, h1, h2) => Skip (* TODO *)) /\
   (comp (Alloc r live) kf =
