@@ -1,6 +1,7 @@
 open preamble
      clos_mtiTheory
      clos_callTheory
+     clos_removeTheory
      clos_numberTheory
      clos_annotateTheory
      clos_to_bvlTheory
@@ -15,7 +16,7 @@ val compile_def = Define`
   let es = intro_multi [exp] in
   (* TODO: introduce multi-argument applications, #70 *)
   (* TODO: let (exp,calls) = call_intro es in *)
-  (* TODO: dead code elimination, #75 *)
+  let (es,l) = remove es in
   let (next_loc,es) = renumber_code_locs_list next_loc es in
   let es = annotate es in
   let (es,aux) = clos_to_bvl$compile es [] in
