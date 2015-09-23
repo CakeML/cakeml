@@ -1,6 +1,10 @@
 open preamble db_varsTheory closLangTheory;
 
-(* replace remove assignments (i.e. Lets and Letrecs) with dummmy assignments *)
+(* This transformation replaces dead assignments (i.e. unused Lets and
+   Letrecs) with dummmy assignments. The assignments aren't removed
+   here because removing them would require shifting the De Bruijn
+   indexes. The dummy assignments will be removed at the latest by
+   BVP's dead-code elimination pass. *)
 
 val _ = new_theory"clos_remove";
 
