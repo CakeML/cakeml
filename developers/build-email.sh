@@ -6,13 +6,24 @@ cd $(dirname "$0")/..
 
 tmpfile=/tmp/vml-build-email.txt
 
-if developers/regression-test.sh > $tmpfile 2>&1
-then
-  cat $tmpfile | mail -S from='"CakeML Builds" <builds@cakeml.org>' -s "OK" builds@cakeml.org
-  echo "build succeeded"
-else
-  subject=$(tail -n1 $tmpfile)
-  cd $(echo $subject | cut -f2 -d' ')
-  cat timing.log <(tail -n80 regression.log) | col -bx | mail -S from='"CakeML Builds" <builds@cakeml.org>' -s "'$subject'"  -q $tmpfile builds@cakeml.org
-  echo "build failed"
-fi
+from='"CakeML Builds" <builds@cakeml.org>'
+to='builds@cakeml.org'
+
+timeout 4h developers/regression-test.sh &>$tmpfile
+
+case $? in
+  124)
+    cat $tmpfile | mail -S from="'$from'" -s "TIMEOUT" $to
+    echo "build timed out"
+    ;;
+  0)
+    cat $tmpfile | mail -S from="'$from'" -s "OK" $to
+    echo "build succeeded"
+    ;;
+  *)
+    subject=$(tail -n1 $tmpfile)
+    cd $(echo $subject | cut -f2 -d' ')
+    cat timing.log <(tail -n80 regression.log) | col -bx | mail -S from="'$from'" -s "'$subject'"  -q $tmpfile $to
+    echo "build failed"
+    ;;
+esac
