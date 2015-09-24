@@ -74,6 +74,7 @@ let (es,aux) = clos_to_bvl$compile es [] in
 
 let progs = ((MAP (λe. (0,0,e)) es)++aux) in
 let (n,c) = c in
+(*check*)
 let (s,bvi_progs,n) = bvl_to_bvi$compile_prog 0 n progs in
 let bvp_progs = bvi_to_bvp$compile_prog bvi_progs in
 
@@ -88,10 +89,59 @@ let prog' = stub1 s :: prog in
 let without_stack = stub0 sp bp :: stack_remove$compile (sp,bp) prog' in
 let with_target_names = stack_names$compile f without_stack in
 let sec_list = stack_to_lab$compile with_target_names in
-let (c,enc,l) = conf in
+
+compile_lab conf sec_list``
+
+(*
+Machinery to test compile_lab -- probably not needed anymore
+
 let sec_list = filter_skip sec_list in
-remove_labels_loop 10 c enc (enc_sec_list enc sec_list) l``;
-(*remove_labels doesn't seem to go through, need to double check*)
+enc_sec_list enc sec_list,c,enc,l``
+
+val e2 = (rand o concl) e1
+val [sec_list,c,enc,l] = pairSyntax.strip_pair e2
+
+val all_lengths_ok_2_def = Define `
+  (all_lengths_ok_2 pos [] = (T,pos,[])) /\
+  (all_lengths_ok_2 pos ((Section s lines)::rest) =
+     if sec_lengths_ok pos lines
+     then all_lengths_ok_2 (pos + sec_length lines 0) rest
+     else (F,pos,rest))`
+
+val sec_lengths_ok_2_def = Define `
+  (sec_lengths_ok_2 pos [] <=> (T,pos,[])) /\
+  (sec_lengths_ok_2 pos ((Label _ _ l)::xs) <=>
+     if (if EVEN pos then (l = 0) else (l = 1)) then
+       sec_lengths_ok_2 (pos+l) xs
+     else (F,pos,xs)) /\
+  (sec_lengths_ok_2 pos ((Asm x1 x2 l)::xs) <=> sec_lengths_ok_2 (pos+l) xs) /\
+  (sec_lengths_ok_2 pos ((LabAsm a w bytes l)::xs) <=>
+     if LENGTH bytes <= l then sec_lengths_ok_2 (pos+l) xs else (F,pos,xs))`
+
+val all_lengths_update_2_def = Define `
+  (all_lengths_update_2 pos [] = []) /\
+  (all_lengths_update_2 pos ((Section s lines)::rest) =
+     (pos,Section s (sec_lengths_update pos lines)) ::
+       all_lengths_update_2 (pos + sec_length lines 0) rest)`;
+
+val sec_lengths_update_2_def = Define `
+  (sec_lengths_update_2 pos [] = []) /\
+  (sec_lengths_update_2 pos ((Label k1 k2 l)::xs) =
+     let l = if EVEN pos then 0 else 1 in
+       (pos,Label k1 k2 l) :: sec_lengths_update_2 (pos+l) xs) /\
+  (sec_lengths_update_2 pos ((Asm x1 x2 l)::xs) <=>
+     (pos,Asm x1 x2 l) :: sec_lengths_update_2 (pos+l) xs) /\
+  (sec_lengths_update_2 pos ((LabAsm a w bytes l)::xs) <=>
+     let m = LENGTH bytes in
+     let l = if l < m then m else l in
+       (pos,LabAsm a w bytes l) ::
+          sec_lengths_update_2 (pos+l) xs)`
+
+
+val () = computeLib.add_thms [all_lengths_ok_2_def,sec_lengths_ok_2_def,all_lengths_update_2_def,sec_lengths_update_2_def] compset
+val eval = computeLib.CBV_CONV compset
+*)
+
 
 (*
 open x64_targetTheory lab_to_targetTheory;

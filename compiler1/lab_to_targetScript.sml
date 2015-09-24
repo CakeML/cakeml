@@ -134,8 +134,9 @@ val sec_lengths_update_def = Define `
      (Asm x1 x2 l) :: sec_lengths_update (pos+l) xs) /\
   (sec_lengths_update pos ((LabAsm a w bytes l)::xs) <=>
      let m = LENGTH bytes in
-       (LabAsm a w bytes (if l < m then m else l)) ::
-          sec_lengths_update pos xs)`
+     let l = (if l < m then m else l) in
+       (LabAsm a w bytes l) ::
+          sec_lengths_update (pos+l) xs)`
 
 val all_lengths_update_def = Define `
   (all_lengths_update pos [] = []) /\
