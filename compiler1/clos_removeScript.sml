@@ -49,10 +49,10 @@ val remove_def = tDefine "remove" `
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove xs2 in
        ([App loc_opt (HD c1) c2],mk_Union l1 l2)) /\
-  (remove [Fn loc vs num_args x1] =
+  (remove [Fn loc vs_opt num_args x1] =
      let (c1,l1) = remove [x1] in
      let l2 = Shift num_args l1 in
-       ([Fn loc (vars_to_list l2) num_args (HD c1)],l2)) /\
+       ([Fn loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
   (remove [Letrec loc vs fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = remove [x1] in

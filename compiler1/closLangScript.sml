@@ -53,7 +53,7 @@ val _ = Datatype `
       | Tick exp
       | Call num (exp list)
       | App (num option) exp (exp list)
-      | Fn (num option) (num list) num exp
+      | Fn (num option) (num list option) num exp
       | Letrec (num option) (num list) ((num # exp) list) exp
       | Op op (exp list) `;
 

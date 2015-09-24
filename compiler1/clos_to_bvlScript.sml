@@ -298,8 +298,9 @@ val compile_def = tDefine "compile" `
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
-  (compile [Fn loc_opt vs num_args x1] aux =
+  (compile [Fn loc_opt vs_opt num_args x1] aux =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vs_opt of NONE => [] | SOME vs => vs in
      let (c1,aux1) = compile [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))

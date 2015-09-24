@@ -353,11 +353,14 @@ val evaluate_def = tDefine "evaluate" `
                           | Rerr err => (Rerr err,s)
                           | Rval (v,s) => (Rval [v],s))
      | res => res) /\
-  (evaluate ([Fn loc vs num_args exp],env,s) =
+  (evaluate ([Fn loc vsopt num_args exp],env,s) =
      if num_args ≤ max_app ∧ num_args ≠ 0 then
-       case clos_env s.restrict_envs vs env of
-       | NONE => (Rerr(Rabort Rtype_error),s)
-       | SOME env' => (Rval [Closure loc [] env' num_args exp], s)
+       case vsopt of
+         | NONE => (Rval [Closure loc [] env num_args exp], s)
+         | SOME vs =>
+           (case lookup_vars vs env of
+              | NONE => (Rerr(Rabort Rtype_error),s)
+              | SOME env' => (Rval [Closure loc [] env' num_args exp], s))
      else
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([Letrec loc names fns exp],env,s) =

@@ -31,7 +31,7 @@ val compile_def = tDefine"compile"`
   (compile (Var_global n) =
     Op (Global n) []) ∧
   (compile (Fun e) =
-    Fn NONE [] 1 (compile e)) ∧
+    Fn NONE NONE 1 (compile e)) ∧
   (compile (App (Op (Op Opapp)) es) =
     if LENGTH es ≠ 2 then Op Sub (REVERSE (MAP compile es)) else
     App NONE (compile (EL 0 es)) [compile (EL 1 es)]) ∧

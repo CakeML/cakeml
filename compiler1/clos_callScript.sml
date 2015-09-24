@@ -205,7 +205,7 @@ val calls_def = tDefine "calls" `
      let fs1 = get_free_vars [Fn loc_opt ws num_args body] in
      let fs = MAP (\i. i + num_args) fs1 in
      let call = Call loc (GENLIST Var num_args ++ MAP Var fs) in
-       ([(Fn loc_opt [] num_args call,Clos loc num_args fs)],
+       ([(Fn loc_opt NONE num_args call,Clos loc num_args fs)],
         (loc,num_args + LENGTH fs, calls_body num_args fs1 body)::c1,g)) /\
   (calls [Letrec loc_opt _ fns x1] vs g =
      (* compute free variables (fs1), note: closure itself might be free
@@ -215,7 +215,7 @@ val calls_def = tDefine "calls" `
      let res = MAP (\(num_args,x).
                        let new_vs = REPLICATE num_args Other ++ fake_vs ++ vs in
                        let res = calls [x] new_vs g in
-                         (Fn (SOME 0) [] num_args (FST (HD (FST res))))) fns in
+                         (Fn (SOME 0) NONE num_args (FST (HD (FST res))))) fns in
      let fs1 = get_free_vars res in
        (* If some of the mutually recursive closures were not fully
           applied within the body, then don't perform call-intro.
@@ -235,7 +235,7 @@ val calls_def = tDefine "calls" `
                     let (num_args,x) = EL i fns in
                     let fs = MAP (\i. i + num_args) fs1 in
                     let call = Call (loc+i) (GENLIST Var num_args ++ MAP Var fs) in
-                      (Fn (SOME (loc+i:num)) [] num_args call)) (LENGTH fns) in
+                      (Fn (SOME (loc+i:num)) NONE num_args call)) (LENGTH fns) in
          let new_vs = GENLIST (\i. Clos (loc + i) (FST (EL i fns)) fs1)
                         (LENGTH fns) in
          let new_code = GENLIST
@@ -273,8 +273,8 @@ val call_intro_def = Define `
             in f 5 end
 *)
 
-  val f = ``Fn (SOME 500) [] 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
-  val g = ``Fn (SOME 400) [] 2 (Let [^f] (App NONE (Var 0) [Op (Const 5) []]))``
+  val f = ``Fn (SOME 500) NONE 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
+  val g = ``Fn (SOME 400) NONE 2 (Let [^f] (App NONE (Var 0) [Op (Const 5) []]))``
   val ev = EVAL ``call_intro [^f]``
   val ev = EVAL ``call_intro [^g]``
 
@@ -282,8 +282,8 @@ val call_intro_def = Define `
   val g = fn [y; z] => (fn x => x + (y - z)) 5
 *)
 
-  val f = ``Fn (SOME 500) [] 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
-  val g = ``Fn (SOME 400) [] 2 ((App NONE (^f) [Op (Const 5) []]))``
+  val f = ``Fn (SOME 500) NONE 1 (Op Add [Var 0; Op Sub [Var 1; Var 2]])``
+  val g = ``Fn (SOME 400) NONE 2 ((App NONE (^f) [Op (Const 5) []]))``
   val ev = EVAL ``call_intro [^f]``
 
 (*
@@ -297,8 +297,8 @@ val call_intro_def = Define `
   in call_f 4 end
 *)
 
-  val f = ``Fn (SOME 800) [] 1 (Op Add [Var 0; Op (Const 1) []])``
-  val g = ``Fn (SOME 900) [] 1 (Op Sub [Var 0; Op (Const 1) []])``
+  val f = ``Fn (SOME 800) NONE 1 (Op Add [Var 0; Op (Const 1) []])``
+  val g = ``Fn (SOME 900) NONE 1 (Op Sub [Var 0; Op (Const 1) []])``
   val xy = ``Let [^f;^g] (Op (Cons 0) [Var 0; Var 1])``
   val app = ``Let [^xy] (App NONE (Op El [Var 0; Op (Const 0) []]) [Op (Const 4) []])``
   val ev = EVAL ``call_intro [^app]``
@@ -313,7 +313,7 @@ val call_intro_def = Define `
   `f 4` is optimised to a simple call
 *)
 
-  val f = ``Fn (SOME 900) [] 1 (App NONE (Op (Global 60) []) [Op Add [Var 0; Op (Const 1) []]])``
+  val f = ``Fn (SOME 900) NONE 1 (App NONE (Op (Global 60) []) [Op Add [Var 0; Op (Const 1) []]])``
   val g = ``Op (SetGlobal 60) [Var 0]``
   val exp = ``Let [^f] (Let [^g] (App NONE (Var 1) [Op (Const 4) []]))``
   val ev = EVAL ``call_intro [^exp]``
@@ -332,7 +332,7 @@ val call_intro_def = Define `
   val f = ``Letrec (SOME 200) [] [(2,App NONE (Var 2)
               [Op Sub [Var 0; Var 3]; Op Sub [Var 1; Var 4]])]
                 (Var 0)``
-  val exp = ``Fn (SOME 100) [] 2 ^f``
+  val exp = ``Fn (SOME 100) NONE 2 ^f``
   val ev = EVAL ``call_intro [^exp]``
 
 
