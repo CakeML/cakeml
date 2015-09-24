@@ -823,8 +823,7 @@ val hypset_ok_eq = store_thm("hypset_ok_eq",
     transitive_alpha_lt, antisymmetric_alpha_lt])
 
 val hypset_ok_append = save_thm("hypset_ok_append",
-  MATCH_MP sortingTheory.SORTED_transitive_APPEND_IFF
-           transitive_alpha_lt
+  Q.ISPEC`alpha_lt` sortingTheory.SORTED_APPEND_IFF
   |> REWRITE_RULE[GSYM hypset_ok_def])
 
 val hypset_ok_el_less = save_thm("hypset_ok_el_less",
