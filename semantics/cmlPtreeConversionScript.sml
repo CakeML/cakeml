@@ -479,22 +479,6 @@ val ptree_V_def = Define`
     else NONE
 `;
 
-val ptree_Vlist1_def = Define`
-  ptree_Vlist1 (Lf _) = NONE ∧
-  ptree_Vlist1 (Nd nm subs) =
-    if nm <> mkNT nVlist1 then NONE
-    else
-      case subs of
-          [v_pt] => do v <- ptree_V v_pt; SOME [v] od
-        | [v_pt; vs_pt] =>
-          do
-            v <- ptree_V v_pt;
-            vs <- ptree_Vlist1 vs_pt;
-            SOME(v::vs)
-          od
-        | _ => NONE
-`
-
 val ptree_FQV_def = Define`
   ptree_FQV (Lf _) = NONE ∧
   ptree_FQV (Nd nt args) =

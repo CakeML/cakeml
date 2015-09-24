@@ -210,19 +210,6 @@ val Pattern_OK0 = store_thm(
 
 val Pattern_OK = save_thm("Pattern_OK", okify CONJUNCT1 `nPattern` Pattern_OK0);
 
-val Vlist1_OK = store_thm(
-  "Vlist1_OK",
-  ``ptree_head pt = NN nVlist1 ∧ MAP TK toks = ptree_fringe pt ∧
-    valid_ptree cmlG pt ⇒
-    ∃vl. ptree_Vlist1 pt = SOME vl ∧ vl <> []``,
-  map_every qid_spec_tac [`toks`, `pt`] >>
-  ho_match_mp_tac grammarTheory.ptree_ind >>
-  dsimp[] >> rpt strip_tac >>
-  fs[MAP_EQ_CONS, cmlG_FDOM, cmlG_applied, MAP_EQ_APPEND] >>
-  rveq >> fs[MAP_EQ_CONS, MAP_EQ_APPEND] >> rveq >>
-  simp[Once ptree_Vlist1_def] >> fs[FORALL_AND_THM, DISJ_IMP_THM] >>
-  dsimp[] >> erule strip_assume_tac (n V_OK) >> simp[]);
-
 val Eseq_encode_OK = store_thm(
   "Eseq_encode_OK",
   ``∀l. l <> [] ⇒ ∃e. Eseq_encode l = SOME e``,

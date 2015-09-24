@@ -172,8 +172,6 @@ val cmlPEG_def = zDefine`
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nTyvarN, pegf (tok isTyvarT mktokLf) (bindNT nTyvarN));
-              (mkNT nVlist1,
-               seql [pnt nV; try (pnt nVlist1)] (bindNT nVlist1));
               (mkNT nFQV, choicel [pegf (pnt nV) (bindNT nFQV); peg_longV]);
               (mkNT nEapp,
                seql [pnt nEbase; rpt (pnt nEbase) FLAT]
@@ -587,7 +585,7 @@ end
 val npeg0_rwts =
     List.foldl pegnt []
                [``nTypeDec``, ``nTypeAbbrevDec``, ``nOpID``,
-                ``nDecl``, ``nV``, ``nVlist1``, ``nUQTyOp``,
+                ``nDecl``, ``nV``, ``nUQTyOp``,
                 ``nUQConstructorName``, ``nStructName``, ``nConstructorName``, ``nTypeName``,
                 ``nDtypeDecl``, ``nDconstructor``, ``nFDecl``, ``nTyvarN``,
                 ``nTyOp``, ``nTbase``, ``nDType``, ``nPType``, ``nType``,
@@ -670,7 +668,7 @@ in
 end;
 
 val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``,
-                ``nVlist1``, ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
+                ``nUQTyOp``, ``nUQConstructorName``, ``nStructName``,
                 ``nConstructorName``, ``nTyVarList``, ``nTypeName``, ``nTyOp``,
                 ``nTbase``, ``nDType``, ``nPType``, ``nListOps``,
                 ``nRelOps``, ``nPtuple``, ``nPbase``, ``nPapp``, ``nPattern``,

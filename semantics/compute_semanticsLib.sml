@@ -123,7 +123,6 @@ open HolKernel boolLib bossLib lcsymtacs
       ,ptree_Pattern_def
       ,mkPatApp_def
       ,ptree_FQV_def
-      ,ptree_Vlist1_def
       ,ptree_V_def
       ,ptree_Op_def
       ,ptree_TypeDec_def

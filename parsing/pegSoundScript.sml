@@ -1121,17 +1121,6 @@ val peg_sound = store_thm(
       >- (`NT_rank (mkNT nV) < NT_rank (mkNT nFQV)` by simp[NT_rank_def] >>
           first_x_assum (erule strip_assume_tac) >> rveq >> simp[]) >>
       asm_match `destLongidT litok = SOME(mp,vp)` >> Cases_on `litok` >> fs[])
-  >- (print_tac "nVlist1" >> strip_tac >> rveq >>
-      dsimp[cmlG_applied, cmlG_FDOM] >>
-      `NT_rank (mkNT nV) < NT_rank (mkNT nVlist1)` by simp[NT_rank_def] >>
-      first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
-      first_x_assum
-        (assume_tac o
-         (peg0_nV |> MATCH_MP not_peg0_LENGTH_decreases |> GEN_ALL
-                  |> MATCH_MP)) >>
-      first_x_assum (fn patth =>
-        first_assum (mp_tac o PART_MATCH (lhand o rand) patth o concl)) >>
-      rpt kill_asm_guard >> strip_tac >> rveq >> simp[])
   >- (print_tac "nTyvarN" >> rw[] >> simp[cmlG_FDOM, cmlG_applied] >>
       asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>

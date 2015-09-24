@@ -62,7 +62,7 @@ fun tokmap s =
 
 val ginfo = { tokmap = tokmap,
               tokty = ``:token``, nt_tyname = "MMLnonT",
-              start = "Type",
+              start = "REPLTop",
               gname = "cmlG", mkntname = (fn s => "n" ^ s) }
 
 val cmlG_def = mk_grammar_def ginfo
@@ -108,7 +108,6 @@ val cmlG_def = mk_grammar_def ginfo
        |  ^(``{AlphaT s | s ≠ ""}``)
        |  ^(``{SymbolT s | s ≠ ""}``)
        |  "*" ;
- Vlist1 ::= V Vlist1 | V;
  Ebase ::= "(" Eseq ")" | Etuple | "(" ")" | FQV | ConstructorName | <IntT>
         |  <CharT> | <StringT> | "let" LetDecs "in" Eseq "end" | "[" "]"
         | "[" Elist1 "]" | "op" OpID ;
