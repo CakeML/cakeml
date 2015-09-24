@@ -4,6 +4,7 @@ struct
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_targetLib asmLib;
 open compilerComputeLib;
+open x64DisassembleLib
 
 (* open x64_targetTheory *)
 
@@ -31,6 +32,21 @@ val x64_con_conf = ``(0,^(x64_dec_conf)):64 con_conf``
 val x64_mod_conf = ``((LN,(FEMPTY,FEMPTY)),^(x64_con_conf)):64 mod_conf``
 val x64_source_conf = ``((0,(FEMPTY,FEMPTY)),^(x64_mod_conf)):64 config``
 
+fun print_asm res =
+  let val res = (rand o concl) res
+      val bytes = hd(pairSyntax.strip_pair (optionSyntax.dest_some res))
+      val dis = x64_disassemble bytes
+      val maxlen = 30
+      fun pad 0 = ()
+      |   pad n = (print" ";pad (n-1))
+      fun printAsm [] = ()
+      |   printAsm (x::xs) = case x of (hex,dis) =>
+          (print hex;pad (maxlen-String.size hex);print dis;print"\n";printAsm xs)
+      in
+        print"Bytes";pad (maxlen -5);print"Instruction\n";
+        printAsm dis 
+      end
+
 (*--Simple Tests--*)
 val labtest = eval ``lab_to_target$compile ^(x64_lab_conf) [Section 0 [LabAsm Halt 0w [] 0]]``
 val stacktest = eval ``stack_to_target$compile 50 ^(x64_stack_conf) [0,(Seq (Skip:64 stackLang$prog) (StackStore 5 3 ))]``
@@ -42,7 +58,10 @@ val bvptest = eval ``bvp_to_target$compile 50 ^(x64_bvp_conf) [0,2,(Seq (Move 5 
 val bvitest = eval ``bvi_to_bvp$compile_part (0,5,(Var 3))``
 val bvitest2 = eval ``bvi_to_target$compile 50 ^(x64_bvp_conf) [(0,5,(Var 3))]``
 
-val prog = ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 0)))]:prog``
+(*val prog = ``[Tdec (Dlet (Pvar "x") (Fun "x" (Var (Short "x"))))]``*)
+
+val prog = ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 0)))]``
+val _ = PolyML.timing true;
 
 (*Step through entire compiler*)
 val e1 =
@@ -72,25 +91,41 @@ let (next_loc,es) = renumber_code_locs_list next_loc es in
 let es = annotate es in
 let (es,aux) = clos_to_bvl$compile es [] in
 
+(*bvl_to_targe$compile 0 c ((MAP (λe. (0,0,e)) es)++aux)*)
 let progs = ((MAP (λe. (0,0,e)) es)++aux) in
 let (n,c) = c in
-(*check*)
 let (s,bvi_progs,n) = bvl_to_bvi$compile_prog 0 n progs in
+
 let bvp_progs = bvi_to_bvp$compile_prog bvi_progs in
 
+(*bvp_to_target$compile s c bvp_progs -- 278.2*)
 let (bvp_c,c) = c in
 let word_progs: (num#num#64 wordLang$prog) list = bvp_to_word$compile bvp_c bvp_progs in
 
+(*word_to_target$compile s c word_progs*)
 let (two_reg_arith,reg_count) = get_conf_props c in
 let prog = MAP ((compile_single two_reg_arith reg_count)) word_progs in
 
+(*stack_to_target$compile s c prog -- 140.4 *)
 let(f,sp,bp,conf) = c in
 let prog' = stub1 s :: prog in
 let without_stack = stub0 sp bp :: stack_remove$compile (sp,bp) prog' in
 let with_target_names = stack_names$compile f without_stack in
 let sec_list = stack_to_lab$compile with_target_names in
 
-compile_lab conf sec_list``
+(*lab_to_target$compile conf sec_list -- 77.5*)
+let remove = filter_skip sec_list in
+let (c,enc,l) = conf in
+  case remove_labels c enc sec_list l of 
+  | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,(c,enc,l1))
+  | NONE => NONE``;
+(*Fully unfolded -- 77.3*)
+
+val progtest = eval ``source_to_target$compile ^(x64_source_conf) ^(prog)``
+(*Eval from top: 578.5*)
+
+val _ = print_asm progtest
+
 
 (*
 Machinery to test compile_lab -- probably not needed anymore
