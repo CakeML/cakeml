@@ -7,7 +7,7 @@ tmpfile=/tmp/vml-build-email.txt
 from='"CakeML Builds" <builds@cakeml.org>'
 to='builds@cakeml.org'
 
-timeout 4h developers/regression-test.sh &>$tmpfile
+timeout 8h developers/regression-test.sh &>$tmpfile
 
 case $? in
   124)
