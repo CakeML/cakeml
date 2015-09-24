@@ -1,6 +1,6 @@
-open preamble closLangTheory closSemTheory closPropsTheory closRelationTheory;
+open preamble closLangTheory closSemTheory closPropsTheory clos_relationTheory;
 
-val _ = new_theory "closOpt";
+val _ = new_theory "clos_fnloc";
 
 val rev_take_rev_all = Q.prove (
 `n = LENGTH l ⇒ REVERSE (TAKE n (REVERSE l)) = l`,
