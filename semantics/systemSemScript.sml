@@ -18,15 +18,15 @@ val _ = hide "state";
 
 val can_type_prog_def = Define `
 can_type_prog state prog =
-  ∃tdecs' tenvT' tenvM' tenvC' tenv'. 
-    type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv 
-        prog 
+  ∃tdecs' tenvT' tenvM' tenvC' tenv'.
+    type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv
+        prog
         tdecs' tenvT' tenvM' tenvC' tenv'`;
 
 val evaluate_prog_with_io_def = Define `
 evaluate_prog_with_io state io k prog =
   evaluate_prog (state.sem_st with <| clock := k; io := io |>) state.sem_env prog`;
-                
+
 val sem_def = Define `
 (sem state prog (Terminate io_list) ⇔
   can_type_prog state prog ∧
@@ -37,7 +37,7 @@ val sem_def = Define `
 (sem state prog (Diverge io_trace) ⇔
   can_type_prog state prog ∧
   (!k. ?state' envC.
-    (evaluate_prog_with_io state (SOME io_trace) k prog = 
+    (evaluate_prog_with_io state (SOME io_trace) k prog =
         (state', envC, Rerr (Rabort Rtimeout_error))) ∧
      IS_SOME state'.io) ∧
      (* for every proper prefix of the I/O trace: evaluate causes the
@@ -69,7 +69,7 @@ system_sem init_state toks res =
   | SOME prog =>
       ?res' p.
         sem init_state prog res' ∧
-        okpath system_step p ∧ 
+        okpath system_step p ∧
         compose_system_sem p res' res`;
 
 val _ = export_theory();
