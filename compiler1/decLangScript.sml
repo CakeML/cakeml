@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib bigStepTheory;
+open preamble bigStepTheory;
 val _ = new_theory "decLang"
 
 (* Removes declarations. Follows conLang.

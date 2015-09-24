@@ -1,10 +1,8 @@
-open HolKernel Parse boolLib bossLib;
-val _ = new_theory "word_to_stack";
-
-open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
-open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open wordsTheory sptreeTheory lcsymtacs miscTheory asmTheory wordLangTheory;
+open preamble;
+open asmTheory wordLangTheory;
 open stackLangTheory parmoveTheory word_allocTheory;
+
+val _ = new_theory "word_to_stack";
 
 val _ = ParseExtras.tight_equality ();
 

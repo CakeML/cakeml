@@ -1,4 +1,4 @@
-open HolKernel Parse boolLib bossLib;
+open preamble
 
 val _ = numLib.prefer_num();
 

@@ -1,7 +1,5 @@
-open HolKernel Parse boolLib bossLib;
-
+open preamble
 open clos_relationTheory closSemTheory
-open lcsymtacs
 
 val _ = new_theory "clos_relationProps";
 
