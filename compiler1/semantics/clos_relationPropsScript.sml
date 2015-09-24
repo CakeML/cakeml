@@ -1,9 +1,9 @@
 open HolKernel Parse boolLib bossLib;
 
-open closRelationTheory closSemTheory
+open clos_relationTheory closSemTheory
 open lcsymtacs
 
-val _ = new_theory "closRelObservational";
+val _ = new_theory "clos_relationProps";
 
 val state_rel_io_mono = store_thm(
   "state_rel_io_mono[simp]",

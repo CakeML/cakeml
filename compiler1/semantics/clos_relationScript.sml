@@ -1,6 +1,6 @@
 open preamble closLangTheory closSemTheory closPropsTheory;
 
-val _ = new_theory "closRelation";
+val _ = new_theory "clos_relation";
 
 val butlastn_nil = Q.store_thm ("butlastn_nil",
 `!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
