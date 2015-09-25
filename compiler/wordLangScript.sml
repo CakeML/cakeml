@@ -7,7 +7,7 @@ val _ = new_theory "wordLang";
 val _ = Datatype `
   store_name =
     NextFree | LastFree | FreeCount | ProgStart |
-    CurrHeap | OtherHeap | AllocSize | Handler`
+    CurrHeap | OtherHeap | AllocSize | Globals | Handler `
 
 val _ = Datatype `
   num_exp = Nat num

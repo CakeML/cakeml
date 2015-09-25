@@ -1671,9 +1671,12 @@ val word_el_def = Define `
                  decode_tag_bits conf w = tag))`;
 
 val word_heap_def = Define `
-  (word_heap a [] conf abs_heap = emp) /\
+  (word_heap a ([]:'a ml_heap) conf (abs_heap:'a ml_heap) = emp) /\
   (word_heap a (x::xs) conf abs_heap =
      word_el a x conf abs_heap *
      word_heap (a + bytes_in_word * n2w (el_length x)) xs conf abs_heap)`;
+
+val word_gc_fun_def = Define `
+  word_gc_fun c = ARB:'a gc_fun_type`;
 
 val _ = export_theory();

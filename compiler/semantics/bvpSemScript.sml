@@ -11,6 +11,7 @@ val _ = Datatype `
   state =
     <| locals  : bvlSem$v num_map
      ; stack   : stack list
+     ; global  : bvlSem$v
      ; handler : num
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
