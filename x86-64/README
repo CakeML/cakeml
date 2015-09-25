@@ -18,3 +18,12 @@ x64_heapScript.sml
     and lemmas for use by the bignum library
   - proves a connection between a library for arbitrary-precision
     integer arithmetic and the CakeML heap invariant
+
+compile/
+  compiler for individual bytecode instructions
+
+wrapper/
+  C wrapper to create the final executable
+
+benchmarks/
+  some example CakeML programs

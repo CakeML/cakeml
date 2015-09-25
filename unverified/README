@@ -1,6 +1,6 @@
 Unverified tools.
 
-interp/ 
+interp/
   a CakeML interpreter written in Haskell.  It tries to give reasonable parse
   and type error messages that include source locations.
 
@@ -9,3 +9,6 @@ bytecode/
 
 reg_alloc/
   translated and pretty printed register allocator (with a few changes).
+
+ocaml-syntax/
+  tools for translating OCaml into CakeML

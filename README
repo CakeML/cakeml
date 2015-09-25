@@ -55,8 +55,8 @@ Directory structure:
     Verification of the compiler.
 
 - initial
-    Definition of the initial program that sets up the initial
-    environment for CakeML programs.
+    Proofs about the initial program and the initial
+    environment for CakeML programs that it sets up.
 
 - repl
     The REPL implementation in HOL.
@@ -94,6 +94,13 @@ Directory structure:
     Tools for stepping through execution of the compiler from one intermediate
     language to the next, and pretty-printing the intermediate results. An
     instance is available on the CakeML website.
+
+- mlstringScript.sml, mlstringLib.sml, mlstringSyntax.sml
+    Small theory of wrapped strings, so the translator can distinguish them
+    from char lists and target CakeML strings.
+
+- compute_basicLib.sml
+    Build compsets for evaluation in the logic.
 
 - miscLib.sml, miscScript.sml, preamble.sml
     Theorems and proof tools (e.g. tactics) used throughout the development.

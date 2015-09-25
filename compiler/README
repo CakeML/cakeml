@@ -19,11 +19,8 @@ compiler.lem
 proofs/
   compiler correctness proofs
 
-compilerLib.lem
-  some helper functions
+compute_compilerLib.lem
+  build compsets for evaluating the compiler in the logic
 
 compilerTerminationScript.sml
   termination proofs and exporting of some rewrites
-
-tests/
-  out-of-date testing infrastructure based on EmitML

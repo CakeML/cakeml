@@ -16,9 +16,9 @@ tokens.lem
 tokenUtilsScript.sml
     Some theorems about tokens that the grammar needs.
 
-gramScript.sml
+gramScript.sml, grammar.txt
     The grammar that specifies how token lists should be converted to concrete
-    syntax trees
+    syntax trees. (grammar.txt is not formally connected.)
 
 cmlPtreeConversionScript.sml
     Functions to convert the concrete syntax tree into a parsing AST. Removes
