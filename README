@@ -1,13 +1,20 @@
-The CakeML project. See https://cakeml.org and https://github.com/CakeML.
+The CakeML project. See https://cakeml.org.
 
 A verified implementation of a significant subset of Standard ML in the HOL4
-theorem prover (http://hol.sourceforge.net).
+theorem prover (http://hol-theorem-prover.org).
 
-NB: We develop this using the head of the HOL4 development version in Github
-(https://github.com/HOL-Theorem-Prover/HOL), and it will not work on official HOL releases.
-We build HOL on PolyML 5.5.2 (http://www.polyml.org/). Also, a full build
-(including the bootstrapping which runs the compiler on itself in the logic)
-may require 8GB RAM.
+This branch, version1, is a release branch. Continued development happens on master.
+
+This release works with:
+  HOL4 version 0106cc6 or later. (TODO: replace once there is another HOL release)
+  PolyML 5.5.2 (http://www.polyml.org)
+
+To build the verified REPL:
+  cd x86-64/wrapper
+  Holmake cake
+
+A full build, which includes bootstrapping the compiler within the logic, may
+require 8GB RAM.
 
 Directory structure:
 
@@ -88,15 +95,8 @@ Directory structure:
     language to the next, and pretty-printing the intermediate results. An
     instance is available on the CakeML website.
 
-- new-backend
-- targets
-    Work towards a new series of compilation phases to replace the bytecode.
-
 - miscLib.sml, miscScript.sml, preamble.sml
     Theorems and proof tools (e.g. tactics) used throughout the development.
-
-- sem-reason
-    Work towards logical tools for reasoning about CakeML programs.
 
 - lem_lib_stub
     empty versions of the Lem libraries (which we don't use, but building with
