@@ -8,7 +8,6 @@ val _ = new_theory "bvp_to_wordProof";
     TODO:
      - sketch compiler proof
        - prove Return
-       - prove Seq
        - prove Raise
        - prove Assign Const
    ------------------------------------------------------- *)
@@ -60,13 +59,13 @@ val state_rel_def = Define `
       [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
-    (lookup 0 t.locals = SOME (Loc l1 l2)) /\
+    (v1 = LN ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
     (!n. IS_SOME (lookup n s.locals) ==>
          IS_SOME (lookup (adjust_var n) t.locals)) /\
     (* the stacks contain the same names, have same shape *)
     EVERY2 stack_rel s.stack t.stack /\
     (* there exists some GC-compatible abstraction *)
-    ?heap limit heap_addr_stack a sp.
+    ?heap limit a sp heap_addr_stack.
       (* the abstract heap is stored in memory *)
       (word_heap (theWord (t.store ' CurrHeap)) heap c heap *
        word_heap (theWord (t.store ' OtherHeap))
@@ -87,6 +86,15 @@ val state_rel_def = Define `
 
 (* compiler proof *)
 
+val state_rel_get_var_IMP = prove(
+  ``state_rel c l1 l2 s t LN LN ==>
+    (get_var n s = SOME x) ==>
+    ?w. get_var (adjust_var n) t = SOME w``,
+  fs [bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
+  \\ fs [state_rel_def] \\ rpt strip_tac
+  \\ `IS_SOME (lookup n s.locals)` by fs [] \\ res_tac
+  \\ Cases_on `lookup (adjust_var n) t.locals` \\ fs []);
+
 val compile_correct = prove(
   ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
@@ -99,12 +107,13 @@ val compile_correct = prove(
                  | SOME (Rval v) =>
                      ?w. state_rel c l1 l2 s1 t1 (insert 0 v LN)
                             (insert (adjust_var 0) w LN) /\
-                         (res1 = SOME (Result w (Loc l1 l2)))
+                         (res1 = SOME (Result (Loc l1 l2) w))
                  | SOME (Rerr (Rraise v)) =>
                      ?w. state_rel c l1 l2 s1 t1 (insert 0 v LN)
                             (insert (adjust_var 0) w LN) /\
                          (res1 = SOME (Exception w w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
+
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -118,7 +127,19 @@ val compile_correct = prove(
     \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def])
   THEN1 (* MakeSpace *) cheat
   THEN1 (* Raise *) cheat
-  THEN1 (* Return *) cheat
+
+  THEN1 (* Return *)
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `get_var n s` \\ fs [] \\ rw []
+    \\ `get_var 0 t = SOME (Loc l1 l2)` by
+          fs [state_rel_def,wordSemTheory.get_var_def]
+    \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
+    \\ fs [state_rel_def,wordSemTheory.call_env_def,lookup_def,
+           bvpSemTheory.call_env_def,EVAL ``fromList []``,
+           EVAL ``isEmpty (insert 0 x LN)``]
+    \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
+    \\ cheat)
+
   THEN1 (* Seq *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
