@@ -1246,38 +1246,6 @@ val simple_repl_basis_lemma = prove(
    imp_res_tac convert_invariants >>
    fs[basis_repl_env_def,LET_THM] >> rfs[])
 
-(* TODO: move?
-
-could be a nice result to have, but requires type_top determinism to be proved
-
-val ast_repl_determ = store_thm("ast_repl_determ",
-  ``∀s t i o1. ast_repl s t i o1 ⇒ ∀o2. ast_repl s t i o2 ⇒ (o2 = o1)``,
-  HO_MATCH_MP_TAC ast_repl_ind >>
-  conj_tac >- rw[Once ast_repl_cases] >>
-  conj_tac >- cheat >>
-  conj_tac >- cheat >>
-  conj_tac >- (
-    rw[] >>
-    pop_assum mp_tac >>
-    rw[Once ast_repl_cases] ) >>
-  rw[] >>
-    pop_assum mp_tac >>
-  rw[Once ast_repl_cases] )
-
-val repl_determ = store_thm("repl_determ",
-  ``∀s t i o1 o2. repl s t i o1 ∧ repl s t i o2 ⇒ (o1 = o2)``,
-  rw[repl_def] >> metis_tac[ast_repl_determ])
-
-val simple_repl_fun_basis_thm = store_thm("simple_repl_fun_basis_thm",
-  ``∀input output.
-    repl basis_repl_env (get_type_error_mask output) input output ⇔
-    simple_repl_fun basis_state input = (output,T)``,
-  rw[] >>
-  qspec_then`input`mp_tac simple_repl_basis_lemma >>
-  Cases_on`simple_repl_fun basis_state input` >> simp[] >>
-  rw[EQ_IMP_THM] >> rw[] >> metis_tac[repl_determ])
-*)
-
 val simple_repl_fun_basis_thm = save_thm("simple_repl_fun_basis_thm",
    simple_repl_basis_lemma)
 
