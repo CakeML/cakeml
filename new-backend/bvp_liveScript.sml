@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp_live";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bvpTheory bvp_lemmasTheory;
+open bvlTheory bvpTheory bvp_lemmasTheory;
 open sptreeTheory lcsymtacs;
 
 (* This script defines an optimisation that minimises the live var

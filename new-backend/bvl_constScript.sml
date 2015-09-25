@@ -1,8 +1,9 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_const";
-
+open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory sptreeTheory lcsymtacs bvlTheory;
+open sptreeTheory lcsymtacs bvlTheory;
+
+val _ = new_theory "bvl_const";
 
 infix \\ val op \\ = op THEN;
 
@@ -19,12 +20,12 @@ val bConstOp_def = Define `
     if EVERY isConst xs then
       let ys = MAP getConst xs in
         (case op of
-         | Add => Op (Const (EL 0 ys + EL 1 ys)) []
-         | Sub => Op (Const (EL 0 ys - EL 1 ys)) []
-         | Mult => Op (Const (EL 0 ys * EL 1 ys)) []
-         | Div => Op (Const (EL 0 ys / EL 1 ys)) []
-         | Mod => Op (Const (EL 0 ys % EL 1 ys)) []
-         | Less => Op (Cons (bool_to_tag (EL 0 ys < EL 1 ys))) []
+         | Add => Op (Const (EL 1 ys + EL 0 ys)) []
+         | Sub => Op (Const (EL 1 ys - EL 0 ys)) []
+         | Mult => Op (Const (EL 1 ys * EL 0 ys)) []
+         | Div => Op (Const (EL 1 ys / EL 0 ys)) []
+         | Mod => Op (Const (EL 1 ys % EL 0 ys)) []
+         | Less => Op (Cons (bool_to_tag (EL 1 ys < EL 0 ys))) []
          | _ => Op op xs)
     else Op op xs`
 
@@ -45,7 +46,7 @@ val bConsts_def = tDefine "bConsts" `
   (bConst (Handle x1 x2) = Handle (bConst x1) (bConst x2)) /\
   (bConst (Op op xs) = bConstOp op (bConsts xs)) /\
   (bConst (Tick x) = Tick (bConst x)) /\
-  (bConst (Call dest xs) = Call dest (bConsts xs))`
+  (bConst (Call ticks dest xs) = Call ticks dest (bConsts xs))`
  (WF_REL_TAC `measure (\y. case y of INL xs => bvl_exp1_size xs
                                    | INR x => bvl_exp_size x)`)
 
@@ -107,7 +108,7 @@ val bConsts_thm = store_thm("bConsts_thm",
     \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
     \\ SIMP_TAC std_ss [Once bEval_cons]
     \\ FULL_SIMP_TAC std_ss [bConst_SING]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [bConsts_def,bEval_def]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [bConsts_def])
   THEN1
@@ -119,7 +120,7 @@ val bConsts_thm = store_thm("bConsts_thm",
     \\ fs [EVAL ``bool_to_val T``,EVAL ``bool_to_val F``])
   \\ TRY
    (ASM_SIMP_TAC std_ss [bEval_def]
-    \\ REPEAT BasicProvers.FULL_CASE_TAC
+    \\ BasicProvers.EVERY_CASE_TAC
     \\ FULL_SIMP_TAC (srw_ss()) [GSYM bConst_SING]
     \\ REV_FULL_SIMP_TAC (srw_ss()) [] \\ NO_TAC)
   \\ SIMP_TAC std_ss [bEval_def,bConstOp_def]
@@ -134,8 +135,14 @@ val bConsts_thm = store_thm("bConsts_thm",
   \\ SRW_TAC [] []
   \\ Cases_on `op` \\ FULL_SIMP_TAC (srw_ss()) [bEval_def]
   \\ Cases_on `xs` \\ fs [bConsts_def,bEvalOp_def]
-  \\ Cases_on `t` \\ fs [bConsts_def,bEvalOp_def,getConst_def]
-  \\ Cases_on `t'` \\ fs [bConsts_def,bEvalOp_def,getConst_def]
-  \\ Cases_on `getConst (bConst h') = 0` \\ fs [bool_to_val_def])
+  \\ Cases_on `t` \\ fs [bConsts_def,bEvalOp_def]
+  \\ `t' = []` by ALL_TAC \\ fs [bConsts_def] \\ SRW_TAC [] [] \\ fs []
+  \\ Cases_on `REVERSE (MAP (Number o getConst) (bConsts t'))` \\ fs []
+  \\ TRY (Cases_on `t'` \\ fs [bConsts_def] \\ NO_TAC)
+  \\ TRY (simp[bool_to_val_def] \\ NO_TAC)
+  \\ Cases_on `h''` \\ fs []
+  \\ Cases_on `t` \\ fs []
+  \\ Cases_on `h''` \\ fs []
+  \\ Cases_on `t''` \\ fs [])
 
 val _ = export_theory();

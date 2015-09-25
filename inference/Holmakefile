@@ -1,7 +1,7 @@
 INCLUDES=.. ../semantics ../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order
 OPTIONS = QUIT_ON_FAILURE
 
-SEMANTICSI = lib semanticPrimitives
+SEMANTICSI = semanticPrimitives
 INFER = infer_t
 GEN_SCRIPTS =  $(patsubst %,%Script.sml,$(INFER))
 
@@ -13,9 +13,9 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS)
 .PHONY: all
 
-$(GEN_SCRIPTS): $(LEMI) $(LEMH)
+$(GEN_SCRIPTS): $(LEMI) $(LEMH) ../lib.lem ../ffi/ffi.lem
 	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
+	then lem -auxiliary_level none -i ../ffi/ffi.lem -i ../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMH));\
 	else touch $(GEN_SCRIPTS); fi
 
 ifdef POLY

@@ -125,7 +125,10 @@ val _ = Define `
  (closure_tag : num =( 2))`;
 
 val _ = Define `
- (block_tag : num =( 3))`;
+ (partial_app_tag : num =( 3))`;
+
+val _ = Define `
+ (block_tag : num =( 4))`;
 
 
 val _ = Define `
@@ -201,7 +204,7 @@ val _ = Define `
 (bc_equal _ (RefPtr _) = (Eq_val F))
 /\
 (bc_equal (Block t1 l1) (Block t2 l2) =  
-(if (t1 = closure_tag) \/ (t2 = closure_tag)
+(if (t1 = closure_tag) \/ ((t2 = closure_tag) \/ ((t1 = partial_app_tag) \/ (t2 = partial_app_tag)))
   then Eq_closure else
     if (t1 = t2) /\ (LENGTH l1 = LENGTH l2)
     then bc_equal_list l1 l2 else Eq_val F))
@@ -304,7 +307,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (if n = (bool_to_tag F) then SOME "false" else
   if n = (bool_to_tag T) then SOME "true" else
   if n = unit_tag then SOME "()" else
-  if n = closure_tag then SOME "<fn>" else
+  if (n = closure_tag) \/ (n = partial_app_tag) then SOME "<fn>" else
   if n = vector_tag then SOME "<vector>" else
   if n = string_tag then
     (case bvs_to_chars vs [] of

@@ -43,6 +43,10 @@ bigStep.lem
     The big-step and small-step semantics are proven equivalent in the
     metatheory directory.
 
+funBigStep.lem
+    A clocked functional version of the big-step semantics. (This version will
+    eventually be used as the main semantics.)
+
 terminationScript.sml
     Termination proofs for recursive functions defined in the .lem files.
 

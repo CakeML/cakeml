@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvp";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory sptreeTheory lcsymtacs bviTheory;
+open bvlTheory sptreeTheory lcsymtacs bviTheory miscTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -163,9 +163,6 @@ val pop_env_def = Define `
     | (Env e::xs) => SOME (s with <| locals := e ; stack := xs |>)
     | (Exc e n::xs) => SOME (s with <| locals := e; stack := xs ; handler := n |>)
     | _ => NONE`;
-
-val LAST_N_def = Define `
-  LAST_N n xs = REVERSE (TAKE n (REVERSE xs))`;
 
 val jump_exc_def = Define `
   jump_exc s =

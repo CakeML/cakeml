@@ -1,5 +1,6 @@
+OPTIONS = QUIT_ON_FAILURE
 INCLUDES = $(HOLDIR)/examples/l3-machine-code/mips/step \
-           $(HOLDIR)/examples/l3-machine-code/mips/prog ..
+           $(HOLDIR)/examples/l3-machine-code/mips/prog ../asm
 
 ifdef POLY
 HOLHEAP = $(HOLDIR)/examples/l3-machine-code/mips/prog/mips-step-heap

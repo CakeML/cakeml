@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_handle";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory sptreeTheory lcsymtacs;
+open bvlTheory sptreeTheory lcsymtacs;
 
 (* BVL transformation that introduces a Let into each Handle
    body. This is preparation for BVL --> BVI compilation. *)
@@ -24,7 +24,7 @@ val bHandle_def = tDefine "bHandle" `
        [Handle (Let (GENLIST Var n) y1) y2]) /\
   (bHandle n [Op op xs] = [Op op (bHandle n xs)]) /\
   (bHandle n [Tick x] = [Tick (HD (bHandle n [x]))]) /\
-  (bHandle n [Call dest xs] = [Call dest (bHandle n xs)])`
+  (bHandle n [Call t dest xs] = [Call t dest (bHandle n xs)])`
  (WF_REL_TAC `measure (bvl_exp1_size o SND)`);
 
 (* proof of semantics preservation *)

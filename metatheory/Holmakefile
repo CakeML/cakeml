@@ -1,7 +1,7 @@
 INCLUDES=.. ../semantics ../semantics/proofs ../lem_lib_stub
 OPTIONS = QUIT_ON_FAILURE
 
-SEMI = lib tokens ast semanticPrimitives smallStep bigStep typeSystem
+SEMI = tokens ast semanticPrimitives smallStep bigStep typeSystem
 SRC = bigSmallInvariants typeSoundInvariants
 LEMI = $(patsubst %,../semantics/%.lem,$(SEMI))
 LEMS = $(patsubst %,%.lem,$(SRC))
@@ -13,9 +13,9 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS)
 .PHONY: all
 
-$(GENS) : $(LEMI) $(LEMS)
+$(GENS) : ../lib.lem $(LEMI) $(LEMS) ../ffi/ffi.lem
 	if type lem;\
-	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../ffi/ffi.lem -i ../lib.lem $(patsubst %,-i %,$(LEMI)) $(patsubst %,-hol %,$(LEMS));\
 	else touch $(GENS); fi
 
 ifdef POLY

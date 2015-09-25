@@ -1,6 +1,4 @@
 open preamble;
-open rich_listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory infer_tTheory;
 open astPropsTheory;
 open inferPropsTheory;
@@ -9,7 +7,6 @@ open infer_eCompleteTheory;
 open type_eDetermTheory;
 open infer_eSoundTheory;
 open infer_eCompleteTheory
-open BasicProvers miscLib
 
 local open typeSoundInvariantsTheory in
 val tenvT_ok_def = tenvT_ok_def;
@@ -577,7 +574,7 @@ val infer_d_sound = Q.prove (
            `st''''' = st'` by (
              simp[infer_st_component_equality] >>
              metis_tac[pure_add_constraints_functional] ) >>
-           VAR_EQ_TAC >>
+           var_eq_tac >>
            imp_res_tac ALOOKUP_MEM>>
            fs[tenv_add_tvs_def,MAP2_MAP,MAP_MAP_o,LENGTH_COUNT_LIST]>>
            fs[MEM_MAP,EXISTS_PROD]>>

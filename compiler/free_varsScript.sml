@@ -738,10 +738,10 @@ val tac =
   >- metis_tac[]
   >- (
     fsrw_tac[ARITH_ss][PRE_SUB1] >>
-    qexists_tac`v-1` >>
+    qexists_tac`m-1` >>
     fsrw_tac[ARITH_ss][] >>
     disj2_tac >>
-    qexists_tac`v` >>
+    qexists_tac`m` >>
     fsrw_tac[ARITH_ss][] )
   >- (
     disj1_tac >>
@@ -751,11 +751,12 @@ val tac =
     fsrw_tac[ARITH_ss][PRE_SUB1] >>
     disj2_tac >>
     srw_tac[ARITH_ss][]
-    >- (qexists_tac`m`>>simp[] >>
+    >- (qexists_tac`m-1`>>simp[] >>
         qexists_tac`m`>>simp[]) >>
     srw_tac[ARITH_ss][PULL_EXISTS] >>
     qexists_tac`m`>>simp[])
 
+(*
 val free_vars_mkshift = store_thm("free_vars_mkshift",
   ``∀f k e. set (free_vars (mkshift f k e)) = IMAGE (λv. if v < k then v else f (v-k) + k) (set (free_vars e))``,
   ho_match_mp_tac mkshift_ind >>
@@ -830,7 +831,8 @@ val _ = export_rewrites["free_vars_shift"]
 val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
   ``(∀e. set (free_vars (exp_to_Cexp e)) = set (free_vars_pat e)) ∧
     (∀es. set (free_vars_list (exps_to_Cexps es)) = set (free_vars_list_pat es))``,
-  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >> simp[] >>
+  ho_match_mp_tac(TypeBase.induction_of``:exp_pat``) >> simp[]);
+  (*
   strip_tac >- (
     rw[EXTENSION] >>
     rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
@@ -856,8 +858,9 @@ val free_vars_exp_to_Cexp = store_thm("free_vars_exp_to_Cexp",
   simp[MAP_MAP_o,combinTheory.o_DEF] >>
   fs[MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
   rw[EQ_IMP_THM] >> rw[] >> fsrw_tac[ARITH_ss][] >>
-  metis_tac[])
+  metis_tac[])*)
 val _ = export_rewrites["free_vars_exp_to_Cexp"]
+*)
 
 val (closed_pat_rules,closed_pat_ind,closed_pat_cases) = Hol_reln`
 (closed_pat (Litv_pat l)) ∧
@@ -892,6 +895,7 @@ val char_list_to_v_pat_closed = prove(
   ``∀ls. closed_pat (char_list_to_v_pat ls)``,
   Induct >> simp[char_list_to_v_pat_def])
 
+(*
 val evaluate_pat_closed = store_thm("evaluate_pat_closed",
   ``(∀ck env s e res. evaluate_pat ck env s e res ⇒
        set (free_vars_pat e) ⊆ count (LENGTH env) ∧
@@ -988,6 +992,7 @@ val evaluate_pat_closed = store_thm("evaluate_pat_closed",
     first_x_assum match_mp_tac >>
     simp[] >> metis_tac[] ) >>
   simp[csg_closed_pat_def,EVERY_GENLIST])
+*)
 
 val free_vars_i2_def = tDefine"free_vars_i2"`
   free_vars_i2 (Raise_i2 e) = free_vars_i2 e ∧
@@ -1116,10 +1121,10 @@ val pat_bindings_i2_pat_to_i2 = store_thm("pat_bindings_i2_pat_to_i2",
 val _ = export_rewrites["pat_bindings_i2_pat_to_i2"]
 
 val free_vars_i2_exp_to_i2 = store_thm("free_vars_i2_exp_to_i2",
-  ``(∀exh e. free_vars_i2 (exp_to_i2 exh e) = free_vars_i1 e) ∧
-    (∀exh es. free_vars_list_i2 (exps_to_i2 exh es) = free_vars_list_i1 es) ∧
-    (∀exh pes. free_vars_pes_i2 (pat_exp_to_i2 exh pes) = free_vars_pes_i1 pes) ∧
-    (∀exh funs. free_vars_defs_i2 (funs_to_i2 exh funs) = free_vars_defs_i1 funs)``,
+  ``(∀(exh:tag_env) e. free_vars_i2 (exp_to_i2 exh e) = free_vars_i1 e) ∧
+    (∀(exh:tag_env) es. free_vars_list_i2 (exps_to_i2 exh es) = free_vars_list_i1 es) ∧
+    (∀(exh:tag_env) pes. free_vars_pes_i2 (pat_exp_to_i2 exh pes) = free_vars_pes_i1 pes) ∧
+    (∀(exh:tag_env) funs. free_vars_defs_i2 (funs_to_i2 exh funs) = free_vars_defs_i1 funs)``,
   ho_match_mp_tac exp_to_i2_ind >>
   simp[exp_to_i2_def] >>
   rw[funs_to_i2_MAP,MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] )
@@ -1287,6 +1292,7 @@ val do_if_FV = store_thm("do_if_FV",
   BasicProvers.EVERY_CASE_TAC >>
   rw[] >>rw[])
 
+(*
 val evaluate_closed = store_thm("evaluate_closed",
   ``(∀ck env s exp res.
      evaluate ck env s exp res ⇒
@@ -2153,5 +2159,6 @@ val evaluate_prog_i1_closed = store_thm("evaluate_prog_i1_closed",
   simp[free_vars_prog_i1_def] >> strip_tac >>
   imp_res_tac evaluate_prompt_i1_closed >> fs[] >>
   fs[free_vars_prog_i1_def])
+*)
 
 val _ = export_theory()

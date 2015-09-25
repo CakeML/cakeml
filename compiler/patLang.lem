@@ -18,6 +18,7 @@ open import BigStep
 open import ExhLang
 open import ConLang
 open import DecLang
+open import Ffi
 
 (* TODO: Lem's builtin find index has a different type *)
 val find_index : forall 'a. 'a -> list 'a -> nat -> maybe nat
@@ -450,170 +451,183 @@ and char_list_to_v_pat (c::cs) =
   Conv_pat cons_tag [Litv_pat (Char c); char_list_to_v_pat cs]
 
 val do_app_pat : count_store_genv v_pat -> op_pat -> list v_pat -> maybe (count_store_genv v_pat * result v_pat v_pat)
-let do_app_pat ((cnt,s),genv) op vs =
+let do_app_pat ((cnt,s,t),genv) op vs =
   match (op,vs) with
     | (Op_pat (Op_i2 (Opn op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
-          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat div_tag)))
+          Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat div_tag)))
         else
-          Just (((cnt,s),genv), Rval (Litv_pat (IntLit (opn_lookup op n1 n2))))
+          Just (((cnt,s,t),genv), Rval (Litv_pat (IntLit (opn_lookup op n1 n2))))
     | (Op_pat (Op_i2 (Opb op)), [Litv_pat (IntLit n1); Litv_pat (IntLit n2)]) ->
-        Just (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op n1 n2)))
+        Just (((cnt,s,t),genv), Rval (Boolv_pat (opb_lookup op n1 n2)))
     | (Op_pat (Op_i2 Equality), [v1; v2]) ->
         match do_eq_pat v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat eq_tag)))
-          | Eq_val b -> Just (((cnt,s),genv), Rval(Boolv_pat b))
+          | Eq_closure -> Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat eq_tag)))
+          | Eq_val b -> Just (((cnt,s,t),genv), Rval(Boolv_pat b))
         end
     | (Op_pat (Op_i2 Opassign), [Loc_pat lnum; v]) ->
         match store_assign lnum (Refv v) s with
-        | Just st -> Just (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
+        | Just st -> Just (((cnt,st,t),genv), Rval (Conv_pat tuple_tag []))
         | Nothing -> Nothing
         end
     | (Op_pat (Op_i2 Opderef), [Loc_pat n]) ->
         match store_lookup n s with
-          | Just (Refv v) -> Just (((cnt,s),genv),Rval v)
+          | Just (Refv v) -> Just (((cnt,s,t),genv),Rval v)
           | _ -> Nothing
         end
     | (Op_pat (Op_i2 Opref), [v]) ->
         let (s',n) = store_alloc (Refv v) s in
-          Just (((cnt,s'),genv), Rval (Loc_pat n))
+          Just (((cnt,s',t),genv), Rval (Loc_pat n))
     | (Op_pat (Init_global_var_i2 idx), [v]) ->
         if idx < List.length genv then
           match List_extra.nth genv idx with
-            | Nothing -> Just (((cnt,s), List.update genv idx (Just v)), Rval (Conv_pat tuple_tag []))
+            | Nothing -> Just (((cnt,s,t), List.update genv idx (Just v)), Rval (Conv_pat tuple_tag []))
             | Just _ -> Nothing
           end
         else
           Nothing
     | (Op_pat (Op_i2 Aw8alloc), [Litv_pat (IntLit n); Litv_pat (Word8 w)]) ->
         if n < 0 then
-          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+          Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
         else
           let (st,lnum) =
             store_alloc (W8array (List.replicate (natFromInteger n) w)) s
           in
-            Just (((cnt,st),genv), Rval (Loc_pat lnum))
+            Just (((cnt,st,t),genv), Rval (Loc_pat lnum))
     | (Op_pat (Op_i2 Aw8sub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (W8array ws) ->
               if i < 0 then
-                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
               else
                 let n = natFromInteger i in
                   if n >= List.length ws then
-                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                    Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
                   else
-                    Just (((cnt,s),genv), Rval (Litv_pat (Word8 (List_extra.nth ws n))))
+                    Just (((cnt,s,t),genv), Rval (Litv_pat (Word8 (List_extra.nth ws n))))
           | _ -> Nothing
         end
     | (Op_pat (Op_i2 Aw8length), [Loc_pat n]) ->
         match store_lookup n s with
           | Just (W8array ws) ->
-              Just (((cnt,s),genv),Rval (Litv_pat (IntLit (integerFromNat (List.length ws)))))
+              Just (((cnt,s,t),genv),Rval (Litv_pat (IntLit (integerFromNat (List.length ws)))))
           | _ -> Nothing
         end
     | (Op_pat (Op_i2 Aw8update), [Loc_pat lnum; Litv_pat (IntLit i); Litv_pat (Word8 w)]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
             if i < 0 then
-              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+              Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
             else
               let n = natFromInteger i in
                 if n >= List.length ws then
-                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                  Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
                 else
                   match store_assign lnum (W8array (List.update ws n w)) s with
                     | Nothing -> Nothing
-                    | Just st -> Just (((cnt,st),genv), Rval (Conv_pat tuple_tag []))
+                    | Just st -> Just (((cnt,st,t),genv), Rval (Conv_pat tuple_tag []))
                   end
         | _ -> Nothing
         end
     | (Op_pat (Op_i2 Ord), [Litv_pat (Char c)]) ->
-          Just (((cnt,s),genv), Rval (Litv_pat(IntLit(integerFromNat(String_extra.ord c)))))
+          Just (((cnt,s,t),genv), Rval (Litv_pat(IntLit(integerFromNat(String_extra.ord c)))))
     | (Op_pat (Op_i2 Chr), [Litv_pat (IntLit i)]) ->
-        Just (((cnt,s),genv),
+        Just (((cnt,s,t),genv),
           if i < 0 || i > 255 then
             Rerr (Rraise (prim_exn_pat chr_tag))
           else
             Rval (Litv_pat(Char(String_extra.chr(natFromInteger i)))))
     | (Op_pat (Op_i2 (Chopb op)), [Litv_pat (Char c1); Litv_pat (Char c2)]) ->
-        Just (((cnt,s),genv), Rval (Boolv_pat (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
+        Just (((cnt,s,t),genv), Rval (Boolv_pat (opb_lookup op (integerFromNat(String_extra.ord c1)) (integerFromNat(String_extra.ord c2)))))
     | (Op_pat (Op_i2 Implode), [v]) ->
           match v_pat_to_char_list v with
           | Just ls ->
-              Just (((cnt,s),genv), Rval (Litv_pat (StrLit (toString ls))))
+              Just (((cnt,s,t),genv), Rval (Litv_pat (StrLit (toString ls))))
           | Nothing -> Nothing
           end
     | (Op_pat (Op_i2 Explode), [Litv_pat (StrLit str)]) ->
-        Just (((cnt,s),genv), Rval (char_list_to_v_pat (toCharList str)))
+        Just (((cnt,s,t),genv), Rval (char_list_to_v_pat (toCharList str)))
     | (Op_pat (Op_i2 Strlen), [Litv_pat (StrLit str)]) ->
-        Just (((cnt,s),genv), Rval (Litv_pat(IntLit(integerFromNat(stringLength str)))))
+        Just (((cnt,s,t),genv), Rval (Litv_pat(IntLit(integerFromNat(stringLength str)))))
     | (Op_pat (Op_i2 VfromList), [v]) ->
           match v_to_list_pat v with
             | Just vs ->
-                Just (((cnt,s),genv), Rval (Vectorv_pat vs))
+                Just (((cnt,s,t),genv), Rval (Vectorv_pat vs))
             | Nothing -> Nothing
           end
     | (Op_pat (Op_i2 Vsub), [Vectorv_pat vs; Litv_pat (IntLit i)]) ->
         if i < 0 then
-          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+          Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
         else
           let n = natFromInteger i in
             if n >= List.length vs then
-              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+              Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
             else 
-              Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+              Just (((cnt,s,t),genv), Rval (List_extra.nth vs n))
     | (Op_pat (Op_i2 Vlength), [Vectorv_pat vs]) ->
-        Just (((cnt,s),genv), Rval (Litv_pat (IntLit (integerFromNat (List.length vs)))))
+        Just (((cnt,s,t),genv), Rval (Litv_pat (IntLit (integerFromNat (List.length vs)))))
     | (Op_pat (Op_i2 Aalloc), [Litv_pat (IntLit n); v]) ->
         if n < 0 then
-          Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+          Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
         else
           let (s',lnum) =
             store_alloc (Varray (List.replicate (natFromInteger n) v)) s
           in 
-            Just (((cnt,s'),genv), Rval (Loc_pat lnum))
+            Just (((cnt,s',t),genv), Rval (Loc_pat lnum))
     | (Op_pat (Op_i2 Asub), [Loc_pat lnum; Litv_pat (IntLit i)]) ->
         match store_lookup lnum s with
           | Just (Varray vs) ->
               if i < 0 then
-                Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
               else
                 let n = natFromInteger i in
                   if n >= List.length vs then
-                    Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                    Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
                   else 
-                    Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+                    Just (((cnt,s,t),genv), Rval (List_extra.nth vs n))
           | _ -> Nothing
         end
     | (Op_pat (Op_i2 Alength), [Loc_pat n]) ->
         match store_lookup n s with
           | Just (Varray ws) ->
-              Just (((cnt,s),genv),Rval (Litv_pat (IntLit(integerFromNat(List.length ws)))))
+              Just (((cnt,s,t),genv),Rval (Litv_pat (IntLit(integerFromNat(List.length ws)))))
           | _ -> Nothing
          end
     | (Op_pat (Op_i2 Aupdate), [Loc_pat lnum; Litv_pat (IntLit i); v]) ->
         match store_lookup lnum s with
         | Just (Varray vs) ->
             if i < 0 then
-              Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+              Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
             else 
               let n = natFromInteger i in
                 if n >= List.length vs then
-                  Just (((cnt,s),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
+                  Just (((cnt,s,t),genv), Rerr (Rraise (prim_exn_pat subscript_tag)))
                 else
                   match store_assign lnum (Varray (List.update vs n v)) s with
                     | Nothing -> Nothing
-                    | Just s' -> Just (((cnt,s'),genv), Rval (Conv_pat tuple_tag []))
+                    | Just s' -> Just (((cnt,s',t),genv), Rval (Conv_pat tuple_tag []))
                   end
         | _ -> Nothing
       end
+    | (Op_pat (Op_i2 (FFI n)), [Loc_pat lnum]) ->
+        match store_lookup lnum s with
+        | Just (W8array ws) ->
+            match call_FFI n ws t with
+            | Just (ws', t') ->
+               match store_assign lnum (W8array ws') s with
+               | Just s' -> Just (((cnt,s', t'),genv), Rval (Conv_pat tuple_tag []))
+               | Nothing -> Nothing
+               end
+            | Nothing -> Just (((cnt,s,t),genv), Rerr (Rabort Rffi_error))
+            end
+        | _ -> Nothing
+        end
     | (Tag_eq_pat n, [Conv_pat tag _]) ->
-        Just (((cnt,s),genv), Rval (Boolv_pat (tag = n)))
+        Just (((cnt,s,t),genv), Rval (Boolv_pat (tag = n)))
     | (El_pat n, [Conv_pat _ vs]) ->
         if n < List.length vs then
-          Just (((cnt,s),genv), Rval (List_extra.nth vs n))
+          Just (((cnt,s,t),genv), Rval (List_extra.nth vs n))
         else
           Nothing
     | _ -> Nothing
@@ -667,23 +681,22 @@ evaluate_pat ck env s1 (Handle_pat e1 e2) bv
 
 and
 
-handle3 : forall ck s1 s2 env e1 e2 err.
-evaluate_pat ck env s1 e1 (s2, Rerr err) &&
-(err = Rtimeout_error || (err = Rtype_error))
+handle3 : forall ck s1 s2 env e1 e2 a.
+evaluate_pat ck env s1 e1 (s2, Rerr (Rabort a))
 ==>
-evaluate_pat ck env s1 (Handle_pat e1 e2) (s2, Rerr err)
+evaluate_pat ck env s1 (Handle_pat e1 e2) (s2, Rerr (Rabort a))
 
 and
 
 con1 : forall ck env tag es vs s s'.
-evaluate_list_pat ck env s es (s', Rval vs)
+evaluate_list_pat ck env s (List.reverse es) (s', Rval vs)
 ==>
-evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag vs))
+evaluate_pat ck env s (Con_pat tag es) (s', Rval (Conv_pat tag (List.reverse vs)))
 
 and
 
 con3 : forall ck env tag es err s s'.
-evaluate_list_pat ck env s es (s', Rerr err)
+evaluate_list_pat ck env s (List.reverse es) (s', Rerr err)
 ==>
 evaluate_pat ck env s (Con_pat tag es) (s', Rerr err)
 
@@ -696,33 +709,11 @@ evaluate_pat ck env s (Var_local_pat n) (s, Rval (List_extra.nth env n))
 
 and
 
-var2 : forall ck env n s.
-not (List.length env > n)
-==>
-evaluate_pat ck env s (Var_local_pat n) (s, Rerr Rtype_error)
-
-and
-
 var3 : forall ck env n v s genv.
 (List.length genv > n) &&
 (List_extra.nth genv n = Just v)
 ==>
 evaluate_pat ck env (s,genv) (Var_global_pat n) ((s,genv), Rval v)
-
-and
-
-var4 : forall ck env n s genv.
-(List.length genv > n) &&
-(List_extra.nth genv n = Nothing)
-==>
-evaluate_pat ck env (s,genv) (Var_global_pat n) ((s,genv), Rerr Rtype_error)
-
-and
-
-var5 : forall ck env n s genv.
-not (List.length genv > n)
-==>
-evaluate_pat ck env (s,genv) (Var_global_pat n) ((s,genv), Rerr Rtype_error)
 
 and
 
@@ -733,54 +724,37 @@ evaluate_pat ck env s (Fun_pat e) (s, Rval (Closure_pat env e))
 
 and
 
-app1 : forall ck env s1 es count s2 genv2 vs env2 e2 bv.
-evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
-do_opapp_pat vs = Just (env2, e2) &&
+app1 : forall ck env s1 es count s2 t2 genv2 vs env2 e2 bv.
+evaluate_list_pat ck env s1 (List.reverse es) (((count,s2,t2),genv2), Rval vs) &&
+do_opapp_pat (List.reverse vs) = Just (env2, e2) &&
 (ck --> count <> 0) &&
-evaluate_pat ck env2 (((if ck then count-1 else count),s2),genv2) e2 bv
+evaluate_pat ck env2 (((if ck then count-1 else count),s2,t2),genv2) e2 bv
 ==>
 evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) bv
 
 and
 
-app2 : forall ck env s1 es count s2 genv2 vs env2 e2.
-evaluate_list_pat ck env s1 es (((count,s2),genv2), Rval vs) &&
-do_opapp_pat vs = Just (env2, e2) &&
+app2 : forall ck env s1 es count s2 t2 genv2 vs env2 e2.
+evaluate_list_pat ck env s1 (List.reverse es) (((count,s2,t2),genv2), Rval vs) &&
+do_opapp_pat (List.reverse vs) = Just (env2, e2) &&
 count = 0 &&
 ck
 ==>
-evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (((0,s2),genv2), Rerr Rtimeout_error)
-
-and
-
-app3 : forall ck env s1 es s2 vs.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_opapp_pat vs = Nothing
-==>
-evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (s2, Rerr Rtype_error)
+evaluate_pat ck env s1 (App_pat (Op_pat (Op_i2 Opapp)) es) (((0,s2,t2),genv2), Rerr (Rabort Rtimeout_error))
 
 and
 
 app4 : forall ck env s1 op es s2 vs s3 res.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_app_pat s2 op vs = Just (s3, res) &&
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rval vs) &&
+do_app_pat s2 op (List.reverse vs) = Just (s3, res) &&
 op <> Op_pat (Op_i2 Opapp)
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s3, res)
 
 and
 
-app5 : forall ck env s1 op es s2 vs.
-evaluate_list_pat ck env s1 es (s2, Rval vs) &&
-do_app_pat s2 op vs = Nothing &&
-op <> Op_pat (Op_i2 Opapp)
-==>
-evaluate_pat ck env s1 (App_pat op es) (s2, Rerr Rtype_error)
-
-and
-
 app6 : forall ck env s1 op es s2 err.
-evaluate_list_pat ck env s1 es (s2, Rerr err)
+evaluate_list_pat ck env s1 (List.reverse es) (s2, Rerr err)
 ==>
 evaluate_pat ck env s1 (App_pat op es) (s2, Rerr err)
 
@@ -792,14 +766,6 @@ do_if_pat v e2 e3 = Just e' &&
 evaluate_pat ck env s2 e' bv
 ==>
 evaluate_pat ck env s1 (If_pat e1 e2 e3) bv
-
-and
-
-if2 : forall ck env e1 e2 e3 v s1 s2.
-evaluate_pat ck env s1 e1 (s2, Rval v) &&
-do_if_pat v e2 e3 = Nothing
-==>
-evaluate_pat ck env s1 (If_pat e1 e2 e3) (s2, Rerr Rtype_error)
 
 and
 

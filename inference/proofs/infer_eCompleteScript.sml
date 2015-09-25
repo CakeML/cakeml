@@ -1,11 +1,8 @@
 open preamble;
-open rich_listTheory alistTheory;
-open miscTheory;
 open libTheory typeSystemTheory astTheory semanticPrimitivesTheory terminationTheory inferTheory unifyTheory;
 open astPropsTheory;
 open typeSysPropsTheory;
 open inferPropsTheory;
-open miscLib BasicProvers
 
 val _ = new_theory "infer_eComplete";
 
@@ -273,7 +270,7 @@ val t_vwalk_o_f_id = prove(
   imp_res_tac inc_wfs>>
   simp[Once t_vwalk_eqn]>>
   fs[FLOOKUP_o_f]>>
-  EVERY_CASE_TAC>>
+  every_case_tac>>
   fs[FLOOKUP_o_f,infer_deBruijn_inc0]>>
   metis_tac[])
 
@@ -290,7 +287,7 @@ val t_walkstar_o_f_id = prove(
   fs[t_walkstar_eqn,t_walk_eqn]>>
   imp_res_tac t_vwalk_o_f_id>>fs[]
   >>
-  EVERY_CASE_TAC>>
+  every_case_tac>>
   fs[MAP_EQ_f]>>rw[]>>res_tac>>
   fs[t_walkstar_eqn])
 
@@ -379,7 +376,7 @@ val t_unify_ignore = prove(
   ts_unify s ts ts' = SOME s)``,
   ho_match_mp_tac t_unify_strongind>>rw[]>>
   fs[t_unify_eqn]>-
-  (FULL_CASE_TAC>>
+  (full_case_tac>>
   imp_res_tac t_walk_submap_walkstar>>fs[]>>
   qpat_assum `t_walkstar s t = X` mp_tac>>
   fs[t_walkstar_eqn]>>every_case_tac>>fs[]>>
@@ -658,7 +655,7 @@ val extend_multi_props = store_thm("extend_multi_props",
     simp[]>>
     `check_t n {} (EL n' (MAP unconvert_t ts))` by
       metis_tac[check_freevars_to_check_t,EL_MAP,EVERY_MEM,MEM_EL]>>
-    EVERY_CASE_TAC>>fs[check_t_def]>>
+    every_case_tac>>fs[check_t_def]>>
     fs[MAP_EQ_ID]>>rw[]>>metis_tac[EVERY_MEM,t_walkstar_no_vars])>>
   rw[]>>Cases_on`uv ∈ FDOM s`
       >-
@@ -777,7 +774,7 @@ t = convert_t (t_walkstar s' t')``,
   rfs[]>>
   imp_res_tac pure_add_constraints_wfs>>
   fs[constrain_op_def,type_op_cases]>>
-  EVERY_CASE_TAC>>
+  every_case_tac>>
   ntac 2 (fs[unconvert_t_def,MAP]>>rw[])>>
   fs[add_constraint_success,success_eqns,sub_completion_def]>>
   Q.SPECL_THEN [`st.subst`,`constraints`,`s`] mp_tac pure_add_constraints_success>>
@@ -927,6 +924,10 @@ t = convert_t (t_walkstar s' t')``,
     fs[pure_add_constraints_combine]>>
     qpat_abbrev_tac `ls = [(h,Infer_Tapp [h''] A);(h',B)]`>>
     pac_tac)
+  >-
+    (unconversion_tac>>
+    qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+    pac_tac)
   )
 
 val simp_tenv_invC_def = Define`
@@ -959,7 +960,7 @@ val simp_tenv_invC_append = prove(
   simp_tenv_invC s'' tvs (tenv'++tenv) (tenvE' ++ tenvE)``,
   rw[simp_tenv_invC_def]>>
   fs[ALOOKUP_APPEND]>>
-  EVERY_CASE_TAC>>res_tac>>fs[]>>metis_tac[])
+  every_case_tac>>res_tac>>fs[]>>metis_tac[])
 
 (*convert on both sides of eqn*)
 val convert_bi_remove = store_thm("convert_bi_remove",
@@ -1349,9 +1350,9 @@ val infer_pes_complete = prove(``
       fs[tenv_invC_def,simp_tenv_invC_def]>>
       rw[]>>fs[lookup_tenv_bind_var_list]
       >-
-        (FULL_CASE_TAC>>fs[]>>metis_tac[])
+        (full_case_tac>>fs[]>>metis_tac[])
       >>
-        FULL_CASE_TAC>>fs[Abbr`ntenv`]
+        full_case_tac>>fs[Abbr`ntenv`]
         >-
         (fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
         Cases_on`ALOOKUP tenv'' x`>-
@@ -1753,7 +1754,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
          fs[EVERY_MAP,EVERY_MEM]>>
          metis_tac[t_walkstar_no_vars,check_t_to_check_freevars])
       >>
-      LET_ELIM_TAC>>
+      BasicProvers.LET_ELIM_TAC>>
       Q.EXISTS_TAC`constraints++new_constraints`>>
       HINT_EXISTS_TAC>>
       rw[]
@@ -1792,7 +1793,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
       metis_tac[convert_infer_deBruijn_subst,check_freevars_empty_convert_unconvert_id])
    >> (*Long*)
      (fs[menv_alpha_def,FLOOKUP_o_f]>>
-     FULL_CASE_TAC>>
+     full_case_tac>>
      fs[fmap_rel_OPTREL_FLOOKUP]>>
      last_x_assum(qspec_then`s'` assume_tac)>>
      rfs[optionTheory.OPTREL_def]>>
@@ -1824,7 +1825,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
          fs[EVERY_MAP,EVERY_MEM]>>
          metis_tac[t_walkstar_no_vars,check_t_to_check_freevars])
       >>
-      LET_ELIM_TAC>>
+      BasicProvers.LET_ELIM_TAC>>
       fs[Once SWAP_EXISTS_THM]>>
       Q.EXISTS_TAC`constraints++new_constraints`>>
       HINT_EXISTS_TAC>>
@@ -2116,10 +2117,10 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
         fs[tenv_invC_def,simp_tenv_invC_def]>>
         rw[]>>fs[lookup_tenv_bind_var_list]
         >-
-          (FULL_CASE_TAC>>fs[]>>
+          (full_case_tac>>fs[]>>
           metis_tac[])
         >>
-        (FULL_CASE_TAC>>fs[Abbr`ntenv`]
+        (full_case_tac>>fs[Abbr`ntenv`]
         >-
         (fs[ALOOKUP_APPEND,ALOOKUP_MAP]>>
         Cases_on`ALOOKUP tenv'' x`>-
@@ -2278,7 +2279,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        imp_res_tac ALOOKUP_ALL_DISTINCT_MEM>>
        metis_tac[])
    >>
-   LET_ELIM_TAC>>
+   BasicProvers.LET_ELIM_TAC>>
    qpat_abbrev_tac `st' = st with next_uvar:=A`>>
    last_x_assum(qspecl_then [`s'`,`menv`,`new_tenv`,`st'`
                             ,`constraints++new_constraints`] mp_tac)>>
@@ -2338,9 +2339,9 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
          metis_tac[])>>
        rw[]>>fs[lookup_tenv_bind_var_list]
        >-
-         (FULL_CASE_TAC>>fs[]>>metis_tac[type_funs_Tfn])
+         (full_case_tac>>fs[]>>metis_tac[type_funs_Tfn])
        >>
-         FULL_CASE_TAC>>fs[ALOOKUP_APPEND]>>
+         full_case_tac>>fs[ALOOKUP_APPEND]>>
          imp_res_tac ALOOKUP_MEM>>
           `MEM x (MAP FST env)` by
             (fs[EXISTS_PROD,MEM_MAP]>>metis_tac[])>>

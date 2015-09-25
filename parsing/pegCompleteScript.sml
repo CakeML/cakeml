@@ -264,11 +264,6 @@ val firstSet_nV = store_thm(
   simp[Once firstSet_NT, cmlG_applied, cmlG_FDOM] >>
   dsimp[Once EXTENSION, EQ_IMP_THM]);
 
-val firstSet_nVlist1 = store_thm(
-  "firstSet_nVlist1[simp]",
-  ``firstSet cmlG (NN nVlist1 :: rest) = firstSet cmlG [NN nV]``,
-  simp[Once firstSet_NT, cmlG_FDOM, cmlG_applied, firstSet_nV]);
-
 val firstSet_nFQV = store_thm(
   "firstSet_nFQV",
   ``firstSet cmlG [NT (mkNT nFQV)] =
@@ -732,10 +727,6 @@ val NOTIN_firstSet_nConstructorName = store_thm(
 val cmlPEG_total =
     peg_eval_total |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
                              |> C MATCH_MP PEG_wellformed
-
-val nVlist1_expr =
-    ``nt (mkNT nVlist1) I ∈ Gexprs cmlPEG``
-      |> SIMP_CONV (srw_ss()) [PEG_exprs] |> EQT_ELIM
 
 val peg_respects_firstSets = store_thm(
   "peg_respects_firstSets",
@@ -1241,7 +1232,6 @@ val stoppers_def = Define`
      UNIV DIFF ({CommaT; ArrowT; StarT} ∪ firstSet cmlG [NN nTyOp])) ∧
   (stoppers nTyVarList = {RparT}) ∧
   (stoppers nOptionalSignatureAscription = UNIV DELETE SealT) ∧
-  (stoppers nVlist1 = UNIV DIFF firstSet cmlG [NN nV]) ∧
   (stoppers _ = UNIV)
 `;
 val _ = export_rewrites ["stoppers_def"]
@@ -1597,25 +1587,6 @@ val completeness = store_thm(
   rveq >> fs[] >>
   rpt (first_x_assum (mp_tac o assert (free_in ``cmlG.rules`` o concl))) >>
   Cases_on `N` >> simp[cmlG_applied, cmlG_FDOM]
-  >- (print_tac "nVlist1" >>
-      simp[MAP_EQ_CONS, Once peg_eval_NT_SOME, cmlpeg_rules_applied] >> rw[] >>
-      fs[MAP_EQ_APPEND, MAP_EQ_CONS, DISJ_IMP_THM, FORALL_AND_THM] >> rw[]
-      >- ((* nV nVlist1 *)
-          asm_match `ptree_head vpt = NN nV` >>
-          asm_match `ptree_head vlist1pt = NN nVlist1` >>
-          asm_match `ptree_fringe vpt = MAP TK vtks` >>
-          asm_match `ptree_fringe vlist1pt = MAP TK vltks` >>
-          map_every qexists_tac [`[vpt]`, `vltks ++ sfx`, `[vlist1pt]`] >>
-          simp[] >>
-          `0 < LENGTH (MAP TK vtks) ∧ 0 < LENGTH (MAP TK vltks)`
-          by metis_tac[fringe_length_not_nullable, nullable_Vlist1,
-                       nullable_V] >> fs[] >>
-          REWRITE_TAC [GSYM APPEND_ASSOC] >> simp[]) >>
-      (* nV *)
-      asm_match `ptree_head vpt = NN nV` >>
-      map_every qexists_tac [`[vpt]`, `sfx`, `[]`] >> simp[] >>
-      simp[NT_rank_def] >> Cases_on `sfx` >>
-      simp[not_peg0_peg_eval_NIL_NONE] >> fs[peg_respects_firstSets])
   >- (print_tac "nV" >>
       simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG, peg_V_def,

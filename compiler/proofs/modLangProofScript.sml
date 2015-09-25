@@ -230,10 +230,8 @@ val (result_to_i1_rules, result_to_i1_ind, result_to_i1_cases) = Hol_reln `
   v_to_i1 genv v v'
   ⇒
   result_to_i1 f genv (Rerr (Rraise v)) (Rerr (Rraise v'))) ∧
-(!genv.
-  result_to_i1 f genv (Rerr Rtimeout_error) (Rerr Rtimeout_error)) ∧
-(!genv.
-  result_to_i1 f genv (Rerr Rtype_error) (Rerr Rtype_error))`;
+(!genv a.
+  result_to_i1 f genv (Rerr (Rabort a)) (Rerr (Rabort a)))`;
 
 val result_to_i1_eqns = Q.prove (
 `(!genv v r.
@@ -242,12 +240,9 @@ val result_to_i1_eqns = Q.prove (
  (!genv v r.
   result_to_i1 f genv (Rerr (Rraise v)) r ⇔
     ?v'. v_to_i1 genv v v' ∧ r = Rerr (Rraise v')) ∧
- (!genv v r.
-  result_to_i1 f genv (Rerr Rtimeout_error) r ⇔
-    r = Rerr Rtimeout_error) ∧
- (!genv v r.
-  result_to_i1 f genv (Rerr Rtype_error) r ⇔
-    r = Rerr Rtype_error)`,
+ (!genv v r a.
+  result_to_i1 f genv (Rerr (Rabort a)) r ⇔
+    r = Rerr (Rabort a))`,
 rw [result_to_i1_cases] >>
 metis_tac []);
 
@@ -275,7 +270,7 @@ val (s_to_i1_rules, s_to_i1_ind, s_to_i1_cases) = Hol_reln `
 (!genv c s s'.
   LIST_REL (sv_to_i1 genv) s s'
   ⇒
-  s_to_i1 genv (c,s) (c,s'))`;
+  s_to_i1 genv (c,s,t) (c,s',t))`;
 
 val vs_to_i1_list_rel = Q.prove (
 `!genv vs vs'. vs_to_i1 genv vs vs' = LIST_REL (v_to_i1 genv) vs vs'`,
@@ -691,181 +686,214 @@ val Boolv_i1_11 = prove(
   ``Boolv_i1 b = Boolv_i1 b2 ⇔ (b = b2)``,
   rw[Boolv_i1_def])
 
-val Boolv_11 = prove(``(Boolv b1 = Boolv b2) ⇔ (b1 = b2)``,rw[Boolv_def])
+val Boolv_11 = prove(``(Boolv b1 = Boolv b2) ⇔ (b1 = b2)``,rw[Boolv_def]);
 
 val do_app_i1 = Q.prove (
 `!genv s1 s2 op vs r s1_i1 vs_i1.
   do_app s1 op vs = SOME (s2, r) ∧
-  LIST_REL (sv_to_i1 genv) s1 s1_i1 ∧
+  LIST_REL (sv_to_i1 genv) (FST s1) (FST s1_i1) ∧
+  SND s1 = SND s1_i1 ∧
   vs_to_i1 genv vs vs_i1
   ⇒
    ∃r_i1 s2_i1.
-     LIST_REL (sv_to_i1 genv) s2 s2_i1 ∧
+     LIST_REL (sv_to_i1 genv) (FST s2) (FST s2_i1) ∧
+     SND s2 = SND s2_i1 ∧
      result_to_i1 v_to_i1 genv r r_i1 ∧
      do_app_i1 s1_i1 op vs_i1 = SOME (s2_i1, r_i1)`,
- rw [evalPropsTheory.do_app_cases, do_app_i1_def] >>
- fs [v_to_i1_eqns, result_to_i1_cases] >>
- srw_tac [boolSimps.DNF_ss] [] >>
- rw [METIS_PROVE [] ``(!x y. P x y ⇒ Q) ⇔ ((?x y. P x y) ⇒ Q)``, pair_CASES,
-     prim_exn_def, prim_exn_i1_def, v_to_i1_eqns] >>
- imp_res_tac LIST_REL_LENGTH
- >- (every_case_tac >>
+ rpt gen_tac >>
+ Cases_on `s1` >>
+ Cases_on `s1_i1` >>
+ Cases_on `op`
+ >- ((* Opn *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Opb *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Equality *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     every_case_tac >>
+     fs [] >>
      metis_tac [Boolv_i1_11, do_eq_i1, eq_result_11, eq_result_distinct])
- >- (every_case_tac >>
-     metis_tac [do_eq_i1, eq_result_11, eq_result_distinct])
- >- (fs [store_assign_def,store_v_same_type_def] >>
+ >- ((* Opapp *) 
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Opassign *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_assign_def,store_v_same_type_def] >>
      every_case_tac >> fs[] >-
      metis_tac [EVERY2_LUPDATE_same, sv_to_i1_rules] >>
      fs[LIST_REL_EL_EQN,sv_to_i1_cases] >>
      metis_tac[store_v_distinct])
- >- (fs [store_alloc_def] >>
-     rw [sv_to_i1_cases])
- >- (fs [store_lookup_def] >>
+ >- ((* Opref *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_alloc_def] >>
+     rw [sv_to_i1_cases] >>
+     metis_tac [LIST_REL_LENGTH])
+ >- ((* Opderef *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
      every_case_tac >>
      fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
      fs [] >>
      rw [])
- >- fs [store_alloc_def]
- >- (fs [store_alloc_def] >>
-     rw [sv_to_i1_cases])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [] >>
-     qexists_tac `s1_i1` >>
-     rw [markerTheory.Abbrev_def] >>
-     decide_tac)
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [] >>
-     rw [markerTheory.Abbrev_def]
-     >- decide_tac >>
-     rw [EL_LUPDATE] >>
-     fs[store_v_same_type_def])
- >- simp[char_list_to_v_i1_correct]
- >- (qpat_assum`SOME X = Y`(assume_tac o SYM) >>
-     imp_res_tac v_i1_to_char_list_correct >> fs[] )
- >- (every_case_tac >>
-     rw [] >>
-     imp_res_tac v_to_list_i1_correct >>
-     fs [] >>
-     metis_tac [SOME_11, NOT_SOME_NONE])
- >- (rw [markerTheory.Abbrev_def] >>
-     metis_tac [])
- >- (rw [markerTheory.Abbrev_def] >>
-     fs [vs_to_i1_list_rel] >>
+ >- ((* Aw8alloc *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_alloc_def] >>
+     rw [sv_to_i1_cases] >>
      metis_tac [LIST_REL_LENGTH])
- >- (rw [markerTheory.Abbrev_def] >>
-     fs [vs_to_i1_list_rel] >>
-     imp_res_tac LIST_REL_LENGTH
-     >- intLib.ARITH_TAC >>
-     fs [LIST_REL_EL_EQN])
- >- (fs [vs_to_i1_list_rel] >>
-     metis_tac [LIST_REL_LENGTH])
- >- fs [store_alloc_def]
- >- (fs [store_alloc_def, sv_to_i1_cases, vs_to_i1_list_rel] >>
-     rw [EL_REPLICATE, LIST_REL_EL_EQN, LENGTH_REPLICATE, sv_to_i1_cases])
- >- (fs [store_lookup_def] >>
+ >- ((* Aw8sub *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
      every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
-     fs [markerTheory.Abbrev_def])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [markerTheory.Abbrev_def, vs_to_i1_list_rel] >>
+     fs [] >>
+     rw [markerTheory.Abbrev_def])
+ >- ((* Aw8length *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def] >>
      imp_res_tac LIST_REL_LENGTH >>
      rw [] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     rw [] >>
+     fs [] >>
+     rw [markerTheory.Abbrev_def])
+ >- ((* Aw8update *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     rw [] >>
+     fs [] >>
+     rw [markerTheory.Abbrev_def, EL_LUPDATE] >>
+     rw [])
+ >- ((* Ord *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Chr *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Chopb *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* Explode *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     simp[char_list_to_v_i1_correct])
+ >- ((* Implode *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     imp_res_tac v_i1_to_char_list_correct >>
+     rw [])
+ >- ((* Strlen *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def])
+ >- ((* VfromList *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     imp_res_tac v_to_list_i1_correct >>
+     rw [])
+ >- ((* Vsub *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     rw [markerTheory.Abbrev_def] >>
+     rw [markerTheory.Abbrev_def] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     fs [arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ])
+ >- ((* Vlength *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     rw [] >>
+     metis_tac [LIST_REL_LENGTH, vs_to_i1_list_rel])
+ >- ((* Aalloc *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_alloc_def] >>
+     rw [sv_to_i1_cases, vs_to_i1_list_rel, LIST_REL_REPLICATE_same] >>
+     metis_tac [LIST_REL_LENGTH])
+ >- ((* Asub *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+     every_case_tac >>
+     fs [] >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
      decide_tac)
- >- (fs [store_lookup_def] >>
+ >- ((* Alength *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     rw [] >>
+     fs [store_lookup_def, sv_to_i1_cases] >>
      every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
+     fs [LIST_REL_EL_EQN] >>
+     res_tac >>
+     fs [sv_to_i1_cases] >>
+     metis_tac [store_v_distinct, store_v_11, LIST_REL_LENGTH, vs_to_i1_list_rel])
+ >- ((* Aupdate *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LET_THM, arithmeticTheory.NOT_GREATER_EQ, GSYM arithmeticTheory.LESS_EQ] >>
+     every_case_tac >>
+     fs [] >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
+     res_tac >>
+     fs [] >>
+     rw [] >>
+     fs [vs_to_i1_list_rel] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     fs [LIST_REL_EL_EQN] >>
+     rw [markerTheory.Abbrev_def, EL_LUPDATE] >>
+     rw [] >>
+     decide_tac)
+ >- ((* FFI *)
+     rw [evalPropsTheory.do_app_cases, do_app_i1_def, prim_exn_def, prim_exn_i1_def] >>
+     fs [v_to_i1_eqns, result_to_i1_cases, prim_exn_def, prim_exn_i1_def] >>
+     fs [store_lookup_def, store_assign_def, store_v_same_type_def] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [] >>
+     every_case_tac >>
+     fs [LIST_REL_EL_EQN, sv_to_i1_cases] >>
      res_tac >>
      rw [] >>
-     fs [markerTheory.Abbrev_def] >>
-     qexists_tac `s1_i1` >>
-     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
-     srw_tac [ARITH_ss] [])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
+     fs [] >>
+     rw [markerTheory.Abbrev_def, EL_LUPDATE] >>
      rw [] >>
-     fs [markerTheory.Abbrev_def] >>
-     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
-     srw_tac [ARITH_ss] [])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [markerTheory.Abbrev_def] >>
-     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
-     srw_tac [ARITH_ss] [])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [markerTheory.Abbrev_def] >>
-     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel] >>
-     srw_tac [ARITH_ss] [])
- >- (fs [store_lookup_def] >>
-     every_case_tac >>
-     fs [LIST_REL_EL_EQN, sv_to_i1_cases, store_assign_def] >>
-     res_tac >>
-     rw [] >>
-     fs [markerTheory.Abbrev_def] >>
-     rw [] >>
-     fs [LIST_REL_EL_EQN, vs_to_i1_list_rel, store_v_same_type_def, EL_LUPDATE] >>
-     srw_tac [ARITH_ss] [] >>
-     rw [EL_LUPDATE]));
+     fs []));
 
 val do_opapp_i1 = Q.prove (
 `!genv vs vs_i1 env e.
@@ -1026,19 +1054,30 @@ val pmatch_to_i1_correct = Q.prove (
      fs [match_result_to_i1_def] >>
      metis_tac [match_result_to_i1_def, match_result_distinct]));
 
+val exps_to_i1_append = Q.prove (
+`!mods tops es es'.
+  exps_to_i1 mods tops (es ++ es') = 
+  exps_to_i1 mods tops es ++ exps_to_i1 mods tops es'`,
+ Induct_on `es` >>
+ fs [exp_to_i1_def]);
+
+val exps_to_i1_rev = Q.prove (
+`!mods tops es.
+  exps_to_i1 mods tops (REVERSE es) = REVERSE (exps_to_i1 mods tops es)`,
+ Induct_on `es` >>
+ rw [exp_to_i1_def, exps_to_i1_append]);
+
 val evaluate_i1_con = Q.prove (
 `evaluate_i1 a0 a1 a2 (Con_i1 cn es) a4 ⇔
       (∃vs s' v.
          a4 = (s',Rval v) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         build_conv_i1 (all_env_i1_to_cenv a1) cn vs = SOME v ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rval vs)) ∨
-      (a4 = (a2,Rerr Rtype_error) ∧
-       ¬do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es)) ∨
+         build_conv_i1 (all_env_i1_to_cenv a1) cn (REVERSE vs) = SOME v ∧
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rval vs)) ∨
       (∃err s'.
          a4 = (s',Rerr err) ∧
          do_con_check (all_env_i1_to_cenv a1) cn (LENGTH es) ∧
-         evaluate_list_i1 a0 a1 a2 es (s',Rerr err))`,
+         evaluate_list_i1 a0 a1 a2 (REVERSE es) (s',Rerr err))`,
 rw [Once evaluate_i1_cases] >>
 eq_tac >>
 rw []);
@@ -1046,7 +1085,7 @@ rw []);
 val exp_to_i1_correct = Q.prove (
 `(∀b env s e res.
    evaluate b env s e res ⇒
-   (SND res ≠ Rerr Rtype_error) ⇒
+   (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
    !genv mods tops s' r env_i1 s_i1 e_i1 locals.
      (res = (s',r)) ∧
      env_all_to_i1 genv mods tops env env_i1 locals ∧
@@ -1059,7 +1098,7 @@ val exp_to_i1_correct = Q.prove (
        evaluate_i1 b env_i1 s_i1 e_i1 (s'_i1, r_i1)) ∧
  (∀b env s es res.
    evaluate_list b env s es res ⇒
-   (SND res ≠ Rerr Rtype_error) ⇒
+   (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
    !genv mods tops s' r env_i1 s_i1 es_i1 locals.
      (res = (s',r)) ∧
      env_all_to_i1 genv mods tops env env_i1 locals ∧
@@ -1072,7 +1111,7 @@ val exp_to_i1_correct = Q.prove (
        evaluate_list_i1 b env_i1 s_i1 es_i1 (s'_i1, r_i1)) ∧
  (∀b env s v pes err_v res.
    evaluate_match b env s v pes err_v res ⇒
-   (SND res ≠ Rerr Rtype_error) ⇒
+   (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
    !genv mods tops s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals.
      (res = (s',r)) ∧
      env_all_to_i1 genv mods tops env env_i1 locals ∧
@@ -1095,9 +1134,9 @@ val exp_to_i1_correct = Q.prove (
  >- metis_tac []
  >- metis_tac []
  >- metis_tac []
- >- metis_tac [do_con_check_i1, build_conv_i1]
- >- metis_tac [do_con_check_i1]
- >- metis_tac [do_con_check_i1]
+ >- metis_tac [build_conv_i1, do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [do_con_check_i1, EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- (* Variable lookup *)
     (fs [env_all_to_i1_cases] >>
      cases_on `n` >>
@@ -1156,7 +1195,7 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* function application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
@@ -1170,7 +1209,7 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* function application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
@@ -1184,23 +1223,21 @@ val exp_to_i1_correct = Q.prove (
      `genv = all_env_i1_to_genv env_i1`
                 by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
      fs [] >>
-     metis_tac [])
+     metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev])
  >- (* primitive application *)
     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
      res_tac >>
      rw [] >>
-     LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
+     first_assum (fn th => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] do_app_i1) th)) >>
+     rfs [s_to_i1_cases] >>
+     pop_assum (qspecl_then [`genv`, `(s',t2)`, `REVERSE v''`] assume_tac) >>
+     rfs [vs_to_i1_list_rel, EVERY2_REVERSE] >>
      rw [] >>
-     fs [s_to_i1_cases] >>
-     rw [] >>
-     imp_res_tac do_app_i1 >>
-     rw [] >>
-     `genv = all_env_i1_to_genv env_i1`
-                by fs [all_env_i1_to_genv_def, env_all_to_i1_cases] >>
-     fs [] >>
-     metis_tac [])
- >- metis_tac []
- >- metis_tac []
+     disj1_tac >>
+     MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `t2`] >>
+     fs [exps_to_i1_rev])
+ >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
+ >- metis_tac [EVERY2_REVERSE, vs_to_i1_list_rel, exps_to_i1_rev]
  >- (fs [do_log_thm] >>
      every_case_tac >>
      fs [v_to_i1_eqns, exp_to_i1_def] >>
@@ -1320,7 +1357,6 @@ val exp_to_i1_correct = Q.prove (
       res_tac >>
       MAP_EVERY qexists_tac [`s'_i1'`, `r_i1'`] >>
       rw [] >>
-      disj1_tac >>
       rw [] >>
       fs [drestrict_iter_list]
       >- metis_tac [funs_to_i1_dom]
@@ -1353,7 +1389,7 @@ val exp_to_i1_correct = Q.prove (
      imp_res_tac global_env_inv_add_locals >>
      fs [] >>
      rw [] >>
-     MAP_EVERY qexists_tac [`(c,s'''')`, `r_i1`] >>
+     MAP_EVERY qexists_tac [`(c,s'''',t')`, `r_i1`] >>
      rw [] >>
      fs [COMPL_UNION, drestrict_iter_list] >>
      metis_tac [INTER_COMM])
@@ -1393,12 +1429,12 @@ val pmatch_i1_eval_list = Q.prove (
   pmatch_i1 cenv s p v env = Match env' ∧
   ALL_DISTINCT (pat_bindings p (MAP FST env))
   ⇒
-  evaluate_list_i1 b (genv,cenv,env') (c,s) (MAP Var_local_i1 (pat_bindings p (MAP FST env))) ((c,s),Rval (MAP SND env'))) ∧
+  evaluate_list_i1 b (genv,cenv,env') (c,s,t) (MAP Var_local_i1 (pat_bindings p (MAP FST env))) ((c,s,t),Rval (MAP SND env'))) ∧
  (!cenv s ps vs env env'.
   pmatch_list_i1 cenv s ps vs env = Match env' ∧
   ALL_DISTINCT (pats_bindings ps (MAP FST env))
   ⇒
-  evaluate_list_i1 b (genv,cenv,env') (c,s) (MAP Var_local_i1 (pats_bindings ps (MAP FST env))) ((c,s),Rval (MAP SND env')))`,
+  evaluate_list_i1 b (genv,cenv,env') (c,s,t) (MAP Var_local_i1 (pats_bindings ps (MAP FST env))) ((c,s,t),Rval (MAP SND env')))`,
  ho_match_mp_tac pmatch_i1_ind >>
  rw [pat_bindings_def, pmatch_i1_def]
  >- (rw [Once evaluate_i1_cases] >>
@@ -1762,7 +1798,7 @@ val letrec_global_env = Q.prove (
 
 val dec_to_i1_correct = Q.prove (
 `!ck mn mods tops d menv cenv env s s' r genv s_i1 next' tops' d_i1 tdecs tdecs'.
-  r ≠ Rerr Rtype_error ∧
+  r ≠ Rerr (Rabort Rtype_error) ∧
   evaluate_dec ck mn (menv,cenv,env) (s,tdecs) d ((s',tdecs'),r) ∧
   global_env_inv genv mods tops menv {} env ∧
   s_to_i1 genv s s_i1 ∧
@@ -1816,8 +1852,9 @@ val dec_to_i1_correct = Q.prove (
      imp_res_tac pmatch_i1_eval_list >>
      pop_assum mp_tac >>
      rw [] >>
-     pop_assum (qspecl_then [`genv`, `count'`, `ck`] strip_assume_tac) >>
-     MAP_EVERY qexists_tac [`(count',s''')`, `Rval ([], MAP SND (REVERSE a))`] >>
+     rw [PULL_EXISTS] >>
+     pop_assum (qspecl_then [`t2`, `genv`, `count'`, `ck`] strip_assume_tac) >>
+     MAP_EVERY qexists_tac [`(count',s''',t2)`, `Rval ([], MAP SND (REVERSE a))`] >>
      rw [RIGHT_EXISTS_AND_THM] >>
      `pat_bindings p [] = MAP FST env'`
             by (imp_res_tac pmatch_extend >>
@@ -1825,7 +1862,7 @@ val dec_to_i1_correct = Q.prove (
                 rw [] >>
                 metis_tac [LENGTH_MAP, length_env_to_i1])
      >- metis_tac [length_env_to_i1, LENGTH_MAP]
-     >- metis_tac [eval_list_i1_reverse, MAP_REVERSE, PAIR_EQ, big_unclocked]
+     >- metis_tac [eval_list_i1_reverse, MAP_REVERSE, PAIR_EQ, big_unclocked, REVERSE_REVERSE, pair_CASES, FST, SND]
      >- (qexists_tac `REVERSE a` >>
          rw []
          >- metis_tac [LENGTH_MAP, length_env_to_i1]

@@ -1261,17 +1261,17 @@ val do_Ceq_to_bc_equal = Q.prove (
   ho_match_mp_tac do_Ceq_ind >>
   rw [] >-
   (helper_tac >> TRY(fs[semanticPrimitivesTheory.lit_same_type_def,LIST_EQ_REWRITE]>>NO_TAC) >>
-   simp[stringTheory.ORD_11] >>
+   simp[stringTheory.ORD_11] >> fs[partial_app_tag_def] >>
    match_mp_tac bc_equal_list_Number >> rw[stringTheory.ORD_11] ) >-
   (helper_tac >> metis_tac [ALL_DISTINCT_EL_IMP]) >-
+  (helper_tac >> fs[EVERY2_EVERY,partial_app_tag_def] >> DECIDE_TAC) >-
   (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
-  (helper_tac >> fs[EVERY2_EVERY] >> metis_tac []) >-
+  (helper_tac >> fs[EVERY2_EVERY,partial_app_tag_def] >> DECIDE_TAC) >-
+  (helper_tac >> fs[EVERY2_EVERY,partial_app_tag_def]) >-
   (helper_tac >> fs[EVERY2_EVERY]) >-
-  (helper_tac >> fs[EVERY2_EVERY]) >-
-  (helper_tac >> fs[EVERY2_EVERY]) >-
-  (helper_tac >> fs[EVERY2_EVERY]) >-
-  helper_tac >-
-  helper_tac >-
+  (helper_tac >> fs[EVERY2_EVERY,partial_app_tag_def]) >-
+  (helper_tac >> fs[partial_app_tag_def] >> DECIDE_TAC)>-
+  (helper_tac >> fs[partial_app_tag_def] >> DECIDE_TAC)>-
   helper_tac >-
   helper_tac >-
   (Cases_on `do_Ceq v1 v2` >>

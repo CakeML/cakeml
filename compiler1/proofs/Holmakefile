@@ -1,0 +1,45 @@
+INCLUDES = .. ../semantics ../.. ../../semantics ../../semantics/proofs ../../targets ../../reg_alloc/proofs ../../gc $(HOLDIR)/examples/machine-code/hoare-triple
+
+OPTIONS = QUIT_ON_FAILURE
+
+THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
+TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
+all: $(TARGETS)
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = ../semantics/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = ../../semantics/terminationTheory\
+						../../semantics/proofs/evalPropsTheory\
+						../../targets/targetPropsTheory\
+						../semantics/modPropsTheory\
+						../semantics/conPropsTheory\
+						../semantics/decPropsTheory\
+						../semantics/exhPropsTheory\
+						../semantics/patPropsTheory\
+						../semantics/closPropsTheory\
+						../semantics/bvlPropsTheory\
+						../semantics/bviPropsTheory\
+						../semantics/bvpPropsTheory\
+						../semantics/labPropsTheory\
+						../clos_mtiTheory\
+						../clos_freeTheory\
+						../clos_callTheory\
+						../clos_numberTheory\
+						../clos_annotateTheory\
+						../bvl_jumpTheory\
+						../bvl_constTheory\
+						../bvl_handleTheory\
+						../bvp_liveTheory\
+						../bvp_simpTheory\
+						../../reg_alloc/proofs/reg_allocProofTheory
+
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

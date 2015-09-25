@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../lem_lib_stub
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../lem_lib_stub ../ffi
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -9,20 +9,20 @@ all: $(TARGETS)
 #LEM_OPT = -wl_pat_comp ign  -wl_pat_exh  ign -wl_pat_fail ign -wl_unused_vars ign
 LEM_OPT = -wl_unused_vars ign
 
-SRC = lib tokens ast semanticPrimitives smallStep bigStep typeSystem initialProgram
+SRC = tokens ast semanticPrimitives smallStep funBigStep bigStep typeSystem initialProgram
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
-$(GENS): $(LEMS)
+$(GENS): $(LEMS) ../lib.lem ../ffi/ffi.lem
  	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -i ../ffi/ffi.lem -hol $(LEMS);\
  	else touch $(GENS); fi
 
 ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../compute_basicLib ../miscLib
+BARE_THYS = ../preamble $(HOLDIR)/examples/formal-languages/context-free/grammarLib ../compute_basicLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 all: $(HOLHEAP)

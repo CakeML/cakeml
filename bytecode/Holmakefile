@@ -9,7 +9,7 @@ all: $(TARGETS)
 
 bytecodeScript.sml: bytecode.lem
 	if type lem;\
-	then lem -auxiliary_level none $(patsubst %,-i ../semantics/%.lem,lib ast semanticPrimitives) -hol bytecode.lem;\
+	then lem -auxiliary_level none -i ../lib.lem $(patsubst %,-i ../semantics/%.lem,ast semanticPrimitives) -hol bytecode.lem;\
 	else touch bytecodeScript.sml; fi
 
 ifdef POLY

@@ -1,5 +1,5 @@
 structure compute_semanticsLib = struct
-open HolKernel boolLib bossLib lcsymtacs replTheory
+open HolKernel boolLib bossLib lcsymtacs
 
   val add_datatype = compute_basicLib.add_datatype
 
@@ -28,9 +28,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.string_to_string_def
     ,semanticPrimitivesTheory.string_escape_def
     ,semanticPrimitivesTheory.build_tdefs_def
-    ,semanticPrimitivesTheory.all_env_to_menv_def
-    ,semanticPrimitivesTheory.all_env_to_cenv_def
-    ,semanticPrimitivesTheory.all_env_to_env_def
     ,semanticPrimitivesTheory.result_case_def
     ,semanticPrimitivesTheory.merge_alist_mod_env_def
     ,semanticPrimitivesTheory.match_result_case_def
@@ -38,8 +35,8 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,semanticPrimitivesTheory.lookup_alist_mod_env_def
     ,semanticPrimitivesTheory.build_rec_env_def
     ,terminationTheory.pmatch_def
-    ,bigStepTheory.no_dup_mods_def
-    ,bigStepTheory.no_dup_top_types_def
+    ,semanticPrimitivesTheory.no_dup_mods_def
+    ,semanticPrimitivesTheory.no_dup_top_types_def
     ,astTheory.Texn_def
     ,astTheory.Tfn_def
     ,astTheory.Tint_def
@@ -49,19 +46,20 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
     ,astTheory.Tword8array_def
     ] compset
     val () = add_datatype ``:MMLnonT`` compset
-    val () = add_datatype ``:top`` compset
-    val () = add_datatype ``:dec`` compset
-    val () = add_datatype ``:pat`` compset
-    val () = add_datatype ``:exp`` compset
+    val () = add_datatype ``:ast$top`` compset
+    val () = add_datatype ``:ast$dec`` compset
+    val () = add_datatype ``:ast$pat`` compset
+    val () = add_datatype ``:ast$exp`` compset
     val () = add_datatype ``:tid_or_exn`` compset
-    val () = add_datatype ``:op`` compset
-    val () = add_datatype ``:lop`` compset
-    val () = add_datatype ``:lit`` compset
+    val () = add_datatype ``:ast$op`` compset
+    val () = add_datatype ``:ast$lop`` compset
+    val () = add_datatype ``:ast$lit`` compset
     val () = add_datatype ``:opb`` compset
     val () = add_datatype ``:opn`` compset
-    val () = add_datatype ``:'a id`` compset
+    val () = add_datatype ``:'a ast$id`` compset
     val () = add_datatype ``:eq_result`` compset
-    val () = add_datatype ``:tctor`` compset
+    val () = add_datatype ``:ast$tctor`` compset
+    val () = add_datatype ``:'a environment`` compset
   in
     ()
   end
@@ -125,7 +123,6 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,ptree_Pattern_def
       ,mkPatApp_def
       ,ptree_FQV_def
-      ,ptree_Vlist1_def
       ,ptree_V_def
       ,ptree_Op_def
       ,ptree_TypeDec_def

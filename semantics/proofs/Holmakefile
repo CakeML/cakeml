@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
+BARE_THYS = ../../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)

@@ -1,14 +1,20 @@
-open HolKernel Parse boolLib bossLib; val _ = new_theory "bvi_to_bvp";
-
+open HolKernel Parse boolLib bossLib;
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory bvl_constTheory;
+open bvlTheory bvl_constTheory;
 open bvl_inlineTheory bvpTheory;
 open bvp_lemmasTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory;
 open sptreeTheory lcsymtacs bviTheory;
 
+val _ = new_theory "bvi_to_bvp";
+
 infix \\ val op \\ = op THEN;
 val RW = REWRITE_RULE;
+
+(* TODO: move *)
+val OPTION_BIND_SOME = store_thm("OPTION_BIND_SOME",
+  ``∀f. OPTION_BIND f SOME = f``,
+  Cases >> simp[])
 
 (* compilation from BVI to BVP *)
 
@@ -21,6 +27,9 @@ val iAssign_def = Define `
         if k = 0 then Assign n1 op vs NONE
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
                    (Assign n1 op vs NONE)`;
+
+val mk_ticks_def = Define `
+  mk_ticks n e = FUNPOW (Seq Tick) n e`;
 
 val iComp_def = tDefine "iComp" `
   (iComp (n:num) (env:num list) tail live [] =
@@ -51,22 +60,22 @@ val iComp_def = tDefine "iComp" `
        (Seq c1 (Raise (HD v1)), v1, n1)) /\
   (iComp n env tail live [Op op xs] =
      let (c1,vs,n1) = iComp n env F live xs in
-     let c2 = Seq c1 (iAssign n1 op vs live env) in
+     let c2 = Seq c1 (iAssign n1 op (REVERSE vs) live env) in
        (if tail then Seq c2 (Return n1) else c2, [n1], n1+1)) /\
   (iComp n env tail live [Tick x1] =
      let (c1,v1,n1) = iComp n env tail live [x1] in
        (Seq Tick c1, v1, n1)) /\
-  (iComp n env tail live [Call dest xs NONE] =
+  (iComp n env tail live [Call ticks dest xs NONE] =
      let (c1,vs,n1) = iComp n env F live xs in
      let ret = (if tail then NONE
                 else SOME (n1, list_to_num_set (live ++ env))) in
-       (Seq c1 (Call ret dest vs NONE), [n1], n1+1)) /\
-  (iComp n env tail live [Call dest xs (SOME handler)] =
+       (Seq c1 (mk_ticks ticks (Call ret dest vs NONE)), [n1], n1+1)) /\
+  (iComp n env tail live [Call ticks dest xs (SOME handler)] =
      let (c1,vs,n1) = iComp n env F live xs in
      let (c2,v,n2) = iComp (n1+1) (n1::env) F live [handler] in
      let ret = SOME (HD v, list_to_num_set (live ++ env)) in
      let c3 = (if tail then Return (HD v) else Skip) in
-       (Seq c1 (Seq (Call ret dest vs (SOME (n1,c2))) c3), v, n2))`
+       (Seq c1 (mk_ticks ticks (Seq (Call ret dest vs (SOME (n1,c2))) c3)), v, n2))`
  (WF_REL_TAC `measure (bvi_exp2_size o SND o SND o SND o SND)`);
 
 val pOptimise_def = Define `
@@ -399,6 +408,59 @@ val consume_space_add_space = prove(
     SOME (t with locals := env1)``,
   fs [consume_space_def,add_space_def,bvp_state_explode] \\ DECIDE_TAC);
 
+val funpow_dec_clock_clock = Q.prove (
+`!n s. FUNPOW dec_clock n s = (s with clock := s.clock - n)`,
+ Induct_on `n` >>
+ rw [FUNPOW, bvp_state_explode, bvpTheory.dec_clock_def, ADD1] >>
+ decide_tac);
+
+val pEval_mk_ticks = Q.prove (
+`!p s n.
+  pEval (mk_ticks n p, s)
+  =
+  if s.clock < n then
+    (SOME TimeOut, s with <| clock := 0; locals := fromList []; stack := [] |>)
+  else
+    pEval (p, FUNPOW dec_clock n s)`,
+ Induct_on `n` >>
+ rw [pEval_def, mk_ticks_def, FUNPOW] >>
+ fs [mk_ticks_def, pEval_def] >>
+ rw [funpow_dec_clock_clock, bvpTheory.dec_clock_def] >>
+ simp [call_env_def] >>
+ `s.clock - n = 0` by decide_tac >>
+ `s.clock - (n+1) = 0` by decide_tac >>
+ rw [] >>
+ fs [ADD1, LESS_OR_EQ] >>
+ full_simp_tac (srw_ss()++ARITH_ss) []);
+
+val get_vars_append = prove(
+  ``∀l1 l2 s. get_vars (l1 ++ l2) s = OPTION_BIND (get_vars l1 s)(λy1. OPTION_BIND (get_vars l2 s)(λy2. SOME(y1 ++ y2)))``,
+  Induct >> simp[get_vars_def,OPTION_BIND_SOME,ETA_AX] >> rw[] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[])
+
+val get_vars_reverse = prove(
+  ``∀ls s ys. get_vars ls s = SOME ys ⇒ get_vars (REVERSE ls) s = SOME (REVERSE ys)``,
+  Induct >> simp[get_vars_def] >> rw[get_vars_append] >>
+  BasicProvers.EVERY_CASE_TAC >> fs[] >>
+  rw[get_vars_def])
+
+val FUNPOW_dec_clock_code = prove(
+  ``((FUNPOW dec_clock n t).code = t.code) /\
+    ((FUNPOW dec_clock n t).stack = t.stack) /\
+    ((FUNPOW dec_clock n t).handler = t.handler) /\
+    ((FUNPOW dec_clock n t).globals = t.globals) /\
+    ((FUNPOW dec_clock n t).refs = t.refs) /\
+    ((FUNPOW dec_clock n t).output = t.output) /\
+    ((FUNPOW dec_clock n t).locals = t.locals) /\
+    ((FUNPOW dec_clock n t).clock = t.clock - n)``,
+  Induct_on `n` \\ fs [FUNPOW_SUC,bvpTheory.dec_clock_def] \\ DECIDE_TAC);
+
+val get_vars_FUNPOW_dec_clock = prove(
+  ``!vs t. get_vars vs (FUNPOW dec_clock n t) = get_vars vs t``,
+  Induct \\ fs [get_vars_def,get_var_def,FUNPOW_dec_clock_code]);
+
+val _ = augment_srw_ss [rewrites [FUNPOW_dec_clock_code,get_vars_FUNPOW_dec_clock]];
+
 val iComp_correct = prove(
   ``!xs env s1 res s2 t1 n corr tail live.
       (iEval (xs,env,s1) = (res,s2)) /\ res <> Error /\
@@ -684,7 +746,7 @@ val iComp_correct = prove(
     \\ Cases_on `pres`
     \\ FULL_SIMP_TAC (srw_ss()) [isResult_def,isException_def]
     THEN1 SRW_TAC [] [pEval_def] THEN1 SRW_TAC [] [pEval_def]
-    \\ Cases_on `iEvalOp op a r` \\ fs []
+    \\ Cases_on `iEvalOp op (REVERSE a) r` \\ fs []
     \\ PairCases_on `x` \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
     \\ (fn (hs,goal) => (REVERSE (`let tail = F in ^goal` by ALL_TAC))
            (hs,goal)) THEN1
@@ -693,7 +755,7 @@ val iComp_correct = prove(
       \\ Cases_on `pres` \\ fs [] \\ Cases_on `res` \\ fs []
       \\ fs [var_corr_def,isResult_def,isException_def,call_env_def,
              res_list_def,state_rel_def])
-    \\ `domain (list_to_num_set (vs ++ live ++ corr)) SUBSET
+    \\ `domain (list_to_num_set (REVERSE vs ++ live ++ corr)) SUBSET
         domain t2.locals` by
      (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
       \\ REPEAT STRIP_TAC \\ RES_TAC
@@ -701,13 +763,13 @@ val iComp_correct = prove(
       \\ IMP_RES_TAC MEM_LIST_REL \\ fs []
       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
       \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC []) \\ fs []
-    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (vs++live++corr)))`
-    \\ `var_corr a vs (t2 with locals := env1)` by
+    \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
+    \\ `var_corr (REVERSE a) (REVERSE vs) (t2 with locals := env1)` by
      (UNABBREV_ALL_TAC
       \\ fs [var_corr_def,get_var_def,state_rel_def,
              lookup_inter_EQ,lookup_list_to_num_set]
       \\ Q.PAT_ASSUM `LIST_REL rrr xs1 xs2` MP_TAC
-      \\ ONCE_REWRITE_TAC [LIST_REL_MEM] \\ fs [] \\ NO_TAC)
+      \\ ONCE_REWRITE_TAC [LIST_REL_MEM] \\ fs [EVERY2_REVERSE] \\ NO_TAC)
     \\ IMP_RES_TAC get_vars_thm
     \\ `state_rel r (t2 with <|locals := env1; space := 0|>)` by
           (fs [state_rel_def] \\ NO_TAC)
@@ -746,6 +808,7 @@ val iComp_correct = prove(
          \\ IMP_RES_TAC jump_exc_IMP
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
       \\ fs [var_corr_def,get_var_def])
+    \\ imp_res_tac get_vars_reverse
     \\ Cases_on `op_space_req op = 0` \\ fs [pEval_def]
     \\ fs [pEval_def,cut_state_opt_def,cut_state_def,cut_env_def]
     \\ fs [pEvalOp_def,pEvalOpSpace_def,LET_DEF]
@@ -826,7 +889,8 @@ val iComp_correct = prove(
   THEN1 (* Call *)
    (Cases_on `handler` THEN1 (* Call without handler *)
      (`?c1 vs n1. iComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
-      \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def,iComp_def]
+      \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def,iComp_def,
+           pEval_mk_ticks]
       \\ Cases_on `iEval (xs,env,s1)`
       \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`t1`,`n`,`corr`,`F`,`live`])
@@ -839,9 +903,14 @@ val iComp_correct = prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
-      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
+      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
       \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
-      THEN1 (fs [isException_def,state_rel_def])
+      THEN1 (
+        `r.clock < ticks ∨ r.clock = ticks` by decide_tac >>
+        fs [isException_def,state_rel_def, res_list_def, funpow_dec_clock_clock])
+      \\ `~(r.clock < ticks)` by decide_tac
+      \\ `(FUNPOW dec_clock ticks t2).clock ≠ 0` by simp [funpow_dec_clock_clock]
+      \\ fs []
       \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
@@ -850,30 +919,34 @@ val iComp_correct = prove(
       \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ Cases_on `tail` THEN1
-       (`iEval ([exp],args,dec_clock r) = (res,s2)` by ALL_TAC THEN1
-        (Cases_on `iEval ([exp],args,dec_clock r)` \\ fs []
+       (`iEval ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
+        (Cases_on `iEval ([exp],args,dec_clock (ticks+1) r)` \\ fs []
            \\ Cases_on `q` \\ fs []) \\ fs []
-        \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`call_env args (dec_clock t2)`,
-           `LENGTH (args:bc_value list)`,
-           `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
+        \\ FIRST_X_ASSUM (MP_TAC o
+             Q.SPECL [`call_env args (FUNPOW dec_clock (ticks+1) t2)`,
+               `LENGTH (args:bc_value list)`,
+               `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
         \\ FULL_SIMP_TAC std_ss []
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
           bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
-          LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE,call_env_def])
+          LIST_REL_lookup_fromList,lookup_fromList_NONE,jump_exc_NONE,call_env_def,
+          funpow_dec_clock_clock])
         \\ STRIP_TAC \\ fs [LET_DEF]
         \\ MP_TAC (Q.SPECL [`prog`,
-            `call_env args (dec_clock t2)`] pEval_pOptimise) \\ fs []
-        \\ SIMP_TAC std_ss [call_env_def]
+            `call_env args (FUNPOW dec_clock (ticks+1) t2)`] pEval_pOptimise)
+        \\ fs [] \\ SIMP_TAC std_ss [call_env_def]
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-         (BasicProvers.FULL_CASE_TAC \\ fs []
+         (BasicProvers.FULL_CASE_TAC \\ fs [funpow_dec_clock_clock]
           \\ REPEAT STRIP_TAC \\ fs [res_list_def])
-        \\ REPEAT STRIP_TAC \\ fs []
+        \\ REPEAT STRIP_TAC \\ fs [get_vars_FUNPOW_dec_clock]
+        \\ fs [FUNPOW_dec_clock_code]
+        \\ fs [GSYM ADD1,FUNPOW_SUC]
         \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
         \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,
            bviTheory.dec_clock_def,bvpTheory.dec_clock_def]
-        \\ REV_FULL_SIMP_TAC (srw_ss()) [])
+        \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code])
       \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
        (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
         \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
@@ -882,35 +955,40 @@ val iComp_correct = prove(
         \\ fs [var_corr_def,get_var_def]
         \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
       \\ fs [cut_env_def]
-      \\ `iEval ([exp],args,dec_clock r) = (res,s2)` by ALL_TAC THEN1
-       (Cases_on `iEval ([exp],args,dec_clock r)` \\ fs []
+      \\ `iEval ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
+       (Cases_on `iEval ([exp],args,dec_clock (ticks + 1) r)` \\ fs []
         \\ Cases_on `q` \\ fs []) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
-          [`call_env args (push_env env2 F (dec_clock t2))`,
+          [`call_env args (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`,
            `LENGTH (args:bc_value list)`,
            `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
       \\ FULL_SIMP_TAC std_ss []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpTheory.dec_clock_def,
           bviTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE,
-          LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,call_env_def]
+          LIST_REL_lookup_fromList,lookup_fromList_NONE,push_env_def,
+          call_env_def,FUNPOW_dec_clock_code]
           \\ STRIP_TAC \\ FULL_SIMP_TAC std_ss []
           \\ `jump_exc t2 <> NONE` by FULL_SIMP_TAC std_ss []
           \\ Cases_on `jump_exc t2` \\ fs []
           \\ IMP_RES_TAC jump_exc_IMP
-          \\ SIMP_TAC (srw_ss()) [jump_exc_def]
-          \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ DECIDE_TAC)
+          \\ SIMP_TAC (srw_ss()) [jump_exc_def,FUNPOW_dec_clock_code]
+          \\ IMP_RES_TAC LAST_N_TL \\ fs []
+          \\ DECIDE_TAC)
       \\ STRIP_TAC \\ fs [LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
-         (push_env env2 F (dec_clock t2))`] pEval_pOptimise) \\ fs []
+         (push_env env2 F (FUNPOW dec_clock (ticks + 1) t2))`]
+            pEval_pOptimise) \\ fs []
       \\ SIMP_TAC std_ss [call_env_def]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (BasicProvers.FULL_CASE_TAC \\ fs []
         \\ REPEAT STRIP_TAC \\ fs [res_list_def])
       \\ REPEAT STRIP_TAC \\ fs []
-      \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
-      \\ FULL_SIMP_TAC std_ss []
+      \\ fs [get_vars_FUNPOW_dec_clock,FUNPOW_dec_clock_code]
+      \\ fs [GSYM ADD1,FUNPOW_SUC]
+      \\ Cases_on `pres` \\ fs [call_env_def]
+      \\ `~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
       \\ REVERSE (Cases_on `x`) \\ FULL_SIMP_TAC (srw_ss()) []
       \\ FULL_SIMP_TAC std_ss [res_list_def] \\ SRW_TAC [] [isResult_def]
       \\ FULL_SIMP_TAC std_ss [isResult_def,isException_def]
@@ -919,9 +997,10 @@ val iComp_correct = prove(
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
            bvpTheory.dec_clock_def,bviTheory.dec_clock_def]
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
+        \\ fs [FUNPOW_dec_clock_code]
         \\ Cases_on `t2.handler = LENGTH t2.stack` THEN1
-       (FULL_SIMP_TAC std_ss [Q.SPEC `x::xs` LAST_N_LENGTH
-           |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ fs [])
+         (FULL_SIMP_TAC std_ss [Q.SPEC `x::xs` LAST_N_LENGTH
+             |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ fs [])
         \\ `t2.handler < LENGTH t2.stack` by DECIDE_TAC
         \\ FULL_SIMP_TAC std_ss []
         \\ IMP_RES_TAC LAST_N_TL
@@ -930,7 +1009,8 @@ val iComp_correct = prove(
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1
        (Q.PAT_ASSUM `xx = t2'.stack` (ASSUME_TAC o GSYM)
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,push_env_def,
-           pop_env_def,bvpTheory.dec_clock_def,bviTheory.dec_clock_def])
+             pop_env_def,bvpTheory.dec_clock_def,bviTheory.dec_clock_def,
+             FUNPOW_dec_clock_code])
       \\ fs [set_var_def,state_rel_def]
       \\ IMP_RES_TAC iComp_LESS_EQ
       \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC
@@ -972,12 +1052,12 @@ val iComp_correct = prove(
                 call_env_def,push_env_def,bvpTheory.dec_clock_def,
                 bviTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
-                 \\ REPEAT BasicProvers.FULL_CASE_TAC))
+                 \\ BasicProvers.EVERY_CASE_TAC))
     \\ (* Call with handle *)
       `?c1 vs n1. iComp n corr F live xs = (c1,vs,n1)` by METIS_TAC [PAIR]
       \\ `?c2 v n2. iComp (n1+1) (n1::corr) F live [x] = (c2,v,n2)` by
             METIS_TAC [PAIR]
-      \\ FULL_SIMP_TAC std_ss [LET_DEF,pEval_def,call_env_def,iComp_def]
+      \\ fs [LET_DEF,pEval_def,pEval_mk_ticks,call_env_def,iComp_def]
       \\ Cases_on `iEval (xs,env,s1)`
       \\ Cases_on `dest = NONE` \\ fs []
       \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -991,14 +1071,18 @@ val iComp_correct = prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
-      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock = 0`
+      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
       \\ FULL_SIMP_TAC std_ss [res_list_def,isResult_def]
-      THEN1 (fs [isException_def,state_rel_def])
+      THEN1 (`r.clock < ticks \/ r.clock <= ticks` by DECIDE_TAC
+             \\ fs [isException_def,state_rel_def,res_list_def]
+             \\ SRW_TAC [] []
+             \\ fs [isException_def,state_rel_def,res_list_def])
       \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
       \\ FULL_SIMP_TAC std_ss [iCompile_def,isException_def]
+      \\ `~(r.clock < ticks) /\ ~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
       \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
       \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
@@ -1009,13 +1093,14 @@ val iComp_correct = prove(
         \\ fs [var_corr_def,get_var_def]
         \\ IMP_RES_TAC MEM_LIST_REL \\ fs [] \\ NO_TAC)
       \\ fs [cut_env_def]
-      \\ Cases_on `iEval ([exp],args,dec_clock r)`
-      \\ Q.MATCH_ASSUM_RENAME_TAC `iEval ([exp],args,dec_clock r) = (res4,r4)`
+      \\ Cases_on `iEval ([exp],args,dec_clock (ticks + 1) r)`
+      \\ Q.MATCH_ASSUM_RENAME_TAC
+            `iEval ([exp],args,dec_clock (ticks + 1) r) = (res4,r4)`
       \\ Cases_on `isException res4` THEN1
        (Cases_on `res4` \\ fs [isException_def,isResult_def,LET_DEF]
         \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
-            [`call_env args (push_env env2 T (dec_clock t2))`,
+            [`call_env args (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
              `LENGTH (args:bc_value list)`,
              `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
         \\ FULL_SIMP_TAC std_ss []
@@ -1028,7 +1113,8 @@ val iComp_correct = prove(
         \\ Cases_on `pres` \\ fs []
         \\ Cases_on `x'` \\ fs [res_list_def]
         \\ MP_TAC (Q.SPECL [`prog`,`call_env args
-           (push_env env2 T (dec_clock t2))`] pEval_pOptimise) \\ fs []
+           (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`]
+              pEval_pOptimise) \\ fs []
         \\ SIMP_TAC std_ss [call_env_def] \\ REPEAT STRIP_TAC \\ fs []
         \\ Cases_on `pEval (c2,set_var n1 b t2')` \\ fs []
         \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
@@ -1055,7 +1141,7 @@ val iComp_correct = prove(
             \\ RES_TAC \\ fs [] \\ Cases_on `lookup n' t2.locals` \\ fs [])
           \\ Cases_on `LAST_N (t2'.handler + 1) t2'.stack` \\ fs []
           \\ Cases_on `h` \\ fs [])
-        \\ REPEAT STRIP_TAC
+        \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1, FUNPOW_SUC]
         \\ REVERSE (Cases_on `q`) \\ fs [] THEN1
          (REPEAT STRIP_TAC \\ fs [set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpTheory.dec_clock_def]
@@ -1105,7 +1191,7 @@ val iComp_correct = prove(
       THEN1 (Cases_on `res4` \\ fs [isException_def]) \\ fs []
       \\ Q.ABBREV_TAC `env2 = (inter t2.locals (list_to_num_set (live ++ corr)))`
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL
-          [`call_env args (push_env env2 T (dec_clock t2))`,
+          [`call_env args (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`,
            `LENGTH (args:bc_value list)`,
            `GENLIST I (LENGTH (args:bc_value list))`,`T`,`[]`])
       \\ FULL_SIMP_TAC std_ss []
@@ -1121,12 +1207,13 @@ val iComp_correct = prove(
           \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ DECIDE_TAC)
       \\ STRIP_TAC \\ fs [LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
-         (push_env env2 T (dec_clock t2))`] pEval_pOptimise) \\ fs []
+         (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`]
+            pEval_pOptimise) \\ fs []
       \\ SIMP_TAC std_ss [call_env_def]
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
        (BasicProvers.FULL_CASE_TAC \\ fs []
         \\ REPEAT STRIP_TAC \\ fs [res_list_def])
-      \\ REPEAT STRIP_TAC \\ fs []
+      \\ REPEAT STRIP_TAC \\ fs [GSYM ADD1,FUNPOW_SUC]
       \\ Cases_on `pres` \\ FULL_SIMP_TAC (srw_ss()) [call_env_def]
       \\ FULL_SIMP_TAC std_ss []
       \\ REVERSE (Cases_on `x'`) \\ FULL_SIMP_TAC (srw_ss()) []
@@ -1191,7 +1278,7 @@ val iComp_correct = prove(
                 call_env_def,push_env_def,bvpTheory.dec_clock_def,
                 bviTheory.dec_clock_def]
                  \\ FULL_SIMP_TAC (srw_ss()) [jump_exc_def]
-                 \\ REPEAT BasicProvers.FULL_CASE_TAC)));
+                 \\ BasicProvers.EVERY_CASE_TAC)));
 
 val option_case_NONE = prove(
   ``(case pres of NONE => F | SOME x => p x) <=> ?r. (pres = SOME r) /\ p r``,

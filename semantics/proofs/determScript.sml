@@ -1,6 +1,6 @@
 (* Determinism for the big-step semantics *)
 
-open preamble semanticPrimitivesTheory bigStepTheory replTheory;
+open preamble semanticPrimitivesTheory bigStepTheory;
 
 val _ = new_theory "determ";
 

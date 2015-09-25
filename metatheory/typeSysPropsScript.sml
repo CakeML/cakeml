@@ -1,7 +1,6 @@
 (* Theorems about the type system. *)
 
-open preamble rich_listTheory optionTheory;
-open miscTheory alistTheory finite_mapTheory;
+open preamble
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 open astPropsTheory;
 
@@ -47,7 +46,7 @@ val type_env_list_rel_append = store_thm("type_env_list_rel_append",
   PairCases_on`h'` >>
   fs [bind_var_list2_def] >>
   PairCases_on`h`>>simp[] >>
-  miscLib.rator_x_assum`type_env`mp_tac >>
+  rator_x_assum`type_env`mp_tac >>
   simp[Once type_v_cases] >>
   rw[bind_tenv_def] >>
   metis_tac[])
@@ -998,7 +997,8 @@ val type_op_cases = Q.store_thm ("type_op_cases",
    ((op = Aalloc) ∧ ?t1. ts = [Tint; t1] ∧ t3 = Tapp [t1] TC_array) ∨
    ((op = Asub) ∧ ts = [Tapp [t3] TC_array; Tint]) ∨
    ((op = Alength) ∧ ?t1. ts = [Tapp [t1] TC_array] ∧ t3 = Tint) ∨
-   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup))`,
+   ((op = Aupdate) ∧ ?t1. ts = [Tapp [t1] TC_array; Tint; t1] ∧ t3 = Tapp [] TC_tup) ∨
+   ((?n. op = FFI n) ∧ ts = [Tword8array] ∧ t3 = Tapp [] TC_tup))`,
  rw [type_op_def] >>
  every_case_tac >>
  fs [Tchar_def] >>
@@ -1954,14 +1954,15 @@ fs [lookup_tenv_def] >>
 metis_tac []);
 
 val type_lookup_id = Q.store_thm ("type_lookup_id",
-`∀tenvS tenvC menv tenvM (cenv : envC) tenv.
-  type_env tenvC tenvS env tenv ∧
-  consistent_mod_env tenvS tenvC menv tenvM 
+`∀tenvS tenvC tenvM tenv.
+  type_env tenvC tenvS env.v tenv ∧
+  consistent_mod_env tenvS tenvC env.m tenvM
   ⇒
-  ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒ 
-     (∃v. (lookup_var_id n (menv,cenv,env) = SOME v)))`,
- induct_on `menv` >>
+  ((t_lookup_var_id n tenvM (bind_tvar tvs tenv) = SOME (tvs', t)) ⇒
+     (∃v. (lookup_var_id n env = SOME v)))`,
+ induct_on `env.m` >>
  rw [t_lookup_var_id_def, lookup_var_id_def] >>
+ qpat_assum`X = env.m`(assume_tac o SYM) >> fs[] >>
  cases_on `n` >>
  fs [] >>
  rw [lookup_var_id_def, t_lookup_var_id_def] >>
@@ -1970,12 +1971,14 @@ val type_lookup_id = Q.store_thm ("type_lookup_id",
  qpat_assum `consistent_mod_env tenvS x0 x1 x2` (ASSUME_TAC o SIMP_RULE (srw_ss()) [Once type_v_cases]) >>
  fs [] >>
  rw [] >>
- fs [t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE]
- >- (match_mp_tac type_lookup >>
-     every_case_tac >>
-     fs [lookup_tenv_def, bind_tvar_def, bvl2_lookup] >>
-     metis_tac [SAME_KEY_UPDATES_DIFFER])
- >- metis_tac []);
+ fs [t_lookup_var_id_def, lookup_var_id_def, FLOOKUP_UPDATE] >- (
+   match_mp_tac type_lookup >>
+   every_case_tac >>
+   fs [lookup_tenv_def, bind_tvar_def, bvl2_lookup] >>
+   metis_tac [SAME_KEY_UPDATES_DIFFER]) >>
+ first_x_assum(qspec_then`env with m := v`mp_tac) >> simp[] >>
+ disch_then (match_mp_tac o MP_CANON) >>
+ metis_tac[]);
 
 val type_subst = Q.store_thm ("type_subst",
 `(!tvs ctMap tenvS v t. type_v tvs ctMap tenvS v t ⇒
@@ -2118,14 +2121,14 @@ val consistent_mod_env_lookup = Q.prove (
  metis_tac []);
 
 val type_lookup_type_v = Q.store_thm ("type_lookup_type_v",
-`∀tenvM ctMap menv env tenv tvs tenvS v x t targs tparams idx.
+`∀tenvM ctMap env tenv tvs tenvS v x t targs tparams idx.
   tenvM_ok tenvM ∧
   ctMap_ok ctMap ∧
-  type_env ctMap tenvS env tenv ∧
-  consistent_mod_env tenvS ctMap menv tenvM ∧
+  type_env ctMap tenvS env.v tenv ∧
+  consistent_mod_env tenvS ctMap env.m tenvM ∧
   EVERY (check_freevars tvs []) targs ∧
   (t_lookup_var_id x tenvM (bind_tvar tvs tenv) = SOME (LENGTH targs, t)) ∧
-  (lookup_var_id x (menv,cenv,env) = SOME v)
+  (lookup_var_id x env = SOME v)
   ⇒
   type_v tvs ctMap tenvS v (deBruijn_subst 0 targs t)`,
  cases_on `x` >>
@@ -3211,10 +3214,11 @@ val consistent_mod_env_dom = Q.prove (
    fs [] >>
    metis_tac []);
 
+   (*
 val type_sound_inv_closed = Q.store_thm ("type_sound_inv_closed",
   `∀uniq top rs new_tenvM new_tenvC new_tenv new_decls new_tenvT decls' store.
     type_top uniq rs.tdecs rs.tenvT rs.tenvM rs.tenvC rs.tenv top new_decls new_tenvT new_tenvM new_tenvC new_tenv ∧
-    type_sound_invariants NONE (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE,store)
+    type_sound_invariants NONE (rs.tdecs,rs.tenvT,rs.tenvM,rs.tenvC,rs.tenv,decls',rs.sem_env,store)
     ⇒
     FV_top top ⊆ all_env_dom (rs.sem_env.sem_envM,rs.sem_env.sem_envC,rs.sem_env.sem_envE)`,
   rw [] >>
@@ -3232,5 +3236,6 @@ val type_sound_inv_closed = Q.store_thm ("type_sound_inv_closed",
   fs [] >>
   fs [SUBSET_DEF] >>
   metis_tac []);
+  *)
 
 val _ = export_theory ();

@@ -10,12 +10,20 @@ val ERR = Feedback.mk_HOL_ERR "arm6_targetLib"
 
 fun arm_type s = Type.mk_thy_type {Thy = "arm", Tyop = s, Args = []}
 
+val aligned =
+   let
+      open alignmentTheory
+   in
+      SIMP_RULE std_ss [aligned_0, aligned_1_lsb, aligned_extract]
+         arm_stepTheory.Aligned
+   end
+
 fun add_arm6_encode_compset cmp =
    ( computeLib.add_thms
        [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
         encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
         EncodeImmShift_def, EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
-        valid_immediate_def, arm6_config_def] cmp
+        valid_immediate_def, arm6_config_def, aligned] cmp
    ; utilsLib.add_datatypes
        (List.map arm_type
            ["instruction", "Branch", "Data", "Load", "Store",

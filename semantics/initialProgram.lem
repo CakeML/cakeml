@@ -2,6 +2,7 @@ open import Pervasives
 open import Ast
 open import SemanticPrimitives
 open import BigStep
+open import Lib
 
 val mk_binop : string -> op -> dec
 let mk_binop name prim =
@@ -10,6 +11,10 @@ let mk_binop name prim =
 val mk_unop : string -> op -> dec
 let mk_unop name prim =
   Dlet (Pvar name) (Fun "x" (App prim [Var (Short "x")]))
+
+val mk_ffi : nat -> dec
+let mk_ffi n =
+  Dlet (Pvar ("ffi" ^ show n)) (Fun "x" (App (FFI n) [Var (Short "x")]))
 
 val prim_types_program : prog
 let prim_types_program =
@@ -47,9 +52,9 @@ let basis_program =
    Tdec (Dtabbrev ["'a"] "vector" (Tapp [Tvar "'a"] TC_vector));
    Tdec (Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array));
    Tdec (Dtabbrev [] "char" (Tapp [] TC_char));
-   Tmod "Word8" Nothing 
+   Tmod "Word8" Nothing
      [Dtabbrev [] "word" (Tapp [] TC_word8)];
-   Tmod "Word8Array" Nothing 
+   Tmod "Word8Array" Nothing
      [Dtabbrev [] "array" (Tapp [] TC_word8array);
       Dtabbrev [] "elem" (Tapp [] TC_word8);
       mk_binop "array" Aw8alloc;
@@ -61,7 +66,7 @@ let basis_program =
       mk_unop "fromList" VfromList;
       mk_unop "length" Vlength;
       mk_binop "sub" Vsub];
-   Tmod "Array" Nothing 
+   Tmod "Array" Nothing
      [Dtabbrev ["'a"] "array" (Tapp [Tvar "'a"] TC_array);
       mk_binop "array" Aalloc;
       mk_binop "sub" Asub;
@@ -79,39 +84,45 @@ let basis_program =
      [Dtabbrev [] "string" (Tapp [] TC_string);
       mk_unop "explode" Explode;
       mk_unop "implode" Implode;
-      mk_unop "size" Strlen] ]
+      mk_unop "size" Strlen];
+   Tmod "Ffi" Nothing
+     [mk_ffi 0;
+      mk_ffi 1;
+      mk_ffi 2;
+      mk_ffi 3;
+      mk_ffi 4;
+      mk_ffi 5;
+      mk_ffi 6;
+      mk_ffi 7;
+      mk_ffi 8;
+      mk_ffi 9] ]
 
-type sem_environment = <| sem_envM : envM;
-                          sem_envC : envC;
-                          sem_envE : envE;
-                          sem_store : count_store v * set tid_or_exn * set modN |>
-
-val add_to_sem_env : sem_environment -> prog -> maybe sem_environment
-let add_to_sem_env se prog =
-  let res = { res | evaluate_whole_prog false (se.sem_envM,se.sem_envC,se.sem_envE) se.sem_store prog res } in
+val add_to_sem_env : (state * environment v) -> prog -> maybe (state * environment v)
+let add_to_sem_env (st, env) prog =
+  let res = { res | evaluate_whole_prog false env st prog res } in
     if res = {} then
       Nothing
-    else 
+    else
       match Set_extra.choose res with
-        | (s,envC,Rval (envM,envE)) ->
-           Just <| sem_envM = envM ++ se.sem_envM;
-                   sem_envC = merge_alist_mod_env envC se.sem_envC;
-                   sem_envE = envE ++ se.sem_envE;
-                   sem_store = s |>
-        | _ -> Nothing
+      | (st', new_ctors, Rval (new_mods, new_vals)) ->
+        Just (st', extend_top_env new_mods new_vals new_ctors env)
+      | _ -> Nothing
       end
 
-val prim_sem_env : maybe sem_environment
+val prim_sem_env : maybe (state * environment v)
 let prim_sem_env =
-  add_to_sem_env <| sem_envM = []; sem_envC = ([],[]); sem_envE = []; sem_store = ((0,[]),{},{}) |> prim_types_program
+  add_to_sem_env (<| clock = 0; io = Just lnil; refs = []; defined_mods = {}; defined_types = {} |>,
+                  <| m = []; c = ([],[]); v = [] |>)
+        prim_types_program
 
-val basis_sem_env : maybe sem_environment
+val basis_sem_env : maybe (state * environment v)
 let basis_sem_env =
   add_to_sem_env (Maybe_extra.fromJust prim_sem_env) basis_program
 
 open import TypeSystem
-type semantics_state =
-             <| (* Type system state *)
-                tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
-                (* Semantics state *)
-                sem_env : sem_environment |>
+type top_state =
+         <| (* Type system state *)
+            tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+            (* Semantics state *)
+            sem_st : state;
+            sem_env : environment v |>

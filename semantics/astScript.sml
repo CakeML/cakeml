@@ -101,7 +101,9 @@ val _ = Hol_datatype `
   | Aalloc
   | Asub
   | Alength
-  | Aupdate`;
+  | Aupdate
+  (* Call a given foreign function *)
+  | FFI of num`;
 
 
 (* Logical operations *)

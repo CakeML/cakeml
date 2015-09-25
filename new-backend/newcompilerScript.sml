@@ -1,6 +1,90 @@
 open HolKernel boolLib bossLib
 open pat_to_closTheory bvlBytecodeTheory clos_to_bvlTheory clos_numberTheory clos_annotateTheory
+open bvl_to_bviTheory;
+
 val _ = new_theory "newcompiler"
+
+(*
+
+NAMING CONVENTION
+
+  L_stubs takes an L_config and returns code in L+1 which is required
+  for compilation from L to L+1.
+
+  L_init takes a tuple (L_config, L+1_config, ...) and returns a pair:
+   - a list of bytes that is the compiled L_stubs
+   - initial compiler state for compilation from L, i.e.
+       (L_compiler_state, L+1_compiler_state, ...)
+
+  L_compile takes
+   - L_code, and
+   - a compiler state which is a tuple (L_compiler_state, L+1_compiler_state, ...)
+  It returns
+   - a list of bytes that is the compilation of L_code, and
+   - a new compiler state (L_compiler_state, L+1_compiler_state, ...)
+
+*)
+
+
+(* bvi *)
+
+val _ = Datatype `bvi_config = bvi_config_STATE`;
+val _ = Datatype `bvi_compiler_state = bvi_compiler_STATE`;
+
+val bvi_init_def = Define `
+  bvi_init bvi_config = (ARB:word8 list, ARB:bvi_compiler_state)`;
+
+val bvi_compile = Define `
+  bvi_compile bvi_list s = (ARB:word8 list,ARB:bvi_compiler_state)`;
+
+(* bvl *)
+
+val _ = Datatype `bvl_config =
+  <| bvi_config : bvi_config |>`;
+val _ = Datatype `bvl_compiler_state =
+  <| bvl_n : num;
+     bvi_compiler_state : bvi_compiler_state |>`;
+
+val bvl_stubs_def = Define `
+  bvl_stubs (c:bvl_config) = []:bvi_exp list`;
+
+val bvl_init_def = Define `
+  bvl_init (c:bvl_config) =
+    let (bytes1,s1) = bvi_init c.bvi_config in
+    let (bytes2,s2) = bvi_compile (bvl_stubs c) s1 in
+      (bytes1 ++ bytes2, <| bvl_n := 0; bvi_compiler_state := s2 |>)`;
+
+val bvl_compile_def = Define `
+  bvl_compile (xs:bvl_exp list) (s:bvl_compiler_state) =
+    let (bvi_list, aux, n) = bComp s.bvl_n xs in
+    let (bytes,s1) = bvi_compile bvi_list s.bvi_compiler_state in
+      (bytes,<| bvl_n := n; bvi_compiler_state := s1 |>)`;
+
+(* clos *)
+
+val _ = Datatype `clos_config =
+  <| bvl_config : bvl_config |>`;
+val _ = Datatype `clos_compiler_state =
+  <| bvl_compiler_state : bvl_compiler_state |>`;
+
+val clos_stubs_def = Define `
+  clos_stubs (c:clos_config) = []:bvl_exp list`;
+
+val clos_init_def = Define `
+  clos_init (c:clos_config) =
+    let (bytes1,s1) = bvl_init c.bvl_config in
+    let (bytes2,s2) = bvl_compile (clos_stubs c) s1 in
+      (bytes1 ++ bytes2, <| bvl_compiler_state := s2 |>)`;
+
+val clos_compile_def = Define `
+  clos_compile (xs:clos_exp list) (s:clos_compiler_state) =
+    let (bvl_list, aux) = cComp xs [] in
+    (* the following two lines are wrong *)
+    let (bytes1,s1) = bvl_compile (MAP (SND o SND) aux) s.bvl_compiler_state in
+    let (bytes2,s2) = bvl_compile bvl_list s1 in
+      (bytes1 ++ bytes2,<| bvl_compiler_state := s2 |>)`;
+
+(* --- *)
 
 val _ = Datatype`
  compiler_state =
@@ -84,7 +168,7 @@ val compile_top_def = Define `
     let e = pComp e in
     let (l,e) = renumber_code_locs cs.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
-    let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
+    let ct = fromAList aux in
     let (f,r) = bvl_bc_table real_inst_length cs.next_addr cs.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
     let r = (compile_print_top types m2 top r) in
@@ -106,7 +190,7 @@ val compile_prog_def = Define `
     let e = pComp e in
     let (l,e) = renumber_code_locs init_compiler_state.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
-    let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
+    let ct = fromAList aux in
     let (f,r) = bvl_bc_table real_inst_length init_compiler_state.next_addr init_compiler_state.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
     let r = compile_print_err r in
@@ -158,7 +242,7 @@ val compile_initial_prog_def = Define `
     let e = pComp e in
     let (l,e) = renumber_code_locs cs.next_loc e in
     let (e,aux) = cComp (cAnnotate 0 [e]) [] in
-    let ct = fromAList (MAP (λ(p,e). (p,(2,e))) aux) in
+    let ct = fromAList aux in
     let (f,r) = bvl_bc_table real_inst_length cs.next_addr cs.rnext_label ct in
     let r = bvl_bc f [] TCNonTail 0 r e in
     let r = emit r [Stack Pop] in

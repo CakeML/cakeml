@@ -1,5 +1,6 @@
 open preamble intSimps;
 open libTheory astTheory semanticPrimitivesTheory typeSystemTheory;
+open funBigStepTheory;
 
 val _ = new_theory "termination";
 
@@ -9,9 +10,9 @@ val exps_size_def = Define `exps_size = exp6_size`;
 val pes_size_def = Define `pes_size = exp3_size`;
 val funs_size_def = Define `funs_size = exp1_size`;
 
-val vs_size_def = Define `vs_size = v7_size`;
-val envE_size_def = Define `envE_size = v5_size`;
-val envM_size_def = Define `envM_size = v3_size`;
+val vs_size_def = Define `vs_size = v6_size`;
+val envE_size_def = Define `envE_size = v2_size`;
+val envM_size_def = Define `envM_size = v4_size`;
 
 val size_abbrevs = save_thm ("size_abbrevs",
 LIST_CONJ [pats_size_def, 
@@ -30,8 +31,8 @@ val pes_size_thm = size_thm "pes_size_thm" ``pes_size`` ``exp5_size``;
 val funs_size_thm = size_thm "funs_size_thm" ``funs_size`` ``exp2_size``;
 val pats_size_thm = size_thm "pats_size_thm" ``pats_size`` ``pat_size``;
 val vs_size_thm = size_thm "vs_size_thm" ``vs_size`` ``v_size``;
-val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v6_size``;
-val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v4_size``;
+val envE_size_thm = size_thm "envE_size_thm" ``envE_size`` ``v3_size``;
+val envM_size_thm = size_thm "envM_size_thm" ``envM_size`` ``v5_size``;
 
 val SUM_MAP_exp2_size_thm = store_thm(
 "SUM_MAP_exp2_size_thm",
@@ -216,5 +217,69 @@ val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
   check_dup_ctors tds =
     ALL_DISTINCT (FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) tds))`,
 metis_tac [check_dup_ctors_def,check_ctor_foldr_flat_map]);
+
+val do_log_thm = store_thm("do_log_thm",
+  ``do_log l v e =
+    if l = And ∧ v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if l = Or ∧ v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Exp e) else
+    if v = Conv(SOME("true",TypeId(Short"bool")))[] then SOME (Val v) else
+    if v = Conv(SOME("false",TypeId(Short"bool")))[] then SOME (Val v) else
+    NONE``,
+  rw[semanticPrimitivesTheory.do_log_def] >>
+  every_case_tac >> rw[])
+
+
+val (evaluate_def,evaluate_ind) =
+  tprove_no_defn ((evaluate_def,evaluate_ind),
+  wf_rel_tac`inv_image ($< LEX $<)
+    (λx. case x of
+         | INL(s,_,es) => (s.clock,exps_size es)
+         | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
+  rw[size_abbrevs,exp_size_def,
+  check_clock_def,dec_clock_def,LESS_OR_EQ,
+  do_if_def,do_log_thm] >>
+  simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
+
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `(∀s1 env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀s1 env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  fs[check_clock_def,dec_clock_def] >> simp[])
+
+val check_clock_id = Q.store_thm("check_clock_id",
+  `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
+  EVAL_TAC >> rw[state_component_equality])
+
+val clean_term = term_rewrite
+  [``check_clock s' s = s'``,
+   ``s'.clock = 0 ∨ s.clock = 0 ⇔ s'.clock = 0``]
+
+val evaluate_ind = let
+  val goal = evaluate_ind |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac evaluate_ind >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[] >> fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_clock >>
+  fsrw_tac[ARITH_ss][check_clock_id])
+end
+
+val evaluate_def = let
+  val goal = evaluate_def |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt strip_tac >>
+  rw[Once evaluate_def] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs[check_clock_id] >>
+  `F` suffices_by rw[] >> decide_tac)
+end
+
+val _ = register "evaluate" evaluate_def evaluate_ind
 
 val _ = export_theory ();

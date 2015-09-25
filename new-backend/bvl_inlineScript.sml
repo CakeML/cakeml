@@ -2,7 +2,7 @@ open HolKernel Parse boolLib bossLib; val _ = new_theory "bvl_inline";
 
 open pred_setTheory arithmeticTheory pairTheory listTheory combinTheory;
 open finite_mapTheory sumTheory relationTheory stringTheory optionTheory;
-open bytecodeTheory bvlTheory;
+open bvlTheory;
 
 infix \\ val op \\ = op THEN;
 
@@ -30,10 +30,10 @@ val bInline_def = tDefine "bInline" `
      [Op op (bInline n code arity xs)]) /\
   (bInline n code arity [Tick x] =
      [Tick (HD (bInline n code arity [x]))]) /\
-  (bInline n code arity [Call dest xs] =
+  (bInline n code arity [Call ticks dest xs] =
      if (dest = SOME n) /\ (LENGTH xs = arity)
-     then [Let (bInline n code arity xs) (Tick code)]
-     else [Call dest (bInline n code arity xs)])`
+     then [Let (bInline n code arity xs) (mk_tick (SUC ticks) code)]
+     else [Call ticks dest (bInline n code arity xs)])`
  (WF_REL_TAC `measure (bvl_exp1_size o SND o SND o SND)`);
 
 (* Value length is same as expression length *)
@@ -119,7 +119,8 @@ val bEval_bInline = store_thm("bEval_bInline",
     \\ IMP_RES_TAC bEval_code
     \\ IMP_RES_TAC bEval_length
     \\ FULL_SIMP_TAC (srw_ss()) []
-    \\ SIMP_TAC std_ss [Once bEval_def] \\ SRW_TAC [] []
+    \\ SIMP_TAC std_ss [Once bEval_def, bEval_mk_tick] \\ SRW_TAC [] []
+    \\ FULL_SIMP_TAC (srw_ss()) [ADD1]
     \\ MATCH_MP_TAC bEval_expand_env \\ FULL_SIMP_TAC std_ss [])
   \\ ONCE_REWRITE_TAC [bEval_def] \\ ASM_SIMP_TAC std_ss [HD_bInline]
   \\ TRY (SRW_TAC [] [] \\ FIRST_X_ASSUM MATCH_MP_TAC

@@ -1442,7 +1442,9 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
       \\ PairCases_on `env`
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
            all_env_to_cenv_def,lookup_cons_def,build_conv_def,id_to_n_def]
-      \\ EXISTS_TAC witness \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP])
+      \\ EXISTS_TAC ``REVERSE ^witness``
+      \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
+      \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11])
     in (pat,lemma) end;
 (*
   val ((ty,case_th),(_,inv_def,eq_lemma)) = hd (zip case_thms inv_defs)

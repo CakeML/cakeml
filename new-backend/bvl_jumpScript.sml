@@ -22,7 +22,7 @@ val JumpList_def = tDefine "JumpList" `
          let k = l DIV 2 in
          let ys = TAKE k xs in
          let zs = DROP k xs in
-           If (Op Less [Var 0; Op (Const (&(n+k))) []])
+           If (Op Less [Op (Const (&(n+k))) []; Var 0])
              (JumpList n ys) (JumpList (n + k) zs))`
   (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
    \\ STRIP_ASSUME_TAC (SPEC_ALL SPLIT_LIST) \\ FULL_SIMP_TAC std_ss []
@@ -51,7 +51,7 @@ val bEval_JumpList = prove(
   \\ REPEAT STRIP_TAC \\ fs [rich_listTheory.TAKE_LENGTH_APPEND,
        rich_listTheory.DROP_LENGTH_APPEND]
   \\ Cases_on `k < LENGTH ys` \\ fs []
-  \\ fs [bytecodeTheory.bool_to_tag_def]
+  \\ fs [bool_to_val_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def,pat_tag_shift_def]
   \\ IMP_RES_TAC rich_listTheory.EL_APPEND1 \\ fs []
   \\ `k - LENGTH ys < LENGTH zs` by DECIDE_TAC \\ RES_TAC
   \\ `n + LENGTH ys + (k - LENGTH ys) = n + k` by DECIDE_TAC

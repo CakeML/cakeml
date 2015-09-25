@@ -297,6 +297,67 @@ val char_list_to_v_pat_no_closures = prove(
   ``∀ls. no_closures_pat (char_list_to_v_pat ls)``,
   Induct >> simp[char_list_to_v_pat_def])
 
+val evaluate_list_pat_length = store_thm("evaluate_list_pat_length",
+  ``∀ls ck env s s' vs.
+      evaluate_list_pat ck env s ls (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
+  Induct >> simp[Once evaluate_pat_cases,PULL_EXISTS] >>
+  rw[] >> res_tac)
+
+val evaluate_list_pat_append_Rval = store_thm("evaluate_list_pat_append_Rval",
+  ``∀l1 ck env s l2 s' vs.
+    evaluate_list_pat ck env s (l1 ++ l2) (s',Rval vs) ⇒
+    ∃s1 v1 v2. evaluate_list_pat ck env s l1 (s1,Rval v1) ∧
+               evaluate_list_pat ck env s1 l2 (s',Rval v2) ∧
+               vs = v1++v2``,
+  Induct >> simp[Once evaluate_pat_cases,PULL_EXISTS] >> rw[]
+  >- (
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] )
+  >- (
+    rw[Once evaluate_pat_cases] >>
+    rw[Once evaluate_pat_cases] >>
+    metis_tac[] )
+  >- (
+    rw[Once evaluate_pat_cases,PULL_EXISTS] >>
+    first_assum(match_exists_tac o concl) >> rw[] >> res_tac >>
+    first_assum(match_exists_tac o concl) >> rw[]))
+
+val evaluate_list_pat_append_Rval_iff = store_thm("evaluate_list_pat_append_Rval_iff",
+  ``∀l1 ck env s l2 s' vs.
+    evaluate_list_pat ck env s (l1 ++ l2) (s',Rval vs) ⇔
+    ∃s1 v1 v2. evaluate_list_pat ck env s l1 (s1,Rval v1) ∧
+               evaluate_list_pat ck env s1 l2 (s',Rval v2) ∧
+               vs = v1++v2``,
+  rw[] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_list_pat_append_Rval >>
+  map_every qid_spec_tac[`vs`,`s`] >>
+  Induct_on`l1`>>rw[Once evaluate_pat_cases] >> rw[] >>
+  fs[PULL_EXISTS] >>
+  rw[Once evaluate_pat_cases] >>
+  first_assum(match_exists_tac o concl) >> rw[] >>
+  first_x_assum(match_mp_tac) >> metis_tac[])
+
+val evaluate_list_pat_append_Rerr = store_thm("evaluate_list_pat_append_Rerr",
+  ``∀l1 ck env s l2 s' e.
+    evaluate_list_pat ck env s (l1 ++ l2) (s',Rerr e) ⇔
+    (evaluate_list_pat ck env s l1 (s', Rerr e) ∨
+       ∃s1 v1.
+         evaluate_list_pat ck env s l1 (s1, Rval v1) ∧
+         evaluate_list_pat ck env s1 l2 (s', Rerr e))``,
+  Induct >- (
+    rw[EQ_IMP_THM] >- (
+      fs[Once(CONJUNCT2(evaluate_pat_cases))] >>
+      simp[Once(CONJUNCT2(evaluate_pat_cases))] >>
+      simp[Once(CONJUNCT2(evaluate_pat_cases))] >>
+      rw[] >> metis_tac[] )
+    >- (
+      fs[Once(CONJUNCT2(evaluate_pat_cases))] ) >>
+    fs[Once(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_pat_cases)))] >>
+    rw[] ) >>
+  rw[EQ_IMP_THM] >>
+  fs[Once(Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_pat_cases)))] >>
+  simp[Once(Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_pat_cases)))] >>
+  metis_tac[])
+
 val fo_pat_correct = store_thm("fo_pat_correct",
   ``(∀e. fo_pat e ⇒
        ∀ck env s s' v.
@@ -304,13 +365,21 @@ val fo_pat_correct = store_thm("fo_pat_correct",
          no_closures_pat v) ∧
     (∀es. fo_list_pat es ⇒
        ∀ck env s s' vs.
-         evaluate_list_pat ck env s es (s',Rval vs) ⇒
+         (evaluate_list_pat ck env s es (s',Rval vs) ∨
+          evaluate_list_pat ck env s (REVERSE es) (s',Rval vs)) ⇒
          EVERY no_closures_pat vs)``,
   ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``))>>
   simp[] >> reverse(rpt conj_tac) >> rpt gen_tac >> strip_tac >>
   simp[Once evaluate_pat_cases] >> rpt gen_tac >>
   TRY strip_tac >> fs[] >> simp[PULL_EXISTS,ETA_AX] >>
   TRY (metis_tac[])
+  >- (
+    rw[] >> rw[] >> TRY(metis_tac[]) >>
+    imp_res_tac evaluate_list_pat_append_Rval >>
+    imp_res_tac evaluate_list_pat_length >> fs[] >>
+    Cases_on`v2`>>fs[LENGTH_NIL] >>
+    fs[Q.SPECL[`ck`,`env`,`s1`,`[e]`](CONJUNCT2 evaluate_pat_cases)] >>
+    metis_tac[] )
   >- (pop_assum mp_tac >> simp[Once evaluate_pat_cases])
   >- (pop_assum mp_tac >> simp[Once evaluate_pat_cases,PULL_EXISTS])
   >- (
@@ -326,10 +395,13 @@ val fo_pat_correct = store_thm("fo_pat_correct",
     BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
     res_tac >> fs[] >>
     TRY (
+      fs[Once SWAP_REVERSE_SYM] >> rw[] >>
       fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       first_x_assum(match_mp_tac) >>
       simp[] >> NO_TAC) >>
-    metis_tac [v_to_list_no_closures, char_list_to_v_pat_no_closures]));
+    metis_tac [v_to_list_no_closures, char_list_to_v_pat_no_closures])
+  >- (
+    metis_tac[rich_listTheory.EVERY_REVERSE]));
 
 val do_eq_no_closures_pat = store_thm("do_eq_no_closures_pat",
   ``(∀v1 v2. no_closures_pat v1 ∧ no_closures_pat v2 ⇒ do_eq_pat v1 v2 ≠ Eq_closure) ∧
@@ -355,8 +427,10 @@ val pure_pat_correct = store_thm("pure_pat_correct",
          ∀ck env s. (∃v. evaluate_pat ck env s e (s,Rval v)) ∨
                     evaluate_pat ck env s e (s,Rerr Rtype_error)) ∧
     (∀es. pure_list_pat es ⇒
-         ∀ck env s. (∃vs. evaluate_list_pat ck env s es (s,Rval vs)) ∨
-                    evaluate_list_pat ck env s es (s,Rerr Rtype_error))``,
+         ∀ck env s. ((∃vs. evaluate_list_pat ck env s es (s,Rval vs)) ∨
+                     evaluate_list_pat ck env s es (s,Rerr Rtype_error)) ∧
+                    ((∃vs. evaluate_list_pat ck env s (REVERSE es) (s,Rval vs)) ∨
+                     evaluate_list_pat ck env s (REVERSE es) (s,Rerr Rtype_error)))``,
   ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``)) >>
   simp[pure_pat_def] >> rw[] >> fs[]
   >- (simp[Once evaluate_pat_cases] >> PROVE_TAC[evaluate_pat_rules])
@@ -365,10 +439,12 @@ val pure_pat_correct = store_thm("pure_pat_correct",
   >- (ntac 2 (simp[Once evaluate_pat_cases]) >> PROVE_TAC[evaluate_pat_rules,pair_CASES,optionTheory.option_CASES])
   >- (simp[Once evaluate_pat_cases] >> PROVE_TAC[evaluate_pat_rules])
   >- (
-    first_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >- (
+    first_x_assum(qspecl_then[`ck`,`env`,`s`]strip_assume_tac) >>
+    TRY (
       simp[Once evaluate_pat_cases] >>
       qmatch_assum_rename_tac`pure_op_pat op` >>
-      Cases_on`do_app_pat s op vs` >- (
+      qmatch_assum_rename_tac`evaluate_list_pat ck env s (REVERSE es) (s,Rval vsr)` >>
+      Cases_on`do_app_pat s op (REVERSE vsr)` >- (
         disj2_tac >>
         simp[Once evaluate_pat_cases] >>
         ntac 3 disj2_tac >> disj1_tac >>
@@ -381,35 +457,41 @@ val pure_pat_correct = store_thm("pure_pat_correct",
       first_assum(match_exists_tac o concl) >> simp[] >>
       PairCases_on`x`>>PairCases_on`s` >>
       imp_res_tac do_app_pat_cases >> fs[do_app_pat_def] >> rw[] >> fs[] >>
-      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[]) >>
+      BasicProvers.EVERY_CASE_TAC >> fs[pure_op_def,LET_THM] >> rw[] >>
+      NO_TAC) >>
     disj2_tac >>
     simp[Once evaluate_pat_cases] )
   >- (
-    last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >- (
-      disj2_tac >> simp[Once evaluate_pat_cases] ) >>
-    reverse(Cases_on`LENGTH vs = 2`) >- (
+    last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
+    TRY (
+      disj2_tac >> simp[Once evaluate_pat_cases] >> NO_TAC) >>
+    qmatch_assum_rename_tac`evaluate_list_pat ck env s (REVERSE es) (s,Rval vsr)` >> (
+    reverse(Cases_on`LENGTH vsr = 2`) >- (
       disj2_tac >> simp[Once evaluate_pat_cases] >>
       disj2_tac >> disj1_tac >>
       first_assum(match_exists_tac o concl) >> rw[] >>
       PairCases_on`s` >>
       simp[do_app_pat_def] >>
-      Cases_on`vs`>>fs[]>>
+      Cases_on`vsr`>>fs[]>>
       Cases_on`t`>>fs[]>>
       Cases_on`t'`>>fs[]>>
-      BasicProvers.EVERY_CASE_TAC>>simp[]) >>
+      BasicProvers.EVERY_CASE_TAC>>
+      fsrw_tac[ARITH_ss][LIST_EQ_REWRITE])
+    ) >>
     simp[Once evaluate_pat_cases] >>
-    simp[Once (CONJUNCT1 evaluate_pat_cases)] >>
-    Cases_on`do_app_pat s (Op_pat (Op_i2 Equality)) vs` >- (
+    simp[Once (CONJUNCT1 evaluate_pat_cases)] >> (
+    Cases_on`do_app_pat s (Op_pat (Op_i2 Equality)) (REVERSE vsr)` >- (
       disj2_tac >> disj2_tac >> disj1_tac >>
-      first_assum(match_exists_tac o concl) >> rw[] ) >>
+      first_assum(match_exists_tac o concl) >> rw[] )) >>
     disj1_tac >>
     first_assum(match_exists_tac o concl) >> rw[] >>
     imp_res_tac fo_pat_correct >>
     PairCases_on`s`>>fs[do_app_pat_def] >>
-    Cases_on`vs`>>fs[]>>
+    Cases_on`REVERSE vsr`>>fs[]>>
     Cases_on`t`>>fs[]>>
     Cases_on`t'`>>fs[]>>
     BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
+    fs[Once SWAP_REVERSE_SYM] >>
     imp_res_tac do_eq_no_closures_pat )
   >- (
     qmatch_abbrev_tac`X ∨ Y`>>
@@ -451,6 +533,14 @@ val pure_pat_correct = store_thm("pure_pat_correct",
   >- (
     simp[Once evaluate_pat_cases] >>
     simp[SIMP_RULE(srw_ss())[](Q.SPECL [`ck`,`env`,`s`,`e::es`](CONJUNCT2 evaluate_pat_cases))] >>
+    metis_tac[])
+  >- (
+    rw[evaluate_list_pat_append_Rval_iff] >>
+    rw[evaluate_list_pat_append_Rerr] >>
+    simp[(Q.SPECL[`ck`,`env`,`s`,`X::[]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
+    simp[(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_pat_cases)))] >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
+    last_x_assum(qspecl_then[`ck`,`env`,`s`](reverse o strip_assume_tac)) >>
     metis_tac[]))
 
 val TAKE_CONS = prove(
@@ -467,9 +557,11 @@ val ground_pat_correct = store_thm("ground_pat_correct",
     (∀es n. ground_list_pat n es ⇒
       (∀ck env1 env2 s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
-          (TAKE n env2 = TAKE n env1) ∧
-          evaluate_list_pat ck env1 s es res ⇒
-          evaluate_list_pat ck env2 s es res))``,
+          (TAKE n env2 = TAKE n env1) ⇒
+          (evaluate_list_pat ck env1 s es res ⇒
+           evaluate_list_pat ck env2 s es res) ∧
+          (evaluate_list_pat ck env1 s (REVERSE es) res ⇒
+           evaluate_list_pat ck env2 s (REVERSE es) res)))``,
   ho_match_mp_tac(TypeBase.induction_of(``:exp_pat``)) >>
   rw[] >> pop_assum mp_tac >- (
     rw[Once evaluate_pat_cases] >>
@@ -539,7 +631,17 @@ val ground_pat_correct = store_thm("ground_pat_correct",
   >- (
     rw[Once evaluate_pat_cases] >>
     simp[Once evaluate_pat_cases] >>
-    metis_tac[] ))
+    metis_tac[] )
+  >- (
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`ck`,`env1`,`env2`]mp_tac) >> simp[] >> strip_tac >>
+    last_x_assum(qspec_then`n`mp_tac) >> simp[] >>
+    disch_then(qspecl_then[`ck`,`env1`,`env2`]mp_tac) >> simp[] >> strip_tac >>
+    Cases_on`res`>>Cases_on`r`>>
+    rw[evaluate_list_pat_append_Rval_iff,evaluate_list_pat_append_Rerr] >>
+    fs[(Q.SPECL[`ck`,`env`,`Y`,`[X]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
+    fs[(Q.SPECL[`ck`,`env`,`Y`,`[]`](CONJUNCT2(evaluate_pat_cases))),PULL_EXISTS] >>
+    metis_tac[]))
 
 val sLet_pat_correct = store_thm("sLet_pat_correct",
   ``∀ck env s e1 e2 res.
@@ -1490,12 +1592,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
     fs[EXISTS_PROD,PULL_EXISTS] >>
-    rw[Once v_pat_cases] ) >>
+    rw[Once v_pat_cases] >>
+    metis_tac[EVERY2_REVERSE]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    fs[EXISTS_PROD,PULL_EXISTS] ) >>
+    fs[EXISTS_PROD,PULL_EXISTS] >>
+    metis_tac[EVERY2_REVERSE]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
@@ -1552,14 +1656,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     rw[Once exp_pat_cases] >>
     rw[Once evaluate_pat_cases,PULL_EXISTS] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[OPTREL_SOME] >>
-    qmatch_assum_rename_tac`do_opapp_pat v2 = SOME p` >>
+    qmatch_assum_rename_tac`do_opapp_pat _ = SOME p` >>
     PairCases_on`p`>>fs[GSYM AND_IMP_INTRO] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     fs[csg_rel_def]) >>
@@ -1568,14 +1672,14 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     fs[csg_rel_def] >> rw[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[OPTREL_SOME] >>
     simp[GSYM EXISTS_PROD] ) >>
   strip_tac >- (
@@ -1583,26 +1687,26 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    imp_res_tac do_opapp_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     rfs[optionTheory.OPTREL_def]) >>
   strip_tac >- (
     simp[] >>
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     disch_then(qspec_then`s2`(fn th => (first_assum (mp_tac o (MATCH_MP th))))) >>
     disch_then(qspec_then`op`mp_tac) >>
     simp[optionTheory.OPTREL_def] >>
@@ -1613,13 +1717,13 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     simp[Once evaluate_pat_cases] >> rw[] >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     srw_tac[DNF_ss][] >>
     disj2_tac >> disj1_tac >>
     first_assum(split_pair_match o concl) >> fs[] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
-    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat) >>
+    first_assum(mp_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
     simp[optionTheory.OPTREL_def] >>
     metis_tac[optionTheory.NOT_SOME_NONE] ) >>
   strip_tac >- (
@@ -1627,7 +1731,7 @@ val evaluate_pat_exp_pat = store_thm("evaluate_pat_exp_pat",
     rpt gen_tac >> strip_tac >>
     simp[Once exp_pat_cases,PULL_EXISTS] >>
     rpt gen_tac >> strip_tac >>
-    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
     simp[Once evaluate_pat_cases] >>
     srw_tac[DNF_ss][] >>
@@ -2300,6 +2404,10 @@ val lookup_find_index_SOME = prove(
   first_x_assum(qspec_then`m+1`mp_tac)>>rw[]>>rw[]>>
   qexists_tac`SUC i`>>simp[]);
 
+val exps_to_pat_REVERSE = store_thm("exps_to_pat_REVERSE",
+  ``exps_to_pat a (REVERSE ls) = REVERSE (exps_to_pat a ls)``,
+  rw[exps_to_pat_MAP,rich_listTheory.MAP_REVERSE])
+
 val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   ``(∀ck env s exp res. evaluate_exh ck env s exp res ⇒
      (SND res ≠ Rerr Rtype_error) ⇒
@@ -2364,10 +2472,13 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
   strip_tac >- (
     rw[] >> simp[Once evaluate_pat_cases] >>
     srw_tac[DNF_ss][Once v_pat_cases] >>
-    use_assum_tac) >>
+    fs[exps_to_pat_REVERSE] >>
+    use_assum_tac >>
+    simp[rich_listTheory.MAP_REVERSE,EVERY2_REVERSE]) >>
   strip_tac >- (
     rw[] >> simp[Once evaluate_pat_cases] >>
-    fs[EXISTS_PROD] >> metis_tac[]) >>
+    fs[EXISTS_PROD,exps_to_pat_REVERSE] >>
+    metis_tac[]) >>
   strip_tac >- (
     rw[] >>
     imp_res_tac lookup_find_index_SOME >>
@@ -2390,10 +2501,11 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     fs[] >>
     srw_tac[DNF_ss][] >>
     disj1_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_opapp_pat_correct >>
-    imp_res_tac do_opapp_pat_v_pat >>
-    rfs[vs_to_pat_MAP,OPTREL_SOME] >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    rfs[vs_to_pat_MAP,OPTREL_SOME,rich_listTheory.MAP_REVERSE] >>
     first_assum(split_applied_pair_tac o concl) >> fs[] >>
     fs[map_count_store_genv_def,csg_rel_def] >>
     rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
@@ -2411,19 +2523,24 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     disj2_tac >> disj1_tac >>
     imp_res_tac csg_rel_count >>
     fs[map_count_store_genv_count] >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_opapp_pat_correct >>
-    imp_res_tac do_opapp_pat_v_pat >>
-    rfs[OPTREL_SOME,GSYM EXISTS_PROD] ) >>
+    first_assum(strip_assume_tac o MATCH_MP do_opapp_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    rfs[OPTREL_SOME,GSYM EXISTS_PROD,rich_listTheory.MAP_REVERSE] ) >>
   strip_tac >- rw[] >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
     asm_simp_tac(srw_ss()++DNF_ss)[Once evaluate_pat_cases] >>
     disj1_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac >>
     imp_res_tac do_app_pat_correct >>
-    imp_res_tac do_app_pat_v_pat >>
+    first_assum(strip_assume_tac o MATCH_MP do_app_pat_v_pat o MATCH_MP EVERY2_REVERSE) >>
+    res_tac >>
     first_x_assum(qspec_then`Op_pat op`mp_tac)  >>
+    pop_assum kall_tac >>
+    fs[vs_to_pat_MAP,rich_listTheory.MAP_REVERSE] >>
     fs[OPTREL_SOME,csg_to_pat_def,map_count_store_genv_def,sv_to_pat_map_sv] >>
     strip_tac >>
     first_assum(split_applied_pair_tac o concl) >> fs[] ) >>
@@ -2432,6 +2549,7 @@ val exp_to_pat_correct = store_thm("exp_to_pat_correct",
     rpt gen_tac >> strip_tac >> strip_tac >> fs[] >>
     asm_simp_tac(srw_ss()++DNF_ss)[Once evaluate_pat_cases] >>
     rpt disj2_tac >>
+    fs[exps_to_pat_REVERSE] >>
     use_assum_tac ) >>
   strip_tac >- (
     rw[] >>
