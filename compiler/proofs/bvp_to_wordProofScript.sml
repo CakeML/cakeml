@@ -119,7 +119,27 @@ val compile_correct = prove(
   THEN1 (* MakeSpace *) cheat
   THEN1 (* Raise *) cheat
   THEN1 (* Return *) cheat
-  THEN1 (* Seq *) cheat
+  THEN1 (* Seq *)
+   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
+    \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
+    \\ Cases_on `comp c n r c2` \\ fs [LET_DEF]
+    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
+    \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
+         (Cases_on `q'' = NONE` \\ fs []) \\ fs []
+    \\ qpat_assum `state_rel c l1 l2 s t LN LN` (fn th =>
+           first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+    \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+    \\ rpt strip_tac \\ rfs[]
+    \\ reverse (Cases_on `q'' = NONE`) \\ fs []
+    THEN1 (rpt strip_tac \\ fs [] \\ rw [] \\ Cases_on `q''` \\ fs []
+           \\ Cases_on `x` \\ fs [] \\ Cases_on `e` \\ fs [])
+    \\ rw [] THEN1
+     (qpat_assum `state_rel c l1 l2 s t LN LN` (fn th =>
+             first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
+      \\ rpt strip_tac \\ rfs [])
+    \\ Cases_on `res` \\ fs [])
   THEN1 (* If *) cheat
   THEN1 (* Call *) cheat);
 
