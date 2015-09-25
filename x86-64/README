@@ -19,6 +19,11 @@ x64_heapScript.sml
   - proves a connection between a library for arbitrary-precision
     integer arithmetic and the CakeML heap invariant
 
+removeLabelsReplScript.sml
+  proofs by evaluation about the labels appearing in the generated code for the
+  REPL module, and definition (and evaluation) of the code with labels removed
+  (replaced by concrete addresses).
+
 compile/
   compiler for individual bytecode instructions
 

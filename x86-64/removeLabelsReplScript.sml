@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib compileReplTheory closedReplTheory initCompEnvTheory compute_bytecodeLib
      miscLib lcsymtacs x64_heapTheory
-val _ = new_theory"foo"
+val _ = new_theory"removeLabelsRepl"
 
 val _ = Globals.max_print_depth := 20
 

@@ -1,6 +1,6 @@
 open HolKernel boolLib bossLib pairTheory listTheory lcsymtacs miscLib
 open ml_translatorTheory repl_funProofTheory compilerProofTheory compilerMLTheory replMLTheory replModuleTheory
-open evaluateReplTheory compileReplTheory closedReplTheory removeLabelsReplTheory
+open evaluateReplTheory compileReplTheory closedReplTheory
 
 val _ = temp_tight_equality()
 val _ = new_theory "bootstrapProof"

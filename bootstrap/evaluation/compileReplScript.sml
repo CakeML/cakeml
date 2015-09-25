@@ -24,5 +24,9 @@ val compile_call_repl_step_eq = save_thm("compile_call_repl_step_eq",
         eval_special)
   ``compile_call_repl_step``)
 
+val compile_call_repl_step_labels = store_thm("compile_call_repl_step_labels",
+  ``FILTER is_Label compile_call_repl_step = []``,
+  REWRITE_TAC[compile_call_repl_step_eq] THEN EVAL_TAC)
+
 val _ = Feedback.set_trace "TheoryPP.include_docs" 0
 val _ = export_theory()
