@@ -1,1 +1,0 @@
-../compiler/proofs/modLangProofScript.sml

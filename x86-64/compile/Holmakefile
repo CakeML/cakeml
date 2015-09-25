@@ -1,2 +1,0 @@
-INCLUDES = ../../bytecode/
-OPTIONS = QUIT_ON_FAILURE
