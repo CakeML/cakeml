@@ -1250,10 +1250,11 @@ val term_And = store_thm("term_And",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,AN_def,holSyntaxTheory.WELLTYPED] >>
   ntac 6 (simp[Once term_cases]) >>
-  qmatch_assum_abbrev_tac`MEM (Constdef eqs t) defs` >>
-  simp[PULL_EXISTS] >>
-  map_every qexists_tac[`eqs`,`t`] >>
-  simp[Abbr`eqs`] >>
+  simp[PULL_EXISTS,EXISTS_PROD] >>
+  qmatch_assum_abbrev_tac`MEM (Constdef [("/\\",Abs"p"Bool(Abs"q"Bool x))] t) defs` >>
+  map_every qexists_tac[`t`,`x`] >>
+  simp[Abbr`x`] >>
+  simp[GSYM CONJ_ASSOC] >>
   conj_tac >- (
     match_mp_tac MEM_Constdef_const_def >>
     simp[find_index_def] >>
@@ -1284,10 +1285,11 @@ val term_Implies = store_thm("term_Implies",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,IM_def,holSyntaxTheory.WELLTYPED] >>
   ntac 2 (simp[Once term_cases]) >>
-  qmatch_assum_abbrev_tac`MEM (Constdef eqs t) defs` >>
-  simp[PULL_EXISTS] >>
-  map_every qexists_tac[`eqs`,`t`] >>
-  simp[Abbr`eqs`,Abbr`t`] >>
+  simp[PULL_EXISTS,EXISTS_PROD] >>
+  qmatch_assum_abbrev_tac`MEM (Constdef [("==>",x)] t) defs` >>
+  map_every qexists_tac[`t`,`x`] >>
+  simp[Abbr`x`,Abbr`t`] >>
+  simp[GSYM CONJ_ASSOC] >>
   conj_tac >- (
     match_mp_tac MEM_Constdef_const_def >>
     simp[find_index_def] >>
@@ -1315,10 +1317,10 @@ val term_Forall = store_thm("term_Forall",
   imp_res_tac holSyntaxTheory.WELLTYPED_LEMMA >>
   simp[Once term_cases,FA_def,holSyntaxTheory.WELLTYPED] >>
   simp[Once term_cases] >>
-  qmatch_assum_abbrev_tac`MEM (Constdef eqs t) defs` >>
-  simp[PULL_EXISTS] >>
-  map_every qexists_tac[`eqs`,`t`] >>
-  simp[Abbr`eqs`,Abbr`t`] >>
+  simp[PULL_EXISTS,EXISTS_PROD] >>
+  qmatch_assum_abbrev_tac`MEM (Constdef [("!",e)] t) defs` >>
+  map_every qexists_tac[`t`,`e`] >>
+  simp[Abbr`e`,Abbr`t`] >>
   conj_tac >- (
     match_mp_tac MEM_Constdef_const_def >>
     simp[find_index_def] >>
