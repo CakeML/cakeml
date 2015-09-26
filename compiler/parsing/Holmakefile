@@ -1,12 +1,13 @@
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../semantics
+SEMANTICS = ../../semantics
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free ../.. $(SEMANTICS)
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
 HOLHEAP = heap
-PARENTHEAP = ../semantics/heap
+PARENTHEAP = $(SEMANTICS)/heap
 EXTRA_CLEANS = heap
 
-BARE_THYS = ../semantics/tokenUtilsTheory ../semantics/gramTheory ../semantics/cmlPtreeConversionTheory $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory
+BARE_THYS = $(SEMANTICS)/tokenUtilsTheory $(SEMANTICS)/gramTheory $(SEMANTICS)/cmlPtreeConversionTheory $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))

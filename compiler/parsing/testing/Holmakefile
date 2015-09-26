@@ -1,4 +1,4 @@
-INCLUDES = .. ../../semantics
+INCLUDES = .. ../../../semantics
 
 ifdef POLY
 HOLHEAP = ../heap
