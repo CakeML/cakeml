@@ -1,4 +1,4 @@
-INCLUDES=.. ../.. ../../semantics ../../semantics/proofs ../../metatheory
+INCLUDES=.. ../../.. ../../../semantics ../../../semantics/proofs ../../../metatheory
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -9,9 +9,9 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 META_BARE_THYS = typeSysPropsTheory
 INFER_BARE_THYS = inferTheory
 
-BARE_THYS = $(patsubst %,../../metatheory/%,$(META_BARE_THYS)) $(patsubst %,../%,$(INFER_BARE_THYS))
+BARE_THYS = $(patsubst %,../../../metatheory/%,$(META_BARE_THYS)) $(patsubst %,../%,$(INFER_BARE_THYS))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP) 
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
