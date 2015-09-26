@@ -30,6 +30,13 @@ val compile_int_def = tDefine "compile_int" `
  (WF_REL_TAC `measure (Num o ABS)`
   \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
 
+(* Op GlobalsPtr [] returns a pointer to a 2-element ValueArray containing:
+   - the Number (count) of filled items in the globals ValueArray, and
+   - a RefPtr (ptr) to the globals ValueArray.
+   The count should always be ≤ the length of the ValueArray. When it would
+   exceed, a new double-sized ValueArray is created and the old contents copied
+   over. *)
+
 val get_globals_ptr_def = Define`
   get_globals_ptr = Op Deref [Op (Const 0) []; Op GlobalsPtr []]`;
 val set_globals_ptr_def = Define`
