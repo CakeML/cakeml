@@ -11,7 +11,7 @@ val _ = Datatype `
   state =
     <| locals  : bvlSem$v num_map
      ; stack   : stack list
-     ; global  : bvlSem$v
+     ; global  : num option
      ; handler : num
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
@@ -31,13 +31,15 @@ val bvp_to_bvi_def = Define `
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
-     ; io := s.io |>`;
+     ; io := s.io
+     ; global := s.global |>`;
 
 val bvi_to_bvp_def = Define `
   (bvi_to_bvp:bviSem$state->bvpSem$state->bvpSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
-            ; io := s.io |>`;
+            ; io := s.io
+            ; global := s.global |>`;
 
 val add_space_def = Define `
   add_space s k = s with space := s.space + k`;

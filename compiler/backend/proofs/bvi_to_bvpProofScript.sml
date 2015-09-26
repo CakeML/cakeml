@@ -23,7 +23,8 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
     (s.refs = t.refs) /\
-    (s.io = t.io)`;
+    (s.io = t.io) /\
+    (s.global = t.global)`;
 
 (* semantics lemmas *)
 
@@ -62,6 +63,8 @@ val do_app_bvp_to_bvi = prove(
     \\ fs [bvp_to_bvi_def,bviSemTheory.state_component_equality]
     \\ Cases_on `a` \\ fs []
     \\ SRW_TAC [] [] \\ fs [] \\ SRW_TAC [] []
+    \\ fs [bvp_to_bvi_def,bviSemTheory.state_component_equality]
+    \\ every_case_tac
     \\ fs [bvp_to_bvi_def,bviSemTheory.state_component_equality])
   \\ `do_app_aux op a (bvp_to_bvi t1) = SOME NONE` by
    (Cases_on `op` \\ fs [do_app_aux_def]
@@ -72,7 +75,7 @@ val do_app_bvp_to_bvi = prove(
         bvlSemTheory.state_component_equality]) \\ fs []
   \\ Cases_on `do_app op a (bvi_to_bvl s1)` \\ fs []
   \\ Cases_on `a'` \\ fs []
-  \\ fs [bvl_to_bvi_def,bvp_to_bvi_def]);
+  \\ fs [bvl_to_bvi_def,bvp_to_bvi_def,bviSemTheory.state_component_equality]);
 
 (* compiler correctness *)
 

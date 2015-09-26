@@ -621,6 +621,7 @@ val FUNPOW_dec_clock_code = store_thm("FUNPOW_dec_clock_code[simp]",
     ((FUNPOW dec_clock n t).handler = t.handler) /\
     ((FUNPOW dec_clock n t).refs = t.refs) /\
     ((FUNPOW dec_clock n t).io = t.io) /\
+    ((FUNPOW dec_clock n t).global = t.global) /\
     ((FUNPOW dec_clock n t).locals = t.locals) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)``,
   Induct_on `n` \\ fs [FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC);

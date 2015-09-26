@@ -7,7 +7,7 @@ val _ = Datatype `
   state =
     <| refs    : num |-> bvlSem$v ref
      ; clock   : num
-     ; global  : bvlSem$v
+     ; global  : num option
      ; code    : (num # bvi$exp) num_map
      ; io      : io_trace |> `
 
@@ -45,7 +45,13 @@ val do_app_aux_def = Define `
                        | _ => NONE)
     | (GlobalsPtr,xs) =>
         (case xs of
-         | [] => SOME (SOME (RefPtr 0, s)) (* TODO: fix this *)
+         | [] => (case s.global of
+                  | SOME p => SOME (SOME (RefPtr p, s))
+                  | NONE => NONE)
+         | _ => NONE)
+    | (SetGlobalsPtr,xs) =>
+        (case xs of
+         | [RefPtr p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
     | _ => SOME NONE`
 

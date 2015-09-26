@@ -30,22 +30,6 @@ val compile_int_def = tDefine "compile_int" `
  (WF_REL_TAC `measure (Num o ABS)`
   \\ REPEAT STRIP_TAC \\ intLib.COOPER_TAC)
 
-(* Op GlobalsPtr [] returns a pointer to a 2-element ValueArray containing:
-   - the Number (count) of filled items in the globals ValueArray, and
-   - a RefPtr (ptr) to the globals ValueArray.
-   The count should always be ≤ the length of the ValueArray. When it would
-   exceed, a new double-sized ValueArray is created and the old contents copied
-   over. *)
-
-val get_globals_ptr_def = Define`
-  get_globals_ptr = Op Deref [Op (Const 0) []; Op GlobalsPtr []]`;
-val set_globals_ptr_def = Define`
-  set_globals_ptr e = Op Update [e; Op(Const 0)[]; Op GlobalsPtr []]`;
-val get_globals_count_def = Define`
-  get_globals_count = Op Deref [Op (Const 1) []; Op GlobalsPtr []]`;
-val set_globals_count_def = Define`
-  set_globals_count e = Op Update [e; Op(Const 1)[]; Op GlobalsPtr []]`;
-
 val AllocGlobal_location_def = Define`
   AllocGlobal_location = 100:num`;
 val CopyGlobals_location_def = Define`
@@ -57,13 +41,14 @@ val num_stubs_def = Define`
 
 val AllocGlobal_code_def = Define`
   AllocGlobal_code = (0:num,
-    Let [get_globals_ptr; get_globals_count]
-      (Let [set_globals_count (Op Add [Var 1; Op(Const 1)[]])]
-         (If (Op Less [Op Length [Var 1]; Var 2]) (Var 0)
-             (Let [Op RefArray [Op(Const 0)[];Op Mult [Op Length [Var 1]; Op(Const 2)[]]]]
-               (Let [set_globals_ptr (Var 0)]
-                  (If (Op Equal [Op(Const 0)[]; Var 4]) (Var 0)
-                    (Call 0 (SOME CopyGlobals_location) [Var 1; Var 3; Op Sub [Op(Const 1)[];Var 4]] NONE)))))))`;
+    Let [Op GlobalsPtr []]
+     (Let [Op Deref [Op (Const 0) []; Var 0]]
+       (Let [Op Update [Op Add [Var 0; Op(Const 1)[]]; Op (Const 0) []; Var 1]]
+         (Let [Op Length [Var 2]]
+           (If (Op Less [Var 0; Var 2]) (Var 1)
+               (Let [Op RefArray [Op (Const 0) []; Op Mult [Var 0; Op (Const 2) []]]]
+                 (Let [Op SetGlobalsPtr [Var 0]]
+                   (Call 0 (SOME CopyGlobals_location) [Var 1; Var 5; Op Sub [Op (Const 1) []; Var 4]] NONE))))))))`;
 
 val CopyGlobals_code_def = Define`
   CopyGlobals_code = (3:num, (* ptr to new array, ptr to old array, index to copy *)
@@ -73,8 +58,8 @@ val CopyGlobals_code_def = Define`
 
 val InitGlobals_code_def = Define`
   InitGlobals_code start = (0:num,
-    Let [(* TODO: insert code that sets up the globals implementation *)]
-      (Call 0 (SOME start) [] NONE))`;
+    Let [Op SetGlobalsPtr [Op RefArray [Op (Const 1) []; Op (Const 1) []]]]
+     (Call 0 (SOME start) [] NONE))`;
 
 val bvi_stubs_def = Define `
   bvi_stubs start = [(AllocGlobal_location, AllocGlobal_code);
@@ -86,8 +71,8 @@ val compile_op_def = Define `
     case op of
     | Const i => (case c1 of [] => compile_int i
                   | _ => Let [Op (Const 0) c1] (compile_int i))
-    | Global n => Op Deref (c1++[compile_int(&n); get_globals_ptr])
-    | SetGlobal n => Op Update (c1++[compile_int(&n); get_globals_ptr])
+    | Global n => Op Deref (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
+    | SetGlobal n => Op Update (c1++[compile_int(&(n+1)); Op GlobalsPtr []])
     | AllocGlobal =>
         (case c1 of [] => Call 0 (SOME AllocGlobal_location) [] NONE
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))

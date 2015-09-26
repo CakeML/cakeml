@@ -73,12 +73,12 @@ val state_rel_def = Define `
            (fun2set (t.memory,t.mdomain)) /\
       (* the abstract heap relates to the values of BVP *)
       abs_ml_inv
-        (flat (Env v1 :: Env s.locals :: Env (insert 0 s.global LN) :: s.stack))
+        (flat (Env v1 :: Env s.locals :: Env (insert 0 (the (Number 0) (OPTION_MAP RefPtr s.global)) LN) :: s.stack))
         s.refs (heap_addr_stack,heap,F,a,sp) limit /\
       s.space <= sp /\
       (* word lang locals, globals and stack are correct *)
       EVERY2 (\v w. word_addr c heap v = w) heap_addr_stack
-        (flat2 (Env v1 :: Env s.locals :: Env (insert 0 s.global LN) :: s.stack)
+        (flat2 (Env v1 :: Env s.locals :: Env (insert 0 (the (Number 0) (OPTION_MAP RefPtr s.global)) LN) :: s.stack)
                (StackFrame (toAList w1) NONE ::
                 StackFrame (toAList t.locals) NONE ::
                 StackFrame [(adjust_var 0, t.store ' Globals)] NONE ::

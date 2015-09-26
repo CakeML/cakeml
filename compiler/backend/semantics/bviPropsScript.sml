@@ -179,7 +179,7 @@ val evaluate_code_const_lemma = prove(
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
   \\ SRW_TAC [] [] \\ fs [bvl_to_bvi_def] \\ fs [do_app_aux_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw[]);
 
 val evaluate_code_const = store_thm("evaluate_code_const",
   ``!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
@@ -195,7 +195,8 @@ val do_app_code = store_thm("do_app_code",
     \\ rw[bvl_to_bvi_def])
   \\ Cases_on `op` \\ fs [do_app_aux_def]
   \\ Cases_on `a` \\ fs []
-  \\ rw[]);
+  \\ rw[]
+  \\ every_case_tac >> fs[] >> rw[]);
 
 val do_app_err = Q.store_thm("do_app_err",
   `do_app op a s = Rerr e ⇒ e = Rabort Rtype_error`,
