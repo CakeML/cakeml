@@ -681,6 +681,23 @@ val shift_correct = Q.prove(
       \\ fs [env_ok_def] \\ rfs []
       \\ fs [get_var_def,tlookup_def]
       \\ DECIDE_TAC)
+    \\ Cases_on`vsopt` >> fs[] >> rpt var_eq_tac >- (
+        simp[v_rel_simp] >>
+        qexists_tac`new_env 0 live` >> simp[] >>
+        qspec_then`[exp]`mp_tac free_thm >> simp[] >> strip_tac >>
+        fs[SUBSET_DEF,fv_def] >> gen_tac >> strip_tac >>
+        `∃m. n = m + num_args` by METIS_TAC[LESS_EQ_ADD_EXISTS] >>
+        var_eq_tac >> fs[] >>
+        simp[Abbr`live`] >>
+        MATCH_MP_TAC (GEN_ALL env_ok_new_env |> SIMP_RULE(srw_ss()++ARITH_ss)[]) >>
+        map_every qexists_tac[`i`,`env'`] >>
+        conj_tac >- METIS_TAC[IN_DEF] >>
+        conj_tac >- fs[MEM_vars_to_list] >>
+        conj_tac >- fs[ALL_DISTINCT_vars_to_list] >>
+        METIS_TAC[ADD_COMM] )
+    \\ every_case_tac >> fs[]
+    \\ rpt var_eq_tac >> simp[v_rel_simp]
+    \\ cheat (*
     \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
     \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []
     \\ MP_TAC (Q.SPEC `[exp]` free_thm)
@@ -693,7 +710,7 @@ val shift_correct = Q.prove(
     \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
     \\ STRIP_TAC THEN1 METIS_TAC []
     \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list] \\ METIS_TAC [])
-    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
+    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list]*))
   THEN1 (* Letrec *)
    (fs [free_def,evaluate_def]
     \\ `~s1.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
