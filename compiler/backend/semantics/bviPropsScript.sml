@@ -10,6 +10,10 @@ val bvl_to_bvi_with_refs = Q.store_thm("bvl_to_bvi_with_refs",
   `bvl_to_bvi (x with refs := y) z = bvl_to_bvi x z with <| refs := y |>`,
   EVAL_TAC)
 
+val bvl_to_bvi_with_clock = Q.store_thm("bvl_to_bvi_with_clock",
+  `bvl_to_bvi (x with clock := y) z = bvl_to_bvi x z with <| clock := y |>`,
+  EVAL_TAC)
+
 val bvl_to_bvi_with_io = Q.store_thm("bvl_to_bvi_with_io",
   `bvl_to_bvi (x with io := y) z = bvl_to_bvi x z with io := y`,
   EVAL_TAC)
@@ -106,6 +110,14 @@ val inc_clock_ADD = store_thm("inc_clock_ADD",
 val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
   `(inc_clock n s).refs = s.refs`,EVAL_TAC)
 
+val inc_clock_global = Q.store_thm("inc_clock_global[simp]",
+  `(inc_clock n s).global = s.global`,
+  rw[inc_clock_def])
+
+val dec_clock_global = Q.store_thm("dec_clock_global[simp]",
+  `(dec_clock n s).global = s.global`,
+  rw[dec_clock_def])
+
 val dec_clock_inv_clock = store_thm("dec_clock_inv_clock",
   ``¬(t1.clock < ticks + 1) ==>
     (dec_clock (ticks + 1) (inc_clock c t1) = inc_clock c (dec_clock (ticks + 1) t1))``,
@@ -184,6 +196,20 @@ val evaluate_code_const_lemma = prove(
 val evaluate_code_const = store_thm("evaluate_code_const",
   ``!xs env s res t. (evaluate (xs,env,s) = (res,t)) ==> (t.code = s.code)``,
   REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL evaluate_code_const_lemma) \\ fs []);
+
+val evaluate_global_mono_lemma = Q.prove(
+  `∀xs env s. IS_SOME s.global ⇒ IS_SOME((SND (evaluate (xs,env,s))).global)`,
+  recInduct evaluate_ind >> rpt strip_tac >>
+  rw[evaluate_def] >> every_case_tac >> fs[] >> rfs[] >>
+  fs[do_app_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  rw[bvl_to_bvi_def] >>
+  fs[do_app_aux_def] >>
+  every_case_tac >> fs[] >> rw[]);
+
+val evaluate_global_mono = Q.store_thm("evaluate_global_mono",
+  `∀xs env s res t. (evaluate (xs,env,s) = (res,t)) ⇒ IS_SOME s.global ⇒ IS_SOME t.global`,
+  METIS_TAC[SND,evaluate_global_mono_lemma]);
 
 val do_app_code = store_thm("do_app_code",
   ``!op s1 s2. (do_app op a s1 = Rval (x0,s2)) ==> (s2.code = s1.code)``,
