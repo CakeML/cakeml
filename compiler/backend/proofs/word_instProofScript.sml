@@ -104,64 +104,102 @@ val inst_select_exp_thm = prove(``
     metis_tac[])
   >>
     Cases_on`v11`>>fs[binary_branch_exp_def,word_op_def])
-   
-(*
-val inst_select_thm = prove(``
-  ∀prog st res rst temp.
+
+val locals_rel_def = Define`
+  locals_rel s t ⇔ (∀x v. lookup x s = SOME v ⇒ lookup x t = SOME v)` 
+
+val locals_rel_get_vars  = prove(``
+  ∀ls vs.
+  get_vars ls st = SOME vs ∧ 
+  locals_rel st.locals loc ⇒ 
+  get_vars ls (st with locals:= loc) = SOME vs``,
+  Induct>>fs[get_vars_def]>>rw[]>>
+  EVERY_CASE_TAC>>fs[locals_rel_def,get_var_def]>>
+  metis_tac[option_CLAUSES])
+
+val locals_rel_alist_insert = prove(``
+  ∀ls vs s t.
+  locals_rel s t ⇒ 
+  locals_rel (alist_insert ls vs s) (alist_insert ls vs t)``,
+  ho_match_mp_tac alist_insert_ind>>fs[alist_insert_def,locals_rel_def]>>
+  rw[]>>
+  Cases_on`x'=ls`>>fs[lookup_insert])
+
+(*Simple thm for cases where we do not change the program
+Note: This can be directly proved by instantiating evaluate_apply_colour
+but the form of the theorem isn't nice (because of permutations)
+*)
+val locals_rel_eval_thm = prove(``
+  ∀prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
-  res ≠ SOME Error ∧ 
-  (∀x. x ∈ domain st.locals ⇒ x < temp) ⇒ 
-  let (res',rst') = evaluate (inst_select temp prog,st) in
-    res = res' ∧
-    rst' = rst with locals:=rst'.locals ∧ 
-    ∀x. 
-    x ∈ domain rst.locals ⇒ (lookup x rst.locals = lookup x rst'.locals)``,
+  res ≠ SOME Error ∧
+  locals_rel st.locals loc ⇒
+  ∃loc'.
+  evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
+  locals_rel rst.locals loc'``,
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog`>>
-  fs[inst_select_def,evaluate_def,LET_THM,state_component_equality]
+  fs[evaluate_def,LET_THM]
   >-
-    (Cases_on`word_exp st e`>>fs[]>>
-    imp_res_tac inst_select_exp_thm>>
-    pop_assum(qspec_then`n` assume_tac)>>
-    pop_assum mp_tac>>LET_ELIM_TAC>>
-    fs[]>>qpat_assum`A=rst` sym_sub_tac>>fs[set_var_def,state_component_equality,lookup_insert]>>
-    metis_tac[])
+    metis_tac[]
   >-
-    (Cases_on`word_exp st e`>>fs[]>>
-    `∀x. x ∈ domain st.locals ⇒ x < temp+1` by 
-      (rw[]>>res_tac>>DECIDE_TAC) >>
-    imp_res_tac inst_select_exp_thm>>
-    pop_assum kall_tac>>pop_assum(qspec_then`temp` assume_tac)>>
-    pop_assum mp_tac>>LET_ELIM_TAC>>
-    fs[]>>qpat_assum`A=rst` sym_sub_tac>>fs[set_store_def,state_component_equality,lookup_insert,word_exp_def]>>
-    `lookup temp s'.locals = SOME(Word x)` by metis_tac[]>>
-    fs[]>>
-    rw[]>>  `x' ≠ temp` by 
-      (res_tac>>DECIDE_TAC)>>
-    metis_tac[])
-  >-
-    (EVERY_CASE_TAC>>fs[inst_def]>>
-    `∀x. x ∈ domain st.locals ⇒ x < temp+1` by 
-      (rw[]>>res_tac>>DECIDE_TAC) >>
-    imp_res_tac inst_select_exp_thm>>
-    pop_assum kall_tac>>pop_assum(qspec_then`temp` assume_tac)>>
-    pop_assum mp_tac>>LET_ELIM_TAC>>
-    `lookup temp s'.locals = SOME(Word x')` by metis_tac[]>>
-    fs[word_exp_def,LET_THM,word_op_def,get_var_def,mem_store_def]>>
-    `n ≠ temp` by 
-      (`n ∈ domain st.locals` by fs[domain_lookup]>>
-      res_tac>>DECIDE_TAC)>>
-    `lookup n s'.locals = SOME x` by 
-      (first_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
-      metis_tac[domain_lookup])>>
+    (qpat_assum `A = (res,rst)` mp_tac>> ntac 2 FULL_CASE_TAC>>fs[]>>
+    imp_res_tac locals_rel_get_vars>>
+    fs[set_vars_def]>>imp_res_tac locals_rel_alist_insert>>
     fs[state_component_equality]>>
-    rw[]>>`x''' ≠ temp` by (res_tac>>DECIDE_TAC)>>
+    rw[]>>metis_tac[])
+  >>
+    cheat)
+
+val locals_rel_get_var = prove(``
+  get_var r st = SOME x ∧ 
+  locals_rel st.locals loc ⇒ 
+  get_var r (st with locals:=loc) = SOME x``,
+  fs[get_var_def,locals_rel_def])
+
+val locals_rel_get_var_imm = prove(``
+  get_var_imm r st = SOME x ∧ 
+  locals_rel st.locals loc ⇒ 
+  get_var_imm r (st with locals:=loc) = SOME x``,
+  Cases_on`r`>>fs[get_var_imm_def]>>
+  metis_tac[locals_rel_get_var])
+
+val inst_select_thm = prove(``
+  ∀c temp prog st res rst loc.
+  evaluate (prog,st) = (res,rst) ∧
+  every_var (λx. x < temp) prog ∧   
+  res ≠ SOME Error ∧
+  locals_rel st.locals loc ⇒
+  ∃loc'. 
+  evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
+  locals_rel rst.locals loc'``,
+  ho_match_mp_tac inst_select_ind>>rw[]>>
+  fs[inst_select_def,locals_rel_eval_thm]
+  >-
+    (*Assign*)
+    cheat
+  >-
+    (*Set*)
+    cheat
+  >-
+    (*Store*)
+    cheat
+  >- 
+    (*Seq*)
+    (fs[evaluate_def,LET_THM]>>Cases_on`evaluate(prog,st)`>>
+    fs[every_var_def,GSYM AND_IMP_INTRO]>>
+    `q ≠ SOME Error` by (EVERY_CASE_TAC>>fs[])>>
+    first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+    fs[]>> disch_then (qspec_then`loc` assume_tac)>>rfs[]>>
+    IF_CASES_TAC>>fs[]>>
     metis_tac[])
-  (*Induction -- IH must be strengthened so that temp 
-    does not occur anywhere in the program as well*)
-  >> cheat)
-*)
+  >-
+    (fs[evaluate_def]>>ntac 4 (pop_assum mp_tac)>>ntac 4 FULL_CASE_TAC>>fs[]>>
+    rw[]>> imp_res_tac locals_rel_get_var>>
+    imp_res_tac locals_rel_get_var_imm>>fs[GSYM AND_IMP_INTRO,every_var_def])
+  >>
+    cheat)
 
 (*No expressions nesting*)
 val flat_exp_conventions_def = Define`
