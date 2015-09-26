@@ -34,7 +34,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln`
   (v_rel code Other
      (Recclosure (SOME loc) arg_env clo_env fns i)
      (Recclosure (SOME loc) arg_env clo_env fns i)) ∧
-  (fs1 = get_free_vars [Fn (SOME loc) [] num_args exp] ∧
+  (fs1 = get_free_vars [Fn (SOME loc) (SOME []) num_args exp] ∧
    fs = MAP (λi. i + num_args) fs1 ∧
    FLOOKUP code loc = SOME (num_args+LENGTH fs1,calls_body num_args fs1 exp)
    ⇒
