@@ -107,7 +107,7 @@ val word_op_def = Define `
 
 val word_sh_def = Define `
   word_sh sh (w:'a word) n =
-    if n <> 0 /\ n < dimindex (:'a) then NONE else
+    if n <> 0 /\ n ≥ dimindex (:'a) then NONE else
       case sh of
       | Lsl => SOME (w << n)
       | Lsr => SOME (w >>> n)

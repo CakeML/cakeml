@@ -155,15 +155,29 @@ val inst_select_exp_thm = prove(``
       `x''<temp+1 ∧ x'' ≠ temp ∧ x'' ≠ temp+1` by DECIDE_TAC>>
       metis_tac[])
   >-
-    (fs[GSYM AND_IMP_INTRO,word_exp_def]>>EVERY_CASE_TAC>>fs[]>>
-    first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
-    simp[]>>strip_tac>>
-    simp[evaluate_def,inst_def,word_exp_def,assign_def,num_exp_def]>>
-    `lookup temp loc' = SOME (Word x)` by metis_tac[]>>
-    fs[num_exp_equiv,set_var_def,state_component_equality,lookup_insert]>>
-    rw[]>>DISJ2_TAC>>strip_tac>>
-    `x' ≠ temp` by DECIDE_TAC>>
-    metis_tac[])
+    (fs[GSYM AND_IMP_INTRO,LET_THM,word_exp_def]>>EVERY_CASE_TAC>>fs[]
+    >-
+      (`word_sh sh x (num_exp nexp) = SOME x` by
+        (fs[word_sh_def]>>EVERY_CASE_TAC)>>
+      first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+      fs[]>>strip_tac>>fs[evaluate_def,LET_THM,get_vars_def,get_var_def]>>
+      `lookup temp loc' = SOME (Word x)` by metis_tac[]>>
+      fs[set_vars_def,alist_insert_def,state_component_equality,num_exp_equiv,lookup_insert]>>rw[]>>
+      DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+    >-
+      (assume_tac DIMINDEX_GT_0>>
+      `0 ≠ dimindex(:'a)` by DECIDE_TAC>>fs[])
+    >-
+      (first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
+      fs[]>>strip_tac>>
+      fs[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+      `lookup temp loc' = SOME (Word x)` by metis_tac[]>>
+      fs[num_exp_def,num_exp_equiv,set_var_def,state_component_equality,lookup_insert]>>
+      rw[]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>
+      metis_tac[])
+    >-
+      (`num_exp nexp ≥ dimindex(:'a)` by DECIDE_TAC>>
+      fs[word_sh_def,num_exp_equiv]))
   >>
     fs[LET_THM,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     Cases_on`v14`>>fs[binary_branch_exp_def])
@@ -313,10 +327,7 @@ val inst_select_thm = prove(``
       on the state itself, noting that locals_rel is reflexive*)
     cheat)
 
-(*No expressions nesting
-  TODO: Probably rename this and add the inst_ok bits to it
-  Alternatively, add another every_inst condition
-*)
+(*No expressions occur except in Store*)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
   (flat_exp_conventions (Assign v exp) = F) ∧
@@ -339,19 +350,39 @@ val flat_exp_conventions_def = Define`
     | SOME (v,prog,l1,l2) => flat_exp_conventions prog))) ∧
   (flat_exp_conventions _ = T)`
 
-val inst_select_exp_conventions = prove(``
+val inst_select_exp_flat_exp_conventions = prove(``
   ∀c tar temp exp.
   flat_exp_conventions (inst_select_exp c tar temp exp)``,
-  ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,flat_exp_conventions_def,LET_THM])
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
+  EVERY_CASE_TAC>>fs[flat_exp_conventions_def])
 
-val inst_select_conventions = prove(``
+val inst_select_flat_exp_conventions = prove(``
   ∀c temp prog.
   flat_exp_conventions (inst_select c temp prog)``,
   ho_match_mp_tac inst_select_ind >>rw[]>>
   fs[flat_exp_conventions_def,inst_select_def,LET_THM]>>
   EVERY_CASE_TAC>>
   fs[flat_exp_conventions_def]>>
-  metis_tac[inst_select_exp_conventions])
+  metis_tac[inst_select_exp_flat_exp_conventions])
+
+(*Less restrictive version of inst_ok guaranteed by inst_select*)
+
+val inst_ok_less_def = Define`
+  (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
+    c.valid_imm (INL b) w) ∧
+  (inst_ok_less c (Arith (Shift l r1 r2 n)) =
+    (((n = 0) ==> (l = Lsl)) ∧ n < dimindex(:'a))) ∧
+  (inst_ok_less c (Mem m r (Addr r' w)) =
+    addr_offset_ok w c) ∧
+  (inst_ok_less _ _ = T)`
+
+(*Assume that 0 addr offsets are allowed by the config*)
+val inst_select_exp_inst_ok_less = prove(``
+  ∀c tar temp exp.
+  addr_offset_ok 0w c ⇒
+  every_inst (inst_ok_less c) (inst_select_exp c tar temp exp)``,
+  ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,every_inst_def,LET_THM,inst_ok_less_def]>>
+  every_case_tac>>fs[every_inst_def,inst_ok_less_def])
 
 (*3rd step: 3 to 2 reg if necessary*)
 
