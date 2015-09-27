@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../../.. ../../../semantics ../../../semantics/proofs ../../targets ../../../reg_alloc/proofs ../../../gc $(HOLDIR)/examples/machine-code/hoare-triple
+INCLUDES = .. ../semantics ../../.. ../../../semantics ../../../semantics/proofs ../../targets ../reg_alloc/proofs ../gc $(HOLDIR)/examples/machine-code/hoare-triple
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -36,7 +36,7 @@ BARE_THYS = ../../../semantics/terminationTheory\
 						../bvl_handleTheory\
 						../bvp_liveTheory\
 						../bvp_simpTheory\
-						../../../reg_alloc/proofs/reg_allocProofTheory
+						../reg_alloc/proofs/reg_allocProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 

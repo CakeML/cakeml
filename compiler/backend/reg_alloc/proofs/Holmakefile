@@ -1,4 +1,4 @@
-INCLUDES = ..
+INCLUDES = ..  ../../../..
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -10,7 +10,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../preamble
+BARE_THYS = ../reg_allocTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
