@@ -59,6 +59,7 @@ val flatten_exp_def = tDefine "flatten_exp" `
 *)
 val inst_select_exp_def = tDefine "inst_select_exp" `
   (*TODO: Reduce the ugly amount of case splitting?*)
+  (*
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load (Op Add [Const w;exp])) =
     let prog = inst_select_exp c temp temp exp in
       if addr_offset_ok w c 
@@ -73,8 +74,8 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
         let prog' = Inst (Const (temp+1) w) in
         let prog'' = Inst (Arith (Binop Add temp temp (Reg (temp+1)))) in
         let prog''' = Inst (Mem Load tar (Addr temp 0w)) in
-        Seq prog (Seq prog' (Seq prog'' prog'''))) ∧
-   (inst_select_exp c tar temp (Load exp) = 
+        Seq prog (Seq prog' (Seq prog'' prog'''))) ∧*)
+   (inst_select_exp (c:'a asm_config) tar temp (Load exp:'a exp) = 
     let prog = inst_select_exp c temp temp exp in
     Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧ 
   (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
@@ -83,13 +84,14 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp c tar temp (Lookup store_name) = 
     Get tar store_name) ∧ 
   (*All ops are binary branching*)
+  (*
   (inst_select_exp c tar temp (Op op [Const w;e2]) = 
     let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
     if c.valid_imm (INL op) w then
       Seq p2 (Inst (Arith (Binop op tar temp (Imm w))))
     else
       let p1 = Inst (Const temp w) in
-      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
+      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧*)
   (inst_select_exp c tar temp (Op op [e1;e2]) =
     let p1 = inst_select_exp c temp temp e1 in
     let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
