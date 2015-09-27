@@ -526,28 +526,28 @@ val do_app = prove(
 
 (* compiler correctness *)
 
-val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
-  ``(!tmp xs env s1 env' t1 res s2 n.
-      tmp = (xs,env,s1) ∧
-      (evaluate (xs,env,s1) = (res,s2)) ⇒
-      ¬contains_App_SOME xs ∧
-      LIST_REL v_rel env env' ∧
-      state_rel s1 t1 ==>
-      ?res' t2.
-         (evaluate (SND(renumber_code_locs_list n xs),env',t1) = (res',t2)) /\
-         result_rel (LIST_REL v_rel) v_rel res res' /\
-         state_rel s2 t2) ∧
-    (!loc f args s res s2 f' args' s1 t1.
-        evaluate_app loc f args s = (res,s2) ⇒
-        v_rel f f' ∧
-        loc = NONE ∧
-        LIST_REL v_rel args args' ∧
-        state_rel s t1
-        ⇒
-        ?res' t2.
-           (evaluate_app loc f' args' t1 = (res',t2)) /\
-           result_rel (LIST_REL v_rel) v_rel res res' /\
-           state_rel s2 t2)``,
+val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
+  `(!tmp xs env s1 env' t1 res s2 n.
+     tmp = (xs,env,s1) ∧
+     (evaluate (xs,env,s1) = (res,s2)) ⇒
+     ¬contains_App_SOME xs ∧
+     LIST_REL v_rel env env' ∧
+     state_rel s1 t1 ==>
+     ?res' t2.
+        (evaluate (SND(renumber_code_locs_list n xs),env',t1) = (res',t2)) /\
+        result_rel (LIST_REL v_rel) v_rel res res' /\
+        state_rel s2 t2) ∧
+   (!loc f args s res s2 f' args' s1 t1.
+       evaluate_app loc f args s = (res,s2) ⇒
+       v_rel f f' ∧
+       loc = NONE ∧
+       LIST_REL v_rel args args' ∧
+       state_rel s t1
+       ⇒
+       ?res' t2.
+          (evaluate_app loc f' args' t1 = (res',t2)) /\
+          result_rel (LIST_REL v_rel) v_rel res res' /\
+          state_rel s2 t2)`,
   ho_match_mp_tac evaluate_ind \\ rw []
   THEN1 (* NIL *)
    (fs [renumber_code_locs_def,evaluate_def]
@@ -644,6 +644,8 @@ val renumber_code_locs_correct = store_thm("renumber_code_locs_correct",
     fs[clos_env_def] >> rw[] >> fs[contains_App_SOME_def] >> rw[v_rel_simp] >>
     TRY (fs [] >> PROVE_TAC[]) >>
     last_x_assum mp_tac >>
+    BasicProvers.CASE_TAC >- (
+      rw[] >> simp[v_rel_simp] >> METIS_TAC[] ) >>
     BasicProvers.CASE_TAC >- (
       imp_res_tac lookup_vars_NONE >>
       BasicProvers.CASE_TAC >> rw[] >> rw[] >>
