@@ -1055,6 +1055,7 @@ val do_app_err = Q.prove(
     rfs[OPTREL_def] >> res_tac >> fs[])
   >- ( every_case_tac >> fs[] )
   >- metis_tac[]
+  >- metis_tac[]
   >- (
     Cases_on`xs`>>fs[]>>rw[]>>
     Cases_on`t`>>fs[v_rel_SIMP]>>rw[]>-
@@ -2895,7 +2896,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ simp[])
   THEN1 (* Fn *)
    (rw [] >>
-    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+    fs [cEval_def] \\ every_case_tac
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_def]
     \\ `?c2 aux3. compile [exp] aux1 = (c2,aux3)` by METIS_TAC [PAIR]
@@ -2904,8 +2905,8 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs [bEval_def,bvlPropsTheory.evaluate_APPEND,bvlSemTheory.do_app_def,domain_lookup]
     \\ `s.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
-    \\ IMP_RES_TAC lookup_vars_IMP
-    \\ POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
+    \\ IMP_RES_TAC lookup_vars_IMP >> TRY (
+    POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
     \\ imp_res_tac bvlPropsTheory.evaluate_var_reverse
     \\ qexists_tac`0`>>simp[]
     \\ Cases_on `num_args ≤ max_app ∧ num_args ≠ 0`
@@ -2918,7 +2919,12 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ Cases_on`loc`>>fs[]
     \\ fsrw_tac[ARITH_ss][]
     \\ IMP_RES_TAC compile_SING \\ fs [code_installed_def]
-    \\ first_assum(match_exists_tac o concl) >> simp[])
+    \\ first_assum(match_exists_tac o concl) >> simp[]) >>
+    simp[v_rel_SIMP,PULL_EXISTS,cl_rel_cases] >>
+    fs[IS_SOME_EXISTS] >> simp[] >>
+    qexists_tac`0`>>simp[] >>
+    map_every qexists_tac[`f1`,`aux1`]>>simp[]>>rfs[]>>
+    cheat)
   THEN1 (* Letrec *)
    (rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
