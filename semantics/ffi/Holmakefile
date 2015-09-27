@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../lem_lib_stub
+INCLUDES = ../.. ../../lem_lib_stub
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -15,5 +15,5 @@ GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 
 $(GENS): $(LEMS)
  	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -hol $(LEMS);\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../../lib.lem -hol $(LEMS);\
  	else touch $(GENS); fi

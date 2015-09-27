@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../lem_lib_stub ../ffi
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free .. ../lem_lib_stub ffi
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -13,9 +13,9 @@ SRC = tokens ast semanticPrimitives smallStep funBigStep bigStep typeSystem init
 LEMS = $(patsubst %,%.lem,$(SRC))
 GENS = $(patsubst %,%Script.sml,$(SRC))
 
-$(GENS): $(LEMS) ../lib.lem ../ffi/ffi.lem
+$(GENS): $(LEMS) ../lib.lem ffi/ffi.lem
  	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -i ../ffi/ffi.lem -hol $(LEMS);\
+ 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -i ../lib.lem -i ffi/ffi.lem -hol $(LEMS);\
  	else touch $(GENS); fi
 
 ifdef POLY

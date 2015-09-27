@@ -1,2 +1,2 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../.. ../../ffi asm
+INCLUDES = ../.. ../../semantics/ffi asm
