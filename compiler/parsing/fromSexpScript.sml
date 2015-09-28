@@ -308,6 +308,7 @@ val sexpop_def = Define`
   if s = "Asub" then SOME Asub else
   if s = "Alength" then SOME Alength else
   if s = "Aupdate" then SOME Aupdate else NONE) ∧
+  (sexpop (SX_CONS (SX_SYM s) (SX_NUM n)) = if s = "FFI" then SOME (FFI n) else NONE) ∧
   (sexpop _ = NONE)`;
 
 val sexplop_def = Define`
@@ -548,7 +549,8 @@ val opsexp_def = Define`
   (opsexp Aalloc = SX_SYM "Aalloc") ∧
   (opsexp Asub = SX_SYM "Asub") ∧
   (opsexp Alength = SX_SYM "Alength") ∧
-  (opsexp Aupdate = SX_SYM "Aupdate")`;
+  (opsexp Aupdate = SX_SYM "Aupdate") ∧
+  (opsexp (FFI n) = SX_CONS (SX_SYM "FFI") (SX_NUM n))`;
 
 val expsexp_def = tDefine"expsexp"`
   (expsexp (Raise e) = listsexp [SX_SYM "Raise"; expsexp e]) ∧
