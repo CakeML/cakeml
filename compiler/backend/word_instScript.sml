@@ -12,28 +12,23 @@ val num_exp_def = Define `
   (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
   (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
-(*Flatten list expressions to trees -- of the form:
-   +
-  /\
-  a +
-    /\
-    b +
-      /\
-      c d
-  Resulting expressions are all binary branching
-  TODO: Should add a phase before this to pull constants up
-  e.g.
-     +
-    /\
-    5 ..
-*)
+(*TODO: Optimize constants in expressions, leaving constants on the right*)
 
+(*Flatten list expressions to trees -- of the form:
+      +
+     /\
+    + a
+   /\
+  + b
+ /\
+c d
+*)
 val flatten_exp_def = tDefine "flatten_exp" `
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
   (flatten_exp (Op And []) = Const (~0w)) ∧ (*I guess this should never occur..*)
   (flatten_exp (Op op []) = Const (0w)) ∧ (*I guess this should never occur..*)
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
-  (flatten_exp (Op op (x::xs)) = Op op [flatten_exp x;flatten_exp (Op op xs)]) ∧
+  (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
   (flatten_exp (Shift shift exp nexp) = Shift shift (flatten_exp exp) nexp) ∧
   (flatten_exp exp = exp)`
@@ -48,23 +43,33 @@ val flatten_exp_def = tDefine "flatten_exp" `
 (*
   Maximal Munch instruction selection on (binary) expressions
   c is an asm_config to check validity of imms (TODO: assume 0w is accepted?)
-  Implemented (optimized) munches (assumes Consts are sorted to the front):
-  Load [Op Add [Const w;exp]]
-  Op op [Const w; exp]
-  Store exp var
+  Optimized munches (assumes Consts are on the RIGHT):
+  --Load [Op Add [exp;Const w]]
+  Op op [exp;Const w]
+  --Store exp var
 
   Next, perform instruction selection assuming input is binary branching
   Each step takes tar and temp where we are allowed to store temporaries
   in temp and the value of the whole expression must be saved in tar
 *)
 val inst_select_exp_def = tDefine "inst_select_exp" `
-  (*TODO: Reduce the ugly amount of case splitting?*)
-  (*
-  (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load (Op Add [Const w;exp])) =
-    let prog = inst_select_exp c temp temp exp in
+  (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
+    if ∃exp' w. exp = Op Add [exp';Const w] then
+      case exp of Op Add [exp';Const w] =>
+        if addr_offset_ok w c then
+          let prog = inst_select_exp c temp temp exp' in
+          Seq prog (Inst (Mem Load tar (Addr temp w)))
+        else
+          let prog = inst_select_exp c temp temp exp in
+          Seq prog (Inst (Mem Load tar (Addr temp (0w))))
+    else
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
+   (*(Op Add [exp;exp'])) =
+    if ∃w. exp' = Const w then
+      case exp' of Const w =>
       if addr_offset_ok w c
       then
-        Seq prog (Inst (Mem Load tar (Addr temp w)))
       else if c.valid_imm (INL Add) w
       then
         let prog' = Inst (Arith (Binop Add temp temp (Imm w))) in
@@ -75,27 +80,24 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
         let prog'' = Inst (Arith (Binop Add temp temp (Reg (temp+1)))) in
         let prog''' = Inst (Mem Load tar (Addr temp 0w)) in
         Seq prog (Seq prog' (Seq prog'' prog'''))) ∧*)
-   (inst_select_exp (c:'a asm_config) tar temp (Load exp:'a exp) =
-    let prog = inst_select_exp c temp temp exp in
-    Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
   (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
   (inst_select_exp c (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
   (inst_select_exp c tar temp (Lookup store_name) =
     Get tar store_name) ∧
   (*All ops are binary branching*)
-  (*
-  (inst_select_exp c tar temp (Op op [Const w;e2]) =
-    let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-    if c.valid_imm (INL op) w then
-      Seq p2 (Inst (Arith (Binop op tar temp (Imm w))))
-    else
-      let p1 = Inst (Const temp w) in
-      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧*)
   (inst_select_exp c tar temp (Op op [e1;e2]) =
     let p1 = inst_select_exp c temp temp e1 in
-    let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-    Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
+    if ∃w. e2 = Const w then
+      case e2 of Const w =>
+      if c.valid_imm (INL op) w then
+        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+      else
+        let p2 = Inst (Const (temp+1) w) in
+        Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
+    else
+      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
+      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
   (inst_select_exp c tar temp (Shift sh exp nexp) =
     let n = num_exp nexp in
     if (n < dimindex(:'a)) then
@@ -113,6 +115,34 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
+
+val inst_select_exp_compute = prove(``
+  (inst_select_exp c tar temp (Load exp) =
+    case exp of
+      Op Add [exp';Const w] =>
+        if addr_offset_ok w c then
+          let prog = inst_select_exp c temp temp exp' in
+          Seq prog (Inst (Mem Load tar (Addr temp w)))
+        else
+          let prog = inst_select_exp c temp temp exp in
+          Seq prog (Inst (Mem Load tar (Addr temp (0w))))
+    | _ =>
+      let prog = inst_select_exp c temp temp exp in
+      Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
+  (inst_select_exp c tar temp (Op op [e1;e2]) =
+    let p1 = inst_select_exp c temp temp e1 in
+    case e2 of
+    | Const w =>
+      if c.valid_imm (INL op) w then
+        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+      else
+        let p2 = Inst (Const (temp+1) w) in
+        Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
+    | _ =>
+      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
+      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))``,
+   fs[inst_select_exp_def]>>BasicProvers.EVERY_CASE_TAC>>fs[])
+
 (*
 
 First munch

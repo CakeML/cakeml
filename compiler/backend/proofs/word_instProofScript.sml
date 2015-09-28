@@ -80,7 +80,7 @@ val locals_rel_word_exp = prove(``
     metis_tac[])
   >>
     EVERY_CASE_TAC>>res_tac>>fs[])
-     
+
 (*2nd step: Convert expressions to insts*)
 val inst_select_exp_thm = prove(``
   ∀c tar temp exp s w loc.
@@ -96,10 +96,29 @@ val inst_select_exp_thm = prove(``
     else if x < temp then lookup x loc' = lookup x s.locals
     else T``,
   ho_match_mp_tac inst_select_exp_ind>>
-  fs[inst_select_exp_def,evaluate_def,binary_branch_exp_def,every_var_exp_def]>>
-  rpt strip_tac
+  fs[evaluate_def,binary_branch_exp_def,every_var_exp_def]>>
+  rpt strip_tac>>
+  simp[inst_select_exp_def]
   >-
-    (*TODO: Will be replaced by munched version*)
+    (IF_CASES_TAC>>fs[]
+    >-
+      (IF_CASES_TAC
+      >-
+        (fs[binary_branch_exp_def,every_var_exp_def,word_exp_def,LET_THM]>>EVERY_CASE_TAC>>fs[IS_SOME_EXISTS]>>
+        first_x_assum(qspecl_then[`s`,`x'`,`loc`] assume_tac)>>rfs[]>>
+        simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+        `lookup temp loc' = SOME (Word x')` by metis_tac[]>>fs[mem_load_def]>>
+        simp[state_component_equality,set_var_def,lookup_insert]>>rw[]>>
+        DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
+      >>
+        (fs[binary_branch_exp_def,every_var_exp_def,word_exp_def,LET_THM]>>EVERY_CASE_TAC>>fs[IS_SOME_EXISTS]>>
+        first_x_assum(qspecl_then[`s`,`x`,`loc`] assume_tac)>>rfs[]>>
+        simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+        `lookup temp loc' = SOME (Word x)` by metis_tac[]>>fs[mem_load_def]>>
+        simp[state_component_equality,set_var_def,lookup_insert,word_op_def]>>
+        rw[]>>
+        DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[]))
+    >>
     (fs[GSYM AND_IMP_INTRO,word_exp_def]>>EVERY_CASE_TAC>>fs[]>>
     first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
     simp[LET_THM,evaluate_def]>>rw[]>>
@@ -107,7 +126,7 @@ val inst_select_exp_thm = prove(``
     simp[inst_def,assign_def,word_exp_def,word_op_def]>>fs[mem_load_def]>>
     simp[state_component_equality,set_var_def,lookup_insert]>>
     rw[]>>DISJ2_TAC>>strip_tac>>
-    `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+    `x' ≠ temp` by DECIDE_TAC>>metis_tac[]))
   >-
     (fs[LET_THM,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
     simp[state_component_equality,locals_rel_def,lookup_insert]>>
@@ -122,19 +141,38 @@ val inst_select_exp_thm = prove(``
     FULL_CASE_TAC>>fs[]>>pop_assum mp_tac>>FULL_CASE_TAC>>fs[locals_rel_def]>>
     simp[state_component_equality,lookup_insert])
   >-
-    (*TODO: Will be replaced by munched version
-      But this shows that the invs work for multiple temporaries
-    *)
-    (`binary_branch_exp exp ∧ binary_branch_exp exp'` by 
+    (Cases_on`∃w. exp' = Const w`>>fs[]
+    >-
+    (`binary_branch_exp exp` by
       (Cases_on`op`>>fs[binary_branch_exp_def])>>
-    fs[word_exp_def,LET_THM,IS_SOME_EXISTS]>>
+    fs[word_exp_def,LET_THM,IS_SOME_EXISTS]>>IF_CASES_TAC>>
+    first_x_assum(qspecl_then[`s`,`x`,`loc`] assume_tac)>>rfs[evaluate_def]
+    >-
+      (simp[LET_THM,inst_def,word_exp_def,assign_def]>>
+      `lookup temp loc' = SOME (Word x)` by metis_tac[]>>fs[word_op_def]>>
+      Cases_on`op`>>fs[set_var_def,state_component_equality,lookup_insert]>>
+      rw[]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+    >>
+      simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
+      `lookup temp loc' = SOME (Word x)` by metis_tac[]>>fs[word_op_def]>>
+      fs[state_component_equality,lookup_insert]>>
+      rw[]>>
+      DISJ2_TAC>>strip_tac>-`F` by DECIDE_TAC>>
+      `x' ≠ temp` by DECIDE_TAC>>
+      metis_tac[])
+    >>
+    `binary_branch_exp exp ∧ binary_branch_exp exp'` by
+      (Cases_on`op`>>fs[binary_branch_exp_def])>>
+    qpat_assum`A=SOME w` mp_tac>>simp[Once word_exp_def,LET_THM,IS_SOME_EXISTS]>>strip_tac>>
     first_x_assum(qspecl_then[`s`,`x`,`loc`] assume_tac)>>rfs[evaluate_def]>>
     simp[LET_THM,inst_def,assign_def]>>
     first_x_assum(qspecl_then[`s with locals:= loc'`,`x'`,`loc'`] mp_tac)>>
-    fs[]>>discharge_hyps>-
+    fs[]>>discharge_hyps
+    >-
       (rw[locals_rel_def]
       >-
-        (match_mp_tac every_var_exp_mono>>
+        (TRY(fs[every_var_exp_def]>>DECIDE_TAC)>>
+        match_mp_tac every_var_exp_mono>>
         HINT_EXISTS_TAC>>fs[]>>DECIDE_TAC)
       >>
         (*word_exp invariant under extra locals*)
@@ -143,17 +181,17 @@ val inst_select_exp_thm = prove(``
         rw[]>>`x'' ≠ temp` by DECIDE_TAC>>
         metis_tac[])
     >>
-      strip_tac>>fs[word_exp_def]>>
-      `lookup temp loc'' = SOME (Word x) ∧
-       lookup (temp+1) loc'' = SOME (Word x')` by
-         (first_assum(qspecl_then[`temp`] assume_tac)>>
-         first_x_assum(qspecl_then[`temp+1`] assume_tac)>>
-         `temp ≠ temp+1` by DECIDE_TAC>>
-         fs[]>>metis_tac[])>>
-      simp[LET_THM,state_component_equality,set_var_def,lookup_insert]>>
-      rw[]>>DISJ2_TAC>>strip_tac>>
-      `x''<temp+1 ∧ x'' ≠ temp ∧ x'' ≠ temp+1` by DECIDE_TAC>>
-      metis_tac[])
+    strip_tac>>fs[word_exp_def]>>
+    `lookup temp loc'' = SOME (Word x) ∧
+     lookup (temp+1) loc'' = SOME (Word x')` by
+       (first_assum(qspecl_then[`temp`] assume_tac)>>
+       first_x_assum(qspecl_then[`temp+1`] assume_tac)>>
+       `temp ≠ temp+1` by DECIDE_TAC>>
+       fs[]>>metis_tac[])>>
+    simp[LET_THM,state_component_equality,set_var_def,lookup_insert]>>
+    rw[]>>DISJ2_TAC>>strip_tac>>
+    `x''<temp+1 ∧ x'' ≠ temp ∧ x'' ≠ temp+1` by DECIDE_TAC>>
+    metis_tac[])
   >-
     (fs[GSYM AND_IMP_INTRO,LET_THM,word_exp_def]>>EVERY_CASE_TAC>>fs[]
     >-
@@ -221,7 +259,7 @@ val locals_rel_get_var_imm = prove(``
 
 val locals_rel_set_var = prove(``
   ∀n s t.
-  locals_rel temp s t ⇒ 
+  locals_rel temp s t ⇒
   locals_rel temp (insert n v s) (insert n v t)``,
   rw[]>>fs[locals_rel_def,lookup_insert])
 
@@ -354,7 +392,7 @@ val inst_select_exp_flat_exp_conventions = prove(``
   ∀c tar temp exp.
   flat_exp_conventions (inst_select_exp c tar temp exp)``,
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,flat_exp_conventions_def,LET_THM]>>
-  EVERY_CASE_TAC>>fs[flat_exp_conventions_def])
+  EVERY_CASE_TAC>>fs[flat_exp_conventions_def,inst_select_exp_def,LET_THM])
 
 val inst_select_flat_exp_conventions = prove(``
   ∀c temp prog.
@@ -382,7 +420,7 @@ val inst_select_exp_inst_ok_less = prove(``
   addr_offset_ok 0w c ⇒
   every_inst (inst_ok_less c) (inst_select_exp c tar temp exp)``,
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,every_inst_def,LET_THM,inst_ok_less_def]>>
-  every_case_tac>>fs[every_inst_def,inst_ok_less_def])
+  every_case_tac>>fs[every_inst_def,inst_ok_less_def,inst_select_exp_def,LET_THM] )
 
 (*3rd step: 3 to 2 reg if necessary*)
 
