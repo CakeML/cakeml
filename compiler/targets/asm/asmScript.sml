@@ -145,7 +145,9 @@ val reg_imm_ok_def = Define `
 
 val arith_ok_def = Define `
   (arith_ok (Binop b r1 r2 ri) c =
-     (c.two_reg_arith ==> (r1 = r2)) /\
+     (* note: register to register moves can be implmented with
+              "Or" on "two_reg_arith" architectures. *)
+     (c.two_reg_arith ==> (r1 = r2) \/ (b = Or) /\ (ri = Reg r2)) /\
      reg_ok r1 c /\ reg_ok r2 c /\ reg_imm_ok (INL b) ri c) /\
   (arith_ok (Shift l r1 r2 n) (c: 'a asm_config) =
      (c.two_reg_arith ==> (r1 = r2)) /\

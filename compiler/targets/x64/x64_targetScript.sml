@@ -90,7 +90,10 @@ val x64_enc_def = Define`
       in
          x64$encode (Zmov (Z_ALWAYS, sz, Zrm_i (reg r, i)))) /\
    (x64_enc (Inst (Arith (Binop bop r1 r2 (Reg r3)))) =
-       x64$encode (Zbinop (x64_bop bop, Z64, Zrm_r (reg r1, num2Zreg r3)))) /\
+      let a = (Z64, Zrm_r (reg r1, num2Zreg r3)) in
+        x64$encode
+          (if (bop = Or) /\ (r2 = r3) then Zmov (Z_ALWAYS, a)
+           else Zbinop (x64_bop bop, a))) /\
    (x64_enc (Inst (Arith (Binop bop r1 r2 (Imm i)))) =
        x64$encode (Zbinop (x64_bop bop, Z64, Zrm_i (reg r1, i)))) /\
    (x64_enc (Inst (Arith (Shift sh r1 r2 n))) =
@@ -156,6 +159,9 @@ val x64_dec_def = Define`
    case fetch_decode l of
       (Znop, _) => Inst Skip
     | (Zmov (Z_ALWAYS, _, Zrm_i (Zr r, i)), _) => Inst (Const (Zreg2num r) i)
+    | (Zmov (Z_ALWAYS, Z64, Zrm_r (Zr r1, r2)), _) =>
+         let r2 = Zreg2num r2 in
+            Inst (Arith (Binop Or (Zreg2num r1) r2 (Reg r2)))
     | (Zmov (Z_ALWAYS, sz, Zr_rm (r1, Zm (NONE, ZregBase r2, a))), _) =>
          Inst (Mem (if sz = Z64 then Load else Load32) (Zreg2num r1)
                    (Addr (Zreg2num r2) a))
@@ -956,7 +962,10 @@ val x64_encoding = Count.apply Q.prove (
             >| [
                (* Reg *)
                qabbrev_tac `r3 = n2w n' : word4`
+               \\ Cases_on `(b = Or) /\ (n0 = n')`
+               >- decode_tac0 [`r1`, `r2`, `r3`]
                \\ Cases_on `b`
+               \\ fs []
                \\ decode_tac0 [`r2`, `r3`],
                (* Imm *)
                Cases_on `b`
@@ -1193,7 +1202,12 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
             >| [
                (* Reg *)
                qabbrev_tac `r3 = n2w n' : word4`
+               \\ Cases_on `(b = Or) /\ (n0 = n')`
+               >- (lfs ([loc_lem2] @ enc_rwts)
+                   \\ next_state_tac0
+                   \\ state_tac [] [`r1`, `r2`])
                \\ Cases_on `b`
+               \\ fs []
                \\ lfs ([loc_lem2] @ enc_rwts)
                \\ next_state_tac0
                \\ state_tac [] [`r1`, `r2`, `r3`],
