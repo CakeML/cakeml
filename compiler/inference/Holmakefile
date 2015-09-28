@@ -1,4 +1,4 @@
-INCLUDES=../.. ../../semantics ../../semantics/proofs $(HOLDIR)/examples/unification/triangular/first-order
+INCLUDES=../.. ../../semantics $(HOLDIR)/examples/unification/triangular/first-order
 OPTIONS = QUIT_ON_FAILURE
 
 SEMANTICSI = semanticPrimitives
@@ -20,7 +20,7 @@ $(GEN_SCRIPTS): $(LEMI) $(LEMH) ../../lib.lem ../../semantics/ffi/ffi.lem
 
 ifdef POLY
 HOLHEAP = heap
-PARENTHEAP=../../semantics/proofs/heap
+PARENTHEAP=../../semantics/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
 SEM_BARE_THYS = terminationTheory
