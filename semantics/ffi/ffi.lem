@@ -10,8 +10,8 @@ type oracle 'ffi = nat -> oracle_function 'ffi
 
 (* call_FFI lifts the oracle into the option monad, allowing the CakeML
  * semantics to continue past failed FFI. It also checks the length of the output. *)
-val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> maybe 'ffi -> maybe 'ffi * list word8
-let call_FFI oracle n bytes st =
+val call_FFI : forall 'ffi. oracle 'ffi -> nat -> maybe 'ffi -> list word8 -> maybe 'ffi * list word8
+let call_FFI oracle n st bytes =
   match st with
   | Just ffi ->
       match oracle n ffi bytes with
@@ -31,6 +31,16 @@ let call_FFI oracle n bytes st =
  * array. *)
 
 type io_event = IO_event of nat * (list (word8 * word8))
+
+(* Any oracle can be extended as an oracle that tracks the io_events it has
+ * encountered *)
+
+val add_trace : forall 'ffi. oracle 'ffi -> oracle ('ffi * list io_event)
+let add_trace oracle n (ffi,events) bytes =
+  match oracle n ffi bytes with
+  | Just (ffi',bytes') -> Just ((ffi', (IO_event n (zipSameLength bytes bytes'))::events),bytes')
+  | _ -> Nothing
+  end
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O

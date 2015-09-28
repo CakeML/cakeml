@@ -20,9 +20,9 @@ val _ = type_abbrev((*  'ffi *) "oracle" , ``: num -> 'ffi oracle_function``);
 
 (* call_FFI lifts the oracle into the option monad, allowing the CakeML
  * semantics to continue past failed FFI. It also checks the length of the output. *)
-(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> maybe 'ffi -> maybe 'ffi * list word8*)
+(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> maybe 'ffi -> list word8 -> maybe 'ffi * list word8*)
 val _ = Define `
- (call_FFI oracle n bytes st =  
+ (call_FFI oracle n st bytes =  
 ((case st of
     SOME ffi =>
       (case oracle n ffi bytes of
@@ -36,7 +36,7 @@ val _ = Define `
   )))`;
 
 
-(* I/O events for trace-based semantics *)
+(* I/O events *)
 
 (* An I/O event, IO_event n bytes2, represents the call of FFI function n with
  * input map fst bytes2 in the passed array, returning map snd bytes2 in the
@@ -44,6 +44,18 @@ val _ = Define `
 
 val _ = Hol_datatype `
  io_event = IO_event of num => ( (word8 # word8)list)`;
+
+
+(* Any oracle can be extended as an oracle that tracks the io_events it has
+ * encountered *)
+
+(*val add_trace : forall 'ffi. oracle 'ffi -> oracle ('ffi * list io_event)*)
+val _ = Define `
+ (add_trace oracle n (ffi,events) bytes =  
+((case oracle n ffi bytes of
+    SOME (ffi',bytes') => SOME ((ffi', ((IO_event n (ZIP (bytes, bytes')))::events)),bytes')
+  | _ => NONE
+  )))`;
 
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
