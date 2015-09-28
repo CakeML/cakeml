@@ -1,0 +1,18 @@
+OPTIONS = QUIT_ON_FAILURE
+INCLUDES = parsing inference backend
+
+all: compilerTheory.uo
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+PARENT_HOLHEAP = backend/heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+
+BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/source_to_targetTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS)
+endif

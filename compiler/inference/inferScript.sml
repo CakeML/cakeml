@@ -713,6 +713,35 @@ val infer_prog_def = Define `
             env'' ++ env')
   od)`;
 
+val _ = Datatype`
+  inferencer_config =
+  <| infer_decls : (modN list # conN id list # varN id list)
+   ; infer_types : tenvT
+   ; infer_m : modN |-> (varN, num # infer_t) alist
+   ; infer_c : tenvC
+   ; infer_v : (varN, num # infer_t) alist
+   |>`;
+
+val init_config_def = Define`
+  init_config =
+  <| infer_decls := ([],[],[])
+   ; infer_types := (FEMPTY,FEMPTY)
+   ; infer_m := FEMPTY
+   ; infer_c := ([],[])
+   ; infer_v := [] |>`;
+
+val infertype_prog_def = Define`
+  infertype_prog c prog =
+    case FST (infer_prog c.infer_decls c.infer_types c.infer_m c.infer_c c.infer_v prog init_infer_state) of
+    | Success (new_decls, new_types, new_m, new_c, new_v) =>
+        SOME (<| infer_decls := append_decls new_decls c.infer_decls
+               ; infer_types := merge_mod_env new_types c.infer_types
+               ; infer_m := FUNION new_m c.infer_m
+               ; infer_c := merge_alist_mod_env new_c c.infer_c
+               ; infer_v := new_v ++ c.infer_v
+               |>)
+    | _ => NONE`;
+
 val Infer_Tfn_def = Define `
 Infer_Tfn t1 t2 = Infer_Tapp [t1;t2] TC_fn`;
 
