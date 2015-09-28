@@ -1,4 +1,4 @@
-INCLUDES = .. ../semantics ../parsing ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP $(HOLDIR)/examples/pattern_matches
+INCLUDES = .. ../semantics ../semantics/proofs ../lem_lib_stub ../explorer/pp/astPP $(HOLDIR)/examples/pattern_matches
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY
@@ -17,15 +17,12 @@ PRE_BARE_THYS1 = astTheory \
 		initialProgramTheory \
 		semanticPrimitivesTheory
 
-PRE_BARE_THYS2 = cmlParseTheory lexer_implTheory
-
 PRE_BARE_THYS3 = determTheory bigClockTheory initSemEnvTheory
 
 BARE_THYS1 =  $(patsubst %,../semantics/%,$(PRE_BARE_THYS1))
-BARE_THYS2 =  $(patsubst %,../parsing/%,$(PRE_BARE_THYS2))
 BARE_THYS3 =  $(patsubst %,../semantics/proofs/%,$(PRE_BARE_THYS3))
 
-DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS2)) $(patsubst %,%.uo,$(BARE_THYS3)) ../explorer/pp/astPP/astPP.uo $(PARENTHEAP)
+DEPS = $(patsubst %,%.uo,$(BARE_THYS1)) $(patsubst %,%.uo,$(BARE_THYS3)) ../explorer/pp/astPP/astPP.uo $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -b $(PARENT_HOLHEAP) -o $(HOLHEAP) $(BARE_THYS1) $(BARE_THYS3) $(BARE_THYS2) ../explorer/pp/astPP/astPP
