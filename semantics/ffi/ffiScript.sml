@@ -21,7 +21,19 @@ val _ = Hol_datatype `
  io_event = IO_event of num => ( (word8 # word8)list)`;
 
 
-val _ = type_abbrev( "io_trace" , ``:  ( io_event llist)option``);
+(* An I/O oracle accepts or rejects the next event in an io_trace according to
+ * its oracle state, represented by the type variable 'ffi. *)
+
+val _ = type_abbrev((*  'ffi *) "oracle" , ``: 'ffi -> io_event ->  'ffi option``);
+
+val _ = Hol_datatype `
+(*  'ffi *) oracle_state_and_trace =
+  <| oracle_state: 'ffi
+   ; io_trace:  io_event llist
+   |>`;
+
+
+val _ = type_abbrev((*  'ffi *) "io_state" , ``:  ( 'ffi oracle_state_and_trace)option``);
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -41,19 +53,37 @@ val _ = Hol_datatype `
   | Fail`;
 
 
-(*val call_FFI : nat -> list word8 -> io_trace -> list word8 * io_trace*)
+(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> io_state 'ffi -> list word8 * io_state 'ffi*)
 val _ = Define `
- (call_FFI n bytes io_trace =  
-((case io_trace of
-    SOME events =>
-     (case LHD events of
+ (call_FFI oracle n bytes io_state =  
+((case io_state of
+    SOME s =>
+     (case LHD s.io_trace of
        SOME (IO_event n' xs) =>
          if (n = n') /\ (MAP FST xs = bytes) then
-           (MAP SND xs, LTL events)
+           (case oracle s.oracle_state (IO_event n xs) of
+             SOME ffi' => (MAP SND xs,
+                           SOME <| oracle_state := ffi'
+                                 ; io_trace := (THE (LTL s.io_trace)) |>)
+           | NONE => (bytes, NONE)
+           )
          else (bytes, NONE)
      | _ => (bytes, NONE)
      )
   | _ => (bytes, NONE)
+  )))`;
+
+
+(* trace-based semantics can be recovered as an instance of oracle-based
+ * semantics by using a trivial oracle_state that simply corresponds
+ * exactly to the io_trace. *)
+
+(*val trace_oracle : oracle (llist io_event)*)
+val _ = Define `
+ (trace_oracle io_trace event =  
+((case LHD io_trace of
+    SOME event' => if event = event' then LTL io_trace else NONE
+  | _ => NONE
   )))`;
 
 val _ = export_theory()

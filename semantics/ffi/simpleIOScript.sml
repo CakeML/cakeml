@@ -14,10 +14,10 @@ val _ = new_theory "simpleIO"
 (*open import Ffi*)
 
 val _ = Hol_datatype `
- io_state = <| input :  word8 llist; output :  word8 llist ; has_exited : bool |>`;
+ simpleIO = <| input :  word8 llist; output :  word8 llist ; has_exited : bool |>`;
 
 
-(*val isEof : io_state -> list (word8 * word8) -> bool*)
+(*val isEof : simpleIO -> list (word8 * word8) -> bool*)
 val _ = Define `
  (isEof st io =  
 ((case io of
@@ -29,7 +29,7 @@ val _ = Define `
   )))`;
 
 
-(*val getChar : io_state -> list (word8 * word8) -> maybe io_state*)
+(*val getChar : simpleIO -> list (word8 * word8) -> maybe simpleIO*)
 val _ = Define `
  (getChar st io =  
 ((case io of
@@ -42,7 +42,7 @@ val _ = Define `
   )))`;
 
 
-(*val putChar : io_state -> list (word8 * word8) -> maybe io_state*)
+(*val putChar : simpleIO -> list (word8 * word8) -> maybe simpleIO*)
 val _ = Define `
  (putChar st io =  
 ((case io of
@@ -55,7 +55,7 @@ val _ = Define `
   )))`;
 
 
-(*val exit : io_state -> maybe io_state*)
+(*val exit : simpleIO -> maybe simpleIO*)
 val _ = Define `
  (exit st =  
 (if st.has_exited then
@@ -64,30 +64,21 @@ val _ = Define `
     SOME ( st with<| has_exited := T |>)))`;
 
 
-(*val system_step : io_state -> io_event -> io_state -> bool*)
+(*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
- (system_step st1 (IO_event n xs) st2 =  
-(if st1.has_exited then
-    F
-  else if (n = 0) /\ isEof st1 xs then
-    st1 = st2
+ (simpleIO_oracle st (IO_event n xs) =  
+(if st.has_exited then
+    NONE
+  else if (n = 0) /\ isEof st xs then
+    SOME st
   else if n = 1 then
-    (case getChar st1 xs of
-      SOME st' => st' = st2
-    | NONE => F
-    )
+    getChar st xs
   else if n = 2 then
-    (case putChar st1 xs of
-      SOME st' => st' = st2
-    | NONE => F
-    )
+    putChar st xs
   else if n = 3 then
-    (case exit st1 of
-      SOME st' => st' = st2
-    | NONE => F
-    )
+    exit st
   else
-    F))`;
+    NONE))`;
 
 val _ = export_theory()
 

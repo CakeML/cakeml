@@ -9,7 +9,17 @@ open import Lib
    in the array. *)
 type io_event = IO_event of nat * (list (word8 * word8))
 
-type io_trace = maybe (llist io_event)
+(* An I/O oracle accepts or rejects the next event in an io_trace according to
+ * its oracle state, represented by the type variable 'ffi. *)
+
+type oracle 'ffi = 'ffi -> io_event -> maybe 'ffi
+
+type oracle_state_and_trace 'ffi =
+  <| oracle_state: 'ffi
+   ; io_trace: llist io_event
+   |>
+
+type io_state 'ffi = maybe (oracle_state_and_trace 'ffi)
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -27,16 +37,32 @@ type  behaviour =
        well-typed program. *)
   | Fail
 
-val call_FFI : nat -> list word8 -> io_trace -> list word8 * io_trace
-let call_FFI n bytes io_trace =
-  match io_trace with
-  | Just events ->
-     match lhd events with
+val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> io_state 'ffi -> list word8 * io_state 'ffi
+let call_FFI oracle n bytes io_state =
+  match io_state with
+  | Just s ->
+     match lhd s.io_trace with
      | Just (IO_event n' xs) ->
          if (n = n') && (map fst xs = bytes) then
-           (map snd xs, ltl events)
+           match oracle s.oracle_state (IO_event n xs) with
+           | Just ffi' -> (map snd xs,
+                           Just <| oracle_state = ffi'
+                                 ; io_trace = fromJust (ltl s.io_trace) |>)
+           | Nothing -> (bytes, Nothing)
+           end
          else (bytes, Nothing)
      | _ -> (bytes, Nothing)
      end
   | _ -> (bytes, Nothing)
+  end
+
+(* trace-based semantics can be recovered as an instance of oracle-based
+ * semantics by using a trivial oracle_state that simply corresponds
+ * exactly to the io_trace. *)
+
+val trace_oracle : oracle (llist io_event)
+let trace_oracle io_trace event =
+  match lhd io_trace with
+  | Just event' -> if event = event' then ltl io_trace else Nothing
+  | _ -> Nothing
   end
