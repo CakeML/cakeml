@@ -18,12 +18,12 @@ val compile_def = Define`
     | SOME prog =>
         case infertype_prog c.inferencer_config prog of
         | NONE => Failure "type error"
-        | SOME inferencer_config =>
-            case compile c.backend_config prog of
+        | SOME ic =>
+            case source_to_target$compile c.backend_config prog of
             | NONE => Failure "compile error"
-            | SOME (bytes,backend_config) =>
-              Success (bytes, <| inferencer_config := inferencer_config
-                               ; backend_config := backend_config
+            | SOME (bytes,bc) =>
+              Success (bytes, <| inferencer_config := ic
+                               ; backend_config := bc
                                |>)`;
 
 val _ = export_theory();
