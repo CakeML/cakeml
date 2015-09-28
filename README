@@ -1,13 +1,13 @@
-The CakeML project. See https://cakeml.org and https://github.com/CakeML.
+The CakeML project (https://cakeml.org).
 
 A verified implementation of a significant subset of Standard ML in the HOL4
-theorem prover (http://hol.sourceforge.net).
+theorem prover (http://hol-theorem-prover.org).
 
-NB: We develop this using the head of the HOL4 development version in Github
-(https://github.com/HOL-Theorem-Prover/HOL), and it will not work on official HOL releases.
-We build HOL on PolyML 5.5.2 (http://www.polyml.org/). Also, a full build
-(including the bootstrapping which runs the compiler on itself in the logic)
-may require 8GB RAM.
+We build CakeML using the latest development version of HOL4.
+We build HOL on PolyML 5.5.2 (http://www.polyml.org).
+
+This branch (master) contains the latest development version of CakeML.
+See the version1 branch for the previous version.
 
 Directory structure:
 
@@ -16,62 +16,30 @@ Directory structure:
     - its concrete syntax
     - its abstract syntax
     - small step semantics
-    - big step semantics
+    - big step semantics (both functional and relational)
+    - semantics of FFI calls
     - a type system
-    - a verified, clocked interpreter (in the proofs/ sub-directory)
-    - basic facts about the semantics (including determinism) in the proofs/
-      sub-directory
     The definition is (mostly) expressed in
     Lem (http://www.cs.kent.ac.uk/~sao/lem),
     but the generated HOL is also included.
 
-- metatheory
-    Proofs about CakeML, including
+- semantics/proofs
+    Metatheory of CakeML and other proofs about the semantics
+    - a verified, clocked interpreter
+    - determinism
     - type soundness
     - equivalence of the big and small step semantics
-
-- parsing
-    Lexer and PEG parser for CakeML.
-
-- inference
-    Type inferencer for CakeML.
-- inference/proofs
-    Proof of soundness for the type inferencer.
-
-- bytecode
-    CakeML Bytecode specification, metatheory, and evaluator.
+    - equivalence of functional and relational semantics
 
 - compiler
-    Compiler from CakeML abstract syntax to CakeML Bytecode, with the
-    implementation expressed in Lem.
-- compiler/proofs
-    Verification of the compiler.
-
-- initial
-    Definition of the initial program that sets up the initial
-    environment for CakeML programs.
-
-- repl
-    The REPL implementation in HOL.
-    Defines repl_fun : string -> repl_result.
-- repl/proofs
-    The correctness proof for repl_fun.
-
-- standalone
-    Compile a whole CakeML program to x86 (or bytecode), instead of
-    interleaving compilation and execution as in the REPL.
+    A verified compiler for CakeML, including:
+    - parsing: lexer and PEG parser
+    - inference: type inferencer
+    - backend: compilation to ASM assembly language
+    - targets: code generation to x86, ARM, and more
 
 - translator
     A proof-producing translator from HOL functions to CakeML.
-- translator/repl
-    A run of the translator on the translatable part of repl_fun.
-
-- bootstrap
-    Evaluation of the compiler on the deep embedding of repl_fun produced by
-    the translator, and proofs about the result.
-
-- x86-64
-    x86-64 implementation of repl_fun and the runtime.
 
 - unverified/interp
     Unverified implementation, in Haskell, of the CakeML frontend augmented
@@ -79,24 +47,24 @@ Directory structure:
 - unverified/bytecode
     An unverified implementation of CakeML bytecode, written in C
 
-- hol-light
-    An implementation of HOL Light (http://www.cl.cam.ac.uk/~jrh13/hol-light/)
-    in CakeML.
+- candle
+    Verification of a HOL theorem prover, based on HOL Light
+    (http://www.cl.cam.ac.uk/~jrh13/hol-light/), implemented in CakeML.
 
 - explorer
     Tools for stepping through execution of the compiler from one intermediate
     language to the next, and pretty-printing the intermediate results. An
     instance is available on the CakeML website.
 
-- new-backend
-- targets
-    Work towards a new series of compilation phases to replace the bytecode.
+- mlstringScript.sml, mlstringLib.sml, mlstringSyntax.sml
+    Small theory of wrapped strings, so the translator can distinguish them
+    from char lists and target CakeML strings.
+
+- compute_basicLib.sml
+    Build compsets for evaluation in the logic.
 
 - miscLib.sml, miscScript.sml, preamble.sml
     Theorems and proof tools (e.g. tactics) used throughout the development.
-
-- sem-reason
-    Work towards logical tools for reasoning about CakeML programs.
 
 - lem_lib_stub
     empty versions of the Lem libraries (which we don't use, but building with
