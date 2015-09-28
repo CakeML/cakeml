@@ -1,7 +1,6 @@
 semantics/ffi
 semantics
 semantics/proofs
-metatheory
 compiler/parsing
 compiler/inference
 compiler/inference/proofs
