@@ -12,28 +12,39 @@ val _ = new_theory "ffi"
 (*open import Pervasives_extra*)
 (*open import Lib*)
 
-(* I/O events *)
+(* An oracle says how to perform an ffi call based on its internal state,
+ * represented by the type variable 'ffi. *)
 
-(* An I/O event, IO_event n bytes2, calls FFI function n with input
-   map fst bytes2 in the passed array, and the call returns with map snd bytes2
-   in the array. *)
+val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list ->  ('ffi # ( word8 list))option``);
+val _ = type_abbrev((*  'ffi *) "oracle" , ``: num -> 'ffi oracle_function``);
+
+(* call_FFI lifts the oracle into the option monad, allowing the CakeML
+ * semantics to continue past failed FFI. It also checks the length of the output. *)
+(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> maybe 'ffi -> maybe 'ffi * list word8*)
+val _ = Define `
+ (call_FFI oracle n bytes st =  
+((case st of
+    SOME ffi =>
+      (case oracle n ffi bytes of
+        SOME (ffi', bytes') =>
+          if LENGTH bytes' = LENGTH bytes then
+            (SOME ffi', bytes')
+          else (NONE, bytes)
+      | _ => (NONE, bytes)
+      )
+  | _ => (NONE, bytes)
+  )))`;
+
+
+(* I/O events for trace-based semantics *)
+
+(* An I/O event, IO_event n bytes2, represents the call of FFI function n with
+ * input map fst bytes2 in the passed array, returning map snd bytes2 in the
+ * array. *)
+
 val _ = Hol_datatype `
  io_event = IO_event of num => ( (word8 # word8)list)`;
 
-
-(* An I/O oracle accepts or rejects the next event in an io_trace according to
- * its oracle state, represented by the type variable 'ffi. *)
-
-val _ = type_abbrev((*  'ffi *) "oracle" , ``: 'ffi -> io_event ->  'ffi option``);
-
-val _ = Hol_datatype `
-(*  'ffi *) oracle_state_and_trace =
-  <| oracle_state: 'ffi
-   ; io_trace:  io_event llist
-   |>`;
-
-
-val _ = type_abbrev((*  'ffi *) "io_state" , ``:  ( 'ffi oracle_state_and_trace)option``);
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -53,36 +64,17 @@ val _ = Hol_datatype `
   | Fail`;
 
 
-(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> io_state 'ffi -> list word8 * io_state 'ffi*)
-val _ = Define `
- (call_FFI oracle n bytes io_state =  
-((case io_state of
-    SOME s =>
-     (case LHD s.io_trace of
-       SOME (IO_event n' xs) =>
-         if (n = n') /\ (MAP FST xs = bytes) then
-           (case oracle s.oracle_state (IO_event n xs) of
-             SOME ffi' => (MAP SND xs,
-                           SOME <| oracle_state := ffi'
-                                 ; io_trace := (THE (LTL s.io_trace)) |>)
-           | NONE => (bytes, NONE)
-           )
-         else (bytes, NONE)
-     | _ => (bytes, NONE)
-     )
-  | _ => (bytes, NONE)
-  )))`;
-
-
 (* trace-based semantics can be recovered as an instance of oracle-based
- * semantics by using a trivial oracle_state that simply corresponds
- * exactly to the io_trace. *)
+ * semantics as follows. *)
 
 (*val trace_oracle : oracle (llist io_event)*)
 val _ = Define `
- (trace_oracle io_trace event =  
+ (trace_oracle n io_trace input =  
 ((case LHD io_trace of
-    SOME event' => if event = event' then LTL io_trace else NONE
+    SOME (IO_event n' bytes2) =>
+      if (n = n') /\ (MAP FST bytes2 = input) then
+        SOME (THE (LTL io_trace), MAP SND bytes2)
+      else NONE
   | _ => NONE
   )))`;
 

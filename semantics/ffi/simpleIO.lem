@@ -5,56 +5,49 @@ open import Ffi
 
 type simpleIO = <| input : llist word8; output : llist word8 ; has_exited : bool |>
 
-val isEof : simpleIO -> list (word8 * word8) -> bool
-let isEof st io =
-  match io with
-  | [] -> false
-  | (x,y)::io ->
-      List.all (fun (x,y) -> x = y) io &&
-      ((st.input = lnil && y = 1) ||
-       (st.input <> lnil && y = 0))
-  end
-
-val getChar : simpleIO -> list (word8 * word8) -> maybe simpleIO
-let getChar st io =
-  match io with
+val isEof : oracle_function simpleIO
+let isEof st input =
+  match input with
   | [] -> Nothing
-  | (x,y)::io ->
-      if List.all (fun (x,y) -> x = y) io && Just y = lhd st.input then
-        Just <| st with input = fromJust (ltl st.input) |>
-      else
-        Nothing
+  | x::xs -> Just (st,(if st.input = lnil then 1 else 0)::xs)
   end
 
-val putChar : simpleIO -> list (word8 * word8) -> maybe simpleIO
-let putChar st io =
-  match io with
+val getChar : oracle_function simpleIO
+let getChar st input =
+  match input with
   | [] -> Nothing
-  | (x,y)::io ->
-      if x = y && List.all (fun (x,y) -> x = y) io then
-        Just <| st with output = lcons x st.output |>
-      else
-        Nothing
+  | x::xs ->
+      match lhd st.input with
+      | Just y -> Just (<| st with input = fromJust (ltl st.input) |>, y::xs)
+      | _ -> Nothing
+      end
   end
 
-val exit : simpleIO -> maybe simpleIO
-let exit st =
+val putChar : oracle_function simpleIO
+let putChar st input =
+  match input with
+  | [] -> Nothing
+  | x::_ -> Just (<| st with output = lcons x st.output |>, input)
+  end
+
+val exit : oracle_function simpleIO
+let exit st input =
   if st.has_exited then
     Nothing
   else
-    Just <| st with has_exited = true |>
+    Just (<| st with has_exited = true |>, input)
 
 val simpleIO_oracle : oracle simpleIO
-let simpleIO_oracle st (IO_event n xs) =
+let simpleIO_oracle n st input =
   if st.has_exited then
     Nothing
-  else if n = 0 && isEof st xs then
-    Just st
+  else if n = 0 then
+    isEof st input
   else if n = 1 then
-    getChar st xs
+    getChar st input
   else if n = 2 then
-    putChar st xs
+    putChar st input
   else if n = 3 then
-    exit st
+    exit st input
   else
     Nothing

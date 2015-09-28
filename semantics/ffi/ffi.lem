@@ -2,24 +2,35 @@ open import Pervasives
 open import Pervasives_extra
 open import Lib
 
+(* An oracle says how to perform an ffi call based on its internal state,
+ * represented by the type variable 'ffi. *)
+
+type oracle_function 'ffi = 'ffi -> list word8 -> maybe ('ffi * (list word8))
+type oracle 'ffi = nat -> oracle_function 'ffi
+
+(* call_FFI lifts the oracle into the option monad, allowing the CakeML
+ * semantics to continue past failed FFI. It also checks the length of the output. *)
+val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> maybe 'ffi -> maybe 'ffi * list word8
+let call_FFI oracle n bytes st =
+  match st with
+  | Just ffi ->
+      match oracle n ffi bytes with
+      | Just (ffi', bytes') ->
+          if length bytes' = length bytes then
+            (Just ffi', bytes')
+          else (Nothing, bytes)
+      | _ -> (Nothing, bytes)
+      end
+  | _ -> (Nothing, bytes)
+  end
+
 (* I/O events *)
 
-(* An I/O event, IO_event n bytes2, calls FFI function n with input
-   map fst bytes2 in the passed array, and the call returns with map snd bytes2
-   in the array. *)
+(* An I/O event, IO_event n bytes2, represents the call of FFI function n with
+ * input map fst bytes2 in the passed array, returning map snd bytes2 in the
+ * array. *)
+
 type io_event = IO_event of nat * (list (word8 * word8))
-
-(* An I/O oracle accepts or rejects the next event in an io_trace according to
- * its oracle state, represented by the type variable 'ffi. *)
-
-type oracle 'ffi = 'ffi -> io_event -> maybe 'ffi
-
-type oracle_state_and_trace 'ffi =
-  <| oracle_state: 'ffi
-   ; io_trace: llist io_event
-   |>
-
-type io_state 'ffi = maybe (oracle_state_and_trace 'ffi)
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -37,32 +48,15 @@ type  behaviour =
        well-typed program. *)
   | Fail
 
-val call_FFI : forall 'ffi. oracle 'ffi -> nat -> list word8 -> io_state 'ffi -> list word8 * io_state 'ffi
-let call_FFI oracle n bytes io_state =
-  match io_state with
-  | Just s ->
-     match lhd s.io_trace with
-     | Just (IO_event n' xs) ->
-         if (n = n') && (map fst xs = bytes) then
-           match oracle s.oracle_state (IO_event n xs) with
-           | Just ffi' -> (map snd xs,
-                           Just <| oracle_state = ffi'
-                                 ; io_trace = fromJust (ltl s.io_trace) |>)
-           | Nothing -> (bytes, Nothing)
-           end
-         else (bytes, Nothing)
-     | _ -> (bytes, Nothing)
-     end
-  | _ -> (bytes, Nothing)
-  end
-
 (* trace-based semantics can be recovered as an instance of oracle-based
- * semantics by using a trivial oracle_state that simply corresponds
- * exactly to the io_trace. *)
+ * semantics as follows. *)
 
 val trace_oracle : oracle (llist io_event)
-let trace_oracle io_trace event =
+let trace_oracle n io_trace input =
   match lhd io_trace with
-  | Just event' -> if event = event' then ltl io_trace else Nothing
+  | Just (IO_event n' bytes2) ->
+      if (n = n') && (map fst bytes2 = input) then
+        Just (fromJust (ltl io_trace), map snd bytes2)
+      else Nothing
   | _ -> Nothing
   end

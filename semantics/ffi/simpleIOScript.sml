@@ -17,66 +17,59 @@ val _ = Hol_datatype `
  simpleIO = <| input :  word8 llist; output :  word8 llist ; has_exited : bool |>`;
 
 
-(*val isEof : simpleIO -> list (word8 * word8) -> bool*)
+(*val isEof : oracle_function simpleIO*)
 val _ = Define `
- (isEof st io =  
-((case io of
-    [] => F
-  | (x,y)::io =>
-      EVERY (\ (x,y) .  x = y) io /\
-      (((st.input = LNIL) /\ (y =n2w ( 1))) \/
-       ((st.input <> LNIL) /\ (y =n2w ( 0))))
-  )))`;
-
-
-(*val getChar : simpleIO -> list (word8 * word8) -> maybe simpleIO*)
-val _ = Define `
- (getChar st io =  
-((case io of
+ (isEof st input =  
+((case input of
     [] => NONE
-  | (x,y)::io =>
-      if EVERY (\ (x,y) .  x = y) io /\ (SOME y = LHD st.input) then
-        SOME ( st with<| input := THE (LTL st.input) |>)
-      else
-        NONE
+  | x::xs => SOME (st,((if st.input = LNIL then n2w ( 1) else n2w ( 0))::xs))
   )))`;
 
 
-(*val putChar : simpleIO -> list (word8 * word8) -> maybe simpleIO*)
+(*val getChar : oracle_function simpleIO*)
 val _ = Define `
- (putChar st io =  
-((case io of
+ (getChar st input =  
+((case input of
     [] => NONE
-  | (x,y)::io =>
-      if (x = y) /\ EVERY (\ (x,y) .  x = y) io then
-        SOME ( st with<| output := LCONS x st.output |>)
-      else
-        NONE
+  | x::xs =>
+      (case LHD st.input of
+        SOME y => SOME (( st with<| input := THE (LTL st.input) |>), (y::xs))
+      | _ => NONE
+      )
   )))`;
 
 
-(*val exit : simpleIO -> maybe simpleIO*)
+(*val putChar : oracle_function simpleIO*)
 val _ = Define `
- (exit st =  
+ (putChar st input =  
+((case input of
+    [] => NONE
+  | x::_ => SOME (( st with<| output := LCONS x st.output |>), input)
+  )))`;
+
+
+(*val exit : oracle_function simpleIO*)
+val _ = Define `
+ (exit st input =  
 (if st.has_exited then
     NONE
   else
-    SOME ( st with<| has_exited := T |>)))`;
+    SOME (( st with<| has_exited := T |>), input)))`;
 
 
 (*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
- (simpleIO_oracle st (IO_event n xs) =  
+ (simpleIO_oracle n st input =  
 (if st.has_exited then
     NONE
-  else if (n = 0) /\ isEof st xs then
-    SOME st
+  else if n = 0 then
+    isEof st input
   else if n = 1 then
-    getChar st xs
+    getChar st input
   else if n = 2 then
-    putChar st xs
+    putChar st input
   else if n = 3 then
-    exit st
+    exit st input
   else
     NONE))`;
 
