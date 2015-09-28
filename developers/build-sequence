@@ -16,6 +16,7 @@ compiler/backend/gc
 compiler/backend
 compiler/backend/semantics
 compiler/backend/proofs
+explorer/pp/astPP
 translator
 candle/set-theory
 candle/syntax-lib
@@ -25,7 +26,6 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/x86_kernel
 candle/standard/opentheory
-explorer/pp/astPP
 explorer/pp
 explorer
 translator/okasaki-examples
