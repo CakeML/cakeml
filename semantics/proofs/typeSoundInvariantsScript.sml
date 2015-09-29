@@ -127,11 +127,11 @@ val _ = Define `
  * ensures that no other contexts can be created under a let binding. *)
 (*val type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
 (*val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool*)
-(*val type_state : nat -> ctMap -> tenvS -> small_state -> t -> bool*)
+(*val type_state : forall 'ffi. nat -> ctMap -> tenvS -> small_state 'ffi -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
  val _ = Define `
- 
+
 (tenv_ok Empty = T)
 /\
 (tenv_ok (Bind_tvar n tenv) = (tenv_ok tenv))
@@ -552,9 +552,9 @@ val _ = Define `
 
 
 val _ = Define `
- (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(st:state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
+ (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(st: 'ffi state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
 ((case r of
-       Rval (new_mods, new_vals) => 
+       Rval (new_mods, new_vals) =>
          (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
           st',extend_top_env new_mods new_vals new_ctors env)
      | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,st',env)

@@ -40,17 +40,17 @@ evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v bv)
 ==>
 evaluate_ctxt env s1 (Capp Opapp vs1 ()  es) v (s2, Rerr (Rabort Rtype_error)))
 
-/\ (! env op v vs1 vs2 es res s1 s2 new_refs new_io.
+/\ (! env op v vs1 vs2 es res s1 s2 new_refs new_ffi.
 ((op <> Opapp) /\
 evaluate_list F env s1 es (s2, Rval vs2) /\
-(do_app (s2.refs,s2.io) op ((REVERSE vs2 ++ [v]) ++ vs1) = SOME ((new_refs, new_io) ,res)))
+(do_app (s2.refs,s2.ffi) op ((REVERSE vs2 ++ [v]) ++ vs1) = SOME ((new_refs, new_ffi) ,res)))
 ==>
-evaluate_ctxt env s1 (Capp op vs1 ()  es) v (( s2 with<| io := new_io; refs := new_refs |>), res))
+evaluate_ctxt env s1 (Capp op vs1 ()  es) v (( s2 with<| ffi := new_ffi; refs := new_refs |>), res))
 
 /\ (! env op v vs1 vs2 es s1 s2.
 ((op <> Opapp) /\
 evaluate_list F env s1 es (s2, Rval vs2) /\
-(do_app (s2.refs, s2.io) op ((REVERSE vs2 ++ [v]) ++ vs1) = NONE))
+(do_app (s2.refs, s2.ffi) op ((REVERSE vs2 ++ [v]) ++ vs1) = NONE))
 ==>
 evaluate_ctxt env s1 (Capp op vs1 ()  es) v (s2, Rerr (Rabort Rtype_error)))
 
@@ -138,15 +138,15 @@ evaluate_ctxts s' cs res1 res2)
 ==>
 evaluate_ctxts s ((Chandle ()  pes,env)::cs) (Rerr (Rraise v)) res2)`;
 
-val _ = Hol_reln ` (! env e c res bv io refs st.
-(evaluate F env <| io := io; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> e (st, res) /\
+val _ = Hol_reln ` (! env e c res bv ffi refs st.
+(evaluate F env <| ffi := ffi; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> e (st, res) /\
 evaluate_ctxts st c res bv)
 ==>
-evaluate_state (env, (refs, io), Exp e, c) bv)
+evaluate_state (env, (refs, ffi), Exp e, c) bv)
 
-/\ (! env io refs v c bv.
-(evaluate_ctxts <| io := io; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> c (Rval v) bv)
+/\ (! env ffi refs v c bv.
+(evaluate_ctxts <| ffi := ffi; clock :=( 0); refs := refs; defined_types := {}; defined_mods := {} |> c (Rval v) bv)
 ==>
-evaluate_state (env, (refs, io), Val v, c) bv)`;
+evaluate_state (env, (refs, ffi), Val v, c) bv)`;
 val _ = export_theory()
 

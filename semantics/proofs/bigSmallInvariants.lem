@@ -8,7 +8,7 @@ open import BigStep
 (* ------ Auxiliary relations for proving big/small step equivalence ------ *)
 
 indreln
-[evaluate_ctxt : environment v -> state -> ctxt_frame -> v -> state * result v v -> bool]
+[evaluate_ctxt : forall 'ffi. environment v -> state 'ffi -> ctxt_frame -> v -> state 'ffi * result v v -> bool]
 
 raise : forall env s v.
 true
@@ -41,19 +41,19 @@ evaluate_ctxt env s1 (Capp Opapp vs1 () es) v (s2, Rerr (Rabort Rtype_error))
 
 and
 
-app3 : forall env op v vs1 vs2 es res s1 s2 new_refs new_io.
+app3 : forall env op v vs1 vs2 es res s1 s2 new_refs new_ffi.
 op <> Opapp &&
 evaluate_list false env s1 es (s2, Rval vs2) &&
-do_app (s2.refs,s2.io) op (List.reverse vs2 ++ [v] ++ vs1) = Just ((new_refs, new_io) ,res)
+do_app (s2.refs,s2.ffi) op (List.reverse vs2 ++ [v] ++ vs1) = Just ((new_refs, new_ffi) ,res)
 ==>
-evaluate_ctxt env s1 (Capp op vs1 () es) v (<| s2 with io = new_io; refs = new_refs |>, res)
+evaluate_ctxt env s1 (Capp op vs1 () es) v (<| s2 with ffi = new_ffi; refs = new_refs |>, res)
 
 and
 
 app4 : forall env op v vs1 vs2 es s1 s2.
 op <> Opapp &&
 evaluate_list false env s1 es (s2, Rval vs2) &&
-do_app (s2.refs, s2.io) op (List.reverse vs2 ++ [v] ++ vs1) = Nothing
+do_app (s2.refs, s2.ffi) op (List.reverse vs2 ++ [v] ++ vs1) = Nothing
 ==>
 evaluate_ctxt env s1 (Capp op vs1 () es) v (s2, Rerr (Rabort Rtype_error))
 
@@ -139,7 +139,7 @@ evaluate_list false env s es (s', Rerr err)
 evaluate_ctxt env s (Ccon cn vs () es) v (s', Rerr err)
 
 indreln
-[evaluate_ctxts : state -> list ctxt -> result v v -> state * result v v -> bool]
+[evaluate_ctxts : forall 'ffi. state 'ffi -> list ctxt -> result v v -> state 'ffi * result v v -> bool]
 
 empty : forall res s.
 true
@@ -172,17 +172,17 @@ evaluate_ctxts s' cs res1 res2
 evaluate_ctxts s ((Chandle () pes,env)::cs) (Rerr (Rraise v)) res2
 
 indreln
-[evaluate_state : small_state -> state * result v v -> bool]
+[evaluate_state : forall 'ffi. small_state 'ffi -> state 'ffi * result v v -> bool]
 
-exp : forall env e c res bv io refs st.
-evaluate false env <| io = io; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> e (st, res) &&
+exp : forall env e c res bv ffi refs st.
+evaluate false env <| ffi = ffi; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> e (st, res) &&
 evaluate_ctxts st c res bv
 ==>
-evaluate_state (env, (refs, io), Exp e, c) bv
+evaluate_state (env, (refs, ffi), Exp e, c) bv
 
 and
 
-vl : forall env io refs v c bv.
-evaluate_ctxts <| io = io; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> c (Rval v) bv
+vl : forall env ffi refs v c bv.
+evaluate_ctxts <| ffi = ffi; clock = 0; refs = refs; defined_types = {}; defined_mods = {} |> c (Rval v) bv
 ==>
-evaluate_state (env, (refs, io), Val v, c) bv
+evaluate_state (env, (refs, ffi), Val v, c) bv
