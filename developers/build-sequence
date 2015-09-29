@@ -1,23 +1,33 @@
+# semantics and metatheory
 semantics/ffi
 semantics
 semantics/proofs
+
+# compiler
 compiler/parsing
 compiler/inference
-compiler/inference/proofs
+compiler/backend/reg_alloc
+compiler/backend/gc
+compiler/backend
 compiler/targets/asm
 compiler/targets
 compiler/targets/x64
 compiler/targets/arm6
 compiler/targets/arm8
 compiler/targets/mips
-compiler/backend/reg_alloc
-compiler/backend/reg_alloc/proofs
-compiler/backend/gc
-compiler/backend
+
+# compiler verification
+compiler/parsing/proofs
+compiler/inference/proofs
 compiler/backend/semantics
+compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
+
+# translator
 explorer/pp/astPP
 translator
+
+# candle
 candle/set-theory
 candle/syntax-lib
 candle/standard/syntax
@@ -26,9 +36,14 @@ candle/standard/monadic
 candle/standard/ml_kernel
 candle/standard/x86_kernel
 candle/standard/opentheory
+
+# explorer
 explorer/pp
 explorer
+
+# tests
+semantics/testing
+compiler/parsing/testing
 translator/okasaki-examples
 translator/other-examples
 translator/simulator
-compiler/parsing/testing

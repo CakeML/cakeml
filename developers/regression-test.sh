@@ -24,6 +24,7 @@ echo
 
 while read i
 do
+  [[ $i == '#'* ]] || [[ -z $i ]] && continue
   if [ ! -d $i ]
   then
       echo "Ignoring non-existent directory $i"
