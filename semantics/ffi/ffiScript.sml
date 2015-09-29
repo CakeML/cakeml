@@ -18,21 +18,25 @@ val _ = new_theory "ffi"
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list ->  ('ffi # ( word8 list))option``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: num -> 'ffi oracle_function``);
 
-(* call_FFI lifts the oracle into the option monad, allowing the CakeML
- * semantics to continue past failed FFI. It also checks the length of the output. *)
-(*val call_FFI : forall 'ffi. oracle 'ffi -> nat -> maybe 'ffi -> list word8 -> maybe 'ffi * list word8*)
+val _ = Hol_datatype `
+(*  'ffi *) ffi_state = <|
+  oracle : 'ffi oracle;
+  ffi_state :  'ffi option |>`;
+
+
+(*val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8*)
 val _ = Define `
- (call_FFI oracle n st bytes =  
-((case st of
+ (call_FFI st n bytes =  
+((case st.ffi_state of
     SOME ffi =>
-      (case oracle n ffi bytes of
+      (case st.oracle n ffi bytes of
         SOME (ffi', bytes') =>
           if LENGTH bytes' = LENGTH bytes then
-            (SOME ffi', bytes')
-          else (NONE, bytes)
-      | _ => (NONE, bytes)
+            (( st with<| ffi_state := SOME ffi' |>), bytes')
+          else (( st with<| ffi_state := NONE |>), bytes)
+      | _ => (( st with<| ffi_state := NONE |>), bytes)
       )
-  | _ => (NONE, bytes)
+  | _ => (st, bytes)
   )))`;
 
 

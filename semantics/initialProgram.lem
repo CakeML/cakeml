@@ -110,14 +110,14 @@ let add_to_sem_env (st, env) prog =
       | _ -> Nothing
       end
 
-val prim_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)
+val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)
 let prim_sem_env ffi =
   add_to_sem_env
     (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
      <| m = []; c = ([],[]); v = [] |>)
         prim_types_program
 
-val basis_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)
+val basis_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)
 let basis_sem_env ffi =
   add_to_sem_env (Maybe_extra.fromJust (prim_sem_env ffi)) basis_program
 

@@ -181,7 +181,7 @@ val _ = Hol_datatype `
 (*  'ffi *) state =
   <| clock : num
    ; refs  : v store
-   ; ffi : 'ffi oracle #  'ffi option
+   ; ffi : 'ffi ffi_state
    ; defined_types : tid_or_exn set
    ; defined_mods : modN set
    |>`;
@@ -524,11 +524,11 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
-val _ = type_abbrev((*  'ffi *) "store_ffi" , ``: v store # ( 'ffi oracle #  'ffi option)``);
+val _ = type_abbrev((*  'ffi *) "store_ffi" , ``: v store # 'ffi ffi_state``);
 
 (*val do_app : forall 'ffi. store_ffi 'ffi -> op -> list v -> maybe (store_ffi 'ffi * result v v)*)
 val _ = Define `
- (do_app ((s: v store),(t: 'ffi oracle #  'ffi option)) op vs =  
+ (do_app ((s: v store),(t: 'ffi ffi_state)) op vs =  
 ((case (op, vs) of
       (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
@@ -682,10 +682,10 @@ val _ = Define `
     | (FFI n, [Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI (FST t) n (SND t) ws of
+            (case call_FFI t n ws of
               (t', ws') =>
                (case store_assign lnum (W8array ws') s of
-                 SOME s' => SOME ((s', (FST t, t')), Rval (Conv NONE []))
+                 SOME s' => SOME ((s', t'), Rval (Conv NONE []))
                | NONE => NONE
                )
             )

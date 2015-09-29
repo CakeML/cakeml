@@ -132,7 +132,7 @@ val _ = Define `
       )))`;
 
 
-(*val prim_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)*)
+(*val prim_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)*)
 val _ = Define `
  (prim_sem_env ffi =  
 (add_to_sem_env
@@ -141,7 +141,7 @@ val _ = Define `
         prim_types_program))`;
 
 
-(*val basis_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)*)
+(*val basis_sem_env : forall 'ffi. Eq 'ffi => ffi_state 'ffi -> maybe (state 'ffi * environment v)*)
 val _ = Define `
  (basis_sem_env ffi =  
 (add_to_sem_env (THE (prim_sem_env ffi)) basis_program))`;

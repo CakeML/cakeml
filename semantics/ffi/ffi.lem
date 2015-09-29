@@ -8,20 +8,22 @@ open import Lib
 type oracle_function 'ffi = 'ffi -> list word8 -> maybe ('ffi * (list word8))
 type oracle 'ffi = nat -> oracle_function 'ffi
 
-(* call_FFI lifts the oracle into the option monad, allowing the CakeML
- * semantics to continue past failed FFI. It also checks the length of the output. *)
-val call_FFI : forall 'ffi. oracle 'ffi -> nat -> maybe 'ffi -> list word8 -> maybe 'ffi * list word8
-let call_FFI oracle n st bytes =
-  match st with
+type ffi_state 'ffi = <|
+  oracle : oracle 'ffi;
+  ffi_state : maybe 'ffi |>
+
+val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8
+let call_FFI st n bytes =
+  match st.ffi_state with
   | Just ffi ->
-      match oracle n ffi bytes with
+      match st.oracle n ffi bytes with
       | Just (ffi', bytes') ->
           if length bytes' = length bytes then
-            (Just ffi', bytes')
-          else (Nothing, bytes)
-      | _ -> (Nothing, bytes)
+            (<| st with ffi_state = Just ffi' |>, bytes')
+          else (<| st with ffi_state = Nothing |>, bytes)
+      | _ -> (<| st with ffi_state = Nothing |>, bytes)
       end
-  | _ -> (Nothing, bytes)
+  | _ -> (st, bytes)
   end
 
 (* I/O events *)

@@ -28,8 +28,9 @@ evaluate_prog_with_io state k prog =
   evaluate_prog
     <| clock := k
      ; refs := state.sem_st.refs
-     ; ffi := (add_trace (FST state.sem_st.ffi),
-               OPTION_MAP (λffi. (ffi,[])) (SND state.sem_st.ffi))
+     ; ffi := <| oracle := add_trace state.sem_st.ffi.oracle;
+                 ffi_state := OPTION_MAP (λffi. (ffi,[])) state.sem_st.ffi.ffi_state
+               |>
      ; defined_types := state.sem_st.defined_types
      ; defined_mods := state.sem_st.defined_mods
      |>
@@ -44,7 +45,7 @@ val sem_def = Define `
   ?k state' r envC ffi'.
     r ≠ Rerr (Rabort Rtimeout_error) ∧
     evaluate_prog_with_io state k prog = (state', envC, r) ∧
-    SND state'.ffi = SOME (ffi',REVERSE io_list)) ∧
+    state'.ffi.ffi_state = SOME (ffi',REVERSE io_list)) ∧
 (sem state prog (Diverge io_trace) ⇔
   can_type_prog state prog ∧
   (* for all clocks, evaluation times out and the accumulated io events
@@ -53,12 +54,12 @@ val sem_def = Define `
     (evaluate_prog_with_io state k prog =
         (state', envC, Rerr (Rabort Rtimeout_error))) ∧
      LTAKE n io_trace = SOME io_list ∧
-     SND state'.ffi = SOME (ffi', REVERSE io_list)) ∧
+     state'.ffi.ffi_state = SOME (ffi', REVERSE io_list)) ∧
   (* furthermore, the whole io_trace is necessary:
      for every prefix of the io_trace, there is a clock
      for which evaluation produces that prefix  *)
    (!n io_list. LTAKE n io_trace = SOME io_list ⇒
-      ?k ffi'. SND (FST (evaluate_prog_with_io state k prog)).ffi = SOME (ffi', REVERSE io_list))) ∧
+      ?k ffi'. (FST (evaluate_prog_with_io state k prog)).ffi.ffi_state = SOME (ffi', REVERSE io_list))) ∧
 (sem state prog Fail ⇔
   ¬(can_type_prog state prog))`;
 

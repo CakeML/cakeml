@@ -37,7 +37,7 @@ val small_eval_prefix = Q.prove (
   small_eval env s e c r`,
  rw [] >>
  PairCases_on `r` >>
- cases_on `r3` >>
+ cases_on `r2` >>
  fs [small_eval_def] >-
  metis_tac [transitive_RTC, transitive_def] >>
  cases_on `e''` >>
@@ -181,7 +181,7 @@ rw [do_con_check_def] >>
 every_case_tac >>
 fs [] >>
 PairCases_on `r` >>
-cases_on `r3` >|
+cases_on `r2` >|
 [all_tac,
  cases_on `e`] >>
 rw [small_eval_def] >>
@@ -481,7 +481,7 @@ val small_eval_match_thm = Q.prove (
       match_mp_tac RTC_SINGLE >>
       rw [e_step_reln_def, e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r3` >|
+      cases_on `r2` >|
       [all_tac,
        cases_on `e'`] >>
       fs [alt_small_eval_def, small_eval_def]
@@ -499,7 +499,7 @@ val small_eval_match_thm = Q.prove (
       rw [] >>
       rw [e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r3` >|
+      cases_on `r2` >|
       [all_tac,
        cases_on `e'`] >>
       fs [alt_small_eval_def] >>
@@ -1556,8 +1556,8 @@ val small_exp_determ = Q.store_thm ("small_exp_determ",
  pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; defined_types := {}; defined_mods := {} |>`, `e`] mp_tac) >>
  simp [] >>
  strip_tac >>
- first_assum (qspec_then `<| ffi := (r11,r12); refs := r10; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
- first_assum (qspec_then `<| ffi := (r21,r22); refs := r20; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r11; refs := r10; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := r21; refs := r20; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
  pop_assum kall_tac >>
  simp [] >>
  strip_tac >>
