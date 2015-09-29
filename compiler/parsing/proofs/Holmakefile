@@ -1,0 +1,3 @@
+INCLUDES = ..
+
+HOLHEAP = ../heap

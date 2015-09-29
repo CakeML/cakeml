@@ -1,6 +1,6 @@
 open HolKernel Parse boolLib bossLib
 
-open cmlPEGTheory cmlPtreeConversionTheory pegSoundTheory
+open cmlPEGTheory cmlPtreeConversionTheory
 open lcsymtacs
 open monadsyntax
 
@@ -31,12 +31,6 @@ val cmlParseREPLTop_def = Define`
     SOME(toks',ast)
   od
 `
-
-val cmlpeg_executed =
-    pegexecTheory.peg_eval_executed
-      |> Q.GEN `G` |> Q.ISPEC `cmlPEG`
-      |> SIMP_RULE (srw_ss()) [cmlPEGTheory.PEG_wellformed]
-      |> Q.GEN `s` |> Q.GEN `r` |> Q.GEN `e` |> GSYM
 
 (* This function parses a single declaration followed by a semicolon.
    No junk is allowed at the end.
