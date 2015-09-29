@@ -98,9 +98,9 @@ let basis_program =
       mk_ffi 8;
       mk_ffi 9] ]
 
-val add_to_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)
-let add_to_sem_env oc (st, env) prog =
-  let res = { res | evaluate_whole_prog false oc env st prog res } in
+val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)
+let add_to_sem_env (st, env) prog =
+  let res = { res | evaluate_whole_prog false env st prog res } in
     if res = {} then
       Nothing
     else
@@ -110,16 +110,16 @@ let add_to_sem_env oc (st, env) prog =
       | _ -> Nothing
       end
 
-val prim_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> 'ffi -> maybe (state 'ffi * environment v)
-let prim_sem_env oc ffi =
-  add_to_sem_env oc
-    (<| clock = 0; ffi = Just ffi; refs = []; defined_mods = {}; defined_types = {} |>,
+val prim_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)
+let prim_sem_env ffi =
+  add_to_sem_env
+    (<| clock = 0; ffi = ffi; refs = []; defined_mods = {}; defined_types = {} |>,
      <| m = []; c = ([],[]); v = [] |>)
         prim_types_program
 
-val basis_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> 'ffi -> maybe (state 'ffi * environment v)
-let basis_sem_env oc ffi =
-  add_to_sem_env oc (Maybe_extra.fromJust (prim_sem_env oc ffi)) basis_program
+val basis_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)
+let basis_sem_env ffi =
+  add_to_sem_env (Maybe_extra.fromJust (prim_sem_env ffi)) basis_program
 
 open import TypeSystem
 type top_state 'ffi =

@@ -136,7 +136,7 @@ let lookup_var_id id env =
 type state 'ffi =
   <| clock : nat
    ; refs  : store v
-   ; ffi : maybe 'ffi
+   ; ffi : oracle 'ffi * maybe 'ffi
    ; defined_types : set tid_or_exn
    ; defined_mods : set modN
    |>
@@ -430,10 +430,10 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-type store_ffi 'v 'ffi = store 'v * maybe 'ffi
+type store_ffi 'v 'ffi = store 'v * (oracle 'ffi * maybe 'ffi)
 
-val do_app : forall 'ffi. oracle 'ffi -> store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)
-let do_app oc (s,t) op vs =
+val do_app : forall 'ffi. store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)
+let do_app (s,t) op vs =
   match (op, vs) with
     | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
@@ -587,10 +587,10 @@ let do_app oc (s,t) op vs =
     | (FFI n, [Loc lnum]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
-            match call_FFI oc n t ws with
+            match call_FFI (fst t) n (snd t) ws with
             | (t', ws') ->
                match store_assign lnum (W8array ws') s with
-               | Just s' -> Just ((s', t'), Rval (Conv Nothing []))
+               | Just s' -> Just ((s', (fst t, t')), Rval (Conv Nothing []))
                | Nothing -> Nothing
                end
             end

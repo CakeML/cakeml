@@ -24,12 +24,12 @@ can_type_prog state prog =
         tdecs' tenvT' tenvM' tenvC' tenv'`;
 
 val evaluate_prog_with_io_def = Define `
-evaluate_prog_with_io oracle state k prog =
+evaluate_prog_with_io state k prog =
   evaluate_prog
-    (add_trace oracle)
     <| clock := k
      ; refs := state.sem_st.refs
-     ; ffi := OPTION_MAP (λffi. (ffi,[])) state.sem_st.ffi
+     ; ffi := (add_trace (FST state.sem_st.ffi),
+               OPTION_MAP (λffi. (ffi,[])) (SND state.sem_st.ffi))
      ; defined_types := state.sem_st.defined_types
      ; defined_mods := state.sem_st.defined_mods
      |>
@@ -37,29 +37,29 @@ evaluate_prog_with_io oracle state k prog =
     prog`;
 
 val sem_def = Define `
-(sem oracle state prog (Terminate io_list) ⇔
+(sem state prog (Terminate io_list) ⇔
   can_type_prog state prog ∧
   (* there is a clock for which evaluation does not time out and the
      accumulated io events match the given io_list *)
   ?k state' r envC ffi'.
     r ≠ Rerr (Rabort Rtimeout_error) ∧
-    evaluate_prog_with_io oracle state k prog = (state', envC, r) ∧
-    state'.ffi = SOME (ffi',REVERSE io_list)) ∧
-(sem oracle state prog (Diverge io_trace) ⇔
+    evaluate_prog_with_io state k prog = (state', envC, r) ∧
+    SND state'.ffi = SOME (ffi',REVERSE io_list)) ∧
+(sem state prog (Diverge io_trace) ⇔
   can_type_prog state prog ∧
   (* for all clocks, evaluation times out and the accumulated io events
      match some prefix of the given io_trace *)
   (!k. ?state' envC ffi' n io_list.
-    (evaluate_prog_with_io oracle state k prog =
+    (evaluate_prog_with_io state k prog =
         (state', envC, Rerr (Rabort Rtimeout_error))) ∧
      LTAKE n io_trace = SOME io_list ∧
-     state'.ffi = SOME (ffi', REVERSE io_list)) ∧
+     SND state'.ffi = SOME (ffi', REVERSE io_list)) ∧
   (* furthermore, the whole io_trace is necessary:
      for every prefix of the io_trace, there is a clock
      for which evaluation produces that prefix  *)
    (!n io_list. LTAKE n io_trace = SOME io_list ⇒
-      ?k ffi'. (FST (evaluate_prog_with_io oracle state k prog)).ffi = SOME (ffi', REVERSE io_list))) ∧
-(sem oracle state prog Fail ⇔
+      ?k ffi'. SND (FST (evaluate_prog_with_io state k prog)).ffi = SOME (ffi', REVERSE io_list))) ∧
+(sem state prog Fail ⇔
   ¬(can_type_prog state prog))`;
 
 (* attempt to do composed semantics for the simpleIO instantation of the oracle

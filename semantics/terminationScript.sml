@@ -233,16 +233,16 @@ val (evaluate_def,evaluate_ind) =
   tprove_no_defn ((evaluate_def,evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
-         | INL(_,s,_,es) => (s.clock,exps_size es)
-         | INR(_,s,_,_,pes,_) => (s.clock,pes_size pes))` >>
+         | INL(s,_,es) => (s.clock,exps_size es)
+         | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   check_clock_def,dec_clock_def,LESS_OR_EQ,
   do_if_def,do_log_thm] >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀(oc:'ffi oracle) s1 env e r s2. evaluate oc s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀(oc:'ffi oracle) s1 env v p v' r s2. evaluate_match oc s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  `(∀(s1:'ffi state) env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(s1:'ffi state) env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[check_clock_def,dec_clock_def] >> simp[])

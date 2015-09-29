@@ -118,10 +118,10 @@ val _ = Define `
       mk_ffi( 9)] ]))`;
 
 
-(*val add_to_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)*)
+(*val add_to_sem_env : forall 'ffi. Eq 'ffi => (state 'ffi * environment v) -> prog -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (add_to_sem_env oc (st, env) prog =  
-(let res = ({ res | res | evaluate_whole_prog F oc env st prog res }) in
+ (add_to_sem_env (st, env) prog =  
+(let res = ({ res | res | evaluate_whole_prog F env st prog res }) in
     if res = {} then
       NONE
     else
@@ -132,19 +132,19 @@ val _ = Define `
       )))`;
 
 
-(*val prim_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> 'ffi -> maybe (state 'ffi * environment v)*)
+(*val prim_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (prim_sem_env oc ffi =  
-(add_to_sem_env oc
-    (<| clock :=( 0); ffi := (SOME ffi); refs := []; defined_mods := {}; defined_types := {} |>,
+ (prim_sem_env ffi =  
+(add_to_sem_env
+    (<| clock :=( 0); ffi := ffi; refs := []; defined_mods := {}; defined_types := {} |>,
      <| m := []; c := ([],[]); v := [] |>)
         prim_types_program))`;
 
 
-(*val basis_sem_env : forall 'ffi. Eq 'ffi => oracle 'ffi -> 'ffi -> maybe (state 'ffi * environment v)*)
+(*val basis_sem_env : forall 'ffi. Eq 'ffi => (oracle 'ffi * maybe 'ffi) -> maybe (state 'ffi * environment v)*)
 val _ = Define `
- (basis_sem_env oc ffi =  
-(add_to_sem_env oc (THE (prim_sem_env oc ffi)) basis_program))`;
+ (basis_sem_env ffi =  
+(add_to_sem_env (THE (prim_sem_env ffi)) basis_program))`;
 
 
 (*open import TypeSystem*)
