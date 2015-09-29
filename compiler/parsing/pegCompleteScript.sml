@@ -95,14 +95,6 @@ val peg_eval_choice_NONE =
   ``peg_eval G (i, choice s1 s2 f) NONE``
     |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
 
-val peg_eval_tok_NONE =
-  ``peg_eval G (i, tok P f) NONE``
-    |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
-
-val peg_eval_seq_NONE =
-  ``peg_eval G (i, seq s1 s2 f) NONE``
-    |> SIMP_CONV (srw_ss()) [Once peg_eval_cases]
-
 val disjImpI = prove(``~p \/ q ⇔ p ⇒ q``, DECIDE_TAC)
 
 val ptree_head_eq_tok0 = prove(
@@ -1592,7 +1584,7 @@ val completeness = store_thm(
       simp[cmlpeg_rules_applied, FDOM_cmlPEG, peg_V_def,
            peg_eval_choice, peg_eval_tok_NONE] >>
       dsimp[MAP_EQ_SING] >> rpt strip_tac >> rveq >>
-      fs[MAP_EQ_SING, sumID_def])
+      fs[MAP_EQ_SING])
   >- (print_tac "nUQTyOp" >>
       simp[MAP_EQ_SING] >> simp[peg_eval_NT_SOME] >>
       simp[cmlpeg_rules_applied, FDOM_cmlPEG,

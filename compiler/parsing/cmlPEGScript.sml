@@ -27,11 +27,6 @@ end
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
-val sumID_def = Define`
-  sumID (INL x) = x ∧
-  sumID (INR y) = y
-`;
-
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
   mk_linfix tgt acc [t] = acc ∧
@@ -59,13 +54,6 @@ val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
 val bindNT_def = Define`
   bindNT ntnm l = [Nd (mkNT ntnm) l]
 `
-
-val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
-
-val choicel_def = Define`
-  choicel [] = not (empty []) [] ∧
-  choicel (h::t) = choice h (choicel t) sumID
-`;
 
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
@@ -108,20 +96,19 @@ val peg_TypeDec_def = Define`
 (* expressions *)
 val peg_V_def = Define`
   peg_V =
-   choice (tok (λt.
+   choicel [tok (λt.
                   do s <- destAlphaT t;
                      assert(s ∉ {"before"; "div"; "mod"; "o";
                                  "true"; "false";"ref";"nil"} ∧
                             s ≠ "" ∧ ¬isUpper (HD s))
                   od = SOME ())
-               mktokLf)
-          (tok (λt.
+                (bindNT nV o mktokLf);
+            tok (λt.
                   do s <- destSymbolT t;
                      assert(s ∉ {"+"; "-"; "/"; "<"; ">"; "<="; ">="; "<>";
                                  ":="; "*"; "::"; "@"})
                   od = SOME ())
-               mktokLf)
-          (bindNT nV o sumID)
+                (bindNT nV o mktokLf)]
 `
 
 val peg_longV_def = Define`
