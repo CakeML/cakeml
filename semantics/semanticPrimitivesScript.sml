@@ -528,7 +528,7 @@ val _ = type_abbrev((* ( 'v, 'ffi) *) "store_ffi" , ``: 'v store # ( 'ffi oracle
 
 (*val do_app : forall 'ffi. store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)*)
 val _ = Define `
- (do_app (s,t) op vs =  
+ (do_app ((s: v store),(t: 'ffi oracle #  'ffi option)) op vs =  
 ((case (op, vs) of
       (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
