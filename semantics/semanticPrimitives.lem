@@ -430,9 +430,9 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-type store_ffi 'v 'ffi = store 'v * (oracle 'ffi * maybe 'ffi)
+type store_ffi 'ffi = store v * (oracle 'ffi * maybe 'ffi)
 
-val do_app : forall 'ffi. store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)
+val do_app : forall 'ffi. store_ffi 'ffi -> op -> list v -> maybe (store_ffi 'ffi * result v v)
 let do_app ((s:store v),(t:oracle 'ffi * maybe 'ffi)) op vs =
   match (op, vs) with
     | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->

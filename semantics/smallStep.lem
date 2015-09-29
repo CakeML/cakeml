@@ -33,7 +33,7 @@ type ctxt = ctxt_frame * environment v
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-type small_state 'ffi = environment v * store_ffi v 'ffi * exp_or_val * list ctxt
+type small_state 'ffi = environment v * store_ffi 'ffi * exp_or_val * list ctxt
 
 type e_step_result 'ffi =
   | Estep of small_state 'ffi
@@ -45,13 +45,13 @@ type e_step_result 'ffi =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : forall 'ffi. environment v -> store_ffi v 'ffi -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi
+val push : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : forall 'ffi. environment v -> store_ffi v 'ffi -> v -> list ctxt -> e_step_result 'ffi
+val return : forall 'ffi. environment v -> store_ffi 'ffi -> v -> list ctxt -> e_step_result 'ffi
 let return env s v c = Estep (env, s, Val v, c)
 
-val application : forall 'ffi. op -> environment v -> store_ffi v 'ffi -> list v -> list ctxt -> e_step_result 'ffi
+val application : forall 'ffi. op -> environment v -> store_ffi 'ffi -> list v -> list ctxt -> e_step_result 'ffi
 let application op env s vs c =
   match op with
     | Opapp ->
@@ -72,7 +72,7 @@ let application op env s vs c =
     end
 
 (* apply a context to a value *)
-val continue : forall 'ffi. store_ffi v 'ffi -> v -> list ctxt -> e_step_result 'ffi
+val continue : forall 'ffi. store_ffi 'ffi -> v -> list ctxt -> e_step_result 'ffi
 let continue s v cs =
   match cs with
     | [] -> Estuck
@@ -187,7 +187,7 @@ let e_step (env, s, ev, c) =
 (* Define a semantic function using the steps *)
 
 val e_step_reln : forall 'ffi. small_state 'ffi -> small_state 'ffi -> bool
-val small_eval : forall 'ffi. environment v -> store_ffi v 'ffi -> exp -> list ctxt -> store_ffi v 'ffi * result v v -> bool
+val small_eval : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> list ctxt -> store_ffi 'ffi * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
@@ -204,7 +204,7 @@ small_eval env s e c (s', Rerr (Rabort a)) =
     (rtc (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') &&
     (e_step (env',s',e',c') = Eabort a)
 
-val e_diverges : forall 'ffi. environment v -> store_ffi v 'ffi -> exp -> bool
+val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
     (rtc (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')

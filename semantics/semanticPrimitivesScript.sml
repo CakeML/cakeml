@@ -524,9 +524,9 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
-val _ = type_abbrev((* ( 'v, 'ffi) *) "store_ffi" , ``: 'v store # ( 'ffi oracle #  'ffi option)``);
+val _ = type_abbrev((*  'ffi *) "store_ffi" , ``: v store # ( 'ffi oracle #  'ffi option)``);
 
-(*val do_app : forall 'ffi. store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)*)
+(*val do_app : forall 'ffi. store_ffi 'ffi -> op -> list v -> maybe (store_ffi 'ffi * result v v)*)
 val _ = Define `
  (do_app ((s: v store),(t: 'ffi oracle #  'ffi option)) op vs =  
 ((case (op, vs) of
