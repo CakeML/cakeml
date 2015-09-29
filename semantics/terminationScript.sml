@@ -15,8 +15,8 @@ val envE_size_def = Define `envE_size = v2_size`;
 val envM_size_def = Define `envM_size = v4_size`;
 
 val size_abbrevs = save_thm ("size_abbrevs",
-LIST_CONJ [pats_size_def, 
-           exps_size_def, pes_size_def, funs_size_def, 
+LIST_CONJ [pats_size_def,
+           exps_size_def, pes_size_def, funs_size_def,
            vs_size_def, envE_size_def, envM_size_def]);
 
 val _ = export_rewrites["size_abbrevs"];
@@ -233,16 +233,16 @@ val (evaluate_def,evaluate_ind) =
   tprove_no_defn ((evaluate_def,evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
     (λx. case x of
-         | INL(s,_,es) => (s.clock,exps_size es)
-         | INR(s,_,_,pes,_) => (s.clock,pes_size pes))` >>
+         | INL(_,s,_,es) => (s.clock,exps_size es)
+         | INR(_,s,_,_,pes,_) => (s.clock,pes_size pes))` >>
   rw[size_abbrevs,exp_size_def,
   check_clock_def,dec_clock_def,LESS_OR_EQ,
   do_if_def,do_log_thm] >>
   simp[SIMP_RULE(srw_ss())[]exps_size_thm,MAP_REVERSE,SUM_REVERSE]);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `(∀s1 env e r s2. evaluate s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
-   (∀s1 env v p v' r s2. evaluate_match s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  `(∀(oc:'ffi oracle) s1 env e r s2. evaluate oc s1 env e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀(oc:'ffi oracle) s1 env v p v' r s2. evaluate_match oc s1 env v p v' = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   fs[check_clock_def,dec_clock_def] >> simp[])
@@ -251,11 +251,14 @@ val check_clock_id = Q.store_thm("check_clock_id",
   `s'.clock ≤ s.clock ⇒ check_clock s' s = s'`,
   EVAL_TAC >> rw[state_component_equality])
 
+val s = ``s:'ffi state``
+val s' = ``s':'ffi state``
 val clean_term = term_rewrite
-  [``check_clock s' s = s'``,
-   ``s'.clock = 0 ∨ s.clock = 0 ⇔ s'.clock = 0``]
+  [``check_clock ^s' ^s = s'``,
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
 
 val evaluate_ind = let
+  val evaluate_ind = evaluate_ind |> INST_TYPE[alpha|->``:'ffi``] (* TODO: this is only broken because Lem sucks *)
   val goal = evaluate_ind |> concl |> clean_term
   (* set_goal([],goal) *)
 in prove(goal,
@@ -269,6 +272,7 @@ in prove(goal,
 end
 
 val evaluate_def = let
+  val evaluate_def = evaluate_def |> INST_TYPE[alpha |-> ``:'ffi``] (* TODO: same as above *)
   val goal = evaluate_def |> concl |> clean_term
   (* set_goal([],goal) *)
 in prove(goal,

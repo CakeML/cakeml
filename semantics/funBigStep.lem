@@ -21,38 +21,38 @@ list_result (Rval v) = Rval [v]
 and
 list_result (Rerr e) = Rerr e
 
-val evaluate : state -> environment v -> list exp -> state * result (list v) v
-val evaluate_match : state -> environment v -> v -> list (pat * exp) -> v -> state * result (list v) v
+val evaluate : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> list exp -> state 'ffi * result (list v) v
+val evaluate_match : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
 let rec
-evaluate st env [] = (st, Rval [])
+evaluate oc st env [] = (st, Rval [])
 and
-evaluate st env (e1::e2::es) =
-  match evaluate st env [e1] with
+evaluate oc st env (e1::e2::es) =
+  match evaluate oc st env [e1] with
   | (st', Rval v1) ->
-      match evaluate (check_clock st' st) env (e2::es) with
+      match evaluate oc (check_clock st' st) env (e2::es) with
       | (st'', Rval vs) -> (st'', Rval (head v1::vs))
       | res -> res
       end
   | res -> res
   end
 and
-evaluate st env [Lit l] = (st, Rval [Litv l])
+evaluate oc st env [Lit l] = (st, Rval [Litv l])
 and
-evaluate st env [Raise e] =
-  match evaluate st env [e] with
+evaluate oc st env [Raise e] =
+  match evaluate oc st env [e] with
   | (st', Rval v) -> (st', Rerr (Rraise (head v)))
   | res -> res
   end
 and
-evaluate st env [Handle e pes] =
-  match evaluate st env [e] with
-  | (st', Rerr (Rraise v)) -> evaluate_match (check_clock st' st) env v pes v
+evaluate oc st env [Handle e pes] =
+  match evaluate oc st env [e] with
+  | (st', Rerr (Rraise v)) -> evaluate_match oc (check_clock st' st) env v pes v
   | res -> res
   end
 and
-evaluate st env [Con cn es] =
+evaluate oc st env [Con cn es] =
   if do_con_check env.c cn (length es) then
-    match evaluate st env (reverse es) with
+    match evaluate oc st env (reverse es) with
     | (st', Rval vs) ->
         match build_conv env.c cn (reverse vs) with
         | Just v -> (st', Rval [v])
@@ -62,16 +62,16 @@ evaluate st env [Con cn es] =
     end
   else (st, Rerr (Rabort Rtype_error))
 and
-evaluate st env [Var n] =
+evaluate oc st env [Var n] =
   match lookup_var_id n env with
   | Just v -> (st, Rval [v])
   | Nothing -> (st, Rerr (Rabort Rtype_error))
   end
 and
-evaluate st env [Fun x e] = (st, Rval [Closure env x e])
+evaluate oc st env [Fun x e] = (st, Rval [Closure env x e])
 and
-evaluate st env [App op es] =
-  match evaluate st env (reverse es) with
+evaluate oc st env [App op es] =
+  match evaluate oc st env (reverse es) with
   | (st', Rval vs) ->
       if op = Opapp then
         match do_opapp (reverse vs) with
@@ -79,86 +79,86 @@ evaluate st env [App op es] =
             if st'.clock = 0 || st.clock = 0 then
               (st', Rerr (Rabort Rtimeout_error))
             else
-              evaluate (dec_clock (check_clock st' st)) env' [e]
+              evaluate oc (dec_clock (check_clock st' st)) env' [e]
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
       else
-        match do_app (st'.refs,st'.io) op (reverse vs) with
-        | Just ((refs,io),r) -> (<| st' with refs = refs; io = io |>, list_result r)
+        match do_app oc (st'.refs,st'.ffi) op (reverse vs) with
+        | Just ((refs,ffi),r) -> (<| st' with refs = refs; ffi = ffi |>, list_result r)
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
   | res -> res
   end
 and
-evaluate st env [Log lop e1 e2] =
-  match evaluate st env [e1] with
+evaluate oc st env [Log lop e1 e2] =
+  match evaluate oc st env [e1] with
   | (st', Rval v1) ->
       match do_log lop (head v1) e2 with
-      | Just (Exp e) -> evaluate (check_clock st' st) env [e]
+      | Just (Exp e) -> evaluate oc (check_clock st' st) env [e]
       | Just (Val v) -> (st', Rval [v])
       | Nothing -> (st', Rerr (Rabort Rtype_error))
       end
   | res -> res
   end
 and
-evaluate st env [If e1 e2 e3] =
-  match evaluate st env [e1] with
+evaluate oc st env [If e1 e2 e3] =
+  match evaluate oc st env [e1] with
   | (st', Rval v) ->
       match do_if (head v) e2 e3 with
-      | Just e -> evaluate (check_clock st' st) env [e]
+      | Just e -> evaluate oc (check_clock st' st) env [e]
       | Nothing -> (st', Rerr (Rabort Rtype_error))
       end
   | res -> res
   end
 and
-evaluate st env [Mat e pes] =
-  match evaluate st env [e] with
+evaluate oc st env [Mat e pes] =
+  match evaluate oc st env [e] with
   | (st', Rval v) ->
-      evaluate_match (check_clock st' st) env (head v) pes Bindv
+      evaluate_match oc (check_clock st' st) env (head v) pes Bindv
   | res -> res
   end
 and
-evaluate st env [Let xo e1 e2] =
-  match evaluate st env [e1] with
-  | (st', Rval v) -> evaluate (check_clock st' st) <| env with v = opt_bind xo (head v) env.v |> [e2]
+evaluate oc st env [Let xo e1 e2] =
+  match evaluate oc st env [e1] with
+  | (st', Rval v) -> evaluate oc (check_clock st' st) <| env with v = opt_bind xo (head v) env.v |> [e2]
   | res -> res
   end
 and
-evaluate st env [Letrec funs e] =
+evaluate oc st env [Letrec funs e] =
   if allDistinct (map (fun (x,y,z) -> x) funs) then
-    evaluate st <| env with v = build_rec_env funs env env.v |> [e]
+    evaluate oc st <| env with v = build_rec_env funs env env.v |> [e]
   else
     (st, Rerr (Rabort Rtype_error))
 and
-evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v))
+evaluate_match oc st env v [] err_v = (st, Rerr (Rraise err_v))
 and
-evaluate_match st env v ((p,e)::pes) err_v  =
+evaluate_match oc st env v ((p,e)::pes) err_v  =
   if allDistinct (pat_bindings p []) then
     match pmatch env.c st.refs p v env.v with
-    | Match env_v' -> evaluate st <| env with v = env_v' |> [e]
-    | No_match -> evaluate_match st env v pes err_v
+    | Match env_v' -> evaluate oc st <| env with v = env_v' |> [e]
+    | No_match -> evaluate_match oc st env v pes err_v
     | Match_type_error -> (st, Rerr (Rabort Rtype_error))
     end
   else (st, Rerr (Rabort Rtype_error))
 
-val evaluate_decs : maybe modN -> state -> environment v -> list dec -> state * flat_env_ctor * result env_val v
+val evaluate_decs : forall 'ffi. oracle 'ffi -> maybe modN -> state 'ffi -> environment v -> list dec -> state 'ffi * flat_env_ctor * result env_val v
 let rec
-evaluate_decs mn st env [] = (st, [], Rval [])
+evaluate_decs oc mn st env [] = (st, [], Rval [])
 and
-evaluate_decs mn st env (d1::d2::ds) =
-  match evaluate_decs mn st env [d1] with
+evaluate_decs oc mn st env (d1::d2::ds) =
+  match evaluate_decs oc mn st env [d1] with
   | (st, new_ctors, Rval new_vals) ->
       match
-        evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
+        evaluate_decs oc mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
       with (st',new_ctors',r) ->
         (st', new_ctors'++new_ctors, combine_dec_result new_vals r)
       end
   | res -> res
   end
 and
-evaluate_decs mn st env [Dlet p e] =
+evaluate_decs oc mn st env [Dlet p e] =
   if allDistinct (pat_bindings p []) then
-    match evaluate st env [e] with
+    match evaluate oc st env [e] with
     | (st', Rval v) ->
         (st',
          [],
@@ -172,7 +172,7 @@ evaluate_decs mn st env [Dlet p e] =
   else
     (st, [], Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dletrec funs] =
+evaluate_decs oc mn st env [Dletrec funs] =
   (st,
    [],
    if allDistinct (map (fun (x,y,z) -> x) funs) then
@@ -180,7 +180,7 @@ evaluate_decs mn st env [Dletrec funs] =
    else
      Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtype tds] =
+evaluate_decs oc mn st env [Dtype tds] =
   let new_tdecs = type_defs_to_new_tdecs mn tds in
     if check_dup_ctors tds &&
        disjoint new_tdecs st.defined_types &&
@@ -190,10 +190,10 @@ evaluate_decs mn st env [Dtype tds] =
     else
       (st, [], Rerr (Rabort Rtype_error))
 and
-evaluate_decs mn st env [Dtabbrev tvs tn t] =
+evaluate_decs oc mn st env [Dtabbrev tvs tn t] =
   (st, [], Rval [])
 and
-evaluate_decs mn st env [Dexn cn ts] =
+evaluate_decs oc mn st env [Dexn cn ts] =
   if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, [], Rerr (Rabort Rtype_error))
   else
@@ -202,15 +202,15 @@ evaluate_decs mn st env [Dexn cn ts] =
      Rval [])
 declare termination_argument evaluate_decs = automatic
 
-val evaluate_tops : state -> environment v -> list top -> state * env_ctor * result (env_mod * env_val) v
+val evaluate_tops : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> list top -> state 'ffi * env_ctor * result (env_mod * env_val) v
 let rec
-evaluate_tops st env [] = (st, ([],[]), Rval ([],[]))
+evaluate_tops oc st env [] = (st, ([],[]), Rval ([],[]))
 and
-evaluate_tops st env (top1::top2::tops) =
-  match evaluate_tops st env [top1] with
+evaluate_tops oc st env (top1::top2::tops) =
+  match evaluate_tops oc st env [top1] with
   | (st', new_ctors, Rval (new_mods,new_vals)) ->
-      match evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) with
-      | (st'', new_ctors', r) -> 
+      match evaluate_tops oc st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) with
+      | (st'', new_ctors', r) ->
         (st'',
          merge_alist_mod_env new_ctors' new_ctors,
          combine_mod_result new_mods new_vals r)
@@ -218,18 +218,18 @@ evaluate_tops st env (top1::top2::tops) =
   | res -> res
   end
 and
-evaluate_tops st env [Tdec d] =
-  match evaluate_decs Nothing st env [d] with
+evaluate_tops oc st env [Tdec d] =
+  match evaluate_decs oc Nothing st env [d] with
   | (st', new_ctors, Rval new_vals) ->
       (st', ([],new_ctors), Rval ([],new_vals))
   | (st', new_ctors, Rerr err) ->
       (st', ([],[]), Rerr err)
   end
 and
-evaluate_tops st env [Tmod mn specs ds] =
+evaluate_tops oc st env [Tmod mn specs ds] =
   if not (mn IN st.defined_mods) && no_dup_types ds
   then
-    match evaluate_decs (Just mn) st env ds with
+    match evaluate_decs oc (Just mn) st env ds with
     | (st', new_ctors, r) ->
         (<| st' with defined_mods = {mn} union st'.defined_mods |>,
          ([(mn,new_ctors)],[]),
@@ -242,10 +242,10 @@ evaluate_tops st env [Tmod mn specs ds] =
     (st, ([],[]), Rerr (Rabort Rtype_error))
 declare termination_argument evaluate_tops = automatic
 
-val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v
+val evaluate_prog : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> prog -> state 'ffi * env_ctor * result (env_mod * env_val) v
 let
-evaluate_prog st env prog =
-  if no_dup_mods prog st && no_dup_top_types prog st then
-    evaluate_tops st env prog
+evaluate_prog oc st env prog =
+  if no_dup_mods prog st.defined_mods && no_dup_top_types prog st.defined_types then
+    evaluate_tops oc st env prog
   else
     (st, ([],[]), Rerr (Rabort Rtype_error))

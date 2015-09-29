@@ -133,10 +133,10 @@ let lookup_var_id id env =
         end
   end
 
-type state =
+type state 'ffi =
   <| clock : nat
    ; refs  : store v
-   ; io    : io_trace
+   ; ffi : maybe 'ffi
    ; defined_types : set tid_or_exn
    ; defined_mods : set modN
    |>
@@ -430,10 +430,10 @@ type exp_or_val =
   | Exp of exp
   | Val of v
 
-type store_trace 'v = store 'v * io_trace
+type store_ffi 'v 'ffi = store 'v * maybe 'ffi
 
-val do_app : store_trace v -> op -> list v -> maybe (store_trace v * result v v)
-let do_app (s,t) op vs =
+val do_app : forall 'ffi. oracle 'ffi -> store_ffi v 'ffi -> op -> list v -> maybe (store_ffi v 'ffi * result v v)
+let do_app oc (s,t) op vs =
   match (op, vs) with
     | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) ->
         if (op = Divide || (op = Modulo)) && (n2 = 0) then
@@ -587,8 +587,8 @@ let do_app (s,t) op vs =
     | (FFI n, [Loc lnum]) ->
         match store_lookup lnum s with
         | Just (W8array ws) ->
-            match call_FFI n ws t with
-            | (ws', t') ->
+            match call_FFI oc n t ws with
+            | (t', ws') ->
                match store_assign lnum (W8array ws') s with
                | Just s' -> Just ((s', t'), Rval (Conv Nothing []))
                | Nothing -> Nothing
@@ -682,10 +682,10 @@ let prog_to_mods tops =
           | _ -> [] end)
      tops)
 
-val no_dup_mods : list top -> state -> bool
-let no_dup_mods tops st =
+val no_dup_mods : list top -> set modN -> bool
+let no_dup_mods tops defined_mods =
   List.allDistinct (prog_to_mods tops) &&
-  disjoint (Set.fromList (prog_to_mods tops)) st.defined_mods
+  disjoint (Set.fromList (prog_to_mods tops)) defined_mods
 
 val prog_to_top_types : list top -> list typeN
 let prog_to_top_types tops =
@@ -695,10 +695,10 @@ let prog_to_top_types tops =
           | _ -> [] end)
      tops)
 
-val no_dup_top_types : list top -> state -> bool
-let no_dup_top_types tops st =
+val no_dup_top_types : list top -> set tid_or_exn -> bool
+let no_dup_top_types tops defined_types =
   List.allDistinct (prog_to_top_types tops) &&
-  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) st.defined_types
+  disjoint (Set.fromList (List.map (fun tn -> TypeId (Short tn)) (prog_to_top_types tops))) defined_types
 
 
 (* conversions to strings *)

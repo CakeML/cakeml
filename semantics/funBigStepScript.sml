@@ -37,39 +37,39 @@ val _ = Define `
 (list_result (Rerr e) = (Rerr e))`;
 
 
-(*val evaluate : state -> environment v -> list exp -> state * result (list v) v*)
-(*val evaluate_match : state -> environment v -> v -> list (pat * exp) -> v -> state * result (list v) v*)
+(*val evaluate : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> list exp -> state 'ffi * result (list v) v*)
+(*val evaluate_match : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v*)
  val evaluate_defn = Hol_defn "evaluate" `
 
-(evaluate st env [] = (st, Rval []))
+(evaluate oc st env [] = (st, Rval []))
 /\
-(evaluate st env (e1::e2::es) =  
-((case evaluate st env [e1] of
+(evaluate oc st env (e1::e2::es) =  
+((case evaluate oc st env [e1] of
     (st', Rval v1) =>
-      (case evaluate (check_clock st' st) env (e2::es) of
+      (case evaluate oc (check_clock st' st) env (e2::es) of
         (st'', Rval vs) => (st'', Rval (HD v1::vs))
       | res => res
       )
   | res => res
   )))
 /\
-(evaluate st env [Lit l] = (st, Rval [Litv l]))
+(evaluate oc st env [Lit l] = (st, Rval [Litv l]))
 /\
-(evaluate st env [Raise e] =  
-((case evaluate st env [e] of
+(evaluate oc st env [Raise e] =  
+((case evaluate oc st env [e] of
     (st', Rval v) => (st', Rerr (Rraise (HD v)))
   | res => res
   )))
 /\
-(evaluate st env [Handle e pes] =  
-((case evaluate st env [e] of
-    (st', Rerr (Rraise v)) => evaluate_match (check_clock st' st) env v pes v
+(evaluate oc st env [Handle e pes] =  
+((case evaluate oc st env [e] of
+    (st', Rerr (Rraise v)) => evaluate_match oc (check_clock st' st) env v pes v
   | res => res
   )))
 /\
-(evaluate st env [Con cn es] =  
+(evaluate oc st env [Con cn es] =  
 (if do_con_check env.c cn (LENGTH es) then
-    (case evaluate st env (REVERSE es) of
+    (case evaluate oc st env (REVERSE es) of
       (st', Rval vs) =>
         (case build_conv env.c cn (REVERSE vs) of
           SOME v => (st', Rval [v])
@@ -79,16 +79,16 @@ val _ = Define `
     )
   else (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate st env [Var n] =  
+(evaluate oc st env [Var n] =  
 ((case lookup_var_id n env of
     SOME v => (st, Rval [v])
   | NONE => (st, Rerr (Rabort Rtype_error))
   )))
 /\
-(evaluate st env [Fun x e] = (st, Rval [Closure env x e]))
+(evaluate oc st env [Fun x e] = (st, Rval [Closure env x e]))
 /\
-(evaluate st env [App op es] =  
-((case evaluate st env (REVERSE es) of
+(evaluate oc st env [App op es] =  
+((case evaluate oc st env (REVERSE es) of
     (st', Rval vs) =>
       if op = Opapp then
         (case do_opapp (REVERSE vs) of
@@ -96,89 +96,89 @@ val _ = Define `
             if (st'.clock = 0) \/ (st.clock = 0) then
               (st', Rerr (Rabort Rtimeout_error))
             else
-              evaluate (dec_clock (check_clock st' st)) env' [e]
+              evaluate oc (dec_clock (check_clock st' st)) env' [e]
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else
-        (case do_app (st'.refs,st'.io) op (REVERSE vs) of
-          SOME ((refs,io),r) => (( st' with<| refs := refs; io := io |>), list_result r)
+        (case do_app oc (st'.refs,st'.ffi) op (REVERSE vs) of
+          SOME ((refs,ffi),r) => (( st' with<| refs := refs; ffi := ffi |>), list_result r)
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
   | res => res
   )))
 /\
-(evaluate st env [Log lop e1 e2] =  
-((case evaluate st env [e1] of
+(evaluate oc st env [Log lop e1 e2] =  
+((case evaluate oc st env [e1] of
     (st', Rval v1) =>
       (case do_log lop (HD v1) e2 of
-        SOME (Exp e) => evaluate (check_clock st' st) env [e]
+        SOME (Exp e) => evaluate oc (check_clock st' st) env [e]
       | SOME (Val v) => (st', Rval [v])
       | NONE => (st', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
-(evaluate st env [If e1 e2 e3] =  
-((case evaluate st env [e1] of
+(evaluate oc st env [If e1 e2 e3] =  
+((case evaluate oc st env [e1] of
     (st', Rval v) =>
       (case do_if (HD v) e2 e3 of
-        SOME e => evaluate (check_clock st' st) env [e]
+        SOME e => evaluate oc (check_clock st' st) env [e]
       | NONE => (st', Rerr (Rabort Rtype_error))
       )
   | res => res
   )))
 /\
-(evaluate st env [Mat e pes] =  
-((case evaluate st env [e] of
+(evaluate oc st env [Mat e pes] =  
+((case evaluate oc st env [e] of
     (st', Rval v) =>
-      evaluate_match (check_clock st' st) env (HD v) pes Bindv
+      evaluate_match oc (check_clock st' st) env (HD v) pes Bindv
   | res => res
   )))
 /\
-(evaluate st env [Let xo e1 e2] =  
-((case evaluate st env [e1] of
-    (st', Rval v) => evaluate (check_clock st' st) ( env with<| v := opt_bind xo (HD v) env.v |>) [e2]
+(evaluate oc st env [Let xo e1 e2] =  
+((case evaluate oc st env [e1] of
+    (st', Rval v) => evaluate oc (check_clock st' st) ( env with<| v := opt_bind xo (HD v) env.v |>) [e2]
   | res => res
   )))
 /\
-(evaluate st env [Letrec funs e] =  
+(evaluate oc st env [Letrec funs e] =  
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
-    evaluate st ( env with<| v := build_rec_env funs env env.v |>) [e]
+    evaluate oc st ( env with<| v := build_rec_env funs env env.v |>) [e]
   else
     (st, Rerr (Rabort Rtype_error))))
 /\
-(evaluate_match st env v [] err_v = (st, Rerr (Rraise err_v)))
+(evaluate_match oc st env v [] err_v = (st, Rerr (Rraise err_v)))
 /\
-(evaluate_match st env v ((p,e)::pes) err_v  =  
+(evaluate_match oc st env v ((p,e)::pes) err_v  =  
 (if ALL_DISTINCT (pat_bindings p []) then
     (case pmatch env.c st.refs p v env.v of
-      Match env_v' => evaluate st ( env with<| v := env_v' |>) [e]
-    | No_match => evaluate_match st env v pes err_v
+      Match env_v' => evaluate oc st ( env with<| v := env_v' |>) [e]
+    | No_match => evaluate_match oc st env v pes err_v
     | Match_type_error => (st, Rerr (Rabort Rtype_error))
     )
   else (st, Rerr (Rabort Rtype_error))))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_defn;
 
-(*val evaluate_decs : maybe modN -> state -> environment v -> list dec -> state * flat_env_ctor * result env_val v*)
+(*val evaluate_decs : forall 'ffi. oracle 'ffi -> maybe modN -> state 'ffi -> environment v -> list dec -> state 'ffi * flat_env_ctor * result env_val v*)
  val _ = Define `
 
-(evaluate_decs mn st env [] = (st, [], Rval []))
+(evaluate_decs oc mn st env [] = (st, [], Rval []))
 /\
-(evaluate_decs mn st env (d1::d2::ds) =  
-((case evaluate_decs mn st env [d1] of
+(evaluate_decs oc mn st env (d1::d2::ds) =  
+((case evaluate_decs oc mn st env [d1] of
     (st, new_ctors, Rval new_vals) =>
       (case
-        evaluate_decs mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
+        evaluate_decs oc mn st (extend_dec_env new_vals new_ctors env) (d2::ds)
       of (st',new_ctors',r) =>
         (st', (new_ctors'++new_ctors), combine_dec_result new_vals r)
       )
   | res => res
   )))
 /\
-(evaluate_decs mn st env [Dlet p e] =  
+(evaluate_decs oc mn st env [Dlet p e] =  
 (if ALL_DISTINCT (pat_bindings p []) then
-    (case evaluate st env [e] of
+    (case evaluate oc st env [e] of
       (st', Rval v) =>
         (st',
          [],
@@ -192,7 +192,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   else
     (st, [], Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dletrec funs] =
+(evaluate_decs oc mn st env [Dletrec funs] =
   (st,
    [],   
 (if ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) then
@@ -200,7 +200,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
    else
      Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtype tds] =  
+(evaluate_decs oc mn st env [Dtype tds] =  
 (let new_tdecs = (type_defs_to_new_tdecs mn tds) in
     if check_dup_ctors tds /\
        DISJOINT new_tdecs st.defined_types /\
@@ -210,10 +210,10 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     else
       (st, [], Rerr (Rabort Rtype_error))))
 /\
-(evaluate_decs mn st env [Dtabbrev tvs tn t] =
+(evaluate_decs oc mn st env [Dtabbrev tvs tn t] =
   (st, [], Rval []))
 /\
-(evaluate_decs mn st env [Dexn cn ts] =  
+(evaluate_decs oc mn st env [Dexn cn ts] =  
 (if TypeExn (mk_id mn cn) IN st.defined_types then
     (st, [], Rerr (Rabort Rtype_error))
   else
@@ -222,16 +222,16 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
      Rval [])))`;
 
 
-(*val evaluate_tops : state -> environment v -> list top -> state * env_ctor * result (env_mod * env_val) v*)
+(*val evaluate_tops : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> list top -> state 'ffi * env_ctor * result (env_mod * env_val) v*)
  val _ = Define `
 
-(evaluate_tops st env [] = (st, ([],[]), Rval ([],[])))
+(evaluate_tops oc st env [] = (st, ([],[]), Rval ([],[])))
 /\
-(evaluate_tops st env (top1::top2::tops) =  
-((case evaluate_tops st env [top1] of
+(evaluate_tops oc st env (top1::top2::tops) =  
+((case evaluate_tops oc st env [top1] of
     (st', new_ctors, Rval (new_mods,new_vals)) =>
-      (case evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) of
-        (st'', new_ctors', r) => 
+      (case evaluate_tops oc st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) of
+        (st'', new_ctors', r) =>
         (st'',
          merge_alist_mod_env new_ctors' new_ctors,
          combine_mod_result new_mods new_vals r)
@@ -239,18 +239,18 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
   | res => res
   )))
 /\
-(evaluate_tops st env [Tdec d] =  
-((case evaluate_decs NONE st env [d] of
+(evaluate_tops oc st env [Tdec d] =  
+((case evaluate_decs oc NONE st env [d] of
     (st', new_ctors, Rval new_vals) =>
       (st', ([],new_ctors), Rval ([],new_vals))
   | (st', new_ctors, Rerr err) =>
       (st', ([],[]), Rerr err)
   )))
 /\
-(evaluate_tops st env [Tmod mn specs ds] =  
+(evaluate_tops oc st env [Tmod mn specs ds] =  
 (if ~ (mn IN st.defined_mods) /\ no_dup_types ds
   then
-    (case evaluate_decs (SOME mn) st env ds of
+    (case evaluate_decs oc (SOME mn) st env ds of
       (st', new_ctors, r) =>
         (( st' with<| defined_mods := {mn} UNION st'.defined_mods |>),
          ([(mn,new_ctors)],[]),
@@ -263,12 +263,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (st, ([],[]), Rerr (Rabort Rtype_error))))`;
 
 
-(*val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v*)
+(*val evaluate_prog : forall 'ffi. oracle 'ffi -> state 'ffi -> environment v -> prog -> state 'ffi * env_ctor * result (env_mod * env_val) v*)
 val _ = Define `
 
-(evaluate_prog st env prog =  
-(if no_dup_mods prog st /\ no_dup_top_types prog st then
-    evaluate_tops st env prog
+(evaluate_prog oc st env prog =  
+(if no_dup_mods prog st.defined_mods /\ no_dup_top_types prog st.defined_types then
+    evaluate_tops oc st env prog
   else
     (st, ([],[]), Rerr (Rabort Rtype_error))))`;
 
