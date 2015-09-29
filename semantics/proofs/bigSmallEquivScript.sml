@@ -37,7 +37,7 @@ val small_eval_prefix = Q.prove (
   small_eval env s e c r`,
  rw [] >>
  PairCases_on `r` >>
- cases_on `r2` >>
+ cases_on `r3` >>
  fs [small_eval_def] >-
  metis_tac [transitive_RTC, transitive_def] >>
  cases_on `e''` >>
@@ -181,7 +181,7 @@ rw [do_con_check_def] >>
 every_case_tac >>
 fs [] >>
 PairCases_on `r` >>
-cases_on `r2` >|
+cases_on `r3` >|
 [all_tac,
  cases_on `e`] >>
 rw [small_eval_def] >>
@@ -481,7 +481,7 @@ val small_eval_match_thm = Q.prove (
       match_mp_tac RTC_SINGLE >>
       rw [e_step_reln_def, e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r2` >|
+      cases_on `r3` >|
       [all_tac,
        cases_on `e'`] >>
       fs [alt_small_eval_def, small_eval_def]
@@ -499,7 +499,7 @@ val small_eval_match_thm = Q.prove (
       rw [] >>
       rw [e_step_def, continue_def])
   >- (PairCases_on `r` >>
-      cases_on `r2` >|
+      cases_on `r3` >|
       [all_tac,
        cases_on `e'`] >>
       fs [alt_small_eval_def] >>
@@ -533,7 +533,7 @@ val small_eval_match_thm = Q.prove (
 
 val result_cases = Q.prove (
 `!r.
- (?s v. r = (s, Rval v)) ∨ 
+ (?s v. r = (s, Rval v)) ∨
  (?s v. r = (s, Rerr (Rraise v))) ∨
  (?s a. r = (s, Rerr (Rabort a)))`,
  cases_on `r` >>
@@ -588,7 +588,7 @@ val small_eval_app_err = prove(
 
 val do_app_not_timeout = Q.prove (
 `do_app s op vs = SOME (s', Rerr (Rabort a))
- ⇒ 
+ ⇒
  a ≠ Rtimeout_error`,
  Cases_on `s` >>
  rw [do_app_cases] >>
@@ -691,19 +691,21 @@ val do_app_type_error = prove(
   every_case_tac >> fs[])
 
 val to_small_st_def = Define `
-to_small_st s = (s.refs,s.io)`;
+to_small_st s = (s.refs,s.ffi)`;
 
 val to_small_res_def = Define `
 to_small_res r = (to_small_st (FST r), SND r)`;
 
+val s = ``s:'ffi state``
+
 val big_exp_to_small_exp = Q.prove (
-  `(∀ck env s e r.
+  `(∀ck env ^s e r.
      evaluate ck env s e r ⇒
      (ck = F) ⇒ small_eval env (to_small_st s) e [] (to_small_res r)) ∧
-   (∀ck env s es r.
+   (∀ck env ^s es r.
      evaluate_list ck env s es r ⇒
      (ck = F) ⇒ small_eval_list env (to_small_st s) es (to_small_res r)) ∧
-   (∀ck env s v pes err_v r.
+   (∀ck env ^s v pes err_v r.
      evaluate_match ck env s v pes err_v r ⇒
      (ck = F) ⇒ small_eval_match env (to_small_st s) v pes err_v (to_small_res r))`,
    ho_match_mp_tac evaluate_ind >>
@@ -725,12 +727,12 @@ val big_exp_to_small_exp = Q.prove (
                    by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
        metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])
    >- (fs [small_eval_def] >>
-       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)]) (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)])` 
+       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)]) (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)])`
                   by metis_tac [APPEND,e_step_add_ctxt] >>
        `e_step_reln (env',to_small_st s',Val v,[(Craise (),env'');(Chandle () pes,env)]) (env'',to_small_st s',Val v,[(Cmat () pes v, env)])`
                    by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
        imp_res_tac small_eval_match_thm >>
-       ASSUME_TAC (Q.ISPEC `r:state # (v,v) result` result_cases) >>
+       Q.ISPEC_THEN`r`assume_tac result_cases >>
        rw [] >>
        fs [small_eval_def, alt_small_eval_def] >>
        metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])
@@ -878,7 +880,7 @@ val big_exp_to_small_exp = Q.prove (
          first_assum(match_exists_tac o concl) >> simp[] >>
          simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`] >>
          simp[application_thm,do_app_def,store_alloc_def,return_def,to_small_st_def] ) >>
-       `(refs',io') = (s2.refs,s2.io)` by (
+       `(refs',ffi') = (s2.refs,s2.ffi)` by (
          imp_res_tac do_app_type_error ) >> fs[] >>
        fs[to_small_st_def] >>
        first_assum(match_exists_tac o concl) >> simp[] >>
@@ -901,7 +903,7 @@ val big_exp_to_small_exp = Q.prove (
          simp_tac(srw_ss()++boolSimps.DNF_ss)[Once RTC_CASES2] >>
          first_assum(match_exists_tac o concl) >> simp[] >>
          simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,application_thm,return_def,to_small_st_def] ) >>
-       `(refs',io') = (s2.refs,s2.io)` by (
+       `(refs',ffi') = (s2.refs,s2.ffi)` by (
          imp_res_tac do_app_type_error ) >> fs[] >>
        simp_tac(srw_ss()++boolSimps.DNF_ss)[Once RTC_CASES_RTC_TWICE] >>
        first_assum(match_exists_tac o concl) >> simp[] >>
@@ -939,7 +941,7 @@ val big_exp_to_small_exp = Q.prove (
          simp_tac(srw_ss()++boolSimps.DNF_ss)[Once RTC_CASES2] >>
          first_assum(match_exists_tac o concl) >> simp[] >>
          simp[e_step_reln_def,e_step_def,continue_def,Abbr`ctx`,application_thm,return_def,to_small_st_def] ) >>
-       `(refs',io') = (s2.refs,s2.io)` by (
+       `(refs',ffi') = (s2.refs,s2.ffi)` by (
          imp_res_tac do_app_type_error ) >> fs[] >>
        simp_tac(srw_ss()++boolSimps.DNF_ss)[Once RTC_CASES_RTC_TWICE] >>
        first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1133,7 +1135,7 @@ val big_exp_to_small_exp = Q.prove (
        `e_step_reln (env',to_small_st s',Val v,[(Clet n () e',env)])
                     (env with v := opt_bind n v env.v,to_small_st s',Exp e',[])`
                by rw [e_step_def, e_step_reln_def, continue_def, push_def] >>
-       ASSUME_TAC (Q.ISPEC `r:state # (v,v) result` result_cases) >>
+       Q.ISPEC_THEN`r`assume_tac result_cases >>
        fs [small_eval_def, environment_component_equality] >>
        fs [small_eval_def, environment_component_equality] >>
        metis_tac [transitive_RTC, RTC_SINGLE, transitive_def])
@@ -1462,12 +1464,12 @@ val evaluate_state_no_ctxt = Q.prove (
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
  fs [to_small_st_def] >>
- eq_tac >>
- rw [] >>
- metis_tac [state_accfupds, K_DEF, state_component_equality, PAIR]);
+ Cases_on`r`>>simp[]>>
+ rpt AP_THM_TAC >> AP_TERM_TAC >>
+ simp[state_component_equality]);
 
 val evaluate_state_val_no_ctxt = Q.prove (
-`!env s e. 
+`!env s e.
   evaluate_state (env,to_small_st s,Val e,[]) r
   ⇔ 
   (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rval e))`,
@@ -1479,7 +1481,7 @@ val evaluate_state_val_no_ctxt = Q.prove (
  fs [state_component_equality]);
 
 val evaluate_state_val_raise_ctxt = Q.prove (
-`!env s v env'. 
+`!env s v env'.
   evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r 
   ⇔ 
   (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rerr (Rraise v)))`,
@@ -1492,14 +1494,19 @@ val evaluate_state_val_raise_ctxt = Q.prove (
  rw [] >>
  fs [state_component_equality]);
 
+val evaluate_change_state = Q.prove(
+  `evaluate a b c d (e,f) ∧ c = c' ∧ e = e' ⇒
+   evaluate a b c' d (e',f)`,
+   rw[] >> rw[]) |> GEN_ALL
+
 val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
-`!env s e s' r. 
+`!env s e s' r.
   (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧ 
    s.clock = s'.clock ∧ s.defined_types = s'.defined_types ∧ s.defined_mods = s'.defined_mods)
   ⇔ 
   evaluate F env s e (s',r)`,
  rw [] >>
- eq_tac 
+ eq_tac
  >- (rw [] >>
      cases_on `r` >|
      [all_tac,
@@ -1508,20 +1515,27 @@ val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
      imp_res_tac small_exp_to_big_exp >>
      fs [evaluate_state_val_no_ctxt, evaluate_state_no_ctxt, evaluate_state_val_raise_ctxt] >>
      imp_res_tac evaluate_ignores_types_mods >>
-     fs []
-     >- (pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
+     fs [] >> TRY (
+         pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
          rw [] >>
-         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors])
-     >- (pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
-         rw [] >>
-         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors])
-     >- (imp_res_tac one_step_backward_type_error >>
+         match_mp_tac evaluate_change_state >>
+         imp_res_tac big_unclocked >>
+         first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
+         first_assum(match_exists_tac o concl) >>
+         simp[state_component_equality] >> NO_TAC) >>
+     (imp_res_tac one_step_backward_type_error >>
          fs [] >>
          res_tac >>
          imp_res_tac evaluate_ignores_types_mods >>
          pop_assum (qspecl_then [`s.defined_mods`, `s.defined_types`] mp_tac) >>
          rw [] >>
-         metis_tac [big_unclocked, state_accfupds, K_DEF, state_component_equality, PAIR, state_accessors]))
+         pop_assum mp_tac >>
+         ntac 3 (pop_assum kall_tac) >> strip_tac >>
+         match_mp_tac evaluate_change_state >>
+         imp_res_tac big_unclocked >>
+         first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
+         first_assum(match_exists_tac o concl) >>
+         simp[state_component_equality]))
  >- (rw [] >>
      imp_res_tac big_exp_to_small_exp >>
      fs [small_eval_def, to_small_res_def] >>
@@ -1539,11 +1553,11 @@ val small_exp_determ = Q.store_thm ("small_exp_determ",
  fs [to_small_st_def] >>
  PairCases_on `r1` >>
  PairCases_on `r2` >>
- pop_assum (qspecl_then [`env`, `<| io := SND s; refs := FST s; clock := 0; defined_types := {}; defined_mods := {} |>`, `e`] mp_tac) >>
+ pop_assum (qspecl_then [`env`, `<| ffi := SND s; refs := FST s; clock := 0; defined_types := {}; defined_mods := {} |>`, `e`] mp_tac) >>
  simp [] >>
  strip_tac >>
- first_assum (qspec_then `<| io := r11; refs := r10; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
- first_assum (qspec_then `<| io := r21; refs := r20; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := (r11,r12); refs := r10; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
+ first_assum (qspec_then `<| ffi := (r21,r22); refs := r20; clock := 0; defined_types := {}; defined_mods := {} |>` mp_tac) >>
  pop_assum kall_tac >>
  simp [] >>
  strip_tac >>
