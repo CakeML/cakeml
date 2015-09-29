@@ -37,7 +37,7 @@ val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
 val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
 val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val eqs = LIST_CONJ (map prove_case_eq_thm 
+val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms])
 
 val pair_case_eq = Q.prove (
@@ -50,7 +50,7 @@ val pair_lam_lem = Q.prove (
  rw []);
 
 val do_app_cases = save_thm ("do_app_cases",
-``do_app (s,t) op vs = SOME (st',v)`` |>
+``do_app oc (s,t) op vs = SOME (st',v)`` |>
   (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
    SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
    ALL_CONV));
@@ -572,7 +572,7 @@ val ctors_of_dec_def = Define`
 val _ = export_rewrites["ctors_of_dec_def"]
 
 val evaluate_decs_ctors_in = store_thm("evaluate_decs_ctors_in",
-  ``∀ck mn env s decs res. evaluate_decs ck mn env s decs res ⇒
+  ``∀ck oc mn env s decs res. evaluate_decs ck oc mn env s decs res ⇒
       ∀cn.
         IS_SOME (ALOOKUP (FST(SND res)) cn) ⇒
         MEM cn (FLAT (MAP ctors_of_dec decs))``,
@@ -680,31 +680,33 @@ val all_env_dom_def = Define`
     IMAGE Short (set (MAP FST envE)) ∪
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`
 
+val oc = ``oc:'ffi oracle``
+
 val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_types_mods",
-`(!ck env st e r. evaluate ck env st e r ⇒
+`(!ck ^oc env st e r. evaluate ck oc env st e r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods) ∧
- (!ck env st es r. evaluate_list ck env st es r ⇒
+ (!ck ^oc env st es r. evaluate_list ck oc env st es r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods) ∧
- (!ck env st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
+ (!ck ^oc env st v pes err_v r. evaluate_match ck oc env st v pes err_v r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods)`,
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  rw []);
 
 val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_types_mods",
-`(∀ck env st e r.
-   evaluate ck env st e r ⇒
-   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e 
+`(∀ck ^oc env st e r.
+   evaluate ck oc env st e r ⇒
+   !x y. evaluate ck oc env (st with <| defined_types:= x; defined_mods := y |>) e
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env st es r.
-   evaluate_list ck env st es r ⇒
-   !x y. evaluate_list ck env (st with <| defined_types:= x; defined_mods := y |>) es
+ (∀ck ^oc env st es r.
+   evaluate_list ck oc env st es r ⇒
+   !x y. evaluate_list ck oc env (st with <| defined_types:= x; defined_mods := y |>) es
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env st v pes err_v r.
-   evaluate_match ck env st v pes err_v r ⇒
-   !x y. evaluate_match ck env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
+ (∀ck ^oc env st v pes err_v r.
+   evaluate_match ck oc env st v pes err_v r ⇒
+   !x y. evaluate_match ck oc env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r))`,
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  rw [] >>
@@ -712,13 +714,13 @@ val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_types_mods",
  metis_tac [state_accfupds, K_DEF]);
 
 val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
-`!ck mn env st d r. evaluate_dec ck mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
+`!ck oc mn env st d r. evaluate_dec ck oc mn env st d r ⇒ st.defined_mods = (FST r).defined_mods`,
  rw [evaluate_dec_cases] >>
  imp_res_tac evaluate_no_new_types_mods >>
  fs []);
 
 val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
-`!ck mn env st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
+`!ck oc mn env st ds r. evaluate_decs ck oc mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
  ho_match_mp_tac evaluate_decs_ind >>
  rw [] >>
  imp_res_tac eval_d_no_new_mods >>
