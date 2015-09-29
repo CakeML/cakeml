@@ -54,32 +54,17 @@ val flatten_exp_def = tDefine "flatten_exp" `
 *)
 val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
-    if ∃exp' w. exp = Op Add [exp';Const w] then
-      case exp of Op Add [exp';Const w] =>
-        if addr_offset_ok w c then
-          let prog = inst_select_exp c temp temp exp' in
+    case exp of
+    | Op Add [exp';Const w] =>
+      if addr_offset_ok w c then
+        let prog = inst_select_exp c temp temp exp' in
           Seq prog (Inst (Mem Load tar (Addr temp w)))
-        else
-          let prog = inst_select_exp c temp temp exp in
+      else
+        let prog = inst_select_exp c temp temp exp in
           Seq prog (Inst (Mem Load tar (Addr temp (0w))))
-    else
+    | _ =>
       let prog = inst_select_exp c temp temp exp in
       Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
-   (*(Op Add [exp;exp'])) =
-    if ∃w. exp' = Const w then
-      case exp' of Const w =>
-      if addr_offset_ok w c
-      then
-      else if c.valid_imm (INL Add) w
-      then
-        let prog' = Inst (Arith (Binop Add temp temp (Imm w))) in
-        let prog'' = Inst (Mem Load tar (Addr temp 0w)) in
-        Seq prog (Seq prog' prog'')
-      else
-        let prog' = Inst (Const (temp+1) w) in
-        let prog'' = Inst (Arith (Binop Add temp temp (Reg (temp+1)))) in
-        let prog''' = Inst (Mem Load tar (Addr temp 0w)) in
-        Seq prog (Seq prog' (Seq prog'' prog'''))) ∧*)
   (inst_select_exp c (tar:num) (temp:num) (Const w) = (Inst (Const tar w))) ∧
   (inst_select_exp c (tar:num) (temp:num) (Var v) =
     Move 0 [tar,v]) ∧
@@ -88,14 +73,14 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
   (*All ops are binary branching*)
   (inst_select_exp c tar temp (Op op [e1;e2]) =
     let p1 = inst_select_exp c temp temp e1 in
-    if ∃w. e2 = Const w then
-      case e2 of Const w =>
+    case e2 of
+    | Const w =>
       if c.valid_imm (INL op) w then
         Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
       else
         let p2 = Inst (Const (temp+1) w) in
         Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
-    else
+    | _ =>
       let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
       Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))) ∧
   (inst_select_exp c tar temp (Shift sh exp nexp) =
@@ -115,34 +100,6 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
-
-val inst_select_exp_compute = prove(``
-  (inst_select_exp c tar temp (Load exp) =
-    case exp of
-      Op Add [exp';Const w] =>
-        if addr_offset_ok w c then
-          let prog = inst_select_exp c temp temp exp' in
-          Seq prog (Inst (Mem Load tar (Addr temp w)))
-        else
-          let prog = inst_select_exp c temp temp exp in
-          Seq prog (Inst (Mem Load tar (Addr temp (0w))))
-    | _ =>
-      let prog = inst_select_exp c temp temp exp in
-      Seq prog (Inst (Mem Load tar (Addr temp (0w))))) ∧
-  (inst_select_exp c tar temp (Op op [e1;e2]) =
-    let p1 = inst_select_exp c temp temp e1 in
-    case e2 of
-    | Const w =>
-      if c.valid_imm (INL op) w then
-        Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
-      else
-        let p2 = Inst (Const (temp+1) w) in
-        Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
-    | _ =>
-      let p2 = inst_select_exp c (temp+1) (temp+1) e2 in
-      Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1)))))))``,
-   fs[inst_select_exp_def]>>BasicProvers.EVERY_CASE_TAC>>fs[])
-
 (*
 
 First munch
