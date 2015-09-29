@@ -14,73 +14,10 @@ in
 end
 val i = TypeBase.one_one_of ``:(α,β,γ)pegsym``
 
-val peg_eval_seq_SOME = store_thm(
-  "peg_eval_seq_SOME",
-  ``peg_eval G (i0, seq s1 s2 f) (SOME (i,r)) ⇔
-    ∃i1 r1 r2. peg_eval G (i0, s1) (SOME (i1,r1)) ∧
-               peg_eval G (i1, s2) (SOME (i,r2)) ∧ (r = f r1 r2)``,
-  simp[Once peg_eval_cases] >> metis_tac[]);
-
-val peg_eval_seq_NONE = store_thm(
-  "peg_eval_seq_NONE",
-  ``peg_eval G (i0, seq s1 s2 f) NONE ⇔
-      peg_eval G (i0, s1) NONE ∨
-      ∃i r. peg_eval G (i0,s1) (SOME(i,r)) ∧
-            peg_eval G (i,s2) NONE``,
-  simp[Once peg_eval_cases] >> metis_tac[]);
-
-
-val peg_eval_tok_SOME = store_thm(
-  "peg_eval_tok_SOME",
-  ``peg_eval G (i0, tok P f) (SOME (i,r)) ⇔ ∃h. P h ∧ i0 = h::i ∧ r = f h``,
-  simp[Once peg_eval_cases] >> metis_tac[]);
-
-val peg_eval_empty = store_thm(
-  "peg_eval_empty[simp]",
-  ``peg_eval G (i, empty r) x ⇔ (x = SOME(i,r))``,
-  simp[Once peg_eval_cases])
-
-val peg_eval_NT_SOME = store_thm(
-  "peg_eval_NT_SOME",
-  ``peg_eval G (i0,nt N f) (SOME(i,r)) ⇔
-      ∃r0. r = f r0 ∧ N ∈ FDOM G.rules ∧
-           peg_eval G (i0,G.rules ' N) (SOME(i,r0))``,
-  simp[Once peg_eval_cases]);
-
-val peg_eval_choice = store_thm(
-  "peg_eval_choice",
-  ``∀x.
-     peg_eval G (i0, choice s1 s2 f) x ⇔
-      (∃i r. peg_eval G (i0, s1) (SOME(i, r)) ∧ x = SOME(i, f (INL r))) ∨
-      (∃i r. peg_eval G (i0, s1) NONE ∧
-             peg_eval G (i0, s2) (SOME(i, r)) ∧ x = SOME(i, f (INR r))) ∨
-      peg_eval G (i0, s1) NONE ∧ peg_eval G (i0,s2) NONE ∧ (x = NONE)``,
-  simp[Once peg_eval_cases, SimpLHS] >>
-  simp[optionTheory.FORALL_OPTION, pairTheory.FORALL_PROD] >> metis_tac[]);
-
-val peg_eval_choicel_NIL = store_thm(
-  "peg_eval_choicel_NIL[simp]",
-  ``peg_eval G (i0, choicel []) x = (x = NONE)``,
-  simp[choicel_def, Once peg_eval_cases]);
-
-val peg_eval_choicel_CONS = store_thm(
-  "peg_eval_choicel_CONS",
-  ``∀x. peg_eval G (i0, choicel (h::t)) x ⇔
-          peg_eval G (i0, h) x ∧ x <> NONE ∨
-          peg_eval G (i0,h) NONE ∧ peg_eval G (i0, choicel t) x``,
-  simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
-  simp[sumID_def, pairTheory.FORALL_PROD, optionTheory.FORALL_OPTION]);
-
 val peg_eval_seql_NIL = store_thm(
   "peg_eval_seql_NIL[simp]",
   ``peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))``,
   simp[seql_def, pegf_def] >> simp[Once peg_eval_cases]);
-
-val peg_eval_rpt = store_thm(
-  "peg_eval_rpt",
-  ``peg_eval G (i0, rpt s f) x ⇔
-      ∃i l. peg_eval_list G (i0,s) (i,l) ∧ x = SOME(i,f l)``,
-  simp[Once peg_eval_cases, SimpLHS] >> metis_tac[]);
 
 val peg_eval_try = store_thm(
   "peg_eval_try",
@@ -88,7 +25,7 @@ val peg_eval_try = store_thm(
          peg_eval G (i0, s) NONE ∧ x = SOME(i0,[]) ∨
          ∃i r. peg_eval G (i0, s) (SOME(i,r)) ∧ x = SOME(i,r)``,
   simp[Once peg_eval_cases, try_def, SimpLHS, choicel_def,
-       peg_eval_choice] >> simp[sumID_def] >> metis_tac[]);
+       peg_eval_choice] >> simp[] >> metis_tac[]);
 
 val peg_eval_seql_CONS = store_thm(
   "peg_eval_seql_CONS",
@@ -783,7 +720,7 @@ val peg_sound = store_thm(
         (qspecl_then [`i`, `i3`, `Nd (mkNT nDType) [acc; tyop_pt2]`]
                      mp_tac)>>
       simp[cmlG_applied, cmlG_FDOM, DISJ_IMP_THM, FORALL_AND_THM])
-  >- (print_tac "nType" >> simp[peg_eval_choice, sumID_def] >>
+  >- (print_tac "nType" >> simp[peg_eval_choice] >>
       `NT_rank (mkNT nPType) < NT_rank (mkNT nType)` by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[]
       >- (first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
@@ -1082,7 +1019,7 @@ val peg_sound = store_thm(
       first_x_assum (erule mp_tac) >> dsimp[cmlG_FDOM, cmlG_applied])
   >- (print_tac "nEapp" >> simp[peg_eval_choice] >>
       strip_tac >> rpt (qpat_assum `peg_eval X Y NONE` (K ALL_TAC)) >>
-      rveq >> simp[sumID_def] >>
+      rveq >> simp[] >>
       `NT_rank (mkNT nEbase) < NT_rank (mkNT nEapp)` by simp[NT_rank_def]>>
       first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
       erule assume_tac
@@ -1135,7 +1072,7 @@ val peg_sound = store_thm(
   >- (print_tac "nTyvarN" >> rw[] >> simp[cmlG_FDOM, cmlG_applied] >>
       asm_match `isTyvarT h` >> Cases_on `h` >> fs[]) >>
   print_tac "nV" >>
-  simp[peg_V_def, peg_eval_choice, sumID_def] >>
+  simp[peg_V_def, peg_eval_choice] >>
   strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]);
 
 val _ = export_theory()
