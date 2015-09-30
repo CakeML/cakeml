@@ -48,8 +48,8 @@ val _ = Datatype `
     |>`
 
 val evaluate_def = Define `
-  evaluate config io k (ms:'a) =
-    if k = 0 then (TimeOut,ms,io)
+  evaluate config (ffi:'ffi ffi_state) k (ms:'a) =
+    if k = 0 then (TimeOut,ms,ffi)
     else
       if config.f.get_pc ms IN config.prog_addresses then
         let ms1 = config.f.next ms in
@@ -57,27 +57,27 @@ val evaluate_def = Define `
         let config = config with next_interfer :=
                        shift_seq 1 config.next_interfer in
           if EVERY config.f.state_ok [ms;ms1;ms2] then
-            evaluate config io (k - 1) ms2
+            evaluate config ffi (k - 1) ms2
           else
-            (Error Internal,ms,io)
+            (Error Internal,ms,ffi)
       else if config.f.get_pc ms = config.halt_pc then
-        (Result,ms,io)
+        (Result,ms,ffi)
       else
         case list_find (config.f.get_pc ms) config.ffi_entry_pcs of
-        | NONE => (Error Internal,ms,io)
+        | NONE => (Error Internal,ms,ffi)
         | SOME ffi_index =>
           case read_bytearray (config.f.get_reg ms config.ptr_reg)
                  (w2n (config.f.get_reg ms config.len_reg))
                  (\a. if a IN config.prog_addresses
                       then SOME (config.f.get_byte ms a) else NONE) of
-          | NONE => (Error Internal,ms,io)
+          | NONE => (Error Internal,ms,ffi)
           | SOME bytes =>
-            let ffi = config.ffi_interfer 0 ffi_index in
+            let do_ffi = config.ffi_interfer 0 ffi_index in
             let config = config with ffi_interfer :=
                            shift_seq 1 config.ffi_interfer in
-            let (new_bytes,new_io) = call_FFI ffi_index bytes io in
-              if new_io = NONE then (Error IO_mismatch,ms,new_io) else
-                evaluate config new_io (k - 1:num) (ffi new_bytes ms)`
+            let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
+              if new_ffi.ffi_state = NONE then (Error IO_mismatch,ms,new_ffi) else
+                evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
 
 
 (* -- observable -- *)
