@@ -84,20 +84,20 @@ val untyped_safety_dec = Q.store_thm ("untyped_safety_dec",
       rw [] >>
       cases_on `ALL_DISTINCT (pat_bindings p [])` >>
       fs []
-      >- (qexists_tac `(s with <| io := SND s'; refs := FST s' |>, Rerr err)` >>
+      >- (qexists_tac `(s with <| ffi := SND s'; refs := FST s' |>, Rerr err)` >>
           rw [] >>
           fs [GSYM small_big_exp_equiv, to_small_st_def])
       >- (cases_on `pmatch env.c (FST s') p v []` >>
           fs []
-          >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
+          >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rraise Bindv))`] >>
               fs [GSYM small_big_exp_equiv, to_small_st_def] >>
               metis_tac [])
-          >- (MAP_EVERY qexists_tac [`(s with <| io := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
+          >- (MAP_EVERY qexists_tac [`(s with <| ffi := SND s'; refs := FST s' |>, Rerr (Rabort Rtype_error))`] >>
               fs [GSYM small_big_exp_equiv, to_small_st_def] >>
               metis_tac [])
           >- (fs [] >>
               rw [GSYM small_big_exp_equiv, to_small_st_def] >>
-              qexists_tac `(s with <| refs := FST s'; io := SND s' |>, Rval ([],a))` >>
+              qexists_tac `(s with <| refs := FST s'; ffi := SND s' |>, Rval ([],a))` >>
               rw [] >>
               metis_tac [])))
   >- metis_tac []

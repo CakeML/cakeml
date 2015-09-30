@@ -67,7 +67,7 @@ val _ = Define `
 (*val flat_to_ctMap_list : flat_tenvC -> alist (conN * tid_or_exn) (list tvarN * list t)*)
 val _ = Define `
  (flat_to_ctMap_list tenvC =  
- (MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
+(MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
 
 
 (*val flat_to_ctMap : flat_tenvC -> ctMap*)

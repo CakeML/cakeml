@@ -42,7 +42,7 @@ let ctMap_ok ctMap =
 
 (* Convert from a lexically scoped constructor environment to the global one *)
 val flat_to_ctMap_list : flat_tenvC -> alist (conN * tid_or_exn) (list tvarN * list t)
-let flat_to_ctMap_list tenvC = 
+let flat_to_ctMap_list tenvC =
   List.map (fun (cn,(tvs,ts,t)) -> ((cn,t),(tvs,ts))) tenvC
 
 val flat_to_ctMap : flat_tenvC -> ctMap

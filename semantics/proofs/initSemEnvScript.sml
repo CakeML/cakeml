@@ -40,7 +40,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
  fs [EXTENSION, state_component_equality, CHOICE_SING]);
 
 val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
-``interp_add_to_sem_env (<| clock := 0; io := SOME LNIL; refs := []; defined_types := {}; defined_mods := {} |>, 
+``interp_add_to_sem_env (<| clock := 0; ffi := ffi; refs := []; defined_types := {}; defined_mods := {} |>,
                          <| m := []; c := ([],[]); v := [] |>)
                         prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
@@ -58,7 +58,7 @@ val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
 
 (* recursively decend into the test position of case expressions and apply to conversion to the inner-most *)
 fun CASE_CONV conv tm =
-let 
+let
   fun CASE_CONV0 tm =
     if TypeBase.is_case tm then
       let
@@ -75,15 +75,15 @@ in
     raise UNCHANGED
 end;
 
-fun do1_tac t = 
+fun do1_tac t =
   (REWRITE_TAC [Once run_eval_prog_def, run_eval_top_def, Once run_eval_decs_def, run_eval_dec_def] >>
    CONV_TAC (RAND_CONV (LAND_CONV (CASE_CONV (computeLib.CBV_CONV the_interp_compset)))) >>
    simp [extend_top_env_def, extend_dec_env_def, combine_dec_result_def, merge_alist_mod_env_def,pmatch_def, pat_bindings_def]) t;
 
 val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
-`?se. basis_sem_env = SOME se`,
+`?se. basis_sem_env ffi = SOME se`,
  simp [basis_sem_env_def] >>
- cases_on `?se. interp_add_to_sem_env (THE prim_sem_env) basis_program = SOME se`
+ cases_on `?se. interp_add_to_sem_env (THE (prim_sem_env ffi)) basis_program = SOME se`
  >- metis_tac [interp_add_to_sem_env_thm, PAIR] >>
  pop_assum mp_tac >>
  match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
@@ -94,8 +94,7 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
  pop_assum mp_tac >>
  simp[basis_program_def, run_eval_whole_prog_def] >>
  rw []
- >- (pop_assum kall_tac >>
-     pop_assum kall_tac >>
+ >- (ntac 2 (pop_assum kall_tac) >>
      simp ([mk_ffi_def, mk_binop_def, mk_unop_def, Once run_eval_prog_def, run_eval_top_def, run_eval_dec_def,
             merge_alist_mod_env_def,pmatch_def, pat_bindings_def]) >>
      rpt (do1_tac >> TRY (Q.PAT_ABBREV_TAC`cl = (X0,Closure X Y Z)`)))
