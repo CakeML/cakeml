@@ -27,6 +27,11 @@ end
 
 val _ = computeLib.add_thms distinct_ths computeLib.the_compset
 
+val sumID_def = Define`
+  sumID (INL x) = x ∧
+  sumID (INR y) = y
+`;
+
 val mk_linfix_def = Define`
   mk_linfix tgt acc [] = acc ∧
   mk_linfix tgt acc [t] = acc ∧
@@ -54,6 +59,18 @@ val mktokLf_def = Define`mktokLf t = [Lf (TK t)]`
 val bindNT_def = Define`
   bindNT ntnm l = [Nd (mkNT ntnm) l]
 `
+
+(* have to use these versions of choicel and pegf below because the
+   "built-in" versions from HOL/examples/ use ARB in their definitions.
+   Logically, the ARBs are harmless, but they completely mess with the
+   translator
+*)
+val choicel_def = Define`
+  choicel [] = not (empty []) [] ∧
+  choicel (h::t) = choice h (choicel t) sumID
+`;
+
+val pegf_def = Define`pegf sym f = seq sym (empty []) (λl1 l2. f l1)`
 
 val seql_def = Define`
   seql l f = pegf (FOLDR (\p acc. seq p acc (++)) (empty []) l) f
