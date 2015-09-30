@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../ffi ../.. ../../lem_lib_stub
+INCLUDES = .. ../ffi ../.. ../../lem_lib_stub $(HOLDIR)/examples/formal-languages/context-free
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
 TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
@@ -23,7 +23,7 @@ HOLHEAP = heap
 PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib
+BARE_THYS = ../../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)
