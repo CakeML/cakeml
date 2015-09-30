@@ -82,17 +82,31 @@ val evaluate_def = Define `
 
 (* -- observable -- *)
 
+val evaluate_with_io_def = Define`
+  evaluate_with_io config st =
+    evaluate config
+      <| oracle := add_trace st.oracle
+       ; ffi_state := OPTION_MAP (λffi. (ffi,[])) st.ffi_state
+       |>`;
+
+val _ = ParseExtras.temp_tight_equality()
+
 val machine_sem_def = Define `
-  (machine_sem config ms (Terminate io_list) <=>
-     ?k ms'.
-       evaluate config (SOME (fromList io_list)) k ms =
-       (Result,ms',SOME LNIL)) /\
-  (machine_sem config ms (Diverge io_trace) <=>
-     (!k. (FST (evaluate config (SOME io_trace) k ms) = TimeOut)) /\
-     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. (FST (evaluate config (SOME io) k ms) <> TimeOut))) /\
-  (machine_sem config ms Fail <=>
-     ?k io. FST (evaluate config (SOME io) k ms) = Error Internal)`
+  (machine_sem config st ms (Terminate io_list) <=>
+     ?k ms' st' ffi.
+       evaluate_with_io config st k ms = (Result,ms',st') ∧
+       st'.ffi_state = SOME (ffi, REVERSE io_list)) /\
+  (machine_sem config st ms (Diverge io_trace) <=>
+     (!k. ∃ms' st' ffi io_list n.
+       evaluate_with_io config st k ms = (TimeOut,ms',st') ∧
+       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
+       LTAKE n io_trace = SOME io_list) /\
+     (!n. ?k r ms' st' ffi io_list.
+       evaluate_with_io config st k ms = (r,ms',st') ∧ r ≠ TimeOut ∧
+       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
+       LTAKE n io_trace = SOME io_list)) /\
+  (machine_sem config st ms Fail <=>
+     ?k. FST (evaluate_with_io config st k ms) = Error Internal)`
 
 (* Note: we need to prove that every well-typed program has some
    behaviour, i.e. machine_sem config ms should never be the empty set
@@ -104,10 +118,14 @@ val machine_sem_def = Define `
    divergent I/O trace. *)
 
 val imprecise_machine_sem_def = Define `
-  (imprecise_machine_sem config ms (Terminate io_list) =
-     ?k ms'.
-       evaluate config (SOME (fromList io_list)) k ms = (Result,ms',SOME LNIL)) /\
-  (imprecise_machine_sem config ms (Diverge io_trace) =
-     !k. (FST (evaluate config (SOME io_trace) k ms) = TimeOut))`
+  (imprecise_machine_sem config st ms (Terminate io_list) <=>
+     ?k ms' st' ffi.
+       evaluate_with_io config st k ms = (Result,ms',st') ∧
+       st'.ffi_state = SOME (ffi, REVERSE io_list)) /\
+  (imprecise_machine_sem config st ms (Diverge io_trace) <=>
+     (!k. ∃ms' st' ffi io_list n.
+       evaluate_with_io config st k ms = (TimeOut,ms',st') ∧
+       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
+       LTAKE n io_trace = SOME io_list))`
 
 val _ = export_theory();
