@@ -16,10 +16,6 @@ The parsing function is one that executes a *Parsing Expression Grammar* (or PEG
 
 ### Proofs Subdirectory
 
-* `conversionProps`: theory of properties of the parse-tree conversion functions in `semantics/cmlPtreeConversion`
-
-* `gramProps`: theory of properties of the CakeML CFG.  In particular, a slew of nullability results for various non-terminals.
-
 * `pegComplete`: proof of PEG’s completeness (as above)
 
 * `pegSound`: proof of PEG’s soundness (as above)

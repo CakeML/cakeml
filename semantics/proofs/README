@@ -25,8 +25,19 @@ bigSmallInvariants.lem
     Definitions needed to state the invariants about big-step/small-step equivalence.
     Mostly, how to big-step evaluate intermediate small-step states.
 
+cmlPtreeConversionPropsScript.sml
+    Properties of the parse-tree conversion functions in
+    cmlPtreeConversionScript, in particular totality: that these
+    functions will always return an abstract syntax value when given a
+    well-formed concrete syntax tree.
+
 evaluateEquationsScript.sml
     Some helper lemmas about the big-step relation.
+
+gramPropsScript.sml
+    Properties of the CakeML CFG, including automatically derived
+    nullability results for various non-terminals, and results about
+    the grammar’s rules finite map.
 
 typeSoundInvariants.lem
     Definitions needed to state the invariants about type soundness.  Mostly,
