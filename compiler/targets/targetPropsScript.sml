@@ -5,17 +5,17 @@ open preamble
 
 val _ = new_theory"targetProps";
 
-(* TODO: move? *)
+(* TODO: move *)
 
-val call_FFI_LAPPEND = prove(
-  ``(call_FFI x' x (SOME io_trace) = (q,SOME r)) ==>
-    (call_FFI x' x (SOME (LAPPEND io_trace l)) = (q,SOME (LAPPEND r l)))``,
-  fs [call_FFI_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
-  \\ SRW_TAC [] [] \\ fs [llistTheory.LAPPEND]
-  \\ `(io_trace = [||]) \/ ?h t. io_trace = h:::t` by
-          METIS_TAC [llistTheory.llist_CASES]
-  \\ fs [] \\ SRW_TAC [] [] \\ fs []);
+val LHD_LAPPEND = Q.store_thm("LHD_LAPPEND",
+  `LHD (LAPPEND l1 l2) = if l1 = LNIL then LHD l2 else LHD l1`,
+  qspec_then`l1`FULL_STRUCT_CASES_TAC llist_CASES >> rw[])
+
+val LTAKE_LAPPEND1 = Q.store_thm("LTAKE_LAPPEND1",
+  `∀n l1 l2. IS_SOME (LTAKE n l1) ⇒ (LTAKE n (LAPPEND l1 l2) = LTAKE n l1)`,
+  Induct >> rw[LTAKE_THM] >>
+  qspec_then`l1`FULL_STRUCT_CASES_TAC llist_CASES >> fs[] >>
+  Cases_on`LTAKE n t`>>fs[])
 
 val SUBSET_IMP = prove(
   ``s SUBSET t ==> (x IN s ==> x IN t)``,
@@ -23,26 +23,13 @@ val SUBSET_IMP = prove(
 
 (* -- *)
 
-val evaluate_LAPPEND_io = prove(
-  ``!k ms io_trace config.
-      (FST (evaluate config (SOME io_trace) k ms) = TimeOut) ==>
-      (FST (evaluate config (SOME (LAPPEND io_trace l)) k ms) = TimeOut)``,
-  Induct THEN1 (ONCE_REWRITE_TAC [evaluate_def] \\ fs [])
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs [] \\ REPEAT STRIP_TAC
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF]
-  \\ SRW_TAC [] [] \\ fs [] \\ fs []
-  \\ Cases_on `call_FFI x' x (SOME io_trace)` \\ fs []
-  \\ Cases_on `r` \\ fs []
-  \\ IMP_RES_TAC call_FFI_LAPPEND
-  \\ fs [] \\ SRW_TAC [] []);
-
 val imprecise_machine_sem_LAPPEND = store_thm(
    "imprecise_machine_sem_LAPPEND",
-  ``(Diverge io_trace) IN machine_sem config ms ==>
+  ``(Diverge io_trace) IN machine_sem config ffi ms ==>
     !l. (Diverge (LAPPEND io_trace l)) IN
-             imprecise_machine_sem config ms``,
+             imprecise_machine_sem config ffi ms``,
   fs [IN_DEF,machine_sem_def,imprecise_machine_sem_def]
-  \\ METIS_TAC [evaluate_LAPPEND_io]);
+  \\ METIS_TAC[LTAKE_LAPPEND1,IS_SOME_DEF]);
 
 val asserts_restrict = prove(
   ``!n next1 next2 s P Q.
@@ -167,25 +154,25 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
 
 val evaluate_without_TimeOut = store_thm("evaluate_without_TimeOut",
   ``!k k'.
-      FST (evaluate mc_conf (SOME io) k ms) <> TimeOut ==>
-      (evaluate mc_conf (SOME io) (k + k') ms =
-       evaluate mc_conf (SOME io) k ms)``,
+      FST (evaluate mc_conf ffi k ms) <> TimeOut ==>
+      (evaluate mc_conf ffi (k + k') ms =
+       evaluate mc_conf ffi k ms)``,
   cheat (* easy *));
 
 val evaluate_TimeOut = store_thm("evaluate_TimeOut",
   ``!k k'.
-      (evaluate mc_conf (SOME io) (k + k') ms = (TimeOut,s,i)) /\ i <> NONE ==>
-      (FST (evaluate mc_conf (SOME io) k ms) = TimeOut)``,
+      (evaluate mc_conf ffi (k + k') ms = (TimeOut,s,i)) /\ i.ffi_state <> NONE ==>
+      (FST (evaluate mc_conf ffi k ms) = TimeOut)``,
   cheat (* easy *));
 
 val evaluate_TimeOut_or_not = store_thm("evaluate_TimeOut_or_not",
-  ``FST (evaluate mc_conf (SOME io) k ms) <> TimeOut /\
-    (FST (evaluate mc_conf (SOME l) k ms) = TimeOut) ==>
-    (FST (evaluate mc_conf (SOME io) k ms) = Error IO_mismatch)``,
+  ``FST (evaluate mc_conf ffi k ms) <> TimeOut /\
+    (FST (evaluate mc_conf ffi' k ms) = TimeOut) ==>
+    (FST (evaluate mc_conf ffi k ms) = Error IO_mismatch)``,
   cheat (* easy *));
 
 val evaluate_IO_mismatch = store_thm("evaluate_IO_mismatch",
-  ``(evaluate mc_conf (SOME io) k ms = (Error IO_mismatch,ms2,new_io)) ==>
+  ``(evaluate mc_conf ffi k ms = (Error IO_mismatch,ms2,new_ffi)) ==>
     (new_io = NONE)``,
   cheat (* easy *));
 
