@@ -14,6 +14,19 @@ in
 end
 val i = TypeBase.one_one_of ``:(α,β,γ)pegsym``
 
+val peg_eval_choicel_NIL = store_thm(
+  "peg_eval_choicel_NIL[simp]",
+  ``peg_eval G (i0, choicel []) x = (x = NONE)``,
+  simp[choicel_def, Once peg_eval_cases]);
+
+val peg_eval_choicel_CONS = store_thm(
+  "peg_eval_choicel_CONS",
+  ``∀x. peg_eval G (i0, choicel (h::t)) x ⇔
+          peg_eval G (i0, h) x ∧ x <> NONE ∨
+          peg_eval G (i0,h) NONE ∧ peg_eval G (i0, choicel t) x``,
+  simp[choicel_def, SimpLHS, Once peg_eval_cases] >>
+  simp[sumID_def, pairTheory.FORALL_PROD, optionTheory.FORALL_OPTION]);
+
 val peg_eval_seql_NIL = store_thm(
   "peg_eval_seql_NIL[simp]",
   ``peg_eval G (i0, seql [] f) x ⇔ (x = SOME(i0,f []))``,
@@ -25,7 +38,7 @@ val peg_eval_try = store_thm(
          peg_eval G (i0, s) NONE ∧ x = SOME(i0,[]) ∨
          ∃i r. peg_eval G (i0, s) (SOME(i,r)) ∧ x = SOME(i,r)``,
   simp[Once peg_eval_cases, try_def, SimpLHS, choicel_def,
-       peg_eval_choice] >> simp[] >> metis_tac[]);
+       peg_eval_choice] >> simp[sumID_def] >> metis_tac[]);
 
 val peg_eval_seql_CONS = store_thm(
   "peg_eval_seql_CONS",
