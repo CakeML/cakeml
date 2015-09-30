@@ -4,7 +4,7 @@ open lcsymtacs preamble boolSimps
 open cmlPtreeConversionTheory
 open gramPropsTheory
 
-val _ = new_theory "conversionProps";
+val _ = new_theory "cmlPtreeConversionProps";
 
 val _ = export_rewrites ["option.OPTION_IGNORE_BIND_def"]
 
