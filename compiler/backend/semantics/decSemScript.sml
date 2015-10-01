@@ -10,10 +10,10 @@ val _ = new_theory"decSem"
  * type error).
  *)
 
-val _ = type_abbrev("count_store_genv", ``:(num # 'a store # io_trace) # ('a option) list``);
+val _ = type_abbrev("count_store_genv", ``:(num # 'v store # 'ffi ffi_state) # ('v option) list``);
 
 val _ = Define `
- (do_app (((count,s,t),genv):conSem$v count_store_genv) op vs =
+ (do_app (((count,s,t),genv):('ffi,conSem$v) count_store_genv) op vs =
   case (op,vs) of
    | (Op op, vs) =>
      (case conSem$do_app (s,t) (Op op) vs of
@@ -30,7 +30,7 @@ val _ = Define `
 val _ = temp_type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:all_env) (s:conSem$v count_store_genv) ((Lit l):conLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:all_env) (s:('ffi,conSem$v) count_store_genv) ((Lit l):conLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

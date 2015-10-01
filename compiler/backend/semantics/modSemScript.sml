@@ -298,8 +298,8 @@ val do_app_def = Define `
   | (FFI n, [Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
-       (case call_FFI n ws t of
-        | (ws', t') =>
+       (case call_FFI t n ws of
+        | (t', ws') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))
            | NONE => NONE))
@@ -369,7 +369,7 @@ val pmatch_def = tDefine"pmatch"`
 
 val (evaluate_rules,evaluate_ind,evaluate_cases) = Hol_reln`
   (∀ck env s l.
-  evaluate ck (env:all_env) (s:(num # modSem$v store_trace)) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
+  evaluate ck (env:all_env) (s:(num # ('ffi,modSem$v)store_ffi )) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

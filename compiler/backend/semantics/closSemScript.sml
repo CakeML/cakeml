@@ -224,7 +224,7 @@ val find_code_def = Define `
    of check_clock. *)
 
 val check_clock_def = Define `
-  check_clock s1 s2 =
+  check_clock (s1:'ffi closSem$state) (s2:'ffi closSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(

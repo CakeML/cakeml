@@ -279,7 +279,7 @@ val val_rel_def = tDefine "val_rel" `
                else
                  T)
            s.code s'.code ∧
-  s.io = s'.io ∧
+  s.ffi = s'.ffi ∧
   s.restrict_envs = s'.restrict_envs)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<)
              \x. case x of
@@ -1025,7 +1025,7 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          imp_res_tac state_rel_refs >>
          fs [ref_v_rel_rw, LIST_REL_EL_EQN] >>
          rw [] >>
-         `s'.io = s.io` by fs [Once state_rel_rw] >>
+         `s'.ffi = s.ffi` by fs [Once state_rel_rw] >>
          rw [Unit_def, val_rel_rw] >>
          fs [Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>

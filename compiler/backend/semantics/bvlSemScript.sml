@@ -28,7 +28,7 @@ val _ = Datatype `
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; code    : (num # bvl$exp) num_map
-     ; io      : io_trace |> `
+     ; ffi     : 'ffi ffi_state |> `
 
 val v_to_list_def = Define`
   (v_to_list (Block tag []) =
@@ -41,7 +41,7 @@ val v_to_list_def = Define`
      else NONE) ∧
   (v_to_list _ = NONE)`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#bvlSem$state,bvlSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#'ffi bvlSem$state,bvlSem$v)result``)
 
 (* same as closSem$do_app, except:
     - ToList is removed
@@ -50,7 +50,7 @@ val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(bvlSem$v#bv
     - Label is added *)
 
 val do_app_def = Define `
-  do_app op vs (s:bvlSem$state) =
+  do_app op vs (s:'ffi bvlSem$state) =
     case (op,vs) of
     | (Global n,[]) =>
         (case get_global n s.globals of
@@ -160,11 +160,11 @@ val do_app_def = Define `
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
-           (case call_FFI n ws s.io of
-            | (ws',t') =>
+           (case call_FFI s.ffi n ws of
+            | (ffi',ws') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
-                              ; io   := t'|>))
+                              ; ffi  := ffi'|>))
          | _ => Error)
     | _ => Error`;
 
@@ -199,7 +199,7 @@ val find_code_def = Define `
    of check_clock. *)
 
 val check_clock_def = Define `
-  check_clock s1 s2 =
+  check_clock (s1:'ffi bvlSem$state) (s2:'ffi bvlSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -217,7 +217,7 @@ val check_clock_lemma = prove(
    defined to evaluate a list of exp expressions. *)
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate ([],env,s:bvlSem$state) = (Rval [],s)) /\
+  (evaluate ([],env,s:'ffi bvlSem$state) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case evaluate ([x],env,s) of
      | (Rval v1,s1) =>
@@ -306,8 +306,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:bvlSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:bvlSem$state).clock < k:num``]
+                   [``check_clock s1 s2 = s1:'ffi bvlSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'ffi bvlSem$state).clock < k:num``]
 
 val evaluate_ind = save_thm("evaluate_ind",let
   val raw_ind = fetch "-" "evaluate_ind"

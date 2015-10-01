@@ -9,7 +9,7 @@ val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
 val _ = Q.store_thm("Boolv_11[simp]",`bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2`,EVAL_TAC>>rw[]);
 
 val find_code_EVERY_IMP = store_thm("find_code_EVERY_IMP",
-  ``(find_code dest a (r:bvlSem$state).code = SOME (q,t)) ==>
+  ``(find_code dest a (r:'ffi bvlSem$state).code = SOME (q,t)) ==>
     EVERY P a ==> EVERY P q``,
   Cases_on `dest` \\ fs [find_code_def] \\ REPEAT STRIP_TAC
   \\ BasicProvers.EVERY_CASE_TAC \\ SRW_TAC [] [] \\ fs []
@@ -169,29 +169,29 @@ val inc_clock_def = Define `
   inc_clock ck s = s with clock := s.clock + ck`;
 
 val inc_clock_code = Q.store_thm ("inc_clock_code",
-  `!n (s:bvlSem$state). (inc_clock n s).code = s.code`,
+  `!n (s:'ffi bvlSem$state). (inc_clock n s).code = s.code`,
   rw [inc_clock_def]);
 
 val inc_clock_refs = Q.store_thm ("inc_clock_refs",
-  `!n (s:bvlSem$state). (inc_clock n s).refs = s.refs`,
+  `!n (s:'ffi bvlSem$state). (inc_clock n s).refs = s.refs`,
   rw [inc_clock_def]);
 
 val inc_clock0 = Q.store_thm ("inc_clock0",
-  `!n (s:bvlSem$state). inc_clock 0 s = s`,
+  `!n (s:'ffi bvlSem$state). inc_clock 0 s = s`,
   simp [inc_clock_def, state_component_equality]);
 
 val _ = export_rewrites ["inc_clock_refs", "inc_clock_code", "inc_clock0"];
 
 val dec_clock_code = Q.store_thm ("dec_clock_code",
-  `!n (s:bvlSem$state). (dec_clock n s).code = s.code`,
+  `!n (s:'ffi bvlSem$state). (dec_clock n s).code = s.code`,
   rw [dec_clock_def]);
 
 val dec_clock_refs = Q.store_thm ("dec_clock_refs",
-  `!n (s:bvlSem$state). (dec_clock n s).refs = s.refs`,
+  `!n (s:'ffi bvlSem$state). (dec_clock n s).refs = s.refs`,
   rw [dec_clock_def]);
 
 val dec_clock0 = Q.store_thm ("dec_clock0",
-  `!n (s:bvlSem$state). dec_clock 0 s = s`,
+  `!n (s:'ffi bvlSem$state). dec_clock 0 s = s`,
   simp [dec_clock_def, state_component_equality]);
 
 val _ = export_rewrites ["dec_clock_refs", "dec_clock_code", "dec_clock0"];

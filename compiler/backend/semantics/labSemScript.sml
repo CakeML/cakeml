@@ -16,7 +16,7 @@ val _ = Datatype `
      ; mem_domain : 'a word set
      ; pc         : num
      ; be         : bool
-     ; io_events  : io_trace  (* oracle *)
+     ; ffi        : 'ffi ffi_state  (* oracle *)
      ; io_regs    : num -> num -> 'a word option  (* oracle *)
      ; code       : 'a prog
      ; clock      : num
@@ -93,7 +93,7 @@ val addr_def = Define `
 val is_Loc_def = Define `(is_Loc (Loc _ _) = T) /\ (is_Loc _ = F)`;
 
 val mem_store_def = Define `
-  mem_store r a (s:'a labSem$state) =
+  mem_store r a (s:('a,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
@@ -101,7 +101,7 @@ val mem_store_def = Define `
                   (upd_mem w (read_reg r s) s)`
 
 val mem_load_def = Define `
-  mem_load r a (s:'a labSem$state) =
+  mem_load r a (s:('a,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w => assert ((w2n w MOD (dimindex (:'a) DIV 8) = 0) /\
@@ -145,7 +145,7 @@ val read_bytearray_def = Define `
                  | SOME bs => SOME (b::bs))`
 
 val mem_load_byte_def = Define `
-  mem_load_byte r a (s:'a labSem$state) =
+  mem_load_byte r a (s:('a,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w =>
@@ -163,7 +163,7 @@ val mem_store_byte_aux_def = Define `
     | _ => NONE`
 
 val mem_store_byte_def = Define `
-  mem_store_byte r a (s:'a labSem$state) =
+  mem_store_byte r a (s:('a,'ffi) labSem$state) =
     case addr a s of
     | NONE => assert F s
     | SOME w =>
@@ -190,7 +190,7 @@ val mem_op_def = Define `
   (mem_op Store32 r (a:'a addr) = assert F)`;
 
 val asm_inst_def = Define `
-  (asm_inst Skip s = (s:'a labSem$state)) /\
+  (asm_inst Skip s = (s:('a,'ffi) labSem$state)) /\
   (asm_inst (Const r imm) s = upd_reg r (Word imm) s) /\
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s)`;
@@ -238,7 +238,7 @@ val asm_inst_consts = store_thm("asm_inst_consts",
   ``((asm_inst i s).pc = s.pc) /\
     ((asm_inst i s).code = s.code) /\
     ((asm_inst i s).clock = s.clock) /\
-    ((asm_inst i s).io_events = s.io_events)``,
+    ((asm_inst i s).ffi = s.ffi)``,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def,read_reg_def]
@@ -250,7 +250,7 @@ val asm_inst_consts = store_thm("asm_inst_consts",
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
 val get_pc_value_def = Define `
-  get_pc_value lab (s:'a labSem$state) =
+  get_pc_value lab (s:('a,'ffi) labSem$state) =
     case lab of
     | Lab n1 n2 => loc_to_pc n1 n2 s.code`;
 
@@ -278,7 +278,7 @@ val get_reg_value_def = Define `
   (get_reg_value (SOME v) _ f = f v)`
 
 val evaluate_def = tDefine "evaluate" `
-  evaluate (s:'a labSem$state) =
+  evaluate (s:('a,'ffi) labSem$state) =
     if s.clock = 0 then (TimeOut,s) else
     case asm_fetch s of
     | SOME (Asm a _ _) =>
@@ -326,10 +326,10 @@ val evaluate_def = tDefine "evaluate" `
         | (Word w, Word w2, Loc n1 n2) =>
          (case (read_bytearray w2 (w2n w) s,loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME new_pc) =>
-              let (new_bytes,new_io) = call_FFI ffi_index bytes s.io_events in
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
               let new_io_regs = shift_seq 1 s.io_regs in
                 evaluate (write_bytearray w2 new_bytes s
-                         with <| io_events := new_io ;
+                         with <| ffi := new_ffi ;
                                  io_regs := new_io_regs ;
                                  regs := (\a. get_reg_value (s.io_regs 0 a)
                                                 (s.regs a) Word);
@@ -343,20 +343,18 @@ val evaluate_def = tDefine "evaluate" `
   \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def]
   \\ decide_tac)
 
-val evaluate_with_io_def = Define `
-  evaluate_with_io s1 io k =
-    labSem$evaluate (s1 with <| io_events := io ; clock := k |> )`;
-
-val sem_def = Define `
-  (sem s1 (Terminate io_list) <=>
-     ?k s2. evaluate_with_io s1 (SOME (fromList io_list)) k = (Result,s2) /\
-            s2.io_events = SOME LNIL) /\
-  (sem s1 (Diverge io_trace) <=>
-     (!k. ?s2. (evaluate_with_io s1 (SOME io_trace) k = (TimeOut,s2)) /\
-               s2.io_events <> NONE) /\
-     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. ((SND (evaluate_with_io s1 (SOME io) k)).io_events = NONE))) /\
-  (sem s1 Fail <=>
-     ?k io. FST (evaluate_with_io s1 (SOME io) k) = Error Internal)`
+val semantics_def = Define `
+  (semantics s1 (Terminate io_list) <=>
+     ?k s2. evaluate (s1 with clock := k) = (Result,s2) /\
+            ¬s2.ffi.ffi_failed ∧
+            REVERSE s2.ffi.io_events = io_list) /\
+  (semantics s1 (Diverge io_trace) <=>
+     (!k. ?s2 n. (evaluate (s1 with clock := k) = (TimeOut,s2)) /\
+               ¬s2.ffi.ffi_failed ∧
+               LTAKE n io_trace = SOME (REVERSE s2.ffi.io_events)) /\
+     (!n io_list. (LTAKE n io_trace = SOME io_list) ⇒
+           ?k. (REVERSE(SND (evaluate (s1 with clock := k))).ffi.io_events = io_list))) /\
+  (semantics s1 Fail <=>
+     ?k. FST (evaluate (s1 with clock := k)) = Error Internal)`
 
 val _ = export_theory();

@@ -512,7 +512,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       first_x_assum(qspec_then `xs` assume_tac)>>
       rfs[]>>
       IMP_RES_TAC s_key_eq_LAST_N_exists>>
-      last_x_assum(qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
+      last_x_assum(qspecl_then [`st`,`e'''`,`ls'''`] assume_tac)>>
       rfs[]>>
       HINT_EXISTS_TAC>>
       Q.EXISTS_TAC`fromAList lss'`>>

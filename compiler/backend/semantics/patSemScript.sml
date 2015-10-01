@@ -284,8 +284,8 @@ val _ = Define `
     | (Op (Op (FFI n)), [Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI n ws t of
-              (ws', t') =>
+            (case call_FFI t n ws of
+              (t', ws') =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME (((cnt,s', t'),genv), Rval (Conv tuple_tag []))
                | NONE => NONE))
@@ -306,7 +306,7 @@ val _ = Define `
     if v = Boolv F then SOME e2 else NONE`;
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:patSem$v list) (s:(num # patSem$v store_trace) # patSem$v option list) ((Lit l):patLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:patSem$v list) (s:(num # ('ffi,patSem$v) store_ffi) # patSem$v option list) ((Lit l):patLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

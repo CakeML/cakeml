@@ -167,10 +167,10 @@ val _ = Define`
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
-val _ = type_abbrev("count_store_genv", ``:(num # 'a store # io_trace) # ('a option) list``);
+val _ = type_abbrev("count_store_genv", ``:(num # 'v store # 'ffi ffi_state) # ('v option) list``);
 
 val do_app_def = Define `
-  do_app (((cnt,s,t),g):(exhSem$v count_store_genv)) op (vs:exhSem$v list) =
+  do_app (((cnt,s,t),g):(('ffi,exhSem$v) count_store_genv)) op (vs:exhSem$v list) =
   case op of
   | Init_global_var idx =>
     (case vs of
@@ -333,8 +333,8 @@ val do_app_def = Define `
   | (FFI n, [Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
-       (case call_FFI n ws t of
-        | (ws', t') =>
+       (case call_FFI t n ws of
+        | (t', ws') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME (((cnt,s',t'),g), Rval (Conv tuple_tag []))
            | NONE => NONE))
@@ -362,7 +362,7 @@ val pat_bindings_def = Define`
    pats_bindings ps (pat_bindings p already_bound))`;
 
 val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:(varN,exhSem$v)alist) (s:exhSem$v count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
+evaluate ck (env:(varN,exhSem$v)alist) (s:('ffi,exhSem$v) count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))
