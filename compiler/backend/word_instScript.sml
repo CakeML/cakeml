@@ -121,25 +121,16 @@ val inst_select_def = Define`
   (inst_select c temp (Store exp var) =
     let exp = flatten_exp exp in
     case exp of
-    | Op Add [Const w;exp] =>
-      let prog = inst_select_exp c temp temp exp in
-      if addr_offset_ok w c
-      then
-        Seq prog (Inst (Mem Store var (Addr temp w)))
-      else if c.valid_imm (INL Add) w
-      then
-        let prog' = Inst (Arith (Binop Add temp temp (Imm w))) in
-        let prog'' = Inst (Mem Store var (Addr temp 0w)) in
-        Seq prog (Seq prog' prog'')
+    | Op Add [exp';Const w] =>
+      if addr_offset_ok w c then
+        let prog = inst_select_exp c temp temp exp' in
+          Seq prog (Inst (Mem Store var (Addr temp w)))
       else
-        let prog' = Inst (Const (temp+1) w) in
-        let prog'' = Inst (Arith (Binop Add temp temp (Reg (temp+1)))) in
-        let prog''' = Inst (Mem Store var (Addr temp 0w)) in
-        Seq prog (Seq prog' (Seq prog'' prog'''))
-
+        let prog = inst_select_exp c temp temp exp in
+          Seq prog (Inst (Mem Store var (Addr temp (0w))))
     | _ =>
       let prog = inst_select_exp c temp temp exp in
-        Seq prog (Inst (Mem Store var (Addr temp 0w)))) ∧
+      Seq prog (Inst (Mem Store var (Addr temp (0w))))) ∧
   (inst_select c temp (Seq p1 p2) =
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =

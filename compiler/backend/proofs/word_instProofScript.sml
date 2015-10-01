@@ -342,8 +342,57 @@ val locals_rel_evaluate_thm = prove(``
     rfs[state_component_equality,set_var_def]>>
     qpat_assum`A=rst.locals` sym_sub_tac>>
     metis_tac[locals_rel_set_var])
-  >>
+  >-
+    (every_case_tac>>fs[set_var_def,state_component_equality,set_var_def]>>
+    metis_tac[locals_rel_set_var])
+  >-
+    (every_case_tac>>imp_res_tac locals_rel_word_exp>>fs[every_var_def]>>
+    rfs[state_component_equality,set_store_def]>>
+    metis_tac[locals_rel_set_var])
+  >-
+    (every_case_tac>>imp_res_tac locals_rel_word_exp>>fs[every_var_def]>>
+    imp_res_tac locals_rel_get_var>>fs[]>>
+    rfs[state_component_equality,mem_store_def]>>
+    metis_tac[])
+  >-
+    (*call*)
+    cheat
+  >-
+    (fs[PULL_FORALL,GSYM AND_IMP_INTRO]>>Cases_on`evaluate (p,st)`>>fs[]>>
+    first_assum(qspec_then`p` mp_tac)>>
+    first_x_assum(qspec_then`p0` mp_tac)>>
+    `q ≠ SOME Error` by (every_case_tac >> fs[])>>
+    simp[prog_size_def]>>rw[]>>fs[every_var_def]>>res_tac>>
+    simp[]>>IF_CASES_TAC>>fs[state_component_equality]>>
+    res_tac>>
+    first_x_assum(qspec_then`loc` assume_tac)>>rfs[locals_rel_def])
+  >-
+    (fs[PULL_FORALL,GSYM AND_IMP_INTRO]>>
+    qpat_assum`A=(res,rst)`mp_tac >> ntac 4 (FULL_CASE_TAC>>fs[])>>
+    IF_CASES_TAC>>rw[]>>
+    imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_get_var_imm>>
+    fs[every_var_def]>>rfs[]
+    >-
+      (first_x_assum(qspec_then`p`mp_tac)>>fs[GSYM PULL_FORALL]>>
+      discharge_hyps>- (fs[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
+      res_tac>>fs[])
+    >>
+      (first_x_assum(qspec_then`p0`mp_tac)>>fs[GSYM PULL_FORALL]>>
+      discharge_hyps>- (fs[prog_size_def]>>DECIDE_TAC)>>strip_tac>>
+      res_tac>>fs[]))
+  >-
+    (*alloc*)
+    (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
     cheat)
+  >-
+    (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
+    fs[jump_exc_def,state_component_equality,locals_rel_def]>>
+    metis_tac[])
+  >-
+    (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
+    fs[call_env_def,state_component_equality,locals_rel_def])
+  >>
+    every_case_tac>>fs[call_env_def,state_component_equality,locals_rel_def,dec_clock_def]>>metis_tac[])
 
 val inst_select_thm = prove(``
   ∀c temp prog st res rst loc.
@@ -379,8 +428,79 @@ val inst_select_thm = prove(``
     fs[state_component_equality,locals_rel_def]>>
     rw[]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
   >-
-    (*undo the munched version*)
-    cheat
+    (fs[evaluate_def]>>last_x_assum mp_tac>>
+    ntac 3 FULL_CASE_TAC>>fs[]>>strip_tac>>
+    qpat_abbrev_tac`expr = flatten_exp emxp`>>
+    Cases_on`∃w exp'. expr = Op Add [exp';Const w]`>>
+    fs[LET_THM]
+    >-
+      (IF_CASES_TAC
+      >-
+        (fs[Abbr`expr`,every_var_def]>>
+        fs[Once flatten_exp_ok,word_exp_def,LET_THM,IS_SOME_EXISTS]>>
+        imp_res_tac flatten_exp_every_var_exp>>rfs[every_var_exp_def]>>
+        fs[]>>
+        imp_res_tac inst_select_exp_thm>> ntac 2 (pop_assum kall_tac)>>
+        pop_assum mp_tac>>discharge_hyps>-
+          (assume_tac flatten_exp_binary_branch_exp>>
+          pop_assum(qspec_then`exp` mp_tac)>>simp[binary_branch_exp_def])>>
+        rw[]>>
+        fs[evaluate_def,LET_THM]>>first_x_assum(qspecl_then [`temp`,`c`] assume_tac)>>
+        fs[inst_def,word_exp_def]>>
+        `lookup temp loc' = SOME(Word x''')` by metis_tac[]>>
+        simp[LET_THM]>>
+        `get_var var (st with locals := loc') = SOME x` by
+          (fs[get_var_def]>>
+          `var ≠ temp` by DECIDE_TAC>>metis_tac[])>>
+        fs[mem_store_def]>>
+        fs[state_component_equality,locals_rel_def]>>
+        rw[]>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
+      >>
+        qpat_assum`expr =A` sym_sub_tac>>
+        fs[Once flatten_exp_ok]>>
+        imp_res_tac inst_select_exp_thm>>
+        fs[AND_IMP_INTRO]>> pop_assum mp_tac>>
+        discharge_hyps
+        >-
+          (fs[every_var_def,Abbr`expr`]>>
+          metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp]) 
+        >>
+        disch_then (qspecl_then [`temp`,`c`] assume_tac)>>
+        fs[evaluate_def,LET_THM,inst_def,word_exp_def]>>
+        `lookup temp loc' = SOME (Word x')` by metis_tac[]>>
+        fs[word_op_def]>>
+        `get_var var (st with locals := loc') = SOME x` by
+          (fs[get_var_def,every_var_def]>>
+          `var ≠ temp` by DECIDE_TAC>>
+          metis_tac[])>>
+        fs[mem_store_def]>>
+        fs[state_component_equality,locals_rel_def]>>
+        rw[]>>`x''' ≠ temp` by DECIDE_TAC>>metis_tac[])
+    >>
+      `inst_select c temp (Store exp var) = 
+        Seq(inst_select_exp c temp temp expr)
+        (Inst (Mem Store var (Addr temp 0w)))` by
+        (fs[inst_select_def,LET_THM]>>
+        EVERY_CASE_TAC>>fs[])>>
+      fs[inst_select_def,LET_THM,Abbr`expr`]>>
+      fs[Once flatten_exp_ok]>>
+      imp_res_tac inst_select_exp_thm>>
+      fs[AND_IMP_INTRO]>> pop_assum mp_tac>>
+      discharge_hyps
+      >-
+        (fs[every_var_def]>>
+        metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp])
+      >>
+      disch_then(qspecl_then [`temp`,`c`] assume_tac)>>
+      fs[evaluate_def,LET_THM,inst_def,word_exp_def]>>
+      `lookup temp loc' = SOME (Word x')` by metis_tac[]>>
+      fs[word_op_def,every_var_def]>>
+      `get_var var (st with locals := loc') = SOME x` by 
+        (fs[get_var_def]>>`var ≠ temp` by DECIDE_TAC>>
+        metis_tac[])>>
+      fs[mem_store_def]>>
+      fs[state_component_equality,locals_rel_def]>>rw[]>>
+      `x''' ≠ temp` by DECIDE_TAC>>metis_tac[])
   >-
     (*Seq*)
     (fs[evaluate_def,LET_THM]>>Cases_on`evaluate(prog,st)`>>
