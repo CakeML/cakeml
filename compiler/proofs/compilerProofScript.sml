@@ -5,15 +5,15 @@ open preamble
 
 val _ = new_theory"compilerProof";
 
-val invariant_def = Define`
-  invariant (st:'ffi top_state) (cc:α compiler$config) = (ARB:bool)`;
+val initial_condition_def = Define`
+  initial_condition (st:'ffi top_state) (cc:α compiler$config) = (ARB:bool)`;
 
 val code_loaded_def = Define`
   code_loaded (cc:ξ compiler$config) (cc':ξ compiler$config) (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) = (ARB:bool)`;
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀st cc input.
-    invariant st cc ⇒
+    initial_condition st cc ⇒
     case compile cc input of
     | Failure _ => semantics st input = NONE
     | Success (bytes,cc') =>
