@@ -18,30 +18,6 @@ val _ = new_theory "ffi"
 val _ = type_abbrev((*  'ffi *) "oracle_function" , ``: 'ffi -> word8 list ->  ('ffi # ( word8 list))option``);
 val _ = type_abbrev((*  'ffi *) "oracle" , ``: num -> 'ffi oracle_function``);
 
-val _ = Hol_datatype `
-(*  'ffi *) ffi_state = <|
-  oracle : 'ffi oracle;
-  ffi_state :  'ffi option |>`;
-
-
-(*val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8*)
-val _ = Define `
- (call_FFI st n bytes =  
-((case st.ffi_state of
-    SOME ffi =>
-      (case st.oracle n ffi bytes of
-        SOME (ffi', bytes') =>
-          if LENGTH bytes' = LENGTH bytes then
-            (( st with<| ffi_state := SOME ffi' |>), bytes')
-          else (( st with<| ffi_state := NONE |>), bytes)
-      | _ => (( st with<| ffi_state := NONE |>), bytes)
-      )
-  | _ => (st, bytes)
-  )))`;
-
-
-(* I/O events *)
-
 (* An I/O event, IO_event n bytes2, represents the call of FFI function n with
  * input map fst bytes2 in the passed array, returning map snd bytes2 in the
  * array. *)
@@ -50,16 +26,39 @@ val _ = Hol_datatype `
  io_event = IO_event of num => ( (word8 # word8)list)`;
 
 
-(* Any oracle can be extended as an oracle that tracks the io_events it has
- * encountered *)
+val _ = Hol_datatype `
+(*  'ffi *) ffi_state =
+  <| oracle     : 'ffi oracle
+   ; ffi_state  : 'ffi
+   ; ffi_failed : bool
+   ; io_events  : io_event list
+   |>`;
 
-(*val add_trace : forall 'ffi. oracle 'ffi -> oracle ('ffi * list io_event)*)
+
+(*val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi*)
 val _ = Define `
- (add_trace oracle n (ffi,events) bytes =  
-((case oracle n ffi bytes of
-    SOME (ffi',bytes') => SOME ((ffi', ((IO_event n (ZIP (bytes, bytes')))::events)),bytes')
-  | _ => NONE
-  )))`;
+ (initial_ffi_state oc ffi =  
+(<| oracle     := oc
+   ; ffi_state  := ffi
+   ; ffi_failed := F
+   ; io_events  := []
+   |>))`;
+
+
+(*val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8*)
+val _ = Define `
+ (call_FFI st n bytes =  
+(if st.ffi_failed then (st, bytes) else
+    (case st.oracle n st.ffi_state bytes of
+      SOME (ffi', bytes') =>
+        if LENGTH bytes' = LENGTH bytes then
+          (( st with<| ffi_state := ffi'
+                    ; io_events := (IO_event n (ZIP (bytes, bytes')))
+                                  ::st.io_events
+            |>), bytes')
+        else (( st with<| ffi_failed := T |>), bytes)
+    | _ => (( st with<| ffi_failed := T |>), bytes)
+    )))`;
 
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
