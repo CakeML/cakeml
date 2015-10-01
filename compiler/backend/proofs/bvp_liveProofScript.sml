@@ -193,44 +193,26 @@ val evaluate_compile = Q.prove(
     \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def])
   THEN1 (* If *)
    (Q.ABBREV_TAC `l9 = l2` \\ POP_ASSUM (K ALL_TAC)
-    \\ Cases_on `evaluate (g,s)` \\ fs [evaluate_def,compile_def]
     \\ `?d3 l3. compile c2 l9 = (d3,l3)` by METIS_TAC [PAIR]
     \\ `?d2 l2. compile c1 l9 = (d2,l2)` by METIS_TAC [PAIR]
-    \\ `?d1 l1. compile g (insert n () (union l2 l3)) = (d1,l1)` by METIS_TAC [PAIR]
-    \\ fs [LET_DEF] \\ SRW_TAC [] []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`insert n () (union l2 l3)`,`t1`])
+    \\ fs [compile_def,LET_DEF] \\ rw []
     \\ fs [evaluate_def] \\ REPEAT STRIP_TAC
-    \\ POP_ASSUM (ASSUME_TAC o GSYM)
-    \\ reverse (Cases_on `q`) \\ fs [] THEN1 (Cases_on `x` \\ fs [] \\ Cases_on`e`\\fs[] \\ Cases_on`a`\\fs[])
-    \\ Cases_on `get_var n r` \\ fs []
-    \\ `state_rel r t2 l2 /\ state_rel r t2 l3 /\
-        (get_var n r = get_var n t2)` by
+    \\ Cases_on `get_var n s` \\ fs []
+    \\ `(get_var n s = get_var n t1)` by
          (fs [state_rel_def,domain_union,domain_insert,get_var_def]
           \\ METIS_TAC [])
-    \\ Cases_on `x = Boolv T`
-    \\ fs [] THEN1
-     (Q.PAT_ASSUM `xxx = evaluate (c1,r)` (ASSUME_TAC o GSYM) \\ fs []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t2`]) \\ fs []
+    \\ Cases_on `x = Boolv T` \\ fs [] THEN1
+     (Q.PAT_ASSUM `xxx = evaluate (c1,s)` (ASSUME_TAC o GSYM) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
-      \\ IMP_RES_TAC evaluate_NONE_jump_exc \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
-      \\ Q.PAT_ASSUM `!x.bbb` (IMP_RES_TAC o GSYM)
-      \\ IMP_RES_TAC evaluate_NONE_jump_exc_ALT \\ POP_ASSUM (K ALL_TAC)
-      \\ fs [] \\ `state_rel r t2 LN` by fs [state_rel_def]
-      \\ MP_TAC (Q.SPECL [`r`,`t2`] jump_exc_IMP_state_rel) \\ fs []
-      \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def])
-    \\ Cases_on `x = Boolv F`
-    \\ fs [] THEN1
-     (Q.PAT_ASSUM `xxx = evaluate (c2,r)` (ASSUME_TAC o GSYM) \\ fs []
-      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t2`]) \\ fs []
+      \\ fs [state_rel_def,domain_union])
+    \\ Cases_on `x = Boolv F` \\ fs [] THEN1
+     (Q.PAT_ASSUM `xxx = evaluate (c2,s)` (ASSUME_TAC o GSYM) \\ fs []
+      \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`l9`,`t1`]) \\ fs []
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ REPEAT STRIP_TAC \\ fs []
-      \\ IMP_RES_TAC evaluate_NONE_jump_exc \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
-      \\ Q.PAT_ASSUM `!x.bbb` (IMP_RES_TAC o GSYM)
-      \\ IMP_RES_TAC evaluate_NONE_jump_exc_ALT \\ POP_ASSUM (K ALL_TAC)
-      \\ fs [] \\ `state_rel r t2 LN` by fs [state_rel_def]
-      \\ MP_TAC (Q.SPECL [`r`,`t2`] jump_exc_IMP_state_rel) \\ fs []
-      \\ ASM_SIMP_TAC (srw_ss()) [state_rel_def]))
+      \\ fs [state_rel_def,domain_union]))
   (* Call from here onwards *)
   \\ Cases_on `ret` \\ fs [evaluate_def,compile_def]
   THEN1 (* Call with ret = NONE *)

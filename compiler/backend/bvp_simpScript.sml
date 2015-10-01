@@ -27,8 +27,8 @@ val simp_def = Define `
   (simp (Return n) c = Return n) /\
   (simp (Raise n) c = Raise n) /\
   (simp (Seq c1 c2) c = simp c1 (simp c2 c)) /\
-  (simp (If c1 n c2 c3) c =
-     pSeq (If (simp c1 Skip) n (simp c2 Skip) (simp c3 Skip)) c) /\
+  (simp (If n c2 c3) c =
+     pSeq (If n (simp c2 Skip) (simp c3 Skip)) c) /\
   (simp (Call ret dest args (SOME (v,handler))) c =
      pSeq (Call ret dest args (SOME (v,simp handler Skip))) c) /\
   (simp c1 c2 = pSeq c1 c2)`;

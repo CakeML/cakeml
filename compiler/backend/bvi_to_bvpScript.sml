@@ -41,10 +41,10 @@ val compile_def = tDefine "compile" `
      let (c2,v2,n2) = compile n1 env tail live [x2] in
      let (c3,v3,n3) = compile n2 env tail live [x3] in
        if tail then
-         (If c1 (HD v1) c2 c3,[n3],n3+1)
+         (Seq c1 (If (HD v1) c2 c3),[n3],n3+1)
        else
-         (If c1 (HD v1) (Seq c2 (Move n3 (HD v2)))
-                        (Seq c3 (Move n3 (HD v3))),[n3],n3+1)) /\
+         (Seq c1 (If (HD v1) (Seq c2 (Move n3 (HD v2)))
+                             (Seq c3 (Move n3 (HD v3)))),[n3],n3+1)) /\
   (compile n env tail live [Let xs x2] =
      let (c1,vs,n1) = compile n env F live xs in
      let (c2,v2,n2) = compile n1 (vs ++ env) tail live [x2] in

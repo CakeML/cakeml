@@ -25,11 +25,10 @@ val compile_def = Define `
   (compile (Assign v op vs (SOME names)) live =
      let l1 = inter names (list_insert vs (delete v live)) in
        (Assign v op vs (SOME l1),l1)) /\
-  (compile (If c1 n c2 c3) live =
+  (compile (If n c2 c3) live =
      let (d3,l3) = compile c3 live in
      let (d2,l2) = compile c2 live in
-     let (d1,l1) = compile c1 (insert n () (union l2 l3)) in
-       (If d1 n d2 d3, l1)) /\
+       (If n d2 d3, insert n () (union l2 l3))) /\
   (compile (Call NONE dest vs handler) live =
      (Call NONE dest vs handler,list_to_num_set vs)) /\
   (compile (Call (SOME (n,names)) dest vs NONE) live =

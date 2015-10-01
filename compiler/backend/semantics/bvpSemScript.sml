@@ -188,15 +188,12 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = evaluate (c1,s) in
        if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
-  (evaluate (If g n c1 c2,s) =
-     case evaluate (g,s) of
-     | (NONE,s1) =>
-         (case get_var n s1 of
-          | NONE => (SOME (Rerr(Rabort Rtype_error)),s1)
-          | SOME x => if x = Boolv T then evaluate (c1,check_clock s1 s) else
-                      if x = Boolv F then evaluate (c2,check_clock s1 s) else
-                        (SOME (Rerr(Rabort Rtype_error)),s1))
-     | res => res) /\
+  (evaluate (If n c1 c2,s) =
+     case get_var n s of
+     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+     | SOME x => if x = Boolv T then evaluate (c1,s) else
+                 if x = Boolv F then evaluate (c2,s) else
+                   (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
      if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),call_env [] s with stack := []) else
        case get_vars args s of

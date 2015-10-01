@@ -293,13 +293,7 @@ val evaluate_compile = Q.prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
   THEN1 (* If *)
-   (Cases_on `evaluate (g,s)` \\ fs []
-    \\ reverse (Cases_on `q`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
-    \\ REV_FULL_SIMP_TAC (srw_ss()) []
-    THEN1 METIS_TAC [locals_ok_def]
-    \\ Cases_on `get_var n r` \\ fs []
+   (Cases_on `get_var n s` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ SRW_TAC [] [] \\ fs [])
   THEN1 (* Call *)

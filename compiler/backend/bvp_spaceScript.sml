@@ -30,9 +30,8 @@ val space_def = Define `
                INR (k,list_insert args (delete dest names),
                     Seq (Assign dest op args NONE) c4)
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
-  (space (If c1 n c2 c3) =
-     INL (If (pMakeSpace (space c1)) n (pMakeSpace (space c2))
-                                       (pMakeSpace (space c3)))) /\
+  (space (If n c2 c3) =
+     INL (If n (pMakeSpace (space c2)) (pMakeSpace (space c3)))) /\
   (space c = INL c)`;
 
 val compile_def = Define `

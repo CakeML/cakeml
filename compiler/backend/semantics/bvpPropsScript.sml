@@ -190,33 +190,11 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
   THEN1 (* If *)
    (fs [evaluate_def]
-    \\ Cases_on `evaluate (g,s)` \\ fs [LET_DEF]
-    \\ Cases_on `evaluate (c1,r)` \\ fs [LET_DEF]
-    \\ Cases_on `evaluate (c2,r)` \\ fs [LET_DEF]
-    \\ reverse (Cases_on `q`) \\ fs []
-    THEN1 (Cases_on `x` \\ fs [] \\
-           Cases_on `e` \\ fs [] \\ REPEAT STRIP_TAC
-           \\ RES_TAC \\ fs [] \\
-           Cases_on `a` \\ fs [] )
-    \\ Cases_on `get_var n r` \\ fs []
-    \\ Cases_on `x = Boolv T` \\ fs [get_var_def] THEN1
-     (Cases_on `q'` \\ fs []
-      \\ Cases_on `x'` \\ fs [jump_exc_def]
-      \\ every_case_tac \\ fs [jump_exc_def]
-      \\ SRW_TAC [] [] \\ fs [set_var_def]
-      \\ POP_ASSUM MP_TAC
-      \\ every_case_tac \\ fs []
-      \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
-    \\ Cases_on `x = Boolv F` \\ fs [get_var_def] THEN1
-     (Cases_on `q''` \\ fs []
-      \\ Cases_on `x'` \\ fs [jump_exc_def]
-      \\ every_case_tac \\ fs [jump_exc_def]
-      \\ SRW_TAC [] [] \\ fs [set_var_def]
-      \\ POP_ASSUM MP_TAC
-      \\ every_case_tac \\ fs []
-      \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-      \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs []))
+    \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
+    \\ Cases_on `evaluate (c2,s)` \\ fs [LET_DEF]
+    \\ Cases_on `get_var n s` \\ fs []
+    \\ Cases_on `x = Boolv T` \\ fs [get_var_def]
+    \\ Cases_on `x = Boolv F` \\ fs [get_var_def])
   THEN1 (* Call *)
    (fs [evaluate_def]
     \\ Cases_on `s.clock = 0` \\ fs []
@@ -554,13 +532,7 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
   THEN1 (* If *)
-   (Cases_on `evaluate (g,s)` \\ fs []
-    \\ reverse (Cases_on `q`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
-    \\ REV_FULL_SIMP_TAC (srw_ss()) []
-    THEN1 METIS_TAC [locals_ok_def]
-    \\ Cases_on `get_var n r` \\ fs []
+   (Cases_on `get_var n s` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ Cases_on `x = Boolv T` \\ fs []
     \\ Cases_on `x = Boolv F` \\ fs [])
