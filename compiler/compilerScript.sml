@@ -1,4 +1,5 @@
 open preamble
+     lexer_funTheory
      cmlParseTheory
      inferTheory
      source_to_targetTheory
@@ -12,8 +13,8 @@ val _ = Datatype`
      |>`;
 
 val compile_def = Define`
-  compile c tokens =
-    case parse_prog tokens of
+  compile c input =
+    case parse_prog (lexer_fun input) of
     | NONE => Failure "parse error"
     | SOME prog =>
         case infertype_prog c.inferencer_config prog of
