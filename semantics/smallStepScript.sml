@@ -45,7 +45,7 @@ val _ = type_abbrev( "ctxt" , ``: ctxt_frame # v environment``);
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-val _ = type_abbrev((*  'ffi *) "small_state" , ``: v environment # 'ffi store_ffi # exp_or_val # ctxt list``);
+val _ = type_abbrev((*  'ffi *) "small_state" , ``: v environment # ('ffi, v) store_ffi # exp_or_val # ctxt list``);
 
 val _ = Hol_datatype `
  e_step_result =
@@ -59,17 +59,17 @@ val _ = Hol_datatype `
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-(*val push : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
+(*val push : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
  (push env s e c' cs = (Estep (env, s, Exp e, ((c',env)::cs))))`;
 
 
-(*val return : forall 'ffi. environment v -> store_ffi 'ffi -> v -> list ctxt -> e_step_result 'ffi*)
+(*val return : forall 'ffi. environment v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
  (return env s v c = (Estep (env, s, Val v, c)))`;
 
 
-(*val application : forall 'ffi. op -> environment v -> store_ffi 'ffi -> list v -> list ctxt -> e_step_result 'ffi*)
+(*val application : forall 'ffi. op -> environment v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
  (application op env s vs c =  
 ((case op of
@@ -92,7 +92,7 @@ val _ = Define `
 
 
 (* apply a context to a value *)
-(*val continue : forall 'ffi. store_ffi 'ffi -> v -> list ctxt -> e_step_result 'ffi*)
+(*val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi*)
 val _ = Define `
  (continue s v cs =  
 ((case cs of
@@ -211,7 +211,7 @@ val _ = Define `
 (* Define a semantic function using the steps *)
 
 (*val e_step_reln : forall 'ffi. small_state 'ffi -> small_state 'ffi -> bool*)
-(*val small_eval : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> list ctxt -> store_ffi 'ffi * result v v -> bool*)
+(*val small_eval : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool*)
 
 val _ = Define `
  (e_step_reln st1 st2 =
@@ -232,7 +232,7 @@ val _ = Define `
     (e_step (env',s',e',c') = Eabort a)))`;
 
 
-(*val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi -> exp -> bool*)
+(*val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> bool*)
 val _ = Define `
  (e_diverges env s e =  
 (! env' s' e' c'.
