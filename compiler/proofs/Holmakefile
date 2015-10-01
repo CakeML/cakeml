@@ -11,7 +11,8 @@ PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../compilerTheory\
+BARE_THYS = ../../semantics/semanticsTheory\
+						../compilerTheory\
 						../parsing/proofs/pegCompleteTheory\
 						../inference/proofs/inferSoundTheory\
 						../inference/proofs/inferCompleteTheory\
