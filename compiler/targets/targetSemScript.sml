@@ -76,37 +76,24 @@ val evaluate_def = Define `
             let config = config with ffi_interfer :=
                            shift_seq 1 config.ffi_interfer in
             let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
-              if new_ffi.ffi_state = NONE then (Error IO_mismatch,ms,new_ffi) else
+              if new_ffi.ffi_failed then (Error IO_mismatch,ms,new_ffi) else
                 evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
-
-
-(* -- observable -- *)
-
-val evaluate_with_io_def = Define`
-  evaluate_with_io config st =
-    evaluate config
-      <| oracle := add_trace st.oracle
-       ; ffi_state := OPTION_MAP (λffi. (ffi,[])) st.ffi_state
-       |>`;
 
 val _ = ParseExtras.temp_tight_equality()
 
 val machine_sem_def = Define `
   (machine_sem config st ms (Terminate io_list) <=>
-     ?k ms' st' ffi.
-       evaluate_with_io config st k ms = (Result,ms',st') ∧
-       st'.ffi_state = SOME (ffi, REVERSE io_list)) /\
+     ?k ms' st'.
+       evaluate config st k ms = (Result,ms',st') ∧
+       REVERSE st'.io_events = io_list) /\
   (machine_sem config st ms (Diverge io_trace) <=>
-     (!k. ∃ms' st' ffi io_list n.
-       evaluate_with_io config st k ms = (TimeOut,ms',st') ∧
-       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
-       LTAKE n io_trace = SOME io_list) /\
-     (!n. ?k r ms' st' ffi io_list.
-       evaluate_with_io config st k ms = (r,ms',st') ∧ r ≠ TimeOut ∧
-       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
-       LTAKE n io_trace = SOME io_list)) /\
+     (!k. ∃ms' st' n.
+       evaluate config st k ms = (TimeOut,ms',st') ∧
+       LTAKE n io_trace = SOME (REVERSE st'.io_events)) /\
+     (!n io_list. LTAKE n io_trace = SOME io_list ⇒
+        ?k. REVERSE (SND(SND(evaluate config st k ms))).io_events = io_list)) /\
   (machine_sem config st ms Fail <=>
-     ?k. FST (evaluate_with_io config st k ms) = Error Internal)`
+     ?k. FST (evaluate config st k ms) = Error Internal)`
 
 (* Note: we need to prove that every well-typed program has some
    behaviour, i.e. machine_sem config ms should never be the empty set
@@ -119,13 +106,12 @@ val machine_sem_def = Define `
 
 val imprecise_machine_sem_def = Define `
   (imprecise_machine_sem config st ms (Terminate io_list) <=>
-     ?k ms' st' ffi.
-       evaluate_with_io config st k ms = (Result,ms',st') ∧
-       st'.ffi_state = SOME (ffi, REVERSE io_list)) /\
+     ?k ms' st'.
+       evaluate config st k ms = (Result,ms',st') ∧
+       REVERSE st'.io_events = io_list) /\
   (imprecise_machine_sem config st ms (Diverge io_trace) <=>
-     (!k. ∃ms' st' ffi io_list n.
-       evaluate_with_io config st k ms = (TimeOut,ms',st') ∧
-       st'.ffi_state = SOME (ffi, REVERSE io_list) ∧
-       LTAKE n io_trace = SOME io_list))`
+     (!k. ∃ms' st' n.
+       evaluate config st k ms = (TimeOut,ms',st') ∧
+       LTAKE n io_trace = SOME (REVERSE st'.io_events)))`
 
 val _ = export_theory();
