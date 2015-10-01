@@ -34,20 +34,25 @@ val stack_rel_def = Define `
      stack_rel (Env env) (StackFrame vs NONE) /\ (x1 = n)) /\
   (stack_rel _ _ <=> F)`
 
-val flat_def = Define `
-  (flat [] = []) /\
-  (flat (Env env::xs) = MAP SND (toAList env) ++ flat xs) /\
-  (flat (Exc env n::xs) = MAP SND (toAList env) ++ flat xs)`;
+val mapi_def = Define `
+  mapi f = foldi (\n x t. insert n (f n x) t) 0 LN`
 
-val flat2_def = Define `
-  (flat2 (Env env::xs) (StackFrame vs _::ys) =
-     MAP (\(n,_). THE (ALOOKUP vs (adjust_var n))) (toAList env) ++ flat2 xs ys) /\
-  (flat2 (Exc env _::xs) (StackFrame vs _::ys) =
-     MAP (\(n,_). THE (ALOOKUP vs (adjust_var n))) (toAList env) ++ flat2 xs ys) /\
-  (flat2 _ _ = [])`;
+val join_env_def = Define `
+  join_env env vs =
+    mapi (\n v. (v,THE (ALOOKUP vs (adjust_var n)))) env`
+
+val flat_def = Define `
+  (flat (Env env::xs) (StackFrame vs _::ys) =
+     join_env env vs :: flat xs ys) /\
+  (flat (Exc env _::xs) (StackFrame vs _::ys) =
+     join_env env vs :: flat xs ys) /\
+  (flat _ _ = [])`
+
+val the_global_def = Define `
+  the_global g = the (Number 0) (OPTION_MAP RefPtr g)`;
 
 val state_rel_def = Define `
-  state_rel c l1 l2 (s:bvpSem$state) (t:'a wordSem$state) v1 w1 <=>
+  state_rel c l1 l2 (s:bvpSem$state) (t:'a wordSem$state) v1 <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
     (t.io = s.io) /\
     (t.clock = s.clock) /\
@@ -65,29 +70,23 @@ val state_rel_def = Define `
     (* the stacks contain the same names, have same shape *)
     EVERY2 stack_rel s.stack t.stack /\
     (* there exists some GC-compatible abstraction *)
-    ?heap limit a sp heap_addr_stack.
+    ?heap limit a sp.
       (* the abstract heap is stored in memory *)
       (word_heap (theWord (t.store ' CurrHeap)) heap c heap *
        word_heap (theWord (t.store ' OtherHeap))
          [Unused (limit-1)] c [Unused (limit-1)])
            (fun2set (t.memory,t.mdomain)) /\
       (* the abstract heap relates to the values of BVP *)
-      abs_ml_inv
-        (flat (Env v1 :: Env s.locals :: Env (insert 0 (the (Number 0) (OPTION_MAP RefPtr s.global)) LN) :: s.stack))
-        s.refs (heap_addr_stack,heap,F,a,sp) limit /\
-      s.space <= sp /\
-      (* word lang locals, globals and stack are correct *)
-      EVERY2 (\v w. word_addr c heap v = w) heap_addr_stack
-        (flat2 (Env v1 :: Env s.locals :: Env (insert 0 (the (Number 0) (OPTION_MAP RefPtr s.global)) LN) :: s.stack)
-               (StackFrame (toAList w1) NONE ::
-                StackFrame (toAList t.locals) NONE ::
-                StackFrame [(adjust_var 0, t.store ' Globals)] NONE ::
-                t.stack))`
+      word_ml_envs (heap,F,a,sp) limit c s.refs
+        (v1 :: join_env s.locals (toAList t.locals) ::
+           LS (the_global s.global,t.store ' Globals) ::
+           flat s.stack t.stack) /\
+      s.space <= sp`
 
 (* compiler proof *)
 
 val state_rel_get_var_IMP = prove(
-  ``state_rel c l1 l2 s t LN LN ==>
+  ``state_rel c l1 l2 s t LN ==>
     (get_var n s = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w``,
   fs [bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
@@ -99,18 +98,16 @@ val compile_correct = prove(
   ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      state_rel c l1 l2 s t LN LN ==>
+      state_rel c l1 l2 s t LN ==>
       ?t1 res1. (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
                 (res1 <> SOME NotEnoughSpace ==>
                  case res of
-                 | NONE => state_rel c l1 l2 s1 t1 LN LN /\ (res1 = NONE)
+                 | NONE => state_rel c l1 l2 s1 t1 LN /\ (res1 = NONE)
                  | SOME (Rval v) =>
-                     ?w. state_rel c l1 l2 s1 t1 (insert 0 v LN)
-                            (insert (adjust_var 0) w LN) /\
+                     ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Result (Loc l1 l2) w))
                  | SOME (Rerr (Rraise v)) =>
-                     ?w. state_rel c l1 l2 s1 t1 (insert 0 v LN)
-                            (insert (adjust_var 0) w LN) /\
+                     ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Exception w w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
 
@@ -118,7 +115,18 @@ val compile_correct = prove(
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ rw [])
-  THEN1 (* Move *) cheat
+  THEN1 (* Move *)
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `get_var src s` \\ fs [] \\ rw []
+    \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
+    \\ fs [wordSemTheory.get_vars_def,wordSemTheory.set_vars_def,
+           alist_insert_def]
+    \\ fs [state_rel_def,set_var_def,lookup_insert]
+    \\ rpt strip_tac \\ fs []
+    THEN1 (rw [] \\ Cases_on `n = dest` \\ fs [])
+    \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
+    \\ imp_res_tac word_ml_envs_get_var_IMP
+    \\ match_mp_tac word_ml_envs_insert \\ fs [])
   THEN1 (* Assign *) cheat
   THEN1 (* Tick *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -127,7 +135,6 @@ val compile_correct = prove(
     \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def])
   THEN1 (* MakeSpace *) cheat
   THEN1 (* Raise *) cheat
-
   THEN1 (* Return *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s` \\ fs [] \\ rw []
@@ -136,10 +143,11 @@ val compile_correct = prove(
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ fs [state_rel_def,wordSemTheory.call_env_def,lookup_def,
            bvpSemTheory.call_env_def,EVAL ``fromList []``,
-           EVAL ``isEmpty (insert 0 x LN)``]
+           EVAL ``isEmpty (insert 0 x LN)``,EVAL ``fromList2 []``,
+           EVAL ``join_env LN (toAList LN)``]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
-    \\ cheat)
-
+    \\ imp_res_tac word_ml_envs_get_var_IMP
+    \\ imp_res_tac word_ml_envs_DROP)
   THEN1 (* Seq *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
@@ -148,7 +156,7 @@ val compile_correct = prove(
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ fs []) \\ fs []
-    \\ qpat_assum `state_rel c l1 l2 s t LN LN` (fn th =>
+    \\ qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
            first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rfs[]
@@ -156,7 +164,7 @@ val compile_correct = prove(
     THEN1 (rpt strip_tac \\ fs [] \\ rw [] \\ Cases_on `q''` \\ fs []
            \\ Cases_on `x` \\ fs [] \\ Cases_on `e` \\ fs [])
     \\ rw [] THEN1
-     (qpat_assum `state_rel c l1 l2 s t LN LN` (fn th =>
+     (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
       \\ rpt strip_tac \\ rfs [])
