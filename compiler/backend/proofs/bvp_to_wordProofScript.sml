@@ -94,6 +94,15 @@ val state_rel_get_var_IMP = prove(
   \\ `IS_SOME (lookup n s.locals)` by fs [] \\ res_tac
   \\ Cases_on `lookup (adjust_var n) t.locals` \\ fs []);
 
+val get_var_T_OR_F = prove(
+  ``state_rel c l1 l2 s (t:'a state) LN /\
+    get_var n s = SOME x /\
+    get_var (adjust_var n) t = SOME w ==>
+    6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
+    ((x = Boolv T) ==> (w = Word 2w)) /\
+    ((x = Boolv F) ==> (w = Word 6w))``,
+  cheat);
+
 val compile_correct = prove(
   ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
@@ -110,7 +119,6 @@ val compile_correct = prove(
                      ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Exception w w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
-
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -169,7 +177,25 @@ val compile_correct = prove(
       \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
       \\ rpt strip_tac \\ rfs [])
     \\ Cases_on `res` \\ fs [])
-  THEN1 (* If *) cheat
+  THEN1 (* If *)
+   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
+    \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
+    \\ Cases_on `comp c n r c2` \\ fs [LET_DEF]
+    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `get_var n s` \\ fs []
+    \\ fs [] \\ imp_res_tac state_rel_get_var_IMP
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ imp_res_tac get_var_T_OR_F
+    \\ Cases_on `x = Boolv T` \\ fs [] THEN1
+     (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
+               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+      \\ rpt strip_tac \\ rfs[])
+    \\ Cases_on `x = Boolv F` \\ fs [] THEN1
+     (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
+               first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`]) \\ fs []
+      \\ rpt strip_tac \\ rfs[]))
   THEN1 (* Call *) cheat);
 
 val _ = export_theory();
