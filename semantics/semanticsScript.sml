@@ -23,22 +23,24 @@ can_type_prog state prog =
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st k =
-    evaluate_prog (st.sem_st with clock := k) st.sem_env`;
+    let (st',envC,r) =
+      evaluate_prog (st.sem_st with clock := k) st.sem_env
+    in (st',r)`;
 
 val semantics_prog_def = Define `
 (semantics_prog state prog (Terminate Success io_list) ⇔
   (* there is a clock for which evaluation does not time out or FFI fail and
      the accumulated io events match the given io_list *)
-  ?k state' envC r.
-    evaluate_prog_with_clock state k prog = (state', envC, r) ∧
+  ?k state' r.
+    evaluate_prog_with_clock state k prog = (state',r) ∧
     r ≠ Rerr (Rabort Rtimeout_error) ∧
     ¬state'.ffi.ffi_failed ∧
     REVERSE state'.ffi.io_events = io_list) ∧
 (semantics_prog state prog (Termination FFI_error io_list) ⇔
   (* there is a clock for which evaluation reaches a failed FFI state and
      the accumulated io events match the given io_list *)
-  ?k state' envC r.
-    evaluate_prog_with_clock state k prog = (state', envC, r) ∧
+  ?k state' r.
+    evaluate_prog_with_clock state k prog = (state',r) ∧
     state'.ffi.ffi.failed ∧
     REVERSE state'.ffi.io_events = io_list ∧
     (* furthermore, this is the smallest clock producing FFI failure *)
@@ -46,9 +48,9 @@ val semantics_prog_def = Define `
 (semantics_prog state prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out and the accumulated io events
      match some prefix of the given io_trace *)
-  (!k. ?state' envC n.
+  (!k. ?state' n.
     (evaluate_prog_with_clock state k prog =
-        (state', envC, Rerr (Rabort Rtimeout_error))) ∧
+        (state', Rerr (Rabort Rtimeout_error))) ∧
      ¬state'.ffi.ffi_failed ∧
      LTAKE n io_trace = SOME (REVERSE state'.ffi.io_events)) ∧
   (* furthermore, the whole io_trace is necessary:
@@ -58,8 +60,8 @@ val semantics_prog_def = Define `
       ?k. REVERSE (FST (evaluate_prog_with_clock state k prog)).ffi.io_events = io_list)) ∧
 (semantics_prog state prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
-  ∃k state' envC.
-    evaluate_prog_with_clock state k prog = (state', envC, Rerr (Rabort Rtype_error)))`;
+  ∃k state'.
+    evaluate_prog_with_clock state k prog = (state', Rerr (Rabort Rtype_error)))`;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
