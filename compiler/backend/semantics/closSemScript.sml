@@ -529,11 +529,17 @@ val evaluate_def = save_thm("evaluate_def",let
 (* observational semantics *)
 
 val semantics_def = Define `
-  (semantics exp s1 (Terminate io_list) <=>
+  (semantics exp s1 (Terminate Success io_list) <=>
      ?k s2 r.
        evaluate (exp,[],s1 with clock := k) = (Rval r,s2) /\
        ¬s2.ffi.ffi_failed ∧
        REVERSE s2.ffi.io_events = io_list) /\
+  (semantics exp s1 (Terminate FFI_error io_list) <=>
+     ?k s2 res.
+       evaluate (exp,[],s1 with clock := k) = (res,s2) ∧
+       s2.ffi.ffi_failed ∧
+       REVERSE s2.ffi.io_events = io_list ∧
+       (∀k'. k' < k ⇒ ¬(SND (evaluate (exp,[],s1 with clock := k'))).ffi.ffi_failed)) ∧
   (semantics exp s1 (Diverge io_trace) <=>
      (!k. ?s2 n.
        (evaluate (exp,[],s1 with clock := k) =
