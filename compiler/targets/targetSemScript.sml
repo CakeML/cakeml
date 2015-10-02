@@ -81,10 +81,15 @@ val evaluate_def = Define `
 
 val _ = ParseExtras.temp_tight_equality()
 
+val machine_result_def = Define`
+  (machine_result Success = Result) ∧
+  (machine_result FFI_error = Error IO_mismatch) ∧
+  (machine_result Resource_limit_hit = Error Internal) (* TODO: this is wrong *)`;
+
 val machine_sem_def = Define `
-  (machine_sem config st ms (Terminate io_list) <=>
+  (machine_sem config st ms (Terminate t io_list) <=>
      ?k ms' st'.
-       evaluate config st k ms = (Result,ms',st') ∧
+       evaluate config st k ms = (machine_result t,ms',st') ∧
        REVERSE st'.io_events = io_list) /\
   (machine_sem config st ms (Diverge io_trace) <=>
      (!k. ∃ms' st' n.
@@ -105,9 +110,9 @@ val machine_sem_def = Define `
    divergent I/O trace. *)
 
 val imprecise_machine_sem_def = Define `
-  (imprecise_machine_sem config st ms (Terminate io_list) <=>
+  (imprecise_machine_sem config st ms (Terminate t io_list) <=>
      ?k ms' st'.
-       evaluate config st k ms = (Result,ms',st') ∧
+       evaluate config st k ms = (machine_result t,ms',st') ∧
        REVERSE st'.io_events = io_list) /\
   (imprecise_machine_sem config st ms (Diverge io_trace) <=>
      (!k. ∃ms' st' n.
