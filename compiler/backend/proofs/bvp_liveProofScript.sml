@@ -217,8 +217,6 @@ val evaluate_compile = Q.prove(
   \\ Cases_on `ret` \\ fs [evaluate_def,compile_def]
   THEN1 (* Call with ret = NONE *)
    (`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
-    \\ Cases_on `s.clock = 0`
-    THEN1 (fs [call_env_def,state_rel_def])
     \\ REV_FULL_SIMP_TAC std_ss []
     \\ fs [] \\ Cases_on `get_vars args s` \\ fs []
     \\ `get_vars args t1 = get_vars args s` by ALL_TAC THEN1
@@ -229,6 +227,8 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `handler` \\ fs []
     \\ Q.PAT_ASSUM `(res,s2) = xxx` (ASSUME_TAC o GSYM) \\ fs []
+    \\ Cases_on `t1.clock = 0`
+    THEN1 (fs [call_env_def,state_rel_def] \\ rw [] \\ rfs[])
     \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
     \\ Cases_on `q'` \\ fs [] \\ SRW_TAC [] []
     \\ `call_env q (dec_clock t1) =
@@ -272,8 +272,6 @@ val evaluate_compile = Q.prove(
   THEN1 (* Call with handler NONE *)
    (fs [compile_def,LET_DEF,evaluate_def]
     \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
-    \\ Cases_on `s.clock = 0` \\ fs []
-    THEN1 (fs [state_rel_def,call_env_def])
     \\ Cases_on `get_vars args s` \\ fs []
     \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
@@ -298,6 +296,8 @@ val evaluate_compile = Q.prove(
      (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
       \\ fs [state_rel_def] \\ NO_TAC)
     \\ MP_TAC (Q.SPECL [`r`,`t4`] evaluate_stack_swap)
+    \\ Cases_on `s.clock = 0` \\ fs []
+    THEN1 (fs [state_rel_def,call_env_def])
     \\ Cases_on `evaluate (r,t4)` \\ fs []
     \\ Cases_on `q'` \\ fs [] \\ Cases_on `x'` \\ fs [] THEN1
      (REPEAT STRIP_TAC
@@ -351,8 +351,6 @@ val evaluate_compile = Q.prove(
   \\ `?d6 l6. compile handle l2 = (d6,l6)` by METIS_TAC [PAIR]
   \\ fs [compile_def,LET_DEF,evaluate_def]
   \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
-  \\ Cases_on `s.clock = 0` \\ fs []
-  THEN1 (fs [state_rel_def,call_env_def])
   \\ Cases_on `get_vars args s` \\ fs []
   \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
   \\ Cases_on `find_code dest x s.code` \\ fs []
@@ -378,6 +376,8 @@ val evaluate_compile = Q.prove(
    (UNABBREV_ALL_TAC \\ fs [call_env_def,push_env_def,dec_clock_def]
     \\ fs [state_rel_def] \\ NO_TAC)
   \\ MP_TAC (Q.SPECL [`r`,`t4`] evaluate_stack_swap)
+  \\ Cases_on `s.clock = 0` \\ fs []
+  THEN1 (fs [state_rel_def,call_env_def])
   \\ Cases_on `evaluate (r,t4)` \\ fs []
   \\ Cases_on `q'` \\ fs [] \\ Cases_on `x'` \\ fs [] THEN1
    (REPEAT STRIP_TAC

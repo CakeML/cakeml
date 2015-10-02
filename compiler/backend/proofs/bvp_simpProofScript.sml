@@ -26,9 +26,7 @@ val evaluate_simp = prove(
   \\ Cases_on `evaluate (c1,s)` \\ fs []
   \\ Cases_on `evaluate (c2,r)` \\ fs []
   \\ Cases_on `evaluate (c2,set_var n a r)` \\ fs []
-  \\ Cases_on `evaluate (g,s)` \\ fs []
-  \\ rw[] >> every_case_tac \\ fs [evaluate_def]
-  \\ fs []
+  \\ rw[] >> every_case_tac \\ fs [evaluate_def] \\ fs []
   \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV))
   \\ every_case_tac >> fs[evaluate_def]);
 

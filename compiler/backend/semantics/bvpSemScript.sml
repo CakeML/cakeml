@@ -195,35 +195,43 @@ val evaluate_def = tDefine "evaluate" `
                  if x = Boolv F then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
-     if s.clock = 0 then (SOME (Rerr(Rabort Rtimeout_error)),call_env [] s with stack := []) else
-       case get_vars args s of
-       | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-       | SOME xs =>
-         (case find_code dest xs s.code of
-          | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-          | SOME (args1,prog) =>
-            (case ret of
-             | NONE (* tail call *) =>
-               if handler = NONE then
+     case get_vars args s of
+     | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+     | SOME xs =>
+       (case find_code dest xs s.code of
+        | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+        | SOME (args1,prog) =>
+          (case ret of
+           | NONE (* tail call *) =>
+             if handler = NONE then
+               if s.clock = 0
+               then (SOME (Rerr(Rabort Rtimeout_error)),
+                     call_env [] s with stack := [])
+               else
                  (case evaluate (prog, call_env args1 (dec_clock s)) of
                   | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
                   | (SOME res,s) => (SOME res,s))
                else (SOME (Rerr(Rabort Rtype_error)),s)
-             | SOME (n,names) (* returning call, returns into var n *) =>
-               (case cut_env names s.locals of
-                | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
-                | SOME env =>
-               (case evaluate (prog, call_env args1 (push_env env (IS_SOME handler) (dec_clock s))) of
-                | (SOME (Rval x),s2) =>
-                   (case pop_env s2 of
-                    | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
-                    | SOME s1 => (NONE, set_var n x s1))
-                | (SOME (Rerr(Rraise x)),s2) =>
-                   (case handler of (* if handler is present, then handle exc *)
-                    | NONE => (SOME (Rerr(Rraise x)),s2)
-                    | SOME (n,h) => evaluate (h, set_var n x (check_clock s2 s)))
-                | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
-                | res => res)))))`
+           | SOME (n,names) (* returning call, returns into var n *) =>
+             (case cut_env names s.locals of
+              | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
+              | SOME env =>
+               if s.clock = 0
+               then (SOME (Rerr(Rabort Rtimeout_error)),
+                     call_env [] s with stack := [])
+               else
+                 (case evaluate (prog, call_env args1
+                        (push_env env (IS_SOME handler) (dec_clock s))) of
+                  | (SOME (Rval x),s2) =>
+                     (case pop_env s2 of
+                      | NONE => (SOME (Rerr(Rabort Rtype_error)),s2)
+                      | SOME s1 => (NONE, set_var n x s1))
+                  | (SOME (Rerr(Rraise x)),s2) =>
+                     (case handler of (* if handler is present, then handle exc *)
+                      | NONE => (SOME (Rerr(Rraise x)),s2)
+                      | SOME (n,h) => evaluate (h, set_var n x (check_clock s2 s)))
+                  | (NONE,s) => (SOME (Rerr(Rabort Rtype_error)),s)
+                  | res => res)))))`
   (WF_REL_TAC `(inv_image (measure I LEX measure prog_size)
                              (\(xs,s). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC

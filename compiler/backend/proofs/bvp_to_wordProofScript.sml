@@ -7,8 +7,9 @@ val _ = new_theory "bvp_to_wordProof";
 (* -------------------------------------------------------
     TODO:
      - sketch compiler proof
-       - prove Return
-       - prove Raise
+       - prove Assign Const
+       - prove Call
+       - prove MakeSpace
        - prove Assign Const
    ------------------------------------------------------- *)
 
@@ -103,6 +104,23 @@ val get_var_T_OR_F = prove(
     ((x = Boolv F) ==> (w = Word 6w))``,
   cheat);
 
+val state_rel_jump_exc = prove(
+  ``state_rel c l1 l2 s t LN /\
+    get_var n s = SOME x /\
+    get_var (adjust_var n) t = SOME w /\
+    jump_exc s = SOME s1 ==>
+    ?t1 d1 d2. jump_exc t = SOME (t1,d1,d2) /\
+               state_rel c l1 l2 s1 t1 (LS (x,w))``,
+  cheat);
+
+val mk_loc_def = Define `
+  mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
+
+val evaluate_mk_loc_EQ = prove(
+  ``evaluate (q,t) = (NONE,t1:'a state) ==>
+    mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
+  cheat);
+
 val compile_correct = prove(
   ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
@@ -117,8 +135,9 @@ val compile_correct = prove(
                          (res1 = SOME (Result (Loc l1 l2) w))
                  | SOME (Rerr (Rraise v)) =>
                      ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
-                         (res1 = SOME (Exception w w))
+                         (res1 = SOME (Exception (mk_loc (jump_exc t)) w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
+
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -140,9 +159,22 @@ val compile_correct = prove(
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ rw []
     \\ fs [] \\ rw [] \\ rpt (pop_assum mp_tac)
-    \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def])
-  THEN1 (* MakeSpace *) cheat
-  THEN1 (* Raise *) cheat
+    \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ rw []
+    \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
+    \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs [])
+
+  THEN1 (* MakeSpace *)
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
+    \\ rw [] \\ cheat)
+
+  THEN1 (* Raise *)
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `get_var n s` \\ fs [] \\ rw []
+    \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
+    \\ Cases_on `jump_exc s` \\ fs [] \\ rw []
+    \\ imp_res_tac state_rel_jump_exc \\ fs []
+    \\ rw [] \\ fs [] \\ rw [mk_loc_def])
   THEN1 (* Return *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s` \\ fs [] \\ rw []
@@ -175,7 +207,9 @@ val compile_correct = prove(
      (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
-      \\ rpt strip_tac \\ rfs [])
+      \\ rpt strip_tac \\ rfs [] \\ rpt strip_tac \\ fs []
+      \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def] \\ fs []
+      \\ imp_res_tac evaluate_mk_loc_EQ \\ fs [])
     \\ Cases_on `res` \\ fs [])
   THEN1 (* If *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
@@ -196,6 +230,11 @@ val compile_correct = prove(
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`]) \\ fs []
       \\ rpt strip_tac \\ rfs[]))
-  THEN1 (* Call *) cheat);
+  THEN1 (* Call *)
+   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
+    \\ Cases_on `ret`
+    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ Cases_on `s.clock = 0` \\ fs [] \\ rw []
+    \\ cheat (* bvp's call needs to check clock earlier *)));
 
 val _ = export_theory();

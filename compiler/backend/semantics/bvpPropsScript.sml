@@ -197,7 +197,6 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `x = Boolv F` \\ fs [get_var_def])
   THEN1 (* Call *)
    (fs [evaluate_def]
-    \\ Cases_on `s.clock = 0` \\ fs []
     \\ Cases_on `get_vars args s` \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ TRY (fs [call_env_def] \\ NO_TAC)
@@ -214,6 +213,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ fs [get_vars_with_stack_rwt]
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env r' s.locals` \\ fs []
+    \\ Cases_on `s.clock = 0` \\ fs [] THEN1 (fs [call_env_def])
     \\ Cases_on `evaluate (r,call_env q (push_env x' (IS_SOME handler) (dec_clock s)))` \\ fs []
     \\ Cases_on `q''` \\ fs []
     \\ Cases_on `x''` \\ fs []
@@ -537,18 +537,17 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ Cases_on `x = Boolv T` \\ fs []
     \\ Cases_on `x = Boolv F` \\ fs [])
   THEN1 (* Call *)
-   (Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
-    THEN1 (fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
-             dec_clock_def] \\ METIS_TAC [])
-    \\ Cases_on `get_vars args s` \\ fs []
+   (Cases_on `get_vars args s` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `ret` \\ fs [] THEN1
      (Cases_on `handler` \\ fs []
+      \\ Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
       \\ `call_env q (dec_clock (s with locals := l)) =
           call_env q (dec_clock s)` by
          fs [state_component_equality,dec_clock_def,call_env_def] \\ fs []
+      \\ fs [call_env_def,locals_ok_def,lookup_def,fromList_def]
       \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_refl]
       \\ SRW_TAC [] [state_component_equality])
     \\ Cases_on `x'` \\ fs []
@@ -560,6 +559,8 @@ val evaluate_locals = store_thm("evaluate_locals",
           (dec_clock s))` by ALL_TAC THEN1
      (Cases_on `handler`
       \\ fs [state_component_equality,dec_clock_def,call_env_def,push_env_def])
+    \\ Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
+    \\ fs [call_env_def,locals_ok_def,lookup_def,fromList_def]
     \\ fs [] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
 val funpow_dec_clock_clock = Q.store_thm ("funpow_dec_clock_clock",
