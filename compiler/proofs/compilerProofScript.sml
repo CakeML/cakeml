@@ -8,9 +8,6 @@ val _ = new_theory"compilerProof";
 val initial_condition_def = Define`
   initial_condition (st:'ffi top_state) (cc:α compiler$config) = (ARB:bool)`;
 
-val code_loaded_def = Define`
-  code_loaded (cc:ξ compiler$config) (cc':ξ compiler$config) (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) = (ARB:bool)`;
-
 val extend_with_resource_limit_def = Define`
   extend_with_resource_limit behaviours =
   behaviours ∪
@@ -32,7 +29,7 @@ val compile_correct = Q.store_thm("compile_correct",
       ∃behaviours.
         (semantics st input = Execute behaviours) ∧
         ∀mc ms.
-          code_loaded cc cc' bytes mc ms ⇒
+          code_loaded bytes mc ms ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about compile_to_bvp to avoid extend_with_resource_limit *)`,

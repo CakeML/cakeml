@@ -23,7 +23,7 @@ val shift_seq_def = Define `
 (* -- execute target machine with interference from environement -- *)
 
 val () = Datatype `
-  error_type = Internal | IO_mismatch `
+  error_type = Internal | IO_mismatch | Limit `
 
 val () = Datatype `
   machine_result = Result | TimeOut | Error error_type `;
@@ -61,7 +61,8 @@ val evaluate_def = Define `
           else
             (Error Internal,ms,ffi)
       else if config.f.get_pc ms = config.halt_pc then
-        (Result,ms,ffi)
+        (if config.f.get_reg ms config.ptr_reg = 0w
+         then Result else Error Limit,ms,ffi)
       else
         case list_find (config.f.get_pc ms) config.ffi_entry_pcs of
         | NONE => (Error Internal,ms,ffi)
@@ -84,7 +85,7 @@ val _ = ParseExtras.temp_tight_equality()
 val machine_result_def = Define`
   (machine_result Success = Result) ∧
   (machine_result FFI_error = Error IO_mismatch) ∧
-  (machine_result Resource_limit_hit = Error Internal) (* TODO: this is wrong *)`;
+  (machine_result Resource_limit_hit = Error Limit)`;
 
 val machine_sem_def = Define `
   (machine_sem config st ms (Terminate t io_list) <=>
@@ -92,9 +93,9 @@ val machine_sem_def = Define `
        evaluate config st k ms = (machine_result t,ms',st') ∧
        REVERSE st'.io_events = io_list) /\
   (machine_sem config st ms (Diverge io_trace) <=>
-     (!k. ∃ms' st' n.
-       evaluate config st k ms = (TimeOut,ms',st') ∧
-       LTAKE n io_trace = SOME (REVERSE st'.io_events)) /\
+     (!k. ?ms' st' n.
+            evaluate config st k ms = (TimeOut,ms',st') ∧
+            LTAKE n io_trace = SOME (REVERSE st'.io_events)) /\
      (!n io_list. LTAKE n io_trace = SOME io_list ⇒
         ?k. REVERSE (SND(SND(evaluate config st k ms))).io_events = io_list)) /\
   (machine_sem config st ms Fail <=>
@@ -118,5 +119,14 @@ val imprecise_machine_sem_def = Define `
      (!k. ∃ms' st' n.
        evaluate config st k ms = (TimeOut,ms',st') ∧
        LTAKE n io_trace = SOME (REVERSE st'.io_events)))`
+
+(* define what it means for code to be loaded and ready to run *)
+
+val code_loaded_def = Define`
+  code_loaded (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) <=>
+    read_bytearray (mc.f.get_pc ms) (LENGTH bytes)
+      (\a. if a IN mc.prog_addresses
+           then SOME (mc.f.get_byte ms a) else NONE) = SOME bytes
+    (* ... and a few more things that will become clear during the proof *)`;
 
 val _ = export_theory();
