@@ -20,19 +20,6 @@ val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
   `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
 
-val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
-  ``!s1.
-      (evaluate s1 = (res,s2)) /\ (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
-  completeInduct_on `s1.clock`
-  \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
-  \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
-  \\ Cases_on `s1.clock = 0` \\ fs []
-  \\ `0 < s1.clock` by decide_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF] \\ rpt strip_tac
-  \\ fs [AND_IMP_INTRO]
-  \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
-  \\ rfs [call_FFI_def] \\ res_tac \\ fs []);
-
 val write_bytearray_simp_lemma = prove(
   ``!new_bytes c1 s1 x.
       (read_bytearray (c1:'a word) (LENGTH new_bytes) s1 = SOME x) ==>
@@ -56,7 +43,7 @@ val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
 
 val write_bytearray_simp = prove(
   ``(read_bytearray (c1:'a word) (w2n (c2:'a word)) s1 = SOME x) /\
-    (call_FFI index x s1.io_events = (new_bytes,new_io)) ==>
+    (call_FFI s1.ffi index x = (new_io,new_bytes)) ==>
     (write_bytearray c1 new_bytes s1 =
        s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
   REPEAT STRIP_TAC
@@ -172,6 +159,8 @@ val get_byte_set_byte_diff = store_thm("get_byte_set_byte_diff",
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
 
+(*
+
 val evaluate_io_events_NONE_IMP = store_thm("evaluate_io_events_NONE_IMP",
   ``!k s io q r.
       s.io_events = SOME io /\ evaluate s = (q,r) /\ r.io_events = NONE ==>
@@ -183,5 +172,20 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
       evaluate s = (res,r) /\ res <> TimeOut ==>
       evaluate (s with clock := s.clock + k) = (res,r)``,
   cheat (* easy *));
+
+val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
+  ``!s1.
+      (evaluate s1 = (res,s2)) /\ (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
+  completeInduct_on `s1.clock`
+  \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
+  \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
+  \\ Cases_on `s1.clock = 0` \\ fs []
+  \\ `0 < s1.clock` by decide_tac
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF] \\ rpt strip_tac
+  \\ fs [AND_IMP_INTRO]
+  \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
+  \\ rfs [call_FFI_def] \\ res_tac \\ fs []);
+
+*)
 
 val _ = export_theory();
