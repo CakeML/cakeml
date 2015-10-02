@@ -43,6 +43,8 @@ let call_FFI st n bytes =
     | _ -> (<| st with ffi_failed = true |>, bytes)
     end
 
+type termination_type = Success | Resource_limit_hit | FFI_error
+
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
    events are valid I/O events for this behaviour. *)
@@ -54,7 +56,7 @@ type  behaviour =
     (* Terminating executions can only perform a finite number of
        FFI calls. The execution can be terminated by a non-returning
        FFI call. *)
-  | Terminate of list io_event
+  | Terminate of termination_type * list io_event
     (* Failure is a behaviour which we prove cannot occur for any
        well-typed program. *)
   | Fail

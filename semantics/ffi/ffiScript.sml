@@ -61,6 +61,10 @@ val _ = Define `
     )))`;
 
 
+val _ = Hol_datatype `
+ termination_type = Success | Resource_limit_hit | FFI_error`;
+
+
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
    events are valid I/O events for this behaviour. *)
@@ -73,7 +77,7 @@ val _ = Hol_datatype `
     (* Terminating executions can only perform a finite number of
        FFI calls. The execution can be terminated by a non-returning
        FFI call. *)
-  | Terminate of io_event list
+  | Terminate of termination_type => io_event list
     (* Failure is a behaviour which we prove cannot occur for any
        well-typed program. *)
   | Fail`;

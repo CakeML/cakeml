@@ -26,17 +26,18 @@ val evaluate_prog_with_clock_def = Define`
     evaluate_prog (st.sem_st with clock := k) st.sem_env`;
 
 val semantics_prog_def = Define `
-(semantics_prog state prog (Terminate io_list) ⇔
-  can_type_prog state prog ∧
+(semantics_prog state prog (Terminate termination io_list) ⇔
   (* there is a clock for which evaluation does not time out and the
      accumulated io events match the given io_list *)
   ?k state' r envC.
     r ≠ Rerr (Rabort Rtimeout_error) ∧
     evaluate_prog_with_clock state k prog = (state', envC, r) ∧
-    ¬state'.ffi.ffi_failed ∧
+    (case termination of
+     | Success => ¬state'.ffi.ffi_failed
+     | FFI_error => state'.ffi.ffi_failed
+     | Resource_limit_hit => F) ∧
     REVERSE state'.ffi.io_events = io_list) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
-  can_type_prog state prog ∧
   (* for all clocks, evaluation times out and the accumulated io events
      match some prefix of the given io_trace *)
   (!k. ?state' envC n.
@@ -50,13 +51,18 @@ val semantics_prog_def = Define `
    (!n io_list. LTAKE n io_trace = SOME io_list ⇒
       ?k. REVERSE (FST (evaluate_prog_with_clock state k prog)).ffi.io_events = io_list)) ∧
 (semantics_prog state prog Fail ⇔
-  ¬(can_type_prog state prog))`;
+  ∃k state' envC.
+    evaluate_prog_with_clock state k prog = (state', envC, Rerr (Rabort Rtype_error)))`;
 
-(* Top-level semantics of a string is an optional set of behaviours. There are
-   no behaviours if the string cannot be parsed. Otherwise, the set of behaviours
-   is according to semantics_prog. (We can prove the set is always a singleton.) *)
+val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
+
 val semantics_def = Define`
-  semantics state =
-  OPTION_MAP (semantics_prog state) o parse o lexer_fun`;
+  semantics state input =
+  case parse (lexer_fun input) of
+  | NONE => CannotParse
+  | SOME prog =>
+    if can_type_prog state prog
+    then Execute (semantics_prog state prog)
+    else IllTyped`;
 
 val _ = export_theory();
