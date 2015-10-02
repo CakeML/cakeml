@@ -26,17 +26,23 @@ val evaluate_prog_with_clock_def = Define`
     evaluate_prog (st.sem_st with clock := k) st.sem_env`;
 
 val semantics_prog_def = Define `
-(semantics_prog state prog (Terminate termination io_list) ⇔
-  (* there is a clock for which evaluation does not time out and the
-     accumulated io events match the given io_list *)
-  ?k state' r envC.
-    r ≠ Rerr (Rabort Rtimeout_error) ∧
+(semantics_prog state prog (Terminate Success io_list) ⇔
+  (* there is a clock for which evaluation does not time out or FFI fail and
+     the accumulated io events match the given io_list *)
+  ?k state' envC r.
     evaluate_prog_with_clock state k prog = (state', envC, r) ∧
-    (case termination of
-     | Success => ¬state'.ffi.ffi_failed
-     | FFI_error => state'.ffi.ffi_failed
-     | Resource_limit_hit => F) ∧
+    r ≠ Rerr (Rabort Rtimeout_error) ∧
+    ¬state'.ffi.ffi_failed ∧
     REVERSE state'.ffi.io_events = io_list) ∧
+(semantics_prog state prog (Termination FFI_error io_list) ⇔
+  (* there is a clock for which evaluation reaches a failed FFI state and
+     the accumulated io events match the given io_list *)
+  ?k state' envC r.
+    evaluate_prog_with_clock state k prog = (state', envC, r) ∧
+    state'.ffi.ffi.failed ∧
+    REVERSE state'.ffi.io_events = io_list ∧
+    (* furthermore, this is the smallest clock producing FFI failure *)
+    (∀k'. k' < k ⇒ ¬(FST (evaluate_prog_with_clock state k' prog)).ffi.ffi_failed)) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out and the accumulated io events
      match some prefix of the given io_trace *)
@@ -51,6 +57,7 @@ val semantics_prog_def = Define `
    (!n io_list. LTAKE n io_trace = SOME io_list ⇒
       ?k. REVERSE (FST (evaluate_prog_with_clock state k prog)).ffi.io_events = io_list)) ∧
 (semantics_prog state prog Fail ⇔
+  (* there is a clock for which evaluation produces a runtime type error *)
   ∃k state' envC.
     evaluate_prog_with_clock state k prog = (state', envC, Rerr (Rabort Rtype_error)))`;
 
