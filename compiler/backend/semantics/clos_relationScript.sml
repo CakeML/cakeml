@@ -213,18 +213,18 @@ val evaluate_ev_clock = Q.store_thm ("evaluate_ev_clock",
  rw []);
 
 val val_rel_def = tDefine "val_rel" `
-(val_rel (i:num) (Number n) (Number n') ⇔
+(val_rel (:'ffi) (i:num) (Number n) (Number n') ⇔
   n = n') ∧
-(val_rel (i:num) (Block n vs) (Block n' vs') ⇔
-  n = n' ∧ LIST_REL (val_rel i) vs vs') ∧
-(val_rel (i:num) (RefPtr p) (RefPtr p') ⇔ p = p') ∧
-(val_rel (i:num) cl cl' ⇔
+(val_rel (:'ffi) (i:num) (Block n vs) (Block n' vs') ⇔
+  n = n' ∧ LIST_REL (val_rel (:'ffi) i) vs vs') ∧
+(val_rel (:'ffi) (i:num) (RefPtr p) (RefPtr p') ⇔ p = p') ∧
+(val_rel (:'ffi) (i:num) cl cl' ⇔
   if is_closure cl ∧ is_closure cl' ∧ check_closures cl cl' then
-    !i' vs vs' s s'.
+    !i' vs vs' (s:'ffi closSem$state) (s':'ffi closSem$state).
       if i' < i then
         state_rel i' s s' ∧
         vs ≠ [] ∧
-        LIST_REL (val_rel i') vs vs'
+        LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
         case (dest_closure NONE cl vs, dest_closure NONE cl' vs') of
            | (NONE, _) => T
@@ -241,7 +241,7 @@ val val_rel_def = tDefine "val_rel" `
         T
   else
     F) ∧
-(exec_rel i (x:val_or_exp, s) (x':val_or_exp, s') ⇔
+(exec_rel i (x:val_or_exp, (s:'ffi closSem$state)) (x':val_or_exp, (s':'ffi closSem$state)) ⇔
   !i'.
     if i' ≤ i then
       let (r, s1) = evaluate_ev i' x s in
@@ -250,30 +250,30 @@ val val_rel_def = tDefine "val_rel" `
            | (Rval vs, Rval vs') =>
                s1.clock = s1'.clock ∧
                state_rel s1.clock s1 s1' ∧
-               LIST_REL (val_rel s1'.clock) vs vs'
+               LIST_REL (val_rel (:'ffi) s1'.clock) vs vs'
            | (Rerr (Rraise v), Rerr (Rraise v')) =>
                s1.clock = s1'.clock ∧
                state_rel s1.clock s1 s1' ∧
-               val_rel s1.clock v v'
+               val_rel (:'ffi) s1.clock v v'
            | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
                state_rel s1.clock s1 s1'
            | (Rerr (Rabort Rtype_error), _) => T
            | _ => F
     else
       T) ∧
-(ref_v_rel i (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
-(ref_v_rel i (ValueArray vs) (ValueArray vs') ⇔ LIST_REL (val_rel i) vs vs') ∧
-(ref_v_rel i _ _ ⇔ F) ∧
+(ref_v_rel (:'ffi) i (ByteArray ws) (ByteArray ws') ⇔ ws = ws') ∧
+(ref_v_rel (:'ffi) i (ValueArray vs) (ValueArray vs') ⇔ LIST_REL (val_rel (:'ffi) i) vs vs') ∧
+(ref_v_rel (:'ffi) i _ _ ⇔ F) ∧
 (* state_rel is not very flexible *)
 (state_rel i s s' ⇔
-  LIST_REL (OPTION_REL (val_rel i)) s.globals s'.globals ∧
-  fmap_rel (ref_v_rel i) s.refs s'.refs ∧
+  LIST_REL (OPTION_REL (val_rel (:'ffi) i)) s.globals s'.globals ∧
+  fmap_rel (ref_v_rel (:'ffi) i) s.refs s'.refs ∧
   fmap_rel (λ(n,e) (n',e').
              n = n' ∧
              !i' env env' s s'.
                if i' < i then
                  state_rel i' s s' ∧
-                 LIST_REL (val_rel i') env env'
+                 LIST_REL (val_rel (:'ffi) i') env env'
                  ⇒
                  exec_rel i' (Exp [e] env, s) (Exp [e'] env', s')
                else
@@ -283,9 +283,9 @@ val val_rel_def = tDefine "val_rel" `
   s.restrict_envs = s'.restrict_envs)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<)
              \x. case x of
-                     | INL (i,v,v') => (i:num,0:num,v_size v)
+                     | INL (_,i,v,v') => (i:num,0:num,v_size v)
                      | INR (INL (i,st,st')) => (i,3,0)
-                     | INR (INR (INL (i,rv,rv'))) => (i,1,0)
+                     | INR (INR (INL (_,i,rv,rv'))) => (i,1,0)
                      | INR (INR (INR (i,s,s'))) => (i,2,0)` >>
  rw [] >>
  rpt (first_x_assum (mp_tac o GSYM)) >>
@@ -299,28 +299,28 @@ val val_rel_def = tDefine "val_rel" `
      decide_tac));
 
 val res_rel_def = Define `
-(res_rel (Rval vs, s) (Rval vs', s') ⇔
+(res_rel (Rval vs, (s:'ffi closSem$state)) (Rval vs', s') ⇔
   s.clock = s'.clock ∧
   state_rel s.clock s s' ∧
-  LIST_REL (val_rel s.clock) vs vs') ∧
+  LIST_REL (val_rel (:'ffi) s.clock) vs vs') ∧
 (res_rel (Rerr (Rraise v), s) (Rerr (Rraise v'), s') ⇔
   s.clock = s'.clock ∧
   state_rel s.clock s s' ∧
-  val_rel s.clock v v') ∧
+  val_rel (:'ffi) s.clock v v') ∧
 (res_rel (Rerr (Rabort Rtimeout_error), s) (Rerr (Rabort Rtimeout_error), s') ⇔
   state_rel s.clock s s') ∧
 (res_rel (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
 (res_rel _ _ ⇔ F)`;
 
 val res_rel_rw = Q.store_thm ("res_rel_rw",
-`(res_rel (Rval vs, s) x ⇔
+`(res_rel (Rval vs, (s:'ffi closSem$state)) x ⇔
   ?vs' s'. x = (Rval vs', s') ∧
-  LIST_REL (val_rel s.clock) vs vs' ∧
+  LIST_REL (val_rel (:'ffi) s.clock) vs vs' ∧
   state_rel s.clock s s' ∧
   s.clock = s'.clock) ∧
  (res_rel (Rerr (Rraise v), s) x ⇔
   ?v' s'. x = (Rerr (Rraise v'), s') ∧
-  val_rel s.clock v v' ∧
+  val_rel (:'ffi) s.clock v v' ∧
   state_rel s.clock s s' ∧
   s.clock = s'.clock) ∧
  (res_rel (Rerr (Rabort Rtimeout_error), s) x ⇔
@@ -335,10 +335,10 @@ val res_rel_rw = Q.store_thm ("res_rel_rw",
  metis_tac []);
 
 val exp_rel_def = Define `
-exp_rel es es' ⇔
-  !i env env' s s'.
+exp_rel (:'ffi) es es' ⇔
+  !i env env' (s:'ffi closSem$state) (s':'ffi closSem$state).
     state_rel i s s' ∧
-    LIST_REL (val_rel i) env env' ⇒
+    LIST_REL (val_rel (:'ffi) i) env env' ⇒
     exec_rel i (Exp es env, s) (Exp es' env', s')`;
 
 val val_rel_ind = theorem "val_rel_ind";
@@ -388,10 +388,10 @@ val state_rel_rw =
 val _ = save_thm ("state_rel_rw", state_rel_rw);
 
 val ref_v_rel_rw = Q.store_thm ("ref_v_rel_rw",
-`(ref_v_rel c (ByteArray ws) x ⇔ x = ByteArray ws) ∧
- (ref_v_rel c (ValueArray vs) x ⇔
+`(ref_v_rel (:'ffi) c (ByteArray ws) x ⇔ x = ByteArray ws) ∧
+ (ref_v_rel (:'ffi) c (ValueArray vs) x ⇔
    ?vs'. x = ValueArray vs' ∧
-         LIST_REL (val_rel c) vs vs')`,
+         LIST_REL (val_rel (:'ffi) c) vs vs')`,
  Cases_on `x` >>
  fs [Once val_rel_def, fun_lemma] >>
  fs [Once val_rel_def, fun_lemma] >>
@@ -425,13 +425,13 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
 `!c v v'.
   is_closure v
   ⇒
-  (val_rel c v v' ⇔
+  (val_rel (:'ffi) c v v' ⇔
     if is_closure v' ∧ check_closures v v' then
-    !i' vs vs' s s'.
+    !i' vs vs' (s:'ffi closSem$state) s'.
       if i' < c then
         state_rel i' s s' ∧
         vs ≠ [] ∧
-        LIST_REL (val_rel i') vs vs'
+        LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
         case (dest_closure NONE v vs, dest_closure NONE v' vs') of
            | (NONE, _) => T
@@ -455,10 +455,10 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
  metis_tac []);
 
 val val_rel_mono = Q.store_thm ("val_rel_mono",
-`(!i v v'. val_rel i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel i' v v') ∧
- (!i st st'. exec_rel i st st' ⇒ !i'. i' ≤ i ⇒ exec_rel i' st st') ∧
- (!i rv rv'. ref_v_rel i rv rv' ⇒ !i'. i' ≤ i ⇒ ref_v_rel i' rv rv') ∧
- (!i s s'. state_rel i s s' ⇒ !i'. i' ≤ i ⇒ state_rel i' s s')`,
+`(!(ffi:'ffi itself) i v v'. val_rel ffi i v v' ⇒ ∀i'. i' ≤ i ⇒ val_rel ffi i' v v') ∧
+ (!i (st:val_or_exp # 'ffi closSem$state) st'. exec_rel i st st' ⇒ !i'. i' ≤ i ⇒ exec_rel i' st st') ∧
+ (!(ffi:'ffi itself) i rv rv'. ref_v_rel ffi i rv rv' ⇒ !i'. i' ≤ i ⇒ ref_v_rel ffi i' rv rv') ∧
+ (!i (s:'ffi closSem$state) s'. state_rel i s s' ⇒ !i'. i' ≤ i ⇒ state_rel i' s s')`,
  ho_match_mp_tac val_rel_ind >>
  rw [val_rel_rw, exec_rel_rw] >>
  fs [is_closure_def] >>
