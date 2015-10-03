@@ -344,10 +344,15 @@ val evaluate_def = tDefine "evaluate" `
   \\ decide_tac)
 
 val semantics_def = Define `
-  (semantics s1 (Terminate io_list) <=>
+  (semantics s1 (Terminate Success io_list) <=>
      ?k s2. evaluate (s1 with clock := k) = (Result,s2) /\
             ¬s2.ffi.ffi_failed ∧
             REVERSE s2.ffi.io_events = io_list) /\
+  (semantics s1 (Terminate FFI_error io_list) ⇔
+     ∃k r s2. evaluate (s1 with clock := k) = (r,s2) ∧
+              s2.ffi.ffi_failed ∧
+              REVERSE s2.ffi.io_events = io_list ∧
+              (∀k'. k' < k ⇒ ¬(SND (evaluate (s1 with clock := k))).ffi.ffi_failed)) ∧
   (semantics s1 (Diverge io_trace) <=>
      (!k. ?s2 n. (evaluate (s1 with clock := k) = (TimeOut,s2)) /\
                ¬s2.ffi.ffi_failed ∧
