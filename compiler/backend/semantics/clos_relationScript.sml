@@ -44,13 +44,20 @@ val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
 val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
 val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def}
-
-val eqs = LIST_CONJ (map prove_case_eq_thm [op_thms, list_thms, option_thms, v_thms, ref_thms])
+val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
+                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
+                     case_def = TypeBase.case_def_of ``:app_kind`` }
+val eqs = LIST_CONJ (map prove_case_eq_thm [op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms, appkind_thms])
 
 val pair_case_eq = Q.prove (
 `pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
  Cases_on `x` >>
  rw []);
+
+val bool_case_eq = Q.prove(
+  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
+  rw[] >> metis_tac[]);
 
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
@@ -498,9 +505,9 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
 
 val val_rel_mono_list = Q.store_thm ("val_rel_mono_list",
 `!i i' vs1 vs2.
-  i' ≤ i ∧ LIST_REL (val_rel i) vs1 vs2
+  i' ≤ i ∧ LIST_REL (val_rel (:'ffi) i) vs1 vs2
   ⇒
-  LIST_REL (val_rel i') vs1 vs2`,
+  LIST_REL (val_rel (:'ffi) i') vs1 vs2`,
  rw [LIST_REL_EL_EQN] >>
  metis_tac [val_rel_mono]);
 
@@ -513,14 +520,14 @@ val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
  rw []);
 
 val find_code_related = Q.store_thm ("find_code_related",
-`!c n vs s args e vs' s'.
+`!c n vs (s:'ffi closSem$state) args e vs' s'.
   state_rel c s s' ∧
-  LIST_REL (val_rel c) vs vs' ∧
+  LIST_REL (val_rel (:'ffi) c) vs vs' ∧
   find_code n vs s.code = SOME (args,e)
   ⇒
   ?args' e'.
     find_code n vs' s'.code = SOME (args',e') ∧
-    LIST_REL (val_rel c) args args' ∧
+    LIST_REL (val_rel (:'ffi) c) args args' ∧
     (c ≠ 0 ⇒ exec_rel (c-1) (Exp [e] args, s) (Exp [e'] args', s'))`,
  rw [find_code_def] >>
  `c-1 ≤ c` by decide_tac >>
@@ -679,10 +686,10 @@ val dest_closure_full_split = Q.prove (
      simp [BUTLASTN_TAKE, Abbr `i`]));
 
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
-`!c v v' vs vs' s s' loc.
-  val_rel c v v' ∧
+`!c v v' vs vs' (s:'ffi closSem$state) s' loc.
+  val_rel (:'ffi) c v v' ∧
   vs ≠ [] ∧
-  LIST_REL (val_rel c) vs vs' ∧
+  LIST_REL (val_rel (:'ffi) c) vs vs' ∧
   state_rel c s s' ∧
   s.clock = c ∧
   s'.clock = c
@@ -754,31 +761,26 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      rw [res_rel_rw]
      >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
      >- ((* Partial timeout, Full not timeout *)
-         fs [] >>
-         reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],l,s' with clock := s''.clock)`
-                         result_store_cases)) >>
-         fs [] >>
+         fs [eqs, pair_case_eq] >> dsimp[] >> rveq >>
          imp_res_tac evaluate_SING >>
          fs [] >>
          imp_res_tac evaluate_clock >>
          fs [dec_clock_def] >>
          simp [] >>
          rw [] >>
-         `s'''.clock = s''.clock` by decide_tac >>
+         `s1.clock = s''.clock` by decide_tac >>
          fs [] >>
          Cases_on `l0 = []` >>
          fs [evaluate_def] >>
          rw [] >>
          fs [evaluate_app_rw] >>
+         dsimp[eqs, pair_case_eq, bool_case_eq] >> simp[] >>
          cheat)
      >- ((* Partial timeout, Full not timeout, impossible *)
          fs [] >>
          simp [])
      >- ((* No timeouts *)
-         fs [dec_clock_def] >>
-         reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],l,s' with clock := s''.clock)`
-                         result_store_cases)) >>
-         fs [] >>
+         fs [dec_clock_def, eqs, pair_case_eq] >> dsimp[] >> rveq >>
          imp_res_tac evaluate_SING >>
          fs [] >>
          simp [] >>
@@ -872,13 +874,13 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          *)
 
 val state_rel_refs = Q.prove (
-`!c s s' n rv p.
+`!c (s:'ffi closSem$state) s' n rv p.
   state_rel c s s' ∧
   FLOOKUP s.refs p = SOME rv
   ⇒
   ?rv'.
     FLOOKUP s'.refs p = SOME rv' ∧
-    ref_v_rel c rv rv'`,
+    ref_v_rel (:'ffi) c rv rv'`,
  rw [Once state_rel_rw] >>
  fs [fmap_rel_OPTREL_FLOOKUP] >>
  last_x_assum (qspec_then `p` mp_tac) >>
