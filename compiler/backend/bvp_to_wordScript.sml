@@ -51,7 +51,7 @@ val comp_def = Define `
     | Assign dest op args names => assign c n l dest op args names
     | Call ret target args handler =>
         case ret of
-        | NONE => (Call NONE target (MAP adjust_var args) NONE,l)
+        | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
         | SOME (n,names) =>
             let ret = SOME (adjust_var n, adjust_set names, Skip, n, l) in
               case handler of
