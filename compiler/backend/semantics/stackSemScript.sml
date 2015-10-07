@@ -81,22 +81,22 @@ val _ = Datatype `
      ; use_alloc : bool
      ; clock   : num
      ; code    : ('a stackLang$prog) num_map
-     ; io      : io_trace |> `
+     ; ffi      : 'ffi ffi_state |> `
 
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) (s:'a stackSem$state) =
+  mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
 
 val mem_load_def = Define `
-  mem_load (addr:'a word) (s:'a stackSem$state) =
+  mem_load (addr:'a word) (s:('a,'ffi) stackSem$state) =
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
 
 val dec_clock_def = Define `
-  dec_clock (s:'a stackSem$state) = s with clock := s.clock - 1`;
+  dec_clock (s:('a,'ffi) stackSem$state) = s with clock := s.clock - 1`;
 
 val word_exp_def = tDefine "word_exp" `
   (word_exp s (Const w) = SOME w) /\
@@ -127,7 +127,7 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:'a stackSem$state) = FLOOKUP s.regs v`;
+  get_var v (s:('a,'ffi) stackSem$state) = FLOOKUP s.regs v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -139,14 +139,14 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x (s:'a stackSem$state) =
+  set_var v x (s:('a,'ffi) stackSem$state) =
     (s with regs := (s.regs |+ (v,x)))`;
 
 val set_store_def = Define `
-  set_store v x (s:'a stackSem$state) = (s with store := s.store |+ (v,x))`;
+  set_store v x (s:('a,'ffi) stackSem$state) = (s with store := s.store |+ (v,x))`;
 
 val check_clock_def = Define `
-  check_clock (s1:'a stackSem$state) (s2:'a stackSem$state) =
+  check_clock (s1:('a,'ffi) stackSem$state) (s2:('a,'ffi) stackSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -168,7 +168,7 @@ val check_clock_IMP = prove(
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
 val empty_env_def = Define `
-  empty_env (s:'a stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
+  empty_env (s:('a,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
 val enc_stack_def = tDefine "enc_stack" `
   (enc_stack ws =
@@ -221,13 +221,13 @@ val gc_def = Define `
                               ; memory := m |>))`
 
 val has_space_def = Define `
-  has_space wl (s:'a stackSem$state) =
+  has_space wl (s:('a,'ffi) stackSem$state) =
     case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store LastFree) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
 val alloc_def = Define `
-  alloc (w:'a word) (s:'a stackSem$state) =
+  alloc (w:'a word) (s:('a,'ffi) stackSem$state) =
     (* perform garbage collection *)
       case gc (set_store AllocSize (Word w) s) of
       | NONE => (SOME Error,s)
@@ -251,7 +251,7 @@ val assign_def = Define `
      | SOME w => SOME (set_var reg (Word w) s)`;
 
 val inst_def = Define `
-  inst i (s:'a stackSem$state) =
+  inst i (s:('a,'ffi) stackSem$state) =
     case i of
     | Skip => SOME s
     | Const reg w => assign reg (Const w) s
@@ -285,7 +285,7 @@ val find_code_def = Define `
      | other => NONE)`
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:'a stackSem$state)) /\
+  (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
   (evaluate (Halt _,s) = (NONE,s)) /\ (* TODO: Correct semantics for Halt *)
   (evaluate (Alloc n,s) =
      if ~s.use_alloc then (SOME Error,s) else
@@ -407,7 +407,7 @@ val evaluate_def = tDefine "evaluate" `
          else (NONE, s with stack_space := w2n w)
      | _ => (SOME Error,s))`
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-                             (\(xs,(s:'a stackSem$state)). (s.clock,xs)))`
+                             (\(xs,(s:('a,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
    \\ fs[empty_env_def,dec_clock_def] \\ DECIDE_TAC)
@@ -462,8 +462,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:'a stackSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:'a stackSem$state).clock < k:num``]
+                   [``check_clock s1 s2 = s1:('a,'ffi) stackSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:('a,'ffi) stackSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
