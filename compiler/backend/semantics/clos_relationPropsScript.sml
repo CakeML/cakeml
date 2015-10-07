@@ -3,12 +3,13 @@ open clos_relationTheory closSemTheory
 
 val _ = new_theory "clos_relationProps";
 
-val state_rel_io_mono = store_thm(
-  "state_rel_io_mono[simp]",
+val state_rel_ffi_mono = store_thm(
+  "state_rel_ffi_mono[simp]",
   ``state_rel k s1 s2 ⇒
-    state_rel k (s1 with io := io) (s2 with io := io)``,
+    state_rel k (s1 with ffi := ffi) (s2 with ffi := ffi)``,
   ONCE_REWRITE_TAC [val_rel_def] >> simp[]);
 
+(*
 val exp_rel_evaluate_with_io = store_thm(
   "exp_rel_evaluate_with_io",
   ``(∀i v. val_rel i v v) ⇒
@@ -25,6 +26,7 @@ val exp_rel_evaluate_with_io = store_thm(
                               `s1 with io := SOME io`,
                               `s2 with io := SOME io`]
                              mp_tac) >> simp[])
+*)
 
 val resulteq =
     prove_case_eq_thm { case_def = TypeBase.case_def_of ``:(α,β) result``,
@@ -71,18 +73,21 @@ val optioneq = prove(
   ``option_CASE opt n s = x ⇔ opt = NONE ∧ n = x ∨ ∃y. opt = SOME y ∧ x = s y``,
   Cases_on `opt` >> simp[] >> metis_tac[]);
 
+(*
 val do_app_preserves_ioNONE = store_thm(
   "do_app_preserves_ioNONE",
   ``do_app op args s = Rval (v, s') ∧ s.io = NONE ⇒ s'.io = NONE``,
   Cases_on `op` >> Cases_on `args` >>
   simp[do_app_def, optioneq, listeq, veq, booleq, refeq, eqresulteq, paireq] >>
   rw[] >> rw[] >> fs[ffiTheory.call_FFI_def]);
+*)
 
-val dec_clock_io = store_thm(
-  "dec_clock_io[simp]",
-  ``(dec_clock n s).io = s.io``,
+val dec_clock_ffi = store_thm(
+  "dec_clock_ffi[simp]",
+  ``(dec_clock n s).ffi = s.ffi``,
   simp[dec_clock_def]);
 
+(*
 val ioNONE_preserved = store_thm(
   "ioNONE_preserved",
   ``(∀esenvs es env s s' rv.
@@ -96,6 +101,7 @@ val ioNONE_preserved = store_thm(
   rpt strip_tac >> rw[]
   >- metis_tac[do_app_preserves_ioNONE]
   >- metis_tac[]);
+*)
 
 open relationTheory
 val exp3_size_EQ0 = store_thm(
@@ -109,9 +115,9 @@ val evaluate_ind' = save_thm(
       |> Q.ISPEC `
            inv_image ((<) LEX (<) LEX (<))
               (λx. case x of
-                     INL (s:closSem$state,xs) =>
+                     INL (s:'ffi closSem$state,xs) =>
                        (s.clock, closLang$exp3_size xs, 0)
-                   | INR (s:closSem$state,args) =>
+                   | INR (s:'ffi closSem$state,args) =>
                        (s.clock, 0, LENGTH (args:closSem$v list)))`
       |> SIMP_RULE (srw_ss()) [WF_inv_image, pairTheory.WF_LEX,
                                pairTheory.LEX_DEF, pairTheory.FORALL_PROD,
@@ -126,13 +132,13 @@ val kill_asm_guard =
                                       (MP_TAC o MATCH_MP th)) >- simp[]
 
 val merge1 = prove(
-  ``(∀s:closSem$state x. s.clock < N ⇒ P s x) ∧
+  ``(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧
     (∀s x. s.clock = N ∧ Q s x ⇒ P s x) ⇒
     (∀s x. s.clock ≤ N ∧ Q s x ⇒ P s x)``,
   dsimp[DECIDE ``x:num ≤ y ⇔ x < y ∨ x = y``]);
 
 val merge2 = prove(
-  ``(∀s:closSem$state x. s.clock < N ⇒ P s x) ∧ (∀s x. s.clock = N ⇒ P s x) ⇒
+  ``(∀s:'ffi closSem$state x. s.clock < N ⇒ P s x) ∧ (∀s x. s.clock = N ⇒ P s x) ⇒
     ∀s x. s.clock ≤ N ⇒ P s x``,
   dsimp[DECIDE ``x:num ≤ y ⇔ x < y ∨ x = y``]);
 
@@ -148,12 +154,13 @@ val killevalapp =
 val (evclock1, evclock2) = CONJ_PAIR evaluate_clock
 
 val acc_ts = map (fn th => th |> concl |> strip_forall |> #2 |> lhs |> rator)
-                 (TypeBase.accessors_of ``:closSem$state``)
+                 (TypeBase.accessors_of ``:'ffi closSem$state``)
 
 val upd_ts = map (fn th => th |> concl |> strip_forall |> #2 |> lhs
                               |> rator)
-                 (TypeBase.updates_of ``:closSem$state``)
+                 (TypeBase.updates_of ``:'ffi closSem$state``)
 
+(*
 val extendio_def = Define`
   extendio s io =
     case s.io of
@@ -200,9 +207,11 @@ val doapp_extendio_SOMEioresult = store_thm(
   simp[extendio_def] >> dsimp[optioneq, paireq, ioeventeq, booleq] >>
   csimp[] >> qcase_tac `LHD l0 = SOME (IO_event _ _)` >>
   Q.ISPEC_THEN `l0` STRUCT_CASES_TAC llistTheory.llist_CASES >> simp[]);
+*)
 
 fun first_r_assum ttac = first_x_assum (fn th => ttac th >> assume_tac th)
 
+(*
 val exp_rel_sem = store_thm(
   "exp_rel_sem",
   ``(∀i v. val_rel i v v) ⇒
@@ -266,6 +275,7 @@ val exp_rel_sem = store_thm(
       Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
       Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
       Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
+*)
 
 (* ----------------------------------------------------------------------
     Theorems specific to certain transformations
@@ -285,32 +295,32 @@ val rev_drop_rev_all = Q.prove (
  fs [DROP_REVERSE, BUTLASTN_LENGTH_NIL]);
 
 val add_opt = Q.store_thm ("add_opt",
-`!n1 n2. exp_rel [Op Add [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 + n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) [Op Add [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 + n1)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val sub_opt = Q.store_thm ("sub_opt",
-`!n1 n2. exp_rel [Op Sub [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 - n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) [Op Sub [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 - n1)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val mult_opt = Q.store_thm ("mult_opt",
-`!n1 n2. exp_rel [Op Mult [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 * n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) [Op Mult [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 * n1)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val div_opt = Q.store_thm ("div_opt",
-`!n1 n2. exp_rel [Op Div [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 / n1)) []]`,
+`!n1 n2. exp_rel (:'ffi) [Op Div [Op (Const n1) []; Op (Const n2) []]] [Op (Const (n2 / n1)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, evaluate_ev_def] >>
  rw [res_rel_rw, val_rel_rw] >>
  metis_tac [val_rel_mono]);
 
 val mod_opt = Q.store_thm ("mod_opt",
-`!n1 n2. exp_rel [Op Mod [Op (Const n1) []; Op (Const n2) []]]
+`!n1 n2. exp_rel (:'ffi) [Op Mod [Op (Const n1) []; Op (Const n2) []]]
                  [Op (Const (n2 % n1)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw] >>
@@ -319,7 +329,7 @@ val mod_opt = Q.store_thm ("mod_opt",
 
 val less_opt = Q.store_thm ("less_opt",
 `!n1 n2.
-  exp_rel [Op Less [Op (Const n1) []; Op (Const n2) []]]
+  exp_rel (:'ffi) [Op Less [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 < n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, do_app_def, res_rel_rw,
      val_rel_rw, Boolv_def, evaluate_ev_def] >>
@@ -327,7 +337,7 @@ val less_opt = Q.store_thm ("less_opt",
 
 val leq_opt = Q.store_thm ("leq_opt",
 `!n1 n2.
-  exp_rel [Op LessEq [Op (Const n1) []; Op (Const n2) []]]
+  exp_rel (:'ffi) [Op LessEq [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 ≤ n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
@@ -335,7 +345,7 @@ val leq_opt = Q.store_thm ("leq_opt",
 
 val greater_opt = Q.store_thm ("greater_opt",
 `!n1 n2.
-  exp_rel [Op Greater [Op (Const n1) []; Op (Const n2) []]]
+  exp_rel (:'ffi) [Op Greater [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 > n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
@@ -343,7 +353,7 @@ val greater_opt = Q.store_thm ("greater_opt",
 
 val geq_opt = Q.store_thm ("geq_opt",
 `!n1 n2.
-  exp_rel [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]]
+  exp_rel (:'ffi) [Op GreaterEq [Op (Const n1) []; Op (Const n2) []]]
           [Op (Cons (if n2 ≥ n1 then true_tag else false_tag)) []]`,
  rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def, do_app_def,
      res_rel_rw, val_rel_rw, Boolv_def] >>
@@ -354,7 +364,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
   num_args ≠ 0 ∧
   num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ⇒
-  exp_rel [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
+  exp_rel (:'ffi) [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
           [Fn NONE vars (num_args + num_args') e]`,
  cheat (* rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  rw [res_rel_rw] >>
@@ -440,7 +450,7 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ] *));
 
 val fn_add_loc = Q.store_thm ("fn_add_loc",
-`!vars num_args e l. exp_rel [Fn NONE vars num_args e] [Fn (SOME l) vars num_args e]`,
+`!vars num_args e l. exp_rel (:'ffi) [Fn NONE vars num_args e] [Fn (SOME l) vars num_args e]`,
   cheat
  (* rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
  Cases_on `clos_env s.restrict_envs vars env` >>
