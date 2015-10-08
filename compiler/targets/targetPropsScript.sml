@@ -7,16 +7,6 @@ val _ = new_theory"targetProps";
 
 (* TODO: move *)
 
-val LHD_LAPPEND = Q.store_thm("LHD_LAPPEND",
-  `LHD (LAPPEND l1 l2) = if l1 = LNIL then LHD l2 else LHD l1`,
-  qspec_then`l1`FULL_STRUCT_CASES_TAC llist_CASES >> rw[])
-
-val LTAKE_LAPPEND1 = Q.store_thm("LTAKE_LAPPEND1",
-  `∀n l1 l2. IS_SOME (LTAKE n l1) ⇒ (LTAKE n (LAPPEND l1 l2) = LTAKE n l1)`,
-  Induct >> rw[LTAKE_THM] >>
-  qspec_then`l1`FULL_STRUCT_CASES_TAC llist_CASES >> fs[] >>
-  Cases_on`LTAKE n t`>>fs[])
-
 val SUBSET_IMP = prove(
   ``s SUBSET t ==> (x IN s ==> x IN t)``,
   fs [pred_setTheory.SUBSET_DEF]);
