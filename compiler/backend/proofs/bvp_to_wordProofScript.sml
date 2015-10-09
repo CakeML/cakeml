@@ -47,9 +47,9 @@ val flat2_def = Define `
   (flat2 _ _ = [])`;
 
 val state_rel_def = Define `
-  state_rel c l1 l2 (s:bvpSem$state) (t:'a wordSem$state) v1 w1 <=>
+  state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 w1 <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
-    (t.io = s.io) /\
+    (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
@@ -96,7 +96,7 @@ val state_rel_get_var_IMP = prove(
   \\ Cases_on `lookup (adjust_var n) t.locals` \\ fs []);
 
 val compile_correct = prove(
-  ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
+  ``!(prog:bvp$prog) (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state).
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t LN LN ==>

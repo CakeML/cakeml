@@ -352,7 +352,7 @@ val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!genv c s s'.
     LIST_REL (sv_rel genv) s.refs s' ∧
     s.clock = c ∧
-    s.io = t
+    s.ffi = t
     ⇒
     s_rel genv s (c,s',t))`;
 
@@ -959,8 +959,12 @@ val global_env_inv_lookup_mod3 = Q.prove (
   full_simp_tac (srw_ss()++ARITH_ss) [] >>
   metis_tac []);
 
+val s = mk_var("s",
+  ``bigStep$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_exp_correct = Q.prove (
-  `(∀b env s e res.
+  `(∀b env ^s e res.
      bigStep$evaluate b env s e res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !genv mods tops s' r env_i1 s_i1 e_i1 locals.
@@ -973,7 +977,7 @@ val compile_exp_correct = Q.prove (
          result_rel v_rel genv r r_i1 ∧
          s_rel genv s' s'_i1 ∧
          evaluate b env_i1 s_i1 e_i1 (s'_i1, r_i1)) ∧
-   (∀b env s es res.
+   (∀b env ^s es res.
      evaluate_list b env s es res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !genv mods tops s' r env_i1 s_i1 es_i1 locals.
@@ -986,7 +990,7 @@ val compile_exp_correct = Q.prove (
          result_rel vs_rel genv r r_i1 ∧
          s_rel genv s' s'_i1 ∧
          evaluate_list b env_i1 s_i1 es_i1 (s'_i1, r_i1)) ∧
-   (∀b env s v pes err_v res.
+   (∀b env ^s v pes err_v res.
      evaluate_match b env s v pes err_v res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !genv mods tops s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals.
@@ -1107,11 +1111,11 @@ val compile_exp_correct = Q.prove (
       rw [] >>
       first_assum (fn th => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] do_app) th)) >>
       rfs [s_rel_cases] >>
-      pop_assum (qspecl_then [`genv`, `(s',s2.io)`, `REVERSE v''`] assume_tac) >>
+      pop_assum (qspecl_then [`genv`, `(s',s2.ffi)`, `REVERSE v''`] assume_tac) >>
       rfs [vs_rel_list_rel, EVERY2_REVERSE] >>
       rw [] >>
       disj1_tac >>
-      MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `s2.io`] >>
+      MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `s2.ffi`] >>
       fs [compile_exps_reverse])
   >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
   >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
@@ -1594,7 +1598,7 @@ val compile_dec_correct = Q.prove (
       simp[Once modSemTheory.evaluate_cases] >>
       simp[do_con_check_def,build_conv_def,PULL_EXISTS] >>
       imp_res_tac pmatch_evaluate_list >> rfs[] >>
-      pop_assum (qspecl_then [`s'.io`, `genv`, `s'.clock`, `ck`] strip_assume_tac) >>
+      pop_assum (qspecl_then [`s'.ffi`, `genv`, `s'.clock`, `ck`] strip_assume_tac) >>
       simp[MAP_REVERSE] >>
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_list`` o fst o strip_comb))) >>
       first_assum(match_exists_tac o concl) >> simp[] >>

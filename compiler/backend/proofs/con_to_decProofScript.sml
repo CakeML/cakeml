@@ -29,8 +29,12 @@ val do_app = prove(
 
 (* compiler correctness *)
 
+val s = mk_var("s",
+  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_exp_correct = Q.prove (
-  `(∀b env s e res.
+  `(∀b env ^s e res.
      evaluate b env s e res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !s' exh genv env' r.
@@ -38,7 +42,7 @@ val compile_exp_correct = Q.prove (
        (env = (exh:exh_ctors_env,genv,env'))
        ⇒
        evaluate b (exh,env') (s,genv) e ((s',genv),r)) ∧
-   (∀b env s es res.
+   (∀b env ^s es res.
      evaluate_list b env s es res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !s' exh genv env' r.
@@ -46,7 +50,7 @@ val compile_exp_correct = Q.prove (
        (env = (exh:exh_ctors_env,genv,env'))
        ⇒
        evaluate_list b (exh,env') (s,genv) es ((s',genv),r)) ∧
-   (∀b env s v pes err_v res.
+   (∀b env ^s v pes err_v res.
      evaluate_match b env s v pes err_v res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !s' exh genv env' r.

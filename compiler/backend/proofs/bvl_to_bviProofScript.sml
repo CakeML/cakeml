@@ -84,14 +84,14 @@ val aux_code_installed_APPEND = prove(
   Induct \\ fs [APPEND,aux_code_installed_def,FORALL_PROD] \\ METIS_TAC []);
 
 val state_rel_def = Define `
-  state_rel (b:num->num) (s:bvlSem$state) (t:bviSem$state) <=>
+  state_rel (b:num->num) (s:'ffi bvlSem$state) (t:'ffi bviSem$state) <=>
     INJ b (FDOM s.refs) (FDOM t.refs) /\
     (!k. case FLOOKUP s.refs k of
          | NONE => T
          | SOME (ValueArray vs) =>
              (FLOOKUP t.refs (b k) = SOME (ValueArray (MAP (adjust_bv b) vs)))
          | SOME res => (FLOOKUP t.refs (b k) = SOME res)) /\
-    (s.io = t.io) /\
+    (s.ffi = t.ffi) /\
     (∀p. t.global = SOME p ⇒
            p ∉ IMAGE b (FDOM s.refs) ∧
            ∃z. FLOOKUP t.refs p =
@@ -136,7 +136,7 @@ val bv_ok_Boolv = Q.store_thm("bv_ok_Boolv[simp]",
 
 val bv_ok_IMP_adjust_bv_eq = prove(
   ``!b2 a1 b3.
-      bv_ok (s5:bvlSem$state).refs a1 /\
+      bv_ok (s5:'ffi bvlSem$state).refs a1 /\
       (!a. a IN FDOM s5.refs ==> b2 a = b3 a) ==>
       (adjust_bv b2 a1 = adjust_bv b3 a1)``,
   HO_MATCH_MP_TAC adjust_bv_ind
@@ -144,7 +144,7 @@ val bv_ok_IMP_adjust_bv_eq = prove(
   \\ fs [MAP_EQ_f,EVERY_MEM]);
 
 val state_ok_def = Define `
-  state_ok (s:bvlSem$state) <=>
+  state_ok (s:'ffi bvlSem$state) <=>
     EVERY (\x. case x of NONE => T | SOME v => bv_ok s.refs v) s.globals /\
     !k. case FLOOKUP s.refs k of
         | SOME (ValueArray vs) => EVERY (bv_ok s.refs) vs
@@ -193,7 +193,7 @@ val do_app_ok_lemma = prove(
    (rw[bv_ok_def] \\ fs [state_ok_def] >>
     rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
     BasicProvers.CASE_TAC >> TRY BasicProvers.CASE_TAC >> rw[] >>
-    MATCH_MP_TAC (Q.ISPEC`(r:bvlSem$state).refs`bv_ok_SUBSET_IMP) >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
     first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
     simp[] >> res_tac >> fs[] >>
     simp[SUBSET_DEF])
@@ -201,7 +201,7 @@ val do_app_ok_lemma = prove(
    (rw[bv_ok_def] \\ fs [state_ok_def] >>
     rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
     rpt BasicProvers.CASE_TAC >> rw[] >>
-    MATCH_MP_TAC (Q.ISPEC`(r:bvlSem$state).refs`bv_ok_SUBSET_IMP) >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
     first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
     simp[] >> res_tac >> fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >>
     simp[SUBSET_DEF])
@@ -209,7 +209,7 @@ val do_app_ok_lemma = prove(
    (rw[bv_ok_def] \\ fs [state_ok_def] >>
     rw[FLOOKUP_UPDATE] >> fs[EVERY_MEM] >> rw[] >>
     every_case_tac >> rw[] >>
-    MATCH_MP_TAC (Q.ISPEC`(r:bvlSem$state).refs`bv_ok_SUBSET_IMP) >>
+    Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP >>
     first_x_assum(qspec_then`k`strip_assume_tac)>>rfs[]>>
     simp[] >> res_tac >> fs[] >>
     simp[SUBSET_DEF])
@@ -223,17 +223,17 @@ val do_app_ok_lemma = prove(
     \\ BasicProvers.EVERY_CASE_TAC
     \\ fs [EVERY_MEM] \\ RES_TAC \\ fs []
     \\ REPEAT STRIP_TAC \\ RES_TAC
-    THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+    THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
-    THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+    THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
     \\ Q.PAT_ASSUM `xx = ValueArray l` MP_TAC
     \\ SRW_TAC [] [FAPPLY_FUPDATE_THM] \\ RES_TAC
-    THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+    THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
     \\ Q.PAT_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `k`)
     \\ fs [FLOOKUP_DEF] \\ REPEAT STRIP_TAC
-    THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+    THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
            \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF]))
   THEN1
    (fs [state_ok_def]
@@ -245,28 +245,28 @@ val do_app_ok_lemma = prove(
      (fs [EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ BasicProvers.EVERY_CASE_TAC
       \\ RES_TAC \\ fs []
-      \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
     THEN1
      (fs [FLOOKUP_UPDATE] \\ Cases_on `k = n` \\ fs [] THEN1
        (MATCH_MP_TAC IMP_EVERY_LUPDATE \\ REPEAT STRIP_TAC
-        THEN1 (MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+        THEN1 (bv_ok_SUBSET_IMP |> Q.ISPEC_THEN `r.refs`MATCH_MP_TAC
           \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
         \\ Q.PAT_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `n`) \\ fs []
         \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
-        \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+        \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
         \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
       \\ Q.PAT_ASSUM `!k:num. bbb` (MP_TAC o Q.SPEC `k`) \\ fs []
       \\ BasicProvers.EVERY_CASE_TAC
       \\ fs [EVERY_MEM] \\ REPEAT STRIP_TAC \\ RES_TAC
-      \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF]))
   THEN1 (
     fs[state_ok_def] \\ rw[] >-
      (fs [EVERY_MEM] \\ REPEAT STRIP_TAC
       \\ BasicProvers.EVERY_CASE_TAC
       \\ RES_TAC \\ fs []
-      \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+      \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
       \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF])
     \\ simp[FLOOKUP_UPDATE] >> rw[] >>
     BasicProvers.CASE_TAC >>
@@ -274,7 +274,7 @@ val do_app_ok_lemma = prove(
     first_x_assum(qspec_then`k`mp_tac) >> rw[] >>
     fs [EVERY_MEM] \\ REPEAT STRIP_TAC
     \\ RES_TAC \\ fs []
-    \\ MATCH_MP_TAC (bv_ok_SUBSET_IMP |> Q.ISPEC `(r:bvlSem$state).refs`)
+    \\ Q.ISPEC_THEN`r.refs`match_mp_tac bv_ok_SUBSET_IMP
     \\ fs [] \\ fs [SUBSET_DEF,FLOOKUP_DEF]));
 
 val do_app_ok = prove(
@@ -334,7 +334,7 @@ val evaluate_MAP_Var = prove(
   \\ Cases_on `n' < LENGTH env` \\ fs []
   \\ Cases_on `get_vars (MAP destVar t) env` \\ fs []
   \\ Q.PAT_ASSUM `!xx.bb` (MP_TAC o Q.SPEC `env`) \\ fs []
-  \\ SRW_TAC [] [] \\ fs [EL_MAP]);
+  \\ SRW_TAC [] [] \\ fs [EL_MAP]) |> INST_TYPE[alpha|->``:'ffi``];
 
 val evaluate_MAP_Var2 = prove(
   ``!args.
@@ -346,7 +346,7 @@ val evaluate_MAP_Var2 = prove(
   \\ Cases_on `args` \\ fs [MAP,bviSemTheory.evaluate_def,destVar_def,bVarBound_def]
   \\ REPEAT STRIP_TAC
   \\ `n < LENGTH vs + LENGTH env` by DECIDE_TAC \\ fs []
-  \\ fs [rich_listTheory.EL_APPEND1]) |> SPEC_ALL;
+  \\ fs [rich_listTheory.EL_APPEND1]) |> SPEC_ALL |> INST_TYPE[alpha|->``:'ffi``];
 
 val bEval_bVarBound = prove(
   ``!xs vs s env.
@@ -502,7 +502,7 @@ val compile_int_thm = prove(
     \\ intLib.COOPER_TAC));
 
 val iEval_bVarBound = Q.prove(
-  `!(n:num) xs n vs (t:bvlSem$state) s env.
+  `!(n:num) xs n vs (t:'ffi bvlSem$state) (s:'ffi bviSem$state) env.
      bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
      (evaluate (FST (compile n xs),vs ++ env,s) =
       evaluate (FST (compile n xs),vs,s))`,
@@ -741,10 +741,10 @@ val do_app_adjust = Q.prove(
       last_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
     simp[] >>
     simp[Once bvi_to_bvl_def] >>
-    `s5.io = t2.io` by fs[state_rel_def] >>
+    `s5.ffi = t2.ffi` by fs[state_rel_def] >>
     BasicProvers.CASE_TAC >> fs[] >>
     every_case_tac >> fs[] >> rw[] >>
-    simp[bvl_to_bvi_with_refs,bvl_to_bvi_with_io,bvl_to_bvi_id] >>
+    simp[bvl_to_bvi_with_refs,bvl_to_bvi_with_ffi,bvl_to_bvi_id] >>
     simp[bvi_to_bvl_def] >>
     fs[state_rel_def] >>
     conj_tac >- (
@@ -773,10 +773,10 @@ val do_app_adjust = Q.prove(
     \\ Cases_on `t'` \\ fs [] \\ SRW_TAC [] []
     \\ fs [bEvalOp_def,adjust_bv_def,bvl_to_bvi_id]
     \\ every_case_tac >> fs[bvl_to_bvi_id] >> rw[]
-    \\ EVAL_TAC ));
+    \\ EVAL_TAC )) |> INST_TYPE[alpha|->``:'ffi``];
 
 val compile_correct = Q.prove(
-  `!xs env s1 n res s2 t1 n2 ys aux b1.
+  `!xs env (s1:'ffi bvlSem$state) n res s2 t1 n2 ys aux b1.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
      (compile n xs = (ys,aux,n2)) /\
      state_rel b1 s1 t1 /\
@@ -967,7 +967,7 @@ val compile_correct = Q.prove(
     \\ `?c2 aux2 n2. compile n [e] = (c2,aux2,n2)` by METIS_TAC [PAIR]
     \\ `?c3 aux3 n3. compile n2' [x2] = (c3,aux3,n3)` by METIS_TAC [PAIR]
     \\ fs [] \\ SRW_TAC [] [] \\ fs [bEval_def]
-    \\ MP_TAC (Q.SPEC `l` evaluate_Var_list |> Q.INST [`s`|->`s1`]) \\ fs []
+    \\ Q.ISPECL_THEN[`s1`,`l`]mp_tac (Q.GEN`s`evaluate_Var_list) \\ fs[]
     \\ STRIP_TAC \\ fs []
     \\ `evaluate ([e],vs ++ env,s1) = evaluate ([e],vs,s1)` by ALL_TAC
     THEN1 (MATCH_MP_TAC bEval_bVarBound \\ fs [])
@@ -982,7 +982,7 @@ val compile_correct = Q.prove(
     THEN1 (* Result case *)
      (SRW_TAC [] [] \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `n`)
       \\ fs [compile_def,compile_Var_list,LET_DEF]
-      \\ STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`t1`,`b1`])
+      \\ STRIP_TAC \\ POP_ASSUM (Q.SPECL_THEN [`t1`,`b1`]mp_tac)
       \\ fs []
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs []
       \\ IMP_RES_TAC aux_code_installed_APPEND \\ fs []
@@ -993,9 +993,8 @@ val compile_correct = Q.prove(
       \\ `evaluate ([d2],MAP (adjust_bv b2) vs ++ MAP (adjust_bv b2) env,
             inc_clock c t1) =
           evaluate ([d2],MAP (adjust_bv b2) vs,inc_clock c t1)` by ALL_TAC THEN1
-       ((iEval_bVarBound |> SPEC_ALL |> Q.INST [`xs`|->`[e]`,
-           `vs`|->`MAP (adjust_bv b2) vs`]
-           |> Q.GENL [`env`,`s`] |> MP_TAC) \\ fs [bEvery_def]
+       (Q.SPECL_THEN[`n`,`[e]`,`n`,`MAP (adjust_bv b2) vs`,`t`]mp_tac iEval_bVarBound
+        \\ fs [bEvery_def]
         \\ REPEAT STRIP_TAC \\ fs [])
       \\ fs [] \\ POP_ASSUM (K ALL_TAC)
       \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
@@ -1443,7 +1442,7 @@ val compile_correct = Q.prove(
            fs[state_rel_def] >> simp[AllocGlobal_code_def] ) >>
          simp[] >>
          let
-           val th = (Q.SPEC`inc_clock c t1`(Q.GEN`s`evaluate_AllocGlobal_code))
+           val th = (Q.ISPEC`inc_clock c (t1:'ffi bviSem$state)`(Q.GEN`s`evaluate_AllocGlobal_code))
          in
          Q.SUBGOAL_THEN `∃p n ls. ^(fst(dest_imp(concl th)))` assume_tac
          THEN1 (

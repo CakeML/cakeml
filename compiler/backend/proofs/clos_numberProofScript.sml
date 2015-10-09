@@ -146,8 +146,8 @@ val code_rel_def = Define`
     ∃n. e2 = SND (renumber_code_locs n e1)`
 
 val state_rel_def = Define `
-  state_rel (s:closSem$state) (t:closSem$state) <=>
-    (s.clock = t.clock) /\ (s.io = t.io) /\
+  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
+    (s.clock = t.clock) /\ (s.ffi = t.ffi) /\
     (s.restrict_envs = t.restrict_envs) ∧
     fmap_rel (ref_rel v_rel) s.refs t.refs ∧
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
@@ -527,7 +527,7 @@ val do_app = prove(
 (* compiler correctness *)
 
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
-  `(!tmp xs env s1 env' t1 res s2 n.
+  `(!tmp xs env (s1:'ffi closSem$state) env' t1 res s2 n.
      tmp = (xs,env,s1) ∧
      (evaluate (xs,env,s1) = (res,s2)) ⇒
      ¬contains_App_SOME xs ∧
@@ -537,7 +537,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
         (evaluate (SND(renumber_code_locs_list n xs),env',t1) = (res',t2)) /\
         result_rel (LIST_REL v_rel) v_rel res res' /\
         state_rel s2 t2) ∧
-   (!loc f args s res s2 f' args' s1 t1.
+   (!loc f args (s:'ffi closSem$state) res s2 f' args' t1.
        evaluate_app loc f args s = (res,s2) ⇒
        v_rel f f' ∧
        loc = NONE ∧

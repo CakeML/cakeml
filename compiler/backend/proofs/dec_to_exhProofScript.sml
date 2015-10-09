@@ -581,8 +581,12 @@ val Boolv_disjoint = LIST_CONJ [
   EVAL``conSem$Boolv T = Boolv F``,
   EVAL``exhSem$Boolv T = Boolv F``]
 
+val s = mk_var("s",
+  ``decSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_exp_correct = Q.store_thm ("compile_exp_correct",
-  `(!ck env s e r.
+  `(!ck env ^s e r.
     evaluate ck env s e r
     ⇒
     !(exh:exh_ctors_env) env' env_exh s_exh exh'.
@@ -595,7 +599,7 @@ val compile_exp_correct = Q.store_thm ("compile_exp_correct",
       ?r_exh.
       result_rel v_rel exh r r_exh ∧
       evaluate ck env_exh s_exh (compile_exp exh' e) r_exh) ∧
-   (!ck env s es r.
+   (!ck env ^s es r.
     evaluate_list ck env s es r
     ⇒
     !(exh:exh_ctors_env) env' env_exh s_exh exh'.
@@ -608,7 +612,7 @@ val compile_exp_correct = Q.store_thm ("compile_exp_correct",
       ?r_exh.
       result_rel vs_rel exh r r_exh ∧
       evaluate_list ck env_exh s_exh (compile_exps exh' es) r_exh) ∧
-   (!ck env s v pes err_v r.
+   (!ck env ^s v pes err_v r.
     evaluate_match ck env s v pes err_v r
     ⇒
     !(exh:exh_ctors_env) env' pes' is_handle env_exh s_exh v_exh exh'.

@@ -10,9 +10,9 @@ val SPLIT_PAIR = prove(
   Cases \\ SRW_TAC [] [] \\ METIS_TAC []);
 
 val state_rel_def = Define `
-  state_rel (s1:bvpSem$state) (t1:bvpSem$state) (live:num_set) <=>
+  state_rel (s1:'ffi bvpSem$state) (t1:'ffi bvpSem$state) (live:num_set) <=>
     s1.code = t1.code /\ s1.clock = t1.clock /\ s1.space = t1.space /\
-    s1.io = t1.io /\ s1.refs = t1.refs /\ s1.global = t1.global /\
+    s1.ffi = t1.ffi /\ s1.refs = t1.refs /\ s1.global = t1.global /\
     s1.handler = t1.handler /\ (LENGTH s1.stack = LENGTH t1.stack) /\
     (!x. x IN domain live ==> (lookup x s1.locals = lookup x t1.locals))`;
 

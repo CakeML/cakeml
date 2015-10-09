@@ -99,7 +99,7 @@ val word_state_eq_rel_def = Define`
   t.handler = s.handler ∧
   t.clock = s.clock ∧
   t.code = s.code ∧
-  t.io = s.io`
+  t.ffi = s.ffi`
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
@@ -404,7 +404,7 @@ val gc_frame = store_thm("gc_frame",``
   st'.clock = st.clock ∧
   st'.code = st.code ∧
   st'.locals = st.locals ∧
-  st'.io = st.io ∧
+  st'.ffi = st.ffi ∧
   st'.permute = st.permute``,
   fs[gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[state_component_equality])

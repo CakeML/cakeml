@@ -1117,22 +1117,26 @@ val pmatch_exh_weak = Q.prove (
     fs [exh_weak_def] >> res_tac >> fs[] >> rw[] >> res_tac >> fs[] >> rw[] >> DECIDE_TAC) >>
   metis_tac [exh_weak_def,NOT_SOME_NONE,match_result_distinct, match_result_11]);
 
+val s = mk_var("s",
+  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val evaluate_exh_weak = Q.prove (
-  `(∀b tmp_env s e res.
+  `(∀b tmp_env ^s e res.
      evaluate b tmp_env s e res ⇒
      !exh genv env exh'.
        SND res ≠ Rerr (Rabort Rtype_error) ∧
        tmp_env = ((exh:exh_ctors_env),genv,env) ∧
        exh_weak exh exh' ⇒
        evaluate b (exh',genv,env) s e res) ∧
-   (∀b tmp_env s es res.
+   (∀b tmp_env ^s es res.
      evaluate_list b tmp_env s es res ⇒
      !exh genv env exh'.
        SND res ≠ Rerr (Rabort Rtype_error) ∧
        tmp_env = ((exh:exh_ctors_env),genv,env) ∧
        exh_weak exh exh' ⇒
        evaluate_list b (exh',genv,env) s es res) ∧
-   (∀b tmp_env s v pes err_v res.
+   (∀b tmp_env ^s v pes err_v res.
      evaluate_match b tmp_env s v pes err_v res ⇒
      !(exh:exh_ctors_env) genv env exh'.
        SND res ≠ Rerr (Rabort Rtype_error) ∧
@@ -1204,8 +1208,12 @@ val match_lem = Q.prove(
   rw[Once conSemTheory.evaluate_cases,conSemTheory.pat_bindings_def] >>
   rw[conSemTheory.pmatch_def])
 
+val s = mk_var("s",
+  ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_exp_correct = Q.prove (
-  `(∀b env s e res.
+  `(∀b env ^s e res.
      evaluate b env s e res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !tagenv s' r env_i2 s_i2 e_i2 gtagenv.
@@ -1218,7 +1226,7 @@ val compile_exp_correct = Q.prove (
          result_rel v_rel gtagenv r r_i2 ∧
          s_rel gtagenv s' s'_i2 ∧
          evaluate b env_i2 s_i2 e_i2 (s'_i2, r_i2)) ∧
-   (∀b env s es res.
+   (∀b env ^s es res.
      evaluate_list b env s es res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !tagenv s' r env_i2 s_i2 es_i2 gtagenv.
@@ -1231,7 +1239,7 @@ val compile_exp_correct = Q.prove (
          result_rel vs_rel gtagenv r r_i2 ∧
          s_rel gtagenv s' s'_i2 ∧
          evaluate_list b env_i2 s_i2 es_i2 (s'_i2, r_i2)) ∧
-   (∀b env s v pes err_v res.
+   (∀b env ^s v pes err_v res.
      evaluate_match b env s v pes err_v res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !tagenv s' r env_i2 s_i2 v_i2 pes_i2 err_v_i2 gtagenv.
