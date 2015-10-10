@@ -159,18 +159,18 @@ val get_byte_set_byte_diff = store_thm("get_byte_set_byte_diff",
   \\ fs [w2w] \\ TRY (match_mp_tac NOT_w2w_bit)
   \\ fs [] \\ decide_tac)
 
+val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
+  ``!s res r k.
+      evaluate s = (res,r) /\ res <> TimeOut ==>
+      evaluate (s with clock := s.clock + k) = (res,r)``,
+  cheat (* easy *));
+
 (*
 
 val evaluate_io_events_NONE_IMP = store_thm("evaluate_io_events_NONE_IMP",
   ``!k s io q r.
       s.io_events = SOME io /\ evaluate s = (q,r) /\ r.io_events = NONE ==>
       q = Error IO_mismatch``,
-  cheat (* easy *));
-
-val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
-  ``!s res r k.
-      evaluate s = (res,r) /\ res <> TimeOut ==>
-      evaluate (s with clock := s.clock + k) = (res,r)``,
   cheat (* easy *));
 
 val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
