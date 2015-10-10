@@ -315,7 +315,7 @@ val evaluate_genlist_vars = Q.store_thm ("evaluate_genlist_vars",
   metis_tac [take_drop_lem]);
 
 val evaluate_var_reverse = Q.store_thm ("evaluate_var_reverse",
-  `!xs env n ys st.
+  `!xs env ys (st:'ffi bvlSem$state).
    evaluate (MAP Var xs, env, st) = (Rval ys, st)
    ⇒
    evaluate (REVERSE (MAP Var xs), env, st) = (Rval (REVERSE ys), st)`,
