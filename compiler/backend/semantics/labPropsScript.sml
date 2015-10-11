@@ -165,17 +165,15 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
       evaluate (s with clock := s.clock + k) = (res,r)``,
   cheat (* easy *));
 
-(*
-
-val evaluate_io_events_NONE_IMP = store_thm("evaluate_io_events_NONE_IMP",
-  ``!k s io q r.
-      s.io_events = SOME io /\ evaluate s = (q,r) /\ r.io_events = NONE ==>
+val evaluate_ffi_failed_IMP = store_thm("evaluate_ffi_failed_IMP",
+  ``!k s q r.
+      ¬s.ffi.ffi_failed /\ evaluate s = (q,r) /\ r.ffi.ffi_failed ==>
       q = Error IO_mismatch``,
   cheat (* easy *));
 
-val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
+val evaluate_pres_ffi_failed = store_thm("evaluate_pres_ffi_failed",
   ``!s1.
-      (evaluate s1 = (res,s2)) /\ (s1.io_events = NONE) ==> (s2.io_events = NONE)``,
+      (evaluate s1 = (res,s2)) /\ s1.ffi.ffi_failed ==> s2.ffi.ffi_failed``,
   completeInduct_on `s1.clock`
   \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
   \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
@@ -184,8 +182,6 @@ val evaluate_pres_io_events_NONE = store_thm("evaluate_pres_io_events_NONE",
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [LET_DEF] \\ rpt strip_tac
   \\ fs [AND_IMP_INTRO]
   \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
-  \\ rfs [call_FFI_def] \\ res_tac \\ fs []);
-
-*)
+  \\ rfs [call_FFI_def] \\ fs[] \\ res_tac \\ fs []);
 
 val _ = export_theory();
