@@ -1392,16 +1392,16 @@ val init_ok_def = Define `
 val machine_sem_EQ_sem = prove(
   ``!(mc_conf: ('a,'state,'b) machine_config) p ms s.
       backend_correct_alt mc_conf.f mc_conf.asm_config /\
-      init_ok (mc_conf,p) s ms /\ ~(Fail IN sem s) ==>
-      machine_sem mc_conf ms = sem s``,
-  fs [init_ok_def,IN_DEF,labSemTheory.sem_def] \\ rpt strip_tac
+      init_ok (mc_conf,p) s ms /\ ~(Fail IN semantics s) ==>
+      machine_sem mc_conf s.ffi ms = semantics s``,
+  fs [init_ok_def,IN_DEF,labSemTheory.semantics_def] \\ rpt strip_tac
   \\ fs [FUN_EQ_THM] \\ reverse Cases
-  \\ fs [machine_sem_def,labSemTheory.sem_def,evaluate_with_io_def]
+  \\ fs [machine_sem_def,labSemTheory.semantics_def]
   \\ rpt strip_tac
   THEN1 (* Fail *)
-   (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
-    \\ mp_tac (Q.SPEC `s with <|io_events := SOME io; clock := k|>`
+   (first_x_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
+    \\ Cases_on `evaluate (s with <| clock := k|>)`
+    \\ (Q.ISPEC_THEN `s with <| clock := k|>`mp_tac
          compile_correct) \\ fs []
     \\ Q.LIST_EXISTS_TAC [`mc_conf`,`code2`,`labs`,`t1`,`ms`] \\ fs []
     \\ rpt strip_tac
