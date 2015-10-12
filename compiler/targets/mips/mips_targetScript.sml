@@ -696,8 +696,7 @@ val mips_encoding = Count.apply Q.prove (
 
 val mips_asm_deterministic = Q.store_thm("mips_asm_deterministic",
    `asm_deterministic mips_enc mips_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, mips_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, mips_encoding]
    )
 
 val mips_asm_deterministic_config =

@@ -207,8 +207,8 @@ val x64_dec_def = Define`
 val x64_proj_def = Define`
    x64_proj d s = (s.RIP, s.REG, fun2set (s.MEM, d), s.EFLAGS, s.exception)`
 
-val x64_target_funs_def = Define`
-   x64_target_funs =
+val x64_target_def = Define`
+   x64_target =
    <| encode := x64_enc
     ; get_pc := x64_state_RIP
     ; get_reg := (\s. s.REG o num2Zreg)
@@ -217,6 +217,7 @@ val x64_target_funs_def = Define`
     ; state_rel := x64_asm_state
     ; proj := x64_proj
     ; next := x64_next
+    ; config := x64_config
     |>`
 
 (* ------------------------------------------------------------------------- *)
@@ -1136,8 +1137,7 @@ val x64_encoding = Count.apply Q.prove (
 
 val x64_asm_deterministic = Q.store_thm("x64_asm_deterministic",
    `asm_deterministic x64_enc x64_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, x64_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, x64_encoding]
    )
 
 val x64_asm_deterministic_config =
@@ -1148,8 +1148,8 @@ val enc_ok_rwts =
    enc_ok_rwts
 
 val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
-   `backend_correct_alt x64_target_funs x64_config`,
-   simp [asmPropsTheory.backend_correct_alt_def, x64_target_funs_def]
+   `backend_correct_alt x64_target`,
+   simp [asmPropsTheory.backend_correct_alt_def, x64_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,

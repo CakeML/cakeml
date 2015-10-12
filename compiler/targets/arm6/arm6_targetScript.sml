@@ -264,8 +264,8 @@ val arm6_proj_def = Define`
    (s.CPSR, s.Architecture, s.Extensions, s.exception,
     s.REG o R_mode s.CPSR.M, fun2set (s.MEM,d))`
 
-val arm6_target_funs_def = Define`
-   arm6_target_funs =
+val arm6_target_def = Define`
+   arm6_target =
    <| encode := arm6_enc
     ; get_pc := (\s. s.REG RName_PC)
     ; get_reg := (\s. s.REG o R_mode s.CPSR.M o n2w)
@@ -274,6 +274,7 @@ val arm6_target_funs_def = Define`
     ; state_rel := arm6_asm_state
     ; proj := arm6_proj
     ; next := arm6_next
+    ; config := arm6_config
     |>`
 
 (* ------------------------------------------------------------------------- *)
@@ -1138,8 +1139,7 @@ val arm6_encoding = Count.apply Q.prove (
 
 val arm6_asm_deterministic = Q.store_thm("arm6_asm_deterministic",
    `asm_deterministic arm6_enc arm6_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, arm6_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, arm6_encoding]
    )
 
 val arm6_asm_deterministic_config =
@@ -1173,8 +1173,8 @@ val tac2 =
 
 val arm6_backend_correct_alt = Count.apply Q.store_thm
   ("arm6_backend_correct_alt",
-   `backend_correct_alt arm6_target_funs arm6_config`,
-   simp [asmPropsTheory.backend_correct_alt_def, arm6_target_funs_def]
+   `backend_correct_alt arm6_target`,
+   simp [asmPropsTheory.backend_correct_alt_def, arm6_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,
