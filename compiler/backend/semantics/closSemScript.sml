@@ -540,6 +540,7 @@ val semantics_def = Define `
        s2.ffi.ffi_failed ∧
        REVERSE s2.ffi.io_events = io_list ∧
        (∀k'. k' < k ⇒ ¬(SND (evaluate (exp,[],s1 with clock := k'))).ffi.ffi_failed)) ∧
+  (semantics exp s1 (Terminate Resource_limit_hit l) <=> F) /\
   (semantics exp s1 (Diverge io_trace) <=>
      (!k. ?s2 n.
        (evaluate (exp,[],s1 with clock := k) =

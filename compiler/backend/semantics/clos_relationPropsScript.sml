@@ -9,24 +9,20 @@ val state_rel_ffi_mono = store_thm(
     state_rel k (s1 with ffi := ffi) (s2 with ffi := ffi)``,
   ONCE_REWRITE_TAC [val_rel_def] >> simp[]);
 
-(*
-val exp_rel_evaluate_with_io = store_thm(
-  "exp_rel_evaluate_with_io",
-  ``(∀i v. val_rel i v v) ⇒
+val exp_rel_evaluate = store_thm(
+  "exp_rel_evaluate",
+  ``(∀i v. val_rel (:'ffi) i v v) ⇒
     ∀e1 e2.
-      exp_rel e1 e2 ==>
-      ∀s1 s2 k io r.
+      exp_rel (:'ffi) e1 e2 ==>
+      ∀(s1: 'ffi closSem$state) s2 k.
          state_rel k s1 s2 ⇒
-         res_rel (evaluate_with_io e1 s1 (SOME io) k)
-                 (evaluate_with_io e2 s2 (SOME io) k)``,
-  simp[exp_rel_def, evaluate_with_io_def, exec_rel_rw, evaluate_ev_def] >>
+         res_rel (evaluate (e1,[], s1 with clock := k))
+                 (evaluate (e2,[], s2 with clock := k))``,
+  simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
   strip_tac >> qx_genl_tac [`e1`, `e2`] >> strip_tac >>
-  qx_genl_tac [`s1`, `s2`, `k`, `io`] >>
-  first_x_assum (qspecl_then [`k`, `[]`, `[]`,
-                              `s1 with io := SOME io`,
-                              `s2 with io := SOME io`]
+  qx_genl_tac [`s1`, `s2`, `k`] >>
+  first_x_assum (qspecl_then [`k`, `[]`, `[]`, `s1`, `s2`]
                              mp_tac) >> simp[])
-*)
 
 val resulteq =
     prove_case_eq_thm { case_def = TypeBase.case_def_of ``:(α,β) result``,
@@ -211,71 +207,98 @@ val doapp_extendio_SOMEioresult = store_thm(
 
 fun first_r_assum ttac = first_x_assum (fn th => ttac th >> assume_tac th)
 
-(*
-val exp_rel_sem = store_thm(
-  "exp_rel_sem",
-  ``(∀i v. val_rel i v v) ⇒
-    ∀e1 e2 s1 s2.
-      exp_rel e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬sem e1 s1 Fail ==>
-      ¬sem e2 s2 Fail ∧
-      ∀res. sem e1 s1 res ==> sem e2 s2 res``,
+val res_rel_ffi = store_thm(
+  "res_rel_ffi",
+  ``res_rel (r1,s1) (r2,s2) ∧ r1 ≠ Rerr (Rabort Rtype_error) ⇒
+    s2.ffi = s1.ffi``,
+  Cases_on `r1` >> simp[]
+  >- (simp[res_rel_rw] >> strip_tac >> fs[Once state_rel_rw]) >>
+  qcase_tac `Rerr e` >> Cases_on `e` >> simp[]
+  >- (simp[res_rel_rw] >> strip_tac >> fs[Once state_rel_rw]) >>
+  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw, Once state_rel_rw]);
+
+val exp_rel_semantics = store_thm(
+  "exp_rel_semantics",
+  ``(∀i v. val_rel (:'ffi) i v v) ⇒
+    ∀e1 e2 (s1:'ffi closSem$state) s2.
+      exp_rel (:'ffi) e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
+      ¬semantics e2 s2 Fail ∧
+      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res``,
   strip_tac >> qx_genl_tac [`e1`, `e2`, `s1`, `s2`] >> strip_tac >>
   reverse conj_tac
   >- (qx_gen_tac `res` >>
-      Cases_on `res` >> simp[sem_def]
+      Cases_on `res` >> simp[semantics_def]
       >- ((* diverge case *)
           strip_tac >> conj_tac
           >- (qx_gen_tac `k` >>
               first_x_assum
-                (qspec_then `k` (qx_choose_then `s1'` strip_assume_tac)) >>
-              qabbrev_tac `ev1 = evaluate_with_io e1 s1 (SOME l) k` >>
-              qabbrev_tac `ev2 = evaluate_with_io e2 s2 (SOME l) k` >>
-              `res_rel ev1 ev2` by metis_tac[exp_rel_evaluate_with_io] >>
-              pop_assum mp_tac >> simp[res_rel_rw] >> dsimp[] >>
-              simp[Once state_rel_rw] >> metis_tac[])
-          >- (qx_gen_tac `io` >> strip_tac >>
-              `∃k. (SND (evaluate_with_io e1 s1 (SOME io) k)).io = NONE`
+                (qspec_then `k`
+                  (qx_choosel_then [`s1'`, `n`] strip_assume_tac)) >>
+              `∃r2 s2'. evaluate (e2,[],s2 with clock := k) = (r2,s2')`
+                 by metis_tac[pair_CASES] >>
+              `res_rel (Rerr (Rabort Rtimeout_error), s1') (r2,s2')`
+                 by metis_tac[exp_rel_evaluate] >>
+              `s2'.ffi = s1'.ffi` (* weird metis confusion happens here *)
+                 by (irule res_rel_ffi >>
+                     map_every qexists_tac
+                       [`r2`, `Rerr (Rabort Rtimeout_error)`] >> simp[]) >>
+              fs[res_rel_rw] >> metis_tac[])
+          >- (qx_genl_tac [`n`,`iol`] >> strip_tac >>
+              `∃k. REVERSE
+                     (SND (evaluate(e1,[], s1 with clock := k))).ffi.io_events =
+                     iol`
                 by metis_tac[] >>
               qexists_tac `k` >>
-              qabbrev_tac `ev1 = evaluate_with_io e1 s1 (SOME io) k` >>
-              qabbrev_tac `ev2 = evaluate_with_io e2 s2 (SOME io) k` >>
-              `res_rel ev1 ev2` by metis_tac[exp_rel_evaluate_with_io] >>
-              pop_assum mp_tac >>
-              `∃r' s'. ev1 = (r',s')` by (Cases_on `ev1` >> simp[]) >>
-              Cases_on `r'` >>
-              simp[res_rel_rw] >> dsimp[]
-              >- (var_eq_tac >> fs[] >> simp[Once state_rel_rw])
-              >- (qcase_tac `res_rel (Rerr err, _)` >>
-                  Cases_on `err`
-                  >- (fs[res_rel_rw] >> dsimp[Once state_rel_rw]) >>
-                  qcase_tac `res_rel (Rerr (Rabort abt), _)` >>
-                  Cases_on `abt`
-                  >- ((* type error *)
-                      fs[Abbr`ev1`, sem_def] >> metis_tac[pairTheory.FST])
-                  >- ((* timeout *)
-                      simp[res_rel_rw] >> var_eq_tac >> fs[] >>
-                      dsimp[Once state_rel_rw]))))
+              `(∃r1 s1'. evaluate(e1,[],s1 with clock := k) = (r1,s1')) ∧
+               (∃r2 s2'. evaluate(e2,[],s2 with clock := k) = (r2,s2'))`
+                 by metis_tac[pair_CASES] >>
+              `res_rel (r1,s1') (r2,s2')` by metis_tac[exp_rel_evaluate] >>
+              `r1 ≠ Rerr (Rabort Rtype_error)` by metis_tac[FST,semantics_def]>>
+              `s2'.ffi = s1'.ffi` by metis_tac[res_rel_ffi] >> simp[] >> fs[]))
       >- ((* terminate case *)
-          disch_then (qx_choosel_then [`k`, `s1'`, `r`] strip_assume_tac) >>
-          qabbrev_tac `ev1 = evaluate_with_io e1 s1 (SOME (fromList l)) k` >>
-          qabbrev_tac `ev2 = evaluate_with_io e2 s2 (SOME (fromList l)) k` >>
-          qexists_tac `k` >>
-          `res_rel ev1 ev2` by metis_tac[exp_rel_evaluate_with_io] >>
-          pop_assum mp_tac >> simp[res_rel_rw] >> dsimp[] >>
-          simp[Once state_rel_rw]))
-  >- (fs[sem_def] >> qx_genl_tac [`k`, `io`] >>
-      first_x_assum (qspecl_then [`k`, `io`] strip_assume_tac) >>
-      qabbrev_tac `ev1 = evaluate_with_io e1 s1 (SOME io) k` >>
-      qabbrev_tac `ev2 = evaluate_with_io e2 s2 (SOME io) k` >>
-      `∃r1 s1'. ev1 = (r1,s1')` by (Cases_on `ev1` >> simp[]) >>
-      `∃r2 s2'. ev2 = (r2,s2')` by (Cases_on `ev2` >> simp[]) >>
-      `res_rel ev1 ev2` by metis_tac[exp_rel_evaluate_with_io] >>
+          qcase_tac `Terminate t l` >> Cases_on `t` >>
+          simp[semantics_def]
+          >- ((* Success *)
+              disch_then (qx_choosel_then [`k`, `s1'`, `r`] strip_assume_tac) >>
+              qabbrev_tac `ev1 = evaluate(e1,[],s1 with clock := k)` >>
+              qabbrev_tac `ev2 = evaluate(e2,[],s2 with clock := k)` >>
+              qexists_tac `k` >>
+              `res_rel ev1 ev2` by metis_tac[exp_rel_evaluate] >>
+              pop_assum mp_tac >> simp[res_rel_rw] >>
+              disch_then (qx_choosel_then [`vs'`, `s1''`] strip_assume_tac) >>
+              simp[] >>
+              `s1''.ffi = s1'.ffi` suffices_by simp[] >>
+              fs[Once state_rel_rw])
+          >- ((* ffi failed *)
+              disch_then(qx_choosel_then [`k`, `s1'`, `r1`] strip_assume_tac) >>
+              qexists_tac `k` >>
+              `∃r2 s2'. evaluate(e2,[],s2 with clock := k) = (r2,s2')`
+                 by metis_tac[pair_CASES] >>
+              `res_rel (r1,s1') (r2,s2')` by metis_tac [exp_rel_evaluate] >>
+              `r1 ≠ Rerr (Rabort Rtype_error)`
+                by metis_tac[semantics_def, FST] >>
+              `s2'.ffi = s1'.ffi` by metis_tac[res_rel_ffi] >> simp[] >>
+              qx_gen_tac `k0` >> strip_tac >>
+              first_x_assum (qspec_then `k0` mp_tac) >> simp[] >>
+              `(∃r01 s01. evaluate(e1,[],s1 with clock := k0) = (r01,s01)) ∧
+               (∃r02 s02. evaluate(e2,[],s2 with clock := k0) = (r02,s02))`
+                 by metis_tac[pair_CASES] >> simp[] >>
+              `res_rel (r01,s01) (r02,s02)` by metis_tac[exp_rel_evaluate] >>
+              `r01 ≠ Rerr (Rabort Rtype_error)`
+                 by metis_tac[semantics_def, FST] >>
+              metis_tac[res_rel_ffi])))
+  >- (fs[semantics_def] >> qx_gen_tac `k` >>
+      first_x_assum (qspec_then `k` strip_assume_tac) >>
+      qabbrev_tac `
+        ev = λe (s:'ffi closSem$state). evaluate(e,[],s with clock := k)` >>
+      fs[] >>
+      `(∃r1 s1'. ev e1 s1 = (r1,s1')) ∧ (∃r2 s2'. ev e2 s2 = (r2,s2'))`
+        by metis_tac[pair_CASES] >>
+      `res_rel (r1,s1')(r2,s2')` by metis_tac[exp_rel_evaluate] >> fs[] >>
       pop_assum mp_tac >>
-      map_every qunabbrev_tac [`ev1`, `ev2`] >> fs[] >>
       Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
       Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
       Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
-*)
 
 (* ----------------------------------------------------------------------
     Theorems specific to certain transformations
