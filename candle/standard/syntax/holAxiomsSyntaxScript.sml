@@ -1,5 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory finite_mapTheory pred_setTheory
-open holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open preamble holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 val _ = new_theory"holAxiomsSyntax"
 
 val mem = ``mem:'U->'U->bool``

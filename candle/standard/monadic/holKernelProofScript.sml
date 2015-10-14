@@ -1,5 +1,4 @@
-open HolKernel Parse boolLib bossLib lcsymtacs alistTheory listTheory arithmeticTheory combinTheory finite_mapTheory pairTheory monadsyntax
-open miscLib miscTheory holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
+open preamble holKernelTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory
 
 val _ = new_theory "holKernelProof";
 
@@ -393,7 +392,7 @@ val type_of_thm = prove(
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC (srw_ss()) []
     \\ ONCE_REWRITE_TAC [ex_bind_def]
     \\ FULL_SIMP_TAC (srw_ss()) [dest_type_def]
-    \\ REVERSE (`?ty1 ty2. term_type t = Tyapp (strlit "fun") [ty1;ty2]` by ALL_TAC) THEN1
+    \\ reverse (`?ty1 ty2. term_type t = Tyapp (strlit "fun") [ty1;ty2]` by ALL_TAC) THEN1
      (FULL_SIMP_TAC (srw_ss()) [ex_return_def,codomain_def]
       \\ IMP_RES_TAC TYPE \\ ASM_SIMP_TAC (srw_ss()) [EVERY_DEF,Once term_type_def])
     \\ fs[TERM_def,term_ok_def] >>
@@ -670,7 +669,7 @@ val mk_eq_thm = store_thm("mk_eq_thm",
   \\ MP_TAC (mk_comb_thm |> Q.INST [`f`|->`eq`,`a`|->`x`,`res`|->`q`,`s1`|->`r`])
   \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ ONCE_REWRITE_TAC [EQ_SYM_EQ]
-  \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [failwith_def] THEN1
+  \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [failwith_def] THEN1
    (Q.UNABBREV_TAC `eq` \\ FULL_SIMP_TAC std_ss [mk_comb_def,ex_bind_def]
     \\ IMP_RES_TAC (Q.SPEC `y` type_of_thm)
     \\ Q.PAT_ASSUM `type_of x s = (HolRes (term_type x),s)` ASSUME_TAC
@@ -837,7 +836,7 @@ val vsubst_aux_thm = prove(
    (STRIP_TAC \\ REPEAT (Q.PAT_ASSUM `!theta. bbb` (ASSUME_TAC o SPEC_ALL))
     \\ ONCE_REWRITE_TAC [vsubst_aux_def] \\ SIMP_TAC (srw_ss()) [LET_DEF]
     \\ FULL_SIMP_TAC std_ss [VSUBST_def,term_11]
-    \\ REVERSE (REPEAT STRIP_TAC)
+    \\ reverse (REPEAT STRIP_TAC)
     \\ IMP_RES_TAC TERM \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [TERM_def,term_ok_def]
     \\ SIMP_TAC std_ss [GSYM VSUBST_def]
@@ -864,7 +863,7 @@ val vsubst_aux_thm = prove(
       \\ Cases_on `r = Var s' ty` \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC (srw_ss()) [])
     \\ FULL_SIMP_TAC (srw_ss()) [VSUBST_EMPTY])
-  \\ REVERSE (Cases_on `EXISTS (\(t,x). vfree_in (Var s' ty) t /\ vfree_in x tm')
+  \\ reverse (Cases_on `EXISTS (\(t,x). vfree_in (Var s' ty) t /\ vfree_in x tm')
        (FILTER (\(t,x). x <> Var s' ty) theta)`) THEN1
    (IMP_RES_TAC TERM \\ IMP_RES_TAC TERM_Var \\ FULL_SIMP_TAC std_ss [] >>
     simp[TERM_Abs] >>
@@ -1099,7 +1098,7 @@ val inst_aux_thm = prove(
    (ONCE_REWRITE_TAC [inst_aux_def]
     \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF,ex_return_def,ex_bind_def]
     \\ NTAC 4 STRIP_TAC \\ Cases_on `inst_aux env theta t s`
-    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+    \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
      (Q.PAT_ASSUM `HolErr xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ ONCE_REWRITE_TAC [INST_CORE_def] \\ IMP_RES_TAC TERM
@@ -1108,7 +1107,7 @@ val inst_aux_thm = prove(
       \\ FULL_SIMP_TAC (srw_ss()) [IS_CLASH_def,LET_THM]
       \\ BasicProvers.CASE_TAC \\ simp[])
     \\ Cases_on `inst_aux env theta t0 r`
-    \\ REVERSE (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
+    \\ reverse (Cases_on `q`) \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
      (Q.PAT_ASSUM `HolErr xx = res` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ ONCE_REWRITE_TAC [INST_CORE_def] \\ IMP_RES_TAC TERM
@@ -1169,7 +1168,7 @@ val inst_aux_thm = prove(
   \\ Q.PAT_ASSUM `!x y. bbb` (MP_TAC o Q.SPEC `r`)
   \\ IMP_RES_TAC TERM
   \\ Cases_on `inst_aux [] theta t0 r` \\ FULL_SIMP_TAC std_ss []
-  \\ STRIP_TAC \\ REVERSE (Cases_on `q`) THEN1
+  \\ STRIP_TAC \\ reverse (Cases_on `q`) THEN1
    (FULL_SIMP_TAC (srw_ss()) []
     \\ MP_TAC (INST_CORE_LEMMA |> Q.SPECL [`theta`,`t0`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
