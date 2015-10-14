@@ -1,5 +1,5 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory listTheory pred_setTheory finite_mapTheory
-open miscLib holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory holSemanticsTheory holSemanticsExtraTheory setSpecTheory
+open preamble holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holBoolSyntaxTheory
+     holSemanticsTheory holSemanticsExtraTheory setSpecTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holBool"
 

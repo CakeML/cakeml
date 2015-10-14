@@ -1,6 +1,6 @@
-open HolKernel boolLib bossLib lcsymtacs relationTheory pairTheory listTheory finite_mapTheory alistTheory pred_setTheory
-open miscLib miscTheory holBoolTheory holBoolSyntaxTheory holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
-open setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
+open preamble holBoolTheory holBoolSyntaxTheory
+     holSyntaxLibTheory holSyntaxTheory holSyntaxExtraTheory holAxiomsSyntaxTheory
+     setSpecTheory holSemanticsTheory holSemanticsExtraTheory holExtensionTheory
 
 val _ = new_theory"holAxioms"
 
