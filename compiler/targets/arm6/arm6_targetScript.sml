@@ -880,7 +880,7 @@ in
       \\ REPEAT (qpat_assum `a IN s1.mem_domain` kall_tac)
       \\ REPEAT (qpat_assum `bytes_in_memory q0 q1 q2 q3` kall_tac)
       \\ pop_assum kall_tac
-      \\ fs ([th, combinTheory.APPLY_UPDATE_THM,
+      \\ fs ([th, asmPropsTheory.all_pcs, combinTheory.APPLY_UPDATE_THM,
               alignmentTheory.aligned_numeric] @ thms)
       \\ REPEAT strip_tac
       \\ reg_tac
@@ -1171,13 +1171,12 @@ val tac2 =
    \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric,
           updateTheory.APPLY_UPDATE_ID, arm_stepTheory.R_mode_11, lem1]
 
-val arm6_backend_correct_alt = Count.apply Q.store_thm
-  ("arm6_backend_correct_alt",
-   `backend_correct_alt arm6_target`,
-   simp [asmPropsTheory.backend_correct_alt_def, arm6_target_def]
+val arm6_backend_correct = Count.apply Q.store_thm ("arm6_backend_correct",
+   `backend_correct arm6_target`,
+   simp [asmPropsTheory.backend_correct_def, arm6_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
       srw_tac [] [arm6_asm_state_def, arm6_config_def, set_sepTheory.fun2set_eq]
       \\  `i < 15` by decide_tac
       \\ simp [],

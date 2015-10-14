@@ -964,7 +964,7 @@ local
 in
    fun state_tac thms =
       REPEAT (qpat_assum `NextStateARM8 q = z` (K all_tac))
-      \\ fs ([th] @ thms)
+      \\ fs ([th, asmPropsTheory.all_pcs] @ thms)
       \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
 end
 
@@ -1163,13 +1163,12 @@ val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [arm8_config_def] arm8_encoding ::
    enc_ok_rwts
 
-val arm8_backend_correct_alt = Count.apply Q.store_thm
-  ("arm8_backend_correct_alt",
-   `backend_correct_alt arm8_target`,
-   simp [asmPropsTheory.backend_correct_alt_def, arm8_target_def]
+val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
+   `backend_correct arm8_target`,
+   simp [asmPropsTheory.backend_correct_def, arm8_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
       srw_tac [] [arm8_asm_state_def, arm8_config_def, set_sepTheory.fun2set_eq]
       \\  `i < 31` by decide_tac
       \\ simp [],

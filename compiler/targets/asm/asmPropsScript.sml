@@ -6,7 +6,7 @@ val () = new_theory "asmProps"
 
 val asm_deterministic_def = Define `
   asm_deterministic enc c =
-  !s1 s2 s3. asm_step enc c s1 s2 /\ asm_step enc c s1 s3 ==> (s2 = s3)`
+  !i s1 s2 s3. asm_step enc c s1 i s2 /\ asm_step enc c s1 i s3 ==> (s2 = s3)`
 
 val bytes_in_memory_IMP = Q.prove(
   `!xs ys a m dm.
@@ -84,21 +84,6 @@ val enc_ok_def = Define `
 
 (* -- correctness property to be proved for each backend -- *)
 
-val backend_correct_def = Define `
-  backend_correct enc (config:'a asm_config) (next:'b -> 'b) R =
-    enc_ok enc config /\
-    !s1 s2.
-      asm_step enc config s1 s2 ==>
-      !state. R s1 state ==> ?n. R s2 (FUNPOW next (n + 1) state)`
-
-val interference_ok_def = Define `
-  interference_ok env proj <=>
-    !(i:num) ms. proj (env i ms) = proj ms`;
-
-val all_pcs_def = Define `
-  (all_pcs a [] = {}) /\
-  (all_pcs a (x::xs) = a INSERT all_pcs (a + 1w) xs)`;
-
 val () = Datatype `
   target =
     <| encode : 'a asm -> word8 list
@@ -112,15 +97,20 @@ val () = Datatype `
      ; config : 'a asm_config
      |>`
 
-val asserts_def = zDefine `
-  (asserts 0 next ms P Q <=>
-     let ms = next 0 ms in Q ms) /\
-  (asserts (SUC n) next ms P Q <=>
-     let ms = next (SUC n) ms in
-       (P ms /\ asserts n next ms P Q))`
+val interference_ok_def = Define `
+  interference_ok env proj <=> !i:num ms. proj (env i ms) = proj ms`;
 
-val backend_correct_alt_def = Define `
-  backend_correct_alt t <=>
+val all_pcs_def = Define `
+  (all_pcs 0 a = {}) /\
+  (all_pcs (SUC n) a = a INSERT all_pcs n (a + 1w))`
+
+val asserts_def = zDefine `
+  (asserts 0 next ms _ Q <=> Q (next 0 ms)) /\
+  (asserts (SUC n) next ms P Q <=>
+     let ms' = next (SUC n) ms in P ms' /\ asserts n next ms' P Q)`
+
+val backend_correct_def = Define `
+  backend_correct t <=>
     enc_ok t.encode t.config /\
     (!ms1 ms2 s.
         (t.proj s.mem_domain ms1 = t.proj s.mem_domain ms2) ==>
@@ -132,15 +122,17 @@ val backend_correct_alt_def = Define `
             (!i. i < t.config.reg_count /\ ~MEM i t.config.avoid_regs ==>
                  (t.get_reg ms i = s.regs i))) /\
     !s1 i s2 ms.
-      asm_step_alt t.encode t.config s1 i s2 /\ t.state_rel s1 ms ==>
+      asm_step t.encode t.config s1 i s2 /\ t.state_rel s1 ms ==>
       ?n. !env.
              interference_ok (env:num->'b->'b) (t.proj s1.mem_domain) ==>
              asserts n (\k s. env (n - k) (t.next s)) ms
                (\ms'. t.state_ok ms' /\
-                      t.get_pc ms' IN all_pcs s1.pc (t.encode i))
+                      t.get_pc ms' IN all_pcs (LENGTH (t.encode i)) s1.pc)
                (\ms'. t.state_rel s2 ms')`
 
 (* lemma for proofs *)
+
+val all_pcs = Theory.save_thm ("all_pcs", numLib.SUC_RULE all_pcs_def)
 
 val asserts_eval = save_thm("asserts_eval",let
   fun genlist f 0 = []
