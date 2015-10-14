@@ -1,5 +1,5 @@
-open HolKernel boolLib boolSimps bossLib lcsymtacs pairTheory listTheory finite_mapTheory alistTheory relationTheory pred_setTheory sortingTheory stringTheory mlstringTheory totoTheory comparisonTheory
-open miscLib miscTheory holSyntaxLibTheory holSyntaxTheory
+open preamble totoTheory comparisonTheory mlstringTheory
+     holSyntaxLibTheory holSyntaxTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
@@ -1902,7 +1902,7 @@ val dbterm_bind = store_thm("dbterm_bind",
   ``∀tm env. dbterm env tm = bind_list_aux 0 env (db tm)``,
   Induct >> simp[bind_list_aux_clauses] >>
   gen_tac >>
-  Q.SPEC_TAC(`0`,`n`) >>
+  Q.SPEC_TAC(`0n`,`n`) >>
   Induct_on`env` >> simp[find_index_def] >>
   Cases >> simp[] >>
   rw[] >> rw[bind_list_aux_clauses])
@@ -2428,7 +2428,7 @@ val variant_vsubst_thm = save_thm("variant_vsubst_thm",prove(
   \\ ASM_SIMP_TAC (srw_ss()) [Once variant_def,EXISTS_DEF]
   \\ MP_TAC (Q.SPECL[`name`,`ty`, `x`] vfree_in_thm) \\ FULL_SIMP_TAC std_ss [] \\ STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [EXISTS_DEF]
-  \\ REVERSE IF_CASES_TAC
+  \\ reverse IF_CASES_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [] THEN1
    (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`x`,`explode name`,`ty`])
     \\ Cases_on `VARIANT_PRIMES x (explode name) ty`
@@ -2528,7 +2528,7 @@ val variant_inst_thm = save_thm("variant_inst_thm",prove(
     \\ ONCE_REWRITE_TAC [vfree_in_def] \\ FULL_SIMP_TAC (srw_ss()) []
     \\ METIS_TAC [])
   \\ FULL_SIMP_TAC std_ss []
-  \\ REVERSE (Cases_on `VFREE_IN (Var name ty1) a`) THEN1
+  \\ reverse (Cases_on `VFREE_IN (Var name ty1) a`) THEN1
    (MP_TAC (VARIANT_PRIMES_def |> Q.SPECL [`a`,`explode name`,`ty1`])
     \\ Cases_on `VARIANT_PRIMES a (explode name) ty1`
     THEN1 FULL_SIMP_TAC (srw_ss()) [rich_listTheory.REPLICATE,mlstringTheory.implode_explode]

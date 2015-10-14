@@ -1,6 +1,4 @@
-open HolKernel Parse boolLib bossLib;
-open stringTheory mlstringTheory listTheory sortingTheory;
-open holSyntaxExtraTheory;
+open preamble mlstringTheory holSyntaxExtraTheory
 val _ = new_theory "holKernel";
 
 
@@ -701,7 +699,7 @@ val my_term_size_vsubst_aux = prove(
     THEN FULL_SIMP_TAC (srw_ss()) [fetch "-" "is_var_def",my_term_size_def])
   THEN ASM_SIMP_TAC (srw_ss()) [my_term_size_def,
          Once (fetch "-" "vsubst_aux_def"),LET_DEF]
-  THEN REVERSE (SRW_TAC [] [my_term_size_def])
+  THEN reverse (SRW_TAC [] [my_term_size_def])
   THEN1 (Q.PAT_ASSUM `!bbbb. xx ==> bbb` MATCH_MP_TAC
          THEN FULL_SIMP_TAC (srw_ss()) [EVERY_MEM,FILTER,MEM_FILTER])
   THEN Cases_on `is_var t` THEN FULL_SIMP_TAC std_ss [my_term_size_variant]

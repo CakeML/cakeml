@@ -37,7 +37,7 @@ val _ = Datatype `
              ((num # bvp$prog) option) (* handler: varname, handler code *)
        | Assign num op (num list) (num_set option)
        | Seq bvp$prog bvp$prog
-       | If bvp$prog num bvp$prog bvp$prog
+       | If num bvp$prog bvp$prog
        | MakeSpace num num_set
        | Raise num
        | Return num

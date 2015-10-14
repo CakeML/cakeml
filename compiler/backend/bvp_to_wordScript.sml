@@ -42,17 +42,16 @@ val comp_def = Define `
         let (q1,l1) = comp c n l p1 in
         let (q2,l2) = comp c n l1 p2 in
           (Seq q1 q2,l2)
-    | If p1 n p2 p3 =>
+    | If n p1 p2 =>
         let (q1,l1) = comp c n l p1 in
         let (q2,l2) = comp c n l1 p2 in
-        let (q3,l3) = comp c n l2 p3 in
-          (Seq q1 (If Equal (adjust_var n) (Imm 0w) q2 q3),l3)
+          (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
     | MakeSpace n names =>
         (Alloc (adjust_var n) (adjust_set names),l)
     | Assign dest op args names => assign c n l dest op args names
     | Call ret target args handler =>
         case ret of
-        | NONE => (Call NONE target (MAP adjust_var args) NONE,l)
+        | NONE => (Call NONE target (0::MAP adjust_var args) NONE,l)
         | SOME (n,names) =>
             let ret = SOME (adjust_var n, adjust_set names, Skip, n, l) in
               case handler of

@@ -5,7 +5,7 @@ val () = new_theory "arm8_target"
 
 val () = wordsLib.guess_lengths ()
 
-(* --- Configuration for ARMv6 --- *)
+(* --- Configuration for ARMv8 --- *)
 
 val eval = rhs o concl o EVAL
 val off_min = eval ``sw2sw (INT_MINw: word9) : word64``
@@ -49,16 +49,21 @@ val arm8_config_def = Define`
 
 val arm8_next_def = Define `arm8_next = THE o NextStateARM8`
 
-(* --- Relate ASM and ARMv6 states --- *)
+(* --- Relate ASM and ARMv8 states --- *)
+
+val arm8_ok_def = Define`
+   arm8_ok ms =
+   (ms.PSTATE.EL = 0w) /\
+   ~ms.SCTLR_EL1.E0E  /\ ~ms.SCTLR_EL1.SA0 /\
+   ~ms.TCR_EL1.TBI1 /\ ~ms.TCR_EL1.TBI0 /\
+   (ms.exception = NoException) /\ aligned 2 ms.PC`
 
 val arm8_asm_state_def = Define`
-   arm8_asm_state a s =
-   (s.PSTATE.EL = 0w) /\
-   ~s.SCTLR_EL1.E0E  /\ ~s.SCTLR_EL1.SA0 /\
-   ~s.TCR_EL1.TBI1 /\ ~s.TCR_EL1.TBI0 /\
-   (s.exception = NoException) /\
-   (!i. i < 31 ==> (a.regs i = s.REG (n2w i))) /\
-   (a.mem = s.MEM) /\ (a.pc = s.PC) /\ aligned 2 s.PC`
+   arm8_asm_state s ms =
+   arm8_ok ms /\
+   (!i. i < 31 ==> (s.regs i = ms.REG (n2w i))) /\
+   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
+   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to ARM bytes. --- *)
 
@@ -320,6 +325,24 @@ val arm8_dec_aux_def = Define`
    | _ => ARB`
 
 val arm8_dec_def = Define `arm8_dec = arm8_dec_aux o decode_word`
+
+val arm8_proj_def = Define`
+   arm8_proj d s =
+   (s.PSTATE, s.SCTLR_EL1, s.TCR_EL1, s.exception, s.REG, fun2set (s.MEM,d),
+    s.PC)`
+
+val arm8_target_def = Define`
+   arm8_target =
+   <| encode := arm8_enc
+    ; get_pc := arm8_state_PC
+    ; get_reg := (\s. arm8_state_REG s o n2w)
+    ; get_byte := arm8_state_MEM
+    ; state_ok := arm8_ok
+    ; state_rel := arm8_asm_state
+    ; proj := arm8_proj
+    ; next := arm8_next
+    ; config := arm8_config
+    |>`
 
 (* some lemmas ------------------------------------------------------------- *)
 
@@ -806,9 +829,14 @@ val bytes_in_memory_thm = Q.prove(
       (state.MEM (state.PC + 3w) = d) /\
       (state.MEM (state.PC + 2w) = c) /\
       (state.MEM (state.PC + 1w) = b) /\
-      (state.MEM (state.PC) = a)`,
-   rw [arm8_asm_state_def, asmSemTheory.bytes_in_memory_def]
-   \\ simp []
+      (state.MEM (state.PC) = a) /\
+      state.PC + 3w IN s.mem_domain /\
+      state.PC + 2w IN s.mem_domain /\
+      state.PC + 1w IN s.mem_domain /\
+      state.PC IN s.mem_domain`,
+   rw [arm8_asm_state_def, arm8_ok_def, asmSemTheory.bytes_in_memory_def,
+       set_sepTheory.fun2set_eq]
+   \\ rfs []
    )
 
 val bytes_in_memory_thm2 = Q.prove(
@@ -818,9 +846,14 @@ val bytes_in_memory_thm2 = Q.prove(
       (state.MEM (state.PC + w + 3w) = d) /\
       (state.MEM (state.PC + w + 2w) = c) /\
       (state.MEM (state.PC + w + 1w) = b) /\
-      (state.MEM (state.PC + w) = a)`,
-   rw [arm8_asm_state_def, asmSemTheory.bytes_in_memory_def]
-   \\ simp []
+      (state.MEM (state.PC + w) = a) /\
+      state.PC + w + 3w IN s.mem_domain /\
+      state.PC + w + 2w IN s.mem_domain /\
+      state.PC + w + 1w IN s.mem_domain /\
+      state.PC + w IN s.mem_domain`,
+   rw [arm8_asm_state_def, arm8_ok_def, asmSemTheory.bytes_in_memory_def,
+       set_sepTheory.fun2set_eq]
+   \\ rfs []
    )
 
 local
@@ -894,9 +927,10 @@ end
 
 val comm = ONCE_REWRITE_RULE [wordsTheory.WORD_ADD_COMM]
 
-fun next_state_tac0 thm f fltr q =
+fun next_state_tac0 imp_res f fltr q =
    next_state_tac f fltr q
-   \\ imp_res_tac thm
+   \\ (if imp_res then imp_res_tac bytes_in_memory_thm else all_tac)
+   \\ rfs []
    \\ fs [lem1, lem2, lem3, lem5, lem6]
    \\ asmLib.byte_eq_tac
    \\ rfs [lem13, lem16, lem17, lem18, lem20, lem21, lem22, lem23, lem24, lem25,
@@ -905,23 +939,34 @@ fun next_state_tac0 thm f fltr q =
            arm8_stepTheory.ConditionTest, wordsTheory.ADD_WITH_CARRY_SUB,
            wordsTheory.WORD_NOT_LOWER_EQUAL]
 
-val next_state_tac01 =
-   next_state_tac0 bytes_in_memory_thm List.last filter_reg_31 `state`
+val next_state_tac01 = next_state_tac0 true List.last filter_reg_31 `ms`
 
-fun next_state_tacN (n, w, x) fltr (asl, g) =
+fun next_state_tacN (w, x) fltr (asl, g) =
    let
-      val tm = Lib.funpow n Term.rand g
+      val (t, tm) = Option.valOf (asmLib.find_env g)
+      val tac =
+         qpat_assum `!i:num s:arm8_state. P`
+            (qspecl_then [`^t`, `^tm`]
+               (strip_assume_tac o SIMP_RULE (srw_ss())
+                  [set_sepTheory.fun2set_eq]))
    in
-      next_state_tac0 (Q.SPEC w bytes_in_memory_thm2)
-         (fn l => List.nth (l, x)) fltr `^tm` (asl, g)
-   end
+      simp [arm8_ok_def, combinTheory.APPLY_UPDATE_THM,
+            alignmentTheory.aligned_numeric]
+      \\ imp_res_tac (Q.SPEC w bytes_in_memory_thm2)
+      \\ `!a. a IN s1.mem_domain ==> ((env ^t ^tm).MEM a = ms.MEM a)` by tac
+      \\ next_state_tac0 false (fn l => List.nth (l, x)) fltr `env ^t ^tm`
+   end (asl, g)
 
-val next_state_tac1 = next_state_tacN (3, `4w`, 0)
+val next_state_tac1 = next_state_tacN (`4w`, 0)
 
-fun state_tac thms =
-   REPEAT (qpat_assum `NextStateARM8 q = z` (K all_tac))
-   \\ fs ([arm8_asm_state] @ thms)
-   \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+local
+   val th = REWRITE_RULE [arm8_ok_def] arm8_asm_state
+in
+   fun state_tac thms =
+      REPEAT (qpat_assum `NextStateARM8 q = z` (K all_tac))
+      \\ fs ([th, asmPropsTheory.all_pcs] @ thms)
+      \\ rw [combinTheory.APPLY_UPDATE_THM, alignmentTheory.aligned_numeric]
+end
 
 val decode_tac0 =
    simp enc_rwts
@@ -965,7 +1010,12 @@ fun cmp_case_tac q =
    \\ blastLib.FULL_BBLAST_TAC
 
 fun next_tac n =
-   qexists_tac n \\ simp [arm8_next_def, numeralTheory.numeral_funpow]
+   qexists_tac n
+   \\ simp_tac (srw_ss()++boolSimps.CONJ_ss)
+        [arm8_next_def, asmPropsTheory.asserts_eval,
+         asmPropsTheory.interference_ok_def, arm8_proj_def]
+   \\ NTAC 2 strip_tac
+
 fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
 (* -------------------------------------------------------------------------
@@ -1103,8 +1153,7 @@ val arm8_encoding = Count.apply Q.prove (
 
 val arm8_asm_deterministic = Q.store_thm("arm8_asm_deterministic",
    `asm_deterministic arm8_enc arm8_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, arm8_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, arm8_encoding]
    )
 
 val arm8_asm_deterministic_config =
@@ -1115,11 +1164,15 @@ val enc_ok_rwts =
    enc_ok_rwts
 
 val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
-   `backend_correct arm8_enc arm8_config arm8_next arm8_asm_state`,
-   simp [asmPropsTheory.backend_correct_def]
-   \\ REVERSE conj_tac
+   `backend_correct arm8_target`,
+   simp [asmPropsTheory.backend_correct_def, arm8_target_def]
+   \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      srw_tac [] [arm8_asm_state_def, arm8_config_def, set_sepTheory.fun2set_eq]
+      \\  `i < 31` by decide_tac
+      \\ simp [],
+      srw_tac [] [arm8_proj_def, arm8_asm_state_def, arm8_ok_def],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
@@ -1175,10 +1228,10 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          \\ asmLib.split_bytes_in_memory_tac 4
          \\ next_state_tac01
          \\ asmLib.split_bytes_in_memory_tac 4
-         \\ next_state_tacN (7, `4w`, 1) filter_reg_31
+         \\ next_state_tacN (`4w`, 1) filter_reg_31
          \\ asmLib.split_bytes_in_memory_tac 4
-         \\ next_state_tacN (5, `8w`, 1) filter_reg_31
-         \\ next_state_tacN (3, `12w`, 0) filter_reg_31
+         \\ next_state_tacN (`8w`, 1) filter_reg_31
+         \\ next_state_tacN (`12w`, 0) filter_reg_31
          \\ state_tac []
          \\ blastLib.BBLAST_TAC
          )
@@ -1235,14 +1288,14 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          \\ lfs enc_rwts
          \\ rfs []
          \\ fs [arm8Theory.LSL_def, arm8Theory.LSR_def]
-         \\ TRY (`aligned 3 (c + state.REG (n2w n'))`
+         \\ TRY (`aligned 3 (c + ms.REG (n2w n'))`
                  by (imp_res_tac lem14 \\ NO_TAC)
-                 ORELSE `aligned 4 (c + state.REG (n2w n'))`
+                 ORELSE `aligned 4 (c + ms.REG (n2w n'))`
                         by (imp_res_tac lem19 \\ NO_TAC))
          \\ next_state_tac01
          \\ state_tac
                [arm8_stepTheory.mem_dword_def, arm8_stepTheory.mem_word_def,
-                arm8Theory.ExtendWord_def]
+                arm8Theory.ExtendWord_def, set_sepTheory.fun2set_eq]
          \\ simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) []
          \\ NTAC 2 (lrw [FUN_EQ_THM, combinTheory.APPLY_UPDATE_THM])
          \\ full_simp_tac (srw_ss()++wordsLib.WORD_CANCEL_ss) []
@@ -1269,27 +1322,27 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
          Cases_on `c`
          \\ lfs enc_rwts
          \\ asmLib.split_bytes_in_memory_tac 4
-         \\ next_state_tac0 bytes_in_memory_thm List.last List.tl `state`
+         \\ next_state_tac0 true List.last List.tl `ms`
          >| [
-            cmp_case_tac `state.REG (n2w n) = state.REG (n2w n')`,
-            cmp_case_tac `state.REG (n2w n) <+ state.REG (n2w n')`,
-            cmp_case_tac `state.REG (n2w n) < state.REG (n2w n')`,
-            cmp_case_tac `state.REG (n2w n) && state.REG (n2w n') = 0w`
+            cmp_case_tac `ms.REG (n2w n) = ms.REG (n2w n')`,
+            cmp_case_tac `ms.REG (n2w n) <+ ms.REG (n2w n')`,
+            cmp_case_tac `ms.REG (n2w n) < ms.REG (n2w n')`,
+            cmp_case_tac `ms.REG (n2w n) && ms.REG (n2w n') = 0w`
          ],
          Cases_on `c`
          \\ lfs enc_rwts
          \\ fs []
          \\ asmLib.split_bytes_in_memory_tac 4
          \\ imp_res_tac Decode_EncodeBitMask
-         \\ next_state_tac0 bytes_in_memory_thm List.last List.tl `state`
+         \\ next_state_tac0 true List.last List.tl `ms`
          >| [
-            cmp_case_tac `state.REG (n2w n) = c'`,
-            cmp_case_tac `state.REG (n2w n) = c'`,
-            cmp_case_tac `state.REG (n2w n) <+ c'`,
-            cmp_case_tac `state.REG (n2w n) <+ c'`,
-            cmp_case_tac `state.REG (n2w n) < c'`,
-            cmp_case_tac `state.REG (n2w n) < c'`,
-            cmp_case_tac `state.REG (n2w n) && c' = 0w`
+            cmp_case_tac `ms.REG (n2w n) = c'`,
+            cmp_case_tac `ms.REG (n2w n) = c'`,
+            cmp_case_tac `ms.REG (n2w n) <+ c'`,
+            cmp_case_tac `ms.REG (n2w n) <+ c'`,
+            cmp_case_tac `ms.REG (n2w n) < c'`,
+            cmp_case_tac `ms.REG (n2w n) < c'`,
+            cmp_case_tac `ms.REG (n2w n) && c' = 0w`
          ]
       ]
       )

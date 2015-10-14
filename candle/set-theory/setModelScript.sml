@@ -1,4 +1,4 @@
-open HolKernel boolLib bossLib lcsymtacs miscLib miscTheory setSpecTheory listTheory bitTheory sumTheory
+open preamble bitTheory setSpecTheory
 val _ = temp_tight_equality()
 val _ = new_theory"setModel"
 

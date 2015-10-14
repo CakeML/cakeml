@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../miscLib ../../syntax-lib/holSyntaxLibTheory ../syntax/holAxiomsSyntaxTheory
+BARE_THYS = ../../../preamble ../../syntax-lib/holSyntaxLibTheory ../syntax/holAxiomsSyntaxTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

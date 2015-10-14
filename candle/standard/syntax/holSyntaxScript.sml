@@ -235,7 +235,7 @@ val PRIMED_NAME_EXISTS = store_thm("PRIMED_NAME_EXISTS",
   simp[GSYM MEMBER_NOT_EMPTY] >> rw[] >> metis_tac[])
 
 val LEAST_EXISTS = prove(
-  ``(∃n. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)``,
+  ``(∃n:num. P n) ⇒ ∃k. P k ∧ ∀m. m < k ⇒ ¬(P m)``,
   metis_tac[whileTheory.LEAST_EXISTS])
 
 val VARIANT_PRIMES_def = new_specification
@@ -283,7 +283,7 @@ val VSUBST_def = Define`
    termination of type instantiation. *)
 
 val sizeof_def = Define`
-  sizeof (Var x ty) = 1 ∧
+  sizeof (Var x ty) = 1n ∧
   sizeof (Const x ty) = 1 ∧
   sizeof (Comb s t) = 1 + sizeof s + sizeof t ∧
   sizeof (Abs v t) = 2 + sizeof t`

@@ -207,8 +207,8 @@ val x64_dec_def = Define`
 val x64_proj_def = Define`
    x64_proj d s = (s.RIP, s.REG, fun2set (s.MEM, d), s.EFLAGS, s.exception)`
 
-val x64_target_funs_def = Define`
-   x64_target_funs =
+val x64_target_def = Define`
+   x64_target =
    <| encode := x64_enc
     ; get_pc := x64_state_RIP
     ; get_reg := (\s. s.REG o num2Zreg)
@@ -217,6 +217,7 @@ val x64_target_funs_def = Define`
     ; state_rel := x64_asm_state
     ; proj := x64_proj
     ; next := x64_next
+    ; config := x64_config
     |>`
 
 (* ------------------------------------------------------------------------- *)
@@ -767,7 +768,7 @@ fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
 fun state_tac thms l =
    REPEAT (qpat_assum `NextStateX64 q = z` (K all_tac))
-   \\ rfs ([x64Theory.RexReg_def,x64_asm_state_def,
+   \\ rfs ([x64Theory.RexReg_def, x64_asm_state_def, asmPropsTheory.all_pcs,
             REWRITE_RULE [mem_lem14] x64_stepTheory.write_mem64_def,
             REWRITE_RULE [mem_lem15] x64_stepTheory.write_mem32_def,
             const_lem1, const_lem3, const_lem4, loc_lem3, loc_lem4, binop_lem6,
@@ -1136,8 +1137,7 @@ val x64_encoding = Count.apply Q.prove (
 
 val x64_asm_deterministic = Q.store_thm("x64_asm_deterministic",
    `asm_deterministic x64_enc x64_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, x64_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, x64_encoding]
    )
 
 val x64_asm_deterministic_config =
@@ -1147,12 +1147,12 @@ val enc_ok_rwts =
    SIMP_RULE (bool_ss++boolSimps.LET_ss) [x64_config_def] x64_encoding ::
    enc_ok_rwts
 
-val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
-   `backend_correct_alt x64_target_funs x64_config`,
-   simp [asmPropsTheory.backend_correct_alt_def, x64_target_funs_def]
+val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
+   `backend_correct x64_target`,
+   simp [asmPropsTheory.backend_correct_def, x64_target_def]
    \\ REVERSE (REPEAT conj_tac)
    >| [
-      rw [asmSemTheory.asm_step_alt_def] \\ Cases_on `i`,
+      rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
       srw_tac [] [x64_asm_state_def, x64_config_def, fun2set_eq],
       srw_tac [] [x64_proj_def, x64_asm_state_def],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
@@ -1208,9 +1208,9 @@ val x64_backend_correct_alt = Count.apply Q.store_thm("x64_backend_correct_alt",
                    \\ state_tac [] [`r1`, `r2`])
                \\ Cases_on `b`
                \\ fs []
-               \\ lfs ([loc_lem2] @ enc_rwts)
-               \\ next_state_tac0
-               \\ state_tac [] [`r1`, `r2`, `r3`],
+               \\ (lfs ([loc_lem2] @ enc_rwts)
+                   \\ next_state_tac0
+                   \\ state_tac [] [`r1`, `r2`, `r3`]),
                (* Imm *)
                Cases_on `b`
                \\ lfs ([loc_lem2, binop_lem1] @ enc_rwts)

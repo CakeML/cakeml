@@ -1679,4 +1679,47 @@ val word_heap_def = Define `
 val word_gc_fun_def = Define `
   word_gc_fun c = ARB:'a gc_fun_type`;
 
+val word_ml_inv_def = Define `
+  word_ml_inv stack refs (roots,heap,be,a,sp) limit c <=>
+    ?hs. abs_ml_inv stack refs (hs,heap,be,a,sp) limit /\
+         EVERY2 (\v w. word_addr c heap v = w) hs roots`
+
+val word_ml_envs_def = Define `
+  word_ml_envs (heap,be,a,sp) limit c refs envs <=>
+    let xs = FLAT (MAP (MAP SND o toAList) envs) in
+      word_ml_inv (MAP FST xs) refs (MAP SND xs,heap,be,a,sp) limit c`
+
+val word_ml_envs_LN = store_thm("word_ml_envs_LN[simp]",
+  ``(word_ml_envs (heap,be,a,sp) limit c s.refs (x::LN::xs) =
+     word_ml_envs (heap,be,a,sp) limit c s.refs (x::xs)) /\
+    (word_ml_envs (heap,be,a,sp) limit c s.refs (LN::xs) =
+     word_ml_envs (heap,be,a,sp) limit c s.refs (xs))``,
+  cheat);
+
+val word_ml_envs_get_var_IMP = store_thm("word_ml_envs_get_var_IMP",
+  ``word_ml_envs (heap,be,a,sp) limit c s.refs
+      (join_env s.locals (toAList t.locals)::envs) /\
+    get_var n s = SOME x /\
+    get_var (adjust_var n) t = SOME w ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs
+      (LS (x,w)::join_env s.locals (toAList t.locals)::envs)``,
+  cheat);
+
+val word_ml_envs_DROP = store_thm("word_ml_envs_DROP",
+  ``word_ml_envs (heap,be,a,sp) limit c s.refs (x::y::xs) ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs (x::xs)``,
+  cheat);
+
+val adjust_var_NOT_0 = store_thm("adjust_var_NOT_0[simp]",
+  ``adjust_var n <> 0``,
+  fs [adjust_var_def]);
+
+val word_ml_envs_insert = store_thm("word_ml_envs_insert",
+  ``word_ml_envs (heap,F,a,sp) limit c s.refs
+         (LS (x,w)::join_env s.locals (toAList t.locals)::xs) ==>
+    word_ml_envs (heap,F,a,sp) limit c s.refs
+      (join_env (insert dest x s.locals)
+        (toAList (insert (adjust_var dest) w t.locals))::xs)``,
+  cheat);
+
 val _ = export_theory();

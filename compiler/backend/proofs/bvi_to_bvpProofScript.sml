@@ -548,18 +548,25 @@ val compile_correct = Q.prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
-      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
-      \\ fs[]
-      THEN1 (
-        `r.clock < ticks ∨ r.clock = ticks` by decide_tac >>
-        fs [state_rel_def, funpow_dec_clock_clock])
-      \\ `~(r.clock < ticks)` by decide_tac
-      \\ `(FUNPOW dec_clock ticks t2).clock ≠ 0` by simp [funpow_dec_clock_clock]
-      \\ fs []
       \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
+      \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
+       (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
+        \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
+         (`lookup x t1.locals <> NONE` by METIS_TAC []
+            \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC [])
+        \\ fs [var_corr_def,get_var_def]
+        \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
+      \\ fs [] \\ Cases_on `r.clock < ticks + 1` \\ fs [] THEN1
+       (`r.clock < ticks \/ r.clock = ticks` by decide_tac \\ fs []
+        \\ fs [state_rel_def, funpow_dec_clock_clock]
+        \\ Cases_on `tail` \\ fs [state_rel_def, funpow_dec_clock_clock]
+        \\ fs [cut_env_def])
+      \\ `~(r.clock < ticks)` by decide_tac \\ fs []
+      \\ `(FUNPOW dec_clock ticks t2).clock ≠ 0` by simp [funpow_dec_clock_clock]
+      \\ fs []
       \\ FULL_SIMP_TAC std_ss [compile_exp_def]
       \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
       \\ FULL_SIMP_TAC std_ss []
@@ -593,13 +600,6 @@ val compile_correct = Q.prove(
         \\ FULL_SIMP_TAC (srw_ss()) [call_env_def,
            bviSemTheory.dec_clock_def,bvpSemTheory.dec_clock_def]
         \\ REV_FULL_SIMP_TAC (srw_ss()) [FUNPOW_dec_clock_code])
-      \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
-       (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
-        \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
-       (`lookup x t1.locals <> NONE` by METIS_TAC []
-          \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC [])
-        \\ fs [var_corr_def,get_var_def]
-        \\ IMP_RES_TAC MEM_LIST_REL \\ fs [])
       \\ fs [cut_env_def]
       \\ `evaluate ([exp],args,dec_clock (ticks + 1) r) = (res,s2)` by ALL_TAC THEN1
        (Cases_on `evaluate ([exp],args,dec_clock (ticks + 1) r)` \\ fs []
@@ -717,20 +717,6 @@ val compile_correct = Q.prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
-      \\ FULL_SIMP_TAC std_ss [] \\ Cases_on `r.clock < ticks + 1`
-      \\ fs[]
-      THEN1 (`r.clock < ticks \/ r.clock <= ticks` by DECIDE_TAC
-             \\ fs [state_rel_def]
-             \\ SRW_TAC [] []
-             \\ fs [state_rel_def])
-      \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
-      \\ FULL_SIMP_TAC std_ss []
-      \\ IMP_RES_TAC find_code_lemma
-      \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
-      \\ FULL_SIMP_TAC std_ss [compile_exp_def]
-      \\ `~(r.clock < ticks) /\ ~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
-      \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
-      \\ FULL_SIMP_TAC std_ss []
       \\ `domain (list_to_num_set (live ++ corr)) SUBSET domain t2.locals` by
        (fs [SUBSET_DEF,domain_lookup,lookup_list_to_num_set,EVERY_MEM]
         \\ REPEAT STRIP_TAC \\ RES_TAC THEN1
@@ -738,6 +724,20 @@ val compile_correct = Q.prove(
           \\ Cases_on `lookup x' t1.locals` \\ fs [] \\ METIS_TAC [])
         \\ fs [var_corr_def,get_var_def]
         \\ IMP_RES_TAC MEM_LIST_REL \\ fs [] \\ NO_TAC)
+      \\ IMP_RES_TAC find_code_lemma
+      \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
+      \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
+      \\ fs [] \\ Cases_on `r.clock < ticks + 1` \\ fs [] THEN1
+       (`r.clock < ticks \/ r.clock = ticks` by decide_tac \\ fs []
+        \\ fs [state_rel_def, funpow_dec_clock_clock]
+        \\ Cases_on `tail` \\ fs [state_rel_def, funpow_dec_clock_clock]
+        \\ fs [cut_env_def])
+      \\ `~(r.clock < ticks)` by decide_tac \\ fs []
+      \\ FULL_SIMP_TAC std_ss []
+      \\ FULL_SIMP_TAC std_ss [compile_exp_def]
+      \\ `~(r.clock < ticks) /\ ~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
+      \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
+      \\ FULL_SIMP_TAC std_ss []
       \\ fs [cut_env_def]
       \\ Cases_on `evaluate ([exp],args,dec_clock (ticks + 1) r)`
       \\ Q.MATCH_ASSUM_RENAME_TAC

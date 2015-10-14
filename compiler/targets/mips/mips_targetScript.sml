@@ -41,18 +41,35 @@ val mips_config_def = Define`
 
 (* --- The next-state function --- *)
 
-val mips_next_def = Define `mips_next = THE o NextStateMIPS`
+(* --------------------------------------------------------------------------
+   Simplifying Assumption for MIPS Branch-Delay Slot
+   -------------------------------------------------
+   NOTE: The next-state function defined below merges branches with their
+   following instruction. This temporal abstraction artificially prevents us
+   from considering side-effect events (exceptions) occurring between these two
+   instructions. As such, we are assuming that this case is handled correctly
+   and we don't attempt to model or verify this behaviour.
+   -------------------------------------------------------------------------- *)
+
+val mips_next_def = Define`
+   mips_next s =
+   let s' = THE (NextStateMIPS s) in
+     if IS_SOME s'.BranchDelay then THE (NextStateMIPS s') else s'`
 
 (* --- Relate ASM and MIPS states --- *)
 
+val mips_ok_def = Define`
+   mips_ok ms =
+   ms.CP0.Config.BE /\ ~ms.CP0.Status.RE /\ ~ms.exceptionSignalled /\
+   (ms.BranchDelay = NONE) /\ (ms.BranchTo = NONE) /\
+   (ms.exception = NoException) /\ aligned 2 ms.PC`
+
 val mips_asm_state_def = Define`
-   mips_asm_state a s =
-   (s.exception = NoException) /\
-   s.CP0.Config.BE /\ ~s.CP0.Status.RE /\ ~s.exceptionSignalled /\
-   (s.BranchDelay = NONE) /\ (s.BranchTo = NONE) /\
-   (a.pc = s.PC) /\ aligned 2 s.PC /\
-   (!i. 1 < i /\ i < 32 ==> (a.regs i = s.gpr (n2w i))) /\
-   (a.mem = s.MEM)`
+   mips_asm_state s ms =
+   mips_ok ms /\
+   (!i. 1 < i /\ i < 32 ==> (s.regs i = ms.gpr (n2w i))) /\
+   (fun2set (s.mem, s.mem_domain) = fun2set (ms.MEM, s.mem_domain)) /\
+   (s.pc = ms.PC)`
 
 (* --- Encode ASM instructions to MIPS bytes. --- *)
 
@@ -333,6 +350,24 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
         when_nop rest (JumpReg (w2n r))
     | _ => ARB`
 
+val mips_proj_def = Define`
+   mips_proj d s =
+   (s.CP0.Config, s.CP0.Status.RE, s.exceptionSignalled,
+    s.BranchDelay, s.BranchTo, s.exception, s.gpr, fun2set (s.MEM,d), s.PC)`
+
+val mips_target_def = Define`
+   mips_target =
+   <| encode := mips_enc
+    ; get_pc := mips_state_PC
+    ; get_reg := (\s. mips_state_gpr s o n2w)
+    ; get_byte := mips_state_MEM
+    ; state_ok := mips_ok
+    ; state_rel := mips_asm_state
+    ; proj := mips_proj
+    ; next := mips_next
+    ; config := mips_config
+    |>`
+
 (* ------------------------------------------------------------------------- *)
 
 (* some lemmas ---------------------------------------------------------- *)
@@ -355,10 +390,14 @@ val bytes_in_memory_thm = Q.prove(
       (state.MEM state.PC = a) /\
       (state.MEM (state.PC + 1w) = b) /\
       (state.MEM (state.PC + 2w) = c) /\
-      (state.MEM (state.PC + 3w) = d)`,
-   rw [mips_asm_state_def, asmSemTheory.bytes_in_memory_def,
-       alignmentTheory.aligned_extract]
-   \\ simp []
+      (state.MEM (state.PC + 3w) = d) /\
+      state.PC + 3w IN s.mem_domain /\
+      state.PC + 2w IN s.mem_domain /\
+      state.PC + 1w IN s.mem_domain /\
+      state.PC IN s.mem_domain`,
+   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
+       alignmentTheory.aligned_extract, set_sepTheory.fun2set_eq]
+   \\ rfs []
    \\ blastLib.FULL_BBLAST_TAC
    )
 
@@ -369,9 +408,14 @@ val bytes_in_memory_thm2 = Q.prove(
       (state.MEM (state.PC + w) = a) /\
       (state.MEM (state.PC + w + 1w) = b) /\
       (state.MEM (state.PC + w + 2w) = c) /\
-      (state.MEM (state.PC + w + 3w) = d)`,
-   rw [mips_asm_state_def, asmSemTheory.bytes_in_memory_def]
-   \\ simp []
+      (state.MEM (state.PC + w + 3w) = d) /\
+      state.PC + w + 3w IN s.mem_domain /\
+      state.PC + w + 2w IN s.mem_domain /\
+      state.PC + w + 1w IN s.mem_domain /\
+      state.PC + w IN s.mem_domain`,
+   rw [mips_asm_state_def, mips_ok_def, asmSemTheory.bytes_in_memory_def,
+       set_sepTheory.fun2set_eq]
+   \\ rfs []
    )
 
 val lem1 = asmLib.v2w_BIT_n2w 5
@@ -477,9 +521,26 @@ local
    val (_, mk_mips_state_BranchDelay, _, _) = s1 "mips_state_BranchDelay"
    val (_, _, dest_NextStateMIPS, is_NextStateMIPS) =
       HolKernel.syntax_fns1 "mips_step" "NextStateMIPS"
+   fun is_mips_next tm =
+      Lib.total (fst o Term.dest_const o fst o Term.dest_comb) tm =
+      SOME "mips_next"
    val get_BranchDelay =
       (utilsLib.rhsc o Conv.QCONV (SIMP_CONV (srw_ss()) []) o
        mk_mips_state_BranchDelay)
+   fun dest_env tm =
+      case Lib.total boolSyntax.strip_comb tm of
+         SOME (env, [n, ms]) =>
+            if Lib.total (fst o Term.dest_var) env = SOME "env" andalso
+               not (is_mips_next ms) andalso numSyntax.is_numeral n
+               then (numSyntax.int_of_term n, ms)
+            else raise ERR "dest_env" ""
+       | _ => raise ERR "dest_env" ""
+   fun find_env g =
+      g |> HolKernel.find_terms (Lib.can dest_env)
+        |> Lib.mk_set
+        |> mlibUseful.sort_map (HolKernel.term_size) Int.compare
+        |> Lib.total List.last
+        |> Option.map ((numSyntax.term_of_int ## Lib.I) o dest_env)
    val find_Decode = HolKernel.bvk_find_term (is_Decode o snd) dest_Decode
    val find_NextStateMIPS =
       dest_NextStateMIPS o List.hd o HolKernel.find_terms is_NextStateMIPS
@@ -516,28 +577,50 @@ in
          val x as (pc, l, _, _) =
             List.last
               (List.mapPartial (Lib.total asmLib.dest_bytes_in_memory) asl)
-         val tm = asmLib.mk_bytes_in_memory x
-         val the_state = find_NextStateMIPS g
-         val bd = get_BranchDelay the_state
+         val x_tm = asmLib.mk_bytes_in_memory x
          val l = fst (listSyntax.dest_list l)
          val th = case Lib.total wordsSyntax.dest_word_add pc of
                      SOME (_, w) => Thm.SPEC w bytes_in_memory_thm2
                    | NONE => bytes_in_memory_thm
+         val (tac, bd, the_state) =
+            case Lib.total find_NextStateMIPS g of
+               SOME t => (all_tac, get_BranchDelay t, t)
+             | NONE =>
+              (case find_env g of
+                  SOME (t, tm) =>
+                    let
+                       val etm = ``env ^t ^tm : mips_state``
+                    in
+                       (`!a. a IN s1.mem_domain ==> ((^etm).MEM a = ms.MEM a)`
+                        by (qpat_assum `!i:num s:mips_state. P`
+                              (qspecl_then [`^t`, `^tm`]
+                                 (strip_assume_tac o SIMP_RULE (srw_ss())
+                                 [set_sepTheory.fun2set_eq]))
+                               \\ simp []),
+                        get_BranchDelay tm, etm)
+                    end
+                | NONE => (all_tac, ``ms.BranchDelay``, ``ms:mips_state``))
       in
          imp_res_tac th
+         \\ tac
          \\ assume_tac (step the_state bd l)
-         \\ rfs [lem1, lem6, lem7, lem10,
-                 combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
-         \\ Tactical.PAT_ASSUM tm kall_tac
+         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss())
+              [lem1, lem6, lem7, lem10,
+               combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
+         \\ Tactical.PAT_ASSUM x_tm kall_tac
+         \\ SUBST1_TAC (Thm.SPEC the_state mips_next_def)
          \\ asmLib.byte_eq_tac
-         \\ rfs [lem1, lem4, combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
+         \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss)
+               [lem1, lem4, combinTheory.UPDATE_APPLY, combinTheory.UPDATE_EQ]
          \\ TRY (Q.PAT_ASSUM `NextStateMIPS qq = qqq` kall_tac)
       end
       handle List.Empty => FAIL_TAC "next_state_tac: empty") (asl, g)
 end
 
 val state_tac =
-   fs [mips_asm_state, alignmentTheory.aligned_numeric, lem8, lem9]
+   NO_STRIP_FULL_SIMP_TAC (srw_ss())
+      [asmPropsTheory.all_pcs, mips_ok_def, mips_asm_state,
+       alignmentTheory.aligned_numeric, set_sepTheory.fun2set_eq, lem8, lem9]
    \\ rw [combinTheory.APPLY_UPDATE_THM,
           DECIDE ``~(n < 32n) ==> (n - 32 + 32 = n)``]
 
@@ -553,28 +636,41 @@ fun print_tac s gs = (print (s ^ "\n"); ALL_TAC gs)
 
 local
    fun number_of_instructions asl =
-      case asmLib.strip_bytes_in_memory (List.last asl) of
+      case asmLib.strip_bytes_in_memory (hd asl) of
          SOME l => List.length l div 4
        | NONE => raise ERR "number_of_instructions" ""
-   fun next_tac' gs =
+   fun next_tac' has_branch gs =
       let
          val j = number_of_instructions (fst gs)
          val i = j - 1
-         val n = numLib.term_of_int i
+         val n = numLib.term_of_int (if has_branch then i - 1 else i)
       in
          exists_tac n
-         \\ simp [mips_next_def, numeralTheory.numeral_funpow]
+         \\ simp [asmPropsTheory.asserts_eval,
+                  asmPropsTheory.interference_ok_def, mips_proj_def]
+         \\ NTAC 2 strip_tac
          \\ NTAC i (split_bytes_in_memory_tac 4)
          \\ NTAC j next_state_tac
-         \\ REPEAT (Q.PAT_ASSUM `state.MEM qq = bn` kall_tac)
+         \\ REPEAT (Q.PAT_ASSUM `ms.MEM qq = bn` kall_tac)
+         \\ REPEAT (Q.PAT_ASSUM `!a. a IN s1.mem_domain ==> qqq` kall_tac)
          \\ state_tac
       end gs
+   fun ast_has_branch tm =
+      case Lib.total (fst o Term.dest_const) tm of
+         SOME s => Lib.mem s ["Jump", "JumpCmp", "JumpReg", "Call", "Loc"]
+       | NONE => false
+   fun goal_has_branch gs =
+      Lib.can (HolKernel.find_term ast_has_branch) (snd gs)
 in
-   val next_tac =
-      lfs enc_rwts
+   fun next_tac gs =
+     (
+      qpat_assum `bytes_in_memory aa bb cc dd` mp_tac
+      \\ simp enc_rwts
+      \\ NO_STRIP_REV_FULL_SIMP_TAC (srw_ss()++boolSimps.LET_ss) enc_rwts
       \\ imp_res_tac lem5
-      \\ fs []
-      \\ next_tac'
+      \\ NO_STRIP_FULL_SIMP_TAC std_ss []
+      \\ strip_tac
+      \\ next_tac' (goal_has_branch gs)) gs
    val bnext_tac =
       next_tac
       \\ NO_STRIP_FULL_SIMP_TAC std_ss [alignmentTheory.aligned_extract]
@@ -696,8 +792,7 @@ val mips_encoding = Count.apply Q.prove (
 
 val mips_asm_deterministic = Q.store_thm("mips_asm_deterministic",
    `asm_deterministic mips_enc mips_config`,
-   metis_tac [asmPropsTheory.decoder_asm_deterministic,
-              asmPropsTheory.has_decoder_def, mips_encoding]
+   metis_tac [asmPropsTheory.decoder_asm_deterministic, mips_encoding]
    )
 
 val mips_asm_deterministic_config =
@@ -708,11 +803,15 @@ val enc_ok_rwts =
    enc_ok_rwts
 
 val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
-   `backend_correct mips_enc mips_config mips_next mips_asm_state`,
-   simp [asmPropsTheory.backend_correct_def]
-   \\ REVERSE conj_tac
+   `backend_correct mips_target`,
+   simp [asmPropsTheory.backend_correct_def, mips_target_def]
+   \\ REVERSE (REPEAT conj_tac)
    >| [
       rw [asmSemTheory.asm_step_def] \\ Cases_on `i`,
+      srw_tac [] [mips_asm_state_def, mips_config_def, set_sepTheory.fun2set_eq]
+      \\  `1 < i` by decide_tac
+      \\ simp [],
+      srw_tac [] [mips_proj_def, mips_asm_state_def, mips_ok_def],
       srw_tac [boolSimps.LET_ss] enc_ok_rwts
    ]
    >- (
@@ -793,14 +892,14 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
       \\ Cases_on `r`
       \\ Cases_on `c`
       >| [
-         Cases_on `state.gpr (n2w n) = state.gpr (n2w n')`,
-         Cases_on `state.gpr (n2w n) <+ state.gpr (n2w n')`,
-         Cases_on `state.gpr (n2w n) < state.gpr (n2w n')`,
-         Cases_on `state.gpr (n2w n) && state.gpr (n2w n') = 0w`,
-         Cases_on `state.gpr (n2w n) = c'`,
-         Cases_on `state.gpr (n2w n) <+ c'`,
-         Cases_on `state.gpr (n2w n) < c'`,
-         Cases_on `state.gpr (n2w n) && c' = 0w`
+         Cases_on `ms.gpr (n2w n) = ms.gpr (n2w n')`,
+         Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
+         Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`,
+         Cases_on `ms.gpr (n2w n) && ms.gpr (n2w n') = 0w`,
+         Cases_on `ms.gpr (n2w n) = c'`,
+         Cases_on `ms.gpr (n2w n) <+ c'`,
+         Cases_on `ms.gpr (n2w n) < c'`,
+         Cases_on `ms.gpr (n2w n) && c' = 0w`
       ]
       \\ bnext_tac
       )

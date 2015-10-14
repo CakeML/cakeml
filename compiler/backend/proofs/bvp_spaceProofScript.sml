@@ -293,20 +293,11 @@ val evaluate_compile = Q.prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
   THEN1 (* If *)
-   (Cases_on `evaluate (g,s)` \\ fs []
-    \\ reverse (Cases_on `q`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `l`) \\ fs []
-    \\ REV_FULL_SIMP_TAC (srw_ss()) []
-    THEN1 METIS_TAC [locals_ok_def]
-    \\ Cases_on `get_var n r` \\ fs []
+   (Cases_on `get_var n s` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ SRW_TAC [] [] \\ fs [])
   THEN1 (* Call *)
-   (Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
-    THEN1 (fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
-             dec_clock_def] \\ METIS_TAC [])
-    \\ Cases_on `get_vars args s` \\ fs []
+   (Cases_on `get_vars args s` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
@@ -316,6 +307,9 @@ val evaluate_compile = Q.prove(
           call_env q (dec_clock s)` by
          fs [bvpSemTheory.state_component_equality,
              dec_clock_def,call_env_def] \\ fs []
+      \\ Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
+      THEN1 (fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
+             dec_clock_def] \\ METIS_TAC [])
       \\ Q.EXISTS_TAC `s2.locals` \\ fs [locals_ok_refl]
       \\ SRW_TAC [] [bvpSemTheory.state_component_equality])
     \\ Cases_on `x'` \\ fs []
@@ -328,6 +322,9 @@ val evaluate_compile = Q.prove(
      (Cases_on `handler`
       \\ fs [bvpSemTheory.state_component_equality,
              dec_clock_def,call_env_def,push_env_def])
+    \\ Cases_on `s.clock = 0` \\ fs [] \\ SRW_TAC [] []
+    THEN1 (fs [locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
+           dec_clock_def] \\ METIS_TAC [])
     \\ fs [] \\ METIS_TAC [locals_ok_refl,with_same_locals]));
 
 val compile_correct = store_thm("compile_correct",
