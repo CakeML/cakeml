@@ -122,9 +122,9 @@ val imprecise_machine_sem_def = Define `
 
 val code_loaded_def = Define`
   code_loaded (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) <=>
-    read_bytearray (mc.f.get_pc ms) (LENGTH bytes)
+    read_bytearray (mc.target.get_pc ms) (LENGTH bytes)
       (\a. if a IN mc.prog_addresses
-           then SOME (mc.f.get_byte ms a) else NONE) = SOME bytes
+           then SOME (mc.target.get_byte ms a) else NONE) = SOME bytes
     (* ... and a few more things that will become clear during the proof *)`;
 
 val _ = export_theory();
