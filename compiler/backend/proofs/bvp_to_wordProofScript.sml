@@ -116,7 +116,7 @@ val state_rel_0_get_vars_IMP = prove(
   \\ fs [state_rel_def,wordSemTheory.get_var_def]);
 
 val get_var_T_OR_F = prove(
-  ``state_rel c l1 l2 s (t:'a state) LN /\
+  ``state_rel c l1 l2 s (t:('a,'ffi) state) LN /\
     get_var n s = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -137,7 +137,7 @@ val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
 val evaluate_mk_loc_EQ = prove(
-  ``evaluate (q,t) = (NONE,t1:'a state) ==>
+  ``evaluate (q,t) = (NONE,t1:('a,'ffi) state) ==>
     mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
   cheat);
 
