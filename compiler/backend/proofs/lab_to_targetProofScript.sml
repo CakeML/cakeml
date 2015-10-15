@@ -1389,6 +1389,8 @@ val init_ok_def = Define `
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p,T) s t1 ms`
 
+(*
+
 val machine_sem_EQ_sem = prove(
   ``!(mc_conf: ('a,'state,'b) machine_config) p ms s.
       backend_correct_alt mc_conf.f mc_conf.asm_config /\
@@ -1480,6 +1482,8 @@ val machine_sem_EQ_sem = prove(
       \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
       \\ rfs [evaluate_without_TimeOut] \\ fs [] \\ rw [] \\ fs []
       \\ imp_res_tac evaluate_IO_mismatch \\ fs [])));
+
+*)
 
 (*
 
