@@ -41,35 +41,33 @@ val _ = Datatype `
     ; next_interfer : num -> 'b -> 'b
     (* program exits successfully at halt_pc *)
     ; halt_pc : 'a word
-    (* assembly configuration *)
-    ; asm_config : 'a asm_config
-    (* target next-state fuction etc. *)
-    ; f : ('a,'b,'c) target_funs
+    (* target next-state function etc. *)
+    ; target : ('a,'b,'c) target
     |>`
 
 val evaluate_def = Define `
   evaluate config io k (ms:'a) =
     if k = 0 then (TimeOut,ms,io)
     else
-      if config.f.get_pc ms IN config.prog_addresses then
-        let ms1 = config.f.next ms in
+      if config.target.get_pc ms IN config.prog_addresses then
+        let ms1 = config.target.next ms in
         let ms2 = config.next_interfer 0 ms1 in
         let config = config with next_interfer :=
                        shift_seq 1 config.next_interfer in
-          if EVERY config.f.state_ok [ms;ms1;ms2] then
+          if EVERY config.target.state_ok [ms;ms1;ms2] then
             evaluate config io (k - 1) ms2
           else
             (Error Internal,ms,io)
-      else if config.f.get_pc ms = config.halt_pc then
+      else if config.target.get_pc ms = config.halt_pc then
         (Result,ms,io)
       else
-        case list_find (config.f.get_pc ms) config.ffi_entry_pcs of
+        case list_find (config.target.get_pc ms) config.ffi_entry_pcs of
         | NONE => (Error Internal,ms,io)
         | SOME ffi_index =>
-          case read_bytearray (config.f.get_reg ms config.ptr_reg)
-                 (w2n (config.f.get_reg ms config.len_reg))
+          case read_bytearray (config.target.get_reg ms config.ptr_reg)
+                 (w2n (config.target.get_reg ms config.len_reg))
                  (\a. if a IN config.prog_addresses
-                      then SOME (config.f.get_byte ms a) else NONE) of
+                      then SOME (config.target.get_byte ms a) else NONE) of
           | NONE => (Error Internal,ms,io)
           | SOME bytes =>
             let ffi = config.ffi_interfer 0 ffi_index in
