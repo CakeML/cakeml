@@ -75,11 +75,13 @@ val do_log_IMP_3 = prove(
     !e3. (do_log op v e3 = SOME (Val x))``,
   fs [do_log_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
 
+val s = ``s:'ffi state``
+
 val BOTTOM_UP_OPT_LEMMA = prove(
-  ``(!ck env s exp res. evaluate F env s exp res ==> isRval (SND res) ==> evaluate F env s (f exp) res) ==>
-    (!ck x1 s x2 x3. evaluate ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate ck x1 s (BOTTOM_UP_OPT f x2) x3) /\
-    (!ck x1 s x2 x3. evaluate_list ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate_list ck x1 s (MAP (BOTTOM_UP_OPT f) x2) x3) /\
-    (!ck x1 s x2 x3 x4 x5. evaluate_match ck x1 s x2 x3 x4 x5 ==> isRval (SND x5) ∧ (ck = F) ==> evaluate_match ck x1 s x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)``,
+  ``(!ck env ^s exp res. evaluate F env s exp res ==> isRval (SND res) ==> evaluate F env s (f exp) res) ==>
+    (!ck x1 ^s x2 x3. evaluate ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate ck x1 s (BOTTOM_UP_OPT f x2) x3) /\
+    (!ck x1 ^s x2 x3. evaluate_list ck x1 s x2 x3 ==> isRval (SND x3) ∧ (ck = F) ==> evaluate_list ck x1 s (MAP (BOTTOM_UP_OPT f) x2) x3) /\
+    (!ck x1 ^s x2 x3 x4 x5. evaluate_match ck x1 s x2 x3 x4 x5 ==> isRval (SND x5) ∧ (ck = F) ==> evaluate_match ck x1 s x2 (MAP (\(p,x). (p,BOTTOM_UP_OPT f x)) x3) x4 x5)``,
   STRIP_TAC \\ ONCE_REWRITE_TAC [two_assums]
   \\ HO_MATCH_MP_TAC bigStepTheory.evaluate_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [BOTTOM_UP_OPT_def,isRval_def,AND_IMP_INTRO, rich_listTheory.MAP_REVERSE]
@@ -142,10 +144,10 @@ val BOTTOM_UP_OPT_LEMMA = prove(
 
 val BOTTOM_UP_OPT_THM = prove(
   ``!f.
-      (!env s exp t res.
+      (!env ^s exp t res.
          evaluate F env s exp (t,Rval res) ==>
          evaluate F env s (f exp) (t,Rval res)) ==>
-      (!env s exp t res.
+      (!env ^s exp t res.
          evaluate F env s exp (t,Rval res) ==>
          evaluate F env s (BOTTOM_UP_OPT f exp) (t,Rval res))``,
   STRIP_TAC \\ STRIP_TAC \\ (BOTTOM_UP_OPT_LEMMA
@@ -243,7 +245,7 @@ val evaluate_Lit = prove(
   FULL_SIMP_TAC (srw_ss()) [Once evaluate_cases] \\ METIS_TAC []);
 
 val with_same_refs_io = Q.prove(
-  `x with <| refs := x.refs; io := x.io |> = x`,
+  `x with <| refs := x.refs; ffi := x.ffi |> = x`,
   rw[state_component_equality])
 
 val opt_sub_add_thm = prove(

@@ -33,7 +33,9 @@ val empty_state_def = Define`
   empty_state = <|
     clock := 0;
     refs := empty_store;
-    io := SOME LNIL;
+    (* force the ffi state to unit
+       the translator does not currently support ffi *)
+    ffi := initial_ffi_state ARB ();
     defined_types := {};
     defined_mods := {}|>`;
 
@@ -317,6 +319,11 @@ val do_eq_succeeds = prove(``
  \\ Cases_on `v1 = v2`
  \\ fs []);
 
+val empty_state_tac =
+  srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][empty_state_def,ffiTheory.initial_ffi_state_def]
+val empty_state_tac2 =
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def]
+
 val Eval_Equality = store_thm("Eval_Equality",
   ``Eval env x1 (a y1) /\ Eval env x2 (a y2) ==>
     EqualityType a ==>
@@ -324,12 +331,12 @@ val Eval_Equality = store_thm("Eval_Equality",
   SIMP_TAC std_ss [Eval_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def]
+  \\ empty_state_tac
   \\ qexists_tac`[res';res]`
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ IMP_RES_TAC do_eq_succeeds \\ fs []
-  \\ fs[empty_state_def]
+  \\ empty_state_tac2
   \\ metis_tac[]);
 
 (* booleans *)
@@ -387,8 +394,8 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   SIMP_TAC std_ss [Eval_def,NUM_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-  \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def]
-  \\ fs[empty_state_def]
+  \\ empty_state_tac
+  \\ fs[empty_state_def,ffiTheory.initial_ffi_state_def]
   \\ ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))])
   \\ simp[PULL_EXISTS]
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
@@ -396,10 +403,10 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,PULL_EXISTS]
   \\ Q.LIST_EXISTS_TAC[`Boolv F`,`¬b1`]
   \\ conj_tac >- (EVAL_TAC >> rw[] >> EVAL_TAC)
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][]
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,opb_lookup_def]);
 
 val Eval_Implies = store_thm("Eval_Implies",
@@ -571,9 +578,9 @@ val Eval_Opn = prove(
         Eval env (App (Opn f) [x1;x2]) (INT (opn_lookup f n1 n2))``,
   SIMP_TAC std_ss [Eval_def,INT_def] \\ SIMP_TAC std_ss [PRECONDITION_def]
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ empty_state_tac
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[][PULL_EXISTS]
-  \\ fs[empty_state_def]
+  \\ fs[empty_state_def,ffiTheory.initial_ffi_state_def]
   \\ first_assum(match_exists_tac o concl) >> simp[]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[][PULL_EXISTS]
   \\ first_assum(match_exists_tac o concl) >> simp[]
@@ -599,9 +606,9 @@ val Eval_Opb = prove(
         Eval env (App (Opb f) [x1;x2]) (BOOL (opb_lookup f n1 n2))``,
   SIMP_TAC std_ss [Eval_def,INT_def,BOOL_def] \\ SIMP_TAC std_ss []
   \\ REPEAT STRIP_TAC \\ FULL_SIMP_TAC std_ss []
-  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def]
+  \\ ONCE_REWRITE_TAC [evaluate_cases] \\ empty_state_tac
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[][PULL_EXISTS]
-  \\ fs[empty_state_def]
+  \\ fs[empty_state_def,ffiTheory.initial_ffi_state_def]
   \\ first_assum(match_exists_tac o concl) >> simp[]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[][PULL_EXISTS]
   \\ first_assum(match_exists_tac o concl) >> simp[]
@@ -672,10 +679,10 @@ val Eval_int_negate = store_thm("Eval_int_negate",
   ``Eval env x1 (INT i) ==>
     Eval env (App (Opn Minus) [Lit (IntLit 0); x1]) (INT (-i))``,
   rw[Eval_def] >> rw[Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases)])) >>
   rw[PULL_EXISTS] >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS,opn_lookup_def] >>
@@ -820,9 +827,9 @@ val Eval_Ord = store_thm("Eval_Ord",
     Eval env (App Ord [x]) (NUM (ORD c))``,
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS] >>
@@ -834,9 +841,9 @@ val Eval_Chr = store_thm("Eval_Chr",
     Eval env (App Chr [x]) (CHAR (CHR n))``,
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
   rw[do_app_cases,PULL_EXISTS] >>
@@ -851,9 +858,9 @@ val Boolv_11 = store_thm("Boolv_11",
 val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   rpt(CHANGED_TAC(rw[Once(CONJUNCT2 evaluate_cases),PULL_EXISTS])) >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> rw[] >>
   first_assum(match_exists_tac o concl) >> rw[] >>
   rw[do_app_cases,PULL_EXISTS] >> fs[CHAR_def] >>
@@ -901,9 +908,9 @@ val LIST_TYPE_CHAR_char_list_to_v = store_thm("LIST_TYPE_CHAR_char_list_to_v",
 val tac =
   rw[Eval_def] >>
   rw[Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   rw[Once evaluate_cases,PULL_EXISTS] >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> rw[] >>
   rw[Once evaluate_cases] >>
   rw[do_app_cases,PULL_EXISTS]
@@ -958,14 +965,14 @@ val Eval_sub = store_thm("Eval_sub",
      Eval env (App Vsub [x1; x2]) (a (sub v n))``,
   rw [Eval_def] >>
   rw [Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, sub_def, INT_def] >>
-  fs[empty_state_def] >>
+  fs[empty_state_def,ffiTheory.initial_ffi_state_def] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   qexists_tac`EL n l'` >>
@@ -978,12 +985,12 @@ val Eval_vector = store_thm("Eval_vector",
      Eval env (App VfromList [x1]) (VECTOR_TYPE a (Vector l))``,
   rw [Eval_def] >>
   rw [Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
   fs [VECTOR_TYPE_def] >>
-  fs[empty_state_def] >>
+  empty_state_tac2 >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   pop_assum mp_tac >>
   pop_assum (fn _ => all_tac) >>
@@ -1001,13 +1008,13 @@ val Eval_length = store_thm("Eval_length",
       Eval env (App Vlength [x1]) (NUM (length v))``,
   rw [Eval_def] >>
   rw [Once evaluate_cases] >>
-  srw_tac[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][empty_state_def] >>
+  empty_state_tac >>
   ntac 3 (rw [Once (hd (tl (CONJUNCTS evaluate_cases)))]) >>
   rw [do_app_cases] >>
   rw [PULL_EXISTS] >>
   `?l. v = Vector l` by metis_tac [fetch "-" "vector_nchotomy"] >>
   rw [] >>
-  fs[empty_state_def] >>
+  empty_state_tac2 >>
   fs [VECTOR_TYPE_def, length_def, NUM_def, INT_def] >>
   metis_tac []);
 
@@ -1023,7 +1030,7 @@ val Decls_def = Define `
 
 val DeclAssum_def = zDefine `
   DeclAssum mn ds env tys =
-    ?s. Decls mn (SND(THE prim_sem_env)) (FST(THE prim_sem_env))
+    ?s. Decls mn (SND(THE (prim_sem_env empty_state.ffi))) (FST(THE (prim_sem_env empty_state.ffi)))
           ds env s ∧ s.clock = 0 ∧ s.defined_types = tys`;
 
 val _ = computeLib.add_funs
@@ -1112,13 +1119,15 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
 
 val _ = temp_overload_on("has_emp",``\x. (FST x).refs = empty_store``)
 
+val s = ``s:'ffi state``
+
 val evaluate_empty_store_lemma = prove(
  ``(!ck env s e r1.
-      evaluate ck env s e r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
+      evaluate ck env ^s e r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
    (!ck env s es r1.
-      evaluate_list ck env s es r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
+      evaluate_list ck env ^s es r1 ==> has_emp r1 ==> (s.refs = empty_store)) /\
    (!ck env s v pes errv r1.
-      evaluate_match ck env s v pes errv r1 ==> has_emp r1 ==> (s.refs = empty_store))``,
+      evaluate_match ck env ^s v pes errv r1 ==> has_emp r1 ==> (s.refs = empty_store))``,
   HO_MATCH_MP_TAC evaluate_ind \\ rw [] \\ POP_ASSUM MP_TAC
   \\ TRY (Cases_on `op`)
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,LET_DEF,store_alloc_def]
@@ -1144,11 +1153,11 @@ val _ = temp_overload_on("has_emp_no_fail",
         ~(SND x = (Rerr (Rabort Rtype_error)):('b,'c) result)``)
 
 val evaluate_no_clock = prove(
- ``(!ck env s e r1.
+ ``(!ck env ^s e r1.
       evaluate ck env s e r1 ==> ~ck ==> (s.clock = (FST r1).clock)) /\
-   (!ck env s es r1.
+   (!ck env ^s es r1.
       evaluate_list ck env s es r1 ==> ~ck ==> (s.clock = (FST r1).clock))  /\
-   (!ck env s v pes errv r1.
+   (!ck env ^s v pes errv r1.
       evaluate_match ck env s v pes errv r1 ==>  ~ck ==> (s.clock = (FST r1).clock))``,
   HO_MATCH_MP_TAC evaluate_ind \\ rw [])
   |> SIMP_RULE std_ss [PULL_EXISTS,AND_IMP_INTRO];
@@ -1160,7 +1169,6 @@ val evaluate_constant_clock = store_thm("evaluate_constant_clock",
   \\ imp_res_tac evaluate_no_clock \\ fs []);
 
 val sind = IndDefLib.derive_strong_induction(evaluate_rules,evaluate_ind);
-
 
 val do_app_empty_store = prove(
   ``!op vs.
@@ -1178,8 +1186,8 @@ val do_app_empty_store = prove(
 
 val do_app_lemma = prove(
   ``!op.
-      (do_app (empty_store,io1) op vs = SOME ((empty_store,io),e'')) ==>
-      !t. do_app t op vs = SOME (t,e'')``,
+      (do_app (empty_store,io1) op vs = SOME ((empty_store,(io:'ffi ffi_state)),e'')) ==>
+      !t. do_app (t:('ffi,v)store_ffi) op vs = SOME (t,e'')``,
   Cases \\ FULL_SIMP_TAC (srw_ss()) [do_app_def] \\ REPEAT STRIP_TAC
   \\ Cases_on`t` \\ fs[do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ FULL_SIMP_TAC std_ss []
@@ -1207,16 +1215,18 @@ val pmatch_empty_store = store_thm("pmatch_empty_store",
   \\ Q.PAT_ASSUM `No_match = x` (ASSUME_TAC o GSYM)
   \\ FULL_SIMP_TAC (srw_ss()) []);
 
+val t = ``t:'ffi state``
+
 val evaluate_empty_store_IMP_any_store = prove(
- ``(!ck env s e r1.
+ ``(!ck env ^s e r1.
       evaluate ck env s e r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !t. evaluate ck env t e (t,SND r1)) /\
-   (!ck env s es r1.
+      !^t. evaluate ck env t e (t,SND r1)) /\
+   (!ck env ^s es r1.
       evaluate_list ck env s es r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !t. evaluate_list ck env t es (t,SND r1)) /\
-   (!ck env s v pes errv r1.
+      !^t. evaluate_list ck env t es (t,SND r1)) /\
+   (!ck env ^s v pes errv r1.
       evaluate_match ck env s v pes errv r1 ==> (ck = F) /\ has_emp_no_fail r1 ==>
-      !t. evaluate_match ck env t v pes errv (t,SND r1))``,
+      !^t. evaluate_match ck env t v pes errv (t,SND r1))``,
   HO_MATCH_MP_TAC sind \\ FULL_SIMP_TAC (srw_ss()) [] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ FULL_SIMP_TAC (srw_ss()) []
   THEN1
@@ -1268,7 +1278,7 @@ val evaluate_empty_store_IMP_any_store = prove(
 
 val evaluate_empty_state_IMP = Q.store_thm("evaluate_empty_state_IMP",
   `evaluate F env empty_state exp (empty_state,Rval x) ⇒
-   ∀s. evaluate F env s exp (s,Rval x)`,
+   ∀(s:unit state). evaluate F env s exp (s,Rval x)`,
   rw[] >> imp_res_tac evaluate_empty_store_IMP_any_store >> fs[empty_state_def])
 
 (*
@@ -1654,7 +1664,7 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
 
 val always_evaluates_def = Define `
   always_evaluates env exp =
-    !s1. ?s2 res. evaluate F env s1 exp (s2,Rval res)`;
+    !(s1:unit state). ?s2 res. evaluate F env s1 exp (s2,Rval res)`;
 
 val Eval_IMP_always_evaluates = store_thm("Eval_IMP_always_evaluates",
   ``!env exp P. Eval env exp P ==> always_evaluates env exp``,
@@ -1805,9 +1815,9 @@ val DeclAssumCons_def = Define `
 
 local
   val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def]
-  val lemma = eval ``(SND ((SND(THE prim_sem_env)).c))``
+  val lemma = eval ``(SND ((SND(THE (prim_sem_env empty_state.ffi))).c))``
   val tm = lemma |> concl |> rand
-  val lemma2 = eval ``FST (THE prim_sem_env)``
+  val lemma2 = eval ``FST (THE (prim_sem_env empty_state.ffi))``
   val tm2 = lemma2 |> concl
     |> find_terms (can pred_setSyntax.dest_insert)
     |> map (rand o rator)
@@ -1979,15 +1989,15 @@ val Tmod_lemma = prove(
     ALL_DISTINCT (type_names ds []) ==>
     ?s tds env. !specs.
       evaluate_top F
-        (SND(THE prim_sem_env))
-        (FST(THE prim_sem_env))
+        (SND(THE (prim_sem_env empty_state.ffi)))
+        (FST(THE (prim_sem_env empty_state.ffi)))
         (Tmod m specs ds)
         (s,([(m,tds)],[]),Rval ([(m,env)],[])) ∧
          DeclTys (SOME m) ds = s.defined_types ∧
       DeclEnv (SOME m) ds =
         <| m := []
-         ; c := merge_alist_mod_env ([],tds) (SND(THE prim_sem_env)).c
-         ; v := env ++ (SND(THE prim_sem_env)).v|>``,
+         ; c := merge_alist_mod_env ([],tds) (SND(THE (prim_sem_env empty_state.ffi))).c
+         ; v := env ++ (SND(THE (prim_sem_env empty_state.ffi))).v|>``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC DeclEnv
   \\ fs [DeclAssum_def,Decls_def]
   \\ imp_res_tac evaluate_top_Tmod_Rval
