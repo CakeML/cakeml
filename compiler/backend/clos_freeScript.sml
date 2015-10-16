@@ -37,14 +37,14 @@ val free_def = tDefine "free" `
      let (c1,l1) = free [x1] in
      let l2 = Shift num_args l1 in
        ([Fn loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
-  (free [Letrec loc vs fns x1] =
+  (free [Letrec loc _ fns x1] =
      let m = LENGTH fns in
      let res = MAP (\(n,x). let (c,l) = free [x] in
                               ((n,HD c),Shift (n + m) l)) fns in
      let c1 = MAP FST res in
      let l1 = list_mk_Union (MAP SND res) in
      let (c2,l2) = free [x1] in
-       ([Letrec loc (vars_to_list l1) c1 (HD c2)],
+       ([Letrec loc (SOME (vars_to_list l1)) c1 (HD c2)],
         mk_Union l1 (Shift (LENGTH fns) l2))) /\
   (free [Handle x1 x2] =
      let (c1,l1) = free [x1] in

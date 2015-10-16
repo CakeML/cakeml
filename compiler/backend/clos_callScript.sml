@@ -228,7 +228,7 @@ val calls_def = tDefine "calls" `
          let new_vs = MAP (K Other) fns in (* <--- could be more precise *)
          let (e1,xs,g) = calls [x1] (new_vs++vs) g in
          let (e1,a1) = HD e1 in (* TODO: should still optimise fns *)
-           ([(Letrec loc_opt [] fns e1,a1)],xs,g)
+           ([(Letrec loc_opt NONE fns e1,a1)],xs,g)
        else
          let fns1 = GENLIST
              (\i. if LENGTH fns <= i then (Var 0) else
@@ -322,14 +322,14 @@ val call_intro_def = Define `
   let fun f x = f x in f end
 *)
 
-  val f = ``Letrec (SOME 200) [] [(1,App NONE (Var 1) [Var 0])] (Var 0)``
+  val f = ``Letrec (SOME 200) NONE [(1,App NONE (Var 1) [Var 0])] (Var 0)``
   val ev = EVAL ``call_intro [^f]``
 
 (*
   fn [t;q] => let fun f x y = f (x - t) (y - q) in f end
 *)
 
-  val f = ``Letrec (SOME 200) [] [(2,App NONE (Var 2)
+  val f = ``Letrec (SOME 200) NONE [(2,App NONE (Var 2)
               [Op Sub [Var 0; Var 3]; Op Sub [Var 1; Var 4]])]
                 (Var 0)``
   val exp = ``Fn (SOME 100) NONE 2 ^f``

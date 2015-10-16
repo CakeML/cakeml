@@ -363,11 +363,19 @@ val evaluate_def = tDefine "evaluate" `
               | SOME env' => (Rval [Closure loc [] env' num_args exp], s))
      else
        (Rerr(Rabort Rtype_error), s)) /\
-  (evaluate ([Letrec loc names fns exp],env,s) =
+  (evaluate ([Letrec loc namesopt fns exp],env,s) =
      if EVERY (\(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) fns then
-       case build_recc s.restrict_envs loc env names fns of
-       | NONE => (Rerr(Rabort Rtype_error),s)
-       | SOME rs => evaluate ([exp],rs ++ env,s)
+       let
+         build_rc e = GENLIST (Recclosure loc [] e fns) (LENGTH fns) in
+       let
+         envdelta =
+           case namesopt of
+           | NONE => SOME (build_rc env)
+           | SOME names => OPTION_MAP build_rc (lookup_vars names env)
+       in
+         case envdelta of
+             NONE => (Rerr(Rabort Rtype_error),s)
+           | SOME ed => evaluate ([exp],ed ++ env,s)
      else
        (Rerr(Rabort Rtype_error), s)) /\
   (evaluate ([App loc_opt x1 args],env,s) =
@@ -444,7 +452,7 @@ val evaluate_clock_help = prove (
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [] \\ BasicProvers.EVERY_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [LET_THM] \\ BasicProvers.EVERY_CASE_TAC
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def]
   \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
   \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC

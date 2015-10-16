@@ -55,7 +55,7 @@ val _ = Datatype `
       | Call num (exp list)
       | App (num option) exp (exp list)
       | Fn (num option) (num list option) num exp
-      | Letrec (num option) (num list) ((num # exp) list) exp
+      | Letrec (num option) (num list option) ((num # exp) list) exp
       | Op op (exp list) `;
 
 val exp_size_def = definition"exp_size_def";

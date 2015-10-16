@@ -309,8 +309,9 @@ val compile_def = tDefine "compile" `
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + num_stubs,num_args+1,c2) :: aux1)) /\
-  (compile [Letrec loc_opt vs fns x1] aux =
+  (compile [Letrec loc_opt vsopt fns x1] aux =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
+     let vs = case vsopt of NONE => [] | SOME x => x in
      case fns of
      | [] => compile [x1] aux
      | [(num_args, exp)] =>

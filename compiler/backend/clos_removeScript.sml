@@ -53,7 +53,7 @@ val remove_def = tDefine "remove" `
      let (c1,l1) = remove [x1] in
      let l2 = Shift num_args l1 in
        ([Fn loc (SOME (vars_to_list l2)) num_args (HD c1)],l2)) /\
-  (remove [Letrec loc vs fns x1] =
+  (remove [Letrec loc _ fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = remove [x1] in
        if no_overlap m l2 then
@@ -63,7 +63,7 @@ val remove_def = tDefine "remove" `
                                   ((n,HD c),Shift (n + m) l)) fns in
          let c1 = MAP FST res in
          let l1 = list_mk_Union (MAP SND res) in
-           ([Letrec loc (vars_to_list l1) c1 (HD c2)],
+           ([Letrec loc (SOME (vars_to_list l1)) c1 (HD c2)],
             mk_Union l1 (Shift (LENGTH fns) l2))) /\
   (remove [Handle x1 x2] =
      let (c1,l1) = remove [x1] in

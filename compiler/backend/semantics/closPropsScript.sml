@@ -247,7 +247,7 @@ val evaluate_LENGTH_ind =
 val evaluate_LENGTH = prove(evaluate_LENGTH_ind |> concl |> rand,
   MATCH_MP_TAC evaluate_LENGTH_ind
   \\ REPEAT STRIP_TAC \\ fs []
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs []
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs [LET_THM]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs [] \\ fs [])
   |> SIMP_RULE std_ss [FORALL_PROD]
 
@@ -322,7 +322,7 @@ val evaluate_const_lemma = prove(
   evaluate_const_ind |> concl |> rand,
   MATCH_MP_TAC evaluate_const_ind
   \\ REPEAT STRIP_TAC \\ fs []
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs []
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs [LET_THM]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
   \\ IMP_RES_TAC do_app_const \\ fs [dec_clock_def])

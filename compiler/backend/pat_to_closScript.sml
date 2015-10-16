@@ -163,7 +163,7 @@ val compile_def = tDefine"compile"`
   (compile (Seq e1 e2) =
     Let [compile e1;compile e2] (Var 1)) ∧
   (compile (Letrec es e) =
-    Letrec NONE [] (MAP (λe. (1,compile e)) es) (compile e)) ∧
+    Letrec NONE NONE (MAP (λe. (1,compile e)) es) (compile e)) ∧
   (compile (Extend_global n) =
     Let (REPLICATE n (Op AllocGlobal []))
       (Op (Cons tuple_tag) []))`

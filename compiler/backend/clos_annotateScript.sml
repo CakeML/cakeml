@@ -49,7 +49,8 @@ val shift_def = tDefine "shift" `
      let vars = MAP (get_var m l i) live in
      let c1 = shift [x1] k num_args (new_env 0 live) in
        ([Fn loc (SOME vars) num_args (HD c1)])) /\
-  (shift [Letrec loc vs fns x1] m l i =
+  (shift [Letrec loc vsopt fns x1] m l i =
+     let vs = case vsopt of NONE => [] | SOME x => x in
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
@@ -58,7 +59,7 @@ val shift_def = tDefine "shift" `
      let cs = MAP (\(n,x). let c = shift [x] k (n + fns_len) new_i in
                              (n,HD c)) fns in
      let c1 = shift [x1] m (l + LENGTH fns) i in
-       ([Letrec loc vars cs (HD c1)])) /\
+       ([Letrec loc (SOME vars) cs (HD c1)])) /\
   (shift [Handle x1 x2] m l i =
      let c1 = shift [x1] m l i in
      let c2 = shift [x2] m (l+1) i in
