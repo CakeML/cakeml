@@ -199,7 +199,6 @@ val compile_correct = prove(
                      ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Exception (mk_loc (jump_exc t)) w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
-
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -285,12 +284,12 @@ val compile_correct = prove(
     \\ Cases_on `x = Boolv T` \\ fs [] THEN1
      (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs[])
     \\ Cases_on `x = Boolv F` \\ fs [] THEN1
      (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`]) \\ fs []
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]))
   THEN1 (* Call *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
@@ -314,7 +313,9 @@ val compile_correct = prove(
             (call_env args' (dec_clock t)) LN` by cheat
       \\ qpat_assum `state_rel c l1 l2 s1 t1 LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`1`])
+      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest (Loc l1 l2::ws) t.code =
+           SOME (args',FST (comp c n6 1 r))`
+      \\ strip_tac \\ pop_assum (qspecl_then [`n6`,`1`] mp_tac)
       \\ rpt strip_tac \\ fs []
       \\ Cases_on `res1` \\ fs [] \\ rw [] \\ fs []
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def]
@@ -340,7 +341,7 @@ val compile_correct = prove(
                by cheat
       \\ qpat_assum `state_rel c' l1' l2' s1' t1' LN'` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`1`])
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`1`] mp_tac)
       \\ rpt strip_tac \\ fs []
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ fs []
       \\ Cases_on `q''` \\ fs [] \\ Cases_on `x''` \\ fs []
