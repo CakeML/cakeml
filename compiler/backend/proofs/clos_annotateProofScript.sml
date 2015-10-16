@@ -124,9 +124,9 @@ val env_ok_append = env_ok_EXTEND
   |> SIMP_RULE (srw_ss()) []
 
 val state_rel_def = Define `
-  state_rel (s:closSem$state) (t:closSem$state) <=>
+  state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
     (s.clock = t.clock) /\
-    (s.io = t.io) /\
+    (s.ffi = t.ffi) /\
     ~s.restrict_envs /\ t.restrict_envs /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     (FDOM s.refs = FDOM t.refs) /\
@@ -487,7 +487,7 @@ val EL_shift_free = prove(
   \\ fs [SING_HD,LENGTH_FST_free]);
 
 val shift_correct = Q.prove(
-  `(!xs env s1 env' t1 res s2 m l i.
+  `(!xs env (s1:'ffi closSem$state) env' t1 res s2 m l i.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      fv_set xs SUBSET env_ok m l i env env' /\
@@ -496,7 +496,7 @@ val shift_correct = Q.prove(
         (evaluate (shift (FST (free xs)) m l i,env',t1) = (res',t2)) /\
         result_rel (LIST_REL v_rel) v_rel res res' /\
         state_rel s2 t2) /\
-   (!loc_opt f args s1 res s2 f' args' s1'.
+   (!loc_opt f args (s1:'ffi closSem$state) res s2 f' args' s1'.
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>

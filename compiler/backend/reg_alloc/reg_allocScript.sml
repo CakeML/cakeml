@@ -1,8 +1,7 @@
 open preamble monadsyntax state_transformerTheory
 
-val _ = ParseExtras.tight_equality ();
-
 val _ = new_theory "reg_alloc";
+val _ = ParseExtras.tight_equality ();
 
 (*--Start Initial Definitions--*)
 

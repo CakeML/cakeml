@@ -99,7 +99,7 @@ val word_state_eq_rel_def = Define`
   t.handler = s.handler ∧
   t.clock = s.clock ∧
   t.code = s.code ∧
-  t.io = s.io`
+  t.ffi = s.ffi`
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
@@ -404,7 +404,7 @@ val gc_frame = store_thm("gc_frame",``
   st'.clock = st.clock ∧
   st'.code = st.code ∧
   st'.locals = st.locals ∧
-  st'.io = st.io ∧
+  st'.ffi = st.ffi ∧
   st'.permute = st.permute``,
   fs[gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[state_component_equality])
@@ -1119,17 +1119,15 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])
     >>
     rw[]>>fs[set_store_def]>>
-    assume_tac (GEN_ALL push_env_s_val_eq)>>
-    pop_assum (qspecl_then[
-      `y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`,
-      `f`,`cst with store:= cst.store |+ (AllocSize,Word c)`,`NONE`,`NONE`,
-      `cst.permute`]assume_tac)>>
-    rfs[word_state_eq_rel_def]>>
+    qpat_abbrev_tac`non = NONE`>>
+    Q.ISPECL_THEN [`y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`,
+    `f`,`cst with store:= cst.store |+ (AllocSize,Word c)`,`non`,`non`,`cst.permute`] assume_tac  (GEN_ALL push_env_s_val_eq)>>
+    rfs[word_state_eq_rel_def,Abbr`non`]>>
     qexists_tac`perm`>>fs[]>>
     qpat_abbrev_tac `st' = push_env x NONE A`>>
     qpat_abbrev_tac `cst' = push_env y NONE B`>>
     Cases_on`gc st'`>>fs[]>>
-    qspecl_then [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
+    Q.ISPECL_THEN [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
     discharge_hyps_keep>-
       (unabbrev_all_tac>>
       fs[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def]>>
@@ -2198,7 +2196,7 @@ val fix_inconsistencies_correctL = prove(``
   simp[Once evaluate_def]>>
   fs[]>>
   rpt VAR_EQ_TAC>>fs[]>>
-  rw[]>>fs[word_state_eq_rel_def])
+  rw[]>>fs[word_state_eq_rel_def]) |> INST_TYPE [gamma |-> beta] 
 
 val fix_inconsistencies_correctR = prove(``
   ∀na ssaL ssaR.
@@ -2252,7 +2250,7 @@ val fix_inconsistencies_correctR = prove(``
     metis_tac[lookup_NONE_domain])
   >>
     fs[domain_inter]>>
-    metis_tac[])
+    metis_tac[]) |> INST_TYPE [gamma|->beta]
 
 fun use_ALOOKUP_ALL_DISTINCT_MEM (g as (asl,w)) =
   let
@@ -2900,8 +2898,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     imp_res_tac list_next_var_rename_lemma_2>>
     fs[LET_THM]>>
     fs[MAP_ZIP,LENGTH_COUNT_LIST]>>
-    imp_res_tac ssa_locals_rel_get_vars>>
-    pop_assum(qspecl_then[`ssa`,`na`,`cst`] assume_tac)>>
+    imp_res_tac (INST_TYPE [gamma |-> beta] ssa_locals_rel_get_vars)>>
+    pop_assum(Q.ISPECL_THEN[`ssa`,`na`,`cst`]assume_tac )>>
     rfs[set_vars_def]>>
     fs[ssa_locals_rel_def]>>
     first_x_assum(qspecl_then[`ssa`,`na`] assume_tac)>>
@@ -3927,15 +3925,16 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         rw[is_phy_var_def])
     >>
     rw[]>>fs[set_store_def]>>
+    qpat_abbrev_tac`non = NONE`>>
     Q.ISPECL_THEN [`y`,`x`,`st with store:= st.store |+ (AllocSize,Word c)`
     ,`f`,`rcst with store:= rcst.store |+ (AllocSize,Word c)`
-    ,`NONE:(num#'a wordLang$prog #num # num)option`,`NONE:(num#'a wordLang$prog #num # num)option`,`rcst.permute`] assume_tac (GEN_ALL push_env_s_val_eq)>>
-    rfs[word_state_eq_rel_def]>>
+    ,`non`,`non`,`rcst.permute`] assume_tac (GEN_ALL push_env_s_val_eq)>>
+    rfs[word_state_eq_rel_def,Abbr`non`]>>
     qexists_tac`perm`>>fs[]>>
     qpat_abbrev_tac `st' = push_env x NONE A`>>
     qpat_abbrev_tac `cst' = push_env y NONE B`>>
     Cases_on`gc st'`>>fs[]>>
-    qspecl_then [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
+    Q.ISPECL_THEN [`st'`,`cst'`,`x'`] mp_tac gc_s_val_eq_gen>>
     discharge_hyps_keep>-
       (unabbrev_all_tac>>
       fs[push_env_def,LET_THM,env_to_list_def,word_state_eq_rel_def]>>
@@ -4078,7 +4077,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     discharge_hyps>-fs[]>>
     discharge_hyps>- is_phy_var_tac>>
     rw[]>>fs[alist_insert_def]>>
-    assume_tac (GEN_ALL ssa_locals_rel_get_var)>>
+    assume_tac (INST_TYPE [gamma|->beta] (GEN_ALL ssa_locals_rel_get_var))>>
     qpat_abbrev_tac`rcst=cst with locals:=A`>>
     first_assum(qspecl_then[`x`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac)>>
     first_x_assum(qspecl_then[`x'`,`st`,`ssa`,`na`,`n0`,`rcst`] assume_tac)>>

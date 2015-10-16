@@ -37,8 +37,8 @@ val _ = Define `
 (list_result (Rerr e) = (Rerr e))`;
 
 
-(*val evaluate : state -> environment v -> list exp -> state * result (list v) v*)
-(*val evaluate_match : state -> environment v -> v -> list (pat * exp) -> v -> state * result (list v) v*)
+(*val evaluate : forall 'ffi. state 'ffi -> environment v -> list exp -> state 'ffi * result (list v) v*)
+(*val evaluate_match : forall 'ffi. state 'ffi -> environment v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v*)
  val evaluate_defn = Hol_defn "evaluate" `
 
 (evaluate st env [] = (st, Rval []))
@@ -100,8 +100,8 @@ val _ = Define `
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
       else
-        (case do_app (st'.refs,st'.io) op (REVERSE vs) of
-          SOME ((refs,io),r) => (( st' with<| refs := refs; io := io |>), list_result r)
+        (case do_app (st'.refs,st'.ffi) op (REVERSE vs) of
+          SOME ((refs,ffi),r) => (( st' with<| refs := refs; ffi := ffi |>), list_result r)
         | NONE => (st', Rerr (Rabort Rtype_error))
         )
   | res => res
@@ -160,7 +160,7 @@ val _ = Define `
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn evaluate_defn;
 
-(*val evaluate_decs : maybe modN -> state -> environment v -> list dec -> state * flat_env_ctor * result env_val v*)
+(*val evaluate_decs : forall 'ffi. maybe modN -> state 'ffi -> environment v -> list dec -> state 'ffi * flat_env_ctor * result env_val v*)
  val _ = Define `
 
 (evaluate_decs mn st env [] = (st, [], Rval []))
@@ -222,7 +222,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
      Rval [])))`;
 
 
-(*val evaluate_tops : state -> environment v -> list top -> state * env_ctor * result (env_mod * env_val) v*)
+(*val evaluate_tops : forall 'ffi. state 'ffi -> environment v -> list top -> state 'ffi * env_ctor * result (env_mod * env_val) v*)
  val _ = Define `
 
 (evaluate_tops st env [] = (st, ([],[]), Rval ([],[])))
@@ -231,7 +231,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 ((case evaluate_tops st env [top1] of
     (st', new_ctors, Rval (new_mods,new_vals)) =>
       (case evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) of
-        (st'', new_ctors', r) => 
+        (st'', new_ctors', r) =>
         (st'',
          merge_alist_mod_env new_ctors' new_ctors,
          combine_mod_result new_mods new_vals r)
@@ -263,11 +263,11 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
     (st, ([],[]), Rerr (Rabort Rtype_error))))`;
 
 
-(*val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v*)
+(*val evaluate_prog : forall 'ffi. state 'ffi -> environment v -> prog -> state 'ffi * env_ctor * result (env_mod * env_val) v*)
 val _ = Define `
 
 (evaluate_prog st env prog =  
-(if no_dup_mods prog st /\ no_dup_top_types prog st then
+(if no_dup_mods prog st.defined_mods /\ no_dup_top_types prog st.defined_types then
     evaluate_tops st env prog
   else
     (st, ([],[]), Rerr (Rabort Rtype_error))))`;

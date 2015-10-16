@@ -3,7 +3,7 @@ open preamble decSemTheory;
 val _ = new_theory"decProps"
 
 val csg_rel_def = Define`
-  csg_rel R ((c1,s1),g1) (((c2,s2),g2):'a count_store_genv) ⇔
+  csg_rel R ((c1,s1),g1) (((c2,s2),g2):('ffi,'v) count_store_genv) ⇔
     c1 = c2 ∧ LIST_REL (sv_rel R) (FST s1) (FST s2) ∧ (SND s1 = SND s2) ∧ LIST_REL (OPTION_REL R) g1 g2`
 
 val csg_rel_refl = store_thm("csg_rel_refl",
@@ -33,7 +33,7 @@ val csg_rel_count = store_thm("csg_rel_count",
   simp[csg_rel_def])
 
 val map_csg_def = Define`
-  map_csg f (csg:'a count_store_genv) =
+  map_csg f (csg:('ffi,'v) count_store_genv) =
     ((FST(FST csg), (MAP (map_sv f) (FST(SND(FST csg))),SND(SND(FST csg)))), MAP (OPTION_MAP f) (SND csg))`
 
 val map_csg_count = Q.store_thm("map_csg_count",
@@ -41,7 +41,7 @@ val map_csg_count = Q.store_thm("map_csg_count",
   PairCases_on`csg`>>simp[map_csg_def])
 
 val csg_every_def = Define`
-  csg_every P (((c,s),g):'a count_store_genv) ⇔ EVERY (sv_every P) (FST s) ∧ EVERY (OPTION_EVERY P) g`
+  csg_every P (((c,s),g):('ffi,'v) count_store_genv) ⇔ EVERY (sv_every P) (FST s) ∧ EVERY (OPTION_EVERY P) g`
 
 val do_app_genv_weakening = prove(
   ``decSem$do_app (x,y) op vs = SOME ((a,b),c) ⇒
@@ -55,7 +55,7 @@ val do_app_genv_weakening = prove(
 val _ = temp_type_abbrev("all_env", ``:exh_ctors_env # (varN, conSem$v) alist``);
 
 val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
-  `(∀ck env s e res.
+  `(∀ck env (s:('ffi,conSem$v)count_store_genv) e res.
      evaluate ck (env:all_env) s e res ⇒
      !s' s'' genv r genv' l.
        (s = (s',genv)) ∧
@@ -63,7 +63,7 @@ val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
        r ≠ Rerr (Rabort Rtype_error)
        ⇒
        evaluate ck env (s',genv++GENLIST (\x.NONE) l) e ((s'',genv'++GENLIST (\x.NONE) l),r)) ∧
-   (∀ck env s es res.
+   (∀ck env (s:('ffi,conSem$v)count_store_genv) es res.
      evaluate_list ck (env:all_env) s es res ⇒
      !s' s'' genv genv' l r.
        (s = (s',genv)) ∧
@@ -71,7 +71,7 @@ val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
        r ≠ Rerr (Rabort Rtype_error)
        ⇒
        evaluate_list ck env (s',genv++GENLIST (\x.NONE) l) es ((s'',genv'++GENLIST (\x.NONE) l),r) )∧
-   (∀ck env s v pes err_v res.
+   (∀ck env (s:('ffi,conSem$v)count_store_genv) v pes err_v res.
      evaluate_match ck (env:all_env) s v pes err_v res ⇒
      !s' s'' genv genv' l r.
        (s = (s',genv)) ∧

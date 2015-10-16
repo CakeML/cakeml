@@ -11,20 +11,23 @@ val _ = new_theory "bigClock";
 val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate_decs"{Name="evaluate_decs",Thy="bigStep"};
 
+val s = ``s:'ffi state``
+val s' = ``s':'ffi state``
+
 val big_unclocked_unchanged = Q.prove (
-`(∀ck env s e r1.
+`(∀ck env ^s e r1.
    evaluate ck env s e r1 ⇒
      ck = F
      ⇒
      SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
      s.clock = (FST r1).clock) ∧
- (∀ck env s es r1.
+ (∀ck env ^s es r1.
    evaluate_list ck env s es r1 ⇒
      ck = F
      ⇒
      SND r1 ≠ Rerr (Rabort Rtimeout_error) ∧
      s.clock = (FST r1).clock) ∧
- (∀ck env s v pes err_v r1.
+ (∀ck env ^s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
      ck = F
      ⇒
@@ -34,26 +37,26 @@ val big_unclocked_unchanged = Q.prove (
  rw [] >> fs[do_app_cases] >> rw [] >> fs []);
 
 val lemma = Q.prove (
-`((s with clock := c) with <| refs := r; io := io |>) =
- s with <| clock := c; refs := r; io := io |>`,
+`((s with clock := c) with <| refs := r; ffi := io |>) =
+ s with <| clock := c; refs := r; ffi := io |>`,
  rw []);
 
 val big_unclocked_ignore = Q.prove (
-`(∀ck env s e r1.
+`(∀ck env ^s e r1.
    evaluate ck env s e r1 ⇒
      !count st' r.
        r1 = (st', r) ∧
        r ≠ Rerr (Rabort Rtimeout_error)
        ⇒
        evaluate F env (s with clock := count) e (st' with clock := count, r)) ∧
- (∀ck env s es r1.
+ (∀ck env ^s es r1.
    evaluate_list ck env s es r1 ⇒
      !count st' r.
        r1 = (st', r) ∧
        r ≠ Rerr (Rabort Rtimeout_error)
        ⇒
        evaluate_list F env (s with clock := count) es (st' with clock := count, r)) ∧
- (∀ck env s v pes err_v r1.
+ (∀ck env ^s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
      !count st' r.
        r1 = (st', r) ∧
@@ -78,32 +81,32 @@ val with_clock_with_clock = Q.prove (
 
 val big_unclocked = Q.store_thm ("big_unclocked",
 `!s env e s' r count1 count2.
-  (evaluate F env s e (s', r)
+  (evaluate F env ^s e (s', r)
    ⇒
    r ≠ Rerr (Rabort Rtimeout_error) ∧
    s.clock = s'.clock) ∧
-  (evaluate F env (s with clock := count1) e (s' with clock := count1, r)
+  (evaluate F env (^s with clock := count1) e (s' with clock := count1, r)
    ⇒
-   evaluate F env (s with clock := count2) e (s' with clock := count2, r))`,
+   evaluate F env (^s with clock := count2) e (s' with clock := count2, r))`,
  rw [] >>
  metis_tac [big_unclocked_ignore, big_unclocked_unchanged, FST, SND, with_clock_with_clock]);
 
 val add_to_counter = Q.store_thm ("add_to_counter",
-  `(∀ck env s e r1.
+  `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s' r' extra.
      (r1 = (s',r')) ∧
      (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
      (ck = T) ⇒
      evaluate T env (s with clock := s.clock+extra) e ((s' with clock := s'.clock+extra),r')) ∧
-   (∀ck env s es r1.
+   (∀ck env ^s es r1.
      evaluate_list ck env s es r1 ⇒
      !s' r' extra.
      (r1 = (s',r')) ∧
      (r' ≠ Rerr (Rabort Rtimeout_error)) ∧
      (ck = T) ⇒
      evaluate_list T env (s with clock := s.clock+extra) es ((s' with clock := s'.clock+extra),r')) ∧
-   (∀ck env s v pes err_v r1.
+   (∀ck env ^s v pes err_v r1.
      evaluate_match ck env s v pes err_v r1 ⇒
      !s' r' extra.
      (r1 = (s',r')) ∧
@@ -126,19 +129,19 @@ val with_clock_clock = Q.prove(
   `(s with clock := a).clock = a`,rw[]);
 
 val add_clock = Q.prove (
-  `(∀ck env s e r1.
+  `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
      (ck = F) ⇒
      ∃c. evaluate T env (s with clock := c) e (s' with clock := 0,r')) ∧
-   (∀ck env s es r1.
+   (∀ck env ^s es r1.
      evaluate_list ck env s es r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
      (ck = F) ⇒
      ∃c. evaluate_list T env (s with clock := c) es (s' with clock := 0,r')) ∧
-   (∀ck env s v pes err_v r1.
+   (∀ck env ^s v pes err_v r1.
      evaluate_match ck env s v pes err_v r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
@@ -163,19 +166,19 @@ val add_clock = Q.prove (
              result_distinct, error_result_distinct, result_11]);
 
 val clock_monotone = Q.prove (
-  `(∀ck env s e r1.
+  `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
      (ck = T) ⇒
      (s'.clock ≤ s.clock)) ∧
-   (∀ck env s es r1.
+   (∀ck env ^s es r1.
      evaluate_list ck env s es r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
      (ck = T) ⇒
      (s'.clock ≤ s.clock)) ∧
-   (∀ck env s v pes err_v r1.
+   (∀ck env ^s v pes err_v r1.
      evaluate_match ck env s v pes err_v r1 ⇒
      !s' r'.
      (r1 = (s',r')) ∧
@@ -207,10 +210,10 @@ val wf_lem = Q.prove (
 val ind = SIMP_RULE (srw_ss()) [wf_lem] (Q.ISPEC `(($< :(num->num->bool)) LEX measure exp_size)` WF_INDUCTION_THM)
 
 val eval_list_total = Q.prove (
-  `∀s env l i count'.
+  `∀^s env l i count'.
    (∀p_1 p_2.
        p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Con i l) ⇒
-       ∀s' env'.
+       ∀^s' env'.
          ∃s1 r1.
            evaluate T env' (s' with clock := p_1) p_2 (s1,r1))
    ⇒
@@ -229,10 +232,10 @@ val eval_list_total = Q.prove (
   metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]);
 
 val eval_list_total_app = Q.prove (
-  `∀s env es i count'.
+  `∀^s env es i count'.
   (∀p_1 p_2.
       p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (App op es) ⇒
-      ∀s' env'.
+      ∀^s' env'.
         ∃s1 r1.
           evaluate T env' (s' with clock := p_1) p_2 (s1,r1))
   ⇒
@@ -251,10 +254,10 @@ val eval_list_total_app = Q.prove (
   metis_tac [result_nchotomy, optionTheory.option_nchotomy, error_result_nchotomy, pair_CASES]);
 
 val eval_match_total = Q.prove (
-  `∀s env l i count' v err_v.
+  `∀^s env l i count' v err_v.
     (∀p_1 p_2.
       p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Mat e' l) ⇒
-      ∀s env.
+      ∀^s env.
         ∃s' r.
           evaluate T env (s with clock := p_1) p_2 (s',r)) ∧
     s.clock ≤ count'
@@ -279,10 +282,10 @@ val eval_match_total = Q.prove (
   metis_tac [LESS_TRANS,LESS_OR_EQ,with_same_clock]);
 
 val eval_handle_total = Q.prove (
-  `∀env s l i count' v err_v.
+  `∀env ^s l i count' v err_v.
     (∀p_1 p_2.
       p_1 < count' ∨ p_1 = count' ∧ exp_size p_2 < exp_size (Handle e' l) ⇒
-      ∀s env.
+      ∀^s env.
         ∃s' r.
           evaluate T env (s with clock := p_1) p_2 (s',r)) ∧
     s.clock ≤ count'
@@ -374,8 +377,8 @@ val big_clocked_total_lem = Q.prove (
           metis_tac [pair_CASES] >>
         `s2.clock-1 < s2.clock` by srw_tac [ARITH_ss] [] >>
         metis_tac [pair_CASES, clock_monotone, LESS_OR_EQ, LESS_TRANS, with_clock_clock]) >>
-      `(do_app (s2.refs,s2.io) o' (REVERSE v) = NONE) ∨
-       (?s3 e2. do_app (s2.refs,s2.io) o' (REVERSE v) = SOME (s3,e2))`
+      `(do_app (s2.refs,s2.ffi) o' (REVERSE v) = NONE) ∨
+       (?s3 e2. do_app (s2.refs,s2.ffi) o' (REVERSE v) = SOME (s3,e2))`
                  by metis_tac [optionTheory.option_nchotomy, pair_CASES] >>
       metis_tac [pair_CASES] )
   >- ((* Log *)
@@ -442,21 +445,21 @@ val big_clocked_total = Q.store_thm ("big_clocked_total",
   metis_tac [big_clocked_total_lem, FST, SND, with_same_clock]);
 
 val big_clocked_timeout_0 = Q.store_thm ("big_clocked_timeout_0",
-  `(∀ck env s e r1.
+  `(∀ck env ^s e r1.
      evaluate ck env s e r1 ⇒
      !s'.
      (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
      (ck = T)
      ⇒
      (s'.clock = 0)) ∧
-   (∀ck env s es r1.
+   (∀ck env ^s es r1.
      evaluate_list ck env s es r1 ⇒
      !s'.
      (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
      (ck = T)
      ⇒
      (s'.clock = 0)) ∧
-   (∀ck env s v pes err_v r1.
+   (∀ck env ^s v pes err_v r1.
      evaluate_match ck env s v pes err_v r1 ⇒
      !s'.
      (r1 = (s',Rerr (Rabort Rtimeout_error))) ∧
@@ -483,7 +486,7 @@ val big_clocked_unclocked_equiv_timeout = Q.store_thm ("big_clocked_unclocked_eq
    metis_tac [big_exp_determ, pair_CASES, PAIR_EQ, big_unclocked, add_clock]]);
 
 val sub_from_counter = Q.store_thm ("sub_from_counter",
-`(∀ck env s e r1.
+`(∀ck env ^s e r1.
    evaluate ck env s e r1 ⇒
    !count count' s' r'.
    (s.clock = count+extra) ∧
@@ -491,7 +494,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
    s'.clock = count' + extra ∧
    (ck = T) ⇒
    evaluate T env (s with clock := count) e (s' with clock := count',r')) ∧
- (∀ck env s es r1.
+ (∀ck env ^s es r1.
    evaluate_list ck env s es r1 ⇒
    !count count' s' r'.
    (s.clock = count+extra) ∧
@@ -499,7 +502,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
    s'.clock = count' + extra ∧
    (ck = T) ⇒
    evaluate_list T env (s with clock := count) es (s' with clock := count',r')) ∧
- (∀ck env s v pes err_v r1.
+ (∀ck env ^s v pes err_v r1.
    evaluate_match ck env s v pes err_v r1 ⇒
    !count count' s' r'.
    (s.clock = count+extra) ∧
@@ -587,14 +590,14 @@ val not_evaluate_dec_timeout = Q.store_thm("not_evaluate_dec_timeout",
 
 val dec_clocked_total = Q.store_thm("dec_clocked_total",
 `∀mn env s d. ∃res. evaluate_dec T mn env s d res`,
-  rpt gen_tac >> 
+  rpt gen_tac >>
   reverse(Cases_on`d`)>>simp[Once evaluate_dec_cases] >>
   srw_tac[DNF_ss][] >- metis_tac[] >>
   qspecl_then[`s`,`env`,`e`]strip_assume_tac big_clocked_total >>
   Cases_on`r`>>metis_tac[match_result_nchotomy, pair_CASES]);
 
 val dec_clocked_min_counter = Q.store_thm("dec_clocked_min_counter",
-`∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+`∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
     ck ⇒ evaluate_dec ck mn env (s with clock := s.clock - (FST res).clock) d ((FST res) with clock := 0, SND res)`,
   ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   rw[Once evaluate_dec_cases] >>
@@ -616,7 +619,7 @@ val dec_clocked_unclocked_equiv = Q.store_thm("dec_clocked_unclocked_equiv",
   metis_tac[]);
 
 val dec_sub_from_counter = Q.store_thm("dec_sub_from_counter",
-  `∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀extra count count' s' r.
          s.clock = count + extra ∧
          s'.clock = count' + extra ∧
@@ -628,12 +631,12 @@ val dec_sub_from_counter = Q.store_thm("dec_sub_from_counter",
   metis_tac[]);
 
 val dec_clock_monotone = Q.store_thm("dec_clock_monotone",
-`∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
+`∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
   ho_match_mp_tac evaluate_dec_ind >> rw[] >>
   imp_res_tac clock_monotone >> fs[]);
 
 val dec_add_clock = Q.store_thm("dec_add_clock",
-  `∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀s' r.
         res = (s',r) ∧ ¬ck ⇒
           ∃c. evaluate_dec T mn env (s with clock := c) d (s' with clock := 0, r)`,
@@ -643,7 +646,7 @@ val dec_add_clock = Q.store_thm("dec_add_clock",
   metis_tac[]);
 
 val dec_add_to_counter = Q.store_thm("dec_add_to_counter",
-  `∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
       ∀r2 r3 extra.
          res = (r2,r3) ∧ ck ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
           evaluate_dec T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`,
@@ -653,7 +656,7 @@ val dec_add_to_counter = Q.store_thm("dec_add_to_counter",
   metis_tac[]);
 
 val dec_unclocked_ignore = Q.store_thm("dec_unclocked_ignore",
-  `∀ck mn env s d res. evaluate_dec ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_dec ck mn env s d res ⇒
      ∀r2 r3 count.
        res = (r2,r3) ∧ r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
          evaluate_dec F mn env (s with clock := count) d (r2 with clock := count,r3)`,
@@ -663,7 +666,7 @@ val dec_unclocked_ignore = Q.store_thm("dec_unclocked_ignore",
   metis_tac[]);
 
 val decs_add_clock = Q.store_thm("decs_add_clock",
-  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
      ∀r2 r3.
        res = (r2,r3) ∧ ¬ck ⇒
          ∃c. evaluate_decs T mn env (s with clock := c) d (r2 with clock := 0,r3)`,
@@ -673,13 +676,13 @@ val decs_add_clock = Q.store_thm("decs_add_clock",
   metis_tac[] >>
   srw_tac[DNF_ss][] >- (disj1_tac >> metis_tac[]) >>
   disj2_tac >>
-  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(equal``evaluate_decs`` o fst o strip_comb))) >>
+  CONV_TAC(STRIP_BINDER_CONV(SOME existential)(lift_conjunct_conv(same_const``evaluate_decs`` o fst o strip_comb))) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   imp_res_tac dec_add_to_counter >> fs[] >>
   metis_tac[]);
 
 val decs_evaluate_not_timeout = Q.store_thm ("decs_evaluate_not_timeout",
-  `!ck mn env s ds r.
+  `!ck mn env ^s ds r.
     evaluate_decs ck mn env s ds r ⇒
       !s' cenv' r'. ck = F ∧ r = (s', cenv', r') ⇒ r' ≠ Rerr (Rabort Rtimeout_error)`,
   ho_match_mp_tac evaluate_decs_ind >>
@@ -767,13 +770,13 @@ val decs_clocked_total = Q.store_thm("decs_clocked_total",
   fs[EXISTS_PROD]);
 
 val decs_clock_monotone = Q.store_thm("decs_clock_monotone",
-  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
       ck ⇒ (FST res).clock ≤ s.clock`,
   ho_match_mp_tac evaluate_decs_ind >> rw[] >>
   imp_res_tac dec_clock_monotone >> fsrw_tac[ARITH_ss][]);
 
 val decs_sub_from_counter = Q.store_thm("decs_sub_from_counter",
-  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
      ∀extra count count' s0 r0.
         s.clock = count + extra ∧ s0.clock = count' + extra ∧
         res = (s0,r0) ∧ ck ⇒
@@ -787,7 +790,7 @@ val decs_sub_from_counter = Q.store_thm("decs_sub_from_counter",
   metis_tac [DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``])
 
 val decs_clocked_min_counter = Q.store_thm("decs_clocked_min_counter",
-  `∀ck mn env s ds res. evaluate_decs ck mn env s ds res ⇒
+  `∀ck mn env ^s ds res. evaluate_decs ck mn env s ds res ⇒
     ck ⇒ evaluate_decs ck mn env (s with clock := s.clock - (FST res).clock) ds
                 ((FST res) with clock := 0, SND res)`,
   rw[] >>
@@ -797,7 +800,7 @@ val decs_clocked_min_counter = Q.store_thm("decs_clocked_min_counter",
   metis_tac[decs_sub_from_counter]);
 
 val decs_unclocked_ignore = Q.store_thm("decs_unclocked_ignore",
-  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
       ∀r2 r3 count.
         res = (r2,r3) ∧ SND r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
           evaluate_decs F mn env (s with clock := count) d (r2 with clock := count,r3)`,
@@ -808,7 +811,7 @@ val decs_unclocked_ignore = Q.store_thm("decs_unclocked_ignore",
   metis_tac[]);
 
 val decs_add_to_counter = Q.store_thm("decs_add_to_counter",
-  `∀ck mn env s d res. evaluate_decs ck mn env s d res ⇒
+  `∀ck mn env ^s d res. evaluate_decs ck mn env s d res ⇒
       ∀r2 r3 extra.
         res = (r2,r3) ∧ ck ∧ SND r3 ≠ Rerr (Rabort Rtimeout_error) ⇒
           evaluate_decs T mn env (s with clock := s.clock + extra) d (r2 with clock := r2.clock + extra,r3)`,
@@ -842,6 +845,7 @@ val top_unclocked = Q.store_thm ("top_unclocked",
   reverse (rw [evaluate_top_cases]) >>
   simp [state_component_equality] >>
   simp_tac((srw_ss())++QUANT_INST_ss[record_default_qp])[] >>
+  simp[EXISTS_PROD,FORALL_PROD] >>
   metis_tac [dec_unclocked, decs_unclocked]);
 
 val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
@@ -856,7 +860,7 @@ val not_evaluate_top_timeout = Q.store_thm("not_evaluate_top_timeout",
 
 val top_clocked_total = Q.store_thm("top_clocked_total",
   `∀env s t. ∃res. evaluate_top T env s t res`,
-  rpt gen_tac >> 
+  rpt gen_tac >>
   reverse(Cases_on`t`)>>simp[Once evaluate_top_cases] >>
   srw_tac[DNF_ss][] >- (
     qspecl_then[`NONE`,`env`,`s`,`d`]strip_assume_tac dec_clocked_total >>
@@ -866,7 +870,7 @@ val top_clocked_total = Q.store_thm("top_clocked_total",
   Cases_on`res2`>>metis_tac[]);
 
 val top_clocked_min_counter = Q.store_thm("top_clocked_min_counter",
-  `∀ck env s top res. evaluate_top ck env s top res ⇒
+  `∀ck env ^s top res. evaluate_top ck env s top res ⇒
       ck ⇒
         evaluate_top ck env (s with clock := s.clock - (FST res).clock) top
           (FST res with clock := 0,SND res)`,
@@ -879,9 +883,9 @@ val top_clocked_min_counter = Q.store_thm("top_clocked_min_counter",
   rw []);
 
 val top_add_clock = Q.store_thm("top_add_clock",
-`∀ck env s top s' r. 
-  evaluate_top ck env s top (s',r) ∧ ¬ck 
-  ⇒ 
+`∀ck env s top s' r.
+  evaluate_top ck env s top (s',r) ∧ ¬ck
+  ⇒
   ∃c. evaluate_top T env (s with clock := c) top (s' with clock := 0,r)`,
  rw[evaluate_top_cases] >>
  imp_res_tac dec_add_clock >>
@@ -903,7 +907,7 @@ val top_unclocked_ignore = Q.store_thm("top_unclocked_ignore",
 `∀ck env s top s' r c.
   evaluate_top ck env s top (s',r) ∧
   SND r ≠ Rerr (Rabort Rtimeout_error)
-  ⇒ 
+  ⇒
   evaluate_top F env (s with clock := c) top (s' with clock := c, r)`,
  rw[evaluate_top_cases] >>
  imp_res_tac dec_unclocked_ignore >>
@@ -1027,12 +1031,12 @@ val not_evaluate_whole_prog_timeout = Q.store_thm("not_evaluate_whole_prog_timeo
   metis_tac[not_evaluate_prog_timeout,SND,pair_CASES]);
 
 val prog_clock_monotone = Q.store_thm("prog_clock_monotone",
-`∀ck env s d res. evaluate_prog ck env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
+`∀ck env ^s d res. evaluate_prog ck env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
  imp_res_tac top_clock_monotone >> fsrw_tac[ARITH_ss][]);
 
 val prog_sub_from_counter = Q.store_thm("prog_sub_from_counter",
-  `∀ck env s d res. evaluate_prog ck env s d res ⇒
+  `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
        ∀extra c c' s' r.
           s.clock = c + extra ∧ s'.clock = c' + extra ∧
           res = (s',r) ∧ ck ⇒
@@ -1043,8 +1047,8 @@ val prog_sub_from_counter = Q.store_thm("prog_sub_from_counter",
             DECIDE ``y + z ≤ x ⇒ (x = (x - z) + z:num)``]);
 
 val prog_clocked_min_counter = Q.store_thm("prog_clocked_min_counter",
-`∀ck env s p res.
-  evaluate_prog T env s p res 
+`∀ck env ^s p res.
+  evaluate_prog T env s p res
   ⇒
   evaluate_prog T env (s with clock := s.clock - (FST res).clock) p
                 (FST res with clock := 0,SND res)`,
@@ -1055,12 +1059,12 @@ val prog_clocked_min_counter = Q.store_thm("prog_clocked_min_counter",
   metis_tac[prog_sub_from_counter]);
 
 val prog_add_clock = Q.store_thm("prog_add_clock",
-  `∀ck env s d res. evaluate_prog ck env s d res ⇒
+  `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
         ¬ck ⇒
           ∃c. evaluate_prog T env (s with clock := c) d (FST res with clock := 0, SND res)`,
   ho_match_mp_tac evaluate_prog_ind >> rw[] >>
   rw[Once evaluate_prog_cases] >>
-  imp_res_tac top_add_clock >> fs[state_component_equality] 
+  imp_res_tac top_add_clock >> fs[state_component_equality]
   >- (fs [] >>
       imp_res_tac top_add_to_counter >>
       fs [] >>
@@ -1069,7 +1073,7 @@ val prog_add_clock = Q.store_thm("prog_add_clock",
   >- metis_tac[]);
 
 val prog_unclocked_ignore = Q.store_thm("prog_unclocked_ignore",
-`∀ck env s d res. evaluate_prog ck env s d res ⇒
+`∀ck env ^s d res. evaluate_prog ck env s d res ⇒
     ∀c s' r.
         res = (s',r) ∧ SND r ≠ Rerr (Rabort Rtimeout_error) ⇒
         evaluate_prog F env (s with clock := c) d (s' with clock := c,r)`,

@@ -9,9 +9,11 @@ val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty[simp]",
   Cases_on`x`>>EVAL_TAC)
 (* -- *)
 
+val s = ``s:'ffi state``
+
 val evaluate_eq_run_eval_list = Q.store_thm("evaluate_eq_run_eval_list",
-  `(∀s env e. evaluate s env e = run_eval_list env e s) ∧
-   (∀s env v e errv.
+  `(∀^s env e. evaluate s env e = run_eval_list env e s) ∧
+   (∀^s env v e errv.
      evaluate_match s env v e errv =
      (I ## list_result) (run_eval_match env v e errv s))`,
   ho_match_mp_tac evaluate_ind >>

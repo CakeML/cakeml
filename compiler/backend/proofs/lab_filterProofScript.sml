@@ -16,66 +16,65 @@ val adjust_pc_def = Define `
           else adjust_pc (p-1) (Section n lines :: rest)`
 
 val state_rel_def = Define `
-  state_rel (s1:'a labSem$state) t1 =
+  state_rel (s1:('a,'ffi) labSem$state) t1 =
     (s1 = t1 with <| code := filter_skip t1.code ;
                      pc := adjust_pc t1.pc t1.code |>)`
 
 val filter_correct = prove(
-  ``!(s1:'a labSem$state) t1 res s2.
+  ``!(s1:('a,'ffi) labSem$state) t1 res s2.
       (evaluate s1 = (res,s2)) /\ state_rel s1 t1 ==>
       ?t2 k.
         (evaluate (t1 with clock := s1.clock + k) = (res,t2)) /\
-        (s2.io_events = t2.io_events)``,
+        (s2.ffi = t2.ffi)``,
   cheat);
 
 val state_rel_IMP_sem_EQ_sem = prove(
-  ``!s t. state_rel s t ==> sem s = sem t``,
-  fs [labSemTheory.sem_def] \\ rpt strip_tac
-  \\ fs [FUN_EQ_THM] \\ reverse Cases
-  \\ fs [labSemTheory.sem_def,evaluate_with_io_def]
+  ``!s t. state_rel s t ==> semantics s = semantics t``,
+  rw[] >> simp[FUN_EQ_THM]
+  \\ reverse Cases
+  \\ fs [labSemTheory.semantics_def]
   \\ rpt strip_tac
   THEN1 (* Fail *)
    (eq_tac \\ rpt strip_tac THEN1
-     (Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+     (Cases_on `evaluate (s with clock := k)`
       \\ fs [] \\ rw []
-      \\ `state_rel (s with <|io_events := SOME io; clock := k|>)
-           (t with <|io_events := SOME io; clock := k|>)` by
+      \\ `state_rel (s with clock := k) (t with clock := k)` by
             (fs [state_rel_def,state_component_equality])
       \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
-      \\ Q.LIST_EXISTS_TAC [`k+k'`,`io`] \\ fs [])
-    \\ Cases_on `evaluate (t with <|io_events := SOME io; clock := k|>)`
+      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs [])
+    \\ Cases_on `evaluate (t with clock := k)`
     \\ fs [] \\ rw [] \\ CCONTR_TAC \\ fs []
-    \\ pop_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+    \\ pop_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
+    \\ Cases_on `evaluate (s with clock := k)`
     \\ fs []
-    \\ `state_rel (s with <|io_events := SOME io; clock := k|>)
-         (t with <|io_events := SOME io; clock := k|>)` by
+    \\ `state_rel (s with clock := k) (t with clock := k)` by
           (fs [state_rel_def,state_component_equality])
     \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
     \\ imp_res_tac evaluate_ADD_clock \\ fs [])
   THEN1 (* Terminate *)
-   (qabbrev_tac `io = llist$fromList (l:io_event list)`
-    \\ eq_tac \\ rpt strip_tac
+   (eq_tac \\ rpt strip_tac
     THEN1
-     (Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+     (Cases_on `evaluate (s with clock := k)`
       \\ fs [] \\ rw []
-      \\ `state_rel (s with <|io_events := SOME io; clock := k|>)
-           (t with <|io_events := SOME io; clock := k|>)` by
+      \\ `state_rel (s with clock := k) (t with clock := k)` by
             (fs [state_rel_def,state_component_equality])
       \\ imp_res_tac filter_correct \\ fs [] \\ rw [] \\ fs []
-      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs [])
+      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs []
+      \\ BasicProvers.CASE_TAC >> fs[]
+      \\ cheat)
     \\ CCONTR_TAC \\ fs []
     \\ pop_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
-    \\ `state_rel (s with <|io_events := SOME io; clock := k|>)
-         (t with <|io_events := SOME io; clock := k|>)` by
+    \\ `state_rel (s with <| clock := k|>) (t with <| clock := k|>)` by
             (fs [state_rel_def,state_component_equality])
-    \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
+    \\ Cases_on `evaluate (s with <| clock := k|>)`
     \\ fs [] \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
-    \\ imp_res_tac evaluate_ADD_clock \\ fs [])
+    \\ imp_res_tac evaluate_ADD_clock \\ fs []
+    \\ every_case_tac >> fs[] >> rw[] >> fs[]
+    \\ cheat)
   THEN1 (* Diverge *) cheat);
 
-val filter_skip_sem = store_thm("filter_skip_sem",
-  ``!s. (s.pc = 0) ==> sem (s with code := filter_skip s.code) = sem s``,
+val filter_skip_semantics = store_thm("filter_skip_semantics",
+  ``!s. (s.pc = 0) ==> semantics (s with code := filter_skip s.code) = semantics s``,
   rpt strip_tac \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ fs [state_rel_def,state_component_equality,Once adjust_pc_def]);
 

@@ -137,9 +137,9 @@ val evaluate_list_append_Rerr = store_thm("evaluate_list_append_Rerr",
   metis_tac[])
 
 val evaluate_determ = store_thm("evaluate_determ",
-  ``(∀ck env s e res1. evaluate ck env s e res1 ⇒
+  ``(∀ck env (s:(num # ('ffi,patSem$v) store_ffi) # patSem$v option list) e res1. evaluate ck env s e res1 ⇒
        ∀res2. patSem$evaluate ck env s e res2 ⇒ (res2 = res1)) ∧
-    (∀ck env s e res1. evaluate_list ck env s e res1 ⇒
+    (∀ck env (s:(num # ('ffi,patSem$v) store_ffi) # patSem$v option list) e res1. evaluate_list ck env s e res1 ⇒
        ∀res2. patSem$evaluate_list ck env s e res2 ⇒ (res2 = res1))``,
   ho_match_mp_tac evaluate_ind >>
   rpt conj_tac >>

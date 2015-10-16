@@ -16,29 +16,29 @@ val _ = Datatype `
      ; refs    : num |-> bvlSem$v ref
      ; clock   : num
      ; code    : (num # bvp$prog) num_map
-     ; io      : io_trace
+     ; ffi     : 'ffi ffi_state
      ; space   : num |> `
 
 val dec_clock_def = Define `
-  dec_clock (s:bvpSem$state) = s with clock := s.clock - 1`;
+  dec_clock (s:'ffi bvpSem$state) = s with clock := s.clock - 1`;
 
 val LESS_EQ_dec_clock = prove(
   ``r.clock <= (dec_clock s).clock ==> r.clock <= s.clock``,
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val bvp_to_bvi_def = Define `
-  (bvp_to_bvi:bvpSem$state->bviSem$state) s =
+  (bvp_to_bvi:'ffi bvpSem$state->'ffi bviSem$state) s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
-     ; io := s.io
+     ; ffi := s.ffi
      ; global := s.global |>`;
 
 val bvi_to_bvp_def = Define `
-  (bvi_to_bvp:bviSem$state->bvpSem$state->bvpSem$state) s t =
+  (bvi_to_bvp:'ffi bviSem$state->'ffi bvpSem$state->'ffi bvpSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
-            ; io := s.io
+            ; ffi := s.ffi
             ; global := s.global |>`;
 
 val add_space_def = Define `
@@ -55,7 +55,7 @@ val do_space_def = Define `
          else consume_space (op_space_req op) s`;
 
 val do_app_def = Define `
-  do_app op vs (s:bvpSem$state) =
+  do_app op vs (s:'ffi bvpSem$state) =
     case do_space op s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME s1 => (case bviSem$do_app op vs (bvp_to_bvi s1) of
@@ -78,7 +78,7 @@ val set_var_def = Define `
   set_var v x s = (s with locals := (insert v x s.locals))`;
 
 val check_clock_def = Define `
-  check_clock (s1:bvpSem$state) (s2:bvpSem$state) =
+  check_clock (s1:'ffi bvpSem$state) (s2:'ffi bvpSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -151,7 +151,7 @@ val push_env_clock = prove(
   \\ SRW_TAC [] [] \\ fs []);
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip,s) = (NONE,s:bvpSem$state)) /\
+  (evaluate (Skip,s) = (NONE,s:'ffi bvpSem$state)) /\
   (evaluate (Move dest src,s) =
      case get_var src s of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
@@ -276,8 +276,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:bvpSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:bvpSem$state).clock < k:num``]
+                   [``check_clock s1 s2 = s1:'ffi bvpSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'ffi bvpSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,

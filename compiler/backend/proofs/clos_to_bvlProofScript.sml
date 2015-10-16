@@ -171,7 +171,7 @@ val p_genlist = Q.prove (
 (* correctness of partial/over application *)
 
 val evaluate_genlist_prev_args = Q.prove (
-  `!prev_args z x tag p n cl arg_list st.
+  `!prev_args z x tag arg_list st.
     evaluate (REVERSE (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args)),
            x++(Block tag (z++prev_args))::arg_list,
            st)
@@ -199,11 +199,11 @@ val evaluate_genlist_prev_args1 = Q.prove (
     =
     (Rval (REVERSE prev_args),st)`,
   rw [] >>
-  assume_tac (Q.SPECL [`prev_args`, `[p;n;cl]`, `x::y::args`] evaluate_genlist_prev_args) >>
+  (Q.SPECL_THEN [`prev_args`, `[p;n;cl]`, `x::y::args`]assume_tac evaluate_genlist_prev_args) >>
   full_simp_tac (srw_ss()++ARITH_ss) [ADD1]);
 
 val evaluate_genlist_prev_args_no_rev = Q.prove (
-  `!prev_args z x tag p n cl arg_list st.
+  `!prev_args z x tag arg_list st.
     evaluate (GENLIST (λprev_arg. Op El [Op (Const (&(prev_arg + LENGTH z))) []; Var (LENGTH x)]) (LENGTH prev_args),
            x++(Block tag (z++prev_args))::arg_list,
            st)
@@ -530,7 +530,7 @@ val evaluate_mk_cl_call = Q.prove (
   simp [evaluate_mk_cl_simpl]);
 
 val evaluate_partial_app_fn = Q.prove (
-  `!num_args args' num_args' args prev_args tag num tag' num' l l' fvs exp code.
+  `!num_args args' num_args' prev_args tag num tag' l l' fvs exp code.
     lookup l code = SOME (LENGTH args' + LENGTH prev_args + 1,exp) /\
     LENGTH prev_args ≠ 0 ∧
     LENGTH prev_args < num_args ∧
@@ -742,8 +742,8 @@ val env_rel_IMP_EL =
   |> CONJUNCT2 |> DISCH_ALL |> GEN_ALL
 
 val state_rel_def = Define `
-  state_rel f (s:closSem$state) (t:bvlSem$state) <=>
-    (s.io = t.io) /\
+  state_rel f (s:'ffi closSem$state) (t:'ffi bvlSem$state) <=>
+    (s.ffi = t.ffi) /\
     s.restrict_envs /\
     LIST_REL (OPTREL (v_rel f t.refs t.code)) s.globals t.globals /\
     INJ ($' f) (FDOM f) (FRANGE f) /\
@@ -1258,15 +1258,17 @@ val evaluate_check_closure = Q.prove(
   rw[check_closure_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def,RaiseEq_def] >>
   fs[])
 
+val s = ``s:'ffi bvlSem$state``
+
 val equality = Q.prove(
-  `(∀v1 v2 s.
+  `(∀v1 v2 ^s.
      lookup equality_location s.code = SOME equality_code ∧
      lookup block_equality_location s.code = SOME block_equality_code ∧
      (do_eq v1 v2 ≠ Eq_type_error) ⇒
      ∃ck.
      evaluate ([SND equality_code], [v1;v2], inc_clock ck s)
        = (eq_res (do_eq v1 v2),s)) ∧
-   (∀v1 v2 t vs s.
+   (∀v1 v2 t vs ^s.
      lookup equality_location s.code = SOME equality_code ∧
      lookup block_equality_location s.code = SOME block_equality_code ∧
      (do_eq_list v1 v2 ≠ Eq_type_error) ∧
@@ -1357,7 +1359,7 @@ val equality = Q.prove(
 (* compiler correctness *)
 
 val EXISTS_NOT_IN_refs = prove(
-  ``?x. ~(x IN FDOM (t1:bvlSem$state).refs)``,
+  ``?x. ~(x IN FDOM (t1:'ffi bvlSem$state).refs)``,
   METIS_TAC [NUM_NOT_IN_FDOM])
 
 val lookup_vars_IMP2 = prove(
@@ -1372,7 +1374,8 @@ val lookup_vars_IMP2 = prove(
   \\ Cases_on `lookup_vars vs env` \\ fs [] \\ SRW_TAC [] []
   \\ ONCE_REWRITE_TAC [evaluate_CONS]
   \\ fs [evaluate_def]
-  \\ RES_TAC \\ IMP_RES_TAC LESS_LENGTH_env_rel_IMP \\ fs []);
+  \\ RES_TAC \\ IMP_RES_TAC LESS_LENGTH_env_rel_IMP \\ fs [])
+  |> INST_TYPE[alpha|->``:'ffi``];
 
 val lookup_vars_IMP = prove(
   ``!vs env xs env2.
@@ -1381,7 +1384,9 @@ val lookup_vars_IMP = prove(
       ?ys. (evaluate (MAP Var vs,env2,t1) = (Rval ys,t1)) /\
            EVERY2 (v_rel f refs code) xs ys /\
            (LENGTH vs = LENGTH xs)``,
-  metis_tac[lookup_vars_IMP2])
+  (* TODO: metis_tac is not VALID here *)
+    PROVE_TAC[lookup_vars_IMP2])
+  |> INST_TYPE[alpha|->``:'ffi``];
 
 val compile_IMP_code_installed = prove(
   ``(compile xs aux = (c,aux1)) /\
@@ -1671,7 +1676,7 @@ val unpack_closure_thm = Q.prove (
   TRY(simp[closure_tag_def]>>NO_TAC) >>
   first_x_assum (fn th => first_assum (mp_tac o MATCH_MP th)) >>
   rw [EL_MAP] >>
-  decide_tac);
+  decide_tac) |> INST_TYPE[alpha|->``:'ffi``];
 
 val cl_rel_get_num_args = Q.prove (
   `cl_rel f1 refs code (env,ys) func (Block tag (p::Number (&(total_args) - 1)::fvs))
@@ -1881,7 +1886,8 @@ val cl_rel_run_tac =
              by (rw [] >> decide_tac) >>
   qexists_tac `witness` >>
   rw [] >>
-  `evaluate ([Var num_args], DROP (LENGTH args' − num_args) args' ++ [func'],t1 with refs := refs) = (Rval [func'],t1 with refs := refs)`
+  `evaluate ([Var num_args], DROP (LENGTH args' − num_args) args' ++ [func'],t1 with <| refs := refs; code := code |>)
+      = (Rval [func'],t1 with <| refs := refs; code := code |>)`
           by (rw [bEval_def]
               >- metis_tac [EL_LENGTH_APPEND, NULL, HD]) >>
   simp [TAKE_REVERSE, LASTN_DROP] >>
@@ -1945,8 +1951,8 @@ val cl_rel_run = Q.prove (
       lookup ptr code = SOME (n + 2,exp') ∧
       compile [body] aux1 = ([body'],aux2) ∧ code_installed aux2 code ∧
       env_rel f1 refs code new_env new_env' ∧
-      !t1. evaluate ([exp'], DROP (LENGTH args' - (n + 1)) args'++[func'], t1 with refs := refs) =
-           evaluate ([body'], new_env', t1 with refs := refs)`,
+      !t1. evaluate ([exp'], DROP (LENGTH args' - (n + 1)) args'++[func'], t1 with <| refs := refs; code := code |>) =
+           evaluate ([body'], new_env', t1 with <| refs := refs; code := code |>)`,
   rw [cl_rel_cases, dest_closure'_def] >>
   fs [int_arithTheory.INT_NUM_SUB, closure_code_installed_def] >>
   rfs [] >>
@@ -2010,7 +2016,7 @@ val cl_rel_run = Q.prove (
                 rw [closure_code_installed_def] >>
                 rw [EVERY_EL]) >>
       metis_tac [list_rel_IMP_env_rel, APPEND_ASSOC, EVERY2_APPEND])
-  >- (`FLOOKUP refs r = FLOOKUP (t1 with refs := refs).refs r` by rw [] >>
+  >- (`FLOOKUP refs r = FLOOKUP (t1 with <| refs := refs; code := code|>).refs r` by rw [] >>
       full_simp_tac std_ss [] >>
       imp_res_tac evaluate_code_for_recc_case >>
       fs [LENGTH_MAP] >>
@@ -2090,7 +2096,8 @@ val v_rel_run = Q.prove (
   >- (qexists_tac `0` >>
       rw [] >>
       imp_res_tac dest_cl_imp_dest_cl' >>
-      metis_tac [cl_rel_run]) >>
+      (* TODO: metis_tac[cl_rel_run] is not VALID here *)
+      match_mp_tac cl_rel_run >> metis_tac[]) >>
   CONV_TAC (RESORT_EXISTS_CONV List.rev) >>
   qexists_tac `generate_partial_app_closure_fn (num_args − 1) (LENGTH ys − 1)` >>
   srw_tac [ARITH_ss] [] >>
@@ -2163,7 +2170,7 @@ val v_rel_run = Q.prove (
   `LENGTH args' + LENGTH ys − (num_args' + 1) ≤ LENGTH args'` by ARITH_TAC >>
   first_x_assum (qspec_then `t1 with <| clock := t1.clock; code := code |>` mp_tac) >>
   fs [DROP_APPEND1] >>
-  rw [dec_clock_def]);
+  rw [dec_clock_def]) |> INST_TYPE[alpha|->``:'ffi``];
 
 val list_rel_app = Q.prove (
   `!R args args' l0 c l func rem_args.
@@ -2203,7 +2210,7 @@ val mk_call_simp2 = Q.prove(
   srw_tac [ARITH_ss] [ETA_THM, bEval_def, bEvalOp_def, el_take_append] >>
   rw [] >>
   `n+1 ≤ SUC (LENGTH args + LENGTH stuff')` by decide_tac >>
-  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]);
+  srw_tac [ARITH_ss] [TAKE_APPEND1, TAKE_TAKE, EL_CONS]) |> INST_TYPE[alpha|->``:'ffi``];
 
 val no_partial_args = Q.prove (
   `num_remaining_args func = SOME x ∧
@@ -2220,8 +2227,10 @@ val no_partial_args = Q.prove (
   fs [] >>
   decide_tac);
 
+val s1 = ``s1:'ffi closSem$state``
+
 val compile_correct = Q.store_thm("compile_correct",
-  `(!tmp xs env s1 aux1 t1 env' f1 res s2 ys aux2.
+  `(!tmp xs env ^s1 aux1 t1 env' f1 res s2 ys aux2.
      (tmp = (xs,env,s1)) ∧
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
      (compile xs aux1 = (ys,aux2)) /\
@@ -2236,7 +2245,7 @@ val compile_correct = Q.store_thm("compile_correct",
         f1 SUBMAP f2 /\
         (FDIFF t1.refs (FRANGE f1)) SUBMAP (FDIFF t2.refs (FRANGE f2)) ∧
         s2.clock = t2.clock) ∧
-   (!loc_opt func args s1 res s2 env t1 args' func' f1.
+   (!loc_opt func args ^s1 res s2 env t1 args' func' f1.
      evaluate_app loc_opt func args s1 = (res,s2) ∧
      res ≠ Rerr(Rabort Rtype_error) ∧
      FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
@@ -2470,7 +2479,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `lookup ToList_location t2.code = SOME ToList_code` by fs[state_rel_def] >> simp[] >>
       `ToList_code = (3,SND ToList_code)` by simp[ToList_code_def] >>
       pop_assum SUBST1_TAC >> simp[] >>
-      qspecl_then[`clos_tag_shift n`,`ys`,`[]`,`t2 with clock := LENGTH l + t2.clock`]mp_tac (GEN_ALL ToList) >>
+      qspecl_then[`clos_tag_shift n`,`ys`,`[]`](Q.ISPEC_THEN`t2 with clock := LENGTH l + t2.clock`mp_tac)(GEN_ALL ToList) >>
       discharge_hyps >- (imp_res_tac LIST_REL_LENGTH >> simp[]) >>
       simp[list_to_v_def,dec_clock_def] >>
       disch_then kall_tac >>
@@ -2850,13 +2859,13 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ qmatch_assum_rename_tac`FLOOKUP f2 k = SOME r2`
       \\ Cases_on`FLOOKUP p1.refs k` \\ fs[]
       \\ Cases_on`x` \\ fs[]
-      \\ Cases_on`call_FFI n l p1.io` \\ fs[] \\ rw[]
+      \\ Cases_on`call_FFI p1.ffi n l` \\ fs[] \\ rw[]
       \\ `?y m.
             FLOOKUP f2 k = SOME m /\ FLOOKUP t2.refs m = SOME y /\
             ref_rel (v_rel f2 t2.refs t2.code) (ByteArray l) y` by
               METIS_TAC [state_rel_def]
       \\ fs[] \\ rw[]
-      \\ `t2.io = p1.io` by METIS_TAC[state_rel_def]
+      \\ `t2.ffi = p1.ffi` by METIS_TAC[state_rel_def]
       \\ simp[]
       \\ qexists_tac`f2` \\ simp[]
       \\ conj_tac >-
@@ -3000,13 +3009,13 @@ val compile_correct = Q.store_thm("compile_correct",
            aux7 = (n4,aux5)` by METIS_TAC [PAIR]
     \\ `?c8 aux8. compile [exp] aux5 = (c8,aux8)` by METIS_TAC [PAIR]
     \\ fs [] \\ SRW_TAC [] []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux5`]) \\ fs []
+    \\ FIRST_X_ASSUM (Q.SPECL_THEN [`aux5`]mp_tac) \\ fs []
     \\ REPEAT STRIP_TAC
     \\ fs [build_recc_lets_def]
     \\ fs [bvlSemTheory.do_app_def,bEval_def,LET_DEF]
     \\ fs [bvlPropsTheory.evaluate_APPEND,evaluate_MAP_Const, REVERSE_APPEND]
     \\ IMP_RES_TAC lookup_vars_IMP2
-    \\ `!t1. evaluate (REVERSE (MAP Var names), env'', t1) = (Rval (REVERSE ys), t1)`
+    \\ `!t1:'ffi bvlSem$state. evaluate (REVERSE (MAP Var names), env'', t1) = (Rval (REVERSE ys), t1)`
         by metis_tac [evaluate_var_reverse, REVERSE_REVERSE]
     \\ fs []
     \\ rw [GSYM MAP_REVERSE]
@@ -3348,7 +3357,7 @@ val compile_correct = Q.store_thm("compile_correct",
         `LENGTH args' + LENGTH prev_args − 1 = LENGTH prev_args + (LENGTH args − 1)` by simp [] >>
         `LENGTH args' < total_args + 1 − LENGTH prev_args` by simp [] >>
         fs [] >>
-        qspecl_then [`total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac evaluate_generic_app_partial >>
+        Q.ISPECL_THEN [`total_args`, `prev_args`, `dec_clock 1 (t1 with clock := s1.clock)`, `args'`] assume_tac evaluate_generic_app_partial >>
         rfs [domain_lookup] >>
         pop_assum (fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
         rw []
@@ -3423,7 +3432,7 @@ val compile_correct = Q.store_thm("compile_correct",
              fs [] >>
              simp []
              >- ((* Timeout *)
-                 qspec_then `t1 with clock := s1.clock` (assume_tac o (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]))
+                 Q.ISPEC_THEN `t1 with clock := s1.clock` (assume_tac o (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]))
                    evaluate_mk_cl_call_spec >>
                  rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                  pop_assum mp_tac >>
@@ -3468,7 +3477,7 @@ val compile_correct = Q.store_thm("compile_correct",
                  Cases_on `(LENGTH args' ≤ rem_args)` >>
                  fs []
                  >- ((* No remaining arguments *)
-                     qspec_then `t1 with clock := ck + ck' + s1.clock`
+                     Q.ISPEC_THEN `t1 with clock := ck + ck' + s1.clock`
                        (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO])evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
@@ -3500,7 +3509,7 @@ val compile_correct = Q.store_thm("compile_correct",
                      disch_then(fn th => first_x_assum (mp_tac o MATCH_MP th)) >>
                      simp[] >>
                      disch_then (qspec_then `SOMEENV` strip_assume_tac) >>
-                     qspec_then `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
+                     Q.ISPEC_THEN `t1 with clock := ck + ck' + ck'' + 1 + s1.clock`
                        (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
@@ -3510,8 +3519,8 @@ val compile_correct = Q.store_thm("compile_correct",
                      simp [] >>
                      pop_assum kall_tac >>
                      first_x_assum (qspec_then `t1 with clock := ck + ck'' + s1.clock - rem_args` mp_tac) >>
-                     qpat_abbrev_tac`t11:bvlSem$state = inc_clock ck' Z` >>
-                     qpat_abbrev_tac`t12:bvlSem$state = dec_clock X Y` >>
+                     qpat_abbrev_tac`t11:'ffi bvlSem$state = inc_clock ck' Z` >>
+                     qpat_abbrev_tac`t12:'ffi bvlSem$state = dec_clock X Y` >>
                      `t11 = t12` by (
                        simp[Abbr`t11`,Abbr`t12`] >>
                        rw[inc_clock_def,dec_clock_def,bvlSemTheory.state_component_equality] >>
@@ -3520,7 +3529,7 @@ val compile_correct = Q.store_thm("compile_correct",
                      disch_then SUBST1_TAC >>
                      map_every qunabbrev_tac[`t11`,`t12`] >>
                      qmatch_assum_abbrev_tac`evaluate (_,_,t11) = (_,t2)` >>
-                     qpat_abbrev_tac`t12:bvlSem$state = X Y` >>
+                     qpat_abbrev_tac`t12:'ffi bvlSem$state = X Y` >>
                      `t12 = inc_clock ck'' t11` by (
                        unabbrev_all_tac >>
                        rw[bvlSemTheory.state_component_equality,inc_clock_def] >>
@@ -3561,7 +3570,7 @@ val compile_correct = Q.store_thm("compile_correct",
                  rfs [] >>
                  Cases_on `n = LENGTH args' - 1` >>
                  fs []
-                 >- (qspec_then `t1 with clock := ck+ck' + s1.clock`
+                 >- (Q.ISPEC_THEN `t1 with clock := ck+ck' + s1.clock`
                        (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>
@@ -3571,7 +3580,7 @@ val compile_correct = Q.store_thm("compile_correct",
                      rev_full_simp_tac (srw_ss()++ARITH_ss) [inc_clock_def, dec_clock_def] >>
                      qexists_tac `f2` >>
                      rw [])
-                 >- (qspec_then `t1 with clock := ck+ck' +1+ s1.clock`
+                 >- (Q.ISPEC_THEN `t1 with clock := ck+ck' +1+ s1.clock`
                        (assume_tac o SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO]) evaluate_mk_cl_call_spec >>
                      rpt (pop_assum (fn x => first_assum (strip_assume_tac o MATCH_MP x))) >>
                      pop_assum mp_tac >>

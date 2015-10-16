@@ -6,19 +6,21 @@ val _ = new_theory "determ";
 
 (* ------------------------- Big step determinacy ----------------------- *)
 
+val s = ``s:'ffi state``;
+
 val big_exp_determ = Q.store_thm ("big_exp_determ",
-`(∀ck env s e r1.
-   evaluate ck env s e r1 ⇒
-   ∀r2. evaluate ck env s e r2 ⇒
-   (r1 = r2)) ∧
- (∀ck env s es r1.
-   evaluate_list ck env s es r1 ⇒
-   ∀r2. evaluate_list ck env s es r2 ⇒
-   (r1 = r2)) ∧
- (∀ck env s v pes err_v r1.
-   evaluate_match ck env s v pes err_v r1 ⇒
-   ∀r2. evaluate_match ck env s v pes err_v r2 ⇒
-   (r1 = r2))`,
+  `(∀ck env ^s e r1.
+     evaluate ck env s e r1 ⇒
+     ∀r2. evaluate ck env s e r2 ⇒
+     (r1 = r2)) ∧
+   (∀ck env ^s es r1.
+     evaluate_list ck env s es r1 ⇒
+     ∀r2. evaluate_list ck env s es r2 ⇒
+     (r1 = r2)) ∧
+   (∀ck env ^s v pes err_v r1.
+     evaluate_match ck env s v pes err_v r1 ⇒
+     ∀r2. evaluate_match ck env s v pes err_v r2 ⇒
+     (r1 = r2))`,
 HO_MATCH_MP_TAC evaluate_ind >>
 rw [] >>
 pop_assum (ASSUME_TAC o SIMP_RULE (srw_ss ()) [Once evaluate_cases]) >>
@@ -30,7 +32,7 @@ fs [] >>
 rw [] >>
 res_tac >>
 fs [] >>
-rw [] >> 
+rw [] >>
 metis_tac []);
 
 val dec_determ = Q.store_thm ("dec_determ",

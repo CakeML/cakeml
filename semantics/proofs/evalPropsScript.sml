@@ -37,7 +37,7 @@ val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val store_v_thms = { nchotomy = store_v_nchotomy, case_def = store_v_case_def}
 val lit_thms = { nchotomy = lit_nchotomy, case_def = lit_case_def}
 val eq_v_thms = { nchotomy = eq_result_nchotomy, case_def = eq_result_case_def}
-val eqs = LIST_CONJ (map prove_case_eq_thm 
+val eqs = LIST_CONJ (map prove_case_eq_thm
   [op_thms, list_thms, option_thms, v_thms, store_v_thms, lit_thms, eq_v_thms])
 
 val pair_case_eq = Q.prove (
@@ -680,29 +680,31 @@ val all_env_dom_def = Define`
     IMAGE Short (set (MAP FST envE)) ∪
     { Long m x | ∃e. ALOOKUP envM m = SOME e ∧ MEM x (MAP FST e) }`
 
+val st = ``st:'ffi state``
+
 val evaluate_no_new_types_mods = Q.store_thm ("evaluate_no_new_types_mods",
-`(!ck env st e r. evaluate ck env st e r ⇒
+`(!ck env ^st e r. evaluate ck env st e r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods) ∧
- (!ck env st es r. evaluate_list ck env st es r ⇒
+ (!ck env ^st es r. evaluate_list ck env st es r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods) ∧
- (!ck env st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
+ (!ck env ^st v pes err_v r. evaluate_match ck env st v pes err_v r ⇒
    st.defined_types = (FST r).defined_types ∧
    st.defined_mods = (FST r).defined_mods)`,
  ho_match_mp_tac bigStepTheory.evaluate_ind >>
  rw []);
 
 val evaluate_ignores_types_mods = Q.store_thm ("evaluate_ignores_types_mods",
-`(∀ck env st e r.
+`(∀ck env ^st e r.
    evaluate ck env st e r ⇒
-   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e 
+   !x y. evaluate ck env (st with <| defined_types:= x; defined_mods := y |>) e
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env st es r.
+ (∀ck env ^st es r.
    evaluate_list ck env st es r ⇒
    !x y. evaluate_list ck env (st with <| defined_types:= x; defined_mods := y |>) es
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r)) ∧
- (∀ck env st v pes err_v r.
+ (∀ck env ^st v pes err_v r.
    evaluate_match ck env st v pes err_v r ⇒
    !x y. evaluate_match ck env (st with <| defined_types:= x; defined_mods := y |>) v pes err_v
             ((FST r) with <| defined_types:= x; defined_mods := y |>, SND r))`,
@@ -718,7 +720,7 @@ val eval_d_no_new_mods = Q.store_thm ("eval_d_no_new_mods",
  fs []);
 
 val eval_ds_no_new_mods = Q.store_thm ("eval_ds_no_new_mods",
-`!ck mn env st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
+`!ck mn env ^st ds r. evaluate_decs ck mn env st ds r ⇒ st.defined_mods = (FST r).defined_mods`,
  ho_match_mp_tac evaluate_decs_ind >>
  rw [] >>
  imp_res_tac eval_d_no_new_mods >>

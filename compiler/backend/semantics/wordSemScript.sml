@@ -29,7 +29,7 @@ val _ = Datatype `
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; code    : (num # ('a wordLang$prog) # num) num_map
-     ; io      : io_trace |> `
+     ; ffi     : 'ffi ffi_state |> `
 
 val state_component_equality = theorem"state_component_equality";
 
@@ -48,10 +48,10 @@ val isException_def = Define `
   (isException (Exception a b) = T) /\ (isException _ = F)`;
 
 val dec_clock_def = Define `
-  dec_clock (s:'a wordSem$state) = s with clock := s.clock - 1`;
+  dec_clock (s:('a,'ffi) wordSem$state) = s with clock := s.clock - 1`;
 
 val check_clock_def = Define `
-  check_clock (s1:'a wordSem$state) (s2:'a wordSem$state) =
+  check_clock (s1:('a,'ffi) wordSem$state) (s2:('a,'ffi) wordSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -84,13 +84,13 @@ val get_word_def = Define `
   get_word (Word w) = w`
 
 val mem_store_def = Define `
-  mem_store (addr:'a word) (w:'a word_loc) (s:'a wordSem$state) =
+  mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) wordSem$state) =
     if addr IN s.mdomain then
       SOME (s with memory := (addr =+ w) s.memory)
     else NONE`
 
 val mem_load_def = Define `
-  mem_load (addr:'a word) (s:'a wordSem$state) =
+  mem_load (addr:'a word) (s:('a,'ffi) wordSem$state) =
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
@@ -142,7 +142,7 @@ val word_exp_def = tDefine "word_exp" `
    \\ DECIDE_TAC)
 
 val get_var_def = Define `
-  get_var v (s:'a wordSem$state) = sptree$lookup v s.locals`;
+  get_var v (s:('a,'ffi) wordSem$state) = sptree$lookup v s.locals`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -154,18 +154,18 @@ val get_vars_def = Define `
                   | SOME xs => SOME (x::xs)))`;
 
 val set_var_def = Define `
-  set_var v x (s:'a wordSem$state) =
+  set_var v x (s:('a,'ffi) wordSem$state) =
     (s with locals := (insert v x s.locals))`;
 
 val set_vars_def = Define `
-  set_vars vs xs (s:'a wordSem$state) =
+  set_vars vs xs (s:('a,'ffi) wordSem$state) =
     (s with locals := (alist_insert vs xs s.locals))`;
 
 val set_store_def = Define `
-  set_store v x (s:'a wordSem$state) = (s with store := s.store |+ (v,x))`;
+  set_store v x (s:('a,'ffi) wordSem$state) = (s with store := s.store |+ (v,x))`;
 
 val call_env_def = Define `
-  call_env args (s:'a wordSem$state) =
+  call_env args (s:('a,'ffi) wordSem$state) =
     s with <| locals := fromList2 args |>`;
 
 val list_rearrange_def = Define `
@@ -382,7 +382,7 @@ val get_var_imm_def = Define`
   (get_var_imm (Imm w) s = SOME(Word w))`
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:'a wordSem$state)) /\
+  (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
   (evaluate (Alloc n names,s) =
      case get_var n s of
      | SOME (Word w) => alloc w names s
@@ -489,7 +489,7 @@ val evaluate_def = tDefine "evaluate" `
         | (NONE,s) => (SOME Error,s)
 		| res => res))))) `
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-                             (\(xs,(s:'a wordSem$state)). (s.clock,xs)))`
+                             (\(xs,(s:('a,'ffi) wordSem$state)). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
    \\ TRY
@@ -570,8 +570,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-  [``check_clock s1 s2 = s1:'a wordSem$state``,
-   ``(s.clock < k \/ b2) <=> (s:'a wordSem$state).clock < k:num``]
+  [``check_clock s1 s2 = s1:('a,'ffi) wordSem$state``,
+   ``(s.clock < k \/ b2) <=> (s:('a,'ffi) wordSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,

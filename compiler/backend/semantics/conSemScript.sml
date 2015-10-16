@@ -311,8 +311,8 @@ val do_app_def = Define `
   | (FFI n, [Loc lnum]) =>
     (case store_lookup lnum s of
      | SOME (W8array ws) =>
-       (case call_FFI n ws t of
-        | (ws', t') =>
+       (case call_FFI t n ws of
+        | (t', ws') =>
           (case store_assign lnum (W8array ws') s of
            | SOME s' => SOME ((s', t'), Rval (Conv NONE []))
            | NONE => NONE))
@@ -410,7 +410,7 @@ val pat_bindings_def = Define`
    pats_bindings ps (pat_bindings p already_bound))`;
 
 val _ = Hol_reln ` (! ck env l s.
-  evaluate ck (env:all_env) (s:(num # conSem$v store_trace)) ((Lit l):conLang$exp) (s, Rval ((Litv l):conSem$v)))
+  evaluate ck (env:all_env) (s:(num # ('ffi,conSem$v)store_ffi)) ((Lit l):conLang$exp) (s, Rval ((Litv l):conSem$v)))
 
 /\ (! ck env e s1 s2 v.
 (evaluate ck s1 env e (s2, Rval v))

@@ -256,13 +256,13 @@ val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
 val evaluate_IMP_LENGTH = store_thm("evaluate_IMP_LENGTH",
   ``(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (evaluate_LENGTH |> CONJUNCT1 |> Q.SPECL [`xs`,`s`,`env`])
+  \\ (evaluate_LENGTH |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`s`,`env`] MP_TAC)
   \\ fs []);
 
 val evaluate_app_IMP_LENGTH = store_thm("evaluate_app_IMP_LENGTH",
   ``(evaluate_app x1 x2 x3 x4 = (Rval res,s1)) ==> (LENGTH res = 1)``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (evaluate_LENGTH |> CONJUNCT2 |> Q.SPECL [`x1`,`x2`,`x3`,`x4`])
+  \\ (evaluate_LENGTH |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] MP_TAC)
   \\ fs []);
 
 val evaluate_SING = store_thm("evaluate_SING",
@@ -333,7 +333,7 @@ val evaluate_const = store_thm("evaluate_const",
       (s1.restrict_envs = s.restrict_envs) /\
       (s1.code = s.code)``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (evaluate_const_lemma |> CONJUNCT1 |> Q.SPECL [`xs`,`env`,`s`])
+  \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
   \\ fs []);
 
 val evaluate_app_const = store_thm("evaluate_app_const",
@@ -341,7 +341,7 @@ val evaluate_app_const = store_thm("evaluate_app_const",
       (s1.restrict_envs = x4.restrict_envs) /\
       (s1.code = x4.code)``,
   REPEAT STRIP_TAC
-  \\ MP_TAC (evaluate_const_lemma |> CONJUNCT2 |> Q.SPECL [`x1`,`x2`,`x3`,`x4`])
+  \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
   \\ fs []);
 
 val evaluate_MAP_Op_Const = store_thm("evaluate_MAP_Op_Const",

@@ -52,9 +52,9 @@ val the_global_def = Define `
   the_global g = the (Number 0) (OPTION_MAP RefPtr g)`;
 
 val state_rel_def = Define `
-  state_rel c l1 l2 (s:bvpSem$state) (t:'a wordSem$state) v1 <=>
+  state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
-    (t.io = s.io) /\
+    (t.ffi = s.ffi) /\
     (t.clock = s.clock) /\
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
@@ -116,7 +116,7 @@ val state_rel_0_get_vars_IMP = prove(
   \\ fs [state_rel_def,wordSemTheory.get_var_def]);
 
 val get_var_T_OR_F = prove(
-  ``state_rel c l1 l2 s (t:'a state) LN /\
+  ``state_rel c l1 l2 s (t:('a,'ffi) state) LN /\
     get_var n s = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -137,7 +137,7 @@ val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
 val evaluate_mk_loc_EQ = prove(
-  ``evaluate (q,t) = (NONE,t1:'a state) ==>
+  ``evaluate (q,t) = (NONE,t1:('a,'ffi) state) ==>
     mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
   cheat);
 
@@ -184,7 +184,7 @@ val state_rel_ARB_ret = prove(
   fs [state_rel_def]);
 
 val compile_correct = prove(
-  ``!(prog:bvp$prog) s c n l l1 l2 res s1 t.
+  ``!(prog:bvp$prog) (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state).
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t LN ==>
@@ -199,7 +199,6 @@ val compile_correct = prove(
                      ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Exception (mk_loc (jump_exc t)) w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
-
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -285,12 +284,12 @@ val compile_correct = prove(
     \\ Cases_on `x = Boolv T` \\ fs [] THEN1
      (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs[])
     \\ Cases_on `x = Boolv F` \\ fs [] THEN1
      (qpat_assum `state_rel c l1 l2 s t LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`]) \\ fs []
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]))
   THEN1 (* Call *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
@@ -314,7 +313,9 @@ val compile_correct = prove(
             (call_env args' (dec_clock t)) LN` by cheat
       \\ qpat_assum `state_rel c l1 l2 s1 t1 LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`1`])
+      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest (Loc l1 l2::ws) t.code =
+           SOME (args',FST (comp c n6 1 r))`
+      \\ strip_tac \\ pop_assum (qspecl_then [`n6`,`1`] mp_tac)
       \\ rpt strip_tac \\ fs []
       \\ Cases_on `res1` \\ fs [] \\ rw [] \\ fs []
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def]
@@ -340,7 +341,7 @@ val compile_correct = prove(
                by cheat
       \\ qpat_assum `state_rel c' l1' l2' s1' t1' LN'` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`1`])
+      \\ strip_tac \\ pop_assum (qspecl_then [`n`,`1`] mp_tac)
       \\ rpt strip_tac \\ fs []
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ fs []
       \\ Cases_on `q''` \\ fs [] \\ Cases_on `x''` \\ fs []

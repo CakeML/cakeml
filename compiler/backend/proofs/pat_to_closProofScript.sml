@@ -31,10 +31,10 @@ val compile_sv_def = Define `
 val _ = export_rewrites["compile_sv_def"];
 
 val compile_csg_def = Define`
-  compile_csg (((c,(s,t)),g):patSem$v count_store_genv) =
+  compile_csg (((c,(s,t)),g):('ffi,patSem$v) count_store_genv) =
     <| globals := MAP (OPTION_MAP compile_v) g;
        refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s))) (LENGTH s));
-       io := t;
+       ffi := t;
        clock := c;
        code := FEMPTY;
        restrict_envs := F |>`;
@@ -117,12 +117,16 @@ val build_rec_env_pat_def = patSemTheory.build_rec_env_def
 val do_opapp_pat_def = patSemTheory.do_opapp_def
 val do_app_pat_def = patSemTheory.do_app_def
 
+val s = mk_var("s",
+  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_correct = Q.store_thm("compile_correct",
-  `(∀ck env s e res. evaluate ck env s e res ⇒
+  `(∀ck env ^s e res. evaluate ck env s e res ⇒
       ck ⇒
       evaluate ([compile e],MAP compile_v env,compile_csg s) =
         (map_result (λv. [compile_v v]) compile_v (SND res), compile_csg (FST res))) ∧
-   (∀ck env s es res. evaluate_list ck env s es res ⇒
+   (∀ck env ^s es res. evaluate_list ck env s es res ⇒
       ck ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_csg s) =
         (map_result (MAP compile_v) compile_v (SND res), compile_csg (FST res)))`,
@@ -480,7 +484,7 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[store_lookup_def] >>
       IF_CASES_TAC >> fs[] >>
       Cases_on`EL lnum s21`>>fs[] >>
-      Cases_on`call_FFI n l s22`>>fs[] >>
+      Cases_on`call_FFI s22 n l`>>fs[] >>
       fs[store_assign_def] >> rfs[] >>
       fs[store_v_same_type_def] >>
       rpt BasicProvers.VAR_EQ_TAC >>

@@ -21,8 +21,8 @@ list_result (Rval v) = Rval [v]
 and
 list_result (Rerr e) = Rerr e
 
-val evaluate : state -> environment v -> list exp -> state * result (list v) v
-val evaluate_match : state -> environment v -> v -> list (pat * exp) -> v -> state * result (list v) v
+val evaluate : forall 'ffi. state 'ffi -> environment v -> list exp -> state 'ffi * result (list v) v
+val evaluate_match : forall 'ffi. state 'ffi -> environment v -> v -> list (pat * exp) -> v -> state 'ffi * result (list v) v
 let rec
 evaluate st env [] = (st, Rval [])
 and
@@ -83,8 +83,8 @@ evaluate st env [App op es] =
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
       else
-        match do_app (st'.refs,st'.io) op (reverse vs) with
-        | Just ((refs,io),r) -> (<| st' with refs = refs; io = io |>, list_result r)
+        match do_app (st'.refs,st'.ffi) op (reverse vs) with
+        | Just ((refs,ffi),r) -> (<| st' with refs = refs; ffi = ffi |>, list_result r)
         | Nothing -> (st', Rerr (Rabort Rtype_error))
         end
   | res -> res
@@ -141,7 +141,7 @@ evaluate_match st env v ((p,e)::pes) err_v  =
     end
   else (st, Rerr (Rabort Rtype_error))
 
-val evaluate_decs : maybe modN -> state -> environment v -> list dec -> state * flat_env_ctor * result env_val v
+val evaluate_decs : forall 'ffi. maybe modN -> state 'ffi -> environment v -> list dec -> state 'ffi * flat_env_ctor * result env_val v
 let rec
 evaluate_decs mn st env [] = (st, [], Rval [])
 and
@@ -202,7 +202,7 @@ evaluate_decs mn st env [Dexn cn ts] =
      Rval [])
 declare termination_argument evaluate_decs = automatic
 
-val evaluate_tops : state -> environment v -> list top -> state * env_ctor * result (env_mod * env_val) v
+val evaluate_tops : forall 'ffi. state 'ffi -> environment v -> list top -> state 'ffi * env_ctor * result (env_mod * env_val) v
 let rec
 evaluate_tops st env [] = (st, ([],[]), Rval ([],[]))
 and
@@ -210,7 +210,7 @@ evaluate_tops st env (top1::top2::tops) =
   match evaluate_tops st env [top1] with
   | (st', new_ctors, Rval (new_mods,new_vals)) ->
       match evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) (top2::tops) with
-      | (st'', new_ctors', r) -> 
+      | (st'', new_ctors', r) ->
         (st'',
          merge_alist_mod_env new_ctors' new_ctors,
          combine_mod_result new_mods new_vals r)
@@ -242,10 +242,10 @@ evaluate_tops st env [Tmod mn specs ds] =
     (st, ([],[]), Rerr (Rabort Rtype_error))
 declare termination_argument evaluate_tops = automatic
 
-val evaluate_prog : state -> environment v -> prog -> state * env_ctor * result (env_mod * env_val) v
+val evaluate_prog : forall 'ffi. state 'ffi -> environment v -> prog -> state 'ffi * env_ctor * result (env_mod * env_val) v
 let
 evaluate_prog st env prog =
-  if no_dup_mods prog st && no_dup_top_types prog st then
+  if no_dup_mods prog st.defined_mods && no_dup_top_types prog st.defined_types then
     evaluate_tops st env prog
   else
     (st, ([],[]), Rerr (Rabort Rtype_error))

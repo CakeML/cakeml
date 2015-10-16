@@ -512,7 +512,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       first_x_assum(qspec_then `xs` assume_tac)>>
       rfs[]>>
       IMP_RES_TAC s_key_eq_LAST_N_exists>>
-      last_x_assum(qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
+      last_x_assum(qspecl_then [`st`,`e'''`,`ls'''`] assume_tac)>>
       rfs[]>>
       HINT_EXISTS_TAC>>
       Q.EXISTS_TAC`fromAList lss'`>>
@@ -731,9 +731,9 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
            `LENGTH ls = LENGTH r'.stack` by fs[s_key_eq_length]>>
            fs[])>>
            IMP_RES_TAC s_key_eq_LAST_N_exists>>
-           Q.EXISTS_TAC`e'''`>>
+           Q.EXISTS_TAC`e''`>>
            Q.EXISTS_TAC`n`>>
-           Q.EXISTS_TAC`ls'''`>>
+           Q.EXISTS_TAC`ls''`>>
            fs[]>>
            Q.EXISTS_TAC`lss'`>>
           (*check*)
@@ -759,7 +759,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
            first_x_assum(qspec_then `frame::xs` assume_tac)>>
            rfs[]>>
            `LENGTH s.stack = LENGTH xs` by fs[s_val_eq_length] >>
-           first_x_assum(qspecl_then [`frame::xs`,`e'''''`,`ls'''''`] assume_tac)>>
+           first_x_assum(qspecl_then [`frame::xs`,`e''''`,`ls''''`] assume_tac)>>
            rfs[]>>
            `LENGTH s.stack +1 = LENGTH (frame::s.stack) /\
             LENGTH s.stack +1 = LENGTH (frame::xs)` by
@@ -769,7 +769,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
            `lss'' = lss` by fs[LIST_EQ_MAP_PAIR]>>
            fs[]>>
            IMP_RES_TAC s_key_eq_LAST_N_exists>>
-           first_x_assum (qspecl_then [`st`,`e''''''''`,`ls''''''''`] assume_tac)>>
+           first_x_assum (qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
            rfs[]>>
            fs[handler_eq]>>
            HINT_EXISTS_TAC>>Q.EXISTS_TAC`fromAList lss'''`>>
@@ -815,7 +815,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
      first_x_assum(qspec_then `frame::xs` assume_tac)>>
      rfs[call_env_def]>>
      `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])>>
-    (*FFI case*)
+    (*FFIError case*)
     cheat))
 
 (*--Stack Swap Lemma DONE--*)

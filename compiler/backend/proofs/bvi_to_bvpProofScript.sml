@@ -19,11 +19,11 @@ val code_rel_def = Define `
       (lookup n bvp_code = SOME (arg_count,compile_exp arg_count exp))`;
 
 val state_rel_def = Define `
-  state_rel (s:bviSem$state) (t:bvpSem$state) <=>
+  state_rel (s:'ffi bviSem$state) (t:'ffi bvpSem$state) <=>
     (s.clock = t.clock) /\
     code_rel s.code t.code /\
     (s.refs = t.refs) /\
-    (s.io = t.io) /\
+    (s.ffi = t.ffi) /\
     (s.global = t.global)`;
 
 (* semantics lemmas *)

@@ -178,10 +178,10 @@ val _ = Define `
 
 
 val _ = Hol_datatype `
- state =
+(*  'ffi *) state =
   <| clock : num
    ; refs  : v store
-   ; io    : io_trace
+   ; ffi : 'ffi ffi_state
    ; defined_types : tid_or_exn set
    ; defined_mods : modN set
    |>`;
@@ -524,11 +524,11 @@ val _ = Hol_datatype `
   | Val of v`;
 
 
-val _ = type_abbrev((*  'v *) "store_trace" , ``: 'v store # io_trace``);
+val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_state``);
 
-(*val do_app : store_trace v -> op -> list v -> maybe (store_trace v * result v v)*)
+(*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `
- (do_app (s,t) op vs =  
+ (do_app ((s: v store),(t: 'ffi ffi_state)) op vs =  
 ((case (op, vs) of
       (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
@@ -682,8 +682,8 @@ val _ = Define `
     | (FFI n, [Loc lnum]) =>
         (case store_lookup lnum s of
           SOME (W8array ws) =>
-            (case call_FFI n ws t of
-              (ws', t') =>
+            (case call_FFI t n ws of
+              (t', ws') =>
                (case store_assign lnum (W8array ws') s of
                  SOME s' => SOME ((s', t'), Rval (Conv NONE []))
                | NONE => NONE
@@ -804,11 +804,11 @@ val _ = Define `
      tops)))`;
 
 
-(*val no_dup_mods : list top -> state -> bool*)
+(*val no_dup_mods : list top -> set modN -> bool*)
 val _ = Define `
- (no_dup_mods tops st =  
+ (no_dup_mods tops defined_mods =  
 (ALL_DISTINCT (prog_to_mods tops) /\
-  DISJOINT (LIST_TO_SET (prog_to_mods tops)) st.defined_mods))`;
+  DISJOINT (LIST_TO_SET (prog_to_mods tops)) defined_mods))`;
 
 
 (*val prog_to_top_types : list top -> list typeN*)
@@ -821,11 +821,11 @@ val _ = Define `
      tops)))`;
 
 
-(*val no_dup_top_types : list top -> state -> bool*)
+(*val no_dup_top_types : list top -> set tid_or_exn -> bool*)
 val _ = Define `
- (no_dup_top_types tops st =  
+ (no_dup_top_types tops defined_types =  
 (ALL_DISTINCT (prog_to_top_types tops) /\
-  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) st.defined_types))`;
+  DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) defined_types))`;
 
 
 

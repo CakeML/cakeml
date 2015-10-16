@@ -1,7 +1,8 @@
 open import Pervasives_extra
 open import Lib
-open import Ast 
+open import Ast
 open import SemanticPrimitives
+open import Ffi
 
 (* Small-step semantics for expression only.  Modules and definitions have
  * big-step semantics only *)
@@ -32,10 +33,10 @@ type ctxt = ctxt_frame * environment v
  * - the context stack (continuation) of what to do once the current expression
  *   is finished.  Each entry has an environment for it's free variables *)
 
-type small_state = environment v * store_trace v * exp_or_val * list ctxt
+type small_state 'ffi = environment v * store_ffi 'ffi v * exp_or_val * list ctxt
 
-type e_step_result =
-  | Estep of small_state
+type e_step_result 'ffi =
+  | Estep of small_state 'ffi
   | Eabort of abort
   | Estuck
 
@@ -44,14 +45,14 @@ type e_step_result =
  * push individual frames onto the context stack instead of finding a redex in a
  * single step *)
 
-val push : environment v -> store_trace v -> exp -> ctxt_frame -> list ctxt -> e_step_result
+val push : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> ctxt_frame -> list ctxt -> e_step_result 'ffi
 let push env s e c' cs = Estep (env, s, Exp e, ((c',env)::cs))
 
-val return : environment v -> store_trace v -> v -> list ctxt -> e_step_result
+val return : forall 'ffi. environment v -> store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi
 let return env s v c = Estep (env, s, Val v, c)
 
-val application : op -> environment v -> store_trace v -> list v -> list ctxt -> e_step_result
-let application op env s vs c = 
+val application : forall 'ffi. op -> environment v -> store_ffi 'ffi v -> list v -> list ctxt -> e_step_result 'ffi
+let application op env s vs c =
   match op with
     | Opapp ->
       match do_opapp vs with
@@ -71,7 +72,7 @@ let application op env s vs c =
     end
 
 (* apply a context to a value *)
-val continue : store_trace v -> v -> list ctxt -> e_step_result
+val continue : forall 'ffi. store_ffi 'ffi v -> v -> list ctxt -> e_step_result 'ffi
 let continue s v cs =
   match cs with
     | [] -> Estuck
@@ -133,7 +134,7 @@ let continue s v cs =
  * if given to a primitive.  Returns Bind_error when no pattern in a match
  * matches the value.  Otherwise it returns the next state *)
 
-val e_step : small_state -> e_step_result
+val e_step : forall 'ffi. small_state 'ffi -> e_step_result 'ffi
 let e_step (env, s, ev, c) =
   match ev with
     | Val v  ->
@@ -148,7 +149,7 @@ let e_step (env, s, ev, c) =
           | Con n es ->
               if do_con_check env.c n (List.length es) then
                 match List.reverse es with
-                  | [] -> 
+                  | [] ->
                       match build_conv env.c n [] with
                         | Nothing -> Eabort Rtype_error
                         | Just v -> return env s v c
@@ -161,11 +162,11 @@ let e_step (env, s, ev, c) =
           | Var n ->
               match lookup_var_id n env with
                 | Nothing -> Eabort Rtype_error
-                | Just v -> 
+                | Just v ->
                     return env s v c
               end
           | Fun n e -> return env s (Closure env n e) c
-          | App op es -> 
+          | App op es ->
               match List.reverse es with
                 | [] -> application op env s [] c
                 | (e::es) -> push env s e (Capp op [] () es) c
@@ -178,36 +179,35 @@ let e_step (env, s, ev, c) =
               if not (allDistinct (List.map (fun (x,y,z) -> x) funs)) then
                 Eabort Rtype_error
               else
-                Estep (<| env with v = build_rec_env funs env env.v |>, 
+                Estep (<| env with v = build_rec_env funs env env.v |>,
                        s, Exp e, c)
         end
   end
 
 (* Define a semantic function using the steps *)
 
-val e_step_reln : small_state -> small_state -> bool
-val small_eval : environment v -> store_trace v -> exp -> list ctxt -> store_trace v * result v v -> bool
+val e_step_reln : forall 'ffi. small_state 'ffi -> small_state 'ffi -> bool
+val small_eval : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> list ctxt -> store_ffi 'ffi v * result v v -> bool
 
 let e_step_reln st1 st2 =
   (e_step st1 = Estep st2)
 
 let rec
 small_eval env s e c (s', Rval v) =
-  exists env'. (rtc e_step_reln) (env,s,Exp e,c) (env',s',Val v,[])
+  exists env'. (rtc (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[])
 and
 small_eval env s e c (s', Rerr (Rraise v)) =
-  exists env' env''. (rtc e_step_reln) (env,s,Exp e,c) (env',s',Val v,[(Craise (), env'')])
+  exists env' env''. (rtc (e_step_reln)) (env,s,Exp e,c) (env',s',Val v,[(Craise (), env'')])
 and
 small_eval env s e c (s', Rerr (Rabort a)) =
   exists env' e' c'.
-    (rtc e_step_reln) (env,s,Exp e,c) (env',s',e',c') &&
+    (rtc (e_step_reln)) (env,s,Exp e,c) (env',s',e',c') &&
     (e_step (env',s',e',c') = Eabort a)
 
-val e_diverges : environment v -> store_trace v -> exp -> bool
+val e_diverges : forall 'ffi. environment v -> store_ffi 'ffi v -> exp -> bool
 let e_diverges env s e =
   forall env' s' e' c'.
-    (rtc e_step_reln) (env,s,Exp e,[]) (env',s',e',c')
-    -->    
+    (rtc (e_step_reln)) (env,s,Exp e,[]) (env',s',e',c')
+    -->
 (exists env'' s'' e'' c''.
       e_step_reln (env',s',e',c') (env'',s'',e'',c''))
-

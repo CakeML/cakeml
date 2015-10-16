@@ -2,14 +2,48 @@ open import Pervasives
 open import Pervasives_extra
 open import Lib
 
-(* I/O events *)
+(* An oracle says how to perform an ffi call based on its internal state,
+ * represented by the type variable 'ffi. *)
 
-(* An I/O event, IO_event n bytes2, calls FFI function n with input
-   map fst bytes2 in the passed array, and the call returns with map snd bytes2
-   in the array. *)
+type oracle_function 'ffi = 'ffi -> list word8 -> maybe ('ffi * (list word8))
+type oracle 'ffi = nat -> oracle_function 'ffi
+
+(* An I/O event, IO_event n bytes2, represents the call of FFI function n with
+ * input map fst bytes2 in the passed array, returning map snd bytes2 in the
+ * array. *)
+
 type io_event = IO_event of nat * (list (word8 * word8))
 
-type io_trace = maybe (llist io_event)
+type ffi_state 'ffi =
+  <| oracle     : oracle 'ffi
+   ; ffi_state  : 'ffi
+   ; ffi_failed : bool
+   ; io_events  : list io_event
+   |>
+
+val initial_ffi_state : forall 'ffi. oracle 'ffi -> 'ffi -> ffi_state 'ffi
+let initial_ffi_state oc ffi =
+  <| oracle     = oc
+   ; ffi_state  = ffi
+   ; ffi_failed = false
+   ; io_events  = []
+   |>
+
+val call_FFI : forall 'ffi. ffi_state 'ffi -> nat -> list word8 -> ffi_state 'ffi * list word8
+let call_FFI st n bytes =
+  if st.ffi_failed then (st, bytes) else
+    match st.oracle n st.ffi_state bytes with
+    | Just (ffi', bytes') ->
+        if length bytes' = length bytes then
+          (<| st with ffi_state = ffi'
+                    ; io_events = (IO_event n (zipSameLength bytes bytes'))
+                                  ::st.io_events
+            |>, bytes')
+        else (<| st with ffi_failed = true |>, bytes)
+    | _ -> (<| st with ffi_failed = true |>, bytes)
+    end
+
+type termination_type = Success | Resource_limit_hit | FFI_error
 
 (* A program can Diverge, Terminate, or Fail. We prove that Fail is
    avoided. For Diverge and Terminate, we keep track of what I/O
@@ -22,21 +56,20 @@ type  behaviour =
     (* Terminating executions can only perform a finite number of
        FFI calls. The execution can be terminated by a non-returning
        FFI call. *)
-  | Terminate of list io_event
+  | Terminate of termination_type * list io_event
     (* Failure is a behaviour which we prove cannot occur for any
        well-typed program. *)
   | Fail
 
-val call_FFI : nat -> list word8 -> io_trace -> list word8 * io_trace
-let call_FFI n bytes io_trace =
-  match io_trace with
-  | Just events ->
-     match lhd events with
-     | Just (IO_event n' xs) ->
-         if (n = n') && (map fst xs = bytes) then
-           (map snd xs, ltl events)
-         else (bytes, Nothing)
-     | _ -> (bytes, Nothing)
-     end
-  | _ -> (bytes, Nothing)
+(* trace-based semantics can be recovered as an instance of oracle-based
+ * semantics as follows. *)
+
+val trace_oracle : oracle (llist io_event)
+let trace_oracle n io_trace input =
+  match lhd io_trace with
+  | Just (IO_event n' bytes2) ->
+      if (n = n') && (map fst bytes2 = input) then
+        Just (fromJust (ltl io_trace), map snd bytes2)
+      else Nothing
+  | _ -> Nothing
   end

@@ -227,13 +227,17 @@ val char_list_to_v_no_closures = prove(
   ``∀ls. no_closures (char_list_to_v ls)``,
   Induct >> simp[patSemTheory.char_list_to_v_def])
 
+val s = mk_var("s",
+  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val fo_correct = prove(
   ``(∀e. fo e ⇒
-       ∀ck env s s' v.
+       ∀ck env ^s s' v.
          evaluate ck env s e (s',Rval v) ⇒
          no_closures v) ∧
     (∀es. fo_list es ⇒
-       ∀ck env s s' vs.
+       ∀ck env ^s s' vs.
          (evaluate_list ck env s es (s',Rval vs) ∨
           evaluate_list ck env s (REVERSE es) (s',Rval vs)) ⇒
          EVERY no_closures vs)``,
@@ -282,10 +286,10 @@ val do_eq_no_closures = store_thm("do_eq_no_closures",
 
 val pure_correct = Q.store_thm("pure_correct",
   `(∀e. pure e ⇒
-        ∀ck env s. (∃v. evaluate ck env s e (s,Rval v)) ∨
+        ∀ck env ^s. (∃v. evaluate ck env s e (s,Rval v)) ∨
                    (∀res. ¬evaluate ck env s e res)) ∧
    (∀es. pure_list es ⇒
-        ∀ck env s. ((∃vs. evaluate_list ck env s es (s,Rval vs)) ∨
+        ∀ck env ^s. ((∃vs. evaluate_list ck env s es (s,Rval vs)) ∨
                     (∀res. ¬evaluate_list ck env s es res)) ∧
                    ((∃vs. evaluate_list ck env s (REVERSE es) (s,Rval vs)) ∨
                     (∀res. ¬evaluate_list ck env s (REVERSE es) res)))`,
@@ -409,13 +413,13 @@ val pure_correct = Q.store_thm("pure_correct",
 
 val ground_correct = store_thm("ground_correct",
   ``(∀e n. ground n e ⇒
-      (∀ck env1 env2 s res.
+      (∀ck env1 env2 ^s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
           (TAKE n env2 = TAKE n env1) ∧
           evaluate ck env1 s e res ⇒
           evaluate ck env2 s e res)) ∧
     (∀es n. ground_list n es ⇒
-      (∀ck env1 env2 s res.
+      (∀ck env1 env2 ^s res.
           n ≤ LENGTH env1 ∧ n ≤ LENGTH env2 ∧
           (TAKE n env2 = TAKE n env1) ⇒
           (evaluate_list ck env1 s es res ⇒
@@ -503,7 +507,7 @@ val ground_correct = store_thm("ground_correct",
     metis_tac[]))
 
 val sLet_correct = store_thm("sLet_correct",
-  ``∀ck env s e1 e2 res.
+  ``∀ck env ^s e1 e2 res.
     evaluate ck env s (Let e1 e2) res ∧
     SND res ≠ Rerr (Rabort Rtype_error) ⇒
     evaluate ck env s (sLet e1 e2) res``,
@@ -530,7 +534,7 @@ val sLet_correct = store_thm("sLet_correct",
   metis_tac[])
 
 val Let_Els_correct = prove(
-  ``∀n k e tag vs env ck s res us.
+  ``∀n k e tag vs env ck ^s res us.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
     evaluate ck (TAKE k vs ++ us ++ (Conv tag vs::env)) s e res ∧
     SND res ≠ Rerr (Rabort Rtype_error) ⇒
@@ -556,7 +560,7 @@ val Let_Els_correct = prove(
     metis_tac[rich_listTheory.CONS_APPEND,APPEND_ASSOC] ) >>
   rw[])
 val Let_Els_correct = prove(
-  ``∀n k e tag vs env ck s res us enve.
+  ``∀n k e tag vs env ck ^s res us enve.
     LENGTH us = n ∧ k ≤ LENGTH vs ∧
     evaluate ck (TAKE k vs ++ us ++ (Conv tag vs::env)) s e res ∧
     (enve = us ++ (Conv tag vs::env)) ∧ SND res ≠ Rerr (Rabort Rtype_error)
@@ -564,8 +568,12 @@ val Let_Els_correct = prove(
     evaluate ck enve s (Let_Els n k e) res``,
   metis_tac[Let_Els_correct]);
 
+val s = mk_var("s",``map_csg compile_v`` |> type_of |> dom_rng |> #1
+  |> pairLib.dest_prod |> #1 |> pairLib.dest_prod |> #2
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_pat_correct = prove(
-  ``(∀p v s env res env4 ck count genv.
+  ``(∀p v ^s env res env4 ck count genv.
        pmatch (FST s) p v env = res ∧ res ≠ Match_type_error ⇒
        evaluate ck
          (compile_v v::env4)
@@ -573,7 +581,7 @@ val compile_pat_correct = prove(
          (compile_pat p)
          (map_csg compile_v ((count,s),genv)
          ,Rval (Boolv (∃env'. res = Match env')))) ∧
-    (∀n ps qs vs s env env' res env4 ck count genv.
+    (∀n ps qs vs ^s env env' res env4 ck count genv.
        pmatch_list (FST s) qs (TAKE n vs) env = Match env' ∧
        pmatch_list (FST s) ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
@@ -684,7 +692,7 @@ val compile_pat_correct = prove(
            ,match_result_distinct])
 
 val compile_row_correct = Q.prove(
-  `(∀Nbvs0 p bvs0 s v menv bvs1 n f.
+  `(∀Nbvs0 p bvs0 ^s v menv bvs1 n f.
       (Nbvs0 = NONE::bvs0) ∧
       (pmatch (FST s) p v [] = Match menv) ∧
       (compile_row Nbvs0 p = (bvs1,n,f))
@@ -698,7 +706,7 @@ val compile_row_correct = Q.prove(
          evaluate ck (menv4++env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) e res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate ck (compile_v v::env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) (f e) res) ∧
-   (∀bvsk0 nk k ps tag s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
+   (∀bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
      (pmatch_list (FST s) qs (TAKE k vs) [] = Match menvk) ∧
      (pmatch_list (FST s) ps (DROP k vs) [] = Match menv) ∧
      (compile_cols bvsk0 nk k ps = (bvs1,n1,f)) ∧
@@ -1265,8 +1273,17 @@ val v_to_char_list_v_rel = prove(
 val do_app_def = patSemTheory.do_app_def
 val csg_rel_def = decPropsTheory.csg_rel_def
 
+local
+  val ty =
+    ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+    |> type_subst[alpha |-> ``:'ffi``]
+in
+  val s1 = mk_var("s1",ty)
+  val s = mk_var("s",ty)
+end
+
 val do_app_v_rel = store_thm("do_app_v_rel",
-  ``∀env s op env' s' vs vs'.
+  ``∀^s op s' vs vs'.
       LIST_REL v_rel vs vs' ⇒
       csg_rel v_rel s s' ⇒
       OPTION_REL
@@ -1402,7 +1419,7 @@ val do_app_v_rel = store_thm("do_app_v_rel",
   metis_tac[sv_rel_def,optionTheory.NOT_SOME_NONE,optionTheory.SOME_11,PAIR_EQ])
 
 val evaluate_exp_rel = store_thm("evaluate_exp_rel",
-  ``(∀ck env1 s1 e1 res1. evaluate ck env1 s1 e1 res1 ⇒
+  ``(∀ck env1 ^s1 e1 res1. evaluate ck env1 s1 e1 res1 ⇒
        ∀env2 s2 e2.
          exp_rel (LENGTH env1) (LENGTH env2) (env_rel v_rel env1 env2) e1 e2 ∧
          csg_rel v_rel s1 s2 ⇒
@@ -1410,7 +1427,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
            evaluate ck env2 s2 e2 res2 ∧
            csg_rel v_rel (FST res1) (FST res2) ∧
            result_rel v_rel v_rel (SND res1) (SND res2)) ∧
-    (∀ck env1 s1 es1 res1. evaluate_list ck env1 s1 es1 res1 ⇒
+    (∀ck env1 ^s1 es1 res1. evaluate_list ck env1 s1 es1 res1 ⇒
        ∀env2 s2 es2.
          LIST_REL (exp_rel (LENGTH env1) (LENGTH env2) (env_rel v_rel env1 env2)) es1 es2 ∧
          csg_rel v_rel s1 s2 ⇒
@@ -2282,8 +2299,12 @@ val lookup_find_index_SOME = prove(
 
 val compile_v_Boolv = EVAL``compile_v (Boolv b) = Boolv b`` |> EQT_ELIM
 
+val s = mk_var("s",
+  ``exhSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  |> type_subst[alpha |-> ``:'ffi``])
+
 val compile_exp_correct = store_thm("compile_exp_correct",
-  ``(∀ck env s exp res. evaluate ck env s exp res ⇒
+  ``(∀ck env ^s exp res. evaluate ck env s exp res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      ∃res4.
        evaluate ck
@@ -2292,7 +2313,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
          (compile_exp (MAP (SOME o FST) env) exp) res4 ∧
        csg_rel v_rel (map_csg compile_v (FST res)) (FST res4) ∧
        result_rel v_rel v_rel (map_result compile_v compile_v (SND res)) (SND res4)) ∧
-    (∀ck env s exps ress. evaluate_list ck env s exps ress ⇒
+    (∀ck env ^s exps ress. evaluate_list ck env s exps ress ⇒
      (SND ress ≠ Rerr (Rabort Rtype_error)) ⇒
      ∃ress4.
        evaluate_list ck
@@ -2301,7 +2322,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
          (compile_exps (MAP (SOME o FST) env) exps) ress4 ∧
        csg_rel v_rel (map_csg compile_v (FST ress)) (FST ress4) ∧
        result_rel (LIST_REL v_rel) v_rel (map_result compile_vs compile_v (SND ress)) (SND ress4)) ∧
-    (∀ck env s v pes res. evaluate_match ck env s v pes res ⇒
+    (∀ck env ^s v pes res. evaluate_match ck env s v pes res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      ∃res4.
        evaluate ck
@@ -2570,7 +2591,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
       simp[patSemTheory.do_if_def] >>
       qspecl_then[`p`,`v`,`s,t`,`env`]mp_tac (CONJUNCT1 compile_pat_correct) >>
       simp[] >> strip_tac >>
-      Q.PAT_ABBREV_TAC`s2 = X:patSem$v count_store_genv` >>
+      Q.PAT_ABBREV_TAC`s2 = X:('ffi,patSem$v) count_store_genv` >>
       CONV_TAC SWAP_EXISTS_CONV  >>
       qexists_tac`s2` >> simp[Abbr`s2`] >>
       pop_assum kall_tac
@@ -2676,7 +2697,7 @@ val compile_exp_correct = store_thm("compile_exp_correct",
     simp[patSemTheory.do_if_def] >>
     qspecl_then[`p`,`v`,`s,t`,`env`]mp_tac (CONJUNCT1 compile_pat_correct) >>
     simp[] >> strip_tac >>
-    Q.PAT_ABBREV_TAC`s2 = X:patSem$v count_store_genv` >>
+    Q.PAT_ABBREV_TAC`s2 = X:('ffi,patSem$v) count_store_genv` >>
     CONV_TAC SWAP_EXISTS_CONV  >>
     qexists_tac`s2` >> simp[Abbr`s2`] >>
     first_assum(match_exists_tac o concl) >> simp[] >>

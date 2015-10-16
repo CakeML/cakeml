@@ -14,8 +14,8 @@ val bvl_to_bvi_with_clock = Q.store_thm("bvl_to_bvi_with_clock",
   `bvl_to_bvi (x with clock := y) z = bvl_to_bvi x z with <| clock := y |>`,
   EVAL_TAC)
 
-val bvl_to_bvi_with_io = Q.store_thm("bvl_to_bvi_with_io",
-  `bvl_to_bvi (x with io := y) z = bvl_to_bvi x z with io := y`,
+val bvl_to_bvi_with_ffi = Q.store_thm("bvl_to_bvi_with_ffi",
+  `bvl_to_bvi (x with ffi := y) z = bvl_to_bvi x z with ffi := y`,
   EVAL_TAC)
 
 val bvi_to_bvl_refs = Q.store_thm("bvi_to_bvl_refs[simp]",
@@ -97,7 +97,7 @@ val evaluate_APPEND = store_thm("evaluate_APPEND",
   \\ REPEAT BasicProvers.CASE_TAC \\ fs []);
 
 val inc_clock_def = Define `
-  inc_clock n (s:bviSem$state) = s with clock := s.clock + n`;
+  inc_clock n (s:'ffi bviSem$state) = s with clock := s.clock + n`;
 
 val inc_clock_ZERO = store_thm("inc_clock_ZERO",
   ``!s. inc_clock 0 s = s``,

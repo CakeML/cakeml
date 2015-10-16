@@ -1,4 +1,5 @@
 open preamble
+     lexer_funTheory
      cmlParseTheory
      inferTheory
      source_to_targetTheory
@@ -11,16 +12,18 @@ val _ = Datatype`
      ; backend_config : α source_to_target$config
      |>`;
 
+val _ = Datatype`compile_error = ParseError | TypeError | CompileError`;
+
 val compile_def = Define`
-  compile c tokens =
-    case parse_prog tokens of
-    | NONE => Failure "parse error"
+  compile c input =
+    case parse_prog (lexer_fun input) of
+    | NONE => Failure ParseError
     | SOME prog =>
         case infertype_prog c.inferencer_config prog of
-        | NONE => Failure "type error"
+        | NONE => Failure TypeError
         | SOME ic =>
             case source_to_target$compile c.backend_config prog of
-            | NONE => Failure "compile error"
+            | NONE => Failure CompileError
             | SOME (bytes,bc) =>
               Success (bytes, <| inferencer_config := ic
                                ; backend_config := bc

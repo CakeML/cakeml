@@ -10,7 +10,7 @@ val _ = new_theory "bigStep"
 
 (*open import Pervasives_extra*)
 (*open import Lib*)
-(*open import Ast*) 
+(*open import Ast*)
 (*open import SemanticPrimitives*)
 (*open import Ffi*)
 
@@ -110,16 +110,16 @@ evaluate ck env s1 (App Opapp es) (s2, Rerr (Rabort Rtimeout_error)))
 ==>
 evaluate ck env s1 (App Opapp es) (s2, Rerr (Rabort Rtype_error)))
 
-/\ (! ck env op es vs res s1 s2 refs' io'.
+/\ (! ck env op es vs res s1 s2 refs' ffi'.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
-(do_app (s2.refs,s2.io) op (REVERSE vs) = SOME ((refs',io'), res)) /\
+(do_app (s2.refs,s2.ffi) op (REVERSE vs) = SOME ((refs',ffi'), res)) /\
 (op <> Opapp))
 ==>
-evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; io :=io' |>), res))
+evaluate ck env s1 (App op es) (( s2 with<| refs := refs'; ffi :=ffi' |>), res))
 
 /\ (! ck env op es vs s1 s2.
 (evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
-(do_app (s2.refs,s2.io) op (REVERSE vs) = NONE) /\
+(do_app (s2.refs,s2.ffi) op (REVERSE vs) = NONE) /\
 (op <> Opapp))
 ==>
 evaluate ck env s1 (App op es) (s2, Rerr (Rabort Rtype_error)))
@@ -314,7 +314,7 @@ evaluate_dec ck mn env s (Dtype tds) (( s with<| defined_types := new_tdecs UNIO
 ==>
 evaluate_dec ck mn env s (Dtype tds) (s, Rerr (Rabort Rtype_error)))
 
-/\ (! ck mn env tvs tn t s. 
+/\ (! ck mn env tvs tn t s.
 T
 ==>
 evaluate_dec ck mn env s (Dtabbrev tvs tn t) (s, Rval ([], [])))
@@ -397,21 +397,21 @@ evaluate_prog ck env s1 (top::tops) (s3, merge_alist_mod_env new_tds' new_tds, c
 evaluate_prog ck env s1 (top::tops) (s2, new_tds, Rerr err))`;
 
 
-(*val evaluate_whole_prog : bool -> environment v -> state -> prog -> 
-          state * env_ctor * result (env_mod * env_val) v -> bool*)
+(*val evaluate_whole_prog : forall 'ffi. Eq 'ffi => bool -> environment v -> state 'ffi -> prog ->
+          state 'ffi * env_ctor * result (env_mod * env_val) v -> bool*)
 val _ = Define `
  (evaluate_whole_prog ck env s1 tops (s2, new_tds, res) =  
-(if no_dup_mods tops s1 /\ no_dup_top_types tops s1 then
+(if no_dup_mods tops s1.defined_mods /\ no_dup_top_types tops s1.defined_types then
     evaluate_prog ck env s1 tops (s2, new_tds, res)
   else    
 (s1 = s2) /\ (new_tds = ([],[])) /\ (res = Rerr (Rabort Rtype_error))))`;
 
 
-(*val dec_diverges : environment v -> state -> dec -> bool*)
+(*val dec_diverges : forall 'ffi. environment v -> state 'ffi -> dec -> bool*)
 val _ = Define `
  (dec_diverges env st d =  
 ((case d of
-      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.io) e
+      Dlet p e => ALL_DISTINCT (pat_bindings p []) /\ e_diverges env (st.refs, st.ffi) e
     | Dletrec funs => F
     | Dtype tds => F
     | Dtabbrev tvs tn t => F
@@ -422,7 +422,7 @@ val _ = Define `
 val _ = Hol_reln ` (! mn st env d ds.
 (dec_diverges env st d)
 ==>
-decs_diverges mn env st (d::ds)) 
+decs_diverges mn env st (d::ds))
 
 /\ (! mn s1 s2 env d ds new_tds new_env.
 (evaluate_dec F mn env s1 d (s2, Rval (new_tds, new_env)) /\

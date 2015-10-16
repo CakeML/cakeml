@@ -51,8 +51,8 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln`
      (Closure (SOME loc) arg_env clo_env num_args (Call (loc+i) (GENLIST Var num_args ++ MAP Var fs))))`;
 
 val state_rel_def = Define`
-  state_rel g (s:closSem$state) (t:closSem$state) ⇔
-    (s.io = t.io) ∧
+  state_rel g (s:'ffi closSem$state) (t:'ffi closSem$state) ⇔
+    (s.ffi = t.ffi) ∧
     (s.clock = t.clock) ∧
     ¬s.restrict_envs ∧ ¬t.restrict_envs ∧
     (∀i. i < LENGTH s.globals ⇒

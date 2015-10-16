@@ -23,7 +23,7 @@ val shift_seq_def = Define `
 (* -- execute target machine with interference from environement -- *)
 
 val () = Datatype `
-  error_type = Internal | IO_mismatch `
+  error_type = Internal | IO_mismatch | Limit `
 
 val () = Datatype `
   machine_result = Result | TimeOut | Error error_type `;
@@ -46,8 +46,8 @@ val _ = Datatype `
     |>`
 
 val evaluate_def = Define `
-  evaluate config io k (ms:'a) =
-    if k = 0 then (TimeOut,ms,io)
+  evaluate config (ffi:'ffi ffi_state) k (ms:'a) =
+    if k = 0 then (TimeOut,ms,ffi)
     else
       if config.target.get_pc ms IN config.prog_addresses then
         let ms1 = config.target.next ms in
@@ -55,42 +55,49 @@ val evaluate_def = Define `
         let config = config with next_interfer :=
                        shift_seq 1 config.next_interfer in
           if EVERY config.target.state_ok [ms;ms1;ms2] then
-            evaluate config io (k - 1) ms2
+            evaluate config ffi (k - 1) ms2
           else
-            (Error Internal,ms,io)
+            (Error Internal,ms,ffi)
       else if config.target.get_pc ms = config.halt_pc then
-        (Result,ms,io)
+        (if config.target.get_reg ms config.ptr_reg = 0w
+         then Result else Error Limit,ms,ffi)
       else
         case list_find (config.target.get_pc ms) config.ffi_entry_pcs of
-        | NONE => (Error Internal,ms,io)
+        | NONE => (Error Internal,ms,ffi)
         | SOME ffi_index =>
           case read_bytearray (config.target.get_reg ms config.ptr_reg)
                  (w2n (config.target.get_reg ms config.len_reg))
                  (\a. if a IN config.prog_addresses
                       then SOME (config.target.get_byte ms a) else NONE) of
-          | NONE => (Error Internal,ms,io)
+          | NONE => (Error Internal,ms,ffi)
           | SOME bytes =>
-            let ffi = config.ffi_interfer 0 ffi_index in
+            let do_ffi = config.ffi_interfer 0 ffi_index in
             let config = config with ffi_interfer :=
                            shift_seq 1 config.ffi_interfer in
-            let (new_bytes,new_io) = call_FFI ffi_index bytes io in
-              if new_io = NONE then (Error IO_mismatch,ms,new_io) else
-                evaluate config new_io (k - 1:num) (ffi new_bytes ms)`
+            let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
+              if new_ffi.ffi_failed then (Error IO_mismatch,ms,new_ffi) else
+                evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
 
+val _ = ParseExtras.temp_tight_equality()
 
-(* -- observable -- *)
+val machine_result_def = Define`
+  (machine_result Success = Result) ∧
+  (machine_result FFI_error = Error IO_mismatch) ∧
+  (machine_result Resource_limit_hit = Error Limit)`;
 
 val machine_sem_def = Define `
-  (machine_sem config ms (Terminate io_list) <=>
-     ?k ms'.
-       evaluate config (SOME (fromList io_list)) k ms =
-       (Result,ms',SOME LNIL)) /\
-  (machine_sem config ms (Diverge io_trace) <=>
-     (!k. (FST (evaluate config (SOME io_trace) k ms) = TimeOut)) /\
-     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. (FST (evaluate config (SOME io) k ms) <> TimeOut))) /\
-  (machine_sem config ms Fail <=>
-     ?k io. FST (evaluate config (SOME io) k ms) = Error Internal)`
+  (machine_sem config st ms (Terminate t io_list) <=>
+     ?k ms' st'.
+       evaluate config st k ms = (machine_result t,ms',st') ∧
+       REVERSE st'.io_events = io_list) /\
+  (machine_sem config st ms (Diverge io_trace) <=>
+     (!k. ?ms' st' n.
+            evaluate config st k ms = (TimeOut,ms',st') ∧
+            LTAKE n io_trace = SOME (REVERSE st'.io_events)) /\
+     (!n io_list. LTAKE n io_trace = SOME io_list ⇒
+        ?k. REVERSE (SND(SND(evaluate config st k ms))).io_events = io_list)) /\
+  (machine_sem config st ms Fail <=>
+     ?k. FST (evaluate config st k ms) = Error Internal)`
 
 (* Note: we need to prove that every well-typed program has some
    behaviour, i.e. machine_sem config ms should never be the empty set
@@ -102,10 +109,22 @@ val machine_sem_def = Define `
    divergent I/O trace. *)
 
 val imprecise_machine_sem_def = Define `
-  (imprecise_machine_sem config ms (Terminate io_list) =
-     ?k ms'.
-       evaluate config (SOME (fromList io_list)) k ms = (Result,ms',SOME LNIL)) /\
-  (imprecise_machine_sem config ms (Diverge io_trace) =
-     !k. (FST (evaluate config (SOME io_trace) k ms) = TimeOut))`
+  (imprecise_machine_sem config st ms (Terminate t io_list) <=>
+     ?k ms' st'.
+       evaluate config st k ms = (machine_result t,ms',st') ∧
+       REVERSE st'.io_events = io_list) /\
+  (imprecise_machine_sem config st ms (Diverge io_trace) <=>
+     (!k. ∃ms' st' n.
+       evaluate config st k ms = (TimeOut,ms',st') ∧
+       LTAKE n io_trace = SOME (REVERSE st'.io_events)))`
+
+(* define what it means for code to be loaded and ready to run *)
+
+val code_loaded_def = Define`
+  code_loaded (bytes:word8 list) (mc:(α,β,γ)machine_config) (ms:β) <=>
+    read_bytearray (mc.target.get_pc ms) (LENGTH bytes)
+      (\a. if a IN mc.prog_addresses
+           then SOME (mc.target.get_byte ms a) else NONE) = SOME bytes
+    (* ... and a few more things that will become clear during the proof *)`;
 
 val _ = export_theory();

@@ -21,7 +21,7 @@ val _ = Datatype `
   state =
     <| globals : (closSem$v option) list
      ; refs    : num |-> closSem$v ref
-     ; io      : io_trace
+     ; ffi     : 'ffi ffi_state
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
      ; restrict_envs : bool |> `
@@ -86,10 +86,10 @@ val list_to_v_def = Define`
 val Unit_def = Define`
   Unit = Block tuple_tag []`
 
-val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#closSem$state,closSem$v)result``)
+val _ = Parse.temp_overload_on("Error",``(Rerr(Rabort Rtype_error)):(closSem$v#('ffi closSem$state),closSem$v)result``)
 
 val do_app_def = Define `
-  do_app (op:closLang$op) (vs:closSem$v list) (s:closSem$state) =
+  do_app (op:closLang$op) (vs:closSem$v list) (s:'ffi closSem$state) =
     case (op,vs) of
     | (Global n,[]:closSem$v list) =>
         (case get_global n s.globals of
@@ -197,16 +197,16 @@ val do_app_def = Define `
     | (FFI n, [RefPtr ptr]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
-           (case call_FFI n ws s.io of
-            | (ws',t') =>
+           (case call_FFI s.ffi n ws of
+            | (ffi',ws') =>
                 Rval (Unit,
                       s with <| refs := s.refs |+ (ptr,ByteArray ws')
-                              ; io   := t'|>))
+                              ; ffi   := ffi'|>))
          | _ => Error)
     | _ => Error`;
 
 val dec_clock_def = Define `
-  dec_clock n (s:closSem$state) = s with clock := s.clock - n`;
+  dec_clock n (s:'ffi closSem$state) = s with clock := s.clock - n`;
 
 val find_code_def = Define `
   find_code p args code =
@@ -224,7 +224,7 @@ val find_code_def = Define `
    of check_clock. *)
 
 val check_clock_def = Define `
-  check_clock s1 s2 =
+  check_clock (s1:'ffi closSem$state) (s2:'ffi closSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -318,7 +318,7 @@ val build_recc_def = Define `
     | NONE => NONE`
 
 val evaluate_def = tDefine "evaluate" `
-  (evaluate ([],env:closSem$v list,s:closSem$state) = (Rval [],s)) /\
+  (evaluate ([],env:closSem$v list,s:'ffi closSem$state) = (Rval [],s)) /\
   (evaluate (x::y::xs,env,s) =
      case evaluate ([x],env,s) of
      | (Rval v1,s1) =>
@@ -438,9 +438,9 @@ val do_app_const = store_thm("do_app_const",
 val evaluate_ind = theorem"evaluate_ind"
 
 val evaluate_clock_help = prove (
-  ``(!tup vs s2.
+  ``(!tup vs (s2:'ffi closSem$state).
       (evaluate tup = (vs,s2)) ==> s2.clock <= (SND (SND tup)).clock) ∧
-    (!loc_opt f args s1 vs s2.
+    (!loc_opt f args (s1:'ffi closSem$state) vs s2.
       (evaluate_app loc_opt f args s1 = (vs,s2)) ==> s2.clock <= s1.clock)``,
   ho_match_mp_tac evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
@@ -471,9 +471,9 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-  [``check_clock s1 s2 = s1:closSem$state``,
-   ``(s.clock = 0 \/ b1) <=> (s:closSem$state).clock = 0``,
-   ``(s.clock < k \/ b2) <=> (s:closSem$state).clock < k:num``]
+  [``check_clock s1 s2 = s1:'ffi closSem$state``,
+   ``(s.clock = 0 \/ b1) <=> (s:'ffi closSem$state).clock = 0``,
+   ``(s.clock < k \/ b2) <=> (s:'ffi closSem$state).clock < k:num``]
 
 val evaluate_ind = save_thm("evaluate_ind",let
   val raw_ind = evaluate_ind
@@ -528,30 +528,31 @@ val evaluate_def = save_thm("evaluate_def",let
 
 (* observational semantics *)
 
-val evaluate_with_io_def = Define `
-  evaluate_with_io exp s io k =
-    evaluate (exp,[],s with <| io := io ; clock := k |> )`;
-
-val sem_def = Define `
-  (sem exp s1 (Terminate io_list) <=>
-     (* there is some clock k such that evaluate reaches a result and
-        consumes the entire I/O trace, leaving nothing, i.e. SOME LNIL *)
+val semantics_def = Define `
+  (semantics exp s1 (Terminate Success io_list) <=>
      ?k s2 r.
-       evaluate_with_io exp s1 (SOME (fromList io_list)) k = (Rval r,s2) /\
-       s2.io = SOME LNIL) /\
-  (sem exp s1 (Diverge io_trace) <=>
-     (* for every clock k: evaluate fails to terminate and never
-        disagrees with the I/O trace, i.e. s2.io <> NONE *)
-     (!k. ?s2. (evaluate_with_io exp s1 (SOME io_trace) k =
-                 (Rerr (Rabort Rtimeout_error),s2)) /\
-               s2.io <> NONE) /\
-     (* for every proper prefix of the I/O trace: evaluate causes the
-        I/O component to disagree with the given I/O trace prefix *)
-     (!io. LPREFIX io io_trace /\ io <> io_trace ==>
-           ?k. ((SND (evaluate_with_io exp s1 (SOME io) k)).io = NONE))) /\
-  (sem exp s1 Fail <=>
-     (* evaluate fails internally for some clock and some I/O trace *)
-     ?k io. FST (evaluate_with_io exp s1 (SOME io) k) =
+       evaluate (exp,[],s1 with clock := k) = (Rval r,s2) /\
+       ¬s2.ffi.ffi_failed ∧
+       REVERSE s2.ffi.io_events = io_list) /\
+  (semantics exp s1 (Terminate FFI_error io_list) <=>
+     ?k s2 res.
+       evaluate (exp,[],s1 with clock := k) = (res,s2) ∧
+       s2.ffi.ffi_failed ∧
+       REVERSE s2.ffi.io_events = io_list ∧
+       (∀k'. k' < k ⇒ ¬(SND (evaluate (exp,[],s1 with clock := k'))).ffi.ffi_failed)) ∧
+  (semantics exp s1 (Terminate Resource_limit_hit l) <=> F) /\
+  (semantics exp s1 (Diverge io_trace) <=>
+     (!k. ?s2 n.
+       (evaluate (exp,[],s1 with clock := k) =
+          (Rerr (Rabort Rtimeout_error),s2)) /\
+        ¬s2.ffi.ffi_failed ∧
+        LTAKE n io_trace = SOME (REVERSE s2.ffi.io_events)) /\
+     (!n io_list.
+       LTAKE n io_trace = SOME io_list ⇒
+         ?k. REVERSE (SND (evaluate (exp,[],s1 with clock :=  k))).ffi.io_events
+               = io_list)) /\
+  (semantics exp s1 Fail <=>
+     ?k. FST (evaluate (exp,[],s1 with clock := k)) =
             Rerr (Rabort Rtype_error))`
 
 val _ = export_theory()

@@ -9,7 +9,7 @@ val _ = Datatype `
      ; clock   : num
      ; global  : num option
      ; code    : (num # bvi$exp) num_map
-     ; io      : io_trace |> `
+     ; ffi     : 'ffi ffi_state |> `
 
 val dec_clock_def = Define `
   dec_clock x s = s with clock := s.clock - x`;
@@ -19,23 +19,23 @@ val LESS_EQ_dec_clock = prove(
   SRW_TAC [] [dec_clock_def] \\ DECIDE_TAC);
 
 val bvi_to_bvl_def = Define `
-  (bvi_to_bvl:bviSem$state->bvlSem$state) s =
+  (bvi_to_bvl:'ffi bviSem$state->'ffi bvlSem$state) s =
     <| refs := s.refs
      ; clock := s.clock
      ; code := map (K ARB) s.code
-     ; io := s.io |>`;
+     ; ffi := s.ffi |>`;
 
 val bvl_to_bvi_def = Define `
-  (bvl_to_bvi:bvlSem$state->bviSem$state->bviSem$state) s t =
+  (bvl_to_bvi:'ffi bvlSem$state->'ffi bviSem$state->'ffi bviSem$state) s t =
     t with <| refs := s.refs
             ; clock := s.clock
-            ; io := s.io |>`;
+            ; ffi := s.ffi |>`;
 
 val small_enough_int_def = Define `
   small_enough_int i <=> -1073741823 <= i /\ i <= 1073741823`;
 
 val do_app_aux_def = Define `
-  do_app_aux op (vs:bvlSem$v list) (s:bviSem$state) =
+  do_app_aux op (vs:bvlSem$v list) (s:'ffi bviSem$state) =
     case (op,vs) of
     | (Const i,xs) => if small_enough_int i then
                         SOME (SOME (Number i, s))
@@ -56,7 +56,7 @@ val do_app_aux_def = Define `
     | _ => SOME NONE`
 
 val do_app_def = Define `
-  do_app op vs (s:bviSem$state) =
+  do_app op vs (s:'ffi bviSem$state) =
     case do_app_aux op vs s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME (SOME (v,t)) => Rval (v,t)
@@ -68,7 +68,7 @@ val do_app_def = Define `
    a conventional big-step operational semantics. *)
 
 val check_clock_def = Define `
-  check_clock s1 s2 =
+  check_clock (s1:'ffi bviSem$state) (s2:'ffi bviSem$state) =
     if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
 
 val check_clock_thm = prove(
@@ -201,11 +201,11 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:bviSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:bviSem$state).clock < k:num``]
+                   [``check_clock s1 s2 = s1:'ffi bviSem$state``,
+                    ``(s.clock < k \/ b2) <=> (s:'ffi bviSem$state).clock < k:num``]
 
 val evaluate_ind = save_thm("evaluate_ind",let
-  val raw_ind = evaluate_ind
+  val raw_ind = evaluate_ind |> INST_TYPE[alpha|->``:'ffi``]
   val goal = raw_ind |> concl |> clean_term
   (* set_goal([],goal) *)
   val ind = prove(goal,
@@ -229,7 +229,7 @@ val evaluate_ind = save_thm("evaluate_ind",let
   in ind end);
 
 val evaluate_def = save_thm("evaluate_def",let
-  val goal = evaluate_def |> concl |> clean_term
+  val goal = evaluate_def |> INST_TYPE[alpha|->``:'ffi``] |> concl |> clean_term
   (* set_goal([],goal) *)
   val def = prove(goal,
     REPEAT STRIP_TAC
