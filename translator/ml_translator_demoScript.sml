@@ -22,7 +22,7 @@ val (qsort_eval,_) = get_cert "qsort"
 
 val Eval_Var_lemma = prove(
   ``(lookup_var name env = SOME x) /\ P x ==> Eval env (Var (Short name)) P``,
-  REPEAT STRIP_TAC THEN PairCases_on `env`
+  REPEAT STRIP_TAC
   THEN FULL_SIMP_TAC (srw_ss()) [Eval_def,lookup_var_id_def,
          Once bigStepTheory.evaluate_cases,lookup_var_def]);
 
@@ -47,9 +47,9 @@ val ML_QSORT_CORRECT = store_thm ("ML_QSORT_CORRECT",
       transitive ord /\ total ord
       ==>
       ?l' xs'.
-        evaluate F env (0,empty_store)
+        evaluate F env empty_state
             (App Opapp [App Opapp [Var (Short "qsort"); Var (Short "R")]; Var (Short "xs")])
-            ((0,empty_store),Rval xs') /\
+            (empty_state,Rval xs') /\
         (LIST_TYPE a l' xs') /\ PERM l l' /\ SORTED ord l'``,
   REPEAT STRIP_TAC THEN IMP_RES_TAC Eval_Var_lemma
   THEN IMP_RES_TAC Eval_QSORT_EXPANDED
