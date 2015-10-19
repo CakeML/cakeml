@@ -105,10 +105,40 @@ fun auto_prove proof_name (goal,tac) = let
   in if length rest = 0 then validation [] else let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
+structure astSyntax = struct
+  val pat_ty = mk_thy_type{Thy="ast",Tyop="pat",Args=[]};
+  val exp_ty = mk_thy_type{Thy="ast",Tyop="exp",Args=[]};
+  val pat_exp_ty = pairSyntax.mk_prod(pat_ty,exp_ty);
+  val dec_ty = mk_thy_type{Thy="ast",Tyop="dec",Args=[]};
+  val decs_ty = listSyntax.mk_list_type dec_ty;
+  local val s = HolKernel.syntax_fns1 "ast" in
+  val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
+  val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
+  val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
+  end
+  local val s = HolKernel.syntax_fns2 "ast" in
+  val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
+  val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
+  val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"
+  end
+end
+
+val empty_dec_list = listSyntax.mk_nil astSyntax.dec_ty;
+val Dtype_x = astSyntax.mk_Dtype (mk_var("x",#1(dom_rng(type_of astSyntax.Dtype_tm))));
+val Dletrec_funs = astSyntax.mk_Dletrec (mk_var("funs",#1(dom_rng(type_of astSyntax.Dletrec_tm))));
+val Dexn_n_l =
+  let val args = #1(boolSyntax.strip_fun(type_of astSyntax.Dexn_tm)) in
+    astSyntax.mk_Dexn (mk_var("n",el 1 args), mk_var("l",el 2 args))
+  end
+val Dlet_v_x =
+  let val args = #1(boolSyntax.strip_fun(type_of astSyntax.Dlet_tm)) in
+    astSyntax.mk_Dlet (mk_var("v",el 1 args), mk_var("x",el 2 args))
+  end
+
 local
   (* inv: get_DeclAssum () is a hyp in each thm in each !cert_memory *)
   val decl_abbrev = ref TRUTH;
-  val decl_term   = ref ``[]:dec list``;
+  val decl_term   = ref empty_dec_list;
   val cert_memory = ref ([] : (string * term * thm * thm) list);
   val cenv_eq_thm = ref (DeclAssumCons_NIL |> GEN_ALL |> Q.SPEC `NONE`)
   val decl_exists = ref (DeclAssumExists_NIL |> GEN_ALL |> Q.SPEC `NONE`)
@@ -145,7 +175,7 @@ in
   fun cert_reset () =
     (decl_name := "";
      decl_abbrev := TRUTH;
-     decl_term   := ``[]:dec list``;
+     decl_term   := empty_dec_list;
      cert_memory := [];
      cenv_eq_thm := (DeclAssumCons_NIL |> GEN_ALL |> Q.SPEC `NONE`);
      decl_exists := (DeclAssumExists_NIL |> GEN_ALL |> Q.SPEC `NONE`);
@@ -170,7 +200,7 @@ in
     val rhs = (!decl_term)
     val name = get_decl_name () ^ "_decls_" ^ int_to_string (!abbrev_counter)
     val _ = (abbrev_counter := 1 + (!abbrev_counter))
-    val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
+    val abbrev_def = new_definition(name,mk_eq(mk_var(name,astSyntax.decs_ty),rhs))
     val new_rw = REWRITE_RULE [abbrev_def |> GSYM]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
     val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
@@ -201,7 +231,7 @@ in
     val lemma = expand_abbrevs (!abbrev_defs) |> CONV_RULE (RAND_CONV c)
     val rhs = lemma |> concl |> rand
     val name = get_decl_name () ^ "_decls"
-    val abbrev_def = new_definition(name,mk_eq(mk_var(name,``:decs``),rhs))
+    val abbrev_def = new_definition(name,mk_eq(mk_var(name,astSyntax.decs_ty),rhs))
     val new_rw = RW [lemma |> CONV_RULE (RAND_CONV (REWR_CONV (SYM abbrev_def)))]
     val _ = map_cert_memory (fn (n,tm,th,pre) => (n,tm,new_rw th,pre))
     val _ = (cenv_eq_thm := new_rw (!cenv_eq_thm))
@@ -221,7 +251,7 @@ in
   val eval = computeLib.CBV_CONV cs
   (* val previous_all_distinct = ref TRUTH *)
   fun snoc_cenv_eq_thm decl =
-    if can (match_term ``(Dtype x) : dec``) decl then
+    if can (match_term Dtype_x) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dtype) (!cenv_eq_thm)
       |> SPEC (decl |> rand)
       |> print_time "DeclAssumCons_SNOC_Dtype pre"
@@ -232,7 +262,7 @@ in
          CONV_RULE (RAND_CONV EVAL THENC
                     (RATOR_CONV o RAND_CONV) EVAL))
       |> (fn th => (cenv_eq_thm := th; th))
-    else if can (match_term ``(Dexn n l) : dec``) decl then
+    else if can (match_term Dexn_n_l) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dexn) (!cenv_eq_thm)
       |> SPEC (decl |> rator |> rand)
       |> SPEC (decl |> rand)
@@ -244,11 +274,11 @@ in
          CONV_RULE (RAND_CONV EVAL THENC
                     (RATOR_CONV o RAND_CONV) EVAL))
       |> (fn th => (cenv_eq_thm := th; th))
-    else if can (match_term ``(Dlet v x) : dec``) decl then
+    else if can (match_term Dlet_v_x) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dlet) (!cenv_eq_thm)
       |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
       |> (fn th => (cenv_eq_thm := th; th))
-    else if can (match_term ``(Dletrec funs) : dec``) decl then
+    else if can (match_term Dletrec_funs) decl then
       MATCH_MP (INST_mn DeclAssumCons_SNOC_Dletrec) (!cenv_eq_thm)
       |> SPEC (rand decl)
       |> (fn th => (cenv_eq_thm := th; th))
@@ -257,18 +287,18 @@ in
   fun snoc_decl decl = let
     val _ = print_time "snoc_cenv_eq_thm" snoc_cenv_eq_thm decl
     val _ = (decl_term := listSyntax.mk_snoc(decl,!decl_term))
-    val f = if can (match_term ``(Dletrec funs) : dec``) decl then
+    val f = if can (match_term Dletrec_funs) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(MATCH_MP (INST_mn DeclAssum_Dletrec) th |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
-            else if can (match_term ``(Dlet v x) : dec``) decl then
+            else if can (match_term Dlet_v_x) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(MATCH_MP (INST_mn DeclAssum_Dlet) th
                  |> SPEC (rand (rand (rator decl))) |> SPEC (rand decl)
                  |> CONV_RULE ((RATOR_CONV o RAND_CONV) EVAL) |> REWRITE_RULE [])
                  handle HOL_ERR _ => th,pre))
-            else if can (match_term ``(Dtype x) : dec``) decl then
+            else if can (match_term Dtype_x) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(th |> SPEC_ALL
                           |> Q.GEN `tys`
@@ -278,7 +308,7 @@ in
                           |> SPEC_ALL
                           |> Q.GEN `env`)
                       handle HOL_ERR _ => th,pre))
-            else if can (match_term ``(Dexn n l) : dec``) decl then
+            else if can (match_term Dexn_n_l) decl then
               (fn (n:string,tm:term,th,pre) =>
                 (n,tm,(th |> SPEC_ALL
                           |> Q.GEN `tys`
@@ -1211,7 +1241,7 @@ fun derive_thms_for_type is_exn_type ty = let
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
-    in (``(Dtype ^dtype_list): dec``,dtype_list) end
+    in (astSyntax.mk_Dtype dtype_list,dtype_list) end
   val dexn_list = if not is_exn_type then [] else let
     val xs = dtype |> rand |> rator |> rand |> rand |> rand
                    |> listSyntax.dest_list |> fst
@@ -1283,23 +1313,23 @@ fun derive_thms_for_type is_exn_type ty = let
       val xs = map (fn x => let val s = str_tl (fst (dest_var x)) in
                             (x,mk_var("n" ^ s,``:string``),
                                mk_var("v" ^ s,``:v``)) end) xs
-      val exp = mk_var("exp" ^ int_to_string n, ``:exp``)
+      val exp = mk_var("exp" ^ int_to_string n, astSyntax.exp_ty)
       in (n,f,fxs,pxs,tm,exp,xs) end
     val ts = map mk_vars ys
     (* patterns *)
     val patterns = map (fn (n,f,fxs,pxs,tm,exp,xs) => let
       val str = tag_name name (repeat rator tm |> dest_const |> fst)
       val str = stringSyntax.fromMLstring str
-      val vars = map (fn (x,n,v) => ``Pvar ^n``) xs
-      val vars = listSyntax.mk_list(vars,``:pat``)
+      val vars = map (fn (x,n,v) => astSyntax.mk_Pvar n) xs
+      val vars = listSyntax.mk_list(vars,astSyntax.pat_ty)
       val tag_tm = if name = "PAIR_TYPE"
                    then ``NONE:tvarN id option``
                    else ``(SOME (Short ^str))``
-      in ``(Pcon ^tag_tm ^vars, ^exp)`` end) ts
-    val patterns = listSyntax.mk_list(patterns,``:pat # exp``)
+      in pairSyntax.mk_pair(astSyntax.mk_Pcon(tag_tm,vars), exp) end) ts
+    val patterns = listSyntax.mk_list(patterns,astSyntax.pat_exp_ty)
     val ret_inv = get_type_inv ret_ty
     val result = mk_comb(ret_inv,exp)
-    val exp_var = mk_var("exp", ``:exp``)
+    val exp_var = mk_var("exp", astSyntax.exp_ty)
     val result = ``Eval env (Mat ^exp_var ^patterns) ^result``
     (* assums *)
     val vs = map (fn (n,f,fxs,pxs,tm,exp,xs) => map (fn (x,_,_) => x) xs) ts |> flatten
@@ -1414,10 +1444,10 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
   fun derive_cons ty inv_lhs inv_def (n,f,fxs,pxs,tm,exp,xs) = let
     val pat = tm
     fun str_tl s = implode (tl (explode s))
-    val exps = map (fn (x,_,_) => (x,mk_var("exp" ^ str_tl (fst (dest_var x)), ``: exp``))) xs
+    val exps = map (fn (x,_,_) => (x,mk_var("exp" ^ str_tl (fst (dest_var x)), astSyntax.exp_ty))) xs
     val tag = tag_name name (repeat rator tm |> dest_const |> fst)
     val str = stringLib.fromMLstring tag
-    val exps_tm = listSyntax.mk_list(map snd exps,``:exp``)
+    val exps_tm = listSyntax.mk_list(map snd exps,astSyntax.exp_ty)
     val inv = inv_lhs |> rator |> rator
     val tag_name = if name = "PAIR_TYPE"
                    then ``NONE:tvarN id option``
