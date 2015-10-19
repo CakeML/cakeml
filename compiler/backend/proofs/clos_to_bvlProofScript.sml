@@ -2935,7 +2935,7 @@ val compile_correct = Q.store_thm("compile_correct",
     map_every qexists_tac[`f1`,`aux1`]>>simp[]>>rfs[]>>
     cheat)
   THEN1 (* Letrec *)
-   (rw [] >>
+   (cheat (* rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_def]
@@ -3146,7 +3146,7 @@ val compile_correct = Q.store_thm("compile_correct",
       \\ `?num e. EL i exps = (num, e)` by metis_tac [pair_CASES]
       \\ fs []
       \\ MATCH_MP_TAC (compile_LIST_IMP_compile_EL |> SPEC_ALL)
-      \\ fs [Abbr`exps`])
+      \\ fs [Abbr`exps`]) *)
    )
   THEN1 (* App *)
    (rw [] >>
