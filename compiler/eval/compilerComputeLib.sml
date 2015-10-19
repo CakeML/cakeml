@@ -236,13 +236,9 @@ fun add_compiler_compset compset = let
     bvl_to_bviTheory.CopyGlobals_code_def,
     bvl_to_bviTheory.AllocGlobal_code_def,
     bvl_to_bviTheory.InitGlobals_code_def,
-    bvl_to_bviTheory.set_globals_count_def,
     bvl_to_bviTheory.CopyGlobals_location_def,
     bvl_to_bviTheory.AllocGlobal_location_def,
     bvl_to_bviTheory.InitGlobals_location_def,
-    bvl_to_bviTheory.get_globals_count_def,
-    bvl_to_bviTheory.get_globals_ptr_def,
-    bvl_to_bviTheory.set_globals_ptr_def,
     bvl_to_bviTheory.compile_int_def
     ] compset
   (*TODO: bvi to bvi compilation steps*)
