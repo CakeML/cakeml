@@ -127,7 +127,6 @@ val state_rel_def = Define `
   state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
     (s.clock = t.clock) /\
     (s.ffi = t.ffi) /\
-    ~s.restrict_envs /\ t.restrict_envs /\
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     (FDOM s.refs = FDOM t.refs) /\
     (!n r1.
@@ -659,7 +658,6 @@ val shift_correct = Q.prove(
     \\ IMP_RES_TAC do_app_thm \\ fs [])
   THEN1 (* Fn *)
    (fs [free_def,evaluate_def]
-    \\ `~s1.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `?y1 l1. free [exp] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
@@ -713,7 +711,6 @@ val shift_correct = Q.prove(
     \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list]*))
   THEN1 (* Letrec *)
    (cheat (* fs [free_def,evaluate_def]
-    \\ `~s1.restrict_envs /\ t1.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `EVERY (\(num_args,e). num_args <= max_app /\

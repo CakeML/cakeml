@@ -286,8 +286,7 @@ val val_rel_def = tDefine "val_rel" `
                else
                  T)
            s.code s'.code ∧
-  s.ffi = s'.ffi ∧
-  s.restrict_envs = s'.restrict_envs)`
+  s.ffi = s'.ffi)`
 (WF_REL_TAC `inv_image ($< LEX $< LEX $<)
              \x. case x of
                      | INL (_,i,v,v') => (i:num,0:num,v_size v)

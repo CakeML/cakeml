@@ -148,7 +148,6 @@ val code_rel_def = Define`
 val state_rel_def = Define `
   state_rel (s:'ffi closSem$state) (t:'ffi closSem$state) <=>
     (s.clock = t.clock) /\ (s.ffi = t.ffi) /\
-    (s.restrict_envs = t.restrict_envs) ∧
     fmap_rel (ref_rel v_rel) s.refs t.refs ∧
     EVERY2 (OPTREL v_rel) s.globals t.globals /\
     fmap_rel code_rel s.code t.code`
@@ -647,7 +646,6 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     every_case_tac >> fs[] >> rw[v_rel_simp])
   THEN1 (* Fn *)
    (fs [renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
-    `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
     fs[clos_env_def] >> rw[] >> fs[contains_App_SOME_def] >> rw[v_rel_simp] >>
     TRY (fs [] >> PROVE_TAC[]) >>
     last_x_assum mp_tac >>
@@ -675,7 +673,6 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     simp[] )
   THEN1 (* Letrec *)
    (cheat (* fs[renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
-    `t1.restrict_envs = s.restrict_envs` by fs[state_rel_def] >>
     Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
     imp_res_tac renumber_code_locs_list_length >>
     fs [EVERY_ZIP, MAP_ZIP] >>

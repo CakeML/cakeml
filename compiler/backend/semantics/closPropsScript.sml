@@ -311,11 +311,9 @@ val evaluate_const_ind =
   evaluate_ind
   |> Q.SPEC `\(xs,env,s).
        (case evaluate (xs,env,s) of (_,s1) =>
-          (s1.restrict_envs = s.restrict_envs) /\
           (s1.code = s.code))`
   |> Q.SPEC `\x1 x2 x3 x4.
        (case evaluate_app x1 x2 x3 x4 of (_,s1) =>
-          (s1.restrict_envs = x4.restrict_envs) /\
           (s1.code = x4.code))`
 
 val evaluate_const_lemma = prove(
@@ -330,7 +328,6 @@ val evaluate_const_lemma = prove(
 
 val evaluate_const = store_thm("evaluate_const",
   ``(evaluate (xs,env,s) = (res,s1)) ==>
-      (s1.restrict_envs = s.restrict_envs) /\
       (s1.code = s.code)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
@@ -338,7 +335,6 @@ val evaluate_const = store_thm("evaluate_const",
 
 val evaluate_app_const = store_thm("evaluate_app_const",
   ``(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
-      (s1.restrict_envs = x4.restrict_envs) /\
       (s1.code = x4.code)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)

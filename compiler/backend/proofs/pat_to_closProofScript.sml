@@ -36,8 +36,8 @@ val compile_csg_def = Define`
        refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s))) (LENGTH s));
        ffi := t;
        clock := c;
-       code := FEMPTY;
-       restrict_envs := F |>`;
+       code := FEMPTY
+    |>`;
 
 (* semantic functions respect translation *)
 
@@ -103,10 +103,6 @@ val Boolv = store_thm("Boolv[simp]",
 
 (* compiler correctness *)
 
-val compile_csg_restrict_envs = prove(
-  ``~(compile_csg s).restrict_envs``,
-  PairCases_on `s` \\ fs [compile_csg_def]);
-
 val true_neq_false = EVAL``true_tag = false_tag`` |> EQF_ELIM;
 
 val arw = srw_tac[ARITH_ss]
@@ -159,7 +155,7 @@ val compile_correct = Q.store_thm("compile_correct",
     simp[evaluate_def,do_app_def] >>
     rpt gen_tac >>
     PairCases_on`s`>>simp[compile_csg_def,get_global_def,EL_MAP] ) >>
-  strip_tac >- simp[evaluate_def,ETA_AX,compile_csg_restrict_envs,clos_env_def,max_app_def] >>
+  strip_tac >- simp[evaluate_def,ETA_AX,clos_env_def,max_app_def] >>
   strip_tac >- (
     simp[evaluate_def,MAP_REVERSE,ETA_AX] >>
     rw[evaluate_def] >>
@@ -545,7 +541,7 @@ val compile_correct = Q.store_thm("compile_correct",
   strip_tac >- (
     simp[evaluate_def] >>
     rw[] >> fs[EXISTS_MAP,max_app_def] >>
-    fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,compile_csg_restrict_envs,
+    fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (

@@ -54,7 +54,6 @@ val state_rel_def = Define`
   state_rel g (s:'ffi closSem$state) (t:'ffi closSem$state) ⇔
     (s.ffi = t.ffi) ∧
     (s.clock = t.clock) ∧
-    ¬s.restrict_envs ∧ ¬t.restrict_envs ∧
     (∀i. i < LENGTH s.globals ⇒
          i < LENGTH t.globals ∧
          ∃a. lookup i g = SOME a ∧

@@ -24,7 +24,7 @@ val _ = Datatype `
      ; ffi     : 'ffi ffi_state
      ; clock   : num
      ; code    : num |-> (num # closLang$exp)
-     ; restrict_envs : bool |> `
+    |> `
 
 (* helper functions *)
 
@@ -437,8 +437,7 @@ val check_clock_IMP = prove(
 val do_app_const = store_thm("do_app_const",
   ``(do_app op args s1 = Rval (res,s2)) ==>
     (s2.clock = s1.clock) /\
-    (s2.code = s1.code) /\
-    (s2.restrict_envs = s1.restrict_envs)``,
+    (s2.code = s1.code)``,
   SIMP_TAC std_ss [do_app_def]
   \\ BasicProvers.EVERY_CASE_TAC
   \\ fs [LET_DEF] \\ SRW_TAC [] [] \\ fs []);

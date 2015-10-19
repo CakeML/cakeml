@@ -744,7 +744,6 @@ val env_rel_IMP_EL =
 val state_rel_def = Define `
   state_rel f (s:'ffi closSem$state) (t:'ffi bvlSem$state) <=>
     (s.ffi = t.ffi) /\
-    s.restrict_envs /\
     LIST_REL (OPTREL (v_rel f t.refs t.code)) s.globals t.globals /\
     INJ ($' f) (FDOM f) (FRANGE f) /\
     (FDOM f = FDOM s.refs) /\
@@ -2912,7 +2911,6 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ fs [LET_DEF] \\ SRW_TAC [] []
     \\ fs [code_installed_def]
     \\ fs [bEval_def,bvlPropsTheory.evaluate_APPEND,bvlSemTheory.do_app_def,domain_lookup]
-    \\ `s.restrict_envs` by fs [state_rel_def]
     \\ fs [clos_env_def]
     \\ IMP_RES_TAC lookup_vars_IMP >> TRY (
     POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
@@ -2939,7 +2937,6 @@ val compile_correct = Q.store_thm("compile_correct",
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_def]
-    \\ `s.restrict_envs` by fs [state_rel_def]
     \\ fs [build_recc_def,clos_env_def]
     \\ Cases_on `lookup_vars names env` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `fns` \\ fs []
