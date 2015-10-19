@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS = ../../../miscLib ../monadic/holKernelTheory
+BARE_THYS = ../../../preamble ../monadic/holKernelTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 

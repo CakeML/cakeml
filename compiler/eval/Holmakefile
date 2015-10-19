@@ -1,4 +1,4 @@
-INCLUDES = .. ../../semantics ../../targets/asm ../../reg_alloc
+INCLUDES = .. ../../semantics ../targets/asm ../backend/reg_alloc
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -13,7 +13,7 @@ PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../../semantics/terminationTheory ../../targets/asm/asmTheory ../../reg_alloc/reg_allocTheory
+BARE_THYS = ../../semantics/terminationTheory ../targets/asm/asmTheory ../backend/reg_alloc/reg_allocTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

@@ -1226,7 +1226,8 @@ fun derive_thms_for_type is_exn_type ty = let
     val l = x2 |> listSyntax.dest_list |> fst |> length |> numSyntax.term_of_int
     val tyi = if is_exn_type then ``TypeExn`` else ``TypeId``
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
-    in ``lookup_cons ^x1 env = SOME (^l,^tyi ^name)`` end
+    val env = mk_var("env",``:v environment``)
+    in ``lookup_cons ^x1 ^env = SOME (^l,^tyi ^name)`` end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1313,7 +1314,7 @@ fun derive_thms_for_type is_exn_type ty = let
       if type_of tm = ty then (mk_comb(rator (rator inv_lhs),tm)) else
         (mk_comb(get_type_inv (type_of tm),tm))
     fun mk_hyp (n,f,fxs,pxs,tm,exp,xs) = let
-      val env = mk_var("env",``:all_env``)
+      val env = mk_var("env",``:v environment``)
       val env = foldr (fn ((x,n,v),y) => ``write ^n ^v ^y``) env (rev xs)
       val tm = map (fn (x,n,v) => mk_comb(find_inv x,v)) xs @ [pxs]
       val tm = if tm = [] then T else list_mk_conj tm
@@ -1339,28 +1340,29 @@ fun derive_thms_for_type is_exn_type ty = let
       ``evaluate c x env (Mat e pats) (xx,Rval res)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC SIMP_CONV (srw_ss()) [])
     val evaluate_match_Conv =
-      ``evaluate_match c x env args
+      ``evaluate_match c env st args
            ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y)``
       |> (ONCE_REWRITE_CONV [evaluate_cases] THENC
           SIMP_CONV (srw_ss()) [pmatch_def])
     val evaluate_match_rw = prove(
-      ``evaluate_match c (menv,cenv,env) (e1,e2) args
+      ``evaluate_match c env st args
           ((Pcon xx pats,exp2)::pats2) errv (yyy,Rval y) <=>
         ALL_DISTINCT (pat_bindings (Pcon xx pats) []) /\
-        case pmatch cenv e2 (Pcon xx pats) args env of
+        case pmatch env.c st.refs (Pcon xx pats) args env.v of
         | No_match =>
-            evaluate_match c (menv,cenv,env) (e1,e2) args pats2 errv (yyy,Rval y)
+            evaluate_match c env st args pats2 errv (yyy,Rval y)
         | Match env7 =>
-            evaluate c (menv,cenv,env7) (e1,e2) exp2 (yyy,Rval y)
+            evaluate c (env with v := env7) st exp2 (yyy,Rval y)
         | _ => F``,
       SIMP_TAC std_ss [evaluate_match_Conv
-        |> Q.INST [`x`|->`(menv,cenv,e)`,`env`|->`(e1,e2)`]
-        |> Q.INST [`e`|->`env`]
         |> SIMP_RULE std_ss []]
-      \\ Cases_on `pmatch cenv e2 (Pcon xx pats) args env`
+      \\ Cases_on `pmatch env.c st.refs (Pcon xx pats) args env.v`
       \\ FULL_SIMP_TAC (srw_ss()) []);
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
+    val with_same_v = ``env with v := env.v = env``
+                      |> SIMP_CONV (srw_ss()) [environment_component_equality]
+                      |> EQT_ELIM
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
     val init_tac =
@@ -1385,15 +1387,15 @@ fun derive_thms_for_type is_exn_type ty = let
                 SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
           \\ CONV_TAC (REWR_CONV Eval_def) \\ Q.EXISTS_TAC `res`
           \\ ASM_REWRITE_TAC [evaluate_Mat]
-          \\ Q.LIST_EXISTS_TAC [`v`,`0,empty_store`] \\ ASM_REWRITE_TAC []
-          \\ PairCases_on `env`
+          \\ Q.LIST_EXISTS_TAC [`v`,`empty_state`] \\ ASM_REWRITE_TAC []
           \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
                   lookup_cons_def,same_tid_def,id_to_n_def,
                   same_ctor_def,write_def]
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
-                  same_ctor_def,same_tid_def,id_to_n_def,write_def])
+                  same_ctor_def,same_tid_def,id_to_n_def,write_def,
+                  with_same_v])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
 (*
 val n = 1
@@ -1439,9 +1441,9 @@ val (n,f,fxs,pxs,tm,exp,xs) = hd ts
     val lemma = prove(goal,
       SIMP_TAC std_ss [Eval_def] \\ REPEAT STRIP_TAC
       \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) [PULL_EXISTS]
-      \\ PairCases_on `env`
+      (*\\ PairCases_on `env`*)
       \\ FULL_SIMP_TAC (srw_ss()) [inv_def,evaluate_list_SIMP,do_con_check_def,
-           all_env_to_cenv_def,lookup_cons_def,build_conv_def,id_to_n_def]
+           (*all_env_to_cenv_def,*)lookup_cons_def,build_conv_def,id_to_n_def]
       \\ EXISTS_TAC ``REVERSE ^witness``
       \\ FULL_SIMP_TAC std_ss [CONS_11,evaluate_list_SIMP,REVERSE_REVERSE]
       \\ FULL_SIMP_TAC std_ss [REVERSE_DEF,evaluate_list_SIMP,APPEND,CONS_11])
@@ -1615,7 +1617,7 @@ fun inst_case_thm tm hol2deep = let
     val lemma = hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:all_env``)
+    val env = mk_var("env",``:v environment``)
     val lemma = INST [env|->new_env] lemma
                 |> PURE_REWRITE_RULE [lookup_cons_write]
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
@@ -1720,7 +1722,7 @@ fun prove_EvalPatRel goal hol2deep = let
     set_goal(asms,goal)
   *)
   val th = TAC_PROOF((asms,goal),
-    PairCases_on `env` >>
+    (*PairCases_on `env` >>*)
     simp[EvalPatRel_def,EXISTS_PROD] >>
     SRW_TAC [] [] \\ fs [] >>
     POP_ASSUM MP_TAC >>
@@ -2398,7 +2400,7 @@ fun apply_Eval_Recclosure recc fname v th = let
   val inv = get_type_inv (type_of v)
   val pat = lemma |> concl |> find_term (can (match_term ``Eval env``))
   val new_env = pat |> rand
-  val old_env = ``env:all_env``
+  val old_env = ``env:v environment``
   val assum = subst [old_env|->new_env]
                 ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -2434,7 +2436,7 @@ fun apply_Eval_Recclosure recc fname v th = let
 
 fun clean_assumptions th4 = let
   (* lift cl_env assumptions out *)
-  val env = mk_var("env",``:all_env``)
+  val env = mk_var("env",``:v environment``)
   val pattern = ``DeclAssum mn ds ^env tys``
   val cl_assums = find_terms (fn tm => can (match_term pattern) tm) (concl th4)
   val th5 = REWRITE_RULE (map ASSUME cl_assums) th4
@@ -3115,7 +3117,8 @@ local
   val () = combinLib.add_combin_compset cs2
   val () = optionLib.OPTION_rws cs2
   val () = computeLib.add_thms [initSemEnvTheory.prim_sem_env_eq] cs2
-  val () = computeLib.add_datatype_info cs2 (valOf(TypeBase.fetch``:sem_environment``))
+  (* val () = computeLib.add_datatype_info cs2 (valOf(TypeBase.fetch``:sem_environment``)) *)
+  val () = computeLib.add_datatype_info cs2 (valOf(TypeBase.fetch``:v environment``))
   val eval2 = computeLib.CBV_CONV cs2
 in
   fun finalise_module_translation () = let
@@ -3410,8 +3413,8 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
       |> REWRITE_RULE [EVERY_DEF]
       |> CONV_RULE (DEPTH_CONV PairRules.PBETA_CONV)
       |> REWRITE_RULE [GSYM CONJ_ASSOC,MAP,o_THM]
-    val ss = subst [``env1:all_env``|->``env:all_env``,
-                    ``env:all_env``|->``cl_env:all_env``]
+    val ss = subst [``env1:v environment``|->``env:v environment``,
+                    ``env:v environment``|->``cl_env:v environment``]
     val ts = lemma |> concl |> dest_imp |> fst
                    |> dest_forall |> snd |> dest_forall |> snd
                    |> ss |> dest_imp |> fst
