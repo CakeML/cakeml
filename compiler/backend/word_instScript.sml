@@ -1,9 +1,9 @@
-open preamble wordLangTheory
+open preamble wordLangTheory sortingTheory;
 
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
-(*Copied from wordSem?*)
+(*TODO: These were copied from wordSem, so they should probably go into wordLangTheory*)
 val num_exp_def = Define `
   (num_exp (Nat n) = n) /\
   (num_exp (Add x y) = num_exp x + num_exp y) /\
@@ -12,7 +12,74 @@ val num_exp_def = Define `
   (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
   (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
-(*TODO: Optimize constants in expressions, leaving constants on the right*)
+
+val word_op_def = Define `
+  word_op op (ws:('a word) list) =
+    case (op,ws) of
+    | (And,ws) => SOME (FOLDR word_and (~0w) ws)
+    | (Add,ws) => SOME (FOLDR word_add 0w ws)
+    | (Or,ws) => SOME (FOLDR word_or 0w ws)
+    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
+    | (Sub,[w1;w2]) => SOME (w1 - w2)
+    | _ => NONE`;
+
+(*Scheme:
+Precond: None
+1) Convert Sub [ x ; Const w ] to Add [x ; Const ~w], pull all nested ops and consts as high up as possible to the top
+Condition: No Sub[X;Const w]
+2) Flatten to binary branching, leaving constants on the left (probably more efficient)
+3)
+
+*)
+
+(*Pull all nested arguments with the same op up
+NOTE: Proof may be easier if this wasn't tail recursive..
+*)
+val pull_ops_def = Define`
+  (pull_ops op [] acc = acc) ∧
+  (pull_ops op (x::xs) acc =
+    case x of
+    |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
+    |  _  => pull_ops op xs (x::acc))`
+
+(*
+EVAL ``pull_ops Add [Op Add [a;b;c];Op Or [a;b;c]] []``
+*)
+val is_const_def = Define`
+  (is_const (Const w) = T) ∧
+  (is_const _ = F)`
+
+val rm_const_def = Define`
+  (rm_const (Const w) = w) ∧
+  (*Make it total*)
+  (rm_const _ = 0w)`
+
+val pull_exp_def = tDefine "pull_exp"`
+  (pull_exp (Op Sub [Const w1;Const w2]) = Const (w1 - w2)) ∧
+  (pull_exp (Op Sub [x;Const w]) = Op Add [pull_exp x; Const (~w)]) ∧
+  (pull_exp (Op Sub ls) = Op Sub (MAP pull_exp ls)) ∧
+  (pull_exp (Op op ls) =
+    (*First, pull all the inner expressions*)
+    let new_ls = MAP pull_exp ls in
+    (*Then pull at the topmost*)
+    let pull_ls = pull_ops op new_ls [] in
+    (*Now optimize*)
+    let (const_ls,nconst_ls) = PARTITION is_const pull_ls in
+    let w = THE (word_op op (MAP rm_const const_ls)) in
+    case nconst_ls of
+      [] => Const w
+    | _ => Op op (Const w::nconst_ls)) ∧
+  (pull_exp (Load exp) = Load (pull_exp exp)) ∧
+  (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
+  (pull_exp exp = exp)`
+  (WF_REL_TAC `measure (exp_size ARB)`
+   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+   \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+   \\ fs[exp_size_def,asmTheory.binop_size_def,asmTheory.shift_size_def,store_name_size_def]
+   \\ TRY (DECIDE_TAC))
+
+
+(*TODO: Check the code below: constants are on the head element*)
 
 (*Flatten list expressions to trees -- of the form:
       +
@@ -25,8 +92,8 @@ c d
 *)
 val flatten_exp_def = tDefine "flatten_exp" `
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
-  (flatten_exp (Op And []) = Const (~0w)) ∧ (*I guess this should never occur..*)
-  (flatten_exp (Op op []) = Const (0w)) ∧ (*I guess this should never occur..*)
+  (flatten_exp (Op And []) = Const (~0w)) ∧
+  (flatten_exp (Op op []) = Const (0w)) ∧
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
@@ -38,7 +105,9 @@ val flatten_exp_def = tDefine "flatten_exp" `
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC))
 
-(*val test = EVAL ``flatten_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w]] ; Const 8w])``*)
+(*
+val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
+*)
 
 (*
   Maximal Munch instruction selection on (binary) expressions
