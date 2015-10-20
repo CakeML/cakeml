@@ -6,7 +6,7 @@ open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory
     local open interpTheory in
       val () = compute_semanticsLib.add_ast_compset compset
 
-      val () = add_datatype ``:'ffi state`` compset
+      val () = add_datatype compset ``:'ffi state``
       val () = computeLib.add_thms
       [run_eval_def
       ,run_eval_dec_def
