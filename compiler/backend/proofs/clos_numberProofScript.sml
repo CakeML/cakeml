@@ -3,6 +3,11 @@ open preamble closLangTheory clos_numberTheory closSemTheory closPropsTheory;
 val _ = new_theory"clos_numberProof";
 
 (* properties of renumber_code_locs *)
+val option_case_eq = prove(
+  ``(option_CASE opt n s = v) ⇔
+      (opt = NONE ∧ v = n) ∨ (∃x. opt = SOME x ∧ v = s x)``,
+  Cases_on `opt` >> simp[EQ_SYM_EQ]);
+
 
 fun tac (g as (asl,w)) =
   let
@@ -532,6 +537,15 @@ val lookup_vars_NONE_related_env = Q.store_thm(
   strip_tac >> `LENGTH e1 = LENGTH e2` by metis_tac[LIST_REL_LENGTH] >>
   metis_tac[lookup_vars_NONE]);
 
+val lookup_vars_SOME_related_env = Q.store_thm(
+  "lookup_vars_SOME_related_env",
+  `LIST_REL v_rel e1 e2 ∧ lookup_vars vs e1 = SOME e1' ∧
+   lookup_vars vs e2 = SOME e2' ⇒ LIST_REL v_rel e1' e2'`,
+  map_every qid_spec_tac [`e2'`, `e1'`, `e2`, `e1`, `vs`] >> Induct >>
+  simp[lookup_vars_def] >>
+  dsimp[option_case_eq] >> reverse conj_tac >- metis_tac[] >>
+  simp[LIST_REL_EL_EQN]);
+
 val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
   `(!tmp xs env (s1:'ffi closSem$state) env' t1 res s2 n.
      tmp = (xs,env,s1) ∧
@@ -672,7 +686,7 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     imp_res_tac lookup_vars_MEM >>
     simp[] )
   THEN1 (* Letrec *)
-   (cheat (* fs[renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
+   (fs[renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
     Cases_on`renumber_code_locs_list n (MAP SND fns)`>>fs[]>>
     imp_res_tac renumber_code_locs_list_length >>
     fs [EVERY_ZIP, MAP_ZIP] >>
@@ -681,49 +695,28 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     >- (rw [] >> rw [])
     >- rw [] >>
     fs [combinTheory.o_DEF, EVERY_MAP, LAMBDA_PROD] >>
-    fs[build_recc_def,clos_env_def] >> reverse(rw[]) >> fs[contains_App_SOME_def] >> rw[] >- (
-      Cases_on `namesopt` >> fs[]
-      >- (first_x_assum MATCH_MP_TAC >> rw[] >>
-          MATCH_MP_TAC EVERY2_APPEND_suff >> rw[] >>
-          imp_res_tac renumber_code_locs_list_length >>
-          rw[LIST_REL_EL_EQN,EL_GENLIST] >>
-          rw[v_rel_simp] >>
-          METIS_TAC[SND])
-      >- (qcase_tac `lookup_vars vv env` >> Cases_on `lookup_vars vv env` >>
-          fs[]
-          >- (qcase_tac `LIST_REL v_rel env1 env2` >>
-              `lookup_vars vv env2 = NONE`
+    fs[build_recc_def,clos_env_def] >> reverse(rw[]) >>
+    fs[contains_App_SOME_def] >> rw[] >>
+    Cases_on `namesopt` >> fs[]
+    >- (first_x_assum MATCH_MP_TAC >> rw[] >>
+        MATCH_MP_TAC EVERY2_APPEND_suff >> rw[] >>
+        imp_res_tac renumber_code_locs_list_length >>
+        rw[LIST_REL_EL_EQN,EL_GENLIST] >>
+        rw[v_rel_simp] >> METIS_TAC[SND])
+    >- (qcase_tac `lookup_vars vv EE` >> Cases_on `lookup_vars vv EE` >> fs[]
+        >- (qcase_tac `LIST_REL v_rel env1 EE` >>
+            `lookup_vars vv env1 = NONE`
                 by metis_tac[lookup_vars_NONE_related_env] >>
-              simp[] >> rw[])
-
-     ) >>
-    last_x_assum mp_tac >>
-    BasicProvers.CASE_TAC >> fs[] >> rw[] >- (
-      imp_res_tac lookup_vars_NONE >>
-      BasicProvers.CASE_TAC >> rw[] >> rw[] >>
-      imp_res_tac lookup_vars_SOME >>
-      imp_res_tac lookup_vars_MEM >>
-      fs[LIST_REL_EL_EQN,MEM_EL] >> rw[] >> rfs[] >>
-      res_tac >> `F` suffices_by rw[] >> DECIDE_TAC ) >>
-    imp_res_tac lookup_vars_SOME >>
-    imp_res_tac lookup_vars_MEM >>
-    reverse BasicProvers.CASE_TAC >- (
-      first_x_assum MATCH_MP_TAC >> rw[] >>
-      MATCH_MP_TAC EVERY2_APPEND_suff >> rw[] >>
-      imp_res_tac renumber_code_locs_list_length >>
-      rw[LIST_REL_EL_EQN,EL_GENLIST] >>
-      rw[v_rel_simp,LIST_REL_EL_EQN] >>
-      imp_res_tac lookup_vars_SOME >>
-      imp_res_tac lookup_vars_MEM >>
-      qexists_tac`n`>>simp[] >>
-      fs[LIST_REL_EL_EQN]) >>
-    imp_res_tac lookup_vars_NONE >>
-    imp_res_tac lookup_vars_SOME >>
-    imp_res_tac lookup_vars_MEM >>
-    imp_res_tac LIST_REL_EL_EQN >>
-    fs[MEM_EL] >> res_tac >>
-    `F` suffices_by rw[] >>
-    DECIDE_TAC*) )
+            fs[] >> rw[]) >>
+        qcase_tac `LIST_REL v_rel env1 EE` >>
+        full_simp_tac (srw_ss() ++ DNF_ss) [AND_IMP_INTRO] >>
+        first_x_assum match_mp_tac >> simp[] >>
+        `∃ee. lookup_vars vv env1 = SOME ee`
+           by (Cases_on `lookup_vars vv env1` >> simp[] >>
+               metis_tac[lookup_vars_NONE_related_env, NOT_NONE_SOME]) >>
+        fs[] >> MATCH_MP_TAC EVERY2_APPEND_suff >> simp[] >>
+        rw[LIST_REL_EL_EQN] >> simp[v_rel_simp] >>
+        metis_tac[lookup_vars_SOME_related_env, SND]))
   THEN1 (* App *)
    (fs [renumber_code_locs_def,evaluate_def,LET_THM,UNCURRY] >>
     `LENGTH (SND (renumber_code_locs_list (FST (renumber_code_locs n x1)) args)) = LENGTH args`
