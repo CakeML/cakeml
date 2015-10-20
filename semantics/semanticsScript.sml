@@ -47,18 +47,18 @@ val semantics_prog_def = Define `
     (* furthermore, this is the smallest clock producing FFI failure *)
     (∀k'. k' < k ⇒ ¬(FST (evaluate_prog_with_clock state k' prog)).ffi_failed)) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
-  (* for all clocks, evaluation times out and the accumulated io events
-     match some prefix of the given io_trace *)
-  (!k. ?ffi n.
+  (* for all clocks, evaluation times out *)
+  (!k. ?ffi.
     (evaluate_prog_with_clock state k prog =
         (ffi, Rerr (Rabort Rtimeout_error))) ∧
-     ¬ffi.ffi_failed ∧
-     LTAKE n io_trace = SOME (REVERSE ffi.io_events)) ∧
-  (* furthermore, the whole io_trace is necessary:
-     for every prefix of the io_trace, there is a clock
-     for which evaluation produces that prefix  *)
-   (!n io_list. LTAKE n io_trace = SOME io_list ⇒
-      ?k. REVERSE (FST (evaluate_prog_with_clock state k prog)).io_events = io_list)) ∧
+     ¬ffi.ffi_failed) ∧
+  (* the io_trace is the least upper bound of the set of traces
+     produced for each clock *)
+   lprefix_lub
+     (IMAGE
+       (λk. fromList (REVERSE (FST (evaluate_prog_with_clock state k prog)).io_events))
+       UNIV)
+     io_trace) ∧
 (semantics_prog state prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
   ∃k ffi.

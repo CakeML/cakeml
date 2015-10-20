@@ -2,13 +2,11 @@ structure preamble =
 struct
 local open intLib wordsLib in end
 open HolKernel bossLib boolLib boolSimps pairLib lcsymtacs
-     Parse Defn Tactic res_quanTheory quantHeuristicsLib
-     pairTheory optionTheory sumTheory combinTheory
-     listTheory rich_listTheory alistTheory llistTheory
-     arithmeticTheory finite_mapTheory sptreeTheory
-     pred_setTheory set_relationTheory relationTheory
-     sortingTheory stringTheory wordsTheory
-     miscTheory
+     Parse Defn Tactic res_quanTheory quantHeuristicsLib pairTheory
+     optionTheory sumTheory combinTheory listTheory rich_listTheory
+     alistTheory llistTheory lprefix_lubTheory arithmeticTheory
+     finite_mapTheory sptreeTheory pred_setTheory set_relationTheory
+     relationTheory sortingTheory stringTheory wordsTheory miscTheory
 (* TOOD: move? *)
 val wf_rel_tac = WF_REL_TAC
 val induct_on = Induct_on
