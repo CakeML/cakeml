@@ -238,13 +238,15 @@ val const_lem2 = Q.prove(
    simp [] \\ blastLib.BBLAST_TAC)
 
 val const_lem3 =
-   Thm.CONJ
-      (blastLib.BBLAST_PROVE
+   Drule.LIST_CONJ
+      [blastLib.BBLAST_PROVE
          ``word_bit 3 (r: word4) \/ ((3 >< 3) r = 1w: word1) ==>
-           ((1w: word1) @@ (v2w [r ' 2; r ' 1; r ' 0]: word3) = r)``)
-      (blastLib.BBLAST_PROVE
+           ((1w: word1) @@ (v2w [r ' 2; r ' 1; r ' 0]: word3) = r)``,
+       blastLib.BBLAST_PROVE
          ``~word_bit 3 (r: word4) \/ ((3 >< 3) r = 0w: word1) ==>
-           ((0w: word1) @@ (v2w [r ' 2; r ' 1; r ' 0]: word3) = r)``)
+           ((0w: word1) @@ (v2w [r ' 2; r ' 1; r ' 0]: word3) = r)``,
+       bitstringLib.v2w_n2w_CONV ``v2w [T] : word1``,
+       bitstringLib.v2w_n2w_CONV ``v2w [F] : word1``]
 
 val const_lem4 =
    blastLib.BBLAST_PROVE
@@ -304,8 +306,7 @@ val loc_lem2 = blastLib.BBLAST_PROVE ``(a || 8w) <> 0w: word4``
 
 val loc_lem3 =
    blastLib.BBLAST_PROVE
-      ``(if r ' 3 then (1w: word1) else 0w) @@
-        (v2w [r ' 2; r ' 1; r ' 0]: word3) = r: word4``
+      ``(v2w [r ' 3]: word1) @@ (v2w [r ' 2; r ' 1; r ' 0]: word3) = r: word4``
 
 val loc_lem4 =
    blastLib.BBLAST_PROVE
@@ -418,8 +419,7 @@ val mem_lem3 = Q.prove(
 
 val mem_lem4 =
    blastLib.BBLAST_PROVE
-      ``!r: word4.
-          (if r ' 3 then 1w else 0w: word1) @@ ((2 >< 0) r : word3) = r``
+      ``!r: word4. (v2w [r ' 3] : word1) @@ ((2 >< 0) r : word3) = r``
 
 val mem_lem5 =
    blastLib.BBLAST_PROVE

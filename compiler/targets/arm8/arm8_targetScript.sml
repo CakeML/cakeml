@@ -804,7 +804,7 @@ val encode_rwts =
 
 val enc_rwts =
    [arm8_config_def, asmPropsTheory.offset_monotonic_def, cmp_cond_def,
-    valid_immediate_thm, lem7, lem8, lem9, lem10, lem11] @
+    valid_immediate_thm, lem3, lem7, lem8, lem9, lem10, lem11] @
    encode_rwts @ asmLib.asm_ok_rwts @ asmLib.asm_rwts
 
 val enc_ok_rwts =
@@ -1067,10 +1067,6 @@ val arm8_encoding = Count.apply Q.prove (
          \\ imp_res_tac Decode_EncodeBitMask
          \\ imp_res_tac lem12
          \\ decode_tac
-         \\ simp dec_rwts
-         \\ NO_STRIP_REV_FULL_SIMP_TAC std_ss []
-         \\ decode_tac
-         \\ blastLib.BBLAST_TAC
          )
       >- (
          (*--------------
