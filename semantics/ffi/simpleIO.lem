@@ -3,45 +3,39 @@ open import Pervasives_extra
 open import Lib
 open import Ffi
 
-type simpleIO = <| input : llist word8; output : llist word8 ; has_exited : bool |>
+type simpleIO = <| input : llist word8; output : llist word8 |>
 
 val isEof : oracle_function simpleIO
 let isEof st input =
   match input with
-  | [] -> Nothing
-  | x::xs -> Just (st,(if st.input = lnil then 1 else 0)::xs)
+  | [] -> Oracle_fail
+  | x::xs -> Oracle_return st ((if st.input = lnil then 1 else 0)::xs)
   end
 
 val getChar : oracle_function simpleIO
 let getChar st input =
   match input with
-  | [] -> Nothing
+  | [] -> Oracle_fail
   | x::xs ->
       match lhd st.input with
-      | Just y -> Just (<| st with input = fromJust (ltl st.input) |>, y::xs)
-      | _ -> Nothing
+      | Just y -> Oracle_return (<| st with input = fromJust (ltl st.input) |>) (y::xs)
+      | _ -> Oracle_fail
       end
   end
 
 val putChar : oracle_function simpleIO
 let putChar st input =
   match input with
-  | [] -> Nothing
-  | x::_ -> Just (<| st with output = lcons x st.output |>, input)
+  | [] -> Oracle_fail
+  | x::_ -> Oracle_return (<| st with output = lcons x st.output |>) input
   end
 
 val exit : oracle_function simpleIO
-let exit st input =
-  if st.has_exited then
-    Nothing
-  else
-    Just (<| st with has_exited = true |>, input)
+let exit st input = Oracle_diverge
 
 val simpleIO_oracle : oracle simpleIO
 let simpleIO_oracle n st input =
-  if st.has_exited then
-    Nothing
-  else if n = 0 then
+  if n = 0 then
     isEof st input
   else if n = 1 then
     getChar st input
@@ -50,4 +44,4 @@ let simpleIO_oracle n st input =
   else if n = 3 then
     exit st input
   else
-    Nothing
+    Oracle_fail

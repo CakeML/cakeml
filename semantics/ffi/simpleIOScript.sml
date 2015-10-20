@@ -14,15 +14,15 @@ val _ = new_theory "simpleIO"
 (*open import Ffi*)
 
 val _ = Hol_datatype `
- simpleIO = <| input :  word8 llist; output :  word8 llist ; has_exited : bool |>`;
+ simpleIO = <| input :  word8 llist; output :  word8 llist |>`;
 
 
 (*val isEof : oracle_function simpleIO*)
 val _ = Define `
  (isEof st input =  
 ((case input of
-    [] => NONE
-  | x::xs => SOME (st,((if st.input = LNIL then n2w ( 1) else n2w ( 0))::xs))
+    [] => Oracle_fail
+  | x::xs => Oracle_return st ((if st.input = LNIL then n2w ( 1) else n2w ( 0))::xs)
   )))`;
 
 
@@ -30,11 +30,11 @@ val _ = Define `
 val _ = Define `
  (getChar st input =  
 ((case input of
-    [] => NONE
+    [] => Oracle_fail
   | x::xs =>
       (case LHD st.input of
-        SOME y => SOME (( st with<| input := THE (LTL st.input) |>), (y::xs))
-      | _ => NONE
+        SOME y => Oracle_return (( st with<| input := THE (LTL st.input) |>)) (y::xs)
+      | _ => Oracle_fail
       )
   )))`;
 
@@ -43,26 +43,20 @@ val _ = Define `
 val _ = Define `
  (putChar st input =  
 ((case input of
-    [] => NONE
-  | x::_ => SOME (( st with<| output := LCONS x st.output |>), input)
+    [] => Oracle_fail
+  | x::_ => Oracle_return (( st with<| output := LCONS x st.output |>)) input
   )))`;
 
 
 (*val exit : oracle_function simpleIO*)
 val _ = Define `
- (exit st input =  
-(if st.has_exited then
-    NONE
-  else
-    SOME (( st with<| has_exited := T |>), input)))`;
+ (exit st input = Oracle_diverge)`;
 
 
 (*val simpleIO_oracle : oracle simpleIO*)
 val _ = Define `
  (simpleIO_oracle n st input =  
-(if st.has_exited then
-    NONE
-  else if n = 0 then
+(if n = 0 then
     isEof st input
   else if n = 1 then
     getChar st input
@@ -71,7 +65,7 @@ val _ = Define `
   else if n = 3 then
     exit st input
   else
-    NONE))`;
+    Oracle_fail))`;
 
 val _ = export_theory()
 

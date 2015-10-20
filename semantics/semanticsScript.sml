@@ -28,20 +28,23 @@ val evaluate_prog_with_clock_def = Define`
     in (st'.ffi,r)`;
 
 val semantics_prog_def = Define `
-(semantics_prog state prog (Terminate termination_type io_list) ⇔
+(semantics_prog state prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation does not time out and
      the accumulated io events match the given io_list *)
   ?k ffi r.
     evaluate_prog_with_clock state k prog = (ffi,r) ∧
     (∀a. r ≠ Rerr (Rabort a)) ∧
-    (termination_type = if ffi.ffi_failed then FFI_error else Success) ∧
+    (outcome =
+     case ffi.final_event of
+     | NONE => Success
+     | SOME e => FFI_outcome e) ∧
     REVERSE ffi.io_events = io_list) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
     (evaluate_prog_with_clock state k prog =
         (ffi, Rerr (Rabort Rtimeout_error))) ∧
-     ¬ffi.ffi_failed) ∧
+     ffi.final_event = NONE) ∧
   (* the io_trace is the least upper bound of the set of traces
      produced for each clock *)
    lprefix_lub
