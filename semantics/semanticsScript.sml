@@ -38,7 +38,7 @@ val semantics_prog_def = Define `
      case ffi.final_event of
      | NONE => Success
      | SOME e => FFI_outcome e) ∧
-    REVERSE ffi.io_events = io_list) ∧
+    (io_list = ffi.io_events)) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
@@ -49,7 +49,7 @@ val semantics_prog_def = Define `
      produced for each clock *)
    lprefix_lub
      (IMAGE
-       (λk. fromList (REVERSE (FST (evaluate_prog_with_clock state k prog)).io_events))
+       (λk. fromList (FST (evaluate_prog_with_clock state k prog)).io_events)
        UNIV)
      io_trace) ∧
 (semantics_prog state prog Fail ⇔

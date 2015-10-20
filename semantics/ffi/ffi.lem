@@ -40,8 +40,9 @@ let call_FFI st n bytes =
     | Oracle_return ffi' bytes' ->
         if length bytes' = length bytes then
           (<| st with ffi_state = ffi'
-                    ; io_events = (IO_event n (zipSameLength bytes bytes'))
-                                  ::st.io_events
+                    ; io_events =
+                        st.io_events ++
+                          [IO_event n (zipSameLength bytes bytes')]
             |>, bytes')
         else (<| st with final_event = Just (Final_event n bytes FFI_failed) |>, bytes)
     | Oracle_diverge ->

@@ -63,8 +63,9 @@ val _ = Define `
       Oracle_return ffi' bytes' =>
         if LENGTH bytes' = LENGTH bytes then
           (( st with<| ffi_state := ffi'
-                    ; io_events := (IO_event n (ZIP (bytes, bytes')))
-                                  ::st.io_events
+                    ; io_events :=
+                        st.io_events ++
+                          [IO_event n (ZIP (bytes, bytes'))]
             |>), bytes')
         else (( st with<| final_event := SOME (Final_event n bytes FFI_failed) |>), bytes)
     | Oracle_diverge =>
