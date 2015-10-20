@@ -1,83 +1,52 @@
-structure compute_basicLib = struct
+structure compute_basicLib :> compute_basicLib =
+struct
+
 open HolKernel boolLib bossLib lcsymtacs
 
-fun add_datatype tm compset =
-  (computeLib.add_datatype_info compset o valOf o TypeBase.fetch) tm
+(*
+open miscTheory intReduce stringLib optionLib combinLib finite_mapLib wordsLib
+     spteeLib pegLib
+*)
 
-val SUC_TO_NUMERAL_RULE = CONV_RULE(!Defn.SUC_TO_NUMERAL_DEFN_CONV_hook)
+fun add_datatype compset tm =
+  (computeLib.add_datatype_info compset o valOf o TypeBase.fetch) tm
 
 (* compset needs to have at least wordsLib.words_compset in it *)
 fun add_basic_compset compset =
-let
-  (* good libraries which provide compsets :) *)
-  val () = intReduce.add_int_compset compset
+  (
   (* included in words_compset
-  val () = listLib.list_rws compset
-  val () = numposrepLib.add_numposrep_compset compset
-  val () = ASCIInumbersLib.add_ASCIInumbers_compset compset
+    listLib.list_rws compset
+  ; numposrepLib.add_numposrep_compset compset
+  ; ASCIInumbersLib.add_ASCIInumbers_compset compset
   *)
-  val () = stringLib.add_string_compset compset
-  val () = sumSimps.SUM_rws compset
-  val () = optionLib.OPTION_rws compset
-  val () = pred_setLib.add_pred_set_compset compset
-  val () = combinLib.add_combin_compset compset
-  val () = pairLib.add_pair_compset compset
-  val () = finite_mapLib.add_finite_map_compset compset
-  val () = pegLib.add_peg_compset compset
-(* rich_list doesnt' provide a compset :( *)
-  val () = computeLib.add_thms
-  [rich_listTheory.SPLITP_compute
-  ,rich_listTheory.TAKE
-  ,rich_listTheory.FLAT
-  ,SUC_TO_NUMERAL_RULE rich_listTheory.REPLICATE
-  ,rich_listTheory.SPLITP_AUX_def
-  ,rich_listTheory.COUNT_LIST_compute
-  ,rich_listTheory.COUNT_LIST_AUX_def_compute
-  ] compset
-(* sptree doesn't provide a compset :( *)
-  val () = computeLib.add_thms
-  [sptreeTheory.lookup_compute
-  ,sptreeTheory.insert_compute
-  ,sptreeTheory.delete_compute
-  ,sptreeTheory.lrnext_thm
-  ,sptreeTheory.wf_def
-  ,sptreeTheory.mk_BN_def
-  ,sptreeTheory.mk_BS_def
-  ,sptreeTheory.fromList_def
-  ,sptreeTheory.size_def
-  ,sptreeTheory.union_def
-  ,sptreeTheory.inter_def
-  ,sptreeTheory.domain_def
-  ,sptreeTheory.foldi_def
-  ,sptreeTheory.toListA_def
-  ,sptreeTheory.toList_def
-  ,sptreeTheory.mk_wf_def
-  ,sptreeTheory.toAList_def
-  ,sptreeTheory.fromAList_def
-  ,sptreeTheory.foldi_def
-  ,sptreeTheory.difference_def
-  ,sptreeTheory.map_def
-  ] compset
-  val () = computeLib.add_thms 
-  [miscTheory.find_index_def
-  ,miscTheory.LEAST_thm
-  ,miscTheory.least_from_thm
-  ,miscTheory.lookup_any_def
-  ,miscTheory.list_insert_def
-  ,miscTheory.list_to_num_set_def
-  ] compset
-  val () = add_datatype ``:'a spt`` compset
-in
-  ()
-end
+  (* HOL libraries provide compsets :) *)
+    listLib.add_rich_list_compset compset
+  ; intReduce.add_int_compset compset
+  ; stringLib.add_string_compset compset
+  ; sumSimps.SUM_rws compset
+  ; optionLib.OPTION_rws compset
+  ; pred_setLib.add_pred_set_compset compset
+  ; combinLib.add_combin_compset compset
+  ; pairLib.add_pair_compset compset
+  ; finite_mapLib.add_finite_map_compset compset
+  ; sptreeLib.add_sptree_compset compset
+  ; pegLib.add_peg_compset compset
+  ; computeLib.add_thms
+      [miscTheory.find_index_def,
+       miscTheory.LEAST_thm,
+       miscTheory.least_from_thm,
+       miscTheory.lookup_any_def,
+       miscTheory.list_insert_def,
+       miscTheory.list_to_num_set_def
+      ] compset
+  )
 
-  val the_basic_compset = 
-    let
-      val c = wordsLib.words_compset ()
-      val () = add_basic_compset c
-    in
-      c
-    end
+val the_basic_compset =
+  let
+    val c = wordsLib.words_compset ()
+  in
+    add_basic_compset c; c
+  end
 
 end
 
