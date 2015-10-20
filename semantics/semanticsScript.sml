@@ -29,11 +29,12 @@ val evaluate_prog_with_clock_def = Define`
 
 val semantics_prog_def = Define `
 (semantics_prog state prog (Terminate outcome io_list) ⇔
-  (* there is a clock for which evaluation does not time out and
-     the accumulated io events match the given io_list *)
+  (* there is a clock for which evaluation terminates, either internally or via
+     FFI, and the accumulated io events match the given io_list *)
   ?k ffi r.
     evaluate_prog_with_clock state k prog = (ffi,r) ∧
-    (∀a. r ≠ Rerr (Rabort a)) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
+    (r = Rerr (Rabort Rtimeout_error) ⇒ IS_SOME ffi.final_event) ∧
     (outcome =
      case ffi.final_event of
      | NONE => Success
