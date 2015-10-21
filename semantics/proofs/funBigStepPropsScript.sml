@@ -152,6 +152,10 @@ val evaluate_tops_add_to_clock = Q.store_thm("evaluate_tops_add_to_clock",
   imp_res_tac functional_evaluate_tops >>
   metis_tac[prog_determ,PAIR_EQ])
 
+val with_clock_ffi = Q.prove(
+  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+val lemma = DECIDE``x ≠ 0n ⇒ x - 1 + y = x + y - 1``
+
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀(s:'ffi state) e d extra.
      (FST(evaluate s e d)).ffi.io_events ≼
@@ -171,7 +175,9 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     qcase_tac`op = Opapp` >>
     every_case_tac >> fs[dec_clock_def] >> rw[] >> rfs[] >>
     TRY(first_x_assum(qspec_then`extra`strip_assume_tac)>>rfs[]>>NO_TAC)>>
-    cheat) >>
+    imp_res_tac evaluate_add_to_clock >> fs[] >> rw[] >> fs[] >>
+    imp_res_tac do_app_io_events_mono >>
+    metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma] ) >>
   every_case_tac >> fs[] >>
   imp_res_tac evaluate_add_to_clock >> fs[] >> rw[] >>
   imp_res_tac evaluate_match_add_to_clock >> fs[] >> rw[] >>
