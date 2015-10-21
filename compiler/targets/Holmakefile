@@ -1,2 +1,2 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = ../.. ../../semantics/ffi asm
+INCLUDES = ../.. ../../semantics/ffi asm $(HOLDIR)/examples/fun-op-sem/lprefix_lub
