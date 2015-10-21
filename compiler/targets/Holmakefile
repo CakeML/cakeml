@@ -1,2 +1,15 @@
 OPTIONS = QUIT_ON_FAILURE
 INCLUDES = ../.. ../../semantics/ffi asm $(HOLDIR)/examples/fun-op-sem/lprefix_lub
+
+all: targetPropsTheory.uo
+.PHONY: all
+
+ifdef POLY
+HOLHEAP = heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+all: $(HOLHEAP)
+BARE_THYS = ../../preamble ../../semantics/ffi/ffiTheory asm/asmPropsTheory
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+endif
