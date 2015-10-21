@@ -33,8 +33,7 @@ val semantics_prog_def = Define `
      FFI, and the accumulated io events match the given io_list *)
   ?k ffi r.
     evaluate_prog_with_clock state k prog = (ffi,r) ∧
-    r ≠ Rerr (Rabort Rtype_error) ∧
-    (r = Rerr (Rabort Rtimeout_error) ⇒ IS_SOME ffi.final_event) ∧
+    (∀a. r = Rerr (Rabort a) ⇒ IS_SOME ffi.final_event) ∧
     (outcome =
      case ffi.final_event of
      | NONE => Success
@@ -56,7 +55,8 @@ val semantics_prog_def = Define `
 (semantics_prog state prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
   ∃k ffi.
-    evaluate_prog_with_clock state k prog = (ffi, Rerr (Rabort Rtype_error)))`;
+    evaluate_prog_with_clock state k prog = (ffi, Rerr (Rabort Rtype_error)) ∧
+    ffi.final_event = NONE)`;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
