@@ -23,10 +23,7 @@ val shift_seq_def = Define `
 (* -- execute target machine with interference from environement -- *)
 
 val () = Datatype `
-  error_type = Internal | IO_mismatch | Limit `
-
-val () = Datatype `
-  machine_result = Result | TimeOut | Error error_type `;
+  machine_result = Halt outcome | Error | TimeOut `;
 
 val _ = Datatype `
   machine_config =
@@ -57,66 +54,45 @@ val evaluate_def = Define `
           if EVERY config.target.state_ok [ms;ms1;ms2] then
             evaluate config ffi (k - 1) ms2
           else
-            (Error Internal,ms,ffi)
+            (Error,ms,ffi)
       else if config.target.get_pc ms = config.halt_pc then
         (if config.target.get_reg ms config.ptr_reg = 0w
-         then Result else Error Limit,ms,ffi)
+         then Halt Success else Halt Resource_limit_hit,ms,ffi)
       else
         case list_find (config.target.get_pc ms) config.ffi_entry_pcs of
-        | NONE => (Error Internal,ms,ffi)
+        | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
           case read_bytearray (config.target.get_reg ms config.ptr_reg)
                  (w2n (config.target.get_reg ms config.len_reg))
                  (\a. if a IN config.prog_addresses
                       then SOME (config.target.get_byte ms a) else NONE) of
-          | NONE => (Error Internal,ms,ffi)
+          | NONE => (Error,ms,ffi)
           | SOME bytes =>
             let do_ffi = config.ffi_interfer 0 ffi_index in
             let config = config with ffi_interfer :=
                            shift_seq 1 config.ffi_interfer in
             let (new_ffi,new_bytes) = call_FFI ffi ffi_index bytes in
-              if new_ffi.ffi_failed then (Error IO_mismatch,ms,new_ffi) else
-                evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
+              if new_ffi.final_event <> NONE
+              then (Halt (FFI_outcome (THE new_ffi.final_event)),ms,new_ffi)
+              else evaluate config new_ffi (k - 1:num) (do_ffi new_bytes ms)`
 
 val _ = ParseExtras.temp_tight_equality()
-
-val machine_result_def = Define`
-  (machine_result Success = Result) ∧
-  (machine_result FFI_error = Error IO_mismatch) ∧
-  (machine_result Resource_limit_hit = Error Limit)`;
 
 val machine_sem_def = Define `
   (machine_sem config st ms (Terminate t io_list) <=>
      ?k ms' st'.
-       evaluate config st k ms = (machine_result t,ms',st') ∧
-       REVERSE st'.io_events = io_list) /\
+       evaluate config st k ms = (Halt t,ms',st') ∧
+       st'.io_events = io_list) /\
   (machine_sem config st ms (Diverge io_trace) <=>
-     (!k. ?ms' st' n.
+     (!k. ?ms' st'.
             evaluate config st k ms = (TimeOut,ms',st') ∧
-            LTAKE n io_trace = SOME (REVERSE st'.io_events)) /\
-     (!n io_list. LTAKE n io_trace = SOME io_list ⇒
-        ?k. REVERSE (SND(SND(evaluate config st k ms))).io_events = io_list)) /\
+            st'.final_event = NONE) /\
+     lprefix_lub
+       (IMAGE
+         (\k. fromList (SND (SND (evaluate config st k ms))).io_events) UNIV)
+       io_trace) /\
   (machine_sem config st ms Fail <=>
-     ?k. FST (evaluate config st k ms) = Error Internal)`
-
-(* Note: we need to prove that every well-typed program has some
-   behaviour, i.e. machine_sem config ms should never be the empty set
-   for well-typed programs. *)
-
-(* The semantics that was defined above is exact regarding to the IO
-   traces it accepts. In some proofs, it might be easier to use a less
-   exact semantics. The following variant admits any extension of an
-   divergent I/O trace. *)
-
-val imprecise_machine_sem_def = Define `
-  (imprecise_machine_sem config st ms (Terminate t io_list) <=>
-     ?k ms' st'.
-       evaluate config st k ms = (machine_result t,ms',st') ∧
-       REVERSE st'.io_events = io_list) /\
-  (imprecise_machine_sem config st ms (Diverge io_trace) <=>
-     (!k. ∃ms' st' n.
-       evaluate config st k ms = (TimeOut,ms',st') ∧
-       LTAKE n io_trace = SOME (REVERSE st'.io_events)))`
+     ?k. FST (evaluate config st k ms) = Error)`
 
 (* define what it means for code to be loaded and ready to run *)
 

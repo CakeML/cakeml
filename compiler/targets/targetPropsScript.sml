@@ -13,14 +13,6 @@ val SUBSET_IMP = prove(
 
 (* -- *)
 
-val imprecise_machine_sem_LAPPEND = store_thm(
-   "imprecise_machine_sem_LAPPEND",
-  ``(Diverge io_trace) IN machine_sem config ffi ms ==>
-    !l. (Diverge (LAPPEND io_trace l)) IN
-             imprecise_machine_sem config ffi ms``,
-  fs [IN_DEF,machine_sem_def,imprecise_machine_sem_def]
-  \\ METIS_TAC[LTAKE_LAPPEND1,IS_SOME_DEF]);
-
 val asserts_restrict = prove(
   ``!n next1 next2 s P Q.
       (!k. k <= n ==> (next1 k = next2 k)) ==>
@@ -37,7 +29,8 @@ val shift_interfer_def = Define `
     s with next_interfer := shift_seq k s.next_interfer`
 
 val shift_interfer_intro = prove(
-  ``shift_interfer k1 (shift_interfer k2 c) = shift_interfer (k1+k2) c``,
+  ``shift_interfer k1 (shift_interfer k2 c) =
+    shift_interfer (k1+k2) c``,
   fs [shift_interfer_def,shift_seq_def,ADD_ASSOC]);
 
 val evaluate_EQ_evaluate_lemma = prove(
@@ -158,11 +151,11 @@ val evaluate_TimeOut = store_thm("evaluate_TimeOut",
 val evaluate_TimeOut_or_not = store_thm("evaluate_TimeOut_or_not",
   ``FST (evaluate mc_conf ffi k ms) <> TimeOut /\
     (FST (evaluate mc_conf ffi' k ms) = TimeOut) ==>
-    (FST (evaluate mc_conf ffi k ms) = Error IO_mismatch)``,
+    (FST (evaluate mc_conf ffi k ms) = Error)``,
   cheat (* easy *));
 
 val evaluate_IO_mismatch = store_thm("evaluate_IO_mismatch",
-  ``(evaluate mc_conf ffi k ms = (Error IO_mismatch,ms2,new_ffi)) ==>
+  ``(evaluate mc_conf ffi k ms = (Error,ms2,new_ffi)) ==>
     (new_io = NONE)``,
   cheat (* easy *));
 
