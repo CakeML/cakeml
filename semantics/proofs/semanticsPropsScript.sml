@@ -15,7 +15,7 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   >- metis_tac[semantics_prog_def] >> fs[] >>
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s k p = (ffi,r) ∧
-    (∀a. r = Rerr (Rabort a) ⇒ IS_SOME ffi.final_event)`
+    (ffi.final_event = NONE ⇒ ∀a. r ≠ Rerr (Rabort a))`
   >- metis_tac[semantics_prog_def] >> fs[] >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
@@ -86,12 +86,12 @@ val tac =
                     semanticPrimitivesTheory.abort_distinct,
                     with_clock_ffi,
                     semanticPrimitivesTheory.state_component_equality] ) >>
-          fs[IS_SOME_EXISTS] >> fs[] ) >>
+          fs[]) >>
       imp_res_tac prog_clocked_timeout_smaller >> fs[] >>
       imp_res_tac LESS_IMP_LESS_OR_EQ >>
       imp_res_tac evaluate_prog_ffi_mono_clock >>
       fs[IS_SOME_EXISTS,PULL_EXISTS] >>
-      metis_tac[FST,NOT_SOME_NONE] ) >>
+      metis_tac[FST,NOT_SOME_NONE,option_CASES] ) >>
     every_case_tac >> fs[] >>
     imp_res_tac prog_clocked_min_counter >> fs[] >>
     imp_res_tac prog_clocked_zero_determ >> rfs[]
@@ -119,16 +119,17 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
       Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> fs[] >- (
         metis_tac[LESS_EQ_CASES,
                   evaluate_prog_ffi_mono_clock,
-                  FST,THE_DEF,IS_SOME_EXISTS] ) >>
+                  FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
       Cases_on`r = Rerr (Rabort Rtimeout_error) ∨ r' = Rerr (Rabort Rtimeout_error)` >- (
         metis_tac[prog_clocked_timeout_smaller,
                   LESS_IMP_LESS_OR_EQ,
                   evaluate_prog_ffi_mono_clock,
-                  FST,THE_DEF,IS_SOME_EXISTS] ) >>
+                  FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
       imp_res_tac prog_clocked_min_counter >> fs[] >>
       first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[semanticPrimitivesTheory.state_component_equality])
+      simp[semanticPrimitivesTheory.state_component_equality] >>
+      rw[] >> every_case_tac >> rfs[])
     >- tac)
   >- (
     Cases_on`b'`>>fs[semantics_prog_def]

@@ -33,11 +33,9 @@ val semantics_prog_def = Define `
      FFI, and the accumulated io events match the given io_list *)
   ?k ffi r.
     evaluate_prog_with_clock state k prog = (ffi,r) ∧
-    (∀a. r = Rerr (Rabort a) ⇒ IS_SOME ffi.final_event) ∧
-    (outcome =
-     case ffi.final_event of
-     | NONE => Success
-     | SOME e => FFI_outcome e) ∧
+    (if ffi.final_event = NONE then
+       (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+     else outcome = FFI_outcome (THE ffi.final_event)) ∧
     (io_list = ffi.io_events)) ∧
 (semantics_prog state prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
