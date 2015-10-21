@@ -45,6 +45,13 @@ val functional_evaluate_list = Q.store_thm("functional_evaluate_list",
   `evaluate s env es = (s',r) ⇔ evaluate_list T env s es (s',r)`,
   rw[evaluate_run_eval_list,evaluate_eq_run_eval_list])
 
+val functional_evaluate_match = Q.store_thm("functional_evaluate_match",
+  `evaluate_match s env v pes errv = (s',list_result r) ⇔
+   evaluate_match T env s v pes errv (s',r)`,
+  rw[evaluate_run_eval_match,evaluate_eq_run_eval_list] >>
+  Cases_on`run_eval_match env v pes errv s`>>rw[] >>
+  Cases_on`r`>>Cases_on`r'`>>rw[list_result_def]);
+
 val evaluate_decs_eq_run_eval_decs = Q.store_thm("evaluate_decs_eq_run_eval_decs",
   `∀mn s env decs r tds s'.
       evaluate_decs mn s env decs = run_eval_decs mn env s decs`,

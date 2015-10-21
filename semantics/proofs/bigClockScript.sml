@@ -961,6 +961,12 @@ val top_add_to_counter = Q.store_thm("top_add_to_counter",
  qexists_tac `s2 with clock := s2.clock + extra` >>
  rw []);
 
+val prog_clock_monotone = Q.store_thm("prog_clock_monotone",
+  `∀ck env ^s d res. evaluate_prog ck env s d res ⇒
+      ck ⇒ (FST res).clock ≤ s.clock`,
+  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+  imp_res_tac top_clock_monotone >> fsrw_tac[ARITH_ss][]);
+
 val prog_unclocked = Q.store_thm ("prog_unclocked",
   `!count s env ds count' s' r z.
     (evaluate_prog F env s ds (s',z,r)

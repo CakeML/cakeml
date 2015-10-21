@@ -1,31 +1,12 @@
 open preamble
      determTheory
      funBigStepEquivTheory
+     funBigStepPropsTheory
      bigClockTheory
      semanticsTheory
      lprefix_lubTheory
 
 val _ = new_theory"semanticsProps"
-
-(* TODO: move *)
-val evaluate_prog_io_events_mono = Q.store_thm("evaluate_prog_io_events_mono",
-  `∀k1 k2 s e p.
-    k1 ≤ k2 ⇒
-    (FST (evaluate_prog (s with clock := k1) e p)).ffi.io_events ≼
-    (FST (evaluate_prog (s with clock := k2) e p)).ffi.io_events ∧
-    (IS_SOME (FST (evaluate_prog (s with clock := k1) e p)).ffi.final_event ⇒
-      (FST (evaluate_prog (s with clock := k1) e p)).ffi.io_events =
-      (FST (evaluate_prog (s with clock := k2) e p)).ffi.io_events)`,
-  cheat)
-
-val evaluate_prog_final_event_mono = Q.store_thm("evaluate_prog_final_event_mono",
-  `k1 ≤ k2 ⇒
-   IS_SOME(FST(evaluate_prog (s with clock := k1) e p)).ffi.final_event ⇒
-   (FST(evaluate_prog (s with clock := k2) e p)).ffi.final_event =
-     SOME(THE(FST(evaluate_prog (s with clock := k1) e p)).ffi.final_event)`,
-  cheat)
-
-(* -- *)
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s p. ∃b. semantics_prog s p b`,
@@ -51,7 +32,7 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
   REWRITE_TAC[IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>
   rw[prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> rw[] >>
-  metis_tac[LESS_EQ_CASES,evaluate_prog_io_events_mono,FST]);
+  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
 
 val prog_clocked_zero_determ = Q.prove(
   `evaluate_prog T x (y with clock := a) z (s with clock := 0,r) ∧
@@ -108,7 +89,7 @@ val tac =
           fs[IS_SOME_EXISTS] >> fs[] ) >>
       imp_res_tac prog_clocked_timeout_smaller >> fs[] >>
       imp_res_tac LESS_IMP_LESS_OR_EQ >>
-      imp_res_tac evaluate_prog_final_event_mono >>
+      imp_res_tac evaluate_prog_ffi_mono_clock >>
       fs[IS_SOME_EXISTS,PULL_EXISTS] >>
       metis_tac[FST,NOT_SOME_NONE] ) >>
     every_case_tac >> fs[] >>
@@ -137,14 +118,12 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
         rw[] >> rfs[] >> fs[]) >>
       Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> fs[] >- (
         metis_tac[LESS_EQ_CASES,
-                  evaluate_prog_final_event_mono,
-                  evaluate_prog_io_events_mono,
+                  evaluate_prog_ffi_mono_clock,
                   FST,THE_DEF,IS_SOME_EXISTS] ) >>
       Cases_on`r = Rerr (Rabort Rtimeout_error) ∨ r' = Rerr (Rabort Rtimeout_error)` >- (
         metis_tac[prog_clocked_timeout_smaller,
                   LESS_IMP_LESS_OR_EQ,
-                  evaluate_prog_io_events_mono,
-                  evaluate_prog_final_event_mono,
+                  evaluate_prog_ffi_mono_clock,
                   FST,THE_DEF,IS_SOME_EXISTS] ) >>
       imp_res_tac prog_clocked_min_counter >> fs[] >>
       first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
