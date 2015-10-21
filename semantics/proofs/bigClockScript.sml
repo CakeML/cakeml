@@ -1030,6 +1030,19 @@ val not_evaluate_whole_prog_timeout = Q.store_thm("not_evaluate_whole_prog_timeo
   fs[GSYM EXISTS_PROD,GSYM FORALL_PROD] >>
   metis_tac[not_evaluate_prog_timeout,SND,pair_CASES]);
 
+val prog_add_to_counter = Q.store_thm("prog_add_to_counter",
+  `∀ck env st prog res.
+      evaluate_prog ck env st prog res ⇒
+     ∀r2 r3 extra.
+       res = (r2,r3) ∧ ck ∧ (SND r3 ≠ Rerr (Rabort Rtimeout_error)) ⇒
+         evaluate_prog T env (st with clock := st.clock + extra) prog (r2 with clock := r2.clock + extra,r3)`,
+  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
+  rw[Once evaluate_prog_cases] >>
+  imp_res_tac top_add_to_counter >>
+  fs[] >> rw[] >> fs[] >>
+  `r ≠ Rerr (Rabort Rtimeout_error)`
+    by (Cases_on`r` >> fs[combine_mod_result_def]) >>
+  fs[] >> metis_tac[])
 val prog_clock_monotone = Q.store_thm("prog_clock_monotone",
 `∀ck env ^s d res. evaluate_prog ck env s d res ⇒ ck ⇒ (FST res).clock ≤ s.clock`,
  ho_match_mp_tac evaluate_prog_ind >> rw[] >>

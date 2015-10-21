@@ -25,25 +25,6 @@ val evaluate_prog_final_event_mono = Q.store_thm("evaluate_prog_final_event_mono
      SOME(THE(FST(evaluate_prog (s with clock := k1) e p)).ffi.final_event)`,
   cheat)
 
-local
-  open bigStepTheory
-  open semanticPrimitivesTheory
-in
-val prog_add_to_counter = Q.store_thm("prog_add_to_counter",
-  `∀ck env st prog res.
-      evaluate_prog ck env st prog res ⇒
-     ∀r2 r3 extra.
-       res = (r2,r3) ∧ ck ∧ (SND r3 ≠ Rerr (Rabort Rtimeout_error)) ⇒
-         evaluate_prog T env (st with clock := st.clock + extra) prog (r2 with clock := r2.clock + extra,r3)`,
-  ho_match_mp_tac evaluate_prog_ind >> rw[] >>
-  rw[Once evaluate_prog_cases] >>
-  imp_res_tac top_add_to_counter >>
-  fs[] >> rw[] >> fs[] >>
-  `r ≠ Rerr (Rabort Rtimeout_error)`
-    by (Cases_on`r` >> fs[combine_mod_result_def]) >>
-  fs[] >> metis_tac[])
-end
-
 (* -- *)
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
