@@ -6,6 +6,139 @@ val _ = new_theory "word_instProof";
 
 val sym_sub_tac = SUBST_ALL_TAC o SYM;
 
+val convert_sub_ok = prove(``
+  ∀ls.
+  word_exp s (convert_sub ls) = word_exp s (Op Sub ls)``,
+  ho_match_mp_tac convert_sub_ind>>rw[convert_sub_def,word_exp_def]>>unabbrev_all_tac>>
+  fs[word_op_def]>>
+  EVERY_CASE_TAC>>
+  fs[WORD_NEG_MUL,WORD_NOT])
+
+val PERM_EVERY = prove(``
+  ∀ls ls'.
+  PERM ls ls' ⇒
+  (EVERY P ls ⇔ EVERY P ls')``,
+  ho_match_mp_tac PERM_STRONG_IND>>rw[]>>metis_tac[])
+
+(*In general, any permutation works*)
+val word_exp_op_permute_lem = prove(``
+  op ≠ Sub ⇒
+  ∀ls ls'.
+  PERM ls ls' ⇒
+  word_exp s (Op op ls) = word_exp s (Op op ls')``,
+  strip_tac>>
+  ho_match_mp_tac PERM_STRONG_IND>>rw[]>>
+  fs[word_exp_def,LET_THM]>>
+  qpat_abbrev_tac`A = MAP f ls`>>
+  qpat_abbrev_tac`B = MAP f ls'`>>
+  `PERM A B` by metis_tac[PERM_MAP]>>
+  `EVERY IS_SOME A ⇔ EVERY IS_SOME B` by metis_tac[PERM_EVERY]>>
+  Cases_on`EVERY IS_SOME A` >>
+  (*Don't know why simplifier removes EVERY in a bad way here...*)
+  TRY
+  (`~EVERY IS_SOME B` by metis_tac[]>>
+  simp[])>>fs[]>>IF_CASES_TAC>>fs[]>>
+  Cases_on`op`>>fs[word_op_def])
+
+(*Remove tail recursion...*)
+val pull_ops_simp_def = Define`
+  (pull_ops_simp op [] = [] ) ∧
+  (pull_ops_simp op (x::xs) =
+    case x of
+    |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
+    |  _  => x::(pull_ops_simp op xs))`
+
+val pull_ops_simp_pull_ops_perm = prove(``
+  ∀ls x.
+  PERM (pull_ops op ls x) ((pull_ops_simp op ls)++x)``,
+  Induct>>fs[pull_ops_def,pull_ops_simp_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
+  cheat)
+
+val pull_ops_simp_pull_ops_word_exp = prove(``
+  op ≠ Sub ⇒
+  word_exp s (Op op (pull_ops op ls [])) = word_exp s (Op op (pull_ops_simp op ls))``,
+  strip_tac>> imp_res_tac word_exp_op_permute_lem>>
+  pop_assum match_mp_tac>>
+  assume_tac pull_ops_simp_pull_ops_perm>>
+  pop_assum (qspecl_then [`ls`,`[]`] assume_tac)>>fs[])
+
+val word_exp_op_mono = prove(``
+  op ≠ Sub ⇒
+  word_exp s (Op op ls) = word_exp s (Op op ls') ⇒
+  word_exp s (Op op (x::ls)) =
+  word_exp s (Op op (x::ls'))``,
+  rw[word_exp_def,LET_THM]>>
+  Cases_on`op`>>fs[word_op_def])
+
+val word_exp_op_op = prove(``
+  op ≠ Sub ⇒
+  ∀ls ls'.
+  word_exp s (Op op ls) = word_exp s (Op op ls') ⇒
+  word_exp s (Op op (l ++ ls)) =
+  word_exp s (Op op ((Op op l) :: ls'))``,
+  rw[word_exp_def,LET_THM]>>
+  qpat_abbrev_tac`A = MAP f ls`>>
+  qpat_abbrev_tac`B = MAP f ls'`>>
+  qpat_abbrev_tac`C = MAP f l`>>
+  `EVERY IS_SOME A ⇔ EVERY IS_SOME B` by
+    (Cases_on`op`>>fs[word_op_def]>>
+    qpat_assum`C=D` mp_tac >>EVERY_CASE_TAC>>fs[])>>
+  Cases_on`EVERY IS_SOME A` >>
+  TRY
+  (`~EVERY IS_SOME B` by metis_tac[]>>
+  simp[])>>fs[]>>IF_CASES_TAC>>fs[]>>
+  Cases_on`op`>>fs[word_op_def]>>
+  (*Deal with FOLDR*)
+  cheat)
+
+val pull_ops_ok = prove(``
+  op ≠ Sub ⇒
+  ∀ls. word_exp s (Op op (pull_ops op ls [])) =
+         word_exp s (Op op ls)``,
+  strip_tac>>
+  fs[pull_ops_simp_pull_ops_word_exp]>>
+  Induct>>rw[pull_ops_simp_def]>>Cases_on`op`>>fs[]>>
+  FULL_CASE_TAC>>fs[word_exp_op_mono]>>
+  IF_CASES_TAC>>fs[word_exp_op_mono]>>
+  `b ≠ Sub` by rw[]>>
+  imp_res_tac word_exp_op_op>>
+  pop_assum (qspec_then`l` assume_tac)>>fs[])
+
+val pull_exp_ok = prove(``
+  ∀exp s.
+  word_exp s exp = word_exp s (pull_exp exp)``,
+  ho_match_mp_tac pull_exp_ind>>rw[]>>
+  fs[pull_exp_def,LET_THM]>>
+  TRY(fs[op_consts_def,word_exp_def,LET_THM,word_op_def]>>NO_TAC)
+  >-
+    (simp[convert_sub_ok,word_exp_def,MAP_MAP_o]>>
+    qpat_abbrev_tac`ws = MAP f ls`>>
+    qpat_abbrev_tac`ws = MAP f ls`>>
+    `ws = ws'` by
+      (match_mp_tac LIST_EQ>>unabbrev_all_tac>>fs[EL_MAP,EL_MEM])>>
+    fs[GSYM MAP_MAP_o])
+  >>
+  TRY(fs[pull_exp_def,word_exp_def,LET_THM,word_op_def]>>IF_CASES_TAC>>fs[]>>
+  first_x_assum(qspec_then `s` assume_tac)>>rfs[]>>
+  pop_assum sym_sub_tac>>fs[IS_SOME_EXISTS]>>NO_TAC)>>
+  (*pull_ops_done..*)
+  (*TODO: rm_const, PARTITION..*)
+  cheat)
+
+val convert_sub_every_var_exp = prove(``
+  ∀ls.
+  (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
+  every_var_exp P (convert_sub ls)``,
+  ho_match_mp_tac convert_sub_ind>>rw[convert_sub_def]>>
+  fs[every_var_exp_def,EVERY_MEM])
+
+val pull_exp_every_var_exp = prove(``
+  ∀exp.
+  every_var_exp P exp ⇒
+  every_var_exp P (pull_exp exp)``,
+  ho_match_mp_tac pull_exp_ind>>fs[op_consts_def,pull_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP,LET_THM,convert_sub_def]>>rw[]>>
+  cheat)
+
 (*First step: Make op expressions have exactly 2 args*)
 (*Semantics*)
 val flatten_exp_ok = prove(``
@@ -19,7 +152,7 @@ val flatten_exp_ok = prove(``
       (match_mp_tac LIST_EQ>>unabbrev_all_tac>>fs[EL_MAP,EL_MEM])>>
     metis_tac[])
   >>
-    fs[word_exp_def,LET_THM,word_op_def]>>IF_CASES_TAC>>fs[]>>
+    fs[op_consts_def,word_exp_def,LET_THM,word_op_def]>>IF_CASES_TAC>>fs[]>>
     TRY(first_x_assum(qspec_then `s` assume_tac)>>rfs[]>>
     pop_assum sym_sub_tac>>fs[])>>metis_tac[option_CLAUSES])
 
@@ -40,13 +173,13 @@ val binary_branch_exp_def = tDefine "binary_branch_exp" `
 val flatten_exp_binary_branch_exp = prove(``
   ∀exp.
   binary_branch_exp (flatten_exp exp)``,
-  ho_match_mp_tac flatten_exp_ind>>fs[flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP])
+  ho_match_mp_tac flatten_exp_ind>>fs[op_consts_def,flatten_exp_def,binary_branch_exp_def,EVERY_MEM,EVERY_MAP])
 
 val flatten_exp_every_var_exp = prove(``
   ∀exp.
   every_var_exp P exp ⇒
   every_var_exp P (flatten_exp exp)``,
-  ho_match_mp_tac flatten_exp_ind>>fs[flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP])
+  ho_match_mp_tac flatten_exp_ind>>fs[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP])
 
 val num_exp_equiv = prove(``
   word_inst$num_exp = wordSem$num_exp``,
@@ -182,6 +315,15 @@ val inst_select_exp_thm = prove(``
           Cases_on`b`>>
           fs[set_var_def,state_component_equality,lookup_insert,word_exp_def]>>
           rw[]>>DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
+        >> IF_CASES_TAC
+        >-
+          (simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
+          `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
+          fs[]>>rfs[word_exp_def,word_op_def]>>
+          fs[state_component_equality,lookup_insert]>>rw[]>>
+          DISJ2_TAC>>strip_tac>>
+          `x'' ≠ temp` by DECIDE_TAC>>
+          metis_tac[])
         >>
           (simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
           `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
@@ -190,6 +332,7 @@ val inst_select_exp_thm = prove(``
           rw[]>>
           DISJ2_TAC>>strip_tac>-`F` by DECIDE_TAC>>
           `x'' ≠ temp` by DECIDE_TAC>>
+          `¬ (temp+1 < temp)` by DECIDE_TAC>>
           metis_tac[]))
       >>
         `inst_select_exp c tar temp (Op b [e1;e2]) =
@@ -407,9 +550,13 @@ val inst_select_thm = prove(``
   fs[inst_select_def,locals_rel_evaluate_thm]
   >-
     (fs[evaluate_def]>>last_x_assum mp_tac>>FULL_CASE_TAC>>rw[]>>
-    fs[every_var_def]>>imp_res_tac flatten_exp_every_var_exp>>
+    fs[every_var_def]>>
+    imp_res_tac pull_exp_every_var_exp>>
+    imp_res_tac flatten_exp_every_var_exp>>
+    fs[Once pull_exp_ok]>>
     fs[Once flatten_exp_ok]>>
     assume_tac flatten_exp_binary_branch_exp>>
+    pop_assum(qspec_then`pull_exp exp` assume_tac)>>
     imp_res_tac inst_select_exp_thm>>rfs[]>>
     first_x_assum(qspecl_then[`c'`,`c`] assume_tac)>>fs[]>>
     simp[state_component_equality,set_var_def,locals_rel_def]>>
@@ -418,9 +565,13 @@ val inst_select_thm = prove(``
   >-
     (fs[evaluate_def]>>last_x_assum mp_tac>>
     FULL_CASE_TAC>>fs[]>>strip_tac>>
-    fs[every_var_def]>>imp_res_tac flatten_exp_every_var_exp>>
+    fs[every_var_def]>>
+    imp_res_tac pull_exp_every_var_exp>>
+    imp_res_tac flatten_exp_every_var_exp>>
+    fs[Once pull_exp_ok]>>
     fs[Once flatten_exp_ok]>>
     assume_tac flatten_exp_binary_branch_exp>>
+    pop_assum(qspec_then`pull_exp exp` assume_tac)>>
     imp_res_tac inst_select_exp_thm>>rfs[]>>
     first_x_assum(qspecl_then[`temp`,`c`] assume_tac)>>fs[]>>
     fs[LET_THM,evaluate_def,word_exp_def]>>
@@ -430,20 +581,22 @@ val inst_select_thm = prove(``
   >-
     (fs[evaluate_def]>>last_x_assum mp_tac>>
     ntac 3 FULL_CASE_TAC>>fs[]>>strip_tac>>
-    qpat_abbrev_tac`expr = flatten_exp emxp`>>
+    qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
     Cases_on`∃w exp'. expr = Op Add [exp';Const w]`>>
     fs[LET_THM]
     >-
       (IF_CASES_TAC
       >-
         (fs[Abbr`expr`,every_var_def]>>
+        imp_res_tac pull_exp_every_var_exp>>
+        fs[Once pull_exp_ok]>>
         fs[Once flatten_exp_ok,word_exp_def,LET_THM,IS_SOME_EXISTS]>>
         imp_res_tac flatten_exp_every_var_exp>>rfs[every_var_exp_def]>>
         fs[]>>
-        imp_res_tac inst_select_exp_thm>> ntac 2 (pop_assum kall_tac)>>
+        imp_res_tac inst_select_exp_thm>> ntac 5 (pop_assum kall_tac)>>
         pop_assum mp_tac>>discharge_hyps>-
           (assume_tac flatten_exp_binary_branch_exp>>
-          pop_assum(qspec_then`exp` mp_tac)>>simp[binary_branch_exp_def])>>
+          pop_assum(qspec_then`pull_exp exp` mp_tac)>>simp[binary_branch_exp_def])>>
         rw[]>>
         fs[evaluate_def,LET_THM]>>first_x_assum(qspecl_then [`temp`,`c`] assume_tac)>>
         fs[inst_def,word_exp_def]>>
@@ -457,13 +610,14 @@ val inst_select_thm = prove(``
         rw[]>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
       >>
         qpat_assum`expr =A` sym_sub_tac>>
+        fs[Once pull_exp_ok]>>
         fs[Once flatten_exp_ok]>>
         imp_res_tac inst_select_exp_thm>>
         fs[AND_IMP_INTRO]>> pop_assum mp_tac>>
         discharge_hyps
         >-
           (fs[every_var_def,Abbr`expr`]>>
-          metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp]) 
+          metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp,pull_exp_every_var_exp]) 
         >>
         disch_then (qspecl_then [`temp`,`c`] assume_tac)>>
         fs[evaluate_def,LET_THM,inst_def,word_exp_def]>>
@@ -483,13 +637,14 @@ val inst_select_thm = prove(``
         (fs[inst_select_def,LET_THM]>>
         EVERY_CASE_TAC>>fs[])>>
       fs[inst_select_def,LET_THM,Abbr`expr`]>>
+      fs[Once pull_exp_ok]>>
       fs[Once flatten_exp_ok]>>
       imp_res_tac inst_select_exp_thm>>
       fs[AND_IMP_INTRO]>> pop_assum mp_tac>>
       discharge_hyps
       >-
         (fs[every_var_def]>>
-        metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp])
+        metis_tac[pull_exp_every_var_exp,flatten_exp_every_var_exp,flatten_exp_binary_branch_exp])
       >>
       disch_then(qspecl_then [`temp`,`c`] assume_tac)>>
       fs[evaluate_def,LET_THM,inst_def,word_exp_def]>>

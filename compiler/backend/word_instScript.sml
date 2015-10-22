@@ -16,7 +16,7 @@ val num_exp_def = Define `
 val word_op_def = Define `
   word_op op (ws:('a word) list) =
     case (op,ws) of
-    | (And,ws) => SOME (FOLDR word_and (~0w) ws)
+    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
     | (Add,ws) => SOME (FOLDR word_add 0w ws)
     | (Or,ws) => SOME (FOLDR word_or 0w ws)
     | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
@@ -24,10 +24,10 @@ val word_op_def = Define `
     | _ => NONE`;
 
 (*Scheme:
-Precond: None
-1) Convert Sub [ x ; Const w ] to Add [x ; Const ~w], pull all nested ops and consts as high up as possible to the top
-Condition: No Sub[X;Const w]
-2) Flatten to binary branching, leaving constants on the left (probably more efficient)
+1)
+ Pull all nested ops and consts as far up as possible &
+ convert Sub [ x ; Const w ] to Add [x ; Const -w]
+2) Flatten to binary branching expressions
 3)
 
 *)
@@ -42,9 +42,6 @@ val pull_ops_def = Define`
     |  (Op op' ls) => if op = op' then pull_ops op xs (ls ++ acc) else pull_ops op xs (x::acc)
     |  _  => pull_ops op xs (x::acc))`
 
-(*
-EVAL ``pull_ops Add [Op Add [a;b;c];Op Or [a;b;c]] []``
-*)
 val is_const_def = Define`
   (is_const (Const w) = T) ∧
   (is_const _ = F)`
@@ -54,10 +51,21 @@ val rm_const_def = Define`
   (*Make it total*)
   (rm_const _ = 0w)`
 
+val convert_sub_def = Define`
+  (convert_sub [Const w1;Const w2] = Const (w1 -w2)) ∧
+  (convert_sub [x;Const w] = Op Add [x;Const (-w)]) ∧
+  (convert_sub ls = Op Sub ls)`
+
+val op_consts_def = Define`
+  (op_consts And = Const (~0w)) ∧
+  (op_consts _ = Const 0w)`
+
 val pull_exp_def = tDefine "pull_exp"`
-  (pull_exp (Op Sub [Const w1;Const w2]) = Const (w1 - w2)) ∧
-  (pull_exp (Op Sub [x;Const w]) = Op Add [pull_exp x; Const (~w)]) ∧
-  (pull_exp (Op Sub ls) = Op Sub (MAP pull_exp ls)) ∧
+  (pull_exp (Op Sub ls) =
+    let new_ls = MAP pull_exp ls in
+    convert_sub new_ls) ∧
+  (pull_exp (Op op []) = op_consts op) ∧
+  (pull_exp (Op op [x]) = pull_exp x) ∧
   (pull_exp (Op op ls) =
     (*First, pull all the inner expressions*)
     let new_ls = MAP pull_exp ls in
@@ -65,10 +73,13 @@ val pull_exp_def = tDefine "pull_exp"`
     let pull_ls = pull_ops op new_ls [] in
     (*Now optimize*)
     let (const_ls,nconst_ls) = PARTITION is_const pull_ls in
-    let w = THE (word_op op (MAP rm_const const_ls)) in
-    case nconst_ls of
-      [] => Const w
-    | _ => Op op (Const w::nconst_ls)) ∧
+    case const_ls of
+      [] => Op op nconst_ls
+    | _ =>
+      let w = THE (word_op op (MAP rm_const const_ls)) in
+      case nconst_ls of
+        [] => Const w
+      | _ => Op op (Const w::nconst_ls)) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
   (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
   (pull_exp exp = exp)`
@@ -77,9 +88,6 @@ val pull_exp_def = tDefine "pull_exp"`
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def,asmTheory.binop_size_def,asmTheory.shift_size_def,store_name_size_def]
    \\ TRY (DECIDE_TAC))
-
-
-(*TODO: Check the code below: constants are on the head element*)
 
 (*Flatten list expressions to trees -- of the form:
       +
@@ -92,8 +100,7 @@ c d
 *)
 val flatten_exp_def = tDefine "flatten_exp" `
   (flatten_exp (Op Sub exps) = Op Sub (MAP flatten_exp exps)) ∧
-  (flatten_exp (Op And []) = Const (~0w)) ∧
-  (flatten_exp (Op op []) = Const (0w)) ∧
+  (flatten_exp (Op op []) = op_consts op) ∧
   (flatten_exp (Op op [x]) = flatten_exp x) ∧
   (flatten_exp (Op op (x::xs)) = Op op [flatten_exp (Op op xs);flatten_exp x]) ∧
   (flatten_exp (Load exp) = Load (flatten_exp exp)) ∧
@@ -107,6 +114,10 @@ val flatten_exp_def = tDefine "flatten_exp" `
 
 (*
 val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
+
+val test = EVAL ``flatten_exp (pull_exp (Op Sub [Const 1w; Op Sub[Const 2w;Const (3w:64 word)]]))``
+
+ Op Add [Const 4w; Const 5w; Op Add[Const 6w; Const 7w];Op Xor[Const 1w;Var y;Var x]] ; Const (8w:8 word)]))``
 *)
 
 (*
@@ -121,6 +132,7 @@ val test = EVAL ``flatten_exp (pull_exp (Op Add [Const 1w;Const 2w; Const 3w; Op
   Each step takes tar and temp where we are allowed to store temporaries
   in temp and the value of the whole expression must be saved in tar
 *)
+
 val inst_select_exp_def = tDefine "inst_select_exp" `
   (inst_select_exp (c:'a asm_config) (tar:num) (temp:num) (Load exp) =
     case exp of
@@ -144,9 +156,14 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
     let p1 = inst_select_exp c temp temp e1 in
     case e2 of
     | Const w =>
+      (*t = r op const*)
       if c.valid_imm (INL op) w then
         Seq p1 (Inst (Arith (Binop op tar temp (Imm w))))
+      (*t = r + const --> t = r - const*)
+      else if op = Add ∧ c.valid_imm (INL Sub) (-w) then
+        Seq p1 (Inst (Arith (Binop Sub tar temp (Imm (-w)))))
       else
+      (*no immediates*)
         let p2 = Inst (Const (temp+1) w) in
         Seq p1 (Seq p2 (Inst (Arith (Binop op tar temp (Reg (temp+1))))))
     | _ =>
@@ -169,26 +186,28 @@ val inst_select_exp_def = tDefine "inst_select_exp" `
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
    \\ fs[exp_size_def]
    \\ TRY (DECIDE_TAC)) ;
+
 (*
 
 First munch
-EVAL ``inst_select_exp x64_config 5 5 (Load (Op Add [Const 400w; Var 6]))``
+EVAL ``inst_select_exp``
+ x64_config 5 5 (Load (Op Add [Const 400w; Var 6]))``
 EVAL ``inst_select_exp x64_config 5 5 (Load (Op Add [Const 99999999999w; Var 6]))``
 
 Second munch
-EVAL ``inst_select_exp x64_config 0 99 (Op And [Const 99w;Op Add [Var 2;Var 3]])``
-
+EVAL ``inst_select_exp x64_config 0 99 
+EVAL ``(pull_exp (Op And [Const (99w:64 word); Op Add [Op Add [];Op Or []]]))``
 *)
 
 (*Flattens all expressions in program, temp must a fresh var*)
 val inst_select_def = Define`
   (inst_select c temp (Assign v exp) =
-    (inst_select_exp c v temp o flatten_exp) exp) ∧
+    (inst_select_exp c v temp o flatten_exp o pull_exp) exp) ∧
   (inst_select c temp (Set store exp) =
-    let prog = (inst_select_exp c temp temp o flatten_exp) exp in
+    let prog = (inst_select_exp c temp temp o flatten_exp o pull_exp) exp in
     Seq prog (Set store (Var temp))) ∧
   (inst_select c temp (Store exp var) =
-    let exp = flatten_exp exp in
+    let exp = (flatten_exp o pull_exp) exp in
     case exp of
     | Op Add [exp';Const w] =>
       if addr_offset_ok w c then
