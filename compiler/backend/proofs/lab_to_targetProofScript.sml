@@ -930,13 +930,13 @@ val state_rel_ignore_io_events = prove(
 
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
-     (evaluate s1 = (res,s2)) /\ (res <> Error Internal) /\
-     ¬s1.ffi.ffi_failed /\
+     (evaluate s1 = (res,s2)) /\ (res <> Error) /\
+     s1.ffi.final_event = NONE /\
      backend_correct mc_conf.target /\
      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.ffi (s1.clock + k) ms1 =
-          (if s2.ffi.ffi_failed then Error IO_mismatch else res,
+          ((case s2.ffi.final_event of NONE => res | SOME e => Halt (FFI_outcome e)),
            ms2,s2.ffi))`,
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
@@ -1283,13 +1283,13 @@ val compile_correct = Q.prove(
       \\ Q.PAT_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
       \\ fs [word_loc_val_def] \\ NO_TAC) \\ fs []
     \\ imp_res_tac read_bytearray_state_rel \\ fs []
-    \\ Cases_on `new_ffi.ffi_failed` THEN1
-     (imp_res_tac evaluate_pres_ffi_failed \\ fs [] \\ rfs []
+    \\ reverse(Cases_on `new_ffi.final_event = NONE`) THEN1
+     (imp_res_tac evaluate_pres_final_event \\ fs [] \\ rfs []
       \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
       \\ Q.EXISTS_TAC `l'` \\ fs [ADD_ASSOC]
       \\ once_rewrite_tac [targetSemTheory.evaluate_def] \\ fs []
       \\ fs [shift_interfer_def,LET_DEF]
-      \\ cheat (* this looks false *)) \\ fs []
+      \\ BasicProvers.CASE_TAC >> fs[]) \\ fs []
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
@@ -1379,7 +1379,6 @@ val compile_correct = Q.prove(
            WORD_ADD_SUB] \\ fs [])
     \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
     \\ fs [state_rel_def,jump_to_offset_def,asmSemTheory.upd_pc_def]
-    \\ rw[]
     \\ cheat));
 
 (* relating observable semantics *)
