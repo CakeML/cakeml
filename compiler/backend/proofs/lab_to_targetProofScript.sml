@@ -1379,7 +1379,14 @@ val compile_correct = Q.prove(
            WORD_ADD_SUB] \\ fs [])
     \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by fs [state_rel_def]
     \\ fs [state_rel_def,jump_to_offset_def,asmSemTheory.upd_pc_def]
-    \\ cheat));
+    \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
+    \\ `word_loc_val p labs (s1.regs s1.ptr_reg) = SOME (t1.regs s1.ptr_reg)` by fs []
+    \\ Cases_on `s1.regs s1.ptr_reg` \\ fs [word_loc_val_def] \\ rw []
+    \\ `s1 = s2` by (Cases_on `t1.regs s1.ptr_reg = 0w` \\ fs [] \\ rw []) \\ rw []
+    \\ fs [backend_correct_def] \\ res_tac \\ fs []
+    \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
+    \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
+    \\ fs [reg_ok_def] \\ rw [] \\ fs []));
 
 (* relating observable semantics *)
 

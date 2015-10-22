@@ -296,7 +296,11 @@ val evaluate_def = tDefine "evaluate" `
                       evaluate (upd_pc p (dec_clock s)))
              | _ => (Error,s))
          | _ => (Error,s))
-    | SOME (LabAsm Halt _ _ _) => (Halt Success,s)
+    | SOME (LabAsm Halt _ _ _) =>
+       (case s.regs s.ptr_reg of
+        | Word 0w => (Halt Success,s)
+        | Word _ => (Halt Resource_limit_hit,s)
+        | _ => (Error,s))
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
         let s1 = upd_reg r (lab_to_loc lab) s in
           evaluate (inc_pc (dec_clock s1))
