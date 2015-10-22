@@ -536,30 +536,25 @@ val evaluate_def = save_thm("evaluate_def",let
 (* observational semantics *)
 
 val semantics_def = Define `
-  (semantics exp s1 (Terminate Success io_list) <=>
+  (semantics exp s1 (Terminate outcome io_list) <=>
      ?k s2 r.
-       evaluate (exp,[],s1 with clock := k) = (Rval r,s2) /\
-       ¬s2.ffi.ffi_failed ∧
-       REVERSE s2.ffi.io_events = io_list) /\
-  (semantics exp s1 (Terminate FFI_error io_list) <=>
-     ?k s2 res.
-       evaluate (exp,[],s1 with clock := k) = (res,s2) ∧
-       s2.ffi.ffi_failed ∧
-       REVERSE s2.ffi.io_events = io_list ∧
-       (∀k'. k' < k ⇒ ¬(SND (evaluate (exp,[],s1 with clock := k'))).ffi.ffi_failed)) ∧
-  (semantics exp s1 (Terminate Resource_limit_hit l) <=> F) /\
+       evaluate (exp,[],s1 with clock := k) = (r,s2) /\
+       (if s2.ffi.final_event = NONE then
+         (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+        else outcome = FFI_outcome (THE s2.ffi.final_event)) ∧
+       s2.ffi.io_events = io_list) /\
   (semantics exp s1 (Diverge io_trace) <=>
-     (!k. ?s2 n.
+     (!k. ?s2.
        (evaluate (exp,[],s1 with clock := k) =
           (Rerr (Rabort Rtimeout_error),s2)) /\
-        ¬s2.ffi.ffi_failed ∧
-        LTAKE n io_trace = SOME (REVERSE s2.ffi.io_events)) /\
-     (!n io_list.
-       LTAKE n io_trace = SOME io_list ⇒
-         ?k. REVERSE (SND (evaluate (exp,[],s1 with clock :=  k))).ffi.io_events
-               = io_list)) /\
+        s2.ffi.final_event = NONE) ∧
+     lprefix_lub
+       (IMAGE
+         (λk. fromList (SND (evaluate (exp,[],s1 with clock := k))).ffi.io_events)
+         UNIV) io_trace) /\
   (semantics exp s1 Fail <=>
-     ?k. FST (evaluate (exp,[],s1 with clock := k)) =
-            Rerr (Rabort Rtype_error))`
+     ?k s2.
+       (evaluate (exp,[],s1 with clock := k)) = (Rerr (Rabort Rtype_error),s2) ∧
+       s2.ffi.final_event = NONE)`
 
 val _ = export_theory()
