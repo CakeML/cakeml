@@ -99,7 +99,6 @@ val ioNONE_preserved = store_thm(
   >- metis_tac[]);
 *)
 
-open relationTheory
 val exp3_size_EQ0 = store_thm(
   "exp3_size_EQ0[simp]",
   ``closLang$exp3_size l = 0 ⇔ l = []``,
@@ -233,7 +232,7 @@ val exp_rel_semantics = store_thm(
           >- (qx_gen_tac `k` >>
               first_x_assum
                 (qspec_then `k`
-                  (qx_choosel_then [`s1'`, `n`] strip_assume_tac)) >>
+                  (qx_choosel_then [`s1'`] strip_assume_tac)) >>
               `∃r2 s2'. evaluate (e2,[],s2 with clock := k) = (r2,s2')`
                  by metis_tac[pair_CASES] >>
               `res_rel (Rerr (Rabort Rtimeout_error), s1') (r2,s2')`
@@ -243,7 +242,9 @@ val exp_rel_semantics = store_thm(
                      map_every qexists_tac
                        [`r2`, `Rerr (Rabort Rtimeout_error)`] >> simp[]) >>
               fs[res_rel_rw] >> metis_tac[])
-          >- (qx_genl_tac [`n`,`iol`] >> strip_tac >>
+          >- cheat
+             (*
+             (qx_genl_tac [`n`,`iol`] >> strip_tac >>
               `∃k. REVERSE
                      (SND (evaluate(e1,[], s1 with clock := k))).ffi.io_events =
                      iol`
@@ -254,10 +255,23 @@ val exp_rel_semantics = store_thm(
                  by metis_tac[pair_CASES] >>
               `res_rel (r1,s1') (r2,s2')` by metis_tac[exp_rel_evaluate] >>
               `r1 ≠ Rerr (Rabort Rtype_error)` by metis_tac[FST,semantics_def]>>
-              `s2'.ffi = s1'.ffi` by metis_tac[res_rel_ffi] >> simp[] >> fs[]))
+              `s2'.ffi = s1'.ffi` by metis_tac[res_rel_ffi] >> simp[] >> fs[])
+              *)
+              )
       >- ((* terminate case *)
-          qcase_tac `Terminate t l` >> Cases_on `t` >>
-          simp[semantics_def]
+          (* RK: my attempt to start this afresh. I think we'll need the
+                 monotonicity thing mentioned in the Fail case below.*)
+          strip_tac >>
+          qexists_tac`k` >>
+          `res_rel (evaluate (e1,[],s1 with clock := k)) (evaluate (e2,[],s2 with clock := k))`
+            by metis_tac[exp_rel_evaluate] >>
+          Cases_on`evaluate (e2,[],s2 with clock := k)` >>
+          Cases_on`s2'.ffi.final_event` >> fs[] >- (
+            rfs[] >> imp_res_tac res_rel_ffi >>
+            Cases_on`r`>>rfs[res_rel_rw]>>
+            Cases_on`e`>>fs[res_rel_rw] ) >>
+          cheat
+          (* previous proof, on an old version of the semantics
           >- ((* Success *)
               disch_then (qx_choosel_then [`k`, `s1'`, `r`] strip_assume_tac) >>
               qabbrev_tac `ev1 = evaluate(e1,[],s1 with clock := k)` >>
@@ -286,7 +300,7 @@ val exp_rel_semantics = store_thm(
               `res_rel (r01,s01) (r02,s02)` by metis_tac[exp_rel_evaluate] >>
               `r01 ≠ Rerr (Rabort Rtype_error)`
                  by metis_tac[semantics_def, FST] >>
-              metis_tac[res_rel_ffi])))
+              metis_tac[res_rel_ffi])*)))
   >- (fs[semantics_def] >> qx_gen_tac `k` >>
       first_x_assum (qspec_then `k` strip_assume_tac) >>
       qabbrev_tac `
@@ -298,7 +312,9 @@ val exp_rel_semantics = store_thm(
       pop_assum mp_tac >>
       Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
       Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
-      Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
+      Cases_on `a` >> dsimp[res_rel_rw] >> fs[] >>
+      cheat (* probably need to push an ffi final_event monotonicity theorem through the semantics *)
+      ))
 
 (* ----------------------------------------------------------------------
     Theorems specific to certain transformations
