@@ -285,39 +285,39 @@ val evaluate_def = tDefine "evaluate" `
         (case a of
          | Inst i =>
             (let s1 = asm_inst i s in
-               if s1.failed then (Error Internal,s)
+               if s1.failed then (Error,s)
                else evaluate (inc_pc (dec_clock s1)))
          | JumpReg r =>
             (case read_reg r s of
              | Loc n1 n2 =>
                  (case loc_to_pc n1 n2 s.code of
-                  | NONE => (Error Internal,s)
+                  | NONE => (Error,s)
                   | SOME p =>
                       evaluate (upd_pc p (dec_clock s)))
-             | _ => (Error Internal,s))
-         | _ => (Error Internal,s))
-    | SOME (LabAsm Halt _ _ _) => (Result,s)
+             | _ => (Error,s))
+         | _ => (Error,s))
+    | SOME (LabAsm Halt _ _ _) => (Halt Success,s)
     | SOME (LabAsm (LocValue r lab) _ _ _) =>
         let s1 = upd_reg r (lab_to_loc lab) s in
           evaluate (inc_pc (dec_clock s1))
     | SOME (LabAsm (Jump l) _ _ _) =>
        (case get_pc_value l s of
-        | NONE => (Error Internal,s)
+        | NONE => (Error,s)
         | SOME p => evaluate (upd_pc p (dec_clock s)))
     | SOME (LabAsm (JumpCmp c r ri l) _ _ _) =>
        (case word_cmp c (read_reg r s) (reg_imm ri s) of
-        | NONE => (Error Internal,s)
+        | NONE => (Error,s)
         | SOME F => evaluate (inc_pc (dec_clock s))
         | SOME T =>
          (case get_pc_value l s of
-          | NONE => (Error Internal,s)
+          | NONE => (Error,s)
           | SOME p => evaluate (upd_pc p (dec_clock s))))
     | SOME (LabAsm (Call l) _ _ _) =>
        (case get_pc_value l s of
-        | NONE => (Error Internal,s)
+        | NONE => (Error,s)
         | SOME p =>
          (case get_ret_Loc s of
-          | NONE => (Error Internal,s)
+          | NONE => (Error,s)
           | SOME k =>
              let s1 = upd_reg s.link_reg k s in
                evaluate (upd_pc p (dec_clock s1))))
@@ -335,9 +335,9 @@ val evaluate_def = tDefine "evaluate" `
                                                 (s.regs a) Word);
                                  pc := new_pc ;
                                  clock := s.clock - 1 |>)
-          | _ => (Error Internal,s))
-        | _ => (Error Internal,s))
-    | _ => (Error Internal,s)`
+          | _ => (Error,s))
+        | _ => (Error,s))
+    | _ => (Error,s)`
  (WF_REL_TAC `measure (\s. s.clock)`
   \\ fs [inc_pc_def] \\ rw [] \\ IMP_RES_TAC asm_fetch_IMP
   \\ fs [asm_inst_consts,upd_reg_def,upd_pc_def,dec_clock_def]
@@ -345,21 +345,15 @@ val evaluate_def = tDefine "evaluate" `
 
 val semantics_def = Define `
   (semantics s1 (Terminate t io_list) <=>
-     ?k r s2.
-       evaluate (s1 with clock := k) = (r,s2) /\
-       (case t of
-          Success   => r = Result ∧ ¬s2.ffi.ffi_failed
-        | FFI_error => s2.ffi.ffi_failed ∧
-                      (∀k'. k' < k ⇒ ¬(SND (evaluate (s1 with clock := k'))).ffi.ffi_failed)
-        | _ => T) ∧
-       REVERSE s2.ffi.io_events = io_list) /\
+     ?k s2.
+       evaluate (s1 with clock := k) = (Halt t,s2) /\
+       (∀e. t = FFI_outcome e ⇒ s2.ffi.final_event = SOME e) ∧
+       s2.ffi.io_events = io_list) /\
   (semantics s1 (Diverge io_trace) <=>
-     (!k. ?s2 n. (evaluate (s1 with clock := k) = (TimeOut,s2)) /\
-               ¬s2.ffi.ffi_failed ∧
-               LTAKE n io_trace = SOME (REVERSE s2.ffi.io_events)) /\
-     (!n io_list. (LTAKE n io_trace = SOME io_list) ⇒
-           ?k. (REVERSE(SND (evaluate (s1 with clock := k))).ffi.io_events = io_list))) /\
+     (!k. ?s2. (evaluate (s1 with clock := k) = (TimeOut,s2)) /\
+               s2.ffi.final_event = NONE) /\
+     lprefix_lub (IMAGE (λk. fromList (SND(evaluate (s1 with clock := k))).ffi.io_events) UNIV) io_trace) /\
   (semantics s1 Fail <=>
-     ?k. FST (evaluate (s1 with clock := k)) = Error Internal)`
+     ?k s2. (evaluate (s1 with clock := k) = (Error,s2)) ∧ s2.ffi.final_event = NONE)`
 
 val _ = export_theory();
