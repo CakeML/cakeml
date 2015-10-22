@@ -99,7 +99,6 @@ val ioNONE_preserved = store_thm(
   >- metis_tac[]);
 *)
 
-open relationTheory
 val exp3_size_EQ0 = store_thm(
   "exp3_size_EQ0[simp]",
   ``closLang$exp3_size l = 0 ⇔ l = []``,

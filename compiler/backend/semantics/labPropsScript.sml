@@ -165,15 +165,15 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
       evaluate (s with clock := s.clock + k) = (res,r)``,
   cheat (* easy *));
 
-val evaluate_ffi_failed_IMP = store_thm("evaluate_ffi_failed_IMP",
+val evaluate_final_event_IMP = store_thm("evaluate_final_event_IMP",
   ``!k s q r.
-      ¬s.ffi.ffi_failed /\ evaluate s = (q,r) /\ r.ffi.ffi_failed ==>
-      q = Error IO_mismatch``,
+      s.ffi.final_event = NONE /\ evaluate s = (q,r) /\ r.ffi.final_event = SOME e ==>
+      q = Halt (FFI_outcome e)``,
   cheat (* easy *));
 
-val evaluate_pres_ffi_failed = store_thm("evaluate_pres_ffi_failed",
+val evaluate_pres_final_event = store_thm("evaluate_pres_final_event",
   ``!s1.
-      (evaluate s1 = (res,s2)) /\ s1.ffi.ffi_failed ==> s2.ffi.ffi_failed``,
+      (evaluate s1 = (res,s2)) /\ s1.ffi.final_event ≠ NONE ==> s2.ffi = s1.ffi``,
   completeInduct_on `s1.clock`
   \\ rpt strip_tac \\ fs [PULL_FORALL] \\ rw []
   \\ ntac 2 (POP_ASSUM MP_TAC) \\ simp_tac std_ss [Once evaluate_def,LET_DEF]
