@@ -274,7 +274,8 @@ val exp_rel_semantics = store_thm(
               Cases_on `r1` >> fs[res_rel_rw] >>
               qcase_tac `res_rel (Rerr ee, _)` >> Cases_on `ee` >>
               fs[res_rel_rw])
-          >- cheat))
+          >- (fs[semantics_def] >> first_x_assum (qspec_then `k` mp_tac) >>
+              simp[] >> strip_tac >> metis_tac[res_rel_ffi])))
   >- (fs[semantics_def] >> qx_gen_tac `k` >>
       first_x_assum (qspec_then `k` strip_assume_tac) >>
       qabbrev_tac `
@@ -283,11 +284,10 @@ val exp_rel_semantics = store_thm(
       `(∃r1 s1'. ev e1 s1 = (r1,s1')) ∧ (∃r2 s2'. ev e2 s2 = (r2,s2'))`
         by metis_tac[pair_CASES] >>
       `res_rel (r1,s1')(r2,s2')` by metis_tac[exp_rel_evaluate] >> fs[] >>
-      pop_assum mp_tac
-      >- (Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
-          Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
-          Cases_on `a` >> dsimp[res_rel_rw] >> fs[])
-      >- cheat))
+      pop_assum mp_tac >>
+      Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
+      Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
+      Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
 
 (* ----------------------------------------------------------------------
     Theorems specific to certain transformations

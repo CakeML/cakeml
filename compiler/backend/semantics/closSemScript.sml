@@ -554,7 +554,6 @@ val semantics_def = Define `
          UNIV) io_trace) /\
   (semantics exp s1 Fail <=>
      ?k s2.
-       (evaluate (exp,[],s1 with clock := k)) = (Rerr (Rabort Rtype_error),s2) ∧
-       s2.ffi.final_event = NONE)`
+       evaluate (exp,[],s1 with clock := k) = (Rerr (Rabort Rtype_error),s2))`
 
 val _ = export_theory()
