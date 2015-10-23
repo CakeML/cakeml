@@ -101,6 +101,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,isAlphaSym_def
       ,isSymbolT_def
       ,isAlphaT_def
+      ,isCharT_def
       ] compset
     end
     val () = add_datatype ``:symbol`` compset
@@ -144,6 +145,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,ptree_OptTypEqn_def
       ,safeTL_def
       ,oHD_def
+      ,mk_binop_def
       ] compset
     end
     in
