@@ -120,7 +120,7 @@ fun derive_case_of ty = let
         SIMP_CONV (srw_ss()) [pmatch_def])
   val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
   val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
-  val n = 1
+  val with_same_v = prove(``env with v := env.v = env``,SRW_TAC[][environment_component_equality])
   val init_tac =
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -146,13 +146,12 @@ fun derive_case_of ty = let
         \\ Q.LIST_EXISTS_TAC [`s2`,`res'`,`refs2`]
         \\ FULL_SIMP_TAC std_ss [] \\ ASM_SIMP_TAC (srw_ss()) []
         \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SIMP_TAC (srw_ss()) []
-        \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res`,`(0,s)`] \\ STRIP_TAC
-        THEN1 (IMP_RES_TAC evaluate_empty_store_IMP \\ FULL_SIMP_TAC std_ss [])
-        \\ PairCases_on `env`
+        \\ DISJ1_TAC \\ Q.LIST_EXISTS_TAC [`res`,`s`] \\ STRIP_TAC
+        THEN1 (IMP_RES_TAC evaluate_empty_state_IMP \\ FULL_SIMP_TAC std_ss [])
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
         \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
               lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
-              same_ctor_def,write_def]
+              same_ctor_def,write_def,with_same_v]
 (*
   val _ = set_goal([],goal)
   val n = 1
@@ -242,7 +241,7 @@ fun inst_case_thm tm m2deep = let
                 else hol2deep z
     val lemma = D lemma
     val new_env = y |> rator |> rator |> rand
-    val env = mk_var("env",``:all_env``)
+    val env = mk_var("env",``:v environment``)
     val lemma = INST [env|->new_env] lemma
     val (x1,x2) = dest_conj x handle HOL_ERR _ => (T,x)
     val (z1,z2) = dest_imp (concl lemma)
@@ -396,7 +395,7 @@ fun inst_EvalM_env v th = let
   val str = stringLib.fromMLstring name
   val inv = smart_get_type_inv (type_of v)
   val assum = ``Eval env (Var (Short ^str)) (^inv ^v)``
-  val new_env = ``write ^str (v:v) (env:all_env)``
+  val new_env = ``write ^str (v:v) (env:v environment)``
   val old_env = new_env |> rand
   val th = thx |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
                |> DISCH_ALL |> DISCH assum |> SIMP_RULE bool_ss []
@@ -427,7 +426,7 @@ fun apply_EvalM_Recclosure fname v th = let
   val inv = smart_get_type_inv (type_of v)
   val new_env = ``write ^vname_str v (write_rec
                     [(^fname_str,^vname_str,^body)] env)``
-  val old_env = ``env:all_env``
+  val old_env = ``env:v environment``
   val assum = subst [old_env|->new_env]
               ``Eval env (Var (Short ^vname_str)) (^inv ^v)``
   val thx = th |> UNDISCH_ALL |> REWRITE_RULE [GSYM SafeVar_def]
@@ -766,7 +765,7 @@ fun m_translate def = let
   val th = th |> DISCH_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
   val th = RW [ArrowM_def] th
   val th = if is_rec then
-             th |> DISCH (first (can (find_term (fn tm => tm = rator ``Recclosure (ARB:all_env)``))) (hyp th))
+             th |> DISCH (first (can (find_term (fn tm => tm = rator ``Recclosure (ARB:v environment)``))) (hyp th))
                 |> Q.INST [`cl_env`|->`env`,`env`|->`env1`] |> DISCH (get_DeclAssum ())
                 |> Q.GEN `env` |> Q.GEN `env1`
                 |> REWRITE_RULE [AND_IMP_INTRO]
