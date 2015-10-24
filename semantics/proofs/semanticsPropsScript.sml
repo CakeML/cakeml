@@ -11,10 +11,11 @@ val _ = new_theory"semanticsProps"
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s p. ∃b. semantics_prog s p b`,
   rw[] >>
-  Cases_on`∃k ffi. evaluate_prog_with_clock s k p = (ffi,Rerr (Rabort Rtype_error)) ∧ ffi.final_event = NONE`
+  Cases_on`∃k. SND(evaluate_prog_with_clock s k p) = Rerr (Rabort Rtype_error)`
   >- metis_tac[semantics_prog_def] >> fs[] >>
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s k p = (ffi,r) ∧
+    r ≠ Rerr (Rabort Rtype_error) ∧
     (ffi.final_event = NONE ⇒ ∀a. r ≠ Rerr (Rabort a))`
   >- metis_tac[semantics_prog_def] >> fs[] >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s k p)).io_events) UNIV))` >>
@@ -70,44 +71,18 @@ val tac0 =
     imp_res_tac functional_evaluate_prog >>
     fs[bigStepTheory.evaluate_whole_prog_def]
 
-val tac =
-    tac0 >>
-    Cases_on`∃a. r = Rerr (Rabort a)` >> fs[] >- (
-      fs[] >>
-      qmatch_assum_abbrev_tac`if X then Y else Z` >>
-      reverse(Cases_on`X`)>>fs[Abbr`Y`,Abbr`Z`] >- (
-        rw[] >> rfs[] >> fs[]) >>
-      Cases_on`a` >- (
-        imp_res_tac prog_clocked_min_counter >> fs[] >>
-        `st''.ffi = st'.ffi` by (
-          metis_tac[prog_clocked_zero_determ,SND,
-                    semanticPrimitivesTheory.result_11,
-                    semanticPrimitivesTheory.error_result_11,
-                    semanticPrimitivesTheory.abort_distinct,
-                    with_clock_ffi,
-                    semanticPrimitivesTheory.state_component_equality] ) >>
-          fs[]) >>
-      imp_res_tac prog_clocked_timeout_smaller >> fs[] >>
-      imp_res_tac LESS_IMP_LESS_OR_EQ >>
-      imp_res_tac evaluate_prog_ffi_mono_clock >>
-      fs[IS_SOME_EXISTS,PULL_EXISTS] >>
-      metis_tac[FST,NOT_SOME_NONE,option_CASES] ) >>
-    every_case_tac >> fs[] >>
-    imp_res_tac prog_clocked_min_counter >> fs[] >>
-    imp_res_tac prog_clocked_zero_determ >> rfs[]
-
 val tac1 =
     metis_tac[semanticPrimitivesTheory.result_11,
               semanticPrimitivesTheory.error_result_11,
               semanticPrimitivesTheory.abort_distinct,
-              PAIR_EQ,IS_SOME_EXISTS,NOT_SOME_NONE]
+              PAIR_EQ,IS_SOME_EXISTS,NOT_SOME_NONE,SND,PAIR]
 
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
-  `∀s p b b'. semantics_prog s p b ∧
-              semantics_prog s p b' ⇒
-              b = b'`,
-  ntac 2 gen_tac >> reverse Cases >> rw[semantics_prog_def] >- (
-    Cases_on`b'`>>fs[semantics_prog_def] >- tac1 >> tac)
+  `∀s p b b'.
+    semantics_prog s p b ∧ b ≠ Fail ∧
+    semantics_prog s p b' ∧ b' ≠ Fail ⇒
+    b = b'`,
+  ntac 2 gen_tac >> reverse Cases >> rw[semantics_prog_def]
   >- (
     Cases_on`b'`>>fs[semantics_prog_def]
     >- tac1
@@ -115,7 +90,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
       tac0 >>
       qmatch_assum_abbrev_tac`if X then Y else Z` >>
       reverse(Cases_on`X`)>>fs[Abbr`Y`,Abbr`Z`] >- (
-        rw[] >> rfs[] >> fs[]) >>
+        rpt var_eq_tac >> fs[] ) >>
       Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> fs[] >- (
         metis_tac[LESS_EQ_CASES,
                   evaluate_prog_ffi_mono_clock,
@@ -129,8 +104,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
       first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       simp[semanticPrimitivesTheory.state_component_equality] >>
-      rw[] >> every_case_tac >> rfs[])
-    >- tac)
+      rw[] >> every_case_tac >> rfs[]))
   >- (
     Cases_on`b'`>>fs[semantics_prog_def]
     >- metis_tac[unique_lprefix_lub] >>

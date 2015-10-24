@@ -52,9 +52,8 @@ val semantics_prog_def = Define `
      io_trace) ∧
 (semantics_prog state prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
-  ∃k ffi.
-    evaluate_prog_with_clock state k prog = (ffi, Rerr (Rabort Rtype_error)) ∧
-    ffi.final_event = NONE)`;
+  ∃k.
+    SND(evaluate_prog_with_clock state k prog) = Rerr (Rabort Rtype_error))`;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
