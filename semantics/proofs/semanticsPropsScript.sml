@@ -8,6 +8,15 @@ open preamble
 
 val _ = new_theory"semanticsProps"
 
+val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
+  `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st k prog)).io_events) UNIV)`,
+  qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
+  ONCE_REWRITE_TAC[GSYM o_DEF] >>
+  REWRITE_TAC[IMAGE_COMPOSE] >>
+  match_mp_tac prefix_chain_lprefix_chain >>
+  rw[prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> rw[] >>
+  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
+
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s p. ∃b. semantics_prog s p b`,
   rw[] >>
@@ -28,12 +37,7 @@ val semantics_prog_total = Q.store_thm("semantics_prog_total",
     Cases_on`e`>>simp[]>>
     Cases_on`a`>>simp[]) >>
   match_mp_tac build_lprefix_lub_thm >>
-  qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
-  ONCE_REWRITE_TAC[GSYM o_DEF] >>
-  REWRITE_TAC[IMAGE_COMPOSE] >>
-  match_mp_tac prefix_chain_lprefix_chain >>
-  rw[prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> rw[] >>
-  metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
+  MATCH_ACCEPT_TAC evaluate_prog_io_events_chain);
 
 val prog_clocked_zero_determ = Q.prove(
   `evaluate_prog T x (y with clock := a) z (s with clock := 0,r) ∧
@@ -109,5 +113,74 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     Cases_on`b'`>>fs[semantics_prog_def]
     >- metis_tac[unique_lprefix_lub] >>
     tac1))
+
+open typeSoundTheory untypedSafetyTheory
+
+val state_invariant_def = Define`
+  state_invariant st ⇔
+  type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenvT,st.tenvM,st.tenvC,st.tenv,st.sem_st,st.sem_env)`;
+
+val clock_lemmas = Q.prove(
+  `((x with clock := c).clock = c) ∧
+   (((x with clock := c) with clock := d) = (x with clock := d)) ∧
+   (x with clock := x.clock = x)`,
+  rw[semanticPrimitivesTheory.state_component_equality])
+
+val prog_diverges_semantics_prog = Q.prove(
+  `prog_diverges st.sem_env st.sem_st prog ∧
+   no_dup_mods prog st.sem_st.defined_mods ∧
+   no_dup_top_types prog st.sem_st.defined_types ⇒
+   ¬semantics_prog st prog Fail`,
+  strip_tac >>
+  (untyped_safety_prog
+   |> SPEC_ALL
+   |> EQ_IMP_RULE |> fst
+   |> CONTRAPOS
+   |> SIMP_RULE bool_ss []
+   |> imp_res_tac) >>
+  simp[semantics_prog_def,PULL_EXISTS] >>
+  rw[evaluate_prog_with_clock_def] >>
+  imp_res_tac functional_evaluate_prog >>
+  rfs[bigStepTheory.evaluate_whole_prog_def] >>
+  fs[prog_clocked_unclocked_equiv,FORALL_PROD] >>
+  imp_res_tac prog_clocked_min_counter >> fs[] >>
+  spose_not_then strip_assume_tac >>
+  Cases_on`envC`>>fs[] >>
+  metis_tac[clock_lemmas,
+            semanticPrimitivesTheory.result_11,
+            semanticPrimitivesTheory.error_result_11,
+            semanticPrimitivesTheory.abort_distinct])
+
+val semantics_deterministic = Q.store_thm("semantics_deterministic",
+  `state_invariant st ⇒
+   semantics st inp = Execute bs
+   ⇒ ∃b. bs = {b}`,
+  rw[semantics_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  specl_args_of_then``semantics_prog``semantics_prog_total strip_assume_tac >>
+  simp[FUN_EQ_THM] >> qexists_tac`b` >> rw[EQ_IMP_THM] >> rfs[] >>
+  match_mp_tac semantics_prog_deterministic >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  fs[can_type_prog_def,state_invariant_def] >>
+  Cases_on`prog_diverges st.sem_env st.sem_st x` >- (
+    imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
+  CCONTR_TAC >> fs[] >>
+  fs[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
+  first_assum(split_applied_pair_tac o rand o lhs o concl) >>
+  imp_res_tac functional_evaluate_prog >>
+  (whole_prog_type_soundness
+   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
+  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+  simp[PULL_EXISTS] >> fs[] >>
+  rfs[bigStepTheory.evaluate_whole_prog_def] >>
+  simp[prog_clocked_unclocked_equiv,PULL_EXISTS] >>
+  CCONTR_TAC >> fs[] >>
+  imp_res_tac prog_clocked_min_counter >> fs[] >>
+  metis_tac[prog_clocked_zero_determ,SND,PAIR_EQ,
+            semanticPrimitivesTheory.result_11,
+            semanticPrimitivesTheory.result_distinct,
+            semanticPrimitivesTheory.error_result_11,
+            semanticPrimitivesTheory.abort_distinct]);
 
 val _ = export_theory()
