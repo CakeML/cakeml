@@ -701,4 +701,27 @@ val evaluate_whole_prog_def = Define `
   else
     res = SOME (Rabort Rtype_error)))`;
 
+val evaluate_prog_with_clock_def = Define`
+  evaluate_prog_with_clock k (genv,cenv,st) prog (ffi,res) ⇔
+    ∃k' st' st2' cenv' env'.
+      evaluate_whole_prog T genv cenv ((k,FST st),SND st) prog (((k',st',ffi),st2'),cenv',env',res)`;
+
+val semantics_def = Define`
+  (semantics st prog (Terminate outcome io_list) ⇔
+     ∃k ffi r.
+       evaluate_prog_with_clock k st prog (ffi,r) ∧
+       (if ffi.final_event = NONE then
+          (∀a. r ≠ SOME ((Rabort a))) ∧ outcome = Success
+        else outcome = FFI_outcome (THE (ffi.final_event))) ∧
+       (io_list = ffi.io_events)) ∧
+  (semantics st prog (Diverge io_trace) ⇔
+    (∀k. ∃ffi.
+      evaluate_prog_with_clock k st prog (ffi,SOME(Rabort Rtimeout_error))) ∧
+    lprefix_lub
+      { fromList ffi.io_events |
+        ∃k r. evaluate_prog_with_clock k st prog (ffi,r) }
+      io_trace) ∧
+  (semantics st prog Fail ⇔
+    ∃k ffi. evaluate_prog_with_clock k st prog (ffi,SOME(Rabort Rtype_error)))`;
+
 val _ = export_theory()
