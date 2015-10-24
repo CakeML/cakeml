@@ -1,10 +1,8 @@
 open preamble
-     determTheory
-     funBigStepEquivTheory
-     funBigStepPropsTheory
-     bigClockTheory
-     semanticsTheory
-     lprefix_lubTheory
+     funBigStepEquivTheory funBigStepPropsTheory
+     determTheory bigClockTheory
+     semanticsTheory lprefix_lubTheory
+     typeSoundTheory untypedSafetyTheory
 
 val _ = new_theory"semanticsProps"
 
@@ -114,8 +112,6 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     >- metis_tac[unique_lprefix_lub] >>
     tac1))
 
-open typeSoundTheory untypedSafetyTheory
-
 val state_invariant_def = Define`
   state_invariant st ⇔
   type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenvT,st.tenvM,st.tenvC,st.tenv,st.sem_st,st.sem_env)`;
@@ -154,33 +150,31 @@ val prog_diverges_semantics_prog = Q.prove(
 val semantics_deterministic = Q.store_thm("semantics_deterministic",
   `state_invariant st ⇒
    semantics st inp = Execute bs
-   ⇒ ∃b. bs = {b}`,
-  rw[semantics_def] >>
-  every_case_tac >> fs[] >> rw[] >>
-  specl_args_of_then``semantics_prog``semantics_prog_total strip_assume_tac >>
-  simp[FUN_EQ_THM] >> qexists_tac`b` >> rw[EQ_IMP_THM] >> rfs[] >>
-  match_mp_tac semantics_prog_deterministic >>
-  first_assum(match_exists_tac o concl) >> simp[] >>
-  fs[can_type_prog_def,state_invariant_def] >>
-  Cases_on`prog_diverges st.sem_env st.sem_st x` >- (
-    imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
-  CCONTR_TAC >> fs[] >>
-  fs[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
-  first_assum(split_applied_pair_tac o rand o lhs o concl) >>
-  imp_res_tac functional_evaluate_prog >>
-  (whole_prog_type_soundness
-   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-   |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
-  disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-  simp[PULL_EXISTS] >> fs[] >>
-  rfs[bigStepTheory.evaluate_whole_prog_def] >>
-  simp[prog_clocked_unclocked_equiv,PULL_EXISTS] >>
-  CCONTR_TAC >> fs[] >>
-  imp_res_tac prog_clocked_min_counter >> fs[] >>
-  metis_tac[prog_clocked_zero_determ,SND,PAIR_EQ,
-            semanticPrimitivesTheory.result_11,
-            semanticPrimitivesTheory.result_distinct,
-            semanticPrimitivesTheory.error_result_11,
-            semanticPrimitivesTheory.abort_distinct]);
+   ⇒ ∃b. bs = {b} ∧ b ≠ Fail`,
+  rw[semantics_def] >> every_case_tac >> fs[] >> rw[] >>
+  `∀b. semantics_prog st x b ⇒ b ≠ Fail` by (
+    fs[can_type_prog_def,state_invariant_def] >>
+    Cases_on`prog_diverges st.sem_env st.sem_st x` >- (
+      imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
+    fs[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
+    CCONTR_TAC >> fs[] >>
+    first_assum(split_applied_pair_tac o rand o lhs o concl) >>
+    imp_res_tac functional_evaluate_prog >>
+    (whole_prog_type_soundness
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+     |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+    simp[PULL_EXISTS] >> fs[] >>
+    rfs[bigStepTheory.evaluate_whole_prog_def] >>
+    simp[prog_clocked_unclocked_equiv,PULL_EXISTS] >>
+    CCONTR_TAC >> fs[] >>
+    imp_res_tac prog_clocked_min_counter >> fs[] >>
+    metis_tac[prog_clocked_zero_determ,SND,PAIR_EQ,
+              semanticPrimitivesTheory.result_11,
+              semanticPrimitivesTheory.result_distinct,
+              semanticPrimitivesTheory.error_result_11,
+              semanticPrimitivesTheory.abort_distinct]) >>
+  simp[FUN_EQ_THM] >>
+  metis_tac[semantics_prog_total,semantics_prog_deterministic])
 
 val _ = export_theory()
