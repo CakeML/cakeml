@@ -193,4 +193,15 @@ val compile_prog_def = Define `
    let (next'', menv'', env'',ps') = compile_prog next' menv' env' ps in
      (next'',menv'',env'',(p'::ps')))`;
 
+val _ = Datatype`
+  config = <| next_global : num
+            ; mod_env : (string,num) mod_env
+            |>`;
+
+val compile_def = Define`
+  compile c p =
+    let (menv,env) = c.mod_env in
+    let (_,_,_,p') = compile_prog c.next_global menv env p in
+    p'`;
+
 val _ = export_theory()

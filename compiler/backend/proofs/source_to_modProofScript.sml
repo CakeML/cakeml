@@ -2224,4 +2224,58 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
       semanticPrimitivesTheory.no_dup_top_types_def, modSemTheory.no_dup_top_types_def] >>
   metis_tac [compile_prog_mods, compile_prog_top_types, compile_prog_mods_ok, NOT_EVERY]);
 
+open semanticsTheory funBigStepEquivTheory
+
+val precondition_def = Define`
+  precondition s1 c (genv,cenv:env_ctor,st,tids,mods) ⇔
+    invariant genv (FST c.mod_env) (SND c.mod_env)
+      s1.sem_env.m s1.sem_env.v
+      s1.sem_st (s1.sem_st.clock,st)
+      s1.sem_st.defined_mods ∧
+    mods = s1.sem_st.defined_mods ∧
+    tids = s1.sem_st.defined_types ∧
+    cenv = s1.sem_env.c ∧
+    c.next_global = LENGTH genv`;
+
+val invariant_change_clock = Q.store_thm("invariant_change_clock",
+  `invariant genv menv env envm envv st1 (k1,st2) mods ⇒
+   invariant genv menv env envm envv (st1 with clock := k) (k,st2) mods`,
+  rw[invariant_def] >> fs[s_rel_cases])
+
+val compile_correct = Q.store_thm("compile_correct",
+  `precondition s1 c s2 ⇒
+   ¬semantics_prog s1 prog Fail ⇒
+   semantics_prog s1 prog (semantics s2 (compile c prog))`,
+  `∃genv cenv st tids mods. s2 = (genv,cenv,st,tids,mods)` by metis_tac[PAIR] >>
+  rw[precondition_def,semantics_prog_def,compile_def] >>
+  Cases_on`∃k ffi r.
+            evaluate_prog_with_clock s1 k prog = (ffi,r) ∧
+            r ≠ Rerr (Rabort Rtimeout_error)` >> fs[] >- (
+    fs[semanticsTheory.evaluate_prog_with_clock_def,LET_THM] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    imp_res_tac functional_evaluate_prog >>
+    (whole_compile_prog_correct
+     |> ONCE_REWRITE_RULE[CONJ_COMM]
+     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+     |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
+    simp[] >>
+    imp_res_tac invariant_change_clock >>
+    pop_assum(qspec_then`k`strip_assume_tac) >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
+    simp[] >>
+    discharge_hyps_keep >- (
+      first_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
+    strip_tac >>
+    rw[modSemTheory.semantics_def] >>
+    DEEP_INTRO_TAC some_intro >>
+    simp[modSemTheory.evaluate_prog_with_clock_def,PULL_EXISTS] >>
+    conj_tac >- (
+      rw[] >>
+      simp[semanticsTheory.semantics_prog_def] >>
+      simp[semanticsTheory.evaluate_prog_with_clock_def] >>
+      qexists_tac`k`>>simp[] >>
+      cheat ) >>
+    cheat ) >>
+  cheat);
+
 val _ = export_theory ();

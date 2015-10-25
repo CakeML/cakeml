@@ -707,21 +707,18 @@ val evaluate_prog_with_clock_def = Define`
       evaluate_whole_prog T genv cenv ((k,FST st),SND st) prog (((k',st',ffi),st2'),cenv',env',res)`;
 
 val semantics_def = Define`
-  (semantics st prog (Terminate outcome io_list) ⇔
-     ∃k ffi r.
-       evaluate_prog_with_clock k st prog (ffi,r) ∧
-       (if ffi.final_event = NONE then
-          (∀a. r ≠ SOME ((Rabort a))) ∧ outcome = Success
-        else outcome = FFI_outcome (THE (ffi.final_event))) ∧
-       (io_list = ffi.io_events)) ∧
-  (semantics st prog (Diverge io_trace) ⇔
-    (∀k. ∃ffi.
-      evaluate_prog_with_clock k st prog (ffi,SOME(Rabort Rtimeout_error))) ∧
-    lprefix_lub
-      { fromList ffi.io_events |
-        ∃k r. evaluate_prog_with_clock k st prog (ffi,r) }
-      io_trace) ∧
-  (semantics st prog Fail ⇔
-    ∃k ffi. evaluate_prog_with_clock k st prog (ffi,SOME(Rabort Rtype_error)))`;
+  semantics st prog =
+    case some ffi.
+      ∃k r. evaluate_prog_with_clock k st prog (ffi,r) ∧
+            r ≠ SOME (Rabort Rtimeout_error)
+    of SOME ffi =>
+         Terminate
+           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
+           ffi.io_events
+     | NONE =>
+       Diverge
+         (build_lprefix_lub
+           { fromList ffi.io_events |
+               ∃k r. evaluate_prog_with_clock k st prog (ffi,r) })`;
 
 val _ = export_theory()
