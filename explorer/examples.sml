@@ -12,8 +12,8 @@ val ex3 = allIntermediates ``"exception Fail of int; exception Odd; exception Ev
 val ex4 = allIntermediates ``"structure Nat :> sig type nat val zero:nat val succ:nat-> nat end = struct datatype nat = Int of int val zero = Int 0 fun succ n = case n of Int x => Int (x+1) end;"``;
 
 (*Top lvl val, ref/deref*)
-(*ex5 should parse wrongly*)
-val ex5 = allIntermediates ``"val x = ref 5; x:= 1+!x;"``;
+(*ex5 should parse but not type check*)
+(*val ex5 = allIntermediates ``"val x = ref 5; x:= 1+!x;"``;*)
 
 val ex6= allIntermediates ``"fun f y = let val x = ref y in x:= !x+1 end;"``;
 
@@ -60,7 +60,8 @@ val ex18 = allIntermediates ``"fun append xs ys = case xs of [] => ys | (x::xs) 
 
 val ex19 = allIntermediates ``"val x = \"hello\";"``;
 
-val ex20 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"``;
+(*Doesn't type check, function composition not primitive*)
+(*val ex20 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f n) end; (Nat.iter Nat.succ 5) Nat.zero;"``;*)
 
 val ex21 = allIntermediates ``"structure Nat2 = struct val x = 1 val y=2 val z=3 fun f n = x+y+z+n end;"``;
 
@@ -68,7 +69,8 @@ val ex22 = allIntermediates ``"structure blablablabla :> sig type nat     dataty
 
 val ex23 = allIntermediates ``"datatype foo = Lf of int * (int -> unit) * int| Br of (int * int) -> (unit * int);"``
 
-val ex24 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f (n-1)) end;fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2)); (Nat.iter Nat.succ 5) Nat.zero;"``;
+(*Doesn't type check, function composition not primitive*)
+(*val ex24 = allIntermediates ``"structure Nat = struct val zero = 0 fun succ x = x+1 fun iter f n = if n = 0 then (fn x=> x) else f o (iter f (n-1)) end;fun f x y z= x+y+z; val (x,y,z) = (f 1 1 1,f 2 2 2,f (f (f 3 3 3) 1 2)); (Nat.iter Nat.succ 5) Nat.zero;"``;*)
 
 (*random semicolons in the struct, exceptions*)
 val ex25 = allIntermediates ``"structure Nat :> sig val one:int; val zero:int end = struct val one = 1 ; val zero = 0 fun succ x y z = x+y+z+(if x>0 then one else zero); end; "``;
@@ -77,18 +79,22 @@ val ex25 = allIntermediates ``"structure Nat :> sig val one:int; val zero:int en
 val ex26 = allIntermediates ``"structure Nat :> sig exception E end = struct exception E end; raise Nat.E;"``;
 
 (*Word8, broken*)
-val ex27 = allIntermediates ``"val x = 0wx5;"``;
+(*val ex27 = allIntermediates ``"val x = 0wx5;"``;*)
 
 (*pretty print for brackets*)
 val ex28 = allIntermediates ``"val x = 1+2+3*4+5;"``;
 
-val ex29 = allIntermediates ``"val x = (f y;if 5>4 then 3 else 2;let val x = 2 in 3 end;4;if(4<5) then 5 else f y);"``;
+val ex29 = allIntermediates ``"fun f x = x; val y = 2; val x = (f y;if 5>4 then 3 else 2;let val x = 2 in 3 end;4;if(4<5) then 5 else f y);"``;
 
 (*Type abbreviations*)
 val ex30 = allIntermediates ``"type 'a nat = int*string*string*int*'a;"``
 
-val ex31 = allIntermediates ``"structure Nat :> sig type nat; type nat2 = nat*nat; val zero:nat; val succ:nat->nat end = struct type nat = int; type nat2 = nat*nat; val zero = 5:nat end;"``
+val ex31 = allIntermediates ``"structure Nat :> sig type nat; type nat2 = nat*nat; val zero:nat; val succ:nat->nat end = struct type nat = int; type nat2 = nat*nat; val zero = 5 end;"``
 
 val ex32 = allIntermediates ``"type ('a,'b) compose = 'a -> 'b;"``;
 
 val ex33 = allIntermediates ``"type t = exn;"``
+
+val ex34 = allIntermediates ``"val x = #\"c\";"``
+
+val ex35 = allIntermediates ``"val f = (fn (x,y) => (y,x));"``

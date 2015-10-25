@@ -80,6 +80,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,isAlphaNumPrime_def
       ,is_single_char_symbol_def
       ,processIdent_def
+      ,mkCharS_def
       ] compset
     end
 
@@ -95,6 +96,7 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,destLf_def
       ,destTyvarPT_def
       ,destLongidT_def
+      ,destCharT_def
       ,isLongidT_def
       ,isWhitespaceT_def
       ,isString_def
@@ -146,6 +148,10 @@ open HolKernel boolLib bossLib lcsymtacs replTheory
       ,safeTL_def
       ,oHD_def
       ,mk_binop_def
+      ,ptree_PbaseList1_def
+      ,ptree_OptTypEqn_def
+      ,mkFun_def
+      ,dePat_def
       ] compset
     end
     in

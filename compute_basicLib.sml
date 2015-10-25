@@ -26,6 +26,8 @@ let
   val () = computeLib.add_thms
   [rich_listTheory.SPLITP_compute
   ,rich_listTheory.SPLITP_AUX_def
+  ,rich_listTheory.COUNT_LIST_AUX_def_compute
+  ,rich_listTheory.COUNT_LIST_compute
   ] compset
 (* sptree doesn't provide a compset :( *)
   val () = computeLib.add_thms
@@ -46,17 +48,23 @@ let
   ,sptreeTheory.toList_def
   ,sptreeTheory.mk_wf_def
   ] compset
-  val () = computeLib.add_thms 
+  val () = computeLib.add_thms
   [miscTheory.find_index_def
   ,miscTheory.LEAST_thm
   ,miscTheory.least_from_thm
+  ] compset
+  (*Things missing from HOL compsets?*)
+  val () = computeLib.add_thms
+  [optionTheory.OPTION_MAP_DEF
+  ,optionTheory.OPTION_MAP2_DEF
+  ,listTheory.nub_def
   ] compset
   val () = add_datatype ``:'a spt`` compset
 in
   ()
 end
 
-  val the_basic_compset = 
+  val the_basic_compset =
     let
       val c = wordsLib.words_compset ()
       val () = add_basic_compset c
