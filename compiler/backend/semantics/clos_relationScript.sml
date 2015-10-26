@@ -472,12 +472,12 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
  >- (fs [LIST_REL_EL_EQN] >>
      rw [] >>
      metis_tac [MEM_EL])
- >- (`i'' < i` by decide_tac >>
-     metis_tac [])
- >- (`i'' < i` by decide_tac >>
-     metis_tac [])
- >- (`i'' ≤ i` by decide_tac >>
-     metis_tac [])
+ >- (first_x_assum match_mp_tac >>
+     simp [])
+ >- (first_x_assum match_mp_tac >>
+     simp [])
+ >- (first_x_assum match_mp_tac >>
+     simp [])
  >- fs [state_rel_rw]
  >- (fs [state_rel_rw, LIST_REL_EL_EQN] >>
      rw [] >>
