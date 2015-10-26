@@ -14,6 +14,14 @@ val map_result_Rval = Q.store_thm("map_result_Rval[simp]",
   `map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y`,
   Cases_on`e`>>simp[EQ_IMP_THM])
 
+val list_result_Rval = Q.store_thm("list_result_Rval[simp]",
+  `list_result r = Rval v ⇔ ∃y. r = Rval y ∧ v = [y]`,
+  Cases_on`r`>>simp[EQ_IMP_THM]);
+
+val list_result_Rerr = Q.store_thm("list_result_Rerr[simp]",
+  `list_result r = Rerr e ⇔ r = Rerr e`,
+  Cases_on`r`>>simp[EQ_IMP_THM]);
+
 val pmatch_extend = Q.store_thm("pmatch_extend",
 `(!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'

@@ -12,7 +12,6 @@ val map_csg_def = decPropsTheory.map_csg_def
 val map_csg_count = decPropsTheory.map_csg_count
 val csg_rel_count = decPropsTheory.csg_rel_count
 
-val evaluate_pat_cases = patSemTheory.evaluate_cases
 val pmatch_exh_def = exhSemTheory.pmatch_def
 
 val TAKE_CONS = prove(
@@ -49,6 +48,13 @@ val compile_vs_map = store_thm("compile_vs_map",
   ``∀vs. compile_vs vs = MAP compile_v vs``,
   Induct >> simp[])
 val _ = export_rewrites["compile_vs_map"]
+
+val compile_csg_def = Define`
+  compile_csg (csg:('ffi,exhSem$v)count_store_genv) =
+    <| clock := FST(FST csg);
+       store := MAP (map_sv compile_v) (FST(SND(FST csg)));
+       ffi := (SND(SND(FST csg)));
+       globals := MAP (OPTION_MAP compile_v) (SND csg) |>`;
 
 (* semantic functions obey translation *)
 
@@ -138,8 +144,9 @@ val do_app = prove(
   ``∀op vs s0 s0_pat env s res.
      do_app s0 op vs = SOME (s,res)
      ⇒
-     do_app (map_csg compile_v s0) (Op op) (compile_vs vs) = SOME (map_csg compile_v s,map_result compile_v compile_v res)``,
-  rw [decPropsTheory.map_csg_def] >>
+     do_app (compile_csg s0) (Op op) (compile_vs vs) =
+       SOME (compile_csg s,map_result compile_v compile_v res)``,
+  rw [compile_csg_def] >>
   imp_res_tac exhPropsTheory.do_app_cases >>
   PairCases_on `s0` >>
   fs [exhSemTheory.do_app_def]
@@ -191,23 +198,22 @@ val do_app = prove(
 (* pattern compiler correctness *)
 
 val sIf_correct = store_thm("sIf_correct",
-  ``∀ck env s e1 e2 e3 res.
-    evaluate ck env s (If e1 e2 e3) res ∧
+  ``∀env s e1 e2 e3 res.
+    evaluate env s [If e1 e2 e3] = res ∧
     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-    evaluate ck env s (sIf e1 e2 e3) res``,
+    evaluate env s [sIf e1 e2 e3] = res``,
   rpt gen_tac >>
   Cases_on`e2=(Bool T) ∧ e3=(Bool F)` >- (
     simp[sIf_def] >>
-    simp[Once patSemTheory.evaluate_cases,patSemTheory.do_if_def] >>
-    rw[] >> simp[] >> fs[] >>
-    qpat_assum`X = Y`mp_tac >> rw[] >> fs[] >>
-    fs[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def]) >>
+    simp[patSemTheory.evaluate_def,patSemTheory.do_if_def] >>
+    every_case_tac >> rw[] >>
+    fs[Bool_def,patSemTheory.Boolv_def,evaluate_Con_nil] >>
+    imp_res_tac evaluate_sing >> rfs[]) >>
   simp[sIf_def] >>
   Cases_on`e1`>>simp[]>>
   Cases_on`l`>>simp[]>>
-  simp[Once patSemTheory.evaluate_cases] >>
+  simp[patSemTheory.evaluate_def] >>
   simp[patSemTheory.do_if_def] >> rw[] >> fs[evaluate_Con_nil] >>
-  BasicProvers.EVERY_CASE_TAC >> fs[patPropsTheory.Boolv_disjoint] >> rw[] >>
   fs[patSemTheory.Boolv_def,conLangTheory.true_tag_def,conLangTheory.false_tag_def])
 
 val v_to_list_no_closures = Q.prove (
@@ -228,53 +234,49 @@ val char_list_to_v_no_closures = prove(
   Induct >> simp[patSemTheory.char_list_to_v_def])
 
 val s = mk_var("s",
-  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val fo_correct = prove(
   ``(∀e. fo e ⇒
-       ∀ck env ^s s' v.
-         evaluate ck env s e (s',Rval v) ⇒
-         no_closures v) ∧
+       ∀env ^s s' v.
+         evaluate env s [e] = (s',Rval v) ⇒
+         EVERY no_closures v) ∧
     (∀es. fo_list es ⇒
-       ∀ck env ^s s' vs.
-         (evaluate_list ck env s es (s',Rval vs) ∨
-          evaluate_list ck env s (REVERSE es) (s',Rval vs)) ⇒
+       ∀env ^s s' vs.
+         (evaluate env s es = (s',Rval vs) ∨
+          evaluate env s (REVERSE es) = (s',Rval vs)) ⇒
          EVERY no_closures vs)``,
   ho_match_mp_tac(TypeBase.induction_of(``:patLang$exp``))>>
-  simp[] >> reverse(rpt conj_tac) >> rpt gen_tac >> strip_tac >>
-  simp[Once patSemTheory.evaluate_cases] >> rpt gen_tac >>
-  TRY strip_tac >> fs[] >> simp[PULL_EXISTS,ETA_AX] >>
-  TRY (metis_tac[])
+  rw[patSemTheory.evaluate_def] >> fs[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  res_tac >> fs[ETA_AX,EVERY_REVERSE]
   >- (
-    rw[] >> rw[] >> TRY(metis_tac[]) >>
-    imp_res_tac evaluate_list_append_Rval >>
-    imp_res_tac evaluate_list_length >> fs[] >>
-    Cases_on`v2`>>fs[LENGTH_NIL] >>
-    fs[Q.SPECL[`ck`,`env`,`s1`,`[e]`](CONJUNCT2 patSemTheory.evaluate_cases)] >>
-    metis_tac[] )
-  >- (pop_assum mp_tac >> simp[Once patSemTheory.evaluate_cases])
-  >- (pop_assum mp_tac >> simp[Once patSemTheory.evaluate_cases,PULL_EXISTS])
-  >- (
-    simp[patSemTheory.do_if_def]>>
-    rpt gen_tac >>
-    rw[] >> metis_tac[] )
-  >- (
+    imp_res_tac patSemTheory.do_app_cases >>
+    fs[patSemTheory.do_app_def] >> rw[] >>
+    every_case_tac >>
+    fs[LET_THM,
+       semanticPrimitivesTheory.store_alloc_def,
+       semanticPrimitivesTheory.store_assign_def,
+       semanticPrimitivesTheory.store_lookup_def] >>
     rw[] >>
-    PairCases_on`s2` >>
-    imp_res_tac patPropsTheory.do_app_cases >> fs[patSemTheory.do_app_def] >> rw[] >> fs[] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
-    fs[store_assign_def,store_lookup_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[LET_THM,UNCURRY] >> rw[] >>
-    res_tac >> fs[] >>
+    every_case_tac >> fs[] >> rw[char_list_to_v_no_closures] >>
     TRY (
       fs[Once SWAP_REVERSE_SYM] >> rw[] >>
       fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
       first_x_assum(match_mp_tac) >>
       simp[] >> NO_TAC) >>
-    metis_tac [v_to_list_no_closures, char_list_to_v_no_closures])
+    metis_tac[v_to_list_no_closures] )
   >- (
-    metis_tac[rich_listTheory.EVERY_REVERSE]))
+    fs[patSemTheory.do_if_def]>>
+    every_case_tac >> fs[] >>
+    metis_tac[] )
+  >>
+  pop_assum mp_tac >>
+  ONCE_REWRITE_TAC[CONS_APPEND] >>
+  strip_tac >>
+  imp_res_tac evaluate_append_Rval >>
+  fs[] >> metis_tac[EVERY_APPEND])
   |> SIMP_RULE (srw_ss())[];
 
 val do_eq_no_closures = store_thm("do_eq_no_closures",

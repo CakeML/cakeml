@@ -62,6 +62,10 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
   every_case_tac >> fs[evaluate_def] >>
   imp_res_tac evaluate_length >> fs[SING_HD]);
 
+val evaluate_sing = Q.store_thm("evaluate_sing",
+  `evaluate env s [e] = (s',Rval vs) ⇒ vs = [HD vs]`,
+  rw[] >> imp_res_tac evaluate_length >> rw[SING_HD])
+
 val evaluate_append_Rval = store_thm("evaluate_append_Rval",
   ``∀l1 env s l2 s' vs.
     evaluate env s (l1 ++ l2) = (s',Rval vs) ⇒
