@@ -2,57 +2,16 @@ open preamble patSemTheory
 
 val _ = new_theory"patProps"
 
-val do_app_cases = Q.store_thm("do_app_cases",
-  `patSem$do_app s op vs = SOME x ⇒
-    (∃z n1 n2. op = (Op (Op (Opn z))) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃z n1 n2. op = (Op (Op (Opb z))) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
-    (∃v1 v2. op = (Op (Op Equality)) ∧ vs = [v1; v2]) ∨
-    (∃lnum v. op = (Op (Op Opassign)) ∧ vs = [Loc lnum; v]) ∨
-    (∃n. op = (Op (Op Opderef)) ∧ vs = [Loc n]) ∨
-    (∃v. op = (Op (Op Opref)) ∧ vs = [v]) ∨
-    (∃idx v. op = (Op (Init_global_var idx)) ∧ vs = [v]) ∨
-    (∃n l tag v. op = Tag_eq n l ∧ vs = [Conv tag v]) ∨
-    (∃n tag v. op = El n ∧ vs = [Conv tag v]) ∨
-    (∃n w. op = (Op (Op Aw8alloc)) ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
-    (∃lnum i. op = (Op (Op Aw8sub)) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op (Op Aw8length)) ∧ vs = [Loc n]) ∨
-    (∃lnum i w. op = (Op (Op Aw8update)) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
-    (∃c. op = (Op (Op Ord)) ∧ vs = [Litv (Char c)]) ∨
-    (∃n. op = (Op (Op Chr)) ∧ vs = [Litv (IntLit n)]) ∨
-    (∃z c1 c2. op = (Op (Op (Chopb z))) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
-    (∃s. op = (Op (Op Explode)) ∧ vs = [Litv (StrLit s)]) ∨
-    (∃v ls. op = (Op (Op Implode)) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
-    (∃s. op = (Op (Op Strlen)) ∧ vs = [Litv (StrLit s)]) ∨
-    (∃v vs'. op = (Op (Op VfromList)) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
-    (∃vs' i. op = (Op (Op Vsub)) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨
-    (∃vs'. op = (Op (Op Vlength)) ∧ vs = [Vectorv vs']) ∨
-    (∃v n. op = (Op (Op Aalloc)) ∧ vs = [Litv (IntLit n); v]) ∨
-    (∃lnum i. op = (Op (Op Asub)) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
-    (∃n. op = (Op (Op Alength)) ∧ vs = [Loc n]) ∨
-    (∃lnum i v. op = (Op (Op Aupdate)) ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
-    (∃lnum n. op = (Op (Op (FFI n))) ∧ vs = [Loc lnum])`,
-  PairCases_on`s`>>rw[patSemTheory.do_app_def] >>
-  pop_assum mp_tac >>
-  Cases_on`op` >- (
-    simp[] >>
-    every_case_tac >> fs[] ) >>
-  BasicProvers.CASE_TAC >>
-  every_case_tac);
-
-val evaluate_lit = store_thm("evaluate_lit[simp]",
-  ``∀ck env s l res.
-      patSem$evaluate ck env s (Lit l) res ⇔ (res = (s,Rval(Litv l)))``,
-  rw[Once evaluate_cases]);
+val evaluate_lit = save_thm("evaluate_lit[simp]",
+      EVAL``patSem$evaluate env s [Lit l]``)
 
 val Boolv_11 = store_thm("Boolv_11[simp]",``patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
 val evaluate_Con_nil =
-  ``evaluate ck env s (Con x []) y``
-  |> (SIMP_CONV(srw_ss())[Once evaluate_cases]
-      THENC SIMP_CONV(srw_ss())[Once evaluate_cases]
-      THENC SIMP_CONV(srw_ss())[Once evaluate_cases])
+  ``evaluate env s [Con x []]``
+  |> EVAL
   |> curry save_thm"evaluate_Con_nil";
 
 val no_closures_def = tDefine"no_closures"`
@@ -71,85 +30,82 @@ val no_closures_Boolv = store_thm("no_closures_Boolv[simp]",
   EVAL_TAC);
 
 val evaluate_raise_rval = store_thm("evaluate_raise_rval",
-  ``∀ck env s e s' v. ¬patSem$evaluate ck env s (Raise e) (s', Rval v)``,
-  rw[Once evaluate_cases])
+  ``∀env s e s' v. patSem$evaluate env s [Raise e] ≠ (s', Rval v)``,
+  EVAL_TAC >> rw[] >> every_case_tac >> simp[])
 val _ = export_rewrites["evaluate_raise_rval"]
 
-val evaluate_list_length = store_thm("evaluate_list_length",
-  ``∀ls ck env s s' vs.
-      evaluate_list ck env s ls (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
-  Induct >> simp[Once evaluate_cases,PULL_EXISTS] >>
-  rw[] >> res_tac)
-
-val evaluate_list_append_Rval = store_thm("evaluate_list_append_Rval",
-  ``∀l1 ck env s l2 s' vs.
-    evaluate_list ck env s (l1 ++ l2) (s',Rval vs) ⇒
-    ∃s1 v1 v2. evaluate_list ck env s l1 (s1,Rval v1) ∧
-               evaluate_list ck env s1 l2 (s',Rval v2) ∧
-               vs = v1++v2``,
-  Induct >> simp[Once evaluate_cases,PULL_EXISTS] >> rw[]
-  >- (
-    rw[Once evaluate_cases] >>
-    rw[Once evaluate_cases] )
-  >- (
-    rw[Once evaluate_cases] >>
-    rw[Once evaluate_cases] >>
-    metis_tac[] )
-  >- (
-    rw[Once evaluate_cases,PULL_EXISTS] >>
-    first_assum(match_exists_tac o concl) >> rw[] >> res_tac >>
-    first_assum(match_exists_tac o concl) >> rw[]))
-
-val evaluate_list_append_Rval_iff = store_thm("evaluate_list_append_Rval_iff",
-  ``∀l1 ck env s l2 s' vs.
-    evaluate_list ck env s (l1 ++ l2) (s',Rval vs) ⇔
-    ∃s1 v1 v2. evaluate_list ck env s l1 (s1,Rval v1) ∧
-               evaluate_list ck env s1 l2 (s',Rval v2) ∧
-               vs = v1++v2``,
-  rw[] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_list_append_Rval >>
-  map_every qid_spec_tac[`vs`,`s`] >>
-  Induct_on`l1`>>rw[Once evaluate_cases] >> rw[] >>
-  fs[PULL_EXISTS] >>
-  rw[Once evaluate_cases] >>
-  first_assum(match_exists_tac o concl) >> rw[] >>
-  first_x_assum(match_mp_tac) >> metis_tac[])
-
-val evaluate_list_append_Rerr = store_thm("evaluate_list_append_Rerr",
-  ``∀l1 ck env s l2 s' e.
-    evaluate_list ck env s (l1 ++ l2) (s',Rerr e) ⇔
-    (evaluate_list ck env s l1 (s', Rerr e) ∨
-       ∃s1 v1.
-         evaluate_list ck env s l1 (s1, Rval v1) ∧
-         evaluate_list ck env s1 l2 (s', Rerr e))``,
-  Induct >- (
-    rw[EQ_IMP_THM] >- (
-      fs[Once(CONJUNCT2(evaluate_cases))] >>
-      simp[Once(CONJUNCT2(evaluate_cases))] >>
-      simp[Once(CONJUNCT2(evaluate_cases))] >>
-      rw[] >> metis_tac[] )
-    >- (
-      fs[Once(CONJUNCT2(evaluate_cases))] ) >>
-    fs[Once(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_cases)))] >>
-    rw[] ) >>
-  rw[EQ_IMP_THM] >>
-  fs[Once(Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_cases)))] >>
-  simp[Once(Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_cases)))] >>
-  metis_tac[])
-
-val evaluate_determ = store_thm("evaluate_determ",
-  ``(∀ck env (s:(num # ('ffi,patSem$v) store_ffi) # patSem$v option list) e res1. evaluate ck env s e res1 ⇒
-       ∀res2. patSem$evaluate ck env s e res2 ⇒ (res2 = res1)) ∧
-    (∀ck env (s:(num # ('ffi,patSem$v) store_ffi) # patSem$v option list) e res1. evaluate_list ck env s e res1 ⇒
-       ∀res2. patSem$evaluate_list ck env s e res2 ⇒ (res2 = res1))``,
+val evaluate_length = store_thm("evaluate_length",
+  ``∀env s ls s' vs.
+      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
   ho_match_mp_tac evaluate_ind >>
-  rpt conj_tac >>
-  rpt gen_tac >> strip_tac >>
-  simp_tac(srw_ss())[Once evaluate_cases] >> fs[] >>
-  TRY (
-    gen_tac >> strip_tac >>
-    rpt (res_tac >> fs[] >> rpt BasicProvers.VAR_EQ_TAC)) >>
-  pop_assum mp_tac >> simp[Once evaluate_cases]);
+  rw[evaluate_def] >> rw[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac do_app_cases >> fs[do_app_def] >> rw[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fs[LET_THM,
+     semanticPrimitivesTheory.store_alloc_def,
+     semanticPrimitivesTheory.store_lookup_def,
+     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
+  fs[] >> rw[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fs[] >> rw[]);
 
+val evaluate_cons = Q.store_thm("evaluate_cons",
+  `evaluate env s (e::es) =
+   (case evaluate env s [e] of
+    | (s,Rval v) =>
+      (case evaluate env s es of
+       | (s,Rval vs) => (s,Rval (v++vs))
+       | r => r)
+    | r => r)`,
+  Cases_on`es`>>rw[evaluate_def] >>
+  every_case_tac >> fs[evaluate_def] >>
+  imp_res_tac evaluate_length >> fs[SING_HD]);
+
+val evaluate_append_Rval = store_thm("evaluate_append_Rval",
+  ``∀l1 env s l2 s' vs.
+    evaluate env s (l1 ++ l2) = (s',Rval vs) ⇒
+    ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
+               evaluate env s1 l2 = (s',Rval v2) ∧
+               vs = v1++v2``,
+  Induct >> simp[evaluate_def,Once evaluate_cons] >>
+  rw[] >> simp[Once evaluate_cons] >>
+  every_case_tac >> fs[] >> rw[] >> res_tac >>
+  rw[] >> fs[] >> rw[]);
+
+val evaluate_append_Rval_iff = store_thm("evaluate_append_Rval_iff",
+  ``∀l1 env s l2 s' vs.
+    evaluate env s (l1 ++ l2) = (s',Rval vs) ⇔
+    ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
+               evaluate env s1 l2 = (s',Rval v2) ∧
+               vs = v1++v2``,
+  rw[] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
+  map_every qid_spec_tac[`vs`,`s`] >>
+  Induct_on`l1`>>rw[evaluate_def,Once evaluate_cons] >> rw[] >>
+  rw[Once evaluate_cons] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fs[PULL_EXISTS] >>
+  res_tac >> fs[]);
+
+val evaluate_append_Rerr = store_thm("evaluate_append_Rerr",
+  ``∀l1 env s l2 s' e.
+    evaluate env s (l1 ++ l2) = (s',Rerr e) ⇔
+    (evaluate env s l1 = (s', Rerr e) ∨
+       ∃s1 v1.
+         evaluate env s l1 = (s1, Rval v1) ∧
+         evaluate env s1 l2 = (s', Rerr e))``,
+  Induct >> rw[evaluate_def] >>
+  rw[Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
+  rw[Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
+  every_case_tac >> simp[] >>
+  rw[Once evaluate_cons] >>
+  TRY EQ_TAC >>
+  spose_not_then strip_assume_tac >> rw[] >> fs[] >>
+  fs[evaluate_append_Rval_iff] >>
+  first_x_assum(qspecl_then[`env`,`q`,`l2`]mp_tac) >>
+  simp[] >> metis_tac[]);
+
+(*
 val not_evaluate_list_append = store_thm("not_evaluate_list_append",
   ``∀l1 ck env s l2 res.
     (∀res. ¬evaluate_list ck env s (l1 ++ l2) res) ⇔
@@ -191,5 +147,6 @@ val not_evaluate_list_append = store_thm("not_evaluate_list_append",
             semanticPrimitivesTheory.result_11,
             semanticPrimitivesTheory.result_nchotomy,
             semanticPrimitivesTheory.result_distinct] )
+*)
 
 val _ = export_theory()
