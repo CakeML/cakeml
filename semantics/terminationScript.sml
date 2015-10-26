@@ -228,7 +228,6 @@ val do_log_thm = store_thm("do_log_thm",
   rw[semanticPrimitivesTheory.do_log_def] >>
   every_case_tac >> rw[])
 
-
 val (evaluate_def,evaluate_ind) =
   tprove_no_defn ((evaluate_def,evaluate_ind),
   wf_rel_tac`inv_image ($< LEX $<)
@@ -285,5 +284,7 @@ in prove(goal,
 end
 
 val _ = register "evaluate" evaluate_def evaluate_ind
+
+val _ = export_rewrites["funBigStep.list_result_def"];
 
 val _ = export_theory ();
