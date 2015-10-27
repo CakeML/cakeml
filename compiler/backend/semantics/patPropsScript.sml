@@ -109,6 +109,24 @@ val evaluate_append_Rerr = store_thm("evaluate_append_Rerr",
   first_x_assum(qspecl_then[`env`,`q`,`l2`]mp_tac) >>
   simp[] >> metis_tac[]);
 
+val evaluate_append = Q.store_thm("evaluate_append",
+  `evaluate env s (l1 ++ l2) =
+   case evaluate env s l1 of
+   | (s,Rval v1) =>
+     (case evaluate env s l2 of
+      | (s,Rval v2) => (s,Rval(v1++v2))
+      | r => r)
+   | r => r`,
+  map_every qid_spec_tac[`l2`,`s`] >> Induct_on`l1` >>
+  rw[evaluate_def] >- (
+    every_case_tac >> fs[] ) >>
+  rw[Once evaluate_cons] >>
+  match_mp_tac EQ_SYM >>
+  rw[Once evaluate_cons] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  Cases_on`r`>>fs[] >>
+  every_case_tac  >> fs[]);
+
 (*
 val not_evaluate_list_append = store_thm("not_evaluate_list_append",
   ``∀l1 ck env s l2 res.
