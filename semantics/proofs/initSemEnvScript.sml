@@ -24,7 +24,7 @@ val interp_add_to_sem_env_thm = Q.store_thm ("interp_add_to_sem_env_thm",
  every_case_tac >>
  fs [] >>
  imp_res_tac run_eval_whole_prog_spec >>
- `evaluate_whole_prog F env st prog (q with clock:= st.clock,q',Rval (q'',r))` 
+ `evaluate_whole_prog F env st prog (q with clock:= st.clock,q',Rval (q'',r))`
         by (fs [evaluate_whole_prog_def, no_dup_mods_def, no_dup_top_types_def] >>
             simp [Once (Q.prove (`st = st with clock := st.clock`, rw [state_component_equality]))] >>
             match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] prog_unclocked_ignore) >>

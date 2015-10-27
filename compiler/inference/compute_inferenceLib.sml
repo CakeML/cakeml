@@ -1,6 +1,6 @@
 structure compute_inferenceLib = struct
   open HolKernel boolLib bossLib lcsymtacs
-  
+
   fun add_inference_compset compset =
   let
 

@@ -195,7 +195,7 @@ EVAL ``inst_select_exp``
 EVAL ``inst_select_exp x64_config 5 5 (Load (Op Add [Const 99999999999w; Var 6]))``
 
 Second munch
-EVAL ``inst_select_exp x64_config 0 99 
+EVAL ``inst_select_exp x64_config 0 99
 EVAL ``(pull_exp (Op And [Const (99w:64 word); Op Add [Op Add [];Op Or []]]))``
 *)
 

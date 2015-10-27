@@ -240,7 +240,7 @@ let type_op op ts t =
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) -> t = t1
     | (Alength, [Tapp [t1] TC_array]) -> t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) -> t1 = t2 && t = Tapp [] TC_tup
-    | (FFI n, [Tapp [] TC_word8array]) -> t = Tapp [] TC_tup 
+    | (FFI n, [Tapp [] TC_word8array]) -> t = Tapp [] TC_tup
     | _ -> false
   end
 
@@ -283,7 +283,7 @@ type_name_subst tenvT (Tvar_db n) = Tvar_db n
 
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
- * type are included in the type's type parameters. Also check that all of the 
+ * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 val check_ctor_tenv :
    maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> bool
@@ -646,8 +646,8 @@ and
 
 dlet_mono : forall check_unique mn tenvT menv cenv tenv p e t tenv' decls.
 (* The following line makes sure that when the value restriction prohibits
-   generalisation, a type error is given rather than picking an arbitrary 
-   instantiation. However, we should only do the check when the check_unique 
+   generalisation, a type error is given rather than picking an arbitrary
+   instantiation. However, we should only do the check when the check_unique
    argument tells us to. *)
 (check_unique --> not (is_value e) && type_pe_determ menv cenv tenv p e) &&
 List.allDistinct (pat_bindings p []) &&

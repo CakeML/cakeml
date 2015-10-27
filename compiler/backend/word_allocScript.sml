@@ -197,7 +197,7 @@ val ssa_cc_trans_def = Define`
     let (ret_mov,ssa'',na'') =
       list_next_var_rename_move ssa_cut (na'+2) ls in
     let prog = (Seq (stack_mov)
-               (Seq (Move 0 [(2,num')]) 
+               (Seq (Move 0 [(2,num')])
                (Seq (Alloc 2 stack_set) (ret_mov)))) in
     (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Raise num) ssa na =
@@ -471,8 +471,8 @@ val get_prefs_def = Define`
 val word_alloc_def = Define`
   word_alloc k prog =
   let clash_graph = get_spg prog LN in (*No live after set*)
-  let moves = get_prefs prog [] in (*Get the moves in the graph*) 
-  let col = reg_alloc 3 clash_graph k moves in 
+  let moves = get_prefs prog [] in (*Get the moves in the graph*)
+  let col = reg_alloc 3 clash_graph k moves in
   (*Get the register allocation function,
     TODO: We can choose the flag based on the size of graph/moves*)
     apply_colour (total_colour col) prog`
@@ -554,10 +554,10 @@ val max_var_def = Define `
   (max_var p = 0)`
 
 val limit_var_def = Define`
-  limit_var prog = 
+  limit_var prog =
     let x = max_var prog in
     x + (4 - (x MOD 4)) +1`
-    
+
     (*
     Cases: x MOD 4
     0 => x+1
@@ -566,7 +566,7 @@ val limit_var_def = Define`
     3 => x+2
     In all cases, the result is a var that is 1 MOD 4
     *)
-    
+
 val full_ssa_cc_trans_def = Define`
   full_ssa_cc_trans n prog =
     let lim = limit_var prog in
@@ -576,7 +576,7 @@ val full_ssa_cc_trans_def = Define`
 
 val word_trans_def = Define`
   word_trans n k prog =
-  word_alloc k (full_ssa_cc_trans n prog)` 
+  word_alloc k (full_ssa_cc_trans n prog)`
 
 val _ = export_theory();
 

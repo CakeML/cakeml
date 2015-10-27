@@ -1,11 +1,11 @@
  (*Missing type annotation*)
  type one = unit;
  (*Translated standard includes*)
- fun hd x1 = 
+ fun hd x1 =
    case x1
    of [] => (raise Bind)
    |  v2::v1 => v2;
- fun tl x1 = 
+ fun tl x1 =
    case x1
    of [] => (raise Bind)
    |  v2::v1 => v1;
@@ -27,7 +27,7 @@
  fun c v3 =  (fn v2 => (fn v1 => v3 v1 v2));
  fun k v2 =  (fn v1 => v2);
  fun s v3 =  (fn v2 => (fn v1 => v3 v1 (v2 v1)));
- fun update v3 = 
+ fun update v3 =
    (fn v4 =>
      (fn v2 =>
        (fn v1 =>
@@ -35,24 +35,24 @@
          then v4
          else (v2 v1))));
  fun w v2 =  (fn v1 => v2 v1 v1);
- fun the x1 = 
+ fun the x1 =
    case x1
    of NONE => (raise Bind)
    |  SOME(v1) => v1;
- fun is_none v2 = 
+ fun is_none v2 =
    case v2
    of NONE => true
    |  SOME(v1) => false;
- fun is_some v2 = 
+ fun is_some v2 =
    case v2
    of NONE => false
    |  SOME(v1) => true;
- fun option_map v2 = 
+ fun option_map v2 =
    (fn v3 =>
      case v3
      of NONE => NONE
      |  SOME(v1) => (SOME(v2 v1)));
- fun option_map2 v1 = 
+ fun option_map2 v1 =
    (fn v2 =>
      (fn v3 =>
        if ((is_some v2) andalso (is_some v3))
@@ -60,23 +60,23 @@
        else NONE));
  datatype ('a , 'b) sum = Inr of 'b
                         | Inl of 'a;
- fun isl v3 = 
+ fun isl v3 =
    case v3
    of Inl(v1) => true
    |  Inr(v2) => false;
- fun isr v3 = 
+ fun isr v3 =
    case v3
    of Inl(v1) => false
    |  Inr(v2) => true;
- fun outl x1 = 
+ fun outl x1 =
    case x1
    of Inl(v1) => v1
    |  Inr(v2) => (raise Bind);
- fun outr x1 = 
+ fun outr x1 =
    case x1
    of Inl(v1) => (raise Bind)
    |  Inr(v2) => v2;
- fun f v3 = 
+ fun f v3 =
    (fn v4 =>
      (fn v5 =>
        case v5
@@ -165,7 +165,7 @@
                                         then 0
                                         else k
                                       end)));
- fun pad_right v1 = 
+ fun pad_right v1 =
    (fn v2 =>
      (fn v3 =>
        append v3 (genlist (k v1) (let val k = v2 - (length v3)
@@ -174,7 +174,7 @@
                                     then 0
                                     else k
                                   end))));
- fun pad_left v1 = 
+ fun pad_left v1 =
    (fn v2 =>
      (fn v3 =>
        append (genlist (k v1) (let val k = v2 - (length v3)
@@ -263,12 +263,12 @@
                        else k
                      end) (v2 * v1));
  fun exp v1 =  (fn v2 => exp_aux v1 v2 1);
- fun min v1 = 
+ fun min v1 =
    (fn v2 =>
      if (v1 < v2)
      then v1
      else v2);
- fun max v1 = 
+ fun max v1 =
    (fn v2 =>
      if (v1 < v2)
      then v2
@@ -284,7 +284,7 @@
                       then 0
                       else k
                     end) (v1 v3));
- fun abs_diff v2 = 
+ fun abs_diff v2 =
    (fn v1 =>
      if (v2 < v1)
      then (let val k = v1 - v2
@@ -299,7 +299,7 @@
              then 0
              else k
            end));
- fun pre v1 = 
+ fun pre v1 =
    let val k = v1 - 1
    in
      if (k < 0)
@@ -357,7 +357,7 @@
    if (v1 v3)
    then (owhile v1 v2 (v2 v3))
    else (SOME(v3));
- fun least v3 = 
+ fun least v3 =
    while_1 (fn v1 => ((v3 v1) = false)) (fn v2 => (v2 + 1)) 0;
 
 (*Start translating register allocator*)
@@ -367,130 +367,130 @@
                         | Ln;
  datatype reg_alloc_ra_state = Recordtypera_state of one sptree_spt sptree_spt * int * int sptree_spt * int list * int list * int list * int list * int sptree_spt * one sptree_spt * (int * (int * int)) list * (int * (int * int)) list * (int * (int * int)) list * int;
 
- fun ra_state_graph v14 = 
+ fun ra_state_graph v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v13;
 
- fun ra_state_colors v14 = 
+ fun ra_state_colors v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v12;
 
- fun ra_state_degs v14 = 
+ fun ra_state_degs v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v11;
 
- fun ra_state_simp_worklist v14 = 
+ fun ra_state_simp_worklist v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v10;
 
- fun ra_state_freeze_worklist v14 = 
+ fun ra_state_freeze_worklist v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v9;
 
- fun ra_state_spill_worklist v14 = 
+ fun ra_state_spill_worklist v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v8;
 
- fun ra_state_stack v14 = 
+ fun ra_state_stack v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v7;
 
- fun ra_state_coalesced v14 = 
+ fun ra_state_coalesced v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v6;
 
- fun ra_state_move_related v14 = 
+ fun ra_state_move_related v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v5;
 
- fun ra_state_avail_moves_pri v14 = 
+ fun ra_state_avail_moves_pri v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v4;
 
- fun ra_state_avail_moves v14 = 
+ fun ra_state_avail_moves v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v3;
 
- fun ra_state_unavail_moves v14 = 
+ fun ra_state_unavail_moves v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v2;
 
- fun ra_state_clock v14 = 
+ fun ra_state_clock v14 =
    case v14
    of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => v1;
 
- fun ra_state_graph_fupd v14 = 
+ fun ra_state_graph_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v14 v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_colors_fupd v14 = 
+ fun ra_state_colors_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v14 v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_degs_fupd v14 = 
+ fun ra_state_degs_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v14 v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_simp_worklist_fupd v14 = 
+ fun ra_state_simp_worklist_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v14 v10,v9,v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_freeze_worklist_fupd v14 = 
+ fun ra_state_freeze_worklist_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v14 v9,v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_spill_worklist_fupd v14 = 
+ fun ra_state_spill_worklist_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v14 v8,v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_stack_fupd v14 = 
+ fun ra_state_stack_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v14 v7,v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_coalesced_fupd v14 = 
+ fun ra_state_coalesced_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v14 v6,v5,v4,v3,v2,v1)));
 
- fun ra_state_move_related_fupd v14 = 
+ fun ra_state_move_related_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v14 v5,v4,v3,v2,v1)));
 
- fun ra_state_avail_moves_pri_fupd v14 = 
+ fun ra_state_avail_moves_pri_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v14 v4,v3,v2,v1)));
 
- fun ra_state_avail_moves_fupd v14 = 
+ fun ra_state_avail_moves_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v14 v3,v2,v1)));
 
- fun ra_state_unavail_moves_fupd v14 = 
+ fun ra_state_unavail_moves_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v14 v2,v1)));
 
- fun ra_state_clock_fupd v14 = 
+ fun ra_state_clock_fupd v14 =
    (fn v15 =>
      case v15
      of Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v1) => (Recordtypera_state(v13,v12,v11,v10,v9,v8,v7,v6,v5,v4,v3,v2,v14 v1)));
 
- fun bind v5 = 
+ fun bind v5 =
    (fn v4 => o_1 (fn v3 => (case v3 of (v2,v1) => (v4 v2 v1))) v5);
  fun unit v2 =  (fn v1 => (v2,v1));
  fun get_clock v1 =  unit (ra_state_clock v1) v1;
  fun has_work v2 =  bind get_clock (fn v1 => (unit (v1 > 0))) v2;
  fun ignore_bind v2 =  (fn v3 => bind v2 (fn v1 => v3));
- fun dec_clock v1 = 
+ fun dec_clock v1 =
    ((),ra_state_clock_fupd (k (let val k = (ra_state_clock v1) - 1
                                in
                                  if (k < 0)
@@ -498,7 +498,7 @@
                                  else k
                                end)) v1);
  fun get_simp_worklist v1 =  unit (ra_state_simp_worklist v1) v1;
- fun set_simp_worklist v2 = 
+ fun set_simp_worklist v2 =
    (fn v1 => ((),ra_state_simp_worklist_fupd (k v2) v1));
  fun get_graph v1 =  unit (ra_state_graph v1) v1;
  fun lookup v7 v8 =
@@ -548,7 +548,7 @@
                        in
                          foldi v9 (v10 + v5) (v9 v10 v7 (foldi v9 (v10 + (2 * v5)) v12 v8)) v6
                        end);
- fun toalist v4 = 
+ fun toalist v4 =
    foldi (fn v3 => (fn v2 => (fn v1 => ((v3,v2)::v1)))) 0 [] v4;
  fun foreach v6 =
    case v6
@@ -620,12 +620,12 @@
                                                        else k
                                                      end) div 2) v8 v4))));
 
- fun set_deg v2 = 
+ fun set_deg v2 =
    (fn v3 =>
      (fn v1 =>
        ((),ra_state_degs_fupd (k (insert v2 v3 (ra_state_degs v1))) v1)));
 
- fun dec_one v3 = 
+ fun dec_one v3 =
    bind (get_deg v3) (fn v2 =>
                        (case v2
                         of NONE => (unit ())
@@ -635,7 +635,7 @@
                                                         then 0
                                                         else k
                                                       end))));
- fun dec_deg v4 = 
+ fun dec_deg v4 =
    bind get_graph (fn v3 =>
                     (case (lookup v4 v3)
                      of NONE => (unit ())
@@ -648,21 +648,21 @@
  fun get_colors v1 =  unit (ra_state_colors v1) v1;
  fun get_move_rel v1 =  unit (ra_state_move_related v1) v1;
  fun get_unavail_moves v1 =  unit (ra_state_unavail_moves v1) v1;
- fun split_priority v6 = 
+ fun split_priority v6 =
    partition (fn v5 =>
                (case v5
                 of (v4,v3) => (case v3 of (v2,v1) => (v4 > 0)))) v6;
- fun add_avail_moves_pri v2 = 
+ fun add_avail_moves_pri v2 =
    (fn v1 =>
      ((),ra_state_avail_moves_pri_fupd (k (append v2 (ra_state_avail_moves_pri v1))) v1));
 
- fun add_avail_moves v2 = 
+ fun add_avail_moves v2 =
    (fn v1 =>
      ((),ra_state_avail_moves_fupd (k (append v2 (ra_state_avail_moves v1))) v1));
 
- fun set_unavail_moves v2 = 
+ fun set_unavail_moves v2 =
    (fn v1 => ((),ra_state_unavail_moves_fupd (k v2) v1));
- fun revive_moves v16 = 
+ fun revive_moves v16 =
    bind get_graph (fn v15 =>
                     (case (lookup v16 v15)
                      of NONE => (unit ())
@@ -685,17 +685,17 @@
                                                                                      end)
                                                                     end))
                                         end)));
- fun set_spill_worklist v2 = 
+ fun set_spill_worklist v2 =
    (fn v1 => ((),ra_state_spill_worklist_fupd (k v2) v1));
- fun add_simp_worklist v2 = 
+ fun add_simp_worklist v2 =
    (fn v1 =>
      ((),ra_state_simp_worklist_fupd (k (append v2 (ra_state_simp_worklist v1))) v1));
 
- fun add_freeze_worklist v2 = 
+ fun add_freeze_worklist v2 =
    (fn v1 =>
      ((),ra_state_freeze_worklist_fupd (k (append v2 (ra_state_freeze_worklist v1))) v1));
 
- fun unspill v14 = 
+ fun unspill v14 =
    bind get_spill_worklist (fn v13 =>
                              (bind get_degs (fn v12 =>
                                               (bind get_colors (fn v11 =>
@@ -716,7 +716,7 @@
                                                                                                         end)
                                                                                        end)))))))) v14;
 
- fun simplify v4 = 
+ fun simplify v4 =
    bind get_simp_worklist (fn v3 =>
                             (case v3
                              of [] => (unit NONE)
@@ -724,7 +724,7 @@
 
  fun get_avail_moves_pri v1 =  unit (ra_state_avail_moves_pri v1) v1;
  fun is_phy_var v1 =  (v1 mod 2) <= 0;
- fun maybe_flip v6 = 
+ fun maybe_flip v6 =
    let val v5 = v6
    in
      case v5
@@ -744,13 +744,13 @@
                          else (split_avail v4 v5 v2 (v1::v6)))
                    else (split_avail v4 v5 v2 v6)
                  end);
- fun lookup_g v3 = 
+ fun lookup_g v3 =
    (fn v4 =>
      (fn v2 =>
        case (lookup v3 v2)
        of NONE => false
        |  SOME(v1) => ((lookup v4 v1) = (SOME(i ())))));
- fun is_valid_move v6 = 
+ fun is_valid_move v6 =
    (fn v8 =>
      (fn v7 =>
        let val v5 = v7
@@ -761,7 +761,7 @@
                                                                                                             then ((lookup v1 v8) = (SOME(i ())))
                                                                                                             else ((((is_phy_var v1) = false) andalso ((lookup v1 v8) = (SOME(i ())))) andalso ((lookup v2 v8) = (SOME(i ())))))))
        end));
- fun mk_bn v13 = 
+ fun mk_bn v13 =
    (fn v14 =>
      case v13
      of Ln => (case v14
@@ -772,7 +772,7 @@
      |  Ls(v7) => (Bn(Ls(v7),v14))
      |  Bn(v9,v8) => (Bn(Bn(v9,v8),v14))
      |  Bs(v12,v11,v10) => (Bn(Bs(v12,v11,v10),v14)));
- fun mk_bs v13 = 
+ fun mk_bs v13 =
    (fn v14 =>
      (fn v15 =>
        case v15
@@ -809,7 +809,7 @@
    |  v3::v2 => (case v3
                  of NONE => (option_filter v2)
                  |  (SOME(v1)) => (v1::(option_filter v2)));
- fun george_ok v13 = 
+ fun george_ok v13 =
    (fn v15 =>
      (fn v14 =>
        (fn v16 =>
@@ -852,7 +852,7 @@
                           |  (Bn(v18,v17)) => (Bs(union v24 v18,v23,union v22 v17))
                           |  (Bs(v21,v20,v19)) => (Bs(union v24 v21,v23,union v22 v19)));
 
- fun briggs_ok v13 = 
+ fun briggs_ok v13 =
    (fn v15 =>
      (fn v14 =>
        (fn v16 =>
@@ -876,7 +876,7 @@
                                                                                     (v1 >= v15)) v2)) < v15
                                                                 end)))
          end)));
- fun is_coalesceable_move v6 = 
+ fun is_coalesceable_move v6 =
    (fn v8 =>
      (fn v7 =>
        (fn v9 =>
@@ -888,28 +888,28 @@
                                          then (george_ok v6 v8 v7 (v2,v1))
                                          else (briggs_ok v6 v8 v7 (v2,v1))))
          end)));
- fun set_avail_moves_pri v2 = 
+ fun set_avail_moves_pri v2 =
    (fn v1 => ((),ra_state_avail_moves_pri_fupd (k v2) v1));
- fun add_unavail_moves v2 = 
+ fun add_unavail_moves v2 =
    (fn v1 =>
      ((),ra_state_unavail_moves_fupd (k (append v2 (ra_state_unavail_moves v1))) v1));
 
  fun get_avail_moves v1 =  unit (ra_state_avail_moves v1) v1;
- fun set_avail_moves v2 = 
+ fun set_avail_moves v2 =
    (fn v1 => ((),ra_state_avail_moves_fupd (k v2) v1));
- fun add_coalesce v2 = 
+ fun add_coalesce v2 =
    (fn v3 =>
      (fn v1 =>
        ((),ra_state_coalesced_fupd (k (insert v3 v2 (ra_state_coalesced v1))) v1)));
 
  fun get_edges v2 =  (fn v1 => unit (lookup v2 (ra_state_graph v1)) v1);
 
- fun inc_one v3 = 
+ fun inc_one v3 =
    bind (get_deg v3) (fn v2 =>
                        (case v2
                         of NONE => (unit ())
                         |  (SOME(v1)) => (set_deg v3 (v1 + 1))));
- fun dir_g_insert v4 = 
+ fun dir_g_insert v4 =
    (fn v5 =>
      (fn v3 =>
        let val v1 =
@@ -919,14 +919,14 @@
        in
          insert v4 v1 v3
        end));
- fun undir_g_insert v2 = 
+ fun undir_g_insert v2 =
    (fn v3 => (fn v1 => dir_g_insert v2 v3 (dir_g_insert v3 v2 v1)));
- fun force_add v2 = 
+ fun force_add v2 =
    (fn v3 =>
      (fn v1 =>
        ((),ra_state_graph_fupd (k (undir_g_insert v2 v3 (ra_state_graph v1))) v1)));
 
- fun do_coalesce v13 = 
+ fun do_coalesce v13 =
    let val v12 = v13
    in
      case v12
@@ -948,7 +948,7 @@
                                                                                                                                                                                                   else (dec_one v1)))
                                                                                                                                                                                   end))))))))))))
    end;
- fun pair_rename v10 = 
+ fun pair_rename v10 =
    (fn v8 =>
      (fn v9 =>
        let val v7 = v9
@@ -968,13 +968,13 @@
                                        end))
        end));
  fun get_freeze_worklist v1 =  unit (ra_state_freeze_worklist v1) v1;
- fun add_spill_worklist v2 = 
+ fun add_spill_worklist v2 =
    (fn v1 =>
      ((),ra_state_spill_worklist_fupd (k (append v2 (ra_state_spill_worklist v1))) v1));
 
- fun set_freeze_worklist v2 = 
+ fun set_freeze_worklist v2 =
    (fn v1 => ((),ra_state_freeze_worklist_fupd (k v2) v1));
- fun respill v6 = 
+ fun respill v6 =
    bind get_colors (fn v5 =>
                      (bind (get_deg v6) (fn v4 =>
                                           (case v4
@@ -987,7 +987,7 @@
                                                                                                                                                                           ((v1 = v6) = false)) v2)))
                                                                                                else (unit ())))))))));
 
- fun coalesce v29 = 
+ fun coalesce v29 =
    bind get_graph (fn v28 =>
                     (bind get_colors (fn v27 =>
                                        (bind get_degs (fn v26 =>
@@ -1036,9 +1036,9 @@
                    else v1
                  end);
  fun get_coalesced v1 =  unit (ra_state_coalesced v1) v1;
- fun set_move_rel v2 = 
+ fun set_move_rel v2 =
    (fn v1 => ((),ra_state_move_related_fupd (k v2) v1));
- fun freeze v27 = 
+ fun freeze v27 =
    bind get_freeze_worklist (fn v26 =>
                               (bind get_unavail_moves (fn v25 =>
                                                         (bind get_graph (fn v24 =>
@@ -1083,7 +1083,7 @@
                                                                                                          else (max_non_coalesced v12 v11 v2 (v3::v7) (v5,v4))))
                                                                                  else (max_non_coalesced v12 v11 v2 v7 (v5,v4)))))));
 
- fun spill v11 = 
+ fun spill v11 =
    bind get_spill_worklist (fn v10 =>
                              (bind get_coalesced (fn v9 =>
                                                    (bind get_degs (fn v8 =>
@@ -1134,11 +1134,11 @@
                                                            else k
                                                          end) div 2) v4))));
 
- fun push_stack v2 = 
+ fun push_stack v2 =
    (fn v1 =>
      ((),ra_state_degs_fupd (k (delete v2 (ra_state_degs v1))) (ra_state_stack_fupd (k (v2::(ra_state_stack v1))) (ra_state_move_related_fupd (k (delete v2 (ra_state_move_related v1))) v1))));
 
- fun do_step v9 = 
+ fun do_step v9 =
    ignore_bind dec_clock (bind simplify (fn v8 =>
                                           (case v8
                                            of NONE => (bind coalesce (fn v6 =>
@@ -1153,9 +1153,9 @@
                                                                         |  (SOME(v5)) => (push_stack v5))))
                                            |  (SOME(v7)) => (push_stack v7)))) v9;
 
- fun rpt_do_step v1 = 
+ fun rpt_do_step v1 =
    ((),while_1 (o_1 fst has_work) (o_1 snd do_step) v1);
- fun deg_comparator v3 = 
+ fun deg_comparator v3 =
    (fn v4 =>
      (fn v5 =>
        case (lookup v4 v3)
@@ -1163,33 +1163,33 @@
        |  SOME(v2) => (case (lookup v5 v3)
                        of NONE => true
                        |  (SOME(v1)) => (v2 <= v1))));
- fun full_simplify v5 = 
+ fun full_simplify v5 =
    bind get_simp_worklist (fn v4 =>
                             (bind get_degs (fn v3 =>
                                              (case (qsort (deg_comparator v3) v4)
                                               of [] => (unit NONE)
                                               |  (v2::v1) => (ignore_bind (set_simp_worklist v1) (ignore_bind (dec_deg v2) (unit (SOME(v2))))))))) v5;
 
- fun do_step2 v3 = 
+ fun do_step2 v3 =
    ignore_bind dec_clock (bind full_simplify (fn v2 =>
                                                (case v2
                                                 of NONE => (unit ())
                                                 |  (SOME(v1)) => (push_stack v1)))) v3;
 
- fun rpt_do_step2 v1 = 
+ fun rpt_do_step2 v1 =
    ((),while_1 (o_1 fst has_work) (o_1 snd do_step2) v1);
  fun is_alloc_var v1 =  (v1 mod 4) = 1;
- fun considered_var v1 = 
+ fun considered_var v1 =
    (fn v2 =>
      (is_alloc_var v2) orelse ((is_phy_var v2) andalso (v2 < (2 * v1))));
 
- fun count_degrees v1 = 
+ fun count_degrees v1 =
    (fn v2 => length (filter v1 (map fst (toalist v2))));
  fun fromalist v5 =
    case v5
    of [] => Ln
    |  v4::v3 => (case v4 of (v2,v1) => (insert v2 v1 (fromalist v3)));
- fun init_ra_state v32 = 
+ fun init_ra_state v32 =
    (fn v33 =>
      (fn v34 =>
        let val v26 =
@@ -1225,7 +1225,7 @@
                                            end)
                           end)
        end));
- fun sec_ra_state v10 = 
+ fun sec_ra_state v10 =
    (fn v8 =>
      (fn v9 =>
        (fn v11 =>
@@ -1240,7 +1240,7 @@
          in
            Recordtypera_state(v10,v8,v2,v6,[],[],v1,Ln,Ln,[],[],[],length v6)
          end)));
- fun aux_pref v5 = 
+ fun aux_pref v5 =
    (fn v6 =>
      (fn v4 =>
        (fn v3 =>
@@ -1263,14 +1263,14 @@
                                                     then (SOME(v1))
                                                     else (first_match_col v8 v7 v5)))
                  end);
- fun move_pref v4 = 
+ fun move_pref v4 =
    (fn v5 =>
      (fn v3 =>
        (fn v2 =>
          case (lookup v5 v4)
          of NONE => NONE
          |  SOME(v1) => (first_match_col v3 v2 v1))));
- fun aux_move_pref v3 = 
+ fun aux_move_pref v3 =
    (fn v5 =>
      (fn v6 =>
        (fn v4 =>
@@ -1278,7 +1278,7 @@
            case (aux_pref v3 v6 v4 v2)
            of NONE => (move_pref v5 v6 v4 v2)
            |  SOME(v1) => (SOME(v1))))));
- fun resort_moves v12 = 
+ fun resort_moves v12 =
    let val v11 = toalist v12
        val v1 =
      map (fn v10 =>
@@ -1291,14 +1291,14 @@
    in
      fromalist v1
    end;
- fun pri_move_insert v3 = 
+ fun pri_move_insert v3 =
    (fn v4 =>
      (fn v5 =>
        (fn v2 =>
          case (lookup v4 v2)
          of NONE => (insert v4 [(v3,v5)] v2)
          |  SOME(v1) => (insert v4 ((v3,v5)::v1) v2))));
- fun undir_move_insert v2 = 
+ fun undir_move_insert v2 =
    (fn v3 =>
      (fn v4 =>
        (fn v1 =>
@@ -1326,7 +1326,7 @@
                                    |  SOME(v2) => (remove_colors v9 v4 (filter (fn v1 =>
                                                                                  ((v1 = v2) = false)) (v7::v6)))
                                  end));
- fun assign_color v14 = 
+ fun assign_color v14 =
    (fn v10 =>
      (fn v11 =>
        (fn v13 =>
@@ -1363,7 +1363,7 @@
                    case v3
                    of (v2,v1) => (alloc_coloring_aux v8 v10 v6 v4 v2 v1)
                  end);
- fun alloc_coloring v11 = 
+ fun alloc_coloring v11 =
    (fn v12 =>
      (fn v14 =>
        (fn v13 =>
@@ -1410,7 +1410,7 @@
                                                                                of (v2,v1) => (v2,insert v8 v9 v1)
                                                                              end))))
                    end);
- fun full_coalesce v22 = 
+ fun full_coalesce v22 =
    (fn v23 =>
      (fn v24 =>
        let val v16 =
@@ -1440,7 +1440,7 @@
                  else (if (v2 = v3)
                        then (unbound_colors (v3 + 2) v1)
                        else (unbound_colors v3 v1)));
- fun assign_color2 v13 = 
+ fun assign_color2 v13 =
    (fn v15 =>
      (fn v16 =>
        (fn v17 =>
@@ -1478,7 +1478,7 @@
                  in
                    spill_coloring v4 v6 v8 v2 v1
                  end);
- fun irc_alloc v20 = 
+ fun irc_alloc v20 =
    (fn v21 =>
      (fn v22 =>
        let val v19 = init_ra_state v20 v21 v22
@@ -1509,7 +1509,7 @@
                                                           end))
                           end)
        end));
- fun simp_alloc v20 = 
+ fun simp_alloc v20 =
    (fn v21 =>
      (fn v22 =>
        let val v19 = init_ra_state v20 v21 []
@@ -1554,8 +1554,8 @@ fun measure_coalesce col moves arg =
   (p,arg2) =>
   (case arg2 of (x,y) =>
   (lookup x col = lookup y col) andalso (not(lookup x col = NONE))));
-fun measure_spill k arg = 
-  case arg of 
+fun measure_spill k arg =
+  case arg of
   (x,y) => ((y >= 2*k) andalso (not(is_phy_var x)));
 
 (*k is the number of colours (or registers) to use*)
@@ -1569,7 +1569,7 @@ val col = simp_alloc graph k moves;
 
 val col = irc_alloc graph k moves;
 
-val res = 
+val res =
     (let val flat_col = toalist col in
         (length (filter (measure_coalesce col moves) moves),
         length (filter (measure_spill k) flat_col)) end);

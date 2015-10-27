@@ -52,7 +52,7 @@ val _=add_exhPP ("exh_matprint", ``Mat_exh x y``,genPrint matPrint);
 (*exh_Apply*)
 val _=add_exhPP ("exh_oppappprint", ``App_exh (Op_i2 Opapp) ls``, genPrint oppappPrint);
 
-(*exh_raise expr*) 
+(*exh_raise expr*)
 val _=add_exhPP ("exh_raiseprint", ``Raise_exh x``,genPrint raisePrint);
 
 (*exh_handle expr * list (pat*expr)*)
@@ -62,24 +62,24 @@ val _=add_exhPP ("exh_handleprint", ``Handle_exh x y``,genPrint handlePrint);
 val _=add_exhPP("exh_ifthenelseprint", ``If_exh x y z``,genPrint ifthenelsePrint);
 
 (*exh binops*)
-val _=add_exhPP ("exh_assignappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 10; x]``,genPrint (infixappPrint ":=")); 
-val _=add_exhPP ("exh_eqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 9; x]``,genPrint (infixappPrint "=")); 
-val _=add_exhPP ("exh_gteqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 8; x]``,genPrint (infixappPrint ">=")); 
-val _=add_exhPP ("exh_lteqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 7; x]``,genPrint (infixappPrint "<=")); 
-val _=add_exhPP ("exh_gtappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 6; x]``,genPrint (infixappPrint ">")); 
-val _=add_exhPP ("exh_ltappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 5; x]``,genPrint (infixappPrint "<")); 
-val _=add_exhPP ("exh_modappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 4; x]``,genPrint (infixappPrint "mod")); 
-val _=add_exhPP ("exh_divappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 3; x]``,genPrint (infixappPrint "div")); 
-val _=add_exhPP ("exh_timesappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 2; x]``,genPrint (infixappPrint "*")); 
-val _=add_exhPP ("exh_minusappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 1; x]``,genPrint (infixappPrint "-")); 
-val _=add_exhPP ("exh_addappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 0; x]``,genPrint (infixappPrint "+")); 
+val _=add_exhPP ("exh_assignappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 10; x]``,genPrint (infixappPrint ":="));
+val _=add_exhPP ("exh_eqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 9; x]``,genPrint (infixappPrint "="));
+val _=add_exhPP ("exh_gteqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 8; x]``,genPrint (infixappPrint ">="));
+val _=add_exhPP ("exh_lteqappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 7; x]``,genPrint (infixappPrint "<="));
+val _=add_exhPP ("exh_gtappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 6; x]``,genPrint (infixappPrint ">"));
+val _=add_exhPP ("exh_ltappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 5; x]``,genPrint (infixappPrint "<"));
+val _=add_exhPP ("exh_modappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 4; x]``,genPrint (infixappPrint "mod"));
+val _=add_exhPP ("exh_divappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 3; x]``,genPrint (infixappPrint "div"));
+val _=add_exhPP ("exh_timesappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 2; x]``,genPrint (infixappPrint "*"));
+val _=add_exhPP ("exh_minusappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 1; x]``,genPrint (infixappPrint "-"));
+val _=add_exhPP ("exh_addappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 0; x]``,genPrint (infixappPrint "+"));
 
 (*exh uops*)
-val _=add_exhPP ("exh_refappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 13; x]``,genPrint (prefixappPrint "ref")); 
+val _=add_exhPP ("exh_refappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 13; x]``,genPrint (prefixappPrint "ref"));
 val _=add_exhPP ("exh_derefappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 12;x]``,genPrint (prefixappPrint "!"));
 val _=add_exhPP ("exh_negappprint", ``App_exh (Op_i2 Opapp) [Var_global_exh 11; x]``,genPrint (prefixappPrint "~"));
 
-fun enable_exhPP_verbose () = map temp_add_user_printer (!exhPrettyPrinters); 
+fun enable_exhPP_verbose () = map temp_add_user_printer (!exhPrettyPrinters);
 fun enable_exhPP () = (enable_exhPP_verbose();())
 fun disable_exhPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!exhPrettyPrinters);
 fun disable_exhPP () = (disable_exhPP_verbose();());

@@ -4,7 +4,7 @@ val _ = new_theory "modLang"
 
 (* The first intermediate language modLang. Removes modules, and introduces
  * special variable references for referring to top-level bindings.  Also
- * removes andalso and orelse and replaces them with if. 
+ * removes andalso and orelse and replaces them with if.
  *
  * The AST of modLang differs from the source language by having two variable
  * reference forms, one to reference local bindings (still by name) and one to

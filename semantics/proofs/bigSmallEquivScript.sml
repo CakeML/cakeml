@@ -153,7 +153,7 @@ val small_eval_err_add_ctxt = Q.prove (
   ⇒
   small_eval env s e c (s', Rerr err) ⇒ small_eval env s e (c++c') (s', Rerr err)`,
  rw [] >>
- `?a. err = Rabort a ∨ ?v. err = Rraise v` 
+ `?a. err = Rabort a ∨ ?v. err = Rraise v`
           by (cases_on `err` >> rw []) >>
  rw [] >>
  fs [small_eval_def]
@@ -172,7 +172,7 @@ val small_eval_err_add_ctxt = Q.prove (
      metis_tac [transitive_RTC, transitive_def]))
 
 val small_eval_err_add_ctxt =
-SIMP_RULE (srw_ss ()) 
+SIMP_RULE (srw_ss ())
    [METIS_PROVE [] ``!x y z. (x ⇒ y ⇒ z) = (x ∧ y ⇒ z)``]
    small_eval_err_add_ctxt;
 
@@ -737,7 +737,7 @@ val big_exp_to_small_exp = Q.prove (
        fs [small_eval_def, alt_small_eval_def] >>
        metis_tac [transitive_def, transitive_RTC, RTC_SINGLE])
    >- (fs [small_eval_def] >>
-       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)]) (env',to_small_st s2,e',c'++[(Chandle () pes,env)])` 
+       `e_step_reln^* (env,to_small_st s,Exp e,[(Chandle () pes,env)]) (env',to_small_st s2,e',c'++[(Chandle () pes,env)])`
                   by metis_tac [APPEND,e_step_add_ctxt] >>
         metis_tac [APPEND, e_step_add_ctxt, transitive_RTC,
                    transitive_def, e_single_error_add_ctxt])
@@ -745,7 +745,7 @@ val big_exp_to_small_exp = Q.prove (
    >- (fs [small_eval_def] >>
        `e_step_reln^* (env,SND s,Exp e,[(Chandle () pes,env)]) (env',SND s',Exp (Raise (Int_error n)),[(Chandle () pes,env)])`
                    by metis_tac [APPEND,e_step_add_ctxt] >>
-       `e_step_reln (env',SND s',Exp (Raise (Int_error n)),[(Chandle () pes,env)]) 
+       `e_step_reln (env',SND s',Exp (Raise (Int_error n)),[(Chandle () pes,env)])
                     (menv,cenv,SND s',(bind var (Litv (IntLit n)) env),Exp e',[])`
                    by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
        metis_tac [RTC_SINGLE, small_eval_prefix])
@@ -776,10 +776,10 @@ val big_exp_to_small_exp = Q.prove (
        rw [small_eval_con] >>
        fs [Once small_eval_list_cases] >>
        rw [small_eval_def] >|
-       [`e_step_reln^* (env,to_small_st s,Exp e,[(Ccon cn [] () (REVERSE es'),env)]) 
+       [`e_step_reln^* (env,to_small_st s,Exp e,[(Ccon cn [] () (REVERSE es'),env)])
                        (env',to_small_st s',Val err_v,[(Craise (), env'');(Ccon cn [] () (REVERSE es'),env)])`
                    by metis_tac [APPEND,e_step_add_ctxt] >>
-            `e_step_reln (env',to_small_st s',Val err_v,[(Craise (), env'');(Ccon cn [] () (REVERSE es'),env)]) 
+            `e_step_reln (env',to_small_st s',Val err_v,[(Craise (), env'');(Ccon cn [] () (REVERSE es'),env)])
                          (env'',to_small_st s',Val err_v,[(Craise (), env'')])`
                    by (rw [e_step_reln_def, e_step_def, continue_def, return_def]) >>
             metis_tac [transitive_def, transitive_RTC, RTC_SINGLE],
@@ -806,8 +806,8 @@ val big_exp_to_small_exp = Q.prove (
    >- (
      fs[Once small_eval_list_cases] >> rw[] >- fs[do_opapp_def] >>
      fs[Once small_eval_list_cases] >> rw[] >- fs[do_opapp_def] >>
-     reverse(fs[Once small_eval_list_cases, SWAP_REVERSE_SYM]) >> rw[] 
-     >- metis_tac [do_opapp_too_many, NOT_SOME_NONE] >> 
+     reverse(fs[Once small_eval_list_cases, SWAP_REVERSE_SYM]) >> rw[]
+     >- metis_tac [do_opapp_too_many, NOT_SOME_NONE] >>
      rw[Once small_eval_app] >>
      match_mp_tac small_eval_prefix >>
      Q.PAT_ABBREV_TAC`ctx = (Capp B X Y Z,env)` >>
@@ -1029,7 +1029,7 @@ val big_exp_to_small_exp = Q.prove (
      fs[] >>
      rw[Once small_eval_app] >>
      `es = [] ∨ ?e es'. es = es'++[e]` by metis_tac [list_end_case]
-     >- fs[Once small_eval_list_cases] >> 
+     >- fs[Once small_eval_list_cases] >>
      rw[] >>
      Cases_on`err`>>rw[small_eval_def] >>
      TRY (imp_res_tac small_eval_list_not_timeout >> fs[] >> NO_TAC) >>
@@ -1458,8 +1458,8 @@ metis_tac [one_step_backward]);
 
 val evaluate_state_no_ctxt = Q.prove (
 `!env s e r.
-  evaluate_state (env,to_small_st s,Exp e,[]) r 
-  ⇔ 
+  evaluate_state (env,to_small_st s,Exp e,[]) r
+  ⇔
   evaluate F env (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>) e r`,
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
@@ -1471,7 +1471,7 @@ val evaluate_state_no_ctxt = Q.prove (
 val evaluate_state_val_no_ctxt = Q.prove (
 `!env s e.
   evaluate_state (env,to_small_st s,Val e,[]) r
-  ⇔ 
+  ⇔
   (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rval e))`,
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
@@ -1482,8 +1482,8 @@ val evaluate_state_val_no_ctxt = Q.prove (
 
 val evaluate_state_val_raise_ctxt = Q.prove (
 `!env s v env'.
-  evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r 
-  ⇔ 
+  evaluate_state (env,to_small_st s,Val v,[(Craise (), env')]) r
+  ⇔
   (r = (s with <| defined_mods := {}; defined_types := {}; clock := 0 |>, Rerr (Rraise v)))`,
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
  rw [evaluate_state_cases, Once evaluate_ctxts_cases] >>
@@ -1501,9 +1501,9 @@ val evaluate_change_state = Q.prove(
 
 val small_big_exp_equiv = Q.store_thm ("small_big_exp_equiv",
 `!env s e s' r.
-  (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧ 
+  (small_eval env (to_small_st s) e [] (to_small_st s',r) ∧
    s.clock = s'.clock ∧ s.defined_types = s'.defined_types ∧ s.defined_mods = s'.defined_mods)
-  ⇔ 
+  ⇔
   evaluate F env s e (s',r)`,
  rw [] >>
  eq_tac

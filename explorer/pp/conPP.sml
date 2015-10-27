@@ -116,7 +116,7 @@ val _=add_conPP ("i2_matprint", ``Mat_i2 x y``,genPrint matPrint);
 (*i2_Apply*)
 val _=add_conPP ("i2_oppappprint", ``App_i2 (Op_i2 Opapp) ls``, genPrint oppappPrint);
 
-(*i2_raise expr*) 
+(*i2_raise expr*)
 val _=add_conPP ("i2_raiseprint", ``Raise_i2 x``,genPrint raisePrint);
 
 (*i2_handle expr * list (pat*expr)*)
@@ -126,27 +126,27 @@ val _=add_conPP ("i2_handleprint", ``Handle_i2 x y``,genPrint handlePrint);
 val _=add_conPP("i2_ifthenelseprint", ``If_i2 x y z``,genPrint ifthenelsePrint);
 
 (*i2 binops*)
-val _=add_conPP ("i2_assignappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 10; x]``,genPrint (infixappPrint ":=")); 
-val _=add_conPP ("i2_eqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 9; x]``,genPrint (infixappPrint "=")); 
-val _=add_conPP ("i2_gteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 8; x]``,genPrint (infixappPrint ">=")); 
-val _=add_conPP ("i2_lteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 7; x]``,genPrint (infixappPrint "<=")); 
-val _=add_conPP ("i2_gtappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 6; x]``,genPrint (infixappPrint ">")); 
-val _=add_conPP ("i2_ltappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 5; x]``,genPrint (infixappPrint "<")); 
-val _=add_conPP ("i2_modappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 4; x]``,genPrint (infixappPrint "mod")); 
-val _=add_conPP ("i2_divappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 3; x]``,genPrint (infixappPrint "div")); 
-val _=add_conPP ("i2_timesappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 2; x]``,genPrint (infixappPrint "*")); 
-val _=add_conPP ("i2_minusappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 1; x]``,genPrint (infixappPrint "-")); 
-val _=add_conPP ("i2_addappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 0; x]``,genPrint (infixappPrint "+")); 
+val _=add_conPP ("i2_assignappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 10; x]``,genPrint (infixappPrint ":="));
+val _=add_conPP ("i2_eqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 9; x]``,genPrint (infixappPrint "="));
+val _=add_conPP ("i2_gteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 8; x]``,genPrint (infixappPrint ">="));
+val _=add_conPP ("i2_lteqappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 7; x]``,genPrint (infixappPrint "<="));
+val _=add_conPP ("i2_gtappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 6; x]``,genPrint (infixappPrint ">"));
+val _=add_conPP ("i2_ltappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 5; x]``,genPrint (infixappPrint "<"));
+val _=add_conPP ("i2_modappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 4; x]``,genPrint (infixappPrint "mod"));
+val _=add_conPP ("i2_divappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 3; x]``,genPrint (infixappPrint "div"));
+val _=add_conPP ("i2_timesappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 2; x]``,genPrint (infixappPrint "*"));
+val _=add_conPP ("i2_minusappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 1; x]``,genPrint (infixappPrint "-"));
+val _=add_conPP ("i2_addappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 0; x]``,genPrint (infixappPrint "+"));
 
 (*i2 uops*)
-val _=add_conPP ("i2_refappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 13; x]``,genPrint (prefixappPrint "ref")); 
+val _=add_conPP ("i2_refappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 13; x]``,genPrint (prefixappPrint "ref"));
 val _=add_conPP ("i2_derefappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 12;x]``,genPrint (prefixappPrint "!"));
 val _=add_conPP ("i2_negappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 11; x]``,genPrint (prefixappPrint "~"));
 
 (*i2 list form*)
 val _=add_conPP("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);
 
-fun enable_conPP_verbose () = map temp_add_user_printer (!conPrettyPrinters); 
+fun enable_conPP_verbose () = map temp_add_user_printer (!conPrettyPrinters);
 fun enable_conPP () = (enable_conPP_verbose();())
 fun disable_conPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!conPrettyPrinters);
 fun disable_conPP () = (disable_conPP_verbose();())

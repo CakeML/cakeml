@@ -4,7 +4,7 @@ open import Ast
 open import SemanticPrimitives
 
 
-type infer_t = 
+type infer_t =
     Infer_Tvar_db of nat
   | Infer_Tapp of list infer_t * tctor
   | Infer_Tuvar of nat

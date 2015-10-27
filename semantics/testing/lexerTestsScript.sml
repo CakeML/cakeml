@@ -4,7 +4,7 @@ open lexer_funTheory;
 
 val _ = new_theory "lexerTests";
 
-fun run_test test expected = 
+fun run_test test expected =
   let val result = EVAL (Term`lexer_fun ^test`) |> concl |> rhs;
       val ok = term_eq expected result
   in

@@ -1,6 +1,6 @@
 open preamble
 open monadsyntax state_transformerTheory
-open reg_allocTheory 
+open reg_allocTheory
 
 val _ = ParseExtras.temp_tight_equality ();
 
@@ -23,7 +23,7 @@ val convention_partitions = store_thm("convention_partitions",``
 val in_clash_sets_def = Define`
   in_clash_sets (ls: ('a num_map) list) x = ∃y. MEM y ls ∧ x ∈ domain y`
 
-(* 
+(*
   Clash sets always appear as cliques in the graph
   colouring_satisfactory guarantees that cliques have all distinct colours
 *)
@@ -1022,7 +1022,7 @@ val list_g_insert_lemma = prove(``
     every_case_tac>>unabbrev_all_tac>>
     fs[domain_insert,SUBSET_DEF,lookup_g_def,lookup_insert,undir_graph_def
       ,partial_colouring_satisfactory_def,domain_empty]>>
-    rw[]>>fs[]>- (fs[EXTENSION]>>metis_tac[]) 
+    rw[]>>fs[]>- (fs[EXTENSION]>>metis_tac[])
     >-
     (full_case_tac>>
     last_x_assum(qspec_then`x` assume_tac)>>fs[domain_lookup]>>rfs[])
@@ -1057,7 +1057,7 @@ val is_subgraph_edges_trans = prove(``
 val full_coalesce_aux_extends = prove(``
   ∀(G:sp_graph) (ls:(num,num#num) alist) spills col.
   partial_colouring_satisfactory col G ∧
-  (∀x. MEM x spills ⇒ x ∈ domain G ∧  x ∉ domain col) ∧   
+  (∀x. MEM x spills ⇒ x ∈ domain G ∧  x ∉ domain col) ∧
   undir_graph G ⇒
   let (G',ls') = full_coalesce_aux G spills ls in
   is_subgraph_edges G G' ∧
@@ -1086,7 +1086,7 @@ val full_coalesce_aux_extends = prove(``
       rfs[undir_graph_def,lookup_g_def]>>
       Cases_on`lookup h1 G`>>fs[]>>
       first_x_assum(qspec_then`h2` assume_tac)>>rfs[]>>
-      `h2 ∉ domain x'` by 
+      `h2 ∉ domain x'` by
         fs[domain_lookup]>>
       first_x_assum(qspec_then`h1` mp_tac)>>fs[domain_lookup])
     >-
@@ -1767,10 +1767,10 @@ val clique_g_insert_domain = prove(``
 
 val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
 ∀ls x.
-  in_clash_sets ls x ⇒ 
+  in_clash_sets ls x ⇒
   x ∈ domain (clash_sets_to_sp_g ls)``,
   Induct>>fs[in_clash_sets_def,clash_sets_to_sp_g_def,LET_THM]>>rw[]>>res_tac>>
   fs[clique_g_insert_domain]>>
   fs[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
- 
+
 val _ = export_theory()

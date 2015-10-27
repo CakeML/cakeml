@@ -8,7 +8,7 @@ val _ = new_theory "patLang"
  * there are no Mat expressions, Handle expressions are simplified to catch and
  * bind any exception without matching on it, and there are new Tag_eq and El
  * expressions for checking the constructor of a compound value and retrieving
- * its arguments. 
+ * its arguments.
  *)
 
 val _ = Datatype`

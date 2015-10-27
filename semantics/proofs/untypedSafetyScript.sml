@@ -113,7 +113,7 @@ val untyped_safety_decs = Q.store_thm ("untyped_safety_decs",
  eq_tac
  >- (rw [] >>
      rw [] >>
-     CCONTR_TAC >> 
+     CCONTR_TAC >>
      fs [] >>
      imp_res_tac dec_determ >>
      fs [] >>
@@ -137,7 +137,7 @@ rw [evaluate_top_cases, top_diverges_cases] >>
 eq_tac >>
 rw [] >>
 rw [] >>
-CCONTR_TAC >> 
+CCONTR_TAC >>
 fs [] >>
 rw [] >>
 metis_tac [top_nchotomy, untyped_safety_decs, untyped_safety_dec, pair_CASES, result_nchotomy]);
@@ -151,7 +151,7 @@ val untyped_safety_prog = Q.store_thm ("untyped_safety_prog",
  eq_tac
  >- (rw [] >>
      rw [] >>
-     CCONTR_TAC >> 
+     CCONTR_TAC >>
      fs [] >>
      imp_res_tac top_determ >>
      fs [] >>

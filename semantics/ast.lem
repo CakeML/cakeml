@@ -129,7 +129,7 @@ let Texn = Tapp [] TC_exn
 type pat =
   | Pvar of varN
   | Plit of lit
-  (* Constructor applications. 
+  (* Constructor applications.
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of maybe (id conN) * list pat
   | Pref of pat

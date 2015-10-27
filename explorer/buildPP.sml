@@ -96,7 +96,7 @@ fun printBody src out =
           JSINLINE ("$( \".tabs\" ).tabs();")
          ]))
        }
-end 
+end
 
 fun io() =
   let open Html
@@ -202,9 +202,9 @@ fun io2() =
 "datatype ('a,'b,'c) foo2 = Foo of 'a * 'b | Foo2 of 'b * ('c * 'a->'b) | Foo3 of ('a*'b)*'c*('a,'a,'a) foo2;",
 
 "val x = let fun f x = x + 1 val y = f 5 fun g z = y+1 and k y = g 1 val h = g 4 in let val k = 2 in k + f (f y) end end;",
-  
+
 "val x = let val y = (let val k = 4 in k+5 end) val z = 2 in let val k = 3 in k+z+y end end;",
-  
+
 "fun fabracadabra x = gabracadabra (x-1) and gabracadabra x = if x = 0 then 1 else fabracadabra (x-1); fabracadabra 3;",
 
 "exception E of int*int->string*unit;",

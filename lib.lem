@@ -106,7 +106,7 @@ declare hol target_rep function alistToFmap = `alist_to_fmap`
 
 val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b
 let opt_bind n v e =
-  match n with 
+  match n with
     | Nothing -> e
     | Just n' -> (n',v)::e
   end

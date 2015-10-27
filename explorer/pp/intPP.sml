@@ -21,18 +21,18 @@ fun cexp_letrecPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [x] = 
+    |   printTerms [x] =
           let val ([opt,num,x]) = pairSyntax.strip_pair x
           in
             (if optionSyntax.is_none(opt) then str "fun" (*Should never be pretty printed*)
             else (*Has annotations*)
                 let val lab = hd (pairSyntax.strip_pair(strip opt))
-                  in 
+                  in
                     (collectAnnotations := optionSyntax.dest_some(opt) :: (!collectAnnotations));
                      sty [FG Purple] (str "f">>str (term_to_string lab))
-                  end) 
+                  end)
     	    >>str" = ">>sys (Top,Top,Top) d x
-          end 
+          end
     |   printTerms (t::xs) = printTerms [t] >>add_newline>> (printTerms xs)
   in
      blk CONSISTENT 0 ((blk CONSISTENT 0 (printTerms fundef))
@@ -53,7 +53,7 @@ val _ = add_intPP("cexp_cupdprint", ``CUpd x y``,genPrint cexp_cupdPrint);
 
 fun cexp_equalityPrint sys d t pg str brk blk =
   let val (l,r) = dest_comb t
-  in 
+  in
     sys (Prec(0,"pateq"),Top,Top) d (strip l) >> str " = " >> sys (Prec(0,"pateq"),Top,Top) d r
 
   end;
@@ -134,7 +134,7 @@ val _ = add_intPP ("cexp_varlocalprint", ``CVar x``,pat_varlocalPrint);
 (*cexp global Var name*)
 val _ = add_intPP ("cexp_varglobalprint", ``CGvar n``,i1_varglobalPrint);
 
-(*cexp_raise expr*) 
+(*cexp_raise expr*)
 val _ = add_intPP ("cexp_raiseprint", ``CRaise x``,genPrint raisePrint);
 
 (*cexp_handle*)
@@ -145,7 +145,7 @@ val _ = add_intPP("cexp_ifthenelseprint", ``CIf x y z``,genPrint ifthenelsePrint
 
 (*TODO: add the globals for binops?--not currently in here because it looks weird.. *)
 
-fun enable_intPP_verbose () = map temp_add_user_printer (!intPrettyPrinters); 
+fun enable_intPP_verbose () = map temp_add_user_printer (!intPrettyPrinters);
 fun enable_intPP () = (enable_intPP_verbose();())
 fun disable_intPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!intPrettyPrinters);
 fun disable_intPP () = (disable_intPP_verbose();())

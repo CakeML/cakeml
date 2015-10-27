@@ -522,7 +522,7 @@ val sub_from_counter = Q.store_thm ("sub_from_counter",
      first_assum(match_exists_tac o concl) >> simp[] >>
      imp_res_tac clock_monotone >>
      fs [] >>
-     `?count'''. s2.clock = count''' + extra` 
+     `?count'''. s2.clock = count''' + extra`
                 by (qexists_tac `s2.clock - extra` >>
                     simp []) >>
      qexists_tac `s2 with clock := count'''` >>

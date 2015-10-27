@@ -26,7 +26,7 @@ val _ = Hol_datatype `
 
 (*val type_defs_to_new_tdecs : maybe modN -> type_def -> set tid_or_exn*)
 val _ = Define `
- (type_defs_to_new_tdecs mn tdefs =  
+ (type_defs_to_new_tdecs mn tdefs =
 (LIST_TO_SET (MAP (\ (tvs,tn,ctors) .  TypeId (mk_id mn tn)) tdefs)))`;
 
 
@@ -38,7 +38,7 @@ val _ = Define `
 
 
 val _ = Define `
- (lookup_alist_mod_env id (mcenv,cenv) =  
+ (lookup_alist_mod_env id (mcenv,cenv) =
 ((case id of
       Short x => ALOOKUP cenv x
     | Long x y =>
@@ -121,7 +121,7 @@ val _ = Hol_datatype `
 
 (*val store_v_same_type : forall 'a. store_v 'a -> store_v 'a -> bool*)
 val _ = Define `
- (store_v_same_type v1 v2 =  
+ (store_v_same_type v1 v2 =
 ((case (v1,v2) of
     (Refv _, Refv _) => T
   | (W8array _,W8array _) => T
@@ -140,7 +140,7 @@ val _ = Define `
 
 (*val store_lookup : forall 'a. nat -> store 'a -> maybe (store_v 'a)*)
 val _ = Define `
- (store_lookup l st =  
+ (store_lookup l st =
 (if l < LENGTH st then
     SOME (EL l st)
   else
@@ -155,7 +155,7 @@ val _ = Define `
 
 (*val store_assign : forall 'a. nat -> store_v 'a -> store 'a -> maybe (store 'a)*)
 val _ = Define `
- (store_assign n v st =  
+ (store_assign n v st =
 (if (n < LENGTH st) /\
      store_v_same_type (EL n st) v
   then
@@ -166,7 +166,7 @@ val _ = Define `
 
 (*val lookup_var_id : id varN -> environment v -> maybe v*)
 val _ = Define `
- (lookup_var_id id env =  
+ (lookup_var_id id env =
 ((case id of
       Short x => ALOOKUP env.v x
     | Long x y =>
@@ -191,7 +191,7 @@ val _ = Hol_datatype `
 (* Check that a constructor is properly applied *)
 (*val do_con_check : env_ctor -> maybe (id conN) -> nat -> bool*)
 val _ = Define `
- (do_con_check cenv n_opt l =  
+ (do_con_check cenv n_opt l =
 ((case n_opt of
       NONE => T
     | SOME n =>
@@ -204,7 +204,7 @@ val _ = Define `
 
 (*val build_conv : env_ctor -> maybe (id conN) -> list v -> maybe v*)
 val _ = Define `
- (build_conv envC cn vs =  
+ (build_conv envC cn vs =
 ((case cn of
       NONE =>
         SOME (Conv NONE vs)
@@ -218,7 +218,7 @@ val _ = Define `
 
 (*val lit_same_type : lit -> lit -> bool*)
 val _ = Define `
- (lit_same_type l1 l2 =  
+ (lit_same_type l1 l2 =
 ((case (l1,l2) of
       (IntLit _, IntLit _) => T
     | (Char _, Char _) => T
@@ -250,7 +250,7 @@ val _ = Hol_datatype `
 
 (*val ctor_same_type : maybe (conN * tid_or_exn) -> maybe (conN * tid_or_exn) -> bool*)
 val _ = Define `
- (ctor_same_type c1 c2 =  
+ (ctor_same_type c1 c2 =
 ((case (c1,c2) of
       (NONE, NONE) => T
     | (SOME (_,t1), SOME (_,t2)) => same_tid t1 t2
@@ -271,7 +271,7 @@ val _ = Define `
 
 (pmatch envC s (Pvar x) v' env = (Match ((x,v')::env)))
 /\
-(pmatch envC s (Plit l) (Litv l') env =  
+(pmatch envC s (Plit l) (Litv l') env =
 (if l = l' then
     Match env
   else if lit_same_type l l' then
@@ -279,7 +279,7 @@ val _ = Define `
   else
     Match_type_error))
 /\
-(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =  
+(pmatch envC s (Pcon (SOME n) ps) (Conv (SOME (n', t')) vs) env =
 ((case lookup_alist_mod_env n envC of
       SOME (l, t)=>
         if same_tid t t' /\ (LENGTH ps = l) then
@@ -292,13 +292,13 @@ val _ = Define `
     | _ => Match_type_error
   )))
 /\
-(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =  
+(pmatch envC s (Pcon NONE ps) (Conv NONE vs) env =
 (if LENGTH ps = LENGTH vs then
     pmatch_list envC s ps vs env
   else
     Match_type_error))
 /\
-(pmatch envC s (Pref p) (Loc lnum) env =  
+(pmatch envC s (Pref p) (Loc lnum) env =
 ((case store_lookup lnum s of
       SOME (Refv v) => pmatch envC s p v env
     | SOME _ => Match_type_error
@@ -309,7 +309,7 @@ val _ = Define `
 /\
 (pmatch_list envC s [] [] env = (Match env))
 /\
-(pmatch_list envC s (p::ps) (v::vs) env =  
+(pmatch_list envC s (p::ps) (v::vs) env =
 ((case pmatch envC s p v env of
       No_match => No_match
     | Match_type_error => Match_type_error
@@ -323,7 +323,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (* Bind each function of a mutually recursive set of functions to its closure *)
 (*val build_rec_env : list (varN * varN * exp) -> environment v -> env_val -> env_val*)
 val _ = Define `
- (build_rec_env funs cl_env add_to_env =  
+ (build_rec_env funs cl_env add_to_env =
 (FOLDR
     (\ (f,x,e) env' .  (f, Recclosure cl_env funs f) :: env')
     add_to_env
@@ -333,7 +333,7 @@ val _ = Define `
 (* Lookup in the list of mutually recursive functions *)
 (*val find_recfun : forall 'a 'b. varN -> list (varN * 'a * 'b) -> maybe ('a * 'b)*)
  val _ = Define `
- (find_recfun n funs =  
+ (find_recfun n funs =
 ((case funs of
       [] => NONE
     | (f,x,e) :: funs =>
@@ -372,13 +372,13 @@ val _ = Hol_datatype `
 (*val do_eq : v -> v -> eq_result*)
  val do_eq_defn = Hol_defn "do_eq" `
 
-(do_eq (Litv l1) (Litv l2) =  
+(do_eq (Litv l1) (Litv l2) =
 (if lit_same_type l1 l2 then Eq_val (l1 = l2)
   else Eq_type_error))
 /\
 (do_eq (Loc l1) (Loc l2) = (Eq_val (l1 = l2)))
 /\
-(do_eq (Conv cn1 vs1) (Conv cn2 vs2) =  
+(do_eq (Conv cn1 vs1) (Conv cn2 vs2) =
 (if (cn1 = cn2) /\ (LENGTH vs1 = LENGTH vs2) then
     do_eq_list vs1 vs2
   else if ctor_same_type cn1 cn2 then
@@ -386,7 +386,7 @@ val _ = Hol_datatype `
   else
     Eq_type_error))
 /\
-(do_eq (Vectorv vs1) (Vectorv vs2) =  
+(do_eq (Vectorv vs1) (Vectorv vs2) =
 (if LENGTH vs1 = LENGTH vs2 then
     do_eq_list vs1 vs2
   else
@@ -404,7 +404,7 @@ val _ = Hol_datatype `
 /\
 (do_eq_list [] [] = (Eq_val T))
 /\
-(do_eq_list (v1::vs1) (v2::vs2) =  
+(do_eq_list (v1::vs1) (v2::vs2) =
 ((case do_eq v1 v2 of
       Eq_closure => Eq_closure
     | Eq_type_error => Eq_type_error
@@ -427,7 +427,7 @@ val _ = Define `
 (* Do an application *)
 (*val do_opapp : list v -> maybe (environment v * exp)*)
 val _ = Define `
- (do_opapp vs =  
+ (do_opapp vs =
 ((case vs of
     [Closure env n e; v] =>
       SOME (( env with<| v := (n,v)::env.v |>), e)
@@ -446,12 +446,12 @@ val _ = Define `
 (* If a value represents a list, get that list. Otherwise return Nothing *)
 (*val v_to_list : v -> maybe (list v)*)
  val v_to_list_defn = Hol_defn "v_to_list" `
- (v_to_list (Conv (SOME (cn, TypeId (Short tn))) []) =  
+ (v_to_list (Conv (SOME (cn, TypeId (Short tn))) []) =
 (if (cn = "nil") /\ (tn = "list") then
     SOME []
   else
     NONE))
-/\ (v_to_list (Conv (SOME (cn,TypeId (Short tn))) [v1;v2]) =  
+/\ (v_to_list (Conv (SOME (cn,TypeId (Short tn))) [v1;v2]) =
 (if (cn = "::")  /\ (tn = "list") then
     (case v_to_list v2 of
         SOME vs => SOME (v1::vs)
@@ -465,12 +465,12 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (*val v_to_char_list : v -> maybe (list char)*)
  val v_to_char_list_defn = Hol_defn "v_to_char_list" `
- (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) []) =  
+ (v_to_char_list (Conv (SOME (cn, TypeId (Short tn))) []) =
 (if (cn = "nil") /\ (tn = "list") then
     SOME []
   else
     NONE))
-/\ (v_to_char_list (Conv (SOME (cn,TypeId (Short tn))) [Litv (Char c);v]) =  
+/\ (v_to_char_list (Conv (SOME (cn,TypeId (Short tn))) [Litv (Char c);v]) =
 (if (cn = "::")  /\ (tn = "list") then
     (case v_to_char_list v of
         SOME cs => SOME (c::cs)
@@ -485,7 +485,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 (*val char_list_to_v : list char -> v*)
  val char_list_to_v_defn = Hol_defn "char_list_to_v" `
  (char_list_to_v [] = (Conv (SOME ("nil", TypeId (Short "list"))) []))
-/\ (char_list_to_v (c::cs) =  
+/\ (char_list_to_v (c::cs) =
 (Conv (SOME ("::", TypeId (Short "list"))) [Litv (Char c); char_list_to_v cs]))`;
 
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn char_list_to_v_defn;
@@ -528,7 +528,7 @@ val _ = type_abbrev((* ( 'ffi, 'v) *) "store_ffi" , ``: 'v store # 'ffi ffi_stat
 
 (*val do_app : forall 'ffi. store_ffi 'ffi v -> op -> list v -> maybe (store_ffi 'ffi v * result v v)*)
 val _ = Define `
- (do_app ((s: v store),(t: 'ffi ffi_state)) op vs =  
+ (do_app ((s: v store),(t: 'ffi ffi_state)) op vs =
 ((case (op, vs) of
       (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
         if ((op = Divide) \/ (op = Modulo)) /\ (n2 =( 0 : int)) then
@@ -560,7 +560,7 @@ val _ = Define `
         if n <( 0 : int) then
           SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
         else
-          let (s',lnum) =            
+          let (s',lnum) =
 (store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s)
           in
             SOME ((s',t), Rval (Loc lnum))
@@ -602,7 +602,7 @@ val _ = Define `
     | (Ord, [Litv (Char c)]) =>
           SOME ((s,t), Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Chr, [Litv (IntLit i)]) =>
-        SOME ((s,t),          
+        SOME ((s,t),
 (if (i <( 0 : int)) \/ (i >( 255 : int)) then
             Rerr (Rraise (prim_exn "Chr"))
           else
@@ -640,7 +640,7 @@ val _ = Define `
         if n <( 0 : int) then
           SOME ((s,t), Rerr (Rraise (prim_exn "Subscript")))
         else
-          let (s',lnum) =            
+          let (s',lnum) =
 (store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s)
           in
             SOME ((s',t), Rval (Loc lnum))
@@ -698,7 +698,7 @@ val _ = Define `
 (* Do a logical operation *)
 (*val do_log : lop -> v -> exp -> maybe exp_or_val*)
 val _ = Define `
- (do_log l v e =  
+ (do_log l v e =
 ((case (l, v) of
       (And, Conv (SOME ("true", TypeId (Short "bool"))) []) => SOME (Exp e)
     | (Or, Conv (SOME ("false", TypeId (Short "bool"))) []) => SOME (Exp e)
@@ -711,7 +711,7 @@ val _ = Define `
 (* Do an if-then-else *)
 (*val do_if : v -> exp -> exp -> maybe exp*)
 val _ = Define `
- (do_if v e1 e2 =  
+ (do_if v e1 e2 =
 (if v = (Boolv T) then
     SOME e1
   else if v = (Boolv F) then
@@ -725,13 +725,13 @@ val _ = Define `
 (* Build a constructor environment for the type definition tds *)
 (*val build_tdefs : maybe modN -> list (list tvarN * typeN * list (conN * list t)) -> flat_env_ctor*)
 val _ = Define `
- (build_tdefs mn tds =  
+ (build_tdefs mn tds =
 (REVERSE
     (FLAT
       (MAP
-        (\ (tvs, tn, condefs) . 
+        (\ (tvs, tn, condefs) .
            MAP
-             (\ (conN, ts) . 
+             (\ (conN, ts) .
                 (conN, (LENGTH ts, TypeId (mk_id mn tn))))
              condefs)
         tds))))`;
@@ -740,17 +740,17 @@ val _ = Define `
 (* Checks that no constructor is defined twice in a type *)
 (*val check_dup_ctors : list (list tvarN * typeN * list (conN * list t)) -> bool*)
 val _ = Define `
- (check_dup_ctors tds =  
-(ALL_DISTINCT (let x2 = 
+ (check_dup_ctors tds =
+(ALL_DISTINCT (let x2 =
   ([]) in  FOLDR
    (\(tvs, tn, condefs) x2 .  FOLDR
-                                (\(n, ts) x2 .  if T then n :: x2 else x2) 
+                                (\(n, ts) x2 .  if T then n :: x2 else x2)
                               x2 condefs) x2 tds)))`;
 
 
 (*val combine_dec_result : forall 'a 'b 'c. alist 'a 'b -> result (alist 'a 'b) 'c -> result (alist 'a 'b) 'c*)
 val _ = Define `
- (combine_dec_result env r =  
+ (combine_dec_result env r =
 ((case r of
       Rerr e => Rerr e
     | Rval env' => Rval (env'++env)
@@ -759,7 +759,7 @@ val _ = Define `
 
 (*val combine_mod_result : forall 'a 'b 'c 'd 'e. alist 'a 'b -> alist 'c 'd -> result (alist 'a 'b * alist 'c 'd) 'e -> result (alist 'a 'b * alist 'c 'd) 'e*)
 val _ = Define `
- (combine_mod_result menv env r =  
+ (combine_mod_result menv env r =
 ((case r of
       Rerr e => Rerr e
     | Rval (menv',env') => Rval ((menv'++menv), (env'++env))
@@ -768,20 +768,20 @@ val _ = Define `
 
 (*val extend_dec_env : env_val -> flat_env_ctor -> environment v -> environment v*)
 val _ = Define `
- (extend_dec_env new_v new_c env =  
+ (extend_dec_env new_v new_c env =
 (<| m := env.m; c := (merge_alist_mod_env ([],new_c) env.c); v := (new_v ++ env.v) |>))`;
 
 
 (*val extend_top_env : env_mod -> env_val -> env_ctor -> environment v -> environment v*)
 val _ = Define `
- (extend_top_env new_m new_v new_c env =  
+ (extend_top_env new_m new_v new_c env =
 (<| m := (new_m ++ env.m); c := (merge_alist_mod_env new_c env.c); v := (new_v ++ env.v) |>))`;
 
 
 (*val decs_to_types : list dec -> list typeN*)
 val _ = Define `
- (decs_to_types ds =  
-(FLAT (MAP (\ d . 
+ (decs_to_types ds =
+(FLAT (MAP (\ d .
         (case d of
             Dtype tds => MAP (\ (tvs,tn,ctors) .  tn) tds
           | _ => [] ))
@@ -790,14 +790,14 @@ val _ = Define `
 
 (*val no_dup_types : list dec -> bool*)
 val _ = Define `
- (no_dup_types ds =  
+ (no_dup_types ds =
 (ALL_DISTINCT (decs_to_types ds)))`;
 
 
 (*val prog_to_mods : list top -> list modN*)
 val _ = Define `
- (prog_to_mods tops =  
-(FLAT (MAP (\ top . 
+ (prog_to_mods tops =
+(FLAT (MAP (\ top .
         (case top of
             Tmod mn _ _ => [mn]
           | _ => [] ))
@@ -806,15 +806,15 @@ val _ = Define `
 
 (*val no_dup_mods : list top -> set modN -> bool*)
 val _ = Define `
- (no_dup_mods tops defined_mods =  
+ (no_dup_mods tops defined_mods =
 (ALL_DISTINCT (prog_to_mods tops) /\
   DISJOINT (LIST_TO_SET (prog_to_mods tops)) defined_mods))`;
 
 
 (*val prog_to_top_types : list top -> list typeN*)
 val _ = Define `
- (prog_to_top_types tops =  
-(FLAT (MAP (\ top . 
+ (prog_to_top_types tops =
+(FLAT (MAP (\ top .
         (case top of
             Tdec d => decs_to_types [d]
           | _ => [] ))
@@ -823,7 +823,7 @@ val _ = Define `
 
 (*val no_dup_top_types : list top -> set tid_or_exn -> bool*)
 val _ = Define `
- (no_dup_top_types tops defined_types =  
+ (no_dup_top_types tops defined_types =
 (ALL_DISTINCT (prog_to_top_types tops) /\
   DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types tops))) defined_types))`;
 
@@ -841,7 +841,7 @@ val _ = Define `
 
 
 val _ = Define `
- (tc_to_string tc =  
+ (tc_to_string tc =
 ((case tc of
     TC_name id => id_to_string id
   | TC_int => "<int>"
@@ -858,7 +858,7 @@ val _ = Define `
 
 (*val int_to_string : integer -> string*)
 val _ = Define `
- (int_to_string z =  
+ (int_to_string z =
 (if z <( 0 : int) then STRCAT"~"(num_to_dec_string (Num (ABS (~ z))))
   else num_to_dec_string (Num (ABS z))))`;
 
@@ -867,8 +867,8 @@ val _ = Define `
 
 (string_escape [] = "")
 /\
-(string_escape (c::cs) =  
-  
+(string_escape (c::cs) =
+
 (STRCAT(if c = #"\n" then "\\n"
    else if c = #"\t" then "\\t"
    else if c = #"\\" then "\\\\"
@@ -877,7 +877,7 @@ val _ = Define `
 val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn string_escape_defn;
 
 val _ = Define `
- (string_to_string s =  
+ (string_to_string s =
 (STRCAT"\""(STRCAT(string_escape (EXPLODE s))"\"")))`;
 
 val _ = export_theory()

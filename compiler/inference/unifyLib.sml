@@ -27,7 +27,7 @@ in
       case Net.index s (!db) of
         (th::_) => th
       | _ => raise mk_HOL_ERR "unifyLib" "get_wfs" (term_to_string s)
-    
+
 
     fun wfs_thms() = Net.listItems(!db)
 

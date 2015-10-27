@@ -882,7 +882,7 @@ val full_coalesce_aux_def = Define`
     if (lookup_g x y G ∨ lookup x G = NONE)
     then full_coalesce_aux G spills xs
     else
-    case lookup y G of NONE => full_coalesce_aux G spills xs 
+    case lookup y G of NONE => full_coalesce_aux G spills xs
     | SOME e =>
       (*For each adjacent vertex to y, make it adjacent to x*)
       let edges = FILTER (λx.MEM x spills) (MAP FST (toAList e)) in

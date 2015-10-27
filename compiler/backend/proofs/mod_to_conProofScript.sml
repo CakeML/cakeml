@@ -475,7 +475,7 @@ val v_rel_weakening = Q.prove (
       fs [cenv_inv_def, gtagenv_wf_def, envC_tagged_def] >>
       imp_res_tac exhaustive_env_weak >>
       MAP_EVERY qexists_tac [`exh'`, `tagenv`] >>
-      fs [gtagenv_weak_def, cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >> 
+      fs [gtagenv_weak_def, cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
       rw []
       >- (res_tac >>
           metis_tac [FLOOKUP_SUBMAP])
@@ -491,7 +491,7 @@ val v_rel_weakening = Q.prove (
       imp_res_tac exhaustive_env_weak >>
       rw [Once v_rel_cases] >>
       MAP_EVERY qexists_tac [`exh'`, `tagenv`] >>
-      fs [gtagenv_weak_def, cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >> 
+      fs [gtagenv_weak_def, cenv_inv_def, envC_tagged_def, gtagenv_wf_def] >>
       rw []
       >- (res_tac >>
           metis_tac [FLOOKUP_SUBMAP])

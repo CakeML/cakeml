@@ -13,7 +13,7 @@ val EVERY2_EL = LIST_REL_EL_EQN |> SPEC_ALL |> EQ_IMP_RULE |> fst
 
 (*
 val annotate_freevars_related = Q.prove (
-`exp_rel (: 'ffi) [Fn loc NONE num_args e] 
+`exp_rel (: 'ffi) [Fn loc NONE num_args e]
      let k = m + l in
      let live = FILTER (\n. n < k) (vars_to_list (Shift num_args (SND (free [e])))) in
      let vars = MAP (get_var m l i) live in
@@ -28,7 +28,7 @@ val annotate_freevars_related = Q.prove (
    unabbrev_all_tac >>
    fs [lookup_vars_NONE, MEM_FILTER, MEM_vars_to_list, MEM_MAP] >>
    rw [] >>
- 
+
 
    Cases_on `free [e]` >>
    fs [] >>
@@ -40,12 +40,12 @@ val annotate_freevars_related = Q.prove (
 
    imp_res_tac free_thm
    metis_tac [free_thm, LET_THM]
-   
-   
+
+
  simp [val_rel_rw, is_closure_def] >>
  REWRITE_TAC [GSYM CONJ_ASSOC] >>
  conj_tac
- >- simp [check_closures_def, clo_can_apply_def, clo_can_apply_def, 
+ >- simp [check_closures_def, clo_can_apply_def, clo_can_apply_def,
           clo_to_partial_args_def, clo_to_num_params_def, rec_clo_ok_def,
           clo_to_loc_def] >>
  reverse conj_tac
@@ -57,22 +57,22 @@ val annotate_freevars_related = Q.prove (
    every_case_tac >>
    simp [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
-   imp_res_tac LIST_REL_LENGTH >> 
+   imp_res_tac LIST_REL_LENGTH >>
    fs [])
  >- (
    CCONTR_TAC >>
-   fs [] >> 
-   imp_res_tac LIST_REL_LENGTH >> 
+   fs [] >>
+   imp_res_tac LIST_REL_LENGTH >>
    fs [])
  >- (imp_res_tac LIST_REL_LENGTH >> fs [])
  >- (
    reverse (rw [evaluate_ev_def, res_rel_rw])
    >- metis_tac [val_rel_mono] >>
-   
+
  >- (
    CCONTR_TAC >>
-   fs [] >> 
-   imp_res_tac LIST_REL_LENGTH >> 
+   fs [] >>
+   imp_res_tac LIST_REL_LENGTH >>
    fs []));
    *)
 

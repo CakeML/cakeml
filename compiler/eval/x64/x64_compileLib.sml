@@ -44,7 +44,7 @@ fun print_asm res =
           (print hex;pad (maxlen-String.size hex);print dis;print"\n";printAsm xs)
       in
         print"Bytes";pad (maxlen -5);print"Instruction\n";
-        printAsm dis 
+        printAsm dis
       end
 
 (*--Simple Tests--*)
@@ -116,7 +116,7 @@ let sec_list = stack_to_lab$compile with_target_names in
 (*lab_to_target$compile conf sec_list -- 77.5*)
 let remove = filter_skip sec_list in
 let (c,enc,l) = conf in
-  case remove_labels c enc sec_list l of 
+  case remove_labels c enc sec_list l of
   | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,(c,enc,l1))
   | NONE => NONE``;
 (*Fully unfolded -- 77.3*)

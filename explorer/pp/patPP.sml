@@ -15,7 +15,7 @@ fun pat_letrecPrint sys d t pg str brk blk =
     val (_,ls) = dest_comb temp
     val fundef = #1(listSyntax.dest_list ls)
     fun printTerms [] = str ""
-    |   printTerms [x] = sys (Top,Top,Top) d x    
+    |   printTerms [x] = sys (Top,Top,Top) d x
     |   printTerms (t::xs) = printTerms [t] >>add_newline>>str "and = ">> (printTerms xs)
   in
      blk CONSISTENT 0 (str "let " >> (blk CONSISTENT 0 (str "fun = ">>printTerms fundef))
@@ -59,7 +59,7 @@ val _=add_patPP ("pat_conprint", ``Con_pat x y``,i2_pconPrint);
 (*pat_Apply Equality*)
 fun pat_equalityPrint sys d t pg str brk blk =
   let val [l,r] = #1(listSyntax.dest_list (rand t))
-  in 
+  in
     sys (Prec(0,"pateq"),Top,Top) d l >> str " = " >> sys (Prec(0,"pateq"),Top,Top) d r
 
   end;
@@ -104,7 +104,7 @@ fun pat_letpatPrint sys d t pg str brk blk =
 
 val _=add_patPP ("pat_letprint",``Let_pat y z ``,genPrint pat_letpatPrint);
 
-(*pat_raise expr*) 
+(*pat_raise expr*)
 val _=add_patPP ("pat_raiseprint", ``Raise_pat x``,genPrint raisePrint);
 
 (*pat_Literals*)
@@ -140,24 +140,24 @@ val _=add_patPP ("pat_handleprint", ``Handle_pat x y``,genPrint (pat_handlePrint
 val _=add_patPP("pat_ifthenelseprint", ``If_pat x y z``,genPrint ifthenelsePrint);
 
 (*pat binops*)
-val _=add_patPP ("pat_assignappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 10; x]``,genPrint (infixappPrint ":=")); 
-val _=add_patPP ("pat_eqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 9; x]``,genPrint (infixappPrint "=")); 
-val _=add_patPP ("pat_gteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 8; x]``,genPrint (infixappPrint ">=")); 
-val _=add_patPP ("pat_lteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 7; x]``,genPrint (infixappPrint "<=")); 
-val _=add_patPP ("pat_gtappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 6; x]``,genPrint (infixappPrint ">")); 
-val _=add_patPP ("pat_ltappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 5; x]``,genPrint (infixappPrint "<")); 
-val _=add_patPP ("pat_modappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 4; x]``,genPrint (infixappPrint "mod")); 
-val _=add_patPP ("pat_divappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 3; x]``,genPrint (infixappPrint "div")); 
-val _=add_patPP ("pat_timesappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 2; x]``,genPrint (infixappPrint "*")); 
-val _=add_patPP ("pat_minusappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 1; x]``,genPrint (infixappPrint "-")); 
-val _=add_patPP ("pat_addappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 0; x]``,genPrint (infixappPrint "+")); 
+val _=add_patPP ("pat_assignappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 10; x]``,genPrint (infixappPrint ":="));
+val _=add_patPP ("pat_eqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 9; x]``,genPrint (infixappPrint "="));
+val _=add_patPP ("pat_gteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 8; x]``,genPrint (infixappPrint ">="));
+val _=add_patPP ("pat_lteqappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 7; x]``,genPrint (infixappPrint "<="));
+val _=add_patPP ("pat_gtappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 6; x]``,genPrint (infixappPrint ">"));
+val _=add_patPP ("pat_ltappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 5; x]``,genPrint (infixappPrint "<"));
+val _=add_patPP ("pat_modappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 4; x]``,genPrint (infixappPrint "mod"));
+val _=add_patPP ("pat_divappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 3; x]``,genPrint (infixappPrint "div"));
+val _=add_patPP ("pat_timesappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 2; x]``,genPrint (infixappPrint "*"));
+val _=add_patPP ("pat_minusappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 1; x]``,genPrint (infixappPrint "-"));
+val _=add_patPP ("pat_addappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 0; x]``,genPrint (infixappPrint "+"));
 
 (*pat uops*)
-val _=add_patPP ("pat_refappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 13; x]``,genPrint (prefixappPrint "ref")); 
+val _=add_patPP ("pat_refappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 13; x]``,genPrint (prefixappPrint "ref"));
 val _=add_patPP ("pat_derefappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 12;x]``,genPrint (prefixappPrint "!"));
 val _=add_patPP ("pat_negappprint", ``App_pat (Op_pat (Op_i2 Opapp)) [Var_global_pat 11; x]``,genPrint (prefixappPrint "~"));
 
-fun enable_patPP_verbose () = map temp_add_user_printer (!patPrettyPrinters); 
+fun enable_patPP_verbose () = map temp_add_user_printer (!patPrettyPrinters);
 fun enable_patPP () = (enable_patPP_verbose();())
 fun disable_patPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!patPrettyPrinters);
 fun disable_patPP () = (disable_patPP_verbose();())

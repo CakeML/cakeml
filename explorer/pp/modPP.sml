@@ -65,7 +65,7 @@ fun i1_dletvalPrint sys d t pg str brk blk=
   let
     val (_,[l,r]) = strip_comb t;
   in
-    add_newline>> blk CONSISTENT 2 (sys (pg,pg,pg) (d-1) l >>str " var_binding">>add_newline 
+    add_newline>> blk CONSISTENT 2 (sys (pg,pg,pg) (d-1) l >>str " var_binding">>add_newline
     >>sys (pg,pg,pg) (d-1) r)
   end;
 
@@ -85,15 +85,15 @@ val _=add_modPP ("i1_conprint", ``Con_i1 NONE x``,genPrint pconPrint);
 val _=add_modPP ("i1_consomeprint", ``Con_i1 (Some x) y``,genPrint pconsomePrint);
 
 
-(*Special case for list syntax 
+(*Special case for list syntax
 check_tail checks whether it is a fully specified list*)
 fun check_tail t =
   let val (x,y) = dest_comb t in
     if x = ``Con_i1 (SOME (Short "nil"))`` then true
-    else 
+    else
       if x = ``Con_i1 (SOME (Short "::"))`` then
            check_tail (hd (tl (#1(listSyntax.dest_list y))))
-    else false 
+    else false
   end;
 
 val _=add_modPP ("i1_conconsprint",``Con_i1 (SOME (Short "::")) y``, genPrint (pconconsPrint check_tail));
@@ -130,7 +130,7 @@ val _=add_modPP ("i1_matprint", ``Mat_i1 x y``,genPrint matPrint);
 (*i1_Apply*)
 val _=add_modPP ("i1_oppappprint", ``App_i1 Opapp ls``, genPrint oppappPrint);
 
-(*i1_raise expr*) 
+(*i1_raise expr*)
 val _=add_modPP ("i1_raiseprint", ``Raise_i1 x``,genPrint raisePrint);
 
 (*i1_handle expr * list (pat*expr)*)
@@ -148,27 +148,27 @@ fun prefixappPrint uop sys d t pg str brk blk =
   end;
 
 (*i1 binops*)
-val _=add_modPP ("i1_assignappprint", ``App_i1 Opapp [Var_global_i1 10; x]``,genPrint (infixappPrint ":=")); 
-val _=add_modPP ("i1_eqappprint", ``App_i1 Opapp [Var_global_i1 9; x]``,genPrint (infixappPrint "=")); 
-val _=add_modPP ("i1_gteqappprint", ``App_i1 Opapp [Var_global_i1 8; x]``,genPrint (infixappPrint ">=")); 
-val _=add_modPP ("i1_lteqappprint", ``App_i1 Opapp [Var_global_i1 7; x]``,genPrint (infixappPrint "<=")); 
-val _=add_modPP ("i1_gtappprint", ``App_i1 Opapp [Var_global_i1 6; x]``,genPrint (infixappPrint ">")); 
-val _=add_modPP ("i1_ltappprint", ``App_i1 Opapp [Var_global_i1 5; x]``,genPrint (infixappPrint "<")); 
-val _=add_modPP ("i1_modappprint", ``App_i1 Opapp [Var_global_i1 4; x]``,genPrint (infixappPrint "mod")); 
-val _=add_modPP ("i1_divappprint", ``App_i1 Opapp [Var_global_i1 3; x]``,genPrint (infixappPrint "div")); 
-val _=add_modPP ("i1_timesappprint", ``App_i1 Opapp [Var_global_i1 2; x]``,genPrint (infixappPrint "*")); 
-val _=add_modPP ("i1_minusappprint", ``App_i1 Opapp [Var_global_i1 1; x]``,genPrint (infixappPrint "-")); 
-val _=add_modPP ("i1_addappprint", ``App_i1 Opapp [Var_global_i1 0; x]``,genPrint (infixappPrint "+")); 
+val _=add_modPP ("i1_assignappprint", ``App_i1 Opapp [Var_global_i1 10; x]``,genPrint (infixappPrint ":="));
+val _=add_modPP ("i1_eqappprint", ``App_i1 Opapp [Var_global_i1 9; x]``,genPrint (infixappPrint "="));
+val _=add_modPP ("i1_gteqappprint", ``App_i1 Opapp [Var_global_i1 8; x]``,genPrint (infixappPrint ">="));
+val _=add_modPP ("i1_lteqappprint", ``App_i1 Opapp [Var_global_i1 7; x]``,genPrint (infixappPrint "<="));
+val _=add_modPP ("i1_gtappprint", ``App_i1 Opapp [Var_global_i1 6; x]``,genPrint (infixappPrint ">"));
+val _=add_modPP ("i1_ltappprint", ``App_i1 Opapp [Var_global_i1 5; x]``,genPrint (infixappPrint "<"));
+val _=add_modPP ("i1_modappprint", ``App_i1 Opapp [Var_global_i1 4; x]``,genPrint (infixappPrint "mod"));
+val _=add_modPP ("i1_divappprint", ``App_i1 Opapp [Var_global_i1 3; x]``,genPrint (infixappPrint "div"));
+val _=add_modPP ("i1_timesappprint", ``App_i1 Opapp [Var_global_i1 2; x]``,genPrint (infixappPrint "*"));
+val _=add_modPP ("i1_minusappprint", ``App_i1 Opapp [Var_global_i1 1; x]``,genPrint (infixappPrint "-"));
+val _=add_modPP ("i1_addappprint", ``App_i1 Opapp [Var_global_i1 0; x]``,genPrint (infixappPrint "+"));
 
 (*i1 uops*)
-val _=add_modPP ("i1_refappprint", ``App_i1  Opapp [Var_global_i1 13; x]``,genPrint (prefixappPrint "ref")); 
+val _=add_modPP ("i1_refappprint", ``App_i1  Opapp [Var_global_i1 13; x]``,genPrint (prefixappPrint "ref"));
 val _=add_modPP ("i1_derefappprint", ``App_i1 Opapp [Var_global_i1 12;x]``,genPrint (prefixappPrint "!"));
 val _=add_modPP ("i1_negappprint", ``App_i1 Opapp [Var_global_i1 11; x]``,genPrint (prefixappPrint "~"));
 
 (*i1 list form *)
 val _=add_modPP("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
 
-fun enable_modPP_verbose () = map temp_add_user_printer (!modPrettyPrinters); 
+fun enable_modPP_verbose () = map temp_add_user_printer (!modPrettyPrinters);
 fun enable_modPP () = (enable_modPP_verbose();())
 fun disable_modPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!modPrettyPrinters);
 fun disable_modPP () = (disable_modPP_verbose();())

@@ -29,7 +29,7 @@ val st_ex_bind_def = Define `
     | (Failure e,s) => (Failure e,s)`;
 
 val st_ex_return_def = Define `
-(st_ex_return (*: α -> (β, α, γ) M*)) x = 
+(st_ex_return (*: α -> (β, α, γ) M*)) x =
   λs. (Success x, s)`;
 
 (*
@@ -82,7 +82,7 @@ flookup_st_ex pr x m =
      | SOME v => return v`;
 
 val _ = Hol_datatype `
-infer_st = <| next_uvar : num; 
+infer_st = <| next_uvar : num;
               subst : 'a |>`;
 
 val fresh_uvar_def = Define `
@@ -109,7 +109,7 @@ init_state =
 
 val add_constraint_def = Define `
 add_constraint t1 t2 =
-  \st. 
+  \st.
     case t_unify st.subst t1 t2 of
       | NONE =>
           (Failure "Type mismatch", st)
@@ -160,7 +160,7 @@ val generalise_def = Define `
           (0, s, Infer_Tuvar uv)) ∧
 (generalise m n s (Infer_Tvar_db k) =
     (0, s, Infer_Tvar_db k)) ∧
-(generalise_list m n s [] = 
+(generalise_list m n s [] =
   (0,s,[])) ∧
 (generalise_list m n s (t::ts) =
   let (num_gen, s', t') = generalise m n s t in
@@ -169,7 +169,7 @@ val generalise_def = Define `
 
 val infer_type_subst_def = tDefine "infer_type_subst" `
 (infer_type_subst s (Tvar tv) =
-  case ALOOKUP s tv of 
+  case ALOOKUP s tv of
    | SOME t => t
    | NONE => Infer_Tvar_db 0) ∧ (* should not happen *)
 (infer_type_subst s (Tvar_db n) =
@@ -186,9 +186,9 @@ val infer_type_subst_def = tDefine "infer_type_subst" `
 val infer_deBruijn_subst_def = tDefine "infer_deBruijn_subst" `
 (infer_deBruijn_subst s (Infer_Tvar_db n) =
   if n < LENGTH s then
-    EL n s 
-  else 
-    (* should not happen *) 
+    EL n s
+  else
+    (* should not happen *)
     Infer_Tvar_db (n - LENGTH s)) ∧
 (infer_deBruijn_subst s (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_subst s) ts) tn) ∧
@@ -223,7 +223,7 @@ val infer_p_def = tDefine "infer_p" `
 (infer_p cenv (Plit (Word8 w)) =
   return (Infer_Tapp [] TC_word8, [])) ∧
 (infer_p cenv (Pcon cn_opt ps) =
-  case cn_opt of 
+  case cn_opt of
     | NONE =>
         do (ts,tenv) <- infer_ps cenv ps;
            return (Infer_Tapp ts TC_tup, tenv)
@@ -242,11 +242,11 @@ val infer_p_def = tDefine "infer_p" `
 (infer_ps cenv [] =
   return ([], [])) ∧
 (infer_ps cenv (p::ps) =
-  do (t, tenv) <- infer_p cenv p; 
-     (ts, tenv') <- infer_ps cenv ps; 
+  do (t, tenv) <- infer_p cenv p;
+     (ts, tenv') <- infer_ps cenv ps;
      return (t::ts, tenv'++tenv)
   od)`
-(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p 
+(WF_REL_TAC `measure (\x. case x of INL (_,p) => pat_size p
                                   | INR (_,ps) => pat1_size ps)` >>
  rw []);
 
@@ -353,7 +353,7 @@ constrain_op op ts =
        do uvar <- fresh_uvar;
           () <- add_constraint t1 (Infer_Tapp [uvar] TC_array);
           () <- add_constraint t2 (Infer_Tapp [] TC_int);
-          return uvar 
+          return uvar
        od
    | (Alength, [t]) =>
        do uvar <- fresh_uvar;
@@ -453,7 +453,7 @@ val infer_e_def = tDefine "infer_e" `
        return t2
   od) ∧
 (infer_e menv cenv env (Let x e1 e2) =
-(* Don't do polymorphism for non-top-level lets 
+(* Don't do polymorphism for non-top-level lets
   if is_value e1 then
     do n <- get_next_uvar;
        t1 <- infer_e menv cenv env e1;
@@ -524,7 +524,7 @@ val infer_e_def = tDefine "infer_e" `
  rw []);
 
 val infer_d_def = Define `
-(infer_d mn decls tenvT menv cenv env (Dlet p e) = 
+(infer_d mn decls tenvT menv cenv env (Dlet p e) =
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e menv cenv env e;
@@ -581,9 +581,9 @@ val infer_ds_def = Define `
   od)`;
 
 val t_to_freevars_def = Define `
-(t_to_freevars (Tvar tn) = 
+(t_to_freevars (Tvar tn) =
   return [tn]) ∧
-(t_to_freevars (Tvar_db _) = 
+(t_to_freevars (Tvar_db _) =
   failwith "deBruijn index in type definition") ∧
 (t_to_freevars (Tapp ts tc) =
   ts_to_freevars ts) ∧
@@ -631,7 +631,7 @@ val check_flat_weakC_def = Define `
             case ALOOKUP cenv_impl cn of
               | NONE => F
               | SOME (tvs_impl,ts_impl,tn_impl) =>
-                  (tn_spec = tn_impl) ∧ 
+                  (tn_spec = tn_impl) ∧
                   (tvs_spec = tvs_impl) ∧
                   (ts_spec = ts_impl))
         cenv_spec)`;
@@ -690,9 +690,9 @@ val infer_top_def = Define `
     (decls',tenvT',cenv',env') <- infer_ds (SOME mn) (mdecls,tdecls,edecls) tenvT menv cenv env ds1;
     ((mdecls'',tdecls'',edecls''),tenvT'',cenv'',env'')
         <- check_signature (SOME mn) tenvT (mdecls,tdecls,edecls) decls' tenvT' cenv' env' spec;
-    return ((mn::mdecls'',tdecls'',edecls''), 
+    return ((mn::mdecls'',tdecls'',edecls''),
             (FEMPTY |+ (mn,tenvT''),FEMPTY),
-            FEMPTY |+ (mn,env''), 
+            FEMPTY |+ (mn,env''),
             ([(mn,cenv'')],[]),
             [])
   od)`;
@@ -703,13 +703,13 @@ val infer_prog_def = Define `
 (infer_prog decls tenvT menv cenv env (top::ds) =
   do
     (decls',tenvT',menv',cenv',env') <- infer_top decls tenvT menv cenv env top;
-    (decls'', tenvT'', menv'', cenv'', env'') 
-       <- infer_prog (append_decls decls' decls) (merge_mod_env tenvT' tenvT) 
+    (decls'', tenvT'', menv'', cenv'', env'')
+       <- infer_prog (append_decls decls' decls) (merge_mod_env tenvT' tenvT)
                      (FUNION menv' menv) (merge_alist_mod_env cenv' cenv) (env' ++ env) ds;
-    return (append_decls decls'' decls', 
-            merge_mod_env tenvT'' tenvT', 
-            FUNION menv'' menv', 
-            merge_alist_mod_env cenv'' cenv', 
+    return (append_decls decls'' decls',
+            merge_mod_env tenvT'' tenvT',
+            FUNION menv'' menv',
+            merge_alist_mod_env cenv'' cenv',
             env'' ++ env')
   od)`;
 
@@ -761,11 +761,11 @@ Infer_Tref t = Infer_Tapp [t] TC_ref`;
  * about it *)
 
 val infer_deBruijn_inc_def = tDefine "infer_deBruijn_inc" `
-(infer_deBruijn_inc n (Infer_Tvar_db m) = 
+(infer_deBruijn_inc n (Infer_Tvar_db m) =
   Infer_Tvar_db (m + n)) ∧
 (infer_deBruijn_inc n (Infer_Tapp ts tn) =
   Infer_Tapp (MAP (infer_deBruijn_inc n) ts) tn) ∧
-(infer_deBruijn_inc n (Infer_Tuvar m) = 
+(infer_deBruijn_inc n (Infer_Tuvar m) =
   Infer_Tuvar m)`
 (WF_REL_TAC `measure (infer_t_size o SND)` >>
  rw [] >>
@@ -790,13 +790,13 @@ val infer_subst_def = tDefine "infer_subst" `
 
 val pure_add_constraints_def = Define `
 (pure_add_constraints s [] s' = (s = s')) ∧
-(pure_add_constraints s1 ((t1,t2)::rest) s' = 
+(pure_add_constraints s1 ((t1,t2)::rest) s' =
   ?s2. (t_unify s1 t1 t2 = SOME s2) ∧
        pure_add_constraints s2 rest s')`;
 
 val check_t_def = tDefine "check_t" `
 (check_t n uvars (Infer_Tuvar v) = (v ∈ uvars)) ∧
-(check_t n uvars (Infer_Tvar_db n') = 
+(check_t n uvars (Infer_Tvar_db n') =
   (n' < n)) ∧
 (check_t n uvars (Infer_Tapp ts tc) = EVERY (check_t n uvars) ts)`
 (WF_REL_TAC `measure (infer_t_size o SND o SND)` >>
@@ -815,7 +815,7 @@ check_menv menv =
   FEVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
 
 val check_flat_cenv_def = Define `
-check_flat_cenv (cenv : flat_tenvC) = 
+check_flat_cenv (cenv : flat_tenvC) =
   EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
 
 val check_cenv_def = Define `
@@ -824,7 +824,7 @@ check_cenv (mcenv, cenv) ⇔
   check_flat_cenv cenv`;
 
 val check_s_def = Define `
-check_s tvs uvs s = 
+check_s tvs uvs s =
   !uv. uv ∈ FDOM s ⇒ check_t tvs uvs (s ' uv)`;
 
 (* Adding the constraints extra_constraints moves the constraint set from s1 to

@@ -92,7 +92,7 @@ val type_s : ctMap -> tenvS -> store v -> bool
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (* The number is how many deBruijn type variables are bound in the context.
- * This is only used for constructor contexts, because the value restriction 
+ * This is only used for constructor contexts, because the value restriction
  * ensures that no other contexts can be created under a let binding. *)
 val type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool
 val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool
@@ -250,7 +250,7 @@ type_env cenv senv env tenv
 ==>
 type_env cenv senv ((n,v)::env) (bind_tenv n tvs t tenv)
 
-and 
+and
 
 empty : forall tenvS tenvC.
 true
@@ -266,9 +266,9 @@ consistent_mod_env tenvS tenvC menv tenvM
 consistent_mod_env tenvS tenvC ((mn,env)::menv) (Map.insert mn tenv tenvM)
 
 let type_s cenv senv s =
-  forall l. 
+  forall l.
     ((exists st. Map.lookup l senv = Just st) = (exists v. store_lookup l s = Just v)) &&
-    (forall st sv. ((Map.lookup l senv = Just st) && (store_lookup l s = Just sv)) --> 
+    (forall st sv. ((Map.lookup l senv = Just st) && (store_lookup l s = Just sv)) -->
        match (sv,st) with
          | (Refv v, Ref_t t) -> type_v 0 cenv senv v t
          | (W8array es, W8array_t) -> true
@@ -276,7 +276,7 @@ let type_s cenv senv s =
          | _ -> false
        end)
 
-indreln 
+indreln
 [context_invariant : nat -> list ctxt -> nat -> bool]
 
 empty : forall n.
@@ -366,7 +366,7 @@ check_freevars tvs [] t1 &&
 check_freevars tvs [] t2 &&
 type_vs 0 all_cenv senv vs ts1 &&
 type_es menv cenv tenv es ts2 &&
-type_op op (List.reverse ts2 ++ [t1] ++ ts1) t2 
+type_op op (List.reverse ts2 ++ [t1] ++ ts1) t2
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs () es) t1 t2
 
@@ -427,7 +427,7 @@ type_es menv cenv (bind_tvar tvs tenv) es ts2
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Ccon Nothing vs () es) t (Tapp (List.reverse ts2++[t]++ts1) TC_tup)
 
-let poly_context cs = 
+let poly_context cs =
   match cs with
     | (Ccon cn vs () es,env) :: cs -> List.all is_value es
     | (Clet x () e,env) :: cs -> true
@@ -435,7 +435,7 @@ let poly_context cs =
     | _ -> false
   end
 
-let is_ccon c = 
+let is_ccon c =
   match c with
     | Ccon cn vs () es -> true
     | _ -> false
@@ -530,9 +530,9 @@ let ctMap_has_bools ctMap =
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
 let  weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =
-    (forall tn. 
+    (forall tn.
        (Short tn IN tdecls1 --> Short tn IN tdecls2)) &&
-    (forall cn. 
+    (forall cn.
        (Short cn IN edecls1 --> Short cn IN edecls2))
 
 (* The run-time declared constructors and exceptions are all either declared in

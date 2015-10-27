@@ -14,7 +14,7 @@ fun add_miscPP hd = miscPrettyPrinters:= (hd:: !miscPrettyPrinters)
 fun tidPrinter sys d t pg str brk blk =
   str "datatype " >>str (toString (strip (strip t)));
 
-fun texnPrinter sys d t pg str brk blk = 
+fun texnPrinter sys d t pg str brk blk =
   str "exception " >>str (toString (strip (strip t)));
 
 fun tlongPrinter pref sys d t pg str brk blk =
@@ -39,8 +39,8 @@ fun modmapPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   (*Assume first is always FEMPTY*)
       val (_,ls) = finite_mapSyntax.strip_fupdate map
       fun printer [] = str""
-      |   printer [x] = 
-            let val (name,num) = pairSyntax.dest_pair x in 
+      |   printer [x] =
+            let val (name,num) = pairSyntax.dest_pair x in
               str (modname^"."^(toString name)^" --> ")>>sys (Top,Top,Top) d num >>add_newline
             end
       |   printer (x::xs) = printer [x] >>printer xs
@@ -51,7 +51,7 @@ fun modmapPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
 val _=add_miscPP("modmapprint",``x:(tvarN #(tvarN |-> num))``,modmapPrint);
 
 fun globmapPrint sys d t pg str brk blk=
-   let val (name,num) = pairSyntax.dest_pair t in 
+   let val (name,num) = pairSyntax.dest_pair t in
      str ((toString name)^" --> ")>>sys (Top,Top,Top) d num
    end
 
@@ -63,7 +63,7 @@ fun bclistPrint sys d t pg str brk blk =
   let val t = rand t
       val ls = #1(listSyntax.dest_list t)
   fun printterms [] = str""
-  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^"") 
+  |   printterms [x] = str ((fn s=> if(String.isPrefix "Label" s) then s^":" else "  "^s^"")
 		               (term_to_string x)) >> str"\n"
   |   printterms (x::xs) = (printterms [x])>>printterms xs
   in
@@ -95,7 +95,7 @@ fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     fun pad 0 = str""
     |   pad n = str" ">>pad (n-1)
     fun printAsm [] = str""
-    |   printAsm (x::xs) = case x of (hex,dis) => 
+    |   printAsm (x::xs) = case x of (hex,dis) =>
           (sty [FG DarkGrey] (str hex))>> pad (maxlen - String.size hex) >>str dis>>str"\n">>printAsm xs
     (*Hex dump*)
     (*fun print [] = str""
@@ -106,7 +106,7 @@ fun asmPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
 
 val _ =add_miscPP("asmlistprint",``x:word8 list``,asmPrint);
 
-fun enable_miscPP_verbose () = map temp_add_user_printer (!miscPrettyPrinters); 
+fun enable_miscPP_verbose () = map temp_add_user_printer (!miscPrettyPrinters);
 fun enable_miscPP () = (enable_miscPP_verbose();())
 fun disable_miscPP_verbose () = map (fn (x,y,z) => temp_remove_user_printer x) (!miscPrettyPrinters);
 fun disable_miscPP () = (disable_miscPP_verbose();())
