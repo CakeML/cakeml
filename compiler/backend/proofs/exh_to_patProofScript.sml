@@ -434,90 +434,73 @@ val s = mk_var("s",``map_csg compile_v`` |> type_of |> dom_rng |> #1
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_pat_correct = prove(
-  ``(∀p v ^s env res env4 ck count genv.
+  ``(∀p v ^s env res env4 count genv.
        pmatch (FST s) p v env = res ∧ res ≠ Match_type_error ⇒
-       evaluate ck
+       evaluate
          (compile_v v::env4)
-         (map_csg compile_v ((count,s),genv))
-         (compile_pat p)
-         (map_csg compile_v ((count,s),genv)
-         ,Rval (Boolv (∃env'. res = Match env')))) ∧
-    (∀n ps qs vs ^s env env' res env4 ck count genv.
+         (compile_csg ((count,s),genv))
+         [compile_pat p] =
+         (compile_csg ((count,s),genv)
+         ,Rval [Boolv (∃env'. res = Match env')])) ∧
+    (∀n ps qs vs ^s env env' res env4 count genv.
        pmatch_list (FST s) qs (TAKE n vs) env = Match env' ∧
        pmatch_list (FST s) ps (DROP n vs) env = res ∧ res ≠ Match_type_error ∧
        (n = LENGTH qs) ∧ n ≤ LENGTH vs ⇒
-       evaluate ck
+       evaluate
          (compile_vs vs ++ env4)
-         (map_csg compile_v ((count,s),genv))
-         (compile_pats n ps)
-         (map_csg compile_v ((count,s),genv)
-         ,Rval (Boolv (∃env'. res = Match env'))))``,
+         (compile_csg ((count,s),genv))
+         [compile_pats n ps] =
+         (compile_csg ((count,s),genv)
+         ,Rval [Boolv (∃env'. res = Match env')]))``,
   ho_match_mp_tac compile_pat_ind >>
-  rw[exhSemTheory.pmatch_def,compile_pat_def]
-  >- rw[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def]
+  rw[exhSemTheory.pmatch_def,compile_pat_def] >>
+  rw[patSemTheory.evaluate_def]
+  >- rw[patSemTheory.Boolv_def]
   >- (
     (Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> rw[]) >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[decPropsTheory.map_csg_def,patSemTheory.do_app_def,EXISTS_PROD] >>
+    rw[compile_csg_def,patSemTheory.do_app_def,EXISTS_PROD] >>
     rw[patSemTheory.do_eq_def] >>
     metis_tac[lit_same_type_sym])
   >- (
     Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>pop_assum mp_tac >> rw[LENGTH_NIL_SYM] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[patSemTheory.do_app_def,decPropsTheory.map_csg_def] >>
+    rw[patSemTheory.do_app_def,compile_csg_def] >>
     rw[patSemTheory.do_eq_def] >>
     simp[exhSemTheory.pmatch_def] >>
     fs[LENGTH_NIL])
   >- (
     match_mp_tac sIf_correct >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
+    rw[patSemTheory.evaluate_def] >>
     fs[LENGTH_NIL_SYM,exhSemTheory.pmatch_def] >>
-    fs[patSemTheory.do_app_def,decPropsTheory.map_csg_def] >>
+    fs[patSemTheory.do_app_def,compile_csg_def] >>
     Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>
     simp[patSemTheory.do_if_def] >>
     IF_CASES_TAC >> fs[] >> fs[] >>
-    TRY ( simp[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def] >> NO_TAC) >>
+    TRY ( simp[evaluate_Con_nil,patSemTheory.Boolv_def] >> NO_TAC) >>
     match_mp_tac Let_Els_correct >>
     simp[LENGTH_NIL,TAKE_LENGTH_ID_rwt])
   >- (
     match_mp_tac sLet_correct >> simp[] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[Once evaluate_pat_cases] >>
-    rw[patSemTheory.do_app_def,decPropsTheory.map_csg_def] >>
+    rw[patSemTheory.evaluate_def] >>
+    rw[patSemTheory.do_app_def,compile_csg_def] >>
     Cases_on`v`>>fs[exhSemTheory.pmatch_def]>>
     fs[store_lookup_def] >>
     rw[] >> fs[] >> simp[EL_MAP] >>
     Cases_on`EL n (FST s)`>>
-    fs[decPropsTheory.map_csg_def])
+    fs[compile_csg_def])
   >- (
-    simp[Bool_def,evaluate_Con_nil,patSemTheory.Boolv_def] >> rw[] >>
+    simp[patSemTheory.Boolv_def] >> rw[] >>
     Cases_on`DROP (LENGTH qs) vs`>>fs[exhSemTheory.pmatch_def]) >>
   match_mp_tac sIf_correct >> simp[] >>
-  rw[Once evaluate_pat_cases] >>
-  qho_match_abbrev_tac`∃v e s2. evaluate ck B C (sLet D E) (s2,Rval v) ∧ P v e s2` >>
-  qsuff_tac`∃v e s2. evaluate ck B C (Let D E) (s2,Rval v) ∧ P v e s2` >- (
-    rw[] >> map_every qexists_tac[`v`,`e`,`s2`] >> simp[] >>
-    match_mp_tac sLet_correct >> simp[] ) >>
+  rw[patSemTheory.evaluate_def] >>
+  qpat_abbrev_tac`xx = evaluate _ _ [sLet _ _]` >>
+  qho_match_abbrev_tac`P xx` >> qunabbrev_tac`xx` >>
+  qmatch_abbrev_tac`P (evaluate B C [sLet D E])` >>
+  qsuff_tac`P (evaluate B C [Let D E])` >- (
+    simp[Abbr`P`] >>
+    ntac 2 BasicProvers.CASE_TAC >>
+    imp_res_tac sLet_correct >> fs[]) >>
   unabbrev_all_tac >>
-  rw[Once evaluate_pat_cases] >>
-  rw[Once evaluate_pat_cases] >>
+  rw[patSemTheory.evaluate_def] >>
   Cases_on`LENGTH qs = LENGTH vs` >- (
     fs[rich_listTheory.DROP_LENGTH_NIL_rwt,exhSemTheory.pmatch_def] ) >>
   simp[rich_listTheory.EL_APPEND1,EL_MAP] >>
@@ -527,16 +510,14 @@ val compile_pat_correct = prove(
   Q.PAT_ABBREV_TAC`env5 = X ++ env4` >>
   `LENGTH qs < LENGTH vs` by simp[] >>
   fs[rich_listTheory.DROP_EL_CONS] >>
-  first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`,`ck`]mp_tac) >>
+  first_x_assum(qspecl_then[`v`,`s`,`env`,`env5`]mp_tac) >>
   Cases_on`pmatch (FST s) p v env`>>fs[] >- (
-    strip_tac >> qexists_tac`Boolv F` >>
-    simp[patSemTheory.do_if_def,patPropsTheory.Boolv_disjoint,evaluate_Con_nil,Bool_def] >>
-    simp[patSemTheory.Boolv_def]) >>
-  strip_tac >> qexists_tac`Boolv T` >>
+    strip_tac >>
+    simp[patSemTheory.do_if_def,patPropsTheory.Boolv_disjoint] >>
+    simp[patSemTheory.Boolv_def,patSemTheory.evaluate_def]) >>
+  strip_tac >>
   simp[patSemTheory.do_if_def] >>
-  Q.PAT_ABBREV_TAC`s2 = map_csg compile_v Y` >>
-  qexists_tac`s2` >>
-  simp[Abbr`s2`,Abbr`env5`] >>
+  simp[Abbr`env5`] >>
   first_x_assum(qspecl_then[`qs++[p]`,`vs`,`s`,`env`]mp_tac) >>
   simp[] >>
   simp[rich_listTheory.TAKE_EL_SNOC,GSYM SNOC_APPEND] >>
