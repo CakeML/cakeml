@@ -1,4 +1,4 @@
-open preamble stackLangTheory wordSemTheory;
+open preamble stackLangTheory wordSemTheory labSemTheory;
 
 val _ = new_theory"stackSem";
 
@@ -81,7 +81,9 @@ val _ = Datatype `
      ; use_alloc : bool
      ; clock   : num
      ; code    : ('a stackLang$prog) num_map
-     ; ffi      : 'ffi ffi_state |> `
+     ; ffi     : 'ffi ffi_state
+     ; ffi_save_regs : num set
+     ; be      : bool (* is big-endian *) |> `
 
 val mem_store_def = Define `
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) stackSem$state) =
@@ -366,6 +368,17 @@ val evaluate_def = tDefine "evaluate" `
                      evaluate (h, check_clock s2 s))
            | (NONE,s) => (SOME Error,s)
            | res => res)) /\
+  (evaluate (FFI ffi_index ptr len,s) =
+    case (get_var ptr s, get_var len s) of
+    | SOME (Word w),SOME (Word w2) =>
+         (case read_bytearray w2 (w2n w) s.memory s.mdomain s.be of
+          | SOME bytes =>
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
+              let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
+                (NONE, s with <| memory := new_m ;
+                                 regs := DRESTRICT s.regs s.ffi_save_regs |>)
+          | _ => (SOME Error,s))
+    | res => (SOME Error,s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
      if s.stack_space < n then (SOME NotEnoughSpace,empty_env s) else
@@ -435,8 +448,7 @@ val alloc_clock = store_thm("alloc_clock",
 
 val inst_clock = prove(
   ``inst i s = SOME s2 ==> s2.clock <= s.clock``,
-  Cases_on `i` \\ fs [inst_def,assign_def]
-  \\ every_case_tac
+  Cases_on `i` \\ fs [inst_def,assign_def] \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
   \\ fs [mem_store_def] \\ SRW_TAC [] []);
 
@@ -444,8 +456,7 @@ val evaluate_clock = store_thm("evaluate_clock",
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
-  \\ BasicProvers.EVERY_CASE_TAC
+  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def] \\ every_case_tac
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,empty_env_def]
   \\ IMP_RES_TAC inst_clock
   \\ IMP_RES_TAC alloc_clock
@@ -453,7 +464,8 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ Cases_on `evaluate (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
   \\ simp[] \\ every_case_tac \\ fs[] \\ rw[]
   \\ IMP_RES_TAC check_clock_IMP
-  \\ res_tac \\ fs [] \\ decide_tac);
+  \\ res_tac \\ fs [] \\ TRY decide_tac
+  \\ Cases_on `call_FFI s.ffi ffi_index x` \\ rw [] \\ fs [] \\ rw []);
 
 val evaluate_check_clock = prove(
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
@@ -462,8 +474,8 @@ val evaluate_check_clock = prove(
 (* Finally, we remove check_clock from the induction and definition theorems. *)
 
 val clean_term = term_rewrite
-                   [``check_clock s1 s2 = s1:('a,'ffi) stackSem$state``,
-                    ``(s.clock < k \/ b2) <=> (s:('a,'ffi) stackSem$state).clock < k:num``]
+     [``check_clock s1 s2 = s1:('a,'ffi) stackSem$state``,
+      ``(s.clock < k \/ b2) <=> (s:('a,'ffi) stackSem$state).clock < k:num``]
 
 val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,

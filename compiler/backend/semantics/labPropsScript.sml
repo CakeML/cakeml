@@ -20,46 +20,11 @@ val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
   `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
 
-val write_bytearray_simp_lemma = prove(
-  ``!new_bytes c1 s1 x.
-      (read_bytearray (c1:'a word) (LENGTH new_bytes) s1 = SOME x) ==>
-      (write_bytearray c1 new_bytes s1 =
-         s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
-  Induct \\ fs [write_bytearray_def]
-  THEN1 (fs [state_component_equality])
-  \\ fs [read_bytearray_def]
-  \\ REPEAT STRIP_TAC
-  \\ every_case_tac
-  \\ (fs [state_component_equality])
-  \\ fs [mem_store_byte_aux_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [upd_mem_def] \\ rw[]);
-
 val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
   ``!n a s x.
-      (read_bytearray a n s = SOME x) ==> (LENGTH x = n)``,
+      (read_bytearray a n m dm be = SOME x) ==> (LENGTH x = n)``,
   Induct \\ fs [read_bytearray_def] \\ REPEAT STRIP_TAC
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac);
-
-val write_bytearray_simp = prove(
-  ``(read_bytearray (c1:'a word) (w2n (c2:'a word)) s1 = SOME x) /\
-    (call_FFI s1.ffi index x = (new_io,new_bytes)) ==>
-    (write_bytearray c1 new_bytes s1 =
-       s1 with mem := (write_bytearray c1 new_bytes s1).mem)``,
-  REPEAT STRIP_TAC
-  \\ MATCH_MP_TAC (GEN_ALL write_bytearray_simp_lemma)
-  \\ imp_res_tac read_bytearray_LENGTH
-  \\ fs [call_FFI_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac
-  \\ fs [listTheory.LENGTH_MAP]) |> SPEC_ALL
-  |> curry save_thm "write_bytearray_simp";
-
-val write_bytearray_const = store_thm("write_bytearray_const[simp]",
-  ``!xs c1 s1. (write_bytearray c1 xs s1).mem_domain = s1.mem_domain /\
-               (write_bytearray c1 xs s1).be = s1.be``,
-  Induct \\ fs [write_bytearray_def,mem_store_byte_aux_def]
-  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [labSemTheory.upd_mem_def]);
 
 val good_dimindex_def = Define `
   good_dimindex (:'a) <=> dimindex (:'a) = 32 \/ dimindex (:'a) = 64`;
@@ -167,7 +132,8 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
 
 val evaluate_final_event_IMP = store_thm("evaluate_final_event_IMP",
   ``!k s q r.
-      s.ffi.final_event = NONE /\ evaluate s = (q,r) /\ r.ffi.final_event = SOME e ==>
+      s.ffi.final_event = NONE /\ evaluate s = (q,r) /\
+      r.ffi.final_event = SOME e ==>
       q = Halt (FFI_outcome e)``,
   cheat (* easy *));
 

@@ -754,14 +754,15 @@ val state_rel_weaken = prove(
 val read_bytearray_state_rel = prove(
   ``!n a x.
       state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
-      (read_bytearray a n s1 = SOME x) ==>
+      (read_bytearray a n s1.mem s1.mem_domain s1.be = SOME x) ==>
       (read_bytearray a n
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
        SOME x)``,
   Induct
   \\ fs [labSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
-  \\ rpt strip_tac \\ Cases_on `mem_load_byte_aux a s1` \\ fs []
-  \\ Cases_on `read_bytearray (a + 1w) n s1` \\ fs []
+  \\ rpt strip_tac
+  \\ Cases_on `mem_load_byte_aux a s1.mem s1.mem_domain s1.be` \\ fs []
+  \\ Cases_on `read_bytearray (a + 1w) n s1.mem s1.mem_domain s1.be` \\ fs []
   \\ res_tac \\ fs [] \\ fs [state_rel_def,mem_load_byte_aux_def]
   \\ Cases_on `s1.mem (byte_align a)` \\ fs [] \\ rw []
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ fs []
@@ -789,7 +790,7 @@ val bytes_in_mem_asm_write_bytearray_lemma = prove(
 
 val bytes_in_mem_asm_write_bytearray = prove(
   ``state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
-    (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) ==>
+    (read_bytearray c1 (LENGTH new_bytes) s1.mem s1.mem_domain s1.be = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
     bytes_in_mem p xs
       (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
@@ -814,7 +815,7 @@ val bytes_in_mem_asm_write_bytearray = prove(
 val write_bytearray_NOT_Loc = prove(
   ``!xs c1 s1 a c.
       (s1.mem a = Word c) ==>
-      (write_bytearray c1 xs s1).mem a <> Loc n n0``,
+      (write_bytearray c1 xs s1.mem s1.mem_domain s1.be) a <> Loc n n0``,
   Induct \\ fs [write_bytearray_def,mem_store_byte_aux_def]
   \\ rpt strip_tac \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs []
@@ -826,29 +827,31 @@ val CallFFI_bytearray_lemma = prove(
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
     (s1.be = mc_conf.target.config.big_endian) /\
-    (read_bytearray c1 (LENGTH new_bytes) s1 = SOME x) /\
+    (read_bytearray c1 (LENGTH new_bytes) s1.mem s1.mem_domain s1.be = SOME x) /\
     (word_loc_val_byte p labs s1.mem a mc_conf.target.config.big_endian =
        SOME (t1.mem a)) ==>
-    (word_loc_val_byte p labs (write_bytearray c1 new_bytes s1).mem a
+    (word_loc_val_byte p labs (write_bytearray c1 new_bytes s1.mem s1.mem_domain s1.be) a
        mc_conf.target.config.big_endian =
      SOME (asm_write_bytearray c1 new_bytes t1.mem a))``,
   Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`t1`,`t1`) \\ Q.SPEC_TAC (`c1`,`c1`)
   \\ Q.SPEC_TAC (`x`,`x`) \\ Q.SPEC_TAC (`new_bytes`,`xs`) \\ Induct
   \\ fs [asm_write_bytearray_def,write_bytearray_def,labSemTheory.read_bytearray_def]
   \\ rpt strip_tac
-  \\ Cases_on `mem_load_byte_aux c1 s1` \\ fs []
-  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1` \\ fs [] \\ rw []
-  \\ qmatch_assum_rename_tac `read_bytearray (c1 + 1w) (LENGTH xs) s1 = SOME y`
+  \\ Cases_on `mem_load_byte_aux c1 s1.mem s1.mem_domain s1.be` \\ fs []
+  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1.mem s1.mem_domain s1.be`
+  \\ fs [] \\ rw []
+  \\ qmatch_assum_rename_tac
+       `read_bytearray (c1 + 1w) (LENGTH xs) s1.mem s1.mem_domain s1.be = SOME y`
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y`,`c1+1w`,`t1`,`s1`])
   \\ fs [] \\ rpt strip_tac \\ fs [mem_store_byte_aux_def]
-  \\ reverse (Cases_on `(write_bytearray (c1 + 1w) xs s1).mem (byte_align c1)`)
+  \\ reverse (Cases_on `(write_bytearray (c1 + 1w)
+       xs s1.mem s1.mem_domain mc_conf.target.config.big_endian) (byte_align c1)`)
   \\ fs [] THEN1
    (fs [mem_load_byte_aux_def]
-    \\ Cases_on `s1.mem (byte_align c1)` \\ fs []
-    \\ imp_res_tac write_bytearray_NOT_Loc)
-  \\ `byte_align c1 IN (write_bytearray (c1 + 1w) xs s1).mem_domain` by
-   (fs [mem_load_byte_aux_def]
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs [])
+    \\ Cases_on `s1.mem (byte_align c1)` \\ fs [] \\ rw []
+    \\ imp_res_tac write_bytearray_NOT_Loc \\ rfs [] \\ fs [])
+  \\ `byte_align c1 IN s1.mem_domain` by
+    (fs [mem_load_byte_aux_def] \\ every_case_tac \\ fs [])
   \\ fs [labSemTheory.upd_mem_def,word_loc_val_byte_def,APPLY_UPDATE_THM]
   \\ Cases_on `a = c1` \\ fs [word_loc_val_def,get_byte_set_byte]
   \\ Cases_on `byte_align c1 = byte_align a` \\ fs [word_loc_val_def]
@@ -1218,8 +1221,9 @@ val compile_correct = Q.prove(
     \\ Cases_on `s1.regs s1.len_reg` \\ fs []
     \\ Cases_on `s1.regs s1.link_reg` \\ fs []
     \\ Cases_on `s1.regs s1.ptr_reg` \\ fs []
-    \\ Cases_on `read_bytearray c' (w2n c) s1` \\ fs []
-    \\ qmatch_assum_rename_tac `read_bytearray c1 (w2n c2) s1 = SOME x`
+    \\ Cases_on `read_bytearray c' (w2n c) s1.mem s1.mem_domain s1.be` \\ fs []
+    \\ qmatch_assum_rename_tac
+         `read_bytearray c1 (w2n c2) s1.mem s1.mem_domain s1.be = SOME x`
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
     \\ Cases_on `call_FFI s1.ffi index x` \\ fs []
     \\ qmatch_assum_rename_tac
@@ -1305,9 +1309,6 @@ val compile_correct = Q.prove(
       \\ imp_res_tac bytes_in_mem_asm_write_bytearray
       \\ fs [state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
              asmSemTheory.upd_pc_def] \\ rfs[]
-      \\ qspec_then`new_ffi`mp_tac(Q.GEN`new_io`(INST_TYPE[beta|->``:'ffi``]write_bytearray_simp)) \\ fs []
-      \\ strip_tac \\ pop_assum (fn th => once_rewrite_tac [th] THEN fs [] THEN
-                         fs [GSYM th])
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
             WORD_ADD_SUB] \\ fs [get_pc_value_def]
       \\ full_simp_tac bool_ss [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
@@ -1339,7 +1340,7 @@ val compile_correct = Q.prove(
       \\ qpat_assum `!a.
            byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
       \\ fs [] \\ REPEAT STRIP_TAC
-      \\ match_mp_tac CallFFI_bytearray_lemma \\ fs [])
+      \\ match_mp_tac (SIMP_RULE std_ss [] CallFFI_bytearray_lemma) \\ fs [])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ fs [ADD_ASSOC]

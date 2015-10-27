@@ -18,6 +18,7 @@ val _ = Datatype `
        | Alloc num
        | Raise num
        | Return num num
+       | FFI num num num (* FFI index, array_ptr, array_len *)
        | Tick
        (* new in stackLang, compared to wordLang, below *)
        | StackAlloc num

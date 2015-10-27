@@ -42,6 +42,7 @@ val comp_def = Define `
           dest (case exc of
                 | NONE => NONE
                 | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
+    | FFI i r1 r2 => FFI i (find_name f r1) (find_name f r2)
     | p => p`
 
 val prog_comp_def = Define `

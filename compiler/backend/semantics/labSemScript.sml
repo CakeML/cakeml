@@ -128,19 +128,19 @@ val set_byte_def = Define `
        || word_slice_alt i 0 w)`;
 
 val mem_load_byte_aux_def = Define `
-  mem_load_byte_aux w s =
-    case s.mem (byte_align w) of
+  mem_load_byte_aux w m dm be =
+    case m (byte_align w) of
     | Loc _ _ => NONE
     | Word v =>
-        if byte_align w IN s.mem_domain
-        then SOME (get_byte w v s.be) else NONE`
+        if byte_align w IN dm
+        then SOME (get_byte w v be) else NONE`
 
 val read_bytearray_def = Define `
-  (read_bytearray a 0 s = SOME []) /\
-  (read_bytearray a (SUC n) s =
-     case mem_load_byte_aux a s of
+  (read_bytearray a 0 m dm be = SOME []) /\
+  (read_bytearray a (SUC n) m dm be =
+     case mem_load_byte_aux a m dm be of
      | NONE => NONE
-     | SOME b => case read_bytearray (a + 1w) n s of
+     | SOME b => case read_bytearray (a + 1w) n m dm be of
                  | NONE => NONE
                  | SOME bs => SOME (b::bs))`
 
@@ -149,18 +149,25 @@ val mem_load_byte_def = Define `
     case addr a s of
     | NONE => assert F s
     | SOME w =>
-        case mem_load_byte_aux w s of
+        case mem_load_byte_aux w s.mem s.mem_domain s.be of
         | SOME v => upd_reg r (Word (w2w v)) s
         | NONE => assert F s`
 
 val mem_store_byte_aux_def = Define `
-  mem_store_byte_aux w b s =
-    case s.mem (byte_align w) of
+  mem_store_byte_aux w b m dm be =
+    case m (byte_align w) of
     | Word v =>
-        if byte_align w IN s.mem_domain
-        then SOME (upd_mem (byte_align w) (Word (set_byte w b v s.be)) s)
+        if byte_align w IN dm
+        then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
         else NONE
     | _ => NONE`
+
+val write_bytearray_def = Define `
+  (write_bytearray a [] m dm be = m) /\
+  (write_bytearray a (b::bs) m dm be =
+     case mem_store_byte_aux a b (write_bytearray (a+1w) bs m dm be) dm be of
+     | SOME m => m
+     | NONE => m)`;
 
 val mem_store_byte_def = Define `
   mem_store_byte r a (s:('a,'ffi) labSem$state) =
@@ -169,17 +176,10 @@ val mem_store_byte_def = Define `
     | SOME w =>
         case read_reg r s of
         | Word b =>
-           (case mem_store_byte_aux w (w2w b) s of
-            | SOME s1 => s1
+           (case mem_store_byte_aux w (w2w b) s.mem s.mem_domain s.be of
+            | SOME m => (s with mem := m)
             | NONE => assert F s)
         | _ => assert F s`
-
-val write_bytearray_def = Define `
-  (write_bytearray a [] s = s) /\
-  (write_bytearray a (b::bs) s =
-     case mem_store_byte_aux a b (write_bytearray (a+1w) bs s) of
-     | SOME s => s
-     | NONE => s)`;
 
 val mem_op_def = Define `
   (mem_op Load r a = mem_load r a) /\
@@ -328,12 +328,15 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
        (case (s.regs s.len_reg,s.regs s.ptr_reg,s.regs s.link_reg) of
         | (Word w, Word w2, Loc n1 n2) =>
-         (case (read_bytearray w2 (w2n w) s,loc_to_pc n1 n2 s.code) of
+         (case (read_bytearray w2 (w2n w) s.mem s.mem_domain s.be,
+                loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME new_pc) =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
               let new_io_regs = shift_seq 1 s.io_regs in
-                evaluate (write_bytearray w2 new_bytes s
-                         with <| ffi := new_ffi ;
+              let new_m = write_bytearray w2 new_bytes s.mem s.mem_domain s.be in
+                evaluate (s with <|
+                                 mem := new_m ;
+                                 ffi := new_ffi ;
                                  io_regs := new_io_regs ;
                                  regs := (\a. get_reg_value (s.io_regs 0 a)
                                                 (s.regs a) Word);
