@@ -739,6 +739,17 @@ val dest_closure_is_closure = Q.store_thm(
   `dest_closure lopt f vs = SOME r ⇒ is_closure f`,
   Cases_on `f` >> simp[is_closure_def, dest_closure_def]);
 
+val stage_partial_app = Q.store_thm(
+  "stage_partial_app",
+  `is_closure c ∧
+   dest_closure NONE v (rest ++ used) =
+     SOME (Partial_app (clo_add_partial_args rest c)) ⇒
+   dest_closure NONE c rest =
+     SOME (Partial_app (clo_add_partial_args rest c))`,
+  Cases_on `v` >> simp[dest_closure_def, eqs, bool_case_eq, UNCURRY] >>
+  Cases_on `c` >>
+  simp[clo_add_partial_args_def, is_closure_def, check_loc_def]);
+
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' (s:'ffi closSem$state) s' loc.
   val_rel (:'ffi) c v v' ∧
@@ -749,6 +760,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
   s'.clock = c
   ⇒
   res_rel (evaluate_app loc v vs s) (evaluate_app loc v' vs' s')`,
+ qx_gen_tac `c` >> completeInduct_on `c` >>
  rw [] >>
  `vs' ≠ []` by (Cases_on `vs'` >> fs []) >>
  rw [evaluate_app_rw] >>
@@ -834,15 +846,38 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      Cases_on `s'.clock < LENGTH used'`
      >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
      full_simp_tac(srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
-     Cases_on `s2.clock < LENGTH rest'`
-     >- (rw[res_rel_rw] >>
-         `is_closure bv' ∧ check_closures b0 bv'`
-            by metis_tac[val_rel_is_closure] >>
-         cheat) >>
-     simp[] >> (* use val_rel again *)
-     cheat)
- >>
- cheat);
+     qabbrev_tac `used = DROP (LENGTH rest') vs` >>
+     qabbrev_tac `rest = TAKE (LENGTH rest') vs` >>
+     `vs = rest ++ used` by simp[Abbr`used`, Abbr`rest`, TAKE_DROP] >>
+     `LENGTH rest' = LENGTH rest ∧ LENGTH used' = LENGTH used`
+        by simp[Abbr`rest`, Abbr`used`] >>
+     `rest ≠ []` by (Cases_on `rest` >> fs[]) >> fs[] >> rw[] >>
+     markerLib.RM_ALL_ABBREVS_TAC
+     >- (first_x_assum (qspec_then `s2.clock` mp_tac) >> simp[] >>
+         strip_tac >>
+         qmatch_abbrev_tac `res_rel (r1,s1) (evaluate_app NONE bv' rest' s2)` >>
+         `evaluate_app NONE b0 rest (s with clock := s2.clock) = (r1,s1)`
+            suffices_by
+            (disch_then (SUBST_ALL_TAC o SYM) >> first_x_assum match_mp_tac >>
+             simp[] >> metis_tac[LIST_REL_APPEND_IMP]) >>
+         dsimp[evaluate_app_rw, eqs, Abbr`r1`, Abbr`s1`, bool_case_eq] >>
+         disj1_tac >>
+         `dest_closure NONE b0 rest =
+            SOME (Partial_app (clo_add_partial_args rest b0))`
+           by metis_tac[stage_partial_app] >> simp[])
+     >- (first_x_assum (qspec_then `s2.clock` mp_tac) >> simp[] >>
+         strip_tac >>
+         qmatch_abbrev_tac `res_rel (r1,s1) (evaluate_app NONE bv' rest' s2)` >>
+         `evaluate_app NONE b0 rest (s with clock := s2.clock) = (r1,s1)`
+            suffices_by
+            (disch_then (SUBST_ALL_TAC o SYM) >> first_x_assum match_mp_tac >>
+             simp[] >> metis_tac[LIST_REL_APPEND_IMP]) >>
+         dsimp[evaluate_app_rw, eqs, Abbr`r1`, Abbr`s1`, bool_case_eq,
+               dec_clock_def] >>
+         disj1_tac >>
+         metis_tac[stage_partial_app]))
+ >- ((* Full, Partial *) cheat)
+ >- ((* Full, Full *) cheat))
 
 val state_rel_refs = Q.prove (
 `!c (s:'ffi closSem$state) s' n rv p.
