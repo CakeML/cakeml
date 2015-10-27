@@ -573,8 +573,7 @@ val fn_add_loc = Q.store_thm ("fn_add_loc",
  >- metis_tac [] >>
  imp_res_tac evaluate_SING >>
  fs [] >>
- rw [evaluate_def, res_rel_rw] *));
-
-
+ rw [evaluate_def, res_rel_rw] );
+ *)
 
 val _ = export_theory();
