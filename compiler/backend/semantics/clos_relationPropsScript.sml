@@ -383,8 +383,8 @@ val fn_add_arg_lem = Q.prove (
 
  completeInduct_on `i'` >>
  rw [val_rel_rw, is_closure_def] >>
- imp_res_tac LIST_REL_LENGTH 
- >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def, 
+ imp_res_tac LIST_REL_LENGTH
+ >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
           clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
  simp [dest_closure_def, check_loc_def] >>
  `num_args' ≤ max_app` by decide_tac >>
@@ -422,7 +422,7 @@ val fn_add_arg_lem = Q.prove (
    fs [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
    fs [] >>
-   rw [res_rel_rw]   
+   rw [res_rel_rw]
      *)
 
 
