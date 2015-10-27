@@ -1,5 +1,5 @@
 open preamble
-open clos_relationTheory closSemTheory
+open clos_relationTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relationProps";
 
@@ -62,8 +62,6 @@ val ioeventeq =
 val booleq = prove(
   ``(if p then x else y) = z ⇔ p ∧ x = z ∨ ¬p ∧ y = z``,
   rw[]);
-
-
 
 val optioneq = prove(
   ``option_CASE opt n s = x ⇔ opt = NONE ∧ n = x ∨ ∃y. opt = SOME y ∧ x = s y``,
@@ -371,15 +369,76 @@ val geq_opt = Q.store_thm ("geq_opt",
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
+val fn_add_arg_lem = Q.prove (
+`!i' num_args num_args' i env env' args args' e.
+  num_args ≠ 0 ∧
+  num_args' ≠ 0 ∧
+  num_args + num_args' ≤ max_app ∧
+  LIST_REL (val_rel (:'ffi) i) env env' ∧
+  LIST_REL (val_rel (:'ffi) i) args args' ∧
+  i' ≤ i
+  ⇒
+  val_rel (:'ffi) i' (Closure NONE args env num_args (Fn NONE NONE num_args' e))
+                     (Closure NONE args' env' (num_args + num_args') e)`,
+
+ completeInduct_on `i'` >>
+ rw [val_rel_rw, is_closure_def] >>
+ imp_res_tac LIST_REL_LENGTH 
+ >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def, 
+          clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
+ simp [dest_closure_def, check_loc_def] >>
+ `num_args' ≤ max_app` by decide_tac >>
+ rw [] >>
+ TRY decide_tac >>
+ rw [exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def, res_rel_rw] >>
+ fs [NOT_LESS]
+
+ >- cheat
+ >- cheat
+ >- (
+   first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+   simp [] >>
+   qexists_tac `i''` >>
+   rw [] >>
+   `i'' ≤ i` by decide_tac >>
+   metis_tac [val_rel_mono_list, EVERY2_APPEND, LIST_REL_LENGTH])
+ >- metis_tac [val_rel_mono]);
+
+ (*
+ >- (
+   `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) ≠ []` by simp [DROP_NIL] >>
+   simp [evaluate_app_rw, dest_closure_def, check_loc_def] >>
+   rw [res_rel_rw]
+   >- (
+     every_case_tac >>
+     fs [] >>
+     imp_res_tac evaluate_SING >>
+     fs [] >>
+     rw []
+
+ >-  (
+   Cases_on `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) ≠ []` >>
+   simp [evaluate_app_rw, dest_closure_def, check_loc_def] >>
+   fs [res_rel_rw] >>
+   imp_res_tac evaluate_SING >>
+   fs [] >>
+   rw [res_rel_rw]   
+     *)
+
+
 val fn_add_arg = Q.store_thm ("fn_add_arg",
-`!vars vars2 num_args num_args' e.
+`!num_args num_args' e.
   num_args ≠ 0 ∧
   num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ⇒
-  exp_rel (:'ffi) [Fn NONE vars num_args (Fn NONE vars2 num_args' e)]
-          [Fn NONE vars (num_args + num_args') e]`,
- cheat (* rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
- rw [res_rel_rw] >>
+  exp_rel (:'ffi) [Fn NONE NONE num_args (Fn NONE NONE num_args' e)]
+          [Fn NONE NONE (num_args + num_args') e]`,
+ rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
+ reverse (rw [res_rel_rw])
+ >- metis_tac [val_rel_mono] >>
+ metis_tac [fn_add_arg_lem, LIST_REL_NIL]);
+
+ (*
  Cases_on `clos_env s.restrict_envs vars env` >>
  fs [res_rel_rw] >>
  `s'.restrict_envs = s.restrict_envs` by fs [Once state_rel_rw] >>
@@ -459,12 +518,12 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
  >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ] *));
+ >- metis_tac [val_rel_mono, ZERO_LESS_EQ] *)
 
+ (*
 val fn_add_loc = Q.store_thm ("fn_add_loc",
 `!vars num_args e l. exp_rel (:'ffi) [Fn NONE vars num_args e] [Fn (SOME l) vars num_args e]`,
-  cheat
- (* rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
+ rw [exp_rel_def, exec_rel_rw, evaluate_def] >>
  Cases_on `clos_env s.restrict_envs vars env` >>
  rw [res_rel_rw] >>
  `s.restrict_envs = s'.restrict_envs` by fs [Once state_rel_rw] >>
