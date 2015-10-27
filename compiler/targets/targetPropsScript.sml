@@ -3,6 +3,7 @@ open preamble
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory;
 
+val _ = ParseExtras.temp_tight_equality();
 val _ = new_theory"targetProps";
 
 (* TODO: move *)
