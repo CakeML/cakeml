@@ -144,8 +144,10 @@ val evaluate_without_TimeOut = store_thm("evaluate_without_TimeOut",
 
 val evaluate_TimeOut = store_thm("evaluate_TimeOut",
   ``!k k'.
-      (evaluate mc_conf ffi (k + k') ms = (TimeOut,s,i)) /\ i.ffi_state <> NONE ==>
-      (FST (evaluate mc_conf ffi k ms) = TimeOut)``,
+      (evaluate mc_conf ffi (k + k') ms = (TimeOut,s,i)) /\
+      i.final_event = NONE ==>
+      ?s' i'. (evaluate mc_conf ffi k ms) = (TimeOut,s',i') /\
+              i'.final_event = NONE``,
   cheat (* easy *));
 
 val evaluate_TimeOut_or_not = store_thm("evaluate_TimeOut_or_not",

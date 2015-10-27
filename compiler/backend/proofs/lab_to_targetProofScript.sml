@@ -939,7 +939,8 @@ val compile_correct = Q.prove(
      state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
      ?k t2 ms2.
        (evaluate mc_conf s1.ffi (s1.clock + k) ms1 =
-          ((case s2.ffi.final_event of NONE => res | SOME e => Halt (FFI_outcome e)),
+          ((case s2.ffi.final_event of NONE => res
+            | SOME e => Halt (FFI_outcome e)),
            ms2,s2.ffi))`,
   HO_MATCH_MP_TAC labSemTheory.evaluate_ind \\ NTAC 2 STRIP_TAC
   \\ ONCE_REWRITE_TAC [labSemTheory.evaluate_def]
@@ -1392,105 +1393,84 @@ val compile_correct = Q.prove(
 (* relating observable semantics *)
 
 val init_ok_def = Define `
-  init_ok (mc_conf, p) s ms =
+  init_ok (mc_conf, p) s ms <=>
+    s.ffi.final_event = NONE /\
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p,T) s t1 ms`
 
-(*
-
 val machine_sem_EQ_sem = prove(
-  ``!(mc_conf: ('a,'state,'b) machine_config) p ms s.
-      backend_correct_alt mc_conf.f mc_conf.asm_config /\
-      init_ok (mc_conf,p) s ms /\ ~(Fail IN semantics s) ==>
-      machine_sem mc_conf s.ffi ms = semantics s``,
-  fs [init_ok_def,IN_DEF,labSemTheory.semantics_def] \\ rpt strip_tac
+  ``!mc_conf p (ms:'state) ^s1.
+      backend_correct mc_conf.target /\
+      init_ok (mc_conf,p) s1 ms /\ ~(Fail IN semantics s1) ==>
+      machine_sem mc_conf s1.ffi ms = semantics s1``,
+  fs [init_ok_def,IN_DEF,semantics_def] \\ rpt strip_tac
   \\ fs [FUN_EQ_THM] \\ reverse Cases
-  \\ fs [machine_sem_def,labSemTheory.semantics_def]
+  \\ fs [machine_sem_def,semantics_def]
   \\ rpt strip_tac
   THEN1 (* Fail *)
    (first_x_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s with <| clock := k|>)`
-    \\ (Q.ISPEC_THEN `s with <| clock := k|>`mp_tac
+    \\ Cases_on `evaluate (s1 with <| clock := k|>)` \\ fs []
+    \\ (Q.ISPEC_THEN `s1 with <| clock := k|>`mp_tac
          compile_correct) \\ fs []
     \\ Q.LIST_EXISTS_TAC [`mc_conf`,`code2`,`labs`,`t1`,`ms`] \\ fs []
     \\ rpt strip_tac
     THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rfs [evaluate_without_TimeOut]
-    \\ Cases_on `r.io_events = NONE` \\ fs [])
+    \\ rfs [evaluate_without_TimeOut] \\ rfs[]
+    \\ qpat_assum `FST (evaluate mc_conf s1.ffi k ms) = Error` mp_tac
+    \\ simp [] \\ every_case_tac  \\ fs [])
   THEN1 (* Terminate *)
-   (reverse EQ_TAC \\ rpt strip_tac
-    THEN1
-     (mp_tac (Q.SPEC `s with <|io_events := SOME (fromList l); clock := k|>`
-         compile_correct) \\ fs [] \\ strip_tac
-      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+   (reverse EQ_TAC \\ rpt strip_tac THEN1
+     (rw [] \\ qspec_then `s1 with clock := k` mp_tac compile_correct
+      \\ fs [] \\ rpt strip_tac
+      \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
       \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-      \\ rpt strip_tac \\ qexists_tac `k+k'` \\ fs [])
-    \\ mp_tac (Q.SPEC `s with <|io_events := SOME (fromList l); clock := k|>`
-         compile_correct) \\ fs [] \\ strip_tac
-    \\ Cases_on `evaluate
-          (s with <|io_events := SOME (fromList l); clock := k|>)` \\ fs []
-    \\ first_x_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
+      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs []
+             \\ fs [] \\ every_case_tac \\ fs [])
+      \\ rpt strip_tac \\ qexists_tac `k+k'` \\ fs []
+      \\ Cases_on `s2.ffi.final_event` \\ fs []
+      \\ Cases_on `o'` \\ fs [])
+    \\ rw [] \\ qspec_then `s1 with clock := k` mp_tac compile_correct
+    \\ Cases_on `evaluate (s1 with clock := k)` \\ fs [] \\ rw []
+    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
     \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
     THEN1
-     (first_x_assum (mp_tac o Q.SPECL [`k`,`fromList l`]) \\ fs []
-      \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+      (first_assum (qspec_then `k` mp_tac)
+       \\ pop_assum (fn th => rewrite_tac [th]) \\ fs []
+       \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
     \\ rpt strip_tac \\ rfs [evaluate_without_TimeOut]
-    \\ rw [] \\ Cases_on `r.io_events = NONE` \\ fs [] \\ rw []
-    \\ qexists_tac `k` \\ fs [])
-  THEN1 (* Diverge *)
-   (reverse EQ_TAC \\ rpt strip_tac
-    THEN1
-     (first_x_assum (mp_tac o Q.SPEC `k:num`) \\ rpt strip_tac
-      \\ Cases_on `evaluate (s with <|io_events := SOME l; clock := k|>)`
-      \\ mp_tac (Q.SPEC `s with <|io_events := SOME l; clock := k|>`
-           compile_correct) \\ fs [] \\ strip_tac
-      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
-      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-      \\ rpt strip_tac \\ rw [] \\ imp_res_tac evaluate_TimeOut)
-    THEN1
-     (first_x_assum (mp_tac o Q.SPEC `io`) \\ fs [] \\ rpt strip_tac
-      \\ CCONTR_TAC \\ fs []
-      \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)` \\ fs []
-      \\ imp_res_tac evaluate_io_events_NONE_IMP \\ rw []
-      \\ mp_tac (Q.SPEC `s with <|io_events := SOME io; clock := k|>`
-           compile_correct) \\ strip_tac \\ rfs []
-      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
-      \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-      \\ rpt strip_tac \\ first_x_assum (mp_tac o Q.SPEC `k + k'`) \\ fs [])
-    THEN1
-     (Cases_on `evaluate (s with <|io_events := SOME l; clock := k|>)` \\ fs []
-      \\ mp_tac (Q.SPEC `s with <|io_events := SOME l; clock := k|>`
-           compile_correct) \\ strip_tac \\ rfs []
-      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
-      \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1 (first_x_assum (mp_tac o Q.SPECL [`k`,`l`]) \\ fs []
-        \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-      \\ strip_tac \\ Cases_on `r.io_events = NONE` \\ fs []
-      \\ first_x_assum (mp_tac o Q.SPEC `k+k'`)
-      \\ fs [] \\ Cases_on `r.io_events = NONE` \\ fs [])
-    THEN1
-     (first_x_assum (mp_tac o Q.SPEC `io`)
-      \\ fs [] \\ rpt strip_tac
-      \\ first_x_assum (mp_tac o Q.SPEC `k`)
-      \\ rpt strip_tac
-      \\ imp_res_tac evaluate_TimeOut_or_not
-      \\ qexists_tac `k` \\ fs []
-      \\ Cases_on `evaluate (s with <|io_events := SOME io; clock := k|>)`
-      \\ mp_tac (Q.SPEC `s with <|io_events := SOME io; clock := k|>`
-           compile_correct) \\ fs [] \\ strip_tac
-      \\ pop_assum (mp_tac o Q.SPECL [`mc_conf`,`code2`,`labs`,`t1`,`ms`])
-      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1
-       (first_x_assum (mp_tac o Q.SPECL [`k`,`io`]) \\ fs []
-        \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-      \\ rpt strip_tac \\ CCONTR_TAC \\ fs []
-      \\ rfs [evaluate_without_TimeOut] \\ fs [] \\ rw [] \\ fs []
-      \\ imp_res_tac evaluate_IO_mismatch \\ fs [])));
-
-*)
+    \\ qexists_tac `k` \\ fs [] \\ rw []
+    \\ Cases_on `r.ffi.final_event` \\ fs [] \\ rw []
+    \\ imp_res_tac evaluate_Halt_IMP \\ fs []
+    \\ first_x_assum (qspec_then `k` mp_tac) \\ fs [])
+  \\ (* Diverge *) reverse EQ_TAC \\ rpt strip_tac
+  THEN1
+   (first_x_assum (qspec_then `k:num` mp_tac) \\ rpt strip_tac
+    \\ Cases_on `evaluate (s1 with clock := k)`
+    \\ qspec_then `s1 with clock := k` mp_tac compile_correct
+    \\ fs [] \\ strip_tac
+    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
+    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+    \\ rpt strip_tac \\ rw [] \\ imp_res_tac evaluate_TimeOut \\ fs [])
+  THEN1
+   (pop_assum mp_tac
+    \\ match_mp_tac (METIS_PROVE [] ``(b = b') ==> (b x ==> b' x)``)
+    \\ cheat)
+  THEN1
+   (pop_assum (K all_tac)
+    \\ qspec_then `s1 with clock := k` mp_tac compile_correct
+    \\ Cases_on `evaluate (s1 with clock := k)` \\ fs []
+    \\ `FST (q,r) <> Error` by metis_tac [] \\ fs []
+    \\ fs [] \\ strip_tac
+    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
+    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
+    \\ rpt strip_tac
+    \\ first_x_assum (qspec_then `k+k'` mp_tac) \\ rw [] \\ fs [])
+  THEN1
+   (pop_assum mp_tac
+    \\ match_mp_tac (METIS_PROVE [] ``(b = b') ==> (b x ==> b' x)``)
+    \\ cheat));
 
 (*
 

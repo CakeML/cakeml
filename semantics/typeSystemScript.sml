@@ -281,7 +281,7 @@ val _ = Define `
     | (Asub, [Tapp [t1] TC_array; Tapp [] TC_int]) => t = t1
     | (Alength, [Tapp [t1] TC_array]) => t = Tapp [] TC_int
     | (Aupdate, [Tapp [t1] TC_array; Tapp [] TC_int; t2]) => (t1 = t2) /\ (t = Tapp [] TC_tup)
-    | (FFI n, [Tapp [] TC_word8array]) => t = Tapp [] TC_tup 
+    | (FFI n, [Tapp [] TC_word8array]) => t = Tapp [] TC_tup
     | _ => F
   )))`;
 
@@ -331,7 +331,7 @@ val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn
 
 (* Check that a type definition defines no already defined types or duplicate
  * constructors, and that the free type variables of each constructor argument
- * type are included in the type's type parameters. Also check that all of the 
+ * type are included in the type's type parameters. Also check that all of the
  * types mentioned are in scope. *)
 (*val check_ctor_tenv :
    maybe modN -> tenvT -> list (list tvarN * typeN * list (conN * list t)) -> bool*)
@@ -632,8 +632,8 @@ type_d check_unique mn decls tenvT menv cenv tenv (Dlet p e) empty_decls FEMPTY 
 /\ (! check_unique mn tenvT menv cenv tenv p e t tenv' decls.
 (
 (* The following line makes sure that when the value restriction prohibits
-   generalisation, a type error is given rather than picking an arbitrary 
-   instantiation. However, we should only do the check when the check_unique 
+   generalisation, a type error is given rather than picking an arbitrary
+   instantiation. However, we should only do the check when the check_unique
    argument tells us to. *)(check_unique ==> (~ (is_value e) /\ type_pe_determ menv cenv tenv p e)) /\
 ALL_DISTINCT (pat_bindings p []) /\
 type_p( 0) cenv p t tenv' /\

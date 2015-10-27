@@ -93,7 +93,7 @@ val _ = type_abbrev((* ( 'a, 'b) *) "alist" , ``: ('a # 'b) list``);
 (*val opt_bind : forall 'a 'b. maybe 'a -> 'b -> alist 'a 'b -> alist 'a 'b*)
 val _ = Define `
  (opt_bind n v e =  
-((case n of 
+((case n of
       NONE => e
     | SOME n' => (n',v)::e
   )))`;

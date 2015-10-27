@@ -123,7 +123,7 @@ val _ = Define `
 (* An evaluation context has the second type when its hole is filled with a
  * value of the first type. *)
 (* The number is how many deBruijn type variables are bound in the context.
- * This is only used for constructor contexts, because the value restriction 
+ * This is only used for constructor contexts, because the value restriction
  * ensures that no other contexts can be created under a let binding. *)
 (*val type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
 (*val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool*)
@@ -257,9 +257,9 @@ consistent_mod_env tenvS tenvC ((mn,env)::menv) (tenvM |+ (mn, tenv)))`;
 
 val _ = Define `
  (type_s cenv senv s =  
-(! l. 
+(! l.
     ((? st. FLOOKUP senv l = SOME st) <=> (? v. store_lookup l s = SOME v)) /\
-    (! st sv. ((FLOOKUP senv l = SOME st) /\ (store_lookup l s = SOME sv)) ==> 
+    (! st sv. ((FLOOKUP senv l = SOME st) /\ (store_lookup l s = SOME sv)) ==>
        (case (sv,st) of
            (Refv v, Ref_t t) => type_v( 0) cenv senv v t
          | (W8array es, W8array_t) => T
@@ -332,7 +332,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Chandle ()  pes) t t)
 check_freevars tvs [] t2 /\
 type_vs( 0) all_cenv senv vs ts1 /\
 type_es menv cenv tenv es ts2 /\
-type_op op ((REVERSE ts2 ++ [t1]) ++ ts1) t2) 
+type_op op ((REVERSE ts2 ++ [t1]) ++ ts1) t2)
 ==>
 type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs ()  es) t1 t2)
 
@@ -383,7 +383,7 @@ type_ctxt tvs menv all_cenv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVER
 
 val _ = Define `
  (poly_context cs =  
- ((case cs of
+((case cs of
       (Ccon cn vs ()  es,env) :: cs => EVERY is_value es
     | (Clet x ()  e,env) :: cs => T
     | [] => T
@@ -393,7 +393,7 @@ val _ = Define `
 
 val _ = Define `
  (is_ccon c =  
- ((case c of
+((case c of
       Ccon cn vs ()  es => T
     | _ => F
   )))`;
@@ -489,9 +489,9 @@ val _ = Define `
 (*val weak_decls_only_mods : decls -> decls -> bool*)
 val _ = Define `
   (weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =    
-((! tn. 
+((! tn.
        ((Short tn IN tdecls1) ==> (Short tn IN tdecls2))) /\
-    (! cn. 
+    (! cn.
        ((Short cn IN edecls1) ==> (Short cn IN edecls2)))))`;
 
 

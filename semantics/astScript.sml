@@ -176,7 +176,7 @@ val _ = Hol_datatype `
  pat =
     Pvar of varN
   | Plit of lit
-  (* Constructor applications. 
+  (* Constructor applications.
      A Nothing constructor indicates a tuple pattern. *)
   | Pcon of  ( conN id)option => pat list
   | Pref of pat`;
