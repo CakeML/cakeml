@@ -1,6 +1,62 @@
-open preamble wordLangTheory labSemTheory;
+open preamble wordLangTheory;
+local open alignmentTheory in end;
 
 val _ = new_theory"wordSem";
+
+val _ = Datatype `
+  word_loc = Word ('a word) | Loc num num `;
+
+val byte_index_def = Define `
+  byte_index (a:'a word) is_bigendian =
+    let d = dimindex (:'a) DIV 8 in
+      if is_bigendian then 8 * ((d - 1) - w2n a MOD d) else 8 * (w2n a MOD d)`
+
+val get_byte_def = Define `
+  get_byte (a:'a word) (w:'a word) is_bigendian =
+    (w2w (w >>> byte_index a is_bigendian)):word8`
+
+val word_slice_alt_def = Define `
+  (word_slice_alt h l (w:'a word) :'a word) = FCP i. l <= i /\ i < h /\ w ' i`
+
+val set_byte_def = Define `
+  set_byte (a:'a word) (b:word8) (w:'a word) is_bigendian =
+    let i = byte_index a is_bigendian in
+      (word_slice_alt (dimindex (:'a)) (i + 8) w
+       || w2w b << i
+       || word_slice_alt i 0 w)`;
+
+val mem_load_byte_aux_def = Define `
+  mem_load_byte_aux w m dm be =
+    case m (byte_align w) of
+    | Loc _ _ => NONE
+    | Word v =>
+        if byte_align w IN dm
+        then SOME (get_byte w v be) else NONE`
+
+val read_bytearray_def = Define `
+  (read_bytearray a 0 m dm be = SOME []) /\
+  (read_bytearray a (SUC n) m dm be =
+     case mem_load_byte_aux a m dm be of
+     | NONE => NONE
+     | SOME b => case read_bytearray (a + 1w) n m dm be of
+                 | NONE => NONE
+                 | SOME bs => SOME (b::bs))`
+
+val mem_store_byte_aux_def = Define `
+  mem_store_byte_aux w b m dm be =
+    case m (byte_align w) of
+    | Word v =>
+        if byte_align w IN dm
+        then SOME ((byte_align w =+ Word (set_byte w b v be)) m)
+        else NONE
+    | _ => NONE`
+
+val write_bytearray_def = Define `
+  (write_bytearray a [] m dm be = m) /\
+  (write_bytearray a (b::bs) m dm be =
+     case mem_store_byte_aux a b (write_bytearray (a+1w) bs m dm be) dm be of
+     | SOME m => m
+     | NONE => m)`;
 
 val _ = Datatype `
   stack_frame = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;

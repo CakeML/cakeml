@@ -1,4 +1,4 @@
-open preamble ffiTheory labSemTheory lab_to_targetTheory;
+open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory;
 
 val _ = new_theory"labProps";
 
