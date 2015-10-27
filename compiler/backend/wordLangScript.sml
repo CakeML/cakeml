@@ -50,6 +50,7 @@ val _ = Datatype `
        | Alloc num num_set
        | Raise num
        | Return num num
-       | Tick `;
+       | Tick
+       | FFI num num num num_set (*FFI index, array_ptr, array_len, cut-set*) `;
 
 val _ = export_theory();

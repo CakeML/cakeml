@@ -1,9 +1,6 @@
-open preamble wordLangTheory;
+open preamble wordLangTheory labSemTheory;
 
 val _ = new_theory"wordSem";
-
-val _ = Datatype `
-  word_loc = Word ('a word) | Loc num num `;
 
 val _ = Datatype `
   stack_frame = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;
@@ -29,6 +26,7 @@ val _ = Datatype `
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
      ; code    : (num # ('a wordLang$prog) # num) num_map
+     ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |> `
 
 val state_component_equality = theorem"state_component_equality";
@@ -37,7 +35,6 @@ val _ = Datatype `
   result = Result ('w word_loc) ('w word_loc)
          | Exception ('w word_loc) ('w word_loc)
          | TimeOut
-         | FFIError
          | NotEnoughSpace
          | Error `
 
@@ -439,23 +436,37 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
+  (evaluate (FFI ffi_index ptr len names,s) =
+    case (get_var ptr s, get_var len s) of
+    | SOME (Word w),SOME (Word w2) =>
+      (case cut_env names s.locals of
+      | NONE => (SOME Error,s)
+      | SOME env =>
+         (case read_bytearray w2 (w2n w) s.memory s.mdomain s.be of
+          | SOME bytes =>
+              let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
+              let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
+                (NONE, s with <| memory := new_m ;
+                                 locals := env |>)
+          | _ => (SOME Error,s)))
+    | res => (SOME Error,s)) /\
   (evaluate (Call ret dest args handler,s) =
-     case get_vars args s of
-     | NONE => (SOME Error,s)
-     | SOME xs =>
-       (case find_code dest xs s.code of
+    case get_vars args s of
+    | NONE => (SOME Error,s)
+    | SOME xs =>
+    case find_code dest xs s.code of
 	  | NONE => (SOME Error,s)
 	  | SOME (args1,prog) =>
-	    (case ret of
-	     | NONE (* tail call *) =>
-	       if handler = NONE then
-           if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-           (case evaluate (prog, call_env args1 (dec_clock s)) of
-            | (NONE,s) => (SOME Error,s)
-            | (SOME res,s) => (SOME res,s))
-               else (SOME Error,s)
-	     | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
-	       (case cut_env names s.locals of
+	  case ret of
+	  | NONE (* tail call *) =>
+      if handler = NONE then
+        if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
+        else (case evaluate (prog, call_env args1 (dec_clock s)) of
+         | (NONE,s) => (SOME Error,s)
+         | (SOME res,s) => (SOME res,s))
+      else (SOME Error,s)
+	  | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+	  (case cut_env names s.locals of
 		| NONE => (SOME Error,s)
 		| SOME env =>
 	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
@@ -487,7 +498,7 @@ val evaluate_def = tDefine "evaluate" `
            then evaluate (h, set_var n y (check_clock s2 s))
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-		| res => res))))) `
+		| res => res))) `
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:('a,'ffi) wordSem$state)). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
@@ -561,7 +572,8 @@ val evaluate_clock = Q.store_thm("evaluate_clock",
              \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [])
   \\ FULL_SIMP_TAC (srw_ss()) []
   \\ IMP_RES_TAC check_clock_IMP
-  \\ RES_TAC \\ DECIDE_TAC);
+  \\ RES_TAC \\ TRY(DECIDE_TAC) \\
+  Cases_on`call_FFI s.ffi ffi_index x'` \\ rw[] \\ fs[]\\rw[]);
 
 val evaluate_check_clock = prove(
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,

@@ -576,7 +576,12 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   HINT_EXISTS_TAC>>fs[]>>
   qexists_tac`fromAList lss'`>>fs[]>>
   qexists_tac`lss'`>>fs[])>-
- (*Call*)
+  (*FFI*)
+  (fs[evaluate_def]>>
+  EVERY_CASE_TAC>>Cases_on`call_FFI s.ffi ffi_index x'`>>fs[LET_THM]>>
+  rw[]>>fs[get_var_def]>>
+  metis_tac[s_key_eq_refl])>-
+  (*Call*)
   (fs[evaluate_def]>>
   Cases_on`get_vars args s`>> fs[]>>
   Cases_on`find_code dest x s.code`>>fs[]>>
@@ -808,7 +813,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
             rfs[]>>
             metis_tac[handler_eq])>>
     (*Cleanup...*)
-    TRY(ntac 2 strip_tac>>
+    ntac 2 strip_tac>>
     assume_tac get_vars_stack_swap_simp>>
     first_x_assum(qspec_then `args` SUBST1_TAC)>>simp[]>>
     `!a. s_val_eq (a::s.stack) (a::xs)` by
@@ -820,9 +825,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
      first_x_assum (qspec_then `frame` assume_tac)>>
      first_x_assum(qspec_then `frame::xs` assume_tac)>>
      rfs[call_env_def]>>
-     `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[])>>
-    (*FFIError case*)
-    cheat))
+     `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[]))
 
 (*--Stack Swap Lemma DONE--*)
 
@@ -955,8 +958,8 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     (qexists_tac`perm`>>
     fs[inst_def,assign_def]>>EVERY_CASE_TAC>>
     fs[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm]>>
-    TRY(metis_tac[word_exp_perm,state_component_equality])>>
-    rfs[]>>fs[])
+    rfs[]>>fs[]>>
+    TRY(metis_tac[word_exp_perm,state_component_equality]))
   >-
     (fs[word_exp_perm]>>EVERY_CASE_TAC>>
     fs[set_var_perm]>>
@@ -1000,6 +1003,11 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     fs[get_var_perm,get_var_imm_def]>>EVERY_CASE_TAC>>fs[]
     >>
       fs[LET_THM])
+  >- (*FFI*)
+    (qexists_tac`perm`>>
+    fs[get_var_perm]>>
+    EVERY_CASE_TAC>>Cases_on`call_FFI st.ffi ffi_index x'`>>
+    fs[LET_THM,state_component_equality])
   >- (*Call*)
     (fs[evaluate_def,LET_THM]>>
     fs[get_vars_perm]>>
@@ -1068,7 +1076,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
         qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]))
 
-(*Defines some conventions for the allocator*)
+(*Defines some convenient recursors for the conventions*)
 val every_var_exp_def = tDefine "every_var_exp" `
   (every_var_exp P (Var num) = P num) ∧
   (every_var_exp P (Load exp) = every_var_exp P exp) ∧
@@ -1100,6 +1108,8 @@ val every_var_def = Define `
   (every_var P (Assign num exp) = (P num ∧ every_var_exp P exp)) ∧
   (every_var P (Get num store) = P num) ∧
   (every_var P (Store exp num) = (P num ∧ every_var_exp P exp)) ∧
+  (every_var P (FFI ffi_index ptr len names) =
+    (P ptr ∧ P len ∧ (∀x. x ∈ domain names ⇒ P x))) ∧
   (every_var P (Call ret dest args h) =
     ((EVERY P args) ∧
     (case ret of
@@ -1127,6 +1137,8 @@ val every_var_def = Define `
 
 (*Recursor for stack variables*)
 val every_stack_var_def = Define `
+  (every_stack_var P (FFI ffi_index ptr len names) =
+    (∀x. x ∈ domain names ⇒ P x)) ∧
   (every_stack_var P (Call ret dest args h) =
     (case ret of
       NONE => T
@@ -1334,11 +1346,8 @@ val locals_rel_cut_env = prove(``
   metis_tac[option_CLAUSES])
 
 (*Extra temporaries not mentioned in program
-  do not affect evaluation
-  This is extra work, but might be helpful in props?
-  Otherwise, just prove it together with the inst
-  select thm
-*)
+  do not affect evaluation*)
+
 val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   ∀prog st res rst loc temp.
   evaluate (prog,st) = (res,rst) ∧
@@ -1414,7 +1423,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     rfs[state_component_equality,mem_store_def]>>
     metis_tac[])
   >-
-    (*call*)
+    (*Call*)
     (Cases_on`get_vars l st`>>fs[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>fs[]>>
     Cases_on`find_code o1 x st.code`>>TRY(PairCases_on`x'`)>>fs[]>>
@@ -1480,7 +1489,13 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   >-
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
     fs[call_env_def,state_component_equality,locals_rel_def])
+  >-
+    (every_case_tac>>fs[call_env_def,state_component_equality,locals_rel_def,dec_clock_def]>>metis_tac[])
   >>
-    every_case_tac>>fs[call_env_def,state_component_equality,locals_rel_def,dec_clock_def]>>metis_tac[])
+   (qpat_assum `A = (res,rst)` mp_tac>> ntac 5 FULL_CASE_TAC>>
+   fs[every_var_def]>>
+   imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
+   fs[]>>
+   FULL_CASE_TAC>>fs[state_component_equality,locals_rel_def]))
 
 val _ = export_theory();
