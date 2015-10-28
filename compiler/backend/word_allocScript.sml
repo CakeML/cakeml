@@ -213,6 +213,19 @@ val ssa_cc_trans_def = Define`
   (ssa_cc_trans (Set n exp) ssa na =
     let exp' = ssa_cc_trans_exp ssa exp in
     (Set n exp',ssa,na)) ∧
+  (ssa_cc_trans (FFI ffi_index ptr len numset) ssa na =
+    let ls = MAP FST (toAList numset) in
+    let (stack_mov,ssa',na') = list_next_var_rename_move ssa (na+2) ls in
+    let stack_set = apply_nummap_key (option_lookup ssa') numset in
+    let cptr = option_lookup ssa' ptr in
+    let clen = option_lookup ssa' len in
+    let ssa_cut = inter ssa' numset in
+    let (ret_mov,ssa'',na'') =
+      list_next_var_rename_move ssa_cut (na'+2) ls in
+    let prog = (Seq (stack_mov)
+               (Seq (Move 0 [(2,cptr);(4,clen)])
+               (Seq (FFI ffi_index 2 4 stack_set) (ret_mov)))) in
+    (prog,ssa'',na'')) ∧
   (ssa_cc_trans (Call NONE dest args h) ssa na =
     let names = MAP (option_lookup ssa) args in
     let conv_args = GENLIST (\x.2*x) (LENGTH names) in
@@ -308,6 +321,8 @@ val apply_colour_def = Define `
   (apply_colour f (Seq s1 s2) = Seq (apply_colour f s1) (apply_colour f s2)) ∧
   (apply_colour f (If cmp r1 ri e2 e3) =
     If cmp (f r1) (apply_colour_imm f ri) (apply_colour f e2) (apply_colour f e3)) ∧
+  (apply_colour f (FFI ffi_index ptr len numset) =
+    FFI ffi_index (f ptr) (f len) (apply_nummap_key f numset)) ∧
   (apply_colour f (Alloc num numset) =
     Alloc (f num) (apply_nummap_key f numset)) ∧
   (apply_colour f (Raise num) = Raise (f num)) ∧
@@ -319,7 +334,6 @@ val apply_colour_def = Define `
 val _ = export_rewrites ["apply_nummap_key_def","apply_colour_exp_def"
                         ,"apply_colour_inst_def","apply_colour_def"
                         ,"apply_colour_imm_def"];
-
 
 (* Liveness Analysis*)
 
@@ -394,6 +408,8 @@ val get_live_def = Define`
        case ri of Reg r2 => insert r2 () (insert r1 () union_live)
       | _ => insert r1 () union_live) ∧
   (get_live (Alloc num numset) live = insert num () numset) ∧
+  (get_live (FFI ffi_index ptr len numset) live =
+    insert ptr () (insert len () numset)) ∧
   (get_live (Raise num) live = insert num () live) ∧
   (get_live (Return num1 num2) live = insert num1 () (insert num2 () live)) ∧
   (get_live Tick live = live) ∧
@@ -407,7 +423,6 @@ val get_live_def = Define`
     let args_set = numset_list_insert args LN in
       case ret of NONE => args_set
                 | SOME (_,cutset,_) => union cutset args_set)`
-
 
 (*Single step immediate writes by a prog*)
 val get_writes_def = Define`
@@ -547,6 +562,8 @@ val max_var_def = Define `
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
     max2 num (list_max (MAP FST (toAList numset)) 0)) ∧
+  (max_var (FFI ffi_index ptr len numset) =
+    max3 ptr len (list_max (MAP FST (toAList numset)) 0)) ∧
   (max_var (Raise num) = num) ∧
   (max_var (Return num1 num2) = max2 num1 num2) ∧
   (max_var Tick = 0) ∧
@@ -579,5 +596,3 @@ val word_trans_def = Define`
   word_alloc k (full_ssa_cc_trans n prog)`
 
 val _ = export_theory();
-
-

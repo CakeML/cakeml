@@ -9,11 +9,12 @@ val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
 (*TODO: Fix all the list_insert theorem names to alist_insert*)
 (*TODO: refactor lemmas into Props etc. theories as appropriate *)
 
-(*Define syntactic invariants on the conventions*)
+(*Define syntactic conventions after allocation*)
 
 val call_arg_convention_def = Define`
   (call_arg_convention (Return x y) = (y=2)) ∧
   (call_arg_convention (Raise y) = (y=2)) ∧
+  (call_arg_convention (FFI x y z args) = (y = 2 ∧ z = 4)) ∧
   (call_arg_convention (Alloc n s) = (n=2)) ∧
   (call_arg_convention (Call ret dest args h) =
     (case ret of
@@ -99,7 +100,8 @@ val word_state_eq_rel_def = Define`
   t.handler = s.handler ∧
   t.clock = s.clock ∧
   t.code = s.code ∧
-  t.ffi = s.ffi`
+  t.ffi = s.ffi ∧
+  t.be = s.be`
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
@@ -404,6 +406,7 @@ val gc_frame = store_thm("gc_frame",``
   st'.clock = st.clock ∧
   st'.code = st.code ∧
   st'.locals = st.locals ∧
+  st'.be = st.be ∧
   st'.ffi = st.ffi ∧
   st'.permute = st.permute``,
   fs[gc_def,LET_THM]>>EVERY_CASE_TAC>>
@@ -1041,12 +1044,10 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     >>
     (*The rest*)
     rw[]>>qexists_tac`perm`>>fs[]>>
-    TRY(pop_assum(qspec_then`envy.stack` mp_tac)>>
-      discharge_hyps>-
+    pop_assum(qspec_then`envy.stack` mp_tac)>>
+    discharge_hyps>-
       (unabbrev_all_tac>>fs[state_component_equality])>>
-      rw[]>>fs[]>>NO_TAC)>>
-    (*FFIError*)
-    cheat)
+    rw[]>>fs[]>>NO_TAC)
    >- (*Seq*)
     (rw[]>>fs[evaluate_def,colouring_ok_def,LET_THM,get_live_def]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`f`,`get_live p0 live`]
@@ -1194,8 +1195,23 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       Cases_on`get_var n0 st`>>fs[get_var_perm]>>
       imp_res_tac strong_locals_rel_get_var>>
       fs[call_env_def])
+    >-
+      (exists_tac>>IF_CASES_TAC>>fs[call_env_def,dec_clock_def])
     >>
-      (exists_tac>>IF_CASES_TAC>>fs[call_env_def,dec_clock_def]))
+      (exists_tac>>Cases_on`get_var n0 st`>>Cases_on`get_var n1 st`>>
+      fs[get_writes_def,LET_THM,get_var_perm]>>
+      Cases_on`x`>>fs[]>>Cases_on`x'`>>fs[]>>
+      imp_res_tac strong_locals_rel_get_var>>fs[]>>
+      Cases_on`cut_env s st.locals`>>fs[]>>
+      `domain s ⊆ (n0 INSERT n1 INSERT domain s)` by fs[SUBSET_DEF]>>
+      imp_res_tac strong_locals_rel_subset>>
+      imp_res_tac cut_env_lemma>>
+      pop_assum mp_tac >> discharge_hyps>-
+        (match_mp_tac (GEN_ALL INJ_less)>>metis_tac[])>>
+      rw[]>>FULL_CASE_TAC>>fs[]>>
+      Cases_on`call_FFI st.ffi n x'`>>fs[strong_locals_rel_def]>>
+      rw[]>>
+      metis_tac[domain_lookup]))
 
 (*Prove that we can substitute get_clash_sets for get_live*)
 
@@ -1471,9 +1487,12 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
   >-
     (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
     qexists_tac`insert n () live`>>fs[])
-  >>
+  >-
     (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
-    qexists_tac`insert n () (insert n0 () live)`>>fs[]))
+    qexists_tac`insert n () (insert n0 () live)`>>fs[])
+  >-
+    (rw[]>-(HINT_EXISTS_TAC>>fs[])>>
+    qexists_tac`insert n0 () (insert n1 () s)`>>fs[]))
 
 (*DONE Liveness Proof*)
 
@@ -2676,6 +2695,19 @@ val ssa_cc_trans_props = prove(``
   strip_tac >-
     exp_tac>>
   strip_tac >-
+    (fs[list_next_var_rename_move_def]>>LET_ELIM_TAC>>fs[]>>
+    `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
+      (rw[Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
+      EVERY_CASE_TAC>>fs[]>>
+      metis_tac[])>>
+    `na ≤ na+2 ∧ na'' ≤ na''+2` by DECIDE_TAC>>
+    imp_res_tac ssa_map_ok_more>>
+    imp_res_tac list_next_var_rename_props_2>>
+    imp_res_tac ssa_map_ok_more>>
+    res_tac>>
+    imp_res_tac list_next_var_rename_props_2>>
+    DECIDE_TAC)>>
+  strip_tac >-
     (LET_ELIM_TAC>>fs[]>>
     rfs[])>>
   (*Calls*)
@@ -2867,7 +2899,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
   word_state_eq_rel st cst ∧
   ssa_locals_rel na ssa st.locals cst.locals ∧
   (*The following 3 assumptions are from the transform properties and
-    independent of semantics*)
+    are independent of semantics*)
   is_alloc_var na ∧
   every_var (λx. x < na) prog ∧
   ssa_map_ok na ssa
@@ -3334,12 +3366,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       rw[]>>qexists_tac`perm`>>fs[]>>
-      TRY(pop_assum(qspec_then`envy.stack` mp_tac)>>
+      pop_assum(qspec_then`envy.stack` mp_tac)>>
       discharge_hyps>-
       (unabbrev_all_tac>>fs[state_component_equality])>>
-      rw[]>>fs[]>>NO_TAC)>>
-      (*FFI*)
-      cheat)
+      rw[]>>fs[])
   >>
     (*Handler reasoning*)
     qpat_assum`A=(pp0,pp1,pp2)` mp_tac>>PairCases_on`x''`>>fs[]>>
@@ -3764,12 +3794,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       Cases_on`evaluate(exc_cons,r''')`>>fs[word_state_eq_rel_def])
     >>
       rw[]>>qexists_tac`perm`>>fs[]>>
-      TRY(first_x_assum(qspec_then`envy.stack` mp_tac)>>
+      first_x_assum(qspec_then`envy.stack` mp_tac)>>
       discharge_hyps>-
       (unabbrev_all_tac>>fs[state_component_equality])>>
-      rw[]>>fs[]>>NO_TAC)>>
-      (*FFI*)
-      cheat)
+      rw[]>>fs[])
   >- (*Seq*)
     (rw[]>>fs[evaluate_def,ssa_cc_trans_def,LET_THM]>>
     last_assum(qspecl_then[`p`,`st`,`cst`,`ssa`,`na`] mp_tac)>>
@@ -4085,7 +4113,134 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     fs[get_var_def,call_env_def])
   >-
     (exists_tac>>
-    EVERY_CASE_TAC>>fs[call_env_def,dec_clock_def]))
+    EVERY_CASE_TAC>>fs[call_env_def,dec_clock_def])
+  >>
+    (*FFI*)
+    exists_tac>>
+    qabbrev_tac`A = ssa_cc_trans (FFI n n0 n1 s) ssa na`>>
+    PairCases_on`A`>>fs[ssa_cc_trans_def]>>
+    pop_assum mp_tac>>
+    LET_ELIM_TAC>>fs[]>>
+    fs[evaluate_def,get_var_perm]>>
+    Cases_on`get_var n0 st`>>fs[]>>
+    Cases_on`x`>>fs[]>>
+    Cases_on`get_var n1 st`>>fs[]>>
+    Cases_on`x`>>fs[]>>
+    Cases_on`cut_env s st.locals`>>fs[]>>
+    FULL_CASE_TAC>>fs[LET_THM]>>
+    Cases_on`call_FFI st.ffi n x'`>>fs[]>>
+    Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`] mp_tac list_next_var_rename_move_preserve>>
+    discharge_hyps_keep>-
+      (rw[word_state_eq_rel_def]
+      >-
+        (match_mp_tac ssa_locals_rel_more>>
+        fs[]>>DECIDE_TAC)
+      >-
+        (fs[cut_env_def,Abbr`ls`]>>
+        metis_tac[SUBSET_DEF,toAList_domain])
+      >-
+        fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList]
+      >-
+        (match_mp_tac ssa_map_ok_more>>
+        fs[]>>DECIDE_TAC))>>
+    LET_ELIM_TAC>>
+    qpat_assum`A=A0` sym_sub_tac>>
+    fs[Abbr`prog`,evaluate_def,LET_THM]>>
+    rw[]>>
+    `get_vars [cptr;clen] rcst = SOME [Word c;Word c']` by
+      (unabbrev_all_tac>>fs[get_vars_def]>>
+      imp_res_tac ssa_locals_rel_get_var>>fs[get_var_def])>>
+    qabbrev_tac`f = option_lookup ssa'`>>
+    Q.ISPECL_THEN [`ls`,`ssa`,`na+2`,`mov`,`ssa'`,`na'`] assume_tac list_next_var_rename_move_props>>
+    `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
+    rfs[]>>fs[set_vars_def,alist_insert_def]>>
+    qpat_abbrev_tac `rcstlocs = insert 2 A (insert 4 B rcst.locals)`>>
+    fs[get_var_def]>>
+    `lookup 2 rcstlocs = SOME (Word c) ∧
+     lookup 4 rcstlocs = SOME (Word c')` by
+      fs[Abbr`rcstlocs`,lookup_insert]>>
+    fs[]>>
+    Q.ISPECL_THEN [`s`,`st.locals`,`rcstlocs`,`x`
+                  ,`f` ] mp_tac cut_env_lemma>>
+    discharge_hyps>-
+      (rfs[Abbr`f`]>>
+      fs[ssa_locals_rel_def,strong_locals_rel_def]>>
+      rw[INJ_DEF]>-
+        (SPOSE_NOT_THEN assume_tac>>
+        `x'' ∈ domain st.locals ∧ y ∈ domain st.locals` by
+          fs[SUBSET_DEF,cut_env_def]>>
+        fs[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
+        res_tac>>
+        fs[]>>
+        metis_tac[])
+      >>
+        fs[option_lookup_def,domain_lookup,Abbr`rcstlocs`,lookup_insert]>>
+        res_tac>>
+        fs[ssa_map_ok_def]>>
+        first_x_assum(qspecl_then [`n'`,`v'`] mp_tac)>>
+        simp[]>>
+        qpat_assum`A=SOME v'` SUBST_ALL_TAC>>fs[]>>
+        rw[is_phy_var_def])>>
+    rw[]>>
+    fs[word_state_eq_rel_def]>>
+    qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
+    qabbrev_tac`rst = st with <|locals := x;memory:=mem|>`>>
+    qpat_abbrev_tac`rcstt = rcst with <|locals := A;memory:=B|>`>>
+    `domain ssa_cut = domain x` by
+      (fs[EXTENSION,Abbr`ssa_cut`,domain_inter]>>
+      rw[EQ_IMP_THM]>>
+      fs[cut_env_def,SUBSET_DEF]>>
+      res_tac>>
+      fs[ssa_locals_rel_def]>>
+      metis_tac[domain_lookup])>>
+    `∀x y. lookup x ssa_cut = SOME y ⇒ lookup x ssa' = SOME y` by
+      (rw[]>>fs[Abbr`ssa_cut`,lookup_inter]>>
+      Cases_on`lookup x'' ssa'`>>Cases_on`lookup x'' s`>>fs[])>>
+   `domain rst.locals = domain x` by
+     fs[Abbr`rst`]>>
+   `ssa_locals_rel na' ssa_cut rst.locals rcstt.locals ∧
+       word_state_eq_rel rst rcstt` by
+      (fs[Abbr`rst`,Abbr`rcstt`,state_component_equality
+      ,word_state_eq_rel_def,ssa_locals_rel_def]>>
+      rw[]
+      >-
+        (qexists_tac`x''`>>unabbrev_all_tac>>
+        fs[option_lookup_def,lookup_inter]>>
+        pop_assum mp_tac >>EVERY_CASE_TAC>>fs[domain_lookup])
+      >-
+        metis_tac[domain_lookup]
+      >-
+        (`THE (lookup x'' ssa_cut) = f x''` by
+          (fs[Abbr`f`,option_lookup_def]>>
+          `x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
+          fs[domain_lookup]>>res_tac>>
+          fs[])>>
+        fs[strong_locals_rel_def]>>
+        metis_tac[domain_lookup])
+      >-
+        (`x'' ∈ domain s` by metis_tac[domain_lookup]>>
+        fs[every_var_def]>>res_tac>>
+        DECIDE_TAC))>>
+    Q.SPECL_THEN [`rst`,`inter ssa' s`,`na'+2`,`(MAP FST (toAList s))`
+                   ,`rcstt`] mp_tac list_next_var_rename_move_preserve>>
+      discharge_hyps>-
+      (rw[]
+      >-
+        (unabbrev_all_tac>>rfs[]>>
+        match_mp_tac (GEN_ALL ssa_locals_rel_more)>>
+        fs[]>>
+        HINT_EXISTS_TAC>>fs[])
+      >-
+        (rw[SUBSET_DEF,Abbr`ls`]>>
+        fs[MEM_MAP]>>Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
+      >-
+        (unabbrev_all_tac>>match_mp_tac ssa_map_ok_inter>>
+        match_mp_tac (GEN_ALL ssa_map_ok_more)>>
+        HINT_EXISTS_TAC>>
+        fs[]>>DECIDE_TAC))>>
+      fs[LET_THM]>>
+      rw[]>>
+      Cases_on`evaluate(ret_mov,rcstt)`>>unabbrev_all_tac>>fs[state_component_equality,word_state_eq_rel_def])
 
 (*DONE main correctness proofs*)
 
@@ -4457,7 +4612,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   rfs[LET_THM])
   >>
   (*Alloc -- old proof broke for some reason*)
-  fs[Abbr`prog`,list_next_var_rename_move_def]>>
+  (fs[Abbr`prog`,list_next_var_rename_move_def]>>
   ntac 2 (qpat_assum `A = (B,C,D)` mp_tac)>>
   LET_ELIM_TAC>>fs[]>>
   qpat_assum`A=stack_mov` sym_sub_tac>>
@@ -4497,7 +4652,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   pop_assum mp_tac >>discharge_hyps>-
     fs[]>>
   disch_then(qspecl_then [`4*x'`,`na+2`] assume_tac)>>
-  rfs[])
+  rfs[]))
 
 val setup_ssa_props_2 = prove(``
   is_alloc_var lim ⇒
@@ -4579,6 +4734,7 @@ val call_arg_convention_preservation = prove(``
   EVERY_CASE_TAC>>unabbrev_all_tac>>
   fs[call_arg_convention_def]>>
   `is_phy_var 2` by is_phy_var_tac>>fs[]>>
+  `is_phy_var 4` by is_phy_var_tac>>fs[]>>
   `EVERY is_phy_var args` by
     (qpat_assum`args=A` SUBST_ALL_TAC>>
     fs[EVERY_GENLIST]>>rw[]>>
@@ -4620,6 +4776,9 @@ val every_var_apply_colour = store_thm("every_var_apply_colour",``
   >-
     metis_tac[every_var_exp_apply_colour_exp]
   >-
+    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
+  >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_var_def,EVERY_MAP,EVERY_MEM]>>
     rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
@@ -4637,12 +4796,9 @@ val every_stack_var_apply_colour = store_thm("every_stack_var_apply_colour",``
   (∀x. P x ⇒ Q (f x)) ⇒
   every_stack_var Q (apply_colour f prog)``,
   ho_match_mp_tac every_stack_var_ind>>rw[every_stack_var_def]
-  >-
-    (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
-    rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
-    Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
   >>
-    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+  (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
+    rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup]))
 
 val pre_post_conventions_word_alloc = prove(``
@@ -4766,6 +4922,3 @@ val word_trans_conventions = store_thm("word_trans_conventions",
   metis_tac[])
 
 val _ = export_theory();
-
-
-
