@@ -200,11 +200,18 @@ val_or_exp =
   | Exp (closLang$exp list) (closSem$v list)`;
 
 val evaluate_ev_def = Define `
-(evaluate_ev i (Val v dec) s = (Rval [v], s with clock := i - (dec - 1))) ∧
+(evaluate_ev i (Val v dec) s = 
+  if dec - 1 ≤ i then
+    (Rval [v], s with clock := i - (dec - 1))
+  else
+    (Rerr (Rabort Rtimeout_error), s with clock := 0)) ∧
 (evaluate_ev i (Exp1 loc e env vs dec) s =
-  case evaluate ([e], env, s with clock := i - (dec - 1)) of
-     | (Rval [v1], s1) => evaluate_app loc v1 vs s1
-     | res => res) ∧
+  if dec - 1 ≤ i then
+    case evaluate ([e], env, s with clock := i - (dec - 1)) of
+    | (Rval [v1], s1) => evaluate_app loc v1 vs s1
+    | res => res
+  else
+    (Rerr (Rabort Rtimeout_error), s with clock := 0)) ∧
 (evaluate_ev i (Exp es env) s = evaluate (es, env, s with clock := i))`;
 
 val evaluate_ev_clock = Q.store_thm ("evaluate_ev_clock",
@@ -828,8 +835,15 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          `s'.clock - LENGTH vs ≤ s'.clock` by decide_tac >>
          first_x_assum (qspecl_then [`s'.clock - 1`, `vs`, `vs'`, `s`, `s'`] mp_tac) >>
          simp [exec_rel_rw, evaluate_ev_def, res_rel_def] >>
-         `!y. (s'.clock - 1) + 1 - y = s'.clock - y ∧ s'.clock - 1 ≤ s'.clock` by decide_tac >>
-         metis_tac [LESS_EQ_REFL, val_rel_mono, val_rel_mono_list]))
+         `s'.clock - 1 ≤ s'.clock` by decide_tac >>
+         `state_rel (s'.clock − 1) s s' ∧ LIST_REL (val_rel (:'ffi) (s'.clock − 1)) vs vs'`
+           by metis_tac [val_rel_mono, val_rel_mono_list] >>
+         simp [] >>
+         disch_then (qspec_then `s'.clock - 1` mp_tac) >>
+         simp [res_rel_rw]))
+ >- cheat
+ >- cheat
+ (*
  >- ((* Partial, Full *)
      `loc = NONE` by metis_tac [dest_closure_none_loc] >>
      imp_res_tac dest_closure_full_length >>
@@ -973,6 +987,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
         SOME (Partial_app (clo_add_partial_args rest' cl0'))`
        by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
      simp[evaluate_app_rw] >> simp[dec_clock_def])
+     *)
  >- ((* Full, Full *) cheat))
 
 val state_rel_refs = Q.prove (
@@ -1651,4 +1666,5 @@ val exp_rel_trans = Q.store_thm ("exp_rel_trans",
  `!i. state_rel i s' s' ∧ LIST_REL (val_rel i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
  metis_tac [val_rel_trans]);
  *)
+
 val _ = export_theory ();
