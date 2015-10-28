@@ -6,7 +6,7 @@ open preamble
 val _ = new_theory"compilerProof";
 
 val initial_condition_def = Define`
-  initial_condition (st:'ffi top_state) (cc:α compiler$config) = (ARB:bool)`;
+  initial_condition (st:'ffi top_state) (cc:α compiler$config) (prelude:top list) = (ARB:bool)`;
 
 val extend_with_resource_limit_def = Define`
   extend_with_resource_limit behaviours =
@@ -20,7 +20,7 @@ val extend_with_resource_limit_def = Define`
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀st cc prelude input.
-    initial_condition st cc ⇒
+    initial_condition st cc prelude ⇒
     case compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure TypeError => semantics st prelude input = IllTyped
