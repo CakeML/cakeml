@@ -544,10 +544,14 @@ val compile_row_correct = Q.prove(
        (LENGTH menv4 = SUC n) ∧
        (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
-       ∀ck env count genv e res.
-         evaluate ck (menv4++env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) e res ∧
+       ∀env count genv e res.
+         evaluate (menv4++env)
+           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+              ffi := SND s; globals := genv |> [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
-         evaluate ck (compile_v v::env) ((count, MAP (map_sv compile_v) (FST s), SND s),genv) (f e) res) ∧
+         evaluate (compile_v v::env)
+           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+              ffi := SND s; globals := genv |> [f e] = res) ∧
    (∀bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
      (pmatch_list (FST s) qs (TAKE k vs) [] = Match menvk) ∧
      (pmatch_list (FST s) ps (DROP k vs) [] = Match menv) ∧
@@ -562,10 +566,14 @@ val compile_row_correct = Q.prove(
        (LENGTH bvs = n1) ∧ (LENGTH menv4 = n1) ∧
        (FILTER (IS_SOME o FST) (ZIP(bvs,menv4)) =
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
-       ∀ck env count genv e res.
-         evaluate ck (menv4++menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) e res ∧
+       ∀env count genv e res.
+         evaluate (menv4++menv4k++(Conv tag (MAP compile_v vs))::env)
+           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+              ffi := SND s; globals := genv |> [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
-         evaluate ck (menv4k++(Conv tag (MAP compile_v vs))::env) ((count, MAP (map_sv compile_v) (FST s),SND s),genv) (f e) res)`,
+         evaluate (menv4k++(Conv tag (MAP compile_v vs))::env)
+           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+              ffi := SND s; globals := genv |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
     rw[pmatch_exh_def,compile_row_def] >> rw[] >>
@@ -588,7 +596,8 @@ val compile_row_correct = Q.prove(
     qexists_tac`menv4++[w]` >>
     simp[GSYM rich_listTheory.ZIP_APPEND,rich_listTheory.FILTER_APPEND] >>
     REWRITE_TAC[Once (GSYM APPEND_ASSOC),Once(GSYM rich_listTheory.CONS_APPEND)] >>
-    rpt strip_tac >> res_tac >> fs[] ) >>
+    rpt strip_tac >> res_tac >> fs[] >>
+    rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >> simp[]) >>
   strip_tac >- (
     rw[compile_row_def] >>
     Cases_on`v`>>fs[pmatch_exh_def] >>
@@ -608,11 +617,7 @@ val compile_row_correct = Q.prove(
     first_x_assum(fn th => first_assum(strip_assume_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     rfs[] >>
     match_mp_tac sLet_correct >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
-    simp[Once evaluate_pat_cases] >>
+    simp[patSemTheory.evaluate_def] >>
     simp[patSemTheory.do_app_def] >> simp[Abbr`w`] >>
     fs[store_lookup_def] >>
     simp[EL_MAP] ) >>
@@ -665,11 +670,7 @@ val compile_row_correct = Q.prove(
     REWRITE_TAC[GSYM MAP_APPEND] >> PROVE_TAC[] ) >>
   rw[] >>
   match_mp_tac sLet_correct >>
-  simp[Once evaluate_pat_cases] >>
-  simp[Once evaluate_pat_cases] >>
-  simp[Once evaluate_pat_cases] >>
-  simp[Once evaluate_pat_cases] >>
-  simp[Once evaluate_pat_cases] >>
+  simp[patSemTheory.evaluate_def] >>
   simp[patSemTheory.do_app_def] >>
   simp[rich_listTheory.EL_APPEND2,rich_listTheory.EL_APPEND1] >>
   simp[EL_MAP])
