@@ -54,27 +54,24 @@ val state_rel_IMP_sem_EQ_sem = prove(
   THEN1 (* Terminate *)
    (eq_tac \\ rpt strip_tac
     THEN1
-     (Cases_on `evaluate (s with clock := k)`
-      \\ fs [] \\ rw []
-      \\ `state_rel (s with clock := k) (t with clock := k)` by
+     (`state_rel (s with clock := k) (t with clock := k)` by
             (fs [state_rel_def,state_component_equality])
       \\ imp_res_tac filter_correct \\ fs [] \\ rw [] \\ fs []
-      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs []
-      \\ BasicProvers.CASE_TAC >> fs[]
-      \\ cheat)
+      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs [])
     \\ CCONTR_TAC \\ fs []
     \\ pop_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
     \\ `state_rel (s with <| clock := k|>) (t with <| clock := k|>)` by
             (fs [state_rel_def,state_component_equality])
-    \\ Cases_on `evaluate (s with <| clock := k|>)`
     \\ fs [] \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
+    \\ Cases_on `evaluate (s with clock := k)` \\ fs []
     \\ imp_res_tac evaluate_ADD_clock \\ fs []
-    \\ every_case_tac >> fs[] >> rw[] >> fs[]
+    \\ Cases_on `o'` \\ fs [] \\ rw [] \\ fs []
     \\ cheat)
   THEN1 (* Diverge *) cheat);
 
 val filter_skip_semantics = store_thm("filter_skip_semantics",
-  ``!s. (s.pc = 0) ==> semantics (s with code := filter_skip s.code) = semantics s``,
+  ``!s. (s.pc = 0) ==>
+        semantics (s with code := filter_skip s.code) = semantics s``,
   rpt strip_tac \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ fs [state_rel_def,state_component_equality,Once adjust_pc_def]);
 
