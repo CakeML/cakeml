@@ -384,9 +384,12 @@ val evaluate_def = tDefine"evaluate"`
    case evaluate env s (REVERSE es) of
    | (s, Rval vs) => (s, Rval [Conv tag (REVERSE vs)])
    |  res => res) ∧
-  (evaluate env s [Var_local n] = (s, Rval [EL n env])) ∧
+  (evaluate env s [Var_local n] = (s,
+      if n < LENGTH env
+      then Rval [EL n env]
+      else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Var_global n] = (s,
-      if n < LENGTH s.globals
+      if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
       then Rval [THE (EL n s.globals)]
       else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Fun e] = (s, Rval [Closure env e])) ∧

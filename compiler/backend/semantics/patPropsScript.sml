@@ -63,8 +63,8 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
   imp_res_tac evaluate_length >> fs[SING_HD]);
 
 val evaluate_sing = Q.store_thm("evaluate_sing",
-  `evaluate env s [e] = (s',Rval vs) ⇒ vs = [HD vs]`,
-  rw[] >> imp_res_tac evaluate_length >> rw[SING_HD])
+  `evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]`,
+  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
 val evaluate_append_Rval = store_thm("evaluate_append_Rval",
   ``∀l1 env s l2 s' vs.

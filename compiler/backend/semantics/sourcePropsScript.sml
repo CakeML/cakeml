@@ -22,6 +22,11 @@ val list_result_Rerr = Q.store_thm("list_result_Rerr[simp]",
   `list_result r = Rerr e ⇔ r = Rerr e`,
   Cases_on`r`>>simp[EQ_IMP_THM]);
 
+val result_rel_list_result = Q.store_thm("result_rel_list_result[simp]",
+  `result_rel (LIST_REL R) Q (list_result r1) (list_result r2) ⇔
+   result_rel R Q r1 r2`,
+  Cases_on`r1`>>rw[PULL_EXISTS]);
+
 val pmatch_extend = Q.store_thm("pmatch_extend",
 `(!cenv s p v env env' env''.
   pmatch cenv s p v env = Match env'
