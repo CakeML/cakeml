@@ -890,7 +890,7 @@ val simple_decl_IMP = prove(
   \\ IMP_RES_TAC LENGTH_FILTER_decl_let
   \\ IMP_RES_TAC obviously_pure_IMP
   \\ SRW_TAC [] [] \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ fs[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def]);
+  \\ fs[initSemEnvTheory.prim_sem_env_eq]);
 
 fun tac () =
   SIMP_TAC std_ss [all_decls (),PULL_EXISTS]

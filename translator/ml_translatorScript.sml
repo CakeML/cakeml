@@ -1034,7 +1034,7 @@ val DeclAssum_def = zDefine `
           ds env s ∧ s.clock = 0 ∧ s.defined_types = tys`;
 
 val _ = computeLib.add_funs
-  [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def]];
+  [DeclAssum_def |> SIMP_RULE (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]];
 
 val write_tds_def = Define `
   write_tds mn tds env =
@@ -1394,7 +1394,7 @@ val DeclAssum_Dlet = store_thm("DeclAssum_Dlet",
   \\ rw[]
   \\ fs[Decls_def]
   \\ imp_res_tac decs_unclocked
-  \\ fs[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def]);
+  \\ fs[initSemEnvTheory.prim_sem_env_eq]);
 
 val DeclAssum_Dletrec_LEMMA = prove(
   ``!funs xs.
@@ -1435,7 +1435,7 @@ val DeclAssum_Dlet_INTRO = store_thm("DeclAssum_Dlet_INTRO",
   \\ `s2.clock = 0` by (
         fs[Decls_def] >>
         imp_res_tac decs_unclocked >>
-        fs[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def] ) >>
+        fs[initSemEnvTheory.prim_sem_env_eq] ) >>
   `Eval env2 exp P` by (res_tac >> rfs[] ) >>
   pop_assum mp_tac >>
   rw[Eval_Var_SIMP,Eval_def] >>
@@ -1659,7 +1659,7 @@ val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   ``!mn. DeclAssumExists mn []``,
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
      DeclAssumExists_def,DeclAssum_def,Decls_def,initSemEnvTheory.prim_sem_env_eq,
-     initialProgramTheory.prim_sem_env_def,merge_alist_mod_env_nil]
+     merge_alist_mod_env_nil]
   >> srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]);
 
 val always_evaluates_def = Define `
@@ -1814,7 +1814,7 @@ val DeclAssumCons_def = Define `
               (ASHADOW (SND env.c) = cons_env)`;
 
 local
-  val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def]
+  val eval = SIMP_CONV (srw_ss()) [initSemEnvTheory.prim_sem_env_eq]
   val lemma = eval ``(SND ((SND(THE (prim_sem_env empty_state.ffi))).c))``
   val tm = lemma |> concl |> rand
   val lemma2 = eval ``FST (THE (prim_sem_env empty_state.ffi))``
@@ -2005,9 +2005,9 @@ val Tmod_lemma = prove(
   \\ simp[environment_component_equality]
   \\ simp[GSYM PULL_FORALL]
   \\ reverse conj_tac >- (
-       rw[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def] )
+       rw[initSemEnvTheory.prim_sem_env_eq] )
   \\ first_x_assum match_mp_tac
-  \\ rw[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def] )
+  \\ rw[initSemEnvTheory.prim_sem_env_eq] )
   |> Q.GENL [`ds`,`m`]
   |> SIMP_RULE std_ss [PULL_EXISTS_IMP,SKOLEM_THM]
   |> GEN_ALL |> SIMP_RULE std_ss [PULL_FORALL];

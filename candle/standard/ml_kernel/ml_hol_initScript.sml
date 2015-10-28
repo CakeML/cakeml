@@ -64,7 +64,7 @@ val kernel_init_thm = store_thm("kernel_init_thm",
   CONV_TAC(LAND_CONV EVAL) >> rw[] >>
   `env.c = (SND (THE (prim_sem_env empty_state.ffi))).c` by METIS_TAC[markerTheory.Abbrev_def] >>
   pop_assum mp_tac >>
-  simp_tac (srw_ss()) [initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def] >>
+  simp_tac (srw_ss()) [initSemEnvTheory.prim_sem_env_eq] >>
   strip_tac >>
   ntac 9 (
     qpat_assum`Rval X = Y`mp_tac >>
@@ -87,7 +87,7 @@ val kernel_init_thm = store_thm("kernel_init_thm",
   ntac 9 ( pop_assum mp_tac >> CONV_TAC(LAND_CONV EVAL) >> rw[] ) >>
   `st.refs = []` by (
     simp[Abbr`st`] >>
-    simp[initSemEnvTheory.prim_sem_env_eq,initialProgramTheory.prim_sem_env_def] ) >>
+    simp[initSemEnvTheory.prim_sem_env_eq] ) >>
   rw[ml_monadTheory.HOL_STORE_def] >>
   rw[ml_monadTheory.isRefv_def] >>
   qexists_tac`<|
