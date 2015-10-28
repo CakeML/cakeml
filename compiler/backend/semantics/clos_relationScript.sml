@@ -750,13 +750,50 @@ val stage_partial_app = Q.store_thm(
   Cases_on `c` >>
   simp[clo_add_partial_args_def, is_closure_def, check_loc_def]);
 
+val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
+  CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[])
+
+val revdroprev = Q.prove(
+  `∀l n.
+     n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
+  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
+  qcase_tac `n ≤ SUC (LENGTH l)` >>
+  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
+  >- simp[TAKE_APPEND2] >>
+  simp[TAKE_APPEND1] >>
+  `LENGTH l + 1 - SUC m = LENGTH l - m`
+     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
+  simp[]);
+
 val dest_closure_full_split' = Q.store_thm(
   "dest_closure_full_split'",
-  `dest_closure NONE v vs = SOME (Full_app e env rest) ⇒
+  `dest_closure loc v vs = SOME (Full_app e env rest) ⇒
    ∃used.
-    vs = rest ++ used ∧ dest_closure NONE v used = SOME (Full_app e env [])`,
-  strip_tac >> imp_res_tac dest_closure_full_split >>
-  qexists_tac `DROP (LENGTH rest) vs` >> metis_tac[TAKE_DROP]);
+    vs = rest ++ used ∧ dest_closure loc v used = SOME (Full_app e env [])`,
+  simp[dest_closure_def] >> Cases_on `v` >>
+  simp[bool_case_eq, revnil, DROP_NIL, DECIDE ``0n >= x ⇔ x = 0``, UNCURRY,
+       NOT_LESS, DECIDE ``x:num >= y ⇔ y ≤ x``, DECIDE ``¬(x:num ≤ y) ⇔ y < x``]
+  >- (strip_tac >> qcase_tac `TAKE (n - LENGTH l) (REVERSE vs)` >>
+      dsimp[LENGTH_NIL] >> rveq >>
+      simp[revdroprev] >>
+      qexists_tac `DROP (LENGTH l + LENGTH vs - n) vs` >> simp[] >>
+      reverse conj_tac
+      >- (`vs = TAKE (LENGTH l + LENGTH vs - n) vs ++
+                DROP (LENGTH l + LENGTH vs - n) vs`
+             by simp[] >>
+          pop_assum (fn th => CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV[th]))) >>
+          simp[TAKE_APPEND1]) >>
+      Cases_on `loc` >> lfs[check_loc_def]) >>
+  simp[revdroprev] >> dsimp[LENGTH_NIL] >> rpt strip_tac >> rveq >>
+  qcase_tac `vs = TAKE (LENGTH l + LENGTH vs - N) vs ++ _` >>
+  qexists_tac `DROP (LENGTH l + LENGTH vs - N) vs` >> simp[] >>
+  reverse conj_tac
+  >- (`vs = TAKE (LENGTH l + LENGTH vs - N) vs ++
+            DROP (LENGTH l + LENGTH vs - N) vs`
+         by simp[] >>
+      pop_assum (fn th => CONV_TAC (LAND_CONV (ONCE_REWRITE_CONV[th]))) >>
+      simp[TAKE_APPEND1]) >>
+  Cases_on `loc` >> lfs[check_loc_def])
 
 val dest_closure_partial_split' = Q.store_thm(
   "dest_closure_partial_split'",
@@ -972,7 +1009,15 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
         SOME (Partial_app (clo_add_partial_args rest' cl0'))`
        by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
      simp[evaluate_app_rw] >> simp[dec_clock_def])
- >- ((* Full, Full *) cheat))
+ >- ((* Full, Full *)
+     qcase_tac `dest_closure loc v vs = SOME (Full_app b1 env1 rest1)` >>
+     qcase_tac `dest_closure loc v' vs' = SOME (Full_app b2 env2 rest2)` >>
+     cheat (* dest_closure_full_split' *)
+
+    )
+
+
+)
 
 val state_rel_refs = Q.prove (
 `!c (s:'ffi closSem$state) s' n rv p.
