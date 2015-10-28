@@ -15,7 +15,7 @@ val _ = new_theory "infer_t"
 
 
 val _ = Hol_datatype `
- infer_t = 
+ infer_t =
     Infer_Tvar_db of num
   | Infer_Tapp of infer_t list => tctor
   | Infer_Tuvar of num`;
