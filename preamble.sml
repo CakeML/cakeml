@@ -228,6 +228,7 @@ end
 fun split_pair_case_tac tm =
   let
     val (p,vs,b) = strip_pair_case tm
+    val vs = map (variant (free_vars b)) vs
     val g = list_mk_exists(vs,mk_eq(p,pairSyntax.list_mk_pair vs))
     val th = prove(g, SIMP_TAC bool_ss [GSYM pairTheory.EXISTS_PROD])
   in

@@ -30,14 +30,22 @@ val compile_sv_def = Define `
   (compile_sv (W8array bs) = ByteArray bs)`
 val _ = export_rewrites["compile_sv_def"];
 
-val compile_csg_def = Define`
-  compile_csg (((c,(s,t)),g):('ffi,patSem$v) count_store_genv) =
-    <| globals := MAP (OPTION_MAP compile_v) g;
-       refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s))) (LENGTH s));
-       ffi := t;
-       clock := c;
+val compile_state_def = Define`
+  compile_state (s:'ffi patSem$state) =
+    <| globals := MAP (OPTION_MAP compile_v) s.globals;
+       refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s.store))) (LENGTH s.store));
+       ffi := s.ffi;
+       clock := s.clock;
        code := FEMPTY
     |>`;
+
+val compile_state_const = Q.store_thm("compile_state_const[simp]",
+  `(compile_state s).clock = s.clock`,
+  EVAL_TAC);
+
+val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
+  `compile_state (dec_clock y) = dec_clock 1 (compile_state y)`,
+  EVAL_TAC >> simp[])
 
 (* semantic functions respect translation *)
 
@@ -112,51 +120,150 @@ val do_app_def = closSemTheory.do_app_def
 val build_rec_env_pat_def = patSemTheory.build_rec_env_def
 val do_opapp_pat_def = patSemTheory.do_opapp_def
 val do_app_pat_def = patSemTheory.do_app_def
+val evaluate_def = closSemTheory.evaluate_def
+val evaluate_pat_def = patSemTheory.evaluate_def
 
 val s = mk_var("s",
-  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
+val LENGTH_eq = Q.prove(
+  `(LENGTH ls = 1 ⇔ ∃y. ls = [y]) ∧
+   (LENGTH ls = 2 ⇔ ∃y z. ls = [y; z]) ∧
+   (LENGTH ls = 0 ⇔ ls = []) ∧
+   (0 = LENGTH ls ⇔ LENGTH ls = 0) ∧
+   (1 = LENGTH ls ⇔ LENGTH ls = 1) ∧
+   (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
+  Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL])
+
+(*
 val compile_correct = Q.store_thm("compile_correct",
-  `(∀ck env ^s e res. evaluate ck env s e res ⇒
-      ck ⇒
-      evaluate ([compile e],MAP compile_v env,compile_csg s) =
-        (map_result (λv. [compile_v v]) compile_v (SND res), compile_csg (FST res))) ∧
-   (∀ck env ^s es res. evaluate_list ck env s es res ⇒
-      ck ⇒
-      evaluate (MAP compile es,MAP compile_v env,compile_csg s) =
-        (map_result (MAP compile_v) compile_v (SND res), compile_csg (FST res)))`,
-  ho_match_mp_tac patSemTheory.evaluate_strongind >>
+  `(∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
+      evaluate (MAP compile es,MAP compile_v env,compile_state s) =
+        (map_result (MAP compile_v) compile_v (SND res), compile_state (FST res)))`,
+  ho_match_mp_tac patSemTheory.evaluate_ind >>
+  strip_tac >- (rw[evaluate_pat_def,evaluate_def]>>rw[]) >>
+  strip_tac >- (
+    rpt gen_tac >> strip_tac >>
+    rpt gen_tac >> strip_tac >>
+    qpat_assum`X = res`mp_tac >>
+    simp[Once evaluate_cons] >>
+    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    simp[Once evaluate_CONS] >> strip_tac >>
+    every_case_tac >> fs[] >>
+    imp_res_tac evaluate_sing >> rw[] >>fs[] >> rfs[]) >>
   strip_tac >- (
     Cases_on`l`>>
-    rw[evaluate_def,do_app_def] >>
+    rw[evaluate_def,do_app_def] >> rw[] >>
     simp[GSYM MAP_REVERSE,evaluate_MAP_Op_Const,combinTheory.o_DEF] ) >>
-  strip_tac >- simp[evaluate_def] >>
   strip_tac >- (
-    simp[evaluate_def] >>
-    Cases_on`err`>>simp[] >>
-    Cases_on`a`>>simp[]) >>
-  strip_tac >- simp[evaluate_def] >>
+    rw[evaluate_def,evaluate_pat_def] >>
+    every_case_tac >> fs[] >>
+    imp_res_tac evaluate_sing >> fs[]) >>
   strip_tac >- (
-    simp[evaluate_def] >>
-    rw[] >> first_x_assum match_mp_tac >>
-    fs[SUBSET_DEF,PULL_EXISTS] >>
-    Cases >> rw[] >> res_tac >>
-    fsrw_tac[ARITH_ss][] ) >>
+    rw[evaluate_def,evaluate_pat_def] >>
+    every_case_tac >> fs[] >> rw[] ) >>
   strip_tac >- (
-    simp[evaluate_def] >>
-    Cases_on`err`>>simp[] ) >>
-  strip_tac >- simp[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE] >>
+    rw[evaluate_pat_def,evaluate_def,do_app_def] >>
+    every_case_tac >> fs[ETA_AX,MAP_REVERSE] ) >>
   strip_tac >- (
-    Cases_on`err`>>
-    simp[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE] ) >>
-  strip_tac >- simp[evaluate_def,EL_MAP] >>
+    rw[evaluate_pat_def,evaluate_def,EL_MAP] >> rw[] >>
+    spose_not_then strip_assume_tac >> rw[] >> fs[]) >>
   strip_tac >- (
-    simp[evaluate_def,do_app_def] >>
-    rpt gen_tac >>
-    PairCases_on`s`>>simp[compile_csg_def,get_global_def,EL_MAP] ) >>
-  strip_tac >- simp[evaluate_def,ETA_AX,clos_env_def,max_app_def] >>
+    rw[evaluate_pat_def,evaluate_def,do_app_def,get_global_def,compile_state_def,EL_MAP,IS_SOME_EXISTS] >>
+    rw[] >> fs[] >>
+    spose_not_then strip_assume_tac >> rw[] >> fs[]) >>
   strip_tac >- (
+    rw[evaluate_pat_def,evaluate_def,max_app_def] >> rw[ETA_AX] ) >>
+  strip_tac >- (
+    rw[evaluate_def,evaluate_pat_def] >>
+    Cases_on`op=Op(Op Opapp)`>>fs[] >- (
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      qmatch_assum_rename_tac `_ = (s1,r1)` >>
+      reverse(Cases_on`r1`)>>fs[] >- (
+        rw[]>>fs[evaluate_def,MAP_REVERSE,ETA_AX] >>
+        Cases_on`es`>>fs[] >> Cases_on`t`>>fs[LENGTH_NIL] >>
+        fs[Once evaluate_CONS] >>
+        every_case_tac >> fs[] >> rw[] >>
+        fs[evaluate_def] >> rw[] >> fs[] ) >>
+      imp_res_tac evaluate_length >>
+      fs[MAP_REVERSE,ETA_AX] >>
+      IF_CASES_TAC >> fs[LENGTH_eq] >- (
+        simp[evaluate_def,do_app_def] >>
+        rw[do_opapp_def] >>
+        Cases_on`a`>>fs[]>>
+        Cases_on`t`>>fs[LENGTH_eq]>>rw[]>>fs[]>-
+          (every_case_tac >> fs[]) >>
+        Cases_on`REVERSE t' ++ [h'] ++ [h]`>>fs[]>>
+        Cases_on`t`>>fs[]>>
+        Cases_on`t''`>>fs[LENGTH_eq] >>
+        every_case_tac >> fs[] ) >>
+      rpt var_eq_tac >> fs[LENGTH_eq] >> var_eq_tac >>
+      simp[evaluate_def] >>
+      fs[Once evaluate_CONS] >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      fs[evaluate_def] >>
+      pop_assum mp_tac >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
+      rpt var_eq_tac >> fs[] >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >> rpt var_eq_tac >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] >> rw[] >>
+      qmatch_assum_rename_tac`_ = (s1,Rval [d; c])` >>
+      Cases_on`do_opapp [c; d]`>>fs[] >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      rpt var_eq_tac >>
+      IF_CASES_TAC >> fs[] >- (
+        simp[evaluate_def] >> fs[do_opapp_def] >>
+        Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,LET_THM] >>
+        simp[state_component_equality,EL_MAP]) >>
+      simp[evaluate_def] >> fs[do_opapp_def] >>
+
+      Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,EL_MAP,LET_THM,ETA_AX] >>simp[] >>
+      rpt var_eq_tac >> fs[build_rec_env_pat_def] >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
+      simp[evaluate_def] >> rw[] >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
+      every_case_tac >> fs[] >> rw[] >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
+      rw[] >> fs[] >> rw[] >> fs[]
+      rfs[]
+
+        fs[do_opapp_def] >>
+        rw[evaluate_def] >>
+        Cases_on`c`>>fs[compile_v_def,dest_closure_def] >> rw[] >- (
+          Cases_on`l`>>fs[] ) >>
+        simp[]
+
+      Cases_on`do_opapp (REVERSE a)`>>fs[] >- (
+        fs[do_opapp_pat_def] >>
+        every_case_tac >> fs[LENGTH_eq,evaluate_def,do_app_def,MAP_REVERSE,ETA_AX] >>
+        rpt var_eq_tac >> every_case_tac >> fs[] >> rw[] >> fs[]
+
+        rw[]>>fs[evaluate_def,do_app_def,ETA_AX,MAP_REVERSE,LENGTH_eq] >>
+        every_case_tac >> fs[LENGTH_NIL_SYM] >>
+
+        metis_tac[evaluate_length,LENGTH_MAP,LENGTH_REVERSE,LENGTH,TWO,ONE,ADD_0] ) >>
+
+        imp_res_tac evaluate_length >> fs[]
+      imp_res_tac evaluate_length >>
+      every_case_tac >> fs[evaluate_def,do_app_def,ETA_AX,MAP_REVERSE] >>
+      every_case_tac >> fs[LENGTH_NIL,LENGTH_NIL_SYM]
+      Cases_on`a`>>
+      fs[do_opapp_pat_def,LENGTH_NIL_SYM,evaluate_def,do_app_def] >>
+      Cases_on`es`>>fs[]>>
+      Cases_on`t`>>fs[LENGTH_NIL_SYM,evaluate_def,do_app_def]>- (
+        every_case_tac >> fs[] ) >>
+      Cases_on`t'`>>fs[LENGTH_NIL] >>
+      Cases_on`t`>>fs[LENGTH_NIL,evaluate_def,do_app_def] >- (
+
+
+
+      every_case_tac >> fs[] >>
+      imp_res_tac closPropsTheory.evaluate_IMP_LENGTH >> fs[]
     simp[evaluate_def,MAP_REVERSE,ETA_AX] >>
     rw[evaluate_def] >>
     imp_res_tac evaluate_list_length >>
@@ -559,6 +666,7 @@ val compile_correct = Q.store_thm("compile_correct",
     Cases_on`err`>>fs[]) >>
   simp[evaluate_def] >> rw[] >>
   simp[Once evaluate_CONS] );
+*)
 
 (* more correctness properties *)
 
