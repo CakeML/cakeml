@@ -40,7 +40,7 @@ val word_exp_op_permute_lem = prove(``
   simp[])>>fs[]>>IF_CASES_TAC>>fs[]>>
   Cases_on`op`>>fs[word_op_def])
 
-(*Remove tail recursion...*)
+(*Remove tail recursion to make proof easier...*)
 val pull_ops_simp_def = Define`
   (pull_ops_simp op [] = [] ) ∧
   (pull_ops_simp op (x::xs) =
@@ -48,11 +48,37 @@ val pull_ops_simp_def = Define`
     |  (Op op' ls) => if op = op' then ls ++ (pull_ops_simp op xs) else x::(pull_ops_simp op xs)
     |  _  => x::(pull_ops_simp op xs))`
 
+val PERM_SWAP_SIMP = prove(``
+  PERM (A ++ (B::C)) (B::(A++C))``,
+  match_mp_tac APPEND_PERM_SYM>>fs[]>>
+  metis_tac[PERM_APPEND])
+
+val EL_FILTER = prove(``
+  ∀ls x. x < LENGTH (FILTER P ls) ⇒ P (EL x (FILTER P ls))``,
+  Induct>>rw[]>>
+  Cases_on`x`>>fs[EL])
+
+val PERM_SWAP = prove(``
+  PERM (A ++ B ++ C) (B++(A++C))``,
+  fs[PERM_DEF]>>rw[]>>
+  match_mp_tac LIST_EQ>>CONJ_ASM1_TAC
+  >-
+    (fs[FILTER_APPEND]>>DECIDE_TAC)
+  >>
+  rw[]>>
+  imp_res_tac EL_FILTER>>
+  last_x_assum SUBST_ALL_TAC>>
+  imp_res_tac EL_FILTER>>
+  metis_tac[])
+
 val pull_ops_simp_pull_ops_perm = prove(``
   ∀ls x.
   PERM (pull_ops op ls x) ((pull_ops_simp op ls)++x)``,
   Induct>>fs[pull_ops_def,pull_ops_simp_def]>>rw[]>>EVERY_CASE_TAC>>fs[]>>
-  cheat)
+  TRY(qpat_abbrev_tac`A = B::x`>>
+  first_x_assum(qspec_then`A` assume_tac)>>fs[Abbr`A`])>>
+  TRY(first_x_assum(qspec_then`l++x` assume_tac))>>
+  metis_tac[PERM_SWAP,PERM_TRANS,PERM_SWAP_SIMP,PERM_SYM])
 
 val pull_ops_simp_pull_ops_word_exp = prove(``
   op ≠ Sub ⇒
@@ -87,9 +113,8 @@ val word_exp_op_op = prove(``
   TRY
   (`~EVERY IS_SOME B` by metis_tac[]>>
   simp[])>>fs[]>>IF_CASES_TAC>>fs[]>>
-  Cases_on`op`>>fs[word_op_def]>>
-  (*Deal with FOLDR*)
-  cheat)
+  Cases_on`op`>>fs[word_op_def,FOLDR_APPEND]>>
+  unabbrev_all_tac>>Induct_on`l`>>fs[])
 
 val pull_ops_ok = prove(``
   op ≠ Sub ⇒
@@ -103,6 +128,70 @@ val pull_ops_ok = prove(``
   `b ≠ Sub` by rw[]>>
   imp_res_tac word_exp_op_op>>
   pop_assum (qspec_then`l` assume_tac)>>fs[])
+
+val word_exp_swap_head = prove(``
+  ∀B.
+  op ≠ Sub ⇒
+  word_exp s (Op op A) = SOME w ⇒
+  word_exp s (Op op (B++A)) = word_exp s (Op op (Const w::B))``,
+  fs[word_exp_def,LET_THM,word_op_def]>>rw[]>>
+  Cases_on`op`>>fs[FOLDR_APPEND]>>
+  Induct_on`B`>>fs[])
+
+val EVERY_is_const_word_exp = prove(``
+  ∀ls. EVERY is_const ls ⇒
+  EVERY IS_SOME (MAP (λa. word_exp s a) ls)``,
+  Induct>>rw[]>>Cases_on`h`>>fs[is_const_def,word_exp_def])
+
+val all_consts_simp = prove(``
+  op ≠ Sub ⇒
+  ∀ls.
+  EVERY is_const ls ⇒
+  word_exp s (Op op ls) =
+  SOME( THE (word_op op (MAP rm_const ls)))``,
+  strip_tac>>Induct>>fs[word_exp_def,LET_THM]
+  >-
+    (fs[word_op_def,word_instTheory.word_op_def]>>
+    Cases_on`op`>>fs[])
+  >>
+  ntac 2 strip_tac>>
+  Cases_on`h`>>fs[is_const_def,word_exp_def]>>
+  fs[EVERY_is_const_word_exp]>>
+  Cases_on`op`>>fs[word_op_def,rm_const_def,word_instTheory.word_op_def])
+
+val optimize_consts_ok = prove(``
+  op ≠ Sub ⇒
+  ∀ls. word_exp s (optimize_consts op ls) =
+       word_exp s (Op op ls)``,
+  strip_tac>>rw[optimize_consts_def]>>
+  Cases_on`const_ls`>>fs[]
+  >-
+    (imp_res_tac word_exp_op_permute_lem>>pop_assum match_mp_tac>>
+    metis_tac[PERM_PARTITION,APPEND_NIL,PERM_SYM])
+  >>
+    LET_ELIM_TAC>>
+    `EVERY is_const (h::t)` by 
+      (fs[PARTITION_DEF]>>
+      imp_res_tac (GSYM PARTs_HAVE_PROP)>>fs[EVERY_MEM])>>
+    imp_res_tac all_consts_simp>>
+    `PERM ls ((h::t)++nconst_ls)` by metis_tac[PERM_PARTITION]>>
+    imp_res_tac word_exp_op_permute_lem>>
+    pop_assum(qspec_then`s` SUBST_ALL_TAC)>>
+    Cases_on`nconst_ls`>>fs[]
+    >-
+      fs[word_exp_def,LET_THM]
+    >>
+    imp_res_tac word_exp_swap_head>>
+    pop_assum(qspecl_then [`w`,`s`,`h::t`] assume_tac)>>
+    rfs[]>>
+    pop_assum(qspec_then`h'::t'` assume_tac)>>
+    pop_assum sym_sub_tac>>
+    pop_assum kall_tac>>imp_res_tac word_exp_op_permute_lem>>
+    pop_assum match_mp_tac>>
+    qpat_abbrev_tac`A = h'::t'`>>
+    qpat_abbrev_tac`B = h::t`>>
+    `h:: (t ++A) = B ++A` by fs[]>>pop_assum SUBST_ALL_TAC>>
+    metis_tac[PERM_APPEND])
 
 val pull_exp_ok = prove(``
   ∀exp s.
@@ -121,9 +210,15 @@ val pull_exp_ok = prove(``
   TRY(fs[pull_exp_def,word_exp_def,LET_THM,word_op_def]>>IF_CASES_TAC>>fs[]>>
   first_x_assum(qspec_then `s` assume_tac)>>rfs[]>>
   pop_assum sym_sub_tac>>fs[IS_SOME_EXISTS]>>NO_TAC)>>
-  (*pull_ops_done..*)
-  (*TODO: rm_const, PARTITION..*)
-  cheat)
+  assume_tac binop_distinct>>
+  fs[optimize_consts_ok,pull_ops_ok]>>
+  qpat_abbrev_tac`ls = A::B::C`>>
+  `MAP (λa. word_exp s a) ls = MAP (λa. word_exp s a) (MAP pull_exp ls)` by
+    (match_mp_tac LIST_EQ>>unabbrev_all_tac>>rw[]>>
+    Cases_on`x`>>fs[]>>
+    Cases_on`n`>>fs[]>>
+    fs[EL_MAP,EL_MEM])>>
+  unabbrev_all_tac>>fs[word_exp_def,ETA_AX])
 
 val convert_sub_every_var_exp = prove(``
   ∀ls.
@@ -556,7 +651,7 @@ val inst_select_thm = prove(``
       >>
         fs[state_component_equality])
 
-(*No expressions occur except in Store*)
+(*No expressions occur except in Set, where it must be a Var expr*)
 val flat_exp_conventions_def = Define`
   (*These should be converted to Insts*)
   (flat_exp_conventions (Assign v exp) = F) ∧
@@ -749,6 +844,9 @@ val ssa_cc_trans_flat_exp_conventions_lem = prove(``
     LET_ELIM_TAC>>fs[flat_exp_conventions_def,EQ_SYM_EQ])
   >-
     (Cases_on`exp`>>fs[ssa_cc_trans_exp_def,flat_exp_conventions_def])
+  >-
+    (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>fs[flat_exp_conventions_def,EQ_SYM_EQ])
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>fs[flat_exp_conventions_def]
     >-

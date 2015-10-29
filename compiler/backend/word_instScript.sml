@@ -60,6 +60,17 @@ val op_consts_def = Define`
   (op_consts And = Const (~0w)) ∧
   (op_consts _ = Const 0w)`
 
+val optimize_consts_def = Define`
+  optimize_consts op ls =
+  let (const_ls,nconst_ls) = PARTITION is_const ls in
+    case const_ls of
+      [] => Op op nconst_ls
+    | _ =>
+      let w = THE (word_op op (MAP rm_const const_ls)) in
+      case nconst_ls of
+        [] => Const w
+      | _ => Op op (Const w::nconst_ls)`
+
 val pull_exp_def = tDefine "pull_exp"`
   (pull_exp (Op Sub ls) =
     let new_ls = MAP pull_exp ls in
@@ -71,15 +82,7 @@ val pull_exp_def = tDefine "pull_exp"`
     let new_ls = MAP pull_exp ls in
     (*Then pull at the topmost*)
     let pull_ls = pull_ops op new_ls [] in
-    (*Now optimize*)
-    let (const_ls,nconst_ls) = PARTITION is_const pull_ls in
-    case const_ls of
-      [] => Op op nconst_ls
-    | _ =>
-      let w = THE (word_op op (MAP rm_const const_ls)) in
-      case nconst_ls of
-        [] => Const w
-      | _ => Op op (Const w::nconst_ls)) ∧
+      optimize_consts op pull_ls) ∧
   (pull_exp (Load exp) = Load (pull_exp exp)) ∧
   (pull_exp (Shift shift exp nexp) = Shift shift (pull_exp exp) nexp) ∧
   (pull_exp exp = exp)`
