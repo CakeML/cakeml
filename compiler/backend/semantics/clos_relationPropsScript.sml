@@ -414,7 +414,20 @@ val fn_add_arg_lem = Q.prove (
    `num_args − LENGTH args' ≤ 1 + i'''` by decide_tac >>
    simp [evaluate_app_rw, dest_closure_def, check_loc_def] >>
    rw [res_rel_rw] >>
-   TRY decide_tac >>
+   TRY decide_tac
+   >- ( (* Timeout *)
+     cheat)
+   >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
+   simp [GSYM REVERSE_APPEND] >>
+   `TAKE (num_args − LENGTH args') (REVERSE vs) ++ TAKE num_args' (DROP (num_args − LENGTH args') (REVERSE vs))
+    =
+    TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)` by cheat >>
+   simp [dec_clock_def] >>
+   every_case_tac >>
+   simp [res_rel_rw] >>
+   imp_res_tac evaluate_SING >>
+   fs [] >>
+   (* rest should follow from reflexivity *)
    cheat)
  >- ( (* Partial application on right, full application on left *)
    Cases_on `¬(LENGTH vs' ≤ LENGTH vs' − (num_args − LENGTH args') + (1 + i'''))` >>
@@ -452,7 +465,32 @@ val fn_add_arg_lem = Q.prove (
        >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
        >- (
          simp_tac (srw_ss()) [dec_clock_def] >>
-         cheat)
+         `i''' − (num_args − LENGTH args' − 1) − (LENGTH vs' − (num_args − LENGTH args')) =
+          i''' + 1 - LENGTH vs'` by intLib.ARITH_TAC >>
+         simp [] >>
+         qspecl_then [`i''' + 1 − LENGTH vs`, `i''`, `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs)) ++ args`, 
+                      `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args'`, 
+                      `env`, `env'`, 
+                      `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs))`, 
+                      `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs'))`,
+                      `num_args'`, `e`] mp_tac
+           fn_partial_arg >>
+         `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs')) ++ 
+          REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) = vs'`
+           by rw [GSYM REVERSE_APPEND] >>
+         rw [] >>
+         pop_assum (qspecl_then [] mp_tac) >>
+         `num_args' + (num_args − LENGTH args' + LENGTH args') = num_args + num_args'` by intLib.ARITH_TAC >>
+         rw []  >>
+         pop_assum match_mp_tac >>
+         `i''' + 1 ≤ LENGTH vs' + i'' ∧ i'' ≤ i` by intLib.ARITH_TAC >>
+         rw [] >>
+         TRY (match_mp_tac EVERY2_APPEND_suff) >>
+         rw [LIST_REL_REVERSE_EQ] >>
+         TRY (match_mp_tac EVERY2_TAKE) >>
+         TRY (match_mp_tac EVERY2_DROP) >>
+         rw [LIST_REL_REVERSE_EQ] >>
+         metis_tac [val_rel_mono_list])
        >- (
          `i''' − (num_args − LENGTH args' − 1) − (LENGTH vs' − (num_args − LENGTH args')) ≤ i''` 
            by intLib.ARITH_TAC >>
@@ -488,88 +526,6 @@ val fn_add_arg = Q.store_thm ("fn_add_arg",
  reverse (rw [res_rel_rw])
  >- metis_tac [val_rel_mono] >>
  metis_tac [fn_add_arg_lem, LIST_REL_NIL]);
-
- (*
- Cases_on `clos_env s.restrict_envs vars env` >>
- fs [res_rel_rw] >>
- `s'.restrict_envs = s.restrict_envs` by fs [Once state_rel_rw] >>
- imp_res_tac val_rel_clos_env >>
- imp_res_tac val_rel_mono >>
- rw [val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def, clo_to_loc_def,
-     clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
- simp [] >>
- imp_res_tac LIST_REL_LENGTH >>
- `args ≠ [] ∧ args' ≠ []` by (Cases_on `args` >> Cases_on `args'` >> fs []) >>
- rw [exec_rel_rw, evaluate_app_rw, dest_closure_def, res_rel_rw] >>
- rw [res_rel_rw] >>
- Cases_on `loc` >>
- fs [check_loc_def] >>
- rw [res_rel_rw] >>
- fs []
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
- simp [evaluate_def, rev_take_rev_all] >>
- CASE_TAC >>
- rw [res_rel_rw] >>
- simp [rev_drop_rev_all] >>
- simp [evaluate_def , res_rel_rw, dec_clock_def] >>
- `i''' - LENGTH args' ≤ i''` by decide_tac >>
- imp_res_tac val_rel_mono >>
- simp [] >>
- rw [val_rel_rw, is_closure_def, exec_rel_rw, check_closures_def, clo_can_apply_def,
-     clo_to_loc_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
- `args'' ≠ [] ∧ args''' ≠ []` by (Cases_on `args''` >> Cases_on `args'''` >> fs []) >>
- simp [evaluate_app_rw, dest_closure_def] >>
- Cases_on `loc` >>
- fs [check_loc_def] >>
- rw [res_rel_rw] >>
- fs [] >>
- imp_res_tac LIST_REL_LENGTH >>
- Cases_on `i''''' < LENGTH args''` >>
- simp [res_rel_rw]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- (fs [dec_clock_def] >>
-     `i'' ≤ i` by decide_tac >>
-     `LIST_REL (val_rel i'') (args ++ x) (args' ++ vs2')`
-                by metis_tac [EVERY2_APPEND, val_rel_mono_list, LIST_REL_LENGTH] >>
-     `?vs2''.
-       clos_env s''.restrict_envs vars2 (args' ++ vs2') = SOME vs2'' ∧
-       LIST_REL (val_rel i'') x' vs2''`
-                  by metis_tac [val_rel_clos_env] >>
-     simp [rev_take_rev_all, rev_drop_rev_all, dec_clock_def] >>
-     qabbrev_tac `l = LENGTH args'''` >>
-     `LENGTH args'' = l` by metis_tac [] >>
-     `exp_rel [e] [e]` by metis_tac [exp_rel_refl] >>
-     fs [exp_rel_def] >>
-     pop_assum (qspecl_then [`i''''' - l`,
-                             `args''++x'`,
-                             `args''' ++ args' ++ vs2'`,
-                             `s''''`,
-                             `s'''''`] mp_tac) >>
-     `i''''' - l ≤ i''''` by decide_tac >>
-     imp_res_tac val_rel_mono >>
-     simp [] >>
-     rfs [] >>
-     `i'''''-l ≤ i'' ∧ i''''' -l ≤ i''''` by decide_tac >>
-     `LIST_REL (val_rel (i''''' − l)) (args'' ++ x') (args''' ++ args' ++ vs2')`
-             by (`vs2'' = args'++vs2'` by cheat >>
-                 metis_tac [APPEND_ASSOC, EVERY2_APPEND, val_rel_mono_list]) >>
-     simp [exec_rel_rw] >>
-     DISCH_TAC >>
-     pop_assum (qspec_then `i'''''-l` mp_tac) >>
-     simp [] >>
-     reverse (strip_assume_tac (Q.ISPEC `evaluate ([e],args'' ++ x',s'''' with clock := i''''' − l)`
-                         result_store_cases)) >>
-     simp [res_rel_rw] >>
-     DISCH_TAC >>
-     fs []
-     >- metis_tac [] >>
-     imp_res_tac evaluate_SING >>
-     fs [] >>
-     rw [evaluate_def, res_rel_rw])
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
- >- metis_tac [val_rel_mono, ZERO_LESS_EQ] *)
 
  (*
 val fn_add_loc = Q.store_thm ("fn_add_loc",
