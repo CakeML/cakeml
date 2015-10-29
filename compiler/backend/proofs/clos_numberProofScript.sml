@@ -731,10 +731,12 @@ val renumber_code_locs_correct = Q.store_thm("renumber_code_locs_correct",
     fs[contains_App_SOME_def] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`q`STRIP_ASSUME_TAC o MATCH_MP th)) >> rfs[] >>
+    qmatch_assum_rename_tac`evaluate (args,env,s) = (v2,_)` >>
     Cases_on `v2` \\ fs [] >> rw[] >> fs[] >>
     first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     disch_then(fn th => first_x_assum(qspec_then`n`STRIP_ASSUME_TAC o MATCH_MP th)) >> rfs[] >>
+    qmatch_assum_rename_tac`evaluate (_,env,_) = (v2',_)` >>
     Cases_on `v2'` \\ fs [] >> rw[] >> fs[] >>
     first_x_assum match_mp_tac >>
     rw [] >>
