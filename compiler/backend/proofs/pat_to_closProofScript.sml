@@ -136,7 +136,6 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL])
 
-(*
 val compile_correct = Q.store_thm("compile_correct",
   `(∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state s) =
@@ -219,102 +218,44 @@ val compile_correct = Q.store_thm("compile_correct",
         Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,LET_THM] >>
         simp[state_component_equality,EL_MAP]) >>
       simp[evaluate_def] >> fs[do_opapp_def] >>
-
       Cases_on`c`>>fs[dest_closure_def,check_loc_def,max_app_def,EL_MAP,LET_THM,ETA_AX] >>simp[] >>
       rpt var_eq_tac >> fs[build_rec_env_pat_def] >>
       (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      fs[MAP_GENLIST,o_DEF,ETA_AX] >>
+      fsrw_tac[boolSimps.ETA_ss][] >>
       BasicProvers.CASE_TAC >> fs[] >>
-      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] >>
       simp[evaluate_def] >> rw[] >>
-      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
-      every_case_tac >> fs[] >> rw[] >>
-      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq,PULL_EXISTS] >>
-      rw[] >> fs[] >> rw[] >> fs[]
-      rfs[]
-
-        fs[do_opapp_def] >>
-        rw[evaluate_def] >>
-        Cases_on`c`>>fs[compile_v_def,dest_closure_def] >> rw[] >- (
-          Cases_on`l`>>fs[] ) >>
-        simp[]
-
-      Cases_on`do_opapp (REVERSE a)`>>fs[] >- (
-        fs[do_opapp_pat_def] >>
-        every_case_tac >> fs[LENGTH_eq,evaluate_def,do_app_def,MAP_REVERSE,ETA_AX] >>
-        rpt var_eq_tac >> every_case_tac >> fs[] >> rw[] >> fs[]
-
-        rw[]>>fs[evaluate_def,do_app_def,ETA_AX,MAP_REVERSE,LENGTH_eq] >>
-        every_case_tac >> fs[LENGTH_NIL_SYM] >>
-
-        metis_tac[evaluate_length,LENGTH_MAP,LENGTH_REVERSE,LENGTH,TWO,ONE,ADD_0] ) >>
-
-        imp_res_tac evaluate_length >> fs[]
-      imp_res_tac evaluate_length >>
-      every_case_tac >> fs[evaluate_def,do_app_def,ETA_AX,MAP_REVERSE] >>
-      every_case_tac >> fs[LENGTH_NIL,LENGTH_NIL_SYM]
-      Cases_on`a`>>
-      fs[do_opapp_pat_def,LENGTH_NIL_SYM,evaluate_def,do_app_def] >>
-      Cases_on`es`>>fs[]>>
-      Cases_on`t`>>fs[LENGTH_NIL_SYM,evaluate_def,do_app_def]>- (
-        every_case_tac >> fs[] ) >>
-      Cases_on`t'`>>fs[LENGTH_NIL] >>
-      Cases_on`t`>>fs[LENGTH_NIL,evaluate_def,do_app_def] >- (
-
-
-
-      every_case_tac >> fs[] >>
-      imp_res_tac closPropsTheory.evaluate_IMP_LENGTH >> fs[]
-    simp[evaluate_def,MAP_REVERSE,ETA_AX] >>
-    rw[evaluate_def] >>
-    imp_res_tac evaluate_list_length >>
-    Cases_on`REVERSE vs`>>fs[do_opapp_pat_def] >>
-    Cases_on`t`>>fs[do_opapp_pat_def] >>
-    Cases_on`t'`>>fs[do_opapp_pat_def] >>
-    fs[SWAP_REVERSE_SYM] >>
-    Cases_on`es`>>fs[]>>
-    Cases_on`t`>>fs[LENGTH_NIL]>>
-    fs[evaluate_def] >>
-    BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    imp_res_tac evaluate_IMP_LENGTH >>
-    Cases_on`a`>>fs[LENGTH_NIL] >> rw[] >>
-    rw[evaluate_def,dest_closure_def] >>
-    Cases_on`h`>>fs[check_loc_def,compile_csg_def,ETA_AX,dec_clock_def,max_app_def] >>
-    rw[] >> fs[] >> rfs[EL_MAP] >> fs[build_rec_env_pat_def] >>
-    fsrw_tac[ARITH_ss][] >>
-    fs[MAP_GENLIST,combinTheory.o_DEF,ETA_AX] >>
-    fsrw_tac[ETA_ss][] >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    BasicProvers.CASE_TAC >>
-    rw[evaluate_def] ) >>
-  strip_tac >- (
-    simp[evaluate_def,MAP_REVERSE,ETA_AX] >>
-    rw[evaluate_def] >>
-    imp_res_tac evaluate_list_length >>
-    Cases_on`REVERSE vs`>>fs[do_opapp_pat_def] >>
-    Cases_on`t`>>fs[do_opapp_pat_def] >>
-    Cases_on`t'`>>fs[do_opapp_pat_def] >>
-    fs[SWAP_REVERSE_SYM] >>
-    Cases_on`es`>>fs[]>>
-    Cases_on`t`>>fs[LENGTH_NIL]>>
-    fs[evaluate_def] >>
-    BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[]>>
-    imp_res_tac evaluate_IMP_LENGTH >>
-    Cases_on`a`>>fs[LENGTH_NIL] >> rw[] >>
-    rw[evaluate_def,dest_closure_def] >>
-    Cases_on`h`>>fs[check_loc_def,compile_csg_def,ETA_AX,dec_clock_def,max_app_def] >>
-    rw[] >> rw[] >>
-    fsrw_tac[ARITH_ss][] >>
-    rfs[EL_MAP]) >>
-  strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    PairCases_on`s2` >>
-    imp_res_tac patPropsTheory.do_app_cases >>
+      imp_res_tac evaluate_IMP_LENGTH >> fs[LENGTH_eq] ) >>
+    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    reverse BasicProvers.CASE_TAC >> fs[] >> rfs[] >- (
+      reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
+        rw[] >> fs[LENGTH_eq,evaluate_def,do_app_def] >>
+        rw[] >> fs[] ) >>
+      qmatch_assum_rename_tac`op ≠ Op Opapp` >>
+      reverse(Cases_on`op`)>>fs[evaluate_def,ETA_AX] >>
+      qmatch_assum_rename_tac`op ≠ Opapp` >>
+      Cases_on`op`>>fs[evaluate_def,ETA_AX,MAP_REVERSE] >>
+      TRY ( qmatch_goalsub_rename_tac`Opn op` >> Cases_on`op`) >>
+      TRY ( qmatch_goalsub_rename_tac`Opb op` >> Cases_on`op`) >>
+      TRY ( qmatch_goalsub_rename_tac`Chopb op` >> Cases_on`op`) >>
+      fs[evaluate_def,ETA_AX,MAP_REVERSE] >- (
+        rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
+        rw[] >> fs[] >> pop_assum mp_tac >>
+        simp[Once evaluate_CONS] >>
+        every_case_tac >> fs[do_app_def] )
+      >- (
+        rw[Once evaluate_CONS,evaluate_def] >>
+        rw[do_app_def] )
+      >- (
+        rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
+        rw[] >> fs[] )) >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    imp_res_tac patSemTheory.do_app_cases >>
     fs[do_app_pat_def] >> rw[]
     >- ( (* Opn *)
-      Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE,SWAP_REVERSE_SYM] >>
+      Cases_on`z`>>fs[evaluate_def,ETA_AX,do_app_def,MAP_REVERSE,SWAP_REVERSE_SYM,PULL_EXISTS] >>
       rw[opn_lookup_def,closSemTheory.do_eq_def] >>
       TRY IF_CASES_TAC >> fs[] >> fsrw_tac[ARITH_ss][] >>
       BasicProvers.EVERY_CASE_TAC >> fs[conLangTheory.false_tag_def,conLangTheory.true_tag_def] >>
@@ -332,69 +273,70 @@ val compile_correct = Q.store_thm("compile_correct",
       fsrw_tac[ARITH_ss][prim_exn_def] >>
       EVAL_TAC)
     >- ( (* wrong args for Update *)
-      imp_res_tac evaluate_list_length >>
-      Cases_on`vs`>>fs[]>>rw[]>>fs[])
+      imp_res_tac evaluate_length >>
+      fs[LENGTH_eq,Once SWAP_REVERSE_SYM] >>
+      rw[] >> fs[LENGTH_eq] >> fs[])
     >- ( (* Update *)
-      Cases_on`es`>>fs[]>>Cases_on`t`>>fs[LENGTH_NIL] >>
+      fs[LENGTH_eq] >>
       simp[evaluate_def,ETA_AX,do_app_def] >> rw[] >>
-      Cases_on`vs`>>fs[]>>rw[]>>
+      Cases_on`a`>>fs[]>>rw[]>>
       fs[store_assign_def,Once compile_csg_def] >> simp[] >>
       pop_assum mp_tac >> IF_CASES_TAC >> simp[] >> rw[] >>
       fs[evaluate_def] >>
       BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
       BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
       BasicProvers.CASE_TAC >- (
+        fs[compile_state_def] >>
         imp_res_tac ALOOKUP_FAILS >> fs[MEM_GENLIST] ) >>
+      pop_assum mp_tac >> simp[Once compile_state_def] >> strip_tac >>
       imp_res_tac ALOOKUP_MEM >> fs[MEM_GENLIST] >>
+      rpt var_eq_tac >> qmatch_assum_abbrev_tac`lnum < LENGTH s21` >>
       Cases_on`EL lnum s21`>> fs[store_v_same_type_def,compile_sv_def] >>
-      rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      simp[compile_state_def,Unit_def] >>
+      simp[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST,EL_LUPDATE] >>
-      rw[] >> fs[compile_sv_def] >- EVAL_TAC >>
-      simp[LIST_EQ_REWRITE] >>
-      REWRITE_TAC[GSYM EL] >>
-      simp[EL_LUPDATE] )
+      rw[] >> fs[compile_sv_def] >> EVAL_TAC )
     >- ( (* Deref *)
       simp[ETA_AX,evaluate_def,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_lookup_def] >>
-      imp_res_tac evaluate_list_length >>
+      imp_res_tac evaluate_length >>
       Cases_on`es`>>fs[LENGTH_NIL] >>
       simp[Once evaluate_CONS,evaluate_def,do_app_def] >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
       rw[]>>fs[] >>
-      Cases_on`EL n s21`>>fs[compile_sv_def] >>
-      rw[compile_csg_def] )
+      ntac 2 (pop_assum mp_tac )>> BasicProvers.CASE_TAC >>
+      fs[compile_sv_def] >> rw[] )
     >- ( (* Ref *)
       simp[ETA_AX,evaluate_def,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       fs[store_alloc_def,LET_THM] >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      simp[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      simp[compile_state_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
       conj_asm1_tac >- (
         numLib.LEAST_ELIM_TAC >>
         simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
-        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
-        `¬(LENGTH s21 < n)` by metis_tac[] >>
+        qpat_abbrev_tac`ll = LENGTH _` >>
+        qexists_tac`ll`>>simp[]>>rw[]>>
+        `¬(ll< ll)` by simp[] >>
+        `¬(ll < n)` by metis_tac[] >>
         DECIDE_TAC ) >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_APPEND2,compile_sv_def] )
     >- ( (* SetGlobal *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
-      simp[compile_csg_def,get_global_def,EL_MAP] >>
-      Cases_on`EL idx s23`>>fs[] >>
-      rpt BasicProvers.VAR_EQ_TAC >>
-      simp[compile_csg_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def] )
+      simp[compile_state_def,get_global_def,EL_MAP] >>
+      pop_assum mp_tac >> BasicProvers.CASE_TAC >>fs[] >>
+      strip_tac >> rpt BasicProvers.VAR_EQ_TAC >>
+      simp[LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def] )
     >- ( (* TagLenEq *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] )
     >- ( (* wrong args for El *)
-      imp_res_tac evaluate_list_length >>
-      Cases_on`es`>>fs[] )
+      imp_res_tac evaluate_length >> fs[])
     >- ( (* El *)
-      Cases_on`es`>>fs[LENGTH_NIL] >> rw[] >>
+      fs[LENGTH_eq] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[EL_MAP] )
     >- ( (* RefByte *)
@@ -406,13 +348,14 @@ val compile_correct = Q.store_thm("compile_correct",
       Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
       simp[wordsTheory.dimword_8] >> strip_tac >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[compile_csg_def,true_neq_false] >>
+      simp[compile_state_def,true_neq_false] >>
       conj_asm1_tac >- (
         numLib.LEAST_ELIM_TAC >>
         simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
-        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
-        `¬(LENGTH s21 < n')` by metis_tac[] >>
+        qpat_abbrev_tac`ll = LENGTH _` >>
+        qexists_tac`ll`>>simp[]>>rw[]>>
+        `¬(ll< ll)` by simp[] >>
+        `¬(ll < n')` by metis_tac[] >>
         DECIDE_TAC ) >>
       simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
@@ -421,37 +364,38 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >> simp[] >>
       fs[store_lookup_def,LET_THM] >>
-      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      ntac 2 (pop_assum mp_tac) >>
+      IF_CASES_TAC >> fs[] >> strip_tac >>
       Cases_on`i < 0` >> fs[] >- (
-        Cases_on`EL lnum s21`>>fs[]>>
+        every_case_tac >> fs[] >>
         srw_tac[ARITH_ss][prim_exn_def] ) >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`EL lnum s21`>>fs[compile_sv_def]>>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      ntac 2 (pop_assum mp_tac) >>
+      BasicProvers.CASE_TAC >> fs[] >> strip_tac >> strip_tac >>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        srw_tac[ARITH_ss][compile_csg_def,prim_exn_def] ) >>
-      simp[ALOOKUP_GENLIST,compile_sv_def] >>
-      rw[compile_csg_def] >> fs[true_neq_false])
+        srw_tac[ARITH_ss][prim_exn_def] ) >>
+      simp[ALOOKUP_GENLIST,compile_sv_def] >> rw[] )
     >- ( (* LengthByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`n < LENGTH s21`>>fs[]>>
-      Cases_on`EL n s21`>>fs[compile_sv_def] >>
-      rw[compile_csg_def] )
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[]
+      BasicProvers.CASE_TAC >> fs[compile_sv_def] >> rw[] )
     >- ( (* UpdateByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[] >>
       fs[store_lookup_def,LET_THM] >>
-      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      ntac 2 (pop_assum mp_tac) >>
+      BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
-        Cases_on`EL lnum s21`>>fs[]>>
+        BasicProvers.CASE_TAC >> fs[] >>
         arw[prim_exn_def] ) >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`EL lnum s21`>>fs[compile_sv_def]>>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      BasicProvers.CASE_TAC >>fs[compile_sv_def]>>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
@@ -461,11 +405,11 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[store_assign_def,store_v_same_type_def] >>
       Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
       simp[wordsTheory.dimword_8] >> strip_tac >>
-      rw[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,dec_to_exhTheory.tuple_tag_def,true_neq_false])
     >- ( (* wrong args for Ord *)
-      imp_res_tac evaluate_list_length >> fs[] )
+      imp_res_tac evaluate_length >> fs[] )
     >- ( Cases_on`es`>>fs[LENGTH_NIL] )
     >- ( (* Chr *)
       fs[MAP_REVERSE] >>
@@ -523,13 +467,14 @@ val compile_correct = Q.store_thm("compile_correct",
       Cases_on`n<0`>>fs[prim_exn_def] >- arw[] >>
       `0 ≤ n` by COOPER_TAC >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
-      simp[compile_csg_def,true_neq_false] >>
+      simp[compile_state_def,true_neq_false] >>
       conj_asm1_tac >- (
         numLib.LEAST_ELIM_TAC >>
         simp[MEM_MAP,MAP_GENLIST,PULL_EXISTS,MEM_GENLIST] >>
-        qexists_tac`LENGTH s21`>>simp[]>>rw[]>>
-        `¬(LENGTH s21 < LENGTH s21)` by simp[] >>
-        `¬(LENGTH s21 < n')` by metis_tac[] >>
+        qpat_abbrev_tac`ll = LENGTH _` >>
+        qexists_tac`ll`>>simp[]>>rw[]>>
+        `¬(ll< ll)` by simp[] >>
+        `¬(ll < n')` by metis_tac[] >>
         DECIDE_TAC ) >>
       simp[fmap_eq_flookup,FLOOKUP_UPDATE,ALOOKUP_GENLIST] >>
       rw[] >> simp[EL_APPEND1,EL_LENGTH_APPEND,compile_sv_def] >>
@@ -539,134 +484,91 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def,LET_THM] >>
-      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      ntac 2 (pop_assum mp_tac) >> BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
-        Cases_on`EL lnum s21`>>fs[]>>
+        BasicProvers.CASE_TAC >> fs[] >>
         arw[prim_exn_def] ) >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`EL lnum s21`>>fs[compile_sv_def]>>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[compile_csg_def,prim_exn_def] ) >>
-      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] >>
-      rw[compile_csg_def,true_neq_false] )
+        arw[prim_exn_def] ) >>
+      rpt strip_tac >> rpt var_eq_tac >>
+      simp[ALOOKUP_GENLIST,compile_sv_def,EL_MAP] )
     >- ( (* Length *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def] >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`n < LENGTH s21`>>fs[]>>
-      Cases_on`EL n s21`>>fs[compile_sv_def] >>
-      rw[compile_csg_def] )
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.CASE_TAC>>fs[compile_sv_def] >> rw[] )
     >- ( (* Update *)
       fs[MAP_REVERSE,SWAP_REVERSE_SYM] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[store_lookup_def,LET_THM] >>
-      Cases_on`lnum < LENGTH s21`>>fs[] >>
+      rpt var_eq_tac >>
+      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
       Cases_on`i < 0` >> fs[] >- (
-        Cases_on`EL lnum s21`>>fs[]>>
+        BasicProvers.CASE_TAC>>fs[]>>
         arw[prim_exn_def] ) >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
-      Cases_on`EL lnum s21`>>fs[compile_sv_def]>>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
+      BasicProvers.CASE_TAC>>fs[compile_sv_def]>>
       `0 ≤ i` by COOPER_TAC >>
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[compile_csg_def,prim_exn_def] ) >>
+        arw[prim_exn_def] ) >>
       simp[ALOOKUP_GENLIST,compile_sv_def] >>
       fs[store_assign_def,store_v_same_type_def] >>
-      rw[compile_csg_def,fmap_eq_flookup,FLOOKUP_UPDATE] >>
+      rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,LUPDATE_MAP,dec_to_exhTheory.tuple_tag_def,true_neq_false])
     >- ( (* FFI *)
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def] >>
-      simp[compile_csg_def,ALOOKUP_GENLIST] >>
+      simp[compile_state_def,ALOOKUP_GENLIST] >>
       fs[store_lookup_def] >>
       IF_CASES_TAC >> fs[] >>
-      Cases_on`EL lnum s21`>>fs[] >>
-      Cases_on`call_FFI s22 n l`>>fs[] >>
+      ntac 2 (pop_assum mp_tac) >>
+      BasicProvers.CASE_TAC >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[] >>
       fs[store_assign_def] >> rfs[] >>
       fs[store_v_same_type_def] >>
+      BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[Unit_def,compile_csg_def] >>
       simp[fmap_eq_flookup,ALOOKUP_GENLIST,FLOOKUP_UPDATE,EL_LUPDATE] >>
       rw[] >> fs[])) >>
   strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    fs[MAP_REVERSE] >>
-    Cases_on`op`>>simp[evaluate_def,ETA_AX] >>
-    TRY (
-      CHANGED_TAC(rw[]) >- (
-        simp[evaluate_def] ) >>
-      Cases_on`es`>>fs[LENGTH_NIL] >>
-      simp[evaluate_def,do_app_def] >> NO_TAC) >>
-    Cases_on`o'`>>simp[evaluate_def,ETA_AX] >>
-    Cases_on`o''`>>simp[evaluate_def,ETA_AX] >>
-    rw[evaluate_def] >>
-    TRY(Cases_on`o'`>>simp[evaluate_def,ETA_AX] >>
-        Cases_on`err`>>fs[] >> NO_TAC) >>
-    TRY(
-      simp[Once evaluate_CONS] >>
-      simp[evaluate_def,do_app_def] >>
-      Cases_on`err`>>fs[] >> NO_TAC) >>
-    Cases_on`es`>>fs[LENGTH_NIL] >>
-    Cases_on`t`>>fs[LENGTH_NIL] >>
-    TRY(CHANGED_TAC(fs[Once evaluate_CONS]) >>
-        BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>rw[]>>
-        Cases_on`err`>>fs[]>>
-        BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>
-        NO_TAC) >>
-    fs[evaluate_def] >>
-    BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>rw[]>>
-    simp[do_app_def] >>
-    BasicProvers.CASE_TAC>>fs[]>>Cases_on`q`>>fs[evaluate_def]>>rw[]) >>
+    simp[evaluate_def,evaluate_pat_def,patSemTheory.do_if_def] >> rw[] >>
+    every_case_tac >> fs[] >>
+    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] ) >>
   strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    Cases_on`v`>>fs[]>>rw[]>>fs[patSemTheory.do_if_def]>>
-    fsrw_tac[ARITH_ss][patSemTheory.Boolv_def] >>
-    BasicProvers.EVERY_CASE_TAC >> fs[] >> rw[] >>
-    fs[closSemTheory.Boolv_def,true_neq_false]) >>
-  strip_tac >- simp[evaluate_def] >>
+    simp[evaluate_def,evaluate_pat_def] >> rw[] >>
+    every_case_tac >> fs[] >>
+    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] ) >>
   strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    Cases_on`err`>>fs[] ) >>
+    simp[evaluate_def,evaluate_pat_def] >> rw[] >>
+    every_case_tac >> fs[] >>
+    qmatch_assum_abbrev_tac`SND x = _` >>
+    Cases_on`x`>>fs[markerTheory.Abbrev_def] >> rw[] >>
+    pop_assum(assume_tac o SYM) >>
+    imp_res_tac evaluate_length >> fs[LENGTH_eq] >> rw[] >> fs[] >>
+    fsrw_tac[ARITH_ss][]) >>
   strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    simp[] ) >>
-  strip_tac >- (
-    simp[evaluate_def] >> rw[] >> fs[] >>
-    rw[] >>
-    Cases_on`res`>>fs[]>>
-    Cases_on`r`>>fs[]>>simp[]>>
-    Cases_on`e''`>>simp[]) >>
-  strip_tac >- (
-    simp[evaluate_def] >>
-    Cases_on`err`>>simp[] ) >>
-  strip_tac >- (
-    simp[evaluate_def] >>
+    simp[evaluate_def,evaluate_pat_def] >>
     rw[] >> fs[EXISTS_MAP,max_app_def] >>
     fs[build_rec_env_pat_def,build_recc_def,MAP_GENLIST,
        combinTheory.o_DEF,ETA_AX,MAP_MAP_o,clos_env_def] >>
     fsrw_tac[ETA_ss][] ) >>
   strip_tac >- (
-    simp[evaluate_def] >>
+    simp[evaluate_def,evaluate_pat_def] >>
     simp[evaluate_REPLICATE_Op_AllocGlobal,do_app_def,dec_to_exhTheory.tuple_tag_def] >>
     rpt gen_tac >>
-    PairCases_on`s`>>simp[compile_csg_def,MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ) >>
-  strip_tac >- simp[evaluate_def] >>
-  strip_tac >- (
-    simp[evaluate_def] >> rw[] >>
-    simp[Once evaluate_CONS] >> fs[] ) >>
-  strip_tac >- (
-    simp[evaluate_def] >> rw[] >> fs[] >>
-    simp[Once evaluate_CONS] >>
-    Cases_on`err`>>fs[]) >>
-  simp[evaluate_def] >> rw[] >>
-  simp[Once evaluate_CONS] );
-*)
+    simp[compile_state_def] >>
+    simp[MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ));
 
 (* more correctness properties *)
 
