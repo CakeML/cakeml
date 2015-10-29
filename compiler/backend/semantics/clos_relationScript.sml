@@ -878,84 +878,78 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          simp [] >>
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
          simp [res_rel_rw]))
- >- cheat
- >- cheat
- (*
  >- ((* Partial, Full *)
-     `loc = NONE` by metis_tac [dest_closure_none_loc] >>
-     imp_res_tac dest_closure_full_length >>
-     fs [val_rel_cl_rw] >>
-     qcase_tac `dest_closure NONE v vs = SOME (Partial_app b)` >>
-     qcase_tac `dest_closure NONE v' vs' = SOME (Full_app b' args' rest')` >>
-     first_x_assum
-       (qspecl_then [`s'.clock - 1`,
-                     `DROP (LENGTH rest') vs`,
-                     `DROP (LENGTH rest') vs'`, `s`, `s'`] mp_tac) >>
-     simp [exec_rel_rw, evaluate_ev_def, res_rel_def] >>
-     `LENGTH rest' + s'.clock − LENGTH vs' ≤ s'.clock ∧ s'.clock - 1 ≤ s'.clock` by decide_tac >>
-     imp_res_tac val_rel_mono >>
-     imp_res_tac val_rel_mono_list >>
-     simp [] >>
-     `LENGTH rest' ≠ LENGTH vs` by decide_tac >>
-     simp [DROP_NIL, EVERY2_DROP] >>
-     `LENGTH rest' ≤ LENGTH vs` by decide_tac >>
-     imp_res_tac dest_closure_partial_split >>
-     simp [] >>
-     fs [] >>
-     rfs [] >>
-     imp_res_tac dest_closure_full_split >>
-     fs [] >>
-     disch_then (qspec_then `s'.clock - 1` mp_tac) >>
-     simp [] >> rveq >> simp[SimpL ``$==>``, res_rel_rw, eqs, pair_case_eq] >>
-     simp[PULL_EXISTS] >> csimp[] >>
-     simp[evaluate_def] >>
-     rpt strip_tac >>
-     qcase_tac `evaluate ([b'], args', _) = (Rval [bv'], s2)` >>
-     simp[dec_clock_def] >>
-     qabbrev_tac `used' = DROP (LENGTH rest') vs'` >>
-     `vs' = rest' ++ used'` by metis_tac[TAKE_DROP] >>
-     qcase_tac
-       `dest_closure NONE v (DROP (LENGTH rest') vs) = SOME (Partial_app b0)`>>
-     `is_closure b0` by metis_tac[dest_closure_partial_is_closure] >>
-     Cases_on `rest' = []`
-     >- (fs[] >> rw[] >> dsimp[res_rel_rw, clo_add_partial_args_def]
-         >- metis_tac[val_rel_mono, ZERO_LESS_EQ]
-         >- simp[evaluate_def]) >>
-     `LENGTH rest' ≠ 0` by (Cases_on `rest'` >> fs[]) >>
-     fs[TAKE_LENGTH_APPEND, DROP_LENGTH_APPEND] >>
-     Cases_on `s'.clock < LENGTH used'`
+     qcase_tac `dest_closure loc v vs = SOME (Partial_app cl)` >>
+     qcase_tac `dest_closure loc v' vs' = SOME (Full_app b' env' rest')` >>
+     qcase_tac `st.clock < LENGTH vs' - LENGTH rest'` >>
+     Cases_on `st.clock < LENGTH vs' - LENGTH rest'`
      >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
-     full_simp_tac(srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
-     qabbrev_tac `used = DROP (LENGTH rest') vs` >>
-     qabbrev_tac `rest = TAKE (LENGTH rest') vs` >>
-     `vs = rest ++ used` by simp[Abbr`used`, Abbr`rest`, TAKE_DROP] >>
-     `LENGTH rest' = LENGTH rest ∧ LENGTH used' = LENGTH used`
-        by simp[Abbr`rest`, Abbr`used`] >>
-     `rest ≠ []` by (Cases_on `rest` >> fs[]) >> fs[] >> rw[] >>
-     markerLib.RM_ALL_ABBREVS_TAC
-     >- (first_x_assum (qspec_then `s2.clock` mp_tac) >> simp[] >>
-         strip_tac >>
-         qmatch_abbrev_tac `res_rel (r1,s1) (evaluate_app NONE bv' rest' s2)` >>
-         `evaluate_app NONE b0 rest (s with clock := s2.clock) = (r1,s1)`
-            suffices_by
-            (disch_then (SUBST_ALL_TAC o SYM) >> first_x_assum match_mp_tac >>
-             simp[] >> metis_tac[LIST_REL_APPEND_IMP]) >>
-         dsimp[evaluate_app_rw, eqs, Abbr`r1`, Abbr`s1`, bool_case_eq] >>
-         disj1_tac >>
-         `dest_closure NONE b0 rest =
-            SOME (Partial_app (clo_add_partial_args rest b0))`
-           by metis_tac[stage_partial_app] >> simp[])
-     >- (first_x_assum (qspec_then `s2.clock` mp_tac) >> simp[] >>
-         strip_tac >>
-         qmatch_abbrev_tac `res_rel (r1,s1) (evaluate_app NONE bv' rest' s2)` >>
-         `evaluate_app NONE b0 rest (s with clock := s2.clock) = (r1,s1)`
-            suffices_by
-            (disch_then (SUBST_ALL_TAC o SYM) >> first_x_assum match_mp_tac >>
-             simp[] >> metis_tac[LIST_REL_APPEND_IMP]) >>
-         dsimp[evaluate_app_rw, eqs, Abbr`r1`, Abbr`s1`, bool_case_eq,
-               dec_clock_def] >>
-         disj1_tac >>
-         metis_tac[stage_partial_app]))
+     `LENGTH rest' < LENGTH vs'`
+       by (imp_res_tac dest_closure_full_length >> simp[]) >>
+     Q.UNDISCH_THEN `¬(st.clock < LENGTH vs' - LENGTH rest')`
+       (fn th => `LENGTH vs' ≤ st.clock + LENGTH rest'` by simp[th]) >>
+     simp[] >>
+     `loc = NONE` by metis_tac[dest_closure_none_loc] >>
+     pop_assum SUBST_ALL_TAC >>
+     IMP_RES_THEN
+       (qx_choose_then `used'` strip_assume_tac)
+       (GEN_ALL dest_closure_full_split') >>
+     `LENGTH vs' - LENGTH rest' = LENGTH used'`
+       by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
+     pop_assum SUBST_ALL_TAC >>
+     `0 < LENGTH used'` by lfs[] >>
+     `used' ≠ []` by (Cases_on `used'` >> fs[]) >>
+     full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
+     rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >> rveq >>
+     simp[dec_clock_def] >>
+     qspecl_then [`LENGTH rest'`, `v`, `vs`, `cl`]
+       mp_tac dest_closure_partial_split' >> simp[] >>
+     disch_then (qx_choosel_then [`cl0`, `used`, `rest`] strip_assume_tac) >>
+     `is_closure cl0` by metis_tac[dest_closure_partial_is_closure] >>
+     `LENGTH used' = LENGTH used`
+        by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
+     `used ≠ []` by (spose_not_then assume_tac >> fs[]) >> fs[] >> rveq >>
+     rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
+     `LIST_REL (val_rel (:'ffi) st.clock) rest rest' ∧
+      LIST_REL (val_rel (:'ffi) st.clock) used used'`
+       by metis_tac[EVERY2_APPEND] >>
+     qspecl_then [`st.clock`, `v`, `v'`] mp_tac val_rel_cl_rw >> simp[] >>
+     disch_then
+       (qspecl_then [`st.clock - 1`, `used`, `used'`] mp_tac) >>
+     simp[] >>
+     qcase_tac `state_rel _ s0 s0'` >>
+     disch_then (qspecl_then [`s0`, `s0'`] mp_tac) >>
+     IMP_RES_THEN strip_assume_tac val_rel_mono >> simp[] >>
+     IMP_RES_THEN strip_assume_tac val_rel_mono_list' >> simp[] >>
+     simp[exec_rel_rw, evaluate_ev_def] >>
+     disch_then (qspec_then `s0'.clock - 1` mp_tac) >> simp[] >>
+     Cases_on `LENGTH rest = 0` >- (fs[LENGTH_NIL] >> simp[]) >>
+     qabbrev_tac `
+       ev0 = evaluate([b'],env',s0' with clock := s0'.clock - LENGTH used)` >>
+     reverse
+        (`(∃rv' s1'. ev0 = (Rval [rv'], s1')) ∨ ∃err s1'. ev0 = (Rerr err, s1')`
+           by metis_tac[TypeBase.nchotomy_of ``:('a,'b) result``, pair_CASES,
+                        evaluate_SING])
+     >- (Cases_on `err` >> simp[res_rel_rw] >>
+         qcase_tac `ev0 = (Rerr (Rabort a), s1)` >>
+         Cases_on `a` >> simp[res_rel_rw]) >>
+     simp[] >>
+     simp[SimpL ``$==>``, res_rel_rw, evaluate_def] >> strip_tac >>
+     qmatch_abbrev_tac `res_rel LHS (evaluate_app NONE rv' rest' s1')` >>
+     `LHS = evaluate_app NONE cl0 rest (s0 with clock := s1'.clock)`
+     suffices_by
+       (strip_tac >> simp[] >> first_assum irule >- (first_assum ACCEPT_TAC) >>
+        simp[] >> strip_tac >> fs[] >> strip_tac >> fs[]) >>
+     qunabbrev_tac `LHS` >>
+     `rest ≠ []` by metis_tac [LENGTH] >>
+     `dest_closure NONE cl0 rest =
+        SOME (Partial_app (clo_add_partial_args rest cl0))`
+       by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
+     simp[evaluate_app_rw] >> simp[dec_clock_def] >>
+     qcase_tac `s0'.clock < LENGTH rr + LENGTH uu` >>
+     `s0'.clock < LENGTH rr + LENGTH uu ⇔ s1'.clock < LENGTH rr` by simp[] >>
+     simp[] >> rw[] >>
+     Q.PAT_ASSUM `X = s1'.clock` (mp_tac o SYM) >> simp[])
  >- ((* Full, Partial *)
      qcase_tac `dest_closure loc v vs = SOME (Full_app b env rest)` >>
      qcase_tac `dest_closure loc v' vs' = SOME (Partial_app cl')` >>
@@ -1023,7 +1017,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      `dest_closure NONE cl0' rest' =
         SOME (Partial_app (clo_add_partial_args rest' cl0'))`
        by metis_tac[dest_closure_partial_is_closure, stage_partial_app] >>
-     simp[evaluate_app_rw] >> simp[dec_clock_def]) *)
+     simp[evaluate_app_rw] >> simp[dec_clock_def])
  >- ((* Full, Full *)
      qcase_tac `dest_closure loc v vs = SOME (Full_app b1 env1 rest1)` >>
      qcase_tac `dest_closure loc v' vs' = SOME (Full_app b2 env2 rest2)` >>
