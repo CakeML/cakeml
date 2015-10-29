@@ -45,8 +45,11 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
                         prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
   |> CONV_RULE(computeLib.CBV_CONV the_interp_compset)
-  |> MATCH_MP interp_add_to_sem_env_thm);
-
+  |> MATCH_MP interp_add_to_sem_env_thm
+  |> (fn th => let
+        val pth = SPEC_ALL prim_sem_env_def
+        val th1 = mk_eq(rhs(concl pth),lhs(concl th)) |> EVAL |> EQT_ELIM
+        in TRANS (TRANS pth th1) th end));
 
 (* Too big to evaluate in a reasonable timely was due to exponential explosion in closure envs
 val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
@@ -87,7 +90,6 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
  >- metis_tac [interp_add_to_sem_env_thm, PAIR] >>
  pop_assum mp_tac >>
  match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
- rw [prim_sem_env_def] >>
  fs[prim_sem_env_eq] >> rw[] >>
  simp[interp_add_to_sem_env_def] >>
  rpt BasicProvers.CASE_TAC >>

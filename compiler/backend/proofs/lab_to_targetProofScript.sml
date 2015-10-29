@@ -1,5 +1,5 @@
 open preamble ffiTheory
-     labSemTheory labPropsTheory
+     wordSemTheory labSemTheory labPropsTheory
      lab_to_targetTheory
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory targetPropsTheory;
@@ -759,7 +759,7 @@ val read_bytearray_state_rel = prove(
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
        SOME x)``,
   Induct
-  \\ fs [labSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
+  \\ fs [wordSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
   \\ rpt strip_tac
   \\ Cases_on `mem_load_byte_aux a s1.mem s1.mem_domain s1.be` \\ fs []
   \\ Cases_on `read_bytearray (a + 1w) n s1.mem s1.mem_domain s1.be` \\ fs []
@@ -802,7 +802,7 @@ val bytes_in_mem_asm_write_bytearray = prove(
   \\ Induct_on `new_bytes`
   \\ fs [asm_write_bytearray_def]
   \\ REPEAT STRIP_TAC
-  \\ fs [labSemTheory.read_bytearray_def]
+  \\ fs [wordSemTheory.read_bytearray_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
   \\ fs [PULL_FORALL]
   \\ res_tac
@@ -835,7 +835,7 @@ val CallFFI_bytearray_lemma = prove(
      SOME (asm_write_bytearray c1 new_bytes t1.mem a))``,
   Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`t1`,`t1`) \\ Q.SPEC_TAC (`c1`,`c1`)
   \\ Q.SPEC_TAC (`x`,`x`) \\ Q.SPEC_TAC (`new_bytes`,`xs`) \\ Induct
-  \\ fs [asm_write_bytearray_def,write_bytearray_def,labSemTheory.read_bytearray_def]
+  \\ fs [asm_write_bytearray_def,write_bytearray_def,wordSemTheory.read_bytearray_def]
   \\ rpt strip_tac
   \\ Cases_on `mem_load_byte_aux c1 s1.mem s1.mem_domain s1.be` \\ fs []
   \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1.mem s1.mem_domain s1.be`

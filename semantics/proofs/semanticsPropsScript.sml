@@ -149,12 +149,12 @@ val prog_diverges_semantics_prog = Q.prove(
 
 val semantics_deterministic = Q.store_thm("semantics_deterministic",
   `state_invariant st ⇒
-   semantics st inp = Execute bs
+   semantics st prelude inp = Execute bs
    ⇒ ∃b. bs = {b} ∧ b ≠ Fail`,
   rw[semantics_def] >> every_case_tac >> fs[] >> rw[] >>
-  `∀b. semantics_prog st x b ⇒ b ≠ Fail` by (
+  `∀b. semantics_prog st (prelude ++ x) b ⇒ b ≠ Fail` by(
     fs[can_type_prog_def,state_invariant_def] >>
-    Cases_on`prog_diverges st.sem_env st.sem_st x` >- (
+    Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)` >- (
       imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
     fs[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
     CCONTR_TAC >> fs[] >>

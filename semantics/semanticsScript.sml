@@ -60,12 +60,12 @@ val semantics_prog_def = Define `
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
 val semantics_def = Define`
-  semantics state input =
+  semantics state prelude input =
   case parse (lexer_fun input) of
   | NONE => CannotParse
   | SOME prog =>
-    if can_type_prog state prog
-    then Execute (semantics_prog state prog)
+    if can_type_prog state (prelude ++ prog)
+    then Execute (semantics_prog state (prelude ++ prog))
     else IllTyped`;
 
 val _ = export_theory();
