@@ -3,6 +3,24 @@ open clos_relationTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relationProps";
 
+val evaluate_append = Q.store_thm  ("evaluate_append",
+`!es1 es2 env s.
+  evaluate (es1 ++ es2, env, s) =
+    case evaluate (es1, env, s) of
+    | (Rval vs1, s') =>
+        (case evaluate (es2, env, s') of
+         | (Rval vs2, s'') => (Rval (vs1++vs2), s'')
+         | x => x)
+    | x => x`,
+ Induct_on `es1` >>
+ rw [evaluate_def]
+ >- (
+   every_case_tac >>
+   rw []) >>
+ ONCE_REWRITE_TAC [evaluate_CONS] >>
+ every_case_tac >>
+ rw []);
+
 val take_append_take_drop = Q.store_thm ("take_append_take_drop",
 `!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
  Induct_on `l` >>
@@ -377,6 +395,52 @@ val geq_opt = Q.store_thm ("geq_opt",
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
+ (*
+
+val app_combine = Q.store_thm ("app_combine",
+`∀f es1 es2 es1' es2'.
+  LENGTH es1 ≠ 0 ∧
+  LENGTH es1 = LENGTH es1' ∧
+  LENGTH es2 = LENGTH es2' ∧
+  exp_rel (:'ffi) es1 es1' ∧
+  exp_rel (:'ffi) es2 es2' ⇒
+  exp_rel (:'ffi) [App NONE (App NONE f es1) es2] [App NONE f (es2'++es1')]`,
+
+ rw [exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
+ simp [evaluate_append] >>
+ Cases_on `LENGTH es2 > 0` >>
+ simp [res_rel_rw] >>
+ `res_rel (evaluate (es2,env,s with clock := i')) (evaluate (es2',env',s' with clock := i'))` by metis_tac [] >>
+ Cases_on `evaluate (es2,env,s with clock := i')` >>
+ Cases_on `q` >>
+ Cases_on `evaluate (es2',env',s' with clock := i')` >>
+ Cases_on `q` >>
+ fs [res_rel_rw]
+ >- (
+   `res_rel (evaluate (es1,env,r with clock := r.clock)) (evaluate (es1',env',r' with clock := r.clock))` by (
+     first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+     qexists_tac `r.clock` >>
+     rw [] >>
+     imp_res_tac evaluate_clock >>
+     fs [] >>
+     `r'.clock ≤ i` by decide_tac >>
+     metis_tac [val_rel_mono_list]) >>
+   `(r with clock := r.clock) = r` by cheat >>
+   `(r' with clock := r.clock) = r` by cheat >>
+   fs [] >>
+   Cases_on `evaluate (es1,env,r)` >>
+   Cases_on `q` >>
+   Cases_on `evaluate (es1',env',r')` >>
+   Cases_on `q` >>
+   fs [res_rel_rw]
+
+ >- (
+   TRY (Cases_on `e`) >>
+   fs [res_rel_rw] >>
+   TRY (Cases_on `a'`) >>
+   fs [res_rel_rw]));
+   *)
+
 val fn_partial_arg = Q.prove (
 `!i' i vs vs' env env' args args' num_args e.
  i' ≤ i ∧
@@ -462,7 +526,6 @@ val fn_partial_arg = Q.prove (
    `i''' − (LENGTH vs''' − 1) ≤ i''` by decide_tac >>
    metis_tac [val_rel_mono])
  >- metis_tac [ZERO_LESS_EQ, val_rel_mono]);
-
 
 val fn_add_arg_lem = Q.prove (
 `!i' num_args num_args' i env env' args args' e.
