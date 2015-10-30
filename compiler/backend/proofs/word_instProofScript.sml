@@ -227,12 +227,33 @@ val convert_sub_every_var_exp = prove(``
   ho_match_mp_tac convert_sub_ind>>rw[convert_sub_def]>>
   fs[every_var_exp_def,EVERY_MEM])
 
+val optimize_consts_every_var_exp = prove(``
+  ∀ls.
+  (∀x. MEM x ls ⇒ every_var_exp P x) ⇒
+  every_var_exp P (optimize_consts op ls)``,
+  rw[optimize_consts_def]>>
+  `PERM ls (const_ls++nconst_ls)` by metis_tac[PERM_PARTITION]>>fs[]>>
+  imp_res_tac PERM_MEM_EQ>>
+  EVERY_CASE_TAC>>fs[every_var_exp_def,LET_THM,EVERY_MEM])
+
+val pull_ops_every_var_exp = prove(``
+  ∀ls acc.
+  EVERY (every_var_exp P) acc ∧ EVERY (every_var_exp P) ls ⇒
+  EVERY (every_var_exp P) (pull_ops op ls acc)``,
+  Induct>>fs[pull_ops_def]>>rw[]>>EVERY_CASE_TAC>>fs[every_var_exp_def]>>
+  metis_tac[ETA_AX,EVERY_APPEND,every_var_exp_def]) |> REWRITE_RULE[EVERY_MEM]
+
 val pull_exp_every_var_exp = prove(``
   ∀exp.
   every_var_exp P exp ⇒
   every_var_exp P (pull_exp exp)``,
-  ho_match_mp_tac pull_exp_ind>>fs[op_consts_def,pull_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP,LET_THM,convert_sub_def]>>rw[]>>
-  cheat)
+  ho_match_mp_tac pull_exp_ind>>fs[op_consts_def,pull_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP,LET_THM]>>rw[]
+  >-
+    metis_tac[convert_sub_every_var_exp,MEM_MAP,PULL_EXISTS]
+  >>
+    match_mp_tac optimize_consts_every_var_exp>>
+    match_mp_tac pull_ops_every_var_exp>>rw[]>>
+    metis_tac[MEM_MAP])
 
 (*First step: Make op expressions have exactly 2 args*)
 (*Semantics*)
@@ -469,6 +490,10 @@ val locals_rm = prove(``
   D with locals := D.locals = D``,
   fs[state_component_equality])
 
+(*  Main semantics theorem for inst selection:
+    The inst-selected program gives same result but
+    with possibly more locals used
+*)
 val inst_select_thm = prove(``
   ∀c temp prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
@@ -690,6 +715,7 @@ val inst_select_flat_exp_conventions = prove(``
   metis_tac[inst_select_exp_flat_exp_conventions])
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
+(*Note: We carry the assumption that 0 addr offsets are allowed by the config*)
 
 val inst_ok_less_def = Define`
   (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
@@ -700,13 +726,22 @@ val inst_ok_less_def = Define`
     addr_offset_ok w c) ∧
   (inst_ok_less _ _ = T)`
 
-(*Assume that 0 addr offsets are allowed by the config*)
 val inst_select_exp_inst_ok_less = prove(``
   ∀c tar temp exp.
   addr_offset_ok 0w c ⇒
   every_inst (inst_ok_less c) (inst_select_exp c tar temp exp)``,
   ho_match_mp_tac inst_select_exp_ind>>rw[]>>fs[inst_select_exp_def,every_inst_def,LET_THM,inst_ok_less_def]>>
   every_case_tac>>fs[every_inst_def,inst_ok_less_def,inst_select_exp_def,LET_THM] )
+
+val inst_select_inst_ok_less = prove(``
+  ∀c temp prog.
+  addr_offset_ok 0w c ∧
+  every_inst (inst_ok_less c) prog
+  ⇒
+  every_inst (inst_ok_less c) (inst_select c temp prog)``,
+  ho_match_mp_tac inst_select_ind>>rw[inst_select_def,every_inst_def]>>
+  fs[LET_THM]>>unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_inst_def,inst_ok_less_def]>>
+  metis_tac[inst_select_exp_inst_ok_less])
 
 (*3rd step: 3 to 2 reg if necessary*)
 
@@ -785,7 +820,7 @@ val three_to_two_reg_syn = prove(``
   ∀prog. every_inst two_reg_inst (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>rw[]>>fs[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>fs[])
 
-(*word_alloc preserves all syntactic program convs*)
+(*word_alloc preserves syntactic conventions*)
 val word_alloc_two_reg_inst_lem = prove(``
   ∀f prog.
   every_inst two_reg_inst prog ⇒
@@ -819,17 +854,40 @@ val word_alloc_flat_exp_conventions = prove(``
   flat_exp_conventions (word_alloc k prog)``,
   fs[word_alloc_flat_exp_conventions_lem,word_alloc_def,LET_THM])
 
-val fake_moves_flat_exp_conventions = prove(``
-  ∀ls ssal ssar na l r a b c.
+val word_alloc_inst_ok_less_lem = prove(``
+  ∀f prog c.
+  every_inst (inst_ok_less c) prog ⇒
+  every_inst (inst_ok_less c) (apply_colour f prog)``,
+  ho_match_mp_tac apply_colour_ind>>fs[every_inst_def]>>rw[]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[apply_colour_inst_def,inst_ok_less_def])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_inst_def])
+
+val word_alloc_inst_ok_less = prove(``
+  ∀k prog c.
+  every_inst (inst_ok_less c) prog ⇒
+  every_inst (inst_ok_less c) (word_alloc k prog)``,
+  fs[word_alloc_inst_ok_less_lem,word_alloc_def,LET_THM])
+
+(*ssa preserves all syntactic conventions
+  Note: only flat_exp and inst_ok_less are needed since 3-to-2 reg comes after SSA (if required)
+*)
+val fake_moves_conventions = prove(``
+  ∀ls ssal ssar na l r a b c conf.
   fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
   flat_exp_conventions l ∧
-  flat_exp_conventions r``,
-  Induct>>fs[fake_moves_def]>>rw[]>>fs[flat_exp_conventions_def]>>
-  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> fs[LET_THM]>>unabbrev_all_tac>>
-  metis_tac[flat_exp_conventions_def,fake_move_def])
+  flat_exp_conventions r ∧
+  every_inst (inst_ok_less conf) l ∧
+  every_inst (inst_ok_less conf) r``,
+  Induct>>fs[fake_moves_def]>>rw[]>>fs[flat_exp_conventions_def,every_inst_def]>>
+  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> fs[LET_THM]>>
+  unabbrev_all_tac>>
+  metis_tac[flat_exp_conventions_def,fake_move_def,inst_ok_less_def,every_inst_def])
 
 (*ssa generates distinct regs and also preserves flattening*)
-val ssa_cc_trans_flat_exp_conventions_lem = prove(``
+val ssa_cc_trans_flat_exp_conventions = prove(``
   ∀prog ssa na.
   flat_exp_conventions prog ⇒
   flat_exp_conventions (FST (ssa_cc_trans prog ssa na))``,
@@ -838,7 +896,7 @@ val ssa_cc_trans_flat_exp_conventions_lem = prove(``
   fs[flat_exp_conventions_def]
   >-
     (pop_assum mp_tac>>fs[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>fs[flat_exp_conventions_def]>>
-    metis_tac[fake_moves_flat_exp_conventions,flat_exp_conventions_def])
+    metis_tac[fake_moves_conventions,flat_exp_conventions_def])
   >-
     (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
     LET_ELIM_TAC>>fs[flat_exp_conventions_def,EQ_SYM_EQ])
@@ -857,6 +915,48 @@ val ssa_cc_trans_flat_exp_conventions_lem = prove(``
       fs[list_next_var_rename_move_def,flat_exp_conventions_def]>>
       fs[fix_inconsistencies_def]>>
       rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>fs[]>>
-      metis_tac[fake_moves_flat_exp_conventions,flat_exp_conventions_def])
+      metis_tac[fake_moves_conventions,flat_exp_conventions_def])
+
+val full_ssa_cc_trans_flat_exp_conventions = prove(``
+  ∀prog n.
+  flat_exp_conventions prog ⇒
+  flat_exp_conventions (full_ssa_cc_trans n prog)``,
+  fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  LET_ELIM_TAC>>unabbrev_all_tac>>fs[flat_exp_conventions_def,EQ_SYM_EQ]>>
+  metis_tac[ssa_cc_trans_flat_exp_conventions,FST])
+
+val ssa_cc_trans_inst_ok_less = prove(``
+  ∀prog ssa na c.
+  every_inst (inst_ok_less c) prog ⇒
+  every_inst (inst_ok_less c) (FST (ssa_cc_trans prog ssa na))``,
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[ssa_cc_trans_def]>>rw[]>>
+  unabbrev_all_tac>>
+  fs[every_inst_def]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def]>>
+    fs[EQ_SYM_EQ,inst_ok_less_def])
+  >-
+    (pop_assum mp_tac>>fs[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>
+    fs[every_inst_def,EQ_SYM_EQ]>>
+    metis_tac[fake_moves_conventions])
+  >>TRY
+    (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>fs[every_inst_def,EQ_SYM_EQ])
+  >>
+    EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_inst_def]>>
+    LET_ELIM_TAC>>
+    unabbrev_all_tac>>fs[every_inst_def]>>
+    fs[fix_inconsistencies_def]>>
+    rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>fs[]>>
+    metis_tac[fake_moves_conventions,every_inst_def])
+
+val full_ssa_cc_trans_inst_ok_less = prove(``
+  ∀prog n c.
+  every_inst (inst_ok_less c) prog ⇒
+  every_inst (inst_ok_less c) (full_ssa_cc_trans n prog)``,
+  fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  LET_ELIM_TAC>>unabbrev_all_tac>>fs[every_inst_def,EQ_SYM_EQ]>>
+  metis_tac[ssa_cc_trans_inst_ok_less,FST])
 
 val _ = export_theory ();
