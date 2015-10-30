@@ -387,7 +387,82 @@ val fn_partial_arg = Q.prove (
  val_rel (:'ffi) i'
   (Closure NONE args (vs ++ env) num_args e)
   (Closure NONE (args' ++ vs') env' (num_args + LENGTH vs') e)`,
- cheat);
+ completeInduct_on `i'` >>
+ rw [val_rel_rw, is_closure_def] >>
+ imp_res_tac LIST_REL_LENGTH
+ >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
+          clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
+ simp [dest_closure_def, check_loc_def] >>
+ rw [] >>
+ TRY decide_tac >>
+ rw [exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
+ fs [NOT_LESS] >>
+ rw [res_rel_rw]
+ >- (
+  `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
+   fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+   pop_assum (qspecl_then [`i''`, 
+                           `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs'')) ++ args ++ vs ++ env`,
+                           `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env'`,
+                           `s`,
+                           `s'`] mp_tac) >>
+   simp [] >>
+   `LIST_REL (val_rel (:'ffi) i'') (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs'')) ++ args ++ vs ++ env)
+            (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env')` by (
+     match_mp_tac EVERY2_APPEND_suff >>
+     `i'' ≤ i` by decide_tac >>
+     reverse (rw []) 
+     >- metis_tac [val_rel_mono_list] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     reverse (rw []) 
+     >- metis_tac [val_rel_mono_list] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     rw [LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
+     metis_tac [val_rel_mono_list]) >>
+   simp [] >>
+   disch_then (qspec_then `i''' + (LENGTH args' + 1) − num_args` mp_tac) >>
+   simp [] >>
+   rw [] >>
+   every_case_tac >>
+   simp [res_rel_rw] >>
+   imp_res_tac evaluate_SING >>
+   fs [res_rel_rw] >>
+   TRY (qcase_tac `(Rerr error, r)`)
+   >- (
+     Cases_on `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs'')) = []`
+     >- (
+       `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs''')) = []` by (
+         fs [DROP_NIL] >>
+         decide_tac) >>
+       simp [evaluate_def, res_rel_rw] >>
+       metis_tac []) >>
+     match_mp_tac res_rel_evaluate_app >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     match_mp_tac EVERY2_DROP >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     imp_res_tac evaluate_clock >>
+     fs [] >>
+     `r'.clock ≤ i''` by decide_tac >>
+     metis_tac [val_rel_mono_list])
+  >- (
+    Cases_on `error` >>
+    fs [res_rel_rw] >>
+    qcase_tac `(Rerr (Rabort abort), r)` >>
+    Cases_on `abort` >>
+    fs [res_rel_rw]))
+ >- metis_tac [ZERO_LESS_EQ, val_rel_mono]
+ >- (
+   first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+   simp [] >>
+   qexists_tac `i''` >>
+   simp [] >>
+   `i'' ≤ i` by decide_tac >>
+   metis_tac [val_rel_mono_list, EVERY2_APPEND])
+ >- (
+   `i''' − (LENGTH vs''' − 1) ≤ i''` by decide_tac >>
+   metis_tac [val_rel_mono])
+ >- metis_tac [ZERO_LESS_EQ, val_rel_mono]);
+
 
 val fn_add_arg_lem = Q.prove (
 `!i' num_args num_args' i env env' args args' e.
