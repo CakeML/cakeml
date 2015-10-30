@@ -822,6 +822,24 @@ val val_rel_mono_list' = Q.store_thm(
    ∀i. i ≤ m ⇒ LIST_REL (val_rel (:'ffi) i) l1 l2`,
   metis_tac[val_rel_mono_list]);
 
+val DROP_LEN_REV = Q.prove(
+  `DROP (LENGTH l) (REVERSE l) = []`,
+  metis_tac[DROP_APPEND2,DECIDE ``x:num - x = 0``,DROP,APPEND_NIL,
+            LENGTH_REVERSE, DECIDE ``x:num ≤ x``]);
+
+val TAKE_LEN_REV = Q.prove(
+  `TAKE (LENGTH l) (REVERSE l) = REVERSE l`,
+  simp[TAKE_LENGTH_TOO_LONG])
+
+(*
+val dest_closure_imp_NONE = Q.store_thm(
+  "dest_closure_imp_NONE",
+  `dest_closure l c vs = SOME r ⇒ dest_closure NONE c vs = SOME r`,
+  Cases_on `l` >> simp[] >> Cases_on `c` >> simp[dest_closure_def] >>
+  dsimp[UNCURRY, bool_case_eq, check_loc_def] >>
+  csimp[NOT_LESS, LENGTH_NIL, TAKE_LEN_REV, DROP_LEN_REV] >> rw[])
+*)
+
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' (s:'ffi closSem$state) s' loc.
   val_rel (:'ffi) c v v' ∧
@@ -1021,7 +1039,38 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
  >- ((* Full, Full *)
      qcase_tac `dest_closure loc v vs = SOME (Full_app b1 env1 rest1)` >>
      qcase_tac `dest_closure loc v' vs' = SOME (Full_app b2 env2 rest2)` >>
-     cheat (* dest_closure_full_split' *)
+     `(∃used1. vs = rest1 ++ used1 ∧
+               dest_closure loc v used1 = SOME (Full_app b1 env1 [])) ∧
+      (∃used2. vs' = rest2 ++ used2 ∧
+               dest_closure loc v' used2 = SOME (Full_app b2 env2 []))`
+       by metis_tac[dest_closure_full_split'] >>
+     `LENGTH rest1 < LENGTH vs ∧ LENGTH rest2 < LENGTH vs'`
+       by (imp_res_tac dest_closure_full_length >> simp[]) >>
+     `used1 ≠ [] ∧ used2 ≠ []`
+       by (ntac 2 (first_x_assum (assume_tac o Q.AP_TERM `list$LENGTH`)) >>
+           rpt strip_tac >> lfs[]) >>
+     `0 < LENGTH used1 ∧ 0 < LENGTH used2`
+         by (Cases_on `used1` >> Cases_on `used2` >> fs[]) >>
+     rveq >> lfs[] >>
+     rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
+     `LENGTH used1 = LENGTH used2 ∨ LENGTH used1 < LENGTH used2 ∨
+      LENGTH used2 < LENGTH used1` by decide_tac
+     >- ((* lengths equal *)
+         full_simp_tac (srw_ss() ++ ARITH_ss ++ numSimps.ARITH_NORM_ss) [] >>
+         rw[] >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
+         Cases_on `rest1 = []`
+         >- (fs[LENGTH_NIL, LENGTH_NIL_SYM] >> cheat) >>
+
+         `LIST_REL (val_rel (:'ffi) s'.clock) rest1 rest2 ∧
+          LIST_REL (val_rel (:'ffi) s'.clock) used1 used2`
+           by metis_tac[EVERY2_APPEND, LENGTH_APPEND] >>
+         Q.UNDISCH_THEN `val_rel (:'ffi) s'.clock v v'` mp_tac >>
+         simp[val_rel_cl_rw] >>
+         disch_then (qspecl_then [`s'.clock - 1`, `used1`, `used2`, `s`, `s'`]
+                                 mp_tac) >> simp[] >>
+         cheat)
+     >- ((* LENGTH used1 < LENGTH used2 *) cheat)
+     >- ((* LENGTH used2 < LENGTH used1 *) cheat)
     )
 )
 
