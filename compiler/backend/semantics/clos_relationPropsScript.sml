@@ -3,6 +3,14 @@ open clos_relationTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relationProps";
 
+val take_append_take_drop = Q.store_thm ("take_append_take_drop",
+`!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
+ Induct_on `l` >>
+ rw [] >>
+ fs [] >>
+ `m - 1 + n = m + n - 1` by decide_tac >>
+ rw []);
+
 val state_rel_ffi_mono = store_thm(
   "state_rel_ffi_mono[simp]",
   ``state_rel k s1 s2 ⇒
@@ -415,20 +423,61 @@ val fn_add_arg_lem = Q.prove (
    simp [evaluate_app_rw, dest_closure_def, check_loc_def] >>
    rw [res_rel_rw] >>
    TRY decide_tac
-   >- ( (* Timeout *)
-     cheat)
+   >- full_simp_tac (srw_ss()++ ARITH_ss) []
    >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
    simp [GSYM REVERSE_APPEND] >>
-   `TAKE (num_args − LENGTH args') (REVERSE vs) ++ TAKE num_args' (DROP (num_args − LENGTH args') (REVERSE vs))
-    =
-    TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)` by cheat >>
+   simp [take_append_take_drop] >>
    simp [dec_clock_def] >>
+   `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
+   fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+   pop_assum (qspecl_then [`i''`, 
+                           `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)) ++ args ++ env`,
+                           `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs')) ++ args' ++ env'`,
+                           `s`,
+                           `s'`] mp_tac) >>
+   simp [] >>
+   `LIST_REL (val_rel (:'ffi) i'') (REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)) ++ args ++ env)
+            (REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs')) ++ args' ++ env')` by (
+     match_mp_tac EVERY2_APPEND_suff >>
+     `i'' ≤ i` by decide_tac >>
+     reverse (rw []) 
+     >- metis_tac [val_rel_mono_list] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     rw [LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
+     metis_tac [val_rel_mono_list]) >>
+   simp [] >>
+   disch_then (qspec_then `i''' + (LENGTH args' + 1) − (num_args + num_args')` mp_tac) >>
+   simp [] >>
+   rw [] >>
    every_case_tac >>
    simp [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
-   fs [] >>
-   (* rest should follow from reflexivity *)
-   cheat)
+   fs [res_rel_rw] >>
+   TRY (qcase_tac `(Rerr error, r)`)
+   >- (
+     Cases_on `REVERSE (DROP num_args' (DROP (num_args − LENGTH args') (REVERSE vs))) = []`
+     >- (
+       `REVERSE (DROP (num_args + num_args' − LENGTH args') (REVERSE vs')) = []` by (
+         fs [DROP_NIL] >>
+         decide_tac) >>
+       simp [evaluate_def, res_rel_rw] >>
+       metis_tac []) >>
+     match_mp_tac res_rel_evaluate_app >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     rw [DROP_DROP_T] >>
+     simp [] >>
+     match_mp_tac EVERY2_DROP >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     imp_res_tac evaluate_clock >>
+     fs [] >>
+     `r'.clock ≤ i''` by decide_tac >>
+     metis_tac [val_rel_mono_list])
+  >- (
+    Cases_on `error` >>
+    fs [res_rel_rw] >>
+    qcase_tac `(Rerr (Rabort abort), r)` >>
+    Cases_on `abort` >>
+    fs [res_rel_rw]))
  >- ( (* Partial application on right, full application on left *)
    Cases_on `¬(LENGTH vs' ≤ LENGTH vs' − (num_args − LENGTH args') + (1 + i'''))` >>
    fs []
