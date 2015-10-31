@@ -1253,9 +1253,9 @@ val every_inst_def = Define`
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
   (every_inst P (Call ret dest args handler)
-    ⇔ ((case ret of
+    ⇔ (case ret of
         NONE => T
-      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler) ∧
+      | SOME (n,names,ret_handler,l1,l2) => every_inst P ret_handler ∧
       (case handler of
         NONE => T
       | SOME (n,h,l1,l2) => every_inst P h))) ∧

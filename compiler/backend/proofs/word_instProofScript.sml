@@ -1,6 +1,6 @@
 open preamble BasicProvers
      wordLangTheory wordPropsTheory word_instTheory wordSemTheory
-     asmTheory word_allocTheory
+     asmTheory word_allocTheory word_allocProofTheory
 
 val _ = new_theory "word_instProof";
 
@@ -745,13 +745,6 @@ val inst_select_inst_ok_less = prove(``
 
 (*3rd step: 3 to 2 reg if necessary*)
 
-val distinct_tar_reg_def = Define`
-  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
-    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
-  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
-    ⇔ r1 ≠ r2) ∧
-  (distinct_tar_reg _ ⇔ T)`
-
 (*Instructions are 2 register code for arith ok*)
 val two_reg_inst_def = Define`
   (two_reg_inst (Arith (Binop bop r1 r2 ri))
@@ -873,6 +866,7 @@ val word_alloc_inst_ok_less = prove(``
 
 (*ssa preserves all syntactic conventions
   Note: only flat_exp and inst_ok_less are needed since 3-to-2 reg comes after SSA (if required)
+  SLOW PROOF
 *)
 val fake_moves_conventions = prove(``
   ∀ls ssal ssar na l r a b c conf.
@@ -880,11 +874,13 @@ val fake_moves_conventions = prove(``
   flat_exp_conventions l ∧
   flat_exp_conventions r ∧
   every_inst (inst_ok_less conf) l ∧
-  every_inst (inst_ok_less conf) r``,
+  every_inst (inst_ok_less conf) r ∧
+  every_inst distinct_tar_reg l ∧
+  every_inst distinct_tar_reg r``,
   Induct>>fs[fake_moves_def]>>rw[]>>fs[flat_exp_conventions_def,every_inst_def]>>
   pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> fs[LET_THM]>>
   unabbrev_all_tac>>
-  metis_tac[flat_exp_conventions_def,fake_move_def,inst_ok_less_def,every_inst_def])
+  metis_tac[flat_exp_conventions_def,fake_move_def,inst_ok_less_def,every_inst_def,distinct_tar_reg_def])
 
 (*ssa generates distinct regs and also preserves flattening*)
 val ssa_cc_trans_flat_exp_conventions = prove(``
@@ -958,5 +954,6 @@ val full_ssa_cc_trans_inst_ok_less = prove(``
   fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>unabbrev_all_tac>>fs[every_inst_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_inst_ok_less,FST])
+
 
 val _ = export_theory ();
