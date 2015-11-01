@@ -251,7 +251,7 @@ val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
   fs[BIJ_DEF,INJ_DEF]);
 
 
-val ALL_DISTINCT_FST = prove(``
+val ALL_DISTINCT_FST = store_thm("ALL_DISTINCT_FST",``
   ∀ls. ALL_DISTINCT (MAP FST ls) ⇒ ALL_DISTINCT ls``,
   Induct>>fs[FORALL_PROD,MEM_MAP])
 

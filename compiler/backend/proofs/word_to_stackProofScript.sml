@@ -601,6 +601,23 @@ val EL_index_list = prove(
   Induct \\ fs [index_list_def]
   \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
 
+val SORTED_weaken2 = Q.prove(`
+  ∀ls. SORTED R ls ∧
+  ALL_DISTINCT ls ∧
+  (∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ∧ R x y ⇒ R' x y) ⇒
+  SORTED R' ls`,
+  Induct>>rw[]>>Cases_on`ls`>>fs[SORTED_DEF]>>
+  metis_tac[])
+
+val EVEN_LT = prove(``
+  ∀a b.
+  EVEN a ∧ EVEN b ∧
+  a > b ⇒
+  a DIV 2 > b DIV 2``,
+  fs[EVEN_EXISTS]>>rw[]>>
+  fs[MULT_DIV,MULT_COMM]>>
+  DECIDE_TAC)
+
 val evaluate_wLive = Q.prove(
   `state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
    (cut_env names s.locals = SOME env) ==>
@@ -684,11 +701,20 @@ val evaluate_wLive = Q.prove(
     `SORTED R (QSORT R ls)` by (
       match_mp_tac QSORT_SORTED >>
       metis_tac[transitive_key_val_compare,total_key_val_compare] ) >>
-    match_mp_tac SORTED_weaken >> (* this could be wrong *)
-    qexists_tac`R` >>
-    simp[MEM_QSORT,Abbr`R`] >>
-    simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
-    cheat (* maybe? *))
+    match_mp_tac SORTED_weaken2>>fs[]>>CONJ_ASM1_TAC
+    >-
+      metis_tac[ALL_DISTINCT_MAP_FST_toAList,QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_FST]
+    >>
+      simp[MEM_QSORT,Abbr`R`] >>
+      simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
+      fs[key_val_compare_def,LET_THM]>>
+      `∀p v. lookup p env = SOME v ⇒ lookup p s.locals = SOME v` by
+        (fs[cut_env_def]>>qpat_assum`A=env` (SUBST_ALL_TAC o SYM)>>
+        fs[lookup_inter_EQ])>>
+      rw[]>>fs[]>>res_tac>>res_tac>>fs[]>>
+      imp_res_tac EVEN_LT>>
+      TRY(Cases_on`p_1' DIV 2 < k`)>>fs[]>>
+      DECIDE_TAC)
   THEN1 (
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
