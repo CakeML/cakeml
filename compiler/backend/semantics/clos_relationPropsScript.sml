@@ -20,27 +20,80 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
  ONCE_REWRITE_TAC [evaluate_CONS] >>
  every_case_tac >>
  rw []);
- (*
+
+val evaluate_length_imp = Q.store_thm ("evaluate_length_imp",
+`evaluate (es,env,s1) = (Rval vs, s2) ⇒ LENGTH es = LENGTH vs`,
+ rw [] >>
+ Q.ISPECL_THEN [`es`, `env`, `s1`] mp_tac (hd (CONJUNCTS evaluate_LENGTH)) >>
+ rw []);
+
+val evaluate_app_length_imp = Q.store_thm ("evaluate_app_length_imp",
+`evaluate_app l f args s = (Rval vs, s2) ⇒ LENGTH vs = 1`,
+ rw [] >>
+ Q.ISPECL_THEN [`l`, `f`, `args`, `s`] mp_tac (hd (tl (CONJUNCTS evaluate_LENGTH))) >>
+ rw []);
+
+val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
+`!l f args1 args2. 
+  dest_closure NONE f args2 = NONE ⇒
+  dest_closure NONE f (args1 ++ args2) = NONE`,
+ rw [dest_closure_def] >>
+ Cases_on `f` >>
+ fs [check_loc_def] >>
+ rw [] >>
+ fs [LET_THM] >>
+ every_case_tac >>
+ fs [] >>
+ simp []);
+
+val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
+`dest_closure NONE f args = SOME (Full_app e l rest) ⇒ LENGTH rest < LENGTH args`,
+ simp [dest_closure_def] >>
+ Cases_on `f` >>
+ simp [check_loc_def]
+ >- (rw [] >> simp []) >>
+ Cases_on `EL n l1`
+ >- (rw [] >> simp []));
 
 val evaluate_app_append = Q.store_thm ("evaluate_app_append",
-`!f args1 args2 s.
+`!args2 f args1 s.
+  LENGTH (args1 ++ args2) ≤ max_app ⇒
   evaluate_app NONE f (args1 ++ args2) s =
     case evaluate_app NONE f args2 s of
     | (Rval vs1, s1) => evaluate_app NONE (HD vs1) args1 s1
     | err => err`,
-
+ gen_tac >>
+ completeInduct_on `LENGTH args2` >>
  rw [] >>
  Cases_on `args1++args2 = []`
  >- fs [evaluate_def, APPEND_eq_NIL] >>
  Cases_on `args2 = []`
  >- fs [evaluate_def, APPEND_eq_NIL] >>
- rw [evaluate_app_rw, dest_closure_def] >>
- Cases_on `f` >>
- fs [] >>
- rw [] >>
- rw [] >>
+ rw [evaluate_app_rw] >>
+ `dest_closure NONE f args2 = NONE ∨ ?x. dest_closure NONE f args2 = SOME x` by metis_tac [option_nchotomy] >>
  fs []
- *)
+ >- (
+   imp_res_tac dest_closure_none_append >>
+   rw []) >>
+ Cases_on `x` >>
+ fs []
+ >- cheat
+ >- (
+   imp_res_tac dest_closure_full_addargs >>
+   simp [] >>
+   rw [] >>
+   every_case_tac >>
+   imp_res_tac evaluate_SING >>
+   fs [] >>
+   rw [] >>
+   first_x_assum (qspec_then `LENGTH l0` mp_tac) >>
+   rw [] >>
+   `LENGTH l0 < LENGTH args2` by metis_tac [dest_closure_rest_length] >>
+   fs [] >>
+   first_x_assum (qspec_then `l0` mp_tac) >>
+   rw [] >>
+   pop_assum (qspecl_then [`h`, `args1`, `r`] mp_tac) >>
+   simp []));
 
 val take_append_take_drop = Q.store_thm ("take_append_take_drop",
 `!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
@@ -416,18 +469,16 @@ val geq_opt = Q.store_thm ("geq_opt",
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
- (*
-
 val app_combine = Q.store_thm ("app_combine",
 `∀f f f' es1 es2 es1' es2'.
   LENGTH es1 ≠ 0 ∧
   LENGTH es1 = LENGTH es1' ∧
   LENGTH es2 = LENGTH es2' ∧
+  LENGTH es1' + LENGTH es2' ≤ max_app ∧
   exp_rel (:'ffi) [f] [f'] ∧
   exp_rel (:'ffi) es1 es1' ∧
   exp_rel (:'ffi) es2 es2' ⇒
   exp_rel (:'ffi) [App NONE (App NONE f es1) es2] [App NONE f' (es2'++es1')]`,
-
  rw [exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  simp [evaluate_append] >>
  Cases_on `LENGTH es2 > 0` >>
@@ -457,8 +508,8 @@ val app_combine = Q.store_thm ("app_combine",
    rw [] >>
    `s2'.clock ≤ i` by decide_tac >>
    metis_tac [val_rel_mono_list]) >>
- `(s2 with clock := s2.clock) = s2` by cheat >>
- `(s2' with clock := s2.clock) = s2'` by cheat >>
+ `(s2 with clock := s2.clock) = s2` by simp [state_component_equality] >>
+ `(s2' with clock := s2.clock) = s2'` by simp [state_component_equality] >>
  fs [] >>
  `?s1. (?v1. res1 = (Rerr v1, s1)) ∨ (?vs1. res1 = (Rval vs1, s1))` 
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
@@ -483,8 +534,8 @@ val app_combine = Q.store_thm ("app_combine",
    rw [] >>
    `s1'.clock ≤ i` by decide_tac >>
    metis_tac [val_rel_mono_list]) >>
- `(s1 with clock := s1.clock) = s1` by cheat >>
- `(s1' with clock := s1.clock) = s1'` by cheat >>
+ `(s1 with clock := s1.clock) = s1` by simp [state_component_equality] >>
+ `(s1' with clock := s1.clock) = s1'` by simp [state_component_equality] >>
  fs [] >>
  `?s3. (?v3. res3 = (Rerr v3, s3)) ∨ (?vs3. res3 = (Rval vs3, s3))` 
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
@@ -496,8 +547,58 @@ val app_combine = Q.store_thm ("app_combine",
    fs [res_rel_rw] >>
    Cases_on `a` >>
    fs [res_rel_rw]) >>
- rw []
- *)
+ rw [] >>
+ fs [markerTheory.Abbrev_def] >>
+ rpt (qpat_assum `_ = evaluate _` (mp_tac o GSYM)) >>
+ rw [] >>
+ `LENGTH vs2' + LENGTH vs1' ≤ max_app` by (
+   imp_res_tac evaluate_length_imp >>
+   fs [] >>
+   decide_tac) >>
+ simp [evaluate_app_append] >>
+ imp_res_tac evaluate_SING >>
+ fs [] >>
+ `res_rel (evaluate_app NONE (HD vs3) vs1 s3) (evaluate_app NONE (HD vs3') vs1' s3')` by (
+   Cases_on `vs1 = []` >>
+   fs []
+   >- simp [evaluate_def, res_rel_rw] >>
+   match_mp_tac res_rel_evaluate_app >>
+   rw [] >>
+   imp_res_tac evaluate_clock >>
+   fs [] >>
+   `s3'.clock ≤ s2'.clock` by decide_tac >>
+   metis_tac [val_rel_mono_list]) >>
+ rfs [] >>
+ Cases_on `evaluate_app NONE (HD vs3) vs1 s3` >>
+ rfs [] >>
+ reverse (Cases_on `q`) >>
+ fs [res_rel_rw]
+ >- (
+   Cases_on `e` >>
+   fs [res_rel_rw] >>
+   rw []
+   >- metis_tac []
+   >- metis_tac [] >>
+   Cases_on `a` >>
+   fs [res_rel_rw]) >>
+ Cases_on `vs2 = []` >>
+ fs [] >>
+ `LENGTH a = 1 ∧ LENGTH vs' = 1` by (
+   imp_res_tac evaluate_app_length_imp >>
+   fs [])
+ >- (rw [evaluate_def, res_rel_rw] >>
+     Cases_on `a` >>
+     Cases_on `vs'` >>
+     fs [] >>
+     simp [evaluate_def, res_rel_rw]) >>
+ match_mp_tac res_rel_evaluate_app >>
+ simp [] >>
+ Cases_on `a` >>
+ Cases_on `vs'` >>
+ fs [] >>
+ imp_res_tac evaluate_clock >>
+ `s''.clock ≤ s2'.clock` by decide_tac >>
+ metis_tac [val_rel_mono_list]);
 
 val fn_partial_arg = Q.prove (
 `!i' i vs vs' env env' args args' num_args e.
