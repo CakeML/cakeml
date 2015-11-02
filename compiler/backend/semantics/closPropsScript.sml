@@ -175,6 +175,54 @@ val every_Fn_SOME_EVERY = store_thm("every_Fn_SOME_EVERY",
   Induct >> simp[every_Fn_SOME_def] >>
   Cases_on`ls`>>fs[every_Fn_SOME_def])
 
+val every_Fn_NONE_def = tDefine "every_Fn_NONE" `
+  (every_Fn_NONE [] ⇔ T) ∧
+  (every_Fn_NONE (x::y::xs) ⇔
+     every_Fn_NONE [x] ∧
+     every_Fn_NONE (y::xs)) ∧
+  (every_Fn_NONE [Var v] ⇔ T) ∧
+  (every_Fn_NONE [If x1 x2 x3] ⇔
+     every_Fn_NONE [x1] ∧
+     every_Fn_NONE [x2] ∧
+     every_Fn_NONE [x3]) ∧
+  (every_Fn_NONE [Let xs x2] ⇔
+     every_Fn_NONE [x2] ∧
+     every_Fn_NONE xs) ∧
+  (every_Fn_NONE [Raise x1] ⇔
+     every_Fn_NONE [x1]) ∧
+  (every_Fn_NONE [Tick x1] ⇔
+     every_Fn_NONE [x1]) ∧
+  (every_Fn_NONE [Op op xs] ⇔
+     every_Fn_NONE xs) ∧
+  (every_Fn_NONE [App loc_opt x1 x2] ⇔
+     every_Fn_NONE [x1] ∧
+     every_Fn_NONE x2) ∧
+  (every_Fn_NONE [Fn loc vs_opt num_args x1] ⇔
+     IS_NONE vs_opt ∧
+     every_Fn_NONE [x1]) ∧
+  (every_Fn_NONE [Letrec loc vs_opt fns x1] ⇔
+     IS_NONE vs_opt ∧
+     every_Fn_NONE (MAP SND fns) ∧
+     every_Fn_NONE [x1]) ∧
+  (every_Fn_NONE [Handle x1 x2] ⇔
+     every_Fn_NONE [x1] ∧
+     every_Fn_NONE [x2]) ∧
+  (every_Fn_NONE [Call dest xs] ⇔
+     every_Fn_NONE xs)`
+  (WF_REL_TAC `measure (exp3_size)`
+   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC >>
+   Induct_on `fns` >>
+   srw_tac [ARITH_ss] [exp_size_def] >>
+   Cases_on `h` >>
+   fs [exp_size_def] >>
+   decide_tac);
+val _ = export_rewrites["every_Fn_NONE_def"];
+
+val every_Fn_NONE_EVERY = store_thm("every_Fn_NONE_EVERY",
+  ``∀ls. every_Fn_NONE ls ⇔ EVERY (λx. every_Fn_NONE [x]) ls``,
+  Induct >> simp[every_Fn_NONE_def] >>
+  Cases_on`ls`>>fs[every_Fn_NONE_def])
+
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
   (fv n ((x:closLang$exp)::y::xs) <=>
