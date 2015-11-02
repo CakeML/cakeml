@@ -542,17 +542,17 @@ val LENGTH_index_list = prove(
 
 val SORTED_FST_LESS_IMP = prove(
   ``!xs x.
-      SORTED (\x y. FST x < FST y:num) (x::xs) ==>
-      SORTED (\x y. FST x < FST y) xs /\ ~(MEM x xs) /\
-      (!y. MEM y xs ==> FST x < FST y)``,
+      SORTED (\x y. FST x > FST y:num) (x::xs) ==>
+      SORTED (\x y. FST x > FST y) xs /\ ~(MEM x xs) /\
+      (!y. MEM y xs ==> FST x > FST y)``,
   Induct \\ fs [SORTED_DEF]
   \\ ntac 3 strip_tac \\ res_tac \\ rpt strip_tac
   \\ rw [] \\ fs [] \\ res_tac \\ decide_tac);
 
 val SORTED_IMP_EQ_LISTS = prove(
   ``!xs ys.
-      SORTED (\x y. FST x < FST y:num) ys /\
-      SORTED (\x y. FST x < FST y) xs /\
+      SORTED (\x y. FST x > FST y:num) ys /\
+      SORTED (\x y. FST x > FST y) xs /\
       (!x. MEM x ys <=> MEM x xs) ==>
       (xs = ys)``,
   Induct \\ fs [] \\ Cases_on `ys` \\ fs [] THEN1 metis_tac []
@@ -562,7 +562,7 @@ val SORTED_IMP_EQ_LISTS = prove(
    (first_x_assum match_mp_tac
     \\ imp_res_tac SORTED_FST_LESS_IMP
     \\ metis_tac [])
-  \\ Cases_on `FST h < FST h'`
+  \\ Cases_on `FST h > FST h'`
   THEN1
    (first_assum (mp_tac o Q.SPEC `h`)
     \\ imp_res_tac SORTED_FST_LESS_IMP
@@ -600,6 +600,27 @@ val EL_index_list = prove(
            (EL i (index_list xs k) = (k + LENGTH xs - i - 1, EL i xs))``,
   Induct \\ fs [index_list_def]
   \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
+
+val SORTED_weaken2 = Q.prove(`
+  ∀ls. SORTED R ls ∧
+  ALL_DISTINCT ls ∧
+  (∀x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ∧ R x y ⇒ R' x y) ⇒
+  SORTED R' ls`,
+  Induct>>rw[]>>Cases_on`ls`>>fs[SORTED_DEF]>>
+  metis_tac[])
+
+val EVEN_LT = prove(``
+  ∀a b.
+  EVEN a ∧ EVEN b ∧
+  a < b ⇒
+  a DIV 2 < b DIV 2``,
+  fs[EVEN_EXISTS]>>rw[]>>
+  fs[MULT_DIV,MULT_COMM]>>
+  DECIDE_TAC)
+
+val transitive_GT = prove(``
+  transitive ($> : (num->num->bool))``,
+  fs[transitive_def]>>DECIDE_TAC)
 
 val evaluate_wLive = Q.prove(
   `state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
@@ -679,34 +700,43 @@ val evaluate_wLive = Q.prove(
     REWRITE_TAC[GSYM inv_image_def] >>
     conj_tac >-(
       match_mp_tac transitive_inv_image >>
-      ACCEPT_TAC transitive_LESS ) >>
+      ACCEPT_TAC transitive_GT ) >>
     qmatch_abbrev_tac`SORTED R' (QSORT R ls)` >>
     `SORTED R (QSORT R ls)` by (
       match_mp_tac QSORT_SORTED >>
       metis_tac[transitive_key_val_compare,total_key_val_compare] ) >>
-    match_mp_tac SORTED_weaken >> (* this could be wrong *)
-    qexists_tac`R` >>
-    simp[MEM_QSORT,Abbr`R`] >>
-    simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
-    cheat (* maybe? *))
+    match_mp_tac SORTED_weaken2>>fs[]>>CONJ_ASM1_TAC
+    >-
+      metis_tac[ALL_DISTINCT_MAP_FST_toAList,QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_FST]
+    >>
+      simp[MEM_QSORT,Abbr`R`] >>
+      simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
+      fs[key_val_compare_def,LET_THM]>>
+      `∀p v. lookup p env = SOME v ⇒ lookup p s.locals = SOME v` by
+        (fs[cut_env_def]>>qpat_assum`A=env` (SUBST_ALL_TAC o SYM)>>
+        fs[lookup_inter_EQ])>>
+      rw[]>>fs[]>>res_tac>>res_tac>>fs[]>>
+      imp_res_tac EVEN_LT>>
+      TRY(Cases_on`p_1' DIV 2 < k`)>>fs[]>>
+      DECIDE_TAC)
   THEN1 (
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
     REWRITE_TAC[GSYM inv_image_def] >>
     conj_tac >-(
       match_mp_tac transitive_inv_image >>
-      ACCEPT_TAC transitive_LESS ) >>
+      ACCEPT_TAC transitive_GT ) >>
     match_mp_tac (MP_CANON sorted_filter) >>
-    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_GT] >>
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
-    conj_tac >- metis_tac[transitive_inv_image,transitive_LESS] >>
+    conj_tac >- metis_tac[transitive_inv_image,transitive_GT] >>
     simp[MAP_GENLIST,combinTheory.o_DEF] >>
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> fst
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
-    conj_tac >- ACCEPT_TAC transitive_LESS >>
+    conj_tac >- ACCEPT_TAC transitive_GT>>
     simp[MAP_GENLIST,combinTheory.o_DEF] >>
-    qmatch_abbrev_tac`SORTED prim_rec$< (GENLIST g m)` >>
+    qmatch_abbrev_tac`SORTED R (GENLIST g m)` >>
     `GENLIST g m = GENLIST (λx. k + m - (x + 1)) m` by (
       simp[LIST_EQ_REWRITE,Abbr`g`] >>
       rw[] >>
@@ -715,8 +745,9 @@ val evaluate_wLive = Q.prove(
       asm_simp_tac std_ss [EL_index_list] >>
       simp[Abbr`ls`,Abbr`Z`] ) >>
     pop_assum SUBST1_TAC >>
-    cheat (* looks the wrong way around (ascending vs descending) *)
-  )
+    fs[Abbr`R`]>>
+    fs[SORTED_EL_SUC]>>rw[]>>`n < m` by DECIDE_TAC>>
+    fs[EL_GENLIST]>>DECIDE_TAC)
   \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
       MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
   \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC]

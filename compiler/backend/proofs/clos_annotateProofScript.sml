@@ -91,6 +91,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   ((shift (FST (free [c])) m num_args i = [c']) /\
    (!n. fv_set [c] n /\ num_args <= n ==>
         env_ok m 0 i env env' (n - num_args)) /\
+   every_Fn_NONE [c] ∧
    (LENGTH env = m) /\ EVERY2 v_rel vals vals' ==>
    v_rel (Closure p vals env num_args c) (Closure p vals' env' num_args c'))
   /\
@@ -100,6 +101,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
        (shift (FST (free [c1])) m (LENGTH cs + num_args) i = [c1']) /\
        (!n. fv_set [c1] n /\ num_args + LENGTH cs <= n ==>
           env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
+       every_Fn_NONE [c1] ∧
        (LENGTH env = m)) cs cs' /\
    EVERY2 v_rel vals vals' /\ index < LENGTH cs ==>
    v_rel (Recclosure p vals env cs index) (Recclosure p vals' env' cs' index))
@@ -555,6 +557,7 @@ val shift_correct = Q.prove(
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      fv_set xs SUBSET env_ok m l i env env' /\
+     every_Fn_NONE xs ∧ FEVERY (λp. every_Fn_NONE [SND (SND p)]) s1.code ∧
      state_rel s1 t1 ==>
      ?res' t2.
         (evaluate (shift (FST (free xs)) m l i,env',t1) = (res',t2)) /\
@@ -563,6 +566,7 @@ val shift_correct = Q.prove(
    (!loc_opt f args (s1:'ffi closSem$state) res s2 f' args' s1'.
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
+     FEVERY (λp. every_Fn_NONE [SND (SND p)]) s1.code ∧
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
@@ -597,6 +601,7 @@ val shift_correct = Q.prove(
     \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
     \\ `?r2 s3. evaluate (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ fs []
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
+    \\ imp_res_tac evaluate_const
     \\ Cases_on `r2` \\ fs []
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
@@ -630,6 +635,7 @@ val shift_correct = Q.prove(
     \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
     \\ fs [] \\ SRW_TAC [] []
     \\ IMP_RES_TAC evaluate_SING \\ fs [] \\ SRW_TAC [] []
+    \\ imp_res_tac evaluate_const
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [v_rel_simp] \\ SRW_TAC [] []
     \\ Cases_on `r1 = Boolv T` \\ fs [v_rel_simp]
@@ -655,6 +661,7 @@ val shift_correct = Q.prove(
     \\ IMP_RES_TAC free_LENGTH
     \\ IMP_RES_TAC EVERY2_LENGTH
     \\ IMP_RES_TAC evaluate_IMP_LENGTH
+    \\ IMP_RES_TAC evaluate_const
     \\ fs [shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
     \\ MATCH_MP_TAC env_ok_EXTEND \\ fs []
     \\ fs [fv_def]
@@ -685,6 +692,7 @@ val shift_correct = Q.prove(
       (fs [SUBSET_DEF,IN_DEF,fv_def])
     \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
+    \\ imp_res_tac evaluate_const
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
     \\ fs [] \\ SRW_TAC [] []
@@ -744,23 +752,6 @@ val shift_correct = Q.prove(
       \\ fs [env_ok_def] \\ rfs []
       \\ fs [get_var_def,tlookup_def]
       \\ DECIDE_TAC)
-    \\ Cases_on`vsopt` >> fs[] >> rpt var_eq_tac >- (
-        simp[v_rel_simp] >>
-        qexists_tac`new_env 0 live` >> simp[] >>
-        qspec_then`[exp]`mp_tac free_thm >> simp[] >> strip_tac >>
-        fs[SUBSET_DEF,fv_def] >> gen_tac >> strip_tac >>
-        `∃m. n = m + num_args` by METIS_TAC[LESS_EQ_ADD_EXISTS] >>
-        var_eq_tac >> fs[] >>
-        simp[Abbr`live`] >>
-        MATCH_MP_TAC (GEN_ALL env_ok_new_env |> SIMP_RULE(srw_ss()++ARITH_ss)[]) >>
-        map_every qexists_tac[`i`,`env'`] >>
-        conj_tac >- METIS_TAC[IN_DEF] >>
-        conj_tac >- fs[MEM_vars_to_list] >>
-        conj_tac >- fs[ALL_DISTINCT_vars_to_list] >>
-        METIS_TAC[ADD_COMM] )
-    \\ every_case_tac >> fs[]
-    \\ rpt var_eq_tac >> simp[v_rel_simp]
-    \\ cheat (*
     \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
     \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []
     \\ MP_TAC (Q.SPEC `[exp]` free_thm)
@@ -773,9 +764,9 @@ val shift_correct = Q.prove(
     \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
     \\ STRIP_TAC THEN1 METIS_TAC []
     \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list] \\ METIS_TAC [])
-    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list]*))
+    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
   THEN1 (* Letrec *)
-   (cheat (* fs [free_def,evaluate_def]
+   (fs [free_def,evaluate_def]
     \\ fs [clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `EVERY (\(num_args,e). num_args <= max_app /\
@@ -819,7 +810,7 @@ val shift_correct = Q.prove(
     \\ IMP_RES_TAC free_LENGTH \\ fs []
     \\ `LENGTH rec_res = LENGTH x` by ALL_TAC THEN1
       (UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [])
-    \\ STRIP_TAC THEN1 (fs [AC ADD_COMM ADD_ASSOC])
+    \\ STRIP_TAC THEN1 (fs [AC ADD_COMM ADD_ASSOC,Abbr`rec_res`])
     \\ fs [SUBSET_DEF,IN_DEF,fv_def]
     \\ REPEAT STRIP_TAC
     \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ fs []
@@ -838,6 +829,9 @@ val shift_correct = Q.prove(
     \\ `?y1 y2. free [x1] = ([y1],y2)` by METIS_TAC [free_SING,PAIR]
     \\ fs [] \\ Q.EXISTS_TAC `new_env 0 live`
     \\ STRIP_TAC THEN1 SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC]
+    \\ reverse strip_tac >- (
+         fs[Once every_Fn_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
+         res_tac >> fs[] )
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
     \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
@@ -857,7 +851,7 @@ val shift_correct = Q.prove(
     \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ fs []
     \\ MP_TAC (Q.SPEC `[x1]` free_thm)
     \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
-    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs [] *))
+    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs [])
   THEN1 (* App *)
    (fs [free_def]
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR]
@@ -878,6 +872,7 @@ val shift_correct = Q.prove(
     \\ fs [] \\ SRW_TAC [] []
     \\ `?r2 s2. evaluate ([x1],env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ fs []
     \\ `r2 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
+    \\ imp_res_tac evaluate_const
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`,`m`,`l`,`i`]) \\ fs []
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `r2` \\ fs [] \\ SRW_TAC [] []
@@ -892,6 +887,7 @@ val shift_correct = Q.prove(
     \\ SRW_TAC [] []
     \\ `fv_set [x] SUBSET env_ok m l i env env'` by
       (fs [SUBSET_DEF,IN_DEF,fv_def])
+    \\ imp_res_tac evaluate_const \\ fs[Once dec_clock_def]
     \\ `state_rel (dec_clock 1 s1) (dec_clock 1 t1)` by
           fs [state_rel_def,dec_clock_def] \\ RES_TAC
     \\ STRIP_ASSUME_TAC (shift_SING |> Q.INST [`x`|->`y1`]) \\ fs [])
@@ -922,8 +918,11 @@ val shift_correct = Q.prove(
     \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock 1 t2`,`0`,
          `LENGTH v'`,`LN`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (fs [] \\ reverse (REPEAT STRIP_TAC)
+     (imp_res_tac evaluate_const
+      \\ fs [] \\ reverse (REPEAT STRIP_TAC)
       THEN1 (fs [state_rel_def,dec_clock_def])
+      THEN1 (fs [state_rel_def,dec_clock_def])
+      THEN1 ( fs[FEVERY_ALL_FLOOKUP] >> res_tac >> fs[] )
       \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
       \\ SIMP_TAC std_ss [env_ok_def]
       \\ reverse (Cases_on `x < LENGTH v'`) \\ fs [] THEN1 DECIDE_TAC
@@ -987,6 +986,7 @@ val shift_correct = Q.prove(
            vals' ++ env'`
       \\ FIRST_X_ASSUM (qspecl_then [`env3'`,`dec_clock n3 s1'`,
            `LENGTH (l0':closSem$v list)`,`n`,`i`]mp_tac)
+      \\ imp_res_tac evaluate_const \\ fs[Once dec_clock_def]
       \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       THEN1
        (REPEAT STRIP_TAC
@@ -1081,6 +1081,7 @@ val shift_correct = Q.prove(
     \\ SRW_TAC [] [] \\ fs []
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
     \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+    \\ imp_res_tac evaluate_const \\ fs[dec_clock_def]
     \\ MATCH_MP_TAC EVERY2_REVERSE
     \\ MATCH_MP_TAC EVERY2_DROP
     \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []

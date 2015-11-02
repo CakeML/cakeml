@@ -251,7 +251,7 @@ val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
   fs[BIJ_DEF,INJ_DEF]);
 
 
-val ALL_DISTINCT_FST = prove(``
+val ALL_DISTINCT_FST = store_thm("ALL_DISTINCT_FST",``
   ∀ls. ALL_DISTINCT (MAP FST ls) ⇒ ALL_DISTINCT ls``,
   Induct>>fs[FORALL_PROD,MEM_MAP])
 
@@ -4920,5 +4920,125 @@ val word_trans_conventions = store_thm("word_trans_conventions",
   assume_tac (SPEC_ALL full_ssa_cc_trans_pre_alloc_conventions)>>
   imp_res_tac pre_post_conventions_word_alloc>>
   metis_tac[])
+
+(*This is only needed for instructions so that we can do 3-to-2 easily*)
+val distinct_tar_reg_def = Define`
+  (distinct_tar_reg (Arith (Binop bop r1 r2 ri))
+    ⇔ (r1 ≠ r2 ∧ case ri of (Reg r3) => r1 ≠ r3 | _ => T)) ∧
+  (distinct_tar_reg  (Arith (Shift l r1 r2 n))
+    ⇔ r1 ≠ r2) ∧
+  (distinct_tar_reg _ ⇔ T)`
+
+val fake_moves_distinct_tar_reg = prove(``
+  ∀ls ssal ssar na l r a b c conf.
+  fake_moves ls ssal ssar na = (l,r,a,b,c) ⇒
+  every_inst distinct_tar_reg l ∧
+  every_inst distinct_tar_reg r``,
+  Induct>>fs[fake_moves_def]>>rw[]>>fs[every_inst_def]>>
+  pop_assum mp_tac>> LET_ELIM_TAC>> EVERY_CASE_TAC>> fs[LET_THM]>>
+  unabbrev_all_tac>>
+  metis_tac[fake_move_def,every_inst_def,distinct_tar_reg_def])
+
+val ssa_cc_trans_distinct_tar_reg = prove(``
+  ∀prog ssa na.
+  is_alloc_var na ∧
+  every_var (λx. x < na) prog ∧
+  ssa_map_ok na ssa ⇒
+  every_inst distinct_tar_reg (FST (ssa_cc_trans prog ssa na))``,
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[ssa_cc_trans_def]>>rw[]>>
+  unabbrev_all_tac>>
+  fs[every_inst_def]>>imp_res_tac ssa_cc_trans_props>>fs[]
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>TRY(Cases_on`r`)>>
+    fs[ssa_cc_trans_inst_def,LET_THM,next_var_rename_def,every_var_def,every_var_inst_def,every_var_imm_def]>>
+    qpat_assum`A=i'` sym_sub_tac>>
+    fs[distinct_tar_reg_def,ssa_map_ok_def,option_lookup_def]>>
+    EVERY_CASE_TAC>>rw[]>>res_tac>>fs[]>>
+    TRY(DECIDE_TAC))
+  >-
+    (fs[every_var_def]>>
+    first_x_assum match_mp_tac>>
+    match_mp_tac every_var_mono >>
+    HINT_EXISTS_TAC>>fs[]>>DECIDE_TAC)
+  >-
+    (fs[every_var_def]>>qpat_assum`A = (B,C,D,E)`mp_tac>>fs[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>
+    fs[every_inst_def,EQ_SYM_EQ]>>
+    TRY(metis_tac[fake_moves_distinct_tar_reg])>>
+    first_x_assum match_mp_tac>>
+    rw[]
+    >-
+      (match_mp_tac every_var_mono >>
+      HINT_EXISTS_TAC>>fs[]>>DECIDE_TAC)
+    >>
+    metis_tac[ssa_map_ok_more])
+  >> TRY
+    (fs[list_next_var_rename_move_def]>>rpt (pop_assum mp_tac)>>
+    LET_ELIM_TAC>>fs[every_inst_def,EQ_SYM_EQ]>>NO_TAC)
+  >>
+  FULL_CASE_TAC>>fs[every_var_def,every_inst_def]
+  >-
+    (qpat_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg D` mp_tac>>
+    discharge_hyps>-
+      (imp_res_tac list_next_var_rename_move_props_2>>
+      fs[next_var_rename_def]>>
+      `ssa_map_ok na' (inter ssa' numset)` by
+        metis_tac[ssa_map_ok_inter]>>
+      rfs[]>>rw[]
+      >-
+        metis_tac[is_alloc_var_add]
+      >-
+        (match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
+        fs[]>>DECIDE_TAC)
+      >>
+        match_mp_tac ssa_map_ok_extend>>
+        fs[]>>
+        metis_tac[convention_partitions])
+      >>
+      fs[list_next_var_rename_move_def]>>
+      rpt(qpat_assum`A=(B,C,D)` mp_tac)>>
+      LET_ELIM_TAC>>fs[EQ_SYM_EQ,every_inst_def])
+    >>
+      PairCases_on`x`>>fs[fix_inconsistencies_def]>>LET_ELIM_TAC>>unabbrev_all_tac>>fs[every_inst_def]>>
+      qpat_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg ren_ret_handler` mp_tac>>
+      discharge_hyps_keep>-
+        (imp_res_tac list_next_var_rename_move_props_2>>
+        fs[next_var_rename_def]>>
+        `ssa_map_ok na' (inter ssa' numset)` by
+          metis_tac[ssa_map_ok_inter]>>
+        rfs[]>>rw[]
+        >-
+          metis_tac[is_alloc_var_add]
+        >-
+          (match_mp_tac every_var_mono>>
+          qexists_tac` λx. x < na`>>fs[]>>
+          DECIDE_TAC)
+        >>
+          match_mp_tac ssa_map_ok_extend>>
+          fs[]>>
+          metis_tac[convention_partitions])>>
+      qpat_assum`A ∧ B ∧ C ⇒ every_inst distinct_tar_reg ren_exc_handler` mp_tac>>
+      discharge_hyps_keep>-
+        (imp_res_tac list_next_var_rename_move_props_2>>
+        fs[next_var_rename_def]>>
+        `ssa_map_ok na' (inter ssa' numset)` by
+          metis_tac[ssa_map_ok_inter]>>
+        rfs[]>>rw[]
+        >-
+          metis_tac[is_alloc_var_add]
+        >-
+          (match_mp_tac every_var_mono>>
+          qexists_tac` λx. x < na`>>fs[]>>
+          DECIDE_TAC)
+        >>
+          match_mp_tac ssa_map_ok_extend>>
+          fs[]>>rw[]
+          >-
+            (`na'' ≤ n'` by DECIDE_TAC>>
+            metis_tac[ssa_map_ok_more])
+          >> metis_tac[convention_partitions])>>
+      fs[list_next_var_rename_move_def]>>
+      rpt(qpat_assum`A=(B,C,D)` mp_tac)>>
+      LET_ELIM_TAC>>fs[EQ_SYM_EQ,every_inst_def]>>
+      metis_tac[fake_moves_distinct_tar_reg] )
 
 val _ = export_theory();
