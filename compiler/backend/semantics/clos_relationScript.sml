@@ -234,23 +234,30 @@ val val_rel_def = tDefine "val_rel" `
 (val_rel (:'ffi) (i:num) (RefPtr p) (RefPtr p') ⇔ p = p') ∧
 (val_rel (:'ffi) (i:num) cl cl' ⇔
   if is_closure cl ∧ is_closure cl' ∧ check_closures cl cl' then
-    !i' vs vs' (s:'ffi closSem$state) (s':'ffi closSem$state).
+    !i' vs vs' (s:'ffi closSem$state) (s':'ffi closSem$state) locopt.
       if i' < i then
         state_rel i' s s' ∧
         vs ≠ [] ∧
         LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
-        case (dest_closure NONE cl vs, dest_closure NONE cl' vs') of
+        case (dest_closure locopt cl vs, dest_closure locopt cl' vs') of
            | (NONE, _) => T
            | (_, NONE) => F
            | (SOME (Partial_app v), SOME (Partial_app v')) =>
                exec_rel i' (Val v (LENGTH vs), s) (Val v' (LENGTH vs'), s')
            | (SOME (Partial_app v), SOME (Full_app e' env' rem_vs')) =>
-               exec_rel i' (Val v (LENGTH vs), s) (Exp1 NONE e' env' rem_vs' (LENGTH vs' - LENGTH rem_vs'), s')
+               exec_rel i'
+                        (Val v (LENGTH vs), s)
+                        (Exp1 locopt e' env' rem_vs'
+                              (LENGTH vs' - LENGTH rem_vs'), s')
            | (SOME (Full_app e env rem_vs), SOME (Partial_app v')) =>
-               exec_rel i' (Exp1 NONE e env rem_vs (LENGTH vs - LENGTH rem_vs), s) (Val v' (LENGTH vs'), s')
+               exec_rel i'
+                 (Exp1 locopt e env rem_vs (LENGTH vs - LENGTH rem_vs), s)
+                 (Val v' (LENGTH vs'), s')
            | (SOME (Full_app e env rem_vs), SOME (Full_app e' env' rem_vs')) =>
-               exec_rel i' (Exp1 NONE e env rem_vs (LENGTH vs - LENGTH rem_vs), s) (Exp1 NONE e' env' rem_vs' (LENGTH vs' - LENGTH rem_vs'), s')
+               exec_rel i'
+                 (Exp1 locopt e env rem_vs (LENGTH vs - LENGTH rem_vs), s)
+                 (Exp1 locopt e' env' rem_vs' (LENGTH vs' - LENGTH rem_vs'), s')
       else
         T
   else
@@ -440,23 +447,29 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
   ⇒
   (val_rel (:'ffi) c v v' ⇔
     if is_closure v' ∧ check_closures v v' then
-    !i' vs vs' (s:'ffi closSem$state) s'.
+    !i' vs vs' (s:'ffi closSem$state) s' locopt.
       if i' < c then
         state_rel i' s s' ∧
         vs ≠ [] ∧
         LIST_REL (val_rel (:'ffi) i') vs vs'
         ⇒
-        case (dest_closure NONE v vs, dest_closure NONE v' vs') of
+        case (dest_closure locopt v vs, dest_closure locopt v' vs') of
            | (NONE, _) => T
            | (_, NONE) => F
            | (SOME (Partial_app v), SOME (Partial_app v')) =>
                exec_rel i' (Val v (LENGTH vs), s) (Val v' (LENGTH vs'), s')
            | (SOME (Partial_app v), SOME (Full_app e' env' rest')) =>
-               exec_rel i' (Val v (LENGTH vs), s) (Exp1 NONE e' env' rest' (LENGTH vs' - LENGTH rest'), s')
+               exec_rel i'
+                 (Val v (LENGTH vs), s)
+                 (Exp1 locopt e' env' rest' (LENGTH vs' - LENGTH rest'), s')
            | (SOME (Full_app e env rest), SOME (Partial_app v')) =>
-               exec_rel i' (Exp1 NONE e env rest (LENGTH vs - LENGTH rest), s) (Val v' (LENGTH vs'), s')
+               exec_rel i'
+               (Exp1 locopt e env rest (LENGTH vs - LENGTH rest), s)
+               (Val v' (LENGTH vs'), s')
            | (SOME (Full_app e env rest), SOME (Full_app e' env' rest')) =>
-               exec_rel i' (Exp1 NONE e env rest (LENGTH vs - LENGTH rest), s) (Exp1 NONE e' env' rest' (LENGTH vs' - LENGTH rest'), s')
+               exec_rel i'
+                 (Exp1 locopt e env rest (LENGTH vs - LENGTH rest), s)
+                 (Exp1 locopt e' env' rest' (LENGTH vs' - LENGTH rest'), s')
       else
         T
     else
@@ -831,15 +844,6 @@ val TAKE_LEN_REV = Q.prove(
   `TAKE (LENGTH l) (REVERSE l) = REVERSE l`,
   simp[TAKE_LENGTH_TOO_LONG])
 
-(*
-val dest_closure_imp_NONE = Q.store_thm(
-  "dest_closure_imp_NONE",
-  `dest_closure l c vs = SOME r ⇒ dest_closure NONE c vs = SOME r`,
-  Cases_on `l` >> simp[] >> Cases_on `c` >> simp[dest_closure_def] >>
-  dsimp[UNCURRY, bool_case_eq, check_loc_def] >>
-  csimp[NOT_LESS, LENGTH_NIL, TAKE_LEN_REV, DROP_LEN_REV] >> rw[])
-*)
-
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' (s:'ffi closSem$state) s' loc.
   val_rel (:'ffi) c v v' ∧
@@ -888,10 +892,13 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
      >- (fs [val_rel_cl_rw] >>
          `s'.clock - LENGTH vs ≤ s'.clock` by decide_tac >>
-         first_x_assum (qspecl_then [`s'.clock - 1`, `vs`, `vs'`, `s`, `s'`] mp_tac) >>
+         first_x_assum
+           (qspecl_then [`s'.clock - 1`, `vs`, `vs'`, `s`, `s'`, `NONE`]
+                        mp_tac) >>
          simp [exec_rel_rw, evaluate_ev_def, res_rel_def] >>
          `s'.clock - 1 ≤ s'.clock` by decide_tac >>
-         `state_rel (s'.clock − 1) s s' ∧ LIST_REL (val_rel (:'ffi) (s'.clock − 1)) vs vs'`
+         `state_rel (s'.clock − 1) s s' ∧
+          LIST_REL (val_rel (:'ffi) (s'.clock − 1)) vs vs'`
            by metis_tac [val_rel_mono, val_rel_mono_list] >>
          simp [] >>
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
@@ -936,7 +943,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
        (qspecl_then [`st.clock - 1`, `used`, `used'`] mp_tac) >>
      simp[] >>
      qcase_tac `state_rel _ s0 s0'` >>
-     disch_then (qspecl_then [`s0`, `s0'`] mp_tac) >>
+     disch_then (qspecl_then [`s0`, `s0'`, `NONE`] mp_tac) >>
      IMP_RES_THEN strip_assume_tac val_rel_mono >> simp[] >>
      IMP_RES_THEN strip_assume_tac val_rel_mono_list' >> simp[] >>
      simp[exec_rel_rw, evaluate_ev_def] >>
@@ -1008,7 +1015,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
        (qspecl_then [`st.clock - 1`, `used`, `used'`] mp_tac) >>
      simp[] >>
      qcase_tac `state_rel _ s0 s0'` >>
-     disch_then (qspecl_then [`s0`, `s0'`] mp_tac) >>
+     disch_then (qspecl_then [`s0`, `s0'`, `NONE`] mp_tac) >>
      IMP_RES_THEN strip_assume_tac val_rel_mono >> simp[] >>
      IMP_RES_THEN strip_assume_tac val_rel_mono_list' >> simp[] >>
      simp[exec_rel_rw, evaluate_ev_def] >>
@@ -1066,9 +1073,38 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
            by metis_tac[EVERY2_APPEND, LENGTH_APPEND] >>
          Q.UNDISCH_THEN `val_rel (:'ffi) s'.clock v v'` mp_tac >>
          simp[val_rel_cl_rw] >>
-         disch_then (qspecl_then [`s'.clock - 1`, `used1`, `used2`, `s`, `s'`]
-                                 mp_tac) >> simp[] >>
-         cheat)
+         disch_then
+           (qspecl_then [`s'.clock - 1`, `used1`, `used2`, `s`, `s'`, `loc`]
+                        mp_tac) >> simp[] >>
+         `s'.clock - 1 ≤ s'.clock` by decide_tac >>
+         `state_rel (s'.clock - 1) s s' ∧
+          LIST_REL (val_rel (:'ffi) (s'.clock - 1)) used1 used2`
+            by metis_tac[val_rel_mono, val_rel_mono_list] >> simp[] >>
+         simp[exec_rel_rw, evaluate_ev_def] >>
+         disch_then (qspec_then `s'.clock - 1` mp_tac) >>
+         simp[dec_clock_def, evaluate_def] >>
+         `(∃r1 s1.
+            evaluate ([b1], env1, s with clock := s'.clock - LENGTH used2) =
+            (r1, s1)) ∧
+          (∃r2 s2.
+            evaluate ([b2], env2, s' with clock := s'.clock - LENGTH used2) =
+            (r2, s2))` by metis_tac[PAIR] >> simp[] >>
+         `(∃rv1. r1 = Rval [rv1]) ∨ (∃a1. r1 = Rerr (Rraise a1)) ∨
+          r1 = Rerr (Rabort Rtimeout_error) ∨ r1 = Rerr (Rabort Rtype_error)`
+           by (Cases_on `r1` >- (simp[] >> metis_tac[evaluate_SING]) >>
+               qcase_tac `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
+               qcase_tac `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
+         rveq >>
+         dsimp[SimpL ``$==>``, res_rel_rw, eqs]
+         >- (qx_gen_tac `rv2` >> simp[] >> strip_tac >> first_assum irule
+             >- first_x_assum ACCEPT_TAC >>
+             qexists_tac `s1.clock` >> simp[] >>
+             `s2.clock < s'.clock`
+               suffices_by
+               metis_tac[val_rel_mono_list, DECIDE ``x:num < y ⇒ x ≤ y``] >>
+             imp_res_tac evaluate_clock >> lfs[])
+         >- csimp[res_rel_rw]
+         >- csimp[res_rel_rw])
      >- ((* LENGTH used1 < LENGTH used2 *) cheat)
      >- ((* LENGTH used2 < LENGTH used1 *) cheat)
     )

@@ -456,6 +456,7 @@ val fn_partial_arg = Q.prove (
  imp_res_tac LIST_REL_LENGTH
  >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
           clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
+ Cases_on `locopt` >>
  simp [dest_closure_def, check_loc_def] >>
  rw [] >>
  TRY decide_tac >>
@@ -543,6 +544,7 @@ val fn_add_arg_lem = Q.prove (
  imp_res_tac LIST_REL_LENGTH
  >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
           clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
+ Cases_on `locopt` >>
  simp [dest_closure_def, check_loc_def] >>
  `num_args' ≤ max_app` by decide_tac >>
  rw [] >>
