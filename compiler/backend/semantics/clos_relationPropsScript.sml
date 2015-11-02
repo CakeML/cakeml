@@ -509,15 +509,16 @@ val app_combine = Q.store_thm ("app_combine",
  metis_tac [val_rel_mono_list]);
 
 val fn_partial_arg = Q.prove (
-`!i' i vs vs' env env' args args' num_args e.
+`!i' i vs vs' env env' args args' num_args e e'.
  i' ≤ i ∧
  LIST_REL (val_rel (:'ffi) i) vs vs' ∧
  LIST_REL (val_rel (:'ffi) i) env env' ∧
- LIST_REL (val_rel (:'ffi) i) args args'
+ LIST_REL (val_rel (:'ffi) i) args args' ∧
+ exp_rel (:'ffi) [e] [e']
  ⇒
  val_rel (:'ffi) i'
   (Closure NONE args (vs ++ env) num_args e)
-  (Closure NONE (args' ++ vs') env' (num_args + LENGTH vs') e)`,
+  (Closure NONE (args' ++ vs') env' (num_args + LENGTH vs') e')`,
  completeInduct_on `i'` >>
  rw [val_rel_rw, is_closure_def] >>
  imp_res_tac LIST_REL_LENGTH
@@ -531,9 +532,8 @@ val fn_partial_arg = Q.prove (
  fs [NOT_LESS] >>
  rw [res_rel_rw]
  >- (
-  `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
    fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
-   pop_assum (qspecl_then [`i''`, 
+   first_x_assum (qspecl_then [`i''`, 
                            `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs'')) ++ args ++ vs ++ env`,
                            `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env'`,
                            `s`,
@@ -596,16 +596,17 @@ val fn_partial_arg = Q.prove (
  >- metis_tac [ZERO_LESS_EQ, val_rel_mono]);
 
 val fn_add_arg_lem = Q.prove (
-`!i' num_args num_args' i env env' args args' e.
+`!i' num_args num_args' i env env' args args' e e'.
   num_args ≠ 0 ∧
   num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ∧
   LIST_REL (val_rel (:'ffi) i) env env' ∧
   LIST_REL (val_rel (:'ffi) i) args args' ∧
-  i' ≤ i
+  i' ≤ i ∧
+  exp_rel (:'ffi) [e] [e']
   ⇒
   val_rel (:'ffi) i' (Closure NONE args env num_args (Fn NONE NONE num_args' e))
-                     (Closure NONE args' env' (num_args + num_args') e)`,
+                     (Closure NONE args' env' (num_args + num_args') e')`,
  completeInduct_on `i'` >>
  rw [val_rel_rw, is_closure_def] >>
  imp_res_tac LIST_REL_LENGTH
@@ -635,9 +636,8 @@ val fn_add_arg_lem = Q.prove (
    simp [GSYM REVERSE_APPEND] >>
    simp [take_append_take_drop] >>
    simp [dec_clock_def] >>
-   `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
    fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
-   pop_assum (qspecl_then [`i''`, 
+   first_x_assum (qspecl_then [`i''`, 
                            `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)) ++ args ++ env`,
                            `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs')) ++ args' ++ env'`,
                            `s`,
@@ -772,13 +772,15 @@ val fn_add_arg_lem = Q.prove (
    metis_tac [val_rel_mono_list, EVERY2_APPEND, LIST_REL_LENGTH]));
 
 val fn_add_arg = Q.store_thm ("fn_add_arg",
-`!num_args num_args' e.
+`!num_args num_args' e e'.
   num_args ≠ 0 ∧
   num_args' ≠ 0 ∧
-  num_args + num_args' ≤ max_app ⇒
+  num_args + num_args' ≤ max_app ∧
+  exp_rel (:'ffi) [e] [e'] ⇒
   exp_rel (:'ffi) [Fn NONE NONE num_args (Fn NONE NONE num_args' e)]
-          [Fn NONE NONE (num_args + num_args') e]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
+          [Fn NONE NONE (num_args + num_args') e']`,
+ rw [] >>
+ simp [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
  reverse (rw [res_rel_rw])
  >- metis_tac [val_rel_mono] >>
  metis_tac [fn_add_arg_lem, LIST_REL_NIL]);
