@@ -21,6 +21,26 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
  every_case_tac >>
  rw []);
 
+val evaluate_app_append = Q.store_thm ("evaluate_app_append",
+`!f args1 args2 s.
+  evaluate_app NONE f (args1 ++ args2) s =
+    case evaluate_app NONE f args2 s of
+    | (Rval vs1, s1) => evaluate_app NONE (HD vs1) args1 s1
+    | err => err`,
+
+ rw [] >>
+ Cases_on `args1++args2 = []`
+ >- fs [evaluate_def, APPEND_eq_NIL] >>
+ Cases_on `args2 = []`
+ >- fs [evaluate_def, APPEND_eq_NIL] >>
+ rw [evaluate_app_rw, dest_closure_def] >>
+ Cases_on `f` >>
+ fs [] >>
+ rw [] >>
+ rw [] >>
+ fs []
+
+
 val take_append_take_drop = Q.store_thm ("take_append_take_drop",
 `!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
  Induct_on `l` >>
@@ -395,51 +415,86 @@ val geq_opt = Q.store_thm ("geq_opt",
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
- (*
-
 val app_combine = Q.store_thm ("app_combine",
-`∀f es1 es2 es1' es2'.
+`∀f f f' es1 es2 es1' es2'.
   LENGTH es1 ≠ 0 ∧
   LENGTH es1 = LENGTH es1' ∧
   LENGTH es2 = LENGTH es2' ∧
+  exp_rel (:'ffi) [f] [f'] ∧
   exp_rel (:'ffi) es1 es1' ∧
   exp_rel (:'ffi) es2 es2' ⇒
-  exp_rel (:'ffi) [App NONE (App NONE f es1) es2] [App NONE f (es2'++es1')]`,
+  exp_rel (:'ffi) [App NONE (App NONE f es1) es2] [App NONE f' (es2'++es1')]`,
 
  rw [exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
  simp [evaluate_append] >>
  Cases_on `LENGTH es2 > 0` >>
  simp [res_rel_rw] >>
- `res_rel (evaluate (es2,env,s with clock := i')) (evaluate (es2',env',s' with clock := i'))` by metis_tac [] >>
- Cases_on `evaluate (es2,env,s with clock := i')` >>
- Cases_on `q` >>
- Cases_on `evaluate (es2',env',s' with clock := i')` >>
- Cases_on `q` >>
+ qabbrev_tac `res2 = evaluate (es2,env,s with clock := i')` >>
+ qabbrev_tac `res2' = evaluate (es2',env',s' with clock := i')` >>
+ `res_rel res2 res2'` by metis_tac [] >>
+ `?s2. (?v2. res2 = (Rerr v2, s2)) ∨ (?vs2. res2 = (Rval vs2, s2))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
+ `?s2. (?vs2. res2' = (Rval vs2, s2)) ∨ (?v2. res2' = (Rerr v2, s2))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
+ fs [res_rel_rw]          
+ >- (
+   Cases_on `v2` >>
+   fs [res_rel_rw] >>
+   Cases_on `a` >>
+   fs [res_rel_rw]) >>
+ qabbrev_tac `res1 = evaluate (es1,env,s2 with clock := s2.clock)` >>
+ qabbrev_tac `res1' = evaluate (es1',env',s2' with clock := s2.clock)` >>
+ `res_rel res1 res1'` 
+ by (
+   `s2.clock ≤ (s with clock := i').clock` by metis_tac [evaluate_clock] >>
+   fs [] >>
+   unabbrev_all_tac >>
+   first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+   qexists_tac `s2.clock` >>
+   rw [] >>
+   `s2'.clock ≤ i` by decide_tac >>
+   metis_tac [val_rel_mono_list]) >>
+ `(s2 with clock := s2.clock) = s2` by cheat >>
+ `(s2' with clock := s2.clock) = s2'` by cheat >>
+ fs [] >>
+ `?s1. (?v1. res1 = (Rerr v1, s1)) ∨ (?vs1. res1 = (Rval vs1, s1))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
+ `?s1. (?vs1. res1' = (Rval vs1, s1)) ∨ (?v1. res1' = (Rerr v1, s1))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
+ fs [res_rel_rw]          
+ >- (
+   Cases_on `v1` >>
+   fs [res_rel_rw] >>
+   Cases_on `a` >>
+   fs [res_rel_rw]) >>
+ qabbrev_tac `res3 = evaluate ([f],env,s1 with clock := s1.clock)` >>
+ qabbrev_tac `res3' = evaluate ([f'],env',s1' with clock := s1.clock)` >>
+ `res_rel res3 res3'` 
+ by (
+   `s2.clock ≤ (s with clock := i').clock` by metis_tac [evaluate_clock] >>
+   `s1.clock ≤ s2.clock` by metis_tac [evaluate_clock] >>
+   fs [] >>
+   unabbrev_all_tac >>
+   first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+   qexists_tac `s1.clock` >>
+   rw [] >>
+   `s1'.clock ≤ i` by decide_tac >>
+   metis_tac [val_rel_mono_list]) >>
+ `(s1 with clock := s1.clock) = s1` by cheat >>
+ `(s1' with clock := s1.clock) = s1'` by cheat >>
+ fs [] >>
+ `?s3. (?v3. res3 = (Rerr v3, s3)) ∨ (?vs3. res3 = (Rval vs3, s3))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
+ `?s3. (?vs3. res3' = (Rval vs3, s3)) ∨ (?v3. res3' = (Rerr v3, s3))` 
+   by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
  fs [res_rel_rw]
  >- (
-   `res_rel (evaluate (es1,env,r with clock := r.clock)) (evaluate (es1',env',r' with clock := r.clock))` by (
-     first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
-     qexists_tac `r.clock` >>
-     rw [] >>
-     imp_res_tac evaluate_clock >>
-     fs [] >>
-     `r'.clock ≤ i` by decide_tac >>
-     metis_tac [val_rel_mono_list]) >>
-   `(r with clock := r.clock) = r` by cheat >>
-   `(r' with clock := r.clock) = r` by cheat >>
-   fs [] >>
-   Cases_on `evaluate (es1,env,r)` >>
-   Cases_on `q` >>
-   Cases_on `evaluate (es1',env',r')` >>
-   Cases_on `q` >>
-   fs [res_rel_rw]
-
- >- (
-   TRY (Cases_on `e`) >>
+   Cases_on `v3` >>
    fs [res_rel_rw] >>
-   TRY (Cases_on `a'`) >>
-   fs [res_rel_rw]));
-   *)
+   Cases_on `a` >>
+   fs [res_rel_rw]) >>
+ rw []
+
 
 val fn_partial_arg = Q.prove (
 `!i' i vs vs' env env' args args' num_args e.
