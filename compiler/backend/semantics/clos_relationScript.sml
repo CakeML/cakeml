@@ -2,6 +2,15 @@ open preamble closLangTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relation";
 
+val bool_case_eq = Q.prove(
+  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
+  rw[] >> metis_tac[]);
+
+val pair_case_eq = Q.prove (
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ rw []);
+
 val butlastn_nil = Q.store_thm ("butlastn_nil",
 `!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
  Induct_on `n` >>
@@ -11,187 +20,6 @@ val butlastn_nil = Q.store_thm ("butlastn_nil",
  ASM_REWRITE_TAC [BUTLASTN] >>
  simp [] >>
  fs [ADD1]);
-
-(* Move to props *)
-
-val clock_lemmas = Q.store_thm ("clock_lemmas",
-`!s. (s with clock := s.clock) = s`,
- rw [state_component_equality]);
-
-val evaluate_app_rw = Q.store_thm ("evaluate_app_rw",
-`(!args loc_opt f s.
-  args ≠ [] ⇒
-  evaluate_app loc_opt f args s =
-    case dest_closure loc_opt f args of
-       | NONE => (Rerr(Rabort Rtype_error),s)
-       | SOME (Partial_app v) =>
-           if s.clock < LENGTH args then
-             (Rerr(Rabort Rtimeout_error),s with clock := 0)
-           else (Rval [v], dec_clock (LENGTH args) s)
-       | SOME (Full_app exp env rest_args) =>
-           if s.clock < (LENGTH args - LENGTH rest_args) then
-             (Rerr(Rabort Rtimeout_error),s with clock := 0)
-           else
-             case evaluate ([exp],env,dec_clock (LENGTH args - LENGTH rest_args) s) of
-                | (Rval [v], s1) =>
-                    evaluate_app loc_opt v rest_args s1
-                | res => res)`,
- Cases_on `args` >>
- fs [evaluate_def]);
-
-val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
-val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
-val option_thms = { nchotomy = option_nchotomy, case_def = option_case_def}
-val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
-val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def}
-val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
-                    case_def = TypeBase.case_def_of ``:('a,'b)result`` }
-val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
-                     case_def = TypeBase.case_def_of ``:app_kind`` }
-val eqs = LIST_CONJ (map prove_case_eq_thm [op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms, appkind_thms])
-
-val pair_case_eq = Q.prove (
-`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
- Cases_on `x` >>
- rw []);
-
-val bool_case_eq = Q.prove(
-  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  rw[] >> metis_tac[]);
-
-val pair_lam_lem = Q.prove (
-`!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- rw []);
-
-val do_app_cases_val = save_thm ("do_app_cases_val",
-``do_app op vs s = Rval (v,s')`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
-
-val do_app_cases_err = save_thm ("do_app_cases_err",
-``do_app op vs s = Rerr (Rraise v)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
-
-val do_app_cases_timeout = save_thm ("do_app_cases_timeout",
-``do_app op vs s = Rerr (Rabort Rtimeout_error)`` |>
-  (SIMP_CONV (srw_ss()++COND_elim_ss) [PULL_EXISTS, do_app_def, eqs, pair_case_eq, pair_lam_lem] THENC
-   SIMP_CONV (srw_ss()++COND_elim_ss) [LET_THM, eqs] THENC
-   ALL_CONV));
-
-val dest_closure_none_loc = Q.store_thm ("dest_closure_none_loc",
-`!l cl vs v e env rest.
-  (dest_closure l cl vs = SOME (Partial_app v) ⇒ l = NONE) ∧
-  (dest_closure l cl vs = SOME (Full_app e env rest) ∧ rest ≠ [] ⇒ l = NONE)`,
- rpt gen_tac >>
- simp [dest_closure_def] >>
- Cases_on `cl` >>
- simp [] >>
- rw [] >>
- Cases_on `l` >>
- fs [check_loc_def] >>
- rw [] >>
- rfs [DROP_NIL] >>
- Cases_on `EL n l1` >>
- fs [] >>
- rw [] >>
- rfs [DROP_NIL]);
-
-val is_closure_def = Define `
-(is_closure (Closure _ _ _ _ _) ⇔ T) ∧
-(is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
-(is_closure _ ⇔ F)`;
-
-val clo_to_loc_def = Define `
-(clo_to_loc (Closure l _ _ _ _) = l) ∧
-(clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
-
-val clo_to_env_def = Define `
-(clo_to_env (Closure _ _ env _ _) = env) ∧
-(clo_to_env (Recclosure loc _ env fns _) =
-  GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)`;
-
-val clo_to_partial_args_def = Define `
-(clo_to_partial_args (Closure _ args _ _ _) = args) ∧
-(clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
-
-val clo_add_partial_args_def = Define `
-(clo_add_partial_args args (Closure x1 args' x2 x3 x4) =
-  Closure x1 (args ++ args') x2 x3 x4) ∧
-(clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) =
-  Recclosure x1 (args ++ args') x2 x3 x4)`;
-
-val clo_to_num_params_def = Define `
-(clo_to_num_params (Closure _ _ _ n _) = n) ∧
-(clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))`;
-
-val rec_clo_ok_def = Define `
-(rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
-(rec_clo_ok (Closure _ _ _ _ _) ⇔ T)`;
-
-val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
-`!l v vs e args rest.
-  dest_closure l v vs = SOME (Full_app e args rest)
-  ⇒
-  LENGTH (clo_to_partial_args v) < clo_to_num_params v ∧
-  LENGTH vs + LENGTH (clo_to_partial_args v) = clo_to_num_params v + LENGTH rest ∧
-  LENGTH args = clo_to_num_params v + LENGTH (clo_to_env v)`,
- rpt gen_tac >>
- simp [dest_closure_def] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [is_closure_def, clo_to_partial_args_def, clo_to_num_params_def, clo_to_env_def]
- >- (`n - LENGTH l' ≤ LENGTH vs` by decide_tac >>
-     rw [] >>
-     simp [LENGTH_TAKE]) >>
- Cases_on `EL n l1` >>
- fs [] >>
- rw [] >>
- simp []);
-
-val evaluate_app_clock_less = Q.store_thm ("evaluate_app_clock_less",
-`!loc_opt f args s1 vs s2.
-  args ≠ [] ∧
-  evaluate_app loc_opt f args s1 = (Rval vs, s2)
-  ⇒
-  s2.clock < s1.clock`,
- rw [] >>
- rfs [evaluate_app_rw] >>
- BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- rw [] >>
- TRY decide_tac >>
- imp_res_tac evaluate_SING >>
- fs [] >>
- imp_res_tac evaluate_clock >>
- fs [dec_clock_def] >>
- imp_res_tac dest_closure_full_length >>
- TRY decide_tac >>
- Cases_on `args` >>
- fs [] >>
- decide_tac);
-
-val clo_add_partial_args_nil = Q.store_thm ("clo_add_partial_args_nil[simp]",
-`!x. is_closure x ⇒ clo_add_partial_args [] x = x`,
- Cases_on `x` >>
- rw [is_closure_def, clo_add_partial_args_def]);
-
-(* END MOVE *)
-
-val clo_can_apply_def = Define `
-clo_can_apply loc cl num_args ⇔
-  LENGTH (clo_to_partial_args cl) < clo_to_num_params cl ∧
-  rec_clo_ok cl ∧
-  (loc ≠ NONE ⇒
-   loc = clo_to_loc cl ∧
-   num_args = clo_to_num_params cl ∧
-   clo_to_partial_args cl = [])`;
-
-val check_closures_def = Define `
-check_closures cl cl' ⇔
-  !loc num_args.
-    clo_can_apply loc cl num_args ⇒ clo_can_apply loc cl' num_args`;
 
 val _ = Datatype `
 val_or_exp =
@@ -703,97 +531,15 @@ val dest_closure_full_split = Q.prove (
      `i ≤ LENGTH vs` by full_simp_tac (srw_ss()++ARITH_ss) [Abbr `i`] >>
      simp [TAKE_REVERSE, DROP_REVERSE, LENGTH_LASTN, LASTN_LASTN, BUTLASTN_LASTN_NIL] >>
      simp [BUTLASTN_TAKE, Abbr `i`]));
-
-val dest_closure_partial_is_closure = Q.store_thm(
-  "dest_closure_partial_is_closure",
-  `dest_closure l v vs = SOME (Partial_app v') ⇒
-   is_closure v'`,
-  dsimp[dest_closure_def, eqs, bool_case_eq, is_closure_def, UNCURRY]);
-
-val is_closure_add_partial_args_nil = Q.store_thm(
-  "is_closure_add_partial_args_nil",
-  `is_closure v ⇒ (clo_add_partial_args [] v = v)`,
-  Cases_on `v` >> simp[]);
-
-val evaluate_app_clock0 = Q.store_thm(
-  "evaluate_app_clock0",
-  `s0.clock = 0 ∧ args ≠ [] ⇒
-   evaluate_app lopt r args s0 ≠ (Rval vs, s)`,
-  strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> fs[]) >>
-  simp[evaluate_def] >>
-  Cases_on `dest_closure lopt r (a1::args0)` >> simp[] >>
-  qcase_tac `dest_closure lopt r (a1::args0) = SOME c` >>
-  Cases_on `c` >> simp[] >>
-  qcase_tac `dest_closure lopt r (a1::args0) = SOME (Full_app b env rest)` >>
-  rw[] >>
-  `SUC (LENGTH args0) ≤ LENGTH rest` by simp[] >>
-  imp_res_tac dest_closure_full_length >> lfs[])
-
-val evaluate_app_clock_drop = Q.store_thm(
-  "evaluate_app_clock_drop",
-  `∀args f lopt s0 s vs.
-     evaluate_app lopt f args s0 = (Rval vs, s) ⇒
-     s.clock + LENGTH args ≤ s0.clock`,
-  gen_tac >> completeInduct_on `LENGTH args` >>
-  full_simp_tac (srw_ss() ++ DNF_ss) [] >> qx_gen_tac `args` >>
-  `args = [] ∨ ∃a1 as. args = a1::as` by (Cases_on `args` >> simp[]) >>
-  dsimp[evaluate_def, eqs, bool_case_eq, pair_case_eq, dec_clock_def] >>
-  rpt strip_tac >> imp_res_tac evaluate_SING >> fs[] >> rw[] >>
-  qcase_tac `evaluate_app lopt r1 args' s1` >>
-  Cases_on `args' = []`
-  >- (fs[evaluate_def] >> rw[] >> imp_res_tac evaluate_clock >> fs[] >> simp[])
-  >- (`SUC (LENGTH as) ≤ LENGTH args' + s0.clock` by simp[] >>
-      `LENGTH args' < SUC (LENGTH as)`
-        by (imp_res_tac dest_closure_full_length >> lfs[]) >>
-      `s.clock + LENGTH args' ≤ s1.clock` by metis_tac[] >>
-      imp_res_tac evaluate_clock  >> fs[] >> simp[]))
-
+     
 val val_rel_is_closure = Q.store_thm(
   "val_rel_is_closure",
   `val_rel (:'ffi) c cl1 cl2 ∧ is_closure cl1 ⇒
    is_closure cl2 ∧ check_closures cl1 cl2`,
   Cases_on `cl1` >> simp[is_closure_def, val_rel_rw]);
 
-val dest_closure_is_closure = Q.store_thm(
-  "dest_closure_is_closure",
-  `dest_closure lopt f vs = SOME r ⇒ is_closure f`,
-  Cases_on `f` >> simp[is_closure_def, dest_closure_def]);
-
-val stage_partial_app = Q.store_thm(
-  "stage_partial_app",
-  `is_closure c ∧
-   dest_closure NONE v (rest ++ used) =
-     SOME (Partial_app (clo_add_partial_args rest c)) ⇒
-   dest_closure NONE c rest =
-     SOME (Partial_app (clo_add_partial_args rest c))`,
-  Cases_on `v` >> simp[dest_closure_def, eqs, bool_case_eq, UNCURRY] >>
-  Cases_on `c` >>
-  simp[clo_add_partial_args_def, is_closure_def, check_loc_def]);
-
-
 val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
   CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[])
-
-val revdroprev = Q.prove(
-  `∀l n.
-     n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
-  ho_match_mp_tac listTheory.SNOC_INDUCT >> simp[] >> rpt strip_tac >>
-  qcase_tac `n ≤ SUC (LENGTH l)` >>
-  `n = 0 ∨ ∃m. n = SUC m` by (Cases_on `n` >> simp[]) >> simp[]
-  >- simp[TAKE_APPEND2] >>
-  simp[TAKE_APPEND1] >>
-  `LENGTH l + 1 - SUC m = LENGTH l - m`
-     suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
-  simp[]);
-
-val dest_closure_full_addargs = Q.store_thm(
-  "dest_closure_full_addargs",
-  `dest_closure NONE c vs = SOME (Full_app b env r) ∧
-   LENGTH more + LENGTH vs ≤ max_app ⇒
-   dest_closure NONE c (more ++ vs) = SOME (Full_app b env (more ++ r))`,
-  Cases_on `c` >> csimp[dest_closure_def, bool_case_eq, revdroprev, UNCURRY] >>
-  simp[DROP_APPEND1, revdroprev, TAKE_APPEND1, TAKE_APPEND2] >>
-  simp[check_loc_def]);
 
 val dest_closure_full_maxapp = Q.store_thm(
   "dest_closure_full_maxapp",
