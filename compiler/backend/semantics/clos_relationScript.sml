@@ -770,6 +770,7 @@ val stage_partial_app = Q.store_thm(
   Cases_on `c` >>
   simp[clo_add_partial_args_def, is_closure_def, check_loc_def]);
 
+
 val revnil = Q.prove(`[] = REVERSE l ⇔ l = []`,
   CONV_TAC (LAND_CONV (REWR_CONV EQ_SYM_EQ)) >> simp[])
 
@@ -784,6 +785,21 @@ val revdroprev = Q.prove(
   `LENGTH l + 1 - SUC m = LENGTH l - m`
      suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
   simp[]);
+
+val dest_closure_full_addargs = Q.store_thm(
+  "dest_closure_full_addargs",
+  `dest_closure NONE c vs = SOME (Full_app b env r) ∧
+   LENGTH more + LENGTH vs ≤ max_app ⇒
+   dest_closure NONE c (more ++ vs) = SOME (Full_app b env (more ++ r))`,
+  Cases_on `c` >> csimp[dest_closure_def, bool_case_eq, revdroprev, UNCURRY] >>
+  simp[DROP_APPEND1, revdroprev, TAKE_APPEND1, TAKE_APPEND2] >>
+  simp[check_loc_def]);
+
+val dest_closure_full_maxapp = Q.store_thm(
+  "dest_closure_full_maxapp",
+  `dest_closure NONE c vs = SOME (Full_app b env r) ∧ r ≠ [] ⇒
+   LENGTH vs ≤ max_app`,
+  Cases_on `c` >> simp[dest_closure_def, check_loc_def, UNCURRY]);
 
 val dest_closure_full_split' = Q.store_thm(
   "dest_closure_full_split'",
@@ -843,6 +859,17 @@ val DROP_LEN_REV = Q.prove(
 val TAKE_LEN_REV = Q.prove(
   `TAKE (LENGTH l) (REVERSE l) = REVERSE l`,
   simp[TAKE_LENGTH_TOO_LONG])
+
+val res_rel_timeout2 = Q.store_thm(
+  "res_rel_timeout2",
+  `res_rel rs (Rerr (Rabort Rtimeout_error), s) ⇔
+   (∃s'. rs = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s'.clock s' s) ∨
+   (∃s'. rs = (Rerr (Rabort Rtype_error), s'))`,
+  Cases_on `rs` >> simp[] >> qcase_tac `res_rel (rr, _)` >>
+  Cases_on `rr` >> simp[res_rel_rw] >> qcase_tac `res_rel (Rerr ee, _)` >>
+  Cases_on `ee` >> simp[res_rel_rw] >>
+  qcase_tac `res_rel (Rerr (Rabort aa), _)` >> Cases_on `aa` >>
+  simp[res_rel_rw]);
 
 val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
 `!c v v' vs vs' (s:'ffi closSem$state) s' loc.
@@ -1105,7 +1132,53 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
              imp_res_tac evaluate_clock >> lfs[])
          >- csimp[res_rel_rw]
          >- csimp[res_rel_rw])
-     >- ((* LENGTH used1 < LENGTH used2 *) cheat)
+     >- ((* LENGTH used1 < LENGTH used2 *)
+         `LENGTH rest2 < LENGTH rest1` by simp[] >>
+         `rest1 ≠ []` by (strip_tac >> lfs[]) >>
+         `loc = NONE` by metis_tac[dest_closure_none_loc] >> rveq >>
+         `LENGTH rest2 + LENGTH used2 - LENGTH rest1 = LENGTH used1`
+           by simp[] >> simp[dec_clock_def] >>
+         Cases_on `s'.clock < LENGTH used1` >> simp[]
+         >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
+         pop_assum (fn th => `LENGTH used1 ≤ s'.clock` by simp[th]) >>
+         qabbrev_tac `rpfx1 = TAKE (LENGTH rest2) rest1` >>
+         qabbrev_tac `rsfx1 = DROP (LENGTH rest2) rest1` >>
+         `LENGTH rpfx1 = LENGTH rest2` by simp[Abbr`rpfx1`] >>
+         `rest1 = rpfx1 ++ rsfx1` by simp[Abbr`rpfx1`, Abbr`rsfx1`] >>
+         markerLib.RM_ALL_ABBREVS_TAC >> rveq >>
+         RULE_ASSUM_TAC (SIMP_RULE (srw_ss() ++ numSimps.ARITH_NORM_ss) []) >>
+         `LENGTH used1 ≠ 0` by (Cases_on `used1` >> fs[]) >>
+         first_x_assum (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th])) >>
+         pop_assum (fn th =>
+           RULE_ASSUM_TAC
+             (SIMP_RULE (srw_ss() ++ numSimps.ARITH_NORM_ss) [th]) >>
+           assume_tac th) >>
+         `rsfx1 ≠ []` by (Cases_on `rsfx1` >> fs[]) >> fs[] >>
+         rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
+         `LIST_REL (val_rel (:'ffi) s'.clock) rpfx1 rest2 ∧
+          LIST_REL (val_rel (:'ffi) s'.clock) (rsfx1 ++ used1) used2`
+            by metis_tac[LENGTH_APPEND, EVERY2_APPEND, APPEND_ASSOC] >>
+         `dest_closure NONE v (rsfx1 ++ used1) = SOME (Full_app b1 env1 rsfx1)`
+           by (irule (dest_closure_full_addargs |> Q.INST [`r` |-> `[]`]
+                                                |> SIMP_RULE (srw_ss()) []) >>
+               simp[] >> imp_res_tac dest_closure_full_maxapp >> rfs[] >>
+               simp[]) >>
+         qspecl_then [`s'.clock`, `v`, `v'`] mp_tac val_rel_cl_rw >> simp[] >>
+         disch_then (qspecl_then [`s'.clock - 1`, `rsfx1 ++ used1`, `used2`,
+                                  `s`, `s'`, `NONE`]
+                                 mp_tac) >> simp[] >>
+         `state_rel (s'.clock - 1) s s'`
+           by metis_tac[val_rel_mono, DECIDE ``x - 1n ≤ x``] >>
+         pop_assum (fn th => simp[th]) >>
+         `LIST_REL (val_rel (:'ffi) (s'.clock - 1)) (rsfx1 ++ used1) used2`
+           by metis_tac[val_rel_mono_list, DECIDE ``x - 1n ≤ x``] >>
+         pop_assum (fn th => simp[th]) >>
+         simp[exec_rel_rw, evaluate_ev_def] >>
+         disch_then (qspec_then `s'.clock - 1` mp_tac) >> simp[] >>
+         reverse (Cases_on `LENGTH rsfx1 + LENGTH used1 ≤ s'.clock` >> simp[])
+         >- (dsimp[res_rel_timeout2, eqs, pair_case_eq] >> cheat) >>
+         cheat
+        )
      >- ((* LENGTH used2 < LENGTH used1 *) cheat)
     )
 )
