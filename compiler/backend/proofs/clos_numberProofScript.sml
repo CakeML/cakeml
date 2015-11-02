@@ -835,4 +835,20 @@ val renumber_code_locs_every_Fn_SOME = Q.store_thm("renumber_code_locs_every_Fn_
   fs[EVERY_MAP,ZIP_MAP] >>
   fs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
 
+val renumber_code_locs_every_Fn_NONE = Q.store_thm("renumber_code_locs_every_Fn_NONE",
+  `(∀n es. every_Fn_NONE (SND (renumber_code_locs_list n es)) ⇔
+           every_Fn_NONE es) ∧
+   (∀n e. every_Fn_NONE [SND (renumber_code_locs n e)] ⇔
+          every_Fn_NONE [e])`,
+  ho_match_mp_tac renumber_code_locs_ind >>
+  rw[renumber_code_locs_def] >> rw[] >> fs[] >- (
+    simp[Once every_Fn_NONE_EVERY] >>
+    simp[Once every_Fn_NONE_EVERY,SimpRHS] >>
+    metis_tac[every_Fn_NONE_EVERY] ) >>
+  imp_res_tac renumber_code_locs_list_length >>
+  fs[Once every_Fn_NONE_EVERY] >>
+  fs[Once every_Fn_NONE_EVERY,SimpRHS] >>
+  fs[EVERY_MAP,ZIP_MAP] >>
+  fs[EVERY_MEM,MEM_ZIP,PULL_EXISTS,MEM_EL]);
+
 val _ = export_theory()
