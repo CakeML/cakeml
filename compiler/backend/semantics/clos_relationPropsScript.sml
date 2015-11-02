@@ -46,6 +46,20 @@ val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
  fs [] >>
  simp []);
 
+val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
+`!l f args1 args2. 
+  LENGTH args1 + LENGTH args2 ≤ max_app ∧
+  dest_closure NONE f (args1 ++ args2) = NONE ⇒
+  dest_closure NONE f args2 = NONE`,
+ rw [dest_closure_def] >>
+ Cases_on `f` >>
+ fs [check_loc_def] >>
+ rw [] >>
+ fs [LET_THM] >>
+ every_case_tac >>
+ fs [] >>
+ simp []);
+
 val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
 `dest_closure NONE f args = SOME (Full_app e l rest) ⇒ LENGTH rest < LENGTH args`,
  simp [dest_closure_def] >>
@@ -54,6 +68,53 @@ val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
  >- (rw [] >> simp []) >>
  Cases_on `EL n l1`
  >- (rw [] >> simp []));
+
+val dest_closure_partial_twice = Q.store_thm ("dest_closure_partial_twice",
+`∀f args1 args2 cl res.
+  LENGTH args1 + LENGTH args2 ≤ max_app ∧
+  dest_closure NONE f (args1 ++ args2) = res ∧
+  dest_closure NONE f args2 = SOME (Partial_app cl)
+  ⇒
+  dest_closure NONE cl args1 = res`,
+ simp [dest_closure_def] >>
+ Cases_on `f` >>
+ simp [check_loc_def]
+ >- (
+   Cases_on `cl` >>
+   simp [] >>
+   TRY (rw [] >> NO_TAC) >>
+   rw [] >>
+   simp [TAKE_APPEND, DROP_APPEND] >>
+   full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL]
+   >- (
+     Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
+     rw [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) [])
+   >- (
+     Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
+     rw [] >>
+     full_simp_tac (srw_ss()++ARITH_ss) []) >>
+   CCONTR_TAC >>
+   fs [] >>
+   rw [] >>
+   full_simp_tac (srw_ss()++ARITH_ss) []) >>
+ Cases_on `EL n l1` >>
+ fs [] >>
+ Cases_on `cl` >>
+ simp [] >>
+ TRY (rw [] >> NO_TAC) >>
+ rw [] >>
+ simp [TAKE_APPEND, DROP_APPEND] >>
+ full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL] >>
+ rw []
+ >- (
+   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
+   rw [] >>
+   full_simp_tac (srw_ss()++ARITH_ss) [])
+ >- (
+   Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
+   rw [] >>
+   full_simp_tac (srw_ss()++ARITH_ss) []));
 
 val evaluate_app_append = Q.store_thm ("evaluate_app_append",
 `!args2 f args1 s.
@@ -77,8 +138,26 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
    rw []) >>
  Cases_on `x` >>
  fs []
- >- cheat
- >- (
+ >- ( (* args2 partial app *)
+   `dest_closure NONE f (args1++args2) = NONE ∨
+    ?x. dest_closure NONE f (args1++args2) = SOME x` by metis_tac [option_nchotomy] >>
+   simp []
+   >- (imp_res_tac dest_closure_none_append2 >> fs []) >>
+   imp_res_tac dest_closure_partial_twice >>
+   rw [] >>
+   simp [] >>
+   Cases_on `x` >>
+   simp [] >>
+   full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS] >>
+   imp_res_tac dest_closure_rest_length >>
+   full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS] >>
+   Cases_on `args1 = []` >>
+   full_simp_tac (srw_ss()++ARITH_ss) [] >>
+   fs [evaluate_app_rw, dec_clock_def] >>
+   simp [evaluate_def] >>
+   rw [] >>
+   full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS])
+ >- ( (* args2 full app *)
    imp_res_tac dest_closure_full_addargs >>
    simp [] >>
    rw [] >>
