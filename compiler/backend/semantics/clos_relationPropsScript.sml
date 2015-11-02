@@ -20,6 +20,7 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
  ONCE_REWRITE_TAC [evaluate_CONS] >>
  every_case_tac >>
  rw []);
+ (*
 
 val evaluate_app_append = Q.store_thm ("evaluate_app_append",
 `!f args1 args2 s.
@@ -39,7 +40,7 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
  rw [] >>
  rw [] >>
  fs []
-
+ *)
 
 val take_append_take_drop = Q.store_thm ("take_append_take_drop",
 `!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
@@ -415,6 +416,8 @@ val geq_opt = Q.store_thm ("geq_opt",
      res_rel_rw, val_rel_rw, Boolv_def] >>
  metis_tac [val_rel_mono]);
 
+ (*
+
 val app_combine = Q.store_thm ("app_combine",
 `∀f f f' es1 es2 es1' es2'.
   LENGTH es1 ≠ 0 ∧
@@ -494,7 +497,7 @@ val app_combine = Q.store_thm ("app_combine",
    Cases_on `a` >>
    fs [res_rel_rw]) >>
  rw []
-
+ *)
 
 val fn_partial_arg = Q.prove (
 `!i' i vs vs' env env' args args' num_args e.
