@@ -5,6 +5,7 @@ theorem prover (http://hol-theorem-prover.org).
 
 We build CakeML using the latest development version of HOL4.
 We build HOL on PolyML 5.5.2 (http://www.polyml.org).
+Example build instructions can be found in build-instructions.sh.
 
 This branch (master) contains the latest development version of CakeML.
 See the version1 branch for the previous version.
