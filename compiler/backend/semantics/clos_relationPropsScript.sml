@@ -295,6 +295,25 @@ val exp_rel_semantics = store_thm(
       Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
       Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
 
+val exp_rel_rtc_semantics_lem = Q.prove (
+ `!e1 e2. (exp_rel (:'ffi))^* e1 e2 ⇒
+   (∀i v. val_rel (:'ffi) i v v) ⇒
+    ∀(s1:'ffi closSem$state) s2.
+      (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
+      ¬semantics e2 s2 Fail ∧
+      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res`,
+ ho_match_mp_tac RTC_INDUCT >>
+ metis_tac [exp_rel_semantics, state_rel_refl, exp_rel_refl]);
+
+val exp_rel_rtc_semantics = Q.store_thm(
+  "exp_rel_rtc_semantics",
+  `(∀i v. val_rel (:'ffi) i v v) ⇒
+    ∀e1 e2 (s1:'ffi closSem$state) s2.
+      (exp_rel (:'ffi))^* e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
+      ¬semantics e2 s2 Fail ∧
+      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res`,
+ metis_tac [exp_rel_rtc_semantics_lem]);
+
 (* ----------------------------------------------------------------------
     Theorems specific to certain transformations
 

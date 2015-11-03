@@ -1677,11 +1677,13 @@ val val_rel_refl = Q.store_thm ("val_rel_refl",
  `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
  fs [exp_rel_def] >>
  cheat);
+ *)
 
 val state_rel_refl = Q.store_thm ("state_rel_refl",
 `(!s. state_rel i s s)`,
  cheat);
 
+ (*
 val val_rel_trans = Q.store_thm ("val_rel_trans",
 `(!i v1 v2. val_rel i v1 v2 ⇒
     !v3. (!i'. val_rel i' v2 v3) ⇒ val_rel i v1 v3) ∧
