@@ -531,7 +531,7 @@ val dest_closure_full_split = Q.prove (
      `i ≤ LENGTH vs` by full_simp_tac (srw_ss()++ARITH_ss) [Abbr `i`] >>
      simp [TAKE_REVERSE, DROP_REVERSE, LENGTH_LASTN, LASTN_LASTN, BUTLASTN_LASTN_NIL] >>
      simp [BUTLASTN_TAKE, Abbr `i`]));
-     
+
 val val_rel_is_closure = Q.store_thm(
   "val_rel_is_closure",
   `val_rel (:'ffi) c cl1 cl2 ∧ is_closure cl1 ⇒
@@ -1491,7 +1491,7 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
  rw [res_rel_rw]
  >- (
    fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
-   first_x_assum (qspecl_then [`i''`, 
+   first_x_assum (qspecl_then [`i''`,
                            `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs'')) ++ args ++ vs ++ env`,
                            `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env'`,
                            `s`,
@@ -1501,10 +1501,10 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
             (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env')` by (
      match_mp_tac EVERY2_APPEND_suff >>
      `i'' ≤ i` by decide_tac >>
-     reverse (rw []) 
+     reverse (rw [])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
-     reverse (rw []) 
+     reverse (rw [])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
      rw [LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
@@ -1560,7 +1560,7 @@ val compat_closure = Q.store_thm ("compat_closure",
   ⇒
   val_rel (:'ffi) i (Closure NONE [] env num_args e) (Closure NONE [] env' num_args e')`,
  rw [] >>
- qspecl_then [`i`, `i`, `[]`, `[]`, `env`, `env'`, `[]`, `[]`] 
+ qspecl_then [`i`, `i`, `[]`, `[]`, `env`, `env'`, `[]`, `[]`]
        (match_mp_tac o SIMP_RULE (srw_ss()) []) fn_partial_arg >>
  rw []);
 
