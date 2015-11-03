@@ -838,9 +838,6 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      >- ((* lengths equal *)
          full_simp_tac (srw_ss() ++ ARITH_ss ++ numSimps.ARITH_NORM_ss) [] >>
          rw[] >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
-         Cases_on `rest1 = []`
-         >- (fs[LENGTH_NIL, LENGTH_NIL_SYM] >> cheat) >>
-
          `LIST_REL (val_rel (:'ffi) s'.clock) rest1 rest2 ∧
           LIST_REL (val_rel (:'ffi) s'.clock) used1 used2`
            by metis_tac[EVERY2_APPEND, LENGTH_APPEND] >>
@@ -856,6 +853,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          simp[exec_rel_rw, evaluate_ev_def] >>
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
          simp[dec_clock_def, evaluate_def] >>
+         Cases_on `rest1 = []`
+         >- (fs[LENGTH_NIL, LENGTH_NIL_SYM] >> rveq >> fs[evaluate_def]) >>
          `(∃r1 s1.
             evaluate ([b1], env1, s with clock := s'.clock - LENGTH used2) =
             (r1, s1)) ∧
