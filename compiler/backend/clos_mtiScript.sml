@@ -7,10 +7,10 @@ val collect_args_def = Define `
     if num_args + num_args' ≤ max_app then
       collect_args (num_args + num_args') e
     else
-      (max_app, Fn NONE NONE (num_args + num_args' - max_app) e)) ∧
+      (num_args, Fn NONE NONE num_args' e)) ∧
   (collect_args num_args e = (num_args, e))`;
 
-val collect_args_ind = theorem"collect_args_ind";
+val collect_args_ind = theorem "collect_args_ind";
 
 val collect_args_size = Q.prove (
   `!num_args e num_args' e'.
@@ -24,10 +24,9 @@ val collect_args_size = Q.prove (
 
 val collect_args_more = Q.prove (
   `!num_args e num_args' e'.
-    num_args ≤ max_app ∧
     (num_args', e') = collect_args num_args e
     ⇒
-    num_args' ≤ max_app ∧ num_args ≤ num_args'`,
+    num_args ≤ num_args'`,
   ho_match_mp_tac collect_args_ind >>
   rw [collect_args_def] >>
   rw [] >>
@@ -43,6 +42,44 @@ val collect_args_zero = Q.store_thm("collect_args_zero",
   rw [collect_args_def] >>
   rw [collect_args_def] >>
   fs [max_app_def]);
+
+val collect_apps_def = Define `
+  (collect_apps args (App NONE e es) =
+    if LENGTH args + LENGTH es ≤ max_app then
+      collect_apps (args ++ es) e
+    else
+      (args, App NONE e es)) ∧
+  (collect_apps args e = (args, e))`;
+
+val collect_apps_ind = theorem "collect_apps_ind";
+
+val exp3_size_append = Q.prove (
+`!es1 es2. exp3_size (es1 ++ es2) = exp3_size es1 + exp3_size es2`,
+ Induct_on `es1` >>
+ simp [exp_size_def]);
+
+val collect_apps_size = Q.prove (
+  `!args e args' e'.
+    (args', e') = collect_apps args e ⇒
+    exp3_size args' + exp_size e' ≤ exp3_size args + exp_size e`,
+   ho_match_mp_tac collect_apps_ind >>
+   simp [collect_apps_def, exp_size_def, basicSizeTheory.option_size_def] >>
+   rw [] >>
+   simp [exp_size_def, basicSizeTheory.option_size_def] >>
+   res_tac >>
+   fs [exp_size_def, exp3_size_append] >>
+   decide_tac);
+
+val collect_apps_more = Q.prove (
+  `!args e args' e'.
+    (args', e') = collect_apps args e
+    ⇒
+    LENGTH args ≤ LENGTH args'`,
+  ho_match_mp_tac collect_apps_ind >>
+  rw [collect_apps_def] >>
+  rw [] >>
+  res_tac >>
+  decide_tac);
 
 val intro_multi_def = tDefine "intro_multi"`
   (intro_multi [] = []) ∧
@@ -61,15 +98,9 @@ val intro_multi_def = tDefine "intro_multi"`
     [Tick (HD (intro_multi [e]))]) ∧
   (intro_multi [Call n es] =
     [Call n (intro_multi es)]) ∧
-  (intro_multi [App NONE e1 es1] =
-    case HD (intro_multi [e1]) of
-    | App NONE e2 es2 =>
-      if LENGTH es1 + LENGTH es2 ≤ max_app then
-        [App NONE e2 (es2 ++ intro_multi es1)]
-      else
-        [App NONE (App NONE e2 (intro_multi es1)) es2]
-    | e1' => 
-        [App NONE e1' (intro_multi es1)]) ∧
+  (intro_multi [App NONE e es] =
+    let (es', e') = collect_apps es e in
+      [App NONE (HD (intro_multi [e'])) (intro_multi es')]) ∧
   (intro_multi [App (SOME l) e es] =
     [App (SOME l) (HD (intro_multi [e])) (intro_multi es)]) ∧
   (intro_multi [Fn NONE NONE num_args e] =
@@ -88,6 +119,7 @@ val intro_multi_def = tDefine "intro_multi"`
   (WF_REL_TAC `measure exp3_size` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    imp_res_tac collect_args_size >>
+   imp_res_tac collect_apps_size >>
    TRY decide_tac >>
    `num_args + exp_size e' ≤ exp1_size funs`
            by (Induct_on `funs` >>
@@ -97,7 +129,7 @@ val intro_multi_def = tDefine "intro_multi"`
                decide_tac) >>
    decide_tac);
 
-val intro_multi_ind = theorem"intro_multi_ind";
+val intro_multi_ind = theorem "intro_multi_ind";
 
 val intro_multi_length = Q.store_thm("intro_multi_length",
   `!es. LENGTH (intro_multi es) = LENGTH es`,
@@ -115,12 +147,9 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   TRY (qcase_tac `App loc e es` >> Cases_on `loc`) >>
   TRY (qcase_tac `Fn loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
   rw [intro_multi_def] >>
-  Cases_on `collect_args num_args e` >>
-  fs [] >>
-  Cases_on `e'` >>
-  simp [] >>
-  every_case_tac >>
-  rw []);
+  TRY (Cases_on `collect_args num_args e`) >>
+  TRY (Cases_on `collect_apps es e`) >>
+  fs []);
 
 val collect_args_idem = Q.prove (
   `!num_args e num_args' e'.
@@ -132,25 +161,33 @@ val collect_args_idem = Q.prove (
   rw [collect_args_def, intro_multi_def] >>
   fs [NOT_LESS_EQUAL] 
   >- (
-    rw [collect_args_def, intro_multi_def] >>
-    rw [collect_args_def, intro_multi_def] >>
-    TRY (`num_args'' = 0` by decide_tac) >>
-    rw [] >>
-    imp_res_tac collect_args_zero >>
-    fs [] >>
-    `max_app< max_app` by decide_tac >>
-    fs []) >>
+    `num_args'' < num_args'` by decide_tac >>
+    `num_args' ≤ num_args''` by metis_tac [collect_args_more] >>
+    full_simp_tac (srw_ss()++ARITH_ss) []) >>
  qcase_tac `App loc e es` >>
  Cases_on `loc` >>
  rw [collect_args_def, intro_multi_def] >>
- every_case_tac >>
  rw [collect_args_def, intro_multi_def]);
 
- (*
-val intro_multi_append = Q.store_thm ("intro_multi_append",
-`!es1 es2.
-  intro_multi (es1 ++ es2) = intro_multi es1 ++ intro_multi es2`,
- cheat);
+val collect_apps_idem = Q.prove (
+  `!args e args' e'.
+    collect_apps args e = (args', e')
+    ⇒
+    collect_apps (intro_multi args') (HD (intro_multi [e'])) = (intro_multi args', (HD (intro_multi [e'])))`,
+  ho_match_mp_tac collect_apps_ind >>
+  rw [collect_apps_def, intro_multi_def] >>
+  rw [collect_apps_def, intro_multi_def] >>
+  fs [NOT_LESS_EQUAL] 
+  >- (
+    fs [intro_multi_length] >>
+    `LENGTH es' < LENGTH es` by decide_tac >>
+    `LENGTH es ≤ LENGTH es'` by metis_tac [collect_apps_more] >>
+    full_simp_tac (srw_ss()++ARITH_ss) []) >>
+ qcase_tac `Fn loc vars _ _` >>
+ Cases_on `loc` >>
+ Cases_on `vars` >>
+ rw [collect_apps_def, intro_multi_def] >>
+ rw [collect_apps_def, intro_multi_def]);
 
 val intro_multi_idem = Q.store_thm("intro_multi_idem",
   `!e. intro_multi (intro_multi e) = intro_multi e`,
@@ -167,7 +204,7 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
   >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD]
-  >- cheat
+  >- metis_tac [intro_multi_sing, HD, collect_apps_idem, PAIR_EQ]
   >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
   >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
@@ -182,7 +219,6 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
       rfs [] >>
       metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ, FST, SND])
   >- metis_tac [intro_multi_sing, HD, collect_args_idem]);
-  *)
 
 val _ = export_theory()
 
