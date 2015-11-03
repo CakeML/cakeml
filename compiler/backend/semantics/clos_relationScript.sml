@@ -1834,13 +1834,73 @@ val compat_fn = Q.store_thm ("compat_fn",
    >- metis_tac [val_rel_mono] >>
    metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL]));
 
+val compat_recclosure = Q.store_thm ("compat_recclosure",
+`!i l env env' args args' funs funs' idx.
+  LIST_REL (λ(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) [e] [e']) funs funs' ∧
+  LIST_REL (val_rel (:'ffi) i) env env' ∧
+  LIST_REL (val_rel (:'ffi) i) args args'
+  ⇒
+  val_rel (:'ffi) i (Recclosure l args env funs idx) (Recclosure l args' env' funs' idx)`,
+ cheat);
+
 val compat_letrec = Q.store_thm ("compat_letrec",
-`!loc names funs e funs' e'.
+`!loc vars funs e funs' e'.
   LIST_REL (\(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) [e] [e']) funs funs' ∧
   exp_rel (:'ffi) [e] [e']
   ⇒
-  exp_rel (:'ffi) [Letrec loc names funs e] [Letrec loc names funs' e']`,
- cheat);
+  exp_rel (:'ffi) [Letrec loc vars funs e] [Letrec loc vars funs' e']`,
+ rpt strip_tac >>
+ rw [exp_rel_def] >>
+ simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
+ reverse (rw [res_rel_rw])
+ >- (
+   full_simp_tac std_ss [LIST_REL_EL_EQN, EVERY_EL] >>
+   fs [] >>
+   Cases_on `EL n funs` >>
+   Cases_on `EL n funs'` >>
+   fs [] >>
+   rpt (first_x_assum (qspec_then `n` mp_tac)) >>
+   rw []) >>
+ Cases_on `vars` >>
+ fs []
+ >- (
+   `exec_rel i' (Exp [e] (GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env), s)
+                (Exp [e'] (GENLIST (Recclosure loc [] env' funs') (LENGTH funs') ++ env'), s')`
+   by (
+     fs [exp_rel_def] >>
+     first_x_assum match_mp_tac >>
+     rw []
+     >- metis_tac [val_rel_mono] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     reverse conj_tac
+     >- metis_tac [val_rel_mono_list] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [LIST_REL_GENLIST] >>
+     match_mp_tac compat_recclosure >>
+     rw [exp_rel_def] >>
+     metis_tac [val_rel_mono_list]) >>
+   fs [exec_rel_rw, evaluate_ev_def])
+ >- (
+   Cases_on `lookup_vars x env` >>
+   fs [res_rel_rw] >>
+   imp_res_tac val_rel_lookup_vars >>
+   rw [] >>
+   `exec_rel i' (Exp [e] (GENLIST (Recclosure loc [] x' funs) (LENGTH funs) ++ env), s)
+                (Exp [e'] (GENLIST (Recclosure loc [] vs2'' funs') (LENGTH funs') ++ env'), s')`
+   by (
+     fs [exp_rel_def] >>
+     first_x_assum match_mp_tac >>
+     rw []
+     >- metis_tac [val_rel_mono] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     reverse conj_tac
+     >- metis_tac [val_rel_mono_list] >>
+     imp_res_tac LIST_REL_LENGTH >>
+     rw [LIST_REL_GENLIST] >>
+     match_mp_tac compat_recclosure >>
+     rw [exp_rel_def] >>
+     metis_tac [val_rel_mono_list]) >>
+   fs [exec_rel_rw, evaluate_ev_def]));
 
 val compat_op = Q.store_thm ("compat_op",
 `!op es es'.
