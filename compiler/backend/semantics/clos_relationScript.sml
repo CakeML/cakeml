@@ -1950,8 +1950,7 @@ val val_rel_refl = Q.store_thm ("val_rel_refl",
  >- rw [val_rel_rw]
  >- rw [val_rel_rw]
  >- metis_tac [exp_rel_refl, compat_closure]
- (* Recursive closure case *)
- >- cheat);
+ >- metis_tac [exp_rel_refl, compat_recclosure]);
 
 val ref_v_rel_refl = Q.store_thm ("ref_v_rel_refl",
 `!i rv. ref_v_rel (:'ffi) i rv rv`,

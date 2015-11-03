@@ -398,7 +398,6 @@ val geq_opt = Q.store_thm ("geq_opt",
 
 val app_combine = Q.store_thm ("app_combine",
 `∀f f f' es1 es2 es1' es2'.
-  LENGTH es1 ≠ 0 ∧
   LENGTH es1 = LENGTH es1' ∧
   LENGTH es2 = LENGTH es2' ∧
   LENGTH es1' + LENGTH es2' ≤ max_app ∧
@@ -423,6 +422,9 @@ val app_combine = Q.store_thm ("app_combine",
    fs [res_rel_rw] >>
    Cases_on `a` >>
    fs [res_rel_rw]) >>
+ Cases_on `LENGTH es1 = 0`
+ >- fs [res_rel_rw] >>
+ `LENGTH es1' > 0` by decide_tac >>
  qabbrev_tac `res1 = evaluate (es1,env,s2 with clock := s2.clock)` >>
  qabbrev_tac `res1' = evaluate (es1',env',s2' with clock := s2.clock)` >>
  `res_rel res1 res1'` 
@@ -526,11 +528,9 @@ val app_combine = Q.store_thm ("app_combine",
  imp_res_tac evaluate_clock >>
  `s''.clock ≤ s2'.clock` by decide_tac >>
  metis_tac [val_rel_mono_list]);
- 
+
 val fn_add_arg_lem = Q.prove (
 `!i' num_args num_args' i env env' args args' e e'.
-  num_args ≠ 0 ∧
-  num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ∧
   LIST_REL (val_rel (:'ffi) i) env env' ∧
   LIST_REL (val_rel (:'ffi) i) args args' ∧
@@ -558,6 +558,9 @@ val fn_add_arg_lem = Q.prove (
      `¬(LENGTH vs' ≤ LENGTH vs' − (num_args + num_args' − LENGTH args') + (1 + i'''))` by decide_tac >>
      fs [res_rel_rw] >>
      metis_tac [val_rel_mono, ZERO_LESS_EQ]) >>
+   Cases_on `num_args' = 0` >>
+   fs [res_rel_rw] >>
+   `num_args ≠ 0` by decide_tac >>
    `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) ≠ []` by simp [DROP_NIL]  >>
    `num_args − LENGTH args' ≤ 1 + i'''` by decide_tac >>
    simp [evaluate_app_rw, dest_closure_def, check_loc_def] >>
@@ -640,7 +643,10 @@ val fn_add_arg_lem = Q.prove (
        pop_assum match_mp_tac >>
        `i'' ≤ i` by decide_tac >>
        metis_tac [EVERY2_APPEND, val_rel_mono_list])
-   >- (`REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) ≠ []` by simp [DROP_NIL] >>
+   >- (Cases_on `num_args' = 0` >>
+       fs [res_rel_rw] >>
+       `num_args ≠ 0` by decide_tac >>
+       `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) ≠ []` by simp [DROP_NIL] >>
        asm_simp_tac (srw_ss()) [evaluate_app_rw, res_rel_def, dest_closure_def, check_loc_def] >>
        `LENGTH vs' ≤ num_args − LENGTH args' + max_app ∧ 0 < num_args'` by decide_tac >>
        asm_simp_tac (srw_ss()) [] >>
@@ -705,17 +711,16 @@ val fn_add_arg_lem = Q.prove (
 
 val fn_add_arg = Q.store_thm ("fn_add_arg",
 `!num_args num_args' e e'.
-  num_args ≠ 0 ∧
-  num_args' ≠ 0 ∧
   num_args + num_args' ≤ max_app ∧
   exp_rel (:'ffi) [e] [e'] ⇒
   exp_rel (:'ffi) [Fn NONE NONE num_args (Fn NONE NONE num_args' e)]
           [Fn NONE NONE (num_args + num_args') e']`,
  rw [] >>
  simp [exp_rel_def, exec_rel_rw, evaluate_def, evaluate_ev_def] >>
- reverse (rw [res_rel_rw])
- >- metis_tac [val_rel_mono] >>
- metis_tac [fn_add_arg_lem, LIST_REL_NIL]);
+ rw [res_rel_rw] >>
+ Cases_on `num_args = 0` >>
+ fs [res_rel_rw] >>
+ metis_tac [val_rel_mono, fn_add_arg_lem, LIST_REL_NIL]);
 
  (*
 val fn_add_loc = Q.store_thm ("fn_add_loc",
