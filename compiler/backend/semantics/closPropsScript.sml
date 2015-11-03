@@ -1,7 +1,7 @@
 open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
- 
+
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
@@ -694,7 +694,7 @@ val dest_closure_full_addargs = Q.store_thm(
   Cases_on `c` >> csimp[dest_closure_def, bool_case_eq, revdroprev, UNCURRY] >>
   simp[DROP_APPEND1, revdroprev, TAKE_APPEND1, TAKE_APPEND2] >>
   simp[check_loc_def]);
- 
+
 val evaluate_append = Q.store_thm  ("evaluate_append",
 `!es1 es2 env s.
   evaluate (es1 ++ es2, env, s) =
@@ -726,7 +726,7 @@ val evaluate_app_length_imp = Q.store_thm ("evaluate_app_length_imp",
  rw []);
 
 val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
-`!l f args1 args2. 
+`!l f args1 args2.
   dest_closure NONE f args2 = NONE ⇒
   dest_closure NONE f (args1 ++ args2) = NONE`,
  rw [dest_closure_def] >>
@@ -739,7 +739,7 @@ val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
  simp []);
 
 val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
-`!l f args1 args2. 
+`!l f args1 args2.
   LENGTH args1 + LENGTH args2 ≤ max_app ∧
   dest_closure NONE f (args1 ++ args2) = NONE ⇒
   dest_closure NONE f args2 = NONE`,
