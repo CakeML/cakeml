@@ -2,6 +2,12 @@ open preamble closLangTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relation";
 
+val refl_list_rel_refl = Q.store_thm ("refl_list_rel_refl",
+`!r. (!x. r x x) ⇒ !l. LIST_REL r l l`,
+ rw [] >>
+ match_mp_tac EVERY2_refl >>
+ rw []);
+
 val bool_case_eq = Q.prove(
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
   rw[] >> metis_tac[]);
@@ -456,8 +462,6 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
      rw [] >>
      fs [OPTION_MAP_DEF] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL]));
-
-
 
 val dest_closure_full_split = Q.prove (
 `!v1 vs e env rest.
@@ -964,6 +968,82 @@ val state_rel_refs = Q.prove (
  rw [] >>
  fs []);
 
+val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
+`(!v1 v2 i v1' v2' res.
+  val_rel (:'ffi) i v1 v1' ∧
+  val_rel (:'ffi) i v2 v2'
+  ⇒
+  do_eq v1 v2 = do_eq v1' v2') ∧
+ (!vs1 vs2 i vs1' vs2'.
+  LIST_REL (val_rel (:'ffi) i) vs1 vs1' ∧
+  LIST_REL (val_rel (:'ffi) i) vs2 vs2'
+  ⇒
+  do_eq_list vs1 vs2 = do_eq_list vs1' vs2')`,
+ ho_match_mp_tac do_eq_ind >>
+ rw [do_eq_def] >>
+ rw [do_eq_def]
+ >- (
+   every_case_tac >>
+   fs [val_rel_rw, is_closure_def] >>
+   metis_tac [LIST_REL_LENGTH])
+ >- (
+   Cases_on `v1` >>
+   Cases_on `y` >>
+   fs [val_rel_rw, is_closure_def] >>
+   Cases_on `v2` >>
+   Cases_on `y'` >>
+   fs [val_rel_rw, is_closure_def]
+   >- metis_tac [LIST_REL_LENGTH]
+   >- (
+     rw [] 
+     >- (
+       fs [] >>
+       first_x_assum (qspecl_then [`i`, `Block n l'`, `Block n l'''`] mp_tac) >>
+       simp [val_rel_rw] >>
+       rw [] >>
+       every_case_tac >>
+       rw [] >>
+       metis_tac [LIST_REL_LENGTH]) >>
+     metis_tac [LIST_REL_LENGTH])
+   >- metis_tac [LIST_REL_LENGTH]));
+
+val get_global_state_rel = Q.store_thm ("get_global_state_rel",
+`!i (s : 'ffi closSem$state) s'. 
+  state_rel i s s'
+  ⇒
+  OPTREL (OPTREL (val_rel (:'ffi) i)) (get_global n s.globals) (get_global n s'.globals)`,
+ rw [Once state_rel_rw, get_global_def] >>
+ fs [quotient_optionTheory.OPTION_REL_def] >>
+ imp_res_tac LIST_REL_LENGTH >>
+ fs [] >>
+ metis_tac [LIST_REL_EL_EQN]);
+
+val v_to_list_val_rel = Q.store_thm ("v_to_list_val_rel",
+`!v v' i.
+  val_rel (:'ffi) i v v'
+  ⇒
+  OPTREL (LIST_REL (val_rel (:'ffi) i)) (v_to_list v) (v_to_list v')`,
+ ho_match_mp_tac v_to_list_ind >>
+ rw [v_to_list_def] >>
+ Cases_on `v'` >>
+ rw [v_to_list_def] >>
+ fs [val_rel_rw, is_closure_def] >>
+ rw [v_to_list_def, OPTREL_SOME] >>
+ TRY (simp [OPTREL_def] >> NO_TAC) >>
+ every_case_tac >>
+ rw [] >>
+ fs [OPTREL_def] >>
+ metis_tac [NOT_SOME_NONE, SOME_11]);
+
+val list_to_v_val_rel = Q.store_thm ("list_to_v_val_rel",
+`!i vs vs'.
+  LIST_REL (val_rel (:'ffi) i) vs vs'
+  ⇒
+  val_rel (:'ffi) i (list_to_v vs) (list_to_v vs')`,
+ Induct_on `vs` >>
+ rw [list_to_v_def, val_rel_rw] >>
+ rw [list_to_v_def, val_rel_rw]);
+
 val res_rel_do_app = Q.store_thm ("res_rel_do_app",
 `!c op vs vs' (s:'ffi closSem$state) s'.
   state_rel c s s' ∧
@@ -988,12 +1068,29 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
      rw [] >>
      fs [do_app_def, val_rel_rw]
      >- ((* global lookup *)
-         cheat)
+       imp_res_tac get_global_state_rel >>
+       pop_assum (qspec_then `n` mp_tac) >>
+       simp [OPTREL_SOME] >>
+       rw [] >>
+       rw [])
      >- ((* global init *)
-         cheat)
+       imp_res_tac get_global_state_rel >>
+       pop_assum (qspec_then `n'` mp_tac) >>
+       simp [OPTREL_SOME] >>
+       rw [] >>
+       rw [] >>
+       fs [OPTREL_def, val_rel_rw, Unit_def] >>
+       rpt (pop_assum mp_tac) >>
+       ONCE_REWRITE_TAC [state_rel_rw] >>
+       rw [] >>
+       match_mp_tac EVERY2_LUPDATE_same >>
+       rw [OPTREL_SOME])
      >- ((* global extend *)
-         rw [Unit_def, val_rel_rw] >>
-         cheat)
+       rw [Unit_def, val_rel_rw] >>
+       rpt (pop_assum mp_tac) >>
+       ONCE_REWRITE_TAC [state_rel_rw] >>
+       rw [] >>
+       rw [OPTREL_def])
      >- rw [EVERY2_REVERSE]
      >- (fs [SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
@@ -1054,10 +1151,15 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          fs [Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
          simp [state_rel_rw])
-     >- cheat
+     >- (
+       imp_res_tac v_to_list_val_rel >>
+       pop_assum mp_tac >>
+       simp [OPTREL_SOME] >>
+       rw [] >>
+       rw [val_rel_rw])
      >- (Cases_on `y` >>
          fs [val_rel_rw] >>
-         cheat)
+         metis_tac [list_to_v_val_rel])
      >- (Cases_on `y` >>
          fs [val_rel_rw] >>
          rw [val_rel_rw, Boolv_def] >>
@@ -1112,7 +1214,8 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          Cases_on `do_eq x1 x2` >>
          fs [] >>
          rw [] >>
-         cheat)
+         `do_eq y' y = Eq_val b` by metis_tac [do_eq_val_rel] >>
+         rw [val_rel_rw, Boolv_def])
      >- (fs [SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
@@ -1163,7 +1266,9 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          rw [] >>
          fs [] >>
          rw [do_app_def] >>
-         cheat)
+         imp_res_tac do_eq_val_rel >>
+         every_case_tac >>
+         fs [val_rel_rw])
      >- (Cases_on `a` >>
          fs [res_rel_rw] >>
          imp_res_tac do_app_cases_timeout >>
@@ -1574,22 +1679,143 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
    metis_tac [val_rel_mono])
  >- metis_tac [ZERO_LESS_EQ, val_rel_mono]);
 
-val compat_closure = Q.store_thm ("compat_closure",
-`!i loc env env' num_args e e'.
+val compat_closure_none = Q.prove (
+`!i loc env env' args args' num_args e e'.
   exp_rel (:'ffi) [e] [e'] ∧
-  LIST_REL (val_rel (:'ffi) i) env env'
+  LIST_REL (val_rel (:'ffi) i) env env' ∧
+  LIST_REL (val_rel (:'ffi) i) args args'
   ⇒
-  val_rel (:'ffi) i (Closure NONE [] env num_args e) (Closure NONE [] env' num_args e')`,
+  val_rel (:'ffi) i (Closure NONE args env num_args e) (Closure NONE args' env' num_args e')`,
  rw [] >>
- qspecl_then [`i`, `i`, `[]`, `[]`, `env`, `env'`, `[]`, `[]`]
+ qspecl_then [`i`, `i`, `[]`, `[]`, `env`, `env'`, `args`, `args'`]
        (match_mp_tac o SIMP_RULE (srw_ss()) []) fn_partial_arg >>
  rw []);
 
-val compat_fn_none = Q.store_thm ("compat_fn_none",
-`!vars num_args e e'.
+val compat_closure_some = Q.prove (
+`!i l env env' args args' num_args e e'.
+  LIST_REL (val_rel (:'ffi) i) env env' ∧
+  LIST_REL (val_rel (:'ffi) i) args args' ∧
   exp_rel (:'ffi) [e] [e']
   ⇒
-  exp_rel (:'ffi) [Fn NONE vars num_args e] [Fn NONE vars num_args e']`,
+  val_rel (:'ffi) i (Closure (SOME l) args env num_args e) (Closure (SOME l) args' env' num_args e')`,
+ completeInduct_on `i` >>
+ rw [val_rel_rw, is_closure_def] >>
+ imp_res_tac LIST_REL_LENGTH
+ >- (
+   rw [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
+       clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
+   fs []) >>
+ `(?l. locopt = SOME l) ∨ locopt = NONE` by metis_tac [option_nchotomy]
+ >- (
+   simp [dest_closure_def, check_loc_def] >>
+   rw [] >>
+   fs [exec_rel_rw, evaluate_ev_def] >>
+   reverse (rw [res_rel_rw])
+   >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
+   fs [REVERSE_DROP, LASTN, res_rel_rw, TAKE_REVERSE, LASTN_LENGTH_ID] >>
+   `LASTN (LENGTH vs') vs = vs` by metis_tac [LASTN_LENGTH_ID] >>
+   fs [] >>
+   `exec_rel (i'' − (LENGTH vs' − 1))
+             (Exp [e] (vs++args++env),s with clock := i'' − (LENGTH vs' − 1)) 
+             (Exp [e'] (vs'++args'++env'),s' with clock := i'' − (LENGTH vs' − 1))` 
+   by (
+     fs [exp_rel_def] >>
+     first_x_assum match_mp_tac >>
+     rw [] >>
+     `i'' − (LENGTH vs' − 1) ≤ i' ∧ i'' − (LENGTH vs' − 1) ≤ i` by decide_tac >>
+     metis_tac [val_rel_mono_list, EVERY2_APPEND, val_rel_mono]) >>
+   fs [exec_rel_rw, evaluate_ev_def] >>
+   pop_assum (qspec_then `i'' - (LENGTH vs' - 1)` mp_tac) >>
+   simp [] >>
+   rw [] >>
+   every_case_tac >>
+   fs [res_rel_rw] >>
+   imp_res_tac evaluate_SING >>
+   fs []) >>
+ simp [dest_closure_def, check_loc_def] >>
+ rw [] >>
+ rw [exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
+ fs [NOT_LESS] >>
+ rw [res_rel_rw]
+ >- (
+   fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+   first_x_assum (qspecl_then [`i'`,
+                           `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs)) ++ args ++ env`,
+                           `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args' ++ env'`,
+                           `s`,
+                           `s'`] mp_tac) >>
+   simp [] >>
+   `LIST_REL (val_rel (:'ffi) i') (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs)) ++ args ++ env)
+            (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args' ++ env')` by (
+     match_mp_tac EVERY2_APPEND_suff >>
+     `i' ≤ i` by decide_tac >>
+     reverse (rw [])
+     >- metis_tac [val_rel_mono_list] >>
+     match_mp_tac EVERY2_APPEND_suff >>
+     reverse (rw [])
+     >- metis_tac [val_rel_mono_list] >>
+     rw [LIST_REL_REVERSE_EQ] >>
+     match_mp_tac EVERY2_TAKE >>
+     rw [LIST_REL_REVERSE_EQ] >>
+     metis_tac [val_rel_mono_list]) >>
+   simp [] >>
+   disch_then (qspec_then `i'' + (LENGTH args' + 1) − num_args` mp_tac) >>
+   simp [] >>
+   rw [] >>
+   every_case_tac >>
+   simp [res_rel_rw] >>
+   imp_res_tac evaluate_SING >>
+   fs [res_rel_rw] >>
+   TRY (qcase_tac `(Rerr error, r)`)
+   >- (
+     Cases_on `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) = []`
+     >- (
+       `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs')) = []` by (
+         fs [DROP_NIL] >>
+         decide_tac) >>
+       simp [evaluate_def, res_rel_rw] >>
+       metis_tac []) >>
+     match_mp_tac res_rel_evaluate_app >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     match_mp_tac EVERY2_DROP >>
+     simp [LIST_REL_REVERSE_EQ] >>
+     imp_res_tac evaluate_clock >>
+     fs [] >>
+     `r'.clock ≤ i''` by decide_tac >>
+     metis_tac [val_rel_mono_list])
+  >- (
+    Cases_on `error` >>
+    fs [res_rel_rw] >>
+    qcase_tac `(Rerr (Rabort abort), r)` >>
+    Cases_on `abort` >>
+    fs [res_rel_rw]))
+ >- metis_tac [ZERO_LESS_EQ, val_rel_mono]
+ >- (
+   first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
+   simp [] >>
+   `i'' - (LENGTH vs' - 1) ≤ i ∧ i'' - (LENGTH vs' - 1) ≤ i'` by decide_tac >>
+   metis_tac [val_rel_mono_list, EVERY2_APPEND])
+ >- (
+   `i'' − (LENGTH vs' − 1) ≤ i'` by decide_tac >>
+   metis_tac [val_rel_mono])
+ >- metis_tac [ZERO_LESS_EQ, val_rel_mono]);
+
+val compat_closure = Q.store_thm ("compat_closure",
+`!i l env env' args args' num_args e e'.
+ LIST_REL (val_rel (:'ffi) i) env env' ∧
+ LIST_REL (val_rel (:'ffi) i) args args' ∧
+ exp_rel (:'ffi) [e] [e']
+ ⇒
+ val_rel (:'ffi) i (Closure l args env num_args e) (Closure l args' env' num_args e')`,
+ rw [] >>
+ Cases_on `l` >>
+ metis_tac [compat_closure_some, compat_closure_none]);
+
+val compat_fn = Q.store_thm ("compat_fn",
+`!vars num_args e e' loc.
+  exp_rel (:'ffi) [e] [e']
+  ⇒
+  exp_rel (:'ffi) [Fn loc vars num_args e] [Fn loc vars num_args e']`,
  rpt strip_tac >>
  rw [exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
@@ -1599,21 +1825,14 @@ val compat_fn_none = Q.store_thm ("compat_fn_none",
  >- (
    reverse (rw [res_rel_rw])
    >- metis_tac [val_rel_mono] >>
-   metis_tac [compat_closure, val_rel_mono_list])
+   metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL])
  >- (
    Cases_on `lookup_vars x env` >>
    fs [res_rel_rw] >>
    imp_res_tac val_rel_lookup_vars >>
    reverse (rw [])
    >- metis_tac [val_rel_mono] >>
-   metis_tac [compat_closure, val_rel_mono_list]));
-
-val compat_fn_some = Q.store_thm ("compat_fn_some",
-`!vars num_args e e'.
-  exp_rel (:'ffi) [e] [e']
-  ⇒
-  exp_rel (:'ffi) [Fn (SOME l) vars num_args e] [Fn (SOME l) vars num_args e']`,
- cheat);
+   metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL]));
 
 val compat_letrec = Q.store_thm ("compat_letrec",
 `!loc names funs e funs' e'.
@@ -1649,7 +1868,7 @@ val compat_op = Q.store_thm ("compat_op",
 val compat = save_thm ("compat",
   LIST_CONJ [compat_nil, compat_cons, compat_var, compat_if, compat_let, compat_raise,
              compat_handle, compat_tick, compat_call, compat_app,
-             compat_fn_none, compat_fn_some, compat_letrec, compat_op]);
+             compat_fn, compat_letrec, compat_op]);
 
 val exp_rel_refl = Q.store_thm ("exp_rel_refl",
 `(!e. exp_rel (:'ffi) [e] [e]) ∧
@@ -1660,9 +1879,7 @@ val exp_rel_refl = Q.store_thm ("exp_rel_refl",
  rw [] >>
  TRY (PairCases_on `ne`) >>
  fs [] >>
- metis_tac [compat, option_nchotomy]);
-
- (*
+ metis_tac [compat]);
 
 val val_rel_refl = Q.store_thm ("val_rel_refl",
 `(!v. val_rel (:'ffi) i v v) ∧
@@ -1672,49 +1889,87 @@ val val_rel_refl = Q.store_thm ("val_rel_refl",
  >- rw [val_rel_rw]
  >- rw [val_rel_rw]
  >- rw [val_rel_rw]
+ >- metis_tac [exp_rel_refl, compat_closure]
+ (* Recursive closure case *)
+ >- cheat);
 
- rw [val_rel_rw, is_closure_def, check_closures_def] >>
- `exp_rel (:'ffi) [e] [e]` by metis_tac [exp_rel_refl] >>
- fs [exp_rel_def] >>
- cheat);
- *)
+val ref_v_rel_refl = Q.store_thm ("ref_v_rel_refl",
+`!i rv. ref_v_rel (:'ffi) i rv rv`,
+ rw [] >>
+ Cases_on `rv` >>
+ rw [ref_v_rel_rw] >>
+ metis_tac [val_rel_refl, refl_list_rel_refl]);
 
 val state_rel_refl = Q.store_thm ("state_rel_refl",
-`(!s. state_rel i s s)`,
- cheat);
+`(!i s. state_rel i s s)`,
+ rw [Once state_rel_rw]
+ >- metis_tac [refl_list_rel_refl, val_rel_refl, OPTREL_refl]
+ >- metis_tac [fmap_rel_refl, ref_v_rel_refl]
+ >- (
+   match_mp_tac fmap_rel_refl >>
+   simp [FORALL_PROD] >>
+   rw [] >>
+   `exp_rel (:'a) [p_2] [p_2]` by metis_tac [exp_rel_refl] >>
+   fs [exp_rel_def]));
 
- (*
 val val_rel_trans = Q.store_thm ("val_rel_trans",
-`(!i v1 v2. val_rel i v1 v2 ⇒
-    !v3. (!i'. val_rel i' v2 v3) ⇒ val_rel i v1 v3) ∧
- (!i st1 st2. exec_rel i st1 st2 ⇒
+`(!(ffi:'ffi itself) i v1 v2. val_rel ffi i v1 v2 ⇒
+    !v3. (!i'. val_rel ffi i' v2 v3) ⇒ val_rel ffi i v1 v3) ∧
+ (!i (st1:val_or_exp # 'ffi closSem$state) st2. exec_rel i st1 st2 ⇒
      !st3. (!i'. exec_rel i' st2 st3) ⇒ exec_rel i st1 st3) ∧
- (!i st1 st2. exec_cl_rel i st1 st2 ⇒
-     !st3. (!i'. exec_cl_rel i' st2 st3) ⇒ exec_cl_rel i st1 st3) ∧
- (!i rv1 rv2. ref_v_rel i rv1 rv2 ⇒
-     !rv3. (!i'. ref_v_rel i' rv2 rv3) ⇒ ref_v_rel i rv1 rv3) ∧
- (!i s1 s2. state_rel i s1 s2 ⇒
+ (!(ffi:'ffi itself) i rv1 rv2. ref_v_rel ffi i rv1 rv2 ⇒
+     !rv3. (!i'. ref_v_rel ffi i' rv2 rv3) ⇒ ref_v_rel ffi i rv1 rv3) ∧
+ (!i (s1 : 'ffi closSem$state) s2. state_rel i s1 s2 ⇒
      !s3. (!i'. state_rel i' s2 s3) ⇒ state_rel i s1 s3)`,
  ho_match_mp_tac val_rel_ind >>
- rw [val_rel_rw] >>
- cheat);
+ rw [is_closure_def]
+ >- fs [val_rel_rw]
+ >- (
+   fs [val_rel_rw] >>
+   Cases_on `v3` >>
+   fs [val_rel_rw] >>
+   match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] LIST_REL_trans) >>
+   metis_tac [LIST_REL_LENGTH, MEM_EL, LIST_REL_EL_EQN])
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ >- fs [val_rel_rw]
+ (* Closure *)
+ >- cheat
+ (* RecClosure *)
+ >- cheat
+ (* exec_rel *)
+ >- cheat
+ >- fs [ref_v_rel_rw]
+ >- (
+   Cases_on `rv3` >>
+   fs [ref_v_rel_rw] >>
+   match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] LIST_REL_trans) >>
+   metis_tac [LIST_REL_LENGTH, MEM_EL, LIST_REL_EL_EQN])
+ >- fs [ref_v_rel_rw]
+ >- fs [ref_v_rel_rw]
+ >- ( (* state_rel *)
+   pop_assum mp_tac >>
+   pop_assum mp_tac >>
+   ONCE_REWRITE_TAC [state_rel_rw] >>
+   rw []
+   >- cheat
+   >- cheat
+   >- cheat));
+ 
 val exp_rel_trans = Q.store_thm ("exp_rel_trans",
-`!e1 e2 e3. exp_rel e1 e2 ∧ exp_rel e2 e3 ⇒ exp_rel e1 e3`,
+`!e1 e2 e3. exp_rel (:'ffi) e1 e2 ∧ exp_rel (:'ffi) e2 e3 ⇒ exp_rel (:'ffi) e1 e3`,
  rw [exp_rel_def] >>
- `!i. state_rel i s' s' ∧ LIST_REL (val_rel i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
+ `!i. state_rel i s' s' ∧ LIST_REL (val_rel (:'ffi) i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
  metis_tac [val_rel_trans]);
-
- *)
-
-(* This might not be true. If it's not, we'll have to define and work with
- * contextual refinement, which is transitive *)
-val exp_rel_trans = Q.store_thm ("exp_rel_trans",
-`!e1 e2 e3.
-  exp_rel (:'ffi) e1 e2 ∧
-  exp_rel (:'ffi) e2 e3
-  ⇒
-  exp_rel (:'ffi) e1 e3`,
- cheat);
-
 
 val _ = export_theory ();

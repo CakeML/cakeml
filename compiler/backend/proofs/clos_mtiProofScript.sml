@@ -32,10 +32,30 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  >- cheat
  >- metis_tac [compat_app, intro_multi_sing, HD]
  >- metis_tac [collect_args_correct, intro_multi_sing, HD]
- >- metis_tac [compat_fn_none, intro_multi_sing, HD]
- >- metis_tac [compat_fn_some, intro_multi_sing, HD]
+ >- metis_tac [compat_fn, intro_multi_sing, HD]
+ >- metis_tac [compat_fn, intro_multi_sing, HD]
  >- cheat
  >- metis_tac [compat_op, intro_multi_sing, HD]);
+
+ (*
+
+ >- (
+   Cases_on `e1` >>
+   fs []
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (fs [intro_multi_def] >> metis_tac [compat_app])
+   >- (
+     reverse (Cases_on `o'`)
+     >- (fs [intro_multi_def] >- metis_tac [compat_app]) >>
+     Cases_on `HD (intro_multi [App NONE e l])` >>
+     fs []
+     >- (Cases_on `e` >> fs [intro_multi_def])
+     *)
 
 val _ = export_theory();
 
