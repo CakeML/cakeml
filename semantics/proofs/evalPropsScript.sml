@@ -8,6 +8,12 @@ open boolSimps;
 
 val _ = new_theory "evalProps";
 
+val mk_id_11 = Q.store_thm("mk_id_11[simp]",
+  `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
+  map_every Cases_on[`a`,`c`] >> EVAL_TAC)
+
+val Boolv_11 = store_thm("Boolv_11[simp]",``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``,rw[Boolv_def]);
+
 val lit_same_type_refl = store_thm("lit_same_type_refl",
   ``∀l. lit_same_type l l``,
   Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
@@ -16,6 +22,18 @@ val _ = export_rewrites["lit_same_type_refl"]
 val lit_same_type_sym = store_thm("lit_same_type_sym",
   ``∀l1 l2. lit_same_type l1 l2 ⇒ lit_same_type l2 l1``,
   Cases >> Cases >> simp[semanticPrimitivesTheory.lit_same_type_def])
+
+val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
+`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
+ (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
+ Induct >>
+ rw []
+ >- rw [pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]
+ >- rw [pat_bindings_def]
+ >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
 
 val pmatch_append = Q.store_thm ("pmatch_append",
 `(!(cenv : env_ctor) (st : v store) p v env env' env''.
@@ -29,6 +47,25 @@ rw [pmatch_def] >>
 every_case_tac >>
 fs [] >>
 metis_tac []);
+
+val pmatch_extend = Q.store_thm("pmatch_extend",
+`(!cenv s p v env env' env''.
+  pmatch cenv s p v env = Match env'
+  ⇒
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pat_bindings p []) ∧
+ (!cenv s ps vs env env' env''.
+  pmatch_list cenv s ps vs env = Match env'
+  ⇒
+  ?env''. env' = env'' ++ env ∧ MAP FST env'' = pats_bindings ps [])`,
+ ho_match_mp_tac pmatch_ind >>
+ rw [pat_bindings_def, pmatch_def] >>
+ every_case_tac >>
+ fs [] >>
+ rw [] >>
+ res_tac >>
+ qexists_tac `env'''++env''` >>
+ rw [] >>
+ metis_tac [pat_bindings_accum]);
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -237,6 +274,12 @@ rw [do_con_check_def, build_conv_def] >>
 every_case_tac >>
 fs []);
 
+val merge_alist_mod_env_empty = Q.store_thm("merge_alist_mod_env_empty[simp]",
+  `!mod_env. merge_alist_mod_env ([],[]) mod_env = mod_env`,
+  rw [] >>
+  PairCases_on `mod_env` >>
+  rw [merge_alist_mod_env_def]);
+
 val merge_alist_mod_env_assoc = Q.store_thm ("merge_alist_mod_env_assoc",
 `∀env1 env2 env3.
   merge_alist_mod_env env1 (merge_alist_mod_env env2 env3) =
@@ -266,6 +309,10 @@ val same_ctor_and_same_tid = Q.store_thm ("same_ctor_and_same_tid",
  cases_on `tn2` >>
  fs [same_tid_def, same_ctor_def]);
 
+val same_tid_refl = store_thm("same_tid_refl[simp]",
+  ``same_tid t t``,
+  Cases_on`t`>>EVAL_TAC);
+
 val same_tid_sym = Q.store_thm ("same_tid_sym",
 `!tn1 tn2. same_tid tn1 tn2 = same_tid tn2 tn1`,
  cases_on `tn1` >>
@@ -273,12 +320,35 @@ val same_tid_sym = Q.store_thm ("same_tid_sym",
  rw [same_tid_def] >>
  metis_tac []);
 
+val same_tid_diff_ctor = Q.store_thm("same_tid_diff_ctor",
+  `!cn1 cn2 t1 t2.
+    same_tid t1 t2 ∧ ~same_ctor (cn1, t1) (cn2, t2)
+    ⇒
+    (cn1 ≠ cn2) ∨ (cn1 = cn2 ∧ ?mn1 mn2. t1 = TypeExn mn1 ∧ t2 = TypeExn mn2 ∧ mn1 ≠ mn2)`,
+  rw [] >>
+  cases_on `t1` >>
+  cases_on `t2` >>
+  fs [same_tid_def, same_ctor_def]);
+
+val same_tid_tid = Q.store_thm("same_tid_tid",
+  `(same_tid (TypeId x) y ⇔ (y = TypeId x)) ∧
+   (same_tid y (TypeId x) ⇔ (y = TypeId x))`,
+  Cases_on`y`>>EVAL_TAC>>rw[EQ_IMP_THM])
+
 val build_tdefs_cons = Q.store_thm ("build_tdefs_cons",
 `(!tvs tn ctors tds mn.
   build_tdefs mn ((tvs,tn,ctors)::tds) =
     build_tdefs mn tds  ++ REVERSE (MAP (\(conN,ts). (conN, LENGTH ts, TypeId (mk_id mn tn))) ctors)) ∧
  (!mn. build_tdefs mn [] = [])`,
  rw [build_tdefs_def]);
+
+val MAP_FST_build_tdefs = store_thm("MAP_FST_build_tdefs",
+  ``set (MAP FST (build_tdefs mn ls)) =
+    set (MAP FST (FLAT (MAP (SND o SND) ls)))``,
+  Induct_on`ls`>>simp[build_tdefs_cons] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>simp[build_tdefs_cons,MAP_REVERSE] >>
+  simp[MAP_MAP_o,combinTheory.o_DEF,UNCURRY,ETA_AX] >>
+  metis_tac[UNION_COMM])
 
 val check_dup_ctors_cons = Q.store_thm ("check_dup_ctors_cons",
 `!tvs ts ctors tds.
@@ -314,6 +384,10 @@ val map_result_def = Define`
   (map_result f1 f2 (Rval v) = Rval (f1 v)) ∧
   (map_result f1 f2 (Rerr e) = Rerr (map_error_result f2 e))`
 val _ = export_rewrites["map_result_def"]
+
+val map_result_Rval = Q.store_thm("map_result_Rval[simp]",
+  `map_result f1 f2 e = Rval x ⇔ ∃y. e = Rval y ∧ x = f1 y`,
+  Cases_on`e`>>simp[EQ_IMP_THM])
 
 val map_result_Rerr = store_thm("map_result_Rerr",
   ``map_result f1 f2 e = Rerr e' ⇔ ∃a. e = Rerr a ∧ map_error_result f2 a = e'``,
@@ -549,17 +623,24 @@ qx_gen_tac `d` >>
 PairCases_on `d` >>
 rw[semanticPrimitivesTheory.find_recfun_def])
 
-val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
-`(!p acc. pat_bindings p acc = pat_bindings p [] ++ acc) ∧
- (!ps acc. pats_bindings ps acc = pats_bindings ps [] ++ acc)`,
- Induct >>
- rw []
- >- rw [pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]
- >- rw [pat_bindings_def]
- >- metis_tac [APPEND_ASSOC, pat_bindings_def]);
+val find_recfun_el = Q.store_thm("find_recfun_el",
+  `!f funs x e n.
+    ALL_DISTINCT (MAP (\(f,x,e). f) funs) ∧
+    n < LENGTH funs ∧
+    EL n funs = (f,x,e)
+    ⇒
+    find_recfun f funs = SOME (x,e)`,
+  simp[find_recfun_ALOOKUP] >>
+  induct_on `funs` >>
+  rw [] >>
+  cases_on `n` >>
+  fs [] >>
+  PairCases_on `h` >>
+  fs [] >>
+  rw [] >>
+  res_tac >>
+  fs [MEM_MAP, MEM_EL, FORALL_PROD] >>
+  metis_tac []);
 
 val ctors_of_tdef_def = Define`
   ctors_of_tdef (_,_,condefs) = MAP FST condefs`

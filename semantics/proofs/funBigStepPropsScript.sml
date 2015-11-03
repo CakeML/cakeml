@@ -87,13 +87,18 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   imp_res_tac functional_evaluate_list >>
   metis_tac[big_exp_determ,PAIR_EQ])
 
-val list_result_eq_Rval = Q.store_thm("list_result_eq_Rval",
+val list_result_eq_Rval = Q.store_thm("list_result_eq_Rval[simp]",
   `list_result r = Rval r' ⇔ ∃v. r' = [v] ∧ r = Rval v`,
   Cases_on`r`>>rw[list_result_def,EQ_IMP_THM])
 
-val list_result_eq_Rerr = Q.store_thm("list_result_eq_Rerr",
+val list_result_eq_Rerr = Q.store_thm("list_result_eq_Rerr[simp]",
   `list_result r = Rerr e ⇔ r = Rerr e`,
   Cases_on`r`>>rw[list_result_def,EQ_IMP_THM])
+
+val result_rel_list_result = Q.store_thm("result_rel_list_result[simp]",
+  `result_rel (LIST_REL R) Q (list_result r1) (list_result r2) ⇔
+   result_rel R Q r1 r2`,
+  Cases_on`r1`>>rw[PULL_EXISTS]);
 
 val list_result_inj = Q.store_thm("list_result_inj",
   `list_result x = list_result y ⇒ x = y`,

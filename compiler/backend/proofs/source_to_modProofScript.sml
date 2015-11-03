@@ -1,5 +1,5 @@
 open preamble;
-open semanticPrimitivesTheory sourcePropsTheory evalPropsTheory;
+open semanticPrimitivesTheory evalPropsTheory;
 open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
@@ -1261,7 +1261,7 @@ val compile_exp_correct = Q.prove (
       fs [match_result_rel_def] >>
       rw [] >>
       fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      imp_res_tac sourcePropsTheory.pmatch_extend >> fs[] >> rw[] >>
+      imp_res_tac evalPropsTheory.pmatch_extend >> fs[] >> rw[] >>
       FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env'' with v := env''''' ++ env''.v`, `env'''`, `a`, `s''`] mp_tac) >>
       rw [] >>
       first_x_assum(fn th => mp_tac th  >> discharge_hyps) >- (
@@ -2270,7 +2270,7 @@ val compile_correct = Q.store_thm("compile_correct",
     strip_tac >>
     rw[modSemTheory.semantics_def] >- (
       fs[modSemTheory.evaluate_prog_with_clock_def] >>
-      cheat (* need determinism of modSem$evaluate_whole_prog *) )
+      cheat (* need determinism of modSem$evaluate_whole_prog *) ) >>
     DEEP_INTRO_TAC some_intro >>
     simp[modSemTheory.evaluate_prog_with_clock_def,PULL_EXISTS] >>
     conj_tac >- (

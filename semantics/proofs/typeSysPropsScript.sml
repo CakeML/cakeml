@@ -2337,8 +2337,6 @@ val check_dup_ctors_distinct = Q.prove (
      rw [] >>
      fs [] >>
      rw [] >>
-     `y1 = h1` by (fs [mk_id_def] >> every_case_tac >> fs []) >>
-     rw [] >>
      FIRST_X_ASSUM (mp_tac o Q.SPEC `p_1`) >>
      rw [MEM_MAP]
      >- (qexists_tac `(p_1,p_2')` >>

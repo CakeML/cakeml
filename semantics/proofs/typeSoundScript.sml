@@ -2119,9 +2119,6 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
      rw [store_type_extension_def]
      >- (qexists_tac `FEMPTY` >>
           rw [])
-     >- (Cases_on `env.c` >>
-         PairCases_on `tenvC` >>
-         fs [merge_mod_env_def, merge_alist_mod_env_def])
      >- metis_tac [type_v_rules])
  >- (`?st' r tenvS'.
         (r ≠ Rerr (Rabort Rtype_error)) ∧

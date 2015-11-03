@@ -1,5 +1,4 @@
 open preamble bvpTheory bvpSemTheory;
-local open sourcePropsTheory in end;
 
 val _ = new_theory"bvpProps";
 

@@ -1,5 +1,5 @@
 open preamble
-     semanticPrimitivesTheory evalPropsTheory sourcePropsTheory
+     semanticPrimitivesTheory evalPropsTheory
      mod_to_conTheory conPropsTheory;
 
 val _ = new_theory "mod_to_conProof";
