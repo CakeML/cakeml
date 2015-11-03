@@ -428,6 +428,10 @@ val evaluate_def = tDefine "evaluate" `
   imp_res_tac dest_closure_length >>
   full_simp_tac (srw_ss()++ARITH_ss) [])
 
+val evaluate_app_NIL = save_thm(
+  "evaluate_app_NIL[simp]",
+  ``evaluate_app loc v [] s`` |> SIMP_CONV (srw_ss()) [evaluate_def])
+
 (* We prove that the clock never increases. *)
 
 val check_clock_IMP = prove(
