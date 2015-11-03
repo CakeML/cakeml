@@ -965,7 +965,79 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
           LENGTH rest2 + s2.clock - (LENGTH rest1 + LENGTH used1)` by simp[] >>
           simp[]
         )
-     >- ((* LENGTH used2 < LENGTH used1 *) cheat)
+     >- ((* LENGTH used2 < LENGTH used1 *)
+         `LENGTH rest1 < LENGTH rest2` by simp[] >>
+         `rest2 ≠ []` by (strip_tac >> lfs[]) >>
+         `loc = NONE` by metis_tac[dest_closure_none_loc] >> rveq >>
+         `LENGTH rest2 + LENGTH used2 - LENGTH rest1 = LENGTH used1`
+           by simp[] >> simp[dec_clock_def] >>
+         `s'.clock < LENGTH used2 ∨ LENGTH used2 ≤ s'.clock` by simp[]
+         >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
+         qabbrev_tac `upfx1 = TAKE (LENGTH used1 - LENGTH used2) used1` >>
+         qabbrev_tac `usfx1 = DROP (LENGTH used1 - LENGTH used2) used1` >>
+         `LENGTH usfx1 = LENGTH used2` by simp[Abbr`usfx1`] >>
+         `used1 = upfx1 ++ usfx1` by simp[Abbr`upfx1`, Abbr`usfx1`] >>
+         `usfx1 ≠ []` by (strip_tac >> fs[]) >>
+         markerLib.RM_ALL_ABBREVS_TAC >> rveq >> fs[] >>
+         full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> fs[] >>
+         simp[] >>
+         `upfx1 ≠ []` by (strip_tac >> fs[]) >>
+         `∃cl1. dest_closure NONE v usfx1 = SOME (Partial_app cl1) ∧
+                dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
+           by metis_tac[dest_closure_NONE_Full_to_Partial] >>
+         rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
+         `LIST_REL (val_rel (:'ffi) s'.clock) (rest1 ++ upfx1) rest2 ∧
+          LIST_REL (val_rel (:'ffi) s'.clock) usfx1 used2`
+            by metis_tac[LENGTH_APPEND, EVERY2_APPEND, APPEND_ASSOC] >>
+         qspecl_then [`s'.clock`, `v`, `v'`] mp_tac val_rel_cl_rw >> simp[] >>
+         disch_then (qspecl_then [`s'.clock - 1`, `usfx1`, `used2`,
+                                  `s`, `s'`, `NONE`]
+                                 mp_tac) >> simp[] >>
+         `state_rel (s'.clock - 1) s s'`
+           by metis_tac[val_rel_mono, DECIDE ``x - 1n ≤ x``] >>
+         pop_assum (fn th => simp[th]) >>
+         `LIST_REL (val_rel (:'ffi) (s'.clock - 1)) usfx1 used2`
+           by metis_tac[val_rel_mono_list, DECIDE ``x - 1n ≤ x``] >>
+         pop_assum (fn th => simp[th]) >>
+         simp[exec_rel_rw, evaluate_ev_def] >>
+         disch_then (qspec_then `s'.clock - 1` mp_tac) >> simp[] >>
+         `(∃r2 s2.
+            evaluate ([b2], env2, s' with clock := s'.clock - LENGTH used2) =
+            (r2, s2))` by metis_tac[PAIR] >>
+         `(∃rv2. r2 = Rval [rv2]) ∨ (∃a2. r2 = Rerr (Rraise a2)) ∨
+          r2 = Rerr (Rabort Rtimeout_error) ∨ r2 = Rerr (Rabort Rtype_error)`
+           by (Cases_on `r2` >- (simp[] >> metis_tac[evaluate_SING]) >>
+               qcase_tac `Rerr ee = Rerr _` >> Cases_on `ee` >> simp[] >>
+               qcase_tac `aa = Rtype_error` >> Cases_on `aa` >> simp[]) >>
+         rveq >>
+         dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
+         simp[] >> strip_tac >>
+         qmatch_abbrev_tac `res_rel LHS (evaluate_app NONE rv2 rest2 s2)` >>
+         fs[] >> qcase_tac `state_rel s2.clock s1 s2` >>
+         `LHS = evaluate_app NONE cl1 (rest1 ++ upfx1)
+                   (s1 with clock := s2.clock)`
+           suffices_by (
+             disch_then SUBST1_TAC >> first_assum irule
+             >- first_x_assum ACCEPT_TAC >>
+             simp[] >> metis_tac[val_rel_mono_list, DECIDE ``x:num - y ≤ x``])>>
+         simp[Abbr`LHS`] >> fs[] >>
+         simp[Once evaluate_app_rw, SimpRHS] >>
+         Q.UNDISCH_THEN
+           `dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
+           (fn th => mp_tac (MATCH_MP (dest_closure_full_addargs
+                                         |> GEN_ALL
+                                         |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+                                      th)) >>
+         disch_then (qspec_then `rest1` mp_tac) >>
+         `LENGTH rest1 + LENGTH upfx1 ≤ max_app`
+           by (imp_res_tac dest_closure_full_maxapp >> fs[] >> simp[]) >>
+         simp[dec_clock_def] >>
+         `s'.clock < LENGTH upfx1 + LENGTH used2 ⇔ s2.clock < LENGTH upfx1`
+            by simp[] >> simp[] >> rw[] >>
+         `s'.clock - (LENGTH upfx1 + LENGTH used2) = s2.clock - LENGTH upfx1`
+            by simp[] >>
+         simp[]
+        )
     )
 )
 
