@@ -2247,7 +2247,7 @@ val compile_correct = Q.store_thm("compile_correct",
    ¬semantics_prog s1 prog Fail ⇒
    semantics_prog s1 prog (semantics s2 (compile c prog))`,
   `∃genv cenv st tids mods. s2 = (genv,cenv,st,tids,mods)` by metis_tac[PAIR] >>
-  rw[precondition_def,semantics_prog_def,compile_def] >>
+  rw[precondition_def,compile_def] >>
   Cases_on`∃k ffi r.
             evaluate_prog_with_clock s1 k prog = (ffi,r) ∧
             r ≠ Rerr (Rabort Rtimeout_error)` >> fs[] >- (
@@ -2264,9 +2264,13 @@ val compile_correct = Q.store_thm("compile_correct",
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[] >>
     discharge_hyps_keep >- (
-      first_x_assum(qspec_then`k`mp_tac) >> simp[] ) >>
+      fs[semantics_prog_def] >>
+      first_x_assum(qspec_then`k`mp_tac) >>
+      simp[evaluate_prog_with_clock_def] ) >>
     strip_tac >>
-    rw[modSemTheory.semantics_def] >>
+    rw[modSemTheory.semantics_def] >- (
+      fs[modSemTheory.evaluate_prog_with_clock_def] >>
+      cheat (* need determinism of modSem$evaluate_whole_prog *) )
     DEEP_INTRO_TAC some_intro >>
     simp[modSemTheory.evaluate_prog_with_clock_def,PULL_EXISTS] >>
     conj_tac >- (
@@ -2275,6 +2279,7 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[semanticsTheory.evaluate_prog_with_clock_def] >>
       qexists_tac`k`>>simp[] >>
       cheat ) >>
+    rw[semantics_prog_def] >>
     cheat ) >>
   cheat);
 

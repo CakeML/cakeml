@@ -708,6 +708,9 @@ val evaluate_prog_with_clock_def = Define`
 
 val semantics_def = Define`
   semantics st prog =
+    if ∃k ffi. evaluate_prog_with_clock k st prog (ffi,SOME (Rabort Rtype_error))
+      then Fail
+    else
     case some ffi.
       ∃k r. evaluate_prog_with_clock k st prog (ffi,r) ∧
             r ≠ SOME (Rabort Rtimeout_error)
