@@ -52,7 +52,7 @@ val _ = export_rewrites["compile_vs_map"]
 val compile_csg_def = Define`
   compile_csg (csg:('ffi,exhSem$v)count_store_genv) =
     <| clock := FST(FST csg);
-       store := MAP (map_sv compile_v) (FST(SND(FST csg)));
+       refs := MAP (map_sv compile_v) (FST(SND(FST csg)));
        ffi := (SND(SND(FST csg)));
        globals := MAP (OPTION_MAP compile_v) (SND csg) |>`;
 
@@ -562,11 +562,11 @@ val compile_row_correct = Q.prove(
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
        ∀env count genv e res.
          evaluate (menv4++env)
-           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+           <| clock := count; refs := MAP (map_sv compile_v) (FST s);
               ffi := SND s; globals := genv |> [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (compile_v v::env)
-           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+           <| clock := count; refs := MAP (map_sv compile_v) (FST s);
               ffi := SND s; globals := genv |> [f e] = res) ∧
    (∀bvsk0 nk k ps tag ^s qs vs menvk menv4k menv bvsk bvs0 bvs1 n1 f.
      (pmatch_list (FST s) qs (TAKE k vs) [] = Match menvk) ∧
@@ -584,11 +584,11 @@ val compile_row_correct = Q.prove(
         MAP (λ(x,v). (SOME x, compile_v v)) menv) ∧
        ∀env count genv e res.
          evaluate (menv4++menv4k++(Conv tag (MAP compile_v vs))::env)
-           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+           <| clock := count; refs := MAP (map_sv compile_v) (FST s);
               ffi := SND s; globals := genv |> [e] = res ∧
          SND res ≠ Rerr (Rabort Rtype_error) ⇒
          evaluate (menv4k++(Conv tag (MAP compile_v vs))::env)
-           <| clock := count; store := MAP (map_sv compile_v) (FST s);
+           <| clock := count; refs := MAP (map_sv compile_v) (FST s);
               ffi := SND s; globals := genv |> [f e] = res)`,
   ho_match_mp_tac compile_row_ind >>
   strip_tac >- (
@@ -1031,7 +1031,7 @@ val v_rel_sym = store_thm("v_rel_sym",
 val state_rel_def = Define`
   state_rel s1 s2 ⇔
     s1.clock = s2.clock ∧
-    LIST_REL (sv_rel v_rel) s1.store s2.store ∧
+    LIST_REL (sv_rel v_rel) s1.refs s2.refs ∧
     s1.ffi = s2.ffi ∧
     LIST_REL (OPTREL v_rel) s1.globals s2.globals`;
 
@@ -1424,7 +1424,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     first_assum(split_pair_case_tac o find_term(same_const``pair_CASE`` o fst o strip_comb) o concl) >> fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th) o MATCH_MP EVERY2_REVERSE)) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
-    qmatch_assum_rename_tac`_ = (s,r)` >>
+    qmatch_assum_rename_tac`evaluate env1 s1 _ = (s,r)` >>
     reverse(Cases_on`r`)>>fs[]>- rw[] >>
     reverse IF_CASES_TAC >> fs[] >> rw[] >>
     imp_res_tac EVERY2_REVERSE >- (
@@ -1449,7 +1449,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     first_assum(split_pair_case_tac o find_term(same_const``pair_CASE`` o fst o strip_comb) o concl) >> fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
-    qmatch_assum_rename_tac`_ = (s,r)` >>
+    qmatch_assum_rename_tac`evaluate env1 s1 _ = (s,r)` >>
     reverse(Cases_on`r`)>>fs[]>> rw[] >>
     imp_res_tac evaluate_sing >> fs[] >>
     fs[patSemTheory.do_if_def] >>
@@ -1463,7 +1463,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     first_assum(split_pair_case_tac o find_term(same_const``pair_CASE`` o fst o strip_comb) o concl) >> fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
-    qmatch_assum_rename_tac`_ = (s,r)` >>
+    qmatch_assum_rename_tac`evaluate env1 s1 _ = (s,r)` >>
     reverse(Cases_on`r`)>>fs[]>> rw[] >>
     imp_res_tac evaluate_sing >> fs[] >>
     first_x_assum match_mp_tac >>
@@ -1475,7 +1475,7 @@ val evaluate_exp_rel = store_thm("evaluate_exp_rel",
     first_assum(split_pair_case_tac o find_term(same_const``pair_CASE`` o fst o strip_comb) o concl) >> fs[] >>
     first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
     disch_then(fn th => (first_assum(strip_assume_tac o MATCH_MP th))) >> fs[] >>
-    qmatch_assum_rename_tac`_ = (s,r)` >>
+    qmatch_assum_rename_tac`evaluate env1 s1 _ = (s,r)` >>
     reverse(Cases_on`r`)>>fs[]>> rw[]) >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>

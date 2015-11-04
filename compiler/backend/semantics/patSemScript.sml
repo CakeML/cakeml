@@ -123,9 +123,9 @@ val _ = Define `
 
 val _ = Datatype`
   state =
-    <| clock : num
-     ; store : patSem$v store
-     ; ffi : 'ffi ffi_state
+    <| clock   : num
+     ; refs    : patSem$v store
+     ; ffi     : 'ffi ffi_state
      ; globals : patSem$v option list
      |>`;
 
@@ -146,18 +146,18 @@ val do_app_def = Define `
           | Eq_val b => SOME (s, Rval(Boolv b))
         )
     | (Op (Op Opassign), [Loc lnum; v]) =>
-        (case store_assign lnum (Refv v) s.store of
-          SOME st => SOME (s with store := st, Rval (Conv tuple_tag []))
+        (case store_assign lnum (Refv v) s.refs of
+          SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
         | NONE => NONE
         )
     | (Op (Op Opderef), [Loc n]) =>
-        (case store_lookup n s.store of
+        (case store_lookup n s.refs of
             SOME (Refv v) => SOME (s,Rval v)
           | _ => NONE
         )
     | (Op (Op Opref), [v]) =>
-        let (s',n) = (store_alloc (Refv v) s.store) in
-          SOME (s with store := s', Rval (Loc n))
+        let (s',n) = (store_alloc (Refv v) s.refs) in
+          SOME (s with refs := s', Rval (Loc n))
     | (Op (Init_global_var idx), [v]) =>
         if idx < LENGTH s.globals then
           (case EL idx s.globals of
@@ -171,11 +171,11 @@ val do_app_def = Define `
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
           let (st,lnum) =
-(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.store)
+(store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.refs)
           in
-            SOME (s with store := st, Rval (Loc lnum))
+            SOME (s with refs := st, Rval (Loc lnum))
     | (Op (Op Aw8sub), [Loc lnum; Litv (IntLit i)]) =>
-        (case store_lookup lnum s.store of
+        (case store_lookup lnum s.refs of
             SOME (W8array ws) =>
               if i <( 0 : int) then
                 SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
@@ -188,13 +188,13 @@ val do_app_def = Define `
           | _ => NONE
         )
     | (Op (Op Aw8length), [Loc n]) =>
-        (case store_lookup n s.store of
+        (case store_lookup n s.refs of
             SOME (W8array ws) =>
               SOME (s,Rval (Litv (IntLit (int_of_num (LENGTH ws)))))
           | _ => NONE
         )
     | (Op (Op Aw8update), [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) =>
-        (case store_lookup lnum s.store of
+        (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             if i <( 0 : int) then
               SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
@@ -203,9 +203,9 @@ val do_app_def = Define `
                 if n >= LENGTH ws then
                   SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
                 else
-                  (case store_assign lnum (W8array (LUPDATE w n ws)) s.store of
+                  (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
                       NONE => NONE
-                    | SOME st => SOME (s with store := st, Rval (Conv tuple_tag []))
+                    | SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
                   )
         | _ => NONE
         )
@@ -251,11 +251,11 @@ val do_app_def = Define `
           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
           let (s',lnum) =
-(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s.store)
+(store_alloc (Varray (REPLICATE (Num (ABS ( n))) v)) s.refs)
           in
-            SOME (s with store := s', Rval (Loc lnum))
+            SOME (s with refs := s', Rval (Loc lnum))
     | (Op (Op Asub), [Loc lnum; Litv (IntLit i)]) =>
-        (case store_lookup lnum s.store of
+        (case store_lookup lnum s.refs of
             SOME (Varray vs) =>
               if i <( 0 : int) then
                 SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
@@ -268,13 +268,13 @@ val do_app_def = Define `
           | _ => NONE
         )
     | (Op (Op Alength), [Loc n]) =>
-        (case store_lookup n s.store of
+        (case store_lookup n s.refs of
             SOME (Varray ws) =>
               SOME (s,Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
           | _ => NONE
          )
     | (Op (Op Aupdate), [Loc lnum; Litv (IntLit i); v]) =>
-        (case store_lookup lnum s.store of
+        (case store_lookup lnum s.refs of
           SOME (Varray vs) =>
             if i <( 0 : int) then
               SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
@@ -283,19 +283,19 @@ val do_app_def = Define `
                 if n >= LENGTH vs then
                   SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
                 else
-                  (case store_assign lnum (Varray (LUPDATE v n vs)) s.store of
+                  (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
                       NONE => NONE
-                    | SOME s' => SOME (s with store := s', Rval (Conv tuple_tag []))
+                    | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag []))
                   )
         | _ => NONE
       )
     | (Op (Op (FFI n)), [Loc lnum]) =>
-        (case store_lookup lnum s.store of
+        (case store_lookup lnum s.refs of
           SOME (W8array ws) =>
             (case call_FFI s.ffi n ws of
               (t', ws') =>
-               (case store_assign lnum (W8array ws') s.store of
-                 SOME s' => SOME (s with <| store := s'; ffi := t' |>, Rval (Conv tuple_tag []))
+               (case store_assign lnum (W8array ws') s.refs of
+                 SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
                | NONE => NONE))
         | _ => NONE)
     | (Tag_eq n l, [Conv tag vs]) =>
