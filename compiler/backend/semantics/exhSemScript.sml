@@ -232,7 +232,7 @@ val do_app_def = Define `
       let (s',lnum) =
         store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.refs
       in
-        SOME (s, Rval (Loc lnum))
+        SOME (s with refs := s', Rval (Loc lnum))
   | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
     (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
