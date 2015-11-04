@@ -10,8 +10,9 @@ cd polyml
 ## optionally pass an installation prefix to configure
 # ./configure --enable-shared --prefix=<dir>
 ## then you need to put <dir>/bin in your PATH
-##       and <dir>/lib in your LD_LIBRARY_PATH
+##       and <dir>/lib in your {LD_,}LIBRARY_PATH
 # export PATH=<dir>/bin:$PATH
+# export LIBRARY_PATH=<dir>/lib:$LIBRARY_PATH
 # export LD_LIBRARY_PATH=<dir>/lib:$LD_LIBRARY_PATH
 make
 make compiler
