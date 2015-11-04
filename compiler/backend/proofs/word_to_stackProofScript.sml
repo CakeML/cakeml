@@ -271,8 +271,9 @@ val state_rel_def = Define `
        (lookup n t.code = SOME (word_to_stack$compile word_prog arg_count k))) /\
     (lookup 0 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\
-    (if f = 0 then f' = 0 else (f = f' + f' DIV (dimindex (:'a) - 1) + 1)) /\
+    (if f' = 0 then f = 0 else (f = f' + f' DIV (dimindex (:'a) - 1) + 1)) /\
     let stack = DROP t.stack_space t.stack in
+    (*First f things on stack*)
     let current_frame = TAKE f stack in
     let rest_of_stack = DROP f stack in
       stack_rel k s.handler s.stack (FLOOKUP t.store Handler)
@@ -500,7 +501,7 @@ val APPEND_LEMMA = prove(
 val read_bitmap_write_bitmap = prove(
   ``t.stack_space + f <= LENGTH t.stack /\ 8 <= dimindex (:'a) /\
     (LENGTH (write_bitmap names k f f': 'a word list) + f' = f) /\
-    (if f = 0 then f' = 0 else f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
+    (if f' = 0 then f = 0 else f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
     (1 <= f) ==>
     read_bitmap
       (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f f')) 0
@@ -748,10 +749,25 @@ val evaluate_wLive = Q.prove(
     fs[Abbr`R`]>>
     fs[SORTED_EL_SUC]>>rw[]>>`n < m` by DECIDE_TAC>>
     fs[EL_GENLIST]>>DECIDE_TAC)
+  >>
+  qpat_abbrev_tac `f'' = f- f' + t.stack_space`>>
+  `f' ≤ LENGTH t.stack - f''` by (rw[Abbr`f''`]>>DECIDE_TAC)
   \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
       MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
-  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC]
-  \\ cheat (* likely to be true, but very messy *));
+  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC] \\
+  `0 < f'` by
+    (CCONTR_TAC>>`f' = 0` by DECIDE_TAC>>fs[]>>
+    DECIDE_TAC)>>
+  fs[]>>
+  (*I expect p_1 and n to be instantiated to the same thing,
+  but the resulting goal looks false because we end up with
+  LHS: q = k + f - p_1 DIV 2
+  RHS: q = k+ f' - (f + k - p_1 DIV 2) -1
+  Note also that (I think) we require an assumption on names such that
+  ∀x. x ∈ domain names ⇒ x ≥ 2*k
+  This is used to instantiate assumption 22 (the one talking about locals)
+  *)
+  cheat);
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -814,7 +830,7 @@ val enc_stack_lemma = prove(
   \\ pop_assum (K all_tac)
   \\ once_rewrite_tac [abs_stack_def]
   \\ Cases_on `ys = []` \\ fs []
-  \\ Cases_on `ys = [Word 0w]` \\ fs [] THEN1
+  \\ Cases_on `ys = [I thWord 0w]` \\ fs [] THEN1
    (Cases \\ fs [join_stacks_def,Once stackSemTheory.enc_stack_def]
     \\ fs [enc_stack_def])
   \\ Cases_on `read_bitmap ys` \\ fs []
