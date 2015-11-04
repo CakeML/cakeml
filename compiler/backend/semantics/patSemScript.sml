@@ -377,7 +377,6 @@ val evaluate_def = tDefine"evaluate"`
    | res => res) ∧
   (evaluate env s [Handle e1 e2] =
    case evaluate env s [e1] of
-   | (s, Rval v) => (s, Rval v)
    | (s', Rerr (Rraise v)) => evaluate (v::env) (check_clock s' s) [e2]
    | res => res) ∧
   (evaluate env s [Con tag es] =

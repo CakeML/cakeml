@@ -33,7 +33,7 @@ val _ = export_rewrites["compile_sv_def"];
 val compile_state_def = Define`
   compile_state (s:'ffi patSem$state) =
     <| globals := MAP (OPTION_MAP compile_v) s.globals;
-       refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s.store))) (LENGTH s.store));
+       refs := alist_to_fmap (GENLIST (λi. (i, compile_sv (EL i s.refs))) (LENGTH s.refs));
        ffi := s.ffi;
        clock := s.clock;
        code := FEMPTY
@@ -280,7 +280,7 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[LENGTH_eq] >>
       simp[evaluate_def,ETA_AX,do_app_def] >> rw[] >>
       Cases_on`a`>>fs[]>>rw[]>>
-      fs[store_assign_def,Once compile_csg_def] >> simp[] >>
+      fs[store_assign_def] >> simp[] >>
       pop_assum mp_tac >> IF_CASES_TAC >> simp[] >> rw[] >>
       fs[evaluate_def] >>
       BasicProvers.CASE_TAC >> fs[] >> Cases_on`q`>>fs[] >>
@@ -382,7 +382,7 @@ val compile_correct = Q.store_thm("compile_correct",
       simp[evaluate_def,ETA_AX,do_app_def] >>
       fs[MAP_REVERSE,SWAP_REVERSE_SYM,store_lookup_def] >>
       simp[compile_state_def,ALOOKUP_GENLIST] >>
-      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[]
+      pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
       BasicProvers.CASE_TAC >> fs[compile_sv_def] >> rw[] )
     >- ( (* UpdateByte *)
       simp[evaluate_def,ETA_AX,do_app_def] >>
@@ -400,7 +400,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH l ⇔ ¬(Num i ≥ LENGTH l)` by COOPER_TAC >> simp[] >>
       Cases_on`Num i ≥ LENGTH l`>>fs[] >- (
-        arw[compile_csg_def,prim_exn_def] ) >>
+        arw[prim_exn_def] ) >>
       simp[ALOOKUP_GENLIST,compile_sv_def] >>
       fs[store_assign_def,store_v_same_type_def] >>
       Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
@@ -456,7 +456,7 @@ val compile_correct = Q.store_thm("compile_correct",
       `ABS i = i` by metis_tac[INT_ABS_EQ_ID] >> fs[] >>
       `i < &LENGTH vs' ⇔ ¬(Num i ≥ LENGTH vs')` by COOPER_TAC >> simp[] >>
       Cases_on`Num i ≥ LENGTH vs'`>>fs[] >- (
-        arw[compile_csg_def,prim_exn_def] ) >>
+        arw[prim_exn_def] ) >>
       rpt BasicProvers.VAR_EQ_TAC >>
       simp[EL_MAP,true_neq_false] )
     >- ( fs[MAP_REVERSE] >> simp[evaluate_def,ETA_AX,do_app_def])
@@ -538,7 +538,7 @@ val compile_correct = Q.store_thm("compile_correct",
       fs[store_v_same_type_def] >>
       BasicProvers.CASE_TAC >> fs[] >> strip_tac >>
       rpt BasicProvers.VAR_EQ_TAC >>
-      simp[Unit_def,compile_csg_def] >>
+      simp[Unit_def] >>
       simp[fmap_eq_flookup,ALOOKUP_GENLIST,FLOOKUP_UPDATE,EL_LUPDATE] >>
       rw[] >> fs[])) >>
   strip_tac >- (
