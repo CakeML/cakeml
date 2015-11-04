@@ -167,17 +167,23 @@ val _ = Define`
 val _ = Define `
   Boolv b = Conv (if b then true_tag else false_tag) []`;
 
-val _ = type_abbrev("count_store_genv", ``:(num # 'v store # 'ffi ffi_state) # ('v option) list``);
+val _ = Datatype`
+  state =
+  <| clock   : num
+   ; refs    : exhSem$v store
+   ; ffi     : 'ffi ffi_state
+   ; globals : exhSem$v option list
+   |>`;
 
 val do_app_def = Define `
-  do_app (((cnt,s,t),g):(('ffi,exhSem$v) count_store_genv)) op (vs:exhSem$v list) =
+  do_app (s:'ffi exhSem$state) op (vs:exhSem$v list) =
   case op of
   | Init_global_var idx =>
     (case vs of
      | [v] =>
-         if idx < LENGTH g then
-           (case EL idx g of
-            | NONE => SOME (((cnt,s,t), LUPDATE (SOME v) idx g), (Rval (Conv tuple_tag [])))
+         if idx < LENGTH s.globals then
+           (case EL idx s.globals of
+            | NONE => SOME (s with globals := LUPDATE (SOME v) idx s.globals, (Rval (Conv tuple_tag [])))
             | SOME x => NONE)
          else NONE
      | _ => NONE)
@@ -191,156 +197,193 @@ val do_app_def = Define `
                  (* TODO: make the above consistent in earlier definitions of do_app *)
                  prim_exn "Foo" -> prim_exn foo_tag
                  Conv NONE -> Conv tuple_tag
+                 ---
+                 further modifications added after change from csg to state record
               *)
   (
   case (op, vs) of
   | (Opn op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
     if ((op = Divide) ∨ (op = Modulo)) ∧ (n2 = 0) then
-      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn div_tag)))
+      SOME (s, Rerr (Rraise (prim_exn div_tag)))
     else
-      SOME (((cnt,s,t),g), Rval (Litv (IntLit (opn_lookup op n1 n2))))
+      SOME (s, Rval (Litv (IntLit (opn_lookup op n1 n2))))
   | (Opb op, [Litv (IntLit n1); Litv (IntLit n2)]) =>
-    SOME (((cnt,s,t),g), Rval (Boolv (opb_lookup op n1 n2)))
+    SOME (s, Rval (Boolv (opb_lookup op n1 n2)))
   | (Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
-     | Eq_closure => SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn eq_tag)))
-     | Eq_val b => SOME (((cnt,s,t),g), Rval (Boolv b)))
+     | Eq_closure => SOME (s, Rerr (Rraise (prim_exn eq_tag)))
+     | Eq_val b => SOME (s, Rval (Boolv b)))
   | (Opassign, [Loc lnum; v]) =>
-    (case store_assign lnum (Refv v) s of
-     | SOME st => SOME (((cnt,st,t),g), Rval (Conv tuple_tag []))
+    (case store_assign lnum (Refv v) s.refs of
+     | SOME st => SOME (s with refs := st, Rval (Conv tuple_tag []))
      | NONE => NONE)
   | (Opref, [v]) =>
-    let (s',n) = (store_alloc (Refv v) s) in
-      SOME (((cnt,s',t),g), Rval (Loc n))
+    let (s',n) = (store_alloc (Refv v) s.refs) in
+      SOME (s with refs := s', Rval (Loc n))
   | (Opderef, [Loc n]) =>
-    (case store_lookup n s of
-     | SOME (Refv v) => SOME (((cnt,s,t),g),Rval v)
+    (case store_lookup n s.refs of
+     | SOME (Refv v) => SOME (s,Rval v)
      | _ => NONE)
   | (Aw8alloc, [Litv (IntLit n); Litv (Word8 w)]) =>
     if n < 0 then
-      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+      SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
     else
       let (s',lnum) =
-        store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s
+        store_alloc (W8array (REPLICATE (Num (ABS ( n))) w)) s.refs
       in
-        SOME (((cnt,s',t),g), Rval (Loc lnum))
+        SOME (s, Rval (Loc lnum))
   | (Aw8sub, [Loc lnum; Litv (IntLit i)]) =>
-    (case store_lookup lnum s of
+    (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
-         SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+         SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
        else
          let n = (Num (ABS i)) in
            if n >= LENGTH ws then
-             SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+             SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
            else
-             SOME (((cnt,s,t),g), Rval (Litv (Word8 (EL n ws))))
+             SOME (s, Rval (Litv (Word8 (EL n ws))))
      | _ => NONE)
   | (Aw8length, [Loc n]) =>
-    (case store_lookup n s of
+    (case store_lookup n s.refs of
      | SOME (W8array ws) =>
-       SOME (((cnt,s,t),g),Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
+       SOME (s,Rval (Litv(IntLit(int_of_num(LENGTH ws)))))
      | _ => NONE)
   | (Aw8update, [Loc lnum; Litv(IntLit i); Litv(Word8 w)]) =>
-    (case store_lookup lnum s of
+    (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
        if i < 0 then
-         SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+         SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
        else
          let n = (Num (ABS i)) in
            if n >= LENGTH ws then
-             SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+             SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
            else
-             (case store_assign lnum (W8array (LUPDATE w n ws)) s of
+             (case store_assign lnum (W8array (LUPDATE w n ws)) s.refs of
               | NONE => NONE
-              | SOME s' => SOME (((cnt,s',t),g), Rval (Conv tuple_tag [])))
+              | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag [])))
      | _ => NONE)
   | (Ord, [Litv (Char c)]) =>
-    SOME (((cnt,s,t),g), Rval (Litv(IntLit(int_of_num(ORD c)))))
+    SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
-    SOME (((cnt,s,t),g),
+    SOME (s,
           if (i < 0) ∨ (i > 255) then
             Rerr (Rraise (prim_exn chr_tag))
           else
             Rval (Litv(Char(CHR(Num(ABS i))))))
   | (Chopb op, [Litv (Char c1); Litv (Char c2)]) =>
-    SOME (((cnt,s,t),g), Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
+    SOME (s, Rval (Boolv (opb_lookup op (int_of_num(ORD c1)) (int_of_num(ORD c2)))))
   | (Implode, [v]) =>
     (case v_to_char_list v of
      | SOME ls =>
-       SOME (((cnt,s,t),g), Rval (Litv (StrLit (IMPLODE ls))))
+       SOME (s, Rval (Litv (StrLit (IMPLODE ls))))
      | NONE => NONE)
   | (Explode, [Litv (StrLit str)]) =>
-    SOME (((cnt,s,t),g), Rval (char_list_to_v (EXPLODE str)))
+    SOME (s, Rval (char_list_to_v (EXPLODE str)))
   | (Strlen, [Litv (StrLit str)]) =>
-    SOME (((cnt,s,t),g), Rval (Litv(IntLit(int_of_num(STRLEN str)))))
+    SOME (s, Rval (Litv(IntLit(int_of_num(STRLEN str)))))
   | (VfromList, [v]) =>
     (case v_to_list v of
      | SOME vs =>
-       SOME (((cnt,s,t),g), Rval (Vectorv vs))
+       SOME (s, Rval (Vectorv vs))
      | NONE => NONE)
   | (Vsub, [Vectorv vs; Litv (IntLit i)]) =>
     if i < 0 then
-      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+      SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
     else
       let n = (Num (ABS i)) in
         if n >= LENGTH vs then
-          SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+          SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
         else
-          SOME (((cnt,s,t),g), Rval (EL n vs))
+          SOME (s, Rval (EL n vs))
   | (Vlength, [Vectorv vs]) =>
-    SOME (((cnt,s,t),g), Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
+    SOME (s, Rval (Litv (IntLit (int_of_num (LENGTH vs)))))
   | (Aalloc, [Litv (IntLit n); v]) =>
     if n < 0 then
-      SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+      SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
     else
       let (s',lnum) =
-        store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s
+        store_alloc (Varray (REPLICATE (Num (ABS n)) v)) s.refs
       in
-        SOME (((cnt,s',t),g), Rval (Loc lnum))
+        SOME (s with refs := s', Rval (Loc lnum))
   | (Asub, [Loc lnum; Litv (IntLit i)]) =>
-    (case store_lookup lnum s of
+    (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
-       SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+       SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
      else
        let n = (Num (ABS i)) in
          if n >= LENGTH vs then
-           SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
          else
-           SOME (((cnt,s,t),g), Rval (EL n vs))
+           SOME (s, Rval (EL n vs))
      | _ => NONE)
     | (Alength, [Loc n]) =>
-      (case store_lookup n s of
+      (case store_lookup n s.refs of
        | SOME (Varray ws) =>
-         SOME (((cnt,s,t),g),Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
+         SOME (s,Rval (Litv (IntLit(int_of_num(LENGTH ws)))))
        | _ => NONE)
   | (Aupdate, [Loc lnum; Litv (IntLit i); v]) =>
-    (case store_lookup lnum s of
+    (case store_lookup lnum s.refs of
      | SOME (Varray vs) =>
      if i < 0 then
-       SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+       SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
      else
        let n = (Num (ABS i)) in
          if n >= LENGTH vs then
-           SOME (((cnt,s,t),g), Rerr (Rraise (prim_exn subscript_tag)))
+           SOME (s, Rerr (Rraise (prim_exn subscript_tag)))
          else
-           (case store_assign lnum (Varray (LUPDATE v n vs)) s of
+           (case store_assign lnum (Varray (LUPDATE v n vs)) s.refs of
             | NONE => NONE
-            | SOME s' => SOME (((cnt,s',t),g), Rval (Conv tuple_tag [])))
+            | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag [])))
      | _ => NONE)
   | (FFI n, [Loc lnum]) =>
-    (case store_lookup lnum s of
+    (case store_lookup lnum s.refs of
      | SOME (W8array ws) =>
-       (case call_FFI t n ws of
+       (case call_FFI s.ffi n ws of
         | (t', ws') =>
-          (case store_assign lnum (W8array ws') s of
-           | SOME s' => SOME (((cnt,s',t'),g), Rval (Conv tuple_tag []))
+          (case store_assign lnum (W8array ws') s.refs of
+           | SOME s' => SOME (s with <| refs := s'; ffi := t' |>, Rval (Conv tuple_tag []))
            | NONE => NONE))
      | _ => NONE)
   | _ => NONE
   )`;
+
+val do_app_cases = Q.store_thm("do_app_cases",
+  `exhSem$do_app s op vs = SOME x ⇒
+    (∃z n1 n2. op = (Op (Opn z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃z n1 n2. op = (Op (Opb z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
+    (∃v1 v2. op = (Op Equality) ∧ vs = [v1; v2]) ∨
+    (∃lnum v. op = (Op Opassign) ∧ vs = [Loc lnum; v]) ∨
+    (∃n. op = (Op Opderef) ∧ vs = [Loc n]) ∨
+    (∃v. op = (Op Opref) ∧ vs = [v]) ∨
+    (∃idx v. op = (Init_global_var idx) ∧ vs = [v]) ∨
+    (∃n w. op = (Op Aw8alloc) ∧ vs = [Litv (IntLit n); Litv (Word8 w)]) ∨
+    (∃lnum i. op = (Op Aw8sub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
+    (∃n. op = (Op Aw8length) ∧ vs = [Loc n]) ∨
+    (∃lnum i w. op = (Op Aw8update) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
+    (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
+    (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
+    (∃s. op = (Op Explode) ∧ vs = [Litv (StrLit s)]) ∨
+    (∃v ls. op = (Op Implode) ∧ vs = [v] ∧ (v_to_char_list v = SOME ls)) ∨
+    (∃s. op = (Op Strlen) ∧ vs = [Litv (StrLit s)]) ∨
+    (∃v vs'. op = (Op VfromList) ∧ vs = [v] ∧ (v_to_list v = SOME vs')) ∨
+    (∃vs' i. op = (Op Vsub) ∧ vs = [Vectorv vs'; Litv (IntLit i)]) ∨
+    (∃vs'. op = (Op Vlength) ∧ vs = [Vectorv vs']) ∨
+    (∃v n. op = (Op Aalloc) ∧ vs = [Litv (IntLit n); v]) ∨
+    (∃lnum i. op = (Op Asub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
+    (∃n. op = (Op Alength) ∧ vs = [Loc n]) ∨
+    (∃lnum i v. op = (Op Aupdate) ∧ vs = [Loc lnum; Litv (IntLit i); v]) ∨
+    (∃lnum n. op = (Op (FFI n)) ∧ vs = [Loc lnum])`,
+  rw[do_app_def] >>
+  pop_assum mp_tac >>
+  Cases_on`op` >- (
+    simp[] >>
+    every_case_tac >> fs[] ) >>
+  BasicProvers.CASE_TAC >>
+  every_case_tac);
 
 val pat_bindings_def = Define`
   (pat_bindings (Pvar n) already_bound =
@@ -361,150 +404,145 @@ val pat_bindings_def = Define`
   (pats_bindings (p::ps) already_bound =
    pats_bindings ps (pat_bindings p already_bound))`;
 
-val _ = Hol_reln ` (! ck env l s.
-evaluate ck (env:(varN,exhSem$v)alist) (s:('ffi,exhSem$v) count_store_genv) ((Lit l):exhLang$exp) (s, Rval (Litv l)))
+val check_clock_def = Define`
+  check_clock s' s =
+    s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock`;
 
-/\ (! ck env e s1 s2 v.
-(evaluate ck s1 env e (s2, Rval v))
-==>
-evaluate ck s1 env (Raise e) (s2, Rerr (Rraise v)))
+val check_clock_id = Q.store_thm("check_clock_id",
+  `s'.clock ≤ s.clock ⇒ exhSem$check_clock s' s = s'`,
+  EVAL_TAC >> rw[theorem"state_component_equality"])
 
-/\ (! ck env e s1 s2 err.
-(evaluate ck s1 env e (s2, Rerr err))
-==>
-evaluate ck s1 env (Raise e) (s2, Rerr err))
+val dec_clock_def = Define`
+  dec_clock s = s with clock := s.clock -1`;
 
-/\ (! ck s1 s2 env e v pes.
-(evaluate ck s1 env e (s2, Rval v))
-==>
-evaluate ck s1 env (Handle e pes) (s2, Rval v))
+val evaluate_def = tDefine"evaluate"`
+  (evaluate (env:(string,exhSem$v) alist) (s:'ffi exhSem$state) ([]:exhLang$exp list) = (s,Rval [])) ∧
+  (evaluate env s (e1::e2::es) =
+    case evaluate env s [e1] of
+    | (s', Rval v) =>
+        (case evaluate env (check_clock s' s) (e2::es) of
+         | (s, Rval vs) => (s, Rval (HD v::vs))
+         | res => res)
+    | res => res) ∧
+  (evaluate env s [(Lit l)] = (s, Rval [Litv l])) ∧
+  (evaluate env s [Raise e] =
+   case evaluate env s [e] of
+   | (s, Rval v) => (s, Rerr (Rraise (HD v)))
+   | res => res) ∧
+  (evaluate env s [Handle e pes] =
+   case evaluate env s [e] of
+   | (s', Rerr (Rraise v)) => evaluate_match env (check_clock s' s) v pes
+   | res => res) ∧
+  (evaluate env s [Con tag es] =
+   case evaluate env s (REVERSE es) of
+   | (s, Rval vs) => (s, Rval [Conv tag (REVERSE vs)])
+   | res => res) ∧
+  (evaluate env s [Var_local n] = (s,
+   case ALOOKUP env n of
+   | SOME v => Rval [v]
+   | NONE => Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Var_global n] = (s,
+   if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
+   then Rval [THE (EL n s.globals)]
+   else Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Fun n e] = (s, Rval [Closure env n e])) ∧
+  (evaluate env s [App op es] =
+   case evaluate env s (REVERSE es) of
+   | (s', Rval vs) =>
+       if op = Op Opapp then
+         (case do_opapp (REVERSE vs) of
+          | SOME (env, e) =>
+            if s'.clock = 0 ∨ s.clock = 0 then
+              (s', Rerr (Rabort Rtimeout_error))
+            else
+              evaluate env (dec_clock (check_clock s' s)) [e]
+          | NONE => (s', Rerr (Rabort Rtype_error)))
+       else
+       (case (do_app s' op (REVERSE vs)) of
+        | NONE => (s', Rerr (Rabort Rtype_error))
+        | SOME (s,r) => (s, list_result r))
+   | res => res) ∧
+  (evaluate env s [Mat e pes] =
+   case evaluate env s [e] of
+   | (s', Rval v) => evaluate_match env (check_clock s' s) (HD v) pes
+   | res => res) ∧
+  (evaluate env s [Let n e1 e2] =
+   case evaluate env s [e1] of
+   | (s', Rval vs) => evaluate (opt_bind n (HD vs) env) (check_clock s' s) [e2]
+   | res => res) ∧
+  (evaluate env s [Letrec funs e] =
+   if ALL_DISTINCT (MAP FST funs)
+   then evaluate (build_rec_env funs env env) s [e]
+   else (s, Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Extend_global n] =
+   (s with globals := s.globals++GENLIST(K NONE) n, Rval [Conv tuple_tag []])) ∧
+  (evaluate_match env s v [] = (s, Rerr(Rabort Rtype_error))) ∧
+  (evaluate_match env s v ((p,e)::pes) =
+   if ALL_DISTINCT (pat_bindings p []) then
+     case pmatch s.refs p v env of
+     | Match env' => evaluate env' s [e]
+     | No_match => evaluate_match env s v pes
+     | _ => (s, Rerr(Rabort Rtype_error))
+   else (s, Rerr(Rabort Rtype_error)))`
+  (wf_rel_tac`inv_image ($< LEX $<)
+                (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
+                             | (INR(_,s,_,pes)) => (s.clock,exp3_size pes))` >>
+   simp[check_clock_def,dec_clock_def] >>
+   rw[] >> simp[])
 
-/\ (! ck s1 s2 env e pes v bv.
-(evaluate ck env s1 e (s2, Rerr (Rraise v)) /\
-evaluate_match ck env s2 v pes bv)
-==>
-evaluate ck env s1 (Handle e pes) bv)
+val evaluate_ind = theorem"evaluate_ind"
 
-/\ (! ck s1 s2 env e pes a.
-(evaluate ck env s1 e (s2, Rerr (Rabort a)))
-==>
-evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a)))
+val s = ``s1:'ffi exhSem$state``
 
-/\ (! ck env tag es vs s s'.
-(evaluate_list ck env s (REVERSE es) (s', Rval vs))
-==>
-evaluate ck env s (Con tag es) (s', Rval (Conv tag (REVERSE vs))))
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env ^s v pes r s2. evaluate_match env s1 v pes = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  fs[check_clock_def,dec_clock_def] >> simp[] >>
+  imp_res_tac do_app_cases >>
+  fs[do_app_def] >>
+  every_case_tac >>
+  fs[LET_THM,semanticPrimitivesTheory.store_alloc_def,semanticPrimitivesTheory.store_assign_def] >>
+  rw[] >> every_case_tac >> fs[] >> rw[] )
 
-/\ (! ck env tag es err s s'.
-(evaluate_list ck env s (REVERSE es) (s', Rerr err))
-==>
-evaluate ck env s (Con tag es) (s', Rerr err))
+val s = ``s:'ffi exhSem$state``
+val s' = ``s':'ffi exhSem$state``
+val clean_term =
+  term_rewrite
+  [``check_clock ^s' ^s = s'``,
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
 
-/\ (! ck env n v s.
-(ALOOKUP env n = SOME v)
-==>
-evaluate ck env s (Var_local n) (s, Rval v))
+val evaluate_ind = let
+  val goal = evaluate_ind |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac evaluate_ind >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[] >> fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_clock >>
+  fsrw_tac[ARITH_ss][check_clock_id])
+end
+|> curry save_thm "evaluate_ind"
 
-/\ (! ck env n v s genv.
-((LENGTH genv > n) /\
-(EL n genv = SOME v))
-==>
-evaluate ck env (s,genv) (Var_global n) ((s,genv), Rval v))
+val evaluate_def = let
+  val goal = evaluate_def |> concl |> clean_term |> replace_term s' s
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt strip_tac >>
+  rw[Once evaluate_def] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs[check_clock_id] >>
+  `F` suffices_by rw[] >> decide_tac)
+end
+|> curry save_thm "evaluate_def"
 
-/\ (! ck env n e s.
-evaluate ck env s (Fun n e) (s, Rval (Closure env n e)))
-
-/\ (! ck genv env es vs env' e bv s1 s2 t2 count genv'.
-(evaluate_list ck env (s1,genv) (REVERSE es) (((count,s2,t2),genv'), Rval vs) /\
-(do_opapp (REVERSE vs) = SOME (env', e)) /\
-(ck ==> ~ (count =( 0))) /\
-evaluate ck env' (((if ck then count -  1 else count),s2,t2),genv') e bv)
-==>
-evaluate ck env (s1,genv) (App (Op Opapp) es) bv)
-
-/\ (! ck env es vs env' e s1 s2 t2 count genv.
-(evaluate_list ck env s1 (REVERSE es) (((count,s2,t2), genv), Rval vs) /\
-(do_opapp (REVERSE vs) = SOME (env', e)) /\
-(count = 0) /\
-ck)
-==>
-evaluate ck env s1 (App (Op Opapp) es) ((( 0,s2,t2),genv), Rerr (Rabort Rtimeout_error)))
-
-/\ (! ck env s1 op es s2 vs s3 res.
-(evaluate_list ck env s1 (REVERSE es) (s2, Rval vs) /\
-(do_app s2 op (REVERSE vs) = SOME (s3, res)) /\
-(op <> Op Opapp))
-==>
-evaluate ck env s1 (App op es) (s3, res))
-
-/\ (! ck env s1 op es s2 err.
-(evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
-==>
-evaluate ck env s1 (App op es) (s2, Rerr err))
-
-/\ (! ck env e pes v bv s1 s2.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes bv)
-==>
-evaluate ck env s1 (Mat e pes) bv)
-
-/\ (! ck env e pes err s s'.
-(evaluate ck env s e (s', Rerr err))
-==>
-evaluate ck env s (Mat e pes) (s', Rerr err))
-
-/\ (! ck env n e1 e2 v bv s1 s2.
-(evaluate ck env s1 e1 (s2, Rval v) /\
-evaluate ck (opt_bind n v env) s2 e2 bv)
-==>
-evaluate ck env s1 (Let n e1 e2) bv)
-
-/\ (! ck env n e1 e2 err s s'.
-(evaluate ck env s e1 (s', Rerr err))
-==>
-evaluate ck env s (Let n e1 e2) (s', Rerr err))
-
-/\ (! ck env funs e bv s.
-(ALL_DISTINCT (MAP FST funs) /\
-evaluate ck (build_rec_env funs env env) s e bv)
-==>
-evaluate ck env s (Letrec funs e) bv)
-
-/\ (! ck env n s genv.
-evaluate ck env (s,genv) (Extend_global n) ((s,(genv++GENLIST (K NONE) n)), Rval (Conv tuple_tag [])))
-
-/\ (! ck env s.
-evaluate_list ck env s [] (s, Rval []))
-
-/\ (! ck env e es v vs s1 s2 s3.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_list ck env s2 es (s3, Rval vs))
-==>
-evaluate_list ck env s1 (e::es) (s3, Rval (v::vs)))
-
-/\ (! ck env e es err s s'.
-(evaluate ck env s e (s', Rerr err))
-==>
-evaluate_list ck env s (e::es) (s', Rerr err))
-
-/\ (! ck env e es v err s1 s2 s3.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_list ck env s2 es (s3, Rerr err))
-==>
-evaluate_list ck env s1 (e::es) (s3, Rerr err))
-
-/\ (! ck env env' v p pes e bv s t count genv.
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch s p v env = Match env') /\
-evaluate ck env' ((count,s,t),genv) e bv)
-==>
-evaluate_match ck env ((count,s,t),genv) v ((p,e)::pes) bv)
-
-/\ (! ck genv env v p e pes bv s t count.
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch s p v env = No_match) /\
-evaluate_match ck env ((count,s,t),genv) v pes bv)
-==>
-evaluate_match ck env ((count,s,t),genv) v ((p,e)::pes) bv)`;
+val _ = map delete_const
+  ["do_eq_UNION_aux","do_eq_UNION",
+   "pmatch_UNION_aux","pmatch_UNION",
+   "evaluate_UNION_aux","evaluate_UNION"];
 
 val _ = export_theory()

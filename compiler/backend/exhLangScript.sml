@@ -30,4 +30,14 @@ val _ = Datatype`
    | Letrec ((varN # varN # exp) list) exp
    | Extend_global num`;
 
+val exp_size_def = definition"exp_size_def";
+
+val exp6_size_APPEND = Q.store_thm("exp6_size_APPEND[simp]",
+  `exhLang$exp6_size (e ++ e2) = exp6_size e + exp6_size e2`,
+  Induct_on`e`>>simp[exp_size_def])
+
+val exp6_size_REVERSE = Q.store_thm("exp6_size_REVERSE[simp]",
+  `exhLang$exp6_size (REVERSE es) = exp6_size es`,
+  Induct_on`es`>>simp[exp_size_def])
+
 val _ = export_theory()
