@@ -2075,6 +2075,10 @@ val pair_lemma = Q.prove(
   rw[EQ_IMP_THM,UNCURRY]>>fs[])
 
 val evaluate_exh_def = exhSemTheory.evaluate_def;
+val evaluate_exh_cons = exhPropsTheory.evaluate_cons;
+val evaluate_exh_sing = exhPropsTheory.evaluate_sing;
+val evaluate_cons = patPropsTheory.evaluate_cons;
+val evaluate_sing = patPropsTheory.evaluate_sing;
 
 (*
 val compile_exp_correct = Q.store_thm("compile_exp_correct",
@@ -2100,29 +2104,46 @@ val compile_exp_correct = Q.store_thm("compile_exp_correct",
   strip_tac >- ( rw[evaluate_exh_def] >> simp[patSemTheory.evaluate_def] ) >>
   strip_tac >- (
     rpt gen_tac >> simp[PULL_EXISTS] >>
-    ntac 2 strip_tac >> fs[] >>
-    simp[Once evaluate_cons] >>
+    strip_tac >>
+    Q.ISPECL_THEN[`e1`,`e2::es`,`s`]assume_tac(Q.GENL[`s`,`es`,`e`]evaluate_exh_cons) >> fs[] >>
     (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
     (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
-    rpt var_eq_tac >>
+    qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
+    reverse(Cases_on`r`)>>fs[]>-(
+      strip_tac >> fs[] >>
+      simp[Once evaluate_cons] >>
+      (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+      simp[Once evaluate_cons] ) >>
+    qmatch_assum_rename_tac`r ≠ Rerr (Rabort Rtype_error) ⇒ _` >>
+    Cases_on`r = Rerr (Rabort Rtype_error)`>>fs[] >> disch_then kall_tac >>
+    qpat_assum`exhSem$evaluate _ _ (_::_::_) = _`kall_tac >>
     simp[Once evaluate_cons] >>
-    rator_x_assum`state_rel`mp_tac >>
+    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    var_eq_tac >>
+    (fn g => valOf(bvk_find_term (K true) split_pair_case_tac (#2 g)) g) >> fs[] >>
+    simp[Once evaluate_cons] >>
+    rator_x_assum`result_rel`mp_tac >>
     specl_args_of_then``patSem$evaluate``evaluate_exp_rel mp_tac >>
     simp[pair_lemma] >> (fn (g as (_,w)) => split_applied_pair_tac (rand(rator w)) g) >>
-    fs[PULL_EXISTS] >> var_eq_tac >>
+    fs[PULL_EXISTS] >>
     simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    qmatch_assum_abbrev_tac`evaluate env5 s5 e5 = res5` >>
+    qmatch_assum_abbrev_tac`evaluate env5 s5 (e5::e6) = res5` >>
     qmatch_assum_abbrev_tac`state_rel s5 s6` >>
-    disch_then(qspecl_then[`env5`,`s6`,`e5`]mp_tac) >>
+    disch_then(qspecl_then[`env5`,`s6`,`e5`,`e6`]mp_tac) >>
     simp[] >>
     discharge_hyps >- simp[Abbr`env5`,exp_rel_refl,env_rel_def] >>
-    strip_tac >> simp[] >>
-    metis_tac[state_rel_trans,LIST_REL_v_rel_trans]) >>
-
-  strip_tac >- rw[patSemTheory.evaluate_def] >>
+    ntac 2 strip_tac >>
+    unabbrev_all_tac >>
+    every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >>
+    metis_tac[EVERY2_APPEND_suff,LIST_REL_v_rel_trans,state_rel_trans,exc_rel_v_rel_trans]) >>
   strip_tac >- (
-    rw[patSemTheory.evaluate_def] >>
-    every_case_tac >> fs[]) >>
+    rw[patSemTheory.evaluate_def,evaluate_exh_def] >> fs[] )
+  strip_tac >- (
+    rw[patSemTheory.evaluate_def,evaluate_exh_def] >>
+    every_case_tac >> fs[] >>
+    imp_res_tac evaluate_exh_sing >>
+    imp_res_tac evaluate_sing >> fs[]) >>
+
   strip_tac >- (
     rw[patSemTheory.evaluate_def] >>
     every_case_tac >> fs[]) >>
