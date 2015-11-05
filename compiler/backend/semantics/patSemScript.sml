@@ -479,6 +479,23 @@ in prove(goal,
 end
 |> curry save_thm "evaluate_def"
 
+val semantics_def = Define`
+  semantics env st exp =
+    if ∃k. SND (evaluate env (st with clock := k) [exp]) = Rerr (Rabort Rtype_error)
+      then Fail
+    else
+    case some st'.
+      ∃k r. evaluate env (st with clock := k) [exp] = (st',r) ∧
+            r ≠ Rerr (Rabort Rtimeout_error)
+    of SOME st' =>
+         Terminate
+           (case st'.ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
+           st'.ffi.io_events
+     | NONE =>
+       Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList (FST (evaluate env (st with clock := k) [exp])).ffi.io_events) UNIV))`;
+
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
    "evaluate_tupled_aux","evaluate_tupled"];
