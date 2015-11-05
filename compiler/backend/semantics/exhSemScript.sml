@@ -8,7 +8,7 @@ val _ = new_theory"exhSem"
  *
  * The semantics of exhLang differ in that pattern matches that fall off the end
  * raise a type error, and the mapping from types to constructor tags is
- * ommitted.
+ * omitted.
  *)
 
 val _ = Datatype`
