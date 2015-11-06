@@ -222,86 +222,77 @@ val res_rel_ffi = store_thm(
   >- (simp[res_rel_rw] >> strip_tac >> fs[Once state_rel_rw]) >>
   qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw, Once state_rel_rw]);
 
+val _ = temp_overload_on("fails",``λe s. ∃k. FST (evaluate (e,[],s with clock := k)) = Rerr (Rabort Rtype_error)``);
+val _ = temp_overload_on("terminates",``λe s ffi.
+  ∃k r s'. evaluate (e,[],s with clock := k) = (r,s') ∧
+           r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s'.ffi``);
+
 val exp_rel_semantics = store_thm(
   "exp_rel_semantics",
   ``(∀i v. val_rel (:'ffi) i v v) ⇒
     ∀e1 e2 (s1:'ffi closSem$state) s2.
-      exp_rel (:'ffi) e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
-      ¬semantics e2 s2 Fail ∧
-      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res``,
+      exp_rel (:'ffi) e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ semantics [] s1 e1 ≠ Fail ⇒
+      semantics [] s1 e1 = semantics [] s2 e2``,
   strip_tac >> qx_genl_tac [`e1`, `e2`, `s1`, `s2`] >> strip_tac >>
-  reverse conj_tac
-  >- (qx_gen_tac `res` >> Cases_on `res` >> simp[semantics_def]
-      >- ((* diverge case *)
-          strip_tac >> conj_tac
-          >- (qx_gen_tac `k` >>
-              first_x_assum
-                (qspec_then `k` (qx_choose_then `s1'` strip_assume_tac)) >>
-              `∃r2 s2'. evaluate (e2,[],s2 with clock := k) = (r2,s2')`
-                 by metis_tac[pair_CASES] >>
-              `res_rel (Rerr (Rabort Rtimeout_error), s1') (r2,s2')`
-                 by metis_tac[exp_rel_evaluate] >>
-              `s2'.ffi = s1'.ffi` (* weird metis confusion happens here *)
-                 by (irule res_rel_ffi >>
-                     map_every qexists_tac
-                       [`r2`, `Rerr (Rabort Rtimeout_error)`] >> simp[]) >>
-              fs[res_rel_rw])
-          >- (qabbrev_tac `
-                E = λe (s:'ffi closSem$state) k.
-                       evaluate(e,[],s with clock := k)` >> fs[] >>
-              qabbrev_tac
-                `ff = λe (s:'ffi closSem$state) k.
-                       llist$fromList (SND (E e s k)).ffi.io_events` >> fs[] >>
-              irule lprefix_lub_new_chain >>
-              qexists_tac `IMAGE (λk. ff e1 s1 k) univ(:num)` >> simp[] >>
-              `∀k. ff e2 s2 k = ff e1 s1 k`
-                      suffices_by metis_tac[lprefix_lub_is_chain,
-                                            equiv_lprefix_chain_def] >>
-              qx_gen_tac `k` >> simp[Abbr`ff`] >>
-              `∃s1'. E e1 s1 k = (Rerr (Rabort Rtimeout_error), s1')`
-                by metis_tac[PAIR] >>
-              `∃r2 s2'. E e2 s2 k = (r2, s2')` by metis_tac[PAIR] >>
-              simp[] >> `s2'.ffi = s1'.ffi` suffices_by simp[] >>
-              `res_rel (Rerr (Rabort Rtimeout_error), s1') (r2,s2')`
-                 by metis_tac[exp_rel_evaluate] >>
-              irule res_rel_ffi >>
-              map_every qexists_tac
-                   [`r2`, `Rerr (Rabort Rtimeout_error)`] >> simp[]))
-      >- ((* terminate case *)
-          qcase_tac `outcome = Success` >> strip_tac >>
-          qcase_tac `evaluate (e1,[],s1 with clock := k) = (r1,s1')` >>
-          qexists_tac `k` >>
-          `∃r2 s2'. evaluate (e2,[],s2 with clock := k) = (r2,s2')`
-            by metis_tac[PAIR] >>
-          `res_rel (r1,s1') (r2,s2')` by metis_tac[exp_rel_evaluate] >>
-          simp[] >>
-          Cases_on `s1'.ffi.final_event = NONE` >> fs[]
-          >- (`s2'.ffi = s1'.ffi` by metis_tac[res_rel_ffi] >> simp[] >>
-              Cases_on `r1` >> fs[res_rel_rw] >>
-              qcase_tac `res_rel (Rerr ee, _)` >> Cases_on `ee` >>
-              fs[res_rel_rw])
-          >- (fs[semantics_def] >> first_x_assum (qspec_then `k` mp_tac) >>
-              simp[] >> strip_tac >> metis_tac[res_rel_ffi])))
-  >- (fs[semantics_def] >> qx_gen_tac `k` >>
-      first_x_assum (qspec_then `k` strip_assume_tac) >>
-      qabbrev_tac `
-        ev = λe (s:'ffi closSem$state). evaluate(e,[],s with clock := k)` >>
-      fs[] >>
-      `(∃r1 s1'. ev e1 s1 = (r1,s1')) ∧ (∃r2 s2'. ev e2 s2 = (r2,s2'))`
-        by metis_tac[pair_CASES] >>
-      `res_rel (r1,s1')(r2,s2')` by metis_tac[exp_rel_evaluate] >> fs[] >>
-      pop_assum mp_tac >>
-      Cases_on `r1` >> dsimp[res_rel_rw] >> qcase_tac `res_rel (Rerr e,_)` >>
-      Cases_on `e` >> dsimp[res_rel_rw] >> qcase_tac `Rabort a` >>
-      Cases_on `a` >> dsimp[res_rel_rw] >> fs[]))
+  simp[semantics_def] >>
+  `fails e1 s1 ⇔ fails e2 s2` by (
+    rw[EQ_IMP_THM] >>
+    qexists_tac`k` >>
+    qabbrev_tac `
+      ev = λe (s:'ffi closSem$state). evaluate(e,[],s with clock := k)` >>
+    fs[] >>
+    `(∃r1 s1'. ev e1 s1 = (r1,s1')) ∧ (∃r2 s2'. ev e2 s2 = (r2,s2'))`
+      by metis_tac[pair_CASES] >>
+    `res_rel (r1,s1')(r2,s2')` by metis_tac[exp_rel_evaluate] >> fs[]
+    >| [Cases_on`r1`,Cases_on`r2`] >>
+    fs[]>> qcase_tac `Rerr e` >>
+    Cases_on`e`>>fs[] >> qcase_tac `Rabort a` >>
+    Cases_on `a` >> fs[res_rel_rw,semantics_def] >|[
+      metis_tac[FST],
+      Cases_on`r1`>>fs[res_rel_rw] >>
+      Cases_on`e`>>fs[res_rel_rw] >>
+      Cases_on`a`>>fs[res_rel_rw]]) >>
+  simp[] >> IF_CASES_TAC >> fs[] >>
+  `∀ffi. terminates e1 s1 ffi ⇔ terminates e2 s2 ffi` by (
+    rw[EQ_IMP_THM] >>
+    qexists_tac`k`>>simp[] >>
+    `state_rel k s1 s2` by metis_tac[] >>
+    imp_res_tac exp_rel_evaluate >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qmatch_assum_abbrev_tac`res_rel p1 p2` >>
+    Cases_on`p1`>>Cases_on`p2`>>fs[markerTheory.Abbrev_def] >>
+    ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >> fs[] >>
+    imp_res_tac res_rel_ffi >>
+    rpt var_eq_tac >> rfs[] >>
+    ntac 2 (first_x_assum(qspec_then`k`mp_tac))>>simp[] >>
+    ntac 2 strip_tac >> fs[] >>
+    strip_tac >> fs[res_rel_rw] >>
+    qmatch_assum_rename_tac`res_rel (x,_) _` >>
+    Cases_on`x`>>fs[res_rel_rw] >> qcase_tac`Rerr e` >>
+    Cases_on`e`>>fs[res_rel_rw] >> qcase_tac`Rabort a` >>
+    Cases_on`a`>>fs[] ) >>
+  simp[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  strip_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >>
+  qx_gen_tac `k` >>
+  AP_TERM_TAC >> AP_TERM_TAC >>
+  qmatch_abbrev_tac`(SND p1).ffi = (SND p2).ffi` >>
+  Cases_on`p1`>>Cases_on`p2`>>fs[markerTheory.Abbrev_def] >>
+  ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >> fs[] >>
+  `state_rel k s1 s2` by metis_tac[] >>
+  imp_res_tac exp_rel_evaluate >> rfs[] >>
+  imp_res_tac res_rel_ffi >>
+  first_x_assum (match_mp_tac o GSYM) >>
+  metis_tac[FST]);
 
 val exp_rel_rtc_semantics_lem = Q.prove (
  `!e1 e2. (exp_rel (:'ffi))^* e1 e2 ⇒
    (∀i v. val_rel (:'ffi) i v v) ⇒
     ∀(s1:'ffi closSem$state) s2.
-      (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
-      ¬semantics e2 s2 Fail ∧
-      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res`,
+      (∀i. state_rel i s1 s2) ∧ ¬(semantics [] s1 e1 = Fail) ⇒
+       semantics [] s1 e1 = semantics [] s2 e2`,
  ho_match_mp_tac RTC_INDUCT >>
  metis_tac [exp_rel_semantics, state_rel_refl, exp_rel_refl]);
 
@@ -309,9 +300,8 @@ val exp_rel_rtc_semantics = Q.store_thm(
   "exp_rel_rtc_semantics",
   `(∀i v. val_rel (:'ffi) i v v) ⇒
     ∀e1 e2 (s1:'ffi closSem$state) s2.
-      (exp_rel (:'ffi))^* e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬semantics e1 s1 Fail ⇒
-      ¬semantics e2 s2 Fail ∧
-      ∀res. semantics e1 s1 res ⇒ semantics e2 s2 res`,
+      (exp_rel (:'ffi))^* e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬(semantics [] s1 e1 = Fail) ⇒
+       semantics [] s1 e1 = semantics [] s2 e2`,
  metis_tac [exp_rel_rtc_semantics_lem]);
 
 (* ----------------------------------------------------------------------

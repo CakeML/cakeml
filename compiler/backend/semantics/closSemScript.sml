@@ -539,25 +539,22 @@ val evaluate_def = save_thm("evaluate_def",let
 
 (* observational semantics *)
 
-val semantics_def = Define `
-  (semantics exp s1 (Terminate outcome io_list) <=>
-     ?k s2 r.
-       evaluate (exp,[],s1 with clock := k) = (r,s2) /\
-       (if s2.ffi.final_event = NONE then
-         (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
-        else outcome = FFI_outcome (THE s2.ffi.final_event)) ∧
-       s2.ffi.io_events = io_list) /\
-  (semantics exp s1 (Diverge io_trace) <=>
-     (!k. ?s2.
-       (evaluate (exp,[],s1 with clock := k) =
-          (Rerr (Rabort Rtimeout_error),s2)) /\
-        s2.ffi.final_event = NONE) ∧
-     lprefix_lub
-       (IMAGE
-         (λk. fromList (SND (evaluate (exp,[],s1 with clock := k))).ffi.io_events)
-         UNIV) io_trace) /\
-  (semantics exp s1 Fail <=>
-     ?k s2.
-       evaluate (exp,[],s1 with clock := k) = (Rerr (Rabort Rtype_error),s2))`
+val semantics_def = Define`
+  semantics env st es =
+    if ∃k. FST (evaluate (es,env,st with clock := k)) = Rerr (Rabort Rtype_error)
+      then Fail
+    else
+    case some ffi.
+      ∃k r s.
+        evaluate (es,env,st with clock := k) = (r,s) ∧
+          r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s.ffi
+    of SOME ffi =>
+         Terminate
+           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
+           ffi.io_events
+     | NONE =>
+       Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList (SND (evaluate (es,env,st with clock := k))).ffi.io_events) UNIV))`;
 
 val _ = export_theory()
