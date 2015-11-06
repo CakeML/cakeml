@@ -541,21 +541,22 @@ end
 |> curry save_thm "evaluate_def"
 
 val semantics_def = Define`
-  semantics env st exp =
-    if ∃k. SND (evaluate env (st with clock := k) [exp]) = Rerr (Rabort Rtype_error)
+  semantics env st es =
+    if ∃k. SND (evaluate env (st with clock := k) es) = Rerr (Rabort Rtype_error)
       then Fail
     else
-    case some st'.
-      ∃k r. evaluate env (st with clock := k) [exp] = (st',r) ∧
-            r ≠ Rerr (Rabort Rtimeout_error)
-    of SOME st' =>
+    case some ffi.
+      ∃k s r.
+        evaluate env (st with clock := k) es = (s,r) ∧
+          r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s.ffi
+    of SOME ffi =>
          Terminate
-           (case st'.ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
-           st'.ffi.io_events
+           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
+           ffi.io_events
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (FST (evaluate env (st with clock := k) [exp])).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (FST (evaluate env (st with clock := k) es)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",

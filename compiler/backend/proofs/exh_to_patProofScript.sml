@@ -2471,12 +2471,12 @@ val compile_exp_evaluate = Q.store_thm("compile_exp_evaluate",
     spose_not_then strip_assume_tac >> fs[]))
 
 val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
-  `semantics env st exp ≠ Fail ⇒
+  `semantics env st es ≠ Fail ⇒
    semantics
      (MAP (compile_v o SND) env)
      (compile_state st)
-     (compile_exp (MAP (SOME o FST) env) exp) =
-   semantics env st exp`,
+     (compile_exps (MAP (SOME o FST) env) es) =
+   semantics env st es`,
   simp[exhSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
