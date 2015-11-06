@@ -402,11 +402,11 @@ val app_combine = Q.store_thm ("app_combine",
  qabbrev_tac `res2 = evaluate (es2,env,s with clock := i')` >>
  qabbrev_tac `res2' = evaluate (es2',env',s' with clock := i')` >>
  `res_rel res2 res2'` by metis_tac [] >>
- `?s2. (?v2. res2 = (Rerr v2, s2)) ∨ (?vs2. res2 = (Rval vs2, s2))` 
+ `?s2. (?v2. res2 = (Rerr v2, s2)) ∨ (?vs2. res2 = (Rval vs2, s2))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
- `?s2. (?vs2. res2' = (Rval vs2, s2)) ∨ (?v2. res2' = (Rerr v2, s2))` 
+ `?s2. (?vs2. res2' = (Rval vs2, s2)) ∨ (?v2. res2' = (Rerr v2, s2))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
- fs [res_rel_rw]          
+ fs [res_rel_rw]
  >- (
    Cases_on `v2` >>
    fs [res_rel_rw] >>
@@ -417,7 +417,7 @@ val app_combine = Q.store_thm ("app_combine",
  `LENGTH es1' > 0` by decide_tac >>
  qabbrev_tac `res1 = evaluate (es1,env,s2 with clock := s2.clock)` >>
  qabbrev_tac `res1' = evaluate (es1',env',s2' with clock := s2.clock)` >>
- `res_rel res1 res1'` 
+ `res_rel res1 res1'`
  by (
    `s2.clock ≤ (s with clock := i').clock` by metis_tac [evaluate_clock] >>
    fs [] >>
@@ -430,11 +430,11 @@ val app_combine = Q.store_thm ("app_combine",
  `(s2 with clock := s2.clock) = s2` by simp [state_component_equality] >>
  `(s2' with clock := s2.clock) = s2'` by simp [state_component_equality] >>
  fs [] >>
- `?s1. (?v1. res1 = (Rerr v1, s1)) ∨ (?vs1. res1 = (Rval vs1, s1))` 
+ `?s1. (?v1. res1 = (Rerr v1, s1)) ∨ (?vs1. res1 = (Rval vs1, s1))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
- `?s1. (?vs1. res1' = (Rval vs1, s1)) ∨ (?v1. res1' = (Rerr v1, s1))` 
+ `?s1. (?vs1. res1' = (Rval vs1, s1)) ∨ (?v1. res1' = (Rerr v1, s1))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
- fs [res_rel_rw]          
+ fs [res_rel_rw]
  >- (
    Cases_on `v1` >>
    fs [res_rel_rw] >>
@@ -442,7 +442,7 @@ val app_combine = Q.store_thm ("app_combine",
    fs [res_rel_rw]) >>
  qabbrev_tac `res3 = evaluate ([f],env,s1 with clock := s1.clock)` >>
  qabbrev_tac `res3' = evaluate ([f'],env',s1' with clock := s1.clock)` >>
- `res_rel res3 res3'` 
+ `res_rel res3 res3'`
  by (
    `s2.clock ≤ (s with clock := i').clock` by metis_tac [evaluate_clock] >>
    `s1.clock ≤ s2.clock` by metis_tac [evaluate_clock] >>
@@ -456,9 +456,9 @@ val app_combine = Q.store_thm ("app_combine",
  `(s1 with clock := s1.clock) = s1` by simp [state_component_equality] >>
  `(s1' with clock := s1.clock) = s1'` by simp [state_component_equality] >>
  fs [] >>
- `?s3. (?v3. res3 = (Rerr v3, s3)) ∨ (?vs3. res3 = (Rval vs3, s3))` 
+ `?s3. (?v3. res3 = (Rerr v3, s3)) ∨ (?vs3. res3 = (Rval vs3, s3))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
- `?s3. (?vs3. res3' = (Rval vs3, s3)) ∨ (?v3. res3' = (Rerr v3, s3))` 
+ `?s3. (?vs3. res3' = (Rval vs3, s3)) ∨ (?v3. res3' = (Rerr v3, s3))`
    by metis_tac [semanticPrimitivesTheory.result_nchotomy, pair_CASES] >>
  fs [res_rel_rw]
  >- (
@@ -562,7 +562,7 @@ val fn_add_arg_lem = Q.prove (
    simp [take_append_take_drop] >>
    simp [dec_clock_def] >>
    fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
-   first_x_assum (qspecl_then [`i''`, 
+   first_x_assum (qspecl_then [`i''`,
                            `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs)) ++ args ++ env`,
                            `REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs')) ++ args' ++ env'`,
                            `s`,
@@ -572,7 +572,7 @@ val fn_add_arg_lem = Q.prove (
             (REVERSE (TAKE (num_args + num_args' − LENGTH args') (REVERSE vs')) ++ args' ++ env')` by (
      match_mp_tac EVERY2_APPEND_suff >>
      `i'' ≤ i` by decide_tac >>
-     reverse (rw []) 
+     reverse (rw [])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
      rw [LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
@@ -621,9 +621,9 @@ val fn_add_arg_lem = Q.prove (
    >- (`REVERSE (DROP (LENGTH vs') (REVERSE vs)) = []` by simp [DROP_NIL] >>
        simp [evaluate_def, res_rel_def] >>
        `i''' + 1 − LENGTH vs' ≤ i''` by decide_tac >>
-       rw [] 
+       rw []
        >- metis_tac [val_rel_mono] >>
-       `REVERSE (TAKE (LENGTH vs') (REVERSE vs)) = vs` 
+       `REVERSE (TAKE (LENGTH vs') (REVERSE vs)) = vs`
          by metis_tac [TAKE_LENGTH_ID, LENGTH_REVERSE, REVERSE_REVERSE] >>
        simp [] >>
        qspecl_then [`i''' + 1 − LENGTH vs`, `i''`, `vs++args`, `vs'++args'`, `env`, `env'`, `[]`, `[]`] mp_tac
@@ -652,14 +652,14 @@ val fn_add_arg_lem = Q.prove (
          `i''' − (num_args − LENGTH args' − 1) − (LENGTH vs' − (num_args − LENGTH args')) =
           i''' + 1 - LENGTH vs'` by intLib.ARITH_TAC >>
          simp [] >>
-         qspecl_then [`i''' + 1 − LENGTH vs`, `i''`, `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs)) ++ args`, 
-                      `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args'`, 
-                      `env`, `env'`, 
-                      `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs))`, 
+         qspecl_then [`i''' + 1 − LENGTH vs`, `i''`, `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs)) ++ args`,
+                      `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args'`,
+                      `env`, `env'`,
+                      `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs))`,
                       `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs'))`,
                       `num_args'`, `e`] mp_tac
            fn_partial_arg >>
-         `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs')) ++ 
+         `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs')) ++
           REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) = vs'`
            by rw [GSYM REVERSE_APPEND] >>
          rw [] >>
@@ -676,7 +676,7 @@ val fn_add_arg_lem = Q.prove (
          rw [LIST_REL_REVERSE_EQ] >>
          metis_tac [val_rel_mono_list])
        >- (
-         `i''' − (num_args − LENGTH args' − 1) − (LENGTH vs' − (num_args − LENGTH args')) ≤ i''` 
+         `i''' − (num_args − LENGTH args' − 1) − (LENGTH vs' − (num_args − LENGTH args')) ≤ i''`
            by intLib.ARITH_TAC >>
          simp_tac (srw_ss()) [dec_clock_def] >>
          metis_tac [val_rel_mono])
