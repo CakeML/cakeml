@@ -187,8 +187,8 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     (FST(evaluate env s es)).ffi.io_events ≼
     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
     (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
-     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.final_event
-     = ((FST(evaluate env s es)).ffi.final_event))`,
+     (FST(evaluate env (s with clock := s.clock + extra) es)).ffi
+     = ((FST(evaluate env s es)).ffi))`,
   ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
   every_case_tac >> fs[] >>
   imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >>
