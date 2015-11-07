@@ -2,6 +2,7 @@ open preamble closLangTheory closSemTheory
 
 val _ = new_theory"closProps"
 
+(* TODO: move *)
 val revdroprev = Q.store_thm("revdroprev",
   `∀l n.
      n ≤ LENGTH l ⇒ (REVERSE (DROP n (REVERSE l)) = TAKE (LENGTH l - n) l)`,
@@ -13,6 +14,7 @@ val revdroprev = Q.store_thm("revdroprev",
   `LENGTH l + 1 - SUC m = LENGTH l - m`
      suffices_by (disch_then SUBST_ALL_TAC >> simp[]) >>
   simp[]);
+(* -- *)
 
 val dec_clock_code = Q.store_thm("dec_clock_code",
   `(dec_clock x y).code = y.code`,
@@ -956,5 +958,65 @@ val dest_closure_NONE_Full_to_Partial = Q.store_thm(
         check_loc_def, UNCURRY] >> rw[] >>
   `0 < LENGTH l1` by (Cases_on `l1` >> fs[]) >> simp[] >>
   simp[TAKE_APPEND2] >> Cases_on `l2` >> fs[]);
+
+val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
+  `dec_clock s with clock := y = s with clock := y`,
+  EVAL_TAC)
+
+val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
+  `(do_app op vs (s with clock := s.clock + extra) =
+    map_result (λ(v,s). (v,s with clock := s.clock + extra)) I (do_app op vs s))`,
+  fs[do_app_def] >> every_case_tac >>
+  fs[LET_THM,
+     semanticPrimitivesTheory.store_alloc_def,
+     semanticPrimitivesTheory.store_lookup_def,
+     semanticPrimitivesTheory.store_assign_def] >>
+  rw[]);
+
+val s = ``s:'ffi closSem$state``
+
+val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
+  `(∀p es env ^s r s'.
+       p = (es,env,s) ∧
+       evaluate (es,env,s) = (r,s') ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate (es,env,s with clock := s.clock + extra) =
+         (r,s' with clock := s'.clock + extra)) ∧
+   (∀loc_opt v rest_args ^s r s'.
+       evaluate_app loc_opt v rest_args s = (r,s') ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate_app loc_opt v rest_args (s with clock := s.clock + extra) =
+         (r,s' with clock := s'.clock + extra))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >> fs[evaluate_def] >>
+  TRY (
+    qcase_tac`Boolv T` >>
+    first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    reverse(BasicProvers.CASE_TAC) >> fs[] >- (
+      every_case_tac >> fs[] >> rw[] >> fs[] ) >>
+    rw[] >> fs[] >- (
+      every_case_tac >> fs[] >> rw[] )
+    >- (
+      qpat_assum`_ = (r,_)`mp_tac >>
+      BasicProvers.CASE_TAC >> fs[] )
+    >> ( every_case_tac >> fs[] >> rw[] )) >>
+  TRY (
+    qcase_tac`dest_closure` >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    every_case_tac >> fs[] >> rw[] >>
+    imp_res_tac evaluate_length_imp >>
+    fsrw_tac[ARITH_ss][] >> rfs[] >>
+    fs[dec_clock_def] >>
+    simp[state_component_equality] >>
+    qcase_tac`extra + (s.clock - (SUC n - m))` >>
+    `extra + (s.clock - (SUC n - m)) = extra + s.clock - (SUC n - m)` by DECIDE_TAC >>
+    fs[] >> rw[] ) >>
+  unabbrev_all_tac >>
+  every_case_tac >> fs[do_app_add_to_clock,LET_THM] >> rw[] >> rfs[] >>
+  every_case_tac >> fs[do_app_add_to_clock,LET_THM] >> rw[] >> rfs[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
 val _ = export_theory();
