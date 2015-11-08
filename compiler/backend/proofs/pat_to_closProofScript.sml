@@ -47,6 +47,10 @@ val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
   `compile_state (dec_clock y) = dec_clock 1 (compile_state y)`,
   EVAL_TAC >> simp[])
 
+val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
+  `compile_state (s with clock := k) = compile_state s with clock := k`,
+  EVAL_TAC >> simp[])
+
 (* semantic functions respect translation *)
 
 val do_eq = store_thm("do_eq",
@@ -136,7 +140,7 @@ val LENGTH_eq = Q.prove(
    (2 = LENGTH ls ⇔ LENGTH ls = 2)`,
   Cases_on`ls`>>simp[]>> Cases_on`t`>>simp[LENGTH_NIL])
 
-val compile_correct = Q.store_thm("compile_correct",
+val compile_evaluate = Q.store_thm("compile_evaluate",
   `(∀env ^s es res. evaluate env s es = res ∧ SND res ≠ Rerr (Rabort Rtype_error) ⇒
       evaluate (MAP compile es,MAP compile_v env,compile_state s) =
         (map_result (MAP compile_v) compile_v (SND res), compile_state (FST res)))`,
@@ -569,6 +573,74 @@ val compile_correct = Q.store_thm("compile_correct",
     rpt gen_tac >>
     simp[compile_state_def] >>
     simp[MAP_GENLIST,combinTheory.o_DEF,combinTheory.K_DEF] ));
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics env st es ≠ Fail ⇒
+   semantics (MAP compile_v env) (compile_state st) (MAP compile es) =
+   semantics env st es`,
+  simp[patSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`ffi` >> strip_tac >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
+    discharge_hyps >- metis_tac[] >> strip_tac >>
+    simp[closSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      qmatch_assum_abbrev_tac`closSem$evaluate _ = res4` >>
+      `FST res4 ≠ Rerr (Rabort Rtimeout_error)` by (strip_tac >> fs[Abbr`res4`]) >>
+      `FST res4 ≠ Rerr (Rabort Rtype_error)` by (
+        strip_tac >>
+        first_x_assum(qspec_then`k`strip_assume_tac) >>
+        fs[Abbr`res4`] >> rfs[]) >>
+      qmatch_assum_abbrev_tac`FST p = _` >>
+      Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      imp_res_tac evaluate_add_to_clock >>
+      fs[compile_state_with_clock] >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`p`mp_tac)) >> simp[] ) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`ffi'` >> strip_tac >>
+      imp_res_tac evaluate_add_to_clock >>
+      fs[compile_state_with_clock] >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
+      ntac 2(first_x_assum(qspec_then`p`mp_tac)) >> simp[] >>
+      strip_tac >> rpt var_eq_tac >>
+      fs[compile_state_def] >>
+      fs[state_component_equality]) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qexists_tac`k` >> fs[compile_state_with_clock] >>
+    spose_not_then strip_assume_tac >> fs[] ) >>
+  strip_tac >>
+  simp[closSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND p ≠ _` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
+    rw[compile_state_with_clock] >>
+    strip_tac >> fs[]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND p = _` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
+    rw[compile_state_with_clock] ) >>
+  strip_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  specl_args_of_then``patSem$evaluate``compile_evaluate mp_tac >>
+  simp[compile_state_def])
 
 (* more correctness properties *)
 
