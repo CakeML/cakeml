@@ -94,8 +94,8 @@ val word_list_def = tDefine "word_list" `
   \\ fs [LENGTH_DROP] \\ DECIDE_TAC)
 
 val write_bitmap_def = Define `
-  (write_bitmap live k f f'):'a word list =
-    let names = MAP (\(r,y). f+k-(r DIV 2)) (toAList live) in
+  (write_bitmap live k f'):'a word list =
+    let names = MAP (\(r,y). (f' -1) - (r DIV 2 - k)) (toAList live) in
       word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
 
 val wLiveAux_def = tDefine "wLiveAux" `
@@ -108,7 +108,7 @@ val wLiveAux_def = tDefine "wLiveAux" `
  (WF_REL_TAC `measure (LENGTH o FST)` \\ fs [] \\ decide_tac);
 
 val wLive_def = Define `
-  wLive live (k,f,f') = wLiveAux (write_bitmap live k f f') k 0`;
+  wLive live (k,f,f') = wLiveAux (write_bitmap live k f') k 0`;
 
 val SeqStackFree_def = Define `
   SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`

@@ -237,7 +237,7 @@ val key_val_compare_def = Define `
   key_val_compare x y =
     let (a:num,b) = x in
     let (a':num,b') = y in
-      (a < a') \/
+      (a > a') \/
       (a = a' /\
         case b of
           Word x => (case b' of Word y => x <= y | _ => T)

@@ -217,14 +217,14 @@ val MAP_FST_def = Define `
   MAP_FST f xs = MAP (\(x,y). (f x, y)) xs`
 
 val adjust_names_def = Define `
-  adjust_names k f n = k + f - n DIV 2`;
+  adjust_names n = n DIV 2`;
 
 val joined_ok_def = Define `
   (joined_ok k [] len <=> T) /\
   (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1:'a word_loc list)])::rest) len <=>
      joined_ok k rest len /\
      (filter_bitmap bs1 (index_list xs1 k) =
-      SOME (MAP_FST (adjust_names k (LENGTH (rs1 ++ xs1))) l1,[])) (* /\
+      SOME (MAP_FST adjust_names l1,[])) (* /\
      (* the following is an experimental alternative to the above *)
      let current_frame = rs1 ++ xs1 in
      let f' = LENGTH xs1 in
@@ -282,7 +282,7 @@ val state_rel_def = Define `
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
         if n DIV 2 < k then (FLOOKUP t.regs (n DIV 2) = SOME v)
-        else (el_opt (f+k-(n DIV 2)) current_frame = SOME v) /\
+        else (el_opt (f-1 -(n DIV 2 - k)) current_frame = SOME v) /\
              n DIV 2 < k + f')`
 
 (* correctness proof *)
@@ -305,7 +305,7 @@ val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
 val LENGTH_write_bitmap = prove(
   ``state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
-    (LENGTH ((write_bitmap (names:num_set) k f f'):'a word list) + f' = f)``,
+    (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)``,
   fs [state_rel_def,write_bitmap_def,LET_DEF]
   \\ fs [LENGTH_word_list] \\ rpt strip_tac
   \\ `~(dimindex (:'a) <= 1) /\ f <> 0` by decide_tac \\ fs []
@@ -334,7 +334,7 @@ val evaluate_wLiveAux = prove(
   \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 decide_tac
   \\ rpt strip_tac \\ fs []
   \\ fs [stackSemTheory.state_component_equality,AC ADD_COMM ADD_ASSOC])
-  |> Q.SPECL [`write_bitmap (names:num_set) k f f'`,`k`,`0`,`t`]
+  |> Q.SPECL [`write_bitmap (names:num_set) k f'`,`k`,`0`,`t`]
   |> SIMP_RULE std_ss []
   |> INST_TYPE [beta|->``:'ffi``]
 
@@ -371,7 +371,7 @@ val bits_to_word_NOT_0 = prove(
 
 val list_LUPDATE_write_bitmap_NOT_NIL = prove(
   ``8 <= dimindex (:'a) ==>
-    (list_LUPDATE (MAP Word (write_bitmap names k f f')) 0 xs <>
+    (list_LUPDATE (MAP Word (write_bitmap names k f')) 0 xs <>
      [Word (0w:'a word)])``,
   Cases_on `xs` \\ fs [list_LUPDATE_NIL]
   \\ fs [write_bitmap_def,LET_DEF,Once word_list_def]
@@ -500,18 +500,18 @@ val APPEND_LEMMA = prove(
 
 val read_bitmap_write_bitmap = prove(
   ``t.stack_space + f <= LENGTH t.stack /\ 8 <= dimindex (:'a) /\
-    (LENGTH (write_bitmap names k f f': 'a word list) + f' = f) /\
+    (LENGTH (write_bitmap names k f': 'a word list) + f' = f) /\
     (if f' = 0 then f = 0 else f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
     (1 <= f) ==>
     read_bitmap
-      (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f f')) 0
+      (list_LUPDATE (MAP Word (write_bitmap (names:num_set) k f')) 0
          (DROP t.stack_space t.stack)) =
-    SOME (GENLIST (\x. MEM x (MAP (\(r,y). f + k - (r DIV 2)) (toAList names))) f',
-          MAP Word (write_bitmap names k f f'): 'a word_loc list,
+    SOME (GENLIST (\x. MEM x (MAP (\(r,y). (f'-1) - (r DIV 2 - k)) (toAList names))) f',
+          MAP Word (write_bitmap names k f'): 'a word_loc list,
           (DROP (f - f') (DROP t.stack_space t.stack)))``,
   fs [write_bitmap_def,LET_DEF]
   \\ Q.ABBREV_TAC `qs = GENLIST
-           (\x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names))) f'`
+           (\x. MEM x (MAP (\(r,y). (f'-1) - (r DIV 2 -k) ) (toAList names))) f'`
   \\ rpt strip_tac
   \\ `t.stack_space + (f - f') + f' <= LENGTH t.stack` by
     (`f <> 0` by decide_tac \\ fs [] \\ decide_tac)
@@ -610,11 +610,11 @@ val SORTED_weaken2 = Q.prove(`
   Induct>>rw[]>>Cases_on`ls`>>fs[SORTED_DEF]>>
   metis_tac[])
 
-val EVEN_LT = prove(``
+val EVEN_GT = prove(``
   ∀a b.
   EVEN a ∧ EVEN b ∧
-  a < b ⇒
-  a DIV 2 < b DIV 2``,
+  a > b ⇒
+  a DIV 2 > b DIV 2``,
   fs[EVEN_EXISTS]>>rw[]>>
   fs[MULT_DIV,MULT_COMM]>>
   DECIDE_TAC)
@@ -624,7 +624,8 @@ val transitive_GT = prove(``
   fs[transitive_def]>>DECIDE_TAC)
 
 val evaluate_wLive = Q.prove(
-  `state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
+   `(∀x. x ∈ domain names ⇒ EVEN x /\ x DIV 2 ≥ k) /\
+   state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
    (cut_env names s.locals = SOME env) ==>
    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
         state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
@@ -636,7 +637,7 @@ val evaluate_wLive = Q.prove(
   \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
    (imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
     \\ fs [state_rel_def,GSYM LENGTH_NIL]
-    \\ `f <> 0` by decide_tac
+    \\ `f <> 0:num` by decide_tac
     \\ fs [] \\ rfs[] \\ decide_tac)
   \\ rpt strip_tac \\ fs [] \\ pop_assum (K all_tac)
   \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,
@@ -689,7 +690,7 @@ val evaluate_wLive = Q.prove(
    (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
     \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
     \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
-  \\ `(LENGTH ((write_bitmap names k f f'): 'a word list) +
+  \\ `(LENGTH ((write_bitmap names k f'): 'a word list) +
       MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
      (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
   \\ fs [MAP_FST_def,adjust_names_def]
@@ -716,10 +717,8 @@ val evaluate_wLive = Q.prove(
       `∀p v. lookup p env = SOME v ⇒ lookup p s.locals = SOME v` by
         (fs[cut_env_def]>>qpat_assum`A=env` (SUBST_ALL_TAC o SYM)>>
         fs[lookup_inter_EQ])>>
-      rw[]>>fs[]>>res_tac>>res_tac>>fs[]>>
-      imp_res_tac EVEN_LT>>
-      TRY(Cases_on`p_1' DIV 2 < k`)>>fs[]>>
-      DECIDE_TAC)
+      rw[]>>fs[]>>res_tac>>res_tac>>
+      fs[EVEN_GT])
   THEN1 (
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
@@ -751,23 +750,44 @@ val evaluate_wLive = Q.prove(
     fs[EL_GENLIST]>>DECIDE_TAC)
   >>
   qpat_abbrev_tac `f'' = f- f' + t.stack_space`>>
-  `f' ≤ LENGTH t.stack - f''` by (rw[Abbr`f''`]>>DECIDE_TAC)
+  `f' ≤ LENGTH t.stack - f''` by (rw[Abbr`f''`]>>DECIDE_TAC)>>
+  `MIN f' (LENGTH t.stack - f'') = f'` by
+    (fs[MIN_DEF]>>rw[]>>
+    ntac 2 (pop_assum mp_tac)>>
+    rpt (pop_assum kall_tac)>>
+    DECIDE_TAC)
   \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
       MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
-  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC] \\
+  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC,LENGTH_write_bitmap] \\
   `0 < f'` by
     (CCONTR_TAC>>`f' = 0` by DECIDE_TAC>>fs[]>>
     DECIDE_TAC)>>
-  fs[]>>
-  (*I expect p_1 and n to be instantiated to the same thing,
-  but the resulting goal looks false because we end up with
-  LHS: q = k + f - p_1 DIV 2
-  RHS: q = k+ f' - (f + k - p_1 DIV 2) -1
-  Note also that (I think) we require an assumption on names such that
-  ∀x. x ∈ domain names ⇒ x ≥ 2*k
-  This is used to instantiate assumption 22 (the one talking about locals)
-  *)
-  cheat);
+  eq_tac>>rw[]
+  >-
+    (fs[domain_lookup]>>
+    res_tac>>
+    `¬ (p_1 DIV 2 < k)` by DECIDE_TAC>>
+    HINT_EXISTS_TAC>>fs[]>>
+    CONJ_ASM1_TAC>-
+      DECIDE_TAC
+    >>
+    CONJ_ASM1_TAC>-DECIDE_TAC>>
+    fs[EL_index_list,EL_TAKE,EL_DROP,el_opt_THM]>>
+    rw[]
+    >-
+      (*decide doesn't work*)
+      cheat
+    >>
+      qpat_abbrev_tac`f'' = LENGTH A`>>
+      cheat)
+  >>
+    fs[domain_lookup]>>HINT_EXISTS_TAC>>fs[]>>
+    (*First conjunct looks true
+    For the second conjunct, state_rel might need to be strengthened
+    to say things about what t.stack contains
+    i.e. a counter part to assum 23
+    *)
+    cheat)
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -830,7 +850,7 @@ val enc_stack_lemma = prove(
   \\ pop_assum (K all_tac)
   \\ once_rewrite_tac [abs_stack_def]
   \\ Cases_on `ys = []` \\ fs []
-  \\ Cases_on `ys = [I thWord 0w]` \\ fs [] THEN1
+  \\ Cases_on `ys = [Word 0w]` \\ fs [] THEN1
    (Cases \\ fs [join_stacks_def,Once stackSemTheory.enc_stack_def]
     \\ fs [enc_stack_def])
   \\ Cases_on `read_bitmap ys` \\ fs []
@@ -948,7 +968,9 @@ val alloc_alt = prove(
   \\ fs [state_component_equality] \\ rw []);
 
 val alloc_IMP_alloc = prove(
-  ``(alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
+  ``
+    (∀x. x ∈ domain names ⇒ EVEN x /\ x DIV 2 ≥ k) /\
+    (alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     state_rel k f f' s t5 /\
     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
     (cut_env names s.locals = SOME env) /\
@@ -973,7 +995,36 @@ val alloc_IMP_alloc = prove(
   \\ fs [] \\ Cases_on `pop_env x` \\ fs []
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
   \\ `state_rel k f f' s3 t2` by ALL_TAC
-  THEN1 cheat (* continue here --
+  THEN1
+    (imp_res_tac gc_s_key_eq>>
+    fs[set_store_def]>>
+    imp_res_tac push_env_pop_env_s_key_eq>>
+    imp_res_tac gc_frame>>
+    fs[pop_env_def,push_env_def,env_to_list_def,LET_THM]>>
+    `opt = NONE` by
+      Cases_on`opt`>>fs[s_key_eq_def,s_frame_key_eq_def]>>
+    rpt BasicProvers.VAR_EQ_TAC>>
+    rfs[]>>
+    fs[state_rel_def,set_store_def,wordSemTheory.state_component_equality,stackSemTheory.set_store_def,LET_THM]>>
+    CONJ_TAC>-
+      cheat>>
+    CONJ_TAC>-
+      (*Use stack_rel 6 and 9 somehow ...*)
+      (fs[]>>cheat)
+    >>
+    fs[lookup_fromAList]>>ntac 3 strip_tac>>
+    imp_res_tac ALOOKUP_MEM>>
+    (*Using 61*)
+    `n ∈ domain env` by cheat>>
+    `n ∈ domain names` by
+      (fs[cut_env_def]>>
+      qpat_assum`A = env` (SUBST_ALL_TAC o SYM)>>
+      fs[domain_inter])>>
+    res_tac>>fs[]>>
+    `¬ (n DIV 2 < k )` by DECIDE_TAC>>
+    fs[]>>
+    cheat)
+      (* continue here --
         need to prove that gc doesn't change the shape of the
         stack frame (stackSem) or the var names in env (wordSem) *)
   \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fs []
