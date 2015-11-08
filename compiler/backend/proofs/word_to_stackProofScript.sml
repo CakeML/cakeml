@@ -602,6 +602,12 @@ val EL_index_list = prove(
   Induct \\ fs [index_list_def]
   \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
 
+val EL_index_list2 = prove(``
+ ∀xs i. i < LENGTH xs ==>
+           (EL i (index_list xs k) = (k + LENGTH xs - (i+1), EL i xs))``,
+  Induct \\ fs [index_list_def]
+  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
+
 val SORTED_weaken2 = Q.prove(`
   ∀ls. SORTED R ls ∧
   ALL_DISTINCT ls ∧
@@ -624,7 +630,7 @@ val transitive_GT = prove(``
   fs[transitive_def]>>DECIDE_TAC)
 
 val evaluate_wLive = Q.prove(
-   `(∀x. x ∈ domain names ⇒ EVEN x /\ x DIV 2 ≥ k) /\
+   `(∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
    state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
    (cut_env names s.locals = SOME env) ==>
    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
@@ -768,26 +774,72 @@ val evaluate_wLive = Q.prove(
     res_tac>>
     `¬ (p_1 DIV 2 < k)` by DECIDE_TAC>>
     HINT_EXISTS_TAC>>fs[]>>
-    CONJ_ASM1_TAC>-
-      DECIDE_TAC
+    qabbrev_tac `rn = p_1 DIV 2 -k`>>
+    `rn < f'` by fs[Abbr`rn`]>>
+    `f' -1 - rn < f'` by DECIDE_TAC>>
+    fs[EL_index_list2]>>
+    `rn + k  = k +f' - (f' - 1 - rn +1)` by DECIDE_TAC>>
+    pop_assum (SUBST_ALL_TAC o SYM)>>
+    CONJ_TAC>-
+      (fs[Abbr`rn`]>>
+      DECIDE_TAC)
     >>
-    CONJ_ASM1_TAC>-DECIDE_TAC>>
-    fs[EL_index_list,EL_TAKE,EL_DROP,el_opt_THM]>>
-    rw[]
-    >-
-      (*decide doesn't work*)
-      cheat
-    >>
-      qpat_abbrev_tac`f'' = LENGTH A`>>
-      cheat)
+    fs[el_opt_THM,EL_TAKE]>>
+    qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
+    qpat_abbrev_tac`f = LENGTH A + f'`>>
+    `f - 1 - rn < f` by DECIDE_TAC>>
+    fs[EL_TAKE]>>
+    `f -1 - rn + t.stack_space < LENGTH t.stack` by
+       DECIDE_TAC>>
+    `f' -1 -rn + f'' = f-1 -rn + t.stack_space` by
+      (fs[Abbr`f''`,Abbr`f`]>>
+      qpat_abbrev_tac `len = LENGTH A`>>
+      qpat_abbrev_tac `rnn = f' -1 - rn`>>
+      `len + f' - 1 -rn = len + rnn` by
+        (fs[Abbr`rnn`]>>
+        fs[SUB_RIGHT_SUB]>>
+        DECIDE_TAC)>>
+      fs[]>>
+      DECIDE_TAC)>>
+    fs[EL_DROP])
   >>
-    fs[domain_lookup]>>HINT_EXISTS_TAC>>fs[]>>
-    (*First conjunct looks true
-    For the second conjunct, state_rel might need to be strengthened
-    to say things about what t.stack contains
-    i.e. a counter part to assum 23
-    *)
-    cheat)
+    `p_1' ∈ domain s.locals` by metis_tac[SUBSET_DEF,domain_lookup]>>
+    fs[domain_lookup]>>
+    res_tac>>
+    `¬ (p_1' DIV 2 < k)` by DECIDE_TAC>>
+    HINT_EXISTS_TAC>>fs[]>>
+    qabbrev_tac `rn = p_1' DIV 2 -k`>>
+    `rn < f'` by fs[Abbr`rn`]>>
+    rfs[EL_index_list2]>>
+    CONJ_TAC>-
+      (fs[SUB_RIGHT_SUB]>>
+      `f' - (1 + rn) +1 = f' - rn` by DECIDE_TAC>>
+      fs[]>>pop_assum kall_tac>>
+      `k + f' - (f' - rn) = k + rn` by DECIDE_TAC>>
+      fs[Abbr`rn`]>>pop_assum kall_tac>>
+      `k ≤ p_1' DIV 2` by DECIDE_TAC>>
+      DECIDE_TAC)
+    >>
+    fs[el_opt_THM]>>qpat_assum`A=v` (SUBST_ALL_TAC o SYM)>>
+    qpat_abbrev_tac`f = LENGTH A + f'`>>
+    `f -1 - rn < f` by DECIDE_TAC>>
+    fs[EL_TAKE]>>
+    `f - 1 - rn + t.stack_space < LENGTH t.stack` by DECIDE_TAC>>
+    `f' -1 -rn + f'' = f-1 -rn + t.stack_space` by
+      (fs[Abbr`f''`,Abbr`f`]>>
+      qpat_abbrev_tac `len = LENGTH A`>>
+      qpat_abbrev_tac `rnn = f' -1 - rn`>>
+      `len + f' - 1 -rn = len + rnn` by
+        (fs[Abbr`rnn`]>>
+        fs[SUB_RIGHT_SUB]>>
+        fs[SUB_LEFT_ADD]>>
+        IF_CASES_TAC>>fs[]>>
+        `f' = 1 + rn` by DECIDE_TAC>>
+        pop_assum (SUBST_ALL_TAC o SYM)>>
+        fs[ADD_SUB])>>
+      fs[]>>
+      DECIDE_TAC)>>
+    fs[EL_DROP])
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
