@@ -767,7 +767,7 @@ val DeclAssumExists_SNOC_Dlet_Ref_lemma = prove(
   \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
   \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases]
   \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_dec_cases]
-  \\ SIMP_TAC std_ss [APPEND_NIL,merge_alist_mod_env_nil]
+  \\ SIMP_TAC (srw_ss()) [APPEND_NIL]
   \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
        combine_dec_result_def,merge_alist_mod_env_def]
   \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def]
