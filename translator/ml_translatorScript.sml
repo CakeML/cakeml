@@ -13,10 +13,6 @@ val evaluate_ind = bigStepTheory.evaluate_ind;
 val _ = bring_to_front_overload"evaluate"{Name="evaluate",Thy="bigStep"};
 
 (* TODO: move *)
-val merge_alist_mod_env_nil = Q.store_thm("merge_alist_mod_env_nil",
-  `merge_alist_mod_env ([],[]) x = x`,
-  Cases_on`x`>>simp[merge_alist_mod_env_def])
-
 val LUPDATE_NIL = prove(
   ``!xs n x. (LUPDATE x n xs = []) = (xs = [])``,
   Cases \\ Cases_on `n` \\ FULL_SIMP_TAC (srw_ss()) [LUPDATE_def]);
@@ -401,7 +397,7 @@ val Eval_Bool_Not = store_thm("Eval_Bool_Not",
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
   \\ first_assum(match_exists_tac o concl) >> simp[]
   \\ FULL_SIMP_TAC (srw_ss()) [do_app_cases,PULL_EXISTS]
-  \\ Q.LIST_EXISTS_TAC[`Boolv F`,`¬b1`]
+  \\ Q.LIST_EXISTS_TAC[`Boolv F`]
   \\ conj_tac >- (EVAL_TAC >> rw[] >> EVAL_TAC)
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
   \\ ONCE_REWRITE_TAC [evaluate_cases] \\ SRW_TAC[quantHeuristicsLib.QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
@@ -1091,7 +1087,7 @@ val Decls_Dlet = store_thm("Decls_Dlet",
   \\ simp[environment_component_equality]
   \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,APPEND, finite_mapTheory.FUNION_FEMPTY_1,
                            finite_mapTheory.FUNION_FEMPTY_2]
-  \\ simp[merge_alist_mod_env_nil]
+  \\ simp[]
   \\ METIS_TAC [big_unclocked, pair_CASES, evaluate_no_new_types_mods,FST]);
 
 val FOLDR_LEMMA = prove(
@@ -1112,7 +1108,7 @@ val Decls_Dletrec = store_thm("Decls_Dletrec",
        pmatch_def,evaluate_dec_cases,
        combine_dec_result_def,PULL_EXISTS] \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [write_def,merge_alist_mod_env_def,
-       APPEND,write_rec_def,APPEND,merge_alist_mod_env_nil,
+       APPEND,write_rec_def,APPEND,merge_alist_mod_env_empty,
        build_rec_env_def,FOLDR_LEMMA]
   \\ fs [environment_component_equality]
   \\ METIS_TAC []);
@@ -1311,7 +1307,7 @@ val Decls_NIL = store_thm("Decls_NIL",
   REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC std_ss [APPEND,Decls_def,PULL_EXISTS]
   \\ SIMP_TAC std_ss [Once evaluate_decs_cases]
-  \\ SIMP_TAC (srw_ss()) [merge_alist_mod_env_def,merge_alist_mod_env_nil]
+  \\ SIMP_TAC (srw_ss()) [merge_alist_mod_env_def]
   \\ METIS_TAC [environment_component_equality]);
 
 val Decls_CONS = store_thm("Decls_CONS",
@@ -1600,7 +1596,7 @@ val DeclAssumExists_SNOC_Dlet_Fun = store_thm("DeclAssumExists_SNOC_Dlet_Fun",
   \\ SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_cases]
   \\ SIMP_TAC (srw_ss()) [pmatch_def,ALL_DISTINCT,pat_bindings_def,
        combine_dec_result_def]
-  \\ FULL_SIMP_TAC std_ss [Decls_def,merge_alist_mod_env_nil]
+  \\ FULL_SIMP_TAC std_ss [Decls_def,merge_alist_mod_env_empty]
   \\ srw_tac[QUANT_INST_ss[record_default_qp]][EXISTS_PROD]
   \\ METIS_TAC[PAIR]);
 
@@ -1619,7 +1615,7 @@ val DeclAssumExists_SNOC_Dlet_ALT = store_thm("DeclAssumExists_SNOC_Dlet_ALT",
   \\ res_tac
   \\ imp_res_tac evaluate_empty_store_IMP_any_store >> fs[]
   \\ simp[pmatch_def,pat_bindings_def]
-  \\ simp[Once evaluate_decs_cases,merge_alist_mod_env_nil]
+  \\ simp[Once evaluate_decs_cases]
   \\ simp[combine_dec_result_def]
   \\ map_every qexists_tac[`env with v := (name,res)::env.v`,`s`,`res`]
   \\ simp[]
@@ -1652,14 +1648,13 @@ val DeclAssumExists_SNOC_Dletrec = store_thm("DeclAssumExists_SNOC_Dletrec",
   \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
   \\ ONCE_REWRITE_TAC [evaluate_dec_cases]
   \\ SIMP_TAC (srw_ss()) [CONS_11,NOT_CONS_NIL,PULL_EXISTS]
-  \\ simp[combine_dec_result_def,merge_alist_mod_env_nil,FST_triple]
+  \\ simp[combine_dec_result_def,FST_triple]
   \\ srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]);
 
 val DeclAssumExists_NIL = store_thm("DeclAssumExists_NIL",
   ``!mn. DeclAssumExists mn []``,
   SIMP_TAC (srw_ss()) [PULL_EXISTS,Once evaluate_decs_cases,
-     DeclAssumExists_def,DeclAssum_def,Decls_def,initSemEnvTheory.prim_sem_env_eq,
-     merge_alist_mod_env_nil]
+     DeclAssumExists_def,DeclAssum_def,Decls_def,initSemEnvTheory.prim_sem_env_eq]
   >> srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]);
 
 val always_evaluates_def = Define `
@@ -1711,7 +1706,7 @@ val DeclAssumExists_evaluate = store_thm("DeclAssumExists_evaluate",
   \\ FULL_SIMP_TAC std_ss [Decls_def,Eval_def,PULL_EXISTS] \\ RES_TAC
   \\ SRW_TAC [] [] \\ FIRST_X_ASSUM (STRIP_ASSUME_TAC o Q.SPEC `s`)
   \\ first_assum(match_exists_tac o concl) >> simp[]
-  \\ simp[merge_alist_mod_env_nil]
+  \\ simp[]
   \\ srw_tac[QUANT_INST_ss[record_default_qp,std_qp]][]
   \\ imp_res_tac big_unclocked >> rfs[]);
 
