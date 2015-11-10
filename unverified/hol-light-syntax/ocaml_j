@@ -1,0 +1,2 @@
+#!/bin/sh
+rlwrap ocamltop_j -I +compiler-libs -I +camlp5
