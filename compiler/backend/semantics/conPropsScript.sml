@@ -117,4 +117,29 @@ val pmatch_any_no_match = store_thm("pmatch_any_no_match",
   TRY BasicProvers.CASE_TAC >> fs[] >> rw[] >> rfs[] >> fs[] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct]);
 
+val eval_decs_num_defs = Q.store_thm("eval_decs_num_defs",
+  `!ck exh genv s ds s' env.
+    evaluate_decs ck exh genv s ds (s',env,NONE) ⇒ num_defs ds = LENGTH env`,
+  induct_on `ds` >>
+  rw [conLangTheory.num_defs_def] >>
+  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once conSemTheory.evaluate_decs_cases]) >>
+  rw [] >>
+  cases_on `h` >>
+  rw [conLangTheory.num_defs_def] >>
+  res_tac >>
+  rw [] >>
+  fs [conSemTheory.evaluate_dec_cases]);
+
+val eval_decs_num_defs_err = Q.store_thm("eval_decs_num_defs_err",
+  `!ck exh genv s ds s' env. evaluate_decs ck exh genv s ds (s',env,SOME err) ⇒ LENGTH env <= num_defs ds`,
+  induct_on `ds` >>
+  rw [conLangTheory.num_defs_def] >>
+  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once conSemTheory.evaluate_decs_cases]) >>
+  rw [] >>
+  cases_on `h` >>
+  rw [conLangTheory.num_defs_def] >>
+  res_tac >>
+  rw [] >>
+  fs [conSemTheory.evaluate_dec_cases]);
+
 val _ = export_theory()
