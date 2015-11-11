@@ -663,7 +663,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      qmatch_abbrev_tac `res_rel LHS (evaluate_app NONE rv' rest' s1')` >>
      `LHS = evaluate_app NONE cl0 rest (s0 with clock := s1'.clock)`
      suffices_by
-       (strip_tac >> simp[] >> first_assum irule >- (first_assum ACCEPT_TAC) >>
+       (strip_tac >> simp[] >> first_assum irule >- (fs[LENGTH_NIL]) >>
         simp[] >> strip_tac >> fs[] >> strip_tac >> fs[]) >>
      qunabbrev_tac `LHS` >>
      `rest ≠ []` by metis_tac [LENGTH] >>
@@ -735,7 +735,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      qmatch_abbrev_tac `res_rel (evaluate_app NONE rv rest s1) RHS` >>
      `RHS = evaluate_app NONE cl0' rest' (s0' with clock := s1.clock)`
      suffices_by
-       (strip_tac >> simp[] >> first_assum irule >- (first_assum ACCEPT_TAC) >>
+       (strip_tac >> simp[] >> first_assum irule >- (fs[LENGTH_NIL]) >>
         simp[] >> strip_tac >> fs[]) >>
      qunabbrev_tac `RHS` >>
      `rest' ≠ []` by metis_tac [LENGTH] >>
@@ -930,7 +930,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                    (s1 with clock := s2.clock)`
            suffices_by (
              disch_then SUBST1_TAC >> first_assum irule
-             >- first_x_assum ACCEPT_TAC >>
+             >- fs[LENGTH_NIL] >>
              simp[] >> metis_tac[val_rel_mono_list, DECIDE ``x:num - y ≤ x``])>>
          simp[Abbr`LHS`] >> fs[] >>
          simp[Once evaluate_app_rw, SimpRHS] >>
@@ -995,7 +995,7 @@ val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
    fs [val_rel_rw, is_closure_def]
    >- metis_tac [LIST_REL_LENGTH]
    >- (
-     rw [] 
+     rw []
      >- (
        fs [] >>
        first_x_assum (qspecl_then [`i`, `Block n l'`, `Block n l'''`] mp_tac) >>
@@ -1008,7 +1008,7 @@ val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
    >- metis_tac [LIST_REL_LENGTH]));
 
 val get_global_state_rel = Q.store_thm ("get_global_state_rel",
-`!i (s : 'ffi closSem$state) s'. 
+`!i (s : 'ffi closSem$state) s'.
   state_rel i s s'
   ⇒
   OPTREL (OPTREL (val_rel (:'ffi) i)) (get_global n s.globals) (get_global n s'.globals)`,
@@ -1716,8 +1716,8 @@ val compat_closure_some = Q.prove (
    `LASTN (LENGTH vs') vs = vs` by metis_tac [LASTN_LENGTH_ID] >>
    fs [] >>
    `exec_rel (i'' − (LENGTH vs' − 1))
-             (Exp [e] (vs++args++env),s with clock := i'' − (LENGTH vs' − 1)) 
-             (Exp [e'] (vs'++args'++env'),s' with clock := i'' − (LENGTH vs' − 1))` 
+             (Exp [e] (vs++args++env),s with clock := i'' − (LENGTH vs' − 1))
+             (Exp [e'] (vs'++args'++env'),s' with clock := i'' − (LENGTH vs' − 1))`
    by (
      fs [exp_rel_def] >>
      first_x_assum match_mp_tac >>
@@ -2024,7 +2024,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
    >- cheat
    >- cheat
    >- cheat));
- 
+
 val exp_rel_trans = Q.store_thm ("exp_rel_trans",
 `!e1 e2 e3. exp_rel (:'ffi) e1 e2 ∧ exp_rel (:'ffi) e2 e3 ⇒ exp_rel (:'ffi) e1 e3`,
  rw [exp_rel_def] >>
