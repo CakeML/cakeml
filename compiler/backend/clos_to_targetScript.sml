@@ -14,10 +14,9 @@ val _ = type_abbrev("clos_conf",``:num # 'a bvl_conf``);
 val compile_def = Define`
   compile (next_loc,c) exp =
   let es = intro_multi [exp] in
-  (* TODO: introduce multi-argument applications, #70 *)
+  let (next_loc,es) = renumber_code_locs_list next_loc es in
   (* TODO: let (exp,calls) = call_intro es in *)
   let (es,l) = remove es in
-  let (next_loc,es) = renumber_code_locs_list next_loc es in
   let es = annotate es in
   let (es,aux) = clos_to_bvl$compile es [] in
     OPTION_MAP
