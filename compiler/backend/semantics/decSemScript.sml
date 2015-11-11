@@ -18,7 +18,7 @@ val _ = Datatype`
     globals : (conSem$v option) list
   |>`;
 
-val _ = Define `
+val do_app_def = Define `
  (do_app s op vs =
   case (op,vs) of
    | (Op op, vs) =>
@@ -126,5 +126,72 @@ val evaluate_def = tDefine"evaluate"`
                              | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))` >>
    simp[check_clock_def,dec_clock_def] >>
    rw[] >> simp[])
+
+val evaluate_ind = theorem"evaluate_ind"
+
+val s = ``s1:'ffi decSem$state``
+
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env ^s v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  fs[check_clock_def,dec_clock_def] >> simp[] >>
+  fs[do_app_def] >>
+  every_case_tac >> fs[] >> rw[])
+
+val s' = ``s':'ffi decSem$state``
+val clean_term =
+  term_rewrite
+  [``check_clock ^s' ^s = s'``,
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
+
+val evaluate_ind = let
+  val goal = evaluate_ind |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac evaluate_ind >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[] >> fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_clock >>
+  fsrw_tac[ARITH_ss][check_clock_id])
+end
+|> curry save_thm "evaluate_ind"
+
+val evaluate_def = let
+  val goal = evaluate_def |> concl |> clean_term |> replace_term s' s
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt strip_tac >>
+  rw[Once evaluate_def] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs[check_clock_id] >>
+  `F` suffices_by rw[] >> decide_tac)
+end
+|> curry save_thm "evaluate_def"
+
+val semantics_def = Define`
+  semantics env st es =
+    if ∃k. SND (evaluate env (st with clock := k) es) = Rerr (Rabort Rtype_error)
+      then Fail
+    else
+    case some ffi.
+      ∃k s r.
+        evaluate env (st with clock := k) es = (s,r) ∧
+          r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s.ffi
+    of SOME ffi =>
+         Terminate
+           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
+           ffi.io_events
+     | NONE =>
+       Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList (FST (evaluate env (st with clock := k) es)).ffi.io_events) UNIV))`;
+
+val _ = map delete_const
+  ["evaluate_UNION_aux","evaluate_UNION"];
 
 val _ = export_theory()
