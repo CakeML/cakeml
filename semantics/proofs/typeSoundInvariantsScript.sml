@@ -40,10 +40,8 @@ val _ = Define `
 (*val tenv_tabbrev_ok : mod_env typeN (list tvarN * t) -> bool*)
 val _ = Define `
  (tenv_tabbrev_ok (mtenvT, tenvT) =  
-(FEVERY (UNCURRY (\s tenv_tabbrev .  
-  (case (s ,tenv_tabbrev ) of
-      ( _ , tenv_tabbrev ) => flat_tenv_tabbrev_ok tenvT
-  ))) mtenvT /\
+(FEVERY (UNCURRY (\s tenvT .  
+  (case (s ,tenvT ) of ( _ , tenvT ) => flat_tenv_tabbrev_ok tenvT ))) mtenvT /\
   flat_tenv_tabbrev_ok tenvT))`;
 
 

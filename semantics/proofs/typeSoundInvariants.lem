@@ -28,7 +28,7 @@ let flat_tenv_tabbrev_ok tenv_tabbrev =
 
 val tenv_tabbrev_ok : mod_env typeN (list tvarN * t) -> bool
 let tenv_tabbrev_ok (mtenvT, tenvT) =
-  Map.all (fun _ tenv_tabbrev -> flat_tenv_tabbrev_ok tenvT) mtenvT &&
+  Map.all (fun _ tenvT -> flat_tenv_tabbrev_ok tenvT) mtenvT &&
   flat_tenv_tabbrev_ok tenvT
 
 (* Global constructor type environments keyed by constructor name and type *)
