@@ -192,6 +192,7 @@ val enc_stack_def = tDefine "enc_stack" `
 
 val dec_stack_def = Define `
   (dec_stack [] [] = SOME []) /\
+  (dec_stack [] xs = NONE) /\
   (dec_stack (ts::xs) ws =
      case read_bitmap ws of
      | NONE => NONE
@@ -393,7 +394,7 @@ val evaluate_def = tDefine "evaluate" `
        (NONE, set_var r (EL (s.stack_space + n) s.stack) s)) /\
   (evaluate (StackLoadAny r rn,s) =
      if ~s.use_stack then (SOME Error,s) else
-       case get_var r s of
+       case get_var rn s of
        | SOME (Word w) =>
            if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
            else (NONE, set_var r (EL (s.stack_space + w2n w) s.stack) s)

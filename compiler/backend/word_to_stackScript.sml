@@ -16,12 +16,12 @@ val _ = ParseExtras.tight_equality ();
 val wReg1_def = Define `
   wReg1 r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then ([],r) else ([(k,f+k-r)],k:num)`
+      if r < k then ([],r) else ([(k,f-1 - (r - k))],k:num)`
 
 val wReg2_def = Define `
   wReg2 r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then ([],r) else ([(k+1,f+k-r)],k+1:num)`
+      if r < k then ([],r) else ([(k+1,f-1 - (r - k))],k+1:num)`
 
 val wRegImm2_def = Define `
   (wRegImm2 (Reg r) kf = let (x,n) = wReg2 r kf in (x,Reg n)) /\
@@ -30,7 +30,7 @@ val wRegImm2_def = Define `
 val wRegWrite1_def = Define `
   wRegWrite1 g r (k,f,f':num) =
     let r = r DIV 2 in
-      if r < k then g r else Seq (g k) (StackStore k (f+k-r))`
+      if r < k then g r else Seq (g k) (StackStore k (f-1 - (r - k)))`
 
 val wStackLoad_def = Define `
   (wStackLoad [] x = x) /\
@@ -44,10 +44,11 @@ val wMoveSingle_def = Define `
   wMoveSingle (x,y) (k,f,f':num) =
     case (y,x) of
     | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
-    | (INL r1, INR r2) => StackLoad r1 (f+k-r2)
-    | (INR r1, INL r2) => StackStore r2 (f+k-r1)
-    | (INL r1, INL r2) => Seq (StackLoad (k+1) (f+k-r2))
-                              (StackStore (k+1) (f+k-r1))`
+    | (INL r1, INR r2) => StackLoad r1 (f-1 - (r2 - k))
+    | (INR r1, INL r2) => StackStore r2 (f-1 - (r1 - k))
+    | (INL r1, INL r2) => Seq (StackLoad (k+1) (f-1 - (r2 -k)))
+                              (StackStore (k+1) (f-1 - (r1 - k)))`
+
 
 val wMoveAux_def = Define `
   (wMoveAux [] kf = Skip) /\

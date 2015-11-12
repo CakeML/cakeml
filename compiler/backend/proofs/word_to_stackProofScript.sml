@@ -1,4 +1,4 @@
-open preamble
+open preamble BasicProvers
      stackSemTheory wordSemTheory
      word_to_stackTheory
      wordPropsTheory
@@ -527,7 +527,7 @@ val join_stacks_IMP_LENGTH = prove(
       join_stacks s aa = SOME joined ==> (LENGTH joined = LENGTH s)``,
   recInduct (theorem "join_stacks_ind")
   \\ fs [join_stacks_def] \\ rpt strip_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []);
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []);
 
 val IMP_filter_bitmap_EQ_SOME_NIL = prove(
   ``!xs ys zs.
@@ -577,13 +577,13 @@ val SORTED_IMP_EQ_LISTS = prove(
 val transitive_key_val_compare = Q.store_thm("transitive_key_val_compare",
   `transitive key_val_compare`,
   fs[transitive_def,key_val_compare_def,FORALL_PROD,LET_DEF]
-  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC \\ TRY decide_tac
+  \\ rpt strip_tac \\ EVERY_CASE_TAC \\ TRY decide_tac
   \\ imp_res_tac WORD_LESS_EQ_TRANS \\ fs [])
 
 val total_key_val_compare = Q.store_thm("total_key_val_compare",
   `total key_val_compare`,
   fs[total_def,key_val_compare_def,FORALL_PROD,LET_DEF]
-  \\ rpt strip_tac \\ BasicProvers.EVERY_CASE_TAC \\ TRY decide_tac
+  \\ rpt strip_tac \\ EVERY_CASE_TAC \\ TRY decide_tac
   \\ CCONTR_TAC \\ fs [] \\ TRY decide_tac
   \\ fs [GSYM WORD_NOT_LESS]
   \\ wordsLib.WORD_DECIDE_TAC)
@@ -866,7 +866,7 @@ val filter_bitmap_IMP_MAP_SND = prove(
       filter_bitmap ys (MAP SND xs) = SOME (MAP SND l,[])``,
   Induct \\ Cases_on `xs` \\ fs [filter_bitmap_def]
   \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
   \\ res_tac \\ fs []);
 
 val MAP_SND_index_list = prove(
@@ -879,7 +879,7 @@ val filter_bitmap_TAKE_LENGTH_IMP = prove(
       filter_bitmap h5 x4 = SOME (MAP SND l,DROP (LENGTH h5) x4)``,
   Induct \\ Cases_on `x4` \\ fs [filter_bitmap_def]
   \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
   \\ Cases_on `l` \\ fs [] \\ rw [] \\ res_tac \\ fs []);
 
 val filter_bitmap_lemma = prove(
@@ -1016,12 +1016,76 @@ val alloc_alt = prove(
   \\ fs [gc_def,set_store_def,push_env_def,LET_DEF,
          env_to_list_def,pop_env_def]
   \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs [state_component_equality] \\ rw []
-  \\ fs [state_component_equality] \\ rw []);
+   \\ fs [state_component_equality] \\ rw []
+   \\ fs [state_component_equality] \\ rw []);
+
+(*This probably needs more preconditions*)
+val dec_stack_LIST_REL = prove(``
+  ∀enc orig_stack new_stack abs_orig abs_new.
+  stackSem$dec_stack enc orig_stack = SOME new_stack ∧
+  abs_stack orig_stack = SOME abs_orig
+  ⇒
+  ∃abs_new.
+  abs_stack new_stack = SOME abs_new ∧
+  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) abs_orig abs_new``,
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  rw[stackSemTheory.dec_stack_def]>>
+  fs[Once abs_stack_def]>>
+  cheat)
+
+val read_bitmap_split = prove(``
+  ∀ls a b c.
+  read_bitmap ls = SOME(a,b,c) ⇒
+  ls = b++c``,
+  Induct>>rw[]>>TRY(Cases_on`h`)>>fs[read_bitmap_def]>>
+  pop_assum mp_tac>>EVERY_CASE_TAC>>fs[])
+
+val map_bitmap_length = prove(``
+  ∀a b c x y.
+  map_bitmap a b c = SOME(x,y) ⇒
+  LENGTH c = LENGTH x + LENGTH y``,
+  Induct>>rw[]>>
+  Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
+  fs[map_bitmap_def]>>
+  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
+  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
+  fs[LENGTH_NIL]>>
+  pop_assum mp_tac>>EVERY_CASE_TAC>>rw[]>>res_tac>>
+  fs[]>>DECIDE_TAC)
+
+val dec_stack_length = prove(``
+  ∀enc orig_stack new_stack.
+  dec_stack enc orig_stack = SOME new_stack ⇒
+  LENGTH orig_stack = LENGTH new_stack``,
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
+  pop_assum mp_tac>>EVERY_CASE_TAC>>fs[]>>
+  imp_res_tac read_bitmap_split>>
+  imp_res_tac map_bitmap_length>>
+  rw[]>>fs[]>>
+  DECIDE_TAC)
+
+val gc_stack_shape = prove(``
+  gc s = SOME s' ∧
+  abs_stack (DROP s.stack_space s.stack) = SOME as
+  ⇒
+  s.stack_space = s'.stack_space ∧
+  LENGTH s.stack = LENGTH s'.stack ∧
+  ∃as'.
+  abs_stack (DROP s.stack_space s'.stack) = SOME as' ∧
+  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) as as'``,
+  fs[stackSemTheory.gc_def,LET_THM]>>
+  EVERY_CASE_TAC>>rw[]>>
+  `s.stack_space ≤ LENGTH s.stack` by DECIDE_TAC>>
+  fs[DROP_TAKE_NIL,DROP_APPEND1]
+  >-
+    (imp_res_tac dec_stack_length>>fs[]>>DECIDE_TAC)
+  >>
+  metis_tac[dec_stack_LIST_REL,dec_stack_length])
 
 val alloc_IMP_alloc = prove(
   ``
-    (∀x. x ∈ domain names ⇒ EVEN x /\ x DIV 2 ≥ k) /\
+    (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
     (alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     state_rel k f f' s t5 /\
     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
@@ -1055,26 +1119,11 @@ val alloc_IMP_alloc = prove(
     fs[pop_env_def,push_env_def,env_to_list_def,LET_THM]>>
     `opt = NONE` by
       Cases_on`opt`>>fs[s_key_eq_def,s_frame_key_eq_def]>>
-    rpt BasicProvers.VAR_EQ_TAC>>
     rfs[]>>
     fs[state_rel_def,set_store_def,wordSemTheory.state_component_equality,stackSemTheory.set_store_def,LET_THM]>>
-    CONJ_TAC>-
-      cheat>>
-    CONJ_TAC>-
-      (*Use stack_rel 6 and 9 somehow ...*)
-      (fs[]>>cheat)
-    >>
-    fs[lookup_fromAList]>>ntac 3 strip_tac>>
-    imp_res_tac ALOOKUP_MEM>>
-    (*Using 61*)
-    `n ∈ domain env` by cheat>>
-    `n ∈ domain names` by
-      (fs[cut_env_def]>>
-      qpat_assum`A = env` (SUBST_ALL_TAC o SYM)>>
-      fs[domain_inter])>>
-    res_tac>>fs[]>>
-    `¬ (n DIV 2 < k )` by DECIDE_TAC>>
-    fs[]>>
+    fs[stack_rel_def]>>
+    imp_res_tac gc_stack_shape>>
+    (*need to change shape lemma*)
     cheat)
       (* continue here --
         need to prove that gc doesn't change the shape of the
@@ -1085,8 +1134,13 @@ val alloc_IMP_alloc = prove(
     (fs [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM] \\ NO_TAC)
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
   \\ fs [has_space_def,stackSemTheory.has_space_def]
-  \\ BasicProvers.EVERY_CASE_TAC
+  \\ EVERY_CASE_TAC
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []);
+
+val get_var_set_var = prove(``
+  stackSem$get_var k (set_var k v st) = SOME v``,
+  fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
+  fs[FLOOKUP_UPDATE])
 
 val compile_correct = prove(
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
@@ -1116,7 +1170,12 @@ val compile_correct = prove(
     \\ Cases_on `cut_env names s.locals`
     THEN1 fs [wordSemTheory.alloc_def]
     \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
-    \\ mp_tac evaluate_wLive \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
+    \\ mp_tac evaluate_wLive \\ fs []>>
+    discharge_hyps_keep>-
+      (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+      fs[X_LE_DIV]>>rw[]>>
+      res_tac>>DECIDE_TAC)
+    \\ REPEAT STRIP_TAC \\ fs []
     \\ `1 < k` by fs [state_rel_def] \\ res_tac
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
     \\ mp_tac alloc_IMP_alloc \\ fs [] \\ REPEAT STRIP_TAC
@@ -1166,14 +1225,16 @@ val compile_correct = prove(
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
       \\ imp_res_tac DROP_DROP \\ fs [] \\ rfs [] \\ fs [])
-    \\ `~(LENGTH t.stack < t.stack_space + (f + k - n DIV 2)) /\
-        (EL (t.stack_space + (f + k - n DIV 2)) t.stack = x) /\
+    \\ `~(LENGTH t.stack < t.stack_space + (f -1 - (n DIV 2 - k))) /\
+        (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = x) /\
         (get_var 1 t = SOME x')` by
      (fs [state_rel_def,get_var_def,LET_DEF]
       \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
       \\ fs [stackSemTheory.get_var_def]
       \\ imp_res_tac el_opt_TAKE_IMP
-      \\ fs [el_opt_DROP] \\ fs [el_opt_THM] \\ decide_tac)
+      \\ fs [el_opt_DROP] \\ fs [el_opt_THM] \\
+      qpat_abbrev_tac `A=f-1-B`>>
+      rw[]>>DECIDE_TAC)
     \\ fs [LET_DEF]
     \\ `(set_var k x t).use_stack /\
         (set_var k x t).stack_space <= LENGTH (set_var k x t).stack` by
@@ -1187,7 +1248,20 @@ val compile_correct = prove(
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
     \\ imp_res_tac DROP_DROP \\ fs [])
-  THEN1 (* Raise *) cheat
+  THEN1 (* Raise *)
+   (fs [wordSemTheory.evaluate_def,LET_DEF,
+        stackSemTheory.evaluate_def,comp_def,jump_exc_def,
+        stackSemTheory.find_code_def]>>
+    qpat_assum`state_rel k f f' s t` mp_tac>>simp[Once state_rel_def]>>
+    strip_tac>>
+    IF_CASES_TAC>-
+      (*Clock mismatch due to tick!*)
+      cheat
+    >>
+    fs[raise_stub_def,stackSemTheory.evaluate_def,stackSemTheory.dec_clock_def,stack_rel_def,LET_THM,get_var_set_var]>>
+    simp[handler_val_def,stackSemTheory.set_var_def]>>
+    (*Didn't get far*)
+    cheat)
   THEN1 (* If *) cheat
   \\ (* Call *) cheat);
 
