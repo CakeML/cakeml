@@ -9,6 +9,13 @@ open import SmallStep
 open import TypeSystem
 import List_extra
 
+let mof env = env.SemanticPrimitives.m
+let cof env = env.SemanticPrimitives.c
+let vof env = env.SemanticPrimitives.v
+declare hol target_rep function mof env = `environment_m` env
+declare hol target_rep function cof env = `environment_c` env
+declare hol target_rep function vof env = `environment_v` env
+
 type store_t = Ref_t of t | W8array_t | Varray_t of t
 
 (* Store typing *)
@@ -167,10 +174,10 @@ type_v tvs cenv senv (Conv Nothing vs) (Tapp ts TC_tup)
 and
 
 closure : forall tvs ctMap senv env tenv n e t1 t2.
-consistent_con_env ctMap env.SemanticPrimitives.c tenv.c &&
+consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
-consistent_mod_env senv ctMap env.SemanticPrimitives.m tenv.m &&
-type_env ctMap senv env.SemanticPrimitives.v tenv.v &&
+consistent_mod_env senv ctMap (mof env) tenv.m &&
+type_env ctMap senv (vof env) tenv.v &&
 check_freevars tvs [] t1 &&
 type_e <|tenv with v = Bind_name n 0 t1 (bind_tvar tvs tenv.v)|> e t2
 ==>
@@ -179,10 +186,10 @@ type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2)
 and
 
 recclosure : forall tvs ctMap senv env funs n t tenv tenv'.
-consistent_con_env ctMap env.SemanticPrimitives.c tenv.c &&
+consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
-consistent_mod_env senv ctMap env.SemanticPrimitives.m tenv.m &&
-type_env ctMap senv env.SemanticPrimitives.v tenv.v &&
+consistent_mod_env senv ctMap (mof env) tenv.m &&
+type_env ctMap senv (vof env) tenv.v &&
 type_funs <|tenv with v = bind_var_list 0 tenv' (bind_tvar tvs tenv.v)|> funs tenv' &&
 lookup n tenv' = Just t &&
 allDistinct (List.map (fun (f,x,e) -> f) funs) &&
@@ -453,10 +460,10 @@ type_ctxts tvs tenvC senv [] t t
 and
 
 cons : forall tvs ctMap senv c env cs tenv t1 t2 t3.
-type_env ctMap senv env.SemanticPrimitives.v tenv.v &&
-consistent_con_env ctMap env.SemanticPrimitives.c tenv.c &&
+type_env ctMap senv (vof env) tenv.v &&
+consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
-consistent_mod_env senv ctMap env.SemanticPrimitives.m tenv.m &&
+consistent_mod_env senv ctMap (mof env) tenv.m &&
 type_ctxt tvs ctMap senv tenv c t1 t2 &&
 type_ctxts (if is_ccon c && poly_context cs then tvs else 0) ctMap senv cs t2 t3
 ==>
@@ -467,11 +474,11 @@ indreln
 
 exp : forall dec_tvs ctMap senv s env e c t1 t2 tenv tvs tr.
 context_invariant dec_tvs c tvs &&
-consistent_con_env ctMap env.SemanticPrimitives.c tenv.c &&
+consistent_con_env ctMap (cof env) tenv.c &&
 tenv_mod_ok tenv.m &&
-consistent_mod_env senv ctMap env.SemanticPrimitives.m tenv.m &&
+consistent_mod_env senv ctMap (mof env) tenv.m &&
 type_ctxts tvs ctMap senv c t1 t2 &&
-type_env ctMap senv env.SemanticPrimitives.v tenv.v &&
+type_env ctMap senv (vof env) tenv.v &&
 type_s ctMap senv s &&
 type_e <|tenv with v = bind_tvar tvs tenv.v|> e t1 &&
 ((tvs <> 0) --> is_value e)
@@ -572,9 +579,9 @@ let type_sound_invariants r (decls1,tenv,st,env) =
     tenv_tabbrev_ok tenv.t &&
     tenv_mod_ok tenvM_no_sig &&
     tenv_mod_ok tenv.m &&
-    consistent_mod_env tenvS ctMap env.SemanticPrimitives.m tenvM_no_sig &&
-    consistent_con_env ctMap env.SemanticPrimitives.c tenvC_no_sig &&
-    type_env ctMap tenvS env.SemanticPrimitives.v tenv.v &&
+    consistent_mod_env tenvS ctMap (mof env) tenvM_no_sig &&
+    consistent_con_env ctMap (cof env) tenvC_no_sig &&
+    type_env ctMap tenvS (vof env) tenv.v &&
     type_s ctMap tenvS st.refs &&
     weakM tenvM_no_sig tenv.m &&
     weakC tenvC_no_sig tenv.c &&
