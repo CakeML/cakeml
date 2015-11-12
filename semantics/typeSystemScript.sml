@@ -667,12 +667,12 @@ ALL_DISTINCT tvs)
 ==>
 type_d check_unique mn decls tenv (Dtabbrev tvs tn t) empty_decls (FEMPTY |+ (tn, (tvs,type_name_subst tenv.t t))) [] [])
 
-/\ (! check_unique mn menv tenv_tabbrev cenv tenv cn ts mdecls edecls tdecls.
+/\ (! check_unique mn tenv cn ts mdecls edecls tdecls.
 (check_exn_tenv mn cn ts /\
 ~ (mk_id mn cn IN edecls) /\
-EVERY (check_type_names tenv_tabbrev) ts)
+EVERY (check_type_names tenv.t) ts)
 ==>
-type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY [(cn, ([], MAP (type_name_subst tenv_tabbrev) ts, TypeExn (mk_id mn cn)))] [])`;
+type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dexn cn ts) ({},{},{mk_id mn cn}) FEMPTY [(cn, ([], MAP (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)))] [])`;
 
 val _ = Hol_reln ` (! check_unique mn tenv decls.
 T

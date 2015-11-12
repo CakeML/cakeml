@@ -690,12 +690,12 @@ type_d check_unique mn decls tenv (Dtabbrev tvs tn t) empty_decls (Map.singleton
 
 and
 
-dexn : forall check_unique mn menv tenv_tabbrev cenv tenv cn ts mdecls edecls tdecls.
+dexn : forall check_unique mn tenv cn ts mdecls edecls tdecls.
 check_exn_tenv mn cn ts &&
 not (mk_id mn cn IN edecls) &&
-List.all (check_type_names tenv_tabbrev) ts
+List.all (check_type_names tenv.t) ts
 ==>
-type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dexn cn ts) ({},{},{mk_id mn cn}) Map.empty [(cn, ([], List.map (type_name_subst tenv_tabbrev) ts, TypeExn (mk_id mn cn)))] []
+type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dexn cn ts) ({},{},{mk_id mn cn}) Map.empty [(cn, ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)))] []
 
 indreln [ type_ds : bool -> maybe modN -> decls -> type_environment -> list dec -> decls -> flat_tenv_tabbrev -> flat_tenv_ctor -> flat_tenv_val -> bool]
 

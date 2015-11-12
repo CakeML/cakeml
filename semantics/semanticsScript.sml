@@ -19,9 +19,7 @@ can_type_prog state prog ⇔
   no_dup_mods prog state.sem_st.defined_mods ∧
   no_dup_top_types prog state.sem_st.defined_types ∧
   ∃tdecs' tenvT' tenvM' tenvC' tenv'.
-    type_prog T state.tdecs state.tenvT state.tenvM state.tenvC state.tenv
-        prog
-        tdecs' tenvT' tenvM' tenvC' tenv'`;
+    type_prog T state.tdecs state.tenv prog tdecs' tenvT' tenvM' tenvC' tenv'`;
 
 val evaluate_prog_with_clock_def = Define`
   evaluate_prog_with_clock st k prog =
