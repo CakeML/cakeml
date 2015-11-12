@@ -2281,7 +2281,7 @@ val compile_correct = Q.store_thm("compile_correct",
    (rw [] >>
     fs [cEval_def,compile_def] \\ SRW_TAC [] [bEval_def]
     \\ first_assum(split_pair_case_tac o lhs o concl) >> fs[]
-    \\ `?q. evaluate (y::xs,env,s1) = q` by fs [] \\ PairCases_on `q` \\ fs []
+    \\ last_assum(valOf o bvk_find_term(K true)(split_pair_case_tac) o concl) >> fs[]
     \\ fs[LET_THM]
     \\ first_assum(split_applied_pair_tac o lhs o concl) >> fs[]
     \\ first_assum(split_applied_pair_tac o lhs o concl) >> fs[]
@@ -2289,15 +2289,17 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ FIRST_X_ASSUM (qspec_then`aux1`mp_tac)
     \\ SRW_TAC [] []
     \\ IMP_RES_TAC compile_IMP_code_installed
-    \\ Q.PAT_ASSUM `!xx yy zz. bbb ==> b` (MP_TAC o Q.SPECL [`t1`,`env''`,`f1`])
+    \\ first_x_assum(fn th =>
+           first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``env_rel`` o #1 o strip_comb))))th))))
+    \\ simp[]
+    \\ discharge_hyps >- (strip_tac >> fs[])
     \\ IMP_RES_TAC compile_SING \\ fs [] \\ REPEAT STRIP_TAC
     \\ ONCE_REWRITE_TAC [bEval_CONS]
-    \\ pop_assum mp_tac >> discharge_hyps >- (
-         spose_not_then STRIP_ASSUME_TAC >> fs[] )
-    \\ strip_tac
+    \\ qmatch_assum_rename_tac`evaluate ([x],_) = (v3,_)`
     \\ reverse (Cases_on `v3`) \\ fs [] \\ SRW_TAC [] []
-    \\ TRY (fs [] \\ rw[] \\ qexists_tac`ck` >> simp[] >>
-            first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
+    >- (fs [] \\ rw[] \\ qexists_tac`ck` >> simp[] >>
+        first_assum(match_exists_tac o concl) >> simp[])
     \\ FIRST_X_ASSUM (qspecl_then[`aux1'`,`t2`]mp_tac) >> simp[]
     \\ imp_res_tac evaluate_code >> fs[]
     \\ disch_then(qspecl_then[`env''`,`f2`]mp_tac)
@@ -2311,7 +2313,7 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ imp_res_tac evaluate_add_clock >> fs[]
     \\ qexists_tac `ck + ck'`
     \\ fsrw_tac[ARITH_ss][inc_clock_def]
-    \\ Cases_on `q0` \\ fs [] \\ SRW_TAC [] []
+    \\ every_case_tac \\ fs [] \\ SRW_TAC [] []
     \\ IMP_RES_TAC evaluate_code
     \\ IMP_RES_TAC v_rel_SUBMAP \\ fs []
     \\ IMP_RES_TAC SUBMAP_TRANS \\ fs []
