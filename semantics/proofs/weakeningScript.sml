@@ -453,37 +453,27 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [consistent_con_env_weakening] >-
      metis_tac [check_freevars_add, gt_0] >>
      match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
+     first_assum(match_exists_tac o concl) >> simp[weak_def] >>
      metis_tac [weak_tenvE_refl, weakM_refl, weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
  >- (fs [] >>
-     qexists_tac `tenvM` >>
-     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      rw [] >-
-     metis_tac [consistent_con_env_weakening] >>
-     match_mp_tac (hd (CONJUNCTS type_e_weakening)) >>
-     metis_tac [weak_tenvE_refl, weakC_refl,weakM_refl,
-                weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars])
+     metis_tac [consistent_con_env_weakening])
  >- (fs [] >>
-     qexists_tac `tenvM` >>
-     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
      metis_tac [consistent_con_env_weakening] >>
      match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
+     first_assum(match_exists_tac o concl) >> simp[weak_def] >>
      metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
                 weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars])
  >- (fs [] >>
-     qexists_tac `tenvM` >>
-     qexists_tac `tenvC` >>
      qexists_tac `tenv` >>
      qexists_tac `tenv'` >>
      rw [] >-
-     metis_tac [consistent_con_env_weakening] >>
-     match_mp_tac (hd (tl (tl (CONJUNCTS type_e_weakening)))) >>
-     metis_tac [weak_tenvE_refl,weakM_refl, weakC_refl,
-                weak_tenvE_bind_var_list, weak_tenvE_bind_tvar2, type_v_freevars])
+     metis_tac [consistent_con_env_weakening])
  >- (fs [weakS_def] >>
      metis_tac [FLOOKUP_SUBMAP])
  >- (fs [weakS_def] >>
@@ -498,7 +488,6 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
      metis_tac [FLOOKUP_SUBMAP])
  >- fs [EVERY_MEM]
  >- fs [EVERY_MEM]
- >- rw [bind_tvar_def]
  >- metis_tac []);
 
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
