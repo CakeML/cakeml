@@ -129,19 +129,26 @@ val v_rel_lit_loc = store_thm("v_rel_lit_loc[simp]",
     (v_rel exh (Boolv b) lh ⇔ lh = Boolv b)``,
   rw[] >> rw[Once v_rel_cases, conSemTheory.Boolv_def, exhSemTheory.Boolv_def])
 
+val state_rel_def = Define`
+  state_rel exh s1 s2 ⇔
+    s1.clock = s2.clock ∧
+    LIST_REL (sv_rel (v_rel exh)) s1.refs s2.refs ∧
+    s1.ffi = s2.ffi ∧
+    LIST_REL (OPTION_REL (v_rel exh)) s1.globals s2.globals`;
+
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀exh v v' s s'.
     f exh v v' ∧
-    csg_rel (v_rel exh) s s'
+    state_rel exh s s'
     ⇒
     result_rel f exh (s,Rval v) (s',Rval v')) ∧
   (∀exh v v' s s'.
     v_rel exh v v' ∧
-    csg_rel (v_rel exh) s s'
+    state_rel exh s s'
     ⇒
     result_rel f exh (s,Rerr (Rraise v)) (s',Rerr (Rraise v'))) ∧
   (!exh s s' a.
-    csg_rel (v_rel exh) s s'
+    state_rel exh s s'
     ⇒
     result_rel f exh (s,Rerr (Rabort a)) (s',Rerr (Rabort a)))`;
 
@@ -306,7 +313,7 @@ val tac =
   imp_res_tac LIST_REL_LENGTH >>
   fs [conSemTheory.prim_exn_def, v_rel_eqn, conSemTheory.exn_tag_def] >>
   every_case_tac >>
-  fs [LIST_REL_EL_EQN, EL_LUPDATE,decPropsTheory.csg_rel_def] >>
+  fs [LIST_REL_EL_EQN, EL_LUPDATE,state_rel_def] >>
   rw [EL_LUPDATE, evalPropsTheory.sv_rel_def] >>
   res_tac >>
   pop_assum mp_tac >>
@@ -317,8 +324,8 @@ val tac =
 
 val do_app_lem = Q.prove (
   `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
-    conSem$do_app s1 op vs = SOME (s2, res) ∧
-    csg_rel (v_rel exh) ((c,s1),g) s1_exh ∧
+    conSem$do_app (s1.refs,s1.ffi) op vs = SOME (s2, res) ∧
+    state_rel exh s1 s1_exh ∧
     vs_rel exh vs vs_exh
     ⇒
      ∃s2_exh res_exh.
@@ -582,55 +589,40 @@ val Boolv_disjoint = LIST_CONJ [
   EVAL``exhSem$Boolv T = Boolv F``]
 
 val s = mk_var("s",
-  ``decSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``decSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_exp_correct = Q.store_thm ("compile_exp_correct",
-  `(!ck env ^s e r.
-    evaluate ck env s e r
+  `(!env ^s es r.
+    evaluate env s es = r
     ⇒
-    !(exh:exh_ctors_env) env' env_exh s_exh exh'.
+    !env_exh s_exh exh'.
       SND r ≠ Rerr (Rabort Rtype_error) ∧
-      env = (exh,env') ∧
-      env_rel exh env' env_exh ∧
-      csg_rel (v_rel exh) s s_exh ∧
-      exh' ⊑ exh
+      env_rel env.exh env.v env_exh ∧
+      state_rel env.exh s s_exh ∧
+      exh' ⊑ env.exh
       ⇒
       ?r_exh.
-      result_rel v_rel exh r r_exh ∧
-      evaluate ck env_exh s_exh (compile_exp exh' e) r_exh) ∧
-   (!ck env ^s es r.
-    evaluate_list ck env s es r
+      result_rel vs_rel env.exh r r_exh ∧
+      evaluate env_exh s_exh (compile_exps exh' es) = r_exh) ∧
+   (!env ^s v pes err_v r.
+    evaluate_match env s v pes err_v = r
     ⇒
-    !(exh:exh_ctors_env) env' env_exh s_exh exh'.
+    !pes' is_handle env_exh s_exh v_exh exh'.
       SND r ≠ Rerr (Rabort Rtype_error) ∧
-      env = (exh,env') ∧
-      env_rel exh env' env_exh ∧
-      csg_rel (v_rel exh) s s_exh ∧
-      exh' ⊑ exh
-      ⇒
-      ?r_exh.
-      result_rel vs_rel exh r r_exh ∧
-      evaluate_list ck env_exh s_exh (compile_exps exh' es) r_exh) ∧
-   (!ck env ^s v pes err_v r.
-    evaluate_match ck env s v pes err_v r
-    ⇒
-    !(exh:exh_ctors_env) env' pes' is_handle env_exh s_exh v_exh exh'.
-      SND r ≠ Rerr (Rabort Rtype_error) ∧
-      env = (exh,env') ∧
-      env_rel exh env' env_exh ∧
-      csg_rel (v_rel exh) s s_exh ∧
-      v_rel exh v v_exh ∧
+      env_rel env.exh env.v env_exh ∧
+      state_rel env.exh s s_exh ∧
+      v_rel env.exh v v_exh ∧
       (is_handle ⇒ err_v = v) ∧
       (¬is_handle ⇒ err_v = Conv (SOME (bind_tag, (TypeExn(Short "Bind")))) []) ∧
       (pes' = add_default is_handle F pes ∨
-       exists_match exh (FST (SND (FST s))) (MAP FST pes) v ∧
+       exists_match env.exh s.refs (MAP FST pes) v ∧
        pes' = add_default is_handle T pes) ∧
-      exh' ⊑ exh
+      exh' ⊑ env.exh
        ⇒
       ?r_exh.
-      result_rel v_rel exh r r_exh ∧
-      evaluate_match ck env_exh s_exh v_exh (compile_pes exh' pes') r_exh)`,
+      result_rel vs_rel env.exh r r_exh ∧
+      evaluate_match env_exh s_exh v_exh (compile_pes exh' pes') = r_exh)`,
   ho_match_mp_tac decSemTheory.evaluate_ind >>
   strip_tac >- (
     rpt gen_tac >> strip_tac >>
