@@ -697,6 +697,7 @@ type_specs mn tenv_tabbrev [] empty_decls FEMPTY [] [])
 
 /\ (! mn tenv_tabbrev x t specs flat_tenv_tabbrev cenv tenv fvs decls.
 (check_freevars( 0) fvs t /\
+check_type_names tenv_tabbrev t /\
 type_specs mn tenv_tabbrev specs decls flat_tenv_tabbrev cenv tenv)
 ==>
 type_specs mn tenv_tabbrev (Sval x t :: specs) decls flat_tenv_tabbrev cenv (tenv++[(x,(LENGTH fvs, type_subst (alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) (type_name_subst tenv_tabbrev t)))]))

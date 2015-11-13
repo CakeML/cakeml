@@ -2021,7 +2021,7 @@ val type_subst = Q.store_thm ("type_subst",
      rw [] >|
      [first_assum (assume_tac o MATCH_MP (GEN_ALL (hd (tl (tl (CONJUNCTS type_e_subst)))))) >>
           pop_assum (qspecl_then [`tenv.v`, `bind_var_list 0 tenv' Empty`] mp_tac) >>
-          simp [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def, deBruijn_inc0, 
+          simp [num_tvs_def, deBruijn_subst_tenvE_def, db_merge_def, deBruijn_inc0,
                 num_tvs_bind_var_list, db_merge_bind_var_list,
                 deBruijn_subst_E_bind_var_list] >>
           disch_then match_mp_tac >>
@@ -2783,10 +2783,10 @@ val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 `!tvs tenvT specs decls' tenvT' tenvC' tenv'.
-  type_specs tvs tenvT specs decls' tenvT' tenvC' tenv'
-  ⇒
-  tenv_val_ok (bind_var_list2 tenv' Empty) ∧
-  (tenv_tabbrev_ok tenvT ⇒ flat_tenv_tabbrev_ok tenvT')`,
+  type_specs tvs tenvT specs decls' tenvT' tenvC' tenv' ⇒
+  tenv_tabbrev_ok tenvT ⇒
+    (tenv_val_ok (bind_var_list2 tenv' Empty) ∧
+     flat_tenv_tabbrev_ok tenvT')`,
  ho_match_mp_tac type_specs_ind >>
  rw [bind_var_list2_def, tenv_val_ok_def]
  >- rw [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP]
@@ -2798,20 +2798,22 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
          rw [LENGTH_GENLIST, EVERY_MAP] >>
          rw [EVERY_MEM] >>
          fs [MEM_GENLIST, check_freevars_def] >>
-         cheat >>
+         match_mp_tac check_freevars_type_name_subst >>
          metis_tac [check_freevars_add, DECIDE ``!x:num. x ≥ 0``])
      >- (PairCases_on `h` >>
-         fs [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def]))
- >- (`flat_tenv_tabbrev_ok tenvT'`
-            by (first_x_assum match_mp_tac >>
-                match_mp_tac tenv_tabbrev_ok_merge >>
-                rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
-                    FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>
-                every_case_tac >>
-                imp_res_tac ALOOKUP_MEM >>
-                fs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
-                rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
-     fs [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, flookup_fupdate_list,FLOOKUP_UPDATE, flat_tenv_tabbrev_ok_def] >>
+         fs [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def])) >>
+ TRY (
+   qpat_assum`_ ⇒ _`mp_tac >>
+   discharge_hyps >- (
+     match_mp_tac tenv_tabbrev_ok_merge >>
+     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
+         FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>
+     every_case_tac >>
+     imp_res_tac ALOOKUP_MEM >>
+     fs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
+     rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+   strip_tac)
+ >- (fs [FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, flookup_fupdate_list,FLOOKUP_UPDATE, flat_tenv_tabbrev_ok_def] >>
      rw [] >>
      every_case_tac >>
      fs [] >>
@@ -2821,7 +2823,16 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
           NO_TAC) >>
      imp_res_tac ALOOKUP_MEM >>
      fs [check_ctor_tenv_def, EVERY_MEM, MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
-     rw [check_freevars_def, EVERY_MAP, EVERY_MEM])
+     rw [check_freevars_def, EVERY_MAP, EVERY_MEM]) >>
+ TRY (
+   qpat_assum`_ ⇒ _`mp_tac >>
+   discharge_hyps >- (
+     match_mp_tac tenv_tabbrev_ok_merge >>
+     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def,
+         FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_UPDATE] >>
+     match_mp_tac check_freevars_type_name_subst >>
+     rw []) >>
+   strip_tac)
  >- (fs [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
      rw [] >>
      every_case_tac >>
@@ -2832,11 +2843,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
      fs [PULL_FORALL, AND_IMP_INTRO] >>
      first_x_assum match_mp_tac >>
      qexists_tac `k` >>
-     simp [] >>
-     match_mp_tac tenv_tabbrev_ok_merge >>
-     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def, FEVERY_FUPDATE] >>
-     match_mp_tac check_freevars_type_name_subst >>
-     rw [])
+     simp [])
  >- (fs [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, FLOOKUP_FUNION, FLOOKUP_UPDATE] >>
      rw [] >>
      every_case_tac >>
@@ -2846,10 +2853,7 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
      fs [PULL_FORALL, AND_IMP_INTRO] >>
      first_x_assum match_mp_tac >>
      qexists_tac `k` >>
-     simp [] >>
-     match_mp_tac tenv_tabbrev_ok_merge >>
-     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY, flat_tenv_tabbrev_ok_def, FEVERY_FUPDATE] >>
-     fs [check_freevars_def, EVERY_MAP, EVERY_MEM]));
+     simp []));
 
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 `!mn tenvT specs decls' flat_tenvT tenvC tenv.
