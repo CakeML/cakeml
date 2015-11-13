@@ -2336,12 +2336,17 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ SRW_TAC [] [] \\ fs [bEval_def]
     \\ first_assum(split_pair_case_tac o lhs o concl) >> fs[]
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_IMP_code_installed
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
+    \\ first_x_assum(fn th =>
+           first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
     \\ fs []
-    \\ disch_then (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
+    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
+    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
+    \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ strip_tac
     \\ imp_res_tac compile_SING >> rw[]
+    \\ qmatch_assum_rename_tac`result_rel _ _ v2 _`
     \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ SRW_TAC [] []
@@ -2382,19 +2387,32 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ SRW_TAC [] [] \\ fs [bEval_def]
     \\ first_assum(split_pair_case_tac o lhs o concl) >> fs[]
     \\ SRW_TAC [] [] \\ IMP_RES_TAC compile_IMP_code_installed
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1`,`t1`])
+    \\ first_x_assum(fn th =>
+           first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
     \\ fs []
-    \\ disch_then (MP_TAC o Q.SPECL [`env''`,`f1`]) \\ fs []
+    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
+    \\ disch_then (fn th => first_assum(mp_tac o MATCH_MP th))
+    \\ fs[]
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ strip_tac
     \\ imp_res_tac compile_SING >> rw[]
+    \\ qmatch_assum_rename_tac`result_rel _ _ v2 _`
     \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ rfs[]
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`aux1'`]) \\ fs []
-    \\ disch_then (MP_TAC o Q.SPECL [`t2`,`v' ++ env''`,`f2`]) \\ fs []
+    \\ first_x_assum(fn th =>
+           first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(is_eq))))th))))
     \\ IMP_RES_TAC evaluate_const \\ fs[]
     \\ IMP_RES_TAC evaluate_code \\ fs []
+    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(REWRITE_CONV[AND_IMP_INTRO])))
+    \\ disch_then(fn th =>
+           first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]
+             (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal"state_rel" o #1 o dest_const o #1 o strip_comb))))th))))
+    \\ qmatch_assum_rename_tac`LIST_REL _ v1 v2`
+    \\ qmatch_assum_rename_tac`env_rel _ _ _ env1 env2`
+    \\ disch_then(qspec_then`v2 ++ env2`mp_tac) >> fs[]
     \\ discharge_hyps >-
      (MATCH_MP_TAC env_rel_APPEND \\ fs []
       \\ IMP_RES_TAC env_rel_SUBMAP \\ fs [])
@@ -2416,12 +2434,14 @@ val compile_correct = Q.store_thm("compile_correct",
     \\ IMP_RES_TAC compile_SING \\ fs []
     \\ discharge_hyps >- ( spose_not_then strip_assume_tac >> fs[] )
     \\ fs [bEval_def]
+    \\ qmatch_assum_rename_tac`closSem$evaluate _ = (v2,_)`
     \\ reverse (Cases_on `v2`) \\ fs [] \\ SRW_TAC [] []
     \\ TRY (qexists_tac `ck` >> rw [] >> first_assum(match_exists_tac o concl) >> simp[] >> NO_TAC)
     \\ IMP_RES_TAC cEval_SING \\ fs []
     \\ IMP_RES_TAC bEval_SING \\ fs [] \\ SRW_TAC [] []
     \\ qexists_tac `ck` >> rw []
-    \\ Q.EXISTS_TAC `f2` \\ fs [])
+    \\ first_assum(match_exists_tac o concl)
+    \\ fs [])
   THEN1 (* Handle *)
    (rw [] >>
     fs [compile_def,cEval_def,LET_THM]
