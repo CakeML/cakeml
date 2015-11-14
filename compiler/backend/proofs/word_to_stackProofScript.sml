@@ -1019,20 +1019,6 @@ val alloc_alt = prove(
    \\ fs [state_component_equality] \\ rw []
    \\ fs [state_component_equality] \\ rw []);
 
-(*This probably needs more preconditions*)
-val dec_stack_LIST_REL = prove(``
-  ∀enc orig_stack new_stack abs_orig abs_new.
-  stackSem$dec_stack enc orig_stack = SOME new_stack ∧
-  abs_stack orig_stack = SOME abs_orig
-  ⇒
-  ∃abs_new.
-  abs_stack new_stack = SOME abs_new ∧
-  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) abs_orig abs_new``,
-  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
-  rw[stackSemTheory.dec_stack_def]>>
-  fs[Once abs_stack_def]>>
-  cheat)
-
 val read_bitmap_split = prove(``
   ∀ls a b c.
   read_bitmap ls = SOME(a,b,c) ⇒
@@ -1040,10 +1026,27 @@ val read_bitmap_split = prove(``
   Induct>>rw[]>>TRY(Cases_on`h`)>>fs[read_bitmap_def]>>
   pop_assum mp_tac>>EVERY_CASE_TAC>>fs[])
 
+val read_bitmap_replace = prove(``
+  ∀ls a b c.
+  read_bitmap ls = SOME (a,b,c) ⇒
+  ∀ls'.
+  read_bitmap (b++ls') = SOME (a,b,ls')``,
+  ho_match_mp_tac read_bitmap_ind>>rw[]>>fs[read_bitmap_def]>>
+  pop_assum mp_tac>> EVERY_CASE_TAC>>fs[read_bitmap_def]>>rw[]>>
+  fs[read_bitmap_def])
+
+val map_bitmap_remainder = prove(``
+  ∀a b c d e.
+  map_bitmap a b c = SOME (d,e) ⇒
+  e = DROP (LENGTH a) c``,
+  ho_match_mp_tac map_bitmap_ind>>rw[map_bitmap_def]>>
+  pop_assum mp_tac >> EVERY_CASE_TAC>>fs[])
+
 val map_bitmap_length = prove(``
   ∀a b c x y.
   map_bitmap a b c = SOME(x,y) ⇒
-  LENGTH c = LENGTH x + LENGTH y``,
+  LENGTH c = LENGTH x + LENGTH y ∧
+  LENGTH x = LENGTH a``,
   Induct>>rw[]>>
   Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
   fs[map_bitmap_def]>>
@@ -1064,6 +1067,42 @@ val dec_stack_length = prove(``
   imp_res_tac map_bitmap_length>>
   rw[]>>fs[]>>
   DECIDE_TAC)
+
+val dec_stack_LIST_REL = prove(``
+  ∀enc orig_stack new_stack abs_orig abs_new.
+  stackSem$dec_stack enc orig_stack = SOME new_stack ∧
+  abs_stack orig_stack = SOME abs_orig
+  ⇒
+  ∃abs_new.
+  abs_stack new_stack = SOME abs_new ∧
+  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) abs_orig abs_new``,
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  rw[stackSemTheory.dec_stack_def]>>
+  pop_assum mp_tac>> simp[Once abs_stack_def]>>
+  Cases_on`orig_stack = [Word 0w]`>>fs[read_bitmap_def]
+  >-
+    (fs[Once bit_length_def]>>Cases_on`ts`>>fs[map_bitmap_def]>>
+    Cases_on`enc`>>fs[stackSemTheory.dec_stack_def,read_bitmap_def]>>
+    qpat_assum`A=new_stack` (SUBST_ALL_TAC o SYM)>>
+    fs[Once abs_stack_def]>>rw[]>>
+    match_mp_tac quotient_listTheory.LIST_REL_REFL>>
+    fs[FORALL_PROD,FUN_EQ_THM]>>metis_tac[])
+  >>
+    qpat_assum`A = SOME new_stack` mp_tac>>
+    ntac 6 FULL_CASE_TAC>>
+    fs[]>>
+    imp_res_tac map_bitmap_remainder>>
+    FULL_CASE_TAC>>fs[]>>rw[]>>
+    qabbrev_tac`ls = q'++q''++x`>>
+    simp[Once abs_stack_def]>>
+    `ls ≠ [] ∧ ls ≠ [Word 0w]` by cheat>>
+    imp_res_tac read_bitmap_replace>>
+    pop_assum(qspec_then`q''++x` assume_tac)>>fs[]>>
+    rfs[]>>
+    imp_res_tac map_bitmap_length>>
+    pop_assum(SUBST_ALL_TAC o SYM)>>
+    fs[DROP_LENGTH_APPEND]>>
+    DECIDE_TAC)
 
 val gc_stack_shape = prove(``
   gc s = SOME s' ∧
@@ -1123,6 +1162,11 @@ val alloc_IMP_alloc = prove(
     fs[state_rel_def,set_store_def,wordSemTheory.state_component_equality,stackSemTheory.set_store_def,LET_THM]>>
     fs[stack_rel_def]>>
     imp_res_tac gc_stack_shape>>
+    fs[]>>ntac 7 (pop_assum kall_tac)>>rfs[]>>
+    CONJ_TAC>-
+      (*need something else to allow dropping a stack frame*)
+      cheat
+    >>
     (*need to change shape lemma*)
     cheat)
       (* continue here --
