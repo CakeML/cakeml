@@ -128,4 +128,35 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
    (evaluate_match env s v pes = (s',Rval vs) ⇒ ∃y. vs = [y])`,
   rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
+val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
+  `(do_app (s with clock := s.clock + extra) op vs =
+    OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
+  fs[do_app_def] >>
+  BasicProvers.CASE_TAC >> fs[]>-( every_case_tac >> fs[] ) >>
+  reverse(Cases_on`op`>>fs[]) >- ( every_case_tac >> fs[] ) >>
+  qmatch_goalsub_rename_tac`op:ast$op` >>
+  Cases_on`op`>>fs[] >>
+  every_case_tac >>
+  fs[LET_THM,
+     semanticPrimitivesTheory.store_alloc_def,
+     semanticPrimitivesTheory.store_lookup_def,
+     semanticPrimitivesTheory.store_assign_def] >>
+  rw[]);
+
+val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
+  `(∀env (s:'ffi exhSem$state) es s' r.
+       evaluate env s es = (s',r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate env (s with clock := s.clock + extra) es =
+         (s' with clock := s'.clock + extra,r)) ∧
+   (∀env (s:'ffi exhSem$state) pes v s' r.
+       evaluate_match env s pes v = (s',r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate_match env (s with clock := s.clock + extra) pes v =
+         (s' with clock := s'.clock + extra,r))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >>
+  every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
+
 val _ = export_theory()
