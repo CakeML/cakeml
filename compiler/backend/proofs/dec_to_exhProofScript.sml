@@ -323,17 +323,15 @@ val tac =
   fs [] >> rfs[];
 
 val do_app_lem = Q.prove (
-  `!(exh:exh_ctors_env) s1 op vs s2 res s1_exh vs_exh c g.
-    conSem$do_app (s1.refs,s1.ffi) op vs = SOME (s2, res) ∧
+  `!(exh:exh_ctors_env) s1 op vs r' ffi' res s1_exh vs_exh.
+    conSem$do_app (s1.refs,s1.ffi) op vs = SOME ((r',ffi'), res) ∧
     state_rel exh s1 s1_exh ∧
     vs_rel exh vs vs_exh
     ⇒
      ∃s2_exh res_exh.
-       result_rel v_rel exh (((c,s2),g),res) (s2_exh,res_exh) ∧
+       result_rel v_rel exh (s1 with <| refs := r'; ffi := ffi'|>,res) (s2_exh,res_exh) ∧
        do_app s1_exh op vs_exh = SOME (s2_exh, res_exh)`,
   rw [] >>
-  PairCases_on `s1` >>
-  PairCases_on `s1_exh` >>
   imp_res_tac conPropsTheory.do_app_cases >>
   fs [] >>
   rw [] >>
@@ -345,16 +343,17 @@ val do_app_lem = Q.prove (
       fs [] >>
       rw [exhSemTheory.do_app_def, result_rel_cases, conSemTheory.exn_tag_def,
           conSemTheory.prim_exn_def, exhSemTheory.prim_exn_def, v_rel_eqn,
-          conSemTheory.Boolv_def, exhSemTheory.Boolv_def])
+          conSemTheory.Boolv_def, exhSemTheory.Boolv_def] >>
+      fs[state_rel_def])
   >- (tac >>
       metis_tac [v_rel_eqn, store_v_distinct, evalPropsTheory.sv_rel_def])
   >- tac
   >- (tac >>
-    Cases_on`n < LENGTH s1_exh1`>>simp[EL_APPEND1,EL_APPEND2] >>
-    strip_tac >> `n = LENGTH s1_exh1` by simp[] >> simp[])
+    Cases_on`n < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
+    strip_tac >> `n = LENGTH s1_exh.refs` by simp[] >> simp[])
   >- ( tac >>
-    Cases_on`n' < LENGTH s1_exh1`>>simp[EL_APPEND1,EL_APPEND2] >>
-    strip_tac >> `n' = LENGTH s1_exh1` by simp[] >> simp[])
+    Cases_on`n' < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
+    strip_tac >> `n' = LENGTH s1_exh.refs` by simp[] >> simp[])
   >- (tac >>
       metis_tac [v_rel_eqn, store_v_distinct, evalPropsTheory.sv_rel_def])
   >- tac
@@ -368,14 +367,14 @@ val do_app_lem = Q.prove (
   >- tac
   >- (imp_res_tac v_to_list >>
       rw [exhSemTheory.do_app_def, result_rel_cases, v_rel_eqn] >>
-      fs [vs_rel_LIST_REL])
+      fs [vs_rel_LIST_REL,state_rel_def])
   >- (tac >>
       full_simp_tac (srw_ss()++ARITH_ss) [])
   >- tac
   >- (tac >>
       rw [LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] >>
-    Cases_on`n' < LENGTH s1_exh1`>>simp[EL_APPEND1,EL_APPEND2] >>
-    `n' = LENGTH s1_exh1` by simp[] >> simp[] >>
+    Cases_on`n' < LENGTH s1_exh.refs`>>simp[EL_APPEND1,EL_APPEND2] >>
+    `n' = LENGTH s1_exh.refs` by simp[] >> simp[] >>
       rw [LIST_REL_EL_EQN, LENGTH_REPLICATE, EL_REPLICATE] )
   >- (tac >>
       rw []
@@ -406,30 +405,28 @@ val do_app_lem = Q.prove (
           fs [] ))
    >- (tac >>
        `l = l'` by metis_tac[evalPropsTheory.sv_rel_def] >>
-       fs[]));
+       fs[])) |> INST_TYPE[alpha|->``:'ffi``];
 
 val do_app = prove(
-  ``∀s1 op vs s2 res exh s1 s1_exh vs_exh.
-      decSem$do_app s1 op vs = SOME (s2,res) ∧
-      csg_rel (v_rel exh) s1 s1_exh ∧
+  ``∀s1 op vs s2 res exh s1_exh vs_exh.
+      do_app (s1:'ffi decSem$state) op vs = SOME (s2,res) ∧
+      state_rel exh s1 s1_exh ∧
       vs_rel exh vs vs_exh ⇒
       ∃s2_exh res_exh.
         do_app s1_exh op vs_exh = SOME (s2_exh,res_exh) ∧
         result_rel v_rel exh (s2,res) (s2_exh,res_exh)``,
   rpt gen_tac >>
-  PairCases_on`s1` >>
-  PairCases_on`s1_exh` >>
   rw[decSemTheory.do_app_def] >>
   Cases_on`op`>>fs[] >- (
     every_case_tac >> fs[] >>
-    first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]do_app_lem)) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]do_app_lem)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     simp[vs_rel_LIST_REL] >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
     metis_tac[] ) >>
   simp[exhSemTheory.do_app_def] >>
-  fs[LIST_REL_EL_EQN,decPropsTheory.csg_rel_def,result_rel_cases] >>
-  every_case_tac >> fs[] >> rw[] >> fs[decPropsTheory.csg_rel_def] >>
+  fs[LIST_REL_EL_EQN,result_rel_cases] >>
+  every_case_tac >> fs[] >> rw[] >> fs[state_rel_def] >>
   fs[LIST_REL_EL_EQN,OPTREL_def,EL_LUPDATE,evalPropsTheory.sv_rel_cases] >>
   rw[] >> metis_tac[NOT_SOME_NONE]);
 
