@@ -2,33 +2,6 @@ open preamble decSemTheory;
 
 val _ = new_theory"decProps"
 
-val state_rel_def = Define`
-  state_rel R s1 s2 ⇔
-    s1.clock = s2.clock ∧
-    LIST_REL (sv_rel R) s1.refs s2.refs ∧
-    s1.ffi = s2.ffi ∧
-    LIST_REL (OPTION_REL R) s1.globals s2.globals`;
-
-val state_rel_refl = store_thm("state_rel_refl[simp]",
-  ``∀V s. (∀x. V x x) ⇒ state_rel V s s``,
-  rw[state_rel_def] >>
-  match_mp_tac EVERY2_refl >>
-  rw[optionTheory.OPTREL_def] >>
-  Cases_on`x` >> rw[]);
-
-val state_rel_trans = store_thm("csg_rel_trans",
-  ``∀V. (∀x y z. V x y ∧ V y z ⇒ V x z) ⇒ ∀x y z. state_rel V x y ∧ state_rel V y z ⇒ state_rel V x z``,
-  rw[state_rel_def] >>
-  match_mp_tac (MP_CANON EVERY2_trans)
-  >- metis_tac[evalPropsTheory.sv_rel_trans] >>
-  simp[optionTheory.OPTREL_def] >>
-  srw_tac[boolSimps.DNF_ss][] >>
-  metis_tac[])
-
-val state_rel_clock = store_thm("state_rel_clock",
-  ``state_rel R csg1 csg2 ⇒ csg1.clock = csg2.clock``,
-  simp[state_rel_def])
-
 val map_state_def = Define`
   map_state f s =
     <|clock := s.clock;
@@ -84,5 +57,31 @@ val evaluate_extend_genv = Q.store_thm ("evaluate_extend_genv",
 
 val prompt_num_defs_def = Define `
   prompt_num_defs (Prompt ds) = num_defs ds`;
+
+val evaluate_length = Q.store_thm("evaluate_length",
+  `(∀env (s:'ffi decSem$state) ls s' vs.
+      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls) ∧
+   (∀env (s:'ffi decSem$state) v pes ev s' vs.
+      evaluate_match env s v pes ev = (s', Rval vs) ⇒ LENGTH vs = 1)`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >> rw[] >>
+  every_case_tac >> fs[] >> rw[]);
+
+val evaluate_cons = Q.store_thm("evaluate_cons",
+  `evaluate env s (e::es) =
+   (case evaluate env s [e] of
+    | (s,Rval v) =>
+      (case evaluate env s es of
+       | (s,Rval vs) => (s,Rval (v++vs))
+       | r => r)
+    | r => r)`,
+  Cases_on`es`>>rw[evaluate_def] >>
+  every_case_tac >> fs[evaluate_def] >>
+  imp_res_tac evaluate_length >> fs[SING_HD]);
+
+val evaluate_sing = Q.store_thm("evaluate_sing",
+  `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
+   (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
+  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
 val _ = export_theory()
