@@ -140,6 +140,10 @@ val state_rel_dec_clock = Q.store_thm("state_rel_dec_clock",
   `state_rel exh s1 s2 ⇒ state_rel exh (dec_clock s1) (dec_clock s2)`,
   EVAL_TAC >> rw[])
 
+val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
+  `∀k. state_rel exh s1 s2 ⇒ state_rel exh (s1 with clock := k) (s2 with clock := k)`,
+  EVAL_TAC >> rw[])
+
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀exh v v' s s'.
     f exh v v' ∧
@@ -608,7 +612,7 @@ val s = mk_var("s",
   ``decSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
-val compile_exp_correct = Q.store_thm ("compile_exp_correct",
+val compile_exp_evaluate = Q.store_thm ("compile_exp_evaluate",
   `(!env ^s es r.
     evaluate env s es = r
     ⇒
@@ -839,5 +843,110 @@ val compile_exp_correct = Q.store_thm ("compile_exp_correct",
       metis_tac[conPropsTheory.pmatch_any_no_match]) >>
     Cases_on`pmatch s_exh.refs (compile_pat p) v_exh env_exh`>>
     fs[match_result_rel_def]));
+
+val compile_exp_semantics = Q.store_thm("compile_exp_semantics",
+  `semantics env st es ≠ Fail ∧
+   env_rel env.exh env.v envh ∧
+   state_rel env.exh st sth
+  ⇒
+   semantics envh sth
+     (compile_exps env.exh es) =
+   semantics env st es`,
+  simp[decSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`st'` >> rpt strip_tac >>
+    first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_exp_evaluate)) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    imp_res_tac state_rel_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+    disch_then(qspec_then`env.exh`mp_tac)>>simp[] >>
+    discharge_hyps >- metis_tac[SND] >> strip_tac >>
+    simp[exhSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      `r ≠ Rerr (Rabort Rtype_error)` by (
+        strip_tac >>
+        first_x_assum(qspec_then`k`strip_assume_tac) >>
+        fs[] >> rfs[]) >>
+      qmatch_assum_abbrev_tac`SND p = _` >>
+      Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      qmatch_assum_abbrev_tac`result_rel _ _ _ p` >>
+      `SND p ≠ Rerr (Rabort Rtype_error)` by (
+        strip_tac >> Cases_on`p` >> fs[] ) >>
+      Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+      qpat_assum`_ = _`(assume_tac o SYM) >>
+      imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >>
+      rpt var_eq_tac >>
+      qmatch_assum_rename_tac`result_rel _ _ _ (_,rr)` >>
+      `rr ≠ Rerr (Rabort Rtimeout_error)` by (
+        strip_tac >> fs[] ) >> fs[] >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`p`mp_tac)) >> simp[]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`st''` >> strip_tac >>
+      qmatch_assum_abbrev_tac`result_rel _ _ _ ress4` >>
+      `SND ress4 ≠ Rerr (Rabort Rtimeout_error)` by (strip_tac >> Cases_on`ress4` >> fs[]) >>
+      Cases_on`ress4`>>fs[markerTheory.Abbrev_def] >>
+      qpat_assum`_ = _`(assume_tac o SYM) >>
+      imp_res_tac (CONJUNCT1 evaluate_add_to_clock) >> fs[] >>
+      rpt var_eq_tac >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
+      ntac 2(first_x_assum(qspec_then`p`mp_tac)) >> rw[] >>
+      fs[result_rel_cases,state_rel_def]) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qexists_tac`k` >> fs[] >>
+    spose_not_then strip_assume_tac >>
+    fs[result_rel_cases] >> rfs[] >> fs[]) >>
+  strip_tac >>
+  simp[exhSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND p ≠ _` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    spose_not_then strip_assume_tac >>
+    first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_exp_evaluate)) >>
+    simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    imp_res_tac state_rel_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`env.exh`>>simp[] >>
+    rw[result_rel_cases] >>
+    spose_not_then strip_assume_tac >> fs[]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND p = _` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (CONJUNCT1 compile_exp_evaluate)) >>
+    simp[] >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    imp_res_tac state_rel_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    qexists_tac`env.exh`>>simp[]) >>
+  rpt strip_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  specl_args_of_then``decSem$evaluate``(CONJUNCT1 compile_exp_evaluate) mp_tac >>
+  simp[] >>
+  disch_then(fn th => first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  imp_res_tac state_rel_with_clock >>
+  first_x_assum(qspec_then`k`strip_assume_tac) >>
+  disch_then(fn th => first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  disch_then(qspec_then`env.exh`mp_tac) >> simp[] >>
+  rw[result_rel_cases] >> rw[] >>
+  fs[state_rel_def])
 
 val _ = export_theory ();
