@@ -550,7 +550,7 @@ end
 
 val evaluate_dec_def = Define`
   (evaluate_dec env s (Dlet n e) =
-   case evaluate env s [e] of
+   case evaluate (env with v := []) s [e] of
    | (s, Rval [Conv NONE vs]) =>
      (s, if LENGTH vs = n then Rval vs
          else Rerr (Rabort Rtype_error))
