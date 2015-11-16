@@ -65,17 +65,31 @@ val pat_bindings_accum = Q.store_thm ("pat_bindings_accum",
 val Boolv_11 = store_thm("Boolv_11[simp]",
   ``Boolv b1 = Boolv b2 ⇔ (b1 = b2)``, EVAL_TAC >> rw[])
 
-val evaluate_list_length = Q.store_thm ("evaluate_list_length",
-  `!b env s gtagenv es s' vs.
-    conSem$evaluate_list b env s es (s', Rval vs)
-    ⇒
-    LENGTH es = LENGTH vs`,
-  induct_on `es` >>
-  rw [] >>
-  Cases_on`vs`>>
-  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once conSemTheory.evaluate_cases]) >>
-  rw [] >>
-  metis_tac []);
+val evaluate_length = Q.store_thm("evaluate_length",
+  `(∀env (s:'ffi conSem$state) ls s' vs.
+      evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls) ∧
+   (∀env (s:'ffi conSem$state) v pes ev s' vs.
+      evaluate_match env s v pes ev = (s', Rval vs) ⇒ LENGTH vs = 1)`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >> rw[] >>
+  every_case_tac >> fs[] >> rw[]);
+
+val evaluate_cons = Q.store_thm("evaluate_cons",
+  `evaluate env s (e::es) =
+   (case evaluate env s [e] of
+    | (s,Rval v) =>
+      (case evaluate env s es of
+       | (s,Rval vs) => (s,Rval (v++vs))
+       | r => r)
+    | r => r)`,
+  Cases_on`es`>>rw[evaluate_def] >>
+  every_case_tac >> fs[evaluate_def] >>
+  imp_res_tac evaluate_length >> fs[SING_HD]);
+
+val evaluate_sing = Q.store_thm("evaluate_sing",
+  `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
+   (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
+  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
 val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
   `∀xs exh vs s env.
@@ -118,28 +132,26 @@ val pmatch_any_no_match = store_thm("pmatch_any_no_match",
   metis_tac[semanticPrimitivesTheory.match_result_distinct]);
 
 val eval_decs_num_defs = Q.store_thm("eval_decs_num_defs",
-  `!ck exh genv s ds s' env.
-    evaluate_decs ck exh genv s ds (s',env,NONE) ⇒ num_defs ds = LENGTH env`,
+  `!env s ds s' env'.
+    evaluate_decs env s ds = (s',env',NONE) ⇒ num_defs ds = LENGTH env'`,
   induct_on `ds` >>
-  rw [conLangTheory.num_defs_def] >>
-  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once conSemTheory.evaluate_decs_cases]) >>
-  rw [] >>
+  rw [conLangTheory.num_defs_def,evaluate_decs_def] >> rw[LENGTH_NIL] >>
+  every_case_tac >> fs[] >> rw[] >>
   cases_on `h` >>
   rw [conLangTheory.num_defs_def] >>
   res_tac >>
-  rw [] >>
-  fs [conSemTheory.evaluate_dec_cases]);
+  rw [] >> fs[evaluate_dec_def] >>
+  every_case_tac >> fs[] >> rw[]);
 
 val eval_decs_num_defs_err = Q.store_thm("eval_decs_num_defs_err",
-  `!ck exh genv s ds s' env. evaluate_decs ck exh genv s ds (s',env,SOME err) ⇒ LENGTH env <= num_defs ds`,
+  `!env s ds s' env'. evaluate_decs env s ds = (s',env',SOME err) ⇒ LENGTH env' <= num_defs ds`,
   induct_on `ds` >>
-  rw [conLangTheory.num_defs_def] >>
-  pop_assum (mp_tac o SIMP_RULE (srw_ss()) [Once conSemTheory.evaluate_decs_cases]) >>
-  rw [] >>
+  rw [conLangTheory.num_defs_def,evaluate_decs_def] >> rw[LENGTH_NIL] >>
+  every_case_tac >> fs[] >> rw[] >>
   cases_on `h` >>
   rw [conLangTheory.num_defs_def] >>
   res_tac >>
-  rw [] >>
-  fs [conSemTheory.evaluate_dec_cases]);
+  rw [] >> fs[evaluate_dec_def] >>
+  every_case_tac >> fs[] >> rw[]);
 
 val _ = export_theory()
