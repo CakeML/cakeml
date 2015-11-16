@@ -668,20 +668,28 @@ val weak_decls_other_mods_refl = Q.store_thm ("weak_decls_other_mods_refl",
  PairCases_on `decls` >>
  rw [weak_decls_other_mods_def]);
 
+val with_v_lemma = Q.prove(
+  `((x with v := y).v = y) ∧
+   ((x with v := y).c = x.c) ∧
+   ((x with v := y).t = x.t) ∧
+   ((x with v := y).m = x.m)`,
+  rw[])
+
 val type_d_weakening = Q.store_thm ("type_d_weakening",
-`!mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv' decls'' tenvM'' tenvC''.
-  type_d F mn decls tenvT tenvM tenvC tenv d decls' tenvT' tenvC' tenv' ∧
-  weakM tenvM'' tenvM ∧
-  weakC tenvC'' tenvC ∧
+`!mn decls tenv d decls' tenvT' tenvC' tenv' decls'' tenvM'' tenvC'' ttt.
+  type_d F mn decls tenv d decls' tenvT' tenvC' tenv' ∧
+  weakM ttt.m tenv.m ∧
+  weakC ttt.c tenv.c ∧
+  ttt.v = tenv.v ∧ ttt.t = tenv.t ∧
   weak_decls decls'' decls ∧
   weak_decls_other_mods mn decls'' decls ∧
-  tenvC_ok tenvC''
+  tenv_ctor_ok ttt.c
   ⇒
-  type_d F mn decls'' tenvT tenvM'' tenvC'' tenv d decls' tenvT' tenvC' tenv'`,
+  type_d F mn decls'' ttt d decls' tenvT' tenvC' tenv'`,
  rw [type_d_cases]
- >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
- >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
- >- metis_tac [type_p_weakening, type_e_weakening, weak_tenvE_refl, DECIDE ``!x:num. x ≥ x``]
+ >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
+ >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
+ >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
  >- (`?mdecls'' tdecls'' edecls''. decls'' = (mdecls'',tdecls'',edecls'')` by metis_tac [pair_CASES] >>
      rw []
      >- (fs [DISJOINT_DEF, weak_decls_other_mods_def, EXTENSION] >>
@@ -753,35 +761,42 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  metis_tac []);
 
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
-`!uniq mn decls tenvT tenvM tenvC tenv ds decls' tenvT' tenvC' tenv'.
-  type_ds uniq mn decls tenvT tenvM tenvC tenv ds decls' tenvT' tenvC' tenv' ⇒
-  !decls'' tenvM'' tenvC''.
-  uniq = F ∧
-  weak_decls decls'' decls ∧
-  weak_decls_other_mods mn decls'' decls ∧
-  tenvT_ok tenvT ∧
-  tenvC_ok tenvC'' ∧
-  weakM tenvM'' tenvM ∧
-  weakC tenvC'' tenvC
-  ⇒
-  type_ds F mn decls'' tenvT tenvM'' tenvC'' tenv ds decls' tenvT' tenvC' tenv'`,
- ho_match_mp_tac type_ds_ind >>
- rw [] >>
- rw [Once type_ds_cases] >>
- `type_d F mn decls''' tenvT tenvM'' tenvC'' tenv d decls' tenvT' cenv' tenv'` by metis_tac [type_d_weakening] >>
- imp_res_tac type_d_ctMap_ok >>
- `tenvC_ok (merge_alist_mod_env ([],cenv') tenvC'')`
-        by (rw [tenvC_ok_merge] >>
-            metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
- `weak_decls (union_decls decls' decls''') (union_decls decls' decls)`
-            by (metis_tac [weak_decls_union]) >>
- `weak_decls_other_mods mn (union_decls decls' decls''') (union_decls decls' decls)`
-            by (metis_tac [weak_decls_other_mods_union]) >>
- imp_res_tac type_d_tenvT_ok >>
- `tenvT_ok (merge_mod_env (FEMPTY,tenvT') tenvT)`
-           by (match_mp_tac tenvT_ok_merge >>
-               rw [tenvT_ok_def, FEVERY_FEMPTY]) >>
- metis_tac [weakC_merge]);
+ `!uniq mn decls tenv ds decls' tenvT' tenvC' tenv'.
+   type_ds uniq mn decls tenv ds decls' tenvT' tenvC' tenv' ⇒
+   !decls'' ttt.
+   uniq = F ∧
+   weak_decls decls'' decls ∧
+   weak_decls_other_mods mn decls'' decls ∧
+   tenv_tabbrev_ok tenv.t ∧
+   ttt.t = tenv.t ∧ ttt.v = tenv.v ∧
+   tenv_ctor_ok ttt.c ∧
+   weakM ttt.m tenv.m ∧
+   weakC ttt.c tenv.c
+   ⇒
+   type_ds F mn decls'' ttt ds decls' tenvT' tenvC' tenv'`,
+  ho_match_mp_tac type_ds_ind >>
+  rw [] >>
+  rw [Once type_ds_cases] >>
+  imp_res_tac type_d_weakening >>
+  imp_res_tac type_d_ctMap_ok >>
+  `tenv_ctor_ok (merge_alist_mod_env ([],cenv') ttt.c)`
+         by (rw [tenv_ctor_ok_merge] >>
+             metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
+  `weak_decls (union_decls decls' decls''') (union_decls decls' decls)`
+             by (metis_tac [weak_decls_union]) >>
+  `weak_decls_other_mods mn (union_decls decls' decls''') (union_decls decls' decls)`
+             by (metis_tac [weak_decls_other_mods_union]) >>
+  imp_res_tac type_d_tenvT_ok >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  ONCE_REWRITE_TAC[CONJ_COMM] >>
+  (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
+  (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
+  first_x_assum match_mp_tac >> simp[] >>
+  conj_tac >- (
+    match_mp_tac tenv_tabbrev_ok_merge >>
+    rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY]) >>
+  metis_tac [weakC_merge]);
 
 val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
 `!decls1 decls2 decls3.
@@ -818,8 +833,8 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  fs [SUBSET_DEF]);
 
 val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
-`∀uniq mn (tdecs1:decls) tenvT tenvM tenvC tenv ds tdecs1' tenvT' tenvC' tenv'.
-  type_ds uniq mn tdecs1 tenvT tenvM tenvC tenv ds tdecs1' tenvT' tenvC' tenv'
+`∀uniq mn (tdecs1:decls) tenv ds tdecs1' tenvT' tenvC' tenv'.
+  type_ds uniq mn tdecs1 tenv ds tdecs1' tenvT' tenvC' tenv'
   ⇒
   !(ctMap:ctMap). consistent_ctMap tdecs1 ctMap
   ⇒
