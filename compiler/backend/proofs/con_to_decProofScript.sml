@@ -17,55 +17,68 @@ val (dec_result_rel_rules, dec_result_rel_ind, dec_result_rel_cases) = Hol_reln 
   (∀err. dec_result_rel (SOME (Rraise err)) (Rval (Conv (SOME (some_tag, TypeId (Short "option"))) [err]))) ∧
   (∀a. dec_result_rel (SOME (Rabort a)) (Rerr (Rabort a)))`;
 
+val compile_state_def = Define`
+  compile_state (s:'ffi conSem$state) g =
+    <| ffi := s.ffi; refs := s.refs; clock := s.clock; globals := g |>`;
+
+val compile_state_globals = Q.store_thm("compile_state_globals[simp]",
+  `(compile_state s g).globals = g`,EVAL_TAC)
+
+val compile_state_clock = Q.store_thm("compile_state_clock[simp]",
+  `(compile_state s g).clock = s.clock`,EVAL_TAC)
+
+val compile_state_refs = Q.store_thm("compile_state_refs[simp]",
+  `(compile_state s g).refs = s.refs`,EVAL_TAC)
+
+val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
+  `dec_clock (compile_state s g) = compile_state (dec_clock s) g`,
+  EVAL_TAC)
+
+val compile_env_def = Define`
+  (compile_env (env:conSem$environment):decSem$environment) =
+    <| v := env.v; exh := env.exh |>`;
+
+val compile_env_v = Q.store_thm("compile_env_v[simp]",
+  `(compile_env env).v = env.v`, EVAL_TAC)
+
+val compile_env_with_v = Q.store_thm("compile_env_with_v[simp]",
+  `compile_env (env with v updated_by x) = compile_env env with v updated_by x`,
+  EVAL_TAC)
+
+val compile_env_exh = Q.store_thm("compile_env_exh[simp]",
+  `(compile_env env).exh = env.exh`, EVAL_TAC)
+
 (* semantic functions are equivalent *)
 
 val do_app = prove(
-  ``∀s op vs res.
-      conSem$do_app s op vs = SOME res ⇒
-      ∀c g. decSem$do_app ((c,s),g) op vs = SOME (((c,FST res),g),SND res)``,
+  ``∀st op vs res.
+      conSem$do_app st op vs = SOME res ⇒
+      ∀s. s.refs = FST st ∧ s.ffi = SND st ⇒
+        decSem$do_app s op vs = SOME (s with <|refs := FST(FST res); ffi := SND(FST res)|>,SND res)``,
   Cases >> rw[conSemTheory.do_app_def,decSemTheory.do_app_def] >>
-  Cases_on`op`>>fs[]>>
+  Cases_on`op`>>fs[] >>
   rpt(BasicProvers.CASE_TAC >> fs[LET_THM,store_alloc_def]))
 
 (* compiler correctness *)
 
 val s = mk_var("s",
-  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_exp_correct = Q.prove (
-  `(∀b env ^s e res.
-     evaluate b env s e res ⇒
+  `(∀env ^s es res.
+     evaluate env s es = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     !s' exh genv env' r.
-       (res = (s',r)) ∧
-       (env = (exh:exh_ctors_env,genv,env'))
-       ⇒
-       evaluate b (exh,env') (s,genv) e ((s',genv),r)) ∧
-   (∀b env ^s es res.
-     evaluate_list b env s es res ⇒
+       evaluate (compile_env env) (compile_state s env.globals) es = (compile_state (FST res) env.globals,SND res)) ∧
+   (∀env ^s v pes err_v res.
+     evaluate_match env s v pes err_v = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     !s' exh genv env' r.
-       (res = (s',r)) ∧
-       (env = (exh:exh_ctors_env,genv,env'))
-       ⇒
-       evaluate_list b (exh,env') (s,genv) es ((s',genv),r)) ∧
-   (∀b env ^s v pes err_v res.
-     evaluate_match b env s v pes err_v res ⇒
-     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     !s' exh genv env' r.
-       (res = (s',r)) ∧
-       (env = (exh:exh_ctors_env,genv,env'))
-       ⇒
-       evaluate_match b (exh,env') (s,genv) v pes err_v ((s',genv),r))`,
+     evaluate_match (compile_env env) (compile_state s env.globals) v pes err_v = (compile_state (FST res) env.globals,SND res))`,
   ho_match_mp_tac conSemTheory.evaluate_ind >>
-  rw [] >>
-  rw [Once decSemTheory.evaluate_cases] >>
-  fs [all_env_to_genv_def, all_env_to_env_def]
-  >> TRY(metis_tac []) >>
-  disj1_tac >>
-  first_assum(match_exists_tac o concl) >> rw[] >>
-  metis_tac[do_app,FST,SND]);
+  rw [decSemTheory.evaluate_def,conSemTheory.evaluate_def] >> rw[] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac do_app >> rw[] >>
+  fsrw_tac[QUANT_INST_ss[record_default_qp]][compile_state_def]);
 
 val init_globals_thm = Q.prove (
   `!new_env genv vs env. LENGTH vs = LENGTH new_env ∧ ALL_DISTINCT vs ⇒
