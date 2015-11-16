@@ -491,11 +491,12 @@ val type_v_weakening = Q.store_thm ("type_v_weakening",
  >- metis_tac []);
 
 val type_ctxt_weakening = Q.store_thm ("type_ctxt_weakening",
-`∀tvs ctMap tenvS tenv c t1 t2 tenvM' ctMap' tenvS' tenv' tenvC'.
+`∀tvs ctMap tenvS tenv c t1 t2 tenvM' ctMap' tenvS' tenv' tenvC' ttt.
     type_ctxt tvs ctMap tenvS tenv c t1 t2 ∧
     ctMap_ok ctMap' ∧ tenv_mod_ok tenvM' ∧ tenv_val_ok tenv.v ∧ (num_tvs tenv.v = 0) ∧
-    weakM tenvM' tenv.m ∧ weakC tenvC' tenv.c ∧ weakCT ctMap' ctMap ∧ weakS tenvS' tenvS ∧ weak_tenvE tenv' tenv.v ⇒
-    type_ctxt tvs ctMap' tenvS' <| v := tenv'; c := tenvC'; m := tenvM' |> c t1 t2`,
+    weakM tenvM' tenv.m ∧ weakC tenvC' tenv.c ∧ weakCT ctMap' ctMap ∧ weakS tenvS' tenvS ∧ weak_tenvE tenv' tenv.v ∧
+    ttt.v = tenv' ∧ ttt.c = tenvC' ∧ ttt.m = tenvM' ⇒
+    type_ctxt tvs ctMap' tenvS' ttt c t1 t2`,
  rw [type_ctxt_cases]
  >- (fs [RES_FORALL] >>
      rw [] >>
@@ -578,9 +579,7 @@ val type_ctxts_weakening = Q.store_thm ("type_ctxts_weakening",
  ho_match_mp_tac type_ctxts_ind >>
  rw [] >>
  rw [Once type_ctxts_cases]
- >- (qexists_tac `tenvM` >>
-     qexists_tac `tenvC` >>
-     qexists_tac `tenv` >>
+ >- (qexists_tac `tenv` >>
      qexists_tac `t1'` >>
      rw [] >-
      metis_tac [type_v_weakening] >-
@@ -589,9 +588,7 @@ val type_ctxts_weakening = Q.store_thm ("type_ctxts_weakening",
      match_mp_tac type_ctxt_weakening >>
      metis_tac [weak_tenvE_refl,weakM_refl,weakC_refl,
                 weak_tenvE_bind, weak_tenvE_bind_tvar2, type_v_freevars, type_v_weakening])
- >- (qexists_tac `tenvM` >>
-     qexists_tac `tenvC` >>
-     qexists_tac `tenv` >>
+ >- (qexists_tac `tenv` >>
      qexists_tac `t1'` >>
      rw [] >-
      metis_tac [type_v_weakening] >-
