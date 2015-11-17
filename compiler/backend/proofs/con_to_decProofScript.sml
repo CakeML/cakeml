@@ -5,6 +5,19 @@ open preamble
 
 val _ = new_theory "con_to_decProof";
 
+(* TODO: move? *)
+val GENLIST_eq_MAP_SOME = Q.store_thm("GENLIST_eq_MAP_SOME",
+  `GENLIST f n = MAP SOME ls ⇔
+   LENGTH ls = n ∧ ∀m. m < n ⇒ f m = SOME (EL m ls)`,
+  rw[LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP])
+
+val ALOOKUP_GENLIST = Q.store_thm("ALOOKUP_GENLIST",
+  `MAP FST ls = GENLIST f n ∧ ALL_DISTINCT (MAP FST ls) ⇒
+   m < n ⇒
+   ALOOKUP ls (f m) = SOME (SND (EL m ls))`,
+  metis_tac[ALOOKUP_ALL_DISTINCT_EL,EL_GENLIST,EL_MAP,LENGTH_MAP,LENGTH_GENLIST])
+(* -- *)
+
 (* relations *)
 
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
@@ -13,8 +26,8 @@ val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
   (∀a. result_rel (SOME (Rabort a)) (Rerr (Rabort a)))`;
 
 val (dec_result_rel_rules, dec_result_rel_ind, dec_result_rel_cases) = Hol_reln `
-  (dec_result_rel NONE (Rval (Conv (SOME (none_tag, TypeId (Short "option"))) []))) ∧
-  (∀err. dec_result_rel (SOME (Rraise err)) (Rval (Conv (SOME (some_tag, TypeId (Short "option"))) [err]))) ∧
+  (dec_result_rel NONE (Rval [Conv (SOME (none_tag, TypeId (Short "option"))) []])) ∧
+  (∀err. dec_result_rel (SOME (Rraise err)) (Rval [Conv (SOME (some_tag, TypeId (Short "option"))) [err]])) ∧
   (∀a. dec_result_rel (SOME (Rabort a)) (Rerr (Rabort a)))`;
 
 val compile_state_def = Define`
@@ -84,55 +97,26 @@ val compile_exp_correct = Q.prove (
   imp_res_tac do_app >> rw[] >>
   fsrw_tac[QUANT_INST_ss[record_default_qp]][compile_state_def]);
 
-(*
 val init_globals_thm = Q.prove (
-  `!new_env genv vs env. LENGTH vs = LENGTH new_env ∧ ALL_DISTINCT vs ⇒
-    evaluate_match env (s, genv ++ GENLIST (λt. NONE) (LENGTH new_env)) (Conv NONE new_env)
-    [(Pcon NONE (MAP Pvar vs), init_globals vs (LENGTH genv))]
-    (Conv (SOME(bind_tag,TypeExn (Short "Bind"))) [])
-    ((s,genv ++ MAP SOME new_env), Rval (Conv NONE []))`,
-  Induct >- (
-    simp[Once decSemTheory.evaluate_cases,pmatch_def,init_globals_def,LENGTH_NIL] >>
-    simp[Once decSemTheory.evaluate_cases,pat_bindings_def] >>
-    simp[Once decSemTheory.evaluate_cases] >>
-    metis_tac [pair_CASES]) >>
-  qx_genl_tac[`v`,`genv`,`vs0`,`env`] >> strip_tac >>
-  `∃w ws. vs0 = w::ws` by (Cases_on`vs0`>>fs[])>>
-  first_x_assum(qspecl_then[`genv++[SOME v]`,`ws`]mp_tac) >>
-  fs[] >> strip_tac >>
-  simp[Once decSemTheory.evaluate_cases] >> disj1_tac >>
-  simp[pmatch_def,pat_bindings_def] >>
-  PairCases_on`s`>>fs[] >>
-  simp[pmatch_list_Pvar,pats_bindings_MAP_Pvar,ALL_DISTINCT_APPEND,ALL_DISTINCT_REVERSE] >>
-  pop_assum mp_tac >>
-  simp[Once decSemTheory.evaluate_cases,pat_bindings_def,pmatch_def
-      ,pmatch_list_Pvar,pats_bindings_MAP_Pvar,ALL_DISTINCT_REVERSE
-      ,GENLIST_CONS,init_globals_def] >> strip_tac >>
-  simp[Once decSemTheory.evaluate_cases] >>
-  simp[Once decSemTheory.evaluate_cases] >>
-  simp[Once decSemTheory.evaluate_cases] >>
-  simp[Once decSemTheory.evaluate_cases] >>
-  simp[Once decSemTheory.evaluate_cases] >>
-  simp[decSemTheory.do_app_def,EL_APPEND1,EL_LENGTH_APPEND,PULL_EXISTS,libTheory.opt_bind_def] >>
-  simp[ALOOKUP_APPEND] >>
-  reverse BasicProvers.CASE_TAC >- (
-    imp_res_tac ALOOKUP_MEM >>
-    fs[MEM_MAP] >> rfs[MEM_ZIP] >>
-    fs[] >> metis_tac[MEM_EL] ) >>
-  simp[LUPDATE_APPEND1,combinTheory.o_DEF] >>
-  PairCases_on `env` >>
-  fs [FORALL_PROD] >>
-  metis_tac[CONS_APPEND,APPEND_ASSOC]);
-
-val init_globals_thm = prove(
-  ``!new_env.
-    evaluate_match ck (exh,[]) (s, genv ++ GENLIST (λt. NONE) (LENGTH new_env)) (Conv NONE new_env)
-      [(Pcon NONE (MAP Pvar (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env))),
-        init_globals (GENLIST (λn. STRING #"x" (toString n)) (LENGTH new_env)) (LENGTH genv))]
-     (Conv (SOME(bind_tag,TypeExn (Short "Bind"))) [])
-     ((s,genv ++ MAP SOME new_env), Rval (Conv NONE []))``,
-  rw[] >> match_mp_tac init_globals_thm >> simp[ALL_DISTINCT_GENLIST])
-*)
+  `∀vs env s n genv gs s' extra.
+   ALL_DISTINCT vs ∧ (MAP (ALOOKUP env.v) vs = MAP SOME gs) ∧
+   s.globals = genv ++ GENLIST (K NONE) (LENGTH gs) ++ extra ∧ n = LENGTH genv ∧
+   s' = s with globals := genv ++ MAP SOME gs ++ extra
+   ⇒ evaluate env s [init_globals vs n] =
+     (s',Rval [Conv NONE []])`,
+  Induct >>
+  rw[init_globals_def,decSemTheory.evaluate_def] >- rw[state_component_equality] >>
+  qpat_assum`_ = MAP SOME _`mp_tac >>
+  Cases_on`gs`>>rw[]>>
+  rw[decSemTheory.do_app_def,EL_APPEND2,LUPDATE_LENGTH,GENLIST_CONS,EL_APPEND1,LUPDATE_APPEND1]
+  >> TRY(fsrw_tac[ARITH_ss][] >> NO_TAC) >>
+  first_x_assum match_mp_tac >>
+  rw[state_component_equality] >>
+  qmatch_assum_rename_tac`_ = SOME g` >>
+  qmatch_assum_rename_tac`_ = MAP SOME gs` >>
+  map_every qexists_tac[`genv ++ [SOME g]`,`gs`] >>
+  simp[] >>
+  fs[LIST_EQ_REWRITE,EL_MAP,libTheory.opt_bind_def]);
 
 val init_global_funs_thm = Q.prove (
   `!l genv n.  LENGTH l ≤ n ⇒
@@ -150,7 +134,8 @@ val init_global_funs_thm = Q.prove (
   first_x_assum(qspec_then`genv++[SOME(Closure [] f1 f2)]`mp_tac) >> simp[] >>
   metis_tac[APPEND_ASSOC,CONS_APPEND]);
 
-(*
+val klem = EQT_ELIM(SIMP_CONV(srw_ss())[K_DEF]``(λx:num. NONE) = K NONE``)
+
 val compile_decs_correct = Q.store_thm("compile_decs_correct",
   `!env s ds s' new_env r.
     evaluate_decs env s ds = (s',new_env,r) ∧
@@ -186,124 +171,100 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     >-(Cases_on`err`>>fs[]) >>
     imp_res_tac compile_exp_correct >> rfs[compile_env_def] >>
     imp_res_tac evaluate_genv_weakening >>
-    fs[EQT_ELIM(SIMP_CONV(srw_ss())[K_DEF]``(λx:num. NONE) = K NONE``)] >>
+    fs[klem] >>
     rw[decSemTheory.evaluate_def] >> rfs[] ) >>
   first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   rw[] >>
   first_assum(match_exists_tac o concl) >> simp[] >>
-  imp_res_tac evaluate_genv_weakening >>
-  fs[EQT_ELIM(SIMP_CONV(srw_ss())[K_DEF]``(λx:num. NONE) = K NONE``)] >>
-  rw[conLangTheory.num_defs_def] >>
-  rw[Once ADD_COMM] >> rw[GENLIST_APPEND] >>
-  rw[decSemTheory.evaluate_def]
-
-      srw_tac [ARITH_ss] [GENLIST_APPEND] >>
-      disj1_tac >>
-      MAP_EVERY qexists_tac [`Conv NONE []`, `(s2, genv ++ MAP SOME new_env'' ++ GENLIST (λx. NONE) (num_defs ds))`] >>
-      rw [] >>
-      fs [LENGTH_APPEND] >>
-      MAP_EVERY qexists_tac [`Conv NONE new_env''`, `(s2,genv++GENLIST (λx. NONE) (num_defs ds) ++ GENLIST (λt. NONE) (LENGTH new_env''))`] >>
-      rw []
-      >- (simp_tac bool_ss [GSYM APPEND_ASSOC, GSYM GENLIST_APPEND] >>
-          metis_tac [evaluate_genv_weakening, result_distinct, pair_CASES])
-      >- (`!(l:conSem$v option list) x y. l ++ GENLIST (\x.NONE) y ++ GENLIST (\x.NONE) x = l ++ GENLIST (\x.NONE) x ++ GENLIST (\x.NONE) y`
-                   by (rw [] >>
-                       `!b. (\x. (\y. NONE) (x + b)) = (\y.NONE)` by rw [EXTENSION] >>
-                       srw_tac [ARITH_ss] [GSYM GENLIST_APPEND]) >>
-          metis_tac [init_globals_thm, evaluate_genv_weakening, result_distinct]))
+  imp_res_tac compile_exp_correct >> fs[] >>
+  imp_res_tac evaluate_genv_weakening >> fs[] >>
+  first_x_assum(fn th => mp_tac th >> discharge_hyps >- (strip_tac >> fs[result_rel_cases])) >>
+  strip_tac >> fs[klem] >>
+  fs[compile_env_def] >>
+  simp[decSemTheory.evaluate_def] >>
+  simp[pat_bindings_def,pats_bindings_MAP_Pvar,ALL_DISTINCT_REVERSE,ALL_DISTINCT_GENLIST] >>
+  simp[pmatch_def,pmatch_list_Pvar] >>
+  simp[libTheory.opt_bind_def] >>
+  (fn g =>
+    let
+      val SOME (s,_) =
+        bvk_find_term (K true) (match_term(lhs(rand(concl(SPEC_ALL init_globals_thm))))) (#2 g)
+      val th = CONV_RULE (RESORT_FORALL_CONV (sort_vars (map (#1 o dest_var o #redex) s))) init_globals_thm
+    in
+      mp_tac(SPECL (map #residue s) th)
+    end g) >>
+  simp[ALL_DISTINCT_REVERSE,ALL_DISTINCT_GENLIST,MAP_GENLIST,o_DEF] >>
+  simp[alookup_distinct_reverse,MAP_REVERSE,ALL_DISTINCT_GENLIST,MAP_ZIP] >>
+  disch_then(qspecl_then[`env.globals`]mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["genv"]))) >>
+  simp[] >>
+  simp[GENLIST_eq_MAP_SOME] >>
+  qpat_abbrev_tac`f:num->string = _` >> simp[] >>
+  qpat_abbrev_tac`ls = ZIP _` >>
+  `MAP FST ls = GENLIST f (LENGTH a)` by simp[Abbr`ls`,MAP_ZIP] >>
+  `ALL_DISTINCT (MAP FST ls)` by simp[ALL_DISTINCT_GENLIST,Abbr`f`] >>
+  imp_res_tac ALOOKUP_GENLIST >> simp[] >>
+  unabbrev_all_tac >> simp[EL_ZIP] >>
+  disch_then(qspec_then`a`mp_tac) >>
+  simp[conLangTheory.num_defs_def] >>
+  ONCE_REWRITE_TAC[ADD_COMM] >>
+  simp[GENLIST_APPEND] >>
+  fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM,klem]);
 
 val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
-  `!ck exh genv s p new_env s' r next' e.
-    evaluate_prompt ck (exh:exh_ctors_env) genv s p (s',new_env,r) ∧
+  `!env s p new_env s' r next' e.
+    evaluate_prompt env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH genv) p)
+    ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH env.globals) p)
     ⇒
     ?r_i3.
       dec_result_rel r r_i3 ∧
-      LENGTH genv + LENGTH new_env = next' ∧
-      evaluate ck (exh,[]) (s,genv) e ((s',genv++new_env),r_i3)`,
-  rw [evaluate_prompt_cases, compile_prompt_def] >>
-  fs [LET_THM, eval_let, evaluate_extend_genv] >>
-  rw [eval_con, eval_match_var, pat_bindings_def, libTheory.opt_bind_def, prompt_num_defs_def] >>
-  imp_res_tac compile_decs_correct >>
-  fs [result_rel_cases, dec_result_rel_cases] >>
-  ONCE_REWRITE_TAC [decSemTheory.evaluate_cases] >>
-  rw [eval_match_var, eval_let, eval_con]
-  >- metis_tac [eval_decs_num_defs]
-  >- (rw [Once (hd (tl (CONJUNCTS decSemTheory.evaluate_cases)))] >>
-      imp_res_tac eval_decs_num_defs >>
-      fs [] >>
-      metis_tac [])
-  >- (pop_assum mp_tac >>
-      rw [] >>
-      rw [] >>
-      imp_res_tac eval_decs_num_defs_err
-      >> TRY decide_tac
-      >> (ntac 4 (rw [Once (hd (tl (CONJUNCTS decSemTheory.evaluate_cases)))]) >>
-          rw [eval_var, pat_bindings_def] >>
-          metis_tac [PAIR_EQ, pair_CASES])));
+      LENGTH env.globals + LENGTH new_env = next' ∧
+      evaluate <| v := []; exh := env.exh |>
+        (compile_state s env.globals) [e] =
+      (compile_state s' (env.globals++new_env),r_i3)`,
+  Cases_on`p`>>
+  rw [evaluate_prompt_def, compile_prompt_def] >>
+  fs [LET_THM, decSemTheory.evaluate_def] >>
+  rw[libTheory.opt_bind_def] >>
+  rw[pat_bindings_def,pmatch_def] >>
+  first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+  imp_res_tac compile_decs_correct >> pop_assum kall_tac >>
+  pop_assum mp_tac >> discharge_hyps >- (strip_tac >> fs[]) >> strip_tac >>
+  simp[] >>
+  fs[result_rel_cases,dec_result_rel_cases] >> fs[] >>
+  imp_res_tac eval_decs_num_defs >>
+  imp_res_tac eval_decs_num_defs_err >> fs[] >>
+  rpt var_eq_tac >> simp[]);
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
-  `!ck exh genv s p new_env s' r next' e.
-    evaluate_prog ck exh genv s p (s',new_env,r) ∧
+  `!env s p new_env s' r next' e.
+    evaluate_prog env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    FLOOKUP exh (Short "option") = SOME (insert 0 2 (insert 1 2 LN)) ∧
-    (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH genv) p = (next',e))
+    FLOOKUP env.exh (Short "option") = SOME (insert 0 2 (insert 1 2 LN)) ∧
+    (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH env.globals) p = (next',e))
     ⇒
     ?r_i3.
       dec_result_rel r r_i3 ∧
-      (r = NONE ⇒ LENGTH genv + LENGTH new_env = next') ∧
-      evaluate ck (exh,[]) (s,genv) e ((s',genv++new_env),r_i3)`,
+      (r = NONE ⇒ LENGTH env.globals + LENGTH new_env = next') ∧
+      evaluate <| v := []; exh := env.exh|> (compile_state s env.globals) [e]
+      = (compile_state s' (env.globals++new_env),r_i3)`,
   induct_on `p` >>
-  rw [compile_prog_def, LET_THM]
-  >- (fs [Once decSemTheory.evaluate_cases, dec_result_rel_cases, Once evaluate_prog_cases] >>
-      rw [Once decSemTheory.evaluate_cases]) >>
+  rw [evaluate_prog_def,compile_prog_def, LET_THM,LENGTH_NIL]
+  >- (fs[dec_result_rel_cases,decSemTheory.evaluate_def]) >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
-  `?next' e'. compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) next'' p = (next',e')` by metis_tac [pair_CASES] >>
-  fs [] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
   rw [] >>
-  qpat_assum `evaluate_prog x0 x1 x2 x3 x4 x5` (mp_tac o SIMP_RULE (srw_ss()) [Once evaluate_prog_cases]) >>
-  rw [] >>
-  rw [Once decSemTheory.evaluate_cases, libTheory.opt_bind_def]
-  >- (
-    first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prompt_correct)) >>
-    simp[] >> strip_tac >>
-      res_tac >>
-      fs [] >>
-      rpt (pop_assum mp_tac) >>
-      simp[] >>
-      rw [] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      conj_tac >- (rw[] >> fs[] >> decide_tac) >>
-      `none_tag < 2` by EVAL_TAC >>
-      srw_tac [ARITH_ss] [eval_match_con] >>
-      fs [dec_result_rel_cases] >>
-      rw []
-      >- (qexists_tac `Conv (SOME (none_tag,(TypeId (Short "option")))) []` >>
-          simp [pmatch_def] >>
-          metis_tac [pair_CASES])
-      >- (qexists_tac `Conv (SOME (none_tag,TypeId (Short "option"))) []` >>
-          simp [pmatch_def] >>
-          metis_tac [pair_CASES])
-      >- (disj1_tac >>
-          qexists_tac `Conv (SOME (none_tag,(TypeId (Short "option")))) []` >>
-          simp [pmatch_def] >>
-          metis_tac [pair_CASES]))
-  >- (imp_res_tac compile_prompt_correct >>
-      fs [] >>
-      pop_assum mp_tac >>
-      rw [] >>
-      qexists_tac `r_i3` >>
-      srw_tac [ARITH_ss] [eval_match_con] >>
-      fs [dec_result_rel_cases] >>
-      rw [] >>
-      qexists_tac `Conv (SOME(some_tag,(TypeId (Short "option")))) [err']` >>
-      simp[PULL_EXISTS] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      disj2_tac >>
-      simp[pmatch_def,sptreeTheory.lookup_insert] >>
-      PairCases_on`s'`>>simp[] >>
-      EVAL_TAC));
-*)
+  rw [decSemTheory.evaluate_def] >>
+  rw [pat_bindings_def,pmatch_def] >>
+  first_assum(split_pair_case_tac o lhs o concl) >> fs [] >>
+  first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prompt_correct)) >>
+  simp[] >>
+  discharge_hyps >- (strip_tac >> fs[]) >> strip_tac >> simp[] >>
+  fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 2``] >> fs[] >>
+  rpt var_eq_tac >> simp[] >- (
+    first_assum(split_pair_case_tac o lhs o concl) >> fs [] >>
+    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    simp[] >> strip_tac >> simp[] >> rw[] >> simp[] ) >>
+  EVAL_TAC);
 
 val _ = export_theory ();
