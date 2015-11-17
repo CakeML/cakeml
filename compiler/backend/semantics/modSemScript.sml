@@ -26,19 +26,22 @@ val _ = Datatype`
     | Loc num
     | Vectorv (v list)`;
 
+val _ = Datatype`
+  state = <|
+    clock   : num;
+    refs    : modSem$v store;
+    ffi     : 'ffi ffi_state
+  |>`;
+
+val _ = Datatype`
+  environment = <|
+    globals : (modSem$v option) list;
+    c : env_ctor;
+    v : (varN, modSem$v) alist
+  |>`;
+
 val _ = Define`
   Boolv b = Conv (SOME ((if b then "true" else "false"), TypeId (Short "bool"))) []`;
-
-val _ = temp_type_abbrev( "all_env", ``:(modSem$v option) list # env_ctor # (varN, modSem$v)alist``);
-
-val all_env_to_genv_def = Define `
-  all_env_to_genv ((genv,cenv,env):all_env) = genv`;
-
-val all_env_to_cenv_def = Define `
-  all_env_to_cenv ((genv,cenv,env):all_env) = cenv`;
-
-val all_env_to_env_def = Define `
-  all_env_to_env ((genv,cenv,env):all_env) = env`;
 
 val build_conv_def = Define`
   build_conv (envC:env_ctor) cn vs =
@@ -109,12 +112,12 @@ val do_opapp_def = Define `
   do_opapp (genv:modSem$v option list) vs =
   case vs of
     | [Closure (cenv, env) n e; v] =>
-      SOME ((genv, cenv, ((n,v) :: env)), e)
+      SOME (<|globals:=genv; c:=cenv; v:=((n,v) :: env)|>, e)
     | [Recclosure (cenv, env) funs n; v] =>
       if ALL_DISTINCT (MAP FST funs) then
         (case find_recfun n funs of
          | SOME (n,e) =>
-             SOME ((genv, cenv, ((n,v) :: build_rec_env funs (cenv, env) env)), e)
+             SOME (<|globals:=genv; c:=cenv; v:=((n,v) :: build_rec_env funs (cenv, env) env)|>, e)
          | NONE => NONE)
       else NONE
     | _ => NONE`;
@@ -367,172 +370,151 @@ val pmatch_def = tDefine"pmatch"`
                                         | INR (a,x,ps,y,z) => pats_size ps)` >>
   srw_tac [ARITH_ss] [terminationTheory.size_abbrevs, astTheory.pat_size_def]);
 
-val (evaluate_rules,evaluate_ind,evaluate_cases) = Hol_reln`
-  (∀ck env s l.
-  evaluate ck (env:all_env) (s:(num # ('ffi,modSem$v)store_ffi )) ((Lit l):modLang$exp) (s, Rval ((Litv l):modSem$v)))
+val check_clock_def = Define`
+  check_clock s' s =
+    s' with clock := if s'.clock ≤ s.clock then s'.clock else s.clock`;
 
-/\ (! ck env e s1 s2 v.
-(evaluate ck s1 env e (s2, Rval v))
-==>
-evaluate ck s1 env (Raise e) (s2, Rerr (Rraise v)))
+val check_clock_id = Q.store_thm("check_clock_id",
+  `s'.clock ≤ s.clock ⇒ modSem$check_clock s' s = s'`,
+  EVAL_TAC >> rw[theorem"state_component_equality"])
 
-/\ (! ck env e s1 s2 err.
-(evaluate ck s1 env e (s2, Rerr err))
-==>
-evaluate ck s1 env (Raise e) (s2, Rerr err))
+val dec_clock_def = Define`
+  dec_clock s = s with clock := s.clock -1`;
 
-/\ (! ck s1 s2 env e v pes.
-(evaluate ck s1 env e (s2, Rval v))
-==>
-evaluate ck s1 env (Handle e pes) (s2, Rval v))
+val evaluate_def = tDefine"evaluate"`
+  (evaluate (env:modSem$environment) (s:'ffi modSem$state) ([]:modLang$exp list) = (s,Rval [])) ∧
+  (evaluate env s (e1::e2::es) =
+    case evaluate env s [e1] of
+    | (s', Rval v) =>
+        (case evaluate env (check_clock s' s) (e2::es) of
+         | (s, Rval vs) => (s, Rval (HD v::vs))
+         | res => res)
+    | res => res) ∧
+  (evaluate env s [(Lit l)] = (s, Rval [Litv l])) ∧
+  (evaluate env s [Raise e] =
+   case evaluate env s [e] of
+   | (s, Rval v) => (s, Rerr (Rraise (HD v)))
+   | res => res) ∧
+  (evaluate env s [Handle e pes] =
+   case evaluate env s [e] of
+   | (s', Rerr (Rraise v)) => evaluate_match env (check_clock s' s) v pes v
+   | res => res) ∧
+  (evaluate env s [Con cn es] =
+   if do_con_check env.c cn (LENGTH es) then
+     case evaluate env s (REVERSE es) of
+     | (s, Rval vs) =>
+       (s, case build_conv env.c cn (REVERSE vs) of
+           | SOME v => Rval [v]
+           | NONE => Rerr (Rabort Rtype_error))
+     | res => res
+   else (s, Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Var_local n] = (s,
+   case ALOOKUP env.v n of
+   | SOME v => Rval [v]
+   | NONE => Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Var_global n] = (s,
+   if n < LENGTH env.globals ∧ IS_SOME (EL n env.globals)
+   then Rval [THE (EL n env.globals)]
+   else Rerr (Rabort Rtype_error))) ∧
+  (evaluate env s [Fun n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
+  (evaluate env s [App op es] =
+   case evaluate env s (REVERSE es) of
+   | (s', Rval vs) =>
+       if op = Opapp then
+         (case do_opapp env.globals (REVERSE vs) of
+          | SOME (env', e) =>
+            if s'.clock = 0 ∨ s.clock = 0 then
+              (s', Rerr (Rabort Rtimeout_error))
+            else
+              evaluate env' (dec_clock (check_clock s' s)) [e]
+          | NONE => (s', Rerr (Rabort Rtype_error)))
+       else
+       (case (do_app (s'.refs,s'.ffi) op (REVERSE vs)) of
+        | NONE => (s', Rerr (Rabort Rtype_error))
+        | SOME ((refs',ffi'),r) => (s' with <|refs:=refs';ffi:=ffi'|>, list_result r))
+   | res => res) ∧
+  (evaluate env s [If e1 e2 e3] =
+   case evaluate env s [e1] of
+   | (s', Rval vs) =>
+     (case do_if (HD vs) e2 e3 of
+      | SOME e => evaluate env (check_clock s' s) [e]
+      | NONE => (s', Rerr (Rabort Rtype_error)))
+   | res => res) ∧
+  (evaluate env s [Mat e pes] =
+   case evaluate env s [e] of
+   | (s', Rval v) =>
+       evaluate_match env (check_clock s' s) (HD v) pes
+         (Conv (SOME ("Bind", (TypeExn (Short "Bind")))) [])
+   | res => res) ∧
+  (evaluate env s [Let n e1 e2] =
+   case evaluate env s [e1] of
+   | (s', Rval vs) => evaluate (env with v updated_by opt_bind n (HD vs)) (check_clock s' s) [e2]
+   | res => res) ∧
+  (evaluate env s [Letrec funs e] =
+   if ALL_DISTINCT (MAP FST funs)
+   then evaluate (env with v := build_rec_env funs (env.c,env.v) env.v) s [e]
+   else (s, Rerr (Rabort Rtype_error))) ∧
+  (evaluate_match env s v [] err_v = (s, Rerr(Rraise err_v))) ∧
+  (evaluate_match env s v ((p,e)::pes) err_v =
+   if ALL_DISTINCT (pat_bindings p []) then
+     case pmatch env.c s.refs p v env.v of
+     | Match env' => evaluate (env with v := env') s [e]
+     | No_match => evaluate_match env s v pes err_v
+     | _ => (s, Rerr(Rabort Rtype_error))
+   else (s, Rerr(Rabort Rtype_error)))`
+  (wf_rel_tac`inv_image ($< LEX $<)
+                (λx. case x of (INL(_,s,es)) => (s.clock,exp6_size es)
+                             | (INR(_,s,_,pes,_)) => (s.clock,exp3_size pes))` >>
+   simp[check_clock_def,dec_clock_def,do_if_def] >>
+   rw[] >> simp[]);
 
-/\ (! ck s1 s2 env e pes v bv.
-(evaluate ck env s1 e (s2, Rerr (Rraise v)) /\
-evaluate_match ck env s2 v pes v bv)
-==>
-evaluate ck env s1 (Handle e pes) bv)
+val evaluate_ind = theorem"evaluate_ind"
 
-/\ (! ck s1 s2 env e pes a.
-(evaluate ck env s1 e (s2, Rerr (Rabort a)))
-==>
-evaluate ck env s1 (Handle e pes) (s2, Rerr (Rabort a)))
+val s = ``s1:'ffi modSem$state``
 
-/\ (! ck env cn es vs s s' v.
-(do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-(build_conv (all_env_to_cenv env) cn (REVERSE vs) = SOME v) /\
-evaluate_list ck env s (REVERSE es) (s', Rval vs))
-==>
-evaluate ck env s (Con cn es) (s', Rval v))
+val evaluate_clock = Q.store_thm("evaluate_clock",
+  `(∀env ^s e r s2. evaluate env s1 e = (s2,r) ⇒ s2.clock ≤ s1.clock) ∧
+   (∀env ^s v pes v_err r s2. evaluate_match env s1 v pes v_err = (s2,r) ⇒ s2.clock ≤ s1.clock)`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  fs[check_clock_def,dec_clock_def] >> simp[] >>
+  fs[do_app_def] >>
+  every_case_tac >> fs[] >> rw[])
 
-/\ (! ck env cn es err s s'.
-(do_con_check (all_env_to_cenv env) cn (LENGTH es) /\
-evaluate_list ck env s (REVERSE es) (s', Rerr err))
-==>
-evaluate ck env s (Con cn es) (s', Rerr err))
+val s' = ``s':'ffi modSem$state``
+val clean_term =
+  term_rewrite
+  [``check_clock ^s' ^s = s'``,
+   ``^s'.clock = 0 ∨ ^s.clock = 0 ⇔ s'.clock = 0``]
 
-/\ (! ck env n v s.
-(ALOOKUP (all_env_to_env env) n = SOME v)
-==>
-evaluate ck env s (Var_local n) (s, Rval v))
+val evaluate_ind = let
+  val goal = evaluate_ind |> concl |> clean_term
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt gen_tac >> strip_tac >>
+  ho_match_mp_tac evaluate_ind >>
+  rw[] >> first_x_assum match_mp_tac >>
+  rw[] >> fs[] >>
+  res_tac >>
+  imp_res_tac evaluate_clock >>
+  fsrw_tac[ARITH_ss][check_clock_id])
+end
+|> curry save_thm "evaluate_ind"
 
-/\ (! ck env n v s.
-((LENGTH (all_env_to_genv env) > n) /\
-(EL n (all_env_to_genv env) = SOME v))
-==>
-evaluate ck env s (Var_global n) (s, Rval v))
+val evaluate_def = let
+  val goal = evaluate_def |> concl |> clean_term |> replace_term s' s
+  (* set_goal([],goal) *)
+in prove(goal,
+  rpt strip_tac >>
+  rw[Once evaluate_def] >>
+  every_case_tac >>
+  imp_res_tac evaluate_clock >>
+  fs[check_clock_id] >>
+  `F` suffices_by rw[] >> decide_tac)
+end
+|> curry save_thm "evaluate_def"
 
-/\ (! ck env n e s.
-evaluate ck env s (Fun n e) (s, Rval (Closure (all_env_to_cenv env, all_env_to_env env) n e)))
-
-/\ (! ck env es vs env' e bv s1 s2 t2 count.
-(evaluate_list ck env s1 (REVERSE es) ((count,s2,t2), Rval vs) /\
-(do_opapp (all_env_to_genv env) (REVERSE vs) = SOME (env', e)) /\
-(ck ==> ~ (count =( 0))) /\
-evaluate ck env' ((if ck then count -  1 else count),s2,t2) e bv)
-==>
-evaluate ck env s1 (App Opapp es) bv)
-
-/\ (! ck env es vs env' e s1 s2 count t2.
-(evaluate_list ck env s1 (REVERSE es) ((count,s2,t2), Rval vs) /\
-(do_opapp (all_env_to_genv env) (REVERSE vs) = SOME (env', e)) /\
-(count = 0) /\
-ck)
-==>
-evaluate ck env s1 (App Opapp es) (( 0,s2,t2), Rerr (Rabort Rtimeout_error)))
-
-/\ (! ck env op es vs res s1 s2 s3 t2 t3 count.
-(evaluate_list ck env s1 (REVERSE es) ((count,s2,t2), Rval vs) /\
-(do_app (s2,t2) op (REVERSE vs) = SOME ((s3,t3), res)) /\
-(op <> Opapp))
-==>
-evaluate ck env s1 (App op es) ((count,s3,t3), res))
-
-/\ (! ck env op es err s1 s2.
-(evaluate_list ck env s1 (REVERSE es) (s2, Rerr err))
-==>
-evaluate ck env s1 (App op es) (s2, Rerr err))
-
-/\ (! ck env e1 e2 e3 v e s1 s2 res.
-(evaluate ck env s1 e1 (s2, Rval v)) /\
-(do_if v e2 e3 = SOME e) /\
-(evaluate ck env s2 e res)
-==>
-evaluate ck env s1 (If e1 e2 e3) res)
-
-/\ (! ck env e1 e2 e3 s2 err.
-(evaluate ck env s1 e1 (s2, Rerr err))
-==>
-evaluate ck env s1 (If e1 e2 e3) (s2, Rerr err))
-
-/\ (! ck env e pes v bv s1 s2.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_match ck env s2 v pes (Conv (SOME ("Bind", TypeExn (Short "Bind"))) []) bv)
-==>
-evaluate ck env s1 (Mat e pes) bv)
-
-/\ (! ck env e pes err s s'.
-(evaluate ck env s e (s', Rerr err))
-==>
-evaluate ck env s (Mat e pes) (s', Rerr err))
-
-/\ (! ck genv cenv env n e1 e2 v bv s1 s2.
-(evaluate ck (genv,cenv,env) s1 e1 (s2, Rval v) /\
-evaluate ck (genv,cenv,opt_bind n v env) s2 e2 bv)
-==>
-evaluate ck (genv,cenv,env) s1 (Let n e1 e2) bv)
-
-/\ (! ck env n e1 e2 err s s'.
-(evaluate ck env s e1 (s', Rerr err))
-==>
-evaluate ck env s (Let n e1 e2) (s', Rerr err))
-
-/\ (! ck genv cenv env funs e bv s.
-(ALL_DISTINCT (MAP (\ (x,y,z) .  x) funs) /\
-evaluate ck (genv,cenv,build_rec_env funs (cenv,env) env) s e bv)
-==>
-evaluate ck (genv,cenv,env) s (Letrec funs e) bv)
-
-/\ (! ck env s.
-T
-==>
-evaluate_list ck env s [] (s, Rval []))
-
-/\ (! ck env e es v vs s1 s2 s3.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_list ck env s2 es (s3, Rval vs))
-==>
-evaluate_list ck env s1 (e::es) (s3, Rval (v::vs)))
-
-/\ (! ck env e es err s s'.
-(evaluate ck env s e (s', Rerr err))
-==>
-evaluate_list ck env s (e::es) (s', Rerr err))
-
-/\ (! ck env e es v err s1 s2 s3.
-(evaluate ck env s1 e (s2, Rval v) /\
-evaluate_list ck env s2 es (s3, Rerr err))
-==>
-evaluate_list ck env s1 (e::es) (s3, Rerr err))
-
-/\ (! ck env v err_v s.
-T
-==>
-evaluate_match ck env s v [] err_v (s, Rerr (Rraise err_v)))
-
-/\ (! ck genv cenv env env' v p pes e bv err_v s t count.
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch cenv s p v env = Match env') /\
-evaluate ck (genv,cenv,env') (count,s,t) e bv)
-==>
-evaluate_match ck (genv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv)
-
-/\ (! ck genv cenv env v p e pes bv s t count err_v.
-(ALL_DISTINCT (pat_bindings p []) /\
-(pmatch cenv s p v env = No_match) /\
-evaluate_match ck (genv,cenv,env) (count,s,t) v pes err_v bv)
-==>
-evaluate_match ck (genv,cenv,env) (count,s,t) v ((p,e)::pes) err_v bv)`;
-
+(*
 val (evaluate_dec_rules,evaluate_dec_ind,evaluate_dec_cases) = Hol_reln ` (! ck genv cenv n e vs s1 s2 tdecs.
 (evaluate ck (genv,cenv,[]) s1 e (s2, Rval (Conv NONE vs)) /\
 (LENGTH vs = n))
@@ -723,5 +705,11 @@ val semantics_def = Define`
          (build_lprefix_lub
            { fromList ffi.io_events |
                ∃k r. evaluate_prog_with_clock k st prog (ffi,r) })`;
+*)
+
+val _ = map delete_const
+  ["do_eq_UNION_aux","do_eq_UNION",
+   "pmatch_UNION_aux","pmatch_UNION",
+   "evaluate_UNION_aux","evaluate_UNION"];
 
 val _ = export_theory()
