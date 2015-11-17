@@ -8,6 +8,10 @@ open boolSimps;
 
 val _ = new_theory "evalProps";
 
+val with_same_v = Q.store_thm("with_same_v[simp]",
+  `env with v := env.v = env`,
+  rw[environment_component_equality]);
+
 val mk_id_11 = Q.store_thm("mk_id_11[simp]",
   `mk_id a b = mk_id c d ⇔ (a = c) ∧ (b = d)`,
   map_every Cases_on[`a`,`c`] >> EVAL_TAC)

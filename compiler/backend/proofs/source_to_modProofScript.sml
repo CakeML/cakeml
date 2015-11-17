@@ -4,12 +4,6 @@ open source_to_modTheory modLangTheory modSemTheory modPropsTheory;
 
 val _ = new_theory "source_to_modProof";
 
-(* TODO: move *)
-val with_same_v = Q.store_thm("with_same_v[simp]",
-  `env with v := env.v = env`,
-  rw[environment_component_equality]);
-(* -- *)
-
 (* value relation *)
 
 val (v_rel_rules, v_rel_ind, v_rel_cases) = Hol_reln `
