@@ -91,6 +91,22 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
   rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
+val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
+  `(∀env (s:'ffi conSem$state) es s' r.
+       evaluate env s es = (s',r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate env (s with clock := s.clock + extra) es =
+         (s' with clock := s'.clock + extra,r)) ∧
+   (∀env (s:'ffi conSem$state) pes v err_v s' r.
+       evaluate_match env s pes v err_v = (s',r) ∧
+       r ≠ Rerr (Rabort Rtimeout_error) ⇒
+       evaluate_match env (s with clock := s.clock + extra) pes v err_v =
+         (s' with clock := s'.clock + extra,r))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
+
 val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
   `∀xs exh vs s env.
      LENGTH xs = LENGTH vs ⇒
