@@ -354,9 +354,10 @@ val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!genv mods tops env env' env_i1 locals.
     locals = set (MAP FST env.v) ∧
     global_env_inv genv mods tops env.m locals env' ∧
-    env_rel genv env.v env_i1
+    env_rel genv env.v env_i1.v ∧
+    env_i1.c = env.c
     ⇒
-    env_all_rel genv mods tops (env with v := env.v ++ env') (genv,env.c,env_i1) locals)`;
+    env_all_rel env_i1.globals mods tops (env with v := env.v ++ env') env_i1 locals)`;
 
 val match_result_rel_def = Define
   `(match_result_rel genv env' (Match env) (Match env_i1) =
@@ -412,13 +413,11 @@ val do_con_check = Q.prove (
     do_con_check env.c cn (LENGTH es) ∧
     env_all_rel genv mods tops env env_i1 locals
     ⇒
-    do_con_check (all_env_to_cenv env_i1) cn (LENGTH (compile_exps mods (DRESTRICT tops (COMPL locals)) es))`,
+    do_con_check env_i1.c cn (LENGTH (compile_exps mods (DRESTRICT tops (COMPL locals)) es))`,
   rw [do_con_check_def] >>
   every_case_tac >>
   fs [env_all_rel_cases] >>
-  rw [] >>
-  fs [all_env_to_cenv_def] >>
-  rw [] >>
+  rw [] >> fs[] >> rfs[] >> rw[] >>
   ntac 3 (pop_assum (fn _ => all_tac)) >>
   induct_on `es` >>
   rw [compile_exp_def]);
@@ -764,7 +763,7 @@ val do_opapp = Q.prove (
        rw [] >>
        MAP_EVERY qexists_tac [`mods`, `tops`, `n INSERT set (MAP FST env_i1)`] >>
        rw [DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
-       MAP_EVERY qexists_tac [`env with v := (n, v2) :: env.v`, `env'`] >>
+       MAP_EVERY qexists_tac [`genv`,`env with v := (n, v2) :: env.v`, `env'`] >>
        rw [v_rel_eqns]
        >- metis_tac [env_rel_dom] >>
        fs [v_rel_eqns])
@@ -776,7 +775,7 @@ val do_opapp = Q.prove (
        >- (MAP_EVERY qexists_tac [`mods`, `tops`, `n'' INSERT set (MAP FST env_i1) ∪ set (MAP FST funs)`] >>
            rw [DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
            rw []
-           >- (MAP_EVERY qexists_tac [`env with v := (n'', v2)::build_rec_env funs (env with v := env.v ++ env') env.v`, `env'`] >>
+           >- (MAP_EVERY qexists_tac [`genv`,`env with v := (n'', v2)::build_rec_env funs (env with v := env.v ++ env') env.v`, `env'`] >>
                rw [evalPropsTheory.build_rec_env_merge, EXTENSION]
                >- (rw [MEM_MAP, EXISTS_PROD] >>
                    imp_res_tac env_rel_dom >>
@@ -793,9 +792,9 @@ val do_opapp = Q.prove (
             fs[FST_triple]))
        >- (MAP_EVERY qexists_tac [`mods`, `tops|++tops'`, `{n''}`] >>
            rw [DRESTRICT_UNIV, GSYM DRESTRICT_DOMSUB, compl_insert, env_all_rel_cases] >>
-           MAP_EVERY qexists_tac [`<| m := env''.m; c := env''.c; v := [(n'',v2)] |>`,
+           MAP_EVERY qexists_tac [`genv`,`<| m := env''.m; c := env''.c; v := [(n'',v2)] |>`,
                                   `build_rec_env funs env'' env''.v`] >>
-           rw [environment_component_equality, evalPropsTheory.build_rec_env_merge, EXTENSION]
+           rw [semanticPrimitivesTheory.environment_component_equality, evalPropsTheory.build_rec_env_merge, EXTENSION]
            >- (match_mp_tac global_env_inv_extend2 >>
                rw [MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, FST_triple, GSYM MAP_REVERSE]
                >- metis_tac [global_env_inv_add_locals, UNION_EMPTY] >>
@@ -824,13 +823,11 @@ val build_conv = Q.prove (
     ⇒
     ∃v'.
       v_rel genv v v' ∧
-      build_conv (all_env_to_cenv env_i1) cn vs' = SOME v'`,
+      build_conv env_i1.c cn vs' = SOME v'`,
   rw [semanticPrimitivesTheory.build_conv_def, modSemTheory.build_conv_def] >>
   every_case_tac >>
   rw [Once v_rel_cases] >>
-  fs [env_all_rel_cases] >>
-  rw [] >>
-  fs [all_env_to_cenv_def]);
+  fs [env_all_rel_cases] >> rfs[]);
 
 val pmatch = Q.prove (
   `(!cenv s p v env r env' env'' genv env_i1 s_i1 v_i1.
