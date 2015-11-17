@@ -55,4 +55,10 @@ val _ = Define`
    let (next'',ps') = compile_prog none_tag some_tag next' ps in
      (next'',Mat p' [(Pcon (SOME none_tag) [], ps'); (Pvar "x", Var_local "x")]))`;
 
+val _ = Define`
+  compile =
+    compile_prog
+    (none_tag, TypeId(Short"option"))
+    (some_tag, TypeId(Short "option"))`;
+
 val _ = export_theory()

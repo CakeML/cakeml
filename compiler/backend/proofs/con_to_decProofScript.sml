@@ -44,6 +44,10 @@ val compile_state_with_globals = Q.store_thm("compile_state_with_globals[simp]",
 val compile_state_clock = Q.store_thm("compile_state_clock[simp]",
   `(compile_state s g).clock = s.clock`,EVAL_TAC)
 
+val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
+  `compile_state (s with clock updated_by f) g = compile_state s g with clock updated_by f`,
+  EVAL_TAC)
+
 val compile_state_refs = Q.store_thm("compile_state_refs[simp]",
   `(compile_state s g).refs = s.refs`,EVAL_TAC)
 
@@ -236,7 +240,7 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   imp_res_tac eval_decs_num_defs_err >> fs[] >>
   rpt var_eq_tac >> simp[]);
 
-val compile_prog_correct = Q.store_thm ("compile_prog_correct",
+val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   `!env s p new_env s' r next' e.
     evaluate_prog env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
@@ -266,5 +270,103 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
     simp[] >> strip_tac >> simp[] >> rw[] >> simp[] ) >>
   EVAL_TAC);
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `FLOOKUP env.exh (Short "option") = SOME (insert 0 2 (insert 1 2 LN)) ∧
+   semantics env s p ≠ Fail ⇒
+   semantics <| v := []; exh := env.exh |> (compile_state s env.globals)
+     [SND(compile (LENGTH env.globals) p)] =
+   semantics env s p`,
+  simp[conSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`st'` >> rpt strip_tac >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    discharge_hyps_keep >- metis_tac[SND] >>
+    simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
+    strip_tac >>
+    simp[decSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      fs[compile_env_def] >>
+      qmatch_assum_abbrev_tac`SND q = _` >>
+      Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      qmatch_assum_abbrev_tac`dec_result_rel _ (SND q)` >>
+      `SND q ≠ Rerr (Rabort Rtype_error) ∧
+       SND q ≠ Rerr (Rabort Rtimeout_error)` by (
+        conj_tac >>
+        strip_tac >> Cases_on`q` >> fs[dec_result_rel_cases] ) >>
+      Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+      qpat_assum`_ = _`(assume_tac o SYM) >>
+      imp_res_tac (CONJUNCT1 evaluate_add_to_clock) >> rfs[] >> fs[] >>
+      rpt var_eq_tac >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + xet:num` >>
+      var_eq_tac >> rfs[compile_def] >>
+      rpt(first_x_assum(qspec_then`xet`mp_tac)) >> simp[]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`st''` >> strip_tac >>
+      qmatch_assum_abbrev_tac`dec_result_rel _ (SND ress4)` >>
+      `SND ress4 ≠ Rerr (Rabort Rtimeout_error)` by (strip_tac >> Cases_on`ress4` >> fs[dec_result_rel_cases]) >>
+      Cases_on`ress4`>>fs[markerTheory.Abbrev_def] >>
+      qpat_assum`_ = _`(assume_tac o SYM) >>
+      imp_res_tac (CONJUNCT1 evaluate_add_to_clock) >> fs[] >>
+      rpt var_eq_tac >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + xet:num` >>
+      var_eq_tac >> rfs[compile_def] >>
+      ntac 2(first_x_assum(qspec_then`xet`mp_tac)) >> rw[] >>
+      fs[dec_result_rel_cases,compile_state_def] >>
+      rw[] >> fs[state_component_equality]) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qexists_tac`k` >> fs[] >>
+    spose_not_then strip_assume_tac >>
+    fs[dec_result_rel_cases] >> rfs[compile_def] >> fs[]) >>
+  ntac 2 strip_tac >>
+  simp[decSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND (SND q) ≠ _` >>
+    PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[] >>
+    simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
+    fs[compile_def] >>
+    rw[dec_result_rel_cases]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`SND (SND q) = _` >>
+    PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[] >>
+    simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
+    fs[compile_def] >>
+    rw[dec_result_rel_cases]) >>
+  rpt strip_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  specl_args_of_then``evaluate_prog``compile_prog_evaluate mp_tac >>
+  simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
+  simp[] >>
+  strip_tac >>
+  first_x_assum(qspec_then`k`strip_assume_tac) >>
+  fs[compile_def] >>
+  qmatch_assum_abbrev_tac`dec_result_rel (SND(SND q1)) (SND q2)` >>
+  PairCases_on`q1`>>PairCases_on`q2` >>
+  fs[markerTheory.Abbrev_def] >>
+  ntac 2 (qpat_assum`(_,_) = _`(assume_tac o SYM)) >> fs[] >>
+  rpt var_eq_tac >>
+  fs[dec_result_rel_cases,compile_state_def]);
 
 val _ = export_theory ();
