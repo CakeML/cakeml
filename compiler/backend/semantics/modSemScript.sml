@@ -30,7 +30,8 @@ val _ = Datatype`
   state = <|
     clock   : num;
     refs    : modSem$v store;
-    ffi     : 'ffi ffi_state
+    ffi     : 'ffi ffi_state;
+    defined_types : tid_or_exn set
   |>`;
 
 val _ = Datatype`
@@ -514,50 +515,43 @@ in prove(goal,
 end
 |> curry save_thm "evaluate_def"
 
+val evaluate_dec_def = Define`
+  (evaluate_dec env s (Dlet n e) =
+   case evaluate (env with v := []) s [e] of
+   | (s, Rval [Conv NONE vs]) =>
+     (s, if LENGTH vs = n then Rval ([],vs)
+         else Rerr (Rabort Rtype_error))
+   | (s, Rval _) => (s, Rerr (Rabort Rtype_error))
+   | (s, Rerr e) => (s, Rerr e)) ∧
+  (evaluate_dec env s (Dletrec funs) =
+     (s, Rval ([], MAP (λ(f,x,e). Closure (env.c,[]) x e) funs))) ∧
+  (evaluate_dec env s (Dtype mn tds) =
+   let new_tdecs = type_defs_to_new_tdecs mn tds in
+   if check_dup_ctors tds ∧ DISJOINT new_tdecs s.defined_types ∧
+      ALL_DISTINCT (MAP (λ(tvs,tn,ctors). tn) tds)
+   then (s with defined_types updated_by ($UNION new_tdecs),
+         Rval (build_tdefs mn tds, []))
+   else (s, Rerr (Rabort Rtype_error))) ∧
+  (evaluate_dec env s (Dexn mn cn ts) =
+   if TypeExn (mk_id mn cn) ∈ s.defined_types
+   then (s,Rerr (Rabort Rtype_error))
+   else (s with defined_types updated_by ($INSERT (TypeExn (mk_id mn cn))),
+         Rval ([cn, (LENGTH ts, TypeExn (mk_id mn cn))],[])))`;
+
+val evaluate_decs_def = Define`
+  (evaluate_decs env s [] = (s, [], [], NONE)) ∧
+  (evaluate_decs env s (d::ds) =
+   case evaluate_dec env s d of
+   | (s, Rval (new_tds,new_env)) =>
+     (case evaluate_decs
+             (env with
+               <| globals updated_by (λg. g ++ MAP SOME new_env);
+                  c updated_by merge_alist_mod_env ([],new_tds)|>)
+             s ds of
+      | (s, new_tds', new_env', r) => (s, new_tds' ++ new_tds, new_env ++ new_env', r))
+   | (s, Rerr e) => (s, [], [], SOME e))`;
+
 (*
-val (evaluate_dec_rules,evaluate_dec_ind,evaluate_dec_cases) = Hol_reln ` (! ck genv cenv n e vs s1 s2 tdecs.
-(evaluate ck (genv,cenv,[]) s1 e (s2, Rval (Conv NONE vs)) /\
-(LENGTH vs = n))
-==>
-evaluate_dec ck genv cenv (s1,tdecs) (Dlet n e) ((s2,tdecs), Rval ([], vs)))
-
-/\ (! ck genv cenv n e err s s' tdecs.
-(evaluate ck (genv,cenv,[]) s e (s', Rerr err))
-==>
-evaluate_dec ck genv cenv (s,tdecs) (Dlet n e) ((s',tdecs), Rerr err))
-
-/\ (! ck genv cenv funs s.
-T
-==>
-evaluate_dec ck genv cenv s (Dletrec funs) (s, Rval ([], MAP (\ (f,x,e) .  Closure (cenv,[]) x e) funs)))
-
-/\ (! ck mn genv cenv tds s tdecs new_tdecs.
-(check_dup_ctors tds /\
-(new_tdecs = type_defs_to_new_tdecs mn tds) /\
-DISJOINT new_tdecs tdecs /\
-ALL_DISTINCT (MAP (\ (tvs,tn,ctors) .  tn) tds))
-==>
-evaluate_dec ck genv cenv (s,tdecs) (Dtype mn tds) ((s,(new_tdecs UNION tdecs)), Rval (build_tdefs mn tds, [])))
-
-/\ (! ck mn genv cenv cn ts s tdecs.
-(~ (TypeExn (mk_id mn cn) IN tdecs))
-==>
-evaluate_dec ck genv cenv (s,tdecs) (Dexn mn cn ts) ((s, ({TypeExn (mk_id mn cn)} UNION tdecs)), Rval ([(cn, (LENGTH ts, TypeExn (mk_id mn cn)))], [])))`;
-
-val (evaluate_decs_rules,evaluate_decs_ind,evaluate_decs_cases) = Hol_reln ` (! ck genv cenv s.
-evaluate_decs ck genv cenv s [] (s, [], [], NONE))
-
-/\ (! ck s1 s2 genv cenv d ds e.
-(evaluate_dec ck genv cenv s1 d (s2, Rerr e))
-==>
-evaluate_decs ck genv cenv s1 (d::ds) (s2, [], [], SOME e))
-
-/\ (! ck s1 s2 s3 genv cenv d ds new_tds' new_tds new_env new_env' r.
-(evaluate_dec ck genv cenv s1 d (s2, Rval (new_tds,new_env)) /\
-evaluate_decs ck (genv ++ MAP SOME new_env) (merge_alist_mod_env ([],new_tds) cenv) s2 ds (s3, new_tds', new_env', r))
-==>
-evaluate_decs ck genv cenv s1 (d::ds) (s3, (new_tds' ++ new_tds), (new_env ++ new_env'), r))`;
-
 val mod_cenv_def = Define `
  (mod_cenv (mn:modN option) (cenv:flat_env_ctor) =
 ((case mn of
