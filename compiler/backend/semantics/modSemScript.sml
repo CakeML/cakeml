@@ -31,7 +31,8 @@ val _ = Datatype`
     clock   : num;
     refs    : modSem$v store;
     ffi     : 'ffi ffi_state;
-    defined_types : tid_or_exn set
+    defined_types : tid_or_exn set;
+    defined_mods : modN set
   |>`;
 
 val _ = Datatype`
@@ -551,7 +552,6 @@ val evaluate_decs_def = Define`
       | (s, new_tds', new_env', r) => (s, new_tds' ++ new_tds, new_env ++ new_env', r))
    | (s, Rerr e) => (s, [], [], SOME e))`;
 
-(*
 val mod_cenv_def = Define `
  (mod_cenv (mn:modN option) (cenv:flat_env_ctor) =
 ((case mn of
@@ -607,41 +607,30 @@ val prompt_mods_ok_def = Define `
       ))
     ds)))`;
 
+val evaluate_prompt_def = Define`
+  evaluate_prompt env s (Prompt mn ds) =
+  if no_dup_types ds ∧
+     prompt_mods_ok mn ds ∧
+     (∀name. mn = SOME name ⇒ name ∉ s.defined_mods)
+  then
+  let (s, cenv, genv, r) = evaluate_decs env s ds in
+    (s with defined_mods updated_by update_mod_state mn,
+     mod_cenv mn cenv,
+     MAP SOME genv ++ (if r = NONE then [] else GENLIST (K NONE) (decs_to_dummy_env ds - LENGTH genv)),
+     r)
+  else (s, mod_cenv mn [], [], SOME (Rabort Rtype_error))`;
 
-val (evaluate_decs_rules,evaluate_decs_ind,evaluate_decs_cases) = Hol_reln ` (! ck genv cenv s1 tdecs1 mods ds s2 tdecs2 cenv' env mn.
-((! name. (mn = SOME name) ==> ~ (name IN mods)) /\
-no_dup_types ds /\
-prompt_mods_ok mn ds /\
-evaluate_decs ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,NONE))
-==>
-evaluate_prompt ck genv cenv (s1,tdecs1,mods) (Prompt mn ds) ((s2,tdecs2,update_mod_state mn mods), mod_cenv mn cenv', MAP SOME env, NONE))
-
-/\ (! ck genv cenv s1 tdecs1 mods mn ds s2 tdecs2 cenv' env err.
-((! name. (mn = SOME name) ==> ~ (name IN mods)) /\
-no_dup_types ds /\
-prompt_mods_ok mn ds /\
-evaluate_decs ck genv cenv (s1,tdecs1) ds ((s2,tdecs2),cenv',env,SOME err))
-==>
-evaluate_prompt ck genv cenv (s1,tdecs1,mods) (Prompt mn ds)
-                                                  ((s2,tdecs2,update_mod_state mn mods),
-                                                   mod_cenv mn cenv',
- (MAP SOME env ++ GENLIST (K NONE) (decs_to_dummy_env ds - LENGTH env)), SOME err))`;
-
-val (evaluate_prog_rules,evaluate_prog_ind,evaluate_prog_cases) = Hol_reln ` (! ck genv cenv s.
-T
-==>
-evaluate_prog ck genv cenv s [] (s, ([],[]), [], NONE))
-
-/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 s3 cenv3 env3 r.
-(evaluate_prompt ck genv cenv s1 prompt (s2, cenv2, env2, NONE) /\
-evaluate_prog ck (genv++env2) (merge_alist_mod_env cenv2 cenv) s2 prompts (s3, cenv3, env3, r))
-==>
-evaluate_prog ck genv cenv s1 (prompt::prompts) (s3, merge_alist_mod_env cenv3 cenv2, (env2++env3), r))
-
-/\ (! ck genv cenv s1 prompt prompts s2 cenv2 env2 err.
-(evaluate_prompt ck genv cenv s1 prompt (s2, cenv2, env2, SOME err))
-==>
-evaluate_prog ck genv cenv s1 (prompt::prompts) (s2, cenv2, env2, SOME err))`;
+val evaluate_prompts_def = Define`
+  (evaluate_prompts env s [] = (s, ([],[]), [], NONE)) ∧
+  (evaluate_prompts env s (prompt::prompts) =
+   case evaluate_prompt env s prompt of
+   | (s, cenv, genv, NONE) =>
+     (case evaluate_prompts
+           (env with <| globals updated_by (λg. g ++ genv);
+                        c updated_by merge_alist_mod_env cenv |>)
+           s prompts of
+      | (s, cenv', genv', r) => (s, merge_alist_mod_env cenv' cenv, genv ++ genv', r))
+   | res => res)`;
 
 val prog_to_mods_def = Define `
  (prog_to_mods prompts =
@@ -652,7 +641,7 @@ val prog_to_mods_def = Define `
      prompts)))`;
 
 val no_dup_mods_def = Define `
- (no_dup_mods prompts (_,_,mods) =
+ (no_dup_mods prompts mods =
 (ALL_DISTINCT (prog_to_mods prompts) /\
   DISJOINT (LIST_TO_SET (prog_to_mods prompts)) mods))`;
 
@@ -665,31 +654,27 @@ val prog_to_top_types_def = Define `
      prompts)))`;
 
 val no_dup_top_types_def = Define `
- (no_dup_top_types prompts (_, tids, _) =
+ (no_dup_top_types prompts tids =
 (ALL_DISTINCT (prog_to_top_types prompts) /\
   DISJOINT (LIST_TO_SET (MAP (\ tn .  TypeId (Short tn)) (prog_to_top_types prompts))) tids))`;
 
-val evaluate_whole_prog_def = Define `
- (evaluate_whole_prog ck genv cenv s1 prompts (s2, cenv2, env2, res) =
-(if no_dup_mods prompts s1 /\ no_dup_top_types prompts s1 /\
-     EVERY (λp.  (case p of Prompt mn ds => prompt_mods_ok mn ds )) prompts then
-    evaluate_prog ck genv cenv s1 prompts (s2, cenv2, env2, res)
-  else
-    res = SOME (Rabort Rtype_error)))`;
-
-val evaluate_prog_with_clock_def = Define`
-  evaluate_prog_with_clock k (genv,cenv,st) prog (ffi,res) ⇔
-    ∃k' st' st2' cenv' env'.
-      evaluate_whole_prog T genv cenv ((k,FST st),SND st) prog (((k',st',ffi),st2'),cenv',env',res)`;
+val evaluate_prog_def = Define `
+ (evaluate_prog env s prompts =
+  if no_dup_mods prompts s.defined_mods ∧
+     no_dup_top_types prompts s.defined_types ∧
+     EVERY (λp. (case p of Prompt mn ds => prompt_mods_ok mn ds)) prompts
+  then let (s,_,_,r) = evaluate_prompts env s prompts in (s,r)
+  else (s, SOME(Rabort Rtype_error)))`;
 
 val semantics_def = Define`
-  semantics st prog =
-    if ∃k ffi. evaluate_prog_with_clock k st prog (ffi,SOME (Rabort Rtype_error))
+  semantics env st prog =
+    if ∃k. SND (evaluate_prog env (st with clock := k) prog) = SOME (Rabort Rtype_error)
       then Fail
     else
     case some ffi.
-      ∃k r. evaluate_prog_with_clock k st prog (ffi,r) ∧
-            r ≠ SOME (Rabort Rtimeout_error)
+      ∃k s r.
+        evaluate_prog env (st with clock := k) prog = (s,r) ∧
+          r ≠ SOME (Rabort Rtimeout_error) ∧ ffi = s.ffi
     of SOME ffi =>
          Terminate
            (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
@@ -697,9 +682,7 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           { fromList ffi.io_events |
-               ∃k r. evaluate_prog_with_clock k st prog (ffi,r) })`;
-*)
+           (IMAGE (λk. fromList (FST (evaluate_prog env (st with clock := k) prog)).ffi.io_events) UNIV))`;
 
 val _ = map delete_const
   ["do_eq_UNION_aux","do_eq_UNION",
