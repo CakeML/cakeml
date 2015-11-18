@@ -505,12 +505,12 @@ val v_rel_weakening = Q.prove (
       >- metis_tac []));
 
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
-  (!genv envC gtagenv exh env env_i2 genv_i2.
-    cenv_inv envC exh tagenv gtagenv ∧
-    LIST_REL (OPTION_REL (v_rel gtagenv)) genv genv_i2 ∧
-    env_rel gtagenv env env_i2
+  (!gtagenv env env_i2.
+    cenv_inv env.c env_i2.exh tagenv gtagenv ∧
+    LIST_REL (OPTION_REL (v_rel gtagenv)) env.globals env_i2.globals ∧
+    env_rel gtagenv env.v env_i2.v
     ⇒
-    env_all_rel tagenv (genv,envC,env) (exh,genv_i2,env_i2) gtagenv)`;
+    env_all_rel tagenv env env_i2 gtagenv)`;
 
 val env_rel_append = Q.prove (
   `!gtagenv env1 env2 env1' env2'.
@@ -1024,13 +1024,13 @@ val do_app = Q.prove (
   >- tac);
 
 val do_opapp = Q.prove (
-  `!gtagenv vs vs_i2 env e genv env' tagenv envC env_i2.
-    do_opapp genv vs = SOME (env', e) ∧
-    env_all_rel tagenv (genv,envC,env) env_i2 gtagenv ∧
+  `!gtagenv vs vs_i2 env e genv env' tagenv env_i2.
+    do_opapp env.globals vs = SOME (env', e) ∧
+    env_all_rel tagenv env env_i2 gtagenv ∧
     vs_rel gtagenv vs vs_i2
     ⇒
      ∃tagenv env_i2'.
-       env_all_rel tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
+       env_all_rel tagenv env' (env_i2 with v := env_i2') gtagenv ∧
        do_opapp vs_i2 = SOME (env_i2', compile_exp tagenv e)`,
   rw [modSemTheory.do_opapp_def] >>
   every_case_tac >>
@@ -1042,7 +1042,7 @@ val do_opapp = Q.prove (
       qexists_tac `tagenv'` >>
       rw [] >>
       fs [env_all_rel_cases] >>
-      rw [v_rel_eqns, modSemTheory.all_env_to_genv_def, conSemTheory.all_env_to_genv_def, get_tagenv_def] >>
+      rw [v_rel_eqns, get_tagenv_def] >>
       fs [cenv_inv_def])
   >- (qpat_assum `v_rel a0 (Recclosure b0 c0 d0) e0` (mp_tac o SIMP_RULE (srw_ss()) [Once v_rel_cases]) >>
       rw [] >>
@@ -1059,8 +1059,7 @@ val do_opapp = Q.prove (
       >- (qexists_tac `tagenv'` >>
           rw [] >>
           fs [env_all_rel_cases] >>
-          rw [v_rel_eqns, modSemTheory.all_env_to_genv_def, conSemTheory.all_env_to_genv_def,
-              conPropsTheory.build_rec_env_merge, modPropsTheory.build_rec_env_merge] >>
+          rw [v_rel_eqns, conPropsTheory.build_rec_env_merge, modPropsTheory.build_rec_env_merge] >>
           fs [compile_funs_map]
           >- fs [cenv_inv_def]
           >- (match_mp_tac env_rel_append >>
@@ -1118,71 +1117,67 @@ val pmatch_exh_weak = Q.prove (
   metis_tac [exh_weak_def,NOT_SOME_NONE,match_result_distinct, match_result_11]);
 
 val s = mk_var("s",
-  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``conSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val evaluate_exh_weak = Q.prove (
-  `(∀b tmp_env ^s e res.
-     evaluate b tmp_env s e res ⇒
-     !exh genv env exh'.
+  `(∀env ^s es res.
+     evaluate env s es = res ⇒
+     !exh'.
        SND res ≠ Rerr (Rabort Rtype_error) ∧
-       tmp_env = ((exh:exh_ctors_env),genv,env) ∧
-       exh_weak exh exh' ⇒
-       evaluate b (exh',genv,env) s e res) ∧
-   (∀b tmp_env ^s es res.
-     evaluate_list b tmp_env s es res ⇒
-     !exh genv env exh'.
+       exh_weak env.exh exh' ⇒
+       evaluate (env with exh := exh') s es = res) ∧
+   (∀env ^s v pes err_v res.
+     evaluate_match env s v pes err_v = res ⇒
+     !exh'.
        SND res ≠ Rerr (Rabort Rtype_error) ∧
-       tmp_env = ((exh:exh_ctors_env),genv,env) ∧
-       exh_weak exh exh' ⇒
-       evaluate_list b (exh',genv,env) s es res) ∧
-   (∀b tmp_env ^s v pes err_v res.
-     evaluate_match b tmp_env s v pes err_v res ⇒
-     !(exh:exh_ctors_env) genv env exh'.
-       SND res ≠ Rerr (Rabort Rtype_error) ∧
-       tmp_env = (exh,genv,env) ∧
-       exh_weak exh exh' ⇒
-       evaluate_match b (exh',genv,env) s v pes err_v res)`,
+       exh_weak env.exh exh' ⇒
+       evaluate_match (env with exh := exh') s v pes err_v = res)`,
   ho_match_mp_tac conSemTheory.evaluate_ind >>
-  rw [] >>
-  rw [Once conSemTheory.evaluate_cases] >>
-  fs [conSemTheory.all_env_to_env_def, conSemTheory.all_env_to_genv_def] >>
-  metis_tac [pmatch_exh_weak, match_result_distinct]);
+  rw [conSemTheory.evaluate_def] >>
+  every_case_tac >> fs[] >>
+  res_tac >> fs[] >> rfs[] >> rw[] >>
+  metis_tac [pmatch_exh_weak, match_result_distinct, match_result_11]);
 
 val evaluate_dec_exh_weak = prove(
-  ``∀ck (exh:exh_ctors_env) genv s d res.
-      evaluate_dec ck exh genv s d res ⇒
-      ∀exh'. exh_weak exh exh' ∧ SND res ≠ Rerr (Rabort Rtype_error)
-        ⇒ evaluate_dec ck exh' genv s d res``,
-  ho_match_mp_tac conSemTheory.evaluate_dec_ind >> rw[] >>
-  TRY (
-    first_assum (mp_tac o MATCH_MP (CONJUNCT1 evaluate_exh_weak)) >> simp[] >>
-    disch_then(qspec_then`exh'`mp_tac) >> simp[DISJOINT_SYM] >> strip_tac ) >>
-  rw[Once conSemTheory.evaluate_dec_cases] );
+  ``∀env ^s d res.
+      evaluate_dec env s d = res ⇒
+      ∀exh'. exh_weak env.exh exh' ∧ SND res ≠ Rerr (Rabort Rtype_error)
+        ⇒ evaluate_dec (env with exh := exh') s d = res``,
+  Cases_on`d`>>rw[conSemTheory.evaluate_dec_def] >>
+  pop_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac evaluate_exh_weak >> fs[] >>
+  res_tac >> every_case_tac >> fs[]);
 
 val evaluate_decs_exh_weak = prove(
- ``∀ck (exh:exh_ctors_env) genv s ds res.
-     evaluate_decs ck exh genv s ds res
+ ``∀env ^s ds res.
+     evaluate_decs env s ds = res
      ⇒
-     ∀exh'. exh_weak exh exh' ∧ SND (SND res) ≠ SOME (Rabort Rtype_error) ⇒
-       evaluate_decs ck exh' genv s ds res``,
-  ho_match_mp_tac conSemTheory.evaluate_decs_ind >> rw[]
-  >- rw[Once conSemTheory.evaluate_decs_cases] >>
-  first_x_assum(strip_assume_tac o MATCH_MP evaluate_dec_exh_weak) >>
-  first_x_assum(qspec_then`exh'`strip_assume_tac) >> rfs[] >>
-  rw[Once conSemTheory.evaluate_decs_cases] >>
-  metis_tac[]);
+     ∀exh'. exh_weak env.exh exh' ∧ SND (SND res) ≠ SOME (Rabort Rtype_error) ⇒
+       evaluate_decs (env with exh := exh') s ds = res``,
+  Induct_on`ds`>>rw[conSemTheory.evaluate_decs_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac evaluate_dec_exh_weak >> fs[] >>
+  every_case_tac >> fs[] >> strip_tac >>
+  rator_x_assum`evaluate_decs`mp_tac >>
+  qmatch_assum_abbrev_tac`evaluate_decs env1 s1 _ = _` >>
+  strip_tac >>
+  first_x_assum(qspecl_then[`env1`,`s1`,`exh'`]mp_tac) >>
+  simp[Abbr`env1`]);
 
 val evaluate_prompt_exh_weak = Q.prove (
-  `!ck (exh:exh_ctors_env) genv s p s' genv' res exh1.
-   evaluate_prompt ck exh genv s p (s',genv',res) ∧
-   exh_weak exh exh1 ∧ res ≠ SOME (Rabort Rtype_error)
+  `!env s p s' genv' res exh1.
+   evaluate_prompt env s p = (s',genv',res) ∧
+   exh_weak env.exh exh1 ∧ res ≠ SOME (Rabort Rtype_error)
    ⇒
-   evaluate_prompt ck exh1 genv s p (s',genv',res)`,
-  rw[conSemTheory.evaluate_prompt_cases] >>
+   evaluate_prompt (env with exh := exh1)  s p = (s',genv',res)`,
+  Cases_on`p`>>rw[conSemTheory.evaluate_prompt_def] >>
+  last_x_assum mp_tac >> BasicProvers.CASE_TAC >> fs[] >>
   first_x_assum(strip_assume_tac o MATCH_MP evaluate_decs_exh_weak) >>
   first_x_assum(qspec_then`exh1`mp_tac) >>
-  rw[] >> metis_tac[DISJOINT_SYM]);
+  rw[] >> every_case_tac >> fs[] >>
+  rpt var_eq_tac >> fs[]);
 
 (* compiler correctness *)
 
