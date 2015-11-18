@@ -114,7 +114,7 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
 
 val state_invariant_def = Define`
   state_invariant st ⇔
-  type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenvT,st.tenvM,st.tenvC,st.tenv,st.sem_st,st.sem_env)`;
+  type_sound_invariants (NONE:(v,v)result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env)`;
 
 val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧
