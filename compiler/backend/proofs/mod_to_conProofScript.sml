@@ -4,6 +4,14 @@ open preamble
 
 val _ = new_theory "mod_to_conProof";
 
+(* TODO: move *)
+
+val with_same_v = Q.store_thm("with_same_v[simp]",
+  `((env:conSem$environment) with v := env.v) = env`,
+  rw[conSemTheory.environment_component_equality])
+
+(* -- *)
+
 (* invariants *)
 
 val _ = type_abbrev("gtagenv",``:conN # tid_or_exn |-> num # num``)
@@ -1183,28 +1191,22 @@ val evaluate_prompt_exh_weak = Q.prove (
 
 val match_lem = Q.prove(
   `v_rel gtagenv (Boolv bb) d ∧
-   env_all_rel x y b gtagenv ∧
-   evaluate a b c (if bb then e2 else e3) res ⇒
-   conSem$evaluate_match a b c d
+   env_all_rel x y env gtagenv ∧
+   evaluate env s [if bb then e2 else e3] = res ⇒
+   conSem$evaluate_match env s d
       [(Pcon(SOME(true_tag,TypeId(Short"bool")))[], e2);
        (Pcon(SOME(false_tag,TypeId(Short"bool")))[], e3)]
-      exn res`,
-  strip_tac >>
-  PairCases_on`b`>>
-  PairCases_on`c`>>
-  rw[Once conSemTheory.evaluate_cases,conSemTheory.pat_bindings_def] >>
-  fs[modSemTheory.Boolv_def,v_rel_eqns] >>
-  fs[env_all_rel_cases,cenv_inv_def,gtagenv_wf_def,has_bools_def,exhaustive_env_correct_def] >>
-  qpat_assum`∀t. P ⇒ Q`(qspec_then`Short"bool"`mp_tac) >>
-  discharge_hyps >- (fs[FLOOKUP_DEF] >> metis_tac[]) >> strip_tac >>
-  rw[conSemTheory.pmatch_def] >>
-  Cases_on`bb`>>fs[]>>res_tac>>fs[]>>rw[]>-(
-    pop_assum mp_tac >> EVAL_TAC ) >>
-  rw[Once conSemTheory.evaluate_cases,conSemTheory.pat_bindings_def] >>
-  rw[conSemTheory.pmatch_def])
+      exn = res`,
+  rw[modSemTheory.Boolv_def,v_rel_eqns,env_all_rel_cases,cenv_inv_def,exhaustive_env_correct_def] >>
+  simp[conSemTheory.evaluate_def,conSemTheory.pmatch_def,conSemTheory.pat_bindings_def] >>
+  fs[gtagenv_wf_def,has_bools_def] >>
+  fs[PULL_EXISTS,FLOOKUP_DEF] >>
+  res_tac >> simp[] >>
+  rpt var_eq_tac >> fs[] >>
+  simp[EVAL``true_tag = false_tag``]);
 
 val s = mk_var("s",
-  ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
+  ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_exp_correct = Q.prove (
