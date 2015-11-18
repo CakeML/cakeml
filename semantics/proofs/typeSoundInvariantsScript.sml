@@ -560,9 +560,13 @@ val _ = Define `
  (update_type_sound_inv ((decls1:decls),(tenv:type_environment),(st: 'ffi state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
 ((case r of
        Rval (new_mods, new_vals) =>
-         (union_decls decls1' decls1,merge_mod_env tenvT' tenv.t, FUNION tenvM' tenv.m,merge_alist_mod_env tenvC' tenv.c,bind_var_list2 tenv' tenv.v,
+         (union_decls decls1' decls1,
+          <| t := (merge_mod_env tenvT' tenv.t); 
+             m := (FUNION tenvM' tenv.m);
+             c := (merge_alist_mod_env tenvC' tenv.c);
+             v := (bind_var_list2 tenv' tenv.v) |>,
           st',extend_top_env new_mods new_vals new_ctors env)
-     | Rerr _ => (union_decls decls1' decls1,tenv.t,tenv.m,tenv.c,tenv.v,st',env)
+     | Rerr _ => (union_decls decls1' decls1,tenv,st',env)
   )))`;
 
 val _ = export_theory()

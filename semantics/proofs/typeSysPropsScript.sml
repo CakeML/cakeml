@@ -1931,8 +1931,6 @@ fs [lookup_tenv_val_def] >>
 `!x y. x + SUC y = (x + 1) + y` by decide_tac >>
 metis_tac []);
 
-(*
-
 val type_lookup_id = Q.store_thm ("type_lookup_id",
 `∀tenvS tenvC tenv.
   type_env tenvC tenvS env.v tenv.v ∧
@@ -1958,8 +1956,10 @@ val type_lookup_id = Q.store_thm ("type_lookup_id",
    metis_tac [SAME_KEY_UPDATES_DIFFER]) >>
  first_x_assum(qspec_then`env with m := v`mp_tac) >> simp[] >>
  disch_then (match_mp_tac o MP_CANON) >>
- metis_tac[]);
- *)
+ qexists_tac `tenvS` >>
+ qexists_tac `tenvC` >>
+ qexists_tac `tenv with m := tenvM` >>
+ simp []);
 
 val type_subst = Q.store_thm ("type_subst",
 `(!tvs ctMap tenvS v t. type_v tvs ctMap tenvS v t ⇒
