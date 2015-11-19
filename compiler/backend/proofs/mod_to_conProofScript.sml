@@ -639,10 +639,12 @@ val sv_rel_weakening = Q.prove (
   metis_tac [v_rel_weakening]);
 
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
-  (!gtagenv c s s'.
-    LIST_REL (sv_rel gtagenv) s s'
+  (!gtagenv s (s':'ffi conSem$state).
+    LIST_REL (sv_rel gtagenv) s.refs s'.refs ∧
+    s.clock = s'.clock ∧
+    s.ffi = s'.ffi
     ⇒
-    s_rel gtagenv (c,s,t) (c,s',t))`;
+    s_rel gtagenv s s')`;
 
 val match_result_rel_def = Define
   `(match_result_rel gtagenv (Match env) (Match env_i2) ⇔
@@ -1189,42 +1191,13 @@ val evaluate_prompt_exh_weak = Q.prove (
 
 (* compiler correctness *)
 
-val match_lem = Q.prove(
-  `v_rel gtagenv (Boolv bb) d ∧
-   env_all_rel x y env gtagenv ∧
-   evaluate env s [if bb then e2 else e3] = res ⇒
-   conSem$evaluate_match env s d
-      [(Pcon(SOME(true_tag,TypeId(Short"bool")))[], e2);
-       (Pcon(SOME(false_tag,TypeId(Short"bool")))[], e3)]
-      exn = res`,
-  rw[modSemTheory.Boolv_def,v_rel_eqns,env_all_rel_cases,cenv_inv_def,exhaustive_env_correct_def] >>
-  simp[conSemTheory.evaluate_def,conSemTheory.pmatch_def,conSemTheory.pat_bindings_def] >>
-  fs[gtagenv_wf_def,has_bools_def] >>
-  fs[PULL_EXISTS,FLOOKUP_DEF] >>
-  res_tac >> simp[] >>
-  rpt var_eq_tac >> fs[] >>
-  simp[EVAL``true_tag = false_tag``]);
-
 val s = mk_var("s",
   ``modSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
 val compile_exp_correct = Q.prove (
-  `(∀b env ^s e res.
-     evaluate b env s e res ⇒
-     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     !tagenv s' r env_i2 s_i2 e_i2 gtagenv.
-       (res = (s',r)) ∧
-       env_all_rel tagenv env env_i2 gtagenv ∧
-       s_rel gtagenv s s_i2 ∧
-       e_i2 = compile_exp tagenv e
-       ⇒
-       ∃s'_i2 r_i2.
-         result_rel v_rel gtagenv r r_i2 ∧
-         s_rel gtagenv s' s'_i2 ∧
-         evaluate b env_i2 s_i2 e_i2 (s'_i2, r_i2)) ∧
-   (∀b env ^s es res.
-     evaluate_list b env s es res ⇒
+  `(∀env ^s es res.
+     evaluate env s es = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !tagenv s' r env_i2 s_i2 es_i2 gtagenv.
        (res = (s',r)) ∧
@@ -1235,9 +1208,9 @@ val compile_exp_correct = Q.prove (
        ?s'_i2 r_i2.
          result_rel vs_rel gtagenv r r_i2 ∧
          s_rel gtagenv s' s'_i2 ∧
-         evaluate_list b env_i2 s_i2 es_i2 (s'_i2, r_i2)) ∧
-   (∀b env ^s v pes err_v res.
-     evaluate_match b env s v pes err_v res ⇒
+         evaluate env_i2 s_i2 es_i2 = (s'_i2, r_i2)) ∧
+   (∀env ^s v pes err_v res.
+     evaluate_match env s v pes err_v = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !tagenv s' r env_i2 s_i2 v_i2 pes_i2 err_v_i2 gtagenv.
        (res = (s',r)) ∧
@@ -1248,227 +1221,174 @@ val compile_exp_correct = Q.prove (
        v_rel gtagenv err_v err_v_i2
        ⇒
        ?s'_i2 r_i2.
-         result_rel v_rel gtagenv r r_i2 ∧
+         result_rel vs_rel gtagenv r r_i2 ∧
          s_rel gtagenv s' s'_i2 ∧
-         evaluate_match b env_i2 s_i2 v_i2 pes_i2 err_v_i2 (s'_i2, r_i2))`,
+         evaluate_match env_i2 s_i2 v_i2 pes_i2 err_v_i2 = (s'_i2, r_i2))`,
   ho_match_mp_tac modSemTheory.evaluate_ind >>
-  rw [] >>
-  rw [Once conSemTheory.evaluate_cases,compile_exp_def] >>
-  TRY (Cases_on `err`) >>
-  fs [result_rel_eqns, v_rel_eqns]
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
+  rw [conSemTheory.evaluate_def,modSemTheory.evaluate_def,compile_exp_def] >>
+  fs [result_rel_eqns, v_rel_eqns] >>
+  TRY(first_assum(split_pair_case_tac o lhs o concl) >> fs[])
+  >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    imp_res_tac conPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >> simp[] >>
+    fs[result_rel_cases] )
+  >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    imp_res_tac conPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS] >>
+    fs[result_rel_cases] )
+  >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    imp_res_tac conPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS])
   >- (* Constructor application *)
      (
-      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      simp[PULL_EXISTS] >> rw[] >>
-      fs[compile_exps_map,MAP_REVERSE] >>
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(equal"evaluate_list" o fst o dest_const o fst o strip_comb))) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs[modSemTheory.build_conv_def] >>
-      every_case_tac >> rw[] >> simp[v_rel_eqns] >>
-      fs[vs_rel_list_rel,EVERY2_REVERSE] >>
-      fs[env_all_rel_cases,cenv_inv_def,envC_tagged_def,gtagenv_wf_def,do_con_check_def] >>
-      rw[] >> fs[modSemTheory.all_env_to_cenv_def] >>
-      res_tac >> simp[] >>
-      metis_tac[evaluate_list_length,LENGTH_REVERSE,LENGTH_MAP,LIST_REL_LENGTH])
-  >- (res_tac >>
-      rw [] >>
-      metis_tac [compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
-  >- metis_tac [compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE]
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    fs[result_rel_eqns,vs_rel_list_rel,v_rel_eqns,PULL_EXISTS] >>
+    res_tac >> fs[] >> rpt var_eq_tac >>
+    fs[modSemTheory.build_conv_def] >>
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    fs[v_rel_eqns,vs_rel_list_rel,compile_exps_map,MAP_REVERSE] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >> fs[EVERY2_REVERSE] >>
+    fs[env_all_rel_cases,cenv_inv_def,envC_tagged_def,gtagenv_wf_def,do_con_check_def] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(th))) >>
+    strip_tac >> fs[LIST_REL_EL_EQN] >>
+    imp_res_tac evaluate_length >> fs[] >>
+    fs[result_rel_cases] )
   >- (* Local variable lookup *)
-     (fs [env_all_rel_cases, conSemTheory.all_env_to_env_def] >>
+     (fs [env_all_rel_cases] >>
       rw [] >>
-      fs [modSemTheory.all_env_to_env_def] >>
-      metis_tac [env_rel_lookup])
+      every_case_tac >> fs[result_rel_eqns] >>
+      imp_res_tac env_rel_lookup >> fs[v_rel_eqns] >> rw[])
   >- (* Global variable lookup *)
-     (fs [env_all_rel_cases, conSemTheory.all_env_to_genv_def] >>
-      rw [] >>
-      fs [modSemTheory.all_env_to_genv_def] >>
-      `n < LENGTH genv` by decide_tac >>
-      `LENGTH genv_i2 = LENGTH genv` by metis_tac [LIST_REL_LENGTH] >>
-      fs [EL_MAP] >>
-      metis_tac [genv_rel_lookup])
+     (fs [env_all_rel_cases] >>
+      rw [] >> fs [] >>
+      `LENGTH env.globals > n` by decide_tac >>
+      `LENGTH env_i2.globals = LENGTH env.globals` by metis_tac [LIST_REL_LENGTH] >>
+      imp_res_tac genv_rel_lookup >>
+      rfs[IS_SOME_EXISTS] >>
+      metis_tac[SOME_11])
   >- (rw [Once v_rel_cases] >>
       fs [env_all_rel_cases] >>
-      rw [modSemTheory.all_env_to_env_def, conSemTheory.all_env_to_env_def, modSemTheory.all_env_to_cenv_def] >>
       metis_tac [])
   >- (* Function application *)
-     (pop_assum mp_tac >>
-      rw [] >>
-      res_tac >>
-      rw [] >>
-      `?genv envC env''. env = (genv,envC,env'')` by metis_tac [pair_CASES] >>
-      fs [modSemTheory.all_env_to_genv_def] >>
-      `?tagenv env_i2'.
-        env_all_rel tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-        do_opapp (REVERSE v'') = SOME (env_i2', compile_exp tagenv e)`
-                  by metis_tac [do_opapp, vs_rel_list_rel, EVERY2_REVERSE] >>
-      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_rel_cases] >>
-      PairCases_on `s'` >>
-      rw [] >>
-      PairCases_on `env_i2` >>
-      rw [] >>
-      metis_tac [FST,SND, compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
-  >- (* Function application *)
-     (pop_assum mp_tac >>
-      rw [] >>
-      res_tac >>
-      rw [] >>
-      `?genv envC env''. env = (genv,envC,env'')` by metis_tac [pair_CASES] >>
-      fs [modSemTheory.all_env_to_genv_def] >>
-      `?tagenv env_i2'.
-        env_all_rel tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-        do_opapp (REVERSE v'') = SOME (env_i2', compile_exp tagenv e)`
-                  by metis_tac [do_opapp, vs_rel_list_rel, EVERY2_REVERSE] >>
-      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_rel_cases] >>
-      PairCases_on `s'` >>
-      rw [] >>
-      PairCases_on `env_i2` >>
-      rw [] >>
-      metis_tac [FST,SND,compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
-  >- (* Function application *)
-     (res_tac >>
-      rw [] >>
-      `?genv envC env''. env = (genv,envC,env'')` by metis_tac [pair_CASES] >>
-      fs [modSemTheory.all_env_to_genv_def] >>
-      `?tagenv env_i2'.
-        env_all_rel tagenv env' (FST env_i2, FST (SND env_i2), env_i2') gtagenv ∧
-        do_opapp (REVERSE v'') = SOME (env_i2', compile_exp tagenv e)`
-                  by metis_tac [do_opapp, vs_rel_list_rel, EVERY2_REVERSE] >>
-      full_simp_tac (srw_ss()++boolSimps.DNF_ss) [s_rel_cases] >>
-      metis_tac [FST,SND, compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE])
-  >- (* Primitive application *) (
+     (
+    fs[compile_exps_map,MAP_REVERSE] >>
+    Cases_on`op=Opapp`>>fs[] >- (
+      every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
       first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      rw [] >>
-      fs [s_rel_cases] >>
-      rw [] >>
-      `gtagenv_wf gtagenv` by fs [env_all_rel_cases, cenv_inv_def] >>
-      first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO] do_app)) >>
-      fs[vs_rel_list_rel,FORALL_PROD,EXISTS_PROD] >>
-      fs[compile_exps_map,MAP_REVERSE,PULL_EXISTS] >>
-      metis_tac[EVERY2_REVERSE])
-  >- (
-      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      rw [] >>
-      fs[compile_exps_map,MAP_REVERSE] >>
-      metis_tac[] )
-  >- metis_tac [compile_exps_map, MAP_REVERSE, vs_rel_list_rel, EVERY2_REVERSE, LENGTH_REVERSE]
+      disch_then(fn th => first_assum(mp_tac o MATCH_MP(th))) >> strip_tac >> fs[] >>
+      rpt var_eq_tac >> fs[result_rel_eqns] >>
+      fs[vs_rel_list_rel] >> imp_res_tac EVERY2_REVERSE >>
+      imp_res_tac do_opapp >> fs[vs_rel_list_rel] >>
+      res_tac >> fs[] >>
+      rpt var_eq_tac >> fs[result_rel_cases] >>
+      fs[s_rel_cases] >>
+      fs[modSemTheory.dec_clock_def,conSemTheory.dec_clock_def] ) >>
+    every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(fn th => first_assum(mp_tac o MATCH_MP(th))) >> strip_tac >> fs[] >>
+    rpt var_eq_tac >> fs[result_rel_eqns] >>
+    fs[vs_rel_list_rel] >> imp_res_tac EVERY2_REVERSE >>
+    `gtagenv_wf gtagenv` by fs [env_all_rel_cases, cenv_inv_def] >>
+    imp_res_tac do_app >> rfs[vs_rel_list_rel] >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    res_tac >> fs[s_rel_cases] >>
+    res_tac >> rfs[s_rel_cases] >>
+    fs[result_rel_cases,vs_rel_list_rel] )
   >- (* If *)
-     (rfs [modSemTheory.do_if_def] >>
-      last_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> strip_tac >>
-      last_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-      disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> strip_tac >>
-      srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-      rpt(first_assum(match_exists_tac o concl) >> simp[]) >>
-      every_case_tac >> fs[] >> rw[] >>
-      match_mp_tac (GEN_ALL match_lem) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      metis_tac[])
-  >- metis_tac []
-  >- metis_tac []
+   (
+    rfs [modSemTheory.do_if_def] >>
+    simp[conSemTheory.pat_bindings_def] >>
+    qmatch_assum_rename_tac`_ = (_,rr)` >>
+    reverse(Cases_on`rr`)>>fs[] >- (
+      rpt var_eq_tac >> fs[] >>
+      res_tac >> fs[result_rel_cases] ) >>
+    imp_res_tac modPropsTheory.evaluate_sing >> fs[] >>
+    every_case_tac >> fs[] >> rfs[] >>
+    rpt var_eq_tac >> fs[result_rel_eqns,PULL_EXISTS,vs_rel_list_rel] >>
+    fs[v_rel_eqns,modSemTheory.Boolv_def,PULL_EXISTS] >>
+    first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> strip_tac >>
+    last_x_assum(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> strip_tac >>
+    fs[] >> rpt var_eq_tac >>
+    fs[env_all_rel_cases,cenv_inv_def,exhaustive_env_correct_def] >>
+    fs[gtagenv_wf_def,has_bools_def] >> rpt var_eq_tac >> fs[] >>
+    fs[conSemTheory.pmatch_def] >>
+    fs[PULL_EXISTS,FLOOKUP_DEF] >>
+    every_case_tac >> fs[LET_THM] >>
+    rpt var_eq_tac >> fs[EVAL``true_tag = false_tag``] >> rfs[] >>
+    every_case_tac >> fs[]>> rw[] >>
+    metis_tac[NOT_SOME_NONE,SOME_11])
   >- (* Match *)
-    (pop_assum mp_tac >>
-      res_tac >>
-      rw [] >>
-      FIRST_X_ASSUM (qspecl_then [`tagenv`, `env_i2`, `s'_i2'`, `v''`,
-                                   `Conv (SOME (bind_tag,(TypeExn (Short "Bind")))) []`, `gtagenv`] mp_tac) >>
-      rw [] >>
-      fs [env_all_rel_cases] >>
-      rw [] >>
-      fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, has_exns_def] >>
-      pop_assum (fn _ => all_tac) >>
-      pop_assum mp_tac >>
-      rw [] >>
-      metis_tac [])
-  >- metis_tac []
-  >- metis_tac []
+   (
+     every_case_tac >> fs[] >> rfs[PULL_EXISTS] >>
+     imp_res_tac conPropsTheory.evaluate_sing >> fs[] >>
+     imp_res_tac modPropsTheory.evaluate_sing >> fs[] >>
+     res_tac >> fs[] >> rpt var_eq_tac >> fs[result_rel_eqns,vs_rel_list_rel,PULL_EXISTS] >> rfs[] >>
+     TRY (
+       first_x_assum(match_mp_tac o MP_CANON) >> fs[] >>
+       fs [env_all_rel_cases] >>
+       fs [cenv_inv_def, envC_tagged_def, gtagenv_wf_def, has_exns_def] ) >>
+     res_tac >> fs[result_rel_cases,PULL_EXISTS] >> rpt var_eq_tac >> fs[] >>
+     rw[])
   >- (* Let *)
-     (`?exh' genv' env'. env_i2 = (exh',genv',env')` by metis_tac [pair_CASES] >>
-      rw [] >>
-      res_tac >>
-      fs [] >>
-      rw [] >>
-      `env_all_rel tagenv (genv,cenv,opt_bind n v env) (exh',genv', opt_bind n v' env') gtagenv`
-                 by (fs [env_all_rel_cases] >>
-                     fs [libTheory.opt_bind_def, v_rel_eqns] >>
-                     rw [] >>
-                     every_case_tac >>
-                     fs [] >>
-                     rw [v_rel_eqns]) >>
-      metis_tac [])
-  >- metis_tac []
-  >- metis_tac []
+   (
+     every_case_tac >> fs[] >> rfs[PULL_EXISTS] >>
+     imp_res_tac conPropsTheory.evaluate_sing >> fs[] >>
+     imp_res_tac modPropsTheory.evaluate_sing >> fs[] >>
+     res_tac >> fs[] >> rpt var_eq_tac >> fs[result_rel_eqns,vs_rel_list_rel,PULL_EXISTS] >> rfs[] >>
+     res_tac >> fs[result_rel_cases,PULL_EXISTS] >> rpt var_eq_tac >> fs[] >>
+     rw[] >>
+     first_x_assum(match_mp_tac o MP_CANON) >>
+     fs[env_all_rel_cases,env_rel_el,libTheory.opt_bind_def] >>
+     every_case_tac >> fs[] >>
+     Cases >> simp[])
   >- (* Letrec *)
-     (pop_assum mp_tac >>
-      rw [] >>
-      `?exh' genv' env'. env_i2 = (exh',genv',env')` by metis_tac [pair_CASES] >>
-      rw [] >>
-      `env_all_rel tagenv (genv,cenv,build_rec_env funs (cenv,env) env)
-                            (exh',genv',build_rec_env (compile_funs tagenv funs) env' env')
-                            gtagenv`
-          by (fs [env_all_rel_cases] >>
-              rw [modPropsTheory.build_rec_env_merge, conPropsTheory.build_rec_env_merge] >>
-              rw [] >>
-              match_mp_tac env_rel_append >>
-              rw [] >>
-              rw [compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_rel_el, EL_MAP] >>
-              `?f x e. EL n funs = (f,x,e)` by metis_tac [pair_CASES] >>
-              rw [] >>
-              rw [Once v_rel_cases] >>
-              metis_tac [compile_funs_map]) >>
-       res_tac >>
-       MAP_EVERY qexists_tac [`s'_i2'`, `r_i2'`] >>
-       rw [] >>
-       rw [compile_funs_map, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD])
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- (pop_assum mp_tac >>
-      rw [] >>
-      fs [s_rel_cases, env_all_rel_cases] >>
-      rw [] >>
-      `match_result_rel gtagenv (Match env')
-             (pmatch exh s'' (compile_pat tagenv p) v_i2 env_i2')`
-                    by metis_tac [pmatch, match_result_distinct] >>
-      cases_on `pmatch exh s'' (compile_pat tagenv p) v_i2 env_i2'` >>
-      fs [match_result_rel_def] >>
-      rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      FIRST_X_ASSUM (qspecl_then [`tagenv`, `gtagenv`, `exh`, `a`, `genv_i2`, `s''`] mp_tac) >>
-      rw [] >>
-      fs [] >>
-      first_assum(match_exists_tac o concl) >> simp[PULL_EXISTS] >>
-      first_assum(match_exists_tac o concl) >> simp[PULL_EXISTS] >>
-      metis_tac [pat_bindings])
-  >- (pop_assum mp_tac >>
-      rw [] >>
-      fs [s_rel_cases, env_all_rel_cases] >>
-      rw [] >>
-      `match_result_rel gtagenv No_match
-             (pmatch exh s'' (compile_pat tagenv p) v_i2 env_i2')`
-                    by metis_tac [pmatch, match_result_distinct] >>
-      cases_on `pmatch exh s'' (compile_pat tagenv p) v_i2 env_i2'` >>
-      fs [match_result_rel_def] >>
-      rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      pop_assum mp_tac >>
-      fs[PULL_EXISTS,GSYM AND_IMP_INTRO] >>
-      first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-      rpt(disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
-      simp[FORALL_PROD] >>
-      rpt(disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
-      rw[] >>
-      metis_tac [pat_bindings]));
+  (
+     simp[compile_funs_map,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] >>
+     first_x_assum(match_mp_tac o MP_CANON) >>
+     fs[env_all_rel_cases] >>
+     rw [modPropsTheory.build_rec_env_merge, conPropsTheory.build_rec_env_merge] >>
+     match_mp_tac env_rel_append >>
+     rw [] >>
+     rw [ MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD, env_rel_el, EL_MAP,UNCURRY] >>
+     rw[Once v_rel_cases] >>
+     simp[compile_funs_map] >>
+     metis_tac[] )
+  >- (
+   simp[pat_bindings] >>
+   qspecl_then[`env.c`,`s.refs`,`p`,`v`,`env.v`]mp_tac (CONJUNCT1 pmatch) >> simp[] >>
+   disch_then(qspecl_then[`env_i2.v`,`s_i2.refs`,`v_i2`,`tagenv`,`gtagenv`,`env_i2.exh`]mp_tac) >>
+   discharge_hyps >- (
+     fs[env_all_rel_cases,s_rel_cases] >>
+     strip_tac >> fs[] ) >> strip_tac >>
+   every_case_tac >> fs[] >> rfs[match_result_rel_def] >>
+   first_x_assum match_mp_tac >>
+   fs[env_all_rel_cases]));
 
 val alloc_tag_accumulates = Q.prove(
   `∀tn cn arity ta.
