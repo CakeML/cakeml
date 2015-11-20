@@ -1444,14 +1444,15 @@ val check_weak_decls_complete = store_thm("check_weak_decls_complete",
 
 (* TODO: move *)
 val type_top_tenv_ok = store_thm("type_top_tenv_ok",
-  ``∀ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv'.
-    type_top ch decls tenvT menv cenv tenv top decls' tenvT' menv' cenv' tenv' ⇒
-      num_tvs tenv = 0 ⇒
-      tenv_ok (bind_var_list2 tenv' Empty) ∧
-      FEVERY (λ(mn,tenv). tenv_ok (bind_var_list2 tenv Empty)) menv'``,
+  ``∀ch decls tenv top decls' tenvT' menv' cenv' tenv'.
+    type_top ch decls tenv top decls' tenvT' menv' cenv' tenv' ⇒
+      num_tvs tenv.v = 0 ⇒
+      tenv_tabbrev_ok tenv.t ⇒
+      tenv_val_ok (bind_var_list2 tenv' Empty) ∧
+      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'``,
   ho_match_mp_tac type_top_ind >>
   rw[FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
-     typeSoundInvariantsTheory.tenv_ok_def] >>
+     typeSoundInvariantsTheory.tenv_val_ok_def] >>
   imp_res_tac type_d_tenv_ok >>
   fs[check_signature_cases] >>
   imp_res_tac type_ds_tenv_ok >>
