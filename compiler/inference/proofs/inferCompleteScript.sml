@@ -1088,10 +1088,10 @@ val check_specs_complete = store_thm("check_specs_complete",
     simp[] >>
     match_mp_tac tenv_alpha_bind_var_list2 >>
     simp[] >>
-    simp[bind_var_list2_def,bind_tenv_def] >>
+    simp[bind_var_list2_def] >>
     simp[tenv_alpha_def] >>
     conj_tac >- (
-      simp[tenv_inv_def,lookup_tenv_def,t_walkstar_FEMPTY] >>
+      simp[tenv_inv_def,lookup_tenv_val_def,t_walkstar_FEMPTY] >>
       reverse IF_CASES_TAC >- (
         `F` suffices_by rw[] >>
         pop_assum mp_tac >> simp[] >>
@@ -1122,14 +1122,16 @@ val check_specs_complete = store_thm("check_specs_complete",
         `I' = I` by simp[Abbr`I'`,FUN_EQ_THM] >>
         simp[COUNT_LIST_GENLIST] >>
         simp[EVERY_MAP,EVERY_MEM] >>
-        rw[] >>
-        Cases_on`find_index fv (nub fvs') 0` >> rw[the_def,check_freevars_def] >>
-        imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
+        conj_tac >- (
+          rw[] >>
+          Cases_on`find_index fv (nub fvs') 0` >> rw[the_def,check_freevars_def] >>
+          imp_res_tac find_index_LESS_LENGTH >> fs[] ) >>
+        cheat ) >>
       qpat_assum`check_freevars X Y t`mp_tac >>
       map_every qid_spec_tac[`fvs`,`t`] >>
       rpt(pop_assum kall_tac) >>
       ho_match_mp_tac t_ind >>
-      simp[check_freevars_def] >>
+      simp[type_name_subst_def,check_freevars_def] >>
       simp[type_subst_def,check_freevars_def] >>
       conj_tac >- (
         rw[] >>
@@ -1140,16 +1142,19 @@ val check_specs_complete = store_thm("check_specs_complete",
         imp_res_tac ALOOKUP_MEM >>
         rfs[MEM_ZIP,EL_MAP] >>
         rw[check_freevars_def] ) >>
-      rw[EVERY_MAP] >>
-      fs[EVERY_MEM] ) >>
-    simp[tenv_invC_def,lookup_tenv_def,deBruijn_inc0] >>
+      gen_tac >> strip_tac >>
+      Cases>>fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      BasicProvers.CASE_TAC >> fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      BasicProvers.CASE_TAC >> fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      cheat) >>
+    simp[tenv_invC_def,lookup_tenv_val_def,deBruijn_inc0] >>
     conj_tac >- (
       qexists_tac`LENGTH fvs` >>
       qpat_assum`check_freevars X Y t`mp_tac >>
       map_every qid_spec_tac[`fvs`,`t`] >>
       rpt(pop_assum kall_tac) >>
       ho_match_mp_tac t_ind >>
-      simp[check_freevars_def] >>
+      simp[type_name_subst_def,check_freevars_def] >>
       simp[type_subst_def,check_freevars_def] >>
       conj_tac >- (
         rw[] >>
@@ -1160,8 +1165,11 @@ val check_specs_complete = store_thm("check_specs_complete",
         imp_res_tac ALOOKUP_MEM >>
         rfs[MEM_ZIP,EL_MAP] >>
         rw[check_freevars_def] ) >>
-      rw[EVERY_MAP] >>
-      fs[EVERY_MEM] ) >>
+      gen_tac >> strip_tac >>
+      Cases>>fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      BasicProvers.CASE_TAC >> fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      BasicProvers.CASE_TAC >> fs[check_freevars_def,type_subst_def,EVERY_MAP,EVERY_MEM] >>
+      cheat) >>
     reverse IF_CASES_TAC >- (
       `F` suffices_by rw[] >>
       pop_assum mp_tac >> simp[] >>
@@ -1188,15 +1196,18 @@ val check_specs_complete = store_thm("check_specs_complete",
     `I' = I` by simp[Abbr`I'`,FUN_EQ_THM] >>
     simp[COUNT_LIST_GENLIST] >>
     simp[Abbr`subst`,EVERY_MAP,check_t_def] >>
-    simp[EVERY_MEM] >> rw[] >>
-    Cases_on`find_index fv fvs 0` >- (
-      fs[GSYM find_index_NOT_MEM] >>
-      fs[SUBSET_DEF] >> metis_tac[] ) >>
-    imp_res_tac find_index_LESS_LENGTH >>
-    fs[]) >>
+    simp[EVERY_MEM] >>
+    conj_tac >- (
+      rw[] >>
+      Cases_on`find_index fv fvs 0` >- (
+        fs[GSYM find_index_NOT_MEM] >>
+        fs[SUBSET_DEF] >> metis_tac[] ) >>
+      imp_res_tac find_index_LESS_LENGTH >>
+      fs[]) >>
+    cheat ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
-    qpat_abbrev_tac`itenvT2:flat_tenvT = FEMPTY |++ Z` >>
+    qpat_abbrev_tac`itenvT2:flat_tenv_tabbrev = FEMPTY |++ Z` >>
     REWRITE_TAC[GSYM FUNION_ASSOC] >>
     REWRITE_TAC[GSYM APPEND_ASSOC] >>
     qpat_abbrev_tac`icenv2 = X ++ icenv` >>
@@ -1357,7 +1368,7 @@ val check_weakE_complete = store_thm("check_weakE_complete",
   `ALOOKUP itenv2 e0 = SOME(e1,e2)` by
     metis_tac[MEM_anub_ALOOKUP]>>
   first_x_assum(qspecl_then[`e0`,`e1`,`e2`] assume_tac)>>rfs[]>>
-  fs[tenv_alpha_def,tenv_invC_def,lookup_bvl2,lookup_tenv_def]>>
+  fs[tenv_alpha_def,tenv_invC_def,lookup_bvl2,lookup_tenv_val_def]>>
   (*Go from tenv2 to tenv1*)
   Cases_on`ALOOKUP tenv2 e0`>>fs[]>>
   Cases_on`x`>>fs[deBruijn_inc0]>>
