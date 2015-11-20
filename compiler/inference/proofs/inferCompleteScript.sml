@@ -817,15 +817,15 @@ val infer_d_complete = Q.prove (
  >- fs[tenv_alpha_empty]);
 
 val infer_ds_complete = prove(``
-!ds mn (mdecls:'a list) tdecls edecls menv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
+!ds mn (mdecls:'a list) tdecls edecls menv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv tenv_v.
   check_menv menv ∧
-  tenvM_ok tenv.m ∧
+  tenv_mod_ok tenv.m ∧
   tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
   check_env ∅ itenv ∧
-  tenvC_ok tenv.c ∧
-  tenvT_ok tenv.t ∧
+  tenv_ctor_ok tenv.c ∧
+  tenv_tabbrev_ok tenv.t ∧
   type_ds T mn (set mdecls,set tdecls,set edecls) (tenv with v := bind_var_list2 tenv_v Empty) ds (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
+  tenv_alpha itenv (bind_var_list2 tenv_v Empty) ∧
   menv_alpha menv tenv.m
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv'.
@@ -841,7 +841,7 @@ val infer_ds_complete = prove(``
     check_env ∅ itenv'``,
   Induct>-
   (rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
-  fs[tenv_alpha_def,bind_var_list2_def,tenv_invC_def,lookup_tenv_def,tenv_inv_def])
+  fs[tenv_alpha_def,bind_var_list2_def,tenv_invC_def,lookup_tenv_val_def,tenv_inv_def])
   >>
   rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
   fs[]>>
@@ -859,21 +859,25 @@ val infer_ds_complete = prove(``
   fs[PULL_EXISTS]>>
   fs[GSYM AND_IMP_INTRO]>>
   first_x_assum(fn th => first_x_assum (mp_tac o MATCH_MP th))>>
-  `tenvC_ok (merge_alist_mod_env ([],cenv'') cenv)` by
-    (fs[tenvC_ok_merge]>>
+  qmatch_assum_abbrev_tac`type_ds _ _ _ tenv' ds _ _ _ _` >>
+  `tenv_ctor_ok tenv'.c` by
+    (fs[tenv_ctor_ok_merge,Abbr`tenv'`]>>
     imp_res_tac type_d_ctMap_ok >>
-    metis_tac[ctMap_ok_tenvC_ok,MAP_REVERSE,ALL_DISTINCT_REVERSE])>>
-  `tenvT_ok (merge_mod_env (FEMPTY,tenvT'') tenvT)` by
-    (match_mp_tac tenvT_ok_merge>>
-    fs[typeSoundInvariantsTheory.tenvT_ok_def]>>
-    metis_tac[FEVERY_FEMPTY,type_d_tenvT_ok])>>
+    match_mp_tac ctMap_ok_tenvC_ok >> rfs[] >>
+    metis_tac[MAP_REVERSE,ALL_DISTINCT_REVERSE])>>
+  `tenv_tabbrev_ok tenv'.t` by
+    (fs[Abbr`tenv'`]>>
+     match_mp_tac tenv_tabbrev_ok_merge>>
+    fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def]>>
+    simp[FEVERY_FEMPTY] >>
+    imp_res_tac (REWRITE_RULE[GSYM AND_IMP_INTRO]type_d_tenvT_ok) >> rfs[])>>
   fs[GSYM bind_var_list2_append]>>
   FULL_SIMP_TAC bool_ss [UNION_APPEND,union_decls_def] >>
-  `tenv_alpha (itenv'++itenv) (bind_var_list2 (tenv''++tenv) Empty)` by
+  `tenv_alpha (itenv'++itenv) (bind_var_list2 (tenv''++tenv_v) Empty)` by
      metis_tac[tenv_alpha_bind_var_list2]>>
   `check_env {} (itenv'++itenv)` by
     fs[check_env_def]>>
-  `tenv_val_ok (bind_var_list2 (tenv''++tenv) Empty)` by
+  `tenv_val_ok (bind_var_list2 (tenv''++tenv_v) Empty)` by
     (fs[bind_var_list2_append]>>
     match_mp_tac tenv_val_ok_bvl2>>
     fs[typeSoundInvariantsTheory.tenv_val_ok_def,tenv_val_ok_bind_var_list2]>>
@@ -881,11 +885,15 @@ val infer_ds_complete = prove(``
     first_assum (match_exists_tac o concl)>>
     first_assum (match_exists_tac o concl)>>
     fs[num_tvs_bvl2,num_tvs_def])>>
+  `tenv' = tenv' with v := bind_var_list2 (tenv'' ++ tenv_v) Empty` by simp[Abbr`tenv'`] >>
+  rator_x_assum`type_ds`mp_tac >> pop_assum SUBST1_TAC >> strip_tac >>
+  `tenv_mod_ok tenv'.m` by simp[Abbr`tenv'`] >>
+  `menv_alpha menv tenv'.m` by simp[Abbr`tenv'`] >>
   rpt
    (disch_then (fn th => first_x_assum (mp_tac o MATCH_MP th)))>>
   disch_then (qspec_then `st'` strip_assume_tac)>>
   fs[append_decls_def]>>
-  fs[check_env_def]>>
+  fs[Abbr`tenv'`,check_env_def]>>
   metis_tac[tenv_alpha_bind_var_list2])
 
 (*TODO move to miscLib*)
