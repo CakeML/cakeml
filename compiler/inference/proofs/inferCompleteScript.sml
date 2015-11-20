@@ -1524,30 +1524,31 @@ val infer_top_complete = Q.store_thm("infer_top_complete",
         simp[check_env_def,check_flat_cenv_def,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FEMPTY])>>
       metis_tac[check_weakE_complete,check_env_def,check_specs_check])
 
-val infer_prog_complete = store_thm("infer_prog_complete",``
-!prog mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
+val infer_prog_complete = Q.store_thm("infer_prog_complete",
+`!prog mdecls tdecls edecls menv mdecls' tdecls' edecls' tenvT' cenv' tenv_v tenv tenv' menv' st itenv tenvM tenvM'.
   check_menv menv ∧
-  tenvM_ok tenvM ∧
-  tenv_ok (bind_var_list2 tenv Empty) ∧
+  tenv_mod_ok tenv.m ∧
+  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
   check_env ∅ itenv ∧
-  tenvC_ok cenv ∧
-  tenvT_ok tenvT ∧
-  type_prog T (set mdecls,set tdecls,set edecls) tenvT tenvM cenv (bind_var_list2 tenv Empty) prog (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
-  menv_alpha menv tenvM
+  tenv_ctor_ok tenv.c ∧
+  tenv_tabbrev_ok tenv.t ∧
+  type_prog T (set mdecls,set tdecls,set edecls) (tenv with v := bind_var_list2 tenv_v Empty) prog (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
+  tenv_alpha itenv (bind_var_list2 tenv_v Empty) ∧
+  menv_alpha menv tenv.m
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv' menv'.
     set mdecls'' = mdecls' ∧
     set tdecls'' = tdecls' ∧
     set edecls'' = edecls' ∧
-    infer_prog (mdecls,tdecls,edecls) tenvT menv cenv itenv prog st =
+    infer_prog (mdecls,tdecls,edecls) tenv.t menv tenv.c itenv prog st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧
     (*for induction*)
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     menv_alpha menv' tenvM' ∧
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
-    check_env ∅ itenv'``,
+    check_env ∅ itenv'`,
+
   Induct>-
   (rw [Once type_prog_cases, infer_prog_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]>>
   fs[tenv_alpha_empty,menv_alpha_def])
@@ -1558,7 +1559,7 @@ val infer_prog_complete = store_thm("infer_prog_complete",``
   rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
   disch_then (qspecl_then [`st`] mp_tac)>>
   rw[]>>
-  `check_cenv cenv` by fs[check_cenv_tenvC_ok]>>
+  `check_cenv tenv.c` by fs[check_cenv_tenvC_ok]>>
   qpat_assum`check_env {} itenv` mp_tac>>strip_tac>>
   qabbrev_tac`decls = (mdecls,tdecls,edecls)`>>
   first_assum (mp_tac o (any_match_mp infer_top_invariant))>>
@@ -1569,35 +1570,38 @@ val infer_prog_complete = store_thm("infer_prog_complete",``
   FULL_SIMP_TAC bool_ss [UNION_APPEND,union_decls_def] >>
   first_x_assum(qspecl_then
     [`mdecls''++mdecls`,`tdecls''++tdecls`,`edecls''++edecls`
-    ,`merge_mod_env (p_1,p_2) tenvT`,`FUNION menv''' menv`
-    ,`merge_alist_mod_env (p_1',p_2')cenv`
-    ,`p_1''''''`,`p_1'''''''`,`p_2'''''`,`(p_1'',p_2'')`
-    ,`(p_1''',p_2''')`,`tenv''++tenv`,`tenv'''`,`st'`,`itenv'++itenv`
-    ,`FUNION menv' tenvM`,`menv''`]
-    mp_tac)>>
-  discharge_hyps>-
+    ,`FUNION menv''' menv`
+    ,`p_1''''''`,`p_1'''''''`,`p_2'''''`,`(p_1'',p_2'')` ,`(p_1''',p_2''')`
+    ,`tenv'' ++ tenv_v`
+    ,`<|m := menv' ⊌ tenv.m;
+        c := merge_alist_mod_env (p_1',p_2') tenv.c;
+        v := bind_var_list2 (tenv'' ++ tenv_v) Empty;
+        t := merge_mod_env (p_1,p_2) tenv.t|>`
+    ,`tenv'''`,`st'`,`itenv'++itenv`
+    ,`menv''`]
+   mp_tac)>>
+   discharge_hyps>-
     (rw[]
     >-
       metis_tac[check_menv_def,fevery_funion]
     >-
-      (fs[typeSoundInvariantsTheory.tenvM_ok_def]>>
+      (fs[typeSoundInvariantsTheory.tenv_mod_ok_def]>>
        match_mp_tac fevery_funion >> simp[] >>
-       match_mp_tac (MP_CANON (GEN_ALL (DISCH_ALL (CONJUNCT2 (UNDISCH (UNDISCH (SPEC_ALL type_top_tenv_ok))))))) >>
-       first_assum(match_exists_tac o concl) >>
-       simp[num_tvs_bvl2,num_tvs_def] >>
-       metis_tac[])
+       imp_res_tac type_top_tenv_ok >>
+       fs [num_tvs_bvl2, num_tvs_def])
     >- (
       simp[bind_var_list2_append] >>
       match_mp_tac tenv_val_ok_bvl2 >> simp[] >>
-      match_mp_tac (MP_CANON (GEN_ALL (DISCH_ALL (CONJUNCT1 (UNDISCH (UNDISCH (SPEC_ALL type_top_tenv_ok))))))) >>
-      first_assum(match_exists_tac o concl) >>
-      simp[num_tvs_bvl2,num_tvs_def] )
+      imp_res_tac type_top_tenv_ok >>
+      fs [num_tvs_bvl2, num_tvs_def])
     >-
       fs[check_env_def]
     >-
-      fs[tenvC_ok_merge,check_cenv_tenvC_ok]
+      fs[tenv_ctor_ok_merge,check_cenv_tenvC_ok]
     >-
-      fs[tenvT_ok_merge]
+      fs[tenv_tabbrev_ok_merge]
+    >-
+      fs []
     >-
       metis_tac[tenv_alpha_bind_var_list2]
     >>
