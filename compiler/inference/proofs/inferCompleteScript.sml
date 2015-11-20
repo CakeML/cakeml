@@ -639,7 +639,7 @@ val infer_d_complete = Q.prove (
      fs[Abbr`ls`] >> pop_assum mp_tac >>
      simp[MEM_MAP] >>
      imp_res_tac ALOOKUP_MEM >>
-     `MEM x (MAP FST tenv'')` by metis_tac[MEM_MAP,FST] >>
+     `MEM x (MAP FST bindings)` by metis_tac[MEM_MAP,FST] >>
      `MEM x (MAP FST funs)` by metis_tac[] >>
      pop_assum mp_tac >>
      simp[MEM_MAP,EXISTS_PROD,MEM_ZIP,LENGTH_COUNT_LIST,MEM_EL] ) >>
@@ -751,16 +751,16 @@ val infer_d_complete = Q.prove (
        pop_assum kall_tac>>pop_assum mp_tac >>
        simp[EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,PULL_EXISTS,EL_MAP,EL_COUNT_LIST] >>
        metis_tac[])>>
-     `(p0,t) = EL p3 tenv'' ∧ t = EL p3 (MAP SND tenv'')` by
+     `(p0,t) = EL p3 bindings ∧ t = EL p3 (MAP SND bindings)` by
        (fs[MEM_EL,EL_COUNT_LIST,LENGTH_COUNT_LIST]>>
-       `p0 = EL n''' (MAP FST tenv'')` by
+       `p0 = EL n''' (MAP FST bindings)` by
          (fs[EL_MAP]>>metis_tac[FST])>>
        qpat_assum` A = EL n B` mp_tac>>
        `n < LENGTH funs` by metis_tac[LENGTH_ZIP,LENGTH_COUNT_LIST]>>
        simp[EL_ZIP,EL_COUNT_LIST,LENGTH_COUNT_LIST,LENGTH_ZIP,PAIR]>>
        strip_tac>>
        `n = n'''` by
-         (`EL n''' (MAP FST tenv'') = EL n (MAP FST funs)` by
+         (`EL n''' (MAP FST bindings) = EL n (MAP FST funs)` by
            (fs[EL_MAP]>>metis_tac[FST])>>
          `n''' < LENGTH funs_ts` by
            metis_tac[LENGTH_MAP]>>
@@ -768,7 +768,7 @@ val infer_d_complete = Q.prove (
         rw[EQ_IMP_THM]>>
         pop_assum(qspecl_then [`n`,`n'''`] assume_tac)>>rfs[LENGTH_MAP])
        >>
-       `t = EL n''' (MAP SND tenv'')` by
+       `t = EL n''' (MAP SND bindings)` by
          (simp[EL_MAP]>>
          metis_tac[SND])>>
        fs[])>>
