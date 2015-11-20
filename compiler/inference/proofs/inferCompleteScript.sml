@@ -1459,31 +1459,31 @@ val type_top_tenv_ok = store_thm("type_top_tenv_ok",
   imp_res_tac type_specs_tenv_ok)
 (* -- *)
 
-val infer_top_complete = store_thm("infer_top_complete",``
-!top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM tenvM'.
+val infer_top_complete = Q.store_thm("infer_top_complete",
+`!top mdecls tdecls edecls tenvT menv cenv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' menv' st itenv tenvM'.
   check_menv menv ∧
-  tenvM_ok tenvM ∧
-  tenv_ok (bind_var_list2 tenv Empty) ∧
+  tenv_mod_ok tenv.m ∧
+  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
   check_env ∅ itenv ∧
-  tenvC_ok cenv ∧
-  tenvT_ok tenvT ∧
+  tenv_ctor_ok tenv.c ∧
+  tenv_tabbrev_ok tenv.t ∧
   (*check_env ∅ tenv' ∧ *)
-  type_top T (set mdecls,set tdecls,set edecls) tenvT tenvM cenv (bind_var_list2 tenv Empty) top (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
-  tenv_alpha itenv (bind_var_list2 tenv Empty) ∧
-  menv_alpha menv tenvM
+  type_top T (set mdecls,set tdecls,set edecls) (tenv with v:= bind_var_list2 tenv_v Empty) top (mdecls',tdecls',edecls') tenvT' tenvM' cenv' tenv' ∧
+  tenv_alpha itenv (bind_var_list2 tenv_v Empty) ∧
+  menv_alpha menv tenv.m
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv' menv'.
     set mdecls'' = mdecls' ∧
     set tdecls'' = tdecls' ∧
     set edecls'' = edecls' ∧
-    infer_top (mdecls,tdecls,edecls) tenvT menv cenv itenv top st =
+    infer_top (mdecls,tdecls,edecls) tenv.t menv tenv.c itenv top st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', menv', cenv', itenv'), st') ∧
     (*for induction*)
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     menv_alpha menv' tenvM' ∧
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
-    check_env ∅ itenv'``,
+    check_env ∅ itenv'`,
   rw [Once type_top_cases]>>
   fs[infer_top_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def]
   >-
@@ -1521,7 +1521,7 @@ val infer_top_complete = store_thm("infer_top_complete",``
         (imp_res_tac check_specs_check>>
         pop_assum mp_tac>>
         ntac 26 (pop_assum kall_tac)>>
-        simp[check_env_def,check_flat_cenv_def,typeSoundInvariantsTheory.flat_tenvT_ok_def,FEVERY_FEMPTY])>>
+        simp[check_env_def,check_flat_cenv_def,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FEMPTY])>>
       metis_tac[check_weakE_complete,check_env_def,check_specs_check])
 
 val infer_prog_complete = store_thm("infer_prog_complete",``
