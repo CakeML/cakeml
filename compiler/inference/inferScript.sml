@@ -210,7 +210,7 @@ val lookup_tenvC_st_ex_def = Define `
   od)`;
 
 val infer_p_def = tDefine "infer_p" `
-(infer_p (cenv:tenvC) (Pvar n) =
+(infer_p cenv (Pvar n) =
   do t <- fresh_uvar;
      return (t, [(n,t)])
   od) ∧
@@ -405,7 +405,7 @@ val infer_e_def = tDefine "infer_e" `
      uvs <- n_fresh_uvar tvs;
      return (infer_deBruijn_subst uvs t)
   od) ∧
-(infer_e menv (cenv:tenvC) env (Con cn_opt es) =
+(infer_e menv cenv env (Con cn_opt es) =
   case cn_opt of
       NONE =>
        do ts <- infer_es menv cenv env es;
@@ -600,7 +600,8 @@ val check_specs_def = Define `
 (check_specs mn tenvT decls tenvT' cenv env (Sval x t::specs) =
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
-     check_specs mn tenvT decls tenvT' cenv ((x, (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) t)) :: env) specs
+     () <- guard (check_type_names tenvT t) "Bad type annotation";
+     check_specs mn tenvT decls tenvT' cenv ((x, (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) (type_name_subst tenvT t))) :: env) specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype tdefs :: specs) =
   do new_tenvT <- return (FEMPTY |++ MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs);
@@ -716,9 +717,9 @@ val infer_prog_def = Define `
 val _ = Datatype`
   inferencer_config =
   <| infer_decls : (modN list # conN id list # varN id list)
-   ; infer_types : tenvT
+   ; infer_types : tenv_tabbrev
    ; infer_m : modN |-> (varN, num # infer_t) alist
-   ; infer_c : tenvC
+   ; infer_c : tenv_ctor
    ; infer_v : (varN, num # infer_t) alist
    |>`;
 
@@ -815,7 +816,7 @@ check_menv menv =
   FEVERY (\(mn,env). EVERY (\(x, (tvs,t)). check_t tvs {} t) env) menv`;
 
 val check_flat_cenv_def = Define `
-check_flat_cenv (cenv : flat_tenvC) =
+check_flat_cenv cenv =
   EVERY (\(cn,(tvs,ts,t)). EVERY (check_freevars 0 tvs) ts) cenv`;
 
 val check_cenv_def = Define `

@@ -151,7 +151,8 @@ val _ = Define `
 val _ = Hol_datatype `
 (*  'ffi *) top_state =
          <| (* Type system state *)
-            tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+            tdecs : decls;
+            tenv : type_environment;
             (* Semantics state *)
             sem_st : 'ffi state;
             sem_env : v environment |>`;

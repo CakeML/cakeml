@@ -124,7 +124,8 @@ let basis_sem_env ffi =
 open import TypeSystem
 type top_state 'ffi =
          <| (* Type system state *)
-            tdecs : decls; tenvT : tenvT; tenvM : tenvM; tenvC : tenvC; tenv : tenvE;
+            tdecs : decls;
+            tenv : type_environment;
             (* Semantics state *)
             sem_st : state 'ffi;
             sem_env : environment v |>

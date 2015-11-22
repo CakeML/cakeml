@@ -19,6 +19,10 @@ val _ = new_theory "typeSoundInvariants"
 (*open import TypeSystem*)
 (*import List_extra*)
 
+(*let mof env = env.SemanticPrimitives.m*)
+(*let cof env = env.SemanticPrimitives.c*)
+(*let vof env = env.SemanticPrimitives.v*)
+
 val _ = Hol_datatype `
  store_t = Ref_t of t | W8array_t | Varray_t of t`;
 
@@ -27,34 +31,34 @@ val _ = Hol_datatype `
 val _ = type_abbrev( "tenvS" , ``: (num, store_t) fmap``);
 
 (* Check that the type names map to valid types *)
-(*val flat_tenvT_ok : flat_tenvT -> bool*)
+(*val flat_tenv_tabbrev_ok : Map.map typeN (list tvarN * t) -> bool*)
 val _ = Define `
- (flat_tenvT_ok tenvT =  
-(FEVERY (UNCURRY (\ tn (tvs,t) .  check_freevars( 0) tvs t)) tenvT))`;
+ (flat_tenv_tabbrev_ok tenv_tabbrev =  
+(FEVERY (UNCURRY (\ tn (tvs,t) .  check_freevars( 0) tvs t)) tenv_tabbrev))`;
 
 
-(*val tenvT_ok : tenvT -> bool*)
+(*val tenv_tabbrev_ok : mod_env typeN (list tvarN * t) -> bool*)
 val _ = Define `
- (tenvT_ok (mtenvT, tenvT) =  
+ (tenv_tabbrev_ok (mtenvT, tenvT) =  
 (FEVERY (UNCURRY (\s tenvT .  
-  (case (s ,tenvT ) of ( _ , tenvT ) => flat_tenvT_ok tenvT ))) mtenvT /\
-  flat_tenvT_ok tenvT))`;
+  (case (s ,tenvT ) of ( _ , tenvT ) => flat_tenv_tabbrev_ok tenvT ))) mtenvT /\
+  flat_tenv_tabbrev_ok tenvT))`;
 
 
 (* Global constructor type environments keyed by constructor name and type *)
 val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
 
-(*val flat_tenvC_ok : flat_tenvC -> bool*)
+(*val flat_tenv_ctor_ok : flat_tenv_ctor -> bool*)
 val _ = Define `
- (flat_tenvC_ok tenvC =  
-(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenvC))`;
+ (flat_tenv_ctor_ok tenv_ctor =  
+(EVERY (\ (cn,(tvs,ts,tn)) .  EVERY (check_freevars( 0) tvs) ts) tenv_ctor))`;
 
 
-(*val tenvC_ok : tenvC -> bool*)
+(*val tenv_ctor_ok : tenv_ctor -> bool*)
 val _ = Define `
- (tenvC_ok (mtenvC, tenvC) =  
-(EVERY (\p .  (case (p ) of ( (_,tenvC) ) => flat_tenvC_ok tenvC )) mtenvC /\
-  flat_tenvC_ok tenvC))`;
+ (tenv_ctor_ok (mtenvC, tenvC) =  
+(EVERY (\p .  (case (p ) of ( (_,tenvC) ) => flat_tenv_ctor_ok tenvC )) mtenvC /\
+  flat_tenv_ctor_ok tenvC))`;
 
 
 (*val ctMap_ok : ctMap -> bool*)
@@ -64,13 +68,13 @@ val _ = Define `
 
 
 (* Convert from a lexically scoped constructor environment to the global one *)
-(*val flat_to_ctMap_list : flat_tenvC -> alist (conN * tid_or_exn) (list tvarN * list t)*)
+(*val flat_to_ctMap_list : flat_tenv_ctor -> alist (conN * tid_or_exn) (list tvarN * list t)*)
 val _ = Define `
  (flat_to_ctMap_list tenvC =  
 (MAP (\ (cn,(tvs,ts,t)) .  ((cn,t),(tvs,ts))) tenvC))`;
 
 
-(*val flat_to_ctMap : flat_tenvC -> ctMap*)
+(*val flat_to_ctMap : flat_tenv_ctor -> ctMap*)
 val _ = Define `
  (flat_to_ctMap tenvC = (FUPDATE_LIST FEMPTY (REVERSE (flat_to_ctMap_list tenvC))))`;
 
@@ -88,10 +92,10 @@ val _ = Define `
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
  * that the correct types are used. *)
-(*val consistent_con_env : ctMap -> env_ctor -> tenvC -> bool*)
+(*val consistent_con_env : ctMap -> env_ctor -> tenv_ctor -> bool*)
 val _ = Define `
  (consistent_con_env ctMap env_c tenvC =  
-(tenvC_ok tenvC /\
+(tenv_ctor_ok tenvC /\
   ctMap_ok ctMap /\
   (! cn n t.    
 (lookup_alist_mod_env cn env_c = SOME (n, t))
@@ -115,7 +119,7 @@ val _ = Define `
  * entries in the environment are values, and values have no free variables,
  * each entry in the environment can be typed in the empty environment (if at
  * all) *)
-(*val type_env : ctMap -> tenvS -> env_val -> tenvE -> bool*)
+(*val type_env : ctMap -> tenvS -> env_val -> tenv_val -> bool*)
 
 (* The type of the store *)
 (*val type_s : ctMap -> tenvS -> store v -> bool*)
@@ -125,23 +129,24 @@ val _ = Define `
 (* The number is how many deBruijn type variables are bound in the context.
  * This is only used for constructor contexts, because the value restriction
  * ensures that no other contexts can be created under a let binding. *)
-(*val type_ctxt : nat -> tenvM -> ctMap -> tenvC -> tenvS -> tenvE -> ctxt_frame -> t -> t -> bool*)
+(*val type_ctxt : nat -> ctMap -> tenvS -> type_environment -> ctxt_frame -> t -> t -> bool*)
 (*val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool*)
 (*val type_state : forall 'ffi. nat -> ctMap -> tenvS -> small_state 'ffi -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
 
  val _ = Define `
 
-(tenv_ok Empty = T)
+(tenv_val_ok Empty = T)
 /\
-(tenv_ok (Bind_tvar n tenv) = (tenv_ok tenv))
+(tenv_val_ok (Bind_tvar n tenv) = (tenv_val_ok tenv))
 /\
-(tenv_ok (Bind_name x tvs t tenv) =  
-(check_freevars (tvs + num_tvs tenv) [] t /\ tenv_ok tenv))`;
+(tenv_val_ok (Bind_name x tvs t tenv) =  
+(check_freevars (tvs + num_tvs tenv) [] t /\ tenv_val_ok tenv))`;
 
 
+(*val tenv_mod_ok : Map.map modN (alist varN (nat * t)) -> bool*)
 val _ = Define `
- (tenvM_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_ok (bind_var_list2 tenv Empty))) tenvM))`;
+ (tenv_mod_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_val_ok (bind_var_list2 tenv Empty))) tenvM))`;
 
 
 val _ = Hol_reln ` (! tvs cenv senv n.
@@ -177,22 +182,22 @@ type_v tvs cenv senv (Conv (SOME (cn,tn)) vs) (Tapp ts' (tid_exn_to_tc tn)))
 ==>
 type_v tvs cenv senv (Conv NONE vs) (Tapp ts TC_tup))
 
-/\ (! tvs menv tenvC ctMap senv env tenv n e t1 t2.
-(consistent_con_env ctMap env.c tenvC /\
-tenvM_ok menv /\
-consistent_mod_env senv ctMap env.m menv /\
-type_env ctMap senv env.v tenv /\
+/\ (! tvs ctMap senv env tenv n e t1 t2.
+(consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_mod_ok tenv.m /\
+consistent_mod_env senv ctMap (environment_m env) tenv.m /\
+type_env ctMap senv (environment_v env) tenv.v /\
 check_freevars tvs [] t1 /\
-type_e menv tenvC (bind_tenv n( 0) t1 (bind_tvar tvs tenv)) e t2)
+type_e (tenv with<| v := Bind_name n( 0) t1 (bind_tvar tvs tenv.v)|>) e t2)
 ==>
 type_v tvs ctMap senv (Closure env n e) (Tfn t1 t2))
 
-/\ (! tvs menv tenvC ctMap senv env funs n t tenv tenv'.
-(consistent_con_env ctMap env.c tenvC /\
-tenvM_ok menv /\
-consistent_mod_env senv ctMap env.m menv /\
-type_env ctMap senv env.v tenv /\
-type_funs menv tenvC (bind_var_list( 0) tenv' (bind_tvar tvs tenv)) funs tenv' /\
+/\ (! tvs ctMap senv env funs n t tenv tenv'.
+(consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_mod_ok tenv.m /\
+consistent_mod_env senv ctMap (environment_m env) tenv.m /\
+type_env ctMap senv (environment_v env) tenv.v /\
+type_funs (tenv with<| v := bind_var_list( 0) tenv' (bind_tvar tvs tenv.v)|>) funs tenv' /\
 (ALOOKUP tenv' n = SOME t) /\
 ALL_DISTINCT (MAP (\ (f,x,e) .  f) funs) /\
 MEM n (MAP (\ (f,x,e) .  f) funs))
@@ -242,7 +247,7 @@ type_env cenv senv [] Empty)
 (type_v tvs cenv senv v t /\
 type_env cenv senv env tenv)
 ==>
-type_env cenv senv ((n,v)::env) (bind_tenv n tvs t tenv))
+type_env cenv senv ((n,v)::env) (Bind_name n tvs t tenv))
 
 /\ (! tenvS tenvC.
 T
@@ -314,72 +319,72 @@ context_invariant dec_tvs ((Clet x ()  e,env) :: c) tvs)
 ==>
 context_invariant dec_tvs ((Ccon cn vs ()  es,env) :: c) tvs)`;
 
-val _ = Hol_reln ` (! tvs menv all_cenv cenv senv tenv t.
+val _ = Hol_reln ` (! tvs all_cenv senv tenv t.
 (check_freevars tvs [] t)
  ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Craise () ) Texn t)
+type_ctxt tvs all_cenv senv tenv (Craise () ) Texn t)
 
-/\ (! tvs menv all_cenv cenv senv tenv pes t.
+/\ (! tvs all_cenv senv tenv pes t.
 (! ((p,e) :: LIST_TO_SET pes). ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p (num_tvs tenv) cenv p Texn tenv' /\
-   type_e menv cenv (bind_var_list( 0) tenv' tenv) e t)
+   type_p (num_tvs tenv.v) tenv.c p Texn tenv' /\
+   type_e (tenv with<| v := bind_var_list( 0) tenv' tenv.v|>) e t)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Chandle ()  pes) t t)
+type_ctxt tvs all_cenv senv tenv (Chandle ()  pes) t t)
 
-/\ (! tvs menv all_cenv cenv senv tenv vs es op t1 t2 ts1 ts2.
+/\ (! tvs all_cenv senv tenv vs es op t1 t2 ts1 ts2.
 (check_freevars tvs [] t1 /\
 check_freevars tvs [] t2 /\
 type_vs( 0) all_cenv senv vs ts1 /\
-type_es menv cenv tenv es ts2 /\
+type_es tenv es ts2 /\
 type_op op ((REVERSE ts2 ++ [t1]) ++ ts1) t2)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Capp op vs ()  es) t1 t2)
+type_ctxt tvs all_cenv senv tenv (Capp op vs ()  es) t1 t2)
 
-/\ (! tvs menv all_cenv cenv senv tenv op e.
-(type_e menv cenv tenv e (Tapp [] (TC_name (Short "bool"))))
+/\ (! tvs all_cenv senv tenv op e.
+(type_e tenv e (Tapp [] (TC_name (Short "bool"))))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Clog op ()  e) (Tapp [] (TC_name (Short "bool"))) (Tapp [] (TC_name (Short "bool"))))
+type_ctxt tvs all_cenv senv tenv (Clog op ()  e) (Tapp [] (TC_name (Short "bool"))) (Tapp [] (TC_name (Short "bool"))))
 
-/\ (! tvs menv all_cenv cenv senv tenv e1 e2 t.
-(type_e menv cenv tenv e1 t /\
-type_e menv cenv tenv e2 t)
+/\ (! tvs all_cenv senv tenv e1 e2 t.
+(type_e tenv e1 t /\
+type_e tenv e2 t)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cif ()  e1 e2) (Tapp [] (TC_name (Short "bool"))) t)
+type_ctxt tvs all_cenv senv tenv (Cif ()  e1 e2) (Tapp [] (TC_name (Short "bool"))) t)
 
-/\ (! tvs menv all_cenv cenv senv tenv t1 t2 pes err_v.
+/\ (! tvs all_cenv senv tenv t1 t2 pes err_v.
 (((pes = []) ==> (check_freevars tvs [] t1 /\ check_freevars( 0) [] t2)) /\
 (! ((p,e) :: LIST_TO_SET pes) . ? tenv'.
    ALL_DISTINCT (pat_bindings p []) /\
-   type_p tvs cenv p t1 tenv' /\
-   type_e menv cenv (bind_var_list( 0) tenv' tenv) e t2) /\
+   type_p tvs tenv.c p t1 tenv' /\
+   type_e (tenv with<| v := bind_var_list( 0) tenv' tenv.v|>) e t2) /\
 type_v( 0) all_cenv senv err_v Texn)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Cmat ()  pes err_v) t1 t2)
+type_ctxt tvs all_cenv senv tenv (Cmat ()  pes err_v) t1 t2)
 
-/\ (! tvs menv all_cenv cenv senv tenv e t1 t2 n.
+/\ (! tvs all_cenv senv tenv e t1 t2 n.
 (check_freevars tvs [] t1 /\
-type_e menv cenv (opt_bind_tenv n tvs t1 tenv) e t2)
+type_e (tenv with<| v := opt_bind_name n tvs t1 tenv.v|>) e t2)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Clet n ()  e) t1 t2)
+type_ctxt tvs all_cenv senv tenv (Clet n ()  e) t1 t2)
 
-/\ (! tvs menv all_cenv cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
+/\ (! tvs all_cenv senv tenv cn vs es ts1 ts2 t tn ts' tvs'.
 (EVERY (check_freevars tvs []) ts' /\
 (LENGTH tvs' = LENGTH ts') /\
 type_vs tvs all_cenv senv vs
         (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts1) /\
-type_es menv cenv (bind_tvar tvs tenv) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
-(lookup_alist_mod_env cn cenv = SOME (tvs', ((REVERSE ts2++[t])++ts1), tn)))
+type_es (tenv with<| v := bind_tvar tvs tenv.v|>) es (MAP (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts'))))) ts2) /\
+(lookup_alist_mod_env cn tenv.c = SOME (tvs', ((REVERSE ts2++[t])++ts1), tn)))
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
+type_ctxt tvs all_cenv senv tenv (Ccon (SOME cn) vs ()  es) (type_subst (FUPDATE_LIST FEMPTY (REVERSE (ZIP (tvs', ts')))) t)
           (Tapp ts' (tid_exn_to_tc tn)))
 
-/\ (! tvs menv all_cenv cenv senv tenv vs es t ts1 ts2.
+/\ (! tvs all_cenv senv tenv vs es t ts1 ts2.
 (check_freevars tvs [] t /\
 type_vs tvs all_cenv senv vs ts1 /\
-type_es menv cenv (bind_tvar tvs tenv) es ts2)
+type_es (tenv with<| v := bind_tvar tvs tenv.v|>) es ts2)
 ==>
-type_ctxt tvs menv all_cenv cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))`;
+type_ctxt tvs all_cenv senv tenv (Ccon NONE vs ()  es) t (Tapp ((REVERSE ts2++[t])++ts1) TC_tup))`;
 
 val _ = Define `
  (poly_context cs =  
@@ -404,25 +409,25 @@ val _ = Hol_reln ` (! tvs tenvC senv t.
 ==>
 type_ctxts tvs tenvC senv [] t t)
 
-/\ (! tvs tenvM tenvC ctMap senv c env cs tenv t1 t2 t3.
-(type_env ctMap senv env.v tenv /\
-consistent_con_env ctMap env.c tenvC /\
-tenvM_ok tenvM /\
-consistent_mod_env senv ctMap env.m tenvM /\
-type_ctxt tvs tenvM ctMap tenvC senv tenv c t1 t2 /\
+/\ (! tvs ctMap senv c env cs tenv t1 t2 t3.
+(type_env ctMap senv (environment_v env) tenv.v /\
+consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_mod_ok tenv.m /\
+consistent_mod_env senv ctMap (environment_m env) tenv.m /\
+type_ctxt tvs ctMap senv tenv c t1 t2 /\
 type_ctxts (if is_ccon c /\ poly_context cs then tvs else  0) ctMap senv cs t2 t3)
 ==>
 type_ctxts tvs ctMap senv ((c,env)::cs) t1 t3)`;
 
-val _ = Hol_reln ` (! dec_tvs tenvM tenvC ctMap senv s env e c t1 t2 tenv tvs tr.
+val _ = Hol_reln ` (! dec_tvs ctMap senv s env e c t1 t2 tenv tvs tr.
 (context_invariant dec_tvs c tvs /\
-consistent_con_env ctMap env.c tenvC /\
-tenvM_ok tenvM /\
-consistent_mod_env senv ctMap env.m tenvM /\
+consistent_con_env ctMap (environment_c env) tenv.c /\
+tenv_mod_ok tenv.m /\
+consistent_mod_env senv ctMap (environment_m env) tenv.m /\
 type_ctxts tvs ctMap senv c t1 t2 /\
-type_env ctMap senv env.v tenv /\
+type_env ctMap senv (environment_v env) tenv.v /\
 type_s ctMap senv s /\
-type_e tenvM tenvC (bind_tvar tvs tenv) e t1 /\
+type_e (tenv with<| v := bind_tvar tvs tenv.v|>) e t1 /\
 (( ~ (tvs =( 0))) ==> is_value e))
 ==>
 type_state dec_tvs ctMap senv (env, (s,tr), Exp e, c) t2)
@@ -436,7 +441,7 @@ type_v tvs ctMap senv v t1)
 type_state dec_tvs ctMap senv (env, (s,tr), Val v, c) t2)`;
 
 (* The first argument has strictly more bindings than the second. *)
-(*val weakM_def : tenvM -> tenvM -> bool*)
+(*val weakM_def : Map.map modN (alist varN (nat * t)) -> Map.map modN (alist varN (nat * t)) -> bool*)
 val _ = Define `
  (weakM tenvM tenvM' =  
 (! mn tenv'.
@@ -445,7 +450,7 @@ val _ = Define `
     (? tenv. (FLOOKUP tenvM mn = SOME tenv) /\ weakE tenv tenv')))`;
 
 
-(*val weakC_def : tenvC -> tenvC -> bool*)
+(*val weakC_def : tenv_ctor -> tenv_ctor -> bool*)
 val _ = Define `
  (weakC tenvC tenvC' =  
 (flat_weakC (SND tenvC) (SND tenvC') /\  
@@ -528,22 +533,22 @@ val _ = Define `
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants r (decls1,tenvT,tenvM,tenvC,tenv,st,env) =  
+ (type_sound_invariants r (decls1,tenv,st,env) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
     consistent_decls st.defined_types decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
     ctMap_has_bools ctMap /\
-    tenvT_ok tenvT /\
-    tenvM_ok tenvM_no_sig /\
-    tenvM_ok tenvM /\
-    consistent_mod_env tenvS ctMap env.m tenvM_no_sig /\
-    consistent_con_env ctMap env.c tenvC_no_sig /\
-    type_env ctMap tenvS env.v tenv /\
+    tenv_tabbrev_ok tenv.t /\
+    tenv_mod_ok tenvM_no_sig /\
+    tenv_mod_ok tenv.m /\
+    consistent_mod_env tenvS ctMap (environment_m env) tenvM_no_sig /\
+    consistent_con_env ctMap (environment_c env) tenvC_no_sig /\
+    type_env ctMap tenvS (environment_v env) tenv.v /\
     type_s ctMap tenvS st.refs /\
-    weakM tenvM_no_sig tenvM /\
-    weakC tenvC_no_sig tenvC /\
+    weakM tenvM_no_sig tenv.m /\
+    weakC tenvC_no_sig tenv.c /\
     decls_ok decls_no_sig /\
     weak_decls decls_no_sig decls1 /\
     weak_decls_only_mods decls_no_sig decls1 /\
@@ -552,12 +557,16 @@ val _ = Define `
 
 
 val _ = Define `
- (update_type_sound_inv ((decls1:decls),(tenvT:tenvT),(tenvM:tenvM),(tenvC:tenvC),(tenv:tenvE),(st: 'ffi state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
+ (update_type_sound_inv ((decls1:decls),(tenv:type_environment),(st: 'ffi state),(env: v environment)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =  
 ((case r of
        Rval (new_mods, new_vals) =>
-         (union_decls decls1' decls1,merge_mod_env tenvT' tenvT, FUNION tenvM' tenvM,merge_alist_mod_env tenvC' tenvC,bind_var_list2 tenv' tenv,
+         (union_decls decls1' decls1,
+          <| t := (merge_mod_env tenvT' tenv.t); 
+             m := (FUNION tenvM' tenv.m);
+             c := (merge_alist_mod_env tenvC' tenv.c);
+             v := (bind_var_list2 tenv' tenv.v) |>,
           st',extend_top_env new_mods new_vals new_ctors env)
-     | Rerr _ => (union_decls decls1' decls1,tenvT,tenvM,tenvC,tenv,st',env)
+     | Rerr _ => (union_decls decls1' decls1,tenv,st',env)
   )))`;
 
 val _ = export_theory()
