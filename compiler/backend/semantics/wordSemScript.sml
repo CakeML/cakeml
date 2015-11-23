@@ -434,6 +434,10 @@ val get_var_imm_def = Define`
   (get_var_imm ((Reg n):'a reg_imm) s = get_var n s) ∧
   (get_var_imm (Imm w) s = SOME(Word w))`
 
+val add_ret_loc_def = Define `
+  (add_ret_loc NONE xs = xs) /\
+  (add_ret_loc (SOME (n,names,ret_handler,l1,l2)) xs = (Loc l1 l2)::xs)`
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
   (evaluate (Alloc n names,s) =
@@ -510,7 +514,7 @@ val evaluate_def = tDefine "evaluate" `
     case get_vars args s of
     | NONE => (SOME Error,s)
     | SOME xs =>
-    case find_code dest xs s.code of
+    case find_code dest (add_ret_loc ret xs) s.code of
 	  | NONE => (SOME Error,s)
 	  | SOME (args1,prog) =>
 	  case ret of
@@ -526,7 +530,7 @@ val evaluate_def = tDefine "evaluate" `
 		| NONE => (SOME Error,s)
 		| SOME env =>
 	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case evaluate (prog, call_env ((Loc l1 l2)::args1)
+	       (case evaluate (prog, call_env args1
 		       (push_env env handler (dec_clock s))) of
 		| (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)

@@ -316,13 +316,13 @@ val compile_correct = prove(
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]))
 
-
   THEN1 (* Call *)
    (
 
     once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `ret`
-    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+           wordSemTheory.add_ret_loc_def]
     THEN1 (* ret = NONE *)
      (Cases_on `get_vars args s` \\ fs []
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ fs []
@@ -347,12 +347,11 @@ val compile_correct = prove(
       \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
              wordSemTheory.dec_clock_def]
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def])
-
-
     \\ Cases_on `x` \\ fs [LET_DEF]
     \\ Cases_on `handler` \\ fs [wordSemTheory.evaluate_def]
     \\ Cases_on `get_vars args s` \\ fs []
     \\ imp_res_tac state_rel_get_vars_IMP \\ fs []
+    \\ fs [wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
      (Cases_on `find_code dest x s.code` \\ fs []
       \\ Cases_on `x'` \\ imp_res_tac find_code_lemma \\ fs [] \\ rw []
