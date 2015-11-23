@@ -1834,6 +1834,14 @@ val compat_fn = Q.store_thm ("compat_fn",
    >- metis_tac [val_rel_mono] >>
    metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL]));
 
+val optCASE_NONE_T = Q.prove(
+  `option_CASE opt T f ⇔ (∀r. opt = SOME r ⇒ f r)`,
+  Cases_on `opt` >> simp[]);
+
+val optCASE_NONE_F = Q.prove(
+  `option_CASE opt F f ⇔ ∃r. opt = SOME r ∧ f r`,
+  Cases_on `opt` >> simp[]);
+
 val compat_recclosure = Q.store_thm ("compat_recclosure",
 `!i l env env' args args' funs funs' idx.
   LIST_REL (λ(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) [e] [e']) funs funs' ∧
@@ -1841,7 +1849,31 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
   LIST_REL (val_rel (:'ffi) i) args args'
   ⇒
   val_rel (:'ffi) i (Recclosure l args env funs idx) (Recclosure l args' env' funs' idx)`,
- cheat);
+  simp[val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def] >>
+  rpt gen_tac >> strip_tac >>
+  CONJ_ASM1_TAC
+  >- (qx_genl_tac [`loc`, `N`] >>
+      simp[clo_can_apply_def, clo_to_partial_args_def, clo_to_num_params_def,
+           clo_to_loc_def, rec_clo_ok_def] >>
+      qcase_tac `EL idx funs1` >> qcase_tac `LIST_REL _ funs1 funs2` >>
+      qcase_tac `LENGTH args1 < FST (EL idx funs1)` >>
+      qcase_tac `LENGTH args2 < FST (EL idx funs2)` >>
+      `LENGTH funs2 = LENGTH funs1 ∧ LENGTH args2 = LENGTH args1`
+        by metis_tac[LIST_REL_EL_EQN] >>
+      qmatch_assum_abbrev_tac `LIST_REL FR funs1 funs2` >>
+      qcase_tac `loc ≠ NONE` >> strip_tac >>
+      `FR (EL idx funs1) (EL idx funs2)` by metis_tac[LIST_REL_EL_EQN] >>
+      pop_assum mp_tac >> simp[Abbr`FR`, UNCURRY] >> strip_tac >>
+      Cases_on `loc` >> fs[]) >>
+  qcase_tac `Recclosure loc args1 env1 funs1 idx` >>
+  qcase_tac `LIST_REL _ funs1 funs2` >>
+  qcase_tac `LIST_REL _ env1 env2` >>
+  qcase_tac `LIST_REL _ args1 args2` >>
+  `LENGTH funs2 = LENGTH funs1 ∧ LENGTH env2 = LENGTH env1 ∧
+   LENGTH args2 = LENGTH args1` by metis_tac[LIST_REL_EL_EQN] >>
+  simp[optCASE_NONE_T, optCASE_NONE_F] >> rpt gen_tac >> strip_tac >>
+  qx_gen_tac `dc1` >>
+  simp[dest_closure_def, SimpL ``$==>``, UNCURRY] >> cheat)
 
 val compat_letrec = Q.store_thm ("compat_letrec",
 `!loc vars funs e funs' e'.
