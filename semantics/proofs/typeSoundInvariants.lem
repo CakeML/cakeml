@@ -12,9 +12,13 @@ import List_extra
 let mof env = env.SemanticPrimitives.m
 let cof env = env.SemanticPrimitives.c
 let vof env = env.SemanticPrimitives.v
+let dmof env = env.SemanticPrimitives.defined_mods
+let dtof env = env.SemanticPrimitives.defined_types
 declare hol target_rep function mof env = `environment_m` env
 declare hol target_rep function cof env = `environment_c` env
 declare hol target_rep function vof env = `environment_v` env
+declare hol target_rep function dmof env = `state_defined_mods` env
+declare hol target_rep function dtof env = `state_defined_types` env
 
 type store_t = Ref_t of t | W8array_t | Varray_t of t
 
@@ -57,11 +61,11 @@ let flat_to_ctMap tenvC = Map.fromList (List.reverse (flat_to_ctMap_list tenvC))
 
 (* Get the modules that are used by the type and exception definitions *)
 val decls_to_mods : decls -> set (maybe modN)
-let decls_to_mods (mdecls,tdecls,edecls) =
-  { Just mn | forall mn | exists tn. (Long mn tn) IN tdecls } union
-  { Just mn | forall mn | exists cn. (Long mn cn) IN edecls } union
-  { Nothing | forall tn | Short tn IN tdecls } union
-  { Nothing | forall tn | Short tn IN edecls }
+let decls_to_mods d =
+  { Just mn | forall mn | exists tn. (Long mn tn) IN d.defined_types } union
+  { Just mn | forall mn | exists cn. (Long mn cn) IN d.defined_exns } union
+  { Nothing | forall tn | Short tn IN d.defined_types } union
+  { Nothing | forall tn | Short tn IN d.defined_exns }
 
 (* Check that a constructor type environment is consistent with a runtime type
  * enviroment, using the full type keyed constructor type environment to ensure
@@ -537,41 +541,41 @@ let ctMap_has_bools ctMap =
 
 (* The types and exceptions that are missing are all declared in modules. *)
 val weak_decls_only_mods : decls -> decls -> bool
-let  weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =
+let  weak_decls_only_mods d1 d2 =
     (forall tn.
-       (Short tn IN tdecls1 --> Short tn IN tdecls2)) &&
+       (Short tn IN d1.defined_types --> Short tn IN d2.defined_types)) &&
     (forall cn.
-       (Short cn IN edecls1 --> Short cn IN edecls2))
+       (Short cn IN d1.defined_exns --> Short cn IN d2.defined_exns))
 
 (* The run-time declared constructors and exceptions are all either declared in
  * the type system, or from modules that have been declared *)
 
 val consistent_decls : set tid_or_exn -> decls -> bool
-let consistent_decls decls (mdecls,tdecls,edecls) =
-  forall (d IN decls).
-    match d with
-      | TypeExn cid -> cid IN edecls || exists mn cn. cid = Long mn cn && mn IN mdecls
-      | TypeId tid -> tid IN tdecls || exists mn tn. tid = Long mn tn && mn IN mdecls
+let consistent_decls tes d =
+  forall (te IN tes).
+    match te with
+      | TypeExn cid -> cid IN d.defined_exns || exists mn cn. cid = Long mn cn && mn IN d.defined_mods
+      | TypeId tid -> tid IN d.defined_exns || exists mn tn. tid = Long mn tn && mn IN d.defined_mods
     end
 
 val consistent_ctMap : decls -> ctMap -> bool
-let consistent_ctMap (mdecls,tdecls,edecls) ctMap =
+let consistent_ctMap d ctMap =
   forall ((cn,tid) IN Map.domain ctMap).
     match tid with
-      | TypeId tn -> tn IN tdecls
-      | TypeExn cn -> cn IN edecls
+      | TypeId tn -> tn IN d.defined_types
+      | TypeExn cn -> cn IN d.defined_exns
     end
 
 val decls_ok : decls -> bool
-let decls_ok (mdecls,tdecls,edecls) =
-  decls_to_mods (mdecls,tdecls,edecls) subset ({Nothing} union Set.map Just mdecls)
+let decls_ok d =
+  decls_to_mods d subset ({Nothing} union Set.map Just d.defined_mods)
 
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
-let type_sound_invariants r (decls1,tenv,st,env) =
+let type_sound_invariants r (d,tenv,st,env) =
   exists ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
-    consistent_decls st.defined_types decls_no_sig &&
+    consistent_decls (dtof st) decls_no_sig &&
     consistent_ctMap decls_no_sig ctMap &&
     ctMap_has_exns ctMap &&
     ctMap_has_lists ctMap &&
@@ -586,10 +590,10 @@ let type_sound_invariants r (decls1,tenv,st,env) =
     weakM tenvM_no_sig tenv.m &&
     weakC tenvC_no_sig tenv.c &&
     decls_ok decls_no_sig &&
-    weak_decls decls_no_sig decls1 &&
-    weak_decls_only_mods decls_no_sig decls1 &&
+    weak_decls decls_no_sig d &&
+    weak_decls_only_mods decls_no_sig d &&
     (forall err. r = Just (Rerr (Rraise err)) --> type_v 0 ctMap tenvS err Texn) &&
-    match decls1 with (mods,x,y) -> mods = st.defined_mods end
+    d.defined_mods = (dmof st)
 
 let update_type_sound_inv ((decls1:decls),(tenv:type_environment),(st:state 'ffi),(env:environment v)) decls1' tenvT' tenvM' tenvC' tenv' st' new_ctors r =
   match r with

@@ -91,7 +91,8 @@ type tenv_val =
   (* The number is how many de Bruijn type variables the typescheme binds *)
   | Bind_name of varN * nat * t * tenv_val
 
-let bind_tvar tvs tenv = if tvs = 0 then tenv else Bind_tvar tvs tenv
+val bind_tvar : nat -> tenv_val -> tenv_val
+let bind_tvar tvs tenv_val = if tvs = 0 then tenv_val else Bind_tvar tvs tenv_val
 
 (* Type environments without any binding, but still an alist rather than a map,
  * so that they can be added to tenv_vals *)
@@ -108,21 +109,21 @@ val lookup_tenv_val : varN -> nat -> tenv_val -> maybe (nat * t)
 let rec
 lookup_tenv_val n inc Empty = Nothing
 and
-lookup_tenv_val n inc (Bind_tvar tvs e) = lookup_tenv_val n (inc + tvs) e
+lookup_tenv_val n inc (Bind_tvar tvs tenv_val) = lookup_tenv_val n (inc + tvs) tenv_val
 and
-lookup_tenv_val n inc (Bind_name n' tvs t e) =
+lookup_tenv_val n inc (Bind_name n' tvs t tenv_val) =
   if n' = n then
     Just (tvs, deBruijn_inc tvs inc t)
   else
-    lookup_tenv_val n inc e
+    lookup_tenv_val n inc tenv_val
 
 declare termination_argument lookup_tenv_val = automatic
 
 val opt_bind_name : maybe varN -> nat -> t -> tenv_val -> tenv_val
-let opt_bind_name n tvs t e =
+let opt_bind_name n tvs t tenv_val =
   match n with
-    | Nothing -> e
-    | Just n' -> Bind_name n' tvs t e
+    | Nothing -> tenv_val
+    | Just n' -> Bind_name n' tvs t tenv_val
   end
 
 val t_lookup_var_id : id varN -> type_environment -> maybe (nat * t)
@@ -140,27 +141,27 @@ val num_tvs : tenv_val -> nat
 let rec
 num_tvs Empty = 0
 and
-num_tvs (Bind_tvar tvs e) = tvs + num_tvs e
+num_tvs (Bind_tvar tvs tenv_val) = tvs + num_tvs tenv_val
 and
-num_tvs (Bind_name n tvs t e) = num_tvs e
+num_tvs (Bind_name n tvs t tenv_val) = num_tvs tenv_val
 
 declare termination_argument num_tvs = automatic
 
 val bind_var_list : nat -> list (varN * t) -> tenv_val -> tenv_val
 let rec
-bind_var_list tvs [] tenv = tenv
+bind_var_list tvs [] tenv_val = tenv_val
 and
-bind_var_list tvs ((n,t)::binds) tenv =
-  Bind_name n tvs t (bind_var_list tvs binds tenv)
+bind_var_list tvs ((n,t)::binds) tenv_val =
+  Bind_name n tvs t (bind_var_list tvs binds tenv_val)
 
 declare termination_argument bind_var_list = automatic
 
 val bind_var_list2 : list (varN * (nat * t)) -> tenv_val -> tenv_val
 let rec
-bind_var_list2 [] tenv = tenv
+bind_var_list2 [] tenv_val = tenv_val
 and
-bind_var_list2 ((n,(tvs,t))::binds) tenv =
-  Bind_name n tvs t (bind_var_list2 binds tenv)
+bind_var_list2 ((n,(tvs,t))::binds) tenv_val =
+  Bind_name n tvs t (bind_var_list2 binds tenv_val)
 
 declare termination_argument bind_var_list2 = automatic
 
@@ -180,31 +181,33 @@ val type_es : type_environment -> list exp -> list t -> bool
  * represents the functions *)
 val type_funs : type_environment -> list (varN * varN * exp) -> list (varN * t) -> bool
 
-type decls = set modN * set (id typeN) * set (id conN)
+type decls = 
+  <| defined_mods : set modN;
+     defined_types : set (id typeN);
+     defined_exns : set (id conN) |>
 
 val empty_decls : decls
-let empty_decls = ({},{},{})
+let empty_decls = <|defined_mods = {}; defined_types = {}; defined_exns = {}|>
 
 val union_decls : decls -> decls -> decls
-let union_decls (m1,t1,e1) (m2,t2,e2) =
-  (m1 union m2, t1 union t2, e1 union e2)
+let union_decls d1 d2 =
+  <| defined_mods = d1.defined_mods union d2.defined_mods;
+     defined_types = d1.defined_types union d2.defined_types;
+     defined_exns = d1.defined_exns union d2.defined_exns |>
+
+type flat_tenv_tabbrev = Map.map typeN (list tvarN * t)
+type tenv_tabbrev = mod_env typeN (list tvarN * t)
 
 (* Check a declaration and update the top-level environments
  * The arguments are in order:
  * - the module that the declaration is in
  * - the set of all modules, and types, and exceptions that have been previously declared
- * - the types associated with previously-declared type operator names and abbreviations
- * - the type schemes of bindings in previous modules
- * - the types of each constructor binding
- * - the type schemes of top-level bindings (plus those in the current module)
+ * - the type environment
  * - the declaration
- * - the set of all modules, and types, and exceptions that have been previously declared and are declared here (cumulative)
+ * - the set of all modules, and types, and exceptions that are declared here
  * - the types of new type operator names and abbreviations
  * - the types of the new constructors
  * - the type schemes of the new bindings *)
-
-type flat_tenv_tabbrev = Map.map typeN (list tvarN * t)
-type tenv_tabbrev = mod_env typeN (list tvarN * t)
 
 val type_d : bool -> maybe modN -> decls -> type_environment -> dec -> decls -> flat_tenv_tabbrev -> flat_tenv_ctor -> flat_tenv_val -> bool
 
@@ -671,13 +674,14 @@ type_d check_unique mn decls tenv (Dletrec funs) empty_decls Map.empty [] (tenv_
 
 and
 
-dtype : forall check_unique mn tenv tdefs mdecls edecls tdecls new_tdecls new_tenv_tabbrev.
+dtype : forall check_unique mn tenv tdefs decls new_tdecls new_decls new_tenv_tabbrev.
 check_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv.t) tdefs &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) tdefs) &&
-disjoint new_tdecls tdecls &&
-new_tenv_tabbrev = Map.fromList (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs)
+disjoint new_tdecls decls.defined_types &&
+new_tenv_tabbrev = Map.fromList (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) tdefs) &&
+new_decls = <| defined_mods = {}; defined_types = new_tdecls; defined_exns = {} |>
 ==>
-type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dtype tdefs) ({},new_tdecls,{}) new_tenv_tabbrev (build_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv.t) tdefs) []
+type_d check_unique mn decls tenv (Dtype tdefs) new_decls new_tenv_tabbrev (build_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv.t) tdefs) []
 
 and
 
@@ -690,12 +694,13 @@ type_d check_unique mn decls tenv (Dtabbrev tvs tn t) empty_decls (Map.singleton
 
 and
 
-dexn : forall check_unique mn tenv cn ts mdecls edecls tdecls.
+dexn : forall check_unique mn tenv cn ts decls new_decls.
 check_exn_tenv mn cn ts &&
-not (mk_id mn cn IN edecls) &&
-List.all (check_type_names tenv.t) ts
+not (mk_id mn cn IN decls.defined_exns) &&
+List.all (check_type_names tenv.t) ts &&
+new_decls = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>
 ==>
-type_d check_unique mn (mdecls,tdecls,edecls) tenv (Dexn cn ts) ({},{},{mk_id mn cn}) Map.empty [(cn, ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)))] []
+type_d check_unique mn decls tenv (Dexn cn ts) new_decls Map.empty [(cn, ([], List.map (type_name_subst tenv.t) ts, TypeExn (mk_id mn cn)))] []
 
 indreln [ type_ds : bool -> maybe modN -> decls -> type_environment -> list dec -> decls -> flat_tenv_tabbrev -> flat_tenv_ctor -> flat_tenv_val -> bool]
 
@@ -735,13 +740,14 @@ type_specs mn tenv_tabbrev (Sval x t :: specs) decls flat_tenv_tabbrev cenv (ten
 
 and
 
-stype : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv td specs new_tdecls decls new_tenv_tabbrev.
+stype : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv td specs new_tdecls new_decls decls new_tenv_tabbrev.
 new_tenv_tabbrev = Map.fromList (List.map (fun (tvs,tn,ctors) -> (tn, (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))))) td) &&
 new_tdecls = Set.fromList (List.map (fun (tvs,tn,ctors) -> (mk_id mn tn)) td) &&
 check_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) td &&
-type_specs mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) specs decls flat_tenv_tabbrev cenv tenv
+type_specs mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) specs decls flat_tenv_tabbrev cenv tenv &&
+new_decls = <| defined_mods = {}; defined_types = new_tdecls; defined_exns = {} |>
 ==>
-type_specs mn tenv_tabbrev (Stype td :: specs) (union_decls decls ({},new_tdecls,{})) (Map.(union) flat_tenv_tabbrev new_tenv_tabbrev) (cenv ++ build_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) td) tenv
+type_specs mn tenv_tabbrev (Stype td :: specs) (union_decls decls new_decls) (Map.(union) flat_tenv_tabbrev new_tenv_tabbrev) (cenv ++ build_ctor_tenv mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) td) tenv
 
 and
 
@@ -756,21 +762,23 @@ type_specs mn tenv_tabbrev (Stabbrev tvs tn t :: specs) decls (Map.(union) tenv_
 
 and
 
-sexn : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv cn ts specs decls.
+sexn : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv cn ts specs decls new_decls.
 check_exn_tenv mn cn ts &&
 type_specs mn tenv_tabbrev specs decls flat_tenv_tabbrev cenv tenv &&
-List.all (check_type_names tenv_tabbrev) ts
+List.all (check_type_names tenv_tabbrev) ts &&
+new_decls = <| defined_mods = {}; defined_types = {}; defined_exns = {mk_id mn cn} |>
 ==>
-type_specs mn tenv_tabbrev (Sexn cn ts :: specs) (union_decls decls ({},{},{mk_id mn cn})) flat_tenv_tabbrev (cenv ++ [(cn, ([], List.map (type_name_subst tenv_tabbrev) ts, TypeExn (mk_id mn cn)))]) tenv
+type_specs mn tenv_tabbrev (Sexn cn ts :: specs) (union_decls decls new_decls) flat_tenv_tabbrev (cenv ++ [(cn, ([], List.map (type_name_subst tenv_tabbrev) ts, TypeExn (mk_id mn cn)))]) tenv
 
 and
 
-stype_opq : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv tn specs tvs decls new_tenv_tabbrev.
+stype_opq : forall mn tenv_tabbrev flat_tenv_tabbrev cenv tenv tn specs tvs decls new_decls new_tenv_tabbrev.
 List.allDistinct tvs &&
 new_tenv_tabbrev = Map.singleton tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_id mn tn))) &&
-type_specs mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) specs decls flat_tenv_tabbrev cenv tenv
+type_specs mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) specs decls flat_tenv_tabbrev cenv tenv &&
+new_decls = <| defined_mods = {}; defined_types = {mk_id mn tn}; defined_exns = {} |>
 ==>
-type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls ({},{mk_id mn tn},{})) (Map.(union) flat_tenv_tabbrev new_tenv_tabbrev) cenv tenv
+type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls new_decls) (Map.(union) flat_tenv_tabbrev new_tenv_tabbrev) cenv tenv
 
 val flat_weakC : flat_tenv_ctor -> flat_tenv_ctor -> bool
 let flat_weakC cenv_impl cenv_spec =
@@ -789,10 +797,10 @@ let flat_weakC cenv_impl cenv_spec =
     end
 
 val weak_decls : decls -> decls -> bool
-let weak_decls (mdecs_impl, tdecs_impl, edecs_impl) (mdecs_spec, tdecs_spec, edecs_spec) =
-  mdecs_impl = mdecs_spec &&
-  tdecs_spec subset tdecs_impl &&
-  edecs_spec subset edecs_impl
+let weak_decls decls_impl decls_spec =
+  decls_impl.defined_mods = decls_spec.defined_mods &&
+  decls_spec.defined_types subset decls_impl.defined_types &&
+  decls_spec.defined_exns subset decls_impl.defined_exns
 
 val flat_weakT : maybe modN -> flat_tenv_tabbrev -> flat_tenv_tabbrev -> bool
 let flat_weakT mn tenv_tabbrev_impl tenv_tabbrev_spec =
@@ -838,12 +846,13 @@ type_top check_unique decls tenv (Tdec d) decls' (Map.empty,tenv_tabbrev') Map.e
 
 and
 
-tmod : forall check_unique tenv mn spec ds tenv_tabbrev' cenv' tenv' cenv'' tenv'' mdecls tdecls edecls decls' mdecls'' tdecls'' edecls'' tenv_tabbrev''.
-not (mn IN mdecls) &&
-type_ds check_unique (Just mn) (mdecls,tdecls,edecls) tenv ds decls' tenv_tabbrev' cenv' tenv' &&
-check_signature (Just mn) tenv.t decls' tenv_tabbrev' cenv' tenv' spec (mdecls'',tdecls'',edecls'') tenv_tabbrev'' cenv'' tenv''
+tmod : forall check_unique tenv mn spec ds tenv_tabbrev' cenv' tenv' cenv'' tenv'' decls decls' decls'' new_decls tenv_tabbrev''.
+not (mn IN decls.defined_mods) &&
+type_ds check_unique (Just mn) decls tenv ds decls' tenv_tabbrev' cenv' tenv' &&
+check_signature (Just mn) tenv.t decls' tenv_tabbrev' cenv' tenv' spec decls'' tenv_tabbrev'' cenv'' tenv'' &&
+new_decls = <| defined_mods = {mn}; defined_types = {}; defined_exns = {} |>
 ==>
-type_top check_unique (mdecls,tdecls,edecls) tenv (Tmod mn spec ds) ({mn} union mdecls'',tdecls'',edecls'') (Map.singleton mn tenv_tabbrev'', Map.empty) (Map.singleton mn tenv'') ([(mn,cenv'')], []) []
+type_top check_unique decls tenv (Tmod mn spec ds) (union_decls new_decls decls'') (Map.singleton mn tenv_tabbrev'', Map.empty) (Map.singleton mn tenv'') ([(mn,cenv'')], []) []
 
 indreln [type_prog : bool -> decls -> type_environment -> list top -> decls -> tenv_tabbrev -> Map.map modN (alist varN (nat * t)) -> tenv_ctor -> flat_tenv_val -> bool]
 

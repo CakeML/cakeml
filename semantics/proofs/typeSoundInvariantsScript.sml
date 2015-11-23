@@ -22,6 +22,8 @@ val _ = new_theory "typeSoundInvariants"
 (*let mof env = env.SemanticPrimitives.m*)
 (*let cof env = env.SemanticPrimitives.c*)
 (*let vof env = env.SemanticPrimitives.v*)
+(*let dmof env = env.SemanticPrimitives.defined_mods*)
+(*let dtof env = env.SemanticPrimitives.defined_types*)
 
 val _ = Hol_datatype `
  store_t = Ref_t of t | W8array_t | Varray_t of t`;
@@ -82,11 +84,11 @@ val _ = Define `
 (* Get the modules that are used by the type and exception definitions *)
 (*val decls_to_mods : decls -> set (maybe modN)*)
 val _ = Define `
- (decls_to_mods (mdecls,tdecls,edecls) =  
-((({ SOME mn |  mn | ? tn. (Long mn tn) IN tdecls } UNION
-  { SOME mn |  mn | ? cn. (Long mn cn) IN edecls }) UNION
-  { NONE |  tn | Short tn IN tdecls }) UNION
-  { NONE |  tn | Short tn IN edecls }))`;
+ (decls_to_mods d =  
+((({ SOME mn |  mn | ? tn. (Long mn tn) IN d.defined_types } UNION
+  { SOME mn |  mn | ? cn. (Long mn cn) IN d.defined_exns }) UNION
+  { NONE |  tn | Short tn IN d.defined_types }) UNION
+  { NONE |  tn | Short tn IN d.defined_exns }))`;
 
 
 (* Check that a constructor type environment is consistent with a runtime type
@@ -493,11 +495,11 @@ val _ = Define `
 (* The types and exceptions that are missing are all declared in modules. *)
 (*val weak_decls_only_mods : decls -> decls -> bool*)
 val _ = Define `
-  (weak_decls_only_mods (mdecls1,tdecls1,edecls1) (mdecls2,tdecls2,edecls2) =    
+  (weak_decls_only_mods d1 d2 =    
 ((! tn.
-       ((Short tn IN tdecls1) ==> (Short tn IN tdecls2))) /\
+       ((Short tn IN d1.defined_types) ==> (Short tn IN d2.defined_types))) /\
     (! cn.
-       ((Short cn IN edecls1) ==> (Short cn IN edecls2)))))`;
+       ((Short cn IN d1.defined_exns) ==> (Short cn IN d2.defined_exns)))))`;
 
 
 (* The run-time declared constructors and exceptions are all either declared in
@@ -505,37 +507,37 @@ val _ = Define `
 
 (*val consistent_decls : set tid_or_exn -> decls -> bool*)
 val _ = Define `
- (consistent_decls decls (mdecls,tdecls,edecls) =  
-(! (d :: decls).
-    (case d of
-        TypeExn cid => (cid IN edecls) \/ (? mn cn. (cid = Long mn cn) /\ (mn IN mdecls))
-      | TypeId tid => (tid IN tdecls) \/ (? mn tn. (tid = Long mn tn) /\ (mn IN mdecls))
+ (consistent_decls tes d =  
+(! (te :: tes).
+    (case te of
+        TypeExn cid => (cid IN d.defined_exns) \/ (? mn cn. (cid = Long mn cn) /\ (mn IN d.defined_mods))
+      | TypeId tid => (tid IN d.defined_exns) \/ (? mn tn. (tid = Long mn tn) /\ (mn IN d.defined_mods))
     )))`;
 
 
 (*val consistent_ctMap : decls -> ctMap -> bool*)
 val _ = Define `
- (consistent_ctMap (mdecls,tdecls,edecls) ctMap =  
+ (consistent_ctMap d ctMap =  
 (! ((cn,tid) :: FDOM ctMap).
     (case tid of
-        TypeId tn => tn IN tdecls
-      | TypeExn cn => cn IN edecls
+        TypeId tn => tn IN d.defined_types
+      | TypeExn cn => cn IN d.defined_exns
     )))`;
 
 
 (*val decls_ok : decls -> bool*)
 val _ = Define `
- (decls_ok (mdecls,tdecls,edecls) =  
-(decls_to_mods (mdecls,tdecls,edecls) SUBSET ({NONE} UNION IMAGE SOME mdecls)))`;
+ (decls_ok d =  
+(decls_to_mods d SUBSET ({NONE} UNION IMAGE SOME d.defined_mods)))`;
 
 
 (* For using the type soundess theorem, we have to know there are good
  * constructor and module type environments that don't have bits hidden by a
  * signature. *)
 val _ = Define `
- (type_sound_invariants r (decls1,tenv,st,env) =  
+ (type_sound_invariants r (d,tenv,st,env) =  
 (? ctMap tenvS decls_no_sig tenvM_no_sig tenvC_no_sig.
-    consistent_decls st.defined_types decls_no_sig /\
+    consistent_decls (state_defined_types st) decls_no_sig /\
     consistent_ctMap decls_no_sig ctMap /\
     ctMap_has_exns ctMap /\
     ctMap_has_lists ctMap /\
@@ -550,10 +552,10 @@ val _ = Define `
     weakM tenvM_no_sig tenv.m /\
     weakC tenvC_no_sig tenv.c /\
     decls_ok decls_no_sig /\
-    weak_decls decls_no_sig decls1 /\
-    weak_decls_only_mods decls_no_sig decls1 /\
-    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn) /\
-    (case decls1 of (mods,x,y) => mods = st.defined_mods )))`;
+    weak_decls decls_no_sig d /\
+    weak_decls_only_mods decls_no_sig d /\
+    (! err. (r = SOME (Rerr (Rraise err))) ==> type_v( 0) ctMap tenvS err Texn) /\    
+(d.defined_mods = (state_defined_mods st))))`;
 
 
 val _ = Define `
