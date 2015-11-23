@@ -27,8 +27,7 @@ val list_rel_split = Q.prove (
 val union_decls_empty = Q.store_thm ("union_decls_empty",
 `!decls. union_decls empty_decls decls = decls`,
  rw [] >>
- PairCases_on `decls` >>
- rw [union_decls_def, empty_decls_def]);
+ rw [union_decls_def, empty_decls_def, decls_component_equality]);
 
 val union_decls_assoc = Q.store_thm ("union_decls_assoc",
 `!decls1 decls2 decls3.
@@ -36,9 +35,6 @@ val union_decls_assoc = Q.store_thm ("union_decls_assoc",
   =
   union_decls (union_decls decls1 decls2) decls3`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
  rw [union_decls_def] >>
  metis_tac [UNION_ASSOC]);
 
@@ -1798,7 +1794,7 @@ decs_type_sound_invariant mn tdecs1 ctMap tenvS tenv st env ⇔
   type_s ctMap tenvS st.refs ∧
   consistent_decls st.defined_types tdecs1 ∧
   consistent_ctMap tdecs1 ctMap ∧
-  mn ∉ IMAGE SOME (FST tdecs1)`;
+  mn ∉ IMAGE SOME tdecs1.defined_mods`;
 
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 `!mn tenv d tenvT' tenvC' tenv' tenvS env st tdecs1 tdecs1' ctMap.

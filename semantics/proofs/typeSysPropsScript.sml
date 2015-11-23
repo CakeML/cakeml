@@ -1708,10 +1708,10 @@ every_case_tac >>
 fs []);
 
 val consistent_ctMap_extend = Q.store_thm ("consistent_ctMap_extend",
-`!mn tdefs mdecls tdecls edecls ctMap.
-  consistent_ctMap (mdecls, tdecls, edecls) ctMap
+`!mn tdefs d ctMap.
+  consistent_ctMap d ctMap
   ⇒
-  consistent_ctMap (mdecls,set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs) ∪ tdecls, edecls)
+  consistent_ctMap (d with defined_types := set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs) ∪ d.defined_types)
                    (flat_to_ctMap (build_ctor_tenv mn tenvT tdefs) ⊌ ctMap)`,
  rw [consistent_ctMap_def, RES_FORALL] >>
  `?cn tid. x = (cn,tid)` by metis_tac [pair_CASES] >>
@@ -1732,10 +1732,10 @@ val consistent_ctMap_extend = Q.store_thm ("consistent_ctMap_extend",
      fs []));
 
 val consistent_ctMap_extend_exn = Q.store_thm ("consistent_ctMap_extend_exn",
-`!mn cn ts mdecls tdecls edecls ctMap.
-  consistent_ctMap (mdecls, tdecls, edecls) ctMap
+`!mn cn ts d ctMap.
+  consistent_ctMap d ctMap
   ⇒
-  consistent_ctMap (mdecls,tdecls, {mk_id mn cn} ∪ edecls)
+  consistent_ctMap (d with defined_exns := {mk_id mn cn} ∪ d.defined_exns)
                    (flat_to_ctMap [(cn,([],ts,TypeExn (mk_id mn cn)))] ⊌ ctMap)`,
  rw [consistent_ctMap_def, RES_FORALL] >>
  `?cn tid. x = (cn,tid)` by metis_tac [pair_CASES] >>
@@ -1750,9 +1750,9 @@ val consistent_ctMap_extend_exn = Q.store_thm ("consistent_ctMap_extend_exn",
 (* ---------- consistent_decls ---------- *)
 
 val consistent_decls_disjoint = Q.store_thm ("consistent_decls_disjoint",
-`!mdecls tdecls edecls tdefs ctMap mn.
-  DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs)) tdecls ∧
-  consistent_ctMap (mdecls,tdecls,edecls) ctMap
+`!d tdefs ctMap mn.
+  DISJOINT (set (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs)) d.defined_types ∧
+  consistent_ctMap d ctMap
   ⇒
   DISJOINT (FDOM (flat_to_ctMap (build_ctor_tenv mn tenvT tdefs))) (FDOM ctMap)` ,
  rw [METIS_PROVE [] ``x ∨ y ⇔ ~y ⇒ x``, consistent_ctMap_def, RES_FORALL, DISJOINT_DEF, EXTENSION] >>
@@ -1776,9 +1776,9 @@ val consistent_decls_disjoint = Q.store_thm ("consistent_decls_disjoint",
  metis_tac []);
 
 val consistent_decls_disjoint_exn = Q.store_thm ("consistent_decls_disjoint_exn",
-`!mdecls tdecls edecls cn ctMap mn ts.
-  mk_id mn cn ∉ edecls ∧
-  consistent_ctMap (mdecls,tdecls,edecls) ctMap
+`!d cn ctMap mn ts.
+  mk_id mn cn ∉ d.defined_exns ∧
+  consistent_ctMap d ctMap
   ⇒
   DISJOINT (FDOM (flat_to_ctMap [(cn,([]:tvarN list,ts,TypeExn (mk_id mn cn)))])) (FDOM ctMap)` ,
  rw [METIS_PROVE [] ``x ∨ y ⇔ ~y ⇒ x``, consistent_ctMap_def, RES_FORALL, DISJOINT_DEF, EXTENSION] >>
@@ -1796,10 +1796,10 @@ val consistent_decls_disjoint_exn = Q.store_thm ("consistent_decls_disjoint_exn"
  fs []);
 
 val consistent_decls_add_mod = Q.store_thm ("consistent_decls_add_mod",
-`!decls mdecls tdecls edecls mn.
-  consistent_decls decls (mdecls,tdecls,edecls)
+`!decls d mn.
+  consistent_decls decls d
   ⇒
-  consistent_decls decls ({mn} ∪ mdecls,tdecls,edecls)`,
+  consistent_decls decls (d with defined_mods := {mn} ∪ d.defined_mods)`,
  rw [consistent_decls_def, RES_FORALL] >>
  every_case_tac >>
  fs [] >>
@@ -2632,16 +2632,17 @@ val type_d_mod = Q.store_thm ("type_d_mod",
 `!uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv'.
   type_d uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv'
   ⇒
-  FST tdecs' = {} ∧
+  tdecs'.defined_mods = {} ∧
   decls_to_mods tdecs' ⊆ { mn }`,
- rw [type_d_cases, decls_to_mods_def, SUBSET_DEF,
-     flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
+ rw [type_d_cases, decls_to_mods_def, SUBSET_DEF, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
  fs [build_ctor_tenv_def, MEM_FLAT, MEM_MAP] >>
  rw [empty_decls_def] >>
  every_case_tac >>
  fs [EXISTS_PROD, empty_decls_def, decls_to_mods_def, mk_id_def, MEM_MAP] >>
  every_case_tac >>
- fs [GSPECIFICATION]);
+ fs [GSPECIFICATION] >>
+ TRY (PairCases_on `y`) >>
+ fs []);
 
 val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
 `type_d uniq mn tdecs1 tenv d tdecs1' tenvT' tenvC' tenv' ∧
@@ -2695,7 +2696,7 @@ val type_ds_mod = Q.store_thm ("type_ds_mod",
 `!uniq mn tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
   type_ds uniq mn tdecs tenv ds tdecs' tenvT' tenvC' tenv'
   ⇒
-  FST tdecs' = {} ∧
+  tdecs'.defined_mods = {} ∧
   decls_to_mods tdecs' ⊆ {mn}`,
  induct_on `ds` >>
  rw [Once type_ds_cases]
@@ -2704,8 +2705,6 @@ val type_ds_mod = Q.store_thm ("type_ds_mod",
  imp_res_tac type_d_mod >>
  res_tac >>
  fs [] >>
- PairCases_on `decls''` >>
- PairCases_on `decls'` >>
  fs [union_decls_def, decls_to_mods_def] >>
  rpt (pop_assum mp_tac) >>
  ONCE_REWRITE_TAC [SUBSET_DEF] >>
@@ -2858,11 +2857,10 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 `!mn tenvT specs decls' flat_tenvT tenvC tenv.
   type_specs mn tenvT specs decls' flat_tenvT tenvC tenv ⇒
-  FST decls' = {}`,
+  decls'.defined_mods = {}`,
  ho_match_mp_tac type_specs_strongind >>
  rw [empty_decls_def] >>
  imp_res_tac type_d_mod >>
- PairCases_on `decls'` >>
  fs [union_decls_def]);
 
 (* ---------------- type_top, type_prog uniqueness flag ---------- *)

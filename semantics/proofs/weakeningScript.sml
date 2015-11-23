@@ -633,16 +633,11 @@ val weak_decls_only_mods_union = Q.store_thm ("weak_decls_only_mods_union",
   ⇒
   weak_decls_only_mods (union_decls decls1 decls2) (union_decls decls1 decls3)`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
  fs [weak_decls_only_mods_def, union_decls_def] >>
  metis_tac []);
 
 val weak_decls_refl = Q.store_thm ("weak_decls_refl",
 `!decls. weak_decls decls decls`,
- rw [] >>
- PairCases_on `decls` >>
  rw [weak_decls_def]);
 
 val weak_decls_trans = Q.store_thm ("weak_decls_trans",
@@ -652,20 +647,16 @@ val weak_decls_trans = Q.store_thm ("weak_decls_trans",
   ⇒
   weak_decls decls1 decls3`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
  fs [weak_decls_def, SUBSET_DEF]);
 
 val weak_decls_other_mods_def = Define `
-weak_decls_other_mods mn (mdecls',tdecls',edecls') (mdecls,tdecls,edecls) ⇔
-  (!tid. tid ∈ tdecls' ∧ tid ∉ tdecls ⇒ ¬?tn. tid = mk_id mn tn) ∧
-  (!cid. cid ∈ edecls' ∧ cid ∉ edecls ⇒ ¬?cn. cid = mk_id mn cn)`;
+weak_decls_other_mods mn d' d ⇔
+  (!tid. tid ∈ d'.defined_types ∧ tid ∉ d.defined_types ⇒ ¬?tn. tid = mk_id mn tn) ∧
+  (!cid. cid ∈ d'.defined_exns ∧ cid ∉ d.defined_exns ⇒ ¬?cn. cid = mk_id mn cn)`;
 
 val weak_decls_other_mods_refl = Q.store_thm ("weak_decls_other_mods_refl",
 `!mn decls. weak_decls_other_mods mn decls decls`,
  rw [] >>
- PairCases_on `decls` >>
  rw [weak_decls_other_mods_def]);
 
 val with_v_lemma = Q.prove(
@@ -733,19 +724,15 @@ val weak_decls_union = Q.store_thm ("weak_decls_union",
   ⇒
   weak_decls (union_decls decls3 decls1) (union_decls decls3 decls2)`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
- fs [weak_decls_def, union_decls_def, SUBSET_DEF]);
+ fs [weak_decls_def, union_decls_def, SUBSET_DEF] >>
+ metis_tac []);
 
 val weak_decls_union2 = Q.store_thm ("weak_decls_union2",
 `!decls1 decls2 decls3.
-  FST decls1 = {}
+  decls1.defined_mods = {}
   ⇒
   weak_decls (union_decls decls1 decls2) decls2`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
  fs [weak_decls_def, union_decls_def, SUBSET_DEF]);
 
 val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
@@ -754,9 +741,6 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
   ⇒
   weak_decls_other_mods mn (union_decls decls3 decls1) (union_decls decls3 decls2)`,
  rw [] >>
- PairCases_on `decls1` >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
  fs [weak_decls_other_mods_def, union_decls_def] >>
  metis_tac []);
 
@@ -782,9 +766,10 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   `tenv_ctor_ok (merge_alist_mod_env ([],cenv') ttt.c)`
          by (rw [tenv_ctor_ok_merge] >>
              metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
-  `weak_decls (union_decls decls' decls''') (union_decls decls' decls)`
+  qcase_tac `weak_decls decls1 decls2` >>
+  `weak_decls (union_decls decls'' decls1) (union_decls decls'' decls2)`
              by (metis_tac [weak_decls_union]) >>
-  `weak_decls_other_mods mn (union_decls decls' decls''') (union_decls decls' decls)`
+  `weak_decls_other_mods mn (union_decls decls'' decls1) (union_decls decls'' decls2)`
              by (metis_tac [weak_decls_other_mods_union]) >>
   imp_res_tac type_d_tenvT_ok >>
   CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))) >>
@@ -805,8 +790,6 @@ val consistent_decls_weakening = Q.store_thm ("consistent_decls_weakening",
   ⇒
   consistent_decls decls1 decls2`,
  rw [] >>
- PairCases_on `decls2` >>
- PairCases_on `decls3` >>
  fs [consistent_decls_def, RES_FORALL, weak_decls_def] >>
  rw [] >>
  every_case_tac >>
@@ -821,8 +804,6 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
   ⇒
   consistent_ctMap tdecls' ctMap`,
  rw [] >>
- PairCases_on `tdecls` >>
- PairCases_on `tdecls'` >>
  fs [weak_decls_def, consistent_ctMap_def, RES_FORALL] >>
  rw [] >>
  PairCases_on `x` >>
