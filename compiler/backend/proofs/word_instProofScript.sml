@@ -170,7 +170,7 @@ val optimize_consts_ok = prove(``
     metis_tac[PERM_PARTITION,APPEND_NIL,PERM_SYM])
   >>
     LET_ELIM_TAC>>
-    `EVERY is_const (h::t)` by 
+    `EVERY is_const (h::t)` by
       (fs[PARTITION_DEF]>>
       imp_res_tac (GSYM PARTs_HAVE_PROP)>>fs[EVERY_MEM])>>
     imp_res_tac all_consts_simp>>
@@ -633,14 +633,16 @@ val inst_select_thm = prove(``
     fs[LET_THM,evaluate_def,every_var_def]>>
     qpat_abbrev_tac `stt = st with locals := A`>>
     Cases_on`get_vars args stt`>>fs[]>>
-    Cases_on`find_code dest x st.code`>>TRY(PairCases_on`x'`)>>fs[]>>
-    Cases_on`ret`>>fs[]
+    Cases_on`ret`>>fs[add_ret_loc_def]
     >-(*Tail Call*)
-      (Cases_on`handler`>>
+      (Cases_on`find_code dest x st.code`>>Cases_on`handler`>>
+      TRY(PairCases_on`x'`)>>fs[]>>
       fs[call_env_def,dec_clock_def,state_component_equality,locals_rel_def])
     >>
+      PairCases_on`x'`>>fs[add_ret_loc_def]>>
+      Cases_on `find_code dest (Loc x'3 x'4::x) st.code`>>fs []>>
       PairCases_on`x'`>>fs[]>>
-      Cases_on`cut_env x'1' loc`>>fs[]>>
+      Cases_on`cut_env x'1 loc`>>fs[]>>
       IF_CASES_TAC>-
         fs[call_env_def,state_component_equality,locals_rel_def]
       >>
@@ -652,7 +654,7 @@ val inst_select_thm = prove(``
         (unabbrev_all_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
         fs[call_env_def,push_env_def,dec_clock_def,push_env_def,LET_THM,env_to_list_def,state_component_equality])>>
-      Cases_on`evaluate(x'1,st'')`>>Cases_on`q`>>fs[]>>
+      Cases_on`evaluate(x'1',st'')`>>Cases_on`q`>>fs[]>>
       Cases_on`x''`>>fs[]
       >-
         (IF_CASES_TAC>>fs[]>>
@@ -788,25 +790,25 @@ val three_to_two_reg_correct = prove(``
     Cases_on`res'' = SOME Error`>>fs[]>>res_tac>>
     EVERY_CASE_TAC>>fs[]>>
     metis_tac[])
-  >-
-    (ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[every_inst_def]>>
+  >>
+    ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[every_inst_def]>>
     unabbrev_all_tac>>
     Cases_on`ret`>>Cases_on`handler`>>fs[evaluate_def]
     >-
       (EVERY_CASE_TAC>>fs[])
     >-
-      (EVERY_CASE_TAC>>fs[]>>
-      res_tac>>fs[]>>
-      rfs[])
+      (ntac 5 (EVERY_CASE_TAC>>fs[add_ret_loc_def]>>
+      res_tac>>fs[add_ret_loc_def]>>
+      rfs[add_ret_loc_def]>>rw[]>>fs[]))
     >>
       PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
-      Cases_on`get_vars args s`>>fs[]>>
-      Cases_on`find_code dest x s.code`>>fs[]>>
+      Cases_on`get_vars args s`>>fs[add_ret_loc_def]>>
+      Cases_on`find_code dest (Loc x3 x4::x) s.code`>>fs[]>>
       Cases_on`x'`>>Cases_on`cut_env x1 s.locals`>>fs[]>>
       IF_CASES_TAC>>fs[push_env_def,LET_THM]>>
       EVERY_CASE_TAC>>fs[]>>
       res_tac>>fs[]>>
-      rfs[]))
+      rfs[])
 
 (*Syntactic correctness*)
 val three_to_two_reg_syn = prove(``
