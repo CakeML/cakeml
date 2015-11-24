@@ -524,7 +524,7 @@ val infer_e_def = tDefine "infer_e" `
  rw []);
 
 val infer_d_def = Define `
-(infer_d mn decls tenvT menv cenv env (Dlet p e) =
+(infer_d mn decls1 tenvT menv cenv env (Dlet p e) =
   do () <- init_state;
      n <- get_next_uvar;
      t1 <- infer_e menv cenv env e;
@@ -536,7 +536,7 @@ val infer_d_def = Define `
      () <- guard (num_tvs = 0 ∨ is_value e) "Value restriction violated";
      return (([],[],[]), FEMPTY, [], ZIP (MAP FST env', MAP (\t. (num_tvs, t)) ts'))
   od) ∧
-(infer_d mn decls tenvT menv cenv env (Dletrec funs) =
+(infer_d mn decls1 tenvT menv cenv env (Dletrec funs) =
   do () <- guard (ALL_DISTINCT (MAP FST funs)) "Duplicate function name";
      () <- init_state;
      next <- get_next_uvar;
@@ -556,7 +556,7 @@ val infer_d_def = Define `
      () <- guard (EVERY (\new_id. ~MEM new_id tdecls) new_tdecls) "Duplicate type definition";
      return (([],new_tdecls,[]), new_tenvT, build_ctor_tenv mn tenvT' tdefs, [])
   od) ∧
-(infer_d mn decls tenvT menv cenv env (Dtabbrev tvs tn t) =
+(infer_d mn decls1 tenvT menv cenv env (Dtabbrev tvs tn t) =
   do () <- guard (ALL_DISTINCT tvs) "Duplicate type variables";
      () <- guard (check_freevars 0 tvs t ∧ check_type_names tenvT t) "Bad type definition";
      return (([],[],[]), FEMPTY |+ (tn, (tvs,type_name_subst tenvT t)), [], [])
@@ -571,12 +571,12 @@ val append_decls_def = Define `
 append_decls ((m1:'a list),(t1:'b list),(e1:'c list)) (m2,t2,e2) = (m1++m2,t1++t2,e1++e2)`;
 
 val infer_ds_def = Define `
-(infer_ds mn decls tenvT menv cenv env [] =
+(infer_ds mn decls1 tenvT menv cenv env [] =
   return (([],[],[]), FEMPTY, [],[])) ∧
-(infer_ds mn decls tenvT menv cenv env (d::ds) =
+(infer_ds mn decls1 tenvT menv cenv env (d::ds) =
   do
-    (decls',tenvT',cenv',env') <- infer_d mn decls tenvT menv cenv env d;
-    (decls'',tenvT'',cenv'',env'') <- infer_ds mn (append_decls decls' decls) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_alist_mod_env ([],cenv') cenv) (env' ++ env) ds;
+    (decls',tenvT',cenv',env') <- infer_d mn decls1 tenvT menv cenv env d;
+    (decls'',tenvT'',cenv'',env'') <- infer_ds mn (append_decls decls' decls1) (merge_mod_env (FEMPTY,tenvT') tenvT) menv (merge_alist_mod_env ([],cenv') cenv) (env' ++ env) ds;
     return (append_decls decls'' decls', FUNION tenvT'' tenvT', cenv'' ++ cenv', env'' ++ env')
   od)`;
 
@@ -595,13 +595,13 @@ val t_to_freevars_def = Define `
   od)`;
 
 val check_specs_def = Define `
-(check_specs mn tenvT decls tenvT' cenv env [] =
-  return (decls,tenvT',cenv,env)) ∧
-(check_specs mn tenvT decls tenvT' cenv env (Sval x t::specs) =
+(check_specs mn tenvT decls1 tenvT' cenv env [] =
+  return (decls1,tenvT',cenv,env)) ∧
+(check_specs mn tenvT decls1 tenvT' cenv env (Sval x t::specs) =
   do fvs <- t_to_freevars t;
      fvs' <- return (nub fvs);
      () <- guard (check_type_names tenvT t) "Bad type annotation";
-     check_specs mn tenvT decls tenvT' cenv ((x, (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) (type_name_subst tenvT t))) :: env) specs
+     check_specs mn tenvT decls1 tenvT' cenv ((x, (LENGTH fvs', infer_type_subst (ZIP (fvs', MAP Infer_Tvar_db (COUNT_LIST (LENGTH fvs')))) (type_name_subst tenvT t))) :: env) specs
   od) ∧
 (check_specs mn tenvT (mdecls,tdecls,edecls) tenvT' cenv env (Stype tdefs :: specs) =
   do new_tenvT <- return (FEMPTY |++ MAP (λ(tvs,tn,ctors). (tn, (tvs, Tapp (MAP Tvar tvs) (TC_name (mk_id mn tn))))) tdefs);
@@ -668,21 +668,21 @@ check_weak_decls (mdecls_impl,tdecls_impl,edecls_impl) (mdecls_spec,tdecls_spec,
   list_subset edecls_spec edecls_impl`;
 
 val check_signature_def = Define `
-(check_signature mn tenvT init_decls decls tenvT' cenv env NONE =
-  return (decls, tenvT', cenv, env)) ∧
-(check_signature mn tenvT init_decls decls tenvT' cenv env (SOME specs) =
+(check_signature mn tenvT init_decls decls1 tenvT' cenv env NONE =
+  return (decls1, tenvT', cenv, env)) ∧
+(check_signature mn tenvT init_decls decls1 tenvT' cenv env (SOME specs) =
   do (decls', tenvT'', cenv', env') <- check_specs mn tenvT ([],[],[]) FEMPTY [] [] specs;
      () <- guard (check_flat_weakT mn tenvT' tenvT'') "Signature mismatch";
      () <- guard (check_flat_weakC cenv (anub cenv' [])) "Signature mismatch";
      () <- check_weakE env (anub env' []);
-     () <- guard (check_weak_decls decls decls') "Signature mismatch";
+     () <- guard (check_weak_decls decls1 decls') "Signature mismatch";
      return (decls',tenvT'',cenv',env')
   od)`;
 
 val infer_top_def = Define `
-(infer_top decls tenvT menv cenv env (Tdec d) =
+(infer_top decls1 tenvT menv cenv env (Tdec d) =
   do
-    (decls',tenvT',cenv',env') <- infer_d NONE decls tenvT menv cenv env d;
+    (decls',tenvT',cenv',env') <- infer_d NONE decls1 tenvT menv cenv env d;
     return (decls',(FEMPTY,tenvT'),FEMPTY,([],cenv'), env')
   od) ∧
 (infer_top (mdecls,tdecls,edecls) tenvT menv cenv env (Tmod mn spec ds1) =
@@ -699,13 +699,13 @@ val infer_top_def = Define `
   od)`;
 
 val infer_prog_def = Define `
-(infer_prog decls tenvT menv cenv env [] =
+(infer_prog decls1 tenvT menv cenv env [] =
   return (([],[],[]),(FEMPTY,FEMPTY),FEMPTY,([],[]),[])) ∧
-(infer_prog decls tenvT menv cenv env (top::ds) =
+(infer_prog decls1 tenvT menv cenv env (top::ds) =
   do
-    (decls',tenvT',menv',cenv',env') <- infer_top decls tenvT menv cenv env top;
+    (decls',tenvT',menv',cenv',env') <- infer_top decls1 tenvT menv cenv env top;
     (decls'', tenvT'', menv'', cenv'', env'')
-       <- infer_prog (append_decls decls' decls) (merge_mod_env tenvT' tenvT)
+       <- infer_prog (append_decls decls' decls1) (merge_mod_env tenvT' tenvT)
                      (FUNION menv' menv) (merge_alist_mod_env cenv' cenv) (env' ++ env) ds;
     return (append_decls decls'' decls',
             merge_mod_env tenvT'' tenvT',
