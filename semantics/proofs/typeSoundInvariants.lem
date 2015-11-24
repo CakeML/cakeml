@@ -555,7 +555,7 @@ let consistent_decls tes d =
   forall (te IN tes).
     match te with
       | TypeExn cid -> cid IN d.defined_exns || exists mn cn. cid = Long mn cn && mn IN d.defined_mods
-      | TypeId tid -> tid IN d.defined_exns || exists mn tn. tid = Long mn tn && mn IN d.defined_mods
+      | TypeId tid -> tid IN d.defined_types || exists mn tn. tid = Long mn tn && mn IN d.defined_mods
     end
 
 val consistent_ctMap : decls -> ctMap -> bool

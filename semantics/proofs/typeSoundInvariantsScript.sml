@@ -511,7 +511,7 @@ val _ = Define `
 (! (te :: tes).
     (case te of
         TypeExn cid => (cid IN d.defined_exns) \/ (? mn cn. (cid = Long mn cn) /\ (mn IN d.defined_mods))
-      | TypeId tid => (tid IN d.defined_exns) \/ (? mn tn. (tid = Long mn tn) /\ (mn IN d.defined_mods))
+      | TypeId tid => (tid IN d.defined_types) \/ (? mn tn. (tid = Long mn tn) /\ (mn IN d.defined_mods))
     )))`;
 
 

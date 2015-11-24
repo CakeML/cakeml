@@ -1796,6 +1796,20 @@ decs_type_sound_invariant mn tdecs1 ctMap tenvS tenv st env ⇔
   consistent_ctMap tdecs1 ctMap ∧
   mn ∉ IMAGE SOME tdecs1.defined_mods`;
 
+val define_types_lem = Q.prove (
+`!x y. 
+  <| defined_mods := x.defined_mods; defined_types := y; defined_exns := x.defined_exns |>
+  = 
+  (x with defined_types := y)`,
+ rw [decls_component_equality]);
+
+val define_exns_lem = Q.prove (
+`!x y. 
+  <| defined_mods := x.defined_mods; defined_types := x.defined_types; defined_exns := y |>
+  = 
+  (x with defined_exns := y)`,
+ rw [decls_component_equality]);
+
 val dec_type_soundness = Q.store_thm ("dec_type_soundness",
 `!mn tenv d tenvT' tenvC' tenv' tenvS env st tdecs1 tdecs1' ctMap.
   type_d F mn tdecs1 tenv d tdecs1' tenvT' tenvC' tenv' ∧
@@ -1929,7 +1943,6 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          fs [] >>
          rw [] >>
          res_tac >>
-         every_case_tac >>
          fs [] >>
          rw [] >>
          cases_on `mn` >>
@@ -1959,7 +1972,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
      >- (rw [build_tdefs_def, build_ctor_tenv_def, mem_lem, MAP_REVERSE, MAP_FLAT, MAP_MAP_o, combinTheory.o_DEF] >>
          rw [LAMBDA_PROD, MAP_MAP_o, combinTheory.o_DEF])
      >- (rw [union_decls_def] >>
-         metis_tac [consistent_ctMap_extend])
+         metis_tac [consistent_ctMap_extend, define_types_lem])
      >- (
        qspecl_then [`ctMap`, `env.c`, `tenv with t := merge_mod_env (FEMPTY,flat_envT) tenv.t`] mp_tac extend_consistent_con >>
        simp [])
@@ -2005,7 +2018,7 @@ val dec_type_soundness = Q.store_thm ("dec_type_soundness",
          qexists_tac `FEMPTY` >>
          rw [])
      >- (rw [union_decls_def] >>
-         metis_tac [consistent_ctMap_extend_exn])
+         metis_tac [consistent_ctMap_extend_exn, define_exns_lem])
      >- (match_mp_tac (SIMP_RULE (srw_ss()) [] extend_consistent_con_exn) >>
          fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, flat_to_ctMap_list_def,
              FDOM_FUPDATE_LIST])
