@@ -2178,9 +2178,7 @@ val decs_type_soundness = Q.store_thm ("decs_type_soundness",
                              >- metis_tac [type_v_weakening, store_type_extension_weakS, disjoint_env_weakCT,
                                            type_d_ctMap_disjoint, ctMap_ok_pres]
                              >- metis_tac [type_d_ctMap_disjoint, disjoint_env_weakCT, weakM_refl, type_s_weakening, ctMap_ok_pres]
-                             >- (PairCases_on `decls'` >>
-                                 PairCases_on `tdecs1` >>
-                                 imp_res_tac type_d_mod >>
+                             >- (imp_res_tac type_d_mod >>
                                  fs [union_decls_def])) >>
          res_tac >>
          rw [] >>
@@ -2254,11 +2252,11 @@ rw [Once type_v_cases] >>
 metis_tac []);
 
 val type_ds_no_dup_types_helper = Q.prove (
-`!uniq mn mdecls tdecls edecls tenv ds mdecls' tdecls' edecls' tenvT' tenvC' tenv'.
-  type_ds uniq mn (mdecls,tdecls,edecls) tenv ds (mdecls',tdecls',edecls') tenvT' tenvC' tenv'
+`!uniq mn decls tenv ds decls' tenvT' tenvC' tenv'.
+  type_ds uniq mn decls tenv ds decls' tenvT' tenvC' tenv'
   ⇒
-  DISJOINT tdecls tdecls' ∧
-  tdecls' =
+  DISJOINT decls.defined_types decls'.defined_types ∧
+  decls'.defined_types =
   set (FLAT (MAP (λd.
                 case d of
                   Dlet v6 v7 => []
@@ -2275,13 +2273,10 @@ val type_ds_no_dup_types_helper = Q.prove (
  rw [] >>
  fs [type_d_cases] >>
  rw [] >>
- PairCases_on `decls''` >>
  fs [empty_decls_def, union_decls_def] >>
- rw []
- >- metis_tac []
- >- metis_tac []
- >- metis_tac [] >>
+ rw [] >>
  res_tac >>
+ fs [] >>
  rw [] >>
  fs [DISJOINT_DEF, EXTENSION] >>
  metis_tac []);
@@ -2304,7 +2299,6 @@ val type_ds_no_dup_types = Q.prove (
  >- fs [check_ctor_tenv_def, LAMBDA_PROD]
  >- metis_tac []
  >- (fs [union_decls_def] >>
-     PairCases_on `decls'''` >>
      imp_res_tac type_ds_no_dup_types_helper >>
      rw [] >>
      fs [DISJOINT_DEF, EXTENSION, METIS_PROVE [] ``P ∨ Q ⇔ ¬P ⇒ Q``] >>
