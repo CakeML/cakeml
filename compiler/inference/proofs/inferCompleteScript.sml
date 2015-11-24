@@ -887,6 +887,8 @@ val infer_ds_complete = prove(``
   rator_x_assum`type_ds`mp_tac >> pop_assum SUBST1_TAC >> strip_tac >>
   `tenv_mod_ok tenv'.m` by simp[Abbr`tenv'`] >>
   `menv_alpha menv tenv'.m` by simp[Abbr`tenv'`] >>
+  rpt (qpat_assum`set _ = _`(mp_tac o SYM)) >> ntac 3 strip_tac >>
+  fs[] >> FULL_SIMP_TAC bool_ss [UNION_APPEND] >>
   rpt
    (disch_then (fn th => first_x_assum (mp_tac o MATCH_MP th)))>>
   disch_then (qspec_then `st'` strip_assume_tac)>>
