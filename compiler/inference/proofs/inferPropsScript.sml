@@ -2226,9 +2226,9 @@ rw [] >|
           metis_tac [check_t_more2, check_t_more5, arithmeticTheory.ADD_0]]]);
 
 val infer_d_check = Q.store_thm ("infer_d_check",
-`!mn decls menv cenv env d st1 st2 decls' cenv' env' tenv.
+`!mn decls1 menv cenv env d st1 st2 decls' cenv' env' tenv.
   tenv_tabbrev_ok tenvT ∧
-  infer_d mn decls tenvT menv cenv env d st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
+  infer_d mn decls1 tenvT menv cenv env d st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
   check_menv menv ∧
   check_cenv cenv ∧
   check_env {} env
@@ -2239,7 +2239,7 @@ val infer_d_check = Q.store_thm ("infer_d_check",
  cases_on `d` >>
  rpt gen_tac >>
  strip_tac >>
- `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
+ `?mdecls tdecls edecls. decls1 = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
  fs [infer_d_def, success_eqns] >>
  fs []
  >- (`?t env. v' = (t,env)` by (PairCases_on `v'` >> metis_tac []) >>
@@ -2562,8 +2562,8 @@ val check_specs_check = Q.store_thm ("check_specs_check",
      >- metis_tac []));
 
 val infer_top_invariant = Q.store_thm ("infer_top_invariant",
-`!decls tenvT menv cenv env top st1 decls' tenvT' menv' cenv' env' st2.
-  (infer_top decls tenvT menv cenv env top st1 = (Success (decls', tenvT', menv', cenv', env'), st2)) ∧
+`!decls1 tenvT menv cenv env top st1 decls' tenvT' menv' cenv' env' st2.
+  (infer_top decls1 tenvT menv cenv env top st1 = (Success (decls', tenvT', menv', cenv', env'), st2)) ∧
   tenv_tabbrev_ok tenvT ∧
   check_menv menv ∧
   check_cenv cenv ∧
@@ -2574,7 +2574,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
   check_cenv cenv' ∧
   check_env {} env'`,
  rpt gen_tac >>
- `?mdecls tdecls edecls. decls = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
+ `?mdecls tdecls edecls. decls1 = (mdecls,tdecls,edecls)` by metis_tac [pair_CASES] >>
  cases_on `top`
  >- (cases_on `o'`
      >- (rw [infer_top_def, success_eqns] >>
@@ -2610,7 +2610,6 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
      fs [check_cenv_def, check_flat_cenv_def, tenv_tabbrev_ok_def, FEVERY_FEMPTY] >>
      metis_tac [infer_d_check, check_flat_cenv_def]));
 
-
 (* ---------- Converting infer types and envs to type system ones ---------- *)
 
 val convert_t_def = tDefine "convert_t" `
@@ -2631,7 +2630,10 @@ val convert_env_def = Define `
 convert_env s env = MAP (\(x,t). (x, convert_t (t_walkstar s t))) env`;
 
 val convert_decls_def = Define `
-convert_decls (mdecls,tdecls,edecls) = (set mdecls,set tdecls,set edecls)`;
+convert_decls (mdecls,tdecls,edecls) =
+  <| defined_mods := set mdecls;
+     defined_types :=  set tdecls; 
+     defined_exns := set edecls |>`;
 
 val convert_append_decls = Q.store_thm ("convert_append_decls",
 `!decls1 decls2. convert_decls (append_decls decls1 decls2) = union_decls (convert_decls decls1) (convert_decls decls2)`,
