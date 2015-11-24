@@ -2340,18 +2340,6 @@ val no_new_mods = Q.prove (
  imp_res_tac type_d_mod >>
  fs [union_decls_def]);
 
-val one_new_mod = Q.prove (
-`!x uniq mn tenv d tenvT' tenvC' tenv'
-  mdecls tdecls edecls mdecls'' tdecls'' edecls''.
-  type_ds uniq (SOME mn) (mdecls,tdecls,edecls) tenv d (mdecls'',tdecls'',edecls'') tenvT' tenvC' tenv' ∧
-  mn ∉ mdecls ∧
-  (case (mdecls,tdecls,edecls) of (mods,v1) => mods = x)
-  ⇒
-  (case union_decls ({mn} ∪ mdecls'',tdecls'',edecls'') (mdecls,tdecls,edecls) of (mods,v1) => mods = {mn} ∪ x)`,
- rw [] >>
- imp_res_tac type_ds_mod >>
- fs [union_decls_def, EXTENSION]);
-
 val top_type_soundness_lem = Q.prove (
 `!decls1 (tenv : type_environment) (env : v environment) st decls1' tenvT' tenvM' tenvC' tenv' top.
   type_sound_invariants NONE (decls1,tenv,st,env) ∧
