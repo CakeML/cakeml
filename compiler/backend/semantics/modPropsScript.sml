@@ -239,6 +239,22 @@ val evaluate_state_const = Q.store_thm("evaluate_state_const",
   rw[evaluate_def] >> rw[] >>
   every_case_tac >> fs[] >> rw[]);
 
+val evaluate_dec_state_const = Q.store_thm("evaluate_dec_state_const",
+  `∀env st d res. evaluate_dec env st d = res ⇒
+   (FST res).defined_mods = st.defined_mods`,
+  Cases_on`d`>>rw[evaluate_dec_def] >> rw[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  imp_res_tac evaluate_state_const >>
+  every_case_tac >> fs[]);
+
+val evaluate_decs_state_const = Q.store_thm("evaluate_decs_state_const",
+  `∀env st ds res. evaluate_decs env st ds = res ⇒
+    (FST res).defined_mods = st.defined_mods`,
+  Induct_on`ds`>>rw[evaluate_decs_def] >> rw[] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac evaluate_dec_state_const >> fs[] >>
+  metis_tac[FST]);
+
 val evaluate_dec_tids_acc = store_thm("evaluate_dec_tids_acc",
   ``∀env st d res. evaluate_dec env st d = res ⇒
       st.defined_types ⊆ (FST res).defined_types``,
