@@ -1032,15 +1032,15 @@ val check_specs_complete = store_thm("check_specs_complete",
       (Success (decls',tenvT'' ⊌ itenvT,cenv'' ++ icenv,env'++env),st') ∧
     tenv_alpha env' (bind_var_list2 env'' Empty) ∧
     set(MAP FST env') = set(MAP FST env'') ∧
-    set (FST decls') = FST decls ∪ set mdecls ∧
-    set (FST(SND decls')) = FST(SND decls) ∪ set tdecls ∧
-    set (SND(SND decls')) = SND(SND decls) ∪ set edecls``,
+    set (FST decls') = decls.defined_mods ∪ set mdecls ∧
+    set (FST(SND decls')) = decls.defined_types ∪ set tdecls ∧
+    set (SND(SND decls')) = decls.defined_exns ∪ set edecls``,
   ho_match_mp_tac type_specs_strongind >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,tenv_alpha_empty,empty_decls_def] ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
-    imp_res_tac (INST_TYPE[alpha|->beta]check_freevars_t_to_freevars) >>
+    imp_res_tac (check_freevars_t_to_freevars) >>
     pop_assum(qspec_then`st`strip_assume_tac) >> simp[] >>
     fs[]>>
     (fn g =>
@@ -1143,7 +1143,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     REWRITE_TAC[GSYM FUNION_ASSOC] >>
     REWRITE_TAC[GSYM APPEND_ASSOC] >>
     qpat_abbrev_tac`icenv2 = X ++ icenv` >>
-    PairCases_on`decls`>>simp[union_decls_def]>>
+    simp[union_decls_def]>>
     `tenv_tabbrev_ok (merge_mod_env (FEMPTY,itenvT2) tenvT)` by
       (match_mp_tac tenv_tabbrev_ok_merge>>
       fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,Abbr`itenvT2`]>>
@@ -1173,7 +1173,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     metis_tac[FUPDATE_EQ_FUNION]) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
-    PairCases_on`decls`>>fs[union_decls_def]>>
+    fs[union_decls_def]>>
     (fn g =>
       let
         val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
@@ -1186,7 +1186,7 @@ val check_specs_complete = store_thm("check_specs_complete",
     simp[EXTENSION] >> metis_tac[]) >>
   simp[check_specs_def,success_eqns] >> rw[] >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
-  PairCases_on`decls`>>fs[union_decls_def]>>
+  fs[union_decls_def]>>
   qpat_assum`A ⇒ B` mp_tac>>discharge_hyps>-
     (match_mp_tac tenv_tabbrev_ok_merge>>fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FUPDATE,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
   strip_tac>>
