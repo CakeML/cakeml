@@ -115,11 +115,10 @@ val tenv_inv_letrec_merge2 = prove(``
     rw[]>>
     imp_res_tac (INST_TYPE [alpha|->``:tvarN``,beta|->``:exp``,delta|->``:num|->infer_t``] tenv_inv_letrec_merge)>>
     pop_assum(qspecl_then [`<|subst:=FEMPTY;next_uvar:=0|>`,`funs`] assume_tac)>>
-    fs[])
+    fs[]);
 
 val infer_d_complete = Q.prove (
-
-`!mn (mdecls:'a list) tdecls edecls menv d (mdecls':'a->bool) tdecls' edecls' tenvT' cenv' tenv tenv' st itenv.
+`!mn mdecls tdecls edecls menv d decls' tenvT' cenv' tenv tenv' st itenv.
   tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
   tenv_mod_ok tenv.m ∧
   check_env ∅ itenv ∧
@@ -127,20 +126,19 @@ val infer_d_complete = Q.prove (
   tenv_tabbrev_ok tenv.t ∧
   check_menv menv ∧
   tenv_ctor_ok tenv.c ∧
-  type_d T mn (set mdecls,set tdecls,set edecls) (tenv with v := bind_var_list2 tenv_v Empty) d (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
+  type_d T mn <| defined_mods := set mdecls; defined_types := set tdecls; defined_exns := set edecls |> (tenv with v := bind_var_list2 tenv_v Empty) d decls' tenvT' cenv' tenv' ∧
   tenv_alpha itenv (bind_var_list2 tenv_v Empty) ∧
   menv_alpha menv tenv.m
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv'.
-    set mdecls'' = mdecls' ∧
-    set tdecls'' = tdecls' ∧
-    set edecls'' = edecls' ∧
+    set mdecls'' = decls'.defined_mods ∧
+    set tdecls'' = decls'.defined_types ∧
+    set edecls'' = decls'.defined_exns ∧
     infer_d mn (mdecls,tdecls,edecls) tenv.t menv tenv.c itenv d st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     MAP FST itenv' = MAP FST tenv' ∧
     check_env {} itenv'`,
-
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def,check_env_def]
@@ -817,21 +815,21 @@ val infer_d_complete = Q.prove (
  >- fs[tenv_alpha_empty]);
 
 val infer_ds_complete = prove(``
-!ds mn (mdecls:'a list) tdecls edecls menv mdecls' tdecls' edecls' tenvT' cenv' tenv tenv' st itenv tenv_v.
+!ds mn mdecls tdecls edecls menv decls' tenvT' cenv' tenv tenv' st itenv tenv_v.
   check_menv menv ∧
   tenv_mod_ok tenv.m ∧
   tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
   check_env ∅ itenv ∧
   tenv_ctor_ok tenv.c ∧
   tenv_tabbrev_ok tenv.t ∧
-  type_ds T mn (set mdecls,set tdecls,set edecls) (tenv with v := bind_var_list2 tenv_v Empty) ds (mdecls',tdecls',edecls') tenvT' cenv' tenv' ∧
+  type_ds T mn <|defined_mods := set mdecls; defined_types := set tdecls; defined_exns := set edecls|> (tenv with v := bind_var_list2 tenv_v Empty) ds decls' tenvT' cenv' tenv' ∧
   tenv_alpha itenv (bind_var_list2 tenv_v Empty) ∧
   menv_alpha menv tenv.m
   ⇒
   ?st' mdecls'' tdecls'' edecls'' itenv'.
-    set mdecls'' = mdecls' ∧
-    set tdecls'' = tdecls' ∧
-    set edecls'' = edecls' ∧
+    set mdecls'' = decls'.defined_mods ∧
+    set tdecls'' = decls'.defined_types ∧
+    set edecls'' = decls'.defined_exns ∧
     infer_ds mn (mdecls,tdecls,edecls) tenv.t menv tenv.c itenv ds st =
       (Success ((mdecls'',tdecls'',edecls''), tenvT', cenv', itenv'), st') ∧
     (*for induction*)
