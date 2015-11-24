@@ -1111,7 +1111,10 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
          >- (fs [convert_menv_def] >>
              rw [] >>
              fs [convert_env2_def, convert_decls_def] >>
-             metis_tac [convert_env2_def, INSERT_SING_UNION])
+             CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_ds`` o fst o strip_comb))) >>
+             first_assum(match_exists_tac o concl) >>
+             simp[union_decls_def] >>
+             metis_tac [INSERT_SING_UNION])
          >- (PairCases_on `v'` >>
              fs [success_eqns] >>
              rw [] >>
@@ -1127,7 +1130,8 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
              CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_ds`` o fst o strip_comb))) >>
              fs[convert_decls_def] >>
              first_assum(match_exists_tac o concl) >> simp[] >>
-             Q.LIST_EXISTS_TAC [`convert_env2 env'''`, `set mdecls'''`, `tenvT'''`] >>
+             srw_tac[QUANT_INST_ss[record_default_qp]][union_decls_def] >>
+             Q.LIST_EXISTS_TAC [`convert_env2 env'''`, `tenvT'''`, `set mdecls'''`] >>
              PairCases_on`decls'''`>>fs[convert_decls_def,append_decls_def] >>
              simp[Once INSERT_SING_UNION,convert_menv_def,convert_env2_def] >>
              rw []
