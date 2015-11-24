@@ -656,14 +656,19 @@ val match_result_rel_def = Define
 (* top-level invariant *)
 
 val invariant_def = Define `
-  invariant mods tids envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
-    set (MAP FST (FST envC)) ⊆ mods ∧
-    (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ tids) ∧
-    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ mods) ∧
+  invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
+    set (MAP FST (FST envC)) ⊆ s.defined_mods ∧
+    (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ s.defined_types) ∧
+    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ s.defined_mods) ∧
     cenv_inv envC (get_exh tagenv_st) (get_tagenv ((tagenv_st,FEMPTY):tagenv_state_acc)) gtagenv ∧
     s_rel gtagenv s s_i2 ∧
     LIST_REL (OPTION_REL (v_rel gtagenv)) genv genv_i2 ∧
-    next_inv tids (FST tagenv_st) gtagenv`;
+    next_inv s.defined_types (FST tagenv_st) gtagenv`;
+
+val invariant_with_clock = Q.store_thm("invariant_with_clock",
+  `invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇒
+   invariant envC tagenv_st gtagenv (s with clock := k) (s_i2 with clock := k) genv genv_i2`,
+  rw[invariant_def] >> fs[s_rel_cases] >> metis_tac[])
 
 (* semantic functions respect relation *)
 
@@ -2293,14 +2298,14 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
   ``!env s prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
     evaluate_prompt env s prompt = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant s.defined_mods s.defined_types env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ∧
     (tagenv_st', prompt_i2) = compile_prompt tagenv_st prompt
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
       gtagenv_weak gtagenv gtagenv' ∧
       evaluate_prompt <| exh := (get_exh tagenv_st'); globals := genv_i2; v := [] |>
         s_i2 prompt_i2 = (s'_i2,genv'_i2,res_i2) ∧
-      invariant s'.defined_mods s'.defined_types new_envC tagenv_st' gtagenv' s' s'_i2 (env.globals++genv') (genv_i2 ++ genv'_i2) ∧
+      invariant new_envC tagenv_st' gtagenv' s' s'_i2 (env.globals++genv') (genv_i2 ++ genv'_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_alist_mod_env envC' env.c) ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = env.c ∧
                     result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))``,
@@ -2476,7 +2481,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     !s_i2 genv_i2 next tagenv exh prog_i2 genv' envC' s' res gtagenv next' tagenv' exh'.
     res_tmp = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant s.defined_mods s.defined_types env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
     no_dup_mods prog s.defined_mods ∧
     no_dup_top_types prog s.defined_types ∧
     EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) prog ∧
@@ -2486,7 +2491,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
       gtagenv_weak gtagenv gtagenv' ∧
       evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧
-       invariant s'.defined_mods s'.defined_types (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
+       invariant (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
   Induct_on`prog` >>
   rw [modSemTheory.evaluate_prompts_def,compile_prog_def]
@@ -2580,14 +2585,14 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   `!env prog s s_i2 genv_i2 next tagenv exh prog_i2 s' res gtagenv next' tagenv' exh'.
     evaluate_prog env s prog = (s',res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant s.defined_mods s.defined_types env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
     ((next',tagenv',exh'), prog_i2) = compile_prog (next,tagenv,exh) prog
     ⇒
     ?envC' genv' genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
       evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧
-       invariant s'.defined_mods s'.defined_types (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
+       invariant (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
   rw [modSemTheory.evaluate_prog_def,LET_THM] >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
