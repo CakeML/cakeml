@@ -2300,17 +2300,16 @@ val type_ds_no_dup_types = Q.prove (
  >- metis_tac []
  >- (fs [union_decls_def] >>
      imp_res_tac type_ds_no_dup_types_helper >>
-     rw [] >>
      fs [DISJOINT_DEF, EXTENSION, METIS_PROVE [] ``P ∨ Q ⇔ ¬P ⇒ Q``] >>
+     pop_assum kall_tac >>
+     pop_assum (qspec_then `mk_id mn e` mp_tac) >>
      `MEM (mk_id mn e) (MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs)`
                by (fs [MEM_MAP] >>
                    qexists_tac `y` >>
                    rw [] >>
                    PairCases_on `y` >>
                    rw []) >>
-     res_tac >>
-     ntac 2 (pop_assum (fn _ => all_tac)) >>
-     pop_assum mp_tac >>
+     simp [] >>
      rpt (pop_assum (fn _ => all_tac)) >>
      rw [MEM_FLAT, MEM_MAP] >>
      CCONTR_TAC >>
@@ -2334,13 +2333,11 @@ val type_ds_no_dup_types = Q.prove (
 val no_new_mods = Q.prove (
 `!x uniq mn decls1 tenv d decls1' tenvT' tenvC' tenv'.
   type_d uniq mn decls1 tenv d decls1' tenvT' tenvC' tenv' ∧
-  (case decls1 of (mods,v1) => mods = x)
+  decls1.defined_mods = x
   ⇒
-  (case union_decls decls1' decls1 of (mods,v1) => mods = x)`,
+  (union_decls decls1' decls1).defined_mods = x`,
  rw [] >>
  imp_res_tac type_d_mod >>
- PairCases_on `decls1'` >>
- PairCases_on `decls1` >>
  fs [union_decls_def]);
 
 val one_new_mod = Q.prove (
@@ -2370,9 +2367,7 @@ val top_type_soundness_lem = Q.prove (
  fs [type_top_cases, top_diverges_cases] >>
  rw [evaluate_top_cases]
  >- (`weak_decls_other_mods NONE decls_no_sig decls1`
-              by (PairCases_on `decls_no_sig` >>
-                  PairCases_on `decls1` >>
-                  fs [weak_decls_other_mods_def, weak_decls_only_mods_def, mk_id_def] >>
+              by (fs [weak_decls_other_mods_def, weak_decls_only_mods_def, mk_id_def] >>
                   metis_tac []) >>
      `type_d F NONE decls_no_sig <| t := tenv.t; m := tenvM_no_sig; c := tenvC_no_sig; v := tenv.v |>
              d decls1' tenv_tabbrev' cenv' tenv'`
@@ -2399,8 +2394,6 @@ val top_type_soundness_lem = Q.prove (
          >- metis_tac [type_v_weakening, store_type_extension_weakS, weakCT_refl, consistent_con_env_def]
          >- metis_tac [type_v_weakening, store_type_extension_weakS, weakCT_refl, consistent_con_env_def]
          >- (imp_res_tac type_d_mod >>
-             PairCases_on `decls1'` >>
-             PairCases_on `decls_no_sig` >>
              fs [decls_ok_def, union_decls_def, decls_to_mods_def, SUBSET_DEF, EXTENSION] >>
              fs [GSPECIFICATION] >>
              metis_tac [])
@@ -2423,8 +2416,6 @@ val top_type_soundness_lem = Q.prove (
          >- metis_tac [type_s_weakening, weakM_refl, consistent_con_env_def]
          >- metis_tac [weakC_merge]
          >- (imp_res_tac type_d_mod >>
-             PairCases_on `decls1'` >>
-             PairCases_on `decls_no_sig` >>
              fs [GSPECIFICATION, decls_ok_def, union_decls_def, decls_to_mods_def, SUBSET_DEF, EXTENSION] >>
              metis_tac [])
          >- metis_tac [weak_decls_union]
@@ -2433,9 +2424,8 @@ val top_type_soundness_lem = Q.prove (
  >- (fs [] >>
      metis_tac [type_ds_no_dup_types])
  >- metis_tac [type_ds_no_dup_types]
- >- (`weak_decls_other_mods (SOME mn) decls_no_sig (mdecls,tdecls,edecls)`
-                     by (PairCases_on `decls_no_sig` >>
-                         fs [weak_decls_def, weak_decls_other_mods_def] >>
+ >- (`weak_decls_other_mods (SOME mn) decls_no_sig decls1`
+                     by (fs [weak_decls_def, weak_decls_other_mods_def] >>
                          fs[SUBSET_DEF,mk_id_def,decls_ok_def] >>
                          fsrw_tac[boolSimps.DNF_ss][decls_to_mods_def,GSPECIFICATION] >>
                          metis_tac[]) >>
@@ -2445,7 +2435,6 @@ val top_type_soundness_lem = Q.prove (
                       metis_tac [consistent_con_env_def]) >>
      `decs_type_sound_invariant (SOME mn) decls_no_sig ctMap tenvS <| t := tenv.t; m := tenvM_no_sig; c := tenvC_no_sig; v := tenv.v |> st env`
                   by (rw [decs_type_sound_invariant_def] >>
-                      PairCases_on `decls_no_sig` >>
                       fs [weak_decls_def] >>
                       metis_tac [consistent_con_env_def]) >>
      assume_tac (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO, PULL_FORALL] decs_type_soundness) >>
@@ -2481,16 +2470,14 @@ val top_type_soundness_lem = Q.prove (
          `ctMap_ok (FUNION (flat_to_ctMap tenvC2) ctMap)`
                     by (match_mp_tac ctMap_ok_merge_imp >>
                         metis_tac [flat_tenvC_ok_ctMap, consistent_con_env_def]) >>
-         MAP_EVERY qexists_tac [`FUNION (flat_to_ctMap tenvC2) ctMap`, `tenvS'`, `(union_decls (union_decls ({mn},{},{})decls') decls_no_sig)`,
+         MAP_EVERY qexists_tac [`FUNION (flat_to_ctMap tenvC2) ctMap`, `tenvS'`, 
+                                `(union_decls (union_decls <|defined_mods := {mn}; defined_types := {}; defined_exns := {}|> decls') decls_no_sig)`,
                                 `tenvM_no_sig`, `tenvC_no_sig`] >>
          rw []
          >- (rw [GSYM union_decls_assoc] >>
-             `?x y z. union_decls decls' decls_no_sig = (x,y,z)` by metis_tac [pair_CASES] >>
-             rw [union_decls_def] >>
-             metis_tac [consistent_decls_add_mod])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [consistent_ctMap_def, union_decls_def])
+             imp_res_tac consistent_decls_add_mod >>
+             fs [union_decls_def])
+         >- (fs [consistent_ctMap_def, union_decls_def])
          >- metis_tac [still_has_exns]
          >- (`DISJOINT (IMAGE SND (FDOM (flat_to_ctMap (tenvC1++tenvC2)))) (IMAGE SND (FDOM ctMap))`
                        by metis_tac [type_ds_ctMap_disjoint] >>
@@ -2504,16 +2491,11 @@ val top_type_soundness_lem = Q.prove (
          >- metis_tac [consistent_con_env_weakening]
          >- metis_tac [type_v_weakening, store_type_extension_weakS]
          >- (imp_res_tac type_ds_mod >>
-             PairCases_on `decls'` >>
-             PairCases_on `decls_no_sig` >>
              fs [GSPECIFICATION, decls_ok_def, union_decls_def, decls_to_mods_def, SUBSET_DEF, EXTENSION] >>
              metis_tac [])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [check_signature_cases, union_decls_def, weak_decls_def, SUBSET_DEF])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [weak_decls_def, check_signature_cases, union_decls_def, weak_decls_only_mods_def, SUBSET_DEF,
+         >- (fs [check_signature_cases, union_decls_def, weak_decls_def, SUBSET_DEF] >>
+             metis_tac [])
+         >- (fs [weak_decls_def, check_signature_cases, union_decls_def, weak_decls_only_mods_def, SUBSET_DEF,
                  mk_id_def, weak_decls_other_mods_def]
              >- metis_tac [] >>
              imp_res_tac type_ds_mod >>
@@ -2521,7 +2503,7 @@ val top_type_soundness_lem = Q.prove (
              metis_tac [SOME_11, NOT_SOME_NONE])
          >- (imp_res_tac eval_ds_no_new_mods >>
              fs [] >>
-             `mdecls'' = {}`
+             `decls''.defined_mods = {}`
                       by (fs [check_signature_cases] >>
                           rw [] >>
                           imp_res_tac type_ds_mod >>
@@ -2554,16 +2536,13 @@ val top_type_soundness_lem = Q.prove (
          `tenv_val_ok (bind_var_list2 tenv''' Empty)`
                       by (fs [check_signature_cases] >>
                           metis_tac [type_v_freevars, type_specs_tenv_ok]) >>
-         MAP_EVERY qexists_tac [`flat_to_ctMap cenv' ⊌ ctMap`, `tenvS'`, `(union_decls (union_decls ({mn},{},{})decls') decls_no_sig)`,
+         MAP_EVERY qexists_tac [`flat_to_ctMap cenv' ⊌ ctMap`, `tenvS'`, `(union_decls (union_decls <|defined_mods := {mn}; defined_types := {}; defined_exns := {}|> decls') decls_no_sig)`,
                                 `tenvM_no_sig |+ (mn,tenv'')`, `merge_alist_mod_env ([(mn,cenv')],[]) tenvC_no_sig`] >>
          rw [extend_top_env_def]
          >- (rw [GSYM union_decls_assoc] >>
-             `?x y z. union_decls decls' decls_no_sig = (x,y,z)` by metis_tac [pair_CASES] >>
-             rw [union_decls_def] >>
-             metis_tac [consistent_decls_add_mod])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [consistent_ctMap_def, union_decls_def])
+             imp_res_tac consistent_decls_add_mod >>
+             fs [union_decls_def])
+         >- (fs [consistent_ctMap_def, union_decls_def])
          >- metis_tac [still_has_exns]
          >- metis_tac [still_has_lists, type_ds_ctMap_disjoint]
          >- metis_tac [still_has_bools, type_ds_ctMap_disjoint]
@@ -2586,16 +2565,11 @@ val top_type_soundness_lem = Q.prove (
          >- (fs [check_signature_cases] >>
              metis_tac [weakC_merge_one_mod2, flat_weakC_refl])
          >- (imp_res_tac type_ds_mod >>
-             PairCases_on `decls'` >>
-             PairCases_on `decls_no_sig` >>
              fs [GSPECIFICATION, decls_ok_def, union_decls_def, decls_to_mods_def, SUBSET_DEF, EXTENSION] >>
              metis_tac [])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [check_signature_cases, union_decls_def, weak_decls_def, SUBSET_DEF])
-         >- (PairCases_on `decls_no_sig` >>
-             PairCases_on `decls'` >>
-             fs [weak_decls_def, check_signature_cases, union_decls_def, weak_decls_only_mods_def, SUBSET_DEF,
+         >- (fs [check_signature_cases, union_decls_def, weak_decls_def, SUBSET_DEF] >>
+             metis_tac [])
+         >- (fs [weak_decls_def, check_signature_cases, union_decls_def, weak_decls_only_mods_def, SUBSET_DEF,
                  mk_id_def, weak_decls_other_mods_def]
              >- metis_tac [] >>
              imp_res_tac type_ds_mod >>
@@ -2603,7 +2577,7 @@ val top_type_soundness_lem = Q.prove (
              metis_tac [SOME_11, NOT_SOME_NONE])
          >- (imp_res_tac eval_ds_no_new_mods >>
              fs [] >>
-             `mdecls'' = {}`
+             `decls''.defined_mods = {}`
                       by (fs [check_signature_cases] >>
                           rw [] >>
                           imp_res_tac type_ds_mod >>
@@ -2624,10 +2598,8 @@ val top_type_soundness = Q.store_thm ("top_type_soundness",
  metis_tac [top_type_soundness_lem, type_top_check_uniq]);
 
 val FST_union_decls = Q.prove (
-`!d1 d2. FST (union_decls d1 d2) = FST d1 ∪ FST d2`,
+`!d1 d2. (union_decls d1 d2).defined_mods = d1.defined_mods ∪ d2.defined_mods`,
  rw [] >>
- PairCases_on `d1` >>
- PairCases_on `d2` >>
  rw [union_decls_def]);
 
 val prog_type_soundness = Q.store_thm ("prog_type_soundness",
@@ -2642,7 +2614,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
       type_sound_invariants (NONE:('b,v) result option) (update_type_sound_inv (decls1,tenv,st,env) decls1' tenvT' tenvM' tenvC' tenv' st' cenv2 (Rval (envM2,envE2)))) ∨
     (?err mods.
       err ≠ Rabort Rtype_error ∧
-      mods ⊆ FST decls1' ∧
+      mods ⊆ decls1'.defined_mods ∧
       evaluate_prog F env st prog (st',cenv2,Rerr err))`,
  induct_on `prog` >>
  rw [] >>
@@ -2653,11 +2625,13 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      Cases_on `tenv.c` >>
      Cases_on `tenv.t` >>
      Cases_on `env.c` >>
-     PairCases_on `decls1` >>
      rw [union_decls_def, merge_alist_mod_env_def,merge_mod_env_def, bind_var_list2_def] >>
      `<|v := env.v; c := (q'',r''); m := env.m|> = env` by rw [environment_component_equality] >>
      `<|m := tenv.m; c := (q,r); v := tenv.v; t := (q',r')|> = tenv` by rw [type_environment_component_equality] >>
-     metis_tac []) >>
+     `<|defined_mods := decls1.defined_mods;
+        defined_types := decls1.defined_types;
+        defined_exns := decls1.defined_exns|> = decls1` by rw [decls_component_equality] >>
+     rw []) >>
  rw [] >>
  qpat_assum `~(prog_diverges x0 x1 x2)` mp_tac >>
  rw [Once prog_diverges_cases] >>
@@ -2692,7 +2666,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
          simp [combine_mod_result_def] >>
          fs [update_type_sound_inv_def, FUNION_ASSOC, combine_mod_result_def, union_decls_assoc, merge_alist_mod_env_assoc, bvl2_append, merge_alist_mod_env_assoc, merge_mod_env_assoc, extend_top_env_def])
      >- (disj2_tac >>
-         Q.LIST_EXISTS_TAC [`merge_alist_mod_env cenv2' cenv2`, `st''`, `err`, `mods ∪ FST decls'`] >>
+         Q.LIST_EXISTS_TAC [`merge_alist_mod_env cenv2' cenv2`, `st''`, `err`, `mods ∪ decls'.defined_mods`] >>
          rw [FST_union_decls]
          >- fs [SUBSET_DEF] >>
          disj1_tac >>
@@ -2701,7 +2675,7 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
  >- (disj2_tac >>
      Q.LIST_EXISTS_TAC [`cenv2`, `st'`, `err`] >>
      rw [] >>
-     qexists_tac `FST decls'` >>
+     qexists_tac `decls'.defined_mods` >>
      rw [FST_union_decls]));
 
 val type_no_dup_top_types_lem = Q.prove (
@@ -2709,7 +2683,7 @@ val type_no_dup_top_types_lem = Q.prove (
   type_prog uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'
   ⇒
   ALL_DISTINCT (prog_to_top_types prog) ∧
-  DISJOINT (FST (SND decls1)) (IMAGE (mk_id NONE) (set (prog_to_top_types prog)))`,
+  DISJOINT decls1.defined_types (IMAGE (mk_id NONE) (set (prog_to_top_types prog)))`,
  ho_match_mp_tac type_prog_ind >>
  rw [prog_to_top_types_def] >>
  every_case_tac >>
@@ -2720,14 +2694,12 @@ val type_no_dup_top_types_lem = Q.prove (
      rw [] >>
      fs [check_ctor_tenv_def] >>
      fs [LAMBDA_PROD])
- >- (`mk_id NONE e ∈ FST (SND decls')`
+ >- (`mk_id NONE e ∈ decls'.defined_types`
             by (fs [type_d_cases, decs_to_types_def] >>
                 rw [] >>
                 fs [mk_id_def] >>
                 fs [MEM_MAP, LAMBDA_PROD, EXISTS_PROD] >>
                 metis_tac []) >>
-     PairCases_on `decls'` >>
-     PairCases_on `decls1` >>
      fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [])
  >- (rw [decs_to_types_def] >>
@@ -2741,8 +2713,7 @@ val type_no_dup_top_types_lem = Q.prove (
      rw [] >>
      fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
      metis_tac [])
- >- (PairCases_on `decls1` >>
-     fs [type_d_cases, empty_decls_def] >>
+ >- (fs [type_d_cases, empty_decls_def] >>
      rw [] >>
      fs [DISJOINT_DEF, EXTENSION, union_decls_def] >>
      rw [] >>
@@ -2753,7 +2724,7 @@ val type_no_dup_top_types_lem2 = Q.prove (
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
   type_prog uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'
   ⇒
-  no_dup_top_types prog (IMAGE TypeId (FST (SND decls1)))`,
+  no_dup_top_types prog (IMAGE TypeId decls1.defined_types)`,
  rw [no_dup_top_types_def]
  >- metis_tac [type_no_dup_top_types_lem] >>
  imp_res_tac type_no_dup_top_types_lem >>
@@ -2772,11 +2743,9 @@ val type_no_dup_top_types = Q.prove (
   ⇒
   no_dup_top_types prog decls2`,
  rw [] >>
- `no_dup_top_types prog (IMAGE TypeId (FST (SND decls1)))`
+ `no_dup_top_types prog (IMAGE TypeId decls1.defined_types)`
          by metis_tac [type_no_dup_top_types_lem2] >>
  fs [no_dup_top_types_def] >>
- PairCases_on `decls_no_sig` >>
- PairCases_on `decls1` >>
  fs [RES_FORALL, DISJOINT_DEF, SUBSET_DEF, EXTENSION, weak_decls_only_mods_def, consistent_decls_def] >>
  rw [] >>
  CCONTR_TAC >>
@@ -2792,7 +2761,7 @@ val type_no_dup_mods_lem = Q.prove (
   type_prog uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'
   ⇒
   ALL_DISTINCT (prog_to_mods prog) ∧
-  DISJOINT (FST decls1) (set (prog_to_mods prog))`,
+  DISJOINT decls1.defined_mods (set (prog_to_mods prog))`,
  ho_match_mp_tac type_prog_ind >>
  rw [prog_to_mods_def] >>
  every_case_tac >>
@@ -2803,16 +2772,14 @@ val type_no_dup_mods_lem = Q.prove (
      metis_tac [])
  >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [])
- >- (PairCases_on `decls'` >>
-     PairCases_on `decls1` >>
-     fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
+ >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac []));
 
 val type_no_dup_mods = Q.prove (
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
   type_prog uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'
   ⇒
-  no_dup_mods prog (FST decls1)`,
+  no_dup_mods prog decls1.defined_mods`,
  rw [no_dup_mods_def] >>
  metis_tac [type_no_dup_mods_lem, DISJOINT_SYM]);
 
@@ -2827,7 +2794,7 @@ val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
       type_sound_invariants (NONE:('a,v) result option) (update_type_sound_inv (decls1,tenv,st,env) decls1' tenvT' tenvM' tenvC' tenv' st' cenv2 (Rval (envM2,envE2)))) ∨
     (?err mods.
       err ≠ Rabort Rtype_error ∧
-      mods ⊆ FST decls1' ∧
+      mods ⊆ decls1'.defined_mods ∧
       evaluate_prog F env st prog (st',cenv2,Rerr err))`,
  rw [evaluate_whole_prog_def] >>
  imp_res_tac prog_type_soundness >>
@@ -2839,7 +2806,6 @@ val whole_prog_type_soundness = Q.store_thm ("whole_prog_type_soundness",
      fs [type_sound_invariants_def] >>
      imp_res_tac type_no_dup_mods >>
      imp_res_tac type_no_dup_top_types >>
-     PairCases_on `decls1` >>
      fs [] >>
      rfs [] >>
      fs [no_dup_mods_def, no_dup_top_types_def]) >>
