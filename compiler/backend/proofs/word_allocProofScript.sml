@@ -801,7 +801,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (rw[domain_numset_list_insert]>>
       EVERY_CASE_TAC>>fs[domain_numset_list_insert,domain_union])>>
     pop_assum kall_tac>>rw[]>>
-    Cases_on`find_code o1 x st.code`>>fs[word_state_eq_rel_def]>>
+    Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>
+    fs[word_state_eq_rel_def]>>
     Cases_on`x'`>>fs[]>>
     FULL_CASE_TAC
     >-
@@ -829,7 +830,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       `domain x'1 ⊆ x'0 INSERT domain x'1` by fs[SUBSET_DEF]>>
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
     rw[]>>fs[]>>
-    Cases_on`st.clock=0`>>fs[call_env_def]>>
+    Cases_on`st.clock=0`>>fs[call_env_def,add_ret_loc_def]>>
     qpat_abbrev_tac`f_o0=
       case o0 of NONE => NONE
       | SOME (v,prog,l1,l2) => SOME (f v,apply_colour f prog,l1,l2)`>>
@@ -843,7 +844,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     rfs[LET_THM,env_to_list_def,dec_clock_def]>>
     qabbrev_tac `envx = push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x'3 x'4::q)`>>
+          locals := fromList2 (q)`>>
     qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
@@ -925,7 +926,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     strip_tac>>
     qspecl_then[`r`,`push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x'3 x'4::q)`,`perm'`]
+          locals := fromList2 (q)`,`perm'`]
       assume_tac permute_swap_lemma>>
     rfs[LET_THM]>>
     (*"Hot-swap" the suffix of perm, maybe move into lemma*)
@@ -1026,7 +1027,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       fs[]>>CONJ_TAC>>
       metis_tac[LENGTH_MAP,ZIP_MAP_FST_SND_EQ])>>
       rw[]>>
-      qspecl_then[`r`,`st with <|locals := fromList2 (Loc x'3 x'4::q);
+      qspecl_then[`r`,`st with <|locals := fromList2 (q);
             stack :=
             StackFrame (list_rearrange (perm 0)
               (QSORT key_val_compare ( (toAList x'))))
@@ -3049,7 +3050,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qpat_assum`A=x''` sym_sub_tac>>
     fs[])
   >- (*Call*)
-    (Cases_on`o'`
+   (Cases_on`o'`
     >-
     (*Tail call*)
     (exists_tac>>
@@ -3076,15 +3077,15 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     rfs[])
     >>
     (*Non tail call*)
-    PairCases_on`x`>>
+    PairCases_on`x`>> fs[] >>
     Q.PAT_ABBREV_TAC`pp = ssa_cc_trans X Y Z` >>
     PairCases_on`pp` >> simp[] >>
     pop_assum(mp_tac o SYM o SIMP_RULE std_ss[markerTheory.Abbrev_def]) >>
     simp_tac std_ss [ssa_cc_trans_def]>>
     LET_ELIM_TAC>>
-    fs[evaluate_def,get_vars_perm]>>
+    fs[evaluate_def,get_vars_perm,add_ret_loc_def]>>
     Cases_on`get_vars l st`>>fs[]>>
-    Cases_on`find_code o1 x st.code`>>fs[]>>
+    Cases_on`find_code o1 (Loc x3 x4::x) st.code`>>fs[]>>
     Cases_on`x'`>>
     Cases_on`cut_env x1 st.locals`>>fs[]>>
     Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`]
@@ -3174,7 +3175,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[]>>
         qpat_assum`A=SOME v` SUBST_ALL_TAC>>fs[])
     >>
-    rw[Abbr`rcst'`]>>fs[]>>
+    rw[Abbr`rcst'`]>>fs[add_ret_loc_def]>>
     IF_CASES_TAC>>fs[call_env_def]>>
     qpat_abbrev_tac`rcst' = rcst with locals := A`>>
     Q.ISPECL_THEN[
@@ -3189,7 +3190,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qabbrev_tac `envx = push_env x'
             (NONE:(num # 'a wordLang$prog #num #num)option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x3 x4::q)`>>
+          locals := fromList2 (q)`>>
     qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
@@ -3328,7 +3329,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rw[]>>
       qspecl_then[`r`,`push_env x' (NONE:(num#'a wordLang$prog#num#num) option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x3 x4::q)`,`perm'`]
+          locals := fromList2 q`,`perm'`]
       assume_tac permute_swap_lemma>>
       rfs[LET_THM]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
@@ -3420,7 +3421,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[]>>
         qpat_assum`A=SOME v` SUBST_ALL_TAC>>fs[])
     >>
-    rw[Abbr`rcst'`]>>fs[]>>
+    rw[Abbr`rcst'`]>>fs[add_ret_loc_def]>>
     IF_CASES_TAC>>fs[call_env_def]>>
     qpat_abbrev_tac`rcst' = rcst with locals := A`>>
     Q.ISPECL_THEN
@@ -3434,7 +3435,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     rfs[LET_THM,env_to_list_def,dec_clock_def]>>
     qabbrev_tac `envx = push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x3 x4::q)`>>
+          locals := fromList2 q`>>
     qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
@@ -3597,7 +3598,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rw[]>>
       qspecl_then[`r`,`push_env x' (SOME(x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x3 x4::q)`,`perm'`]
+          locals := fromList2 q`,`perm'`]
       assume_tac permute_swap_lemma>>
       rfs[LET_THM]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)
@@ -3768,7 +3769,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       rw[]>>
       qspecl_then[`r`,`push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
-          locals := fromList2 (Loc x3 x4::q)`,`perm'`]
+          locals := fromList2 q`,`perm'`]
         assume_tac permute_swap_lemma>>
       rfs[LET_THM,push_env_def,env_to_list_def]>>
       (*"Hot-swap" the suffix of perm, maybe move into lemma*)

@@ -107,6 +107,50 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
+val evaluate_dec_add_to_clock = Q.store_thm("evaluate_dec_add_to_clock",
+  `evaluate_dec env s d = (s',r) ∧
+   r ≠ Rerr (Rabort Rtimeout_error) ⇒
+   evaluate_dec env (s with clock := s.clock + extra) d =
+     (s' with clock := s'.clock + extra,r)`,
+  Cases_on`d`>>rw[evaluate_dec_def]>>
+  first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+  imp_res_tac evaluate_add_to_clock >>
+  first_x_assum(fn th => mp_tac th >> discharge_hyps >- (strip_tac >> fs[])) >>
+  disch_then(qspec_then`extra`strip_assume_tac) >> simp[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  every_case_tac >> fs[]);
+
+val evaluate_decs_add_to_clock = Q.store_thm("evaluate_decs_add_to_clock",
+  `∀decs env s s' x r.
+   evaluate_decs env s decs = (s',x,r) ∧
+   r ≠ SOME (Rabort Rtimeout_error) ⇒
+   evaluate_decs env (s with clock := s.clock + extra) decs =
+     (s' with clock := s'.clock + extra, x,r)`,
+  Induct >> rw[evaluate_decs_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac evaluate_dec_add_to_clock >> fs[] >> rw[] >>
+  res_tac >> fs[]);
+
+val evaluate_prompt_add_to_clock = Q.store_thm("evaluate_prompt_add_to_clock",
+  `evaluate_prompt env s p = (s',g,r) ∧
+   r ≠ SOME (Rabort Rtimeout_error) ⇒
+   evaluate_prompt env (s with clock := s.clock + extra) p =
+     (s' with clock := s'.clock + extra,g,r)`,
+  Cases_on`p` >> rw[evaluate_prompt_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac evaluate_decs_add_to_clock >> fs[]);
+
+val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
+  `∀prog env s s' g r.
+   evaluate_prog env s prog = (s',g,r) ∧
+   r ≠ SOME (Rabort Rtimeout_error) ⇒
+   evaluate_prog env (s with clock := s.clock + extra) prog =
+     (s' with clock := s'.clock + extra,g,r)`,
+  Induct >> rw[evaluate_prog_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac evaluate_prompt_add_to_clock >> fs[] >> rw[] >>
+  res_tac >> fs[]);
+
 val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
   `∀xs exh vs s env.
      LENGTH xs = LENGTH vs ⇒

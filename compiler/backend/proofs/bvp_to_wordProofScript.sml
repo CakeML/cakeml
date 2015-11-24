@@ -24,7 +24,7 @@ val code_rel_def = Define `
   code_rel c s_code t_code <=>
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count,FST (comp c n 1 prog),arg_count))`
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog),arg_count+1))`
 
 val stack_rel_def = Define `
   (stack_rel (Env env) (StackFrame vs NONE) <=>
@@ -141,15 +141,25 @@ val evaluate_mk_loc_EQ = prove(
     mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
   cheat);
 
+val LAST_EQ = prove(
+  ``(LAST (x::xs) = if xs = [] then x else LAST xs) /\
+    (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
+  Cases_on `xs` \\ fs []);
+
 val find_code_lemma = prove(
   ``find_code dest x s.code = SOME (q,r) /\
     state_rel c l1 l2 s t LN /\ (LENGTH x = LENGTH ws) ==>
-    ?n args. find_code dest ws t.code = SOME (args,FST (comp c n 1 r))``,
+    ?n args. !ret_loc. find_code dest (ret_loc::ws) t.code =
+                       SOME (ret_loc::args,FST (comp c n 1 r))``,
   reverse (Cases_on `dest`) \\ fs [find_code_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw []
-  \\ fs [state_rel_def,code_rel_def] \\ res_tac
-  \\ fs [wordSemTheory.find_code_def] THEN1 metis_tac []
-  \\ cheat)
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ `code_rel c s.code t.code` by fs[state_rel_def]
+  \\ fs [code_rel_def] \\ res_tac
+  \\ fs [wordSemTheory.find_code_def]
+  THEN1 (qexists_tac `x'` \\ fs [ADD1])
+  \\ `ws <> []` by rfs [GSYM LENGTH_NIL] \\ fs [LAST_EQ]
+  \\ `LAST ws = Loc n 0` by cheat (* need more about relation between ws and x *)
+  \\ fs [] \\ qexists_tac `n` \\ fs [ADD1])
 
 val cut_env_IMP_cut_env = prove(
   ``state_rel c l1 l2 s t LN /\
@@ -175,9 +185,22 @@ val jump_exc_dec_clock = prove(
   fs [wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def]
   \\ rw [] \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def]);
 
+val LAST_N_ADD1 = miscTheory.LAST_N_LENGTH
+  |> Q.SPEC `x::xs` |> SIMP_RULE (srw_ss()) [ADD1]
+
 val jump_exc_push_env_NONE = prove(
-  ``jump_exc (push_env y NONE s) = jump_exc s``,
-  cheat);
+  ``mk_loc (jump_exc (push_env y NONE s)) =
+    mk_loc (jump_exc (s:('a,'b) wordSem$state))``,
+  fs [wordSemTheory.push_env_def,wordSemTheory.jump_exc_def]
+  \\ Cases_on `env_to_list y s.permute` \\ fs [LET_DEF]
+  \\ Cases_on `s.handler = LENGTH s.stack` \\ fs [LAST_N_ADD1]
+  \\ Cases_on `~(s.handler < LENGTH s.stack)` \\ fs [] \\ rw []
+  THEN1 (`F` by DECIDE_TAC)
+  \\ `LAST_N (s.handler + 1) (StackFrame q NONE::s.stack) =
+      LAST_N (s.handler + 1) s.stack` by
+    (match_mp_tac miscTheory.LAST_N_TL \\ decide_tac)
+  \\ every_case_tac \\ rw [mk_loc_def]
+  \\ `F` by decide_tac);
 
 val state_rel_ARB_ret = prove(
   ``state_rel c l1 l2 s t (LS x) = state_rel c ARB ARB s t (LS x)``,
@@ -199,6 +222,7 @@ val compile_correct = prove(
                      ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) /\
                          (res1 = SOME (Exception (mk_loc (jump_exc t)) w))
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
+
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -291,10 +315,14 @@ val compile_correct = prove(
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]))
+
   THEN1 (* Call *)
-   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
+   (
+
+    once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `ret`
-    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+           wordSemTheory.add_ret_loc_def]
     THEN1 (* ret = NONE *)
      (Cases_on `get_vars args s` \\ fs []
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ fs []
@@ -302,21 +330,18 @@ val compile_correct = prove(
       \\ Cases_on `x'` \\ fs [] \\ Cases_on `handler` \\ fs []
       \\ imp_res_tac find_code_lemma \\ fs []
       \\ `t.clock = s.clock` by fs [state_rel_def]
-      \\ Cases_on `s.clock = 0` \\ fs [] \\ rw []
-      \\ `find_code dest (Loc l1 l2::ws) t.code =
-          SOME (args',FST (comp c n''' 1 r))` by cheat (* wordSem tail-call
-            case needs updating to not include return value in arg length check *)
-      \\ fs []
+      \\ Cases_on `s.clock = 0` \\ fs [] \\ rw [] \\ fs []
       \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
       \\ Cases_on `q'` \\ fs [] \\ rw [] \\ fs []
       \\ `state_rel c l1 l2 (call_env q (dec_clock s))
-            (call_env args' (dec_clock t)) LN` by cheat
+            (call_env (Loc l1 l2 :: args') (dec_clock t)) LN` by cheat
       \\ qpat_assum `state_rel c l1 l2 s1 t1 LN` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
+      \\ first_x_assum (qspec_then `Loc l1 l2` assume_tac)
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest (Loc l1 l2::ws) t.code =
-           SOME (args',FST (comp c n6 1 r))`
+           SOME (Loc l1 l2::args',FST (comp c n6 1 r))`
       \\ strip_tac \\ pop_assum (qspecl_then [`n6`,`1`] mp_tac)
-      \\ rpt strip_tac \\ fs []
+      \\ rpt strip_tac \\ fs [] \\ rfs []
       \\ Cases_on `res1` \\ fs [] \\ rw [] \\ fs []
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def]
       \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
@@ -326,6 +351,7 @@ val compile_correct = prove(
     \\ Cases_on `handler` \\ fs [wordSemTheory.evaluate_def]
     \\ Cases_on `get_vars args s` \\ fs []
     \\ imp_res_tac state_rel_get_vars_IMP \\ fs []
+    \\ fs [wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
      (Cases_on `find_code dest x s.code` \\ fs []
       \\ Cases_on `x'` \\ imp_res_tac find_code_lemma \\ fs [] \\ rw []
@@ -351,6 +377,6 @@ val compile_correct = prove(
       \\ Cases_on `e` \\ fs [] \\ rw []
       \\ fs [jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
       \\ pop_assum mp_tac \\ once_rewrite_tac [state_rel_ARB_ret] \\ fs [])
-    \\ cheat));
+    \\ cheat (* case for Call with handler *)));
 
 val _ = export_theory();

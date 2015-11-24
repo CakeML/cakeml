@@ -656,14 +656,19 @@ val match_result_rel_def = Define
 (* top-level invariant *)
 
 val invariant_def = Define `
-  invariant mods tids envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
-    set (MAP FST (FST envC)) ⊆ mods ∧
-    (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ tids) ∧
-    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ mods) ∧
+  invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
+    set (MAP FST (FST envC)) ⊆ s.defined_mods ∧
+    (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ s.defined_types) ∧
+    (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ s.defined_mods) ∧
     cenv_inv envC (get_exh tagenv_st) (get_tagenv ((tagenv_st,FEMPTY):tagenv_state_acc)) gtagenv ∧
     s_rel gtagenv s s_i2 ∧
     LIST_REL (OPTION_REL (v_rel gtagenv)) genv genv_i2 ∧
-    next_inv tids (FST tagenv_st) gtagenv`;
+    next_inv s.defined_types (FST tagenv_st) gtagenv`;
+
+val invariant_with_clock = Q.store_thm("invariant_with_clock",
+  `invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇒
+   invariant envC tagenv_st gtagenv (s with clock := k) (s_i2 with clock := k) genv genv_i2`,
+  rw[invariant_def] >> fs[s_rel_cases] >> metis_tac[])
 
 (* semantic functions respect relation *)
 
@@ -1943,6 +1948,7 @@ val compile_decs_correct = store_thm("compile_decs_correct",
          ∨
          (∃err err_i2.
            res = SOME err ∧ res_i2 = SOME err_i2 ∧
+           s_rel gtagenv' s' s'_i2 ∧
            result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2)))``,
   Induct_on`ds` >- (
     simp[modSemTheory.evaluate_decs_def,compile_decs_def,conSemTheory.evaluate_decs_def] >>
@@ -2290,23 +2296,29 @@ val compile_decs_dummy_env_num_defs =prove(
   simp[modSemTheory.dec_to_dummy_env_def,conLangTheory.num_defs_def,compile_funs_map]);
 
 val compile_prompt_correct = store_thm("compile_prompt_correct",
-  ``!ck genv envC s tids mods prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' tids' mods' res gtagenv tagenv_st'.
-    evaluate_prompt ck genv envC (s,tids,mods) prompt ((s',tids',mods'), envC', genv', res) ∧
+  ``!env s prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
+    evaluate_prompt env s prompt = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant mods tids envC tagenv_st gtagenv s s_i2 genv genv_i2 ∧
+    invariant env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ∧
     (tagenv_st', prompt_i2) = compile_prompt tagenv_st prompt
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prompt ck (get_exh tagenv_st') genv_i2 s_i2 prompt_i2 (s'_i2,genv'_i2,res_i2) ∧
-      invariant mods' tids' new_envC tagenv_st' gtagenv' s' s'_i2 (genv++genv') (genv_i2 ++ genv'_i2) ∧
-      (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_alist_mod_env envC' envC) ∨
-       ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = envC ∧
+      evaluate_prompt <| exh := (get_exh tagenv_st'); globals := genv_i2; v := [] |>
+        s_i2 prompt_i2 = (s'_i2,genv'_i2,res_i2) ∧
+      invariant new_envC tagenv_st' gtagenv' s' s'_i2 (env.globals++genv') (genv_i2 ++ genv'_i2) ∧
+      (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_alist_mod_env envC' env.c) ∨
+       ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = env.c ∧
+                    s_rel gtagenv' s' s'_i2 ∧
                     result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))``,
-  rw [modSemTheory.evaluate_prompt_cases, conSemTheory.evaluate_prompt_cases, compile_prompt_def, LET_THM] >>
+  rw [compile_prompt_def, LET_THM] >>
   every_case_tac >> fs [] >> rw [] >>
-  first_assum(split_applied_pair_tac o rhs o concl) >> fs[] >>
-  rw [] >>
+  qcase_tac`Prompt mn ds` >>
+  first_assum(split_applied_pair_tac o rhs o concl) >> fs[] >> rw [] >>
+  fs[modSemTheory.evaluate_prompt_def, conSemTheory.evaluate_prompt_def, LET_THM] >>
+  every_case_tac >> fs [] >> rw [] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  rpt var_eq_tac >>
   fs [invariant_def]
   >- (
     first_assum(mp_tac o MATCH_MP compile_decs_correct) >> simp[] >>
@@ -2317,11 +2329,11 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
     first_assum(match_exists_tac o concl) >>
     simp[PULL_EXISTS] >>
     fs[get_exh_def] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
     conj_tac >- (
-      Cases_on`envC`>> Cases_on`mn`>>
+      Cases_on`env.c`>> Cases_on`mn`>>
       simp[modSemTheory.mod_cenv_def,modSemTheory.update_mod_state_def,merge_alist_mod_env_def] >>
-      fs[] >> fs[SUBSET_DEF]) >>
+      fs[] >> rpt var_eq_tac >> fs[SUBSET_DEF] >>
+      imp_res_tac modPropsTheory.evaluate_decs_state_const >> fs[]) >>
     imp_res_tac FDOM_compile_decs_exh >>
     fs[get_exh_def] >>
     conj_tac >- (
@@ -2334,7 +2346,8 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       rw[] >> fs[SUBSET_DEF] >>
       res_tac >- (
         res_tac >>
-        Cases_on`mn`>>simp[modSemTheory.update_mod_state_def] ) >>
+        Cases_on`mn`>>simp[modSemTheory.update_mod_state_def] >>
+        imp_res_tac modPropsTheory.evaluate_decs_state_const >> fs[]) >>
       fs[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,modSemTheory.prompt_mods_ok_def,EVERY_MEM] >>
       first_x_assum(qspec_then`d`mp_tac) >>
       simp[] >> BasicProvers.CASE_TAC >> fs[] >>
@@ -2347,6 +2360,8 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       match_mp_tac envC_tagged_extend >>
       simp[] >>
       PairCases_on`tagenv_st`>>fs[get_tagenv_def] ) >>
+    rpt var_eq_tac >>
+    conj_tac >- fs[s_rel_cases] >>
     match_mp_tac EVERY2_APPEND_suff >>
     conj_tac >- (
       match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
@@ -2365,11 +2380,11 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
     first_assum(match_exists_tac o concl) >>
     simp[PULL_EXISTS] >>
     fs[get_exh_def] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
     conj_tac >- (
-      Cases_on`envC`>> Cases_on`mn`>>
+      Cases_on`env.c`>> Cases_on`mn`>>
       simp[modSemTheory.mod_cenv_def,modSemTheory.update_mod_state_def,merge_alist_mod_env_def] >>
-      fs[] >> fs[SUBSET_DEF]) >>
+      fs[] >> rpt var_eq_tac >> fs[SUBSET_DEF] >>
+      imp_res_tac modPropsTheory.evaluate_decs_state_const >> fs[]) >>
     imp_res_tac FDOM_compile_decs_exh >>
     fs[get_exh_def] >>
     conj_tac >- (
@@ -2385,14 +2400,14 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       Cases_on`ds`>>fsrw_tac[boolSimps.DNF_ss,ARITH_ss][compile_decs_def]>>
       TRY(Cases_on`t`>>fsrw_tac[ARITH_ss][])>>rw[]>>fs[]>>
       fs[LET_THM,compile_decs_def]>>rw[]>>
-      fs[Once modSemTheory.evaluate_decs_cases] >>
-      TRY(fs[Once modSemTheory.evaluate_decs_cases]>>NO_TAC) >>
-      fs[Once modSemTheory.evaluate_dec_cases] ) >>
+      fs[modSemTheory.evaluate_decs_def,modSemTheory.evaluate_dec_def,LET_THM] >>
+      every_case_tac >> fs[]) >>
     conj_tac >- (
       rw[] >> fs[SUBSET_DEF] >>
       res_tac >- (
         res_tac >>
-        Cases_on`mn`>>simp[modSemTheory.update_mod_state_def] ) >>
+        Cases_on`mn`>>simp[modSemTheory.update_mod_state_def] >>
+        imp_res_tac modPropsTheory.evaluate_decs_state_const >> fs[]) >>
       fs[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,modSemTheory.prompt_mods_ok_def,EVERY_MEM] >>
       first_x_assum(qspec_then`d`mp_tac) >>
       simp[] >> BasicProvers.CASE_TAC >> fs[] >>
@@ -2407,7 +2422,7 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       rw[] >> fs[get_exh_def] >>
       first_x_assum(fn th => first_assum (strip_assume_tac o MATCH_MP th)) >>
       `∀m a. mn = SOME m ⇒ cn ≠ Long m a` by (
-        Cases_on`envC`>>fs[lookup_alist_mod_env_def] >>
+        Cases_on`env.c`>>fs[lookup_alist_mod_env_def] >>
         rw[] >> fs[] >>
         spose_not_then strip_assume_tac >> fs[] >>
         every_case_tac >> fs[] >>
@@ -2420,29 +2435,33 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
         fs[lookup_tag_flat_def,FLOOKUP_FUNION] >>
         BasicProvers.CASE_TAC >> fs[]
         >- metis_tac[FLOOKUP_SUBMAP] >>
-        Cases_on`envC`>>fs[lookup_alist_mod_env_def]>>
+        Cases_on`env.c`>>fs[lookup_alist_mod_env_def]>>
         fs[modSemTheory.prompt_mods_ok_def] >>
         Cases_on`ds`>>fs[compile_decs_def]>>rw[]>>fs[]>>
         Cases_on`t'`>>fsrw_tac[ARITH_ss][]>>
         fs[LET_THM,compile_decs_def] >>
         Cases_on`h`>>fs[]>>rw[]>>fs[]>>
-        fs[Once modSemTheory.evaluate_decs_cases]>>rw[]>>
-        fs[Once modSemTheory.evaluate_decs_cases]>>rw[]>>
-        fs[Once modSemTheory.evaluate_dec_cases])
+        fs[modSemTheory.evaluate_decs_def,modSemTheory.evaluate_dec_def,LET_THM] >>
+        every_case_tac >> fs[])
       >- metis_tac[FLOOKUP_SUBMAP]
       >- metis_tac[FLOOKUP_SUBMAP]
       >- ( simp[FLOOKUP_UPDATE] >> metis_tac[FLOOKUP_SUBMAP])) >>
-    match_mp_tac EVERY2_APPEND_suff >>
+    rpt var_eq_tac >>
+    conj_tac >- fs[s_rel_cases] >>
     conj_tac >- (
       match_mp_tac EVERY2_APPEND_suff >>
-      conj_tac >- PROVE_TAC[LIST_REL_mono,optionTheory.OPTREL_MONO,v_rel_weakening] >>
-      simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
-      srw_tac[boolSimps.ETA_ss][] >>
-      fs[vs_rel_list_rel] ) >>
-    imp_res_tac compile_decs_dummy_env_num_defs >>
-    fs[vs_rel_list_rel] >>
-    imp_res_tac LIST_REL_LENGTH >>
-    simp[LIST_REL_EL_EQN,EL_GENLIST,optionTheory.OPTREL_def] ))
+      conj_tac >- (
+        match_mp_tac EVERY2_APPEND_suff >>
+        conj_tac >- PROVE_TAC[LIST_REL_mono,optionTheory.OPTREL_MONO,v_rel_weakening] >>
+        simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
+        srw_tac[boolSimps.ETA_ss][] >>
+        fs[vs_rel_list_rel] ) >>
+      imp_res_tac compile_decs_dummy_env_num_defs >>
+      fs[vs_rel_list_rel] >>
+      imp_res_tac LIST_REL_LENGTH >>
+      simp[LIST_REL_EL_EQN,EL_GENLIST,optionTheory.OPTREL_def] ) >>
+    simp[result_rel_cases] >>
+    fs[s_rel_cases]))
 
 val compile_prompt_exh_weak = store_thm("compile_prompt_exh_weak",
   ``exh_weak (get_exh st) (get_exh (FST (compile_prompt st pr)))``,
@@ -2460,157 +2479,237 @@ val compile_prog_exh_weak = store_thm("compile_prog_exh_weak",
   metis_tac[compile_prompt_exh_weak])
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
-  `!ck genv envC s_tmp prog res_tmp.
-    evaluate_prog ck genv envC s_tmp prog res_tmp ⇒
-    !s tids mods s_i2 genv_i2 next tagenv exh prog_i2 genv' envC' s' tids' mods' res gtagenv next' tagenv' exh'.
-    s_tmp = (s,tids,mods) ∧
-    res_tmp = ((s',tids',mods'), envC', genv', res) ∧
+  `!env s prog res_tmp.
+    evaluate_prompts env s prog = res_tmp ⇒
+    !s_i2 genv_i2 next tagenv exh prog_i2 genv' envC' s' res gtagenv next' tagenv' exh'.
+    res_tmp = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant mods tids envC (next,tagenv,exh) gtagenv s s_i2 genv genv_i2 ∧
-    no_dup_mods prog s_tmp ∧
-    no_dup_top_types prog s_tmp ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
+    no_dup_mods prog s.defined_mods ∧
+    no_dup_top_types prog s.defined_types ∧
     EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) prog ∧
     ((next',tagenv',exh'), prog_i2) = compile_prog (next,tagenv,exh) prog
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prog ck exh' genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
+      evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧
-       invariant mods' tids' (merge_alist_mod_env envC' envC) (next',tagenv',exh') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∨
-       ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
-  ho_match_mp_tac modSemTheory.evaluate_prog_strongind >>
-  rw []
-  >- (PairCases_on `envC` >>
-      fs [merge_alist_mod_env_def, compile_prog_def] >>
-      rw [Once conSemTheory.evaluate_prog_cases, FUNION_FEMPTY_1] >>
-      fs [invariant_def] >>
-      metis_tac [gtagenv_weak_refl, cenv_inv_def])
-  >- (fs [compile_prog_def, LET_THM] >>
-      first_assum(split_applied_pair_tac o rhs o concl) >>
-      fs [] >>
-      first_assum(split_applied_pair_tac o rhs o concl) >>
-      fs [] >>
-      rw [] >>
-      `?s1 tids1 mods1. s_tmp' = (s1,tids1,mods1)` by metis_tac [pair_CASES] >>
-      rw [Once conSemTheory.evaluate_prog_cases] >>
-     (compile_prompt_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-       |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
-      simp[] >>
-      disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-      simp[] >>
-      disch_then(qx_choosel_then[`genv'_i2`,`s'_i2`,`gtagenv'`]strip_assume_tac) >>
-      rfs[] >>
-      `∃next tagenv exh. st' = (next,tagenv,exh)` by metis_tac[PAIR] >> rw[] >>
-      first_x_assum(fn th => first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO] th))) >>
-      simp[] >>
-      fs [modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
-       discharge_hyps >- (
-        imp_res_tac modPropsTheory.evaluate_prompt_mods_disjoint >>
-        Cases_on`prompt`>>fs[Once modSemTheory.evaluate_prompt_cases,modSemTheory.update_mod_state_def] >>
-        fs[modSemTheory.no_dup_mods_def] >>
-        BasicProvers.CASE_TAC>>fs[DISJOINT_SYM] ) >>
-      discharge_hyps >- (
-        imp_res_tac modPropsTheory.evaluate_prompt_tids >> fs[] >>
-        rator_x_assum`no_dup_top_types`mp_tac >>
-        simp[modSemTheory.no_dup_top_types_def,GSYM AND_IMP_INTRO] >>
-        strip_tac >>
-        simp[IN_DISJOINT,MEM_MAP,PULL_EXISTS] >> strip_tac >>
-        spose_not_then strip_assume_tac >>
-        first_x_assum(qspec_then`TypeId(Short tn)`mp_tac) >>
-        simp[] >>
-        qpat_assum`A = y ∪ z`mp_tac >>
-        simp[EXTENSION] >> rw[] >>
-        first_x_assum(qspec_then`(Short tn)`mp_tac) >>
-        rw[] >>
-        Cases_on`prompt`>>fs[modPropsTheory.tids_of_prompt_def] >>
-        rator_x_assum`prompt_mods_ok`mp_tac >>
-        simp[modSemTheory.prompt_mods_ok_def] >>
-        BasicProvers.CASE_TAC >> fs[] >- (
-          fs[IN_DISJOINT] >> rw[] >>
-          first_x_assum(qspec_then`tn`mp_tac) >>
-          simp[modSemTheory.decs_to_types_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >>
-          qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
-          simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,PULL_FORALL] >>
-          gen_tac >> strip_tac >>
-          every_case_tac >> fs[] >> fs[MEM_MAP] >> rw[] >>
-          qmatch_assum_abbrev_tac`MEM d l` >>
-          first_x_assum(qspec_then`d`mp_tac) >>
-          simp[Abbr`d`,MEM_MAP,FORALL_PROD] >>
-          qmatch_assum_rename_tac`MEM (Dtype mno tds) decs` >>
-          Cases_on`mno`>>fs[astTheory.mk_id_def]>>
-          qmatch_assum_rename_tac`MEM p tds` >>
-          PairCases_on`p`>>fs[] >> metis_tac[] ) >>
-        simp[EVERY_MEM] >>
-        qpat_assum`X ∈ tids_of_decs Y`mp_tac >>
-        simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >> rw[] >>
-        every_case_tac >> fs[] >>
-        res_tac >> fs[astTheory.mk_id_def,MEM_MAP] ) >>
-      rw[]
-        >- (
-          simp[PULL_EXISTS] >>
-          `gtagenv_weak gtagenv gtagenv''` by metis_tac[gtagenv_weak_trans] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          fs[merge_alist_mod_env_assoc] >>
-          CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``invariant`` o fst o strip_comb))) >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          match_mp_tac evaluate_prompt_exh_weak >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          simp[get_exh_def] >>
-          metis_tac[compile_prog_exh_weak,FST,get_exh_def] )
-        >- (
-          simp[PULL_EXISTS] >>
-          `gtagenv_weak gtagenv gtagenv''` by metis_tac[gtagenv_weak_trans] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``result_rel`` o fst o strip_comb))) >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-          fs[get_exh_def] >>
-          ONCE_REWRITE_TAC[CONJ_COMM] >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          match_mp_tac evaluate_prompt_exh_weak >>
-          first_assum(match_exists_tac o concl) >> simp[] >>
-          metis_tac[compile_prog_exh_weak,FST,get_exh_def] ))
-  >- (fs [compile_prog_def, LET_THM] >>
-      first_assum(split_applied_pair_tac o rhs o concl) >>
-      fs [] >>
-      first_assum(split_applied_pair_tac o rhs o concl) >>
-      fs [] >>
-      rw [] >>
-      rw [Once conSemTheory.evaluate_prog_cases] >>
-      (compile_prompt_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-       |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
-      simp[] >>
-      disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-      simp[] >>
-      simp[PULL_EXISTS] >>
-      map_every qx_gen_tac[`genv'_i2`,`s'_i2`,`gtagenv'`,`err_i2`] >>
-      strip_tac >>
-      simp[PULL_EXISTS] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``result_rel`` o fst o strip_comb))) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      srw_tac[boolSimps.DNF_ss][] >> disj2_tac >>
-      PairCases_on`st'`>> fs[get_exh_def] >>
-      `SOME err_i2 ≠ SOME (Rabort Rtype_error)` by (
-        spose_not_then strip_assume_tac >> fs[result_rel_cases] ) >>
-      metis_tac[evaluate_prompt_exh_weak,compile_prog_exh_weak,get_exh_def,FST]));
+       invariant (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
+       ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧
+         s_rel gtagenv' s' s'_i2 ∧
+         result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
+  Induct_on`prog` >>
+  rw [modSemTheory.evaluate_prompts_def,compile_prog_def]
+  >- (
+    rw[conSemTheory.evaluate_prog_def] >>
+    metis_tac[gtagenv_weak_refl,cenv_inv_def,invariant_def]) >>
+  fs[LET_THM] >>
+  first_assum(split_applied_pair_tac o rhs o concl) >> fs [] >>
+  first_assum(split_applied_pair_tac o rhs o concl) >> fs [] >>
+  rw [] >>
+  Cases_on`h`>>fs[] >>
+  first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+  (compile_prompt_correct |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+    |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
+  simp[GSYM PULL_FORALL] >>
+  discharge_hyps >- (strip_tac >> fs[]) >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >> simp[] >>
+  reverse strip_tac >> rpt var_eq_tac >> fs[] >> rpt var_eq_tac >- (
+    simp[conSemTheory.evaluate_prog_def] >>
+    imp_res_tac evaluate_prompt_exh_weak >> fs[] >>
+    first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (strip_tac >> fs[result_rel_cases]))) >>
+    disch_then(qspec_then`exh'`mp_tac) >>
+    discharge_hyps >- (
+      metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
+    rw[] >>
+    first_assum(match_exists_tac o concl) >> rw[] ) >>
+  first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
+  rpt var_eq_tac >>
+  first_x_assum(fn th => first_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >> simp[] >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))) >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  `∃a b c. st' = (a,b,c)` by metis_tac[PAIR] >> var_eq_tac >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th o SYM)) >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (same_const``invariant`` o fst o strip_comb))))) >>
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+  discharge_hyps >- (
+    fs [modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
+    imp_res_tac modPropsTheory.evaluate_prompt_mods_disjoint >> fs[] >>
+    imp_res_tac modPropsTheory.evaluate_prompt_tids >> fs[] >>
+    reverse conj_tac >- (
+      fs[modSemTheory.no_dup_mods_def,modSemTheory.evaluate_prompt_def,LET_THM] >>
+      BasicProvers.FULL_CASE_TAC >> fs[] >>
+      first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >> fs[] >>
+      rpt var_eq_tac >> fs[] >>
+      fs[modSemTheory.update_mod_state_def] >>
+      imp_res_tac modPropsTheory.evaluate_decs_state_const >> fs[] >>
+      BasicProvers.CASE_TAC >> fs[DISJOINT_SYM] ) >>
+    fs[modSemTheory.no_dup_top_types_def] >>
+    fs[modPropsTheory.tids_of_prompt_def,IN_DISJOINT,MEM_MAP,EXTENSION] >>
+    spose_not_then strip_assume_tac >> rw[] >>
+    first_x_assum(qspec_then`(Short tn)`mp_tac) >> simp[] >>
+    reverse conj_tac >- metis_tac[] >>
+    rator_x_assum`prompt_mods_ok`mp_tac >>
+    simp[modSemTheory.prompt_mods_ok_def] >>
+    BasicProvers.CASE_TAC >> fs[] >- (
+      simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,PULL_FORALL] >>
+      gen_tac >> strip_tac >>
+      every_case_tac >> fs[] >> fs[MEM_MAP] >> rw[] >>
+      spose_not_then strip_assume_tac >>
+      qmatch_assum_rename_tac`MEM (Dtype mno tds) decs` >>
+      Cases_on`mno`>>fs[astTheory.mk_id_def]>>
+      var_eq_tac >>
+      Cases_on`decs`>>fs[]>>Cases_on`t`>>fsrw_tac[ARITH_ss][]>>
+      var_eq_tac >> fs[modSemTheory.decs_to_types_def,MEM_MAP,UNCURRY] >>
+      metis_tac[] ) >>
+    simp[EVERY_MEM] >>
+    simp[modPropsTheory.tids_of_decs_def,MEM_FLAT,MEM_MAP,PULL_EXISTS] >> rw[] >>
+    every_case_tac >> fs[] >>
+    spose_not_then strip_assume_tac >>
+    res_tac >> fs[astTheory.mk_id_def,MEM_MAP] ) >>
+  reverse strip_tac >- (
+    rpt var_eq_tac >> simp[] >>
+    simp[conSemTheory.evaluate_prog_def] >>
+    imp_res_tac evaluate_prompt_exh_weak >> fs[] >>
+    first_x_assum(qspec_then`exh'`mp_tac) >>
+    discharge_hyps >- (
+      metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
+    rw[] >>
+    metis_tac[gtagenv_weak_trans] ) >>
+  rpt var_eq_tac >> simp[] >>
+  imp_res_tac evaluate_prompt_exh_weak >> fs[] >>
+  first_x_assum(qspec_then`exh'`mp_tac) >>
+  discharge_hyps >- (
+    metis_tac[compile_prog_exh_weak,FST,get_exh_def] ) >>
+  rw[conSemTheory.evaluate_prog_def] >>
+  fs[merge_alist_mod_env_assoc] >>
+  metis_tac[gtagenv_weak_trans]);
 
-val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
-  `!ck genv envC prog s tids mods s_i2 genv_i2 next tagenv exh prog_i2 genv' envC' s' tids' mods' res gtagenv next' tagenv' exh'.
-    evaluate_whole_prog ck genv envC (s,tids,mods) prog ((s',tids',mods'), envC', genv', res) ∧
+val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
+  `!env s prog s_i2 genv_i2 next tagenv exh prog_i2 s' res gtagenv next' tagenv' exh'.
+    evaluate_prog env s prog = (s',res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant mods tids envC (next,tagenv,exh) gtagenv s s_i2 genv genv_i2 ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
     ((next',tagenv',exh'), prog_i2) = compile_prog (next,tagenv,exh) prog
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prog ck exh' genv_i2 s_i2 prog_i2 (s'_i2,genv'_i2,res_i2) ∧
-      (res = NONE ∧ res_i2 = NONE ∧
-       invariant mods' tids' (merge_alist_mod_env envC' envC) (next',tagenv',exh') gtagenv' s' s'_i2 (genv++genv') (genv_i2++genv'_i2) ∨
-       ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
-  rw [modSemTheory.evaluate_whole_prog_def] >>
-  match_mp_tac (SIMP_RULE (srw_ss()) [AND_IMP_INTRO, PULL_FORALL] compile_prog_correct) >>
-  metis_tac []);
+      evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
+      OPTION_REL (CURRY (UNCURRY (result_rel v_rel gtagenv') o (Rerr ## Rerr))) res res_i2 ∧
+      s_rel gtagenv' s' s'_i2`,
+  rw [modSemTheory.evaluate_prog_def,LET_THM] >>
+  first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+  first_x_assum(mp_tac o MATCH_MP compile_prog_correct) >> simp[] >>
+  disch_then(fn th => (first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th)))) >>
+  disch_then(fn th => (first_assum (mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]th)))) >> rw[] >>
+  fs[invariant_def,OPTREL_def] >> metis_tac[]);
+
+val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+  `semantics env s prog ≠ Fail ⇒
+   invariant env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ⇒
+   compile_prog tagenv_st prog = (tagenv_st', prog_i2) ⇒
+   semantics <| exh := get_exh tagenv_st'; globals := genv_i2; v := [] |> s_i2 prog_i2
+     = semantics env s prog`,
+  simp[modSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`st'` >> rpt strip_tac >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    discharge_hyps_keep >- metis_tac[SND] >>
+    `∃next tagenv exh. tagenv_st = (next,tagenv,exh)` by metis_tac[PAIR] >> var_eq_tac >>
+    imp_res_tac invariant_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >> simp[] >>
+    `∃next tagenv exh. tagenv_st' = (next,tagenv,exh)` by metis_tac[PAIR] >> var_eq_tac >>
+    simp[] >>
+    strip_tac >>
+    simp[conSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      qmatch_assum_abbrev_tac`SND (SND q) = _` >>
+      PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      qmatch_assum_rename_tac`OPTREL _ r r2` >>
+      `r2 ≠ SOME (Rabort Rtype_error) ∧
+       r2 ≠ SOME (Rabort Rtimeout_error)` by (
+        conj_tac >> strip_tac >>
+        fs[OPTREL_def,result_rel_cases]) >>
+      imp_res_tac conPropsTheory.evaluate_prog_add_to_clock >>
+      fs[get_exh_def] >> rfs[] >>
+      rpt var_eq_tac >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + xet:num` >>
+      var_eq_tac >>
+      rpt(first_x_assum(qspec_then`xet`mp_tac)) >> simp[]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`st''` >> strip_tac >>
+      qmatch_assum_rename_tac`OPTREL _ r r2` >>
+      `r2 ≠ SOME (Rabort Rtimeout_error)` by (strip_tac >> fs[OPTREL_def,result_rel_cases]) >>
+      imp_res_tac evaluate_prog_add_to_clock >> fs[get_exh_def] >>
+      rpt var_eq_tac >>
+      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + xet:num` >>
+      ntac 2(first_x_assum(qspec_then`xet`mp_tac)) >> rw[] >>
+      fs[result_rel_cases,OPTREL_def,s_rel_cases]) >>
+    qexists_tac`k` >> fs[get_exh_def] >>
+    strip_tac >> fs[OPTREL_def,result_rel_cases]) >>
+  rw[] >>
+  simp[conSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`(SND q) ≠ _` >>
+    PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[] >>
+    PairCases_on`tagenv_st` >>
+    imp_res_tac invariant_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    PairCases_on`tagenv_st'`>>fs[] >> fs[get_exh_def] >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    rfs[OPTREL_def] >> fs[result_rel_cases]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    first_x_assum(qspec_then`k`mp_tac) >>
+    simp_tac(std_ss++QUANT_INST_ss[pair_default_qp])[] >>
+    strip_tac >>
+    qmatch_assum_abbrev_tac`(SND q) = _` >>
+    PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prog_evaluate)) >>
+    simp[] >>
+    PairCases_on`tagenv_st` >>
+    imp_res_tac invariant_with_clock >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    first_assum(match_exists_tac o concl) >> simp[] >>
+    PairCases_on`tagenv_st'`>>fs[] >> fs[get_exh_def] >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    rfs[OPTREL_def] >> fs[result_rel_cases]) >>
+  rpt strip_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  qmatch_abbrev_tac`_ = _ (FST q)` >>
+  PairCases_on`q`>>fs[markerTheory.Abbrev_def] >>
+  pop_assum(mp_tac o SYM) >>
+  specl_args_of_then``modSem$evaluate_prog``compile_prog_evaluate mp_tac >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``invariant`` o fst o strip_comb))))) >>
+  PairCases_on`tagenv_st` >>
+  imp_res_tac invariant_with_clock >>
+  first_x_assum(qspec_then`k`strip_assume_tac) >>
+  disch_then(fn th => first_assum (mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  simp[] >>
+  PairCases_on`tagenv_st'`>>fs[] >> fs[get_exh_def] >>
+  rw[] >> fs[] >>
+  first_assum(fn th => mp_tac th >> discharge_hyps >- metis_tac[SND]) >>
+  strip_tac >> simp[] >> fs[s_rel_cases]);
 
 val _ = export_theory ();

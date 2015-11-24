@@ -584,7 +584,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
   (*Call*)
   (fs[evaluate_def]>>
   Cases_on`get_vars args s`>> fs[]>>
-  Cases_on`find_code dest x s.code`>>fs[]>>
+  Cases_on`find_code dest (add_ret_loc ret x) s.code`>>fs[]>>
   Cases_on`x'`>>fs[]>>
   Cases_on`ret`>>fs[]
   >-
@@ -614,7 +614,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       assume_tac get_vars_stack_swap_simp>>
       first_x_assum(qspec_then `args` (SUBST1_TAC))>>simp[])>>
     fs[]>>
-    Cases_on`evaluate (r,call_env (Loc x'3 x'4::q) (push_env x' handler (dec_clock s)))`>>
+    Cases_on`evaluate (r,call_env q (push_env x' handler (dec_clock s)))`>>
     Cases_on`q'`>>fs[]>>Cases_on`x''`>>fs[]>-
       (*Result*)
       (BasicProvers.EVERY_CASE_TAC>>
@@ -1012,7 +1012,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     (fs[evaluate_def,LET_THM]>>
     fs[get_vars_perm]>>
     Cases_on`get_vars args st`>>fs[]>>
-    Cases_on`find_code dest x st.code`>>fs[]>>
+    Cases_on`find_code dest (add_ret_loc ret x) st.code`>>fs[]>>
     Cases_on`x'`>>
     Cases_on`ret`>>fs[]
     >- (*Tail Call*)
@@ -1033,7 +1033,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         (fs[call_env_def]>>
         qexists_tac`perm`>>fs[state_component_equality])
       >>
-      Cases_on`evaluate(r,call_env (Loc x'3 x'4::q) (push_env x'
+      Cases_on`evaluate(r,call_env q (push_env x'
               handler (dec_clock st)))`>>
       Cases_on`q'`>>fs[]>>
       Cases_on`x''`>>fs[]
@@ -1426,7 +1426,8 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (*Call*)
     (Cases_on`get_vars l st`>>fs[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>fs[]>>
-    Cases_on`find_code o1 x st.code`>>TRY(PairCases_on`x'`)>>fs[]>>
+    Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>
+    TRY(PairCases_on`x'`)>>fs[]>>
     Cases_on`o'`>>fs[]
     >-(*Tail Call*)
       (fs[call_env_def,dec_clock_def]>>
