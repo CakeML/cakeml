@@ -91,7 +91,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
   ((shift (FST (free [c])) m num_args i = [c']) /\
    (!n. fv_set [c] n /\ num_args <= n ==>
         env_ok m 0 i env env' (n - num_args)) /\
-   every_Fn_NONE [c] ∧
+   every_Fn_vs_NONE [c] ∧
    (LENGTH env = m) /\ EVERY2 v_rel vals vals' ==>
    v_rel (Closure p vals env num_args c) (Closure p vals' env' num_args c'))
   /\
@@ -101,7 +101,7 @@ val (v_rel_rules,v_rel_ind,v_rel_cases) = Hol_reln `
        (shift (FST (free [c1])) m (LENGTH cs + num_args) i = [c1']) /\
        (!n. fv_set [c1] n /\ num_args + LENGTH cs <= n ==>
           env_ok m 0 i env env' (n - (num_args + LENGTH cs))) /\
-       every_Fn_NONE [c1] ∧
+       every_Fn_vs_NONE [c1] ∧
        (LENGTH env = m)) cs cs' /\
    EVERY2 v_rel vals vals' /\ index < LENGTH cs ==>
    v_rel (Recclosure p vals env cs index) (Recclosure p vals' env' cs' index))
@@ -557,7 +557,7 @@ val shift_correct = Q.prove(
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr (Rabort Rtype_error) /\
      (LENGTH env = m + l) /\
      fv_set xs SUBSET env_ok m l i env env' /\
-     every_Fn_NONE xs ∧ FEVERY (λp. every_Fn_NONE [SND (SND p)]) s1.code ∧
+     every_Fn_vs_NONE xs ∧ FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
      state_rel s1 t1 ==>
      ?res' t2.
         (evaluate (shift (FST (free xs)) m l i,env',t1) = (res',t2)) /\
@@ -566,7 +566,7 @@ val shift_correct = Q.prove(
    (!loc_opt f args (s1:'ffi closSem$state) res s2 f' args' s1'.
      (evaluate_app loc_opt f args s1 = (res,s2)) /\
      v_rel f f' /\ EVERY2 v_rel args args' /\
-     FEVERY (λp. every_Fn_NONE [SND (SND p)]) s1.code ∧
+     FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) s1.code ∧
      state_rel s1 s1' /\ res <> Rerr (Rabort Rtype_error) ==>
      ?res' s2'.
        (evaluate_app loc_opt f' args' s1' = (res',s2')) /\
@@ -830,7 +830,7 @@ val shift_correct = Q.prove(
     \\ fs [] \\ Q.EXISTS_TAC `shifted_env 0 live`
     \\ STRIP_TAC THEN1 SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC]
     \\ reverse strip_tac >- (
-         fs[Once every_Fn_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
+         fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
          res_tac >> fs[] )
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
@@ -1097,6 +1097,17 @@ val annotate_correct = save_thm("annotate_correct",
   |> REWRITE_RULE [GSYM annotate_def,env_set_default,LENGTH,ADD_0]);
 
 (* more correctness properties *)
+
+val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift",
+  `∀a b c d. every_Fn_vs_SOME (shift a b c d)`,
+  ho_match_mp_tac shift_ind >> rw[shift_def] >> rw[] >>
+  rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
+  imp_res_tac shift_SING >>
+  fs[Once every_Fn_vs_SOME_EVERY] >>
+  rw[] >>
+  simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP] >>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  simp[Once every_Fn_vs_SOME_EVERY]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
