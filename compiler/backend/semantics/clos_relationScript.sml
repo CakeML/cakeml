@@ -1925,15 +1925,24 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
       simp[] >>
       qabbrev_tac `CK = k + (LENGTH args1 + 1) - fn1` >>
       qabbrev_tac `ev1 = evaluate([fe1],ENV1,s with clock := CK)` >>
-      cheat (*
       reverse
-        (`(∃rv' s1'. ev0 = (Rval [rv'], s1')) ∨ ∃err s1'. ev0 = (Rerr err, s1')`
+        (`(∃rv1 s1'. ev1 = (Rval [rv1], s1')) ∨ ∃err s1'. ev1 = (Rerr err, s1')`
            by metis_tac[TypeBase.nchotomy_of ``:('a,'b) result``, pair_CASES,
                         evaluate_SING])
-     >- (Cases_on `err` >> simp[res_rel_rw] >>
-         qcase_tac `ev0 = (Rerr (Rabort a), s1)` >>
-         Cases_on `a` >> simp[res_rel_rw]) >> *)
-  ) >>
+      >- (Cases_on `err` >> simp[res_rel_rw]
+          >- (rpt strip_tac >> simp[] >> fs[]) >>
+          qcase_tac `ev1 = (Rerr (Rabort a), s1)` >>
+          Cases_on `a` >> simp[res_rel_rw] >> rpt strip_tac >> simp[]) >>
+      simp[res_rel_rw] >> dsimp[] >> rpt strip_tac >>
+      qcase_tac `evaluate([fe2], ENV2, _) = (Rval [rv2], s2')` >>
+      qmatch_abbrev_tac `res_rel (evaluate_app _ _ (TAKE N vs1) _) _` >>
+      `N ≤ LENGTH vs1` by simp[Abbr`N`] >>
+      Cases_on `N = 0` >- (simp[res_rel_rw] >> fs[]) >>
+      irule res_rel_evaluate_app
+      >- (Cases_on `N` >> fs[] >> Cases_on `vs1` >> fs[]) >>
+      simp[] >> irule EVERY2_TAKE >>
+      irule val_rel_mono_list >> qexists_tac `j` >> simp[] >>
+      imp_res_tac evaluate_clock >> fs[] >> simp[Abbr`CK`]) >>
   reverse (rw[])
   >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono]) >>
   simp[res_rel_rw] >> conj_tac
