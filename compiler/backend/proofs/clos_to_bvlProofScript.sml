@@ -2273,6 +2273,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
        f1 ⊑ f2 ∧
        FDIFF t1.refs (FRANGE f1) ⊑ FDIFF t2.refs (FRANGE f2) ∧
        s2.clock = t2.clock)`,
+
   ho_match_mp_tac closSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
    (rw [] >> fs [cEval_def,compile_exps_def] \\ SRW_TAC [] [bEval_def]
@@ -2924,9 +2925,12 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ Q.EXISTS_TAC `f2` \\ fs []
     \\ imp_res_tac bvlSemTheory.do_app_const
     \\ simp[])
+
   THEN1 (* Fn *)
    (rw [] >>
-    fs [cEval_def] \\ every_case_tac
+    fs [cEval_def]
+    \\ Q.ABBREV_TAC `exppp = ARB vsopt` (* TODO: delete -- vsopt should never be allowed to be NONE here, an assumption on the syntax should forbid vsopt = NONE *)
+    \\ every_case_tac
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_exps_def]
     \\ `?c2 aux3. compile_exps [exp] aux1 = (c2,aux3)` by METIS_TAC [PAIR]
@@ -2934,8 +2938,17 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ fs [code_installed_def]
     \\ fs [bEval_def,bvlPropsTheory.evaluate_APPEND,bvlSemTheory.do_app_def,domain_lookup]
     \\ fs [clos_env_def]
-    \\ IMP_RES_TAC lookup_vars_IMP >> TRY (
-    POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
+    \\ IMP_RES_TAC lookup_vars_IMP
+    THEN1 (* delete this THEN1 proof once vsopt = NONE is forbidden *)
+     (simp[v_rel_SIMP,PULL_EXISTS,cl_rel_cases] >>
+      fs[IS_SOME_EXISTS] >> simp[] >>
+      qexists_tac`0`>>simp[] >>
+      map_every qexists_tac[`f1`,`aux1`]>>simp[]>>rfs[]>>
+      fs [code_installed_def]
+      \\ imp_res_tac compile_exps_LENGTH
+      \\ Cases_on `c2` \\ fs [LENGTH_NIL]
+      \\ cheat)
+    \\ POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
     \\ imp_res_tac bvlPropsTheory.evaluate_var_reverse
     \\ qexists_tac`0`>>simp[]
     \\ Cases_on `num_args ≤ max_app ∧ num_args ≠ 0`
@@ -2948,12 +2961,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ Cases_on`loc`>>fs[]
     \\ fsrw_tac[ARITH_ss][]
     \\ IMP_RES_TAC compile_exps_SING \\ fs [code_installed_def]
-    \\ first_assum(match_exists_tac o concl) >> simp[]) >>
-    simp[v_rel_SIMP,PULL_EXISTS,cl_rel_cases] >>
-    fs[IS_SOME_EXISTS] >> simp[] >>
-    qexists_tac`0`>>simp[] >>
-    map_every qexists_tac[`f1`,`aux1`]>>simp[]>>rfs[]>>
-    cheat)
+    \\ first_assum(match_exists_tac o concl) >> simp[])
+
   THEN1 (* Letrec *)
    (cheat (* rw [] >>
     fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
