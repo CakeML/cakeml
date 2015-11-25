@@ -2956,14 +2956,16 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ fsrw_tac[ARITH_ss][]
     \\ IMP_RES_TAC compile_exps_SING \\ fs [code_installed_def]
     \\ first_assum(match_exists_tac o concl) >> simp[])
-
   THEN1 (* Letrec *)
-   (cheat (* rw [] >>
-    fs [cEval_def] \\ BasicProvers.FULL_CASE_TAC
+   (rw [] >>
+    fs [cEval_def]
+    \\ `∃names. namesopt = SOME names` by (Cases_on`namesopt`>>fs[])
+    \\ fs [] \\ BasicProvers.FULL_CASE_TAC
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_exps_def]
     \\ fs [build_recc_def,clos_env_def]
-    \\ Cases_on `lookup_vars names env` \\ fs [] \\ SRW_TAC [] []
+    \\ fs[IS_SOME_EXISTS] \\ var_eq_tac \\ fs[]
+    \\ Cases_on `lookup_vars names env` \\ fs [LET_THM] \\ SRW_TAC [] []
     \\ Cases_on `fns` \\ fs []
     THEN1 (rfs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
            \\ Q.LIST_EXISTS_TAC [`aux1`] \\ fs []
@@ -2980,7 +2982,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ fs [] \\ SRW_TAC [] []
       \\ simp[bEval_def, bvlPropsTheory.evaluate_APPEND, bvlSemTheory.do_app_def]
       \\ IMP_RES_TAC lookup_vars_IMP
-      \\ Cases_on`loc`>>fs[]
       \\ Cases_on `num_args ≤ max_app ∧ num_args ≠ 0` >>
       fs [] >> fs [] >>
       first_x_assum(qspec_then`t1 with clock := s.clock` STRIP_ASSUME_TAC) >>
@@ -3021,10 +3022,10 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ `EVERY (λ(num_args,e). num_args ≤ max_app ∧ num_args ≠ 0) exps` by rw [Abbr `exps`]
     \\ pop_assum mp_tac
     \\ `every_Fn_SOME (MAP SND exps)` by (fs[Abbr`exps`])
-    \\ pop_assum mp_tac
-    \\ NTAC 4 (POP_ASSUM (K ALL_TAC)) \\ fs [LET_DEF]
-    \\ ntac 2 DISCH_TAC
-    \\ Cases_on`loc`>>fs[]
+    \\ `every_Fn_vs_SOME (MAP SND exps)` by (fs[Abbr`exps`])
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ NTAC 4 (POP_ASSUM (K ALL_TAC))
+    \\ ntac 3 DISCH_TAC
     \\ `?c7 aux7. compile_exps (MAP SND exps) aux1 = (c7,aux7)` by METIS_TAC [PAIR]
     \\ `?n4 aux5. build_aux (x + num_stubs)
            (MAP2 (code_for_recc_case (LENGTH exps + LENGTH names)) (MAP FST exps) c7)
@@ -3158,6 +3159,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ PairCases_on `x'`
         \\ simp [])
       THEN1 ( fs[Abbr`exps`])
+      THEN1 ( fs[Abbr`exps`])
       \\ fs [closure_code_installed_def]
       \\ MATCH_MP_TAC EVERY_ZIP_GENLIST \\ fs [AC ADD_ASSOC ADD_COMM]
       \\ REPEAT STRIP_TAC
@@ -3168,8 +3170,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       \\ `?num e. EL i exps = (num, e)` by metis_tac [pair_CASES]
       \\ fs []
       \\ MATCH_MP_TAC (compile_exps_LIST_IMP_compile_exps_EL |> SPEC_ALL)
-      \\ fs [Abbr`exps`]) *)
-   )
+      \\ fs [Abbr`exps`]))
   THEN1 (* App *)
    (rw [] >>
     fs [cEval_def, compile_exps_def]
