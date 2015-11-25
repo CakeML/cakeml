@@ -579,6 +579,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
   ( num_args ≤ max_app ∧
     num_args ≠ 0 ∧
     every_Fn_SOME [x] ∧
+    every_Fn_vs_SOME [x] ∧
     (compile_exps [x] aux = ([c],aux1)) /\
     code_installed aux1 code /\
     (lookup (p + num_stubs) code =
@@ -591,6 +592,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
   ( num_args ≤ max_app ∧
     num_args ≠ 0 ∧
     every_Fn_SOME [x] ∧
+    every_Fn_vs_SOME [x] ∧
     compile_exps [x] aux = ([c],aux1) /\
     code_installed aux1 code /\
     lookup (p + num_stubs) code =
@@ -607,6 +609,7 @@ val (cl_rel_rules,cl_rel_ind,cl_rel_cases) = Hol_reln `
      (FLOOKUP refs r = SOME (ValueArray (rs ++ ys))) /\
      1 < LENGTH exps /\ k < LENGTH exps /\
      every_Fn_SOME (MAP SND exps) ∧
+     every_Fn_vs_SOME (MAP SND exps) ∧
      closure_code_installed code exps_ps env ==>
      cl_rel fs refs code (env,ys) (Recclosure (SOME loc) [] env exps k) (EL k rs))`;
 
@@ -2234,6 +2237,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
      (compile_exps xs aux1 = (ys,aux2)) /\
      every_Fn_SOME xs ∧ FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+     every_Fn_vs_SOME xs ∧ FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
      code_installed aux2 t1.code /\
      env_rel f1 t1.refs t1.code env env' /\
      state_rel f1 s1 t1 ==>
@@ -2248,6 +2252,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
      evaluate_app loc_opt func args s1 = (res,s2) ∧
      res ≠ Rerr(Rabort Rtype_error) ∧
      FEVERY (λp. every_Fn_SOME [SND (SND p)]) s1.code ∧
+     FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s1.code ∧
      v_rel f1 t1.refs t1.code func func' ∧
      LIST_REL (v_rel f1 t1.refs t1.code) args args' ∧
      state_rel f1 s1 t1
@@ -2925,11 +2930,9 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ Q.EXISTS_TAC `f2` \\ fs []
     \\ imp_res_tac bvlSemTheory.do_app_const
     \\ simp[])
-
   THEN1 (* Fn *)
    (rw [] >>
     fs [cEval_def]
-    \\ Q.ABBREV_TAC `exppp = ARB vsopt` (* TODO: delete -- vsopt should never be allowed to be NONE here, an assumption on the syntax should forbid vsopt = NONE *)
     \\ every_case_tac
     \\ fs [] \\ SRW_TAC [] []
     \\ fs [compile_exps_def]
@@ -2939,15 +2942,6 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
     \\ fs [bEval_def,bvlPropsTheory.evaluate_APPEND,bvlSemTheory.do_app_def,domain_lookup]
     \\ fs [clos_env_def]
     \\ IMP_RES_TAC lookup_vars_IMP
-    THEN1 (* delete this THEN1 proof once vsopt = NONE is forbidden *)
-     (simp[v_rel_SIMP,PULL_EXISTS,cl_rel_cases] >>
-      fs[IS_SOME_EXISTS] >> simp[] >>
-      qexists_tac`0`>>simp[] >>
-      map_every qexists_tac[`f1`,`aux1`]>>simp[]>>rfs[]>>
-      fs [code_installed_def]
-      \\ imp_res_tac compile_exps_LENGTH
-      \\ Cases_on `c2` \\ fs [LENGTH_NIL]
-      \\ cheat)
     \\ POP_ASSUM (qspec_then `t1 with clock := s.clock` strip_assume_tac)
     \\ imp_res_tac bvlPropsTheory.evaluate_var_reverse
     \\ qexists_tac`0`>>simp[]
@@ -3220,6 +3214,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
               by metis_tac [LIST_REL_mono, v_rel_SUBMAP]
     \\ res_tac
     \\ pop_assum mp_tac
+    \\ REWRITE_TAC[AND_IMP_INTRO]
     \\ discharge_hyps >- metis_tac[evaluate_const]
     \\ disch_then (qspec_then `env''` strip_assume_tac)
     \\ `LENGTH v' ≠ 0 ∧ 0 < LENGTH v' ∧ LENGTH args = LENGTH v'` by decide_tac
@@ -3425,14 +3420,14 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                 metis_tac [arith_helper_lem3, add_args_append, EVERY2_APPEND])))
     >- ((* Enough arguments to do something *)
          `SUC (LENGTH v42) = LENGTH args` by metis_tac [LENGTH] >>
-         `every_Fn_SOME [e]` by (
+         `every_Fn_SOME [e] ∧ every_Fn_vs_SOME [e]` by (
            rator_x_assum`dest_closure`mp_tac >>
            simp[dest_closure_def] >>
            BasicProvers.CASE_TAC >> rw[] >>
            fs[v_rel_cases,cl_rel_cases] >>
            rw[] >> fs[add_args_def] >> rw[] >>
            pop_assum mp_tac >> rw[UNCURRY] >> fs[] >>
-           fs[Once every_Fn_SOME_EVERY] >>
+           fs[Once every_Fn_SOME_EVERY,Once every_Fn_vs_SOME_EVERY] >>
            fs[EVERY_MAP] >>
            fs[EVERY_MEM,MEM_EL,PULL_EXISTS,EL_MAP] ) >>
          fs [] >>
@@ -3529,7 +3524,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                      metis_tac [SUBMAP_TRANS])
                  >- ((* Extra arguments *)
                      rw [] >>
-                     `FEVERY (λp. every_Fn_SOME [SND (SND p)]) s'.code` by (
+                     `FEVERY (λp. every_Fn_SOME [SND (SND p)]) s'.code ∧
+                      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) s'.code` by (
                        `s'.code = s1.code` by (
                          imp_res_tac evaluate_const >> fs[] ) >>
                        fs[] ) >> fs[] >>
@@ -3570,11 +3566,11 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
                        fsrw_tac[ARITH_ss][ADD1] ) >>
                      pop_assum SUBST_ALL_TAC >>
                      `LENGTH [Block tag (CodePtr ptr::Number (&(rem_args − 1))::rest)] ≠ 0` by rw [] >>
-                     `LENGTH args'' − rem_args ≤ LENGTH args''` by ARITH_TAC >>
+                     `LENGTH args'' − rem_args ≤ LENGTH args''` by (rpt var_eq_tac >> ARITH_TAC) >>
                      first_x_assum (fn th => strip_assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] mk_call_simp2) th)) >>
                      pop_assum (fn th => first_x_assum (strip_assume_tac o MATCH_MP th)) >>
                      pop_assum(qspecl_then[`SOMEENV`,`v''`,`inc_clock ck'' t2`](mp_tac o GSYM)) >>
-                     var_eq_tac >>
+                     rpt var_eq_tac >>
                      simp_tac(srw_ss())[inc_clock_def] >>
                      disch_then kall_tac >>
                      rator_x_assum`evaluate`mp_tac >>
