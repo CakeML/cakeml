@@ -8,9 +8,9 @@ val get_var_def = Define `
   get_var m l i v =
     if v < l then v else l + tlookup (v - l) i`;
 
-val new_env_def = Define `
-  (new_env n [] = LN) /\
-  (new_env n (x::xs) = insert x (n:num) (new_env (n+1) xs))`;
+val shifted_env_def = Define `
+  (shifted_env n [] = LN) /\
+  (shifted_env n (x::xs) = insert x (n:num) (shifted_env (n+1) xs))`;
 
 val shift_def = tDefine "shift" `
   (shift [] (m:num) (l:num) (i:num num_map) = []) /\
@@ -47,14 +47,14 @@ val shift_def = tDefine "shift" `
      let vs = case vs_opt of NONE => [] | SOME vs => vs in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let c1 = shift [x1] k num_args (new_env 0 live) in
+     let c1 = shift [x1] k num_args (shifted_env 0 live) in
        ([Fn loc (SOME vars) num_args (HD c1)])) /\
   (shift [Letrec loc vsopt fns x1] m l i =
      let vs = case vsopt of NONE => [] | SOME x => x in
      let k = m + l in
      let live = FILTER (\n. n < k) vs in
      let vars = MAP (get_var m l i) live in
-     let new_i = new_env 0 live in
+     let new_i = shifted_env 0 live in
      let fns_len = LENGTH fns in
      let cs = MAP (\(n,x). let c = shift [x] k (n + fns_len) new_i in
                              (n,HD c)) fns in

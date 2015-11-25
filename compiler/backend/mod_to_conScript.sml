@@ -216,4 +216,16 @@ val _ = Define `
    let (st'',ps') = compile_prog st' ps in
    (st'',(p'::ps')))`;
 
+val _ = Datatype`
+  config = <| next_exception : num spt
+            ; tag_env : tag_env
+            ; exh_ctors_env : exh_ctors_env
+            |>`;
+
+val compile_def = Define`
+  compile c p =
+  let ((n,t,e),p) =
+    compile_prog (c.next_exception, c.tag_env, c.exh_ctors_env) p in
+  (<| next_exception := n; tag_env := t; exh_ctors_env := e|>, p)`;
+
 val _ = export_theory()

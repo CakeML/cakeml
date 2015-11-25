@@ -1,5 +1,12 @@
 open preamble closLangTheory bvlTheory bvl_jumpTheory;
 local open conLangTheory pat_to_closTheory in (* for list tags *) end;
+local open
+  clos_mtiTheory
+  clos_callTheory
+  clos_removeTheory
+  clos_numberTheory
+  clos_annotateTheory
+in (* clos-to-clos transformations *) end;
 
 val _ = new_theory "clos_to_bvl";
 
@@ -255,30 +262,30 @@ val init_code_def = Define `
         block_equality_code;
         ToList_code])`;
 
-val compile_def = tDefine "compile" `
-  (compile [] aux = ([],aux)) /\
-  (compile ((x:closLang$exp)::y::xs) aux =
-     let (c1,aux1) = compile [x] aux in
-     let (c2,aux2) = compile (y::xs) aux1 in
+val compile_exps_def = tDefine "compile_exps" `
+  (compile_exps [] aux = ([],aux)) /\
+  (compile_exps ((x:closLang$exp)::y::xs) aux =
+     let (c1,aux1) = compile_exps [x] aux in
+     let (c2,aux2) = compile_exps (y::xs) aux1 in
        (c1 ++ c2, aux2)) /\
-  (compile [Var v] aux = ([(Var v):bvl$exp], aux)) /\
-  (compile [If x1 x2 x3] aux =
-     let (c1,aux1) = compile [x1] aux in
-     let (c2,aux2) = compile [x2] aux1 in
-     let (c3,aux3) = compile [x3] aux2 in
+  (compile_exps [Var v] aux = ([(Var v):bvl$exp], aux)) /\
+  (compile_exps [If x1 x2 x3] aux =
+     let (c1,aux1) = compile_exps [x1] aux in
+     let (c2,aux2) = compile_exps [x2] aux1 in
+     let (c3,aux3) = compile_exps [x3] aux2 in
        ([If (HD c1) (HD c2) (HD c3)],aux3)) /\
-  (compile [Let xs x2] aux =
-     let (c1,aux1) = compile xs aux in
-     let (c2,aux2) = compile [x2] aux1 in
+  (compile_exps [Let xs x2] aux =
+     let (c1,aux1) = compile_exps xs aux in
+     let (c2,aux2) = compile_exps [x2] aux1 in
        ([Let c1 (HD c2)], aux2)) /\
-  (compile [Raise x1] aux =
-     let (c1,aux1) = compile [x1] aux in
+  (compile_exps [Raise x1] aux =
+     let (c1,aux1) = compile_exps [x1] aux in
        ([Raise (HD c1)], aux1)) /\
-  (compile [Tick x1] aux =
-     let (c1,aux1) = compile [x1] aux in
+  (compile_exps [Tick x1] aux =
+     let (c1,aux1) = compile_exps [x1] aux in
        ([Tick (HD c1)], aux1)) /\
-  (compile [Op op xs] aux =
-     let (c1,aux1) = compile xs aux in
+  (compile_exps [Op op xs] aux =
+     let (c1,aux1) = compile_exps xs aux in
      ([if op = ToList then
          Let c1
            (Call 0 (SOME ToList_location)
@@ -289,19 +296,19 @@ val compile_def = tDefine "compile" `
        else
          Op (compile_op op) c1]
      ,aux1)) /\
-  (compile [App loc_opt x1 xs2] aux =
-     let (c1,aux1) = compile [x1] aux in
-     let (c2,aux2) = compile xs2 aux1 in
+  (compile_exps [App loc_opt x1 xs2] aux =
+     let (c1,aux1) = compile_exps [x1] aux in
+     let (c2,aux2) = compile_exps xs2 aux1 in
        ([case loc_opt of
          | NONE =>
              Let (c2++c1) (mk_cl_call (Var (LENGTH c2)) (GENLIST Var (LENGTH c2)))
          | SOME loc =>
              (Call (LENGTH c2 - 1) (SOME (loc + num_stubs)) (c2 ++ c1))],
         aux2)) /\
-  (compile [Fn loc_opt vs_opt num_args x1] aux =
+  (compile_exps [Fn loc_opt vs_opt num_args x1] aux =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let vs = case vs_opt of NONE => [] | SOME vs => vs in
-     let (c1,aux1) = compile [x1] aux in
+     let (c1,aux1) = compile_exps [x1] aux in
      let c2 =
        Let (GENLIST Var num_args ++ free_let (Var num_args) (LENGTH vs))
            (HD c1)
@@ -309,15 +316,15 @@ val compile_def = tDefine "compile" `
        ([Op (Cons closure_tag)
             (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))],
         (loc + num_stubs,num_args+1,c2) :: aux1)) /\
-  (compile [Letrec loc_opt vsopt fns x1] aux =
+  (compile_exps [Letrec loc_opt vsopt fns x1] aux =
      let loc = case loc_opt of NONE => 0 | SOME n => n in
      let vs = case vsopt of NONE => [] | SOME x => x in
      case fns of
-     | [] => compile [x1] aux
+     | [] => compile_exps [x1] aux
      | [(num_args, exp)] =>
-         let (c1,aux1) = compile [exp] aux in
+         let (c1,aux1) = compile_exps [exp] aux in
          let c3 = Let (GENLIST Var num_args ++ [Var num_args] ++ free_let (Var num_args) (LENGTH vs)) (HD c1) in
-         let (c2,aux2) = compile [x1] ((loc + num_stubs,num_args+1,c3)::aux1) in
+         let (c2,aux2) = compile_exps [x1] ((loc + num_stubs,num_args+1,c3)::aux1) in
          let c4 =
            Op (Cons closure_tag)
               (REVERSE (mk_label (loc + num_stubs) :: mk_const (num_args - 1) :: MAP Var vs))
@@ -326,18 +333,18 @@ val compile_def = tDefine "compile" `
      | _ =>
          let fns_l = LENGTH fns in
          let l = fns_l + LENGTH vs in
-         let (cs,aux1) = compile (MAP SND fns) aux in
+         let (cs,aux1) = compile_exps (MAP SND fns) aux in
          let cs1 = MAP2 (code_for_recc_case l) (MAP FST fns) cs in
          let (n2,aux2) = build_aux (loc + num_stubs) cs1 aux1 in
-         let (c3,aux3) = compile [x1] aux2 in
+         let (c3,aux3) = compile_exps [x1] aux2 in
          let c4 = build_recc_lets (MAP FST fns) vs (loc + num_stubs) fns_l (HD c3) in
            ([c4],aux3)) /\
-  (compile [Handle x1 x2] aux =
-     let (c1,aux1) = compile [x1] aux in
-     let (c2,aux2) = compile [x2] aux1 in
+  (compile_exps [Handle x1 x2] aux =
+     let (c1,aux1) = compile_exps [x1] aux in
+     let (c2,aux2) = compile_exps [x2] aux1 in
        ([Handle (HD c1) (HD c2)], aux2)) /\
-  (compile [Call dest xs] aux =
-     let (c1,aux1) = compile xs aux in
+  (compile_exps [Call dest xs] aux =
+     let (c1,aux1) = compile_exps xs aux in
        ([Call 0 (SOME (dest + num_stubs)) c1],aux1))`
   (WF_REL_TAC `measure (exp3_size o FST)` >>
    srw_tac [ARITH_ss] [closLangTheory.exp_size_def] >>
@@ -349,7 +356,7 @@ val compile_def = tDefine "compile" `
   pop_assum (qspec_then `v7` assume_tac) >>
   decide_tac);
 
-val compile_ind = theorem"compile_ind";
+val compile_exps_ind = theorem"compile_exps_ind";
 
 val pair_lem1 = Q.prove (
   `!f x. (\(a,b). f a b) x = f (FST x) (SND x)`,
@@ -363,53 +370,69 @@ val pair_lem2 = Q.prove (
   PairCases_on `z` >>
   rw []);
 
-val compile_acc = Q.store_thm("compile_acc",
+val compile_exps_acc = Q.store_thm("compile_exps_acc",
   `!xs aux.
-      let (c,aux1) = compile xs aux in
+      let (c,aux1) = compile_exps xs aux in
         (LENGTH c = LENGTH xs) /\ ?ys. aux1 = ys ++ aux`,
-  recInduct compile_ind \\ REPEAT STRIP_TAC
-  \\ fs [compile_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
+  recInduct compile_exps_ind \\ REPEAT STRIP_TAC
+  \\ fs [compile_exps_def] \\ SRW_TAC [] [] \\ fs [LET_DEF,ADD1]
   \\ fs [AC ADD_COMM ADD_ASSOC]
   \\ BasicProvers.EVERY_CASE_TAC \\ rfs [] \\ fs [pair_lem1] >>
   rw [] >>
   fs [pair_lem2] >>
-  rfs [compile_def, LET_THM] >>
+  rfs [compile_exps_def, LET_THM] >>
   fs [pair_lem1, pair_lem2] >>
   metis_tac [build_aux_acc, APPEND_ASSOC]);
 
-val compile_LENGTH = Q.store_thm("compile_LENGTH",
-  `(compile xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)`,
+val compile_exps_LENGTH = Q.store_thm("compile_exps_LENGTH",
+  `(compile_exps xs aux = (c,aux1)) ==> (LENGTH c = LENGTH xs)`,
   REPEAT STRIP_TAC
-  \\ ASSUME_TAC (Q.SPECL [`xs`,`aux`] compile_acc)
+  \\ ASSUME_TAC (Q.SPECL [`xs`,`aux`] compile_exps_acc)
   \\ rfs [LET_DEF]);
 
-val compile_SING = Q.store_thm("compile_SING",
-  `(compile [x] aux = (c,aux1)) ==> ?d. c = [d]`,
+val compile_exps_SING = Q.store_thm("compile_exps_SING",
+  `(compile_exps [x] aux = (c,aux1)) ==> ?d. c = [d]`,
   REPEAT STRIP_TAC
-  \\ ASSUME_TAC (Q.SPECL [`[x]`,`aux`] compile_acc) \\ rfs [LET_DEF]
+  \\ ASSUME_TAC (Q.SPECL [`[x]`,`aux`] compile_exps_acc) \\ rfs [LET_DEF]
   \\ Cases_on `c` \\ fs [] \\ Cases_on `t` \\ fs []);
 
-val compile_CONS = store_thm("compile_CONS",
+val compile_exps_CONS = store_thm("compile_exps_CONS",
   ``!xs x aux.
-      compile (x::xs) aux =
-      (let (c1,aux1) = compile [x] aux in
-       let (c2,aux2) = compile xs aux1 in
+      compile_exps (x::xs) aux =
+      (let (c1,aux1) = compile_exps [x] aux in
+       let (c2,aux2) = compile_exps xs aux1 in
          (c1 ++ c2,aux2))``,
-  Cases_on `xs` \\ fs[compile_def] \\ fs [LET_DEF]
+  Cases_on `xs` \\ fs[compile_exps_def] \\ fs [LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
 
-val compile_SNOC = store_thm("compile_SNOC",
+val compile_exps_SNOC = store_thm("compile_exps_SNOC",
   ``!xs x aux.
-      compile (SNOC x xs) aux =
-      (let (c1,aux1) = compile xs aux in
-       let (c2,aux2) = compile [x] aux1 in
+      compile_exps (SNOC x xs) aux =
+      (let (c1,aux1) = compile_exps xs aux in
+       let (c2,aux2) = compile_exps [x] aux1 in
          (c1 ++ c2,aux2))``,
   Induct THEN1
-   (fs [compile_def,LET_DEF]
+   (fs [compile_exps_def,LET_DEF]
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [])
   \\ fs [SNOC_APPEND]
-  \\ ONCE_REWRITE_TAC [compile_CONS]
-  \\ ASM_SIMP_TAC std_ss [compile_def,LET_DEF,APPEND_NIL]
+  \\ ONCE_REWRITE_TAC [compile_exps_CONS]
+  \\ ASM_SIMP_TAC std_ss [compile_exps_def,LET_DEF,APPEND_NIL]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs []);
+
+val _ = Datatype`
+  config = <| next_loc : num
+            ; start : num
+            |>`;
+
+val compile_def = Define`
+  compile c e =
+  let es = intro_multi [e] in
+  let (n,es) = renumber_code_locs_list c.next_loc es in
+  let c = c with next_loc := n in
+  (* TODO: let (exp,calls) = call_intro es in *)
+  let (es,_) = remove es in
+  let es = annotate es in
+  let (es,aux) = compile_exps es [] in
+  (c,MAP (λe. (c.start,0,e)) es ++ aux)`;
 
 val _ = export_theory()

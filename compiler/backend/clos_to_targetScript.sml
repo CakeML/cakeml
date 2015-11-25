@@ -18,7 +18,7 @@ val compile_def = Define`
   (* TODO: let (exp,calls) = call_intro es in *)
   let (es,l) = remove es in
   let es = annotate es in
-  let (es,aux) = clos_to_bvl$compile es [] in
+  let (es,aux) = clos_to_bvl$compile_exps es [] in
     OPTION_MAP
       (λ(bytes,c). (bytes,(next_loc,c)))
       (bvl_to_target$compile 0 c ((MAP (λe. (0,0,e)) es)++aux))`;

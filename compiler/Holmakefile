@@ -10,7 +10,7 @@ PARENT_HOLHEAP = backend/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/source_to_targetTheory
+BARE_THYS = parsing/cmlParseTheory inference/inferTheory backend/backendTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)

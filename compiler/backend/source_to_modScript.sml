@@ -201,7 +201,7 @@ val _ = Datatype`
 val compile_def = Define`
   compile c p =
     let (menv,env) = c.mod_env in
-    let (_,_,_,p') = compile_prog c.next_global menv env p in
-    p'`;
+    let (_,m,e,p') = compile_prog c.next_global menv env p in
+    (c with mod_env := (m,e), p')`;
 
 val _ = export_theory()

@@ -17,7 +17,7 @@ val annotate_freevars_related = Q.prove (
      let k = m + l in
      let live = FILTER (\n. n < k) (vars_to_list (Shift num_args (SND (free [e])))) in
      let vars = MAP (get_var m l i) live in
-     let c1 = shift [e] k num_args (new_env 0 live) in
+     let c1 = shift [e] k num_args (shifted_env 0 live) in
                   [Fn loc (SOME vars) num_args (HD c1)]`,
 
  rw [exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
@@ -502,18 +502,18 @@ val do_app_err_thm = Q.prove(
 
 (* compiler correctness *)
 
-val lookup_EL_new_env = prove(
+val lookup_EL_shifted_env = prove(
   ``!y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
-            (lookup (EL n y) (new_env k y) = SOME (k + n))``,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [new_env_def,lookup_insert]
+            (lookup (EL n y) (shifted_env k y) = SOME (k + n))``,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [shifted_env_def,lookup_insert]
   \\ SRW_TAC [] [ADD1,AC ADD_COMM ADD_ASSOC]
   \\ fs [MEM_EL] \\ METIS_TAC []);
 
-val env_ok_new_env = prove(
+val env_ok_shifted_env = prove(
   ``env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
     (lookup_vars (MAP (get_var m l i) (FILTER (\n. n < m + l) live)) env2 =
       SOME x) ==>
-    env_ok (m + l) 0 (new_env 0 (FILTER (\n. n < m + l) live)) env x k``,
+    env_ok (m + l) 0 (shifted_env 0 (FILTER (\n. n < m + l) live)) env x k``,
   REPEAT STRIP_TAC
   \\ Q.ABBREV_TAC `y = FILTER (\n. n < m + l) live`
   \\ `ALL_DISTINCT y` by
@@ -536,7 +536,7 @@ val env_ok_new_env = prove(
   \\ Q.PAT_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ fs []
   \\ fs [env_ok_def] \\ DISJ2_TAC
   \\ TRY (`k < l + m` by DECIDE_TAC) \\ fs []
-  \\ SRW_TAC [] [] \\ fs [lookup_EL_new_env]
+  \\ SRW_TAC [] [] \\ fs [lookup_EL_shifted_env]
   \\ IMP_RES_TAC lookup_vars_SOME \\ fs []);
 
 val EL_shift_free = prove(
@@ -752,14 +752,14 @@ val shift_correct = Q.prove(
       \\ fs [env_ok_def] \\ rfs []
       \\ fs [get_var_def,tlookup_def]
       \\ DECIDE_TAC)
-    \\ Q.EXISTS_TAC `new_env 0 live` \\ fs []
+    \\ Q.EXISTS_TAC `shifted_env 0 live` \\ fs []
     \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []
     \\ MP_TAC (Q.SPEC `[exp]` free_thm)
     \\ fs [LET_DEF] \\ STRIP_TAC
     \\ fs [SUBSET_DEF,IN_DEF,fv_def]
     \\ fs [ADD1] \\ RES_TAC \\ UNABBREV_ALL_TAC
     \\ Q.ABBREV_TAC `live = vars_to_list (Shift num_args l1)`
-    \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
+    \\ MATCH_MP_TAC (GEN_ALL env_ok_shifted_env)
     \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
     \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
     \\ STRIP_TAC THEN1 METIS_TAC []
@@ -827,14 +827,14 @@ val shift_correct = Q.prove(
     \\ REPEAT STRIP_TAC
     \\ PairCases_on `x` \\ fs []
     \\ `?y1 y2. free [x1] = ([y1],y2)` by METIS_TAC [free_SING,PAIR]
-    \\ fs [] \\ Q.EXISTS_TAC `new_env 0 live`
+    \\ fs [] \\ Q.EXISTS_TAC `shifted_env 0 live`
     \\ STRIP_TAC THEN1 SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC]
     \\ reverse strip_tac >- (
          fs[Once every_Fn_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
          res_tac >> fs[] )
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
-    \\ MATCH_MP_TAC (GEN_ALL env_ok_new_env)
+    \\ MATCH_MP_TAC (GEN_ALL env_ok_shifted_env)
     \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
     \\ fs [AC ADD_COMM ADD_ASSOC,ALL_DISTINCT_vars_to_list]
     \\ fs [MEM_vars_to_list]

@@ -304,6 +304,9 @@ val compile_exp_def = tDefine"compile_exp"`
                                          | INR (INR (INR (bvs,pes))) => exp3_size pes)`);
 val _ = export_rewrites["compile_exp_def"];
 
+val compile_def = Define`
+  compile = compile_exp []`;
+
 val compile_funs_map = Q.store_thm("compile_funs_map",
   `∀funs bvs. compile_funs bvs funs = MAP (λ(f,x,e). compile_exp (SOME x::bvs) e) funs`,
   Induct>>simp[pairTheory.FORALL_PROD])

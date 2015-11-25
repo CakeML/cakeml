@@ -239,11 +239,13 @@ val compile_lab_def = Define `
 
 (* compile labLang *)
 
-val _ = type_abbrev("lab_conf",
-  ``:'a asm_config # ('a asm -> word8 list) # num num_map num_map``);
+val _ = Datatype`
+  config = <| encoder : 'a asm -> word8 list
+            ; lalala : num num_map num_map
+            |>`;
 
 val compile_def = Define `
-  compile (conf:'a lab_conf) sec_list =
-    compile_lab conf (filter_skip sec_list)`;
+  compile ac lc sec_list =
+    compile_lab (ac,lc.encoder,lc.lalala) (filter_skip sec_list)`;
 
 val _ = export_theory();

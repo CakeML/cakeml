@@ -1,6 +1,7 @@
 open preamble;
 open asmTheory wordLangTheory;
 open stackLangTheory parmoveTheory word_allocTheory;
+local open word_instTheory in (* word-to-word transformations *) end
 
 val _ = new_theory "word_to_stack";
 
@@ -190,13 +191,43 @@ val raise_stub_def = Define `
     (Seq (StackFree 3)
          (Raise k))))))`;
 
-val compile_def = Define `
-  compile (prog:'a wordLang$prog) arg_count reg_count =
+val compile_prog_def = Define `
+  compile_prog (prog:'a wordLang$prog) arg_count reg_count =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
     let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
     let f = stack_var_count + bitmap_size in
       Seq (StackAlloc (f - stack_arg_count))
           (comp prog (reg_count,f,stack_var_count))`
+
+(*
+Order of compilation (and their status):
+1) Flatten expressions to binary (Done)
+2) Inst select (At proof)
+3) SSA (Done)
+5) Dead code elim (not written yet)
+4) 3 to 2 regs for certain configs (Done)
+5) reg_alloc (Done)
+6) word_to_stack
+*)
+
+(*TODO: Maybe chain the max vars in a neater way instead of recomputing*)
+(*TODO: probably need to change reg_count to handle the restricted regs*)
+val compile_single_def = Define`
+  compile_single two_reg_arith reg_count c (name_num:num,arg_count,prog) =
+  let maxv = max_var prog + 1 in
+  let inst_prog = inst_select c maxv prog in
+  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+  let prog = if two_reg_arith then three_to_two_reg ssa_prog
+                              else ssa_prog in
+  let reg_prog = word_alloc reg_count prog in
+    (name_num,compile_prog reg_prog arg_count reg_count)`
+
+(*TODO: Compilation function probably needs to take an alist of (argcount,prog) -- this is a guess*)
+
+val compile_def = Define `
+  compile start (c:'a asm_config) prog =
+    let (two_reg_arith,reg_count) = (c.two_reg_arith, c.reg_count - 4) in
+    MAP (compile_single two_reg_arith reg_count c) prog`
 
 val _ = export_theory();
