@@ -13,6 +13,7 @@ val induct_on = Induct_on
 val cases_on = Cases_on;
 val every_case_tac = BasicProvers.EVERY_CASE_TAC;
 val full_case_tac = BasicProvers.FULL_CASE_TAC;
+val sym_sub_tac = SUBST_ALL_TAC o SYM;
 fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 (* -- *)
 

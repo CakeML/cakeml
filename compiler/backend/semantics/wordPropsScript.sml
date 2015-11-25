@@ -11,8 +11,6 @@ Main lemmas:
 
 val _ = new_theory "wordProps";
 
-val sym_sub_tac = SUBST_ALL_TAC o SYM;
-
 val get_vars_length_lemma = store_thm("get_vars_length_lemma",
   ``!ls s y. get_vars ls s = SOME y ==>
            LENGTH y = LENGTH ls``,

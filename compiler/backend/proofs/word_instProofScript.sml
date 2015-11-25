@@ -4,8 +4,6 @@ open preamble BasicProvers
 
 val _ = new_theory "word_instProof";
 
-val sym_sub_tac = SUBST_ALL_TAC o SYM;
-
 val convert_sub_ok = prove(``
   ∀ls.
   word_exp s (convert_sub ls) = word_exp s (Op Sub ls)``,
@@ -13,12 +11,6 @@ val convert_sub_ok = prove(``
   fs[word_op_def]>>
   EVERY_CASE_TAC>>
   fs[WORD_NEG_MUL,WORD_NOT])
-
-val PERM_EVERY = prove(``
-  ∀ls ls'.
-  PERM ls ls' ⇒
-  (EVERY P ls ⇔ EVERY P ls')``,
-  ho_match_mp_tac PERM_STRONG_IND>>rw[]>>metis_tac[])
 
 (*In general, any permutation works*)
 val word_exp_op_permute_lem = prove(``

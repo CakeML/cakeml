@@ -1122,6 +1122,26 @@ val gc_stack_shape = prove(``
   >>
   metis_tac[dec_stack_LIST_REL,dec_stack_length])
 
+(*Will need a version of this for SOME ... cases*)
+val joined_ok_drop = prove(``
+  abs_stack ls = SOME x ∧
+  ls ≠ [] ∧ ls ≠ [Word 0w] ∧
+  read_bitmap ls = SOME (names, bmap , rest) ∧
+  join_stacks (StackFrame l NONE::s3.stack) x = SOME j ∧
+  joined_ok k j len ⇒
+  ∃y j'.
+  abs_stack (DROP (LENGTH names) (DROP (LENGTH bmap) ls)) = SOME y ∧
+  join_stacks s3.stack y = SOME j' ∧
+  joined_ok k j' len ∧
+  ``,
+  simp[Once abs_stack_def,LET_THM]>>rw[]>>
+  qpat_assum`A=SOME x` mp_tac>>
+  ntac 2 FULL_CASE_TAC>>rw[]>>fs[]>>
+  imp_res_tac read_bitmap_split>>
+  fs[DROP_LENGTH_APPEND,join_stacks_def]>>
+  qpat_assum`A=SOME j` mp_tac>>FULL_CASE_TAC>>rw[]>>
+  fs[joined_ok_def])
+
 val alloc_IMP_alloc = prove(
   ``
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
@@ -1129,6 +1149,11 @@ val alloc_IMP_alloc = prove(
     state_rel k f f' s t5 /\
     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
     (cut_env names s.locals = SOME env) /\
+    read_bitmap (DROP t5.stack_space t5.stack) =
+    SOME
+    (GENLIST (λx.MEM x (MAP (λ(r,y). f' − 1 − (r DIV 2 − k)) (toAList names))) f'
+    ,MAP Word (write_bitmap names k f')
+    ,DROP (f − f') (DROP t5.stack_space t5.stack)) /\
     res <> SOME Error ==>
     ?t1 res1.
       (alloc c t5 = (res1,t1)) /\
@@ -1164,9 +1189,38 @@ val alloc_IMP_alloc = prove(
     imp_res_tac gc_stack_shape>>
     fs[]>>ntac 7 (pop_assum kall_tac)>>rfs[]>>
     CONJ_TAC>-
+      qpat_assum`A=SOME aa'''` mp_tac>>
+      qpat_abbrev_tac`lss = DROP t2.stack_space t2.stack`>>
+      `lss ≠ [] ∧ lss ≠ [Word 0w]` by cheat>>
+      simp[Once abs_stack_def]>>
+      ntac 4 FULL_CASE_TAC>>fs[]>>strip_tac>>
+      qpat_assum`join_stacks A aa''' = B` mp_tac>>
+      qpat_assum`joined_ok k joined''' A` mp_tac>>
+      pop_assum (mp_tac o SYM)>>
+      simp[join_stacks_def]>>
+      FULL_CASE_TAC>>fs[]>>rw[]>>
+      imp_res_tac read_bitmap_split>>fs[]>>
+      imp_res_tac 
+
+      imp_res_tac joined_ok_drop>>fs[]
+      fs[]
+
+      fs[abs_stack_def]
+      
       (*need something else to allow dropping a stack frame*)
       cheat
     >>
+    qpat_assum`A = SOME joined'''` mp_tac>>
+    Cases_on`aa'''`>>fs[join_stacks_def]>>
+    FULL_CASE_TAC>>fs[]>>
+    disch_then (assume_tac o SYM)>>
+    qpat_assum`joined_ok A B C` mp_tac>>
+    PairCases_on`h`>>simp[joined_ok_def]>>
+   state_rel_def
+    
+    strip_tac>>
+    simp[joined_ok_def]
+    rw[]
     (*need to change shape lemma*)
     cheat)
       (* continue here --

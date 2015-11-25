@@ -178,6 +178,24 @@ val alist_insert_def = Define `
   (alist_insert vs [] t = t) /\
   (alist_insert (v::vs) (x::xs) t = insert v x (alist_insert vs xs t))`
 
+val lookup_alist_insert = store_thm("lookup_alist_insert",
+  ``!x y t z. LENGTH x = LENGTH y ==>
+    (lookup z (alist_insert x y t) =
+    case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)``,
+    ho_match_mp_tac (fetch "-" "alist_insert_ind")>>
+    rw[]>-
+      (Cases_on`y`>>
+      fs[LENGTH,alist_insert_def]) >>
+    Cases_on`z=x`>>
+      rw[lookup_def,alist_insert_def]>>
+    fs[lookup_insert])
+
+val domain_alist_insert = store_thm("domain_alist_insert",
+  ``!a b locs. LENGTH a = LENGTH b ==>
+    domain (alist_insert a b locs) = domain locs UNION set a``,
+  Induct_on`a`>>Cases_on`b`>>fs[alist_insert_def]>>rw[]>>
+  metis_tac[INSERT_UNION_EQ,UNION_COMM])
+
 val fromList2_def = Define `
   fromList2 l = SND (FOLDL (\(i,t) a. (i + 2,insert i a t)) (0,LN) l)`
 
@@ -256,6 +274,13 @@ val domain_list_insert = store_thm("domain_list_insert",
       x IN domain (list_insert xs t) <=> MEM x xs \/ x IN domain t``,
   Induct \\ fs [list_insert_def] \\ METIS_TAC []);
 
+val domain_FOLDR_delete = store_thm("domain_FOLDR_delete",
+  ``∀ls live. domain (FOLDR delete live ls) =
+  (domain live) DIFF (set ls)``,
+  Induct>>
+  fs[DIFF_INSERT,EXTENSION]>>
+  metis_tac[])
+
 val lookup_list_to_num_set = store_thm("lookup_list_to_num_set",
   ``!xs. lookup x (list_to_num_set xs) = if MEM x xs then SOME () else NONE``,
   Induct \\ srw_tac [] [list_to_num_set_def,lookup_def,lookup_insert] \\ fs []);
@@ -294,6 +319,10 @@ val EVERY_ZIP = Q.store_thm ("EVERY_ZIP",
   fs [] >>
   metis_tac []);
 
+val ZIP_MAP_FST_SND_EQ = store_thm("ZIP_MAP_FST_SND_EQ",
+  ``∀ls. ZIP (MAP FST ls,MAP SND ls) = ls``,
+  Induct>>fs[])
+
 val tlookup_def = Define `
   tlookup m k = case lookup m k of NONE => 0:num | SOME k => k`;
 
@@ -330,6 +359,13 @@ val ALOOKUP_GENLIST = store_thm("ALOOKUP_GENLIST",
   ``∀f n k. ALOOKUP (GENLIST (λi. (i,f i)) n) k = if k < n then SOME (f k) else NONE``,
   gen_tac >> Induct >> simp[GENLIST] >> rw[] >> fs[ALOOKUP_SNOC] >>
   rw[] >> fsrw_tac[ARITH_ss][])
+
+val ALOOKUP_ZIP_FAIL = store_thm("ALOOKUP_ZIP_FAIL",
+  ``∀A B x.
+  LENGTH A = LENGTH B ⇒
+  (ALOOKUP (ZIP (A,B)) x = NONE ⇔ ¬MEM x A)``,
+  rw[]>>Q.ISPECL_THEN [`ZIP(A,B)`,`x`] assume_tac ALOOKUP_NONE >>
+  fs[MAP_ZIP])
 
 val anub_def = Define`
   (anub [] acc = []) ∧
@@ -435,6 +471,10 @@ val IS_SOME_EXISTS = store_thm("IS_SOME_EXISTS",
 
 val _ = type_abbrev("num_set",``:unit spt``);
 val _ = type_abbrev("num_map",``:'a spt``);
+
+val toAList_domain = store_thm("toAList_domain",``
+  ∀x. MEM x (MAP FST (toAList t)) ⇔ x ∈ domain t``,
+  fs[EXISTS_PROD,MEM_MAP,MEM_toAList,domain_lookup])
 
 val domain_nat_set_from_list = store_thm("domain_nat_set_from_list",
   ``∀ls ns. domain (FOLDL (λs n. insert n () s) ns ls) = domain ns ∪ set ls``,
@@ -1029,9 +1069,7 @@ val PERM_ZIP = store_thm("PERM_ZIP",
     Cases_on`c`>>fs[LENGTH_NIL_SYM]>>
     Cases_on`d`>>fs[LENGTH_NIL_SYM]>>
     metis_tac[PERM_SWAP_AT_FRONT] ) >>
-  `∀l. l = ZIP (MAP FST l, MAP SND l)` by (
-    simp[ZIP_MAP] >>
-    simp[LIST_EQ_REWRITE,EL_MAP] ) >>
+  assume_tac (GSYM ZIP_MAP_FST_SND_EQ)>>
   gen_tac >> qx_gen_tac`ll` >>
   rpt gen_tac >> strip_tac >>
   rpt gen_tac >> strip_tac >>
@@ -1076,6 +1114,12 @@ val PERM_BIJ = store_thm("PERM_BIJ",
   fs[BIJ_IFF_INV] >>
   qexists_tac`g' o g` >>
   simp[combinTheory.o_DEF] )
+
+val PERM_EVERY = store_thm("PERM_EVERY",
+``∀ls ls'.
+  PERM ls ls' ⇒
+  (EVERY P ls ⇔ EVERY P ls')``,
+  ho_match_mp_tac PERM_STRONG_IND>>rw[]>>metis_tac[])
 
 val RTC_RINTER = store_thm("RTC_RINTER",
   ``!R1 R2 x y. RTC (R1 RINTER R2) x y ⇒ ((RTC R1) RINTER (RTC R2)) x y``,

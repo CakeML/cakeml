@@ -151,13 +151,6 @@ val strong_locals_rel_get_vars = prove(``
   >-metis_tac[]>>
   fs[])
 
-val domain_FOLDR_delete = prove(``
-  ∀ls live. domain (FOLDR delete live ls) =
-  (domain live) DIFF (set ls)``,
-  Induct>>
-  fs[DIFF_INSERT,EXTENSION]>>
-  metis_tac[])
-
 val domain_FOLDR_union_subset = prove(``
   !ls a.
   MEM a ls ⇒
@@ -250,10 +243,7 @@ val list_rearrange_MAP = store_thm ("list_rearrange_MAP",
   SRW_TAC [] [list_rearrange_def] \\ MATCH_MP_TAC GENLIST_MAP \\
   fs[BIJ_DEF,INJ_DEF]);
 
-
-val ALL_DISTINCT_FST = store_thm("ALL_DISTINCT_FST",``
-  ∀ls. ALL_DISTINCT (MAP FST ls) ⇒ ALL_DISTINCT ls``,
-  Induct>>fs[FORALL_PROD,MEM_MAP])
+val ALL_DISTINCT_FST = ALL_DISTINCT_MAP |> Q.ISPEC `FST`
 
 (*Main theorem for permute oracle usage!
   This shows that we can push locals that are exactly matching using
@@ -389,6 +379,7 @@ val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
     rw[]>>Cases_on`x'`>>fs[])>>
   metis_tac[]))
 
+(*TODO: Move?*)
 val INJ_less = prove(``
   INJ f s' UNIV ∧ s ⊆ s'
   ⇒
@@ -458,17 +449,7 @@ val ALOOKUP_key_remap_2 = store_thm("ALOOKUP_key_remap_2",``
   first_assum(qspecl_then[`h`,`n`] assume_tac)>>
   IF_CASES_TAC>>fs[])
 
-val lookup_list_insert = store_thm("lookup_list_insert",
-  ``!x (y:'a word_loc list) t (z:num). LENGTH x = LENGTH y ==>
-    (lookup z (alist_insert x y t) =
-    case ALOOKUP (ZIP(x,y)) z of SOME a => SOME a | NONE => lookup z t)``,
-    ho_match_mp_tac alist_insert_ind>>
-    rw[]>-
-      (Cases_on`y`>>
-      fs[LENGTH,alist_insert_def]) >>
-    Cases_on`z=x`>>
-      rw[lookup_def,alist_insert_def]>>
-    fs[lookup_insert])
+val lookup_alist_insert = lookup_alist_insert |> INST_TYPE [alpha|->``:'a word_loc``]
 
 val strong_locals_rel_subset = prove(``
   s ⊆ s' ∧
@@ -636,7 +617,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     fs[strong_locals_rel_def]>>rw[]>>
     `LENGTH l = LENGTH x` by
       metis_tac[LENGTH_MAP,get_vars_length_lemma]>>
-    fs[lookup_list_insert]>>
+    fs[lookup_alist_insert]>>
     Cases_on`ALOOKUP (ZIP (MAP FST l,x)) n'`>>fs[]
     >-
     (*NONE:
@@ -1501,8 +1482,6 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
 
 val size_tac = discharge_hyps>- (fs[prog_size_def]>>DECIDE_TAC)
 
-val sym_sub_tac = SUBST_ALL_TAC o SYM;
-
 (*This might not be the optimal invariant.. because it is very
   restrictive on the ssa_mapping*)
 val ssa_locals_rel_def = Define`
@@ -1594,13 +1573,6 @@ val ssa_locals_rel_get_vars = prove(``
   imp_res_tac ssa_locals_rel_get_var>>fs[]>>
   Cases_on`get_vars ls st`>>fs[]>>
   res_tac>>fs[])
-
-val ALOOKUP_ZIP_FAIL = prove(``
-  ∀A B x.
-  LENGTH A = LENGTH B ⇒
-  (ALOOKUP (ZIP (A,B)) x = NONE ⇔ ¬MEM x A)``,
-  rw[]>>Q.ISPECL_THEN [`ZIP(A,B)`,`x`] assume_tac ALOOKUP_NONE >>
-  fs[MAP_ZIP])
 
 val ssa_map_ok_extend = prove(``
   ssa_map_ok na ssa ∧
@@ -2166,10 +2138,6 @@ val ssa_map_ok_more = prove(``
     metis_tac[]>>
   res_tac>>fs[]>>DECIDE_TAC)
 
-val toAList_domain = prove(``
-  ∀x. MEM x (MAP FST (toAList t)) ⇔ x ∈ domain t``,
-  fs[EXISTS_PROD,MEM_MAP,MEM_toAList,domain_lookup])
-
 val get_vars_eq = prove(
   ``(set ls) SUBSET domain st.locals ==> ?z. get_vars ls st = SOME z /\
                                              z = MAP (\x. THE (lookup x st.locals)) ls``,
@@ -2288,12 +2256,6 @@ val get_vars_exists = prove(``
   Induct>>fs[get_var_def,get_vars_def]>>rw[]>>
   fs[domain_lookup])
 
-val domain_list_insert = prove(
-  ``!a b locs. LENGTH a = LENGTH b ==>
-    domain (alist_insert a b locs) = domain locs UNION set a``,
-  Induct_on`a`>>Cases_on`b`>>fs[alist_insert_def]>>rw[]>>
-  metis_tac[INSERT_UNION_EQ,UNION_COMM])
-
 val list_next_var_rename_move_preserve = prove(``
   ∀st ssa na ls cst.
   ssa_locals_rel na ssa st.locals cst.locals ∧
@@ -2339,7 +2301,7 @@ val list_next_var_rename_move_preserve = prove(``
     metis_tac[])>>
   fs[Abbr`v`]>>rw[]
   >-
-    (fs[set_vars_def,domain_list_insert]>>
+    (fs[set_vars_def,domain_alist_insert]>>
     Cases_on`MEM x ls`>>res_tac>>fs[]
     >-
       (DISJ2_TAC>>fs[MEM_MAP]>>
@@ -2348,7 +2310,7 @@ val list_next_var_rename_move_preserve = prove(``
       (res_tac>>
       fs[]))
   >-
-    (fs[set_vars_def,lookup_list_insert]>>
+    (fs[set_vars_def,lookup_alist_insert]>>
     res_tac>>
     Cases_on`MEM x ls`>>fs[]
     >-
@@ -2376,7 +2338,7 @@ val list_next_var_rename_move_preserve = prove(``
   >-
     fs[word_state_eq_rel_def,set_vars_def]
   >>
-    fs[lookup_list_insert,set_vars_def]>>
+    fs[lookup_alist_insert,set_vars_def]>>
     FULL_CASE_TAC>>
     imp_res_tac ALOOKUP_MEM>>
     fs[MEM_ZIP]>>
@@ -2403,7 +2365,7 @@ val get_vars_list_insert_eq_gen= prove(
   ho_match_mp_tac alist_insert_ind>>
   rw[]>-
     (Cases_on`x`>>fs[get_vars_def])>>
-  fs[get_vars_def,get_var_def,lookup_list_insert]>>
+  fs[get_vars_def,get_var_def,lookup_alist_insert]>>
   `LENGTH (ls::ls') = LENGTH (x::x')` by fs[]>>
   IMP_RES_TAC rich_listTheory.ZIP_APPEND>>
   ntac 9 (pop_assum (SUBST1_TAC o SYM))>>
@@ -2447,7 +2409,7 @@ val ssa_locals_rel_ignore_list_insert = prove(``
   ⇒
   ssa_locals_rel na ssa st.locals (alist_insert ls x cst.locals)``,
   rw[ssa_locals_rel_def,ssa_map_ok_def]>>
-  fs[domain_list_insert,lookup_list_insert]>-
+  fs[domain_alist_insert,lookup_alist_insert]>-
     metis_tac[]
   >>
   res_tac>>
@@ -2821,8 +2783,7 @@ val ALOOKUP_ALL_DISTINCT_REMAP = prove(``
 
 val set_toAList_keys = prove(``
   set (MAP FST (toAList t)) = domain t``,
-  fs[EXTENSION,MEM_MAP]>>rw[]>>
-  fs[EXISTS_PROD,MEM_toAList,domain_lookup])
+  fs[toAList_domain,EXTENSION])
 
 fun fcs t r = Cases_on t>>Cases_on r>>fs[]
 
@@ -2838,10 +2799,6 @@ val ssa_map_ok_inter = prove(``
   fs[ssa_map_ok_def,lookup_inter]>>rw[]>>EVERY_CASE_TAC>>
   fs[]>>
   metis_tac[])
-
-val ZIP_MAP_FST_SND_EQ = prove(``
-  ∀ls. ZIP (MAP FST ls,MAP SND ls) = ls``,
-  Induct>>fs[])
 
 val ssa_cc_trans_exp_correct = prove(
 ``∀st w cst ssa na res.
@@ -2941,7 +2898,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     CONJ_ASM1_TAC
     >-
       (rw[domain_lookup]>>
-      fs[lookup_list_insert]>>
+      fs[lookup_alist_insert]>>
       EVERY_CASE_TAC>>
       rfs[ALOOKUP_NONE,MAP_ZIP]>>
       `¬ (MEM x' (MAP FST l))` by
@@ -2957,7 +2914,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         fs[EXTENSION]>>metis_tac[])>>
       metis_tac[domain_lookup])
     >>
-    fs[strong_locals_rel_def]>>rw[]>>rfs[lookup_list_insert]
+    fs[strong_locals_rel_def]>>rw[]>>rfs[lookup_alist_insert]
     >-
       (Cases_on`MEM x' (MAP FST l)`>>
       fs[]>>
@@ -4091,7 +4048,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (*Raise*)
     (exists_tac>>fs[get_var_perm]>>
     Cases_on`get_var n st`>>imp_res_tac ssa_locals_rel_get_var>>
-    fs[get_vars_def,get_var_def,set_vars_def,lookup_list_insert]>>
+    fs[get_vars_def,get_var_def,set_vars_def,lookup_alist_insert]>>
     fs[jump_exc_def]>>EVERY_CASE_TAC>>fs[])
   >-
     (*Return*)
@@ -4288,7 +4245,7 @@ val setup_ssa_props = prove(``
   LET_ELIM_TAC>>fs[]>>rfs[]
   >-
     (qpat_assum`A=cst.locals` (sym_sub_tac)>>
-    fs[domain_list_insert,LENGTH_COUNT_LIST]>>
+    fs[domain_alist_insert,LENGTH_COUNT_LIST]>>
     `x ∈ domain ssa` by fs[domain_lookup]>>
     qpat_assum `MAP f args = B` (sym_sub_tac)>>
     DISJ2_TAC>>
@@ -4301,7 +4258,7 @@ val setup_ssa_props = prove(``
     metis_tac[EXTENSION])
   >-
     (qpat_assum`A=cst.locals` (sym_sub_tac)>>
-    fs[lookup_list_insert,LENGTH_COUNT_LIST]>>
+    fs[lookup_alist_insert,LENGTH_COUNT_LIST]>>
     fs[ALOOKUP_ALL_DISTINCT_EL]>>
     use_ALOOKUP_ALL_DISTINCT_MEM >>
     fs[MAP_ZIP,LENGTH_COUNT_LIST]>>
