@@ -1842,16 +1842,28 @@ val optCASE_NONE_F = Q.prove(
   `option_CASE opt F f ⇔ ∃r. opt = SOME r ∧ f r`,
   Cases_on `opt` >> simp[]);
 
+val revtakerev = Q.store_thm("revtakerev",
+  `∀n l. n ≤ LENGTH l ⇒ REVERSE (TAKE n (REVERSE l)) = DROP (LENGTH l - n) l`,
+  Induct >> simp[DROP_LENGTH_NIL] >>
+  qx_gen_tac `l` >>
+  `l = [] ∨ ∃f e. l = SNOC e f` by metis_tac[SNOC_CASES] >> simp[] >>
+  simp[DROP_APPEND1]);
+
+val exp_rel_sing =
+    exp_rel_def |> Q.SPECL [`[e1]`, `[e2]`]
+                |> SIMP_RULE (srw_ss()) [exec_rel_rw, evaluate_ev_def]
+
 val compat_recclosure = Q.store_thm ("compat_recclosure",
 `!i l env env' args args' funs funs' idx.
   LIST_REL (λ(n,e) (n',e'). n = n' ∧ exp_rel (:'ffi) [e] [e']) funs funs' ∧
   LIST_REL (val_rel (:'ffi) i) env env' ∧
   LIST_REL (val_rel (:'ffi) i) args args'
   ⇒
-  val_rel (:'ffi) i (Recclosure l args env funs idx) (Recclosure l args' env' funs' idx)`,
-  simp[val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def] >>
-  rpt gen_tac >> strip_tac >>
-  CONJ_ASM1_TAC
+  val_rel (:'ffi) i (Recclosure l args env funs idx)
+                    (Recclosure l args' env' funs' idx)`,
+  qx_gen_tac `i` >> completeInduct_on `i` >>
+  simp[val_rel_rw, is_closure_def, check_closures_def] >>
+  rpt gen_tac >> strip_tac >> conj_tac
   >- (qx_genl_tac [`loc`, `N`] >>
       simp[clo_can_apply_def, clo_to_partial_args_def, clo_to_num_params_def,
            clo_to_loc_def, rec_clo_ok_def] >>
@@ -1873,7 +1885,64 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
    LENGTH args2 = LENGTH args1` by metis_tac[LIST_REL_EL_EQN] >>
   simp[optCASE_NONE_T, optCASE_NONE_F] >> rpt gen_tac >> strip_tac >>
   qx_gen_tac `dc1` >>
-  simp[dest_closure_def, SimpL ``$==>``, UNCURRY] >> cheat)
+  simp[dest_closure_def, SimpL ``$==>``, UNCURRY] >>
+  Cases_on `idx < LENGTH funs1` >> simp[] >>
+  `∃fn1 fe1. EL idx funs1 = (fn1, fe1)`
+     by (Cases_on `EL idx funs1` >> simp[]) >> simp[] >>
+  qcase_tac `LIST_REL (val_rel (:'ffi) j) vs1 vs2` >>
+  `LENGTH vs2 = LENGTH vs1` by metis_tac[LIST_REL_EL_EQN] >>
+  simp[revdroprev, revtakerev] >> Cases_on `LENGTH args1 < fn1` >> simp[] >>
+  simp[bool_case_eq] >>
+  qmatch_assum_abbrev_tac `LIST_REL FR funs1 funs2` >>
+  `∃fe2. EL idx funs2 = (fn1, fe2) ∧ exp_rel (:'ffi) [fe1] [fe2]`
+    by (`FR (EL idx funs1) (EL idx funs2)` by metis_tac [LIST_REL_EL_EQN] >>
+        pop_assum mp_tac >>
+        Cases_on `EL idx funs2` >> simp[Abbr`FR`]) >>
+  strip_tac >>
+  simp[dest_closure_def, revdroprev, revtakerev, exec_rel_rw,
+       evaluate_ev_def] >>
+  qx_gen_tac `k`
+  >- (reverse (rw[])
+      >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono]) >>
+      qmatch_abbrev_tac `
+        res_rel (pair_CASE (evaluate ([fe1], ENV1, _)) _)
+                (pair_CASE (evaluate ([fe2], ENV2, _)) _)` >>
+      `LIST_REL (val_rel (:'ffi) j) ENV1 ENV2`
+        by (simp[Abbr`ENV1`, Abbr`ENV2`] >>
+            reverse (irule EVERY2_APPEND_suff)
+            >- metis_tac[val_rel_mono_list, DECIDE ``x < y:num ⇒ x ≤ y``] >>
+            reverse (irule EVERY2_APPEND_suff)
+            >- (simp[LIST_REL_GENLIST] >> rpt strip_tac >>
+                first_x_assum irule >> simp[] >>
+                metis_tac[val_rel_mono_list, DECIDE ``x < y:num ⇒ x ≤ y``]) >>
+            irule EVERY2_APPEND_suff >- simp[EVERY2_DROP] >>
+            metis_tac[val_rel_mono_list, DECIDE ``x < y:num ⇒ x ≤ y``]) >>
+      Q.UNDISCH_THEN `exp_rel (:'ffi) [fe1] [fe2]` mp_tac >>
+      DISCH_THEN (mp_tac o SIMP_RULE (srw_ss()) [exp_rel_sing]) >>
+      DISCH_THEN (qspecl_then [`j`, `ENV1`, `ENV2`, `s`, `s'`] mp_tac) >>
+      simp[] >>
+      DISCH_THEN (qspec_then `k + (LENGTH args1 + 1) - fn1` mp_tac) >>
+      simp[] >>
+      qabbrev_tac `CK = k + (LENGTH args1 + 1) - fn1` >>
+      qabbrev_tac `ev1 = evaluate([fe1],ENV1,s with clock := CK)` >>
+      cheat (*
+      reverse
+        (`(∃rv' s1'. ev0 = (Rval [rv'], s1')) ∨ ∃err s1'. ev0 = (Rerr err, s1')`
+           by metis_tac[TypeBase.nchotomy_of ``:('a,'b) result``, pair_CASES,
+                        evaluate_SING])
+     >- (Cases_on `err` >> simp[res_rel_rw] >>
+         qcase_tac `ev0 = (Rerr (Rabort a), s1)` >>
+         Cases_on `a` >> simp[res_rel_rw]) >> *)
+  ) >>
+  reverse (rw[])
+  >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono]) >>
+  simp[res_rel_rw] >> conj_tac
+  >- (first_x_assum irule >> simp[]
+      >- (irule EVERY2_APPEND_suff >> irule val_rel_mono_list
+          >- (qexists_tac `j` >> simp[]) >>
+          qexists_tac `i` >> simp[]) >>
+      irule val_rel_mono_list >> qexists_tac `i` >> simp[]) >>
+  irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `j` >> simp[])
 
 val compat_letrec = Q.store_thm ("compat_letrec",
 `!loc vars funs e funs' e'.
