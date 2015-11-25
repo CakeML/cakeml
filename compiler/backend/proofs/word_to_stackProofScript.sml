@@ -715,7 +715,7 @@ val evaluate_wLive = Q.prove(
       metis_tac[transitive_key_val_compare,total_key_val_compare] ) >>
     match_mp_tac SORTED_weaken2>>fs[]>>CONJ_ASM1_TAC
     >-
-      metis_tac[ALL_DISTINCT_MAP_FST_toAList,QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_FST]
+      metis_tac[ALL_DISTINCT_MAP_FST_toAList,QSORT_PERM,ALL_DISTINCT_PERM,ALL_DISTINCT_MAP]
     >>
       simp[MEM_QSORT,Abbr`R`] >>
       simp[Abbr`R'`,inv_image_def,FORALL_PROD,Abbr`ls`,MEM_toAList] >>
@@ -1132,7 +1132,7 @@ val joined_ok_drop = prove(``
   ∃y j'.
   abs_stack (DROP (LENGTH names) (DROP (LENGTH bmap) ls)) = SOME y ∧
   join_stacks s3.stack y = SOME j' ∧
-  joined_ok k j' len ∧
+  joined_ok k j' len
   ``,
   simp[Once abs_stack_def,LET_THM]>>rw[]>>
   qpat_assum`A=SOME x` mp_tac>>
@@ -1189,7 +1189,7 @@ val alloc_IMP_alloc = prove(
     imp_res_tac gc_stack_shape>>
     fs[]>>ntac 7 (pop_assum kall_tac)>>rfs[]>>
     CONJ_TAC>-
-      qpat_assum`A=SOME aa'''` mp_tac>>
+      (qpat_assum`A=SOME aa'''` mp_tac>>
       qpat_abbrev_tac`lss = DROP t2.stack_space t2.stack`>>
       `lss ≠ [] ∧ lss ≠ [Word 0w]` by cheat>>
       simp[Once abs_stack_def]>>
@@ -1199,16 +1199,8 @@ val alloc_IMP_alloc = prove(
       pop_assum (mp_tac o SYM)>>
       simp[join_stacks_def]>>
       FULL_CASE_TAC>>fs[]>>rw[]>>
-      imp_res_tac read_bitmap_split>>fs[]>>
-      imp_res_tac 
-
-      imp_res_tac joined_ok_drop>>fs[]
-      fs[]
-
-      fs[abs_stack_def]
-      
+      imp_res_tac read_bitmap_split>>fs[]>>cheat)
       (*need something else to allow dropping a stack frame*)
-      cheat
     >>
     qpat_assum`A = SOME joined'''` mp_tac>>
     Cases_on`aa'''`>>fs[join_stacks_def]>>
@@ -1216,12 +1208,6 @@ val alloc_IMP_alloc = prove(
     disch_then (assume_tac o SYM)>>
     qpat_assum`joined_ok A B C` mp_tac>>
     PairCases_on`h`>>simp[joined_ok_def]>>
-   state_rel_def
-    
-    strip_tac>>
-    simp[joined_ok_def]
-    rw[]
-    (*need to change shape lemma*)
     cheat)
       (* continue here --
         need to prove that gc doesn't change the shape of the
@@ -1276,7 +1262,8 @@ val compile_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs []
     \\ `1 < k` by fs [state_rel_def] \\ res_tac
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
-    \\ mp_tac alloc_IMP_alloc \\ fs [] \\ REPEAT STRIP_TAC
+    \\ mp_tac alloc_IMP_alloc \\ discharge_hyps >- cheat
+    \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
   THEN1 (* Move *) cheat
   THEN1 (* Inst *) cheat
@@ -1358,7 +1345,6 @@ val compile_correct = prove(
     >>
     fs[raise_stub_def,stackSemTheory.evaluate_def,stackSemTheory.dec_clock_def,stack_rel_def,LET_THM,get_var_set_var]>>
     simp[handler_val_def,stackSemTheory.set_var_def]>>
-    (*Didn't get far*)
     cheat)
   THEN1 (* If *) cheat
   \\ (* Call *) cheat);
