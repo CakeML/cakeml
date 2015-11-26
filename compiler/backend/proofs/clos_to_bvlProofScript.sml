@@ -3703,15 +3703,28 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
 
 val full_state_rel_def = Define`
   full_state_rel s1 s2 ⇔
-    ∃sa sb sc sd f.
-      state_rel s1.clock s1 sa ∧ s1.clock = sa.clock ∧
+    ∀k. ∃sa sb sc sd f.
+      state_rel k s1 sa ∧ s1.clock = sa.clock ∧
       clos_numberProof$state_rel sa sb ∧
-      state_rel sb.clock sb sc ∧ sb.clock = sc.clock ∧
+      state_rel k sb sc ∧ sb.clock = sc.clock ∧
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
       clos_annotateProof$state_rel sc sd ∧
       FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sd.code ∧
       FEVERY (λp. every_Fn_SOME [SND (SND p)]) sd.code ∧
       clos_to_bvlProof$state_rel f sd s2`;
+
+val full_state_rel_with_clock = Q.store_thm("full_state_rel_with_clock",
+  `full_state_rel s1 s2 ⇒ full_state_rel (s1 with clock := k) (s2 with clock := k)`,
+  rw[full_state_rel_def] >>
+  qmatch_goalsub_rename_tac`clos_relation$state_rel ck` >>
+  first_x_assum(qspec_then`ck`strip_assume_tac) >>
+  qexists_tac`sa with clock := k` >> simp[] >>
+  qexists_tac`sb with clock := k` >> simp[] >>
+  qexists_tac`sc with clock := k` >> simp[] >>
+  qexists_tac`sd with clock := k` >> simp[] >>
+  qexists_tac`f`>>simp[] >>
+  fs[clos_numberProofTheory.state_rel_def,
+     clos_annotateProofTheory.state_rel_def]);
 
 val full_result_rel_def = Define`
   full_result_rel (r1,s1) (r2,s2) ⇔
@@ -3727,6 +3740,41 @@ val full_result_rel_def = Define`
       result_rel (LIST_REL clos_numberProof$v_rel) clos_numberProof$v_rel ra rb ∧
       result_rel (LIST_REL clos_annotateProof$v_rel) clos_annotateProof$v_rel rc rd ∧
       result_rel (LIST_REL (v_rel f s2.refs s2.code)) (v_rel f s2.refs s2.code) rd r2`;
+
+val full_result_rel_abort = Q.store_thm("full_result_rel_abort",
+  `r ≠ Rerr(Rabort Rtype_error) ⇒
+  (full_result_rel (r,x) (Rerr (Rabort a),y) ⇒ r = Rerr (Rabort a))`,
+  rw[full_result_rel_def] >>
+  Cases_on`rb`>> fs[clos_relationTheory.res_rel_rw]>>
+  Cases_on`e`>> fs[clos_relationTheory.res_rel_rw]>>
+  Cases_on`r`>> fs[clos_relationTheory.res_rel_rw]>>
+  Cases_on`e`>> fs[clos_relationTheory.res_rel_rw]>>
+  qcase_tac`err = Rabort ac` >>
+  qcase_tac`ab = a` >>
+  Cases_on`ab`>> fs[clos_relationTheory.res_rel_rw]>>
+  Cases_on`ac`>> fs[clos_relationTheory.res_rel_rw]);
+
+val full_result_rel_timeout = Q.store_thm("full_result_rel_timeout",
+  `full_result_rel (Rerr(Rabort Rtimeout_error),x) (r,y) ⇒ r = Rerr (Rabort Rtimeout_error)`,
+  rw[full_result_rel_def] >>
+  Cases_on`ra`>> fs[clos_relationTheory.res_rel_rw]>>
+  rw[] >> fs[] >> rw[] >>
+  fs[clos_relationTheory.res_rel_rw]>>
+  rw[] >> fs[] >> rw[] >> fs[]);
+
+val full_result_rel_ffi = Q.store_thm("full_result_rel_ffi",
+  `r ≠ Rerr (Rabort Rtype_error) ⇒
+   full_result_rel (r,s) (r1,s1) ⇒ s.ffi = s1.ffi`,
+  rw[full_result_rel_def] >>
+  imp_res_tac clos_relationPropsTheory.res_rel_ffi >>
+  fs[clos_annotateProofTheory.state_rel_def,
+     clos_numberProofTheory.state_rel_def,
+     state_rel_def] >> rfs[] >>
+  first_x_assum(match_mp_tac o GSYM) >>
+  strip_tac >> rw[] >> fs[] >> rw[] >>
+  Cases_on`r`>>fs[clos_relationTheory.res_rel_rw] >>
+  Cases_on`e`>>fs[clos_relationTheory.res_rel_rw] >>
+  Cases_on`a`>>fs[clos_relationTheory.res_rel_rw]);
 
 val compile_evaluate = Q.store_thm("compile_evaluate",
   `evaluate ([e],[],s) = (r,s') ∧
@@ -3745,6 +3793,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
     metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
               clos_numberTheory.renumber_code_locs_length,
               LENGTH, ONE] ) >>
+  first_x_assum(qspec_then`s.clock`strip_assume_tac) >>
   qspec_then`[e]`mp_tac clos_mtiProofTheory.intro_multi_correct >>
   simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
   disch_then(fn th => last_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
@@ -3778,6 +3827,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   disch_then(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
   disch_then(qspec_then`[]`mp_tac) >> simp[] >>
   disch_then(qspec_then`sb.clock`mp_tac) >> simp[] >>
+  discharge_hyps_keep >- fs[clos_numberProofTheory.state_rel_def] >>
   strip_tac >>
   qmatch_assum_abbrev_tac`res_rel _ q` >>
   Cases_on`q`>>fs[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> fs[] >>
@@ -3833,6 +3883,131 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
   simp[bvlSemTheory.dec_clock_def] >>
   metis_tac[clos_numberProofTheory.state_rel_def,
             clos_annotateProofTheory.state_rel_def]);
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧
+   compile c e = (c',p)  ∧
+   full_state_rel (s:'ffi closSem$state) s1 ∧
+   code_installed p s1.code ∧
+   semantics [] s [e] ≠ Fail
+   ⇒
+   semantics [] s1 [Call 0 (SOME c'.start) []] =
+   semantics [] s [e]`,
+  simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
+  simp[closSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`ffi` >> strip_tac >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >> simp[] >>
+    simp[GSYM PULL_FORALL] >>
+    discharge_hyps_keep >- metis_tac[FST] >>
+    imp_res_tac full_state_rel_with_clock >>
+    pop_assum(qspec_then`k`strip_assume_tac) >>
+    rpt(disch_then(fn th => first_assum(mp_tac o MATCH_MP th))) >> simp[] >>
+    strip_tac >>
+    simp[bvlSemTheory.semantics_def] >>
+    `r1 ≠ Rerr (Rabort Rtimeout_error) ∧
+     r1 ≠ Rerr (Rabort Rtype_error)` by (
+      conj_tac >>
+      strip_tac >> fs[] >>
+      imp_res_tac full_result_rel_abort ) >>
+    imp_res_tac full_result_rel_ffi >>
+    IF_CASES_TAC >> fs[] >- (
+      qmatch_assum_abbrev_tac`FST q = _` >>
+      Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      imp_res_tac bvlPropsTheory.evaluate_add_clock >> rfs[] >>
+      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
+      rpt var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
+      simp[inc_clock_def] >>
+      fsrw_tac[ARITH_ss][]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`ffi'` >> strip_tac >>
+      imp_res_tac evaluate_add_clock >>
+      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
+      rpt var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
+      simp[inc_clock_def] >>
+      fsrw_tac[ARITH_ss][]) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qexists_tac`ck + k` >> simp[]) >>
+  strip_tac >>
+  simp[bvlSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`FST q ≠ _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
+    simp[GSYM PULL_FORALL] >>
+    imp_res_tac full_state_rel_with_clock >>
+    pop_assum(qspec_then`k`strip_assume_tac) >>
+    rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
+    spose_not_then strip_assume_tac >>
+    qmatch_assum_abbrev_tac`FST q = _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    imp_res_tac evaluate_add_clock >> rfs[] >>
+    first_x_assum(qspec_then`ck`mp_tac) >>
+    simp[inc_clock_def] >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    imp_res_tac full_result_rel_abort) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`FST q = _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
+    simp[] >>
+    imp_res_tac full_state_rel_with_clock >>
+    pop_assum(qspec_then`k`strip_assume_tac) >>
+    rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
+    spose_not_then strip_assume_tac >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >> rfs[] >>
+    imp_res_tac evaluate_add_clock >>
+    first_x_assum(qspec_then`ck`mp_tac) >>
+    simp[inc_clock_def] >> spose_not_then strip_assume_tac >>
+    fs[] >> imp_res_tac full_result_rel_timeout ) >>
+  strip_tac >>
+  (*
+  the below does not work because the clocks are not the same: need to first
+  reason that adding to the clock on the BVL side does not change the
+  lprefix_lub.
+
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >> rw[] >>
+  (compile_evaluate
+   |> Q.GEN`s` |> Q.SPEC`s with clock := k`
+   |> GEN_ALL |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[]
+   |> Q.SPECL[`s1 with clock := k`,`s`,`k`,`e`,`c`]
+   |> mp_tac) >> simp[full_state_rel_with_clock] >>
+  rw[] >>
+  qmatch_assum_abbrev_tac`full_result_rel p1 p2` >>
+  Cases_on`p1`>>Cases_on`p2`>>fs[markerTheory.Abbrev_def] >>
+  ntac 2 (pop_assum(mp_tac o SYM)) >> ntac 2 strip_tac >> fs[] >>
+  qmatch_assum_rename_tac`full_result_rel (a1,b1) (a2,b2)` >>
+  `b1.ffi = b2.ffi` by metis_tac[full_result_rel_ffi,FST] >>
+  qmatch_abbrev_tac`_ (SND q) = _` >>
+  Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+  pop_assum(assume_tac o SYM) >>
+  qmatch_assum_rename_tac`_ = (r2,s2)` >>
+  `r2 = Rerr (Rabort Rtimeout_error)` by metis_tac[] >>
+  imp_res_tac evaluate_add_clock >>
+  last_x_assum(qspec_then`k`mp_tac) >> simp[]
+  *)
+  cheat);
 
 (* more correctness properties *)
 
