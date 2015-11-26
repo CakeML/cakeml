@@ -667,8 +667,8 @@ val with_v_lemma = Q.prove(
   rw[])
 
 val type_d_weakening = Q.store_thm ("type_d_weakening",
-`!mn decls tenv d decls' tenvT' tenvC' tenv' decls'' tenvM'' tenvC'' ttt.
-  type_d F mn decls tenv d decls' tenvT' tenvC' tenv' ∧
+`!mn decls tenv d decls' new_tenv decls'' tenvM'' tenvC'' ttt.
+  type_d F mn decls tenv d decls' new_tenv ∧
   weakM ttt.m tenv.m ∧
   weakC ttt.c tenv.c ∧
   ttt.v = tenv.v ∧ ttt.t = tenv.t ∧
@@ -676,7 +676,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
   weak_decls_other_mods mn decls'' decls ∧
   tenv_ctor_ok ttt.c
   ⇒
-  type_d F mn decls'' ttt d decls' tenvT' tenvC' tenv'`,
+  type_d F mn decls'' ttt d decls' new_tenv`,
  rw [type_d_cases]
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
@@ -745,8 +745,8 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  metis_tac []);
 
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
- `!uniq mn decls tenv ds decls' tenvT' tenvC' tenv'.
-   type_ds uniq mn decls tenv ds decls' tenvT' tenvC' tenv' ⇒
+ `!uniq mn decls tenv ds decls' new_tenv.
+   type_ds uniq mn decls tenv ds decls' new_tenv ⇒
    !decls'' ttt.
    uniq = F ∧
    weak_decls decls'' decls ∧
@@ -757,13 +757,13 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
    weakM ttt.m tenv.m ∧
    weakC ttt.c tenv.c
    ⇒
-   type_ds F mn decls'' ttt ds decls' tenvT' tenvC' tenv'`,
+   type_ds F mn decls'' ttt ds decls' new_tenv`,
   ho_match_mp_tac type_ds_ind >>
   rw [] >>
   rw [Once type_ds_cases] >>
   imp_res_tac type_d_weakening >>
   imp_res_tac type_d_ctMap_ok >>
-  `tenv_ctor_ok (merge_alist_mod_env ([],cenv') ttt.c)`
+  `tenv_ctor_ok (merge_alist_mod_env ([],FST (SND new_tenv1)) ttt.c)`
          by (rw [tenv_ctor_ok_merge] >>
              metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
   qcase_tac `weak_decls decls1 decls2` >>
