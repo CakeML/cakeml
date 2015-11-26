@@ -48,4 +48,29 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
   fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
   metis_tac[remove_SING,HD,SND,PAIR]);
 
+val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
+  `every_Fn_SOME [const_0]`,
+  EVAL_TAC)
+
+val every_Fn_SOME_remove = Q.store_thm("every_Fn_SOME_remove",
+  `∀es es' s.
+   every_Fn_SOME es ⇒
+   remove es = (es',s) ⇒
+   every_Fn_SOME es'`,
+  ho_match_mp_tac remove_ind >>
+  rw[remove_def] >> fs[LET_THM] >>
+  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
+  imp_res_tac remove_SING >>
+  rpt var_eq_tac >> fs[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >> rw[] >>
+  ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
+  simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
+  simp[GSYM every_Fn_SOME_EVERY] >>
+  simp[EVERY_MEM,FORALL_PROD] >> rw[] >>
+  fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+  res_tac >>
+  fs[Once every_Fn_SOME_EVERY,EVERY_MAP,EVERY_MEM] >>
+  metis_tac[remove_SING,HD,SND,PAIR]);
+
 val _ = export_theory();

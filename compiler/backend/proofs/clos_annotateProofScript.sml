@@ -1112,6 +1112,38 @@ val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
 val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
   `every_Fn_vs_SOME (annotate es)`, rw[annotate_def]);
 
+val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
+  `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`,
+  ho_match_mp_tac shift_ind >> rw[shift_def] >> rw[] >>
+  rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
+  imp_res_tac shift_SING >>
+  fs[Once every_Fn_SOME_EVERY] >>
+  rw[] >>
+  simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP] >>
+  simp[EVERY_MEM,FORALL_PROD] >>
+  simp[Once every_Fn_SOME_EVERY] >>
+  ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
+  simp[EVERY_MAP,EVERY_MEM,FORALL_PROD]);
+
+val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
+  `∀es. every_Fn_SOME (FST (free es)) = every_Fn_SOME es`,
+  ho_match_mp_tac free_ind >>
+  rw[free_def] >> fs[] >>
+  imp_res_tac free_SING >> fs[] >>
+  unabbrev_all_tac >> fs[] >>
+  simp[MAP_MAP_o,UNCURRY,o_DEF] >>
+  rpt (pop_assum mp_tac) >>
+  ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
+  rw[EVERY_MAP] >>
+  rw[EVERY_MEM] >>
+  rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >>
+  fs[GSYM every_Fn_SOME_EVERY] >>
+  metis_tac[free_SING,HD,FST,PAIR]);
+
+val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
+  `every_Fn_SOME (annotate es) ⇔ every_Fn_SOME es`, rw[annotate_def]);
+
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
 val shift_code_locs = prove(
