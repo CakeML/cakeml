@@ -1098,7 +1098,7 @@ val annotate_correct = save_thm("annotate_correct",
 
 (* more correctness properties *)
 
-val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift",
+val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
   `∀a b c d. every_Fn_vs_SOME (shift a b c d)`,
   ho_match_mp_tac shift_ind >> rw[shift_def] >> rw[] >>
   rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
@@ -1108,6 +1108,9 @@ val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift",
   simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP] >>
   simp[EVERY_MEM,FORALL_PROD] >>
   simp[Once every_Fn_vs_SOME_EVERY]);
+
+val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
+  `every_Fn_vs_SOME (annotate es)`, rw[annotate_def]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 

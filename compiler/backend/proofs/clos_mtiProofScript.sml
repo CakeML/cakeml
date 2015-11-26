@@ -100,4 +100,41 @@ val contains_App_SOME_intro_multi = Q.store_thm("contains_App_SOME_intro_multi[s
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     metis_tac[contains_App_SOME_collect_args,SND,PAIR]));
 
+val every_Fn_vs_NONE_collect_apps = Q.prove(
+  `∀es e x y. collect_apps es e = (x,y) ⇒
+  (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
+   every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])`,
+  ho_match_mp_tac collect_apps_ind >>
+  rw[collect_apps_def] >> fs[] >>
+  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
+  rw[] >> metis_tac[])
+
+val every_Fn_vs_NONE_collect_args = Q.prove(
+  `∀es e x y. collect_args es e = (x,y) ⇒
+    (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
+  ho_match_mp_tac collect_args_ind >>
+  rw[collect_args_def] >> fs[])
+
+val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[simp]",
+  `∀es. every_Fn_vs_NONE (intro_multi es) = every_Fn_vs_NONE es`,
+  ho_match_mp_tac intro_multi_ind >>
+  rw[intro_multi_def] >>
+  ONCE_REWRITE_TAC[CONS_APPEND] >>
+  REWRITE_TAC[HD_intro_multi] >>
+  fs[HD_intro_multi]
+  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >> rw[] )
+  >- metis_tac[every_Fn_vs_NONE_collect_apps]
+  >- metis_tac[every_Fn_vs_NONE_collect_args] >>
+  simp[MAP_MAP_o,o_DEF,UNCURRY] >>
+  AP_TERM_TAC >> AP_THM_TAC >> AP_TERM_TAC >>
+  pop_assum kall_tac >>
+  Induct_on`funs`>>
+  srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+  ONCE_REWRITE_TAC[CONS_APPEND] >>
+  REWRITE_TAC[HD_intro_multi] >>
+  rpt(pop_assum mp_tac) >>
+  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
+  srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+  metis_tac[every_Fn_vs_NONE_collect_args,SND,PAIR]);
+
 val _ = export_theory();
