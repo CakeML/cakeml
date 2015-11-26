@@ -3,11 +3,23 @@ open preamble
      bvlSemTheory bvlPropsTheory
      bvl_jumpProofTheory
      clos_to_bvlTheory;
+local open
+  clos_mtiProofTheory
+  clos_numberProofTheory
+  clos_removeProofTheory
+  clos_annotateProofTheory
+in end
 
 val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
+
+(* TODO: move *)
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `(s:'ffi closSem$state) with clock := s.clock = s`,
+  rw[closSemTheory.state_component_equality])
+(* -- *)
 
 (* TODO: move? *)
 
@@ -2229,7 +2241,7 @@ val no_partial_args = Q.prove (
   fs [] >>
   decide_tac);
 
-val s1 = ``s1:'ffi closSem$state``
+val s1 = ``s1:'ffi closSem$state``;
 
 val compile_exps_correct = Q.store_thm("compile_exps_correct",
   `(!tmp xs env ^s1 aux1 t1 env' f1 res s2 ys aux2.
@@ -2604,7 +2616,7 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
         \\ Cases_on `n = pp` \\ fs [] THEN1
          (SRW_TAC [] [] >>
           imp_res_tac EVERY2_REVERSE
-          \\ Q.PAT_ASSUM `LIST_REL (val_rel f2 t2.refs t2.code) (REVERSE a) (REVERSE ys)` MP_TAC
+          \\ Q.PAT_ASSUM `LIST_REL _ (REVERSE a) (REVERSE ys)` MP_TAC
           \\ MATCH_MP_TAC listTheory.LIST_REL_mono
           \\ REPEAT STRIP_TAC
           \\ MATCH_MP_TAC v_rel_NEW_REF \\ fs []
@@ -3689,6 +3701,139 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
              `ck + s1.clock − LENGTH args' = ck + (s1.clock − LENGTH args')` by decide_tac >>
              metis_tac []))));
 
+val full_state_rel_def = Define`
+  full_state_rel s1 s2 ⇔
+    ∃sa sb sc sd f.
+      state_rel s1.clock s1 sa ∧ s1.clock = sa.clock ∧
+      clos_numberProof$state_rel sa sb ∧
+      state_rel sb.clock sb sc ∧ sb.clock = sc.clock ∧
+      FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
+      clos_annotateProof$state_rel sc sd ∧
+      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sd.code ∧
+      FEVERY (λp. every_Fn_SOME [SND (SND p)]) sd.code ∧
+      clos_to_bvlProof$state_rel f sd s2`;
+
+val full_result_rel_def = Define`
+  full_result_rel (r1,s1) (r2,s2) ⇔
+    ∃ra rb rc rd sa sb sc sd f.
+      res_rel (r1,s1) (ra,sa) ∧
+      clos_numberProof$state_rel sa sb ∧
+      res_rel (rb,sb) (rc,sc) ∧
+      FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
+      clos_annotateProof$state_rel sc sd ∧
+      FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sd.code ∧
+      FEVERY (λp. every_Fn_SOME [SND (SND p)]) sd.code ∧
+      state_rel f sd s2 ∧
+      result_rel (LIST_REL clos_numberProof$v_rel) clos_numberProof$v_rel ra rb ∧
+      result_rel (LIST_REL clos_annotateProof$v_rel) clos_annotateProof$v_rel rc rd ∧
+      result_rel (LIST_REL (v_rel f s2.refs s2.code)) (v_rel f s2.refs s2.code) rd r2`;
+
+val compile_evaluate = Q.store_thm("compile_evaluate",
+  `evaluate ([e],[],s) = (r,s') ∧
+   ¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧
+   r ≠ Rerr (Rabort Rtype_error) ∧
+   compile c e = (c',p)  ∧
+   full_state_rel (s:'ffi closSem$state) s1 ∧
+   code_installed p s1.code
+   ⇒
+   ∃r1 s'1 ck.
+     evaluate ([Call 0 (SOME c'.start) []],[],s1 with clock := s.clock + ck) = (r1,s'1) ∧
+     full_result_rel (r,s') (r1,s'1)`,
+  rw[compile_def,LET_THM,full_state_rel_def] >>
+  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
+  `∃z. es = [z]` by (
+    metis_tac[clos_mtiTheory.intro_multi_sing, SING_HD, SND,
+              clos_numberTheory.renumber_code_locs_length,
+              LENGTH, ONE] ) >>
+  qspec_then`[e]`mp_tac clos_mtiProofTheory.intro_multi_correct >>
+  simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
+  disch_then(fn th => last_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  disch_then(qspec_then`[]`mp_tac) >> simp[] >>
+  disch_then(qspec_then`s.clock`mp_tac) >> simp[] >>
+  strip_tac >>
+  simp[full_result_rel_def,PULL_EXISTS] >>
+  qmatch_assum_abbrev_tac`res_rel _ q` >>
+  Cases_on`q`>>fs[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> fs[] >>
+  CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``res_rel`` o fst o strip_comb))) >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  (clos_numberProofTheory.renumber_code_locs_correct
+   |> CONJUNCT1 |> SIMP_RULE std_ss []
+   |> (fn th => first_assum (mp_tac o MATCH_MP th))) >>
+  simp[] >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+  disch_then(qspec_then`c.next_loc`mp_tac) >> simp[] >> strip_tac >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rator_x_assum`renumber_code_locs_list`mp_tac >>
+  specl_args_of_then``renumber_code_locs_list``
+    (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_vs_NONE)
+    assume_tac >>
+  specl_args_of_then``renumber_code_locs_list``
+    (CONJUNCT1 clos_numberProofTheory.renumber_code_locs_every_Fn_SOME)
+    assume_tac >>
+  strip_tac >> fs[] >> rfs[] >>
+  imp_res_tac clos_removeProofTheory.remove_correct >>
+  pop_assum kall_tac >>
+  pop_assum mp_tac >>
+  simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  disch_then(qspec_then`[]`mp_tac) >> simp[] >>
+  disch_then(qspec_then`sb.clock`mp_tac) >> simp[] >>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`res_rel _ q` >>
+  Cases_on`q`>>fs[markerTheory.Abbrev_def]>>pop_assum(assume_tac o SYM) >> fs[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  (clos_annotateProofTheory.annotate_correct
+   |> REWRITE_RULE[GSYM AND_IMP_INTRO]
+   |> GEN_ALL
+   |> (fn th => first_assum(mp_tac o MATCH_MP th))) >>
+  simp[GSYM PULL_FORALL] >>
+  discharge_hyps_keep >- (
+    strip_tac >>
+    Cases_on`r`>> fs[clos_relationTheory.res_rel_rw] >>
+    rw[] >> fs[] >> rw[] >> fs[clos_relationTheory.res_rel_rw] >>
+    qcase_tac`res_rel (Rerr err,_) _` >>
+    Cases_on`err`>>fs[clos_relationTheory.res_rel_rw] >>
+    rw[] >> fs[] >> rw[] >> fs[clos_relationTheory.res_rel_rw] >>
+    qcase_tac`Rabort a` >>
+    Cases_on`a`>>fs[clos_relationTheory.res_rel_rw] >>
+    rw[] >> fs[] >> rw[] >> fs[clos_relationTheory.res_rel_rw] ) >>
+  discharge_hyps >- metis_tac[clos_removeProofTheory.every_Fn_vs_NONE_remove] >>
+  disch_then(fn th => first_assum(qspec_then`[]`strip_assume_tac o MATCH_MP th)) >>
+  imp_res_tac evaluate_const >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  qmatch_assum_abbrev_tac`closSem$evaluate tmp = _` >>
+  qspec_then`tmp`mp_tac(CONJUNCT1 compile_exps_correct) >>
+  simp[Abbr`tmp`] >>
+  disch_then(qspec_then`[]`mp_tac) >> simp[] >>
+  CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``clos_to_bvlProof$state_rel`` o fst o strip_comb))))) >>
+  disch_then(fn th => first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
+  disch_then(qspec_then`[]`mp_tac) >>
+  simp[env_rel_def] >>
+  discharge_hyps >- (
+    rpt var_eq_tac >>
+    fs[code_installed_def] >>
+    imp_res_tac clos_removeProofTheory.every_Fn_SOME_remove >> simp[] >>
+    strip_tac >> fs[] ) >>
+  strip_tac >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  first_assum(match_exists_tac o concl) >> simp[] >>
+  rw[bvlSemTheory.evaluate_def] >>
+  rw[bvlSemTheory.find_code_def] >>
+  fs[code_installed_def] >>
+  imp_res_tac clos_removeTheory.remove_SING >>
+  qmatch_assum_rename_tac`compile_exps _ _ = (esl,_)` >>
+  `∃z. esl = [z]` by (
+    metis_tac[clos_annotateTheory.shift_SING,
+              clos_annotateTheory.annotate_def,
+              clos_freeTheory.free_SING, FST, PAIR,
+              compile_exps_SING] ) >>
+  fs[] >>
+  qexists_tac`ck+1` >>
+  simp[bvlSemTheory.dec_clock_def] >>
+  metis_tac[clos_numberProofTheory.state_rel_def,
+            clos_annotateProofTheory.state_rel_def]);
+
 (* more correctness properties *)
 
 val init_code_ok = Q.store_thm ("init_code_ok",
@@ -4311,13 +4456,6 @@ val contains_Call_renumber_code_locs = store_thm("contains_Call_renumber_code_lo
 val contains_App_SOME_cons = store_thm("contains_App_SOME_cons",
   ``contains_App_SOME (e::x) ⇔ contains_App_SOME [e] ∨ contains_App_SOME x``,
   METIS_TAC[contains_App_SOME_EXISTS,listTheory.EXISTS_DEF])
-
-val renumber_code_locs_length = store_thm("renumber_code_locs_length",
-  ``(∀x y. LENGTH (SND (renumber_code_locs_list x y)) = LENGTH y) ∧
-    (∀(x:num)(y:clos_exp). T)``,
-    ho_match_mp_tac renumber_code_locs_ind >>
-    simp[renumber_code_locs_def,UNCURRY] >> rw[] >>
-    tac >> fs[])
 
 val contains_App_SOME_renumber_code_locs = store_thm("contains_App_SOME_renumber_code_locs",
   ``(∀n e m f. renumber_code_locs_list n e = (m,f) ⇒
