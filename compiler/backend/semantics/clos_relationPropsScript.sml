@@ -19,15 +19,14 @@ val state_rel_ffi_mono = store_thm(
 
 val exp_rel_evaluate = store_thm(
   "exp_rel_evaluate",
-  ``(∀i v. val_rel (:'ffi) i v v) ⇒
-    ∀e1 e2.
+  ``∀e1 e2.
       exp_rel (:'ffi) e1 e2 ==>
       ∀(s1: 'ffi closSem$state) s2 k.
          state_rel k s1 s2 ⇒
          res_rel (evaluate (e1,[], s1 with clock := k))
                  (evaluate (e2,[], s2 with clock := k))``,
   simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
-  strip_tac >> qx_genl_tac [`e1`, `e2`] >> strip_tac >>
+  qx_genl_tac [`e1`, `e2`] >> strip_tac >>
   qx_genl_tac [`s1`, `s2`, `k`] >>
   first_x_assum (qspecl_then [`k`, `[]`, `[]`, `s1`, `s2`]
                              mp_tac) >> simp[])
@@ -229,11 +228,11 @@ val _ = temp_overload_on("terminates",``λe s ffi.
 
 val exp_rel_semantics = store_thm(
   "exp_rel_semantics",
-  ``(∀i v. val_rel (:'ffi) i v v) ⇒
-    ∀e1 e2 (s1:'ffi closSem$state) s2.
-      exp_rel (:'ffi) e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ semantics [] s1 e1 ≠ Fail ⇒
+  ``∀e1 e2 (s1:'ffi closSem$state) s2.
+      exp_rel (:'ffi) e1 e2 ∧ (∀i. state_rel i s1 s2) ∧
+      semantics [] s1 e1 ≠ Fail ⇒
       semantics [] s1 e1 = semantics [] s2 e2``,
-  strip_tac >> qx_genl_tac [`e1`, `e2`, `s1`, `s2`] >> strip_tac >>
+  qx_genl_tac [`e1`, `e2`, `s1`, `s2`] >> strip_tac >>
   simp[semantics_def] >>
   `fails e1 s1 ⇔ fails e2 s2` by (
     rw[EQ_IMP_THM] >>
@@ -289,7 +288,6 @@ val exp_rel_semantics = store_thm(
 
 val exp_rel_rtc_semantics_lem = Q.prove (
  `!e1 e2. (exp_rel (:'ffi))^* e1 e2 ⇒
-   (∀i v. val_rel (:'ffi) i v v) ⇒
     ∀(s1:'ffi closSem$state) s2.
       (∀i. state_rel i s1 s2) ∧ ¬(semantics [] s1 e1 = Fail) ⇒
        semantics [] s1 e1 = semantics [] s2 e2`,
@@ -298,8 +296,7 @@ val exp_rel_rtc_semantics_lem = Q.prove (
 
 val exp_rel_rtc_semantics = Q.store_thm(
   "exp_rel_rtc_semantics",
-  `(∀i v. val_rel (:'ffi) i v v) ⇒
-    ∀e1 e2 (s1:'ffi closSem$state) s2.
+  `∀e1 e2 (s1:'ffi closSem$state) s2.
       (exp_rel (:'ffi))^* e1 e2 ∧ (∀i. state_rel i s1 s2) ∧ ¬(semantics [] s1 e1 = Fail) ⇒
        semantics [] s1 e1 = semantics [] s2 e2`,
  metis_tac [exp_rel_rtc_semantics_lem]);
