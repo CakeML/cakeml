@@ -23,8 +23,8 @@ open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
 open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
-
-open source_to_targetTheory mod_to_targetTheory con_to_targetTheory dec_to_targetTheory exh_to_targetTheory pat_to_targetTheory clos_to_targetTheory bvl_to_targetTheory bvi_to_targetTheory bvp_to_targetTheory word_to_targetTheory stack_to_targetTheory lab_to_targetTheory
+open backendTheory
+open compute_semanticsLib
 
 (*Order of thms shown below is in the following order:
 First, all the small compilation steps between ILs + IL to IL transforms
@@ -44,6 +44,15 @@ let
   val add_datatype = compute_basicLib.add_datatype compset
   val add_thms = Lib.C computeLib.add_thms compset
 in
+  (*configurations*)
+    add_datatype``:source_to_mod$config``;
+    add_datatype``:mod_to_con$config``;
+    add_datatype``:clos_to_bvl$config``;
+    add_datatype``:bvp_to_word$config``;
+    add_datatype``:stack_to_lab$config``;
+    add_datatype``:'a lab_to_target$config``;
+    add_datatype``:'a asm_config``;
+    add_datatype``:'a backend$config``;
   (* modLang *)
     add_datatype ``:modLang$exp``
   ; add_datatype ``:modLang$dec``
@@ -57,6 +66,7 @@ in
     ,source_to_modTheory.compile_exp_def
     ,source_to_modTheory.alloc_defs_def
     ,source_to_modTheory.Bool_def
+    ,source_to_modTheory.compile_def
     ]
   (* conLang *)
   ; add_thms
@@ -93,6 +103,7 @@ in
     ,mod_to_conTheory.get_exh_def
     ,mod_to_conTheory.alloc_tag_def
     ,mod_to_conTheory.alloc_tags_def
+    ,mod_to_conTheory.compile_def
     ]
   (* decLang *)
   (* con_to_dec *)
@@ -102,6 +113,7 @@ in
     ,con_to_decTheory.init_globals_def
     ,con_to_decTheory.init_global_funs_def
     ,con_to_decTheory.compile_decs_def
+    ,con_to_decTheory.compile_def
     ]
   (* exhLang *)
   ; add_datatype``:exhLang$pat``
@@ -132,6 +144,7 @@ in
     ,exh_to_patTheory.pure_op_def
     ,exh_to_patTheory.pure_op_op_def
     ,exh_to_patTheory.Bool_def
+    ,exh_to_patTheory.compile_def
     ]
   (* closLang *)
   ; add_datatype``:closLang$exp``
@@ -142,6 +155,7 @@ in
     [pat_to_closTheory.compile_def
     ,pat_to_closTheory.string_tag_def
     ,pat_to_closTheory.vector_tag_def
+    ,pat_to_closTheory.compile_def
     (*,pat_to_closTheory.pat_tag_shift_def*)
     ]
   (* clos_mti *)
@@ -172,7 +186,7 @@ in
   (* clos_annotate *)
   ; add_thms
     [clos_annotateTheory.get_var_def
-    ,clos_annotateTheory.new_env_def
+    ,clos_annotateTheory.shifted_env_def
     ,clos_annotateTheory.annotate_def
     ,clos_annotateTheory.shift_def
     ]
@@ -223,8 +237,8 @@ in
     ,clos_to_bvlTheory.Bool_def
     ,clos_to_bvlTheory.bool_to_tag_def
     ,clos_to_bvlTheory.clos_tag_shift_def
+    ,clos_to_bvlTheory.compile_exps_def
     ]
-  (*TODO:bvl to bvp compilation steps*)
   (* bvi *)
   ; add_datatype``:bvi$exp``
   (* bvl_to_bvi *)
@@ -245,8 +259,6 @@ in
     ,bvl_to_bviTheory.InitGlobals_location_def
     ,bvl_to_bviTheory.compile_int_def
     ]
-  (*TODO: bvi to bvi compilation steps*)
-
   (* bvp *)
   ; add_datatype``:bvp$prog``
   (*TODO: Not sure why this is in bvpTheory*)
@@ -297,9 +309,17 @@ in
   ; add_thms
     [word_instTheory.num_exp_def
     ,word_instTheory.three_to_two_reg_def
+    ,word_instTheory.pull_exp_def
     ,word_instTheory.inst_select_def
-    ,word_instTheory.flatten_exp_def
     ,word_instTheory.inst_select_exp_def
+    ,word_instTheory.flatten_exp_def
+    ,word_instTheory.op_consts_def
+    ,word_instTheory.optimize_consts_def
+    ,word_instTheory.pull_ops_def
+    ,word_instTheory.convert_sub_def
+    ,word_instTheory.rm_const_def
+    ,word_instTheory.is_const_def
+    , word_instTheory.word_op_def
     ]
 
   (*wordLang ssa form and interface to reg allocator*)
@@ -347,7 +367,7 @@ in
   ; add_datatype ``:ra_state``
 
   (*monadic*)
-  ; computeLib.add_thms
+  ; add_thms
     [state_transformerTheory.MWHILE_DEF
     ,state_transformerTheory.BIND_DEF
     ,state_transformerTheory.UNIT_DEF
@@ -357,7 +377,7 @@ in
     ]
 
   (*sorting*)
-  ; computeLib.add_thms
+  ; add_thms
     [sortingTheory.PARTITION_DEF
     ,sortingTheory.PART_DEF
     ,sortingTheory.QSORT_DEF
@@ -507,6 +527,8 @@ in
     ,word_to_stackTheory.wStackLoad_def
     ,word_to_stackTheory.wReg2_def
     ,word_to_stackTheory.wRegImm2_def
+    ,word_to_stackTheory.compile_prog_def
+    ,word_to_stackTheory.compile_single_def
     ]
   (*stack_remove*)
   ; add_thms
@@ -547,6 +569,13 @@ in
     ,stack_to_labTheory.prog_to_section_def
     ,stack_to_labTheory.flatten_def
     ,stack_to_labTheory.compile_jump_def
+    ,stack_to_labTheory.move_inst_def
+    ,stack_to_labTheory.stub1_def
+    ,stack_to_labTheory.compile_def
+    ,stack_to_labTheory.seq_list_def
+    ,stack_to_labTheory.stub0_def
+    ,stack_to_labTheory.sub_inst_def
+    ,stack_to_labTheory.const_inst_def
     ]
   (*labLang*)
   ; add_datatype``:lab``
@@ -592,7 +621,36 @@ in
     ,lab_to_targetTheory.enc_sec_def
     ,lab_to_targetTheory.enc_line_def
     ]
-
+  (*Everything in backend theory*)
+  ; add_thms
+    [backendTheory.to_mod_def
+    ,backendTheory.to_target_def
+    ,backendTheory.from_source_def
+    ,backendTheory.from_mod_def
+    ,backendTheory.from_con_def
+    ,backendTheory.from_dec_def
+    ,backendTheory.from_exh_def
+    ,backendTheory.from_pat_def
+    ,backendTheory.from_clos_def
+    ,backendTheory.from_bvl_def
+    ,backendTheory.from_bvi_def
+    ,backendTheory.from_bvp_def
+    ,backendTheory.from_word_def
+    ,backendTheory.from_stack_def
+    ,backendTheory.from_lab_def
+    ,backendTheory.compile_def
+    ,backendTheory.to_pat_def
+    ,backendTheory.to_lab_def
+    ,backendTheory.to_stack_def
+    ,backendTheory.to_word_def
+    ,backendTheory.to_bvp_def
+    ,backendTheory.to_bvi_def
+    ,backendTheory.to_bvl_def
+    ,backendTheory.to_clos_def
+    ,backendTheory.to_exh_def
+    ,backendTheory.to_con_def
+    ,backendTheory.to_dec_def
+    ]
   (*Missing def from miscTheory used in lab_to_target.
   TODO: Move into HOL or move into lab_to_target itself?*)
   ; add_thms[miscTheory.lookup_any_def]
@@ -608,63 +666,7 @@ in
   ; add_datatype ``:mem_op``
   ; add_datatype ``:'a inst``
   ; add_datatype ``:'a asm``
-  (*stack_to_target*)
-  ; add_thms
-    [stack_to_targetTheory.move_inst_def
-    ,stack_to_targetTheory.stub1_def
-    ,stack_to_targetTheory.compile_def
-    ,stack_to_targetTheory.seq_list_def
-    ,stack_to_targetTheory.stub0_def
-    ,stack_to_targetTheory.sub_inst_def
-    ,stack_to_targetTheory.const_inst_def
-    ]
-  (*word_to_target*)
-  ; add_thms
-    [word_to_targetTheory.compile_single_def
-    ,word_to_targetTheory.get_conf_props_def
-    ,word_to_targetTheory.compile_def
-    ]
-  (*bvp_to_target*)
-  ; add_thms
-    [bvp_to_targetTheory.compile_def
-    ]
-  (*bvi_to_target*)
-  ; add_thms
-    [bvi_to_targetTheory.compile_def
-    ]
-  (*bvl_to_target*)
-  ; add_thms
-    [bvl_to_targetTheory.compile_def
-    ]
-  (*clos_to_target*)
-  ; add_thms
-    [clos_to_targetTheory.compile_def
-    ]
-  (*pat_to_target*)
-  ; add_thms
-    [pat_to_targetTheory.compile_def
-    ]
-  (*exh_to_target*)
-  ; add_thms
-    [exh_to_targetTheory.compile_def
-    ]
-  (*dec_to_target*)
-  ; add_thms
-    [dec_to_targetTheory.compile_def
-    ]
-  (*con_to_target*)
-  ; add_thms
-    [con_to_targetTheory.compile_def
-    ]
-  (*mod_to_target*)
-  ; add_thms
-    [mod_to_targetTheory.compile_def
-    ]
-  (*source_to_target*)
-  ; add_thms
-    [source_to_targetTheory.compile_def
-    ]
-end
+  end
 
 val the_compiler_compset =
   let
@@ -678,24 +680,62 @@ val the_compiler_compset =
 end
 
 (*Testing -- random examples*)
-(*
-open compilerComputeLib
-
 val compset = the_compiler_compset
+val () = computeLib.add_thms [x64_config_def] compset
+
+
 val eval = computeLib.CBV_CONV compset
 
-eval``source_to_target$compile``
-eval ``get_conf_props (LN,0:num,0:num,c with <|two_reg_arith:=T;reg_count:=5|>,enc,LN)``
+(*val x64_lab_conf = ``(x64_config,x64_enc,LN):64 lab_conf``*)
+val source_conf = ``<|next_global:=0;mod_env:=(FEMPTY,FEMPTY)|>``
+val mod_conf = ``<|next_exception:=LN;tag_env:=(FEMPTY,FEMPTY);exh_ctors_env:=FEMPTY|>``
+val clos_conf = ``<|next_loc := 0 ; start:=0|>``
+val bvl_conf = ``0:num``
+val bvp_conf = ``<| tag_bits:=8; len_bits:=8; pad_bits:=0; len_size:=16|>``
+val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;base_ptr:=6|>``
+(*??*)
+val lab_conf = ``<|encoder:=x64_enc;lalala:=LN|>``
+val asm_conf =``x64_config``
 
-val foo = eval``word_to_target$compile_single T 5 (10,10,(Seq (Seq (Move 0 [1:num,2;3,4;5,6]) (Move 0 [1,1;3,3;5,5])) (Return 1 2)):64 wordLang$prog)``
+val conf = ``<|source_conf:=^(source_conf);
+               mod_conf:=^(mod_conf);
+               clos_conf:=^(clos_conf);
+               bvl_conf:=^(bvl_conf);
+               bvp_conf:=^(bvp_conf);
+               stack_conf:=^(stack_conf);
+               lab_conf:=^(lab_conf);
+               asm_conf:=x64_config
+               |>``
 
--- Doesn't run--
-val foo = eval``word_to_target$compile (LN,0:num,0:num,c with <|two_reg_arith:=T;reg_count:=5|>,enc,LN) [1,2,(Seq (Move 0 [1:num,2]) Skip)]``
+val prog = ``[Tdec (Dlet (Pvar "x") (Fun "x" (Var (Short "x"))))]``
 
-val foo = eval`` stack_to_lab$compile [(0:num,Skip:8 stackLang$prog)]``
-val foo2 = eval ``stack_to_target$compile (LN,1:num,2:num,c) [0,(Seq (Skip:8 stackLang$prog) (StackStore 5 3 ))]``
-val foo2 = eval ``stack_to_target$compile (LN,1:num,2:num,c) [0,Skip:64 stackLang$prog]``
+val _ = PolyML.timing true;
+val test = eval ``
+    let (c,p) = (^(conf),^(prog)) in
+    let (c',p) = source_to_mod$compile c.source_conf p in
+    let c = c with source_conf := c' in
+    let (c',p) = mod_to_con$compile c.mod_conf p in
+    let c = c with mod_conf := c' in
+    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
+    let c = c with source_conf updated_by (λc. c with next_global := n) in
+    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+    let e = exh_to_pat$compile e in
+    let e = pat_to_clos$compile e in
+    let (c',p) = clos_to_bvl$compile c.clos_conf e in
+    let c = c with clos_conf := c' in
+    let (s,p,c') = bvl_to_bvi$compile_prog c.clos_conf.start c.bvl_conf p in
+    let c = c with <| clos_conf updated_by (λc. c with start := s)
+                    ; bvl_conf := c' |> in
+    let p = bvi_to_bvp$compile_prog p in
+    let p = bvp_to_word$compile c.bvp_conf p in
+    let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+    let p = stack_to_lab$compile c.clos_conf.start c.stack_conf p in
+      p``;
+    (*This last bit doesn't work since it needs x64
+    let b = lab_to_target$compile c.asm_conf c.lab_conf p in
+    OPTION_MAP (λb. (b,c)) b``*)
 
-*)
+val test2 = eval``to_lab ^(conf) ^(prog)``
+
 
 end
