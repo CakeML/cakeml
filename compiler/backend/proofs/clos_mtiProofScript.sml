@@ -24,7 +24,7 @@ val collect_apps_correct = Q.prove (
  ho_match_mp_tac collect_apps_ind >>
  rw [collect_apps_def]
  >- (
-   `exp_rel (:'ffi) [App NONE (App NONE e es) args] [App NONE e (args++es)]` 
+   `exp_rel (:'ffi) [App NONE (App NONE e es) args] [App NONE e (args++es)]`
    by (
      match_mp_tac app_combine >>
      simp [exp_rel_refl]) >>
@@ -51,5 +51,53 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  >- cheat
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
-val _ = export_theory();
+val HD_intro_multi = Q.prove(
+  `[HD (intro_multi [e])] = intro_multi [e]`,
+  metis_tac[intro_multi_sing,HD])
 
+val contains_App_SOME_collect_args = Q.store_thm("contains_App_SOME_collect_args",
+  `∀x y a b. collect_args x y = (a,b) ⇒
+    (contains_App_SOME [y] ⇔ contains_App_SOME [b])`,
+  ho_match_mp_tac collect_args_ind >>
+  rw[collect_args_def,contains_App_SOME_def] >>
+  rw[contains_App_SOME_def]);
+
+val contains_App_SOME_collect_apps = Q.store_thm("contains_App_SOME_collect_apps",
+  `∀x y a b. collect_apps x y = (a,b) ⇒
+    (max_app < LENGTH x ∨ contains_App_SOME x ∨ contains_App_SOME [y] ⇔
+     max_app < LENGTH a ∨ contains_App_SOME a ∨ contains_App_SOME [b])`,
+  ho_match_mp_tac collect_apps_ind >>
+  rw[collect_apps_def,contains_App_SOME_def] >>
+  rw[contains_App_SOME_def] >> fs[] >>
+  Cases_on`max_app < LENGTH x`>>fs[] >- DECIDE_TAC >>
+  Cases_on`max_app < LENGTH es`>>fs[] >- DECIDE_TAC >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >> rw[] >>
+  rpt (pop_assum mp_tac) >>
+  ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> rw[] >>
+  metis_tac[]);
+
+val contains_App_SOME_intro_multi = Q.store_thm("contains_App_SOME_intro_multi[simp]",
+  `∀es. contains_App_SOME (intro_multi es) ⇔ contains_App_SOME es`,
+  ho_match_mp_tac intro_multi_ind >>
+  rw[intro_multi_def,contains_App_SOME_def] >>
+  ONCE_REWRITE_TAC[CONS_APPEND] >>
+  REWRITE_TAC[HD_intro_multi] >>
+  fs[HD_intro_multi] >>
+  fs[contains_App_SOME_def,HD_intro_multi,intro_multi_length]
+  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> rw[] )
+  >- metis_tac[contains_App_SOME_collect_apps]
+  >- metis_tac[contains_App_SOME_collect_args]
+  >- (
+    simp[MAP_MAP_o,UNCURRY,o_DEF] >>
+    AP_THM_TAC >> AP_TERM_TAC >>
+    pop_assum kall_tac >>
+    Induct_on`funs`>>
+    srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    ONCE_REWRITE_TAC[CONS_APPEND] >>
+    REWRITE_TAC[HD_intro_multi] >>
+    rpt(pop_assum mp_tac) >>
+    ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >>
+    srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    metis_tac[contains_App_SOME_collect_args,SND,PAIR]));
+
+val _ = export_theory();
