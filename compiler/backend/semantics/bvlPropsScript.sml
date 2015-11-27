@@ -176,11 +176,23 @@ val inc_clock_refs = Q.store_thm ("inc_clock_refs",
   `!n (s:'ffi bvlSem$state). (inc_clock n s).refs = s.refs`,
   rw [inc_clock_def]);
 
+val inc_clock_ffi = Q.store_thm ("inc_clock_ffi[simp]",
+  `!n (s:'ffi bvlSem$state). (inc_clock n s).ffi = s.ffi`,
+  rw [inc_clock_def]);
+
+val inc_clock_clock = Q.store_thm ("inc_clock_clock[simp]",
+  `!n (s:'ffi bvlSem$state). (inc_clock n s).clock = s.clock + n`,
+  rw [inc_clock_def]);
+
 val inc_clock0 = Q.store_thm ("inc_clock0",
   `!n (s:'ffi bvlSem$state). inc_clock 0 s = s`,
   simp [inc_clock_def, state_component_equality]);
 
 val _ = export_rewrites ["inc_clock_refs", "inc_clock_code", "inc_clock0"];
+
+val inc_clock_add = Q.store_thm("inc_clock_add",
+  `inc_clock k1 (inc_clock k2 s) = inc_clock (k1 + k2) s`,
+  simp[inc_clock_def,state_component_equality]);
 
 val dec_clock_code = Q.store_thm ("dec_clock_code",
   `!n (s:'ffi bvlSem$state). (dec_clock n s).code = s.code`,
@@ -188,6 +200,10 @@ val dec_clock_code = Q.store_thm ("dec_clock_code",
 
 val dec_clock_refs = Q.store_thm ("dec_clock_refs",
   `!n (s:'ffi bvlSem$state). (dec_clock n s).refs = s.refs`,
+  rw [dec_clock_def]);
+
+val dec_clock_ffi = Q.store_thm ("dec_clock_ffi[simp]",
+  `!n (s:'ffi bvlSem$state). (dec_clock n s).ffi = s.ffi`,
   rw [dec_clock_def]);
 
 val dec_clock0 = Q.store_thm ("dec_clock0",
@@ -267,6 +283,73 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
       >- decide_tac >>
       `r.clock + ck - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
       metis_tac []));
+
+val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
+  `do_app op vs s1 = Rval (x,s2) ⇒
+   s1.ffi.io_events ≼ s2.ffi.io_events ∧
+   (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+  rw[do_app_def] >> every_case_tac >> fs[LET_THM] >> rw[] >> fs[] >>
+  fs[ffiTheory.call_FFI_def] >> every_case_tac >> fs[] >> rw[]);
+
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `!exps env s1 res s2.
+    evaluate (exps,env,s1) = (res, s2)
+    ⇒
+    s1.ffi.io_events ≼ s2.ffi.io_events ∧
+    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+  recInduct evaluate_ind >>
+  rw [evaluate_def] >>
+  every_case_tac >> fs[] >>
+  rw[] >> rfs[] >>
+  metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono])
+
+val Boolv_11 = store_thm("Boolv_11[simp]",``bvlSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
+
+val do_app_inc_clock = Q.prove(
+  `do_app op vs (inc_clock x y) =
+   map_result (λ(v,s). (v,s with clock := x + y.clock)) I (do_app op vs y)`,
+  Cases_on`do_app op vs y` >>
+  imp_res_tac do_app_change_clock_err >>
+  TRY(Cases_on`a`>>imp_res_tac do_app_change_clock) >>
+  fs[inc_clock_def] >> simp[])
+
+val dec_clock_1_inc_clock = Q.prove(
+  `x ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock (x-1) s`,
+  simp[state_component_equality,inc_clock_def,dec_clock_def])
+
+val dec_clock_1_inc_clock2 = Q.prove(
+  `s.clock ≠ 0 ⇒ dec_clock 1 (inc_clock x s) = inc_clock x (dec_clock 1 s)`,
+  simp[state_component_equality,inc_clock_def,dec_clock_def])
+
+val dec_clock_inc_clock = Q.prove(
+  `¬(s.clock < n) ⇒ dec_clock n (inc_clock x s) = inc_clock x (dec_clock n s)`,
+  simp[state_component_equality,inc_clock_def,dec_clock_def])
+
+val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
+  `∀exps env s extra.
+    (SND(evaluate(exps,env,s))).ffi.io_events ≼
+    (SND(evaluate(exps,env,inc_clock extra s))).ffi.io_events ∧
+    (IS_SOME((SND(evaluate(exps,env,s))).ffi.final_event) ⇒
+     (SND(evaluate(exps,env,inc_clock extra s))).ffi =
+     (SND(evaluate(exps,env,s))).ffi)`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >>
+  TRY (
+    qcase_tac`Boolv T` >>
+    qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
+    ntac 4 (BasicProvers.CASE_TAC >> fs[] >> rfs[]) >>
+    ntac 2 (TRY (BasicProvers.CASE_TAC >> fs[] >> rfs[])) >>
+    rw[] >> fs[] >> rfs[]) >>
+  every_case_tac >> fs[] >> rfs[] >>
+  fs[dec_clock_1_inc_clock,dec_clock_1_inc_clock2] >>
+  imp_res_tac evaluate_add_clock >> rfs[] >> fs[] >> rw[] >>
+  imp_res_tac evaluate_io_events_mono >> rfs[] >> fs[] >> rw[] >>
+  rfs[do_app_inc_clock] >> fs[] >> rw[] >> fs[] >>
+  imp_res_tac do_app_io_events_mono >>
+  TRY(fsrw_tac[ARITH_ss][] >>NO_TAC) >>
+  fs[dec_clock_inc_clock] >>
+  metis_tac[evaluate_io_events_mono,SND,IS_PREFIX_TRANS,Boolv_11,PAIR,
+            inc_clock_ffi,dec_clock_ffi]);
 
 val take_drop_lem = Q.prove (
   `!skip env.

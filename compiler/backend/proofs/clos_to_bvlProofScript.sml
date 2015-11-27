@@ -3991,7 +3991,15 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[prefix_chain_def,PULL_EXISTS] >>
     qx_genl_tac[`k1`,`k2`] >>
     qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-    cheat (* monotonicity of io_events in both closLang and BVL *) ) >>
+    metis_tac[
+      LESS_EQ_EXISTS,
+      closPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONJUNCT1 |> CONV_RULE(RESORT_FORALL_CONV List.rev)
+        |> Q.SPEC`s with clock := k` |> SIMP_RULE (srw_ss())[],
+      bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+        |> Q.SPEC`s with clock := k`
+        |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]]) >>
   simp[equiv_lprefix_chain_thm] >>
   unabbrev_all_tac >> simp[PULL_EXISTS] >>
   ntac 2 (pop_assum kall_tac) >>
@@ -4019,7 +4027,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
   >- ( qexists_tac`ck+k` >> fs[] ) >>
   qexists_tac`k` >> fs[] >>
   qmatch_assum_abbrev_tac`n < (LENGTH (_ ffi))` >>
-  `ffi.io_events ≼ b2.ffi.io_events` by cheat (* monotonicity of BVL io_events *) >>
+  `ffi.io_events ≼ b2.ffi.io_events` by (
+    qunabbrev_tac`ffi` >>
+    metis_tac[
+      bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+        |> Q.SPEC`s with clock := k`
+        |> SIMP_RULE(srw_ss())[bvlPropsTheory.inc_clock_def],
+      SND,ADD_SYM]) >>
   fs[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
 (* more correctness properties *)
