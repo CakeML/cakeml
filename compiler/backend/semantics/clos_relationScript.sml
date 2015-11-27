@@ -2105,16 +2105,16 @@ fun PART_MATCH' f th t =
     GENL vs' (INST_TY_TERM theta specth)
   end
 
-
 val val_rel_trans = Q.store_thm ("val_rel_trans",
-`(!(ffi:'ffi itself) i v1 v2. val_rel ffi i v1 v2 ⇒
-    !v3. (!i'. val_rel ffi i' v2 v3) ⇒ val_rel ffi i v1 v3) ∧
- (!i (st1:val_or_exp # 'ffi closSem$state) st2. exec_rel i st1 st2 ⇒
-     !st3. (!i'. exec_rel i' st2 st3) ⇒ exec_rel i st1 st3) ∧
- (!(ffi:'ffi itself) i rv1 rv2. ref_v_rel ffi i rv1 rv2 ⇒
-     !rv3. (!i'. ref_v_rel ffi i' rv2 rv3) ⇒ ref_v_rel ffi i rv1 rv3) ∧
- (!i (s1 : 'ffi closSem$state) s2. state_rel i s1 s2 ⇒
-     !s3. (!i'. state_rel i' s2 s3) ⇒ state_rel i s1 s3)`,
+`(!(ffi:'ffi itself) i v1 v2.
+    val_rel ffi i v1 v2 ⇒ !v3. val_rel ffi i v2 v3 ⇒ val_rel ffi i v1 v3) ∧
+ (!i (st1:val_or_exp # 'ffi closSem$state) st2.
+    exec_rel i st1 st2 ⇒ !st3. exec_rel i st2 st3 ⇒ exec_rel i st1 st3) ∧
+ (!(ffi:'ffi itself) i rv1 rv2.
+    ref_v_rel ffi i rv1 rv2 ⇒
+    !rv3. ref_v_rel ffi i rv2 rv3 ⇒ ref_v_rel ffi i rv1 rv3) ∧
+ (!i (s1 : 'ffi closSem$state) s2.
+    state_rel i s1 s2 ⇒ !s3. state_rel i s2 s3 ⇒ state_rel i s1 s3)`,
  ho_match_mp_tac val_rel_ind >>
  rw [is_closure_def]
  >- fs [val_rel_rw]
@@ -2136,7 +2136,9 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
  >- fs [val_rel_rw]
  >- fs [val_rel_rw]
  >- fs [val_rel_rw]
- >- fs [val_rel_rw]
+ >- (
+  RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [val_rel_rw]) >> fs[]
+ )
  (* Closure *)
  >- (
   qcase_tac `val_rel _ i (Closure locopt argE closE n e) V` >>
@@ -2170,23 +2172,20 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
   simp[SimpL ``$==>``, optCASE_NONE_F] >>
   disch_then (qx_choose_then `dcres2` mp_tac) >>
+  `vs2 ≠ []` by (strip_tac >> fs[]) >>
   Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        strip_assume_tac th) >>
   simp_tac (srw_ss()) [] >>
-  Q.UNDISCH_THEN `!i. val_rel (:'ffi) i V0 V` mp_tac >>
+  Q.UNDISCH_THEN `val_rel (:'ffi) i V0 V` mp_tac >>
   Cases_on `V0` >> RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [is_closure_def]) >>
   simp[SimpL ``$==>``, val_rel_rw] >> TRY (FIRST_ASSUM ACCEPT_TAC) >>
   simp[optCASE_NONE_F, optCASE_NONE_T] >>
   disch_then (mp_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
-  qpat_assum `dest_closure _ _ vs2 = _` (fn tth =>
-    disch_then (fn th =>
-      mp_tac
-        (PART_MATCH' (fn t => t |> dest_imp |> #2 |> dest_imp |> #1)
-                     th
-                     (concl tth))) >>
-    assume_tac tth) >>
-  simp[] >> cheat)
+  disch_then (qspecl_then [`j`, `vs2`, `vs2`, `s2`, `s2`, `clocopt`] mp_tac) >>
+  simp[state_rel_refl, val_rel_refl] >>
+  disch_then (qx_choose_then `dcres3` mp_tac) >>
+  Cases_on `dcres3` >> simp[])
  (* RecClosure *)
  >- cheat
  (* exec_rel *)
