@@ -2081,6 +2081,31 @@ val state_rel_refl = Q.store_thm ("state_rel_refl",
    `exp_rel (:'a) [p_2] [p_2]` by metis_tac [exp_rel_refl] >>
    fs [exp_rel_def]));
 
+val val_rel_closure = Q.store_thm(
+  "val_rel_closure",
+  `val_rel (:'ffi) i C1 C2 ∧ is_closure C1 ⇒
+   is_closure C2 ∧ check_closures C1 C2`,
+  Cases_on `C1` >> simp[is_closure_def] >> simp[val_rel_rw]);
+
+val check_closures_trans = Q.store_thm(
+  "check_closures_trans",
+  `check_closures c1 c2 ∧ check_closures c2 c3 ⇒ check_closures c1 c3`,
+  simp[check_closures_def] >> metis_tac[]);
+
+fun PART_MATCH' f th t =
+  let
+    val (vs, b) = strip_forall (concl th)
+    val specth = SPEC_ALL th
+    val pat = f (concl specth)
+    val localconsts = hyp_frees specth
+    val localtycons = HOLset.listItems (hyp_tyvars specth)
+    val theta as (tms, tys) = match_terml localtycons localconsts pat t
+    val vs' = set_diff (map (Term.inst tys) vs) (map #redex tms)
+  in
+    GENL vs' (INST_TY_TERM theta specth)
+  end
+
+
 val val_rel_trans = Q.store_thm ("val_rel_trans",
 `(!(ffi:'ffi itself) i v1 v2. val_rel ffi i v1 v2 ⇒
     !v3. (!i'. val_rel ffi i' v2 v3) ⇒ val_rel ffi i v1 v3) ∧
@@ -2113,7 +2138,55 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
  >- fs [val_rel_rw]
  >- fs [val_rel_rw]
  (* Closure *)
- >- cheat
+ >- (
+  qcase_tac `val_rel _ i (Closure locopt argE closE n e) V` >>
+  qmatch_assum_rename_tac `val_rel _ i (Closure _ _ _ _ _) V0` >>
+  qabbrev_tac `C1 = Closure locopt argE closE n e` >>
+  `is_closure C1` by (simp_tac (srw_ss()) [Abbr`C1`, is_closure_def]) >>
+  Q.SUBGOAL_THEN
+    `is_closure V0 ∧ check_closures C1 V0 ∧ is_closure V ∧
+     check_closures V0 V
+    `
+    (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+              STRIP_ASSUME_TAC th)
+  >- metis_tac[val_rel_closure] >>
+  Q.UNABBREV_TAC `C1` >>
+  simp_tac (srw_ss()) [val_rel_rw, optCASE_NONE_F, optCASE_NONE_T] >>
+  conj_tac >- metis_tac[check_closures_trans] >>
+  qx_genl_tac [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] >> strip_tac >>
+  rpt (first_x_assum (qspecl_then [`j`, `s1`, `s2`]
+                        (fn th => mp_tac th >>
+                                  simp[SimpL ``$==>``] >>
+                                  strip_tac))) >>
+  rpt (first_x_assum (qspecl_then [`vs1`, `vs2`, `clocopt`]
+        (fn th => mp_tac th >>
+                  asm_simp_tac (srw_ss() ++ ETA_ss) [SimpL ``$==>``] >>
+                  strip_tac))) >>
+  qx_gen_tac `dcres` >>
+  disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+                       mp_tac th) >> strip_tac >>
+  qpat_assum `val_rel _ i _ V0` mp_tac >>
+  simp[SimpL ``$==>``, val_rel_rw] >>
+  disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
+  simp[SimpL ``$==>``, optCASE_NONE_F] >>
+  disch_then (qx_choose_then `dcres2` mp_tac) >>
+  Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
+  disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+                       strip_assume_tac th) >>
+  simp_tac (srw_ss()) [] >>
+  Q.UNDISCH_THEN `!i. val_rel (:'ffi) i V0 V` mp_tac >>
+  Cases_on `V0` >> RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [is_closure_def]) >>
+  simp[SimpL ``$==>``, val_rel_rw] >> TRY (FIRST_ASSUM ACCEPT_TAC) >>
+  simp[optCASE_NONE_F, optCASE_NONE_T] >>
+  disch_then (mp_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
+  qpat_assum `dest_closure _ _ vs2 = _` (fn tth =>
+    disch_then (fn th =>
+      mp_tac
+        (PART_MATCH' (fn t => t |> dest_imp |> #2 |> dest_imp |> #1)
+                     th
+                     (concl tth))) >>
+    assume_tac tth) >>
+  simp[] >> cheat)
  (* RecClosure *)
  >- cheat
  (* exec_rel *)
