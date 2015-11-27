@@ -776,8 +776,9 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   first_assum(match_exists_tac o concl) >> simp[] >>
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
-  (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
-  first_x_assum match_mp_tac >> simp[] >>
+  qexists_tac`new_tenv`>>fs[]>>
+  first_x_assum match_mp_tac >>
+  PairCases_on`new_tenv1`>>fs[extend_env_new_decs_def]>>
   conj_tac >- (
     match_mp_tac tenv_tabbrev_ok_merge >>
     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY]) >>
@@ -813,10 +814,12 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  res_tac >>
  fs [SUBSET_DEF]);
 
-val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
-`∀uniq mn (tdecs1:decls) tenv ds tdecs1' tenvT' tenvC' tenv'.
-  type_ds uniq mn tdecs1 tenv ds tdecs1' tenvT' tenvC' tenv'
+val lemma = Q.prove(
+`∀uniq mn (tdecs1:decls) tenv ds tdecs1' decls.
+  type_ds uniq mn tdecs1 tenv ds tdecs1' decls
   ⇒
+  ∀tenvT' tenvC' tenv'.
+    decls = (tenvT',tenvC',tenv') ⇒
   !(ctMap:ctMap). consistent_ctMap tdecs1 ctMap
   ⇒
   DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
@@ -825,10 +828,17 @@ val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
  rw []
  >- rw [flat_to_ctMap_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST]
  >- rw [flat_to_ctMap_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
+ PairCases_on`new_tenv1`>>
+ PairCases_on`decls'`>>fs[append_new_dec_tenv_def]>>
  rw [flat_to_ctMap_def, flat_to_ctMap_list_append, FDOM_FUPDATE_LIST,
      DISJOINT_DEF, EXTENSION, REVERSE_APPEND] >>
  imp_res_tac type_d_ctMap_disjoint >>
  fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, FDOM_FUPDATE_LIST] >>
  metis_tac [weak_decls_union2, consistent_ctMap_weakening, type_d_mod]);
+
+val type_ds_ctMap_disjoint = save_thm ("type_ds_ctMap_disjoint",lemma
+  |> SIMP_RULE std_ss [Once PULL_FORALL]
+  |> SIMP_RULE std_ss [Once PULL_FORALL]
+  |> SIMP_RULE std_ss [Once PULL_FORALL])
 
 val _ = export_theory ();
