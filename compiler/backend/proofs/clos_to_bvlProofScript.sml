@@ -3979,14 +3979,27 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[inc_clock_def] >> spose_not_then strip_assume_tac >>
     fs[] >> imp_res_tac full_result_rel_timeout ) >>
   strip_tac >>
-  (*
-  the below does not work because the clocks are not the same: need to first
-  reason that adding to the clock on the BVL side does not change the
-  lprefix_lub.
-
-  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  simp[FUN_EQ_THM] >> gen_tac >>
-  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    cheat (* monotonicity of io_events in both closLang and BVL *) ) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  reverse conj_tac >>
+  strip_tac >>
   fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >> rw[] >>
   (compile_evaluate
    |> Q.GEN`s` |> Q.SPEC`s with clock := k`
@@ -3998,16 +4011,16 @@ val compile_semantics = Q.store_thm("compile_semantics",
   Cases_on`p1`>>Cases_on`p2`>>fs[markerTheory.Abbrev_def] >>
   ntac 2 (pop_assum(mp_tac o SYM)) >> ntac 2 strip_tac >> fs[] >>
   qmatch_assum_rename_tac`full_result_rel (a1,b1) (a2,b2)` >>
-  `b1.ffi = b2.ffi` by metis_tac[full_result_rel_ffi,FST] >>
-  qmatch_abbrev_tac`_ (SND q) = _` >>
-  Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
-  pop_assum(assume_tac o SYM) >>
-  qmatch_assum_rename_tac`_ = (r2,s2)` >>
-  `r2 = Rerr (Rabort Rtimeout_error)` by metis_tac[] >>
-  imp_res_tac evaluate_add_clock >>
-  last_x_assum(qspec_then`k`mp_tac) >> simp[]
-  *)
-  cheat);
+  `b1.ffi = b2.ffi` by (
+    metis_tac[FST,full_result_rel_abort,full_result_rel_ffi,
+              semanticPrimitivesTheory.result_11,
+              semanticPrimitivesTheory.error_result_11,
+              semanticPrimitivesTheory.abort_distinct])
+  >- ( qexists_tac`ck+k` >> fs[] ) >>
+  qexists_tac`k` >> fs[] >>
+  qmatch_assum_abbrev_tac`n < (LENGTH (_ ffi))` >>
+  `ffi.io_events ≼ b2.ffi.io_events` by cheat (* monotonicity of BVL io_events *) >>
+  fs[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
 (* more correctness properties *)
 
