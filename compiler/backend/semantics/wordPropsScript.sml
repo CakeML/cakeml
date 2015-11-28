@@ -1497,4 +1497,13 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
    fs[]>>
    FULL_CASE_TAC>>fs[state_component_equality,locals_rel_def]))
 
+val mem_list_rearrange = store_thm("mem_list_rearrange",``
+  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
+  fs[MEM_EL]>>rw[wordSemTheory.list_rearrange_def]>>
+  imp_res_tac BIJ_IFF_INV>>
+  fs[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
+  rw[EQ_IMP_THM]>>fs[EL_GENLIST]
+  >- metis_tac[]>>
+  qexists_tac `g n`>>fs[])
+
 val _ = export_theory();

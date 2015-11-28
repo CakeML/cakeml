@@ -323,15 +323,6 @@ val env_to_list_perm = prove(``
   qexists_tac`λn. if n = 0:num then perm' else tperm (n-1)`>>
   fs[FUN_EQ_THM])
 
-val mem_list_rearrange = store_thm("mem_list_rearrange",``
-  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
-  fs[MEM_EL]>>rw[list_rearrange_def]>>
-  imp_res_tac BIJ_IFF_INV>>
-  fs[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
-  rw[EQ_IMP_THM]>>fs[EL_GENLIST]
-  >- metis_tac[]>>
-  qexists_tac `g n`>>fs[])
-
 (*Proves s_val_eq and some extra conditions on the resulting lists*)
 val push_env_s_val_eq = store_thm("push_env_s_val_eq",``
   ∀tperm.

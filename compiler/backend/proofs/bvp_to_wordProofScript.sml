@@ -146,21 +146,6 @@ val LAST_EQ = prove(
     (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
   Cases_on `xs` \\ fs []);
 
-val find_code_lemma = prove( (* is this used? *)
-  ``find_code dest x s.code = SOME (q,r) /\
-    state_rel c l1 l2 s t LN /\ (LENGTH x = LENGTH ws) ==>
-    ?n args. !ret_loc. find_code dest (ret_loc::ws) t.code =
-                       SOME (ret_loc::args,FST (comp c n 1 r))``,
-  reverse (Cases_on `dest`) \\ fs [find_code_def]
-  \\ every_case_tac \\ fs [] \\ rw []
-  \\ `code_rel c s.code t.code` by fs[state_rel_def]
-  \\ fs [code_rel_def] \\ res_tac
-  \\ fs [wordSemTheory.find_code_def]
-  THEN1 (qexists_tac `x'` \\ fs [ADD1])
-  \\ `ws <> []` by rfs [GSYM LENGTH_NIL] \\ fs [LAST_EQ]
-  \\ `LAST ws = Loc n 0` by cheat (* need more about relation between ws and x *)
-  \\ fs [] \\ qexists_tac `n` \\ fs [ADD1])
-
 val cut_env_IMP_cut_env = prove(
   ``state_rel c l1 l2 s t LN /\
     bvpSem$cut_env r s.locals = SOME x ==>
@@ -238,15 +223,6 @@ val find_code_thm_ret = prove(
         state_rel c q l (call_env ys (push_env x F (dec_clock s)))
           (call_env args1 (push_env y (NONE:(num # ('a wordLang$prog) # num # num) option) (dec_clock t))) LN``,
   cheat) |> SPEC_ALL;
-
-val mem_list_rearrange = store_thm("mem_list_rearrange",`` (* move to wordProps, remove from word_allocProof *)
-  ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
-  fs[MEM_EL]>>rw[wordSemTheory.list_rearrange_def]>>
-  imp_res_tac BIJ_IFF_INV>>
-  fs[BIJ_DEF,INJ_DEF,SURJ_DEF]>>
-  rw[EQ_IMP_THM]>>fs[EL_GENLIST]
-  >- metis_tac[]>>
-  qexists_tac `g n`>>fs[])
 
 val evaluate_IMP_domain_EQ = prove(
   ``evaluate (c,call_env args1 (push_env y NONE (dec_clock t))) =
