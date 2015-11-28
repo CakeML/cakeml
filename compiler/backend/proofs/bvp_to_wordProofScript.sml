@@ -297,8 +297,23 @@ val mk_loc_eq_push_env_exc_Exception = prove(
     mk_loc (jump_exc t1) = mk_loc (jump_exc t) :'a word_loc``,
   cheat); (* provable using YK's lemma *)
 
+val do_app_Rerr = prove(
+  ``bvpSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error``,
+  cheat);
+
+val assign_thm = prove(
+  ``state_rel c l1 l2 s t LN /\
+    (op_space_reset op ==> names_opt <> NONE) /\
+    cut_state_opt names_opt s = SOME s1 /\
+    get_vars args s1 = SOME vals /\
+    do_app op vals s1 = Rval (v,s2) /\
+    evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
+    q <> SOME NotEnoughSpace ==>
+    state_rel c l1 l2 (set_var dest v s2) r LN /\ q = NONE``,
+  cheat);
+
 val compile_correct = prove(
-  ``!(prog:bvp$prog) (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state).
+  ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state).
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t LN ==>
@@ -332,7 +347,19 @@ val compile_correct = prove(
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
     \\ imp_res_tac word_ml_envs_get_var_IMP
     \\ match_mp_tac word_ml_envs_insert \\ fs [])
-  THEN1 (* Assign *) cheat
+  THEN1 (* Assign *)
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ imp_res_tac (METIS_PROVE [] ``(if b1 /\ b2 then x1 else x2) = y ==>
+                                     b1 /\ b2 /\ x1 = y \/
+                                     (b1 ==> ~b2) /\ x2 = y``)
+    \\ fs [] \\ rw [] \\ Cases_on `cut_state_opt names_opt s` \\ fs []
+    \\ Cases_on `get_vars args x` \\ fs []
+    \\ reverse (Cases_on `do_app op x' x`) \\ fs []
+    THEN1 (imp_res_tac do_app_Rerr \\ rw [])
+    \\ Cases_on `evaluate (FST (assign c n l dest op args names_opt),t)`
+    \\ fs [] \\ rw [] \\ Cases_on `a` \\ fs []
+    \\ qpat_assum `NONE = res` (fn th => fs [GSYM th])
+    \\ metis_tac [assign_thm])
   THEN1 (* Tick *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ rw []
@@ -340,12 +367,13 @@ val compile_correct = prove(
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ rw []
     \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs [])
+
   THEN1 (* MakeSpace *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
-    \\ rw []
-    \\ fs [add_space_def]
+    \\ rw [] \\ fs [add_space_def]
     \\ cheat)
+
   THEN1 (* Raise *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s` \\ fs [] \\ rw []
