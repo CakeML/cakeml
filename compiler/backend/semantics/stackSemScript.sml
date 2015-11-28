@@ -396,12 +396,12 @@ val evaluate_def = tDefine "evaluate" `
      if ~s.use_stack then (SOME Error,s) else
        case get_var rn s of
        | SOME (Word w) =>
-           if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
+           if LENGTH s.stack < s.stack_space + w2n w then (SOME Error,empty_env s)
            else (NONE, set_var r (EL (s.stack_space + w2n w) s.stack) s)
        | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackStore r n,s) =
      if ~s.use_stack then (SOME Error,s) else
-     if LENGTH s.stack < n then (SOME Error,empty_env s) else
+     if LENGTH s.stack < s.stack_space + n then (SOME Error,empty_env s) else
        case get_var r s of
        | NONE => (SOME Error,empty_env s)
        | SOME v => (NONE, s with stack := LUPDATE v (s.stack_space + n) s.stack)) /\
@@ -409,7 +409,7 @@ val evaluate_def = tDefine "evaluate" `
      if ~s.use_stack then (SOME Error,s) else
        case (get_var r s, get_var rn s) of
        | (SOME v, SOME (Word w)) =>
-           if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
+           if LENGTH s.stack < s.stack_space + w2n w then (SOME Error,empty_env s)
            else (NONE, s with stack := LUPDATE v (s.stack_space + w2n w) s.stack)
        | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackGetSize r,s) =
