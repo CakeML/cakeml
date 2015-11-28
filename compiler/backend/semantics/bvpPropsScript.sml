@@ -617,4 +617,10 @@ val jump_exc_IMP = store_thm("jump_exc_IMP",
   \\ Cases_on `LAST_N (s.handler + 1) s.stack` \\ fs []
   \\ Cases_on `h` \\ fs []);
 
+val do_app_Rerr = store_thm("do_app_Rerr",
+  ``bvpSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error``,
+  fs [bvpSemTheory.do_app_def,bviSemTheory.do_app_def] \\ every_case_tac \\ rw []
+  \\ fs [bvlSemTheory.do_app_def] \\ every_case_tac \\ rw []
+  \\ fs [LET_DEF]);
+
 val _ = export_theory();

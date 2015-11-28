@@ -1456,4 +1456,18 @@ val LAST_N_TL = store_thm("LAST_N_TL",
   \\ `n+1 <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
   \\ imp_res_tac TAKE_APPEND1 \\ fs []);
 
+val LAST_N_LENGTH_LESS_EQ = store_thm("LAST_N_LENGTH_LESS_EQ",
+  ``!xs n. LENGTH xs <= n ==> LAST_N n xs = xs``,
+  fs [LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
+  \\ SIMP_TAC std_ss [listTheory.TAKE_LENGTH_TOO_LONG] \\ fs []);
+
+val LAST_N = store_thm("LAST_N",
+  ``(LAST_N n [] = []) /\
+    (LAST_N n (x::xs) = if LENGTH (x::xs) <= n then x::xs else LAST_N n xs)``,
+  rw [] THEN1 (fs [LAST_N_def])
+  THEN1 (match_mp_tac LAST_N_LENGTH_LESS_EQ \\ fs [])
+  \\ fs [LAST_N_def] \\ REPEAT STRIP_TAC
+  \\ `n <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
+  \\ imp_res_tac TAKE_APPEND1 \\ fs []);
+
 val _ = export_theory()

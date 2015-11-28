@@ -7,7 +7,6 @@ val _ = new_theory "bvp_to_wordProof";
 (* -------------------------------------------------------
     TODO:
      - sketch compiler proof
-       - prove Call
        - prove MakeSpace
        - prove Assign Const
    ------------------------------------------------------- *)
@@ -138,11 +137,6 @@ val state_rel_jump_exc = prove(
 val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
-val evaluate_mk_loc_EQ = prove(
-  ``evaluate (q,t) = (NONE,t1:('a,'ffi) state) ==>
-    mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
-  cheat);
-
 val LAST_EQ = prove(
   ``(LAST (x::xs) = if xs = [] then x else LAST xs) /\
     (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
@@ -193,12 +187,18 @@ val state_rel_ARB_ret = prove(
   ``state_rel c l1 l2 s t (LS x) = state_rel c ARB ARB s t (LS x)``,
   fs [state_rel_def]);
 
-val state_rel_pop_env_IMP = prove(
+val state_rel_assign_var = prove(
+  ``state_rel c l1 l2 s1 t1 (LS (a,w)) ==>
+    state_rel c l1 l2 (set_var x0 a s1)
+                      (set_var (adjust_var x0) w t1) LN``,
+  cheat); (* ought to be easy, but needs a few lemmas *)
+
+val state_rel_pop_env_set_var_IMP = prove(
   ``state_rel c q l s1 t1 (LS (a,w)) /\
     pop_env s1 = SOME s2 ==>
     ?t2. pop_env t1 = SOME t2 /\
          state_rel c l1 l2 (set_var q a s2) (set_var (adjust_var q) w t2) LN``,
-  cheat);
+  cheat); (* argh... this is slightly wrong *)
 
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
@@ -240,12 +240,52 @@ val find_code_thm_handler = prove(
           (call_env args1 (push_env y (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1)) (dec_clock t))) LN``,
   cheat) |> SPEC_ALL;
 
+val s_key_eq_LENGTH = prove(
+  ``!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)``,
+  Induct \\ Cases_on `ys` \\ fs [s_key_eq_def]);
+
+val s_key_eq_LAST_N = prove(
+  ``!xs ys n. s_key_eq xs ys ==> s_key_eq (LAST_N n xs) (LAST_N n ys)``,
+  Induct \\ Cases_on `ys` \\ fs [s_key_eq_def,LAST_N]
+  \\ rw [] \\ fs [s_key_eq_def,LAST_N] \\ res_tac
+  \\ imp_res_tac s_key_eq_LENGTH \\ fs [] \\ `F` by decide_tac);
+
+val evaluate_mk_loc_EQ = prove(
+  ``evaluate (q,t) = (NONE,t1:('a,'ffi) state) ==>
+    mk_loc (jump_exc t1) = ((mk_loc (jump_exc t)):'a word_loc)``,
+  rw [] \\ mp_tac (wordPropsTheory.evaluate_stack_swap
+       |> INST_TYPE [``:'b``|->``:'ffi``] |> Q.SPECL [`q`,`t`])
+  \\ fs [] \\ rw [] \\ fs [wordSemTheory.jump_exc_def]
+  \\ imp_res_tac s_key_eq_LENGTH \\ fs []
+  \\ rw [] \\ imp_res_tac s_key_eq_LAST_N
+  \\ pop_assum (qspec_then `t.handler + 1` mp_tac)
+  \\ every_case_tac \\ fs [s_key_eq_def,s_frame_key_eq_def,mk_loc_def])
+
+val mk_loc_eq_push_env_exc_Exception = prove(
+  ``evaluate
+      (c:'a wordLang$prog, call_env args1
+            (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
+               (dec_clock t))) = (SOME (Exception xx w),(t1:('a,'ffi) state)) ==>
+    mk_loc (jump_exc t1) = mk_loc (jump_exc t) :'a word_loc``,
+  rw [] \\ mp_tac (wordPropsTheory.evaluate_stack_swap
+       |> INST_TYPE [``:'b``|->``:'ffi``] |> Q.SPECL [`c`,`call_env args1
+            (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
+               (dec_clock t))`])
+  \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.dec_clock_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF,LAST_N_ADD1]
+  \\ rw [] \\ fs [wordSemTheory.jump_exc_def]
+  \\ pop_assum (qspec_then `t1.stack` mp_tac)
+  \\ imp_res_tac s_key_eq_LENGTH \\ fs [] \\ rw []
+  \\ imp_res_tac s_key_eq_LAST_N
+  \\ pop_assum (qspec_then `t.handler+1` mp_tac) \\ rw []
+  \\ every_case_tac \\ fs [s_key_eq_def,s_frame_key_eq_def,mk_loc_def]);
+
 val evaluate_IMP_domain_EQ = prove(
   ``evaluate (c,call_env args1 (push_env y opt (dec_clock t))) =
       (SOME (Result ll w),t1) /\ pop_env t1 = SOME t2 ==>
     domain t2.locals = domain y``,
-  rw []
-  \\ mp_tac (Q.SPECL [`c`,`call_env args1 (push_env y opt (dec_clock t))`]
+  rw [] \\ mp_tac (Q.SPECL [`c`,`call_env args1 (push_env y opt (dec_clock t))`]
        wordPropsTheory.evaluate_stack_swap) \\ fs [] \\ rw []
   \\ fs [wordSemTheory.call_env_def]
   \\ Cases_on `opt` \\ fs [] \\ TRY (PairCases_on `x`)
@@ -253,24 +293,38 @@ val evaluate_IMP_domain_EQ = prove(
   \\ Cases_on `env_to_list y (dec_clock t).permute` \\ fs [LET_DEF]
   \\ every_case_tac \\ fs [s_key_eq_def] \\ rw []
   \\ fs [wordSemTheory.env_to_list_def,LET_DEF] \\ rw []
-  \\ fs [s_frame_key_eq_def,domain_fromAList]
-  \\ pop_assum (fn th => fs [GSYM th])
+  \\ fs [s_frame_key_eq_def,domain_fromAList] \\ rw []
+  \\ qpat_assum `xxx = MAP FST l` (fn th => fs [GSYM th])
   \\ fs [EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,QSORT_MEM,
-         domain_lookup,MEM_toAList] \\ cheat);
+         domain_lookup,MEM_toAList]);
 
 val evaluate_IMP_domain_EQ_Exc = prove(
-  ``evaluate (c,call_env args1 (push_env y (SOME (adjust_var x0,prog1,x0,l + 1))
-      (dec_clock t))) =
-      (SOME (Exception ll w),t1) ==>
+  ``evaluate (c,call_env args1 (push_env y
+      (SOME (x0,prog1:'a wordLang$prog,x1,l))
+      (dec_clock (t:('a,'ffi) state)))) = (SOME (Exception ll w),t1) ==>
     domain t1.locals = domain y``,
-  cheat);
+  rw [] \\ mp_tac (wordPropsTheory.evaluate_stack_swap
+       |> INST_TYPE [``:'b``|->``:'ffi``] |> Q.SPECL [`c`,`call_env args1
+            (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
+               (dec_clock t))`])
+  \\ fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.dec_clock_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF,LAST_N_ADD1] \\ rw []
+  \\ pop_assum (qspec_then `t1.stack` mp_tac) \\ rw []
+  \\ imp_res_tac s_key_eq_LAST_N \\ fs []
+  \\ pop_assum (qspec_then `t.handler+1` mp_tac) \\ rw []
+  \\ fs [wordSemTheory.env_to_list_def,LET_DEF] \\ rw []
+  \\ fs [s_frame_key_eq_def,domain_fromAList] \\ rw []
+  \\ qpat_assum `xxx = MAP FST lss` (fn th => fs [GSYM th])
+  \\ fs [EXTENSION,MEM_MAP,EXISTS_PROD,mem_list_rearrange,QSORT_MEM,
+         domain_lookup,MEM_toAList]);
 
 val IMP_get_var_0_after_exc = prove(
   ``evaluate (p,call_env args1 (push_env y (SOME (adjust_var x0,prog1,x0,l + 1))
       (dec_clock t))) = (SOME (Exception ll w),t1) /\
     state_rel c l1 l2 s t LN ==>
     get_var 0 t1 = SOME (Loc l1 l2)``,
-  cheat);
+  cheat); (* requires knowing that GC can't alter Locs *)
 
 val mk_loc_jump_exc = prove(
   ``mk_loc
@@ -282,24 +336,6 @@ val mk_loc_jump_exc = prove(
       wordSemTheory.jump_exc_def]
   \\ Cases_on `env_to_list y (dec_clock t).permute`
   \\ fs [LET_DEF,LAST_N_ADD1,mk_loc_def]);
-
-val state_rel_assign_var = prove(
-  ``state_rel c l1 l2 s1 t1 (LS (a,w)) ==>
-    state_rel c l1 l2 (set_var x0 a s1)
-                      (set_var (adjust_var x0) w t1) LN``,
-  cheat); (* ought to be easy, but needs a few lemmas *)
-
-val mk_loc_eq_push_env_exc_Exception = prove(
-  ``evaluate
-      (c, call_env args1
-            (push_env y (SOME (x0,prog1:'a wordLang$prog,x1,l))
-               (dec_clock t))) = (SOME (Exception xx w),t1) ==>
-    mk_loc (jump_exc t1) = mk_loc (jump_exc t) :'a word_loc``,
-  cheat); (* provable using YK's lemma *)
-
-val do_app_Rerr = prove(
-  ``bvpSem$do_app op x' s1 = Rerr e ==> e = Rabort Rtype_error``,
-  cheat);
 
 val assign_thm = prove(
   ``state_rel c l1 l2 s t LN /\
@@ -483,7 +519,7 @@ val compile_correct = prove(
       \\ Cases_on `pop_env r'` \\ fs [] \\ rw []
       \\ rpt strip_tac \\ fs []
       \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel c l6 l7 s1 t1 (LS (a,w))`
-      \\ imp_res_tac state_rel_pop_env_IMP
+      \\ imp_res_tac state_rel_pop_env_set_var_IMP
       \\ pop_assum (qspecl_then [`l2`,`l1`] mp_tac) \\ rpt strip_tac \\ fs []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ fs [])
     (* with handler *)
@@ -507,7 +543,7 @@ val compile_correct = prove(
      (Cases_on `pop_env r'` \\ fs [] \\ rw []
       \\ rpt strip_tac \\ fs []
       \\ Q.MATCH_ASSUM_RENAME_TAC `state_rel c l6 l7 s1 t1 (LS (a,w))`
-      \\ imp_res_tac state_rel_pop_env_IMP
+      \\ imp_res_tac state_rel_pop_env_set_var_IMP
       \\ pop_assum (qspecl_then [`l2`,`l1`] mp_tac) \\ rpt strip_tac \\ fs []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ fs [])
     \\ reverse (Cases_on `e`) \\ fs [] THEN1 (fs [] \\ rw [])
