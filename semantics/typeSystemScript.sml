@@ -218,7 +218,7 @@ val _ = Define `
 (*val type_funs : type_environment -> list (varN * varN * exp) -> list (varN * t) -> bool*)
 
 val _ = Hol_datatype `
- decls = 
+ decls =
   <| defined_mods : modN set;
      defined_types : ( typeN id) set;
      defined_exns : ( conN id) set |>`;
@@ -248,7 +248,7 @@ val _ = Define `
   (FUNION t1 t2,(c1++c2),(v1++v2)))`;
 
 
-(*val extend_env_new_decs : new_dec_tenv -> type_environment -> type_environment*) 
+(*val extend_env_new_decs : new_dec_tenv -> type_environment -> type_environment*)
 val _ = Define `
  (extend_env_new_decs (t,c,v) tenv =  
 (<| m := tenv.m;
@@ -265,7 +265,7 @@ val _ = Define `
   (merge_mod_env t1 t2,FUNION m1 m2,merge_alist_mod_env c1 c2,(v1++v2)))`;
 
 
-(*val extend_env_new_tops : new_top_tenv -> type_environment -> type_environment*) 
+(*val extend_env_new_tops : new_top_tenv -> type_environment -> type_environment*)
 val _ = Define `
  (extend_env_new_tops (t,m,c,v) tenv =  
 (<| t := (merge_mod_env t tenv.t);
@@ -725,7 +725,7 @@ type_ds extra_checks mn decls tenv [] empty_decls (FEMPTY, [], []))
 (type_d extra_checks mn decls tenv d decls' new_tenv1 /\
 type_ds extra_checks mn (union_decls decls' decls) (extend_env_new_decs new_tenv1 tenv) ds decls'' new_tenv2)
 ==>
-type_ds extra_checks mn decls tenv (d::ds) (union_decls decls'' decls') (append_new_dec_tenv new_tenv1 new_tenv2))`;
+type_ds extra_checks mn decls tenv (d::ds) (union_decls decls'' decls') (append_new_dec_tenv new_tenv2 new_tenv1))`;
 
 val _ = Hol_reln ` (! mn tenv_tabbrev.
 T
@@ -737,7 +737,7 @@ type_specs mn tenv_tabbrev [] empty_decls (FEMPTY,[],[]))
 check_type_names tenv_tabbrev t /\
 type_specs mn tenv_tabbrev specs decls new_tenv)
 ==>
-type_specs mn tenv_tabbrev (Sval x t :: specs) decls 
+type_specs mn tenv_tabbrev (Sval x t :: specs) decls
     (append_new_dec_tenv new_tenv (FEMPTY,[],[(x,(LENGTH fvs, type_subst (alist_to_fmap (ZIP (fvs, (MAP Tvar_db (GENLIST (\ x .  x) (LENGTH fvs)))))) (type_name_subst tenv_tabbrev t)))])))
 
 /\ (! mn tenv_tabbrev new_tenv td specs new_tdecls new_decls decls new_tenv_tabbrev.
@@ -772,7 +772,7 @@ type_specs mn tenv_tabbrev (Sexn cn ts :: specs) (union_decls decls new_decls) (
 type_specs mn (merge_mod_env (FEMPTY,new_tenv_tabbrev) tenv_tabbrev) specs decls new_tenv /\
 (new_decls = <| defined_mods := {}; defined_types := {mk_id mn tn}; defined_exns := {} |>))
 ==>
-type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls new_decls) (append_new_dec_tenv new_tenv (new_tenv_tabbrev, [], [])))`; 
+type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls new_decls) (append_new_dec_tenv new_tenv (new_tenv_tabbrev, [], [])))`;
 
 (*val flat_weakC : flat_tenv_ctor -> flat_tenv_ctor -> bool*)
 val _ = Define `
@@ -853,7 +853,7 @@ val _ = Define `
 
 
 val _ = Hol_reln ` (! extra_checks tenv d new_tenv decls decls'.
- (type_d extra_checks NONE decls tenv d decls' new_tenv)
+(type_d extra_checks NONE decls tenv d decls' new_tenv)
 ==>
 type_top extra_checks decls tenv (Tdec d) decls' (lift_new_dec_tenv new_tenv))
 

@@ -181,7 +181,7 @@ val type_es : type_environment -> list exp -> list t -> bool
  * represents the functions *)
 val type_funs : type_environment -> list (varN * varN * exp) -> list (varN * t) -> bool
 
-type decls = 
+type decls =
   <| defined_mods : set modN;
      defined_types : set (id typeN);
      defined_exns : set (id conN) |>
@@ -204,7 +204,7 @@ val append_new_dec_tenv : new_dec_tenv -> new_dec_tenv -> new_dec_tenv
 let append_new_dec_tenv (t1,c1,v1) (t2,c2,v2) =
   (Map.(union) t1 t2,c1++c2,v1++v2)
 
-val extend_env_new_decs : new_dec_tenv -> type_environment -> type_environment 
+val extend_env_new_decs : new_dec_tenv -> type_environment -> type_environment
 let extend_env_new_decs (t,c,v) tenv =
   <| m = tenv.m;
      c = merge_alist_mod_env ([],c) tenv.c;
@@ -217,7 +217,7 @@ val append_new_top_tenv : new_top_tenv -> new_top_tenv -> new_top_tenv
 let append_new_top_tenv (t1,m1,c1,v1) (t2,m2,c2,v2) =
   (merge_mod_env t1 t2,Map.(union) m1 m2,merge_alist_mod_env c1 c2,v1++v2)
 
-val extend_env_new_tops : new_top_tenv -> type_environment -> type_environment 
+val extend_env_new_tops : new_top_tenv -> type_environment -> type_environment
 let extend_env_new_tops (t,m,c,v) tenv =
   <| t = merge_mod_env t tenv.t;
      m = Map.(union) m tenv.m;
@@ -742,7 +742,7 @@ cons : forall extra_checks mn tenv d ds new_tenv1 new_tenv2 decls decls' decls''
 type_d extra_checks mn decls tenv d decls' new_tenv1 &&
 type_ds extra_checks mn (union_decls decls' decls) (extend_env_new_decs new_tenv1 tenv) ds decls'' new_tenv2
 ==>
-type_ds extra_checks mn decls tenv (d::ds) (union_decls decls'' decls') (append_new_dec_tenv new_tenv1 new_tenv2)
+type_ds extra_checks mn decls tenv (d::ds) (union_decls decls'' decls') (append_new_dec_tenv new_tenv2 new_tenv1)
 
 indreln [type_specs : maybe modN -> tenv_tabbrev -> specs -> decls -> new_dec_tenv -> bool]
 
@@ -758,7 +758,7 @@ check_freevars 0 fvs t &&
 check_type_names tenv_tabbrev t &&
 type_specs mn tenv_tabbrev specs decls new_tenv
 ==>
-type_specs mn tenv_tabbrev (Sval x t :: specs) decls 
+type_specs mn tenv_tabbrev (Sval x t :: specs) decls
     (append_new_dec_tenv new_tenv (Map.empty,[],[(x,(List.length fvs, type_subst (alistToFmap (List_extra.zipSameLength fvs (List.map Tvar_db (genlist (fun x -> x) (List.length fvs))))) (type_name_subst tenv_tabbrev t)))]))
 
 and
@@ -801,7 +801,7 @@ new_tenv_tabbrev = Map.singleton tn (tvs, Tapp (List.map Tvar tvs) (TC_name (mk_
 type_specs mn (merge_mod_env (Map.empty,new_tenv_tabbrev) tenv_tabbrev) specs decls new_tenv &&
 new_decls = <| defined_mods = {}; defined_types = {mk_id mn tn}; defined_exns = {} |>
 ==>
-type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls new_decls) (append_new_dec_tenv new_tenv (new_tenv_tabbrev, [], [])) 
+type_specs mn tenv_tabbrev (Stype_opq tvs tn :: specs) (union_decls decls new_decls) (append_new_dec_tenv new_tenv (new_tenv_tabbrev, [], []))
 
 val flat_weakC : flat_tenv_ctor -> flat_tenv_ctor -> bool
 let flat_weakC cenv_impl cenv_spec =
@@ -875,7 +875,7 @@ let mod_lift_new_dec_tenv mn (t,c,v) =
 
 indreln [type_top : bool -> decls -> type_environment -> top -> decls -> new_top_tenv -> bool]
 
-tdec : forall extra_checks tenv d new_tenv decls decls'. 
+tdec : forall extra_checks tenv d new_tenv decls decls'.
 type_d extra_checks Nothing decls tenv d decls' new_tenv
 ==>
 type_top extra_checks decls tenv (Tdec d) decls' (lift_new_dec_tenv new_tenv)

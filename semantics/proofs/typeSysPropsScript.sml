@@ -3,6 +3,7 @@
 open preamble
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 open astPropsTheory;
+local open evalPropsTheory in end
 
 val _ = new_theory "typeSysProps";
 
@@ -2538,7 +2539,7 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
 
 val type_d_check_uniq = Q.store_thm ("type_d_check_uniq",
 `!uniq tvs tdecs tenv d tdecs' new_tenv.
-  type_d uniq tvs tdecs tenv d tdecs' new_tenv 
+  type_d uniq tvs tdecs tenv d tdecs' new_tenv
   ⇒
   type_d F tvs tdecs tenv d tdecs' new_tenv`,
  rw [type_d_cases] >>
@@ -2631,7 +2632,7 @@ val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
  rw []);
 
  (*
- 
+
 val type_d_new_tenv_ok = Q.store_thm ("type_d_new_tenv_ok",
 `!x tvs decls tenv d decls' new_tenv.
   type_d x tvs decls tenv d decls' new_tenv ∧
@@ -2842,15 +2843,13 @@ val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
  PairCases_on `new_tenv1` >>
  fs [append_new_dec_tenv_def, FLOOKUP_FUNION, extend_env_new_decs_def] >>
  every_case_tac >>
- fs []
- >- (
-   `tenv_tabbrev_ok (FEMPTY:tvarN |-> flat_tenv_tabbrev, new_tenv10)`
-        by (fs[tenv_tabbrev_ok_def,flat_tenv_tabbrev_ok_def] >>
-            fs[FEVERY_FEMPTY,FEVERY_ALL_FLOOKUP] >>
-            metis_tac []) >>
-    fs[flat_tenv_tabbrev_ok_def]>>
-    metis_tac[tenv_tabbrev_ok_merge])
- >- metis_tac []);
+ fs [] >>
+ `tenv_tabbrev_ok (FEMPTY:tvarN |-> flat_tenv_tabbrev, new_tenv10)`
+      by (fs[tenv_tabbrev_ok_def,flat_tenv_tabbrev_ok_def] >>
+          fs[FEVERY_FEMPTY,FEVERY_ALL_FLOOKUP] >>
+          metis_tac []) >>
+  fs[flat_tenv_tabbrev_ok_def]>>
+  metis_tac[tenv_tabbrev_ok_merge]);
 
 (* ---------- type_specs ---------- *)
 
