@@ -466,7 +466,7 @@ val iEval_bVarBound = Q.prove(
      bVarBound (LENGTH vs) xs /\ bEvery GoodHandleLet xs ==>
      (evaluate (FST (compile_exps n xs),vs ++ env,s) =
       evaluate (FST (compile_exps n xs),vs,s))`,
-  recInduct (theorem "bVarBound_ind") \\ REPEAT STRIP_TAC
+  recInduct bVarBound_ind \\ REPEAT STRIP_TAC
   \\ fs [iEval_def,bVarBound_def,compile_exps_def] \\ SRW_TAC [] []
   \\ fs [bEvery_def,GoodHandleLet_def] \\ SRW_TAC [] []
   THEN1 (FIRST_X_ASSUM (MP_TAC o Q.SPECL [`n1`,`vs`]) \\ fs []
