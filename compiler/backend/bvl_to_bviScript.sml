@@ -79,42 +79,42 @@ val compile_op_def = Define `
          | _ => Let [Op (Const 0) c1] (Call 0 (SOME AllocGlobal_location) [] NONE))
     | _ => Op op c1`
 
-val compile_exp_def = tDefine "compile_exp" `
-  (compile_exp n [] = ([],[],n)) /\
-  (compile_exp n ((x:bvl$exp)::y::xs) =
-     let (c1,aux1,n1) = compile_exp n [x] in
-     let (c2,aux2,n2) = compile_exp n1 (y::xs) in
+val compile_exps_def = tDefine "compile_exps" `
+  (compile_exps n [] = ([],[],n)) /\
+  (compile_exps n ((x:bvl$exp)::y::xs) =
+     let (c1,aux1,n1) = compile_exps n [x] in
+     let (c2,aux2,n2) = compile_exps n1 (y::xs) in
        (c1 ++ c2, aux1 ++ aux2, n2)) /\
-  (compile_exp n [Var v] = ([(Var v):bvi$exp], [], n)) /\
-  (compile_exp n [If x1 x2 x3] =
-     let (c1,aux1,n1) = compile_exp n [x1] in
-     let (c2,aux2,n2) = compile_exp n1 [x2] in
-     let (c3,aux3,n3) = compile_exp n2 [x3] in
+  (compile_exps n [Var v] = ([(Var v):bvi$exp], [], n)) /\
+  (compile_exps n [If x1 x2 x3] =
+     let (c1,aux1,n1) = compile_exps n [x1] in
+     let (c2,aux2,n2) = compile_exps n1 [x2] in
+     let (c3,aux3,n3) = compile_exps n2 [x3] in
        ([If (HD c1) (HD c2) (HD c3)],aux1++aux2++aux3,n3)) /\
-  (compile_exp n [Let xs x2] =
-     let (c1,aux1,n1) = compile_exp n xs in
-     let (c2,aux2,n2) = compile_exp n1 [x2] in
+  (compile_exps n [Let xs x2] =
+     let (c1,aux1,n1) = compile_exps n xs in
+     let (c2,aux2,n2) = compile_exps n1 [x2] in
        ([Let c1 (HD c2)], aux1++aux2, n2)) /\
-  (compile_exp n [Raise x1] =
-     let (c1,aux1,n1) = compile_exp n [x1] in
+  (compile_exps n [Raise x1] =
+     let (c1,aux1,n1) = compile_exps n [x1] in
        ([Raise (HD c1)], aux1, n1)) /\
-  (compile_exp n [Tick x1] =
-     let (c1,aux1,n1) = compile_exp n [x1] in
+  (compile_exps n [Tick x1] =
+     let (c1,aux1,n1) = compile_exps n [x1] in
        ([Tick (HD c1)], aux1, n1)) /\
-  (compile_exp n [Op op xs] =
-     let (c1,aux1,n1) = compile_exp n xs in
+  (compile_exps n [Op op xs] =
+     let (c1,aux1,n1) = compile_exps n xs in
        ([compile_op op c1],aux1,n1)) /\
-  (compile_exp n [Handle x1 x2] =
+  (compile_exps n [Handle x1 x2] =
      let (args,x0) = destLet x1 in
-     let (c1,aux1,n1) = compile_exp n args in
-     let (c2,aux2,n2) = compile_exp n1 [x0] in
-     let (c3,aux3,n3) = compile_exp n2 [x2] in
+     let (c1,aux1,n1) = compile_exps n args in
+     let (c2,aux2,n2) = compile_exps n1 [x0] in
+     let (c3,aux3,n3) = compile_exps n2 [x2] in
      let aux4 = [(n3,LENGTH args,HD c2)] in
      let n4 = n3 + 1 in
        ([Call 0 (SOME (num_stubs + 2 * n3 + 1)) c1 (SOME (HD c3))],
         aux1++aux2++aux3++aux4, n4)) /\
-  (compile_exp n [Call ticks dest xs] =
-     let (c1,aux1,n1) = compile_exp n xs in
+  (compile_exps n [Call ticks dest xs] =
+     let (c1,aux1,n1) = compile_exps n xs in
        ([Call ticks
               (case dest of
                | NONE => NONE
@@ -124,26 +124,26 @@ val compile_exp_def = tDefine "compile_exp" `
   \\ Cases_on `x1` \\ fs [destLet_def]
   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
-val compile_exp_ind = theorem"compile_exp_ind";
+val compile_exps_ind = theorem"compile_exps_ind";
 
-val compile_exp_LENGTH_lemma = prove(
-  ``!n xs. (LENGTH (FST (compile_exp n xs)) = LENGTH xs)``,
-  HO_MATCH_MP_TAC compile_exp_ind \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC std_ss [compile_exp_def] \\ SRW_TAC [] []
+val compile_exps_LENGTH_lemma = prove(
+  ``!n xs. (LENGTH (FST (compile_exps n xs)) = LENGTH xs)``,
+  HO_MATCH_MP_TAC compile_exps_ind \\ REPEAT STRIP_TAC
+  \\ SIMP_TAC std_ss [compile_exps_def] \\ SRW_TAC [] []
   \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
-val compile_exp_LENGTH = store_thm("compile_exp_LENGTH",
-  ``(compile_exp n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)``,
-  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exp_LENGTH_lemma) \\ fs [])
+val compile_exps_LENGTH = store_thm("compile_exps_LENGTH",
+  ``(compile_exps n xs = (ys,aux,n1)) ==> (LENGTH ys = LENGTH xs)``,
+  REPEAT STRIP_TAC \\ MP_TAC (SPEC_ALL compile_exps_LENGTH_lemma) \\ fs [])
 
-val compile_exp_SING = store_thm("compile_exp_SING",
-  ``(compile_exp n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
-  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exp_LENGTH
+val compile_exps_SING = store_thm("compile_exps_SING",
+  ``(compile_exps n [x] = (c,aux,n1)) ==> ?y. c = [y]``,
+  REPEAT STRIP_TAC \\ IMP_RES_TAC compile_exps_LENGTH
   \\ Cases_on `c` \\ fs [LENGTH_NIL]);
 
 val compile_single_def = Define `
   compile_single n (name,arg_count,exp) =
-    let (c,aux,n1) = compile_exp n [exp] in
+    let (c,aux,n1) = compile_exps n [exp] in
       (MAP (\(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux ++
        [(num_stubs + 2 * name,arg_count,HD c)],n1)`
 
