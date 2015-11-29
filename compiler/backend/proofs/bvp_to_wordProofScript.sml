@@ -1,6 +1,6 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
-     bvp_to_wordTheory wordPropsTheory;
+     bvp_to_wordTheory wordPropsTheory labPropsTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -34,7 +34,7 @@ val stack_rel_def = Define `
   (stack_rel _ _ <=> F)`
 
 val mapi_def = Define `
-  mapi f = foldi (\n x t. insert n (f n x) t) 0 LN`
+  mapi f t = fromAList (MAP (\(x,v). (x,f x v)) (toAList t))`
 
 val join_env_def = Define `
   join_env env vs =
@@ -61,6 +61,7 @@ val state_rel_def = Define `
     (t.handler = s.handler) /\
     (t.gc_fun = word_gc_fun c) /\
     code_rel c s.code t.code /\
+    good_dimindex (:'a) /\
     (* the store contains everything except Handler *)
     EVERY (\n. n IN FDOM t.store /\ isWord (t.store ' n))
       [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
@@ -85,6 +86,30 @@ val state_rel_def = Define `
            LS (the_global s.global,t.store ' Globals) ::
            flat s.stack t.stack) /\
       s.space <= sp`
+
+(* lemmas about word_ml_envs *)
+
+val word_ml_envs_lookup = prove(
+  ``word_ml_envs (heap,F,a,sp) limit c s.refs (join_env l1 (toAList l2)::xs) /\
+    lookup n l1 = SOME x /\
+    lookup (adjust_var n) l2 = SOME w ==>
+    word_ml_envs (heap,F,a,sp) limit c s.refs
+      (LS(x,w)::join_env l1 (toAList l2)::xs)``,
+  fs [word_ml_envs_def,LET_DEF,toAList_def,foldi_def]
+  \\ fs [GSYM toAList_def] \\ rw []
+  \\ `lookup n (join_env l1 (toAList l2)) = SOME (x,w)` by all_tac
+  THEN1
+   (fs [lookup_def,join_env_def,mapi_def,lookup_fromAList]
+    \\ fs [GSYM MEM_toAList]
+    \\ fs [MEM_SPLIT]
+    \\ `ALL_DISTINCT (MAP FST (toAList l1))` by fs [ALL_DISTINCT_MAP_FST_toAList]
+    \\ rfs[ALL_DISTINCT_APPEND]
+    \\ cheat)
+  \\ fs [GSYM MEM_toAList]
+  \\ pop_assum mp_tac
+  \\ simp [MEM_SPLIT]
+  \\ rw [] \\ fs []
+  \\ cheat);
 
 (* compiler proof *)
 
@@ -125,7 +150,16 @@ val get_var_T_OR_F = prove(
     6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
     ((x = Boolv T) ==> (w = Word 2w)) /\
     ((x = Boolv F) ==> (w = Word 6w))``,
-  cheat);
+  fs [state_rel_def,get_var_def,wordSemTheory.get_var_def]
+  \\ strip_tac \\ strip_tac THEN1 (fs [good_dimindex_def] \\ fs [dimword_def])
+  \\ imp_res_tac word_ml_envs_lookup
+  \\ pop_assum mp_tac
+  \\ simp [word_ml_envs_def,toAList_def,foldi_def,word_ml_inv_def,PULL_EXISTS]
+  \\ strip_tac \\ strip_tac
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def]
+  \\ pop_assum (fn th => fs [GSYM th])
+  \\ fs [Boolv_def] \\ rw [] \\ fs [v_inv_def] \\ fs [word_addr_def]
+  \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def]);
 
 val state_rel_jump_exc = prove(
   ``state_rel c l1 l2 s t LN locs /\
