@@ -26,6 +26,29 @@ val _ = Datatype`config =
    ; asm_conf : 'a asm_config
    |>`;
 
+val compile_def = Define`
+  compile c p =
+    let (c',p) = source_to_mod$compile c.source_conf p in
+    let c = c with source_conf := c' in
+    let (c',p) = mod_to_con$compile c.mod_conf p in
+    let c = c with mod_conf := c' in
+    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
+    let c = c with source_conf updated_by (λc. c with next_global := n) in
+    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
+    let e = exh_to_pat$compile e in
+    let e = pat_to_clos$compile e in
+    let (c',p) = clos_to_bvl$compile c.clos_conf e in
+    let c = c with clos_conf := c' in
+    let (s,p,c') = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
+    let c = c with <| clos_conf updated_by (λc. c with start := s)
+                    ; bvl_conf := c' |> in
+    let p = bvi_to_bvp$compile_prog p in
+    let p = bvp_to_word$compile c.bvp_conf p in
+    let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+    let p = stack_to_lab$compile c.clos_conf.start c.stack_conf p in
+    let b = lab_to_target$compile c.asm_conf c.lab_conf p in
+    OPTION_MAP (λb. (b,c)) b`;
+
 val to_mod_def = Define`
   to_mod c p =
     let (c',p) = source_to_mod$compile c.source_conf p in
@@ -74,7 +97,7 @@ val to_bvl_def = Define`
 val to_bvi_def = Define`
   to_bvi c p =
   let (c,p) = to_bvl c p in
-  let (s,p,c') = bvl_to_bvi$compile_prog c.clos_conf.start c.bvl_conf p in
+  let (s,p,c') = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
   let c = c with <| clos_conf updated_by (λc. c with start := s)
                   ; bvl_conf := c' |> in
   (c,p)`;
@@ -108,29 +131,6 @@ val to_target_def = Define`
   let (c,p) = to_lab c p in
   let b = lab_to_target$compile c.asm_conf c.lab_conf p in
   OPTION_MAP (λb. (b,c)) b`;
-
-val compile_def = Define`
-  compile c p =
-    let (c',p) = source_to_mod$compile c.source_conf p in
-    let c = c with source_conf := c' in
-    let (c',p) = mod_to_con$compile c.mod_conf p in
-    let c = c with mod_conf := c' in
-    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
-    let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
-    let e = exh_to_pat$compile e in
-    let e = pat_to_clos$compile e in
-    let (c',p) = clos_to_bvl$compile c.clos_conf e in
-    let c = c with clos_conf := c' in
-    let (s,p,c') = bvl_to_bvi$compile_prog c.clos_conf.start c.bvl_conf p in
-    let c = c with <| clos_conf updated_by (λc. c with start := s)
-                    ; bvl_conf := c' |> in
-    let p = bvi_to_bvp$compile_prog p in
-    let p = bvp_to_word$compile c.bvp_conf p in
-    let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
-    let p = stack_to_lab$compile c.clos_conf.start c.stack_conf p in
-    let b = lab_to_target$compile c.asm_conf c.lab_conf p in
-    OPTION_MAP (λb. (b,c)) b`;
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
@@ -178,7 +178,7 @@ val from_bvi_def = Define`
 
 val from_bvl_def = Define`
   from_bvl c p =
-  let (s,p,c') = bvl_to_bvi$compile_prog c.clos_conf.start c.bvl_conf p in
+  let (s,p,c') = bvl_to_bvi$compile c.clos_conf.start c.bvl_conf p in
   let c = c with <| clos_conf updated_by (λc. c with start := s)
                   ; bvl_conf := c' |> in
   from_bvi c p`;
