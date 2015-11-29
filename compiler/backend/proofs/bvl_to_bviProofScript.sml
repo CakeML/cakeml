@@ -2,54 +2,14 @@ open preamble
      bvlSemTheory bvlPropsTheory
      bvl_to_bviTheory
      bviSemTheory bviPropsTheory;
+local open
+  bvl_constProofTheory
+  bvl_handleProofTheory
+in end;
 
 val _ = new_theory"bvl_to_bviProof";
 
 (* value relation *)
-
-val bVarBound_def = tDefine "bVarBound" `
-  (bVarBound n [] <=> T) /\
-  (bVarBound n ((x:bvl$exp)::y::xs) <=>
-     bVarBound n [x] /\ bVarBound n (y::xs)) /\
-  (bVarBound n [Var v] <=> v < n) /\
-  (bVarBound n [If x1 x2 x3] <=>
-     bVarBound n [x1] /\ bVarBound n [x2] /\ bVarBound n [x3]) /\
-  (bVarBound n [Let xs x2] <=>
-     bVarBound n xs /\ bVarBound (n + LENGTH xs) [x2]) /\
-  (bVarBound n [Raise x1] <=> bVarBound n [x1]) /\
-  (bVarBound n [Tick x1] <=>  bVarBound n [x1]) /\
-  (bVarBound n [Op op xs] <=> bVarBound n xs) /\
-  (bVarBound n [Handle x1 x2] <=>
-     bVarBound n [x1] /\ bVarBound (n + 1) [x2]) /\
-  (bVarBound n [Call ticks dest xs] <=> bVarBound n xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
-
-val GoodHandleLet_def = Define `
-  (GoodHandleLet ((Handle (Let xs b) y):bvl$exp) <=>
-     EVERY isVar xs /\ bVarBound (LENGTH xs) [b]) /\
-  (GoodHandleLet ((Handle _ y):bvl$exp) <=> F) /\
-  (GoodHandleLet _ <=> T)`;
-
-val bEvery_def = tDefine "bEvery" `
-  (bEvery P [] <=> T) /\
-  (bEvery P ((x:bvl$exp)::y::xs) <=>
-     bEvery P [x] /\ bEvery P (y::xs)) /\
-  (bEvery P [Var v] <=> P (Var v)) /\
-  (bEvery P [If x1 x2 x3] <=> P (If x1 x2 x3) /\
-     bEvery P [x1] /\ bEvery P [x2] /\ bEvery P [x3]) /\
-  (bEvery P [Let xs x2] <=> P (Let xs x2) /\
-     bEvery P xs /\ bEvery P [x2]) /\
-  (bEvery P [Raise x1] <=> P (Raise x1) /\ bEvery P [x1]) /\
-  (bEvery P [Tick x1] <=> P (Tick x1) /\ bEvery P [x1]) /\
-  (bEvery P [Op op xs] <=> P (Op op xs) /\ bEvery P xs) /\
-  (bEvery P [Handle x1 x2] <=> P (Handle x1 x2) /\
-     bEvery P [x1] /\ bEvery P [x2]) /\
-  (bEvery P [Call ticks dest xs] <=> P (Call ticks dest xs) /\ bEvery P xs)`
-  (WF_REL_TAC `measure (exp1_size o SND)`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ SRW_TAC [] [bvlTheory.exp_size_def] \\ DECIDE_TAC);
 
 val adjust_bv_def = tDefine "adjust_bv" `
   (adjust_bv b (Number i) = Number i) /\

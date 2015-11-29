@@ -57,4 +57,17 @@ val compile_correct = Q.prove(
 
 val _ = save_thm("compile_correct",compile_correct);
 
+val bVarBound_compile = Q.store_thm("bVarBound_compile",
+  `∀n xs m. n ≤ m ⇒ bVarBound m (compile n xs)`,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def,bVarBound_def,compile_HD_SING,LET_THM] >>
+  fs[Once bVarBound_EVERY,EVERY_GENLIST] >> simp[]);
+
+val compile_GoodHandleLet = Q.store_thm("compile_GoodHandleLet",
+  `∀n xs. bEvery GoodHandleLet (compile n xs)`,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def,compile_HD_SING,LET_THM] >>
+  fs[EVERY_GENLIST,isVar_def,Once bEvery_EVERY] >>
+  match_mp_tac bVarBound_compile >> simp[]);
+
 val _ = export_theory();

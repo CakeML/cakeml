@@ -25,9 +25,11 @@ val compile_def = tDefine "compile" `
   (compile n [Call t dest xs] = [Call t dest (compile n xs)])`
  (WF_REL_TAC `measure (exp1_size o SND)`);
 
-val compile_length = prove(
-  ``!n xs. LENGTH (compile n xs) = LENGTH xs``,
-  HO_MATCH_MP_TAC (theorem "compile_ind") \\ REPEAT STRIP_TAC
+val compile_ind = theorem"compile_ind";
+
+val compile_length = Q.store_thm("compile_length[simp]",
+  `!n xs. LENGTH (compile n xs) = LENGTH xs`,
+  HO_MATCH_MP_TAC compile_ind \\ REPEAT STRIP_TAC
   \\ FULL_SIMP_TAC (srw_ss()) [compile_def,ADD1,LET_DEF]
   \\ SRW_TAC [] [] \\ DECIDE_TAC);
 
