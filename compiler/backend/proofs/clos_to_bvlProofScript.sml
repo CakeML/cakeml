@@ -14,6 +14,7 @@ val _ = new_theory"clos_to_bvlProof";
 
 val _ = temp_bring_to_front_overload"evaluate"{Name="evaluate",Thy="bvlSem"};
 val _ = temp_bring_to_front_overload"num_stubs"{Name="num_stubs",Thy="clos_to_bvl"};
+val _ = temp_bring_to_front_overload"compile_exps"{Name="compile_exps",Thy="clos_to_bvl"};
 
 (* TODO: move *)
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
