@@ -342,14 +342,39 @@ val assign_thm = prove(
   cheat);
 
 val jump_exc_push_env_NONE_simp = prove(
-  ``(jump_exc (push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
-    (jump_exc (dec_clock t) = NONE <=> jump_exc t = NONE) /\
+  ``(jump_exc (dec_clock t) = NONE <=> jump_exc t = NONE) /\
+    (jump_exc (push_env y NONE t) = NONE <=> jump_exc t = NONE) /\
     (jump_exc (call_env args s) = NONE <=> jump_exc s = NONE)``,
-  cheat);
+  fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
+      wordSemTheory.dec_clock_def] \\ rw [] THEN1 every_case_tac
+  \\ fs [wordSemTheory.push_env_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
+  \\ Cases_on `t.handler = LENGTH t.stack` \\ fs [LAST_N_ADD1]
+  \\ Cases_on `~(t.handler < LENGTH t.stack)` \\ fs [] \\ rw []
+  THEN1 (`F` by DECIDE_TAC)
+  \\ `LAST_N (t.handler + 1) (StackFrame q NONE::t.stack) =
+      LAST_N (t.handler + 1) t.stack` by
+    (match_mp_tac miscTheory.LAST_N_TL \\ decide_tac) \\ fs []
+  \\ every_case_tac \\ CCONTR_TAC
+  \\ fs [NOT_LESS]
+  \\ `SUC (LENGTH t.stack) <= t.handler + 1` by decide_tac
+  \\ imp_res_tac (LAST_N_LENGTH_LESS_EQ |> Q.SPEC `x::xs`
+       |> SIMP_RULE std_ss [LENGTH]) \\ fs []);
+
+val s_key_eq_handler_eq_IMP = prove(
+  ``s_key_eq t.stack t1.stack /\ t.handler = t1.handler ==>
+    (jump_exc t1 <> NONE <=> jump_exc t <> NONE)``,
+  fs [wordSemTheory.jump_exc_def] \\ rw []
+  \\ imp_res_tac s_key_eq_LENGTH \\ fs []
+  \\ Cases_on `t1.handler < LENGTH t1.stack` \\ fs []
+  \\ imp_res_tac s_key_eq_LAST_N
+  \\ pop_assum (qspec_then `t1.handler + 1` mp_tac)
+  \\ every_case_tac \\ fs [s_key_eq_def,s_frame_key_eq_def]);
 
 val eval_NONE_IMP_jump_exc_NONE_EQ = prove(
   ``evaluate (q,t) = (NONE,t1) ==> (jump_exc t1 = NONE <=> jump_exc t = NONE)``,
-  cheat);
+  rw [] \\ mp_tac (wordPropsTheory.evaluate_stack_swap |> Q.SPECL [`q`,`t`])
+  \\ fs [] \\ rw [] \\ imp_res_tac s_key_eq_handler_eq_IMP \\ metis_tac []);
 
 val jump_exc_push_env_SOME = prove(
   ``jump_exc (push_env y (SOME (x,prog1,l1,l2)) t) <> NONE``,
@@ -358,10 +383,43 @@ val jump_exc_push_env_SOME = prove(
   \\ fs [LAST_N_ADD1]);
 
 val eval_push_env_T_Raise_IMP_stack_length = prove(
-  ``evaluate (prog,call_env ys (push_env x T (dec_clock s))) =
+  ``evaluate (p,call_env ys (push_env x T (dec_clock s))) =
        (SOME (Rerr (Rraise a)),r') ==>
     LENGTH r'.stack = LENGTH s.stack``,
-  cheat);
+  qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
+    mp_tac bvpPropsTheory.evaluate_stack_swap
+  \\ rw [] \\ fs []
+  \\ fs [call_env_def,jump_exc_def,push_env_def,dec_clock_def,LAST_N_ADD1]
+  \\ rw [] \\ fs []);
+
+val eval_push_env_SOME_exc_IMP_s_key_eq = prove(
+  ``evaluate (p, call_env args1 (push_env y (SOME (x1,x2,x3,x4)) (dec_clock t))) =
+      (SOME (Exception l w),t1) ==>
+    s_key_eq t1.stack t.stack /\ t.handler = t1.handler``,
+  qspecl_then [`p`,`call_env args1 (push_env y (SOME (x1,x2,x3,x4)) (dec_clock t))`]
+    mp_tac wordPropsTheory.evaluate_stack_swap
+  \\ rw [] \\ fs []
+  \\ fs [wordSemTheory.call_env_def,wordSemTheory.jump_exc_def,
+         wordSemTheory.push_env_def,wordSemTheory.dec_clock_def,LAST_N_ADD1]
+  \\ rw [] \\ fs []
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF,LAST_N_ADD1]
+  \\ rw [] \\ fs []);
+
+val eval_exc_stack_shorter = prove(
+  ``evaluate (c,call_env ys (push_env x F (dec_clock s))) =
+      (SOME (Rerr (Rraise a)),r') ==>
+    LENGTH r'.stack < LENGTH s.stack``,
+  rw [] \\ mp_tac (bvpPropsTheory.evaluate_stack_swap
+    |> Q.SPECL [`c`,`call_env ys (push_env x F (dec_clock s))`])
+  \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ] \\ rw [] \\ fs []
+  \\ fs [bvpSemTheory.jump_exc_def,call_env_def,push_env_def,dec_clock_def]
+  \\ qpat_assum `xx = SOME s2` mp_tac
+  \\ rpt (pop_assum (K all_tac))
+  \\ fs [LAST_N] \\ rw [] \\ fs [ADD1]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `LENGTH (LAST_N (s.handler + 1) s.stack)`
+  \\ fs [LENGTH_LAST_N_LESS]);
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
@@ -383,7 +441,6 @@ val compile_correct = prove(
                         !i. state_rel c l5 l6 (set_var i v s1)
                                (set_var (adjust_var i) w t1) LN ll)
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
-
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
@@ -490,11 +547,8 @@ val compile_correct = prove(
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]
       \\ metis_tac [eval_NONE_IMP_jump_exc_NONE_EQ]))
-
   THEN1 (* Call *)
-   (
-
-    once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
+   (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `ret`
     \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
            wordSemTheory.add_ret_loc_def]
@@ -542,7 +596,7 @@ val compile_correct = prove(
         \\ imp_res_tac LAST_N_TL \\ fs []
         \\ `LENGTH locs = LENGTH s.stack` by
            (fs [state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ fs []) \\ fs []
-        \\ cheat (* ugly but provable *))
+        \\ imp_res_tac eval_exc_stack_shorter)
       \\ Cases_on `pop_env r'` \\ fs [] \\ rw []
       \\ rpt strip_tac \\ fs []
       \\ imp_res_tac state_rel_pop_env_set_var_IMP \\ fs [] \\ rw []
@@ -586,7 +640,8 @@ val compile_correct = prove(
     \\ rw [] \\ fs [] \\ Cases_on `res` \\ fs []
     \\ Cases_on `x'` \\ fs [] \\ Cases_on `e` \\ fs []
     \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ fs []
-    \\ `jump_exc t1 <> NONE <=> jump_exc t <> NONE` by cheat (* true *)
+    \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
+    \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [] \\ metis_tac []));
 
 val _ = export_theory();

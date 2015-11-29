@@ -1470,4 +1470,10 @@ val LAST_N = store_thm("LAST_N",
   \\ `n <= LENGTH (REVERSE xs)` by (fs [] \\ DECIDE_TAC)
   \\ imp_res_tac TAKE_APPEND1 \\ fs []);
 
+val LENGTH_LAST_N_LESS = store_thm("LENGTH_LAST_N_LESS",
+  ``!xs n. LENGTH (LAST_N n xs) <= LENGTH xs``,
+  Induct \\ fs [LAST_N] \\ rw []
+  \\ first_x_assum (qspec_then `n` assume_tac)
+  \\ decide_tac);
+
 val _ = export_theory()
