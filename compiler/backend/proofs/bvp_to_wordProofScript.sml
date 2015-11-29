@@ -1,6 +1,6 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
-     bvp_to_wordTheory wordPropsTheory labPropsTheory;
+     bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -89,13 +89,96 @@ val state_rel_def = Define `
 
 (* lemmas about word_ml_envs *)
 
+val EVERY2_MAP_MAP = prove(
+  ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
+  Induct \\ fs []);
+
+val EVERY2_IMP_EVERY = prove(
+  ``!xs ys. EVERY2 P xs ys ==> EVERY (\(x,y). P y x) (ZIP(ys,xs))``,
+  Induct \\ Cases_on `ys` \\ fs[]);
+
+val IMP_THE_EQ = prove(
+  ``x = SOME w ==> THE x = w``,
+  fs []);
+
+val MEM_FIRST_EL = prove(
+  ``!xs x.
+      MEM x xs <=>
+      ?n. n < LENGTH xs /\ (EL n xs = x) /\
+          !m. m < n ==> (EL m xs <> EL n xs)``,
+  rw [] \\ eq_tac
+  THEN1 (rw [] \\ qexists_tac `LEAST n. EL n xs = x /\ n < LENGTH xs`
+    \\ mp_tac (Q.SPEC `\n. EL n xs = x /\ n < LENGTH xs` (GEN_ALL FULL_LEAST_INTRO))
+    \\ fs [MEM_EL] \\ strip_tac \\ pop_assum (qspec_then `n` mp_tac)
+    \\ fs [] \\ rw [] \\ imp_res_tac LESS_LEAST \\ fs [] \\ `F` by decide_tac)
+  \\ rw [] \\ fs [MEM_EL] \\ qexists_tac `n` \\ fs []);
+
+val ALOOKUP_ZIP_EL = prove(
+  ``!xs hs n.
+      n < LENGTH xs /\ LENGTH hs = LENGTH xs /\
+      (∀m. m < n ⇒ EL m xs ≠ EL n xs) ==>
+      ALOOKUP (ZIP (xs,hs)) (EL n xs) = SOME (EL n hs)``,
+  Induct \\ Cases_on `hs` \\ fs [] \\ Cases_on `n` \\ fs []
+  \\ rpt strip_tac \\ first_assum (qspec_then `0` assume_tac) \\ fs []
+  \\ rw [] \\ first_x_assum match_mp_tac \\ fs [] \\ rw []
+  \\ first_x_assum (qspec_then `SUC m` mp_tac) \\ fs []);
+
+val word_ml_inv_rearrange = prove(
+  ``(!x. MEM x ys ==> MEM x xs) ==>
+    word_ml_inv xs s.refs (heap,F,a,sp) limit c ==>
+    word_ml_inv ys s.refs (heap,F,a,sp) limit c``,
+  fs [word_ml_inv_def] \\ rw []
+  \\ qexists_tac `MAP (\y. THE (ALOOKUP (ZIP(xs,hs)) y)) ys`
+  \\ fs [EVERY2_MAP_MAP,EVERY_MEM]
+  \\ reverse (rw [])
+  THEN1
+   (imp_res_tac EVERY2_IMP_EVERY
+    \\ res_tac \\ fs [EVERY_MEM,FORALL_PROD]
+    \\ first_x_assum match_mp_tac
+    \\ imp_res_tac EVERY2_LENGTH
+    \\ fs [MEM_ZIP] \\ fs [MEM_FIRST_EL]
+    \\ rw [] \\ qexists_tac `n'` \\ fs [EL_MAP]
+    \\ match_mp_tac IMP_THE_EQ
+    \\ imp_res_tac ALOOKUP_ZIP_EL)
+  \\ qpat_assum `abs_ml_inv (MAP FST xs) s.refs (hs,heap,F,a,sp) limit` mp_tac
+  \\ `MAP FST ys = MAP FST (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys) /\
+      MAP (λy. THE (ALOOKUP (ZIP (xs,hs)) y)) ys =
+        MAP SND (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys)` by
+    (imp_res_tac EVERY2_LENGTH \\ fs [MAP_ZIP,MAP_MAP_o,o_DEF]
+     \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ fs [] \\ pop_assum (K all_tac) \\ pop_assum (K all_tac)
+  \\ `MAP FST xs = MAP FST (ZIP (MAP FST xs, hs)) /\
+      hs = MAP SND (ZIP (MAP FST xs, hs))` by
+    (imp_res_tac EVERY2_LENGTH \\ fs [MAP_ZIP])
+  \\ pop_assum (fn th => simp [Once th])
+  \\ pop_assum (fn th => simp [Once th])
+  \\ (abs_ml_inv_stack_permute |> Q.INST [`stack`|->`[]`,`roots`|->`[]`]
+        |> SIMP_RULE std_ss [APPEND_NIL] |> SPEC_ALL
+        |> ONCE_REWRITE_RULE [CONJ_COMM] |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+        |> match_mp_tac)
+  \\ fs [SUBSET_DEF,FORALL_PROD]
+  \\ imp_res_tac EVERY2_LENGTH
+  \\ fs [MEM_ZIP,MEM_MAP,PULL_EXISTS,FORALL_PROD]
+  \\ rw [] \\ res_tac
+  \\ `MEM p_1 (MAP FST xs)` by (fs [MEM_MAP,EXISTS_PROD] \\ metis_tac [])
+  \\ fs [MEM_FIRST_EL]
+  \\ qexists_tac `n'` \\ rfs [EL_MAP]
+  \\ match_mp_tac IMP_THE_EQ
+  \\ qpat_assum `EL n' xs = (p_1,p_2')` (fn th => fs [GSYM th])
+  \\ match_mp_tac ALOOKUP_ZIP_EL \\ fs []);
+
+val ALOOKUP_SKIP_LEMMA = prove(
+  ``¬MEM n (MAP FST xs) /\ d = e ==>
+    ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e``,
+  fs [ALOOKUP_APPEND] \\ fs [GSYM ALOOKUP_NONE])
+
 val word_ml_envs_lookup = prove(
-  ``word_ml_envs (heap,F,a,sp) limit c s.refs (join_env l1 (toAList l2)::xs) /\
+  ``word_ml_envs (heap,F,a,sp) limit c s.refs (ys ++ join_env l1 (toAList l2)::xs) /\
     lookup n l1 = SOME x /\
     lookup (adjust_var n) l2 = SOME w ==>
-    word_ml_envs (heap,F,a,sp) limit c s.refs
-      (LS(x,w)::join_env l1 (toAList l2)::xs)``,
-  fs [word_ml_envs_def,LET_DEF,toAList_def,foldi_def]
+    word_ml_envs (heap,F,a,sp) limit c (s:'ffi bvpSem$state).refs
+      (ys ++ LS(x,w)::join_env l1 (toAList l2)::xs)``,
+  fs [word_ml_envs_def,toAList_def,foldi_def,LET_DEF]
   \\ fs [GSYM toAList_def] \\ rw []
   \\ `lookup n (join_env l1 (toAList l2)) = SOME (x,w)` by all_tac
   THEN1
@@ -104,12 +187,17 @@ val word_ml_envs_lookup = prove(
     \\ fs [MEM_SPLIT]
     \\ `ALL_DISTINCT (MAP FST (toAList l1))` by fs [ALL_DISTINCT_MAP_FST_toAList]
     \\ rfs[ALL_DISTINCT_APPEND]
-    \\ cheat)
-  \\ fs [GSYM MEM_toAList]
-  \\ pop_assum mp_tac
-  \\ simp [MEM_SPLIT]
-  \\ rw [] \\ fs []
-  \\ cheat);
+    \\ match_mp_tac ALOOKUP_SKIP_LEMMA
+    \\ fs [MEM_MAP,FORALL_PROD]
+    \\ match_mp_tac IMP_THE_EQ
+    \\ match_mp_tac ALOOKUP_SKIP_LEMMA \\ fs []
+    \\ `ALL_DISTINCT (MAP FST (toAList l2))` by fs [ALL_DISTINCT_MAP_FST_toAList]
+    \\ rfs[ALL_DISTINCT_APPEND])
+  \\ fs [GSYM MEM_toAList] \\ pop_assum mp_tac
+  \\ simp [MEM_SPLIT] \\ rw [] \\ fs []
+  \\ qpat_assum `word_ml_inv qq rr tt yy uu` mp_tac
+  \\ match_mp_tac word_ml_inv_rearrange
+  \\ fs [] \\ rw [] \\ fs []);
 
 (* compiler proof *)
 
@@ -152,7 +240,8 @@ val get_var_T_OR_F = prove(
     ((x = Boolv F) ==> (w = Word 6w))``,
   fs [state_rel_def,get_var_def,wordSemTheory.get_var_def]
   \\ strip_tac \\ strip_tac THEN1 (fs [good_dimindex_def] \\ fs [dimword_def])
-  \\ imp_res_tac word_ml_envs_lookup
+  \\ imp_res_tac (word_ml_envs_lookup |> Q.INST [`ys`|->`[]`]
+                    |> SIMP_RULE std_ss [APPEND])
   \\ pop_assum mp_tac
   \\ simp [word_ml_envs_def,toAList_def,foldi_def,word_ml_inv_def,PULL_EXISTS]
   \\ strip_tac \\ strip_tac

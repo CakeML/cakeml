@@ -1680,14 +1680,14 @@ val word_gc_fun_def = Define `
   word_gc_fun c = ARB:'a gc_fun_type`;
 
 val word_ml_inv_def = Define `
-  word_ml_inv stack refs (roots,heap,be,a,sp) limit c <=>
-    ?hs. abs_ml_inv stack refs (hs,heap,be,a,sp) limit /\
-         EVERY2 (\v w. word_addr c heap v = w) hs roots`
+  word_ml_inv stack refs (heap,be,a,sp) limit c <=>
+    ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+         EVERY2 (\v w. word_addr c heap v = w) hs (MAP SND stack)`
 
 val word_ml_envs_def = Define `
   word_ml_envs (heap,be,a,sp) limit c refs envs <=>
     let xs = FLAT (MAP (MAP SND o toAList) envs) in
-      word_ml_inv (MAP FST xs) refs (MAP SND xs,heap,be,a,sp) limit c`
+      word_ml_inv xs refs (heap,be,a,sp) limit c`
 
 val word_ml_envs_LN = store_thm("word_ml_envs_LN[simp]",
   ``(word_ml_envs (heap,be,a,sp) limit c s.refs (x::LN::xs) =
