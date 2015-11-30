@@ -3892,7 +3892,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
    code_installed p s1.code ∧
    semantics [] s [e] ≠ Fail
    ⇒
-   semantics [] s1 [Call 0 (SOME c'.start) []] =
+   semantics s1 c'.start =
    semantics [] s [e]`,
   simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
   simp[closSemTheory.semantics_def] >>
