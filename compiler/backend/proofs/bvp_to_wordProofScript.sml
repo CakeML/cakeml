@@ -11,83 +11,14 @@ val _ = new_theory "bvp_to_wordProof";
        - prove Assign Const
    ------------------------------------------------------- *)
 
-(* definition of state relation *)
+(* -------------------------------------------------------
+    word_ml_inv: definition and lemmas
+   ------------------------------------------------------- *)
 
-val isWord_def = Define `
-  (isWord (Word w) = T) /\ (isWord _ = F)`;
-
-val theWord_def = Define `
-  theWord (Word w) = w`;
-
-val code_rel_def = Define `
-  code_rel c s_code t_code <=>
-    !n arg_count prog.
-      (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog),arg_count+1))`
-
-val stack_rel_def = Define `
-  (stack_rel (Env env) (StackFrame vs NONE) <=>
-     !n. IS_SOME (lookup n env) <=>
-         IS_SOME (lookup (adjust_var n) (fromAList vs))) /\
-  (stack_rel (Exc env n) (StackFrame vs (SOME (x1,x2,x3))) <=>
-     stack_rel (Env env) (StackFrame vs NONE) /\ (x1 = n)) /\
-  (stack_rel _ _ <=> F)`
-
-val mapi_def = Define `
-  mapi f t = fromAList (MAP (\(x,v). (x,f x v)) (toAList t))`
-
-val join_env_def = Define `
-  join_env env vs =
-    mapi (\n v. (v,THE (ALOOKUP vs (adjust_var n)))) env`
-
-val flat_def = Define `
-  (flat (Env env::xs) (StackFrame vs _::ys) =
-     join_env env vs :: flat xs ys) /\
-  (flat (Exc env _::xs) (StackFrame vs _::ys) =
-     join_env env vs :: flat xs ys) /\
-  (flat _ _ = [])`
-
-val the_global_def = Define `
-  the_global g = the (Number 0) (OPTION_MAP RefPtr g)`;
-
-val contains_loc_def = Define `
-  contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
-
-val state_rel_def = Define `
-  state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 locs <=>
-    (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
-    (t.ffi = s.ffi) /\
-    (t.clock = s.clock) /\
-    (t.handler = s.handler) /\
-    (t.gc_fun = word_gc_fun c) /\
-    code_rel c s.code t.code /\
-    good_dimindex (:'a) /\
-    (* the store contains everything except Handler *)
-    EVERY (\n. n IN FDOM t.store /\ isWord (t.store ' n))
-      [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
-    EVERY (\n. n IN FDOM t.store) [Globals] /\
-    (* every local is represented in word lang *)
-    (v1 = LN ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
-    (!n. IS_SOME (lookup n s.locals) ==>
-         IS_SOME (lookup (adjust_var n) t.locals)) /\
-    (* the stacks contain the same names, have same shape *)
-    EVERY2 stack_rel s.stack t.stack /\
-    EVERY2 contains_loc t.stack locs /\
-    (* there exists some GC-compatible abstraction *)
-    ?heap limit a sp.
-      (* the abstract heap is stored in memory *)
-      (word_heap (theWord (t.store ' CurrHeap)) heap c heap *
-       word_heap (theWord (t.store ' OtherHeap))
-         [Unused (limit-1)] c [Unused (limit-1)])
-           (fun2set (t.memory,t.mdomain)) /\
-      (* the abstract heap relates to the values of BVP *)
-      word_ml_envs (heap,F,a,sp) limit c s.refs
-        (v1 :: join_env s.locals (toAList t.locals) ::
-           LS (the_global s.global,t.store ' Globals) ::
-           flat s.stack t.stack) /\
-      s.space <= sp`
-
-(* lemmas about word_ml_envs *)
+val word_ml_inv_def = Define `
+  word_ml_inv stack refs (heap,be,a,sp) limit c <=>
+    ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+         EVERY2 (\v w. word_addr c heap v = w) hs (MAP SND stack)`
 
 val EVERY2_MAP_MAP = prove(
   ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
@@ -125,8 +56,8 @@ val ALOOKUP_ZIP_EL = prove(
 
 val word_ml_inv_rearrange = prove(
   ``(!x. MEM x ys ==> MEM x xs) ==>
-    word_ml_inv xs s.refs (heap,F,a,sp) limit c ==>
-    word_ml_inv ys s.refs (heap,F,a,sp) limit c``,
+    word_ml_inv xs s.refs (heap,be,a,sp) limit c ==>
+    word_ml_inv ys s.refs (heap,be,a,sp) limit c``,
   fs [word_ml_inv_def] \\ rw []
   \\ qexists_tac `MAP (\y. THE (ALOOKUP (ZIP(xs,hs)) y)) ys`
   \\ fs [EVERY2_MAP_MAP,EVERY_MEM]
@@ -140,7 +71,7 @@ val word_ml_inv_rearrange = prove(
     \\ rw [] \\ qexists_tac `n'` \\ fs [EL_MAP]
     \\ match_mp_tac IMP_THE_EQ
     \\ imp_res_tac ALOOKUP_ZIP_EL)
-  \\ qpat_assum `abs_ml_inv (MAP FST xs) s.refs (hs,heap,F,a,sp) limit` mp_tac
+  \\ qpat_assum `abs_ml_inv (MAP FST xs) s.refs (hs,heap,be,a,sp) limit` mp_tac
   \\ `MAP FST ys = MAP FST (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys) /\
       MAP (λy. THE (ALOOKUP (ZIP (xs,hs)) y)) ys =
         MAP SND (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys)` by
@@ -167,16 +98,46 @@ val word_ml_inv_rearrange = prove(
   \\ qpat_assum `EL n' xs = (p_1,p_2')` (fn th => fs [GSYM th])
   \\ match_mp_tac ALOOKUP_ZIP_EL \\ fs []);
 
+(* -------------------------------------------------------
+    word_ml_envs: definition and lemmas
+   ------------------------------------------------------- *)
+
+val word_ml_envs_def = Define `
+  word_ml_envs (heap,be,a,sp) limit c refs envs <=>
+    let xs = FLAT (MAP (MAP SND o toAList) envs) in
+      word_ml_inv xs refs (heap,be,a,sp) limit c`
+
+val mapi_def = Define `
+  mapi f t = fromAList (MAP (\(x,v). (x,f x v)) (toAList t))`
+
+val join_env_def = Define `
+  join_env env vs =
+    mapi (\n v. (v,THE (ALOOKUP vs (adjust_var n)))) env`
+
+val flat_def = Define `
+  (flat (Env env::xs) (StackFrame vs _::ys) =
+     join_env env vs :: flat xs ys) /\
+  (flat (Exc env _::xs) (StackFrame vs _::ys) =
+     join_env env vs :: flat xs ys) /\
+  (flat _ _ = [])`
+
+val word_ml_envs_LN = store_thm("word_ml_envs_LN[simp]",
+  ``(word_ml_envs (heap,be,a,sp) limit c s.refs (x::LN::xs) =
+     word_ml_envs (heap,be,a,sp) limit c s.refs (x::xs)) /\
+    (word_ml_envs (heap,be,a,sp) limit c s.refs (LN::xs) =
+     word_ml_envs (heap,be,a,sp) limit c s.refs (xs))``,
+  fs [word_ml_envs_def,toAList_def,foldi_def,MAP]);
+
 val ALOOKUP_SKIP_LEMMA = prove(
   ``¬MEM n (MAP FST xs) /\ d = e ==>
     ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e``,
   fs [ALOOKUP_APPEND] \\ fs [GSYM ALOOKUP_NONE])
 
 val word_ml_envs_lookup = prove(
-  ``word_ml_envs (heap,F,a,sp) limit c s.refs (ys ++ join_env l1 (toAList l2)::xs) /\
+  ``word_ml_envs (heap,be,a,sp) limit c s.refs (ys ++ join_env l1 (toAList l2)::xs) /\
     lookup n l1 = SOME x /\
     lookup (adjust_var n) l2 = SOME w ==>
-    word_ml_envs (heap,F,a,sp) limit c (s:'ffi bvpSem$state).refs
+    word_ml_envs (heap,be,a,sp) limit c (s:'ffi bvpSem$state).refs
       (ys ++ LS(x,w)::join_env l1 (toAList l2)::xs)``,
   fs [word_ml_envs_def,toAList_def,foldi_def,LET_DEF]
   \\ fs [GSYM toAList_def] \\ rw []
@@ -199,7 +160,113 @@ val word_ml_envs_lookup = prove(
   \\ match_mp_tac word_ml_inv_rearrange
   \\ fs [] \\ rw [] \\ fs []);
 
-(* compiler proof *)
+val word_ml_envs_get_var_IMP = store_thm("word_ml_envs_get_var_IMP",
+  ``word_ml_envs (heap,be,a,sp) limit c s.refs
+      (join_env s.locals (toAList t.locals)::envs) /\
+    get_var n s = SOME x /\
+    get_var (adjust_var n) t = SOME w ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs
+      (LS (x,w)::join_env s.locals (toAList t.locals)::envs)``,
+  rw [] \\ match_mp_tac (word_ml_envs_lookup
+             |> Q.INST [`ys`|->`[]`] |> SIMP_RULE std_ss [APPEND])
+  \\ fs [get_var_def,wordSemTheory.get_var_def]);
+
+val word_ml_envs_rearrange = prove(
+  ``(!x. MEM x ys ==> MEM x xs) ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs xs ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs ys``,
+  fs [word_ml_envs_def,LET_DEF] \\ strip_tac
+  \\ match_mp_tac word_ml_inv_rearrange
+  \\ fs [MEM_FLAT,PULL_EXISTS,MEM_MAP]
+  \\ rw [] \\ metis_tac []);
+
+val word_ml_envs_DROP = store_thm("word_ml_envs_DROP",
+  ``word_ml_envs (heap,be,a,sp) limit c s.refs (x::y::xs) ==>
+    word_ml_envs (heap,be,a,sp) limit c s.refs (x::xs)``,
+  match_mp_tac word_ml_envs_rearrange \\ fs [MEM] \\ rw [] \\ fs []);
+
+val word_ml_envs_insert = store_thm("word_ml_envs_insert",
+  ``word_ml_envs (heap,F,a,sp) limit c s.refs
+      (LS (x,w)::join_env s.locals (toAList t.locals)::xs) ==>
+    word_ml_envs (heap,F,a,sp) limit c s.refs
+      (join_env (insert dest x s.locals)
+        (toAList (insert (adjust_var dest) w t.locals))::xs)``,
+  cheat);
+
+(* -------------------------------------------------------
+    definition of state relation
+   ------------------------------------------------------- *)
+
+val isWord_def = Define `
+  (isWord (Word w) = T) /\ (isWord _ = F)`;
+
+val theWord_def = Define `
+  theWord (Word w) = w`;
+
+val code_rel_def = Define `
+  code_rel c s_code t_code <=>
+    !n arg_count prog.
+      (lookup n s_code = SOME (arg_count:num,prog)) ==>
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog),arg_count+1))`
+
+val stack_rel_def = Define `
+  (stack_rel (Env env) (StackFrame vs NONE) <=>
+     !n. IS_SOME (lookup n env) <=>
+         IS_SOME (lookup (adjust_var n) (fromAList vs))) /\
+  (stack_rel (Exc env n) (StackFrame vs (SOME (x1,x2,x3))) <=>
+     stack_rel (Env env) (StackFrame vs NONE) /\ (x1 = n)) /\
+  (stack_rel _ _ <=> F)`
+
+val the_global_def = Define `
+  the_global g = the (Number 0) (OPTION_MAP RefPtr g)`;
+
+val contains_loc_def = Define `
+  contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
+
+val word_gc_fun_def = Define `
+  word_gc_fun c = ARB:'a gc_fun_type`;
+
+val state_rel_def = Define `
+  state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 locs <=>
+    (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
+    (t.ffi = s.ffi) /\
+    (t.clock = s.clock) /\
+    (t.handler = s.handler) /\
+    (t.gc_fun = word_gc_fun c) /\
+    code_rel c s.code t.code /\
+    good_dimindex (:'a) /\
+    (* the store contains everything except Handler *)
+    EVERY (\n. n IN FDOM t.store /\ isWord (t.store ' n))
+      [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
+    EVERY (\n. n IN FDOM t.store) [Globals] /\
+    (* every local is represented in word lang *)
+    (v1 = LN ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
+    (!n. IS_SOME (lookup n s.locals) ==>
+         IS_SOME (lookup (adjust_var n) t.locals)) /\
+    (* the stacks contain the same names, have same shape *)
+    EVERY2 stack_rel s.stack t.stack /\
+    EVERY2 contains_loc t.stack locs /\
+    (* there exists some GC-compatible abstraction *)
+    ?heap limit a sp.
+      (* the abstract heap is stored in memory *)
+      (word_heap (theWord (t.store ' CurrHeap)) heap c heap *
+       word_heap (theWord (t.store ' OtherHeap))
+         [Unused (limit-1)] c [Unused (limit-1)])
+           (fun2set (t.memory,t.mdomain)) /\
+      (* the abstract heap relates to the values of BVP *)
+      word_ml_envs (heap,F,a,sp) limit c s.refs
+        (v1 :: join_env s.locals (toAList t.locals) ::
+           LS (the_global s.global,t.store ' Globals) ::
+           flat s.stack t.stack) /\
+      s.space <= sp`
+
+(* -------------------------------------------------------
+    compiler proof
+   ------------------------------------------------------- *)
+
+val adjust_var_NOT_0 = store_thm("adjust_var_NOT_0[simp]",
+  ``adjust_var n <> 0``,
+  fs [adjust_var_def]);
 
 val state_rel_get_var_IMP = prove(
   ``state_rel c l1 l2 s t LN locs ==>
@@ -309,10 +376,6 @@ val jump_exc_push_env_NONE = prove(
     (match_mp_tac miscTheory.LAST_N_TL \\ decide_tac)
   \\ every_case_tac \\ rw [mk_loc_def]
   \\ `F` by decide_tac);
-
-val state_rel_ARB_ret = prove(
-  ``state_rel c l1 l2 s t (LS x) locs = state_rel c ARB ARB s t (LS x) locs``,
-  fs [state_rel_def]);
 
 val state_rel_pop_env_set_var_IMP = prove(
   ``state_rel c q l s1 t1 (LS (a,w)) locs /\
