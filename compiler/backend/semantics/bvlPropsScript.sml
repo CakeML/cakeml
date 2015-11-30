@@ -2,6 +2,18 @@ open preamble bvlSemTheory clos_to_bvlTheory bvl_constTheory;
 
 val _ = new_theory"bvlProps";
 
+val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
+  `(initial_state f c k).code = c ∧
+   (initial_state f c k).ffi = f ∧
+   (initial_state f c k).clock = k ∧
+   (initial_state f c k).refs = FEMPTY ∧
+   (initial_state f c k).globals = []`,
+   rw[initial_state_def]);
+
+val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
+  `initial_state f c k with clock := k1 = initial_state f c k1`,
+  EVAL_TAC);
+
 val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",
   ``bool_to_tag b1 = bool_to_tag b2 ⇔ (b1 = b2)``,
   rw[bool_to_tag_def] >> EVAL_TAC >> simp[])
