@@ -104,15 +104,11 @@ val word_ml_inv_rearrange = prove(
 
 val word_ml_envs_def = Define `
   word_ml_envs (heap,be,a,sp) limit c refs envs <=>
-    let xs = FLAT (MAP (MAP SND o toAList) envs) in
-      word_ml_inv xs refs (heap,be,a,sp) limit c`
-
-val mapi_def = Define `
-  mapi f t = fromAList (MAP (\(x,v). (x,f x v)) (toAList t))`
+    word_ml_inv (FLAT envs) refs (heap,be,a,sp) limit c`
 
 val join_env_def = Define `
   join_env env vs =
-    mapi (\n v. (v,THE (ALOOKUP vs (adjust_var n)))) env`
+    MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v)) (FILTER (\(n,v). n = 0) vs)`
 
 val flat_def = Define `
   (flat (Env env::xs) (StackFrame vs _::ys) =
@@ -122,9 +118,9 @@ val flat_def = Define `
   (flat _ _ = [])`
 
 val word_ml_envs_LN = store_thm("word_ml_envs_LN[simp]",
-  ``(word_ml_envs (heap,be,a,sp) limit c s.refs (x::LN::xs) =
+  ``(word_ml_envs (heap,be,a,sp) limit c s.refs (x::[]::xs) =
      word_ml_envs (heap,be,a,sp) limit c s.refs (x::xs)) /\
-    (word_ml_envs (heap,be,a,sp) limit c s.refs (LN::xs) =
+    (word_ml_envs (heap,be,a,sp) limit c s.refs ([]::xs) =
      word_ml_envs (heap,be,a,sp) limit c s.refs (xs))``,
   fs [word_ml_envs_def,toAList_def,foldi_def,MAP]);
 
@@ -138,7 +134,9 @@ val word_ml_envs_lookup = prove(
     lookup n l1 = SOME x /\
     lookup (adjust_var n) l2 = SOME w ==>
     word_ml_envs (heap,be,a,sp) limit c (s:'ffi bvpSem$state).refs
-      (ys ++ LS(x,w)::join_env l1 (toAList l2)::xs)``,
+      (ys ++ [(x,w)]::join_env l1 (toAList l2)::xs)``,
+  cheat);
+(*
   fs [word_ml_envs_def,toAList_def,foldi_def,LET_DEF]
   \\ fs [GSYM toAList_def] \\ rw []
   \\ `lookup n (join_env l1 (toAList l2)) = SOME (x,w)` by all_tac
@@ -159,6 +157,7 @@ val word_ml_envs_lookup = prove(
   \\ qpat_assum `word_ml_inv qq rr tt yy uu` mp_tac
   \\ match_mp_tac word_ml_inv_rearrange
   \\ fs [] \\ rw [] \\ fs []);
+*)
 
 val word_ml_envs_get_var_IMP = store_thm("word_ml_envs_get_var_IMP",
   ``word_ml_envs (heap,be,a,sp) limit c s.refs
@@ -166,7 +165,7 @@ val word_ml_envs_get_var_IMP = store_thm("word_ml_envs_get_var_IMP",
     get_var n s = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     word_ml_envs (heap,be,a,sp) limit c s.refs
-      (LS (x,w)::join_env s.locals (toAList t.locals)::envs)``,
+      ([(x,w)]::join_env s.locals (toAList t.locals)::envs)``,
   rw [] \\ match_mp_tac (word_ml_envs_lookup
              |> Q.INST [`ys`|->`[]`] |> SIMP_RULE std_ss [APPEND])
   \\ fs [get_var_def,wordSemTheory.get_var_def]);
@@ -187,12 +186,58 @@ val word_ml_envs_DROP = store_thm("word_ml_envs_DROP",
 
 val word_ml_envs_insert = store_thm("word_ml_envs_insert",
   ``word_ml_envs (heap,F,a,sp) limit c s.refs
-      (LS (x,w)::join_env s.locals (toAList t.locals)::xs) ==>
+      ([(x,w)]::join_env s.locals (toAList t.locals)::xs) ==>
     word_ml_envs (heap,F,a,sp) limit c s.refs
       (join_env (insert dest x s.locals)
         (toAList (insert (adjust_var dest) w t.locals))::xs)``,
   fs [word_ml_envs_def,LET_DEF,ALOOKUP_toAList] \\ cheat);
 
+
+(* -------------------------------------------------------
+    definition and verification of GC function
+   ------------------------------------------------------- *)
+
+val word_gc_move_def = Define `
+  (word_gc_move (Loc l1 l2,pa,m,dm,c) = (Loc l1 l2,pa,m,c)) /\
+  (word_gc_move (Word w,pa,m,dm,c) =
+     (Word 0w,pa,m,c))`
+
+val word_gc_move_list_def = Define `
+  (word_gc_move_list ([],pa,m,dm,c) = ([],pa,m,c)) /\
+  (word_gc_move_list (w::ws,pa,m,dm,c) =
+     let (w1,pa1,m1,c1) = word_gc_move (w,pa,m,dm,c) in
+     let (ws2,pa2,m2,c2) = word_gc_move_list (ws,pa1,m1,dm,c1) in
+       (w1::ws2,pa2,m2,c2))`
+
+val word_gc_fun_def = Define `
+  (word_gc_fun c):'a gc_fun_type = \(roots,m,dm,s).
+     SOME (roots,m,s)`
+
+(*
+(*
+
+gc_move_def
+gc_move_list_def
+gc_move_loop_def
+full_gc_def
+
+full_gc_thm
+
+*)
+
+  ``(FLOOKUP t.store CurrHeap = SOME (Word curr)) /\
+    (FLOOKUP t.store OtherHeap = SOME (Word other)) /\
+    (word_heap curr heap c heap *
+     word_heap other [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm)) /\
+    word_ml_inv stack refs (heap,be,a,sp) limit c ==>
+    ?stack1 m2 s1 heap1.
+      word_gc_fun c ([MAP SND stack],m,dm,s) = SOME (stack1,m1,s1) /\
+      (word_heap other heap1 c heap1 *
+       word_heap curr [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm)) /\
+      word_ml_inv (ZIP (MAP FST stack,HD stack1)) refs (heap1,be,a,sp) limit c /\
+      (FLOOKUP t.store CurrHeap = SOME (Word other)) /\
+      (FLOOKUP t.store OtherHeap = SOME (Word curr))``,
+*)
 
 (* -------------------------------------------------------
     definition of state relation
@@ -224,9 +269,6 @@ val the_global_def = Define `
 val contains_loc_def = Define `
   contains_loc (StackFrame vs _) (l1,l2) = (ALOOKUP vs 0 = SOME (Loc l1 l2))`
 
-val word_gc_fun_def = Define `
-  word_gc_fun c = ARB:'a gc_fun_type`;
-
 val state_rel_def = Define `
   state_rel c l1 l2 (s:'ffi bvpSem$state) (t:('a,'ffi) wordSem$state) v1 locs <=>
     (* I/O, clock and handler are the same, GC is fixed, code is compiled *)
@@ -241,7 +283,7 @@ val state_rel_def = Define `
       [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
-    (v1 = LN ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
+    (v1 = [] ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
     (!n. IS_SOME (lookup n s.locals) ==>
          IS_SOME (lookup (adjust_var n) t.locals)) /\
     (* the stacks contain the same names, have same shape *)
@@ -257,7 +299,7 @@ val state_rel_def = Define `
       (* the abstract heap relates to the values of BVP *)
       word_ml_envs (heap,F,a,sp) limit c s.refs
         (v1 :: join_env s.locals (toAList t.locals) ::
-           LS (the_global s.global,t.store ' Globals) ::
+           [(the_global s.global,t.store ' Globals)] ::
            flat s.stack t.stack) /\
       s.space <= sp`
 
@@ -270,7 +312,7 @@ val adjust_var_NOT_0 = store_thm("adjust_var_NOT_0[simp]",
   fs [adjust_var_def]);
 
 val state_rel_get_var_IMP = prove(
-  ``state_rel c l1 l2 s t LN locs ==>
+  ``state_rel c l1 l2 s t [] locs ==>
     (get_var n s = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w``,
   fs [bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
@@ -280,7 +322,7 @@ val state_rel_get_var_IMP = prove(
 
 val state_rel_get_vars_IMP = prove(
   ``!n xs.
-      state_rel c l1 l2 s t LN locs ==>
+      state_rel c l1 l2 s t [] locs ==>
       (get_vars n s = SOME xs) ==>
       ?ws. get_vars (MAP adjust_var n) t = SOME ws /\ (LENGTH xs = LENGTH ws)``,
   Induct \\ fs [bvpSemTheory.get_vars_def,wordSemTheory.get_vars_def]
@@ -290,7 +332,7 @@ val state_rel_get_vars_IMP = prove(
   \\ imp_res_tac state_rel_get_var_IMP \\ fs []);
 
 val state_rel_0_get_vars_IMP = prove(
-  ``state_rel c l1 l2 s t LN locs ==>
+  ``state_rel c l1 l2 s t [] locs ==>
     (get_vars n s = SOME xs) ==>
     ?ws. get_vars (0::MAP adjust_var n) t = SOME ((Loc l1 l2)::ws) /\
          (LENGTH xs = LENGTH ws)``,
@@ -300,7 +342,7 @@ val state_rel_0_get_vars_IMP = prove(
   \\ fs [state_rel_def,wordSemTheory.get_var_def]);
 
 val get_var_T_OR_F = prove(
-  ``state_rel c l1 l2 s (t:('a,'ffi) state) LN locs /\
+  ``state_rel c l1 l2 s (t:('a,'ffi) state) [] locs /\
     get_var n s = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
@@ -319,14 +361,14 @@ val get_var_T_OR_F = prove(
   \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def]);
 
 val state_rel_jump_exc = prove(
-  ``state_rel c l1 l2 s t LN locs /\
+  ``state_rel c l1 l2 s t [] locs /\
     get_var n s = SOME x /\
     get_var (adjust_var n) t = SOME w /\
     jump_exc s = SOME s1 ==>
     ?t1 d1 d2 l5 l6 ll.
       jump_exc t = SOME (t1,d1,d2) /\
       LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
-      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) LN ll``,
+      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) [] ll``,
   cheat);
 
 val mk_loc_def = Define `
@@ -338,7 +380,7 @@ val LAST_EQ = prove(
   Cases_on `xs` \\ fs []);
 
 val cut_env_IMP_cut_env = prove(
-  ``state_rel c l1 l2 s t LN locs /\
+  ``state_rel c l1 l2 s t [] locs /\
     bvpSem$cut_env r s.locals = SOME x ==>
     ?y. wordSem$cut_env (adjust_set r) t.locals = SOME y``,
   fs [bvpSemTheory.cut_env_def,wordSemTheory.cut_env_def]
@@ -379,28 +421,28 @@ val jump_exc_push_env_NONE = prove(
   \\ `F` by decide_tac);
 
 val state_rel_pop_env_set_var_IMP = prove(
-  ``state_rel c q l s1 t1 (LS (a,w)) locs /\
+  ``state_rel c q l s1 t1 [(a,w)] locs /\
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
-      state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) LN ll``,
+      state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) [] ll``,
   cheat);
 
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
-      state_rel c l1 l2 s t LN locs /\
+      state_rel c l1 l2 s t [] locs /\
       get_vars args s = SOME x /\
       get_vars (0::MAP adjust_var args) t = SOME (Loc l1 l2::ws) /\
       find_code dest x s.code = SOME (q,r) ==>
       ?args1 n1 n2.
         find_code dest (Loc l1 l2::ws) t.code = SOME (args1,FST (comp c n1 n2 r)) /\
         state_rel c l1 l2 (call_env q (dec_clock s))
-          (call_env args1 (dec_clock t)) LN locs``,
+          (call_env args1 (dec_clock t)) [] locs``,
   cheat) |> SPEC_ALL;
 
 val find_code_thm_ret = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
-      state_rel c l1 l2 s t LN locs /\
+      state_rel c l1 l2 s t [] locs /\
       get_vars args s = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
@@ -409,12 +451,12 @@ val find_code_thm_ret = prove(
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
         state_rel c q l (call_env ys (push_env x F (dec_clock s)))
-          (call_env args1 (push_env y (NONE:(num # ('a wordLang$prog) # num # num) option) (dec_clock t))) LN ((l1,l2)::locs)``,
+          (call_env args1 (push_env y (NONE:(num # ('a wordLang$prog) # num # num) option) (dec_clock t))) [] ((l1,l2)::locs)``,
   cheat) |> SPEC_ALL;
 
 val find_code_thm_handler = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
-      state_rel c l1 l2 s t LN locs /\
+      state_rel c l1 l2 s t [] locs /\
       get_vars args s = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
@@ -423,7 +465,7 @@ val find_code_thm_handler = prove(
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
         state_rel c q l (call_env ys (push_env x T (dec_clock s)))
-          (call_env args1 (push_env y (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1)) (dec_clock t))) LN ((l1,l2)::locs)``,
+          (call_env args1 (push_env y (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1)) (dec_clock t))) [] ((l1,l2)::locs)``,
   cheat) |> SPEC_ALL;
 
 val s_key_eq_LENGTH = prove(
@@ -514,14 +556,14 @@ val mk_loc_jump_exc = prove(
   \\ fs [LET_DEF,LAST_N_ADD1,mk_loc_def]);
 
 val assign_thm = prove(
-  ``state_rel c l1 l2 s t LN locs /\
+  ``state_rel c l1 l2 s t [] locs /\
     (op_space_reset op ==> names_opt <> NONE) /\
     cut_state_opt names_opt s = SOME s1 /\
     get_vars args s1 = SOME vals /\
     do_app op vals s1 = Rval (v,s2) /\
     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
     q <> SOME NotEnoughSpace ==>
-    state_rel c l1 l2 (set_var dest v s2) r LN locs /\ q = NONE``,
+    state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE``,
   cheat);
 
 val jump_exc_push_env_NONE_simp = prove(
@@ -625,7 +667,7 @@ val cut_env_adjust_set_insert_1 = prove(
 
 val gc_lemma = prove(
   ``bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
-    state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) LN locs /\
+    state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
     let t0 = (push_env y (NONE:(num # 'a wordLang$prog # num # num) option)
                (set_store AllocSize (Word (alloc_size k))
@@ -640,20 +682,20 @@ val gc_lemma = prove(
         FLOOKUP t2.store LastFree = SOME (Word w2) /\
         (w2n (alloc_size k:'a word) <= w2n (w2 - w1:'a word) ==>
          state_rel c l1 l2
-          (s with <|locals := x; space := s.space + k|>) t2 LN locs)``,
+          (s with <|locals := x; space := s.space + k|>) t2 [] locs)``,
   cheat);
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
-      state_rel c l1 l2 s t LN locs ==>
+      state_rel c l1 l2 s t [] locs ==>
       ?t1 res1. (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
                 (res1 <> SOME NotEnoughSpace ==>
                  case res of
-                 | NONE => state_rel c l1 l2 s1 t1 LN locs /\ (res1 = NONE)
+                 | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
                  | SOME (Rval v) =>
-                     ?w. state_rel c l1 l2 s1 t1 (LS (v,w)) locs /\
+                     ?w. state_rel c l1 l2 s1 t1 [(v,w)] locs /\
                          (res1 = SOME (Result (Loc l1 l2) w))
                  | SOME (Rerr (Rraise v)) =>
                      ?w l5 l6 ll.
@@ -661,7 +703,7 @@ val compile_correct = prove(
                        (jump_exc t <> NONE ==>
                         LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
                         !i. state_rel c l5 l6 (set_var i v s1)
-                               (set_var (adjust_var i) w t1) LN ll)
+                               (set_var (adjust_var i) w t1) [] ll)
                  | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
@@ -724,9 +766,8 @@ val compile_correct = prove(
           fs [state_rel_def,wordSemTheory.get_var_def]
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ fs [state_rel_def,wordSemTheory.call_env_def,lookup_def,
-           bvpSemTheory.call_env_def,EVAL ``fromList []``,
-           EVAL ``isEmpty (insert 0 x LN)``,EVAL ``fromList2 []``,
-           EVAL ``join_env LN (toAList LN)``]
+           bvpSemTheory.call_env_def,fromList_def,
+           EVAL ``join_env LN (toAList (fromList2 []))``]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
     \\ imp_res_tac word_ml_envs_get_var_IMP
     \\ imp_res_tac word_ml_envs_DROP)
@@ -738,7 +779,7 @@ val compile_correct = prove(
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ `q'' <> SOME (Rerr (Rabort Rtype_error))` by
          (Cases_on `q'' = NONE` \\ fs []) \\ fs []
-    \\ qpat_assum `state_rel c l1 l2 s t LN locs` (fn th =>
+    \\ qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
            first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rfs[]
@@ -746,7 +787,7 @@ val compile_correct = prove(
     THEN1 (rpt strip_tac \\ fs [] \\ rw [] \\ Cases_on `q''` \\ fs []
            \\ Cases_on `x` \\ fs [] \\ Cases_on `e` \\ fs [])
     \\ rw [] THEN1
-     (qpat_assum `state_rel c l1 l2 s t LN locs` (fn th =>
+     (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
       \\ rpt strip_tac \\ rfs [] \\ rpt strip_tac \\ fs []
@@ -764,13 +805,13 @@ val compile_correct = prove(
     \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
     \\ imp_res_tac get_var_T_OR_F
     \\ Cases_on `x = Boolv T` \\ fs [] THEN1
-     (qpat_assum `state_rel c l1 l2 s t LN locs` (fn th =>
+     (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs[]
       \\ metis_tac [eval_NONE_IMP_jump_exc_NONE_EQ])
     \\ Cases_on `x = Boolv F` \\ fs [] THEN1
-     (qpat_assum `state_rel c l1 l2 s t LN locs` (fn th =>
+     (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]
