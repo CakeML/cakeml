@@ -2195,7 +2195,60 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   qcase_tac `dest_closure clocopt V vs2 = SOME cl` >> Cases_on `cl` >>
   simp[])
  (* RecClosure *)
- >- cheat
+ >- (
+  qcase_tac `val_rel _ i (Recclosure locopt argE closE fns idx) C3` >>
+  qmatch_assum_rename_tac `val_rel _ i (Recclosure _ _ _ _ _) C2` >>
+  qabbrev_tac `C1 = Recclosure locopt argE closE fns idx` >>
+  `is_closure C1` by (simp_tac (srw_ss()) [Abbr`C1`, is_closure_def]) >>
+  Q.SUBGOAL_THEN
+    `is_closure C2 ∧ check_closures C1 C2 ∧ is_closure C3 ∧
+     check_closures C2 C3
+    `
+    (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+              STRIP_ASSUME_TAC th)
+  >- metis_tac[val_rel_closure] >>
+  Q.UNABBREV_TAC `C1` >>
+  simp_tac (srw_ss()) [val_rel_rw, optCASE_NONE_F, optCASE_NONE_T] >>
+  conj_tac >- metis_tac[check_closures_trans] >>
+  qx_genl_tac [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] >> strip_tac >>
+  rpt (first_x_assum (qspecl_then [`j`, `s1`, `s2`]
+                        (fn th => mp_tac th >>
+                                  simp[SimpL ``$==>``] >>
+                                  strip_tac))) >>
+  rpt (first_x_assum (qspecl_then [`vs1`, `vs2`, `clocopt`]
+        (fn th => mp_tac th >>
+                  asm_simp_tac (srw_ss() ++ ETA_ss) [SimpL ``$==>``] >>
+                  strip_tac))) >>
+  qx_gen_tac `dcres` >>
+  disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+                       mp_tac th) >> strip_tac >>
+  qpat_assum `val_rel _ i _ C2` mp_tac >>
+  simp[SimpL ``$==>``, val_rel_rw] >>
+  disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
+  simp[SimpL ``$==>``, optCASE_NONE_F] >>
+  disch_then (qx_choose_then `dcres2` mp_tac) >>
+  `vs2 ≠ []` by (strip_tac >> fs[]) >>
+  Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
+  disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
+                       strip_assume_tac th) >>
+  simp_tac (srw_ss()) [] >>
+  Q.UNDISCH_THEN `!i. val_rel (:'ffi) i C2 C3` mp_tac >>
+  Cases_on `C2` >> RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [is_closure_def]) >>
+  simp[SimpL ``$==>``, val_rel_rw] >> TRY (FIRST_ASSUM ACCEPT_TAC) >>
+  simp[optCASE_NONE_F, optCASE_NONE_T] >>
+  disch_then (mp_tac o SIMP_RULE (srw_ss() ++ DNF_ss) []) >>
+  disch_then (fn th => first_assum (fn termth =>
+    mp_tac (PART_MATCH' (fn t => t |> dest_imp |> #2 |> dest_imp |> #1)
+                        th (concl termth)))) >>
+  simp[SimpL ``$==>``] >> simp_tac(srw_ss()) [] >> simp[] >>
+  disch_then (mp_tac o
+              CONV_RULE (RESORT_FORALL_CONV (sort_vars ["s", "s'", "vs'"]))) >>
+  disch_then (qspecl_then [`s2`, `s2`, `vs2`] mp_tac) >>
+  simp[val_rel_refl, state_rel_refl] >>
+  disch_then (qspecl_then [`SUC k`, `k`] (mp_tac o Q.GEN `k`)) >>
+  simp[] >> Cases_on `dest_closure clocopt C3 vs2` >> simp[] >>
+  qcase_tac `dest_closure clocopt C3 vs2 = SOME cl` >> Cases_on `cl` >>
+  simp[])
  (* exec_rel *)
  >- cheat
  >- fs [ref_v_rel_rw]
