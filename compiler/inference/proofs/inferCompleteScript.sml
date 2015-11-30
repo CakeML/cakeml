@@ -1404,10 +1404,9 @@ val type_top_tenv_ok = store_thm("type_top_tenv_ok",
   PairCases_on`new_tenv2`)>>
   fs[mod_lift_new_dec_tenv_def,bind_var_list2_def,
      typeSoundInvariantsTheory.tenv_val_ok_def]>>
-  cheat)
-  (*
-  This went missing:
-  imp_res_tac type_specs_tenv_ok*)
+  fs[FEVERY_FEMPTY,FEVERY_FUPDATE] >>
+  PairCases_on`new_tenv1`>>fs[weak_new_dec_tenv_def] >>
+  imp_res_tac type_specs_tenv_ok >> fs[])
 (* -- *)
 
 val infer_top_complete = Q.store_thm("infer_top_complete",
