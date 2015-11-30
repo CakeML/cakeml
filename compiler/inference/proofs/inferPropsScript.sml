@@ -3348,4 +3348,18 @@ val convert_env2_anub = store_thm("convert_env2_anub",
   Cases >> fs[anub_def,UNCURRY] >> rw[] >>
   Cases_on`r`>>fs[])
 
+(*Environment relation at infer_d and above*)
+val env_rel_def = Define`
+ env_rel tenv ienv tenv_v ⇔
+  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
+  tenv_mod_ok tenv.m ∧
+  check_menv ienv.inf_m ∧
+  menv_alpha ienv.inf_m tenv.m ∧
+  check_cenv tenv.c ∧
+  ienv.inf_c = tenv.c ∧
+  tenv_tabbrev_ok tenv.t ∧
+  ienv.inf_t = tenv.t ∧
+  check_env ∅ ienv.inf_v ∧
+  tenv_alpha ienv.inf_v (bind_var_list2 tenv_v Empty)`
+
 val _ = export_theory ();

@@ -120,17 +120,8 @@ val tenv_inv_letrec_merge2 = prove(``
 val infer_d_complete = Q.prove (
 `!mn decls d decls' tenvT' cenv' tenv tenv' st ienv idecls tenv_v.
   type_d T mn decls (tenv with v := bind_var_list2 tenv_v Empty) d decls' (tenvT',cenv',tenv') ∧
-  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
-  tenv_mod_ok tenv.m ∧
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  (*Two more invariants at decls*)
-  tenv_tabbrev_ok tenv.t ∧
-  ienv.inf_t = tenv.t ∧
-  check_env ∅ ienv.inf_v ∧
-  tenv_alpha ienv.inf_v (bind_var_list2 tenv_v Empty) ∧
+  (*Related environments*)
+  env_rel tenv ienv tenv_v ∧
   (*Invariant for decls*)
   convert_decls idecls = decls
   ⇒
@@ -141,6 +132,7 @@ val infer_d_complete = Q.prove (
     tenv_alpha itenv' (bind_var_list2 tenv' Empty) ∧
     MAP FST itenv' = MAP FST tenv' ∧
     check_env {} itenv'`,
+ fs[env_rel_def,GSYM check_cenv_tenvC_ok]>>
  rw [type_d_cases] >>
  rw [infer_d_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def] >>
  fs [empty_decls_def,check_env_def,convert_decls_def,empty_inf_decls_def]
@@ -816,17 +808,7 @@ val infer_d_complete = Q.prove (
 val infer_ds_complete = prove(``
 !ds mn decls decls' tenvT' cenv' tenv tenv' st ienv idecls tenv_v.
   type_ds T mn decls (tenv with v := bind_var_list2 tenv_v Empty) ds decls' (tenvT',cenv',tenv') ∧
-  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
-  tenv_mod_ok tenv.m ∧
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  (*Two more invariants at decls*)
-  tenv_tabbrev_ok tenv.t ∧
-  ienv.inf_t = tenv.t ∧
-  check_env ∅ ienv.inf_v ∧
-  tenv_alpha ienv.inf_v (bind_var_list2 tenv_v Empty) ∧
+  env_rel tenv ienv tenv_v ∧
   convert_decls idecls = decls
   ⇒
   ?st' idecls'' itenv'.
@@ -838,13 +820,14 @@ val infer_ds_complete = prove(``
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
     check_env ∅ itenv'``,
+  fs[env_rel_def,GSYM check_cenv_tenvC_ok]>>
   Induct>-
   (rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def,convert_decls_def,empty_inf_decls_def]>>
   fs[tenv_alpha_def,bind_var_list2_def,tenv_invC_def,lookup_tenv_val_def,tenv_inv_def])
   >>
   rw [Once type_ds_cases, infer_ds_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def]>>
   fs[]>>
-    (infer_d_complete|>
+    (infer_d_complete|>REWRITE_RULE[env_rel_def,GSYM check_cenv_tenvC_ok]|>
       CONV_RULE(
         STRIP_QUANT_CONV(LAND_CONV(
           lift_conjunct_conv(same_const``type_d`` o fst o strip_comb))))
@@ -1412,17 +1395,7 @@ val type_top_tenv_ok = store_thm("type_top_tenv_ok",
 val infer_top_complete = Q.store_thm("infer_top_complete",
 `!top decls decls' tenvT' cenv' tenv tenv' menv' st ienv idecls tenv_v tenvM'.
   type_top T decls (tenv with v:= bind_var_list2 tenv_v Empty) top decls' (tenvT',tenvM',cenv',tenv') ∧
-  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
-  tenv_mod_ok tenv.m ∧
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  (*Two more invariants at decls*)
-  tenv_tabbrev_ok tenv.t ∧
-  ienv.inf_t = tenv.t ∧
-  check_env ∅ ienv.inf_v ∧
-  tenv_alpha ienv.inf_v (bind_var_list2 tenv_v Empty) ∧
+  env_rel tenv ienv tenv_v ∧
   convert_decls idecls = decls
   ⇒
   ?st' idecls'' itenv' menv'.
@@ -1435,10 +1408,11 @@ val infer_top_complete = Q.store_thm("infer_top_complete",
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
     check_env ∅ itenv'`,
+  fs[env_rel_def,GSYM check_cenv_tenvC_ok]>>
   rw [Once type_top_cases]>>
   fs[infer_top_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def]
   >-
-    (first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] infer_d_complete)))>>
+    (first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] (infer_d_complete|>REWRITE_RULE [env_rel_def,GSYM check_cenv_tenvC_ok]))))>>
     PairCases_on`new_tenv`>>fs[]>>
     rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
     simp[PULL_FORALL]>>
@@ -1484,17 +1458,7 @@ val infer_top_complete = Q.store_thm("infer_top_complete",
 val infer_prog_complete = Q.store_thm("infer_prog_complete",
 `!prog decls decls' tenvT' cenv' tenv_v tenv tenv' menv' st ienv idecls tenvM'.
   type_prog T decls (tenv with v := bind_var_list2 tenv_v Empty) prog decls' (tenvT',tenvM',cenv',tenv') ∧
-  tenv_val_ok (bind_var_list2 tenv_v Empty) ∧
-  tenv_mod_ok tenv.m ∧
-  check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  (*Two more invariants at decls*)
-  tenv_tabbrev_ok tenv.t ∧
-  ienv.inf_t = tenv.t ∧
-  check_env ∅ ienv.inf_v ∧
-  tenv_alpha ienv.inf_v (bind_var_list2 tenv_v Empty) ∧
+  env_rel tenv ienv tenv_v ∧
   convert_decls idecls = decls
   ⇒
   ?st' idecls'' itenv' menv'.
@@ -1507,13 +1471,14 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
     MAP FST itenv' = MAP FST tenv' ∧
     (*maybe implied as well*)
     check_env ∅ itenv'`,
+  fs[env_rel_def,check_cenv_tenvC_ok]>>
   Induct>-
   (rw [Once type_prog_cases, infer_prog_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def,check_env_def,convert_decls_def,empty_inf_decls_def]>>
   fs[tenv_alpha_empty,menv_alpha_def])
   >>
   rw [Once type_prog_cases, infer_prog_def, success_eqns, LAMBDA_PROD, EXISTS_PROD, init_state_def,empty_decls_def]>>
   fs[]>>
-  first_assum (mp_tac o (any_match_mp (infer_top_complete|>REWRITE_RULE[GSYM AND_IMP_INTRO])))>>
+  first_assum (mp_tac o (any_match_mp (infer_top_complete|>REWRITE_RULE[GSYM AND_IMP_INTRO,env_rel_def,check_cenv_tenvC_ok])))>>
   rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
   disch_then (qspecl_then [`st`,`idecls`] mp_tac)>>
   rw[]>>
@@ -1522,7 +1487,6 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
   `check_cenv ienv.inf_c` by fs[check_cenv_tenvC_ok]>>
   first_assum (mp_tac o (any_match_mp infer_top_invariant))>>
   rpt (disch_then (fn th => first_assum (mp_tac o (any_match_mp th))))>>
-  rfs[]>>
   strip_tac>>
   qmatch_assum_abbrev_tac`type_prog _ _ tenv'' ds _ _` >>
   qpat_assum`type_prog _ _ _ _ _ _ ` mp_tac>>
@@ -1547,7 +1511,7 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
        fs [num_tvs_bvl2, num_tvs_def])
     >- metis_tac[check_menv_def,fevery_funion]
     >- fs[menv_alpha_def,fmap_rel_FUNION_rels]
-    >- fs[tenv_ctor_ok_merge,check_cenv_tenvC_ok]
+    >- metis_tac[tenv_ctor_ok_merge,check_cenv_tenvC_ok]
     >- fs[tenv_tabbrev_ok_merge]
     >-  fs[check_env_def]
     >-
