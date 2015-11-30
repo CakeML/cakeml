@@ -1571,4 +1571,23 @@ val compile_exps_correct = Q.prove(
 
 val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
+(* composed compiler correctness *)
+
+val compile_semantics = Q.store_thm("compile_semantics",
+  `semantics ffi0 (fromAList prog) start ≠ Fail ∧
+   compile start n prog = (start', prog', n')
+   ⇒
+   semantics ffi0 (fromAList prog') start' =
+   semantics ffi0 (fromAList prog) start`,
+  simp[bvlSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`ffi'` >> strip_tac >>
+    simp[compile_def,compile_prog_def] >> strip_tac >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    rpt var_eq_tac >>
+    cheat ) >>
+  cheat);
+
 val _ = export_theory();
