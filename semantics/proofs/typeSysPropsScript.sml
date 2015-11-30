@@ -2853,7 +2853,6 @@ val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
 
 (* ---------- type_specs ---------- *)
 
-(*
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
 `!tvs tenvT specs decls' new_tenv.
   type_specs tvs tenvT specs decls' new_tenv ⇒
@@ -2863,8 +2862,9 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
  ho_match_mp_tac type_specs_ind >>
  rw [bind_var_list2_def, tenv_val_ok_def]
  >- rw [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP]
+ >> PairCases_on`new_tenv`>>fs[append_new_dec_tenv_def]
  >- (rw [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def] >>
-     induct_on `tenv'` >>
+     induct_on `new_tenv2` >>
      rw []
      >- (rw [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def] >>
          match_mp_tac check_freevars_subst_single >>
@@ -2927,7 +2927,6 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
      first_x_assum match_mp_tac >>
      qexists_tac `k` >>
      simp []));
-     *)
 
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 `!mn tenvT specs decls' new_tenv.
