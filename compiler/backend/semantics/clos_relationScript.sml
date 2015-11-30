@@ -60,6 +60,14 @@ val evaluate_ev_clock = Q.store_thm ("evaluate_ev_clock",
  rw [] >>
  decide_tac);
 
+val OPTREL_Cong = Q.store_thm(
+  "OPTREL_Cong[defncong]",
+  `∀o1 o2 o1' o2' R1 R2.
+      (o1 = o1') ∧ (o2 = o2') ∧
+      (∀x y. o1' = SOME x ∧ o2' = SOME y ⇒ (R1 x y ⇔ R2 x y)) ⇒
+      (OPTREL R1 o1 o2 ⇔ OPTREL R2 o1' o2')`,
+  Cases >> Cases >> Cases >> Cases >> simp[OPTREL_def]);
+
 val val_rel_def = tDefine "val_rel" `
 (val_rel (:'ffi) (i:num) (Number n) (Number n') ⇔
   n = n') ∧
