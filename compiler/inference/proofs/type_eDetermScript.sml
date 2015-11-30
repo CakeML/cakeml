@@ -411,7 +411,6 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
   fs[]>>rfs[]>>
   metis_tac[check_t_empty_unconvert_convert_id]);
 
-
  (*From ¬check_t 0 {} (t_walkstar s tt) it should follow that
    t_walkstar s tt must contain some unification variables.
    (*
@@ -421,16 +420,7 @@ val type_pe_determ_infer_e = Q.store_thm ("type_pe_determ_infer_e",
    But we know that s is completed by s1 and s2 therefore those
    unification variables are exactly bound in s1 and s2 to
    Infer_Tbool and Infer_Tint, hence the walkstars must differ *)
-check_menv ienv.inf_m ∧
-  menv_alpha ienv.inf_m tenv.m ∧
-  tenv_ctor_ok tenv.c ∧
-  ienv.inf_c = tenv.c ∧
-  check_env {} ienv.inf_v ∧
-  num_tvs tenv.v = 0 ∧
-  tenv_inv FEMPTY ienv.inf_v tenv.v ∧
-  infer_e ienv e init_infer_state = (Success t, st) ∧
-  infer_p tenv.c p st = (Success (t', tenv'), st') ∧
- 
+
 val infer_funs_complete = Q.store_thm("infer_funs_complete",
  `tenv_val_ok (bind_var_list2 tenv' Empty) ∧
   check_menv ienv.inf_m ∧
