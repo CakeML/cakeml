@@ -12,7 +12,7 @@ val bytes_in_word_def = Define `
   bytes_in_word = n2w (dimindex (:'a) DIV 8):'a word`;
 
 val adjust_var_def = Define `
-  adjust_var n = 2 * n + 1:num`;
+  adjust_var n = 2 * n + 2:num`;
 
 val adjust_set_def = Define `
   adjust_set (names:num_set) =
@@ -33,7 +33,7 @@ val assign_def = Define `
 val comp_def = Define `
   comp c (n:num) (l:num) (p:bvp$prog) =
     case p of
-    | Skip => (Skip,l)
+    | Skip => (Skip:'a wordLang$prog,l)
     | Tick => (Tick,l)
     | Raise n => (Raise (adjust_var n),l)
     | Return n => (Return 0 (adjust_var n),l)
@@ -47,7 +47,8 @@ val comp_def = Define `
         let (q2,l2) = comp c n l1 p2 in
           (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
     | MakeSpace n names =>
-        (Alloc (adjust_var n) (adjust_set names),l)
+        let w = if w2n ((n2w n):'a word) <> n then ~0w else n2w n in
+          (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)),l)
     | Assign dest op args names => assign c n l dest op args names
     | Call ret target args handler =>
         case ret of

@@ -191,7 +191,8 @@ val word_ml_envs_insert = store_thm("word_ml_envs_insert",
     word_ml_envs (heap,F,a,sp) limit c s.refs
       (join_env (insert dest x s.locals)
         (toAList (insert (adjust_var dest) w t.locals))::xs)``,
-  cheat);
+  fs [word_ml_envs_def,LET_DEF,ALOOKUP_toAList] \\ cheat);
+
 
 (* -------------------------------------------------------
     definition of state relation
@@ -381,8 +382,8 @@ val state_rel_pop_env_set_var_IMP = prove(
   ``state_rel c q l s1 t1 (LS (a,w)) locs /\
     pop_env s1 = SOME s2 ==>
     ?t2 l8 l9 ll.
-       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
-       state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) LN ll``,
+      pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
+      state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) LN ll``,
   cheat);
 
 val find_code_thm = prove(
@@ -603,6 +604,45 @@ val eval_exc_stack_shorter = prove(
   \\ qexists_tac `LENGTH (LAST_N (s.handler + 1) s.stack)`
   \\ fs [LENGTH_LAST_N_LESS]);
 
+val alloc_size_def = Define `
+  alloc_size k = if ~(k < dimword (:'a)) then -1w else n2w k:'a word`
+
+val SUBSET_INSERT_EQ_SUBSET = prove(
+  ``~(x IN s) ==> (s SUBSET (x INSERT t) <=> s SUBSET t)``,
+  fs [EXTENSION]);
+
+val NOT_1_domain = prove(
+  ``~(1 IN domain (adjust_set names))``,
+  fs [domain_fromAList,adjust_set_def,MEM_MAP,MEM_toAList,
+      FORALL_PROD,adjust_var_def] \\ CCONTR_TAC \\ fs [] \\ decide_tac)
+
+val cut_env_adjust_set_insert_1 = prove(
+  ``cut_env (adjust_set names) (insert 1 w l) = cut_env (adjust_set names) l``,
+  fs [wordSemTheory.cut_env_def,MATCH_MP SUBSET_INSERT_EQ_SUBSET NOT_1_domain]
+  \\ rw [] \\ fs [lookup_inter,lookup_insert]
+  \\ Cases_on `x = 1` \\ fs [] \\ every_case_tac \\ rw []
+  \\ fs [SIMP_RULE std_ss [domain_lookup] NOT_1_domain]);
+
+val gc_lemma = prove(
+  ``bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
+    state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) LN locs /\
+    wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
+    let t0 = (push_env y (NONE:(num # 'a wordLang$prog # num # num) option)
+               (set_store AllocSize (Word (alloc_size k))
+                 (t with locals := insert 1 (Word (alloc_size k)) t.locals))) in
+      ?t2 wl m st w1 w2 stack.
+        t0.gc_fun (enc_stack t0.stack,t0.memory,t0.mdomain,t0.store) =
+          SOME (wl,m,st) /\
+        dec_stack wl t0.stack = SOME stack /\
+        pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
+        FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
+        FLOOKUP t2.store NextFree = SOME (Word w1) /\
+        FLOOKUP t2.store LastFree = SOME (Word w2) /\
+        (w2n (alloc_size k:'a word) <= w2n (w2 - w1:'a word) ==>
+         state_rel c l1 l2
+          (s with <|locals := x; space := s.space + k|>) t2 LN locs)``,
+  cheat);
+
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
@@ -660,10 +700,16 @@ val compile_correct = prove(
     \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs [])
   THEN1 (* MakeSpace *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+        GSYM alloc_size_def,LET_DEF]
     \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
-    \\ rw [] \\ fs [add_space_def]
-    \\ cheat)
+    \\ rw [] \\ fs [add_space_def,wordSemTheory.word_exp_def,
+         wordSemTheory.get_var_def,wordSemTheory.set_var_def]
+    \\ fs [wordSemTheory.alloc_def,wordSemTheory.gc_def,LET_DEF]
+    \\ imp_res_tac cut_env_IMP_cut_env \\ fs [cut_env_adjust_set_insert_1]
+    \\ rw [] \\ imp_res_tac gc_lemma \\ fs [LET_DEF]
+    \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ fs []
+    \\ fs [wordSemTheory.has_space_def] \\ rw [] \\ fs [])
   THEN1 (* Raise *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s` \\ fs [] \\ rw []
