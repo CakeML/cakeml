@@ -241,11 +241,11 @@ val compile_lab_def = Define `
 
 val _ = Datatype`
   config = <| encoder : 'a asm -> word8 list
-            ; lalala : num num_map num_map
+            ; labels : num num_map num_map
             |>`;
 
 val compile_def = Define `
   compile ac lc sec_list =
-    compile_lab (ac,lc.encoder,lc.lalala) (filter_skip sec_list)`;
+    compile_lab (ac,lc.encoder,lc.labels) (filter_skip sec_list)`;
 
 val _ = export_theory();

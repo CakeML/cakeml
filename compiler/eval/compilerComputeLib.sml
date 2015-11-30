@@ -694,7 +694,7 @@ val bvl_conf = ``0:num``
 val bvp_conf = ``<| tag_bits:=8; len_bits:=8; pad_bits:=0; len_size:=16|>``
 val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;base_ptr:=6|>``
 (*??*)
-val lab_conf = ``<|encoder:=x64_enc;lalala:=LN|>``
+val lab_conf = ``<|encoder:=x64_enc;labels:=LN|>``
 val asm_conf =``x64_config``
 
 val conf = ``<|source_conf:=^(source_conf);
