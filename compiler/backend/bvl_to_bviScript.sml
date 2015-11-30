@@ -164,7 +164,7 @@ val compile_def = Define`
     (* TODO: inline, #51 *)
     let prog = MAP (λ(name,arity,exp).
       (name,arity,
-       HD (bvl_handle$compile 0
+       HD (bvl_handle$compile arity
              [bvl_const$compile_exp exp]))) prog in
     (* TODO: let-optimisation, #50 *)
     compile_prog start n prog`;
