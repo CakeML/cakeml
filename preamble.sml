@@ -246,6 +246,18 @@ fun specl_args_of_then f th (ttac:thm_tactic) (g as (_,w)) =
     ttac (ISPECL vs th)
   end g
 
+val preamble_ERR = mk_HOL_ERR"preamble"
+
+fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
+
+val split_pair_tac =
+  first_assum(subterm split_applied_pair_tac o concl)
+
+val asm_exists_tac = first_assum(match_exists_tac o concl)
+
+fun drule th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
+
 (* TODO: all the following might not be used? *)
 
 (* the theorem is of the form [!x1 ... xn. P ==> ?y1 ... ym. Q /\ ...]
