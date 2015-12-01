@@ -194,31 +194,45 @@ val word_gc_fun_def = Define `
   (word_gc_fun c):'a gc_fun_type = \(roots,m,dm,s).
      SOME (roots,m,s)`
 
-(*
-(*
+val heap_in_memory_store_def = Define `
+  heap_in_memory_store heap a sp c s m dm limit =
+    ?curr other.
+      (FLOOKUP s CurrHeap = SOME (Word curr)) /\
+      (FLOOKUP s OtherHeap = SOME (Word other)) /\
+      (FLOOKUP s NextFree = SOME (Word (curr + bytes_in_word * n2w a))) /\
+      (FLOOKUP s LastFree = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
+      (word_heap curr heap c heap *
+       word_heap other [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm))`
 
-gc_move_def
-gc_move_list_def
-gc_move_loop_def
-full_gc_def
+val word_gc_fun_lemma = prove(
+  ``heap_in_memory_store heap a sp c s m dm limit /\
+    abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+    LIST_REL (\v w. word_addr c heap v = w) hs (MAP SND stack) /\
+    full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) ==>
+    let heap1 = heap2 ++ heap_expand (limit - heap_length heap2) in
+      ?stack1 m1 s1 a1 sp1.
+        word_gc_fun c ([MAP SND stack],m,dm,s) = SOME (stack1,m1,s1) /\
+        heap_in_memory_store heap1 (heap_length heap2)
+          (limit - heap_length heap2) c s1 m1 dm limit /\
+        LIST_REL (λv w. word_addr c heap1 v = w) roots2
+          (MAP SND (ZIP (MAP FST stack,HD stack1))) /\
+        MAP LENGTH stack1 = [LENGTH stack]``,
+  cheat) |> SIMP_RULE std_ss [LET_DEF];
 
-full_gc_thm
-
-*)
-
-  ``(FLOOKUP t.store CurrHeap = SOME (Word curr)) /\
-    (FLOOKUP t.store OtherHeap = SOME (Word other)) /\
-    (word_heap curr heap c heap *
-     word_heap other [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm)) /\
-    word_ml_inv stack refs (heap,be,a,sp) limit c ==>
-    ?stack1 m2 s1 heap1.
+val word_gc_fun_correct = prove(
+  ``heap_in_memory_store heap a sp c s m dm limit /\
+    word_ml_inv (heap,be,a,sp) limit c refs stack ==>
+    ?stack1 m1 s1 heap1 a1 sp1.
       word_gc_fun c ([MAP SND stack],m,dm,s) = SOME (stack1,m1,s1) /\
-      (word_heap other heap1 c heap1 *
-       word_heap curr [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm)) /\
-      word_ml_inv (ZIP (MAP FST stack,HD stack1)) refs (heap1,be,a,sp) limit c /\
-      (FLOOKUP t.store CurrHeap = SOME (Word other)) /\
-      (FLOOKUP t.store OtherHeap = SOME (Word curr))``,
-*)
+      heap_in_memory_store heap1 a1 sp1 c s1 m1 dm limit /\
+      word_ml_inv (heap1,be,a1,sp1) limit c refs (ZIP (MAP FST stack,HD stack1))``,
+  fs [word_ml_inv_def] \\ rw [] \\ imp_res_tac full_gc_thm
+  \\ fs [PULL_EXISTS] \\ rw []
+  \\ mp_tac word_gc_fun_lemma \\ fs [] \\ rw [] \\ fs []
+  \\ Q.LIST_EXISTS_TAC [`heap2 ++ heap_expand (limit - heap_length heap2)`,
+       `heap_length heap2`,`limit - heap_length heap2`,`roots2`]
+  \\ fs [MAP_ZIP]);
+
 
 (* -------------------------------------------------------
     definition of state relation
@@ -273,10 +287,7 @@ val state_rel_def = Define `
     (* there exists some GC-compatible abstraction *)
     ?heap limit a sp.
       (* the abstract heap is stored in memory *)
-      (word_heap (theWord (t.store ' CurrHeap)) heap c heap *
-       word_heap (theWord (t.store ' OtherHeap))
-         [Unused (limit-1)] c [Unused (limit-1)])
-           (fun2set (t.memory,t.mdomain)) /\
+      heap_in_memory_store heap a sp c t.store t.memory t.mdomain limit /\
       (* the abstract heap relates to the values of BVP *)
       word_ml_inv (heap,F,a,sp) limit c s.refs
         (v1 ++ join_env s.locals (toAList t.locals) ++
