@@ -100,7 +100,8 @@ val word_ml_inv_rearrange = prove(
 
 val join_env_def = Define `
   join_env env vs =
-    MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v)) (FILTER (\(n,v). n <> 0) vs)`
+    MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v))
+      (FILTER (\(n,v). n <> 0 /\ EVEN n) vs)`
 
 val flat_def = Define `
   (flat (Env env::xs) (StackFrame vs _::ys) =
@@ -118,6 +119,10 @@ val adjust_var_DIV_2 = prove(
   ``(adjust_var n - 2) DIV 2 = n``,
   fs [ONCE_REWRITE_RULE[MULT_COMM]adjust_var_def,MULT_DIV]);
 
+val EVEN_adjust_var = prove(
+  ``EVEN (adjust_var n)``,
+  fs [adjust_var_def,EVEN_MOD2,ONCE_REWRITE_RULE[MULT_COMM]MOD_TIMES]);
+
 val word_ml_inv_lookup = prove(
   ``word_ml_inv (heap,be,a,sp) limit c s.refs (ys ++ join_env l1 (toAList l2) ++ xs) /\
     lookup n l1 = SOME x /\
@@ -128,10 +133,10 @@ val word_ml_inv_lookup = prove(
   \\ fs [GSYM toAList_def] \\ rw []
   \\ `MEM (x,w) (join_env l1 (toAList l2))` by
    (fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]
-    \\ qexists_tac `adjust_var n` \\ fs [adjust_var_DIV_2])
-  \\ fs [MEM_SPLIT] \\ fs []
+    \\ qexists_tac `adjust_var n` \\ fs [adjust_var_DIV_2,EVEN_adjust_var])
+  \\ fs [MEM_SPLIT] \\ fs [] \\ fs [adjust_var_def]
   \\ qpat_assum `word_ml_inv yyy limit c s.refs xxx` mp_tac
-  \\ match_mp_tac word_ml_inv_rearrange \\ fs [MEM] \\ rw [] \\ fs[])
+  \\ match_mp_tac word_ml_inv_rearrange \\ fs [MEM] \\ rw [] \\ fs[]);
 
 val word_ml_inv_get_var_IMP = store_thm("word_ml_inv_get_var_IMP",
   ``word_ml_inv (heap,be,a,sp) limit c s.refs
@@ -144,14 +149,30 @@ val word_ml_inv_get_var_IMP = store_thm("word_ml_inv_get_var_IMP",
              |> Q.INST [`ys`|->`[]`] |> SIMP_RULE std_ss [APPEND])
   \\ fs [get_var_def,wordSemTheory.get_var_def]);
 
+val IMP_adjust_var = prove(
+  ``n <> 0 /\ EVEN n ==> adjust_var ((n - 2) DIV 2) = n``,
+  fs [EVEN_EXISTS] \\ rw [] \\ Cases_on `m` \\ fs [MULT_CLAUSES]
+  \\ once_rewrite_tac [MULT_COMM] \\ fs [MULT_DIV]
+  \\ fs [adjust_var_def] \\ decide_tac);
+
+val adjust_var_11 = prove(
+  ``(adjust_var n = adjust_var m) <=> n = m``,
+  fs [adjust_var_def,EQ_MULT_LCANCEL]);
+
 val word_ml_inv_insert = store_thm("word_ml_inv_insert",
   ``word_ml_inv (heap,F,a,sp) limit c s.refs
       ([(x,w)]++join_env s.locals (toAList t.locals)++xs) ==>
     word_ml_inv (heap,F,a,sp) limit c s.refs
       (join_env (insert dest x s.locals)
         (toAList (insert (adjust_var dest) w t.locals))++xs)``,
-  fs [word_ml_inv_def,LET_DEF,ALOOKUP_toAList] \\ cheat);
-
+  match_mp_tac word_ml_inv_rearrange \\ fs [] \\ rw [] \\ fs []
+  \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+  \\ fs [] \\ rw [] \\ fs [MEM_toAList]
+  \\ fs [lookup_insert]
+  \\ Cases_on `dest = (p_1 - 2) DIV 2` \\ fs []
+  \\ fs [adjust_var_DIV_2]
+  \\ imp_res_tac IMP_adjust_var \\ fs []
+  \\ metis_tac [adjust_var_11]);
 
 (* -------------------------------------------------------
     definition and verification of GC function
