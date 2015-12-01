@@ -3877,6 +3877,7 @@ val full_state_rel_def = Define`
       state_rel k sb sc ∧ sb.clock = sc.clock ∧
       FEVERY (λp. every_Fn_vs_NONE [SND (SND p)]) sc.code ∧
       clos_annotateProof$state_rel sc sd ∧
+      (* TODO: (some of) these FEVERYs are redundant given the state_rels *)
       FEVERY (λp. every_Fn_vs_SOME [SND (SND p)]) sd.code ∧
       FEVERY (λp. every_Fn_SOME [SND (SND p)]) sd.code ∧
       clos_to_bvlProof$state_rel f sd s2`;
