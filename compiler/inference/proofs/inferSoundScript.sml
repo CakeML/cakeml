@@ -127,7 +127,7 @@ val deBruijn_subst_convert = prove(``
   >>
     fs[MAP_MAP_o,EVERY_MEM,MAP_EQ_f]);
 
-val infer_d_sound = Q.prove (
+val infer_d_sound = Q.store_thm ("infer_d_sound",
 `!mn decls ienv d st1 st2 decls' tenvT' cenv' env' tenv tenv_v.
   infer_d mn decls ienv d st1 = (Success (decls',tenvT',cenv',env'), st2) ∧
   env_rel tenv ienv tenv_v

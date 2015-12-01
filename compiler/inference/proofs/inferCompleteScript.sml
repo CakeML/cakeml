@@ -117,7 +117,7 @@ val tenv_inv_letrec_merge2 = prove(``
     pop_assum(qspecl_then [`<|subst:=FEMPTY;next_uvar:=0|>`,`funs`] assume_tac)>>
     fs[]);
 
-val infer_d_complete = Q.prove (
+val infer_d_complete = Q.store_thm ("infer_d_complete",
 `!mn decls d decls' tenvT' cenv' tenv tenv' st ienv idecls tenv_v.
   type_d T mn decls (tenv with v := bind_var_list2 tenv_v Empty) d decls' (tenvT',cenv',tenv') ∧
   (*Related environments*)
