@@ -119,7 +119,7 @@ val val_rel_def = tDefine "val_rel" `
                state_rel s1.clock s1 s1' ∧
                val_rel (:'ffi) s1.clock v v'
            | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
-               state_rel s1.clock s1 s1'
+               s1.clock = s1'.clock ∧ state_rel s1.clock s1 s1'
            | (Rerr (Rabort Rtype_error), _) => T
            | _ => F
     else
@@ -170,6 +170,7 @@ val res_rel_def = Define `
   state_rel s.clock s s' ∧
   val_rel (:'ffi) s.clock v v') ∧
 (res_rel (Rerr (Rabort Rtimeout_error), s) (Rerr (Rabort Rtimeout_error), s') ⇔
+  s.clock = s'.clock ∧
   state_rel s.clock s s') ∧
 (res_rel (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
 (res_rel _ _ ⇔ F)`;
@@ -186,7 +187,8 @@ val res_rel_rw = Q.store_thm ("res_rel_rw",
   state_rel s.clock s s' ∧
   s.clock = s'.clock) ∧
  (res_rel (Rerr (Rabort Rtimeout_error), s) x ⇔
-   ?s'. x = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s.clock s s') ∧
+   ?s'. x = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s.clock s s' ∧
+        s.clock = s'.clock) ∧
  (res_rel (Rerr (Rabort Rtype_error), s) x ⇔ T)`,
  rw [] >>
  Cases_on `x` >>
@@ -548,7 +550,8 @@ val TAKE_LEN_REV = Q.prove(
 val res_rel_timeout2 = Q.store_thm(
   "res_rel_timeout2",
   `res_rel rs (Rerr (Rabort Rtimeout_error), s) ⇔
-   (∃s'. rs = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s'.clock s' s) ∨
+   (∃s'. rs = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s'.clock s' s ∧
+         s'.clock = s.clock) ∨
    (∃s'. rs = (Rerr (Rabort Rtype_error), s'))`,
   Cases_on `rs` >> simp[] >> qcase_tac `res_rel (rr, _)` >>
   Cases_on `rr` >> simp[res_rel_rw] >> qcase_tac `res_rel (Rerr ee, _)` >>
@@ -1392,7 +1395,8 @@ val compat_if = Q.store_thm ("compat_if",
                          result_store_cases)) >>
  rw [res_rel_rw] >>
  simp []
- >- metis_tac [] >>
+ >- metis_tac []
+ >- metis_tac[] >>
  `?v v'. vs = [v] ∧ vs' = [v']` by metis_tac [evaluate_SING] >>
  fs [] >>
  rw [] >>
@@ -1561,16 +1565,15 @@ val compat_app = Q.store_thm ("compat_app",
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
  simp [res_rel_rw] >>
- gen_tac >>
+ qx_gen_tac `j` >>
  DISCH_TAC >>
- first_x_assum (qspecl_then [`i'`, `env`, `env'`, `s`, `s'`] mp_tac) >>
+ first_x_assum (qspecl_then [`j`, `env`, `env'`, `s`, `s'`] mp_tac) >>
  imp_res_tac val_rel_mono >>
  imp_res_tac val_rel_mono_list >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- DISCH_TAC >>
- pop_assum (qspec_then `i'` assume_tac) >>
+ disch_then (qspec_then `j` assume_tac) >>
  fs [] >>
- reverse ((Q.ISPEC_THEN `evaluate (es,env,s with clock := i')`strip_assume_tac
+ reverse ((Q.ISPEC_THEN `evaluate (es,env,s with clock := j)`strip_assume_tac
                          result_store_cases)) >>
  fs [res_rel_rw]
  >- (Cases_on `es'` >>
@@ -1595,6 +1598,7 @@ val compat_app = Q.store_thm ("compat_app",
  fs [res_rel_rw, clock_lemmas] >>
  `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
  fs [res_rel_rw]
+ >- metis_tac []
  >- metis_tac [] >>
  `?v v'. vs'' = [v] ∧ vs''' = [v']` by metis_tac [evaluate_SING] >>
  rw [] >>
@@ -1944,7 +1948,8 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
       >- (Cases_on `err` >> simp[res_rel_rw]
           >- (rpt strip_tac >> simp[] >> fs[]) >>
           qcase_tac `ev1 = (Rerr (Rabort a), s1)` >>
-          Cases_on `a` >> simp[res_rel_rw] >> rpt strip_tac >> simp[]) >>
+          Cases_on `a` >> simp[res_rel_rw] >> rpt strip_tac >> simp[] >>
+          fs[]) >>
       simp[res_rel_rw] >> dsimp[] >> rpt strip_tac >>
       qcase_tac `evaluate([fe2], ENV2, _) = (Rval [rv2], s2')` >>
       qmatch_abbrev_tac `res_rel (evaluate_app _ _ (TAKE N vs1) _) _` >>
@@ -2306,7 +2311,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
       >- (qcase_tac `evaluate_ev _ _ _ = (Rerr (Rabort abt), _)` >>
           Cases_on `abt` >> fs[res_rel_rw] >> rw[] >>
           fs[res_rel_rw] >>
-          `s1'.clock = s0'.clock` by cheat >> metis_tac[]) >>
+          `s1'.clock = s0'.clock` by simp[] >> metis_tac[]) >>
       fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> metis_tac[]) >>
   fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> reverse conj_tac >- metis_tac[] >>
   fs[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
@@ -2332,7 +2337,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
        fs[] >> rfs[] >> res_tac >>
        Cases_on `EL idx s1.globals` >> Cases_on `EL idx s3.globals` >>
        fs[OPTREL_def] >> fs[] >> metis_tac[MEM_EL])
-   >- (irule fmap_rel_trans >- metis_tac[] >> metis_tac[])
+   >- (irule fmap_rel_trans >> metis_tac[])
    >- (irule fmap_rel_trans
        >- (simp_tac (srw_ss()) [FORALL_PROD] >> rpt strip_tac >>
            first_x_assum irule >- simp[] >>
