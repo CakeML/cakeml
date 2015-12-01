@@ -273,9 +273,7 @@ val state_rel_def = Define `
     (t.gc_fun = word_gc_fun c) /\
     code_rel c s.code t.code /\
     good_dimindex (:'a) /\
-    (* the store contains everything except Handler *)
-    EVERY (\n. n IN FDOM t.store /\ isWord (t.store ' n))
-      [NextFree; LastFree; FreeCount; CurrHeap; OtherHeap; AllocSize; ProgStart] /\
+    (* the store *)
     EVERY (\n. n IN FDOM t.store) [Globals] /\
     (* every local is represented in word lang *)
     (v1 = [] ==> lookup 0 t.locals = SOME (Loc l1 l2)) /\
@@ -658,6 +656,11 @@ val cut_env_adjust_set_insert_1 = prove(
   \\ Cases_on `x = 1` \\ fs [] \\ every_case_tac \\ rw []
   \\ fs [SIMP_RULE std_ss [domain_lookup] NOT_1_domain]);
 
+val case_EQ_SOME_IFF = prove(
+  ``(case p of NONE => NONE | SOME x => g x) = SOME y <=>
+    ?x. p = SOME x /\ g x = SOME y``,
+  Cases_on `p` \\ fs []);
+
 val gc_lemma = prove(
   ``bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
     state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
@@ -676,7 +679,20 @@ val gc_lemma = prove(
         (w2n (alloc_size k:'a word) <= w2n (w2 - w1:'a word) ==>
          state_rel c l1 l2
           (s with <|locals := x; space := s.space + k|>) t2 [] locs)``,
-  cheat);
+  fs [LET_DEF,wordSemTheory.push_env_def,wordSemTheory.set_store_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [wordSemTheory.enc_stack_def]
+  \\ rw [] \\ `t.gc_fun = word_gc_fun c` by fs [state_rel_def] \\ fs []
+  \\ qpat_assum `state_rel c l1 l2 s t [] locs` mp_tac
+  \\ simp [Once state_rel_def] \\ rw []
+  \\ fs [wordSemTheory.dec_stack_def,case_EQ_SOME_IFF,PULL_EXISTS]
+  \\ fs [wordSemTheory.pop_env_def]
+  \\ `heap_in_memory_store heap a sp c
+        (t.store |+ (AllocSize,Word (alloc_size k))) t.memory t.mdomain limit` by
+    (fs [heap_in_memory_store_def,FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ NO_TAC)
+  \\ pop_assum (fn th2 => first_assum (fn th1 =>
+        mp_tac (MATCH_MP word_gc_fun_correct (CONJ th2 th1)))) \\ rw []
+  (* word_gc_fun_correct *)
+  \\ cheat);
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
