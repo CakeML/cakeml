@@ -2,6 +2,34 @@ open preamble bvlSemTheory clos_to_bvlTheory bvl_constTheory;
 
 val _ = new_theory"bvlProps";
 
+val with_same_code = Q.store_thm("with_same_code[simp]",
+  `(s:'ffi bvlSem$state) with code := s.code = s`,
+  rw[bvlSemTheory.state_component_equality])
+
+val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
+  `bvlSem$dec_clock n (s with code := c) = dec_clock n s with code := c`,
+  EVAL_TAC );
+
+val do_app_with_code = Q.store_thm("do_app_with_code",
+  `bvlSem$do_app op vs s = Rval (r,s') ⇒
+   domain s.code ⊆ domain c ⇒
+   do_app op vs (s with code := c) = Rval (r,s' with code := c)`,
+  rw[do_app_def] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  every_case_tac >> fs[LET_THM] >> rw[] >>
+  fs[SUBSET_DEF] >> METIS_TAC[]);
+
+val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
+  `bvlSem$do_app op vs s = Rerr e ⇒
+   domain c ⊆ domain s.code ⇒
+   do_app op vs (s with code := c) = Rerr e`,
+  rw[do_app_def] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  every_case_tac >> fs[LET_THM] >> rw[] >>
+  fs[SUBSET_DEF] >> METIS_TAC[]);
+
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
   `(initial_state f c k).code = c ∧
    (initial_state f c k).ffi = f ∧
@@ -11,7 +39,8 @@ val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
    rw[initial_state_def]);
 
 val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
-  `initial_state f c k with clock := k1 = initial_state f c k1`,
+  `initial_state f c k with clock := k1 = initial_state f c k1 ∧
+   initial_state f c k with code := c1 = initial_state f c1 k`,
   EVAL_TAC);
 
 val bool_to_tag_11 = store_thm("bool_to_tag_11[simp]",

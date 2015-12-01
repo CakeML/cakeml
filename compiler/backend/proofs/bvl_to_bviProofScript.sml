@@ -1573,6 +1573,138 @@ val _ = save_thm("compile_exps_correct",compile_exps_correct);
 
 (* composed compiler correctness *)
 
+val MAP_FST_optimise = Q.store_thm("MAP_FST_optimise[simp]",
+  `MAP FST (optimise prog) = MAP FST prog`,
+  simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]);
+
+val ALOOKUP_optimise_lookup = Q.store_thm("ALOOKUP_optimise_lookup",
+  `lookup n ls = SOME (a,b) ⇒
+   ALOOKUP (optimise (toAList ls)) n = SOME (a,HD(compile a [compile_exp b]))`,
+  rw[] >>
+  Cases_on`ALOOKUP (optimise (toAList ls)) n` >- (
+    imp_res_tac ALOOKUP_FAILS >>
+    `¬MEM n (MAP FST (optimise (toAList ls)))` by METIS_TAC[MEM_MAP,FST,PAIR] >>
+    fs[toAList_domain] >>
+    METIS_TAC[domain_lookup] ) >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[optimise_def,MEM_MAP,PULL_EXISTS,EXISTS_PROD,MEM_toAList] >> fs[]);
+
+val optimise_evaluate = Q.store_thm("optimise_evaluate",
+  `∀xs env s res s'.
+     evaluate (xs,env,s) = (res,s') ∧
+     res ≠ Rerr (Rabort Rtype_error) ⇒
+     evaluate (xs,env,s with code := fromAList (optimise (toAList s.code))) =
+       (res,s' with code := fromAList (optimise (toAList s.code)))`,
+  recInduct bvlSemTheory.evaluate_ind >>
+  rw[bvlSemTheory.evaluate_def] >>
+  TRY (
+    qcase_tac`Boolv T = HD _` >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    rpt(IF_CASES_TAC >> fs[]) >>
+    TRY(qpat_assum`_ = HD _`(assume_tac o SYM))>>fs[]>>
+    every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
+    imp_res_tac bvlPropsTheory.evaluate_code >> fs[] >>
+    TRY(qpat_assum`_ = HD _`(assume_tac o SYM))>>fs[] ) >>
+  TRY (
+    qcase_tac`bvlSem$do_app` >>
+    every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
+    imp_res_tac bvlPropsTheory.evaluate_code >> fs[] >>
+    imp_res_tac do_app_with_code >>
+    imp_res_tac do_app_with_code_err >>
+    fs[domain_fromAList] >>
+    fs[SUBSET_DEF,toAList_domain] >>
+    qmatch_assum_rename_tac`bvlSem$do_app op _ z = _` >>
+    rpt(first_x_assum(qspec_then`z.code`mp_tac)) >> simp[] >>
+    NO_TAC) >>
+  every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
+  imp_res_tac bvlPropsTheory.evaluate_code >> fs[] >>
+  Cases_on`dest`>>fs[find_code_def]>>
+  every_case_tac>>fs[]>>rw[]>>
+  fs[lookup_fromAList] >>
+  imp_res_tac ALOOKUP_optimise_lookup >> fs[] >>
+  rpt var_eq_tac >>
+  qmatch_assum_abbrev_tac`bvlSem$evaluate (zxs,zenv,zs) = (_,_ with code := _)` >>
+  qspecl_then[`zxs`,`zenv`,`zs`]mp_tac bvl_constProofTheory.compile_exps_thm >>
+  simp[Abbr`zxs`,bvl_constTheory.compile_exps_def] >> strip_tac >>
+  unabbrev_all_tac >>
+  simp[bvl_handleTheory.compile_HD_SING] >>
+  drule bvl_handleProofTheory.compile_correct >>
+  simp[LENGTH_FRONT,PRE_SUB1]);
+
+val fromAList_optimise = Q.prove(
+  `fromAList (optimise p) =
+   map (λ(a,e). (a, HD (compile a [compile_exp e]))) (fromAList p)`,
+  simp[map_fromAList,optimise_def] >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM,UNCURRY]);
+
+val optimise_semantics = Q.store_thm("optimise_semantics",
+  `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
+   semantics ffi0 (fromAList (optimise prog)) start =
+   semantics ffi0 (fromAList prog) start`,
+  simp[bvlSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  `∀k. evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList (optimise prog)) k) =
+    let (r,s) = bvlSem$evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) in
+      (r, s with code := fromAList (optimise (toAList s.code)))` by (
+    gen_tac >> simp[] >>
+    qmatch_abbrev_tac`_ = (_ (bvlSem$evaluate (xs,env,s)))` >>
+    Q.ISPECL_THEN[`xs`,`env`,`s`]mp_tac optimise_evaluate >>
+    Cases_on`evaluate (xs,env,s)` >>
+    simp[Abbr`s`] >>
+    discharge_hyps >- METIS_TAC[FST] >>
+    fs[fromAList_optimise,fromAList_toAList,wf_fromAList] >>
+    fs[GSYM fromAList_optimise] >>
+    imp_res_tac bvlPropsTheory.evaluate_code >>
+    fs[bvlSemTheory.state_component_equality] >>
+    fs[fromAList_optimise,fromAList_toAList,wf_fromAList] ) >>
+  simp[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  fs[UNCURRY,LET_THM] >>
+  reverse conj_tac >- (
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] ) >>
+  gen_tac >> strip_tac >> var_eq_tac >>
+  asm_simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+  reverse conj_tac >- METIS_TAC[] >>
+  gen_tac >> strip_tac >>
+  qmatch_assum_abbrev_tac`FST (bvlSem$evaluate (e1,v1,s1)) ≠ Rerr _` >>
+  qpat_assum`_ ≠ _`mp_tac >>
+  qmatch_assum_abbrev_tac`FST (bvlSem$evaluate (e1,v1,s2)) ≠ _` >>
+  strip_tac >>
+  qmatch_assum_rename_tac`Abbrev(s1 = _ _ _ k1)` >>
+  qmatch_assum_rename_tac`Abbrev(s2 = _ _ _ k2)` >>
+  qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+  simp[LESS_EQ_EXISTS] >>
+  qspecl_then[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_clock >>
+  simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >> simp[] >>
+  qspecl_then[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_clock >>
+  simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >> simp[] >>
+  simp[bvlPropsTheory.inc_clock_def] >>
+  simp[Abbr`s1`,Abbr`s2`] >>
+  rw[] >>
+  rpt(first_x_assum(qspec_then`p`mp_tac))>>
+  fsrw_tac[ARITH_ss][]);
+
+(*
+val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+  `semantics ffi0 (fromAList prog) start ≠ Fail ∧
+   compile_prog start n prog = (start', prog', n')
+   ⇒
+   semantics ffi0 (fromAList prog') start' =
+   semantics ffi0 (fromAList prog) start`,
+  simp[bvlSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`ffi'` >> strip_tac >>
+    simp[compile_def,compile_prog_def] >> strip_tac >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    rpt var_eq_tac >>
+    cheat ) >>
+  cheat);
+
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ∧
    compile start n prog = (start', prog', n')
@@ -1589,5 +1721,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
     rpt var_eq_tac >>
     cheat ) >>
   cheat);
+*)
 
 val _ = export_theory();

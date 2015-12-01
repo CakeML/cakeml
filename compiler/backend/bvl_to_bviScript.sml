@@ -159,14 +159,17 @@ val compile_prog_def = Define `
     let (code,n1) = compile_list n prog in
       (InitGlobals_location, bvi_stubs (num_stubs + 2 * start) ++ code, n1)`;
 
-val compile_def = Define`
-  compile start n prog =
-    (* TODO: inline, #51 *)
-    let prog = MAP (λ(name,arity,exp).
+val optimise_def = Define`
+  optimise =
+  MAP (λ(name,arity,exp).
       (name,arity,
        HD (bvl_handle$compile arity
-             [bvl_const$compile_exp exp]))) prog in
-    (* TODO: let-optimisation, #50 *)
-    compile_prog start n prog`;
+             [bvl_const$compile_exp exp])))
+    (* TODO: let-optimisation, #50 *)`;
+
+val compile_def = Define`
+  compile start n prog =
+  (* TODO: inline, #51 *)
+    compile_prog start n (optimise prog)`;
 
 val _ = export_theory();
