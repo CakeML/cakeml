@@ -62,10 +62,10 @@ val _ = Datatype `
   stack_frame = StackFrame ((num # ('a word_loc)) list) ((num # num # num)option) `;
 
 val _ = type_abbrev("gc_fun_type",
-  ``: (('a word_loc list) list) # (('a word) -> ('a word_loc)) # ('a word) set #
+  ``: ('a word_loc list) # (('a word) -> ('a word_loc)) # ('a word) set #
       (store_name |-> 'a word_loc) ->
-      ((('a word_loc list) list) # (('a word) -> ('a word_loc)) #
-       (store_name |-> 'a word_loc)) option``);
+      (('a word_loc list) # (('a word) -> ('a word_loc)) #
+      (store_name |-> 'a word_loc)) option``);
 
 val gc_bij_ok_def = Define `
   gc_bij_ok (seq':num->num->num) = !n. BIJ (seq' n) UNIV UNIV`;
@@ -337,23 +337,16 @@ val find_code_def = Define `
 
 val enc_stack_def = Define `
   (enc_stack [] = []) /\
-  (enc_stack ((StackFrame l handler :: st)) =
-     if IS_SOME handler
-     then [] :: (MAP SND l) :: enc_stack st
-     else (MAP SND l) :: enc_stack st)`;
+  (enc_stack ((StackFrame l handler :: st)) = MAP SND l ++ enc_stack st)`;
 
 val dec_stack_def = Define `
   (dec_stack [] [] = SOME []) /\
-  (dec_stack (ws::xs) ((StackFrame l NONE :: st)) =
-     if LENGTH ws <> LENGTH l then NONE else
-       case dec_stack xs st of
+  (dec_stack xs ((StackFrame l handler :: st)) =
+     if LENGTH xs < LENGTH l then NONE else
+       case dec_stack (DROP (LENGTH l) xs) st of
        | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) NONE :: s)) /\
-  (dec_stack ([]::ws::xs) ((StackFrame l (SOME h) :: st)) =
-     if LENGTH ws <> LENGTH l then NONE else
-       case dec_stack xs st of
-       | NONE => NONE
-       | SOME s => SOME (StackFrame (ZIP (MAP FST l,ws)) (SOME h) :: s)) /\
+       | SOME s => SOME (StackFrame
+           (ZIP (MAP FST l,TAKE (LENGTH l) xs)) handler :: s)) /\
   (dec_stack _ _ = NONE)`
 
 val gc_def = Define `  (* gc runs the garbage collector algorithm *)
@@ -720,40 +713,4 @@ val evaluate_def = save_thm("evaluate_def",let
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
 
-(*
-
-  BVP --> word_lang compiler correctness thm:
-
-    pEval (prog,s1) = (res,s2) ==>
-    state_rel s1 t1 ==>
-      evaluate (pCompile prog,t1) = (res1,t2) /\
-      state_rel s2 t2 /\ res_rel res res1
-
-  word_lang --> word_lang compiler correctness thm:
-
-    !wprog t1 t2 d1 res c.
-      ?p n.
-        state_rel p t1 d1 /\
-        colouring_ok wprog c /\ res <> SOME Error /\
-        evaluate (wprog,t1) = (res,t2) ==>
-        ?d2. evaluate (apply_colour c wprog,d1) = (res,d2) /\
-             state_rel (\i. p (i+n)) t2 d2
-
-    where state_rel is roughly
-
-    state_rel p t1 d1 =
-      ?dp dl dc.
-        (d1 = t1 with <| permute := dp; locals := dl; code := dc |>) /\
-        t1.permute = p /\
-        !k arity code.
-          lookup k t1.code = SOME (arity,code)
-          ?c. colouring_ok code c /\
-              lookup k d1.code = SOME (arity,apply_colour c code)
-
-  word_lang --> stack_lang compiler correctness thm:
-
-    evaluate (wprog,t1 with permute := K I) = (res,t2) ==>
-    sEval (wCompile wprog,r1) = (res1,r2)
-
-*)
 val _ = export_theory();

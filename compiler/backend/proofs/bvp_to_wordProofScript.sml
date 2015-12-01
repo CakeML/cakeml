@@ -211,21 +211,21 @@ val word_gc_fun_lemma = prove(
     full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) ==>
     let heap1 = heap2 ++ heap_expand (limit - heap_length heap2) in
       ?stack1 m1 s1 a1 sp1.
-        word_gc_fun c ([MAP SND stack],m,dm,s) = SOME (stack1,m1,s1) /\
+        word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
         heap_in_memory_store heap1 (heap_length heap2)
           (limit - heap_length heap2) c s1 m1 dm limit /\
         LIST_REL (λv w. word_addr c heap1 v = w) roots2
-          (MAP SND (ZIP (MAP FST stack,HD stack1))) /\
-        MAP LENGTH stack1 = [LENGTH stack]``,
+          (MAP SND (ZIP (MAP FST stack,stack1))) /\
+        LENGTH stack1 = LENGTH stack``,
   cheat) |> SIMP_RULE std_ss [LET_DEF];
 
 val word_gc_fun_correct = prove(
   ``heap_in_memory_store heap a sp c s m dm limit /\
     word_ml_inv (heap,be,a,sp) limit c refs stack ==>
     ?stack1 m1 s1 heap1 a1 sp1.
-      word_gc_fun c ([MAP SND stack],m,dm,s) = SOME (stack1,m1,s1) /\
+      word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
       heap_in_memory_store heap1 a1 sp1 c s1 m1 dm limit /\
-      word_ml_inv (heap1,be,a1,sp1) limit c refs (ZIP (MAP FST stack,HD stack1))``,
+      word_ml_inv (heap1,be,a1,sp1) limit c refs (ZIP (MAP FST stack,stack1))``,
   fs [word_ml_inv_def] \\ rw [] \\ imp_res_tac full_gc_thm
   \\ fs [PULL_EXISTS] \\ rw []
   \\ mp_tac word_gc_fun_lemma \\ fs [] \\ rw [] \\ fs []

@@ -124,10 +124,9 @@ val dec_stack_stack_key_eq = prove(
   ``!wl st st'. dec_stack wl st = SOME st' ==> s_key_eq st st'``,
   ho_match_mp_tac dec_stack_ind>>rw[dec_stack_def]>>
   fs[s_key_eq_def]>>
-  first_x_assum mp_tac>>BasicProvers.FULL_CASE_TAC>>
-  fs[s_key_eq_def]>>rfs[]>>
-  rw[]>> fs[s_key_eq_def]>>
-  fs[MAP_ZIP,s_frame_key_eq_def])
+  every_case_tac>>fs[]>>rw[]>>fs[dec_stack_def]>>rw[]>>
+  Cases_on `handler`>>
+  fs [s_key_eq_def,s_frame_key_eq_def,MAP_ZIP,NOT_LESS])
 
 (*gc preserves the stack_key relation*)
 val gc_s_key_eq = store_thm("gc_s_key_eq",
@@ -152,14 +151,11 @@ val s_val_eq_dec_stack = prove(
    first_x_assum(qspecl_then [`t`,`x'`] assume_tac)>> rfs[]>>
    strip_tac>>pop_assum (SUBST1_TAC o SYM)>>
    fs[s_frame_val_eq_def,s_val_eq_def]>>
-   TRY (Cases_on `h'`) >>
-   Cases_on`o'`>>
-   fs[s_frame_val_eq_def,MAP_ZIP,ZIP_MAP,dec_stack_def]>>rw [] >>
-   fs[s_frame_val_eq_def,s_val_eq_def]>>
-   `LENGTH l = LENGTH l'` by metis_tac[LENGTH_MAP]>>fs[MAP_ZIP] >>
-   fs [MAP_MAP_o,o_DEF,MAP_ZIP]>>
-   CONV_TAC (DEPTH_CONV ETA_CONV)>>
-   fs [MAP_MAP_o,o_DEF,MAP_ZIP])
+   `LENGTH l' = LENGTH l` by
+    (Cases_on `handler` \\ Cases_on `o'` \\ fs [s_frame_val_eq_def]
+     \\ metis_tac[LENGTH_MAP]) \\ fs [NOT_LESS]
+   \\ Cases_on `handler` \\ Cases_on `o'` \\ fs[s_frame_val_eq_def,s_val_eq_def]
+   \\ fs [MAP_ZIP,LENGTH_TAKE])
 
 (*gc succeeds on all stacks related by stack_val and there are relations
   in the result*)

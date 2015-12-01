@@ -184,25 +184,30 @@ val enc_stack_def = tDefine "enc_stack" `
           | SOME (ts,ws') =>
               case enc_stack ws' of
               | NONE => NONE
-              | SOME rs => SOME (ts :: rs))`
+              | SOME rs => SOME (ts ++ rs))`
  (WF_REL_TAC `measure LENGTH` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC read_bitmap_LENGTH
   \\ IMP_RES_TAC filter_bitmap_LENGTH
   \\ fs [] \\ decide_tac)
 
-val dec_stack_def = Define `
+val dec_stack_def = tDefine "dec_stack" `
   (dec_stack [] [] = SOME []) /\
-  (dec_stack [] xs = NONE) /\
-  (dec_stack (ts::xs) ws =
+  (dec_stack ts ws =
      case read_bitmap ws of
      | NONE => NONE
      | SOME (bs,w1,ws') =>
-        case map_bitmap bs ts ws' of
+        if LENGTH ts < LENGTH bs then NONE else
+        case map_bitmap bs (TAKE (LENGTH bs) ts) ws' of
         | NONE => NONE
         | SOME (ws1,ws2) =>
-           case dec_stack xs ws2 of
+           case dec_stack (DROP (LENGTH bs) ts) ws2 of
            | NONE => NONE
            | SOME ws3 => SOME (w1 ++ ws1 ++ ws3))`
+  (WF_REL_TAC `measure (LENGTH o SND)` \\ rw []
+   \\ IMP_RES_TAC read_bitmap_LENGTH
+   \\ IMP_RES_TAC map_bitmap_LENGTH
+   \\ fs [LENGTH_NIL] \\ rw []
+   \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)
 
 val gc_def = Define `
   gc s =
