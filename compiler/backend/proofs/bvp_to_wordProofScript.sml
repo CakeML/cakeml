@@ -100,7 +100,7 @@ val word_ml_inv_rearrange = prove(
 
 val join_env_def = Define `
   join_env env vs =
-    MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v)) (FILTER (\(n,v). n = 0) vs)`
+    MAP (\(n,v). (THE (lookup ((n-2) DIV 2) env), v)) (FILTER (\(n,v). n <> 0) vs)`
 
 val flat_def = Define `
   (flat (Env env::xs) (StackFrame vs _::ys) =
@@ -114,35 +114,24 @@ val ALOOKUP_SKIP_LEMMA = prove(
     ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e``,
   fs [ALOOKUP_APPEND] \\ fs [GSYM ALOOKUP_NONE])
 
+val adjust_var_DIV_2 = prove(
+  ``(adjust_var n - 2) DIV 2 = n``,
+  fs [ONCE_REWRITE_RULE[MULT_COMM]adjust_var_def,MULT_DIV]);
+
 val word_ml_inv_lookup = prove(
   ``word_ml_inv (heap,be,a,sp) limit c s.refs (ys ++ join_env l1 (toAList l2) ++ xs) /\
     lookup n l1 = SOME x /\
     lookup (adjust_var n) l2 = SOME w ==>
     word_ml_inv (heap,be,a,sp) limit c (s:'ffi bvpSem$state).refs
       (ys ++ [(x,w)] ++ join_env l1 (toAList l2) ++ xs)``,
-  cheat);
-(*
-  fs [word_ml_inv_def,toAList_def,foldi_def,LET_DEF]
+  fs [toAList_def,foldi_def,LET_DEF]
   \\ fs [GSYM toAList_def] \\ rw []
-  \\ `lookup n (join_env l1 (toAList l2)) = SOME (x,w)` by all_tac
-  THEN1
-   (fs [lookup_def,join_env_def,mapi_def,lookup_fromAList]
-    \\ fs [GSYM MEM_toAList]
-    \\ fs [MEM_SPLIT]
-    \\ `ALL_DISTINCT (MAP FST (toAList l1))` by fs [ALL_DISTINCT_MAP_FST_toAList]
-    \\ rfs[ALL_DISTINCT_APPEND]
-    \\ match_mp_tac ALOOKUP_SKIP_LEMMA
-    \\ fs [MEM_MAP,FORALL_PROD]
-    \\ match_mp_tac IMP_THE_EQ
-    \\ match_mp_tac ALOOKUP_SKIP_LEMMA \\ fs []
-    \\ `ALL_DISTINCT (MAP FST (toAList l2))` by fs [ALL_DISTINCT_MAP_FST_toAList]
-    \\ rfs[ALL_DISTINCT_APPEND])
-  \\ fs [GSYM MEM_toAList] \\ pop_assum mp_tac
-  \\ simp [MEM_SPLIT] \\ rw [] \\ fs []
-  \\ qpat_assum `word_ml_inv qq rr tt yy uu` mp_tac
-  \\ match_mp_tac word_ml_inv_rearrange
-  \\ fs [] \\ rw [] \\ fs []);
-*)
+  \\ `MEM (x,w) (join_env l1 (toAList l2))` by
+   (fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD,MEM_toAList]
+    \\ qexists_tac `adjust_var n` \\ fs [adjust_var_DIV_2])
+  \\ fs [MEM_SPLIT] \\ fs []
+  \\ qpat_assum `word_ml_inv yyy limit c s.refs xxx` mp_tac
+  \\ match_mp_tac word_ml_inv_rearrange \\ fs [MEM] \\ rw [] \\ fs[])
 
 val word_ml_inv_get_var_IMP = store_thm("word_ml_inv_get_var_IMP",
   ``word_ml_inv (heap,be,a,sp) limit c s.refs
