@@ -12,6 +12,18 @@ val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 
 (* TODO: move/categorize *)
 
+val map_insert = Q.store_thm("map_insert",
+  `wf z ⇒ map f (insert x y z) = insert x (f y) (map f z)`,
+  strip_tac >>
+  simp[spt_eq_thm,wf_insert,wf_map] >>
+  simp[lookup_map,lookup_insert] >> rw[])
+
+val map_fromAList = Q.store_thm("map_fromAList",
+  `map f (fromAList ls) = fromAList (MAP (λ(k,v). (k, f v)) ls)`,
+  Induct_on`ls` >> simp[fromAList_def] >>
+  Cases >> simp[fromAList_def] >>
+  simp[wf_fromAList,map_insert])
+
 val el_opt_def = Define `
   (el_opt n [] = NONE) /\
   (el_opt n (x::xs) = if n = 0n then SOME x else el_opt (n-1) xs)`
