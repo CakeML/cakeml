@@ -2122,24 +2122,6 @@ fun PART_MATCH' f th t =
     GENL vs' (INST_TY_TERM theta specth)
   end
 
-val resFORALL = Q.prove(
-  `(!x:β. P x (f x : (closSem$v list, closSem$v) result # α closSem$state)) ⇔
-     (∀x v s. f x = (Rval v, s) ⇒ P x (Rval v, s)) ∧
-     (∀x exn s. f x = (Rerr (Rraise exn), s) ⇒ P x (Rerr (Rraise exn), s)) ∧
-     (∀x s. f x = (Rerr (Rabort Rtype_error), s) ⇒
-            P x (Rerr (Rabort Rtype_error), s)) ∧
-     (∀x s. f x = (Rerr (Rabort Rtimeout_error), s) ⇒
-            P x (Rerr (Rabort Rtimeout_error), s))`,
-  reverse eq_tac >> rw[]
-  >- (rpt (first_x_assum (qspec_then `x` strip_assume_tac)) >>
-      `∃r s. f x = (r,s)` by (Cases_on `f x` >> simp[]) >> fs[] >>
-      Cases_on `r` >> fs[] >> qcase_tac `f x = (Rerr e, _)` >>
-      Cases_on `e` >> fs[] >> qcase_tac `f x = (Rerr (Rabort a), _)` >>
-      Cases_on `a` >> fs[]) >>
-  metis_tac[]);
-
-val resty = ty_antiq ``:(v list, v) result # 'ffi closSem$state``
-
 val fmap_rel_t = prim_mk_const{Thy = "finite_map", Name = "fmap_rel"}
 
 val val_rel_trans = Q.store_thm ("val_rel_trans",
