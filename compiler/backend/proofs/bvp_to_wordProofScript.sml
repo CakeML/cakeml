@@ -178,10 +178,10 @@ val adjust_var_11 = prove(
 
 val word_ml_inv_insert = store_thm("word_ml_inv_insert",
   ``word_ml_inv (heap,F,a,sp) limit c s.refs
-      ([(x,w)]++join_env s.locals (toAList (delete_odd t.locals))++xs) ==>
+      ([(x,w)]++join_env d (toAList (delete_odd l))++xs) ==>
     word_ml_inv (heap,F,a,sp) limit c s.refs
-      (join_env (insert dest x s.locals)
-        (toAList (delete_odd (insert (adjust_var dest) w t.locals)))++xs)``,
+      (join_env (insert dest x d)
+        (toAList (delete_odd (insert (adjust_var dest) w l)))++xs)``,
   match_mp_tac word_ml_inv_rearrange \\ fs [] \\ rw [] \\ fs []
   \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
   \\ fs [] \\ rw [] \\ fs [MEM_toAList]
@@ -436,7 +436,35 @@ val state_rel_pop_env_set_var_IMP = prove(
     ?t2 l8 l9 ll.
       pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
       state_rel c l8 l9 (set_var q a s2) (set_var (adjust_var q) w t2) [] ll``,
-  cheat);
+  fs [pop_env_def]
+  \\ Cases_on `s1.stack` \\ fs [] \\ Cases_on `h` \\ fs []
+  \\ rw[] \\ fs []
+  \\ fs [state_rel_def,set_var_def,wordSemTheory.set_var_def]
+  \\ rfs [] \\ Cases_on `y` \\ fs [stack_rel_def]
+  \\ Cases_on `o'` \\ fs [stack_rel_def,wordSemTheory.pop_env_def]
+  \\ fs [stack_rel_def,wordSemTheory.pop_env_def]
+  \\ TRY (Cases_on `x` \\ fs [])
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ rfs[] \\ rw [] \\ Cases_on `y`
+  \\ fs [contains_loc_def,lookup_fromAList] \\ rw []
+  \\ TRY (Cases_on `r` \\ fs [])
+  \\ fs [stack_rel_def,wordSemTheory.pop_env_def] \\ rw []
+  \\ fs [lookup_fromAList] \\ rfs[]
+  \\ first_assum (match_exists_tac o concl) \\ fs [] (* asm_exists_tac *)
+   \\ fs [flat_def]
+   \\ `word_ml_inv (heap,F,a',sp) limit c s1.refs
+        ((a,w)::(join_env s l ++
+          [(the_global s1.global,t1.store ' Globals)] ++ flat t ys))` by
+    (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+     \\ fs [MEM] \\ rw [] \\ fs [])
+   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC,APPEND]
+   \\ match_mp_tac (word_ml_inv_insert
+        |> SIMP_RULE std_ss [APPEND,GSYM APPEND_ASSOC])
+   \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+   \\ fs [MEM] \\ rw [] \\ fs []
+   \\ Cases_on `x` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+   \\ fs [MEM_toAList,lookup_fromAList]
+   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
