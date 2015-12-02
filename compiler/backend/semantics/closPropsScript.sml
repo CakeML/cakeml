@@ -533,9 +533,15 @@ val v_thms = { nchotomy = v_nchotomy, case_def = v_case_def}
 val ref_thms = { nchotomy = ref_nchotomy, case_def = ref_case_def}
 val result_thms = { nchotomy = TypeBase.nchotomy_of ``:('a,'b)result``,
                     case_def = TypeBase.case_def_of ``:('a,'b)result`` }
+val error_result_thms = { nchotomy = TypeBase.nchotomy_of ``:'a error_result``,
+                          case_def = TypeBase.case_def_of ``:'a error_result`` }
+val eq_result_thms = { nchotomy = TypeBase.nchotomy_of ``:eq_result``,
+                       case_def = TypeBase.case_def_of ``:eq_result`` }
 val appkind_thms = { nchotomy = TypeBase.nchotomy_of ``:app_kind``,
                      case_def = TypeBase.case_def_of ``:app_kind`` }
-val eqs = LIST_CONJ (map prove_case_eq_thm [op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms, appkind_thms])
+val eqs = LIST_CONJ (map prove_case_eq_thm [
+  op_thms, list_thms, option_thms, v_thms, ref_thms, result_thms,
+  eq_result_thms, error_result_thms, appkind_thms])
 
 val _ = save_thm ("eqs", eqs);
 
@@ -1156,5 +1162,21 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
   unabbrev_all_tac >> fs[LET_THM] >>
   every_case_tac >> fs[evaluate_def] >>
   tac)
+
+val do_app_never_timesout = Q.store_thm(
+  "do_app_never_timesout[simp]",
+  `do_app op args s ≠ Rerr (Rabort Rtimeout_error)`,
+  Cases_on `op` >> Cases_on `args` >>
+  simp[do_app_def, eqs, bool_case_eq, pair_case_eq]);
+
+val evaluate_timeout_clocks0 = Q.store_thm(
+  "evaluate_timeout_clocks0",
+  `(∀v (s:α closSem$state).
+      evaluate v = (Rerr (Rabort Rtimeout_error), s) ⇒ s.clock = 0) ∧
+   (∀locopt v env (s:α closSem$state) s'.
+       evaluate_app locopt v env s = (Rerr (Rabort Rtimeout_error), s') ⇒
+       s'.clock = 0)`,
+  ho_match_mp_tac evaluate_ind >> rpt conj_tac >>
+  dsimp[evaluate_def, eqs, pair_case_eq, bool_case_eq])
 
 val _ = export_theory();
