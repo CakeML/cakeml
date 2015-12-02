@@ -119,7 +119,7 @@ val val_rel_def = tDefine "val_rel" `
                state_rel s1.clock s1 s1' ∧
                val_rel (:'ffi) s1.clock v v'
            | (Rerr (Rabort Rtimeout_error), Rerr (Rabort Rtimeout_error)) =>
-               s1.clock = s1'.clock ∧ state_rel s1.clock s1 s1'
+               state_rel s1.clock s1 s1'
            | (Rerr (Rabort Rtype_error), _) => T
            | _ => F
     else
@@ -170,7 +170,6 @@ val res_rel_def = Define `
   state_rel s.clock s s' ∧
   val_rel (:'ffi) s.clock v v') ∧
 (res_rel (Rerr (Rabort Rtimeout_error), s) (Rerr (Rabort Rtimeout_error), s') ⇔
-  s.clock = s'.clock ∧
   state_rel s.clock s s') ∧
 (res_rel (Rerr (Rabort Rtype_error), _) _ ⇔ T) ∧
 (res_rel _ _ ⇔ F)`;
@@ -187,8 +186,7 @@ val res_rel_rw = Q.store_thm ("res_rel_rw",
   state_rel s.clock s s' ∧
   s.clock = s'.clock) ∧
  (res_rel (Rerr (Rabort Rtimeout_error), s) x ⇔
-   ?s'. x = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s.clock s s' ∧
-        s.clock = s'.clock) ∧
+   ?s'. x = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s.clock s s') ∧
  (res_rel (Rerr (Rabort Rtype_error), s) x ⇔ T)`,
  rw [] >>
  Cases_on `x` >>
@@ -550,8 +548,7 @@ val TAKE_LEN_REV = Q.prove(
 val res_rel_timeout2 = Q.store_thm(
   "res_rel_timeout2",
   `res_rel rs (Rerr (Rabort Rtimeout_error), s) ⇔
-   (∃s'. rs = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s'.clock s' s ∧
-         s'.clock = s.clock) ∨
+   (∃s'. rs = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s'.clock s' s) ∨
    (∃s'. rs = (Rerr (Rabort Rtype_error), s'))`,
   Cases_on `rs` >> simp[] >> qcase_tac `res_rel (rr, _)` >>
   Cases_on `rr` >> simp[res_rel_rw] >> qcase_tac `res_rel (Rerr ee, _)` >>
@@ -1395,8 +1392,7 @@ val compat_if = Q.store_thm ("compat_if",
                          result_store_cases)) >>
  rw [res_rel_rw] >>
  simp []
- >- metis_tac []
- >- metis_tac[] >>
+ >- metis_tac [] >>
  `?v v'. vs = [v] ∧ vs' = [v']` by metis_tac [evaluate_SING] >>
  fs [] >>
  rw [] >>
@@ -1598,7 +1594,6 @@ val compat_app = Q.store_thm ("compat_app",
  fs [res_rel_rw, clock_lemmas] >>
  `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
  fs [res_rel_rw]
- >- metis_tac []
  >- metis_tac [] >>
  `?v v'. vs'' = [v] ∧ vs''' = [v']` by metis_tac [evaluate_SING] >>
  rw [] >>
@@ -2124,6 +2119,12 @@ fun PART_MATCH' f th t =
 
 val fmap_rel_t = prim_mk_const{Thy = "finite_map", Name = "fmap_rel"}
 
+val evaluate_ev_timeout_clocks0 = Q.store_thm(
+  "evaluate_ev_timeout_clocks0",
+  `evaluate_ev j e s0 = (Rerr (Rabort Rtimeout_error), s) ⇒ s.clock = 0`,
+  Cases_on `e` >> dsimp[evaluate_ev_def, eqs, pair_case_eq, bool_case_eq] >>
+  rpt strip_tac >> imp_res_tac evaluate_timeout_clocks0);
+
 val val_rel_trans = Q.store_thm ("val_rel_trans",
 `(!(ffi:'ffi itself) i v1 v2.
     val_rel ffi i v1 v2 ⇒ !v3. val_rel ffi i v2 v3 ⇒ val_rel ffi i v1 v3) ∧
@@ -2293,7 +2294,9 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
       >- (qcase_tac `evaluate_ev _ _ _ = (Rerr (Rabort abt), _)` >>
           Cases_on `abt` >> fs[res_rel_rw] >> rw[] >>
           fs[res_rel_rw] >>
-          `s1'.clock = s0'.clock` by simp[] >> metis_tac[]) >>
+          `s1'.clock = s0'.clock`
+            by (imp_res_tac evaluate_ev_timeout_clocks0 >> simp[]) >>
+          metis_tac[]) >>
       fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> metis_tac[]) >>
   fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> reverse conj_tac >- metis_tac[] >>
   fs[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
