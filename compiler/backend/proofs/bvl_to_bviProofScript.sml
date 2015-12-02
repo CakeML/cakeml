@@ -1687,7 +1687,76 @@ val optimise_semantics = Q.store_thm("optimise_semantics",
   rpt(first_x_assum(qspec_then`p`mp_tac))>>
   fsrw_tac[ARITH_ss][]);
 
+val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
+  `bEvery GoodHandleLet [exp] ∧
+   state_rel b1 s1 t1 ∧ IS_SOME t1.global ∧ state_ok s1 ∧
+   evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
+   res ≠ Rerr (Rabort Rtype_error)
+   ⇒
+   ∃ck b2 t2.
+     evaluate ([Call 0 (SOME (num_stubs + 2 * start))[] NONE],[],inc_clock ck t1) =
+       (map_result (MAP (adjust_bv b2)) (adjust_bv b2) res,t2) ∧
+     state_rel b2 s2 t2`,
+  rw[] >>
+  fs[bvlSemTheory.evaluate_def] >>
+  fs[find_code_def] >>
+  every_case_tac >> fs[] >>
+  rw[bviSemTheory.evaluate_def,find_code_def] >>
+  first_assum(drule o last o CONJUNCTS o CONV_RULE(REWR_CONV state_rel_def)) >>
+  simp[] >> strip_tac >> split_pair_tac >> fs[] >- (
+    qpat_assum`0n = _`(assume_tac o SYM) >> simp[] >>
+    `t1.clock = 0` by fs[state_rel_def] >> simp[] >>
+    simp[inc_clock_def] >>
+    qexists_tac`0`>>simp[]>>
+    qexists_tac`b1` >>
+    fs[state_rel_def] ) >>
+  `t1.clock ≠ 0` by fs[state_rel_def] >> simp[] >>
+  drule compile_exps_correct >> simp[] >>
+  disch_then drule >>
+  `state_rel b1 (dec_clock 1 s1) (dec_clock 1 t1)` by (
+    fs[state_rel_def,bvlSemTheory.dec_clock_def,bviSemTheory.dec_clock_def] ) >>
+  disch_then drule >>
+  discharge_hyps >- (
+    fs[bvlSemTheory.dec_clock_def,bviSemTheory.dec_clock_def] >>
+    fs[state_ok_def] ) >>
+  strip_tac >>
+  simp[Once bviPropsTheory.inc_clock_def] >>
+  imp_res_tac compile_exps_SING >> var_eq_tac >> simp[] >>
+  qexists_tac`c` >>
+  `dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1)` by (
+    EVAL_TAC >> simp[state_component_equality] ) >>
+  simp[] >>
+  Cases_on`res`>>simp[] >- METIS_TAC[] >>
+  Cases_on`e`>>simp[] >> METIS_TAC[]);
+
 (*
+val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
+  ``,
+
+val compile_single_semantics = Q.store_thm("compile_single_semantics",
+  `bEvery GoodHandleLet [SND(SND x)] ∧
+   semantics ffi0 (fromAList [x]) start ≠ Fail ⇒
+   (semantics ffi0 (fromAList [x]) start =
+    semantics ffi0 (fromAList (FST (compile_single n x))) (num_stubs + 2 * start))`,
+  simp[bvlSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  PairCases_on`x` >>
+  simp[compile_single_def] >>
+  (fn g => subterm split_applied_pair_tac (#2 g) g) >> fs[] >>
+  strip_tac
+  compile_exps_correct
+  simp[bviSemTheory.semantics_def]
+
+val compile_stubs_semantics = Q.store_thm("compile_stubs_semantics",
+  `evaluate ([Call 0 (SOME start)[]],[],
+     initial_state ffi0 (fromAList (bvi_stubs (2 * start + num_stubs) ++ code)) k) =
+     compile_list_def
+     compile_single_def
+
+   InitGlobals_location =
+   evaluate`,
+  bvlSemTheory.semantics_def
+
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ∧
    compile_prog start n prog = (start', prog', n')
@@ -1699,12 +1768,14 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     qx_gen_tac`ffi'` >> strip_tac >>
-    simp[compile_def,compile_prog_def] >> strip_tac >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
+    simp[compile_prog_def] >> strip_tac >>
+    split_pair_tac >> fs[] >>
     rpt var_eq_tac >>
     cheat ) >>
   cheat);
+*)
 
+(*
 val compile_semantics = Q.store_thm("compile_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ∧
    compile start n prog = (start', prog', n')

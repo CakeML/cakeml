@@ -2,6 +2,14 @@ open preamble bviSemTheory;
 
 val _ = new_theory"bviProps";
 
+val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
+  `(initial_state f c k).code = c ∧
+   (initial_state f c k).ffi = f ∧
+   (initial_state f c k).clock = k ∧
+   (initial_state f c k).refs = FEMPTY ∧
+   (initial_state f c k).global = NONE`,
+   rw[initial_state_def]);
+
 val bvl_to_bvi_id = store_thm("bvl_to_bvi_id",
   ``bvl_to_bvi (bvi_to_bvl s) s = s``,
   EVAL_TAC \\ fs [bviSemTheory.state_component_equality]);
@@ -109,6 +117,9 @@ val inc_clock_ADD = store_thm("inc_clock_ADD",
 
 val inc_clock_refs = Q.store_thm("inc_clock_refs[simp]",
   `(inc_clock n s).refs = s.refs`,EVAL_TAC)
+
+val inc_clock_code = Q.store_thm("inc_clock_code[simp]",
+  `(inc_clock n s).code = s.code`,EVAL_TAC)
 
 val inc_clock_global = Q.store_thm("inc_clock_global[simp]",
   `(inc_clock n s).global = s.global`,
