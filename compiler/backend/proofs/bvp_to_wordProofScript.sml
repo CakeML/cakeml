@@ -676,6 +676,187 @@ val find_code_thm = prove(
         fs [wordSemTheory.get_vars_def]
   \\ imp_res_tac state_rel_call_env \\ fs []) |> SPEC_ALL;
 
+val IS_SOME_IF = prove(
+  ``IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y``,
+  Cases_on `b` \\ fs []);
+
+val PERM_ALL_DISTINCT_MAP = prove(
+  ``!xs ys. PERM xs ys ==>
+            ALL_DISTINCT (MAP f xs) ==>
+            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs``,
+  fs [MEM_PERM] \\ rw []
+  \\ `PERM (MAP f xs) (MAP f ys)` by fs [PERM_MAP]
+  \\ metis_tac [ALL_DISTINCT_PERM])
+
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = prove(
+  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+  rw [] \\ match_mp_tac PERM_ALL_DISTINCT \\ fs [mem_list_rearrange]
+  \\ fs [wordSemTheory.list_rearrange_def] \\ rw []
+  \\ fs [ALL_DISTINCT_GENLIST] \\ rw []
+  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ fs [ALL_DISTINCT_EL]);
+
+val ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = prove(
+  ``!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y``,
+  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
+  \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []) |> SPEC_ALL;
+
+val env_to_list_lookup_equiv = prove(
+  ``env_to_list y f = (q,r) ==>
+    (!n. ALOOKUP q n = lookup n y) /\
+    (!x1 x2. MEM (x1,x2) q ==> lookup x1 y = SOME x2)``,
+  fs [wordSemTheory.env_to_list_def,LET_DEF] \\ rw []
+  \\ `ALL_DISTINCT (MAP FST (toAList y))` by fs [ALL_DISTINCT_MAP_FST_toAList]
+  \\ imp_res_tac (MATCH_MP PERM_ALL_DISTINCT_MAP
+        (QSORT_PERM |> Q.ISPEC `key_val_compare` |> SPEC_ALL))
+  \\ `ALL_DISTINCT (QSORT key_val_compare (toAList y))`
+        by imp_res_tac ALL_DISTINCT_MAP
+  \\ pop_assum (assume_tac o Q.SPEC `f (0:num)` o MATCH_MP PERM_list_rearrange)
+  \\ imp_res_tac PERM_ALL_DISTINCT_MAP
+  \\ rpt (qpat_assum `!x. pp ==> qq` (K all_tac))
+  \\ rpt (qpat_assum `!x y. pp ==> qq` (K all_tac)) \\ rfs []
+  \\ rpt (pop_assum (mp_tac o Q.GEN `x` o SPEC_ALL))
+  \\ rpt (pop_assum (mp_tac o SPEC ``f:num->num->num``))
+  \\ Q.ABBREV_TAC `xs =
+       (list_rearrange (f 0) (QSORT key_val_compare (toAList y)))`
+  \\ rpt strip_tac \\ rfs[MEM_toAList]
+  \\ Cases_on `?i. MEM (n,i) xs` \\ fs [] THEN1
+     (imp_res_tac ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME \\ fs []
+      \\ UNABBREV_ALL_TAC \\ fs [] \\ rfs [MEM_toAList])
+  \\ `~MEM n (MAP FST xs)` by rfs [MEM_MAP,FORALL_PROD]
+  \\ fs [GSYM ALOOKUP_NONE]
+  \\ UNABBREV_ALL_TAC \\ fs [] \\ rfs [MEM_toAList]
+  \\ Cases_on `lookup n y` \\ fs []);
+
+val cut_env_adjust_set_lookup_0 = prove(
+  ``wordSem$cut_env (adjust_set r) x = SOME y ==> lookup 0 y = lookup 0 x``,
+  fs [wordSemTheory.cut_env_def,SUBSET_DEF,domain_lookup,adjust_set_def,
+      lookup_fromAList] \\ rw [lookup_inter]
+  \\ pop_assum (qspec_then `0` mp_tac) \\ fs []
+  \\ rw [] \\ fs [lookup_fromAList,lookup_inter]);
+
+val cut_env_IMP_MEM = prove(
+  ``bvpSem$cut_env s r = SOME x ==>
+    (IS_SOME (lookup n x) <=> IS_SOME (lookup n s))``,
+  fs [cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ rw [] \\ fs [lookup_inter] \\ every_case_tac \\ fs []
+  \\ res_tac \\ fs[]);
+
+val cut_env_IMP_lookup = prove(
+  ``wordSem$cut_env s r = SOME x /\ lookup n x = SOME q ==>
+    lookup n r = SOME q``,
+  fs [wordSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ rw [] \\ fs [lookup_inter] \\ every_case_tac \\ fs []);
+
+val cut_env_IMP_lookup_EQ = prove(
+  ``bvpSem$cut_env r y = SOME x /\ n IN domain r ==>
+    lookup n x = lookup n y``,
+  fs [bvpSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ rw [] \\ fs [lookup_inter] \\ every_case_tac \\ fs []);
+
+val cut_env_res_IS_SOME_IMP = prove(
+  ``wordSem$cut_env r x = SOME y /\ IS_SOME (lookup k y) ==>
+    IS_SOME (lookup k x) /\ IS_SOME (lookup k r)``,
+  fs [wordSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ rw [] \\ fs [lookup_inter] \\ every_case_tac \\ fs []);
+
+val unit_opt_eq = prove(
+  ``(x = y:unit option) <=> (IS_SOME x <=> IS_SOME y)``,
+  Cases_on `x` \\ Cases_on `y` \\ fs []);
+
+val IS_SOME_ALOOKUP_EQ = prove(
+  ``!l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)``,
+  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []);
+
+val lookup_adjust_var_adjust_set = prove(
+  ``lookup (adjust_var n) (adjust_set s) = lookup n s``,
+  fs [lookup_def,adjust_set_def,lookup_fromAList,unit_opt_eq]
+  \\ fs [IS_SOME_ALOOKUP_EQ,MEM_MAP,PULL_EXISTS,EXISTS_PROD,adjust_var_11]
+  \\ fs [MEM_toAList] \\ Cases_on `lookup n s` \\ fs []);
+
+val adjust_var_cut_env_IMP_MEM = prove(
+  ``wordSem$cut_env (adjust_set s) r = SOME x ==>
+    (IS_SOME (lookup (adjust_var n) x) <=> IS_SOME (lookup n s))``,
+  fs [wordSemTheory.cut_env_def,SUBSET_DEF,domain_lookup]
+  \\ rw [] \\ fs [lookup_inter] \\ every_case_tac \\ fs []
+  \\ res_tac \\ fs [] \\ rw [] \\ fs [lookup_adjust_var_adjust_set]);
+
+val MEM_IMP_IS_SOME_ALOOKUP = prove(
+  ``!l x y. MEM (x,y) l ==> IS_SOME (ALOOKUP l x)``,
+  fs [IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD] \\ metis_tac []);
+
+val state_rel_call_env_push_env = prove(
+  ``!opt:(num # 'a wordLang$prog # num # num) option.
+      state_rel c l1 l2 s (t:('a,'ffi)wordSem$state) [] locs /\
+      get_vars args s = SOME xs /\
+      get_vars (MAP adjust_var args) t = SOME ws /\
+      bvpSem$cut_env r s.locals = SOME x /\
+      wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
+      state_rel c q l (call_env xs (push_env x (IS_SOME opt) (dec_clock s)))
+       (call_env (Loc q l::ws) (push_env y opt (dec_clock t))) []
+       ((l1,l2)::locs)``,
+  Cases \\ TRY (PairCases_on `x'`) \\ fs []
+  \\ fs [state_rel_def,call_env_def,push_env_def,dec_clock_def,
+         wordSemTheory.call_env_def,wordSemTheory.push_env_def,
+         wordSemTheory.dec_clock_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF,stack_rel_def]
+  \\ fs [lookup_adjust_var_fromList2,contains_loc_def] \\ strip_tac
+  \\ fs [lookup_fromList,lookup_fromAList]
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ fs [IS_SOME_IF]
+  \\ fs [lookup_fromList2,lookup_fromList]
+  \\ imp_res_tac env_to_list_lookup_equiv \\ fs []
+  \\ imp_res_tac cut_env_adjust_set_lookup_0 \\ fs []
+  \\ imp_res_tac cut_env_IMP_MEM
+  \\ imp_res_tac adjust_var_cut_env_IMP_MEM \\ fs []
+  \\ imp_res_tac EVERY2_LENGTH \\ fs []
+  \\ first_assum (match_exists_tac o concl) \\ fs [] (* asm_exists_tac *)
+  \\ fs [flat_def]
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac word_ml_inv_get_vars_IMP
+  \\ first_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+  \\ fs [MEM] \\ rw [] \\ fs[]
+  \\ TRY (rpt disj1_tac
+    \\ Cases_on `x'` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+    \\ fs [MEM_toAList] \\ rw [MEM_ZIP]
+    \\ fs [lookup_fromList2,lookup_fromList]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `EVEN k`
+    \\ fs [DIV_LT_X]
+    \\ `k < 2 + LENGTH xs * 2 /\ 0 < LENGTH xs * 2` by
+     (rfs [] \\ Cases_on `xs` \\ fs []
+      THEN1 (Cases_on `k` \\ fs [] \\ Cases_on `n` \\ fs [] \\ decide_tac)
+      \\ fs [MULT_CLAUSES] \\ decide_tac)
+    \\ fs [] \\ qexists_tac `(k - 2) DIV 2` \\ fs []
+    \\ fs [DIV_LT_X]
+    \\ Cases_on `k` \\ fs []
+    \\ Cases_on `n` \\ fs [DECIDE ``SUC (SUC n) = n + 2``]
+    \\ fs [MATCH_MP ADD_DIV_RWT (DECIDE ``0<2:num``)]
+    \\ fs [GSYM ADD1,EL] \\ NO_TAC)
+  \\ fs [] \\ disj1_tac \\ disj2_tac
+  \\ Cases_on `x'` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+  \\ fs [MEM_toAList] \\ rw [MEM_ZIP]
+  \\ fs [lookup_fromList2,lookup_fromList]
+  \\ Q.MATCH_ASSUM_RENAME_TAC `EVEN k`
+  \\ qexists_tac `k` \\ fs [] \\ res_tac
+  \\ imp_res_tac cut_env_IMP_lookup \\ fs [] \\ AP_TERM_TAC
+  \\ match_mp_tac cut_env_IMP_lookup_EQ \\ fs []
+  \\ fs [domain_lookup] \\ imp_res_tac MEM_IMP_IS_SOME_ALOOKUP \\ rfs[]
+  \\ imp_res_tac cut_env_res_IS_SOME_IMP
+  \\ fs [IS_SOME_EXISTS]
+  \\ fs [adjust_set_def,lookup_fromAList] \\ rfs []
+  \\ imp_res_tac alistTheory.ALOOKUP_MEM
+  \\ fs [MEM_MAP] \\ Cases_on `y'` \\ fs []
+  \\ fs [ONCE_REWRITE_RULE[MULT_COMM]adjust_var_def,MULT_DIV]
+  \\ rw [] \\ fs [MEM_toAList]);
+
 val find_code_thm_ret = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
@@ -687,8 +868,31 @@ val find_code_thm_ret = prove(
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
         state_rel c q l (call_env ys (push_env x F (dec_clock s)))
-          (call_env args1 (push_env y (NONE:(num # ('a wordLang$prog) # num # num) option) (dec_clock t))) [] ((l1,l2)::locs)``,
-  cheat) |> SPEC_ALL;
+          (call_env args1 (push_env y
+             (NONE:(num # ('a wordLang$prog) # num # num) option)
+          (dec_clock t))) [] ((l1,l2)::locs)``,
+  reverse (Cases_on `dest`) \\ rw [] \\ fs [find_code_def]
+  \\ every_case_tac \\ fs [wordSemTheory.find_code_def] \\ rw []
+  \\ `code_rel c s.code t.code` by fs [state_rel_def]
+  \\ fs [code_rel_def] \\ res_tac \\ fs [ADD1]
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ fs []
+  \\ TRY (imp_res_tac state_rel_CodePtr \\ fs []
+          \\ qpat_assum `ws <> []` (assume_tac)
+          \\ imp_res_tac NOT_NIL_IMP_LAST \\ fs [])
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ fs []
+         \\ qspec_then `NONE` mp_tac state_rel_call_env_push_env \\ fs [])
+  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ fs []
+  \\ `args <> []` by (Cases_on `args` \\ fs [] \\ Cases_on `xs` \\ fs [])
+  \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ rw []
+  \\ fs [MAP_SNOC]
+  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ rw []
+  \\ imp_res_tac word_get_vars_SNOC_IMP \\ rw []
+  \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
+  \\ full_simp_tac bool_ss [FRONT_SNOC]
+  \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `NONE`
+                   |> SIMP_RULE std_ss [] |> GEN_ALL)
+  \\ fs [] \\ metis_tac []) |> SPEC_ALL;
 
 val find_code_thm_handler = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
@@ -701,8 +905,32 @@ val find_code_thm_handler = prove(
       ?args1 n1 n2.
         find_code dest (Loc q l::ws) t.code = SOME (args1,FST (comp c n1 n2 prog)) /\
         state_rel c q l (call_env ys (push_env x T (dec_clock s)))
-          (call_env args1 (push_env y (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1)) (dec_clock t))) [] ((l1,l2)::locs)``,
-  cheat) |> SPEC_ALL;
+          (call_env args1 (push_env y
+             (SOME (adjust_var x0,(prog1:'a wordLang$prog),x0,l + 1))
+          (dec_clock t))) [] ((l1,l2)::locs)``,
+  reverse (Cases_on `dest`) \\ rw [] \\ fs [find_code_def]
+  \\ every_case_tac \\ fs [wordSemTheory.find_code_def] \\ rw []
+  \\ `code_rel c s.code t.code` by fs [state_rel_def]
+  \\ fs [code_rel_def] \\ res_tac \\ fs [ADD1]
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma \\ fs []
+  \\ TRY (imp_res_tac state_rel_CodePtr \\ fs []
+          \\ qpat_assum `ws <> []` (assume_tac)
+          \\ imp_res_tac NOT_NIL_IMP_LAST \\ fs [])
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  THEN1 (Q.LIST_EXISTS_TAC [`x'`,`1`] \\ fs []
+         \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
+                   |> SIMP_RULE std_ss [] |> GEN_ALL) \\ fs [] \\ metis_tac [])
+  \\ Q.LIST_EXISTS_TAC [`n`,`1`] \\ fs []
+  \\ `args <> []` by (Cases_on `args` \\ fs [] \\ Cases_on `xs` \\ fs [])
+  \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ rw []
+  \\ fs [MAP_SNOC]
+  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ rw []
+  \\ imp_res_tac word_get_vars_SNOC_IMP \\ rw []
+  \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
+  \\ full_simp_tac bool_ss [FRONT_SNOC]
+  \\ match_mp_tac (state_rel_call_env_push_env |> Q.SPEC `SOME xx`
+                   |> SIMP_RULE std_ss [] |> GEN_ALL)
+  \\ fs [] \\ metis_tac []) |> SPEC_ALL;
 
 val s_key_eq_LENGTH = prove(
   ``!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)``,
