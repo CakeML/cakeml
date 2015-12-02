@@ -1502,4 +1502,26 @@ val mem_list_rearrange = store_thm("mem_list_rearrange",``
   >- metis_tac[]>>
   qexists_tac `g n`>>fs[])
 
+val lookup_fromList2 = store_thm("lookup_fromList2",
+  ``!l n. lookup n (fromList2 l) =
+          if EVEN n then lookup (n DIV 2) (fromList l) else NONE``,
+  recInduct SNOC_INDUCT \\ rw []
+  THEN1 (EVAL_TAC \\ fs [lookup_def])
+  THEN1 (EVAL_TAC \\ fs [lookup_def])
+  \\ fs [fromList2_def,FOLDL_SNOC]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ fs [GSYM fromList2_def,FOLDL_SNOC]
+  \\ fs [lookup_insert,lookup_fromList,DIV_LT_X]
+  \\ `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
+        k + LENGTH l * 2` by
+   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ fs [FOLDL]
+    \\ fs [MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])
+  \\ fs [] \\ rw []
+  \\ fs [GSYM DIV_LT_X,EL_SNOC]
+  \\ fs [MULT_DIV,SNOC_APPEND,EL_LENGTH_APPEND,EVEN_MOD2,MOD_EQ_0]
+  \\ TRY decide_tac
+  \\ fs [DIV_LT_X]
+  \\ `n = LENGTH l * 2 + 1` by decide_tac
+  \\ fs [MOD_TIMES]);
+
 val _ = export_theory();

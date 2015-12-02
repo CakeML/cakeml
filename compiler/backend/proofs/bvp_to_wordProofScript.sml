@@ -557,11 +557,6 @@ val get_vars_IMP_LENGTH = prove(
   Induct \\ fs [bvpSemTheory.get_vars_def] \\ rw []
   \\ every_case_tac \\ res_tac \\ fs [] \\ rw [] \\ fs []);
 
-val lookup_fromList2 = prove(
-  ``lookup n (fromList2 xs) =
-    if EVEN n then lookup (n DIV 2) (fromList xs) else NONE``,
-  cheat);
-
 val lookup_adjust_var_fromList2 = prove(
   ``lookup (adjust_var n) (fromList2 (w::ws)) = lookup n (fromList ws)``,
   fs [lookup_fromList2,EVEN_adjust_var,lookup_fromList]
