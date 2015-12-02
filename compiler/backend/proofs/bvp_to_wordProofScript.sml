@@ -1153,50 +1153,78 @@ val state_rel_insert_1 = prove(
   \\ fs [lookup_insert,adjust_var_NEQ_1,delete_odd_insert_1]
   \\ metis_tac []);
 
+val state_rel_inc_clock = prove(
+  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
+    state_rel c l1 l2 (s with clock := s.clock + 1)
+                      (t with clock := t.clock + 1) [] locs``,
+  fs [state_rel_def]);
+
+val dec_clock_inc_clock = prove(
+  ``(bvpSem$dec_clock (s with clock := s.clock + 1) = s) /\
+    (wordSem$dec_clock (t with clock := t.clock + 1) = t)``,
+  fs [bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
+  \\ fs [bvpSemTheory.state_component_equality]
+  \\ fs [wordSemTheory.state_component_equality])
+
+val join_env_fromList_NIL = prove(
+  ``join_env (fromList [])
+        (toAList (delete_odd (fromList2 [Loc l1 l2]))) = []``,
+  fs [join_env_def,fromList2_def] \\ EVAL_TAC);
+
 val gc_lemma = prove(
-  ``bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
-    state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
-    wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
-    let t0 = (push_env y (NONE:(num # 'a wordLang$prog # num # num) option)
-               (set_store AllocSize (Word (alloc_size k))
-                 (t with locals := insert 1 (Word (alloc_size k)) t.locals))) in
+  ``let t0 = call_env [Loc l1 l2] (push_env y
+        (NONE:(num # 'a wordLang$prog # num # num) option) t) in
+      bvpSem$cut_env names (s:'ffi bvpSem$state).locals = SOME x /\
+      state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+      FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
+      wordSem$cut_env (adjust_set names) t.locals = SOME y ==>
       ?t2 wl m st w1 w2 stack.
         t0.gc_fun (enc_stack t0.stack,t0.memory,t0.mdomain,t0.store) =
           SOME (wl,m,st) /\
         dec_stack wl t0.stack = SOME stack /\
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
-        FLOOKUP t2.store NextFree = SOME (Word w1) /\
-        FLOOKUP t2.store LastFree = SOME (Word w2) /\
-        (w2n (alloc_size k:'a word) <= w2n (w2 - w1:'a word) ==>
-          state_rel c l1 l2
-            (s with <|locals := x; space := s.space + k|>) t2 [] locs)``,
-  Q.ABBREV_TAC `t6 = (set_store AllocSize (Word (alloc_size k))
-                 (t with locals := insert 1 (Word (alloc_size k)) t.locals))`
-  \\ rw []
-  \\ `state_rel c l1 l2 s t6 [] locs /\
-      cut_env (adjust_set names) t6.locals = SOME y` by
-   (UNABBREV_ALL_TAC \\ fs [state_rel_set_store_AllocSize]
-    \\ fs [cut_env_adjust_set_insert_1,wordSemTheory.set_store_def]
-    \\ rw [] \\ fs [SUBSET_DEF,state_rel_insert_1])
-  \\ fs [LET_DEF,wordSemTheory.push_env_def,wordSemTheory.set_store_def]
+        state_rel c l1 l2 (s with locals := x) t2 [] locs``,
+  rw [] \\ fs [LET_DEF]
   \\ Q.UNABBREV_TAC `t0` \\ fs []
-  \\ Cases_on `env_to_list y t6.permute` \\ fs [wordSemTheory.enc_stack_def]
-  \\ rw [] \\ `t6.gc_fun = word_gc_fun c` by fs [state_rel_def] \\ fs []
-  \\ qpat_assum `state_rel c l1 l2 s t6 [] locs` mp_tac
-  \\ simp [Once state_rel_def] \\ rw []
-  \\ fs [wordSemTheory.dec_stack_def,case_EQ_SOME_IFF,PULL_EXISTS]
-  \\ fs [wordSemTheory.pop_env_def]
-  \\ `word_ml_inv (heap,F,a,sp) limit c s.refs
-         ((the_global s.global,t6.store ' Globals)::
-          (join_env s.locals (toAList (delete_odd t6.locals)) ++
-             flat s.stack t6.stack))` by
-     (qpat_assum `word_ml_inv ddd limit c ff yy` mp_tac
-      \\ match_mp_tac word_ml_inv_rearrange \\ fs [MEM] \\ rw [] \\ fs [])
-  (* TODO: restrict the env here ... *)
-  \\ pop_assum (fn th1 => first_assum (fn th2 =>
-        mp_tac (MATCH_MP word_gc_fun_correct (CONJ th2 th1)))) \\ rw []
+  \\ Cases_on `env_to_list y t.permute` \\ fs [wordSemTheory.enc_stack_def]
+  \\ rw [] \\ `t.gc_fun = word_gc_fun c` by fs [state_rel_def] \\ fs []
+  \\ imp_res_tac (state_rel_call_env_push_env
+      |> Q.SPEC `NONE` |> Q.INST [`args`|->`[]`] |> GEN_ALL
+      |> SIMP_RULE std_ss [MAP,get_vars_def,wordSemTheory.get_vars_def]
+      |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+      |> (fn th => MATCH_MP th (UNDISCH state_rel_inc_clock))
+      |> SIMP_RULE (srw_ss()) [dec_clock_inc_clock] |> DISCH_ALL) \\ fs []
+  \\ pop_assum (qspecl_then [`l1`,`l2`] mp_tac) \\ rw []
+  \\ rfs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,LET_DEF]
+  \\ fs [wordSemTheory.enc_stack_def]
+  \\ pop_assum mp_tac \\ simp [Once state_rel_def]
+  \\ fs [call_env_def,push_env_def] \\ rw []
+  \\ pop_assum (K all_tac) \\ fs [join_env_fromList_NIL]
+  \\ fs [flat_def]
+  \\ first_x_assum (fn th1 => first_x_assum (fn th2 =>
+       mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 th2))))
+  \\ rw [] \\ fs []
   \\ cheat);
+
+val gc_add_call_env = prove(
+  ``(case gc (push_env y NONE t5) of
+     | NONE => (SOME Error,x)
+     | SOME s' => case pop_env s' of
+                  | NONE => (SOME Error,s')
+                  | SOME s' => f s') = (res,t) ==>
+    (case gc (call_env [Loc l1 l2] (push_env y NONE t5)) of
+     | NONE => (SOME Error,x)
+     | SOME s' => case pop_env s' of
+                  | NONE => (SOME Error,s')
+                  | SOME s' => f s') = (res,t)``,
+  cheat); (* wordSem needs fixing *)
+
+val has_space_state_rel = prove(
+  ``has_space (Word (alloc_size k)) r = SOME T /\
+    state_rel c l1 l2 s r [] locs ==>
+    state_rel c l1 l2 (s with space := s.space + k) r [] locs``,
+  cheat); (* bvpSem needs fixing *)
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
@@ -1259,11 +1287,31 @@ val compile_correct = prove(
     \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
     \\ rw [] \\ fs [add_space_def,wordSemTheory.word_exp_def,
          wordSemTheory.get_var_def,wordSemTheory.set_var_def]
-    \\ fs [wordSemTheory.alloc_def,wordSemTheory.gc_def,LET_DEF]
+    \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
+         (t with locals := insert 1 (Word (alloc_size k)) t.locals))
+             :('a result option)#( ('a,'ffi) wordSem$state)` \\ fs []
+    \\ fs [wordSemTheory.alloc_def,LET_DEF]
+    \\ Q.ABBREV_TAC `t5 = (set_store AllocSize (Word (alloc_size k))
+                 (t with locals := insert 1 (Word (alloc_size k)) t.locals))`
     \\ imp_res_tac cut_env_IMP_cut_env \\ fs [cut_env_adjust_set_insert_1]
-    \\ rw [] \\ imp_res_tac gc_lemma \\ fs [LET_DEF]
-    \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ fs []
-    \\ fs [wordSemTheory.has_space_def] \\ rw [] \\ fs [])
+    \\ first_x_assum (assume_tac o HO_MATCH_MP gc_add_call_env)
+    \\ `FLOOKUP t5.store AllocSize = SOME (Word (alloc_size k)) /\
+        cut_env (adjust_set names) t5.locals = SOME y /\
+        state_rel c l1 l2 s t5 [] locs` by
+     (UNABBREV_ALL_TAC \\ fs [state_rel_set_store_AllocSize]
+      \\ fs [cut_env_adjust_set_insert_1,wordSemTheory.set_store_def]
+      \\ rw [] \\ fs [SUBSET_DEF,state_rel_insert_1,FLOOKUP_DEF])
+    \\ strip_tac
+    \\ mp_tac (gc_lemma |> Q.INST [`t`|->`t5`] |> SIMP_RULE std_ss [LET_DEF])
+    \\ fs [] \\ strip_tac \\ fs []
+    \\ fs [wordSemTheory.gc_def,wordSemTheory.call_env_def,
+           wordSemTheory.push_env_def]
+    \\ Cases_on `env_to_list y t5.permute` \\ fs [LET_DEF]
+    \\ `IS_SOME (has_space (Word (alloc_size k):'a word_loc) t2)` by
+      fs [wordSemTheory.has_space_def,state_rel_def,heap_in_memory_store_def]
+    \\ Cases_on `has_space (Word (alloc_size k):'a word_loc) t2` \\ fs []
+    \\ every_case_tac \\ fs [] \\ rfs [] \\ rw []
+    \\ imp_res_tac has_space_state_rel \\ fs [])
   THEN1 (* Raise *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s` \\ fs [] \\ rw []
