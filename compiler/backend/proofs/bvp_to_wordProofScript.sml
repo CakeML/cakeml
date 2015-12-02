@@ -370,17 +370,6 @@ val get_var_T_OR_F = prove(
   \\ fs [Boolv_def] \\ rw [] \\ fs [v_inv_def] \\ fs [word_addr_def]
   \\ EVAL_TAC \\ fs [good_dimindex_def,dimword_def]);
 
-val state_rel_jump_exc = prove(
-  ``state_rel c l1 l2 s t [] locs /\
-    get_var n s = SOME x /\
-    get_var (adjust_var n) t = SOME w /\
-    jump_exc s = SOME s1 ==>
-    ?t1 d1 d2 l5 l6 ll.
-      jump_exc t = SOME (t1,d1,d2) /\
-      LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
-      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) [] ll``,
-  cheat);
-
 val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
@@ -465,6 +454,78 @@ val state_rel_pop_env_set_var_IMP = prove(
    \\ Cases_on `x` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
    \\ fs [MEM_toAList,lookup_fromAList]
    \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
+
+val LAST_N_LIST_REL_LEMMA = prove(
+  ``!xs1 ys1 xs n y ys x P.
+      LAST_N n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
+      ?y ys. LAST_N n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys``,
+  Induct \\ Cases_on `ys1` \\ fs [LAST_N] \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ every_case_tac \\ fs [] \\ rw [] \\ `F` by decide_tac);
+
+val LAST_N_CONS_IMP_LENGTH = store_thm("LAST_N_CONS_IMP_LENGTH",
+  ``!xs n y ys.
+      n <= LENGTH xs ==>
+      (LAST_N n xs = y::ys) ==> LENGTH (y::ys) = n``,
+  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac \\ fs [GSYM NOT_LESS]);
+
+val LAST_N_IMP_APPEND = store_thm("LAST_N_IMP_APPEND",
+  ``!xs n ys.
+      n <= LENGTH xs /\ (LAST_N n xs = ys) ==>
+      ?zs. xs = zs ++ ys /\ LENGTH ys = n``,
+  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac
+  \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ fs []
+  \\ qpat_assum `xs = zs ++ LAST_N n xs` (fn th => simp [Once th]));
+
+val flat_APPEND = prove(
+  ``!xs ys xs1 ys1.
+      LENGTH xs = LENGTH ys ==>
+      flat (xs ++ xs1) (ys ++ ys1) = flat xs ys ++ flat xs1 ys1``,
+  Induct \\ Cases_on `ys` \\ fs [flat_def] \\ rw []
+  \\ Cases_on `h'` \\ Cases_on `h`
+  \\ TRY (Cases_on `o'`) \\ fs [flat_def]);
+
+val state_rel_jump_exc = prove(
+  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+    get_var n s = SOME x /\
+    get_var (adjust_var n) t = SOME w /\
+    jump_exc s = SOME s1 ==>
+    ?t1 d1 d2 l5 l6 ll.
+      jump_exc t = SOME (t1,d1,d2) /\
+      LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
+      !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) [] ll``,
+  fs [jump_exc_def] \\ rpt CASE_TAC \\ rw [] \\ fs [] \\ fs [state_rel_def]
+  \\ fs [wordSemTheory.set_var_def,set_var_def]
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac word_ml_inv_get_var_IMP
+  \\ imp_res_tac LAST_N_LIST_REL_LEMMA
+  \\ fs [] \\ rw [] \\ fs [wordSemTheory.jump_exc_def]
+  \\ every_case_tac \\ fs [stack_rel_def]
+  \\ Cases_on `y'` \\ fs [contains_loc_def]
+  \\ `s.handler + 1 <= LENGTH s.stack` by decide_tac
+  \\ imp_res_tac LAST_N_CONS_IMP_LENGTH \\ fs [ADD1]
+  \\ imp_res_tac EVERY2_LENGTH \\ fs []
+  \\ fs [lookup_insert,adjust_var_11]
+  \\ fs [contains_loc_def,lookup_fromAList] \\ rw []
+  \\ first_assum (match_exists_tac o concl) \\ fs [] (* asm_exists_tac *)
+  \\ `s.handler + 1 <= LENGTH s.stack /\
+      s.handler + 1 <= LENGTH t.stack` by decide_tac
+  \\ imp_res_tac LAST_N_IMP_APPEND \\ fs [ADD1]
+  \\ rw [] \\ fs [flat_APPEND,flat_def]
+  \\ `word_ml_inv (heap,F,a,sp) limit c s.refs
+       ((x,w)::(join_env s' l ++
+         [(the_global s.global,t.store ' Globals)] ++ flat t' ys))` by
+   (first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+    \\ fs [MEM] \\ rw [] \\ fs [])
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ match_mp_tac (word_ml_inv_insert
+       |> SIMP_RULE std_ss [APPEND,GSYM APPEND_ASSOC])
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+  \\ fs [MEM] \\ rw [] \\ fs []
+  \\ Cases_on `x'` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+  \\ fs [MEM_toAList,lookup_fromAList]
+  \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
