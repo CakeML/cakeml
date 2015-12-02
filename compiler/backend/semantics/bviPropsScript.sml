@@ -26,8 +26,22 @@ val bvl_to_bvi_with_ffi = Q.store_thm("bvl_to_bvi_with_ffi",
   `bvl_to_bvi (x with ffi := y) z = bvl_to_bvi x z with ffi := y`,
   EVAL_TAC)
 
+val bvl_to_bvi_code = Q.store_thm("bvl_to_bvi_code[simp]",
+  `(bvl_to_bvi x y).code = y.code`,
+  EVAL_TAC)
+
+val bvl_to_bvi_clock = Q.store_thm("bvl_to_bvi_clock[simp]",
+  `(bvl_to_bvi x y).clock = x.clock`,
+  EVAL_TAC)
+
 val bvi_to_bvl_refs = Q.store_thm("bvi_to_bvl_refs[simp]",
   `(bvi_to_bvl x).refs = x.refs`, EVAL_TAC)
+
+val bvi_to_bvl_code = Q.store_thm("bvi_to_bvl_code[simp]",
+  `(bvi_to_bvl x).code = map (K ARB) x.code`, EVAL_TAC)
+
+val bvi_to_bvl_clock = Q.store_thm("bvi_to_bvl_clock[simp]",
+  `(bvi_to_bvl x).clock = x.clock`, EVAL_TAC)
 
 val domain_bvi_to_bvl_code = Q.store_thm("domain_bvi_to_bvl_code[simp]",
   `domain (bvi_to_bvl s).code = domain s.code`,

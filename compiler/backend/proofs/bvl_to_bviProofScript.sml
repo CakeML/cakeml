@@ -1731,32 +1731,45 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
 
 (*
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
-  ``,
+  `0 < k ∧ num_stubs < start ⇒
+   ∃t0 p.
+   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi (fromAList (bvi_stubs start ++ code)) k) =
+   evaluate ([Call 0 (SOME start) [] NONE],[],t0) ∧
+   t0.global = SOME p ∧
+   t0.refs = (FEMPTY |+ (p,ValueArray [Number 1]))`,
+  rw[bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
+  rw[Once bvi_stubs_def] >>
+  TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>fs[]>>NO_TAC) >>
+  simp[InitGlobals_code_def] >>
+  simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def] >>
+  simp[bvlSemTheory.do_app_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
+  reverse BasicProvers.CASE_TAC >- (
+    `F` suffices_by rw[] >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[bvi_stubs_def] >>
+    qpat_assum`num_stubs < _`mp_tac >>
+    rpt var_eq_tac >> EVAL_TAC ) >>
+  qpat_abbrev_tac`p = $LEAST P` >>
+  BasicProvers.CASE_TAC >- (
+    qpat_abbrev_tac`v = ValueArray _` >>
+    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k-1|>` >>
+    simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    simp[bviSemTheory.state_component_equality] >>
+    unabbrev_all_tac >> EVAL_TAC ) >>
+  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+  first_assum(subterm split_pair_case_tac o concl) >> fs[] >>
+  var_eq_tac >> pop_assum mp_tac >>
+  reverse IF_CASES_TAC >> fs[] >- (
+    strip_tac >> rpt var_eq_tac >> simp[] >>
+    qpat_abbrev_tac`v = ValueArray _` >>
+    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k-1|>` >>
+    simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    simp[bviSemTheory.state_component_equality] >>
+    unabbrev_all_tac >> EVAL_TAC ) >>
+  simp[]
+*)
 
-val compile_single_semantics = Q.store_thm("compile_single_semantics",
-  `bEvery GoodHandleLet [SND(SND x)] ∧
-   semantics ffi0 (fromAList [x]) start ≠ Fail ⇒
-   (semantics ffi0 (fromAList [x]) start =
-    semantics ffi0 (fromAList (FST (compile_single n x))) (num_stubs + 2 * start))`,
-  simp[bvlSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
-  PairCases_on`x` >>
-  simp[compile_single_def] >>
-  (fn g => subterm split_applied_pair_tac (#2 g) g) >> fs[] >>
-  strip_tac
-  compile_exps_correct
-  simp[bviSemTheory.semantics_def]
-
-val compile_stubs_semantics = Q.store_thm("compile_stubs_semantics",
-  `evaluate ([Call 0 (SOME start)[]],[],
-     initial_state ffi0 (fromAList (bvi_stubs (2 * start + num_stubs) ++ code)) k) =
-     compile_list_def
-     compile_single_def
-
-   InitGlobals_location =
-   evaluate`,
-  bvlSemTheory.semantics_def
-
+(*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `semantics ffi0 (fromAList prog) start ≠ Fail ∧
    compile_prog start n prog = (start', prog', n')
