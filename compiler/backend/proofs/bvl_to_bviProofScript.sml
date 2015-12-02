@@ -1729,13 +1729,13 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   Cases_on`res`>>simp[] >- METIS_TAC[] >>
   Cases_on`e`>>simp[] >> METIS_TAC[]);
 
-(*
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
-  `0 < k ∧ num_stubs < start ⇒
+  `1 < k ∧ num_stubs < start ⇒
    ∃t0 p.
    evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi (fromAList (bvi_stubs start ++ code)) k) =
    evaluate ([Call 0 (SOME start) [] NONE],[],t0) ∧
    t0.global = SOME p ∧
+   t0.ffi = ffi ∧
    t0.refs = (FEMPTY |+ (p,ValueArray [Number 1]))`,
   rw[bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   rw[Once bvi_stubs_def] >>
@@ -1766,8 +1766,27 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
     simp[bviSemTheory.state_component_equality] >>
     unabbrev_all_tac >> EVAL_TAC ) >>
-  simp[]
-*)
+  simp[] >>
+  IF_CASES_TAC >- (
+    `F` suffices_by rw[] >>
+    pop_assum mp_tac >>
+    EVAL_TAC >> decide_tac ) >>
+  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+  qpat_abbrev_tac`v = ValueArray _` >>
+  strip_tac >>
+  qmatch_assum_rename_tac`_ r' _ _ = (r,s)` >>
+  `r' = r` by (every_case_tac >> fs[]) >> var_eq_tac >>
+  `s''' = s` by (every_case_tac >> fs[]) >> var_eq_tac >>
+  simp[] >> pop_assum kall_tac >>
+  qmatch_assum_abbrev_tac`ck ≠ _` >>
+  qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ;
+                 ffi := ffi; clock := ck + p|>` >>
+  simp[lookup_fromAList,ALOOKUP_APPEND] >>
+  fs[bvl_to_bvi_def,bvi_to_bvl_def,bviSemTheory.dec_clock_def,bviSemTheory.initial_state_def] >>
+  full_simp_tac bool_ss [ONE] >> fs[REPLICATE] >>
+  fsrw_tac[ARITH_ss][ADD1] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[]);
 
 (*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
