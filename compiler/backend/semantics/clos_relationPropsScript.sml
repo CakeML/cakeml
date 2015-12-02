@@ -496,7 +496,7 @@ val app_combine = Q.store_thm ("app_combine",
    >- metis_tac []
    >- metis_tac [] >>
    Cases_on `a` >>
-   fs [res_rel_rw] >> metis_tac[]) >>
+   fs [res_rel_rw]) >>
  Cases_on `vs2 = []` >>
  fs [] >>
  `LENGTH a = 1 ∧ LENGTH vs' = 1` by (
