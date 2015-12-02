@@ -2644,30 +2644,29 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
                 cases_on `a` >>
                 fs []) >>
  rw [] >>
- fs [extend_env_new_tops_def] >>
- cheat (*
+ fs [extend_env_new_tops_def]
  >- (last_x_assum (fn ind => first_assum (fn inst => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] ind) inst))) >>
      first_x_assum (fn ind => first_assum (assume_tac o MATCH_MP ind)) >>
      `¬prog_diverges (extend_top_env envM' env' cenv2 env) st' prog` by metis_tac [] >>
      fs []
      >- (disj1_tac >>
          simp [PULL_EXISTS] >>
-         MAP_EVERY qexists_tac [`st''`, `envM2 ++ envM'`, `envE2 ++ env'`, `st'`, `envM'`, `cenv2`, `cenv2'`,
-                                `env'`, `Rval (envM2,envE2)`] >>
+         CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
+         first_assum(match_exists_tac o concl) >> simp[] >>
          simp [combine_mod_result_def] >>
-         fs [update_type_sound_inv_def, FUNION_ASSOC, combine_mod_result_def, union_decls_assoc, merge_alist_mod_env_assoc, bvl2_append, merge_alist_mod_env_assoc, merge_mod_env_assoc, extend_top_env_def])
+         fs [update_type_sound_inv_def, FUNION_ASSOC, combine_mod_result_def, union_decls_assoc, merge_alist_mod_env_assoc, bvl2_append, merge_alist_mod_env_assoc, merge_mod_env_assoc, extend_top_env_def, append_new_top_tenv_def])
      >- (disj2_tac >>
-         Q.LIST_EXISTS_TAC [`merge_alist_mod_env cenv2' cenv2`, `st''`, `err`, `mods ∪ decls'.defined_mods`] >>
-         rw [FST_union_decls]
-         >- fs [SUBSET_DEF] >>
-         disj1_tac >>
-         Q.LIST_EXISTS_TAC [`st'`, `envM'`, `cenv2`, `cenv2'`, `env'`, `Rerr err`] >>
-         fs [combine_mod_result_def, FST_union_decls, UNION_ASSOC]))
+         srw_tac[DNF_ss][] >> disj1_tac >>
+         CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_prog`` o fst o strip_comb))) >>
+         first_assum(match_exists_tac o concl) >> simp[] >>
+         rw [FST_union_decls] >>
+         fs [combine_mod_result_def, FST_union_decls, UNION_ASSOC] >>
+         metis_tac[SUBSET_REFL]))
  >- (disj2_tac >>
-     Q.LIST_EXISTS_TAC [`cenv2`, `st'`, `err`] >>
-     rw [] >>
-     qexists_tac `decls'.defined_mods` >>
-     rw [FST_union_decls])*));
+     srw_tac[DNF_ss][] >> disj2_tac >>
+     CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``bigStep$evaluate_top`` o fst o strip_comb))) >>
+     first_assum(match_exists_tac o concl) >> simp[] >>
+     metis_tac[SUBSET_REFL]));
 
 val type_no_dup_top_types_lem = Q.prove (
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
