@@ -1610,8 +1610,8 @@ val optimise_evaluate = Q.store_thm("optimise_evaluate",
     qcase_tac`bvlSem$do_app` >>
     every_case_tac >> fs[] >> rpt var_eq_tac >> fs[] >> rfs[] >>
     imp_res_tac bvlPropsTheory.evaluate_code >> fs[] >>
-    imp_res_tac do_app_with_code >>
-    imp_res_tac do_app_with_code_err >>
+    imp_res_tac bvlPropsTheory.do_app_with_code >>
+    imp_res_tac bvlPropsTheory.do_app_with_code_err >>
     fs[domain_fromAList] >>
     fs[SUBSET_DEF,toAList_domain] >>
     qmatch_assum_rename_tac`bvlSem$do_app op _ z = _` >>

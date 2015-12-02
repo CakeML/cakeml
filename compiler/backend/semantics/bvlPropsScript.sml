@@ -22,7 +22,7 @@ val do_app_with_code = Q.store_thm("do_app_with_code",
 
 val do_app_with_code_err = Q.store_thm("do_app_with_code_err",
   `bvlSem$do_app op vs s = Rerr e ⇒
-   domain c ⊆ domain s.code ⇒
+   (domain c ⊆ domain s.code ∨ e ≠ Rabort Rtype_error) ⇒
    do_app op vs (s with code := c) = Rerr e`,
   rw[do_app_def] >>
   BasicProvers.CASE_TAC >> fs[] >>
