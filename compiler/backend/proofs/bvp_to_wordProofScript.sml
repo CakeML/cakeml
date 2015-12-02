@@ -527,6 +527,43 @@ val state_rel_jump_exc = prove(
   \\ fs [MEM_toAList,lookup_fromAList]
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
+val state_rel_CodePtr = prove(
+  ``state_rel c l1 l2 s t [] locs /\
+    get_vars args s = SOME x /\
+    get_vars (MAP adjust_var args) t = SOME y /\
+    LAST x = CodePtr n /\ x <> [] ==>
+    y <> [] /\ LAST y = Loc n 0``,
+  cheat);
+
+val NOT_NIL_IMP_LAST = prove(
+  ``!xs x. xs <> [] ==> LAST (x::xs) = LAST xs``,
+  Cases \\ fs []);
+
+val get_vars_IMP_LENGTH = prove(
+  ``!x t s. bvpSem$get_vars x s = SOME t ==> LENGTH x = LENGTH t``,
+  Induct \\ fs [bvpSemTheory.get_vars_def] \\ rw []
+  \\ every_case_tac \\ res_tac \\ fs [] \\ rw [] \\ fs []);
+
+val state_rel_call_env = prove(
+  ``get_vars args s = SOME q /\
+    get_vars (MAP adjust_var args) t = SOME ws /\
+    state_rel c l5 l6 s t [] locs ==>
+    state_rel c l1 l2 (call_env q (dec_clock s))
+     (call_env (Loc l1 l2::ws) (dec_clock t)) [] locs``,
+  cheat);
+
+val bvp_get_vars_SNOC_IMP = prove(
+  ``bvpSem$get_vars (SNOC x1 x2) s = SOME x ==>
+    ?y1 y2. x = SNOC y1 y2 /\
+            bvpSem$get_vars x2 s = SOME y2``,
+  cheat);
+
+val word_get_vars_SNOC_IMP = prove(
+  ``wordSem$get_vars (SNOC x1 x2) s = SOME x ==>
+    ?y1 y2. x = SNOC y1 y2 /\
+            wordSem$get_vars x2 s = SOME y2``,
+  cheat);
+
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
@@ -537,7 +574,30 @@ val find_code_thm = prove(
         find_code dest (Loc l1 l2::ws) t.code = SOME (args1,FST (comp c n1 n2 r)) /\
         state_rel c l1 l2 (call_env q (dec_clock s))
           (call_env args1 (dec_clock t)) [] locs``,
-  cheat) |> SPEC_ALL;
+  Cases_on `dest` \\ rw [] \\ fs [find_code_def]
+  \\ every_case_tac \\ fs [wordSemTheory.find_code_def] \\ rw []
+  \\ `code_rel c s.code t.code` by fs [state_rel_def]
+  \\ fs [code_rel_def] \\ res_tac \\ fs [ADD1]
+  \\ imp_res_tac wordPropsTheory.get_vars_length_lemma
+  \\ fs [wordSemTheory.get_vars_def]
+  \\ Cases_on `get_var 0 t` \\ fs []
+  \\ Cases_on `get_vars (MAP adjust_var args) t` \\ fs [] \\ rw []
+  \\ TRY (imp_res_tac state_rel_CodePtr \\ fs []
+          \\ qpat_assum `ws <> []` (assume_tac)
+          \\ imp_res_tac NOT_NIL_IMP_LAST \\ fs [])
+  \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+  THENL [Q.LIST_EXISTS_TAC [`n`,`1`],Q.LIST_EXISTS_TAC [`x'`,`1`]] \\ fs []
+  \\ imp_res_tac state_rel_call_env \\ fs []
+  \\ `args <> []` by (Cases_on `args` \\ fs [] \\ Cases_on `x` \\ fs [])
+  \\ `?x1 x2. args = SNOC x1 x2` by metis_tac [SNOC_CASES] \\ rw []
+  \\ fs [MAP_SNOC]
+  \\ imp_res_tac bvp_get_vars_SNOC_IMP \\ rw []
+  \\ imp_res_tac word_get_vars_SNOC_IMP \\ rw []
+  \\ full_simp_tac bool_ss [GSYM SNOC |> CONJUNCT2]
+  \\ full_simp_tac bool_ss [FRONT_SNOC]
+  \\ `get_vars (0::MAP adjust_var x2) t = SOME (Loc l1 l2::y2')` by
+        fs [wordSemTheory.get_vars_def]
+  \\ imp_res_tac state_rel_call_env \\ fs []) |> SPEC_ALL;
 
 val find_code_thm_ret = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
