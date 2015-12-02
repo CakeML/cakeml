@@ -2669,12 +2669,11 @@ val prog_type_soundness = Q.store_thm ("prog_type_soundness",
      metis_tac[SUBSET_REFL]));
 
 val type_no_dup_top_types_lem = Q.prove (
-`!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
-  type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv')
+`!uniq decls1 tenv prog decls1' res.
+  type_prog uniq decls1 tenv prog decls1' res
   ⇒
   ALL_DISTINCT (prog_to_top_types prog) ∧
   DISJOINT decls1.defined_types (IMAGE (mk_id NONE) (set (prog_to_top_types prog)))`,
- cheat(*
  ho_match_mp_tac type_prog_ind >>
  rw [prog_to_top_types_def] >>
  every_case_tac >>
@@ -2709,7 +2708,7 @@ val type_no_dup_top_types_lem = Q.prove (
      fs [DISJOINT_DEF, EXTENSION, union_decls_def] >>
      rw [] >>
      fs [MEM_MAP,LAMBDA_PROD, EXISTS_PROD, mk_id_def, FORALL_PROD] >>
-     metis_tac [])*));
+     metis_tac []));
 
 val type_no_dup_top_types_lem2 = Q.prove (
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
@@ -2748,12 +2747,11 @@ val type_no_dup_top_types = Q.prove (
  metis_tac []);
 
 val type_no_dup_mods_lem = Q.prove (
-`!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
-  type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv')
+`!uniq decls1 tenv prog decls1' res.
+  type_prog uniq decls1 tenv prog decls1' res
   ⇒
   ALL_DISTINCT (prog_to_mods prog) ∧
   DISJOINT decls1.defined_mods (set (prog_to_mods prog))`,
- cheat(*
  ho_match_mp_tac type_prog_ind >>
  rw [prog_to_mods_def] >>
  every_case_tac >>
@@ -2765,7 +2763,7 @@ val type_no_dup_mods_lem = Q.prove (
  >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac [])
  >- (fs [union_decls_def, DISJOINT_DEF, EXTENSION] >>
-     metis_tac [])*));
+     metis_tac []));
 
 val type_no_dup_mods = Q.prove (
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
