@@ -42,7 +42,7 @@ val bvi_to_bvp_def = Define `
             ; global := s.global |>`;
 
 val add_space_def = Define `
-  add_space s k = s with space := s.space + k`;
+  add_space s k = s with space := k`;
 
 val consume_space_def = Define `
   consume_space k s =

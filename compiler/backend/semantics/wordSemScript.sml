@@ -380,7 +380,7 @@ val alloc_def = Define `
       | SOME s =>
        (* restore local variables *)
        (case pop_env s of
-        | NONE => (SOME Error, s)
+        | NONE => (SOME Error, call_env [] s)
         | SOME s =>
          (* read how much space should be allocated *)
          (case FLOOKUP s.store AllocSize of

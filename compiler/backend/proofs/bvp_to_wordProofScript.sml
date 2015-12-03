@@ -1334,14 +1334,18 @@ val gc_add_call_env = prove(
   ``(case gc (push_env y NONE t5) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error,s')
+                  | NONE => (SOME Error, call_env [] s')
                   | SOME s' => f s') = (res,t) ==>
     (case gc (call_env [Loc l1 l2] (push_env y NONE t5)) of
      | NONE => (SOME Error,x)
      | SOME s' => case pop_env s' of
-                  | NONE => (SOME Error,s')
+                  | NONE => (SOME Error, call_env [] s')
                   | SOME s' => f s') = (res,t)``,
-  cheat); (* wordSem needs fixing *)
+  fs [wordSemTheory.gc_def,wordSemTheory.call_env_def,LET_DEF,
+      wordSemTheory.push_env_def]
+  \\ Cases_on `env_to_list y t5.permute` \\ fs [LET_DEF]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ fs [wordSemTheory.pop_env_def]);
 
 val has_space_state_rel = prove(
   ``has_space (Word (alloc_size k)) r = SOME T /\
