@@ -365,4 +365,87 @@ val evaluate_add_code = Q.store_thm("evaluate_add_code",
   every_case_tac >> fs[] >> rw[] >> rfs[] >> rw[] >>
   imp_res_tac evaluate_code_const >> fs[] >> rfs[]);
 
+val do_app_aux_with_clock = Q.store_thm("do_app_aux_with_clock",
+  `do_app_aux op vs (s with clock := c) =
+   OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with clock := c))) (do_app_aux op vs s)`,
+  rw[do_app_aux_def] >>
+  every_case_tac >> fs[]);
+
+val do_app_change_clock = Q.prove(
+  `(do_app op args s1 = Rval (res,s2)) ==>
+   (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
+  rw[do_app_def,do_app_aux_with_clock] >>
+  Cases_on`do_app_aux op args s1`>>fs[]>>
+  reverse(Cases_on`x`)>>fs[]>- (
+    every_case_tac >> fs[] ) >>
+  Cases_on`do_app op args (bvi_to_bvl s1)` >> fs[] >>
+  every_case_tac >> fs[] >> rpt var_eq_tac >>
+  fs[bvi_to_bvl_def] >>
+  imp_res_tac bvlPropsTheory.do_app_change_clock >>
+  fs[bvlSemTheory.state_component_equality] >>
+  fs[bvl_to_bvi_def,bviSemTheory.state_component_equality]);
+
+val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
+  `bviSem$do_app op vs s = Rerr e ⇒
+   do_app op vs (s with clock := c) = Rerr e`,
+  rw[do_app_def,do_app_aux_with_clock] >>
+  Cases_on`do_app_aux op vs s`>>fs[]>>
+  (reverse(Cases_on`x`)>>fs[]>- (
+     every_case_tac >> fs[] )) >>
+  Cases_on`do_app op vs (bvi_to_bvl s)` >> fs[] >>
+  every_case_tac >> fs[] >> rpt var_eq_tac >>
+  fs[bvi_to_bvl_def] >>
+  imp_res_tac bvlPropsTheory.do_app_change_clock >> fs[] >>
+  imp_res_tac bvlPropsTheory.do_app_change_clock_err >> fs[]);
+
+val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
+  `!exps env s1 res s2.
+    evaluate (exps,env,s1) = (res, s2) ∧
+    res ≠ Rerr(Rabort Rtimeout_error)
+    ⇒
+    !ck. evaluate (exps,env,inc_clock ck s1) = (res, inc_clock ck s2)`,
+  recInduct evaluate_ind >>
+  rw [evaluate_def]
+  >- (Cases_on `evaluate ([x], env,s)` >> fs [] >>
+      Cases_on `q` >> fs [] >> rw [] >>
+      Cases_on `evaluate (y::xs,env,r)` >> fs [] >>
+      Cases_on `q` >> fs [] >> rw [] >> fs[])
+  >- (Cases_on `evaluate ([x1],env,s)` >> fs [] >>
+      Cases_on `q` >> fs [] >> rw[] >> fs[])
+  >- (Cases_on `evaluate (xs,env,s)` >>
+      fs [] >>
+      Cases_on `q` >>
+      fs [] >>
+      rw [] >> fs[])
+  >- (Cases_on `evaluate ([x1],env,s)` >> fs [] >>
+      Cases_on `q` >> fs [] >> rw [] >> fs[])
+  >- (Cases_on `evaluate (xs,env,s)` >> fs [] >>
+      Cases_on `q` >> fs [] >> rw[] >> fs[] >>
+      rw [inc_clock_def] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      fs [] >>
+      imp_res_tac do_app_const >>
+      imp_res_tac do_app_change_clock >>
+      imp_res_tac do_app_change_clock_err >>
+      fs [] >>
+      rw [])
+  >- (rw [] >>
+      fs [inc_clock_def, dec_clock_def] >>
+      rw [] >>
+      `s.clock + ck - 1 = s.clock - 1 + ck` by (srw_tac [ARITH_ss] [ADD1]) >>
+      metis_tac [])
+  >- (Cases_on `evaluate (xs,env,s1)` >>
+      fs [] >>
+      Cases_on `q` >>
+      fs [] >>
+      rw [] >>
+      BasicProvers.EVERY_CASE_TAC >>
+      fs [] >>
+      rw [] >>
+      rfs [inc_clock_def, dec_clock_def] >>
+      fsrw_tac[ARITH_ss][] >>
+      `ck + r.clock - (ticks + 1) = r.clock - (ticks + 1) + ck` by srw_tac [ARITH_ss] [ADD1] >>
+      fs[] >>
+      rpt(first_x_assum(qspec_then`ck`mp_tac))>> rw[]));
+
 val _ = export_theory();
