@@ -1830,11 +1830,15 @@ val aux_code_installed_sublist = Q.store_thm("aux_code_installed_sublist",
   fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
   METIS_TAC[PAIR])
 
-(* this is not true
-val compile_list_aux_sorted = Q.store_thm("compile_list_aux_sorted",
+val compile_list_distinct_locs = Q.store_thm("compile_list_distinct_locs",
   `∀n prog code n'.
+     ALL_DISTINCT (MAP FST prog) ∧
      compile_list n prog = (code,n') ⇒
-     SORTED $< (MAP FST code) ∧ EVERY (between n n') (MAP FST code) ∧ n ≤ n'`,
+     ALL_DISTINCT (MAP FST code) ∧
+     EVERY (between (num_stubs + 2 * n) (num_stubs + 2 * n')) (FILTER (λn. ODD (n - num_stubs)) (MAP FST code)) ∧
+     FILTER (λn. EVEN (n - num_stubs)) (MAP FST code) = MAP (λn. num_stubs + 2 * n) (MAP FST prog) ∧
+     (* redundant, but useful *) EVERY ($<= num_stubs) (MAP FST code) ∧
+     n ≤ n'`,
   Induct_on`prog`>>simp[compile_list_def]>>
   qx_gen_tac`p`>>PairCases_on`p`>>
   rpt gen_tac >> strip_tac >>
@@ -1847,15 +1851,56 @@ val compile_list_aux_sorted = Q.store_thm("compile_list_aux_sorted",
   first_x_assum drule >> strip_tac >>
   simp[] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY] >>
-  simp[CONJ_ASSOC] >>
+  simp[EVERY_MAP] >>
   reverse conj_tac >- (
-    irule (GEN_ALL MONO_EVERY) >>
-    simp[CONJ_COMM] >>
-    asm_exists_tac >>
-    simp[between_def] ) >>
+    reverse conj_tac >- (
+      simp[FILTER_APPEND] >>
+      reverse IF_CASES_TAC >- METIS_TAC[EVEN_EXISTS] >>
+      simp[FILTER_MAP,o_DEF] >>
+      simp[MAP_MAP_o,o_DEF,UNCURRY,FILTER_EQ_NIL] >>
+      simp[EVERY_MEM] >>
+      METIS_TAC[EVEN_ODD,ODD_EXISTS,ADD1] ) >>
+    fsrw_tac[ARITH_ss][EVERY_FILTER,between_def,EVERY_MAP] >>
+    fs[EVERY_MEM] >> rw[] >> res_tac >>
+    fsrw_tac[ARITH_ss][] >>
+    METIS_TAC[EVEN_ODD,EVEN_EXISTS] ) >>
+  simp[ALL_DISTINCT_APPEND] >>
   reverse conj_tac >- (
-    simp[between_def]
-*)
+    fs[EVERY_MEM,PULL_EXISTS,MEM_MAP,EXISTS_PROD] >>
+    rw[] >> spose_not_then strip_assume_tac >>
+    res_tac >> fs[between_def] >- (
+      fs[MEM_FILTER,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      res_tac >> fsrw_tac[ARITH_ss][] >>
+      pop_assum mp_tac >> simp[] >>
+      pop_assum mp_tac >> simp[] >>
+      METIS_TAC[ODD_EXISTS,ADD1] ) >>
+    qmatch_assum_abbrev_tac`l1 = l2` >>
+    qmatch_assum_abbrev_tac`MEM x l3` >>
+    `MEM (FST x) l1` by (
+      unabbrev_all_tac >>
+      simp[MEM_FILTER,MEM_MAP,EXISTS_PROD] >>
+      METIS_TAC[EVEN_EXISTS] ) >>
+    `MEM (FST x) l2` by METIS_TAC[] >>
+    pop_assum mp_tac >>
+    unabbrev_all_tac >> simp[MEM_MAP,EXISTS_PROD] >>
+    METIS_TAC[EQ_MULT_LCANCEL,DECIDE``2 ≠ 0n``] ) >>
+  reverse conj_tac >- (
+    simp[MEM_MAP,EXISTS_PROD] >>
+    spose_not_then strip_assume_tac >> fs[] >>
+    qmatch_assum_rename_tac`2 * a + num_stubs = 2 * b + (num_stubs + 1)` >>
+    `2 * a = 2 * b + 1` by decide_tac >>
+    METIS_TAC[EVEN_ODD,EVEN_EXISTS,ODD_EXISTS,ADD1] ) >>
+  qmatch_abbrev_tac`ALL_DISTINCT (MAP f aux)` >>
+  `∃g. MAP f aux = MAP g (MAP FST aux) ∧
+       (∀x y. g x = g y ⇒ x = y)` by (
+    simp[MAP_EQ_f,MAP_MAP_o,Abbr`f`] >>
+    simp[FORALL_PROD,GSYM SKOLEM_THM,PULL_FORALL] >>
+    qexists_tac`λx. 2 * x + num_stubs + 1` >> simp[]) >>
+  first_assum(CHANGED_TAC o SUBST1_TAC) >>
+  MATCH_MP_TAC ALL_DISTINCT_MAP_INJ >>
+  conj_tac >- METIS_TAC[] >>
+  irule SORTED_ALL_DISTINCT >>
+  METIS_TAC[irreflexive_def,prim_recTheory.LESS_REFL,transitive_LESS]);
 
 val compile_list_imp = Q.prove(
   `∀n prog code n' name arity exp.
@@ -1907,7 +1952,9 @@ val compile_list_imp = Q.prove(
   METIS_TAC[APPEND_ASSOC]);
 
 val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
-  `0 < k ∧ bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+  `0 < k ∧
+   ALL_DISTINCT (MAP FST prog) ∧
+   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
    evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
    r ≠ Rerr (Rabort Rtype_error) ∧
    compile_prog start n prog = (start', prog', n')
@@ -1955,8 +2002,10 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     conj_tac >- (
       fs[IS_SUBLIST_APPEND] >>
       METIS_TAC[CONS_APPEND,APPEND_ASSOC] ) >>
-    (* compile_list locs all distinct *)
-    cheat ) >>
+    imp_res_tac compile_list_distinct_locs >>
+    simp[] >> rw[] >> (TRY (EVAL_TAC >> NO_TAC)) >>
+    spose_not_then strip_assume_tac >> fs[EVERY_MEM] >>
+    res_tac >> pop_assum mp_tac >> EVAL_TAC ) >>
   strip_tac >>
   rpt var_eq_tac >>
   (* bvi add to clock? or be more careful above? *)
