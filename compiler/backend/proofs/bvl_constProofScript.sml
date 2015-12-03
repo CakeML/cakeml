@@ -60,4 +60,42 @@ val compile_exps_thm = store_thm("compile_exps_thm",
   \\ Cases_on `h''` \\ fs []
   \\ Cases_on `t''` \\ fs []);
 
+(* these theorems are unnecessary, since bvl_handle happens after bvl_const
+val compile_exps_bVarBound = Q.store_thm("compile_exps_bVarBound",
+  `(∀es n. bVarBound n es ⇒ bVarBound n (compile_exps es)) ∧
+   (∀e n. bVarBound n [e] ⇒ bVarBound n [compile_exp e])`,
+  ho_match_mp_tac compile_exps_ind >>
+  rw[compile_exps_def] >> rw[] >> fs[] >> rfs[] >>
+  fs[bVarBound_def,clos_to_bvlTheory.Bool_def] >>
+  TRY (
+    CHANGED_TAC(rw[compile_op_def]) >>
+    BasicProvers.CASE_TAC >> rw[] ) >>
+  fs[Once bVarBound_EVERY] >>
+  METIS_TAC[bVarBound_EVERY]);
+
+val compile_exps_isVar = Q.store_thm("compile_exps_isVar",
+  `(∀es. EVERY isVar es ⇒ EVERY isVar (compile_exps es)) ∧
+   (∀e. isVar e ⇒ isVar (compile_exp e))`,
+  ho_match_mp_tac compile_exps_ind >>
+  rw[compile_exps_def,isVar_def]);
+
+val compile_exps_GoodHandleLet = Q.store_thm("compile_exps_GoodHandleLet",
+  `(∀es.  bEvery GoodHandleLet es ⇒ bEvery GoodHandleLet (compile_exps es)) ∧
+   (∀e. bEvery GoodHandleLet [e] ⇒ bEvery GoodHandleLet [compile_exp e])`,
+  ho_match_mp_tac compile_exps_ind >>
+  rw[compile_exps_def] >> rw[] >> fs[] >>
+  TRY (
+    CHANGED_TAC(rw[compile_op_def]) >>
+    BasicProvers.CASE_TAC >> rw[] ) >>
+  TRY (
+    qmatch_assum_rename_tac`GoodHandleLet (Handle e1 e2)` >>
+    Cases_on`e1`>>fs[compile_exps_def] >>
+    imp_res_tac compile_exps_bVarBound >>
+    imp_res_tac compile_exps_isVar >>
+    imp_res_tac compile_exps_bVarBound >>
+    fs[compile_exps_SING] ) >>
+  fs[Once bEvery_EVERY] >>
+  METIS_TAC[bEvery_EVERY]);
+*)
+
 val _ = export_theory();

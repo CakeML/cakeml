@@ -2142,14 +2142,17 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `compile start n prog = (start', prog', n') ∧
-   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
    ALL_DISTINCT (MAP FST prog) ∧
    semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
   rw[compile_def] >>
-  `bEvery GoodHandleLet (MAP (SND o SND) (optimise prog))` by cheat >>
+  `bEvery GoodHandleLet (MAP (SND o SND) (optimise prog))` by (
+    simp[optimise_def,MAP_MAP_o,o_DEF,UNCURRY] >>
+    fs[Once bEvery_EVERY,EVERY_MAP] >> fs[EVERY_MEM] >>
+    simp[bvl_handleTheory.compile_HD_SING] >>
+    simp[bvl_handleProofTheory.compile_GoodHandleLet] ) >>
   METIS_TAC[optimise_semantics,MAP_FST_optimise,compile_prog_semantics]);
 
 val _ = export_theory();

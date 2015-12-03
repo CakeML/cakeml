@@ -48,4 +48,8 @@ val compile_exp_SING = store_thm("compile_exp_SING",
   ``!x. [compile_exp x] = compile_exps [x]``,
   Cases \\ SIMP_TAC std_ss [compile_exps_def])
 
+val compile_exps_length = Q.store_thm("compile_exps_length[simp]",
+  `∀es. LENGTH (compile_exps es) = LENGTH es`,
+  Induct >> rw[compile_exps_def]);
+
 val _ = export_theory();
