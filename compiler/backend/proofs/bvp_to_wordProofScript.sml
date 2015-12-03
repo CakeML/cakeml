@@ -440,6 +440,30 @@ val jump_exc_push_env_NONE = prove(
   \\ every_case_tac \\ rw [mk_loc_def]
   \\ `F` by decide_tac);
 
+val state_rel_pop_env_IMP = prove(
+  ``state_rel c q l s1 t1 [] locs /\
+    pop_env s1 = SOME s2 ==>
+    ?t2 l8 l9 ll.
+      pop_env t1 = SOME t2 /\ locs = (l8,l9)::ll /\
+      state_rel c l8 l9 s2 t2 [] ll``,
+  fs [pop_env_def]
+  \\ Cases_on `s1.stack` \\ fs [] \\ Cases_on `h` \\ fs []
+  \\ rw[] \\ fs [] \\ fs [state_rel_def]
+  \\ TRY (Cases_on `y`) \\ fs [stack_rel_def]
+  \\ fs [stack_rel_def,wordSemTheory.pop_env_def]
+  \\ rfs [] \\ Cases_on `y` \\ fs []
+  \\ Cases_on `o'` \\ fs [stack_rel_def,wordSemTheory.pop_env_def]
+  \\ rfs [] \\ rw [] \\ Cases_on `y` \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ TRY (Cases_on `r'`) \\ fs [stack_rel_def]
+  \\ fs [lookup_fromAList,contains_loc_def]
+  \\ asm_exists_tac \\ fs []
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+  \\ fs [flat_def] \\ rw [] \\ fs []
+  \\ Cases_on `x` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+  \\ fs [MEM_toAList,lookup_fromAList]
+  \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
+
 val state_rel_pop_env_set_var_IMP = prove(
   ``state_rel c q l s1 t1 [(a,w)] locs /\
     pop_env s1 = SOME s2 ==>
@@ -1166,10 +1190,104 @@ val dec_clock_inc_clock = prove(
   \\ fs [bvpSemTheory.state_component_equality]
   \\ fs [wordSemTheory.state_component_equality])
 
-val join_env_fromList_NIL = prove(
-  ``join_env (fromList [])
-        (toAList (delete_odd (fromList2 [Loc l1 l2]))) = []``,
-  fs [join_env_def,fromList2_def] \\ EVAL_TAC);
+val word_gc_fun_IMP_FILTER = prove(
+  ``word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
+    word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)``,
+  cheat); (* easy once word_gc_fun has been defined *)
+
+val loc_merge_def = Define `
+  (loc_merge [] ys = []) /\
+  (loc_merge (Loc l1 l2::xs) ys = Loc l1 l2::loc_merge xs ys) /\
+  (loc_merge (Word w::xs) [] = []) /\
+  (loc_merge (Word w::xs) (y::ys) = y::loc_merge xs ys)`
+
+val word_gc_fun_loc_merge = prove(
+  ``word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
+    word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)``,
+  cheat);
+
+val dec_stack_StackFrame_EQ_SOME_EQUIV = prove(
+  ``(dec_stack xs (StackFrame q NONE::ys) = SOME stack) <=>
+    ?q1 ys1. (dec_stack xs (StackFrame q NONE::ys) = SOME stack) /\
+             stack = StackFrame q1 NONE::ys1``,
+  cheat);
+
+val word_gc_fun_IMP = prove(
+  ``word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
+    FLOOKUP s1 AllocSize = FLOOKUP s AllocSize /\
+    FLOOKUP s1 Handler = FLOOKUP s Handler /\
+    Globals IN FDOM s1``,
+  cheat); (* easy once word_gc_fun has been defined *)
+
+val word_gc_fun_LENGTH = prove(
+  ``word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs``,
+  cheat);
+
+val word_gc_fun_APPEND_IMP = prove(
+  ``word_gc_fun c (xs ++ ys,m,dm,s) = SOME (zs,m1,s1) ==>
+    ?zs1 zs2. zs = zs1 ++ zs2 /\ LENGTH xs = LENGTH zs1 /\ LENGTH ys = LENGTH zs2``,
+  rw [] \\ imp_res_tac word_gc_fun_LENGTH \\ fs [LENGTH_APPEND]
+  \\ pop_assum mp_tac \\ pop_assum (K all_tac)
+  \\ qspec_tac (`zs`,`zs`) \\ qspec_tac (`ys`,`ys`) \\ qspec_tac (`xs`,`xs`)
+  \\ Induct \\ fs [] \\ Cases_on `zs` \\ fs [LENGTH_NIL] \\ rw []
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [LENGTH_NIL]
+  \\ fs [ADD_CLAUSES] \\ res_tac
+  \\ fs [] \\ Q.LIST_EXISTS_TAC [`h::zs1`,`zs2`] \\ fs []);
+
+val loc_merge_APPEND = prove(
+  ``LENGTH (FILTER isWord ts) = LENGTH qs ==>
+    loc_merge (ts ++ xs) (qs ++ ys) = loc_merge ts qs ++ loc_merge xs ys``,
+  cheat);
+
+val LENGTH_loc_merge = prove(
+  ``LENGTH (loc_merge xs ys) = LENGTH xs``,
+  cheat);
+
+val TAKE_DROP_loc_merge_APPEND = prove(
+  ``TAKE (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = loc_merge (MAP SND q) xs /\
+    DROP (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = ys``,
+  cheat);
+
+val dec_stack_loc_merge_enc_stack = prove(
+  ``!xs ys. ?ss. dec_stack (loc_merge (enc_stack xs) ys) xs = SOME ss``,
+  cheat);
+
+val stack_rel_dec_stack_IMP_stack_rel = prove(
+  ``LIST_REL stack_rel ts xs /\ LIST_REL contains_loc t.stack locs /\
+    dec_stack (loc_merge (enc_stack xs) ys) xs = SOME stack ==>
+    LIST_REL stack_rel ts stack /\ LIST_REL contains_loc stack locs``,
+  cheat);
+
+val state_rel_gc = prove(
+  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
+    FLOOKUP t.store AllocSize = SOME (Word (alloc_size k)) /\
+    s.locals = LN /\
+    t.locals = LS (Loc l1 l2) ==>
+    ?t2 wl m st w1 w2 stack.
+      t.gc_fun (enc_stack t.stack,t.memory,t.mdomain,t.store) =
+        SOME (wl,m,st) /\
+      dec_stack wl t.stack = SOME stack /\
+      FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
+      state_rel c l1 l2 s
+        (t with <|stack := stack; store := st; memory := m|>) [] locs``,
+  fs [state_rel_def] \\ rw [] \\ rfs [] \\ fs [] \\ rfs[lookup_def] \\ rw []
+  \\ `join_env s.locals (toAList (delete_odd t.locals)) = []` by
+       (fs [delete_odd_def,toAList_def,foldi_def,join_env_def]) \\ fs []
+  \\ rfs [] \\ fs [] \\ pop_assum (K all_tac)
+  \\ first_x_assum (fn th1 => first_x_assum (fn th2 =>
+       mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 th2))))
+  \\ rw [] \\ fs []
+  \\ imp_res_tac word_gc_fun_IMP_FILTER
+  \\ `FILTER isWord (MAP SND (flat s.stack t.stack)) =
+      FILTER isWord (enc_stack t.stack)` by cheat \\ fs []
+  \\ imp_res_tac word_gc_fun_loc_merge \\ fs [FILTER_APPEND]
+  \\ imp_res_tac word_gc_fun_IMP \\ fs []
+  \\ `?stack. dec_stack (loc_merge (enc_stack t.stack) (FILTER isWord stack1))
+        t.stack = SOME stack` by metis_tac [dec_stack_loc_merge_enc_stack]
+  \\ asm_exists_tac \\ fs []
+  \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ cheat)
 
 val gc_lemma = prove(
   ``let t0 = call_env [Loc l1 l2] (push_env y
@@ -1187,8 +1305,6 @@ val gc_lemma = prove(
         state_rel c l1 l2 (s with locals := x) t2 [] locs``,
   rw [] \\ fs [LET_DEF]
   \\ Q.UNABBREV_TAC `t0` \\ fs []
-  \\ Cases_on `env_to_list y t.permute` \\ fs [wordSemTheory.enc_stack_def]
-  \\ rw [] \\ `t.gc_fun = word_gc_fun c` by fs [state_rel_def] \\ fs []
   \\ imp_res_tac (state_rel_call_env_push_env
       |> Q.SPEC `NONE` |> Q.INST [`args`|->`[]`] |> GEN_ALL
       |> SIMP_RULE std_ss [MAP,get_vars_def,wordSemTheory.get_vars_def]
@@ -1196,16 +1312,23 @@ val gc_lemma = prove(
       |> (fn th => MATCH_MP th (UNDISCH state_rel_inc_clock))
       |> SIMP_RULE (srw_ss()) [dec_clock_inc_clock] |> DISCH_ALL) \\ fs []
   \\ pop_assum (qspecl_then [`l1`,`l2`] mp_tac) \\ rw []
-  \\ rfs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,LET_DEF]
-  \\ fs [wordSemTheory.enc_stack_def]
-  \\ pop_assum mp_tac \\ simp [Once state_rel_def]
-  \\ fs [call_env_def,push_env_def] \\ rw []
-  \\ pop_assum (K all_tac) \\ fs [join_env_fromList_NIL]
-  \\ fs [flat_def]
-  \\ first_x_assum (fn th1 => first_x_assum (fn th2 =>
-       mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 th2))))
+  \\ pop_assum (mp_tac o MATCH_MP state_rel_gc)
+  \\ discharge_hyps THEN1
+   (fs [wordSemTheory.call_env_def,call_env_def,
+        wordSemTheory.push_env_def,fromList_def]
+    \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
+    \\ fs [fromList2_def,Once insert_def])
+  \\ rw [] \\ fs [wordSemTheory.call_env_def]
+  \\ pop_assum (mp_tac o MATCH_MP
+      (state_rel_pop_env_IMP |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+         |> Q.GEN `s2`)) \\ rw []
+  \\ pop_assum (qspec_then `s with locals := x` mp_tac)
+  \\ discharge_hyps THEN1
+   (fs [pop_env_def,push_env_def,call_env_def,bvpSemTheory.state_component_equality])
   \\ rw [] \\ fs []
-  \\ cheat);
+  \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
+  \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []);
 
 val gc_add_call_env = prove(
   ``(case gc (push_env y NONE t5) of
