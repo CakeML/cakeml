@@ -1499,7 +1499,7 @@ val infer_prog_complete = Q.store_thm("infer_prog_complete",
   first_x_assum (fn th => disch_then (mp_tac o MATCH_MP th))>>
   qpat_abbrev_tac`ienv' = <|inf_m:=D;inf_c:=A;inf_v:=B;inf_t:=C|>`>>
   disch_then(qspecl_then[`st'`,`ienv'`,`p_2''++tenv_v`] mp_tac)>>
-  fs[AND_IMP_INTRO]>>rfs[]
+  fs[AND_IMP_INTRO]>>rfs[]>>
   discharge_hyps>-
     (unabbrev_all_tac>>fs[]>>rw[]
     >-
