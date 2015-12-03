@@ -65,7 +65,7 @@ val cut_state_opt_with_stack = Q.prove(
 
 val consume_space_add_space = store_thm("consume_space_add_space",
   ``consume_space k (add_space t k with locals := env1) =
-    SOME (t with locals := env1)``,
+    SOME (t with <| locals := env1 ; space := 0  |>)``,
   fs [consume_space_def,add_space_def,state_component_equality] \\ DECIDE_TAC);
 
 val consume_space_with_stack = Q.prove(

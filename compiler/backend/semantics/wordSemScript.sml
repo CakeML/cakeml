@@ -581,7 +581,7 @@ val alloc_clock = store_thm("alloc_clock",
   \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
   \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
   \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
+  \\ every_case_tac \\ SRW_TAC [] [] \\ fs [call_env_def]
   >- (IMP_RES_TAC gc_clock \\
      fs[push_env_def,LET_THM,env_to_list_def] \\
      unabbrev_all_tac>>fs[])

@@ -1198,19 +1198,19 @@ val word_gc_fun_IMP_FILTER = prove(
 val loc_merge_def = Define `
   (loc_merge [] ys = []) /\
   (loc_merge (Loc l1 l2::xs) ys = Loc l1 l2::loc_merge xs ys) /\
-  (loc_merge (Word w::xs) [] = []) /\
-  (loc_merge (Word w::xs) (y::ys) = y::loc_merge xs ys)`
+  (loc_merge (Word w::xs) (y::ys) = y::loc_merge xs ys) /\
+  (loc_merge (Word w::xs) [] = Word w::xs)`
+
+val LENGTH_loc_merge = prove(
+  ``!xs ys. LENGTH (loc_merge xs ys) = LENGTH xs``,
+  Induct \\ Cases_on `ys` \\ fs [loc_merge_def]
+  \\ Cases_on `h` \\ fs [loc_merge_def]
+  \\ Cases_on `h'` \\ fs [loc_merge_def]);
 
 val word_gc_fun_loc_merge = prove(
   ``word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)``,
-  cheat);
-
-val dec_stack_StackFrame_EQ_SOME_EQUIV = prove(
-  ``(dec_stack xs (StackFrame q NONE::ys) = SOME stack) <=>
-    ?q1 ys1. (dec_stack xs (StackFrame q NONE::ys) = SOME stack) /\
-             stack = StackFrame q1 NONE::ys1``,
-  cheat);
+  cheat); (* easy once word_gc_fun has been defined *)
 
 val word_gc_fun_IMP = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
@@ -1221,7 +1221,7 @@ val word_gc_fun_IMP = prove(
 
 val word_gc_fun_LENGTH = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs``,
-  cheat);
+  cheat); (* easy once word_gc_fun has been defined *)
 
 val word_gc_fun_APPEND_IMP = prove(
   ``word_gc_fun c (xs ++ ys,m,dm,s) = SOME (zs,m1,s1) ==>
@@ -1237,26 +1237,33 @@ val word_gc_fun_APPEND_IMP = prove(
 val loc_merge_APPEND = prove(
   ``LENGTH (FILTER isWord ts) = LENGTH qs ==>
     loc_merge (ts ++ xs) (qs ++ ys) = loc_merge ts qs ++ loc_merge xs ys``,
-  cheat);
-
-val LENGTH_loc_merge = prove(
-  ``LENGTH (loc_merge xs ys) = LENGTH xs``,
-  cheat);
+  cheat); (* easy *)
 
 val TAKE_DROP_loc_merge_APPEND = prove(
   ``TAKE (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = loc_merge (MAP SND q) xs /\
     DROP (LENGTH q) (loc_merge (MAP SND q) xs ++ ys) = ys``,
-  cheat);
+  cheat); (* easy *)
 
 val dec_stack_loc_merge_enc_stack = prove(
   ``!xs ys. ?ss. dec_stack (loc_merge (enc_stack xs) ys) xs = SOME ss``,
-  cheat);
+  cheat); (* easy *)
 
 val stack_rel_dec_stack_IMP_stack_rel = prove(
   ``LIST_REL stack_rel ts xs /\ LIST_REL contains_loc t.stack locs /\
     dec_stack (loc_merge (enc_stack xs) ys) xs = SOME stack ==>
     LIST_REL stack_rel ts stack /\ LIST_REL contains_loc stack locs``,
-  cheat);
+  cheat); (* easy *)
+
+val LENGTH_flat = prove(
+  ``!ts xs ys. LENGTH (flat ts xs) = LENGTH (flat ts ys)``,
+  cheat); (* not true... *)
+
+val word_gc_fun_EL_lemma = prove(
+  ``word_gc_fun c (MAP SND (flat xs ys),m,dm,st) = SOME (stack1,m1,s1) /\
+    dec_stack (loc_merge (enc_stack ys) (FILTER isWord stack1)) ys =
+      SOME stack /\ n < LENGTH stack1 ==>
+    EL n (flat xs stack) = (FST (EL n (flat xs ys)),EL n stack1)``,
+  cheat); (* a right pain! *)
 
 val state_rel_gc = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs ==>
@@ -1268,7 +1275,7 @@ val state_rel_gc = prove(
         SOME (wl,m,st) /\
       dec_stack wl t.stack = SOME stack /\
       FLOOKUP st AllocSize = SOME (Word (alloc_size k)) /\
-      state_rel c l1 l2 s
+      state_rel c l1 l2 (s with space := 0)
         (t with <|stack := stack; store := st; memory := m|>) [] locs``,
   fs [state_rel_def] \\ rw [] \\ rfs [] \\ fs [] \\ rfs[lookup_def] \\ rw []
   \\ `join_env s.locals (toAList (delete_odd t.locals)) = []` by
@@ -1279,7 +1286,8 @@ val state_rel_gc = prove(
   \\ rw [] \\ fs []
   \\ imp_res_tac word_gc_fun_IMP_FILTER
   \\ `FILTER isWord (MAP SND (flat s.stack t.stack)) =
-      FILTER isWord (enc_stack t.stack)` by cheat \\ fs []
+      FILTER isWord (enc_stack t.stack)` by cheat
+  \\ fs []
   \\ imp_res_tac word_gc_fun_loc_merge \\ fs [FILTER_APPEND]
   \\ imp_res_tac word_gc_fun_IMP \\ fs []
   \\ `?stack. dec_stack (loc_merge (enc_stack t.stack) (FILTER isWord stack1))
@@ -1287,7 +1295,13 @@ val state_rel_gc = prove(
   \\ asm_exists_tac \\ fs []
   \\ imp_res_tac stack_rel_dec_stack_IMP_stack_rel \\ fs []
   \\ asm_exists_tac \\ fs []
-  \\ cheat)
+  \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+  \\ fs [MEM] \\ rw [] \\ fs [] \\ disj2_tac
+  \\ imp_res_tac word_gc_fun_LENGTH \\ fs [MEM_ZIP]
+  \\ fs [MEM_EL] \\ rw [] \\ qexists_tac `n` \\ fs []
+  \\ `LENGTH (flat s.stack t.stack) = LENGTH (flat s.stack stack)` by
+        metis_tac [LENGTH_flat] \\ fs [EL_MAP]
+  \\ imp_res_tac word_gc_fun_EL_lemma);
 
 val gc_lemma = prove(
   ``let t0 = call_env [Loc l1 l2] (push_env y
@@ -1302,7 +1316,7 @@ val gc_lemma = prove(
         dec_stack wl t0.stack = SOME stack /\
         pop_env (t0 with <|stack := stack; store := st; memory := m|>) = SOME t2 /\
         FLOOKUP t2.store AllocSize = SOME (Word (alloc_size k)) /\
-        state_rel c l1 l2 (s with locals := x) t2 [] locs``,
+        state_rel c l1 l2 (s with <| locals := x; space := 0 |>) t2 [] locs``,
   rw [] \\ fs [LET_DEF]
   \\ Q.UNABBREV_TAC `t0` \\ fs []
   \\ imp_res_tac (state_rel_call_env_push_env
@@ -1322,9 +1336,10 @@ val gc_lemma = prove(
   \\ pop_assum (mp_tac o MATCH_MP
       (state_rel_pop_env_IMP |> REWRITE_RULE [GSYM AND_IMP_INTRO]
          |> Q.GEN `s2`)) \\ rw []
-  \\ pop_assum (qspec_then `s with locals := x` mp_tac)
+  \\ pop_assum (qspec_then `s with <| locals := x ; space := 0 |>` mp_tac)
   \\ discharge_hyps THEN1
-   (fs [pop_env_def,push_env_def,call_env_def,bvpSemTheory.state_component_equality])
+   (fs [pop_env_def,push_env_def,call_env_def,
+      bvpSemTheory.state_component_equality])
   \\ rw [] \\ fs []
   \\ fs [wordSemTheory.pop_env_def,wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
@@ -1350,8 +1365,10 @@ val gc_add_call_env = prove(
 val has_space_state_rel = prove(
   ``has_space (Word (alloc_size k)) r = SOME T /\
     state_rel c l1 l2 s r [] locs ==>
-    state_rel c l1 l2 (s with space := s.space + k) r [] locs``,
-  cheat); (* bvpSem needs fixing *)
+    state_rel c l1 l2 (s with space := k) r [] locs``,
+  fs [state_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [heap_in_memory_store_def,wordSemTheory.has_space_def]
+  \\ cheat); (* wordSemTheory.has_space needs fixing *)
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
