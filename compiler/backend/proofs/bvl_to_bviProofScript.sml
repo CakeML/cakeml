@@ -957,8 +957,6 @@ val compile_exps_correct = Q.prove(
         \\ fs [bEvery_def]
         \\ REPEAT STRIP_TAC \\ fs [])
       \\ fs [] \\ POP_ASSUM (K ALL_TAC)
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ fs []
       \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
         (EVAL_TAC \\ fs [bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ fs [])
@@ -982,8 +980,6 @@ val compile_exps_correct = Q.prove(
            |> Q.GENL [`env`,`s`] |> MP_TAC) \\ fs [bEvery_def]
         \\ REPEAT STRIP_TAC \\ fs [])
       \\ fs [] \\ POP_ASSUM (K ALL_TAC)
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ Q.PAT_ASSUM `!nn mm nn1. bbb` (MP_TAC o Q.SPEC `n2'`) \\ fs []
       \\ REPEAT STRIP_TAC
       \\ POP_ASSUM (MP_TAC o Q.SPECL [`t2`,`b2`]) \\ fs []
@@ -1029,8 +1025,6 @@ val compile_exps_correct = Q.prove(
            |> Q.GENL [`env`,`s`] |> MP_TAC) \\ fs [bEvery_def]
         \\ REPEAT STRIP_TAC \\ fs [])
       \\ fs [] \\ POP_ASSUM (K ALL_TAC)
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
-      \\ SIMP_TAC std_ss [Once inc_clock_def] \\ fs []
       \\ Q.LIST_EXISTS_TAC [`t2`,`b2`,`c + 1`] \\ fs []
       \\ `dec_clock 1 (inc_clock (c + 1) t1) = inc_clock c t1` by
         (EVAL_TAC \\ fs [bviSemTheory.state_component_equality] \\ DECIDE_TAC) \\ fs []))
@@ -1719,7 +1713,6 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
     fs[bvlSemTheory.dec_clock_def,bviSemTheory.dec_clock_def] >>
     fs[state_ok_def] ) >>
   strip_tac >>
-  simp[Once bviPropsTheory.inc_clock_def] >>
   imp_res_tac compile_exps_SING >> var_eq_tac >> simp[] >>
   qexists_tac`c` >>
   `dec_clock 1 (inc_clock c t1) = inc_clock c (dec_clock 1 t1)` by (
@@ -1931,12 +1924,12 @@ val compile_list_imp = Q.prove(
   METIS_TAC[APPEND_ASSOC]);
 
 val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
-  `0 < k ∧
+  `compile_prog start n prog = (start', prog', n') ∧
+   evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
+   0 < k ∧
    ALL_DISTINCT (MAP FST prog) ∧
    bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
-   evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
-   r ≠ Rerr (Rabort Rtype_error) ∧
-   compile_prog start n prog = (start', prog', n')
+   r ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 s2.
    evaluate ([Call 0 (SOME start') [] NONE],[],initial_state ffi0 (fromAList prog') (k+ck)) =
@@ -1992,42 +1985,171 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   fsrw_tac[ARITH_ss][inc_clock_def] >>
   PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
-(*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
-  `semantics ffi0 (fromAList prog) start ≠ Fail ∧
-   compile_prog start n prog = (start', prog', n')
+  `compile_prog start n prog = (start', prog', n') ∧
+   ALL_DISTINCT (MAP FST prog) ∧
+   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+   semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
+  simp[GSYM AND_IMP_INTRO] >> ntac 3 strip_tac >>
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     qx_gen_tac`ffi'` >> strip_tac >>
-    simp[compile_prog_def] >> strip_tac >>
-    split_pair_tac >> fs[] >>
-    rpt var_eq_tac >>
-    cheat ) >>
-  cheat);
-*)
+    drule (GEN_ALL compile_prog_evaluate) >>
+    disch_then drule >> simp[] >>
+    discharge_hyps_keep >- (
+      conj_tac >- (
+        Cases_on`k`>>simp[] >>
+        fs[bvlSemTheory.evaluate_def] >>
+        every_case_tac >> fs[] ) >>
+      strip_tac >> fs[] >>
+      METIS_TAC[FST] ) >>
+    strip_tac >>
+    `s.ffi = s2.ffi` by fs[state_rel_def] >>
+    simp[bviSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      qmatch_assum_abbrev_tac`FST q = _` >>
+      Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+      pop_assum(assume_tac o SYM) >>
+      imp_res_tac bviPropsTheory.evaluate_add_clock >> rfs[] >>
+      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
+      rpt var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
+      simp[inc_clock_def] >>
+      fsrw_tac[ARITH_ss][]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`ffi` >> strip_tac >>
+      imp_res_tac bviPropsTheory.evaluate_add_clock >>
+      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
+      fs[LESS_EQ_EXISTS] >>
+      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
+      rpt var_eq_tac >> rfs[] >>
+      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
+      simp[inc_clock_def] >>
+      fsrw_tac[ARITH_ss][]) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    qexists_tac`ck+k`>>simp[]) >>
+  strip_tac >>
+  simp[bviSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`FST q ≠ _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    drule (GEN_ALL compile_prog_evaluate) >>
+    disch_then drule >> simp[] >>
+    conj_tac >- (
+      Cases_on`k`>>simp[] >>
+      fs[bviSemTheory.evaluate_def] >>
+      every_case_tac >> fs[] >>
+      fs[compile_prog_def,LET_THM] >>
+      split_pair_tac >> fs[] >> rpt var_eq_tac >>
+      fs[find_code_def,lookup_fromAList,ALOOKUP_APPEND,bvi_stubs_def] >>
+      every_case_tac >> fs[] >>
+      TRY(rpt(qpat_assum`_ = _`mp_tac) >> EVAL_TAC >> NO_TAC) >>
+      fs[InitGlobals_code_def]) >>
+    spose_not_then strip_assume_tac >>
+    qmatch_assum_abbrev_tac`FST q = _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    imp_res_tac bviPropsTheory.evaluate_add_clock >> rfs[] >>
+    first_x_assum(qspec_then`ck`mp_tac) >>
+    simp[inc_clock_def]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >>
+    qmatch_assum_abbrev_tac`FST q = _` >>
+    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum(assume_tac o SYM) >>
+    drule (GEN_ALL compile_prog_evaluate) >>
+    disch_then drule >> simp[] >>
+    conj_tac >- (
+      Cases_on`k`>>simp[] >>
+      fs[bviSemTheory.evaluate_def] >>
+      every_case_tac >> fs[]) >>
+    spose_not_then strip_assume_tac >>
+    imp_res_tac evaluate_add_clock >>
+    first_x_assum(qspec_then`ck`mp_tac) >>
+    simp[inc_clock_def] ) >>
+  strip_tac >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    metis_tac[
+      LESS_EQ_EXISTS,
+      bviPropsTheory.initial_state_with_simp,
+      bvlPropsTheory.initial_state_with_simp,
+      bviPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+        |> Q.SPEC`s with clock := k`
+        |> SIMP_RULE (srw_ss())[bviPropsTheory.inc_clock_def],
+      bvlPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+        |> Q.SPEC`s with clock := k`
+        |> SIMP_RULE (srw_ss())[bvlPropsTheory.inc_clock_def]]) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  drule (GEN_ALL compile_prog_evaluate) >>
+  fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+  disch_then(qspecl_then[`k`,`ffi0`]mp_tac)>>simp[]>>
+  Cases_on`k=0`>>simp[]>-(
+    fs[bviSemTheory.evaluate_def,bvlSemTheory.evaluate_def]>>
+    every_case_tac >> fs[] >>
+    simp[GSYM IMP_CONJ_THM] >> strip_tac >>
+    conj_tac >> qexists_tac`0`>>simp[])>>
+  strip_tac >>
+  qmatch_assum_abbrev_tac`state_rel _ (SND p1) (SND p2)` >>
+  Cases_on`p1`>>Cases_on`p2`>>fs[markerTheory.Abbrev_def] >>
+  ntac 2 (pop_assum(mp_tac o SYM)) >> ntac 2 strip_tac >> fs[] >>
+  qmatch_assum_rename_tac`state_rel _ p1 p2` >>
+  `p1.ffi = p2.ffi` by fs[state_rel_def] >>
+  reverse conj_tac >> rw[]
+  >- ( qexists_tac`ck+k` >> fs[] ) >>
+  qexists_tac`k` >> fs[] >>
+  qmatch_assum_abbrev_tac`_ < (LENGTH (_ ffi))` >>
+  `ffi.io_events ≼ p2.ffi.io_events` by (
+    qunabbrev_tac`ffi` >>
+    metis_tac[
+      bviPropsTheory.initial_state_with_simp,
+      bviPropsTheory.evaluate_add_to_clock_io_events_mono
+        |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["s"]))
+        |> Q.SPEC`s with clock := k`
+        |> SIMP_RULE(srw_ss())[bviPropsTheory.inc_clock_def],
+      SND,ADD_SYM]) >>
+  fs[IS_PREFIX_APPEND] >> simp[EL_APPEND1]);
 
-(*
 val compile_semantics = Q.store_thm("compile_semantics",
-  `semantics ffi0 (fromAList prog) start ≠ Fail ∧
-   compile start n prog = (start', prog', n')
+  `compile start n prog = (start', prog', n') ∧
+   bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+   ALL_DISTINCT (MAP FST prog) ∧
+   semantics ffi0 (fromAList prog) start ≠ Fail
    ⇒
    semantics ffi0 (fromAList prog') start' =
    semantics ffi0 (fromAList prog) start`,
-  simp[bvlSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    qx_gen_tac`ffi'` >> strip_tac >>
-    simp[compile_def,compile_prog_def] >> strip_tac >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
-    rpt var_eq_tac >>
-    cheat ) >>
-  cheat);
-*)
+  rw[compile_def] >>
+  `bEvery GoodHandleLet (MAP (SND o SND) (optimise prog))` by cheat >>
+  METIS_TAC[optimise_semantics,MAP_FST_optimise,compile_prog_semantics]);
 
 val _ = export_theory();
