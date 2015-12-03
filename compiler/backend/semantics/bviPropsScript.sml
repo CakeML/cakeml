@@ -147,6 +147,10 @@ val dec_clock_global = Q.store_thm("dec_clock_global[simp]",
   `(dec_clock n s).global = s.global`,
   rw[dec_clock_def])
 
+val dec_clock_refs = Q.store_thm("dec_clock_refs[simp]",
+  `(dec_clock n s).refs = s.refs`,
+  rw[dec_clock_def])
+
 val dec_clock_with_code = Q.store_thm("dec_clock_with_code[simp]",
   `bviSem$dec_clock n (s with code := c) = dec_clock n s with code := c`,
   EVAL_TAC );

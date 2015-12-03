@@ -1688,9 +1688,8 @@ val optimise_semantics = Q.store_thm("optimise_semantics",
   fsrw_tac[ARITH_ss][]);
 
 val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
-  `bEvery GoodHandleLet [exp] ∧
+  `evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
    state_rel b1 s1 t1 ∧ IS_SOME t1.global ∧ state_ok s1 ∧
-   evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
    res ≠ Rerr (Rabort Rtype_error)
    ⇒
    ∃ck b2 t2.
@@ -1730,12 +1729,14 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   Cases_on`e`>>simp[] >> METIS_TAC[]);
 
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
-  `1 < k ∧ num_stubs < start ⇒
-   ∃t0 p.
-   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi (fromAList (bvi_stubs start ++ code)) k) =
+  `0 < k ∧ num_stubs ≤ start ⇒
+   ∃t0 p k0.
+   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi (fromAList (bvi_stubs start ++ code)) (k0+k)) =
    evaluate ([Call 0 (SOME start) [] NONE],[],t0) ∧
    t0.global = SOME p ∧
    t0.ffi = ffi ∧
+   t0.clock = k ∧
+   t0.code = fromAList (bvi_stubs start ++ code) ∧
    t0.refs = (FEMPTY |+ (p,ValueArray [Number 1]))`,
   rw[bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   rw[Once bvi_stubs_def] >>
@@ -1747,46 +1748,219 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     `F` suffices_by rw[] >>
     imp_res_tac ALOOKUP_MEM >>
     fs[bvi_stubs_def] >>
-    qpat_assum`num_stubs < _`mp_tac >>
+    qpat_assum`num_stubs ≤ _`mp_tac >>
     rpt var_eq_tac >> EVAL_TAC ) >>
-  qpat_abbrev_tac`p = $LEAST P` >>
+  qabbrev_tac`p = 0n` >>
   BasicProvers.CASE_TAC >- (
     qpat_abbrev_tac`v = ValueArray _` >>
-    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k-1|>` >>
+    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k|>` >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    qexists_tac`1` >> simp[Abbr`p`] >>
     simp[bviSemTheory.state_component_equality] >>
-    unabbrev_all_tac >> EVAL_TAC ) >>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
-  first_assum(subterm split_pair_case_tac o concl) >> fs[] >>
-  var_eq_tac >> pop_assum mp_tac >>
+    unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
+  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["k0"])) >>
+  CONV_TAC(HO_REWR_CONV EXISTS_NUM) >>
+  disj2_tac >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  simp[Abbr`p`] >>
+  Cases_on`x`>>simp[] >>
   reverse IF_CASES_TAC >> fs[] >- (
-    strip_tac >> rpt var_eq_tac >> simp[] >>
     qpat_abbrev_tac`v = ValueArray _` >>
-    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k-1|>` >>
+    qexists_tac`<| global := SOME 0; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (0,v) ; ffi := ffi; clock := k|>` >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    qexists_tac`0`>>
     simp[bviSemTheory.state_component_equality] >>
-    unabbrev_all_tac >> EVAL_TAC ) >>
+    unabbrev_all_tac >> EVAL_TAC >> simp[] ) >>
   simp[] >>
-  IF_CASES_TAC >- (
-    `F` suffices_by rw[] >>
-    pop_assum mp_tac >>
-    EVAL_TAC >> decide_tac ) >>
-  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
-  qpat_abbrev_tac`v = ValueArray _` >>
-  strip_tac >>
-  qmatch_assum_rename_tac`_ r' _ _ = (r,s)` >>
-  `r' = r` by (every_case_tac >> fs[]) >> var_eq_tac >>
-  `s''' = s` by (every_case_tac >> fs[]) >> var_eq_tac >>
-  simp[] >> pop_assum kall_tac >>
-  qmatch_assum_abbrev_tac`ck ≠ _` >>
-  qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ;
-                 ffi := ffi; clock := ck + p|>` >>
-  simp[lookup_fromAList,ALOOKUP_APPEND] >>
+  var_eq_tac >>
+  simp[Once bviSemTheory.dec_clock_def] >>
+  CONV_TAC SWAP_EXISTS_CONV >>
+  CONV_TAC(HO_REWR_CONV EXISTS_NUM) >>
+  disj1_tac >> simp[] >>
   fs[bvl_to_bvi_def,bvi_to_bvl_def,bviSemTheory.dec_clock_def,bviSemTheory.initial_state_def] >>
-  full_simp_tac bool_ss [ONE] >> fs[REPLICATE] >>
-  fsrw_tac[ARITH_ss][ADD1] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[]);
+  qpat_abbrev_tac`v = ValueArray _` >>
+  qexists_tac`<| global := SOME 0; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (0,v) ;
+                 ffi := ffi; clock := k|>` >>
+  simp[lookup_fromAList,ALOOKUP_APPEND] >>
+  reverse conj_tac >- (simp[Abbr`v`]>>EVAL_TAC) >>
+  BasicProvers.CASE_TAC >> simp[] >>
+  BasicProvers.CASE_TAC >> simp[] >>
+  BasicProvers.CASE_TAC >> simp[]);
+
+val sorted_lt_append =
+  Q.ISPEC`prim_rec$<`SORTED_APPEND
+  |> SIMP_RULE std_ss [transitive_LESS]
+
+val compile_exps_aux_sorted = Q.store_thm("compile_exps_aux_sorted",
+  `∀n es c aux n1. compile_exps n es = (c,aux,n1) ⇒
+   SORTED $< (MAP FST aux) ∧ EVERY (between n n1) (MAP FST aux) ∧ n ≤ n1`,
+   ho_match_mp_tac compile_exps_ind >>
+   simp[compile_exps_def] >> rw[] >>
+   rpt (split_pair_tac >> fs[]) >> rw[] >>
+   rpt ((sorted_lt_append |> match_mp_tac) >> fs[] >> rw[] ) >>
+   fs[EVERY_MEM,between_def] >>
+   rw[] >> res_tac >> decide_tac);
+
+val aux_code_installed_sublist = Q.store_thm("aux_code_installed_sublist",
+  `∀aux ls.
+    IS_SUBLIST ls (MAP (λ(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux) ∧ ALL_DISTINCT (MAP FST ls) ⇒
+    aux_code_installed aux (fromAList ls)`,
+  Induct >> simp[aux_code_installed_def] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>
+  Cases >> simp[IS_SUBLIST] >> strip_tac >- (
+    simp[aux_code_installed_def,lookup_fromAList] >>
+    first_x_assum match_mp_tac >>
+    var_eq_tac >> fs[] >>
+    fs[IS_SUBLIST_APPEND,IS_PREFIX_APPEND] >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`l`>>simp[] ) >>
+  simp[aux_code_installed_def,lookup_fromAList] >>
+  reverse conj_tac >- (
+    first_x_assum match_mp_tac >> fs[] >>
+    fs[IS_SUBLIST_APPEND] >>
+    CONV_TAC SWAP_EXISTS_CONV >>
+    qexists_tac`l'`>>simp[] ) >>
+  fs[IS_SUBLIST_APPEND] >>
+  PairCases_on`h` >>
+  simp[ALOOKUP_APPEND] >>
+  var_eq_tac >> fs[] >>
+  fs[ALL_DISTINCT_APPEND] >>
+  BasicProvers.CASE_TAC >>
+  imp_res_tac ALOOKUP_MEM >>
+  fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+  METIS_TAC[PAIR])
+
+(* this is not true
+val compile_list_aux_sorted = Q.store_thm("compile_list_aux_sorted",
+  `∀n prog code n'.
+     compile_list n prog = (code,n') ⇒
+     SORTED $< (MAP FST code) ∧ EVERY (between n n') (MAP FST code) ∧ n ≤ n'`,
+  Induct_on`prog`>>simp[compile_list_def]>>
+  qx_gen_tac`p`>>PairCases_on`p`>>
+  rpt gen_tac >> strip_tac >>
+  split_pair_tac >> fs[] >>
+  split_pair_tac >> fs[] >>
+  fs[compile_single_def,LET_THM] >>
+  split_pair_tac >> fs[] >>
+  imp_res_tac compile_exps_aux_sorted >>
+  rpt var_eq_tac >>
+  first_x_assum drule >> strip_tac >>
+  simp[] >>
+  simp[MAP_MAP_o,o_DEF,UNCURRY] >>
+  simp[CONJ_ASSOC] >>
+  reverse conj_tac >- (
+    irule (GEN_ALL MONO_EVERY) >>
+    simp[CONJ_COMM] >>
+    asm_exists_tac >>
+    simp[between_def] ) >>
+  reverse conj_tac >- (
+    simp[between_def]
+*)
+
+val compile_list_imp = Q.prove(
+  `∀n prog code n' name arity exp.
+     compile_list n prog = (code,n') ∧
+     ALOOKUP prog name = SOME (arity,exp) ⇒
+     ∃n0 c aux n1.
+     compile_exps n0 [exp] = ([c],aux,n1) ∧
+     ALOOKUP code (2 * name + num_stubs) = SOME (arity,c) ∧
+     IS_SUBLIST code (MAP (λ(k,args,p). (num_stubs + 2 * k + 1,args,p)) aux)`,
+  Induct_on`prog` >> simp[] >>
+  qx_gen_tac`p`>>PairCases_on`p`>>
+  simp[compile_list_def] >>
+  rpt gen_tac >> strip_tac >>
+  split_pair_tac >> fs[] >>
+  split_pair_tac >> fs[] >>
+  rpt var_eq_tac >>
+  fs[compile_single_def,LET_THM] >>
+  split_pair_tac >> fs[] >>
+  rpt var_eq_tac >>
+  BasicProvers.FULL_CASE_TAC >- (
+    fs[] >> rpt var_eq_tac >>
+    imp_res_tac compile_exps_SING >> var_eq_tac >>
+    asm_exists_tac >> simp[] >>
+    conj_tac >- (
+      simp[ALOOKUP_APPEND] >>
+      BasicProvers.CASE_TAC >>
+      imp_res_tac ALOOKUP_MEM >>
+      fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+      qmatch_assum_rename_tac`2 * a + num_stubs = 2 * b + (num_stubs + 1)` >>
+      `2 * a = 2 * b + 1` by decide_tac >>
+      METIS_TAC[EVEN_ODD,EVEN_EXISTS,ODD_EXISTS,ADD1] ) >>
+    MATCH_MP_TAC IS_PREFIX_IS_SUBLIST >>
+    simp[IS_PREFIX_APPEND] ) >>
+  first_x_assum drule >>
+  disch_then drule >> strip_tac >>
+  asm_exists_tac >> simp[] >>
+  conj_tac >- (
+    simp[ALOOKUP_APPEND] >>
+    BasicProvers.CASE_TAC >>
+    imp_res_tac ALOOKUP_MEM >>
+    fs[MEM_MAP,EXISTS_PROD,PULL_EXISTS] >>
+    qmatch_assum_rename_tac`2 * a + num_stubs = 2 * b + (num_stubs + 1)` >>
+    `2 * a = 2 * b + 1` by decide_tac >>
+    METIS_TAC[EVEN_ODD,EVEN_EXISTS,ODD_EXISTS,ADD1] ) >>
+  fs[IS_SUBLIST_APPEND] >>
+  imp_res_tac compile_exps_SING >> fs[] >>
+  rpt var_eq_tac >>
+  fsrw_tac[ARITH_ss][] >>
+  METIS_TAC[APPEND_ASSOC]);
+
+val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
+  `0 < k ∧ bEvery GoodHandleLet (MAP (SND o SND) prog) ∧
+   evaluate ([Call 0 (SOME start) []],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
+   r ≠ Rerr (Rabort Rtype_error) ∧
+   compile_prog start n prog = (start', prog', n')
+   ⇒
+   ∃ck b2 s2.
+   evaluate ([Call 0 (SOME start') [] NONE],[],initial_state ffi0 (fromAList prog') (k+ck)) =
+     (map_result (MAP (adjust_bv b2)) (adjust_bv b2) r,s2) ∧
+   state_rel b2 s s2`,
+  rw[compile_prog_def,LET_THM] >>
+  split_pair_tac >> fs[] >> var_eq_tac >>
+  `num_stubs ≤ num_stubs + 2 * start` by simp[] >>
+  drule (GEN_ALL bvi_stubs_evaluate) >>
+  disch_then drule >>
+  disch_then(qspecl_then[`ffi0`,`code`]strip_assume_tac) >>
+  drule (GEN_ALL compile_single_evaluate) >>
+  simp[state_ok_def] >>
+  disch_then(qspec_then`t0`mp_tac) >>
+  simp[Once state_rel_def,FLOOKUP_UPDATE] >>
+  discharge_hyps >- (
+    conj_tac >- (
+      qexists_tac`1`>>simp[]>>EVAL_TAC ) >>
+    rpt var_eq_tac >>
+    simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    simp[bvi_stubs_def] >>
+    IF_CASES_TAC >> simp[] >- (
+      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC ) >>
+    rpt gen_tac >> strip_tac >>
+    IF_CASES_TAC >- (
+      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
+    IF_CASES_TAC >- (
+      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
+    IF_CASES_TAC >- (
+      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
+    simp[] >>
+    imp_res_tac compile_list_imp >>
+    qmatch_assum_rename_tac`compile_exps nn _ = _` >>
+    qexists_tac`nn` >> simp[] >>
+    reverse conj_tac >- (
+      imp_res_tac ALOOKUP_MEM >>
+      rator_x_assum`bEvery`mp_tac >>
+      simp[Once bEvery_EVERY] >>
+      simp[EVERY_MEM,MEM_MAP,PULL_EXISTS,EXISTS_PROD] >>
+      METIS_TAC[] ) >>
+    match_mp_tac aux_code_installed_sublist >>
+    conj_tac >- (
+      fs[IS_SUBLIST_APPEND] >>
+      METIS_TAC[CONS_APPEND,APPEND_ASSOC] ) >>
+    (* compile_list locs all distinct *)
+    cheat ) >>
+  strip_tac >>
+  rpt var_eq_tac >>
+  (* bvi add to clock? or be more careful above? *)
+  cheat);
 
 (*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
