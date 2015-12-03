@@ -1729,15 +1729,11 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   Cases_on`e`>>simp[] >> METIS_TAC[]);
 
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
-  `0 < k ∧ num_stubs ≤ start ⇒
-   ∃t0 p k0.
-   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi (fromAList (bvi_stubs start ++ code)) (k0+k)) =
-   evaluate ([Call 0 (SOME start) [] NONE],[],t0) ∧
-   t0.global = SOME p ∧
-   t0.ffi = ffi ∧
-   t0.clock = k ∧
-   t0.code = fromAList (bvi_stubs start ++ code) ∧
-   t0.refs = (FEMPTY |+ (p,ValueArray [Number 1]))`,
+  `∀start ffi0 code k. 0 < k ∧ num_stubs ≤ start ⇒
+  let t0 = <| global := SOME 0; ffi := ffi0; clock := k; code := fromAList (bvi_stubs start ++ code);
+              refs := FEMPTY |+ (0,ValueArray [Number 1]) |> in
+   evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi0 (fromAList (bvi_stubs start ++ code)) (k+1)) =
+   evaluate ([Call 0 (SOME start) [] NONE],[],t0)`,
   rw[bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   rw[Once bvi_stubs_def] >>
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>fs[]>>NO_TAC) >>
@@ -1750,39 +1746,22 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     fs[bvi_stubs_def] >>
     qpat_assum`num_stubs ≤ _`mp_tac >>
     rpt var_eq_tac >> EVAL_TAC ) >>
-  qabbrev_tac`p = 0n` >>
   BasicProvers.CASE_TAC >- (
-    qpat_abbrev_tac`v = ValueArray _` >>
-    qexists_tac`<| global := SOME p; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (p,v) ; ffi := ffi; clock := k|>` >>
+    simp[Abbr`t0`] >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
-    qexists_tac`1` >> simp[Abbr`p`] >>
     simp[bviSemTheory.state_component_equality] >>
     unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
-  CONV_TAC(RESORT_EXISTS_CONV(sort_vars["k0"])) >>
-  CONV_TAC(HO_REWR_CONV EXISTS_NUM) >>
-  disj2_tac >>
-  CONV_TAC SWAP_EXISTS_CONV >>
-  simp[Abbr`p`] >>
   Cases_on`x`>>simp[] >>
   reverse IF_CASES_TAC >> fs[] >- (
-    qpat_abbrev_tac`v = ValueArray _` >>
-    qexists_tac`<| global := SOME 0; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (0,v) ; ffi := ffi; clock := k|>` >>
-    simp[lookup_fromAList,ALOOKUP_APPEND] >>
-    qexists_tac`0`>>
+    simp[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
     simp[bviSemTheory.state_component_equality] >>
     unabbrev_all_tac >> EVAL_TAC >> simp[] ) >>
   simp[] >>
   var_eq_tac >>
   simp[Once bviSemTheory.dec_clock_def] >>
-  CONV_TAC SWAP_EXISTS_CONV >>
-  CONV_TAC(HO_REWR_CONV EXISTS_NUM) >>
-  disj1_tac >> simp[] >>
   fs[bvl_to_bvi_def,bvi_to_bvl_def,bviSemTheory.dec_clock_def,bviSemTheory.initial_state_def] >>
-  qpat_abbrev_tac`v = ValueArray _` >>
-  qexists_tac`<| global := SOME 0; code := fromAList (bvi_stubs start ++ code); refs := FEMPTY |+ (0,v) ;
-                 ffi := ffi; clock := k|>` >>
-  simp[lookup_fromAList,ALOOKUP_APPEND] >>
-  reverse conj_tac >- (simp[Abbr`v`]>>EVAL_TAC) >>
+  simp[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
+  REWRITE_TAC[ONE,REPLICATE] >> simp[] >>
   BasicProvers.CASE_TAC >> simp[] >>
   BasicProvers.CASE_TAC >> simp[] >>
   BasicProvers.CASE_TAC >> simp[]);
@@ -1966,12 +1945,12 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   rw[compile_prog_def,LET_THM] >>
   split_pair_tac >> fs[] >> var_eq_tac >>
   `num_stubs ≤ num_stubs + 2 * start` by simp[] >>
-  drule (GEN_ALL bvi_stubs_evaluate) >>
-  disch_then drule >>
-  disch_then(qspecl_then[`ffi0`,`code`]strip_assume_tac) >>
   drule (GEN_ALL compile_single_evaluate) >>
   simp[state_ok_def] >>
-  disch_then(qspec_then`t0`mp_tac) >>
+  qspecl_then[`num_stubs + 2 * start`,`ffi0`,`code`]
+    (fn tmp =>
+      disch_then(fn th => subterm (mp_tac o C SPEC th o #2 o boolSyntax.dest_let) (concl tmp)))
+    bvi_stubs_evaluate >>
   simp[Once state_rel_def,FLOOKUP_UPDATE] >>
   discharge_hyps >- (
     conj_tac >- (
@@ -1982,12 +1961,9 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     IF_CASES_TAC >> simp[] >- (
       `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC ) >>
     rpt gen_tac >> strip_tac >>
-    IF_CASES_TAC >- (
-      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
-    IF_CASES_TAC >- (
-      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
-    IF_CASES_TAC >- (
-      `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac) >>
+    rpt (
+      IF_CASES_TAC >- (
+        `F` suffices_by rw[] >> pop_assum mp_tac >> EVAL_TAC >> decide_tac)) >>
     simp[] >>
     imp_res_tac compile_list_imp >>
     qmatch_assum_rename_tac`compile_exps nn _ = _` >>
@@ -2007,9 +1983,14 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
     spose_not_then strip_assume_tac >> fs[EVERY_MEM] >>
     res_tac >> pop_assum mp_tac >> EVAL_TAC ) >>
   strip_tac >>
+  `0 < ck + k` by simp[] >>
+  drule (GEN_ALL bvi_stubs_evaluate) >>
+  disch_then drule >>
+  disch_then(qspecl_then[`ffi0`,`code`]mp_tac) >>
+  simp[] >>
   rpt var_eq_tac >>
-  (* bvi add to clock? or be more careful above? *)
-  cheat);
+  fsrw_tac[ARITH_ss][inc_clock_def] >>
+  PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
 (*
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
