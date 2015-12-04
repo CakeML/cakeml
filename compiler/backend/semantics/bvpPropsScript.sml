@@ -489,7 +489,7 @@ val evaluate_locals = store_thm("evaluate_locals",
            Cases_on`a`>>fs[] >> rw[] >>
            fs[do_app_def,do_space_def,bvp_to_bvi_ignore,
               bvi_to_bvp_space_locals,
-              bvi_to_bvpTheory.op_space_req_def,
+              bvp_spaceTheory.op_space_req_def,
               bvi_to_bvpTheory.op_space_reset_def] >>
            BasicProvers.CASE_TAC >> fs[])
       \\ Cases_on `a` \\ fs [] \\ SRW_TAC [] []

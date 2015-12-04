@@ -10,11 +10,6 @@ val op_space_reset_def = Define `
   (op_space_reset Sub = T) /\
   (op_space_reset _ = F)`;
 
-val op_space_req_def = Define `
-  (op_space_req (Cons k) = (k+1)) /\
-  (op_space_req Ref = 2) /\
-  (op_space_req x = 0)`;
-
 val iAssign_def = Define `
   iAssign n1 op vs live env =
     if op_space_reset op then
