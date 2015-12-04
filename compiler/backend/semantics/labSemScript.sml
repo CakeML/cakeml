@@ -303,7 +303,7 @@ val semantics_def = Define `
   if ∃k. FST(evaluate (s with clock := k)) = Error then Fail
   else
     case some p.
-      ∃k s e. evaluate (s with clock := k) = (Halt e,s) ∧ p = (e,s.ffi) of
+      ∃k t e. evaluate (s with clock := k) = (Halt e,t) ∧ p = (e,t.ffi) of
     | SOME (outcome,ffi) =>
       Terminate (case ffi.final_event of NONE => outcome | SOME e => FFI_outcome e)
         ffi.io_events

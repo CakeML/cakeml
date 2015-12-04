@@ -1398,79 +1398,79 @@ val init_ok_def = Define `
     ?code2 labs t1.
       state_rel (mc_conf,code2,labs,p,T) s t1 ms`
 
+val state_rel_clock = prove(
+  ``state_rel x s1 t1 ms ==>
+    state_rel x (s1 with clock := k) (t1) ms``,
+  PairCases_on `x`
+  \\ fs [state_rel_def]
+  \\ fs [] \\ rw [] \\ fs []
+  \\ metis_tac []);
+
+val evaluate_add_clock = store_thm("evaluate_add_clock",
+  ``evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
+    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
+  cheat);
+
+val evaluate_ignore_clocks = prove(
+  ``evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
+    evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
+    (r1,ms1,st1) = (r2,ms2,st2)``,
+  rw [] \\ imp_res_tac evaluate_add_clock \\ fs []
+  \\ pop_assum (qspec_then `k'` mp_tac)
+  \\ pop_assum (qspec_then `k` mp_tac)
+  \\ fs [AC ADD_ASSOC ADD_COMM])
+
+val FST_EQ_EQUIV = prove(
+  ``(FST x = y) <=> ?z. x = (y,z)``,
+  Cases_on `x` \\ fs []);
+
 val machine_sem_EQ_sem = prove(
   ``!mc_conf p (ms:'state) ^s1.
       backend_correct mc_conf.target /\
-      init_ok (mc_conf,p) s1 ms /\ ~(Fail IN semantics s1) ==>
-      machine_sem mc_conf s1.ffi ms = semantics s1``,
-  fs [init_ok_def,IN_DEF,semantics_def] \\ rpt strip_tac
-  \\ fs [FUN_EQ_THM] \\ reverse Cases
-  \\ fs [machine_sem_def,semantics_def]
-  \\ rpt strip_tac
-  THEN1 (* Fail *)
-   (first_x_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s1 with <| clock := k|>)` \\ fs []
-    \\ (Q.ISPEC_THEN `s1 with <| clock := k|>`mp_tac
-         compile_correct) \\ fs []
-    \\ Q.LIST_EXISTS_TAC [`mc_conf`,`code2`,`labs`,`t1`,`ms`] \\ fs []
-    \\ rpt strip_tac
-    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rfs [evaluate_without_TimeOut] \\ rfs[]
-    \\ qpat_assum `FST (evaluate mc_conf s1.ffi k ms) = Error` mp_tac
-    \\ simp [] \\ every_case_tac  \\ fs [])
-  THEN1 (* Terminate *)
-   (reverse EQ_TAC \\ rpt strip_tac THEN1
-     (rw [] \\ qspec_then `s1 with clock := k` mp_tac compile_correct
-      \\ fs [] \\ rpt strip_tac
-      \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
-      \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-      THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs []
-             \\ fs [] \\ every_case_tac \\ fs [])
-      \\ rpt strip_tac \\ qexists_tac `k+k'` \\ fs []
-      \\ Cases_on `s2.ffi.final_event` \\ fs []
-      \\ Cases_on `o'` \\ fs [])
-    \\ rw [] \\ qspec_then `s1 with clock := k` mp_tac compile_correct
-    \\ Cases_on `evaluate (s1 with clock := k)` \\ fs [] \\ rw []
-    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
-    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
+      init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>
+      machine_sem mc_conf s1.ffi ms = { semantics s1 }``,
+  simp[GSYM AND_IMP_INTRO] >>
+  rpt gen_tac >> ntac 2 strip_tac >>
+  fs [init_ok_def] >>
+  simp[semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >>
+  conj_tac
+  >- (qx_gen_tac`ffi`>>strip_tac>>
+    fs []
+    \\ drule compile_correct \\ fs []
+    \\ disch_then drule
+    \\ imp_res_tac state_rel_clock
+    \\ pop_assum (qspec_then `k` assume_tac)
+    \\ disch_then drule \\ rw [] \\ fs []
+    \\ fs [machine_sem_def,EXTENSION] \\ fs [IN_DEF]
+    \\ Cases \\ fs [machine_sem_def]
+    THEN1 (disj1_tac \\ qexists_tac `k+k'` \\ fs [] \\ every_case_tac)
     THEN1
-      (first_assum (qspec_then `k` mp_tac)
-       \\ pop_assum (fn th => rewrite_tac [th]) \\ fs []
-       \\ fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rpt strip_tac \\ rfs [evaluate_without_TimeOut]
-    \\ qexists_tac `k` \\ fs [] \\ rw []
-    \\ Cases_on `r.ffi.final_event` \\ fs [] \\ rw []
-    \\ imp_res_tac evaluate_Halt_IMP \\ fs []
-    \\ first_x_assum (qspec_then `k` mp_tac) \\ fs [])
-  \\ (* Diverge *) reverse EQ_TAC \\ rpt strip_tac
+     (eq_tac THEN1
+       (rw [] \\ every_case_tac
+        \\ drule (GEN_ALL evaluate_ignore_clocks) \\ fs []
+        \\ pop_assum (K all_tac)
+        \\ disch_then drule \\ fs [])
+      \\ rw [] \\ every_case_tac \\ fs [] \\ asm_exists_tac \\ fs [])
+    \\ CCONTR_TAC \\ fs [FST_EQ_EQUIV]
+    \\ PairCases_on `z`
+    \\ every_case_tac \\ fs []
+    \\ drule (GEN_ALL evaluate_ignore_clocks) \\ fs []
+    \\ pop_assum (K all_tac)
+    \\ asm_exists_tac \\ fs [])
+  \\ fs [machine_sem_def,EXTENSION] \\ fs [IN_DEF]
+  \\ strip_tac \\ Cases \\ fs [machine_sem_def]
+  \\ imp_res_tac state_rel_clock
+  THEN1 cheat
   THEN1
-   (first_x_assum (qspec_then `k:num` mp_tac) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s1 with clock := k)`
-    \\ qspec_then `s1 with clock := k` mp_tac compile_correct
-    \\ fs [] \\ strip_tac
-    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
-    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rpt strip_tac \\ rw [] \\ imp_res_tac evaluate_TimeOut \\ fs [])
-  THEN1
-   (pop_assum mp_tac
-    \\ match_mp_tac (METIS_PROVE [] ``(b = b') ==> (b x ==> b' x)``)
-    \\ cheat)
-  THEN1
-   (pop_assum (K all_tac)
-    \\ qspec_then `s1 with clock := k` mp_tac compile_correct
-    \\ Cases_on `evaluate (s1 with clock := k)` \\ fs []
-    \\ `FST (q,r) <> Error` by metis_tac [] \\ fs []
-    \\ fs [] \\ strip_tac
-    \\ pop_assum (qspecl_then [`mc_conf`,`code2`,`labs`,`t1`,`ms`] mp_tac)
-    \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac
-    THEN1 (fs [state_rel_def] \\ rw [] \\ res_tac \\ rfs [] \\ fs [])
-    \\ rpt strip_tac
-    \\ first_x_assum (qspec_then `k+k'` mp_tac) \\ rw [] \\ fs [])
-  THEN1
-   (pop_assum mp_tac
-    \\ match_mp_tac (METIS_PROVE [] ``(b = b') ==> (b x ==> b' x)``)
-    \\ cheat));
+   (qspec_then `s1 with clock := k` mp_tac compile_correct
+    \\ simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] \\ fs []
+    \\ disch_then drule
+    \\ pop_assum (qspec_then `k` assume_tac)
+    \\ disch_then drule \\ strip_tac
+    \\ CCONTR_TAC \\ fs [] \\ cheat)
+  \\ cheat);
 
 (*
 
