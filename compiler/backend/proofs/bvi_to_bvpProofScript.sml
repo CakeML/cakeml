@@ -941,4 +941,71 @@ val compile_exp_correct = store_thm("compile_exp_correct",
   \\ MP_TAC (Q.SPECL [`prog`,`t1`] optimise_correct) \\ fs []
   \\ discharge_hyps >- (rpt strip_tac >> fs[]) >> rw[COUNT_LIST_GENLIST]);
 
+val state_rel_dec_clock = Q.prove(
+  `state_rel s1 t1 ⇒ state_rel (dec_clock 1 s1) (dec_clock t1)`,
+  rw[state_rel_def,bviSemTheory.dec_clock_def,bvpSemTheory.dec_clock_def])
+
+val compile_part_evaluate = Q.store_thm("compile_part_evaluate",
+  `evaluate ([Call 0 (SOME start) [] NONE],[],s1) = (res,s2) ∧
+   res ≠ Rerr (Rabort Rtype_error) ∧ state_rel s1 t1 ∧
+   isEmpty t1.locals ∧ (∀x. res = Rerr (Rraise x) ⇒ jump_exc t1 ≠ NONE)
+   ⇒
+   ∃r t2.
+   evaluate ((Call NONE (SOME start) [] NONE),t1) = (SOME r,t2) ∧
+   state_rel s2 t2 ∧ res_list r = res`,
+  rw[bviSemTheory.evaluate_def,bvpSemTheory.evaluate_def,get_vars_def,find_code_def] >>
+  Cases_on`lookup start s1.code`>>fs[]>>
+  qmatch_assum_rename_tac`lookup start s1.code = SOME p` >>
+  PairCases_on`p` >>
+  `lookup start t1.code = SOME (p0,compile_exp p0 p1)` by (
+    fs[state_rel_def,code_rel_def] ) >>
+  fs[] >>
+  IF_CASES_TAC >> fs[] >> var_eq_tac >>
+  `s1.clock = t1.clock` by fs[state_rel_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    fs[call_env_def,state_rel_def] >>
+    rpt var_eq_tac >> simp[] ) >>
+  simp[] >> fs[] >>
+  first_assum(subterm split_pair_case_tac o concl) >> fs[] >>
+  drule (GEN_ALL compile_exp_correct) >>
+  simp[var_corr_def,SIMP_RULE std_ss [NULL_EQ]NULL_GENLIST] >>
+  imp_res_tac state_rel_dec_clock >>
+  disch_then(drule o (CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(equal``state_rel`` o fst o strip_comb)))))) >>
+  simp[] >>
+  discharge_hyps >- (
+    simp[lookup_def,bvpSemTheory.dec_clock_def] >>
+    fs[jump_exc_def] >>
+    every_case_tac >> fs[] >>
+    rpt var_eq_tac >> fs[] ) >>
+  strip_tac >>
+  simp[call_env_def,fromList_def] >>
+  `dec_clock t1 with locals := LN = dec_clock t1` by (
+    EVAL_TAC >> simp[bvpSemTheory.state_component_equality] ) >>
+  pop_assum SUBST1_TAC >> simp[] >>
+  every_case_tac >> fs[]);
+
+val MAP_FST_compile_prog = Q.store_thm("MAP_FST_compile_prog[simp]",
+  `∀prog. MAP FST (compile_prog prog) = MAP FST prog`,
+  simp[compile_prog_def,MAP_MAP_o,MAP_EQ_f,FORALL_PROD,compile_part_def]);
+
+val compile_part_thm = Q.prove(
+  `compile_part = λ(x,y). (x, (λ(a,b). (a, compile_exp a b)) y)`,
+  simp[FUN_EQ_THM,FORALL_PROD,compile_part_def])
+
+val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
+  `evaluate ([Call 0 (SOME start) [] NONE],[],initial_state ffi0 (fromAList prog) k) = (r,s) ∧
+   r ≠ Rerr (Rabort Rtype_error) ∧ (∀x. r ≠ Rerr (Rraise x))
+   ⇒
+   ∃r2 s2.
+   evaluate (Call NONE (SOME start) [] NONE, initial_state ffi0 (fromAList (compile_prog prog)) k) = (SOME r2,s2) ∧
+   state_rel s s2 ∧ res_list r2 = r`,
+  rw[] >>
+  match_mp_tac (GEN_ALL compile_part_evaluate) >>
+  asm_exists_tac >> simp[] >>
+  simp[initial_state_def,state_rel_def] >>
+  simp[code_rel_def,wf_fromAList,domain_fromAList,lookup_fromAList] >>
+  simp[compile_prog_def,ALOOKUP_MAP,compile_part_thm]);
+
+(* observational semantics *)
+
 val _ = export_theory();

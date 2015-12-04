@@ -328,15 +328,28 @@ val evaluate_def = save_thm("evaluate_def",let
 
 (* observational semantics *)
 
+val initial_state_def = Define`
+  initial_state ffi code k = <|
+    locals := LN
+  ; stack := []
+  ; global := NONE
+  ; handler := 0
+  ; refs := FEMPTY
+  ; clock := k
+  ; code := code
+  ; ffi := ffi
+  ; space := 0
+  |>`;
+
 val semantics_def = Define`
-  semantics st start =
+  semantics init_ffi code start =
   let p = Call NONE (SOME start) [] NONE in
-    if ∃k. FST (bvpSem$evaluate (p,st with clock := k)) = SOME (Rerr (Rabort Rtype_error))
+    if ∃k. FST (bvpSem$evaluate (p,initial_state init_ffi code k)) = SOME (Rerr (Rabort Rtype_error))
       then Fail
     else
     case some ffi.
       ∃k s r.
-        evaluate (p,st with clock := k) = (r,s) ∧
+        evaluate (p,initial_state init_ffi code k) = (r,s) ∧
           r ≠ SOME (Rerr (Rabort Rtimeout_error)) ∧ ffi = s.ffi
     of SOME ffi =>
          Terminate
@@ -345,7 +358,7 @@ val semantics_def = Define`
      | NONE =>
        Diverge
          (build_lprefix_lub
-           (IMAGE (λk. fromList (SND (evaluate (p,st with clock := k))).ffi.io_events) UNIV))`;
+           (IMAGE (λk. fromList (SND (evaluate (p,initial_state init_ffi code k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 
