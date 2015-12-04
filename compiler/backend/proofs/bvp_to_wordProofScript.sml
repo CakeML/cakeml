@@ -1278,6 +1278,13 @@ val loc_merge_APPEND = prove(
   \\ pop_assum (qspecl_then [`xs2`,`ys`] strip_assume_tac)
   \\ fs [] \\ Q.LIST_EXISTS_TAC [`Loc n n0::zs1`,`zs2`] \\ fs [] \\ metis_tac [])
 
+val EVERY2_loc_merge = prove(
+  ``!xs ys. EVERY2 (\x y. (isWord y ==> isWord x) /\
+                          (~isWord x ==> x = y)) xs (loc_merge xs ys)``,
+  Induct \\ fs [loc_merge_def,LENGTH_NIL,LENGTH_loc_merge] \\ Cases
+  \\ fs [loc_merge_def] \\ Cases_on `ys`
+  \\ fs [loc_merge_def,GSYM EVERY2_refl,isWord_def])
+
 val dec_stack_loc_merge_enc_stack = prove(
   ``!xs ys. ?ss. dec_stack (loc_merge (enc_stack xs) ys) xs = SOME ss``,
   Induct \\ fs [wordSemTheory.enc_stack_def,
@@ -1291,26 +1298,74 @@ val dec_stack_loc_merge_enc_stack = prove(
   \\ first_assum (qspec_then `ts` strip_assume_tac) \\ fs []
   \\ decide_tac);
 
+val EVERY2_IMP_EL = prove(
+  ``!xs ys P n. EVERY2 P xs ys /\ n < LENGTH ys ==> P (EL n xs) (EL n ys)``,
+  Induct \\ Cases_on `ys` \\ fs [] \\ rw [] \\ Cases_on `n` \\ fs []);
+
+val FST_PAIR_EQ = prove(
+  ``!x v. (FST x,v) = x <=> v = SND x``,
+  Cases \\ fs []);
+
+val ALOOKUP_ZIP = prove(
+  ``!l zs1.
+      ALOOKUP l (0:num) = SOME (Loc q r) /\
+      LIST_REL (λx y. (isWord y ⇒ isWord x) ∧
+        (¬isWord x ⇒ x = y)) (MAP SND l) zs1 ==>
+      ALOOKUP (ZIP (MAP FST l,zs1)) 0 = SOME (Loc q r)``,
+  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def,PULL_EXISTS]
+  \\ Cases_on `q' = 0` \\ fs [] \\ rw [] \\ fs [isWord_def] \\ rw []);
+
 val stack_rel_dec_stack_IMP_stack_rel = prove(
   ``!xs ys ts stack locs.
-      LIST_REL stack_rel ts xs /\ LIST_REL contains_loc t.stack locs /\
+      LIST_REL stack_rel ts xs /\ LIST_REL contains_loc xs locs /\
       dec_stack (loc_merge (enc_stack xs) ys) xs = SOME stack ==>
       LIST_REL stack_rel ts stack /\ LIST_REL contains_loc stack locs``,
-  cheat); (* easy *)
-
-val LENGTH_flat = prove(
-  ``!ts xs ys.
-      LIST_REL stack_rel ts xs /\
-      LIST_REL stack_rel ts ys ==>
-      LENGTH (flat ts xs) = LENGTH (flat ts ys)``,
-  cheat); (* ought to be true *)
+  Induct_on `ts` \\ Cases_on `xs` \\ fs []
+  THEN1 (fs [wordSemTheory.enc_stack_def,loc_merge_def,wordSemTheory.dec_stack_def])
+  \\ fs [PULL_EXISTS] \\ rw []
+  \\ Cases_on `h` \\ Cases_on `o'` \\ TRY (PairCases_on `x`) \\ fs []
+  \\ fs [wordSemTheory.enc_stack_def,wordSemTheory.dec_stack_def]
+  \\ qspecl_then [`MAP SND l`,`enc_stack t`,`ys`] mp_tac loc_merge_APPEND
+  \\ rw [] \\ fs []
+  \\ pop_assum (fn th => fs [GSYM th] THEN assume_tac th)
+  \\ fs [DROP_LENGTH_APPEND,TAKE_LENGTH_APPEND]
+  \\ every_case_tac \\ fs []
+  \\ pop_assum (fn th => fs [GSYM th])
+  \\ res_tac \\ fs []
+  \\ Cases_on `h'` \\ fs [stack_rel_def]
+  \\ fs [lookup_fromAList,IS_SOME_ALOOKUP_EQ]
+  \\ fs [EVERY_MEM,FORALL_PROD] \\ Cases_on `y`
+  \\ fs [contains_loc_def]
+  \\ qspecl_then [`MAP SND l ++ enc_stack t`,`ys`] mp_tac EVERY2_loc_merge
+  \\ fs [] \\ strip_tac
+  \\ `LENGTH (MAP SND l) = LENGTH zs1` by fs []
+  \\ imp_res_tac LIST_REL_APPEND_IMP \\ fs [MAP_ZIP]
+  \\ fs [AND_IMP_INTRO]
+  \\ `ALOOKUP (ZIP (MAP FST l,zs1)) 0 = SOME (Loc q r)` by
+   (`LENGTH (MAP SND l) = LENGTH zs1` by fs []
+    \\ imp_res_tac LIST_REL_APPEND_IMP \\ fs [MAP_ZIP]
+    \\ imp_res_tac ALOOKUP_ZIP \\ fs [] \\ NO_TAC)
+  \\ fs [] \\ NTAC 3 strip_tac \\ first_x_assum match_mp_tac
+  \\ rfs [MEM_ZIP] \\ rw [] \\ fs [EL_MAP]
+  \\ Q.MATCH_ASSUM_RENAME_TAC `isWord (EL k zs1)`
+  \\ fs [MEM_EL,PULL_EXISTS] \\ asm_exists_tac \\ fs []
+  \\ fs [FST_PAIR_EQ]
+  \\ imp_res_tac EVERY2_IMP_EL \\ rfs [EL_MAP]);
 
 val FILTER_enc_stack_lemma = prove(
-  ``LIST_REL stack_rel s.stack t.stack /\
-    LIST_REL contains_loc t.stack locs ==>
-    FILTER isWord (MAP SND (flat s.stack t.stack)) =
-    FILTER isWord (enc_stack t.stack)``,
-  cheat); (* tedious *)
+  ``!xs ys.
+      LIST_REL stack_rel xs ys ==>
+      FILTER isWord (MAP SND (flat xs ys)) =
+      FILTER isWord (enc_stack ys)``,
+  Induct \\ Cases_on `ys`
+  \\ fs [stack_rel_def,wordSemTheory.enc_stack_def,flat_def]
+  \\ Cases \\ Cases_on `h` \\ fs [] \\ Cases_on `o'`
+  \\ TRY (PairCases_on `x`) \\ fs [stack_rel_def] \\ rw []
+  \\ fs [wordSemTheory.enc_stack_def,flat_def,FILTER_APPEND]
+  \\ qpat_assum `EVERY (\(x1,x2). isWord x2 ==> x1 <> 0 /\ EVEN x1) l` mp_tac
+  \\ rpt (pop_assum (K all_tac))
+  \\ Induct_on `l` \\ fs [] \\ fs [join_env_NIL]
+  \\ Cases \\ fs [join_env_CONS] \\ rw []);
 
 val stack_rel_simp = prove(
   ``(stack_rel (Env s) y <=>
@@ -1359,8 +1414,6 @@ val join_env_EQ_ZIP = prove(
   \\ fs [] \\ rw [] \\ rfs[isWord_def] \\ fs []
   \\ Cases_on `y` \\ fs [loc_merge_def,join_env_CONS,isWord_def]);
 
-val lemma1 = prove(``(y1 = y2) /\ (x1 = x2) ==> (f x1 y1 = f x2 y2)``,fs []);
-
 val LENGTH_MAP_SND_join_env_IMP = prove(
   ``!vs zs1 s.
       LIST_REL (\x y. (isWord x = isWord y) /\ (~isWord x ==> x = y))
@@ -1375,6 +1428,8 @@ val LENGTH_MAP_SND_join_env_IMP = prove(
   THEN1 (fs [] \\ rfs[] \\ first_assum match_mp_tac \\ metis_tac[])
   \\ fs [] \\ Cases_on `q <> 0 /\ EVEN q`
   \\ fs [] \\ rw [] \\ fs [] \\ metis_tac [])
+
+val lemma1 = prove(``(y1 = y2) /\ (x1 = x2) ==> (f x1 y1 = f x2 y2)``,fs []);
 
 val word_gc_fun_EL_lemma = prove(
   ``!xs ys stack1 m dm st m1 s1 stack.
