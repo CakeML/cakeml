@@ -148,7 +148,7 @@ val pmatch_evaluate_vars = Q.store_thm("pmatch_evaluate_vars",
                      rw [] >>
                      metis_tac [pat_bindings_accum]) >>
     fsrw_tac[QUANT_INST_ss[record_default_qp]][] >> rfs[] >>
-    `env with v := env' = <| globals := env.globals; c := env.c; v := env' |>` by (
+    `env with v := env' = <| c := env.c; v := env' |>` by (
       rw[environment_component_equality]) >> metis_tac[]));
 
 val evaluate_append = Q.store_thm("evaluate_append",

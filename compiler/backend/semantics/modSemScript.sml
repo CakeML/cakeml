@@ -32,12 +32,12 @@ val _ = Datatype`
     refs    : modSem$v store;
     ffi     : 'ffi ffi_state;
     defined_types : tid_or_exn set;
-    defined_mods : modN set
+    defined_mods : modN set;
+    globals : (modSem$v option) list
   |>`;
 
 val _ = Datatype`
   environment = <|
-    globals : (modSem$v option) list;
     c : env_ctor;
     v : (varN, modSem$v) alist
   |>`;
@@ -111,15 +111,15 @@ val prim_exn_def = Define`
 
 (* Do an application *)
 val do_opapp_def = Define `
-  do_opapp (genv:modSem$v option list) vs =
+  do_opapp vs =
   case vs of
     | [Closure (cenv, env) n e; v] =>
-      SOME (<|globals:=genv; c:=cenv; v:=((n,v) :: env)|>, e)
+      SOME (<|c:=cenv; v:=((n,v) :: env)|>, e)
     | [Recclosure (cenv, env) funs n; v] =>
       if ALL_DISTINCT (MAP FST funs) then
         (case find_recfun n funs of
          | SOME (n,e) =>
-             SOME (<|globals:=genv; c:=cenv; v:=((n,v) :: build_rec_env funs (cenv, env) env)|>, e)
+             SOME (<|c:=cenv; v:=((n,v) :: build_rec_env funs (cenv, env) env)|>, e)
          | NONE => NONE)
       else NONE
     | _ => NONE`;
@@ -415,15 +415,15 @@ val evaluate_def = tDefine"evaluate"`
    | SOME v => Rval [v]
    | NONE => Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Var_global n] = (s,
-   if n < LENGTH env.globals ∧ IS_SOME (EL n env.globals)
-   then Rval [THE (EL n env.globals)]
+   if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
+   then Rval [THE (EL n s.globals)]
    else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Fun n e] = (s, Rval [Closure (env.c,env.v) n e])) ∧
   (evaluate env s [App op es] =
    case evaluate env s (REVERSE es) of
    | (s', Rval vs) =>
        if op = Opapp then
-         (case do_opapp env.globals (REVERSE vs) of
+         (case do_opapp (REVERSE vs) of
           | SOME (env', e) =>
             if s'.clock = 0 ∨ s.clock = 0 then
               (s', Rerr (Rabort Rtimeout_error))
@@ -545,10 +545,9 @@ val evaluate_decs_def = Define`
    case evaluate_dec env s d of
    | (s, Rval (new_tds,new_env)) =>
      (case evaluate_decs
-             (env with
-               <| globals updated_by (λg. g ++ MAP SOME new_env);
-                  c updated_by merge_alist_mod_env ([],new_tds)|>)
-             s ds of
+             (env with c updated_by merge_alist_mod_env ([],new_tds))
+             (s with globals updated_by (λg. g ++ MAP SOME new_env))
+             ds of
       | (s, new_tds', new_env', r) => (s, new_tds' ++ new_tds, new_env ++ new_env', r))
    | (s, Rerr e) => (s, [], [], SOME e))`;
 
@@ -626,9 +625,9 @@ val evaluate_prompts_def = Define`
    case evaluate_prompt env s prompt of
    | (s, cenv, genv, NONE) =>
      (case evaluate_prompts
-           (env with <| globals updated_by (λg. g ++ genv);
-                        c updated_by merge_alist_mod_env cenv |>)
-           s prompts of
+           (env with c updated_by merge_alist_mod_env cenv)
+           (s with globals updated_by (λg. g ++ genv))
+           prompts of
       | (s, cenv', genv', r) => (s, merge_alist_mod_env cenv' cenv, genv ++ genv', r))
    | res => res)`;
 

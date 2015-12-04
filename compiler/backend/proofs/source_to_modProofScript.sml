@@ -343,12 +343,12 @@ val sv_rel_weakening = Q.prove (
    metis_tac [v_rel_weakening]);
 
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
-  (!genv c s s'.
-    LIST_REL (sv_rel genv) s.refs s' ∧
-    s.clock = c ∧
-    s.ffi = t
+  (!genv s s'.
+    LIST_REL (sv_rel genv) s.refs s'.refs ∧
+    s.clock = s'.clock ∧
+    s.ffi = s'.ffi
     ⇒
-    s_rel genv s (c,s',t))`;
+    s_rel genv s s')`;
 
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!genv mods tops env env' env_i1 locals.
@@ -952,55 +952,79 @@ val global_env_inv_lookup_mod3 = Q.prove (
 
 val s = mk_var("s",
   ``bigStep$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
-  |> type_subst[alpha |-> ``:'ffi``])
+  |> type_subst[alpha |-> ``:'ffi``]);
+
+STOP
 
 val compile_exp_correct = Q.prove (
-  `(∀b env ^s e res.
-     bigStep$evaluate b env s e res ⇒
-     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     !genv mods tops s' r env_i1 s_i1 e_i1 locals.
-       (res = (s',r)) ∧
-       env_all_rel genv mods tops env env_i1 locals ∧
-       s_rel genv s s_i1 ∧
-       (e_i1 = compile_exp mods (DRESTRICT tops (COMPL locals)) e)
-       ⇒
-       ∃s'_i1 r_i1.
-         result_rel v_rel genv r r_i1 ∧
-         s_rel genv s' s'_i1 ∧
-         evaluate b env_i1 s_i1 e_i1 (s'_i1, r_i1)) ∧
-   (∀b env ^s es res.
-     evaluate_list b env s es res ⇒
+   `(∀^s env es res.
+     funBigStep$evaluate s env es = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
      !genv mods tops s' r env_i1 s_i1 es_i1 locals.
-       (res = (s',r)) ∧
+       res = (s',r) ∧
        env_all_rel genv mods tops env env_i1 locals ∧
        s_rel genv s s_i1 ∧
-       (es_i1 = compile_exps mods (DRESTRICT tops (COMPL locals)) es)
+       es_i1 = compile_exps mods (DRESTRICT tops (COMPL locals)) es
        ⇒
        ?s'_i1 r_i1.
          result_rel vs_rel genv r r_i1 ∧
          s_rel genv s' s'_i1 ∧
-         evaluate_list b env_i1 s_i1 es_i1 (s'_i1, r_i1)) ∧
-   (∀b env ^s v pes err_v res.
-     evaluate_match b env s v pes err_v res ⇒
-     (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
+         modSem$evaluate env_i1 s_i1 es_i1 = (s'_i1, r_i1)) ∧
+   (∀^s env v pes err_v res.
+     funBigStep$evaluate_match s env v pes err_v = res ⇒
+     SND res ≠ Rerr (Rabort Rtype_error) ⇒
      !genv mods tops s' r env_i1 s_i1 v_i1 pes_i1 err_v_i1 locals.
        (res = (s',r)) ∧
        env_all_rel genv mods tops env env_i1 locals ∧
        s_rel genv s s_i1 ∧
        v_rel genv v v_i1 ∧
-       (pes_i1 = compile_pes mods (DRESTRICT tops (COMPL locals)) pes) ∧
+       pes_i1 = compile_pes mods (DRESTRICT tops (COMPL locals)) pes ∧
        v_rel genv err_v err_v_i1
        ⇒
        ?s'_i1 r_i1.
-         result_rel v_rel genv r r_i1 ∧
+         result_rel vs_rel genv r r_i1 ∧
          s_rel genv s' s'_i1 ∧
-         evaluate_match b env_i1 s_i1 v_i1 pes_i1 err_v_i1 (s'_i1, r_i1))`,
-  ho_match_mp_tac bigStepTheory.evaluate_ind >>
-  rw [] >>
-  rw [Once modSemTheory.evaluate_cases,compile_exp_def] >>
-  TRY (Cases_on `err`) >>
-  fs [result_rel_eqns, v_rel_eqns]
+         modSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1))`,
+
+
+  ho_match_mp_tac terminationTheory.evaluate_ind >>
+  rw [terminationTheory.evaluate_def, modSemTheory.evaluate_def,compile_exp_def] >>
+  fs [result_rel_eqns, v_rel_eqns] >>
+  TRY(first_assum(split_pair_case_tac o lhs o concl) >> fs[])
+ >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >> simp[] >>
+    fs[result_rel_cases] )
+  >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS] >>
+    fs[result_rel_cases] )
+  >- (
+    every_case_tac >> fs[] >> rpt var_eq_tac >>
+    imp_res_tac modPropsTheory.evaluate_sing >>
+    rpt var_eq_tac >> fs[] >>
+    fs[result_rel_eqns,PULL_EXISTS] >>
+    rpt var_eq_tac >> fs[] >>
+    res_tac >> fs[] >>
+    rpt var_eq_tac >>
+    fs[vs_rel_list_rel,PULL_EXISTS])
+  >- cheat
+
+(*
   >- metis_tac []
   >- metis_tac []
   >- metis_tac []
@@ -1015,7 +1039,7 @@ val compile_exp_correct = Q.prove (
       rw [compile_exp_def] >>
       fs [lookup_var_id_def] >>
       every_case_tac >>
-      fs [ALOOKUP_APPEND, modSemTheory.all_env_to_env_def, modSemTheory.all_env_to_genv_def] >>
+      fs [ALOOKUP_APPEND] >>
       rw []
       >- (every_case_tac >>
           fs []
@@ -1036,9 +1060,10 @@ val compile_exp_correct = Q.prove (
       >- metis_tac [NOT_SOME_NONE, global_env_inv_lookup_mod1]
       >- metis_tac [NOT_SOME_NONE, global_env_inv_lookup_mod2]
       >- metis_tac [global_env_inv_lookup_mod3])
+      *)
   >- (* Closure creation *)
      (rw [Once v_rel_cases] >>
-      fs [env_all_rel_cases, modSemTheory.all_env_to_cenv_def, modSemTheory.all_env_to_env_def] >>
+      fs [env_all_rel_cases] >>
       rw [] >>
       MAP_EVERY qexists_tac [`mods`, `tops`, `env'`, `env''`] >>
       imp_res_tac env_rel_dom >>
