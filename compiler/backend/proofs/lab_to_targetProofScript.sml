@@ -1429,6 +1429,7 @@ val machine_sem_EQ_sem = prove(
       backend_correct mc_conf.target /\
       init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>
       machine_sem mc_conf s1.ffi ms = { semantics s1 }``,
+
   simp[GSYM AND_IMP_INTRO] >>
   rpt gen_tac >> ntac 2 strip_tac >>
   fs [init_ok_def] >>
@@ -1470,7 +1471,17 @@ val machine_sem_EQ_sem = prove(
     \\ pop_assum (qspec_then `k` assume_tac)
     \\ disch_then drule \\ strip_tac
     \\ CCONTR_TAC \\ fs [] \\ cheat)
-  \\ cheat);
+  \\ CCONTR_TAC \\ fs [FST_EQ_EQUIV]
+  \\ last_x_assum (qspec_then `k` mp_tac) \\ fs []
+  \\ Cases_on `evaluate (s1 with clock := k)` \\ fs []
+  \\ drule compile_correct
+  \\ Cases_on `q = Error` \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ first_x_assum (qspec_then `k` assume_tac)
+  \\ asm_exists_tac \\ fs [] \\ gen_tac
+  \\ PairCases_on `z`
+  \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
+  \\ every_case_tac \\ fs []);
 
 (*
 
