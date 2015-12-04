@@ -299,19 +299,17 @@ val evaluate_def = tDefine "evaluate" `
   \\ decide_tac)
 
 val semantics_def = Define `
-  (semantics s1 (Terminate outcome io_list) <=>
-     ?k s2 t.
-       evaluate (s1 with clock := k) = (t,s2) /\
-       (case outcome of
-        | FFI_outcome e => (s2.ffi.final_event = SOME e /\ t <> Error)
-        | _ => (s2.ffi.final_event = NONE) /\ (t = Halt outcome)) /\
-       s2.ffi.io_events = io_list) /\
-  (semantics s1 (Diverge io_trace) <=>
-     (!k. ?s2. (evaluate (s1 with clock := k) = (TimeOut,s2)) /\
-               s2.ffi.final_event = NONE) /\
-     lprefix_lub (IMAGE (\k. fromList
-       (SND (evaluate (s1 with clock := k))).ffi.io_events) UNIV) io_trace) /\
-  (semantics s1 Fail <=>
-     ?k. FST (evaluate (s1 with clock := k)) = Error)`
+  semantics s =
+  if ∃k. FST(evaluate (s with clock := k)) = Error then Fail
+  else
+    case some p.
+      ∃k s e. evaluate (s with clock := k) = (Halt e,s) ∧ p = (e,s.ffi) of
+    | SOME (outcome,ffi) =>
+      Terminate (case ffi.final_event of NONE => outcome | SOME e => FFI_outcome e)
+        ffi.io_events
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList (SND (evaluate (s with clock := k))).ffi.io_events) UNIV))`;
 
 val _ = export_theory();
