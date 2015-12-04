@@ -1726,7 +1726,8 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   let t0 = <| global := SOME 0; ffi := ffi0; clock := k; code := fromAList (bvi_stubs start ++ code);
               refs := FEMPTY |+ (0,ValueArray [Number 1]) |> in
    evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi0 (fromAList (bvi_stubs start ++ code)) (k+1)) =
-   evaluate ([Call 0 (SOME start) [] NONE],[],t0)`,
+   let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
+     ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`,
   rw[bviSemTheory.evaluate_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   rw[Once bvi_stubs_def] >>
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>fs[]>>NO_TAC) >>
@@ -1740,24 +1741,29 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     qpat_assum`num_stubs ≤ _`mp_tac >>
     rpt var_eq_tac >> EVAL_TAC ) >>
   BasicProvers.CASE_TAC >- (
-    simp[Abbr`t0`] >>
-    simp[lookup_fromAList,ALOOKUP_APPEND] >>
+    fs[Abbr`t0`] >>
+    fs[lookup_fromAList,ALOOKUP_APPEND] >>
+    rpt var_eq_tac >>
     simp[bviSemTheory.state_component_equality] >>
     unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
   Cases_on`x`>>simp[] >>
   reverse IF_CASES_TAC >> fs[] >- (
-    simp[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
+    fs[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
+    rpt var_eq_tac >>
     simp[bviSemTheory.state_component_equality] >>
     unabbrev_all_tac >> EVAL_TAC >> simp[] ) >>
   simp[] >>
   var_eq_tac >>
   simp[Once bviSemTheory.dec_clock_def] >>
   fs[bvl_to_bvi_def,bvi_to_bvl_def,bviSemTheory.dec_clock_def,bviSemTheory.initial_state_def] >>
-  simp[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
+  fs[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
+  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[] >>
   REWRITE_TAC[ONE,REPLICATE] >> simp[] >>
-  BasicProvers.CASE_TAC >> simp[] >>
-  BasicProvers.CASE_TAC >> simp[] >>
-  BasicProvers.CASE_TAC >> simp[]);
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  rpt var_eq_tac >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  rpt var_eq_tac >> fs[]);
 
 val sorted_lt_append =
   Q.ISPEC`prim_rec$<`SORTED_APPEND
@@ -1933,7 +1939,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
    ⇒
    ∃ck b2 s2.
    evaluate ([Call 0 (SOME start') [] NONE],[],initial_state ffi0 (fromAList prog') (k+ck)) =
-     (map_result (MAP (adjust_bv b2)) (adjust_bv b2) r,s2) ∧
+     (map_result (MAP (adjust_bv b2)) (adjust_bv b2) (case r of Rerr(Rraise v) => Rval [v] | _ => r),s2) ∧
    state_rel b2 s s2`,
   rw[compile_prog_def,LET_THM] >>
   split_pair_tac >> fs[] >> var_eq_tac >>
@@ -1983,6 +1989,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   simp[] >>
   rpt var_eq_tac >>
   fsrw_tac[ARITH_ss][inc_clock_def] >>
+  Cases_on`r`>>fs[]>> TRY(Cases_on`e`)>>fs[] >>
   PROVE_TAC[ADD_ASSOC,ADD_COMM]);
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
@@ -2015,18 +2022,25 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       qmatch_assum_abbrev_tac`FST q = _` >>
       Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
       pop_assum(assume_tac o SYM) >>
-      imp_res_tac bviPropsTheory.evaluate_add_clock >> rfs[] >>
+      imp_res_tac bviPropsTheory.evaluate_add_clock >>
+      first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (every_case_tac >> rfs[]))) >>
+      strip_tac >>
       qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
       fs[LESS_EQ_EXISTS] >>
       qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
       rpt var_eq_tac >> rfs[] >>
       rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
       simp[inc_clock_def] >>
-      fsrw_tac[ARITH_ss][]) >>
+      fsrw_tac[ARITH_ss][]>>
+      every_case_tac >> simp[] >>
+      rw[] >>
+      metis_tac[semanticPrimitivesTheory.abort_nchotomy]) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
       qx_gen_tac`ffi` >> strip_tac >>
       imp_res_tac bviPropsTheory.evaluate_add_clock >>
+      first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (every_case_tac >> rfs[]))) >>
+      strip_tac >>
       qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
       fs[LESS_EQ_EXISTS] >>
       qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
@@ -2035,7 +2049,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       simp[inc_clock_def] >>
       fsrw_tac[ARITH_ss][]) >>
     simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    qexists_tac`ck+k`>>simp[]) >>
+    qexists_tac`ck+k`>>simp[]>>
+    every_case_tac >> simp[] >>
+    metis_tac[semanticPrimitivesTheory.abort_nchotomy]) >>
   strip_tac >>
   simp[bviSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -2061,7 +2077,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     pop_assum(assume_tac o SYM) >>
     imp_res_tac bviPropsTheory.evaluate_add_clock >> rfs[] >>
     first_x_assum(qspec_then`ck`mp_tac) >>
-    simp[inc_clock_def]) >>
+    simp[inc_clock_def] >>
+    every_case_tac >> fs[] >>
+    metis_tac[semanticPrimitivesTheory.abort_nchotomy]) >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     spose_not_then strip_assume_tac >>
@@ -2077,9 +2095,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
       fs[bviSemTheory.evaluate_def] >>
       every_case_tac >> fs[]) >>
     spose_not_then strip_assume_tac >>
-    imp_res_tac evaluate_add_clock >>
+    imp_res_tac evaluate_add_clock >> fs[] >>
     first_x_assum(qspec_then`ck`mp_tac) >>
-    simp[inc_clock_def] ) >>
+    simp[inc_clock_def]) >>
   strip_tac >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
   `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`

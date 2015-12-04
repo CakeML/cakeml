@@ -60,7 +60,7 @@ val CopyGlobals_code_def = Define`
 val InitGlobals_code_def = Define`
   InitGlobals_code start = (0:num,
     Let [Op SetGlobalsPtr [Op RefArray [Op (Const 1) []; Op (Const 1) []]]]
-     (Call 0 (SOME start) [] NONE))`;
+     (Call 0 (SOME start) [] (SOME (Var 0))))`;
 
 val bvi_stubs_def = Define `
   bvi_stubs start = [(AllocGlobal_location, AllocGlobal_code);

@@ -265,13 +265,12 @@ val initial_state_def = Define`
 val semantics_def = Define`
   semantics init_ffi code start =
   let es = [bvi$Call 0 (SOME start) [] NONE] in
-    if ∃k. FST (evaluate (es,[],initial_state init_ffi code k)) = Rerr (Rabort Rtype_error)
+    if ∃k e. FST (evaluate (es,[],initial_state init_ffi code k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
       then Fail
     else
     case some ffi.
       ∃k s r.
-        evaluate (es,[],initial_state init_ffi code k) = (r,s) ∧
-          r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s.ffi
+        evaluate (es,[],initial_state init_ffi code k) = (Rval r,s) ∧ ffi = s.ffi
     of SOME ffi =>
          Terminate
            (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
