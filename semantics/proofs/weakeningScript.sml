@@ -667,8 +667,8 @@ val with_v_lemma = Q.prove(
   rw[])
 
 val type_d_weakening = Q.store_thm ("type_d_weakening",
-`!mn decls tenv d decls' tenvT' tenvC' tenv' decls'' tenvM'' tenvC'' ttt.
-  type_d F mn decls tenv d decls' tenvT' tenvC' tenv' ∧
+`!mn decls tenv d decls' new_tenv decls'' tenvM'' tenvC'' ttt.
+  type_d F mn decls tenv d decls' new_tenv ∧
   weakM ttt.m tenv.m ∧
   weakC ttt.c tenv.c ∧
   ttt.v = tenv.v ∧ ttt.t = tenv.t ∧
@@ -676,7 +676,7 @@ val type_d_weakening = Q.store_thm ("type_d_weakening",
   weak_decls_other_mods mn decls'' decls ∧
   tenv_ctor_ok ttt.c
   ⇒
-  type_d F mn decls'' ttt d decls' tenvT' tenvC' tenv'`,
+  type_d F mn decls'' ttt d decls' new_tenv`,
  rw [type_d_cases]
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
  >- metis_tac[type_p_weakening,LESS_EQ_REFL,GREATER_EQ,type_e_weakening,with_v_lemma,weak_def,weak_tenvE_refl]
@@ -745,8 +745,8 @@ val weak_decls_other_mods_union = Q.store_thm ("weak_decls_other_mods_union",
  metis_tac []);
 
 val type_ds_weakening = Q.store_thm ("type_ds_weakening",
- `!uniq mn decls tenv ds decls' tenvT' tenvC' tenv'.
-   type_ds uniq mn decls tenv ds decls' tenvT' tenvC' tenv' ⇒
+ `!uniq mn decls tenv ds decls' new_tenv.
+   type_ds uniq mn decls tenv ds decls' new_tenv ⇒
    !decls'' ttt.
    uniq = F ∧
    weak_decls decls'' decls ∧
@@ -757,13 +757,13 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
    weakM ttt.m tenv.m ∧
    weakC ttt.c tenv.c
    ⇒
-   type_ds F mn decls'' ttt ds decls' tenvT' tenvC' tenv'`,
+   type_ds F mn decls'' ttt ds decls' new_tenv`,
   ho_match_mp_tac type_ds_ind >>
   rw [] >>
   rw [Once type_ds_cases] >>
   imp_res_tac type_d_weakening >>
   imp_res_tac type_d_ctMap_ok >>
-  `tenv_ctor_ok (merge_alist_mod_env ([],cenv') ttt.c)`
+  `tenv_ctor_ok (merge_alist_mod_env ([],FST (SND new_tenv1)) ttt.c)`
          by (rw [tenv_ctor_ok_merge] >>
              metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE]) >>
   qcase_tac `weak_decls decls1 decls2` >>
@@ -776,8 +776,9 @@ val type_ds_weakening = Q.store_thm ("type_ds_weakening",
   first_assum(match_exists_tac o concl) >> simp[] >>
   ONCE_REWRITE_TAC[CONJ_COMM] >>
   (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
-  (fn g => match_exists_tac(concl(REFL(lhs(find_term is_eq (#2 g)))))g) >> simp[] >>
-  first_x_assum match_mp_tac >> simp[] >>
+  qexists_tac`new_tenv`>>fs[]>>
+  first_x_assum match_mp_tac >>
+  PairCases_on`new_tenv1`>>fs[extend_env_new_decs_def]>>
   conj_tac >- (
     match_mp_tac tenv_tabbrev_ok_merge >>
     rw [tenv_tabbrev_ok_def, FEVERY_FEMPTY]) >>
@@ -813,10 +814,12 @@ val consistent_ctMap_weakening = Q.store_thm ("consistent_ctMap_weakening",
  res_tac >>
  fs [SUBSET_DEF]);
 
-val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
-`∀uniq mn (tdecs1:decls) tenv ds tdecs1' tenvT' tenvC' tenv'.
-  type_ds uniq mn tdecs1 tenv ds tdecs1' tenvT' tenvC' tenv'
+val lemma = Q.prove(
+`∀uniq mn (tdecs1:decls) tenv ds tdecs1' decls.
+  type_ds uniq mn tdecs1 tenv ds tdecs1' decls
   ⇒
+  ∀tenvT' tenvC' tenv'.
+    decls = (tenvT',tenvC',tenv') ⇒
   !(ctMap:ctMap). consistent_ctMap tdecs1 ctMap
   ⇒
   DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
@@ -825,10 +828,17 @@ val type_ds_ctMap_disjoint = Q.store_thm ("type_ds_ctMap_disjoint",
  rw []
  >- rw [flat_to_ctMap_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST]
  >- rw [flat_to_ctMap_def, flat_to_ctMap_list_def, FDOM_FUPDATE_LIST] >>
+ PairCases_on`new_tenv1`>>
+ PairCases_on`decls'`>>fs[append_new_dec_tenv_def]>>
  rw [flat_to_ctMap_def, flat_to_ctMap_list_append, FDOM_FUPDATE_LIST,
      DISJOINT_DEF, EXTENSION, REVERSE_APPEND] >>
  imp_res_tac type_d_ctMap_disjoint >>
  fs [DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, FDOM_FUPDATE_LIST] >>
  metis_tac [weak_decls_union2, consistent_ctMap_weakening, type_d_mod]);
+
+val type_ds_ctMap_disjoint = save_thm ("type_ds_ctMap_disjoint",lemma
+  |> SIMP_RULE std_ss [Once PULL_FORALL]
+  |> SIMP_RULE std_ss [Once PULL_FORALL]
+  |> SIMP_RULE std_ss [Once PULL_FORALL])
 
 val _ = export_theory ();

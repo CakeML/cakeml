@@ -163,6 +163,7 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
     (whole_prog_type_soundness
      |> REWRITE_RULE[GSYM AND_IMP_INTRO]
      |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
+    PairCases_on`new_tenv`>>
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[PULL_EXISTS] >> fs[] >>
     rfs[bigStepTheory.evaluate_whole_prog_def] >>

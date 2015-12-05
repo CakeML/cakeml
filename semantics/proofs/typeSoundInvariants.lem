@@ -35,9 +35,6 @@ let tenv_tabbrev_ok (mtenvT, tenvT) =
   Map.all (fun _ tenvT -> flat_tenv_tabbrev_ok tenvT) mtenvT &&
   flat_tenv_tabbrev_ok tenvT
 
-(* Global constructor type environments keyed by constructor name and type *)
-type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
-
 val flat_tenv_ctor_ok : flat_tenv_ctor -> bool
 let flat_tenv_ctor_ok tenv_ctor =
   List.all (fun (cn,(tvs,ts,tn)) -> List.all (check_freevars 0 tvs) ts) tenv_ctor
@@ -46,6 +43,35 @@ val tenv_ctor_ok : tenv_ctor -> bool
 let tenv_ctor_ok (mtenvC, tenvC) =
   List.all (fun (_,tenvC) -> flat_tenv_ctor_ok tenvC) mtenvC &&
   flat_tenv_ctor_ok tenvC
+
+let rec
+tenv_val_ok Empty = true
+and
+tenv_val_ok (Bind_tvar n tenv) = tenv_val_ok tenv
+and
+tenv_val_ok (Bind_name x tvs t tenv) =
+  check_freevars (tvs + num_tvs tenv) [] t && tenv_val_ok tenv
+
+declare termination_argument tenv_val_ok = automatic
+
+val tenv_mod_ok : Map.map modN (alist varN (nat * t)) -> bool
+let tenv_mod_ok tenvM = Map.all (fun mn tenv -> tenv_val_ok (bind_var_list2 tenv Empty)) tenvM
+
+val tenv_ok : type_environment -> bool
+let tenv_ok tenv =
+  tenv_tabbrev_ok tenv.t &&
+  tenv_mod_ok tenv.m &&
+  tenv_ctor_ok tenv.c &&
+  tenv_val_ok tenv.v
+
+val new_dec_tenv_ok : new_dec_tenv -> bool
+let new_dec_tenv_ok (t,c,v) =
+  flat_tenv_tabbrev_ok t &&
+  flat_tenv_ctor_ok c &&
+  List.all (fun (_,(n,t)) -> check_freevars n [] t) v
+
+(* Global constructor type environments keyed by constructor name and type *)
+type ctMap = Map.map (conN * tid_or_exn) (list tvarN * list t)
 
 val ctMap_ok : ctMap -> bool
 let ctMap_ok ctMap =
@@ -109,19 +135,6 @@ val type_ctxt : nat -> ctMap -> tenvS -> type_environment -> ctxt_frame -> t -> 
 val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool
 val type_state : forall 'ffi. nat -> ctMap -> tenvS -> small_state 'ffi -> t -> bool
 val context_invariant : nat -> list ctxt -> nat -> bool
-
-let rec
-tenv_val_ok Empty = true
-and
-tenv_val_ok (Bind_tvar n tenv) = tenv_val_ok tenv
-and
-tenv_val_ok (Bind_name x tvs t tenv) =
-  check_freevars (tvs + num_tvs tenv) [] t && tenv_val_ok tenv
-
-declare termination_argument tenv_val_ok = automatic
-
-val tenv_mod_ok : Map.map modN (alist varN (nat * t)) -> bool
-let tenv_mod_ok tenvM = Map.all (fun mn tenv -> tenv_val_ok (bind_var_list2 tenv Empty)) tenvM
 
 indreln
 [type_v : nat -> ctMap -> tenvS -> v -> t -> bool]

@@ -47,9 +47,6 @@ val _ = Define `
   flat_tenv_tabbrev_ok tenvT))`;
 
 
-(* Global constructor type environments keyed by constructor name and type *)
-val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
-
 (*val flat_tenv_ctor_ok : flat_tenv_ctor -> bool*)
 val _ = Define `
  (flat_tenv_ctor_ok tenv_ctor =  
@@ -62,6 +59,41 @@ val _ = Define `
 (EVERY (\p .  (case (p ) of ( (_,tenvC) ) => flat_tenv_ctor_ok tenvC )) mtenvC /\
   flat_tenv_ctor_ok tenvC))`;
 
+
+ val _ = Define `
+
+(tenv_val_ok Empty = T)
+/\
+(tenv_val_ok (Bind_tvar n tenv) = (tenv_val_ok tenv))
+/\
+(tenv_val_ok (Bind_name x tvs t tenv) =  
+(check_freevars (tvs + num_tvs tenv) [] t /\ tenv_val_ok tenv))`;
+
+
+(*val tenv_mod_ok : Map.map modN (alist varN (nat * t)) -> bool*)
+val _ = Define `
+ (tenv_mod_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_val_ok (bind_var_list2 tenv Empty))) tenvM))`;
+
+
+(*val tenv_ok : type_environment -> bool*)
+val _ = Define `
+ (tenv_ok tenv =  
+(tenv_tabbrev_ok tenv.t /\
+  tenv_mod_ok tenv.m /\
+  tenv_ctor_ok tenv.c /\
+  tenv_val_ok tenv.v))`;
+
+
+(*val new_dec_tenv_ok : new_dec_tenv -> bool*)
+val _ = Define `
+ (new_dec_tenv_ok (t,c,v) =  
+(flat_tenv_tabbrev_ok t /\
+  flat_tenv_ctor_ok c /\
+  EVERY (\p .  (case (p ) of ( (_,(n,t)) ) => check_freevars n [] t )) v))`;
+
+
+(* Global constructor type environments keyed by constructor name and type *)
+val _ = type_abbrev( "ctMap" , ``: ((conN # tid_or_exn), ( tvarN list # t list)) fmap``);
 
 (*val ctMap_ok : ctMap -> bool*)
 val _ = Define `
@@ -135,21 +167,6 @@ val _ = Define `
 (*val type_ctxts : nat -> ctMap -> tenvS -> list ctxt -> t -> t -> bool*)
 (*val type_state : forall 'ffi. nat -> ctMap -> tenvS -> small_state 'ffi -> t -> bool*)
 (*val context_invariant : nat -> list ctxt -> nat -> bool*)
-
- val _ = Define `
-
-(tenv_val_ok Empty = T)
-/\
-(tenv_val_ok (Bind_tvar n tenv) = (tenv_val_ok tenv))
-/\
-(tenv_val_ok (Bind_name x tvs t tenv) =  
-(check_freevars (tvs + num_tvs tenv) [] t /\ tenv_val_ok tenv))`;
-
-
-(*val tenv_mod_ok : Map.map modN (alist varN (nat * t)) -> bool*)
-val _ = Define `
- (tenv_mod_ok tenvM = (FEVERY (UNCURRY (\ mn tenv .  tenv_val_ok (bind_var_list2 tenv Empty))) tenvM))`;
-
 
 val _ = Hol_reln ` (! tvs cenv senv n.
 T

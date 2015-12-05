@@ -3,6 +3,7 @@
 open preamble
 open libTheory astTheory typeSystemTheory typeSoundInvariantsTheory terminationTheory;
 open astPropsTheory;
+local open evalPropsTheory in end
 
 val _ = new_theory "typeSysProps";
 
@@ -2537,19 +2538,20 @@ val type_ctxts_freevars = Q.store_thm ("type_ctxts_freevars",
 (* ---------- type_d ---------- *)
 
 val type_d_check_uniq = Q.store_thm ("type_d_check_uniq",
-`!uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
-  type_d uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'
+`!uniq tvs tdecs tenv d tdecs' new_tenv.
+  type_d uniq tvs tdecs tenv d tdecs' new_tenv
   ⇒
-  type_d F tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'`,
+  type_d F tvs tdecs tenv d tdecs' new_tenv`,
  rw [type_d_cases] >>
  metis_tac []);
 
+
 val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
-`!uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
-  type_d uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' ∧
-  (num_tvs tenv.v = 0)
+`!uniq tvs tdecs tenv d tdecs' new_tenv.
+  type_d uniq tvs tdecs tenv d tdecs' new_tenv ∧
+  num_tvs tenv.v = 0
   ⇒
-  tenv_val_ok (bind_var_list2 tenv' Empty)`,
+  tenv_val_ok (bind_var_list2 (SND (SND new_tenv)) Empty)`,
  rw [type_d_cases] >>
  `tenv_val_ok Empty` by rw [tenv_val_ok_def] >>
  imp_res_tac type_p_bvl >>
@@ -2557,13 +2559,14 @@ val type_d_tenv_ok = Q.store_thm ("type_d_tenv_ok",
  >- metis_tac [type_funs_tenv_ok] >>
  rw [bind_var_list2_def, tenv_val_ok_def]);
 
+
 (*weakened*)
 val type_d_tenvT_ok = Q.store_thm ("type_d_tenvT_ok",
-`!uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
-  type_d uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' ∧
+`!uniq tvs tdecs tenv d tdecs' new_tenv.
+  type_d uniq tvs tdecs tenv d tdecs' new_tenv ∧
   tenv_tabbrev_ok tenv.t
   ⇒
-  flat_tenv_tabbrev_ok tenvT'`,
+  flat_tenv_tabbrev_ok (FST new_tenv)`,
  rw [type_d_cases, flat_tenv_tabbrev_ok_def] >>
  fs [FEVERY_ALL_FLOOKUP, check_ctor_tenv_def] >>
  fs [FLOOKUP_UPDATE, flookup_fupdate_list] >>
@@ -2583,12 +2586,12 @@ val type_d_tenvT_ok = Q.store_thm ("type_d_tenvT_ok",
  fs [EVERY_MEM]);
 
 val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
-`!uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv' tenvM'' tenvC''.
+`!uniq tvs tdecs tenv d tdecs' new_tenv.
   tenv_tabbrev_ok tenv.t ∧
-  type_d uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'
+  type_d uniq tvs tdecs tenv d tdecs' new_tenv
   ⇒
-  ctMap_ok (flat_to_ctMap tenvC') ∧
-  ALL_DISTINCT (MAP FST (flat_to_ctMap_list tenvC'))`,
+  ctMap_ok (flat_to_ctMap (FST (SND new_tenv))) ∧
+  ALL_DISTINCT (MAP FST (flat_to_ctMap_list (FST (SND new_tenv))))`,
  rw [type_d_cases, flat_to_ctMap_def, flat_to_ctMap_list_def] >>
  imp_res_tac type_p_bvl >>
  rw [bvl2_to_bvl] >>
@@ -2615,12 +2618,12 @@ val type_d_ctMap_ok = Q.store_thm ("type_d_ctMap_ok",
      metis_tac [check_freevars_type_name_subst]));
 
 val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
-`!uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv' ctMap.
-  type_d uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv' ∧
+`!uniq mn tdecs tenv d tdecs' new_tenv ctMap.
+  type_d uniq mn tdecs tenv d tdecs' new_tenv ∧
   tenv_tabbrev_ok tenv.t ∧
   ctMap_ok ctMap
   ⇒
-  ctMap_ok (FUNION (flat_to_ctMap tenvC') ctMap)`,
+  ctMap_ok (FUNION (flat_to_ctMap (FST (SND new_tenv))) ctMap)`,
  rw [] >>
  imp_res_tac type_d_ctMap_ok >>
  rw [] >>
@@ -2628,9 +2631,68 @@ val ctMap_ok_pres = Q.store_thm ("ctMap_ok_pres",
  imp_res_tac ctMap_ok_merge_imp >>
  rw []);
 
+ (*
+
+val type_d_new_tenv_ok = Q.store_thm ("type_d_new_tenv_ok",
+`!x tvs decls tenv d decls' new_tenv.
+  type_d x tvs decls tenv d decls' new_tenv ∧
+  tenv_ok tenv ∧
+  num_tvs tenv.v = 0
+  ⇒
+  new_dec_tenv_ok new_tenv`,
+
+ rw [type_d_cases] >>
+ simp [new_dec_tenv_ok_def, flat_tenv_tabbrev_ok_def, FEVERY_FEMPTY,
+       flat_tenv_ctor_ok_def, tenv_add_tvs_def, EVERY_MAP]
+ >- (
+   imp_res_tac type_p_freevars >>
+   fs [EVERY_MAP] >>
+   fs [EVERY_MEM] >>
+   rw [] >>
+   every_case_tac >>
+   fs [] >>
+   qcase_tac `MEM b bindings` >>
+   PairCases_on `b` >>
+   fs [] >>
+   rw [] >>
+   res_tac >>
+   fs [])
+ >- (
+   imp_res_tac type_p_freevars >>
+   fs [EVERY_MAP] >>
+   fs [EVERY_MEM] >>
+   rw [] >>
+   every_case_tac >>
+   fs [] >>
+   qcase_tac `MEM b bindings` >>
+   PairCases_on `b` >>
+   fs [] >>
+   rw [] >>
+   res_tac >>
+   fs [])
+ >- (
+   imp_res_tac type_e_freevars >>
+   rfs [tenv_ok_def] >>
+   imp_res_tac tenv_ok_bind_var_list_funs >>
+   rfs [bind_tvar_rewrites] >>
+   fs [EVERY_MAP] >>
+   fs [EVERY_MEM] >>
+   rw [] >>
+   every_case_tac >>
+   rfs [] >>
+   qcase_tac `MEM b bindings` >>
+   PairCases_on `b` >>
+   fs [] >>
+   rw [] >>
+   res_tac >>
+   fs [num_tvs_bind_var_list, bind_tvar_rewrites] >>
+   rfs [])
+
+   *)
+
 val type_d_mod = Q.store_thm ("type_d_mod",
-`!uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv'.
-  type_d uniq mn tdecs tenv d tdecs' tenvT' tenvC' tenv'
+`!uniq mn tdecs tenv d tdecs' new_tenv.
+  type_d uniq mn tdecs tenv d tdecs' new_tenv
   ⇒
   tdecs'.defined_mods = {} ∧
   decls_to_mods tdecs' ⊆ { mn }`,
@@ -2645,11 +2707,11 @@ val type_d_mod = Q.store_thm ("type_d_mod",
  fs []);
 
 val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
-`type_d uniq mn tdecs1 tenv d tdecs1' tenvT' tenvC' tenv' ∧
+`type_d uniq mn tdecs1 tenv d tdecs1' new_tenv ∧
  consistent_ctMap tdecs1 ctMap
  ⇒
- DISJOINT (FDOM (flat_to_ctMap tenvC')) (FDOM ctMap) ∧
- DISJOINT (IMAGE SND (FDOM (flat_to_ctMap tenvC'))) (IMAGE SND (FDOM ctMap))`,
+ DISJOINT (FDOM (flat_to_ctMap (FST (SND new_tenv)))) (FDOM ctMap) ∧
+ DISJOINT (IMAGE SND (FDOM (flat_to_ctMap (FST (SND new_tenv))))) (IMAGE SND (FDOM ctMap))`,
  rw [type_d_cases, DISJOINT_DEF, EXTENSION, flat_to_ctMap_def, FDOM_FUPDATE_LIST,
      flat_to_ctMap_list_def] >>
  rw [MEM_MAP] >>
@@ -2671,30 +2733,32 @@ val type_d_ctMap_disjoint = Q.store_thm ("type_d_ctMap_disjoint",
 (* ---------- type_ds ---------- *)
 
 val type_ds_check_uniq = Q.store_thm ("type_ds_check_uniq",
-`!uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'
+`!uniq tvs tdecs tenv d tdecs' new_tenv.
+  type_ds uniq tvs tdecs tenv d tdecs' new_tenv
   ⇒
-  type_ds F tvs tdecs tenv d tdecs' tenvT' tenvC' tenv'`,
+  type_ds F tvs tdecs tenv d tdecs' new_tenv`,
  ho_match_mp_tac type_ds_ind >>
  rw [] >>
  rw [Once type_ds_cases] >>
  metis_tac [type_d_check_uniq]);
 
 val type_ds_tenv_ok = Q.store_thm ("type_ds_tenv_ok",
-`!uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv' ⇒
+`!x tvs tdecs tenv ds tdecs' new_tenv.
+  type_ds x tvs tdecs tenv ds tdecs' new_tenv ⇒
   num_tvs tenv.v = 0 ⇒
-  tenv_val_ok (bind_var_list2 tenv' Empty)`,
+  tenv_val_ok (bind_var_list2 (SND (SND new_tenv)) Empty)`,
  ho_match_mp_tac type_ds_ind >>
  rw []
  >- (rw [bind_var_list2_def, tenv_val_ok_def])
  >- (imp_res_tac type_d_tenv_ok >>
-     fs [bvl2_append, num_tvs_bvl2] >>
+     PairCases_on `new_tenv1` >>
+     PairCases_on `new_tenv` >>
+     fs [bvl2_append, num_tvs_bvl2, extend_env_new_decs_def, append_new_dec_tenv_def] >>
      metis_tac [tenv_val_ok_bvl2]));
 
 val type_ds_mod = Q.store_thm ("type_ds_mod",
-`!uniq mn tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq mn tdecs tenv ds tdecs' tenvT' tenvC' tenv'
+`!uniq mn tdecs tenv ds tdecs' new_tenv.
+  type_ds uniq mn tdecs tenv ds tdecs' new_tenv
   ⇒
   tdecs'.defined_mods = {} ∧
   decls_to_mods tdecs' ⊆ {mn}`,
@@ -2713,12 +2777,12 @@ val type_ds_mod = Q.store_thm ("type_ds_mod",
  metis_tac []);
 
 val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
-`!uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv'
+`!uniq tvs tdecs tenv ds tdecs' new_tenv.
+  type_ds uniq tvs tdecs tenv ds tdecs' new_tenv
   ⇒
   tenv_tabbrev_ok tenv.t
   ⇒
-  ctMap_ok (flat_to_ctMap tenvC')`,
+  ctMap_ok (flat_to_ctMap (FST (SND new_tenv)))`,
  ho_match_mp_tac type_ds_strongind >>
  rw []
  >- rw [ctMap_ok_def, flat_to_ctMap_def, flat_to_ctMap_list_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list]
@@ -2726,7 +2790,7 @@ val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
      imp_res_tac type_d_tenvT_ok >>
      fs [flat_to_ctMap_def] >>
      fs [ctMap_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list] >>
-     `tenv_tabbrev_ok (merge_mod_env (FEMPTY,tenv_tabbrev') tenv.t)`
+     `tenv_tabbrev_ok (merge_mod_env (FEMPTY,FST new_tenv1) tenv.t)`
             by (match_mp_tac tenv_tabbrev_ok_merge >>
                 rw [tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list]) >>
      fs [tenv_tabbrev_ok_def] >>
@@ -2734,63 +2798,73 @@ val type_ds_ctMap_ok = Q.store_thm ("type_ds_ctMap_ok",
      every_case_tac >>
      fs [] >>
      rw [] >>
-     fs [flat_to_ctMap_list_def, ALOOKUP_APPEND, REVERSE_APPEND] >>
+     fs [flat_to_ctMap_list_def, REVERSE_APPEND] >>
+    PairCases_on `new_tenv1` >>
+     PairCases_on `new_tenv` >>
+     fs [append_new_dec_tenv_def,extend_env_new_decs_def, ALOOKUP_APPEND] >>
      every_case_tac >>
      fs [] >>
      rw []));
 
 val type_ds_tenvC_ok = Q.store_thm ("type_ds_tenvC_ok",
-`!uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv' ⇒
+`!x tvs tdecs tenv ds tdecs' new_tenv.
+  type_ds x tvs tdecs tenv ds tdecs' new_tenv ⇒
   tenv_tabbrev_ok tenv.t ⇒
-  flat_tenv_ctor_ok tenvC'`,
+  flat_tenv_ctor_ok (FST (SND new_tenv))`,
  ho_match_mp_tac type_ds_strongind >>
  rw []
  >- rw [flat_tenv_ctor_ok_def]
  >- (imp_res_tac type_d_ctMap_ok >>
      imp_res_tac type_d_tenvT_ok >>
-     `tenv_ctor_ok ([],cenv')` by metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE] >>
+     `tenv_ctor_ok ([],FST (SND new_tenv1))` by metis_tac [ctMap_ok_tenvC_ok, MAP_REVERSE, ALL_DISTINCT_REVERSE] >>
      fs [flat_tenv_ctor_ok_def, tenv_ctor_ok_def, tenv_tabbrev_ok_merge] >>
      fs [tenv_tabbrev_ok_def] >>
-     FIRST_X_ASSUM match_mp_tac >>
+     PairCases_on `new_tenv1` >>
+     PairCases_on `new_tenv` >>
+     fs [append_new_dec_tenv_def] >>
+     first_x_assum match_mp_tac >>
+     simp [extend_env_new_decs_def] >>
      match_mp_tac tenv_tabbrev_ok_merge >>
      rw [tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list]));
 
 val type_ds_tenvT_ok = Q.store_thm ("type_ds_tenvT_ok",
-`!uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv'.
-  type_ds uniq tvs tdecs tenv ds tdecs' tenvT' tenvC' tenv' ⇒
+`!x tvs tdecs tenv ds tdecs' new_tenv.
+  type_ds x tvs tdecs tenv ds tdecs' new_tenv ⇒
   tenv_tabbrev_ok tenv.t
   ⇒
-  flat_tenv_tabbrev_ok tenvT'`,
+  flat_tenv_tabbrev_ok (FST new_tenv)`,
  ho_match_mp_tac type_ds_strongind >>
  rw []  >>
  imp_res_tac type_d_tenvT_ok >>
  rw [flat_tenv_tabbrev_ok_def] >>
- fs [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list, FLOOKUP_FUNION] >>
+ fs [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP, flookup_fupdate_list] >>
  rw [] >>
+ PairCases_on `new_tenv` >>
+ PairCases_on `new_tenv1` >>
+ fs [append_new_dec_tenv_def, FLOOKUP_FUNION, extend_env_new_decs_def] >>
  every_case_tac >>
- fs []
- >- metis_tac [] >>
- `tenv_tabbrev_ok (FEMPTY:tvarN |-> flat_tenv_tabbrev,tenv_tabbrev')`
-        by (fs[tenv_tabbrev_ok_def,flat_tenv_tabbrev_ok_def] >>
-            fs[FEVERY_FEMPTY,FEVERY_ALL_FLOOKUP] >>
-            metis_tac []) >>
+ fs [] >>
+ `tenv_tabbrev_ok (FEMPTY:tvarN |-> flat_tenv_tabbrev, new_tenv10)`
+      by (fs[tenv_tabbrev_ok_def,flat_tenv_tabbrev_ok_def] >>
+          fs[FEVERY_FEMPTY,FEVERY_ALL_FLOOKUP] >>
+          metis_tac []) >>
   fs[flat_tenv_tabbrev_ok_def]>>
   metis_tac[tenv_tabbrev_ok_merge]);
 
 (* ---------- type_specs ---------- *)
 
 val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
-`!tvs tenvT specs decls' tenvT' tenvC' tenv'.
-  type_specs tvs tenvT specs decls' tenvT' tenvC' tenv' ⇒
+`!tvs tenvT specs decls' new_tenv.
+  type_specs tvs tenvT specs decls' new_tenv ⇒
   tenv_tabbrev_ok tenvT ⇒
-    (tenv_val_ok (bind_var_list2 tenv' Empty) ∧
-     flat_tenv_tabbrev_ok tenvT')`,
+    (tenv_val_ok (bind_var_list2 (SND (SND new_tenv)) Empty) ∧
+     flat_tenv_tabbrev_ok (FST new_tenv))`,
  ho_match_mp_tac type_specs_ind >>
  rw [bind_var_list2_def, tenv_val_ok_def]
  >- rw [flat_tenv_tabbrev_ok_def, FEVERY_ALL_FLOOKUP]
+ >> PairCases_on`new_tenv`>>fs[append_new_dec_tenv_def]
  >- (rw [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def] >>
-     induct_on `tenv'` >>
+     induct_on `new_tenv2` >>
      rw []
      >- (rw [bind_var_list2_def, tenv_val_ok_def, num_tvs_bvl2, num_tvs_def] >>
          match_mp_tac check_freevars_subst_single >>
@@ -2855,8 +2929,8 @@ val type_specs_tenv_ok = Q.store_thm ("type_specs_tenv_ok",
      simp []));
 
 val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
-`!mn tenvT specs decls' flat_tenvT tenvC tenv.
-  type_specs mn tenvT specs decls' flat_tenvT tenvC tenv ⇒
+`!mn tenvT specs decls' new_tenv.
+  type_specs mn tenvT specs decls' new_tenv ⇒
   decls'.defined_mods = {}`,
  ho_match_mp_tac type_specs_strongind >>
  rw [empty_decls_def] >>
@@ -2865,18 +2939,18 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
 
 (* ---------------- type_top, type_prog uniqueness flag ---------- *)
 val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
-`!uniq tdecs tenv top tdecs' tenvT' tenvM' tenvC' tenv'.
-  type_top uniq tdecs tenv top tdecs' tenvT' tenvM' tenvC' tenv'
+`!uniq tdecs tenv top tdecs' new_tenv.
+  type_top uniq tdecs tenv top tdecs' new_tenv
   ⇒
-  type_top F tdecs tenv top tdecs' tenvT' tenvM' tenvC' tenv'`,
+  type_top F tdecs tenv top tdecs' new_tenv`,
  rw [type_top_cases] >>
  metis_tac [type_d_check_uniq, type_ds_check_uniq]);
 
 val type_prog_check_uniq = Q.store_thm ("type_prog_check_uniq",
-`!uniq tdecs tenv prog tdecs' tenvT' tenvM' tenvC' tenv'.
-  type_prog uniq tdecs tenv prog tdecs' tenvT' tenvM' tenvC' tenv'
+`!uniq tdecs tenv prog tdecs' new_tenv.
+  type_prog uniq tdecs tenv prog tdecs' new_tenv
   ⇒
-  type_prog F tdecs tenv prog tdecs' tenvT' tenvM' tenvC' tenv'`,
+  type_prog F tdecs tenv prog tdecs' new_tenv`,
  ho_match_mp_tac type_prog_ind >>
  rw [] >>
  rw [Once type_prog_cases] >>
@@ -3043,8 +3117,8 @@ val type_e_closed = prove(
   metis_tac []);
 
 val type_d_closed = prove(
-  ``∀uniq mno decls tenv d w x y z.
-      type_d uniq mno decls tenv d w x y z ⇒
+  ``∀uniq mno decls tenv d w x.
+      type_d uniq mno decls tenv d w x ⇒
         FV_dec d ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
   ho_match_mp_tac type_d_ind >>
   strip_tac >- (
@@ -3074,9 +3148,10 @@ val type_d_closed = prove(
     metis_tac[]) >>
   simp[]);
 
+  (*
 val type_d_new_dec_vs = Q.prove (
-  `!uniq mn decls tenv d decls' tenvT' tenvC' tenv'.
-    type_d uniq mn decls tenv d decls' tenvT' tenvC' tenv'
+  `!uniq mn decls tenv d decls' new_tenv.
+    type_d uniq mn decls tenv d decls' new_tenv
     ⇒
     set (new_dec_vs d) = set (MAP FST tenv')`,
    rw [type_d_cases, new_dec_vs_def] >>
@@ -3085,9 +3160,11 @@ val type_d_new_dec_vs = Q.prove (
    rw [tenv_add_tvs_def, MAP_MAP_o, combinTheory.o_DEF, LAMBDA_PROD] >>
    fs [LET_THM, LIST_TO_SET_MAP, FST_pair, IMAGE_COMPOSE] >>
    metis_tac [type_funs_dom]);
+   *)
 
+   (*
 val type_ds_closed = prove(
-  ``∀uniq mn decls tenv ds w x y z. type_ds uniq mn decls tenv ds w x y z ⇒
+  ``∀uniq mn decls tenv ds w x. type_ds uniq mn decls tenv ds w x ⇒
      !mn'. mn = SOME mn' ⇒
       FV_decs ds ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
   ho_match_mp_tac type_ds_ind >>
@@ -3101,10 +3178,12 @@ val type_ds_closed = prove(
   rw [] >>
   fs[MEM_MAP] >>
   metis_tac [type_d_new_dec_vs,MEM_MAP]);
+  *)
 
+  (*
 val type_top_closed = store_thm("type_top_closed",
-  ``∀uniq decls tenv top decls' tT' tm' tc' te'.
-      type_top uniq decls tenv top decls' tT' tm' tc' te'
+  ``∀uniq decls tenv top decls' new_tenv.
+      type_top uniq decls tenv top decls' new_tenv
       ⇒
       FV_top top ⊆ (IMAGE Short (tenv_names tenv.v) ∪ tmenv_dom tenv.m)``,
   ho_match_mp_tac type_top_ind >>
@@ -3116,6 +3195,7 @@ val type_top_closed = store_thm("type_top_closed",
   rpt gen_tac >> strip_tac >>
   imp_res_tac type_ds_closed >>
   fs[]);
+  *)
 
 val type_env_dom = Q.prove (
   `!ctMap tenvS env tenv.
