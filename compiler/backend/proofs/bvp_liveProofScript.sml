@@ -49,7 +49,7 @@ val state_rel_IMP_do_app = prove(
        (fs [bvp_to_bvi_def] \\ NO_TAC)
   \\ fs [bvi_to_bvp_def]
   \\ ASM_SIMP_TAC (srw_ss()) [bvpSemTheory.state_component_equality]
-  \\ SRW_TAC [] []);
+  \\ SRW_TAC [] [] \\ fs[]);
 
 val state_rel_IMP_do_app_err = prove(
   ``(do_app op args s1 = Rerr e) /\ state_rel s1 t1 anything ==>
