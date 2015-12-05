@@ -293,6 +293,12 @@ val do_app_err = Q.store_thm("do_app_err",
   every_case_tac >> fs[] >> rw[] >>
   imp_res_tac bvlPropsTheory.do_app_err >> rw[]);
 
+val do_app_aux_const = Q.store_thm("do_app_aux_const",
+  `do_app_aux op vs s = SOME (SOME (y,z)) ⇒
+   z.clock = s.clock`,
+  Cases_on`op`>>rw[do_app_aux_def] >>
+  every_case_tac >> fs[] >> rw[])
+
 val do_app_aux_with_code = Q.store_thm("do_app_aux_with_code",
   `do_app_aux op vs (s with code := c) =
    OPTION_MAP (OPTION_MAP (λ(x,y). (x,y with code := c))) (do_app_aux op vs s)`,
@@ -393,7 +399,7 @@ val do_app_aux_with_clock = Q.store_thm("do_app_aux_with_clock",
   rw[do_app_aux_def] >>
   every_case_tac >> fs[]);
 
-val do_app_change_clock = Q.prove(
+val do_app_change_clock = Q.store_thm("do_app_change_clock",
   `(do_app op args s1 = Rval (res,s2)) ==>
    (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
   rw[do_app_def,do_app_aux_with_clock] >>

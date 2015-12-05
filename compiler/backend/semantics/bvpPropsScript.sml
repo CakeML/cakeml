@@ -1,4 +1,5 @@
 open preamble bvpTheory bvpSemTheory;
+local open bviPropsTheory in end;
 
 val _ = new_theory"bvpProps";
 
@@ -76,13 +77,16 @@ val do_app_err = Q.store_thm("do_app_err",
 
 val do_app_const = Q.store_thm("do_app_const",
   `do_app op vs x = Rval (y,z) ⇒
-    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals`,
+    z.stack = x.stack ∧ z.handler = x.handler ∧ z.locals = x.locals ∧ z.clock = x.clock`,
   simp[do_app_def,do_space_def] >>
   every_case_tac >> simp[bvi_to_bvp_def] >> strip_tac >>
   rpt var_eq_tac >> simp[] >>
   fs[bviSemTheory.do_app_def] >>
   every_case_tac >> fs[] >> rpt var_eq_tac >>
-  fs[consume_space_def] >> var_eq_tac >> simp[])
+  fs[bviSemTheory.bvl_to_bvi_def,bvp_to_bvi_def,bviSemTheory.bvi_to_bvl_def] >>
+  imp_res_tac bvlSemTheory.do_app_const >> fs[] >>
+  imp_res_tac bviPropsTheory.do_app_aux_const >> fs[] >>
+  fs[consume_space_def] >> TRY var_eq_tac >> simp[])
 
 val do_app_locals = store_thm("do_app_locals",
   ``(do_app op x s = Rval (q,r)) ==>
@@ -600,5 +604,64 @@ val do_app_Rerr = store_thm("do_app_Rerr",
   fs [bvpSemTheory.do_app_def,bviSemTheory.do_app_def] \\ every_case_tac \\ rw []
   \\ fs [bvlSemTheory.do_app_def] \\ every_case_tac \\ rw []
   \\ fs [LET_DEF]);
+
+val do_app_change_clock = Q.store_thm("do_app_change_clock",
+  `(do_app op args s1 = Rval (res,s2)) ==>
+   (do_app op args (s1 with clock := ck) = Rval (res,s2 with clock := ck))`,
+  rw[do_app_def,do_space_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac bviPropsTheory.do_app_change_clock >>
+  fs[bvp_to_bvi_def,bvi_to_bvp_def,state_component_equality] >>
+  rpt var_eq_tac >> simp[] >>
+  fs[consume_space_def] >>
+  rpt var_eq_tac >> fs[] >>
+  rpt var_eq_tac >> fs[] );
+
+val cut_state_eq_some = Q.store_thm("cut_state_eq_some",
+  `cut_state names s = SOME y ⇔ ∃z. cut_env names s.locals = SOME z ∧ y = s with locals := z`,
+  rw[cut_state_def] >> every_case_tac >> fs[EQ_IMP_THM]);
+
+val cut_state_eq_none = Q.store_thm("cut_state_eq_none",
+  `cut_state names s = NONE ⇔ cut_env names s.locals = NONE`,
+  rw[cut_state_def] >> every_case_tac >> fs[EQ_IMP_THM]);
+
+val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
+  `!exps s1 res s2.
+    evaluate (exps,s1) = (res, s2) ∧
+    (∀a. res ≠ SOME(Rerr(Rabort a)))
+    ⇒
+    !ck. evaluate (exps,s1 with clock := s1.clock + ck) = (res, s2 with clock := s2.clock + ck)`,
+  recInduct evaluate_ind >> rw [evaluate_def]
+  >- (
+    every_case_tac >> fs[get_var_def,set_var_def] >> rw[] >> fs[] )
+  >- (
+    every_case_tac >> fs[] >> rw[] >>
+    fs[cut_state_opt_def,cut_state_eq_some,cut_state_eq_none] >>
+    every_case_tac >> fs[cut_state_eq_some,cut_state_eq_none] >>
+    rw[] >> fs[set_var_def] >> rw[] >>
+    imp_res_tac do_app_change_clock >> fs[] >>
+    rpt var_eq_tac >> fs[] >>
+    rpt var_eq_tac >> fs[state_component_equality] >>
+    imp_res_tac do_app_const >> fs[] >>
+    imp_res_tac do_app_Rerr >> fs[] )
+  >- ( EVAL_TAC >> simp[state_component_equality] )
+  >- ( every_case_tac >> fs[] >> rw[] >> EVAL_TAC )
+  >- (
+    every_case_tac >> fs[] >> rw[] >> fs[jump_exc_NONE] >>
+    imp_res_tac jump_exc_IMP >> fs[] )
+  >- (
+    every_case_tac >> fs[] >> rw[call_env_def] )
+  >- (
+    fs[LET_THM] >>
+    split_pair_tac >> fs[] >>
+    every_case_tac >> fs[] >> rw[] >>
+    rfs[] >> rw[] )
+  >- ( every_case_tac >> fs[] >> rw[] )
+  >- (
+    every_case_tac >> fs[] >> rw[] >> rfs[] >>
+    fsrw_tac[ARITH_ss][call_env_def,dec_clock_def,push_env_def,pop_env_def,set_var_def] >>
+    first_x_assum(qspec_then`ck`mp_tac) >> simp[] >>
+    every_case_tac >> fs[] >> rw[] >> rfs[] >> fs[] >>
+    spose_not_then strip_assume_tac >> fs[]))
 
 val _ = export_theory();
