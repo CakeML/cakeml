@@ -63,7 +63,7 @@ val do_app_def = Define `
                   | Rval (v,t) => Rval (v, bvi_to_bvp t s1))`
 
 val get_var_def = Define `
-  get_var v s = lookup v s.locals`;
+  get_var v = lookup v`;
 
 val get_vars_def = Define `
   (get_vars [] s = SOME []) /\
@@ -153,7 +153,7 @@ val push_env_clock = prove(
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,s) = (NONE,s:'ffi bvpSem$state)) /\
   (evaluate (Move dest src,s) =
-     case get_var src s of
+     case get_var src s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME v => (NONE, set_var dest v s)) /\
   (evaluate (Assign dest op args names_opt,s) =
@@ -161,7 +161,7 @@ val evaluate_def = tDefine "evaluate" `
      case cut_state_opt names_opt s of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME s =>
-       (case get_vars args s of
+       (case get_vars args s.locals of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME xs => (case do_app op xs s of
                       | Rerr e => (SOME (Rerr e),s)
@@ -175,27 +175,27 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME env => (NONE,add_space s k with locals := env)) /\
   (evaluate (Raise n,s) =
-     case get_var n s of
+     case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME x =>
        (case jump_exc s of
         | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
         | SOME s => (SOME (Rerr(Rraise x)),s))) /\
   (evaluate (Return n,s) =
-     case get_var n s of
+     case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME x => (SOME (Rval x),call_env [] s)) /\
   (evaluate (Seq c1 c2,s) =
      let (res,s1) = evaluate (c1,s) in
        if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
   (evaluate (If n c1 c2,s) =
-     case get_var n s of
+     case get_var n s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME x => if x = Boolv T then evaluate (c1,s) else
                  if x = Boolv F then evaluate (c2,s) else
                    (SOME (Rerr(Rabort Rtype_error)),s)) /\
   (evaluate (Call ret dest args handler,s) =
-     case get_vars args s of
+     case get_vars args s.locals of
      | NONE => (SOME (Rerr(Rabort Rtype_error)),s)
      | SOME xs =>
        (case find_code dest xs s.code of

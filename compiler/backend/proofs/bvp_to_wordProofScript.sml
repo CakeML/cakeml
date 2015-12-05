@@ -151,7 +151,7 @@ val word_ml_inv_lookup = prove(
 val word_ml_inv_get_var_IMP = store_thm("word_ml_inv_get_var_IMP",
   ``word_ml_inv (heap,be,a,sp) limit c s.refs
       (join_env s.locals (toAList (delete_odd t.locals))++envs) /\
-    get_var n s = SOME x /\
+    get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     word_ml_inv (heap,be,a,sp) limit c s.refs
       ([(x,w)]++join_env s.locals (toAList (delete_odd t.locals))++envs)``,
@@ -163,15 +163,15 @@ val word_ml_inv_get_vars_IMP = store_thm("word_ml_inv_get_vars_IMP",
   ``!n x w envs.
       word_ml_inv (heap,be,a,sp) limit c s.refs
         (join_env s.locals (toAList (delete_odd t.locals))++envs) /\
-      get_vars n s = SOME x /\
+      get_vars n s.locals = SOME x /\
       get_vars (MAP adjust_var n) t = SOME w ==>
       word_ml_inv (heap,be,a,sp) limit c s.refs
         (ZIP(x,w)++join_env s.locals (toAList (delete_odd t.locals))++envs)``,
   Induct \\ fs [get_vars_def,wordSemTheory.get_vars_def] \\ rpt strip_tac
   \\ every_case_tac \\ fs [] \\ rw []
   \\ imp_res_tac word_ml_inv_get_var_IMP
-  \\ Q.MATCH_ASSUM_RENAME_TAC `bvpSem$get_var h s = SOME x7`
-  \\ Q.MATCH_ASSUM_RENAME_TAC `wordSem$get_var (adjust_var h) t = SOME x8`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `bvpSem$get_var h s.locals = SOME x7`
+  \\ Q.MATCH_ASSUM_RENAME_TAC `_ (adjust_var h) _ = SOME x8`
   \\ `word_ml_inv (heap,be,a,sp) limit c s.refs
         (join_env s.locals (toAList (delete_odd t.locals)) ++ (x7,x8)::envs)` by
    (pop_assum mp_tac \\ match_mp_tac word_ml_inv_rearrange
@@ -337,7 +337,7 @@ val adjust_var_NOT_0 = store_thm("adjust_var_NOT_0[simp]",
 
 val state_rel_get_var_IMP = prove(
   ``state_rel c l1 l2 s t [] locs ==>
-    (get_var n s = SOME x) ==>
+    (get_var n s.locals = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w``,
   fs [bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
   \\ fs [state_rel_def] \\ rpt strip_tac
@@ -347,17 +347,17 @@ val state_rel_get_var_IMP = prove(
 val state_rel_get_vars_IMP = prove(
   ``!n xs.
       state_rel c l1 l2 s t [] locs ==>
-      (get_vars n s = SOME xs) ==>
+      (get_vars n s.locals = SOME xs) ==>
       ?ws. get_vars (MAP adjust_var n) t = SOME ws /\ (LENGTH xs = LENGTH ws)``,
   Induct \\ fs [bvpSemTheory.get_vars_def,wordSemTheory.get_vars_def]
   \\ rpt strip_tac
-  \\ Cases_on `get_var h s` \\ fs []
-  \\ Cases_on `get_vars n s` \\ fs [] \\ rw []
+  \\ Cases_on `get_var h s.locals` \\ fs []
+  \\ Cases_on `get_vars n s.locals` \\ fs [] \\ rw []
   \\ imp_res_tac state_rel_get_var_IMP \\ fs []);
 
 val state_rel_0_get_vars_IMP = prove(
   ``state_rel c l1 l2 s t [] locs ==>
-    (get_vars n s = SOME xs) ==>
+    (get_vars n s.locals = SOME xs) ==>
     ?ws. get_vars (0::MAP adjust_var n) t = SOME ((Loc l1 l2)::ws) /\
          (LENGTH xs = LENGTH ws)``,
   rpt strip_tac
@@ -367,7 +367,7 @@ val state_rel_0_get_vars_IMP = prove(
 
 val get_var_T_OR_F = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) state) [] locs /\
-    get_var n s = SOME x /\
+    get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w ==>
     6 MOD dimword (:'a) <> 2 MOD dimword (:'a) /\
     ((x = Boolv T) ==> (w = Word 2w)) /\
@@ -527,7 +527,7 @@ val flat_APPEND = prove(
 
 val state_rel_jump_exc = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
-    get_var n s = SOME x /\
+    get_var n s.locals = SOME x /\
     get_var (adjust_var n) t = SOME w /\
     jump_exc s = SOME s1 ==>
     ?t1 d1 d2 l5 l6 ll.
@@ -583,7 +583,7 @@ val lookup_adjust_var_fromList2 = prove(
   \\ fs [GSYM MULT_CLAUSES,MULT_DIV]);
 
 val state_rel_call_env = prove(
-  ``get_vars args s = SOME q /\
+  ``get_vars args s.locals = SOME q /\
     get_vars (MAP adjust_var args) (t:('a,'ffi) wordSem$state) = SOME ws /\
     state_rel c l5 l6 s t [] locs ==>
     state_rel c l1 l2 (call_env q (dec_clock s))
@@ -640,7 +640,7 @@ val word_ml_inv_CodePtr = prove(
 
 val state_rel_CodePtr = prove(
   ``state_rel c l1 l2 s t [] locs /\
-    get_vars args s = SOME x /\
+    get_vars args s.locals = SOME x /\
     get_vars (MAP adjust_var args) t = SOME y /\
     LAST x = CodePtr n /\ x <> [] ==>
     y <> [] /\ LAST y = Loc n 0``,
@@ -662,7 +662,7 @@ val state_rel_CodePtr = prove(
 val find_code_thm = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
-      get_vars args s = SOME x /\
+      get_vars args s.locals = SOME x /\
       get_vars (0::MAP adjust_var args) t = SOME (Loc l1 l2::ws) /\
       find_code dest x s.code = SOME (q,r) ==>
       ?args1 n1 n2.
@@ -819,7 +819,7 @@ val MEM_IMP_IS_SOME_ALOOKUP = prove(
 val state_rel_call_env_push_env = prove(
   ``!opt:(num # 'a wordLang$prog # num # num) option.
       state_rel c l1 l2 s (t:('a,'ffi)wordSem$state) [] locs /\
-      get_vars args s = SOME xs /\
+      get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       bvpSem$cut_env r s.locals = SOME x /\
       wordSem$cut_env (adjust_set r) t.locals = SOME y ==>
@@ -889,7 +889,7 @@ val state_rel_call_env_push_env = prove(
 val find_code_thm_ret = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
-      get_vars args s = SOME xs /\
+      get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
       bvpSem$cut_env r s.locals = SOME x /\
@@ -926,7 +926,7 @@ val find_code_thm_ret = prove(
 val find_code_thm_handler = prove(
   ``!(s:'ffi bvpSem$state) (t:('a,'ffi)wordSem$state).
       state_rel c l1 l2 s t [] locs /\
-      get_vars args s = SOME xs /\
+      get_vars args s.locals = SOME xs /\
       get_vars (MAP adjust_var args) t = SOME ws /\
       find_code dest xs s.code = SOME (ys,prog) /\
       bvpSem$cut_env r s.locals = SOME x /\
@@ -1052,7 +1052,7 @@ val assign_thm = prove(
   ``state_rel c l1 l2 s t [] locs /\
     (op_space_reset op ==> names_opt <> NONE) /\
     cut_state_opt names_opt s = SOME s1 /\
-    get_vars args s1 = SOME vals /\
+    get_vars args s1.locals = SOME vals /\
     do_app op vals s1 = Rval (v,s2) /\
     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
     q <> SOME NotEnoughSpace ==>
@@ -1352,6 +1352,17 @@ val stack_rel_dec_stack_IMP_stack_rel = prove(
   \\ fs [FST_PAIR_EQ]
   \\ imp_res_tac EVERY2_IMP_EL \\ rfs [EL_MAP]);
 
+val join_env_NIL = prove(
+  ``join_env s [] = []``,
+  fs [join_env_def]);
+
+val join_env_CONS = prove(
+  ``join_env s ((n,v)::xs) =
+    if n <> 0 /\ EVEN n then
+      (THE (lookup ((n - 2) DIV 2) s),v)::join_env s xs
+    else join_env s xs``,
+  fs [join_env_def] \\ rw []);
+
 val FILTER_enc_stack_lemma = prove(
   ``!xs ys.
       LIST_REL stack_rel xs ys ==>
@@ -1386,17 +1397,6 @@ val EVERY2_APPEND_IMP = prove(
 val ZIP_ID = prove(
   ``!xs. ZIP (MAP FST xs, MAP SND xs) = xs``,
   Induct \\ fs []);
-
-val join_env_NIL = prove(
-  ``join_env s [] = []``,
-  fs [join_env_def]);
-
-val join_env_CONS = prove(
-  ``join_env s ((n,v)::xs) =
-    if n <> 0 /\ EVEN n then
-      (THE (lookup ((n - 2) DIV 2) s),v)::join_env s xs
-    else join_env s xs``,
-  fs [join_env_def] \\ rw []);
 
 val join_env_EQ_ZIP = prove(
   ``!vs s zs1.
@@ -1587,7 +1587,7 @@ val compile_correct = prove(
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def] \\ rw [])
   THEN1 (* Move *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ Cases_on `get_var src s` \\ fs [] \\ rw []
+    \\ Cases_on `get_var src s.locals` \\ fs [] \\ rw []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.set_vars_def,alist_insert_def]
     \\ fs [state_rel_def,set_var_def,lookup_insert]
@@ -1603,7 +1603,7 @@ val compile_correct = prove(
                                      b1 /\ b2 /\ x1 = y \/
                                      (b1 ==> ~b2) /\ x2 = y``)
     \\ fs [] \\ rw [] \\ Cases_on `cut_state_opt names_opt s` \\ fs []
-    \\ Cases_on `get_vars args x` \\ fs []
+    \\ Cases_on `get_vars args x.locals` \\ fs []
     \\ reverse (Cases_on `do_app op x' x`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rw [])
     \\ Cases_on `evaluate (FST (assign c n l dest op args names_opt),t)`
@@ -1650,14 +1650,14 @@ val compile_correct = prove(
     \\ imp_res_tac has_space_state_rel \\ fs [])
   THEN1 (* Raise *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ Cases_on `get_var n s` \\ fs [] \\ rw []
+    \\ Cases_on `get_var n s.locals` \\ fs [] \\ rw []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ Cases_on `jump_exc s` \\ fs [] \\ rw []
     \\ imp_res_tac state_rel_jump_exc \\ fs []
     \\ rw [] \\ fs [] \\ rw [mk_loc_def])
   THEN1 (* Return *)
    (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ Cases_on `get_var n s` \\ fs [] \\ rw []
+    \\ Cases_on `get_var n s.locals` \\ fs [] \\ rw []
     \\ `get_var 0 t = SOME (Loc l1 l2)` by
           fs [state_rel_def,wordSemTheory.get_var_def]
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
@@ -1699,7 +1699,7 @@ val compile_correct = prove(
     \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
     \\ Cases_on `comp c n r c2` \\ fs [LET_DEF]
     \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
-    \\ Cases_on `get_var n s` \\ fs []
+    \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP
     \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
     \\ imp_res_tac get_var_T_OR_F
@@ -1721,7 +1721,7 @@ val compile_correct = prove(
     \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
            wordSemTheory.add_ret_loc_def]
     THEN1 (* ret = NONE *)
-     (Cases_on `get_vars args s` \\ fs []
+     (Cases_on `get_vars args s.locals` \\ fs []
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ fs []
       \\ Cases_on `find_code dest x s.code` \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ Cases_on `handler` \\ fs []
@@ -1738,7 +1738,7 @@ val compile_correct = prove(
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def])
     \\ Cases_on `x` \\ fs [LET_DEF]
     \\ Cases_on `handler` \\ fs [wordSemTheory.evaluate_def]
-    \\ Cases_on `get_vars args s` \\ fs []
+    \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ imp_res_tac state_rel_get_vars_IMP \\ fs []
     \\ fs [wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)

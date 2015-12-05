@@ -68,11 +68,11 @@ val state_rel_IMP_do_app_err = prove(
 val state_rel_IMP_get_vars = prove(
   ``!args s1 t1 t xs.
       state_rel s1 t1 (list_insert args t) /\
-      (get_vars args s1 = SOME xs) ==>
-      (get_vars args t1 = SOME xs)``,
+      (get_vars args s1.locals = SOME xs) ==>
+      (get_vars args t1.locals = SOME xs)``,
   Induct \\ fs [get_vars_def] \\ REPEAT STRIP_TAC
   \\ `state_rel s1 t1 (list_insert args t) /\
-      (get_var h s1 = get_var h t1)` by ALL_TAC THEN1
+      (get_var h s1.locals = get_var h t1.locals)` by ALL_TAC THEN1
    (fs [state_rel_def,list_insert_def,domain_list_insert,get_var_def]
     \\ METIS_TAC []) \\ fs []
   \\ every_case_tac >> fs[]
@@ -101,8 +101,8 @@ val evaluate_compile = Q.prove(
       (fs [evaluate_def,get_var_def,LET_DEF]
        \\ every_case_tac >> fs[] \\ SRW_TAC [] []
        \\ fs [compile_def,LET_DEF,evaluate_def,cut_state_opt_def] \\ rw[]
-       \\ qmatch_assum_rename_tac`get_vars args s1 = SOME xx`
-       \\ `get_vars args t1 = SOME xx` by IMP_RES_TAC state_rel_IMP_get_vars
+       \\ qmatch_assum_rename_tac`get_vars args _ = SOME xx`
+       \\ `get_vars args t1.locals = SOME xx` by IMP_RES_TAC state_rel_IMP_get_vars
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app
        \\ fs [] \\ IMP_RES_TAC state_rel_IMP_do_app_err
        \\ fs [state_rel_def,set_var_def,lookup_insert]
@@ -124,7 +124,7 @@ val evaluate_compile = Q.prove(
                 (inter x (list_insert args (delete dest l2))))`
      \\ `state_rel (s with locals := mk_wf (inter s.locals x))
         (t1 with locals := t4) LN` by (fs [state_rel_def] \\ NO_TAC)
-     \\ `get_vars args (t1 with locals := t4) = SOME vs` by
+     \\ `get_vars args t4 = SOME vs` by
       (UNABBREV_ALL_TAC
        \\ Q.PAT_ASSUM `xx = SOME vs` (fn th => ONCE_REWRITE_TAC [GSYM th])
        \\ MATCH_MP_TAC EVERY_get_vars
@@ -154,7 +154,7 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `lookup x names` \\ fs [lookup_inter,oneTheory.one]
     \\ REPEAT BasicProvers.CASE_TAC \\ METIS_TAC [])
   THEN1 (* Raise *)
-   (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s` \\ fs []
+   (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [state_rel_def]
     \\ Q.PAT_ASSUM `lookup n s.locals = lookup n t1.locals`
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
@@ -162,7 +162,7 @@ val evaluate_compile = Q.prove(
     \\ Cases_on `jump_exc s` \\ fs [] \\ SRW_TAC [] []
     \\ Cases_on `jump_exc t1` \\ fs [] \\ SRW_TAC [] [])
   THEN1 (* Return *)
-   (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s` \\ fs []
+   (fs [evaluate_def,compile_def] \\ Cases_on `get_var n s.locals` \\ fs []
     \\ fs [state_rel_def]
     \\ Q.PAT_ASSUM `lookup n s.locals = lookup n t1.locals`
          (ASSUME_TAC o GSYM) \\ fs [get_var_def]
@@ -197,8 +197,8 @@ val evaluate_compile = Q.prove(
     \\ `?d2 l2. compile c1 l9 = (d2,l2)` by METIS_TAC [PAIR]
     \\ fs [compile_def,LET_DEF] \\ rw []
     \\ fs [evaluate_def] \\ REPEAT STRIP_TAC
-    \\ Cases_on `get_var n s` \\ fs []
-    \\ `(get_var n s = get_var n t1)` by
+    \\ Cases_on `get_var n s.locals` \\ fs []
+    \\ `(get_var n s.locals = get_var n t1.locals)` by
          (fs [state_rel_def,domain_union,domain_insert,get_var_def]
           \\ METIS_TAC [])
     \\ Cases_on `x = Boolv T` \\ fs [] THEN1
@@ -218,8 +218,8 @@ val evaluate_compile = Q.prove(
   THEN1 (* Call with ret = NONE *)
    (`s.clock = t1.clock /\ s.code = t1.code` by fs [state_rel_def]
     \\ REV_FULL_SIMP_TAC std_ss []
-    \\ fs [] \\ Cases_on `get_vars args s` \\ fs []
-    \\ `get_vars args t1 = get_vars args s` by ALL_TAC THEN1
+    \\ fs [] \\ Cases_on `get_vars args s.locals` \\ fs []
+    \\ `get_vars args t1.locals = get_vars args s.locals` by ALL_TAC THEN1
      (MATCH_MP_TAC EVERY_get_vars
       \\ fs [EVERY_MEM,state_rel_def,domain_list_to_num_set])
     \\ fs [] \\ REV_FULL_SIMP_TAC std_ss []
@@ -272,7 +272,7 @@ val evaluate_compile = Q.prove(
   THEN1 (* Call with handler NONE *)
    (fs [compile_def,LET_DEF,evaluate_def]
     \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
-    \\ Cases_on `get_vars args s` \\ fs []
+    \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
@@ -351,7 +351,7 @@ val evaluate_compile = Q.prove(
   \\ `?d6 l6. compile handle l2 = (d6,l6)` by METIS_TAC [PAIR]
   \\ fs [compile_def,LET_DEF,evaluate_def]
   \\ `t1.clock = s.clock /\ t1.code = s.code` by fs [state_rel_def]
-  \\ Cases_on `get_vars args s` \\ fs []
+  \\ Cases_on `get_vars args s.locals` \\ fs []
   \\ IMP_RES_TAC state_rel_IMP_get_vars \\ fs []
   \\ Cases_on `find_code dest x s.code` \\ fs []
   \\ Cases_on `x'` \\ fs []

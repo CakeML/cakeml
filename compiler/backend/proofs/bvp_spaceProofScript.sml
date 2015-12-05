@@ -28,7 +28,7 @@ val evaluate_compile = Q.prove(
   THEN1 (* Skip *)
    (fs [evaluate_def] \\ METIS_TAC [])
   THEN1 (* Move *)
-   (Cases_on `get_var src s` \\ fs [] \\ SRW_TAC [] []
+   (Cases_on `get_var src s.locals` \\ fs [] \\ SRW_TAC [] []
     \\ fs [get_var_def,lookup_union,set_var_def,locals_ok_def]
     \\ RES_TAC \\ fs []
     \\ Q.EXISTS_TAC `insert dest x l` \\ fs [lookup_insert]
@@ -36,9 +36,9 @@ val evaluate_compile = Q.prove(
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ fs []
     \\ Cases_on `op_space_reset op` \\ fs [cut_state_opt_def] THEN1
-     (Cases_on `get_vars args s` \\ fs [cut_state_opt_def]
-      \\ `get_vars args (s with locals := l) =
-          get_vars args s` by
+     (Cases_on `get_vars args s.locals` \\ fs [cut_state_opt_def]
+      \\ `get_vars args l =
+          get_vars args s.locals` by
        (MATCH_MP_TAC EVERY_get_vars
         \\ fs [EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
@@ -75,16 +75,16 @@ val evaluate_compile = Q.prove(
     \\ IMP_RES_TAC locals_ok_cut_env
     \\ fs [LET_DEF,add_space_def,state_component_equality,locals_ok_def])
   THEN1 (* Raise *)
-   (Cases_on `get_var n s` \\ fs [] \\ SRW_TAC [] []
+   (Cases_on `get_var n s.locals` \\ fs [] \\ SRW_TAC [] []
     \\ `jump_exc (s with locals := l) = jump_exc s` by
          fs [jump_exc_def] \\ Cases_on `jump_exc s` \\ fs []
-    \\ `get_var n (s with locals := l) = SOME x` by
+    \\ `get_var n l = SOME x` by
          fs [locals_ok_def,get_var_def] \\ fs []
     \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
     \\ fs [locals_ok_def])
   THEN1 (* Return *)
-   (Cases_on `get_var n s` \\ fs [] \\ SRW_TAC [] []
-    \\ `get_var n (s with locals := l) = SOME x` by
+   (Cases_on `get_var n s.locals` \\ fs [] \\ SRW_TAC [] []
+    \\ `get_var n l = SOME x` by
          fs [locals_ok_def,get_var_def] \\ fs []
     \\ srw_tac [] [call_env_def]
     \\ fs [locals_ok_def,call_env_def,lookup_fromList,
@@ -148,7 +148,7 @@ val evaluate_compile = Q.prove(
             cut_state_opt_def,cut_state_def]
         \\ Cases_on `cut_env x s.locals` \\ fs [] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_cut_env \\ fs []
-        \\ Cases_on `get_vars l' (s with locals := x')` \\ fs []
+        \\ Cases_on `get_vars l' x'` \\ fs []
         \\ SRW_TAC [] []
         \\ reverse(Cases_on `do_app o' x'' (s with locals := x')`)
         \\ fs [] \\ SRW_TAC [] [] >- (
@@ -165,7 +165,7 @@ val evaluate_compile = Q.prove(
         \\ AP_TERM_TAC \\ AP_TERM_TAC
         \\ fs [state_component_equality,add_space_def])
       \\ Cases_on `op_space_reset o'` \\ fs [] \\ SRW_TAC [] []
-      \\ Cases_on `get_vars l' s` \\ fs [] \\ SRW_TAC [] []
+      \\ Cases_on `get_vars l' s.locals` \\ fs [] \\ SRW_TAC [] []
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ fs []
       \\ discharge_hyps >- (rpt strip_tac >> fs[])
       \\ rpt strip_tac
@@ -187,9 +187,7 @@ val evaluate_compile = Q.prove(
         \\ IMP_RES_TAC get_vars_IMP_domain \\ fs []
         \\ fs [domain_list_insert,SUBSET_DEF] \\ REPEAT STRIP_TAC \\ RES_TAC)
       \\ fs []
-      \\ `get_vars l'
-           (s with <|locals := (inter l (list_insert l' (delete n y1)));
-                     space := op_space_req o' + y0|>) = get_vars l' (s with locals := l)`
+      \\ `get_vars l' (inter l (list_insert l' (delete n y1))) = get_vars l' l`
            by (MATCH_MP_TAC EVERY_get_vars
                \\ fs [EVERY_MEM,lookup_inter_alt,domain_list_insert] \\ NO_TAC)
       \\ fs [do_app_def,do_space_alt]
@@ -227,7 +225,7 @@ val evaluate_compile = Q.prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ POP_ASSUM MP_TAC
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
-      \\ REPEAT STRIP_TAC \\ Cases_on `get_var n0 s` \\ fs []
+      \\ REPEAT STRIP_TAC \\ Cases_on `get_var n0 s.locals` \\ fs []
       \\ SRW_TAC [] []
       \\ IMP_RES_TAC locals_ok_get_var \\ fs []
       \\ Q.PAT_ASSUM `!ww.bb==>bbb` (MP_TAC o Q.SPEC `insert n x w`) \\ fs []
@@ -284,11 +282,11 @@ val evaluate_compile = Q.prove(
       \\ SIMP_TAC std_ss [Once evaluate_def,LET_DEF]
       \\ REPEAT STRIP_TAC \\ fs [] \\ NO_TAC))
   THEN1 (* If *)
-   (Cases_on `get_var n s` \\ fs []
+   (Cases_on `get_var n s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ SRW_TAC [] [] \\ fs [])
   THEN1 (* Call *)
-   (Cases_on `get_vars args s` \\ fs []
+   (Cases_on `get_vars args s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []

@@ -16,12 +16,6 @@ val get_vars_thm = store_thm("get_vars_thm",
   \\ FULL_SIMP_TAC (srw_ss()) [var_corr_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
-val get_vars_add_space = store_thm("get_vars_add_space",
-  ``!vs s x. (get_vars vs (add_space s x) = get_vars vs s) /\
-             (get_vars vs (add_space s x with locals := y) =
-              get_vars vs (s with locals := y))``,
-  Induct \\ fs [get_vars_def,get_var_def,add_space_def]);
-
 val get_vars_append = store_thm("get_vars_append",
   ``∀l1 l2 s. get_vars (l1 ++ l2) s = OPTION_BIND (get_vars l1 s)(λy1. OPTION_BIND (get_vars l2 s)(λy2. SOME(y1 ++ y2)))``,
   Induct >> simp[get_vars_def,OPTION_BIND_SOME,ETA_AX] >> rw[] >>
@@ -35,29 +29,17 @@ val get_vars_reverse = store_thm("get_vars_reverse",
 
 val EVERY_get_vars = store_thm("EVERY_get_vars",
   ``!args s1 s2.
-      EVERY (\a. lookup a s1.locals = lookup a s2.locals) args ==>
+      EVERY (\a. lookup a s1 = lookup a s2) args ==>
       (get_vars args s1 = get_vars args s2)``,
   Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
   \\ RES_TAC \\ FULL_SIMP_TAC std_ss []);
 
 val get_vars_IMP_domain = store_thm("get_vars_IMP_domain",
   ``!args x s vs. MEM x args /\ (get_vars args s = SOME vs) ==>
-                  x IN domain s.locals``,
+                  x IN domain s``,
   Induct \\ fs [get_vars_def,get_var_def] \\ REPEAT STRIP_TAC
   \\ every_case_tac \\ fs [] \\ SRW_TAC [] []
   \\ fs [domain_lookup]);
-
-val get_vars_with_stack = prove(
-  ``!args s. (s.locals = t.locals) ==>
-             (get_vars args s = get_vars args t)``,
-  Induct \\ fs [get_vars_def,get_var_def]);
-
-val get_vars_with_stack_rwt = prove(
-  ``(get_vars args (s with stack := xs) = get_vars args s) /\
-    (get_vars args (s with <| locals := l ; stack := xs |>) =
-     get_vars args (s with <| locals := l |>))``,
-  REPEAT STRIP_TAC
-  \\ MATCH_MP_TAC get_vars_with_stack \\ fs []);
 
 val cut_state_opt_with_stack = Q.prove(
   `cut_state_opt x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (cut_state_opt x y)`,
@@ -151,7 +133,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
   THEN1 (
     fs[evaluate_def] >>
     every_case_tac >>
-    fs[set_var_def,cut_state_opt_with_stack,get_vars_with_stack_rwt,do_app_with_stack] >>
+    fs[set_var_def,cut_state_opt_with_stack,do_app_with_stack] >>
     imp_res_tac do_app_err >> fs[] >> rpt var_eq_tac >>
     fs[cut_state_opt_def,cut_state_def] >> every_case_tac >> fs[] >>
     rpt var_eq_tac >> fs[do_app_with_locals] >>
@@ -191,16 +173,16 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
    (fs [evaluate_def]
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ Cases_on `evaluate (c2,s)` \\ fs [LET_DEF]
-    \\ Cases_on `get_var n s` \\ fs []
+    \\ Cases_on `get_var n s.locals` \\ fs []
     \\ Cases_on `x = Boolv T` \\ fs [get_var_def]
     \\ Cases_on `x = Boolv F` \\ fs [get_var_def])
   THEN1 (* Call *)
    (fs [evaluate_def]
-    \\ Cases_on `get_vars args s` \\ fs []
+    \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ TRY (fs [call_env_def] \\ NO_TAC)
     \\ Cases_on `x'` \\ fs []
-    \\ Cases_on `ret` \\ fs [get_vars_with_stack_rwt] THEN1
+    \\ Cases_on `ret` \\ fs [] THEN1
      (every_case_tac \\ fs []
       \\ fs [call_env_def,dec_clock_def,jump_exc_def]
       \\ every_case_tac \\ fs []
@@ -209,7 +191,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ every_case_tac \\ fs []
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
       \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPEC `xs`) \\ fs [])
-    \\ fs [get_vars_with_stack_rwt]
+    \\ fs []
     \\ Cases_on `x'` \\ fs []
     \\ Cases_on `cut_env r' s.locals` \\ fs []
     \\ Cases_on `s.clock = 0` \\ fs [] THEN1 (fs [call_env_def])
@@ -435,16 +417,16 @@ val locals_ok_cut_env = store_thm("locals_ok_cut_env",
   \\ fs [oneTheory.one] \\ RES_TAC \\ RES_TAC \\ fs []);
 
 val locals_ok_get_var = store_thm("locals_ok_get_var",
-  ``locals_ok s.locals l /\
+  ``locals_ok s l /\
     (get_var x s = SOME w) ==>
-    (get_var x (s with locals := l) = SOME w)``,
+    (get_var x l = SOME w)``,
   fs [locals_ok_def,get_var_def]);
 
 val locals_ok_get_vars = store_thm("locals_ok_get_vars",
   ``!x w.
-      locals_ok s.locals l /\
+      locals_ok s l /\
       (get_vars x s = SOME w) ==>
-      (get_vars x (s with locals := l) = SOME w)``,
+      (get_vars x l = SOME w)``,
   Induct \\ fs [get_vars_def] \\ REPEAT STRIP_TAC
   \\ Cases_on `get_var h s` \\ fs []
   \\ Cases_on `get_vars x s` \\ fs []
@@ -474,7 +456,7 @@ val evaluate_locals = store_thm("evaluate_locals",
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [evaluate_def]
   THEN1 (* Skip *) (METIS_TAC [])
   THEN1 (* Move *)
-   (Cases_on `get_var src s` \\ fs [] \\ SRW_TAC [] []
+   (Cases_on `get_var src s.locals` \\ fs [] \\ SRW_TAC [] []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ fs [get_var_def,lookup_union,set_var_def,locals_ok_def]
     \\ Q.EXISTS_TAC `insert dest x l` \\ fs [lookup_insert]
@@ -482,7 +464,7 @@ val evaluate_locals = store_thm("evaluate_locals",
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ fs []
     \\ Cases_on `op_space_reset op` \\ fs [cut_state_opt_def] THEN1
-     (Cases_on `get_vars args s` \\ fs [cut_state_opt_def]
+     (Cases_on `get_vars args s.locals` \\ fs [cut_state_opt_def]
       \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
       \\ reverse(Cases_on `do_app op x s`) \\ fs [] >- (
            imp_res_tac do_app_err >> fs[] >>
@@ -511,16 +493,16 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ IMP_RES_TAC locals_ok_cut_env
     \\ fs [LET_DEF,add_space_def,state_component_equality,locals_ok_def])
   THEN1 (* Raise *)
-   (Cases_on `get_var n s` \\ fs [] \\ SRW_TAC [] []
+   (Cases_on `get_var n s.locals` \\ fs [] \\ SRW_TAC [] []
     \\ `jump_exc (s with locals := l) = jump_exc s` by
          fs [jump_exc_def] \\ Cases_on `jump_exc s` \\ fs []
-    \\ `get_var n (s with locals := l) = SOME x` by
+    \\ `get_var n l = SOME x` by
          fs [locals_ok_def,get_var_def] \\ fs []
     \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
     \\ fs [locals_ok_def])
   THEN1 (* Return *)
-   (Cases_on `get_var n s` \\ fs [] \\ SRW_TAC [] []
-    \\ `get_var n (s with locals := l) = SOME x` by
+   (Cases_on `get_var n s.locals` \\ fs [] \\ SRW_TAC [] []
+    \\ `get_var n l = SOME x` by
          fs [locals_ok_def,get_var_def] \\ fs []
     \\ srw_tac [] [call_env_def]
     \\ simp[locals_ok_def,lookup_fromList])
@@ -531,12 +513,12 @@ val evaluate_locals = store_thm("evaluate_locals",
     \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `q` \\ fs [] \\ SRW_TAC [] [] \\ METIS_TAC [])
   THEN1 (* If *)
-   (Cases_on `get_var n s` \\ fs []
+   (Cases_on `get_var n s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_var \\ fs []
     \\ Cases_on `x = Boolv T` \\ fs []
     \\ Cases_on `x = Boolv F` \\ fs [])
   THEN1 (* Call *)
-   (Cases_on `get_vars args s` \\ fs []
+   (Cases_on `get_vars args s.locals` \\ fs []
     \\ IMP_RES_TAC locals_ok_get_vars \\ fs []
     \\ Cases_on `find_code dest x s.code` \\ fs []
     \\ Cases_on `x'` \\ fs []
@@ -597,10 +579,6 @@ val FUNPOW_dec_clock_code = store_thm("FUNPOW_dec_clock_code[simp]",
     ((FUNPOW dec_clock n t).locals = t.locals) /\
     ((FUNPOW dec_clock n t).clock = t.clock - n)``,
   Induct_on `n` \\ fs [FUNPOW_SUC,dec_clock_def] \\ DECIDE_TAC);
-
-val get_vars_FUNPOW_dec_clock = store_thm("get_vars_FUNPOW_dec_clock[simp]",
-  ``!vs t. get_vars vs (FUNPOW dec_clock n t) = get_vars vs t``,
-  Induct \\ fs [get_vars_def,get_var_def,FUNPOW_dec_clock_code]);
 
 val jump_exc_NONE = store_thm("jump_exc_NONE",
   ``(jump_exc (t with locals := x) = NONE <=> jump_exc t = NONE) /\

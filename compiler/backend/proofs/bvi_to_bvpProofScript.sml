@@ -112,7 +112,7 @@ val RW = REWRITE_RULE;
 val compile_correct = Q.prove(
   `!xs env s1 res s2 t1 n corr tail live.
      (evaluate (xs,env,s1) = (res,s2)) /\ res <> Rerr(Rabort Rtype_error) /\
-     var_corr env corr t1 /\ (LENGTH xs <> 1 ==> ~tail) /\
+     var_corr env corr t1.locals /\ (LENGTH xs <> 1 ==> ~tail) /\
      (!k. n <= k ==> (lookup k t1.locals = NONE)) /\
      state_rel s1 t1 /\ EVERY (\n. lookup n t1.locals <> NONE) live /\
      (isException res ==> jump_exc t1 <> NONE) ==>
@@ -132,7 +132,7 @@ val compile_correct = Q.prove(
         | NONE => ~tail /\ n <= next_var /\
                   EVERY (\v. n <= v /\ v < next_var) vs /\
                   (!k. next_var <= k ==> (lookup k t2.locals = NONE)) /\
-                  var_corr env corr t2 /\
+                  var_corr env corr t2.locals /\
                   (!k x. (lookup k t2.locals = SOME x) ==> k < next_var) /\
                   (!k x. (lookup k t1.locals = SOME x) /\
                          (~MEM k live ==> MEM k corr) ==>
@@ -140,7 +140,7 @@ val compile_correct = Q.prove(
                   (t1.stack = t2.stack) /\ (t1.handler = t2.handler) /\
                   (jump_exc t1 <> NONE ==> jump_exc t2 <> NONE) /\
                   case res of
-                  | Rval xs => var_corr xs vs t2
+                  | Rval xs => var_corr xs vs t2.locals
                   | _ => F)`,
   SIMP_TAC std_ss [Once EQ_SYM_EQ]
   \\ recInduct bviSemTheory.evaluate_ind \\ REPEAT STRIP_TAC
@@ -218,8 +218,8 @@ val compile_correct = Q.prove(
       \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC compile_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2`
-      \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2.locals`
+      \\ `get_var n5 t2.locals = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC std_ss []
       \\ FULL_SIMP_TAC std_ss [LET_DEF]
       \\ CONV_TAC (DEPTH_CONV (DEPTH_CONV PairRules.PBETA_CONV))
@@ -252,8 +252,8 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC compile_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SRW_TAC [] []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2`
-    \\ `get_var n5 t2 = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w] [n5] t2.locals`
+    \\ `get_var n5 t2.locals = SOME w` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
     \\ FULL_SIMP_TAC std_ss []
     \\ FULL_SIMP_TAC std_ss [LET_DEF]
     \\ CONV_TAC (DEPTH_CONV (DEPTH_CONV PairRules.PBETA_CONV))
@@ -272,8 +272,8 @@ val compile_correct = Q.prove(
       \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7`
-      \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] (_ t7)`
+      \\ `get_var n7 t7.locals = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
            var_corr_def,get_var_def,lookup_insert]
       \\ REPEAT STRIP_TAC
@@ -308,8 +308,8 @@ val compile_correct = Q.prove(
       \\ Cases_on `res` \\ FULL_SIMP_TAC (srw_ss()) []
       \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
       \\ SRW_TAC [] []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] t7`
-      \\ `get_var n7 t7 = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
+      \\ Q.MATCH_ASSUM_RENAME_TAC `var_corr [w7] [n7] (_ t7)`
+      \\ `get_var n7 t7.locals = SOME w7` by FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ FULL_SIMP_TAC (srw_ss()) [set_var_def,state_rel_def,
            var_corr_def,get_var_def,lookup_insert]
       \\ REPEAT STRIP_TAC
@@ -344,7 +344,7 @@ val compile_correct = Q.prove(
     \\ FULL_SIMP_TAC (srw_ss()) []
     \\ Q.PAT_ASSUM `(res,s2) = bb` (ASSUME_TAC o GSYM)
     \\ FULL_SIMP_TAC std_ss []
-    \\ `var_corr (a ++ env) (vs ++ corr) t2` by
+    \\ `var_corr (a ++ env) (vs ++ corr) t2.locals` by
      (FULL_SIMP_TAC (srw_ss()) [var_corr_def]
       \\ MATCH_MP_TAC (GEN_ALL EVERY2_APPEND_suff)
       \\ FULL_SIMP_TAC std_ss [LIST_REL_REVERSE_EQ])
@@ -375,7 +375,7 @@ val compile_correct = Q.prove(
     \\ IMP_RES_TAC evaluate_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ IMP_RES_TAC compile_SING_IMP \\ FULL_SIMP_TAC (srw_ss()) []
     \\ SRW_TAC [] []
-    \\ `get_var t t2 = SOME w` by fs [var_corr_def]
+    \\ `get_var t t2.locals = SOME w` by fs [var_corr_def]
     \\ fs [] \\ Cases_on `jump_exc t2` \\ fs []
     \\ FULL_SIMP_TAC std_ss [state_rel_def]
     \\ IMP_RES_TAC jump_exc_IMP \\ fs []
@@ -399,7 +399,7 @@ val compile_correct = Q.prove(
       \\ `lookup x t1.locals <> NONE` by METIS_TAC []
       \\ Cases_on `lookup x t1.locals` \\ fs [] \\ METIS_TAC []) \\ fs []
     \\ Q.ABBREV_TAC `env1 = mk_wf (inter t2.locals (list_to_num_set (REVERSE vs++live++corr)))`
-    \\ `var_corr (REVERSE a) (REVERSE vs) (t2 with locals := env1)` by
+    \\ `var_corr (REVERSE a) (REVERSE vs) env1` by
      (UNABBREV_ALL_TAC
       \\ fs [var_corr_def,get_var_def,state_rel_def,
              lookup_inter_EQ,lookup_list_to_num_set]
@@ -490,7 +490,7 @@ val compile_correct = Q.prove(
          \\ IMP_RES_TAC jump_exc_IMP
          \\ POP_ASSUM MP_TAC \\ POP_ASSUM MP_TAC \\ fs [jump_exc_def])
       \\ fs [var_corr_def,get_var_def])
-    \\ fs [get_vars_add_space,consume_space_add_space,lookup_insert]
+    \\ fs [consume_space_add_space,lookup_insert]
     THEN1
      (REPEAT STRIP_TAC
       THEN1 (SRW_TAC [] [] THEN1 DECIDE_TAC
@@ -548,7 +548,7 @@ val compile_correct = Q.prove(
       \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest a r.code = SOME (args,exp)`
       \\ FULL_SIMP_TAC (srw_ss()) []
       \\ `t2.clock = r.clock` by FULL_SIMP_TAC std_ss [state_rel_def]
-      \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
+      \\ `get_vars vs t2.locals = SOME a` by IMP_RES_TAC get_vars_thm
       \\ FULL_SIMP_TAC std_ss []
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
@@ -592,7 +592,7 @@ val compile_correct = Q.prove(
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (BasicProvers.FULL_CASE_TAC \\ fs [funpow_dec_clock_clock]
           \\ REPEAT STRIP_TAC \\ fs [])
-        \\ REPEAT STRIP_TAC \\ fs [get_vars_FUNPOW_dec_clock,COUNT_LIST_GENLIST]
+        \\ REPEAT STRIP_TAC \\ fs [COUNT_LIST_GENLIST]
         \\ fs [FUNPOW_dec_clock_code]
         \\ fs [GSYM ADD1,FUNPOW_SUC]
         \\ Cases_on `pres` \\ fs [] \\ FULL_SIMP_TAC std_ss []
@@ -632,7 +632,7 @@ val compile_correct = Q.prove(
        (BasicProvers.FULL_CASE_TAC \\ fs []
         \\ REPEAT STRIP_TAC \\ fs [])
       \\ REPEAT STRIP_TAC \\ fs []
-      \\ fs [get_vars_FUNPOW_dec_clock,FUNPOW_dec_clock_code,COUNT_LIST_GENLIST]
+      \\ fs [FUNPOW_dec_clock_code,COUNT_LIST_GENLIST]
       \\ fs [GSYM ADD1,FUNPOW_SUC]
       \\ Cases_on `pres` \\ fs [call_env_def]
       \\ `~(r.clock ≤ ticks)` by DECIDE_TAC \\ fs []
@@ -726,7 +726,7 @@ val compile_correct = Q.prove(
         \\ IMP_RES_TAC MEM_LIST_REL \\ fs [] \\ NO_TAC)
       \\ IMP_RES_TAC find_code_lemma
       \\ FULL_SIMP_TAC (srw_ss()) [] \\ POP_ASSUM (K ALL_TAC)
-      \\ `get_vars vs t2 = SOME a` by IMP_RES_TAC get_vars_thm
+      \\ `get_vars vs t2.locals = SOME a` by IMP_RES_TAC get_vars_thm
       \\ fs [] \\ Cases_on `r.clock < ticks + 1` \\ fs [] THEN1
        (`r.clock < ticks \/ r.clock = ticks` by decide_tac \\ fs []
         \\ fs [state_rel_def, funpow_dec_clock_clock]
