@@ -1008,4 +1008,73 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
 
 (* observational semantics *)
 
+val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
+  `semantics ffi0 (fromAList prog) start ≠ Fail ⇒
+   semantics ffi0 (fromAList (compile_prog prog)) start =
+   semantics ffi0 (fromAList prog) start`,
+  simp[bviSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`ffi`>>strip_tac >>
+    drule compile_prog_evaluate >> simp[] >>
+    strip_tac >>
+    `s.ffi = s2.ffi` by fs[state_rel_def] >>
+    simp[bvpSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      first_assum(subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`) o concl) >> fs[] >>
+      imp_res_tac bvpPropsTheory.evaluate_add_clock >> fs[] >>
+      first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (every_case_tac >> rfs[]))) >>
+      disch_then(qspec_then`k`mp_tac) >>
+      pop_assum(qspec_then`k'`mp_tac) >>
+      simp[] >>
+      every_case_tac >> fs[] ) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      qx_gen_tac`ffi'` >> strip_tac >>
+      imp_res_tac bvpPropsTheory.evaluate_add_clock >> fs[] >>
+      pop_assum(qspec_then`k'`mp_tac) >>
+      pop_assum(qspec_then`k`mp_tac) >>
+      simp[] >> strip_tac >> strip_tac >>
+      rpt var_eq_tac >>
+      fs[state_component_equality] ) >>
+    asm_exists_tac >> simp[]) >>
+  strip_tac >>
+  simp[bvpSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k`mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    strip_tac >>
+    drule compile_prog_evaluate >>
+    discharge_hyps >- (
+      conj_tac >> spose_not_then strip_assume_tac >> fs[] ) >>
+    strip_tac >>
+    fs[] >> rw[] >>
+    every_case_tac >> fs[] ) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    strip_tac >>
+    drule compile_prog_evaluate >>
+    discharge_hyps >- (
+      conj_tac >> spose_not_then strip_assume_tac >> fs[] ) >>
+    strip_tac >>
+    fs[] >> rw[] >>
+    every_case_tac >> fs[] >>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    simp[] ) >>
+  strip_tac >>
+  rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  simp[FUN_EQ_THM] >> gen_tac >>
+  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (rhs(#2 g))) >>
+  drule compile_prog_evaluate >>
+  discharge_hyps >- (
+    conj_tac >> spose_not_then strip_assume_tac >> fs[] >>
+    last_x_assum(qspec_then`k`mp_tac)>>simp[]) >>
+  strip_tac >> simp[] >>
+  fs[state_rel_def]);
+
 val _ = export_theory();
