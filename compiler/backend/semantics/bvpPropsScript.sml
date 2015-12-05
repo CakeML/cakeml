@@ -625,10 +625,14 @@ val cut_state_eq_none = Q.store_thm("cut_state_eq_none",
   `cut_state names s = NONE ⇔ cut_env names s.locals = NONE`,
   rw[cut_state_def] >> every_case_tac >> fs[EQ_IMP_THM]);
 
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `(s:'ffi bvpSem$state) with clock := s.clock = s`,
+  rw[state_component_equality]);
+
 val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2) ∧
-    (∀a. res ≠ SOME(Rerr(Rabort a)))
+    res ≠ SOME(Rerr(Rabort Rtimeout_error))
     ⇒
     !ck. evaluate (exps,s1 with clock := s1.clock + ck) = (res, s2 with clock := s2.clock + ck)`,
   recInduct evaluate_ind >> rw [evaluate_def]
@@ -643,12 +647,14 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
     rpt var_eq_tac >> fs[] >>
     rpt var_eq_tac >> fs[state_component_equality] >>
     imp_res_tac do_app_const >> fs[] >>
-    imp_res_tac do_app_Rerr >> fs[] )
+    imp_res_tac do_app_Rerr >> fs[] >>
+    first_x_assum(qspec_then`s.clock`mp_tac) >> simp[])
   >- ( EVAL_TAC >> simp[state_component_equality] )
   >- ( every_case_tac >> fs[] >> rw[] >> EVAL_TAC )
   >- (
     every_case_tac >> fs[] >> rw[] >> fs[jump_exc_NONE] >>
-    imp_res_tac jump_exc_IMP >> fs[] )
+    imp_res_tac jump_exc_IMP >> fs[] >>
+    rw[] >> fs[jump_exc_def])
   >- (
     every_case_tac >> fs[] >> rw[call_env_def] )
   >- (
