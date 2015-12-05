@@ -999,37 +999,32 @@ val rename_lemma2 = store_thm("rename_lemma2",
   simp[MAP_EQ_f] >>
   fs[EVERY_MEM,check_freevars_def])
 
-(*
 val check_specs_complete = store_thm("check_specs_complete",
   ``∀mn tenvT specs decls new_tenv.
     type_specs mn tenvT specs decls new_tenv ⇒
     tenv_tabbrev_ok tenvT ⇒
-    ∀decls itenvT icenv env st.
-    ∃decls' env' st'.
-    check_specs mn tenvT decls itenvT icenv env specs st =
-      (Success (decls',tenvT'' ⊌ itenvT,cenv'' ++ icenv,env'++env),st') ∧
-    tenv_alpha env' (bind_var_list2 env'' Empty) ∧
-    set(MAP FST env') = set(MAP FST env'') ∧
-    set (FST decls') = decls.defined_mods ∪ set mdecls ∧
-    set (FST(SND decls')) = decls.defined_types ∪ set tdecls ∧
-    set (SND(SND decls')) = decls.defined_exns ∪ set edecls``,
+    ∀tenv cenv venv.
+    new_tenv = (tenv,cenv,venv) ⇒
+    ∀idecls itenvT icenv env st.
+    ∃idecls' env' tenvT'' cenv'' st'.
+    check_specs mn tenvT idecls itenvT icenv env specs st =
+      (Success (idecls',tenv ⊌ itenvT,cenv ++ icenv,env'++env),st') ∧
+    tenv_alpha env' (bind_var_list2 venv Empty) ∧
+    set(MAP FST env') = set(MAP FST venv) ∧
+    convert_decls idecls' = union_decls decls (convert_decls idecls)``,
   ho_match_mp_tac type_specs_strongind >>
   conj_tac >- (
-    simp[check_specs_def,success_eqns,tenv_alpha_empty,empty_decls_def] ) >>
+    simp[check_specs_def,success_eqns,tenv_alpha_empty,empty_decls_def,union_decls_def,convert_decls_def] ) >>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
     imp_res_tac (check_freevars_t_to_freevars) >>
     pop_assum(qspec_then`st`strip_assume_tac) >> simp[] >>
+    PairCases_on`new_tenv`>>
+    fs[append_new_dec_tenv_def]>>
+    qpat_abbrev_tac`env' = A::env`>>
+    first_x_assum(qspecl_then[`idecls`,`itenvT`,`icenv`,`env'`,`st'`] assume_tac)>>
     fs[]>>
-    (fn g =>
-      let
-        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (vs,b) = el 4 (fst g) |> strip_forall
-        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (s,_) = match_term t2 t1
-      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
-      g) >>
-    simp[] >>
+    qpat_assum`A=venv` (SUBST_ALL_TAC o SYM)>>fs[Abbr`env'`]>>
     match_mp_tac tenv_alpha_bind_var_list2 >>
     simp[] >>
     simp[bind_var_list2_def] >>
@@ -1129,56 +1124,48 @@ val check_specs_complete = store_thm("check_specs_complete",
       imp_res_tac ALOOKUP_MEM>>
       fs[MEM_MAP]>>PairCases_on`y`>>
       fs[check_freevars_def,EVERY_MAP,EVERY_MEM])>>
+    PairCases_on`new_tenv`>>
     fs[]>>
-    (fn g =>
-      let
-        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (vs,b) = el 5 (fst g) |> strip_forall
-        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (s,_) = match_term t2 t1
-      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
-      g) >>
-    simp[] >>
-    simp[EXTENSION,MEM_MAP,UNCURRY] >>
-    metis_tac[]) >>
+    qpat_abbrev_tac`idecls' = idecls with inf_defined_types:=A`>>
+    qpat_abbrev_tac`itenvT' = FUNION itenvT2 itenvT`>>
+    first_x_assum(qspecl_then[`idecls'`,`itenvT'`,`icenv2`,`env`,`st`] assume_tac)>>
+    fs[append_new_dec_tenv_def,union_decls_def,convert_decls_def,Abbr`idecls'`]>>
+    rfs[Abbr`icenv2`,Abbr`itenvT'`]>>
+    fs[FUNION_ASSOC,EXTENSION]>>rw[]>>
+    metis_tac[])>>
   conj_tac >- (
     rw[check_specs_def,success_eqns] >>
-    REWRITE_TAC[GSYM FUNION_ASSOC] >>
     qpat_assum `A⇒ B` mp_tac>>
     discharge_hyps>-
       (match_mp_tac tenv_tabbrev_ok_merge>>fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FUPDATE]>>
       metis_tac[check_freevars_type_name_subst])>>
-    metis_tac[FUPDATE_EQ_FUNION]) >>
+    PairCases_on`new_tenv`>>fs[append_new_dec_tenv_def]>>
+    metis_tac[FUPDATE_EQ_FUNION,FUNION_ASSOC])>>
   conj_tac >- (
     simp[check_specs_def,success_eqns,PULL_EXISTS] >> rw[] >>
+    PairCases_on`new_tenv`>>
     fs[union_decls_def]>>
-    (fn g =>
-      let
-        val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (vs,b) = el 3 (fst g) |> strip_forall
-        val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
-        val (s,_) = match_term t2 t1
-      in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
-      g) >>
-    simp[] >> simp_tac(srw_ss()++boolSimps.ETA_ss)[] >>
-    simp[EXTENSION] >> metis_tac[]) >>
+    qpat_abbrev_tac`idecls' = idecls with inf_defined_exns := A`>>
+    qpat_abbrev_tac`icenv' = A::icenv`>>
+    first_x_assum(qspecl_then[`idecls'`,`itenvT`,`icenv'`,`env`,`st`] assume_tac)>>
+    fs[convert_decls_def,append_new_dec_tenv_def,Abbr`idecls'`,Abbr`icenv'`]>>
+    fs[Once INSERT_SING_UNION]>>
+    simp[EXTENSION]>>
+    metis_tac[])>>
   simp[check_specs_def,success_eqns] >> rw[] >>
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   fs[union_decls_def]>>
   qpat_assum`A ⇒ B` mp_tac>>discharge_hyps>-
     (match_mp_tac tenv_tabbrev_ok_merge>>fs[typeSoundInvariantsTheory.tenv_tabbrev_ok_def,FEVERY_FEMPTY,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FUPDATE,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
   strip_tac>>
-  (fn g =>
-    let
-      val t1 = (snd g) |> strip_exists |> snd |> dest_conj |> fst |> lhs
-      val (vs,b) = el 1 (fst g) |> strip_forall
-      val t2 = b |> strip_exists |> snd |> dest_conj |> fst |> lhs
-      val (s,_) = match_term t2 t1
-    in first_x_assum(strip_assume_tac o SPECL(map (subst s) vs)) end
-    g) >>
-  simp[Once FUPDATE_EQ_FUNION,FUNION_ASSOC] >>
-  simp[EXTENSION] >> metis_tac[])
-*)
+  PairCases_on`new_tenv`>>fs[]>>
+  qpat_abbrev_tac`idecls' = idecls with inf_defined_types := A`>>
+  qpat_abbrev_tac `itenvT' = itenvT |+ A`>>
+  first_x_assum(qspecl_then[`idecls'`,`itenvT'`,`icenv`,`env`,`st`] assume_tac)>>
+  fs[convert_decls_def,Abbr`itenvT'`,Abbr`idecls'`,append_new_dec_tenv_def]>>
+  fs[Once INSERT_SING_UNION]>>
+  simp[EXTENSION]>>
+  metis_tac[FUPDATE_EQ_FUNION,FUNION_ASSOC])
 
 val check_flat_weakT_complete = store_thm("check_flat_weakT_complete",
   ``∀mn tenvT1 tenvT2.
@@ -1422,40 +1409,53 @@ val infer_top_complete = Q.store_thm("infer_top_complete",
     rw[]>>fs[check_env_def,lift_new_dec_tenv_def]>>fs[PULL_EXISTS]>>
     fs[menv_alpha_def])
   >>
-    (*Need check_specs_complete*)
-    cheat)
-(*
-    first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] infer_ds_complete)))>>
+    first_assum (mp_tac o (any_match_mp (INST_TYPE [alpha|->``:tvarN``] (infer_ds_complete|>REWRITE_RULE [env_rel_def,GSYM check_cenv_tenvC_ok,tenv_bvl_def]))))>>
+    PairCases_on`new_tenv1`>>fs[]>>
     rpt (disch_then(fn th => first_assum (mp_tac o (any_match_mp th)))) >>
-    disch_then (qspecl_then [`st`] mp_tac)>>
-    rw[check_env_def]>>fs[PULL_EXISTS] >>
+    disch_then (qspec_then`st` mp_tac)>>discharge_hyps>- metis_tac[]>>
+    strip_tac>>
+    simp[PULL_EXISTS]>>
     fs[check_signature_cases]
     >-
-      (fs[check_signature_def,success_eqns,EXTENSION,tenv_alpha_empty]>>
-      fs[menv_alpha_def]>>
-      rpt(conj_tac >- rw[union_decls_def]) >>
+      (fs[mod_lift_new_dec_tenv_def,check_signature_def,success_eqns,EXTENSION,tenv_alpha_empty,check_env_def,convert_decls_def,menv_alpha_def]>>
+      CONJ_TAC
+      >-
+        (qpat_assum`A=decls''` (SUBST_ALL_TAC o SYM)>>
+        fs[union_decls_def]>>
+        metis_tac[INSERT_SING_UNION])
+      >>
       match_mp_tac fmap_rel_FUPDATE_same>>
       fs[])
     >>
-      fs[check_signature_def,success_eqns]>>
-      simp[GSYM INSERT_SING_UNION,PULL_EXISTS,tenv_alpha_empty] >>
-      imp_res_tac type_specs_no_mod >> fs[] >>
-      imp_res_tac (INST_TYPE[alpha|->``:(num|->infer_t)infer_st``]check_specs_complete) >>
-      first_x_assum(qspecl_then[`[]`,`st'`,`[]`,`FEMPTY`,`[]`,`[]`,`[]`]strip_assume_tac) >>
-      simp[success_eqns] >> fs[] >>
-      PairCases_on`decls'`>>fs[] >>
-      simp[menv_alpha_def,fmap_rel_FUPDATE_same] >>
-      imp_res_tac check_flat_weakT_complete >>
-      imp_res_tac check_flat_weakC_complete >>
-      Q.ISPECL_THEN[`(decls'0,decls'1,decls'2)`,`mdecls'',tdecls'',edecls''`]mp_tac (GEN_ALL check_weak_decls_complete) >>
-      simp[convert_decls_def] >> fs[weak_decls_def] >>
-      `check_env {} env'` by
-        (imp_res_tac check_specs_check>>
-        pop_assum mp_tac>>
-        ntac 26 (pop_assum kall_tac)>>
-        simp[check_env_def,check_flat_cenv_def,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FEMPTY])>>
-      simp[union_decls_def] >> rfs[] >>
-      metis_tac[check_weakE_complete,check_env_def,check_specs_check])*)
+    fs[check_signature_def,success_eqns]>>
+    simp[GSYM INSERT_SING_UNION,PULL_EXISTS,tenv_alpha_empty] >>
+    PairCases_on`new_tenv2`>>
+    imp_res_tac (INST_TYPE[alpha|->``:(num|->infer_t)infer_st``]check_specs_complete) >>fs[]>>
+    first_x_assum(qspecl_then[`st'`,`FEMPTY`,`empty_inf_decls`,`[]`,`[]`]strip_assume_tac) >>
+    simp[success_eqns]>>
+    imp_res_tac type_specs_no_mod>>
+    fs[weak_new_dec_tenv_def]>>
+    imp_res_tac check_flat_weakT_complete >>
+    imp_res_tac check_flat_weakC_complete >>
+    fs[mod_lift_new_dec_tenv_def,check_env_def,tenv_alpha_empty,GSYM PULL_EXISTS]>>
+    rw[]
+    >-
+      fs[convert_decls_def,union_decls_def,empty_inf_decls_def]
+    >-
+      fs[convert_decls_def]
+    >-
+      (match_mp_tac check_weakE_complete>>
+      first_assum (match_exists_tac o concl)>>
+      CONJ_TAC>-fs[check_env_def]>>
+      imp_res_tac check_specs_check>>
+      pop_assum mp_tac>>
+      ntac 26 (pop_assum kall_tac)>>
+      fs[check_env_def,check_flat_cenv_def,typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def,FEVERY_FEMPTY])
+    >-
+      (match_mp_tac check_weak_decls_complete>>
+      fs[weak_decls_def,convert_decls_def,union_decls_def,empty_inf_decls_def])
+    >>
+      fs[menv_alpha_def,fmap_rel_FUPDATE_same])
 
 val infer_prog_complete = Q.store_thm("infer_prog_complete",
 `!prog decls decls' tenvT' cenv' tenv tenv' menv' st ienv idecls tenvM'.
