@@ -978,34 +978,30 @@ val check_freevars_nub = Q.prove (
 Induct >>
 rw [check_freevars_def] >> metis_tac[]);
 
-(*Broken
 val check_specs_sound = Q.prove (
-`!mn orig_tenvT mdecls tdecls edecls tenvT cenv env specs st decls' tenvT' cenv' env' st' init_decls.
-  (check_specs mn orig_tenvT (mdecls,tdecls,edecls) tenvT cenv env specs st = (Success (decls',tenvT',cenv',env'), st')) ⇒
+`!mn orig_tenvT idecls tenvT cenv env specs st idecls' tenvT' cenv' env' st'.
+  (check_specs mn orig_tenvT idecls tenvT cenv env specs st = (Success (idecls',tenvT',cenv',env'), st')) ⇒
   tenv_tabbrev_ok orig_tenvT
   ⇒
   ?decls'' tenvT'' cenv'' env''.
-    type_specs mn orig_tenvT specs (convert_decls decls'') tenvT'' cenv'' (convert_env2 env'') ∧
-    (decls' = append_decls decls'' (mdecls,tdecls,edecls)) ∧
+    type_specs mn orig_tenvT specs decls'' (tenvT'',cenv'',(convert_env2 env'')) ∧
+    (convert_decls idecls' = union_decls decls'' (convert_decls idecls)) ∧
     (tenvT' = FUNION tenvT'' tenvT) ∧
     (cenv' = cenv'' ++ cenv) ∧
     (env' = env'' ++ env)`,
  ho_match_mp_tac check_specs_ind >>
  rw [check_specs_def, success_eqns]
  >- (rw [Once type_specs_cases] >>
-     qexists_tac `([],[],[])` >>
-     fs [empty_decls_def, convert_decls_def, append_decls_def, convert_env2_def])
+     fs [empty_decls_def, convert_decls_def, append_decls_def, convert_env2_def,union_decls_def])
  >- (rw [Once type_specs_cases] >>
      res_tac >>
      `check_freevars 0 fvs t` by metis_tac [t_to_freevars_check] >>
      `check_freevars 0 (nub fvs) t` by metis_tac [check_freevars_nub] >>
-     Q.LIST_EXISTS_TAC [`decls''`, `tenvT'''`, `cenv''`, `env''++[(x,LENGTH (nub fvs),infer_type_subst (ZIP (nub fvs, MAP Infer_Tvar_db (COUNT_LIST (LENGTH (nub fvs))))) (type_name_subst tenvT t))]`] >>
+     fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
+     fs[convert_env2_def]>>
+     Q.LIST_EXISTS_TAC [`decls''`, `tenvT''`,`nub fvs`]>>fs[]>>
      rw [] >>
-     qexists_tac `convert_env2 env''` >>
-     rw [] >>
-     qexists_tac `nub fvs` >>
-     rw [] >>
-     `check_freevars 0 (nub fvs) (type_name_subst tenvT t)` by fs[check_freevars_type_name_subst]>>
+     `check_freevars 0 (nub fvs) (type_name_subst orig_tenvT t)` by fs[check_freevars_type_name_subst]>>
      fs [LENGTH_MAP, convert_env2_def, convert_t_subst,
          LENGTH_COUNT_LIST,LENGTH_GENLIST] >>
      fs [MAP_MAP_o, combinTheory.o_DEF, convert_t_def] >>
@@ -1020,51 +1016,42 @@ val check_specs_sound = Q.prove (
       fs[MEM_MAP]>>PairCases_on`y`>>
       fs[check_freevars_def,EVERY_MAP,EVERY_MEM])>>
     strip_tac>>
-    qexists_tac `append_decls decls'' ([],MAP (λ(tvs,tn,ctors). mk_id mn tn) tdefs,[])` >>
-     rw [] >>
-     PairCases_on `decls''` >>
-     fs [append_decls_def, convert_decls_def] >>
-     fs [PULL_EXISTS] >>
-     qexists_tac `tenvT''''` >>
-     rw [] >>
-     qexists_tac `<|defined_mods := set decls''0; defined_types := set decls''1; defined_exns := set decls''2|>` >>
-     rw [union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-     fs [EVERY_MEM, EVERY_MAP, FUNION_ASSOC])
+    fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
+    qexists_tac`tenvT'''`>>
+    qexists_tac`decls''`>>
+    fs[union_decls_def,convert_decls_def]>>
+    rw[EXTENSION]>- metis_tac[]>>
+    fs[FUNION_ASSOC])
  >- (rw [Once type_specs_cases, PULL_EXISTS] >>
      res_tac >>
      pop_assum mp_tac>>discharge_hyps>-
        (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
        fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst])>>
      strip_tac>>
-     rw [FUNION_FUPDATE_2] >>
-     qexists_tac `decls''` >>
-     qexists_tac `tenvT'''` >>
-     rw [FUNION_FUPDATE_1])
+     qexists_tac`decls''`>>fs[EXISTS_PROD,append_new_dec_tenv_def]>>
+     qexists_tac`tenvT''`>>
+     rw[FUNION_FUPDATE_2]>>
+     rw[FUNION_FUPDATE_1])
  >- (rw [Once type_specs_cases] >>
-     rw [convert_decls_def] >>
      res_tac >>
-     qexists_tac `append_decls decls'' ([],[],[mk_id mn cn])` >>
-     rw [PULL_EXISTS] >>
-     qexists_tac `tenvT'''` >>
-     PairCases_on `decls''` >>
-     rw [convert_decls_def, append_decls_def] >>
-     qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>
-     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-     metis_tac [])
+     fs[PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def]>>
+     qexists_tac`tenvT''`>>
+     qexists_tac`decls''`>>
+     fs[union_decls_def,convert_decls_def,EXTENSION]>>
+     metis_tac[])
  >- (rw [Once type_specs_cases, convert_decls_def] >>
      res_tac >>
      pop_assum mp_tac>>discharge_hyps>-
        (match_mp_tac tenv_tabbrev_ok_merge>>fs[tenv_tabbrev_ok_def,FEVERY_FEMPTY,flat_tenv_tabbrev_ok_def]>>
       fs[FEVERY_FUPDATE,FEVERY_FEMPTY,check_freevars_type_name_subst,check_freevars_def,EVERY_MAP,EVERY_MEM])>>
-     rw [PULL_EXISTS] >>
-     qexists_tac `append_decls decls'' ([],[mk_id mn tn],[])` >>
-     PairCases_on `decls''` >>
-     rw [append_decls_def] >>
-     qexists_tac `tenvT'''` >>
-     qexists_tac `convert_decls (decls''0,decls''1,decls''2)` >>
-     fs [convert_decls_def, union_decls_def, DISJOINT_DEF, EXTENSION, MEM_MAP] >>
-     rw [FUNION_FUPDATE_1, FUNION_FUPDATE_2]));
-*)
+     rw [PULL_EXISTS,EXISTS_PROD,append_new_dec_tenv_def] >>
+     qexists_tac`tenvT''`>>
+     qexists_tac`decls''`>>
+     fs[union_decls_def,convert_decls_def,Once INSERT_SING_UNION]>>
+     fs[EXTENSION]>>
+     CONJ_TAC>- metis_tac[]>>
+     rw[FUNION_FUPDATE_2]>>
+     rw[FUNION_FUPDATE_1]))
 
 val infer_top_sound = Q.store_thm ("infer_top_sound",
 `!idecls ienv tenv top st1 idecls' tenvT' menv' cenv' env' st2.
@@ -1120,26 +1107,21 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
                  |> CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv is_eq)))
                  |> ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO])) >>
                simp[])>>
-               cheat))
-             (*imp_res_tac check_specs_sound >>
-             fs [] >>
-             rw [] >>
+             imp_res_tac check_specs_sound >>
+             fs[convert_decls_def,EXISTS_PROD]>>
              CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``type_ds`` o fst o strip_comb))) >>
-             fs[convert_decls_def] >>
              first_assum(match_exists_tac o concl) >> simp[] >>
-             srw_tac[QUANT_INST_ss[record_default_qp]][union_decls_def] >>
-             Q.LIST_EXISTS_TAC [`convert_env2 env'''`, `tenvT'''`, `set mdecls'''`] >>
-             PairCases_on`decls'''`>>fs[convert_decls_def,append_decls_def] >>
-             simp[Once INSERT_SING_UNION,convert_menv_def,convert_env2_def] >>
-             rw []
+             fs[weak_new_dec_tenv_def]>>
+             Q.LIST_EXISTS_TAC [`tenvT''''`,`cenv''''`,`convert_env2 env''''`,`decls''''`]>>
+             fs[mod_lift_new_dec_tenv_def,convert_env2_def,union_decls_def,empty_inf_decls_def,Once INSERT_SING_UNION]>>
+             rw[]
+             >- metis_tac [check_flat_weakT_sound]
+             >- metis_tac[check_flat_weakC_sound,flat_weakC_anub]
              >- metis_tac [check_weakE_sound, convert_env2_def, weakE_anub, convert_env2_anub]
-             >- metis_tac [check_flat_weakC_sound, flat_weakC_anub]
-             >- (PairCases_on `decls''` >>
-                 fs [convert_decls_def, weak_decls_def, check_weak_decls_def, append_decls_def,
-                     list_subset_def, SUBSET_DEF, EVERY_MEM] >>
-                 rw [] >>
-                 metis_tac [])
-             >- metis_tac [check_flat_weakT_sound]*)
+             >- (fs[weak_decls_def,check_weak_decls_def,list_subset_def,SUBSET_DEF,EVERY_MEM]>>
+               metis_tac[])
+             >>
+               fs[convert_menv_def]))
      >>
        simp[convert_env2_def,bind_var_list2_def]
      >-
