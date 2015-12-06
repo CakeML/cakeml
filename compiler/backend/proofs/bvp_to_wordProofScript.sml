@@ -1290,10 +1290,41 @@ val dec_clock_inc_clock = prove(
   \\ fs [bvpSemTheory.state_component_equality]
   \\ fs [wordSemTheory.state_component_equality])
 
+val word_gc_move_IMP_isWord = prove(
+  ``word_gc_move c' (Word c,i,pa,old,m,dm) = (w1,i1,pa1,m1,c1) ==> isWord w1``,
+  fs [word_gc_move_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ rw [] \\ fs [isWord_def]);
+
+val word_gc_move_roots_IMP_FILTER = prove(
+  ``!ws i pa old m dm ws2 i2 pa2 m2 c2 c.
+      word_gc_move_roots c (ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
+      word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) =
+                           (FILTER isWord ws2,i2,pa2,m2,c2)``,
+  Induct \\ fs [word_gc_move_roots_def] \\ Cases \\ fs []
+  \\ rw [] \\ fs [word_gc_move_roots_def]
+  THEN1
+   (rw [] \\ fs [LET_DEF] \\ imp_res_tac word_gc_move_IMP_isWord
+    \\ Cases_on `word_gc_move_roots c' (ws,i1,pa1,old,m1,dm)` \\ fs []
+    \\ PairCases_on `r` \\ fs [] \\ res_tac \\ rw [] \\ fs [] \\ rw [])
+  \\ fs [isWord_def,word_gc_move_def,LET_DEF]
+  \\ Cases_on `word_gc_move_roots c (ws,i,pa,old,m,dm)`
+  \\ PairCases_on `r` \\ fs [] \\ rw [] \\ fs [isWord_def]);
+
 val word_gc_fun_IMP_FILTER = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
     word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)``,
-  cheat); (* easy once word_gc_fun has been defined *)
+  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ UNABBREV_ALL_TAC \\ fs [] \\ rw []
+  \\ fs [word_gc_move_roots_def]
+  \\ Cases_on `word_gc_move c (s ' Globals,0w,theWord (s ' OtherHeap),
+                               theWord (s ' CurrHeap),m,dm)` \\ fs []
+  \\ PairCases_on `r` \\ fs [LET_DEF]
+  \\ Cases_on `word_gc_move_roots c (xs,r0,r1,theWord (s ' CurrHeap),r2,dm)`
+  \\ PairCases_on `r` \\ fs [LET_DEF]
+  \\ imp_res_tac word_gc_move_roots_IMP_FILTER
+  \\ fs [] \\ rw [] \\ rfs [] \\ fs [])
 
 val loc_merge_def = Define `
   (loc_merge [] ys = []) /\
@@ -1307,10 +1338,38 @@ val LENGTH_loc_merge = prove(
   \\ Cases_on `h` \\ fs [loc_merge_def]
   \\ Cases_on `h'` \\ fs [loc_merge_def]);
 
+val word_gc_move_roots_IMP_FILTER = prove(
+  ``!ws i pa old m dm ws2 i2 pa2 m2 c2 c.
+      word_gc_move_roots c (FILTER isWord ws,i,pa,old,m,dm) = (ws2,i2,pa2,m2,c2) ==>
+      word_gc_move_roots c (ws,i,pa,old,m,dm) =
+                           (loc_merge ws ws2,i2,pa2,m2,c2)``,
+  Induct \\ fs [word_gc_move_roots_def,loc_merge_def]
+  \\ reverse Cases \\ fs [isWord_def,loc_merge_def,LET_DEF]
+  THEN1
+   (fs [word_gc_move_def] \\ rw []
+    \\ Cases_on `word_gc_move_roots c (ws,i,pa,old,m,dm)` \\ fs[]
+    \\ PairCases_on `r` \\ fs [] \\ res_tac \\ fs [])
+  \\ fs [word_gc_move_roots_def,loc_merge_def] \\ rw []
+  \\ Cases_on `word_gc_move c' (Word c,i,pa,old,m,dm)`
+  \\ PairCases_on `r` \\ fs [] \\ res_tac \\ fs [LET_DEF]
+  \\ Cases_on `word_gc_move_roots c' (FILTER isWord ws,r0,r1,old,r2,dm)`
+  \\ PairCases_on `r` \\ fs [] \\ res_tac \\ fs [LET_DEF] \\ fs []
+  \\ rw [] \\ fs [loc_merge_def]);
+
 val word_gc_fun_loc_merge = prove(
   ``word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)``,
-  cheat); (* easy once word_gc_fun has been defined *)
+  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ UNABBREV_ALL_TAC \\ fs [] \\ rw []
+  \\ fs [word_gc_move_roots_def]
+  \\ Cases_on `word_gc_move c (s ' Globals,0w,theWord (s ' OtherHeap),
+                               theWord (s ' CurrHeap),m,dm)` \\ fs []
+  \\ PairCases_on `r` \\ fs [LET_DEF]
+  \\ Cases_on `word_gc_move_roots c (FILTER isWord xs,r0,r1,theWord (s ' CurrHeap),r2,dm)`
+  \\ PairCases_on `r` \\ fs [LET_DEF]
+  \\ imp_res_tac word_gc_move_roots_IMP_FILTER
+  \\ fs [] \\ rw [] \\ fs []);
 
 val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
