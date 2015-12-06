@@ -209,21 +209,122 @@ val word_ml_inv_insert = store_thm("word_ml_inv_insert",
     definition and verification of GC function
    ------------------------------------------------------- *)
 
-val word_gc_move_def = Define `
-  (word_gc_move (Loc l1 l2,pa,m,dm,c) = (Loc l1 l2,pa,m,c)) /\
-  (word_gc_move (Word w,pa,m,dm,c) =
-     (Word 0w,pa,m,c))`
+val theWord_def = Define `
+  theWord (Word w) = w`
 
-val word_gc_move_list_def = Define `
-  (word_gc_move_list ([],pa,m,dm,c) = ([],pa,m,c)) /\
-  (word_gc_move_list (w::ws,pa,m,dm,c) =
-     let (w1,pa1,m1,c1) = word_gc_move (w,pa,m,dm,c) in
-     let (ws2,pa2,m2,c2) = word_gc_move_list (ws,pa1,m1,dm,c1) in
-       (w1::ws2,pa2,m2,c2))`
+val isWord_def = Define `
+  (isWord (Word w) = T) /\ (isWord _ = F)`;
+
+val ptr_to_addr_def = Define `
+  ptr_to_addr conf base (w:'a word) =
+    base + ((w >>> (conf.pad_bits + conf.len_bits + conf.tag_bits + 2))
+            << (dimindex (:'a) DIV 8))`
+
+val is_fwd_ptr_def = Define `
+  is_fwd_ptr w = ((w && 3w) = 3w)`;
+
+val update_addr_def = Define `
+  update_addr conf fwd_ptr (old_addr:'a word) =
+    let n = conf.pad_bits + conf.len_bits + conf.tag_bits + 2 in
+    ((dimindex(:'a) - 1) -- n) fwd_ptr ||
+    ((n - 1) -- 0) old_addr`
+
+val is_all_ones_def = Define `
+  is_all_ones m n w = ((all_ones m n && w) = all_ones m n)`;
+
+val decode_maxout_def = Define `
+  decode_maxout l n w =
+    if is_all_ones (n+l) n w then NONE else SOME (((n+l) -- n) w >> n)`
+
+val decode_addr_def = Define `
+  decode_addr conf w =
+    (decode_maxout conf.len_bits (conf.tag_bits + 2) w,
+     decode_maxout conf.tag_bits 2 w)`
+
+val has_header_def = Define `
+  has_header conf w <=>
+    decode_maxout conf.len_bits (conf.tag_bits + 2) w = NONE \/
+    decode_maxout conf.tag_bits 2 w = NONE`
+
+val decode_header_def = Define `
+  decode_header conf w =
+    (w >>> (2 + conf.len_size),
+     ((conf.len_size + 1 -- 2) w) >>> 2)`;
+
+val memcpy_def = Define `
+  memcpy w a b m dm =
+    if w = 0w then (b,m,T) else
+      let (b1,m1,c1) = memcpy (w-1w) (a + bytes_in_word) (b + bytes_in_word)
+                      ((b =+ m a) m) dm in
+        (b1,m1,c1 /\ a IN dm /\ b IN dm)`
+
+val word_gc_move_def = Define `
+  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm,c) = (Loc l1 l2,i,pa,m,c)) /\
+  (word_gc_move conf (Word w,i,pa,old,m,dm,c) =
+     if (w && 1w) = 0w then (Word w,i,pa,m,c) else
+       let c = (c /\ ptr_to_addr conf old w IN dm) in
+       let v = m (ptr_to_addr conf old w) in
+         if isWord v /\ is_fwd_ptr (theWord v) then
+           (Word (update_addr conf (theWord v) w),i,pa,m,c)
+         else if has_header conf w then
+           let hd_payload_addr = ptr_to_addr conf old w in
+           let header_addr = hd_payload_addr - bytes_in_word in
+           let v = ((i + 1w) << 2 || 3w) in
+           let c = (c /\ header_addr IN dm /\ isWord (m header_addr)) in
+           let (_,len) = decode_header conf (theWord (m header_addr)) in
+           let i = i + len + 1w in
+           let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
+           let c = (c /\ hd_payload_addr IN dm /\ c1) in
+           let m1 = (hd_payload_addr =+ Word v) m1 in
+             (Word (update_addr conf v w),i,pa1,m1,c)
+         else
+           let len = THE (SND (decode_addr conf w)) in
+           let v = (i << 2 || 3w) in
+           let i = i + len in
+           let hd_payload_addr = ptr_to_addr conf old w in
+           let (pa1,m1,c1) = memcpy len hd_payload_addr pa m dm in
+           let c = (c /\ hd_payload_addr IN dm /\ c1) in
+           let m1 = (hd_payload_addr =+ Word v) m1 in
+             (Word (update_addr conf v w),i,pa1,m1,c))`
+
+val word_gc_move_roots_def = Define `
+  (word_gc_move_roots conf ([],i,pa,old,m,dm,c) = ([],i,pa,m,c)) /\
+  (word_gc_move_roots conf (w::ws,i,pa,old,m,dm,c) =
+     let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm,c) in
+     let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ws,i1,pa1,old,m1,dm,c1) in
+       (w1::ws2,i2,pa2,m2,c2))`
+
+val word_gc_loop_def = Define `
+  word_gc_loop conf k (pb,i,pa,old,m,dm,c) =
+    if k = 0n then (i,pa,m,F) else
+    if pb = pa then (i,pa,m,c) else
+      let c = (c /\ pb IN dm) in
+      let w = m pb in
+        if isWord w /\ is_fwd_ptr (theWord w) then
+          let len = SND (decode_header conf (theWord w)) in
+          let pb = pb + (len + 1w) * bytes_in_word in
+            word_gc_loop conf (k-1) (pb,i,pa,old,m,dm,c)
+        else
+          let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm,c) in
+          let m1 = (pb =+ w1) m1 in
+          let pb = pb + bytes_in_word in
+            word_gc_loop conf (k-1) (pb,i1,pa1,old,m1,dm,c1)`
 
 val word_gc_fun_def = Define `
-  (word_gc_fun (c:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
-     SOME (roots,m,s)`
+  (word_gc_fun (conf:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
+     let c = (Globals IN FDOM s) in
+     let new = theWord (s ' OtherHeap) in
+     let old = theWord (s ' CurrHeap) in
+     let len = theWord (s ' ARB) in (* FIX! *)
+     let all_roots = s ' Globals::roots in
+     let (roots1,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm,c) in
+     let (_,pa1,m1,c) = word_gc_loop conf (dimword(:'a)) (new,i1,pa1,old,m1,dm,c) in
+     let s1 = s |++ [(CurrHeap, Word new);
+                     (OtherHeap, Word old);
+                     (NextFree, Word pa1);
+                     (LastFree, Word (new + len));
+                     (Globals, HD roots1)] in
+       if c then SOME (TL roots,m1,s1) else NONE`
 
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp c s m dm limit =
@@ -270,12 +371,6 @@ val word_gc_fun_correct = prove(
 (* -------------------------------------------------------
     definition of state relation
    ------------------------------------------------------- *)
-
-val isWord_def = Define `
-  (isWord (Word w) = T) /\ (isWord _ = F)`;
-
-val theWord_def = Define `
-  theWord (Word w) = w`;
 
 val code_rel_def = Define `
   code_rel c s_code t_code <=>

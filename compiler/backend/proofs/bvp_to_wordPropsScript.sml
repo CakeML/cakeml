@@ -76,6 +76,12 @@ val v_size_LEMMA = prove(
   Induct \\ full_simp_tac (srw_ss()) [v_size_def]
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [] \\ DECIDE_TAC);
 
+(*
+  code pointers (i.e. Locs) will end in ...0
+  small numbers end in ...00
+  NIL-like constructors end in ...10
+*)
+
 val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
@@ -1592,25 +1598,31 @@ val LESS_LENGTH = store_thm("LESS_LENGTH",
     representation in memory
    ------------------------------------------------------- *)
 
-val allones_def = Define `
-  allones m n = (m -- n) (~0w)`
+val all_ones_def = Define `
+  all_ones m n = (m -- n) (~0w)`
 
 val maxout_bits_def = Define `
   maxout_bits n rep_len k =
-    if n < 2 ** rep_len then n2w n << k else allones (k + rep_len) k`
+    if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
 
-val pointer_bits_def = Define `
+val has_header_def = Define `
+  (has_header conf (SOME (DataElement xs l (BlockTag tag,_))) <=>
+     LENGTH xs < 2 ** conf.len_bits - 1 ==> ~(tag < 2 ** conf.tag_bits - 1)) /\
+  (has_header _ _ <=> F)`
+
+val pointer_bits_def = Define ` (* pointers have tag and len bits *)
   pointer_bits conf abs_heap n =
     case heap_lookup n abs_heap of
     | SOME (DataElement xs l (BlockTag tag,[])) =>
-        maxout_bits (LENGTH xs) conf.len_bits (conf.tag_bits + 1) ||
-        maxout_bits tag conf.tag_bits 1 || 1w
-    | _ => allones (conf.len_bits + conf.tag_bits + 1) 0`
+        maxout_bits (LENGTH xs) conf.len_bits (conf.tag_bits + 2) ||
+        maxout_bits tag conf.tag_bits 2 || 1w
+    | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
 
-val get_addr_def = Define `
+val get_addr_def = Define ` (* each pointer points at the first payload value *)
   get_addr conf abs_heap n =
-    (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) ||
-     pointer_bits conf abs_heap n)`;
+    let n = if has_header conf (heap_lookup n abs_heap) then n+1 else n in
+      (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) ||
+       pointer_bits conf abs_heap n)`;
 
 val word_addr_def = Define `
   (word_addr conf abs_heap (Data w) = w) /\
@@ -1639,13 +1651,13 @@ val word_payload_def = Define `
   (word_payload ys l (RefTag) qs conf abs_heap =
      (SOME 1w, (* header: ...01 *)
       MAP (word_addr conf abs_heap) ys,
-      (qs = []) /\ (LENGTH ys = l))) /\
+      (qs = []) /\ (LENGTH ys = l) /\ l <> 0)) /\
   (word_payload ys l (NumTag b) qs conf abs_heap =
      (SOME (b2w b << 2 || 2w), (* header: ...110 or ...010 *)
-      qs, (ys = []) /\ (LENGTH qs = l))) /\
+      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0)) /\
   (word_payload ys l (BytesTag n) qs conf abs_heap =
      (SOME (n2w n << 2 || 3w), (* header: ...11 *)
-      qs, (ys = []) /\ (LENGTH qs = l)))`;
+      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
 
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
@@ -1656,16 +1668,23 @@ val decode_tag_bits_def = Define `
       if (h && 3w) = 3w then BytesTag (w2n (h >>> 2)) else
         BlockTag (w2n (h >>> 2))`
 
+(*
+data pointers end in 01
+forward pointers and headers end in 11
+*)
+
 val word_el_def = Define `
   (word_el a (Unused l) conf abs_heap = one_list_exists a (l+1)) /\
   (word_el a (ForwardPointer n l) conf abs_heap =
-     one (a,Word (n2w n << 3 || 7w)) *
-     one_list_exists (a + bytes_in_word) l) /\
+     one (a,Word (n2w n << 2 || 3w)) *
+     if l = 0 then emp else
+       one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
+       one_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
   (word_el a (DataElement ys l (tag,qs)) conf abs_heap =
      case word_payload ys l tag qs conf abs_heap of
      | (NONE,ts,c) => one_list a ts * cond c
      | (SOME h,ts,c) =>
-         let w = (h << (3 + conf.len_size) || n2w (LENGTH ts) << 3 || 3w) in
+         let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
            one (a,Word w) * one_list (a + bytes_in_word) ts *
            cond (c /\ LENGTH ts < 2 ** conf.len_size /\
                  decode_tag_bits conf w = tag))`;
