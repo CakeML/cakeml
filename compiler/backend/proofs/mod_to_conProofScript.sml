@@ -515,10 +515,9 @@ val v_rel_weakening = Q.prove (
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!gtagenv env env_i2.
     cenv_inv env.c env_i2.exh tagenv gtagenv ∧
-    LIST_REL (OPTION_REL (v_rel gtagenv)) env.globals env_i2.globals ∧
     env_rel gtagenv env.v env_i2.v
     ⇒
-    env_all_rel tagenv env env_i2 gtagenv)`;
+    env_all_rel tagenv (env:modSem$environment) (env_i2:conSem$environment) gtagenv)`;
 
 val env_rel_append = Q.prove (
   `!gtagenv env1 env2 env1' env2'.
@@ -641,6 +640,7 @@ val sv_rel_weakening = Q.prove (
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!gtagenv s (s':'ffi conSem$state).
     LIST_REL (sv_rel gtagenv) s.refs s'.refs ∧
+    LIST_REL (OPTION_REL (v_rel gtagenv)) s.globals s'.globals ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi
     ⇒
@@ -1040,7 +1040,7 @@ val do_app = Q.prove (
 
 val do_opapp = Q.prove (
   `!gtagenv vs vs_i2 env e genv env' tagenv env_i2.
-    do_opapp env.globals vs = SOME (env', e) ∧
+    do_opapp vs = SOME (env', e) ∧
     env_all_rel tagenv env env_i2 gtagenv ∧
     vs_rel gtagenv vs vs_i2
     ⇒
@@ -1288,10 +1288,10 @@ val compile_exp_correct = Q.prove (
       every_case_tac >> fs[result_rel_eqns] >>
       imp_res_tac env_rel_lookup >> fs[v_rel_eqns] >> rw[])
   >- (* Global variable lookup *)
-     (fs [env_all_rel_cases] >>
+     (fs [s_rel_cases] >>
       rw [] >> fs [] >>
-      `LENGTH env.globals > n` by decide_tac >>
-      `LENGTH env_i2.globals = LENGTH env.globals` by metis_tac [LIST_REL_LENGTH] >>
+      `LENGTH s.globals > n` by decide_tac >>
+      `LENGTH s_i2.globals = LENGTH s.globals` by metis_tac [LIST_REL_LENGTH] >>
       imp_res_tac genv_rel_lookup >>
       rfs[IS_SOME_EXISTS] >>
       metis_tac[SOME_11])
@@ -1924,18 +1924,17 @@ val recfun_helper = Q.prove (
 val compile_decs_correct = store_thm("compile_decs_correct",
   ``∀env s ds r.
       evaluate_decs env s ds = r ⇒
-    ∀res s1_i2 genv_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' gtagenv.
+    ∀res s1_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' gtagenv.
       r = (s', envC', genv', res) ∧
       res ≠ SOME (Rabort Rtype_error) ∧
       no_dup_types ds ∧
       compile_decs tagenv_st ds = (tagenv_st', ds_i2) ∧
       cenv_inv env.c (get_exh (FST tagenv_st)) (get_tagenv tagenv_st) gtagenv ∧
       s_rel gtagenv s s1_i2 ∧
-      LIST_REL (OPTREL (v_rel gtagenv)) env.globals genv_i2 ∧
       next_inv s.defined_types (FST (FST tagenv_st)) gtagenv
       ⇒
       ∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
-        evaluate_decs <| exh := get_exh (FST tagenv_st'); v := []; globals := genv_i2|> s1_i2 ds_i2 = (s'_i2,genv'_i2,res_i2) ∧
+        evaluate_decs <| exh := get_exh (FST tagenv_st'); v := []|> s1_i2 ds_i2 = (s'_i2,genv'_i2,res_i2) ∧
         gtagenv_weak gtagenv gtagenv' ∧
         vs_rel gtagenv' genv' genv'_i2 ∧
         s_rel gtagenv' s' s'_i2 ∧
@@ -2024,9 +2023,9 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     simp[GSYM AND_IMP_INTRO,env_rel_el,LENGTH_NIL_SYM] >>
     simp[Once result_rel_cases,PULL_EXISTS,vs_rel_list_rel] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    qpat_abbrev_tac`env_i2:conSem$environment = _ with globals := _` >>
-    disch_then(qspec_then`env_i2`mp_tac o (CONV_RULE(RESORT_FORALL_CONV(sort_vars["env_i2"])))) >>
     disch_then(qspec_then`get_tagenv tagenv_st`mp_tac) >>
+    qpat_abbrev_tac`env_i2:conSem$environment = _ with v := _` >>
+    disch_then(qspec_then`env_i2`mp_tac) >>
     simp[Abbr`env_i2`] >>
     discharge_hyps_keep >- (
       fs[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
@@ -2040,9 +2039,11 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     imp_res_tac LIST_REL_LENGTH >>
     simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(qspec_then`genv_i2 ++ MAP SOME vs'`mp_tac) >>
+    qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
+    disch_then(qspec_then`s_i2`mp_tac) >>
     discharge_hyps >- (
+      simp[Abbr`s_i2`] >>
+      fs[s_rel_cases] >>
       MATCH_MP_TAC EVERY2_APPEND_suff >>
       simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
       simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> rw[] ) >>
@@ -2059,29 +2060,36 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     metis_tac[v_rel_weakening,vs_rel_list_rel] )
   >- (
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    imp_res_tac recfun_helper >>
-    pop_assum(qspec_then`l`assume_tac) >>
-    qmatch_assum_abbrev_tac`LIST_REL R l1 l2` >>
-    disch_then(qspec_then`genv_i2 ++ l2`mp_tac) >>
+    simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
+    qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
+    disch_then(qspec_then`s_i2`mp_tac) >>
     discharge_hyps >- (
-      match_mp_tac EVERY2_APPEND_suff >> rw[] ) >>
+      fs[s_rel_cases,Abbr`s_i2`] >>
+      simp[compile_funs_map] >>
+      fs[MAP_MAP_o,o_DEF,UNCURRY] >>
+      match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+      fs[EVERY2_MAP,optionTheory.OPTREL_def,UNCURRY] >>
+      match_mp_tac (MP_CANON (GEN_ALL LIST_REL_mono)) >>
+      simp[Once v_rel_cases] >>
+      qexists_tac`$=`>>simp[env_rel_el] >>
+      simp[LIST_REL_EL_EQN] >>
+      metis_tac[] ) >>
     simp[] >> unabbrev_all_tac >>
     simp[PULL_EXISTS] >> rpt gen_tac >>
     qpat_abbrev_tac`D ⇔ a ∨ b` >> strip_tac >>
-    simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
-    simp[compile_funs_map] >>
-    fs[MAP_MAP_o,o_DEF,UNCURRY] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fs[vs_rel_list_rel] >>
     qexists_tac`acc'`>>simp[]>>
     reverse conj_tac >- ( fs[markerTheory.Abbrev_def] ) >>
     match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+    simp[compile_funs_map] >>
+    fs[MAP_MAP_o,o_DEF,UNCURRY] >>
     fs[EVERY2_MAP,optionTheory.OPTREL_def,UNCURRY] >>
-    match_mp_tac (MP_CANON (GEN_ALL LIST_REL_mono)) >>
-    rw[Once CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    metis_tac[v_rel_weakening] )
+    simp[Once v_rel_cases,env_rel_el] >>
+    simp[LIST_REL_EL_EQN] >> rw[] >>
+    fs[cenv_inv_def] >>
+    fs[envC_tagged_def] >>
+    PROVE_TAC[gtagenv_weak_def,FLOOKUP_SUBMAP])
   >- (
     first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tags_cenv_inv)) >>
     qmatch_assum_rename_tac`compile_decs (alloc_tags mn tagenv_st ls) ds = _` >>
@@ -2097,17 +2105,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     every_case_tac >> fs[] >>
     rpt var_eq_tac >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(qspecl_then[`s1_i2`,`genv_i2`]mp_tac) >>
+    disch_then(qspecl_then[`s1_i2`]mp_tac) >>
     discharge_hyps >- (
       fs[s_rel_cases] >>
+      conj_tac >>
       match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-      metis_tac[sv_rel_weakening] ) >>
-    discharge_hyps >- (
-      match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >> simp[] >>
-      first_assum(match_exists_tac o concl) >>
-      simp[optionTheory.OPTREL_def] >> rw[] >>
-      metis_tac[v_rel_weakening] ) >>
+      metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
     discharge_hyps >- (
       simp[] >>
       Cases_on`env.c`>>fs[merge_alist_mod_env_def] >>
@@ -2176,17 +2179,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     fs[next_inv_def,SUBSET_DEF,PULL_EXISTS] >>
     metis_tac[SND] ) >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-  disch_then(qspecl_then[`s1_i2`,`genv_i2`]mp_tac) >>
+  disch_then(qspecl_then[`s1_i2`]mp_tac) >>
   discharge_hyps >- (
     fs[s_rel_cases] >>
+    conj_tac >>
     match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-    metis_tac[sv_rel_weakening] ) >>
-  discharge_hyps >- (
-    match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >>
-    simp[optionTheory.OPTREL_def] >> rw[] >>
-    metis_tac[v_rel_weakening] ) >>
+    metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
   discharge_hyps >- (
     simp[GSYM INSERT_SING_UNION] >>
     Cases_on`envC`>>fs[merge_alist_mod_env_def]) >>
