@@ -259,10 +259,10 @@ val memcpy_def = Define `
         (b1,m1,c1 /\ a IN dm /\ b IN dm)`
 
 val word_gc_move_def = Define `
-  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm,c) = (Loc l1 l2,i,pa,m,c)) /\
-  (word_gc_move conf (Word w,i,pa,old,m,dm,c) =
-     if (w && 1w) = 0w then (Word w,i,pa,m,c) else
-       let c = (c /\ ptr_to_addr conf old w IN dm) in
+  (word_gc_move conf (Loc l1 l2,i,pa,old,m,dm) = (Loc l1 l2,i,pa,m,T)) /\
+  (word_gc_move conf (Word w,i,pa,old,m,dm) =
+     if (w && 1w) = 0w then (Word w,i,pa,m,T) else
+       let c = (ptr_to_addr conf old w IN dm) in
        let v = m (ptr_to_addr conf old w) in
          if isWord v /\ is_fwd_ptr (theWord v) then
            (Word (update_addr conf (theWord v) w),i,pa,m,c)
@@ -288,11 +288,11 @@ val word_gc_move_def = Define `
              (Word (update_addr conf v w),i,pa1,m1,c))`
 
 val word_gc_move_roots_def = Define `
-  (word_gc_move_roots conf ([],i,pa,old,m,dm,c) = ([],i,pa,m,c)) /\
-  (word_gc_move_roots conf (w::ws,i,pa,old,m,dm,c) =
-     let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm,c) in
-     let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ws,i1,pa1,old,m1,dm,c1) in
-       (w1::ws2,i2,pa2,m2,c2))`
+  (word_gc_move_roots conf ([],i,pa,old,m,dm) = ([],i,pa,m,T)) /\
+  (word_gc_move_roots conf (w::ws,i,pa,old,m,dm) =
+     let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
+     let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ws,i1,pa1,old,m1,dm) in
+       (w1::ws2,i2,pa2,m2,c1 /\ c2))`
 
 val word_gc_loop_def = Define `
   word_gc_loop conf k (pb,i,pa,old,m,dm,c) =
@@ -305,10 +305,10 @@ val word_gc_loop_def = Define `
           let pb = pb + (len + 1w) * bytes_in_word in
             word_gc_loop conf (k-1) (pb,i,pa,old,m,dm,c)
         else
-          let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm,c) in
+          let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
           let m1 = (pb =+ w1) m1 in
           let pb = pb + bytes_in_word in
-            word_gc_loop conf (k-1) (pb,i1,pa1,old,m1,dm,c1)`
+            word_gc_loop conf (k-1) (pb,i1,pa1,old,m1,dm,c /\ c1)`
 
 val word_gc_fun_def = Define `
   (word_gc_fun (conf:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
@@ -317,14 +317,14 @@ val word_gc_fun_def = Define `
      let old = theWord (s ' CurrHeap) in
      let len = theWord (s ' ARB) in (* FIX! *)
      let all_roots = s ' Globals::roots in
-     let (roots1,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm,c) in
-     let (_,pa1,m1,c) = word_gc_loop conf (dimword(:'a)) (new,i1,pa1,old,m1,dm,c) in
+     let (roots1,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm) in
+     let (_,pa1,m1,c) = word_gc_loop conf (dimword(:'a)) (new,i1,pa1,old,m1,dm,c1) in
      let s1 = s |++ [(CurrHeap, Word new);
                      (OtherHeap, Word old);
                      (NextFree, Word pa1);
                      (LastFree, Word (new + len));
                      (Globals, HD roots1)] in
-       if c then SOME (TL roots,m1,s1) else NONE`
+       if c then SOME (TL roots1,m1,s1) else NONE`
 
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp c s m dm limit =
@@ -1312,21 +1312,45 @@ val word_gc_fun_loc_merge = prove(
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)``,
   cheat); (* easy once word_gc_fun has been defined *)
 
+val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
+
 val word_gc_fun_IMP = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
     FLOOKUP s1 AllocSize = FLOOKUP s AllocSize /\
     FLOOKUP s1 Handler = FLOOKUP s Handler /\
     Globals IN FDOM s1``,
-  cheat); (* easy once word_gc_fun has been defined *)
+  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ UNABBREV_ALL_TAC \\ fs [] \\ rw []
+  \\ EVAL_TAC)
+
+val word_gc_move_roots_IMP_EVERY2 = prove(
+  ``!xs ys pa m i c1 m1 pa1 i1 old dm c.
+      word_gc_move_roots c (xs,i,pa,old,m,dm) = (ys,i1,pa1,m1,c1) ==>
+      EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys``,
+  Induct \\ fs [word_gc_move_roots_def]
+  \\ fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw [] \\ res_tac
+  \\ qpat_assum `word_gc_move c (h,i,pa,old,m,dm) = (w1,i1',pa1',m1',c1')` mp_tac
+  \\ fs [] \\ Cases_on `h` \\ fs [word_gc_move_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ rw [] \\ fs [isWord_def]
+  \\ UNABBREV_ALL_TAC \\ rw [] \\ pop_assum mp_tac \\ fs []
+  \\ rw [] \\ CCONTR_TAC \\ fs[] \\ rw [] \\ fs [isWord_def]);
 
 val word_gc_IMP_EVERY2 = prove(
   ``word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
     EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys``,
-  cheat); (* easy once word_gc_fun has been defined *)
+  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
+  \\ Q.UNABBREV_TAC `all_roots`
+  \\ imp_res_tac word_gc_move_roots_IMP_EVERY2
+  \\ Cases_on `roots1` \\ fs []
+  \\ fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []);
 
 val word_gc_fun_LENGTH = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs``,
-  cheat); (* easy once word_gc_fun has been defined *)
+  rw [] \\ drule word_gc_IMP_EVERY2 \\ rw [] \\ imp_res_tac EVERY2_LENGTH);
 
 val word_gc_fun_APPEND_IMP = prove(
   ``word_gc_fun c (xs ++ ys,m,dm,s) = SOME (zs,m1,s1) ==>
@@ -1655,7 +1679,7 @@ val has_space_state_rel = prove(
     state_rel c l1 l2 (s with space := k) r [] locs``,
   fs [state_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [heap_in_memory_store_def,wordSemTheory.has_space_def]
-  \\ cheat); (* wordSemTheory.has_space needs fixing *)
+  \\ cheat); (* wordSemTheory.has_space_def needs fixing *)
 
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
