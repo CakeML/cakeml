@@ -110,7 +110,7 @@ val stub1_def = Define `
     (1:num, seq_list [Set Handler 0;
                       Set ProgStart 1;
                       Set CurrHeap 2;
-                      Set LastFree 3;
+                      Set EndOfHeap 3;
                       Call NONE (INL start) NONE])`
 
 val _ = Datatype`config =

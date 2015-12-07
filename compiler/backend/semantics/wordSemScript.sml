@@ -364,7 +364,7 @@ val gc_def = Define `  (* gc runs the garbage collector algorithm *)
 
 val has_space_def = Define `
   has_space wl s =
-    case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store LastFree) of
+    case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store EndOfHeap) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
