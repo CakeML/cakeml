@@ -2,6 +2,26 @@ open preamble ffiTheory wordSemTheory labSemTheory lab_to_targetTheory;
 
 val _ = new_theory"labProps";
 
+(* TODO: move *)
+
+val reg_imm_with_clock = Q.store_thm("reg_imm_with_clock[simp]",
+  `reg_imm r (s with clock := z) = reg_imm r s`,
+  Cases_on`r`>>EVAL_TAC);
+
+val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
+  `asm_inst i (s with clock := z) = asm_inst i s with clock := z`,
+  Cases_on`i`>>EVAL_TAC >- (
+    Cases_on`a`>>EVAL_TAC >>
+    every_case_tac >> fs[] >>
+    Cases_on`b`>>EVAL_TAC>>
+    fs[state_component_equality] >>
+    Cases_on`r`>>fs[reg_imm_def,read_reg_def]) >>
+  Cases_on`m`>>EVAL_TAC>>
+  Cases_on`a`>>EVAL_TAC>>
+  every_case_tac >> fs[]);
+
+(* -- *)
+
 val update_simps = store_thm("update_simps[simp]",
   ``((upd_pc x s).ffi = s.ffi) /\
     ((dec_clock s).ffi = s.ffi) /\
@@ -137,6 +157,25 @@ val evaluate_pres_final_event = store_thm("evaluate_pres_final_event",
   \\ res_tac \\ fs [inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def]
   \\ rfs [call_FFI_def] \\ fs[] \\ res_tac \\ fs []);
 
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `∀s1 r s2. evaluate s1 = (r,s2) ⇒ s1.ffi.io_events ≼ s2.ffi.io_events`,
+  ho_match_mp_tac evaluate_ind >> rw[] >>
+  Cases_on`s1.clock=0`>-fs[Once evaluate_def]>>fs[]>>
+  rator_x_assum`evaluate`mp_tac >>
+  simp[Once evaluate_def] >>
+  Cases_on`asm_fetch s1`>>fs[] >>
+  Cases_on`x`>>fs[] >- (
+    every_case_tac >> rw[] >> fs[] >>
+    fs[inc_pc_def,dec_clock_def,asm_inst_consts] ) >>
+  Cases_on`a`>>fs[] >>
+  every_case_tac >> rw[] >> fs[] >>
+  fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_reg_def] >>
+  split_pair_tac >> fs[] >>
+  fs[call_FFI_def] >>
+  every_case_tac >> fs[] >> rfs[] >>
+  rpt var_eq_tac >> fs[] >>
+  fs[IS_PREFIX_APPEND]);
+
 val evaluate_Halt_IMP = store_thm("evaluate_Halt_IMP",
   ``evaluate s = (Halt x,s2) ==> (x = Success) \/ (x = Resource_limit_hit)``,
   cheat (* easy *));
@@ -144,7 +183,29 @@ val evaluate_Halt_IMP = store_thm("evaluate_Halt_IMP",
 val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
   ``!s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
-      evaluate (s with clock := s.clock + k) = (res,r)``,
-  cheat (* easy *));
+      evaluate (s with clock := s.clock + k) = (res,r with clock := r.clock + k)``,
+  ho_match_mp_tac evaluate_ind >> rw[] >>
+  rator_x_assum`evaluate`mp_tac >>
+  simp[Once evaluate_def] >>
+  IF_CASES_TAC >> fs[] >> strip_tac >>
+  simp[Once evaluate_def] >>
+  fs[asm_fetch_def] >>
+  Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
+  Cases_on`x`>>fs[] >>
+  Cases_on`a`>>fs[] >>
+  every_case_tac >> fs[] >>
+  fs[inc_pc_def,dec_clock_def,asm_inst_consts,read_reg_def,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
+  fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
+  TRY split_pair_tac >> fs[] >>
+  first_x_assum(qspec_then`k`mp_tac)>>simp[]);
+
+(*
+val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+  `(SND(evaluate s)).ffi.io_events ≼
+   (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events ∧
+   (IS_SOME((SND(evaluate s)).ffi.final_event) ⇒
+    (SND(evaluate (s with clock := s.clock + extra))).ffi =
+    (SND(evaluate s)).ffi)`,
+*)
 
 val _ = export_theory();
