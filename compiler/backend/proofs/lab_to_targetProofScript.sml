@@ -28,6 +28,10 @@ val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
   Cases \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ rw [] \\ fs []);
 
+val FST_EQ_EQUIV = prove(
+  ``(FST x = y) <=> ?z. x = (y,z)``,
+  Cases_on `x` \\ fs []);
+
 local
   val SND_read_mem_word_consts = prove(
     ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
@@ -1420,16 +1424,13 @@ val evaluate_ignore_clocks = prove(
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ fs [AC ADD_ASSOC ADD_COMM])
 
-val FST_EQ_EQUIV = prove(
-  ``(FST x = y) <=> ?z. x = (y,z)``,
-  Cases_on `x` \\ fs []);
+val is_pair = can dest_prod o type_of
 
-val machine_sem_EQ_sem = prove(
-  ``!mc_conf p (ms:'state) ^s1.
-      backend_correct mc_conf.target /\
-      init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>
-      machine_sem mc_conf s1.ffi ms = { semantics s1 }``,
-
+val machine_sem_EQ_sem = Q.prove(
+  `!mc_conf p (ms:'state) ^s1.
+     backend_correct mc_conf.target /\
+     init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>
+     machine_sem mc_conf s1.ffi ms = { semantics s1 }`,
   simp[GSYM AND_IMP_INTRO] >>
   rpt gen_tac >> ntac 2 strip_tac >>
   fs [init_ok_def] >>
@@ -1437,40 +1438,49 @@ val machine_sem_EQ_sem = prove(
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >>
   conj_tac
-  >- (qx_gen_tac`ffi`>>strip_tac>>
-    fs []
+  >- (
+    qx_gen_tac`ffi`>>strip_tac>> fs []
     \\ drule compile_correct \\ fs []
+    \\ `r ≠ Error` by (Cases_on`r`>>every_case_tac>>fs[]>>metis_tac[FST]) >> simp[]
     \\ disch_then drule
     \\ imp_res_tac state_rel_clock
     \\ pop_assum (qspec_then `k` assume_tac)
     \\ disch_then drule \\ rw [] \\ fs []
     \\ fs [machine_sem_def,EXTENSION] \\ fs [IN_DEF]
     \\ Cases \\ fs [machine_sem_def]
-    THEN1 (disj1_tac \\ qexists_tac `k+k'` \\ fs [] \\ every_case_tac)
+    THEN1 (disj1_tac \\ qexists_tac `k+k'` \\ fs [] \\ every_case_tac \\ fs[])
     THEN1
      (eq_tac THEN1
-       (rw [] \\ every_case_tac
+       (rw [] \\ every_case_tac \\ fs[] \\ rw[]
         \\ drule (GEN_ALL evaluate_ignore_clocks) \\ fs []
         \\ pop_assum (K all_tac)
         \\ disch_then drule \\ fs [])
       \\ rw [] \\ every_case_tac \\ fs [] \\ asm_exists_tac \\ fs [])
     \\ CCONTR_TAC \\ fs [FST_EQ_EQUIV]
     \\ PairCases_on `z`
-    \\ every_case_tac \\ fs []
     \\ drule (GEN_ALL evaluate_ignore_clocks) \\ fs []
+    \\ every_case_tac \\ fs []
     \\ pop_assum (K all_tac)
     \\ asm_exists_tac \\ fs [])
   \\ fs [machine_sem_def,EXTENSION] \\ fs [IN_DEF]
-  \\ strip_tac \\ Cases \\ fs [machine_sem_def]
+  \\ strip_tac
+  \\ Cases \\ fs [machine_sem_def]
   \\ imp_res_tac state_rel_clock
   THEN1 cheat
-  THEN1
-   (qspec_then `s1 with clock := k` mp_tac compile_correct
-    \\ simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] \\ fs []
-    \\ disch_then drule
-    \\ pop_assum (qspec_then `k` assume_tac)
-    \\ disch_then drule \\ strip_tac
-    \\ CCONTR_TAC \\ fs [] \\ cheat)
+  THEN1 (
+    spose_not_then strip_assume_tac >> var_eq_tac >>
+    qspec_then `s1 with clock := k` mp_tac compile_correct >>
+    Cases_on`evaluate (s1 with clock := k)`>>simp[]>>
+    last_assum(qspec_then`k`mp_tac)>>
+    pop_assum mp_tac >> simp_tac(srw_ss())[] >> rpt strip_tac >>
+    asm_exists_tac >> simp[] >>
+    first_x_assum(qspec_then`k`strip_assume_tac) >>
+    asm_exists_tac >> simp[] >>
+    rpt gen_tac >>
+    drule (GEN_ALL evaluate_add_clock) >> simp[] >>
+    disch_then kall_tac >>
+    first_x_assum(qspec_then`k`mp_tac) >> simp[] >>
+    Cases_on`r.ffi.final_event`>>fs[])
   \\ CCONTR_TAC \\ fs [FST_EQ_EQUIV]
   \\ last_x_assum (qspec_then `k` mp_tac) \\ fs []
   \\ Cases_on `evaluate (s1 with clock := k)` \\ fs []
