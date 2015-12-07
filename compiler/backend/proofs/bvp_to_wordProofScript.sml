@@ -12,7 +12,7 @@ val _ = new_theory "bvp_to_wordProof";
 val word_ml_inv_def = Define `
   word_ml_inv (heap,be,a,sp) limit c refs stack <=>
     ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
-         EVERY2 (\v w. word_addr c heap v = w) hs (MAP SND stack)`
+         EVERY2 (\v w. word_addr c v = w) hs (MAP SND stack)`
 
 val EVERY2_MAP_MAP = prove(
   ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
@@ -316,14 +316,14 @@ val word_gc_fun_def = Define `
      let c = (Globals IN FDOM s) in
      let new = theWord (s ' OtherHeap) in
      let old = theWord (s ' CurrHeap) in
-     let len = theWord (s ' ARB) in (* FIX! *)
+     let len = theWord (s ' HeapLength) in
      let all_roots = s ' Globals::roots in
      let (roots1,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm) in
      let (_,pa1,m1,c) = word_gc_loop conf (dimword(:'a)) (new,i1,pa1,old,m1,dm,c1) in
      let s1 = s |++ [(CurrHeap, Word new);
                      (OtherHeap, Word old);
                      (NextFree, Word pa1);
-                     (LastFree, Word (new + len));
+                     (EndOfHeap, Word (new + len));
                      (Globals, HD roots1)] in
        if c then SOME (TL roots1,m1,s1) else NONE`
 
@@ -348,24 +348,12 @@ val word_gc_move_thm = prove(
 
 word_addr_def
 get_addr_def
-
 word_gc_move_def
-
-
-    word_addr_def
-
-  cheat
-
-
-
-
+word_addr_def
 gc_forward_ptr_def
-
 gc_move_def
 gc_move_list_def
-
 one_list_def
-
 word_heap_def
 word_el_def
 
@@ -377,21 +365,21 @@ val heap_in_memory_store_def = Define `
       (FLOOKUP s CurrHeap = SOME (Word curr)) /\
       (FLOOKUP s OtherHeap = SOME (Word other)) /\
       (FLOOKUP s NextFree = SOME (Word (curr + bytes_in_word * n2w a))) /\
-      (FLOOKUP s LastFree = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
-      (word_heap curr heap c heap *
-       word_heap other [Unused (limit-1)] c [Unused (limit-1)]) (fun2set (m,dm))`
+      (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
+      (word_heap curr heap c *
+       word_heap other [Unused (limit-1)] c) (fun2set (m,dm))`
 
 val word_gc_fun_lemma = prove(
   ``heap_in_memory_store heap a sp c s m dm limit /\
     abs_ml_inv (v::MAP FST stack) refs (hs,heap,be,a,sp) limit /\
-    LIST_REL (\v w. word_addr c heap v = w) hs (s ' Globals::MAP SND stack) /\
+    LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
     full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) ==>
     let heap1 = heap2 ++ heap_expand (limit - heap_length heap2) in
       ?stack1 m1 s1 a1 sp1.
         word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
         heap_in_memory_store heap1 (heap_length heap2)
           (limit - heap_length heap2) c s1 m1 dm limit /\
-        LIST_REL (λv w. word_addr c heap1 v = w) roots2
+        LIST_REL (λv w. word_addr c v = w) roots2
           (s1 ' Globals::MAP SND (ZIP (MAP FST stack,stack1))) /\
         LENGTH stack1 = LENGTH stack``,
   cheat) |> GEN_ALL
@@ -1188,15 +1176,37 @@ val mk_loc_jump_exc = prove(
   \\ Cases_on `env_to_list y (dec_clock t).permute`
   \\ fs [LET_DEF,LAST_N_ADD1,mk_loc_def]);
 
+val inc_clock_def = Define `
+  inc_clock n (t:('a,'ffi) wordSem$state) = t with clock := t.clock + n`;
+
+val inc_clock_0 = store_thm("inc_clock_0[simp]",
+  ``!t. inc_clock 0 t = t``,
+  fs [inc_clock_def,wordSemTheory.state_component_equality]);
+
+val inc_clock_inc_clock = store_thm("inc_clock_inc_clock[simp]",
+  ``!t. inc_clock n (inc_clock m t) = inc_clock (n+m) t``,
+  fs [inc_clock_def,wordSemTheory.state_component_equality,AC ADD_ASSOC ADD_COMM]);
+
+val mk_loc_jmup_exc_inc_clock = store_thm("mk_loc_jmup_exc_inc_clock[simp]",
+  ``mk_loc (jump_exc (inc_clock ck t)) = mk_loc (jump_exc t)``,
+  fs [mk_loc_def,wordSemTheory.jump_exc_def,inc_clock_def]
+  \\ every_case_tac \\ fs [mk_loc_def]);
+
+val jump_exc_inc_clock_EQ_NONE = prove(
+  ``jump_exc (inc_clock n s) = NONE <=> jump_exc s = NONE``,
+  fs [mk_loc_def,wordSemTheory.jump_exc_def,inc_clock_def]
+  \\ every_case_tac \\ fs [mk_loc_def]);
+
 val assign_thm = prove(
-  ``state_rel c l1 l2 s t [] locs /\
+  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     (op_space_reset op ==> names_opt <> NONE) /\
-    cut_state_opt names_opt s = SOME s1 /\
-    get_vars args s1.locals = SOME vals /\
-    do_app op vals s1 = Rval (v,s2) /\
-    evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
-    q <> SOME NotEnoughSpace ==>
-    state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE``,
+    cut_state_opt names_opt s = SOME x /\
+    get_vars args x.locals = SOME vals /\
+    do_app op vals x = Rval (v,s2) ==>
+    ?ck q r.
+      evaluate (FST (assign c n l dest op args names_opt),inc_clock ck t) = (q,r) /\
+      (q <> SOME NotEnoughSpace ==>
+      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``,
   cheat);
 
 val jump_exc_push_env_NONE_simp = prove(
@@ -1356,6 +1366,8 @@ val word_gc_move_roots_IMP_FILTER = prove(
   \\ Cases_on `word_gc_move_roots c (ws,i,pa,old,m,dm)`
   \\ PairCases_on `r` \\ fs [] \\ rw [] \\ fs [isWord_def]);
 
+val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
+
 val word_gc_fun_IMP_FILTER = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
     word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)``,
@@ -1415,8 +1427,6 @@ val word_gc_fun_loc_merge = prove(
   \\ PairCases_on `r` \\ fs [LET_DEF]
   \\ imp_res_tac word_gc_move_roots_IMP_FILTER
   \\ fs [] \\ rw [] \\ fs []);
-
-val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 
 val word_gc_fun_IMP = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
@@ -1785,31 +1795,51 @@ val has_space_state_rel = prove(
   \\ fs [heap_in_memory_store_def,wordSemTheory.has_space_def]
   \\ cheat); (* wordSemTheory.has_space_def needs fixing *)
 
+val evaluate_IMP_inc_clock = prove(
+  ``evaluate (q,t) = (NONE,t1) ==>
+    evaluate (q,inc_clock ck t) = (NONE,inc_clock ck t1)``,
+  cheat);
+
+val get_var_inc_clock = prove(
+  ``get_var n (inc_clock k s) = get_var n s``,
+  fs [wordSemTheory.get_var_def,inc_clock_def]);
+
+val get_vars_inc_clock = prove(
+  ``get_vars n (inc_clock k s) = get_vars n s``,
+  Induct_on `n` \\ fs [wordSemTheory.get_vars_def]
+  \\ every_case_tac \\ fs [get_var_inc_clock]);
+
+val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
+
 val compile_correct = prove(
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] locs ==>
-      ?t1 res1. (wordSem$evaluate (FST (comp c n l prog),t) = (res1,t1)) /\
-                (res1 <> SOME NotEnoughSpace ==>
-                 case res of
-                 | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
-                 | SOME (Rval v) =>
-                     ?w. state_rel c l1 l2 s1 t1 [(v,w)] locs /\
-                         (res1 = SOME (Result (Loc l1 l2) w))
-                 | SOME (Rerr (Rraise v)) =>
-                     ?w l5 l6 ll.
-                       (res1 = SOME (Exception (mk_loc (jump_exc t)) w)) /\
-                       (jump_exc t <> NONE ==>
-                        LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
-                        !i. state_rel c l5 l6 (set_var i v s1)
-                               (set_var (adjust_var i) w t1) [] ll)
-                 | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
+      ?ck t1 res1.
+        (wordSem$evaluate (FST (comp c n l prog),inc_clock ck t) = (res1,t1)) /\
+        (res1 <> SOME NotEnoughSpace ==>
+         case res of
+         | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
+         | SOME (Rval v) =>
+             ?w. state_rel c l1 l2 s1 t1 [(v,w)] locs /\
+                 (res1 = SOME (Result (Loc l1 l2) w))
+         | SOME (Rerr (Rraise v)) =>
+             ?w l5 l6 ll.
+               (res1 = SOME (Exception (mk_loc (jump_exc t)) w)) /\
+               (jump_exc t <> NONE ==>
+                LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
+                !i. state_rel c l5 l6 (set_var i v s1)
+                       (set_var (adjust_var i) w t1) [] ll)
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def] \\ rw [])
+   (qexists_tac `0`
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+    \\ rw [])
   THEN1 (* Move *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (qexists_tac `0` \\ fs []
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var src s.locals` \\ fs [] \\ rw []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ fs [wordSemTheory.get_vars_def,wordSemTheory.set_vars_def,alist_insert_def]
@@ -1829,19 +1859,20 @@ val compile_correct = prove(
     \\ Cases_on `get_vars args x.locals` \\ fs []
     \\ reverse (Cases_on `do_app op x' x`) \\ fs []
     THEN1 (imp_res_tac do_app_Rerr \\ rw [])
-    \\ Cases_on `evaluate (FST (assign c n l dest op args names_opt),t)`
-    \\ fs [] \\ rw [] \\ Cases_on `a` \\ fs []
-    \\ qpat_assum `NONE = res` (fn th => fs [GSYM th])
-    \\ metis_tac [assign_thm])
+    \\ Cases_on `a`
+    \\ mp_tac (assign_thm |> Q.GEN `vals` |> Q.GEN `v` |> Q.GEN `s2`) \\ fs []
+    \\ rw [] \\ fs [] \\ qexists_tac `ck` \\ fs [])
   THEN1 (* Tick *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (qexists_tac `0` \\ fs []
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs [] \\ rw []
     \\ fs [] \\ rw [] \\ rpt (pop_assum mp_tac)
     \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def] \\ rw []
     \\ fs [state_rel_def,bvpSemTheory.dec_clock_def,wordSemTheory.dec_clock_def]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs [])
   THEN1 (* MakeSpace *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+   (qexists_tac `0` \\ fs []
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
         GSYM alloc_size_def,LET_DEF]
     \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
     \\ rw [] \\ fs [add_space_def,wordSemTheory.word_exp_def,
@@ -1872,14 +1903,16 @@ val compile_correct = prove(
     \\ every_case_tac \\ fs [] \\ rfs [] \\ rw []
     \\ imp_res_tac has_space_state_rel \\ fs [])
   THEN1 (* Raise *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (qexists_tac `0` \\ fs []
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs [] \\ rw []
     \\ fs [] \\ imp_res_tac state_rel_get_var_IMP \\ fs []
     \\ Cases_on `jump_exc s` \\ fs [] \\ rw []
     \\ imp_res_tac state_rel_jump_exc \\ fs []
     \\ rw [] \\ fs [] \\ rw [mk_loc_def])
   THEN1 (* Return *)
-   (fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
+   (qexists_tac `0` \\ fs []
+    \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def]
     \\ Cases_on `get_var n s.locals` \\ fs [] \\ rw []
     \\ `get_var 0 t = SOME (Loc l1 l2)` by
           fs [state_rel_def,wordSemTheory.get_var_def]
@@ -1906,17 +1939,23 @@ val compile_correct = prove(
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`l`])
     \\ rpt strip_tac \\ rfs[]
     \\ reverse (Cases_on `q'' = NONE`) \\ fs []
-    THEN1 (rpt strip_tac \\ fs [] \\ rw [] \\ Cases_on `q''` \\ fs []
+    THEN1 (qexists_tac `ck` \\ fs []
+           \\ rpt strip_tac \\ fs [] \\ rw [] \\ Cases_on `q''` \\ fs []
            \\ Cases_on `x` \\ fs [] \\ Cases_on `e` \\ fs [])
-    \\ rw [] THEN1
-     (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
+    \\ Cases_on `res1 = SOME NotEnoughSpace` \\ fs []
+    THEN1 (qexists_tac `ck` \\ fs []) \\ rw []
+    \\ qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
              first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
-      \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
-      \\ rpt strip_tac \\ rfs [] \\ rpt strip_tac \\ fs []
-      \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def] \\ fs []
-      \\ imp_res_tac evaluate_mk_loc_EQ \\ fs []
-      \\ metis_tac [eval_NONE_IMP_jump_exc_NONE_EQ])
-    \\ Cases_on `res` \\ fs [])
+    \\ strip_tac \\ pop_assum (mp_tac o Q.SPECL [`n`,`r`])
+    \\ rpt strip_tac \\ rfs [] \\ rpt strip_tac \\ fs []
+    \\ imp_res_tac evaluate_IMP_inc_clock \\ fs []
+    \\ pop_assum (qspec_then `ck'` assume_tac)
+    \\ qexists_tac `ck'+ck` \\ fs []
+    \\ rw [] \\ fs []
+    \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def] \\ fs []
+    \\ imp_res_tac evaluate_mk_loc_EQ \\ fs []
+    \\ imp_res_tac eval_NONE_IMP_jump_exc_NONE_EQ
+    \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac [])
   THEN1 (* If *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `comp c n l c1` \\ fs [LET_DEF]
@@ -1931,18 +1970,22 @@ val compile_correct = prove(
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`l`] mp_tac)
       \\ rpt strip_tac \\ rfs[]
-      \\ metis_tac [eval_NONE_IMP_jump_exc_NONE_EQ])
+      \\ fs [get_var_inc_clock]
+      \\ imp_res_tac eval_NONE_IMP_jump_exc_NONE_EQ
+      \\ qexists_tac `ck` \\ fs [get_var_inc_clock])
     \\ Cases_on `x = Boolv F` \\ fs [] THEN1
      (qpat_assum `state_rel c l1 l2 s t [] locs` (fn th =>
                first_x_assum (fn th1 => mp_tac (MATCH_MP th1 th)))
       \\ strip_tac \\ pop_assum (qspecl_then [`n`,`r`] mp_tac)
       \\ rpt strip_tac \\ rfs[]
-      \\ metis_tac [eval_NONE_IMP_jump_exc_NONE_EQ]))
+      \\ fs [get_var_inc_clock]
+      \\ imp_res_tac eval_NONE_IMP_jump_exc_NONE_EQ
+      \\ qexists_tac `ck` \\ fs [get_var_inc_clock]))
   THEN1 (* Call *)
    (once_rewrite_tac [bvp_to_wordTheory.comp_def] \\ fs []
     \\ Cases_on `ret`
     \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
-           wordSemTheory.add_ret_loc_def]
+           wordSemTheory.add_ret_loc_def,get_vars_inc_clock]
     THEN1 (* ret = NONE *)
      (Cases_on `get_vars args s.locals` \\ fs []
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ fs []
@@ -1950,12 +1993,21 @@ val compile_correct = prove(
       \\ Cases_on `x'` \\ fs [] \\ Cases_on `handler` \\ fs []
       \\ `t.clock = s.clock` by fs [state_rel_def]
       \\ mp_tac find_code_thm \\ fs [] \\ rw [] \\ fs []
+      \\ fs [EVAL ``(inc_clock ck t).code``,EVAL ``(inc_clock ck t).clock``]
       \\ Cases_on `s.clock = 0` \\ fs [] \\ rw [] \\ fs []
+      THEN1 (qexists_tac `0` \\ fs [])
       \\ Cases_on `evaluate (r,call_env q (dec_clock s))` \\ fs []
       \\ Cases_on `q'` \\ fs [] \\ rw [] \\ fs [] \\ res_tac
       \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac)
+      \\ qexists_tac `ck` \\ fs []
+      \\ `t.clock <> 0` by fs [state_rel_def]
+      \\ `inc_clock ck (call_env args1 (dec_clock t)) =
+          call_env args1 (dec_clock (inc_clock ck t))` by
+       (fs [wordSemTheory.call_env_def,inc_clock_def,
+            wordSemTheory.dec_clock_def,
+            wordSemTheory.state_component_equality] \\ decide_tac) \\ fs []
       \\ Cases_on `res1` \\ fs [] \\ rw [] \\ fs []
-      \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def]
+      \\ every_case_tac \\ fs [mk_loc_def]
       \\ fs [wordSemTheory.jump_exc_def,wordSemTheory.call_env_def,
              wordSemTheory.dec_clock_def]
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def])
@@ -1970,15 +2022,27 @@ val compile_correct = prove(
       \\ Cases_on `bvpSem$cut_env r s.locals` \\ fs []
       \\ imp_res_tac cut_env_IMP_cut_env \\ fs [] \\ rw []
       \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
+      \\ fs [get_vars_inc_clock]
       \\ mp_tac find_code_thm_ret \\ fs [] \\ rw [] \\ fs []
       \\ Cases_on `s.clock = 0` \\ fs [] \\ rw []
+      \\ fs [EVAL ``(inc_clock ck t).code``,EVAL ``(inc_clock ck t).locals``,
+             EVAL ``(inc_clock ck t).clock``]
+      THEN1 (qexists_tac `0` \\ fs [])
       \\ Cases_on `evaluate (prog,call_env ys (push_env x F (dec_clock s)))`
       \\ fs [] \\ Cases_on `q'` \\ fs []
       \\ Cases_on `x' = Rerr (Rabort Rtype_error)` \\ fs []
       \\ res_tac (* inst ind hyp *)
       \\ pop_assum (qspecl_then [`n1`,`n2`] strip_assume_tac) \\ fs []
       \\ Cases_on `res1 = SOME NotEnoughSpace` \\ fs []
-      \\ reverse (Cases_on `x'` \\ fs [])
+      \\ qexists_tac `ck` \\ fs []
+      \\ `inc_clock ck (call_env args1 (push_env y ^none (dec_clock t))) =
+          call_env args1 (push_env y ^none (dec_clock (inc_clock ck t)))` by
+       (fs [inc_clock_def,wordSemTheory.call_env_def,
+            wordSemTheory.push_env_def,wordSemTheory.dec_clock_def]
+        \\ Cases_on `env_to_list y t.permute` \\ fs [LET_DEF]
+        \\ fs [wordSemTheory.state_component_equality]
+        \\ `t.clock <> 0` by fs [state_rel_def] \\ decide_tac)
+      \\ fs [] \\ reverse (Cases_on `x'` \\ fs [])
       THEN1 (Cases_on `e` \\ fs [] \\ rw []
         \\ fs [jump_exc_call_env,jump_exc_dec_clock,jump_exc_push_env_NONE]
         \\ Cases_on `jump_exc t = NONE` \\ fs []
@@ -1992,6 +2056,7 @@ val compile_correct = prove(
       \\ rpt strip_tac \\ fs []
       \\ imp_res_tac state_rel_pop_env_set_var_IMP \\ fs [] \\ rw []
       \\ imp_res_tac evaluate_IMP_domain_EQ \\ fs [])
+    \\ cheat (* needs updating to allow extra clock ticks
     (* with handler *)
     \\ PairCases_on `x` \\ fs []
     \\ `?prog1 h1. comp c x0 (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
@@ -2033,6 +2098,6 @@ val compile_correct = prove(
     \\ imp_res_tac mk_loc_eq_push_env_exc_Exception \\ fs []
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
     \\ imp_res_tac s_key_eq_handler_eq_IMP
-    \\ fs [] \\ metis_tac []));
+    \\ fs [] \\ metis_tac [] *)));
 
 val _ = export_theory();
