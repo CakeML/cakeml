@@ -1413,7 +1413,7 @@ val state_rel_clock = prove(
 val evaluate_add_clock = store_thm("evaluate_add_clock",
   ``evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
     evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
-  cheat);
+  metis_tac[targetPropsTheory.evaluate_without_TimeOut,FST]);
 
 val evaluate_ignore_clocks = prove(
   ``evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
@@ -1423,8 +1423,6 @@ val evaluate_ignore_clocks = prove(
   \\ pop_assum (qspec_then `k'` mp_tac)
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ fs [AC ADD_ASSOC ADD_COMM])
-
-val is_pair = can dest_prod o type_of
 
 val machine_sem_EQ_sem = Q.prove(
   `!mc_conf p (ms:'state) ^s1.
@@ -1466,7 +1464,54 @@ val machine_sem_EQ_sem = Q.prove(
   \\ strip_tac
   \\ Cases \\ fs [machine_sem_def]
   \\ imp_res_tac state_rel_clock
-  THEN1 cheat
+  THEN1 (
+    qmatch_abbrev_tac`a ∧ b ⇔ c` >>
+    `a` by (
+      unabbrev_all_tac >> gen_tac >>
+      qspec_then `s1 with clock := k` mp_tac compile_correct >>
+      Cases_on`evaluate (s1 with clock := k)`>>simp[]>>
+      last_assum(qspec_then`k`mp_tac)>>
+      pop_assum mp_tac >> simp_tac(srw_ss())[] >>
+      ntac 2 strip_tac >>
+      disch_then drule >>
+      first_x_assum(qspec_then`k`strip_assume_tac) >>
+      disch_then drule >> strip_tac >>
+      first_x_assum(qspec_then`k`mp_tac)>>simp[]>>
+      strip_tac >>
+      spose_not_then strip_assume_tac >>
+      Cases_on`r.ffi.final_event`>>fs[]>>
+      Cases_on`q`>>fs[]>>
+      `∃x y z. evaluate mc_conf s1.ffi k ms = (x,y,z)` by metis_tac[PAIR] >>
+      `x = TimeOut` by (
+        spose_not_then strip_assume_tac >>
+        drule (GEN_ALL evaluate_add_clock) >>
+        simp[] >> qexists_tac`k'`>>simp[] ) >>
+      fs[] >>
+      metis_tac[targetPropsTheory.evaluate_TimeOut,PAIR_EQ]) >>
+    simp[] >> fs[Abbr`a`] >>
+    unabbrev_all_tac >> simp[] >>
+    qmatch_abbrev_tac`lprefix_lub l1 l ⇔ l = build_lprefix_lub l2` >>
+    `lprefix_chain l1 ∧ lprefix_chain l2` by (
+      unabbrev_all_tac >>
+      conj_tac >>
+      Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+      REWRITE_TAC[IMAGE_COMPOSE] >>
+      match_mp_tac prefix_chain_lprefix_chain >>
+      simp[prefix_chain_def,PULL_EXISTS] >>
+      qx_genl_tac[`k1`,`k2`] >>
+      qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+      cheat ) >>
+      (* evaluate_add_clock_io_events_mono for lab and target *)
+    `equiv_lprefix_chain l1 l2` by (
+      simp[equiv_lprefix_chain_thm] >>
+      unabbrev_all_tac >> simp[PULL_EXISTS] >>
+      ntac 2 (pop_assum kall_tac) >>
+      simp[LNTH_fromList,PULL_EXISTS] >>
+      simp[GSYM FORALL_AND_THM] >>
+      rpt gen_tac >>
+      (* should be similar to clos_to_bvlProof *)
+      cheat ) >>
+    metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain])
   THEN1 (
     spose_not_then strip_assume_tac >> var_eq_tac >>
     qspec_then `s1 with clock := k` mp_tac compile_correct >>
