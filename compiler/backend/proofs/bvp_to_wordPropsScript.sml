@@ -85,16 +85,16 @@ val v_size_LEMMA = prove(
 val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
-       ?ptr. (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
+       ?ptr u. (x = Pointer ptr u) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
   (v_inv (CodePtr n) (x,f,heap) <=>
      (x = Data (Loc n 0))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
-     (x = Pointer (f ' n)) /\ n IN FDOM f) /\
+     ?u. (x = Pointer (f ' n) u) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
      if vs = [] then (x = Data (Word (BlockNil n))) else
-       ?ptr xs.
+       ?ptr u xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
-         (x = Pointer ptr) /\ (heap_lookup ptr heap = SOME (BlockRep n xs)))`
+         (x = Pointer ptr u) /\ (heap_lookup ptr heap = SOME (BlockRep n xs)))`
  (WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
   \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC);
 
@@ -260,7 +260,7 @@ val _ = augment_srw_ss [rewrites [LIST_REL_def]];
 val v_inv_related = prove(
   ``!w x f.
       gc_related g heap1 (heap2:'a ml_heap) /\
-      (!ptr. (x = Pointer ptr) ==> ptr IN FDOM g) /\
+      (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM g) /\
       v_inv w (x,f,heap1) ==>
       v_inv w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,heap2) /\
       EVERY (\n. f ' n IN FDOM g) (get_refs w)``,
@@ -270,7 +270,7 @@ val v_inv_related = prove(
     \\ Cases_on `small_int (:'a) i`
     \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,Bignum_def]
     \\ full_simp_tac std_ss [gc_related_def] \\ res_tac
-    \\ full_simp_tac std_ss [ADDR_MAP_def])
+    \\ full_simp_tac std_ss [ADDR_MAP_def] \\ fs [])
   THEN1
    (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,BlockRep_def]
     \\ Cases_on `l = []` \\ full_simp_tac std_ss []
@@ -296,11 +296,12 @@ val v_inv_related = prove(
     \\ Q.MATCH_ASSUM_RENAME_TAC `t < LENGTH xs` \\ res_tac
     \\ `MEM (EL t l) l` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
     \\ `MEM (EL t xs) xs` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `(!ptr. (EL t xs = Pointer ptr) ==> ptr IN FDOM g)` by metis_tac []
+    \\ `(!ptr u. (EL t xs = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
     \\ `v_size (EL t l)  < v_size (Block n l)` by ALL_TAC THEN1
      (full_simp_tac std_ss [v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC)
-    \\ res_tac \\ full_simp_tac std_ss [EL_ADDR_MAP])
+    \\ res_tac \\ full_simp_tac std_ss [EL_ADDR_MAP]
+    \\ first_assum match_mp_tac \\ fs [])
   THEN1
     (full_simp_tac (srw_ss()) [v_inv_def,ADDR_APPLY_def,get_refs_def])
   THEN1
@@ -326,12 +327,12 @@ val bc_ref_inv_related = prove(
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,f_o_f_DEF]
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) []
-  THEN1 (
-    res_tac \\ full_simp_tac (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
-    \\ rpt strip_tac \\ qpat_assum `EVERY2 qqq zs l` MP_TAC
-    \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
-    \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def])
-  \\ ( fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def]));
+  \\ TRY (fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def] >> NO_TAC)
+  \\ res_tac \\ full_simp_tac (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
+  \\ rpt strip_tac \\ qpat_assum `EVERY2 qqq zs l` MP_TAC
+  \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
+  \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def]
+  \\ res_tac \\ fs [ADDR_APPLY_def]);
 
 val RTC_lemma = prove(
   ``!r n. RTC (ref_edge refs) r n ==>
@@ -364,20 +365,14 @@ val RTC_lemma = prove(
   \\ full_simp_tac std_ss [PULL_FORALL,AND_IMP_INTRO]
   \\ res_tac \\ CCONTR_TAC \\ full_simp_tac std_ss []
   \\ srw_tac [] [] \\ POP_ASSUM MP_TAC \\ simp_tac std_ss []
-  \\ qpat_assum `!xx yy. bbb` match_mp_tac
-  \\ imp_res_tac MEM_EVERY2_IMP
-  \\ full_simp_tac std_ss []
-  \\ Q.LIST_EXISTS_TAC [`z`,`a`]
-  \\ full_simp_tac std_ss []
-  \\ rpt strip_tac
-  \\ FIRST_X_ASSUM match_mp_tac
-  \\ srw_tac [] []);
+  \\ imp_res_tac MEM_EVERY2_IMP \\ fs []
+  \\ fs [] \\ metis_tac []);
 
 val reachable_refs_lemma = prove(
   ``gc_related g heap heap2 /\
     EVERY2 (\v x. v_inv v (x,f,heap)) stack roots /\
     (!n. reachable_refs stack refs n ==> bc_ref_inv n refs (f,heap,be)) /\
-    (!ptr. MEM (Pointer ptr) roots ==> ptr IN FDOM g) ==>
+    (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
     (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)``,
   NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
   \\ `?xs1 xs2. stack = xs1 ++ x::xs2` by metis_tac [MEM_SPLIT]
@@ -395,7 +390,7 @@ val reachable_refs_lemma = prove(
 val bc_stack_ref_inv_related = prove(
   ``gc_related g heap1 heap2 /\
     bc_stack_ref_inv stack refs (roots,heap1,be) /\
-    (!ptr. MEM (Pointer ptr) roots ==> ptr IN FDOM g) ==>
+    (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
     bc_stack_ref_inv stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)``,
   rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ qexists_tac `g f_o_f f` \\ rpt strip_tac
@@ -406,7 +401,7 @@ val bc_stack_ref_inv_related = prove(
       LENGTH_ADDR_MAP,EVERY_MEM,MEM_ZIP,PULL_EXISTS] \\ rpt strip_tac \\ res_tac
     \\ full_simp_tac std_ss [MEM_ZIP,PULL_EXISTS]
     \\ `MEM (EL n roots) roots` by (full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
-    \\ `(!ptr. (EL n roots = Pointer ptr) ==> ptr IN FDOM g)` by metis_tac []
+    \\ `(!ptr u. (EL n roots = Pointer ptr u) ==> ptr IN FDOM g)` by metis_tac []
     \\ imp_res_tac v_inv_related \\ imp_res_tac EL_ADDR_MAP
     \\ full_simp_tac std_ss [])
   \\ match_mp_tac bc_ref_inv_related \\ full_simp_tac std_ss []
@@ -433,7 +428,8 @@ val full_gc_thm = store_thm("full_gc_thm",
     \\ imp_res_tac full_gc_ok \\ NTAC 3 (POP_ASSUM (K ALL_TAC))
     \\ full_simp_tac std_ss [] \\ metis_tac [])
   \\ match_mp_tac (GEN_ALL bc_stack_ref_inv_related) \\ full_simp_tac std_ss []
-  \\ qexists_tac `heap` \\ full_simp_tac std_ss []);
+  \\ qexists_tac `heap` \\ full_simp_tac std_ss []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []);
 
 (* Write to unused heap space is fine, e.g. cons *)
 
@@ -643,8 +639,8 @@ val v_inv_SUBMAP = prove(
     \\ `v_size (EL t l) < v_size (Block n l)` by ALL_TAC THEN1
      (full_simp_tac std_ss [v_size_def]
       \\ imp_res_tac MEM_IMP_v_size \\ DECIDE_TAC) \\ res_tac)
-  THEN1 (full_simp_tac std_ss [v_inv_def])
-  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF]));
+  THEN1 (full_simp_tac std_ss [v_inv_def] \\ metis_tac [])
+  THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw []));
 
 val cons_thm = store_thm("cons_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
@@ -653,7 +649,7 @@ val cons_thm = store_thm("cons_thm",
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused a sp (BlockRep tag rs) heap = (heap2,T)) /\
       abs_ml_inv ((Block tag xs)::stack) refs
-                 (Pointer (a + sp - el_length (BlockRep tag rs))::roots2,heap2,be,a,
+                 (Pointer (a + sp - el_length (BlockRep tag rs)) u::roots2,heap2,be,a,
                   sp-el_length (BlockRep tag rs)) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
@@ -719,12 +715,14 @@ val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
+  THEN1 (rw [] \\ fs [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [v_inv_def]
   \\ rpt strip_tac \\ `reachable_refs stack refs n` by ALL_TAC \\ res_tac
   \\ full_simp_tac std_ss [reachable_refs_def]
   \\ Cases_on `x = Block tag []` \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [get_refs_def] \\ metis_tac []);
+
 
 (* update ref *)
 
@@ -929,8 +927,8 @@ val v_inv_Ref = prove(
 val update_ref_thm = store_thm("update_ref_thm",
   ``abs_ml_inv (xs ++ (RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
-    ?p rs roots2 heap2.
-      (roots = rs ++ Pointer p :: roots2) /\
+    ?p rs roots2 heap2 u.
+      (roots = rs ++ Pointer p u :: roots2) /\
       (heap_store p [RefBlock rs] heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
         (roots,heap2,be,a,sp) limit``,
@@ -953,14 +951,16 @@ val update_ref_thm = store_thm("update_ref_thm",
   \\ full_simp_tac std_ss []
   \\ strip_tac \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
-  \\ strip_tac THEN1 (full_simp_tac std_ss [roots_ok_def])
+  \\ strip_tac THEN1
+   (full_simp_tac std_ss [roots_ok_def] \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [heap_ok_def] \\ rpt strip_tac \\ res_tac
     \\ full_simp_tac (srw_ss()) [RefBlock_def] \\ srw_tac [] []
     \\ Q.ABBREV_TAC `p1 = ptr'` \\ POP_ASSUM (K ALL_TAC)
     \\ Cases_on `p1 = f ' ptr` \\ full_simp_tac std_ss []
     THEN1 (EVAL_TAC \\ simp_tac std_ss [])
-    \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND])
+    \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
+    \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [unused_space_inv_def] \\ rpt strip_tac
     \\ res_tac \\ Cases_on `a = f ' ptr` \\ full_simp_tac (srw_ss()) []
@@ -993,8 +993,8 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   ``abs_ml_inv (xs ++ RefPtr ptr::stack) refs (roots,heap,be,a,sp) limit /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
     ==>
-    ?p rs roots2 vs1 heap2.
-      (roots = rs ++ Pointer p :: roots2) /\ (LENGTH rs = LENGTH xs) /\
+    ?p rs roots2 vs1 heap2 u.
+      (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_deref p heap = SOME vs1) /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
@@ -1019,7 +1019,8 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ full_simp_tac std_ss [] \\ simp[LENGTH_LUPDATE]
   \\ strip_tac \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
-  \\ strip_tac THEN1 (full_simp_tac std_ss [roots_ok_def])
+  \\ strip_tac THEN1
+   (full_simp_tac std_ss [roots_ok_def] \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [heap_ok_def] \\ rpt strip_tac \\ res_tac
     \\ full_simp_tac (srw_ss()) [RefBlock_def] \\ srw_tac [] []
@@ -1071,7 +1072,7 @@ val new_ref_thm = store_thm("new_ref_thm",
       (roots = rs ++ roots2) /\
       (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
-                 (rs ++ Pointer (a+sp-(LENGTH xs + 1))::roots2,heap2,be,a,
+                 (rs ++ Pointer (a+sp-(LENGTH xs + 1)) u::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1)) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -1093,7 +1094,8 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ full_simp_tac std_ss [] \\ strip_tac THEN1
    (full_simp_tac std_ss [roots_ok_def,MEM,heap_store_rel_def] \\ rpt strip_tac
     \\ full_simp_tac (srw_ss()) [RefBlock_def,el_length_def]
-    \\ full_simp_tac (srw_ss()) [isSomeDataElement_def])
+    \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]
+    \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [heap_ok_def,RefBlock_def,isForwardPointer_def]
     \\ once_rewrite_tac [EQ_SYM_EQ] \\ rpt strip_tac THEN1
@@ -1128,7 +1130,7 @@ val new_ref_thm = store_thm("new_ref_thm",
    (match_mp_tac EVERY2_IMP_APPEND
     \\ full_simp_tac std_ss [LIST_REL_def]
     \\ match_mp_tac (METIS_PROVE [] ``p2 /\ (p1 /\ p3) ==> p1 /\ p2 /\ p3``)
-    \\ strip_tac THEN1 (UNABBREV_ALL_TAC \\ EVAL_TAC)
+    \\ strip_tac THEN1 (UNABBREV_ALL_TAC \\ fs [v_inv_def])
     \\ full_simp_tac (srw_ss()) [v_inv_def,FAPPLY_FUPDATE_THM]
     \\ full_simp_tac std_ss [EVERY2_EQ_EL]
     \\ imp_res_tac EVERY2_IMP_LENGTH
@@ -1180,202 +1182,10 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ match_mp_tac v_inv_SUBMAP
   \\ full_simp_tac (srw_ss()) []);
 
-(* new ref -- replicate *)
-
-val isSomeDataElement_heap_lookup_lemma4 = prove(
-  ``∀ha p hb hc.
-    0 < heap_length hc ∧
-    isSomeDataElement (heap_lookup p (ha ++ Unused (heap_length hc - 1)::hb))
-    ⇒
-    isSomeDataElement (heap_lookup p (ha ++ hc ++ hb))``,
-  simp[heap_lookup_APPEND,heap_length_APPEND] >> rw[] >>
-  fsrw_tac[ARITH_ss][isSomeDataElement_heap_lookup_lemma1] >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[])
-
-val RTC_ref_edge_ValueArray = prove(
-  ``∀x y.
-    (ref_edge (refs |+ (ptr,ValueArray xs)))^* x y ⇒
-    (ref_edge refs)^* x y ∨
-    ∃z.  MEM z (get_refs (Block ARB xs)) ∧
-         (ref_edge refs)^* z y``,
-  ho_match_mp_tac RTC_INDUCT >>
-  conj_tac >- metis_tac[RTC_REFL] >>
-  rw[ref_edge_ValueArray] >> fs[] >>
-  metis_tac[RTC_CASES1])
-
-val reachable_refs_UPDATE2 = prove(
-  ``reachable_refs (RefPtr ptr::stack) (refs |+ (ptr,ValueArray xs)) n ==>
-    (!v. MEM v xs ==> MEM v stack) ==>
-    reachable_refs (RefPtr ptr::stack) refs n``,
-  full_simp_tac std_ss [reachable_refs_def] \\ rpt strip_tac \\
-  imp_res_tac RTC_ref_edge_ValueArray >- metis_tac[] >>
-  full_simp_tac std_ss [get_refs_def,MEM_FLAT,MEM_MAP] >>
-  metis_tac[MEM])
-
-val reachable_refs_RefPtr = prove(
-  ``reachable_refs (RefPtr ptr::stack) refs n ⇒
-    ptr ∉ FDOM refs ⇒
-    (n = ptr) ∨ reachable_refs stack refs n``,
-  rw[reachable_refs_def] >> fs[get_refs_def] >- (
-    fs[Once RTC_CASES1] >> rw[] >>
-    fs[ref_edge_def,FLOOKUP_DEF] ) >>
-  metis_tac[])
-
-val new_ref_replicate_thm = store_thm("new_ref_replicate_thm",
-  ``abs_ml_inv (x1::x2::stack) refs (roots,heap,be,a,sp) limit /\
-    ~(ptr IN FDOM refs) /\ l + 1 <= sp ==>
-    ?p rs r1 r2 roots2 heap2.
-      (roots = r1 :: r2 :: roots2) /\
-      (heap_store_unused a sp (RefBlock (REPLICATE l r2)) heap = (heap2,T)) /\
-      abs_ml_inv ((RefPtr ptr)::x2::stack) (refs |+ (ptr,ValueArray (REPLICATE l x2)))
-                 (Pointer (a+sp-(l + 1))::r2::roots2,heap2,be,a,
-                  sp - (l + 1)) limit``,
-  simp[abs_ml_inv_def] >> strip_tac >>
-  fs[bc_stack_ref_inv_def] >> rw[] >>
-  fs[unused_space_inv_def] >>
-  Cases_on`sp=0`>>fs[] >>
-  rw[heap_store_unused_def] >>
-  pop_assum mp_tac >>
-  simp[el_length_def,Once RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
-  simp[el_length_def,Once RefBlock_def,rich_listTheory.LENGTH_REPLICATE] >>
-  imp_res_tac heap_lookup_SPLIT >> rw[] >>
-  simp[heap_store_lemma] >>
-  simp[el_length_def,heap_length_heap_expand,heap_length_APPEND] >>
-  simp[Once heap_length_def,Once RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
-  conj_asm1_tac >- (
-    fs[roots_ok_def] >>
-    qx_gen_tac`p` >>
-    last_x_assum(qspec_then`p`strip_assume_tac) >>
-    strip_tac >> fs[] >- (
-      simp[Once heap_lookup_APPEND] >>
-      simp[heap_length_APPEND,heap_length_heap_expand] >>
-      simp[Once heap_length_def,el_length_def,Once RefBlock_def] >>
-      simp[Once heap_length_def,el_length_def,Once RefBlock_def,SimpR``arithmetic$+``] >>
-      simp[Once heap_lookup_APPEND] >>
-      simp[heap_length_APPEND,heap_length_heap_expand] >>
-      simp[heap_lookup_def,isSomeDataElement_def,RefBlock_def] ) >>
-    REWRITE_TAC [
-      prove(``a ++ b ++ c ++ d = a ++ (b ++ c) ++ d:'a list``,simp[])] >>
-    match_mp_tac isSomeDataElement_heap_lookup_lemma4 >>
-    simp[heap_length_heap_expand,heap_length_APPEND] >>
-    simp[heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] ) >>
-  qmatch_assum_abbrev_tac`v_inv x2 (z,f,heap1)` >>
-  Q.PAT_ABBREV_TAC`heap2 = X ++ hb` >>
-  `heap_store_rel heap1 heap2` by (
-    simp[heap_store_rel_def] >>
-    simp[Abbr`heap1`,Abbr`heap2`] >>
-    simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
-    simp[heap_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE,el_length_def] >>
-    rw[] >> fsrw_tac[ARITH_ss][isSomeDataElement_heap_lookup_lemma1] >>
-    simp[heap_lookup_def,el_length_def] ) >>
-  conj_tac >- (
-    fs[heap_ok_def] >>
-    conj_tac >- (
-      fs[Abbr`heap1`,Abbr`heap2`,heap_length_APPEND,heap_length_heap_expand] >>
-      fsrw_tac[ARITH_ss][heap_length_def,el_length_def,RefBlock_def,rich_listTheory.LENGTH_REPLICATE] ) >>
-    conj_tac >- (
-      fs[Abbr`heap1`,Abbr`heap2`,rich_listTheory.FILTER_APPEND,isForwardPointer_def,RefBlock_def] >>
-      simp[heap_expand_def] >>
-      rw[isForwardPointer_def] ) >>
-    rw[] >>
-    qmatch_assum_abbrev_tac`MEM dd heap2` >>
-    Cases_on`MEM dd heap1` >- (
-      metis_tac[heap_store_rel_def] ) >>
-    fs[Abbr`heap2`,Abbr`heap1`] >- (
-      qpat_assum`MEM dd X`mp_tac >>
-      simp[Abbr`dd`,heap_expand_def] >>
-      rw[] ) >>
-    fs[Abbr`dd`,RefBlock_def] >> rw[] >>
-    fs[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST] >> rw[] >>
-    fs[roots_ok_def] ) >>
-  conj_tac >- (
-    simp[Abbr`heap2`,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
-    simp[heap_expand_def,heap_lookup_def] ) >>
-  simp[v_inv_def] >>
-  Q.PAT_ABBREV_TAC`v = sp + X - Y` >>
-  qexists_tac`f |+ (ptr,v)` >> simp[] >>
-  conj_tac >- (
-    simp[fapply_fupdate_update] >>
-    qmatch_abbrev_tac`INJ ((p =+ y) g) (p INSERT s) a` >>
-    qmatch_assum_abbrev_tac`INJ g s t` >>
-    `a = (y INSERT t)` suffices_by (
-      rw[] >>
-      match_mp_tac INJ_UPDATE >>
-      simp[Abbr`s`,Abbr`t`,Abbr`y`,Abbr`v`,Abbr`heap1`] >>
-      conj_tac >- (
-        fs[SUBSET_DEF] >> PROVE_TAC[]) >>
-      simp[heap_lookup_APPEND,isSomeDataElement_heap_lookup_lemma1] ) >>
-    UNABBREV_ALL_TAC >>
-    simp[SET_EQ_SUBSET] >>
-    reverse conj_tac >- (
-      fs[heap_store_rel_def,SUBSET_DEF] >>
-      simp[heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
-      simp[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
-      simp[heap_lookup_def,el_length_def,isSomeDataElement_def] ) >>
-    simp[SUBSET_DEF,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
-    simp[heap_length_def,RefBlock_def,el_length_def,rich_listTheory.LENGTH_REPLICATE] >>
-    gen_tac >>
-    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
-    IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >- (
-      IF_CASES_TAC >> simp[isSomeDataElement_heap_lookup_lemma1] >>
-      simp[heap_expand_def,isSomeDataElement_heap_lookup_lemma1] ) >>
-    simp[heap_lookup_def] >>
-    IF_CASES_TAC >> simp[isSomeDataElement_def]) >>
-  conj_tac >- fs[SUBSET_DEF] >>
-  `f ⊑ f |+ (ptr,v)` by (
-    simp[SUBMAP_FUPDATE_EQN] >>
-    fs[SUBSET_DEF] >> metis_tac[] ) >>
-  conj_tac >- (
-    conj_tac >- (
-      match_mp_tac (Q.GEN`heap` v_inv_SUBMAP) >>
-      metis_tac[] ) >>
-    match_mp_tac (GEN_ALL (MP_CANON EVERY2_mono)) >>
-    once_rewrite_tac[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >>
-    simp[] >>
-    metis_tac[v_inv_SUBMAP] ) >>
-  rw[] >>
-  imp_res_tac reachable_refs_UPDATE2 >>
-  pop_assum mp_tac >>
-  discharge_hyps >- (
-    simp[rich_listTheory.REPLICATE_GENLIST,MEM_GENLIST,PULL_EXISTS] ) >>
-  disch_then(mp_tac o MATCH_MP reachable_refs_RefPtr) >> simp[] >>
-  Cases_on`n=ptr` >- (
-    simp[bc_ref_inv_def,FLOOKUP_UPDATE] >>
-    `heap_lookup v heap2 = SOME (RefBlock (REPLICATE l z))` by (
-      simp[Abbr`v`,Abbr`heap2`,heap_lookup_APPEND,heap_length_APPEND,heap_length_heap_expand] >>
-      simp[heap_length_def,el_length_def,RefBlock_def] >>
-      simp[heap_lookup_def] ) >>
-    qexists_tac`REPLICATE l z` >> simp[] >>
-    simp[LIST_REL_REPLICATE_same] >> strip_tac >>
-    metis_tac[v_inv_SUBMAP] ) >>
-  strip_tac >>
-  `reachable_refs (x1::x2::stack) refs n` by (
-    pop_assum mp_tac >>
-    simp[reachable_refs_def] >>
-    metis_tac[] ) >>
-  res_tac >>
-  pop_assum mp_tac >>
-  REWRITE_TAC[bc_ref_inv_def] >>
-  simp[FLOOKUP_UPDATE] >>
-  Cases_on`FLOOKUP f n`>>simp[]>>
-  Cases_on`FLOOKUP refs n`>>simp[]>>
-  reverse BasicProvers.CASE_TAC >- (
-    metis_tac[heap_store_rel_def,Bytes_def,isSomeDataElement_def] ) >>
-  strip_tac >>
-  `heap_lookup x'' heap2 = SOME (RefBlock zs)` by (
-    metis_tac[heap_store_rel_def,RefBlock_def,isSomeDataElement_def] ) >>
-  simp[] >> qexists_tac`zs`>>simp[] >>
-  match_mp_tac (GEN_ALL (MP_CANON EVERY2_mono)) >>
-  once_rewrite_tac[CONJ_COMM] >>
-  first_assum(match_exists_tac o concl) >>
-  simp[] >>
-  metis_tac[v_inv_SUBMAP]);
-
 (* deref *)
 
 val heap_el_def = Define `
-  (heap_el (Pointer a) n heap =
+  (heap_el (Pointer a u) n heap =
     case heap_lookup a heap of
     | SOME (DataElement xs l d) =>
         if n < LENGTH xs then (EL n xs,T) else (ARB,F)
@@ -1453,7 +1263,7 @@ val el_thm = store_thm("el_thm",
     \\ rpt strip_tac \\ res_tac
     \\ imp_res_tac heap_lookup_MEM
     \\ full_simp_tac std_ss [BlockRep_def]
-    \\ `MEM (Pointer ptr') xs'` by ALL_TAC \\ res_tac
+    \\ `MEM (Pointer ptr' u') xs'` by ALL_TAC \\ res_tac
     \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ strip_tac THEN1 (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS])
@@ -1477,6 +1287,7 @@ val pop_thm = store_thm("pop_thm",
     abs_ml_inv (stack) refs (roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
+  THEN1 (rw [] \\ res_tac \\ fs [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ imp_res_tac EVERY2_APPEND \\ full_simp_tac std_ss []
   \\ rpt strip_tac
@@ -1619,14 +1430,13 @@ val pointer_bits_def = Define ` (* pointers have tag and len bits *)
     | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
 
 val get_addr_def = Define ` (* each pointer points at the first payload value *)
-  get_addr conf abs_heap n =
-    let n = if has_header conf (heap_lookup n abs_heap) then n+1 else n in
-      (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) ||
-       pointer_bits conf abs_heap n)`;
+  (get_addr conf n (Word w) =
+     (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) || w)) /\
+  (get_addr conf n _ = 0w)`;
 
 val word_addr_def = Define `
-  (word_addr conf abs_heap (Data w) = w) /\
-  (word_addr conf abs_heap (Pointer n) = Word (get_addr conf abs_heap n))`
+  (word_addr conf (Data w) = w) /\
+  (word_addr conf (Pointer n w) = Word (get_addr conf n w))`
 
 val one_list_def = Define `
   (one_list a [] = emp) /\
@@ -1639,23 +1449,23 @@ val one_list_exists_def = Define `
 val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 
 val word_payload_def = Define `
-  (word_payload ys l (BlockTag n) qs conf abs_heap =
+  (word_payload ys l (BlockTag n) qs conf =
      if (n < 2 ** conf.tag_bits - 1 /\
          LENGTH ys - 1 < 2 ** conf.len_bits - 1)
      then (NONE, (* no header *)
-           MAP (word_addr conf abs_heap) ys,
+           MAP (word_addr conf) ys,
            (qs = []) /\ (LENGTH ys - 1 = l))
      else (SOME (n2w n << 2), (* header: ...00 *)
-           MAP (word_addr conf abs_heap) ys,
+           MAP (word_addr conf) ys,
            (qs = []) /\ (LENGTH ys = l))) /\
-  (word_payload ys l (RefTag) qs conf abs_heap =
+  (word_payload ys l (RefTag) qs conf =
      (SOME 1w, (* header: ...01 *)
-      MAP (word_addr conf abs_heap) ys,
+      MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l) /\ l <> 0)) /\
-  (word_payload ys l (NumTag b) qs conf abs_heap =
+  (word_payload ys l (NumTag b) qs conf =
      (SOME (b2w b << 2 || 2w), (* header: ...110 or ...010 *)
       qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0)) /\
-  (word_payload ys l (BytesTag n) qs conf abs_heap =
+  (word_payload ys l (BytesTag n) qs conf =
      (SOME (n2w n << 2 || 3w), (* header: ...11 *)
       qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
 
@@ -1674,14 +1484,14 @@ forward pointers and headers end in 11
 *)
 
 val word_el_def = Define `
-  (word_el a (Unused l) conf abs_heap = one_list_exists a (l+1)) /\
-  (word_el a (ForwardPointer n l) conf abs_heap =
+  (word_el a (Unused l) conf = one_list_exists a (l+1)) /\
+  (word_el a (ForwardPointer n d l) conf =
      one_list_exists a 1 *
      if l = 0 then emp else
        one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
        one_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
-  (word_el a (DataElement ys l (tag,qs)) conf abs_heap =
-     case word_payload ys l tag qs conf abs_heap of
+  (word_el a (DataElement ys l (tag,qs)) conf =
+     case word_payload ys l tag qs conf of
      | (NONE,ts,c) => one_list a ts * cond c
      | (SOME h,ts,c) =>
          let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
@@ -1690,9 +1500,9 @@ val word_el_def = Define `
                  decode_tag_bits conf w = tag))`;
 
 val word_heap_def = Define `
-  (word_heap a ([]:'a ml_heap) conf (abs_heap:'a ml_heap) = emp) /\
-  (word_heap a (x::xs) conf abs_heap =
-     word_el a x conf abs_heap *
-     word_heap (a + bytes_in_word * n2w (el_length x)) xs conf abs_heap)`;
+  (word_heap a ([]:'a ml_heap) conf = emp) /\
+  (word_heap a (x::xs) conf =
+     word_el a x conf *
+     word_heap (a + bytes_in_word * n2w (el_length x)) xs conf)`;
 
 val _ = export_theory();
