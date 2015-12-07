@@ -45,18 +45,18 @@ val INJ_UPDATE = store_thm("INJ_UPDATE",
 (* The ML heap is represented as a list of heap_elements. *)
 
 val _ = Datatype `
-  heap_address = Pointer num | Data 'a`;
+  heap_address = Pointer num 'a | Data 'a`;
 
 val _ = Datatype `
   heap_element = Unused num
-               | ForwardPointer num num
+               | ForwardPointer num 'a num
                | DataElement (('a heap_address) list) num 'b`;
 
 (* The heap is accessed using the following lookup function. *)
 
 val el_length_def = Define `
   (el_length (Unused l) = l+1) /\
-  (el_length (ForwardPointer n l) = l+1) /\
+  (el_length (ForwardPointer n d l) = l+1) /\
   (el_length (DataElement xs l data) = l+1)`;
 
 val heap_lookup_def = Define `
@@ -78,41 +78,41 @@ val heap_length_def = Define `
 
 val roots_ok_def = Define `
   roots_ok roots heap =
-    !ptr. MEM (Pointer ptr) roots ==> isSomeDataElement (heap_lookup ptr heap)`;
+    !ptr u. MEM (Pointer ptr u) roots ==> isSomeDataElement (heap_lookup ptr heap)`;
 
 val isForwardPointer_def = Define `
-  (isForwardPointer (ForwardPointer n l) = T) /\
+  (isForwardPointer (ForwardPointer n d l) = T) /\
   (isForwardPointer _ = F)`;
 
 val heap_ok_def = Define `
   heap_ok heap limit =
     (heap_length heap = limit) /\
     (FILTER isForwardPointer heap = []) /\
-    (!ptr xs l d. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr) xs ==>
-                  isSomeDataElement (heap_lookup ptr heap))`;
+    (!ptr xs l d u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
+                    isSomeDataElement (heap_lookup ptr heap))`;
 
 (* The GC is a copying collector which moves elements *)
 
 val gc_forward_ptr_def = Define `
-  (gc_forward_ptr a [] ptr c = ([],F)) /\
-  (gc_forward_ptr a (x::xs) ptr c =
+  (gc_forward_ptr a [] ptr d c = ([],F)) /\
+  (gc_forward_ptr a (x::xs) ptr d c =
      if a = 0 then
-       (ForwardPointer ptr ((el_length x)-1) :: xs, isDataElement x /\ c) else
+       (ForwardPointer ptr d ((el_length x)-1) :: xs, isDataElement x /\ c) else
      if a < el_length x then (x::xs,F) else
-       let (xs,c) = gc_forward_ptr (a - el_length x) xs ptr c in
+       let (xs,c) = gc_forward_ptr (a - el_length x) xs ptr d c in
          (x::xs,c))`;
 
 val gc_move_def = Define `
   (gc_move (Data d,h2,a,n,heap,c,limit) = (Data d,h2,a,n,heap,c)) /\
-  (gc_move (Pointer ptr,h2,a,n,heap,c,limit) =
+  (gc_move (Pointer ptr d,h2,a,n,heap,c,limit) =
      case heap_lookup ptr heap of
      | SOME (DataElement xs l dd) =>
          let c = c /\ l+1 <= n /\ (a + n = limit) in
          let n = n - (l+1) in
          let h2 = h2 ++ [DataElement xs l dd] in
-         let (heap,c) = gc_forward_ptr ptr heap a c in
-           (Pointer a,h2,a + (l+1),n,heap,c)
-     | SOME (ForwardPointer ptr l) => (Pointer ptr,h2,a,n,heap,c)
+         let (heap,c) = gc_forward_ptr ptr heap a d c in
+           (Pointer a d,h2,a + (l+1),n,heap,c)
+     | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,h2,a,n,heap,c)
      | _ => (ARB,h2,a,n,heap,F))`
 
 val gc_move_list_def = Define `
@@ -152,7 +152,7 @@ val full_gc_def = Define `
 
 val heap_map_def = Define `
   (heap_map a [] = FEMPTY) /\
-  (heap_map a (ForwardPointer ptr l::xs) =
+  (heap_map a (ForwardPointer ptr d l::xs) =
      heap_map (a + l + 1) xs |+ (a,ptr)) /\
   (heap_map a (x::xs) = heap_map (a + el_length x) xs)`;
 
@@ -166,14 +166,14 @@ val heap_addresses_def = Define `
 val ADDR_MAP_def = Define `
   (ADDR_MAP f [] = []) /\
   (ADDR_MAP f (Data x::xs) = Data x :: ADDR_MAP f xs) /\
-  (ADDR_MAP f (Pointer a::xs) = Pointer (f a) :: ADDR_MAP f xs)`;
+  (ADDR_MAP f (Pointer a d::xs) = Pointer (f a) d :: ADDR_MAP f xs)`;
 
 val ADDR_APPLY_def = Define `
-  (ADDR_APPLY f (Pointer x) = Pointer (f x)) /\
+  (ADDR_APPLY f (Pointer x d) = Pointer (f x) d) /\
   (ADDR_APPLY f (Data y) = Data y)`;
 
 val isSomeForwardPointer_def = Define `
-  isSomeForwardPointer x = ?ptr l. x = SOME (ForwardPointer ptr l)`;
+  isSomeForwardPointer x = ?ptr d l. x = SOME (ForwardPointer ptr d l)`;
 
 val isSomeDataOrForward_def = Define `
   isSomeDataOrForward x = isSomeForwardPointer x \/ isSomeDataElement x`;
@@ -190,7 +190,7 @@ val gc_inv_def = Define `
   gc_inv (h1,h2,a,n,heap,c,limit) heap0 =
     (a + n = limit) /\
     (a = heap_length (h1 ++ h2)) /\
-    (n = heap_length (FILTER ( \ h. ~(isForwardPointer h)) heap)) /\ c /\
+    (n = heap_length (FILTER (\h. ~(isForwardPointer h)) heap)) /\ c /\
     (heap_length heap = limit) /\
     (* the initial heap is well-formed *)
     heap_ok heap0 limit /\
@@ -205,8 +205,8 @@ val gc_inv_def = Define `
                    (heap_lookup j (h1++h2) =
                      SOME (DataElement (if j < heap_length h1 then
                                           ADDR_MAP (heap_map1 heap) xs else xs) l d)) /\
-                   !ptr. MEM (Pointer ptr) xs /\ j < heap_length h1 ==>
-                         ptr IN FDOM (heap_map 0 heap)`;
+                   !ptr d. MEM (Pointer ptr d) xs /\ j < heap_length h1 ==>
+                           ptr IN FDOM (heap_map 0 heap)`;
 
 (* Invariant maintained *)
 
@@ -226,7 +226,7 @@ val DRESTRICT_heap_map = prove(
   \\ metis_tac [DECIDE ``n<k ==> n < k + m:num``,DECIDE ``n<k ==> n < k + m+1:num``]);
 
 val IN_FRANGE = prove(
-  ``!heap n. MEM (ForwardPointer ptr l) heap ==> ptr IN FRANGE (heap_map n heap)``,
+  ``!heap n. MEM (ForwardPointer ptr d l) heap ==> ptr IN FRANGE (heap_map n heap)``,
   Induct \\ full_simp_tac std_ss [MEM] \\ rpt strip_tac
   \\ Cases_on `h` \\ full_simp_tac (srw_ss()) [heap_map_def,FRANGE_FUPDATE]
   \\ `n < n + n0 + 1` by decide_tac \\ full_simp_tac std_ss [DRESTRICT_heap_map]);
@@ -240,15 +240,15 @@ val heap_lookup_SPLIT = store_thm("heap_lookup_SPLIT",
   \\ full_simp_tac (srw_ss()) [heap_length_def] \\ decide_tac);
 
 val gc_forward_ptr_thm = store_thm("gc_forward_ptr_thm",
-  ``!ha. gc_forward_ptr (heap_length ha) (ha ++ DataElement ys l d::hb) a c =
-         (ha ++ ForwardPointer a l::hb,c)``,
+  ``!ha. gc_forward_ptr (heap_length ha) (ha ++ DataElement ys l d::hb) a u c =
+         (ha ++ ForwardPointer a u l::hb,c)``,
   Induct \\ full_simp_tac (srw_ss()) [gc_forward_ptr_def,heap_length_def,APPEND,
     el_length_def,isDataElement_def,LET_DEF] \\ SRW_TAC [] []
   \\ Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ decide_tac);
 
 val heap_lookup_FLOOKUP = prove(
   ``!heap n k.
-      (heap_lookup n heap = SOME (ForwardPointer ptr l)) ==>
+      (heap_lookup n heap = SOME (ForwardPointer ptr u l)) ==>
       (FLOOKUP (heap_map k heap) (n+k) = SOME ptr)``,
   Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
   THEN1 (full_simp_tac (srw_ss()) [heap_map_def,FLOOKUP_DEF])
@@ -278,7 +278,7 @@ val NOT_IN_heap_map = prove(
 val isSomeDataOrForward_lemma = prove(
   ``!ha ptr.
       isSomeDataOrForward (heap_lookup ptr (ha ++ DataElement ys l d::hb)) <=>
-      isSomeDataOrForward (heap_lookup ptr (ha ++ [ForwardPointer a l] ++ hb))``,
+      isSomeDataOrForward (heap_lookup ptr (ha ++ [ForwardPointer a u l] ++ hb))``,
   Induct \\ full_simp_tac std_ss [APPEND,heap_lookup_def]
   \\ SRW_TAC [] [] \\ full_simp_tac std_ss []
   \\ EVAL_TAC \\ full_simp_tac std_ss [el_length_def]);
@@ -304,7 +304,7 @@ val heap_similar_Data_IMP = prove(
 val heaps_similar_lemma = prove(
   ``!ha heap0.
       heaps_similar heap0 (ha ++ DataElement ys l d::hb) ==>
-      heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) l] ++ hb)``,
+      heaps_similar heap0 (ha ++ [ForwardPointer (heap_length (h1 ++ h2)) u l] ++ hb)``,
   full_simp_tac std_ss [heaps_similar_def] \\ rpt strip_tac
   \\ imp_res_tac EVERY2_SPLIT \\ full_simp_tac std_ss []
   \\ imp_res_tac LIST_REL_LENGTH
@@ -342,9 +342,10 @@ val heap_lookup_EXTEND = store_thm("heap_lookup_EXTEND",
   Induct \\ full_simp_tac (srw_ss()) [heap_lookup_def] \\ SRW_TAC [] []);
 
 val ADDR_MAP_EQ = prove(
-  ``!xs. (!p. MEM (Pointer p) xs ==> (f p = g p)) ==>
+  ``!xs. (!p d. MEM (Pointer p d) xs ==> (f p = g p)) ==>
          (ADDR_MAP f xs = ADDR_MAP g xs)``,
-  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]);
+  Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]
+  \\ metis_tac []);
 
 val heap_map_APPEND = prove(
   ``!xs n ys. (heap_map n (xs ++ ys)) =
@@ -363,10 +364,10 @@ val FDOM_heap_map = prove(
 
 val gc_move_thm = prove(
   ``gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 /\
-    (!ptr. (x = Pointer ptr) ==> isSomeDataOrForward (heap_lookup ptr heap)) ==>
+    (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr heap)) ==>
     ?x3 h23 a3 n3 heap3 c3.
       (gc_move (x:'a heap_address,h2,a,n,heap,c,limit) = (ADDR_APPLY (heap_map1 heap3) x,h23,a3,n3,heap3,c3)) /\
-      (!ptr. (x = Pointer ptr) ==> ptr IN FDOM (heap_map 0 heap3)) /\
+      (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM (heap_map 0 heap3)) /\
       (!ptr. isSomeDataOrForward (heap_lookup ptr heap) =
              isSomeDataOrForward (heap_lookup ptr heap3)) /\
       ((heap_map 0 heap) SUBMAP (heap_map 0 heap3)) /\
@@ -379,7 +380,7 @@ val gc_move_thm = prove(
   \\ full_simp_tac (srw_ss()) [isSomeDataElement_def,LET_DEF]
   \\ imp_res_tac heap_lookup_SPLIT \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [gc_forward_ptr_thm]
-  \\ `heap_map 0 (ha ++ [ForwardPointer a l] ++ hb) =
+  \\ `heap_map 0 (ha ++ [ForwardPointer a a' l] ++ hb) =
       heap_map 0 (ha ++ DataElement ys l d::hb) |+ (heap_length ha,a)` by
    (once_rewrite_tac [GSYM (EVAL ``[x] ++ xs``)]
     \\ simp_tac std_ss [APPEND_NIL,APPEND_ASSOC]
@@ -402,21 +403,9 @@ val gc_move_thm = prove(
     \\ SRW_TAC [] [] \\ full_simp_tac std_ss [])
   \\ full_simp_tac std_ss [gc_inv_def,heap_map1_def]
   \\ Q.ABBREV_TAC `ff = heap_map 0 (ha ++ DataElement ys l d::hb)`
-  \\ strip_tac THEN1
+  \\ rpt (strip_tac THEN1
    (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac)
-  \\ strip_tac THEN1
-   (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac)
-  \\ strip_tac THEN1
-   (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac)
-  \\ strip_tac THEN1
-   (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac)
-  \\ strip_tac THEN1
-   (full_simp_tac (srw_ss()) [heap_length_def,FILTER_APPEND,FILTER_APPEND,
-      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac)
+      isForwardPointer_def,SUM_APPEND,el_length_def] \\ decide_tac))
   \\ strip_tac THEN1 (metis_tac [heaps_similar_lemma])
   \\ strip_tac
   THEN1 (full_simp_tac std_ss [EVERY_APPEND] \\ EVAL_TAC \\ full_simp_tac std_ss [])
@@ -447,22 +436,23 @@ val gc_move_thm = prove(
     \\ full_simp_tac std_ss [])
   \\ `FLOOKUP ff i = SOME j` by all_tac
   THEN1 full_simp_tac (srw_ss()) [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-  \\ qpat_assum `!i j. bbb` (mp_tac o Q.SPECL [`i`,`j`])
+  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ full_simp_tac (srw_ss()) []
   \\ imp_res_tac heap_lookup_EXTEND
   \\ full_simp_tac (srw_ss()) []
   \\ SRW_TAC [] [] \\ full_simp_tac std_ss []
+  \\ res_tac \\ fs []
   \\ match_mp_tac ADDR_MAP_EQ
   \\ full_simp_tac std_ss [FAPPLY_FUPDATE_THM] \\ metis_tac []);
 
 val gc_move_list_thm = prove(
   ``!xs h2 a n heap c.
     gc_inv (h1,h2,a,n,heap:('a,'b) heap_element list,c,limit) heap0 /\
-    (!ptr. MEM (Pointer ptr) (xs:'a heap_address list) ==> isSomeDataOrForward (heap_lookup ptr heap)) ==>
+    (!ptr u. MEM (Pointer ptr u) (xs:'a heap_address list) ==> isSomeDataOrForward (heap_lookup ptr heap)) ==>
     ?h23 a3 n3 heap3 c3.
       (gc_move_list (xs,h2,a,n,heap,c,limit) = (ADDR_MAP (heap_map1 heap3) xs,h23,a3,n3,heap3,c3)) /\
-      (!ptr. MEM (Pointer ptr) xs ==> ptr IN FDOM (heap_map 0 heap3)) /\
+      (!ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM (heap_map 0 heap3)) /\
       (!ptr. isSomeDataOrForward (heap_lookup ptr heap) =
              isSomeDataOrForward (heap_lookup ptr heap3)) /\
       ((heap_map 0 heap) SUBMAP (heap_map 0 heap3)) /\
@@ -471,8 +461,10 @@ val gc_move_list_thm = prove(
   \\ full_simp_tac std_ss [MEM,gc_move_list_def,LET_DEF] \\ rpt strip_tac
   \\ Q.ABBREV_TAC `x = h` \\ pop_assum (K all_tac)
   \\ mp_tac gc_move_thm \\ full_simp_tac std_ss []
+  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 (rw [] \\ fs [])
   \\ strip_tac \\ full_simp_tac std_ss []
-  \\ qpat_assum `!h2 a. bbb` (mp_tac o Q.SPECL [`h23`,`a3`,`n3`,`heap3`,`c3`])
+  \\ first_assum (mp_tac o Q.SPECL [`h23`,`a3`,`n3`,`heap3`,`c3`])
+  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 (rw [] \\ fs [] \\ metis_tac [])
   \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac std_ss []
   \\ imp_res_tac SUBMAP_TRANS \\ full_simp_tac std_ss []
   \\ strip_tac THEN1
@@ -572,8 +564,8 @@ val gc_move_loop_thm = prove(
    (full_simp_tac (srw_ss()) [gc_inv_def,heap_length_def,SUM_APPEND]
     \\ full_simp_tac std_ss [el_length_def] \\ decide_tac)
   \\ full_simp_tac (srw_ss()) []
-  \\ `!ptr. MEM (Pointer ptr) (ys:'a heap_address list) ==>
-            isSomeDataOrForward (heap_lookup ptr heap)` by all_tac THEN1
+  \\ `!ptr u. MEM (Pointer ptr u) (ys:'a heap_address list) ==>
+              isSomeDataOrForward (heap_lookup ptr heap)` by all_tac THEN1
    (rpt strip_tac \\ qpat_assum `!x1 x2 x3. bbb` (K all_tac)
     \\ full_simp_tac std_ss [gc_inv_def]
     \\ `?i. FLOOKUP (heap_map 0 heap) i = SOME (heap_length h1)` by all_tac THEN1
@@ -587,6 +579,7 @@ val gc_move_loop_thm = prove(
     \\ imp_res_tac heap_lookup_MEM \\ res_tac
     \\ imp_res_tac heap_similar_Data_IMP_DataOrForward)
   \\ mp_tac (Q.SPECL [`ys`,`DataElement ys l d::t`,`a`,`n`,`heap`,`c`] gc_move_list_thm)
+  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 (fs [] \\ rw [] \\ res_tac)
   \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac std_ss [LET_DEF]
   \\ imp_res_tac gc_move_list_APPEND_lemma
   \\ full_simp_tac (srw_ss()) [] \\ full_simp_tac std_ss [AND_IMP_INTRO]
@@ -605,17 +598,18 @@ val gc_move_loop_thm = prove(
   \\ strip_tac THEN1
    (full_simp_tac std_ss [heap_addresses_APPEND,heap_addresses_def,el_length_def])
   \\ rpt strip_tac
-  \\ qpat_assum `!i j. bbb` (mp_tac o Q.SPECL [`i`,`j`])
+  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`i`,`j`])
   \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac (srw_ss()) []
   \\ Cases_on `j < heap_length h1` THEN1
    (imp_res_tac LESS_IMP_heap_lookup \\ full_simp_tac (srw_ss()) []
-    \\ SRW_TAC [] [] \\ full_simp_tac (srw_ss()) [heap_length_def,SUM_APPEND]
-    \\ `F` by decide_tac)
+    \\ full_simp_tac (srw_ss()) [heap_length_def,SUM_APPEND]
+    \\ rw [] \\ res_tac \\ `F` by decide_tac)
   \\ imp_res_tac NOT_LESS_IMP_heap_lookup \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [heap_lookup_def]
   \\ Cases_on `j <= heap_length h1` \\ full_simp_tac (srw_ss()) [] THEN1
    (full_simp_tac std_ss [heap_length_APPEND] \\ SRW_TAC [] []
-    \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def] \\ `F` by decide_tac)
+    \\ full_simp_tac (srw_ss()) [heap_length_def,el_length_def]
+    \\ res_tac \\ `F` by decide_tac)
   \\ full_simp_tac std_ss [el_length_def]
   \\ `0 < l+1` by decide_tac \\ full_simp_tac std_ss []
   \\ Cases_on `j < heap_length h1 + (l + 1)` \\ full_simp_tac (srw_ss()) []
@@ -650,7 +644,7 @@ val full_gc_thm = store_thm("full_gc_thm",
     ?heap2 a2 heap3.
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (heap_map1 heap3) roots,heap2,a2,T)) /\
-      (!ptr. MEM (Pointer ptr) roots ==> ptr IN FDOM (heap_map 0 heap3)) /\
+      (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 heap3)) /\
       gc_inv (heap2,[],a2,limit - a2,heap3,T,limit) heap``,
   simp_tac std_ss [Once (GSYM gc_inv_init)]
   \\ rpt strip_tac \\ full_simp_tac std_ss [full_gc_def]
@@ -664,9 +658,10 @@ val full_gc_thm = store_thm("full_gc_thm",
   \\ qexists_tac `heap3'` \\ full_simp_tac std_ss []
   \\ `c3'` by full_simp_tac std_ss [gc_inv_def] \\ full_simp_tac std_ss []
   \\ `n3' = limit - a3'` by (full_simp_tac std_ss [gc_inv_def] \\ decide_tac)
-  \\ `!ptr. MEM (Pointer ptr) roots ==> ptr IN FDOM (heap_map 0 heap3')` by all_tac
-  THEN1 full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def]
+  \\ `!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 heap3')` by
+        (full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def] \\ metis_tac [])
   \\ full_simp_tac std_ss [] \\ reverse (rpt strip_tac)
+  THEN1 metis_tac []
   THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL])
   THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL])
   \\ match_mp_tac ADDR_MAP_EQ
@@ -674,8 +669,8 @@ val full_gc_thm = store_thm("full_gc_thm",
   \\ full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def]);
 
 val MEM_ADDR_MAP = prove(
-  ``!xs f ptr. MEM (Pointer ptr) (ADDR_MAP f xs) ==>
-               ?y. MEM (Pointer y) xs /\ (f y = ptr)``,
+  ``!xs f ptr u. MEM (Pointer ptr u) (ADDR_MAP f xs) ==>
+                 ?y. MEM (Pointer y u) xs /\ (f y = ptr)``,
   Induct \\ TRY (Cases_on `h`) \\ full_simp_tac (srw_ss()) [ADDR_MAP_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [] \\ res_tac \\ metis_tac []);
 
@@ -763,7 +758,7 @@ val full_gc_ok = store_thm("full_gc_ok",
   \\ `(FLOOKUP (heap_map 0 heap3) y = SOME (heap_map1 heap3 y))` by all_tac
   THEN1 full_simp_tac std_ss [FLOOKUP_DEF,heap_map1_def]
   \\ pop_assum mp_tac \\ full_simp_tac std_ss [] \\ strip_tac
-  \\ qpat_assum `!i j. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
+  \\ qpat_assum `!i j:num. bbb` (mp_tac o Q.SPECL [`y`,`ptr`])
   \\ full_simp_tac std_ss [] \\ strip_tac
   \\ match_mp_tac isSome_heap_looukp_IMP_APPEND \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [isSomeDataElement_def]);
@@ -774,22 +769,22 @@ val gc_related_def = Define `
     !i xs l d.
       i IN FDOM f /\ (heap_lookup i heap1 = SOME (DataElement xs l d)) ==>
       (heap_lookup (f ' i) heap2 = SOME (DataElement (ADDR_MAP (FAPPLY f) xs) l d)) /\
-      !ptr. MEM (Pointer ptr) xs ==> ptr IN FDOM f`;
+      !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
 
 val full_gc_related = store_thm("full_gc_related",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
     ?heap2 a2 f.
       (full_gc (roots:'a heap_address list,heap,limit) =
          (ADDR_MAP (FAPPLY f) roots,heap2,a2,T)) /\
-      (!ptr. MEM (Pointer ptr) roots ==> ptr IN FDOM f) /\
+      (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       gc_related f heap (heap2 ++ heap_expand (limit - a2))``,
   strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss []
   \\ rpt strip_tac \\ full_simp_tac std_ss []
   \\ qexists_tac `heap_map 0 heap3`
   \\ `(FAPPLY (heap_map 0 heap3)) = heap_map1 heap3` by all_tac
   THEN1 (full_simp_tac std_ss [heap_map1_def,FUN_EQ_THM])
-  \\ full_simp_tac std_ss []
   \\ full_simp_tac std_ss [gc_related_def,gc_inv_def,BIJ_DEF]
+  \\ strip_tac THEN1 metis_tac []
   \\ strip_tac THEN1
    (full_simp_tac (srw_ss()) [INJ_DEF] \\ rpt strip_tac
     \\ `(FLOOKUP (heap_map 0 heap3) x = SOME (heap_map1 heap3 x))` by all_tac
@@ -803,16 +798,16 @@ val full_gc_related = store_thm("full_gc_related",
   THEN1 full_simp_tac std_ss [FLOOKUP_DEF]
   \\ res_tac \\ full_simp_tac (srw_ss()) [APPEND_NIL]
   \\ imp_res_tac heap_lookup_LESS \\ imp_res_tac heap_lookup_EXTEND
-  \\ full_simp_tac std_ss []);
+  \\ full_simp_tac std_ss [] \\ metis_tac []);
 
 (* Lemmas about ok and a *)
 
 val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
-  ``!heap n a c x. (gc_forward_ptr n heap a c = (x,T)) ==> c``,
+  ``!heap n a c x. (gc_forward_ptr n heap a d c = (x,T)) ==> c``,
   Induct \\ simp_tac std_ss [Once gc_forward_ptr_def] \\ rpt strip_tac
-  \\ Cases_on `n=0` \\ full_simp_tac std_ss []
+  \\ Cases_on `n = 0` \\ full_simp_tac std_ss []
   \\ Cases_on `n < el_length h` \\ full_simp_tac std_ss []
-  \\ Cases_on `gc_forward_ptr (n - el_length h) heap a c`
+  \\ Cases_on `gc_forward_ptr (n - el_length h) heap a d c`
   \\ full_simp_tac std_ss [LET_DEF] \\ Cases_on `r`
   \\ full_simp_tac std_ss [] \\ res_tac);
 

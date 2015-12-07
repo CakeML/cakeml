@@ -1,6 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
-     bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory;
+     bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
+     set_sepTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -325,6 +326,50 @@ val word_gc_fun_def = Define `
                      (LastFree, Word (new + len));
                      (Globals, HD roots1)] in
        if c then SOME (TL roots1,m1,s1) else NONE`
+
+(*
+
+val word_gc_move_thm = prove(
+  ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+    (word_heap curr heap c heap * one_list pa xs) (fun2set (m,dm)) /\
+    (word_gc_move conf (word_addr conf heap x,i,pa,old,m,dm) =
+      (word_addr conf heap x1,i1,pa1,m1,c1)) ==>
+    ?xs1.
+      (word_heap curr heap1 c heap *
+       word_heap pa h1 c heap *
+       one_list pa1 xs1) (fun2set (m,dm)) /\
+      c1``,
+
+  reverse (Cases_on `x`) \\ fs [gc_move_def]
+
+    rw [] \\ fs [word_heap_def,SEP_CLAUSES]
+    \\ qexists_tac `xs` \\ fs []
+    \\ fs [word_addr_def]
+
+word_addr_def
+get_addr_def
+
+word_gc_move_def
+
+
+    word_addr_def
+
+  cheat
+
+
+
+
+gc_forward_ptr_def
+
+gc_move_def
+gc_move_list_def
+
+one_list_def
+
+word_heap_def
+word_el_def
+
+*)
 
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp c s m dm limit =

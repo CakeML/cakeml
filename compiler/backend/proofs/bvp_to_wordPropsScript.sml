@@ -1676,7 +1676,7 @@ forward pointers and headers end in 11
 val word_el_def = Define `
   (word_el a (Unused l) conf abs_heap = one_list_exists a (l+1)) /\
   (word_el a (ForwardPointer n l) conf abs_heap =
-     one (a,Word (n2w n << 2 || 3w)) *
+     one_list_exists a 1 *
      if l = 0 then emp else
        one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
        one_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
