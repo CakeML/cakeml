@@ -48,6 +48,13 @@ val map_bitmap_LENGTH = prove(
 
 (* -- *)
 
+val _ = Datatype `
+  result = Result ('w word_loc) ('w word_loc)
+         | Exception ('w word_loc) ('w word_loc)
+         | Halt ('w word_loc)
+         | TimeOut
+         | Error `
+
 val read_bitmap_def = Define `
   (read_bitmap (Word (w:'a word)::ws) =
      if word_msb w then (* there is a continuation *)
@@ -250,7 +257,7 @@ val alloc_def = Define `
             | SOME T => (* success there is that much space *)
                         (NONE,s)
             | SOME F => (* fail, GC didn't free up enough space *)
-                        (SOME NotEnoughSpace,empty_env s)))`
+                        (SOME (Halt (Word 1w)),empty_env s)))`
 
 val assign_def = Define `
   assign reg exp s =
@@ -294,7 +301,10 @@ val find_code_def = Define `
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
-  (evaluate (Halt _,s) = (NONE,s)) /\ (* TODO: Correct semantics for Halt *)
+  (evaluate (Halt v,s) =
+     case get_var v s of
+     | SOME w => (SOME (Halt w), s)
+     | NONE => (SOME Error, s)) /\
   (evaluate (Alloc n,s) =
      if ~s.use_alloc then (SOME Error,s) else
      case get_var n s of
@@ -387,7 +397,7 @@ val evaluate_def = tDefine "evaluate" `
     | res => (SOME Error,s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
-     if s.stack_space < n then (SOME NotEnoughSpace,empty_env s) else
+     if s.stack_space < n then (SOME (Halt (Word 1w)),empty_env s) else
        (NONE, s with stack_space := s.stack_space - n)) /\
   (evaluate (StackFree n,s) =
      if ~s.use_stack then (SOME Error,s) else
@@ -523,6 +533,31 @@ val evaluate_def = curry save_thm "evaluate_def" let
     \\ Cases_on `r'.clock <= s.clock - 1` \\ fs []
     \\ DECIDE_TAC)
   in def end;
+
+(* observational semantics *)
+
+val semantics_def = Define `
+  semantics start s =
+  let prog = Call NONE (INL start) NONE in
+  if ∃k. let res = FST (evaluate (prog, s with clock := k)) in
+           res <> SOME TimeOut /\ !w. res <> SOME (Halt w)
+  then Fail
+  else
+    case some res.
+      ∃k t r outcome.
+        evaluate (prog, s with clock := k) = (SOME r,t) ∧
+        (case (t.ffi.final_event,r) of
+         | (SOME e,_) => outcome = FFI_outcome e
+         | (_,Halt w) => outcome = if w = Word 0w then Success
+                                   else Resource_limit_hit
+         | _ => F) ∧
+        res = Terminate outcome t.ffi.io_events
+      of
+    | SOME res => res
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 

@@ -709,6 +709,35 @@ val evaluate_def = save_thm("evaluate_def",let
                   |> LIST_CONJ
   in new_def end);
 
+(* observational semantics *)
+
+val semantics_def = Define `
+  semantics start s =
+  let prog = Call NONE (SOME start) [] NONE in
+  if ∃k. case FST(evaluate (prog,s with clock := k)) of
+         | SOME (Exception w1 w2) => T
+         | SOME Error => T
+         | NONE => T
+         | _ => F
+  then Fail
+  else
+    case some res.
+      ∃k t r outcome.
+        evaluate (prog, s with clock := k) = (SOME r,t) ∧
+        (case (t.ffi.final_event,r) of
+         | (SOME e,_) => outcome = FFI_outcome e
+         | (_,Result w1 w2) => outcome = Success
+         | (_,NotEnoughSpace) => outcome = Resource_limit_hit
+         | _ => F) ∧
+        res = Terminate outcome t.ffi.io_events
+      of
+    | SOME res => res
+    | NONE =>
+      Diverge
+         (build_lprefix_lub
+           (IMAGE (λk. fromList
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+
 (* clean up *)
 
 val _ = map delete_binding ["evaluate_AUX_def", "evaluate_primitive_def"];
