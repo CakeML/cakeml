@@ -47,10 +47,27 @@ val flatten_def = Define `
           if no_ret p1 then
             ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
              [Label n m 0] ++ ys,m+1)
+          else if p1 = Skip then
+            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
+             [Label n m 0],m+1)
           else
             ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
              [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ ys ++
              [Label n (m+1) 0],m+2)
+(* TODO: optimise special case of p2 = Skip
+
+currently generates:
+    jump if (x=2) to L
+    jump G
+  L:
+    do_stuff
+  G:
+
+should generate:
+    jump if x<>2 to L
+    do_stuff
+  L:
+*)
     | Raise r => ([Asm (JumpReg r) [] 0],m)
     | Return _ r => ([Asm (JumpReg r) [] 0],m)
     | Call NONE dest _ => ([compile_jump dest],m)
