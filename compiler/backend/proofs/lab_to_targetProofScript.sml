@@ -1410,11 +1410,6 @@ val state_rel_clock = prove(
   \\ fs [] \\ rw [] \\ fs []
   \\ metis_tac []);
 
-val evaluate_add_clock = store_thm("evaluate_add_clock",
-  ``evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
-    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
-  metis_tac[targetPropsTheory.evaluate_without_TimeOut,FST]);
-
 val evaluate_ignore_clocks = prove(
   ``evaluate mc_conf ffi k ms = (r1,ms1,st1) /\ r1 <> TimeOut /\
     evaluate mc_conf ffi k' ms = (r2,ms2,st2) /\ r2 <> TimeOut ==>
@@ -1487,7 +1482,8 @@ val machine_sem_EQ_sem = Q.prove(
         drule (GEN_ALL evaluate_add_clock) >>
         simp[] >> qexists_tac`k'`>>simp[] ) >>
       fs[] >>
-      metis_tac[targetPropsTheory.evaluate_TimeOut,PAIR_EQ]) >>
+      metis_tac[evaluate_add_clock_io_events_mono,SND,option_CASES,
+                IS_SOME_EXISTS,LESS_EQ_EXISTS]) >>
     simp[] >> fs[Abbr`a`] >>
     unabbrev_all_tac >> simp[] >>
     qmatch_abbrev_tac`lprefix_lub l1 l ⇔ l = build_lprefix_lub l2` >>
@@ -1500,8 +1496,11 @@ val machine_sem_EQ_sem = Q.prove(
       simp[prefix_chain_def,PULL_EXISTS] >>
       qx_genl_tac[`k1`,`k2`] >>
       qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-      cheat ) >>
-      (* evaluate_add_clock_io_events_mono for lab and target *)
+      metis_tac[
+        targetPropsTheory.evaluate_add_clock_io_events_mono,
+        labPropsTheory.evaluate_add_clock_io_events_mono
+        |> Q.SPEC`s with clock := k` |> SIMP_RULE (srw_ss())[],
+        LESS_EQ_EXISTS]) >>
     `equiv_lprefix_chain l1 l2` by (
       simp[equiv_lprefix_chain_thm] >>
       unabbrev_all_tac >> simp[PULL_EXISTS] >>
@@ -1509,8 +1508,25 @@ val machine_sem_EQ_sem = Q.prove(
       simp[LNTH_fromList,PULL_EXISTS] >>
       simp[GSYM FORALL_AND_THM] >>
       rpt gen_tac >>
-      (* should be similar to clos_to_bvlProof *)
-      cheat ) >>
+      qspec_then `s1 with clock := k` mp_tac compile_correct >>
+      Cases_on`evaluate (s1 with clock := k)`>>fs[] >>
+      last_assum(qspec_then`k`mp_tac)>>
+      pop_assum mp_tac >> simp_tac(srw_ss())[] >>
+      ntac 2 strip_tac >>
+      disch_then drule >>
+      first_x_assum(qspec_then`k`(fn th => assume_tac th >> disch_then drule)) >>
+      strip_tac >>
+      reverse conj_tac >> strip_tac >- (
+        qexists_tac`k+k'`>>simp[] ) >>
+      qmatch_assum_abbrev_tac`n < (LENGTH (_ ffi))` >>
+      qexists_tac`k`>>simp[] >>
+      `ffi.io_events ≼ r.ffi.io_events` by (
+        qunabbrev_tac`ffi` >>
+        metis_tac[
+          targetPropsTheory.evaluate_add_clock_io_events_mono,
+          SND,LESS_EQ_EXISTS] ) >>
+      fs[IS_PREFIX_APPEND] >>
+      simp[EL_APPEND1]) >>
     metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain])
   THEN1 (
     spose_not_then strip_assume_tac >> var_eq_tac >>

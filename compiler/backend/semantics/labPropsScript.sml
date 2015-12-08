@@ -199,13 +199,56 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
   TRY split_pair_tac >> fs[] >>
   first_x_assum(qspec_then`k`mp_tac)>>simp[]);
 
-(*
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
-  `(SND(evaluate s)).ffi.io_events ≼
+  `∀s.
+   (SND(evaluate s)).ffi.io_events ≼
    (SND(evaluate (s with clock := s.clock + extra))).ffi.io_events ∧
    (IS_SOME((SND(evaluate s)).ffi.final_event) ⇒
     (SND(evaluate (s with clock := s.clock + extra))).ffi =
     (SND(evaluate s)).ffi)`,
-*)
+  ho_match_mp_tac evaluate_ind >>
+  rpt gen_tac >> strip_tac >>
+  CONV_TAC(DEPTH_CONV(REWR_CONV evaluate_def)) >>
+  simp[] >>
+  IF_CASES_TAC >> fs[] >- (
+    IF_CASES_TAC >> fs[] >>
+    simp[asm_fetch_def] >>
+    Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
+    Cases_on`x`>>fs[] >>
+    Cases_on`a`>>fs[] >>
+    every_case_tac >> fs[] >>
+    TRY
+    (conj_tac >- (
+       qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events` >>
+       Cases_on`evaluate s1` >>
+       drule (GEN_ALL evaluate_io_events_mono) >>
+       unabbrev_all_tac >> simp[] >> EVAL_TAC >>
+       simp[asm_inst_consts] ) >>
+     qmatch_abbrev_tac`IS_SOME s0.ffi.final_event ⇒ ((SND (evaluate s1)).ffi = _)` >>
+     Cases_on`evaluate s1` >>
+     drule(GEN_ALL evaluate_pres_final_event) >>
+     unabbrev_all_tac >> simp[] >> EVAL_TAC >>
+     simp[asm_inst_consts,IS_SOME_EXISTS] >> rw[] >>
+     first_x_assum match_mp_tac >> simp[]) >>
+    (fn g => (subterm split_applied_pair_tac (#2 g) g)) >>
+    simp[] >>
+    fs[call_FFI_def] >>
+    qmatch_abbrev_tac`s0.ffi.io_events ≼ (SND(evaluate s1)).ffi.io_events ∧ _` >>
+    Cases_on`evaluate s1` >>
+    drule (GEN_ALL evaluate_io_events_mono) >>
+    drule (GEN_ALL evaluate_pres_final_event) >>
+    unabbrev_all_tac >> fs[] >>
+    every_case_tac >> fs[] >> rw[] >>
+    fs[IS_PREFIX_APPEND] ) >>
+  fs[asm_fetch_def] >>
+  Cases_on`asm_fetch_aux s.pc s.code`>>fs[] >>
+  Cases_on`x`>>fs[] >>
+  Cases_on`a`>>fs[] >>
+  every_case_tac >> fs[] >>
+  fs[inc_pc_def,dec_clock_def,asm_inst_consts,read_reg_def,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
+  fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  (fn g => (subterm split_applied_pair_tac (#2 g) g)) >>
+  simp[] >> fs[call_FFI_def]);
 
 val _ = export_theory();

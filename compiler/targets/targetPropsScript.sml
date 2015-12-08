@@ -136,30 +136,73 @@ val asm_step_IMP_evaluate_step = store_thm("asm_step_IMP_evaluate_step",
 
 (* basic properties *)
 
-val evaluate_without_TimeOut = store_thm("evaluate_without_TimeOut",
-  ``!k k'.
-      FST (evaluate mc_conf ffi k ms) <> TimeOut ==>
-      (evaluate mc_conf ffi (k + k') ms =
-       evaluate mc_conf ffi k ms)``,
-  cheat (* easy *));
+val evaluate_add_clock = store_thm("evaluate_add_clock",
+  ``∀mc_conf ffi k ms k1 r ms1 st1.
+    evaluate mc_conf ffi k ms = (r,ms1,st1) /\ r <> TimeOut ==>
+    evaluate mc_conf ffi (k + k1) ms = (r,ms1,st1)``,
+  ho_match_mp_tac evaluate_ind >> rw[] >>
+  rator_x_assum`evaluate` mp_tac >>
+  simp[Once evaluate_def] >>
+  IF_CASES_TAC >> fs[] >>
+  simp[Once evaluate_def,SimpR``$==>``] >>
+  IF_CASES_TAC >> fs[] >- (
+    IF_CASES_TAC >> fs[] >>
+    first_x_assum(qspec_then`k1`mp_tac) >> simp[] ) >>
+  IF_CASES_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  (fn g => subterm split_applied_pair_tac (#2 g) g) >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  first_x_assum(qspec_then`k1`mp_tac) >> simp[]);
 
-val evaluate_TimeOut = store_thm("evaluate_TimeOut",
-  ``!k k'.
-      (evaluate mc_conf ffi (k + k') ms = (TimeOut,s,i)) /\
-      i.final_event = NONE ==>
-      ?s' i'. (evaluate mc_conf ffi k ms) = (TimeOut,s',i') /\
-              i'.final_event = NONE``,
-  cheat (* easy *));
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `∀mc_conf ffi k ms.
+   ffi.io_events ≼ (SND(SND(evaluate mc_conf ffi k ms))).io_events ∧
+   (IS_SOME ffi.final_event ⇒
+    (SND(SND(evaluate mc_conf ffi k ms))) = ffi)`,
+  ho_match_mp_tac evaluate_ind >>
+  rpt gen_tac >> strip_tac >>
+  simp[Once evaluate_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    simp[Once evaluate_def] ) >>
+  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  TRY(simp[Once evaluate_def]>>NO_TAC) >>
+  simp[Once evaluate_def,SimpR``$/\``] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  (fn g => subterm split_applied_pair_tac (#2 g) g) >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  fs[call_FFI_def] >> every_case_tac >> fs[] >>
+  rpt var_eq_tac >> fs[] >>
+  fs[IS_PREFIX_APPEND]);
 
-val evaluate_TimeOut_or_not = store_thm("evaluate_TimeOut_or_not",
-  ``FST (evaluate mc_conf ffi k ms) <> TimeOut /\
-    (FST (evaluate mc_conf ffi' k ms) = TimeOut) ==>
-    (FST (evaluate mc_conf ffi k ms) = Error)``,
-  cheat (* easy *));
-
-val evaluate_IO_mismatch = store_thm("evaluate_IO_mismatch",
-  ``(evaluate mc_conf ffi k ms = (Error,ms2,new_ffi)) ==>
-    (new_io = NONE)``,
-  cheat (* easy *));
+val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+  `∀mc_conf ffi k ms k'.
+   k ≤ k' ⇒
+   (SND(SND(evaluate mc_conf ffi k ms))).io_events ≼ (SND(SND(evaluate mc_conf ffi k' ms))).io_events ∧
+   (IS_SOME((SND(SND(evaluate mc_conf ffi k ms))).final_event) ⇒
+    (SND(SND(evaluate mc_conf ffi k' ms))) = (SND(SND(evaluate mc_conf ffi k ms))))`,
+  ho_match_mp_tac evaluate_ind >>
+  rpt gen_tac >> strip_tac >>
+  rpt gen_tac >> strip_tac >>
+  simp_tac(srw_ss())[Once evaluate_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    simp[Once evaluate_def,SimpR``$/\``] >>
+    simp[Once evaluate_def,SimpRHS,SimpR``$/\``] >>
+    METIS_TAC[evaluate_io_events_mono] ) >>
+  simp[] >>
+  qpat_abbrev_tac`hide = (SND(SND _))` >>
+  Q.ISPECL_THEN[`ms`,`k`,`ffi`,`mc_conf`](fn th => CONV_TAC(DEPTH_CONV(REWR_CONV th)))evaluate_def >>
+  simp[] >>
+  simp[Abbr`hide`] >>
+  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> fs[] >- (
+    first_x_assum match_mp_tac >> simp[] ) >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  BasicProvers.CASE_TAC >> fs[] >>
+  (fn g => subterm split_applied_pair_tac (#2 g) g) >> fs[] >>
+  IF_CASES_TAC >> fs[] >>
+  first_x_assum match_mp_tac >> simp[]);
 
 val _ = export_theory();
