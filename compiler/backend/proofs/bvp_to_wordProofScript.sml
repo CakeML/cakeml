@@ -5,14 +5,7 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
 
 val _ = new_theory "bvp_to_wordProof";
 
-(* -------------------------------------------------------
-    word_ml_inv: definition and lemmas
-   ------------------------------------------------------- *)
-
-val word_ml_inv_def = Define `
-  word_ml_inv (heap,be,a,sp) limit c refs stack <=>
-    ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
-         EVERY2 (\v w. word_addr c v = w) hs (MAP SND stack)`
+(* TODO: move *)
 
 val EVERY2_MAP_MAP = prove(
   ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
@@ -47,6 +40,118 @@ val ALOOKUP_ZIP_EL = prove(
   \\ rpt strip_tac \\ first_assum (qspec_then `0` assume_tac) \\ fs []
   \\ rw [] \\ first_x_assum match_mp_tac \\ fs [] \\ rw []
   \\ first_x_assum (qspec_then `SUC m` mp_tac) \\ fs []);
+
+val ALOOKUP_SKIP_LEMMA = prove(
+  ``¬MEM n (MAP FST xs) /\ d = e ==>
+    ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e``,
+  fs [ALOOKUP_APPEND] \\ fs [GSYM ALOOKUP_NONE])
+
+val LAST_EQ = prove(
+  ``(LAST (x::xs) = if xs = [] then x else LAST xs) /\
+    (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
+  Cases_on `xs` \\ fs []);
+
+val LAST_N_LIST_REL_LEMMA = prove(
+  ``!xs1 ys1 xs n y ys x P.
+      LAST_N n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
+      ?y ys. LAST_N n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys``,
+  Induct \\ Cases_on `ys1` \\ fs [LAST_N] \\ rpt strip_tac
+  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
+  \\ rw [] \\ fs [] \\ rw [] \\ fs []
+  \\ every_case_tac \\ fs [] \\ rw [] \\ `F` by decide_tac);
+
+val LAST_N_CONS_IMP_LENGTH = store_thm("LAST_N_CONS_IMP_LENGTH",
+  ``!xs n y ys.
+      n <= LENGTH xs ==>
+      (LAST_N n xs = y::ys) ==> LENGTH (y::ys) = n``,
+  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac \\ fs [GSYM NOT_LESS]);
+
+val LAST_N_IMP_APPEND = store_thm("LAST_N_IMP_APPEND",
+  ``!xs n ys.
+      n <= LENGTH xs /\ (LAST_N n xs = ys) ==>
+      ?zs. xs = zs ++ ys /\ LENGTH ys = n``,
+  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac
+  \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ fs []
+  \\ qpat_assum `xs = zs ++ LAST_N n xs` (fn th => simp [Once th]));
+
+val NOT_NIL_IMP_LAST = prove(
+  ``!xs x. xs <> [] ==> LAST (x::xs) = LAST xs``,
+  Cases \\ fs []);
+
+val IS_SOME_IF = prove(
+  ``IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y``,
+  Cases_on `b` \\ fs []);
+
+val PERM_ALL_DISTINCT_MAP = prove(
+  ``!xs ys. PERM xs ys ==>
+            ALL_DISTINCT (MAP f xs) ==>
+            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs``,
+  fs [MEM_PERM] \\ rw []
+  \\ `PERM (MAP f xs) (MAP f ys)` by fs [PERM_MAP]
+  \\ metis_tac [ALL_DISTINCT_PERM])
+
+val GENLIST_I =
+  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
+    |> SIMP_RULE std_ss []
+
+val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
+  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
+  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
+
+val PERM_list_rearrange = prove(
+  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
+  rw [] \\ match_mp_tac PERM_ALL_DISTINCT \\ fs [mem_list_rearrange]
+  \\ fs [wordSemTheory.list_rearrange_def] \\ rw []
+  \\ fs [ALL_DISTINCT_GENLIST] \\ rw []
+  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF]
+  \\ fs [ALL_DISTINCT_EL]);
+
+val ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = prove(
+  ``!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y``,
+  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
+  \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []) |> SPEC_ALL;
+
+val IS_SOME_ALOOKUP_EQ = prove(
+  ``!l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)``,
+  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []);
+
+val MEM_IMP_IS_SOME_ALOOKUP = prove(
+  ``!l x y. MEM (x,y) l ==> IS_SOME (ALOOKUP l x)``,
+  fs [IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD] \\ metis_tac []);
+
+val SUBSET_INSERT_EQ_SUBSET = prove(
+  ``~(x IN s) ==> (s SUBSET (x INSERT t) <=> s SUBSET t)``,
+  fs [EXTENSION]);
+
+val EVERY2_IMP_EL = prove(
+  ``!xs ys P n. EVERY2 P xs ys /\ n < LENGTH ys ==> P (EL n xs) (EL n ys)``,
+  Induct \\ Cases_on `ys` \\ fs [] \\ rw [] \\ Cases_on `n` \\ fs []);
+
+val FST_PAIR_EQ = prove(
+  ``!x v. (FST x,v) = x <=> v = SND x``,
+  Cases \\ fs []);
+
+val EVERY2_APPEND_IMP = prove(
+  ``!xs1 xs2 zs P.
+      EVERY2 P (xs1 ++ xs2) zs ==>
+      ?zs1 zs2. zs = zs1 ++ zs2 /\ EVERY2 P xs1 zs1 /\ EVERY2 P xs2 zs2``,
+  Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
+  \\ Q.LIST_EXISTS_TAC [`y::zs1`,`zs2`] \\ fs []);
+
+val ZIP_ID = prove(
+  ``!xs. ZIP (MAP FST xs, MAP SND xs) = xs``,
+  Induct \\ fs []);
+
+(* -- *)
+
+(* -------------------------------------------------------
+    word_ml_inv: definition and lemmas
+   ------------------------------------------------------- *)
+
+val word_ml_inv_def = Define `
+  word_ml_inv (heap,be,a,sp) limit c refs stack <=>
+    ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+         EVERY2 (\v w. word_addr c v = w) hs (MAP SND stack)`
 
 val word_ml_inv_rearrange = prove(
   ``(!x. MEM x ys ==> MEM x xs) ==>
@@ -114,10 +219,13 @@ val flat_def = Define `
      join_env env vs ++ flat xs ys) /\
   (flat _ _ = [])`
 
-val ALOOKUP_SKIP_LEMMA = prove(
-  ``¬MEM n (MAP FST xs) /\ d = e ==>
-    ALOOKUP (xs ++ [(n,d)] ++ ys) n = SOME e``,
-  fs [ALOOKUP_APPEND] \\ fs [GSYM ALOOKUP_NONE])
+val flat_APPEND = prove(
+  ``!xs ys xs1 ys1.
+      LENGTH xs = LENGTH ys ==>
+      flat (xs ++ xs1) (ys ++ ys1) = flat xs ys ++ flat xs1 ys1``,
+  Induct \\ Cases_on `ys` \\ fs [flat_def] \\ rw []
+  \\ Cases_on `h'` \\ Cases_on `h`
+  \\ TRY (Cases_on `o'`) \\ fs [flat_def]);
 
 val adjust_var_DIV_2 = prove(
   ``(adjust_var n - 2) DIV 2 = n``,
@@ -516,11 +624,6 @@ val get_var_T_OR_F = prove(
 val mk_loc_def = Define `
   mk_loc (SOME (t1,d1,d2)) = Loc d1 d2`;
 
-val LAST_EQ = prove(
-  ``(LAST (x::xs) = if xs = [] then x else LAST xs) /\
-    (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
-  Cases_on `xs` \\ fs []);
-
 val cut_env_IMP_cut_env = prove(
   ``state_rel c l1 l2 s t [] locs /\
     bvpSem$cut_env r s.locals = SOME x ==>
@@ -622,37 +725,6 @@ val state_rel_pop_env_set_var_IMP = prove(
   \\ fs [MEM_toAList,lookup_fromAList]
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
 
-val LAST_N_LIST_REL_LEMMA = prove(
-  ``!xs1 ys1 xs n y ys x P.
-      LAST_N n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
-      ?y ys. LAST_N n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys``,
-  Induct \\ Cases_on `ys1` \\ fs [LAST_N] \\ rpt strip_tac
-  \\ imp_res_tac LIST_REL_LENGTH \\ fs []
-  \\ rw [] \\ fs [] \\ rw [] \\ fs []
-  \\ every_case_tac \\ fs [] \\ rw [] \\ `F` by decide_tac);
-
-val LAST_N_CONS_IMP_LENGTH = store_thm("LAST_N_CONS_IMP_LENGTH",
-  ``!xs n y ys.
-      n <= LENGTH xs ==>
-      (LAST_N n xs = y::ys) ==> LENGTH (y::ys) = n``,
-  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac \\ fs [GSYM NOT_LESS]);
-
-val LAST_N_IMP_APPEND = store_thm("LAST_N_IMP_APPEND",
-  ``!xs n ys.
-      n <= LENGTH xs /\ (LAST_N n xs = ys) ==>
-      ?zs. xs = zs ++ ys /\ LENGTH ys = n``,
-  Induct \\ fs [LAST_N] \\ rw [] THEN1 decide_tac
-  \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ fs []
-  \\ qpat_assum `xs = zs ++ LAST_N n xs` (fn th => simp [Once th]));
-
-val flat_APPEND = prove(
-  ``!xs ys xs1 ys1.
-      LENGTH xs = LENGTH ys ==>
-      flat (xs ++ xs1) (ys ++ ys1) = flat xs ys ++ flat xs1 ys1``,
-  Induct \\ Cases_on `ys` \\ fs [flat_def] \\ rw []
-  \\ Cases_on `h'` \\ Cases_on `h`
-  \\ TRY (Cases_on `o'`) \\ fs [flat_def]);
-
 val state_rel_jump_exc = prove(
   ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
     get_var n s.locals = SOME x /\
@@ -693,10 +765,6 @@ val state_rel_jump_exc = prove(
   \\ Cases_on `x'` \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
   \\ fs [MEM_toAList,lookup_fromAList]
   \\ imp_res_tac alistTheory.ALOOKUP_MEM \\ metis_tac []);
-
-val NOT_NIL_IMP_LAST = prove(
-  ``!xs x. xs <> [] ==> LAST (x::xs) = LAST xs``,
-  Cases \\ fs []);
 
 val get_vars_IMP_LENGTH = prove(
   ``!x t s. bvpSem$get_vars x s = SOME t ==> LENGTH x = LENGTH t``,
@@ -822,39 +890,6 @@ val find_code_thm = prove(
         fs [wordSemTheory.get_vars_def]
   \\ imp_res_tac state_rel_call_env \\ fs []) |> SPEC_ALL;
 
-val IS_SOME_IF = prove(
-  ``IS_SOME (if b then x else y) = if b then IS_SOME x else IS_SOME y``,
-  Cases_on `b` \\ fs []);
-
-val PERM_ALL_DISTINCT_MAP = prove(
-  ``!xs ys. PERM xs ys ==>
-            ALL_DISTINCT (MAP f xs) ==>
-            ALL_DISTINCT (MAP f ys) /\ !x. MEM x ys <=> MEM x xs``,
-  fs [MEM_PERM] \\ rw []
-  \\ `PERM (MAP f xs) (MAP f ys)` by fs [PERM_MAP]
-  \\ metis_tac [ALL_DISTINCT_PERM])
-
-val GENLIST_I =
-  GENLIST_EL |> Q.SPECL [`xs`,`\i. EL i xs`,`LENGTH xs`]
-    |> SIMP_RULE std_ss []
-
-val ALL_DISTINCT_EL = ``ALL_DISTINCT xs``
-  |> ONCE_REWRITE_CONV [GSYM GENLIST_I]
-  |> SIMP_RULE std_ss [ALL_DISTINCT_GENLIST]
-
-val PERM_list_rearrange = prove(
-  ``!f xs. ALL_DISTINCT xs ==> PERM xs (list_rearrange f xs)``,
-  rw [] \\ match_mp_tac PERM_ALL_DISTINCT \\ fs [mem_list_rearrange]
-  \\ fs [wordSemTheory.list_rearrange_def] \\ rw []
-  \\ fs [ALL_DISTINCT_GENLIST] \\ rw []
-  \\ fs [BIJ_DEF,INJ_DEF,SURJ_DEF]
-  \\ fs [ALL_DISTINCT_EL]);
-
-val ALL_DISTINCT_MEM_IMP_ALOOKUP_SOME = prove(
-  ``!xs x y. ALL_DISTINCT (MAP FST xs) /\ MEM (x,y) xs ==> ALOOKUP xs x = SOME y``,
-  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []
-  \\ res_tac \\ fs [MEM_MAP,FORALL_PROD] \\ rfs []) |> SPEC_ALL;
-
 val env_to_list_lookup_equiv = prove(
   ``env_to_list y f = (q,r) ==>
     (!n. ALOOKUP q n = lookup n y) /\
@@ -918,10 +953,6 @@ val unit_opt_eq = prove(
   ``(x = y:unit option) <=> (IS_SOME x <=> IS_SOME y)``,
   Cases_on `x` \\ Cases_on `y` \\ fs []);
 
-val IS_SOME_ALOOKUP_EQ = prove(
-  ``!l x. IS_SOME (ALOOKUP l x) = MEM x (MAP FST l)``,
-  Induct \\ fs [] \\ Cases \\ fs [ALOOKUP_def] \\ rw []);
-
 val lookup_adjust_var_adjust_set = prove(
   ``lookup (adjust_var n) (adjust_set s) = lookup n s``,
   fs [lookup_def,adjust_set_def,lookup_fromAList,unit_opt_eq]
@@ -939,10 +970,6 @@ val adjust_var_cut_env_IMP_MEM = prove(
   \\ rw [] \\ fs [IN_DEF] \\ imp_res_tac ALOOKUP_MEM
   \\ fs [MEM_MAP] \\ Cases_on `y` \\ fs [] \\ rw []
   \\ fs [EVEN_adjust_var]);
-
-val MEM_IMP_IS_SOME_ALOOKUP = prove(
-  ``!l x y. MEM (x,y) l ==> IS_SOME (ALOOKUP l x)``,
-  fs [IS_SOME_ALOOKUP_EQ,MEM_MAP,EXISTS_PROD] \\ metis_tac []);
 
 val state_rel_call_env_push_env = prove(
   ``!opt:(num # 'a wordLang$prog # num # num) option.
@@ -1292,10 +1319,6 @@ val eval_exc_stack_shorter = prove(
 val alloc_size_def = Define `
   alloc_size k = if ~(k < dimword (:'a)) then -1w else n2w k:'a word`
 
-val SUBSET_INSERT_EQ_SUBSET = prove(
-  ``~(x IN s) ==> (s SUBSET (x INSERT t) <=> s SUBSET t)``,
-  fs [EXTENSION]);
-
 val NOT_1_domain = prove(
   ``~(1 IN domain (adjust_set names))``,
   fs [domain_fromAList,adjust_set_def,MEM_MAP,MEM_toAList,
@@ -1531,14 +1554,6 @@ val dec_stack_loc_merge_enc_stack = prove(
   \\ first_assum (qspec_then `ts` strip_assume_tac) \\ fs []
   \\ decide_tac);
 
-val EVERY2_IMP_EL = prove(
-  ``!xs ys P n. EVERY2 P xs ys /\ n < LENGTH ys ==> P (EL n xs) (EL n ys)``,
-  Induct \\ Cases_on `ys` \\ fs [] \\ rw [] \\ Cases_on `n` \\ fs []);
-
-val FST_PAIR_EQ = prove(
-  ``!x v. (FST x,v) = x <=> v = SND x``,
-  Cases \\ fs []);
-
 val ALOOKUP_ZIP = prove(
   ``!l zs1.
       ALOOKUP l (0:num) = SOME (Loc q r) /\
@@ -1619,17 +1634,6 @@ val stack_rel_simp = prove(
   Cases_on `y` \\ fs [stack_rel_def] \\ Cases_on `o'`
   \\ fs [stack_rel_def] \\ PairCases_on `x`
   \\ fs [stack_rel_def,CONJ_ASSOC]);
-
-val EVERY2_APPEND_IMP = prove(
-  ``!xs1 xs2 zs P.
-      EVERY2 P (xs1 ++ xs2) zs ==>
-      ?zs1 zs2. zs = zs1 ++ zs2 /\ EVERY2 P xs1 zs1 /\ EVERY2 P xs2 zs2``,
-  Induct \\ fs [] \\ rw [] \\ res_tac \\ fs []
-  \\ Q.LIST_EXISTS_TAC [`y::zs1`,`zs2`] \\ fs []);
-
-val ZIP_ID = prove(
-  ``!xs. ZIP (MAP FST xs, MAP SND xs) = xs``,
-  Induct \\ fs []);
 
 val join_env_EQ_ZIP = prove(
   ``!vs s zs1.
