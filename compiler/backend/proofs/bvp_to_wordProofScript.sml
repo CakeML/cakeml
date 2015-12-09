@@ -1837,7 +1837,11 @@ val state_rel_cut_env = prove(
   ``state_rel c l1 l2 s t [] locs /\
     bvpSem$cut_env names s.locals = SOME x ==>
     state_rel c l1 l2 (s with locals := x) t [] locs``,
-  cheat);
+  fs [state_rel_def,bvpSemTheory.cut_env_def] \\ rw []
+  THEN1 (fs[lookup_inter] \\ every_case_tac \\ fs [])
+  \\ asm_exists_tac \\ fs []
+  \\ cheat); (* false... (delete_odd t.locals) ought to be
+                         (delete_odd (inter t.locals (adjust_set s.locals))) *)
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
@@ -2159,9 +2163,15 @@ val compile_correct = prove(
     \\ `inc_clock (ck' + ck)
          (call_env args1
           (push_env y (SOME (adjust_var x0,prog1,x0,l + 1))
-             (dec_clock t))) = call_env args1
+             (dec_clock t))) =
+        call_env args1
             (push_env y (SOME (adjust_var x0,prog1,x0,l + 1))
-               (dec_clock (inc_clock (ck' + ck) t)))` by cheat
+               (dec_clock (inc_clock (ck' + ck) t)))` by
+     (fs [wordSemTheory.call_env_def,wordSemTheory.push_env_def,inc_clock_def,
+          wordSemTheory.dec_clock_def,LET_DEF]
+      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+      \\ fs [wordSemTheory.state_component_equality]
+      \\ decide_tac)
     \\ fs [] \\ rpt strip_tac \\ fs []
     \\ qexists_tac `ck' + ck` \\ fs []
     \\ imp_res_tac evaluate_IMP_domain_EQ_Exc \\ fs []
