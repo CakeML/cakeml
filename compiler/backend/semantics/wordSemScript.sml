@@ -712,13 +712,13 @@ val evaluate_def = save_thm("evaluate_def",let
 (* observational semantics *)
 
 val initial_state_def = Define`
-  initial_state be mdomain gc_fun permute code ffi memory k = <|
+  initial_state be mdomain gc_fun permute code ffi memory store k = <|
     ffi := ffi;
     clock := k;
     handler := 0;
     gc_fun := gc_fun;
     code := code;
-    store := FEMPTY |+ (Globals,Word 0w);
+    store := store;
     locals := LN;
     be := be;
     permute := permute;
@@ -728,8 +728,8 @@ val initial_state_def = Define`
   |>`;
 
 val semantics_def = Define `
-  semantics be mdomain gc_fun permute code ffi memory start =
-  let s = initial_state be mdomain gc_fun permute code ffi memory in
+  semantics be mdomain gc_fun permute code ffi memory store start =
+  let s = initial_state be mdomain gc_fun permute code ffi memory store in
   let prog = Call (SOME (2 (* or 0? needs to match calling convention *),LN,Skip,20 (* must be greater than stackLang startup stubs *),1)) (SOME start) [] NONE in
   if ∃k. case FST(evaluate (prog,s k)) of
          | SOME (Exception _ _) => T
