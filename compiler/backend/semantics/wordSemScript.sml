@@ -711,23 +711,40 @@ val evaluate_def = save_thm("evaluate_def",let
 
 (* observational semantics *)
 
+val initial_state_def = Define`
+  initial_state be mdomain gc_fun permute code ffi memory k = <|
+    ffi := ffi;
+    clock := k;
+    handler := 0;
+    gc_fun := gc_fun;
+    code := code;
+    store := FEMPTY |+ (Globals,Word 0w);
+    locals := LN;
+    be := be;
+    permute := permute;
+    stack := [];
+    memory := memory;
+    mdomain := mdomain
+  |>`;
+
 val semantics_def = Define `
-  semantics start s =
-  let prog = Call NONE (SOME start) [] NONE in
-  if ∃k. case FST(evaluate (prog,s with clock := k)) of
-         | SOME (Exception w1 w2) => T
+  semantics be mdomain gc_fun permute code ffi memory start =
+  let s = initial_state be mdomain gc_fun permute code ffi memory in
+  let prog = Call (SOME (2 (* or 0? needs to match calling convention *),LN,Skip,20 (* must be greater than stackLang startup stubs *),1) (SOME start) [] NONE in
+  if ∃k. case FST(evaluate (prog,s k)) of
+         | SOME (Exception _ _) => T
+         | SOME (Result _ _) => T
          | SOME Error => T
-         | NONE => T
          | _ => F
   then Fail
   else
     case some res.
       ∃k t r outcome.
-        evaluate (prog, s with clock := k) = (SOME r,t) ∧
+        evaluate (prog, s k) = (r,t) ∧
         (case (t.ffi.final_event,r) of
          | (SOME e,_) => outcome = FFI_outcome e
-         | (_,Result w1 w2) => outcome = Success
-         | (_,NotEnoughSpace) => outcome = Resource_limit_hit
+         | (_,NONE) => outcome = Success
+         | (_,SOME NotEnoughSpace) => outcome = Resource_limit_hit
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of
@@ -736,7 +753,7 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
+              (SND (evaluate (prog,s k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 
