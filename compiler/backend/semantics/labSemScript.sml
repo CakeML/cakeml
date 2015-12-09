@@ -46,13 +46,14 @@ val asm_fetch_def = Define `
 val upd_pc_def   = Define `upd_pc pc s = s with pc := pc`
 val upd_reg_def  = Define `upd_reg r w s = s with regs := (r =+ w) s.regs`
 val upd_mem_def  = Define `upd_mem a w s = s with mem := (a =+ w) s.mem`
-val read_reg_def = Define `read_reg r s = s.regs r`
+val _ = overload_on("read_reg",``λr s. s.regs r``);
 
 val assert_def = Define `assert b s = s with failed := (~b \/ s.failed)`
 
 val reg_imm_def = Define `
   (reg_imm (Reg r) s = read_reg r s) /\
   (reg_imm (Imm w) s = Word w)`
+val _ = export_rewrites["reg_imm_def"];
 
 val binop_upd_def = Define `
   (binop_upd r Add w1 w2 = upd_reg r (Word (w1 + w2))) /\
@@ -143,6 +144,8 @@ val asm_inst_def = Define `
   (asm_inst (Arith x) s = arith_upd x s) /\
   (asm_inst (Mem m r a) s = mem_op m r a s)`;
 
+val _ = export_rewrites["mem_op_def","asm_inst_def","arith_upd_def"]
+
 val dec_clock_def = Define `
   dec_clock s = s with clock := s.clock - 1`
 
@@ -189,7 +192,7 @@ val asm_inst_consts = store_thm("asm_inst_consts",
     ((asm_inst i s).ffi = s.ffi)``,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
-  \\ fs [asm_inst_def,upd_reg_def,arith_upd_def,read_reg_def]
+  \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ TRY (Cases_on `b`)
   \\ fs [binop_upd_def,upd_reg_def,assert_def] \\ Cases_on `m`
   \\ fs [mem_op_def,mem_load_def,LET_DEF,mem_load_byte_def,upd_mem_def,

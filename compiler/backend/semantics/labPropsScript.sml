@@ -15,7 +15,7 @@ val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
     every_case_tac >> fs[] >>
     Cases_on`b`>>EVAL_TAC>>
     fs[state_component_equality] >>
-    Cases_on`r`>>fs[reg_imm_def,read_reg_def]) >>
+    Cases_on`r`>>fs[reg_imm_def]) >>
   Cases_on`m`>>EVAL_TAC>>
   Cases_on`a`>>EVAL_TAC>>
   every_case_tac >> fs[]);
@@ -194,7 +194,7 @@ val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
   Cases_on`x`>>fs[] >>
   Cases_on`a`>>fs[] >>
   every_case_tac >> fs[] >>
-  fs[inc_pc_def,dec_clock_def,asm_inst_consts,read_reg_def,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
+  fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
   TRY split_pair_tac >> fs[] >>
   first_x_assum(qspec_then`k`mp_tac)>>simp[]);
@@ -245,7 +245,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   Cases_on`x`>>fs[] >>
   Cases_on`a`>>fs[] >>
   every_case_tac >> fs[] >>
-  fs[inc_pc_def,dec_clock_def,asm_inst_consts,read_reg_def,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
+  fs[inc_pc_def,dec_clock_def,asm_inst_consts,upd_pc_def,get_pc_value_def,get_ret_Loc_def,upd_reg_def] >>
   fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
   (fn g => (subterm split_applied_pair_tac (#2 g) g)) >>

@@ -866,7 +866,7 @@ val word_cmp_lemma = prove(
     (word_cmp cmp (read_reg rr s1) (reg_imm ri s1) = SOME x) ==>
     (x = word_cmp cmp (read_reg rr t1) (reg_imm ri t1))``,
   Cases_on `ri` \\ fs [labSemTheory.reg_imm_def,asmSemTheory.reg_imm_def]
-  \\ fs [labSemTheory.read_reg_def,asmSemTheory.read_reg_def]
+  \\ fs [asmSemTheory.read_reg_def]
   \\ Cases_on `s1.regs rr` \\ fs []
   \\ TRY (Cases_on `s1.regs n`) \\ fs [] \\ Cases_on `cmp`
   \\ fs [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
@@ -1004,8 +1004,8 @@ val compile_correct = Q.prove(
       \\ fs [IMP_bytes_in_memory_JumpReg,asmSemTheory.upd_pc_def,
              asmSemTheory.assert_def]
       \\ imp_res_tac IMP_bytes_in_memory_JumpReg \\ fs []
-      \\ fs [asmSemTheory.read_reg_def,labSemTheory.read_reg_def]
-      \\ fs [interference_ok_def,shift_seq_def,labSemTheory.read_reg_def]
+      \\ fs [asmSemTheory.read_reg_def]
+      \\ fs [interference_ok_def,shift_seq_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
       \\ strip_tac \\ rfs []
       \\ fs [word_loc_val_def]
@@ -1022,8 +1022,8 @@ val compile_correct = Q.prove(
      (fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
       \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
              asmSemTheory.read_reg_def,dec_clock_def,labSemTheory.upd_pc_def,
-             labSemTheory.assert_def,labSemTheory.read_reg_def]
-      \\ fs [interference_ok_def,shift_seq_def,labSemTheory.read_reg_def]
+             labSemTheory.assert_def]
+      \\ fs [interference_ok_def,shift_seq_def]
       \\ FIRST_X_ASSUM (K ALL_TAC o Q.SPEC `r1:num`)
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `r1:num`)
       \\ strip_tac \\ rfs []
@@ -1068,7 +1068,7 @@ val compile_correct = Q.prove(
       \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
       \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
              asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
-             labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+             labSemTheory.assert_def,asm_def,
              jump_to_offset_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
@@ -1087,7 +1087,7 @@ val compile_correct = Q.prove(
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l1 l2 l3)`
     \\ qmatch_assum_rename_tac
          `asm_fetch s1 = SOME (LabAsm (JumpCmp cmp rr ri jtarget) l bytes n)`
-    \\ `word_cmp cmp (labSem$read_reg rr s1) (labSem$reg_imm ri s1) =
+    \\ `word_cmp cmp (read_reg rr s1) (labSem$reg_imm ri s1) =
         SOME (asmSem$word_cmp cmp (read_reg rr t1) (reg_imm ri t1))` by
      (Cases_on `word_cmp cmp (read_reg rr s1) (reg_imm ri s1)` \\ fs []
       \\ imp_res_tac word_cmp_lemma \\ fs [])
@@ -1118,7 +1118,7 @@ val compile_correct = Q.prove(
         \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
         \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
                asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
-               labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+               labSemTheory.assert_def,asm_def,
                jump_to_offset_def]
         \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
         \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
@@ -1153,7 +1153,7 @@ val compile_correct = Q.prove(
       \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
       \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
              asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
-             labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+             labSemTheory.assert_def,asm_def,
              jump_to_offset_def,inc_pc_def,asmSemTheory.upd_reg_def,
              labSemTheory.upd_reg_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
@@ -1204,7 +1204,7 @@ val compile_correct = Q.prove(
       \\ fs [shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rfs[]
       \\ fs [asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
              asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
-             labSemTheory.assert_def,labSemTheory.read_reg_def,asm_def,
+             labSemTheory.assert_def,asm_def,
              jump_to_offset_def,inc_pc_def,asmSemTheory.upd_reg_def,
              labSemTheory.upd_reg_def]
       \\ fs [interference_ok_def,shift_seq_def,read_reg_def]
