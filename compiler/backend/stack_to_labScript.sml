@@ -35,6 +35,7 @@ val flatten_def = Define `
   flatten p n m =
     case p of
     | Tick => ([Asm (Inst (Skip)) [] 0],m)
+    | Skip => ([Asm (Inst (Skip)) [] 0],m)
     | Inst a => ([Asm (Inst a) [] 0],m)
     | Halt _ => ([LabAsm Halt 0w [] 0],m)
     | Seq p1 p2 =>
