@@ -47,8 +47,13 @@ val comp_def = Define `
         let (q2,l2) = comp c n l1 p2 in
           (If Equal (adjust_var n) (Imm 2w) q1 q2,l2)
     | MakeSpace n names =>
-        let w = if w2n ((n2w n):'a word) <> n then ~0w else n2w n in
-          (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)),l)
+        let k = dimindex (:'a) DIV 8 in
+        let w = n2w (n * k) in
+        let w = if w2n w = n * k then w else ~0w in
+          (Seq (Assign 1 (Op Sub [Lookup EndOfHeap; Lookup NextFree]))
+               (If Lower 1 (Imm w)
+                 (Seq (Assign 1 (Const w)) (Alloc 1 (adjust_set names)))
+                Skip),l)
     | Assign dest op args names => assign c n l dest op args names
     | Call ret target args handler =>
         case ret of

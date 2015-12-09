@@ -7,6 +7,15 @@ val _ = new_theory "bvp_to_wordProof";
 
 (* TODO: move *)
 
+val get_var_set_var = store_thm("get_var_set_var[simp]",
+  ``get_var n (set_var n w s) = SOME w``,
+  fs [wordSemTheory.get_var_def,wordSemTheory.set_var_def]);
+
+val set_var_set_var = store_thm("set_var_set_var[simp]",
+  ``set_var n v (set_var n w s) = set_var n v s``,
+  fs [wordSemTheory.state_component_equality,wordSemTheory.set_var_def,
+      insert_shadow]);
+
 val EVERY2_MAP_MAP = prove(
   ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
   Induct \\ fs []);
@@ -1317,7 +1326,9 @@ val eval_exc_stack_shorter = prove(
   \\ fs [LENGTH_LAST_N_LESS]);
 
 val alloc_size_def = Define `
-  alloc_size k = if ~(k < dimword (:'a)) then -1w else n2w k:'a word`
+  alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
+                    n2w (k * (dimindex (:'a) DIV 8))
+                  else (-1w)):'a word`
 
 val NOT_1_domain = prove(
   ``~(1 IN domain (adjust_set names))``,
@@ -1822,6 +1833,12 @@ val set_var_inc_clock = store_thm("set_var_inc_clock",
   ``set_var n x (inc_clock ck t) = inc_clock ck (set_var n x t)``,
   fs [wordSemTheory.set_var_def,inc_clock_def]);
 
+val state_rel_cut_env = prove(
+  ``state_rel c l1 l2 s t [] locs /\
+    bvpSem$cut_env names s.locals = SOME x ==>
+    state_rel c l1 l2 (s with locals := x) t [] locs``,
+  cheat);
+
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
 val compile_correct = prove(
@@ -1886,8 +1903,20 @@ val compile_correct = prove(
   THEN1 (* MakeSpace *)
    (qexists_tac `0` \\ fs []
     \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
-        GSYM alloc_size_def,LET_DEF]
-    \\ rpt (pop_assum mp_tac) \\ BasicProvers.CASE_TAC \\ rpt strip_tac
+        GSYM alloc_size_def,LET_DEF,wordSemTheory.word_exp_def,
+        wordSemTheory.word_op_def,wordSemTheory.get_var_imm_def]
+    \\ `?end next.
+          FLOOKUP t.store EndOfHeap = SOME (Word end) /\
+          FLOOKUP t.store NextFree = SOME (Word next)` by
+            fs [state_rel_def,heap_in_memory_store_def] \\ fs []
+    \\ reverse CASE_TAC THEN1
+     (every_case_tac \\ fs [] \\ rw []
+      \\ fs [wordSemTheory.set_var_def,state_rel_insert_1]
+      \\ match_mp_tac state_rel_cut_env \\ reverse (rw [])
+      \\ fs [add_space_def] \\ match_mp_tac has_space_state_rel
+      \\ fs [wordSemTheory.has_space_def,WORD_LO,NOT_LESS,
+             asmSemTheory.word_cmp_def])
+    \\ Cases_on `bvpSem$cut_env names s.locals` \\ fs []
     \\ rw [] \\ fs [add_space_def,wordSemTheory.word_exp_def,
          wordSemTheory.get_var_def,wordSemTheory.set_var_def]
     \\ Cases_on `(alloc (alloc_size k) (adjust_set names)
