@@ -136,6 +136,8 @@ val is_word_def = Define `
 val get_word_def = Define `
   get_word (Word w) = w`
 
+val _ = export_rewrites["is_word_def","get_word_def"];
+
 val mem_store_def = Define `
   mem_store (addr:'a word) (w:'a word_loc) (s:('a,'ffi) wordSem$state) =
     if addr IN s.mdomain then

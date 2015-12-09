@@ -22,6 +22,10 @@ val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
 
 (* -- *)
 
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `(s with clock := s.clock) = s`,
+  rw[state_component_equality]);
+
 val update_simps = store_thm("update_simps[simp]",
   ``((upd_pc x s).ffi = s.ffi) /\
     ((dec_clock s).ffi = s.ffi) /\
