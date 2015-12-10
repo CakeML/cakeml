@@ -69,7 +69,7 @@ should generate:
   L:
 *)
     | Raise r => ([Asm (JumpReg r) [] 0],m)
-    | Return _ r => ([Asm (JumpReg r) [] 0],m)
+    | Return r _ => ([Asm (JumpReg r) [] 0],m)
     | Call NONE dest _ => ([compile_jump dest],m)
     | Call (SOME (p1,lr,l1,l2)) dest NONE =>
         let (xs,m) = flatten p1 n m in
