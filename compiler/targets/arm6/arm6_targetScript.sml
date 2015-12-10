@@ -82,10 +82,14 @@ val arm6_sh_def = Define`
    (arm6_sh Asr = SRType_ASR)`
 
 val arm6_cmp_def = Define`
-   (arm6_cmp Less  = (2w:word2, 0b1011w:word4)) /\
-   (arm6_cmp Lower = (2w, 0b0011w)) /\
-   (arm6_cmp Equal = (2w, 0w)) /\
-   (arm6_cmp Test  = (0w, 0w))`
+   (arm6_cmp Less     = (2w, 0b1011w) : word2 # word4) /\
+   (arm6_cmp Lower    = (2w, 0b0011w)) /\
+   (arm6_cmp Equal    = (2w, 0b0000w)) /\
+   (arm6_cmp Test     = (0w, 0b0000w)) /\
+   (arm6_cmp NotLess  = (2w, 0b1010w)) /\
+   (arm6_cmp NotLower = (2w, 0b0010w)) /\
+   (arm6_cmp NotEqual = (2w, 0b0001w)) /\
+   (arm6_cmp NotTest  = (0w, 0b0001w))`
 
 val arm6_enc_def = Define`
    (arm6_enc (Inst Skip) =
@@ -178,10 +182,14 @@ val arm6_sh_dec_def = Define`
    (arm6_sh_dec SRType_ASR = Asr)`
 
 val arm6_cmp_dec_def = Define`
-   (arm6_cmp_dec (2w:word2, 0b1011w:word4) = Less) /\
-   (arm6_cmp_dec (2w, 0b0011w) = Lower) /\
-   (arm6_cmp_dec (2w, 0b0000w) = Equal)/\
-   (arm6_cmp_dec (0w, 0b0000w) = Test)`
+   (arm6_cmp_dec ((2w, 0b1011w): word2 # word4) = Less) /\
+   (arm6_cmp_dec  (2w, 0b0011w) = Lower) /\
+   (arm6_cmp_dec  (2w, 0b0000w) = Equal)/\
+   (arm6_cmp_dec  (0w, 0b0000w) = Test) /\
+   (arm6_cmp_dec  (2w, 0b1010w) = NotLess) /\
+   (arm6_cmp_dec  (2w, 0b0010w) = NotLower) /\
+   (arm6_cmp_dec  (2w, 0b0001w) = NotEqual)/\
+   (arm6_cmp_dec  (0w, 0b0001w) = NotTest)`
 
 val decode_imm12_def = Define`
    decode_imm12 imm12 = FST (FST (ARMExpandImm_C (imm12, F) ARB))`
@@ -617,7 +625,10 @@ val SetPassCondition =
    utilsLib.map_conv
      (SIMP_CONV (srw_ss()++boolSimps.LET_ss) [armTheory.SetPassCondition_def])
      [``SetPassCondition 0w s``,
+      ``SetPassCondition 1w s``,
+      ``SetPassCondition 2w s``,
       ``SetPassCondition 3w s``,
+      ``SetPassCondition 10w s``,
       ``SetPassCondition 11w s``,
       ``SetPassCondition 14w s``]
 
@@ -933,6 +944,31 @@ local
       \\ fs ([Abbr `r`, lem7, alignmentTheory.aligned_numeric,
               alignmentTheory.aligned_add_sub, aligned_add] @
              (if b then [Abbr `q`] else []))
+   fun tacs neg imm =
+      let
+         fun f l = List.map (next_state_tac1 hd) (if neg then List.rev l else l)
+      in
+        [
+         (* Equal *)
+         Cases_on `q = 0w`
+         >| f [[false, true], [true, false]]
+         \\ tac false,
+         (* Lower *)
+         Cases_on `FST (SND p)`
+         >| f [[true, false], [false, true]]
+         \\ tac false,
+         (* Less *)
+         Cases_on `word_bit 31 q = SND (SND p)`
+         >| f [[true, false], [false, true]]
+         \\ tac true,
+         (* Test *)
+         (if imm then Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) && c' = 0w`
+          else Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) &&
+                         ms.REG (R_mode ms.CPSR.M (n2w n')) = 0w`)
+         >| f [[false, true], [true, false]]
+         \\ tac true
+        ]
+      end
 in
    fun cmp_tac imm =
       Cases_on `c`
@@ -952,39 +988,7 @@ in
                                 ~ms.REG (R_mode ms.CPSR.M (n2w n')),T)`
             \\ qabbrev_tac `q = ms.REG (R_mode ms.CPSR.M (n2w n)) +
                                 -1w * ms.REG (R_mode ms.CPSR.M (n2w n'))`)
-      >| [
-         (* Equal *)
-         Cases_on `q = 0w`
-         >| [
-            next_state_tac1 hd [false, true],
-            next_state_tac1 hd [true, false]
-         ]
-         \\ tac false,
-         (* Lower *)
-         Cases_on `FST (SND p)`
-         >| [
-            next_state_tac1 hd [true, false],
-            next_state_tac1 hd [false, true]
-         ]
-         \\ tac false,
-         (* Less *)
-         Cases_on `word_bit 31 q = SND (SND p)`
-         >| [
-            next_state_tac1 hd [true, false],
-            next_state_tac1 hd [false, true]
-         ]
-         \\ tac true,
-         (* Test *)
-         (if imm
-             then Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) && c' = 0w`
-          else Cases_on `ms.REG (R_mode ms.CPSR.M (n2w n)) &&
-                         ms.REG (R_mode ms.CPSR.M (n2w n')) = 0w`)
-         >| [
-            next_state_tac1 hd [false, true],
-            next_state_tac1 hd [true, false]
-         ]
-         \\ tac true
-      ]
+      >| (tacs false imm @ tacs true imm)
 end
 
 local

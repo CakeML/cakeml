@@ -21,13 +21,11 @@ val mips_config_def = Define`
     ; has_mem_32 := T
     ; two_reg_arith := F
     ; big_endian := T
-    ; valid_imm := (\b i. case b of
-                             INL Sub  => F
-                           | INL And  => 0w <= i /\ i <= ^umax16
-                           | INL Or   => 0w <= i /\ i <= ^umax16
-                           | INL Xor  => 0w <= i /\ i <= ^umax16
-                           | INR Test => 0w <= i /\ i <= ^umax16
-                           | _ =>    ^min16 <= i /\ i <= ^max16)
+    ; valid_imm :=
+       (\b i. if b IN {INL And; INL Or; INL Xor; INR Test; INR NotTest} then
+                0w <= i /\ i <= ^umax16
+              else
+                b <> INL Sub /\ ^min16 <= i /\ i <= ^max16)
     ; addr_offset_min := ^min16
     ; addr_offset_max := ^max16
     ; jump_offset_min := ^min16
@@ -111,6 +109,16 @@ val mips_memop_def = Define`
    (mips_memop Store32 = INR SW) /\
    (mips_memop Store8  = INR SB)`
 
+val mips_cmp_def = Define`
+   (mips_cmp Equal    = (NONE, BEQ)) /\
+   (mips_cmp Less     = (SOME (SLT, SLTI), BNE)) /\
+   (mips_cmp Lower    = (SOME (SLTU, SLTIU), BNE)) /\
+   (mips_cmp Test     = (SOME (AND, ANDI), BEQ)) /\
+   (mips_cmp NotEqual = (NONE, BNE)) /\
+   (mips_cmp NotLess  = (SOME (SLT, SLTI), BEQ)) /\
+   (mips_cmp NotLower = (SOME (SLTU, SLTIU), BEQ)) /\
+   (mips_cmp NotTest  = (SOME (AND, ANDI), BNE))`
+
 val nop = ``Shift (SLL (0w, 0w, 0w))``
 
 val mips_enc_def = Define`
@@ -148,36 +156,24 @@ val mips_enc_def = Define`
         | INR f => mips_encode (Store (f (n2w r2, n2w r1, w2w a)))) /\
    (mips_enc (Jump a) =
        encs [Branch (BEQ (0w, 0w, w2w (a >>> 2) - 1w)); ^nop]) /\
-   (mips_enc (JumpCmp Equal r1 (Reg r2) a) =
-       encs [Branch (BEQ (n2w r1, n2w r2, w2w (a >>> 2) - 1w)); ^nop]) /\
-   (mips_enc (JumpCmp Less r1 (Reg r2) a) =
-       encs [ArithR (SLT (n2w r1, n2w r2, 1w));
-             Branch (BNE (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Lower r1 (Reg r2) a) =
-       encs [ArithR (SLTU (n2w r1, n2w r2, 1w));
-             Branch (BNE (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Test r1 (Reg r2) a) =
-       encs [ArithR (AND (n2w r1, n2w r2, 1w));
-             Branch (BEQ (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Equal r (Imm i) a) =
-       encs [ArithI (DADDIU (0w, 1w, w2w i));
-             Branch (BEQ (n2w r, 1w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Less r (Imm i) a) =
-       encs [ArithI (SLTI (n2w r, 1w, w2w i));
-             Branch (BNE (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Lower r (Imm i) a) =
-       encs [ArithI (SLTIU (n2w r, 1w, w2w i));
-             Branch (BNE (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
-   (mips_enc (JumpCmp Test r (Imm i) a) =
-       encs [ArithI (ANDI (n2w r, 1w, w2w i));
-             Branch (BEQ (1w, 0w, w2w (a >>> 2) - 2w));
-             ^nop]) /\
+   (mips_enc (JumpCmp c r1 (Reg r2) a) =
+       let (f1, f2) = mips_cmp c and b = w2w (a >>> 2) - 2w in
+       let l = case f1 of
+                  SOME (f, _) =>
+                   [ArithR (f (n2w r1, n2w r2, 1w)); Branch (f2 (1w, 0w, b))]
+                | NONE =>
+                   [Branch (f2 (n2w r1, n2w r2, b + 1w))]
+       in
+         encs (l ++ [^nop])) /\
+   (mips_enc (JumpCmp c r (Imm i) a) =
+       let (f1, f2) = mips_cmp c and b = w2w (a >>> 2) - 2w in
+       let l = case f1 of
+                  SOME (_, f) =>
+                   [ArithI (f (n2w r, 1w, w2w i)); Branch (f2 (1w, 0w, b))]
+                | NONE =>
+                   [ArithI (DADDIU (0w, 1w, w2w i)); Branch (f2 (n2w r, 1w, b))]
+       in
+         encs (l ++ [^nop])) /\
    (mips_enc (Call a) =
        encs [Branch (BGEZAL (0w, w2w (a >>> 2) - 1w)); ^nop]) /\
    (mips_enc (JumpReg r) = encs [Branch (JR (n2w r)); ^nop]) /\
@@ -210,24 +206,40 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
             (Branch (BNE (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Less (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BEQ (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotLess (w2n r1) (Reg (w2n r2))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithR (SLTU (r1, r2, 1w)), rest) =>
         (case fetch_decode rest of
             (Branch (BNE (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Lower (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BEQ (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotLower (w2n r1) (Reg (w2n r2))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithR (AND (r1, r2, 1w)), rest) =>
         (case fetch_decode rest of
             (Branch (BEQ (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Test (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BNE (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotTest (w2n r1) (Reg (w2n r2))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithI (DADDIU (0w, 1w, i)), rest) =>
         (case fetch_decode rest of
             (Branch (BEQ (r, 1w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Equal (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BNE (r, 1w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotEqual (w2n r) (Imm (sw2sw i))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithI (ORI (0w, r, i)), _) =>
         Inst (Const (w2n r) (w2w i : word64))
@@ -238,18 +250,30 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
             (Branch (BNE (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Less (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BEQ (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotLess (w2n r) (Imm (sw2sw i))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithI (SLTIU (r, 1w, i)), rest) =>
         (case fetch_decode rest of
             (Branch (BNE (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Lower (w2n r) (Imm (sw2sw i)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BEQ (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotLower (w2n r) (Imm (sw2sw i))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithI (ANDI (r1, 1w, i)), rest) =>
         (case fetch_decode rest of
             (Branch (BEQ (1w, 0w, a)), rest1) =>
                when_nop rest1
                  (JumpCmp Test (w2n r1) (Imm (w2w i)) (sw2sw ((a + 2w) << 2)))
+          | (Branch (BNE (1w, 0w, a)), rest1) =>
+               when_nop rest1
+                 (JumpCmp NotTest (w2n r1) (Imm (w2w i))
+                          (sw2sw ((a + 2w) << 2)))
           | _ => ARB)
     | (ArithI (ORI (31w, 1w, 0w)), rest0) =>
         (case fetch_decode rest0 of
@@ -339,6 +363,9 @@ val mips_dec_def = Lib.with_flag (Globals.priming, SOME "_") Define`
                   Jump aa
                else
                   JumpCmp Equal (w2n r1) (Reg (w2n r2)) aa)
+    | (Branch (BNE (r1, r2, a)), rest) =>
+        when_nop rest
+           (JumpCmp NotEqual (w2n r1) (Reg (w2n r2)) (sw2sw ((a + 1w) << 2)))
     | (Branch (BGEZAL (0w, a)), rest) =>
         when_nop rest (Call (sw2sw ((a + 1w) << 2)))
     | (Branch (BLTZAL (0w, 0w)), rest) =>
@@ -483,7 +510,7 @@ val encode_rwts =
       open mipsTheory
    in
       [mips_enc_def, encs_def, mips_encode_def, mips_bop_r_def, mips_bop_i_def,
-       mips_sh_def, mips_sh32_def, mips_memop_def,
+       mips_sh_def, mips_sh32_def, mips_memop_def, mips_cmp_def,
        Encode_def, form1_def, form2_def, form3_def, form4_def, form5_def]
    end
 
@@ -896,10 +923,18 @@ val mips_backend_correct = Count.apply Q.store_thm ("mips_backend_correct",
          Cases_on `ms.gpr (n2w n) <+ ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) < ms.gpr (n2w n')`,
          Cases_on `ms.gpr (n2w n) && ms.gpr (n2w n') = 0w`,
+         Cases_on `ms.gpr (n2w n) <> ms.gpr (n2w n')`,
+         Cases_on `~(ms.gpr (n2w n) <+ ms.gpr (n2w n'))`,
+         Cases_on `~(ms.gpr (n2w n) < ms.gpr (n2w n'))`,
+         Cases_on `(ms.gpr (n2w n) && ms.gpr (n2w n')) <> 0w`,
          Cases_on `ms.gpr (n2w n) = c'`,
          Cases_on `ms.gpr (n2w n) <+ c'`,
          Cases_on `ms.gpr (n2w n) < c'`,
-         Cases_on `ms.gpr (n2w n) && c' = 0w`
+         Cases_on `ms.gpr (n2w n) && c' = 0w`,
+         Cases_on `ms.gpr (n2w n) <> c'`,
+         Cases_on `~(ms.gpr (n2w n) <+ c')`,
+         Cases_on `~(ms.gpr (n2w n) < c')`,
+         Cases_on `(ms.gpr (n2w n) && c') <> 0w`
       ]
       \\ bnext_tac
       )

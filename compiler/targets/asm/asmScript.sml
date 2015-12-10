@@ -83,7 +83,7 @@ val () = Datatype `
   binop = Add | Sub | And | Or | Xor`
 
 val () = Datatype `
-  cmp = Equal | Lower | Less | Test`
+  cmp = Equal | Lower | Less | Test | NotEqual | NotLower | NotLess | NotTest`
 
 val () = Datatype `
   shift = Lsl | Lsr | Asr`

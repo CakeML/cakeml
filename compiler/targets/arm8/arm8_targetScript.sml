@@ -19,7 +19,9 @@ val jump_max = eval ``sw2sw (INT_MAXw: word28) : word64``
 
 val valid_immediate_def = Define`
    valid_immediate (c:binop+cmp) (i: word64) =
-   if c IN {INL Add; INL Sub; INR Less; INR Lower; INR Equal} then
+   if c IN {INL Add; INL Sub;
+            INR Less; INR Lower; INR Equal;
+            INR NotLess; INR NotLower; INR NotEqual} then
       (~0xFFFw && i = 0w) \/ (~0xFFF000w && i = 0w)
    else
       IS_SOME (EncodeBitMask i)`
@@ -84,10 +86,14 @@ val bop_dec_def = Define`
    (bop_dec LogicalOp_EOR = Xor)`
 
 val cmp_cond_def = Define`
-   (cmp_cond Less  = 0b1011w:word4) /\
-   (cmp_cond Lower = 0b0011w) /\
-   (cmp_cond Equal = 0w) /\
-   (cmp_cond Test  = 0w)`
+   (cmp_cond Less     = 0b1011w:word4) /\
+   (cmp_cond Lower    = 0b0011w) /\
+   (cmp_cond Equal    = 0b0000w) /\
+   (cmp_cond Test     = 0b0000w) /\
+   (cmp_cond NotLess  = 0b1010w) /\
+   (cmp_cond NotLower = 0b0010w) /\
+   (cmp_cond NotEqual = 0b0001w) /\
+   (cmp_cond NotTest  = 0b0001w)`
 
 val arm8_enc_mov_imm_def = Define`
    arm8_enc_mov_imm (i: word64) =
@@ -205,7 +211,7 @@ val arm8_enc_def = Define`
       arm8_encode (Branch (BranchImmediate (a, BranchType_JMP)))) /\
    (arm8_enc (JumpCmp cmp r1 (Reg r2) a) =
       arm8_encode
-         (Data (if cmp = Test then
+         (Data (if is_test cmp then
                    LogicalShiftedRegister@64
                       (1w, LogicalOp_AND, F, T, ShiftType_LSL, 0,
                        n2w r2, n2w r1, 0x1Fw)
@@ -215,7 +221,7 @@ val arm8_enc_def = Define`
       arm8_encode (Branch (BranchConditional (a - 4w, cmp_cond cmp)))) /\
    (arm8_enc (JumpCmp cmp r (Imm i) a) =
       arm8_encode
-         (Data (if cmp = Test then
+         (Data (if is_test cmp then
                    LogicalImmediate@64
                       (1w, LogicalOp_AND, T, i, n2w r, 0x1Fw)
                 else
@@ -232,7 +238,10 @@ val arm8_enc = REWRITE_RULE [bop_enc_def, asmTheory.shift_distinct] arm8_enc_def
 val cond_cmp_def = Define`
    (cond_cmp (0b1011w:word4) = Less) /\
    (cond_cmp 0b0011w = Lower) /\
-   (cond_cmp 0w = Equal)`;
+   (cond_cmp 0b0000w = Equal) /\
+   (cond_cmp 0b1010w = NotLess) /\
+   (cond_cmp 0b0010w = NotLower) /\
+   (cond_cmp 0b0001w = NotEqual)`
 
 val fetch_word_def = Define`
    fetch_word (b0 :: b1 :: b2 :: b3 :: (rest: word8 list)) =
@@ -290,6 +299,8 @@ val arm8_dec_aux_def = Define`
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, 0w)) =>
               JumpCmp Test (w2n r) (Imm i) (a + 4w)
+         | Branch (BranchConditional (a, 1w)) =>
+              JumpCmp NotTest (w2n r) (Imm i) (a + 4w)
          | _ => ARB)
    | Data (AddSubShiftedRegister@64
              (1w, T, T, ShiftType_LSL, r2, 0w, r1, 0x1Fw)) =>
@@ -302,6 +313,8 @@ val arm8_dec_aux_def = Define`
        (case FST (decode_word rest) of
            Branch (BranchConditional (a, 0w)) =>
               JumpCmp Test (w2n r1) (Reg (w2n r2)) (a + 4w)
+         | Branch (BranchConditional (a, 1w)) =>
+              JumpCmp NotTest (w2n r1) (Reg (w2n r2)) (a + 4w)
          | _ => ARB)
    | LoadStore
         (LoadStoreImmediate@64
@@ -404,7 +417,8 @@ val valid_immediate_thm = Q.prove(
    `!b c.
         valid_immediate b c =
         if (b = INL Add) \/ (b = INL Sub) \/
-           (b = INR Less) \/ (b = INR Lower) \/ (b = INR Equal) then
+           (b = INR Less) \/ (b = INR Lower) \/ (b = INR Equal) \/
+           (b = INR NotLess) \/ (b = INR NotLower) \/ (b = INR NotEqual) then
            (0xFFFw && c = 0w) /\ (0xFFFFFFFFFF000000w && c = 0w) \/
            (0xFFFw && c) <> 0w /\ (0xFFFFFFFFFFFFF000w && c = 0w)
         else
@@ -798,7 +812,7 @@ val encode_rwts =
       [arm8_enc, arm8_encode_def, Encode_def, e_data_def, e_branch_def,
        e_load_store_def, e_sf_def, e_LoadStoreImmediate_def,
        EncodeLogicalOp_def, NoOperation_def, ShiftType2num_thm,
-       SystemHintOp2num_thm, ShiftType2num_thm
+       SystemHintOp2num_thm, ShiftType2num_thm, asmSemTheory.is_test_def
       ]
    end
 
@@ -931,7 +945,7 @@ fun next_state_tac0 imp_res f fltr q =
    next_state_tac f fltr q
    \\ (if imp_res then imp_res_tac bytes_in_memory_thm else all_tac)
    \\ rfs []
-   \\ fs [lem1, lem2, lem3, lem5, lem6]
+   \\ fs [lem1, lem2, lem3, lem5, lem6, GSYM wordsTheory.WORD_NOT_LOWER]
    \\ asmLib.byte_eq_tac
    \\ rfs [lem13, lem16, lem17, lem18, lem20, lem21, lem22, lem23, lem24, lem25,
            lem26, comm lem21, comm lem22, combinTheory.UPDATE_APPLY,
@@ -1323,7 +1337,11 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             cmp_case_tac `ms.REG (n2w n) = ms.REG (n2w n')`,
             cmp_case_tac `ms.REG (n2w n) <+ ms.REG (n2w n')`,
             cmp_case_tac `ms.REG (n2w n) < ms.REG (n2w n')`,
-            cmp_case_tac `ms.REG (n2w n) && ms.REG (n2w n') = 0w`
+            cmp_case_tac `ms.REG (n2w n) && ms.REG (n2w n') = 0w`,
+            cmp_case_tac `ms.REG (n2w n) <> ms.REG (n2w n')`,
+            cmp_case_tac `~(ms.REG (n2w n) <+ ms.REG (n2w n'))`,
+            cmp_case_tac `~(ms.REG (n2w n) < ms.REG (n2w n'))`,
+            cmp_case_tac `(ms.REG (n2w n) && ms.REG (n2w n')) <> 0w`
          ],
          Cases_on `c`
          \\ lfs enc_rwts
@@ -1338,7 +1356,14 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             cmp_case_tac `ms.REG (n2w n) <+ c'`,
             cmp_case_tac `ms.REG (n2w n) < c'`,
             cmp_case_tac `ms.REG (n2w n) < c'`,
-            cmp_case_tac `ms.REG (n2w n) && c' = 0w`
+            cmp_case_tac `ms.REG (n2w n) && c' = 0w`,
+            cmp_case_tac `ms.REG (n2w n) <> c'`,
+            cmp_case_tac `ms.REG (n2w n) <> c'`,
+            cmp_case_tac `~(ms.REG (n2w n) <+ c')`,
+            cmp_case_tac `~(ms.REG (n2w n) <+ c')`,
+            cmp_case_tac `~(ms.REG (n2w n) < c')`,
+            cmp_case_tac `~(ms.REG (n2w n) < c')`,
+            cmp_case_tac `(ms.REG (n2w n) && c') <> 0w`
          ]
       ]
       )

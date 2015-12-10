@@ -72,7 +72,12 @@ val x64_sh_def = Define`
 val x64_cmp_def = Define`
    (x64_cmp Less  = Z_L) /\
    (x64_cmp Lower = Z_B) /\
-   (x64_cmp _     = Z_E)`
+   (x64_cmp Equal = Z_E) /\
+   (x64_cmp Test  = Z_E) /\
+   (x64_cmp NotLess  = Z_NL) /\
+   (x64_cmp NotLower = Z_NB) /\
+   (x64_cmp NotEqual = Z_NE) /\
+   (x64_cmp NotTest  = Z_NE)`
 
 (* Avoid x64$encode when encoding jcc because it can produce short jumps. *)
 
@@ -112,18 +117,19 @@ val x64_enc_def = Define`
        x64$encode (Zmov (Z_ALWAYS, Z8 (3 < r1), st r1 r2 a))) /\
    (x64_enc (Jump a) = x64_encode_jcc Z_ALWAYS (a - 5w)) /\
    (x64_enc (JumpCmp cmp r1 (Reg r2) a) =
-       x64$encode (Zbinop (if cmp = Test then Ztest else Zcmp, Z64,
+       x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
                            Zrm_r (reg r1, num2Zreg r2))) ++
        x64_encode_jcc (x64_cmp cmp) (a - 9w)) /\
    (x64_enc (JumpCmp cmp r (Imm i) a) =
-       let width = if cmp <> Test /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
-                      10w
-                   else if r = 0 then
-                      12w
-                   else
-                      13w
+       let width =
+          if ~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= i /\ i <= 0x7Fw then
+             10w
+          else if r = 0 then
+             12w
+          else
+             13w
        in
-          x64$encode (Zbinop (if cmp = Test then Ztest else Zcmp, Z64,
+          x64$encode (Zbinop (if is_test cmp then Ztest else Zcmp, Z64,
                               Zrm_i (reg r, i))) ++
           x64_encode_jcc (x64_cmp cmp) (a - width)) /\
    (x64_enc (Call _) = []) /\
@@ -146,7 +152,11 @@ val x64_cmp_dec_def = Define`
    (x64_cmp_dec (Ztest, Z_E) = Test) /\
    (x64_cmp_dec (Zcmp,  Z_L) = Less) /\
    (x64_cmp_dec (Zcmp,  Z_B) = Lower) /\
-   (x64_cmp_dec (Zcmp,  Z_E) = Equal)`
+   (x64_cmp_dec (Zcmp,  Z_E) = Equal) /\
+   (x64_cmp_dec (Ztest, Z_NE) = NotTest) /\
+   (x64_cmp_dec (Zcmp,  Z_NL) = NotLess) /\
+   (x64_cmp_dec (Zcmp,  Z_NB) = NotLower) /\
+   (x64_cmp_dec (Zcmp,  Z_NE) = NotEqual)`
 
 val fetch_decode_def = Define`
    fetch_decode l =
@@ -187,7 +197,7 @@ val x64_dec_def = Define`
                (case fetch_decode rest of
                    (Zjcc (c, a), _) =>
                       let cmp = x64_cmp_dec (bop, c) in
-                      let w = if cmp <> Test /\
+                      let w = if ~is_test cmp /\
                                  0xFFFFFFFFFFFFFF80w <= n /\ n <= 0x7Fw then
                                  10w
                               else if r1 = 0 then 12w else 13w
@@ -635,7 +645,7 @@ val encode_rwts =
        rex_prefix_def, e_opc_def, e_rm_imm8_def, e_opsize_imm_def,
        not_byte_def, e_rax_imm_def, e_rm_imm_def, e_imm_8_32_def, e_imm_def,
        e_imm8_def, e_imm16_def, e_imm32_def, e_imm64_def, Zsize_width_def,
-       Zbinop_name2num_thm
+       Zbinop_name2num_thm, asmSemTheory.is_test_def
        ]
    end
 
@@ -905,7 +915,7 @@ fun decode_tac1 l =
    \\ map_every Q.UNABBREV_TAC l
    \\ lfs [cmp_lem8, cmp_lem9, cmp_lem10, cmp_lem11, cmp_lem12, cmp_lem13,
            cmp_lem14, Zreg2num_num2Zreg_imp, x64_cmp_dec_def,
-           x64Theory.Zreg2num_thm]
+           asmSemTheory.is_test_def, x64Theory.Zreg2num_thm]
 
 val decode_cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
@@ -1102,7 +1112,8 @@ val x64_encoding = Count.apply Q.prove (
       \\ `RexReg (r1 ' 3,v2w [r1 ' 2; r1 ' 1; r1 ' 0]) = num2Zreg n`
       by (simp [mem_lem4, loc_lem3, x64Theory.RexReg_def, Abbr `r1`]
           \\ fs enc_rwts)
-      >| [decode_cmp_tac, decode_cmp_tac, decode_cmp_tac, all_tac]
+      >| [decode_cmp_tac, decode_cmp_tac, decode_cmp_tac, all_tac,
+          decode_cmp_tac, decode_cmp_tac, decode_cmp_tac, all_tac]
       \\ (
          Cases_on `n = 0`
          \\ decode_tac1 [`r1`]
@@ -1366,7 +1377,8 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
          (* Imm *)
       \\ Cases_on `c`
       \\ lfs ([jump_lem3, loc_lem2, x64Theory.Zcond2num_thm] @ enc_rwts)
-      >| [cmp_tac, cmp_tac, cmp_tac, all_tac]
+      >| [cmp_tac, cmp_tac, cmp_tac, all_tac,
+          cmp_tac, cmp_tac, cmp_tac, all_tac]
       \\ (
          Cases_on `n = 0`
          \\ fs [const_lem2, jump_lem5, jump_lem6, cmp_lem7,
@@ -1422,7 +1434,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
       print_tac "enc_ok: JumpCmp"
       \\ Cases_on `ri`
       >| [all_tac,
-          Cases_on `cmp <> Test /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
+          Cases_on `~is_test cmp /\ 0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
           >| [all_tac, Cases_on `r = 0`]
       ]
       \\ enc_ok_tac
