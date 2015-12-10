@@ -14,6 +14,10 @@ val mk_Union_def = Define `
     if t2 = Empty then t1 else
       Union t1 t2`;
 
+val mk_Union_Empty = Q.store_thm("mk_Union_Empty[simp]",
+  `mk_Union Empty A = A ∧ mk_Union A Empty = A`,
+  rw[mk_Union_def]);
+
 val list_mk_Union_def = Define `
   (list_mk_Union [] = Empty) /\
   (list_mk_Union (x::xs) = mk_Union x (list_mk_Union xs))`;
