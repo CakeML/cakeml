@@ -911,8 +911,9 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     Cases_on`o0`>>TRY(PairCases_on`x''`)>>fs[]>>
     `env1 = env2` by
       (unabbrev_all_tac>>
+      rpt (pop_assum kall_tac)>>
       simp[push_env_def,LET_THM,env_to_list_def
-        ,state_component_equality,FUN_EQ_THM])>>
+        ,state_component_equality,ETA_AX])>>
     fs[pop_env_perm,set_var_perm]>>
     EVERY_CASE_TAC>>fs[])
     >-
@@ -985,10 +986,15 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         qpat_assum `INJ f (q' INSERT A) B` mp_tac>>
         qpat_assum `INJ f A B` kall_tac>>
         `n' ∈ set (MAP FST lss)` by fs[]>>
+        `n' ∈ domain x'1` by
+          (fs[domain_union]>>metis_tac[])>>
+        ntac 4 (pop_assum mp_tac)>>
+        rpt (pop_assum kall_tac)>>
+        rw[]>>
+        CCONTR_TAC>>
         FULL_SIMP_TAC bool_ss [INJ_DEF]>>
-        strip_tac>>pop_assum(qspecl_then [`n'`,`x''0`] mp_tac)>>
-        rw[domain_union]>>
-        metis_tac[])>>
+        first_x_assum(qspecl_then[`n'`,`x''0`] mp_tac)>>
+        fs[])>>
       fs[lookup_fromAList]>>
       imp_res_tac key_map_implies>>
       rfs[]>>
@@ -2829,7 +2835,8 @@ val ssa_cc_trans_exp_correct = prove(
     res_tac>>fs[word_state_eq_rel_def,mem_load_def]))
 
 val exp_tac =
-    (exists_tac>>
+    (last_x_assum kall_tac>>
+    exists_tac>>
     EVERY_CASE_TAC>>fs[next_var_rename_def,word_exp_perm,get_var_perm]>>
     imp_res_tac ssa_locals_rel_get_var>>
     imp_res_tac ssa_cc_trans_exp_correct>>fs[word_state_eq_rel_def]>>
@@ -2927,6 +2934,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       >>
       Q.ISPECL_THEN [`MAP FST l`,`x`,`x'`] assume_tac ALOOKUP_ZIP_FAIL>>
       rfs[ssa_map_ok_def]>>fs[]>>
+      ntac 11 (last_x_assum kall_tac)>>
       res_tac>>
       fs[domain_lookup]>>res_tac>>
       qabbrev_tac `ls = MAP (\x. THE (lookup x q')) (MAP FST l)`>>
@@ -3109,6 +3117,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     discharge_hyps>-
       (rfs[Abbr`f`]>>
       fs[ssa_locals_rel_def,strong_locals_rel_def]>>
+      ntac 1 (last_x_assum kall_tac)>>
       rw[INJ_DEF]>-
         (SPOSE_NOT_THEN assume_tac>>
         `x'' ∈ domain st.locals ∧ y ∈ domain st.locals` by
@@ -3187,7 +3196,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[LET_THM,ssa_locals_rel_def]>>
       rw[]
       >-
-        (res_tac>>
+        (ntac 20 (last_x_assum kall_tac)>>
+        res_tac>>
         qpat_assum`A=domain(fromAList l'')` (sym_sub_tac)>>
         fs[Abbr`f`,option_lookup_def]>>
         qexists_tac`x''`>>fs[]>>
@@ -3199,6 +3209,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       >-
         (`x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
         fs[domain_lookup]>>
+        ntac 20 (last_x_assum kall_tac)>>
         res_tac>>
         `v = f x''` by fs[Abbr`f`,option_lookup_def]>>
         fs[push_env_def,LET_THM,env_to_list_def]>>
@@ -3289,6 +3300,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       strip_tac>>
       `env1 = env2` by
       (unabbrev_all_tac>>
+      rpt (pop_assum kall_tac)>>
       simp[push_env_def,LET_THM,env_to_list_def
         ,state_component_equality,FUN_EQ_THM])>>
       fs[pop_env_perm,set_var_perm]>>
@@ -3360,10 +3372,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         `x'' ∈ domain st.locals ∧ y ∈ domain st.locals` by
           fs[SUBSET_DEF,cut_env_def]>>
         fs[domain_lookup,option_lookup_def,ssa_map_ok_def]>>
+        ntac 20 (last_x_assum kall_tac)>>
         res_tac>>
         fs[]>>
         metis_tac[])
       >>
+        ntac 20 (last_x_assum kall_tac)>>
         fs[option_lookup_def,domain_lookup]>>
         res_tac>>
         fs[]>>
@@ -3456,7 +3470,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[LET_THM,ssa_locals_rel_def]>>
       rw[]
       >-
-        (res_tac>>
+        (ntac 50 (last_x_assum kall_tac)>>
+        res_tac>>
         qpat_assum`A=domain(fromAList l'')` (sym_sub_tac)>>
         fs[Abbr`f`,option_lookup_def]>>
         qexists_tac`x''`>>fs[]>>
@@ -3468,6 +3483,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       >-
         (`x'' ∈ domain ssa_cut` by metis_tac[domain_lookup]>>
         fs[domain_lookup]>>
+        ntac 50 (last_x_assum kall_tac)>>
         res_tac>>
         `v = f x''` by fs[Abbr`f`,option_lookup_def]>>
         fs[push_env_def,LET_THM,env_to_list_def]>>
@@ -3558,6 +3574,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       strip_tac>>
       `env1 = env2` by
       (unabbrev_all_tac>>
+      rpt (pop_assum kall_tac)>>
       simp[push_env_def,LET_THM,env_to_list_def
         ,state_component_equality,FUN_EQ_THM])>>
       fs[pop_env_perm,set_var_perm]>>
@@ -3620,7 +3637,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (fs[Abbr`cres`,LET_THM,ssa_locals_rel_def,state_component_equality]>>
       rw[Abbr`ssa_cut`]
       >-
-        (fs[domain_fromAList,option_lookup_def,lookup_inter]>>
+        (ntac 20 (last_x_assum kall_tac)>>
+        fs[domain_fromAList,option_lookup_def,lookup_inter]>>
         EVERY_CASE_TAC>>fs[]>>
         qexists_tac`x''`>>fs[]>>
         metis_tac[EXTENSION,domain_lookup])
@@ -3728,6 +3746,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       strip_tac>>
       `env1 = env2` by
       (unabbrev_all_tac>>
+      rpt(pop_assum kall_tac)>>
       simp[state_component_equality,FUN_EQ_THM])>>
       fs[pop_env_perm,set_var_perm]>>
       EVERY_CASE_TAC>>fs[]>>
@@ -3894,6 +3913,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         metis_tac[])
       >>
         fs[option_lookup_def,domain_lookup,Abbr`rcstlocs`,lookup_insert]>>
+        last_x_assum kall_tac>>
         res_tac>>
         fs[ssa_map_ok_def]>>
         first_x_assum(qspecl_then [`n'`,`v'`] mp_tac)>>
@@ -3966,6 +3986,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
      fs[MEM_MAP,mem_list_rearrange,QSORT_MEM]>>
      rw[]>>
      fs[EXISTS_PROD,MEM_toAList,domain_lookup])>>
+   last_x_assum kall_tac>>
    `ssa_locals_rel na' ssa_cut x''.locals y'.locals ∧
        word_state_eq_rel x'' y'` by
       (fs[state_component_equality]>>
@@ -4066,6 +4087,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
   >>
     (*FFI*)
     exists_tac>>
+    last_x_assum kall_tac>>
     qabbrev_tac`A = ssa_cc_trans (FFI n n0 n1 s) ssa na`>>
     PairCases_on`A`>>fs[ssa_cc_trans_def]>>
     pop_assum mp_tac>>
