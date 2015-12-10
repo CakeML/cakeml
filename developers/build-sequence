@@ -3,6 +3,10 @@ semantics/ffi
 semantics
 semantics/proofs
 
+# translator
+explorer/pp/astPP
+translator
+
 # compiler
 compiler/parsing
 compiler/inference
@@ -22,10 +26,6 @@ compiler/inference/proofs
 compiler/backend/semantics
 compiler/backend/reg_alloc/proofs
 compiler/backend/proofs
-
-# translator
-explorer/pp/astPP
-translator
 
 # candle
 candle/set-theory
