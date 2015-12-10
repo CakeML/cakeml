@@ -323,6 +323,21 @@ val word_ml_inv_insert = store_thm("word_ml_inv_insert",
   \\ imp_res_tac IMP_adjust_var \\ fs []
   \\ metis_tac [adjust_var_11]);
 
+val word_ml_inv_insert_gen = store_thm("word_ml_inv_insert_gen",
+  ``word_ml_inv (heap,F,a,sp) limit c s.refs
+      (v1++[(x,w)]++join_env d (toAList (delete_odd l))++xs) ==>
+    word_ml_inv (heap,F,a,sp) limit c s.refs
+      (v1++join_env (insert dest x d)
+        (toAList (delete_odd (insert (adjust_var dest) w l)))++xs)``,
+  match_mp_tac word_ml_inv_rearrange \\ fs [] \\ rw [] \\ fs []
+  \\ fs [join_env_def,MEM_MAP,MEM_FILTER,EXISTS_PROD]
+  \\ fs [] \\ rw [] \\ fs [MEM_toAList]
+  \\ fs [lookup_insert]
+  \\ Cases_on `dest = (p_1 - 2) DIV 2` \\ fs []
+  \\ fs [adjust_var_DIV_2]
+  \\ imp_res_tac IMP_adjust_var \\ fs []
+  \\ metis_tac [adjust_var_11]);
+
 (* -------------------------------------------------------
     definition and verification of GC function
    ------------------------------------------------------- *)
@@ -581,7 +596,7 @@ val adjust_var_NOT_0 = store_thm("adjust_var_NOT_0[simp]",
   fs [adjust_var_def]);
 
 val state_rel_get_var_IMP = prove(
-  ``state_rel c l1 l2 s t [] locs ==>
+  ``state_rel c l1 l2 s t v1 locs ==>
     (get_var n s.locals = SOME x) ==>
     ?w. get_var (adjust_var n) t = SOME w``,
   fs [bvpSemTheory.get_var_def,wordSemTheory.get_var_def]
@@ -1880,7 +1895,7 @@ val compile_correct = prove(
     \\ fs [state_rel_def,set_var_def,lookup_insert]
     \\ rpt strip_tac \\ fs []
     THEN1 (rw [] \\ Cases_on `n = dest` \\ fs [])
-    \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ fs []
+    \\ asm_exists_tac
     \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
     \\ imp_res_tac word_ml_inv_get_var_IMP
     \\ match_mp_tac word_ml_inv_insert \\ fs [])
@@ -2182,5 +2197,26 @@ val compile_correct = prove(
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
     \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
+
+(* observational semantics preservation *)
+
+(*
+val compile_semantics = Q.store_thm("compile_semantics",
+  `state_rel c ARB ARB
+    (initial_state ffi (fromAList prog) ARB)
+    (initial_state be mdomain (word_gc_fun c) permute (fromAList (compile c prog)) ffi memory store ARB)
+    [(Number 0,Word 0w)] [] ∧
+   semantics ffi (fromAList prog) start ≠ Fail ⇒
+   semantics be (mdomain:α word set) (word_gc_fun c) permute (fromAList (compile c prog)) ffi memory store start =
+   semantics ffi (fromAList prog) start`,
+  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
+  strip_tac >>
+  simp[bvpSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> fs[]
+  conj_tac >- (
+    qx_gen_tac`ff` >> strip_tac >> simp[] >>
+    drule compile_correct >> simp[] >>
+*)
 
 val _ = export_theory();
