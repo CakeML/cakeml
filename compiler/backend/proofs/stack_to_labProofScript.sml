@@ -16,6 +16,21 @@ val assert_T = Q.store_thm("assert_T[simp]",
   `assert T s = s`,
   rw[assert_def,state_component_equality]);
 
+val good_syntax_def = Define `
+  (good_syntax ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
+     good_syntax p1 ptr len ret /\
+     good_syntax p2 ptr len ret) /\
+  (good_syntax ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
+     good_syntax p1 ptr len ret /\
+     good_syntax p2 ptr len ret) /\
+  (good_syntax (Halt n) ptr len ret <=> (n = len)) /\
+  (good_syntax (FFI n1 n2 n3) ptr len ret <=>
+     n1 = ptr /\ n2 = len /\ n3 = ret) /\
+  (good_syntax (Call x1 _ x2) ptr len ret <=>
+     (case x1 of SOME (y,_,_,_) => good_syntax y ptr len ret | NONE => T) /\
+     (case x2 of SOME (y,_,_) => good_syntax y ptr len ret | NONE => T)) /\
+  (good_syntax _ ptr len ret <=> T)`
+
 (* -- *)
 
 val state_rel_def = Define`
@@ -27,6 +42,7 @@ val state_rel_def = Define`
     t.ffi = s.ffi ∧
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
+      good_syntax prog t.len_reg t.ptr_reg t.link_reg ∧
       MEM (prog_to_section (n,prog)) t.code) ∧
     ¬t.failed ∧
     is_word (read_reg t.ptr_reg t) ∧
@@ -45,7 +61,7 @@ val set_var_upd_reg = Q.store_thm("set_var_upd_reg",
   `state_rel s t ∧ is_word b ⇒
    state_rel (set_var a b s) (upd_reg a b t)`,
   rw[state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM] >>
-  rw[]>>fs[]>>rfs[])
+  rw[]>>fs[]>>rfs[] \\ metis_tac [])
 
 val set_var_Word_upd_reg = Q.store_thm("set_var_Word_upd_reg[simp]",
   `state_rel s t ⇒
@@ -56,7 +72,7 @@ val mem_store_upd_mem = Q.store_thm("mem_store_upd_mem",
   `state_rel s t ∧ mem_store x y s = SOME s1 ⇒
    state_rel s1 (upd_mem x y t)`,
   rw[state_rel_def,upd_mem_def,stackSemTheory.mem_store_def,FUN_EQ_THM,APPLY_UPDATE_THM] >>
-  rw[APPLY_UPDATE_THM] >> rfs[]);
+  rw[APPLY_UPDATE_THM] >> rfs[] >> metis_tac []);
 
 val state_rel_read_reg_FLOOKUP_regs = Q.store_thm("state_rel_read_reg_FLOOKUP_regs",
   `state_rel s t ∧
@@ -103,6 +119,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
      max_lab prog ≤ l ∧
+     good_syntax prog t1.len_reg t1.ptr_reg t1.link_reg ∧
      code_installed t1.pc (FST (flatten prog n l)) t1.code
      ⇒
      ∃ck t2.
@@ -113,7 +130,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
              | Word _ => Halt Resource_limit_hit
              | _ => Error),
             t2) ∧
-         state_rel s2 t2
+         s2.ffi = t2.ffi
      | _ =>
        evaluate (t1 with clock := t1.clock + ck) =
        evaluate t2 ∧
@@ -140,7 +157,9 @@ val flatten_correct = Q.store_thm("flatten_correct",
     fs[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     fs[get_var_def,FLOOKUP_DEF] >> var_eq_tac >>
-    cheat ) >>
+    qexists_tac `t1 with clock := t1.clock + 1` >>
+    fs [good_syntax_def,state_rel_def] >> rfs [] >>
+    every_case_tac >> fs []) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def,flatten_def] >>
     fs[state_rel_def] ) >>
