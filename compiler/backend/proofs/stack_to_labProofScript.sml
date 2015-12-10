@@ -289,14 +289,26 @@ val flatten_correct = Q.store_thm("flatten_correct",
     rpt var_eq_tac >> simp[] >>
     fs[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    `get_var m s = SOME (read_reg m t1) ∧
-     get_var n s = SOME (read_reg n t1)` by (
+    `get_var n s = SOME (read_reg n t1)` by (
       fs[state_rel_def,get_var_def] >>
       fs[FLOOKUP_DEF] ) >>
     fs[] >>
     qexists_tac`1`>>simp[] >> rfs[] >>
-    var_eq_tac >>
-    cheat ) >>
+    CASE_TAC >> fs[] >- (
+      qexists_tac`t1 with clock := t1.clock + 1` >> simp[] >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] ) >>
+    simp[dec_clock_def] >>
+    qmatch_assum_rename_tac`_ = SOME pc` >>
+    qexists_tac`upd_pc pc t1` >>
+    simp[upd_pc_def] >>
+    fs[state_rel_def] >>
+    metis_tac[]) >>
+  (* Raise *)
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var n s`>>fs[]>>
+    rpt var_eq_tac >> simp[] >>
+    cheat) >>
   cheat)
 
 val _ = export_theory();
