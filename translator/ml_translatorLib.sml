@@ -1390,9 +1390,6 @@ fun derive_thms_for_type is_exn_type ty = let
       \\ FULL_SIMP_TAC (srw_ss()) []);
     val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
     val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
-    val with_same_v = ``env with v := env.v = env``
-                      |> SIMP_CONV (srw_ss()) [environment_component_equality]
-                      |> EQT_ELIM
     fun print_tac s g = (print s; ALL_TAC g)
     val _ = print "Case translation:"
     val init_tac =
@@ -1424,8 +1421,7 @@ fun derive_thms_for_type is_exn_type ty = let
           \\ NTAC n
             (ONCE_REWRITE_TAC [evaluate_match_rw]
              \\ ASM_SIMP_TAC (srw_ss()) [pat_bindings_def,pmatch_def,
-                  same_ctor_def,same_tid_def,id_to_n_def,write_def,
-                  with_same_v])
+                  same_ctor_def,same_tid_def,id_to_n_def,write_def])
     val tac = init_tac THENL (map (fn (n,f,fxs,pxs,tm,exp,xs) => case_tac n) ts)
 (*
 val n = 1
