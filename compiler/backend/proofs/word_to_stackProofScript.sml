@@ -1141,9 +1141,8 @@ val joined_ok_drop = prove(``
   fs[joined_ok_def])
 
 val alloc_IMP_alloc = prove(
-  ``
+  ``(wordSem$alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
-    (alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     state_rel k f f' s t5 /\
     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
     (cut_env names s.locals = SOME env) /\
@@ -1154,11 +1153,11 @@ val alloc_IMP_alloc = prove(
     ,DROP (f − f') (DROP t5.stack_space t5.stack)) /\
     res <> SOME Error ==>
     ?t1 res1.
-      (alloc c t5 = (res1,t1)) /\
+      (stackSem$alloc c t5 = (res1:'a stackSem$result option,t1)) /\
       if res = NONE then
         res1 = NONE /\ state_rel k f f' s1 t1
       else
-        res = SOME NotEnoughSpace /\ res1 = res``,
+        res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w))``,
   Cases_on `FST (alloc c names (s:('a,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
@@ -1224,17 +1223,25 @@ val get_var_set_var = prove(``
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
   fs[FLOOKUP_UPDATE])
 
+val compile_result_def = Define`
+  (compile_result (Result w1 w2) = Result w1) ∧
+  (compile_result (Exception w1 w2) = Exception w2) ∧
+  (compile_result TimeOut = TimeOut) ∧
+  (compile_result NotEnoughSpace = Halt (Word 1w)) ∧
+  (compile_result Error = Error)`;
+val _ = export_rewrites["compile_result_def"];
+
 val compile_correct = prove(
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
-      (evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
+      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
       max_var prog <= 2 * f' + 2 * k /\ 1 <= f ==>
-      ?t1 res1. (evaluate (comp prog (k,f,f'),t) = (res1,t1)) /\
-                if res <> res1 then (res1 = SOME NotEnoughSpace) else
+      ?t1 res1. (stackSem$evaluate (comp prog (k,f,f'),t) = (res1,t1)) /\
+                if OPTION_MAP compile_result res <> res1 then (res1 = SOME (Halt (Word 1w))) else
                   case res of
                   | NONE => state_rel k f f' s1 t1
-                  | SOME (Result v1) => state_rel k 0 0 s1 t1
-                  | SOME (Exception v1) => state_rel k 0 0 s1 t1
+                  | SOME (Result  _ _) => state_rel k 0 0 s1 t1
+                  | SOME (Exception _ _) => state_rel k 0 0 s1 t1
                   | SOME _ => T``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)
@@ -1260,7 +1267,7 @@ val compile_correct = prove(
     \\ REPEAT STRIP_TAC \\ fs []
     \\ `1 < k` by fs [state_rel_def] \\ res_tac
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
-    \\ mp_tac alloc_IMP_alloc \\ discharge_hyps >- cheat
+    \\ drule alloc_IMP_alloc \\ discharge_hyps >- cheat
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
   THEN1 (* Move *) cheat
@@ -1286,7 +1293,8 @@ val compile_correct = prove(
     \\ Cases_on `q = SOME Error` \\ fs []
     \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
     \\ Cases_on `q` \\ fs []
-    \\ Cases_on `res1` \\ fs [] \\ rw [])
+    \\ Cases_on `res1` \\ fs [] \\ rw []
+    \\ every_case_tac >> fs[])
   THEN1 (* Return *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,wReg1_def]
@@ -1304,10 +1312,13 @@ val compile_correct = prove(
         \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
         \\ fs [stackSemTheory.get_var_def])
       \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
+      \\ every_case_tac >> fs[]
       \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
-      \\ imp_res_tac DROP_DROP \\ fs [] \\ rfs [] \\ fs [])
+      \\ imp_res_tac DROP_DROP \\ fs [] \\ rfs [] \\ fs []
+      \\ every_case_tac >> fs[] >> rw[] >> fs[]
+      \\ cheat (* after stackSem got its own Result type *))
     \\ `~(LENGTH t.stack < t.stack_space + (f -1 - (n DIV 2 - k))) /\
         (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = x) /\
         (get_var 1 t = SOME x')` by
@@ -1330,7 +1341,11 @@ val compile_correct = prove(
     \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
-    \\ imp_res_tac DROP_DROP \\ fs [])
+    \\ imp_res_tac DROP_DROP \\ fs []
+    \\ every_case_tac >> fs[] >> rw[] >> fs[]
+    \\ fs [AC ADD_ASSOC ADD_COMM]
+    \\ imp_res_tac DROP_DROP \\ fs []
+    \\ cheat (* after stackSem got its own result type *))
   THEN1 (* Raise *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,jump_exc_def,
@@ -1345,6 +1360,7 @@ val compile_correct = prove(
     simp[handler_val_def,stackSemTheory.set_var_def]>>
     cheat)
   THEN1 (* If *) cheat
+  THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
 
 val _ = save_thm("compile_correct",compile_correct);
