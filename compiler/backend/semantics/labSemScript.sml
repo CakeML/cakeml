@@ -190,7 +190,9 @@ val asm_inst_consts = store_thm("asm_inst_consts",
     ((asm_inst i s).code = s.code) /\
     ((asm_inst i s).clock = s.clock) /\
     ((asm_inst i s).ffi = s.ffi) ∧
-    ((asm_inst i s).ptr_reg = s.ptr_reg)``,
+    ((asm_inst i s).ptr_reg = s.ptr_reg) ∧
+    ((asm_inst i s).len_reg = s.len_reg) ∧
+    ((asm_inst i s).link_reg = s.link_reg)``,
   Cases_on `i` \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
   \\ TRY (Cases_on `a`)
   \\ fs [asm_inst_def,upd_reg_def,arith_upd_def]
