@@ -251,7 +251,8 @@ val preamble_ERR = mk_HOL_ERR"preamble"
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
 
 val split_pair_tac =
-  first_assum(subterm split_applied_pair_tac o concl)
+  first_assum(subterm split_applied_pair_tac o concl) ORELSE
+  (fn g => subterm split_applied_pair_tac (#2 g) g)
 
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 
