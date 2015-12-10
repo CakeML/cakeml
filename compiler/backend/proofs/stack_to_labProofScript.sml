@@ -177,6 +177,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
     pop_assum SUBST1_TAC >>
     qexists_tac`inc_pc (asm_inst i t1)`>>simp[inc_pc_def,asm_inst_consts] >>
     fs[state_rel_def,asm_inst_consts] >> METIS_TAC[] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    fs[state_rel_def] ) >>
   cheat)
 
 val _ = export_theory();

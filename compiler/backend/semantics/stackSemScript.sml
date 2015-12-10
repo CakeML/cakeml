@@ -315,10 +315,12 @@ val evaluate_def = tDefine "evaluate" `
      | SOME s1 => (NONE, s1)
      | NONE => (SOME Error, s)) /\
   (evaluate (Get v name,s) =
+     if ¬s.use_store then (SOME Error,s) else
      case FLOOKUP s.store name of
      | SOME x => (NONE, set_var v x s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Set name v,s) =
+     if ¬s.use_store then (SOME Error,s) else
      case get_var v s of
      | SOME w => (NONE, set_store name w s)
      | NONE => (SOME Error, s)) /\
