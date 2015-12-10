@@ -1233,8 +1233,8 @@ val compile_correct = prove(
                 if res <> res1 then (res1 = SOME NotEnoughSpace) else
                   case res of
                   | NONE => state_rel k f f' s1 t1
-                  | SOME (Result v1 v2) => state_rel k 0 0 s1 t1
-                  | SOME (Exception v1 v2) => state_rel k 0 0 s1 t1
+                  | SOME (Result v1) => state_rel k 0 0 s1 t1
+                  | SOME (Exception v1) => state_rel k 0 0 s1 t1
                   | SOME _ => T``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)

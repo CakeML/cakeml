@@ -49,8 +49,8 @@ val map_bitmap_LENGTH = prove(
 (* -- *)
 
 val _ = Datatype `
-  result = Result ('w word_loc) ('w word_loc)
-         | Exception ('w word_loc) ('w word_loc)
+  result = Result ('w word_loc)
+         | Exception ('w word_loc)
          | Halt ('w word_loc)
          | TimeOut
          | Error `
@@ -332,12 +332,12 @@ val evaluate_def = tDefine "evaluate" `
        if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
-     | (SOME x,SOME y) => (SOME (Result x y),s)
+     | (SOME (Loc l1 l2),SOME _) => (SOME (Result (Loc l1 l2)),s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
      | NONE => (SOME Error,s)
-     | SOME w => (SOME (Exception w w),s)) /\
+     | SOME w => (SOME (Exception w),s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>
@@ -373,14 +373,14 @@ val evaluate_def = tDefine "evaluate" `
      | SOME (ret_handler,link_reg,l1,l2) =>
         if s.clock = 0 then (SOME TimeOut,empty_env s) else
           (case evaluate (prog, dec_clock s) of
-           | (SOME (Result x y),s2) =>
+           | (SOME (Result x),s2) =>
                if x <> Loc l1 l2 then (SOME Error,s2) else
                  (case evaluate(ret_handler,check_clock s2 s) of
                   | (NONE,s) => (NONE,s)
                   | (_,s) => (SOME Error,s))
-           | (SOME (Exception x y),s2) =>
+           | (SOME (Exception x),s2) =>
                (case handler of (* if handler is present, then handle exc *)
-                | NONE => (SOME (Exception x y),s2)
+                | NONE => (SOME (Exception x),s2)
                 | SOME (h,l1,l2) =>
                    if x <> Loc l1 l2 then (SOME Error,s2) else
                      evaluate (h, check_clock s2 s))
