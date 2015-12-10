@@ -159,12 +159,11 @@ val flatten_correct = Q.store_thm("flatten_correct",
        | NONE =>
          t2.pc = t1.pc + LENGTH (FST(flatten prog n l)) ∧
          state_rel s2 t2
-       | SOME (Result (Loc n1 n2) w2) =>
+       | SOME (Result (Loc n1 n2)) =>
            ∀w. loc_to_pc n1 n2 t2.code = SOME w ⇒
                w = t2.pc ∧
-               (* read_reg t2.len_reg t2 = w2 ∧*)
                state_rel s2 t2
-       | SOME (Exception (Loc n1 n2) w2) =>
+       | SOME (Exception (Loc n1 n2)) =>
            ∀w. loc_to_pc n1 n2 t2.code = SOME w ⇒
                w = t2.pc ∧
                state_rel s2 t2
@@ -282,6 +281,22 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qexists_tac`ck+ck'`>>simp[]>>rw[] >>
     last_x_assum(qspec_then`ck1+ck'`strip_assume_tac) >>
     fsrw_tac[ARITH_ss][] ) >>
+  (* Return *)
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var n s`>>fs[]>> Cases_on`x`>>fs[]>>
+    Cases_on`get_var m s`>>fs[]>>
+    rpt var_eq_tac >> simp[] >>
+    fs[code_installed_def] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    `get_var m s = SOME (read_reg m t1) ∧
+     get_var n s = SOME (read_reg n t1)` by (
+      fs[state_rel_def,get_var_def] >>
+      fs[FLOOKUP_DEF] ) >>
+    fs[] >>
+    qexists_tac`1`>>simp[] >> rfs[] >>
+    var_eq_tac >>
+    cheat ) >>
   cheat)
 
 val _ = export_theory();
