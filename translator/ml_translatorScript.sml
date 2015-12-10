@@ -168,7 +168,7 @@ val lookup_var_def = Define `
   lookup_var name env = ALOOKUP env.v name`;
 
 val lookup_cons_def = zDefine `
-  lookup_cons name env =
+  lookup_cons name (env:v environment) =
     lookup_alist_mod_env (Short name) env.c`;
 
 val lookup_var_write = store_thm("lookup_var_write",
@@ -298,7 +298,7 @@ val types_match_list_length = prove(
 val type_match_implies_do_eq_succeeds = prove(``
   (!v1 v2. types_match v1 v2 ==> (do_eq v1 v2 = Eq_val (v1 = v2))) /\
   (!vs1 vs2.
-    types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))``,
+     types_match_list vs1 vs2 ==> (do_eq_list vs1 vs2 = Eq_val (vs1 = vs2)))``,
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
@@ -492,9 +492,8 @@ val FOLDR_LEMMA2 = prove(
   ``!funs. FOLDR (λ(f,x,e) env'. write f (rrr f) env') env funs =
            (env with v := MAP (λ(f,x,e). (f, rrr f)) funs ++ env.v)``,
   Induct \\ SRW_TAC [] []
-  >- simp[environment_component_equality]
-  \\ FULL_SIMP_TAC std_ss [write_def,UNCURRY]
-  \\ simp[environment_component_equality]);
+  \\ simp[environment_component_equality]
+  \\ fs [write_def,UNCURRY]);
 
 val write_rec_thm = store_thm("write_rec_thm",
   ``write_rec funs env =
