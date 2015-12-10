@@ -14,12 +14,14 @@ val remove_correct = Q.store_thm("remove_correct",
   rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
   imp_res_tac remove_SING >>
   rpt var_eq_tac >> fs[] >>
-  TRY ( qcase_tac`Let` >>
+  TRY ( qcase_tac`Let` >> cheat (*
     reverse every_case_tac >> fs[] >> rw[] >>
     rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >> rw[]
     >- metis_tac[compat_let] >>
-    cheat ) >>
-  TRY ( qcase_tac`Fn` >> cheat ) >>
+    simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+    qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >>
+    strip_tac >> simp[closSemTheory.evaluate_def] >>
+    cheat *)) >>
   TRY ( qcase_tac`Letrec` >> cheat ) >>
   metis_tac[compat]);
 
