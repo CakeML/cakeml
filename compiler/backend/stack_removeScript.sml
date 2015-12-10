@@ -9,15 +9,16 @@ val word_offset_def = Define `
   word_offset n = n2w (dimindex (:'a) DIV 8 * n):'a word`;
 
 val store_pos_def = Define `
-  store_pos name =
+  (store_pos name):num =
     case name of
+    | HeapLength => 0
     | NextFree => 1
-    | FreeCount => 2
+    | EndOfHeap => 2
     | CurrHeap => 3
     | OtherHeap => 4
     | AllocSize => 5
-    | Handler => 6:num
-    | LastFree => 7
+    | Handler => 6
+    | Globals => 7
     | ProgStart => 8`
 
 val store_length_def = Define `
