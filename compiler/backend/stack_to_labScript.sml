@@ -31,6 +31,18 @@ val compile_jump_def = Define `
   (compile_jump (INL n) = LabAsm (Jump (Lab n 0)) 0w [] 0) /\
   (compile_jump (INR r) = Asm (JumpReg r) [] 0)`;
 
+val negate_def = Define `
+  (negate Less = NotLess) /\
+  (negate Equal = NotEqual) /\
+  (negate Lower = NotLower) /\
+  (negate Test = NotTest) /\
+  (negate NotLess = Less) /\
+  (negate NotEqual = Equal) /\
+  (negate NotLower = Lower) /\
+  (negate NotTest = Test)`
+
+val _ = export_rewrites ["negate_def"];
+
 val flatten_def = Define `
   flatten p n m =
     case p of
@@ -44,30 +56,23 @@ val flatten_def = Define `
     | If c r ri p1 p2 =>
         let (xs,m) = flatten p1 n m in
         let (ys,m) = flatten p2 n m in
-          if no_ret p1 then
-            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
-             [Label n m 0] ++ ys,m+1)
+          if (p1 = Skip) /\ (p2 = Skip) then ([],m)
           else if p1 = Skip then
             ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
              [Label n m 0],m+1)
+          else if p2 = Skip then
+            ([LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
+             [Label n m 0],m+1)
+          else if no_ret p1 then
+            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
+             [Label n m 0] ++ ys,m+1)
+          else if no_ret p2 then
+            ([LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ ys ++
+             [Label n m 0] ++ xs,m+1)
           else
             ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
              [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ ys ++
              [Label n (m+1) 0],m+2)
-(* TODO: optimise special case of p2 = Skip
-
-currently generates:
-    jump if (x=2) to L
-    jump G
-  L:
-    do_stuff
-  G:
-
-should generate:
-    jump if x<>2 to L
-    do_stuff
-  L:
-*)
     | Raise r => ([Asm (JumpReg r) [] 0],m)
     | Return r _ => ([Asm (JumpReg r) [] 0],m)
     | Call NONE dest _ => ([compile_jump dest],m)
