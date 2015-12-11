@@ -336,8 +336,8 @@ val evaluate_def = tDefine "evaluate" `
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
-     | NONE => (SOME Error,s)
-     | SOME w => (SOME (Exception w),s)) /\
+     | SOME (Loc l1 l2) => (SOME (Exception (Loc l1 l2)),s)
+     | _ => (SOME Error,s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
     | SOME (Word x),SOME (Word y) =>

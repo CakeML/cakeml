@@ -32,7 +32,15 @@ val update_simps = store_thm("update_simps[simp]",
     ((upd_pc x s).pc = x) /\
     ((dec_clock s).pc = s.pc) /\
     ((upd_pc x s).clock = s.clock) /\
-    ((dec_clock s).clock = s.clock - 1)``,
+    ((dec_clock s).clock = s.clock - 1) /\
+    ((dec_clock s).len_reg = s.len_reg) ∧
+    ((dec_clock s).link_reg = s.link_reg) ∧
+    ((dec_clock s).code = s.code) ∧
+    ((dec_clock s).ptr_reg = s.ptr_reg) ∧
+    ((upd_pc x s).len_reg = s.len_reg) ∧
+    ((upd_pc x s).link_reg = s.link_reg) ∧
+    ((upd_pc x s).code = s.code) ∧
+    ((upd_pc x s).ptr_reg = s.ptr_reg)``,
   EVAL_TAC);
 
 val line_length_def = Define `
