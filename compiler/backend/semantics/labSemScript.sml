@@ -63,11 +63,15 @@ val binop_upd_def = Define `
   (binop_upd r Xor w1 w2 = upd_reg r (Word (word_xor w1 w2)))`
 
 val word_cmp_def = Define `
-  (word_cmp Equal (Word w1) (Word w2) = SOME (w1 = w2)) /\
-  (word_cmp Less  (Word w1) (Word w2) = SOME (w1 < w2)) /\
-  (word_cmp Lower (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
-  (word_cmp Test  (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
-  (word_cmp Test  (Loc _ _) (Word w2) = if w2 = 1w then SOME T else NONE) /\
+  (word_cmp Equal    (Word w1) (Word w2) = SOME (w1 = w2)) /\
+  (word_cmp Less     (Word w1) (Word w2) = SOME (w1 < w2)) /\
+  (word_cmp Lower    (Word w1) (Word w2) = SOME (w1 <+ w2)) /\
+  (word_cmp Test     (Word w1) (Word w2) = SOME ((w1 && w2) = 0w)) /\
+  (word_cmp Test     (Loc _ _) (Word w2) = if w2 = 1w then SOME T else NONE) /\
+  (word_cmp NotEqual (Word w1) (Word w2) = SOME (w1 <> w2)) /\
+  (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
+  (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
+  (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
   (word_cmp _ _ _ = NONE)`
 
 val word_shift_def = Define `
