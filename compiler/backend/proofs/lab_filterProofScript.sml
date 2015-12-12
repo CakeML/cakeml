@@ -230,6 +230,128 @@ val asm_fetch_aux_eq2 = prove(
 
 val all_skips_evaluate_0 = all_skips_evaluate |>SIMP_RULE std_ss [PULL_FORALL]|>(Q.SPECL[`k`,`s`,`0`])|>GEN_ALL|>SIMP_RULE std_ss[]
 
+val all_skips_evaluate_rw = prove(``
+  all_skips s.pc s.code k ∧ ¬s.failed ∧
+  s.clock = clk + k ∧
+  t = s with <| pc:= s.pc +k ; clock := clk |> ⇒
+  evaluate s = evaluate t``,
+  rw[]>>
+  qabbrev_tac`s' = s with clock := clk`>>
+  `s = s' with clock := s'.clock +k` by
+    fs[Abbr`s'`,state_component_equality]>>
+  `s' with pc := s.pc +k =
+   s' with <| pc := s'.pc +k ; clock := s'.clock|>` by fs[state_component_equality]>>
+   ntac 2 (pop_assum SUBST_ALL_TAC)>>
+   match_mp_tac all_skips_evaluate_0>>
+   fs[state_component_equality])
+
+(*For all initial code there is some all_skips*)
+val all_skips_initial_adjust = prove(``
+  ∀code.
+  ∃k. all_skips 0 code k ∧ adjust_pc k code = 0``,
+  Induct>>fs[all_skips_def]
+  >-
+    (qexists_tac`0`>>fs[adjust_pc_def,asm_fetch_aux_def])
+  >>
+  Induct>>Induct_on`l`>>rw[]
+  >-
+    (simp[Once adjust_pc_def]>>
+    qexists_tac`k`>>fs[asm_fetch_aux_def])
+  >>
+    pop_assum(qspec_then`n` assume_tac)>>fs[]>>
+    Cases_on`h`>>
+    simp[Once adjust_pc_def,asm_fetch_aux_def,is_Label_def,not_skip_def]
+    >-
+      (qexists_tac`k'`>>fs[])
+    >-
+      (Cases_on`a=Inst Skip`>>fs[]
+      >-
+        (qexists_tac`k'+1`>>rw[]>>
+        `i-1 < k'` by DECIDE_TAC>>
+        metis_tac[])
+      >> (qexists_tac`0`>>fs[]))
+    >> (qexists_tac`0`>>fs[]))
+
+(*May need strengthening*)
+val loc_to_pc_eq_NONE = prove(``
+  ∀n1 n2 code.
+  loc_to_pc n1 n2 (filter_skip code) = NONE ⇒
+  loc_to_pc n1 n2 code = NONE``,
+  ho_match_mp_tac loc_to_pc_ind>>rw[]>>
+  fs[filter_skip_def]>>
+  fs[Once loc_to_pc_def]>>IF_CASES_TAC>>fs[]>>
+  FULL_CASE_TAC>>fs[]>>rfs[]>>
+  IF_CASES_TAC>>
+  fs[]>>
+  TRY
+    (qpat_assum`A=NONE` mp_tac>>
+    IF_CASES_TAC>>fs[]>>
+    simp[Once loc_to_pc_def]>>
+    EVERY_CASE_TAC>>fs[]>>NO_TAC)>>
+  fs[not_skip_def])
+
+val loc_to_pc_eq_SOME = prove(``
+  ∀n1 n2 code pc.
+  loc_to_pc n1 n2 (filter_skip code) = SOME pc ⇒
+  ∃pc' k.
+  loc_to_pc n1 n2 code = SOME pc' ∧
+  all_skips pc' code k ∧
+  adjust_pc (pc'+k) code = pc``,
+  ho_match_mp_tac loc_to_pc_ind>>rw[]
+  >-
+    (fs[filter_skip_def,adjust_pc_def]>>
+    qexists_tac`0`>>fs[all_skips_def,asm_fetch_aux_def]>>
+    IF_CASES_TAC>>fs[])
+  >>
+  fs[Once loc_to_pc_def]>>IF_CASES_TAC>>fs[]
+  >-
+    (fs[filter_skip_def,Once loc_to_pc_def]>>
+    qpat_assum`A=pc` sym_sub_tac>>
+    fs[all_skips_initial_adjust])
+  >>
+    (FULL_CASE_TAC>>fs[filter_skip_def,Once loc_to_pc_def]>>rfs[]
+    >-
+      (qexists_tac`k'`>>
+      simp[Once adjust_pc_def]>>fs[all_skips_def,asm_fetch_aux_def]>>
+      IF_CASES_TAC>>fs[]>>fs[Once adjust_pc_def])
+    >>
+    IF_CASES_TAC>>fs[]
+    >-
+      (fs[not_skip_def]>>
+      qpat_assum`A=pc` sym_sub_tac>>
+      fs[all_skips_initial_adjust])
+    >>
+      (Cases_on`not_skip h`>>fs[]
+      >-
+        (qpat_assum`A=SOME pc` mp_tac>>
+        simp[Once loc_to_pc_def]>>
+        rw[]>>last_x_assum(qspec_then`pc-1` mp_tac)>>
+        discharge_hyps>- (EVERY_CASE_TAC>>fs[]>>DECIDE_TAC)>>
+        rw[]>>
+        `pc ≠ 0` by
+          (EVERY_CASE_TAC>>fs[]>>
+          TRY(DECIDE_TAC)>>
+          Cases_on`pc`>>fs[])>>
+        simp[Once adjust_pc_def]>>
+        Cases_on`is_Label h`>>fs[]
+        >-
+          (*I think loc_to_pc is incorrect*)
+          cheat
+        >>
+          qexists_tac`k'`>>fs[all_skips_def,asm_fetch_aux_def]>>
+          `!x. pc''+1 +x -1 = pc''+x` by DECIDE_TAC>>
+          fs[arithmeticTheory.ADD_COMM]>>
+          DECIDE_TAC)
+      >>
+        last_x_assum(qspec_then`pc` assume_tac)>>rfs[]>>
+        Cases_on`h`>>fs[not_skip_def,is_Label_def]>>
+        Cases_on`a`>>TRY(Cases_on`i`) >>
+        simp[Once adjust_pc_def]>>
+        fs[all_skips_def,asm_fetch_aux_def,is_Label_def,not_skip_def]>>
+        qexists_tac`k'`>>fs[arithmeticTheory.ADD_COMM]>>
+        `!x. x + (pc''+1) -1 = x + pc''` by DECIDE_TAC>>
+        fs[])))
+
 val same_inst_tac = fs[asm_fetch_def,state_rel_def,state_component_equality]>>
     rfs[]>>
     imp_res_tac asm_fetch_aux_eq2>>
@@ -288,7 +410,6 @@ val filter_correct = prove(
         (*Should be similar to the previous case but tedious*)
         cheat)
     >>
-      fs[read_reg_def]>>
       (*upd_pc induction*)
       cheat)
   >>
@@ -299,8 +420,32 @@ val filter_correct = prove(
     pop_assum mp_tac>>simp[Once evaluate_def,SimpRHS,asm_fetch_def]>>
     fs[DECIDE``A+B=B+A:num``]
     >-
-      (*updpc*)
-      cheat
+      (*TODO: Factor out the "induction part" into a tactic*)
+      (fs[get_pc_value_def]>>Cases_on`l'`>>fs[]>>
+      Cases_on`loc_to_pc n' n0 (filter_skip t1.code)`>>fs[]
+      >-
+        (imp_res_tac loc_to_pc_eq_NONE>>fs[]>>
+        same_inst_tac>>fs[get_pc_value_def])
+      >>
+        imp_res_tac loc_to_pc_eq_SOME>>fs[]>>
+        fs[get_pc_value_def,upd_pc_def,dec_clock_def]>>
+        rw[]>>
+        first_assum(qspec_then`k'` assume_tac)>>fs[]>>
+        qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
+        res_tac>>ntac 1 (pop_assum kall_tac)>>
+        first_x_assum(qspec_then`B with <|pc := pc'+k'; clock:=t1.clock-1|>` mp_tac)>>
+        discharge_hyps>-
+         (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality])>>
+        rw[Abbr`B`]>>
+        qexists_tac`k+k'+k''`>>qexists_tac`t2`>>fs[]>>
+        first_x_assum(qspec_then`k'+k''` assume_tac)>>
+        qmatch_assum_abbrev_tac`evaluate B = evaluate C`>>
+        qmatch_assum_abbrev_tac`evaluate D = (res,t2)`>>
+        `evaluate C = evaluate D` by
+          (match_mp_tac (GEN_ALL all_skips_evaluate_rw)>>
+          unabbrev_all_tac>>fs[state_component_equality]>>
+          DECIDE_TAC)>>
+        metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
     >-
       (*updpc*)
       cheat
@@ -330,8 +475,30 @@ val filter_correct = prove(
       reverse(Cases_on`t1.regs t1.ptr_reg`>>fs[])>-same_inst_tac>>
       Cases_on`read_bytearray c'' (w2n c') t1.mem t1.mem_domain t1.be`>>fs[]
       >- same_inst_tac>>
-      (*loc to pc*)
-      cheat)
+      Cases_on`loc_to_pc n'' n0 (filter_skip t1.code)`>>fs[]
+      >-
+        (imp_res_tac loc_to_pc_eq_NONE>>fs[]>>
+        same_inst_tac)
+      >>
+        imp_res_tac loc_to_pc_eq_SOME>>fs[]>>
+        split_pair_tac>>fs[]>>
+        rw[]>>
+        first_assum(qspec_then`k'` assume_tac)>>fs[]>>
+        qmatch_assum_abbrev_tac`evaluate A = evaluate B`>>
+        res_tac>>ntac 1 (pop_assum kall_tac)>>
+        first_x_assum(qspec_then`B with <|pc := pc'+k'; clock:=t1.clock-1|>` mp_tac)>>
+        discharge_hyps>-
+         (simp[inc_pc_def,dec_clock_def,Abbr`B`,state_component_equality])>>
+        rw[Abbr`B`]>>
+        qexists_tac`k+k'+k''`>>qexists_tac`t2`>>fs[]>>
+        first_x_assum(qspec_then`k'+k''` assume_tac)>>
+        qmatch_assum_abbrev_tac`evaluate B = evaluate C`>>
+        qmatch_assum_abbrev_tac`evaluate D = (res,t2)`>>
+        `evaluate C = evaluate D` by
+          (match_mp_tac (GEN_ALL all_skips_evaluate_rw)>>
+          unabbrev_all_tac>>fs[state_component_equality]>>
+          DECIDE_TAC)>>
+        metis_tac[arithmeticTheory.ADD_COMM,arithmeticTheory.ADD_ASSOC])
     >-
       same_inst_tac
     >>
