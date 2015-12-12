@@ -185,9 +185,11 @@ val loc_to_pc_def = Define `
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
          if (?k. z = Label n1 (n2-1) k) /\ n2 <> 0 then SOME 0 else
-           case loc_to_pc n1 n2 ((Section k zs)::ys) of
-           | NONE => NONE
-           | SOME pos => SOME (pos + 1))`;
+           if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
+           else
+             case loc_to_pc n1 n2 ((Section k zs)::ys) of
+             | NONE => NONE
+             | SOME pos => SOME (pos + 1))`;
 
 val asm_inst_consts = store_thm("asm_inst_consts",
   ``((asm_inst i s).pc = s.pc) /\
