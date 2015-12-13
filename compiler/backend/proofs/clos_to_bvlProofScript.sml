@@ -3864,6 +3864,7 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     fs[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
     first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >>
     metis_tac[clos_removeProofTheory.remove_distinct_locs,FST,SND,
+              clos_removeProofTheory.code_loc'_def,
               clos_numberProofTheory.renumber_code_locs_distinct] ) >>
   simp[MAP_MAP_o,o_DEF,MEM_MAP,PULL_EXISTS] );
 
