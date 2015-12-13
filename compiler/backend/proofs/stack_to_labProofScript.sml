@@ -399,6 +399,59 @@ val flatten_correct = Q.store_thm("flatten_correct",
   (* Call *)
   conj_tac >- (
     rw[] >>
+    rator_x_assum`code_installed`mp_tac >>
+    simp[Once flatten_def] >> strip_tac >>
+    rator_x_assum`evaluate`mp_tac >>
+    simp[Once stackSemTheory.evaluate_def] >>
+    Cases_on`find_code dest s.regs s.code`>>fs[]>>
+    Cases_on`ret`>>fs[]>-(
+      Cases_on`handler`>>fs[]>>
+      IF_CASES_TAC >> fs[] >- (
+        rw[] >> simp[] >>
+        map_every qexists_tac[`0`,`t1`] >>
+        fs[] >> fs[state_rel_def,empty_env_def] ) >>
+      `t1.clock ≠ 0` by fs[state_rel_def] >>
+      CASE_TAC >> fs[] >>
+      CASE_TAC >> fs[] >>
+      rw[] >> simp[] >> fs[] >>
+      imp_res_tac state_rel_dec_clock >>
+      Cases_on`dest`>>fs[find_code_def,compile_jump_def,code_installed_def] >- (
+        first_assum(fn th => first_assum(
+          tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+        drule state_rel_with_pc >>
+        rator_x_assum`state_rel`kall_tac >>
+        strip_tac >>
+        first_x_assum drule >>
+        simp[] >>
+        disch_then drule >> simp[] >>
+        strip_tac >> fs[] >>
+        CASE_TAC >> fs[] >>
+        TRY CASE_TAC >> fs[] >>
+        simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
+        fs[dec_clock_def,upd_pc_def] >>
+        map_every qexists_tac[`ck`,`t2`]>>fs[] ) >>
+      qpat_assum`_ = SOME _`mp_tac >>
+      CASE_TAC >> fs[] >>
+      CASE_TAC >> fs[] >>
+      CASE_TAC >> fs[] >>
+      strip_tac >>
+      first_assum(fn th => first_assum(
+        tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+      drule state_rel_with_pc >>
+      rator_x_assum`state_rel`kall_tac >>
+      strip_tac >>
+      first_x_assum drule >>
+      simp[] >>
+      disch_then drule >> simp[] >>
+      strip_tac >> fs[] >>
+      qmatch_assum_rename_tac`FLOOKUP s.regs r = SOME _` >>
+      `read_reg r t1 = Loc n 0` by (
+        fs[state_rel_def,FLOOKUP_DEF] ) >>
+      CASE_TAC >> fs[] >>
+      TRY CASE_TAC >> fs[] >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
+      fs[dec_clock_def,upd_pc_def] >>
+      map_every qexists_tac[`ck`,`t2`]>>fs[] ) >>
     cheat ) >>
   (* FFI *)
   conj_tac >- (
@@ -406,7 +459,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     Cases_on`get_var ptr s`>>fs[]>>Cases_on`x`>>fs[]>>
     Cases_on`get_var len s`>>fs[]>>Cases_on`x`>>fs[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
-    split_pair_tac >> simp[] >> rw[] >>
+    split_pair_tac >> simp[] >> rw[] >> simp[] >>
     cheat ) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
@@ -426,9 +479,10 @@ val flatten_correct = Q.store_thm("flatten_correct",
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
     fs[state_rel_def] ) >>
-  (* StackGetSize *)
-  conj_tac >- cheat >>
-  (* StackSetSize *)
-  cheat)
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  rw[stackSemTheory.evaluate_def] >>
+  fs[state_rel_def]);
 
 val _ = export_theory();
