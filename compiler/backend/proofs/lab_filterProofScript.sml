@@ -360,6 +360,104 @@ val loc_to_pc_eq_SOME = prove(``
         simp[Once loc_to_pc_def]>>
         simp[Once adjust_pc_def])))
 
+val next_label_filter_skip = prove(``
+  ∀code.
+  next_label code = next_label (filter_skip code)``,
+  ho_match_mp_tac next_label_ind>>rw[]>>
+  fs[next_label_def,filter_skip_def,not_skip_def]>>
+  EVERY_CASE_TAC>>fs[next_label_def])
+
+val all_skips_get_lab_after = prove(``
+  ∀code k.
+  all_skips 0 code k ⇒
+  get_lab_after k code =
+  get_lab_after 0 (filter_skip code)``,
+  Induct>>fs[get_lab_after_def,filter_skip_def]>>
+  Induct>>Induct_on`l`>>rw[]>>fs[filter_skip_def,get_lab_after_def]
+  >-
+    (first_assum match_mp_tac>>fs[all_skips_def,asm_fetch_aux_def])
+  >>
+  IF_CASES_TAC>>fs[is_Label_not_skip]
+  >-
+    (simp[get_lab_after_def]>>
+    first_assum match_mp_tac>>
+    fs[all_skips_def,asm_fetch_aux_def])
+  >>
+  IF_CASES_TAC>>fs[]
+  >-
+    (`not_skip h` by
+      (fs[all_skips_def,asm_fetch_aux_def]>>
+      Cases_on`h`>>fs[not_skip_def]>>
+      Cases_on`a`>>fs[]>>Cases_on`i`>>fs[])>>
+    fs[get_lab_after_def]>>
+    mp_tac next_label_filter_skip>>
+    disch_then(qspec_then`Section n l::code` assume_tac)>>
+    fs[filter_skip_def])
+  >>
+    `¬not_skip h` by
+      (fs[all_skips_def,asm_fetch_aux_def]>>
+      first_x_assum(qspec_then`0` mp_tac)>>discharge_hyps>-
+        DECIDE_TAC>>
+      rw[]>>
+      fs[not_skip_def])>>
+    fs[]>>first_assum match_mp_tac>>
+    fs[all_skips_def,asm_fetch_aux_def]>>rw[]>>
+    `i+1 < k` by DECIDE_TAC>>
+    res_tac>>
+    fs[])
+
+val get_lab_after_adjust = prove(``
+  ∀pc code k.
+  all_skips pc code k ⇒
+  get_lab_after (pc+k) code = get_lab_after (adjust_pc pc code) (filter_skip code)``,
+  ho_match_mp_tac get_lab_after_ind>>
+  rw[]
+  >-
+    (simp[Once adjust_pc_def,filter_skip_def]>>
+    IF_CASES_TAC>>fs[get_lab_after_def])
+  >-
+    (fs[filter_skip_def,get_lab_after_def]>>simp[Once adjust_pc_def]>>
+    IF_CASES_TAC
+    >-
+      (fs[Once adjust_pc_def]>>
+      first_assum match_mp_tac>>
+      fs[all_skips_def,asm_fetch_aux_def])
+    >>
+      first_assum(qspec_then`k'` mp_tac)>>
+      discharge_hyps>-
+        fs[all_skips_def,asm_fetch_aux_def]
+      >> simp[])
+  >>
+    Cases_on`is_Label y`>>fs[]
+    >-
+      (simp[get_lab_after_def,Once adjust_pc_def]>>
+      `not_skip y` by
+        (Cases_on`y`>>fs[is_Label_def,not_skip_def])>>
+      fs[filter_skip_def,get_lab_after_def]>>
+      IF_CASES_TAC
+      >-
+        (fs[Once adjust_pc_def]>>
+        first_assum match_mp_tac>>
+        fs[all_skips_def,asm_fetch_aux_def])
+      >>
+        first_assum(qspec_then`k'` mp_tac)>>
+        discharge_hyps>-
+          fs[all_skips_def,asm_fetch_aux_def]>>
+        simp[])
+    >>
+      simp[Once adjust_pc_def]>>IF_CASES_TAC>>fs[]
+      >-
+        metis_tac[all_skips_get_lab_after]
+      >>
+      fs[get_lab_after_def]>>
+      IF_CASES_TAC>>
+      fs[filter_skip_def,get_lab_after_def]>>
+      `∀x. x + pc -1 = pc -1 + x` by DECIDE_TAC>>
+      fs[]>>
+      first_assum match_mp_tac>>
+      `∀x. pc + x -1 = pc -1 +x` by DECIDE_TAC>>
+      fs[all_skips_def,asm_fetch_aux_def])
+
 val same_inst_tac =
   fs[asm_fetch_def,state_rel_def,state_component_equality]>>
   rfs[]>>
@@ -498,9 +596,20 @@ val filter_correct = prove(
       >>
         imp_res_tac loc_to_pc_eq_SOME>>
         fs[get_ret_Loc_def]>>
-        (*the two get_lab_afters should be equal, but that
-        doesn't seem like it will be true..*)
-        cheat)
+        qpat_abbrev_tac`A = get_lab_after B C`>>
+        qpat_abbrev_tac`A' = get_lab_after B C`>>
+        `A = A'` by
+          (imp_res_tac (INST_TYPE[beta|->alpha]get_lab_after_adjust)>>
+          rfs[]>>
+          metis_tac[arithmeticTheory.ADD_COMM])>>
+        Cases_on`A'`>>fs[]
+        >-
+          (same_inst_tac>>
+          fs[get_pc_value_def,get_ret_Loc_def])
+        >>
+          fs[upd_pc_def,dec_clock_def,upd_reg_def]>>rw[]>>
+          res_tac>>
+          inc_pc_tac)
     >-
       (fs[inc_pc_def,dec_clock_def,upd_reg_def]>>
        rw[]>>res_tac>>

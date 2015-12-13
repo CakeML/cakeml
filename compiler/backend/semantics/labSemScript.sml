@@ -218,16 +218,16 @@ val next_label_def = Define `
   (next_label [] = NONE) /\
   (next_label ((Section k [])::xs) = next_label xs) /\
   (next_label ((Section k (Label n1 n2 _::ys))::xs) = SOME (Loc n1 n2)) /\
-  (next_label ((Section k (y::ys))::xs) = NONE)`
+  (next_label ((Section k (y::ys))::xs) = next_label (Section k ys::xs))`
 
 val get_lab_after_pos_def = Define `
   (get_lab_after pos [] = NONE) /\
   (get_lab_after pos ((Section k [])::xs) = get_lab_after pos xs) /\
   (get_lab_after pos ((Section k (y::ys))::xs) =
-     if pos = 0:num
-     then next_label ((Section k ys)::xs)
-     else if is_Label y
-          then get_lab_after pos ((Section k ys)::xs)
+     if is_Label y
+     then get_lab_after pos ((Section k ys)::xs)
+     else if pos = 0:num
+          then next_label ((Section k ys)::xs)
           else get_lab_after (pos-1) ((Section k ys)::xs))`
 
 val get_ret_Loc_def = Define `
