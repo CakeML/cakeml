@@ -24,8 +24,8 @@ val good_syntax_def = Define `
      good_syntax p1 ptr len ret /\
      good_syntax p2 ptr len ret) /\
   (good_syntax (Halt n) ptr len ret <=> (n = len)) /\
-  (good_syntax (FFI n1 n2 n3) ptr len ret <=>
-     n1 = ptr /\ n2 = len /\ n3 = ret) /\
+  (good_syntax (FFI ffi_index ptr' len') ptr len ret <=>
+     ptr' = ptr /\ len' = len) /\
   (good_syntax (Call x1 _ x2) ptr len ret <=>
      (case x1 of SOME (y,_,_,_) => good_syntax y ptr len ret | NONE => T) /\
      (case x2 of SOME (y,_,_) => good_syntax y ptr len ret | NONE => T)) /\
