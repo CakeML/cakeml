@@ -61,7 +61,8 @@ val state_rel_def = Define`
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
       good_syntax prog t.len_reg t.ptr_reg t.link_reg ∧
-      ∃pc. code_installed pc (FST (flatten prog n (max_lab prog))) t.code) ∧
+      ∃pc. code_installed pc (FST (flatten prog n (max_lab prog))) t.code ∧
+           loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     is_word (read_reg t.ptr_reg t) ∧
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
@@ -386,12 +387,48 @@ val flatten_correct = Q.store_thm("flatten_correct",
     disch_then drule >> simp[] >>
     strip_tac >>
     CASE_TAC >> fs[] >>
-    TRY CASE_TAC >> fs[] >- (
-      qexists_tac`1`>>simp[] >>
-      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      fs[GSYM word_cmp_word_cmp,get_pc_value_def] >>
-      cheat ) >>
-    cheat) >>
+    TRY CASE_TAC >> fs[] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    fs[GSYM word_cmp_word_cmp,get_pc_value_def] >>
+    `t1.clock ≠ 0` by fs[state_rel_def] >> simp[] >>
+    fs[dec_clock_def,upd_pc_def] >>
+    qexists_tac`ck`>>
+    fsrw_tac[ARITH_ss][] >>
+    qexists_tac`t2` >>
+    simp[] ) >>
+  (* Call *)
+  conj_tac >- (
+    rw[] >>
+    cheat ) >>
+  (* FFI *)
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var ptr s`>>fs[]>>Cases_on`x`>>fs[]>>
+    Cases_on`get_var len s`>>fs[]>>Cases_on`x`>>fs[]>>
+    last_x_assum mp_tac >> CASE_TAC >> simp[] >>
+    split_pair_tac >> simp[] >> rw[] >>
+    cheat ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  conj_tac >- (
+    rw[stackSemTheory.evaluate_def] >>
+    fs[state_rel_def] ) >>
+  (* StackGetSize *)
+  conj_tac >- cheat >>
+  (* StackSetSize *)
   cheat)
 
 val _ = export_theory();
