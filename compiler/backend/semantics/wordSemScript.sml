@@ -81,7 +81,7 @@ val _ = Datatype `
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
-     ; code    : (num # ('a wordLang$prog) # num) num_map
+     ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |> `
 
@@ -324,7 +324,7 @@ val find_code_def = Define `
   (find_code (SOME p) args code =
      case sptree$lookup p code of
      | NONE => NONE
-     | SOME (_,exp,arity) => if LENGTH args = arity then SOME (args,exp)
+     | SOME (arity,exp) => if LENGTH args = arity then SOME (args,exp)
                                                     else NONE) /\
   (find_code NONE args code =
      if args = [] then NONE else
@@ -332,9 +332,9 @@ val find_code_def = Define `
        | Loc loc 0 =>
            (case lookup loc code of
             | NONE => NONE
-            | SOME (_,exp,arity) => if LENGTH args = arity + 1
-                                    then SOME (FRONT args,exp)
-                                    else NONE)
+            | SOME (arity,exp) => if LENGTH args = arity + 1
+                                  then SOME (FRONT args,exp)
+                                  else NONE)
        | other => NONE)`
 
 val enc_stack_def = Define `

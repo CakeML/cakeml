@@ -541,7 +541,7 @@ val code_rel_def = Define `
   code_rel c s_code t_code <=>
     !n arg_count prog.
       (lookup n s_code = SOME (arg_count:num,prog)) ==>
-      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog),arg_count+1))`
+      (lookup n t_code = SOME (arg_count+1,FST (comp c n 1 prog)))`
 
 val stack_rel_def = Define `
   (stack_rel (Env env) (StackFrame vs NONE) <=>

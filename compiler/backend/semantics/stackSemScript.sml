@@ -430,8 +430,10 @@ val evaluate_def = tDefine "evaluate" `
            else (NONE, s with stack := LUPDATE v (s.stack_space + w2n w) s.stack)
        | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackGetSize r,s) =
+     if ~s.use_stack then (SOME Error,s) else
      (NONE, set_var r (Word (n2w s.stack_space)) s)) /\
   (evaluate (StackSetSize r,s) =
+     if ~s.use_stack then (SOME Error,s) else
      case get_var r s of
      | SOME (Word w) =>
          if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
