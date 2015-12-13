@@ -266,8 +266,8 @@ val state_rel_def = Define `
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 1 < k /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\
-    (!n ignore word_prog arg_count.
-       (lookup n s.code = SOME (ignore,word_prog,arg_count)) ==>
+    (!n word_prog arg_count.
+       (lookup n s.code = SOME (arg_count,word_prog)) ==>
        (lookup n t.code = SOME (word_to_stack$compile_prog word_prog arg_count k))) /\
     (lookup 0 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\
