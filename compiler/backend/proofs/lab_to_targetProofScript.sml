@@ -28,10 +28,6 @@ val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
   Cases \\ fs [asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ rw [] \\ fs []);
 
-val FST_EQ_EQUIV = prove(
-  ``(FST x = y) <=> ?z. x = (y,z)``,
-  Cases_on `x` \\ fs []);
-
 local
   val SND_read_mem_word_consts = prove(
     ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\

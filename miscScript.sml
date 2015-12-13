@@ -12,6 +12,10 @@ val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 
 (* TODO: move/categorize *)
 
+val FST_EQ_EQUIV = store_thm("FST_EQ_EQUIV",
+  ``(FST x = y) <=> ?z. x = (y,z)``,
+  Cases_on `x` \\ fs []);
+
 val map_fromAList = Q.store_thm("map_fromAList",
   `map f (fromAList ls) = fromAList (MAP (λ(k,v). (k, f v)) ls)`,
   Induct_on`ls` >> simp[fromAList_def] >>

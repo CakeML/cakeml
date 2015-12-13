@@ -178,9 +178,10 @@ val all_skips_evaluate = prove(``
     metis_tac[arithmeticTheory.ADD_COMM,ADD_ASSOC])
 
 val state_rel_def = Define `
-  state_rel (s1:('a,'ffi) labSem$state) t1 =
+  state_rel (s1:('a,'ffi) labSem$state) t1 ⇔
     (s1 = t1 with <| code := filter_skip t1.code ;
-                     pc := adjust_pc t1.pc t1.code |>)`
+                     pc := adjust_pc t1.pc t1.code |>) ∧
+    ¬t1.failed`
 
 val adjust_pc_all_skips = prove(``
   ∀k pc code.
@@ -650,47 +651,78 @@ val filter_correct = prove(
 (*Broken*)
 val state_rel_IMP_sem_EQ_sem = prove(
   ``!s t. state_rel s t ==> semantics s = semantics t``,
-  rw[] >> simp[FUN_EQ_THM]
-  \\ reverse Cases
-  \\ fs [labSemTheory.semantics_def]
-  \\ rpt strip_tac
-  THEN1 (* Fail *)
-   (eq_tac \\ rpt strip_tac THEN1
-     (Cases_on `evaluate (s with clock := k)`
-      \\ fs [] \\ rw []
-      \\ `state_rel (s with clock := k) (t with clock := k)` by
-            (fs [state_rel_def,state_component_equality])
-      \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
-      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs [])
-    \\ Cases_on `evaluate (t with clock := k)`
-    \\ fs [] \\ rw [] \\ CCONTR_TAC \\ fs []
-    \\ pop_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
-    \\ Cases_on `evaluate (s with clock := k)`
-    \\ fs []
-    \\ `state_rel (s with clock := k) (t with clock := k)` by
-          (fs [state_rel_def,state_component_equality])
-    \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
-    \\ imp_res_tac evaluate_ADD_clock \\ fs [])
-  THEN1 (* Terminate *)
-   (eq_tac \\ rpt strip_tac
-    THEN1
-     (`state_rel (s with clock := k) (t with clock := k)` by
-            (fs [state_rel_def,state_component_equality])
-      \\ imp_res_tac filter_correct \\ fs [] \\ rw [] \\ fs []
-      \\ Q.LIST_EXISTS_TAC [`k+k'`] \\ fs [])
-    \\ CCONTR_TAC \\ fs []
-    \\ pop_assum (mp_tac o Q.SPECL [`k`]) \\ rpt strip_tac
-    \\ `state_rel (s with <| clock := k|>) (t with <| clock := k|>)` by
-            (fs [state_rel_def,state_component_equality])
-    \\ fs [] \\ imp_res_tac filter_correct \\ fs [] \\ rfs[]
-    \\ Cases_on `evaluate (s with clock := k)` \\ fs []
-    \\ imp_res_tac evaluate_ADD_clock \\ fs []
-    \\ Cases_on `o'` \\ fs [] \\ rw [] \\ fs []
-    \\ cheat)
-  THEN1 (* Diverge *) cheat);
+  rw[labSemTheory.semantics_def] >- (
+    DEEP_INTRO_TAC some_intro >>
+    fs[FST_EQ_EQUIV] >>
+    `state_rel (s with clock := k) (t with clock := k)` by fs[state_rel_def] >>
+    `¬(t with clock := k).failed` by fs[state_rel_def] >>
+    imp_res_tac filter_correct >> fs[] >>
+    metis_tac[] )
+  >- (
+    DEEP_INTRO_TAC some_intro >> fs[] >>
+    `state_rel (s with clock := k) (t with clock := k)` by fs[state_rel_def] >>
+    drule (REWRITE_RULE[GSYM CONJ_ASSOC](ONCE_REWRITE_RULE[CONJ_COMM]filter_correct)) >>
+    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+    discharge_hyps >- fs[state_rel_def] >>
+    simp[FST_EQ_EQUIV,PULL_EXISTS] >>
+    rpt gen_tac >> strip_tac >>
+    fs[FST_EQ_EQUIV] >>
+    imp_res_tac evaluate_ADD_clock >> fs[] >>
+    metis_tac[FST,PAIR] )
+  >- (
+    DEEP_INTRO_TAC some_intro >> fs[] >>
+    conj_tac >- (
+      rw[] >>
+      DEEP_INTRO_TAC some_intro >> fs[] >>
+      conj_tac >- (
+        rw[] >>
+        rator_x_assum`evaluate`mp_tac >>
+        drule filter_correct >>
+        disch_then(qspec_then`t with clock := k`mp_tac) >>
+        discharge_hyps >- fs[state_rel_def] >>
+        strip_tac >> fs[] >> strip_tac >>
+        qcase_tac`t with clock := a + b`>>
+        qcase_tac`t with clock := c`>>
+        qabbrev_tac`d = a+b` >>
+        qspecl_then[`c`,`d`]mp_tac LESS_EQ_CASES >>
+        simp[LESS_EQ_EXISTS] >> strip_tac >>
+        qmatch_assum_rename_tac`k = y + p` >>
+        qspecl_then[`p`,`t with clock := y`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono) >>
+        simp[] >> fsrw_tac[ARITH_ss][] >>
+        every_case_tac >> fs[] >>
+        imp_res_tac evaluate_ADD_clock >> fs[] >>
+        rw[] >> rfs[] >>
+        rpt(first_x_assum(qspec_then`p`mp_tac))>>simp[]>>
+        rw[] >> fs[] ) >>
+      drule filter_correct >>
+      disch_then(qspec_then`t with clock := k`mp_tac) >>
+      discharge_hyps >- fs[state_rel_def] >>
+      strip_tac >> fs[] >>
+      qexists_tac`k+k'`>>simp[] >>
+      every_case_tac >> fs[] ) >>
+    rw[] >>
+    DEEP_INTRO_TAC some_intro >> fs[] >>
+    conj_tac >- (
+      rw[] >>
+      Q.ISPEC_THEN`s with clock := k`mp_tac filter_correct >>
+      simp[] >>
+      qexists_tac`t with clock := k` >>
+      simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
+      conj_tac >- fs[state_rel_def] >>
+      conj_tac >- fs[state_rel_def] >>
+      rw[] >>
+      first_x_assum(qspec_then`k`mp_tac) >>
+      srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+      qspecl_then[`k'`,`t with clock := k`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono) >>
+      simp[] >> strip_tac >>
+      every_case_tac >> fs[] >>
+      imp_res_tac evaluate_ADD_clock >> fs[] >>
+      fs[ffiTheory.ffi_state_component_equality] ) >>
+    strip_tac >>
+    cheat));
 
 val filter_skip_semantics = store_thm("filter_skip_semantics",
-  ``!s. (s.pc = 0) ==>
+  ``!s. (s.pc = 0) ∧ ¬s.failed ==>
         semantics (s with code := filter_skip s.code) = semantics s``,
   rpt strip_tac \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ fs [state_rel_def,state_component_equality,Once adjust_pc_def]);
