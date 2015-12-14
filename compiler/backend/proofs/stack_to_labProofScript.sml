@@ -77,9 +77,8 @@ val state_rel_def = Define`
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
-    is_word (read_reg t.ptr_reg t) ∧
-    is_word (read_reg t.len_reg t) ∧
-    is_word (read_reg t.link_reg t) ∧
+    ~(t.link_reg ∈ s.ffi_save_regs) /\
+    (!k n. k ∈ s.ffi_save_regs ==> t.io_regs n k = NONE) /\
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
     ¬s.use_stack ∧
     ¬s.use_store ∧
@@ -200,6 +199,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
                state_rel s2 t2
        | SOME TimeOut => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F`,
+
   recInduct stackSemTheory.evaluate_ind >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def,flatten_def] >>
@@ -526,7 +526,14 @@ val flatten_correct = Q.store_thm("flatten_correct",
     split_pair_tac >> fs[] >>
     (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
     fs[state_rel_def,FLOOKUP_DRESTRICT] >> rfs[] >>
-    cheat ) >>
+    reverse conj_tac
+    >- (fs [targetSemTheory.shift_seq_def] >>
+        rw [] >> res_tac >> fs []) >>
+    rpt strip_tac >>
+    qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
+    res_tac >>
+    Cases_on `t1.io_regs 0 k` >> fs [get_reg_value_def] >>
+    rw [] >> fs []) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
     fs[state_rel_def] ) >>
