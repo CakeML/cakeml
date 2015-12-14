@@ -2078,8 +2078,8 @@ val compile_correct = prove(
     \\ imp_res_tac state_rel_get_vars_IMP \\ fs []
     \\ fs [wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
-     (Cases_on `find_code dest x s.code` \\ fs [] \\ Cases_on `x'` \\ fs []
-      \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code = SOME (ys,prog)`
+     (Cases_on `bvlSem$find_code dest x s.code` \\ fs [] \\ Cases_on `x'` \\ fs []
+      \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
       \\ Cases_on `bvpSem$cut_env r s.locals` \\ fs []
       \\ imp_res_tac cut_env_IMP_cut_env \\ fs [] \\ rw []
       \\ `t.clock = s.clock` by fs [state_rel_def] \\ fs []
@@ -2121,8 +2121,8 @@ val compile_correct = prove(
     \\ PairCases_on `x` \\ fs []
     \\ `?prog1 h1. comp c x0 (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
     \\ fs [wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
-    \\ Cases_on `find_code dest x' s.code` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ Q.MATCH_ASSUM_RENAME_TAC `find_code dest xs s.code = SOME (ys,prog)`
+    \\ Cases_on `bvlSem$find_code dest x' s.code` \\ fs [] \\ Cases_on `x` \\ fs []
+    \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
     \\ Cases_on `bvpSem$cut_env r s.locals` \\ fs []
     \\ imp_res_tac cut_env_IMP_cut_env \\ fs [] \\ rw []
     \\ `t.clock = s.clock` by fs [state_rel_def]
