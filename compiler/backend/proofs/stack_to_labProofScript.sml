@@ -44,6 +44,16 @@ val asm_fetch_aux_no_label = Q.store_thm("asm_fetch_aux_no_label",
   ho_match_mp_tac asm_fetch_aux_ind >>
   rw[asm_fetch_aux_def] >> Cases_on`y`>>fs[]);
 
+val find_code_lookup = Q.store_thm("find_code_lookup",
+  `find_code dest regs code = SOME p ⇒ ∃n. lookup n code = SOME p`,
+  Cases_on`dest`>>rw[find_code_def] >>
+  every_case_tac >> fs[] >>
+  METIS_TAC[]);
+
+val not_is_Label_compile_jump = Q.store_thm("not_is_Label_compile_jump[simp]",
+  `is_Label (compile_jump dest) ⇔ F`,
+  Cases_on`dest`>>EVAL_TAC);
+
 (* -- *)
 
 val code_installed_def = Define`
@@ -199,7 +209,6 @@ val flatten_correct = Q.store_thm("flatten_correct",
                state_rel s2 t2
        | SOME TimeOut => t2.ffi = s2.ffi ∧ t2.clock = 0
        | _ => F`,
-
   recInduct stackSemTheory.evaluate_ind >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def,flatten_def] >>
@@ -489,17 +498,59 @@ val flatten_correct = Q.store_thm("flatten_correct",
       pop_assum mp_tac >> CASE_TAC >> fs[] >>
       CASE_TAC >> fs[] >>
       split_pair_tac >> fs[code_installed_def] ) >>
+    strip_tac >>
+    fs[good_syntax_def] >> var_eq_tac >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def,Abbr`i1`] >>
+    (* try to do the call (compile_jump dest) now, for all cases at once *)
     (*
-    qmatch_assum_rename_tac`evaluate (_,dec_clock _) = (SOME rr,_)` >>
-    Cases_on`handler`>>fs[code_installed_def] >- (
-      Cases_on`rr`>>fs[] >- (
-        IF_CASES_TAC >> fs[] >>
-        CASE_TAC >> fs[] >> rw[] >>
-        simp[] >>
+    qmatch_assum_rename_tac`result_CASE rr _ _ _ _ _ = (_,_)` >>
+    Cases_on`rr`>>fs[]>>rpt var_eq_tac>>simp[] >- (
+      pop_assum mp_tac >>
+      CASE_TAC >> fs[] >> IF_CASES_TAC >> fs[] >>
+      rw[] >> rw[] >> rw[lab_to_loc_def] >>
+      imp_res_tac find_code_lookup >>
+      first_assum(fn th => first_assum(
+        tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+      imp_res_tac state_rel_dec_clock >>
+      drule state_rel_with_pc >>
+      pop_assum kall_tac >> strip_tac >>
+      first_x_assum drule >> simp[] >>
+      disch_then drule >> simp[] >>
+      strip_tac >>
+      qcase_tac`Lab l1 l2` >>
+      `IS_SOME (loc_to_pc l1 l2 t1.code)` by (
+        rpt(rator_x_assum`code_installed`mp_tac) >>
+        CASE_TAC >> fs[code_installed_def] >>
+        CASE_TAC >> fs[code_installed_def] >>
+        CASE_TAC >> fs[code_installed_def] >>
+        split_pair_tac >> fs[] >>
+        fs[code_installed_def] >>
+        CASE_TAC >> fs[code_installed_def] ) >>
+      fs[IS_SOME_EXISTS] >> rfs[] >> fs[] >>
+      first_x_assum drule >> simp[] >>
+      var_eq_tac >>
+      cheat )
+    >- (
+      Cases_on`handler`>>fs[] >- (
+        rw[] >>
+        imp_res_tac find_code_lookup >>
+        first_assum(fn th => first_assum(
+          tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+        imp_res_tac state_rel_dec_clock >>
+        drule state_rel_with_pc >>
+        pop_assum kall_tac >> strip_tac >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def,lab_to_loc_def] >>
-        fs[good_syntax_def] >>
-        simp[upd_reg_def,dec_clock_def,inc_pc_def] >>
-        simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+        fs[code_installed_def] >>
+        cheat ) >>
+      first_assum(subterm split_pair_case_tac o concl) >> fs[] >>
+      var_eq_tac >> pop_assum mp_tac >> IF_CASES_TAC >> fs[] >>
+      strip_tac >>
+      var_eq_tac >>
+      split_pair_tac >> fs[] >>
+      cheat )
+    >- (
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def,lab_to_loc_def] >>
+      cheat) >>
     *)
     cheat ) >>
   (* FFI *)
