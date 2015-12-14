@@ -578,7 +578,7 @@ val IMP_bytes_in_memory_JumpCmp_1 = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,LET_DEF] \\ rw []
-  \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS]
+  \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS,line_length_def]
   \\ qexists_tac `n'` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
@@ -619,7 +619,7 @@ val IMP_bytes_in_memory_LocValue = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,LET_DEF] \\ rw []
-  \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS]
+  \\ Q.EXISTS_TAC `l'` \\ fs [enc_with_nop_def,PULL_EXISTS,line_length_def]
   \\ qexists_tac `n'` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
@@ -646,7 +646,7 @@ val IMP_bytes_in_memory_Inst = prove(
   \\ strip_tac \\ res_tac
   \\ Cases_on `j` \\ fs [line_similar_def] \\ rw []
   \\ fs [line_ok_def,LET_DEF] \\ rw []
-  \\ Q.EXISTS_TAC `l` \\ fs [enc_with_nop_def,PULL_EXISTS]
+  \\ Q.EXISTS_TAC `l` \\ fs [enc_with_nop_def,PULL_EXISTS,line_length_def]
   \\ qexists_tac `n` \\ fs []
   \\ fs [LET_DEF,lab_inst_def,get_label_def] \\ rw []
   \\ imp_res_tac bytes_in_mem_IMP \\ fs []
