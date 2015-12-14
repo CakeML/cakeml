@@ -38,6 +38,13 @@ val word_cmp_word_cmp = Q.store_thm("word_cmp_word_cmp",
   Cases_on`cmp`>>rw[labSemTheory.word_cmp_def]>>
   rw[asmSemTheory.word_cmp_def]);
 
+val asm_fetch_aux_no_label = Q.store_thm("asm_fetch_aux_no_label",
+  `∀pc code.
+   asm_fetch_aux pc code = SOME (Label l1 l2 x) ⇒ F`,
+  ho_match_mp_tac asm_fetch_aux_ind >>
+  rw[asm_fetch_aux_def] >>
+  Cases_on`y`>>fs[is_Label_def]);
+
 (* -- *)
 
 val code_installed_def = Define`
