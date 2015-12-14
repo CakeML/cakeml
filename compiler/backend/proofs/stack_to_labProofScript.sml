@@ -485,7 +485,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qpat_abbrev_tac`i1 = LabAsm _ _ _ _` >>
     strip_tac >>
     `asm_fetch_aux t1.pc t1.code =  SOME i1` by (
-      Cases_on`handler`>>fs[code_installed_def] >>
+      Cases_on`handler`>>fs[code_installed_def,Abbr`i1`] >>
       pop_assum mp_tac >> CASE_TAC >> fs[] >>
       CASE_TAC >> fs[] >>
       split_pair_tac >> fs[code_installed_def] ) >>
@@ -523,6 +523,9 @@ val flatten_correct = Q.store_thm("flatten_correct",
     fs[] >>
     `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by fs[state_rel_def] >>
     fs[] >>
+    split_pair_tac >> fs[] >>
+    (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
+    fs[state_rel_def,FLOOKUP_DRESTRICT] >> rfs[] >>
     cheat ) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
