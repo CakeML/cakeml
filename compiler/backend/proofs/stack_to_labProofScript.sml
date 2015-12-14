@@ -42,21 +42,24 @@ val asm_fetch_aux_no_label = Q.store_thm("asm_fetch_aux_no_label",
   `∀pc code.
    asm_fetch_aux pc code = SOME (Label l1 l2 x) ⇒ F`,
   ho_match_mp_tac asm_fetch_aux_ind >>
-  rw[asm_fetch_aux_def] >>
-  Cases_on`y`>>fs[is_Label_def]);
+  rw[asm_fetch_aux_def] >> Cases_on`y`>>fs[]);
 
 (* -- *)
 
 val code_installed_def = Define`
   (code_installed n [] code = T) ∧
   (code_installed n (x::xs) code ⇔
-   asm_fetch_aux n code = SOME x ∧
-   code_installed (n+1) xs code)`;
+   if is_Label x then
+     (case x of Label l1 l2 _ => loc_to_pc l1 l2 code = SOME n) ∧
+     code_installed n xs code
+   else
+     asm_fetch_aux n code = SOME x ∧
+     code_installed (n+1) xs code)`;
 
 val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
   `∀l1 pc l2 code. code_installed pc (l1 ++ l2) code ⇒
    code_installed pc l1 code ∧
-   code_installed (pc+LENGTH l1) l2 code`,
+   code_installed (pc+LENGTH (FILTER ($~ o is_Label) l1)) l2 code`,
   Induct>>simp[code_installed_def]>>rw[] >>
   res_tac >> fsrw_tac[ARITH_ss][ADD1]);
 
@@ -185,7 +188,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
        t2.code = t1.code ∧
        case r of
        | NONE =>
-         t2.pc = t1.pc + LENGTH (FST(flatten prog n l)) ∧
+         t2.pc = t1.pc + LENGTH (FILTER ($~ o is_Label) (FST(flatten prog n l))) ∧
          state_rel s2 t2
        | SOME (Result (Loc n1 n2)) =>
            ∀w. loc_to_pc n1 n2 t2.code = SOME w ⇒
@@ -298,7 +301,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
       asm_exists_tac >> simp[] >>
       simp[Q.SPEC`Seq _ _`flatten_def,UNCURRY] >>
-      qexists_tac`ck+ck'`>>simp[]>>rw[] >>
+      qexists_tac`ck+ck'`>>simp[FILTER_APPEND]>>rw[] >>
       last_x_assum(qspec_then`ck1+ck'`strip_assume_tac) >>
       fsrw_tac[ARITH_ss][]) >>
     CASE_TAC >> fs[] >>
