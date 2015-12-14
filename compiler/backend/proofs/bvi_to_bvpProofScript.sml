@@ -29,6 +29,7 @@ val state_rel_def = Define `
 (* semantics lemmas *)
 
 val find_code_def = bvlSemTheory.find_code_def;
+val _ = temp_bring_to_front_overload"find_code"{Name="find_code",Thy="bvlSem"};
 
 val find_code_lemma = prove(
   ``state_rel r t2 /\
