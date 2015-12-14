@@ -91,7 +91,7 @@ val flatten_def = Define `
         ([LabAsm (JumpCmp Less r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
     | FFI ffi_index _ _ lr => ([LabAsm (LocValue lr (Lab n m)) 0w [] 0;
                                 LabAsm (CallFFI ffi_index) 0w [] 0;
-                                Label n m],m+1)
+                                Label n m 0],m+1)
     | _  => ([],m)`
 
 val prog_to_section_def = Define `

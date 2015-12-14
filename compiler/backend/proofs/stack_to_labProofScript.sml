@@ -24,8 +24,8 @@ val good_syntax_def = Define `
      good_syntax p1 ptr len ret /\
      good_syntax p2 ptr len ret) /\
   (good_syntax (Halt n) ptr len ret <=> (n = len)) /\
-  (good_syntax (FFI ffi_index ptr' len') ptr len ret <=>
-     ptr' = ptr /\ len' = len) /\
+  (good_syntax (FFI ffi_index ptr' len' ret') ptr len ret <=>
+     ptr' = ptr /\ len' = len /\ ret' = ret) /\
   (good_syntax (Call x1 _ x2) ptr len ret <=>
      (case x1 of
       | SOME (y,r,_,_) => good_syntax y ptr len ret /\ r = ret
@@ -55,7 +55,7 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
 
 val state_rel_def = Define`
   state_rel (s:('a,'b)stackSem$state) (t:('a,'b)labSem$state) ⇔
-    (∀n v. FLOOKUP n s.regs = SOME v ⇒ t.regs n = v) ∧
+    (∀n v. FLOOKUP s.regs n = SOME v ⇒ t.regs n = v) ∧
     t.mem = s.memory ∧
     t.mem_domain = s.mdomain ∧
     t.be = s.be ∧
@@ -66,7 +66,10 @@ val state_rel_def = Define`
       ∃pc. code_installed pc (FST (flatten prog n (max_lab prog))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
+    t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
     is_word (read_reg t.ptr_reg t) ∧
+    is_word (read_reg t.len_reg t) ∧
+    is_word (read_reg t.link_reg t) ∧
     (∀x. x ∈ s.mdomain ⇒ w2n x MOD (dimindex (:'a) DIV 8) = 0) ∧
     ¬s.use_stack ∧
     ¬s.use_store ∧
@@ -85,7 +88,7 @@ val state_rel_with_pc = Q.store_thm("state_rel_with_pc",
 val set_var_upd_reg = Q.store_thm("set_var_upd_reg",
   `state_rel s t ∧ is_word b ⇒
    state_rel (set_var a b s) (upd_reg a b t)`,
-  rw[state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM] >>
+  rw[state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FLOOKUP_UPDATE] >>
   rw[]>>fs[]>>rfs[] \\ metis_tac [])
 
 val set_var_Word_upd_reg = Q.store_thm("set_var_Word_upd_reg[simp]",
@@ -199,8 +202,9 @@ val flatten_correct = Q.store_thm("flatten_correct",
     fs[code_installed_def] >>
     qexists_tac`1`>>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    fs[get_var_def,FLOOKUP_DEF] >> var_eq_tac >>
+    fs[get_var_def] >>
     fs [good_syntax_def,state_rel_def] >> rfs [] >>
+    res_tac >> fs[] >>
     every_case_tac >> fs []) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def,flatten_def] >>
@@ -454,6 +458,39 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
       fs[dec_clock_def,upd_pc_def] >>
       map_every qexists_tac[`ck`,`t2`]>>fs[] ) >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >>
+    var_eq_tac >> fs[] >>
+    IF_CASES_TAC >> fs[] >- (
+      rw[] >> rw[] >>
+      map_every qexists_tac[`0`,`t1`] >>
+      fs[] >> fs[state_rel_def,empty_env_def] ) >>
+    `t1.clock ≠ 0` by fs[state_rel_def] >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >>
+    simp[] >>
+    CASE_TAC >> fs[] >>
+    qmatch_assum_rename_tac`evaluate (_,dec_clock _) = (rr,_)` >>
+    Cases_on`rr`>>fs[] >>
+    split_pair_tac >> fs[] >>
+    rator_x_assum`code_installed`mp_tac >>
+    qpat_abbrev_tac`i1 = LabAsm _ _ _ _` >>
+    strip_tac >>
+    `asm_fetch_aux t1.pc t1.code =  SOME i1` by (
+      Cases_on`handler`>>fs[code_installed_def] >>
+      pop_assum mp_tac >> CASE_TAC >> fs[] >>
+      CASE_TAC >> fs[] >>
+      split_pair_tac >> fs[code_installed_def] ) >>
+    (*
+    qmatch_assum_rename_tac`evaluate (_,dec_clock _) = (SOME rr,_)` >>
+    Cases_on`handler`>>fs[code_installed_def] >- (
+      Cases_on`rr`>>fs[] >- (
+        IF_CASES_TAC >> fs[] >>
+        CASE_TAC >> fs[] >> rw[] >>
+        simp[] >>
+        simp[Once labSemTheory.evaluate_def,asm_fetch_def,lab_to_loc_def] >>
+        fs[good_syntax_def] >>
+        simp[upd_reg_def,dec_clock_def,inc_pc_def] >>
+        simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    *)
     cheat ) >>
   (* FFI *)
   conj_tac >- (
@@ -462,10 +499,20 @@ val flatten_correct = Q.store_thm("flatten_correct",
     Cases_on`get_var len s`>>fs[]>>Cases_on`x`>>fs[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
     split_pair_tac >> simp[] >> rw[] >> simp[] >>
-    fs [good_syntax_def] >> rw [] >>
-    simp[Once labSemTheory.evaluate_def] >>
-    qexists_tac `1` >> fs [] >>
-    fs [code_installed_def,asm_fetch_def] >>
+    fs[code_installed_def,good_syntax_def] >>
+    qexists_tac`2` >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    rpt var_eq_tac >>
+    simp[lab_to_loc_def] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def,upd_reg_def,dec_clock_def,inc_pc_def,APPLY_UPDATE_THM] >>
+    IF_CASES_TAC >- fs[state_rel_def] >>
+    IF_CASES_TAC >- fs[state_rel_def] >>
+    `get_var t1.ptr_reg s = SOME (read_reg t1.ptr_reg t1) ∧
+     get_var t1.len_reg s = SOME (read_reg t1.len_reg t1)` by (
+      fs[state_rel_def,get_var_def] >> res_tac >> fs[] ) >>
+    fs[] >>
+    `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by fs[state_rel_def] >>
+    fs[] >>
     cheat ) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
