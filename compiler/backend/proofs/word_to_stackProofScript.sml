@@ -1240,7 +1240,7 @@ val compile_correct = prove(
                 if OPTION_MAP compile_result res <> res1 then (res1 = SOME (Halt (Word 1w))) else
                   case res of
                   | NONE => state_rel k f f' s1 t1
-                  | SOME (Result  _ _) => state_rel k 0 0 s1 t1
+                  | SOME (Result _ _) => state_rel k 0 0 s1 t1
                   | SOME (Exception _ _) => state_rel k 0 0 s1 t1
                   | SOME _ => T``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []

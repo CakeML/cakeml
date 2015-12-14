@@ -386,7 +386,7 @@ val evaluate_def = tDefine "evaluate" `
                      evaluate (h, check_clock s2 s))
            | (NONE,s) => (SOME Error,s)
            | res => res)) /\
-  (evaluate (FFI ffi_index ptr len,s) =
+  (evaluate (FFI ffi_index ptr len ret,s) =
     case (get_var ptr s, get_var len s) of
     | SOME (Word w),SOME (Word w2) =>
          (case read_bytearray w2 (w2n w) s.memory s.mdomain s.be of

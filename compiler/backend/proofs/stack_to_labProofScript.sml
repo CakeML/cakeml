@@ -27,7 +27,9 @@ val good_syntax_def = Define `
   (good_syntax (FFI ffi_index ptr' len') ptr len ret <=>
      ptr' = ptr /\ len' = len) /\
   (good_syntax (Call x1 _ x2) ptr len ret <=>
-     (case x1 of SOME (y,_,_,_) => good_syntax y ptr len ret | NONE => T) /\
+     (case x1 of
+      | SOME (y,r,_,_) => good_syntax y ptr len ret /\ r = ret
+      | NONE => T) /\
      (case x2 of SOME (y,_,_) => good_syntax y ptr len ret | NONE => T)) /\
   (good_syntax _ ptr len ret <=> T)`
 
@@ -53,7 +55,7 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
 
 val state_rel_def = Define`
   state_rel (s:('a,'b)stackSem$state) (t:('a,'b)labSem$state) ⇔
-    t.regs = FAPPLY s.regs ∧
+    (∀n v. FLOOKUP n s.regs = SOME v ⇒ t.regs n = v) ∧
     t.mem = s.memory ∧
     t.mem_domain = s.mdomain ∧
     t.be = s.be ∧
@@ -460,6 +462,10 @@ val flatten_correct = Q.store_thm("flatten_correct",
     Cases_on`get_var len s`>>fs[]>>Cases_on`x`>>fs[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
     split_pair_tac >> simp[] >> rw[] >> simp[] >>
+    fs [good_syntax_def] >> rw [] >>
+    simp[Once labSemTheory.evaluate_def] >>
+    qexists_tac `1` >> fs [] >>
+    fs [code_installed_def,asm_fetch_def] >>
     cheat ) >>
   conj_tac >- (
     rw[stackSemTheory.evaluate_def] >>
