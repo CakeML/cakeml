@@ -1,5 +1,5 @@
 open HolKernel bossLib boolLib boolSimps lcsymtacs Parse
-open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory
+open optionTheory listTheory pred_setTheory finite_mapTheory alistTheory rich_listTheory llistTheory arithmeticTheory pairTheory sortingTheory relationTheory bitTheory sptreeTheory wordsTheory set_sepTheory
 
 (* Misc. lemmas (without any compiler constants) *)
 val _ = new_theory "misc"
@@ -1485,5 +1485,18 @@ val LENGTH_LAST_N_LESS = store_thm("LENGTH_LAST_N_LESS",
   Induct \\ fs [LAST_N] \\ rw []
   \\ first_x_assum (qspec_then `n` assume_tac)
   \\ decide_tac);
+
+(* move into HOL? *)
+
+val bytes_in_word_def = Define `
+  bytes_in_word = n2w (dimindex (:'a) DIV 8):'a word`;
+
+val word_list_def = Define `
+  (word_list a [] = emp) /\
+  (word_list a (x::xs) = set_sep$one (a,x) * word_list (a + bytes_in_word) xs)`;
+
+val word_list_exists_def = Define `
+  word_list_exists a n =
+    SEP_EXISTS xs. word_list a xs * cond (LENGTH xs = n)`;
 
 val _ = export_theory()

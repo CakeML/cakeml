@@ -1,4 +1,4 @@
-INCLUDES = $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub lem_lib_stub
+INCLUDES = $(HOLDIR)/examples/formal-languages/context-free $(HOLDIR)/examples/fun-op-sem/lprefix_lub lem_lib_stub $(HOLDIR)/examples/machine-code/hoare-triple
 OPTIONS = QUIT_ON_FAILURE
 
 THYFILES = $(patsubst %Script.sml,%Theory.uo,$(wildcard *.sml))
@@ -11,8 +11,6 @@ LEMS = $(patsubst %,%.lem,$(LEMSRC))
 GENS = $(patsubst %,%Script.sml,$(LEMSRC))
 
 $(GENS): $(LEMS)
- 	if type lem;\
- 	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
- 	else touch $(GENS); fi
-
-
+	if type lem;\
+	then lem $(LEM_OPT) -suppress_renaming -auxiliary_level none -hol $(LEMS);\
+	else touch $(GENS); fi

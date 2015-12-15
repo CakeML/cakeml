@@ -147,7 +147,7 @@ val _ = Datatype`config =
 val compile_def = Define `
   compile start c prog =
     let prog' = stub1 start :: prog in
-    let without_stack = stub0 c.stack_ptr c.base_ptr :: stack_remove$compile (c.stack_ptr,c.base_ptr) prog' in
+    let without_stack = stub0 c.stack_ptr c.base_ptr :: stack_remove$compile c.stack_ptr prog' in
     let with_target_names = stack_names$compile c.reg_names without_stack in
     MAP prog_to_section with_target_names`;
 

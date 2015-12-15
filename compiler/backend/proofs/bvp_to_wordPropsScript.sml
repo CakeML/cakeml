@@ -1438,14 +1438,6 @@ val word_addr_def = Define `
   (word_addr conf (Data w) = w) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))`
 
-val one_list_def = Define `
-  (one_list a [] = emp) /\
-  (one_list a (x::xs) = one (a,x) * one_list (a + bytes_in_word) xs)`;
-
-val one_list_exists_def = Define `
-  one_list_exists a n =
-    SEP_EXISTS xs. one_list a xs * cond (LENGTH xs = n)`;
-
 val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 
 val word_payload_def = Define `
@@ -1484,18 +1476,18 @@ forward pointers and headers end in 11
 *)
 
 val word_el_def = Define `
-  (word_el a (Unused l) conf = one_list_exists a (l+1)) /\
+  (word_el a (Unused l) conf = word_list_exists a (l+1)) /\
   (word_el a (ForwardPointer n d l) conf =
-     one_list_exists a 1 *
+     word_list_exists a 1 *
      if l = 0 then emp else
        one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
-       one_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
+       word_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
   (word_el a (DataElement ys l (tag,qs)) conf =
      case word_payload ys l tag qs conf of
-     | (NONE,ts,c) => one_list a ts * cond c
+     | (NONE,ts,c) => word_list a ts * cond c
      | (SOME h,ts,c) =>
          let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
-           one (a,Word w) * one_list (a + bytes_in_word) ts *
+           one (a,Word w) * word_list (a + bytes_in_word) ts *
            cond (c /\ LENGTH ts < 2 ** conf.len_size /\
                  decode_tag_bits conf w = tag))`;
 
