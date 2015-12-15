@@ -64,14 +64,14 @@ val flatten_def = Define `
             ([LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
              [Label n m 0],m+1)
           else if no_ret p1 then
-            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
+            ([LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ xs ++
              [Label n m 0] ++ ys,m+1)
           else if no_ret p2 then
-            ([LabAsm (JumpCmp (negate c) r ri (Lab n m)) 0w [] 0] ++ ys ++
+            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
              [Label n m 0] ++ xs,m+1)
           else
-            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ xs ++
-             [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ ys ++
+            ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
+             [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
              [Label n (m+1) 0],m+2)
     | Raise r => ([Asm (JumpReg r) [] 0],m)
     | Return r _ => ([Asm (JumpReg r) [] 0],m)
