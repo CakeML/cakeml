@@ -170,9 +170,10 @@ val flatten_leq = Q.store_thm("flatten_leq",
   ho_match_mp_tac flatten_ind >> rw[]>>
   ONCE_REWRITE_TAC[flatten_def] >>
   CASE_TAC >> simp[] >> fs[] >>
+  TRY CASE_TAC >> fs[] >>
   every_case_tac >> fs[] >>
   split_pair_tac >> fs[] >>
-  split_pair_tac >> fs[] >>
+  TRY split_pair_tac >> fs[] >>
   simp[]);
 
 val flatten_correct = Q.store_thm("flatten_correct",
@@ -432,14 +433,11 @@ val flatten_correct = Q.store_thm("flatten_correct",
       Cases_on`r`>>fs[] >- (
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
-      CASE_TAC >> fs[]
+      CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[dec_clock_def,inc_pc_def] >>
       qexists_tac`ck`>>simp[] >>
-      CASE_TAC >> fs[]>- ( qexists_tac`t2`>>simp[] ) >>
-      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      simp[dec_clock_def,inc_pc_def] >>
-      qexists_tac`t2`>>simp[] ) >>
+      qexists_tac`t2`>>simp[]) >>
     Cases_on`c2=Skip`>>fs[]>-(
       fs[Q.SPEC`Skip`flatten_def]>>
       rpt var_eq_tac >>
@@ -463,8 +461,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       qexists_tac`1`>>simp[]>>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       fs[GSYM word_cmp_word_cmp] >>
-      CASE_TAC >> fs[] >- (
-        fs[labSemTheory.word_cmp_def] ) >>
+      CASE_TAC >> fs[] >>
       qexists_tac`inc_pc t1` >>
       simp[dec_clock_def,inc_pc_def]>>
       fs[state_rel_def] >>
@@ -565,6 +562,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qmatch_assum_rename_tac`evaluate (_,dec_clock _) = (rr,_)` >>
     Cases_on`rr`>>fs[] >>
     split_pair_tac >> fs[] >>
+    (*
     rator_x_assum`code_installed`mp_tac >>
     qpat_abbrev_tac`i1 = LabAsm _ _ _ _` >>
     strip_tac >>
@@ -576,6 +574,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     strip_tac >>
     fs[good_syntax_def] >> var_eq_tac >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def,Abbr`i1`] >>
+    *)
     (* try to do the call (compile_jump dest) now, for all cases at once *)
     (*
     qmatch_assum_rename_tac`result_CASE rr _ _ _ _ _ = (_,_)` >>
