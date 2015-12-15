@@ -648,7 +648,6 @@ val filter_correct = prove(
       EVERY_CASE_TAC>>fs[]>>rw[]>>
       same_inst_tac)
 
-(*Broken*)
 val state_rel_IMP_sem_EQ_sem = prove(
   ``!s t. state_rel s t ==> semantics s = semantics t``,
   rw[labSemTheory.semantics_def] >- (
@@ -719,7 +718,41 @@ val state_rel_IMP_sem_EQ_sem = prove(
       imp_res_tac evaluate_ADD_clock >> fs[] >>
       fs[ffiTheory.ffi_state_component_equality] ) >>
     strip_tac >>
-    cheat));
+    qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+    `lprefix_chain l1 ∧ lprefix_chain l2` by (
+      unabbrev_all_tac >>
+      conj_tac >>
+      Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+      REWRITE_TAC[IMAGE_COMPOSE] >>
+      match_mp_tac prefix_chain_lprefix_chain >>
+      simp[prefix_chain_def,PULL_EXISTS] >>
+      qx_genl_tac[`k1`,`k2`] >>
+      qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+      metis_tac[
+        labPropsTheory.evaluate_add_clock_io_events_mono
+        |> Q.SPEC`s with clock := k` |> SIMP_RULE (srw_ss())[],
+        LESS_EQ_EXISTS]) >>
+    `equiv_lprefix_chain l1 l2` by (
+      simp[equiv_lprefix_chain_thm] >>
+      unabbrev_all_tac >> simp[PULL_EXISTS] >>
+      ntac 2 (pop_assum kall_tac) >>
+      simp[LNTH_fromList,PULL_EXISTS] >>
+      simp[GSYM FORALL_AND_THM] >>
+      rpt gen_tac >>
+      Q.ISPEC_THEN `s with clock := k` mp_tac filter_correct >>
+      Cases_on`evaluate (s with clock := k)`>>fs[] >>
+      disch_then(qspec_then`t with clock := k`mp_tac) >>
+      discharge_hyps >- ( fs[state_rel_def] ) >>
+      simp[] >> strip_tac >>
+      conj_tac >> strip_tac >- (
+        rfs[] >> qexists_tac`k+k'`>>simp[] ) >>
+      qspecl_then[`k'`,`s with clock := k`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono) >>
+      simp[] >> strip_tac >>
+      qspecl_then[`k'`,`t with clock := k`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono) >>
+      simp[] >> strip_tac >>
+      fs[IS_PREFIX_APPEND] >> fs[] >>
+      qexists_tac`k+k'`>>simp[EL_APPEND1] ) >>
+    metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
 
 val filter_skip_semantics = store_thm("filter_skip_semantics",
   ``!s. (s.pc = 0) ∧ ¬s.failed ==>
