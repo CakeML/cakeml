@@ -580,8 +580,143 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[get_pc_value_def,upd_pc_def,dec_clock_def] >>
       qexists_tac`ck`>>simp[]>>
       qexists_tac`t2`>>simp[] ) >>
-    Cases_on`no_ret c2`>>fs[] >- cheat >>
-    cheat) >>
+    Cases_on`no_ret c2`>>fs[] >- (
+      fs[code_installed_def] >>
+      `get_var r1 s = SOME (read_reg r1 t1) ∧
+       get_var_imm ri s = SOME (reg_imm ri t1)` by (
+        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
+        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
+      ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
+      fs[GSYM word_cmp_word_cmp] >>
+      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
+      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      reverse (Cases_on`x`)>>fs[] >- (
+        `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
+        fs[IS_SOME_EXISTS] >>
+        rpt var_eq_tac >> simp[] >>
+        simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+        simp[get_pc_value_def] >>
+        imp_res_tac code_installed_append_imp >>
+        imp_res_tac code_installed_append_imp >>
+        fs[code_installed_def] >>
+        simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
+        drule (GEN_ALL state_rel_with_pc) >>
+        disch_then(qspec_then`t1.pc+1`mp_tac) >>
+        strip_tac >>
+        first_x_assum drule >>
+        fs[good_syntax_def] >>
+        disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
+        fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+        discharge_hyps >- (
+          metis_tac[flatten_leq,LESS_EQ_TRANS,SND] ) >>
+        simp[upd_pc_def] >> strip_tac >>
+        CASE_TAC >> fs[] >- (
+          qexists_tac`ck+1`>>simp[] >>
+          qexists_tac`t2`>>simp[] ) >>
+        qexists_tac`ck+1`>>simp[] >>
+        simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+        simp[inc_pc_def,dec_clock_def] >>
+        qexists_tac`t2`>>simp[]) >>
+      Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
+      simp[get_pc_value_def] >>
+      imp_res_tac code_installed_append_imp >>
+      imp_res_tac code_installed_append_imp >>
+      fs[code_installed_def] >>
+      simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
+      qpat_abbrev_tac`pc = LENGTH _ + _` >>
+      drule state_rel_with_pc >> strip_tac >>
+      first_x_assum drule >>
+      fs[good_syntax_def] >>
+      fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
+      fs[FILTER_APPEND] >>
+      fsrw_tac[ARITH_ss][] >>
+      strip_tac >>
+      fs[upd_pc_def] >>
+      CASE_TAC >> fs[] >>
+      TRY CASE_TAC >> fs[] >- (
+        qexists_tac`ck`>>simp[] >>
+        qexists_tac`t2`>>simp[] >>
+        simp[Abbr`pc`,FILTER_APPEND] ) >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      simp[get_pc_value_def,upd_pc_def,dec_clock_def] >>
+      qexists_tac`ck`>>simp[]>>
+      qexists_tac`t2`>>simp[] ) >>
+    fs[code_installed_def] >>
+    `get_var r1 s = SOME (read_reg r1 t1) ∧
+     get_var_imm ri s = SOME (reg_imm ri t1)` by (
+      qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
+      qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
+      fs[state_rel_def] >>
+      Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+    rfs[] >>
+    ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
+    fs[GSYM word_cmp_word_cmp] >>
+    qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
+    qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
+    Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    Cases_on`x`>>fs[] >- (
+      simp[get_pc_value_def] >>
+      imp_res_tac code_installed_append_imp >>
+      imp_res_tac code_installed_append_imp >>
+      imp_res_tac code_installed_append_imp >>
+      fs[code_installed_def] >>
+      simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
+      qpat_abbrev_tac`pc = LENGTH _ + _` >>
+      drule state_rel_with_pc >> strip_tac >>
+      first_x_assum drule >>
+      fs[good_syntax_def] >>
+      fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
+      fs[FILTER_APPEND] >>
+      fsrw_tac[ARITH_ss][] >>
+      strip_tac >>
+      fs[upd_pc_def] >>
+      CASE_TAC >> fs[] >>
+      TRY CASE_TAC >> fs[] >- (
+        qexists_tac`ck+1`>>simp[] >>
+        qexists_tac`t2`>>simp[] >>
+        simp[Abbr`pc`,FILTER_APPEND] ) >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      simp[get_pc_value_def,upd_pc_def,dec_clock_def] >>
+      qexists_tac`ck+1`>>simp[]>>
+      qexists_tac`t2`>>simp[] ) >>
+    imp_res_tac code_installed_append_imp >>
+    imp_res_tac code_installed_append_imp >>
+    imp_res_tac code_installed_append_imp >>
+    fs[code_installed_def] >>
+    simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
+    qpat_abbrev_tac`pc = t1.pc + 1` >>
+    drule state_rel_with_pc >> strip_tac >>
+    first_x_assum drule >>
+    fs[good_syntax_def] >>
+    fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+    disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
+    discharge_hyps >- (
+      metis_tac[flatten_leq,SND,LESS_EQ_TRANS] ) >>
+    strip_tac >>
+    fs[upd_pc_def] >>
+    CASE_TAC >> fs[] >>
+    TRY CASE_TAC >> fs[] >- (
+      qexists_tac`ck+2`>>simp[] >>
+      first_x_assum(strip_assume_tac o CONV_RULE(HO_REWR_CONV FORALL_NUM)) >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      simp[get_pc_value_def,dec_clock_def,upd_pc_def,Abbr`pc`] >>
+      qpat_abbrev_tac`pc = LENGTH _ + _` >>
+      qexists_tac`upd_pc pc t2`>>simp[upd_pc_def] >>
+      simp[Abbr`pc`,FILTER_APPEND] >>
+      metis_tac[state_rel_with_pc,upd_pc_def]) >>
+    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+    simp[get_pc_value_def,upd_pc_def,dec_clock_def,inc_pc_def] >>
+    qexists_tac`ck+1`>>simp[]>>
+    qexists_tac`t2`>>simp[] ) >>
   (* JumpLess *)
   conj_tac >- (
     rw[] >>
