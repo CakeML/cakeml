@@ -76,17 +76,17 @@ val flatten_def = Define `
     | Raise r => ([Asm (JumpReg r) [] 0],m)
     | Return r _ => ([Asm (JumpReg r) [] 0],m)
     | Call NONE dest _ => ([compile_jump dest],m)
-    | Call (SOME (p1,lr,l1,l2)) dest NONE =>
+    | Call (SOME (p1,lr,l1,l2)) dest handler =>
         let (xs,m) = flatten p1 n m in
-          ([LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
-            compile_jump dest; Label l1 l2 0] ++ xs,m)
-    | Call (SOME (p1,lr,l1,l2)) dest (SOME (p2,k1,k2)) =>
-        let (xs,m) = flatten p1 n m in
-        let (ys,m) = flatten p2 n m in
           ([LabAsm (LocValue lr (Lab l1 l2)) 0w [] 0;
             compile_jump dest; Label l1 l2 0] ++ xs ++
-           [LabAsm (Jump (Lab n m)) 0w [] 0;
-            Label k1 k2 0] ++ ys ++ [Label n m 0],m+1)
+           case handler of
+           | NONE => []
+           | SOME (p2,k1,k2) =>
+               let (ys,m) = flatten p2 n m in
+                 [LabAsm (Jump (Lab n m)) 0w [] 0;
+                  Label k1 k2 0] ++ ys ++ [Label n m 0],
+           if IS_SOME handler then m+1 else m)
     | JumpLess r1 r2 target =>
         ([LabAsm (JumpCmp Less r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
     | FFI ffi_index _ _ lr => ([LabAsm (LocValue lr (Lab n m)) 0w [] 0;
@@ -147,7 +147,7 @@ val _ = Datatype`config =
 val compile_def = Define `
   compile start c prog =
     let prog' = stub1 start :: prog in
-    let without_stack = stub0 c.stack_ptr c.base_ptr :: stack_remove$compile (c.stack_ptr,c.base_ptr) prog' in
+    let without_stack = stub0 c.stack_ptr c.base_ptr :: stack_remove$compile c.stack_ptr prog' in
     let with_target_names = stack_names$compile c.reg_names without_stack in
     MAP prog_to_section with_target_names`;
 

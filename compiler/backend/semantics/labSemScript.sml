@@ -73,6 +73,7 @@ val word_cmp_def = Define `
   (word_cmp NotLess  (Word w1) (Word w2) = SOME (~(w1 < w2))) /\
   (word_cmp NotLower (Word w1) (Word w2) = SOME (~(w1 <+ w2))) /\
   (word_cmp NotTest  (Word w1) (Word w2) = SOME ((w1 && w2) <> 0w)) /\
+  (word_cmp NotTest  (Loc _ _) (Word w2) = if w2 = 1w then SOME F else NONE) /\
   (word_cmp _ _ _ = NONE)`
 
 val word_shift_def = Define `
