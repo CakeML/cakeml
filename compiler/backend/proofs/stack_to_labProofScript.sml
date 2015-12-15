@@ -54,6 +54,10 @@ val not_is_Label_compile_jump = Q.store_thm("not_is_Label_compile_jump[simp]",
   `is_Label (compile_jump dest) ⇔ F`,
   Cases_on`dest`>>EVAL_TAC);
 
+val word_cmp_not_NONE = Q.store_thm("word_cmp_not_NONE[simp]",
+  `word_cmp cmp (Word w1) (Word w2) ≠ NONE`,
+  Cases_on`cmp`>>rw[labSemTheory.word_cmp_def]);
+
 (* -- *)
 
 val code_installed_def = Define`
@@ -368,8 +372,79 @@ val flatten_correct = Q.store_thm("flatten_correct",
     metis_tac[]) >>
   (* If *)
   conj_tac >- (
-    cheat
-  ) >>
+    rw[] >>
+    fs[stackSemTheory.evaluate_def] >>
+    Cases_on`get_var r1 s`>>fs[]>>Cases_on`x`>>fs[]>>
+    Cases_on`get_var_imm ri s`>>fs[]>>Cases_on`x`>>fs[]>>
+    fs[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
+    split_pair_tac >> fs[] >>
+    split_pair_tac >> fs[] >>
+    Cases_on`c1=Skip`>>fs[]>-(
+      Cases_on`c2=Skip`>>fs[] >- (
+        fs[Q.SPEC`Skip`flatten_def]>>
+        rpt var_eq_tac >>
+        fs[stackSemTheory.evaluate_def]>>
+        rpt var_eq_tac >> simp[] >>
+        map_every qexists_tac[`0`,`t1`] >>
+        simp[] ) >>
+      fs[Q.SPEC`Skip`flatten_def]>>
+      rpt var_eq_tac >>
+      fs[stackSemTheory.evaluate_def]>>
+      fs[code_installed_def] >>
+      Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
+      `get_var r1 s = SOME (read_reg r1 t1) ∧
+       get_var_imm ri s = SOME (reg_imm ri t1)` by (
+        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
+        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
+      ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
+      fs[GSYM word_cmp_word_cmp] >>
+      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
+      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      Cases_on`x`>>fs[] >- (
+        rpt var_eq_tac >> simp[] >>
+        simp[get_pc_value_def] >>
+        imp_res_tac code_installed_append_imp >>
+        fs[code_installed_def] >>
+        simp[dec_clock_def,ADD1,upd_pc_def] >>
+        qpat_abbrev_tac`pc = LENGTH _ + _` >>
+        drule state_rel_with_pc >> strip_tac >>
+        first_x_assum drule >>
+        simp[good_syntax_def,max_lab_def] >>
+        simp[upd_pc_def] >> strip_tac >>
+        qexists_tac`ck`>>simp[] >>
+        qexists_tac`t2`>>simp[] >>
+        simp[Abbr`pc`,FILTER_APPEND] ) >>
+      fs[Q.SPEC`If _ _ _ _ _`max_lab_def] >>
+      drule (GEN_ALL state_rel_with_pc) >>
+      disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
+      first_x_assum drule >>
+      fs[good_syntax_def] >>
+      imp_res_tac code_installed_append_imp >>
+      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
+      strip_tac >>
+      simp[dec_clock_def,ADD1] >>
+      fs[inc_pc_def,upd_pc_def] >>
+      Cases_on`r`>>fs[] >- (
+        qexists_tac`ck`>>simp[] >>
+        qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
+      CASE_TAC >> fs[]
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      simp[dec_clock_def,inc_pc_def] >>
+      qexists_tac`ck`>>simp[] >>
+      CASE_TAC >> fs[]>- ( qexists_tac`t2`>>simp[] ) >>
+      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+      simp[dec_clock_def,inc_pc_def] >>
+      qexists_tac`t2`>>simp[] ) >>
+    Cases_on`c2=Skip`>>fs[]>-(
+      fs[Q.SPEC`Skip`flatten_def]>>
+      rpt var_eq_tac >>
+      cheat ) >>
+    cheat) >>
   (* JumpLess *)
   conj_tac >- (
     rw[] >>
