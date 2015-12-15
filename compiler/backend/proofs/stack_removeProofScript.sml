@@ -2,6 +2,7 @@ open preamble
      stack_removeTheory
      stackSemTheory
      set_sepTheory
+     semanticsPropsTheory (* TODO: should be in heap? *)
 
 val _ = new_theory"stack_removeProof";
 
@@ -85,18 +86,23 @@ val state_rel_IMP = prove(
   rw [] \\ fs [state_rel_def,dec_clock_def,empty_env_def] \\ rfs [] \\ fs []
   \\ cheat); (* not true for empty_env *)
 
-val comp_correct = prove(
-  ``!p s1 r s2 t1 k.
-      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
-      state_rel k s1 t1 /\ good_syntax p k ==>
-      ?r2 t2. evaluate (comp k p,t1) = (r2,t2) /\
-              (r2 <> SOME (Halt (Word 2w)) ==> (r2 = r /\ state_rel k s2 t2))``,
+val comp_correct = Q.prove(
+  `!p s1 r s2 t1 k.
+     evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
+     state_rel k s1 t1 /\ good_syntax p k ==>
+     ?r2 t2. evaluate (comp k p,t1) = (r2,t2) /\
+             (case r2 of
+               | SOME (Halt _) =>
+                   t2.ffi.io_events ≼ s2.ffi.io_events ∧
+                   (IS_SOME t2.ffi.final_event ⇒ t2.ffi = s2.ffi)
+               | _ =>  (r2 = r /\ state_rel k s2 t2))`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
   THEN1
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ every_case_tac \\ rw [] \\ fs [])
+    \\ every_case_tac \\ rw [] \\ fs []
+    \\ fs[state_rel_def])
   THEN1 (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
   THEN1 cheat (* easy but good_syntax needs updating *)
   THEN1 (* Get *) cheat
@@ -110,11 +116,16 @@ val comp_correct = prove(
    (fs [] \\ simp [Once comp_def]
     \\ fs [evaluate_def,good_syntax_def,LET_DEF]
     \\ split_pair_tac \\ fs []
-    \\ Cases_on `res = NONE` \\ fs []
-    \\ first_x_assum (qspecl_then [`t1`,`k`] mp_tac) \\ fs [] \\ strip_tac
-    \\ TRY (rw [] \\ NO_TAC) \\ fs []
-    \\ Cases_on `r2 = NONE` \\ fs [] \\ rw []
-    \\ first_x_assum match_mp_tac \\ fs [])
+    \\ reverse(Cases_on `res = NONE`) \\ fs []
+    >- (rpt var_eq_tac
+      \\ first_x_assum drule >> simp[]
+      \\ strip_tac >> fs[]
+      \\ pop_assum mp_tac >> CASE_TAC
+      \\ rpt var_eq_tac >> fs[] )
+    \\ first_x_assum drule >> simp[] >> strip_tac
+    \\ Cases_on `r2` \\ fs [] \\ rw []
+    \\ Cases_on`x`>>fs[]>>rw[]>>fs[]
+    \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS])
   THEN1 (* Return *)
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
