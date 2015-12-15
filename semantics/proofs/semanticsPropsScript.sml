@@ -178,4 +178,12 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
   simp[FUN_EQ_THM] >>
   metis_tac[semantics_prog_total,semantics_prog_deterministic])
 
+val extend_with_resource_limit_def = Define`
+  extend_with_resource_limit behaviours =
+  behaviours ∪
+  { Terminate Resource_limit_hit io_list
+    | io_list | ∃t l. Terminate t l ∈ behaviours ∧ io_list ≼ l } ∪
+  { Terminate Resource_limit_hit io_list
+    | io_list | ∃ll. Diverge ll ∈ behaviours ∧ LPREFIX (fromList io_list) ll }`;
+
 val _ = export_theory()

@@ -169,7 +169,7 @@ val comp_correct = prove(
 
 val compile_semantics = store_thm("compile_semantics",
   ``state_rel k s1 s2 /\ semantics start s1 <> Fail ==>
-    semantics start s1 = semantics start s2``,
-  cheat); (* statement needs to allow Resource_limit_hit *)
+    semantics start s2 ∈ extend_with_resource_limit { semantics start s1 }``,
+  cheat);
 
 val _ = export_theory();
