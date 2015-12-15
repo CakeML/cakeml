@@ -1,5 +1,7 @@
 open preamble stackSemTheory
 
+val _ = new_theory"stackProps";
+
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).ffi = z.ffi`,
   EVAL_TAC);
