@@ -8,7 +8,7 @@ ifdef POLY
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
-BARE_THYS = ../../preamble ../../semantics/ffi/ffiTheory asm/asmPropsTheory
+BARE_THYS = ../../preamble ../../semantics/ffi/ffiTheory asm/asmPropsTheory $(HOLDIR)/examples/fun-op-sem/lprefix_lub/lprefix_lubTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
