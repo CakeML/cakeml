@@ -372,7 +372,7 @@ val evaluate_def = tDefine "evaluate" `
      (* returning call, returns into var n *)
      | SOME (ret_handler,link_reg,l1,l2) =>
         if s.clock = 0 then (SOME TimeOut,empty_env s) else
-          (case evaluate (prog, dec_clock s) of
+          (case evaluate (prog, dec_clock (set_var link_reg (Loc l1 l2) s)) of
            | (SOME (Result x),s2) =>
                if x <> Loc l1 l2 then (SOME Error,s2) else
                  (case evaluate(ret_handler,check_clock s2 s) of
