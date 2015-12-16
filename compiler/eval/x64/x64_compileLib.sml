@@ -37,27 +37,21 @@ val clos_conf = ``<|next_loc := 0 ; start:=0|>``
 val bvp_conf = ``<| tag_bits:=8; len_bits:=8; pad_bits:=0; len_size:=16|>``
 val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;base_ptr:=6|>``
 (*??*)
-val lab_conf = ``<|encoder:=x64_enc;labels:=LN|>``
-val asm_conf =``x64_config``
+val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config|>``
 
 val conf = ``<|source_conf:=^(source_conf);
                mod_conf:=^(mod_conf);
                clos_conf:=^(clos_conf);
                bvp_conf:=^(bvp_conf);
                stack_conf:=^(stack_conf);
-               lab_conf:=^(lab_conf);
-               asm_conf:=x64_config
+               lab_conf:=^(lab_conf)
                |>``
 
 val prog = ``[Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))))]``;
 
-val prog = ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 0)))]``
-
-val prog = ``[Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))));
-              Tdec (Dlet (Pvar "x") (Lit (IntLit 0)))]``
 val _ = PolyML.timing true;
 
-val test3 = eval``
+val test = eval``
     let (c,p) = (^(conf),^(prog)) in
     let (c',p) = source_to_mod$compile c.source_conf p in
     let c = c with source_conf := c' in
@@ -74,10 +68,10 @@ val test3 = eval``
     let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
     let p = bvi_to_bvp$compile_prog p in
     let (p: (num,num#64 wordLang$prog) alist) = bvp_to_word$compile c.bvp_conf p in
-    let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+    let p = word_to_stack$compile c.clos_conf.start c.lab_conf.asm_conf p in
     let p = stack_to_lab$compile c.clos_conf.start c.stack_conf p in
-    let b = lab_to_target$compile c.asm_conf c.lab_conf p in
-    OPTION_MAP (λb. (b,c)) b``;
+    let bc' = lab_to_target$compile c.lab_conf p in
+    OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'``;
 
 (*
 167.8s source to bytecode, expanded

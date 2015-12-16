@@ -22,7 +22,6 @@ val _ = Datatype`config =
    ; bvp_conf : bvp_to_word$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
-   ; asm_conf : 'a asm_config
    |>`;
 
 val compile_def = Define`
