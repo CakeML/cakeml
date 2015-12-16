@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory;
+     set_sepTheory semanticsPropsTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -1867,6 +1867,14 @@ val compile_correct = prove(
       state_rel c l1 l2 s t [] locs ==>
       ?ck t1 res1.
         (wordSem$evaluate (FST (comp c n l prog),inc_clock ck t) = (res1,t1)) /\
+(*
+
+  TODO: needs to be uncommented
+
+        (res1 = SOME NotEnoughSpace ==>
+           t1.ffi.io_events ≼ s1.ffi.io_events ∧
+           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)) /\
+*)
         (res1 <> SOME NotEnoughSpace ==>
          case res of
          | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
@@ -2200,23 +2208,11 @@ val compile_correct = prove(
 
 (* observational semantics preservation *)
 
-(*
 val compile_semantics = Q.store_thm("compile_semantics",
-  `state_rel c ARB ARB
-    (initial_state ffi (fromAList prog) ARB)
-    (initial_state be mdomain (word_gc_fun c) permute (fromAList (compile c prog)) ffi memory store ARB)
-    [(Number 0,Word 0w)] [] ∧
-   semantics ffi (fromAList prog) start ≠ Fail ⇒
-   semantics be (mdomain:α word set) (word_gc_fun c) permute (fromAList (compile c prog)) ffi memory store start =
-   semantics ffi (fromAList prog) start`,
-  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  strip_tac >>
-  simp[bvpSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
-  DEEP_INTRO_TAC some_intro >> fs[]
-  conj_tac >- (
-    qx_gen_tac`ff` >> strip_tac >> simp[] >>
-    drule compile_correct >> simp[] >>
-*)
+  `state_rel c 0 1 (initial_state ffi (fromAList prog) ARB) t [] [] /\
+   semantics ffi (fromAList prog) start <> Fail ==>
+   semantics t start IN
+     extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
+  cheat);
 
 val _ = export_theory();

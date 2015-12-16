@@ -713,27 +713,10 @@ val evaluate_def = save_thm("evaluate_def",let
 
 (* observational semantics *)
 
-val initial_state_def = Define`
-  initial_state be mdomain gc_fun permute code ffi memory store k = <|
-    ffi := ffi;
-    clock := k;
-    handler := 0;
-    gc_fun := gc_fun;
-    code := code;
-    store := store;
-    locals := LN;
-    be := be;
-    permute := permute;
-    stack := [];
-    memory := memory;
-    mdomain := mdomain
-  |>`;
-
 val semantics_def = Define `
-  semantics be mdomain gc_fun permute code ffi memory store start =
-  let s = initial_state be mdomain gc_fun permute code ffi memory store in
-  let prog = Call (SOME (2 (* or 0? needs to match calling convention *),LN,Skip,20 (* must be greater than stackLang startup stubs *),1)) (SOME start) [] NONE in
-  if ∃k. case FST(evaluate (prog,s k)) of
+  semantics s start =
+  let prog = Call (SOME (1,LN,Skip,0,1)) (SOME start) [] NONE in
+  if ∃k. case FST(evaluate (prog,s with clock := k)) of
          | SOME (Exception _ _) => T
          | SOME (Result _ _) => T
          | SOME Error => T
@@ -742,7 +725,7 @@ val semantics_def = Define `
   else
     case some res.
       ∃k t r outcome.
-        evaluate (prog, s k) = (r,t) ∧
+        evaluate (prog, s with clock := k) = (r,t) ∧
         (case (t.ffi.final_event,r) of
          | (SOME e,_) => outcome = FFI_outcome e
          | (_,NONE) => outcome = Success
@@ -755,7 +738,7 @@ val semantics_def = Define `
       Diverge
          (build_lprefix_lub
            (IMAGE (λk. fromList
-              (SND (evaluate (prog,s k))).ffi.io_events) UNIV))`;
+              (SND (evaluate (prog,s with clock := k))).ffi.io_events) UNIV))`;
 
 (* clean up *)
 
