@@ -11,10 +11,10 @@ val initial_condition_def = Define`
 val compile_correct = Q.store_thm("compile_correct",
   `∀st cc prelude input.
     initial_condition st cc prelude ⇒
-    case compile cc prelude input of
+    case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure TypeError => semantics st prelude input = IllTyped
-    | Failure CompileError => T (* see theorem about compile_to_lab *)
+    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
     | Success (bytes,cc') =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
@@ -22,7 +22,7 @@ val compile_correct = Q.store_thm("compile_correct",
           code_loaded bytes mc ms ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
-              (* see theorem about compile_to_bvp to avoid extend_with_resource_limit *)`,
+              (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
   cheat)
 
 val _ = export_theory();

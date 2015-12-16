@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../../semantics ../parsing/proofs ../inference/proofs ../targets #../backend/proofs
+INCLUDES = .. ../../semantics ../../semantics/proofs ../parsing/proofs ../inference/proofs ../targets #../backend/proofs
 
 all: compilerProofTheory.uo
 .PHONY: all
@@ -12,6 +12,7 @@ EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
 BARE_THYS = ../../semantics/semanticsTheory\
+						../../semantics/proofs/semanticsPropsTheory\
 						../compilerTheory\
 						../parsing/proofs/pegCompleteTheory\
 						../inference/proofs/inferSoundTheory\

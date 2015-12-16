@@ -42,10 +42,10 @@ val compile_def = Define`
     let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
     let p = bvi_to_bvp$compile_prog p in
     let p = bvp_to_word$compile c.bvp_conf p in
-    let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+    let p = word_to_stack$compile c.clos_conf.start c.lab_conf.asm_conf p in
     let p = stack_to_lab$compile c.clos_conf.start c.stack_conf p in
-    let b = lab_to_target$compile c.asm_conf c.lab_conf p in
-    OPTION_MAP (λb. (b,c)) b`;
+    let bc' = lab_to_target$compile c.lab_conf p in
+    OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
 
 val to_mod_def = Define`
   to_mod c p =
@@ -114,7 +114,7 @@ val to_word_def = Define`
 val to_stack_def = Define`
   to_stack c p =
   let (c,p) = to_word c p in
-  let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+  let p = word_to_stack$compile c.clos_conf.start c.lab_conf.asm_conf p in
   (c,p)`;
 
 val to_lab_def = Define`
@@ -126,8 +126,8 @@ val to_lab_def = Define`
 val to_target_def = Define`
   to_target c p =
   let (c,p) = to_lab c p in
-  let b = lab_to_target$compile c.asm_conf c.lab_conf p in
-  OPTION_MAP (λb. (b,c)) b`;
+  let bc' = lab_to_target$compile c.lab_conf p in
+  OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
@@ -150,8 +150,8 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
 
 val from_lab_def = Define`
   from_lab c p =
-  let b = lab_to_target$compile c.asm_conf c.lab_conf p in
-  OPTION_MAP (λb. (b,c)) b`;
+  let bc' = lab_to_target$compile c.lab_conf p in
+  OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
 
 val from_stack_def = Define`
   from_stack c p =
@@ -160,7 +160,7 @@ val from_stack_def = Define`
 
 val from_word_def = Define`
   from_word c p =
-  let p = word_to_stack$compile c.clos_conf.start c.asm_conf p in
+  let p = word_to_stack$compile c.clos_conf.start c.lab_conf.asm_conf p in
   from_stack c p`;
 
 val from_bvp_def = Define`

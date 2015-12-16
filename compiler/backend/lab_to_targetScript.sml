@@ -242,10 +242,13 @@ val compile_lab_def = Define `
 val _ = Datatype`
   config = <| encoder : 'a asm -> word8 list
             ; labels : num num_map num_map
+            ; asm_conf : 'a asm_config
             |>`;
 
 val compile_def = Define `
-  compile ac lc sec_list =
-    compile_lab (ac,lc.encoder,lc.labels) (filter_skip sec_list)`;
+  compile lc sec_list =
+    OPTION_MAP (λ(bytes,(ac,enc,l1)).
+        (bytes,<| asm_conf := ac; encoder := enc; labels := l1 |>))
+    (compile_lab (lc.asm_conf,lc.encoder,lc.labels) (filter_skip sec_list))`;
 
 val _ = export_theory();
