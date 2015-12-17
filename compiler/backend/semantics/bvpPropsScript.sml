@@ -4,11 +4,17 @@ local open bviPropsTheory in end;
 val _ = new_theory"bvpProps";
 
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
-  `(initial_state f c k).clock = k`,
+  `(initial_state f c k).clock = k ∧
+   (initial_state f c k).locals = LN ∧
+   (initial_state f c k).code = c ∧
+   (initial_state f c k).ffi = f ∧
+   (initial_state f c k).stack = []`,
   rw[initial_state_def]);
 
 val initial_state_with_simp = Q.store_thm("initial_state_with_simp[simp]",
-  `initial_state f c k with clock := k' = initial_state f c k'`,
+  `(initial_state f c k with clock := k' = initial_state f c k') ∧
+   (initial_state f c k with stack := [] = initial_state f c k) ∧
+   (initial_state f c k with locals := LN = initial_state f c k)`,
   rw[initial_state_def]);
 
 val with_same_locals = store_thm("with_same_locals",
