@@ -296,9 +296,31 @@ val pure_expressions_clean = save_thm(
   pure_expressions_clean0 |> Q.SPECL [`[e]`, `env`, `s`]
                           |> SIMP_RULE (srw_ss()) [])
 
-(*
+val keepval_rel_def = Define`
+  keepval_rel tyit c kis i v1 v2 =
+    if i ∈ kis then val_rel tyit c v1 v2
+    else v2 = Number 0
+`;
+
+val keepval_rel_o_SUC = Q.store_thm(
+  "keepval_rel_o_SUC",
+  `keepval_rel tyit c kis o SUC =
+      keepval_rel tyit c (kis o SUC)`,
+  simp[keepval_rel_def, FUN_EQ_THM, SPECIFICATION]);
+
+val GSPEC_o = Q.store_thm(
+  "GSPEC_o",
+  `GSPEC f o g = { x | ∃y. (g x, T) = f y }`,
+  simp[FUN_EQ_THM, GSPECIFICATION]);
+
+val ELplus1 = Q.store_thm(
+  "ELplus1",
+  `EL (n + 1) l = EL n (TL l)`,
+  simp[GSYM ADD1, EL]);
+
 val evaluate_MAPrm1 = Q.prove(
-  `(∀e es' vs. MEM e es ∧ remove [e] = (es', vs) ⇒ exp_rel (:'ffi) [e] es') ∧
+  `(∀e i es' vs. MEM e es ∧ mustkeep i e keeps ∧ remove [e] = (es', vs) ⇒
+                 exp_rel (:'ffi) [e] es') ∧
    LIST_REL (val_rel (:'ffi) i) env1 env2 ∧
    state_rel i (s1:'ffi closSem$state) s2 ∧ j ≤ i ⇒
      case evaluate (es, env1, s1 with clock := j) of
@@ -307,9 +329,8 @@ val evaluate_MAPrm1 = Q.prove(
             evaluate (MAPi (rm1 keeps b) es, env2, s2 with clock := j) =
               (Rval vs', s') ∧
             state_rel s.clock s s' ∧
-            LIST_RELi (λi v1 v2. if mustkeep (b + i) (EL i es) keeps then
-                                   val_rel (:'ffi) s.clock v1 v2
-                                 else v2 = Number 0)
+            LIST_RELi (keepval_rel (:'ffi) s.clock
+                         { i | mustkeep (b + i) (EL i es) keeps })
                       vs
                       vs'
      | (Rerr e, s) =>
@@ -338,7 +359,7 @@ val evaluate_MAPrm1 = Q.prove(
           simp[] >> qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
           imp_res_tac remove_SING >> var_eq_tac >> fs[] >>
           qcase_tac `remove [e] = ([e'], _)` >>
-          qpat_assum `exp_rel _ _ _` mp_tac >>
+          first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
           simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
           disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
           simp[] >> disch_then (qspec_then `j` mp_tac) >> simp[res_rel_rw] >>
@@ -348,9 +369,112 @@ val evaluate_MAPrm1 = Q.prove(
       simp[rm1_def] >>
       asm_simp_tac (srw_ss() ++ COND_elim_ss ++ CONJ_ss)
         [closSemTheory.evaluate_def, const_0_def, closSemTheory.do_app_def] >>
-      reverse (Cases
-*)
-
+      reverse (Cases_on `mustkeep b e keeps`) >> simp[]
+      >- (fs[mustkeep_def] >>
+          IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
+                       pure_expressions_clean >> simp[]) >>
+      qcase_tac `remove [e]` >> Cases_on `remove [e]` >>
+      imp_res_tac remove_SING >> var_eq_tac >> fs[] >>
+      first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
+      simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+      disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
+      simp[] >> disch_then (qspec_then `j` mp_tac) >> simp[res_rel_rw]) >>
+  qcase_tac `evaluate _ = (Rval r1list, s1')` >>
+  `∃r1. r1list = [r1]` by metis_tac[evaluate_SING] >> var_eq_tac >> simp[] >>
+  `∃r1' s1''. evaluate (es,env1,s1') = (r1',s1'')`
+     by metis_tac[pair_CASES] >> simp[] >>
+  reverse (Cases_on `r1'`) >> simp[]
+  >- (qcase_tac `evaluate(es,env1,s1') = (Rerr err, s1'')` >>
+      Cases_on `err` >> simp[res_rel_rw]
+      >- (simp[rm1_def] >> reverse (Cases_on `mustkeep b e keeps`) >> simp[]
+          >- (dsimp[const_0_def, closSemTheory.evaluate_def,
+                    closSemTheory.do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
+              fs[mustkeep_def] >>
+              IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
+                           pure_expressions_clean >> simp[] >> rw[] >>
+              first_x_assum
+                (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
+                             mp_tac) >>
+              simp[res_rel_rw] >> asm_rewrite_tac[]) >>
+          Cases_on `remove[e]` >> imp_res_tac remove_SING >> var_eq_tac >>
+          fs[] >> first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
+          simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+          disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
+          simp[] >> disch_then (qspec_then `j` mp_tac) >>
+          dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
+          qcase_tac `state_rel s1'.clock s1' s2'` >>
+          first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
+                                      `b + 1`, `env1`, `env2`] mp_tac) >>
+          fs[] >> asm_rewrite_tac[] >>
+          `s1' with clock := s2'.clock = s1' ∧
+           s2' with clock := s2'.clock = s2'`
+            by simp[closSemTheory.state_component_equality] >>
+          dsimp[res_rel_rw, eqs, pair_case_eq] >> disch_then irule >>
+          irule val_rel_mono_list >> qexists_tac `i` >> simp[] >>
+          imp_res_tac closSemTheory.evaluate_clock >> fs[] >> simp[]) >>
+      qcase_tac `evaluate (es,_,_) = (Rerr (Rabort abt), _)` >>
+      Cases_on `abt` >> simp[res_rel_rw] >>
+      simp[rm1_def] >> reverse (Cases_on `mustkeep b e keeps`) >> simp[]
+      >- (dsimp[const_0_def, closSemTheory.evaluate_def,
+                closSemTheory.do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
+          fs[mustkeep_def] >>
+          IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
+                       pure_expressions_clean >> simp[] >> rw[] >>
+          first_x_assum
+            (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
+                         mp_tac) >>
+          simp[res_rel_rw] >> asm_rewrite_tac[]) >>
+      Cases_on `remove[e]` >> imp_res_tac remove_SING >> var_eq_tac >>
+      fs[] >> first_x_assum (qspec_then `b` mp_tac) >> simp[] >>
+      simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+      disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
+      simp[] >> disch_then (qspec_then `j` mp_tac) >>
+      dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
+      qcase_tac `state_rel s1'.clock s1' s2'` >>
+      first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
+                                  `b + 1`, `env1`, `env2`] mp_tac) >>
+      fs[] >> asm_rewrite_tac[] >>
+      `s1' with clock := s2'.clock = s1' ∧
+       s2' with clock := s2'.clock = s2'`
+        by simp[closSemTheory.state_component_equality] >>
+      dsimp[res_rel_rw, eqs, pair_case_eq] >> disch_then irule >>
+      irule val_rel_mono_list >> qexists_tac `i` >> simp[] >>
+      imp_res_tac closSemTheory.evaluate_clock >> fs[] >> simp[]) >>
+  simp[rm1_def] >> reverse (Cases_on `mustkeep b e keeps`) >> simp[]
+  >- (dsimp[const_0_def, closSemTheory.evaluate_def,
+            closSemTheory.do_app_def, rm1_o_SUC, pair_case_eq, eqs] >>
+      fs[mustkeep_def] >>
+      IMP_RES_THEN (qspecl_then [`s1 with clock := j`, `env1`] mp_tac)
+                   pure_expressions_clean >> simp[] >> rw[] >>
+      first_x_assum
+        (qspecl_then [`s1`, `s2`, `j`, `i`, `b + 1`, `env1`, `env2`]
+                     mp_tac) >>
+      simp[res_rel_rw] >>
+      simp[LIST_RELi_thm, combinTheory.o_ABS_L, ADD1, keepval_rel_def,
+           keepval_rel_o_SUC, GSPEC_o, ELplus1] >>
+      metis_tac[]) >>
+  Cases_on `remove[e]` >> imp_res_tac remove_SING >> var_eq_tac >>
+  fs[] >> first_x_assum (qspec_then`b` mp_tac) >> simp[] >>
+  simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+  disch_then (qspecl_then [`i`, `env1`, `env2`, `s1`, `s2`] mp_tac) >>
+  simp[] >> disch_then (qspec_then `j` mp_tac) >>
+  dsimp[res_rel_rw, rm1_o_SUC] >> rpt strip_tac >>
+  dsimp[LIST_RELi_thm, combinTheory.o_ABS_L, ADD1, eqs, pair_case_eq,
+        keepval_rel_o_SUC, GSPEC_o, ELplus1, keepval_rel_def] >>
+  qcase_tac `state_rel s1'.clock s1' s2'` >>
+  first_x_assum (qspecl_then [`s1'`, `s2'`, `s2'.clock`, `s2'.clock`,
+                              `b + 1`, `env1`, `env2`] mp_tac) >>
+  fs[] >> asm_rewrite_tac[] >>
+  `s1' with clock := s2'.clock = s1' ∧
+   s2' with clock := s2'.clock = s2'`
+    by simp[closSemTheory.state_component_equality] >>
+  dsimp[res_rel_rw, eqs, pair_case_eq] >>
+  `LIST_REL (val_rel (:'ffi) s2'.clock) env1 env2`
+     by (irule val_rel_mono_list >> qexists_tac `i` >> simp[] >>
+         imp_res_tac closSemTheory.evaluate_clock >> lfs[]) >>
+  dsimp[] >> rpt strip_tac >> irule (hd (CONJUNCTS val_rel_mono)) >>
+  qexists_tac `s2'.clock` >> simp[] >>
+  imp_res_tac closSemTheory.evaluate_clock >> lfs[])
 
 val remove_correct = Q.store_thm("remove_correct",
   `∀es es' s.
@@ -370,7 +494,25 @@ val remove_correct = Q.store_thm("remove_correct",
        qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >>
        strip_tac >>
        asm_simp_tac (srw_ss() ++ ETA_ss)
-         [closSemTheory.evaluate_def,GSYM rm1_def] >> cheat) >>
+         [closSemTheory.evaluate_def, GSYM mustkeep_def,
+          rm1_def |> GSYM |> SPEC_ALL
+                  |> Q.INST [`n` |-> `0`] |> SIMP_RULE (srw_ss()) []] >>
+       qx_gen_tac `j` >> strip_tac >>
+       qcase_tac `remove [body] = ([body'], keeps)` >>
+       qcase_tac `MEM _ es` >> mp_tac (Q.INST [`b` |-> `0`] evaluate_MAPrm1) >>
+       simp[] >> fs[GSYM mustkeep_def] >>
+       `∀e. MEM e es ⇒ every_Fn_vs_NONE [e]`
+          by fs[Once every_Fn_vs_NONE_EVERY, EVERY_MEM] >> fs[] >>
+       fs[PULL_FORALL, AND_IMP_INTRO, GSYM CONJ_ASSOC] >> asm_rewrite_tac[] >>
+       `∃r1 s1'. evaluate (es,env1,s1 with clock := j) = (r1,s1')`
+          by metis_tac[pair_CASES] >> simp[] >>
+       reverse (Cases_on `r1`) >> simp[]
+       >- (qcase_tac `evaluate _ = (Rerr err, s1')` >>
+           Cases_on `err` >> dsimp[res_rel_rw] >- metis_tac[] >>
+           qcase_tac `evaluate _ = (Rerr (Rabort abt), s1')` >>
+           Cases_on `abt` >> dsimp[res_rel_rw]) >>
+       dsimp[] >>
+       cheat) >>
   TRY (qcase_tac`Letrec` >>
        lfs[FOLDR_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi, SND_UNZIP_MAPi,
            combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R
