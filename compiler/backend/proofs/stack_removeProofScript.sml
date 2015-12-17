@@ -1,6 +1,7 @@
 open preamble
      stack_removeTheory
      stackSemTheory
+     stackPropsTheory
      set_sepTheory
      semanticsPropsTheory (* TODO: should be in heap? *)
 
@@ -10,6 +11,8 @@ val good_syntax_def = Define `
   (good_syntax (Halt v1) k <=>
      v1 < k) /\
   (good_syntax (Raise v1) k <=>
+     v1 < k) /\
+  (good_syntax (LocValue v1 l1 l2) k <=>
      v1 < k) /\
   (good_syntax (Return v1 v2) k <=>
      v1 < k /\ v2 < k) /\
@@ -169,6 +172,11 @@ val comp_correct = Q.prove(
     \\ Cases_on `get_var ptr t1` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ Cases_on `get_var len t1` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ cheat)
+  THEN1 (* LocValue *)
+   (fs [evaluate_def,Once comp_def] \\ rw []
+    \\ fs [state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
+    \\ `r <> k /\ r <> k+1 /\ r <> k+2` by decide_tac \\ fs []
+    \\ rw [] \\ fs [] \\ res_tac \\ fs [] \\ rfs [])
   THEN1 (* StackAlloc *) cheat
   THEN1 (* StackFree *) cheat
   THEN1 (* StackLoad *) cheat
