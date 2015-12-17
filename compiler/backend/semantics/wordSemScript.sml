@@ -534,14 +534,7 @@ val evaluate_def = tDefine "evaluate" `
 		    | NONE => (SOME Error,s2)
 		    | SOME s1 =>
 			(if domain s1.locals = domain env
-			 then
-			   (*Value restriction on the return handler (makes it easier to reason about)
-			     Don't really need it to do fancy things.
-           Keep y in register 2
-           *)
-			   case evaluate(ret_handler,set_var n y (check_clock s1 s)) of
-			   | (NONE,s) => (NONE,s)
-			   | (_,s) => (SOME Error,s)
+			 then evaluate(ret_handler,set_var n y (check_clock s1 s))
 			 else (SOME Error,s1)))
 		| (SOME (Exception x y),s2) =>
 		   (case handler of (* if handler is present, then handle exc *)

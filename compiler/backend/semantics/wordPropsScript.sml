@@ -185,23 +185,38 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   TRY CASE_TAC >> fs[] >> rveq >> fs[] >> rveq >>
   TRY (
     qcase_tac`find_code _ (add_ret_loc _ _)` >>
-    cheat
-    (*
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    CASE_TAC >> fs[] >>
-    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    Cases_on`get_vars args s`>>fs[]>>
+    Cases_on`find_code dest (add_ret_loc (SOME x) x') s.code`>>fs[]>>
+    PairCases_on`x''`>>PairCases_on`x`>>fs[]>>
+    Cases_on`cut_env x1 s.locals`>>fs[]>>
+    qpat_assum`A=(r,s')` mp_tac>>
+    TRY(IF_CASES_TAC>>fs[])>>
+    FULL_CASE_TAC>>fs[]>>Cases_on`q`>>TRY(Cases_on `x''`)>>
+    fsrw_tac[ARITH_ss][dec_clock_def]>>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>
     every_case_tac >> fs[] >> rveq >> fs[] >>
     rfs[] >> fs[] >>
     imp_res_tac pop_env_const >> fs[] >>
     rfs[] >> rveq >> fs[] >> rw[] >>
-    *)) >>
+    fs[])>>
+  TRY (
+    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    Cases_on`get_vars args s`>>fs[]>>
+    Cases_on`find_code dest (add_ret_loc ret x') s.code`>>fs[]>>
+    Cases_on`ret`>>fs[]>>
+    PairCases_on`x''`>>fs[]>>
+    PairCases_on`x'''`>>fs[]>>
+    Cases_on`cut_env x'''1 s.locals`>>fs[]>>
+    qpat_assum`A=(r,s')` mp_tac>>
+    TRY(IF_CASES_TAC>>fs[])>>
+    Cases_on`evaluate (x''1,call_env x''0 (push_env x'' (SOME x) (dec_clock s)))`>>Cases_on`q`>>TRY(Cases_on`x'''`)>>
+    fsrw_tac[ARITH_ss][dec_clock_def]>>
+    rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rw[]>>
+    every_case_tac >> fs[] >> rveq >> fs[] >>
+    rfs[] >> fs[] >>
+    imp_res_tac pop_env_const >> fs[] >>
+    rfs[] >> rveq >> fs[] >> rw[] >>
+    fs[])>>
   fs[LET_THM,dec_clock_def] >>
   TRY split_pair_tac >> fs[] >> rveq >> fs[] >>
   imp_res_tac alloc_const >> fs[] >>
@@ -817,13 +832,21 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
     fs[]>>
     Cases_on`evaluate (r,call_env q (push_env x' handler (dec_clock s)))`>>
     Cases_on`q'`>>fs[]>>Cases_on`x''`>>fs[]>-
-      (*Result*)
-      (BasicProvers.EVERY_CASE_TAC>>
+      (*Result--case is very broken, better to rewrite*)
+      (
+      cheat>>
+      fs[get_vars_stack_swap_simp]>>
+      IF_CASES_TAC>>fs[]>>
+      FULL_CASE_TAC>>
+      IF_CASES_TAC>>
       fs[set_var_def,call_env_def]>>
       IMP_RES_TAC push_env_pop_env_s_key_eq>>fs[dec_clock_def,SOME_11]>>
+      Cases_on`evaluate(x'2,x'' with locals:=insert x'0 w0 x''.locals)`>>fs[]>>
+      Cases_on`q'`>>TRY(Cases_on`x'''`)>>fs[]>>
       `s_key_eq s.stack x''.stack` by fs[EQ_SYM_EQ]>>fs[]>>
       (CONJ_TAC>- metis_tac[s_key_eq_trans]>>CONJ_ASM1_TAC>-
-      (fs[push_env_def,LET_THM,env_to_list_def,pop_env_def]>>
+      (
+      fs[push_env_def,LET_THM,env_to_list_def,pop_env_def]>>
       Cases_on`r'.stack`>>fs[s_key_eq_def]>>Cases_on`h`>>Cases_on`o'`>>
       TRY(PairCases_on`x'''`)>>
       fs[s_frame_key_eq_def]>>
@@ -837,7 +860,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",
       fs[push_env_def,LET_THM,env_to_list_def]>>
       qpat_abbrev_tac `frame = StackFrame ls n`>>
       first_x_assum (qspec_then `frame` assume_tac)>>
-      first_x_assum(qspec_then `frame::xs` assume_tac)>>
+      last_x_assum(qspec_then `frame::xs` assume_tac)>>
       rfs[]>>
       `LENGTH xs = LENGTH s.stack` by fs[s_val_eq_length]>> fs[]>>
       Cases_on`st`>>fs[s_key_eq_def]>>
@@ -1244,7 +1267,9 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         FULL_CASE_TAC>>fs[]>>
         IF_CASES_TAC>>fs[]>>
         Cases_on`evaluate(x'2,set_var x'0 w0 x'')`>>
-        Cases_on`q'`>>fs[]>>rw[]>>
+        Cases_on`q'`>>
+        TRY(Cases_on`x'''`)>>
+        fs[]>>rw[]>>
         first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
         first_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
         qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
