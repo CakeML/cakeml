@@ -11,6 +11,210 @@ Main lemmas:
 
 val _ = new_theory "wordProps";
 
+(* evaluate clock monotonicity *)
+
+val set_store_const = Q.store_thm("set_store_const[simp]",
+  `(set_store x y z).clock = z.clock`,
+  EVAL_TAC)
+
+val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
+  `(set_store x y (z with clock := k)) = set_store x y z with clock := k`,
+  EVAL_TAC)
+
+val push_env_const = Q.store_thm("push_env_const[simp]",
+  `(push_env x y z).clock = z.clock`,
+  Cases_on`y`>>simp[push_env_def,UNCURRY] >>
+  qcase_tac`SOME p` >>
+  PairCases_on`p` >>
+  rw[push_env_def] >> rw[]);
+
+val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
+  `push_env x y (z with clock := k) = push_env x y z with clock := k`,
+  Cases_on`y`>>rw[push_env_def] >- simp[state_component_equality] >>
+  qcase_tac`SOME p` >>
+  PairCases_on`p` >>
+  rw[push_env_def] >> simp[state_component_equality]);
+
+val pop_env_const = Q.store_thm("pop_env_const",
+  `pop_env x = SOME y ⇒
+   y.clock = x.clock`,
+   rw[pop_env_def] >>
+   every_case_tac >> fs[] >> rw[]);
+
+val pop_env_with_const = Q.store_thm("pop_env_with_const[simp]",
+  `pop_env (z with clock := k) = OPTION_MAP (λs. s with clock := k) (pop_env z)`,
+  rw[pop_env_def] >> every_case_tac >> fs[]);
+
+val call_env_const = Q.store_thm("call_env_const[simp]",
+  `(call_env x y).clock = y.clock`,
+  EVAL_TAC)
+
+val call_env_with_const = Q.store_thm("call_env_with_const[simp]",
+  `call_env x (y with clock := k) = call_env x y with clock := k`,
+  EVAL_TAC)
+
+val has_space_with_const = Q.store_thm("has_space_with_const[simp]",
+  `has_space x (y with clock := k) = has_space x y`,
+  EVAL_TAC)
+
+val gc_const = Q.store_thm("gc_const",
+  `gc x = SOME y ⇒
+   y.clock = x.clock`,
+  simp[gc_def] >>
+  every_case_tac >> fs[] >> rw[] >> rw[]);
+
+val gc_with_const = Q.store_thm("gc_with_const[simp]",
+  `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)`,
+  EVAL_TAC >>
+  CASE_TAC >> EVAL_TAC >>
+  CASE_TAC >> EVAL_TAC >>
+  CASE_TAC >> EVAL_TAC >>
+  CASE_TAC >> EVAL_TAC);
+
+val alloc_const = Q.store_thm("alloc_const",
+  `alloc c names s = (r,s') ⇒
+   s'.clock = s.clock`,
+  rw[alloc_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac pop_env_const >> fs[] >>
+  imp_res_tac gc_const >> fs[]);
+
+val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
+  `alloc c names (s with clock := k) =
+   (λ(r,s). (r,s with clock := k)) (alloc c names s)`,
+  rw[alloc_def] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC >> fs[] >> rw[] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC >> fs[] >>
+  CASE_TAC >> fs[]);
+
+val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
+  `get_var x (y with clock := k) = get_var x y`,
+  EVAL_TAC)
+
+val get_vars_with_const = Q.store_thm("get_vars_with_const[simp]",
+  `get_vars x (y with clock := k) = get_vars x y`,
+  Induct_on`x`>>rw[get_vars_def]);
+
+val set_var_const = Q.store_thm("set_var_const[simp]",
+  `(set_var x y z).clock = z.clock`,
+  EVAL_TAC)
+
+val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
+  `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  EVAL_TAC);
+
+val set_vars_const = Q.store_thm("set_vars_const[simp]",
+  `(set_vars x y z).clock = z.clock`,
+  EVAL_TAC);
+
+val set_vars_with_const = Q.store_thm("set_vars_with_const[simp]",
+  `set_vars x y (z with clock := k) = set_vars x y z with clock := k`,
+  EVAL_TAC);
+
+val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
+  `mem_load x (y with clock := k) = mem_load x y`,
+  EVAL_TAC);
+
+val mem_store_const = Q.store_thm("mem_store_const",
+  `mem_store x y z = SOME a ⇒
+   a.clock = z.clock`,
+  EVAL_TAC >> rw[] >> rw[]);
+
+val mem_store_with_const = Q.store_thm("mem_store_with_const[simp]",
+  `mem_store x z (y with clock := k) = OPTION_MAP (λs. s with clock := k) (mem_store x z y)`,
+  EVAL_TAC >> every_case_tac >> simp[]);
+
+val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
+  `∀x y k. word_exp (x with clock := k) y = word_exp x y`,
+  recInduct word_exp_ind >>
+  rw[word_exp_def] >>
+  every_case_tac >> fs[] >>
+  unabbrev_all_tac >>
+  fs[EVERY_MEM,EXISTS_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS,MAP_MAP_o,o_DEF] >>
+  res_tac >> rfs[] >>
+  AP_TERM_TAC >> simp[MAP_EQ_f]);
+
+val assign_const = Q.store_thm("assign_const",
+  `assign x y z = SOME a ⇒
+   a.clock = z.clock`,
+  EVAL_TAC >> every_case_tac >> fs[] >> rw[] >> rw[]);
+
+val assign_with_const = Q.store_thm("assign_with_const[simp]",
+  `assign x y (z with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y z)`,
+  EVAL_TAC >> every_case_tac >> EVAL_TAC >> fs[]);
+
+val inst_with_const = Q.store_thm("inst_with_const[simp]",
+  `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
+  rw[inst_def] >> every_case_tac >> fs[]);
+
+val inst_const = Q.store_thm("inst_const",
+  `inst i s = SOME s' ⇒
+   s'.clock = s.clock`,
+  rw[inst_def] >>
+  every_case_tac >>fs[] >>
+  imp_res_tac assign_const >> fs[] >> rw[] >>
+  imp_res_tac mem_store_const >> fs[] >> rw[]);
+
+val jump_exc_const = Q.store_thm("jump_exc_const",
+  `jump_exc s = SOME (x,y) ⇒
+   x.clock = s.clock`,
+  EVAL_TAC >> every_case_tac >> EVAL_TAC >> rw[] >> rw[]);
+
+val jump_exc_with_const = Q.store_thm("jump_exc_with_const[simp]",
+  `jump_exc (s with clock := k) = OPTION_MAP (λ(s,t). (s with clock := k, t)) (jump_exc s)`,
+  EVAL_TAC >> every_case_tac >> EVAL_TAC);
+
+val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
+  `get_var_imm x (y with clock := k) = get_var_imm x y`,
+  Cases_on`x`>>EVAL_TAC);
+
+val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
+  `∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
+    evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >>
+  TRY CASE_TAC >> fs[] >> rveq >> fs[] >> rveq >>
+  TRY CASE_TAC >> fs[] >>
+  TRY CASE_TAC >> fs[] >> rveq >> fs[] >> rveq >>
+  TRY (
+    qcase_tac`find_code _ (add_ret_loc _ _)` >>
+    cheat
+    (*
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>
+    every_case_tac >> fs[] >> rveq >> fs[] >>
+    rfs[] >> fs[] >>
+    imp_res_tac pop_env_const >> fs[] >>
+    rfs[] >> rveq >> fs[] >> rw[] >>
+    *)) >>
+  fs[LET_THM,dec_clock_def] >>
+  TRY split_pair_tac >> fs[] >> rveq >> fs[] >>
+  imp_res_tac alloc_const >> fs[] >>
+  imp_res_tac inst_const >> fs[] >>
+  imp_res_tac mem_store_const >> fs[] >>
+  simp[state_component_equality,dec_clock_def] >>
+  fs[ffiTheory.call_FFI_def,LET_THM] >>
+  every_case_tac >> fs[] >> rveq >> fs[] >> rveq >>
+  simp[state_component_equality,dec_clock_def] >>
+  imp_res_tac jump_exc_const >> fs[] >>
+  rfs[] >>fsrw_tac[ARITH_ss][] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rveq>>fs[]>>
+  metis_tac[]);
+
+(* -- *)
+
 val get_vars_length_lemma = store_thm("get_vars_length_lemma",
   ``!ls s y. get_vars ls s = SOME y ==>
            LENGTH y = LENGTH ls``,
