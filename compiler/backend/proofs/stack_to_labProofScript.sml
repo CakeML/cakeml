@@ -1,6 +1,7 @@
 open preamble
      stackSemTheory
      stack_to_labTheory
+     stack_allocTheory
      labSemTheory labPropsTheory
 
 val _ = new_theory"stack_to_labProof";
@@ -100,7 +101,7 @@ val state_rel_def = Define`
     t.clock = s.clock ∧
     (∀n prog. lookup n s.code = SOME prog ⇒
       good_syntax prog t.len_reg t.ptr_reg t.link_reg ∧
-      ∃pc. code_installed pc (FST (flatten prog n (max_lab prog))) t.code ∧
+      ∃pc. code_installed pc (FST (flatten prog n (next_lab prog))) t.code ∧
            loc_to_pc n 0 t.code = SOME pc) ∧
     ¬t.failed ∧
     t.link_reg ≠ t.len_reg ∧ t.link_reg ≠ t.ptr_reg ∧
@@ -206,7 +207,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
      state_rel s1 t1 ∧
      good_syntax prog t1.len_reg t1.ptr_reg t1.link_reg ∧
      code_installed t1.pc (FST (flatten prog n l)) t1.code ∧
-     max_lab prog ≤ l
+     next_lab prog ≤ l
      ⇒
      ∃ck t2.
      case r of SOME (Halt w) =>
@@ -309,7 +310,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[Once flatten_def] >>
     simp[UNCURRY] >> strip_tac >>
     imp_res_tac code_installed_append_imp >>
-    fs[Q.SPEC`Seq _ _`max_lab_def] >>
+    fs[Q.SPEC`Seq _ _`next_lab_def] >>
     fs[good_syntax_def] >>
     reverse (Cases_on`res`)>>fs[]>-(
       rpt var_eq_tac >> fs[] >>
@@ -439,12 +440,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,max_lab_def] >>
+        simp[good_syntax_def,next_lab_def] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      fs[Q.SPEC`If _ _ _ _ _`max_lab_def] >>
+      fs[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
@@ -490,12 +491,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
         first_x_assum drule >>
-        simp[good_syntax_def,max_lab_def] >>
+        simp[good_syntax_def,next_lab_def] >>
         simp[upd_pc_def] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      fs[Q.SPEC`If _ _ _ _ _`max_lab_def] >>
+      fs[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
@@ -544,7 +545,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         first_x_assum drule >>
         fs[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-        fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+        fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
         simp[upd_pc_def] >> strip_tac >>
         CASE_TAC >> fs[] >- (
           qexists_tac`ck+1`>>simp[] >>
@@ -563,7 +564,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
       fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
       fs[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
@@ -611,7 +612,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         first_x_assum drule >>
         fs[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-        fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+        fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
         discharge_hyps >- (
           metis_tac[flatten_leq,LESS_EQ_TRANS,SND] ) >>
         simp[upd_pc_def] >> strip_tac >>
@@ -632,7 +633,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
       fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       fs[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
@@ -672,7 +673,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
       fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       fs[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
@@ -696,7 +697,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     drule state_rel_with_pc >> strip_tac >>
     first_x_assum drule >>
     fs[good_syntax_def] >>
-    fs[Q.SPEC`If _ _ _ _ _ `max_lab_def] >>
+    fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
     discharge_hyps >- (
       metis_tac[flatten_leq,SND,LESS_EQ_TRANS] ) >>

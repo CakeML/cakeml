@@ -6,16 +6,16 @@ val stubs_def = Define `
   stubs (c:bvp_to_word$config) =
     [(10n,Skip:'a stackLang$prog)]`
 
-val max_lab_def = Define `
-  max_lab (p:'a stackLang$prog) =
+val next_lab_def = Define `
+  next_lab (p:'a stackLang$prog) =
     case p of
-    | Seq p1 p2 => MAX (max_lab p1) (max_lab p2)
-    | If _ _ _ p1 p2 => MAX (max_lab p1) (max_lab p2)
-    | Call NONE _ NONE => 0
-    | Call NONE _ (SOME (_,_,l2)) => l2
-    | Call (SOME (_,_,_,l2)) _ NONE => l2
-    | Call (SOME (_,_,_,l2)) _ (SOME (_,_,l3)) => MAX l2 l3
-    | _ => 0`
+    | Seq p1 p2 => MAX (next_lab p1) (next_lab p2)
+    | If _ _ _ p1 p2 => MAX (next_lab p1) (next_lab p2)
+    | Call NONE _ NONE => 1
+    | Call NONE _ (SOME (_,_,l2)) => l2 + 1
+    | Call (SOME (_,_,_,l2)) _ NONE => l2 + 1
+    | Call (SOME (_,_,_,l2)) _ (SOME (_,_,l3)) => MAX l2 l3 + 1
+    | _ => 1`
 
 val comp_def = Define `
   comp n m p =
@@ -40,7 +40,7 @@ val comp_def = Define `
     | _ => (p,m) `
 
 val prog_comp_def = Define `
-  prog_comp (n,p) = (n,FST (comp n (max_lab p) p))`
+  prog_comp (n,p) = (n,FST (comp n (next_lab p) p))`
 
 val compile_def = Define `
   compile c prog = stubs c ++ MAP prog_comp prog`;
