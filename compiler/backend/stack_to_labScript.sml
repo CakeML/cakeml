@@ -1,18 +1,7 @@
 open preamble stackLangTheory labLangTheory;
-local open stack_removeTheory stack_namesTheory in (* stack-to-stack transformations *) end
+local open stack_allocTheory stack_removeTheory stack_namesTheory in end
 
 val _ = new_theory "stack_to_lab";
-
-val max_lab_def = Define `
-  max_lab (p:'a stackLang$prog) =
-    case p of
-    | Seq p1 p2 => MAX (max_lab p1) (max_lab p2)
-    | If _ _ _ p1 p2 => MAX (max_lab p1) (max_lab p2)
-    | Call NONE _ NONE => 0
-    | Call NONE _ (SOME (_,_,l2)) => l2
-    | Call (SOME (_,_,_,l2)) _ NONE => l2
-    | Call (SOME (_,_,_,l2)) _ (SOME (_,_,l3)) => MAX l2 l3
-    | _ => 0`
 
 val no_ret_def = Define `
   no_ret (p:'a stackLang$prog) =
@@ -105,7 +94,8 @@ val _ = Datatype`config =
    |>`;
 
 val compile_def = Define `
-  compile start c prog =
+  compile start c c2 prog =
+    let prog = stack_alloc$compile c2 prog in
     let prog = stack_remove$compile (n2w c.max_heap_bytes) c.stack_ptr start prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
