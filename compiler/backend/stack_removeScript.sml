@@ -27,10 +27,7 @@ val store_offset_def = Define `
   store_offset name = 0w - word_offset (store_pos name)`;
 
 val stack_err_lab_def = Define `
-  stack_err_lab = 5n`;
-
-val stack_err_stub_def = Define `
-  stack_err_stub = [Inst (Const 1 2w); Halt 1]`
+  stack_err_lab = 2n`;
 
 (*
     k is stack pointer register
@@ -122,7 +119,7 @@ val halt_inst_def = Define `
     reg 4: one past last address of stack *)
 
 val init_stub_def = Define `
-  init_stub max_heap_bytes k start =
+  init_stubs max_heap_bytes k start =
     let prog_start = 1 in
     let heap_start = 2 in
     let heap_end = 3 in
@@ -133,7 +130,7 @@ val init_stub_def = Define `
     let temp4 = stack_end in
     let sp = k in
     let bp = k+1 in
-      (0n,list_Seq [
+      [(0n,list_Seq [
          (* adjust heap so that it isn't too big *)
          const_inst temp1 max_heap_bytes;
          move temp2 heap_start;
@@ -181,11 +178,13 @@ val init_stub_def = Define `
            Set HeapLength temp3;
            StackAlloc 1;
            StackStore prog_start 0;
-           Call (SOME (Skip,1,0,1)) (INL start) NONE;
-           halt_inst 0w])])`
+           LocValue 0 1 0;
+           Call NONE (INL start) NONE])]);
+       (1n,halt_inst 0w);
+       (2n,halt_inst 2w)]`
 
 val compile_def = Define `
   compile max_heap_bytes k start prog =
-    init_stub max_heap_bytes k start :: MAP (prog_comp k) prog`;
+    init_stubs max_heap_bytes k start ++ MAP (prog_comp k) prog`;
 
 val _ = export_theory();
