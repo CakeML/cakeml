@@ -398,6 +398,8 @@ val evaluate_def = tDefine "evaluate" `
                                  ffi := new_ffi |>)
           | _ => (SOME Error,s))
     | res => (SOME Error,s)) /\
+  (evaluate (LocValue r l1 l2,s) =
+     (NONE,set_var r (Loc l1 l2) s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
      if s.stack_space < n then (SOME (Halt (Word 1w)),empty_env s) else
@@ -444,7 +446,7 @@ val evaluate_def = tDefine "evaluate" `
                              (\(xs,(s:('a,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
    \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
-   \\ fs[empty_env_def,dec_clock_def] \\ DECIDE_TAC)
+   \\ fs[empty_env_def,dec_clock_def,set_var_def] \\ DECIDE_TAC)
 
 val evaluate_ind = theorem"evaluate_ind";
 
@@ -502,6 +504,10 @@ val set_var_check_clock = prove(
   ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
   SIMP_TAC std_ss [set_var_def,check_clock_def] \\ SRW_TAC [] []);
 
+val dec_clock_set_var = prove(
+  ``(dec_clock (set_var r x s)).clock = (dec_clock s).clock``,
+  EVAL_TAC);
+
 val evaluate_ind = curry save_thm "evaluate_ind" let
   val raw_ind = evaluate_ind
   val goal = raw_ind |> concl |> clean_term
@@ -512,6 +518,7 @@ val evaluate_ind = curry save_thm "evaluate_ind" let
     THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC evaluate_clock \\ SRW_TAC [] []
+           \\ fs [GSYM set_var_check_clock,dec_clock_set_var]
            \\ RES_TAC \\ IMP_RES_TAC check_clock_alt \\ fs [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
@@ -530,13 +537,14 @@ val evaluate_def = curry save_thm "evaluate_def" let
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ IMP_RES_TAC evaluate_check_clock \\ fs []
     \\ Cases_on `find_code dest s.regs s.code` \\ fs []
-    \\ Cases_on `evaluate (x,dec_clock s)` \\ fs []
-    \\ `check_clock r' s = r'` by ALL_TAC \\ fs []
-    \\ IMP_RES_TAC evaluate_check_clock
-    \\ fs [check_clock_def,dec_clock_def] \\ SRW_TAC [] []
-    \\ fs [theorem "state_component_equality"]
-    \\ Cases_on `r'.clock <= s.clock - 1` \\ fs []
-    \\ DECIDE_TAC)
+    \\ Cases_on `ret` \\ fs []
+    \\ PairCases_on `x'` \\ fs []
+    \\ IF_CASES_TAC \\ fs []
+    \\ every_case_tac \\ fs [] \\ rfs [] \\ fs [] \\ rw []
+    \\ IMP_RES_TAC evaluate_clock
+    \\ fs [dec_clock_def,set_var_def,check_clock_def]
+    \\ every_case_tac \\ fs []
+    \\ `F` by decide_tac)
   in def end;
 
 (* observational semantics *)

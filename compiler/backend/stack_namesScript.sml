@@ -32,6 +32,7 @@ val comp_def = Define `
     | Raise r => Raise (find_name f r)
     | Return r1 r2 => Return (find_name f r1) (find_name f r2)
     | Inst i => Inst (inst_find_name f i)
+    | LocValue i l1 l2 => LocValue (find_name f i) l1 l2
     | Seq p1 p2 => Seq (comp f p1) (comp f p2)
     | If c r ri p1 p2 =>
         If c (find_name f r) (ri_find_name f ri) (comp f p1) (comp f p2)

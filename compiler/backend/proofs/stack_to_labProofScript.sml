@@ -933,27 +933,16 @@ val flatten_correct = Q.store_thm("flatten_correct",
     res_tac >>
     Cases_on `t1.io_regs 0 k` >> fs [get_reg_value_def] >>
     rw [] >> fs []) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
-  conj_tac >- (
-    rw[stackSemTheory.evaluate_def] >>
-    fs[state_rel_def] ) >>
+  conj_tac >-
+   (rw[stackSemTheory.evaluate_def]
+    \\ fs [flatten_def,code_installed_def]
+    \\ simp [Once evaluate_def] \\ qexists_tac `1`
+    \\ fs [asm_fetch_def,lab_to_loc_def]
+    \\ fs [inc_pc_def,dec_clock_def,upd_reg_def]
+    \\ (fn g => subterm (fn tm =>
+         qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g))
+    \\ fs [state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
+    \\ rw [] \\ res_tac) >>
   rw[stackSemTheory.evaluate_def] >>
   fs[state_rel_def]);
 
