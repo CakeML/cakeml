@@ -111,4 +111,10 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
        every_case_tac >> fs[] >> rw[] ) >>
   metis_tac[IS_PREFIX_TRANS]);
 
+val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
+  `∀p s r s'.
+    evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
+    evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`,
+  cheat);
+
 val _ = export_theory();
