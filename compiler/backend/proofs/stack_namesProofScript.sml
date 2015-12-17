@@ -24,18 +24,6 @@ val get_var_find_name = store_thm("get_var_find_name[simp]",
   \\ match_mp_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
   \\ fs [INJ_DEF]);
 
-val evaluate_consts = store_thm("evaluate_consts",
-  ``!c s r s1.
-      evaluate (c,s) = (r,s1) ==>
-      s1.use_alloc = s.use_alloc /\
-      s1.use_store = s.use_store /\
-      s1.use_stack = s.use_stack /\
-      s1.code = s.code /\
-      s1.be = s.be /\
-      s1.gc_fun = s.gc_fun /\
-      s1.mdomain = s.mdomain``,
-  cheat);
-
 val comp_correct = prove(
   ``!p s r t.
       evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
