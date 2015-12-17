@@ -29,7 +29,8 @@ val push_env_const = Q.store_thm("push_env_const[simp]",
   rw[push_env_def] >> rw[]);
 
 val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
-  `push_env x y (z with clock := k) = push_env x y z with clock := k`,
+  `(push_env x y (z with clock := k) = push_env x y z with clock := k) ∧
+   (push_env x y (z with locals := l) = push_env x y z with locals := l)`,
   Cases_on`y`>>rw[push_env_def] >- simp[state_component_equality] >>
   qcase_tac`SOME p` >>
   PairCases_on`p` >>
@@ -42,7 +43,8 @@ val pop_env_const = Q.store_thm("pop_env_const",
    every_case_tac >> fs[] >> rw[]);
 
 val pop_env_with_const = Q.store_thm("pop_env_with_const[simp]",
-  `pop_env (z with clock := k) = OPTION_MAP (λs. s with clock := k) (pop_env z)`,
+  `pop_env (z with clock := k) = OPTION_MAP (λs. s with clock := k) (pop_env z) ∧
+   pop_env (z with locals := l) = pop_env z`,
   rw[pop_env_def] >> every_case_tac >> fs[]);
 
 val call_env_const = Q.store_thm("call_env_const[simp]",
@@ -64,7 +66,8 @@ val gc_const = Q.store_thm("gc_const",
   every_case_tac >> fs[] >> rw[] >> rw[]);
 
 val gc_with_const = Q.store_thm("gc_with_const[simp]",
-  `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)`,
+  `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x) ∧
+   gc (x with locals := l) = OPTION_MAP (λs. s with locals := l) (gc x)`,
   EVAL_TAC >>
   CASE_TAC >> EVAL_TAC >>
   CASE_TAC >> EVAL_TAC >>

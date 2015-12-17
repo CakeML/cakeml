@@ -817,7 +817,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     qabbrev_tac `envx = push_env x' o0
             (st with <|permute := perm; clock := st.clock − 1|>) with
           locals := fromList2 (q)`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
     ntac 2 FULL_CASE_TAC>-
@@ -3148,7 +3148,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
             (NONE:(num # 'a wordLang$prog #num #num)option)
             (st with <|permute := perm; clock := st.clock − 1|>) with
           locals := fromList2 (q)`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
     ntac 2 FULL_CASE_TAC>-
@@ -3159,18 +3159,15 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[push_env_def,state_component_equality]>>
       fs[LET_THM,env_to_list_def,dec_clock_def])>>
     `s_val_eq envx.stack envy.stack` by
-      (unabbrev_all_tac>>
-       fs[state_component_equality])>>
+      (unabbrev_all_tac>> simp[] >> fs[])>>
     FULL_CASE_TAC
     >-
       (strip_tac>>pop_assum(qspec_then`envy.stack` mp_tac)>>
       discharge_hyps>-
-      (unabbrev_all_tac>>
-       fs[state_component_equality,dec_clock_def])>>
+      (unabbrev_all_tac>> simp[])>>
       strip_tac>>fs[]>>
       rfs[]>>
       (*Backwards chaining*)
-      fs[Abbr`envy`,Abbr`envx`,state_component_equality]>>
       IF_CASES_TAC>-
         (qexists_tac`perm`>>fs[])>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
@@ -3183,8 +3180,9 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
                     assume_tac push_env_pop_env_s_key_eq>>
       (*This went missing somewhere..*)
       `rcst'.clock = st.clock` by
-        fs[markerTheory.Abbrev_def]>>
+        fs[Abbr`rcst'`]>>
       pop_assum SUBST_ALL_TAC>>
+      fs[Abbr`envy`,Abbr`envx`,state_component_equality]>>
       rfs[]>>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
@@ -3326,10 +3324,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[]>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
+      (* 3 subgoals *)
       rw[]>>qexists_tac`perm`>>fs[]>>
       pop_assum(qspec_then`envy.stack` mp_tac)>>
-      discharge_hyps>-
-      (unabbrev_all_tac>>fs[state_component_equality])>>
+      (discharge_hyps>- (unabbrev_all_tac>>fs[]))>>
       rw[]>>fs[])
   >>
     (*Handler reasoning*)
@@ -3398,7 +3396,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qabbrev_tac `envx = push_env x' (SOME (x''0,x''1,x''2,x''3))
             (st with <|permute := perm; clock := st.clock − 1|>) with
           locals := fromList2 q`>>
-    qpat_abbrev_tac `envy = (push_env y A B) with locals := C`>>
+    qpat_abbrev_tac `envy = (push_env y A B) with <| locals := C; clock := _ |>`>>
     assume_tac evaluate_stack_swap>>
     pop_assum(qspecl_then [`r`,`envx`] mp_tac)>>
     ntac 2 FULL_CASE_TAC>-
@@ -3409,8 +3407,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       fs[push_env_def,state_component_equality]>>
       fs[LET_THM,env_to_list_def,dec_clock_def])>>
     `s_val_eq envx.stack envy.stack` by
-      (unabbrev_all_tac>>
-       fs[state_component_equality])>>
+      (unabbrev_all_tac>>fs[]>>simp[])>>
     (*More props theorems that will be useful*)
     `ssa_map_ok na_2_p ssa_2_p ∧ is_alloc_var na_2_p` by
       (fs[next_var_rename_def]>>
@@ -3439,12 +3436,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >-
       (strip_tac>>pop_assum(qspec_then`envy.stack` mp_tac)>>
       discharge_hyps>-
-      (unabbrev_all_tac>>
-       fs[state_component_equality,dec_clock_def])>>
+      (unabbrev_all_tac>> fs[])>>
       strip_tac>>fs[]>>
       rfs[]>>
       (*Backwards chaining*)
-      fs[Abbr`envy`,Abbr`envx`,state_component_equality]>>
       IF_CASES_TAC>-
         (qexists_tac`perm`>>fs[])>>
       Q.ISPECL_THEN [`(rcst' with clock := st.clock-1)`,
@@ -3456,10 +3451,11 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
                     `SOME (x''0,x''1,x''2,x''3)`]
                     assume_tac push_env_pop_env_s_key_eq>>
       (*This went missing somewhere..*)
-      `rcst'.clock = st.clock` by
-        fs[markerTheory.Abbrev_def]>>
+      `rcst'.clock = st.clock` by fs[Abbr`rcst'`]>>
       pop_assum SUBST_ALL_TAC>>
       rfs[]>>
+      fs[Abbr`envy`,Abbr`envx`,state_component_equality]>>
+      rfs[] >>
       (*Now is a good place to establish the invariant ssa_locals_rel*)
       `ssa_locals_rel na' ssa_cut y'.locals y''.locals ∧
        word_state_eq_rel y' y''` by
@@ -3763,8 +3759,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >>
       rw[]>>qexists_tac`perm`>>fs[]>>
       first_x_assum(qspec_then`envy.stack` mp_tac)>>
-      discharge_hyps>-
-      (unabbrev_all_tac>>fs[state_component_equality])>>
+      (discharge_hyps>- (unabbrev_all_tac>>fs[]))>>
       rw[]>>fs[])
   >- (*Seq*)
     (rw[]>>fs[evaluate_def,ssa_cc_trans_def,LET_THM]>>
@@ -3986,76 +3981,81 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
      fs[MEM_MAP,mem_list_rearrange,QSORT_MEM]>>
      rw[]>>
      fs[EXISTS_PROD,MEM_toAList,domain_lookup])>>
-   last_x_assum kall_tac>>
-   `ssa_locals_rel na' ssa_cut x''.locals y'.locals ∧
-       word_state_eq_rel x'' y'` by
-      (fs[state_component_equality]>>
-      fs[LET_THM,ssa_locals_rel_def]>>
-      rw[]
-      >-
-        (qpat_assum`A=domain(fromAList l)` sym_sub_tac>>
-        fs[option_lookup_def]>>
-        res_tac>>fs[]>>
-        qexists_tac`x'''`>>fs[]>>
-        metis_tac[domain_lookup])
-      >-
-        metis_tac[domain_lookup]
-      >-
-        (`x''' ∈ domain x` by metis_tac[domain_lookup]>>
-        qpat_assum`A = fromAList l` sym_sub_tac>>
-        fs[lookup_fromAList,s_key_eq_def,s_frame_key_eq_def
-          ,s_val_eq_def,s_frame_val_eq_def]>>
-        qpat_assum`A = MAP FST l` sym_sub_tac>>
-        qabbrev_tac`f = option_lookup ssa'`>>
-        `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
-         MAP f (MAP FST lsB)` by
-          fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
-        fs[]>>
-        `THE (lookup x''' ssa_cut) = f x'''` by
-          (fs[Abbr`f`,option_lookup_def]>>
-          `x''' ∈ domain ssa_cut` by metis_tac[]>>
-          fs[domain_lookup]>>res_tac>>
-          fs[])>>
-        simp[]>>
-        match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
-        metis_tac[])
-      >-
-        (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
-        fs[every_var_def]>>res_tac>>
-        DECIDE_TAC)
-      >-
-        (fs[word_state_eq_rel_def,pop_env_def]>>
-        rfs[state_component_equality]>>
-        metis_tac[s_val_and_key_eq,s_key_eq_sym
-          ,s_val_eq_sym,s_key_eq_trans]))
-      >>
-      ntac 2 (qpat_assum `A = (B,C)` mp_tac)>>
-      FULL_CASE_TAC>>fs[word_state_eq_rel_def,has_space_def]>>
-      Cases_on`x'''`>>fs[]>>
-      EVERY_CASE_TAC>>fs[call_env_def]>>
-      ntac 2 strip_tac>>
-      (Q.SPECL_THEN [`x''`,`inter ssa' s`,`na'+2`,`(MAP FST (toAList s))`
-                   ,`y'`] mp_tac list_next_var_rename_move_preserve>>
-      discharge_hyps>-
-      (rw[]
-      >-
-        (rfs[]>>
-        match_mp_tac (GEN_ALL ssa_locals_rel_more)>>
-        fs[]>>
-        qpat_assum `A = fromAList l` sym_sub_tac>>
-        HINT_EXISTS_TAC>>fs[])
-      >-
-        (rw[SUBSET_DEF]>>
-        fs[MEM_MAP]>>Cases_on`y''`>>fs[MEM_toAList,domain_lookup])
-      >-
-        (unabbrev_all_tac>>match_mp_tac ssa_map_ok_inter>>
-        match_mp_tac (GEN_ALL ssa_map_ok_more)>>
-        HINT_EXISTS_TAC>>
-        fs[]>>DECIDE_TAC)
-      >>
-        fs[word_state_eq_rel_def])>>
-      fs[LET_THM]>>
-      rw[]>>fs[word_state_eq_rel_def]))
+    last_x_assum kall_tac>>
+    `ssa_locals_rel na' ssa_cut x''.locals y'.locals ∧
+        word_state_eq_rel x'' y'` by
+       (fs[state_component_equality]>>
+       fs[LET_THM,ssa_locals_rel_def]>>
+       rw[]
+       >-
+         (qpat_assum`A=domain(fromAList l)` sym_sub_tac>>
+         fs[option_lookup_def]>>
+         res_tac>>fs[]>>
+         qexists_tac`x'''`>>fs[]>>
+         metis_tac[domain_lookup])
+       >-
+         metis_tac[domain_lookup]
+       >-
+         (`x''' ∈ domain x` by metis_tac[domain_lookup]>>
+         qpat_assum`A = fromAList l` sym_sub_tac>>
+         fs[lookup_fromAList,s_key_eq_def,s_frame_key_eq_def
+           ,s_val_eq_def,s_frame_val_eq_def]>>
+         qpat_assum`A = MAP FST l` sym_sub_tac>>
+         qabbrev_tac`f = option_lookup ssa'`>>
+         `MAP FST (MAP (λ(x,y). (f x,y)) lsB) =
+          MAP f (MAP FST lsB)` by
+           fs[MAP_MAP_o,MAP_EQ_f,FORALL_PROD]>>
+         fs[]>>
+         `THE (lookup x''' ssa_cut) = f x'''` by
+           (fs[Abbr`f`,option_lookup_def]>>
+           `x''' ∈ domain ssa_cut` by metis_tac[]>>
+           fs[domain_lookup]>>res_tac>>
+           fs[])>>
+         simp[]>>
+         match_mp_tac ALOOKUP_key_remap_2>>rw[]>>
+         metis_tac[])
+       >-
+         (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
+         fs[every_var_def]>>res_tac>>
+         DECIDE_TAC)
+       >-
+         (fs[word_state_eq_rel_def,pop_env_def]>>
+         rfs[state_component_equality]>>
+         metis_tac[s_val_and_key_eq,s_key_eq_sym
+           ,s_val_eq_sym,s_key_eq_trans]))
+       >>
+    ntac 2 (qpat_assum `A = (B,C)` mp_tac)>>
+    FULL_CASE_TAC>>fs[word_state_eq_rel_def,has_space_def]>>
+    Cases_on`x'''`>>fs[]>>
+    Cases_on`FLOOKUP x''.store NextFree`>>fs[]>>
+    Cases_on`x'''`>>fs[] >>
+    Cases_on`FLOOKUP x''.store EndOfHeap`>>fs[]>>
+    Cases_on`x'''`>>fs[] >>
+    IF_CASES_TAC >> fs[] >>
+    ntac 2 strip_tac>> rveq >> fs[call_env_def] >-
+    (Q.SPECL_THEN [`rst`,`inter ssa' s`,`na'+2`,`(MAP FST (toAList s))`
+                 ,`y'`] mp_tac list_next_var_rename_move_preserve>>
+    discharge_hyps>-
+    (rw[]
+    >-
+      (rfs[]>>
+      match_mp_tac (GEN_ALL ssa_locals_rel_more)>>
+      fs[]>>
+      qpat_assum `A = fromAList _` sym_sub_tac>>
+      HINT_EXISTS_TAC>>fs[])
+    >-
+      (rw[SUBSET_DEF]>>
+      fs[MEM_MAP]>>Cases_on`y''`>>fs[MEM_toAList,domain_lookup])
+    >-
+      (unabbrev_all_tac>>match_mp_tac ssa_map_ok_inter>>
+      match_mp_tac (GEN_ALL ssa_map_ok_more)>>
+      HINT_EXISTS_TAC>>
+      fs[]>>DECIDE_TAC)
+    >>
+      fs[word_state_eq_rel_def])>>
+    simp[] >>
+    rw[]>>fs[word_state_eq_rel_def]) >>
+    fs[word_state_eq_rel_def] >> rw[])
   >-
     (*Raise*)
     (exists_tac>>fs[get_var_perm]>>
