@@ -206,8 +206,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
      state_rel s1 t1 ∧
      good_syntax prog t1.len_reg t1.ptr_reg t1.link_reg ∧
-     code_installed t1.pc (FST (flatten prog n l)) t1.code ∧
-     next_lab prog ≤ l
+     code_installed t1.pc (FST (flatten prog n l)) t1.code
      ⇒
      ∃ck t2.
      case r of SOME (Halt w) =>
@@ -333,8 +332,6 @@ val flatten_correct = Q.store_thm("flatten_correct",
     CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(same_const``code_installed`` o fst o strip_comb))))) >>
     fsrw_tac[ARITH_ss][] >>
     disch_then drule >>
-    discharge_hyps >- (
-      metis_tac[flatten_leq,LESS_EQ_TRANS] ) >>
     strip_tac >>
     CASE_TAC >> fs[] >- (
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
@@ -568,8 +565,6 @@ val flatten_correct = Q.store_thm("flatten_correct",
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
       fs[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
-      discharge_hyps >- (
-        metis_tac[flatten_leq,SND,LESS_EQ_TRANS] ) >>
       strip_tac >>
       fs[upd_pc_def] >>
       CASE_TAC >> fs[] >>
@@ -613,8 +608,6 @@ val flatten_correct = Q.store_thm("flatten_correct",
         fs[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
         fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
-        discharge_hyps >- (
-          metis_tac[flatten_leq,LESS_EQ_TRANS,SND] ) >>
         simp[upd_pc_def] >> strip_tac >>
         CASE_TAC >> fs[] >- (
           qexists_tac`ck+1`>>simp[] >>
@@ -699,8 +692,6 @@ val flatten_correct = Q.store_thm("flatten_correct",
     fs[good_syntax_def] >>
     fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-    discharge_hyps >- (
-      metis_tac[flatten_leq,SND,LESS_EQ_TRANS] ) >>
     strip_tac >>
     fs[upd_pc_def] >>
     CASE_TAC >> fs[] >>
