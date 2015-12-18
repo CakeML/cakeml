@@ -2403,8 +2403,46 @@ val compile_semantics = Q.store_thm("compile_semantics",
     disch_then(qspec_then`ck`mp_tac)>>
     last_x_assum(qspec_then`k`mp_tac) >>
     every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[] >>
-    cheat ) >>
+    qpat_abbrev_tac`ll = IMAGE _ _` >>
+    `lprefix_chain ll` by (
+      unabbrev_all_tac >>
+      Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+      REWRITE_TAC[IMAGE_COMPOSE] >>
+      match_mp_tac prefix_chain_lprefix_chain >>
+      simp[prefix_chain_def,PULL_EXISTS] >>
+      qx_genl_tac[`k1`,`k2`] >>
+      qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+      cheat ) >>
+    drule build_lprefix_lub_thm >>
+    simp[lprefix_lub_def] >> strip_tac >>
+    match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
+    simp[LPREFIX_fromList] >>
+    QUANT_TAC[("l2",`fromList x`,[`x`])] >>
+    simp[from_toList] >>
+    asm_exists_tac >> simp[] >>
+    first_x_assum irule >>
+    simp[Abbr`ll`] >>
+    qexists_tac`k`>>simp[] ) >>
   rw[extend_with_resource_limit_def] >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    cheat ) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
   cheat);
 
 val _ = export_theory();
