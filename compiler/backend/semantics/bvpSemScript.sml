@@ -349,13 +349,15 @@ val semantics_def = Define`
              | NONE => T | _ => F
       then Fail
     else
-    case some ffi.
-      ∃k s r.
-        evaluate (p,initial_state init_ffi code k) = (SOME (Rval r),s) ∧ ffi = s.ffi
-    of SOME ffi =>
-         Terminate
-           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
-           ffi.io_events
+    case some res.
+      ∃k s r outcome.
+        evaluate (p,initial_state init_ffi code k) = (SOME r,s) ∧
+        (case (s.ffi.final_event,r) of
+         | (SOME e,_) => outcome = FFI_outcome e
+         | (_,Rval _) => outcome = Success
+         | _ => F) ∧
+        res = Terminate outcome s.ffi.io_events
+    of SOME res => res
      | NONE =>
        Diverge
          (build_lprefix_lub

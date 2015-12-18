@@ -708,10 +708,10 @@ val evaluate_def = save_thm("evaluate_def",let
 
 val semantics_def = Define `
   semantics s start =
-  let prog = Call (SOME (1,LN,Skip,0,1)) (SOME start) [] NONE in
+  let prog = Call NONE (SOME start) [0] NONE in
   if ∃k. case FST(evaluate (prog,s with clock := k)) of
          | SOME (Exception _ _) => T
-         | SOME (Result _ _) => T
+         | NONE => T
          | SOME Error => T
          | _ => F
   then Fail
@@ -721,7 +721,7 @@ val semantics_def = Define `
         evaluate (prog, s with clock := k) = (r,t) ∧
         (case (t.ffi.final_event,r) of
          | (SOME e,_) => outcome = FFI_outcome e
-         | (_,NONE) => outcome = Success
+         | (_,SOME (Result _ _)) => outcome = Success
          | (_,SOME NotEnoughSpace) => outcome = Resource_limit_hit
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events

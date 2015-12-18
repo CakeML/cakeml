@@ -7,6 +7,8 @@ val _ = new_theory "bvp_to_wordProof";
 
 (* TODO: move *)
 
+val has_pair_type = can dest_prod o type_of
+
 val get_var_set_var = store_thm("get_var_set_var[simp]",
   ``get_var n (set_var n w s) = SOME w``,
   fs [wordSemTheory.get_var_def,wordSemTheory.set_var_def]);
@@ -15,6 +17,14 @@ val set_var_set_var = store_thm("set_var_set_var[simp]",
   ``set_var n v (set_var n w s) = set_var n v s``,
   fs [wordSemTheory.state_component_equality,wordSemTheory.set_var_def,
       insert_shadow]);
+
+val toAList_LN = Q.store_thm("toAList_LN[simp]",
+  `toAList LN = []`,
+  EVAL_TAC)
+
+val adjust_set_LN = Q.store_thm("adjust_set_LN[simp]",
+  `adjust_set LN = insert 0 () LN`,
+  rw[adjust_set_def,fromAList_def]);
 
 val EVERY2_MAP_MAP = prove(
   ``!xs. EVERY2 P (MAP f xs) (MAP g xs) = EVERY (\x. P (f x) (g x)) xs``,
@@ -586,6 +596,11 @@ val state_rel_def = Define `
            [(the_global s.global,t.store ' Globals)] ++
            flat s.stack t.stack) /\
       s.space <= sp`
+
+val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
+  `state_rel a b c s1 s2 d e ⇒
+   state_rel a b c (s1 with clock := k) (s2 with clock := k) d e`,
+  rw[state_rel_def]);
 
 (* -------------------------------------------------------
     compiler proof
@@ -1869,7 +1884,7 @@ val compile_correct = prove(
         (wordSem$evaluate (FST (comp c n l prog),inc_clock ck t) = (res1,t1)) /\
 (*
 
-  TODO: needs to be uncommented
+  TODO: needs to be uncommented, and also below
 
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events ∧
@@ -1888,7 +1903,7 @@ val compile_correct = prove(
                 LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
-         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut))``,
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) (* /\ t1.ffi = s1.ffi *))``,
   recInduct bvpSemTheory.evaluate_ind \\ rpt strip_tac \\ fs []
   THEN1 (* Skip *)
    (qexists_tac `0`
@@ -2206,13 +2221,199 @@ val compile_correct = prove(
     \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
+val compile_correct = prove(
+  ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
+      (bvpSem$evaluate (prog,s) = (res,s1)) /\
+      res <> SOME (Rerr (Rabort Rtype_error)) /\
+      state_rel c l1 l2 s t [] locs ==>
+      ?ck t1 res1.
+        (wordSem$evaluate (FST (comp c n l prog),inc_clock ck t) = (res1,t1)) /\
+        (res1 = SOME NotEnoughSpace ==>
+           t1.ffi.io_events ≼ s1.ffi.io_events ∧
+           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)) /\
+        (res1 <> SOME NotEnoughSpace ==>
+         case res of
+         | NONE => state_rel c l1 l2 s1 t1 [] locs /\ (res1 = NONE)
+         | SOME (Rval v) =>
+             ?w. state_rel c l1 l2 s1 t1 [(v,w)] locs /\
+                 (res1 = SOME (Result (Loc l1 l2) w))
+         | SOME (Rerr (Rraise v)) =>
+             ?w l5 l6 ll.
+               (res1 = SOME (Exception (mk_loc (jump_exc t)) w)) /\
+               (jump_exc t <> NONE ==>
+                LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
+                !i. state_rel c l5 l6 (set_var i v s1)
+                       (set_var (adjust_var i) w t1) [] ll)
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
+  cheat)
+
 (* observational semantics preservation *)
 
+val state_rel_lemma = Q.prove(
+  `state_rel c l1 l2 s t v locs ∧
+   s.stack = [] ∧ s.locals = LN ⇒
+   state_rel c l1 l2 s (call_env [Loc 0 1] (push_env (inter t.locals LN) NONE t)) v locs`,
+  cheat);
+
 val compile_semantics = Q.store_thm("compile_semantics",
-  `state_rel c 0 1 (initial_state ffi (fromAList prog) ARB) t [] [] /\
+  `state_rel c 0 1 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t [] [] /\
    semantics ffi (fromAList prog) start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
+  simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
+  simp[bvpSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    qx_gen_tac`r`>>simp[]>>strip_tac>>
+    strip_tac >>
+    simp[wordSemTheory.semantics_def] >>
+    IF_CASES_TAC >- (
+      fs[] >> rveq >> fs[] >>
+      rator_x_assum`bvpSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      strip_tac >>
+      drule compile_correct >> simp[] >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      discharge_hyps >- (
+        strip_tac >> fs[] ) >>
+      drule(GEN_ALL state_rel_with_clock) >>
+      disch_then(qspec_then`k'`strip_assume_tac) >> fs[] >>
+      disch_then drule >>
+      simp[comp_def] >> strip_tac >>
+      qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
+      Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+      drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+      simp[RIGHT_FORALL_IMP_THM] >>
+      discharge_hyps >- (strip_tac >> fs[]) >>
+      disch_then(qspec_then`ck`mp_tac) >>
+      fsrw_tac[ARITH_ss][inc_clock_def] >> rw[] >>
+      every_case_tac >> fs[] ) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      rw[extend_with_resource_limit_def] >> fs[] >>
+      Cases_on`s.ffi.final_event`>>fs[] >- (
+        Cases_on`r'`>>fs[] >> rveq >>
+        drule(bvpPropsTheory.evaluate_add_clock)>>simp[]>>
+        disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
+        drule(compile_correct)>>simp[]>>
+        drule(GEN_ALL state_rel_with_clock)>>simp[]>>
+        disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
+        disch_then drule>>
+        simp[comp_def]>>strip_tac>>
+        `t.ffi.io_events ≼ t'.ffi.io_events ∧
+         (IS_SOME t.ffi.final_event ⇒ t'.ffi = t.ffi)` by cheat >>
+        `t'.ffi.io_events ≼ t1.ffi.io_events ∧
+         (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+        Cases_on`r = SOME TimeOut` >- (
+          every_case_tac >> fs[]>>
+          Cases_on`res1=SOME NotEnoughSpace`>>fs[] >> rfs[] >>
+          fs[state_rel_def] >> rfs[] ) >>
+        rator_x_assum`wordSem$evaluate`mp_tac >>
+        drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+        simp[] >>
+        disch_then(qspec_then`ck+k`mp_tac) >>
+        simp[inc_clock_def] >> ntac 2 strip_tac >>
+        rveq >> fs[] >>
+        every_case_tac >> fs[] >> rw[] >>
+        fs[state_rel_def] >> rfs[] ) >>
+      `∃r s'.
+        evaluate
+          (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
+        s'.ffi = s.ffi` by cheat >>
+      drule compile_correct >> simp[] >>
+      simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+      discharge_hyps >- (
+        last_x_assum(qspec_then`k+k'`mp_tac)>>rw[]>>
+        strip_tac>>fs[])>>
+      drule(GEN_ALL state_rel_with_clock)>>simp[]>>
+      disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
+      disch_then drule>>
+      simp[comp_def]>>strip_tac>>
+      `t'.ffi.io_events ≼ t1.ffi.io_events ∧
+       (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+      reverse(Cases_on`t'.ffi.final_event`)>>fs[] >- (
+        Cases_on`res1=SOME NotEnoughSpace`>>fs[]>>
+        fs[state_rel_def]>>rfs[]>>
+        every_case_tac>>fs[]>>rfs[]>>
+        rveq>>fs[]>>
+        last_x_assum(qspec_then`k+k'`mp_tac) >> simp[]) >>
+      Cases_on`r`>>fs[]>>
+      rator_x_assum`wordSem$evaluate`mp_tac >>
+      drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+      simp[RIGHT_FORALL_IMP_THM] >>
+      discharge_hyps >- ( strip_tac >> fs[] ) >>
+      disch_then(qspec_then`k+ck`mp_tac) >>
+      fsrw_tac[ARITH_ss][inc_clock_def]>> rw[] >>
+      every_case_tac>>fs[]>>rveq>>rfs[]>>
+      fs[state_rel_def]>>rfs[]) >>
+    rw[] >> fs[] >>
+    drule compile_correct >> simp[] >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    discharge_hyps >- (
+      last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+      rw[] >> strip_tac >> fs[] ) >>
+    drule(state_rel_with_clock) >> simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    first_x_assum(qspec_then`k+ck`mp_tac) >>
+    fs[inc_clock_def] >>
+    first_x_assum(qspec_then`k+ck`mp_tac) >>
+    simp[] >>
+    every_case_tac >> fs[] >> rw[]) >>
+  rw[] >>
+  simp[wordSemTheory.semantics_def] >>
+  IF_CASES_TAC >- (
+    fs[] >> rveq >> fs[] >>
+    last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    strip_tac >>
+    drule compile_correct >> simp[] >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    drule(state_rel_with_clock) >>
+    simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    qmatch_assum_abbrev_tac`option_CASE (FST p) _ _` >>
+    Cases_on`p`>>pop_assum(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    drule (GEN_ALL wordPropsTheory.evaluate_add_clock) >>
+    simp[RIGHT_FORALL_IMP_THM] >>
+    discharge_hyps >- (strip_tac >> fs[]) >>
+    disch_then(qspec_then`ck`mp_tac) >>
+    fsrw_tac[ARITH_ss][inc_clock_def] >> rw[] >>
+    every_case_tac >> fs[] ) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    rw[extend_with_resource_limit_def] >> fs[] >>
+    qpat_assum`∀x y. _`(qspec_then`k`mp_tac)>>
+    (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+    strip_tac >>
+    drule(compile_correct)>>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    discharge_hyps >- (
+      strip_tac >> fs[] >>
+      last_x_assum(qspec_then`k`mp_tac) >>
+      simp[] ) >>
+    drule(state_rel_with_clock) >>
+    simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    `t'.ffi.io_events ≼ t1.ffi.io_events ∧
+     (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+    fs[] >>
+    first_assum(qspec_then`k`mp_tac) >>
+    first_x_assum(qspec_then`k+ck`mp_tac) >>
+    fsrw_tac[ARITH_ss][inc_clock_def] >>
+    rator_x_assum`wordSem$evaluate`mp_tac >>
+    drule(GEN_ALL wordPropsTheory.evaluate_add_clock)>>
+    simp[]>>
+    disch_then(qspec_then`ck`mp_tac)>>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    every_case_tac >> fs[] >> rfs[]>>rw[]>>fs[] >>
+    cheat ) >>
+  rw[extend_with_resource_limit_def] >>
   cheat);
 
 val _ = export_theory();
