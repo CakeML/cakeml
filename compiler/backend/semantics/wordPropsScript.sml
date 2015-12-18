@@ -38,7 +38,8 @@ val push_env_with_const = Q.store_thm("push_env_with_const[simp]",
 
 val pop_env_const = Q.store_thm("pop_env_const",
   `pop_env x = SOME y ⇒
-   y.clock = x.clock`,
+   y.clock = x.clock /\
+   y.ffi = x.ffi`,
    rw[pop_env_def] >>
    every_case_tac >> fs[] >> rw[]);
 
