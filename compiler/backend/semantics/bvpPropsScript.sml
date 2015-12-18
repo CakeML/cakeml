@@ -684,4 +684,64 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
     every_case_tac >> fs[] >> rw[] >> rfs[] >> fs[] >>
     spose_not_then strip_assume_tac >> fs[]))
 
+val set_var_const = Q.store_thm("set_var_const[simp]",
+  `(set_var x y z).ffi = z.ffi`,
+  EVAL_TAC)
+
+val cut_state_opt_const = Q.store_thm("cut_state_opt_const",
+  `cut_state_opt x y = SOME z ⇒
+   z.ffi = y.ffi`,
+   EVAL_TAC >>
+   every_case_tac >> EVAL_TAC >>
+   rw[] >> rw[]);
+
+val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
+  `do_app x y z = Rval (a,b) ⇒
+   z.ffi.io_events ≼ b.ffi.io_events ∧
+   (IS_SOME z.ffi.final_event ⇒ b.ffi = z.ffi)`,
+  rw[do_app_def,do_space_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  rw[bvi_to_bvp_def] >>
+  imp_res_tac bviPropsTheory.do_app_io_events_mono >>
+  fs[bvp_to_bvi_def] >>
+  fs[consume_space_def] >> rw[] >> fs[])
+
+val call_env_const = Q.store_thm("call_env_const[simp]",
+  `(call_env x y).ffi = y.ffi`,
+  EVAL_TAC);
+
+val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
+  `(dec_clock s).ffi = s.ffi`,
+  EVAL_TAC);
+
+val add_space_const = Q.store_thm("add_space_const[simp]",
+  `(add_space s k).ffi = s.ffi`,
+  EVAL_TAC);
+
+val push_env_const = Q.store_thm("push_env_const[simp]",
+  `(push_env x y z).ffi = z.ffi`,
+  Cases_on`y`>> EVAL_TAC);
+
+val pop_env_const = Q.store_thm("pop_env_const",
+  `pop_env a = SOME b ⇒
+   b.ffi = a.ffi`,
+   EVAL_TAC >>
+   every_case_tac >> EVAL_TAC >>
+   rw[] >> rw[]);
+
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `!exps s1 res s2.
+    evaluate (exps,s1) = (res, s2)
+    ⇒
+    s1.ffi.io_events ≼ s2.ffi.io_events ∧
+    (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
+  recInduct evaluate_ind >> rw [evaluate_def] >>
+  every_case_tac >> fs[LET_THM] >> rw[] >> rfs[] >>
+  TRY (split_pair_tac >> fs[] >> every_case_tac >> fs[])>>
+  imp_res_tac cut_state_opt_const >>fs[] >>
+  imp_res_tac pop_env_const >>fs[] >>
+  imp_res_tac jump_exc_IMP >> fs[] >>
+  imp_res_tac do_app_io_events_mono  >>fs[] >> rfs[] >>
+  metis_tac[IS_PREFIX_TRANS]);
+
 val _ = export_theory();
