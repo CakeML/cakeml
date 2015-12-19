@@ -73,6 +73,8 @@ fun pat_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (t,x) = dest_comb t
     val num = rand (rand (rand t))
     val [x] = #1(listSyntax.dest_list x) (*Assume singleton list for arg to init global as well...*)
+
+    val sys = wrap_sys sys
   in
     sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) d num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) d x)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
@@ -116,6 +118,7 @@ fun pat_varlocalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
     open term_pp_types PPBackEnd
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val sys = wrap_sys sys
   in
     sty [FG VividGreen] (str"l">>sys (Top,Top,Top) d (strip t))
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;

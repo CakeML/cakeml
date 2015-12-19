@@ -14,13 +14,15 @@ fun add_astPP hd = astPrettyPrinters:= (hd:: !astPrettyPrinters)
 fun strip t = #2 (dest_comb t);
 fun toString s = stringSyntax.fromHOLstring s;
 
+fun wrap_sys sys = fn gravs => fn d => sys {gravs = gravs,depth = d, binderp=false}
+
 (*Generic printer pass str,brk and blk*)
 fun genPrint printFunc Gs B sys (ppfns:term_pp_types.ppstream_funs) (pg,lg,rg) d t =
   let
     open term_pp_types
     val (str,brk,blk) = (#add_string ppfns, #add_break ppfns,#ublock ppfns);
   in
-    printFunc sys d t pg str brk blk
+    printFunc (wrap_sys sys) d t pg str brk blk
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
 
 fun bracketize str x = str"(">>x>>str")";
@@ -148,7 +150,6 @@ val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
 val _=add_astPP("tuptypeprint",``TC_tup``,genPrint (deftypePrint ""));
 val _=add_astPP("exntypeprint",``TC_exn``,genPrint (deftypePrint "exn"));
-
 
 (*TC_name*)
 fun tcnamelongPrint sys d t pg str brk blk =

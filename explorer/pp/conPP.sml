@@ -14,6 +14,7 @@ fun i2_initglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (t,x) = dest_comb t
     val num = rand (rand t)
     val [x] = #1(listSyntax.dest_list x) (*Assume singleton list for arg to init global as well...*)
+    val sys = wrap_sys sys
   in
     sty [FG DarkBlue] (str"g" >> sys (Top,Top,Top) d num) >>str " := " >> blk CONSISTENT 0 (sys (Top,Top,Top) (d-1) x)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
@@ -89,6 +90,7 @@ fun i2_pconPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
     val (_,name) = dest_comb (rator t)
     val (x::_) = pairSyntax.strip_pair name
+    val sys = wrap_sys sys
   in
     sty [FG RedBrown] (str "c" >> sys (Top,Top,Top) d x )>> (pconPrint sys d t Top str brk blk)
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
@@ -144,7 +146,8 @@ val _=add_conPP ("i2_derefappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 12;x]
 val _=add_conPP ("i2_negappprint", ``App_i2 (Op_i2 Opapp) [Var_global_i2 11; x]``,genPrint (prefixappPrint "~"));
 
 (*i2 list form*)
-val _=add_conPP("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);
+(*TODO: Replace*)
+(*val _=add_conPP("i2listprint",``x:prompt_i2 store``,genPrint astlistPrint);*)
 
 fun enable_conPP_verbose () = map temp_add_user_printer (!conPrettyPrinters); 
 fun enable_conPP () = (enable_conPP_verbose();())
