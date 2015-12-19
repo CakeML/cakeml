@@ -2294,7 +2294,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
         disch_then drule>>
         simp[comp_def]>>strip_tac>>
         `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-         (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+         (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
+           qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
+           Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
+           fs[inc_clock_def,Abbr`tt`] >>
+           disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
+           fsrw_tac[ARITH_ss][] ) >>
         Cases_on`r = SOME TimeOut` >- (
           every_case_tac >> fs[]>>
           Cases_on`res1=SOME NotEnoughSpace`>>fs[] >> rfs[] >>
@@ -2324,7 +2329,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
       disch_then drule>>
       simp[comp_def]>>strip_tac>>
       `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-       (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+       (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
+        qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
+        Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
+        fs[inc_clock_def,Abbr`tt`] >>
+        disch_then(qspec_then`k+ck`mp_tac)>>simp[]>>
+        fsrw_tac[ARITH_ss][] ) >>
       reverse(Cases_on`t'.ffi.final_event`)>>fs[] >- (
         Cases_on`res1=SOME NotEnoughSpace`>>fs[]>>
         fs[state_rel_def]>>rfs[]>>
@@ -2393,7 +2403,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     `t'.ffi.io_events ≼ t1.ffi.io_events ∧
-     (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
+     (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by (
+      qmatch_assum_abbrev_tac`evaluate (exps,tt) = (_,t')` >>
+      Q.ISPECL_THEN[`exps`,`tt`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
+      fs[inc_clock_def,Abbr`tt`] >>
+      disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
     fs[] >>
     first_assum(qspec_then`k`mp_tac) >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
@@ -2413,7 +2427,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[prefix_chain_def,PULL_EXISTS] >>
       qx_genl_tac[`k1`,`k2`] >>
       qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-      cheat ) >>
+      simp[LESS_EQ_EXISTS] >>
+      metis_tac[
+        bvpPropsTheory.evaluate_add_clock_io_events_mono,
+        bvpPropsTheory.initial_state_with_simp,
+        bvpPropsTheory.initial_state_simp]) >>
     drule build_lprefix_lub_thm >>
     simp[lprefix_lub_def] >> strip_tac >>
     match_mp_tac (GEN_ALL LPREFIX_TRANS) >>
@@ -2437,7 +2455,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
     simp[prefix_chain_def,PULL_EXISTS] >>
     qx_genl_tac[`k1`,`k2`] >>
     qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-    cheat ) >>
+    simp[LESS_EQ_EXISTS] >>
+    metis_tac[
+      wordPropsTheory.evaluate_add_clock_io_events_mono,
+      EVAL``((t:('a,'ffi) wordSem$state) with clock := k).clock``,
+      EVAL``((t:('a,'ffi) wordSem$state) with clock := k) with clock := k2``,
+      bvpPropsTheory.evaluate_add_clock_io_events_mono,
+      bvpPropsTheory.initial_state_with_simp,
+      bvpPropsTheory.initial_state_simp]) >>
   simp[equiv_lprefix_chain_thm] >>
   unabbrev_all_tac >> simp[PULL_EXISTS] >>
   ntac 2 (pop_assum kall_tac) >>
