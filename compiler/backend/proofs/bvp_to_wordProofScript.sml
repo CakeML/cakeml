@@ -2465,10 +2465,58 @@ val compile_semantics = Q.store_thm("compile_semantics",
       bvpPropsTheory.initial_state_simp]) >>
   simp[equiv_lprefix_chain_thm] >>
   unabbrev_all_tac >> simp[PULL_EXISTS] >>
-  ntac 2 (pop_assum kall_tac) >>
+  pop_assum kall_tac >>
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  cheat);
+  reverse conj_tac >> strip_tac >- (
+    qmatch_assum_abbrev_tac`n < LENGTH (_ (_ (SND p)))` >>
+    Cases_on`p`>>pop_assum(assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def]) >>
+    drule compile_correct >>
+    simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+    discharge_hyps >- (
+      last_x_assum(qspec_then`k`mp_tac)>>rw[]>>
+      strip_tac >> fs[] ) >>
+    drule(state_rel_with_clock) >>
+    simp[] >> strip_tac >>
+    disch_then drule >>
+    simp[comp_def] >> strip_tac >>
+    qexists_tac`k+ck`>>fs[inc_clock_def]>>
+    Cases_on`res1=SOME NotEnoughSpace`>>fs[]>-(
+      first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
+      CASE_TAC >> fs[] ) >>
+    ntac 2 (pop_assum mp_tac) >>
+    CASE_TAC >> fs[] >>
+    TRY CASE_TAC >> fs [] >>
+    TRY CASE_TAC >> fs [] >>
+    strip_tac >> fs[state_rel_def] >>
+    rveq >>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) ) >>
+  (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k:num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
+  drule compile_correct >>
+  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
+  discharge_hyps >- (
+    last_x_assum(qspec_then`k`mp_tac)>>rw[]>>
+    strip_tac >> fs[] ) >>
+  drule(state_rel_with_clock) >>
+  simp[] >> strip_tac >>
+  disch_then drule >>
+  simp[comp_def] >> strip_tac >>
+  fs[inc_clock_def] >>
+  Cases_on`res1=SOME NotEnoughSpace`>>fs[]>-(
+    first_x_assum(qspec_then`k+ck`mp_tac) >> simp[] >>
+    CASE_TAC >> fs[] ) >>
+  qmatch_assum_abbrev_tac`n < LENGTH (SND (evaluate (exps,s))).ffi.io_events` >>
+  Q.ISPECL_THEN[`exps`,`s`]mp_tac wordPropsTheory.evaluate_add_clock_io_events_mono >>
+  disch_then(qspec_then`ck`mp_tac)>>simp[Abbr`s`]>>strip_tac>>
+  qexists_tac`k`>>simp[]>>
+  `r.ffi.io_events = t1.ffi.io_events` by (
+    ntac 5 (pop_assum mp_tac) >>
+    CASE_TAC >> fs[state_rel_def] >>
+    every_case_tac >> fs[]>>rw[]>>
+    rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[])) >>
+  REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
+  fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
+  simp[EL_APPEND1]);
 
 val _ = export_theory();
