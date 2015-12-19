@@ -2293,8 +2293,6 @@ val compile_semantics = Q.store_thm("compile_semantics",
         disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
         disch_then drule>>
         simp[comp_def]>>strip_tac>>
-        `t.ffi.io_events ≼ t'.ffi.io_events ∧
-         (IS_SOME t.ffi.final_event ⇒ t'.ffi = t.ffi)` by cheat >>
         `t'.ffi.io_events ≼ t1.ffi.io_events ∧
          (IS_SOME t'.ffi.final_event ⇒ t1.ffi = t'.ffi)` by cheat >>
         Cases_on`r = SOME TimeOut` >- (
