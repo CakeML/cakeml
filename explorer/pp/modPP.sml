@@ -84,7 +84,6 @@ val _=add_modPP ("i1_conprint", ``Con_i1 NONE x``,genPrint pconPrint);
 (*i1_Con SOME*)
 val _=add_modPP ("i1_consomeprint", ``Con_i1 (Some x) y``,genPrint pconsomePrint);
 
-
 (*Special case for list syntax
 check_tail checks whether it is a fully specified list*)
 fun check_tail t =
@@ -114,6 +113,7 @@ fun i1_varglobalPrint Gs B sys (ppfns:term_pp_types.ppstream_funs) gravs d t =
   let
     open term_pp_types PPBackEnd
     val (str,brk,blk,sty) = (#add_string ppfns, #add_break ppfns,#ublock ppfns,#ustyle ppfns);
+    val sys = wrap_sys sys
   in
     sty [FG DarkBlue] (str"g">>sys (Top,Top,Top) d (strip t))
   end handle HOL_ERR _ => raise term_pp_types.UserPP_Failed;
@@ -166,7 +166,10 @@ val _=add_modPP ("i1_derefappprint", ``App_i1 Opapp [Var_global_i1 12;x]``,genPr
 val _=add_modPP ("i1_negappprint", ``App_i1 Opapp [Var_global_i1 11; x]``,genPrint (prefixappPrint "~"));
 
 (*i1 list form *)
+(*
+TODO: Replace
 val _=add_modPP("i1listprint",``x:prompt_i1 store``,genPrint astlistPrint);
+*)
 
 fun enable_modPP_verbose () = map temp_add_user_printer (!modPrettyPrinters);
 fun enable_modPP () = (enable_modPP_verbose();())

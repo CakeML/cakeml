@@ -1,4 +1,4 @@
-INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/formal-languages/context-free ../../parsing ../../compiler ../../inference ../../semantics ../../initial ../../bytecode ./astPP ../../x86-64/compile ../../standalone ./astPP
+INCLUDES = ../.. $(HOLDIR)/examples/l3-machine-code/x64/model $(HOLDIR)/examples/formal-languages/context-free ./astPP #../../parsing ../../compiler ../../inference ../../semantics ../../initial ../../bytecode ./astPP ../../x86-64/compile ../../standalone ./astPP
 
 OPTIONS = QUIT_ON_FAILURE
 
@@ -11,7 +11,7 @@ TARGETS = $(patsubst %.sml,%.uo,$(THYFILES))
 all: $(TARGETS) $(HOLHEAP)
 .PHONY: all
 
-BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory ../../compiler/free_varsTheory ./astPP/astPP ../../x86-64/compile/bc_compileTheory
+BARE_THYS =  $(HOLDIR)/examples/l3-machine-code/x64/model/x64DisassembleLib $(HOLDIR)/examples/formal-languages/context-free/pegexecTheory ./astPP/astPP #../../compiler/free_varsTheory ./astPP/astPP ../../x86-64/compile/bc_compileTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
