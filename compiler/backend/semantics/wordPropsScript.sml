@@ -265,6 +265,124 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   rveq >> fs[] >>
   metis_tac[IS_PREFIX_TRANS]);
 
+val with_clock_ffi = Q.store_thm("with_clock_ffi",
+  `(s with clock := y).ffi = s.ffi`,
+  EVAL_TAC)
+
+val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+  `∀exps s extra.
+    (SND(evaluate(exps,s))).ffi.io_events ≼
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events ∧
+    (IS_SOME((SND(evaluate(exps,s))).ffi.final_event) ⇒
+     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi =
+     (SND(evaluate(exps,s))).ffi)`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def,LET_THM] >>
+  TRY (
+    qcase_tac`find_code` >>
+    Cases_on`get_vars args s`>>fs[]>>
+    Cases_on`ret`>>fs[] >- (
+      every_case_tac >> fs[] >> rveq >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])) >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+    qpat_abbrev_tac`opt = find_code _ _ _` >>
+    Cases_on`opt`>>fs[markerTheory.Abbrev_def]>>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+    Cases_on`cut_env names' s.locals`>>fs[]>>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >> rveq >>
+    IF_CASES_TAC >> fs[] >>
+    TRY IF_CASES_TAC >> fs[] >>
+    CASE_TAC >> fs[] >> rveq >>
+    imp_res_tac evaluate_add_clock >> fs[] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >> rfs[] >>
+    TRY(
+      (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+      qmatch_assum_rename_tac`z ≠ SOME TimeOut ⇒ _` >>
+      Cases_on`z=SOME TimeOut`>>fs[]>-(
+        every_case_tac >> fs[] >>
+        rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        imp_res_tac pop_env_const >> rveq >> fs[] >>
+        metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >>
+      every_case_tac >> fs[] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      imp_res_tac pop_env_const >> rveq >> fs[] >>
+      metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+    every_case_tac >> fs[] >> rfs[] >> rveq >> fs[] >>
+    rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >>
+    imp_res_tac evaluate_io_events_mono >> fs[] >>
+    imp_res_tac pop_env_const >> rveq >> fs[] >> rfs[] >>
+    metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+  TRY (
+    qcase_tac`find_code` >>
+    Cases_on`get_vars args s`>>fs[]>>
+    Cases_on`ret`>>fs[] >- (
+      every_case_tac >> fs[] >> rveq >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])) >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+    qpat_abbrev_tac`opt = find_code _ _ _` >>
+    Cases_on`opt`>>fs[markerTheory.Abbrev_def]>>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+    Cases_on`cut_env names' s.locals`>>fs[]>>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >>
+    CASE_TAC >> fs[] >> rveq >>
+    IF_CASES_TAC >> fs[] >>
+    TRY IF_CASES_TAC >> fs[] >>
+    TRY (
+      (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+      (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      qpat_assum`z ≠ SOME TimeOut ⇒ _`mp_tac >>
+      qmatch_assum_rename_tac`z ≠ SOME TimeOut ⇒ _` >>
+      Cases_on`z=SOME TimeOut`>>fs[]>-(
+        strip_tac >>
+        every_case_tac >> fs[] >> rfs[] >>
+        rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >> fs[] >>
+        imp_res_tac evaluate_io_events_mono >> fs[] >>
+        imp_res_tac pop_env_const >> rveq >> fs[] >> rfs[] >>
+        metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >> fs[] >>
+      every_case_tac >> fs[] >> rfs[] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >> fs[] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      imp_res_tac pop_env_const >> rveq >> fs[] >> rfs[] >>
+      metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+    TRY(
+      (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+      imp_res_tac evaluate_add_clock >> fs[] >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >>
+      every_case_tac >> fs[] >> rfs[] >>
+      rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >> fs[] >>
+      imp_res_tac evaluate_io_events_mono >> fs[] >>
+      imp_res_tac pop_env_const >> rveq >> fs[] >> rfs[] >>
+      metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+    every_case_tac >> fs[] >> rfs[] >> rveq >> fs[] >>
+    rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >> rw[] >>
+    imp_res_tac evaluate_io_events_mono >> fs[] >>
+    imp_res_tac pop_env_const >> rveq >> fs[] >> rfs[] >>
+    metis_tac[evaluate_io_events_mono,set_var_const,IS_PREFIX_TRANS,SND,PAIR,set_var_with_const,with_clock_ffi]) >>
+  every_case_tac >> fs[] >>
+  rpt (split_pair_tac >> fs[]) >>
+  every_case_tac >> fs[] >>
+  imp_res_tac evaluate_add_clock >> fs[] >>
+  rveq >> fs[] >>
+  imp_res_tac evaluate_io_events_mono >> rfs[] >>
+  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
+
 (* -- *)
 
 val get_vars_length_lemma = store_thm("get_vars_length_lemma",
