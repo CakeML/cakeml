@@ -565,25 +565,50 @@ val unused_vars_correct = Q.prove(
       LIST_RELi (λk v1 v2. k ∈ kis ⇒ val_rel (:'ffi) i v1 v2) env1 env2 ⇒
       res_rel (evaluate(es,env1,s1 with clock := j))
               (evaluate(es,env2,s2 with clock := j)))`,
-  cheat) (* gen_tac >> completeInduct_on `i` >>
+cheat (*  gen_tac >> completeInduct_on `i` >>
   fs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> qx_gen_tac `es` >>
   completeInduct_on `exp3_size es` >>
   fs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> Cases_on `es`
   >- (simp[evaluate_def, res_rel_rw] >> metis_tac[val_rel_mono]) >>
   ONCE_REWRITE_TAC [fv_CONS, evaluate_CONS, every_Fn_vs_NONE_CONS] >>
-  dsimp[] >> rpt gen_tac >>
-  qcase_tac `every_Fn_vs_NONE [e]` >>
+  dsimp[] >> rpt gen_tac >> qcase_tac `exp3_size (e::es)` >>
+  reverse (Cases_on `es`)
+  >- (qcase_tac `exp3_size (e1::e2::es)` >> rw[] >>
+      first_assum
+        (qspecl_then [`[e1]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
+      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      strip_tac >> simp[res_rel_rw] >>
+      qcase_tac `evaluate(_, env1, _) = (_, s11)` >>
+      qcase_tac `evaluate(_, env2, _) = (_, s21)` >>
+      imp_res_tac evaluate_SING >> rw[] >> fs[] >>
+      imp_res_tac evaluate_clock >> fs[] >>
+      `s21.clock = i ∨ s21.clock < i` by simp[]
+      >- (first_x_assum
+           (qspecl_then [`e2::es`, `env1`, `env2`, `s11`, `s21`, `kis`, `i`]
+                        mp_tac) >> simp[exp_size_def] >> fs[] >>
+          `s11 with clock := i = s11 ∧ s21 with clock := i = s21`
+             by simp[state_component_equality] >> simp[] >>
+          simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >>
+          simp[res_rel_rw] >> rw[] >> irule (CONJUNCT1 val_rel_mono) >>
+          qexists_tac `s21.clock` >> simp[] >> imp_res_tac evaluate_clock) >>
+      first_x_assum
+        (qspecl_then [`s21.clock`, `e2::es`, `env1`, `env2`, `s11`, `s21`,
+                      `kis`, `s21.clock`] mp_tac) >> simp[] >>
+      discharge_hyps
+      >- (fs[LIST_RELi_EL] >> rpt strip_tac >>
+          irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
+      `s11 with clock := s21.clock = s11 ∧ s21 with clock := s21.clock = s21`
+        by simp[state_component_equality] >> simp[] >>
+      simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >> simp[res_rel_rw] >>
+      irule (CONJUNCT1 val_rel_mono) >> qexists_tac `s21.clock` >> simp[] >>
+      imp_res_tac evaluate_clock) >>
+  simp[fv_def, evaluate_def] >>
   Cases_on `e` >> simp[fv_def, evaluate_def] >> strip_tac >>
   imp_res_tac LIST_RELi_LENGTH >> simp[]
   >- ((* var *) rw[] >> simp[res_rel_rw] >>
-      qcase_tac `evaluate(es,env1,_)` >>
-      first_x_assum
-        (qspecl_then [`es`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
-      simp[exp_size_def] >> every_case_tac >> dsimp[res_rel_rw] >> csimp[] >>
-      qpat_assum `LIST_RELi _ env1 env2` mp_tac >>
-      simp[LIST_RELi_EL] >> rpt strip_tac >> irule (CONJUNCT1 val_rel_mono) >>
-      imp_res_tac evaluate_clock >>
-      qexists_tac `i` >> lfs[])
+      fs[LIST_RELi_EL] >> conj_tac
+      >- (irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
+      irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `i` >> simp[])
   >- ((* If *)
       qcase_tac `evaluate([gd],env1,_)` >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
       first_assum
@@ -592,86 +617,100 @@ val unused_vars_correct = Q.prove(
       strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[] >>
       rpt var_eq_tac >> reverse COND_CASES_TAC
       >- (reverse COND_CASES_TAC >> simp[] >> var_eq_tac >> fs[] >>
-          qcase_tac `([e1], env1, s1')` >> qcase_tac `([e1], env2, s2')` >>
-          `res_rel (evaluate ([e1], env1, s1' with clock := s2'.clock))
-                   (evaluate ([e1], env2, s2' with clock := s2'.clock))`
+          qcase_tac `(_, env1, s11)` >> qcase_tac `([e1], env2, s21)` >>
+          `res_rel (evaluate ([e1], env1, s11 with clock := s21.clock))
+                   (evaluate ([e1], env2, s21 with clock := s21.clock))`
             by (imp_res_tac evaluate_clock >> fs[] >>
-                Cases_on `s2'.clock = i`
+                Cases_on `s21.clock = i`
                 >- (first_x_assum
-                      (qspecl_then [`[e1]`, `env1`, `env2`, `s1'`, `s2'`,
+                      (qspecl_then [`[e1]`, `env1`, `env2`, `s11`, `s21`,
                                     `kis`, `i`] mp_tac) >> simp[exp_size_def] >>
                     fs[]) >>
-                `s2'.clock < i` by simp[] >>
+                `s21.clock < i` by simp[] >>
                 first_x_assum
-                  (qspecl_then [`s2'.clock`, `[e1]`, `env1`, `env2`, `s1'`,
-                                `s2'`, `kis`, `s2'.clock`] mp_tac) >>
+                  (qspecl_then [`s21.clock`, `[e1]`, `env1`, `env2`, `s11`,
+                                `s21`, `kis`, `s21.clock`] mp_tac) >>
                 simp[] >> disch_then irule >> lfs[LIST_RELi_EL] >>
                 metis_tac[DECIDE ``x:num < y ⇒ x ≤ y``, val_rel_mono]) >>
           pop_assum mp_tac >>
           simp[SimpL ``$==>``, res_rel_cases] >>
-          `s1' with clock := s2'.clock = s1' ∧
-           s2' with clock := s2'.clock = s2'`
+          `s11 with clock := s21.clock = s11 ∧
+           s21 with clock := s21.clock = s21`
             by simp[state_component_equality] >> simp[] >>
-          strip_tac >> simp[res_rel_rw]
+          strip_tac >> simp[res_rel_rw] >>
+          imp_res_tac evaluate_SING >> rw[] >> fs[]) >>
+      var_eq_tac >> fs[] >> var_eq_tac >>
+      qcase_tac `(_, env1, s11)` >> qcase_tac `([E], env2, s21)` >>
+      `res_rel (evaluate ([E], env1, s11 with clock := s21.clock))
+               (evaluate ([E], env2, s21 with clock := s21.clock))`
+        by (imp_res_tac evaluate_clock >> fs[] >>
+            Cases_on `s21.clock = i`
+            >- (first_x_assum
+                  (qspecl_then [`[E]`, `env1`, `env2`, `s11`, `s21`,
+                                `kis`, `i`] mp_tac) >> simp[exp_size_def] >>
+                fs[]) >>
+            `s21.clock < i` by simp[] >>
+            first_x_assum
+              (qspecl_then [`s21.clock`, `[E]`, `env1`, `env2`, `s11`,
+                            `s21`, `kis`, `s21.clock`] mp_tac) >>
+            simp[] >> disch_then irule >> lfs[LIST_RELi_EL] >>
+            metis_tac[DECIDE ``x:num < y ⇒ x ≤ y``, val_rel_mono]) >>
+      pop_assum mp_tac >>
+      simp[SimpL ``$==>``, res_rel_cases] >>
+      `s11 with clock := s21.clock = s11 ∧
+       s21 with clock := s21.clock = s21`
+        by simp[state_component_equality] >> simp[] >>
+      strip_tac >> simp[res_rel_rw] >>
+      imp_res_tac evaluate_SING >> rw[] >> fs[])
+  >- ((* Let *)
+      qcase_tac `(bexps,env1,_)` >> fs[DISJ_IMP_THM, FORALL_AND_THM] >>
+      first_assum
+        (qspecl_then [`bexps`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
+                     mp_tac) >> simp[exp_size_def] >>
+      simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >> simp[res_rel_rw] >>
+      qcase_tac `([E], bvs1 ++ env1, s11)` >>
+      qcase_tac `([E], bvs2 ++ env2, s21)` >>
+      `res_rel (evaluate ([E], bvs1 ++ env1, s11))
+               (evaluate([E], bvs2 ++ env2, s21))`
+        by (imp_res_tac evaluate_clock >> fs[] >>
+            `s11 with clock := s21.clock = s11 ∧
+             s21 with clock := s21.clock = s21`
+              by simp[state_component_equality] >>
+            `s21.clock = i ∨ s21.clock < i` by simp[]
+            >- (first_x_assum
+                  (qspecl_then [`[E]`, `bvs1 ++ env1`, `bvs2 ++ env2`,
+                                `s11`, `s21`,
+                                `count (LENGTH bvs2) ∪
+                                  IMAGE ((+) (LENGTH bvs2)) kis`,
+                                `s21.clock`] mp_tac) >>
+                simp[exp_size_def] >> disch_then irule
+                >- (qx_gen_tac `V` >> strip_tac >> Cases_on `V < LENGTH bvs2` >>
+                    simp[] >> qexists_tac `V - LENGTH bvs2` >> simp[] >>
+                    imp_res_tac evaluate_length_imp >> fs[] >>
+                    first_x_assum irule >> simp[])
+                >- (irule LIST_RELi_APPEND_I
+                    >- (csimp[LIST_RELi_EL] >> fs[LIST_REL_EL_EQN]) >>
+                    simp[combinTheory.o_ABS_L] >>
+                    imp_res_tac LIST_REL_LENGTH >> simp[]) >> fs[]) >>
+            first_x_assum
+              (qspecl_then [`s21.clock`, `[E]`, `bvs1 ++ env1`, `bvs2 ++ env2`,
+                            `s11`, `s21`,
+                            `count (LENGTH bvs2) ∪
+                               IMAGE ((+) (LENGTH bvs2)) kis`,
+                            `s21.clock`] mp_tac) >> simp[] >>
+            imp_res_tac evaluate_length_imp >> fs[] >>
+            disch_then irule
+            >- (qx_gen_tac `V` >> strip_tac >> Cases_on `V < LENGTH bvs2` >>
+                simp[] >> qexists_tac `V - LENGTH bvs2` >> simp[]) >>
+            irule LIST_RELi_APPEND_I
+            >- (csimp[LIST_RELi_EL] >> fs[LIST_REL_EL_EQN]) >>
+            simp[combinTheory.o_ABS_L] >> fs[LIST_RELi_EL] >> rpt strip_tac >>
+            irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
+      pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >>
+      simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[])
+  >- ((* Raise *)
 
-
-dsimp[res_rel_cases, eqs, pair_case_eq]
-
-
-
-
-
-   (∀(n: num option) (v:closSem$v)
-     (vl : closSem$v list) (s : 'ffi closSem$state). T)`,
-  ho_match_mp_tac evaluate_ind >> simp[evaluate_def] >> rpt strip_tac
-
-  rw[] >>
-simp[res_rel_rw, val_rel_rw, is_closure_def, check_closures_def,
-     clo_can_apply_def, clo_to_partial_args_def, clo_to_num_params_def,
-     rec_clo_ok_def, clo_to_loc_def] >>
-fs[every_Fn_vs_NONE_def] >>
- simp[dest_closure_def, check_loc_def, FORALL_OPTION] >> rw[] >>
-simp[revtakerev, exec_rel_rw, evaluate_ev_def, revdroprev] >> rw[]
-
-  >- (simp[res_rel_rw] >> metis_tac[val_rel_mono])
-  >- (fs[fv_def] >>
-      first_x_assum (qspecl_then [`env2`, `s2`, `kis`, `i`] mp_tac) >>
-      simp[] >>
-      qcase_tac `closSem$evaluate([e1], env1, s1)` >>
-      Cases_on `evaluate([e1],env1,s1)` >> simp[] >>
-      qcase_tac `res_rel (result, s1')` >>
-      Cases_on `result` >> fs[res_rel_rw]
-      >- (dsimp[] >> rpt strip_tac >>
-          Cases_on `evaluate(y::xs,env1,s1')` >> fs[] >>
-          qcase_tac `evaluate(e1'::es,env1,_) = (result', s1'')` >>
-          Cases_on `result'` >> fs[res_rel_rw] >> dsimp[]
-          >- (qcase_tac `evaluate([e1],env2,_) = (Rval r2,s2')` >>
-              first_x_assum
-                (qspecl_then [`env2`, `s2'`, `kis`, `s2'.clock`] mp_tac) >>
-              dsimp[] >> discharge_hyps
-              >- (qpat_assum `LIST_RELi _ env1 env2` mp_tac >>
-                  simp[LIST_RELi_EL] >> imp_res_tac evaluate_clock >>
-                  metis_tac[val_rel_mono]) >>
-              dsimp[] >> rpt strip_tac
-              >- (imp_res_tac evaluate_SING >> rw[] >> fs[] >>
-                  imp_res_tac evaluate_clock >> metis_tac[val_rel_mono])
-              >- metis_tac[]
-              >- fs[]) >>
-          qcase_tac `res_rel (Rerr err, _)` >> Cases_on `err` >>
-          fs[res_rel_rw] >> dsimp[eqs,pair_case_eq]
-          >- (first_x_assum irule >> simp[] >>
-              map_every qexists_tac [`s1'.clock`, `kis`] >> simp[] >>
-
-
-every_case_tac >> simp[res_rel_rw] >>
-      imp_res_tac evaluate_SING >> rw[] >> fs[]
-      >- (
-      first_x_assum (qspecl_then [`env2`, `kis`] mp_tac) >>
-      dsimp[res_rel_rw] >> csimp[] >> rpt strip_tac >>
-      imp_res_tac evaluate_clock >> irule (CONJUNCT1 val_rel_mono) >>
-      metis_tac[DECIDE ``x:num ≤ y ∧ y ≤ z ⇒ x ≤ z``]
-
-*)
+*))
 val res_rel_trans = Q.store_thm(
   "res_rel_trans",
   `res_rel (evaluate t1) (evaluate t2) ∧ res_rel (evaluate t2) (evaluate t3) ⇒
