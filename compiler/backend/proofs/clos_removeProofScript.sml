@@ -721,11 +721,6 @@ val res_rel_trans = Q.store_thm(
   simp[res_rel_cases] >> dsimp[res_rel_rw] >>
   metis_tac [val_rel_trans, LIST_REL_trans, evaluate_timeout_clocks0]);
 
-val LIST_REL_exp_rel = Q.store_thm(
-  "LIST_REL_exp_rel",
-  `LIST_REL (λe1 e2. exp_rel (:'ffi) [e1] [e2]) es1 es2 ⇒
-   exp_rel (:'ffi) es1 es2`,
-
 val unused_vars_correct2 = Q.prove(
   `∀i es1 env1 (s1:'ffi closSem$state) es2 env2 s2 kis j.
       (∀v. fv v es2 ⇒ v ∈ kis) ∧ every_Fn_vs_NONE es2 ∧
