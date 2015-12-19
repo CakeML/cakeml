@@ -2312,7 +2312,10 @@ val compile_semantics = Q.store_thm("compile_semantics",
       `∃r s'.
         evaluate
           (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
-        s'.ffi = s.ffi` by cheat >>
+        s'.ffi = s.ffi` by (
+          srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+          metis_tac[bvpPropsTheory.evaluate_add_clock_io_events_mono,SND,
+                    initial_state_with_simp,IS_SOME_EXISTS,initial_state_simp]) >>
       drule compile_correct >> simp[] >>
       simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
       discharge_hyps >- (

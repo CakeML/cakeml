@@ -56,8 +56,9 @@ val get_vars_IMP_domain = store_thm("get_vars_IMP_domain",
   \\ every_case_tac \\ fs [] \\ SRW_TAC [] []
   \\ fs [domain_lookup]);
 
-val cut_state_opt_with_stack = Q.prove(
-  `cut_state_opt x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (cut_state_opt x y)`,
+val cut_state_opt_with_const = Q.store_thm("cut_state_opt_with_const",
+  `(cut_state_opt x (y with stack := z) = OPTION_MAP (λs. s with stack := z) (cut_state_opt x y)) ∧
+   (cut_state_opt x (y with clock := k) = OPTION_MAP (λs. s with clock := k) (cut_state_opt x y))`,
   EVAL_TAC >> every_case_tac >> simp[]);
 
 val consume_space_add_space = store_thm("consume_space_add_space",
@@ -151,7 +152,7 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
   THEN1 (
     fs[evaluate_def] >>
     every_case_tac >>
-    fs[set_var_def,cut_state_opt_with_stack,do_app_with_stack] >>
+    fs[set_var_def,cut_state_opt_with_const,do_app_with_stack] >>
     imp_res_tac do_app_err >> fs[] >> rpt var_eq_tac >>
     fs[cut_state_opt_def,cut_state_def] >> every_case_tac >> fs[] >>
     rpt var_eq_tac >> fs[do_app_with_locals] >>
@@ -631,6 +632,18 @@ val do_app_change_clock = Q.store_thm("do_app_change_clock",
   rpt var_eq_tac >> fs[] >>
   rpt var_eq_tac >> fs[] );
 
+val do_app_change_clock_err = Q.store_thm("do_app_change_clock_err",
+  `(do_app op args s1 = Rerr e) ==>
+   (do_app op args (s1 with clock := ck) = Rerr e)`,
+  rw[do_app_def,do_space_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac bviPropsTheory.do_app_change_clock_err >>
+  fs[bvp_to_bvi_def,bvi_to_bvp_def,state_component_equality] >>
+  rpt var_eq_tac >> simp[] >>
+  fs[consume_space_def] >>
+  rpt var_eq_tac >> fs[] >>
+  rpt var_eq_tac >> fs[] );
+
 val cut_state_eq_some = Q.store_thm("cut_state_eq_some",
   `cut_state names s = SOME y ⇔ ∃z. cut_env names s.locals = SOME z ∧ y = s with locals := z`,
   rw[cut_state_def] >> every_case_tac >> fs[EQ_IMP_THM]);
@@ -685,7 +698,12 @@ val evaluate_add_clock = Q.store_thm ("evaluate_add_clock",
     spose_not_then strip_assume_tac >> fs[]))
 
 val set_var_const = Q.store_thm("set_var_const[simp]",
-  `(set_var x y z).ffi = z.ffi`,
+  `(set_var x y z).ffi = z.ffi ∧
+   (set_var x y z).clock = z.clock`,
+  EVAL_TAC)
+
+val set_var_with_const = Q.store_thm("set_var_with_const",
+  `(set_var x y (z with clock := k)) = set_var x y z with clock := k`,
   EVAL_TAC)
 
 val cut_state_opt_const = Q.store_thm("cut_state_opt_const",
@@ -707,7 +725,12 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   fs[consume_space_def] >> rw[] >> fs[])
 
 val call_env_const = Q.store_thm("call_env_const[simp]",
-  `(call_env x y).ffi = y.ffi`,
+  `(call_env x y).ffi = y.ffi ∧
+   (call_env x y).clock = y.clock`,
+  EVAL_TAC);
+
+val call_env_with_const = Q.store_thm("call_env_with_const",
+  `(call_env x  (y with clock := z)) = call_env x y with clock := z`,
   EVAL_TAC);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
@@ -719,8 +742,13 @@ val add_space_const = Q.store_thm("add_space_const[simp]",
   EVAL_TAC);
 
 val push_env_const = Q.store_thm("push_env_const[simp]",
-  `(push_env x y z).ffi = z.ffi`,
+  `(push_env x y z).ffi = z.ffi ∧
+   (push_env x y z).clock = z.clock`,
   Cases_on`y`>> EVAL_TAC);
+
+val push_env_with_const = Q.store_thm("push_env_with_const",
+  `(push_env x y (z with clock := k)) = (push_env x y z) with clock := k`,
+  Cases_on`y`>>EVAL_TAC);
 
 val pop_env_const = Q.store_thm("pop_env_const",
   `pop_env a = SOME b ⇒
@@ -743,5 +771,40 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   imp_res_tac jump_exc_IMP >> fs[] >>
   imp_res_tac do_app_io_events_mono  >>fs[] >> rfs[] >>
   metis_tac[IS_PREFIX_TRANS]);
+
+val with_clock_ffi = Q.store_thm("with_clock_ffi",
+  `(s with clock := y).ffi = s.ffi`,
+  EVAL_TAC)
+
+val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+  `∀exps s extra.
+    (SND(evaluate(exps,s))).ffi.io_events ≼
+    (SND(evaluate(exps,s with clock := s.clock + extra))).ffi.io_events ∧
+    (IS_SOME((SND(evaluate(exps,s))).ffi.final_event) ⇒
+     (SND(evaluate(exps,s with clock := s.clock + extra))).ffi =
+     (SND(evaluate(exps,s))).ffi)`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def,LET_THM] >>
+  TRY (
+    qcase_tac`find_code` >>
+    every_case_tac >> fs[] >> rw[] >>
+    imp_res_tac evaluate_io_events_mono >> fs[] >>
+    imp_res_tac pop_env_const >> fs[] >>
+    fsrw_tac[ARITH_ss][dec_clock_def,call_env_with_const,push_env_with_const] >>
+    imp_res_tac evaluate_add_clock >> fs[] >> rfs[] >>
+    fsrw_tac[ARITH_ss][call_env_with_const] >>
+    rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[]) >>
+    rw[] >> fs[set_var_with_const] >>
+    metis_tac[evaluate_io_events_mono,SND,PAIR,IS_PREFIX_TRANS,set_var_const,set_var_with_const,with_clock_ffi]) >>
+  rpt (split_pair_tac >> fs[]) >>
+  every_case_tac >> fs[cut_state_opt_with_const] >> rfs[] >>
+  rveq >> fs[] >> rveq >> fs[] >>
+  imp_res_tac do_app_change_clock >> fs[] >>
+  imp_res_tac do_app_change_clock_err >> fs[] >>
+  imp_res_tac jump_exc_IMP >> fs[jump_exc_NONE] >>
+  rveq >> fs[state_component_equality] >>
+  imp_res_tac evaluate_add_clock >> fs[] >> rveq >> fs[] >>
+  imp_res_tac evaluate_io_events_mono >> rfs[] >>
+  metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
 val _ = export_theory();
