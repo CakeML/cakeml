@@ -268,13 +268,15 @@ val semantics_def = Define`
     if ∃k e. FST (evaluate (es,[],initial_state init_ffi code k)) = Rerr e ∧ e ≠ Rabort Rtimeout_error
       then Fail
     else
-    case some ffi.
-      ∃k s r.
-        evaluate (es,[],initial_state init_ffi code k) = (Rval r,s) ∧ ffi = s.ffi
-    of SOME ffi =>
-         Terminate
-           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
-           ffi.io_events
+    case some res.
+      ∃k s r outcome.
+        evaluate (es,[],initial_state init_ffi code k) = (r,s) ∧
+        (case (s.ffi.final_event,r) of
+         | (SOME e,_) => outcome = FFI_outcome e
+         | (_,Rval _) => outcome = Success
+         | _ => F) ∧
+        res = Terminate outcome s.ffi.io_events
+    of SOME res => res
      | NONE =>
        Diverge
          (build_lprefix_lub

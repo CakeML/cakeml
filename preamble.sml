@@ -19,6 +19,8 @@ fun asm_match q = Q.MATCH_ASSUM_RENAME_TAC q
 
 val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"goalstack print goal at top"0
 
+val has_pair_type = can dest_prod o type_of
+
 (* TODO: copied from pairLib. export? *)
 fun variant_of_term vs t =
 let

@@ -1017,29 +1017,83 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
-    qx_gen_tac`ffi`>>strip_tac >>
-    drule compile_prog_evaluate >> simp[] >>
-    strip_tac >>
-    `s.ffi = s2.ffi` by fs[state_rel_def] >>
+    qx_gen_tac`res`>>rw[]>>
     simp[bvpSemTheory.semantics_def] >>
     IF_CASES_TAC >> fs[] >- (
-      first_assum(subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)`) o concl) >> fs[] >>
-      imp_res_tac bvpPropsTheory.evaluate_add_clock >> fs[] >>
-      first_x_assum(fn th => mp_tac th >> (discharge_hyps >- (every_case_tac >> rfs[]))) >>
-      disch_then(qspec_then`k`mp_tac) >>
-      pop_assum(qspec_then`k'`mp_tac) >>
-      simp[] >>
+      rator_x_assum`bviSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      spose_not_then strip_assume_tac >>
+      drule compile_prog_evaluate >>
+      discharge_hyps >- ( rw[] >> strip_tac >> fs[] ) >>
+      strip_tac >> fs[] >> rveq >>
       every_case_tac >> fs[] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
-      qx_gen_tac`ffi'` >> strip_tac >>
-      imp_res_tac bvpPropsTheory.evaluate_add_clock >> fs[] >>
-      pop_assum(qspec_then`k'`mp_tac) >>
-      pop_assum(qspec_then`k`mp_tac) >>
-      simp[] >> strip_tac >> strip_tac >>
-      rpt var_eq_tac >>
-      fs[state_component_equality] ) >>
-    asm_exists_tac >> simp[]) >>
+      gen_tac >> strip_tac >> rveq >> simp[] >>
+      qmatch_assum_abbrev_tac`bviSem$evaluate (exps,[],ss) = _` >>
+      qmatch_assum_abbrev_tac`bvpSem$evaluate (bxps,bs) = _` >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac bviPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      qspecl_then[`bxps`,`bs`]mp_tac bvpPropsTheory.evaluate_add_clock_io_events_mono >>
+      simp[bviPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
+      disch_then(qspec_then`k`strip_assume_tac) >>
+      disch_then(qspec_then`k'`strip_assume_tac) >>
+      Cases_on`s.ffi.final_event`>>fs[]>-(
+        Cases_on`s'.ffi.final_event`>>fs[]>-(
+          unabbrev_all_tac >>
+          drule compile_prog_evaluate >>
+          discharge_hyps >- ( every_case_tac >> fs[] ) >>
+          strip_tac >>
+          drule bvpPropsTheory.evaluate_add_clock >>
+          discharge_hyps >- (
+            fs[] >> strip_tac >> fs[] >> rveq >> fs[] ) >>
+          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
+          rator_x_assum`bvpSem$evaluate`mp_tac >>
+          drule bvpPropsTheory.evaluate_add_clock >>
+          discharge_hyps >- (
+            fs[] >> strip_tac >> fs[] ) >>
+          disch_then(qspec_then`k`mp_tac)>>simp[]>>
+          ntac 3 strip_tac >> rveq >> fs[] >>
+          fs[state_component_equality] >>
+          fs[state_rel_def] >>
+          every_case_tac >> fs[] ) >>
+        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+        unabbrev_all_tac >>
+        drule compile_prog_evaluate >>
+        discharge_hyps >- (
+          last_x_assum(qspec_then`k+k'`mp_tac)>>
+          rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
+        strip_tac >>
+        rator_x_assum`bviSem$evaluate`mp_tac >>
+        drule bviPropsTheory.evaluate_add_clock >>
+        discharge_hyps >- (strip_tac >> fs[]) >>
+        disch_then(qspec_then`k'`mp_tac)>>simp[inc_clock_def] >>
+        ntac 2 strip_tac >> rveq >>
+        fsrw_tac[ARITH_ss][state_rel_def] >> rfs[] ) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+      unabbrev_all_tac >>
+      drule compile_prog_evaluate >>
+      discharge_hyps >- (
+        last_x_assum(qspec_then`k+k'`mp_tac)>>
+        rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
+      strip_tac >> rveq >>
+      fsrw_tac[ARITH_ss][] >>
+      reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>- (
+        fs[state_rel_def] >> rfs[] ) >>
+      rator_x_assum`bvpSem$evaluate`mp_tac >>
+      drule bvpPropsTheory.evaluate_add_clock >>
+      discharge_hyps >- (strip_tac >> fs[]) >>
+      disch_then(qspec_then`k`mp_tac)>>simp[inc_clock_def] >>
+      ntac 2 strip_tac >> rveq >>
+      fsrw_tac[ARITH_ss][state_rel_def] >> rfs[] ) >>
+    drule compile_prog_evaluate >>
+    discharge_hyps >- (
+      last_x_assum(qspec_then`k`mp_tac)>>
+      fs[] >> rpt strip_tac >> fs[] ) >>
+    strip_tac >>
+    asm_exists_tac >> simp[] >>
+    fs[state_rel_def] >>
+    every_case_tac >> fs[] ) >>
   strip_tac >>
   simp[bvpSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -1065,7 +1119,9 @@ val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
     fs[] >> rw[] >>
     every_case_tac >> fs[] >>
     last_x_assum(qspec_then`k`mp_tac) >>
-    simp[] ) >>
+    simp[] >>
+    every_case_tac >> simp[] >>
+    rfs[state_rel_def]) >>
   strip_tac >>
   rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>

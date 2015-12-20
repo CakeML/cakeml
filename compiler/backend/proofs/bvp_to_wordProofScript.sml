@@ -7,8 +7,6 @@ val _ = new_theory "bvp_to_wordProof";
 
 (* TODO: move *)
 
-val has_pair_type = can dest_prod o type_of
-
 val get_var_set_var = store_thm("get_var_set_var[simp]",
   ``get_var n (set_var n w s) = SOME w``,
   fs [wordSemTheory.get_var_def,wordSemTheory.set_var_def]);
