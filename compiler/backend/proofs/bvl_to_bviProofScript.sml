@@ -1663,23 +1663,38 @@ val optimise_semantics = Q.store_thm("optimise_semantics",
   asm_simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
   reverse conj_tac >- METIS_TAC[] >>
   gen_tac >> strip_tac >>
-  qmatch_assum_abbrev_tac`FST (bvlSem$evaluate (e1,v1,s1)) ≠ Rerr _` >>
-  qpat_assum`_ ≠ _`mp_tac >>
-  qmatch_assum_abbrev_tac`FST (bvlSem$evaluate (e1,v1,s2)) ≠ _` >>
-  strip_tac >>
+  strip_tac >> fs[] >>
+  qpat_abbrev_tac`abb2 = bvlSem$evaluate _` >>
+  qpat_abbrev_tac`abb1 = bvlSem$evaluate _` >>
+  qmatch_assum_abbrev_tac`Abbrev(abb2 = evaluate (e1,v1,s1))` >>
+  qmatch_assum_abbrev_tac`Abbrev(abb1 = evaluate (e1,v1,s2))` >>
+  map_every qunabbrev_tac[`abb1`,`abb2`] >>
   qmatch_assum_rename_tac`Abbrev(s1 = _ _ _ k1)` >>
   qmatch_assum_rename_tac`Abbrev(s2 = _ _ _ k2)` >>
-  qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
-  simp[LESS_EQ_EXISTS] >>
-  qspecl_then[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_clock >>
-  simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >> simp[] >>
-  qspecl_then[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_clock >>
-  simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >> simp[] >>
+  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> fs[] >>
+  (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> fs[] >>
+  Q.ISPECL_THEN[`e1`,`v1`,`s1`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
+  disch_then(qspec_then`k2`mp_tac) >>
+  Q.ISPECL_THEN[`e1`,`v1`,`s2`]mp_tac bvlPropsTheory.evaluate_add_to_clock_io_events_mono >>
+  disch_then(qspec_then`k1`mp_tac) >>
+  simp[bvlPropsTheory.inc_clock_def,Abbr`s1`,Abbr`s2`] >>
+  ntac 2 strip_tac >>
+  every_case_tac >> fs[] >>
+  imp_res_tac bvlPropsTheory.evaluate_add_clock >>
+  rpt(first_x_assum (fn th => mp_tac th >> discharge_hyps >- (strip_tac >> fs[]))) >>
   simp[bvlPropsTheory.inc_clock_def] >>
-  simp[Abbr`s1`,Abbr`s2`] >>
-  rw[] >>
-  rpt(first_x_assum(qspec_then`p`mp_tac))>>
-  fsrw_tac[ARITH_ss][]);
+  TRY (
+    disch_then(qspec_then`k1`strip_assume_tac) >>
+    disch_then(qspec_then`k2`strip_assume_tac) >>
+    fsrw_tac[ARITH_ss][bvlSemTheory.state_component_equality] ) >>
+  TRY (
+    qexists_tac`k1` >>
+    spose_not_then strip_assume_tac >> fs[] >> NO_TAC) >>
+  TRY (
+    qexists_tac`k2` >>
+    spose_not_then strip_assume_tac >> fsrw_tac[ARITH_ss][] >>
+    rfs[] >> NO_TAC) >>
+  rw[] >> fs[] >> rfs[]);
 
 val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   `evaluate ([Call 0 (SOME start) []],[],s1) = (res,s2) ∧
