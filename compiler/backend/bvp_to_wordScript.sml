@@ -12,8 +12,8 @@ val adjust_var_def = Define `
   adjust_var n = 2 * n + 2:num`;
 
 val adjust_set_def = Define `
-  adjust_set (names:num_set) =
-    (fromAList ((0,()):: MAP (\(n,k). (adjust_var n,k)) (toAList names))):num_set`
+  adjust_set (names:'a num_map) =
+    (fromAList ((0,()):: MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set`
 
 val assign_def = Define `
   assign (c:config) (n:num) (l:num) (dest:num) (op:closLang$op)
