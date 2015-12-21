@@ -358,34 +358,37 @@ val evaluate_def = tDefine "evaluate" `
       else (NONE,s)
     | _ => (SOME Error,s)) /\
   (evaluate (Call ret dest handler,s) =
-     case find_code dest s.regs s.code of
-     | NONE => (SOME Error,s)
-     | SOME prog =>
      case ret of
      (* tail call *)
      | NONE =>
-        if handler <> NONE then (SOME Error,s) else
-        if s.clock = 0 then (SOME TimeOut,empty_env s) else
-          (case evaluate (prog,dec_clock s) of
-           | (NONE,s) => (SOME Error,s)
-           | (SOME res,s) => (SOME res,s))
+       (case find_code dest s.regs s.code of
+        | NONE => (SOME Error,s)
+        | SOME prog =>
+           if handler <> NONE then (SOME Error,s) else
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (prog,dec_clock s) of
+              | (NONE,s) => (SOME Error,s)
+              | (SOME res,s) => (SOME res,s)))
      (* returning call, returns into var n *)
      | SOME (ret_handler,link_reg,l1,l2) =>
-        if s.clock = 0 then (SOME TimeOut,empty_env s) else
-          (case evaluate (prog, dec_clock (set_var link_reg (Loc l1 l2) s)) of
-           | (SOME (Result x),s2) =>
-               if x <> Loc l1 l2 then (SOME Error,s2) else
-                 (case evaluate(ret_handler,check_clock s2 s) of
-                  | (NONE,s) => (NONE,s)
-                  | (_,s) => (SOME Error,s))
-           | (SOME (Exception x),s2) =>
-               (case handler of (* if handler is present, then handle exc *)
-                | NONE => (SOME (Exception x),s2)
-                | SOME (h,l1,l2) =>
-                   if x <> Loc l1 l2 then (SOME Error,s2) else
-                     evaluate (h, check_clock s2 s))
-           | (NONE,s) => (SOME Error,s)
-           | res => res)) /\
+       (case find_code dest (s.regs \\ link_reg) s.code of
+        | NONE => (SOME Error,s)
+        | SOME prog =>
+           if s.clock = 0 then (SOME TimeOut,empty_env s) else
+             (case evaluate (prog, dec_clock (set_var link_reg (Loc l1 l2) s)) of
+              | (SOME (Result x),s2) =>
+                  if x <> Loc l1 l2 then (SOME Error,s2) else
+                    (case evaluate(ret_handler,check_clock s2 s) of
+                     | (NONE,s) => (NONE,s)
+                     | (_,s) => (SOME Error,s))
+              | (SOME (Exception x),s2) =>
+                  (case handler of (* if handler is present, then handle exc *)
+                   | NONE => (SOME (Exception x),s2)
+                   | SOME (h,l1,l2) =>
+                      if x <> Loc l1 l2 then (SOME Error,s2) else
+                        evaluate (h, check_clock s2 s))
+              | (NONE,s) => (SOME Error,s)
+              | res => res))) /\
   (evaluate (FFI ffi_index ptr len ret,s) =
     case (get_var ptr s, get_var len s) of
     | SOME (Word w),SOME (Word w2) =>
@@ -479,12 +482,15 @@ val evaluate_clock = store_thm("evaluate_clock",
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def] \\ every_case_tac
+  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
+  \\ TRY(fs[]>>Cases_on`ret`>>CHANGED_TAC(fs[])>>(fn g => subterm split_pair_case_tac (#2 g) g)>>fs[])
+  \\ TRY BasicProvers.TOP_CASE_TAC
+  \\ every_case_tac
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,empty_env_def]
   \\ IMP_RES_TAC inst_clock
   \\ IMP_RES_TAC alloc_clock
   \\ fs [set_var_def,set_store_def,dec_clock_def,jump_exc_def]
-  \\ Cases_on `evaluate (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
+  \\ fs[LET_THM] >> TRY split_pair_tac >> fs[]
   \\ simp[] \\ every_case_tac \\ fs[] \\ rw[]
   \\ IMP_RES_TAC check_clock_IMP
   \\ res_tac \\ fs [] \\ TRY decide_tac
@@ -515,11 +521,13 @@ val evaluate_ind = curry save_thm "evaluate_ind" let
   val ind = prove(goal,
     STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
     \\ reverse (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
-           \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC evaluate_clock \\ SRW_TAC [] []
-           \\ fs [GSYM set_var_check_clock,dec_clock_set_var]
-           \\ RES_TAC \\ IMP_RES_TAC check_clock_alt \\ fs [])
+    THEN1 (
+      Cases_on`ret`>>fs[]>>
+      FIRST_X_ASSUM MATCH_MP_TAC
+      \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC evaluate_clock \\ SRW_TAC [] []
+      \\ fs [GSYM set_var_check_clock,dec_clock_set_var]
+      \\ RES_TAC \\ IMP_RES_TAC check_clock_alt \\ fs [])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
     \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
@@ -536,9 +544,9 @@ val evaluate_def = curry save_thm "evaluate_def" let
     \\ SIMP_TAC std_ss [Once evaluate_def] \\ fs []
     \\ Cases_on `evaluate (c1,s)` \\ fs [LET_DEF]
     \\ IMP_RES_TAC evaluate_check_clock \\ fs []
-    \\ Cases_on `find_code dest s.regs s.code` \\ fs []
     \\ Cases_on `ret` \\ fs []
-    \\ PairCases_on `x'` \\ fs []
+    \\ PairCases_on`x` \\ fs[]
+    \\ Cases_on `find_code dest (s.regs \\ x1) s.code` \\ fs []
     \\ IF_CASES_TAC \\ fs []
     \\ every_case_tac \\ fs [] \\ rfs [] \\ fs [] \\ rw []
     \\ IMP_RES_TAC evaluate_clock
