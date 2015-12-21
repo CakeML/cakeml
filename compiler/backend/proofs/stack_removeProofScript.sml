@@ -26,7 +26,8 @@ val good_syntax_def = Define `
   (good_syntax (Halt n) k <=> n < k) /\
   (good_syntax (FFI ffi_index ptr' len' ret') k <=>
      ptr' < k /\ len' < k /\ ret' < k) /\
-  (good_syntax (Call x1 _ x2) k <=>
+  (good_syntax (Call x1 dest x2) k <=>
+     (case dest of INR i => i < k | _ => T) /\
      (case x1 of
       | SOME (y,r,_,_) => good_syntax y k /\ r < k
       | NONE => T) /\
@@ -87,6 +88,15 @@ val state_rel_IMP = prove(
     state_rel k (dec_clock s) (dec_clock t1)``,
   rw [] \\ fs [state_rel_def,dec_clock_def,empty_env_def] \\ rfs [] \\ fs []
   \\ rw [] \\ res_tac \\ fs [])
+
+val find_code_lemma = prove(
+  ``state_rel k s t1 /\
+    (case dest of INL v2 => T | INR i => i < k) /\
+    find_code dest s.regs s.code = SOME x ==>
+    find_code dest t1.regs t1.code = SOME (comp k x) /\ good_syntax x k``,
+  CASE_TAC \\ fs [find_code_def,state_rel_def] \\ strip_tac \\ res_tac
+  \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs [] \\ res_tac);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -164,7 +174,29 @@ val comp_correct = Q.prove(
     \\ `state_rel k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
     \\ res_tac \\ fs [] \\ rw []
     \\ Cases_on `r2'` \\ fs [])
-  THEN1 (* Call *) cheat
+  THEN1 (* Call *)
+   (Cases_on `ret` \\ fs [] THEN1
+     (fs [evaluate_def]
+      \\ Cases_on `find_code dest s.regs s.code` \\ fs []
+      \\ Cases_on `handler` \\ fs []
+      \\ Cases_on `s.clock = 0` \\ fs [] \\ rw [] THEN1
+       (fs [evaluate_def,Once comp_def,good_syntax_def]
+        \\ imp_res_tac find_code_lemma \\ fs [] \\ pop_assum (K all_tac)
+        \\ fs [state_rel_def])
+      \\ Cases_on `evaluate (x,dec_clock s)` \\ fs []
+      \\ Cases_on `q` \\ fs [] \\ rw [] \\ fs []
+      \\ simp [evaluate_def,Once comp_def,good_syntax_def]
+      \\ fs [good_syntax_def]
+      \\ `find_code dest t1.regs t1.code = SOME (comp k x) /\ good_syntax x k` by
+           (match_mp_tac find_code_lemma \\ fs []) \\ fs []
+      \\ `t1.clock <> 0` by fs [state_rel_def] \\ fs []
+      \\ `state_rel k (dec_clock s) (dec_clock t1)` by
+       (fs [state_rel_def,dec_clock_def] \\ rfs[] \\ metis_tac [])
+      \\ first_x_assum drule \\ fs []
+      \\ strip_tac \\ fs []
+      \\ BasicProvers.TOP_CASE_TAC \\ fs [])
+    \\ PairCases_on `x` \\ fs [good_syntax_def]
+    \\ cheat)
   THEN1 (* FFI *)
    (simp [Once comp_def]
     \\ fs [good_syntax_def,evaluate_def]
