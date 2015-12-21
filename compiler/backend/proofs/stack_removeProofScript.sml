@@ -84,10 +84,9 @@ val state_rel_get_var = prove(
 
 val state_rel_IMP = prove(
   ``state_rel k s t1 ==>
-    state_rel k (dec_clock s) (dec_clock t1) /\
-    state_rel k (empty_env s) (empty_env t1)``,
+    state_rel k (dec_clock s) (dec_clock t1)``,
   rw [] \\ fs [state_rel_def,dec_clock_def,empty_env_def] \\ rfs [] \\ fs []
-  \\ cheat); (* not true for empty_env *)
+  \\ rw [] \\ res_tac \\ fs [])
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -98,6 +97,7 @@ val comp_correct = Q.prove(
                | SOME (Halt _) =>
                    t2.ffi.io_events ≼ s2.ffi.io_events ∧
                    (IS_SOME t2.ffi.final_event ⇒ t2.ffi = s2.ffi)
+               | SOME TimeOut => r2 = r /\ t2.ffi = s2.ffi
                | _ =>  (r2 = r /\ state_rel k s2 t2))`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
@@ -114,7 +114,7 @@ val comp_correct = Q.prove(
    (fs [comp_def,evaluate_def]
     \\ `t1.clock = s.clock` by fs [state_rel_def] \\ fs []
     \\ CASE_TAC \\ fs [] \\ rw []
-    \\ imp_res_tac state_rel_IMP \\ fs [])
+    \\ imp_res_tac state_rel_IMP \\ fs [] \\ fs [state_rel_def])
   THEN1 (* Seq *)
    (fs [] \\ simp [Once comp_def]
     \\ fs [evaluate_def,good_syntax_def,LET_DEF]
@@ -158,7 +158,7 @@ val comp_correct = Q.prove(
      (qpat_assum `bb ==> bbb` (K all_tac)
       \\ fs [state_rel_def] \\ res_tac \\ fs [] \\ fs [])
     \\ fs [] \\ Cases_on `t1.clock = 0` \\ fs []
-    THEN1 (rw [] \\ imp_res_tac state_rel_IMP \\ fs [])
+    THEN1 (rw [] \\ fs [state_rel_def])
     \\ first_assum(subterm split_pair_case_tac o concl) \\ fs []
     \\ Cases_on `v'` \\ fs [] \\ rw [] \\ fs []
     \\ `state_rel k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
