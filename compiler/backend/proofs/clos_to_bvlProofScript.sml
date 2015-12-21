@@ -4067,47 +4067,136 @@ val compile_semantics = Q.store_thm("compile_semantics",
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
-    qx_gen_tac`ffi` >> strip_tac >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >> simp[] >>
-    simp[GSYM PULL_FORALL] >>
-    discharge_hyps_keep >- metis_tac[FST] >>
-    imp_res_tac full_state_rel_with_clock >>
-    pop_assum(qspec_then`k`strip_assume_tac) >>
-    rpt(disch_then(fn th => first_assum(mp_tac o MATCH_MP th))) >> simp[] >>
-    discharge_hyps >- metis_tac[code_installed_fromAList,compile_all_distinct_locs] >>
-    strip_tac >>
+    gen_tac >> strip_tac >> rveq >> fs[] >>
     simp[bvlSemTheory.semantics_def] >>
-    `r1 ≠ Rerr (Rabort Rtimeout_error) ∧
-     r1 ≠ Rerr (Rabort Rtype_error)` by (
-      conj_tac >>
-      strip_tac >> fs[] >>
-      imp_res_tac full_result_rel_abort ) >>
-    imp_res_tac full_result_rel_ffi >>
     IF_CASES_TAC >> fs[] >- (
-      qmatch_assum_abbrev_tac`FST q = _` >>
-      Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
-      pop_assum(assume_tac o SYM) >>
-      imp_res_tac bvlPropsTheory.evaluate_add_clock >> rfs[] >>
-      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >>
-      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
-      rpt var_eq_tac >> rfs[] >>
-      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
+      drule bvlPropsTheory.evaluate_add_clock >>
+      discharge_hyps >- fs[] >> strip_tac >>
+      rator_x_assum`closSem$evaluate`kall_tac >>
+      last_assum(qspec_then`k'`mp_tac)>>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      drule (GEN_ALL compile_evaluate) >>
+      rpt(disch_then drule) >> fs[] >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      discharge_hyps >- ( strip_tac >> PROVE_TAC[FST] ) >>
+      disch_then drule >>
+      drule(GEN_ALL full_state_rel_with_clock) >>
+      disch_then(qspec_then`k'`mp_tac)>>simp[] >> strip_tac >>
+      disch_then drule >> simp[] >>
+      discharge_hyps >- (
+        metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+      strip_tac >>
+      first_x_assum(qspec_then`ck`mp_tac) >>
       simp[inc_clock_def] >>
-      fsrw_tac[ARITH_ss][]) >>
+      strip_tac >> rveq >>
+      spose_not_then strip_assume_tac >>
+      imp_res_tac full_result_rel_abort ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
-      qx_gen_tac`ffi'` >> strip_tac >>
-      imp_res_tac evaluate_add_clock >>
-      qspecl_then[`ck+k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >>
-      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
-      rpt var_eq_tac >> rfs[] >>
-      rpt(first_x_assum(qspec_then`ex`mp_tac)) >>
-      simp[inc_clock_def] >>
-      fsrw_tac[ARITH_ss][]) >>
+      gen_tac >> strip_tac >> rveq >> fs[] >>
+      qmatch_assum_abbrev_tac`closSem$evaluate (bxps,[],bs) = _` >>
+      qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
+      qspecl_then[`(bxps,[],bs)`](mp_tac o Q.GEN`extra`) (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      simp[bvlPropsTheory.inc_clock_def,Abbr`ss`,Abbr`bs`] >>
+      ntac 2 strip_tac >>
+      Cases_on`s'.ffi.final_event`>>fs[] >- (
+        Cases_on`s''.ffi.final_event`>>fs[]>-(
+          unabbrev_all_tac >>
+          drule (GEN_ALL compile_evaluate) >>
+          rpt(disch_then drule) >>
+          simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+          disch_then drule >>
+          drule(GEN_ALL full_state_rel_with_clock) >>
+          disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
+          disch_then drule >> simp[] >>
+          discharge_hyps >- (
+            metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+          strip_tac >>
+          drule bvlPropsTheory.evaluate_add_clock >>
+          discharge_hyps >- (
+            PROVE_TAC[FST,full_result_rel_abort] ) >>
+          disch_then(qspec_then`k'`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
+          rator_x_assum`bvlSem$evaluate`mp_tac >>
+          drule bvlPropsTheory.evaluate_add_clock >>
+          discharge_hyps >- ( strip_tac >> fs[] ) >>
+          disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def]>>
+          ntac 3 strip_tac >> rveq >> fs[] >>
+          fs[state_component_equality] >>
+          metis_tac[full_result_rel_ffi]) >>
+        first_x_assum(qspec_then`k'`strip_assume_tac) >>
+        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+        unabbrev_all_tac >>
+        drule (GEN_ALL compile_evaluate) >>
+        rpt(disch_then drule) >>
+        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO])) >>
+        discharge_hyps >- ( strip_tac >> PROVE_TAC[FST] ) >>
+        disch_then drule >>
+        drule(GEN_ALL full_state_rel_with_clock) >>
+        disch_then(qspec_then`k'+k`mp_tac)>>
+        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[])) >> strip_tac >>
+        disch_then drule >>
+        discharge_hyps >- (
+          simp[] >>
+          metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+        strip_tac >>
+        rator_x_assum`closSem$evaluate`mp_tac >>
+        drule (Q.GEN`extra`(SIMP_RULE std_ss [] (CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
+        CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss())[RIGHT_FORALL_IMP_THM])) >>
+        discharge_hyps >- (strip_tac >> fs[]) >>
+        disch_then(qspec_then`k'`mp_tac)>>
+        first_x_assum(qspec_then`ck+k`mp_tac)>>simp[] >>
+        fsrw_tac[ARITH_ss][] >>
+        rpt strip_tac >> spose_not_then strip_assume_tac >>
+        rveq >> fsrw_tac[ARITH_ss][state_rel_def] >>
+        `q ≠ Rerr(Rabort Rtype_error)` by metis_tac[] >>
+        imp_res_tac full_result_rel_ffi >> fs[]) >>
+      first_x_assum(qspec_then`k'`strip_assume_tac) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+      unabbrev_all_tac >>
+      drule (GEN_ALL compile_evaluate) >>
+      rpt(disch_then drule) >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      discharge_hyps_keep >- ( strip_tac >> PROVE_TAC[FST] ) >>
+      disch_then drule >>
+      drule(GEN_ALL full_state_rel_with_clock) >>
+      disch_then(qspec_then`k+k'`mp_tac)>>simp[] >> strip_tac >>
+      disch_then drule >> simp[] >>
+      discharge_hyps >- (
+        metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+      strip_tac >> rveq >>
+      fsrw_tac[ARITH_ss][] >>
+      reverse(Cases_on`s''.ffi.final_event`)>>fs[]>>rfs[]>- (
+        first_x_assum(qspec_then`ck+k`mp_tac) >>
+        fsrw_tac[ARITH_ss][ADD1] >> strip_tac >>
+        fs[state_rel_def] >> rfs[] >>
+        imp_res_tac full_result_rel_ffi >>
+        fs[] >> rfs[]) >>
+      rator_x_assum`bvlSem$evaluate`mp_tac >>
+      drule bvlPropsTheory.evaluate_add_clock >>
+      discharge_hyps >- (strip_tac >> fs[]) >>
+      disch_then(qspec_then`ck+k`mp_tac)>>simp[bvlPropsTheory.inc_clock_def] >>
+      fsrw_tac[ARITH_ss][ADD1] >>
+      strip_tac >> spose_not_then strip_assume_tac >> rveq >>
+      fsrw_tac[ARITH_ss][state_rel_def] >> rfs[] >>
+      imp_res_tac full_result_rel_ffi >> fs[] >> rfs[]) >>
     simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    qexists_tac`ck + k` >> simp[]) >>
+    drule (GEN_ALL compile_evaluate) >>
+    rpt(disch_then drule) >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+    discharge_hyps_keep >- ( strip_tac >> PROVE_TAC[FST] ) >>
+    disch_then drule >>
+    drule(GEN_ALL full_state_rel_with_clock) >>
+    disch_then(qspec_then`k`mp_tac)>>simp[] >> strip_tac >>
+    disch_then drule >> simp[] >>
+    discharge_hyps >- (
+      metis_tac[code_installed_fromAList,compile_all_distinct_locs] ) >>
+    strip_tac >>
+    qexists_tac`ck + k` >> simp[] >>
+    imp_res_tac full_result_rel_ffi >>
+    CASE_TAC >> fs[] >> rpt strip_tac >>
+    PROVE_TAC[full_result_rel_abort]) >>
   strip_tac >>
   simp[bvlSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -4134,22 +4223,37 @@ val compile_semantics = Q.store_thm("compile_semantics",
   conj_tac >- (
     spose_not_then strip_assume_tac >>
     fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    last_x_assum(qspec_then`k`strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`FST q = _` >>
-    Cases_on`q`>>fs[markerTheory.Abbrev_def] >>
-    pop_assum(assume_tac o SYM) >>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    strip_tac >>
     first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL compile_evaluate))) >>
     simp[] >>
     imp_res_tac full_state_rel_with_clock >>
-    pop_assum(qspec_then`k`strip_assume_tac) >>
+    pop_assum(qspec_then`k`strip_assume_tac) >> fs[] >>
     rpt(first_assum(match_exists_tac o concl)>>simp[]) >>
     conj_tac >- metis_tac[code_installed_fromAList,compile_all_distinct_locs] >>
     spose_not_then strip_assume_tac >>
-    first_x_assum(qspec_then`k`strip_assume_tac) >> rfs[] >>
-    imp_res_tac evaluate_add_clock >>
-    first_x_assum(qspec_then`ck`mp_tac) >>
-    simp[inc_clock_def] >> spose_not_then strip_assume_tac >>
-    fs[] >> imp_res_tac full_result_rel_timeout ) >>
+    last_x_assum(qspec_then`k`strip_assume_tac) >> rfs[] >>
+    reverse(Cases_on`s'.ffi.final_event`)>>fs[] >- (
+      rator_x_assum`bvlSem$evaluate`mp_tac >>
+      qmatch_assum_abbrev_tac`bvlSem$evaluate (exps,[],ss) = _` >>
+      qspecl_then[`exps`,`[]`,`ss`]mp_tac (INST_TYPE[alpha|->``:'ffi``]bvlPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      disch_then(qspec_then`ck`mp_tac)>>
+      fsrw_tac[ARITH_ss][ADD1,bvlPropsTheory.inc_clock_def,Abbr`ss`] >>
+      rpt strip_tac >> fs[] >>
+      imp_res_tac full_result_rel_ffi >> fs[]) >>
+    rator_x_assum`bvlSem$evaluate`mp_tac >>
+    drule bvlPropsTheory.evaluate_add_clock >>
+    discharge_hyps >- (strip_tac >> fs[]) >>
+    disch_then(qspec_then`ck`mp_tac) >>
+    simp[bvlPropsTheory.inc_clock_def] >>
+    fsrw_tac[ARITH_ss][ADD1] >>
+    rpt strip_tac >> fs[] >>
+    imp_res_tac full_result_rel_ffi >>
+    spose_not_then strip_assume_tac >>
+    fs[state_component_equality] >> rveq >> fs[] >>
+    Cases_on`a`>>fs[]>>
+    imp_res_tac full_result_rel_timeout >> fs[]) >>
   strip_tac >>
   qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
   `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
