@@ -165,9 +165,9 @@ val comp_correct = prove(
     \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
     \\ qexists_tac `ck` \\ fs [AC ADD_COMM ADD_ASSOC])
   THEN1 (* Call *)
-   (fs [evaluate_def] \\ Cases_on `find_code dest s.regs s.code` \\ fs []
-    \\ Cases_on `ret` \\ fs [] THEN1
-     (every_case_tac \\ fs [empty_env_def] \\ rw [] \\ fs []
+   (fs [evaluate_def] \\ Cases_on `ret` \\ fs [] THEN1
+     (Cases_on `find_code dest s.regs s.code` \\ fs []
+      \\ every_case_tac \\ fs [empty_env_def] \\ rw [] \\ fs []
       \\ fs [good_syntax_def] \\ simp [Once comp_def,evaluate_def]
       \\ drule find_code_IMP_lookup \\ fs [] \\ rw [] \\ fs [] \\ fs []
       \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
@@ -183,7 +183,75 @@ val comp_correct = prove(
     \\ qmatch_assum_rename_tac `good_syntax (Call (SOME z) dest handler)`
     \\ PairCases_on `z` \\ fs [] \\ simp [Once comp_def] \\ fs []
     \\ split_pair_tac \\ fs []
-    \\ cheat (* Call case is full of similar cases *))
+    \\ Cases_on `find_code dest (s.regs \\ z1) s.code` \\ fs []
+    \\ drule find_code_IMP_lookup \\ rw [] \\ fs []
+    \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
+    \\ pop_assum (qspec_then`c`strip_assume_tac) \\ fs [good_syntax_def]
+    \\ Cases_on `s.clock = 0` \\ fs [] THEN1
+     (rw [] \\ fs [] \\ every_case_tac \\ fs []
+      \\ TRY split_pair_tac \\ fs [evaluate_def]
+      \\ qexists_tac `0` \\ fs []
+      \\ fs [empty_env_def,state_component_equality])
+    \\ Cases_on `evaluate (x,dec_clock (set_var z1 (Loc z2 z3) s))`
+    \\ Cases_on `q` \\ fs []
+    \\ Cases_on `x'` \\ fs [] \\ rw [] \\ TRY
+     (every_case_tac \\ fs [] \\ TRY split_pair_tac
+      \\ fs [evaluate_def,dec_clock_def,set_var_def]
+      \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
+      \\ match_mp_tac IMP_IMP \\ conj_tac
+      \\ TRY (rw [] \\ res_tac \\ fs [] \\ NO_TAC) \\ strip_tac \\ fs []
+      \\ `ck + s.clock - 1 = s.clock - 1 + ck` by decide_tac
+      \\ qexists_tac `ck` \\ fs [] \\ NO_TAC)
+    THEN1
+     (Cases_on `w = Loc z2 z3` \\ rw [] \\ fs []
+      \\ pop_assum mp_tac \\ ntac 2 CASE_TAC \\ rw [] \\ fs []
+      \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
+      \\ match_mp_tac IMP_IMP \\ conj_tac
+      \\ TRY (imp_res_tac evaluate_consts \\ fs []
+              \\ rw [] \\ res_tac \\ fs [] \\ NO_TAC)
+      \\ strip_tac \\ fs [] \\ rfs []
+      \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
+      \\ match_mp_tac IMP_IMP \\ conj_tac
+      \\ TRY (imp_res_tac evaluate_consts \\ fs []
+              \\ rw [] \\ res_tac \\ fs [] \\ NO_TAC) \\ rw []
+      \\ Cases_on `handler` \\ fs []
+      \\ TRY (PairCases_on `x'` \\ ntac 2 (split_pair_tac \\ fs []))
+      \\ fs [evaluate_def,dec_clock_def,set_var_def]
+      \\ first_assum (mp_tac o Q.SPEC `ck` o
+             MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO]
+             (evaluate_add_clock |> GEN_ALL))) \\ fs []
+      \\ rw [] \\ qexists_tac `ck' + ck` \\ fs [AC ADD_COMM ADD_ASSOC]
+      \\ `ck + (ck' + (s.clock - 1)) = ck + (ck' + s.clock) - 1` by decide_tac
+      \\ fs [] \\ imp_res_tac evaluate_consts \\ fs [])
+    \\ Cases_on `handler` \\ fs[]
+    \\ fs [evaluate_def,dec_clock_def,set_var_def]
+    THEN1
+     (first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
+      \\ match_mp_tac IMP_IMP \\ conj_tac
+      \\ TRY (imp_res_tac evaluate_consts \\ fs []
+              \\ rw [] \\ res_tac \\ fs [] \\ NO_TAC) \\ rw []
+      \\ `ck + s.clock - 1 = s.clock - 1 + ck` by decide_tac
+      \\ qexists_tac `ck` \\ fs [])
+    \\ PairCases_on `x'` \\ fs []
+    \\ split_pair_tac \\ fs []
+    \\ fs [evaluate_def,dec_clock_def,set_var_def]
+    \\ Cases_on `w = Loc x'1 x'2` \\ rw [] \\ fs []
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    \\ TRY (imp_res_tac evaluate_consts \\ fs []
+            \\ rw [] \\ res_tac \\ fs [] \\ NO_TAC) \\ rw [] \\ rfs[]
+    \\ first_x_assum (qspecl_then[`m'`,`n`,`c`]mp_tac)
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    \\ TRY (imp_res_tac evaluate_consts \\ fs []
+            \\ rw [] \\ res_tac \\ fs [] \\ NO_TAC) \\ rw []
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ first_assum (mp_tac o Q.SPEC `ck'` o
+             MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO]
+             (evaluate_add_clock |> GEN_ALL))) \\ fs [] \\ rw []
+    \\ qexists_tac `ck+ck'` \\ fs []
+    \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ fs[]
+    \\ imp_res_tac evaluate_consts \\ fs [])
   THEN1 (* FFI *)
    (qexists_tac `0` \\ fs [Once comp_def,evaluate_def,get_var_def]
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [get_var_def]
