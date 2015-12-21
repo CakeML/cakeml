@@ -159,4 +159,19 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
+val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
+  `(∀env (s:'ffi exhSem$state) es extra.
+       (FST(evaluate env s es)).ffi.io_events ≼
+       (FST(evaluate env (s with clock := s.clock + extra) es)).ffi.io_events ∧
+       (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
+        (FST(evaluate env (s with clock := s.clock + extra) es)).ffi =
+        (FST(evaluate env s es)).ffi)) ∧
+   (∀env (s:'ffi exhSem$state) pes v extra.
+       (FST(evaluate_match env s pes v)).ffi.io_events ≼
+       (FST(evaluate_match env (s with clock := s.clock + extra) pes v)).ffi.io_events ∧
+       (IS_SOME((FST(evaluate_match env s pes v)).ffi.final_event) ⇒
+        (FST(evaluate_match env (s with clock := s.clock + extra) pes v)).ffi =
+        (FST(evaluate_match env s pes v)).ffi))`,
+  cheat);
+
 val _ = export_theory()
