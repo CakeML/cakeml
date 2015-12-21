@@ -765,105 +765,17 @@ val fn_add_loc = Q.store_thm ("fn_add_loc",
  rw [evaluate_def, res_rel_rw] );
  *)
 
+(*
+if this is needed, give it a different name...
+
 val exp_rel_semantics = Q.store_thm("exp_rel_semantics",
   `exp_rel (:'ffi) e1 e2 ∧
    semantics [] (s:'ffi closSem$state) e1 ≠ Fail ⇒
    semantics [] s e2 = semantics [] s e1`,
-  simp[clos_relationTheory.exp_rel_def,clos_relationTheory.exec_rel_rw,clos_relationTheory.evaluate_ev_def] >>
-  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
-  simp[closSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    qx_gen_tac`ffi` >> strip_tac >>
-    IF_CASES_TAC >> fs[] >- (
-      qmatch_assum_abbrev_tac`FST p = _` >>
-      Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
-      pop_assum(assume_tac o SYM) >>
-      imp_res_tac closPropsTheory.evaluate_add_to_clock >>
-      pop_assum kall_tac >> fs[] >> rfs[] >>
-      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >>
-      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
-      rpt var_eq_tac >> rfs[] >>
-      ntac 2 (first_x_assum(qspec_then`ex`mp_tac)) >>
-      simp[] >>
-      fsrw_tac[ARITH_ss][] >>
-      rpt strip_tac >>
-      first_x_assum(qspecl_then[`ex+k+k'`,`[]`]mp_tac) >> simp[] >>
-      ntac 2 (qexists_tac`s`) >>
-      simp[clos_relationTheory.state_rel_refl] >>
-      simp[GSYM LESS_EQ_EXISTS] >| [
-        qexists_tac`ex+k`,
-        qexists_tac`ex+k'`] >>
-      simp[clos_relationTheory.res_rel_rw] >>
-      Cases_on`r`>>simp[clos_relationTheory.res_rel_rw] >>
-      Cases_on`e`>>simp[clos_relationTheory.res_rel_rw] >>
-      Cases_on`a`>>simp[clos_relationTheory.res_rel_rw] >>
-      fs[] >> metis_tac[FST] ) >>
-    DEEP_INTRO_TAC some_intro >> simp[] >>
-    conj_tac >- (
-      qx_gen_tac`ffi'` >> strip_tac >>
-      imp_res_tac closPropsTheory.evaluate_add_to_clock >>
-      ntac 2 (pop_assum kall_tac) >> fs[] >>
-      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >>
-      qmatch_assum_rename_tac`_ = _ + (ex:num)` >>
-      rpt var_eq_tac >> rfs[] >>
-      ntac 2 (first_x_assum(qspec_then`ex`mp_tac)) >>
-      simp[] >>
-      fsrw_tac[ARITH_ss][] >>
-      ntac 2 strip_tac >>
-      first_x_assum(qspecl_then[`ex+k+k'`,`[]`]mp_tac) >> simp[] >>
-      ntac 2 (disch_then(qspec_then`s`mp_tac)) >>
-      simp[clos_relationTheory.state_rel_refl] >>
-      simp[GSYM LESS_EQ_EXISTS] >| [
-        disch_then(qspec_then`ex+k`mp_tac),
-        disch_then(qspec_then`ex+k'`mp_tac)] >>
-      simp[] >> strip_tac >>
-      imp_res_tac res_rel_ffi >> fs[] >>
-      pop_assum mp_tac >> (discharge_hyps >- metis_tac[FST]) >>
-      simp[]) >>
-    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    qexists_tac`k`>>simp[] >>
-    first_x_assum(qspecl_then[`k`,`[]`]mp_tac)>>simp[] >>
-    ntac 2 (disch_then(qspec_then`s`mp_tac)) >>
-    simp[clos_relationTheory.state_rel_refl] >>
-    disch_then(qspec_then`k`mp_tac)>>simp[] >>
-    Cases_on`r`>>rw[clos_relationTheory.res_rel_rw] >>fs[] >>
-    Cases_on`e`>>fs[clos_relationTheory.res_rel_rw] >>
-    Cases_on`a`>>fs[clos_relationTheory.res_rel_rw] >>
-    metis_tac[FST] ) >>
-  strip_tac >>
-  IF_CASES_TAC >> fs[] >- (
-    first_x_assum(qspecl_then[`k`,`[]`]mp_tac) >> simp[] >>
-    ntac 2 (qexists_tac`s`) >> simp[clos_relationTheory.state_rel_refl] >>
-    qexists_tac`k`>>simp[] >>
-    first_x_assum(qspec_then`k`mp_tac) >>
-    spose_not_then strip_assume_tac >>
-    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    Cases_on`evaluate (e1,[],s with clock := k)`>>fs[]>>
-    rfs[clos_relationTheory.res_rel_rw] >> fs[] ) >>
-  DEEP_INTRO_TAC some_intro >> simp[] >>
-  conj_tac >- (
-    spose_not_then strip_assume_tac >>
-    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    rpt(first_x_assum(qspec_then`k`strip_assume_tac)) >>
-    first_x_assum(qspec_then`[]`mp_tac)>>simp[]>>
-    ntac 2 (qexists_tac`s`) >> simp[clos_relationTheory.state_rel_refl] >>
-    qexists_tac`k`>>simp[] >>
-    Cases_on`evaluate (e1,[],s with clock := k)`>>fs[]>>
-    simp[clos_relationTheory.res_rel_rw] ) >>
-  strip_tac >>
-  rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
-  simp[FUN_EQ_THM] >>
-  gen_tac >>
-  rpt(first_x_assum(qspec_then`k`strip_assume_tac)) >>
-  first_x_assum(qspec_then`[]`mp_tac)>>simp[]>>
-  ntac 2 (disch_then(qspec_then`s`mp_tac)) >> simp[clos_relationTheory.state_rel_refl] >>
-  disch_then(qspec_then`k`mp_tac)>>simp[]>>
-  strip_tac >>
-  imp_res_tac (INST_TYPE[alpha|->``:'ffi``]res_rel_ffi) >>
-  metis_tac[PAIR,FST,SND,PAIR_EQ]);
+  rw[] >>
+  match_mp_tac EQ_SYM >>
+  match_mp_tac exp_rel_semantics >>
+  rw[state_rel_refl]);
+*)
 
 val _ = export_theory();
