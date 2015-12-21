@@ -582,39 +582,81 @@ val compile_semantics = Q.store_thm("compile_semantics",
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
-    qx_gen_tac`ffi` >> strip_tac >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
-    discharge_hyps >- metis_tac[] >> strip_tac >>
+    rw[] >>
     simp[closSemTheory.semantics_def] >>
     IF_CASES_TAC >> fs[] >- (
-      qmatch_assum_abbrev_tac`closSem$evaluate _ = res4` >>
-      `FST res4 ≠ Rerr (Rabort Rtimeout_error)` by (strip_tac >> fs[Abbr`res4`]) >>
-      `FST res4 ≠ Rerr (Rabort Rtype_error)` by (
-        strip_tac >>
-        first_x_assum(qspec_then`k`strip_assume_tac) >>
-        fs[Abbr`res4`] >> rfs[]) >>
-      qmatch_assum_abbrev_tac`FST p = _` >>
-      Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
-      pop_assum(assume_tac o SYM) >>
-      imp_res_tac evaluate_add_to_clock >>
-      fs[compile_state_with_clock] >>
-      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
-      rpt(first_x_assum(qspec_then`p`mp_tac)) >> simp[] ) >>
+      rator_x_assum`patSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      spose_not_then strip_assume_tac >>
+      drule compile_evaluate >>
+      discharge_hyps >- ( rw[] >> strip_tac >> fs[] ) >>
+      strip_tac >> fs[] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
-      qx_gen_tac`ffi'` >> strip_tac >>
-      imp_res_tac evaluate_add_to_clock >>
-      fs[compile_state_with_clock] >>
-      qspecl_then[`k`,`k'`]strip_assume_tac LESS_EQ_CASES >>
-      fs[LESS_EQ_EXISTS] >> var_eq_tac >> rfs[] >>
-      ntac 2(first_x_assum(qspec_then`p`mp_tac)) >> simp[] >>
-      strip_tac >> rpt var_eq_tac >>
-      fs[compile_state_def] >>
-      fs[state_component_equality]) >>
-    simp_tac(srw_ss()++QUANT_INST_ss[pair_default_qp])[] >>
-    qexists_tac`k` >> fs[compile_state_with_clock] >>
-    spose_not_then strip_assume_tac >> fs[] ) >>
+      rw[] >>
+      qmatch_assum_abbrev_tac`patSem$evaluate env ss es = _` >>
+      qmatch_assum_abbrev_tac`closSem$evaluate bp = _` >>
+      qspecl_then[`env`,`ss`,`es`](mp_tac o Q.GEN`extra`) patPropsTheory.evaluate_add_to_clock_io_events_mono >>
+      Q.ISPEC_THEN`bp`(mp_tac o Q.GEN`extra`) (CONJUNCT1 closPropsTheory.evaluate_add_to_clock_io_events_mono) >>
+      simp[Abbr`ss`,Abbr`bp`] >>
+      disch_then(qspec_then`k`strip_assume_tac) >>
+      disch_then(qspec_then`k'`strip_assume_tac) >>
+      Cases_on`s.ffi.final_event`>>fs[]>-(
+        Cases_on`s'.ffi.final_event`>>fs[]>-(
+          unabbrev_all_tac >>
+          drule compile_evaluate >>
+          discharge_hyps >- fs[] >>
+          strip_tac >>
+          drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
+          simp[] >>
+          disch_then(qspec_then`k'`mp_tac)>>simp[]>>
+          rator_x_assum`closSem$evaluate`mp_tac >>
+          drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
+          simp[] >>
+          disch_then(qspec_then`k`mp_tac)>>simp[]>>
+          ntac 3 strip_tac >> rveq >> fs[] >>
+          fs[state_component_equality] >>
+          simp[compile_state_def]) >>
+        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+        unabbrev_all_tac >>
+        drule compile_evaluate >>
+        discharge_hyps >- (
+          last_x_assum(qspec_then`k+k'`mp_tac)>>
+          rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
+        strip_tac >>
+        rator_x_assum`patSem$evaluate`mp_tac >>
+        drule (GEN_ALL patPropsTheory.evaluate_add_to_clock) >>
+        simp[] >>
+        disch_then(qspec_then`k'`mp_tac)>>simp[] >>
+        strip_tac >> spose_not_then strip_assume_tac >>
+        rveq >> fsrw_tac[ARITH_ss][compile_state_def] >> rfs[]) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+      unabbrev_all_tac >>
+      drule compile_evaluate >>
+      simp[] >>
+      discharge_hyps >- (
+        last_x_assum(qspec_then`k+k'`mp_tac)>>
+        rpt strip_tac >> fsrw_tac[ARITH_ss][] >> rfs[] ) >>
+      strip_tac >> rveq >>
+      fsrw_tac[ARITH_ss][] >>
+      reverse(Cases_on`s'.ffi.final_event`)>>fs[]>>rfs[]>- (
+        fs[] >> rfs[compile_state_def] ) >>
+      rator_x_assum`closSem$evaluate`mp_tac >>
+      drule (GEN_ALL(SIMP_RULE std_ss [](CONJUNCT1 closPropsTheory.evaluate_add_to_clock))) >>
+      simp[] >>
+      disch_then(qspec_then`k`mp_tac)>>simp[] >>
+      rpt strip_tac >> spose_not_then strip_assume_tac >>
+      rveq >> fsrw_tac[ARITH_ss][] >>
+      fs[compile_state_def,state_component_equality] >> rfs[]) >>
+    drule compile_evaluate >> simp[] >>
+    discharge_hyps >- (
+      last_x_assum(qspec_then`k`mp_tac)>>
+      fs[] >> rpt strip_tac >> fs[] ) >>
+    strip_tac >>
+    asm_exists_tac >> simp[] >>
+    simp[compile_state_def] >>
+    asm_exists_tac >> simp[]) >>
   strip_tac >>
   simp[closSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -628,13 +670,16 @@ val compile_semantics = Q.store_thm("compile_semantics",
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
     spose_not_then strip_assume_tac >>
-    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-    last_x_assum(qspec_then`k`strip_assume_tac) >>
-    qmatch_assum_abbrev_tac`SND p = _` >>
-    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
-    pop_assum(assume_tac o SYM) >>
-    first_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO]compile_evaluate)) >>
-    rw[compile_state_with_clock] ) >>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    strip_tac >>
+    drule compile_evaluate >> simp[] >>
+    spose_not_then strip_assume_tac >>
+    rveq >> fs[] >>
+    last_x_assum(qspec_then`k`mp_tac) >>
+    simp[] >>
+    fs[compile_state_def] >>
+    asm_exists_tac >> fs[]) >>
   strip_tac >>
   rpt (AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >> gen_tac >>
