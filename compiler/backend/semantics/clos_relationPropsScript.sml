@@ -222,9 +222,13 @@ val res_rel_ffi = store_thm(
   qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw, Once state_rel_rw]);
 
 val _ = temp_overload_on("fails",``λe s. ∃k. FST (evaluate (e,[],s with clock := k)) = Rerr (Rabort Rtype_error)``);
-val _ = temp_overload_on("terminates",``λe s ffi.
-  ∃k r s'. evaluate (e,[],s with clock := k) = (r,s') ∧
-           r ≠ Rerr (Rabort Rtimeout_error) ∧ ffi = s'.ffi``);
+val _ = temp_overload_on("terminates",``λe s res.
+  ∃k r s' outcome.
+    evaluate (e,[],s with clock := k) = (r,s') ∧
+    (case s'.ffi.final_event of
+     | NONE => (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
+     | SOME e => outcome = FFI_outcome e) ∧
+    res = Terminate outcome s'.ffi.io_events``)
 
 val exp_rel_semantics = store_thm(
   "exp_rel_semantics",
@@ -252,7 +256,7 @@ val exp_rel_semantics = store_thm(
       Cases_on`e`>>fs[res_rel_rw] >>
       Cases_on`a`>>fs[res_rel_rw]]) >>
   simp[] >> IF_CASES_TAC >> fs[] >>
-  `∀ffi. terminates e1 s1 ffi ⇔ terminates e2 s2 ffi` by (
+  `∀res. terminates e1 s1 res ⇔ terminates e2 s2 res` by (
     rw[EQ_IMP_THM] >>
     qexists_tac`k`>>simp[] >>
     `state_rel k s1 s2` by metis_tac[] >>
@@ -265,11 +269,13 @@ val exp_rel_semantics = store_thm(
     rpt var_eq_tac >> rfs[] >>
     ntac 2 (first_x_assum(qspec_then`k`mp_tac))>>simp[] >>
     ntac 2 strip_tac >> fs[] >>
+    CASE_TAC >> fs[] >>
     strip_tac >> fs[res_rel_rw] >>
     qmatch_assum_rename_tac`res_rel (x,_) _` >>
     Cases_on`x`>>fs[res_rel_rw] >> qcase_tac`Rerr e` >>
     Cases_on`e`>>fs[res_rel_rw] >> qcase_tac`Rabort a` >>
-    Cases_on`a`>>fs[] ) >>
+    Cases_on`a`>>fs[] >>
+    strip_tac >> fs[res_rel_rw]) >>
   simp[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   strip_tac >>
