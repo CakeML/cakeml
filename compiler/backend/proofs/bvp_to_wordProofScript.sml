@@ -616,6 +616,7 @@ val state_rel_def = Define `
         (v1 ++ join_env s.locals (toAList (inter t.locals (adjust_set s.locals))) ++
            [(the_global s.global,t.store ' Globals)] ++
            flat s.stack t.stack) /\
+      limit * (dimindex (:'a) DIV 8) + 1 < dimword (:'a) /\
       s.space <= sp`
 
 val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
@@ -1859,13 +1860,30 @@ val gc_add_call_env = prove(
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
   \\ fs [wordSemTheory.pop_env_def]);
 
+val word_ml_inv_SP_LIMIT = prove(
+  ``word_ml_inv (heap,be,a,sp) limit c refs stack ==> sp <= limit``,
+  rw [] \\ Cases_on `sp = 0`
+  \\ fs [word_ml_inv_def,abs_ml_inv_def,heap_ok_def,unused_space_inv_def]
+  \\ imp_res_tac heap_lookup_SPLIT \\ rw []
+  \\ fs [heap_length_APPEND,heap_length_def,el_length_def] \\ decide_tac);
+
 val has_space_state_rel = prove(
-  ``has_space (Word (alloc_size k)) r = SOME T /\
+  ``has_space (Word ((alloc_size k):'a word)) (r:('a,'ffi) state) = SOME T /\
     state_rel c l1 l2 s r [] locs ==>
     state_rel c l1 l2 (s with space := k) r [] locs``,
   fs [state_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ fs [heap_in_memory_store_def,wordSemTheory.has_space_def]
-  \\ cheat); (* wordSemTheory.has_space_def needs fixing *)
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [alloc_size_def,bytes_in_word_def]
+  \\ `(sp * (dimindex (:'a) DIV 8)) + 1 < dimword (:'a)` by
+   (imp_res_tac word_ml_inv_SP_LIMIT
+    \\ match_mp_tac LESS_EQ_LESS_TRANS
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ asm_exists_tac \\ fs [])
+  \\ `(sp * (dimindex (:'a) DIV 8)) < dimword (:'a)` by decide_tac
+  \\ every_case_tac \\ fs [word_mul_n2w]
+  \\ fs [good_dimindex_def] \\ fs [w2n_minus1] \\ rfs []
+  \\ `F` by decide_tac);
 
 val evaluate_IMP_inc_clock = prove(
   ``evaluate (q,t) = (NONE,t1) ==>
