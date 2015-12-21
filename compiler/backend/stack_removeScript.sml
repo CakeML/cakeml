@@ -35,23 +35,13 @@ val stack_err_lab_def = Define `
     k+2 is CurrHeap (which is kept in a register for improved speed)
 *)
 
-val move_def = Define `
-  move dest src = Inst (Arith (Binop Or dest src (Reg src)))`
-
-val sub_inst_def = Define `
-  sub_inst r1 r2 = Inst (Arith (Binop Sub r1 r1 (Reg r2)))`
-
-val add_inst_def = Define `
-  add_inst r1 r2 = Inst (Arith (Binop Add r1 r1 (Reg r2)))`
-
-val and_inst_def = Define `
-  and_inst r1 r2 = Inst (Arith (Binop And r1 r1 (Reg r2)))`
-
-val div2_inst_def = Define `
-  div2_inst r = Inst (Arith (Shift Lsr r r 1))`
-
-val const_inst_def = Define `
-  const_inst r w = Inst (Const r w)`
+val _ = map overload_on
+  [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
+   ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
+   ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
+   ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
+   ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
+   ("const_inst",``\r w. Inst (Const r w)``)]
 
 val single_stack_alloc_def = Define `
   single_stack_alloc k n =

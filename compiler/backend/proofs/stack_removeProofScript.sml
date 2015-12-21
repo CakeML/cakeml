@@ -223,4 +223,16 @@ val compile_semantics = store_thm("compile_semantics",
     semantics start s2 ∈ extend_with_resource_limit { semantics start s1 }``,
   cheat);
 
+(* init code *)
+
+semantics_def
+  |> SIMP_RULE std_ss [LET_DEF]
+
+  evaluate (p,s1) = (r,s2)
+
+
+
+  init_stubs_def
+  |> SIMP_RULE std_ss [LET_DEF,list_Seq_def]
+
 val _ = export_theory();
