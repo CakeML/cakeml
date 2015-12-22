@@ -240,13 +240,25 @@ val init_post_def = Define `
   init_post max k s2 =
     ?s1. state_rel k s1 s2 (* ... and more info about s1 *)`
 
+val push_if = prove(
+  ``(if b then f x else f y) = f (if b then x else y) /\
+    (if b then f x else g x) = (if b then f else g) x``,
+  Cases_on `b` \\ fs []);
+
 val evaluate_init_code = store_thm("evaluate_init_code",
   ``init_pre k start s ==>
     case evaluate (init_code max k start,s) of
     | (SOME (Halt (Word w)),t) => w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) => init_post max k t /\ t.ffi = s.ffi
     | _ => F``,
-  cheat);
+  fs [init_code_def,LET_DEF,halt_inst_def,init_pre_def] \\ rw []
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def]
+  \\ once_rewrite_tac [list_Seq_def]
+  \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def,
+         FLOOKUP_UPDATE,wordSemTheory.word_op_def,get_var_def,get_var_imm_def,
+         asmSemTheory.word_cmp_def,push_if]
+  \\ cheat);
 
 val evaluate_init_code_clock = prove(
   ``evaluate (init_code max k start,s) = (res,t) ==>
