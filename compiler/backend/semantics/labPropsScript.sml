@@ -188,10 +188,6 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   rpt var_eq_tac >> fs[] >>
   fs[IS_PREFIX_APPEND]);
 
-val evaluate_Halt_IMP = store_thm("evaluate_Halt_IMP",
-  ``evaluate s = (Halt x,s2) ==> (x = Success) \/ (x = Resource_limit_hit)``,
-  cheat (* easy *));
-
 val evaluate_ADD_clock = store_thm("evaluate_ADD_clock",
   ``!s res r k.
       evaluate s = (res,r) /\ res <> TimeOut ==>
