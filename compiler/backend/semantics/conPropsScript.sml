@@ -151,6 +151,15 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
   imp_res_tac evaluate_prompt_add_to_clock >> fs[] >> rw[] >>
   res_tac >> fs[]);
 
+val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_to_clock_io_events_mono",
+  `∀env s prog extra.
+   (FST (evaluate_prog env s prog)).ffi.io_events ≼
+   (FST (evaluate_prog env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+   (IS_SOME ((FST (evaluate_prog env s prog)).ffi.final_event) ⇒
+     (FST (evaluate_prog env (s with clock := s.clock + extra) prog)).ffi =
+     (FST (evaluate_prog env s prog)).ffi)`,
+  cheat);
+
 val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
   `∀xs exh vs s env.
      LENGTH xs = LENGTH vs ⇒
