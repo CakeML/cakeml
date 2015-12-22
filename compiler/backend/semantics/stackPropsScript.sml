@@ -34,6 +34,10 @@ val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
   `set_var x y (z with clock := k) = set_var x y z with clock := k`,
   EVAL_TAC);
 
+val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
+  `get_var_imm x (y with clock := k) = get_var_imm x y`,
+  Cases_on`x`>>EVAL_TAC);
+
 val empty_env_const = Q.store_thm("empty_env_const[simp]",
   `(empty_env x).ffi = x.ffi ∧
    (empty_env x).clock = x.clock ∧
@@ -172,9 +176,44 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   recInduct evaluate_ind >>
   rw[evaluate_def] >> fs[LET_THM] >>
   TRY (
-    qcase_tac`get_var_imm` >> cheat ) >>
+    qcase_tac`find_code dest (_ \\ _)` >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >- (
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      every_case_tac >> fs[] >> rveq >>
+      fsrw_tac[ARITH_ss][dec_clock_def] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
+    ntac 3 BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    fsrw_tac[ARITH_ss][dec_clock_def] >>
+    reverse BasicProvers.TOP_CASE_TAC >> fs[] >> fs[] >- (
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      BasicProvers.FULL_CASE_TAC >> fs[] >>
+      every_case_tac >> fs[] >> rveq >> fs[] >>
+      fsrw_tac[ARITH_ss][] >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+      rw[] >> cheat) >>
+    qpat_assum`_ = (_,_)`mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    every_case_tac >> fs[] >> strip_tac >> rveq >>
+    fsrw_tac[ARITH_ss][] >> rveq >>
+    rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+    rw[] >> cheat ) >>
   TRY (
-    qcase_tac`find_code` >> cheat ) >>
+    qcase_tac`find_code` >>
+    fs[get_var_def] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >> fs[] >>
+    every_case_tac >> fs[] >>
+    rveq >> fsrw_tac[ARITH_ss][dec_clock_def] >>
+    rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
   TRY split_pair_tac >> fs[] >>
   every_case_tac >> fs[] >> rveq >>
   fs[get_var_def] >> rveq >> fs[] >>
