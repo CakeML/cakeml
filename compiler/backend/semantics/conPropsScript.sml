@@ -49,6 +49,21 @@ val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   fs[ffiTheory.call_FFI_def] >>
   every_case_tac >> fs[] >> rw[]);
 
+val s = ``s:'ffi conSem$state``;
+
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `(∀env ^s es s' r. evaluate env s es = (s',r) ⇒
+      s.ffi.io_events ≼ s'.ffi.io_events ∧
+      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)) ∧
+   (∀env ^s pes v err_v s' r. evaluate_match env s pes v err_v = (s',r) ⇒
+      s.ffi.io_events ≼ s'.ffi.io_events ∧
+      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> fs[] >> rfs[] >> fs[dec_clock_def] >>
+  imp_res_tac do_app_io_events_mono >>
+  metis_tac[IS_PREFIX_TRANS]);
+
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
     FOLDR (λ(f,x,e) env'. ((f, Recclosure env funs' f) :: env')) env' funs =
@@ -106,12 +121,12 @@ val evaluate_sing = Q.store_thm("evaluate_sing",
   rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
-  `(∀env (s:'ffi conSem$state) es s' r.
+  `(∀env ^s es s' r.
        evaluate env s es = (s',r) ∧
        r ≠ Rerr (Rabort Rtimeout_error) ⇒
        evaluate env (s with clock := s.clock + extra) es =
          (s' with clock := s'.clock + extra,r)) ∧
-   (∀env (s:'ffi conSem$state) pes v err_v s' r.
+   (∀env ^s pes v err_v s' r.
        evaluate_match env s pes v err_v = (s',r) ∧
        r ≠ Rerr (Rabort Rtimeout_error) ⇒
        evaluate_match env (s with clock := s.clock + extra) pes v err_v =
@@ -165,6 +180,110 @@ val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
   imp_res_tac evaluate_prompt_add_to_clock >> fs[] >> rw[] >>
   res_tac >> fs[]);
 
+val with_clock_ffi = Q.store_thm("with_clock_ffi",
+  `(s with clock := k).ffi = s.ffi`,
+  EVAL_TAC)
+
+val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
+  `(∀env ^s prog extra.
+    (FST (evaluate env s prog)).ffi.io_events ≼
+    (FST (evaluate env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+    (IS_SOME ((FST (evaluate env s prog)).ffi.final_event) ⇒
+      (FST (evaluate env (s with clock := s.clock + extra) prog)).ffi =
+      (FST (evaluate env s prog)).ffi)) ∧
+   (∀env ^s pes v err_v extra.
+    (FST (evaluate_match env s pes v err_v)).ffi.io_events ≼
+    (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi.io_events ∧
+    (IS_SOME ((FST (evaluate_match env s pes v err_v)).ffi.final_event) ⇒
+      (FST (evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
+      (FST (evaluate_match env s pes v err_v)).ffi))`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >> fs[] >> rw[] >>
+  imp_res_tac evaluate_io_events_mono >> fs[] >> rfs[dec_clock_def] >>
+  fsrw_tac[ARITH_ss][] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  metis_tac[IS_PREFIX_TRANS,FST,PAIR,evaluate_io_events_mono,with_clock_ffi,do_app_io_events_mono]);
+
+val evaluate_dec_io_events_mono = Q.store_thm("evaluate_dec_io_events_mono",
+  `∀x y z. evaluate_dec x y z = (a,b) ⇒
+     y.ffi.io_events ≼ a.ffi.io_events ∧
+     (IS_SOME y.ffi.final_event ⇒ a.ffi = y.ffi)`,
+   Cases_on`z`>>rw[evaluate_dec_def] >>
+   every_case_tac >> fs[] >> rw[] >>
+   imp_res_tac evaluate_io_events_mono);
+
+val evaluate_dec_add_to_clock_io_events_mono = Q.store_thm("evaluate_dec_add_to_clock_io_events_mono",
+  `∀env s prog extra.
+   (FST (evaluate_dec env s prog)).ffi.io_events ≼
+   (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+   (IS_SOME ((FST (evaluate_dec env s prog)).ffi.final_event) ⇒
+     (FST (evaluate_dec env (s with clock := s.clock + extra) prog)).ffi =
+     (FST (evaluate_dec env s prog)).ffi)`,
+  Cases_on`prog`>>rw[evaluate_dec_def]>>
+  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+  (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
+  qmatch_assum_abbrev_tac`evaluate ee (s with clock := _) pp = _` >>
+  qispl_then[`ee`,`s`,`pp`,`extra`]mp_tac(CONJUNCT1 evaluate_add_to_clock_io_events_mono) >>
+  simp[] >> strip_tac >>
+  every_case_tac >> fs[]);
+
+val evaluate_decs_io_events_mono = Q.store_thm("evaluate_decs_io_events_mono",
+  `∀prog env s s' x y. evaluate_decs env s prog = (s',x,y) ⇒
+   s.ffi.io_events ≼ s'.ffi.io_events ∧
+   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+  Induct >> rw[evaluate_decs_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac evaluate_dec_io_events_mono >>
+  metis_tac[IS_PREFIX_TRANS]);
+
+val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_to_clock_io_events_mono",
+  `∀env s prog extra.
+   (FST (evaluate_decs env s prog)).ffi.io_events ≼
+   (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+   (IS_SOME ((FST (evaluate_decs env s prog)).ffi.final_event) ⇒
+     (FST (evaluate_decs env (s with clock := s.clock + extra) prog)).ffi =
+     (FST (evaluate_decs env s prog)).ffi)`,
+  Induct_on`prog`>>rw[evaluate_decs_def] >>
+  every_case_tac >> fs[] >>
+  qmatch_assum_abbrev_tac`evaluate_dec ee (ss with clock := _ + extra) pp = _` >>
+  qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_dec_add_to_clock_io_events_mono >>
+  simp[] >> strip_tac >>
+  imp_res_tac evaluate_dec_add_to_clock >> fs[] >>
+  imp_res_tac evaluate_decs_io_events_mono >> fs[] >>
+  metis_tac[IS_PREFIX_TRANS,FST]);
+
+val evaluate_prompt_io_events_mono = Q.store_thm("evaluate_prompt_io_events_mono",
+  `∀x y z. evaluate_prompt x y z = (a,b) ⇒
+     y.ffi.io_events ≼ a.ffi.io_events ∧
+     (IS_SOME y.ffi.final_event ⇒ a.ffi = y.ffi)`,
+   Cases_on`z`>>rw[evaluate_prompt_def] >>
+   every_case_tac >> fs[] >> rw[] >>
+   imp_res_tac evaluate_decs_io_events_mono);
+
+val evaluate_prompt_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompt_add_to_clock_io_events_mono",
+  `∀env s prog extra.
+   (FST (evaluate_prompt env s prog)).ffi.io_events ≼
+   (FST (evaluate_prompt env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+   (IS_SOME ((FST (evaluate_prompt env s prog)).ffi.final_event) ⇒
+     (FST (evaluate_prompt env (s with clock := s.clock + extra) prog)).ffi =
+     (FST (evaluate_prompt env s prog)).ffi)`,
+  Cases_on`prog`>>rw[evaluate_prompt_def]>>
+  every_case_tac >> fs[] >>
+  qmatch_assum_abbrev_tac`evaluate_decs ee (ss with clock := _ + extra) pp = _` >>
+  qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_decs_add_to_clock_io_events_mono >>
+  simp[]);
+
+val evaluate_prog_io_events_mono = Q.store_thm("evaluate_prog_io_events_mono",
+  `∀prog env s s' x y. evaluate_prog env s prog = (s',x,y) ⇒
+   s.ffi.io_events ≼ s'.ffi.io_events ∧
+   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+  Induct >> rw[evaluate_prog_def] >>
+  every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac evaluate_prompt_io_events_mono >>
+  metis_tac[IS_PREFIX_TRANS]);
+
 val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_to_clock_io_events_mono",
   `∀env s prog extra.
    (FST (evaluate_prog env s prog)).ffi.io_events ≼
@@ -172,7 +291,14 @@ val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_t
    (IS_SOME ((FST (evaluate_prog env s prog)).ffi.final_event) ⇒
      (FST (evaluate_prog env (s with clock := s.clock + extra) prog)).ffi =
      (FST (evaluate_prog env s prog)).ffi)`,
-  cheat);
+  Induct_on`prog` >> rw[evaluate_prog_def] >>
+  every_case_tac >> fs[] >>
+  qmatch_assum_abbrev_tac`evaluate_prompt ee (ss with clock := _ + extra) pp = _` >>
+  qispl_then[`ee`,`ss`,`pp`,`extra`]mp_tac evaluate_prompt_add_to_clock_io_events_mono >>
+  simp[] >> rw[] >>
+  imp_res_tac evaluate_prompt_add_to_clock >> fs[] >>
+  imp_res_tac evaluate_prog_io_events_mono >> fs [] >>
+  metis_tac[IS_PREFIX_TRANS,FST]);
 
 val pmatch_list_Pvar = Q.store_thm("pmatch_list_Pvar",
   `∀xs exh vs s env.
