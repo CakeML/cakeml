@@ -204,7 +204,6 @@ val comp_correct = prove(
       \\ qexists_tac `ck` \\ fs [] \\ NO_TAC)
     THEN1
      (Cases_on `w = Loc z2 z3` \\ rw [] \\ fs []
-      \\ pop_assum mp_tac \\ ntac 2 CASE_TAC \\ rw [] \\ fs []
       \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
       \\ match_mp_tac IMP_IMP \\ conj_tac
       \\ TRY (imp_res_tac evaluate_consts \\ fs []

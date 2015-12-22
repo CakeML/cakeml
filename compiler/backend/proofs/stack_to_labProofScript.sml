@@ -221,6 +221,44 @@ val compile_jump_correct = Q.store_thm("compile_jump_correct",
   simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
   CASE_TAC >> fs[]);
 
+val finish_tac =
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
+  simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
+  TRY (
+    map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
+    gen_tac >>
+    qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
+    first_x_assum(qspec_then`ss`mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`ss`] >>
+      rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
+      fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
+      fs[FLOOKUP_DEF] >>
+      fs[state_rel_def,FLOOKUP_DEF] >>
+      every_case_tac >> fs[]) >>
+    simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
+    strip_tac >>
+    last_x_assum(qspec_then`ck1+ck'`mp_tac) >>
+    last_x_assum(qspec_then`ck1+ck'`mp_tac) >>
+    simp[] >> NO_TAC ) >>
+  TRY (
+    map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
+    qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
+    first_x_assum(qspec_then`ss`mp_tac) >>
+    discharge_hyps >- (
+      simp[Abbr`ss`] >>
+      rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
+      fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
+      fs[FLOOKUP_DEF] >>
+      fs[state_rel_def,FLOOKUP_DEF] >>
+      every_case_tac >> fs[]) >>
+    simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
+    strip_tac >>
+    last_x_assum(qspec_then`ck'`mp_tac) >>
+    last_x_assum(qspec_then`ck'`mp_tac) >>
+    simp[] >> NO_TAC)
+
 val flatten_correct = Q.store_thm("flatten_correct",
   `∀prog s1 r s2 n l t1.
      evaluate (prog,s1) = (r,s2) ∧ r ≠ SOME Error ∧
@@ -923,13 +961,12 @@ val flatten_correct = Q.store_thm("flatten_correct",
       TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
       rw[] >- (
         qpat_assum`_ = (_,_)`mp_tac >>
-        IF_CASES_TAC >> simp[] >>
-        BasicProvers.TOP_CASE_TAC >> simp[] >>
-        BasicProvers.TOP_CASE_TAC >> simp[] >> rw[] >>
+        IF_CASES_TAC >> simp[] >> strip_tac >>
         qpat_assum`¬ _`mp_tac >> simp_tac bool_ss [] >> strip_tac >> rveq >>
         rfs[] >>
         first_x_assum drule >>
         simp[] >> fs[] >>
+        disch_then drule >> simp[] >>
         imp_res_tac code_installed_append_imp >>
         disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
         strip_tac >>
@@ -1023,13 +1060,20 @@ val flatten_correct = Q.store_thm("flatten_correct",
         every_case_tac >> fs[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      NO_TAC) >>
-    TRY (
-      IF_CASES_TAC >> simp[] >>
-      BasicProvers.TOP_CASE_TAC >> simp[] >>
-      BasicProvers.TOP_CASE_TAC >> simp[] ) >>
-    BasicProvers.TOP_CASE_TAC >> simp[] >>
-    strip_tac >> rveq >> fs[] >- (
+      NO_TAC)
+    >- (
+      IF_CASES_TAC >> simp[] >> strip_tac >> rfs[] >> rveq >>
+      first_x_assum drule >> simp[] >> rfs[] >>
+      disch_then drule >> simp[] >>
+      disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
+      qpat_assum`_ = t2.pc`(assume_tac o SYM) >> fs[] >>
+      imp_res_tac code_installed_append_imp >> fs[] >> strip_tac >>
+      finish_tac ) >>
+    qcase_tac`SOME (Exception w)` >>
+    BasicProvers.TOP_CASE_TAC >>
+    ((strip_tac >> var_eq_tac >> rveq >> fs[] >>
+      every_case_tac >> fs[] >> rw[] >>
+      rfs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
       qexists_tac`ck+1`>>simp[] >>
@@ -1046,11 +1090,10 @@ val flatten_correct = Q.store_thm("flatten_correct",
         every_case_tac >> fs[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
-      NO_TAC) >>
-    pop_assum mp_tac >>
-    (fn g => subterm (split_pair_case_tac o assert (C free_in (#2 g))) (#2 g) g) >> fs[] >>
-    IF_CASES_TAC >> simp[] >> strip_tac >> fs[] >>
-    rveq >> fs[] >>
+      first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
+      NO_TAC) ORELSE
+     (ntac 2 BasicProvers.TOP_CASE_TAC >>
+      IF_CASES_TAC >> fs[] >> strip_tac >> rveq)) >>
     split_pair_tac >> fs[] >>
     imp_res_tac code_installed_append_imp >>
     pop_assum mp_tac >>
@@ -1065,43 +1108,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       imp_res_tac code_installed_append_imp >>
       fs[code_installed_def] ) >>
     strip_tac >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    TRY (
-      simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
-      map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
-      gen_tac >>
-      qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
-      first_x_assum(qspec_then`ss`mp_tac) >>
-      discharge_hyps >- (
-        simp[Abbr`ss`] >>
-        rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-        fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        fs[FLOOKUP_DEF] >>
-        fs[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> fs[]) >>
-      simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
-      strip_tac >>
-      last_x_assum(qspec_then`ck1+ck'`mp_tac) >>
-      last_x_assum(qspec_then`ck1+ck'`mp_tac) >>
-      simp[] >> NO_TAC ) >>
-    simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
-    map_every qexists_tac[`ck+ck'+1`,`t2'`] >> simp[] >>
-    qpat_abbrev_tac`ss:('a,'ffi)labSem$state = _ _` >>
-    first_x_assum(qspec_then`ss`mp_tac) >>
-    discharge_hyps >- (
-      simp[Abbr`ss`] >>
-      rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-      fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-      fs[FLOOKUP_DEF] >>
-      fs[state_rel_def,FLOOKUP_DEF] >>
-      every_case_tac >> fs[]) >>
-    simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
-    strip_tac >>
-    last_x_assum(qspec_then`ck'`mp_tac) >>
-    last_x_assum(qspec_then`ck'`mp_tac) >>
-    simp[]) >>
+    finish_tac) >>
   (* FFI *)
   conj_tac >- (
     rw[stackSemTheory.evaluate_def,flatten_def] >>
