@@ -22,7 +22,7 @@ val inst_find_name_def = Define `
     | Arith (Binop bop d r ri) =>
         Arith (Binop bop (find_name f d) (find_name f r) (ri_find_name f ri))
     | Arith (Shift sop d r i) =>
-        Arith (Shift sop (find_name f d) (find_name f r) (find_name f i))
+        Arith (Shift sop (find_name f d) (find_name f r) i)
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
 
 val comp_def = Define `

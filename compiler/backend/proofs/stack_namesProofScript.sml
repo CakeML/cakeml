@@ -36,6 +36,14 @@ val rename_state_def = Define `
     ; code := fromAList (compile f (toAList s.code))
     |>`
 
+val mem_load_rename_state = Q.store_thm("mem_load_rename_state[simp]",
+  `mem_load x (rename_state f s) = mem_load x s`,
+  EVAL_TAC);
+
+val mem_store_rename_state = Q.store_thm("mem_store_rename_state[simp]",
+  `mem_store x y (rename_state f s) = OPTION_MAP (rename_state f) (mem_store x y s)`,
+  EVAL_TAC >> rw[] >> EVAL_TAC);
+
 val get_var_find_name = store_thm("get_var_find_name[simp]",
   ``BIJ (find_name f) UNIV UNIV ==>
     get_var (find_name f v) (rename_state f s) = get_var v s``,
@@ -51,6 +59,14 @@ val FLOOKUP_rename_state_find_name = Q.store_thm("FLOOKUP_rename_state_find_name
   rw[BIJ_DEF] >>
   rw[rename_state_def] >>
   simp[FLOOKUP_MAP_KEYS_MAPPED]);
+
+val set_var_find_name = Q.store_thm("set_var_find_name",
+  `BIJ (find_name f) UNIV UNIV ⇒
+   rename_state f (set_var x y z) =
+   set_var (find_name f x) y (rename_state f z)`,
+  rw[set_var_def,rename_state_def,state_component_equality] >>
+  match_mp_tac MAP_KEYS_FUPDATE >>
+  metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV]);
 
 val inst_rename = Q.store_thm("inst_rename",
   `BIJ (find_name f) UNIV UNIV ⇒
@@ -72,12 +88,9 @@ val inst_rename = Q.store_thm("inst_rename",
     simp[FLOOKUP_MAP_KEYS] >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     simp[find_name_def] ) >>
-  cheat
-  (*
   CASE_TAC >> fs[assign_def,word_exp_def] >>
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordSemTheory.num_exp_def] >>
-  rw[] >> fs[] >> rfs[] >> rw[]
-  *));
+  rw[] >> fs[] >> rfs[] >> rw[set_var_find_name])
 
 val comp_correct = prove(
   ``!p s r t.
@@ -91,8 +104,8 @@ val comp_correct = prove(
   THEN1 (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
     imp_res_tac inst_rename >> fs[])
-  THEN1 cheat
-  THEN1 cheat
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
+  THEN1 (fs [evaluate_def,comp_def,rename_state_def] >> rveq >> fs[])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rw []
          \\ fs [] \\ rw [] \\ fs [empty_env_def,dec_clock_def])
   THEN1
