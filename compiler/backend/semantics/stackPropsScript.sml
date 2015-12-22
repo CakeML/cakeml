@@ -4,6 +4,7 @@ val _ = new_theory"stackProps";
 
 val set_store_const = Q.store_thm("set_store_const[simp]",
   `(set_store x y z).ffi = z.ffi ∧
+   (set_store x y z).clock = z.clock ∧
    (set_store x y z).use_alloc = z.use_alloc ∧
    (set_store x y z).use_store = z.use_store ∧
    (set_store x y z).use_stack = z.use_stack ∧
@@ -13,8 +14,13 @@ val set_store_const = Q.store_thm("set_store_const[simp]",
    (set_store x y z).mdomain = z.mdomain`,
   EVAL_TAC);
 
+val set_store_with_const = Q.store_thm("set_store_with_const[simp]",
+  `set_store x y (z with clock := a) = set_store x y z with clock := a`,
+  EVAL_TAC);
+
 val set_var_const = Q.store_thm("set_var_const[simp]",
   `(set_var x y z).ffi = z.ffi ∧
+   (set_var x y z).clock = z.clock ∧
    (set_var x y z).use_alloc = z.use_alloc ∧
    (set_var x y z).use_store = z.use_store ∧
    (set_var x y z).use_stack = z.use_stack ∧
@@ -24,8 +30,13 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
    (set_var x y z).mdomain = z.mdomain`,
   EVAL_TAC);
 
+val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
+  `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  EVAL_TAC);
+
 val empty_env_const = Q.store_thm("empty_env_const[simp]",
   `(empty_env x).ffi = x.ffi ∧
+   (empty_env x).clock = x.clock ∧
    (empty_env z).use_alloc = z.use_alloc ∧
    (empty_env z).use_store = z.use_store ∧
    (empty_env z).use_stack = z.use_stack ∧
@@ -35,8 +46,13 @@ val empty_env_const = Q.store_thm("empty_env_const[simp]",
    (empty_env z).mdomain = z.mdomain`,
   EVAL_TAC)
 
+val empty_env_with_const = Q.store_thm("empty_env_with_const[simp]",
+  `empty_env (x with clock := y) = empty_env x with clock := y`,
+  EVAL_TAC);
+
 val alloc_const = Q.store_thm("alloc_const",
   `alloc w s = (r,t) ⇒ t.ffi = s.ffi ∧
+    t.clock = s.clock ∧
     t.use_alloc = s.use_alloc ∧
     t.use_store = s.use_store ∧
     t.use_stack = s.use_stack ∧
@@ -47,9 +63,41 @@ val alloc_const = Q.store_thm("alloc_const",
   rw[alloc_def,gc_def,LET_THM] >>
   every_case_tac >> fs[] >> rw[]);
 
+val gc_with_const = Q.store_thm("gc_with_const[simp]",
+  `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)`,
+   rw[gc_def] >> every_case_tac >> fs[]);
+
+val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
+  `alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)`,
+  rw[alloc_def] >> every_case_tac >> fs[] >> rfs[]);
+
+val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
+  `mem_load x (y with clock := k) = mem_load x y`,
+  EVAL_TAC)
+
+val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
+  `mem_store x y (z with clock := k) = OPTION_MAP(λs. s with clock := k)(mem_store x y z)`,
+  EVAL_TAC >> rw[]);
+
+val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
+  `∀s y k. word_exp (s with clock := k) y = word_exp s y`,
+  ho_match_mp_tac word_exp_ind >> rw[word_exp_def] >>
+  every_case_tac >> fs[] >>
+  fs[EVERY_MEM,EXISTS_MEM] >>
+  unabbrev_all_tac >>
+  fs[MEM_MAP,PULL_EXISTS] >>
+  res_tac >> fs[IS_SOME_EXISTS] >> fs[] >>
+  rpt AP_TERM_TAC >>
+  simp[MAP_EQ_f]);
+
+val assign_with_const = Q.store_thm("assign_with_const[simp]",
+  `assign x y (s with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y s)`,
+  rw[assign_def] >> every_case_tac >> fs[]);
+
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME t ⇒
     t.ffi = s.ffi ∧
+    t.clock = s.clock ∧
     t.use_alloc = s.use_alloc ∧
     t.use_store = s.use_store ∧
     t.use_stack = s.use_stack ∧
@@ -60,6 +108,12 @@ val inst_const = Q.store_thm("inst_const",
   Cases_on`i`>>rw[inst_def,assign_def] >>
   every_case_tac >> fs[set_var_def,word_exp_def,LET_THM] >> rw[] >>
   fs[mem_store_def] >> rw[]);
+
+val inst_with_const = Q.store_thm("inst_with_const[simp]",
+  `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
+  rw[inst_def] >>
+  CASE_TAC >> fs[] >>
+  every_case_tac >> fs[get_var_def] >> rveq >> fs[]);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi ∧
@@ -115,6 +169,21 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   `∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`,
-  cheat);
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >> fs[LET_THM] >>
+  TRY (
+    qcase_tac`get_var_imm` >> cheat ) >>
+  TRY (
+    qcase_tac`find_code` >> cheat ) >>
+  TRY split_pair_tac >> fs[] >>
+  every_case_tac >> fs[] >> rveq >>
+  fs[get_var_def] >> rveq >> fs[] >>
+  imp_res_tac alloc_const >> fs[] >>
+  imp_res_tac inst_const >> fs[] >>
+  fsrw_tac[ARITH_ss][dec_clock_def] >>
+  TRY (
+    qcase_tac`call_FFI` >>
+    split_pair_tac >> fs[] >> rveq >> simp[] ) >>
+  metis_tac[]);
 
 val _ = export_theory();

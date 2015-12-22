@@ -236,8 +236,8 @@ val gc_def = Define `
                               ; memory := m |>))`
 
 val has_space_def = Define `
-  has_space wl (s:('a,'ffi) stackSem$state) =
-    case (wl, FLOOKUP s.store NextFree, FLOOKUP s.store EndOfHeap) of
+  has_space wl store =
+    case (wl, FLOOKUP store NextFree, FLOOKUP store EndOfHeap) of
     | (Word w, SOME (Word n), SOME (Word l)) => SOME (w2n w <= w2n (l - n))
     | _ => NONE`
 
@@ -252,7 +252,7 @@ val alloc_def = Define `
           | NONE => (SOME Error, s)
           | SOME w =>
            (* check how much space there is *)
-           (case has_space w s of
+           (case has_space w s.store of
             | NONE => (SOME Error, s)
             | SOME T => (* success there is that much space *)
                         (NONE,s)
