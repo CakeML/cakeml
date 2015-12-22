@@ -85,6 +85,23 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
+val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
+  `∀prog env s s' r.
+   evaluate_prog env s prog = (s',r) ∧
+   r ≠ SOME (Rabort Rtimeout_error) ⇒
+   evaluate_prog env (s with clock := s.clock + extra) prog =
+     (s' with clock := s'.clock + extra,r)`,
+  cheat);
+
+val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_to_clock_io_events_mono",
+  `∀env s prog extra.
+   (FST (evaluate_prog env s prog)).ffi.io_events ≼
+   (FST (evaluate_prog env (s with clock := s.clock + extra) prog)).ffi.io_events ∧
+   (IS_SOME ((FST (evaluate_prog env s prog)).ffi.final_event) ⇒
+     (FST (evaluate_prog env (s with clock := s.clock + extra) prog)).ffi =
+     (FST (evaluate_prog env s prog)).ffi)`,
+  cheat);
+
 val evaluate_vars = Q.store_thm("evaluate_vars",
   `!env s kvs env' ks vs.
     ALL_DISTINCT (MAP FST kvs) ∧

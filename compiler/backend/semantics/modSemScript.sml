@@ -671,14 +671,14 @@ val semantics_def = Define`
     if ∃k. SND (evaluate_prog env (st with clock := k) prog) = SOME (Rabort Rtype_error)
       then Fail
     else
-    case some ffi.
-      ∃k s r.
+    case some res.
+      ∃k s r outcome.
         evaluate_prog env (st with clock := k) prog = (s,r) ∧
-          r ≠ SOME (Rabort Rtimeout_error) ∧ ffi = s.ffi
-    of SOME ffi =>
-         Terminate
-           (case ffi.final_event of NONE => Success | SOME e => FFI_outcome e)
-           ffi.io_events
+        (case s.ffi.final_event of
+         | NONE => (∀a. r ≠ SOME (Rabort a)) ∧ outcome = Success
+         | SOME e => outcome = FFI_outcome e) ∧
+        res = Terminate outcome s.ffi.io_events
+    of SOME res => res
      | NONE =>
        Diverge
          (build_lprefix_lub
