@@ -251,7 +251,7 @@ val evaluate_init_code = store_thm("evaluate_init_code",
 val evaluate_init_code_clock = prove(
   ``evaluate (init_code max k start,s) = (res,t) ==>
     evaluate (init_code max k start,s with clock := c) = (res,t with clock := c)``,
-  cheat);
+  rw [] \\ match_mp_tac evaluate_clock_neutral \\ fs [] \\ EVAL_TAC);
 
 val init_semantics = store_thm("init_semantics",
   ``lookup 0 s.code = SOME (Seq (init_code max k start)

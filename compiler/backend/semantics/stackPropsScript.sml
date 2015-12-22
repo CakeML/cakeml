@@ -186,4 +186,36 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     split_pair_tac >> fs[] >> rveq >> simp[] ) >>
   metis_tac[]);
 
+val clock_neutral_def = Define `
+  (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
+  (clock_neutral (LocValue _ _ _) <=> T) /\
+  (clock_neutral (Halt _) <=> T) /\
+  (clock_neutral (Inst _) <=> T) /\
+  (clock_neutral (Skip) <=> T) /\
+  (clock_neutral (If _ _ _ p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
+  (clock_neutral r <=> F)`
+
+val inst_clock_neutral = prove(
+  ``(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
+    (inst i s = NONE ==> inst i (s with clock := k) = NONE)``,
+  Cases_on `i` \\ fs [inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
+  \\ rw [state_component_equality]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [word_exp_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [word_exp_def]
+  \\ fs [mem_load_def,get_var_def,mem_store_def]
+  \\ rw [state_component_equality]);
+
+val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
+  ``!prog s res t.
+      evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
+      evaluate (prog,s with clock := c) = (res,t with clock := c)``,
+  recInduct evaluate_ind \\ rw [] \\ fs []
+  \\ fs [evaluate_def,get_var_def,clock_neutral_def]
+  THEN1 (every_case_tac \\ fs [] \\ rw [] \\ fs [])
+  THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral \\ fs [])
+  THEN1 (Cases_on `evaluate (c1,s)` \\ fs [LET_THM] \\ every_case_tac \\ fs[])
+  \\ `get_var_imm ri (s with clock := c) = get_var_imm ri s` by
+         (Cases_on `ri` \\ fs [get_var_imm_def,get_var_def])
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [set_var_def]);
+
 val _ = export_theory();

@@ -166,7 +166,8 @@ val init_code_def = Define `
           Set EndOfHeap temp4;
           Set OtherHeap temp4;
           Set HeapLength temp3;
-          StackAlloc 1;
+          const_inst heap_start (word_offset 1);
+          sub_inst k heap_start;
           StackStore prog_start 0;
           LocValue 0 1 0])]`
 
