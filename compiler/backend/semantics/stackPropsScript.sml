@@ -191,8 +191,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
       BasicProvers.FULL_CASE_TAC >> fs[] >>
       every_case_tac >> fs[] >> rveq >> fs[] >>
       fsrw_tac[ARITH_ss][] >>
-      rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-      rw[] >> cheat) >>
+      rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
     qpat_assum`_ = (_,_)`mp_tac >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
@@ -200,7 +199,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     every_case_tac >> fs[] >> strip_tac >> rveq >>
     fsrw_tac[ARITH_ss][] >> rveq >>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-    rw[] >> cheat ) >>
+    NO_TAC) >>
   TRY (
     qcase_tac`find_code` >>
     fs[get_var_def] >>
