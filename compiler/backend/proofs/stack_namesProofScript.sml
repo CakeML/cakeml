@@ -53,6 +53,17 @@ val get_var_find_name = store_thm("get_var_find_name[simp]",
   \\ match_mp_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
   \\ fs [INJ_DEF]);
 
+val get_var_imm_find_name = Q.store_thm("get_var_imm_find_name[simp]",
+  `BIJ (find_name f) UNIV UNIV ⇒
+   get_var_imm (ri_find_name f ri) (rename_state f s) =
+   get_var_imm ri s`,
+  Cases_on`ri`>>EVAL_TAC>>strip_tac>>
+  dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS] >>
+  conj_tac >- metis_tac[INJ_DEF,BIJ_IMP_11,IN_UNIV] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  fs[GSYM find_name_def] >>
+  metis_tac[BIJ_DEF,INJ_DEF,IN_UNIV,FLOOKUP_DEF]);
+
 val FLOOKUP_rename_state_find_name = Q.store_thm("FLOOKUP_rename_state_find_name[simp]",
   `BIJ (find_name f) UNIV UNIV ⇒
    FLOOKUP (rename_state f s).regs (find_name f k) = FLOOKUP s.regs k`,
@@ -115,7 +126,56 @@ val comp_correct = prove(
     \\ imp_res_tac evaluate_consts \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ every_case_tac \\ fs [])
-  \\ cheat);
+  THEN1 (
+    fs[evaluate_def] >>
+    simp[Once comp_def] >>
+    simp[evaluate_def] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] )
+  (* JumpLess *)
+  THEN1 (
+    simp[Once comp_def] >>
+    fs[evaluate_def] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    fs[find_code_def] >>
+    simp[Once rename_state_def] >>
+    simp[lookup_fromAList] >>
+    cheat )
+  (* Call *)
+  THEN1 (
+    simp[Once comp_def] >>
+    fs[evaluate_def] >>
+    cheat )
+  (* FFI *)
+  THEN1 (
+    simp[Once comp_def] >>
+    fs[evaluate_def] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    simp[Once rename_state_def] >>
+    simp[Once rename_state_def] >>
+    simp[Once rename_state_def] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    fs[LET_THM] >>
+    simp[EVAL``(rename_state f s).ffi``] >>
+    split_pair_tac >> fs[] >> rveq >>
+    simp[rename_state_def,state_component_equality] >>
+    cheat)
+  THEN1 (
+    simp[Once comp_def] >> fs[evaluate_def] >>
+    rveq >> fs[set_var_find_name] )
+  \\ (
+    simp[Once comp_def] >> fs[evaluate_def] >>
+    simp[Once rename_state_def] >> rveq >> simp[] ));
 
 val compile_semantics = store_thm("compile_semantics",
   ``BIJ (find_name f) UNIV UNIV /\
