@@ -225,14 +225,90 @@ val compile_semantics = store_thm("compile_semantics",
 
 (* init code *)
 
-semantics_def
-  |> SIMP_RULE std_ss [LET_DEF]
+val init_pre_def = Define `
+  init_pre k start s =
+    ?prog_start heap_start heap_end stack_end anything.
+      4n < k /\
+      FLOOKUP s.regs 1 = SOME (Word (prog_start)) /\
+      FLOOKUP s.regs 2 = SOME (Word (heap_start)) /\
+      FLOOKUP s.regs 3 = SOME (Word (heap_end)) /\
+      FLOOKUP s.regs 4 = SOME (Word (stack_end)) /\
+      word_offset (LENGTH anything) = stack_end - heap_start /\
+      (word_list heap_start anything) (fun2set (s.memory,s.mdomain))`
 
-  evaluate (p,s1) = (r,s2)
+val init_post_def = Define `
+  init_post max k s2 =
+    ?s1. state_rel k s1 s2 (* ... and more info about s1 *)`
 
+val evaluate_init_code = store_thm("evaluate_init_code",
+  ``init_pre k start s ==>
+    case evaluate (init_code max k start,s) of
+    | (SOME (Halt (Word w)),t) => w <> 0w /\ t.ffi = s.ffi
+    | (NONE,t) => init_post max k t /\ t.ffi = s.ffi
+    | _ => F``,
+  cheat);
 
+val evaluate_init_code_clock = prove(
+  ``evaluate (init_code max k start,s) = (res,t) ==>
+    evaluate (init_code max k start,s with clock := c) = (res,t with clock := c)``,
+  cheat);
 
-  init_stubs_def
-  |> SIMP_RULE std_ss [LET_DEF,list_Seq_def]
+val init_semantics = store_thm("init_semantics",
+  ``lookup 0 s.code = SOME (Seq (init_code max k start)
+                                (Call NONE (INL start) NONE)) /\
+    init_pre k start s /\ s.ffi.final_event = NONE ==>
+    case evaluate (init_code max k start,s) of
+    | (SOME (Halt _),t) =>
+        (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events)
+    | (NONE,t) =>
+        (semantics 0 s = semantics start t) /\ init_post max k t
+    | _ => F``,
+  rw [] \\ imp_res_tac evaluate_init_code
+  \\ pop_assum (assume_tac o SPEC_ALL)
+  \\ reverse every_case_tac \\ fs [] THEN1
+   (fs [semantics_def |> Q.SPEC `0`,LET_DEF,evaluate_def,find_code_def]
+    \\ match_mp_tac (METIS_PROVE [] ``~b /\ y = z ==> (if b then x else y) = z``)
+    \\ conj_tac THEN1
+     (fs [] \\ rw [dec_clock_def]
+      \\ imp_res_tac evaluate_init_code_clock \\ fs [])
+    \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+    \\ fs [dec_clock_def]
+    \\ imp_res_tac evaluate_init_code_clock \\ fs []
+    \\ every_case_tac \\ fs [] \\ rw [] \\ fs [] \\ rfs []
+    \\ qexists_tac `1` \\ fs [])
+  \\ fs [semantics_def |> Q.SPEC `0`,LET_DEF]
+  \\ once_rewrite_tac [evaluate_def] \\ fs [find_code_def]
+  \\ once_rewrite_tac [evaluate_def] \\ fs [LET_DEF]
+  \\ fs [dec_clock_def]
+  \\ imp_res_tac evaluate_init_code_clock \\ fs []
+  \\ pop_assum (K all_tac)
+  \\ fs [semantics_def,LET_DEF]
+  \\ match_mp_tac (METIS_PROVE []
+      ``x1 = x2 /\ (x1 /\ x2 ==> y1 = y2) /\ (~x1 /\ ~x2 ==> z1 = z2) ==>
+        (if x1 then y1 else z1) = (if x2 then y2 else z2)``)
+  \\ conj_tac \\ fs [] THEN1
+   (EQ_TAC \\ strip_tac THEN1
+     (Cases_on `k' = 0` \\ fs []
+      \\ qexists_tac `k'-1` \\ fs []
+      \\ every_case_tac \\ fs [])
+    \\ qexists_tac `k' + 1` \\ fs []
+    \\ every_case_tac \\ fs [])
+  \\ strip_tac
+  \\ match_mp_tac (METIS_PROVE []
+      ``x1 = x2 /\ y1 = y2 /\ z1 = z2 ==> f x1 y1 z1 = f x2 y2 z2``)
+  \\ conj_tac \\ fs [] THEN1
+   (AP_TERM_TAC \\ fs [FUN_EQ_THM] \\ rw [] \\ reverse EQ_TAC \\ strip_tac
+    THEN1 (qexists_tac `k' + 1` \\ fs [])
+    \\ qexists_tac `k' - 1` \\ fs []
+    \\ Cases_on `k' = 0` \\ fs [] THEN1 (rw [] \\ fs [empty_env_def] \\ rfs[])
+    \\ Cases_on `evaluate (Call NONE (INL start) NONE,r with clock := k' − 1)`
+    \\ fs [] \\ Cases_on `q` \\ fs [] \\ rw []
+    \\ first_x_assum (qspec_then`k'-1`mp_tac) \\ fs [])
+  \\ AP_TERM_TAC \\ fs [EXTENSION] \\ rw [] \\ reverse EQ_TAC \\ strip_tac
+  THEN1 (fs [] \\ qexists_tac `k' + 1` \\ fs [] \\ every_case_tac \\ fs [])
+  \\ fs [] \\ qexists_tac `k' - 1` \\ fs []
+  \\ Cases_on `k' = 0` \\ fs []
+  THEN1 (fs [evaluate_def,empty_env_def] \\ every_case_tac \\ fs [])
+  \\ every_case_tac \\ fs []);
 
 val _ = export_theory();

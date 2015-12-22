@@ -108,10 +108,10 @@ val halt_inst_def = Define `
     reg 3: first address in stack (and one past last address of heap)
     reg 4: one past last address of stack *)
 
-val init_stub_def = Define `
-  init_stubs max_heap_bytes k start =
-    let prog_start = 1 in
-    let heap_start = 2 in
+val init_code_def = Define `
+  init_code (max_heap_bytes:'a word) (k:num) (start:num) =
+    let prog_start = 1n in
+    let heap_start = 2n in
     let heap_end = 3 in
     let stack_end = 4 in
     let temp1 = 6 in
@@ -120,58 +120,61 @@ val init_stub_def = Define `
     let temp4 = stack_end in
     let sp = k in
     let bp = k+1 in
-      [(0n,list_Seq [
-         (* adjust heap so that it isn't too big *)
-         const_inst temp1 max_heap_bytes;
-         move temp2 heap_start;
-         sub_inst temp2 heap_end;
-         If Lower temp1 (Reg temp2)
-           (Seq (move heap_end heap_start)
-                (add_inst heap_end temp1)) Skip;
-         (* reserve space for the store *)
-         const_inst temp1 (word_offset (LENGTH store_list));
-         add_inst heap_end temp1;
-         (* assert heap_start <+ heap_end <+ stack_end *)
-         If Lower heap_start (Reg heap_end) Skip (halt_inst 10w);
-         If Lower heap_end (Reg stack_end) Skip (halt_inst 11w);
-         (* assert word_offset max_stack_alloc <=+ heap_end *)
-         const_inst temp1 (word_offset max_stack_alloc);
-         If NotLower temp1 (Reg heap_end) Skip (halt_inst 12w);
-         (* assert heap_start, heap_end, stack_end are word aligned *)
-         move temp1 heap_start;
-         and_inst temp1 heap_end;
-         and_inst temp1 stack_end;
-         If Test temp1 (Imm (word_offset 1)) Skip (halt_inst 13w);
-         (* initialise sp and bp *)
-         move sp stack_end;
-         move bp heap_end;
-         (* temp3 := length of heap half *)
-         const_inst temp4 (word_offset (LENGTH store_list));
-         sub_inst temp3 temp4;
-         div2_inst temp3;
-         const_inst temp4 (word_offset 1);
-         If Test temp3 (Reg temp4) Skip (sub_inst temp3 temp4);
-         (* temp4 := address of second heap half *)
-         move temp4 heap_start;
-         add_inst temp4 temp3;
-         (* initialise stack and store *)
-         comp k (list_Seq [
-           Set ProgStart prog_start;
-           const_inst prog_start 0w;
-           Set Globals prog_start;
-           Set Handler prog_start;
-           Set AllocSize prog_start;
-           Set NextFree heap_start;
-           Set CurrHeap heap_start;
-           Set EndOfHeap temp4;
-           Set OtherHeap temp4;
-           Set HeapLength temp3;
-           StackAlloc 1;
-           StackStore prog_start 0;
-           LocValue 0 1 0;
-           Call NONE (INL start) NONE])]);
-       (1n,halt_inst 0w);
-       (2n,halt_inst 2w)]`
+      list_Seq [
+        (* adjust heap so that it isn't too big *)
+        const_inst temp1 max_heap_bytes;
+        move temp2 heap_start;
+        sub_inst temp2 heap_end;
+        If Lower temp1 (Reg temp2)
+          (Seq (move heap_end heap_start)
+               (add_inst heap_end temp1)) Skip;
+        (* reserve space for the store *)
+        const_inst temp1 (word_offset (LENGTH store_list));
+        add_inst heap_end temp1;
+        (* assert heap_start <+ heap_end <+ stack_end *)
+        If Lower heap_start (Reg heap_end) Skip (halt_inst 10w);
+        If Lower heap_end (Reg stack_end) Skip (halt_inst 11w);
+        (* assert word_offset max_stack_alloc <=+ heap_end *)
+        const_inst temp1 (word_offset max_stack_alloc);
+        If NotLower temp1 (Reg heap_end) Skip (halt_inst 12w);
+        (* assert heap_start, heap_end, stack_end are word aligned *)
+        move temp1 heap_start;
+        and_inst temp1 heap_end;
+        and_inst temp1 stack_end;
+        If Test temp1 (Imm (word_offset 1)) Skip (halt_inst 13w);
+        (* initialise sp and bp *)
+        move sp stack_end;
+        move bp heap_end;
+        (* temp3 := length of heap half *)
+        const_inst temp4 (word_offset (LENGTH store_list));
+        sub_inst temp3 temp4;
+        div2_inst temp3;
+        const_inst temp4 (word_offset 1);
+        If Test temp3 (Reg temp4) Skip (sub_inst temp3 temp4);
+        (* temp4 := address of second heap half *)
+        move temp4 heap_start;
+        add_inst temp4 temp3;
+        (* initialise stack and store *)
+        comp k (list_Seq [
+          Set ProgStart prog_start;
+          const_inst prog_start 0w;
+          Set Globals prog_start;
+          Set Handler prog_start;
+          Set AllocSize prog_start;
+          Set NextFree heap_start;
+          Set CurrHeap heap_start;
+          Set EndOfHeap temp4;
+          Set OtherHeap temp4;
+          Set HeapLength temp3;
+          StackAlloc 1;
+          StackStore prog_start 0;
+          LocValue 0 1 0])]`
+
+val init_stub_def = Define `
+  init_stubs max_heap_bytes k start =
+    [(0n,Seq (init_code max_heap_bytes k start) (Call NONE (INL start) NONE));
+     (1n,halt_inst 0w);
+     (2n,halt_inst 2w)]`
 
 val compile_def = Define `
   compile max_heap_bytes k start prog =
