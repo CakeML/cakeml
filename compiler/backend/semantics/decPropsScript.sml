@@ -1,4 +1,4 @@
-open preamble decSemTheory;
+open preamble decSemTheory conPropsTheory;
 
 val _ = new_theory"decProps"
 
@@ -115,6 +115,30 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
+val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
+  `do_app s op vs = SOME(s',r) ⇒
+   s.ffi.io_events ≼ s'.ffi.io_events ∧
+   (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
+  rw[do_app_def] >> every_case_tac >> fs[] >> rw[] >>
+  imp_res_tac conPropsTheory.do_app_io_events_mono);
+
+val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
+  `(∀env (s:'ffi decSem$state) es s' r.
+      evaluate env s es = (s',r) ⇒
+      s.ffi.io_events ≼ s'.ffi.io_events ∧
+      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)) ∧
+   (∀env (s:'ffi decSem$state) pes v err_v s' r.
+      evaluate_match env s pes v err_v = (s',r) ⇒
+      s.ffi.io_events ≼ s'.ffi.io_events ∧
+      (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi))`,
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> rfs[] >> fs[dec_clock_def] >>
+  imp_res_tac do_app_io_events_mono >> fs[] >>
+  metis_tac[IS_PREFIX_TRANS]);
+
+val with_clock_ffi = Q.prove(
+  `(s with clock := k).ffi = s.ffi`,EVAL_TAC)
+
 val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io_events_mono",
   `(∀env (s:'ffi decSem$state) es extra.
        (FST(evaluate env s es)).ffi.io_events ≼
@@ -128,6 +152,13 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
        (IS_SOME((FST(evaluate_match env s pes v err_v)).ffi.final_event) ⇒
         (FST(evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
         (FST(evaluate_match env s pes v err_v)).ffi))`,
-  cheat);
+  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >> fs[] >> rw[] >>
+  imp_res_tac evaluate_io_events_mono >> fs[] >> fs[dec_clock_def] >>
+  fs[do_app_add_to_clock,UNCURRY] >> rw[] >> fs[] >>
+  TRY(last_x_assum(qspec_then`extra`mp_tac)>>simp[]>>NO_TAC) >>
+  metis_tac[FST,IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi,do_app_io_events_mono]);
+
 
 val _ = export_theory()

@@ -35,6 +35,20 @@ val do_app_cases = Q.store_thm("do_app_cases",
     every_case_tac >> fs[] ) >>
   BasicProvers.CASE_TAC);
 
+val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
+  `do_app (f,s) op vs = SOME((f',s'),r) ⇒
+   s.io_events ≼ s'.io_events ∧
+   (IS_SOME s.final_event ⇒ s' = s)`,
+  rw[] >> imp_res_tac do_app_cases >> fs[do_app_def] >>
+  every_case_tac >>
+  fs[LET_THM,
+     semanticPrimitivesTheory.store_alloc_def,
+     semanticPrimitivesTheory.store_lookup_def,
+     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  fs[ffiTheory.call_FFI_def] >>
+  every_case_tac >> fs[] >> rw[]);
+
 val build_rec_env_help_lem = Q.prove (
   `∀funs env funs'.
     FOLDR (λ(f,x,e) env'. ((f, Recclosure env funs' f) :: env')) env' funs =
