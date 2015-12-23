@@ -415,7 +415,12 @@ val inst_def = Define `
         assign r1
           (Shift sh (Var r2) (Nat n)) s
     | Mem Load r (Addr a w) =>
-        assign r (Load (Op Add [Var a; Const w])) s
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | NONE => NONE
+        | SOME w =>
+            case mem_load w s of
+            | NONE => NONE
+            | SOME w => SOME (set_var r w s))
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME w) =>

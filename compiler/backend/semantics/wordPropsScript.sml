@@ -831,7 +831,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     srw_tac [] []>>fs[set_var_def,s_key_eq_refl]>>
     every_case_tac>>fs[set_var_def,s_key_eq_refl]>>
     fs[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl,mem_store_def]>>
-    srw_tac [] []>>fs[set_var_def,s_key_eq_refl,get_var_def]>>
+    srw_tac [] []>>fs[set_var_def,s_key_eq_refl,get_var_def,mem_load_def]>>
     HINT_EXISTS_TAC>>
     fs[GEN_ALL(SYM(SPEC_ALL word_exp_stack_swap)),s_key_eq_refl])
   >-(*Assign*)
@@ -1432,9 +1432,9 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
   >-
     (qexists_tac`perm`>>
     fs[inst_def,assign_def]>>every_case_tac>>
-    fs[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm]>>
+    fs[set_var_perm,word_exp_perm,get_var_perm,mem_store_perm,mem_load_def]>>
     rfs[]>>fs[]>>
-    TRY(metis_tac[word_exp_perm,state_component_equality]))
+    metis_tac[word_exp_perm,state_component_equality])
   >-
     (fs[word_exp_perm]>>every_case_tac>>
     fs[set_var_perm]>>
@@ -1879,7 +1879,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       imp_res_tac locals_rel_get_var>>
       fs[every_var_exp_def,every_var_inst_def]>>
       rfs[every_var_exp_def,every_var_imm_def]>>
-      fs[set_var_def,mem_store_def]>>
+      fs[set_var_def,mem_store_def,mem_load_def]>>
       fs[state_component_equality]>>
       metis_tac[locals_rel_set_var])
   >-
