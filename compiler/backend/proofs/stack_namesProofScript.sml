@@ -59,6 +59,10 @@ val rename_state_def = Define `
     ; ffi_save_regs := IMAGE (find_name f) s.ffi_save_regs
     |>`
 
+val rename_state_with_clock = Q.store_thm("rename_state_with_clock",
+  `rename_state f (s with clock := k) = rename_state f s with clock := k`,
+  EVAL_TAC);
+
 val dec_clock_rename_state = Q.store_thm("dec_clock_rename_state",
   `dec_clock (rename_state x y) = rename_state x (dec_clock y)`,
   EVAL_TAC >> simp[state_component_equality]);
@@ -310,6 +314,17 @@ val compile_semantics = store_thm("compile_semantics",
   ``BIJ (find_name f) UNIV UNIV /\
     ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
     semantics start (rename_state f s) = semantics start s``,
-  cheat);
+  simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
+  simp[semantics_def] >>
+  simp[
+    comp_correct
+    |> Q.SPEC`Call NONE (INL start) NONE`
+    |> SIMP_RULE(srw_ss())[comp_def,dest_find_name_def]
+    |> Q.SPEC`s with clock := k`
+    |> SIMP_RULE(srw_ss()++QUANT_INST_ss[pair_default_qp])[GSYM AND_IMP_INTRO]
+    |> SIMP_RULE std_ss [rename_state_with_clock]
+    |> UNDISCH_ALL] >>
+  simp[rename_state_def] >>
+  srw_tac[QUANT_INST_ss[pair_default_qp]][]);
 
 val _ = export_theory();
