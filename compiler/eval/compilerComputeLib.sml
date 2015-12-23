@@ -579,6 +579,7 @@ in
   ; add_thms
     [stack_namesTheory.find_name_def
     ,stack_namesTheory.inst_find_name_def
+    ,stack_namesTheory.dest_find_name_def
     ,stack_namesTheory.compile_def
     ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.comp_def

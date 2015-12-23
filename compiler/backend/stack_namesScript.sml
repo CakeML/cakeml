@@ -25,6 +25,10 @@ val inst_find_name_def = Define `
         Arith (Shift sop (find_name f d) (find_name f r) i)
     | Mem mop r (Addr a w) => Mem mop (find_name f r) (Addr (find_name f a) w)`
 
+val dest_find_name_def = Define`
+  dest_find_name f (INR r) = INR (find_name f r) ∧
+  dest_find_name f x = x`;
+
 val comp_def = Define `
   comp f p =
     case p of
@@ -40,9 +44,10 @@ val comp_def = Define `
         Call (case ret of
               | NONE => NONE
               | SOME (p1,lr,l1,l2) => SOME (comp f p1,find_name f lr,l1,l2))
-          dest (case exc of
-                | NONE => NONE
-                | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
+             (dest_find_name f dest)
+             (case exc of
+              | NONE => NONE
+              | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | FFI i r1 r2 r3 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
     | JumpLess r1 r2 dest => JumpLess (find_name f r1) (find_name f r2) dest
     | p => p`

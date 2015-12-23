@@ -38,6 +38,17 @@ val DRESTRICT_MAP_KEYS_IMAGE = Q.store_thm("DRESTRICT_MAP_KEYS_IMAGE",
   rw[FLOOKUP_DRESTRICT] >> rw[] >> fs[] >>
   metis_tac[INJ_DEF,IN_UNIV]);
 
+val DOMSUB_MAP_KEYS = Q.store_thm("DRESTRICT_MAP_KEYS",
+  `BIJ f UNIV UNIV ⇒
+   (MAP_KEYS f fm) \\ (f s) = MAP_KEYS f (fm \\ s)`,
+  rw[fmap_domsub] >>
+  dep_rewrite.DEP_REWRITE_TAC[GSYM DRESTRICT_MAP_KEYS_IMAGE] >>
+  rw[] >- fs[BIJ_DEF] >>
+  AP_TERM_TAC >>
+  rw[EXTENSION] >>
+  fs[BIJ_DEF,INJ_DEF,SURJ_DEF] >>
+  metis_tac[]);
+
 (* -- *)
 
 val rename_state_def = Define `
@@ -86,6 +97,31 @@ val FLOOKUP_rename_state_find_name = Q.store_thm("FLOOKUP_rename_state_find_name
   rw[BIJ_DEF] >>
   rw[rename_state_def] >>
   simp[FLOOKUP_MAP_KEYS_MAPPED]);
+
+val prog_comp_eta = Q.prove(
+  `prog_comp f = λ(x,y). (x,comp f y)`,
+  rw[prog_comp_def,FUN_EQ_THM,FORALL_PROD])
+
+val find_code_rename_state = Q.store_thm("find_code_rename_state[simp]",
+  `BIJ (find_name f) UNIV UNIV ⇒
+   find_code (dest_find_name f dest) (rename_state f s).regs (rename_state f s).code =
+   OPTION_MAP (comp f) (find_code dest s.regs s.code)`,
+  strip_tac >>
+  Cases_on`dest`>>rw[find_code_def,rename_state_def,dest_find_name_def] >- (
+    simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList] >>
+    metis_tac[] ) >>
+  dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS] >>
+  conj_tac >- metis_tac[BIJ_IMP_11,INJ_DEF,IN_UNIV] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  reverse conj_tac >- (
+    rw[] >> simp[FLOOKUP_DEF] >> rw[] >> metis_tac[] ) >>
+  rw[] >>
+  `x = y` by metis_tac[BIJ_IMP_11] >>
+  rw[FLOOKUP_DEF] >>
+  simp[lookup_fromAList,compile_def,prog_comp_eta,ALOOKUP_MAP,ALOOKUP_toAList] >>
+  CASE_TAC >> simp[] >>
+  CASE_TAC >> simp[] >>
+  metis_tac[]);
 
 val set_var_find_name = Q.store_thm("set_var_find_name",
   `BIJ (find_name f) UNIV UNIV ⇒
@@ -196,7 +232,55 @@ val comp_correct = Q.prove(
   THEN1 (
     simp[Once comp_def] >>
     fs[evaluate_def] >>
-    cheat )
+    BasicProvers.TOP_CASE_TAC >> fs[] >- (
+      pop_assum mp_tac >>
+      reverse BasicProvers.TOP_CASE_TAC >> fs[] >- (
+        BasicProvers.TOP_CASE_TAC >> simp[] >>
+        BasicProvers.TOP_CASE_TAC >> simp[] >>
+        BasicProvers.TOP_CASE_TAC >> simp[] ) >>
+      qpat_assum`_ = (r,_)`mp_tac >>
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      reverse(Cases_on`handler`)>>fs[]>-(
+        (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] ) >>
+      simp[Once rename_state_def] >>
+      IF_CASES_TAC >> fs[] >- (
+        rw[] >> EVAL_TAC >> simp[state_component_equality] ) >>
+      simp[dec_clock_rename_state] >>
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      BasicProvers.TOP_CASE_TAC >> fs[] ) >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] >>
+    rveq >> pop_assum mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    (fn g => subterm split_pair_case_tac (#2 g) g) >> simp[] >>
+    strip_tac >> rveq >> fs[] >>
+    simp[Once rename_state_def] >>
+    simp[DOMSUB_MAP_KEYS] >>
+    simp[
+      find_code_rename_state
+      |> Q.GEN`s` |> Q.SPEC`s with regs := s.regs \\ lr`
+      |> SIMP_RULE (std_ss)[Once rename_state_def] |> SIMP_RULE (srw_ss())[]
+      |> SIMP_RULE std_ss [EVAL``(rename_state f (s with regs := x)).code = (rename_state f s).code``|>EQT_ELIM]] >>
+    qpat_assum`_ = (r,_)`mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    simp[Once rename_state_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      rw[] >> EVAL_TAC >> simp[state_component_equality] ) >>
+    simp[GSYM set_var_find_name,dec_clock_rename_state] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >- (
+      rw[] >> rfs[] >>
+      first_x_assum match_mp_tac >>
+      imp_res_tac evaluate_consts >>
+      fs[rename_state_def] ) >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    strip_tac >> fs[] >>
+    first_x_assum match_mp_tac >>
+    imp_res_tac evaluate_consts >>
+    fs[rename_state_def] )
   (* FFI *)
   THEN1 (
     simp[Once comp_def] >>
