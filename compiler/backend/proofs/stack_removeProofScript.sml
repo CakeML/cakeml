@@ -12,6 +12,10 @@ val good_syntax_def = Define `
      v1 < k) /\
   (good_syntax (Raise v1) k <=>
      v1 < k) /\
+  (good_syntax (Get v1 n) k <=>
+     v1 < k) /\
+  (good_syntax (Set n v1) k <=>
+     v1 < k) /\
   (good_syntax (LocValue v1 l1 l2) k <=>
      v1 < k) /\
   (good_syntax (Return v1 v2) k <=>
@@ -103,6 +107,12 @@ val find_code_lemma = prove(
   \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs [] \\ res_tac);
 
+val state_rel_set_var = store_thm("state_rel_set_var[simp]",
+  ``state_rel k s t1 /\ v < k ==>
+    state_rel k (set_var v x s) (set_var v x t1)``,
+  fs [state_rel_def,set_var_def] \\ rw [] \\ fs [FLOOKUP_UPDATE]
+  \\ rw [] \\ fs [] \\ rfs [] \\ `F` by decide_tac);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -124,17 +134,18 @@ val comp_correct = Q.prove(
     \\ fs[state_rel_def])
   THEN1 (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
   THEN1 cheat (* easy but good_syntax needs updating *)
-
-  THEN1 (* Get *) cheat
-(*
+  THEN1 (* Get *)
    (`s.use_store` by fs [state_rel_def]
     \\ fs [comp_def,evaluate_def,good_syntax_def]
     \\ every_case_tac \\ fs [] \\ rw []
-    THEN1
-     (fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF]
-      \\ `FLOOKUP t1.regs (k + 2) = SOME x` by fs [state_rel_def]
-      \\ fs [] \\ cheat))
-*)
+    \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF]
+    THEN1 (`FLOOKUP t1.regs (k + 2) = SOME x` by fs [state_rel_def] \\ fs [])
+    \\ qpat_assum `state_rel k s t1` mp_tac
+    \\ simp [Once state_rel_def] \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
+    \\ fs [wordSemTheory.word_op_def]
+    \\ cheat)
   THEN1 (* Set *) cheat
   THEN1 (* Tick *)
    (fs [comp_def,evaluate_def]
