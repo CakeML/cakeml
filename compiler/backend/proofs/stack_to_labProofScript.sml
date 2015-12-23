@@ -3,6 +3,7 @@ open preamble
      stack_to_labTheory
      stack_allocTheory
      labSemTheory labPropsTheory
+local open stack_removeProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
@@ -130,6 +131,10 @@ val state_rel_with_pc = Q.store_thm("state_rel_with_pc",
   `state_rel s t ⇒ state_rel s (upd_pc pc t)`,
   rw[state_rel_def,upd_pc_def] >>
   metis_tac[])
+
+val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
+  `state_rel s t ⇒ state_rel (s with clock := k) (t with clock := k)`,
+  rw[state_rel_def] >> metis_tac[])
 
 val set_var_upd_reg = Q.store_thm("set_var_upd_reg",
   `state_rel s t ⇒
@@ -1157,10 +1162,272 @@ val flatten_correct = Q.store_thm("flatten_correct",
   rw[stackSemTheory.evaluate_def] >>
   fs[state_rel_def]);
 
+val flatten_call_correct = Q.store_thm("flatten_call_correct",
+  `evaluate (Call NONE (INL start) NONE,s1) = (res,s2) ∧
+   state_rel s1 t1 ∧
+   loc_to_pc start 0 t1.code = SOME t1.pc ∧
+   res ≠ SOME Error ∧ (res ≠ SOME TimeOut ⇒ ∃w. res = SOME(Halt (Word w)))
+   ⇒
+   ∃ck r2 t2.
+     evaluate (t1 with clock := t1.clock - 1 + ck) = (r2,t2) ∧
+     (∀w. res = SOME (Halt w) ⇒ r2 =
+      (case w of | Word 0w => Halt Success
+                 | Word _ => Halt Resource_limit_hit
+                 | _ => Error)) ∧
+        (*
+        (evaluate (t1 with clock := t1.clock - 1 + ck) =
+           (,t2)) ∧
+           *)
+     t2.ffi = s2.ffi ∧
+     r2 ≠ Error ∧ (res = SOME TimeOut ⇒ r2 = TimeOut)
+     (* (FST (evaluate (t1 with clock := t1.clock - 1 + ck)) ≠ Error)*)`,
+  rw[stackSemTheory.evaluate_def] >>
+  last_x_assum mp_tac >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >- (
+    rw[] >> qexists_tac`0`>>simp[] >>
+    fs[state_rel_def] >>
+    simp[Once labSemTheory.evaluate_def] ) >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  rw[] >> rw[] >>
+  fs[find_code_def] >>
+  first_assum(fn th => first_assum(
+    tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+  fs[] >> rveq >>
+  drule flatten_correct >> simp[] >>
+  imp_res_tac state_rel_dec_clock >>
+  disch_then drule >> simp[] >>
+  disch_then drule >> simp[] >>
+  simp[dec_clock_def] >>
+  `t1.clock ≠ 0` by fs[state_rel_def] >>
+  fsrw_tac[ARITH_ss][] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >>
+  qexists_tac`ck`>>simp[]>>
+  first_x_assum(qspec_then`0`mp_tac)>>rw[]>>
+  simp[Once labSemTheory.evaluate_def]);
+
 val flatten_semantics = store_thm("flatten_semantics",
-  ``state_rel s1 s2 /\ s2.pc = start /\ semantics start s1 <> Fail ==>
+  ``state_rel s1 s2 /\
+    loc_to_pc start 0 s2.code = SOME s2.pc ∧
+    semantics start s1 <> Fail ==>
     semantics s2 = semantics start s1``,
-  cheat);
+  simp[GSYM AND_IMP_INTRO] >> ntac 2 strip_tac >>
+  simp[stackSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    rw[] >>
+    simp[labSemTheory.semantics_def] >>
+    IF_CASES_TAC >> fs[] >- (
+      rator_x_assum`stackSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k'+1`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      spose_not_then strip_assume_tac >> fs[] >>
+      drule (GEN_ALL flatten_call_correct) >>
+      imp_res_tac state_rel_with_clock >>
+      first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
+      disch_then drule >>
+      discharge_hyps >- (
+        simp[] >> strip_tac >> fs[] ) >>
+      strip_tac >>
+      (qspec_then`s2 with clock := k'`mp_tac)labPropsTheory.evaluate_ADD_clock >>
+      simp[] >> fs[] >>
+      srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+      qexists_tac`ck`>> spose_not_then strip_assume_tac >>
+      fsrw_tac[ARITH_ss][] ) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    conj_tac >- (
+      rw[] >>
+      qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
+      qmatch_assum_abbrev_tac`labSem$evaluate l = _` >>
+      qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+      qspecl_then[`l`](mp_tac o Q.GEN`extra`) labPropsTheory.evaluate_add_clock_io_events_mono >>
+      simp[Abbr`s`,Abbr`l`] >>
+      ntac 2 strip_tac >>
+      Cases_on`t.ffi.final_event`>>fs[]>-(
+        Cases_on`t'.ffi.final_event`>>fs[]>-(
+          unabbrev_all_tac >>
+          drule (GEN_ALL flatten_call_correct) >>
+          drule state_rel_with_clock >> strip_tac >>
+          disch_then drule >>
+          discharge_hyps >- (
+            last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+            BasicProvers.FULL_CASE_TAC >> fs[] ) >>
+          strip_tac >> fs[] >>
+          BasicProvers.FULL_CASE_TAC >> fs[] >>
+          drule labPropsTheory.evaluate_ADD_clock >>
+          disch_then(qspec_then`k'`mp_tac) >>
+          discharge_hyps >- (CASE_TAC >> fs[] >> CASE_TAC) >>
+          rator_x_assum`labSem$evaluate`mp_tac >>
+          drule labPropsTheory.evaluate_ADD_clock >>
+          disch_then(qspec_then`k-1+ck`mp_tac) >>
+          simp[]  >>
+          ntac 3 strip_tac >>
+          `k' + (k - 1 + ck) = k - 1 + ck + k'` by decide_tac >> fs[] >>
+          fs[state_component_equality] >>
+          IF_CASES_TAC >> fs[] >>
+          BasicProvers.FULL_CASE_TAC >> fs[] >>
+          BasicProvers.FULL_CASE_TAC >> fs[] ) >>
+        first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
+        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+        unabbrev_all_tac >>
+        drule (GEN_ALL flatten_call_correct) >>
+        imp_res_tac state_rel_with_clock >>
+        first_x_assum(qspec_then`k'+1+k`strip_assume_tac) >>
+        disch_then drule >>
+        simp[] >>
+        BasicProvers.FULL_CASE_TAC >> fs[] >>
+        discharge_hyps >- (
+          last_x_assum(qspec_then`k'+1+k`mp_tac) >> rw[] ) >>
+        strip_tac >>
+        drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+        disch_then(qspec_then`k'+1`mp_tac) >>
+        simp[] >> strip_tac >>
+        fsrw_tac[ARITH_ss][] >> rveq >> fs[] >>
+        first_x_assum(qspec_then`ck+k`mp_tac)>>simp[]>>
+        strip_tac >> fs[] ) >>
+      first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+      unabbrev_all_tac >>
+      drule (GEN_ALL flatten_call_correct) >>
+      imp_res_tac state_rel_with_clock >>
+      first_x_assum(qspec_then`k'+1+k`strip_assume_tac) >>
+      disch_then drule >>
+      simp[] >>
+      discharge_hyps >- (
+        last_x_assum(qspec_then`k'+1+k`mp_tac) >> rw[] ) >>
+      strip_tac >>
+      fsrw_tac[ARITH_ss][] >>
+      reverse(Cases_on`t'.ffi.final_event`)>>fs[]>>rfs[]>- (
+        first_x_assum(qspec_then`ck+k`mp_tac) >>
+        fsrw_tac[ARITH_ss][ADD1] >> strip_tac >>
+        fs[state_rel_def] >> rfs[] ) >>
+      rator_x_assum`labSem$evaluate`mp_tac >>
+      drule labPropsTheory.evaluate_ADD_clock >>
+      disch_then(qspec_then`ck+k`mp_tac)>>simp[] >>
+      ntac 2 strip_tac >> rveq >>
+      fs[] >> rfs[]) >>
+    qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
+    qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+    disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
+    first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
+    unabbrev_all_tac >>
+    drule (GEN_ALL flatten_call_correct) >> simp[] >>
+    drule (GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then`k+1`strip_assume_tac) >>
+    disch_then drule >> simp[] >>
+    discharge_hyps >- (
+      last_x_assum(qspec_then`k+1`mp_tac) >>fs[]>> rw[]) >>
+    strip_tac >>
+    asm_exists_tac >> simp[] >> fs[] >>
+    every_case_tac >> fs[] >>rveq >> fs[]>>
+    drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+    simp[] >>
+    disch_then(qspec_then`1`mp_tac)>>simp[]>>
+    rw[] >> rw[]) >>
+  strip_tac >>
+  simp[labSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >- (
+    last_x_assum(qspec_then`k+1`mp_tac) >>
+    (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+    simp[] >> spose_not_then strip_assume_tac >>
+    drule (GEN_ALL flatten_call_correct) >>
+    drule (GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then`k+1`strip_assume_tac) >>
+    disch_then drule >> simp[] >>
+    conj_tac >- (strip_tac >> fs[]) >>
+    srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    spose_not_then strip_assume_tac >>
+    last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
+    Cases_on`q`>>fs[]>>
+    CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    qmatch_assum_abbrev_tac`FST p = _` >>
+    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    pop_assum (assume_tac o SYM) >>
+    drule labPropsTheory.evaluate_ADD_clock >> simp[] >>
+    qexists_tac`ck`>>simp[]) >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    spose_not_then strip_assume_tac >>
+    fsrw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    last_x_assum(qspec_then`k+1`mp_tac) >>
+    (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >>
+    simp[] >>
+    spose_not_then strip_assume_tac >>
+    drule (GEN_ALL flatten_call_correct) >>
+    drule (GEN_ALL state_rel_with_clock) >>
+    disch_then(qspec_then`k+1`strip_assume_tac) >>
+    disch_then drule >> simp[] >>
+    conj_tac >- (strip_tac >> fs[]) >>
+    srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+    spose_not_then strip_assume_tac >>
+    last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
+    Cases_on`q`>>fs[]>>
+    BasicProvers.TOP_CASE_TAC >> fs[]>>
+    BasicProvers.TOP_CASE_TAC >> fs[]>>
+    reverse(Cases_on`t.ffi.final_event`)>>fs[]>-(
+      qspecl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono) >>
+      simp[] >>
+      spose_not_then strip_assume_tac >> fs[] ) >>
+    rator_x_assum`labSem$evaluate`mp_tac >>
+    drule(labPropsTheory.evaluate_ADD_clock)>>
+    disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
+  strip_tac >>
+  qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2` >>
+  `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+    suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub] >>
+  conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    let val s = ``s:('a,'b) labSem$state``
+        val t = ``s:('a,'b) stackSem$state``
+    in
+    metis_tac[
+      LESS_EQ_EXISTS,
+      labPropsTheory.evaluate_add_clock_io_events_mono,
+      stackPropsTheory.evaluate_add_clock_io_events_mono,
+      EVAL``(^s with clock := k).clock``,
+      EVAL``((^s with clock := k1) with clock := k2)``,
+      EVAL``(^t with clock := k).clock``,
+      EVAL``((^t with clock := k1) with clock := k2)``]
+    end) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> fs[] >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> fs[] >>
+  qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
+  qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+  disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
+  first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
+  unabbrev_all_tac >>
+  drule (GEN_ALL flatten_call_correct) >> simp[] >>
+  drule (GEN_ALL state_rel_with_clock) >>
+  disch_then(qspec_then`k+1`strip_assume_tac) >>
+  disch_then drule >> simp[] >>
+  discharge_hyps >- (
+    last_x_assum(qspec_then`k+1`mp_tac) >>fs[]>> rw[]) >>
+  strip_tac >>
+  reverse conj_tac >> strip_tac >- (
+    qexists_tac`ck+k`>>simp[]>>fs[]>>
+    fs[IS_PREFIX_APPEND]>>rfs[]>>simp[]>>
+    simp[EL_APPEND1])>>
+  qspecl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono)>>
+  simp[]>>strip_tac>>
+  qexists_tac`k+1`>>fs[]>>
+  fs[IS_PREFIX_APPEND]>> simp[]>>
+  simp[EL_APPEND1]);
 
 val init_state_rel_def = Define `
   init_state_rel s1 start s2 <=> s2.pc = start (* TODO!! *)`;
