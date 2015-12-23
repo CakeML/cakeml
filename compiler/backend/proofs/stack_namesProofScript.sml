@@ -48,6 +48,10 @@ val rename_state_def = Define `
     ; ffi_save_regs := IMAGE (find_name f) s.ffi_save_regs
     |>`
 
+val dec_clock_rename_state = Q.store_thm("dec_clock_rename_state",
+  `dec_clock (rename_state x y) = rename_state x (dec_clock y)`,
+  EVAL_TAC >> simp[state_component_equality]);
+
 val mem_load_rename_state = Q.store_thm("mem_load_rename_state[simp]",
   `mem_load x (rename_state f s) = mem_load x s`,
   EVAL_TAC);
@@ -117,11 +121,15 @@ val inst_rename = Q.store_thm("inst_rename",
   \\ every_case_tac \\ fs [wordSemTheory.word_op_def]
   \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac \\ fs [])
 
-val comp_correct = prove(
-  ``!p s r t.
-      evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
-      ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
-      evaluate (comp f p, rename_state f s) = (r, rename_state f t)``,
+val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
+  `MAP FST (stack_names$compile f c) = MAP FST c`,
+  rw[compile_def,MAP_MAP_o,MAP_EQ_f,prog_comp_def,FORALL_PROD]);
+
+val comp_correct = Q.prove(
+  `!p s r t.
+     evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
+     ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
+     evaluate (comp f p, rename_state f s) = (r, rename_state f t)`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs [])
@@ -161,7 +169,29 @@ val comp_correct = prove(
     fs[find_code_def] >>
     simp[Once rename_state_def] >>
     simp[lookup_fromAList] >>
-    cheat )
+    BasicProvers.TOP_CASE_TAC >> fs[] >- (
+      imp_res_tac ALOOKUP_FAILS >>
+      qpat_assum`_ = (r,_)`mp_tac >>
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      `dest ∈ domain s.code` by metis_tac[domain_lookup] >>
+      `¬MEM dest (MAP FST (compile f (toAList s.code)))` by (
+        simp[MEM_MAP,EXISTS_PROD] ) >>
+      fs[] >>
+      metis_tac[toAList_domain] ) >>
+    simp[Once rename_state_def] >>
+    imp_res_tac ALOOKUP_MEM >>
+    `MEM dest (MAP FST (compile f (toAList s.code)))` by (
+      simp[MEM_MAP,EXISTS_PROD] >> metis_tac[]) >>
+    fs[] >>
+    `dest ∈ domain s.code` by metis_tac[toAList_domain] >>
+    fs[domain_lookup] >> fs[] >>
+    IF_CASES_TAC >> fs[] >- (rveq >> EVAL_TAC >> simp[state_component_equality] ) >>
+    qpat_assum`_ = (r,_)`mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    fs[compile_def,MEM_MAP,EXISTS_PROD,prog_comp_def] >>
+    fs[MEM_toAList] >> rveq >>
+    fs[dec_clock_rename_state] >>
+    BasicProvers.TOP_CASE_TAC >> fs[])
   (* Call *)
   THEN1 (
     simp[Once comp_def] >>
