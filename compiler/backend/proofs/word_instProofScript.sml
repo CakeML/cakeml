@@ -314,18 +314,18 @@ val inst_select_exp_thm = prove(``
   fs[evaluate_def,binary_branch_exp_def,every_var_exp_def]
   >-
     (simp[inst_select_exp_def]>>
-    fs[LET_THM,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
+    fs[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def]>>
     simp[state_component_equality,locals_rel_def,lookup_insert]>>
     fs[locals_rel_def])
   >-
     (simp[inst_select_exp_def]>>
-    fs[LET_THM,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
+    fs[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     fs[locals_rel_def]>>pop_assum mp_tac>>ntac 2 FULL_CASE_TAC>>fs[]>>
     res_tac>>fs[alist_insert_def]>>rw[]>>
     simp[state_component_equality,lookup_insert])
   >-
     (simp[inst_select_exp_def]>>
-    fs[LET_THM,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
+    fs[LET_THM,evaluate_def,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,mem_load_def,word_op_def,get_vars_def,set_vars_def,get_var_def]>>
     FULL_CASE_TAC>>fs[]>>pop_assum mp_tac>>FULL_CASE_TAC>>fs[locals_rel_def]>>
     simp[state_component_equality,lookup_insert])
   >-
@@ -337,7 +337,7 @@ val inst_select_exp_thm = prove(``
         (fs[binary_branch_exp_def,every_var_exp_def,word_exp_def,LET_THM]>>EVERY_CASE_TAC>>fs[IS_SOME_EXISTS]>>rfs[]>>
         last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`exp'` mp_tac)>>simp[exp_size_def]>>strip_tac>>res_tac>>
         pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>fs[evaluate_def,LET_THM]>>
-        simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+        simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
         `lookup temp loc'' = SOME (Word x')` by metis_tac[]>>fs[mem_load_def]>>
         fs[state_component_equality,set_var_def,lookup_insert]>>rw[]>>
         DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
@@ -349,12 +349,15 @@ val inst_select_exp_thm = prove(``
         qpat_assum`A=SOME w` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
         rw[]>>res_tac>>
         pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>fs[evaluate_def,LET_THM]>>
-        simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+        simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
         `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>fs[mem_load_def]>>
         fs[state_component_equality,set_var_def,lookup_insert]>>rw[]>>
         simp[state_component_equality,set_var_def,lookup_insert,word_op_def]>>
-        rw[]>>
-        DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[]))
+        fs [GSYM mem_load_def]>>
+        rw[]>> fs[] >> every_case_tac >> fs []>>
+        simp[state_component_equality]>>
+        simp [lookup_insert,METIS_PROVE [] ``(b\/c)<=>(~b==>c)``] >> rw []>>
+        `x' ≠ temp` by DECIDE_TAC >> metis_tac []))
     >>
       `inst_select_exp c tar temp (Load e) =
         let prog = inst_select_exp c temp temp e in
@@ -389,7 +392,7 @@ val inst_select_exp_thm = prove(``
         (fs[]>>IF_CASES_TAC
         >-
           (fs[evaluate_def]>>
-          simp[LET_THM,inst_def,word_exp_def,assign_def]>>
+          simp[LET_THM,inst_def,mem_load_def,word_exp_def,assign_def]>>
           `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
           fs[word_op_def]>>
           Cases_on`b`>>
@@ -397,7 +400,7 @@ val inst_select_exp_thm = prove(``
           rw[]>>DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
         >> IF_CASES_TAC
         >-
-          (simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
+          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
           `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
           fs[]>>rfs[word_exp_def,word_op_def]>>
           fs[state_component_equality,lookup_insert]>>rw[]>>
@@ -405,7 +408,7 @@ val inst_select_exp_thm = prove(``
           `x'' ≠ temp` by DECIDE_TAC>>
           metis_tac[])
         >>
-          (simp[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
+          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
           `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
           fs[]>>rfs[word_exp_def]>>
           fs[state_component_equality,lookup_insert]>>
@@ -469,7 +472,7 @@ val inst_select_exp_thm = prove(``
       (
       rw[]>>res_tac>>
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
-      fs[evaluate_def,LET_THM,inst_def,assign_def,word_exp_def]>>
+      fs[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
       `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
       fs[num_exp_def,num_exp_equiv,set_var_def,state_component_equality,lookup_insert]>>
       rw[]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>
@@ -948,6 +951,5 @@ val full_ssa_cc_trans_inst_ok_less = prove(``
   fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
   LET_ELIM_TAC>>unabbrev_all_tac>>fs[every_inst_def,EQ_SYM_EQ]>>
   metis_tac[ssa_cc_trans_inst_ok_less,FST])
-
 
 val _ = export_theory ();
