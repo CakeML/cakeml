@@ -372,6 +372,11 @@ val invariant_def = Define `
     global_env_inv genv mods tops menv {} env ∧
     s_rel genv s s_i1`;
 
+val invariant_change_clock = Q.store_thm("invariant_change_clock",
+  `invariant genv menv env envm envv st1 (k1,st2) mods ⇒
+   invariant genv menv env envm envv (st1 with clock := k) (k,st2) mods`,
+  rw[invariant_def] >> fs[s_rel_cases])
+
 (* semantic functions respect relation *)
 
 val do_eq = Q.prove (
@@ -953,6 +958,8 @@ val global_env_inv_lookup_mod3 = Q.prove (
 val s = mk_var("s",
   ``bigStep$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
   |> type_subst[alpha |-> ``:'ffi``])
+
+(* TODO: all this is broken and needs updating
 
 val compile_exp_correct = Q.prove (
   `(∀b env ^s e res.
@@ -2215,28 +2222,26 @@ val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
       semanticPrimitivesTheory.no_dup_top_types_def, modSemTheory.no_dup_top_types_def] >>
   metis_tac [compile_prog_mods, compile_prog_top_types, compile_prog_mods_ok, NOT_EVERY]);
 
+*)
+
 open semanticsTheory funBigStepEquivTheory
 
 val precondition_def = Define`
-  precondition s1 c (genv,cenv:env_ctor,st,tids,mods) ⇔
-    invariant genv (FST c.mod_env) (SND c.mod_env)
-      s1.sem_env.m s1.sem_env.v
-      s1.sem_st (s1.sem_st.clock,st)
-      s1.sem_st.defined_mods ∧
-    mods = s1.sem_st.defined_mods ∧
-    tids = s1.sem_st.defined_types ∧
-    cenv = s1.sem_env.c ∧
-    c.next_global = LENGTH genv`;
-
-val invariant_change_clock = Q.store_thm("invariant_change_clock",
-  `invariant genv menv env envm envv st1 (k1,st2) mods ⇒
-   invariant genv menv env envm envv (st1 with clock := k) (k,st2) mods`,
-  rw[invariant_def] >> fs[s_rel_cases])
+  precondition s1 env1 c s2 env2 ⇔
+    invariant env2.globals (FST c.mod_env) (SND c.mod_env)
+      env1.m env1.v
+      s1 (s2.clock,s2.refs,s2.ffi)
+      s1.defined_mods ∧
+    s2.defined_mods = s1.defined_mods ∧
+    s2.defined_types = s1.defined_types ∧
+    env2.c = env1.c ∧
+    c.next_global = LENGTH env2.globals`;
 
 val compile_correct = Q.store_thm("compile_correct",
-  `precondition s1 c s2 ⇒
-   ¬semantics_prog s1 prog Fail ⇒
-   semantics_prog s1 prog (semantics s2 (compile c prog))`,
+  `precondition s1 env1 c s2 env2 ⇒
+   ¬semantics_prog s1 env1 prog Fail ⇒
+   semantics_prog s1 env1 prog (semantics env2 s2 (SND (compile c prog)))`,
+  (*
   `∃genv cenv st tids mods. s2 = (genv,cenv,st,tids,mods)` by metis_tac[PAIR] >>
   rw[precondition_def,compile_def] >>
   Cases_on`∃k ffi r.
@@ -2272,6 +2277,7 @@ val compile_correct = Q.store_thm("compile_correct",
       cheat ) >>
     rw[semantics_prog_def] >>
     cheat ) >>
+    *)
   cheat);
 
 val _ = export_theory ();
