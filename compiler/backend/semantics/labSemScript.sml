@@ -85,7 +85,7 @@ val arith_upd_def = Define `
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of
      | (Word w1, Word w2) => binop_upd r1 b w1 w2 s
-     | _ => assert F s) /\
+     | (x,_) => if b = Or /\ ri = Reg r2 then upd_reg r1 x s else assert F s) /\
   (arith_upd (Shift l r1 r2 n) s =
      case read_reg r2 s of
      | Word w1 => upd_reg r1 (Word (word_shift l w1 n)) s

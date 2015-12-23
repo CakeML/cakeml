@@ -114,6 +114,7 @@ val comp_correct = Q.prove(
                    (IS_SOME t2.ffi.final_event ⇒ t2.ffi = s2.ffi)
                | SOME TimeOut => r2 = r /\ t2.ffi = s2.ffi
                | _ =>  (r2 = r /\ state_rel k s2 t2))`,
+
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
   THEN1
@@ -123,7 +124,17 @@ val comp_correct = Q.prove(
     \\ fs[state_rel_def])
   THEN1 (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
   THEN1 cheat (* easy but good_syntax needs updating *)
+
   THEN1 (* Get *) cheat
+(*
+   (`s.use_store` by fs [state_rel_def]
+    \\ fs [comp_def,evaluate_def,good_syntax_def]
+    \\ every_case_tac \\ fs [] \\ rw []
+    THEN1
+     (fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF]
+      \\ `FLOOKUP t1.regs (k + 2) = SOME x` by fs [state_rel_def]
+      \\ fs [] \\ cheat))
+*)
   THEN1 (* Set *) cheat
   THEN1 (* Tick *)
    (fs [comp_def,evaluate_def]

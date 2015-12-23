@@ -4,8 +4,6 @@ open preamble
      stack_allocTheory
      labSemTheory labPropsTheory
 
-local open stack_removeProofTheory in end
-
 val _ = new_theory"stack_to_labProof";
 
 (* TODO: move *)
@@ -134,7 +132,7 @@ val state_rel_with_pc = Q.store_thm("state_rel_with_pc",
   metis_tac[])
 
 val set_var_upd_reg = Q.store_thm("set_var_upd_reg",
-  `state_rel s t ∧ is_word b ⇒
+  `state_rel s t ⇒
    state_rel (set_var a b s) (upd_reg a b t)`,
   rw[state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FLOOKUP_UPDATE] >>
   rw[]>>fs[]>>rfs[] \\ metis_tac [])
@@ -168,6 +166,7 @@ val inst_correct = Q.store_thm("inst_correct",
   imp_res_tac state_rel_read_reg_FLOOKUP_regs >> fs[] >> rfs[] >>
   imp_res_tac word_sh_word_shift >>
   fs[wordSemTheory.num_exp_def,wordSemTheory.word_op_def] >> rw[] >>
+  TRY ( fs[binop_upd_def] >> match_mp_tac set_var_upd_reg >> fs[] >> NO_TAC) >>
   TRY ( Cases_on`b`>>fs[binop_upd_def] >> NO_TAC) >>
   TRY (
     fs[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>

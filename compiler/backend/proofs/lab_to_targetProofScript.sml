@@ -909,19 +909,19 @@ val Inst_lemma = Q.prove(
         dec_clock_def,asmSemTheory.upd_reg_def,labSemTheory.upd_reg_def]
     \\ rpt strip_tac \\ rfs [] \\ res_tac \\ fs [GSYM word_add_n2w]
     \\ fs [APPLY_UPDATE_THM] \\ rw [word_loc_val_def])
-  >- (
-    strip_tac >>
+  THEN1
+   (strip_tac >>
     conj_tac >- (
       Cases_on`a`>> fs[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
-      every_case_tac >> fs[labSemTheory.assert_def] >- (
-        Cases_on`b`>>EVAL_TAC >> fs[state_rel_def] )
-      >> EVAL_TAC >> fs[state_rel_def] ) >>
+      every_case_tac >> fs[labSemTheory.assert_def] >> rw [] >>
+      fs [reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
+      fs [upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
+      TRY (Cases_on`b`)>>EVAL_TAC >> fs[state_rel_def]) >>
     conj_tac >- (
       rw[] >>
       Cases_on`a`>>fs[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
-      every_case_tac >> fs[labSemTheory.assert_def] >- (
-        Cases_on`b`>>EVAL_TAC ) >>
-      EVAL_TAC ) >>
+      every_case_tac >> fs[labSemTheory.assert_def,reg_imm_def,binop_upd_def] >>
+      TRY (Cases_on`b`)>>EVAL_TAC ) >>
     rw[] >>
     cheat )
   \\ cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));

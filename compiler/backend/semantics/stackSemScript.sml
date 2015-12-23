@@ -271,9 +271,14 @@ val inst_def = Define `
     | Skip => SOME s
     | Const reg w => assign reg (Const w) s
     | Arith (Binop bop r1 r2 ri) =>
-        assign r1
-          (Op bop [Var r2; case ri of Reg r3 => Var r3
-                                    | Imm w => Const w]) s
+        if bop = Or /\ ri = Reg r2 then
+          case FLOOKUP s.regs r2 of
+          | NONE => NONE
+          | SOME w => SOME (set_var r1 w s)
+        else
+          assign r1
+            (Op bop [Var r2; case ri of Reg r3 => Var r3
+                                      | Imm w => Const w]) s
     | Arith (Shift sh r1 r2 n) =>
         assign r1
           (Shift sh (Var r2) (Nat n)) s
