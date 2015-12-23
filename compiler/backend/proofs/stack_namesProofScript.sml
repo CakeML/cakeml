@@ -27,6 +27,17 @@ val FLOOKUP_MAP_KEYS_MAPPED = Q.store_thm("FLOOKUP_MAP_KEYS_MAPPED",
   DEEP_INTRO_TAC some_intro >> rw[] >>
   fs[INJ_DEF] >> fs[FLOOKUP_DEF] >> metis_tac[]);
 
+val DRESTRICT_MAP_KEYS_IMAGE = Q.store_thm("DRESTRICT_MAP_KEYS_IMAGE",
+  `INJ f UNIV UNIV ⇒
+   DRESTRICT (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (DRESTRICT fm s)`,
+  rw[fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
+  dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS,FDOM_DRESTRICT] >>
+  conj_tac >- ( metis_tac[IN_INTER,IN_UNIV,INJ_DEF] ) >>
+  DEEP_INTRO_TAC some_intro >>
+  DEEP_INTRO_TAC some_intro >>
+  rw[FLOOKUP_DRESTRICT] >> rw[] >> fs[] >>
+  metis_tac[INJ_DEF,IN_UNIV]);
+
 (* -- *)
 
 val rename_state_def = Define `
@@ -34,6 +45,7 @@ val rename_state_def = Define `
    s with
    <| regs := MAP_KEYS (find_name f) s.regs
     ; code := fromAList (compile f (toAList s.code))
+    ; ffi_save_regs := IMAGE (find_name f) s.ffi_save_regs
     |>`
 
 val mem_load_rename_state = Q.store_thm("mem_load_rename_state[simp]",
@@ -169,7 +181,8 @@ val comp_correct = prove(
     simp[EVAL``(rename_state f s).ffi``] >>
     split_pair_tac >> fs[] >> rveq >>
     simp[rename_state_def,state_component_equality] >>
-    cheat)
+    dep_rewrite.DEP_REWRITE_TAC[DRESTRICT_MAP_KEYS_IMAGE] >>
+    metis_tac[BIJ_DEF])
   THEN1 (
     simp[Once comp_def] >> fs[evaluate_def] >>
     rveq >> fs[set_var_find_name] )
