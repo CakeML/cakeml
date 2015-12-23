@@ -4,6 +4,7 @@ open preamble
      stackPropsTheory
      set_sepTheory
      semanticsPropsTheory (* TODO: should be in heap? *)
+     helperLib
 
 val _ = new_theory"stack_removeProof";
 
@@ -124,7 +125,6 @@ val comp_correct = Q.prove(
                    (IS_SOME t2.ffi.final_event ⇒ t2.ffi = s2.ffi)
                | SOME TimeOut => r2 = r /\ t2.ffi = s2.ffi
                | _ =>  (r2 = r /\ state_rel k s2 t2))`,
-
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
   THEN1
@@ -145,7 +145,13 @@ val comp_correct = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
     \\ fs [wordSemTheory.word_op_def]
-    \\ cheat)
+    \\ `mem_load (c + store_offset name) t1 = SOME x` by
+     (Cases_on `name` \\ fs [store_offset_def,store_pos_def,word_offset_def,
+        store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
+        word_list_rev_def,bytes_in_word_def] \\ rfs[]
+      \\ fs [mem_load_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ res_tac \\ fs [] \\ match_mp_tac state_rel_set_var
+    \\ fs [state_rel_def] \\ fs [AC MULT_COMM MULT_ASSOC])
   THEN1 (* Set *) cheat
   THEN1 (* Tick *)
    (fs [comp_def,evaluate_def]
