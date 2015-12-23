@@ -114,6 +114,10 @@ val state_rel_set_var = store_thm("state_rel_set_var[simp]",
   fs [state_rel_def,set_var_def] \\ rw [] \\ fs [FLOOKUP_UPDATE]
   \\ rw [] \\ fs [] \\ rfs [] \\ `F` by decide_tac);
 
+val word_store_CurrHeap = prove(
+  ``word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store``,
+  fs [word_store_def,store_list_def,FLOOKUP_UPDATE]);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -152,7 +156,32 @@ val comp_correct = Q.prove(
       \\ fs [mem_load_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
     \\ fs [] \\ res_tac \\ fs [] \\ match_mp_tac state_rel_set_var
     \\ fs [state_rel_def] \\ fs [AC MULT_COMM MULT_ASSOC])
-  THEN1 (* Set *) cheat
+  THEN1 (* Set *)
+   (`s.use_store` by fs [state_rel_def]
+    \\ fs [comp_def,evaluate_def,good_syntax_def]
+    \\ every_case_tac \\ fs [] \\ rw []
+    \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF,get_var_def]
+    THEN1 (fs [state_rel_def,set_var_def,set_store_def,FLOOKUP_UPDATE]
+           \\ rfs [] \\ fs [] \\ fs [word_store_def,word_store_CurrHeap]
+           \\ rw [] \\ `F` by decide_tac \\ fs [])
+    \\ qpat_assum `state_rel k s t1` mp_tac
+    \\ simp [Once state_rel_def] \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
+    \\ fs [wordSemTheory.word_op_def,mem_store_def]
+    \\ `c + store_offset name IN t1.mdomain` by
+     (Cases_on `name` \\ fs [store_offset_def,store_pos_def,word_offset_def,
+        store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
+        word_list_rev_def,bytes_in_word_def] \\ rfs[]
+      \\ fs [mem_load_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [] \\ fs [state_rel_def,set_store_def,FLOOKUP_UPDATE]
+    \\ rfs [] \\ fs [AC MULT_COMM MULT_ASSOC]
+    \\ Q.ABBREV_TAC `m = t1.memory`
+    \\ Q.ABBREV_TAC `d = t1.mdomain`
+    \\ Cases_on `name` \\ fs [store_offset_def,store_pos_def,word_offset_def,
+         store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
+         word_list_rev_def,bytes_in_word_def,FLOOKUP_UPDATE] \\ rfs[]
+    \\ SEP_W_TAC \\ fs[AC STAR_COMM STAR_ASSOC])
   THEN1 (* Tick *)
    (fs [comp_def,evaluate_def]
     \\ `t1.clock = s.clock` by fs [state_rel_def] \\ fs []
