@@ -22,38 +22,38 @@ can_type_prog state prog ⇔
     type_prog T state.tdecs state.tenv prog tdecs' new_tenv`;
 
 val evaluate_prog_with_clock_def = Define`
-  evaluate_prog_with_clock st k prog =
+  evaluate_prog_with_clock st env k prog =
     let (st',envC,r) =
-      evaluate_prog (st.sem_st with clock := k) st.sem_env prog
+      evaluate_prog (st with clock := k) env prog
     in (st'.ffi,r)`;
 
 val semantics_prog_def = Define `
-(semantics_prog state prog (Terminate outcome io_list) ⇔
+(semantics_prog st env prog (Terminate outcome io_list) ⇔
   (* there is a clock for which evaluation terminates, either internally or via
      FFI, and the accumulated io events match the given io_list *)
   ?k ffi r.
-    evaluate_prog_with_clock state k prog = (ffi,r) ∧
+    evaluate_prog_with_clock st env k prog = (ffi,r) ∧
     (if ffi.final_event = NONE then
        (∀a. r ≠ Rerr (Rabort a)) ∧ outcome = Success
      else outcome = FFI_outcome (THE ffi.final_event)) ∧
     (io_list = ffi.io_events)) ∧
-(semantics_prog state prog (Diverge io_trace) ⇔
+(semantics_prog st env prog (Diverge io_trace) ⇔
   (* for all clocks, evaluation times out *)
   (!k. ?ffi.
-    (evaluate_prog_with_clock state k prog =
+    (evaluate_prog_with_clock st env k prog =
         (ffi, Rerr (Rabort Rtimeout_error))) ∧
      ffi.final_event = NONE) ∧
   (* the io_trace is the least upper bound of the set of traces
      produced for each clock *)
    lprefix_lub
      (IMAGE
-       (λk. fromList (FST (evaluate_prog_with_clock state k prog)).io_events)
+       (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events)
        UNIV)
      io_trace) ∧
-(semantics_prog state prog Fail ⇔
+(semantics_prog st env prog Fail ⇔
   (* there is a clock for which evaluation produces a runtime type error *)
   ∃k.
-    SND(evaluate_prog_with_clock state k prog) = Rerr (Rabort Rtype_error))`;
+    SND(evaluate_prog_with_clock st env k prog) = Rerr (Rabort Rtype_error))`;
 
 val _ = Datatype`semantics = CannotParse | IllTyped | Execute (behaviour set)`;
 
@@ -63,7 +63,7 @@ val semantics_def = Define`
   | NONE => CannotParse
   | SOME prog =>
     if can_type_prog state (prelude ++ prog)
-    then Execute (semantics_prog state (prelude ++ prog))
+    then Execute (semantics_prog state.sem_st state.sem_env (prelude ++ prog))
     else IllTyped`;
 
 val _ = export_theory();

@@ -7,7 +7,7 @@ open preamble
 val _ = new_theory"semanticsProps"
 
 val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
-  `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st k prog)).io_events) UNIV)`,
+  `lprefix_chain (IMAGE (λk. fromList (FST (evaluate_prog_with_clock st env k prog)).io_events) UNIV)`,
   qho_match_abbrev_tac`lprefix_chain (IMAGE (λk. fromList (g k)) UNIV)` >>
   ONCE_REWRITE_TAC[GSYM o_DEF] >>
   REWRITE_TAC[IMAGE_COMPOSE] >>
@@ -16,23 +16,23 @@ val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
-  `∀s p. ∃b. semantics_prog s p b`,
+  `∀s e p. ∃b. semantics_prog s e p b`,
   rw[] >>
-  Cases_on`∃k. SND(evaluate_prog_with_clock s k p) = Rerr (Rabort Rtype_error)`
+  Cases_on`∃k. SND(evaluate_prog_with_clock s e k p) = Rerr (Rabort Rtype_error)`
   >- metis_tac[semantics_prog_def] >> fs[] >>
   Cases_on`∃k ffi r.
-    evaluate_prog_with_clock s k p = (ffi,r) ∧
+    evaluate_prog_with_clock s e k p = (ffi,r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     (ffi.final_event = NONE ⇒ ∀a. r ≠ Rerr (Rabort a))`
   >- metis_tac[semantics_prog_def] >> fs[] >>
-  qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s k p)).io_events) UNIV))` >>
+  qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
   conj_tac >- (
     strip_tac >>
     rpt(first_x_assum(qspec_then`k`mp_tac)) >>
-    Cases_on`evaluate_prog_with_clock s k p`>>simp[]>>
+    Cases_on`evaluate_prog_with_clock s e k p`>>simp[]>>
     Cases_on`r`>>simp[]>>
-    Cases_on`e`>>simp[]>>
+    Cases_on`e'`>>simp[]>>
     Cases_on`a`>>simp[]) >>
   match_mp_tac build_lprefix_lub_thm >>
   MATCH_ACCEPT_TAC evaluate_prog_io_events_chain);
@@ -80,11 +80,11 @@ val tac1 =
               PAIR_EQ,IS_SOME_EXISTS,NOT_SOME_NONE,SND,PAIR]
 
 val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
-  `∀s p b b'.
-    semantics_prog s p b ∧ b ≠ Fail ∧
-    semantics_prog s p b' ∧ b' ≠ Fail ⇒
+  `∀s e p b b'.
+    semantics_prog s e p b ∧ b ≠ Fail ∧
+    semantics_prog s e p b' ∧ b' ≠ Fail ⇒
     b = b'`,
-  ntac 2 gen_tac >> reverse Cases >> rw[semantics_prog_def]
+  ntac 3 gen_tac >> reverse Cases >> rw[semantics_prog_def]
   >- (
     Cases_on`b'`>>fs[semantics_prog_def]
     >- tac1
@@ -126,7 +126,7 @@ val prog_diverges_semantics_prog = Q.prove(
   `prog_diverges st.sem_env st.sem_st prog ∧
    no_dup_mods prog st.sem_st.defined_mods ∧
    no_dup_top_types prog st.sem_st.defined_types ⇒
-   ¬semantics_prog st prog Fail`,
+   ¬semantics_prog st.sem_st st.sem_env prog Fail`,
   strip_tac >>
   (untyped_safety_prog
    |> SPEC_ALL
@@ -152,7 +152,7 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
    semantics st prelude inp = Execute bs
    ⇒ ∃b. bs = {b} ∧ b ≠ Fail`,
   rw[semantics_def] >> every_case_tac >> fs[] >> rw[] >>
-  `∀b. semantics_prog st (prelude ++ x) b ⇒ b ≠ Fail` by(
+  `∀b. semantics_prog st.sem_st st.sem_env (prelude ++ x) b ⇒ b ≠ Fail` by(
     fs[can_type_prog_def,state_invariant_def] >>
     Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)` >- (
       imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
