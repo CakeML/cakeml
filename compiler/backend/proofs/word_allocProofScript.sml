@@ -697,7 +697,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         metis_tac[])>>
       fs[])
     >-
-      (qpat_abbrev_tac`exp=(Load (Op Add [Var n';A]))`>>
+      (fs [mem_load_def]>> fs [GSYM mem_load_def]>>
+      qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       discharge_hyps>-
         (fs[get_live_exp_def]>>
@@ -705,7 +706,9 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         metis_tac[strong_locals_rel_subset])>>
       fs[word_state_eq_rel_def,LET_THM,set_var_def]>>
       rw[strong_locals_rel_def]>>
+      BasicProvers.CASE_TAC >> fs []>>
       fs[lookup_insert]>>
+      rpt strip_tac >>
       Cases_on`n''=n`>>fs[]>>
       `f n'' ≠ f n` by
         (fs[domain_union,get_writes_def,get_writes_inst_def]>>
@@ -2974,8 +2977,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
     >-
-      (qpat_abbrev_tac`exp=(Load (Op Add [Var n';A]))`>>
+      (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
+      fs [mem_load_def]>> fs [GSYM mem_load_def]>>
+      BasicProvers.CASE_TAC >> fs [] >>
       match_mp_tac ssa_locals_rel_set_var>>
       fs[every_var_inst_def,every_var_def])
     >>
