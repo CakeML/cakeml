@@ -224,6 +224,27 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     split_pair_tac >> fs[] >> rveq >> simp[] ) >>
   metis_tac[]);
 
+val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
+  `∀e s.
+     (SND(evaluate(e,s))).ffi.io_events ≼ (SND(evaluate(e,s with clock := s.clock + extra))).ffi.io_events ∧
+     (IS_SOME((SND(evaluate(e,s))).ffi.final_event) ⇒
+      (SND(evaluate(e,s with clock := s.clock + extra))).ffi =
+      (SND(evaluate(e,s))).ffi)`,
+  recInduct evaluate_ind >>
+  rw[evaluate_def] >> fs[LET_THM,get_var_def] >>
+  TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
+  every_case_tac >> fs[] >>
+  imp_res_tac evaluate_add_clock >> fs[] >>
+  imp_res_tac evaluate_io_events_mono >> fs[dec_clock_def] >>
+  rveq >> fsrw_tac[ARITH_ss][] >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
+  rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])>> fs[] >>
+  TRY(
+    CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
+    every_case_tac >> fs[get_var_def] >>
+    rveq >> fs[] >> rveq >> fs[] >> rveq >> fs[]) >>
+  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
+
 val clock_neutral_def = Define `
   (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
   (clock_neutral (LocValue _ _ _) <=> T) /\
@@ -262,10 +283,25 @@ val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
   \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
   \\ imp_res_tac evaluate_io_events_mono \\ fs []);
 
-val semantics_Diverge_IMP_LPREFIX = store_thm("semantics_Diverge_IMP_LPREFIX",
-  ``semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l``,
-  fs [semantics_def,LET_DEF] \\ IF_CASES_TAC \\ fs []
-  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
-  \\ cheat);
+val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
+  `semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l`,
+  simp[semantics_def] >> IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  qmatch_abbrev_tac`LPREFIX l1 (build_lprefix_lub l2)` >>
+  `l1 ∈ l2 ∧ lprefix_chain l2` suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_def] >>
+  conj_tac >- (
+    unabbrev_all_tac >> simp[] >>
+    qexists_tac`0`>>fs[evaluate_def] >>
+    CASE_TAC >> fs[] ) >>
+  simp[Abbr`l2`] >>
+  simp[Once(GSYM o_DEF),IMAGE_COMPOSE] >>
+  match_mp_tac prefix_chain_lprefix_chain >>
+  simp[prefix_chain_def,PULL_EXISTS] >>
+  qx_genl_tac[`k1`,`k2`] >>
+  qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+  simp[LESS_EQ_EXISTS] >>
+  metis_tac[evaluate_add_clock_io_events_mono,
+            EVAL``(s with clock := k).clock``,
+            EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
 val _ = export_theory();
