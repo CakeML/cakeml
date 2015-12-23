@@ -256,4 +256,16 @@ val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
          (Cases_on `ri` \\ fs [get_var_imm_def,get_var_def])
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs [set_var_def]);
 
+val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
+  ``semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l``,
+  fs [semantics_def,LET_DEF] \\ IF_CASES_TAC \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ imp_res_tac evaluate_io_events_mono \\ fs []);
+
+val semantics_Diverge_IMP_LPREFIX = store_thm("semantics_Diverge_IMP_LPREFIX",
+  ``semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l``,
+  fs [semantics_def,LET_DEF] \\ IF_CASES_TAC \\ fs []
+  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
+  \\ cheat);
+
 val _ = export_theory();

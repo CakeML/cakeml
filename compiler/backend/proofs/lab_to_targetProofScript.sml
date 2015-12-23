@@ -1415,7 +1415,7 @@ val evaluate_ignore_clocks = prove(
   \\ pop_assum (qspec_then `k` mp_tac)
   \\ fs [AC ADD_ASSOC ADD_COMM])
 
-val machine_sem_EQ_sem = Q.prove(
+val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   `!mc_conf p (ms:'state) ^s1.
      backend_correct mc_conf.target /\
      init_ok (mc_conf,p) s1 ms /\ semantics s1 <> Fail ==>

@@ -109,7 +109,7 @@ val halt_inst_def = Define `
     reg 4: one past last address of stack *)
 
 val init_code_def = Define `
-  init_code (max_heap_bytes:'a word) (k:num) (start:num) =
+  init_code (max_heap_bytes:'a word) (k:num) =
     let prog_start = 1n in
     let heap_start = 2n in
     let heap_end = 3 in
@@ -173,7 +173,7 @@ val init_code_def = Define `
 
 val init_stub_def = Define `
   init_stubs max_heap_bytes k start =
-    [(0n,Seq (init_code max_heap_bytes k start) (Call NONE (INL start) NONE));
+    [(0n,Seq (init_code max_heap_bytes k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
      (2n,halt_inst 2w)]`
 

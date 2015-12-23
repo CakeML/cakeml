@@ -4,6 +4,8 @@ open preamble
      stack_allocTheory
      labSemTheory labPropsTheory
 
+local open stack_removeProofTheory in end
+
 val _ = new_theory"stack_to_labProof";
 
 (* TODO: move *)
@@ -1153,5 +1155,18 @@ val flatten_correct = Q.store_thm("flatten_correct",
     \\ rw [] \\ res_tac) >>
   rw[stackSemTheory.evaluate_def] >>
   fs[state_rel_def]);
+
+val flatten_semantics = store_thm("flatten_semantics",
+  ``state_rel s1 s2 /\ s2.pc = start /\ semantics start s1 <> Fail ==>
+    semantics s2 = semantics start s1``,
+  cheat);
+
+val init_state_rel_def = Define `
+  init_state_rel s1 start s2 <=> s2.pc = start (* TODO!! *)`;
+
+val compile_semantics = store_thm("compile_semantics",
+  ``init_state_rel s1 start s2 /\ semantics start s1 <> Fail ==>
+    semantics s2 ∈ extend_with_resource_limit { semantics start s1 }``,
+  cheat);
 
 val _ = export_theory();

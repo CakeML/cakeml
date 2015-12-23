@@ -1365,6 +1365,11 @@ val compile_correct = prove(
 
 val _ = save_thm("compile_correct",compile_correct);
 
+val compile_semantics = store_thm("compile_semantics",
+  ``state_rel k f f' s t /\ semantics s start <> Fail /\ 1 <= f ==>
+    semantics start t = semantics s start``,
+  cheat);
+
 (*
    TODO:
     - also assume absence of Assign and Store, and only simple form of Set

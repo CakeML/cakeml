@@ -48,6 +48,13 @@ val word_store_def = Define `
       (MAP (\name. case FLOOKUP store name of
                    | NONE => Word 0w | SOME x => x) store_list)`
 
+val code_rel_def = Define `
+  code_rel k code1 code2 <=>
+    !n prog.
+      lookup n code1 = SOME prog ==>
+      good_syntax prog k /\
+      lookup n code2 = SOME (comp k prog)`
+
 val state_rel_def = Define `
   state_rel k (s1:('a,'ffi) stackSem$state) s2 <=>
     s1.use_stack /\ s1.use_store /\
@@ -62,10 +69,7 @@ val state_rel_def = Define `
     (!n.
        n < k ==>
        FLOOKUP s2.regs n = FLOOKUP s1.regs n) /\
-    (!n prog.
-       lookup n s1.code = SOME prog ==>
-       good_syntax prog k /\
-       lookup n s2.code = SOME (comp k prog)) /\
+    code_rel k s1.code s2.code /\
     FLOOKUP s2.regs (k+2) = FLOOKUP s1.store CurrHeap /\
     {k;k+1;k+2} SUBSET s2.ffi_save_regs /\
     case FLOOKUP s2.regs (k+1) of
@@ -94,7 +98,8 @@ val find_code_lemma = prove(
     (case dest of INL v2 => T | INR i => i < k) /\
     find_code dest s.regs s.code = SOME x ==>
     find_code dest t1.regs t1.code = SOME (comp k x) /\ good_syntax x k``,
-  CASE_TAC \\ fs [find_code_def,state_rel_def] \\ strip_tac \\ res_tac
+  CASE_TAC \\ fs [find_code_def,state_rel_def,code_rel_def]
+  \\ strip_tac \\ res_tac
   \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
   \\ CASE_TAC \\ fs [] \\ res_tac);
 
@@ -166,9 +171,9 @@ val comp_correct = Q.prove(
     \\ `lookup dest t1.code = SOME (comp k x) /\
         good_syntax x k /\ s.clock = t1.clock` by
      (qpat_assum `bb ==> bbb` (K all_tac)
-      \\ fs [state_rel_def] \\ res_tac \\ fs [] \\ fs [])
+      \\ fs [state_rel_def,code_rel_def] \\ res_tac \\ fs [] \\ fs [])
     \\ fs [] \\ Cases_on `t1.clock = 0` \\ fs []
-    THEN1 (rw [] \\ fs [state_rel_def])
+    THEN1 (rw [] \\ fs [state_rel_def,code_rel_def])
     \\ first_assum(subterm split_pair_case_tac o concl) \\ fs []
     \\ Cases_on `v'` \\ fs [] \\ rw [] \\ fs []
     \\ `state_rel k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
@@ -182,7 +187,7 @@ val comp_correct = Q.prove(
       \\ Cases_on `s.clock = 0` \\ fs [] \\ rw [] THEN1
        (fs [evaluate_def,Once comp_def,good_syntax_def]
         \\ imp_res_tac find_code_lemma \\ fs [] \\ pop_assum (K all_tac)
-        \\ fs [state_rel_def])
+        \\ fs [state_rel_def,code_rel_def])
       \\ Cases_on `evaluate (x,dec_clock s)` \\ fs []
       \\ Cases_on `q` \\ fs [] \\ rw [] \\ fs []
       \\ simp [evaluate_def,Once comp_def,good_syntax_def]
@@ -225,8 +230,33 @@ val compile_semantics = store_thm("compile_semantics",
 
 (* init code *)
 
+val make_init_store_def = Define `
+  (make_init_store w m [] s = s) /\
+  (make_init_store w m (n::ns) s =
+     make_init_store (w - bytes_in_word) m ns s
+       |+ (n,m (w - bytes_in_word)))`
+
+val make_init_def = Define `
+  make_init k max s code =
+    case evaluate (init_code max k,s) of
+    | (NONE,t) =>
+       (case (FLOOKUP t.regs (k+1),FLOOKUP t.regs (k+2)) of
+        | (SOME (Word w),SOME d) =>
+          let store = FEMPTY |+ (CurrHeap,d) in
+          let store = make_init_store w t.memory store_list store in
+          let last_store = w - word_offset (LENGTH store_list) in
+            SOME (t with
+                  <| use_stack := T; use_store := T;
+                     code := code; store := store;
+                     mdomain := s.mdomain INTER { a |a| a <+ last_store } |>)
+        | _ => NONE)
+    | _ => NONE`
+
 val init_pre_def = Define `
-  init_pre k start s =
+  init_pre k max start s <=>
+    lookup 0 s.code = SOME (Seq (init_code max k)
+                                (Call NONE (INL start) NONE)) /\
+    (* TODO: remove: *) s.ffi.final_event = NONE /\
     ?prog_start heap_start heap_end stack_end anything.
       4n < k /\
       FLOOKUP s.regs 1 = SOME (Word (prog_start)) /\
@@ -236,20 +266,18 @@ val init_pre_def = Define `
       word_offset (LENGTH anything) = stack_end - heap_start /\
       (word_list heap_start anything) (fun2set (s.memory,s.mdomain))`
 
-val init_post_def = Define `
-  init_post max k s2 =
-    ?s1. state_rel k s1 s2 (* ... and more info about s1 *)`
-
 val push_if = prove(
   ``(if b then f x else f y) = f (if b then x else y) /\
     (if b then f x else g x) = (if b then f else g) x``,
   Cases_on `b` \\ fs []);
 
 val evaluate_init_code = store_thm("evaluate_init_code",
-  ``init_pre k start s ==>
-    case evaluate (init_code max k start,s) of
-    | (SOME (Halt (Word w)),t) => w <> 0w /\ t.ffi = s.ffi
-    | (NONE,t) => init_post max k t /\ t.ffi = s.ffi
+  ``init_pre k max start s /\ code_rel k code s.code ==>
+    case evaluate (init_code max k,s) of
+    | (SOME (Halt (Word w)),t) =>
+        w <> 0w /\ t.ffi = s.ffi /\ make_init k max s code = NONE
+    | (NONE,t) => ?r. make_init k max s code = SOME r /\
+                      state_rel k r t /\ t.ffi = s.ffi
     | _ => F``,
   fs [init_code_def,LET_DEF,halt_inst_def,init_pre_def] \\ rw []
   \\ once_rewrite_tac [list_Seq_def]
@@ -261,21 +289,24 @@ val evaluate_init_code = store_thm("evaluate_init_code",
   \\ cheat);
 
 val evaluate_init_code_clock = prove(
-  ``evaluate (init_code max k start,s) = (res,t) ==>
-    evaluate (init_code max k start,s with clock := c) = (res,t with clock := c)``,
+  ``evaluate (init_code max k,s) = (res,t) ==>
+    evaluate (init_code max k,s with clock := c) = (res,t with clock := c)``,
   rw [] \\ match_mp_tac evaluate_clock_neutral \\ fs [] \\ EVAL_TAC);
 
 val init_semantics = store_thm("init_semantics",
-  ``lookup 0 s.code = SOME (Seq (init_code max k start)
-                                (Call NONE (INL start) NONE)) /\
-    init_pre k start s /\ s.ffi.final_event = NONE ==>
-    case evaluate (init_code max k start,s) of
+  ``init_pre k max start s /\ code_rel k code s.code ==>
+    case evaluate (init_code max k,s) of
     | (SOME (Halt _),t) =>
-        (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events)
+        (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events) /\
+        make_init k max s code = NONE
     | (NONE,t) =>
-        (semantics 0 s = semantics start t) /\ init_post max k t
+        (semantics 0 s = semantics start t) /\
+        ?r. make_init k max s code = SOME r /\ state_rel k r t
     | _ => F``,
-  rw [] \\ imp_res_tac evaluate_init_code
+  rw [] \\ `s.ffi.final_event = NONE /\
+            lookup 0 s.code = SOME (Seq (init_code max k)
+              (Call NONE (INL start) NONE))` by fs [init_pre_def]
+  \\ imp_res_tac evaluate_init_code
   \\ pop_assum (assume_tac o SPEC_ALL)
   \\ reverse every_case_tac \\ fs [] THEN1
    (fs [semantics_def |> Q.SPEC `0`,LET_DEF,evaluate_def,find_code_def]
@@ -322,5 +353,24 @@ val init_semantics = store_thm("init_semantics",
   \\ Cases_on `k' = 0` \\ fs []
   THEN1 (fs [evaluate_def,empty_env_def] \\ every_case_tac \\ fs [])
   \\ every_case_tac \\ fs []);
+
+val make_init_SOME_semantics = store_thm("make_init_SOME_semantics",
+  ``init_pre k max start s2 /\ code_rel k code s2.code /\
+    make_init k max s2 code = SOME s1 /\ semantics start s1 <> Fail ==>
+    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
+  rw [] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
+  \\ every_case_tac \\ fs []
+  \\ match_mp_tac (GEN_ALL compile_semantics)
+  \\ fs [] \\ rw [] \\ metis_tac []);
+
+val make_init_NONE_semantics = store_thm("make_init_NONE_semantics",
+  ``init_pre k max start s2 /\ code_rel k code s2.code /\ s2.ffi = s1.ffi /\
+    make_init k max s2 code = NONE /\ semantics start s1 <> Fail ==>
+    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
+  rw [] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
+  \\ every_case_tac \\ fs [] \\ fs [extend_with_resource_limit_def]
+  \\ Cases_on `semantics start s1` \\ fs [] \\ rpt disj2_tac
+  \\ imp_res_tac semantics_Terminate_IMP_PREFIX
+  \\ imp_res_tac semantics_Diverge_IMP_LPREFIX \\ fs []);
 
 val _ = export_theory();
