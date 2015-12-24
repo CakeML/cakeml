@@ -558,6 +558,27 @@ val val_rel_bool = Q.store_thm(
   `val_rel (:'ffi) c (Boolv b) v ⇔ v = Boolv b`,
   Cases_on `v` >> simp[val_rel_rw, Boolv_def] >> metis_tac[]);
 
+val evaluate_app_SING = Q.store_thm(
+  "evaluate_app_SING",
+  `evaluate_app opt x y z = (Rval rs, s) ==> ∃r. rs = [r]`,
+  strip_tac >> imp_res_tac evaluate_app_IMP_LENGTH >>
+  Cases_on `rs` >> fs[LENGTH_NIL]);
+
+val optCASE_NONE_T = Q.prove(
+  `option_CASE opt T f ⇔ (∀r. opt = SOME r ⇒ f r)`,
+  Cases_on `opt` >> simp[]);
+
+val optCASE_NONE_F = Q.prove(
+  `option_CASE opt F f ⇔ ∃r. opt = SOME r ∧ f r`,
+  Cases_on `opt` >> simp[]);
+
+val TAKE_EQ_NIL = store_thm(
+  "TAKE_EQ_NIL[simp]",
+  ``TAKE n l = [] <=> n = 0 ∨ l = []``,
+  Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
+  Cases THEN ASM_SIMP_TAC (srw_ss()) []);
+
+
 val unused_vars_correct = Q.prove(
   `(∀i es env1 env2 (s1:'ffi closSem$state) s2 kis j.
       state_rel i s1 s2 ∧ j ≤ i ∧
@@ -565,7 +586,7 @@ val unused_vars_correct = Q.prove(
       LIST_RELi (λk v1 v2. k ∈ kis ⇒ val_rel (:'ffi) i v1 v2) env1 env2 ⇒
       res_rel (evaluate(es,env1,s1 with clock := j))
               (evaluate(es,env2,s2 with clock := j)))`,
-cheat (*  gen_tac >> completeInduct_on `i` >>
+  gen_tac >> completeInduct_on `i` >>
   fs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> qx_gen_tac `es` >>
   completeInduct_on `exp3_size es` >>
   fs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> Cases_on `es`
@@ -708,9 +729,168 @@ cheat (*  gen_tac >> completeInduct_on `i` >>
             irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >>
       simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[])
-  >- ((* Raise *)
+  >- ((* Raise *) fs[exp_size_def] >> qcase_tac `fv _ [E]` >>
+      first_x_assum
+        (qspecl_then [`[E]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
+                     mp_tac) >>
+      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >>
+      rw[] >> fs[])
+  >- ((* Handle *) cheat)
+  >- ((* Tick *) fs[exp_size_def] >> qcase_tac `fv _ [E]` >>
+      rw[] >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono])>>
+      simp[dec_clock_def] >>
+      first_x_assum
+        (qspecl_then [`[E]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j - 1`]
+                     mp_tac) >>
+      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      rpt strip_tac >> simp[res_rel_rw] >>
+      imp_res_tac evaluate_SING >> rw[] >> fs[])
+  >- ((* Call *) fs[exp_size_def] >> qcase_tac `fv _ args` >>
+      first_x_assum
+        (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
+                     mp_tac) >>
+      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      rpt strip_tac >> simp[res_rel_rw] >>
+      qcase_tac `closSem$find_code fnum res1 s11.code` >>
+      Cases_on `find_code fnum res1 s11.code` >- simp[res_rel_rw] >> simp[] >>
+      qcase_tac `find_code fnum res1 s11.code = SOME pp` >>
+      Cases_on `pp` >> simp[] >>
+      qcase_tac `find_code fnum res1 s11.code = SOME (env11,b1)` >>
+      qcase_tac `state_rel s21.clock s11 s21` >>
+      qcase_tac `find_code fnum res2 s21.code` >>
+      qspecl_then [`s21.clock`, `fnum`, `res1`, `s11`, `env11`, `b1`, `res2`,
+                   `s21`] mp_tac find_code_related >> simp[] >> dsimp[] >>
+      rw[] >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
+      fs[exec_rel_rw, evaluate_ev_def] >>
+      pop_assum (qspec_then `s21.clock - 1` mp_tac) >> simp[] >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw, dec_clock_def] >> imp_res_tac evaluate_SING >> fs[])
+  >- ((* App *) fs[exp_size_def, FORALL_AND_THM, DISJ_IMP_THM] >>
+      rw[] >> qcase_tac `exp3_size args` >>
+      first_assum
+        (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
+                     mp_tac) >>
+      simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
+      rpt strip_tac >> simp[res_rel_rw] >> qcase_tac `fv _ [f]` >>
+      qcase_tac `state_rel s21.clock s11 s21` >>
+      `res_rel (evaluate([f],env1,s11)) (evaluate([f],env2,s21))`
+        by (Cases_on `s21.clock < i`
+            >- (first_x_assum
+                  (qspecl_then [`s21.clock`, `[f]`, `env1`, `env2`, `s11`,
+                                `s21`, `kis`, `s21.clock`] mp_tac) >>
+                simp[] >> discharge_hyps
+                >- (lfs[LIST_RELi_EL] >> rpt strip_tac >>
+                    irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >>
+                    simp[]) >>
+                `s11 with clock := s21.clock = s11 ∧
+                 s21 with clock := s21.clock = s21` suffices_by simp[] >>
+                simp[state_component_equality]) >>
+            imp_res_tac evaluate_clock >> fs[] >> `s21.clock = i` by simp[] >>
+            first_x_assum
+              (qspecl_then [`[f]`, `env1`, `env2`, `s11`, `s21`, `kis`,
+                            `s21.clock`] mp_tac) >> simp[exp_size_def] >>
+            var_eq_tac >> simp[] >>
+            `s11 with clock := s21.clock = s11 ∧
+             s21 with clock := s21.clock = s21` suffices_by simp[] >>
+            simp[state_component_equality]) >>
+      pop_assum mp_tac >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[] >>
+      qcase_tac `state_rel s22.clock s12 s22` >> rpt var_eq_tac >>
+      qcase_tac `evaluate_app opt fr1 argr1 s12` >>
+      qcase_tac `evaluate_app opt fr2 argr2 s22` >>
+      Cases_on `argr1 = []` >- fs[evaluate_def, res_rel_rw] >>
+      `res_rel (evaluate_app opt fr1 argr1 s12)
+               (evaluate_app opt fr2 argr2 s22)`
+        by (irule res_rel_evaluate_app >> simp[] >>
+            fs[LIST_REL_EL_EQN] >>
+            rpt strip_tac >> irule (CONJUNCT1 val_rel_mono) >>
+            qexists_tac `s21.clock` >> simp[] >> imp_res_tac evaluate_clock) >>
+      pop_assum mp_tac >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >> imp_res_tac evaluate_app_SING >> fs[])
+  >- ((* Fn *) fs[exp_size_def] >> rpt var_eq_tac >> rw[] >>
+      simp[res_rel_rw] >> reverse conj_tac >- metis_tac[val_rel_mono] >>
+      qcase_tac `every_Fn_vs_NONE [body]` >>
+      qcase_tac `N ≤ max_app` >>
+      qcase_tac `Closure opt [] env1 N body` >>
+      Q.UNDISCH_THEN `j ≤ i` mp_tac >>
+      `∀j vs1 vs2.
+         j ≤ i ∧ LIST_REL (val_rel (:'ffi) j) vs1 vs2 ∧ LENGTH vs2 < N ⇒
+         val_rel (:'ffi) j (Closure opt vs1 env1 N body)
+                           (Closure opt vs2 env2 N body)`
+        suffices_by (rpt strip_tac >> first_x_assum irule >> simp[]) >>
+      gen_tac >>
+      completeInduct_on `j` >> rpt strip_tac >> lfs[] >>
+      simp[val_rel_rw, is_closure_def] >> conj_tac
+      >- (simp[check_closures_def, clo_can_apply_def, clo_to_partial_args_def,
+               clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def] >>
+          rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >> fs[]) >>
+      simp[dest_closure_def, revtakerev, revdroprev, optCASE_NONE_F,
+           optCASE_NONE_T] >>
+      dsimp[bool_case_eq] >> conj_tac
+      >- (rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >> simp[] >> fs[] >>
+          simp[exec_rel_rw, evaluate_ev_def] >>
+          qcase_tac `k < j` >> reverse (rw[])
+          >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
+          qcase_tac `N ≤ k' + (LENGTH vs2 + 1)` >>
+          qcase_tac `LIST_REL (val_rel (:'ffi) k) vs11 vs21` >>
+          qcase_tac `state_rel k s11 s21` >>
+          first_assum
+            (qspecl_then [
+               `k`, `[body]`,
+               `DROP (LENGTH vs21 + LENGTH vs2 - N) vs11 ++ vs1 ++ env1`,
+               `DROP (LENGTH vs21 + LENGTH vs2 - N) vs21 ++ vs2 ++ env2`
+             ] mp_tac) >>
+          disch_then
+            (qspecl_then [`s11`, `s21`,
+                          `count N ∪ IMAGE ((+) N) kis`,
+                          `k' + (LENGTH vs2 + 1) - N`]
+                         mp_tac) >> simp[] >> discharge_hyps
+          >- (conj_tac
+              >- (qx_gen_tac `v` >> strip_tac >>
+                  Cases_on `v < N` >> simp[] >> qexists_tac `v - N` >>
+                  simp[]) >>
+              lfs[LIST_RELi_EL, LIST_REL_EL_EQN] >>
+              dsimp[EL_APPEND2, EL_APPEND1, EL_DROP] >>
+              reverse strip_tac
+              >- (rpt strip_tac >> irule (CONJUNCT1 val_rel_mono) >>
+                  qexists_tac `i` >> simp[]) >>
+              qx_gen_tac `kk` >> rpt strip_tac >>
+              Cases_on `kk < LENGTH vs21 - (LENGTH vs2 + LENGTH vs21 - N)`
+              >- simp[EL_APPEND1, EL_DROP] >>
+              simp[EL_APPEND2] >> lfs[] >>
+              irule (CONJUNCT1 val_rel_mono) >> qexists_tac `j` >>
+              simp[]) >>
+          simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+          simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[] >>
+          Cases_on `N = LENGTH vs2 + LENGTH vs21` >> simp[res_rel_rw] >>
+          irule res_rel_evaluate_app >> simp[] >>
+          lfs[LIST_REL_EL_EQN, EL_TAKE] >> rpt strip_tac >>
+          irule (CONJUNCT1 val_rel_mono) >> qexists_tac `k` >> simp[] >>
+          imp_res_tac evaluate_clock >> lfs[]) >>
+      rpt strip_tac >> imp_res_tac LIST_REL_LENGTH >> fs[] >>
+      simp[exec_rel_rw, evaluate_ev_def] >> rpt strip_tac >>
+      reverse COND_CASES_TAC >> simp[res_rel_rw]
+      >- metis_tac[DECIDE``0n≤x``,val_rel_mono] >>
+      reverse conj_tac
+      >- (qcase_tac `state_rel _ s11 s21` >> qcase_tac `ii < j` >>
+          irule (val_rel_mono |> CONJUNCTS |> last) >> qexists_tac `ii` >>
+          simp[]) >>
+      first_x_assum irule >> simp[] >>
+      irule EVERY2_APPEND_suff
+      >- (qcase_tac `ii < j` >> irule val_rel_mono_list >> qexists_tac `ii` >>
+          simp[]) >>
+      irule val_rel_mono_list >> qexists_tac `j` >> simp[])
+  >- ((* Letrec *) cheat)
+  >- ((* Op *) fs[exp_size_def] >>
+      qcase_tac `evaluate(args,_,s1 with clock := j)` >>
+      first_x_assum
+        (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
+      simp[] >> simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >> (* use res_rel_do_app *) cheat))
 
-*))
 val res_rel_trans = Q.store_thm(
   "res_rel_trans",
   `res_rel (evaluate t1) (evaluate t2) ∧ res_rel (evaluate t2) (evaluate t3) ⇒
