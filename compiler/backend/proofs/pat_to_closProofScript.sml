@@ -701,4 +701,13 @@ val compile_contains_App_SOME = store_thm("compile_contains_App_SOME",
   fs[REPLICATE_GENLIST,MEM_GENLIST, MEM_MAP] >>
   rw[contains_App_SOME_def,max_app_def]);
 
+val compile_every_Fn_vs_NONE = Q.store_thm("compile_every_Fn_vs_NONE",
+  `∀e. every_Fn_vs_NONE[compile e]`,
+  ho_match_mp_tac compile_ind >>
+  rw[compile_def] >>
+  rw[Once every_Fn_vs_NONE_EVERY] >>
+  simp[EVERY_REVERSE,EVERY_MAP] >>
+  fs[EVERY_MEM,REPLICATE_GENLIST,MEM_GENLIST] >>
+  rw[] >> rw[]);
+
 val _ = export_theory()

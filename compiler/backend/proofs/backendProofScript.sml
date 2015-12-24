@@ -133,7 +133,7 @@ val compile_correct = Q.store_thm("compile_correct",
     conj_tac >- (
       unabbrev_all_tac >>
       simp[pat_to_closProofTheory.compile_contains_App_SOME] >>
-      cheat (* need a similar theorem for every_Fn_vs_NONE? *)) >>
+      simp[pat_to_closProofTheory.compile_every_Fn_vs_NONE]) >>
     simp[Abbr`st3`,clos_to_bvlProofTheory.full_state_rel_def] >>
     simp[Once clos_relationTheory.state_rel_rw] >>
     gen_tac >>
