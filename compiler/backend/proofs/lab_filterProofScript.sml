@@ -531,7 +531,8 @@ val filter_correct = prove(
         ntac 2 (pop_assum kall_tac)>>inc_pc_tac)
       >>
       Cases_on`a`>>fs[arith_upd_def]>>
-        TRY(Cases_on`r`>>Cases_on`b`)>>EVERY_CASE_TAC>>fs[binop_upd_def]>>
+        TRY(Cases_on`r`>>Cases_on`b`)>>fs[]>>
+        EVERY_CASE_TAC>>fs[binop_upd_def]>>
         TRY(Cases_on`m`>>fs[mem_op_def,mem_load_def,addr_def,mem_load_byte_def,mem_store_def,upd_mem_def,mem_store_byte_def])>>EVERY_CASE_TAC>>
         fs[upd_reg_def,inc_pc_def,dec_clock_def,assert_def]>>rw[]>>res_tac>>
         TRY(first_x_assum(qspec_then`0` mp_tac)>>
