@@ -736,7 +736,41 @@ val unused_vars_correct = Q.prove(
       simp[exp_size_def] >> simp[SimpL ``$==>``, res_rel_cases] >>
       rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >>
       rw[] >> fs[])
-  >- ((* Handle *) cheat)
+  >- ((* Handle *) fs[exp_size_def, DISJ_IMP_THM, FORALL_AND_THM] >>
+      qcase_tac `evaluate([body],env1,_)` >>
+      qcase_tac `fv (_ + 1) [hndlr]` >>
+      first_assum
+        (qspecl_then [`[body]`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`]
+                     mp_tac) >> simp[exp_size_def] >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >- (imp_res_tac evaluate_SING >> fs[]) >>
+      qcase_tac `state_rel s21.clock s11 s21` >>
+      qcase_tac `val_rel (:'ffi) s21.clock exn1 exn2` >>
+      `s11 with clock := s21.clock = s11 ∧ s21 with clock := s21.clock = s21`
+        by simp[state_component_equality] >> simp[] >>
+      `res_rel (evaluate([hndlr],exn1::env1,s11))
+               (evaluate([hndlr],exn2::env2,s21))`
+        by (Cases_on `s21.clock = i`
+            >- (var_eq_tac >>
+                first_assum
+                  (qspecl_then [`[hndlr]`, `exn1::env1`, `exn2::env2`,
+                                `s11`, `s21`,
+                                `0 INSERT IMAGE SUC kis`, `s21.clock`]
+                               mp_tac) >> simp[exp_size_def] >>
+                disch_then irule >- simp[Once FORALL_NUM, ADD1] >>
+                simp[LIST_RELi_thm, combinTheory.o_ABS_L]) >>
+            imp_res_tac evaluate_clock >> fs[] >>
+            `s21.clock < i` by simp[] >>
+            first_x_assum
+              (qspecl_then [`s21.clock`, `[hndlr]`, `exn1::env1`, `exn2::env2`,
+                            `s11`, `s21`, `0 INSERT IMAGE SUC kis`,
+                            `s21.clock`] mp_tac) >>
+            simp[LIST_RELi_thm, combinTheory.o_ABS_L] >>
+            disch_then irule >- simp[Once FORALL_NUM, ADD1] >>
+            fs[LIST_RELi_EL] >> rpt strip_tac >>
+            irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
+      pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >>
+      rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[])
   >- ((* Tick *) fs[exp_size_def] >> qcase_tac `fv _ [E]` >>
       rw[] >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono])>>
       simp[dec_clock_def] >>
@@ -883,7 +917,44 @@ val unused_vars_correct = Q.prove(
       >- (qcase_tac `ii < j` >> irule val_rel_mono_list >> qexists_tac `ii` >>
           simp[]) >>
       irule val_rel_mono_list >> qexists_tac `j` >> simp[])
-  >- ((* Letrec *) cheat)
+  >- ((* Letrec *) fs[exp_size_def] >>
+      qcase_tac `every_Fn_vs_NONE (MAP SND fns)` >> COND_CASES_TAC >> simp[] >>
+      qcase_tac `Recclosure opt [] env1 fns` >>
+      qabbrev_tac
+        `fns1_E = GENLIST (Recclosure opt [] env1 fns) (LENGTH fns)` >>
+      qabbrev_tac
+        `fns2_E = GENLIST (Recclosure opt [] env2 fns) (LENGTH fns)` >>
+      qcase_tac `evaluate([body],fns1_E ++ _, _)` >>
+      `LIST_REL (val_rel (:'ffi) i) fns1_E fns2_E` suffices_by
+        (strip_tac >>
+         first_x_assum
+           (qspecl_then [`[body]`, `fns1_E ++ env1`, `fns2_E ++ env2`,
+                         `s1`, `s2`,
+                         `count (LENGTH fns) ∪ IMAGE ((+) (LENGTH fns)) kis`,
+                         `j`] mp_tac) >> simp[exp_size_def] >>
+         discharge_hyps
+         >- (conj_tac
+             >- (qx_gen_tac `vv` >> Cases_on `vv < LENGTH fns` >> simp[] >>
+                 strip_tac >> qexists_tac `vv - LENGTH fns` >> simp[]) >>
+             irule LIST_RELi_APPEND_I
+             >- fs[Abbr`fns1_E`,Abbr`fns2_E`,LIST_REL_EL_EQN, LIST_RELi_EL] >>
+             simp[combinTheory.o_ABS_L, Abbr`fns1_E`, Abbr`fns2_E`]) >>
+         simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+         simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[]) >>
+      rpt var_eq_tac >> cheat)
+      (* simp[LIST_REL_EL_EQN, Abbr`fns1_E`, Abbr`fns2_E`] >> qx_gen_tac `pos` >>
+      strip_tac >>
+
+
+      simp[val_rel_rw, is_closure_def, check_closures_def, optCASE_NONE_T,
+           optCASE_NONE_F, clo_can_apply_def, clo_to_partial_args_def,
+           clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def,
+           dest_closure_def, revtakerev, revdroprev] >>
+      simp[UNCURRY, bool_case_eq] >> dsimp[]
+
+
+
+     ) *)
   >- ((* Op *) fs[exp_size_def] >>
       qcase_tac `evaluate(args,_,s1 with clock := j)` >>
       first_x_assum
