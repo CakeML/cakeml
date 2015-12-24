@@ -433,6 +433,6 @@ val compile_def = Define`
   let (es,_) = remove es in
   let es = annotate es in
   let (es,aux) = compile_exps es [] in
-  (c,MAP (λe. (c.start,0,e)) es ++ aux)`;
+  (c,toAList init_code ++ MAP (λe. (c.start,0,e)) es ++ aux)`;
 
 val _ = export_theory()

@@ -3834,8 +3834,17 @@ val init_code_ok = Q.store_thm ("init_code_ok",
     rw [twod_table] >>
     simp[EL_APPEND2,ToList_location_def,block_equality_location_def,equality_location_def] ));
 
+val domain_init_code =
+  ``domain init_code`` |> EVAL
+
+val domain_init_code_lt_num_stubs = Q.store_thm("domain_init_code_lt_num_stubs",
+  `∀x. x ∈ domain init_code ⇒ x < num_stubs`,
+  REWRITE_TAC[domain_init_code] >>
+  rw[EVAL``num_stubs``] >> simp[]);
+
 val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
-  `c.start < num_stubs ∧ compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
+  `num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
+   compile c e = (c',p) ⇒ ALL_DISTINCT (MAP FST p)`,
   rw[compile_def] >>
   fs[compile_def,LET_THM] >>
   rpt(first_assum(split_applied_pair_tac o lhs o concl)>>fs[]) >>
@@ -3857,6 +3866,12 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
        compile_exps_SING] ) >>
   simp[] >>
   conj_tac >- (
+    conj_tac >- simp[ALL_DISTINCT_MAP_FST_toAList] >>
+    simp[toAList_domain] >>
+    rpt strip_tac >>
+    drule domain_init_code_lt_num_stubs >>
+    decide_tac) >>
+  conj_tac >- (
     match_mp_tac ALL_DISTINCT_MAP_INJ >>
     conj_tac >- simp[] >>
     simp[ALL_DISTINCT_REVERSE] >>
@@ -3866,7 +3881,22 @@ val compile_all_distinct_locs = Q.store_thm("compile_all_distinct_locs",
     metis_tac[clos_removeProofTheory.remove_distinct_locs,FST,SND,
               clos_removeProofTheory.code_loc'_def,
               clos_numberProofTheory.renumber_code_locs_distinct] ) >>
-  simp[MAP_MAP_o,o_DEF,MEM_MAP,PULL_EXISTS] );
+  simp[toAList_domain] >>
+  simp[clos_annotateProofTheory.annotate_code_locs,MAP_REVERSE] >>
+  qspec_then`es`mp_tac clos_removeProofTheory.remove_distinct_locs >>
+  simp[SUBSET_DEF] >> strip_tac >>
+  simp[MEM_MAP,PULL_EXISTS] >>
+  gen_tac >> strip_tac >- (
+    spose_not_then strip_assume_tac >>
+    imp_res_tac domain_init_code_lt_num_stubs >>
+    decide_tac ) >>
+  spose_not_then strip_assume_tac >>
+  rveq >> res_tac >>
+  fs[clos_numberTheory.renumber_code_locs_def,LET_THM] >>
+  split_pair_tac >> fs[] >> rveq >>
+  qspecl_then[`c.next_loc`,`z`]mp_tac clos_numberProofTheory.renumber_code_locs_distinct >>
+  simp[EXISTS_MEM] >> spose_not_then strip_assume_tac >>
+  res_tac >> decide_tac);
 
 (* composed compiler correctness *)
 
@@ -4056,13 +4086,13 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `¬contains_App_SOME [e] ∧ every_Fn_vs_NONE [e] ∧
-   compile c e = (c',p) ∧ c.start < num_stubs ∧
+   compile c e = (c',p) ∧ num_stubs ≤ c.start ∧ c.start < c.next_loc ∧
    full_state_rel (s:'ffi closSem$state) (initial_state s.ffi (fromAList p) s.clock) ∧
    semantics [] s [e] ≠ Fail
    ⇒
    semantics s.ffi (fromAList p) c'.start =
    semantics [] s [e]`,
-  simp[GSYM AND_IMP_INTRO] >> ntac 5 strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> ntac 6 strip_tac >>
   simp[closSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
