@@ -198,6 +198,9 @@ val _ = Datatype`
             ; mod_env : (string,num) mod_env
             |>`;
 
+val empty_config_def = Define`
+  empty_config = <| next_global := 0; mod_env := (FEMPTY,FEMPTY) |>`;
+
 val compile_def = Define`
   compile c p =
     let (menv,env) = c.mod_env in

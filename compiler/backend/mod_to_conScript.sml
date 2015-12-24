@@ -222,6 +222,11 @@ val _ = Datatype`
             ; exh_ctors_env : exh_ctors_env
             |>`;
 
+val empty_config_def = Define`
+  empty_config = <| next_exception := LN
+                  ; tag_env := (FEMPTY,FEMPTY)
+                  ; exh_ctors_env := FEMPTY |>`;
+
 val compile_def = Define`
   compile c p =
   let ((n,t,e),p) =
