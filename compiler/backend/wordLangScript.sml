@@ -146,7 +146,6 @@ val num_exp_def = Define `
   (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
   (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
 
-
 val word_op_def = Define `
   word_op op (ws:('a word) list) =
     case (op,ws) of

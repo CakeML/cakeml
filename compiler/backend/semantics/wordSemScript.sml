@@ -121,14 +121,6 @@ val check_clock_IMP = prove(
   ``n <= (check_clock r s).clock ==> n <= s.clock``,
   SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
 
-val num_exp_def = Define `
-  (num_exp (Nat n) = n) /\
-  (num_exp (Add x y) = num_exp x + num_exp y) /\
-  (num_exp (Sub x y) = num_exp x - num_exp y) /\
-  (num_exp (Div2 x) = num_exp x DIV 2) /\
-  (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
-  (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
-
 val is_word_def = Define `
   (is_word (Word w) = T) /\
   (is_word _ = F)`
@@ -149,16 +141,6 @@ val mem_load_def = Define `
     if addr IN s.mdomain then
       SOME (s.memory addr)
     else NONE`
-
-val word_op_def = Define `
-  word_op op (ws:('a word) list) =
-    case (op,ws) of
-    | (And,ws) => SOME (FOLDR word_and (~0w) ws)
-    | (Add,ws) => SOME (FOLDR word_add 0w ws)
-    | (Or,ws) => SOME (FOLDR word_or 0w ws)
-    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
-    | (Sub,[w1;w2]) => SOME (w1 - w2)
-    | _ => NONE`;
 
 val word_sh_def = Define `
   word_sh sh (w:'a word) n =

@@ -1560,7 +1560,7 @@ val every_var_inst_mono = store_thm("every_var_inst_mono",``
   every_var_inst P inst
   ⇒
   every_var_inst Q inst``,
-  ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
+  ho_match_mp_tac every_var_inst_ind>>rw[every_var_inst_def]>>
   Cases_on`ri`>>fs[every_var_imm_def])
 
 val every_var_exp_mono = store_thm("every_var_exp_mono",``
@@ -1569,8 +1569,15 @@ val every_var_exp_mono = store_thm("every_var_exp_mono",``
   every_var_exp P exp
   ⇒
   every_var_exp Q exp``,
-  ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
+  ho_match_mp_tac every_var_exp_ind>>rw[every_var_exp_def]>>
   fs[EVERY_MEM])
+
+val every_name_mono = store_thm("every_name_mono",``
+  ∀P names Q.
+  (∀x. P x ⇒ Q x) ∧
+  every_name P names ⇒ every_name Q names``,
+  rw[every_name_def]>>
+  metis_tac[EVERY_MONOTONIC])
 
 val every_var_mono = store_thm("every_var_mono",``
   ∀P prog Q.
@@ -1578,18 +1585,18 @@ val every_var_mono = store_thm("every_var_mono",``
   every_var P prog
   ⇒
   every_var Q prog``,
-  ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
-  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>fs[])>>
+  ho_match_mp_tac every_var_ind>>rw[every_var_def]>>
+  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>TRY(Cases_on`x`)>>fs[])>>
   TRY(Cases_on`r`>>fs[])>>
   TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
-  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono])
+  metis_tac[EVERY_MONOTONIC,every_var_inst_mono,every_var_exp_mono,every_name_mono])
 
 (*Conjunct*)
 val every_var_inst_conj = store_thm("every_var_inst_conj",``
   ∀P inst Q.
   every_var_inst P inst ∧ every_var_inst Q inst ⇔
   every_var_inst (λx. P x ∧ Q x) inst``,
-  ho_match_mp_tac (fetch "-" "every_var_inst_ind")>>rw[every_var_inst_def]>>
+  ho_match_mp_tac every_var_inst_ind>>rw[every_var_inst_def]>>
   TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
   metis_tac[])
 
@@ -1597,27 +1604,34 @@ val every_var_exp_conj = store_thm("every_var_exp_conj",``
   ∀P exp Q.
   every_var_exp P exp ∧ every_var_exp Q exp ⇔
   every_var_exp (λx. P x ∧ Q x) exp``,
-  ho_match_mp_tac (fetch "-" "every_var_exp_ind")>>rw[every_var_exp_def]>>
+  ho_match_mp_tac every_var_exp_ind>>rw[every_var_exp_def]>>
   fs[EVERY_MEM]>>
   metis_tac[])
+
+val every_name_conj = store_thm("every_name_conj",``
+  ∀P names Q.
+  every_name P names ∧ every_name Q names ⇔
+  every_name (λx. P x ∧ Q x) names``,
+  rw[every_name_def]>>
+  metis_tac[EVERY_CONJ])
 
 val every_var_conj = store_thm("every_var_conj",``
   ∀P prog Q.
   every_var P prog  ∧ every_var Q prog ⇔
   every_var (λx. P x ∧ Q x) prog``,
-  ho_match_mp_tac (fetch "-" "every_var_ind")>>rw[every_var_def]>>
+  ho_match_mp_tac every_var_ind>>rw[every_var_def]>>
   TRY(Cases_on`ret`>>fs[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
   TRY(Cases_on`x`>>fs[])>>
   TRY(Cases_on`r`>>fs[])>>
   TRY(Cases_on`ri`>>fs[every_var_imm_def])>>
-  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj]))
+  TRY(metis_tac[EVERY_CONJ,every_var_inst_conj,every_var_exp_conj,every_name_conj]))
 
 (*Similar lemmas about every_stack_var*)
 val every_var_imp_every_stack_var = store_thm("every_var_imp_every_stack_var",``
   ∀P prog.
   every_var P prog ⇒ every_stack_var P prog``,
-  ho_match_mp_tac (fetch"-" "every_stack_var_ind")>>
+  ho_match_mp_tac every_stack_var_ind>>
   rw[every_stack_var_def,every_var_def]>>
   Cases_on`ret`>>
   Cases_on`h`>>fs[]>>
@@ -1630,18 +1644,19 @@ val every_stack_var_mono = store_thm("every_stack_var_mono",``
   every_stack_var P prog
   ⇒
   every_stack_var Q prog``,
-  ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
-  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>Cases_on`x`>>Cases_on`r`>>fs[]))
+  ho_match_mp_tac every_stack_var_ind>>rw[every_stack_var_def]>>
+  TRY(Cases_on`ret`>>fs[]>>PairCases_on`x`>>Cases_on`h`>>fs[]>>TRY(Cases_on`x`>>Cases_on`r`>>fs[]))>>
+  metis_tac[every_name_mono])
 
 val every_stack_var_conj = store_thm("every_stack_var_conj",``
   ∀P prog Q.
   every_stack_var P prog  ∧ every_stack_var Q prog ⇔
   every_stack_var (λx. P x ∧ Q x) prog``,
-  ho_match_mp_tac (fetch "-" "every_stack_var_ind")>>rw[every_stack_var_def]>>
+  ho_match_mp_tac every_stack_var_ind>>rw[every_stack_var_def]>>
   TRY(Cases_on`ret`>>fs[])>>
   TRY(PairCases_on`x`>>Cases_on`h`>>fs[])>>
   TRY(Cases_on`x`>>Cases_on`r`>>fs[])>>
-  TRY(metis_tac[EVERY_CONJ]))
+  TRY(metis_tac[EVERY_CONJ,every_name_conj]))
 
 (*Recursor for instructions since we use it a lot when flattening*)
 val every_inst_def = Define`
@@ -1731,10 +1746,11 @@ val locals_rel_set_var = prove(``
 
 val locals_rel_cut_env = prove(``
   locals_rel temp loc loc' ∧
-  (∀x. x ∈ domain names ⇒ x < temp)∧
+  every_name (λx. x < temp) names ∧
   cut_env names loc = SOME x ⇒
   cut_env names loc' = SOME x``,
-  rw[locals_rel_def,cut_env_def,SUBSET_DEF]
+  rw[locals_rel_def,cut_env_def,SUBSET_DEF,every_name_def]>>
+  fs[EVERY_MEM,toAList_domain]
   >- metis_tac[domain_lookup]
   >>
   fs[lookup_inter]>>rw[]>>every_case_tac>>
