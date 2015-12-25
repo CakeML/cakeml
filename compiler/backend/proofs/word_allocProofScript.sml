@@ -1246,7 +1246,7 @@ val colouring_ok_alt_thm = store_thm("colouring_ok_alt_thm",
     Cases_on`get_clash_sets prog live`>>
     fs[UNCURRY])
 
-val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,in_clash_sets_def]
+val fs1 = fs[LET_THM,get_clash_sets_def,every_var_def,get_live_def,domain_numset_list_insert,domain_union,EVERY_MEM,get_writes_def,every_var_inst_def,get_live_inst_def,in_clash_sets_def,every_name_def,toAList_domain]
 
 val every_var_exp_get_live_exp = prove(
 ``∀exp.
@@ -1350,6 +1350,8 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
           (first_x_assum(qspec_then`x'`assume_tac)>>rfs[]>>
           HINT_EXISTS_TAC>>fs[])
         >>
+        TRY(fs[every_name_def,EVERY_MEM]>>
+          fs[toAList_domain])>>
         qpat_abbrev_tac`A = union x1 X`>>
         qpat_abbrev_tac`B = insert x0 () x1`>>
         TRY(qexists_tac`A`>>
@@ -3638,6 +3640,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         qpat_assum`A=MAP FST lss` sym_sub_tac>>
         `x'' ∈ domain x'` by metis_tac[MEM_MAP,mem_list_rearrange]>>
         fs[EXTENSION,every_var_def]>>res_tac>>
+        fs[every_name_def,toAList_domain,EVERY_MEM]>>
         `x'' < na` by fs[]>>
         DECIDE_TAC)
       >>
@@ -3984,7 +3987,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
          metis_tac[])
        >-
          (`x''' ∈ domain s` by metis_tac[domain_lookup]>>
-         fs[every_var_def]>>res_tac>>
+         fs[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
          DECIDE_TAC)
        >-
          (fs[word_state_eq_rel_def,pop_env_def]>>
@@ -4158,7 +4161,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         metis_tac[domain_lookup])
       >-
         (`x'' ∈ domain s` by metis_tac[domain_lookup]>>
-        fs[every_var_def]>>res_tac>>
+        fs[every_var_def,every_name_def,EVERY_MEM,toAList_domain]>>res_tac>>
         DECIDE_TAC))>>
     Q.SPECL_THEN [`rst`,`inter ssa' s`,`na'+2`,`(MAP FST (toAList s))`
                    ,`rcstt`] mp_tac list_next_var_rename_move_preserve>>
@@ -4319,7 +4322,8 @@ val max_var_max = prove(``
        fs[EVERY_MEM])>>
     TRY(DECIDE_TAC))
   >-
-    (EVERY_CASE_TAC>>fs[]>>LET_ELIM_TAC>>
+    (EVERY_CASE_TAC>>fs[every_name_def,EVERY_MEM,toAList_domain]>>
+    LET_ELIM_TAC>>
     TRY(
     `∀z. z ∈ domain q' ⇒ z ≤ cutset_max` by
       (rw[]>>
@@ -4331,6 +4335,7 @@ val max_var_max = prove(``
     TRY(HINT_EXISTS_TAC)>>
     TRY(qexists_tac`λx.x ≤ ret_handler_max`>>fs[])>>
     TRY(qexists_tac`λx.x ≤ exc_handler_max`>>fs[]))>>
+    fs[every_name_def]>>
     unabbrev_all_tac>>EVERY_CASE_TAC>>fs[]>>DECIDE_TAC)
   >>
     TRY(match_mp_tac every_var_mono>>
@@ -4340,7 +4345,7 @@ val max_var_max = prove(``
   >>
     qabbrev_tac`ls' = MAP FST (toAList numset)`>>
     Q.ISPECL_THEN [`ls'`,`0:num`] assume_tac list_max_max>>
-    fs[Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup]>>
+    fs[every_name_def,Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup]>>rw[]>>
     res_tac>>DECIDE_TAC)
 
 val limit_var_props = prove(``
@@ -4527,6 +4532,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   fs[list_next_var_rename_move_def]>>LET_ELIM_TAC>>
   fs[EQ_SYM_EQ]>>rw[]>>
   fs[every_stack_var_def,call_arg_convention_def]>>
+  fs[every_name_def,toAList_domain,EVERY_MEM]>>
   rfs[]>>
   TRY(Q.ISPECL_THEN [`ssa_2`,`ssa_3`,`na_3`] assume_tac fix_inconsistencies_conventions>>
   rfs[LET_THM]))
@@ -4557,6 +4563,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   qpat_assum`A=stack_mov` sym_sub_tac>>
   qpat_assum`A=ret_mov` sym_sub_tac>>
   fs[every_stack_var_def,is_stack_var_def,call_arg_convention_def]>>
+  fs[every_name_def,EVERY_MEM,toAList_domain]>>
   rw[Abbr`stack_set`]>>
   fs[domain_numset_list_insert,EVERY_MEM,domain_fromAList]>>
   fs[MAP_ZIP]>>
@@ -4574,7 +4581,7 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
     fs[option_lookup_def]>>
     HINT_EXISTS_TAC>>
     fs[])>>
-  `MEM x lss'` by
+  `MEM e lss'` by
     (unabbrev_all_tac>>
     fs[MEM_MAP,MAP_MAP_o,EXISTS_PROD]>>
     metis_tac[])>>
@@ -4582,16 +4589,16 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   qpat_assum`A = lss` sym_sub_tac>>
   fs[MEM_MAP]>>
   `is_stack_var (na+2)` by fs[is_alloc_var_flip]>>
-  `(4 * x') MOD 4 = 0` by
+  `(4 * x) MOD 4 = 0` by
     (qspec_then `4` assume_tac arithmeticTheory.MOD_EQ_0>>
-    fs[]>>pop_assum(qspec_then `x'` assume_tac)>>
+    fs[]>>pop_assum(qspec_then `x` assume_tac)>>
     DECIDE_TAC)>>
   `(na +2) MOD 4 = 3` by fs[is_stack_var_def]>>
   qspec_then `4` assume_tac arithmeticTheory.MOD_PLUS>>
   pop_assum mp_tac >>discharge_hyps>-
     fs[]>>
-  disch_then(qspecl_then [`4*x'`,`na+2`] assume_tac)>>
-  rfs[]))
+  disch_then(qspecl_then [`4*x`,`na+2`] assume_tac)>>
+  rfs[is_stack_var_def]))
 
 val setup_ssa_props_2 = prove(``
   is_alloc_var lim ⇒
@@ -4621,7 +4628,9 @@ val full_ssa_cc_trans_pre_alloc_conventions = store_thm("full_ssa_cc_trans_pre_a
   Q.ISPECL_THEN [`prog`,`ssa`,`na`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
   rfs[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM])
 
-(*Finally, we reach the linking theorems*)
+(*Finally, we reach the linking theorems
+
+(*get_spg got removed, need to define explicitly*)
 val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live.
   let spg = get_spg prog live in
@@ -4656,6 +4665,7 @@ val colouring_satisfactory_colouring_ok_alt = prove(``
   fs[EL_ALL_DISTINCT_EL_EQ]>>
   fs[MEM_EL]>>rfs[EL_MAP]>>
   metis_tac[])
+*)
 
 val is_phy_var_tac =
     fs[is_phy_var_def]>>
@@ -4668,7 +4678,7 @@ val call_arg_convention_preservation = prove(``
   every_var (λx. is_phy_var x ⇒ f x = x) prog ∧
   call_arg_convention prog ⇒
   call_arg_convention (apply_colour f prog)``,
-  ho_match_mp_tac (fetch "-" "call_arg_convention_ind")>>
+  ho_match_mp_tac call_arg_convention_ind>>
   rw[call_arg_convention_def,every_var_def]>>
   EVERY_CASE_TAC>>unabbrev_all_tac>>
   fs[call_arg_convention_def]>>
@@ -4715,16 +4725,19 @@ val every_var_apply_colour = store_thm("every_var_apply_colour",``
   >-
     metis_tac[every_var_exp_apply_colour_exp]
   >-
-    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    (fs[every_name_def,EVERY_MEM,toAList_domain]>>
+    fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>rw[]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
   >-
     (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_var_def,EVERY_MAP,EVERY_MEM]>>
+    fs[every_name_def,EVERY_MEM,toAList_domain]>>
     rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
   >-
     (Cases_on`ri`>>fs[every_var_imm_def])
   >-
-    (fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
+    (fs[every_name_def,EVERY_MEM,toAList_domain]>>
+    fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>rw[]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup])
   >>
     metis_tac[every_var_exp_apply_colour_exp])
@@ -4737,9 +4750,11 @@ val every_stack_var_apply_colour = store_thm("every_stack_var_apply_colour",``
   ho_match_mp_tac every_stack_var_ind>>rw[every_stack_var_def]
   >>
   (EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_stack_var_def,EVERY_MAP,EVERY_MEM]>>
+    fs[every_name_def,EVERY_MEM,toAList_domain]>>
     rw[]>>fs[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>fs[MEM_toAList,domain_lookup]))
 
+(*TODO: FIX for updated word_alloc
 val pre_post_conventions_word_alloc = prove(``
   ∀prog k.
   pre_alloc_conventions prog ⇒ (*this is generated by ssa form*)
@@ -4777,8 +4792,6 @@ val pre_post_conventions_word_alloc = prove(``
   rw[]>>match_mp_tac every_var_mono>>
   HINT_EXISTS_TAC>>
   metis_tac[])
-
-(*TODO: Add a version that can take and verify oracle colors*)
 
 (*Actually, it should probably be exactly 0,2,4,6...*)
 val even_starting_locals_def = Define`
@@ -4830,6 +4843,11 @@ val word_alloc_correct = prove(``
   qexists_tac`perm'`>>rw[]>>
   fs[LET_THM])
 
+*)
+
+(* TODO: word_trans not used anymore,but this shows how to compose
+the SSA and word_alloc theorems
+
 val word_trans_correct = store_thm("word_trans_correct",
 ``∀prog n k st.
   domain st.locals = set(even_list n)
@@ -4859,6 +4877,7 @@ val word_trans_conventions = store_thm("word_trans_conventions",
   assume_tac (SPEC_ALL full_ssa_cc_trans_pre_alloc_conventions)>>
   imp_res_tac pre_post_conventions_word_alloc>>
   metis_tac[])
+*)
 
 (*This is only needed for instructions so that we can do 3-to-2 easily*)
 val distinct_tar_reg_def = Define`
@@ -4978,6 +4997,6 @@ val ssa_cc_trans_distinct_tar_reg = prove(``
       fs[list_next_var_rename_move_def]>>
       rpt(qpat_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>fs[EQ_SYM_EQ,every_inst_def]>>
-      metis_tac[fake_moves_distinct_tar_reg] )
+      metis_tac[fake_moves_distinct_tar_reg])
 
 val _ = export_theory();

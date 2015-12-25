@@ -143,13 +143,13 @@ val all_consts_simp = prove(``
   SOME( THE (word_op op (MAP rm_const ls)))``,
   strip_tac>>Induct>>fs[word_exp_def,LET_THM]
   >-
-    (fs[word_op_def,word_instTheory.word_op_def]>>
+    (fs[word_op_def]>>
     Cases_on`op`>>fs[])
   >>
   ntac 2 strip_tac>>
   Cases_on`h`>>fs[is_const_def,word_exp_def]>>
   fs[EVERY_is_const_word_exp]>>
-  Cases_on`op`>>fs[word_op_def,rm_const_def,word_instTheory.word_op_def])
+  Cases_on`op`>>fs[word_op_def,rm_const_def])
 
 val optimize_consts_ok = prove(``
   op ≠ Sub ⇒
@@ -288,11 +288,6 @@ val flatten_exp_every_var_exp = prove(``
   every_var_exp P exp ⇒
   every_var_exp P (flatten_exp exp)``,
   ho_match_mp_tac flatten_exp_ind>>fs[op_consts_def,flatten_exp_def,every_var_exp_def,EVERY_MEM,EVERY_MAP])
-
-val num_exp_equiv = prove(``
-  word_inst$num_exp = wordSem$num_exp``,
-  fs[FUN_EQ_THM]>>Induct>>
-  fs[wordSemTheory.num_exp_def,word_instTheory.num_exp_def])
 
 (*2nd step: Convert expressions to insts*)
 val inst_select_exp_thm = prove(``
@@ -463,23 +458,22 @@ val inst_select_exp_thm = prove(``
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       fs[evaluate_def,LET_THM,get_vars_def,get_var_def]>>
       `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
-      fs[set_vars_def,alist_insert_def,state_component_equality,num_exp_equiv,lookup_insert]>>
-      rw[]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+      fs[set_vars_def,alist_insert_def,state_component_equality,lookup_insert]>>
+      rw[]>>rfs[]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
     >-
       (assume_tac DIMINDEX_GT_0>>
       `0 ≠ dimindex(:'a)` by DECIDE_TAC>>fs[])
     >-
-      (
-      rw[]>>res_tac>>
+      (rw[]>>res_tac>>
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       fs[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
       `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
-      fs[num_exp_def,num_exp_equiv,set_var_def,state_component_equality,lookup_insert]>>
+      fs[num_exp_def,set_var_def,state_component_equality,lookup_insert]>>
       rw[]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
       (`num_exp n ≥ dimindex(:'a)` by DECIDE_TAC>>
-      fs[word_sh_def,num_exp_equiv])))
+      fs[word_sh_def])))
 
 val locals_rm = prove(``
   D with locals := D.locals = D``,
@@ -823,10 +817,12 @@ val word_alloc_two_reg_inst_lem = prove(``
     EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_inst_def])
 
 val word_alloc_two_reg_inst = prove(``
-  ∀k prog.
+  ∀alg k prog col_opt.
   every_inst two_reg_inst prog ⇒
-  every_inst two_reg_inst (word_alloc k prog)``,
-  fs[word_alloc_two_reg_inst_lem,word_alloc_def,LET_THM])
+  every_inst two_reg_inst (word_alloc alg k prog col_opt)``,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rw[]>>EVERY_CASE_TAC>>fs[LET_THM]>>
+  metis_tac[word_alloc_two_reg_inst_lem])
 
 val word_alloc_flat_exp_conventions_lem = prove(``
   ∀f prog.
@@ -839,10 +835,12 @@ val word_alloc_flat_exp_conventions_lem = prove(``
     Cases_on`exp`>>fs[flat_exp_conventions_def])
 
 val word_alloc_flat_exp_conventions = prove(``
-  ∀k prog.
+  ∀alg k prog col_opt.
   flat_exp_conventions prog ⇒
-  flat_exp_conventions (word_alloc k prog)``,
-  fs[word_alloc_flat_exp_conventions_lem,word_alloc_def,LET_THM])
+  flat_exp_conventions (word_alloc alg k prog col_opt)``,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rw[]>>EVERY_CASE_TAC>>fs[LET_THM]>>
+  metis_tac[word_alloc_flat_exp_conventions_lem])
 
 val word_alloc_inst_ok_less_lem = prove(``
   ∀f prog c.
@@ -856,10 +854,12 @@ val word_alloc_inst_ok_less_lem = prove(``
     EVERY_CASE_TAC>>unabbrev_all_tac>>fs[every_inst_def])
 
 val word_alloc_inst_ok_less = prove(``
-  ∀k prog c.
+  ∀alg k prog col_opt c.
   every_inst (inst_ok_less c) prog ⇒
-  every_inst (inst_ok_less c) (word_alloc k prog)``,
-  fs[word_alloc_inst_ok_less_lem,word_alloc_def,LET_THM])
+  every_inst (inst_ok_less c) (word_alloc alg k prog col_opt)``,
+  fs[word_alloc_def,oracle_colour_ok_def]>>
+  rw[]>>EVERY_CASE_TAC>>fs[LET_THM]>>
+  metis_tac[word_alloc_inst_ok_less_lem])
 
 (*ssa preserves all syntactic conventions
   Note: only flat_exp and inst_ok_less are needed since 3-to-2 reg comes after SSA (if required)
