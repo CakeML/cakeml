@@ -201,33 +201,41 @@ val compile_prog_def = Define `
           (comp prog (reg_count,f,stack_var_count))`
 
 (*
-Order of compilation (and their status):
-1) Flatten expressions to binary (Done)
-2) Inst select (At proof)
-3) SSA (Done)
-5) Dead code elim (not written yet)
-4) 3 to 2 regs for certain configs (Done)
-5) reg_alloc (Done)
+Order of word->word transforms:
+1) Inst select (with a few optimizations)
+2) SSA
+3) Dead code elim (not written yet)
+4) 3 to 2 regs for certain configs
+5) reg_alloc
 6) word_to_stack
 *)
 
-(*TODO: Maybe chain the max vars in a neater way instead of recomputing*)
-(*TODO: probably need to change reg_count to handle the restricted regs*)
+(*reg_alg = choice of register allocator*)
+val _ = Datatype`config =
+  <| reg_alg : num
+   ; col_oracle : num -> (num -> num) option |>`;
+
 val compile_single_def = Define`
-  compile_single two_reg_arith reg_count c (name_num:num,arg_count,prog) =
+  compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
   let maxv = max_var prog + 1 in
   let inst_prog = inst_select c maxv prog in
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
   let prog = if two_reg_arith then three_to_two_reg ssa_prog
                               else ssa_prog in
-  let reg_prog = word_alloc reg_count prog in
+  let reg_prog = word_alloc alg reg_count prog col_opt in
     (name_num,compile_prog reg_prog arg_count reg_count)`
 
-(*TODO: Compilation function probably needs to take an alist of (argcount,prog) -- this is a guess*)
+val next_n_oracle_def = Define`
+  (next_n_oracle (0:num) (col:num ->(num->num)option) acc = (acc,col)) ∧
+  (next_n_oracle n col acc =
+    let opt_col = col 0 in
+    next_n_oracle (n-1) (λn. col (n+1)) (opt_col::acc))`
 
 val compile_def = Define `
-  compile start (c:'a asm_config) prog =
-    let (two_reg_arith,reg_count) = (c.two_reg_arith, c.reg_count - 4) in
-    MAP (compile_single two_reg_arith reg_count c) prog`
+  compile start word_conf (asm_conf:'a asm_config) progs =
+    let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
+    let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle [] in
+    let progs = ZIP (progs,n_oracles) in
+    (col,MAP (compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
 val _ = export_theory();

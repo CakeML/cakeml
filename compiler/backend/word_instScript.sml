@@ -3,38 +3,15 @@ open preamble wordLangTheory sortingTheory;
 val _ = ParseExtras.temp_tight_equality ();
 val _ = new_theory "word_inst";
 
-(*TODO: These were copied from wordSem, so they should probably go into wordLangTheory*)
-val num_exp_def = Define `
-  (num_exp (Nat n) = n) /\
-  (num_exp (Add x y) = num_exp x + num_exp y) /\
-  (num_exp (Sub x y) = num_exp x - num_exp y) /\
-  (num_exp (Div2 x) = num_exp x DIV 2) /\
-  (num_exp (Exp2 x) = 2 ** (num_exp x)) /\
-  (num_exp (WordWidth (w:'a word)) = dimindex (:'a))`
-
-
-val word_op_def = Define `
-  word_op op (ws:('a word) list) =
-    case (op,ws) of
-    | (And,ws) => SOME (FOLDR word_and (¬0w) ws)
-    | (Add,ws) => SOME (FOLDR word_add 0w ws)
-    | (Or,ws) => SOME (FOLDR word_or 0w ws)
-    | (Xor,ws) => SOME (FOLDR word_xor 0w ws)
-    | (Sub,[w1;w2]) => SOME (w1 - w2)
-    | _ => NONE`;
-
 (*Scheme:
-1)
- Pull all nested ops and consts as far up as possible &
- convert Sub [ x ; Const w ] to Add [x ; Const -w]
+1) Pull all nested ops and consts as far up as possible and convert
+  Sub [ x ; Const w ] to Add [x ; Const -w]
 2) Flatten to binary branching expressions
-3)
-
+3) inst select, assuming binary branches
+4) 3->2 regs if necessary
 *)
 
-(*Pull all nested arguments with the same op up
-NOTE: Proof may be easier if this wasn't tail recursive..
-*)
+(*Pull all nested arguments with the same op up*)
 val pull_ops_def = Define`
   (pull_ops op [] acc = acc) ∧
   (pull_ops op (x::xs) acc =
