@@ -329,7 +329,7 @@ val evaluate_MAPrm1 = Q.prove(
           ∃vs' s'.
             evaluate (MAPi (rm1 keeps b) es, env2, s2 with clock := j) =
               (Rval vs', s') ∧
-            state_rel s.clock s s' ∧
+            state_rel s.clock s s' ∧ s.clock = s'.clock ∧
             LIST_RELi (keepval_rel (:'ffi) s.clock
                          { i | mustkeep (b + i) (EL i es) keeps })
                       vs
@@ -473,7 +473,8 @@ val evaluate_MAPrm1 = Q.prove(
   `LIST_REL (val_rel (:'ffi) s2'.clock) env1 env2`
      by (irule val_rel_mono_list >> qexists_tac `i` >> simp[] >>
          imp_res_tac evaluate_clock >> lfs[]) >>
-  dsimp[] >> rpt strip_tac >> irule (hd (CONJUNCTS val_rel_mono)) >>
+  dsimp[] >> rpt strip_tac >> fs[] >> rfs[] >>
+  irule (hd (CONJUNCTS val_rel_mono)) >>
   qexists_tac `s2'.clock` >> simp[] >>
   imp_res_tac evaluate_clock >> lfs[])
 
@@ -1111,6 +1112,37 @@ val unused_vars_correct2 = Q.prove(
   qpat_assum `exp_rel _ _ _` mp_tac >> simp[exp_rel_thm] >>
   disch_then irule >> metis_tac[val_rel_refl])
 
+val every_Fn_vs_NONE_const_0 = Q.store_thm("every_Fn_vs_NONE_const_0[simp]",
+  `every_Fn_vs_NONE [const_0]`,
+  EVAL_TAC)
+
+val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
+  `∀es es' s.
+   every_Fn_vs_NONE es ⇒
+   remove es = (es',s) ⇒
+   every_Fn_vs_NONE es'`,
+  ho_match_mp_tac remove_ind >>
+  rw[remove_def] >> fs[LET_THM] >>
+  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
+  imp_res_tac remove_SING >>
+  rpt var_eq_tac >> fs[] >>
+  every_case_tac >> fs[] >> rw[] >>
+  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >> rw[] >>
+  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
+  simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
+  simp[GSYM every_Fn_vs_NONE_EVERY] >>
+  fs[FOLDR_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
+     SND_UNZIP_MAPi,o_ABS_R] >> rpt var_eq_tac >>
+  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
+  simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS] >> rw[] >>
+  simp[UNCURRY] >> rw[] >>
+  fs[MEM_EL,PULL_EXISTS] >>
+  last_x_assum(match_mp_tac o MP_CANON) >>
+  asm_exists_tac >> simp[] >>
+  srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
+  fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
+  metis_tac[remove_SING,HD,SND,PAIR]);
+
 val remove_correct = Q.store_thm("remove_correct",
   `∀es es' s.
     every_Fn_vs_NONE es ⇒
@@ -1146,16 +1178,31 @@ val remove_correct = Q.store_thm("remove_correct",
            Cases_on `err` >> dsimp[res_rel_rw] >- metis_tac[] >>
            qcase_tac `evaluate _ = (Rerr (Rabort abt), s1')` >>
            Cases_on `abt` >> dsimp[res_rel_rw]) >>
-       dsimp[] >>
-       cheat) >>
+       dsimp[] >> rpt strip_tac >> fs[] >>
+       qcase_tac `state_rel s21.clock s11 s21` >>
+       qcase_tac `vs1 ++ env1` >> qcase_tac `vs2 ++ env2` >>
+       qspecl_then [`s21.clock`, `[body]`, `vs1 ++ env1`, `s11`, `[body']`,
+                    `vs2 ++ env2`, `s21`] mp_tac unused_vars_correct2 >>
+       `every_Fn_vs_NONE [body']` by metis_tac[every_Fn_vs_NONE_remove] >>
+       simp[] >>
+       disch_then (qspecl_then [`{ i | fv i [body'] }`, `s21.clock`] mp_tac) >>
+       simp[] >>
+       `s11 with clock := s21.clock = s11 ∧
+        s21 with clock := s21.clock = s21` by simp[state_component_equality] >>
+       simp[] >> disch_then irule >>
+       qpat_assum `LIST_RELi _ vs1 vs2` mp_tac >>
+       simp[LIST_RELi_EL, keepval_rel_def, mustkeep_def] >>
+       rpt strip_tac >- imp_res_tac LIST_REL_LENGTH >>
+       Cases_on `k < LENGTH vs2` >> simp[EL_APPEND2, EL_APPEND1]
+       >- metis_tac[remove_fv] >>
+       fs[LIST_REL_EL_EQN] >> irule (CONJUNCT1 val_rel_mono) >>
+       qexists_tac `i` >> simp[] >> imp_res_tac evaluate_clock >> lfs[]) >>
   TRY (qcase_tac`Letrec` >>
        lfs[FOLDR_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi, SND_UNZIP_MAPi,
            combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R
           ] >> rpt var_eq_tac >>
-       asm_simp_tac (srw_ss() ++ COND_elim_ss) [] >> cheat
-
- ) >>
-  metis_tac[compat]);
+       asm_simp_tac (srw_ss() ++ COND_elim_ss) [] >> cheat) >>
+ metis_tac[compat]);
 
 val k_intro = Q.prove(`(λn. x) = K x`, simp[FUN_EQ_THM])
 
@@ -1285,36 +1332,6 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
       fs[SUBSET_DEF, ALL_DISTINCT_APPEND] >> metis_tac[])
   >- ((* call *) qccase `remove args` >> fs[]))
 
-val every_Fn_vs_NONE_const_0 = Q.store_thm("every_Fn_vs_NONE_const_0[simp]",
-  `every_Fn_vs_NONE [const_0]`,
-  EVAL_TAC)
-
-val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
-  `∀es es' s.
-   every_Fn_vs_NONE es ⇒
-   remove es = (es',s) ⇒
-   every_Fn_vs_NONE es'`,
-  ho_match_mp_tac remove_ind >>
-  rw[remove_def] >> fs[LET_THM] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >>
-  imp_res_tac remove_SING >>
-  rpt var_eq_tac >> fs[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  rpt(first_assum(split_applied_pair_tac o lhs o concl) >> fs[]) >> rw[] >>
-  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  simp[EVERY_REPLICATE,EVERY_MAP,UNCURRY] >>
-  simp[GSYM every_Fn_vs_NONE_EVERY] >>
-  fs[FOLDR_UNZIP,FPAIR,LET_THM,UNCURRY,FST_UNZIP_MAPi,
-     SND_UNZIP_MAPi,o_ABS_R] >> rpt var_eq_tac >>
-  ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  simp[EVERY_MEM,MEM_MAPi,PULL_EXISTS] >> rw[] >>
-  simp[UNCURRY] >> rw[] >>
-  fs[MEM_EL,PULL_EXISTS] >>
-  last_x_assum(match_mp_tac o MP_CANON) >>
-  asm_exists_tac >> simp[] >>
-  srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
-  fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-  metis_tac[remove_SING,HD,SND,PAIR]);
 
 val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
   `every_Fn_SOME [const_0]`,
