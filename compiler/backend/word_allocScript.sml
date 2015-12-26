@@ -521,14 +521,20 @@ val check_colouring_ok_alt_def = Define`
     let names = MAP (col o FST) (toAList x) in
       ALL_DISTINCT names ∧ check_colouring_ok_alt col xs)`
 
+val every_even_colour_def = Define`
+  every_even_colour col ⇔
+  EVERY (λ(x,y). if is_phy_var x then y = x else T) (toAList col)`
+
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
   oracle_colour_ok k col_opt ls prog ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
-     if check_colouring_ok_alt col ls
+     if every_even_colour col ∧
+        check_colouring_ok_alt (total_colour col) ls
      then
+       let col = total_colour col in
        let col_prog = apply_colour col prog in
        if post_alloc_conventions k col_prog
        then
