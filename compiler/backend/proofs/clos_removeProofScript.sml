@@ -621,13 +621,14 @@ val Recclosure_addargs = Q.store_thm(
       simp[optCASE_NONE_T] >> simp[exec_rel_rw, evaluate_ev_def]
 *)
 
-val unused_vars_correct = Q.prove(
-  `(∀i es env1 env2 (s1:'ffi closSem$state) s2 kis j.
+val unused_vars_correct = Q.store_thm(
+  "unused_vars_correct",
+  `∀i es env1 env2 (s1:'ffi closSem$state) s2 kis j.
       state_rel i s1 s2 ∧ j ≤ i ∧
       (∀v. fv v es ⇒ v ∈ kis) ∧ every_Fn_vs_NONE es ∧
       LIST_RELi (λk v1 v2. k ∈ kis ⇒ val_rel (:'ffi) i v1 v2) env1 env2 ⇒
       res_rel (evaluate(es,env1,s1 with clock := j))
-              (evaluate(es,env2,s2 with clock := j)))`,
+              (evaluate(es,env2,s2 with clock := j))`,
   gen_tac >> completeInduct_on `i` >>
   fs[GSYM RIGHT_FORALL_IMP_THM, AND_IMP_INTRO] >> qx_gen_tac `es` >>
   completeInduct_on `exp3_size es` >>
@@ -1077,7 +1078,14 @@ val unused_vars_correct = Q.prove(
       first_x_assum
         (qspecl_then [`args`, `env1`, `env2`, `s1`, `s2`, `kis`, `j`] mp_tac) >>
       simp[] >> simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
-      simp[res_rel_rw] >> (* use res_rel_do_app *) cheat))
+      simp[res_rel_rw] >>
+      qcase_tac `state_rel s21.clock s11 s21`>>
+      qcase_tac `LIST_REL (val_rel (:'ffi) s21.clock) rv1 rv2` >>
+      qcase_tac `do_app opn (REVERSE rv1) s11` >>
+      qspecl_then [`s21.clock`, `opn`, `rv1`, `rv2`, `s11`, `s21`] mp_tac
+                  res_rel_do_app >> simp[] >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >> fs[pair_case_eq, eqs] >> rw[] >> fs[]))
 
 val res_rel_trans = Q.store_thm(
   "res_rel_trans",
