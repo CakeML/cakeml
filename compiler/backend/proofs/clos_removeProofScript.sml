@@ -578,6 +578,48 @@ val TAKE_EQ_NIL = store_thm(
   Q.ID_SPEC_TAC `l` THEN Induct_on `n` THEN ASM_SIMP_TAC (srw_ss()) [] THEN
   Cases THEN ASM_SIMP_TAC (srw_ss()) []);
 
+(* not true as stated because say max_app is 10 and vs1 and vs2 have 5
+   elements each.  Then the closure with no arguments so far can't be
+   applied to 11 arguments, but the closure with vs1 and vs2 already there
+   can certainly be applied to 6 arguments.
+
+
+val Recclosure_addargs = Q.store_thm(
+  "Recclosure_addargs",
+  `pos < LENGTH fns ∧
+   val_rel (:'ffi) i
+     (Recclosure opt [] env1 fns pos) (Recclosure opt [] env2 fns pos) ∧
+   LIST_REL (val_rel (:'ffi) i) vs1 vs2 ∧ LENGTH vs2 < FST (EL pos fns) ⇒
+   val_rel (:'ffi) i (Recclosure opt vs1 env1 fns pos)
+                     (Recclosure opt vs2 env2 fns pos)`,
+  strip_tac >>
+  simp[val_rel_rw, is_closure_def, check_closures_def, optCASE_NONE_T,
+       optCASE_NONE_F, clo_can_apply_def, clo_to_partial_args_def,
+       clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def,
+       dest_closure_def, revtakerev, revdroprev] >>
+  dsimp[UNCURRY, bool_case_eq] >> rpt strip_tac >- fs[]
+  >- (imp_res_tac LIST_REL_LENGTH >> fs[] >>
+      simp[exec_rel_rw, evaluate_ev_def] >>
+      qcase_tac `j < i` >> qx_gen_tac `k` >> reverse COND_CASES_TAC
+      >- (simp[res_rel_rw] >> metis_tac[DECIDE``0n≤x``,val_rel_mono]) >>
+      simp[] >>
+      `∃N fb. EL pos fns = (N,fb)` by metis_tac[pair_CASES] >> fs[] >>
+      qcase_tac `LIST_REL (val_rel (:'ffi) j) vs11 vs21` >> strip_tac >>
+      qpat_assum `val_rel (:'ffi) _ _ _` mp_tac >>
+      simp[val_rel_rw, is_closure_def, check_closures_def,
+           clo_can_apply_def, clo_to_partial_args_def,
+           clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def] >>
+      qcase_tac `state_rel j s1 s2` >>
+      qcase_tac `check_loc lopt` >>
+      disch_then (qspecl_then [`j`, `vs11 ++ vs1`, `vs21 ++ vs2`] mp_tac) >>
+      simp[] >>
+      disch_then (qspecl_then [`s1`, `s2`, `lopt`] mp_tac) >> simp[] >>
+      discharge_hyps
+      >- (irule EVERY2_APPEND_suff >> simp[] >>
+          irule val_rel_mono_list >> qexists_tac `i` >> simp[]) >>
+      simp[dest_closure_def] >> Cases_on `lopt` >> fs[check_loc_def] >>
+      simp[optCASE_NONE_T] >> simp[exec_rel_rw, evaluate_ev_def]
+*)
 
 val unused_vars_correct = Q.prove(
   `(∀i es env1 env2 (s1:'ffi closSem$state) s2 kis j.
@@ -941,20 +983,95 @@ val unused_vars_correct = Q.prove(
              simp[combinTheory.o_ABS_L, Abbr`fns1_E`, Abbr`fns2_E`]) >>
          simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
          simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[]) >>
-      rpt var_eq_tac >> cheat)
-      (* simp[LIST_REL_EL_EQN, Abbr`fns1_E`, Abbr`fns2_E`] >> qx_gen_tac `pos` >>
-      strip_tac >>
-
-
-      simp[val_rel_rw, is_closure_def, check_closures_def, optCASE_NONE_T,
-           optCASE_NONE_F, clo_can_apply_def, clo_to_partial_args_def,
-           clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def,
-           dest_closure_def, revtakerev, revdroprev] >>
-      simp[UNCURRY, bool_case_eq] >> dsimp[]
-
-
-
-     ) *)
+      rpt var_eq_tac >>
+      simp[Abbr`fns1_E`, Abbr`fns2_E`] >>
+      `∀k vs1 vs2.
+        LIST_REL (val_rel (:'ffi) k) vs1 vs2 ∧ k ≤ i ⇒
+        LIST_REL (val_rel (:'ffi) k)
+                 (GENLIST (Recclosure opt vs1 env1 fns) (LENGTH fns))
+                 (GENLIST (Recclosure opt vs2 env2 fns) (LENGTH fns))`
+      suffices_by
+        (disch_then (qspecl_then [`i`, `[]`, `[]`] mp_tac) >> simp[]) >>
+      gen_tac >> completeInduct_on `k` >> rpt strip_tac >>
+      simp[LIST_REL_EL_EQN] >> qx_gen_tac `pos` >> strip_tac >>
+      simp[val_rel_rw, is_closure_def, check_closures_def,
+           clo_can_apply_def, clo_to_partial_args_def,
+           clo_to_num_params_def, clo_to_loc_def, rec_clo_ok_def] >> conj_tac
+      >- (rpt gen_tac >> strip_tac >> imp_res_tac LIST_REL_LENGTH >>
+          fs[] >> strip_tac >> fs[]) >>
+      qx_genl_tac [`kk`, `vs11`, `vs21`, `s11`, `s21`, `lopt`] >>
+      strip_tac >> simp[optCASE_NONE_T, optCASE_NONE_F] >>
+      dsimp[dest_closure_def, UNCURRY, bool_case_eq, revtakerev,
+            revdroprev] >>
+      imp_res_tac LIST_REL_LENGTH >> simp[] >>
+      `∃N fb. EL pos fns = (N,fb)` by metis_tac[pair_CASES] >> simp[] >>
+      reverse (rpt strip_tac)
+      >- (simp[exec_rel_rw, evaluate_ev_def] >> qx_gen_tac `k3` >>
+          reverse (rw[]) >> simp[res_rel_rw]
+          >- metis_tac[DECIDE``0n≤x``,val_rel_mono] >>
+          qmatch_abbrev_tac `val_rel _ kN _ _ ∧ state_rel kN _ _` >>
+          `kN ≤ kk` by simp[Abbr`kN`] >>
+          reverse conj_tac >- metis_tac[val_rel_mono] >>
+          first_x_assum (qspec_then `kN` mp_tac) >> simp[] >>
+          disch_then (qspecl_then [`vs11 ++ vs1`, `vs21 ++ vs2`] mp_tac) >>
+          discharge_hyps
+          >- (irule EVERY2_APPEND_suff >> simp[] >>
+              metis_tac[val_rel_mono_list,
+                        DECIDE ``x ≤ y ∧ y < z ⇒ x ≤ z:num``]) >>
+          simp[LIST_REL_EL_EQN]) >>
+      simp[exec_rel_rw, evaluate_ev_def, revdroprev, revtakerev] >>
+      qx_gen_tac `k3` >> reverse (rw[]) >> simp[res_rel_rw]
+      >- metis_tac[DECIDE``0n≤x``,val_rel_mono] >>
+      first_assum(qspecl_then [`k3 + (LENGTH vs2 + 1) - N`, `[fb]`] mp_tac) >>
+      simp[] >>
+      disch_then (qspecl_then [
+        `DROP (LENGTH vs2 + LENGTH vs21 - N) vs11 ++ vs1 ++
+         GENLIST (Recclosure opt [] env1 fns) (LENGTH fns) ++ env1`,
+        `DROP (LENGTH vs2 + LENGTH vs21 - N) vs21 ++ vs2 ++
+         GENLIST (Recclosure opt [] env2 fns) (LENGTH fns) ++ env2`,
+        `s11`, `s21`,
+        `count (N + LENGTH fns) ∪ IMAGE ((+) (N + LENGTH fns)) kis`,
+        `k3 + (LENGTH vs2 + 1) - N`] mp_tac) >>
+      discharge_hyps
+      >- (simp[] >> rpt strip_tac
+          >- (irule (val_rel_mono |> CONJUNCTS |> last) >>
+              qexists_tac `kk` >> simp[])
+          >- (qcase_tac `vv < N + LENGTH fns` >>
+              Cases_on `vv < N + LENGTH fns` >> simp[] >>
+              qexists_tac `vv - (N + LENGTH fns)` >> simp[] >>
+              first_x_assum irule >> disj1_tac >>
+              simp[EXISTS_MEM, EXISTS_PROD] >>
+              map_every qexists_tac [`N`, `fb`] >> simp[] >>
+              metis_tac[MEM_EL])
+          >- (fs[Once every_Fn_vs_NONE_EVERY, EVERY_MEM] >>
+              fs[FORALL_PROD, MEM_MAP, PULL_EXISTS] >> metis_tac[MEM_EL])
+          >- (rpt (irule LIST_RELi_APPEND_I)
+              >- ((* vs{2,1}1 *) fs[LIST_RELi_EL] >> dsimp[EL_DROP] >>
+                  fs[LIST_REL_EL_EQN] >> rpt strip_tac >>
+                  irule (CONJUNCT1 val_rel_mono) >>
+                  qexists_tac `kk` >> simp[])
+              >- ((* vs1/2 *)simp[combinTheory.o_ABS_L, LIST_RELi_EL] >>
+                  fs[LIST_REL_EL_EQN] >> rpt strip_tac >>
+                  irule (CONJUNCT1 val_rel_mono) >>
+                  qexists_tac `k` >> simp[])
+              >- ((* recclosures *) simp[combinTheory.o_ABS_L, LIST_RELi_EL] >>
+                  first_x_assum
+                    (qspec_then `k3 + (LENGTH vs2 + 1) - N` mp_tac) >>
+                  simp[] >> disch_then (qspecl_then [`[]`, `[]`] mp_tac) >>
+                  simp[LIST_REL_EL_EQN])
+              >- ((* env1/2 *) simp[combinTheory.o_ABS_L] >>
+                  fs[LIST_RELi_EL] >> rpt strip_tac >>
+                  irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >>
+                  simp[]))) >>
+      simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
+      simp[res_rel_rw] >> imp_res_tac evaluate_SING >> rpt var_eq_tac >>
+      fs[] >>
+      Cases_on `N = LENGTH vs2 + LENGTH vs21` >> simp[]
+      >- simp[res_rel_rw] >>
+      irule res_rel_evaluate_app >> simp[] >>
+      lfs[LIST_REL_EL_EQN, EL_TAKE, LENGTH_TAKE] >> rpt strip_tac >>
+      imp_res_tac evaluate_clock >> fs[] >>
+      irule (CONJUNCT1 val_rel_mono) >> qexists_tac `kk` >> simp[])
   >- ((* Op *) fs[exp_size_def] >>
       qcase_tac `evaluate(args,_,s1 with clock := j)` >>
       first_x_assum
