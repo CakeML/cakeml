@@ -49,10 +49,12 @@ in
     add_datatype``:mod_to_con$config``;
     add_datatype``:clos_to_bvl$config``;
     add_datatype``:bvp_to_word$config``;
+    add_datatype``:word_to_stack$config``;
     add_datatype``:stack_to_lab$config``;
     add_datatype``:'a lab_to_target$config``;
     add_datatype``:'a asm_config``;
     add_datatype``:'a backend$config``;
+
   (* modLang *)
     add_datatype ``:modLang$exp``
   ; add_datatype ``:modLang$dec``
@@ -68,6 +70,7 @@ in
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
     ]
+
   (* conLang *)
   ; add_thms
     [conLangTheory.bind_tag_def
@@ -105,6 +108,7 @@ in
     ,mod_to_conTheory.alloc_tags_def
     ,mod_to_conTheory.compile_def
     ]
+
   (* decLang *)
   (* con_to_dec *)
   ; add_thms
@@ -115,6 +119,7 @@ in
     ,con_to_decTheory.compile_decs_def
     ,con_to_decTheory.compile_def
     ]
+
   (* exhLang *)
   ; add_datatype``:exhLang$pat``
   ; add_datatype``:exhLang$exp``
@@ -128,6 +133,7 @@ in
     ,dec_to_exhTheory.compile_exp_def
     ,dec_to_exhTheory.compile_pat_def
     ]
+
   (* patLang *)
   ; add_datatype``:patLang$exp``
   ; add_datatype``:patLang$op``
@@ -146,6 +152,7 @@ in
     ,exh_to_patTheory.Bool_def
     ,exh_to_patTheory.compile_def
     ]
+
   (* closLang *)
   ; add_datatype``:closLang$exp``
   ; add_datatype``:closLang$op``
@@ -204,6 +211,7 @@ in
     ,clos_removeTheory.pure_op_def
     ,clos_removeTheory.MAPi_def
     ]
+
   (* bvl *)
   ; add_datatype``:bvl$exp``
   (* clos_to_bvl *)
@@ -277,9 +285,9 @@ in
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
     ]
+
   (* bvp *)
   ; add_datatype``:bvp$prog``
-  (*TODO: Not sure why this is in bvpTheory*)
   ; add_thms
     [bvpTheory.mk_ticks_def]
   (* bvi_to_bvp *)
@@ -314,6 +322,16 @@ in
   ; add_datatype``:'a wordLang$num_exp``
   ; add_datatype``:'a wordLang$exp``
   ; add_datatype``:'a wordLang$prog``
+  ; add_thms
+    [wordLangTheory.every_var_exp_def
+    ,wordLangTheory.num_exp_def
+    ,wordLangTheory.word_op_def
+    ,wordLangTheory.every_var_imm_def
+    ,wordLangTheory.every_stack_var_def
+    ,wordLangTheory.every_var_def
+    ,wordLangTheory.every_name_def
+    ,wordLangTheory.every_var_inst_def
+    ]
   (* bvp_to_word *)
   ; add_thms
     [bvp_to_wordTheory.adjust_var_def
@@ -325,8 +343,7 @@ in
     ]
   (*wordLang inst_select and inst flattening*)
   ; add_thms
-    [word_instTheory.num_exp_def
-    ,word_instTheory.three_to_two_reg_def
+    [word_instTheory.three_to_two_reg_def
     ,word_instTheory.pull_exp_def
     ,word_instTheory.inst_select_def
     ,word_instTheory.inst_select_exp_def
@@ -337,14 +354,11 @@ in
     ,word_instTheory.convert_sub_def
     ,word_instTheory.rm_const_def
     ,word_instTheory.is_const_def
- (* ,word_instTheory.word_op_def *)
     ]
-
   (*wordLang ssa form and interface to reg allocator*)
   ; add_thms
-    [word_allocTheory.apply_nummap_key_def
+    [word_allocTheory.call_arg_convention_def
     ,word_allocTheory.word_alloc_def
-    ,word_allocTheory.word_trans_def
     ,word_allocTheory.full_ssa_cc_trans_def
     ,word_allocTheory.limit_var_def
     ,word_allocTheory.max_var_def
@@ -355,8 +369,10 @@ in
     ,word_allocTheory.max2_def
     ,word_allocTheory.setup_ssa_def
     ,word_allocTheory.ssa_cc_trans_def
+    ,word_allocTheory.oracle_colour_ok_def
+    ,word_allocTheory.every_even_colour_def
+    ,word_allocTheory.check_colouring_ok_alt_def
     ,word_allocTheory.get_prefs_def
-    ,word_allocTheory.get_spg_def
     ,word_allocTheory.get_clash_sets_def
     ,word_allocTheory.get_writes_def
     ,word_allocTheory.get_live_def
@@ -379,11 +395,13 @@ in
     ,word_allocTheory.list_next_var_rename_def
     ,word_allocTheory.next_var_rename_def
     ,word_allocTheory.option_lookup_def
+    ,word_allocTheory.post_alloc_conventions_def
+    ,word_allocTheory.apply_nummap_key_def
     ]
+    (*Not needed word_allocTheory.pre_alloc_conventions_def"*)
 
   (*reg_alloc TODO: maybe make a top level computelib for reg_alloc itself*)
   ; add_datatype ``:ra_state``
-
   (*monadic*)
   ; add_thms
     [state_transformerTheory.MWHILE_DEF
@@ -505,7 +523,7 @@ in
     ,reg_allocTheory.is_phy_var_def
     ]
 
-  (*parmove -- same TODO*)
+  (*parmove -- same TODO as allocator*)
   ; add_thms
     [parmoveTheory.pmov_def
     ,parmoveTheory.parmove_def
