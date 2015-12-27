@@ -337,7 +337,7 @@ in
     ,word_instTheory.convert_sub_def
     ,word_instTheory.rm_const_def
     ,word_instTheory.is_const_def
-    , word_instTheory.word_op_def
+ (* ,word_instTheory.word_op_def *)
     ]
 
   (*wordLang ssa form and interface to reg allocator*)
@@ -548,22 +548,33 @@ in
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_single_def
     ]
+  (*stack_alloc*)
+  ; add_thms
+    [stack_allocTheory.stubs_def
+    ,stack_allocTheory.next_lab_def
+    ,stack_allocTheory.comp_def
+    ,stack_allocTheory.prog_comp_def
+    ,stack_allocTheory.compile_def
+    ]
   (*stack_remove*)
   ; add_thms
-    [stack_removeTheory.compile_def
-    ,stack_removeTheory.prog_comp_def
-    ,stack_removeTheory.comp_def
-    ,stack_removeTheory.stack_err_lab_def
-    ,stack_removeTheory.stack_err_stub_def
-    ,stack_removeTheory.store_length_def
-    ,stack_removeTheory.store_offset_def
-    ,stack_removeTheory.store_pos_def
+    [stack_removeTheory.max_stack_alloc_def
     ,stack_removeTheory.word_offset_def
     ,stack_removeTheory.store_list_def
-    ,stack_removeTheory.move_def
-    ,stack_removeTheory.max_stack_alloc_def
+    ,stack_removeTheory.store_pos_def
+    ,stack_removeTheory.store_length_def
+    ,stack_removeTheory.store_offset_def
+    ,stack_removeTheory.stack_err_lab_def
     ,stack_removeTheory.single_stack_alloc_def
     ,stack_removeTheory.stack_alloc_def
+    ,stack_removeTheory.comp_def
+    ,stack_removeTheory.prog_comp_def
+    ,stack_removeTheory.list_Seq_def
+    ,stack_removeTheory.halt_inst_def
+    ,stack_removeTheory.init_code_def
+    ,stack_removeTheory.init_code_def
+    ,stack_removeTheory.init_stubs_def
+    ,stack_removeTheory.compile_def
     ]
   (*db_vars*)
   ; add_datatype``:db_var_set``
@@ -578,29 +589,22 @@ in
   (*stack names*)
   ; add_thms
     [stack_namesTheory.find_name_def
+    ,stack_namesTheory.ri_find_name_def
     ,stack_namesTheory.inst_find_name_def
     ,stack_namesTheory.dest_find_name_def
-    ,stack_namesTheory.compile_def
-    ,stack_namesTheory.prog_comp_def
     ,stack_namesTheory.comp_def
-    ,stack_namesTheory.ri_find_name_def
+    ,stack_namesTheory.prog_comp_def
+    ,stack_namesTheory.compile_def
     ,stack_namesTheory.x64_names_def
     ]
   (*stack_to_lab*)
   ; add_thms
-    [stack_to_labTheory.max_lab_def
-    ,stack_to_labTheory.no_ret_def
-    ,stack_to_labTheory.compile_def
-    ,stack_to_labTheory.prog_to_section_def
-    ,stack_to_labTheory.flatten_def
+    [stack_to_labTheory.no_ret_def
     ,stack_to_labTheory.compile_jump_def
-    ,stack_to_labTheory.move_inst_def
-    ,stack_to_labTheory.stub1_def
-    ,stack_to_labTheory.seq_list_def
-    ,stack_to_labTheory.stub0_def
-    ,stack_to_labTheory.sub_inst_def
-    ,stack_to_labTheory.const_inst_def
     ,stack_to_labTheory.negate_def
+    ,stack_to_labTheory.flatten_def
+    ,stack_to_labTheory.prog_to_section_def
+    ,stack_to_labTheory.compile_def
     ]
   (*labLang*)
   ; add_datatype``:lab``

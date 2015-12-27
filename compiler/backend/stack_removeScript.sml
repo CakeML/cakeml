@@ -171,7 +171,7 @@ val init_code_def = Define `
           StackStore prog_start 0;
           LocValue 0 1 0])]`
 
-val init_stub_def = Define `
+val init_stubs_def = Define `
   init_stubs max_heap_bytes k start =
     [(0n,Seq (init_code max_heap_bytes k) (Call NONE (INL start) NONE));
      (1n,halt_inst 0w);
