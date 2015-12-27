@@ -17,7 +17,7 @@ open clos_annotateTheory
 open clos_freeTheory
 open clos_removeTheory
 open bvlTheory clos_to_bvlTheory
-open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory
+open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
@@ -263,6 +263,11 @@ in
   (* bvl_handle *)
   ; add_thms
     [bvl_handleTheory.compile_def]
+  (* bvl_jump *)
+  ; add_thms
+    [bvl_jumpTheory.JumpList_def
+    ,bvl_jumpTheory.Jump_def
+    ]
   (* bvi *)
   ; add_datatype``:bvi$exp``
   (* bvl_to_bvi *)
@@ -565,6 +570,7 @@ in
     ,word_to_stackTheory.wRegImm2_def
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_single_def
+    ,word_to_stackTheory.next_n_oracle_def
     ]
   (*stack_alloc*)
   ; add_thms

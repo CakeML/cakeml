@@ -226,15 +226,13 @@ val compile_single_def = Define`
     (name_num,compile_prog reg_prog arg_count reg_count)`
 
 val next_n_oracle_def = Define`
-  (next_n_oracle (0:num) (col:num ->(num num_map)option) acc = (acc,col)) ∧
-  (next_n_oracle n col acc =
-    let opt_col = col 0 in
-    next_n_oracle (n-1) (λn. col (n+1)) (opt_col::acc))`
+  next_n_oracle n (col:num ->(num num_map)option) =
+  (GENLIST col n, λk. col (k+n))`
 
 val compile_def = Define `
   compile start word_conf (asm_conf:'a asm_config) progs =
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
-    let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle [] in
+    let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
     (col,MAP (compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
