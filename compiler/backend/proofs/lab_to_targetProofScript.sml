@@ -1550,13 +1550,132 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
   \\ every_case_tac \\ fs []);
 
-(*
+(* syntactic properties of remove_labels *)
 
-TODO:
- - add support for skipping sections of code
- - define an incremental version of the compiler
- - add ability to install code
+val good_syntax_def = Define `
+  good_syntax mc_conf (code:'a sec list) l = T` (* needs completing *)
 
-*)
+val remove_labels_thm = store_thm("remove_labels_thm",
+  ``good_syntax mc_conf code l /\
+    remove_labels mc_conf.target.config mc_conf.target.encode code l =
+      SOME (code2,labs) ==>
+    all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
+    code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
+    (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
+    !l1 l2 x2.
+      loc_to_pc l1 l2 code = SOME x2 ==>
+      lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)``,
+  cheat);
+
+(* introducing make_init *)
+
+val fold_num_def = Define `
+  (fold_num f 0 s = s) /\
+  (fold_num f (SUC n) s = fold_num f n (f n s))`;
+
+val copy_byte_def = Define `
+  copy_byte be m n s = THE (mem_store_byte_aux (n2w n) (m (n2w n)) s UNIV be)`
+
+val make_init_def = Define `
+  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t (ms:'state) code =
+    <| regs       := \k. Word ((t.regs k):'a word)
+     ; mem        := fold_num (copy_byte mc_conf.target.config.big_endian t.mem)
+                       (dimword(:'a)) (K (Word 0w))
+     ; mem_domain := { t.regs mc_conf.ptr_reg + w |w| w <+ t.regs mc_conf.len_reg }
+     ; pc         := 0
+     ; be         := mc_conf.target.config.big_endian
+     ; ffi        := ffi
+     ; io_regs    := \n k. if k IN save_regs then NONE else (io_regs n k)
+     ; code       := code
+     ; clock      := 0
+     ; failed     := F
+     ; ptr_reg    := mc_conf.ptr_reg
+     ; len_reg    := mc_conf.len_reg
+     ; link_reg   := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
+     |>`
+
+val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
+
+val good_init_state_def = Define `
+  good_init_state (mc_conf: ('a,'state,'b) machine_config) t ms ffi_index_limit bytes io_regs save_regs <=>
+    mc_conf.target.state_rel t ms /\ ~t.failed /\
+    good_dimindex (:'a) /\
+    mc_conf.prog_addresses = t.mem_domain /\
+    mc_conf.halt_pc NOTIN mc_conf.prog_addresses /\
+    t.be = mc_conf.target.config.big_endian /\
+    t.pc = mc_conf.target.get_pc ms /\
+    t.align = mc_conf.target.config.code_alignment /\
+    (n2w (2 ** t.align - 1) && mc_conf.target.get_pc ms) = 0w /\
+    reg_ok mc_conf.ptr_reg mc_conf.target.config /\
+    reg_ok mc_conf.len_reg mc_conf.target.config /\
+    reg_ok (case mc_conf.target.config.link_reg of NONE => 0 | SOME n => n)
+      mc_conf.target.config /\
+    (!index.
+       index < ffi_index_limit ==>
+       mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset) NOTIN
+       mc_conf.prog_addresses /\
+       mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset) <>
+       mc_conf.halt_pc /\
+       find_index
+         (mc_conf.target.get_pc ms - n2w ((3 + index) * ffi_offset))
+         mc_conf.ffi_entry_pcs 0 = SOME index) /\
+    mc_conf.target.get_pc ms - n2w ffi_offset = mc_conf.halt_pc /\
+    interference_ok mc_conf.next_interfer (mc_conf.target.proj t.mem_domain) /\
+    (!q n.
+       (n2w (2 ** t.align - 1) && q + (n2w n):'a word) = 0w <=>
+       n MOD 2 ** t.align = 0) /\
+    (!a w.
+       byte_align a = w + t.regs mc_conf.ptr_reg /\
+       w <+ t.regs mc_conf.len_reg ==>
+       a IN t.mem_domain) /\
+    (case mc_conf.target.config.link_reg of NONE => T | SOME r => t.lr = r) /\
+    code_loaded bytes mc_conf ms /\
+    bytes_in_mem (mc_conf.target.get_pc ms) bytes t.mem t.mem_domain
+      {w + t.regs mc_conf.ptr_reg | w | w <+ t.regs mc_conf.len_reg} /\
+    (!ms2 k index new_bytes t1 x.
+       mc_conf.target.state_rel
+         (t1 with
+          pc := -n2w ((3 + index) * ffi_offset) + mc_conf.target.get_pc ms)
+       ms2 /\
+       read_bytearray (t1.regs mc_conf.ptr_reg) (LENGTH new_bytes)
+         (\a. if a IN t1.mem_domain then SOME (t1.mem a) else NONE) =
+       SOME x ==>
+       mc_conf.target.state_rel
+        (t1 with
+         <|regs :=
+            (\a.
+             get_reg_value
+               (if a IN save_regs then NONE else io_regs k a)
+               (t1.regs a) I);
+           mem := asm_write_bytearray (t1.regs mc_conf.ptr_reg) new_bytes t1.mem;
+           pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
+                  | SOME n => n)|>)
+         (mc_conf.ffi_interfer k index new_bytes ms2))`
+
+val IMP_state_rel_make_init = prove(
+  ``good_syntax mc_conf code l /\
+    remove_labels mc_conf.target.config mc_conf.target.encode code l =
+      SOME (code2,labs) /\
+    good_init_state mc_conf t ms ffi_index_limit (prog_to_bytes code2) io_regs save_regs ==>
+    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
+        mc_conf.target.get_pc ms,T)
+      (make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t ms code) t ms``,
+  rw [] \\ drule remove_labels_thm \\ fs [] \\ rw []
+  \\ fs [state_rel_def,make_init_def,word_loc_val_def,PULL_EXISTS]
+  \\ fs [good_init_state_def]
+  \\ cheat);
+
+val semantics_make_init = save_thm("semantics_make_init",
+  machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
+  |> UNDISCH |> REWRITE_RULE []
+  |> SIMP_RULE std_ss [init_ok_def,PULL_EXISTS,GSYM CONJ_ASSOC,GSYM AND_IMP_INTRO]
+  |> SPEC_ALL |> Q.GEN `s1` |> Q.GEN `p`
+  |> Q.GEN `t1` |> Q.SPEC `t`
+  |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
+  |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
+       ffi save_regs io_regs t (ms:'state) code`
+  |> SIMP_RULE std_ss [EVAL ``(make_init mc_conf ffi s i t ms code).ffi``]
+  |> UNDISCH |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
+  |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val _ = export_theory();
