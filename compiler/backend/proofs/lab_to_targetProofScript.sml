@@ -1,6 +1,6 @@
 open preamble ffiTheory
      wordSemTheory labSemTheory labPropsTheory
-     lab_to_targetTheory
+     lab_to_targetTheory lab_filterProofTheory
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory targetPropsTheory;
 
@@ -1555,6 +1555,10 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
 val good_syntax_def = Define `
   good_syntax mc_conf (code:'a sec list) l = T` (* needs completing *)
 
+val good_syntax_filter_skip = store_thm("good_syntax_filter_skip[simp]",
+  ``good_syntax c (filter_skip prog) l = good_syntax c prog l``,
+  cheat);
+
 val remove_labels_thm = store_thm("remove_labels_thm",
   ``good_syntax mc_conf code l /\
     remove_labels mc_conf.target.config mc_conf.target.encode code l =
@@ -1677,5 +1681,35 @@ val semantics_make_init = save_thm("semantics_make_init",
   |> SIMP_RULE std_ss [EVAL ``(make_init mc_conf ffi s i t ms code).ffi``]
   |> UNDISCH |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
+
+val make_init_filter_skip = store_thm("make_init_filter_skip",
+  ``semantics (make_init mc_conf ffi save_regs io_regs t ms (filter_skip code)) =
+    semantics (make_init mc_conf ffi save_regs io_regs t ms code)``,
+  match_mp_tac filter_skip_semantics \\ fs [make_init_def]);
+
+val semantics_compile = store_thm("semantics_compile",
+  ``ffi.final_event = NONE /\
+    backend_correct mc_conf.target /\
+    good_syntax mc_conf code c.labels /\
+    c.asm_conf = mc_conf.target.config /\
+    c.encoder = mc_conf.target.encode /\
+    compile c code = SOME (bytes,c2) /\
+    good_init_state mc_conf t ms ffi_index_limit bytes io_regs save_regs /\
+    semantics (make_init mc_conf ffi save_regs io_regs t ms code) <> Fail ==>
+    machine_sem mc_conf ffi ms =
+    {semantics (make_init mc_conf ffi save_regs io_regs t ms code)}``,
+  fs [compile_def,compile_lab_def,GSYM AND_IMP_INTRO]
+  \\ CASE_TAC \\ fs [] \\  PairCases_on `x` \\ fs [] \\ rw [] \\ fs []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [GSYM make_init_filter_skip] \\ rw []
+  \\ match_mp_tac (GEN_ALL semantics_make_init) \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ asm_exists_tac \\ fs [])
+
+(*
+
+  TODO: remove ffi_index_limit
+
+*)
 
 val _ = export_theory();

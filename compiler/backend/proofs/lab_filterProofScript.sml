@@ -756,9 +756,9 @@ val state_rel_IMP_sem_EQ_sem = prove(
     metis_tac[build_lprefix_lub_thm,unique_lprefix_lub,lprefix_lub_new_chain]));
 
 val filter_skip_semantics = store_thm("filter_skip_semantics",
-  ``!s. (s.pc = 0) ∧ ¬s.failed ==>
-        semantics (s with code := filter_skip s.code) = semantics s``,
-  rpt strip_tac \\ match_mp_tac state_rel_IMP_sem_EQ_sem
+  ``!s t. (s.pc = 0) ∧ ¬s.failed /\ (t = s with code := filter_skip s.code) ==>
+          semantics t = semantics s``,
+  rw [] \\ match_mp_tac state_rel_IMP_sem_EQ_sem
   \\ fs [state_rel_def,state_component_equality,Once adjust_pc_def]);
 
 val _ = export_theory();
