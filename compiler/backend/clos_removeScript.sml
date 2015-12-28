@@ -113,19 +113,15 @@ val remove_def = tDefine "remove" `
   (remove [Letrec loc vs_opt fns x1] =
      let m = LENGTH fns in
      let (c2,l2) = remove [x1] in
-     let xls =
-       MAPi (λi (n,x).
-                if has_var i l2 ∨ ¬pure x then
-                  let (c,l) = remove [x] in
-                    ((n, HD c), Shift (n + m) l)
-                else
-                  ((n, const_0), Empty))
-            fns in
-     let (xs', frees) = FOLDR (λ(x,l) (nts,frees). x::nts, mk_Union l frees)
-                              ([], Shift m l2)
-                              xls
-     in
-       ([Letrec loc vs_opt xs' (HD c2)], frees)) ∧
+       if no_overlap m l2 then
+         ([Let (REPLICATE m const_0) (HD c2)], Shift m l2)
+       else
+         let res = MAP (λ(n,x). let (c,l) = remove [x] in
+                                  ((n,HD c),Shift (n + m) l)) fns in
+         let c1 = MAP FST res in
+         let l1 = list_mk_Union (MAP SND res) in
+           ([Letrec loc vs_opt c1 (HD c2)],
+            mk_Union l1 (Shift (LENGTH fns) l2))) /\
   (remove [Handle x1 x2] =
      let (c1,l1) = remove [x1] in
      let (c2,l2) = remove [x2] in

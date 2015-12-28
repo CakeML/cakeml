@@ -201,6 +201,12 @@ val LIST_RELi_thm = Q.store_thm(
 
 (* -- *)
 
+val fv_REPLICATE = Q.store_thm(
+  "fv_REPLICATE[simp]",
+  `fv n (REPLICATE m e) ⇔ 0 < m ∧ fv n [e]`,
+  Induct_on `m` >> simp[REPLICATE, fv_def] >>
+  simp[SimpLHS, Once fv_CONS] >> metis_tac[]);
+
 val remove_fv = Q.store_thm("remove_fv",
   `∀xs cs l. remove xs = (cs, l) ⇒ ∀n. fv n cs ⇔ has_var n l`,
   ho_match_mp_tac remove_ind >> simp[remove_def, fv_def, UNCURRY] >>
@@ -234,20 +240,17 @@ val remove_fv = Q.store_thm("remove_fv",
       imp_res_tac remove_SING >> rw[])
   >- (qcase_tac `FST (remove[e])` >> Cases_on `remove[e]` >> fs[] >>
       imp_res_tac remove_SING >> rw[] >>
-      simp[FOLDR_UNZIP, FPAIR, FST_UNZIP_MAPi, SND_UNZIP_MAPi,
-           combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R, EXISTS_MEM,
-           MEM_MAPi] >> dsimp[] >>
-      simp_tac (srw_ss() ++ COND_elim_ss) [] >>
-      qcase_tac `has_var (n + LENGTH fns) res` >>
-      Cases_on `has_var (n + LENGTH fns) res` >> simp[] >>
-      eq_tac >> dsimp[] >> qx_gen_tac `i` >>
-      `∃m ee. EL i fns = (m,ee)` by (Cases_on `EL i fns` >> simp[]) >>
-      asm_simp_tac (srw_ss() ++ COND_elim_ss) [const_0_def, fv_def] >>
-      Cases_on `remove[ee]` >> fs[] >> imp_res_tac remove_SING >> rw[] >>
-      qexists_tac `i` >> simp[] >>
-      `MEM (m,ee) fns` by metis_tac[MEM_EL] >>
-      first_x_assum (qspecl_then [`m`, `ee`, `i`] mp_tac) >>
-      simp[] >> strip_tac >> lfs[])
+      qcase_tac `no_overlap (LENGTH fns) e'frees` >>
+      Cases_on `no_overlap (LENGTH fns) e'frees` >> fs[] >> rw[]
+      >- (simp[fv_def, LENGTH_REPLICATE, const_0_def]) >>
+      simp[fv_def, MAP_MAP_o, pairTheory.o_UNCURRY_R, combinTheory.o_ABS_R] >>
+      dsimp[EXISTS_MEM, MEM_MAP, EXISTS_PROD] >>
+      qcase_tac `has_var (n + LENGTH fns)` >>
+      Cases_on `has_var (n + LENGTH fns) e'frees` >> simp[] >>
+      eq_tac >> dsimp[] >> qx_genl_tac [`m`, `fb`] >> strip_tac >>
+      first_x_assum (qspecl_then [`m`, `fb`] mp_tac) >> simp[] >>
+      Cases_on `remove [fb]` >> simp[] >> imp_res_tac remove_SING >> rw[] >>
+      fs[] >> metis_tac[SND,FST,HD])
   >- (qcase_tac `FST (remove[e])` >> Cases_on `remove [e]` >> fs[] >>
       imp_res_tac remove_SING >> rw[] >>
       qcase_tac `FST (remove[e2])` >> Cases_on `remove [e2]` >> fs[] >>
@@ -1143,6 +1146,17 @@ val every_Fn_vs_NONE_remove = Q.store_thm("every_Fn_vs_NONE_remove",
   fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM,MEM_EL,PULL_EXISTS] >>
   metis_tac[remove_SING,HD,SND,PAIR]);
 
+val evaluate_REPconst0s = Q.store_thm(
+  "evaluate_REPconst0s",
+  `evaluate (REPLICATE N const_0, E, s) = (Rval (REPLICATE N (Number 0)), s)`,
+  simp[const_0_def] >> Induct_on `N` >> simp[evaluate_def, REPLICATE] >>
+  simp[Once evaluate_CONS] >> simp[evaluate_def, do_app_def]);
+
+val no_overlap_DISJOINT = Q.store_thm(
+  "no_overlap_DISJOINT",
+  `no_overlap n l ⇔ DISJOINT (count n) { v | has_var v l }`,
+  Induct_on `n` >> simp[no_overlap_def, COUNT_SUC] >> metis_tac[]);
+
 val remove_correct = Q.store_thm("remove_correct",
   `∀es es' s.
     every_Fn_vs_NONE es ⇒
@@ -1198,10 +1212,36 @@ val remove_correct = Q.store_thm("remove_correct",
        fs[LIST_REL_EL_EQN] >> irule (CONJUNCT1 val_rel_mono) >>
        qexists_tac `i` >> simp[] >> imp_res_tac evaluate_clock >> lfs[]) >>
   TRY (qcase_tac`Letrec` >>
-       lfs[FOLDR_UNZIP, FPAIR, PAIR_MAP, FST_UNZIP_MAPi, SND_UNZIP_MAPi,
-           combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R
-          ] >> rpt var_eq_tac >>
-       asm_simp_tac (srw_ss() ++ COND_elim_ss) [] >> cheat) >>
+       lfs[MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R] >>
+       qcase_tac `remove [body] = ([body'], body'frees)` >>
+       Cases_on `no_overlap (LENGTH fns) body'frees` >> fs[]
+       >- (rw[] >> simp[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+           qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >> strip_tac >>
+           qx_gen_tac `j` >> strip_tac >>
+           simp[evaluate_def, evaluate_REPconst0s] >> rw[] >>
+           irule unused_vars_correct2 >> simp[]
+           >- metis_tac[every_Fn_vs_NONE_remove] >>
+           map_every qexists_tac
+             [`i`, `IMAGE ((+) (LENGTH fns)) UNIV`] >> simp[] >>
+           conj_tac
+           >- (fs[no_overlap_DISJOINT] >> qx_gen_tac `V` >>
+               first_assum (assume_tac o MATCH_MP remove_fv) >>
+               strip_tac >> `has_var V body'frees` by rfs[] >>
+               fs[DISJOINT_DEF, EXTENSION] >>
+               `¬(V < LENGTH fns)` by metis_tac[] >>
+               qexists_tac `V - LENGTH fns` >> simp[]) >>
+           irule LIST_RELi_APPEND_I
+           >- simp[LIST_RELi_EL, LENGTH_REPLICATE] >>
+           fs[LIST_REL_EL_EQN, LIST_RELi_EL]) >>
+       rw[] >> simp[UNCURRY] >>
+       FIRST (map irule (List.drop(CONJUNCTS compat, 2))) >> simp[] >>
+       fs[Once every_Fn_vs_NONE_EVERY, LIST_REL_EL_EQN, EL_MAP, EVERY_MEM,
+          MEM_MAP, PULL_EXISTS, FORALL_PROD] >>
+       qx_gen_tac `mm` >> strip_tac >>
+       `∃mn mf. EL mm fns = (mn, mf)` by metis_tac[pair_CASES] >> fs[] >>
+       `∃mf' mf'frees. remove [mf] = ([mf'], mf'frees)`
+          by metis_tac[remove_SING, pair_CASES] >> simp[] >>
+       metis_tac[MEM_EL]) >>
  metis_tac[compat]);
 
 val k_intro = Q.prove(`(λn. x) = K x`, simp[FUN_EQ_THM])
@@ -1276,62 +1316,46 @@ val remove_distinct_locs = Q.store_thm("remove_distinct_locs",
       fs[SUBSET_DEF] >> metis_tac[])
   >- ((* Letrec *) qccase `remove[body]` >> imp_res_tac remove_SING >>
       var_eq_tac >> fs[code_locs_FST_remove_sing] >>
-      simp[FOLDR_UNZIP, ALL_DISTINCT_APPEND, FPAIR, FST_UNZIP_MAPi,
-           combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R, MAP_MAPi,
-           code_locs_MAPi, MEM_FLAT, PULL_EXISTS, MEM_MAPi, DISJ_IMP_THM,
-           ALL_DISTINCT_FLAT, EL_MAPi, SUBSET_DEF, MEM_GENLIST] >>
-      simp_tac (srw_ss() ++ COND_elim_ss) [UNCURRY_SND] >> rpt strip_tac
-      >- (simp[code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP, PULL_EXISTS,
-               EXISTS_PROD] >>
-          qccase `EL ii fns` >> fs[] >> metis_tac[MEM_EL, SUBSET_DEF])
-      >- (simp[code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP, PULL_EXISTS,
-               EXISTS_PROD] >>
-          qccase `EL ii fns` >> fs[] >> metis_tac[MEM_EL, SUBSET_DEF])
-      >- metis_tac[SUBSET_DEF]
-      >- (lfs[code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP, PULL_EXISTS,
-              ALL_DISTINCT_FLAT, EL_MAP] >>
-          qccase `EL ii fns` >> fs[] >> metis_tac[MEM_EL, SND])
-      >- (qcase_tac `jj < LENGTH fns` >> qcase_tac `ii < jj` >>
-          qccase `EL jj fns` >>
-          lfs[code_locs_FLAT_MAP, ALL_DISTINCT_FLAT, EL_MAP] >>
-          qccase `EL ii fns`  >> fs[] >>
-          qcase_tac `EL jj fns = (jN, jfn)` >>
-          qcase_tac `EL ii fns = (iN, ifn)` >>
-          `MEM (jN,jfn) fns ∧ MEM (iN,ifn) fns`
-            by metis_tac[MEM_EL, LESS_TRANS] >>
-          fs[SUBSET_DEF] >> metis_tac[SND])
-      >- (qcase_tac `jj < LENGTH fns` >> qcase_tac `ii < jj` >>
-          qccase `EL jj fns` >>
-          lfs[code_locs_FLAT_MAP, ALL_DISTINCT_FLAT, EL_MAP] >>
-          qccase `EL ii fns`  >> fs[] >>
-          qcase_tac `EL jj fns = (jN, jfn)` >>
-          qcase_tac `EL ii fns = (iN, ifn)` >>
-          `MEM (jN,jfn) fns ∧ MEM (iN,ifn) fns`
-            by metis_tac[MEM_EL, LESS_TRANS] >>
-          fs[SUBSET_DEF] >> metis_tac[SND])
-      >- (first_x_assum irule >>
-          simp[code_locs_FLAT_MAP, MEM_FLAT, PULL_EXISTS, MEM_MAP,
-               EXISTS_PROD] >>
-          qccase `EL i fns` >> fs[] >> metis_tac[MEM_EL, SUBSET_DEF])
-      >- (first_x_assum irule >>
-          simp[code_locs_FLAT_MAP, MEM_FLAT, PULL_EXISTS, MEM_MAP,
-               EXISTS_PROD] >>
-          qccase `EL i fns` >> fs[] >> metis_tac[MEM_EL, SUBSET_DEF])
-      >- (fs[FORALL_AND_THM, code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP,
-             PULL_EXISTS] >>
-          qccase `EL i fns` >> fs[] >>
-          metis_tac[MEM_EL, SUBSET_DEF, SND])
-      >- (fs[FORALL_AND_THM, code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP,
-             PULL_EXISTS] >>
-          qccase `EL i fns` >> fs[] >>
-          metis_tac[MEM_EL, SUBSET_DEF, SND])
-      >- (fs[FORALL_AND_THM] >> metis_tac[SUBSET_DEF]))
+      rw[]
+      >- fs[SUBSET_DEF]
+      >- (simp[MAP_MAP_o, combinTheory.o_ABS_R, pairTheory.o_UNCURRY_R,
+               UNCURRY] >>
+          qmatch_abbrev_tac `S1 ⊆ S2 ∪ _ ∪ _` >>
+          `S1 ⊆ S2` suffices_by simp[SUBSET_DEF] >>
+          simp[Abbr`S1`, Abbr`S2`, SUBSET_DEF] >>
+          dsimp[code_locs_FLAT_MAP, MEM_FLAT, MEM_MAP, FORALL_PROD,
+                EXISTS_PROD] >> fs[SUBSET_DEF]>> metis_tac[])
+      >- simp[SUBSET_DEF]
+      >- fs[SUBSET_DEF]
+      >- fs[ALL_DISTINCT_APPEND]
+      >- (simp[ALL_DISTINCT_APPEND, MAP_MAP_o, combinTheory.o_ABS_R,
+               pairTheory.o_UNCURRY_R] >> simp[UNCURRY] >>
+          simp[MEM_GENLIST] >> fs[ALL_DISTINCT_APPEND] >> dsimp[] >>
+          simp[code_locs_FLAT_MAP, ALL_DISTINCT_FLAT, EL_MAP, MEM_MAP] >>
+          dsimp[FORALL_PROD, MEM_FLAT, MEM_MAP] >> rpt strip_tac
+          >- (fs[ALL_DISTINCT_FLAT, code_locs_FLAT_MAP, MEM_MAP, PULL_EXISTS,
+                 FORALL_PROD] >> metis_tac[])
+          >- (lfs[ALL_DISTINCT_FLAT, code_locs_FLAT_MAP, MEM_MAP, PULL_EXISTS,
+                  FORALL_PROD, UNCURRY, EL_MAP] >>
+              qcase_tac `bb < LENGTH fns` >>
+              qcase_tac `aa < bb` >>
+              `(∃aan aaf. EL aa fns = (aan, aaf)) ∧
+               (∃bbn bbf. EL bb fns = (bbn, bbf))` by metis_tac[PAIR] >>
+              fs[] >> `aa < LENGTH fns` by simp[] >>
+              metis_tac[SUBSET_DEF, MEM_EL, FST, SND])
+          >- (lfs[MEM_GENLIST, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS,
+                  code_locs_FLAT_MAP, MEM_MAP, MEM_FLAT, FORALL_PROD] >>
+              metis_tac[SUBSET_DEF])
+          >- (lfs[code_locs_FLAT_MAP, MEM_MAP, MEM_FLAT, FORALL_PROD,
+                  DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+              metis_tac[SUBSET_DEF])
+          >- (lfs[MEM_GENLIST, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS] >>
+              metis_tac[SUBSET_DEF])))
   >- ((* handle *)
       qccase `remove [E1]` >> imp_res_tac remove_SING >> var_eq_tac >> fs[] >>
       qccase `remove [E2]` >> imp_res_tac remove_SING >> var_eq_tac >> fs[] >>
       fs[SUBSET_DEF, ALL_DISTINCT_APPEND] >> metis_tac[])
   >- ((* call *) qccase `remove args` >> fs[]))
-
 
 val every_Fn_SOME_const_0 = Q.store_thm("every_Fn_SOME_const_0[simp]",
   `every_Fn_SOME [const_0]`,
