@@ -996,13 +996,61 @@ val MAP_SND_MAP_FST = prove(
   ``!xs f. MAP SND (MAP_FST f xs) = MAP SND xs``,
   Induct \\ fs [MAP,MAP_FST_def,FORALL_PROD]);
 
-(*TODO: join_stacks removed
+val read_bitmap_not_empty = prove(``
+  read_bitmap stack = SOME a ⇒
+  stack ≠ []``,
+  rw[]>>CCONTR_TAC>>
+  fs[]>>
+  fs[read_bitmap_def])
+
 val enc_stack_lemma = prove(
-  ``!xs aa joined.
-      abs_stack ys = SOME aa /\
-      join_stacks xs aa = SOME joined /\
-      joined_ok k joined n ==>
-      enc_stack ys = SOME (enc_stack xs)``,
+  ``∀wstack sstack stack.
+      abs_stack wstack sstack = SOME stack ∧
+      stack_rel_aux k len wstack stack ⇒
+      enc_stack sstack = SOME (enc_stack wstack)``,
+  ho_match_mp_tac (theorem "abs_stack_ind")>>
+  fs[enc_stack_def]>>
+  rw[]>>
+  fs[Once stackSemTheory.enc_stack_def,abs_stack_def]>>
+  qpat_assum`A=SOME stack` mp_tac>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    (PairCases_on`x`>>fs[read_bitmap_not_empty,LET_THM]>>
+    TOP_CASE_TAC>>strip_tac>>
+    pop_assum (assume_tac o SYM)>>
+    fs[stack_rel_aux_def]>>
+    imp_res_tac filter_bitmap_lemma>>
+    fs[]>>rfs[]>>
+    qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
+    IF_CASES_TAC
+    >-
+      fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
+    >>
+    ntac 6 TOP_CASE_TAC>>fs[]>>
+    simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST])
+  >>
+    (PairCases_on`x`>>fs[read_bitmap_not_empty,LET_THM]>>
+    ntac 3 TOP_CASE_TAC>>fs[]>>
+    `filter_bitmap [F; F] x2 = SOME ([],DROP 2 x2)` by
+      (Cases_on `x2` >> fs []>>Cases_on`t`>>fs[filter_bitmap_def])>>
+    TOP_CASE_TAC>>
+    PairCases_on`x`>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    simp[Once stackSemTheory.enc_stack_def,read_bitmap_not_empty]>>
+    strip_tac>>pop_assum (assume_tac o SYM)>>
+    PairCases_on`sstack`>>
+    fs[stack_rel_aux_def]>>
+    imp_res_tac filter_bitmap_lemma>>
+    fs[]>>rfs[]>>
+    qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
+    IF_CASES_TAC
+    >-
+      fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
+    >>
+    ntac 6 TOP_CASE_TAC>>fs[]>>
+    simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]));
+
+  (*
   completeInduct_on `LENGTH ys` \\ NTAC 2 strip_tac \\ fs [PULL_FORALL]
   \\ pop_assum (K all_tac)
   \\ once_rewrite_tac [abs_stack_def]
@@ -1053,7 +1101,7 @@ val enc_stack_lemma = prove(
   \\ match_mp_tac IMP_IMP \\ strip_tac
   THEN1 (imp_res_tac read_bitmap_LENGTH \\ fs [LENGTH_DROP] \\ decide_tac)
   \\ rpt strip_tac \\ fs []);
-
+  *)
 val IMP_enc_stack = prove(
   ``state_rel k 0 0 s1 t1 ==>
     (enc_stack (DROP t1.stack_space t1.stack) = SOME (enc_stack s1.stack))``,
@@ -1081,6 +1129,7 @@ val gc_state_rel = prove(
   \\ rw [] \\ fs [stackSemTheory.gc_def]
   \\ `~(LENGTH t1.stack < t1.stack_space)` by
          (fs [state_rel_def] \\ decide_tac)
+
   \\ imp_res_tac IMP_enc_stack \\ fs [LET_DEF]
   \\ `t1.memory = s1.memory /\ t1.mdomain = s1.mdomain /\
       t1.gc_fun = s1.gc_fun /\ gc_fun_ok s1.gc_fun` by fs [state_rel_def] \\ fs []
@@ -1093,7 +1142,6 @@ val gc_state_rel = prove(
   \\ rfs [FLOOKUP_DEF] \\ rw[]
   THEN1 (fs [fmap_EXT,EXTENSION,DOMSUB_FAPPLY_THM] \\ metis_tac [])
   \\ fs [DROP_APPEND,DROP_TAKE_NIL]);
-*)
 
 val alloc_alt = prove(
   ``FST (alloc c names (s:('a,'ffi) wordSem$state)) <> SOME (Error:'a result) ==>
@@ -1266,8 +1314,7 @@ val alloc_IMP_alloc = prove(
       if res = NONE then
         res1 = NONE /\ state_rel k f f' s1 t1
       else
-        res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w))``,cheat)
-  (*
+        res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w))``,
   Cases_on `FST (alloc c names (s:('a,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
@@ -1283,7 +1330,8 @@ val alloc_IMP_alloc = prove(
   \\ Q.MATCH_ASSUM_RENAME_TAC `pop_env s2 = SOME s3`
   \\ `state_rel k f f' s3 t2` by ALL_TAC
   THEN1
-    (imp_res_tac gc_s_key_eq>>
+    cheat
+    (*imp_res_tac gc_s_key_eq>>
     fs[set_store_def]>>
     imp_res_tac push_env_pop_env_s_key_eq>>
     imp_res_tac gc_frame>>
@@ -1315,7 +1363,7 @@ val alloc_IMP_alloc = prove(
     disch_then (assume_tac o SYM)>>
     qpat_assum`joined_ok A B C` mp_tac>>
     PairCases_on`h`>>simp[joined_ok_def]>>
-    cheat)
+    cheat*)
       (* continue here --
         need to prove that gc doesn't change the shape of the
         stack frame (stackSem) or the var names in env (wordSem) *)
@@ -1327,7 +1375,6 @@ val alloc_IMP_alloc = prove(
   \\ fs [has_space_def,stackSemTheory.has_space_def]
   \\ EVERY_CASE_TAC
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []);
-*)
 
 val get_var_set_var = prove(``
   stackSem$get_var k (set_var k v st) = SOME v``,
