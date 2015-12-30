@@ -6,6 +6,11 @@ open preamble BasicProvers
 
 val _ = new_theory "word_to_stackProof";
 
+val clock_add_0 = store_thm("clock_add_0[simp]",
+  ``((t with clock := t.clock + 0) = t:('a,'ffi) stackSem$state) /\
+    ((t with clock := t.clock) = t:('a,'ffi) stackSem$state)``,
+  fs [stackSemTheory.state_component_equality]);
+
 val DROP_DROP_EQ = store_thm("DROP_DROP_EQ",
   ``!n m xs. DROP m (DROP n xs) = DROP (m + n) xs``,
   Induct \\ fs [] \\ Cases_on `xs` \\ fs []
@@ -368,8 +373,8 @@ val state_rel_def = Define `
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
        (lookup n t.code = SOME (word_to_stack$compile_prog word_prog arg_count k))) /\
-    (lookup 0 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
-    t.stack_space + f <= LENGTH t.stack /\
+    (lookup 5 t.code = SOME (raise_stub k)) /\ 8 <= dimindex (:'a) /\
+    t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
     (if f' = 0 then f = 0 else (f = f' + f' DIV (dimindex (:'a) - 1) + 1)) /\
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack*)
@@ -1389,24 +1394,35 @@ val compile_result_def = Define`
   (compile_result Error = Error)`;
 val _ = export_rewrites["compile_result_def"];
 
-val compile_correct = prove(
+val Halt_EQ_compile_result = prove(
+  ``Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace``,
+  Cases_on `z` \\ fs []);
+
+val stack_evaluate_add_clock_NONE =
+  stackPropsTheory.evaluate_add_clock
+  |> Q.SPECL [`p`,`s`,`NONE`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL
+
+val compile_correct = store_thm("compile_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
       max_var prog <= 2 * f' + 2 * k /\ 1 <= f ==>
-      ?t1 res1. (stackSem$evaluate (comp prog (k,f,f'),t) = (res1,t1)) /\
-                if OPTION_MAP compile_result res <> res1 then (res1 = SOME (Halt (Word 1w))) else
-                  case res of
-                  | NONE => state_rel k f f' s1 t1
-                  | SOME (Result _ _) => state_rel k 0 0 s1 t1
-                  | SOME (Exception _ _) => state_rel k 0 0 s1 t1
-                  | SOME _ => T``,
+      ?ck t1 res1.
+        (stackSem$evaluate (comp prog (k,f,f'),t with clock := t.clock + ck) = (res1,t1)) /\
+        if OPTION_MAP compile_result res <> res1
+        then (res1 = SOME (Halt (Word 1w))) else
+          case res of
+          | NONE => state_rel k f f' s1 t1
+          | SOME (Result _ _) => state_rel k 0 0 s1 t1
+          | SOME (Exception _ _) => state_rel k 0 0 s1 t1
+          | SOME _ => T``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)
-   (fs [wordSemTheory.evaluate_def,
+   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw [])
   THEN1 (* Alloc *)
-   (fs [wordSemTheory.evaluate_def,
+   (qexists_tac `0`
+    \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw []
     \\ `n = 2` by (fs [convs_def]) \\ rw []
     \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
@@ -1438,26 +1454,33 @@ val compile_correct = prove(
   THEN1 (* Set *) cheat
   THEN1 (* Store *) cheat
   THEN1 (* Tick *)
-   (fs [wordSemTheory.evaluate_def,
+   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw []
     \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs [] \\ rw []
     \\ fs [state_rel_def,wordSemTheory.dec_clock_def,stackSemTheory.dec_clock_def])
   THEN1 (* Seq *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
-    \\ Cases_on `evaluate (c1,s)` \\ fs []
+    \\ split_pair_tac \\ fs []
     \\ `max_var c1 <= 2 * f' + 2 * k /\ max_var c2 <= 2 * f' + 2 * k` by
       (fs [word_allocTheory.max_var_def] \\ decide_tac)
     \\ `post_alloc_conventions k c1 /\
         post_alloc_conventions k c2` by fs [convs_def]
-    \\ first_x_assum (mp_tac o Q.SPECL [`k`,`f`,`f'`,`t`])
-    \\ Cases_on `q = SOME Error` \\ fs []
-    \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `q` \\ fs []
-    \\ Cases_on `res1` \\ fs [] \\ rw []
-    \\ every_case_tac >> fs[])
+    \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
+    THEN1
+     (first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+      \\ qexists_tac `ck` \\ fs [] \\ Cases_on `res` \\ fs []
+      \\ Cases_on `res1 = NONE` \\ fs [])
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
+     (qexists_tac `ck` \\ fs [Halt_EQ_compile_result]
+      \\ every_case_tac \\ fs [])
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
+    \\ pop_assum (qspec_then `ck'` assume_tac)
+    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC])
   THEN1 (* Return *)
-   (fs [wordSemTheory.evaluate_def,LET_DEF,
+   (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,wReg1_def]
     \\ Cases_on `get_var n s` \\ fs []
     \\ Cases_on `get_var m s` \\ fs [] \\ rw []
@@ -1508,23 +1531,39 @@ val compile_correct = prove(
     \\ imp_res_tac DROP_DROP \\ fs []
     \\ cheat (* after stackSem got its own result type *))
   THEN1 (* Raise *)
-   (fs [wordSemTheory.evaluate_def,LET_DEF,
+   (fs [wordSemTheory.evaluate_def,jump_exc_def]
+    \\ qpat_assum `xxx = (aa,bb)` mp_tac
+    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+    \\ pop_assum mp_tac
+    \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
+    \\ qexists_tac `1`
+    \\ qcase_tac `LAST_N (s.handler + 1) s.stack =
+          StackFrame l (SOME (h1,l3,l4))::rest`
+    \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,jump_exc_def,
-        stackSemTheory.find_code_def]>>
-    qpat_assum`state_rel k f f' s t` mp_tac>>simp[Once state_rel_def]>>
-    strip_tac>>
-    IF_CASES_TAC>-
-      (*Clock mismatch due to tick!*)
-      cheat
-    >>
-    fs[raise_stub_def,stackSemTheory.evaluate_def,stackSemTheory.dec_clock_def,stack_rel_def,LET_THM,get_var_set_var]>>
-    simp[handler_val_def,stackSemTheory.set_var_def]>>
-    cheat)
+        stackSemTheory.find_code_def]
+    \\ `lookup 5 t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
+    \\ pop_assum kall_tac
+    \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,word_allocTheory.max_var_def]
+    \\ fs [stackSemTheory.evaluate_def,state_rel_def,stack_rel_def,LET_DEF,
+           get_var_set_var]
+    \\ fs [stackSemTheory.set_var_def]
+    \\ `(LENGTH t.stack − handler_val (LASTN s.handler stack)) < dimword (:'a)`
+         by decide_tac \\ fs []
+    \\ `LENGTH t.stack - handler_val (LASTN s.handler stack) + 3 <= LENGTH t.stack`
+         by cheat
+    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,stackSemTheory.set_store_def]
+    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE]
+    \\ `EL (LENGTH t.stack - handler_val (LASTN s.handler stack) + 1)
+           t.stack = Loc l3 l4` by cheat \\ fs [FLOOKUP_UPDATE]
+    \\ cheat)
   THEN1 (* If *) cheat
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
-
-val _ = save_thm("compile_correct",compile_correct);
 
 val compile_semantics = store_thm("compile_semantics",
   ``state_rel k f f' s t /\ semantics s start <> Fail /\ 1 <= f ==>

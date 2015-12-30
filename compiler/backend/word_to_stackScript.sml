@@ -47,9 +47,8 @@ val wMoveSingle_def = Define `
     | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
     | (INL r1, INR r2) => StackLoad r1 (f-1 - (r2 - k))
     | (INR r1, INL r2) => StackStore r2 (f-1 - (r1 - k))
-    | (INL r1, INL r2) => Seq (StackLoad (k+1) (f-1 - (r2 -k)))
+    | (INR r1, INR r2) => Seq (StackLoad (k+1) (f-1 - (r2 -k)))
                               (StackStore (k+1) (f-1 - (r1 - k)))`
-
 
 val wMoveAux_def = Define `
   (wMoveAux [] kf = Skip) /\
@@ -150,7 +149,7 @@ val comp_def = Define `
   (comp (Return v1 v2) kf =
      let (xs,x) = wReg1 v1 kf in
        wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1))) /\
-  (comp (Raise v) kf = Call NONE (INL 0) NONE) /\
+  (comp (Raise v) kf = Call NONE (INL 5) NONE) /\
   (comp (Tick) kf = Tick) /\
   (comp (Seq p1 p2) kf =
      let q2 = comp p2 kf in
