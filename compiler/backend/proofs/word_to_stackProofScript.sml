@@ -6,6 +6,12 @@ open preamble BasicProvers
 
 val _ = new_theory "word_to_stackProof";
 
+(* TODO: remove LAST_N, only use LASTN *)
+
+val LAST_N_EQ_LASTN = store_thm("LAST_N_EQ_LASTN[simp]",
+  ``!n xs. LAST_N n xs = LASTN n xs``,
+  cheat);
+
 val clock_add_0 = store_thm("clock_add_0[simp]",
   ``((t with clock := t.clock + 0) = t:('a,'ffi) stackSem$state) /\
     ((t with clock := t.clock) = t:('a,'ffi) stackSem$state)``,
@@ -1388,7 +1394,7 @@ val get_var_set_var = prove(``
 
 val compile_result_def = Define`
   (compile_result (Result w1 w2) = Result w1) ∧
-  (compile_result (Exception w1 w2) = Exception w2) ∧
+  (compile_result (Exception w1 w2) = Exception w1) ∧
   (compile_result TimeOut = TimeOut) ∧
   (compile_result NotEnoughSpace = Halt (Word 1w)) ∧
   (compile_result Error = Error)`;
@@ -1402,6 +1408,35 @@ val stack_evaluate_add_clock_NONE =
   stackPropsTheory.evaluate_add_clock
   |> Q.SPECL [`p`,`s`,`NONE`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL
 
+val push_locals_def = Define `
+  push_locals s = s with <| locals := LN;
+    stack := StackFrame (toAList s.locals) NONE :: s.stack |>`
+
+val stack_rel_raise = prove(
+  ``LASTN (s.handler + 1) s.stack = StackFrame l (SOME (h1,l3,l4))::rest /\
+    abs_stack s.stack (DROP n t.stack) = SOME stack /\
+    stack_rel_aux k (LENGTH t.stack) s.stack stack ==>
+    ?ex payload.
+      LASTN (s.handler+1) stack = (SOME ex,payload) :: LASTN s.handler stack /\
+      3 <= LENGTH t.stack /\ 3 <= handler_val (LASTN s.handler stack) /\
+      h1 <= LENGTH rest ∧
+      EL (LENGTH t.stack - handler_val (LASTN s.handler stack) + 1)
+            t.stack = Loc l3 l4 /\
+      EL (LENGTH t.stack − handler_val (LASTN s.handler stack) + 2) t.stack =
+          Word (n2w
+            (LENGTH t.stack - handler_val (LASTN h1 (LASTN s.handler stack)))) /\
+      stack_rel_aux k (LENGTH t.stack)
+        (StackFrame (toAList (fromAList l)) NONE::rest)
+            ((NONE,payload) :: LASTN s.handler stack) /\
+      abs_stack (StackFrame (toAList (fromAList l)) NONE::rest)
+        (DROP (LENGTH t.stack - handler_val (LASTN s.handler stack) + 3)
+           t.stack) = SOME ((NONE,payload) :: LASTN s.handler stack)``,
+  cheat);
+
+val IMP_LENGTH_LASTN = prove(
+  ``LASTN (n + 1) xs = y::ys ==> LENGTH ys = n``,
+  cheat);
+
 val compile_correct = store_thm("compile_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -1414,7 +1449,7 @@ val compile_correct = store_thm("compile_correct",
           case res of
           | NONE => state_rel k f f' s1 t1
           | SOME (Result _ _) => state_rel k 0 0 s1 t1
-          | SOME (Exception _ _) => state_rel k 0 0 s1 t1
+          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1
           | SOME _ => T``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
   THEN1 (* Skip *)
@@ -1537,7 +1572,7 @@ val compile_correct = store_thm("compile_correct",
     \\ pop_assum mp_tac
     \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
     \\ qexists_tac `1`
-    \\ qcase_tac `LAST_N (s.handler + 1) s.stack =
+    \\ qcase_tac `LASTN (s.handler + 1) s.stack =
           StackFrame l (SOME (h1,l3,l4))::rest`
     \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,jump_exc_def,
@@ -1545,22 +1580,23 @@ val compile_correct = store_thm("compile_correct",
     \\ `lookup 5 t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
     \\ pop_assum kall_tac
     \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,word_allocTheory.max_var_def]
-    \\ fs [stackSemTheory.evaluate_def,state_rel_def,stack_rel_def,LET_DEF,
-           get_var_set_var]
+    \\ fs [stackSemTheory.evaluate_def,state_rel_def,LET_DEF]
+    \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def,LET_DEF,get_var_set_var]
     \\ fs [stackSemTheory.set_var_def]
-    \\ `(LENGTH t.stack − handler_val (LASTN s.handler stack)) < dimword (:'a)`
+    \\ `(LENGTH t.stack - handler_val (LASTN s.handler stack)) < dimword (:'a)`
          by decide_tac \\ fs []
     \\ `LENGTH t.stack - handler_val (LASTN s.handler stack) + 3 <= LENGTH t.stack`
-         by cheat
+         by (imp_res_tac stack_rel_raise \\ decide_tac)
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,stackSemTheory.set_store_def]
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
-    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE]
-    \\ `EL (LENGTH t.stack - handler_val (LASTN s.handler stack) + 1)
-           t.stack = Loc l3 l4` by cheat \\ fs [FLOOKUP_UPDATE]
-    \\ cheat)
+    \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,push_locals_def,lookup_def]
+    \\ imp_res_tac stack_rel_raise \\ fs [FLOOKUP_UPDATE]
+    \\ `h1 <= SUC (LENGTH rest)` by decide_tac \\ fs []
+    \\ `h1 <= LENGTH (LASTN s.handler stack)` by all_tac \\ fs [LASTN_CONS]
+    \\ imp_res_tac IMP_LENGTH_LASTN \\ fs [])
   THEN1 (* If *) cheat
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
