@@ -1710,6 +1710,42 @@ val EL_REVERSE_REWRITE = prove(``
   `LENGTH l - (n- k-1) = LENGTH l -n +k +1` by DECIDE_TAC>>
   fs[GSYM ADD1])
 
+(*Strengthened version of LASTN_DROP after change to make it total*)
+val LASTN_DROP2 = prove(``
+  ∀l n.
+  LASTN n l = DROP (LENGTH l -n) l``,
+  Induct>>fs[LASTN_def]>>
+  rw[TAKE_APPEND]
+  >-
+    `¬ (n ≤ LENGTH l)` by DECIDE_TAC
+  >-
+    (fs[ADD1]>>
+    `LENGTH l +1 - n -1 = LENGTH l -n` by DECIDE_TAC>>
+    fs[])
+  >-
+    (`LENGTH l -n = 0` by DECIDE_TAC >>
+    pop_assum SUBST_ALL_TAC>>fs[DROP])
+  >>
+    `n = LENGTH l` by DECIDE_TAC>>
+    simp[])
+
+val LASTN_LESS = prove(``
+  ∀ls n x xs.
+  n+1 ≤ LENGTH ls ∧
+  LASTN (n+1) ls = x::xs ⇒
+  LASTN n ls = xs``,
+  Induct>>rw[]>>
+  Cases_on`n+1 ≤ LENGTH ls`>>fs[]
+  >-
+    (fs[LASTN_CONS]>>
+    res_tac>>fs[]>>
+    `n ≤ LENGTH ls` by (fs[]>>decide_tac)>>
+    fs[LASTN_CONS])
+  >>
+  `n = LENGTH ls` by DECIDE_TAC>>
+  `n+1 = LENGTH (h::ls)` by (fs[]>>DECIDE_TAC)>>
+  imp_res_tac LASTN_LENGTH_ID2>>
+
 val stack_rel_raise = prove(``
     handler+1 ≤ LENGTH wstack ∧
     LASTN (handler + 1) wstack = StackFrame l (SOME (h1,l3,l4))::rest /\
@@ -1731,15 +1767,18 @@ val stack_rel_raise = prove(``
         (DROP (LENGTH sstack - handler_val (LASTN handler stack) + 3)
            sstack) = SOME ((NONE,payload) :: LASTN handler stack)``,
   rw[]>>
-  imp_res_tac stack_rel_raise_lem>>fs[]>>
-  CONJ_ASM1_TAC>-cheat>>
-  CONJ_ASM1_TAC>-cheat>>
-  imp_res_tac abs_stack_len>>
-  pop_assum(qspec_then`handler` assume_tac)>>
-  fs[]>>
-  `handler_val (LASTN handler stack) < LENGTH sstack` by DECIDE_TAC>>
-  simp[EL_REVERSE_REWRITE]>>
-  (*REVERSE seems easier to handle here, not sure*)
+  imp_res_tac abs_stack_prefix_drop>>fs[LET_THM]>>
+  Cases_on`LASTN (handler+1) stack`>>fs[stack_rel_aux_def]>>
+  PairCases_on`h`>>Cases_on`h0`>>fs[stack_rel_aux_def]>>
+  PairCases_on`x`>>fs[stack_rel_aux_def]>>
+  `toAList (fromAList l) = l` by cheat>>
+  imp_res_tac abs_stack_IMP_LENGTH>>fs[]>>
+  CONJ_TAC>- fs[LASTN_LESS]>>
+  rator_x_assum `abs_stack` mp_tac>>
+  qpat_abbrev_tac`sstack' = LASTN A B`>>
+  Cases_on`sstack'`>-cheat>>
+  simp[Once abs_stack_def]>>
+  ntac 8 TOP_CASE_TAC>>fs[]>>strip_tac>>
   cheat)
 
 val compile_correct = store_thm("compile_correct",
@@ -1908,7 +1947,7 @@ val compile_correct = store_thm("compile_correct",
     \\ `h1 <= SUC (LENGTH rest)` by decide_tac \\ fs []
     \\ `h1 <= LENGTH (LAST_N s.handler stack)` by all_tac
     \\ fs [LASTN_CONS]
-    \\ imp_res_tac IMP_LENGTH_LASTN
+    \\ imp_res_tac LASTN_LENGTH_BOUNDS>>
     \\ imp_res_tac abs_stack_IMP_LENGTH>>
     fs[])
   THEN1 (* If *) cheat
