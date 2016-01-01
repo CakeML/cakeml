@@ -13,8 +13,8 @@ val take_append_take_drop = Q.store_thm ("take_append_take_drop",
 
 val state_rel_ffi_mono = store_thm(
   "state_rel_ffi_mono[simp]",
-  ``state_rel k s1 s2 ⇒
-    state_rel k (s1 with ffi := ffi) (s2 with ffi := ffi)``,
+  ``state_rel k (s1:'ffi closSem$state) s2 ⇒
+    state_rel k (s1 with ffi := (ffi:'ffi ffi_state)) (s2 with ffi := ffi)``,
   ONCE_REWRITE_TAC [val_rel_def] >> simp[]);
 
 val exp_rel_evaluate = store_thm(
