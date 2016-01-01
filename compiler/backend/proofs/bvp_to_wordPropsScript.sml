@@ -1431,11 +1431,12 @@ val pointer_bits_def = Define ` (* pointers have tag and len bits *)
 
 val get_addr_def = Define ` (* each pointer points at the first payload value *)
   (get_addr conf n (Word w) =
-     (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) || w)) /\
-  (get_addr conf n _ = 0w)`;
+     (n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits) || w || 1w)) /\
+  (get_addr conf n _ = 1w)`;
 
 val word_addr_def = Define `
-  (word_addr conf (Data w) = w) /\
+  (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
+  (word_addr conf (Data (Word v)) = Word (v && (~1w))) /\
   (word_addr conf (Pointer n w) = Word (get_addr conf n w))`
 
 val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
