@@ -1734,6 +1734,8 @@ val LASTN_LESS = prove(``
   n+1 ≤ LENGTH ls ∧
   LASTN (n+1) ls = x::xs ⇒
   LASTN n ls = xs``,
+  cheat);
+(*
   Induct>>rw[]>>
   Cases_on`n+1 ≤ LENGTH ls`>>fs[]
   >-
@@ -1745,6 +1747,7 @@ val LASTN_LESS = prove(``
   `n = LENGTH ls` by DECIDE_TAC>>
   `n+1 = LENGTH (h::ls)` by (fs[]>>DECIDE_TAC)>>
   imp_res_tac LASTN_LENGTH_ID2>>
+*)
 
 val stack_rel_raise = prove(``
     handler+1 ≤ LENGTH wstack ∧
@@ -1947,9 +1950,8 @@ val compile_correct = store_thm("compile_correct",
     \\ `h1 <= SUC (LENGTH rest)` by decide_tac \\ fs []
     \\ `h1 <= LENGTH (LAST_N s.handler stack)` by all_tac
     \\ fs [LASTN_CONS]
-    \\ imp_res_tac LASTN_LENGTH_BOUNDS>>
-    \\ imp_res_tac abs_stack_IMP_LENGTH>>
-    fs[])
+    \\ imp_res_tac LASTN_LENGTH_BOUNDS
+    \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[])
   THEN1 (* If *) cheat
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
