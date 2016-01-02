@@ -12,6 +12,7 @@ open preamble
      word_to_stackTheory
      stack_to_labTheory
      lab_to_targetTheory
+local open initialProgramTheory in end
 
 val _ = new_theory"backend";
 
@@ -149,6 +150,11 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_mod_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (rw[] >> fs[] >> rw[] >> rfs[])));
+
+val prim_config_def = Define`
+  prim_config =
+    FST (to_dec <| source_conf := empty_config; mod_conf := empty_config |> (prim_types_program))
+    with clos_conf := <| start := clos_to_bvl$num_stubs; next_loc := clos_to_bvl$num_stubs + 1 |>`;
 
 val from_lab_def = Define`
   from_lab c p =
