@@ -9,6 +9,8 @@ open preamble initSemEnvTheory semanticsPropsTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
      bvi_to_bvpProofTheory
+     bvp_to_wordProofTheory
+local open compilerComputeLib in end
 
 (* TODO: move *)
 fun Abbrev_intro th =
@@ -120,6 +122,7 @@ val compile_correct = Q.store_thm("compile_correct",
      precondition s env c.source_conf s2 env2 ∧
      FST env2.c = [] ∧
      env2.globals = [] ∧
+     s2.ffi = ffi ∧
      s2.refs = [] ∧
      s2.defined_types = s.defined_types ∧
      s2.defined_mods = s.defined_mods ∧
@@ -314,6 +317,34 @@ val compile_correct = Q.store_thm("compile_correct",
   simp[Abbr`e3`] >>
   fs[Abbr`st3`] >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
+  rator_x_assum`from_bvl`mp_tac >>
+  rw[from_bvl_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
+  qunabbrev_tac`c''''`>>fs[] >>
+  discharge_hyps >- (
+    (clos_to_bvlProofTheory.compile_all_distinct_locs
+     |> ONCE_REWRITE_RULE[CONJ_ASSOC,CONJ_COMM]
+     |> ONCE_REWRITE_RULE[CONJ_COMM]
+     |> drule) >>
+    disch_then match_mp_tac >>
+    simp[prim_config_eq] >>
+    EVAL_TAC ) >>
+  disch_then(SUBST_ALL_TAC o SYM) >>
+  rator_x_assum`from_bvi`mp_tac >>
+  rw[from_bvi_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  qmatch_abbrev_tac`_ ⊆ _ { bviSem$semantics ffi (fromAList p3) s3 }` >>
+  (bvi_to_bvpProofTheory.compile_prog_semantics
+   |> GEN_ALL
+   |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
+   |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
+  discharge_hyps >- simp[] >>
+  disch_then (SUBST_ALL_TAC o SYM) >>
+  rator_x_assum`from_bvp`mp_tac >>
+  rw[from_bvp_def] >>
+  pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
+  (* bvp_to_wordProofTheory.compile_semantics *)
   cheat);
 
 val _ = export_theory();
