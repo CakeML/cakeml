@@ -463,7 +463,7 @@ val evaluate_def = tDefine "evaluate" `
        if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
-     | (SOME x,SOME y) => (SOME (Result x y),call_env [] s)
+     | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),call_env [] s)
      | _ => (SOME Error,s)) /\
   (evaluate (Raise n,s) =
      case get_var n s of
