@@ -233,7 +233,7 @@ val abs_stack_def = Define`
     else
       (case stack of
       (*Read next 2 elements on the stack for the handler*)
-      | hv::loc::stack =>
+      | loc::hv::stack =>
           (if stack = [Word 0w] then NONE
           else
           case read_bitmap stack of
@@ -244,7 +244,7 @@ val abs_stack_def = Define`
           let rest = DROP (LENGTH bits) rest in
             case abs_stack xs rest of
             | NONE => NONE
-            | SOME ys => SOME ((SOME(hv,loc),bits,ws,frame)::ys))
+            | SOME ys => SOME ((SOME(loc,hv),bits,ws,frame)::ys))
       | _ => NONE)) ∧
   (abs_stack _ _ = NONE)`
 
@@ -260,7 +260,7 @@ val adjust_names_def = Define `
 
 (*handler_val counts the total number of words in the list of frames*)
 val handler_val_def = Define`
-  (handler_val [] = 0n) ∧
+  (handler_val [] = 1n) ∧
   (handler_val ((NONE,_,ws,frame)::stack) =
     LENGTH ws+LENGTH frame+handler_val stack) ∧
   (handler_val ((SOME _,_,ws,frame)::stack) =
@@ -283,7 +283,7 @@ val stack_rel_aux_def = Define`
   (stack_rel_aux k len ((StackFrame l NONE)::xs) ((NONE,bits,_,frame)::stack) ⇔
     filter_bitmap bits (index_list frame k) = SOME (MAP_FST adjust_names l,[]) ∧
     stack_rel_aux k len xs stack) ∧
-  (stack_rel_aux k len ((StackFrame l (SOME (h1,l1,l2)))::xs) ((SOME(hv,loc),bits,_,frame)::stack) ⇔
+  (stack_rel_aux k len ((StackFrame l (SOME (h1,l1,l2)))::xs) ((SOME(loc,hv),bits,_,frame)::stack) ⇔
       h1 < LENGTH stack ∧
       hv = Word (n2w (len - handler_val (LASTN (h1+1) stack))) ∧
       loc = Loc l1 l2 ∧
@@ -1462,7 +1462,7 @@ val stack_rel_aux_LASTN = prove(``
 val abs_stack_to_stack_LENGTH = prove(``
   ∀wstack sstack stack.
   abs_stack wstack sstack = SOME stack ⇒
-  handler_val stack +1 = LENGTH sstack``,
+  handler_val stack = LENGTH sstack``,
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]
   >-
@@ -1514,7 +1514,7 @@ val abs_stack_prefix_drop = prove(``
   abs_stack wstack sstack = SOME stack ∧
   stack_rel_aux k len wstack stack ⇒
   let rest = LASTN h stack in
-  let srest = LASTN (handler_val rest +1) sstack in
+  let srest = LASTN (handler_val rest) sstack in
   abs_stack wrest srest = SOME rest ∧
   stack_rel_aux k len wrest rest``,
   ho_match_mp_tac (theorem "abs_stack_ind")>>
@@ -1538,7 +1538,7 @@ val abs_stack_prefix_drop = prove(``
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_assum`A=SOME(LASTN h x)` sym_sub_tac>>
       AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A +1`>>
+      qpat_abbrev_tac`length = handler_val A`>>
       Q.ISPECL_THEN [`length`,`DROP(LENGTH q)r'`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       `q'++r' = (q'++TAKE (LENGTH q) r')++DROP (LENGTH q) r'` by fs[]>>
@@ -1550,7 +1550,7 @@ val abs_stack_prefix_drop = prove(``
       pop_assum SUBST_ALL_TAC>>
       fs[LASTN_LENGTH_ID]>>
       fs[LASTN_CONS_ID]>>
-      `LASTN (handler_val (frame::x) +1) sstack = sstack` by
+      `LASTN (handler_val (frame::x)) sstack = sstack` by
         (match_mp_tac LASTN_MORE>>
         imp_res_tac read_bitmap_split>>
         imp_res_tac abs_stack_to_stack_LENGTH>>
@@ -1573,7 +1573,7 @@ val abs_stack_prefix_drop = prove(``
       imp_res_tac abs_stack_to_stack_LENGTH>>
       qpat_assum`A=SOME(LASTN h x)` sym_sub_tac>>
       AP_TERM_TAC>>
-      qpat_abbrev_tac`length = handler_val A +1`>>
+      qpat_abbrev_tac`length = handler_val A`>>
       Q.ISPECL_THEN [`length`,`DROP(LENGTH q)r'`] assume_tac LASTN_LENGTH_BOUNDS>>
       fs[LET_THM]>>
       simp[LASTN_CONS]>>
@@ -1587,7 +1587,7 @@ val abs_stack_prefix_drop = prove(``
       fs[LASTN_LENGTH_ID]>>
       fs[LASTN_CONS_ID]>>
       qpat_abbrev_tac`ls=a::b::c::d`>>
-      `LASTN (handler_val (frame::x) +1) ls = ls` by
+      `LASTN (handler_val (frame::x)) ls = ls` by
         (match_mp_tac LASTN_MORE>>
         imp_res_tac read_bitmap_split>>
         imp_res_tac abs_stack_to_stack_LENGTH>>
@@ -1599,7 +1599,7 @@ val abs_stack_prefix_drop = prove(``
 val abs_stack_len = prove(``
   ∀wstack sstack stack handler.
   abs_stack wstack sstack = SOME stack ⇒
-  handler_val (LASTN handler stack) < LENGTH sstack``,
+  handler_val (LASTN handler stack) ≤ LENGTH sstack``,
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]
   >-
@@ -1747,14 +1747,14 @@ val stack_rel_raise = prove(``
       h1 < LENGTH rest ∧
       EL (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 1)
             sstack = Loc l3 l4 /\
-      EL (LENGTH sstack − handler_val (LASTN (handler+1) stack)) sstack =
+      EL (LENGTH sstack − handler_val (LASTN (handler+1) stack) + 2) sstack =
           Word (n2w
             (LENGTH sstack - handler_val (LASTN (h1+1) (LASTN (handler+1) stack)))) /\
       stack_rel_aux k (LENGTH sstack)
         (StackFrame (FST (env_to_list (fromAList l) (K I))) NONE::rest)
             ((NONE,payload) :: LASTN handler stack) /\
       abs_stack (StackFrame (FST (env_to_list (fromAList l) (K I))) NONE::rest)
-        (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 2)
+        (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 3)
            sstack) = SOME ((NONE,payload) :: LASTN handler stack)``,
   rw[]>>
   imp_res_tac abs_stack_prefix_drop>>
@@ -1788,13 +1788,13 @@ val stack_rel_raise = prove(``
   strip_tac>>
   simp[LASTN_CONS]>>
   qpat_abbrev_tac`w = Word A`>>
-  `EL 2 ls = Loc l3 l4 ∧ EL 1 ls = w` by
+  `EL 1 ls = Loc l3 l4 ∧ EL 2 ls = w` by
     (rator_x_assum`abs_stack` mp_tac>>
     Cases_on`ls`>-simp[abs_stack_def]>>
     Cases_on`h`>>simp[abs_stack_def,LET_THM]>>
     ntac 8 TOP_CASE_TAC>>fs[])>>
   fs[Abbr`ls`,LASTN_DROP2]>>
-  qabbrev_tac`offset = (3+LENGTH h2 +LENGTH h3 +handler_val t+1)`>>
+  qabbrev_tac`offset = (3+LENGTH h2 +LENGTH h3 +handler_val t)`>>
   (*Using DROP_DROP and more assumptions on the lengths*)
   `n + offset ≤ LENGTH sstack` by
     (first_x_assum(qspec_then`handler+1` mp_tac)>>
@@ -1802,10 +1802,10 @@ val stack_rel_raise = prove(``
   `DROP (LENGTH sstack - n - offset) (DROP n sstack) =
    DROP (LENGTH sstack - offset) sstack` by
      simp[DROP_DROP]>>
-  `EL 2 (DROP (LENGTH sstack - offset) sstack) = Loc l3 l4 ∧
-   EL 1 (DROP (LENGTH sstack - offset) sstack) = w` by fs[]>>
-  `EL (2+(LENGTH sstack - offset)) sstack = Loc l3 l4 ∧
-   EL (1+(LENGTH sstack - offset)) sstack = w` by
+  `EL 1 (DROP (LENGTH sstack - offset) sstack) = Loc l3 l4 ∧
+   EL 2 (DROP (LENGTH sstack - offset) sstack) = w` by fs[]>>
+  `EL (1+(LENGTH sstack - offset)) sstack = Loc l3 l4 ∧
+   EL (2+(LENGTH sstack - offset)) sstack = w` by
      (ntac 2 (pop_assum sym_sub_tac)>>
      rw[]>>match_mp_tac (GSYM EL_DROP)>>
      unabbrev_all_tac>>
@@ -1829,8 +1829,8 @@ val stack_rel_raise = prove(``
     (unabbrev_all_tac>>
     simp[DROP_DROP])>>
   Cases_on`ls`>>simp[abs_stack_def]>>
-  Cases_on`t'`>>simp[abs_stack_def]>>
-  Cases_on`t''`>>simp[abs_stack_def]>>
+  Cases_on`t'`>>simp[]>>
+  Cases_on`t''`>>simp[]>>
   ntac 6 TOP_CASE_TAC>>simp[])
 
 val EVERY_IMP_EVERY_LASTN = prove(
@@ -1982,9 +1982,8 @@ val compile_correct = store_thm("compile_correct",
          by decide_tac \\ fs []
     \\ `SORTED (\x y. FST x > FST y) l` by
       (imp_res_tac EVERY_IMP_EVERY_LASTN \\ fs [sorted_env_def])
-    \\ `LENGTH t.stack - handler_val (LASTN (s.handler+1) stack) + 3 <= LENGTH t.stack`
-         by(
-         imp_res_tac stack_rel_raise \\
+    \\ `LENGTH t.stack - handler_val (LASTN (s.handler+1) stack) + 3 <= LENGTH t.stack` by
+         (imp_res_tac stack_rel_raise \\
          pop_assum mp_tac >>
          ntac 16 (pop_assum kall_tac)>>
          discharge_hyps>-
@@ -2004,7 +2003,8 @@ val compile_correct = store_thm("compile_correct",
     ntac 32 (pop_assum kall_tac)>>
     discharge_hyps>- DECIDE_TAC>>
     discharge_hyps >- simp[]>>
-    rw[] >> fs [FLOOKUP_UPDATE]>>
+    rw[] >>
+    fs [FLOOKUP_UPDATE]>>
     rfs[]
     \\ `h1 < SUC (LENGTH rest)` by decide_tac \\ fs []
     \\ conj_tac THEN1
@@ -2019,8 +2019,7 @@ val compile_correct = store_thm("compile_correct",
     >-
       DECIDE_TAC
     >>
-      (*Seems to be an offset error from assumption 41-44*)
-      cheat)
+      simp[LASTN_CONS])
   THEN1 (* If *) cheat
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
