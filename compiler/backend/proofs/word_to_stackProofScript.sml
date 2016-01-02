@@ -1746,12 +1746,46 @@ val LASTN_LESS = prove(``
   imp_res_tac LASTN_LENGTH_ID2>>
 *)
 
+val ALOOKUP_IFF_MEM = prove(
+  ``ALL_DISTINCT (MAP FST l) ==>
+    (ALOOKUP l q = SOME r <=> MEM (q,r) l)``,
+  Induct_on `l` \\ fs [FORALL_PROD,MEM_MAP] \\ rw [] \\ metis_tac []);
+
+val SORTED_CONS_IMP = prove(
+  ``SORTED (\x y. FST x > (FST y):num) (h::t) ==>
+    ~(MEM h t) /\ SORTED (\x y. FST x > FST y) t /\
+    !x. MEM x t ==> FST h > FST x``,
+  Induct_on `t` \\ fs [SORTED_DEF] \\ rw []
+  \\ `SORTED (\x y. FST x > FST y) (h::t)` by
+    (Cases_on `t` \\ fs [SORTED_DEF] \\ decide_tac)
+  \\ fs [] \\ Cases_on `h` \\ Cases_on `h'` \\ fs []
+  \\ disj1_tac \\ decide_tac);
+
+val SORTED_IMP_ALL_DISTINCT_LEMMA = prove(
+  ``!l. SORTED (\x y. FST x > (FST y):num) l ==> ALL_DISTINCT (MAP FST l)``,
+  Induct \\ fs [] \\ rw [MEM_MAP]
+  \\ metis_tac [DECIDE ``m>n ==> m<>n:num``,SORTED_CONS_IMP]);
+
+val MEM_toAList_fromAList = prove(
+  ``SORTED (\x y. FST x > (FST y):num) l ==>
+    MEM a (toAList (fromAList l)) = MEM a l``,
+  Cases_on `a` \\ fs [MEM_toAList,lookup_fromAList] \\ rw []
+  \\ imp_res_tac SORTED_IMP_ALL_DISTINCT_LEMMA \\ fs [ALOOKUP_IFF_MEM]);
+
 val SORTED_FST_PERM_IMP_ALIST_EQ = prove(
-  ``SORTED (λx y. FST x > FST y) l /\
-    SORTED (λx y. FST x > FST y) q /\
+  ``SORTED (\x y. FST x > FST y) l /\
+    SORTED (\x y. FST x > FST y) q /\
     PERM (toAList (fromAList l)) q ==>
     q = l``,
-  cheat);
+  rw [] \\ drule MEM_PERM \\ fs [MEM_toAList_fromAList]
+  \\ pop_assum kall_tac \\ rpt (pop_assum mp_tac)
+  \\ Q.SPEC_TAC (`l`,`l`) \\ Induct_on `q` \\ fs [MEM]
+  THEN1 (Cases \\ fs[] \\ metis_tac [])
+  \\ Cases_on `l` THEN1 (fs [] \\ metis_tac [])
+  \\ fs [] \\ rw []
+  \\ imp_res_tac SORTED_CONS_IMP
+  \\ `!m n:num. m > n /\ n > m ==> F` by decide_tac
+  \\ metis_tac []);
 
 val stack_rel_raise = prove(``
     handler+1 ≤ LENGTH wstack ∧ SORTED (\x y. FST x > FST y) l /\
