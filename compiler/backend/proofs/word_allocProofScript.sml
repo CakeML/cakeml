@@ -1129,20 +1129,21 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     fs[word_state_eq_rel_def]>>FULL_CASE_TAC>>fs[has_space_def]>>
     Cases_on`x'''`>>
     EVERY_CASE_TAC>>fs[call_env_def])
-    >-
+    >- (* Raise *)
       (exists_tac>>
       Cases_on`get_var n st`>>fs[get_var_perm]>>
       imp_res_tac strong_locals_rel_get_var>>fs[jump_exc_def]>>
       EVERY_CASE_TAC>>fs[])
-    >-
+    >- (* Return *)
       (exists_tac>>
       Cases_on`get_var n st`>>fs[get_var_perm]>>
       Cases_on`get_var n0 st`>>fs[get_var_perm]>>
       imp_res_tac strong_locals_rel_get_var>>
-      fs[call_env_def])
-    >-
+      fs[call_env_def]>>
+      TOP_CASE_TAC>>fs [])
+    >- (* Tick *)
       (exists_tac>>IF_CASES_TAC>>fs[call_env_def,dec_clock_def])
-    >>
+    >> (* FFI *)
       (exists_tac>>Cases_on`get_var n0 st`>>Cases_on`get_var n1 st`>>
       fs[get_writes_def,LET_THM,get_var_perm]>>
       Cases_on`x`>>fs[]>>Cases_on`x'`>>fs[]>>
@@ -1156,7 +1157,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       rw[]>>FULL_CASE_TAC>>fs[]>>
       Cases_on`call_FFI st.ffi n x'`>>fs[strong_locals_rel_def]>>
       rw[]>>
-      metis_tac[domain_lookup]))
+      metis_tac[domain_lookup]));
 
 (*Prove that we can substitute get_clash_sets for get_live*)
 
@@ -4038,7 +4039,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (exists_tac>>fs[get_var_perm]>>
     Cases_on`get_var n st`>>
     Cases_on`get_var n0 st`>>
-    imp_res_tac ssa_locals_rel_get_var>>
+    imp_res_tac ssa_locals_rel_get_var>>fs []>>
+    Cases_on `x`>>fs []>>
     fs[get_vars_def,set_vars_def]>>
     imp_res_tac ssa_locals_rel_ignore_list_insert>>
     ntac 4 (pop_assum kall_tac)>>
@@ -4048,11 +4050,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     rw[]>>fs[alist_insert_def]>>
     assume_tac (INST_TYPE [gamma|->beta] (GEN_ALL ssa_locals_rel_get_var))>>
     qpat_abbrev_tac`rcst=cst with locals:=A`>>
-    first_assum(qspecl_then[`x`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac)>>
+    qcase_tac `get_var _ cst = SOME (Loc l1 l2)`>>
+    first_assum(qspecl_then[`Loc l1 l2`,`st`,`ssa`,`na`,`n`,`rcst`] assume_tac)>>
     first_x_assum(qspecl_then[`x'`,`st`,`ssa`,`na`,`n0`,`rcst`] assume_tac)>>
     unabbrev_all_tac>>rfs[]>>
     fs[get_var_def,call_env_def])
-  >-
+  >- (* Tick *)
     (exists_tac>>
     EVERY_CASE_TAC>>fs[call_env_def,dec_clock_def])
   >>
