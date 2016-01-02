@@ -1911,6 +1911,8 @@ val compile_correct = store_thm("compile_correct",
         stackSemTheory.evaluate_def,comp_def,wReg1_def]
     \\ Cases_on `get_var n s` \\ fs []
     \\ Cases_on `get_var m s` \\ fs [] \\ rw []
+    \\ Cases_on `x` \\ fs []
+    \\ qcase_tac `get_var n s = SOME (Loc l1 l2)`
     \\ fs [wStackLoad_def] \\ fs [convs_def] \\ rw []
     \\ fs [reg_allocTheory.is_phy_var_def,word_allocTheory.max_var_def]
     \\ `t.use_stack /\ ~(LENGTH t.stack < t.stack_space + f) /\
@@ -1918,20 +1920,17 @@ val compile_correct = store_thm("compile_correct",
      (fs [state_rel_def] \\ decide_tac) \\ fs [LET_DEF]
     \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
     THEN1
-     (`(get_var (n DIV 2) t = SOME x) /\ (get_var 1 t = SOME x')` by
+     (`(get_var (n DIV 2) t = SOME (Loc l1 l2)) /\ (get_var 1 t = SOME x')` by
        (fs [state_rel_def,get_var_def,LET_DEF]
         \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
         \\ fs [stackSemTheory.get_var_def])
       \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF]
-      \\ every_case_tac >> fs[]
       \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
-      \\ imp_res_tac DROP_DROP \\ fs [] \\ rfs [] \\ fs []
-      \\ every_case_tac >> fs[] >> rw[] >> fs[]
-      \\ cheat (* after stackSem got its own Result type *))
+      \\ imp_res_tac DROP_DROP \\ fs [])
     \\ `~(LENGTH t.stack < t.stack_space + (f -1 - (n DIV 2 - k))) /\
-        (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = x) /\
+        (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = Loc l1 l2) /\
         (get_var 1 t = SOME x')` by
      (fs [state_rel_def,get_var_def,LET_DEF]
       \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
@@ -1941,22 +1940,18 @@ val compile_correct = store_thm("compile_correct",
       qpat_abbrev_tac `A=f-1-B`>>
       rw[]>>DECIDE_TAC)
     \\ fs [LET_DEF]
-    \\ `(set_var k x t).use_stack /\
-        (set_var k x t).stack_space <= LENGTH (set_var k x t).stack` by
+    \\ `(set_var k (Loc l1 l2) t).use_stack /\
+        (set_var k (Loc l1 l2) t).stack_space <=
+         LENGTH (set_var k (Loc l1 l2) t).stack` by
       fs [stackSemTheory.set_var_def]
     \\ fs [evaluate_SeqStackFree,stackSemTheory.evaluate_def]
     \\ fs [stackSemTheory.set_var_def,LET_DEF]
     \\ `k <> 1` by (fs [state_rel_def] \\ decide_tac)
-    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,
-           FLOOKUP_UPDATE]
+    \\ fs [get_var_def,stackSemTheory.get_var_def,LET_DEF,FLOOKUP_UPDATE]
     \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
-    \\ imp_res_tac DROP_DROP \\ fs []
-    \\ every_case_tac >> fs[] >> rw[] >> fs[]
-    \\ fs [AC ADD_ASSOC ADD_COMM]
-    \\ imp_res_tac DROP_DROP \\ fs []
-    \\ cheat (* after stackSem got its own result type *))
+    \\ imp_res_tac DROP_DROP \\ fs [])
   THEN1 (* Raise *)
    (fs [wordSemTheory.evaluate_def,jump_exc_def]
     \\ qpat_assum `xxx = (aa,bb)` mp_tac
@@ -2011,15 +2006,5 @@ val compile_semantics = store_thm("compile_semantics",
   ``state_rel k f f' s t /\ semantics s start <> Fail /\ 1 <= f ==>
     semantics start t = semantics s start``,
   cheat);
-
-(*
-   TODO:
-    - also assume absence of Assign and Store, and only simple form of Set
-    - prove cases in order that should set correct state_rel_def
-      sooner rather than later:
-       - Alloc
-       - Raise
-       - Call
-*)
 
 val _ = export_theory();
