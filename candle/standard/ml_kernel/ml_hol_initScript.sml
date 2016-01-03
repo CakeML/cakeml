@@ -13,8 +13,8 @@ val obviously_pure_dec_def = Define`
   obviously_pure_dec _ = T`
 
 val with_same_defined_types = Q.prove(
-  `x with defined_types := x.defined_types = x`,
-  rw[semanticPrimitivesTheory.state_component_equality])
+  `(x:'a state) with defined_types := x.defined_types = x`,
+  fs[semanticPrimitivesTheory.state_component_equality])
 val _ = augment_srw_ss[rewrites[with_same_defined_types]]
 
 val evaluate_pure_decs = store_thm("evaluate_pure_decs",
