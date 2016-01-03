@@ -244,7 +244,7 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   `!env s p new_env s' r next' e.
     evaluate_prog env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    FLOOKUP env.exh (Short "option") = SOME (insert 0 2 (insert 1 2 LN)) ∧
+    FLOOKUP env.exh (Short "option") = SOME (insert 0 1 (insert 1 1 LN)) ∧
     (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH env.globals) p = (next',e))
     ⇒
     ?r_i3.
@@ -264,7 +264,7 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]compile_prompt_correct)) >>
   simp[] >>
   discharge_hyps >- (strip_tac >> fs[]) >> strip_tac >> simp[] >>
-  fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 2``] >> fs[] >>
+  fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 1``] >> fs[] >>
   rpt var_eq_tac >> simp[] >- (
     first_assum(split_pair_case_tac o lhs o concl) >> fs [] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
@@ -272,7 +272,7 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   EVAL_TAC);
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `FLOOKUP env.exh (Short "option") = SOME (insert 0 2 (insert 1 2 LN)) ∧
+  `FLOOKUP env.exh (Short "option") = SOME (insert 0 1 (insert 1 1 LN)) ∧
    semantics env s p ≠ Fail ⇒
    semantics <| v := []; exh := env.exh |> (compile_state s env.globals)
      [SND(compile (LENGTH env.globals) p)] =

@@ -27,7 +27,12 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 
 (* -- *)
 
-(*
+(* TODO: move *)
+val get_exh_def = mod_to_conTheory.get_exh_def;
+val alloc_tag_def = mod_to_conTheory.alloc_tag_def;
+val alloc_tags_def = mod_to_conTheory.alloc_tags_def;
+val compile_decs_def = mod_to_conTheory.compile_decs_def;
+val compile_prog_def = mod_to_conTheory.compile_prog_def;
 
 val alloc_tag_exh_submap = store_thm("alloc_tag_exh_submap",
   ``(∀tid. a = TypeId tid ⇒ tid  ∉ FDOM(get_exh(FST st))) ⇒
@@ -38,28 +43,94 @@ val alloc_tag_exh_submap = store_thm("alloc_tag_exh_submap",
 
 val alloc_tags_exh_submap = store_thm("alloc_tags_exh_submap",
   ``∀ls mn ta.
+    (EVERY (λ(tvs,tn,c). mk_id mn tn ∉ FDOM(get_exh(FST ta))) ls) ∧
+    ALL_DISTINCT (MAP (λ(tvs,tn,c). tn) ls) ⇒
     (get_exh (FST ta)) ⊑ (get_exh (FST (alloc_tags mn ta ls)))``,
   Induct >> rw[alloc_tags_def] >>
   PairCases_on`h`>>simp[alloc_tags_def]>>
   qmatch_abbrev_tac`X ⊑ (get_exh (FST (alloc_tags mn ta' ls)))` >>
   qunabbrev_tac`X` >>
   first_x_assum(qspecl_then[`mn`,`ta'`]mp_tac) >>
+  discharge_hyps_keep >- (
+    fs[EVERY_MEM] >> rw[] >> res_tac >>
+    split_pair_tac >> fs[] >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    `FDOM (get_exh (FST ta')) ⊆ mk_id mn h1 INSERT FDOM (get_exh (FST ta))` suffices_by (
+      simp[SUBSET_DEF] >> metis_tac[evalPropsTheory.mk_id_11] ) >>
+    simp[Abbr`ta'`] >>
+    qid_spec_tac`ta` >>
+    rpt(pop_assum kall_tac) >>
+    Induct_on`h2` >- (rw[] >> rw[SUBSET_DEF]) >>
+    simp_tac(srw_ss())[UNCURRY] >>
+    rpt gen_tac >>
+    qpat_abbrev_tac`ta' = alloc_tag _ _ _ _` >>
+    first_x_assum(qspec_then`ta'`mp_tac) >>
+    simp[SUBSET_DEF] >> rw[] >>
+    res_tac >> fs[] >>
+    fs[Abbr`ta'`] >>
+    PairCases_on`ta`>>fs[alloc_tag_def,get_exh_def,LET_THM,UNCURRY] >>
+    every_case_tac >> fs[]) >>
   `(get_exh (FST ta)) ⊑ (get_exh (FST ta'))` suffices_by metis_tac[SUBMAP_TRANS] >>
-  rw[Abbr`ta'`] >>
+  fs[] >>
+  Cases_on`ta' = ta`>>fs[] >>
+  `∃v. get_exh (FST ta') = get_exh (FST ta) |+ (mk_id mn h1,v)`
+    suffices_by ( rw[] >> rw[] ) >>
+  `h2 ≠ []`by (strip_tac >> fs[Abbr`ta'`]) >>
+  Cases_on`h2`>>fs[]>>
+  simp[Abbr`ta'`,UNCURRY] >>
+  qid_spec_tac`h` >>
   qid_spec_tac`ta` >>
-  Induct_on`h2` >> rw[] >>
-  fs[UNCURRY] >>
+  rpt(pop_assum kall_tac) >>
+  Induct_on`t` >> simp[] >- (
+    rw[] >>
+    PairCases_on`ta`>>fs[alloc_tag_def,get_exh_def,LET_THM,UNCURRY] >>
+    every_case_tac >> simp[] >>
+    metis_tac[] ) >>
+  rw[] >> fs[UNCURRY] >>
   qpat_abbrev_tac`ta' = alloc_tag X Y Z ta` >>
-  first_x_assum(qspec_then`ta'`mp_tac) >> rw[] >>
-  rw[Abbr`ta'`] >>
-  metis_tac[alloc_tag_exh_submap,SUBMAP_TRANS])
+  first_x_assum(qspecl_then[`ta'`,`h`]mp_tac) >>
+  strip_tac >> simp[] >>
+  simp[Abbr`ta'`] >>
+  PairCases_on`ta`>>fs[alloc_tag_def,get_exh_def,LET_THM,UNCURRY] >>
+  every_case_tac >> simp[] >>
+  fs[FLOOKUP_UPDATE] >>
+  metis_tac[]);
 
+(*
 val compile_decs_exh_submap = store_thm("compile_decs_exh_submap",
   ``∀ds (st:tagenv_state_acc).
+      no_dup_types ds ∧ prompt_mods_ok mn ds ∧ (∀x. mk_id mn x ∉ FDOM (get_exh (FST st))) ⇒
       (get_exh (FST st)) ⊑ (get_exh (FST (FST (compile_decs st ds))))``,
   Induct >> simp[compile_decs_def] >> rw[] >>
-  every_case_tac >> simp[UNCURRY] >>
-  metis_tac[SUBMAP_TRANS,alloc_tag_exh_submap,alloc_tags_exh_submap])
+  imp_res_tac modPropsTheory.no_dup_types_cons_imp >> fs[] >>
+  `prompt_mods_ok mn ds` by (
+    fs[modSemTheory.prompt_mods_ok_def] >>
+    BasicProvers.CASE_TAC >> fs[] >>
+    fsrw_tac[ARITH_ss][] ) >> fs[] >>
+  every_case_tac >> simp[UNCURRY] >-(
+    qpat_abbrev_tac`st' = alloc_tags _ _ _` >>
+    first_x_assum(qspec_then`st'`mp_tac) >>
+    match_mp_tac SUBMAP_TRANS >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    asm_exists_tac >> simp[Abbr`st'`] >>
+    match_mp_tac alloc_tags_exh_submap >>
+    fs[modSemTheory.no_dup_types_def] >>
+    fs[modSemTheory.decs_to_types_def] >>
+    fs[ALL_DISTINCT_APPEND] >>
+
+    fs[modSemTheory.prompt_mods_ok_def] >>
+    fs[EVERY_MEM,MEM_MAP,EXISTS_PROD,PULL_EXISTS,FORALL_PROD] >>
+    rw[] >>
+    fs[MEM_FLAT,MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    )
+  >- (
+    qpat_abbrev_tac`st' = alloc_tag _ _ _ _` >>
+    first_x_assum(qspec_then`st'`strip_assume_tac) >>
+    match_mp_tac SUBMAP_TRANS >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    asm_exists_tac >> simp[Abbr`st'`] >>
+    match_mp_tac alloc_tag_exh_submap >>
+    simp[] ));
 
 val compile_prompt_exh_submap = Q.store_thm("compile_prompt_exh_submap",
   `get_exh st ⊑ get_exh (FST (compile_prompt st pr))`,
@@ -70,13 +141,16 @@ val compile_prompt_exh_submap = Q.store_thm("compile_prompt_exh_submap",
   metis_tac[get_exh_def,SND,FST,PAIR])
 
 val compile_prog_exh_submap = Q.store_thm("compile_prog_exh_submap",
-  `∀p st. get_exh st ⊑ get_exh (FST (compile_prog st p))`,
+  `∀p st.
+
+    get_exh st ⊑ get_exh (FST (compile_prog st p))`,
   Induct >> simp[compile_prog_def] >>
   rw[UNCURRY] >>
   match_mp_tac SUBMAP_TRANS >>
   metis_tac[compile_prompt_exh_submap]);
-
 *)
+
+(* -- *)
 
 val c = compilerComputeLib.the_compiler_compset
 (* TODO: should add to compilerComputeLib *)
@@ -223,7 +297,14 @@ val compile_correct = Q.store_thm("compile_correct",
   discharge_hyps >- (
     rator_x_assum`mod_to_con$compile_prog`mp_tac >>
     simp[prim_config_eq] >> EVAL_TAC >>
-    cheat (* this looks false, the assumption in mod_to_conProof may be wrong? *) ) >>
+    `semantics env2 s2 p ≠ Fail` by simp[] >>
+    pop_assum mp_tac >>
+    simp_tac(srw_ss())[modSemTheory.semantics_def] >>
+    IF_CASES_TAC >> simp[] >> disch_then kall_tac >>
+    pop_assum mp_tac >>
+    simp[modSemTheory.evaluate_prog_def] >>
+    BasicProvers.TOP_CASE_TAC >> simp[] >> strip_tac >> fs[] >>
+    cheat (* exh_ctors_env does not change on previously defined types *) ) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   rator_x_assum`from_dec`mp_tac >> rw[from_dec_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
