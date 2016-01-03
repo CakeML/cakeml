@@ -120,7 +120,6 @@ fun derive_case_of ty = let
         SIMP_CONV (srw_ss()) [pmatch_def])
   val IF_T = prove(``(if T then x else y) = x:'a``,SIMP_TAC std_ss []);
   val IF_F = prove(``(if F then x else y) = y:'a``,SIMP_TAC std_ss []);
-  val with_same_v = prove(``env with v := env.v = env``,SRW_TAC[][environment_component_equality])
   val init_tac =
         PURE_REWRITE_TAC [CONTAINER_def]
         \\ REPEAT STRIP_TAC \\ STRIP_ASSUME_TAC (Q.SPEC `x` case_th)
@@ -151,7 +150,7 @@ fun derive_case_of ty = let
         \\ REWRITE_TAC [evaluate_match_Conv,LENGTH,pmatch_def]
         \\ FULL_SIMP_TAC (srw_ss()) [pmatch_def,pat_bindings_def,
               lookup_alist_mod_env_def,lookup_cons_def,same_tid_def,id_to_n_def,
-              same_ctor_def,write_def,with_same_v]
+              same_ctor_def,write_def]
 (*
   val _ = set_goal([],goal)
   val n = 1
