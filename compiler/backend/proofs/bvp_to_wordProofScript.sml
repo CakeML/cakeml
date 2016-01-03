@@ -2009,7 +2009,7 @@ val compile_correct = prove(
    (qexists_tac `0` \\ fs []
     \\ fs [comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
         GSYM alloc_size_def,LET_DEF,wordSemTheory.word_exp_def,
-        wordSemTheory.word_op_def,wordSemTheory.get_var_imm_def]
+        wordLangTheory.word_op_def,wordSemTheory.get_var_imm_def]
     \\ `?end next.
           FLOOKUP t.store EndOfHeap = SOME (Word end) /\
           FLOOKUP t.store NextFree = SOME (Word next)` by
