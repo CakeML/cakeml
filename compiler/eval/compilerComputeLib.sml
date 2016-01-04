@@ -542,7 +542,6 @@ in
   ; add_thms
     [word_to_stackTheory.wReg1_def
     ,word_to_stackTheory.write_bitmap_def
-    ,word_to_stackTheory.compile_def
     ,word_to_stackTheory.raise_stub_def
     ,word_to_stackTheory.comp_def
     ,word_to_stackTheory.StackArgs_def
@@ -571,6 +570,9 @@ in
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_single_def
     ,word_to_stackTheory.next_n_oracle_def
+    ,word_to_stackTheory.compile_word_to_word_def
+    ,word_to_stackTheory.compile_word_to_stack_def
+    ,word_to_stackTheory.compile_def
     ]
   (*stack_alloc*)
   ; add_thms
