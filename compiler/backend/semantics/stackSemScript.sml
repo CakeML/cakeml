@@ -569,7 +569,8 @@ val semantics_def = Define `
   semantics start s =
   let prog = Call NONE (INL start) NONE in
   if ∃k. let res = FST (evaluate (prog, s with clock := k)) in
-           res <> SOME TimeOut /\ !w. res <> SOME (Halt (Word w))
+           res <> SOME TimeOut /\ res <> SOME (Result (Loc 1 0)) /\
+           !w. res <> SOME (Halt (Word w))
   then Fail
   else
     case some res.
@@ -579,6 +580,7 @@ val semantics_def = Define `
          | (SOME e,_) => outcome = FFI_outcome e
          | (_,Halt w) => outcome = if w = Word 0w then Success
                                    else Resource_limit_hit
+         | (_,Result _) => outcome = Success
          | _ => F) ∧
         res = Terminate outcome t.ffi.io_events
       of
