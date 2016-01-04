@@ -1,5 +1,7 @@
 open preamble db_varsTheory closLangTheory;
 
+open indexedListsTheory
+
 (* This transformation replaces dead assignments (i.e. unused Lets and
    Letrecs) with dummmy assignments. The assignments aren't removed
    here because removing them would require shifting the De Bruijn
@@ -54,18 +56,6 @@ val no_overlap_def = Define `
   (no_overlap 0 l <=> T) /\
   (no_overlap (SUC n) l <=>
      if has_var n l then F else no_overlap n l)`
-
-val MAPi_def = Define`
-  MAPi f l = REVERSE (SND (FOLDL (λ(n,a) e. (n + 1n, f n e :: a)) (0,[]) l))
-`;
-val MAPi_CONG = store_thm(
-  "MAPi_CONG[defncong]",
-  ``∀(l1:α list) l2 (f1:num -> α -> β) f2.
-      (l1 = l2) ∧ (∀n e. MEM e l2 ⇒ f1 n e = f2 n e) ⇒
-      MAPi f1 l1 = MAPi f2 l2``,
-  simp[MAPi_def] >> SPEC_TAC(``0n``, ``i:num``) >>
-  SPEC_TAC(``[] : β list``, ``a : β list``) >>
-  Induct_on `l2` >> dsimp[]);
 
 val const_0_def = Define `
   const_0 = Op (Const 0) []`;
@@ -131,8 +121,9 @@ val remove_def = tDefine "remove" `
        ([Call dest c1],l1))`
  (WF_REL_TAC `measure exp3_size`
   \\ REPEAT STRIP_TAC \\ IMP_RES_TAC exp1_size_lemma \\ simp[] >>
-  Induct_on `xs` >> rpt strip_tac >> lfs[exp_size_def] >> res_tac >>
-  simp[exp_size_def]);
+  qcase_tac `MEM ee xx` >>
+  Induct_on `xx` >> rpt strip_tac >> lfs[exp_size_def] >> res_tac >>
+  simp[])
 
 val remove_ind = theorem "remove_ind";
 
