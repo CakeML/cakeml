@@ -170,21 +170,21 @@ val inst_correct = Q.store_thm("inst_correct",
   every_case_tac >> fs[] >> rw[] >>
   imp_res_tac state_rel_read_reg_FLOOKUP_regs >> fs[] >> rfs[] >>
   imp_res_tac word_sh_word_shift >>
-  fs[wordSemTheory.num_exp_def,wordSemTheory.word_op_def] >> rw[] >>
+  fs[wordLangTheory.num_exp_def,wordLangTheory.word_op_def] >> rw[] >>
   TRY ( fs[binop_upd_def] >> match_mp_tac set_var_upd_reg >> fs[] >> NO_TAC) >>
   TRY ( Cases_on`b`>>fs[binop_upd_def] >> NO_TAC) >>
   TRY (
     qcase_tac `mem_load` >>
     fs[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
     fs [word_exp_def,LET_DEF] \\ every_case_tac \\ fs []>>
-    res_tac \\ fs [wordSemTheory.word_op_def] \\ rw [] \\ fs [] >>
+    res_tac \\ fs [wordLangTheory.word_op_def] \\ rw [] \\ fs [] >>
     qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[] >>
     `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( fs[state_rel_def] ) >> fs[] >>
     `w2n (c + c') MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
     fs [] \\ match_mp_tac set_var_upd_reg \\ fs []) >>
   fs[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
   every_case_tac >> fs[] >> rpt var_eq_tac >>
-  fs[wordSemTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
+  fs[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
   res_tac >>
   qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[] >>
   `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( fs[state_rel_def] ) >> fs[] >>
@@ -1434,7 +1434,7 @@ val init_state_rel_def = Define `
 
 val compile_semantics = store_thm("compile_semantics",
   ``init_state_rel s1 start s2 /\ semantics start s1 <> Fail ==>
-    semantics s2 ∈ extend_with_resource_limit { semantics start s1 }``,
+    semantics s2 IN extend_with_resource_limit { semantics start s1 }``,
   cheat);
 
 val _ = export_theory();

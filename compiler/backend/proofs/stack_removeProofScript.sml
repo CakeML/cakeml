@@ -148,7 +148,7 @@ val comp_correct = Q.prove(
     \\ simp [Once state_rel_def] \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
-    \\ fs [wordSemTheory.word_op_def]
+    \\ fs [wordLangTheory.word_op_def]
     \\ `mem_load (c + store_offset name) t1 = SOME x` by
      (Cases_on `name` \\ fs [store_offset_def,store_pos_def,word_offset_def,
         store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
@@ -168,7 +168,7 @@ val comp_correct = Q.prove(
     \\ simp [Once state_rel_def] \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
-    \\ fs [wordSemTheory.word_op_def,mem_store_def]
+    \\ fs [wordLangTheory.word_op_def,mem_store_def]
     \\ `c + store_offset name IN t1.mdomain` by
      (Cases_on `name` \\ fs [store_offset_def,store_pos_def,word_offset_def,
         store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
@@ -341,7 +341,7 @@ val evaluate_init_code = store_thm("evaluate_init_code",
   \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def]
   \\ once_rewrite_tac [list_Seq_def]
   \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def,
-         FLOOKUP_UPDATE,wordSemTheory.word_op_def,get_var_def,get_var_imm_def,
+         FLOOKUP_UPDATE,wordLangTheory.word_op_def,get_var_def,get_var_imm_def,
          asmSemTheory.word_cmp_def,push_if]
   \\ cheat);
 

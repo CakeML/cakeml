@@ -1837,7 +1837,7 @@ val EVERY_IMP_EVERY_LASTN = prove(
   ``!xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys``,
   fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []);
 
-val compile_correct = store_thm("compile_correct",
+val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
@@ -2024,9 +2024,9 @@ val compile_correct = store_thm("compile_correct",
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
 
-val compile_semantics = store_thm("compile_semantics",
-  ``state_rel k f f' s t /\ semantics s start <> Fail /\ 1 <= f ==>
-    semantics start t = semantics s start``,
+val compile_word_to_stack_semantics = store_thm("compile_word_to_stack_semantics",
+  ``state_rel k 0 0 s t /\ semantics s start <> Fail ==>
+    semantics start t IN extend_with_resource_limit { semantics s start }``,
   cheat);
 
 val _ = export_theory();

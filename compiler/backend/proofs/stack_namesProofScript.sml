@@ -156,9 +156,9 @@ val inst_rename = Q.store_thm("inst_rename",
     DEEP_INTRO_TAC some_intro >> simp[] >>
     simp[find_name_def] ) >>
   CASE_TAC >> fs[assign_def,word_exp_def] >>
-  every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordSemTheory.num_exp_def] >>
+  every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordLangTheory.num_exp_def] >>
   rw[] >> fs[] >> rfs[] >> rw[set_var_find_name]
-  \\ every_case_tac \\ fs [wordSemTheory.word_op_def]
+  \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
   \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac \\ fs [])
 
 val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
