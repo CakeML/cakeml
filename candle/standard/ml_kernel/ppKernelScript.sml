@@ -7,8 +7,9 @@ val _ = translation_extends"ml_hol_kernel";
 
 val decls = get_decls()
 
-fun equalityprinter _ _ sys _ gs d t =
+fun equalityprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([l,r],_) = listSyntax.dest_list ls
   in
@@ -16,8 +17,9 @@ fun equalityprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("equalityprinter",``App Equality [x;y]``,equalityprinter)
 
-fun refprinter _ _ sys _ gs d t =
+fun refprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
@@ -25,8 +27,9 @@ fun refprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("refprinter",``App Opref [x]``,refprinter)
 
-fun assignprinter _ _ sys _ gs d t =
+fun assignprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([l,r],_) = listSyntax.dest_list ls
   in
@@ -34,8 +37,9 @@ fun assignprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("assignprinter",``App Opassign [x;y]``,assignprinter)
 
-fun derefprinter _ _ sys _ gs d t =
+fun derefprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
@@ -43,8 +47,9 @@ fun derefprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("derefprinter",``App Opderef [x]``,derefprinter)
 
-fun plusprinter _ _ sys _ gs d t =
+fun plusprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([l,r],_) = listSyntax.dest_list ls
   in
@@ -52,8 +57,9 @@ fun plusprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("plusprinter",``App (Opn Plus) [x;y]``,plusprinter)
 
-fun implodeprinter _ _ sys _ gs d t =
+fun implodeprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
@@ -61,8 +67,9 @@ fun implodeprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("implodeprinter",``App Implode [x]``,implodeprinter)
 
-fun explodeprinter _ _ sys _ gs d t =
+fun explodeprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([a],_) = listSyntax.dest_list ls
   in
@@ -70,8 +77,9 @@ fun explodeprinter _ _ sys _ gs d t =
   end
 val _ = add_astPP("explodeprinter",``App Explode [x]``,explodeprinter)
 
-fun chltprinter _ _ sys _ gs d t =
+fun chltprinter _ _ sysp _ gs d t =
   let
+    fun sys g d = sysp {gravs=g,depth=d,binderp=false}
     val (_,ls) = dest_comb t
     val ([l,r],_) = listSyntax.dest_list ls
   in
