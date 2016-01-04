@@ -236,8 +236,8 @@ val compile_word_to_word_def = Define `
     (col,MAP (compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
 val compile_word_to_stack_def = Define `
-  compile_word_to_stack k =
-    MAP (\(i,n,p). (i:num,compile_prog p n k))`
+  compile_word_to_stack k prog =
+    (5:num,raise_stub k) :: MAP (\(i,n,p). (i:num,compile_prog p n k)) prog`;
 
 val compile_def = Define `
   compile word_conf asm_conf progs =

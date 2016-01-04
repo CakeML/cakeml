@@ -1,9 +1,6 @@
-open preamble BasicProvers
-     stackSemTheory wordSemTheory
-     word_to_stackTheory
-     wordPropsTheory
-     stackPropsTheory
-     word_allocProofTheory;
+open preamble BasicProvers stackSemTheory wordSemTheory
+     word_to_stackTheory wordPropsTheory stackPropsTheory
+     word_allocProofTheory semanticsPropsTheory;
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
@@ -2024,9 +2021,63 @@ val comp_correct = store_thm("comp_correct",
   THEN1 (* FFI *) cheat
   \\ (* Call *) cheat);
 
+val make_init_def = Define `
+  make_init t code =
+    <| locals  := LN
+     ; store   := t.store \\ Handler
+     ; stack   := []
+     ; memory  := t.memory
+     ; mdomain := t.mdomain
+     ; permute := K I
+     ; gc_fun  := t.gc_fun
+     ; handler := 0
+     ; clock   := t.clock
+     ; code    := code
+     ; be      := t.be
+     ; ffi     := t.ffi |> `;
+
 val compile_word_to_stack_semantics = store_thm("compile_word_to_stack_semantics",
-  ``state_rel k 0 0 s t /\ semantics s start <> Fail ==>
-    semantics start t IN extend_with_resource_limit { semantics s start }``,
+  ``let s = make_init t code in
+      state_rel k 0 0 s t /\ semantics s start <> Fail ==>
+      semantics start t IN extend_with_resource_limit { semantics s start }``,
   cheat);
+
+val compile_word_to_word_semantics = store_thm("compile_word_to_word_semantics",
+  ``?p.
+      let s = t with <| code := fromAList c1; permute := p |> in
+        compile_word_to_word word_conf (asm_conf:'a asm_config) c1 = (col,c2) /\
+        t.code = fromAList c2 /\ semantics s start <> Fail ==>
+        semantics s start = semantics t start``,
+  cheat); (* probably false ... *)
+
+val init_state_ok_def = Define `
+  init_state_ok k (t:('a,'ffi)stackSem$state) <=>
+    1n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+    t.stack_space <= LENGTH t.stack /\
+    t.use_stack ∧ t.use_store ∧ t.use_alloc ∧ gc_fun_ok t.gc_fun /\
+    t.stack_space ≤ LENGTH t.stack ∧
+    LENGTH t.stack < dimword (:'a)`
+
+val init_state_ok_IMP_state_rel = prove(
+  ``lookup 5 t.code = SOME (raise_stub k) /\
+    (∀n word_prog arg_count.
+        lookup n code = SOME (arg_count,word_prog) ==>
+        lookup n t.code = SOME (compile_prog word_prog arg_count k)) /\
+    init_state_ok k t ==>
+    state_rel k 0 0 (make_init t code) (t:('a,'ffi)stackSem$state)``,
+  fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
+  \\ cheat); (* stack_rel needs tweaking *)
+
+val compile_semantics = store_thm("compile_semantics",
+  ``?p.
+      let s = make_init t (fromAList word_code) with permute := p in
+        compile word_conf asm_conf word_code = (col,stack_code) /\
+        t.code = fromAList stack_code /\ init_state_ok k t /\
+        semantics s start <> Fail ==>
+        semantics start t IN extend_with_resource_limit { semantics s start }``,
+
+  fs [compile_def]
+  \\ Cases_on `compile_word_to_word word_conf asm_conf word_code` \\ fs [LET_DEF]
+  \\ cheat);
 
 val _ = export_theory();
