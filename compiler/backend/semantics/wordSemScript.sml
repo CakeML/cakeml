@@ -698,8 +698,9 @@ val semantics_def = Define `
   let prog = Call NONE (SOME start) [0] NONE in
   if ∃k. case FST(evaluate (prog,s with clock := k)) of
          | SOME (Exception _ _) => T
-         | NONE => T
+         | SOME (Result ret _) => ret <> Loc 1 0
          | SOME Error => T
+         | NONE => T
          | _ => F
   then Fail
   else

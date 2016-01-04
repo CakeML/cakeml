@@ -2308,7 +2308,7 @@ val compile_correct = prove(
 (* observational semantics preservation *)
 
 val compile_semantics = Q.store_thm("compile_semantics",
-  `state_rel c 0 1 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t [] [] /\
+  `state_rel c 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t [] [] /\
    semantics ffi (fromAList prog) start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
