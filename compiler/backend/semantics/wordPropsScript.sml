@@ -254,15 +254,25 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
     ⇒
     s1.ffi.io_events ≼ s2.ffi.io_events ∧
     (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
-  recInduct evaluate_ind >> rw [evaluate_def] >>
-  every_case_tac >> fs[LET_THM] >> rw[] >> rfs[] >>
-  TRY (split_pair_tac >> fs[] >> every_case_tac >> fs[])>>
+  recInduct evaluate_ind >> ntac 5 strip_tac >>
+  rpt conj_tac >>
+  rpt gen_tac >>
+  fs [evaluate_def] >>
+  rpt gen_tac >>
+  rpt (pop_assum mp_tac) >>
+  rpt (BasicProvers.TOP_CASE_TAC >> fs []) >>
+  rpt (disch_then strip_assume_tac ORELSE gen_tac) >> fs [] >>
+  rveq >> fs[] >>
   imp_res_tac alloc_const >> fs[] >>
   imp_res_tac inst_const >> fs[] >>
   imp_res_tac mem_store_const >> fs[] >>
   imp_res_tac jump_exc_const >> fs[] >>
   imp_res_tac pop_env_const >> fs[] >>
+  fs [LET_THM] >>
+  TRY (split_pair_tac >> fs[] >> every_case_tac >> fs []) >>
   rveq >> fs[] >>
+  TRY (CHANGED_TAC(fs[ffiTheory.call_FFI_def]) >>
+       every_case_tac >> fs[] >> rw[] ) >>
   metis_tac[IS_PREFIX_TRANS]);
 
 val with_clock_ffi = Q.store_thm("with_clock_ffi",
