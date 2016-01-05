@@ -1,6 +1,6 @@
 open preamble closPropsTheory clos_relationTheory clos_removeTheory;
 
-open closSemTheory closLangTheory
+open closSemTheory closLangTheory indexedListsTheory
 val _ = new_theory"clos_removeProof";
 
 val _ = Parse.bring_to_front_overload"Let"{Name="Let",Thy="closLang"};
@@ -24,31 +24,6 @@ val FOLDL_acc = Q.prove(
   pop_assum (fn th => simp[SimpLHS, Once th] >> simp[SimpRHS, Once th]) >>
   simp[UNCURRY]);
 
-val lt_SUC = prove(
-  ``x < SUC y ⇔ x = 0 ∨ ∃x0. x = SUC x0 ∧ x0 < y``,
-  Cases_on `x` >> simp[]);
-
-val MAPi_thm = Q.store_thm(
-  "MAPi_thm[simp]",
-  `MAPi f [] = [] ∧
-   MAPi f (h::t) = f 0 h :: MAPi (f o SUC) t`,
-  simp[MAPi_def] >> simp[Once FOLDL_acc, SimpLHS] >> simp[UNCURRY, ADD1]);
-
-val LENGTH_MAPi = Q.store_thm(
-  "LENGTH_MAPi[simp]",
-  `∀f. LENGTH (MAPi f l) = LENGTH l`,
-  Induct_on `l` >> simp[MAPi_thm]);
-
-val MEM_MAPi = Q.store_thm(
-  "MEM_MAPi",
-  `∀l f e. MEM e (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ e = f n (EL n l)`,
-  Induct >> dsimp[lt_SUC]);
-
-val EL_MAPi = Q.store_thm(
-  "EL_MAPi",
-  `∀l i f. i < LENGTH l ⇒ EL i (MAPi f l) = f i (EL i l)`,
-  Induct >> dsimp[lt_SUC]);
-
 val FST_UNZIP_MAPi = Q.store_thm(
   "FST_UNZIP_MAPi",
   `∀l f. FST (UNZIP (MAPi f l)) = MAPi ((o) ((o) FST) f) l`,
@@ -58,35 +33,6 @@ val SND_UNZIP_MAPi = Q.store_thm(
   "SND_UNZIP_MAPi",
   `∀l f. SND (UNZIP (MAPi f l)) = MAPi ((o) ((o) SND) f) l`,
   Induct >> simp[]);
-
-val MAP_MAPi = Q.store_thm(
-  "MAP_MAPi",
-  `∀l f g. MAP f (MAPi g l) = MAPi ((o) ((o) f) g) l`,
-  Induct >> simp[]);
-
-val FOLDR_SUB = Q.prove(
-  `∀l N.
-     FST (FOLDR (λe (i,acc). (i - 1, f i acc e)) (N, a0) l) = N - LENGTH l`,
-  Induct >> simp[UNCURRY]);
-
-val FOLDR_SUB2 = Q.prove(
-  `∀l N x a0. SND (FOLDR (λe (i,acc). (i - 1n, f i acc e)) (N - x, a0) l) =
-              SND (FOLDR (λe (i,acc). (i - 1, f (i - x) acc e)) (N, a0) l)`,
-  Induct >> simp[UNCURRY, FOLDR_SUB]);
-
-val FOLDR_SUB_CONG = Q.prove(
-  `∀l N a0. LENGTH l ≤ N ⇒ (∀n a e. 0 < n ⇒ f1 n a e = f2 n a e) ⇒
-            FOLDR (λe (i,acc). (i - 1, f1 i acc e)) (N,a0) l =
-            FOLDR (λe (i,acc). (i - 1, f2 i acc e)) (N,a0) l`,
-  Induct >> simp[UNCURRY, FOLDR_SUB]);
-
-val FOLDR_MAPi = Q.store_thm(
-  "FOLDR_MAPi",
-  `∀g. FOLDR f a (MAPi g l) =
-       SND (FOLDR (λe (i,acc). (i - 1, f (g i e) acc))
-                  (LENGTH l - 1, a) l)`,
-  Induct_on `l` >> simp[] >> simp[UNCURRY, FOLDR_SUB, FOLDR_SUB2] >>
-  simp[Cong FOLDR_SUB_CONG, ADD1]);
 
 val FOLDR_UNZIP = Q.store_thm(
   "FOLDR_UNZIP",
@@ -102,16 +48,11 @@ val ALL_DISTINCT_FLAT = Q.store_thm(
         (∀l0. MEM l0 l ⇒ ALL_DISTINCT l0) ∧
         (∀i j. i < j ∧ j < LENGTH l ⇒
                ∀e. MEM e (EL i l) ⇒ ¬MEM e (EL j l))`,
-  Induct >> dsimp[ALL_DISTINCT_APPEND, lt_SUC, MEM_FLAT] >>
+  Induct >> dsimp[ALL_DISTINCT_APPEND, LT_SUC, MEM_FLAT] >>
   metis_tac[MEM_EL]);
 
 val FPAIR = Q.prove(
   `(λ(a,b). (f a, g b)) = f ## g`,
-  simp[FUN_EQ_THM, FORALL_PROD]);
-
-val UNCURRY_SND = Q.store_thm(
-  "UNCURRY_SND",
-  `UNCURRY (λx y. f y) = f o SND`,
   simp[FUN_EQ_THM, FORALL_PROD]);
 
 (* can't be used a general rewrite as it loops *)
@@ -130,7 +71,7 @@ val fv_MAPi = Q.store_thm(
   "fv_MAPi",
   `∀l x f. fv x (MAPi f l) ⇔ ∃n. n < LENGTH l ∧ fv x [f n (EL n l)]`,
   Induct >> simp[fv_def] >> simp[Once fv_CONS, SimpLHS] >>
-  dsimp[lt_SUC]);
+  dsimp[LT_SUC]);
 
 val code_locs_MAPi = Q.store_thm(
   "code_locs_MAPi",
@@ -158,46 +99,6 @@ val code_locs_MEM_SUBSET = Q.store_thm(
   `MEM x xs ⇒ set (code_loc' x) ⊆ set (code_locs xs)`,
   simp[SUBSET_DEF] >> Induct_on `xs` >> dsimp[] >> rpt strip_tac >>
   simp[Once code_locs_cons]);
-
-val (LIST_RELi_rules, LIST_RELi_ind, LIST_RELi_cases) = Hol_reln`
-  LIST_RELi R [] [] ∧
-  ∀h1 h2 l1 l2.
-     R (LENGTH l1) h1 h2 ∧ LIST_RELi R l1 l2 ⇒
-     LIST_RELi R (l1 ++ [h1]) (l2 ++ [h2])
-`;
-
-val LIST_RELi_LENGTH = Q.store_thm(
-  "LIST_RELi_LENGTH",
-  `∀l1 l2. LIST_RELi R l1 l2 ⇒ LENGTH l1 = LENGTH l2`,
-  Induct_on `LIST_RELi` >> simp[]);
-
-val LIST_RELi_EL = Q.store_thm(
-  "LIST_RELi_EL",
-  `LIST_RELi R l1 l2 ⇔
-    LENGTH l1 = LENGTH l2 ∧ ∀i. i < LENGTH l1 ⇒ R i (EL i l1) (EL i l2)`,
-  eq_tac >> map_every qid_spec_tac [`l2`, `l1`]
-  >- (Induct_on `LIST_RELi` >> csimp[] >> rpt strip_tac >>
-      qcase_tac `i < LENGTH l2 + 1` >>
-      `i < LENGTH l2 ∨ i = LENGTH l2` by simp[] >- simp[EL_APPEND1] >>
-      simp[EL_APPEND2]) >>
-  ho_match_mp_tac SNOC_INDUCT >>
-  simp[SNOC_APPEND, LENGTH_NIL_SYM, LIST_RELi_rules] >> rpt strip_tac >>
-  Q.ISPEC_THEN `l2` FULL_STRUCT_CASES_TAC SNOC_CASES >> fs[SNOC_APPEND] >>
-  irule (CONJUNCT2 (SPEC_ALL LIST_RELi_rules))
-  >- (qcase_tac `R (LENGTH l1) x y` >>
-      first_x_assum (qspec_then `LENGTH l1` mp_tac) >> simp[EL_APPEND2]) >>
-  reverse (first_x_assum irule) >- simp[] >> qx_gen_tac `j` >> strip_tac >>
-  first_x_assum (qspec_then `j` mp_tac) >> simp[EL_APPEND1])
-
-val LIST_RELi_thm = Q.store_thm(
-  "LIST_RELi_thm",
-  `(LIST_RELi R [] x ⇔ (x = [])) ∧
-   (LIST_RELi R (h::t) l ⇔
-     ∃h' t'. l = h'::t' ∧ R 0 h h' ∧ LIST_RELi (R o SUC) t t')`,
-  simp[LIST_RELi_EL, LENGTH_NIL_SYM] >> eq_tac >> strip_tac
-  >- (qcase_tac `l = _ :: _` >> Cases_on `l` >> fs[] >>
-      fs[lt_SUC, DISJ_IMP_THM, FORALL_AND_THM, PULL_EXISTS]) >>
-  var_eq_tac >> dsimp[lt_SUC]);
 
 (* -- *)
 
@@ -485,7 +386,7 @@ val LIST_RELi_APPEND_I = Q.store_thm(
   "LIST_RELi_APPEND_I",
   `LIST_RELi R l1 l2 ∧ LIST_RELi (R o ((+) (LENGTH l1))) m1 m2 ⇒
    LIST_RELi R (l1 ++ m1) (l2 ++ m2)`,
-  simp[LIST_RELi_EL] >> rpt strip_tac >>
+  simp[LIST_RELi_EL_EQN] >> rpt strip_tac >>
   qcase_tac `i < LENGTH l2 + LENGTH m2` >> Cases_on `i < LENGTH l2`
   >- simp[EL_APPEND1]
   >- (simp[EL_APPEND2] >> first_x_assum (qspec_then `i - LENGTH l2` mp_tac) >>
@@ -663,7 +564,7 @@ val unused_vars_correct = Q.store_thm(
         (qspecl_then [`s21.clock`, `e2::es`, `env1`, `env2`, `s11`, `s21`,
                       `kis`, `s21.clock`] mp_tac) >> simp[] >>
       discharge_hyps
-      >- (fs[LIST_RELi_EL] >> rpt strip_tac >>
+      >- (fs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
           irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       `s11 with clock := s21.clock = s11 ∧ s21 with clock := s21.clock = s21`
         by simp[state_component_equality] >> simp[] >>
@@ -674,7 +575,7 @@ val unused_vars_correct = Q.store_thm(
   Cases_on `e` >> simp[fv_def, evaluate_def] >> strip_tac >>
   imp_res_tac LIST_RELi_LENGTH >> simp[]
   >- ((* var *) rw[] >> simp[res_rel_rw] >>
-      fs[LIST_RELi_EL] >> conj_tac
+      fs[LIST_RELi_EL_EQN] >> conj_tac
       >- (irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `i` >> simp[])
   >- ((* If *)
@@ -698,7 +599,7 @@ val unused_vars_correct = Q.store_thm(
                 first_x_assum
                   (qspecl_then [`s21.clock`, `[e1]`, `env1`, `env2`, `s11`,
                                 `s21`, `kis`, `s21.clock`] mp_tac) >>
-                simp[] >> disch_then irule >> lfs[LIST_RELi_EL] >>
+                simp[] >> disch_then irule >> lfs[LIST_RELi_EL_EQN] >>
                 metis_tac[DECIDE ``x:num < y ⇒ x ≤ y``, val_rel_mono]) >>
           pop_assum mp_tac >>
           simp[SimpL ``$==>``, res_rel_cases] >>
@@ -721,7 +622,7 @@ val unused_vars_correct = Q.store_thm(
             first_x_assum
               (qspecl_then [`s21.clock`, `[E]`, `env1`, `env2`, `s11`,
                             `s21`, `kis`, `s21.clock`] mp_tac) >>
-            simp[] >> disch_then irule >> lfs[LIST_RELi_EL] >>
+            simp[] >> disch_then irule >> lfs[LIST_RELi_EL_EQN] >>
             metis_tac[DECIDE ``x:num < y ⇒ x ≤ y``, val_rel_mono]) >>
       pop_assum mp_tac >>
       simp[SimpL ``$==>``, res_rel_cases] >>
@@ -757,7 +658,7 @@ val unused_vars_correct = Q.store_thm(
                     imp_res_tac evaluate_length_imp >> fs[] >>
                     first_x_assum irule >> simp[])
                 >- (irule LIST_RELi_APPEND_I
-                    >- (csimp[LIST_RELi_EL] >> fs[LIST_REL_EL_EQN]) >>
+                    >- (csimp[LIST_RELi_EL_EQN] >> fs[LIST_REL_EL_EQN]) >>
                     simp[combinTheory.o_ABS_L] >>
                     imp_res_tac LIST_REL_LENGTH >> simp[]) >> fs[]) >>
             first_x_assum
@@ -771,8 +672,8 @@ val unused_vars_correct = Q.store_thm(
             >- (qx_gen_tac `V` >> strip_tac >> Cases_on `V < LENGTH bvs2` >>
                 simp[] >> qexists_tac `V - LENGTH bvs2` >> simp[]) >>
             irule LIST_RELi_APPEND_I
-            >- (csimp[LIST_RELi_EL] >> fs[LIST_REL_EL_EQN]) >>
-            simp[combinTheory.o_ABS_L] >> fs[LIST_RELi_EL] >> rpt strip_tac >>
+            >- (csimp[LIST_RELi_EL_EQN] >> fs[LIST_REL_EL_EQN]) >>
+            simp[combinTheory.o_ABS_L] >> fs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
             irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >> strip_tac >>
       simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[])
@@ -814,7 +715,7 @@ val unused_vars_correct = Q.store_thm(
                             `s21.clock`] mp_tac) >>
             simp[LIST_RELi_thm, combinTheory.o_ABS_L] >>
             disch_then irule >- simp[Once FORALL_NUM, ADD1] >>
-            fs[LIST_RELi_EL] >> rpt strip_tac >>
+            fs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
             irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >> simp[]) >>
       pop_assum mp_tac >> simp[SimpL ``$==>``, res_rel_cases] >>
       rpt strip_tac >> simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[])
@@ -861,7 +762,7 @@ val unused_vars_correct = Q.store_thm(
                   (qspecl_then [`s21.clock`, `[f]`, `env1`, `env2`, `s11`,
                                 `s21`, `kis`, `s21.clock`] mp_tac) >>
                 simp[] >> discharge_hyps
-                >- (lfs[LIST_RELi_EL] >> rpt strip_tac >>
+                >- (lfs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
                     irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >>
                     simp[]) >>
                 `s11 with clock := s21.clock = s11 ∧
@@ -933,7 +834,7 @@ val unused_vars_correct = Q.store_thm(
               >- (qx_gen_tac `v` >> strip_tac >>
                   Cases_on `v < N` >> simp[] >> qexists_tac `v - N` >>
                   simp[]) >>
-              lfs[LIST_RELi_EL, LIST_REL_EL_EQN] >>
+              lfs[LIST_RELi_EL_EQN, LIST_REL_EL_EQN] >>
               dsimp[EL_APPEND2, EL_APPEND1, EL_DROP] >>
               reverse strip_tac
               >- (rpt strip_tac >> irule (CONJUNCT1 val_rel_mono) >>
@@ -984,7 +885,7 @@ val unused_vars_correct = Q.store_thm(
              >- (qx_gen_tac `vv` >> Cases_on `vv < LENGTH fns` >> simp[] >>
                  strip_tac >> qexists_tac `vv - LENGTH fns` >> simp[]) >>
              irule LIST_RELi_APPEND_I
-             >- fs[Abbr`fns1_E`,Abbr`fns2_E`,LIST_REL_EL_EQN, LIST_RELi_EL] >>
+             >- fs[Abbr`fns1_E`,Abbr`fns2_E`,LIST_REL_EL_EQN, LIST_RELi_EL_EQN] >>
              simp[combinTheory.o_ABS_L, Abbr`fns1_E`, Abbr`fns2_E`]) >>
          simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
          simp[res_rel_rw] >> imp_res_tac evaluate_SING >> fs[]) >>
@@ -1051,21 +952,21 @@ val unused_vars_correct = Q.store_thm(
           >- (fs[Once every_Fn_vs_NONE_EVERY, EVERY_MEM] >>
               fs[FORALL_PROD, MEM_MAP, PULL_EXISTS] >> metis_tac[MEM_EL])
           >- (rpt (irule LIST_RELi_APPEND_I)
-              >- ((* vs{2,1}1 *) fs[LIST_RELi_EL] >> dsimp[EL_DROP] >>
+              >- ((* vs{2,1}1 *) fs[LIST_RELi_EL_EQN] >> dsimp[EL_DROP] >>
                   fs[LIST_REL_EL_EQN] >> rpt strip_tac >>
                   irule (CONJUNCT1 val_rel_mono) >>
                   qexists_tac `kk` >> simp[])
-              >- ((* vs1/2 *)simp[combinTheory.o_ABS_L, LIST_RELi_EL] >>
+              >- ((* vs1/2 *)simp[combinTheory.o_ABS_L, LIST_RELi_EL_EQN] >>
                   fs[LIST_REL_EL_EQN] >> rpt strip_tac >>
                   irule (CONJUNCT1 val_rel_mono) >>
                   qexists_tac `k` >> simp[])
-              >- ((* recclosures *) simp[combinTheory.o_ABS_L, LIST_RELi_EL] >>
+              >- ((* recclosures *) simp[combinTheory.o_ABS_L, LIST_RELi_EL_EQN] >>
                   first_x_assum
                     (qspec_then `k3 + (LENGTH vs2 + 1) - N` mp_tac) >>
                   simp[] >> disch_then (qspecl_then [`[]`, `[]`] mp_tac) >>
                   simp[LIST_REL_EL_EQN])
               >- ((* env1/2 *) simp[combinTheory.o_ABS_L] >>
-                  fs[LIST_RELi_EL] >> rpt strip_tac >>
+                  fs[LIST_RELi_EL_EQN] >> rpt strip_tac >>
                   irule (CONJUNCT1 val_rel_mono) >> qexists_tac `i` >>
                   simp[]))) >>
       simp[SimpL ``$==>``, res_rel_cases] >> rpt strip_tac >>
@@ -1189,7 +1090,7 @@ val remove_correct = Q.store_thm("remove_correct",
           by metis_tac[pair_CASES] >> simp[] >>
        reverse (Cases_on `r1`) >> simp[]
        >- (qcase_tac `evaluate _ = (Rerr err, s1')` >>
-           Cases_on `err` >> dsimp[res_rel_rw] >- metis_tac[] >>
+           Cases_on `err` >> dsimp[res_rel_rw, eqs, pair_case_eq] >>
            qcase_tac `evaluate _ = (Rerr (Rabort abt), s1')` >>
            Cases_on `abt` >> dsimp[res_rel_rw]) >>
        dsimp[] >> rpt strip_tac >> fs[] >>
@@ -1205,7 +1106,7 @@ val remove_correct = Q.store_thm("remove_correct",
         s21 with clock := s21.clock = s21` by simp[state_component_equality] >>
        simp[] >> disch_then irule >>
        qpat_assum `LIST_RELi _ vs1 vs2` mp_tac >>
-       simp[LIST_RELi_EL, keepval_rel_def, mustkeep_def] >>
+       simp[LIST_RELi_EL_EQN, keepval_rel_def, mustkeep_def] >>
        rpt strip_tac >- imp_res_tac LIST_REL_LENGTH >>
        Cases_on `k < LENGTH vs2` >> simp[EL_APPEND2, EL_APPEND1]
        >- metis_tac[remove_fv] >>
@@ -1231,8 +1132,8 @@ val remove_correct = Q.store_thm("remove_correct",
                `¬(V < LENGTH fns)` by metis_tac[] >>
                qexists_tac `V - LENGTH fns` >> simp[]) >>
            irule LIST_RELi_APPEND_I
-           >- simp[LIST_RELi_EL, LENGTH_REPLICATE] >>
-           fs[LIST_REL_EL_EQN, LIST_RELi_EL]) >>
+           >- simp[LIST_RELi_EL_EQN, LENGTH_REPLICATE] >>
+           fs[LIST_REL_EL_EQN, LIST_RELi_EL_EQN]) >>
        rw[] >> simp[UNCURRY] >>
        FIRST (map irule (List.drop(CONJUNCTS compat, 2))) >> simp[] >>
        fs[Once every_Fn_vs_NONE_EVERY, LIST_REL_EL_EQN, EL_MAP, EVERY_MEM,
