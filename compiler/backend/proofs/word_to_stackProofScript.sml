@@ -464,6 +464,7 @@ val state_rel_def = Define `
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 1 < k /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\
+    t.be = s.be /\ t.ffi = s.ffi /\
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
        (lookup n t.code = SOME (word_to_stack$compile_prog word_prog arg_count k))) /\
@@ -2116,7 +2117,30 @@ val comp_correct = store_thm("comp_correct",
     >>
       simp[LASTN_CONS])
   THEN1 (* If *) cheat
-  THEN1 (* FFI *) cheat
+  THEN1 (* FFI *)
+   (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
+    \\ rw [] \\ fs [] \\ rw []
+    \\ fs [wordSemTheory.evaluate_def]
+    \\ qpat_assum `aaa = (res,s1)` mp_tac
+    \\ rpt (ntac 2 (TOP_CASE_TAC \\ fs []))
+    \\ fs [LET_DEF] \\ split_pair_tac \\ fs [] \\ rw [] \\ fs []
+    \\ fs [comp_def,stackSemTheory.evaluate_def]
+    \\ fs [stackSemTheory.get_var_def]
+    \\ `FLOOKUP t.regs 1 = get_var 2 s /\
+        FLOOKUP t.regs 2 = get_var 4 s` by cheat \\ fs []
+    \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
+        s.memory = t.memory /\ s.ffi = t.ffi` by
+          fs [state_rel_def] \\ fs [LET_THM]
+    \\ qexists_tac `0` \\ fs []
+    \\ fs [state_rel_def,LET_THM]
+    \\ ntac 3 strip_tac
+    \\ fs [cut_env_def] \\ rpt var_eq_tac
+    \\ fs [lookup_inter_alt]
+    \\ fs [CONV_RULE (DEPTH_CONV ETA_CONV) (GSYM toAList_def)
+           |> INST_TYPE [``:'a``|->``:unit``] |> SIMP_RULE (srw_ss()) []]
+    \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
+    \\ fs [domain_lookup] \\ res_tac
+    \\ `~(n < k * 2)` by decide_tac \\ fs [])
   \\ (* Call *) cheat);
 
 val make_init_def = Define `

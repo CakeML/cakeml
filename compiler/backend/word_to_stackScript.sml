@@ -178,6 +178,7 @@ val comp_def = Define `
          | SOME (handle_var, handle_code, h1, h2) => Skip (* TODO *)) /\
   (comp (Alloc r live) kf =
      Seq (wLive live kf) (Alloc 1)) /\
+  (comp (FFI i r1 r2 live) kf = FFI i (r1 DIV 2) (r2 DIV 2) 0) /\
   (comp _ kf = Skip (* impossible *))`
 
 val raise_stub_def = Define `
