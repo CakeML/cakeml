@@ -2305,8 +2305,6 @@ val compile_correct = store_thm("compile_correct",
     \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
-(* observational semantics preservation *)
-
 val compile_correct_lemma = store_thm("compile_correct_lemma",
   ``!(s:'ffi bvpSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
       (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\

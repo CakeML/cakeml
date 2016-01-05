@@ -859,11 +859,11 @@ val env_to_list_K_I_IMP = prove(
   \\ split_pair_tac \\ fs [] \\ split_pair_tac \\ fs [])
 
 val evaluate_wLive = Q.prove(
-   `(∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
+  `(∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
    state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
    (cut_env names s.locals = SOME env) ==>
    ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
-       state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
+        state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
         state_rel k f f' s t5 /\
         !i. i < k ==> get_var i t5 = get_var i t`,
   fs [wLive_def] \\ rpt strip_tac
@@ -1401,7 +1401,8 @@ val alloc_IMP_alloc = prove(
       if res = NONE then
         res1 = NONE /\ state_rel k f f' s1 t1
       else
-        res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w))``,
+        res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) /\
+        s1.clock = t1.clock /\ s1.ffi = t1.ffi``,
   Cases_on `FST (alloc c names (s:('a,'ffi) wordSem$state)) = SOME (Error:'a result)`
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
@@ -1461,7 +1462,8 @@ val alloc_IMP_alloc = prove(
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
   \\ fs [has_space_def,stackSemTheory.has_space_def]
   \\ EVERY_CASE_TAC
-  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []);
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []
+  \\ fs [state_rel_def]);
 
 val get_var_set_var = prove(``
   stackSem$get_var k (set_var k v st) = SOME v``,
@@ -1477,8 +1479,9 @@ val compile_result_def = Define`
 val _ = export_rewrites["compile_result_def"];
 
 val Halt_EQ_compile_result = prove(
-  ``Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace``,
-  Cases_on `z` \\ fs []);
+  ``(Halt (Word 1w) = compile_result z <=> z = NotEnoughSpace) /\
+    (good_dimindex (:'a) ==> Halt (Word (2w:'a word)) <> compile_result z)``,
+  Cases_on `z` \\ fs [] \\ fs [good_dimindex_def] \\ rw [] \\ fs [dimword_def]);
 
 val stack_evaluate_add_clock_NONE =
   stackPropsTheory.evaluate_add_clock
@@ -1915,21 +1918,29 @@ val EVERY_IMP_EVERY_LASTN = prove(
   ``!xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys``,
   fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []);
 
+val is_tail_call_def = Define `
+  (is_tail_call (Call NONE _ [0] NONE) = T) /\
+  (is_tail_call _ = F)`
+
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
-      max_var prog <= 2 * f' + 2 * k /\ 1 <= f ==>
+      max_var prog <= 2 * f' + 2 * k /\
+      (~(is_tail_call prog) ==> 1 <= f) ==>
       ?ck t1 res1.
         (stackSem$evaluate (comp prog (k,f,f'),t with clock := t.clock + ck) = (res1,t1)) /\
         if OPTION_MAP compile_result res <> res1
-        then (res1 = SOME (Halt (Word 1w))) else
+        then res1 = SOME (Halt (Word 2w)) /\
+             t1.ffi.io_events ≼ s1.ffi.io_events /\
+             (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)
+        else
           case res of
           | NONE => state_rel k f f' s1 t1
           | SOME (Result _ _) => state_rel k 0 0 s1 t1
           | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1
-          | SOME _ => T``,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs []
+          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``,
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [is_tail_call_def]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw [])
@@ -1986,8 +1997,14 @@ val comp_correct = store_thm("comp_correct",
       \\ Cases_on `res1 = NONE` \\ fs [])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
     \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
-     (qexists_tac `ck` \\ fs [Halt_EQ_compile_result]
-      \\ every_case_tac \\ fs [])
+     (qexists_tac `ck`
+      \\ `good_dimindex (:'a)` by fs [state_rel_def]
+      \\ fs [Halt_EQ_compile_result]
+      \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+      \\ `s.ffi = t.ffi` by fs [state_rel_def]
+      \\ imp_res_tac evaluate_io_events_mono \\ fs []
+      \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
+      \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
     \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
     \\ pop_assum (qspec_then `ck'` assume_tac)
@@ -2117,11 +2134,39 @@ val make_init_def = Define `
      ; be      := t.be
      ; ffi     := t.ffi |> `;
 
+val comp_Call_lemma = comp_correct
+  |> Q.SPEC `Call NONE (SOME start) [0] NONE`
+  |> SIMP_RULE std_ss [comp_def,stack_free_def,CallAny_def]
+  |> Q.SPECL [`s`,`k`,`0`,`0`]
+  |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
+       word_allocTheory.list_max_def,is_tail_call_def,
+       EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
+       word_allocTheory.max_var_def,LET_DEF,word_allocTheory.max2_def] |> GEN_ALL
+
+val comp_Call = prove(
+  ``∀start (s:('a,'ffi) wordSem$state) k res s1 t.
+      evaluate (Call NONE (SOME start) [0] NONE,s) = (res,s1) /\
+      res ≠ SOME Error /\ state_rel k 0 0 s t ⇒
+      ∃ck t1 res1.
+        evaluate (Call NONE (INL start) NONE,t with clock := t.clock + ck) =
+        (res1,t1) /\ 1w <> (0w:'a word) /\ 2w <> (0w:'a word) /\
+        if lift compile_result res = res1 then
+          s1.ffi = t1.ffi /\ s1.clock = t1.clock
+        else
+          res1 = SOME (Halt (Word 2w)) /\
+          t1.ffi.io_events ≼ s1.ffi.io_events /\
+          (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)``,
+  rw [] \\ drule comp_Call_lemma \\ fs []
+  \\ disch_then drule \\ fs [] \\ strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ conj_tac THEN1 (fs [state_rel_def,good_dimindex_def,dimword_def])
+  \\ IF_CASES_TAC \\ fs []
+  \\ every_case_tac \\ fs [state_rel_def,push_locals_def,LET_DEF]);
+
 val state_rel_IMP_semantics = store_thm("state_rel_IMP_semantics",
-  ``let s = make_init t code in
-      state_rel k 0 0 s t /\ semantics s start <> Fail ==>
-      semantics start t IN extend_with_resource_limit { semantics s start }``,
-  cheat);
+  ``state_rel k 0 0 s t /\ semantics s start <> Fail ==>
+    semantics start t IN extend_with_resource_limit { semantics s start }``,
+  cheat); (* TODO Ramana, use comp_Call, see bvp_to_word for a similar proof *)
 
 val init_state_ok_def = Define `
   init_state_ok k (t:('a,'ffi)stackSem$state) <=>
@@ -2142,7 +2187,7 @@ val init_state_ok_IMP_state_rel = prove(
   \\ cheat); (* stack_rel_def needs tweaking *)
 
 val init_state_ok_semantics =
-  compile_word_to_stack_semantics
+  state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
   |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
