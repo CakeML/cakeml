@@ -2328,6 +2328,7 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
            | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   cheat); (* the theorem above needs adjusting *)
 
+(* TODO: Move to appropriate theory when done *)
 val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   ``(!n v. lookup n st.code = SOME v ==>
            lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
