@@ -4857,7 +4857,7 @@ val oracle_colour_ok_correct = prove(``
   LET_ELIM_TAC>>fs[])
 
 (*Prove the full correctness theorem for word_alloc*)
-val word_alloc_correct = prove(``
+val word_alloc_correct = store_thm("word_alloc_correct",``
   ∀alg prog k col_opt st.
   even_starting_locals st.locals
   ⇒

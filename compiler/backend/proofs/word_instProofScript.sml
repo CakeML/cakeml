@@ -483,7 +483,7 @@ val locals_rm = prove(``
     The inst-selected program gives same result but
     with possibly more locals used
 *)
-val inst_select_thm = prove(``
+val inst_select_thm = store_thm("inst_select_thm",``
   ∀c temp prog st res rst loc.
   evaluate (prog,st) = (res,rst) ∧
   every_var (λx. x < temp) prog ∧
@@ -762,7 +762,7 @@ val insert_shadow = prove(``
   metis_tac[])
 
 (*Semantics preservation*)
-val three_to_two_reg_correct = prove(``
+val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
   ∀prog s res s'.
   every_inst distinct_tar_reg prog ∧
   evaluate (prog,s) = (res,s') ∧ res ≠ SOME Error

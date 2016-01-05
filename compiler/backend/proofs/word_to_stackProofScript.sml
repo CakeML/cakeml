@@ -2022,7 +2022,7 @@ val comp_correct = store_thm("comp_correct",
   \\ (* Call *) cheat);
 
 val make_init_def = Define `
-  make_init t code =
+  make_init (t:('a,'ffi)stackSem$state) code =
     <| locals  := LN
      ; store   := t.store \\ Handler
      ; stack   := []
@@ -2036,19 +2036,11 @@ val make_init_def = Define `
      ; be      := t.be
      ; ffi     := t.ffi |> `;
 
-val compile_word_to_stack_semantics = store_thm("compile_word_to_stack_semantics",
+val state_rel_IMP_semantics = store_thm("state_rel_IMP_semantics",
   ``let s = make_init t code in
       state_rel k 0 0 s t /\ semantics s start <> Fail ==>
       semantics start t IN extend_with_resource_limit { semantics s start }``,
   cheat);
-
-val compile_word_to_word_semantics = store_thm("compile_word_to_word_semantics",
-  ``?p.
-      let s = t with <| code := fromAList c1; permute := p |> in
-        compile_word_to_word word_conf (asm_conf:'a asm_config) c1 = (col,c2) /\
-        t.code = fromAList c2 /\ semantics s start <> Fail ==>
-        semantics s start = semantics t start``,
-  cheat); (* probably false ... *)
 
 val init_state_ok_def = Define `
   init_state_ok k (t:('a,'ffi)stackSem$state) <=>
@@ -2066,18 +2058,23 @@ val init_state_ok_IMP_state_rel = prove(
     init_state_ok k t ==>
     state_rel k 0 0 (make_init t code) (t:('a,'ffi)stackSem$state)``,
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
-  \\ cheat); (* stack_rel needs tweaking *)
+  \\ cheat); (* stack_rel_def needs tweaking *)
 
-val compile_semantics = store_thm("compile_semantics",
-  ``?p.
-      let s = make_init t (fromAList word_code) with permute := p in
-        compile word_conf asm_conf word_code = (col,stack_code) /\
-        t.code = fromAList stack_code /\ init_state_ok k t /\
-        semantics s start <> Fail ==>
-        semantics start t IN extend_with_resource_limit { semantics s start }``,
+val init_state_ok_semantics =
+  compile_word_to_stack_semantics
+  |> SIMP_RULE std_ss [LET_DEF,GSYM AND_IMP_INTRO]
+  |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
+  |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
-  fs [compile_def]
-  \\ Cases_on `compile_word_to_word word_conf asm_conf word_code` \\ fs [LET_DEF]
-  \\ cheat);
+val compile_word_to_stack_semantics = prove(
+  ``t.code = fromAList (compile_word_to_stack k code) /\
+    init_state_ok k t /\ (ALOOKUP code 5 = NONE) /\
+    semantics (make_init t (fromAList code)) start <> Fail ==>
+    semantics start t IN
+    extend_with_resource_limit {semantics (make_init t (fromAList code)) start}``,
+  rw [] \\ match_mp_tac init_state_ok_semantics \\ fs []
+  \\ fs [compile_word_to_stack_def,lookup_fromAList] \\ rw [] \\ fs []
+  \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac)
+  \\ Induct_on `code` \\ fs [ALOOKUP_def,FORALL_PROD] \\ rw []);
 
 val _ = export_theory();

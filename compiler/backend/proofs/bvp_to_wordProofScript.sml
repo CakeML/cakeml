@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory;
+     set_sepTheory semanticsPropsTheory word_to_stackTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -1937,7 +1937,7 @@ val state_rel_cut_env = prove(
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
-val compile_correct = prove(
+val compile_correct = store_thm("compile_correct",
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
@@ -2307,8 +2307,94 @@ val compile_correct = prove(
 
 (* observational semantics preservation *)
 
+val compile_correct_lemma = store_thm("compile_correct_lemma",
+  ``!(s:'ffi bvpSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+      (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+      res <> SOME (Rerr (Rabort Rtype_error)) /\
+      state_rel c l1 l2 s t [] [] ==>
+      ?ck t1 res1.
+        !perm.
+          (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
+             inc_clock ck t with permute := perm) = (res1,t1)) /\
+          (res1 = SOME NotEnoughSpace ==>
+             t1.ffi.io_events ≼ s1.ffi.io_events ∧
+             (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+          (res1 <> SOME NotEnoughSpace ==>
+           case res of
+           | NONE => (res1 = NONE)
+           | SOME (Rval v) => t1.ffi = s1.ffi /\
+                              ?w. (res1 = SOME (Result (Loc l1 l2) w))
+           | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+           | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
+  cheat); (* the theorem above needs adjusting *)
+
+val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
+  ``(!n v. lookup n st.code = SOME v ==>
+           lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
+    ?perm'.
+      let prog = Call NONE (SOME start) [0] NONE in
+      let (res,rst) = evaluate (prog,st with permute := perm') in
+        if res = SOME Error then T else
+          let (res1,rst1) = evaluate (prog,st with code := l) in
+            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,
+  cheat) (* can this be proved? *)
+  |> SIMP_RULE std_ss [Once LET_THM]
+
+val state_rel_ext_def = Define `
+  state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
+    ?t l.
+      state_rel c l1 l2 s t [] [] /\
+      (!n v. lookup n t.code = SOME v ==>
+             lookup n l = SOME (SND (compile_single t' k' a' c' ((n,v),col)))) /\
+      u = t with code := l`
+
+val compile_correct = store_thm("compile_correct",
+  ``!x (s:'ffi bvpSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
+      (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
+      res <> SOME (Rerr (Rabort Rtype_error)) /\
+      state_rel_ext x l1 l2 s t ==>
+      ?ck t1 res1.
+        (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
+           inc_clock ck t) = (res1,t1)) /\
+        (res1 = SOME NotEnoughSpace ==>
+           t1.ffi.io_events ≼ s1.ffi.io_events ∧
+           (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+        (res1 <> SOME NotEnoughSpace ==>
+         case res of
+         | NONE => (res1 = NONE)
+         | SOME (Rval v) => t1.ffi = s1.ffi /\
+                            ?w. (res1 = SOME (Result (Loc l1 l2) w))
+         | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
+  gen_tac \\ PairCases_on `x`
+  \\ fs [state_rel_ext_def,PULL_EXISTS]
+  \\ rw [] \\ drule compile_correct_lemma \\ fs []
+  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
+  \\ `(!n v. lookup n (inc_clock ck t).code = SOME v ==>
+             lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
+        by fs [inc_clock_def]
+  \\ drule compile_word_to_word_thm \\ rw []
+  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF]
+  THEN1 (every_case_tac \\ fs [] \\ rfs [])
+  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ fs [inc_clock_def]
+  \\ qexists_tac `ck` \\ fs []
+  \\ rw [] \\ fs []
+  \\ every_case_tac \\ fs []);
+
+val state_rel_ext_with_clock = prove(
+  ``state_rel_ext a b c s1 s2 ==>
+    state_rel_ext a b c (s1 with clock := k) (s2 with clock := k)``,
+  PairCases_on `a` \\ fs [state_rel_ext_def] \\ rw []
+  \\ drule state_rel_with_clock
+  \\ strip_tac \\ asm_exists_tac \\ fs []
+  \\ qexists_tac `l` \\ fs []);
+
+(* observational semantics preservation *)
+
 val compile_semantics = Q.store_thm("compile_semantics",
-  `state_rel c 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t [] [] /\
+  `state_rel_ext conf 1 0 (initial_state (ffi:'ffi ffi_state) (fromAList prog) t.clock) t /\
    semantics ffi (fromAList prog) start <> Fail ==>
    semantics t start IN
      extend_with_resource_limit { semantics ffi (fromAList prog) start }`,
@@ -2326,11 +2412,11 @@ val compile_semantics = Q.store_thm("compile_semantics",
       last_x_assum(qspec_then`k'`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
       strip_tac >>
-      drule compile_correct >> simp[] >>
+      drule compile_correct >> simp[] >> fs [] >>
       simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
       discharge_hyps >- (
         strip_tac >> fs[] ) >>
-      drule(GEN_ALL state_rel_with_clock) >>
+      drule(GEN_ALL state_rel_ext_with_clock) >>
       disch_then(qspec_then`k'`strip_assume_tac) >> fs[] >>
       disch_then drule >>
       simp[comp_def] >> strip_tac >>
@@ -2350,7 +2436,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         drule(bvpPropsTheory.evaluate_add_clock)>>simp[]>>
         disch_then(qspec_then`k'`mp_tac)>>simp[]>>strip_tac>>
         drule(compile_correct)>>simp[]>>
-        drule(GEN_ALL state_rel_with_clock)>>simp[]>>
+        drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
         disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
         disch_then drule>>
         simp[comp_def]>>strip_tac>>
@@ -2364,7 +2450,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         Cases_on`r = SOME TimeOut` >- (
           every_case_tac >> fs[]>>
           Cases_on`res1=SOME NotEnoughSpace`>>fs[] >> rfs[] >>
-          fs[state_rel_def] >> rfs[] ) >>
+          fs[] >> rfs[] ) >>
         rator_x_assum`wordSem$evaluate`mp_tac >>
         drule(GEN_ALL wordPropsTheory.evaluate_add_clock) >>
         simp[] >>
@@ -2372,7 +2458,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         simp[inc_clock_def] >> ntac 2 strip_tac >>
         rveq >> fs[] >>
         every_case_tac >> fs[] >> rw[] >>
-        fs[state_rel_def] >> rfs[] ) >>
+        fs[] >> rfs[] ) >>
       `∃r s'.
         evaluate
           (Call NONE (SOME start) [] NONE, initial_state ffi (fromAList prog) (k + k')) = (r,s') ∧
@@ -2385,7 +2471,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       discharge_hyps >- (
         last_x_assum(qspec_then`k+k'`mp_tac)>>rw[]>>
         strip_tac>>fs[])>>
-      drule(GEN_ALL state_rel_with_clock)>>simp[]>>
+      drule(GEN_ALL state_rel_ext_with_clock)>>simp[]>>
       disch_then(qspec_then`k+k'`mp_tac)>>simp[]>>strip_tac>>
       disch_then drule>>
       simp[comp_def]>>strip_tac>>
@@ -2398,7 +2484,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
         fsrw_tac[ARITH_ss][] ) >>
       reverse(Cases_on`t'.ffi.final_event`)>>fs[] >- (
         Cases_on`res1=SOME NotEnoughSpace`>>fs[]>>
-        fs[state_rel_def]>>rfs[]>>
+        fs[]>>rfs[]>>
         every_case_tac>>fs[]>>rfs[]>>
         rveq>>fs[]>>
         last_x_assum(qspec_then`k+k'`mp_tac) >> simp[]) >>
@@ -2410,14 +2496,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
       disch_then(qspec_then`k+ck`mp_tac) >>
       fsrw_tac[ARITH_ss][inc_clock_def]>> rw[] >>
       every_case_tac>>fs[]>>rveq>>rfs[]>>
-      fs[state_rel_def]>>rfs[]) >>
+      fs[]>>rfs[]) >>
     rw[] >> fs[] >>
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     discharge_hyps >- (
       last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
       rw[] >> strip_tac >> fs[] ) >>
-    drule(state_rel_with_clock) >> simp[] >> strip_tac >>
+    drule(state_rel_ext_with_clock) >> simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
     first_x_assum(qspec_then`k+ck`mp_tac) >>
@@ -2435,7 +2521,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     drule compile_correct >> simp[] >>
     simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
     discharge_hyps >- ( strip_tac >> fs[] ) >>
-    drule(state_rel_with_clock) >>
+    drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -2459,7 +2545,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       strip_tac >> fs[] >>
       last_x_assum(qspec_then`k`mp_tac) >>
       simp[] ) >>
-    drule(state_rel_with_clock) >>
+    drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -2538,7 +2624,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     discharge_hyps >- (
       last_x_assum(qspec_then`k`mp_tac)>>rw[]>>
       strip_tac >> fs[] ) >>
-    drule(state_rel_with_clock) >>
+    drule(state_rel_ext_with_clock) >>
     simp[] >> strip_tac >>
     disch_then drule >>
     simp[comp_def] >> strip_tac >>
@@ -2550,7 +2636,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
     CASE_TAC >> fs[] >>
     TRY CASE_TAC >> fs [] >>
     TRY CASE_TAC >> fs [] >>
-    strip_tac >> fs[state_rel_def] >>
+    strip_tac >> fs[] >>
     rveq >>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[]) ) >>
   (fn g => subterm (fn tm => Cases_on`^(replace_term(#1(dest_exists(#2 g)))(``k:num``)(assert(has_pair_type)tm))`) (#2 g) g) >>
@@ -2559,7 +2645,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   discharge_hyps >- (
     last_x_assum(qspec_then`k`mp_tac)>>rw[]>>
     strip_tac >> fs[] ) >>
-  drule(state_rel_with_clock) >>
+  drule(state_rel_ext_with_clock) >>
   simp[] >> strip_tac >>
   disch_then drule >>
   simp[comp_def] >> strip_tac >>
@@ -2573,7 +2659,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
   qexists_tac`k`>>simp[]>>
   `r.ffi.io_events = t1.ffi.io_events` by (
     ntac 5 (pop_assum mp_tac) >>
-    CASE_TAC >> fs[state_rel_def] >>
+    CASE_TAC >> fs[] >>
     every_case_tac >> fs[]>>rw[]>>
     rpt(first_x_assum(qspec_then`k+ck`mp_tac)>>simp[])) >>
   REV_FULL_SIMP_TAC(srw_ss()++ARITH_ss)[]>>
