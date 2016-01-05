@@ -2123,7 +2123,7 @@ val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
     <| locals  := LN
      ; store   := t.store \\ Handler
-     ; stack   := []
+     ; stack   := [StackFrame [] NONE]
      ; memory  := t.memory
      ; mdomain := t.mdomain
      ; permute := K I
@@ -2174,7 +2174,17 @@ val init_state_ok_def = Define `
     t.stack_space <= LENGTH t.stack /\
     t.use_stack ∧ t.use_store ∧ t.use_alloc ∧ gc_fun_ok t.gc_fun /\
     t.stack_space ≤ LENGTH t.stack ∧
-    LENGTH t.stack < dimword (:'a)`
+    LENGTH t.stack < dimword (:'a) /\
+    DROP t.stack_space t.stack = [Word 1w; Word 0w] /\
+    FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
+
+val read_bitmap_init = prove(
+  ``good_dimindex (:'a) ==>
+    read_bitmap [Word 1w; Word 0w] = SOME ([],[Word 1w],[Word (0w:'a word)])``,
+  rw [] \\ fs [good_dimindex_def]
+  \\ `~word_msb (1w:'a word)` by fs [word_msb_def,wordsTheory.word_index]
+  \\ fs [read_bitmap_def] \\ once_rewrite_tac [bit_length_def] \\ fs []
+  \\ once_rewrite_tac [bit_length_def] \\ fs [EVAL ``1w >>> 1``]);
 
 val init_state_ok_IMP_state_rel = prove(
   ``lookup 5 t.code = SOME (raise_stub k) /\
@@ -2184,7 +2194,9 @@ val init_state_ok_IMP_state_rel = prove(
     init_state_ok k t ==>
     state_rel k 0 0 (make_init t code) (t:('a,'ffi)stackSem$state)``,
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
-  \\ cheat); (* stack_rel_def needs tweaking *)
+  \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,read_bitmap_init,LET_THM]
+  \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
+  \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]);
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
