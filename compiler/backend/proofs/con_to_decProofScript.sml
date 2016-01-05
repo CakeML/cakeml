@@ -99,7 +99,7 @@ val compile_exp_correct = Q.prove (
   rw [decSemTheory.evaluate_def,conSemTheory.evaluate_def] >> rw[] >>
   every_case_tac >> fs[] >>
   imp_res_tac do_app >> rw[] >>
-  fsrw_tac[QUANT_INST_ss[record_default_qp]][compile_state_def]);
+  fsrw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][compile_state_def]);
 
 val init_globals_thm = Q.prove (
   `∀vs env s n genv gs s' extra.
