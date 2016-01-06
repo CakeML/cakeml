@@ -1208,14 +1208,31 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
   simp[Once labSemTheory.evaluate_def]);
 
 val flatten_semantics = store_thm("flatten_semantics",
-  ``state_rel s1 s2 /\
-    loc_to_pc start 0 s2.code = SOME s2.pc ∧
+  ``(!s.
+      s.code = s1.code ==>
+      ?t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
+          t.ffi = s.ffi /\ t.clock = s.clock) /\
+    state_rel s1 s2 /\
+    loc_to_pc start 0 s2.code = SOME s2.pc /\
     semantics start s1 <> Fail ==>
     semantics s2 = semantics start s1``,
-  simp[GSYM AND_IMP_INTRO] >> ntac 2 strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+  `!s5 t5.
+     state_rel s5 t5 /\ loc_to_pc 1 0 t5.code = SOME t5.pc /\
+     s5.code = s1.code ==>
+     ∃ck t6.
+       evaluate (t5 with clock := t5.clock − 1 + ck) = (Halt Success,t6) /\
+       t6.ffi = s5.ffi` by
+   (rw [] \\ first_x_assum drule \\ rw []
+    \\ drule (GEN_ALL flatten_call_correct) \\ fs []
+    \\ disch_then drule  \\ fs [] \\ rw []
+    \\ asm_exists_tac \\ fs []) >>
+  ntac 2 strip_tac >>
   simp[stackSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
+  cheat (* due to change to semantics_def which now treats
+           Result (Loc 1 0) as Success  >>
   conj_tac >- (
     rw[] >>
     simp[labSemTheory.semantics_def] >>
@@ -1427,7 +1444,7 @@ val flatten_semantics = store_thm("flatten_semantics",
   simp[]>>strip_tac>>
   qexists_tac`k+1`>>fs[]>>
   fs[IS_PREFIX_APPEND]>> simp[]>>
-  simp[EL_APPEND1]);
+  simp[EL_APPEND1] *));
 
 val init_state_rel_def = Define `
   init_state_rel s1 start s2 <=> s2.pc = start (* TODO!! *)`;
