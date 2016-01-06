@@ -9,6 +9,7 @@ open preamble initSemEnvTheory semanticsPropsTheory
      clos_to_bvlProofTheory
      bvl_to_bviProofTheory
      bvi_to_bvpProofTheory
+     bvp_to_wordProofTheory
 local open compilerComputeLib in end
 
 (* TODO: move *)
@@ -147,6 +148,7 @@ val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
    c.mod_conf = prim_config.mod_conf ∧ c.clos_conf = prim_config.clos_conf ∧
+   good_dimindex (:α) ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,c') ∧
    code_loaded bytes mc ms ⇒
@@ -398,7 +400,41 @@ val compile_correct = Q.store_thm("compile_correct",
   rator_x_assum`from_bvp`mp_tac >>
   rw[from_bvp_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
-  (* bvp_to_wordProofTheory.compile_semantics *)
+  map_every qunabbrev_tac[`p3`,`s3`] >>
+  qmatch_abbrev_tac`_ ⊆ _ { bvpSem$semantics ffi (fromAList prg) start }` >>
+  (bvp_to_wordProofTheory.compile_semantics
+   |> GEN_ALL
+   |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start","ffi"]))
+   |> qispl_then[`prg`,`start`,`ffi`]mp_tac) >>
+  simp[FORALL_PROD] >>
+  simp[bvp_to_wordProofTheory.state_rel_ext_def,PULL_EXISTS] >>
+  simp[bvp_to_wordProofTheory.state_rel_def] >>
+  simp[lookup_def] >>
+  simp_tac(srw_ss()++(QUANT_INST_ss[record_qp false (fn v => (K (type_of v = ``:(α,'ffi) wordSem$state``))),pair_default_qp]))[] >>
+  simp[bvpSemTheory.initial_state_def] >>
+  simp[bvp_to_wordProofTheory.flat_def] >>
+  simp[bvp_to_wordProofTheory.the_global_def,libTheory.the_def] >>
+  simp[bvp_to_wordProofTheory.join_env_def] >>
+  simp[PULL_EXISTS] >>
+  CONV_TAC(LAND_CONV(RESORT_FORALL_CONV(sort_vars["fv_1"]))) >>
+  disch_then(qspec_then`insert 0 (Loc 1 0) LN`mp_tac) >> simp[] >>
+  simp[bvp_to_wordProofTheory.inter_insert] >> (* TODO: why is this theorem in that theory? it should be moved *)
+  simp[EVAL``toAList (insert 0 x LN)``] >>
+  simp[bvp_to_wordProofTheory.word_ml_inv_def,PULL_EXISTS] >>
+  `small_int (:α) 0` by (
+    fs[labPropsTheory.good_dimindex_def] >>
+    EVAL_TAC >> simp[] ) >>
+  simp[bvp_to_wordPropsTheory.abs_ml_inv_def] >>
+  simp[bvp_to_wordPropsTheory.bc_stack_ref_inv_def,FDOM_EQ_EMPTY,
+       bvp_to_wordPropsTheory.v_inv_def,
+       bvp_to_wordPropsTheory.reachable_refs_def,
+       bvp_to_wordPropsTheory.get_refs_def,
+       bvp_to_wordPropsTheory.word_addr_def,
+       copying_gcTheory.roots_ok_def] >>
+  `(-2w && Smallnum 0) = 0w` by (
+    fs[labPropsTheory.good_dimindex_def] >>
+    EVAL_TAC >> simp[] ) >>
+  simp[] >>
   cheat);
 
 val _ = export_theory();
