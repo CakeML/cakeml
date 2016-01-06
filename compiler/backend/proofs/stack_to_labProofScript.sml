@@ -1164,9 +1164,15 @@ val flatten_correct = Q.store_thm("flatten_correct",
 
 val flatten_call_correct = Q.store_thm("flatten_call_correct",
   `evaluate (Call NONE (INL start) NONE,s1) = (res,s2) ∧
-   state_rel s1 t1 ∧
+   state_rel (s1:(α,'ffi)stackSem$state) t1 ∧
    loc_to_pc start 0 t1.code = SOME t1.pc ∧
-   res ≠ SOME Error ∧ (res ≠ SOME TimeOut ⇒ ∃w. res = SOME(Halt (Word w)))
+   res ≠ SOME Error ∧
+   (res ≠ SOME TimeOut ⇒
+     (∃w. res = SOME(Halt (Word w))) ∨
+     (∃n. res = SOME(Result(Loc n 0)) ∧
+       (∀s:(α,'ffi)stackSem$state. s.code = s1.code ⇒
+           ∃t. evaluate (Call NONE (INL n) NONE,s) = (SOME (Halt (Word 0w)),t) ∧
+               t.ffi = s.ffi ∧ t.clock = s.clock)))
    ⇒
    ∃ck r2 t2.
      evaluate (t1 with clock := t1.clock - 1 + ck) = (r2,t2) ∧
@@ -1174,6 +1180,7 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
       (case w of | Word 0w => Halt Success
                  | Word _ => Halt Resource_limit_hit
                  | _ => Error)) ∧
+     (∀n. res = SOME(Result(Loc n 0)) ⇒ r2 = Halt Success) ∧
         (*
         (evaluate (t1 with clock := t1.clock - 1 + ck) =
            (,t2)) ∧
@@ -1202,37 +1209,44 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
   simp[dec_clock_def] >>
   `t1.clock ≠ 0` by fs[state_rel_def] >>
   fsrw_tac[ARITH_ss][] >>
-  BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >>
-  qexists_tac`ck`>>simp[]>>
-  first_x_assum(qspec_then`0`mp_tac)>>rw[]>>
-  simp[Once labSemTheory.evaluate_def]);
+  reverse BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >- (
+    qexists_tac`ck`>>simp[]>>
+    first_x_assum(qspec_then`0`mp_tac)>>rw[]>>
+    simp[Once labSemTheory.evaluate_def]) >>
+  first_x_assum(qspec_then`r with clock := r.clock+1`mp_tac) >>
+  discharge_hyps >- (
+    imp_res_tac stackPropsTheory.evaluate_consts >> fs[] ) >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  strip_tac >>
+  first_assum(fn th => first_assum(
+    tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+  rfs[] >> fs[] >>
+  rveq >>
+  drule flatten_correct >> simp[] >>
+  simp[stackSemTheory.dec_clock_def] >>
+  `r with clock := r.clock = r` by simp[stackSemTheory.state_component_equality] >> simp[] >>
+  disch_then drule >> simp[] >>
+  disch_then drule >> strip_tac >>
+  first_x_assum(qspec_then`ck'`mp_tac) >>
+  simp[] >> strip_tac >>
+  qexists_tac`ck+ck'`>>simp[]);
 
-val flatten_semantics = store_thm("flatten_semantics",
-  ``(!s.
-      s.code = s1.code ==>
-      ?t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
-          t.ffi = s.ffi /\ t.clock = s.clock) /\
-    state_rel s1 s2 /\
-    loc_to_pc start 0 s2.code = SOME s2.pc /\
-    semantics start s1 <> Fail ==>
-    semantics s2 = semantics start s1``,
+val flatten_semantics = Q.store_thm("flatten_semantics",
+  `(!(s:(α,'ffi)stackSem$state).
+     s.code = (s1:(α,'ffi)stackSem$state).code ==>
+     ∃t. evaluate (Call NONE (INL 1) NONE,s) = (SOME (Halt (Word 0w)),t) /\
+         t.ffi = s.ffi /\ t.clock = s.clock) /\
+   state_rel s1 s2 /\
+   loc_to_pc start 0 s2.code = SOME s2.pc /\
+   semantics start s1 <> Fail ==>
+   semantics s2 = semantics start s1`,
   simp[GSYM AND_IMP_INTRO] >> strip_tac >>
-  `!s5 t5.
-     state_rel s5 t5 /\ loc_to_pc 1 0 t5.code = SOME t5.pc /\
-     s5.code = s1.code ==>
-     ∃ck t6.
-       evaluate (t5 with clock := t5.clock − 1 + ck) = (Halt Success,t6) /\
-       t6.ffi = s5.ffi` by
-   (rw [] \\ first_x_assum drule \\ rw []
-    \\ drule (GEN_ALL flatten_call_correct) \\ fs []
-    \\ disch_then drule  \\ fs [] \\ rw []
-    \\ asm_exists_tac \\ fs []) >>
   ntac 2 strip_tac >>
   simp[stackSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
-  cheat (* due to change to semantics_def which now treats
-           Result (Loc 1 0) as Success  >>
   conj_tac >- (
     rw[] >>
     simp[labSemTheory.semantics_def] >>
@@ -1246,9 +1260,11 @@ val flatten_semantics = store_thm("flatten_semantics",
       first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
       disch_then drule >>
       discharge_hyps >- (
-        simp[] >> strip_tac >> fs[] ) >>
+        rw[] >> TRY strip_tac >> fs[] >>
+        Cases_on`q = SOME (Result (Loc 1 0))`>>fs[]>>
+        metis_tac[]) >>
       strip_tac >>
-      (qspec_then`s2 with clock := k'`mp_tac)labPropsTheory.evaluate_ADD_clock >>
+      (Q.ISPEC_THEN`s2 with clock := k'`mp_tac)labPropsTheory.evaluate_ADD_clock >>
       simp[] >> fs[] >>
       srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
       qexists_tac`ck`>> spose_not_then strip_assume_tac >>
@@ -1258,8 +1274,8 @@ val flatten_semantics = store_thm("flatten_semantics",
       rw[] >>
       qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
       qmatch_assum_abbrev_tac`labSem$evaluate l = _` >>
-      qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
-      qspecl_then[`l`](mp_tac o Q.GEN`extra`) labPropsTheory.evaluate_add_clock_io_events_mono >>
+      qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+      qispl_then[`l`](mp_tac o Q.GEN`extra`) labPropsTheory.evaluate_add_clock_io_events_mono >>
       simp[Abbr`s`,Abbr`l`] >>
       ntac 2 strip_tac >>
       Cases_on`t.ffi.final_event`>>fs[]>-(
@@ -1269,13 +1285,16 @@ val flatten_semantics = store_thm("flatten_semantics",
           drule state_rel_with_clock >> strip_tac >>
           disch_then drule >>
           discharge_hyps >- (
+            rw[] >> TRY strip_tac >> fs[] >>
             last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-            BasicProvers.FULL_CASE_TAC >> fs[] ) >>
+            rw[] >> metis_tac[]) >>
           strip_tac >> fs[] >>
-          BasicProvers.FULL_CASE_TAC >> fs[] >>
           drule labPropsTheory.evaluate_ADD_clock >>
           disch_then(qspec_then`k'`mp_tac) >>
-          discharge_hyps >- (CASE_TAC >> fs[] >> CASE_TAC) >>
+          discharge_hyps >- (
+            last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
+            strip_tac >> fs[] >> rw[] ) >>
+          simp[] >>
           rator_x_assum`labSem$evaluate`mp_tac >>
           drule labPropsTheory.evaluate_ADD_clock >>
           disch_then(qspec_then`k-1+ck`mp_tac) >>
@@ -1283,9 +1302,10 @@ val flatten_semantics = store_thm("flatten_semantics",
           ntac 3 strip_tac >>
           `k' + (k - 1 + ck) = k - 1 + ck + k'` by decide_tac >> fs[] >>
           fs[state_component_equality] >>
-          IF_CASES_TAC >> fs[] >>
-          BasicProvers.FULL_CASE_TAC >> fs[] >>
-          BasicProvers.FULL_CASE_TAC >> fs[] ) >>
+          last_x_assum(qspec_then`k`mp_tac)>>
+          asm_simp_tac std_ss [] >>
+          strip_tac >> fs[] >> rveq >>
+          rw[] >> fs[]) >>
         first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
         unabbrev_all_tac >>
@@ -1293,17 +1313,19 @@ val flatten_semantics = store_thm("flatten_semantics",
         imp_res_tac state_rel_with_clock >>
         first_x_assum(qspec_then`k'+1+k`strip_assume_tac) >>
         disch_then drule >>
-        simp[] >>
-        BasicProvers.FULL_CASE_TAC >> fs[] >>
         discharge_hyps >- (
-          last_x_assum(qspec_then`k'+1+k`mp_tac) >> rw[] ) >>
+          simp[] >> rveq >>
+          last_x_assum(qspec_then`k'+1+k`mp_tac) >>
+          simp[] >> rw[] ) >>
         strip_tac >>
+        rator_x_assum`stackSem$evaluate`mp_tac >>
         drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
         disch_then(qspec_then`k'+1`mp_tac) >>
-        simp[] >> strip_tac >>
+        discharge_hyps >- (strip_tac >> fs[]) >>
+        simp[] >> ntac 2 strip_tac >>
         fsrw_tac[ARITH_ss][] >> rveq >> fs[] >>
-        first_x_assum(qspec_then`ck+k`mp_tac)>>simp[]>>
-        strip_tac >> fs[] ) >>
+        qpat_assum`∀extra. _ ∧ _`(qspec_then`ck+k`mp_tac)>>simp[]>>
+        strip_tac >> fs[]) >>
       first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
       first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
       unabbrev_all_tac >>
@@ -1317,7 +1339,7 @@ val flatten_semantics = store_thm("flatten_semantics",
       strip_tac >>
       fsrw_tac[ARITH_ss][] >>
       reverse(Cases_on`t'.ffi.final_event`)>>fs[]>>rfs[]>- (
-        first_x_assum(qspec_then`ck+k`mp_tac) >>
+        qpat_assum`∀extra. _ ∧ _`(qspec_then`ck+k`mp_tac) >>
         fsrw_tac[ARITH_ss][ADD1] >> strip_tac >>
         fs[state_rel_def] >> rfs[] ) >>
       rator_x_assum`labSem$evaluate`mp_tac >>
@@ -1326,7 +1348,7 @@ val flatten_semantics = store_thm("flatten_semantics",
       ntac 2 strip_tac >> rveq >>
       fs[] >> rfs[]) >>
     qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
-    qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+    qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
     disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
     first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
     unabbrev_all_tac >>
@@ -1338,11 +1360,12 @@ val flatten_semantics = store_thm("flatten_semantics",
       last_x_assum(qspec_then`k+1`mp_tac) >>fs[]>> rw[]) >>
     strip_tac >>
     asm_exists_tac >> simp[] >> fs[] >>
+    last_x_assum(qspec_then`k+1`mp_tac)>>simp[]>>
+    strip_tac >> fs[] >>
     every_case_tac >> fs[] >>rveq >> fs[]>>
     drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
     simp[] >>
-    disch_then(qspec_then`1`mp_tac)>>simp[]>>
-    rw[] >> rw[]) >>
+    qexists_tac`1`>>simp[]) >>
   strip_tac >>
   simp[labSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >- (
@@ -1353,12 +1376,18 @@ val flatten_semantics = store_thm("flatten_semantics",
     drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
     disch_then drule >> simp[] >>
-    conj_tac >- (strip_tac >> fs[]) >>
+    conj_tac >- (
+      spose_not_then strip_assume_tac >>
+      first_x_assum(qspec_then`k+1`mp_tac) >> fs[] >>
+      Cases_on`q`>>fs[]>>
+      Cases_on`x`>>fs[]>>rfs[]>>
+      last_x_assum(qspec_then`s`mp_tac)>>simp[]>>
+      metis_tac[]) >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
     Cases_on`q`>>fs[]>>
-    CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     qmatch_assum_abbrev_tac`FST p = _` >>
     Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
@@ -1377,7 +1406,10 @@ val flatten_semantics = store_thm("flatten_semantics",
     drule (GEN_ALL state_rel_with_clock) >>
     disch_then(qspec_then`k+1`strip_assume_tac) >>
     disch_then drule >> simp[] >>
-    conj_tac >- (strip_tac >> fs[]) >>
+    conj_tac >- (
+      Cases_on`q`>>fs[]>>
+      Cases_on`x'`>>fs[]>> rw[]>>
+      metis_tac[FST,SND,PAIR]) >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
@@ -1385,7 +1417,7 @@ val flatten_semantics = store_thm("flatten_semantics",
     BasicProvers.TOP_CASE_TAC >> fs[]>>
     BasicProvers.TOP_CASE_TAC >> fs[]>>
     reverse(Cases_on`t.ffi.final_event`)>>fs[]>-(
-      qspecl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono) >>
+      qispl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono) >>
       simp[] >>
       spose_not_then strip_assume_tac >> fs[] ) >>
     rator_x_assum`labSem$evaluate`mp_tac >>
@@ -1425,7 +1457,7 @@ val flatten_semantics = store_thm("flatten_semantics",
   (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> fs[] >>
   (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> fs[] >>
   qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
-  qspecl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
+  qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
   disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
   first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
   unabbrev_all_tac >>
@@ -1440,11 +1472,11 @@ val flatten_semantics = store_thm("flatten_semantics",
     qexists_tac`ck+k`>>simp[]>>fs[]>>
     fs[IS_PREFIX_APPEND]>>rfs[]>>simp[]>>
     simp[EL_APPEND1])>>
-  qspecl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono)>>
+  qispl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono)>>
   simp[]>>strip_tac>>
   qexists_tac`k+1`>>fs[]>>
   fs[IS_PREFIX_APPEND]>> simp[]>>
-  simp[EL_APPEND1] *));
+  simp[EL_APPEND1]);
 
 val init_state_rel_def = Define `
   init_state_rel s1 start s2 <=> s2.pc = start (* TODO!! *)`;
