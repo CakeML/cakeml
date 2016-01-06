@@ -209,7 +209,6 @@ in
     ,clos_removeTheory.const_0_def
     ,clos_removeTheory.pure_def
     ,clos_removeTheory.pure_op_def
-    ,indexedListsTheory.MAPi_def
     ]
 
   (* bvl *)

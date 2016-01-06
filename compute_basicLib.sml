@@ -21,6 +21,7 @@ fun add_basic_compset compset =
   *)
   (* HOL libraries provide compsets :) *)
     listLib.add_rich_list_compset compset
+  ; listLib.add_indexedLists_compset compset
   ; intReduce.add_int_compset compset
   ; stringLib.add_string_compset compset
   ; sumSimps.SUM_rws compset
