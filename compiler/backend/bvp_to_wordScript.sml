@@ -1,4 +1,4 @@
-open preamble wordLangTheory bvpTheory;
+open preamble wordLangTheory bvpTheory word_to_wordTheory;
 
 val _ = new_theory "bvp_to_word";
 
@@ -16,7 +16,7 @@ val adjust_set_def = Define `
     (fromAList ((0,()):: MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set`
 
 val assign_def = Define `
-  assign (c:config) (n:num) (l:num) (dest:num) (op:closLang$op)
+  assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
     case op of
     | Const i =>
@@ -68,6 +68,8 @@ val compile_part_def = Define `
   compile_part c (n,arg_count,p) = (n,arg_count+1n,FST (comp c n 1 p))`
 
 val compile_def = Define `
-  compile c prog = MAP (compile_part c) prog`;
+  compile bvp_conf word_conf asm_conf prog =
+    let p = MAP (compile_part bvp_conf) prog in
+      word_to_word$compile word_conf (asm_conf:'a asm_config) p`;
 
 val _ = export_theory();

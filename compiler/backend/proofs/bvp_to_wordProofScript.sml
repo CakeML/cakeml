@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory;
+     set_sepTheory semanticsPropsTheory word_to_wordProofTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -2305,8 +2305,6 @@ val compile_correct = store_thm("compile_correct",
     \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
 
-open word_to_stackTheory;
-
 val compile_correct_lemma = store_thm("compile_correct_lemma",
   ``!(s:'ffi bvpSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
       (bvpSem$evaluate (Call NONE (SOME start) [] NONE,s) = (res,s1)) /\
@@ -2327,19 +2325,6 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
            | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
            | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   cheat); (* the theorem above needs adjusting *)
-
-(* TODO: Move to appropriate theory when done *)
-val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
-  ``(!n v. lookup n st.code = SOME v ==>
-           lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
-    ?perm'.
-      let prog = Call NONE (SOME start) [0] NONE in
-      let (res,rst) = evaluate (prog,st with permute := perm') in
-        if res = SOME Error then T else
-          let (res1,rst1) = evaluate (prog,st with code := l) in
-            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,
-  cheat) (* can this be proved? *)
-  |> SIMP_RULE std_ss [Once LET_THM]
 
 val state_rel_ext_def = Define `
   state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
@@ -2376,7 +2361,7 @@ val compile_correct = store_thm("compile_correct",
              lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
         by fs [inc_clock_def]
   \\ drule compile_word_to_word_thm \\ rw []
-  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF]
+  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF] \\ rfs[]
   THEN1 (every_case_tac \\ fs [] \\ rfs [])
   \\ split_pair_tac \\ fs [] \\ rw []
   \\ fs [inc_clock_def]

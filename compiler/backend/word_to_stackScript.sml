@@ -1,7 +1,5 @@
-open preamble;
-open asmTheory wordLangTheory;
-open stackLangTheory parmoveTheory word_allocTheory;
-local open word_instTheory in (* word-to-word transformations *) end
+open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
+     word_allocTheory
 
 val _ = new_theory "word_to_stack";
 
@@ -200,50 +198,12 @@ val compile_prog_def = Define `
       Seq (StackAlloc (f - stack_arg_count))
           (comp prog (reg_count,f,stack_var_count))`
 
-(*
-Order of word->word transforms:
-1) Inst select (with a few optimizations)
-2) SSA
-3) Dead code elim (not written yet)
-4) 3 to 2 regs for certain configs
-5) reg_alloc
-6) word_to_stack
-*)
-
-(*reg_alg = choice of register allocator*)
-val _ = Datatype`config =
-  <| reg_alg : num
-   ; col_oracle : num -> (num num_map) option |>`;
-
-val compile_single_def = Define`
-  compile_single two_reg_arith reg_count alg c ((name_num:num,arg_count,prog),col_opt) =
-  let maxv = max_var prog + 1 in
-  let inst_prog = inst_select c maxv prog in
-  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-  let prog = if two_reg_arith then three_to_two_reg ssa_prog
-                              else ssa_prog in
-  let reg_prog = word_alloc alg reg_count prog col_opt in
-    (name_num,arg_count,reg_prog)`
-
-val next_n_oracle_def = Define`
-  next_n_oracle n (col:num ->(num num_map)option) =
-  (GENLIST col n, λk. col (k+n))`
-
-val compile_word_to_word_def = Define `
-  compile_word_to_word word_conf (asm_conf:'a asm_config) progs =
-    let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
-    let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
-    let progs = ZIP (progs,n_oracles) in
-    (col,MAP (compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
-
 val compile_word_to_stack_def = Define `
   compile_word_to_stack k prog =
     (5:num,raise_stub k) :: MAP (\(i,n,p). (i:num,compile_prog p n k)) prog`;
 
 val compile_def = Define `
-  compile word_conf asm_conf progs =
-    let (col,progs) = compile_word_to_word word_conf asm_conf progs in
-    let k = asm_conf.reg_count - 4 in
-      (col,compile_word_to_stack k progs)`
+  compile asm_conf progs =
+    compile_word_to_stack (asm_conf.reg_count - 4) progs`
 
 val _ = export_theory();

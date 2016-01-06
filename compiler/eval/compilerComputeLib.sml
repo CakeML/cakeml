@@ -21,7 +21,7 @@ open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheor
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
-open stackLangTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
+open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 open backendTheory
 open compute_semanticsLib
@@ -49,7 +49,7 @@ in
     add_datatype``:mod_to_con$config``;
     add_datatype``:clos_to_bvl$config``;
     add_datatype``:bvp_to_word$config``;
-    add_datatype``:word_to_stack$config``;
+    add_datatype``:word_to_word$config``;
     add_datatype``:stack_to_lab$config``;
     add_datatype``:'a lab_to_target$config``;
     add_datatype``:'a asm_config``;
@@ -209,7 +209,7 @@ in
     ,clos_removeTheory.const_0_def
     ,clos_removeTheory.pure_def
     ,clos_removeTheory.pure_op_def
-    ,clos_removeTheory.MAPi_def
+    ,indexedListsTheory.MAPi_def
     ]
 
   (* bvl *)
@@ -345,6 +345,12 @@ in
     ,bvp_to_wordTheory.assign_def
     ,bvp_to_wordTheory.comp_def
     ,bvp_to_wordTheory.adjust_set_def
+    ]
+  (*wordLang word_to_word*)
+  ; add_thms
+    [word_to_wordTheory.compile_single_def
+    ,word_to_wordTheory.next_n_oracle_def
+    ,word_to_wordTheory.compile_def
     ]
   (*wordLang inst_select and inst flattening*)
   ; add_thms
@@ -568,9 +574,6 @@ in
     ,word_to_stackTheory.wReg2_def
     ,word_to_stackTheory.wRegImm2_def
     ,word_to_stackTheory.compile_prog_def
-    ,word_to_stackTheory.compile_single_def
-    ,word_to_stackTheory.next_n_oracle_def
-    ,word_to_stackTheory.compile_word_to_word_def
     ,word_to_stackTheory.compile_word_to_stack_def
     ,word_to_stackTheory.compile_def
     ]
@@ -733,7 +736,5 @@ val the_compiler_compset =
   end
 
 end
-
-
 
 end
