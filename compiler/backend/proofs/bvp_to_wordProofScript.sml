@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory word_to_stackTheory;
+     set_sepTheory semanticsPropsTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -2304,6 +2304,8 @@ val compile_correct = store_thm("compile_correct",
     \\ imp_res_tac eval_push_env_SOME_exc_IMP_s_key_eq
     \\ imp_res_tac s_key_eq_handler_eq_IMP
     \\ fs [jump_exc_inc_clock_EQ_NONE] \\ metis_tac []));
+
+open word_to_stackTheory;
 
 val compile_correct_lemma = store_thm("compile_correct_lemma",
   ``!(s:'ffi bvpSem$state) c l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
