@@ -4129,8 +4129,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     rw[]>>
     fs[word_state_eq_rel_def]>>
     qpat_abbrev_tac`mem = write_bytearray A B C D E`>>
-    qabbrev_tac`rst = st with <|locals := x;memory:=mem|>`>>
-    qpat_abbrev_tac`rcstt = rcst with <|locals := A;memory:=B|>`>>
+    qabbrev_tac`rst = st with <|locals := x;memory:=mem;ffi:=q|>`>>
+    qpat_abbrev_tac`rcstt = rcst with <|locals := A;memory:=B;ffi:=D|>`>>
     `domain ssa_cut = domain x` by
       (fs[EXTENSION,Abbr`ssa_cut`,domain_inter]>>
       rw[EQ_IMP_THM]>>
