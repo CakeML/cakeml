@@ -85,13 +85,95 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   every_case_tac >> fs[] >> rw[] >> rfs[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
+val evaluate_dec_add_to_clock = Q.prove(
+  `∀env s d s' r.
+    r ≠ Rerr (Rabort Rtimeout_error) ∧
+    evaluate_dec env s d = (s',r) ⇒
+    evaluate_dec env (s with clock := s.clock + extra) d =
+      (s' with clock := s'.clock + extra,r)`,
+  Cases_on`d`>>simp[evaluate_dec_def] >>
+  rw[]>>fs[state_component_equality]>>
+  pop_assum mp_tac >>
+  BasicProvers.TOP_CASE_TAC >>
+  imp_res_tac evaluate_add_to_clock >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  TRY (strip_tac >> var_eq_tac) >> fs[] >> rfs[] >>
+  first_x_assum(qspec_then`extra`mp_tac)>>simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[] >>
+  BasicProvers.TOP_CASE_TAC >> simp[]);
+
+val evaluate_decs_add_to_clock = Q.prove(
+  `∀decs env s s' r.
+   SND (SND r) ≠ SOME (Rabort Rtimeout_error) ∧
+   evaluate_decs env s decs = (s',r) ⇒
+   evaluate_decs env (s with clock := s.clock + extra) decs =
+   (s' with clock := s'.clock + extra,r)`,
+  Induct >> rw[evaluate_decs_def] >>
+  pop_assum mp_tac >>
+  BasicProvers.TOP_CASE_TAC >>
+  imp_res_tac evaluate_dec_add_to_clock >>
+  BasicProvers.TOP_CASE_TAC >> rfs[] >>
+  TRY(strip_tac >> var_eq_tac) >> fs[] >> rfs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  strip_tac >> rveq >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  rator_x_assum`evaluate_decs`mp_tac >>
+  qmatch_assum_abbrev_tac`evaluate_decs envv ss decs = (sr,rr)` >>
+  first_x_assum(qspecl_then[`envv`,`ss`,`sr`,`rr`]mp_tac) >>
+  unabbrev_all_tac >> simp[]);
+
+val evaluate_prompt_add_to_clock = Q.prove(
+  `∀env s p s' r.
+     SND(SND r) ≠ SOME (Rabort Rtimeout_error) ∧
+     evaluate_prompt env s p = (s',r) ⇒
+     evaluate_prompt env (s with clock := s.clock + extra) p =
+       (s' with clock := s'.clock + extra,r)`,
+  Cases_on`p` >>
+  rw[evaluate_prompt_def] >>
+  fs[LET_THM] >>
+  split_pair_tac >> fs[] >> rveq >>
+  simp[] >> fs[] >>
+  imp_res_tac evaluate_decs_add_to_clock >> rfs[] >>
+  rpt(first_x_assum(qspec_then`extra`mp_tac))>>simp[]);
+
+val evaluate_prompts_add_to_clock = Q.prove(
+  `∀prog env s s' r.
+     SND(SND r) ≠ SOME (Rabort Rtimeout_error) ∧
+     evaluate_prompts env s prog = (s',r) ⇒
+     evaluate_prompts env (s with clock := s.clock + extra) prog =
+     (s' with clock := s'.clock + extra,r)`,
+  Induct >> rw[evaluate_prompts_def] >>
+  pop_assum mp_tac >>
+  ntac 3 BasicProvers.TOP_CASE_TAC >>
+  imp_res_tac evaluate_prompt_add_to_clock >> rfs[] >>
+  res_tac >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  TRY(strip_tac >> var_eq_tac) >> fs[] >> rfs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  strip_tac >> rveq >> fs[] >>
+  first_x_assum(drule o ONCE_REWRITE_RULE[CONJ_COMM]) >>
+  simp[]);
+
 val evaluate_prog_add_to_clock = Q.store_thm("evaluate_prog_add_to_clock",
   `∀prog env s s' r.
    evaluate_prog env s prog = (s',r) ∧
    r ≠ SOME (Rabort Rtimeout_error) ⇒
    evaluate_prog env (s with clock := s.clock + extra) prog =
      (s' with clock := s'.clock + extra,r)`,
-  cheat);
+  rw[evaluate_prog_def] >> fs[LET_THM] >>
+  split_pair_tac >> fs[] >> rveq >>
+  imp_res_tac evaluate_prompts_add_to_clock >>
+  rfs[] >>
+  rpt(first_x_assum(qspec_then`extra`mp_tac))>>simp[]);
 
 val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_to_clock_io_events_mono",
   `∀env s prog extra.
