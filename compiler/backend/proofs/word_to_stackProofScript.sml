@@ -2106,9 +2106,47 @@ val comp_Call = prove(
   \\ IF_CASES_TAC \\ fs []
   \\ every_case_tac \\ fs [state_rel_def,push_locals_def,LET_DEF]);
 
-val state_rel_IMP_semantics = store_thm("state_rel_IMP_semantics",
-  ``state_rel k 0 0 s t /\ semantics s start <> Fail ==>
-    semantics start t IN extend_with_resource_limit { semantics s start }``,
+val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
+  `state_rel a 0 0 s t ⇒ state_rel a 0 0 (s with clock := k) (t with clock := k)`,
+  rw[state_rel_def]);
+
+val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
+  `state_rel k 0 0 (s:(α,'ffi)wordSem$state) t /\ semantics s start <> Fail ==>
+   semantics start t IN extend_with_resource_limit { semantics s start }`,
+  simp[GSYM AND_IMP_INTRO] >> ntac 1 strip_tac >>
+  `2 MOD (dimword(:'a)) ≠ 0` by (
+    fs[state_rel_def] >>
+    `8 < dimword(:'a)` by (assume_tac dimindex_lt_dimword >> simp[]) >>
+    simp[] ) >>
+  simp[wordSemTheory.semantics_def] >>
+  IF_CASES_TAC >> fs[] >>
+  DEEP_INTRO_TAC some_intro >> simp[] >>
+  conj_tac >- (
+    rw[] >>
+    simp[stackSemTheory.semantics_def] >>
+    IF_CASES_TAC >- (
+      fs[] >> rveq >> fs[] >>
+      rator_x_assum`wordSem$evaluate`kall_tac >>
+      last_x_assum(qspec_then`k''`mp_tac)>>simp[] >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      strip_tac >>
+      drule comp_Call >> fs[] >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      discharge_hyps >- ( strip_tac >> fs[] ) >>
+      drule(GEN_ALL state_rel_with_clock) >>
+      disch_then(qspec_then`k''`strip_assume_tac) >> fs[] >>
+      disch_then drule >> simp[] >>
+      Cases_on`q`>>fs[]>>
+      strip_tac >>
+      qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
+      (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
+      strip_tac >> fs[] >>
+      drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
+      disch_then(qspec_then`ck`mp_tac) >>
+      simp[] >> strip_tac >> rveq >> fs[] >>
+      every_case_tac >> fs[] >> rveq >> fs[]) >>
+    DEEP_INTRO_TAC some_intro >> simp[] >>
+    cheat) >>
   cheat); (* TODO Ramana, use comp_Call, see bvp_to_word for a similar proof *)
 
 val init_state_ok_def = Define `
@@ -2148,7 +2186,7 @@ val init_state_ok_semantics =
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
 val compile_semantics = store_thm("compile_semantics",
-  ``t.code = fromAList (compile asm_conf code) /\
+  ``(t:(α,'ffi)stackSem$state).code = fromAList (compile asm_conf code) /\
     init_state_ok (asm_conf.reg_count - 4) t /\ (ALOOKUP code 5 = NONE) /\
     semantics (make_init t (fromAList code)) start <> Fail ==>
     semantics start t IN
