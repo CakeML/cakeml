@@ -515,10 +515,9 @@ val v_rel_weakening = Q.prove (
 val (env_all_rel_rules, env_all_rel_ind, env_all_rel_cases) = Hol_reln `
   (!gtagenv env env_i2.
     cenv_inv env.c env_i2.exh tagenv gtagenv ∧
-    LIST_REL (OPTION_REL (v_rel gtagenv)) env.globals env_i2.globals ∧
     env_rel gtagenv env.v env_i2.v
     ⇒
-    env_all_rel tagenv env env_i2 gtagenv)`;
+    env_all_rel tagenv (env:modSem$environment) (env_i2:conSem$environment) gtagenv)`;
 
 val env_rel_append = Q.prove (
   `!gtagenv env1 env2 env1' env2'.
@@ -641,6 +640,7 @@ val sv_rel_weakening = Q.prove (
 val (s_rel_rules, s_rel_ind, s_rel_cases) = Hol_reln `
   (!gtagenv s (s':'ffi conSem$state).
     LIST_REL (sv_rel gtagenv) s.refs s'.refs ∧
+    LIST_REL (OPTION_REL (v_rel gtagenv)) s.globals s'.globals ∧
     s.clock = s'.clock ∧
     s.ffi = s'.ffi
     ⇒
@@ -656,18 +656,17 @@ val match_result_rel_def = Define
 (* top-level invariant *)
 
 val invariant_def = Define `
-  invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇔
+  invariant envC tagenv_st gtagenv s s_i2 ⇔
     set (MAP FST (FST envC)) ⊆ s.defined_mods ∧
     (∀x. Short x ∈ FDOM (get_exh tagenv_st) ⇒ TypeId (Short x) ∈ s.defined_types) ∧
     (∀mn x. Long mn x ∈ FDOM (get_exh tagenv_st) ⇒ mn ∈ s.defined_mods) ∧
     cenv_inv envC (get_exh tagenv_st) (get_tagenv ((tagenv_st,FEMPTY):tagenv_state_acc)) gtagenv ∧
     s_rel gtagenv s s_i2 ∧
-    LIST_REL (OPTION_REL (v_rel gtagenv)) genv genv_i2 ∧
     next_inv s.defined_types (FST tagenv_st) gtagenv`;
 
 val invariant_with_clock = Q.store_thm("invariant_with_clock",
-  `invariant envC tagenv_st gtagenv s s_i2 genv genv_i2 ⇒
-   invariant envC tagenv_st gtagenv (s with clock := k) (s_i2 with clock := k) genv genv_i2`,
+  `invariant envC tagenv_st gtagenv s s_i2 ⇒
+   invariant envC tagenv_st gtagenv (s with clock := k) (s_i2 with clock := k)`,
   rw[invariant_def] >> fs[s_rel_cases] >> metis_tac[])
 
 (* semantic functions respect relation *)
@@ -1040,7 +1039,7 @@ val do_app = Q.prove (
 
 val do_opapp = Q.prove (
   `!gtagenv vs vs_i2 env e genv env' tagenv env_i2.
-    do_opapp env.globals vs = SOME (env', e) ∧
+    do_opapp vs = SOME (env', e) ∧
     env_all_rel tagenv env env_i2 gtagenv ∧
     vs_rel gtagenv vs vs_i2
     ⇒
@@ -1288,10 +1287,10 @@ val compile_exp_correct = Q.prove (
       every_case_tac >> fs[result_rel_eqns] >>
       imp_res_tac env_rel_lookup >> fs[v_rel_eqns] >> rw[])
   >- (* Global variable lookup *)
-     (fs [env_all_rel_cases] >>
+     (fs [s_rel_cases] >>
       rw [] >> fs [] >>
-      `LENGTH env.globals > n` by decide_tac >>
-      `LENGTH env_i2.globals = LENGTH env.globals` by metis_tac [LIST_REL_LENGTH] >>
+      `LENGTH s.globals > n` by decide_tac >>
+      `LENGTH s_i2.globals = LENGTH s.globals` by metis_tac [LIST_REL_LENGTH] >>
       imp_res_tac genv_rel_lookup >>
       rfs[IS_SOME_EXISTS] >>
       metis_tac[SOME_11])
@@ -1924,18 +1923,17 @@ val recfun_helper = Q.prove (
 val compile_decs_correct = store_thm("compile_decs_correct",
   ``∀env s ds r.
       evaluate_decs env s ds = r ⇒
-    ∀res s1_i2 genv_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' gtagenv.
+    ∀res s1_i2 tagenv_st ds_i2 tagenv_st' genv' envC' s' gtagenv.
       r = (s', envC', genv', res) ∧
       res ≠ SOME (Rabort Rtype_error) ∧
       no_dup_types ds ∧
       compile_decs tagenv_st ds = (tagenv_st', ds_i2) ∧
       cenv_inv env.c (get_exh (FST tagenv_st)) (get_tagenv tagenv_st) gtagenv ∧
       s_rel gtagenv s s1_i2 ∧
-      LIST_REL (OPTREL (v_rel gtagenv)) env.globals genv_i2 ∧
       next_inv s.defined_types (FST (FST tagenv_st)) gtagenv
       ⇒
       ∃genv'_i2 s'_i2 res_i2 gtagenv' acc'.
-        evaluate_decs <| exh := get_exh (FST tagenv_st'); v := []; globals := genv_i2|> s1_i2 ds_i2 = (s'_i2,genv'_i2,res_i2) ∧
+        evaluate_decs <| exh := get_exh (FST tagenv_st'); v := []|> s1_i2 ds_i2 = (s'_i2,genv'_i2,res_i2) ∧
         gtagenv_weak gtagenv gtagenv' ∧
         vs_rel gtagenv' genv' genv'_i2 ∧
         s_rel gtagenv' s' s'_i2 ∧
@@ -2024,9 +2022,9 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     simp[GSYM AND_IMP_INTRO,env_rel_el,LENGTH_NIL_SYM] >>
     simp[Once result_rel_cases,PULL_EXISTS,vs_rel_list_rel] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    qpat_abbrev_tac`env_i2:conSem$environment = _ with globals := _` >>
-    disch_then(qspec_then`env_i2`mp_tac o (CONV_RULE(RESORT_FORALL_CONV(sort_vars["env_i2"])))) >>
     disch_then(qspec_then`get_tagenv tagenv_st`mp_tac) >>
+    qpat_abbrev_tac`env_i2:conSem$environment = _ with v := _` >>
+    disch_then(qspec_then`env_i2`mp_tac) >>
     simp[Abbr`env_i2`] >>
     discharge_hyps_keep >- (
       fs[cenv_inv_def] >> simp[gtagenv_weak_refl] >>
@@ -2040,9 +2038,11 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     imp_res_tac LIST_REL_LENGTH >>
     simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(qspec_then`genv_i2 ++ MAP SOME vs'`mp_tac) >>
+    qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
+    disch_then(qspec_then`s_i2`mp_tac) >>
     discharge_hyps >- (
+      simp[Abbr`s_i2`] >>
+      fs[s_rel_cases] >>
       MATCH_MP_TAC EVERY2_APPEND_suff >>
       simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
       simp_tac(srw_ss()++boolSimps.ETA_ss)[] >> rw[] ) >>
@@ -2059,29 +2059,36 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     metis_tac[v_rel_weakening,vs_rel_list_rel] )
   >- (
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    imp_res_tac recfun_helper >>
-    pop_assum(qspec_then`l`assume_tac) >>
-    qmatch_assum_abbrev_tac`LIST_REL R l1 l2` >>
-    disch_then(qspec_then`genv_i2 ++ l2`mp_tac) >>
+    simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
+    qpat_abbrev_tac`s_i2:'ffi conSem$state = _ with globals updated_by _` >>
+    disch_then(qspec_then`s_i2`mp_tac) >>
     discharge_hyps >- (
-      match_mp_tac EVERY2_APPEND_suff >> rw[] ) >>
+      fs[s_rel_cases,Abbr`s_i2`] >>
+      simp[compile_funs_map] >>
+      fs[MAP_MAP_o,o_DEF,UNCURRY] >>
+      match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+      fs[EVERY2_MAP,optionTheory.OPTREL_def,UNCURRY] >>
+      match_mp_tac (MP_CANON (GEN_ALL LIST_REL_mono)) >>
+      simp[Once v_rel_cases] >>
+      qexists_tac`$=`>>simp[env_rel_el] >>
+      simp[LIST_REL_EL_EQN] >>
+      metis_tac[] ) >>
     simp[] >> unabbrev_all_tac >>
     simp[PULL_EXISTS] >> rpt gen_tac >>
     qpat_abbrev_tac`D ⇔ a ∨ b` >> strip_tac >>
-    simp[conSemTheory.evaluate_decs_def,conSemTheory.evaluate_dec_def] >>
-    simp[compile_funs_map] >>
-    fs[MAP_MAP_o,o_DEF,UNCURRY] >>
     first_assum(match_exists_tac o concl) >> simp[] >>
     fs[vs_rel_list_rel] >>
     qexists_tac`acc'`>>simp[]>>
     reverse conj_tac >- ( fs[markerTheory.Abbrev_def] ) >>
     match_mp_tac EVERY2_APPEND_suff >> simp[] >>
+    simp[compile_funs_map] >>
+    fs[MAP_MAP_o,o_DEF,UNCURRY] >>
     fs[EVERY2_MAP,optionTheory.OPTREL_def,UNCURRY] >>
-    match_mp_tac (MP_CANON (GEN_ALL LIST_REL_mono)) >>
-    rw[Once CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    metis_tac[v_rel_weakening] )
+    simp[Once v_rel_cases,env_rel_el] >>
+    simp[LIST_REL_EL_EQN] >> rw[] >>
+    fs[cenv_inv_def] >>
+    fs[envC_tagged_def] >>
+    PROVE_TAC[gtagenv_weak_def,FLOOKUP_SUBMAP])
   >- (
     first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO]alloc_tags_cenv_inv)) >>
     qmatch_assum_rename_tac`compile_decs (alloc_tags mn tagenv_st ls) ds = _` >>
@@ -2097,17 +2104,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     every_case_tac >> fs[] >>
     rpt var_eq_tac >>
     disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-    disch_then(qspecl_then[`s1_i2`,`genv_i2`]mp_tac) >>
+    disch_then(qspecl_then[`s1_i2`]mp_tac) >>
     discharge_hyps >- (
       fs[s_rel_cases] >>
+      conj_tac >>
       match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-      metis_tac[sv_rel_weakening] ) >>
-    discharge_hyps >- (
-      match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >> simp[] >>
-      first_assum(match_exists_tac o concl) >>
-      simp[optionTheory.OPTREL_def] >> rw[] >>
-      metis_tac[v_rel_weakening] ) >>
+      metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
     discharge_hyps >- (
       simp[] >>
       Cases_on`env.c`>>fs[merge_alist_mod_env_def] >>
@@ -2176,17 +2178,12 @@ val compile_decs_correct = store_thm("compile_decs_correct",
     fs[next_inv_def,SUBSET_DEF,PULL_EXISTS] >>
     metis_tac[SND] ) >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
-  disch_then(qspecl_then[`s1_i2`,`genv_i2`]mp_tac) >>
+  disch_then(qspecl_then[`s1_i2`]mp_tac) >>
   discharge_hyps >- (
     fs[s_rel_cases] >>
+    conj_tac >>
     match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-    metis_tac[sv_rel_weakening] ) >>
-  discharge_hyps >- (
-    match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-    ONCE_REWRITE_TAC[CONJ_COMM] >>
-    first_assum(match_exists_tac o concl) >>
-    simp[optionTheory.OPTREL_def] >> rw[] >>
-    metis_tac[v_rel_weakening] ) >>
+    metis_tac[sv_rel_weakening,v_rel_weakening,OPTREL_MONO] ) >>
   discharge_hyps >- (
     simp[GSYM INSERT_SING_UNION] >>
     Cases_on`envC`>>fs[merge_alist_mod_env_def]) >>
@@ -2296,17 +2293,17 @@ val compile_decs_dummy_env_num_defs =prove(
   simp[modSemTheory.dec_to_dummy_env_def,conLangTheory.num_defs_def,compile_funs_map]);
 
 val compile_prompt_correct = store_thm("compile_prompt_correct",
-  ``!env s prompt s_i2 genv_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
+  ``!env s prompt s_i2 tagenv_st prompt_i2 genv' envC' s' res gtagenv tagenv_st'.
     evaluate_prompt env s prompt = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c tagenv_st gtagenv s s_i2 ∧
     (tagenv_st', prompt_i2) = compile_prompt tagenv_st prompt
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv' new_envC.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prompt <| exh := (get_exh tagenv_st'); globals := genv_i2; v := [] |>
+      evaluate_prompt <| exh := (get_exh tagenv_st'); v := [] |>
         s_i2 prompt_i2 = (s'_i2,genv'_i2,res_i2) ∧
-      invariant new_envC tagenv_st' gtagenv' s' s'_i2 (env.globals++genv') (genv_i2 ++ genv'_i2) ∧
+      invariant new_envC tagenv_st' gtagenv' (s' with globals updated_by(λg. g ++ genv')) (s'_i2 with globals updated_by(λg. g ++ genv'_i2)) ∧
       (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_alist_mod_env envC' env.c) ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = env.c ∧
                     s_rel gtagenv' s' s'_i2 ∧
@@ -2361,16 +2358,9 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       simp[] >>
       PairCases_on`tagenv_st`>>fs[get_tagenv_def] ) >>
     rpt var_eq_tac >>
-    conj_tac >- fs[s_rel_cases] >>
-    match_mp_tac EVERY2_APPEND_suff >>
-    conj_tac >- (
-      match_mp_tac (GEN_ALL(MP_CANON LIST_REL_mono)) >>
-      ONCE_REWRITE_TAC[CONJ_COMM] >>
-      first_assum(match_exists_tac o concl) >>
-      rw[optionTheory.OPTREL_def] >>
-      metis_tac[v_rel_weakening] ) >>
-    simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
-    srw_tac[boolSimps.ETA_ss][GSYM vs_rel_list_rel] )
+    fs[s_rel_cases,vs_rel_list_rel] >>
+    match_mp_tac EVERY2_APPEND_suff >> fs[] >>
+    simp[EVERY2_MAP,OPTREL_def] >> fs[LIST_REL_EL_EQN])
   >- (
     first_assum(mp_tac o MATCH_MP compile_decs_correct) >> simp[] >>
     disch_then(mp_tac o REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
@@ -2447,19 +2437,15 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       >- metis_tac[FLOOKUP_SUBMAP]
       >- ( simp[FLOOKUP_UPDATE] >> metis_tac[FLOOKUP_SUBMAP])) >>
     rpt var_eq_tac >>
-    conj_tac >- fs[s_rel_cases] >>
     conj_tac >- (
-      match_mp_tac EVERY2_APPEND_suff >>
-      conj_tac >- (
-        match_mp_tac EVERY2_APPEND_suff >>
-        conj_tac >- PROVE_TAC[LIST_REL_mono,optionTheory.OPTREL_MONO,v_rel_weakening] >>
-        simp[EVERY2_MAP,optionTheory.OPTREL_def] >>
-        srw_tac[boolSimps.ETA_ss][] >>
-        fs[vs_rel_list_rel] ) >>
+      fs[s_rel_cases] >>
       imp_res_tac compile_decs_dummy_env_num_defs >>
-      fs[vs_rel_list_rel] >>
-      imp_res_tac LIST_REL_LENGTH >>
-      simp[LIST_REL_EL_EQN,EL_GENLIST,optionTheory.OPTREL_def] ) >>
+      match_mp_tac EVERY2_APPEND_suff >> fs[] >>
+      reverse conj_tac >- (
+        fs[LIST_REL_EL_EQN,vs_rel_list_rel,OPTREL_def] ) >>
+      match_mp_tac EVERY2_APPEND_suff >> fs[] >>
+      simp[EVERY2_MAP,OPTREL_def] >>
+      fs[vs_rel_list_rel,LIST_REL_EL_EQN] ) >>
     simp[result_rel_cases] >>
     fs[s_rel_cases]))
 
@@ -2481,10 +2467,10 @@ val compile_prog_exh_weak = store_thm("compile_prog_exh_weak",
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   `!env s prog res_tmp.
     evaluate_prompts env s prog = res_tmp ⇒
-    !s_i2 genv_i2 next tagenv exh prog_i2 genv' envC' s' res gtagenv next' tagenv' exh'.
+    !s_i2 next tagenv exh prog_i2 genv' envC' s' res gtagenv next' tagenv' exh'.
     res_tmp = (s', envC', genv', res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 ∧
     no_dup_mods prog s.defined_mods ∧
     no_dup_top_types prog s.defined_types ∧
     EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) prog ∧
@@ -2492,9 +2478,9 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
+      evaluate_prog <| exh := exh'; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧
-       invariant (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 (env.globals++genv') (genv_i2++genv'_i2) ∨
+       invariant (merge_alist_mod_env envC' env.c) (next',tagenv',exh') gtagenv' s' s'_i2 ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧
          s_rel gtagenv' s' s'_i2 ∧
          result_rel v_rel gtagenv' (Rerr err) (Rerr err_i2))`,
@@ -2531,8 +2517,7 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   `∃a b c. st' = (a,b,c)` by metis_tac[PAIR] >> var_eq_tac >>
   disch_then(fn th => first_assum(mp_tac o MATCH_MP th o SYM)) >>
   CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv (same_const``invariant`` o fst o strip_comb))))) >>
-  ONCE_REWRITE_TAC[GSYM AND_IMP_INTRO] >>
-  disch_then(fn th => first_assum(mp_tac o MATCH_MP th)) >>
+  disch_then drule >>
   discharge_hyps >- (
     fs [modPropsTheory.no_dup_mods_eqn, modPropsTheory.no_dup_top_types_eqn] >>
     imp_res_tac modPropsTheory.evaluate_prompt_mods_disjoint >> fs[] >>
@@ -2587,15 +2572,15 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   metis_tac[gtagenv_weak_trans]);
 
 val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
-  `!env s prog s_i2 genv_i2 next tagenv exh prog_i2 s' res gtagenv next' tagenv' exh'.
+  `!env s prog s_i2 next tagenv exh prog_i2 s' res gtagenv next' tagenv' exh'.
     evaluate_prog env s prog = (s',res) ∧
     res ≠ SOME (Rabort Rtype_error) ∧
-    invariant env.c (next,tagenv,exh) gtagenv s s_i2 env.globals genv_i2 ∧
+    invariant env.c (next,tagenv,exh) gtagenv s s_i2 ∧
     ((next',tagenv',exh'), prog_i2) = compile_prog (next,tagenv,exh) prog
     ⇒
     ?genv'_i2 s'_i2 res_i2 gtagenv'.
       gtagenv_weak gtagenv gtagenv' ∧
-      evaluate_prog <| exh := exh'; globals := genv_i2; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
+      evaluate_prog <| exh := exh'; v := [] |> s_i2 prog_i2 = (s'_i2,genv'_i2,res_i2) ∧
       OPTION_REL (CURRY (UNCURRY (result_rel v_rel gtagenv') o (Rerr ## Rerr))) res res_i2 ∧
       s_rel gtagenv' s' s'_i2`,
   rw [modSemTheory.evaluate_prog_def,LET_THM] >>
@@ -2607,9 +2592,9 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
 
 val compile_prog_semantics = Q.store_thm("compile_prog_semantics",
   `semantics env s prog ≠ Fail ⇒
-   invariant env.c tagenv_st gtagenv s s_i2 env.globals genv_i2 ⇒
+   invariant env.c tagenv_st gtagenv s s_i2 ⇒
    compile_prog tagenv_st prog = (tagenv_st', prog_i2) ⇒
-   semantics <| exh := get_exh tagenv_st'; globals := genv_i2; v := [] |> s_i2 prog_i2
+   semantics <| exh := get_exh tagenv_st'; v := [] |> s_i2 prog_i2
      = semantics env s prog`,
   simp[modSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>

@@ -22,7 +22,6 @@ val _ = Datatype`
 
 val _ = Datatype`
   environment = <|
-    globals : (conSem$v option) list;
     v   : (varN, conSem$v) alist;
     exh : exh_ctors_env
   |>`;
@@ -31,6 +30,7 @@ val _ = Datatype`
   state = <|
     clock   : num;
     refs    : conSem$v store;
+    globals : (conSem$v option) list;
     ffi     : 'ffi ffi_state
   |>`;
 
@@ -453,8 +453,8 @@ val evaluate_def = tDefine"evaluate"`
    | SOME v => Rval [v]
    | NONE => Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Var_global n] = (s,
-   if n < LENGTH env.globals ∧ IS_SOME (EL n env.globals)
-   then Rval [THE (EL n env.globals)]
+   if n < LENGTH s.globals ∧ IS_SOME (EL n s.globals)
+   then Rval [THE (EL n s.globals)]
    else Rerr (Rabort Rtype_error))) ∧
   (evaluate env s [Fun n e] = (s, Rval [Closure env.v n e])) ∧
   (evaluate env s [App op es] =
@@ -564,7 +564,7 @@ val evaluate_decs_def = Define`
   (evaluate_decs env s (d::ds) =
    case evaluate_dec env s d of
    | (s, Rval new_env) =>
-     (case evaluate_decs (env with globals updated_by (λg. g ++ MAP SOME new_env)) s ds of
+     (case evaluate_decs env (s with globals updated_by (λg. g ++ MAP SOME new_env)) ds of
       | (s, new_env', r) => (s, new_env ++ new_env', r))
    | (s, Rerr e) => (s, [], SOME e))`;
 
@@ -579,7 +579,7 @@ val evaluate_prog_def = Define`
   (evaluate_prog env s (prompt::prompts) =
    case evaluate_prompt env s prompt of
    | (s, genv, NONE) =>
-     (case evaluate_prog (env with globals updated_by (λg. g ++ genv)) s prompts of
+     (case evaluate_prog env (s with globals updated_by (λg. g ++ genv)) prompts of
       | (s, genv', r) => (s, genv ++ genv', r))
    | res => res)`;
 
