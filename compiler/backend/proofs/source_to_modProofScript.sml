@@ -373,8 +373,8 @@ val invariant_def = Define `
     s_rel s s_i1`;
 
 val invariant_change_clock = Q.store_thm("invariant_change_clock",
-  `invariant genv menv env envm envv st1 (k1,st2) mods ⇒
-   invariant genv menv env envm envv (st1 with clock := k) (k,st2) mods`,
+  `invariant menv env envm envv st1 st2 mods ⇒
+   invariant menv env envm envv (st1 with clock := k) (st2 with clock := k) mods`,
   rw[invariant_def] >> fs[s_rel_cases])
 
 (* semantic functions respect relation *)
@@ -1004,9 +1004,9 @@ val compile_exp_correct = Q.prove (
     >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
     >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse] >>
     `env_i1.c = env.c` by fs [env_all_rel_cases] >>
-    `v3' = Rerr (Rabort Rtype_error) ∨ 
+    `v3' = Rerr (Rabort Rtype_error) ∨
      (?err. v3' = Rerr err ∧ err ≠ Rabort Rtype_error) ∨
-     (?v. v3' = Rval v)` 
+     (?v. v3' = Rval v)`
        by (Cases_on `v3'` >> fs []) >>
     fs [] >>
     rw [result_rel_cases] >>
@@ -2250,14 +2250,13 @@ open semanticsTheory funBigStepEquivTheory
 
 val precondition_def = Define`
   precondition s1 env1 c s2 env2 ⇔
-    invariant env2.globals (FST c.mod_env) (SND c.mod_env)
-      env1.m env1.v
-      s1 (s2.clock,s2.refs,s2.ffi)
+    invariant (FST c.mod_env) (SND c.mod_env)
+      env1.m env1.v s1 s2
       s1.defined_mods ∧
     s2.defined_mods = s1.defined_mods ∧
     s2.defined_types = s1.defined_types ∧
     env2.c = env1.c ∧
-    c.next_global = LENGTH env2.globals`;
+    c.next_global = LENGTH s2.globals`;
 
 val compile_correct = Q.store_thm("compile_correct",
   `precondition s1 env1 c s2 env2 ⇒

@@ -31,28 +31,28 @@ val (dec_result_rel_rules, dec_result_rel_ind, dec_result_rel_cases) = Hol_reln 
   (∀a. dec_result_rel (SOME (Rabort a)) (Rerr (Rabort a)))`;
 
 val compile_state_def = Define`
-  compile_state (s:'ffi conSem$state) g =
-    <| ffi := s.ffi; refs := s.refs; clock := s.clock; globals := g |>`;
+  compile_state (s:'ffi conSem$state) =
+    (<| ffi := s.ffi; refs := s.refs; clock := s.clock; globals := s.globals |> : 'ffi decSem$state)`;
 
 val compile_state_globals = Q.store_thm("compile_state_globals[simp]",
-  `(compile_state s g).globals = g`,EVAL_TAC)
+  `(compile_state s).globals = s.globals`,EVAL_TAC)
 
 val compile_state_with_globals = Q.store_thm("compile_state_with_globals[simp]",
-  `compile_state s g with globals updated_by f = compile_state s (f g)`,
+  `compile_state (s with globals updated_by f) = compile_state s with globals updated_by f`,
   EVAL_TAC)
 
 val compile_state_clock = Q.store_thm("compile_state_clock[simp]",
-  `(compile_state s g).clock = s.clock`,EVAL_TAC)
+  `(compile_state s).clock = s.clock`,EVAL_TAC)
 
 val compile_state_with_clock = Q.store_thm("compile_state_with_clock[simp]",
-  `compile_state (s with clock updated_by f) g = compile_state s g with clock updated_by f`,
+  `compile_state (s with clock updated_by f) = compile_state s with clock updated_by f`,
   EVAL_TAC)
 
 val compile_state_refs = Q.store_thm("compile_state_refs[simp]",
-  `(compile_state s g).refs = s.refs`,EVAL_TAC)
+  `(compile_state s).refs = s.refs`,EVAL_TAC)
 
 val compile_state_dec_clock = Q.store_thm("compile_state_dec_clock[simp]",
-  `dec_clock (compile_state s g) = compile_state (dec_clock s) g`,
+  `dec_clock (compile_state s) = compile_state (dec_clock s)`,
   EVAL_TAC)
 
 val compile_env_def = Define`
@@ -90,11 +90,11 @@ val compile_exp_correct = Q.prove (
   `(∀env ^s es res.
      evaluate env s es = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-       evaluate (compile_env env) (compile_state s env.globals) es = (compile_state (FST res) env.globals,SND res)) ∧
+       evaluate (compile_env env) (compile_state s) es = (compile_state (FST res),SND res)) ∧
    (∀env ^s v pes err_v res.
      evaluate_match env s v pes err_v = res ⇒
      (SND res ≠ Rerr (Rabort Rtype_error)) ⇒
-     evaluate_match (compile_env env) (compile_state s env.globals) v pes err_v = (compile_state (FST res) env.globals,SND res))`,
+     evaluate_match (compile_env env) (compile_state s) v pes err_v = (compile_state (FST res),SND res))`,
   ho_match_mp_tac conSemTheory.evaluate_ind >>
   rw [decSemTheory.evaluate_def,conSemTheory.evaluate_def] >> rw[] >>
   every_case_tac >> fs[] >>
@@ -125,8 +125,8 @@ val init_globals_thm = Q.prove (
 val init_global_funs_thm = Q.prove (
   `!l genv n.  LENGTH l ≤ n ⇒
     evaluate <|v := []; exh := exh|>
-      (compile_state s (genv ++ GENLIST (K NONE) n)) [init_global_funs (LENGTH genv) l]
-    = (compile_state s (genv ++ MAP SOME (MAP (λ(f,x,e). Closure [] x e) l) ++ GENLIST (K NONE) (n - LENGTH l)),
+      (compile_state s with globals := genv ++ GENLIST (K NONE) n) [init_global_funs (LENGTH genv) l]
+    = (compile_state s with globals := genv ++ MAP SOME (MAP (λ(f,x,e). Closure [] x e) l) ++ GENLIST (K NONE) (n - LENGTH l),
        Rval [Conv NONE []])`,
   Induct >> simp[init_global_funs_def] >- (rw[decSemTheory.evaluate_def]) >>
   qx_gen_tac`f` >> PairCases_on`f` >>
@@ -148,10 +148,10 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     ?r_i3.
       result_rel r r_i3 ∧
       evaluate <| v := []; exh := env.exh |>
-        (compile_state s (env.globals ++ GENLIST (K NONE) (num_defs ds)))
-        [compile_decs (LENGTH env.globals) ds]
+        (compile_state s with globals := s.globals ++ GENLIST (K NONE) (num_defs ds))
+        [compile_decs (LENGTH s.globals) ds]
         =
-        (compile_state s' (env.globals ++ MAP SOME new_env ++ GENLIST (K NONE) (num_defs ds - LENGTH new_env)),
+        (compile_state s' with globals := s'.globals ++ GENLIST (K NONE) (num_defs ds - LENGTH new_env),
          r_i3)`,
   induct_on `ds` >>
   rw [compile_decs_def]
@@ -199,7 +199,8 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
     end g) >>
   simp[ALL_DISTINCT_REVERSE,ALL_DISTINCT_GENLIST,MAP_GENLIST,o_DEF] >>
   simp[alookup_distinct_reverse,MAP_REVERSE,ALL_DISTINCT_GENLIST,MAP_ZIP] >>
-  disch_then(qspecl_then[`env.globals`]mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["genv"]))) >>
+  imp_res_tac evaluate_globals >>
+  disch_then(qspecl_then[`s.globals`]mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["genv"]))) >>
   simp[] >>
   simp[GENLIST_eq_MAP_SOME] >>
   qpat_abbrev_tac`f:num->string = _` >> simp[] >>
@@ -218,14 +219,16 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   `!env s p new_env s' r next' e.
     evaluate_prompt env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
-    ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH env.globals) p)
+    ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p)
     ⇒
-    ?r_i3.
+    ?r_i3 somes.
       dec_result_rel r r_i3 ∧
-      LENGTH env.globals + LENGTH new_env = next' ∧
+      LENGTH s.globals + LENGTH new_env = next' ∧
+      s'.globals = s.globals ++ MAP SOME somes ∧
       evaluate <| v := []; exh := env.exh |>
-        (compile_state s env.globals) [e] =
-      (compile_state s' (env.globals++new_env),r_i3)`,
+        (compile_state s) [e] =
+        (compile_state s' with globals :=
+           s'.globals ++ GENLIST (K NONE) (LENGTH new_env - LENGTH somes),r_i3)`,
   Cases_on`p`>>
   rw [evaluate_prompt_def, compile_prompt_def] >>
   fs [LET_THM, decSemTheory.evaluate_def] >>
@@ -238,23 +241,29 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   fs[result_rel_cases,dec_result_rel_cases] >> fs[] >>
   imp_res_tac eval_decs_num_defs >>
   imp_res_tac eval_decs_num_defs_err >> fs[] >>
-  rpt var_eq_tac >> simp[]);
+  rpt var_eq_tac >> simp[] >>
+  simp[state_component_equality] >>
+  imp_res_tac evaluate_decs_globals >> rfs[] >>
+  imp_res_tac evaluate_decs_globals_err >> rfs[] >>
+  qexists_tac`ls`>>simp[]);
 
 val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   `!env s p new_env s' r next' e.
     evaluate_prog env s p = (s',new_env,r) ∧
     r ≠ SOME (Rabort Rtype_error) ∧
     FLOOKUP env.exh (Short "option") = SOME (insert 0 1 (insert 1 1 LN)) ∧
-    (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH env.globals) p = (next',e))
+    (compile_prog (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p = (next',e))
     ⇒
     ?r_i3.
       dec_result_rel r r_i3 ∧
-      (r = NONE ⇒ LENGTH env.globals + LENGTH new_env = next') ∧
-      evaluate <| v := []; exh := env.exh|> (compile_state s env.globals) [e]
-      = (compile_state s' (env.globals++new_env),r_i3)`,
+      (r = NONE ⇒ LENGTH s.globals + LENGTH new_env = next') ∧
+      evaluate <| v := []; exh := env.exh|> (compile_state s) [e]
+      = (compile_state s' with
+           globals := s'.globals ++ GENLIST (K NONE) (LENGTH new_env - (LENGTH s'.globals - LENGTH s.globals)),
+         r_i3)`,
   induct_on `p` >>
   rw [evaluate_prog_def,compile_prog_def, LET_THM,LENGTH_NIL]
-  >- (fs[dec_result_rel_cases,decSemTheory.evaluate_def]) >>
+  >- (fs[dec_result_rel_cases,decSemTheory.evaluate_def,state_component_equality]) >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
   first_assum(split_applied_pair_tac o lhs o concl) >> fs [] >>
   rw [] >>
