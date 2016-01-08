@@ -258,6 +258,7 @@ val evaluate_decs_io_events_mono = Q.store_thm("evaluate_decs_io_events_mono",
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
   Induct >> rw[evaluate_decs_def] >>
   every_case_tac >> fs[] >> rw[] >>
+  res_tac >> fs[] >>
   metis_tac[IS_PREFIX_TRANS,FST,evaluate_dec_io_events_mono]);
 
 val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_to_clock_io_events_mono",
@@ -274,6 +275,10 @@ val evaluate_decs_add_to_clock_io_events_mono = Q.store_thm("evaluate_decs_add_t
   simp[] >> strip_tac >>
   imp_res_tac evaluate_dec_add_to_clock >> fs[] >>
   imp_res_tac evaluate_decs_io_events_mono >> fs[] >>
+  rveq >|[rator_x_assum`evaluate_decs`mp_tac,ALL_TAC,ALL_TAC]>>
+  qmatch_assum_abbrev_tac`evaluate_decs eee sss prog = _` >>
+  last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
+  fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >>
   metis_tac[IS_PREFIX_TRANS,FST]);
 
 val evaluate_prompt_io_events_mono = Q.store_thm("evaluate_prompt_io_events_mono",
@@ -306,6 +311,7 @@ val evaluate_prompts_io_events_mono = Q.store_thm("evaluate_prompts_io_events_mo
   Induct >> rw[evaluate_prompts_def] >>
   every_case_tac >> fs[] >> rw[] >>
   imp_res_tac evaluate_prompt_io_events_mono >>
+  res_tac >> fs[] >>
   metis_tac[IS_PREFIX_TRANS]);
 
 val evaluate_prompts_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompts_add_to_clock_io_events_mono",
@@ -322,6 +328,10 @@ val evaluate_prompts_add_to_clock_io_events_mono = Q.store_thm("evaluate_prompts
   simp[] >> rw[] >>
   imp_res_tac evaluate_prompt_add_to_clock >> fs[] >>
   imp_res_tac evaluate_prompts_io_events_mono >> fs [] >>
+  rveq >|[rator_x_assum`evaluate_prompts`mp_tac,ALL_TAC,ALL_TAC]>>
+  qmatch_assum_abbrev_tac`evaluate_prompts eee sss prog = _` >>
+  last_x_assum(qspecl_then[`eee`,`sss`,`extra`]mp_tac)>>simp[Abbr`sss`]>>
+  fsrw_tac[ARITH_ss][] >> rw[] >> fs[] >>
   metis_tac[IS_PREFIX_TRANS,FST]);
 
 val evaluate_prog_add_to_clock_io_events_mono = Q.store_thm("evaluate_prog_add_to_clock_io_events_mono",
