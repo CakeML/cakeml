@@ -12,109 +12,16 @@ open preamble initSemEnvTheory semanticsPropsTheory
      bvp_to_wordProofTheory
 local open compilerComputeLib in end
 
-(* TODO: move *)
-fun Abbrev_intro th =
-  EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
-(* -- *)
-
 val _ = new_theory"backendProof";
 
 (* TODO: move *)
 
+fun Abbrev_intro th =
+  EQ_MP (SYM(SPEC(concl th)markerTheory.Abbrev_def)) th
+
 val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
   `pair_CASE p f = a ⇔ ∃x y. p = (x,y) ∧ f x y = a`,
   Cases_on`p`>>rw[]);
-
-(* -- *)
-
-(* TODO: move *)
-val get_exh_def = mod_to_conTheory.get_exh_def;
-val alloc_tag_def = mod_to_conTheory.alloc_tag_def;
-val alloc_tags_def = mod_to_conTheory.alloc_tags_def;
-val compile_decs_def = mod_to_conTheory.compile_decs_def;
-val compile_prompt_def = mod_to_conTheory.compile_prompt_def;
-val compile_prog_def = mod_to_conTheory.compile_prog_def;
-val prog_to_top_types_def = modSemTheory.prog_to_top_types_def;
-val decs_to_types_def = modSemTheory.decs_to_types_def;
-val prompt_mods_ok_def = modSemTheory.prompt_mods_ok_def;
-
-val alloc_tags_exh_unchanged = Q.store_thm("alloc_tags_exh_unchanged",
-  `∀c b a.
-    ¬MEM (Short t) (MAP (λ(tvs,tn,ctors). mk_id a tn) c) ∧
-    FLOOKUP (get_exh(FST b)) (Short t) = SOME v ⇒
-    FLOOKUP (get_exh(FST(alloc_tags a b c))) (Short t) = SOME v`,
-  Induct >> simp[alloc_tags_def] >>
-  rw[] >> PairCases_on`h` >>
-  simp[alloc_tags_def] >>
-  first_x_assum match_mp_tac >> fs[] >>
-  pop_assum mp_tac >>
-  qid_spec_tac`b` >>
-  Induct_on`h2`>>rw[] >>
-  simp[UNCURRY] >>
-  first_x_assum match_mp_tac >>
-  PairCases_on`b` >>
-  simp[alloc_tag_def] >>
-  every_case_tac >> fs[get_exh_def] >>
-  simp[FLOOKUP_UPDATE]);
-
-val compile_decs_exh_unchanged = Q.store_thm("compile_decs_exh_unchanged",
-  `∀ds a st sta st' ac b.
-   EVERY (λd. case d of Dtype mn _ => mn = SOME x | Dexn mn _ _ => mn = SOME x | _ => T) ds ∧
-   compile_decs sta ds = ((st',ac),b) ∧ st = FST sta ∧
-   FLOOKUP (get_exh st) (Short t) = SOME v
-   ⇒
-   FLOOKUP (get_exh st') (Short t) = SOME v`,
-  Induct >> simp[compile_decs_def] >> rw[] >> fs[] >>
-  every_case_tac >> fs[] >>
-  split_pair_tac >> fs[] >> rveq >>
-  res_tac >> fs[] >>
-  pop_assum kall_tac >>
-  first_x_assum match_mp_tac >- (
-    match_mp_tac alloc_tags_exh_unchanged >>
-    simp[MEM_MAP,UNCURRY,astTheory.mk_id_def] ) >>
-  PairCases_on`sta`>>simp[alloc_tag_def] >>
-  fs[get_exh_def]);
-
-val compile_prompt_exh_unchanged = Q.store_thm("compile_prompt_exh_unchanged",
-  `(∀ds. p = Prompt NONE ds ⇒ ¬MEM t (decs_to_types ds)) ∧
-   (∀mn ds. p = Prompt mn ds ⇒ prompt_mods_ok mn ds) ∧
-   FLOOKUP (get_exh st) (Short t) = SOME v ⇒
-   FLOOKUP (get_exh (FST (compile_prompt st p))) (Short t) = SOME v`,
-  rw[compile_prompt_def] >>
-  BasicProvers.TOP_CASE_TAC >> rw[] >> rw[get_exh_def] >>
-  fs[prompt_mods_ok_def] >>
-  every_case_tac >> fs[] >- (
-    Cases_on`l`>>fs[compile_decs_def] >> rveq >- fs[get_exh_def] >>
-    Cases_on`t'`>>fsrw_tac[ARITH_ss][]>>
-    every_case_tac >> fs[LET_THM] >>
-    split_pair_tac >> fs[] >> rveq >>
-    fs[compile_decs_def] >> rveq >> fs[get_exh_def] >>
-    PairCases_on`st`>>
-    fs[decs_to_types_def,alloc_tag_def,LET_THM] >>
-    rveq >> fs[get_exh_def] >> rw[] >>
-    qmatch_assum_abbrev_tac`alloc_tags a b c = _` >>
-    qispl_then[`c`,`b`,`a`]mp_tac alloc_tags_exh_unchanged >>
-    simp[get_exh_def] >> disch_then match_mp_tac >>
-    simp[Abbr`b`,get_exh_def,MEM_MAP,UNCURRY] >>
-    Cases_on`a`>>simp[astTheory.mk_id_def,FORALL_PROD] >>
-    fs[MEM_MAP,EXISTS_PROD] ) >>
-  imp_res_tac compile_decs_exh_unchanged >> fs[get_exh_def]);
-
-val compile_prog_exh_unchanged = Q.store_thm("compile_prog_exh_unchanged",
-  `∀p st.
-   ¬MEM t (prog_to_top_types p) ∧
-   EVERY (λp. case p of Prompt mn ds => prompt_mods_ok mn ds) p ∧
-   FLOOKUP (get_exh st) (Short t) = SOME v ∧
-   exh' = get_exh (FST (compile_prog st p))
-   ⇒
-   FLOOKUP exh' (Short t) = SOME v`,
-  Induct >> simp[compile_prog_def] >> rw[UNCURRY] >>
-  `¬MEM t (prog_to_top_types p)` by (
-    fs[prog_to_top_types_def] ) >> fs[] >>
-  first_x_assum match_mp_tac >>
-  fs[prog_to_top_types_def] >>
-  match_mp_tac compile_prompt_exh_unchanged >>
-  Cases_on`h`>>fs[]>>rw[]>>fs[]);
 
 (* -- *)
 
@@ -278,7 +185,7 @@ val compile_correct = Q.store_thm("compile_correct",
     match_mp_tac compile_prog_exh_unchanged >>
     asm_exists_tac >> simp[] >>
     qmatch_assum_abbrev_tac`compile_prog st p = _` >>
-    qexists_tac`st`>>simp[Abbr`st`,get_exh_def] >>
+    qexists_tac`st`>>simp[Abbr`st`,mod_to_conTheory.get_exh_def] >>
     simp[FLOOKUP_UPDATE]) >>
   disch_then(strip_assume_tac o SYM) >> fs[] >>
   rator_x_assum`from_dec`mp_tac >> rw[from_dec_def] >>
