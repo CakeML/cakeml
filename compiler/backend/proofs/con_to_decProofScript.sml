@@ -221,14 +221,12 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
     r ≠ SOME (Rabort Rtype_error) ∧
     ((next',e) = compile_prompt (none_tag, TypeId (Short "option")) (some_tag, TypeId (Short "option")) (LENGTH s.globals) p)
     ⇒
-    ?r_i3 somes.
+    ?r_i3.
       dec_result_rel r r_i3 ∧
       LENGTH s.globals + LENGTH new_env = next' ∧
-      s'.globals = s.globals ++ MAP SOME somes ∧
       evaluate <| v := []; exh := env.exh |>
         (compile_state s) [e] =
-        (compile_state s' with globals :=
-           s'.globals ++ GENLIST (K NONE) (LENGTH new_env - LENGTH somes),r_i3)`,
+        (compile_state s' with globals := s.globals ++ new_env,r_i3)`,
   Cases_on`p`>>
   rw [evaluate_prompt_def, compile_prompt_def] >>
   fs [LET_THM, decSemTheory.evaluate_def] >>
@@ -243,9 +241,7 @@ val compile_prompt_correct = Q.store_thm ("compile_prompt_correct",
   imp_res_tac eval_decs_num_defs_err >> fs[] >>
   rpt var_eq_tac >> simp[] >>
   simp[state_component_equality] >>
-  imp_res_tac evaluate_decs_globals >> rfs[] >>
-  imp_res_tac evaluate_decs_globals_err >> rfs[] >>
-  qexists_tac`ls`>>simp[]);
+  imp_res_tac evaluate_decs_globals >> rfs[]);
 
 val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   `!env s p new_env s' r next' e.
@@ -258,9 +254,7 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
       dec_result_rel r r_i3 ∧
       (r = NONE ⇒ LENGTH s.globals + LENGTH new_env = next') ∧
       evaluate <| v := []; exh := env.exh|> (compile_state s) [e]
-      = (compile_state s' with
-           globals := s'.globals ++ GENLIST (K NONE) (LENGTH new_env - (LENGTH s'.globals - LENGTH s.globals)),
-         r_i3)`,
+      = (compile_state s' with globals := s.globals ++ new_env, r_i3)`,
   induct_on `p` >>
   rw [evaluate_prog_def,compile_prog_def, LET_THM,LENGTH_NIL]
   >- (fs[dec_result_rel_cases,decSemTheory.evaluate_def,state_component_equality]) >>
@@ -275,16 +269,15 @@ val compile_prog_evaluate = Q.store_thm ("compile_prog_evaluate",
   discharge_hyps >- (strip_tac >> fs[]) >> strip_tac >> simp[] >>
   fs[dec_result_rel_cases,pmatch_def,LET_THM,EVAL``none_tag < 1``] >> fs[] >>
   rpt var_eq_tac >> simp[] >- (
-    first_assum(split_pair_case_tac o lhs o concl) >> fs [] >>
-    first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO]th))) >>
-    simp[] >> strip_tac >> simp[] >> rw[] >> simp[] ) >>
+    first_assum(split_pair_case_tac o lhs o concl) >> fs [] >> rw[] >>
+    first_x_assum drule >> simp[]) >>
   EVAL_TAC);
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `FLOOKUP env.exh (Short "option") = SOME (insert 0 1 (insert 1 1 LN)) ∧
    semantics env s p ≠ Fail ⇒
-   semantics <| v := []; exh := env.exh |> (compile_state s env.globals)
-     [SND(compile (LENGTH env.globals) p)] =
+   semantics <| v := []; exh := env.exh |> (compile_state s)
+     [SND(compile (LENGTH s.globals) p)] =
    semantics env s p`,
   simp[conSemTheory.semantics_def] >>
   IF_CASES_TAC >> fs[] >>
@@ -331,8 +324,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
           drule (GEN_ALL (CONJUNCT1 decPropsTheory.evaluate_add_to_clock)) >>
           simp[] >>
           disch_then(qspec_then`k`mp_tac)>>simp[]>>
-          ntac 3 strip_tac >> rveq >> fs[] >>
-          fs[state_component_equality,dec_result_rel_cases,compile_state_def] >> rfs[]) >>
+          ntac 3 strip_tac >> rveq >> fs[] >> rfs[] >>
+          fs[state_component_equality,compile_state_def]) >>
         first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
         qmatch_assum_rename_tac`_ = (_,pp)` >> Cases_on`pp` >>
         unabbrev_all_tac >>

@@ -2303,7 +2303,7 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
       gtagenv_weak gtagenv gtagenv' ∧
       evaluate_prompt <| exh := (get_exh tagenv_st'); v := [] |>
         s_i2 prompt_i2 = (s'_i2,genv'_i2,res_i2) ∧
-      invariant new_envC tagenv_st' gtagenv' (s' with globals updated_by(λg. g ++ genv')) (s'_i2 with globals updated_by(λg. g ++ genv'_i2)) ∧
+      invariant new_envC tagenv_st' gtagenv' (s' with globals := s.globals ++ genv') (s'_i2 with globals := s_i2.globals ++ genv'_i2) ∧
       (res = NONE ∧ res_i2 = NONE ∧ new_envC = (merge_alist_mod_env envC' env.c) ∨
        ?err err_i2. res = SOME err ∧ res_i2 = SOME err_i2 ∧ new_envC = env.c ∧
                     s_rel gtagenv' s' s'_i2 ∧
@@ -2360,7 +2360,9 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
     rpt var_eq_tac >>
     fs[s_rel_cases,vs_rel_list_rel] >>
     match_mp_tac EVERY2_APPEND_suff >> fs[] >>
-    simp[EVERY2_MAP,OPTREL_def] >> fs[LIST_REL_EL_EQN])
+    simp[EVERY2_MAP,OPTREL_def] >> fs[LIST_REL_EL_EQN] >>
+    fs[OPTREL_def] >> rw[] >> rfs[] >>
+    res_tac >> simp[] >> metis_tac[v_rel_weakening])
   >- (
     first_assum(mp_tac o MATCH_MP compile_decs_correct) >> simp[] >>
     disch_then(mp_tac o REWRITE_RULE[GSYM AND_IMP_INTRO]) >>
@@ -2445,7 +2447,9 @@ val compile_prompt_correct = store_thm("compile_prompt_correct",
         fs[LIST_REL_EL_EQN,vs_rel_list_rel,OPTREL_def] ) >>
       match_mp_tac EVERY2_APPEND_suff >> fs[] >>
       simp[EVERY2_MAP,OPTREL_def] >>
-      fs[vs_rel_list_rel,LIST_REL_EL_EQN] ) >>
+      fs[vs_rel_list_rel,LIST_REL_EL_EQN] >>
+      fs[OPTREL_def] >> rw[] >> rfs[] >>
+      res_tac >> simp[] >> metis_tac[v_rel_weakening]) >>
     simp[result_rel_cases] >>
     fs[s_rel_cases]))
 

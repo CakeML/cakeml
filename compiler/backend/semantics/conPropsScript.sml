@@ -382,29 +382,21 @@ val evaluate_globals = Q.store_thm("evaluate_globals",
   every_case_tac >> fs[] >> rw[] >> fs[] >> rfs[] >> fs[dec_clock_def]);
 
 val evaluate_decs_globals = Q.store_thm("evaluate_decs_globals",
-  `∀env s ds s' r.
-    evaluate_decs env s ds = (s',r,NONE) ⇒
-    ∃ls. s'.globals = s.globals ++ MAP SOME ls ∧ LENGTH ls = num_defs ds`,
+  `∀env s ds s' g r.
+    conSem$evaluate_decs env s ds = (s',g,r) ⇒
+    s'.globals = s.globals ++ MAP SOME g`,
   Induct_on`ds`>>rw[evaluate_decs_def,conLangTheory.num_defs_def,LENGTH_NIL]>>
   every_case_tac >> fs[] >> rw[] >> res_tac >> fs[] >>
   Cases_on`h`>>fs[evaluate_dec_def,conLangTheory.num_defs_def] >>
   rpt (pop_assum mp_tac) >> TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
   rw[] >> fs[]  >> rw[] >>
   imp_res_tac evaluate_globals >> simp[] >>
-  every_case_tac >> fs[] >> rw[] >> simp[] >>
-  metis_tac[MAP_APPEND,LENGTH_APPEND,LENGTH_MAP]);
+  every_case_tac >> fs[] >> rw[] >> simp[]);
 
-val evaluate_decs_globals_err = Q.store_thm("evaluate_decs_globals_err",
-  `∀env s ds s' r e.
-    evaluate_decs env s ds = (s',r,SOME e) ⇒
-    ∃ls. s'.globals = s.globals ++ MAP SOME ls ∧ LENGTH ls = LENGTH r`,
-  Induct_on`ds`>>rw[evaluate_decs_def,conLangTheory.num_defs_def]>>
-  every_case_tac >> fs[] >> rw[] >> res_tac >> fs[] >>
-  Cases_on`h`>>fs[evaluate_dec_def,conLangTheory.num_defs_def] >>
-  rpt (pop_assum mp_tac) >> TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
-  rw[] >> fs[]  >> rw[] >>
-  imp_res_tac evaluate_globals >> simp[] >>
-  every_case_tac >> fs[] >> rw[] >> simp[] >>
-  metis_tac[MAP_APPEND,LENGTH_APPEND,LENGTH_MAP]);
+val evaluate_prog_globals = Q.store_thm("evaluate_prog_globals",
+  `∀env s p s' g r. evaluate_prog env s p = (s',g,NONE) ⇒
+    s'.globals = s.globals ++ g`,
+  Induct_on`p`>>rw[evaluate_prog_def] >> rw[LENGTH_NIL] >>
+  every_case_tac >> fs[] >> rw[] >> res_tac >> fs[]);
 
 val _ = export_theory()

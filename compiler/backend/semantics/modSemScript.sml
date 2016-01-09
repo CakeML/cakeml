@@ -623,10 +623,10 @@ val evaluate_prompts_def = Define`
   (evaluate_prompts env s [] = (s, ([],[]), [], NONE)) ∧
   (evaluate_prompts env s (prompt::prompts) =
    case evaluate_prompt env s prompt of
-   | (s, cenv, genv, NONE) =>
+   | (s', cenv, genv, NONE) =>
      (case evaluate_prompts
            (env with c updated_by merge_alist_mod_env cenv)
-           (s with globals updated_by (λg. g ++ genv))
+           (s' with globals := s.globals ++ genv)
            prompts of
       | (s, cenv', genv', r) => (s, merge_alist_mod_env cenv' cenv, genv ++ genv', r))
    | res => res)`;

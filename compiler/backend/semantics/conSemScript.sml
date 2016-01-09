@@ -578,8 +578,8 @@ val evaluate_prog_def = Define`
   (evaluate_prog env s [] = (s, [], NONE)) ∧
   (evaluate_prog env s (prompt::prompts) =
    case evaluate_prompt env s prompt of
-   | (s, genv, NONE) =>
-     (case evaluate_prog env (s with globals updated_by (λg. g ++ genv)) prompts of
+   | (s', genv, NONE) =>
+     (case evaluate_prog env (s' with globals := s.globals ++ genv) prompts of
       | (s, genv', r) => (s, genv ++ genv', r))
    | res => res)`;
 
