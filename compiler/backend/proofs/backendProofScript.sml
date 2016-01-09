@@ -162,7 +162,7 @@ val compile_correct = Q.store_thm("compile_correct",
   `∃s2 env2 gtagenv.
      precondition s env c.source_conf s2 env2 ∧
      FST env2.c = [] ∧
-     env2.globals = [] ∧
+     s2.globals = [] ∧
      s2.ffi = ffi ∧
      s2.refs = [] ∧
      s2.defined_types = s.defined_types ∧

@@ -1082,7 +1082,6 @@ val compile_exp_correct = Q.prove (
           imp_res_tac disjoint_drestrict >>
           rw []))
 
-          (*
   >- (* function application *)
      (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
       res_tac >>
@@ -2300,6 +2299,5 @@ val compile_correct = Q.store_thm("compile_correct",
     cheat ) >>
     *)
   cheat);
-  *)
 
 val _ = export_theory ();
