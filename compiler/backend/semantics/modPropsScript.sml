@@ -588,4 +588,14 @@ val evaluate_prompt_mods_disjoint = Q.store_thm("evaluate_prompt_mods_disjoint",
      ∀mn ds. p = Prompt (SOME mn) ds ⇒ mn ∉ s.defined_mods`,
   Cases_on`p`>>rw[evaluate_prompt_def]>>fs[]);
 
+val s = ``s:'ffi modSem$state``;
+
+val evaluate_globals = Q.store_thm("evaluate_globals",
+  `(∀env ^s es s' r. evaluate env s es = (s',r) ⇒ s'.globals = s.globals) ∧
+   (∀env ^s pes v err_v s' r. evaluate_match env s pes v err_v = (s',r) ⇒
+      s'.globals = s.globals)`,
+  ho_match_mp_tac evaluate_ind >>
+  rw[evaluate_def] >>
+  every_case_tac >> fs[] >> rw[] >> fs[] >> rfs[] >> fs[dec_clock_def]);
+
 val _ = export_theory()

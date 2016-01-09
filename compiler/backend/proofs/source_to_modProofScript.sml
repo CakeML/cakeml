@@ -959,8 +959,6 @@ val s = mk_var("s",
   ``bigStep$evaluate`` |> type_of |> strip_fun |> #1 |> el 3
   |> type_subst[alpha |-> ``:'ffi``]);
 
-(* TODO: all this is broken and needs updating
-
 val compile_exp_correct = Q.prove (
    `(∀^s env es res.
      funBigStep$evaluate s env es = res ⇒
@@ -990,15 +988,47 @@ val compile_exp_correct = Q.prove (
          result_rel vs_rel s_i1.globals r r_i1 ∧
          s_rel s' s'_i1 ∧
          modSem$evaluate_match env_i1 s_i1 v_i1 pes_i1 err_v_i1 = (s'_i1, r_i1))`,
-
-
   ho_match_mp_tac terminationTheory.evaluate_ind >>
   rw [terminationTheory.evaluate_def, modSemTheory.evaluate_def,compile_exp_def] >>
   fs [result_rel_eqns, v_rel_eqns] >>
   TRY(first_assum(split_pair_case_tac o lhs o concl) >> fs[])
-  >- cheat
-  >- cheat
-  >- cheat
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    simp[] >>
+    first_assum(fn th => subterm split_pair_case_tac (concl th)) >> fs[] >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >> fs[] >- (
+      rw[] >>
+      asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      BasicProvers.TOP_CASE_TAC >> simp[] >>
+      BasicProvers.TOP_CASE_TAC >> simp[] >>
+      fs[result_rel_cases] ) >>
+    strip_tac >>
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    disch_then drule >> simp[] >> strip_tac >>
+    fs[result_rel_cases] >> rveq >> fs[] >> rveq >> fs[] >>
+    fs[vs_rel_list_rel] >>
+    imp_res_tac evaluate_sing >> fs[])
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    fs[result_rel_cases] >> rveq >> fs[] >> rveq >> fs[] >>
+    fs[vs_rel_list_rel] >>
+    imp_res_tac evaluate_sing >> fs[])
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    fs[result_rel_cases] >> rveq >> fs[] >> rveq >> fs[] >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] )
   >- (
     reverse (rw [])
     >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
@@ -1081,229 +1111,287 @@ val compile_exp_correct = Q.prove (
           fs [] >>
           imp_res_tac disjoint_drestrict >>
           rw []))
-
-  >- (* function application *)
-     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
-      res_tac >>
-      rw [] >>
-      LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
-      rw [] >>
-      fs [s_rel_cases] >>
-      rw [] >>
-      imp_res_tac do_opapp >>
-      rw [] >>
-      `genv = all_env_to_genv env_i1`
-                 by fs [env_all_rel_cases] >>
-      fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
-  >- (* function application *)
-     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
-      res_tac >>
-      rw [] >>
-      LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
-      rw [] >>
-      fs [s_rel_cases] >>
-      rw [] >>
-      imp_res_tac do_opapp >>
-      rw [] >>
-      `genv = all_env_to_genv env_i1`
-                 by fs [modSemTheory.all_env_to_genv_def, env_all_rel_cases] >>
-      fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
-  >- (* function application *)
-     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
-      res_tac >>
-      rw [] >>
-      LAST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env_i1`, `s_i1`, `locals`] mp_tac) >>
-      rw [] >>
-      fs [s_rel_cases] >>
-      rw [] >>
-      imp_res_tac do_opapp >>
-      rw [] >>
-      `genv = all_env_to_genv env_i1`
-                 by fs [modSemTheory.all_env_to_genv_def, env_all_rel_cases] >>
-      fs [] >>
-      metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse])
-  >- (* primitive application *)
-     (srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
-      res_tac >>
-      rw [] >>
-      first_assum (fn th => assume_tac (MATCH_MP (SIMP_RULE (srw_ss()) [GSYM AND_IMP_INTRO] do_app) th)) >>
-      rfs [s_rel_cases] >>
-      pop_assum (qspecl_then [`genv`, `(s',s2.ffi)`, `REVERSE v''`] assume_tac) >>
-      rfs [vs_rel_list_rel, EVERY2_REVERSE] >>
-      rw [] >>
-      disj1_tac >>
-      MAP_EVERY qexists_tac [`r_i1`, `v''`, `s'`, `FST s2_i1`, `s2.ffi`] >>
-      fs [compile_exps_reverse])
-  >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
-  >- metis_tac [EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
-  >- (fs [terminationTheory.do_log_thm, semanticPrimitivesTheory.do_if_def] >>
-      every_case_tac >>
-      fs [v_rel_eqns, compile_exp_def] >>
+  (* function application *)
+  >- (
+    srw_tac [boolSimps.DNF_ss] [PULL_EXISTS] >>
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    fs[compile_exps_reverse] >>
+    fs[result_rel_cases] >> rveq >> fs[] >> rveq >> fs[] >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    ntac 2 (BasicProvers.TOP_CASE_TAC >> fs[]) >- (
+      BasicProvers.TOP_CASE_TAC >>
+      drule do_opapp >>
+      fs[vs_rel_list_rel] >>
+      imp_res_tac EVERY2_REVERSE >>
+      disch_then drule >> strip_tac >>
+      IF_CASES_TAC >> strip_tac >> fs[] >> rveq >- (
+        fs[] >> asm_exists_tac >> rw[] >>
+        fs[s_rel_cases] ) >>
+      rfs[] >>
+      imp_res_tac evaluate_globals >>
+      pop_assum (assume_tac o SYM) >> fs[] >>
+      qmatch_assum_abbrev_tac`_ = _ ss` >>
+      `ss.globals = (dec_clock ss).globals` by EVAL_TAC >>
+      fs[Abbr`ss`] >>
+      first_x_assum drule >>
+      discharge_hyps >- (
+        fs[s_rel_cases,modSemTheory.dec_clock_def,funBigStepTheory.dec_clock_def] ) >>
+      strip_tac >> fs[PULL_EXISTS] >>
+      asm_exists_tac >> fs[] >>
+      rw[] >> fs[] >>
+      fs[s_rel_cases] ) >>
+    BasicProvers.TOP_CASE_TAC >>
+    BasicProvers.TOP_CASE_TAC >>
+    strip_tac >> rveq >>
+    drule do_app >> fs[] >>
+    fs[vs_rel_list_rel] >>
+    imp_res_tac EVERY2_REVERSE >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    disch_then drule >>
+    fs[s_rel_cases] >>
+    CONV_TAC(LAND_CONV(SIMP_CONV(srw_ss()++QUANT_INST_ss[pair_default_qp])[])) >>
+    disch_then drule >> strip_tac >>
+    simp[] >>
+    fs[PULL_EXISTS,result_rel_cases])
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >- (
+      rw[] >> asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      fs[result_rel_cases] >> rveq >> fs[] >>
+      BasicProvers.TOP_CASE_TAC >> rw[evaluate_def] ) >>
+    BasicProvers.TOP_CASE_TAC >- (strip_tac >> fs[]) >>
+    imp_res_tac funBigStepPropsTheory.evaluate_length >> fs[] >>
+    Cases_on`a`>>fs[LENGTH_NIL] >> rveq >>
+    reverse BasicProvers.TOP_CASE_TAC >- (
       rw[] >> rfs[] >>
-      first_assum(fn th=>
-        first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-      first_assum(fn th=>
-        first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      disj1_tac >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      rw[modSemTheory.do_if_def] >> fs[] >> fs[Boolv_def])
-  >- (fs [terminationTheory.do_log_thm] >>
-      every_case_tac >>
-      fs [v_rel_eqns, compile_exp_def] >>
-      rw [v_rel_eqns] >>
-      first_assum(fn th=>
-        first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      rw[modSemTheory.do_if_def] >> fs[Boolv_def] >>
-      simp[Bool_def] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[Once evaluate_cases,PULL_EXISTS] >>
-      rw[do_app_def,Boolv_def,opb_lookup_def] >>
-      metis_tac[PAIR])
-  >- (fs [terminationTheory.do_log_thm] >>
-      every_case_tac >>
-      fs [v_rel_eqns, compile_exp_def] >>
-      rw [v_rel_eqns] >>
-      first_assum(fn th=>
-        first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-      rw[PULL_EXISTS] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      first_assum(match_exists_tac o concl) >> simp[])
-  >- (cases_on `op` >>
-      rw [] >>
-      metis_tac [])
-  >- (fs [semanticPrimitivesTheory.do_if_def] >>
-     every_case_tac >> fs[] >> rw [] >> rfs[] >>
-     first_assum(fn th=>
-       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-     first_assum(fn th=>
-       first_x_assum(fn th2=>first_x_assum(strip_assume_tac o C MATCH_MP(CONJ th th2)))) >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     disj1_tac >> rfs[] >>
-     first_assum(match_exists_tac o concl) >> simp[] >>
-     rw[modSemTheory.do_if_def] >>
-     fs[v_rel_eqns] >> simp[Boolv_def] )
-  >- metis_tac []
-  >- metis_tac []
-  >- (fs [v_rel_eqns] >>
-      metis_tac [])
-  >- metis_tac []
-  >- metis_tac []
-  >- (* Let *)
-     (`?env_i1'. env_i1 = (genv,env.c,env_i1')` by fs [env_all_rel_cases] >>
-      rw [] >>
-      res_tac >>
-      fs [] >>
-      rw [] >>
-      cases_on `n` >>
-      fs [libTheory.opt_bind_def, compile_exp_def]
-      >- metis_tac [compl_insert, DRESTRICT_DOMSUB] >>
-      `env_all_rel genv mods tops (env with v := (x, v) :: env.v)
-                     (genv, env.c, (x,v')::env_i1') (x INSERT locals)`
-                 by (fs [env_all_rel_cases] >>
-                     MAP_EVERY qexists_tac [`env' with v := (x, v) :: env'.v`, `env''`] >>
-                     fs [v_rel_eqns] >>
-                     rw []) >>
-      metis_tac [compl_insert, DRESTRICT_DOMSUB])
-  >- (cases_on `n` >>
-      fs [compile_exp_def] >>
-      metis_tac [])
-  >- (cases_on `n` >>
-      fs [compile_exp_def] >>
-      metis_tac [])
-  >- (* Letrec *)
-     (rw [markerTheory.Abbrev_def] >>
+      fs[terminationTheory.do_log_thm] >> rw[] >>
       pop_assum mp_tac >>
-      rw [] >>
-      `?env'. env_i1 = (genv,env.c,env')` by fs [env_all_rel_cases] >>
-      rw [] >>
-      qpat_abbrev_tac`env'' = (genv,env.c,X)` >>
-      `env_all_rel genv mods tops (env with v := build_rec_env funs env env.v) env''
-                                    (set (MAP FST funs) ∪ locals)`
-                             by (fs[Abbr`env''`]>>fs [env_all_rel_cases] >>
-                                 qpat_abbrev_tac`bre = build_rec_env funs Y` >>
-                                 MAP_EVERY qexists_tac [`env'' with v := bre env''.v`, `env'''`] >>
-                                 rw [Abbr`bre`,evalPropsTheory.build_rec_env_merge, EXTENSION]
-                                 >- (rw [MEM_MAP, EXISTS_PROD] >>
-                                    imp_res_tac env_rel_dom >>
-                                    metis_tac [pair_CASES, FST, MEM_MAP, EXISTS_PROD, LAMBDA_PROD])
-                                 >- metis_tac [INSERT_SING_UNION, global_env_inv_add_locals, UNION_COMM]
-                                 >- (fs [v_rel_eqns, modPropsTheory.build_rec_env_merge] >>
-                                     match_mp_tac env_rel_append >>
-                                     rw [drestrict_iter_list, GSYM COMPL_UNION] >>
-                                     imp_res_tac env_rel_dom >>
-                                     rw [] >>
-                                     match_mp_tac do_app_rec_help >>
-                                     rw [] >>
-                                     fs [v_rel_eqns] >>
-                                     rw [SUBSET_DEF] >>
-                                     `¬(ALOOKUP env''' x = NONE)`
-                                            by (rw [ALOOKUP_FAILS] >>
-                                                metis_tac [pair_CASES, FST, MEM_MAP]) >>
-                                     cases_on `ALOOKUP env''' x` >>
-                                     fs [] >>
-                                     res_tac >>
-                                     fs [FLOOKUP_DEF])) >>
-       res_tac >>
-       MAP_EVERY qexists_tac [`s'_i1'`, `r_i1'`] >>
-       rw [] >>
-       rw [] >>
-       fs [drestrict_iter_list]
-       >- metis_tac [compile_funs_dom]
-       >- (rw [FST_triple] >>
-           fs [COMPL_UNION] >>
-           metis_tac [INTER_COMM]))
-  >- metis_tac []
-  >- metis_tac [do_con_check, EVERY2_REVERSE, vs_rel_list_rel, compile_exps_reverse]
-  >- metis_tac []
-  >- metis_tac []
-  >- metis_tac []
-  >- (* Pattern matching *)
-     (pop_assum mp_tac >>
-      rw [] >>
-      fs [s_rel_cases, env_all_rel_cases] >>
-      rw [] >>
-      fs [] >>
-      `match_result_rel genv env''' (Match env') (pmatch env''.c s'' p v_i1 env_i1')`
-                    by metis_tac [pmatch] >>
-      cases_on `pmatch env''.c s'' p v_i1 env_i1'` >>
-      fs [match_result_rel_def] >>
-      rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      imp_res_tac evalPropsTheory.pmatch_extend >> fs[] >> rw[] >>
-      FIRST_X_ASSUM (qspecl_then [`genv`, `mods`, `tops`, `env'' with v := env''''' ++ env''.v`, `env'''`, `a`, `s''`] mp_tac) >>
-      rw [] >>
-      first_x_assum(fn th => mp_tac th  >> discharge_hyps) >- (
-        metis_tac[global_env_inv_add_locals] ) >> strip_tac >>
-      rw [] >>
-      first_assum(match_exists_tac o concl) >> simp[PULL_EXISTS] >>
-      first_assum(match_exists_tac o concl) >> simp[] >>
-      fs [COMPL_UNION, drestrict_iter_list] >>
-      metis_tac [INTER_COMM])
-  >- (* Pattern matching *)
-     (pop_assum mp_tac >>
-      rw [] >>
-      fs [s_rel_cases, env_all_rel_cases] >>
-      rw [] >>
-      fs [] >>
-      `match_result_rel genv env'' No_match (pmatch env'.c s'' p v_i1 env_i1')`
-                    by metis_tac [pmatch] >>
-      cases_on `pmatch env'.c s'' p v_i1 env_i1'` >>
-      fs [match_result_rel_def] >>
-      rw [] >>
-      fs [METIS_PROVE [] ``(((?x. P x) ∧ R ⇒ Q) ⇔ !x. P x ∧ R ⇒ Q) ∧ ((R ∧ (?x. P x) ⇒ Q) ⇔ !x. R ∧ P x ⇒ Q) ``] >>
-      metis_tac[]));
+      BasicProvers.TOP_CASE_TAC >>
+      BasicProvers.TOP_CASE_TAC >>
+      BasicProvers.TOP_CASE_TAC >> rw[] >>
+      BasicProvers.TOP_CASE_TAC >> fs[] >>
+      rw[evaluate_def] >>
+      asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      fs[result_rel_cases] >>
+      fs[vs_rel_list_rel] >> rw[] >>
+      fs[Once v_rel_cases] >>
+      rw[do_if_def] >> fs[] >>
+      EVAL_TAC >>
+      rw[state_component_equality] >>
+      pop_assum mp_tac >> EVAL_TAC >>
+      pop_assum mp_tac >> EVAL_TAC >>
+      fs[vs_rel_list_rel] ) >>
+    rw[] >> fs[] >> rfs[] >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    first_x_assum drule >> simp[] >> strip_tac >>
+    asm_exists_tac >> simp[] >>
+    asm_exists_tac >> simp[] >>
+    fs[terminationTheory.do_log_thm] >>
+    qpat_assum`_ = SOME _`mp_tac >>
+    rw[evaluate_def] >>
+    fs[result_rel_cases,vs_rel_list_rel] >> rveq >> fs[] >>
+    fs[Once v_rel_cases] >> rveq >> fs[] >>
+    rw[do_if_def] >>
+    EVAL_TAC >>
+    fs[vs_rel_list_rel] >>
+    pop_assum mp_tac >> EVAL_TAC >>
+    pop_assum mp_tac >> EVAL_TAC >>
+    rw[])
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >- (
+      rw[] >> asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      fs[result_rel_cases] >> rveq >> fs[] ) >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >>
+    fs[] >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    asm_exists_tac >> simp[] >>
+    asm_exists_tac >> simp[] >>
+    imp_res_tac funBigStepPropsTheory.evaluate_length >> fs[] >>
+    Cases_on`a`>>fs[LENGTH_NIL] >> rveq >>
+    fs[semanticPrimitivesTheory.do_if_def] >>
+    qpat_assum`_ = SOME _`mp_tac >> rw[] >>
+    fs[result_rel_cases] >> rveq >> fs[] >>
+    fs[vs_rel_list_rel] >> rveq >>
+    fs[Once v_rel_cases,semanticPrimitivesTheory.Boolv_def] >>
+    rw[do_if_def] >>
+    fs[vs_rel_list_rel] >>
+    pop_assum mp_tac >> EVAL_TAC >>
+    pop_assum mp_tac >> EVAL_TAC >>
+    rw[] )
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >- (
+      rw[] >> asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      fs[result_rel_cases] >> rveq >> fs[] ) >>
+    rw[] >> rfs[] >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    FIRST_X_ASSUM drule >> simp[] >> strip_tac >>
+    rator_x_assum`result_rel`mp_tac >>
+    simp[Once result_rel_cases] >> strip_tac >>
+    imp_res_tac funBigStepPropsTheory.evaluate_length >> fs[] >>
+    Cases_on`a`>>fs[LENGTH_NIL] >> rveq >>
+    fs[vs_rel_list_rel] >>
+    first_x_assum drule >>
+    simp[Bindv_def] >>
+    simp[Once v_rel_cases,PULL_EXISTS] >>
+    simp[vs_rel_list_rel] )
+  >- (
+    qpat_assum`_ ⇒ _`mp_tac >>
+    discharge_hyps >- ( strip_tac >> fs[] ) >>
+    disch_then drule >> simp[] >> strip_tac >>
+    qpat_assum`_ = (_,r)`mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >- (
+      rw[] >> asm_exists_tac >> simp[] >>
+      asm_exists_tac >> simp[] >>
+      Cases_on`xo`>> rw[compile_exp_def,evaluate_def] >>
+      fs[result_rel_cases] >> rveq >> fs[] ) >>
+    rw[] >> rfs[] >>
+    imp_res_tac evaluate_globals >>
+    pop_assum (assume_tac o SYM) >> fs[] >>
+    rator_x_assum`result_rel`mp_tac >>
+    simp[Once result_rel_cases] >> strip_tac >>
+    Cases_on`xo`>> rw[compile_exp_def,evaluate_def] >- (
+      first_x_assum match_mp_tac >>
+      simp[libTheory.opt_bind_def] >>
+      qpat_abbrev_tac`env2 = env_i1 with v updated_by _` >>
+      `env2 = env_i1` by (
+        simp[environment_component_equality,Abbr`env2`,libTheory.opt_bind_def] ) >>
+      simp[] ) >>
+    qpat_abbrev_tac`env2 = env_i1 with v updated_by _` >>
+    first_x_assum(qspecl_then[`mods`,`tops`,`env2`]mp_tac) >>
+    simp[Abbr`env2`] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    disch_then drule >>
+    disch_then(qspec_then`x INSERT locals`mp_tac) >>
+    discharge_hyps >- (
+      fs[env_all_rel_cases] >>
+      fs[semanticPrimitivesTheory.environment_component_equality,libTheory.opt_bind_def] >>
+      srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][] >>
+      ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      simp[GSYM CONJ_ASSOC] >>
+      drule global_env_inv_add_locals >>
+      disch_then(qspec_then`{x}`strip_assume_tac) >>
+      simp[Once INSERT_SING_UNION] >>
+      asm_exists_tac >> simp[] >>
+      fs[env_rel_el] >>
+      Cases >> simp[] >>
+      imp_res_tac evaluate_sing >>
+      fs[vs_rel_list_rel] ) >>
+    strip_tac >>
+    asm_exists_tac >> simp[] >>
+    fs[compl_insert] >>
+    fs[DRESTRICT_DOMSUB])
+  >- (
+    rw[markerTheory.Abbrev_def] >>
+    rw[evaluate_def,compile_funs_map,MAP_MAP_o,o_DEF,UNCURRY] >>
+    fs[FST_triple,ETA_AX] >>
+    simp[drestrict_iter_list] >>
+    simp[GSYM COMPL_UNION] >>
+    first_x_assum match_mp_tac >> simp[] >>
+    fs[env_all_rel_cases,semanticPrimitivesTheory.environment_component_equality] >>
+    srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][] >>
+    simp[evalPropsTheory.build_rec_env_merge,build_rec_env_merge] >>
+    qexists_tac`env''`>>simp[MAP_MAP_o,o_DEF,UNCURRY,ETA_AX] >>
+    simp[UNION_COMM] >>
+    imp_res_tac global_env_inv_add_locals >> simp[] >>
+    match_mp_tac env_rel_append >> fs[] >>
+    imp_res_tac env_rel_dom >>
+    fs[env_rel_el,EL_MAP,UNCURRY] >>
+    simp[Once v_rel_cases] >>
+    srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][] >>
+    fs[semanticPrimitivesTheory.environment_component_equality] >>
+    simp[compile_funs_map,MAP_EQ_f,FORALL_PROD] >>
+    simp[UNION_COMM] >>
+    map_every qexists_tac[`mods`,`tops`] >> simp[] >>
+    qexists_tac`env''`>>fs[] >>
+    fs[env_rel_el] >>
+    fs[v_rel_eqns,SUBSET_DEF] >>
+    rw[] >> res_tac >>
+    fs[FLOOKUP_DEF] >>
+    fs[MEM_MAP,EXISTS_PROD] >>
+    metis_tac[ALOOKUP_FAILS,option_CASES,NOT_SOME_NONE] )
+  >- (
+    qpat_assum`_ = (_,r)`mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >> fs[] >- (
+      rfs[] >>
+      drule (CONJUNCT1 pmatch) >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      simp[GSYM CONJ_ASSOC] >>
+      rator_x_assum`s_rel`mp_tac >>
+      simp[Once s_rel_cases] >> strip_tac >>
+      disch_then drule >>
+      disch_then drule >>
+      rator_x_assum`env_all_rel`mp_tac >>
+      simp[Once env_all_rel_cases] >> strip_tac >>
+      disch_then drule >> simp[] >> strip_tac >>
+      qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
+      Cases_on`mm`>>fs[match_result_rel_def] >>
+      pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+      ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+      ONCE_REWRITE_TAC[CONJ_COMM] >>
+      first_x_assum match_mp_tac >>
+      simp[s_rel_cases] >>
+      simp[env_all_rel_cases] >>
+      metis_tac[] ) >>
+    rfs[] >>
+    drule (CONJUNCT1 pmatch) >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    simp[GSYM CONJ_ASSOC] >>
+    rator_x_assum`s_rel`mp_tac >>
+    simp[Once s_rel_cases] >> strip_tac >>
+    disch_then drule >>
+    disch_then drule >>
+    rator_x_assum`env_all_rel`mp_tac >>
+    simp[Once env_all_rel_cases] >> strip_tac >>
+    disch_then drule >> simp[] >> strip_tac >>
+    qmatch_assum_abbrev_tac`match_result_rel _ _ _ mm` >>
+    Cases_on`mm`>>fs[match_result_rel_def] >>
+    pop_assum(assume_tac o SYM o SIMP_RULE std_ss [markerTheory.Abbrev_def]) >>
+    ONCE_REWRITE_TAC[CONJ_ASSOC] >>
+    ONCE_REWRITE_TAC[CONJ_COMM] >>
+    simp[drestrict_iter_list] >>
+    simp[GSYM COMPL_UNION] >>
+    first_x_assum match_mp_tac >>
+    simp[s_rel_cases] >>
+    simp[env_all_rel_cases] >>
+    rveq >> fs[] >>
+    imp_res_tac global_env_inv_add_locals >>
+    fs[UNION_COMM] >>
+    fs[semanticPrimitivesTheory.environment_component_equality] >>
+    srw_tac[QUANT_INST_ss[record_default_qp,pair_default_qp]][] >>
+    imp_res_tac pmatch_extend >> rveq >>
+    qexists_tac`env''`>>simp[] >>
+    simp[EXTENSION] >>
+    imp_res_tac env_rel_dom >>
+    simp[]));
 
+(* TODO: all this is broken and needs updating
 val global_env_inv_flat_extend_lem = Q.prove (
   `!genv genv' env env_i1 x n v.
     env_rel genv' env env_i1 ∧
