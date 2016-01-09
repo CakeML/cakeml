@@ -4299,7 +4299,7 @@ val max_var_inst_max = prove(``
   TRY(IF_CASES_TAC)>>fs[]>>
   DECIDE_TAC)
 
-val max_var_max = prove(``
+val max_var_max = store_thm("max_var_max",``
   ∀prog.
     every_var (λx. x ≤ max_var prog) prog``,
   ho_match_mp_tac max_var_ind>>
@@ -5058,5 +5058,29 @@ val ssa_cc_trans_distinct_tar_reg = prove(``
       rpt(qpat_assum`A=(B,C,D)` mp_tac)>>
       LET_ELIM_TAC>>fs[EQ_SYM_EQ,every_inst_def]>>
       metis_tac[fake_moves_distinct_tar_reg])
+
+val full_ssa_cc_trans_distinct_tar_reg = store_thm("full_ssa_cc_trans_distinct_tar_reg",``
+  ∀n prog.
+  every_inst distinct_tar_reg (full_ssa_cc_trans n prog)``,
+  rw[]>>
+  fs[full_ssa_cc_trans_def]>>
+  LET_ELIM_TAC>>
+  simp[every_inst_def]>>CONJ_TAC
+  >-
+    (fs[setup_ssa_def,list_next_var_rename_move_def,LET_THM]>>
+    split_pair_tac>>fs[]>>
+    metis_tac[every_inst_def])
+  >>
+  assume_tac limit_var_props>>
+  fs[markerTheory.Abbrev_def]>>
+  rfs[]>>
+  imp_res_tac setup_ssa_props_2>>
+  pop_assum(qspecl_then[`prog`,`n`] mp_tac)>>
+  LET_ELIM_TAC>>
+  Q.ISPECL_THEN [`prog`,`ssa''`,`na''`] mp_tac ssa_cc_trans_distinct_tar_reg>>
+  discharge_hyps>-
+    (rfs[]>>match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>fs[]>>
+    DECIDE_TAC)>>
+  fs[]);
 
 val _ = export_theory();
