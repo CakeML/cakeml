@@ -69,6 +69,7 @@ in
     ,source_to_modTheory.alloc_defs_def
     ,source_to_modTheory.Bool_def
     ,source_to_modTheory.compile_def
+    ,source_to_modTheory.empty_config_def
     ]
 
   (* conLang *)
@@ -107,6 +108,7 @@ in
     ,mod_to_conTheory.alloc_tag_def
     ,mod_to_conTheory.alloc_tags_def
     ,mod_to_conTheory.compile_def
+    ,mod_to_conTheory.empty_config_def
     ]
 
   (* decLang *)

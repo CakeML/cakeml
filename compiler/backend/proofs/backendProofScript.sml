@@ -26,9 +26,6 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
 (* -- *)
 
 val c = compilerComputeLib.the_compiler_compset
-(* TODO: should add to compilerComputeLib *)
-val () = computeLib.add_thms[source_to_modTheory.empty_config_def,mod_to_conTheory.empty_config_def] c
-(* -- *)
 val () = computeLib.add_thms[prim_config_def] c
 val () = computeLib.add_thms[initialProgramTheory.prim_types_program_def] c
 
