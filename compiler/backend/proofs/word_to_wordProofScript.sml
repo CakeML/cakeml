@@ -375,7 +375,7 @@ val compile_single_correct = prove(``
      Cases_on`call_FFI st.ffi n x'`>>simp[]));
 
 val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
-  ``(!n v. lookup n st.code = SOME v ==>
+  ``(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
            ∃t k a c col.
            lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
     ?perm'.

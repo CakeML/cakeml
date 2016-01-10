@@ -2357,9 +2357,11 @@ val compile_correct = store_thm("compile_correct",
   \\ rw [] \\ drule compile_correct_lemma \\ fs []
   \\ disch_then drule \\ strip_tac \\ fs []
   \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
+  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF] \\ rfs[]
   \\ `(!n v. lookup n (inc_clock ck t).code = SOME v ==>
-             lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
-        by fs [inc_clock_def]
+             ?x1 x2 x3 x4 x5.
+                lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
+        by (fs [inc_clock_def] \\ metis_tac [])
   \\ drule compile_word_to_word_thm \\ rw []
   \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF] \\ rfs[]
   THEN1 (every_case_tac \\ fs [] \\ rfs [])
