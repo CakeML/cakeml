@@ -37,7 +37,7 @@ val lem = prove(``
 
 (*Chains up compile_single theorems*)
 val compile_single_lem = prove(``
-  ∀prog n k st.
+  ∀prog n st.
   domain st.locals = set(even_list n)
   ⇒
   ∃perm'.
@@ -90,6 +90,28 @@ val compile_single_lem = prove(``
     split_pair_tac>>fs[word_state_eq_rel_def]>>
     metis_tac[])
 
+(*Strengthened version of the above*)
+val compile_single_lem = prove(``
+  ∀prog n st.
+  domain st.locals = set(even_list n)
+  ⇒
+  ∃perm'.
+  let (res,rst) = evaluate(prog,st with permute:=perm') in
+  let (_,_,cprog) = (compile_single t k a c ((name,n,prog),col)) in
+  if (res = SOME Error) then T else
+  let (res',rcst) = evaluate(cprog,st) in
+    res = res' ∧
+    word_state_eq_rel rst rcst ∧
+    (*If control escapes from the current program, then
+      the locals are equal to the original.
+      Note: might not be currently true for all SOME _ cases,
+      but this is easier to state
+      See prev lemma for the reason why this is needed.
+    *)
+    case res of
+      SOME _ => rst.locals = rcst.locals
+    | _ => T``,cheat)
+
 val get_vars_code_frame = prove(``
   ∀ls.
   get_vars ls (st with code:=l) =
@@ -110,7 +132,7 @@ val word_exp_code_frame = prove(``
     fs[])
 
 val tac =
-    fs[evaluate_def,LET_THM]>>
+    fs[evaluate_def,LET_THM,state_component_equality]>>
     qexists_tac`st.permute`>>fs[alloc_def,get_var_def,gc_def,LET_THM,push_env_def,set_store_def,env_to_list_def,pop_env_def,has_space_def,call_env_def,set_var_def,get_var_def,dec_clock_def,jump_exc_def,get_vars_perm,get_vars_code_frame,set_vars_def,word_exp_perm,word_exp_code_frame,mem_store_def]>>
     every_case_tac>>fs[state_component_equality]
 
@@ -118,6 +140,53 @@ val rm_perm = prove(``
   s with permute:= s.permute = s``,fs[state_component_equality])
 
 val size_tac= (fs[wordLangTheory.prog_size_def]>>DECIDE_TAC);
+
+val find_code_thm = prove(``
+  (!n v. lookup n st.code = SOME v ==>
+         ∃t k a c col.
+         lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ∧
+  find_code o1 (add_ret_loc o' x) st.code = SOME (args,prog) ⇒
+  ∃t k a c col n prog'.
+  SND(compile_single t k a c ((n,LENGTH args,prog),col)) = (LENGTH args,prog') ∧
+  find_code o1 (add_ret_loc o' x) l = SOME(args,prog')``,
+  Cases_on`o1`>>simp[find_code_def]>>rw[]
+  >-
+    (ntac 2 (TOP_CASE_TAC>>fs[])>>
+    Cases_on`lookup n st.code`>>fs[]>>res_tac>>
+    Cases_on`x'`>> fs[compile_single_def,LET_THM]>>
+    qsuff_tac`q = LENGTH args`>-
+     metis_tac[]>>
+    qpat_assum`A=args` sym_sub_tac>>
+    Cases_on`add_ret_loc o' x`>>fs[LENGTH_FRONT,ADD1])
+  >>
+    Cases_on`lookup x' st.code`>>fs[]>>res_tac>>
+    Cases_on`x''`>>fs[compile_single_def,LET_THM]>>
+    metis_tac[])
+
+(*Adapted from a proof in wordProps*)
+val domain_fromList2 = prove(``
+  ∀q.
+  domain(fromList2 q) = set(even_list (LENGTH q))``,
+  recInduct SNOC_INDUCT >> rw [] >>
+  fs[fromList2_def,word_allocTheory.even_list_def]>>
+  simp[FOLDL_SNOC]>>
+  CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)>>
+  fs [GSYM fromList2_def,FOLDL_SNOC]>>
+  `!k. FST (FOLDL (λ(i,t) a. (i + 2,insert i a t)) (k,LN) l) =
+        k + LENGTH l * 2` by
+   (qspec_tac (`LN`,`t`) \\ qspec_tac (`l`,`l`) \\ Induct \\ fs [FOLDL]
+    \\ fs [MULT_CLAUSES, AC ADD_COMM ADD_ASSOC])>>
+  rw[]>>
+  fs[MEM_GENLIST,EXTENSION]>>rw[]>>
+  EQ_TAC>>rw[]
+  >-
+    (qexists_tac`LENGTH l`>>simp[])
+  >-
+    (qexists_tac`x'`>>simp[])
+  >>
+    Cases_on`x' = LENGTH l`>>simp[]>>
+    `x' < LENGTH l` by DECIDE_TAC>>
+    metis_tac[])
 
 val compile_single_correct = prove(``
   ∀prog st l.
@@ -131,9 +200,7 @@ val compile_single_correct = prove(``
         let (res1,rst1) = evaluate (prog,st with code := l) in
           res1 = res ∧
           rst.code = st.code ∧
-          case res of
-            SOME (Result x y) => ∃loc. rst1 = rst with <|code:=l;locals:=loc|>
-          | _ => rst1 = rst with code:=l``,
+          rst1 = rst with code:=l``,
   (* Doesn't work...
   recInduct evaluate_ind>>rpt STRIP_TAC
   >- tac
@@ -174,9 +241,47 @@ val compile_single_correct = prove(``
     (fs[evaluate_def,LET_THM,get_vars_perm,get_vars_code_frame]>>
     Cases_on`get_vars l' st`>>fs[]>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>fs[]>>
-    (*TODO: Split into tail call and non-tail calls, tryout the complete
-    induction, possibly assuming the stronger form of
-    compile_single_lem*)
+    Cases_on`o'`>>fs[]
+    >- (*Tail calls*)
+      (Cases_on`x'`>>simp[]>>
+      imp_res_tac find_code_thm>>
+      ntac 2 (pop_assum kall_tac)>>
+      fs[]>>
+      ntac 2 (IF_CASES_TAC>>fs[])
+      >- simp[call_env_def,state_component_equality]>>
+      qabbrev_tac`stt = call_env q(dec_clock st)`>>
+      first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+      discharge_hyps>-
+        (fs[Abbr`stt`,dec_clock_def]>>
+        DECIDE_TAC)>>
+      discharge_hyps>-
+        (fs[Abbr`stt`,call_env_def,dec_clock_def])>>
+      rw[]>>
+      Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
+      discharge_hyps>-
+        (fs[Abbr`stt`,call_env_def]>>
+        simp[domain_fromList2])>>
+      qpat_abbrev_tac`A = compile_single t k a c B`>>
+      PairCases_on`A`>>rw[]>>fs[LET_THM]>>
+      split_pair_tac>>fs[Abbr`stt`]
+      >-
+        (qexists_tac`perm''`>>fs[dec_clock_def,call_env_def])>>
+      Cases_on`res`>>fs[]
+      >-
+        (qexists_tac`perm''`>>fs[dec_clock_def,call_env_def])>>
+      Cases_on`x' = Error`>>fs[]
+      >-
+        (qexists_tac`perm''`>>fs[dec_clock_def,call_env_def])>>
+      split_pair_tac>>fs[]>>
+      rfs[]>>fs[]>>rfs[]>>
+      split_pair_tac>>fs[]>>
+      Q.ISPECL_THEN [`r`,`call_env q (dec_clock st) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>fs[LET_THM]>>
+      discharge_hyps>-
+        (qpat_assum`A=res'` sym_sub_tac>>fs[])>>
+      rw[]>>
+      qexists_tac`perm'''`>>
+      fs[call_env_def,dec_clock_def,word_state_eq_rel_def,state_component_equality])
+    >>
     cheat)
   >- (*Seq, inductive*)
     (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
@@ -191,7 +296,8 @@ val compile_single_correct = prove(``
     `rst.clock ≤ st.clock` by cheat>>
     Cases_on`rst.clock = st.clock`>>
     TRY(first_assum(qspecl_then[`p0`,`rst`,`l`] mp_tac)>>
-      discharge_hyps>-size_tac)>>
+      discharge_hyps>-
+      size_tac)>>
     TRY(first_assum(qspecl_then[`rst`,`p0`,`l`] mp_tac)>>
       discharge_hyps>-size_tac)>>
     rw[]>>
