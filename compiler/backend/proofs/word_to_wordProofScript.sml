@@ -143,6 +143,10 @@ val domain_fromList2 = prove(``
     `x' < LENGTH l` by DECIDE_TAC>>
     metis_tac[])
 
+val push_env_code_frame = prove(``
+  (push_env a b c).code = c.code``,
+  Cases_on`b`>>TRY(PairCases_on`x`)>>fs[push_env_def,LET_THM,env_to_list_def])
+
 val compile_single_correct = prove(``
   ∀prog st l.
   (!n v. lookup n st.code = SOME v ==>
@@ -156,28 +160,6 @@ val compile_single_correct = prove(``
           res1 = res ∧
           rst.code = st.code ∧
           rst1 = rst with code:=l``,
-  (* Doesn't work...
-  recInduct evaluate_ind>>rpt STRIP_TAC
-  >- tac
-  >- cheat
-  >- tac
-  >- cheat
-  >- tac
-  >- tac
-  >- tac
-  >- tac
-  >- tac
-  >-
-    (res_tac>>fs[LET_THM,evaluate_def]>>
-    split_pair_tac>>fs[]>-
-      (qexists_tac`perm'`>>fs[])>>
-    split_pair_tac>>fs[]>>
-    IF_CASES_TAC>>fs[]>-
-      (*Can't discharge the hypothesis on 0*)
-      cheat
-    >>
-    qexists_tac`perm'`>>fs[])
-  >> cheat*)
   (*recInduct doesn't seem to give a nice induction thm*)
   completeInduct_on`((st:('a,'b)state).clock)`>>
   simp[PULL_FORALL]>>
@@ -242,7 +224,107 @@ val compile_single_correct = prove(``
     IF_CASES_TAC>-
       fs[call_env_def,state_component_equality]>>
     fs[]>>
-    cheat)
+    qabbrev_tac`stt = call_env q(push_env x' o0 (dec_clock st))`>>
+    first_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+    discharge_hyps>-
+      (fs[Abbr`stt`,dec_clock_def]>>
+      DECIDE_TAC)>>
+    discharge_hyps>-
+      fs[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def]>>
+    rw[]>>
+    Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
+    discharge_hyps>-
+      (fs[Abbr`stt`,call_env_def]>>
+      simp[domain_fromList2])>>
+    qpat_abbrev_tac`A = compile_single t k a c B`>>
+    PairCases_on`A`>>rw[]>>fs[LET_THM]>>
+    split_pair_tac>>fs[Abbr`stt`]
+    >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+      fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])>>
+    Cases_on`res`>>fs[]
+    >-
+      (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+      fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])>>
+    Cases_on`x''`>>fs[]
+    >-
+      (*Manual simulation for Result*)
+      (Cases_on`w ≠ Loc x''3 x''4`>>fs[]
+      >-
+        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+        Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+        fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
+      >>
+      Cases_on`pop_env rst`>>fs[]
+      >-
+        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+        Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+        fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
+      >>
+      reverse (Cases_on`domain x''.locals = domain x'`)>>fs[]
+      >-
+        (qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+        Cases_on`o0`>>TRY(PairCases_on`x'''`)>>
+        fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
+      >>
+      split_pair_tac>>fs[]>>
+      last_x_assum(qspecl_then[`(set_var x''0 w0 x'') with permute:=rcst.permute`,`x''2`,`l`]mp_tac)>>
+      discharge_hyps>-
+        (simp[set_var_def]>>
+        (*Monotonicity on 12, and dec_clock*)
+        `rst.clock < st.clock` by cheat>>
+        qpat_assum`A=SOME x''` mp_tac>>fs[pop_env_def]>>
+        EVERY_CASE_TAC>>rw[state_component_equality]>>
+        simp[])>>
+      discharge_hyps>-
+        (simp[set_var_def]>>
+        qsuff_tac`x''.code = st.code`>>fs[]>>
+        `x''.code =rst.code` by
+          (qpat_assum`A=SOME x''` mp_tac>>fs[pop_env_def]>>
+          EVERY_CASE_TAC>>rw[state_component_equality]>>simp[])>>
+        split_pair_tac>>fs[]>>rfs[]>>
+        fs[]>>
+        split_pair_tac>>
+        fs[state_component_equality,word_state_eq_rel_def,call_env_def,push_env_code_frame,dec_clock_def])>>
+      rw[]>>
+      qspecl_then[`r`,`call_env q(push_env x' o0 (dec_clock st)) with permute:=perm''`,`perm'''`] assume_tac permute_swap_lemma>>
+      rfs[LET_THM]>>
+      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'''' (n-1)`>>
+      Cases_on`o0`>>TRY(PairCases_on `x'''`)>>
+      (fs[call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def,ETA_AX,pop_env_perm,set_var_perm]>>
+      qpat_assum`((λ(res',rcst). P) A)` mp_tac>>
+      split_pair_tac>>rfs[]>>fs[]>>
+      `pop_env (rcst with code:=l) = SOME (x'' with <|code:=l;permute:=rcst.permute|>)` by
+        (fs[pop_env_def,word_state_eq_rel_def]>>
+        EVERY_CASE_TAC>>fs[]>>
+        qpat_assum`A=x''` sym_sub_tac>>
+        fs[state_component_equality])>>
+      simp[]>>
+      rw[]>>split_pair_tac>>fs[]>>
+      split_pair_tac>>fs[set_var_def]>>
+      `x''.code = rst.code` by
+       (qpat_assum`A=SOME x''` mp_tac>>fs[pop_env_def]>>
+        EVERY_CASE_TAC>>rw[state_component_equality]>>simp[])>>
+      metis_tac[word_state_eq_rel_def]))
+    >-
+      cheat
+    >>
+      TRY(split_pair_tac>>fs[]>>
+      Q.ISPECL_THEN [`r`,`call_env q (push_env x' o0 (dec_clock st)) with permute:=perm''`,`rcst.permute`] mp_tac permute_swap_lemma>>fs[LET_THM]>>
+      discharge_hyps>-
+        (qpat_assum`A=res'` sym_sub_tac>>fs[])>>
+      rw[]>>
+      qexists_tac`λn. if n = 0:num then st.permute 0 else perm''' (n-1)`>>
+      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+      fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX]>>
+      split_pair_tac>>rfs[]>>fs[]>>
+      rw[]>>fs[word_state_eq_rel_def,state_component_equality])
+    >>
+      qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
+      Cases_on`o0`>>TRY(PairCases_on`x''`)>>
+      fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
   >- (*Seq, inductive*)
     (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
     first_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
