@@ -274,7 +274,10 @@ val compile_single_correct = prove(``
       discharge_hyps>-
         (simp[set_var_def]>>
         (*Monotonicity on 12, and dec_clock*)
-        `rst.clock < st.clock` by cheat>>
+        `rst.clock < st.clock` by
+          (imp_res_tac evaluate_clock>>
+          fs[call_env_def,dec_clock_def]>>
+          DECIDE_TAC)>>
         qpat_assum`A=SOME x''` mp_tac>>fs[pop_env_def]>>
         EVERY_CASE_TAC>>rw[state_component_equality]>>
         simp[])>>
@@ -320,7 +323,7 @@ val compile_single_correct = prove(``
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
       fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX]>>
       split_pair_tac>>rfs[]>>fs[]>>
-      rw[]>>fs[word_state_eq_rel_def,state_component_equality])
+      rw[]>>fs[word_state_eq_rel_def,state_component_equality]>>NO_TAC)
     >>
       qexists_tac`λn. if n = 0:num then st.permute 0 else perm'' (n-1)`>>
       Cases_on`o0`>>TRY(PairCases_on`x''`)>>
@@ -335,7 +338,9 @@ val compile_single_correct = prove(``
     reverse (Cases_on`res`)>>fs[]
     >- (qexists_tac`perm'`>>fs[])>>
     (*Clock monotonicity*)
-    `rst.clock ≤ st.clock` by cheat>>
+    `rst.clock ≤ st.clock` by
+      (imp_res_tac evaluate_clock>>
+      fs[state_component_equality])>>
     Cases_on`rst.clock = st.clock`>>
     TRY(first_assum(qspecl_then[`p0`,`rst`,`l`] mp_tac)>>
       discharge_hyps>-
