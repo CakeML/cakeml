@@ -134,9 +134,32 @@ val compile_single_correct = prove(``
           case res of
             SOME (Result x y) => ∃loc. rst1 = rst with <|code:=l;locals:=loc|>
           | _ => rst1 = rst with code:=l``,
+  (* Doesn't work...
+  recInduct evaluate_ind>>rpt STRIP_TAC
+  >- tac
+  >- cheat
+  >- tac
+  >- cheat
+  >- tac
+  >- tac
+  >- tac
+  >- tac
+  >- tac
+  >-
+    (res_tac>>fs[LET_THM,evaluate_def]>>
+    split_pair_tac>>fs[]>-
+      (qexists_tac`perm'`>>fs[])>>
+    split_pair_tac>>fs[]>>
+    IF_CASES_TAC>>fs[]>-
+      (*Can't discharge the hypothesis on 0*)
+      cheat
+    >>
+    qexists_tac`perm'`>>fs[])
+  >> cheat*)
   (*recInduct doesn't seem to give a nice induction thm*)
-  completeInduct_on`(prog_size (K 0) (prog:'a wordLang$prog) + 1)
-                    * ((st:('a,'b)state).clock +1)`>>
+  completeInduct_on`((st:('a,'b)state).clock)`>>
+  simp[PULL_FORALL]>>
+  completeInduct_on`prog_size (K 0) (prog:'a wordLang$prog)`>>
   rpt strip_tac>>
   fs[PULL_FORALL,evaluate_def]>>
   Cases_on`prog`
@@ -157,18 +180,20 @@ val compile_single_correct = prove(``
     cheat)
   >- (*Seq, inductive*)
     (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
-    last_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
+    first_assum(qspecl_then[`p`,`st`,`l`] mp_tac)>>
     discharge_hyps>-size_tac>> rw[]>>
     split_pair_tac>>fs[]
     >- (qexists_tac`perm'`>>rw[]) >>
     split_pair_tac>>fs[]>>
     reverse (Cases_on`res`)>>fs[]
     >- (qexists_tac`perm'`>>fs[])>>
-    first_assum(qspecl_then[`p0`,`rst`,`l`] mp_tac)>>
-    discharge_hyps>-
-      (*Now need clock monotonicity*)
-      (fs[]>>
-      cheat)>>
+    (*Clock monotonicity*)
+    `rst.clock ≤ st.clock` by cheat>>
+    Cases_on`rst.clock = st.clock`>>
+    TRY(first_assum(qspecl_then[`p0`,`rst`,`l`] mp_tac)>>
+      discharge_hyps>-size_tac)>>
+    TRY(first_assum(qspecl_then[`rst`,`p0`,`l`] mp_tac)>>
+      discharge_hyps>-size_tac)>>
     rw[]>>
     qspecl_then[`p`,`st with permute:=perm'`,`perm''`]
       assume_tac permute_swap_lemma>>
