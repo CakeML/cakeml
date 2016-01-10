@@ -491,7 +491,9 @@ val inst_select_thm = store_thm("inst_select_thm",``
   locals_rel temp st.locals loc ⇒
   ∃loc'.
   evaluate (inst_select c temp prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
-  locals_rel temp rst.locals loc'``,
+  case res of
+    NONE => locals_rel temp rst.locals loc'
+  | SOME _ => rst.locals = loc'``,
   ho_match_mp_tac inst_select_ind>>rw[]>>
   fs[inst_select_def,locals_rel_evaluate_thm]
   >-
@@ -618,7 +620,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
     imp_res_tac locals_rel_get_var_imm>>fs[GSYM AND_IMP_INTRO,every_var_def])
   >>
     imp_res_tac locals_rel_evaluate_thm>>
-    ntac 20 (pop_assum kall_tac)>>
+    ntac 14 (pop_assum kall_tac)>>
     fs[LET_THM,evaluate_def,every_var_def]>>
     qpat_abbrev_tac `stt = st with locals := A`>>
     Cases_on`get_vars args stt`>>fs[]>>
@@ -663,7 +665,9 @@ val inst_select_thm = store_thm("inst_select_thm",``
         res_tac>>
         qpat_abbrev_tac`D = set_var A B C`>>
         first_x_assum(qspec_then`D.locals` assume_tac)>>fs[locals_rel_def]>>
-        fs[locals_rm,state_component_equality])
+        fs[locals_rm,state_component_equality]>>
+        Cases_on`res`>>fs[]>>
+        qexists_tac`loc''`>>metis_tac[])
       >>
         fs[state_component_equality])
 

@@ -11,30 +11,6 @@ val is_phy_var_tac =
     `∀k.(2:num)*k=k*2` by DECIDE_TAC>>
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
-(* TODO: I think all the correctness theorems in wordLang
-  have to be strengthened to guarantee that on an exception
-  with respect to the same stack, the final locals are equal
-  -- In particular, this is a consequence of the fact
-  that Alloc/the gc is called the same number of times
-  (so that the values on the stack do not change differently)
-  -- Note: evaluate_stack_swap unfortunately only gets half
-  the way there by guaranteeing that the variable names
-  present are equal but not their values
-val lem = prove(``
-  ∀alg prog k col_opt st.
-  even_starting_locals st.locals
-  ⇒
-  ∃perm'.
-  let (res,rst) = evaluate(prog,st with permute:=perm') in
-  if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(word_alloc alg k prog col_opt,st) in
-    res = res' ∧
-    word_state_eq_rel rst rcst ∧
-    case res of
-      SOME (Exception x y) => rst.locals = rcst.locals
-    | _ => T``,cheat)
-*)
-
 (*Chains up compile_single theorems*)
 val compile_single_lem = prove(``
   ∀prog n st.
@@ -46,11 +22,10 @@ val compile_single_lem = prove(``
   if (res = SOME Error) then T else
   let (res',rcst) = evaluate(cprog,st) in
     res = res' ∧
-    word_state_eq_rel rst rcst``,
-    (*∧
+    word_state_eq_rel rst rcst ∧
     case res of
-      SOME (Exception x y) => rst.locals = rcst.locals
-    | _ => T*)
+      SOME _ => rst.locals = rcst.locals
+    | _ => T``,
   fs[compile_single_def,LET_DEF]>>rw[]>>
   qpat_abbrev_tac`p1 = inst_select A B C`>>
   TRY(
@@ -84,33 +59,13 @@ val compile_single_lem = prove(``
       (rfs[]>>
       metis_tac[full_ssa_cc_trans_distinct_tar_reg])>>
     rw[]>>
-    fs[word_state_eq_rel_def])
+    fs[word_state_eq_rel_def]>>
+    Cases_on`q`>>fs[])
   >>
     split_pair_tac>>fs[]>>
-    split_pair_tac>>fs[word_state_eq_rel_def]>>
-    metis_tac[])
-
-(*Strengthened version of the above*)
-val compile_single_lem = prove(``
-  ∀prog n st.
-  domain st.locals = set(even_list n)
-  ⇒
-  ∃perm'.
-  let (res,rst) = evaluate(prog,st with permute:=perm') in
-  let (_,_,cprog) = (compile_single t k a c ((name,n,prog),col)) in
-  if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(cprog,st) in
-    res = res' ∧
-    word_state_eq_rel rst rcst ∧
-    (*If control escapes from the current program, then
-      the locals are equal to the original.
-      Note: might not be currently true for all SOME _ cases,
-      but this is easier to state
-      See prev lemma for the reason why this is needed.
-    *)
-    case res of
-      SOME _ => rst.locals = rcst.locals
-    | _ => T``,cheat)
+    split_pair_tac>>fs[word_state_eq_rel_def]
+    >- metis_tac[]>>
+    FULL_CASE_TAC>>fs[]>>rfs[]);
 
 val get_vars_code_frame = prove(``
   ∀ls.
@@ -241,13 +196,13 @@ val compile_single_correct = prove(``
     (fs[evaluate_def,LET_THM,get_vars_perm,get_vars_code_frame]>>
     Cases_on`get_vars l' st`>>fs[]>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>fs[]>>
-    Cases_on`o'`>>fs[]
+    Cases_on`o'`>>fs[]>>
+    Cases_on`x'`>>simp[]>>
+    imp_res_tac find_code_thm>>
+    ntac 2 (pop_assum kall_tac)>>
+    fs[]
     >- (*Tail calls*)
-      (Cases_on`x'`>>simp[]>>
-      imp_res_tac find_code_thm>>
-      ntac 2 (pop_assum kall_tac)>>
-      fs[]>>
-      ntac 2 (IF_CASES_TAC>>fs[])
+      (ntac 2 (IF_CASES_TAC>>fs[])
       >- simp[call_env_def,state_component_equality]>>
       qabbrev_tac`stt = call_env q(dec_clock st)`>>
       first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
@@ -282,6 +237,11 @@ val compile_single_correct = prove(``
       qexists_tac`perm'''`>>
       fs[call_env_def,dec_clock_def,word_state_eq_rel_def,state_component_equality])
     >>
+    PairCases_on`x''`>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    IF_CASES_TAC>-
+      fs[call_env_def,state_component_equality]>>
+    fs[]>>
     cheat)
   >- (*Seq, inductive*)
     (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
@@ -306,12 +266,26 @@ val compile_single_correct = prove(``
     rfs[LET_THM]>>
     qexists_tac`perm'''`>>rw[]>>fs[])
   >- cheat
-  >- cheat
+  >-
+    (qexists_tac`st.permute`>>fs[rm_perm]>>
+    fs[evaluate_def,get_var_perm,get_var_def]>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    fs[alloc_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    fs[push_env_def,env_to_list_def,LET_THM,set_store_def,gc_def]>>
+    qpat_abbrev_tac`A = st.gc_fun B`>>
+    Cases_on`A`>>fs[]>>
+    PairCases_on`x'`>>fs[]>>
+    qpat_abbrev_tac`A = dec_stack B C`>>
+    Cases_on`A`>>fs[pop_env_def]>>
+    Cases_on`x'`>>fs[]>>Cases_on`h`>>fs[]>>
+    EVERY_CASE_TAC>>fs[has_space_def]>>
+    rfs[call_env_def])
   >- tac
   >- tac
   >- tac
   >- (tac>>
-     Cases_on`call_FFI st.ffi n x'`>>simp[]))
+     Cases_on`call_FFI st.ffi n x'`>>simp[]));
 
 val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   ``(!n v. lookup n st.code = SOME v ==>

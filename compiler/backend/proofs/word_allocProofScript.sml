@@ -529,6 +529,11 @@ val setup_tac = Cases_on`word_exp st exp`>>fs[]>>
       imp_res_tac apply_colour_exp_lemma>>
       pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
 
+val LAST_N_LENGTH2 = prove(``
+  LAST_N (LENGTH xs +1) (x::xs) = x::xs``,
+  `LENGTH (x::xs) = LENGTH xs +1` by simp[]>>
+  metis_tac[LAST_N_LENGTH])
+
 (*liveness theorem*)
 val evaluate_apply_colour = store_thm("evaluate_apply_colour",
 ``∀prog st cst f live.
@@ -545,7 +550,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     (case res of
       NONE => strong_locals_rel f (domain live)
               rst.locals rcst.locals
-    | _    => T )``,
+    | SOME _ => rst.locals = rcst.locals )``,
   (*Induct on size of program*)
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
@@ -719,8 +724,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     rfs[set_store_def,word_state_eq_rel_def,get_var_perm]>>
     metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset
              ,domain_union,SUBSET_UNION])
-  >-
-    (*Store*)
+  >- (*Store*)
     (exists_tac>>exists_tac_2>>
     rw[]>>
     rfs[set_store_def,word_state_eq_rel_def,get_var_perm]>>
@@ -905,6 +909,18 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
           rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
           simp[LAST_N_LENGTH_cond])>>
       rfs[]>>
+      `lss = lss'` by
+        (match_mp_tac LIST_EQ_MAP_PAIR>>fs[]>>
+        qsuff_tac `e = e''`>-metis_tac[]>>
+        unabbrev_all_tac>>
+        fs[push_env_def,LET_THM,env_to_list_def]>>
+        `st.handler < LENGTH st.stack` by
+          (SPOSE_NOT_THEN assume_tac>>
+          `st.handler = LENGTH st.stack` by DECIDE_TAC>>
+          ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
+          simp[LAST_N_LENGTH2])>>
+        ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
+        fs[LAST_N_TL])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (*Handler*)
@@ -2839,7 +2855,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     (case res of
       NONE =>
         ssa_locals_rel na' ssa' rst.locals rcst.locals
-    | _    => T )``,
+    | SOME _    => rst.locals = rcst.locals )``,
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   fs[PULL_FORALL,evaluate_def]>>
@@ -3293,6 +3309,18 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
           rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
           simp[LAST_N_LENGTH_cond])>>
       fs[]>>
+      `lss = lss'` by
+        (match_mp_tac LIST_EQ_MAP_PAIR>>fs[]>>
+        qsuff_tac `e = e''`>-metis_tac[]>>
+        unabbrev_all_tac>>
+        fs[push_env_def,LET_THM,env_to_list_def]>>
+        `st.handler < LENGTH st.stack` by
+          (SPOSE_NOT_THEN assume_tac>>
+          `st.handler = LENGTH st.stack` by DECIDE_TAC>>
+          ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
+          simp[LAST_N_LENGTH2])>>
+        ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
+        fs[LAST_N_TL])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (* 3 subgoals *)
@@ -4395,7 +4423,10 @@ val full_ssa_cc_trans_correct = store_thm("full_ssa_cc_trans_correct",
   if (res = SOME Error) then T else
   let (res',rcst) = evaluate(full_ssa_cc_trans n prog,st) in
     res = res' ∧
-    word_state_eq_rel rst rcst``,
+    word_state_eq_rel rst rcst ∧
+    (case res of
+      NONE => T
+    | SOME _    => rst.locals = rcst.locals )``,
   rw[]>>
   qpat_abbrev_tac`sprog = full_ssa_cc_trans n prog`>>
   fs[full_ssa_cc_trans_def]>>
@@ -4414,7 +4445,8 @@ val full_ssa_cc_trans_correct = store_thm("full_ssa_cc_trans_correct",
     rw[]>>DECIDE_TAC)>>
   rw[]>>
   qexists_tac`perm'`>>rw[]>>
-  fs[LET_THM])
+  fs[LET_THM]>>
+  FULL_CASE_TAC>>fs[]);
 
 (*Prove that the ssa form sets up conventions*)
 
@@ -4831,7 +4863,10 @@ val oracle_colour_ok_correct = prove(``
   if (res = SOME Error) then T else
   let (res',rcst) = evaluate(x,st) in
     res = res' ∧
-    word_state_eq_rel rst rcst``,
+    word_state_eq_rel rst rcst ∧
+    case res of
+      NONE => T
+    | SOME _ => rst.locals = rcst.locals``,
   rw[oracle_colour_ok_def]>>fs[LET_THM]>>
   EVERY_CASE_TAC>>fs[]>>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`] mp_tac evaluate_apply_colour>>
@@ -4854,7 +4889,8 @@ val oracle_colour_ok_correct = prove(``
       fs[]>>
       fs[MEM_toAList,domain_lookup])>>
   rw[]>>qexists_tac`perm'`>>pop_assum mp_tac>>
-  LET_ELIM_TAC>>fs[])
+  LET_ELIM_TAC>>fs[]>>
+  FULL_CASE_TAC>>fs[])
 
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = store_thm("word_alloc_correct",``
@@ -4866,7 +4902,10 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
   if (res = SOME Error) then T else
   let (res',rcst) = evaluate(word_alloc alg k prog col_opt,st) in
     res = res' ∧
-    word_state_eq_rel rst rcst``,
+    word_state_eq_rel rst rcst ∧
+    case res of
+      NONE => T
+    | SOME _ => rst.locals = rcst.locals``,
   rw[]>>
   qpat_abbrev_tac`cprog = word_alloc A B C D`>>
   fs[word_alloc_def]>>
@@ -4903,41 +4942,8 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
   >>
   rw[]>>
   qexists_tac`perm'`>>rw[]>>
-  fs[LET_THM])
-
-(* TODO: word_trans not used anymore,but this shows how to compose
-the SSA and word_alloc theorems
-
-val word_trans_correct = store_thm("word_trans_correct",
-``∀prog n k st.
-  domain st.locals = set(even_list n)
-  ⇒
-  ∃perm'.
-  let (res,rst) = evaluate(prog,st with permute:=perm') in
-  if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(word_trans n k prog,st) in
-    res = res' ∧
-    word_state_eq_rel rst rcst``,
-  rw[word_trans_def]>>
-  Q.ISPECL_THEN [`full_ssa_cc_trans n prog`,`k`,`st`] mp_tac word_alloc_correct>>
-  discharge_hyps>-
-    (fs[even_starting_locals_def,is_phy_var_def,even_list_def,MEM_GENLIST]>>
-    rw[]>>is_phy_var_tac)>>rw[]>>
-  Q.ISPECL_THEN [`prog`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
-  rfs[LET_THM]>>
-  qexists_tac`perm''`>>fs[LET_THM]>>rw[]>>
-  qpat_assum `A= (res,rst)` (SUBST_ALL_TAC)>>
-  Cases_on`evaluate(full_ssa_cc_trans n prog, st with permute:=perm')`>>
-  fs[word_state_eq_rel_def])
-
-val word_trans_conventions = store_thm("word_trans_conventions",
-``∀prog n k.
-  post_alloc_conventions k (word_trans n k prog)``,
-  rw[word_trans_def]>>
-  assume_tac (SPEC_ALL full_ssa_cc_trans_pre_alloc_conventions)>>
-  imp_res_tac pre_post_conventions_word_alloc>>
-  metis_tac[])
-*)
+  fs[LET_THM]>>
+  FULL_CASE_TAC>>fs[])
 
 (*This is only needed for instructions so that we can do 3-to-2 easily*)
 val distinct_tar_reg_def = Define`

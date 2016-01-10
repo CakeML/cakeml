@@ -1770,6 +1770,8 @@ val locals_rel_cut_env = prove(``
 (*Extra temporaries not mentioned in program
   do not affect evaluation*)
 
+val srestac = qpat_assum`A=res`sym_sub_tac>>fs[]
+
 val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   ∀prog st res rst loc temp.
   evaluate (prog,st) = (res,rst) ∧
@@ -1778,29 +1780,31 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
   locals_rel temp st.locals loc ⇒
   ∃loc'.
   evaluate (prog,st with locals:=loc) = (res,rst with locals:=loc') ∧
-  locals_rel temp rst.locals loc'``,
+  case res of
+    NONE => locals_rel temp rst.locals loc'
+  |  SOME _ => rst.locals = loc'``,
   completeInduct_on`prog_size (K 0) prog`>>
   rpt strip_tac>>
   Cases_on`prog`>>
   fs[evaluate_def,LET_THM]
   >-
-    metis_tac[]
+    (srestac>>metis_tac[])
   >-
     (qpat_assum `A = (res,rst)` mp_tac>> ntac 2 full_case_tac>>
     fs[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>
     fs[set_vars_def]>>imp_res_tac locals_rel_alist_insert>>
     fs[state_component_equality]>>
-    rw[]>>metis_tac[])
+    rw[]>>fs[]>>metis_tac[])
   >-
     (Cases_on`i`>>fs[inst_def,every_var_def,every_var_inst_def]
     >-
-      metis_tac[]
+      (srestac>>metis_tac[])
     >-
       (fs[assign_def,word_exp_def,set_var_def]>>
       imp_res_tac locals_rel_set_var>>
       fs[state_component_equality]>>
-      metis_tac[])
+      srestac>>metis_tac[])
     >-
       (Cases_on`a`>>fs[assign_def]>>
       qpat_assum`A=(res,rst)` mp_tac>>
@@ -1853,13 +1857,15 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     Cases_on`o'`>>fs[]
     >-(*Tail Call*)
       (fs[call_env_def,dec_clock_def]>>
-      IF_CASES_TAC>>fs[state_component_equality,locals_rel_def])
+      IF_CASES_TAC>>fs[state_component_equality,locals_rel_def]>>
+      CASE_TAC>>fs[])
     >>
       PairCases_on`x'`>>fs[]>>
       Cases_on`cut_env x'1' st.locals`>>fs[]>>
       imp_res_tac locals_rel_cut_env>>fs[]>>
       IF_CASES_TAC>-
-        fs[call_env_def,state_component_equality,locals_rel_def]
+        (fs[call_env_def,state_component_equality,locals_rel_def]>>
+        CASE_TAC>>fs[])
       >>
       fs[]>>qpat_assum`A=(res,rst)` mp_tac>>
       qpat_abbrev_tac`st = call_env B C`>>
@@ -1904,7 +1910,10 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     fs[push_env_def,set_store_def,LET_THM,env_to_list_def,gc_def]>>
     full_case_tac>>TRY(PairCases_on`x''`)>>TRY(PairCases_on`x''''`)>>
     fs[]>>full_case_tac>>fs[pop_env_def]>>rw[]>>
-    fs[state_component_equality,locals_rel_def])
+    fs[state_component_equality,locals_rel_def]>>
+    CASE_TAC>>fs[call_env_def]>>
+    CASE_TAC>>fs[call_env_def]>>
+    qpat_assum`A=x''` sym_sub_tac>>fs[])
   >-
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
     fs[jump_exc_def,state_component_equality,locals_rel_def]>>
@@ -1913,13 +1922,15 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rfs[every_var_def]>>
     fs[call_env_def,state_component_equality,locals_rel_def])
   >-
-    (every_case_tac>>fs[call_env_def,state_component_equality,locals_rel_def,dec_clock_def]>>metis_tac[])
+    (IF_CASES_TAC>>fs[call_env_def,state_component_equality,dec_clock_def]>>
+    srestac>>fs[]>>metis_tac[])
   >>
-   (qpat_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
-   fs[every_var_def]>>
-   imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
-   fs[]>>
-   full_case_tac>>fs[state_component_equality,locals_rel_def]))
+    (qpat_assum `A = (res,rst)` mp_tac>> ntac 5 full_case_tac>>
+    fs[every_var_def]>>
+    imp_res_tac locals_rel_get_var>>imp_res_tac locals_rel_cut_env>>
+    fs[]>>
+    full_case_tac>>fs[state_component_equality,locals_rel_def]>>
+    Cases_on`res`>>fs[]))
 
 val mem_list_rearrange = store_thm("mem_list_rearrange",``
   ∀ls x f. MEM x (list_rearrange f ls) ⇔ MEM x ls``,
