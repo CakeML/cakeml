@@ -34,7 +34,6 @@ candle/standard/syntax
 candle/standard/semantics
 candle/standard/monadic
 candle/standard/ml_kernel
-candle/standard/x86_kernel
 candle/standard/opentheory
 
 # explorer
