@@ -20,28 +20,87 @@ val asm_inst_with_clock = Q.store_thm("asm_inst_with_clock[simp]",
   Cases_on`a`>>EVAL_TAC>>
   every_case_tac >> fs[]);
 
+val upd_pc_simps = Q.store_thm("upd_pc_simps[simp]",
+  `((asmSem$upd_pc x s).align = s.align) ∧
+   ((asmSem$upd_pc x s).mem_domain = s.mem_domain) ∧
+   ((asmSem$upd_pc x s).failed = s.failed) ∧
+   ((asmSem$upd_pc x s).be = s.be) ∧
+   ((asmSem$upd_pc x s).mem = s.mem) ∧
+   ((asmSem$upd_pc x s).regs = s.regs) ∧
+   ((asmSem$upd_pc x s).lr = s.lr) ∧
+   ((asmSem$upd_pc x s).pc = x)`,
+  EVAL_TAC);
+
+val read_reg_inc_pc = Q.store_thm("read_reg_inc_pc[simp]",
+  `read_reg r (inc_pc s) = read_reg r s`,
+  EVAL_TAC);
+
 (* -- *)
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s with clock := s.clock) = s`,
   rw[state_component_equality]);
 
-val update_simps = store_thm("update_simps[simp]",
-  ``((upd_pc x s).ffi = s.ffi) /\
-    ((dec_clock s).ffi = s.ffi) /\
-    ((upd_pc x s).pc = x) /\
-    ((dec_clock s).pc = s.pc) /\
-    ((upd_pc x s).clock = s.clock) /\
-    ((dec_clock s).clock = s.clock - 1) /\
-    ((dec_clock s).len_reg = s.len_reg) ∧
-    ((dec_clock s).link_reg = s.link_reg) ∧
-    ((dec_clock s).code = s.code) ∧
-    ((dec_clock s).ptr_reg = s.ptr_reg) ∧
-    ((upd_pc x s).len_reg = s.len_reg) ∧
-    ((upd_pc x s).link_reg = s.link_reg) ∧
-    ((upd_pc x s).code = s.code) ∧
-    ((upd_pc x s).ptr_reg = s.ptr_reg)``,
+val inc_pc_dec_clock = Q.store_thm("inc_pc_dec_clock",
+  `inc_pc (dec_clock x) = dec_clock (inc_pc x)`,
   EVAL_TAC);
+
+val update_simps = store_thm("update_simps[simp]",
+  ``((labSem$upd_pc x s).ffi = s.ffi) /\
+    ((labSem$dec_clock s).ffi = s.ffi) /\
+    ((labSem$upd_pc x s).pc = x) /\
+    ((labSem$dec_clock s).pc = s.pc) /\
+    ((labSem$upd_pc x s).clock = s.clock) /\
+    ((labSem$dec_clock s).clock = s.clock - 1) /\
+    ((labSem$dec_clock s).len_reg = s.len_reg) ∧
+    ((labSem$dec_clock s).link_reg = s.link_reg) ∧
+    ((labSem$dec_clock s).code = s.code) ∧
+    ((labSem$dec_clock s).ptr_reg = s.ptr_reg) ∧
+    ((labSem$upd_pc x s).len_reg = s.len_reg) ∧
+    ((labSem$upd_pc x s).link_reg = s.link_reg) ∧
+    ((labSem$upd_pc x s).code = s.code) ∧
+    ((labSem$upd_pc x s).ptr_reg = s.ptr_reg) ∧
+    ((labSem$upd_pc x s).mem_domain = s.mem_domain) ∧
+    ((labSem$upd_pc x s).failed = s.failed) ∧
+    ((labSem$upd_pc x s).be = s.be) ∧
+    ((labSem$upd_pc x s).mem = s.mem) ∧
+    ((labSem$upd_pc x s).regs = s.regs) ∧
+    ((labSem$inc_pc s).ptr_reg = s.ptr_reg) ∧
+    ((labSem$inc_pc s).len_reg = s.len_reg) ∧
+    ((labSem$inc_pc s).link_reg = s.link_reg) ∧
+    ((labSem$inc_pc s).code = s.code) ∧
+    ((labSem$inc_pc s).be = s.be) ∧
+    ((labSem$inc_pc s).failed = s.failed) ∧
+    ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
+    ((labSem$inc_pc s).io_regs = s.io_regs) ∧
+    ((labSem$inc_pc s).mem = s.mem) ∧
+    ((labSem$inc_pc s).pc = s.pc + 1)``,
+  EVAL_TAC);
+
+val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
+  `(labSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
+   (labSem$binop_upd a b c d x).ptr_reg = x.ptr_reg ∧
+   (labSem$binop_upd a b c d x).len_reg = x.len_reg ∧
+   (labSem$binop_upd a b c d x).link_reg = x.link_reg ∧
+   (labSem$binop_upd a b c d x).code = x.code ∧
+   (labSem$binop_upd a b c d x).be = x.be ∧
+   (labSem$binop_upd a b c d x).mem = x.mem ∧
+   (labSem$binop_upd a b c d x).io_regs = x.io_regs ∧
+   (labSem$binop_upd a b c d x).pc = x.pc`,
+  Cases_on`b`>>EVAL_TAC);
+
+val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
+  `(labSem$arith_upd a x).mem_domain = x.mem_domain ∧
+   (labSem$arith_upd a x).ptr_reg = x.ptr_reg ∧
+   (labSem$arith_upd a x).len_reg = x.len_reg ∧
+   (labSem$arith_upd a x).link_reg = x.link_reg ∧
+   (labSem$arith_upd a x).code = x.code ∧
+   (labSem$arith_upd a x).be = x.be ∧
+   (labSem$arith_upd a x).mem = x.mem ∧
+   (labSem$arith_upd a x).io_regs = x.io_regs ∧
+   (labSem$arith_upd a x).pc = x.pc`,
+  Cases_on`a` >> EVAL_TAC >>
+  every_case_tac >> EVAL_TAC >> rw[]);
 
 val line_length_def = Define `
   (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\

@@ -897,58 +897,14 @@ val state_rel_clock = prove(
   \\ fs [] \\ rw [] \\ fs []
   \\ metis_tac []);
 
-val inc_pc_dec_clock = Q.prove(
-  `inc_pc (dec_clock x) = dec_clock (inc_pc x)`,
-  EVAL_TAC);
-
 (* TODO: move *)
-
-val upd_pc_consts = Q.store_thm("upd_pc_consts[simp]",
-  `(upd_pc p x).mem_domain = x.mem_domain ∧
-   (upd_pc p x).align = x.align ∧
-   (upd_pc p x).failed = x.failed ∧
-   (upd_pc p x).be = x.be ∧
-   (upd_pc p x).mem = x.mem ∧
-   (upd_pc p x).regs = x.regs`,
-  EVAL_TAC)
-
-val inc_pc_consts = Q.store_thm("inc_pc_consts[simp]",
-  `(inc_pc x).ptr_reg = x.ptr_reg ∧
-   (inc_pc x).len_reg = x.len_reg ∧
-   (inc_pc x).link_reg = x.link_reg ∧
-   (inc_pc x).code = x.code ∧
-   (inc_pc x).be = x.be ∧
-   (inc_pc x).failed = x.failed ∧
-   (inc_pc x).mem_domain = x.mem_domain ∧
-   (inc_pc x).io_regs = x.io_regs ∧
-   (inc_pc x).mem = x.mem`,
-  EVAL_TAC)
-
-val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
-  `(labSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
-   (labSem$binop_upd a b c d x).ptr_reg = x.ptr_reg ∧
-   (labSem$binop_upd a b c d x).len_reg = x.len_reg ∧
-   (labSem$binop_upd a b c d x).link_reg = x.link_reg ∧
-   (labSem$binop_upd a b c d x).code = x.code ∧
-   (labSem$binop_upd a b c d x).be = x.be ∧
-   (labSem$binop_upd a b c d x).pc = x.pc`,
-  Cases_on`b`>>EVAL_TAC);
-
-val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
-  `(labSem$arith_upd a x).mem_domain = x.mem_domain ∧
-   (labSem$arith_upd a x).ptr_reg = x.ptr_reg ∧
-   (labSem$arith_upd a x).len_reg = x.len_reg ∧
-   (labSem$arith_upd a x).link_reg = x.link_reg ∧
-   (labSem$arith_upd a x).code = x.code ∧
-   (labSem$arith_upd a x).be = x.be ∧
-   (labSem$arith_upd a x).pc = x.pc`,
-  Cases_on`a` >> EVAL_TAC >>
-  every_case_tac >> EVAL_TAC >> rw[]);
 
 val TODO_MOVE_binop_upd_consts = Q.store_thm("TODO_MOVE_binop_upd_consts[simp]",
   `(asmSem$binop_upd a b c d x).mem_domain = x.mem_domain ∧
    (asmSem$binop_upd a b c d x).align = x.align ∧
    (asmSem$binop_upd a b c d x).failed = x.failed ∧
+   (asmSem$binop_upd a b c d x).mem = x.mem ∧
+   (asmSem$binop_upd a b c d x).lr = x.lr ∧
    (asmSem$binop_upd a b c d x).be = x.be`,
   Cases_on`b`>>EVAL_TAC);
 
@@ -956,6 +912,8 @@ val TODO_MOVE_arith_upd_consts = Q.store_thm("TODO_MOVE_arith_upd_consts[simp]",
   `(asmSem$arith_upd a x).mem_domain = x.mem_domain ∧
    (asmSem$arith_upd a x).align = x.align ∧
    (asmSem$arith_upd a x).failed = x.failed ∧
+   (asmSem$arith_upd a x).mem = x.mem ∧
+   (asmSem$arith_upd a x).lr = x.lr ∧
    (asmSem$arith_upd a x).be = x.be`,
   Cases_on`a` >> EVAL_TAC >> rw[]);
 
@@ -989,18 +947,17 @@ val Inst_lemma = Q.prove(
       fs [reg_imm_def,binop_upd_def,labSemTheory.binop_upd_def] >>
       fs [upd_reg_def,labSemTheory.upd_reg_def,state_rel_def] >>
       TRY (Cases_on`b`)>>EVAL_TAC >> fs[state_rel_def]) >>
-    conj_tac >- (
-      rw[] >>
-      Cases_on`a`>>fs[asmSemTheory.arith_upd_def,labSemTheory.arith_upd_def] >>
-      every_case_tac >> fs[labSemTheory.assert_def,reg_imm_def,binop_upd_def] >>
-      TRY (Cases_on`b`)>>EVAL_TAC ) >>
     rw[] >>
     simp[inc_pc_dec_clock] >>
     simp[dec_clock_def] >>
     match_mp_tac state_rel_clock >>
     fs[state_rel_def] >>
+    simp[GSYM word_add_n2w] >>
+    fsrw_tac[ARITH_ss][] >>
+    conj_tac >- metis_tac[] >>
+    conj_tac >- ( rw[] >> first_x_assum drule >> simp[] ) >>
     cheat )
-  \\ strip_tac
+  \\ strip_tac >>
   cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));
 
 val state_rel_ignore_io_events = prove(
