@@ -293,8 +293,8 @@ val make_init_store_def = Define `
      make_init_store (w - bytes_in_word) m ns s
        |+ (n,m (w - bytes_in_word)))`
 
-val make_init_def = Define `
-  make_init k max s code =
+val make_init_opt_def = Define `
+  make_init_opt k max s code =
     case evaluate (init_code max k,s) of
     | (NONE,t) =>
        (case (FLOOKUP t.regs (k+1),FLOOKUP t.regs (k+2)) of
@@ -332,8 +332,8 @@ val evaluate_init_code = store_thm("evaluate_init_code",
   ``init_pre k max start s /\ code_rel k code s.code ==>
     case evaluate (init_code max k,s) of
     | (SOME (Halt (Word w)),t) =>
-        w <> 0w /\ t.ffi = s.ffi /\ make_init k max s code = NONE
-    | (NONE,t) => ?r. make_init k max s code = SOME r /\
+        w <> 0w /\ t.ffi = s.ffi /\ make_init_opt k max s code = NONE
+    | (NONE,t) => ?r. make_init_opt k max s code = SOME r /\
                       state_rel k r t /\ t.ffi = s.ffi
     | _ => F``,
   fs [init_code_def,LET_DEF,halt_inst_def,init_pre_def] \\ rw []
@@ -355,10 +355,10 @@ val init_semantics = store_thm("init_semantics",
     case evaluate (init_code max k,s) of
     | (SOME (Halt _),t) =>
         (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events) /\
-        make_init k max s code = NONE
+        make_init_opt k max s code = NONE
     | (NONE,t) =>
         (semantics 0 s = semantics start t) /\
-        ?r. make_init k max s code = SOME r /\ state_rel k r t
+        ?r. make_init_opt k max s code = SOME r /\ state_rel k r t
     | _ => F``,
   rw [] \\ `s.ffi.final_event = NONE /\
             lookup 0 s.code = SOME (Seq (init_code max k)
@@ -401,7 +401,7 @@ val init_semantics = store_thm("init_semantics",
     THEN1 (qexists_tac `k' + 1` \\ fs [])
     \\ qexists_tac `k' - 1` \\ fs []
     \\ Cases_on `k' = 0` \\ fs [] THEN1 (rw [] \\ fs [empty_env_def] \\ rfs[])
-    \\ Cases_on `evaluate (Call NONE (INL start) NONE,r with clock := k' − 1)`
+    \\ Cases_on `evaluate (Call NONE (INL start) NONE,r with clock := k' - 1)`
     \\ fs [] \\ Cases_on `q` \\ fs [] \\ rw []
     \\ first_x_assum (qspec_then`k'-1`mp_tac) \\ fs [])
   \\ AP_TERM_TAC \\ fs [EXTENSION] \\ rw [] \\ reverse EQ_TAC \\ strip_tac
@@ -411,23 +411,97 @@ val init_semantics = store_thm("init_semantics",
   THEN1 (fs [evaluate_def,empty_env_def] \\ every_case_tac \\ fs [])
   \\ every_case_tac \\ fs []);
 
-val make_init_SOME_semantics = store_thm("make_init_SOME_semantics",
+val make_init_opt_SOME_semantics = store_thm("make_init_opt_SOME_semantics",
   ``init_pre k max start s2 /\ code_rel k code s2.code /\
-    make_init k max s2 code = SOME s1 /\ semantics start s1 <> Fail ==>
+    make_init_opt k max s2 code = SOME s1 /\ semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
   rw [] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
   \\ every_case_tac \\ fs []
   \\ match_mp_tac (GEN_ALL compile_semantics)
   \\ fs [] \\ rw [] \\ metis_tac []);
 
-val make_init_NONE_semantics = store_thm("make_init_NONE_semantics",
+val make_init_opt_NONE_semantics = store_thm("make_init_opt_NONE_semantics",
   ``init_pre k max start s2 /\ code_rel k code s2.code /\ s2.ffi = s1.ffi /\
-    make_init k max s2 code = NONE /\ semantics start s1 <> Fail ==>
+    make_init_opt k max s2 code = NONE /\ semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
   rw [] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
   \\ every_case_tac \\ fs [] \\ fs [extend_with_resource_limit_def]
   \\ Cases_on `semantics start s1` \\ fs [] \\ rpt disj2_tac
   \\ imp_res_tac semantics_Terminate_IMP_PREFIX
   \\ imp_res_tac semantics_Diverge_IMP_LPREFIX \\ fs []);
+
+val default_state_def = Define `
+  default_state s =
+    s with <| store   := FEMPTY
+            ; memory  := K (Word 0w)
+            ; mdomain := UNIV
+            ; regs    := FEMPTY |+ (1,Word 0w) |+ (2,Word 0w)
+                                |+ (3,Word 32w) |+ (4,Word 256w) |>`;
+
+val lemma = prove(
+  ``(k+1=2<=>k=1n) /\
+    (4=k+1<=>k=3n) /\
+    (3=k+1<=>k=2n) /\
+    (k+2=4<=>k=2n) /\
+    (k+2=3<=>k=1) /\
+    (1=k+1<=>k=0n)``,
+  decide_tac);
+
+val default_state_NOT_NONE = prove(
+  ``(* good_dimindex (:'a) /\ ~(MEM k [0;1;2;3;4]) ==> *)
+    make_init_opt k max (default_state (s2:('a,'ffi) stackSem$state)) code <> NONE``,
+  fs [make_init_opt_def,init_code_def,default_state_def,LET_DEF,
+      labPropsTheory.good_dimindex_def] \\ rw [] \\ fs []
+  \\ EVAL_TAC \\ fs [dimword_def] \\ EVAL_TAC
+  \\ cheat); (* could default_state be changed to make this proof simpler? *)
+
+val make_init_def = Define `
+  make_init k max s code =
+    case make_init_opt k max s code of
+    | SOME t => t
+    | NONE => THE (make_init_opt k max (default_state s) code)`
+
+val make_init_opt_SOME_IMP = store_thm("make_init_opt_SOME_IMP",
+  ``make_init_opt k max s1 code = SOME s2 ==>
+    s2.ffi = s1.ffi /\ s2.code = code /\ s2.use_alloc = s1.use_alloc``,
+  cheat);
+
+val make_init_consts = store_thm("make_init_consts[simp]",
+  ``(make_init k max s code).ffi = s.ffi /\
+    (make_init k max s code).code = code /\
+    (make_init k max s code).use_alloc = s.use_alloc``,
+  fs [make_init_def] \\ CASE_TAC \\ fs []
+  \\ imp_res_tac make_init_opt_SOME_IMP \\ fs []
+  \\ `make_init_opt k max (default_state s) code <> NONE` by
+       fs [default_state_NOT_NONE]
+  \\ Cases_on `make_init_opt k max (default_state s) code` \\ fs []
+  \\ imp_res_tac make_init_opt_SOME_IMP \\ fs []
+  \\ fs [default_state_def]);
+
+val IMP_code_rel = prove(
+  ``EVERY (\(n,p). good_syntax p k /\ 3 < n) code1 /\
+    code2 = fromAList (compile max_heap_bytes k start code1) ==>
+    code_rel k (fromAList code1) code2``,
+  fs [code_rel_def,lookup_fromAList] \\ strip_tac \\ rpt var_eq_tac
+  \\ fs [ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
+  \\ imp_res_tac ALOOKUP_MEM
+  \\ imp_res_tac EVERY_MEM \\ fs []
+  \\ cheat (* messing around with alists *));
+
+val make_init_semantics = store_thm("make_init_semantics",
+  ``init_pre k max start s2 /\
+    EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
+    s2.code = fromAList (compile max_heap_bytes k start code) /\
+    make_init k max s2 (fromAList code) = s1 /\
+    semantics start s1 <> Fail ==>
+    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
+  fs [make_init_def] \\ reverse CASE_TAC \\ rw []
+  \\ imp_res_tac IMP_code_rel
+  THEN1 imp_res_tac make_init_opt_SOME_semantics
+  \\ match_mp_tac (GEN_ALL make_init_opt_NONE_semantics) \\ fs [] \\ rfs[]
+  \\ Cases_on `make_init_opt k max (default_state s2) (fromAList code)`
+  \\ fs [default_state_NOT_NONE]
+  \\ imp_res_tac make_init_opt_SOME_IMP
+  \\ fs [default_state_def] \\ metis_tac []);
 
 val _ = export_theory();

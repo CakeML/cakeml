@@ -5,6 +5,15 @@ open preamble
 
 val _ = new_theory"stack_allocProof";
 
+(* TODO: move *)
+
+val ALOOKUP_PREFIX = store_thm("ALOOKUP_PREFIX",
+  ``!xs. ALOOKUP ys n = ALOOKUP zs n ==>
+         ALOOKUP (xs ++ ys) n = ALOOKUP (xs ++ zs) n``,
+  Induct \\ fs [FORALL_PROD,ALOOKUP_def]);
+
+(* --- *)
+
 val good_syntax_def = Define `
   (good_syntax (Alloc v) <=> (v = 1)) /\
   (good_syntax ((Seq p1 p2):'a stackLang$prog) <=>
@@ -260,12 +269,30 @@ val comp_correct = prove(
   \\ fs [state_component_equality,empty_env_def,LET_DEF]);
 
 val compile_semantics = store_thm("compile_semantics",
-  ``(!k prog. lookup k s.code = SOME prog ==> 30 < k /\ good_syntax prog) /\
-    semantics start s <> Fail ==>
+  ``semantics start s <> Fail /\
+    (!k prog. lookup k s.code = SOME prog ==> 30 < k /\ good_syntax prog) ==>
     semantics start (s with <|
                        code := fromAList (stack_alloc$compile c (toAList s.code));
                        use_alloc := F |>) =
     semantics start s``,
   cheat);
+
+val make_init_def = Define `
+  make_init code s = s with <| code := code; use_alloc := T |>`;
+
+val make_init_semantics = store_thm("make_init_semantics",
+  ``(!k prog. ALOOKUP code k = SOME prog ==> 30 < k /\ good_syntax prog) /\
+    ~s.use_alloc /\ s.code = fromAList (compile c code) /\
+    ALL_DISTINCT (MAP FST code) /\
+    semantics start (make_init (fromAList code) s) <> Fail ==>
+    semantics start s = semantics start (make_init (fromAList code) s)``,
+  rw [] \\ drule compile_semantics
+  \\ fs [make_init_def,lookup_fromAList]
+  \\ discharge_hyps THEN1 (rw [] \\ res_tac \\ fs [])
+  \\ disch_then (assume_tac o GSYM)
+  \\ fs [] \\ AP_TERM_TAC \\ fs [state_component_equality]
+  \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
+  \\ rw [] \\ match_mp_tac ALOOKUP_PREFIX
+  \\ cheat (* messing around with alists, probably a lemma for this somewhere *));
 
 val _ = export_theory();

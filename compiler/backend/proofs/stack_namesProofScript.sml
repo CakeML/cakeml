@@ -7,6 +7,29 @@ val _ = new_theory"stack_namesProof";
 
 (* TODO: move *)
 
+val IMAGE_I = store_thm("IMAGE_I[simp]",
+  ``IMAGE I s = s``,
+  fs [EXTENSION]);
+
+val MAP_KEYS_COMPOSE = store_thm("MAP_KEYS_COMPOSE",
+  ``BIJ (f:num->num) UNIV UNIV ==> MAP_KEYS f (MAP_KEYS (LINV f UNIV) t) = t``,
+  rw [finite_mapTheory.fmap_EXT,MAP_KEYS_def,PULL_EXISTS,GSYM IMAGE_COMPOSE]
+  \\ `f o LINV f UNIV = I` by
+    (imp_res_tac BIJ_LINV_INV \\ fs [o_DEF,FUN_EQ_THM])
+  \\ fs [] \\ fs [o_DEF,FUN_EQ_THM]
+  \\ imp_res_tac BIJ_LINV_BIJ \\ fs [BIJ_DEF]
+  \\ `INJ f (FDOM (MAP_KEYS (LINV f UNIV) t)) UNIV` by cheat
+  \\ drule (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
+  \\ `?y. x' = f y` by (fs [SURJ_DEF] \\ metis_tac []) \\ rw []
+  \\ pop_assum (qspec_then `y` mp_tac)
+  \\ discharge_hyps THEN1
+   (fs [MAP_KEYS_def] \\ qexists_tac `f y` \\ fs []
+    \\ imp_res_tac LINV_DEF \\ fs []) \\ rw []
+  \\ `INJ (LINV f UNIV) (FDOM t) UNIV` by
+    (qpat_assum `INJ (LINV f UNIV) UNIV UNIV` mp_tac \\ simp [INJ_DEF])
+  \\ imp_res_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
+  \\ imp_res_tac LINV_DEF \\ fs []);
+
 val BIJ_IMP_11 = prove(
   ``BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)``,
   fs [BIJ_DEF,INJ_DEF] \\ metis_tac []);
@@ -326,5 +349,33 @@ val compile_semantics = store_thm("compile_semantics",
     |> UNDISCH_ALL] >>
   simp[rename_state_def] >>
   srw_tac[QUANT_INST_ss[pair_default_qp]][]);
+
+val compile_semantics_alt = prove(
+  ``!s t.
+      BIJ (find_name f) UNIV UNIV /\ (rename_state f s = t) /\
+      ~s.use_alloc /\ ~s.use_store /\ ~s.use_stack ==>
+      semantics start t = semantics start s``,
+  fs [compile_semantics]);
+
+val make_init_def = Define `
+  make_init f code (s:('a,'ffi) stackSem$state) =
+    s with
+     <| code := code;
+        regs := MAP_KEYS (LINV (find_name f) UNIV) s.regs;
+        ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
+
+val make_init_semantics = store_thm("make_init_semantics",
+  ``~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
+    BIJ (find_name f) UNIV UNIV /\ ALL_DISTINCT (MAP FST code) /\
+    s.code = fromAList (compile f code) ==>
+    semantics start s = semantics start (make_init f (fromAList code) s)``,
+  fs [make_init_def] \\ rw []
+  \\ match_mp_tac compile_semantics_alt \\ fs []
+  \\ fs [rename_state_def,state_component_equality]
+  \\ `find_name f o LINV (find_name f) UNIV = I` by
+   (imp_res_tac BIJ_LINV_INV \\ fs [FUN_EQ_THM])
+  \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_COMPOSE]
+  \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
+  \\ cheat (* messing around with alists, probably a lemma for this somewhere *));
 
 val _ = export_theory();

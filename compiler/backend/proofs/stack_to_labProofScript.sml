@@ -3,11 +3,53 @@ open preamble
      stack_to_labTheory
      stack_allocTheory
      labSemTheory labPropsTheory
+     stack_removeProofTheory
+     stack_allocProofTheory
+     stack_namesProofTheory
 local open stack_removeProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
 (* TODO: move *)
+
+val implements_def = Define `
+  implements x y <=>
+    (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;
+
+val implements_intro = store_thm("implements_intro",
+  ``(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val implements_trivial_intro = store_thm("implements_trivial_intro",
+  ``(y = x) ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val implements_intro_ext = store_thm("implements_intro_ext",
+  ``(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
+    b ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val isPREFIX_IMP_LPREFIX = store_thm("isPREFIX_IMP_LPREFIX",
+  ``!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)``,
+  fs [LPREFIX_def,llistTheory.from_toList]);
+
+val implements_trans = store_thm("implements_trans",
+  ``implements y z ==> implements x y ==> implements x z``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]
+  \\ Cases_on `Fail IN y` \\ fs []
+  THEN1 (fs [SUBSET_DEF] \\ res_tac \\ fs [])
+  \\ fs [SUBSET_DEF] \\ rw [] \\ qcase_tac `a IN x`
+  \\ reverse (res_tac \\ fs [])
+  THEN1 (res_tac \\ fs [] \\ rw [] \\ metis_tac [])
+  \\ res_tac \\ fs [] \\ rw []
+  \\ imp_res_tac IS_PREFIX_TRANS
+  \\ imp_res_tac isPREFIX_IMP_LPREFIX
+  \\ imp_res_tac LPREFIX_TRANS
+  \\ metis_tac [])
 
 val word_sh_word_shift = Q.store_thm("word_sh_word_shift",
   `word_sh a b c = SOME z ⇒ z = word_shift a b c`,
@@ -1478,12 +1520,83 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   fs[IS_PREFIX_APPEND]>> simp[]>>
   simp[EL_APPEND1]);
 
-val init_state_rel_def = Define `
-  init_state_rel s1 start s2 <=> s2.pc = start (* TODO!! *)`;
+val make_init_def = Define `
+  make_init code regs save_regs s =
+    <| regs    := FEMPTY |++ (MAP (\r. r, read_reg r s) regs)
+     ; memory  := s.mem
+     ; mdomain := s.mem_domain
+     ; use_stack := F
+     ; use_store := F
+     ; use_alloc := F
+     ; clock   := s.clock
+     ; code    := code
+     ; ffi     := s.ffi
+     ; ffi_save_regs := save_regs
+     ; be      := s.be |> :(α,'ffi)stackSem$state`
 
-val compile_semantics = store_thm("compile_semantics",
-  ``init_state_rel s1 start s2 /\ semantics start s1 <> Fail ==>
-    semantics s2 IN extend_with_resource_limit { semantics start s1 }``,
-  cheat);
+val make_init_semantis = flatten_semantics
+  |> Q.INST [`s1`|->`make_init code regs save_regs s`,`s2`|->`s`]
+  |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``]
+
+fun MY_MATCH_MP th1 th2 = let
+  val (x,y) = dest_imp (concl th1)
+  val (i,t) = match_term x (concl th2)
+  in MP (INST i (INST_TYPE t th1)) th2 end
+
+val from_names = let
+  val lemma1 =
+    stack_namesProofTheory.make_init_semantics |> UNDISCH_ALL
+    |> MATCH_MP implements_trivial_intro |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code1`]
+  val lemma2 =
+    make_init_semantis |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code2`]
+  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+
+val from_remove = let
+  val lemma1 =
+    stack_removeProofTheory.make_init_semantics |> REWRITE_RULE [CONJ_ASSOC]
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
+    |> MATCH_MP implements_intro_ext |> REWRITE_RULE [GSYM CONJ_ASSOC]
+    |> UNDISCH_ALL |> Q.INST [`code`|->`code3`]
+  val lemma2 = from_names |> Q.INST [`start`|->`0`]
+  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+
+val from_alloc = let
+  val lemma1 =
+    stack_allocProofTheory.make_init_semantics |> REWRITE_RULE [CONJ_ASSOC]
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
+    |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC]
+    |> UNDISCH_ALL |> Q.INST [`code`|->`code4`]
+  val lemma2 = from_remove
+  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+
+val lemmas =
+  [EVAL ``(make_init code2 regs save_regs s).use_alloc``,
+   EVAL ``(make_init code2 regs save_regs s).use_store``,
+   EVAL ``(make_init code2 regs save_regs s).use_stack``,
+   EVAL ``(make_init code2 regs save_regs s).code``,
+   EVAL ``(stack_namesProof$make_init f c s).code``,
+   EVAL ``(stack_namesProof$make_init f c s).use_alloc``]
+
+fun define_abbrev name tm = let
+  val vs = free_vars tm |> sort
+    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
+  val vars = foldr mk_pair (last vs) (butlast vs)
+  val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
+  in Define `^n ^vars = ^tm` end
+
+val full_make_init_semantics = save_thm("full_make_init_semantics",let
+  val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
+           |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+           |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
+           |> Q.INST [`code1`|->`compile max_heap_bytes k start (compile c code4)`]
+           |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
+           |> Q.INST [`code4`|->`code`]
+  val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand
+  val def = define_abbrev "full_make_init" tm
+  val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
+  in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
 
 val _ = export_theory();
