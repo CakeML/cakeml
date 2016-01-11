@@ -368,4 +368,9 @@ in
                 else raise Fail ("MMLnonT not "^s)
 end
 
+fun simple_match_mp th1 th2 = let
+  val (x,y) = dest_imp (concl th1)
+  val (i,t) = match_term x (concl th2)
+  in MP (INST i (INST_TYPE t th1)) th2 end
+
 end

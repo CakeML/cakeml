@@ -2654,4 +2654,54 @@ val compile_semantics = Q.store_thm("compile_semantics",
   fsrw_tac[ARITH_ss][IS_PREFIX_APPEND]>>
   simp[EL_APPEND1]);
 
+val bvp_to_word_compile_semantics = compile_semantics;
+
+
+(* -------------------- composing BVP-to-target --------------------- *)
+
+(* This open is down here so that it doesn't mess up the parsing in
+   the proof script above *)
+open word_to_stackProofTheory stack_to_labProofTheory lab_to_targetProofTheory;
+
+val implements_intro_final = prove(
+  ``(b /\ x <> Fail ==> y = {x}) ==>
+    b ==> implements y {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val from_stack = let
+  val lemma1 = lab_to_targetProofTheory.semantics_compile
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_final
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code2`]
+  val lemma2 = stack_to_labProofTheory.full_make_init_semantics |> UNDISCH
+    |> Q.INST [`code`|->`code1`]
+  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
+
+val from_word = let
+  val lemma1 = word_to_stackProofTheory.compile_semantics
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_ext
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code3`]
+  in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
+
+val from_bvp = let
+  val lemma1 = bvp_to_word_compile_semantics
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_ext
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code4`]
+  in simple_match_mp (MATCH_MP implements_trans lemma1) from_word end
+
+val machine_sem_implements_bvp_sem_RAW = save_thm("machine_sem_implements_bvp_sem_RAW",let
+  val th = from_bvp |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  val (lhs,rhs) = dest_imp (concl th)
+  fun diff xs ys = filter (fn x => not (mem x ys)) xs
+  val vs = diff (free_vars lhs) (free_vars rhs) |> sort
+    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
+  val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
+  in GENL vs th |> SIMP_RULE std_ss [lemma] end);
+
 val _ = export_theory();

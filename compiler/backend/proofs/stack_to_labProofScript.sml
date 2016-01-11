@@ -6,50 +6,12 @@ open preamble
      stack_removeProofTheory
      stack_allocProofTheory
      stack_namesProofTheory
+     semanticsPropsTheory
 local open stack_removeProofTheory in end
 
 val _ = new_theory"stack_to_labProof";
 
 (* TODO: move *)
-
-val implements_def = Define `
-  implements x y <=>
-    (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;
-
-val implements_intro = store_thm("implements_intro",
-  ``(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
-
-val implements_trivial_intro = store_thm("implements_trivial_intro",
-  ``(y = x) ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
-
-val implements_intro_ext = store_thm("implements_intro_ext",
-  ``(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
-    b ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
-
-val isPREFIX_IMP_LPREFIX = store_thm("isPREFIX_IMP_LPREFIX",
-  ``!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)``,
-  fs [LPREFIX_def,llistTheory.from_toList]);
-
-val implements_trans = store_thm("implements_trans",
-  ``implements y z ==> implements x y ==> implements x z``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]
-  \\ Cases_on `Fail IN y` \\ fs []
-  THEN1 (fs [SUBSET_DEF] \\ res_tac \\ fs [])
-  \\ fs [SUBSET_DEF] \\ rw [] \\ qcase_tac `a IN x`
-  \\ reverse (res_tac \\ fs [])
-  THEN1 (res_tac \\ fs [] \\ rw [] \\ metis_tac [])
-  \\ res_tac \\ fs [] \\ rw []
-  \\ imp_res_tac IS_PREFIX_TRANS
-  \\ imp_res_tac isPREFIX_IMP_LPREFIX
-  \\ imp_res_tac LPREFIX_TRANS
-  \\ metis_tac [])
 
 val word_sh_word_shift = Q.store_thm("word_sh_word_shift",
   `word_sh a b c = SOME z ⇒ z = word_shift a b c`,
@@ -1538,11 +1500,6 @@ val make_init_semantis = flatten_semantics
   |> Q.INST [`s1`|->`make_init code regs save_regs s`,`s2`|->`s`]
   |> SIMP_RULE std_ss [EVAL ``(make_init code regs save_regs s).code``]
 
-fun MY_MATCH_MP th1 th2 = let
-  val (x,y) = dest_imp (concl th1)
-  val (i,t) = match_term x (concl th2)
-  in MP (INST i (INST_TYPE t th1)) th2 end
-
 val from_names = let
   val lemma1 =
     stack_namesProofTheory.make_init_semantics |> UNDISCH_ALL
@@ -1552,7 +1509,7 @@ val from_names = let
     make_init_semantis |> REWRITE_RULE [CONJ_ASSOC]
     |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code2`]
-  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+  in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end
 
 val from_remove = let
   val lemma1 =
@@ -1561,7 +1518,7 @@ val from_remove = let
     |> MATCH_MP implements_intro_ext |> REWRITE_RULE [GSYM CONJ_ASSOC]
     |> UNDISCH_ALL |> Q.INST [`code`|->`code3`]
   val lemma2 = from_names |> Q.INST [`start`|->`0`]
-  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+  in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end
 
 val from_alloc = let
   val lemma1 =
@@ -1570,7 +1527,7 @@ val from_alloc = let
     |> MATCH_MP implements_intro |> REWRITE_RULE [GSYM CONJ_ASSOC]
     |> UNDISCH_ALL |> Q.INST [`code`|->`code4`]
   val lemma2 = from_remove
-  in MY_MATCH_MP (MATCH_MP implements_trans lemma1) lemma2 end
+  in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end
 
 val lemmas =
   [EVAL ``(make_init code2 regs save_regs s).use_alloc``,

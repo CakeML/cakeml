@@ -186,4 +186,43 @@ val extend_with_resource_limit_def = Define`
   { Terminate Resource_limit_hit io_list
     | io_list | ∃ll. Diverge ll ∈ behaviours ∧ LPREFIX (fromList io_list) ll }`;
 
+val implements_def = Define `
+  implements x y <=>
+    (~(Fail IN y) ==> x SUBSET extend_with_resource_limit y)`;
+
+val implements_intro = store_thm("implements_intro",
+  ``(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val implements_trivial_intro = store_thm("implements_trivial_intro",
+  ``(y = x) ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val implements_intro_ext = store_thm("implements_intro_ext",
+  ``(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
+    b ==> implements {y} {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val isPREFIX_IMP_LPREFIX = prove(
+  ``!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)``,
+  fs [LPREFIX_def,llistTheory.from_toList]);
+
+val implements_trans = store_thm("implements_trans",
+  ``implements y z ==> implements x y ==> implements x z``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]
+  \\ Cases_on `Fail IN y` \\ fs []
+  THEN1 (fs [SUBSET_DEF] \\ res_tac \\ fs [])
+  \\ fs [SUBSET_DEF] \\ rw [] \\ qcase_tac `a IN x`
+  \\ reverse (res_tac \\ fs [])
+  THEN1 (res_tac \\ fs [] \\ rw [] \\ metis_tac [])
+  \\ res_tac \\ fs [] \\ rw []
+  \\ imp_res_tac IS_PREFIX_TRANS
+  \\ imp_res_tac isPREFIX_IMP_LPREFIX
+  \\ imp_res_tac LPREFIX_TRANS
+  \\ metis_tac [])
+
 val _ = export_theory()
