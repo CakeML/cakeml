@@ -1,5 +1,5 @@
 structure allPP = struct local
-open astPP modPP conPP exhPP patPP intPP miscPP
+open astPP modPP conPP exhPP patPP miscPP
 open preamble
 open HolKernel boolLib bossLib Parse
 open compute_basicLib compute_parsingLib compute_compilerLib compute_inferenceLib compute_semanticsLib compute_bytecodeLib compute_x64Lib
@@ -12,7 +12,6 @@ val _ = enable_modPP();
 val _ = enable_conPP();
 val _ = enable_exhPP();
 val _ = enable_patPP();
-val _ = enable_intPP();
 val _ = enable_miscPP();
 
 (*RHS of theorem to term*)
