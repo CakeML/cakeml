@@ -10,6 +10,9 @@ open preamble initSemEnvTheory semanticsPropsTheory
      bvl_to_bviProofTheory
      bvi_to_bvpProofTheory
      bvp_to_wordProofTheory
+     word_to_stackProofTheory
+     stack_to_labProofTheory
+     lab_to_targetProofTheory
 local open compilerComputeLib in end
 
 val _ = new_theory"backendProof";
@@ -24,6 +27,59 @@ val pair_CASE_eq = Q.store_thm("pair_CASE_eq",
   Cases_on`p`>>rw[]);
 
 (* -- *)
+
+
+(* --- composing bvp-to-target --- *)
+
+val implements_intro_final = prove(
+  ``(b /\ x <> Fail ==> y = {x}) ==> b ==> implements y {x}``,
+  fs [implements_def] \\ rw [] \\ fs []
+  \\ fs [semanticsPropsTheory.extend_with_resource_limit_def]);
+
+val from_stack = let
+  val lemma1 = lab_to_targetProofTheory.semantics_compile
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_final
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code2`]
+  val lemma2 = stack_to_labProofTheory.full_make_init_semantics |> UNDISCH
+    |> Q.INST [`code`|->`code1`]
+  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
+
+val from_word = let
+  val lemma1 = word_to_stackProofTheory.compile_semantics
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_ext
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code3`]
+  in simple_match_mp (MATCH_MP implements_trans lemma1) from_stack end
+
+val from_bvp = let
+  val lemma1 = bvp_to_wordProofTheory.compile_semantics
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_ext
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code4`]
+  in simple_match_mp (MATCH_MP implements_trans lemma1) from_word end
+
+val full_make_init_code =
+  ``(^(full_make_init_def |> SPEC_ALL |> concl |> dest_eq |> fst)).code``
+  |> SIMP_CONV (srw_ss()) [full_make_init_def,stack_allocProofTheory.make_init_def]
+
+val machine_sem_implements_bvp_sem_RAW = save_thm("machine_sem_implements_bvp_sem_RAW",let
+  val th = from_bvp |> DISCH_ALL
+           |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
+           |> Q.INST [`code1`|->`compile asm_conf code3`]
+           |> REWRITE_RULE []
+  val (lhs,rhs) = dest_imp (concl th)
+  fun diff xs ys = filter (fn x => not (mem x ys)) xs
+  val vs = diff (free_vars lhs) (free_vars rhs) |> sort
+    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
+  val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
+  in GENL vs th |> SIMP_RULE std_ss [lemma] end);
+
+
+(* --- composing source-to-target --- *)
 
 val c = compilerComputeLib.the_compiler_compset
 val () = computeLib.add_thms[prim_config_def] c
