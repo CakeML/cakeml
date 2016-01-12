@@ -12,6 +12,13 @@ val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 
 (* TODO: move/categorize *)
 
+val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
+  `∀f al x.
+    ALOOKUP (MAP (λ(x,y). (x,f x y)) al) x =
+    OPTION_MAP (f x) (ALOOKUP al x)`,
+  gen_tac >> Induct >> simp[] >>
+  Cases >> simp[] >> rw[]);
+
 val FST_EQ_EQUIV = store_thm("FST_EQ_EQUIV",
   ``(FST x = y) <=> ?z. x = (y,z)``,
   Cases_on `x` \\ fs []);

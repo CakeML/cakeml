@@ -280,12 +280,16 @@ val compile_semantics = store_thm("compile_semantics",
 val make_init_def = Define `
   make_init code s = s with <| code := code; use_alloc := T |>`;
 
-val make_init_semantics = store_thm("make_init_semantics",
-  ``(!k prog. ALOOKUP code k = SOME prog ==> 30 < k /\ good_syntax prog) /\
-    ~s.use_alloc /\ s.code = fromAList (compile c code) /\
-    ALL_DISTINCT (MAP FST code) /\
-    semantics start (make_init (fromAList code) s) <> Fail ==>
-    semantics start s = semantics start (make_init (fromAList code) s)``,
+val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
+  `prog_comp = λ(n,p). ^(rhs (concl (SPEC_ALL prog_comp_def)))`,
+  rw[FUN_EQ_THM,prog_comp_def,LAMBDA_PROD,FORALL_PROD]);
+
+val make_init_semantics = Q.store_thm("make_init_semantics",
+  `(!k prog. ALOOKUP code k = SOME prog ==> 30 < k /\ good_syntax prog) /\
+   ~s.use_alloc /\ s.code = fromAList (compile c code) /\
+   ALL_DISTINCT (MAP FST code) /\
+   semantics start (make_init (fromAList code) s) <> Fail ==>
+   semantics start s = semantics start (make_init (fromAList code) s)`,
   rw [] \\ drule compile_semantics
   \\ fs [make_init_def,lookup_fromAList]
   \\ discharge_hyps THEN1 (rw [] \\ res_tac \\ fs [])
@@ -293,6 +297,7 @@ val make_init_semantics = store_thm("make_init_semantics",
   \\ fs [] \\ AP_TERM_TAC \\ fs [state_component_equality]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
   \\ rw [] \\ match_mp_tac ALOOKUP_PREFIX
-  \\ cheat (* messing around with alists, probably a lemma for this somewhere *));
+  \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
+  \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
 val _ = export_theory();

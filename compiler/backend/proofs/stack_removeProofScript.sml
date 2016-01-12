@@ -478,15 +478,19 @@ val make_init_consts = store_thm("make_init_consts[simp]",
   \\ imp_res_tac make_init_opt_SOME_IMP \\ fs []
   \\ fs [default_state_def]);
 
-val IMP_code_rel = prove(
-  ``EVERY (\(n,p). good_syntax p k /\ 3 < n) code1 /\
-    code2 = fromAList (compile max_heap_bytes k start code1) ==>
-    code_rel k (fromAList code1) code2``,
+val prog_comp_eta = Q.store_thm("prog_comp_eta",
+  `prog_comp = λk (n,p). (n,comp k p)`,
+  rw[FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]);
+
+val IMP_code_rel = Q.prove(
+  `EVERY (\(n,p). good_syntax p k /\ 3 < n) code1 /\
+   code2 = fromAList (compile max_heap_bytes k start code1) ==>
+   code_rel k (fromAList code1) code2`,
   fs [code_rel_def,lookup_fromAList] \\ strip_tac \\ rpt var_eq_tac
   \\ fs [ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
   \\ imp_res_tac ALOOKUP_MEM
   \\ imp_res_tac EVERY_MEM \\ fs []
-  \\ cheat (* messing around with alists *));
+  \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]);
 
 val make_init_semantics = store_thm("make_init_semantics",
   ``init_pre k max start s2 /\

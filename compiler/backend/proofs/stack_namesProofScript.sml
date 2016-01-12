@@ -11,14 +11,14 @@ val IMAGE_I = store_thm("IMAGE_I[simp]",
   ``IMAGE I s = s``,
   fs [EXTENSION]);
 
-val MAP_KEYS_COMPOSE = store_thm("MAP_KEYS_COMPOSE",
-  ``BIJ (f:num->num) UNIV UNIV ==> MAP_KEYS f (MAP_KEYS (LINV f UNIV) t) = t``,
+val MAP_KEYS_COMPOSE = Q.store_thm("MAP_KEYS_COMPOSE",
+  `BIJ (f:num->num) UNIV UNIV ==> MAP_KEYS f (MAP_KEYS (LINV f UNIV) t) = t`,
   rw [finite_mapTheory.fmap_EXT,MAP_KEYS_def,PULL_EXISTS,GSYM IMAGE_COMPOSE]
   \\ `f o LINV f UNIV = I` by
     (imp_res_tac BIJ_LINV_INV \\ fs [o_DEF,FUN_EQ_THM])
   \\ fs [] \\ fs [o_DEF,FUN_EQ_THM]
   \\ imp_res_tac BIJ_LINV_BIJ \\ fs [BIJ_DEF]
-  \\ `INJ f (FDOM (MAP_KEYS (LINV f UNIV) t)) UNIV` by cheat
+  \\ `INJ f (FDOM (MAP_KEYS (LINV f UNIV) t)) UNIV` by fs[INJ_DEF]
   \\ drule (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
   \\ `?y. x' = f y` by (fs [SURJ_DEF] \\ metis_tac []) \\ rw []
   \\ pop_assum (qspec_then `y` mp_tac)
@@ -364,11 +364,11 @@ val make_init_def = Define `
         regs := MAP_KEYS (LINV (find_name f) UNIV) s.regs;
         ffi_save_regs := IMAGE (LINV (find_name f) UNIV) s.ffi_save_regs|>`
 
-val make_init_semantics = store_thm("make_init_semantics",
-  ``~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
-    BIJ (find_name f) UNIV UNIV /\ ALL_DISTINCT (MAP FST code) /\
-    s.code = fromAList (compile f code) ==>
-    semantics start s = semantics start (make_init f (fromAList code) s)``,
+val make_init_semantics = Q.store_thm("make_init_semantics",
+  `~s.use_alloc /\ ~s.use_store /\ ~s.use_stack /\
+   BIJ (find_name f) UNIV UNIV /\ ALL_DISTINCT (MAP FST code) /\
+   s.code = fromAList (compile f code) ==>
+   semantics start s = semantics start (make_init f (fromAList code) s)`,
   fs [make_init_def] \\ rw []
   \\ match_mp_tac compile_semantics_alt \\ fs []
   \\ fs [rename_state_def,state_component_equality]
@@ -376,6 +376,6 @@ val make_init_semantics = store_thm("make_init_semantics",
    (imp_res_tac BIJ_LINV_INV \\ fs [FUN_EQ_THM])
   \\ fs [GSYM IMAGE_COMPOSE] \\ fs [MAP_KEYS_COMPOSE]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
-  \\ cheat (* messing around with alists, probably a lemma for this somewhere *));
+  \\ rw[prog_comp_eta,ALOOKUP_MAP_gen,ALOOKUP_toAList,lookup_fromAList]);
 
 val _ = export_theory();
