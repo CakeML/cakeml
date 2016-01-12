@@ -30,6 +30,7 @@ val _ = Datatype `
        | StackLoadAny num num   (* reg contains offset, slow, used by GC *)
        | StackGetSize num       (* used when installing exc handler *)
        | StackSetSize num       (* used by implementation of raise *)
+       | BitmapLoad num num     (* load word from read-only region *)
        | Halt num`;
 
 val _ = export_theory();

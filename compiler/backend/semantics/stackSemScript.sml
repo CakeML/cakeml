@@ -56,19 +56,19 @@ val _ = Datatype `
          | Error `
 
 val read_bitmap_def = Define `
-  (read_bitmap (Word (w:'a word)::ws) =
+  (read_bitmap [] = NONE) /\
+  (read_bitmap ((w:'a word)::ws) =
      if word_msb w then (* there is a continuation *)
        case read_bitmap ws of
        | NONE => NONE
        | SOME (bs,w',rest) =>
            SOME (GENLIST (\i. w ' i) (dimindex (:'a) - 1) ++ bs,Word w::w',rest)
      else (* this is the last bitmap word *)
-       SOME (GENLIST (\i. w ' i) (bit_length w - 1),[Word w],ws)) /\
-  (read_bitmap _ = NONE)`
+       SOME (GENLIST (\i. w ' i) (bit_length w - 1),[Word w],ws))`
 
 val read_bitmap_LENGTH = store_thm("read_bitmap_LENGTH",
   ``!xs x w y. (read_bitmap xs = SOME (x,w,y)) ==> LENGTH y < LENGTH xs``,
-  Induct \\ fs [read_bitmap_def] \\ Cases_on `h`
+  Induct \\ fs [read_bitmap_def]
   \\ fs [read_bitmap_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
@@ -82,6 +82,7 @@ val _ = Datatype `
      ; stack_space : num
      ; memory  : 'a word -> 'a word_loc
      ; mdomain : ('a word) set
+     ; bitmaps : 'a word list
      ; gc_fun  : 'a gc_fun_type
      ; use_stack : bool
      ; use_store : bool
@@ -179,38 +180,45 @@ val check_clock_IMP = prove(
 val empty_env_def = Define `
   empty_env (s:('a,'ffi) stackSem$state) = s with <| regs := FEMPTY ; stack := [] |>`;
 
+val full_read_bitmap_def = Define `
+  (full_read_bitmap bitmaps (Word w) =
+     read_bitmap (DROP (w2n (w - 1w)) bitmaps)) /\
+  (full_read_bitmap bitmaps _ = NONE)`
+
 val enc_stack_def = tDefine "enc_stack" `
-  (enc_stack ws =
-     if ws = [] then NONE else
-     if ws = [Word 0w] then SOME [] else
-       case read_bitmap ws of
+  (enc_stack bitmaps [] = NONE) /\
+  (enc_stack bitmaps (w::ws) =
+     if w = Word 0w then (if ws = [] then SOME [] else NONE) else
+       case full_read_bitmap bitmaps w of
        | NONE => NONE
-       | SOME (bs,_,rs) =>
-          case filter_bitmap bs rs of
+       | SOME (bs,_,_) =>
+          case filter_bitmap bs ws of
           | NONE => NONE
           | SOME (ts,ws') =>
-              case enc_stack ws' of
+              case enc_stack bitmaps ws' of
               | NONE => NONE
               | SOME rs => SOME (ts ++ rs))`
- (WF_REL_TAC `measure LENGTH` \\ REPEAT STRIP_TAC
+ (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
   \\ IMP_RES_TAC read_bitmap_LENGTH
   \\ IMP_RES_TAC filter_bitmap_LENGTH
   \\ fs [] \\ decide_tac)
 
 val dec_stack_def = tDefine "dec_stack" `
-  (dec_stack [] [] = SOME []) /\
-  (dec_stack ts ws =
-     case read_bitmap ws of
+  (dec_stack bitmaps [] [] = SOME []) /\
+  (dec_stack bitmaps [] (w::ws) = NONE) /\
+  (dec_stack bitmaps _ [] = NONE) /\
+  (dec_stack bitmaps ts (w::ws) =
+     case full_read_bitmap bitmaps w of
      | NONE => NONE
-     | SOME (bs,w1,ws') =>
+     | SOME (bs,w1,_) =>
         if LENGTH ts < LENGTH bs then NONE else
-        case map_bitmap bs (TAKE (LENGTH bs) ts) ws' of
+        case map_bitmap bs (TAKE (LENGTH bs) ts) ws of
         | NONE => NONE
         | SOME (ws1,ws2) =>
-           case dec_stack (DROP (LENGTH bs) ts) ws2 of
+           case dec_stack bitmaps (DROP (LENGTH bs) ts) ws2 of
            | NONE => NONE
            | SOME ws3 => SOME (w1 ++ ws1 ++ ws3))`
-  (WF_REL_TAC `measure (LENGTH o SND)` \\ rw []
+  (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC read_bitmap_LENGTH
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
@@ -221,13 +229,13 @@ val gc_def = Define `
     if LENGTH s.stack < s.stack_space then NONE else
       let unused = TAKE s.stack_space s.stack in
       let stack = DROP s.stack_space s.stack in
-        case enc_stack (DROP s.stack_space s.stack) of
+        case enc_stack s.bitmaps (DROP s.stack_space s.stack) of
         | NONE => NONE
         | SOME wl_list =>
           case s.gc_fun (wl_list, s.memory, s.mdomain, s.store) of
           | NONE => NONE
           | SOME (wl,m,st) =>
-           (case dec_stack wl stack of
+           (case dec_stack s.bitmaps wl stack of
             | NONE => NONE
             | SOME stack =>
                 SOME (s with <| stack := unused ++ stack
@@ -452,6 +460,13 @@ val evaluate_def = tDefine "evaluate" `
      | SOME (Word w) =>
          if LENGTH s.stack < w2n w then (SOME Error,empty_env s)
          else (NONE, s with stack_space := w2n w)
+     | _ => (SOME Error,s)) /\
+  (evaluate (BitmapLoad r v,s) =
+     if ~s.use_stack \/ r = v then (SOME Error,s) else
+     case get_var v s of
+     | SOME (Word w) =>
+         if LENGTH s.bitmaps <= w2n w then (SOME Error,s)
+         else (NONE, set_var r (Word (EL (w2n w) s.bitmaps)) s)
      | _ => (SOME Error,s))`
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:('a,'ffi) stackSem$state)). (s.clock,xs)))`
