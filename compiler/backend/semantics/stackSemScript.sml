@@ -61,18 +61,9 @@ val read_bitmap_def = Define `
      if word_msb w then (* there is a continuation *)
        case read_bitmap ws of
        | NONE => NONE
-       | SOME (bs,w',rest) =>
-           SOME (GENLIST (\i. w ' i) (dimindex (:'a) - 1) ++ bs,Word w::w',rest)
+       | SOME bs => SOME (GENLIST (\i. w ' i) (dimindex (:'a) - 1) ++ bs)
      else (* this is the last bitmap word *)
-       SOME (GENLIST (\i. w ' i) (bit_length w - 1),[Word w],ws))`
-
-val read_bitmap_LENGTH = store_thm("read_bitmap_LENGTH",
-  ``!xs x w y. (read_bitmap xs = SOME (x,w,y)) ==> LENGTH y < LENGTH xs``,
-  Induct \\ fs [read_bitmap_def]
-  \\ fs [read_bitmap_def]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ decide_tac);
+       SOME (GENLIST (\i. w ' i) (bit_length w - 1)))`
 
 val _ = Datatype `
   state =
@@ -191,7 +182,7 @@ val enc_stack_def = tDefine "enc_stack" `
      if w = Word 0w then (if ws = [] then SOME [] else NONE) else
        case full_read_bitmap bitmaps w of
        | NONE => NONE
-       | SOME (bs,_,_) =>
+       | SOME bs =>
           case filter_bitmap bs ws of
           | NONE => NONE
           | SOME (ts,ws') =>
@@ -199,7 +190,6 @@ val enc_stack_def = tDefine "enc_stack" `
               | NONE => NONE
               | SOME rs => SOME (ts ++ rs))`
  (WF_REL_TAC `measure (LENGTH o SND)` \\ REPEAT STRIP_TAC
-  \\ IMP_RES_TAC read_bitmap_LENGTH
   \\ IMP_RES_TAC filter_bitmap_LENGTH
   \\ fs [] \\ decide_tac)
 
@@ -210,16 +200,15 @@ val dec_stack_def = tDefine "dec_stack" `
   (dec_stack bitmaps ts (w::ws) =
      case full_read_bitmap bitmaps w of
      | NONE => NONE
-     | SOME (bs,w1,_) =>
+     | SOME bs =>
         if LENGTH ts < LENGTH bs then NONE else
         case map_bitmap bs (TAKE (LENGTH bs) ts) ws of
         | NONE => NONE
         | SOME (ws1,ws2) =>
            case dec_stack bitmaps (DROP (LENGTH bs) ts) ws2 of
            | NONE => NONE
-           | SOME ws3 => SOME (w1 ++ ws1 ++ ws3))`
+           | SOME ws3 => SOME ([w] ++ ws1 ++ ws3))`
   (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
-   \\ IMP_RES_TAC read_bitmap_LENGTH
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []
    \\ fs [map_bitmap_def] \\ rw [] \\ decide_tac)

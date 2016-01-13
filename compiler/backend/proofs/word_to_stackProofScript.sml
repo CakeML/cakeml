@@ -220,13 +220,13 @@ val abs_stack_def = Define`
     | NONE => NONE
     (*read_bitmap reads a bitmap and returns the liveness bits,
       the words read and the rest of the stack*)
-    | SOME (bits,ws,_) =>
+    | SOME bits =>
         if LENGTH stack < LENGTH bits then NONE else
           let frame = TAKE (LENGTH bits) stack in
           let rest = DROP (LENGTH bits) stack in
             case abs_stack bitmaps xs rest of
             | NONE => NONE
-            | SOME ys => SOME ((NONE,bits,ws,frame)::ys)) ∧
+            | SOME ys => SOME ((NONE,bits,[w],frame)::ys)) ∧
   (abs_stack bitmaps ((StackFrame l (SOME _))::xs) (w::stack) =
     (*Index for bitmap for a handler frame*)
     if w ≠ Word 1w then NONE
@@ -238,13 +238,13 @@ val abs_stack_def = Define`
           | NONE => NONE
           (*read_bitmap reads a bitmap and returns the liveness bits,
             the words read and the rest of the stack*)
-          | SOME (bits,ws,_) =>
+          | SOME bits =>
               if LENGTH stack < LENGTH bits then NONE else
                 let frame = TAKE (LENGTH bits) stack in
                 let rest = DROP (LENGTH bits) stack in
                   case abs_stack bitmaps xs rest of
                   | NONE => NONE
-                  | SOME ys => SOME ((SOME(loc,hv),bits,ws,frame)::ys))
+                  | SOME ys => SOME ((SOME(loc,hv),bits,[w],frame)::ys))
       | _ => NONE)) ∧
   (abs_stack bitmaps _ _ = NONE)`
 
@@ -483,7 +483,7 @@ val read_bitmap_word_list = prove(
   ``8 <= dimindex (:'a) ==>
     read_bitmap
       ((word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++ (xs:'a word list)) =
-    (SOME (qs,MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1)),xs))``,
+    SOME qs``,
   completeInduct_on `LENGTH (qs:bool list)` \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rw [] \\ once_rewrite_tac [word_list_def]
   \\ `dimindex (:'a) - 1 <> 0` by decide_tac \\ fs []
@@ -986,8 +986,7 @@ val n2w_lsr_1 = prove(
 
 val handler_bitmap_props = prove(``
   good_dimindex(:'a) ⇒
-  read_bitmap ((4w:'a word)::stack) =
-  SOME ([F;F],[Word 4w],stack)``,
+  read_bitmap ((4w:'a word)::stack) = SOME [F;F]``,
   fs [read_bitmap_def,good_dimindex_def] \\ strip_tac
   \\ `~(word_msb 4w)` by fs [word_msb_def,wordsTheory.word_index] \\ fs []
   \\ `4 < dimword (:'a) /\ 2 < dimword (:'a)` by fs [dimword_def]
