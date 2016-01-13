@@ -108,7 +108,7 @@ val insert_bitmap_def = Define `
 val wLive_def = Define `
   wLive (live:num_set) (bitmaps:'a word list) (k,f:num,f':num) =
     let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
-      (Seq (Inst (Const k (n2w i))) (StackStore k 0):'a stackLang$prog,new_bitmaps)`
+      (Seq (Inst (Const k (n2w (i+1)))) (StackStore k 0):'a stackLang$prog,new_bitmaps)`
 
 val SeqStackFree_def = Define `
   SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`
