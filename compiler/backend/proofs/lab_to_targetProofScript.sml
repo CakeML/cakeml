@@ -1615,19 +1615,253 @@ val good_syntax_def = Define `
 
 val good_syntax_filter_skip = store_thm("good_syntax_filter_skip[simp]",
   ``good_syntax c (filter_skip prog) l = good_syntax c prog l``,
-  cheat);
+  rw[good_syntax_def]);
 
-val remove_labels_thm = store_thm("remove_labels_thm",
-  ``good_syntax mc_conf code l /\
-    remove_labels mc_conf.target.config mc_conf.target.encode code l =
-      SOME (code2,labs) ==>
+val lines_ok_def = Define`
+  (lines_ok c enc labs pos [] = T) ∧
+  (lines_ok c enc labs pos (y::ys) ⇔
+   line_ok c enc labs pos y ∧
+   lines_ok c enc labs (pos + line_length y) ys)`;
+
+val all_enc_ok_cons = Q.store_thm("all_enc_ok_cons",
+  `∀ls pos.
+   all_enc_ok c enc labs pos (Section k ls::xs) ⇔
+   all_enc_ok c enc labs (pos + SUM (MAP line_length ls)) xs ∧
+   EVEN (pos + SUM (MAP line_length ls)) ∧
+   lines_ok c enc labs pos ls`,
+  Induct >> rw[all_enc_ok_def,lines_ok_def] >>
+  simp[] >> metis_tac[]);
+
+val line_similar_sym = Q.store_thm("line_similar_sym",
+  `line_similar l1 l2 ⇒ line_similar l2 l1`,
+  Cases_on`l1`>>Cases_on`l2`>>EVAL_TAC>>rw[]);
+
+val code_similar_sym = Q.store_thm("code_similar_sym",
+  `∀code1 code2. code_similar code1 code2 ⇒ code_similar code2 code1`,
+  Induct >> simp[code_similar_def]
+  >> Cases_on`code2`>>simp[code_similar_def]
+  >> Cases >> simp[code_similar_def]
+  >> Cases_on`h` >> simp[code_similar_def]
+  >> rw[]
+  >> match_mp_tac (GEN_ALL (MP_CANON EVERY2_sym))
+  >> metis_tac[line_similar_sym]);
+
+val line_similar_refl = Q.store_thm("line_similar_refl[simp]",
+  `∀l. line_similar l l`,
+  Cases >> EVAL_TAC);
+
+val code_similar_refl = Q.store_thm("code_similar_refl[simp]",
+  `∀code. code_similar code code`,
+  Induct >> simp[code_similar_def] >>
+  Cases >> simp[code_similar_def] >>
+  match_mp_tac EVERY2_refl >> simp[]);
+
+val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
+  `∀nop n l2 aux l1.
+     LIST_REL line_similar l1 (REVERSE aux ++ l2) ⇒
+     LIST_REL line_similar l1 (pad_section nop n l2 aux)`,
+   ho_match_mp_tac pad_section_ind >>
+   rw[pad_section_def] >>
+   first_x_assum match_mp_tac >>
+   imp_res_tac LIST_REL_LENGTH >> fs[] >>
+   qmatch_assum_rename_tac`LIST_REL _ ls (_ ++ _)` >>
+   qmatch_assum_abbrev_tac`LENGTH ls = m + _` >>
+   qispl_then[`m`,`ls`]strip_assume_tac TAKE_DROP >>
+   ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
+   pop_assum(SUBST1_TAC o SYM) >>
+   match_mp_tac EVERY2_APPEND_suff >>
+   qispl_then[`m`,`ls`]strip_assume_tac TAKE_DROP >>
+   pop_assum(fn th => last_x_assum(fn a => assume_tac(ONCE_REWRITE_RULE[SYM th]a))) >>
+   drule LIST_REL_APPEND_IMP >>
+   (discharge_hyps >- simp[] ) >>
+   strip_tac >> fs[] >>
+   qmatch_rename_tac`line_similar line _` >>
+   Cases_on`line`>>fs[line_similar_def]);
+
+val code_similar_pad_code = Q.store_thm("code_similar_pad_code",
+  `∀code1 code2.
+   code_similar code1 code2 ⇒
+   code_similar code1 (pad_code nop code2)`,
+  Induct
+  >- ( Cases >> simp[code_similar_def,pad_code_def] )
+  >> Cases_on`code2` >- simp[code_similar_def]
+  >> Cases >> simp[code_similar_def]
+  >> Cases_on`h` >> simp[code_similar_def,pad_code_def]
+  >> strip_tac >> rveq
+  >> match_mp_tac line_similar_pad_section
+  >> simp[]);
+
+val line_similar_enc_line_again = Q.store_thm("line_similar_enc_line_again[simp]",
+  `∀a b c lines2 lines1.
+    LIST_REL line_similar lines1 (enc_line_again a b c lines2) ⇔
+    LIST_REL line_similar lines1 lines2`,
+  ho_match_mp_tac enc_line_again_ind
+  >> simp[enc_line_again_def,line_similar_def]
+  >> rw[line_similar_def]
+  >> rw[EQ_IMP_THM,line_similar_def]
+  >> qmatch_assum_rename_tac`line_similar line _`
+  >> Cases_on`line`>>fs[line_similar_def]);
+
+val code_similar_enc_secs_again = Q.store_thm("code_similar_enc_secs_again[simp]",
+  `∀a b c code2 code1.
+     code_similar code1 (enc_secs_again a b c code2) ⇔
+     code_similar code1 code2`,
+   ho_match_mp_tac enc_secs_again_ind
+   >> rw[enc_secs_again_def,code_similar_def]
+   >> Cases_on`code1` >> rw[code_similar_def]
+   >> Cases_on`h` >> rw[code_similar_def]
+   >> rw[Abbr`lines1`]);
+
+val line_similar_sec_lengths_update = Q.store_thm("line_similar_sec_lengths_update[simp]",
+  `∀a l1 l2.
+   LIST_REL line_similar (sec_lengths_update a l1) l2 ⇔
+   LIST_REL line_similar l1 l2`,
+  ho_match_mp_tac sec_lengths_update_ind
+  >> rw[sec_lengths_update_def] >> rw[]
+  >> rw[EQ_IMP_THM]
+  >> qmatch_assum_rename_tac`line_similar _ line`
+  >> Cases_on`line` >> fs[line_similar_def]
+  >> unabbrev_all_tac >> fs[]
+  >> metis_tac[]);
+
+val code_similar_all_lengths_update = Q.store_thm("code_similar_all_lengths_update[simp]",
+  `∀a code1 code2.
+   code_similar (all_lengths_update a code1) code2 ⇔
+   code_similar code1 code2`,
+  ho_match_mp_tac all_lengths_update_ind
+  >> rw[code_similar_def,all_lengths_update_def]
+  >> Cases_on`code2`>> rw[code_similar_def]
+  >> Cases_on`h`>> rw[code_similar_def]);
+
+val line_similar_enc_line = Q.store_thm("line_similar_enc_line[simp]",
+  `∀lines1 lines2 n.
+    LIST_REL line_similar (MAP (enc_line n) lines1) lines2 ⇔
+    LIST_REL line_similar lines1 lines2`,
+  Induct >> simp[]
+  >> Cases >> simp[enc_line_def]
+  >> rw[EQ_IMP_THM]
+  >> qmatch_assum_rename_tac`line_similar _ line`
+  >> Cases_on`line`>>fs[line_similar_def]);
+
+val code_similar_enc_sec_list = Q.store_thm("code_similar_enc_sec_list[simp]",
+  `∀code1 code2 n.
+     code_similar (enc_sec_list n code1) code2 ⇔
+     code_similar code1 code2`,
+   simp[enc_sec_list_def]
+   >> Induct >> simp[]
+   >> Cases_on`code2`>>simp[code_similar_def]
+   >> Cases_on`h`>>simp[code_similar_def]
+   >> Cases>>simp[code_similar_def,enc_sec_def]);
+
+val label_zero_def = Define`
+  (label_zero (Label _ _ n) ⇔ n = 0) ∧
+  (label_zero _ ⇔ T)`;
+val _ = export_rewrites["label_zero_def"];
+
+val sec_label_zero_def = Define`
+  sec_label_zero (Section _ ls) = EVERY label_zero ls`;
+
+val pos_val_0_0 = Q.store_thm("pos_val_0_0",
+  `EVERY sec_label_zero ls ⇒ pos_val 0 0 ls = 0`,
+  Induct_on`ls`>>rw[pos_val_def]>>fs[]
+  >> Cases_on`h`>>rw[pos_val_def]
+  >> Induct_on`l`
+  >> rw[pos_val_def]
+  >> fs[sec_label_zero_def]
+  >> Cases_on`h`>>fs[]
+  >> rw[line_length_def]);
+
+val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[simp]",
+  `∀nop k xs aux. EVERY label_zero aux ⇒ EVERY label_zero (pad_section nop k xs aux)`,
+  ho_match_mp_tac pad_section_ind
+  >> rw[pad_section_def]
+  >> rw[EVERY_REVERSE]);
+
+val EVERY_sec_label_zero_pad_code = Q.store_thm("EVERY_sec_label_zero_pad_code[simp]",
+  `∀nop ls. EVERY sec_label_zero (pad_code nop ls)`,
+  ho_match_mp_tac pad_code_ind
+  >> rw[pad_code_def]
+  >> rw[sec_label_zero_def]);
+
+val remove_labels_loop_thm = Q.prove(
+  `∀n c e code l code2 labs.
+    remove_labels_loop n c e code l = SOME (code2,labs) ∧
+    good_syntax mc_conf code l ∧
+    c = mc_conf.target.config ∧
+    e = mc_conf.target.encode ⇒
     all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
     code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
     (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
     !l1 l2 x2.
       loc_to_pc l1 l2 code = SOME x2 ==>
-      lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)``,
-  cheat);
+      lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)`,
+  HO_MATCH_MP_TAC remove_labels_loop_ind
+  >> rpt gen_tac >> strip_tac
+  >> simp[Once remove_labels_loop_def]
+  >> rpt gen_tac
+  >> IF_CASES_TAC >> fs[] >> strip_tac >> rveq
+  >- (
+    conj_tac >- (
+      cheat
+    )
+    >> conj_tac >- (
+      match_mp_tac code_similar_pad_code
+      >> simp[])
+    >> conj_tac >- (
+      match_mp_tac pos_val_0_0
+      >> simp[] )
+    >> conj_tac >- cheat
+    >> cheat )
+  >> fs[]
+  >> last_x_assum mp_tac
+  >> discharge_hyps >- rw[good_syntax_def]
+  >> simp[] >> strip_tac
+  >> imp_res_tac code_similar_sym >> fs[]
+  >> imp_res_tac code_similar_sym >> fs[]
+  >> cheat);
+
+val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
+  `∀l1 l2 code.
+     loc_to_pc l1 l2 (enc_sec_list e code) = loc_to_pc l1 l2 code`,
+  simp[enc_sec_list_def]
+  >> ho_match_mp_tac loc_to_pc_ind
+  >> rw[]
+  >> rw[Once loc_to_pc_def,enc_sec_def]
+  >> rw[Once loc_to_pc_def,SimpRHS]
+  >> match_mp_tac EQ_SYM
+  >> BasicProvers.TOP_CASE_TAC
+  >- fs[]
+  >> simp[]
+  >> IF_CASES_TAC
+  >- fs[enc_line_def]
+  >> IF_CASES_TAC
+  >- (
+    Cases_on`h`>>fs[enc_line_def]
+    >> rfs[enc_sec_def] >> fs[])
+  >> IF_CASES_TAC
+  >- ( Cases_on`h`>>fs[enc_line_def,LET_THM] )
+  >> IF_CASES_TAC
+  >- ( Cases_on`h`>>fs[enc_line_def,LET_THM] )
+  >> fs[] >> rfs[enc_sec_def]
+  >> BasicProvers.TOP_CASE_TAC >> fs[]);
+
+val remove_labels_thm = Q.store_thm("remove_labels_thm",
+  `good_syntax mc_conf code l /\
+   remove_labels mc_conf.target.config mc_conf.target.encode code l =
+     SOME (code2,labs) ==>
+   all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
+   code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
+   (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
+   !l1 l2 x2.
+     loc_to_pc l1 l2 code = SOME x2 ==>
+     lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)`,
+  simp[remove_labels_def]
+  >> strip_tac
+  >> drule (GEN_ALL remove_labels_loop_thm)
+  >> disch_then(qspec_then`mc_conf`mp_tac)
+  >> discharge_hyps
+  >- ( simp[good_syntax_def] )
+  >> strip_tac >> simp[] >> fs[]);
 
 (* introducing make_init *)
 
