@@ -10,7 +10,7 @@ val word_offset_def = Define `
 
 val store_list_def = Define `
   store_list = [NextFree; EndOfHeap; HeapLength; OtherHeap;
-                AllocSize; Handler; Globals; ProgStart]`
+                AllocSize; Handler; Globals; ProgStart; BitmapBase]`
 
 val store_pos_def = Define `
   store_pos name =
@@ -41,6 +41,7 @@ val _ = map overload_on
    ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
    ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
    ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
+   ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r v))``),
    ("const_inst",``\r w. Inst (Const r w)``)]
 
 val single_stack_alloc_def = Define `
@@ -54,11 +55,15 @@ val stack_alloc_def = tDefine "stack_alloc" `
     if n <= max_stack_alloc then single_stack_alloc k n else
       Seq (single_stack_alloc k max_stack_alloc)
           (stack_alloc k (n - max_stack_alloc))`
- (WF_REL_TAC `measure SND`
-  \\ fs [max_stack_alloc_def] \\ decide_tac)
+ (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
+
+val list_Seq_def = Define `
+  (list_Seq [] = Skip) /\
+  (list_Seq [x] = x) /\
+  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
 
 val comp_def = Define `
-  comp k p =
+  comp k (p:'a stackLang$prog) =
     case p of
     (* remove store accesses *)
     | Get r name =>
@@ -79,6 +84,10 @@ val comp_def = Define `
                                (Inst (Arith (Binop Sub k k (Reg i)))))
     | StackGetSize r => Inst (Arith (Binop Sub r k (Reg (k+1))))
     | StackSetSize r => Inst (Arith (Binop Add k (k+1) (Reg r)))
+    | BitmapLoad r v =>
+        list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
+                  add_inst r v;
+                  left_shift_inst r (if dimindex (:'a) = 32 then 2 else 3)]
     (* for the rest, just leave it unchanged *)
     | Seq p1 p2 => Seq (comp k p1) (comp k p2)
     | If c r ri p1 p2 => If c r ri (comp k p1) (comp k p2)
@@ -93,11 +102,6 @@ val comp_def = Define `
 
 val prog_comp_def = Define `
   prog_comp k (n,p) = (n,comp k p)`
-
-val list_Seq_def = Define `
-  (list_Seq [] = Skip) /\
-  (list_Seq [x] = x) /\
-  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
 
 val halt_inst_def = Define `
   halt_inst w = Seq (const_inst 1 w) (Halt 1)`

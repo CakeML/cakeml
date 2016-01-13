@@ -6,6 +6,11 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
 
+val get_var_set_var = store_thm("get_var_set_var[simp]",``
+  stackSem$get_var k (set_var k v st) = SOME v``,
+  fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
+  fs[FLOOKUP_UPDATE])
+
 val MEM_TAKE = prove(
   ``!xs n x. MEM x (TAKE n xs) ==> MEM x xs``,
   Induct \\ fs [TAKE_def] \\ rw [] \\ res_tac \\ fs []);
@@ -207,43 +212,41 @@ val list_rearrange_I = prove(
   Note: requires assumption on dimindex(:'a) stated in state_rel
 *)
 val abs_stack_def = Define`
-  (abs_stack [] [Word 0w] = SOME []) ∧
-  (abs_stack [] _ = NONE) ∧
-  (abs_stack ((StackFrame l NONE)::xs) stack =
-    if stack = [Word 0w] then NONE
-    else
+  (abs_stack (bitmaps:'a word list) [] stack =
+    if stack = [Word (0w:'a word)] then SOME [] else NONE) ∧
+  (abs_stack bitmaps ((StackFrame l NONE)::xs) (w::stack) =
     (*Should cover the stack = [] case automatically*)
-    case read_bitmap stack of
+    case full_read_bitmap bitmaps w of
     | NONE => NONE
     (*read_bitmap reads a bitmap and returns the liveness bits,
       the words read and the rest of the stack*)
-    | SOME (bits,ws,rest) =>
-        if LENGTH rest < LENGTH bits then NONE else
-          let frame = TAKE (LENGTH bits) rest in
-          let rest = DROP (LENGTH bits) rest in
-            case abs_stack xs rest of
+    | SOME bits =>
+        if LENGTH stack < LENGTH bits then NONE else
+          let frame = TAKE (LENGTH bits) stack in
+          let rest = DROP (LENGTH bits) stack in
+            case abs_stack bitmaps xs rest of
             | NONE => NONE
-            | SOME ys => SOME ((NONE,bits,ws,frame)::ys)) ∧
-  (abs_stack ((StackFrame l (SOME _))::xs) (w::stack) =
-    (*Corresponds to a bitmap for a handler frame*)
-    if w ≠ Word 4w then NONE
+            | SOME ys => SOME ((NONE,bits,[w],frame)::ys)) ∧
+  (abs_stack bitmaps ((StackFrame l (SOME _))::xs) (w::stack) =
+    (*Index for bitmap for a handler frame*)
+    if w ≠ Word 1w then NONE
     else
       (case stack of
       (*Read next 2 elements on the stack for the handler*)
-      | loc::hv::stack =>
-          (if stack = [Word 0w] then NONE
-          else
-          case read_bitmap stack of
+      | loc::hv::w::stack =>
+         (case full_read_bitmap bitmaps w of
           | NONE => NONE
-          | SOME (bits,ws,rest) =>
-          if LENGTH rest < LENGTH bits then NONE else
-          let frame = TAKE (LENGTH bits) rest in
-          let rest = DROP (LENGTH bits) rest in
-            case abs_stack xs rest of
-            | NONE => NONE
-            | SOME ys => SOME ((SOME(loc,hv),bits,ws,frame)::ys))
+          (*read_bitmap reads a bitmap and returns the liveness bits,
+            the words read and the rest of the stack*)
+          | SOME bits =>
+              if LENGTH stack < LENGTH bits then NONE else
+                let frame = TAKE (LENGTH bits) stack in
+                let rest = DROP (LENGTH bits) stack in
+                  case abs_stack bitmaps xs rest of
+                  | NONE => NONE
+                  | SOME ys => SOME ((SOME(loc,hv),bits,[w],frame)::ys))
       | _ => NONE)) ∧
-  (abs_stack _ _ = NONE)`
+  (abs_stack bitmaps _ _ = NONE)`
 
 val index_list_def = Define `
   (index_list [] n = []) /\
@@ -293,82 +296,14 @@ val stack_rel_aux_def = Define`
       stack_rel_aux k len xs stack) ∧
   (stack_rel_aux k len _ _ = F)`
 
-(*
-val join_stacks_def = Define `
-  (join_stacks [] [] = SOME []) /\
-  (join_stacks (StackFrame l NONE::st) (x::xs) =
-     case join_stacks st xs of
-     | NONE => NONE
-     | SOME res => SOME ((StackFrame l NONE,[x])::res)) /\
-  (join_stacks (StackFrame l (SOME z)::st) (x::y::xs) =
-     case join_stacks st xs of
-     | NONE => NONE
-     | SOME res => SOME ((StackFrame l (SOME z),[x;y])::res)) /\
-  (join_stacks _ _ = NONE)`
-
-val abs_length_def = Define `
-  (abs_length [] = 0) /\
-  (abs_length ((_,rs1,xs1)::zs) = LENGTH rs1 + LENGTH xs1 + abs_length zs)`;
-
-val sum_abs_length_def = Define `
-  (sum_abs_length [] = 0) /\
-  (sum_abs_length ((_,zs)::joined) = abs_length zs + sum_abs_length joined)`
-
-val handler_val_def = Define `
-  handler_val t_stack_length s_handler joined =
-    Word (n2w (t_stack_length - sum_abs_length (LASTN s_handler joined)))`
-
-val index_list_def = Define `
-  (index_list [] n = []) /\
-  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
-
-val MAP_FST_def = Define `
-  MAP_FST f xs = MAP (\(x,y). (f x, y)) xs`
-
-val adjust_names_def = Define `
-  adjust_names n = n DIV 2`;
-
-val joined_ok_def = Define `
-  (joined_ok k [] len <=> T) /\
-  (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1:'a word_loc list)])::rest) len <=>
-     joined_ok k rest len /\
-     (filter_bitmap bs1 (index_list xs1 k) =
-      SOME (MAP_FST adjust_names l1,[])) (* /\
-     (* the following is an experimental alternative to the above *)
-     let current_frame = rs1 ++ xs1 in
-     let f' = LENGTH xs1 in
-     let f = LENGTH rs1 + LENGTH xs1 in
-       (f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
-       !n v.
-         (lookup n (fromAList l1) = SOME v) <=>
-         EVEN n /\ k <= n DIV 2 /\ n DIV 2 < k + f' /\
-         (el_opt (f+k-(n DIV 2)) current_frame = SOME v) /\
-         (el_opt (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T) *)) /\
-  (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
-               [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
-     (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
-     (xs1 = [handler_val len h1 rest; Loc l1 l2]) /\
-     joined_ok k ((StackFrame l NONE,[(bs2,rs2,xs2)])::rest) len) /\
-  (joined_ok k _ len <=> F)`
-
-val stack_rel_def = Define `
-  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length <=>
-    ?aa joined.
-      s_handler <= LENGTH s_stack /\
-      (t_handler = SOME (handler_val t_stack_length s_handler joined)) /\
-      (abs_stack t_rest_of_stack = SOME aa) /\
-      (join_stacks s_stack aa = SOME joined) /\
-      joined_ok k joined t_stack_length`
-*)
-
 val sorted_env_def = Define `
   sorted_env (StackFrame l _) = SORTED (\x y. FST x > FST y) l`
 
 val stack_rel_def = Define `
-  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length <=>
+  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length t_bitmaps <=>
     EVERY sorted_env s_stack /\
     ∃stack.
-      abs_stack s_stack t_rest_of_stack = SOME stack ∧
+      abs_stack t_bitmaps s_stack t_rest_of_stack = SOME stack ∧
       (s_handler < LENGTH s_stack ∧
       is_handler_frame (EL (LENGTH s_stack - (s_handler+1)) s_stack)
       ⇒
@@ -393,17 +328,20 @@ val state_rel_def = Define `
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
-       (lookup n t.code = SOME (word_to_stack$compile_prog word_prog arg_count k))) /\
+       ?bs bs2 stack_prog.
+         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
+         isPREFIX bs2 t.bitmaps /\
+         (lookup n t.code = SOME stack_prog)) /\
     (lookup 5 t.code = SOME (raise_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
-    (if f' = 0 then f = 0 else (f = f' + f' DIV (dimindex (:'a) - 1) + 1)) /\
+    (if f' = 0 then f = 0 else (f = f' + 1)) /\
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack*)
     let current_frame = TAKE f stack in
     let rest_of_stack = DROP f stack in
       stack_rel k s.handler s.stack (FLOOKUP t.store Handler)
-        rest_of_stack (LENGTH t.stack) /\
+        rest_of_stack (LENGTH t.stack) t.bitmaps /\
       (!n v.
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
@@ -430,6 +368,7 @@ val convs_def = LIST_CONJ
 
 val nn = ``(NONE:(num # 'a wordLang$prog # num # num) option)``
 
+(*
 val LENGTH_write_bitmap = prove(
   ``state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f ==>
     (LENGTH ((write_bitmap (names:num_set) k f'):'a word list) + f' = f)``,
@@ -437,33 +376,7 @@ val LENGTH_write_bitmap = prove(
   \\ fs [LENGTH_word_list] \\ rpt strip_tac
   \\ `~(dimindex (:'a) <= 1) /\ f <> 0` by decide_tac \\ fs []
   \\ decide_tac);
-
-val evaluate_wLiveAux = prove(
-  ``!xs k i t.
-      xs <> [] /\ t.stack_space + i + LENGTH xs <= LENGTH t.stack /\
-      t.use_stack ==>
-      evaluate (wLiveAux xs k i,t) = (NONE,
-        t with <| stack := list_LUPDATE (MAP Word xs) (t.stack_space + i) t.stack ;
-                  regs := t.regs |+ (k, (Word (LAST xs))) |>)``,
-  Induct \\ fs [] \\ Cases_on `xs` \\ fs []
-  \\ once_rewrite_tac [wLiveAux_def]
-  \\ simp_tac bool_ss [Once wLiveAux_def] \\ fs []
-  \\ fs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
-         stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_DEF,
-         stackSemTheory.set_var_def,stackSemTheory.get_var_def]
-  \\ rpt strip_tac
-  \\ qmatch_assum_rename_tac `s.use_stack`
-  \\ `~(LENGTH s.stack < s.stack_space + i)` by decide_tac
-  \\ fs [list_LUPDATE_def,FLOOKUP_UPDATE]
-  \\ first_x_assum (mp_tac o Q.SPECL [`k`,`i+1`,`s with
-   <|regs := s.regs |+ (k, Word h');
-     stack := LUPDATE (Word h') (s.stack_space + i) s.stack|>`])
-  \\ fs [] \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 decide_tac
-  \\ rpt strip_tac \\ fs []
-  \\ fs [stackSemTheory.state_component_equality,AC ADD_COMM ADD_ASSOC])
-  |> Q.SPECL [`write_bitmap (names:num_set) k f'`,`k`,`0`,`t`]
-  |> SIMP_RULE std_ss []
-  |> INST_TYPE [beta|->``:'ffi``]
+*)
 
 val DROP_list_LUPDATE_lemma =
   MATCH_MP DROP_list_LUPDATE (SPEC_ALL LESS_EQ_REFL) |> SIMP_RULE std_ss []
@@ -569,9 +482,8 @@ val GENLIST_bits_to_word = prove(
 val read_bitmap_word_list = prove(
   ``8 <= dimindex (:'a) ==>
     read_bitmap
-      (MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++
-        xs:'a word_loc list) =
-    SOME (qs,MAP Word (word_list (qs ++ [T]) (dimindex (:'a) - 1)),xs)``,
+      ((word_list (qs ++ [T]) (dimindex (:'a) - 1)) ++ (xs:'a word list)) =
+    SOME qs``,
   completeInduct_on `LENGTH (qs:bool list)` \\ rpt strip_tac \\ fs [PULL_FORALL]
   \\ rw [] \\ once_rewrite_tac [word_list_def]
   \\ `dimindex (:'a) - 1 <> 0` by decide_tac \\ fs []
@@ -625,6 +537,8 @@ val APPEND_LEMMA = prove(
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [] \\ metis_tac []);
 
+(*
+
 val read_bitmap_write_bitmap = prove(
   ``t.stack_space + f <= LENGTH t.stack /\ 8 <= dimindex (:'a) /\
     (LENGTH (write_bitmap names k f': 'a word list) + f' = f) /\
@@ -649,17 +563,11 @@ val read_bitmap_write_bitmap = prove(
   \\ imp_res_tac list_LUPDATE_APPEND \\ fs [read_bitmap_word_list])
   |> INST_TYPE [beta|->``:'ffi``];
 
-(*
-val join_stacks_IMP_LENGTH = prove(
-  ``!s aa joined.
-      join_stacks s aa = SOME joined ==> (LENGTH joined = LENGTH s)``,
-  recInduct (theorem "join_stacks_ind")
-  \\ fs [join_stacks_def] \\ rpt strip_tac
-  \\ EVERY_CASE_TAC \\ fs [] \\ rw []);
 *)
+
 val abs_stack_IMP_LENGTH = prove(
-  ``∀wstack sstack stack.
-    abs_stack wstack sstack = SOME stack ⇒ LENGTH stack = LENGTH wstack``,
+  ``∀bs wstack sstack stack.
+    abs_stack bs wstack sstack = SOME stack ⇒ LENGTH stack = LENGTH wstack``,
   recInduct (theorem "abs_stack_ind")
   \\ fs [abs_stack_def,LET_THM] \\ rpt strip_tac
   \\ EVERY_CASE_TAC \\ fs [] \\ rw [])
@@ -786,43 +694,54 @@ val env_to_list_K_I_IMP = prove(
   \\ split_pair_tac \\ fs [] \\ split_pair_tac \\ fs [])
 
 val evaluate_wLive = Q.prove(
-  `(∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
+  `wLive names bs (k,f,f') = (wlive_prog,bs') /\
+   (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
    state_rel k f f' (s:('a,'ffi) wordSem$state) t /\ 1 <= f /\
-   (cut_env names s.locals = SOME env) ==>
-   ?t5. (evaluate (wLive names (k,f,f'),t) = (NONE,t5)) /\
-        state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
-        state_rel k f f' s t5 /\
-        !i. i < k ==> get_var i t5 = get_var i t`,
-  fs [wLive_def] \\ rpt strip_tac
-  \\ mp_tac LENGTH_write_bitmap \\ fs [] \\ rpt strip_tac
-  \\ mp_tac evaluate_wLiveAux
-  \\ match_mp_tac IMP_IMP \\ strip_tac THEN1
-   (imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
-    \\ fs [state_rel_def,GSYM LENGTH_NIL]
-    \\ `f <> 0:num` by decide_tac
-    \\ fs [] \\ rfs[] \\ decide_tac)
-  \\ rpt strip_tac \\ fs [] \\ pop_assum (K all_tac)
-  \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,
-         DECIDE ``i < k ==> i <> k:num``]
-  \\ imp_res_tac LENGTH_write_bitmap \\ pop_assum (K all_tac)
-  \\ fs [push_env_def,LET_DEF,state_rel_def,env_to_list_def,FUN_EQ_THM,
-         FLOOKUP_UPDATE,DECIDE ``i < k ==> i <> k:num``]
-  \\ `t.stack_space <= LENGTH t.stack` by decide_tac \\ fs [lookup_def]
-  \\ fs [DROP_list_LUPDATE_lemma]
+   (cut_env names s.locals = SOME env) /\
+   isPREFIX bs' t.bitmaps ==>
+   ?t5 bs5.
+     (evaluate (wlive_prog,t) = (NONE,t5)) /\
+     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
+     state_rel k f f' s t5 /\
+     !i. i < k ==> get_var i t5 = get_var i t`,
+  fs [wLive_def,LET_THM] \\ rpt strip_tac
+  \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac
+  \\ fs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
+         stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_THM]
+ \\ `t.stack_space <= LENGTH t.stack /\
+     t.use_stack /\ ~(LENGTH t.stack < t.stack_space)` by
+        (fs[state_rel_def,LET_THM,stack_rel_def] \\ decide_tac) \\ fs []
+  \\ fs [stackSemTheory.set_var_def,stackSemTheory.get_var_def,
+         FLOOKUP_UPDATE,DECIDE ``i<n ==> i<>n:num``]
+  \\ fs [state_rel_def,push_env_def,LET_THM,FUN_EQ_THM,env_to_list_def,
+         lookup_def,FLOOKUP_UPDATE,DECIDE ``i<n ==> i<>n:num``,
+         DROP_list_LUPDATE_lemma |> Q.SPEC `[x]`
+           |> SIMP_RULE std_ss [list_LUPDATE_def]]
   \\ reverse (rpt strip_tac)
   THEN1
    (res_tac \\ rw [] \\ fs []
     \\ qpat_assum `xx = SOME v` (fn th => once_rewrite_tac [GSYM th])
-    \\ match_mp_tac el_opt_list_LUPDATE_IGNORE \\ fs []
-    \\ decide_tac)
+    \\ match_mp_tac (el_opt_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
+           |> SIMP_RULE std_ss [list_LUPDATE_def])
+    \\ fs [] \\ Cases_on `f' = 0` \\ fs [] \\ decide_tac)
   THEN1
-   (qpat_assum `stack_rel k s.handler s.stack xx yy tt` mp_tac
+   (qpat_assum `stack_rel k s.handler s.stack xx yy tt _` mp_tac
     \\ match_mp_tac (METIS_PROVE [] ``(b1 = b2) ==> (b1 ==> b2)``)
-    \\ AP_THM_TAC \\ AP_TERM_TAC
-    \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE)
+    \\ AP_THM_TAC \\ AP_THM_TAC \\ AP_TERM_TAC
+    \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
+           |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fs [] \\ decide_tac)
   \\ fs [stack_rel_def,stack_rel_aux_def,abs_stack_def]
-  \\ fs [list_LUPDATE_write_bitmap_NOT_NIL]
+  \\ Cases_on `DROP t.stack_space t.stack` \\ fs []
+  THEN1 (fs [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
+  \\ fs [LUPDATE_def,abs_stack_def]
+  \\ conj_tac THEN1
+   (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
+    \\ fs [env_to_list_def,sorted_env_def,LET_DEF] \\ rw []
+    \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [])
+  \\ fs [full_read_bitmap_def,GSYM word_add_n2w]
+  \\ cheat) (* new bitmaps *)
+(*
   \\ mp_tac read_bitmap_write_bitmap \\ fs []
   \\ rpt strip_tac \\ pop_assum (K all_tac)
   THEN1
@@ -1003,7 +922,7 @@ val evaluate_wLive = Q.prove(
         fs[ADD_SUB])>>
       fs[]>>
       DECIDE_TAC)>>
-    fs[EL_DROP])
+    fs[EL_DROP] *)
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -1067,8 +986,7 @@ val n2w_lsr_1 = prove(
 
 val handler_bitmap_props = prove(``
   good_dimindex(:'a) ⇒
-  read_bitmap (Word (4w:'a word)::stack) =
-  SOME ([F;F],[Word 4w],stack)``,
+  read_bitmap ((4w:'a word)::stack) = SOME [F;F]``,
   fs [read_bitmap_def,good_dimindex_def] \\ strip_tac
   \\ `~(word_msb 4w)` by fs [word_msb_def,wordsTheory.word_index] \\ fs []
   \\ `4 < dimword (:'a) /\ 2 < dimword (:'a)` by fs [dimword_def]
@@ -1077,11 +995,13 @@ val handler_bitmap_props = prove(``
   \\ fs [] \\ EVAL_TAC \\ rw [] \\ decide_tac)
 
 val enc_stack_lemma = prove(
-  ``∀(wstack:'a stack_frame list) sstack astack.
+  ``∀bs (wstack:'a stack_frame list) sstack astack.
       good_dimindex(:'a) ∧
-      abs_stack wstack sstack = SOME astack ∧
+      abs_stack bs wstack sstack = SOME astack ∧
       stack_rel_aux k len wstack astack ⇒
-      enc_stack sstack = SOME (enc_stack wstack)``,
+      enc_stack bs sstack = SOME (enc_stack wstack)``,
+  cheat) (* needs updating for new bitmaps *)
+(*
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   fs[enc_stack_def]>>
   rw[]>>
@@ -1121,23 +1041,26 @@ val enc_stack_lemma = prove(
     >>
     ntac 6 TOP_CASE_TAC>>fs[]>>
     simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]));
+*)
 
 val IMP_enc_stack = prove(
   ``state_rel k 0 0 s1 t1 ==>
-    (enc_stack (DROP t1.stack_space t1.stack) = SOME (enc_stack s1.stack))``,
+    (enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
+       SOME (enc_stack s1.stack))``,
   fs [state_rel_def,LET_DEF] \\ rpt strip_tac
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma);
 
 val dec_stack_lemma = prove(
-  ``enc_stack (DROP t1.stack_space t1.stack) = SOME (enc_stack s1.stack) /\
+  ``enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
+      SOME (enc_stack s1.stack) /\
     (dec_stack x0 s1.stack = SOME x) /\
     stack_rel k s1.handler s1.stack (SOME (t1.store ' Handler))
-      (DROP t1.stack_space t1.stack) (LENGTH t1.stack) /\
+      (DROP t1.stack_space t1.stack) (LENGTH t1.stack) t1.bitmaps /\
     (LENGTH (enc_stack s1.stack) = LENGTH x0) ==>
-    ?yy. dec_stack x0 (DROP t1.stack_space t1.stack) = SOME yy /\
+    ?yy. dec_stack t1.bitmaps x0 (DROP t1.stack_space t1.stack) = SOME yy /\
          (t1.stack_space + LENGTH yy = LENGTH t1.stack) /\
          stack_rel k s1.handler x (SOME (t1.store ' Handler)) yy
-            (LENGTH t1.stack)``,
+            (LENGTH t1.stack) t1.bitmaps``,
   cheat) |> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
 
 val gc_state_rel = prove(
@@ -1192,6 +1115,7 @@ val alloc_alt = prove(
    \\ fs [state_component_equality] \\ rw []
    \\ fs [state_component_equality] \\ rw []);
 
+(*
 val read_bitmap_split = prove(``
   ∀ls a b c.
   read_bitmap ls = SOME(a,b,c) ⇒
@@ -1207,6 +1131,7 @@ val read_bitmap_replace = prove(``
   ho_match_mp_tac read_bitmap_ind>>rw[]>>fs[read_bitmap_def]>>
   pop_assum mp_tac>> EVERY_CASE_TAC>>fs[read_bitmap_def]>>rw[]>>
   fs[read_bitmap_def])
+*)
 
 val map_bitmap_remainder = prove(``
   ∀a b c d e.
@@ -1230,8 +1155,8 @@ val map_bitmap_length = prove(``
   fs[]>>DECIDE_TAC)
 
 val dec_stack_length = prove(``
-  ∀enc orig_stack new_stack.
-  dec_stack enc orig_stack = SOME new_stack ⇒
+  ∀bs enc orig_stack new_stack.
+  dec_stack bs enc orig_stack = SOME new_stack ⇒
   LENGTH orig_stack = LENGTH new_stack``,
   ho_match_mp_tac stackSemTheory.dec_stack_ind>>
   fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
@@ -1322,11 +1247,6 @@ val alloc_IMP_alloc = prove(
     state_rel k f f' s t5 /\
     state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 /\
     (cut_env names s.locals = SOME env) /\
-    read_bitmap (DROP t5.stack_space t5.stack) =
-    SOME
-    (GENLIST (λx.MEM x (MAP (λ(r,y). f' − 1 − (r DIV 2 − k)) (toAList names))) f'
-    ,MAP Word (write_bitmap names k f')
-    ,DROP (f − f') (DROP t5.stack_space t5.stack)) /\
     res <> SOME Error ==>
     ?t1 res1.
       (stackSem$alloc c t5 = (res1:'a stackSem$result option,t1)) /\
@@ -1393,14 +1313,9 @@ val alloc_IMP_alloc = prove(
     (fs [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM] \\ NO_TAC)
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
   \\ fs [has_space_def,stackSemTheory.has_space_def]
-  \\ EVERY_CASE_TAC
+  \\ EVERY_CASE_TAC \\ fs []
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []
   \\ fs [state_rel_def]);
-
-val get_var_set_var = prove(``
-  stackSem$get_var k (set_var k v st) = SOME v``,
-  fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
-  fs[FLOOKUP_UPDATE])
 
 val compile_result_def = Define`
   (compile_result (Result w1 w2) = Result w1) ∧
@@ -1424,8 +1339,8 @@ val push_locals_def = Define `
     stack := StackFrame (FST (env_to_list s.locals (K I))) NONE :: s.stack |>`
 
 val abs_stack_empty = prove(``
-  ∀ls stack.
-  abs_stack [] ls = SOME stack ⇒ ls = [Word 0w]``,
+  ∀bs ls stack.
+  abs_stack bs [] ls = SOME stack ⇒ ls = [Word 0w]``,
   Cases>>fs[abs_stack_def]>>
   Cases_on`h`>>fs[abs_stack_def]>>FULL_CASE_TAC>>fs[])
 
@@ -1473,9 +1388,11 @@ val stack_rel_aux_LASTN = prove(``
     fs[LASTN_MORE,stack_rel_aux_def])
 
 val abs_stack_to_stack_LENGTH = prove(``
-  ∀wstack sstack stack.
-  abs_stack wstack sstack = SOME stack ⇒
+  ∀bs wstack sstack stack.
+  abs_stack bs wstack sstack = SOME stack ⇒
   handler_val stack = LENGTH sstack``,
+  cheat) (* new bitmaps *)
+(*
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]
   >-
@@ -1500,7 +1417,7 @@ val abs_stack_to_stack_LENGTH = prove(``
     fs[LENGTH_TAKE]>>
     imp_res_tac read_bitmap_split>>
     fs[]>>
-    DECIDE_TAC))
+    DECIDE_TAC)) *)
 
 (*Equality theorems available if n ≤ LENGTH ls*)
 val LASTN_LENGTH_BOUNDS = prove(``
@@ -1520,15 +1437,17 @@ val LASTN_CONS_ID = prove(``
   using handler_val
 *)
 val abs_stack_prefix_drop = prove(``
-  ∀wstack sstack stack h wrest k len.
+  ∀bs wstack sstack stack h wrest k len.
   h ≤ LENGTH wstack ∧
   LASTN h wstack = wrest ∧
-  abs_stack wstack sstack = SOME stack ∧
+  abs_stack bs wstack sstack = SOME stack ∧
   stack_rel_aux k len wstack stack ⇒
   let rest = LASTN h stack in
   let srest = LASTN (handler_val rest) sstack in
-  abs_stack wrest srest = SOME rest ∧
+  abs_stack bs wrest srest = SOME rest ∧
   stack_rel_aux k len wrest rest``,
+  cheat) (* new bitmaps *)
+(*
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   rpt strip_tac>>fs[LET_THM,abs_stack_def]>>
   TRY(TRY(Cases_on`v10`)>>fs[]>>
@@ -1607,11 +1526,14 @@ val abs_stack_prefix_drop = prove(``
         simp[LENGTH_TAKE])>>
       qpat_assum`A=wrest` sym_sub_tac>>fs[]>>
       fs[Abbr`ls`,Abbr`frame`,abs_stack_def,LET_THM])
+*)
 
 val abs_stack_len = prove(``
-  ∀wstack sstack stack handler.
-  abs_stack wstack sstack = SOME stack ⇒
+  ∀bs wstack sstack stack handler.
+  abs_stack bs wstack sstack = SOME stack ⇒
   handler_val (LASTN handler stack) ≤ LENGTH sstack``,
+  cheat); (* new bitmaps *)
+(*
   ho_match_mp_tac (theorem "abs_stack_ind")>>rw[]>>
   fs[abs_stack_def,LET_THM]
   >-
@@ -1659,6 +1581,7 @@ val abs_stack_len = prove(``
       fs[LASTN_MORE]>>rw[]>>
       fs[LENGTH_TAKE_EQ]>>IF_CASES_TAC>>
       DECIDE_TAC)
+*)
 
 val EL_REVERSE_REWRITE = prove(``
   ∀l n k. n < LENGTH l ∧ k < n ⇒
@@ -1751,7 +1674,7 @@ val stack_rel_raise = prove(``
     n ≤ LENGTH sstack /\
     handler+1 ≤ LENGTH wstack /\ SORTED (\x y. FST x > FST y) l /\
     LASTN (handler + 1) wstack = StackFrame l (SOME (h1,l3,l4))::rest /\
-    abs_stack wstack (DROP n sstack) = SOME stack /\
+    abs_stack bs wstack (DROP n sstack) = SOME stack /\
     stack_rel_aux k (LENGTH sstack) wstack stack ==>
     ?ex payload.
       LASTN (handler+1) stack = (SOME ex,payload) :: LASTN handler stack /\
@@ -1766,9 +1689,11 @@ val stack_rel_raise = prove(``
       stack_rel_aux k (LENGTH sstack)
         (StackFrame (FST (env_to_list (fromAList l) (K I))) NONE::rest)
             ((NONE,payload) :: LASTN handler stack) /\
-      abs_stack (StackFrame (FST (env_to_list (fromAList l) (K I))) NONE::rest)
+      abs_stack bs (StackFrame (FST (env_to_list (fromAList l) (K I))) NONE::rest)
         (DROP (LENGTH sstack - handler_val (LASTN (handler+1) stack) + 3)
            sstack) = SOME ((NONE,payload) :: LASTN handler stack)``,
+  cheat); (* new bitmaps *)
+(*
   rw[]>>
   imp_res_tac abs_stack_prefix_drop>>
   fs[LET_THM]>>
@@ -1848,6 +1773,7 @@ val stack_rel_raise = prove(``
   Cases_on`t'`>>simp[]>>
   Cases_on`t''`>>simp[]>>
   ntac 6 TOP_CASE_TAC>>simp[])
+*)
 
 val EVERY_IMP_EVERY_LASTN = prove(
   ``!xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys``,
@@ -1872,14 +1798,35 @@ val LASTN_HD = prove(``
     `SUC (LENGTH ls) -x = SUC(LENGTH ls - x)` by DECIDE_TAC>>
     simp[])
 
+val comp_IMP_isPREFIX = prove(
+  ``comp c1 bs (k,f,f') = (q1,bs') ==> bs ≼ bs'``,
+  cheat); (* easy *)
+
+val compile_prog_isPREFIX = prove(
+  ``compile_prog x y k bs = (prog,bs1) ==> bs ≼ bs1``,
+  fs [compile_prog_def,LET_THM] \\ rw []
+  \\ split_pair_tac \\ fs []
+  \\ imp_res_tac comp_IMP_isPREFIX
+  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
+
+val compile_word_to_stack_isPREFIX = prove(
+  ``!code k bs progs1 bs1.
+       compile_word_to_stack k code bs = (progs1,bs1) ==> bs ≼ bs1``,
+  Induct \\ fs [compile_word_to_stack_def,FORALL_PROD,LET_THM] \\ rw []
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac compile_prog_isPREFIX
+  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
+
 val comp_correct = store_thm("comp_correct",
-  ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t.
+  ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t /\ post_alloc_conventions k prog /\
       max_var prog <= 2 * f' + 2 * k /\
-      (~(is_tail_call prog) ==> 1 <= f) ==>
+      (~(is_tail_call prog) ==> 1 <= f /\ SND (comp prog bs (k,f,f')) ≼ t.bitmaps) ==>
       ?ck t1 res1.
-        (stackSem$evaluate (comp prog (k,f,f'),t with clock := t.clock + ck) = (res1,t1)) /\
+        (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
         if OPTION_MAP compile_result res <> res1
         then res1 = SOME (Halt (Word 2w)) /\
              t1.ffi.io_events ≼ s1.ffi.io_events /\
@@ -1907,18 +1854,22 @@ val comp_correct = store_thm("comp_correct",
     \\ Cases_on `cut_env names s.locals`
     THEN1 fs [wordSemTheory.alloc_def]
     \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
-    \\ mp_tac evaluate_wLive \\ fs []>>
-    discharge_hyps_keep>-
+    \\ Cases_on `wLive names bs (k,f,f')`
+    \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
+    \\ drule evaluate_wLive
+    \\ discharge_hyps_keep
+    THEN1
       (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
       fs[GSYM toAList_domain,EVERY_MEM]>>
-      fs[X_LE_DIV,reg_allocTheory.is_phy_var_def]>>
+      fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
       rw[]>>res_tac>>DECIDE_TAC)
     \\ REPEAT STRIP_TAC \\ fs []
     \\ `1 < k` by fs [state_rel_def] \\ res_tac
+    \\ fs [stackSemTheory.evaluate_def,LET_THM]
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
-    \\ drule alloc_IMP_alloc \\ discharge_hyps
-    >-
-      (fs[]>>cheat)
+    \\ Cases_on `alloc c t5` \\ fs []
+    \\ qcase_tac `alloc c t5 = (res1,t1)` \\ fs []
+    \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
   THEN1 (* Move *) cheat
@@ -1936,26 +1887,41 @@ val comp_correct = store_thm("comp_correct",
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
     \\ split_pair_tac \\ fs []
+    \\ split_pair_tac \\ fs []
+    \\ split_pair_tac \\ fs []
     \\ `max_var c1 <= 2 * f' + 2 * k /\ max_var c2 <= 2 * f' + 2 * k` by
       (fs [word_allocTheory.max_var_def] \\ decide_tac)
     \\ `post_alloc_conventions k c1 /\
         post_alloc_conventions k c2` by fs [convs_def]
+    \\ imp_res_tac comp_IMP_isPREFIX
+    \\ `SND (comp c1 bs (k,f,f')) ≼ t.bitmaps /\
+        SND (comp c2 bs' (k,f,f')) ≼ t.bitmaps` by
+         (fs [] \\ imp_res_tac IS_PREFIX_TRANS)
     \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
     THEN1
      (first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+      \\ `¬is_tail_call c1 ⇒ SND (comp c1 bs (k,f,f')) ≼ t.bitmaps` by fs []
+      \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
       \\ qexists_tac `ck` \\ fs [] \\ Cases_on `res` \\ fs []
-      \\ Cases_on `res1 = NONE` \\ fs [])
+      \\ Cases_on `res1 = NONE`
+      \\ fs [stackSemTheory.evaluate_def,LET_THM])
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ `¬is_tail_call c1 ⇒ SND (comp c1 bs (k,f,f')) ≼ t.bitmaps` by fs []
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
     \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
      (qexists_tac `ck`
       \\ `good_dimindex (:'a)` by fs [state_rel_def]
-      \\ fs [Halt_EQ_compile_result]
+      \\ fs [Halt_EQ_compile_result,stackSemTheory.evaluate_def,LET_THM]
       \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
       \\ `s.ffi = t.ffi` by fs [state_rel_def]
       \\ imp_res_tac evaluate_io_events_mono \\ fs []
       \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
       \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ `¬is_tail_call c2 ⇒ SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps` by
+         (imp_res_tac stackPropsTheory.evaluate_consts \\ fs [])
+    \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
+    \\ fs [stackSemTheory.evaluate_def,LET_THM]
     \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
     \\ pop_assum (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC])
@@ -2020,7 +1986,7 @@ val comp_correct = store_thm("comp_correct",
     \\ `lookup 5 t.code = SOME (raise_stub k)` by fs [state_rel_def] \\ fs []
     \\ pop_assum kall_tac
     \\ fs [stackSemTheory.dec_clock_def,raise_stub_def,word_allocTheory.max_var_def]
-    \\ fs [stackSemTheory.evaluate_def,state_rel_def,LET_DEF]
+    \\ fs [state_rel_def,LET_DEF,push_locals_def,stackSemTheory.evaluate_def,LET_THM]
     \\ fs [DROP_DROP_EQ] \\ fs [stack_rel_def]
     \\ qpat_assum` A ⇒ B` mp_tac
     \\ discharge_hyps>-
@@ -2110,7 +2076,7 @@ val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
     <| locals  := LN
      ; store   := t.store \\ Handler
-     ; stack   := [StackFrame [] NONE]
+     ; stack   := []
      ; memory  := t.memory
      ; mdomain := t.mdomain
      ; permute := K I
@@ -2428,29 +2394,24 @@ val init_state_ok_def = Define `
   init_state_ok k (t:('a,'ffi)stackSem$state) <=>
     1n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space <= LENGTH t.stack /\
-    t.use_stack ∧ t.use_store ∧ t.use_alloc ∧ gc_fun_ok t.gc_fun /\
-    t.stack_space ≤ LENGTH t.stack ∧
+    t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
+    t.stack_space <= LENGTH t.stack /\
     LENGTH t.stack < dimword (:'a) /\
-    DROP t.stack_space t.stack = [Word 1w; Word 0w] /\
+    DROP t.stack_space t.stack = [Word 0w] /\
     FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
-
-val read_bitmap_init = prove(
-  ``good_dimindex (:'a) ==>
-    read_bitmap [Word 1w; Word 0w] = SOME ([],[Word 1w],[Word (0w:'a word)])``,
-  rw [] \\ fs [good_dimindex_def]
-  \\ `~word_msb (1w:'a word)` by fs [word_msb_def,wordsTheory.word_index]
-  \\ fs [read_bitmap_def] \\ once_rewrite_tac [bit_length_def] \\ fs []
-  \\ once_rewrite_tac [bit_length_def] \\ fs [EVAL ``1w >>> 1``]);
 
 val init_state_ok_IMP_state_rel = prove(
   ``lookup 5 t.code = SOME (raise_stub k) /\
-    (∀n word_prog arg_count.
-        lookup n code = SOME (arg_count,word_prog) ==>
-        lookup n t.code = SOME (compile_prog word_prog arg_count k)) /\
+    (!n word_prog arg_count.
+       (lookup n code = SOME (arg_count,word_prog)) ==>
+       ?bs bs2 stack_prog.
+         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
+         isPREFIX bs2 t.bitmaps /\
+         (lookup n t.code = SOME stack_prog)) /\
     init_state_ok k t ==>
     state_rel k 0 0 (make_init t code) (t:('a,'ffi)stackSem$state)``,
   fs [state_rel_def,make_init_def,LET_DEF,lookup_def,init_state_ok_def] \\ rw []
-  \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,read_bitmap_init,LET_THM]
+  \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
   \\ fs[flookup_thm]);
@@ -2461,17 +2422,38 @@ val init_state_ok_semantics =
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
+val compile_word_to_stack_IMP_ALOOKUP = prove(
+  ``!code k bs progs bitmaps n arg_count word_prog x.
+      compile_word_to_stack k code bs = (progs,bitmaps) /\
+      ALOOKUP code n = SOME (arg_count,word_prog) /\
+      bitmaps ≼ x ⇒
+      ∃bs bs2 stack_prog.
+        compile_prog word_prog arg_count k bs = (stack_prog,bs2) ∧
+        bs2 ≼ x ∧ ALOOKUP progs n = SOME stack_prog``,
+  Induct \\ fs [] \\ strip_tac \\ PairCases_on `h`
+  \\ fs [compile_word_to_stack_def] \\ rw [] \\ fs [LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  THEN1 (asm_exists_tac \\ fs [] \\ imp_res_tac IS_PREFIX_TRANS)
+  \\ first_x_assum match_mp_tac
+  \\ asm_exists_tac \\ fs []);
+
 val compile_semantics = store_thm("compile_semantics",
-  ``(t:(α,'ffi)stackSem$state).code = fromAList (compile asm_conf code) /\
+  ``(t:(α,'ffi)stackSem$state).code = fromAList (SND (compile asm_conf code)) /\
     init_state_ok (asm_conf.reg_count - 4) t /\ (ALOOKUP code 5 = NONE) /\
+    (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
     semantics (make_init t (fromAList code)) start <> Fail ==>
     semantics start t IN
     extend_with_resource_limit {semantics (make_init t (fromAList code)) start}``,
   qabbrev_tac `k = asm_conf.reg_count - 4`
   \\ rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
   \\ qexists_tac `k` \\ fs []
-  \\ fs [compile_word_to_stack_def,lookup_fromAList] \\ rw [] \\ fs []
-  \\ pop_assum mp_tac \\ rpt (pop_assum kall_tac)
-  \\ Induct_on `code` \\ fs [ALOOKUP_def,FORALL_PROD] \\ rw []);
+  \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM] \\ rw [] \\ fs []
+  THEN1 (split_pair_tac \\ fs [])
+  \\ Cases_on `n=5` \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ match_mp_tac compile_word_to_stack_IMP_ALOOKUP
+  \\ metis_tac []);
 
 val _ = export_theory();

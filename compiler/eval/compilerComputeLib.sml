@@ -548,32 +548,31 @@ in
   (*word_to_stack*)
   ; add_thms
     [word_to_stackTheory.wReg1_def
-    ,word_to_stackTheory.write_bitmap_def
-    ,word_to_stackTheory.raise_stub_def
-    ,word_to_stackTheory.comp_def
-    ,word_to_stackTheory.StackArgs_def
-    ,word_to_stackTheory.stack_move_def_compute
-    ,word_to_stackTheory.stack_move_def
-    ,word_to_stackTheory.stack_free_def
-    ,word_to_stackTheory.stack_arg_count_def
-    ,word_to_stackTheory.CallAny_def
-    ,word_to_stackTheory.SeqStackFree_def
-    ,word_to_stackTheory.wLive_def
-    ,word_to_stackTheory.wLiveAux_def
-    ,word_to_stackTheory.wStackStore_def
-    ,word_to_stackTheory.word_list_def
-    ,word_to_stackTheory.bits_to_word_def
-    ,word_to_stackTheory.wInst_def
-    ,word_to_stackTheory.wMove_def
-    ,word_to_stackTheory.format_result_def
-    ,word_to_stackTheory.format_var_def
-    ,word_to_stackTheory.pair_swap_def
-    ,word_to_stackTheory.wMoveAux_def
-    ,word_to_stackTheory.wMoveSingle_def
-    ,word_to_stackTheory.wRegWrite1_def
-    ,word_to_stackTheory.wStackLoad_def
     ,word_to_stackTheory.wReg2_def
     ,word_to_stackTheory.wRegImm2_def
+    ,word_to_stackTheory.wRegWrite1_def
+    ,word_to_stackTheory.wStackLoad_def
+    ,word_to_stackTheory.wStackStore_def
+    ,word_to_stackTheory.wMoveSingle_def
+    ,word_to_stackTheory.wMoveAux_def
+    ,word_to_stackTheory.pair_swap_def
+    ,word_to_stackTheory.format_var_def
+    ,word_to_stackTheory.format_result_def
+    ,word_to_stackTheory.wMove_def
+    ,word_to_stackTheory.wInst_def
+    ,word_to_stackTheory.bits_to_word_def
+    ,word_to_stackTheory.word_list_def
+    ,word_to_stackTheory.write_bitmap_def
+    ,word_to_stackTheory.insert_bitmap_def
+    ,word_to_stackTheory.wLive_def
+    ,word_to_stackTheory.SeqStackFree_def
+    ,word_to_stackTheory.CallAny_def
+    ,word_to_stackTheory.stack_arg_count_def
+    ,word_to_stackTheory.stack_free_def
+    ,word_to_stackTheory.stack_move_def_compute
+    ,word_to_stackTheory.StackArgs_def
+    ,word_to_stackTheory.comp_def
+    ,word_to_stackTheory.raise_stub_def
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_word_to_stack_def
     ,word_to_stackTheory.compile_def

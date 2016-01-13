@@ -21,7 +21,8 @@ val _ = Datatype`config =
    ; mod_conf : mod_to_con$config
    ; clos_conf : clos_to_bvl$config
    ; bvp_conf : bvp_to_word$config
-   ; word_conf : word_to_word$config
+   ; word_to_word_conf : word_to_word$config
+   ; word_conf : 'a word_to_stack$config
    ; stack_conf : stack_to_lab$config
    ; lab_conf : 'a lab_to_target$config
    |>`;
@@ -42,9 +43,10 @@ val compile_def = Define`
     let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc p in
     let c = c with clos_conf updated_by (λc. c with <| start:=s; next_loc:=n |>) in
     let p = bvi_to_bvp$compile_prog p in
-    let (col,p) = bvp_to_word$compile c.bvp_conf c.word_conf c.lab_conf.asm_conf p in
-    let c = c with word_conf updated_by (λc. c with col_oracle := col) in
-    let p = word_to_stack$compile c.lab_conf.asm_conf p in
+    let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+    let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+    let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+    let c = c with word_conf := c' in
     let p = stack_to_lab$compile c.clos_conf.start c.stack_conf c.bvp_conf p in
     let bc' = lab_to_target$compile c.lab_conf p in
       OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
@@ -110,14 +112,15 @@ val to_bvp_def = Define`
 val to_word_def = Define`
   to_word c p =
   let (c,p) = to_bvp c p in
-  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_conf c.lab_conf.asm_conf p in
-  let c = c with word_conf updated_by (λc. c with col_oracle := col) in
+  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)`;
 
 val to_stack_def = Define`
   to_stack c p =
   let (c,p) = to_word c p in
-  let p = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let c = c with word_conf := c' in
   (c,p)`;
 
 val to_lab_def = Define`
@@ -168,13 +171,14 @@ val from_stack_def = Define`
 
 val from_word_def = Define`
   from_word c p =
-  let p = word_to_stack$compile c.lab_conf.asm_conf p in
+  let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
+  let c = c with word_conf := c' in
   from_stack c p`;
 
 val from_bvp_def = Define`
   from_bvp c p =
-  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_conf c.lab_conf.asm_conf p in
-  let c = c with word_conf updated_by (λc. c with col_oracle := col) in
+  let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   from_word c p`;
 
 val from_bvi_def = Define`
