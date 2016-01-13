@@ -919,6 +919,38 @@ val TODO_MOVE_arith_upd_consts = Q.store_thm("TODO_MOVE_arith_upd_consts[simp]",
 
 (* -- *)
 
+val arith_upd_lemma = Q.prove(
+  `(∀r. word_loc_val p labs (read_reg r s1) = SOME (t1.regs r)) ∧ ¬(arith_upd a s1).failed ⇒
+   ∀r. word_loc_val p labs (read_reg r (arith_upd a s1)) =
+       SOME ((arith_upd a t1).regs r)`,
+  Cases_on`a`>>rw[arith_upd_def]>- (
+    every_case_tac >> fs[] >>
+    EVAL_TAC >> rw[] >>
+    metis_tac[] )
+  >- (
+    pop_assum mp_tac >>
+    reverse BasicProvers.TOP_CASE_TAC >- EVAL_TAC >>
+    reverse BasicProvers.TOP_CASE_TAC >- EVAL_TAC >>
+    qmatch_assum_rename_tac`read_reg rr _ = _` >>
+    first_assum(qspec_then`rr`mp_tac) >>
+    first_assum(SUBST1_TAC) >>
+    EVAL_TAC >> strip_tac >>
+    Cases_on`b` >> EVAL_TAC >> rw[] >> fs[] >>
+    EVAL_TAC >>
+    qpat_assum`_ = Word c`mp_tac >>
+    Cases_on`r` >> EVAL_TAC >> rw[] >>
+    qmatch_assum_rename_tac`read_reg r2 _ = _` >>
+    first_x_assum(qspec_then`r2`mp_tac) >>
+    simp[] >> EVAL_TAC >> rw[])
+  >- (
+    EVAL_TAC >>
+    every_case_tac >> fs[APPLY_UPDATE_THM] >> rw[] >>
+    pop_assum mp_tac >>
+    EVAL_TAC >>
+    qmatch_assum_rename_tac`read_reg r _ = _` >>
+    first_x_assum(qspec_then`r`mp_tac) >>
+    simp[] >> EVAL_TAC >> rw[] ));
+
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
@@ -956,7 +988,7 @@ val Inst_lemma = Q.prove(
     fsrw_tac[ARITH_ss][] >>
     conj_tac >- metis_tac[] >>
     conj_tac >- ( rw[] >> first_x_assum drule >> simp[] ) >>
-    cheat )
+    match_mp_tac arith_upd_lemma >> rw[])
   \\ strip_tac >>
   cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));
 
