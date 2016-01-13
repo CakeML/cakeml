@@ -8,6 +8,18 @@ val _ = new_theory "lab_to_targetProof";
 
 (* TODO: move *)
 
+val EXP2_EVEN = Q.store_thm("EXP2_EVEN",
+  `∀n. EVEN (2 ** n) ⇔ n ≠ 0`,
+  Induct >> simp[EXP,EVEN_DOUBLE]);
+
+val LENGTH_FLAT_REPLICATE = Q.store_thm("LENGTH_FLAT_REPLICATE",
+  `∀n. LENGTH (FLAT (REPLICATE n ls)) = n * LENGTH ls`,
+  Induct >> simp[REPLICATE,MULT]);
+
+val SUM_MAP_LENGTH_REPLICATE = Q.store_thm("SUM_MAP_LENGTH_REPLICATE",
+  `∀n ls. SUM (MAP LENGTH (REPLICATE n ls)) = n * LENGTH ls`,
+  Induct >> simp[REPLICATE,MULT]);
+
 val call_FFI_LENGTH = prove(
   ``(call_FFI st index x = (new_st,new_bytes)) ==>
     (LENGTH x = LENGTH new_bytes)``,
@@ -60,6 +72,10 @@ in
     \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
     \\ fs [SND_read_mem_word_consts,write_mem_word_consts])
 end
+
+val EXP_IMP_ZERO_LT = Q.prove(
+  `(2n ** y = x) ⇒ 0 < x`,
+  metis_tac[bitTheory.TWOEXP_NOT_ZERO,NOT_ZERO_LT_ZERO]);
 
 (* -- *)
 
@@ -270,6 +286,8 @@ val line_ok_def = Define `
        (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
        (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
 
+val line_ok_ind = theorem"line_ok_ind";
+
 val all_enc_ok_def = Define `
   (all_enc_ok c enc labs pos [] = T) /\
   (all_enc_ok c enc labs pos ((Section k [])::xs) <=>
@@ -277,6 +295,8 @@ val all_enc_ok_def = Define `
   (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
      line_ok c enc labs pos y /\
      all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
+
+val all_enc_ok_ind = theorem"all_enc_ok_ind";
 
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
@@ -1832,12 +1852,53 @@ val loc_to_pc_enc_secs_again = Q.store_thm("loc_to_pc_enc_secs_again[simp]",
   `∀l1 l2 code a b c. loc_to_pc l1 l2 (enc_secs_again a b c code) = loc_to_pc l1 l2 code`,
   metis_tac[code_similar_loc_to_pc,code_similar_enc_secs_again,code_similar_refl]);
 
+val LENGTH_pad_bytes = Q.store_thm("LENGTH_pad_bytes",
+  `0 < LENGTH nop ∧ LENGTH bytes ≤ l ⇒
+    LENGTH (pad_bytes bytes l nop) = l`,
+  rw[pad_bytes_def] >> rw[] >> fsrw_tac[ARITH_ss][]
+  \\ match_mp_tac LENGTH_TAKE
+  \\ simp[LENGTH_FLAT,SUM_MAP_LENGTH_REPLICATE]
+  \\ Cases_on`LENGTH nop`>>fs[]>>simp[MULT,Once MULT_COMM]);
+
+val line_ok_alignment = Q.store_thm("line_ok_alignment",
+  `∀c enc labs pos line.
+   enc_ok enc c
+   ∧ line_ok c enc labs pos line
+   ∧ ODD (line_length line)
+   ⇒ c.code_alignment = 0`,
+  ho_match_mp_tac line_ok_ind
+  \\ rw[line_ok_def,line_length_def,LET_THM]
+  \\ fs[enc_ok_def]
+  \\ first_x_assum drule
+  \\ fs[enc_with_nop_def]
+  \\ rveq >> fs[]
+  \\ rw[]
+  \\ spose_not_then (assume_tac o MATCH_MP (#2(EQ_IMP_RULE (SPEC_ALL EXP2_EVEN))))
+  \\ rfs[LENGTH_FLAT_REPLICATE]
+  \\ fs[ODD_ADD,ODD_EVEN,EVEN_MULT]
+  \\ imp_res_tac EXP_IMP_ZERO_LT
+  \\ imp_res_tac MOD_EQ_0_DIVISOR
+  \\ fs[EVEN_MULT]);
+
+val has_odd_inst_alignment = Q.store_thm("has_odd_inst_alignment",
+  `∀c enc labs pos code.
+   enc_ok enc c
+   ∧ all_enc_ok c enc labs pos code
+   ∧ has_odd_inst code
+   ⇒ c.code_alignment = 0`,
+  ho_match_mp_tac all_enc_ok_ind
+  \\ simp[all_enc_ok_def,has_odd_inst_def]
+  \\ rw[] \\ fs[]
+  \\ metis_tac[line_ok_alignment,ODD_EVEN]);
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code l code2 labs.
     remove_labels_loop n c e code l = SOME (code2,labs) ∧
     good_syntax mc_conf code l ∧
     c = mc_conf.target.config ∧
-    e = mc_conf.target.encode ⇒
+    e = mc_conf.target.encode ∧
+    enc_ok mc_conf.target.encode mc_conf.target.config
+    ⇒
     all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
     code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
     (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
@@ -1850,7 +1911,7 @@ val remove_labels_loop_thm = Q.prove(
   >> rpt gen_tac
   >> IF_CASES_TAC >> fs[] >> strip_tac >> rveq
   >- (
-    conj_tac >- (
+    conj_asm1_tac >- (
       cheat
     )
     >> conj_tac >- (
@@ -1859,7 +1920,11 @@ val remove_labels_loop_thm = Q.prove(
     >> conj_tac >- (
       match_mp_tac pos_val_0_0
       >> simp[] )
-    >> conj_tac >- cheat (* needs (parts of) enc_ok *)
+    >> conj_tac >- (
+      strip_tac
+      \\ match_mp_tac has_odd_inst_alignment
+      \\ asm_exists_tac >> rw[]
+      \\ asm_exists_tac >> rw[])
     >> cheat )
   >> fs[]
   >> last_x_assum mp_tac
@@ -1895,6 +1960,7 @@ val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
 
 val remove_labels_thm = Q.store_thm("remove_labels_thm",
   `good_syntax mc_conf code l /\
+   enc_ok mc_conf.target.encode mc_conf.target.config /\
    remove_labels mc_conf.target.config mc_conf.target.encode code l =
      SOME (code2,labs) ==>
    all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
@@ -1998,6 +2064,7 @@ val good_init_state_def = Define `
 
 val IMP_state_rel_make_init = prove(
   ``good_syntax mc_conf code l /\
+    enc_ok mc_conf.target.encode mc_conf.target.config /\
     remove_labels mc_conf.target.config mc_conf.target.encode code l =
       SOME (code2,labs) /\
     good_init_state mc_conf t ms ffi_index_limit (prog_to_bytes code2) io_regs save_regs ==>
@@ -2044,6 +2111,7 @@ val semantics_compile = store_thm("semantics_compile",
   \\ once_rewrite_tac [GSYM make_init_filter_skip] \\ rw []
   \\ match_mp_tac (GEN_ALL semantics_make_init) \\ fs []
   \\ asm_exists_tac \\ fs []
+  \\ fs[backend_correct_def]
   \\ asm_exists_tac \\ fs [])
 
 (*
