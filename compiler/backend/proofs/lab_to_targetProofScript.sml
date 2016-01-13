@@ -1783,6 +1783,55 @@ val EVERY_sec_label_zero_pad_code = Q.store_thm("EVERY_sec_label_zero_pad_code[s
   >> rw[pad_code_def]
   >> rw[sec_label_zero_def]);
 
+val sec_length_add = Q.store_thm("sec_length_add",
+  `∀ls n m. sec_length ls (n+m) = sec_length ls n + m`,
+  ho_match_mp_tac sec_length_ind >>
+  simp[sec_length_def]);
+
+val code_similar_nil = Q.store_thm("code_similar_nil",
+  `(code_similar [] l ⇔ l = []) ∧
+   (code_similar l [] ⇔ l = [])`,
+   Cases_on`l`>>EVAL_TAC);
+
+val code_similar_loc_to_pc = Q.store_thm("code_similar_loc_to_pc",
+  `∀l1 l2 c1 c2. code_similar c1 c2 ⇒
+     loc_to_pc l1 l2 c1 = loc_to_pc l1 l2 c2`,
+  ho_match_mp_tac loc_to_pc_ind
+  >> simp[code_similar_nil]
+  >> rw[]
+  >> Cases_on`c2`>>fs[code_similar_def]
+  >> Cases_on`h`>>fs[code_similar_def]
+  >> Cases_on`xs`>>fs[]
+  >- (
+    rw[Once loc_to_pc_def]
+    >> rw[Once loc_to_pc_def,SimpRHS]
+    >> first_x_assum (match_mp_tac o MP_CANON)
+    >> fs[] )
+  \\ rveq
+  \\ simp[Once loc_to_pc_def]
+  \\ simp[Once loc_to_pc_def,SimpRHS]
+  \\ match_mp_tac COND_CONG \\ simp[]
+  \\ disch_then assume_tac
+  \\ match_mp_tac COND_CONG \\ simp[]
+  \\ conj_asm1_tac >- (
+    Cases_on`h`>>Cases_on`y`>>fs[line_similar_def] )
+  \\ disch_then assume_tac
+  \\ match_mp_tac COND_CONG
+  \\ conj_asm1_tac >- (
+    Cases_on`h`>>Cases_on`y`>>fs[line_similar_def] )
+  \\ rw[] >> fs[] >> rveq >> rfs[]
+  \\ TRY (ntac 2 AP_THM_TAC >> AP_TERM_TAC)
+  \\ first_x_assum (match_mp_tac o MP_CANON)
+  \\ rw[code_similar_def]);
+
+val loc_to_pc_all_lengths_update = Q.store_thm("loc_to_pc_all_lengths_update[simp]",
+  `∀l1 l2 code a. loc_to_pc l1 l2 (all_lengths_update a code) = loc_to_pc l1 l2 code`,
+  metis_tac[code_similar_loc_to_pc,code_similar_all_lengths_update,code_similar_refl]);
+
+val loc_to_pc_enc_secs_again = Q.store_thm("loc_to_pc_enc_secs_again[simp]",
+  `∀l1 l2 code a b c. loc_to_pc l1 l2 (enc_secs_again a b c code) = loc_to_pc l1 l2 code`,
+  metis_tac[code_similar_loc_to_pc,code_similar_enc_secs_again,code_similar_refl]);
+
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code l code2 labs.
     remove_labels_loop n c e code l = SOME (code2,labs) ∧
@@ -1810,15 +1859,14 @@ val remove_labels_loop_thm = Q.prove(
     >> conj_tac >- (
       match_mp_tac pos_val_0_0
       >> simp[] )
-    >> conj_tac >- cheat
+    >> conj_tac >- cheat (* needs (parts of) enc_ok *)
     >> cheat )
   >> fs[]
   >> last_x_assum mp_tac
   >> discharge_hyps >- rw[good_syntax_def]
   >> simp[] >> strip_tac
   >> imp_res_tac code_similar_sym >> fs[]
-  >> imp_res_tac code_similar_sym >> fs[]
-  >> cheat);
+  >> imp_res_tac code_similar_sym >> fs[]);
 
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
