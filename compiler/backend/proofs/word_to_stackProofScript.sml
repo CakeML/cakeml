@@ -1796,6 +1796,23 @@ val comp_IMP_isPREFIX = prove(
   ``comp c1 bs (k,f,f') = (q1,bs') ==> bs ≼ bs'``,
   cheat);
 
+val compile_prog_isPREFIX = prove(
+  ``compile_prog x y k bs = (prog,bs1) ==> bs ≼ bs1``,
+  fs [compile_prog_def,LET_THM] \\ rw []
+  \\ split_pair_tac \\ fs []
+  \\ imp_res_tac comp_IMP_isPREFIX
+  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
+
+val compile_word_to_stack_isPREFIX = prove(
+  ``!code k bs progs1 bs1.
+       compile_word_to_stack k code bs = (progs1,bs1) ==> bs ≼ bs1``,
+  Induct \\ fs [compile_word_to_stack_def,FORALL_PROD,LET_THM] \\ rw []
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ res_tac \\ fs []
+  \\ imp_res_tac compile_prog_isPREFIX
+  \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
+
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -2399,9 +2416,27 @@ val init_state_ok_semantics =
   |> (fn th => (MATCH_MP th (UNDISCH init_state_ok_IMP_state_rel)))
   |> DISCH_ALL |> SIMP_RULE std_ss [AND_IMP_INTRO,GSYM CONJ_ASSOC]
 
+val compile_word_to_stack_IMP_ALOOKUP = prove(
+  ``!code k bs progs bitmaps n arg_count word_prog x.
+      compile_word_to_stack k code bs = (progs,bitmaps) /\
+      ALOOKUP code n = SOME (arg_count,word_prog) /\
+      bitmaps ≼ x ⇒
+      ∃bs bs2 stack_prog.
+        compile_prog word_prog arg_count k bs = (stack_prog,bs2) ∧
+        bs2 ≼ x ∧ ALOOKUP progs n = SOME stack_prog``,
+  Induct \\ fs [] \\ strip_tac \\ PairCases_on `h`
+  \\ fs [compile_word_to_stack_def] \\ rw [] \\ fs [LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs [] \\ rw []
+  \\ imp_res_tac compile_word_to_stack_isPREFIX
+  THEN1 (asm_exists_tac \\ fs [] \\ imp_res_tac IS_PREFIX_TRANS)
+  \\ first_x_assum match_mp_tac
+  \\ asm_exists_tac \\ fs []);
+
 val compile_semantics = store_thm("compile_semantics",
   ``(t:(α,'ffi)stackSem$state).code = fromAList (SND (compile asm_conf code)) /\
     init_state_ok (asm_conf.reg_count - 4) t /\ (ALOOKUP code 5 = NONE) /\
+    (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
     semantics (make_init t (fromAList code)) start <> Fail ==>
     semantics start t IN
     extend_with_resource_limit {semantics (make_init t (fromAList code)) start}``,
@@ -2412,6 +2447,7 @@ val compile_semantics = store_thm("compile_semantics",
   THEN1 (split_pair_tac \\ fs [])
   \\ Cases_on `n=5` \\ fs []
   \\ split_pair_tac \\ fs []
-  \\ cheat (* hmm *));
+  \\ match_mp_tac compile_word_to_stack_IMP_ALOOKUP
+  \\ metis_tac []);
 
 val _ = export_theory();
