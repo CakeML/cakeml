@@ -181,7 +181,7 @@ val pad_code_def = Define `
   (pad_code nop [] = []) /\
   (pad_code nop ((Section n xs)::ys) =
      let k = if EVEN (sec_length xs 0) then 0 else 1 in
-       Section n (pad_section nop k (REVERSE xs) []) :: pad_code nop ys)`
+       Section n (pad_section nop k xs []) :: pad_code nop ys)`
 
 (* top-level assembler function *)
 
