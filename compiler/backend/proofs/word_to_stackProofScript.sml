@@ -207,43 +207,41 @@ val list_rearrange_I = prove(
   Note: requires assumption on dimindex(:'a) stated in state_rel
 *)
 val abs_stack_def = Define`
-  (abs_stack [] [Word 0w] = SOME []) ∧
-  (abs_stack [] _ = NONE) ∧
-  (abs_stack ((StackFrame l NONE)::xs) stack =
-    if stack = [Word 0w] then NONE
-    else
+  (abs_stack (bitmaps:'a word list) [] stack =
+    if stack = [Word (0w:'a word)] then SOME [] else NONE) ∧
+  (abs_stack bitmaps ((StackFrame l NONE)::xs) (w::stack) =
     (*Should cover the stack = [] case automatically*)
-    case read_bitmap stack of
+    case full_read_bitmap bitmaps w of
     | NONE => NONE
     (*read_bitmap reads a bitmap and returns the liveness bits,
       the words read and the rest of the stack*)
-    | SOME (bits,ws,rest) =>
-        if LENGTH rest < LENGTH bits then NONE else
-          let frame = TAKE (LENGTH bits) rest in
-          let rest = DROP (LENGTH bits) rest in
-            case abs_stack xs rest of
+    | SOME (bits,ws,_) =>
+        if LENGTH stack < LENGTH bits then NONE else
+          let frame = TAKE (LENGTH bits) stack in
+          let rest = DROP (LENGTH bits) stack in
+            case abs_stack bitmaps xs rest of
             | NONE => NONE
             | SOME ys => SOME ((NONE,bits,ws,frame)::ys)) ∧
-  (abs_stack ((StackFrame l (SOME _))::xs) (w::stack) =
-    (*Corresponds to a bitmap for a handler frame*)
-    if w ≠ Word 4w then NONE
+  (abs_stack bitmaps ((StackFrame l (SOME _))::xs) (w::stack) =
+    (*Index for bitmap for a handler frame*)
+    if w ≠ Word 1w then NONE
     else
       (case stack of
       (*Read next 2 elements on the stack for the handler*)
-      | loc::hv::stack =>
-          (if stack = [Word 0w] then NONE
-          else
-          case read_bitmap stack of
+      | loc::hv::w::stack =>
+         (case full_read_bitmap bitmaps w of
           | NONE => NONE
-          | SOME (bits,ws,rest) =>
-          if LENGTH rest < LENGTH bits then NONE else
-          let frame = TAKE (LENGTH bits) rest in
-          let rest = DROP (LENGTH bits) rest in
-            case abs_stack xs rest of
-            | NONE => NONE
-            | SOME ys => SOME ((SOME(loc,hv),bits,ws,frame)::ys))
+          (*read_bitmap reads a bitmap and returns the liveness bits,
+            the words read and the rest of the stack*)
+          | SOME (bits,ws,_) =>
+              if LENGTH stack < LENGTH bits then NONE else
+                let frame = TAKE (LENGTH bits) stack in
+                let rest = DROP (LENGTH bits) stack in
+                  case abs_stack bitmaps xs rest of
+                  | NONE => NONE
+                  | SOME ys => SOME ((SOME(loc,hv),bits,ws,frame)::ys))
       | _ => NONE)) ∧
-  (abs_stack _ _ = NONE)`
+  (abs_stack bitmaps _ _ = NONE)`
 
 val index_list_def = Define `
   (index_list [] n = []) /\
@@ -293,82 +291,14 @@ val stack_rel_aux_def = Define`
       stack_rel_aux k len xs stack) ∧
   (stack_rel_aux k len _ _ = F)`
 
-(*
-val join_stacks_def = Define `
-  (join_stacks [] [] = SOME []) /\
-  (join_stacks (StackFrame l NONE::st) (x::xs) =
-     case join_stacks st xs of
-     | NONE => NONE
-     | SOME res => SOME ((StackFrame l NONE,[x])::res)) /\
-  (join_stacks (StackFrame l (SOME z)::st) (x::y::xs) =
-     case join_stacks st xs of
-     | NONE => NONE
-     | SOME res => SOME ((StackFrame l (SOME z),[x;y])::res)) /\
-  (join_stacks _ _ = NONE)`
-
-val abs_length_def = Define `
-  (abs_length [] = 0) /\
-  (abs_length ((_,rs1,xs1)::zs) = LENGTH rs1 + LENGTH xs1 + abs_length zs)`;
-
-val sum_abs_length_def = Define `
-  (sum_abs_length [] = 0) /\
-  (sum_abs_length ((_,zs)::joined) = abs_length zs + sum_abs_length joined)`
-
-val handler_val_def = Define `
-  handler_val t_stack_length s_handler joined =
-    Word (n2w (t_stack_length - sum_abs_length (LASTN s_handler joined)))`
-
-val index_list_def = Define `
-  (index_list [] n = []) /\
-  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
-
-val MAP_FST_def = Define `
-  MAP_FST f xs = MAP (\(x,y). (f x, y)) xs`
-
-val adjust_names_def = Define `
-  adjust_names n = n DIV 2`;
-
-val joined_ok_def = Define `
-  (joined_ok k [] len <=> T) /\
-  (joined_ok k ((StackFrame l1 NONE,[(bs1,rs1,xs1:'a word_loc list)])::rest) len <=>
-     joined_ok k rest len /\
-     (filter_bitmap bs1 (index_list xs1 k) =
-      SOME (MAP_FST adjust_names l1,[])) (* /\
-     (* the following is an experimental alternative to the above *)
-     let current_frame = rs1 ++ xs1 in
-     let f' = LENGTH xs1 in
-     let f = LENGTH rs1 + LENGTH xs1 in
-       (f = f' + f' DIV (dimindex (:'a) - 1) + 1) /\
-       !n v.
-         (lookup n (fromAList l1) = SOME v) <=>
-         EVEN n /\ k <= n DIV 2 /\ n DIV 2 < k + f' /\
-         (el_opt (f+k-(n DIV 2)) current_frame = SOME v) /\
-         (el_opt (f+k-(n DIV 2)) (MAP (K F) rs1 ++ bs1) = SOME T) *)) /\
-  (joined_ok k ((StackFrame l (SOME (h1,l1,l2)),
-               [(bs1,rs1,xs1);(bs2,rs2,xs2)])::rest) len <=>
-     (bs1 = [F;F]) /\ h1 <= LENGTH rest /\
-     (xs1 = [handler_val len h1 rest; Loc l1 l2]) /\
-     joined_ok k ((StackFrame l NONE,[(bs2,rs2,xs2)])::rest) len) /\
-  (joined_ok k _ len <=> F)`
-
-val stack_rel_def = Define `
-  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length <=>
-    ?aa joined.
-      s_handler <= LENGTH s_stack /\
-      (t_handler = SOME (handler_val t_stack_length s_handler joined)) /\
-      (abs_stack t_rest_of_stack = SOME aa) /\
-      (join_stacks s_stack aa = SOME joined) /\
-      joined_ok k joined t_stack_length`
-*)
-
 val sorted_env_def = Define `
   sorted_env (StackFrame l _) = SORTED (\x y. FST x > FST y) l`
 
 val stack_rel_def = Define `
-  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length <=>
+  stack_rel k s_handler s_stack t_handler t_rest_of_stack t_stack_length t_bitmaps <=>
     EVERY sorted_env s_stack /\
     ∃stack.
-      abs_stack s_stack t_rest_of_stack = SOME stack ∧
+      abs_stack t_bitmaps s_stack t_rest_of_stack = SOME stack ∧
       (s_handler < LENGTH s_stack ∧
       is_handler_frame (EL (LENGTH s_stack - (s_handler+1)) s_stack)
       ⇒
@@ -393,7 +323,10 @@ val state_rel_def = Define `
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
-       (lookup n t.code = SOME (word_to_stack$compile_prog word_prog arg_count k))) /\
+       ?bs bs2 stack_prog.
+         word_to_stack$compile_prog word_prog arg_count k bs = (stack_prog,bs2) /\
+         isPREFIX bs2 t.bitmaps /\
+         (lookup n t.code = SOME stack_prog)) /\
     (lookup 5 t.code = SOME (raise_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
@@ -403,7 +336,7 @@ val state_rel_def = Define `
     let current_frame = TAKE f stack in
     let rest_of_stack = DROP f stack in
       stack_rel k s.handler s.stack (FLOOKUP t.store Handler)
-        rest_of_stack (LENGTH t.stack) /\
+        rest_of_stack (LENGTH t.stack) t.bitmaps /\
       (!n v.
         (lookup n s.locals = SOME v) ==>
         EVEN n /\
