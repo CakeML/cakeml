@@ -3,6 +3,8 @@ open preamble asmTheory wordLangTheory stackLangTheory parmoveTheory
 
 val _ = new_theory "word_to_stack";
 
+val _ = Datatype `config = <| bitmaps : 'a word list |>`;
+
 val _ = ParseExtras.tight_equality ();
 
 (* -- *)
@@ -97,17 +99,16 @@ val write_bitmap_def = Define `
     let names = MAP (\(r,y). (f' -1) - (r DIV 2 - k)) (toAList live) in
       word_list (GENLIST (\x. MEM x names) f' ++ [T]) (dimindex(:'a) - 1)`
 
-val wLiveAux_def = tDefine "wLiveAux" `
-  wLiveAux (xs:'a word list) r index =
-    case xs of
-    | [] => Skip
-    | [x] => Seq (Inst (Const r x)) (StackStore r index)
-    | _ => Seq (wLiveAux [HD xs] r index)
-               (wLiveAux (TL xs) r (index+1))`
- (WF_REL_TAC `measure (LENGTH o FST)` \\ fs [] \\ decide_tac);
+val insert_bitmap_def = Define `
+  (insert_bitmap ws [] = (ws,0n)) /\
+  (insert_bitmap ws (x::xs) =
+     if isPREFIX ws (x::xs) then (x::xs,0)
+     else let (ys,n) = insert_bitmap ws xs in (x::ys,n+1))`
 
 val wLive_def = Define `
-  wLive live (k,f,f') = wLiveAux (write_bitmap live k f') k 0`;
+  wLive (live:num_set) (bitmaps:'a word list) (k,f:num,f':num) =
+    let (new_bitmaps,i) = insert_bitmap (write_bitmap live k f') bitmaps in
+      (Seq (Inst (Const k (n2w i))) (StackStore k 0):'a stackLang$prog,new_bitmaps)`
 
 val SeqStackFree_def = Define `
   SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`
@@ -141,43 +142,48 @@ val StackArgs_def = Define `
       stack_move n f 0 k (StackAlloc n)`
 
 val comp_def = Define `
-  (comp (Skip:'a wordLang$prog) kf = Skip:'a stackLang$prog) /\
-  (comp (Move _ xs) kf = wMove xs kf) /\
-  (comp (Inst i) kf = wInst i kf) /\
-  (comp (Return v1 v2) kf =
+  (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
+  (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
+  (comp (Inst i) bs kf = (wInst i kf,bs)) /\
+  (comp (Return v1 v2) bs kf =
      let (xs,x) = wReg1 v1 kf in
-       wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1))) /\
-  (comp (Raise v) kf = Call NONE (INL 5) NONE) /\
-  (comp (Tick) kf = Tick) /\
-  (comp (Seq p1 p2) kf =
-     let q2 = comp p2 kf in
-     let q1 = comp p1 kf in
-       Seq q1 q2) /\
-  (comp (If cmp r ri p1 p2) kf =
+       (wStackLoad xs (SeqStackFree (FST (SND kf)) (Return x 1)),bs)) /\
+  (comp (Raise v) bs kf = (Call NONE (INL 5) NONE,bs)) /\
+  (comp (Tick) bs kf = (Tick,bs)) /\
+  (comp (Seq p1 p2) bs kf =
+     let (q1,bs) = comp p1 bs kf in
+     let (q2,bs) = comp p2 bs kf in
+       (Seq q1 q2,bs)) /\
+  (comp (If cmp r ri p1 p2) bs kf =
      let (x1,r') = wReg1 r kf in
      let (x2,ri') = wRegImm2 ri kf in
-       wStackLoad (x1++x2) (If cmp r' ri' (comp p1 kf) (comp p2 kf))) /\
-  (comp (Set name exp) kf =
+     let (q1,bs) = comp p1 bs kf in
+     let (q2,bs) = comp p2 bs kf in
+       (wStackLoad (x1++x2) (If cmp r' ri' q1 q2),bs)) /\
+  (comp (Set name exp) bs kf =
      case exp of
-     | Var n => let (x1,r') = wReg1 n kf in wStackLoad x1 (Set name r')
-     | _ => Skip (* impossible *)) /\
-  (comp (Get n name) kf =
-     wRegWrite1 (\r. Get r name) n kf) /\
-  (comp (Call ret dest args handler) kf =
+     | Var n => let (x1,r') = wReg1 n kf in (wStackLoad x1 (Set name r'),bs)
+     | _ => (Skip,bs) (* impossible *)) /\
+  (comp (Get n name) bs kf =
+     (wRegWrite1 (\r. Get r name) n kf,bs)) /\
+  (comp (Call ret dest args handler) bs kf =
      case ret of
-     | NONE => SeqStackFree (stack_free dest (LENGTH args - 1) kf)
-                 (CallAny NONE dest (TL args) NONE kf)
+     | NONE => (SeqStackFree (stack_free dest (LENGTH args - 1) kf)
+                 (CallAny NONE dest (TL args) NONE kf),bs)
      | SOME (ret_var, live, ret_code, l1, l2) =>
-         case handler of
-         | NONE => Seq (wLive live kf)
-                     (Seq (StackArgs dest (LENGTH args) kf)
-                          (CallAny (SOME (comp ret_code kf,0,l1,l2))
-                             dest args NONE kf))
-         | SOME (handle_var, handle_code, h1, h2) => Skip (* TODO *)) /\
-  (comp (Alloc r live) kf =
-     Seq (wLive live kf) (Alloc 1)) /\
-  (comp (FFI i r1 r2 live) kf = FFI i (r1 DIV 2) (r2 DIV 2) 0) /\
-  (comp _ kf = Skip (* impossible *))`
+         let (q1,bs) = wLive live bs kf in
+         let (q2,bs) = comp ret_code bs kf in
+           case handler of
+           | NONE => (Seq q1
+                        (Seq (StackArgs dest (LENGTH args) kf)
+                             (CallAny (SOME (q2,0,l1,l2))
+                                dest args NONE kf)),bs)
+         | SOME (handle_var, handle_code, h1, h2) => (Skip,bs) (* TODO *)) /\
+  (comp (Alloc r live) bs kf =
+     let (q1,bs) = wLive live bs kf in
+       (Seq q1 (Alloc 1),bs)) /\
+  (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
+  (comp _ bs kf = (Skip,bs) (* impossible *))`
 
 val raise_stub_def = Define `
   raise_stub k =
@@ -190,20 +196,24 @@ val raise_stub_def = Define `
          (Raise k))))))`;
 
 val compile_prog_def = Define `
-  compile_prog (prog:'a wordLang$prog) arg_count reg_count =
+  compile_prog (prog:'a wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
     let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
-    let bitmap_size = stack_var_count DIV (dimindex (:'a) - 1) + 1 in
-    let f = stack_var_count + bitmap_size in
-      Seq (StackAlloc (f - stack_arg_count))
-          (comp prog (reg_count,f,stack_var_count))`
+    let f = stack_var_count + 1 in
+    let (q1,bitmaps) = comp prog bitmaps (reg_count,f,stack_var_count) in
+      (Seq (StackAlloc (f - stack_arg_count)) q1, bitmaps)`
 
 val compile_word_to_stack_def = Define `
-  compile_word_to_stack k prog =
-    (5:num,raise_stub k) :: MAP (\(i,n,p). (i:num,compile_prog p n k)) prog`;
+  (compile_word_to_stack k [] bitmaps = ([],bitmaps)) /\
+  (compile_word_to_stack k ((i,n,p)::progs) bitmaps =
+     let (prog,bitmaps) = compile_prog p n k bitmaps in
+     let (progs,bitmaps) = compile_word_to_stack k progs bitmaps in
+       ((i,prog)::progs,bitmaps))`
 
 val compile_def = Define `
   compile asm_conf progs =
-    compile_word_to_stack (asm_conf.reg_count - 4) progs`
+    let k = asm_conf.reg_count - 4 in
+    let (progs,bitmaps) = compile_word_to_stack k progs [] in
+      (<| bitmaps := bitmaps |>, (5:num,raise_stub k) :: progs)`
 
 val _ = export_theory();
