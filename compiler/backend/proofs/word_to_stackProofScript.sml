@@ -731,10 +731,17 @@ val evaluate_wLive = Q.prove(
     \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fs [] \\ decide_tac)
-  \\ cheat (* new bitmaps *)
-(*
   \\ fs [stack_rel_def,stack_rel_aux_def,abs_stack_def]
-  \\ fs [list_LUPDATE_write_bitmap_NOT_NIL]
+  \\ Cases_on `DROP t.stack_space t.stack` \\ fs []
+  THEN1 (fs [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
+  \\ fs [LUPDATE_def,abs_stack_def]
+  \\ conj_tac THEN1
+   (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
+    \\ fs [env_to_list_def,sorted_env_def,LET_DEF] \\ rw []
+    \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [])
+  \\ fs [full_read_bitmap_def,GSYM word_add_n2w]
+  \\ cheat) (* new bitmaps *)
+(*
   \\ mp_tac read_bitmap_write_bitmap \\ fs []
   \\ rpt strip_tac \\ pop_assum (K all_tac)
   THEN1
@@ -915,7 +922,7 @@ val evaluate_wLive = Q.prove(
         fs[ADD_SUB])>>
       fs[]>>
       DECIDE_TAC)>>
-    fs[EL_DROP] *))
+    fs[EL_DROP] *)
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -1794,7 +1801,7 @@ val LASTN_HD = prove(``
 
 val comp_IMP_isPREFIX = prove(
   ``comp c1 bs (k,f,f') = (q1,bs') ==> bs ≼ bs'``,
-  cheat);
+  cheat); (* easy *)
 
 val compile_prog_isPREFIX = prove(
   ``compile_prog x y k bs = (prog,bs1) ==> bs ≼ bs1``,
