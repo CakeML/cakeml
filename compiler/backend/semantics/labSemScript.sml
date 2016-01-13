@@ -76,11 +76,6 @@ val word_cmp_def = Define `
   (word_cmp NotTest  (Loc _ _) (Word w2) = if w2 = 1w then SOME F else NONE) /\
   (word_cmp _ _ _ = NONE)`
 
-val word_shift_def = Define `
-  (word_shift Lsl w n = w << n) /\
-  (word_shift Lsr w n = w >>> n) /\
-  (word_shift Asr w n = w >> n)`
-
 val arith_upd_def = Define `
   (arith_upd (Binop b r1 r2 (ri:'a reg_imm)) s =
      case (read_reg r2 s, reg_imm ri s) of
