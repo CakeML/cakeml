@@ -1003,11 +1003,10 @@ val handler_bitmap_props = prove(``
 val enc_stack_lemma = prove(
   ``∀bs (wstack:'a stack_frame list) sstack astack.
       good_dimindex(:'a) ∧
+      LENGTH bs + 1 < dimword (:'a) ∧
       abs_stack bs wstack sstack = SOME astack ∧
       stack_rel_aux k len wstack astack ⇒
       enc_stack bs sstack = SOME (enc_stack wstack)``,
-  cheat) (* needs updating for new bitmaps *)
-(*
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   fs[enc_stack_def]>>
   rw[]>>
@@ -1015,39 +1014,54 @@ val enc_stack_lemma = prove(
   TRY(qpat_assum`A=SOME stack` mp_tac)>>
   TRY(qpat_assum`A=SOME stack'` mp_tac)>>
   TOP_CASE_TAC>>fs[]
-  >-
-    (PairCases_on`x`>>fs[read_bitmap_not_empty,LET_THM]>>
-    TOP_CASE_TAC>>strip_tac>>
+  >- (
+    simp[]
+    \\ TOP_CASE_TAC>>strip_tac>>
     pop_assum (assume_tac o SYM)>>
     fs[stack_rel_aux_def]>>
     imp_res_tac filter_bitmap_lemma>>
     fs[]>>rfs[]>>
     qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
-    IF_CASES_TAC
-    >-
-      fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
-    >>
-    ntac 6 TOP_CASE_TAC>>fs[]>>
-    simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST])
+    Cases_on`w`>>fs[full_read_bitmap_def]
+    \\ fs[MAP_SND_MAP_FST]
+    \\ IF_CASES_TAC \\ simp[]
+    \\ rveq \\ fs[]
+    \\ fs[w2n_minus1]
+    \\ qmatch_assum_abbrev_tac`read_bitmap ls = _`
+    \\ `ls = []` by (
+      simp[Abbr`ls`,DROP_LENGTH_TOO_LONG] )
+    \\ fs[read_bitmap_def] )
   >>
-    (ntac 3 TOP_CASE_TAC>>fs[]>>
-    PairCases_on`x`>>fs[LET_THM,handler_bitmap_props]>>
-    simp[filter_bitmap_def]>>
-    TOP_CASE_TAC>>
-    strip_tac>>pop_assum (assume_tac o SYM)>>
-    PairCases_on`sstack`>>
-    fs[stack_rel_aux_def]>>
-    imp_res_tac filter_bitmap_lemma>>
-    fs[]>>rfs[]>>
-    simp[Once stackSemTheory.enc_stack_def,read_bitmap_not_empty]>>
-    qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
-    IF_CASES_TAC
-    >-
-      fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
-    >>
-    ntac 6 TOP_CASE_TAC>>fs[]>>
-    simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]));
-*)
+  ntac 3 TOP_CASE_TAC>>fs[]>>
+  simp[]
+  \\ TOP_CASE_TAC
+  \\ strip_tac
+  \\ pop_assum (assume_tac o SYM)
+  \\ qmatch_assum_rename_tac`stack_rel_aux _ _ (StackFrame _ (SOME p)::_) _`
+  \\ PairCases_on`p`
+  \\ fs[stack_rel_aux_def]
+  \\ rfs[]
+  \\ qmatch_assum_rename_tac`full_read_bitmap _ ww = _`
+  \\ Cases_on`ww` \\ fs[full_read_bitmap_def]
+  \\ imp_res_tac filter_bitmap_lemma
+  \\ rveq
+  \\ cheat (* this looks unlikely. new bitmaps problem *)
+  (*
+  PairCases_on`x`>>fs[LET_THM,handler_bitmap_props]>>
+  simp[filter_bitmap_def]>>
+  TOP_CASE_TAC>>
+  PairCases_on`sstack`>>
+  fs[stack_rel_aux_def]>>
+  imp_res_tac filter_bitmap_lemma>>
+  fs[]>>rfs[]>>
+  simp[Once stackSemTheory.enc_stack_def,read_bitmap_not_empty]>>
+  qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
+  IF_CASES_TAC
+  >-
+    fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
+  >>
+  ntac 6 TOP_CASE_TAC>>fs[]>>
+  simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST])*));
 
 val IMP_enc_stack = prove(
   ``state_rel k 0 0 s1 t1 ==>
