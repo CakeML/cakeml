@@ -8,7 +8,7 @@ open preamble
 
 val _ = new_theory"stack_removeProof";
 
-(* move *)
+(* TODO: move *)
 
 val word_list_APPEND = store_thm("word_list_APPEND",
   ``!xs ys a.
@@ -17,13 +17,18 @@ val word_list_APPEND = store_thm("word_list_APPEND",
   Induct \\ fs [word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,GSYM word_add_n2w]
   \\ fs [WORD_LEFT_ADD_DISTRIB]);
 
-val read_bytearray_LENGTH = prove(
-  ``!n a m d y be. (read_bytearray a n m d be = SOME y) ==> (LENGTH y = n)``,
-  cheat); (* easy *)
+val read_bytearray_def = wordSemTheory.read_bytearray_def
 
-val call_FFI_LENGTH = prove(
-  ``(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)``,
-  cheat); (* easy *)
+val read_bytearray_LENGTH = Q.store_thm("read_bytearray_LENGTH",
+  `!n a m d y be. (read_bytearray a n m d be = SOME y) ==> (LENGTH y = n)`,
+  Induct >> rw[read_bytearray_def,LENGTH_NIL]
+  \\ every_case_tac >> fs[] >> rw[]
+  \\ res_tac);
+
+val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
+  `(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
+  rw[ffiTheory.call_FFI_def]
+  \\ every_case_tac >> fs[] >> rw[]);
 
 (* --- *)
 
