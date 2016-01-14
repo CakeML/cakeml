@@ -213,7 +213,7 @@ val compile_word_to_stack_def = Define `
 val compile_def = Define `
   compile asm_conf progs =
     let k = asm_conf.reg_count - 4 in
-    let (progs,bitmaps) = compile_word_to_stack k progs [] in
+    let (progs,bitmaps) = compile_word_to_stack k progs [4w] in
       (<| bitmaps := bitmaps |>, (5:num,raise_stub k) :: progs)`
 
 val _ = export_theory();
