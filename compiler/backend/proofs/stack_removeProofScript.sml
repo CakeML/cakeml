@@ -16,7 +16,7 @@ val good_syntax_def = Define `
   (good_syntax (Get v1 n) k <=>
      v1 < k) /\
   (good_syntax (Set n v1) k <=>
-     v1 < k) /\
+     v1 < k /\ n <> BitmapBase) /\
   (good_syntax (LocValue v1 l1 l2) k <=>
      v1 < k) /\
   (good_syntax (Return v1 v2) k <=>
@@ -37,6 +37,7 @@ val good_syntax_def = Define `
       | SOME (y,r,_,_) => good_syntax y k /\ r < k
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => good_syntax y k | NONE => T)) /\
+  (good_syntax (BitmapLoad r v) k <=> r < k /\ v < k) /\
   (good_syntax _ k <=> T)`
 
 val memory_def = Define `
@@ -60,6 +61,13 @@ val code_rel_def = Define `
       good_syntax prog k /\
       lookup n code2 = SOME (comp k prog)`
 
+val is_SOME_Word_def = Define `
+  (is_SOME_Word (SOME (Word w)) = T) /\
+  (is_SOME_Word _ = F)`;
+
+val the_SOME_Word_def = Define `
+  (the_SOME_Word (SOME (Word w)) = w)`;
+
 val state_rel_def = Define `
   state_rel k (s1:('a,'ffi) stackSem$state) s2 <=>
     s1.use_stack /\ s1.use_store /\
@@ -77,15 +85,18 @@ val state_rel_def = Define `
     code_rel k s1.code s2.code /\
     FLOOKUP s2.regs (k+2) = FLOOKUP s1.store CurrHeap /\
     {k;k+1;k+2} SUBSET s2.ffi_save_regs /\
+    is_SOME_Word (FLOOKUP s1.store BitmapBase) /\
     case FLOOKUP s2.regs (k+1) of
     | SOME (Word base) =>
-        dimindex (:'a) DIV 8 * max_stack_alloc <= w2n base /\
-        FLOOKUP s2.regs k =
-          SOME (Word (base + bytes_in_word * n2w s1.stack_space)) /\
-        (memory s1.memory s1.mdomain *
-         word_store base s1.store *
-         word_list base s1.stack)
-          (fun2set (s2.memory,s2.mdomain))
+      dimindex (:'a) DIV 8 * max_stack_alloc <= w2n base /\
+      FLOOKUP s2.regs k =
+        SOME (Word (base + bytes_in_word * n2w s1.stack_space)) /\
+      (memory s1.memory s1.mdomain *
+       word_list (the_SOME_Word (FLOOKUP s1.store BitmapBase) << word_shift (:'a))
+         (MAP Word s1.bitmaps) *
+       word_store base s1.store *
+       word_list base s1.stack)
+        (fun2set (s2.memory,s2.mdomain))
     | _ => F`
 
 val state_rel_get_var = prove(
@@ -117,6 +128,19 @@ val state_rel_set_var = store_thm("state_rel_set_var[simp]",
 val word_store_CurrHeap = prove(
   ``word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store``,
   fs [word_store_def,store_list_def,FLOOKUP_UPDATE]);
+
+val LESS_LENGTH_IMP_APPEND = prove(
+  ``!xs n. n < LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n``,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
+  \\ rw [] \\ res_tac \\ rw []
+  \\ pop_assum (fn th => simp [Once th])
+  \\ qexists_tac `h::ys` \\ fs [])
+
+val word_list_APPEND = store_thm("word_list_APPEND",
+  ``!xs ys a.
+      word_list a (xs ++ ys) =
+      word_list a xs * word_list (a + bytes_in_word * n2w (LENGTH xs)) ys``,
+  cheat);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -279,7 +303,46 @@ val comp_correct = Q.prove(
   THEN1 (* StackStoreAny *) cheat
   THEN1 (* StackGetSize *) cheat
   THEN1 (* StackSetSize *) cheat
-  THEN1 (* BitmapLoad *) cheat);
+  THEN1 (* BitmapLoad *)
+   (fs [stackSemTheory.evaluate_def] \\ every_case_tac
+    \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []
+    \\ qexists_tac `NONE` \\ fs []
+    \\ fs [comp_def,list_Seq_def,stackSemTheory.evaluate_def]
+    \\ `?ww. FLOOKUP s.store BitmapBase = SOME (Word ww)` by
+     (fs [state_rel_def] \\ Cases_on `FLOOKUP s.store BitmapBase`
+      \\ fs [is_SOME_Word_def] \\ Cases_on `x` \\ fs [is_SOME_Word_def])
+    \\ `inst (Mem Load r (Addr (k + 1) (store_offset BitmapBase))) t1 =
+          SOME (set_var r (Word ww) t1)` by
+     (qpat_assum `state_rel k s t1` mp_tac
+      \\ simp [Once state_rel_def] \\ fs []
+      \\ BasicProvers.TOP_CASE_TAC \\ fs []
+      \\ BasicProvers.TOP_CASE_TAC \\ fs [] \\ strip_tac
+      \\ fs [wordLangTheory.word_op_def,stackSemTheory.inst_def,
+             word_exp_def,LET_THM]
+      \\ `mem_load (c' + store_offset BitmapBase) t1 = SOME (Word ww)` by all_tac
+      \\ fs [] \\ fs [store_offset_def,store_pos_def,word_offset_def,
+          store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
+          word_list_rev_def,bytes_in_word_def] \\ rfs[]
+      \\ fs [mem_load_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
+    \\ fs [LET_THM,stackSemTheory.inst_def,stackSemTheory.assign_def,
+           word_exp_def,set_var_def,FLOOKUP_UPDATE,get_var_def]
+    \\ `FLOOKUP t1.regs v = SOME (Word c)` by metis_tac [state_rel_def] \\ fs []
+    \\ fs [wordLangTheory.word_op_def,FLOOKUP_UPDATE,wordLangTheory.num_exp_def,
+           wordSemTheory.word_sh_def]
+    \\ `mem_load (c << word_shift (:'a) + ww << word_shift (:'a)) t1 =
+        SOME (Word (EL (w2n c) s.bitmaps))` by
+     (fs [state_rel_def] \\ ntac 2 (qpat_assum `xx = SOME yy` kall_tac)
+      \\ every_case_tac \\ fs [labPropsTheory.good_dimindex_def,word_shift_def]
+      \\ rfs [WORD_MUL_LSL, the_SOME_Word_def]
+      \\ imp_res_tac LESS_LENGTH_IMP_APPEND \\ fs [word_list_APPEND]
+      \\ rfs [bytes_in_word_def]
+      \\ pop_assum (fn th => simp [GSYM th])
+      \\ Cases_on `zs` \\ fs []
+      \\ fs [rich_listTheory.EL_LENGTH_APPEND,word_list_def]
+      \\ fs [mem_load_def]  \\ SEP_R_TAC \\ fs [])
+    \\ `good_dimindex(:'a)` by fs [state_rel_def]
+    \\ fs [labPropsTheory.good_dimindex_def,word_shift_def,FLOOKUP_UPDATE]
+    \\ fs [mem_load_def] \\ fs [GSYM mem_load_def] \\ fs [GSYM set_var_def]));
 
 val compile_semantics = store_thm("compile_semantics",
   ``state_rel k s1 s2 /\ semantics start s1 <> Fail ==>
