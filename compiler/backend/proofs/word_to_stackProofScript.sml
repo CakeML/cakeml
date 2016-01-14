@@ -2401,6 +2401,7 @@ val init_state_ok_def = Define `
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
     LENGTH t.bitmaps + 1 < dimword (:'a) /\
+    [4w] ≼ t.bitmaps /\
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
     FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
@@ -2420,7 +2421,7 @@ val init_state_ok_IMP_state_rel = prove(
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
-  \\ fs[flookup_thm]);
+  \\ fs[flookup_thm] \\ every_case_tac \\ fs [] \\ decide_tac);
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
