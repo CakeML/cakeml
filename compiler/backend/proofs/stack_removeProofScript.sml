@@ -8,6 +8,25 @@ open preamble
 
 val _ = new_theory"stack_removeProof";
 
+(* move *)
+
+val word_list_APPEND = store_thm("word_list_APPEND",
+  ``!xs ys a.
+      word_list a (xs ++ ys) =
+      word_list a xs * word_list (a + bytes_in_word * n2w (LENGTH xs)) ys``,
+  Induct \\ fs [word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,GSYM word_add_n2w]
+  \\ fs [WORD_LEFT_ADD_DISTRIB]);
+
+val read_bytearray_LENGTH = prove(
+  ``!n a m d y be. (read_bytearray a n m d be = SOME y) ==> (LENGTH y = n)``,
+  cheat); (* easy *)
+
+val call_FFI_LENGTH = prove(
+  ``(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)``,
+  cheat); (* easy *)
+
+(* --- *)
+
 val good_syntax_def = Define `
   (good_syntax (Halt v1) k <=>
      v1 < k) /\
@@ -136,11 +155,67 @@ val LESS_LENGTH_IMP_APPEND = prove(
   \\ pop_assum (fn th => simp [Once th])
   \\ qexists_tac `h::ys` \\ fs [])
 
-val word_list_APPEND = store_thm("word_list_APPEND",
-  ``!xs ys a.
-      word_list a (xs ++ ys) =
-      word_list a xs * word_list (a + bytes_in_word * n2w (LENGTH xs)) ys``,
-  cheat);
+val memory_fun2set_IMP_read = prove(
+  ``(memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
+    a IN d1 /\ m1 a = m a``,
+  simp [Once STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
+  \\ fs [fun2set_def,SUBSET_DEF,PULL_EXISTS]);
+
+val state_rel_read = prove(
+  ``state_rel k s t /\ a IN s.mdomain ==>
+    a IN t.mdomain /\ (t.memory a = s.memory a)``,
+  fs [state_rel_def] \\ every_case_tac \\ fs [] \\ strip_tac
+  \\ fs [GSYM STAR_ASSOC] \\ metis_tac [memory_fun2set_IMP_read]);
+
+val mem_load_byte_aux_IMP = prove(
+  ``state_rel k s t /\
+    mem_load_byte_aux a s.memory s.mdomain s.be = SOME x ==>
+    mem_load_byte_aux a t.memory t.mdomain t.be = SOME x``,
+  fs [wordSemTheory.mem_load_byte_aux_def] \\ rw []
+  \\ `s.be = t.be` by fs [state_rel_def]
+  \\ every_case_tac \\ fs [] \\ rw []
+  \\ imp_res_tac state_rel_read
+  \\ fs [] \\ rfs [] \\ rw [] \\ fs []);
+
+val read_bytearray_IMP_read_bytearray = prove(
+  ``!n a k s t x.
+      state_rel k s t /\
+      read_bytearray a n s.memory s.mdomain s.be = SOME x ==>
+      read_bytearray a n t.memory t.mdomain t.be = SOME x``,
+  Induct \\ fs [wordSemTheory.read_bytearray_def]
+  \\ rw [] \\ every_case_tac \\ fs [] \\ res_tac \\ rw []
+  \\ imp_res_tac mem_load_byte_aux_IMP \\ fs [] \\ rw [] \\ fs []);
+
+val write_bytearray_NEQ_IMP = prove(
+  ``write_bytearray a new_bytes m d be xx ≠
+    write_bytearray a new_bytes m1 d1 be xx ==>
+    m1 xx = m xx``,
+  cheat); (* easy *)
+
+val write_bytearray_IGNORE = prove(
+  ``read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x /\ xx ∉ d1 ==>
+    write_bytearray a new_bytes m d be xx = m xx``,
+  cheat); (* easy *)
+
+val write_bytearray_lemma = prove(
+  ``!new_bytes a m1 d1 be x p m d.
+      (memory m1 d1 * p) (fun2set (m,d)) /\
+      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x ==>
+      (memory (write_bytearray a new_bytes m1 d1 be) d1 * p)
+        (fun2set (write_bytearray a new_bytes m d be,d))``,
+  simp [STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
+  \\ fs [fun2set_def,SUBSET_DEF,PULL_EXISTS] \\ rw []
+  THEN1 (res_tac \\ fs [] \\ metis_tac [write_bytearray_NEQ_IMP])
+  \\ qpat_assum `p xx` mp_tac
+  \\ match_mp_tac (METIS_PROVE [] ``(x=y)==>x==>y``) \\ AP_TERM_TAC
+  \\ fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ rw []
+  \\ res_tac \\ fs []
+  \\ pop_assum mp_tac \\ fs []
+  \\ qcase_tac `xx IN d`
+  \\ Cases_on `xx IN d1` \\ res_tac \\ fs []
+  \\ imp_res_tac write_bytearray_IGNORE
+  \\ fs [] \\ metis_tac [write_bytearray_NEQ_IMP]);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
@@ -287,9 +362,19 @@ val comp_correct = Q.prove(
    (simp [Once comp_def]
     \\ fs [good_syntax_def,evaluate_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ Cases_on `get_var ptr t1` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ Cases_on `get_var len t1` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ cheat)
+    \\ qpat_assum `xxx = (r,s2)` mp_tac
+    \\ rpt (BasicProvers.TOP_CASE_TAC \\ fs [])
+    \\ imp_res_tac read_bytearray_IMP_read_bytearray \\ fs []
+    \\ pop_assum kall_tac \\ rw [] \\ fs [LET_THM]
+    \\ split_pair_tac \\ fs []
+    \\ `t1.ffi = s.ffi` by fs [state_rel_def] \\ fs []
+    \\ fs [markerTheory.Abbrev_def] \\ rw []
+    \\ fs [state_rel_def,FLOOKUP_DRESTRICT]
+    \\ rfs [] \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
+    \\ fs [GSYM STAR_ASSOC]
+    \\ match_mp_tac write_bytearray_lemma \\ fs []
+    \\ imp_res_tac read_bytearray_LENGTH \\ fs []
+    \\ imp_res_tac call_FFI_LENGTH \\ fs [])
   THEN1 (* LocValue *)
    (fs [evaluate_def,Once comp_def] \\ rw []
     \\ fs [state_rel_def,set_var_def,FLOOKUP_UPDATE,good_syntax_def]
