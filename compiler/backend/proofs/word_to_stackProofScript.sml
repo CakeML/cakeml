@@ -334,6 +334,7 @@ val state_rel_def = Define `
          (lookup n t.code = SOME stack_prog)) /\
     (lookup 5 t.code = SOME (raise_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+    LENGTH t.bitmaps +1 < dimword (:α) /\
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
     (if f' = 0 then f = 0 else (f = f' + 1)) /\
     let stack = DROP t.stack_space t.stack in
@@ -536,6 +537,51 @@ val APPEND_LEMMA = prove(
   \\ `n2 <= LENGTH xs2` by decide_tac
   \\ imp_res_tac LESS_EQ_LENGTH
   \\ rw [] \\ metis_tac []);
+
+val read_bitmap_append_extra = Q.store_thm("read_bitmap_append_extra",
+  `∀l1 l2 bits.
+   read_bitmap l1 = SOME bits ⇒
+   read_bitmap (l1 ++ l2) = SOME bits`,
+  Induct >> simp[read_bitmap_def]
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC \\ simp[]
+  \\ BasicProvers.CASE_TAC >> simp[]
+  \\ BasicProvers.CASE_TAC >> simp[]
+  \\ fs[] \\ rfs[]);
+
+val read_bitmap_write_bitmap = Q.store_thm("read_bitmap_write_bitmap",
+  `8 ≤ dimindex (:α) ⇒
+   read_bitmap ((write_bitmap names k f'):α word list) =
+   SOME (GENLIST (λx. MEM x (MAP (λ(r,y). f' - 1 - (r DIV 2 - k)) (toAList names))) f')`,
+  rw[write_bitmap_def]
+  \\ imp_res_tac read_bitmap_word_list
+  \\ first_x_assum(qspec_then`[]`mp_tac)
+  \\ simp[]);
+
+val read_bitmap_insert_bitmap = Q.store_thm("read_bitmap_insert_bitmap",
+  `∀bs bs' i.
+   i < dimword (:α) ∧
+   IS_SOME (read_bitmap bm) ∧
+   insert_bitmap bm (bs:α word list) = (bs',i)
+   ⇒ read_bitmap (DROP (i MOD dimword (:α)) bs') = read_bitmap bm`,
+  Induct >> simp[insert_bitmap_def] \\ rw[] \\ simp[]
+  >- (
+    fs[IS_PREFIX_APPEND,IS_SOME_EXISTS]
+    \\ match_mp_tac read_bitmap_append_extra
+    \\ simp[] )
+  \\ split_pair_tac >> fs[]
+  \\ rveq
+  \\ REWRITE_TAC[GSYM ADD1]
+  \\ REWRITE_TAC[DROP]
+  \\ first_x_assum match_mp_tac
+  \\ simp[]);
+
+val insert_bitmap_length = Q.store_thm("insert_bitmap_length",
+  `∀ls ls' i. insert_bitmap bm ls = (ls',i) ⇒ i ≤ LENGTH ls ∧ LENGTH ls ≤ LENGTH ls'`,
+  Induct >> simp[insert_bitmap_def]
+  \\ rw[] >> simp[]
+  \\ split_pair_tac >> fs[]
+  \\ rw[] >> simp[]);
 
 (*
 
@@ -740,54 +786,58 @@ val evaluate_wLive = Q.prove(
     \\ fs [env_to_list_def,sorted_env_def,LET_DEF] \\ rw []
     \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [])
   \\ fs [full_read_bitmap_def,GSYM word_add_n2w]
-  \\ cheat) (* new bitmaps *)
-(*
-  \\ mp_tac read_bitmap_write_bitmap \\ fs []
-  \\ rpt strip_tac \\ pop_assum (K all_tac)
-  THEN1
-   (mp_tac (Q.SPEC `env` env_to_list_K_I_IMP)
-    \\ fs [env_to_list_def,sorted_env_def,LET_DEF] \\ rw []
-    \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [])
-  \\ `f' + (f - f') + t.stack_space = f + t.stack_space` by decide_tac
-  \\ fs [DROP_DROP_EQ,LET_DEF]
-  \\ `~(LENGTH t.stack <= t.stack_space) /\
-      ~(LENGTH t.stack < t.stack_space + (f - f' + f'))` by decide_tac
-  \\ fs [stack_rel_aux_def]
-  \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [list_rearrange_I]
-  \\ rpt strip_tac
-  THEN1
-   (imp_res_tac abs_stack_IMP_LENGTH>>
-   Cases_on`s.handler < LENGTH s.stack`>>fs[]>>
-   qpat_assum`is_handler_frame frame` mp_tac
-   >-
-     (simp[ADD1]>>
-     `LENGTH s.stack - s.handler = SUC(LENGTH s.stack - (s.handler+1))` by DECIDE_TAC>>
-     simp[]>>
-     rw[]>>
-     simp[LASTN_CONS])
-   >>
-   `LENGTH s.stack - s.handler = 0` by DECIDE_TAC>>
-   simp[ADD1,is_handler_frame_def])
+  \\ `i < dimword(:α)` by (
+    fs[state_rel_def]
+    \\ imp_res_tac insert_bitmap_length
+    \\ fs[IS_PREFIX_APPEND] >> fs[]
+    \\ simp[] )
+  \\ drule (GEN_ALL read_bitmap_insert_bitmap)
+  \\ simp[IS_SOME_EXISTS,PULL_EXISTS]
+  \\ ONCE_REWRITE_TAC[CONJ_COMM]
+  \\ disch_then drule
+  \\ simp[read_bitmap_write_bitmap]
+  \\ strip_tac
+  \\ fs[IS_PREFIX_APPEND]
+  \\ imp_res_tac read_bitmap_append_extra
+  \\ simp[DROP_APPEND]
+  \\ fsrw_tac[ARITH_ss][] \\ rveq
+  \\ fsrw_tac[ARITH_ss][]
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ imp_res_tac abs_stack_IMP_LENGTH
+    \\ Cases_on`s.handler<LENGTH s.stack`>>fs[]
+    \\ qpat_assum`is_handler_frame _`mp_tac
+    >- (simp[ADD1,EL_CONS,PRE_SUB1,LASTN_CONS])
+    \\ simp[ADD1]
+    \\ `LENGTH s.stack - s.handler = 0` by DECIDE_TAC
+    \\ simp[is_handler_frame_def] )
+  \\ simp[stack_rel_aux_def]
+  \\ `∀x. s.permute x = I` by simp[FUN_EQ_THM]
+  \\ simp[list_rearrange_I]
+  \\ qmatch_assum_abbrev_tac`DROP nn ll = _`
+  \\ qispl_then[`nn`,`ll`]mp_tac LENGTH_DROP
+  \\ asm_simp_tac(std_ss)[Abbr`ll`,Abbr`nn`]
+  \\ simp[] \\ rpt strip_tac
   \\ match_mp_tac IMP_filter_bitmap_EQ_SOME_NIL
   \\ fs [] \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ match_mp_tac (METIS_PROVE [] ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
-  \\ strip_tac THEN1 (fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF]
-                      \\ decide_tac)
-  \\ fs [ZIP_GENLIST] \\ rpt strip_tac \\ pop_assum (K all_tac)
-  \\ `!x. MEM x (MAP (\(r,y). f + k - r DIV 2) (toAList names)) <=>
-          ?n. x = f + k - n DIV 2 /\ n IN domain env` by
-   (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def] \\ rw[]
+  \\ conj_asm1_tac THEN1 (
+      fs [LENGTH_index_list,LENGTH_TAKE_EQ,MIN_DEF]
+      \\ rw[] >> decide_tac )
+  \\ fs [ZIP_GENLIST] \\ pop_assum kall_tac
+  \\ qpat_abbrev_tac`ls = MAP _ (toAList _)`
+  \\ `!x. MEM x ls <=>
+          ?n. x = f' - 1 - (n DIV 2 - k) /\ n IN domain env` by
+   (fs [MEM_MAP,EXISTS_PROD,MEM_toAList,cut_env_def,Abbr`ls`] \\ rw[]
     \\ fs [lookup_inter_alt,domain_lookup,SUBSET_DEF]
-    \\ metis_tac []) \\ fs [] \\ pop_assum (K all_tac)
-  \\ `(LENGTH ((write_bitmap names k f'): 'a word list) +
-      MIN f' (LENGTH t.stack - (f - f' + t.stack_space))) = f` by
-     (fs [MIN_DEF] \\ decide_tac) \\ fs [LENGTH_TAKE_EQ]
+  \\ metis_tac []) \\ fs [] \\ ntac 2 (pop_assum kall_tac)
   \\ fs [MAP_FST_def,adjust_names_def]
   \\ match_mp_tac SORTED_IMP_EQ_LISTS
-  \\ rpt strip_tac
-  THEN1 (
+  \\ conj_tac
+  >- (
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
-     |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
+    |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
     REWRITE_TAC[GSYM inv_image_def] >>
     conj_tac >-(
       match_mp_tac transitive_inv_image >>
@@ -808,7 +858,8 @@ val evaluate_wLive = Q.prove(
         fs[lookup_inter_EQ])>>
       rw[]>>fs[]>>res_tac>>res_tac>>
       fs[EVEN_GT])
-  THEN1 (
+  \\ conj_tac
+  >- (
     (sorted_map |> SPEC_ALL |> UNDISCH |> EQ_IMP_RULE |> snd
      |> DISCH_ALL |> MP_CANON |> match_mp_tac) >>
     REWRITE_TAC[GSYM inv_image_def] >>
@@ -830,6 +881,10 @@ val evaluate_wLive = Q.prove(
       simp[LIST_EQ_REWRITE,Abbr`g`] >>
       rw[] >>
       qmatch_abbrev_tac`FST (EL x (index_list ls k)) = Z` >>
+      qmatch_assum_abbrev_tac`DROP nn ll = _`
+      \\ qispl_then[`nn`,`ll`]mp_tac LENGTH_DROP
+      \\ asm_simp_tac(std_ss)[Abbr`ll`,Abbr`nn`]
+      \\ simp[] >>
       `x < LENGTH ls` by ( simp[Abbr`ls`] ) >>
       asm_simp_tac std_ss [EL_index_list] >>
       simp[Abbr`ls`,Abbr`Z`] ) >>
@@ -837,92 +892,43 @@ val evaluate_wLive = Q.prove(
     fs[Abbr`R`]>>
     fs[SORTED_EL_SUC]>>rw[]>>`n < m` by DECIDE_TAC>>
     fs[EL_GENLIST]>>DECIDE_TAC)
-  >>
-  qpat_abbrev_tac `f'' = f- f' + t.stack_space`>>
-  `f' ≤ LENGTH t.stack - f''` by (rw[Abbr`f''`]>>DECIDE_TAC)>>
-  `MIN f' (LENGTH t.stack - f'') = f'` by
-    (fs[MIN_DEF]>>rw[]>>
-    ntac 2 (pop_assum mp_tac)>>
-    rpt (pop_assum kall_tac)>>
-    DECIDE_TAC)
-  \\ fs [MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,EXISTS_PROD,
-      MEM_toAList,cut_env_def] \\ rw [lookup_inter_alt,domain_inter]
-  \\ Cases_on `x` \\ fs [GSYM CONJ_ASSOC,LENGTH_write_bitmap] \\
-  `0 < f'` by
-    (CCONTR_TAC>>`f' = 0` by DECIDE_TAC>>fs[]>>
-    DECIDE_TAC)>>
-  eq_tac>>rw[]
-  >-
-    (fs[domain_lookup]>>
-    res_tac>>
-    `¬ (p_1 DIV 2 < k)` by DECIDE_TAC>>
-    HINT_EXISTS_TAC>>fs[]>>
-    qabbrev_tac `rn = p_1 DIV 2 -k`>>
-    `rn < f'` by fs[Abbr`rn`]>>
-    `f' -1 - rn < f'` by DECIDE_TAC>>
-    fs[EL_index_list2]>>
-    `rn + k  = k +f' - (f' - 1 - rn +1)` by DECIDE_TAC>>
-    pop_assum (SUBST_ALL_TAC o SYM)>>
-    CONJ_TAC>-
-      (fs[Abbr`rn`]>>
-      DECIDE_TAC)
-    >>
-    fs[el_opt_THM,EL_TAKE]>>
-    qpat_assum`A=r` (SUBST_ALL_TAC o SYM)>>
-    qpat_abbrev_tac`f = LENGTH A + f'`>>
-    `f - 1 - rn < f` by DECIDE_TAC>>
-    fs[EL_TAKE]>>
-    `f -1 - rn + t.stack_space < LENGTH t.stack` by
-       DECIDE_TAC>>
-    `f' -1 -rn + f'' = f-1 -rn + t.stack_space` by
-      (fs[Abbr`f''`,Abbr`f`]>>
-      qpat_abbrev_tac `len = LENGTH A`>>
-      qpat_abbrev_tac `rnn = f' -1 - rn`>>
-      `len + f' - 1 -rn = len + rnn` by
-        (fs[Abbr`rnn`]>>
-        fs[SUB_RIGHT_SUB]>>
-        DECIDE_TAC)>>
-      fs[]>>
-      DECIDE_TAC)>>
-    fs[EL_DROP])
-  >>
-    `p_1' ∈ domain s.locals` by metis_tac[SUBSET_DEF,domain_lookup]>>
-    fs[domain_lookup]>>
-    res_tac>>
-    `¬ (p_1' DIV 2 < k)` by DECIDE_TAC>>
-    HINT_EXISTS_TAC>>fs[]>>
-    qabbrev_tac `rn = p_1' DIV 2 -k`>>
-    `rn < f'` by fs[Abbr`rn`]>>
-    rfs[EL_index_list2]>>
-    CONJ_TAC>-
-      (fs[SUB_RIGHT_SUB]>>
-      `f' - (1 + rn) +1 = f' - rn` by DECIDE_TAC>>
-      fs[]>>pop_assum kall_tac>>
-      `k + f' - (f' - rn) = k + rn` by DECIDE_TAC>>
-      fs[Abbr`rn`]>>pop_assum kall_tac>>
-      `k ≤ p_1' DIV 2` by DECIDE_TAC>>
-      DECIDE_TAC)
-    >>
-    fs[el_opt_THM]>>qpat_assum`A=v` (SUBST_ALL_TAC o SYM)>>
-    qpat_abbrev_tac`f = LENGTH A + f'`>>
-    `f -1 - rn < f` by DECIDE_TAC>>
-    fs[EL_TAKE]>>
-    `f - 1 - rn + t.stack_space < LENGTH t.stack` by DECIDE_TAC>>
-    `f' -1 -rn + f'' = f-1 -rn + t.stack_space` by
-      (fs[Abbr`f''`,Abbr`f`]>>
-      qpat_abbrev_tac `len = LENGTH A`>>
-      qpat_abbrev_tac `rnn = f' -1 - rn`>>
-      `len + f' - 1 -rn = len + rnn` by
-        (fs[Abbr`rnn`]>>
-        fs[SUB_RIGHT_SUB]>>
-        fs[SUB_LEFT_ADD]>>
-        IF_CASES_TAC>>fs[]>>
-        `f' = 1 + rn` by DECIDE_TAC>>
-        pop_assum (SUBST_ALL_TAC o SYM)>>
-        fs[ADD_SUB])>>
-      fs[]>>
-      DECIDE_TAC)>>
-    fs[EL_DROP] *)
+  \\ rator_x_assum`cut_env`mp_tac
+  \\ simp[MEM_MAP,MEM_FILTER,MEM_GENLIST,PULL_EXISTS,MEM_QSORT,
+            MEM_toAList,EXISTS_PROD,FORALL_PROD,cut_env_def]
+  \\ strip_tac >> rveq
+  \\ simp[lookup_inter_alt,domain_inter]
+  \\ fs[SUBSET_DEF]
+  \\ `LENGTH (TAKE f' t') = f'` by ( simp[LENGTH_TAKE_EQ] )
+  \\ rw[EQ_IMP_THM]
+  >- (
+    fs[domain_lookup,PULL_EXISTS]
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac \\ simp[]
+    \\ first_x_assum drule >> strip_tac
+    \\ first_x_assum drule
+    \\ last_x_assum drule
+    \\ IF_CASES_TAC >- simp[]
+    \\ simp[el_opt_THM,EVEN_EXISTS]
+    \\ strip_tac >> rveq
+    \\ fs[MULT_COMM,MULT_DIV]
+    \\ fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1]
+    \\ simp[EL_index_list] )
+  \\ fs[domain_lookup]
+  \\ first_x_assum drule >> strip_tac
+  \\ first_x_assum drule
+  \\ last_x_assum drule
+  \\ IF_CASES_TAC >- simp[]
+  \\ simp[el_opt_THM,EVEN_EXISTS]
+  \\ strip_tac >> rveq
+  \\ fs[MULT_COMM,MULT_DIV]
+  \\ fsrw_tac[ARITH_ss][EL_CONS,PRE_SUB1]
+  \\ rfs[]
+  \\ qpat_assum`_ = EL _ (index_list _ _)`(mp_tac o SYM)
+  \\ simp[EL_index_list] >> strip_tac >> rveq
+  \\ ONCE_REWRITE_TAC[CONJ_COMM]
+  \\ asm_exists_tac
+  \\ simp[]
+  \\ simp_tac (srw_ss()) [MULT_COMM,MULT_DIV]);
 
 val push_env_set_store = prove(
   ``push_env env ^nn (set_store AllocSize (Word c) s) =
@@ -2396,6 +2402,7 @@ val init_state_ok_def = Define `
     t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
+    LENGTH t.bitmaps + 1 < dimword (:'a) /\
     LENGTH t.stack < dimword (:'a) /\
     DROP t.stack_space t.stack = [Word 0w] /\
     FLOOKUP t.store Handler = SOME (Word (n2w (LENGTH t.stack - 2)))`
