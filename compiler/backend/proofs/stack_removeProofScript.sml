@@ -3,7 +3,7 @@ open preamble
      stackSemTheory
      stackPropsTheory
      set_sepTheory
-     semanticsPropsTheory (* TODO: should be in heap? *)
+     semanticsPropsTheory
      helperLib
 
 val _ = new_theory"stack_removeProof";
