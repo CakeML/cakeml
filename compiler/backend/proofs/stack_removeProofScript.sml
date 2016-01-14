@@ -278,7 +278,8 @@ val comp_correct = Q.prove(
   THEN1 (* StackStore *) cheat
   THEN1 (* StackStoreAny *) cheat
   THEN1 (* StackGetSize *) cheat
-  THEN1 (* StackSetSize *) cheat);
+  THEN1 (* StackSetSize *) cheat
+  THEN1 (* BitmapLoad *) cheat);
 
 val compile_semantics = store_thm("compile_semantics",
   ``state_rel k s1 s2 /\ semantics start s1 <> Fail ==>
