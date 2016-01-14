@@ -173,7 +173,8 @@ val empty_env_def = Define `
 
 val full_read_bitmap_def = Define `
   (full_read_bitmap bitmaps (Word w) =
-     read_bitmap (DROP (w2n (w - 1w)) bitmaps)) /\
+     if w = 0w then NONE
+     else read_bitmap (DROP (w2n (w - 1w)) bitmaps)) /\
   (full_read_bitmap bitmaps _ = NONE)`
 
 val enc_stack_def = tDefine "enc_stack" `

@@ -335,6 +335,9 @@ val state_rel_def = Define `
     (lookup 5 t.code = SOME (raise_stub k)) /\
     good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     LENGTH t.bitmaps +1 < dimword (:α) /\
+    (* Need this assumption, but writing it this way is very annoying
+    and breaks evaluate_wLive...
+    (∃bs. t1.bitmaps = 4w::bs) /\*)
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
     (if f' = 0 then f = 0 else (f = f' + 1)) /\
     let stack = DROP t.stack_space t.stack in
@@ -786,7 +789,7 @@ val evaluate_wLive = Q.prove(
     \\ fs [env_to_list_def,sorted_env_def,LET_DEF] \\ rw []
     \\ `s.permute 0 = I` by fs [FUN_EQ_THM] \\ fs [])
   \\ fs [full_read_bitmap_def,GSYM word_add_n2w]
-  \\ `i < dimword(:α)` by (
+  \\ `i < dimword(:α) ∧ (i+1) MOD dimword(:'a) ≠ 0` by (
     fs[state_rel_def]
     \\ imp_res_tac insert_bitmap_length
     \\ fs[IS_PREFIX_APPEND] >> fs[]
@@ -1001,10 +1004,12 @@ val handler_bitmap_props = prove(``
   \\ fs [] \\ EVAL_TAC \\ rw [] \\ decide_tac)
 
 val enc_stack_lemma = prove(
-  ``∀bs (wstack:'a stack_frame list) sstack astack.
+  ``∀bs (wstack:'a stack_frame list) sstack astack bs'.
       good_dimindex(:'a) ∧
       LENGTH bs + 1 < dimword (:'a) ∧
       abs_stack bs wstack sstack = SOME astack ∧
+      (*The first bitmap is the handler one*)
+      bs = 4w::bs' ∧
       stack_rel_aux k len wstack astack ⇒
       enc_stack bs sstack = SOME (enc_stack wstack)``,
   ho_match_mp_tac (theorem "abs_stack_ind")>>
@@ -1045,30 +1050,21 @@ val enc_stack_lemma = prove(
   \\ Cases_on`ww` \\ fs[full_read_bitmap_def]
   \\ imp_res_tac filter_bitmap_lemma
   \\ rveq
-  \\ cheat (* this looks unlikely. new bitmaps problem *)
-  (*
-  PairCases_on`x`>>fs[LET_THM,handler_bitmap_props]>>
+  \\ simp[handler_bitmap_props] >>
   simp[filter_bitmap_def]>>
-  TOP_CASE_TAC>>
-  PairCases_on`sstack`>>
-  fs[stack_rel_aux_def]>>
-  imp_res_tac filter_bitmap_lemma>>
-  fs[]>>rfs[]>>
-  simp[Once stackSemTheory.enc_stack_def,read_bitmap_not_empty]>>
-  qpat_assum`A=SOME(enc_stack wstack)` mp_tac>>
-  IF_CASES_TAC
-  >-
-    fs[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST]
-  >>
-  ntac 6 TOP_CASE_TAC>>fs[]>>
-  simp[Once stackSemTheory.enc_stack_def,MAP_SND_MAP_FST])*));
+  simp[Once stackSemTheory.enc_stack_def]>>
+  simp[full_read_bitmap_def,MAP_SND_MAP_FST]);
 
+(*TODO: Delete second assumption by moving into state_rel?*)
 val IMP_enc_stack = prove(
-  ``state_rel k 0 0 s1 t1 ==>
+  ``state_rel k 0 0 s1 t1 ∧
+    t1.bitmaps = 4w::bs'
+    ==>
     (enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
        SOME (enc_stack s1.stack))``,
   fs [state_rel_def,LET_DEF] \\ rpt strip_tac
-  \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma);
+  \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma>>
+  simp[]);
 
 val dec_stack_lemma = prove(
   ``enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
@@ -1083,6 +1079,7 @@ val dec_stack_lemma = prove(
             (LENGTH t1.stack) t1.bitmaps``,
   cheat) |> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
 
+(*Broken below...*)
 val gc_state_rel = prove(
   ``(gc (s1:('a,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 t1 /\ (s1.locals = LN) ==>
     ?t2. gc t1 = SOME t2 /\ state_rel k 0 0 s2 t2``,
