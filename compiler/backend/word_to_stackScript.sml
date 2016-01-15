@@ -141,6 +141,20 @@ val StackArgs_def = Define `
     let n = stack_arg_count dest arg_count k in
       stack_move n f 0 k (StackAlloc n)`
 
+val StackHandlerArgs_def = Define `
+  StackHandlerArgs dest arg_count (k,f,f':num) =
+    StackArgs dest arg_count (k,f+3,f'+3)`;
+
+val PushHandler_def = Define `
+  PushHandler l1 l2 (k,f,f') =
+    Seq (StackAlloc 3)
+   (Seq (Inst (Const 0 1w))
+   (Seq (StackStore 0 k)
+   (Seq (Get k Handler)
+   (Seq (StackStore 1 k)
+   (Seq (LocValue k l1 l2)
+        (StackStore 2 k))))))`
+
 val comp_def = Define `
   (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
   (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
@@ -175,10 +189,16 @@ val comp_def = Define `
          let (q2,bs) = comp ret_code bs kf in
            case handler of
            | NONE => (Seq q1
-                        (Seq (StackArgs dest (LENGTH args) kf)
-                             (CallAny (SOME (q2,0,l1,l2))
-                                dest args NONE kf)),bs)
-         | SOME (handle_var, handle_code, h1, h2) => (Skip,bs) (* TODO *)) /\
+                     (Seq (StackArgs dest (LENGTH args) kf)
+                          (CallAny (SOME (q2,0,l1,l2)) dest args NONE kf)),
+                      bs)
+           | SOME (handle_var, handle_code, h1, h2) =>
+               let (q3,bs) = comp handle_code bs kf in
+                (Seq q1
+                (Seq (PushHandler h1 h2 kf)
+                (Seq (StackHandlerArgs dest (LENGTH args) kf)
+                     (CallAny (SOME (q2,0,l1,l2)) dest args (SOME (q3,h1,h2)) kf))),
+                 bs)) /\
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
