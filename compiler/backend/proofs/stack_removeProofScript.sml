@@ -191,16 +191,47 @@ val read_bytearray_IMP_read_bytearray = prove(
   \\ rw [] \\ every_case_tac \\ fs [] \\ res_tac \\ rw []
   \\ imp_res_tac mem_load_byte_aux_IMP \\ fs [] \\ rw [] \\ fs []);
 
-val write_bytearray_NEQ_IMP = prove(
-  ``write_bytearray a new_bytes m d be xx ≠
-    write_bytearray a new_bytes m1 d1 be xx ==>
-    m1 xx = m xx``,
-  cheat); (* easy *)
+val write_bytearray_IGNORE_non_aligned = prove(
+  ``!new_bytes a.
+      (!x. b <> byte_align x) ==>
+      write_bytearray a new_bytes m d be b = m b``,
+  Induct \\ fs [wordSemTheory.write_bytearray_def] \\ rw [] \\ fs []
+  \\ fs [wordSemTheory.mem_store_byte_aux_def]
+  \\ every_case_tac \\ fs [APPLY_UPDATE_THM]);
 
 val write_bytearray_IGNORE = prove(
-  ``read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x /\ xx ∉ d1 ==>
-    write_bytearray a new_bytes m d be xx = m xx``,
-  cheat); (* easy *)
+  ``!new_bytes a x xx.
+      d1 SUBSET d /\
+      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x /\ xx ∉ d1 ==>
+      write_bytearray a new_bytes m d be xx = m xx``,
+  Induct_on `new_bytes`
+  \\ fs [wordSemTheory.write_bytearray_def,wordSemTheory.read_bytearray_def]
+  \\ fs [wordSemTheory.mem_load_byte_aux_def]
+  \\ fs [wordSemTheory.mem_store_byte_aux_def]
+  \\ rpt gen_tac \\ every_case_tac
+  \\ rw [] \\ res_tac \\ fs []
+  \\ fs [APPLY_UPDATE_THM] \\ rw [] \\ fs []);
+
+val write_bytearray_EQ = prove(
+  ``!new_bytes a m1 m y x.
+      d1 SUBSET d /\ (!a. a IN d1 ==> m1 a = m a /\ a IN d) /\
+      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME y /\ m1 x = m x ==>
+      write_bytearray a new_bytes m1 d1 be x =
+      write_bytearray a new_bytes m d be x``,
+  Induct_on `new_bytes`
+  \\ fs [wordSemTheory.write_bytearray_def,wordSemTheory.read_bytearray_def]
+  \\ rpt gen_tac \\ ntac 2 BasicProvers.TOP_CASE_TAC \\ rw [] \\ fs []
+  \\ res_tac \\ fs []
+  \\ fs [wordSemTheory.mem_store_byte_aux_def]
+  \\ fs [wordSemTheory.mem_load_byte_aux_def]
+  \\ Cases_on `m1 (byte_align a)` \\ fs [] \\ rw []
+  \\ `byte_align a IN d` by fs [SUBSET_DEF] \\ fs []
+  \\ qpat_assum `xx ==> yy` mp_tac \\ discharge_hyps THEN1 (metis_tac [])
+  \\ rw []
+  \\ `write_bytearray (a + 1w) new_bytes m1 d1 be (byte_align a) =
+      write_bytearray (a + 1w) new_bytes m d be (byte_align a)` by
+    (first_x_assum match_mp_tac \\ fs [] \\ res_tac \\ fs [])
+  \\ fs [] \\ every_case_tac \\ fs [APPLY_UPDATE_THM] \\ rw []);
 
 val write_bytearray_lemma = prove(
   ``!new_bytes a m1 d1 be x p m d.
@@ -210,7 +241,8 @@ val write_bytearray_lemma = prove(
         (fun2set (write_bytearray a new_bytes m d be,d))``,
   simp [STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
   \\ fs [fun2set_def,SUBSET_DEF,PULL_EXISTS] \\ rw []
-  THEN1 (res_tac \\ fs [] \\ metis_tac [write_bytearray_NEQ_IMP])
+  \\ `d1 SUBSET d` by fs [SUBSET_DEF]
+  THEN1 (res_tac \\ fs [] \\ imp_res_tac write_bytearray_EQ \\ fs [])
   \\ qpat_assum `p xx` mp_tac
   \\ match_mp_tac (METIS_PROVE [] ``(x=y)==>x==>y``) \\ AP_TERM_TAC
   \\ fs [EXTENSION] \\ rw [] \\ EQ_TAC \\ rw []
@@ -219,8 +251,8 @@ val write_bytearray_lemma = prove(
   \\ pop_assum mp_tac \\ fs []
   \\ qcase_tac `xx IN d`
   \\ Cases_on `xx IN d1` \\ res_tac \\ fs []
-  \\ imp_res_tac write_bytearray_IGNORE
-  \\ fs [] \\ metis_tac [write_bytearray_NEQ_IMP]);
+  \\ imp_res_tac write_bytearray_IGNORE \\ fs []
+  \\ imp_res_tac write_bytearray_EQ \\ rfs [] \\ fs [] \\ metis_tac [])
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
