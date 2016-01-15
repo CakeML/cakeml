@@ -1845,6 +1845,233 @@ val compile_word_to_stack_isPREFIX = prove(
   \\ imp_res_tac compile_prog_isPREFIX
   \\ imp_res_tac IS_PREFIX_TRANS \\ fs []);
 
+val SND_o_pair_swap = Q.store_thm("SND_o_pair_swap",
+  `SND o pair_swap = DIV2 o FST`,
+  simp[FUN_EQ_THM,FORALL_PROD,pair_swap_def,DIV2_def]);
+
+val EVEN_DIV2_INJ = Q.store_thm("EVEN_DIV2_INJ",
+  `EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y`,
+  rw[EVEN_EXISTS,DIV2_def,MULT_COMM]
+  \\ fs[MULT_DIV]);
+
+val wMoveAux_thm = Q.store_thm("wMoveAux_thm",
+  `evaluate (wMoveAux [] kf,s) = (NONE,s) ∧
+   evaluate (wMoveAux (x::xs) kf,s) =
+   evaluate (Seq (wMoveSingle x kf) (wMoveAux xs kf), s)`,
+  rw[wMoveAux_def] >- rw[stackSemTheory.evaluate_def]
+  \\ Cases_on`xs` >> rw[wMoveAux_def]
+  \\ rw[stackSemTheory.evaluate_def]
+  \\ rw[]);
+
+val with_same_locals = save_thm("with_same_locals[simp]",
+  EQT_ELIM(SIMP_CONV(srw_ss())[state_component_equality]``s with locals := s.locals = (s:('a,'b) wordSem$state)``));
+
+val state_rel_get_var_imp = Q.store_thm("state_rel_get_var_imp",
+  `state_rel k f f' s t ∧ get_var (x * 2) s = SOME v ∧ x < k ⇒ FLOOKUP t.regs x = SOME v`,
+  simp[state_rel_def]
+  \\ strip_tac
+  \\ fs[wordSemTheory.get_var_def]
+  \\ first_x_assum drule
+  \\ simp[EVEN_MULT]
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+  \\ rw[]);
+
+val state_rel_get_var_imp2 = Q.store_thm("state_rel_get_var_imp2",
+  `state_rel k f f' s t ∧
+  get_var (x * 2) s = SOME v ∧
+  ¬(x < k)
+  ⇒
+  (EL (t.stack_space + (f + k - (x + 1))) t.stack = v)`,
+  simp[state_rel_def]
+  \\ strip_tac
+  \\ fs[wordSemTheory.get_var_def]
+  \\ first_x_assum drule
+  \\ simp[EVEN_MULT]
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+  \\ simp[el_opt_THM]
+  \\ strip_tac
+  \\ rator_x_assum`EL`mp_tac
+  \\ simp[EL_TAKE]
+  \\ simp[EL_DROP]
+  \\ simp[ADD_COMM]);
+
+val state_rel_set_var_k = Q.store_thm("state_rel_set_var_k[simp]",
+  `(state_rel k f f' s (set_var (k+1) v t) ⇔ state_rel k f f' s t) ∧
+   (state_rel k f f' s (set_var k v t) ⇔ state_rel k f f' s t)`,
+  conj_tac
+  \\ simp[state_rel_def,EQ_IMP_THM,stackSemTheory.set_var_def]
+  \\ ntac 2 strip_tac
+  \\ fs[FLOOKUP_UPDATE]
+  \\ metis_tac[DECIDE``¬(k + 1n < k) ∧ ¬(k < k)``]);
+
+val state_rel_set_var = Q.store_thm("state_rel_set_var",
+   `state_rel k f f' s t ∧ x < k ⇒
+    state_rel k f f' (set_var (2*x) v s) (set_var x v t)`,
+  simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
+  \\ strip_tac
+  \\ fs[lookup_insert,FLOOKUP_UPDATE]
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC \\ simp[]
+  >- (
+    simp[EVEN_MULT]
+    \\ ONCE_REWRITE_TAC[MULT_COMM]
+    \\ simp[MULT_DIV] )
+  \\ strip_tac
+  \\ Cases_on`x = n DIV 2` \\ simp[]
+  \\ rveq
+  \\ fs[bitTheory.DIV_MULT_THM2]
+  \\ `EVEN n` by metis_tac[]
+  \\ fs[EVEN_MOD2]);
+
+val state_rel_set_var2 = Q.store_thm("state_rel_set_var2",
+   `state_rel k f f' s t ∧ ¬(x < k) ∧ 0 < f ∧ x < f' + k ∧ st = t.stack ∧ sp = t.stack_space ⇒
+    state_rel k f f' (set_var (2*x) v s)
+    (t with stack := LUPDATE v (sp + (f + k − (x + 1))) st)`,
+  simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
+  \\ strip_tac
+  \\ fs[lookup_insert,FLOOKUP_UPDATE]
+  \\ simp[DROP_LUPDATE]
+  \\ rpt gen_tac
+  \\ IF_CASES_TAC \\ simp[]
+  >- (
+    simp[EVEN_MULT]
+    \\ ONCE_REWRITE_TAC[MULT_COMM]
+    \\ simp[MULT_DIV]
+    \\ strip_tac >> rveq
+    \\ simp[el_opt_THM]
+    \\ simp[EL_LUPDATE])
+  \\ strip_tac
+  \\ first_x_assum drule
+  \\ strip_tac
+  \\ IF_CASES_TAC >> fs[]
+  \\ simp[el_opt_THM]
+  \\ simp[EL_LUPDATE]
+  \\ fs[EVEN_EXISTS]
+  \\ rveq
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+  \\ fs [el_opt_THM]
+  \\ rveq
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]
+  \\ ntac 2 strip_tac
+  \\ rw[]
+  \\ fsrw_tac[ARITH_ss][]);
+
+val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
+  `state_rel k f f' s t ∧ 0 < f ∧
+   (case x of NONE => get_var (k+1) t = SOME v
+    | SOME x => get_var (x * 2) s = SOME v ) ∧
+   (case y of SOME x => x < f' + k | _ => T)
+   ⇒
+   ∃t'.
+     evaluate (wMoveSingle (format_result k (y,x)) (k,f,f'), t) = (NONE,t') ∧
+     state_rel k f f' (case y of NONE => s | SOME y => set_var (y*2) v s) t' ∧
+     (y = NONE ⇒ get_var (k+1) t' = SOME v)`,
+  rw[format_result_def,wMoveSingle_def]
+  \\ Cases_on`y` \\ simp[format_var_def]
+  \\ Cases_on`x` \\ fs[format_var_def]
+  >- (
+    rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+    \\ fs[stackSemTheory.get_var_def]
+    \\ fs[stackSemTheory.set_var_def,FLOOKUP_UPDATE])
+  >- (
+    rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+    >- (
+      imp_res_tac state_rel_get_var_imp
+      \\ simp[] )
+    \\ IF_CASES_TAC >- fs[state_rel_def]
+    \\ IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def]
+    \\ simp[]
+    \\ imp_res_tac state_rel_get_var_imp2 )
+  >- (
+    rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+    >- (
+      fs[stackSemTheory.get_var_def]
+      \\ match_mp_tac state_rel_set_var
+      \\ simp[] )
+    \\ IF_CASES_TAC >- fs[state_rel_def]
+    \\ IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def]
+    \\ simp[]
+    \\ match_mp_tac state_rel_set_var2
+    \\ simp[])
+  >- (
+    rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+    \\ TRY (
+      imp_res_tac state_rel_get_var_imp \\ fs[]
+      \\ match_mp_tac state_rel_set_var
+      \\ simp[])
+    \\ (IF_CASES_TAC >- fs[state_rel_def])
+    \\ (IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def])
+    \\ fs[]
+    >- (
+      imp_res_tac state_rel_get_var_imp2
+      \\ rw[]
+      \\ simp[]
+      \\ match_mp_tac state_rel_set_var \\ simp[])
+    >- (
+      imp_res_tac state_rel_get_var_imp
+      \\ fs[stackSemTheory.get_var_def]
+      \\ simp[]
+      \\ match_mp_tac state_rel_set_var2
+      \\ simp[] )
+    >- (
+      IF_CASES_TAC
+      >- (
+        `F` suffices_by rw[]
+        \\ fs[state_rel_def,LET_THM,wordSemTheory.get_var_def]
+        \\ every_case_tac >> fs[]
+        \\ rveq \\ fs[]
+        \\ decide_tac )
+      \\ rpt(qpat_assum`¬(_ < k)`mp_tac)
+      \\ simp_tac (srw_ss()++ARITH_ss)[]
+      \\ ntac 2 strip_tac
+      \\ imp_res_tac state_rel_get_var_imp2
+      \\ rveq
+      \\ match_mp_tac state_rel_set_var2
+      \\ simp[])))
+
+(*
+val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
+  `∀ms s t r.
+   state_rel k f f' s t ∧ 0 < f ∧
+   (∀i v. get_var i s = SOME v ⇒ r (SOME i) = v) ∧
+   (∀v. get_var (k+1) s = SOME v ⇒ r NONE = v) ∧
+   IS_SOME (get_vars (MAP THE (FILTER IS_SOME (MAP SND ms))) s)
+   (*∧
+   post_alloc_conventions k (Move pri moves) ∧
+   max_var (Move pri moves) ≤ 2 * f' + 2 * k ∧
+   get_vars (MAP SND moves) s = SOME x
+   *)
+   ⇒
+   ∃t'.
+     evaluate (wMoveAux (MAP (format_result k) ms) (k,f,f'),t) = (NONE,t') ∧
+     state_rel k f f'
+       (set_vars
+         (MAP THE (FILTER IS_SOME (MAP SND ms)))
+         (MAP (seqsem ms r) (FILTER IS_SOME (MAP SND ms)))
+         s) t'`,
+  Induct
+  \\ simp[wMoveAux_thm]
+  >- simp[set_vars_def,alist_insert_def]
+  \\ Cases
+  \\ rpt gen_tac \\ strip_tac
+  \\ simp[]
+  \\ simp[stackSemTheory.evaluate_def]
+  \\ drule (GEN_ALL wMoveSingle_thm)
+  \\ simp[]
+  \\ qpat_abbrev_tac`wms = wMoveSingle _`
+  \\ qmatch_assum_abbrev_tac`Abbrev(wms = _ (_ (y,x)))`
+  \\ disch_then(qspecl_then[`y`,`x`]mp_tac)
+  \\ unabbrev_all_tac
+  \\ fs[]
+*)
+
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -1898,7 +2125,27 @@ val comp_correct = store_thm("comp_correct",
     \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
     \\ fs [] \\ REPEAT STRIP_TAC
     \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
-  THEN1 (* Move *) cheat
+  THEN1 (* Move *) (
+    simp[comp_def]
+    \\ fs[evaluate_def]
+    \\ last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq
+    \\ simp[]
+    \\ qabbrev_tac`mvs = MAP pair_swap moves`
+    \\ `windmill mvs`
+    by (
+      simp[parmoveTheory.windmill_def,Abbr`mvs`]
+      \\ simp[MAP_MAP_o,SND_o_pair_swap]
+      \\ simp[GSYM MAP_MAP_o]
+      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+      \\ rw[]
+      \\ match_mp_tac EVEN_DIV2_INJ \\ simp[]
+      \\ rator_x_assum`post_alloc_conventions`mp_tac
+      \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
+    \\ simp[wMove_def]
+    \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
   THEN1 (* Get *) cheat

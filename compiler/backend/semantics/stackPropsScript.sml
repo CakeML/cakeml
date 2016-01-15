@@ -29,7 +29,9 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
    (set_var x y z).be = z.be ∧
    (set_var x y z).gc_fun = z.gc_fun ∧
    (set_var x y z).mdomain = z.mdomain ∧
-   (set_var x y z).bitmaps = z.bitmaps`,
+   (set_var x y z).bitmaps = z.bitmaps ∧
+   (set_var x y z).stack = z.stack ∧
+   (set_var x y z).stack_space = z.stack_space`,
   EVAL_TAC);
 
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
