@@ -1802,9 +1802,31 @@ val LASTN_HD = prove(``
     `SUC (LENGTH ls) -x = SUC(LENGTH ls - x)` by DECIDE_TAC>>
     simp[])
 
-val comp_IMP_isPREFIX = prove(
-  ``comp c1 bs (k,f,f') = (q1,bs') ==> bs ≼ bs'``,
-  cheat); (* easy *)
+val insert_bitmap_isPREFIX = Q.store_thm("insert_bitmap_isPREFIX",
+  `∀bs bs' i. insert_bitmap bm bs = (bs',i) ⇒ bs ≼ bs'`,
+  Induct
+  \\ rw[insert_bitmap_def,LET_THM]
+  \\ fs[IS_PREFIX_APPEND]
+  \\ split_pair_tac \\ fs[]
+  \\ rveq \\ simp[]);
+
+val wLive_isPREFIX = Q.store_thm("wLive_isPREFIX",
+  `∀a bs c q bs'. wLive a bs c = (q,bs') ⇒ bs ≼ bs'`,
+  rw[]
+  \\ PairCases_on`c`
+  \\ fs[wLive_def,LET_THM]
+  \\ split_pair_tac \\ fs[]
+  \\ rw[]
+  \\ imp_res_tac insert_bitmap_isPREFIX);
+
+val comp_IMP_isPREFIX = Q.store_thm("comp_IMP_isPREFIX",
+  `∀c1 bs r q1 bs'. comp c1 bs r = (q1,bs') ==> bs ≼ bs'`,
+  ho_match_mp_tac comp_ind
+  \\ rw[comp_def,LET_THM]
+  \\ every_case_tac \\ fs[]
+  \\ rpt (split_pair_tac >> fs[])
+  \\ rveq
+  \\ metis_tac[IS_PREFIX_TRANS,wLive_isPREFIX]);
 
 val compile_prog_isPREFIX = prove(
   ``compile_prog x y k bs = (prog,bs1) ==> bs ≼ bs1``,
