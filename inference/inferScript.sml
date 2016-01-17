@@ -81,9 +81,15 @@ flookup_st_ex pr x m =
      | NONE => failwith ("failed lookup: " ++ pr x)
      | SOME v => return v`;
 
-val _ = Hol_datatype `
-infer_st = <| next_uvar : num;
-              subst : 'a |>`;
+val _ = Datatype `infer_st = <| next_uvar : num; subst : 'a |>`;
+
+val _ = gen_remove_ovl_mapping (GrammarSpecials.recfupd_special ^ "subst")
+                               ``λf x. infer_st_subst_fupd f x``
+
+val _ = Parse.add_record_fupdate(
+  "subst",
+  Term.inst[beta |-> alpha] ``infer_st_subst_fupd``);
+
 
 val fresh_uvar_def = Define `
 (fresh_uvar : ('b infer_st, infer_t, α) M) =
