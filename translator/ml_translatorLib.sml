@@ -957,9 +957,13 @@ fun derive_record_specific_thms ty = let
   val a_lemmas = map prove_accessor_eq (zip access_funs xs)
   fun prove_updates_eq (a,x) = let
     val v = mk_var("v",type_of tm)
-    val t = type_of x
-    val g = mk_var("g",mk_type("fun",[t,t]))
-    val f = foldr mk_abs (subst [x|->mk_comb(g,x)] tm) xs
+    val (t,ti) = type_of a |> dom_rng
+    val ti = dom_rng ti |> #2
+    val g = mk_var("g",t)
+    val s = match_type (type_of tm) ti
+    val tmi = Term.inst s tm
+    val xi = Term.inst s x
+    val f = foldr mk_abs (subst [xi|->mk_comb(g,x)] tmi) xs
     val ty1 = case_tm |> type_of |> dest_type |> snd |> el 2
                                  |> dest_type |> snd |> hd
     val i = match_type ty1 (type_of f)
@@ -969,8 +973,27 @@ fun derive_record_specific_thms ty = let
     val tac = Cases THEN SRW_TAC [] [DB.fetch thy_name (ty_name ^ "_fn_updates")]
     in prove(goal,tac) end
   val b_lemmas = map prove_updates_eq (zip update_funs xs)
-  val arb = mk_arb(type_of tm)
-  val tm2 = foldr (fn ((a,x),y) => mk_comb(``^a (K ^x)``,y)) arb (zip update_funs xs)
+  val rtype = type_of tm
+  val {Args,Thy,Tyop} = dest_thy_type rtype
+  fun new_rtype() = let
+    val Args = List.tabulate (length Args,fn _ => gen_tyvar())
+    in mk_thy_type{Args=Args,Thy=Thy,Tyop=Tyop} end
+  fun foldthis ((fupd,var),(rtype,y)) =
+    let
+      val (fty,updty) = fupd |> type_of |> dom_rng
+      val (r1,r2) = dom_rng updty
+      val s = match_type updty (rtype --> new_rtype())
+              handle HOL_ERR _ => match_type updty (rtype --> rtype)
+      val ifupd = inst s fupd
+      val (g1,g2) = dom_rng (type_subst s fty)
+      val (x,_) = dest_var var
+      val x = mk_var(x,g2)
+      val k = combinSyntax.mk_K_1 (x,g1)
+    in (type_subst s r2,mk_comb(mk_comb(ifupd,k),y)) end
+  val arb = mk_arb (new_rtype())
+  val (_,tm2) = foldr foldthis (type_of arb,arb) (zip update_funs xs)
+  val s = match_type (type_of tm2) rtype
+  val tm2 = inst s tm2
   val goal = mk_eq(tm2,tm)
   val rw_lemma = prove(goal,SRW_TAC []
     [DB.fetch thy_name (ty_name ^ "_component_equality")])
