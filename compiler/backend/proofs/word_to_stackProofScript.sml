@@ -189,7 +189,7 @@ val list_rearrange_I = prove(
 
 (*Abstracts a stackLang stack w.r.t. to wordLang's
   Note: requires assumption on dimindex(:'a) stated in state_rel
-  TODO: The length checks may be inconvinent for handler frames
+  TODO: The length checks may be inconvenient for handler frames
 *)
 val abs_stack_def = Define`
   (abs_stack (bitmaps:'a word list) [] stack [] =
@@ -1302,15 +1302,41 @@ val alloc_IMP_alloc = prove(
         qpat_assum`stack_rel_aux A B C D` mp_tac>>
         fs[stack_rel_aux_def]>>
         simp[])>>
+    `f' ≠ 0` by (CCONTR_TAC>>fs[]>>DECIDE_TAC)>>
+    fs[]>>rfs[]>>
     fs[stack_rel_def,LET_THM]>>
     qpat_assum`stack_rel_aux A B C D` mp_tac>>
-    qpat_assum`A = sOME stack'''` mp_tac>>
+    qpat_assum`A = SOME stack'''` mp_tac>>
     fs[stack_rel_def,LET_THM,DROP_APPEND,DROP_TAKE_NIL]>>
-    Cases_on`x'`>>simp[abs_stack_def]>>
-    ntac 3 FULL_CASE_TAC>> simp[]>>
-    strip_tac>>rveq>>simp[stack_rel_aux_def]>>
-    (*Probably need to use the other assumption on the stack rel
-    instead*)
+    Cases_on`DROP t5.stack_space t5.stack`>>fs[]
+    >- (fs [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)>>
+    qpat_assum`A=SOME x'`mp_tac>>
+    Cases_on`q`>>simp[stackSemTheory.dec_stack_def]>>
+    ntac 5 TOP_CASE_TAC>>strip_tac>>rveq>>
+    fs[abs_stack_def,LET_THM]>>
+    TOP_CASE_TAC>>simp[]>>
+    strip_tac>>rveq>>
+    simp[stack_rel_aux_def]>>
+    strip_tac>>
+    ntac 3 strip_tac>>
+    `n ∈ domain (fromAList l)` by
+      metis_tac[domain_lookup]>>
+    `n ∈ domain names ∧ n ∈ domain s.locals` by
+      (fs[cut_env_def]>>
+      `n ∈ domain env` by fs[]>>
+      rveq>>
+      fs[domain_inter])>>
+    res_tac>>simp[]>>
+    qpat_assum` ∀n v. A ⇒ B` mp_tac>>
+    fs[domain_lookup]>>
+    disch_then (qspecl_then [`n`,`v''`] mp_tac)>>fs[]>>
+    `~ (n DIV 2 < k)` by DECIDE_TAC>>
+    simp[]>>strip_tac>>
+    imp_res_tac map_bitmap_length>>
+    fs[TAKE_APPEND2]>>
+    qpat_assum`filter_bitmap A B = C` mp_tac>>
+    (*Seems true, using 124 and remapping the values
+    But maybe there's a better way to prove this...*)
     cheat)
   \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fs []
   \\ Cases_on `has_space x s3` \\ fs []
