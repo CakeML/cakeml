@@ -69,7 +69,7 @@ val full_make_init_code =
 val machine_sem_implements_bvp_sem_RAW = save_thm("machine_sem_implements_bvp_sem_RAW",let
   val th = from_bvp |> DISCH_ALL
            |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
-           |> Q.INST [`code1`|->`compile asm_conf code3`]
+           |> Q.INST [`code1`|->`SND (compile asm_conf code3)`]
            |> REWRITE_RULE []
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
