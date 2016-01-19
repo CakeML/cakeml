@@ -1230,6 +1230,40 @@ val joined_ok_drop = prove(``
   fs[joined_ok_def])
 *)
 
+(*MEM to an EL characterization for index lists*)
+val MEM_index_list_LIM = prove(``
+  ∀ls n v k.
+  MEM (n,v) (index_list ls k) ⇒
+  n-k < LENGTH ls``,
+  Induct>>fs[index_list_def]>>rw[]
+  >-
+    DECIDE_TAC
+  >>
+  res_tac>>
+  DECIDE_TAC)
+
+val MEM_index_list_EL = prove(``
+  ∀ls n v.
+  MEM (n,v) (index_list ls k) ⇒
+  EL (LENGTH ls - (n-k+1)) ls = v``,
+  Induct>>fs[index_list_def,FORALL_PROD]>>rw[]>>
+  simp[ADD1]>>
+  res_tac>>
+  fs[]>>
+  imp_res_tac MEM_index_list_LIM>>
+  `LENGTH ls +1 - (n-k+1) = SUC(LENGTH ls - (n-k+1))` by DECIDE_TAC>>
+  pop_assum SUBST_ALL_TAC>>
+  simp[])
+
+val filter_bitmap_MEM = prove(``
+  ∀b ls ls' x.
+  filter_bitmap b ls = SOME (ls',[]) ∧
+  MEM x ls' ⇒ MEM x ls``,
+  ho_match_mp_tac filter_bitmap_ind>>
+  rw[filter_bitmap_def]>>
+  EVERY_CASE_TAC>>fs[]>>rveq>>
+  fs[MEM])
+
 val alloc_IMP_alloc = prove(
   ``(wordSem$alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
     (∀x. x ∈ domain names ⇒ EVEN x /\ k ≤ x DIV 2) /\
@@ -1332,12 +1366,22 @@ val alloc_IMP_alloc = prove(
     disch_then (qspecl_then [`n`,`v''`] mp_tac)>>fs[]>>
     `~ (n DIV 2 < k)` by DECIDE_TAC>>
     simp[]>>strip_tac>>
-    imp_res_tac map_bitmap_length>>
-    fs[TAKE_APPEND2]>>
-    qpat_assum`filter_bitmap A B = C` mp_tac>>
-    (*Seems true, using 124 and remapping the values
-    But maybe there's a better way to prove this...*)
-    cheat)
+    fs[lookup_fromAList]>>
+    `MEM (n,v') l` by metis_tac[ALOOKUP_MEM]>>
+    `MEM (n DIV 2,v') (MAP_FST adjust_names l)` by
+      (simp[MAP_FST_def,MEM_MAP,adjust_names_def,EXISTS_PROD]>>
+      metis_tac[])>>
+    simp[el_opt_THM]>>
+    qpat_abbrev_tac`ls = TAKE A B`>>
+    imp_res_tac filter_bitmap_MEM>>
+    imp_res_tac MEM_index_list_EL>>
+    fs[Abbr`ls`]>>
+    pop_assum mp_tac>>
+    simp[LENGTH_TAKE]>>
+    ` k + LENGTH x'' - n DIV 2 =
+      SUC ( k+ LENGTH x'' - (n DIV 2 +1))` by
+        DECIDE_TAC>>
+    simp[])
   \\ Cases_on `FLOOKUP s3.store AllocSize` \\ fs []
   \\ Cases_on `has_space x s3` \\ fs []
   \\ `s3.store SUBMAP t2.store` by
