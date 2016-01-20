@@ -1126,6 +1126,66 @@ val filter_bitmap_length = prove(``
   EVERY_CASE_TAC>>rveq>>fs[]>>res_tac>>
   rveq>>fs[]>>DECIDE_TAC)
 
+(*These two are actually implied by s_key_eq*)
+val word_stack_dec_stack_shape = prove(``
+  ∀ls wstack res n.
+  dec_stack ls wstack = SOME res ∧ n < LENGTH wstack ⇒
+  (is_handler_frame (EL n wstack) ⇔ is_handler_frame (EL n res))``,
+  ho_match_mp_tac dec_stack_ind>>fs[dec_stack_def,is_handler_frame_def]>>
+  rw[]>>
+  EVERY_CASE_TAC>>fs[]>>
+  rveq>>
+  Cases_on`n`>-
+    (Cases_on`handler`>>
+    simp[is_handler_frame_def])>>
+  simp[])
+
+val sorted_env_zip = prove(``
+  ∀l:(num,'a word_loc) alist ls:'a word_loc list x.
+  sorted_env (StackFrame l x) ∧
+  LENGTH ls = LENGTH l⇒
+  sorted_env (StackFrame (ZIP (MAP FST l, ls)) x)``,
+  fs[sorted_env_def]>>
+  Induct>>fs[LENGTH_NIL]>>rw[]>>
+  Cases_on`ls`>>fs[]>>
+  qmatch_abbrev_tac`SORTED R _`>>
+  `transitive R` by
+    (fs[Abbr`R`,transitive_def]>>
+    DECIDE_TAC)>>
+  fs[SORTED_EQ,MEM_ZIP,PULL_EXISTS,MEM_EL]>>
+  rw[]>>res_tac>>
+  fs[Abbr`R`,EL_MAP])
+
+val word_stack_dec_stack_sorted = prove(``
+  ∀(ls:'a word_loc list) (wstack:'a stack_frame list) res.
+  dec_stack ls wstack = SOME res ∧
+  EVERY sorted_env wstack ⇒
+  EVERY sorted_env res``,
+  ho_match_mp_tac dec_stack_ind>>fs[dec_stack_def]>>rw[]>>
+  EVERY_CASE_TAC>>fs[]>>rveq>>
+  rfs[]>>
+  match_mp_tac sorted_env_zip>>
+  simp[])
+
+val abs_stack_empty = prove(``
+  ∀bs ls stack lens.
+  abs_stack bs [] ls lens = SOME stack ⇒ ls = [Word 0w] ∧ lens = []``,
+  rpt Cases>>fs[abs_stack_def])
+
+val abs_frame_eq_def = Define`
+  abs_frame_eq p q ⇔
+  FST p = FST q ∧
+  FST (SND p) = FST (SND q) ∧
+  LENGTH (SND (SND p)) = LENGTH (SND (SND q))`
+
+val LIST_REL_abs_frame_eq_handler_val = prove(``
+  ∀xs ys.
+  LIST_REL abs_frame_eq xs ys ⇒
+  handler_val xs = handler_val ys``,
+  ho_match_mp_tac LIST_REL_ind>>
+  fs[handler_val_def,abs_frame_eq_def,FORALL_PROD]>>rw[]>>
+  Cases_on`p_1`>>fs[handler_val_def])
+
 (*Prove the inductive bits first...*)
 val dec_stack_lemma1 = prove(``
   ∀bs (wstack:'a stack_frame list) sstack lens astack wdec ls.
@@ -1141,7 +1201,9 @@ val dec_stack_lemma1 = prove(``
   (*The stackLang stack is successfully decoded*)
   dec_stack bs ls sstack = SOME sdec ∧
   abs_stack bs wdec sdec lens = SOME bstack ∧
-  stack_rel_aux k len wdec bstack``,
+  stack_rel_aux k len wdec bstack ∧
+  (*They have exactly the same shape*)
+  LIST_REL abs_frame_eq astack bstack``,
   ho_match_mp_tac (theorem "abs_stack_ind")>>
   fs[dec_stack_def,enc_stack_def]>>
   rw[]>>
@@ -1172,8 +1234,11 @@ val dec_stack_lemma1 = prove(``
     imp_res_tac map_bitmap_length>>
     simp[DROP_APPEND2]>>
     simp[stack_rel_aux_def,TAKE_APPEND2]>>
-    (*looks true*)
-    cheat)
+    CONJ_TAC>-
+      (*looks true*)
+      cheat>>
+    fs[abs_frame_eq_def]>>
+    simp[])
   >>
     (qpat_assum`A=SOME wdec` mp_tac>>
     qpat_assum`A=SOME astack`mp_tac>>
@@ -1202,13 +1267,29 @@ val dec_stack_lemma1 = prove(``
     imp_res_tac map_bitmap_length>>
     simp[DROP_APPEND2]>>
     simp[stack_rel_aux_def,TAKE_APPEND2]>>
-    (*handler frame bit needs a separate lemma..*)
-    cheat))
+    rw[]
+    >-
+      (qpat_assum`A ∧ B ⇒ C` mp_tac>>
+      imp_res_tac abs_stack_IMP_LENGTH>>
+      simp[]>>
+      discharge_hyps>-
+        (imp_res_tac word_stack_dec_stack_shape>>
+        simp[]>>fs[])>>
+      imp_res_tac list_rel_lastn>>
+      pop_assum(qspec_then`v00+1` mp_tac)>>discharge_hyps>-
+        DECIDE_TAC>>
+      metis_tac[LIST_REL_abs_frame_eq_handler_val])
+    >-
+      cheat
+    >>
+    fs[abs_frame_eq_def]>>
+    simp[]))
 
 val dec_stack_lemma = prove(``
   good_dimindex(:'a) ∧
   1 ≤ LENGTH t1.bitmaps ∧
   HD t1.bitmaps = 4w ∧
+  t1.stack_space ≤ LENGTH t1.stack ∧
   enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
       SOME (enc_stack s1.stack) /\
     (dec_stack x0 s1.stack = SOME x) /\
@@ -1224,8 +1305,25 @@ val dec_stack_lemma = prove(``
   drule (GEN_ALL dec_stack_lemma1)>>
   disch_then(qspecl_then [`LENGTH t1.stack`,`k`,`t1.bitmaps`] assume_tac)>>
   rfs[]>>
-  res_tac>>fs[]>>rveq>>fs[]>>
-  cheat)|> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
+  res_tac>>fs[]>>rveq>>fs[]>>rw[]
+  >-
+    (imp_res_tac dec_stack_length>>
+    fs[LENGTH_DROP]>>
+    simp[])
+  >-
+    metis_tac[word_stack_dec_stack_sorted]
+  >>
+    (qpat_assum`A ∧ B ⇒ C` mp_tac>>
+    imp_res_tac abs_stack_IMP_LENGTH>>
+    simp[]>>
+    discharge_hyps>-
+      (imp_res_tac word_stack_dec_stack_shape>>
+      simp[]>>fs[])>>
+    imp_res_tac list_rel_lastn>>
+    pop_assum(qspec_then`s1.handler+1` mp_tac)>>discharge_hyps>-
+      DECIDE_TAC>>
+    metis_tac[LIST_REL_abs_frame_eq_handler_val])
+  )|> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
 
 val gc_state_rel = prove(
   ``(gc (s1:('a,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 t1 lens /\ (s1.locals = LN) ==>
@@ -1462,11 +1560,6 @@ val stack_evaluate_add_clock_NONE =
 val push_locals_def = Define `
   push_locals s = s with <| locals := LN;
     stack := StackFrame (FST (env_to_list s.locals (K I))) NONE :: s.stack |>`
-
-val abs_stack_empty = prove(``
-  ∀bs ls stack lens.
-  abs_stack bs [] ls lens = SOME stack ⇒ ls = [Word 0w] ∧ lens = []``,
-  rpt Cases>>fs[abs_stack_def])
 
 val LASTN_LENGTH_ID2 = prove(``
   ∀stack x.
