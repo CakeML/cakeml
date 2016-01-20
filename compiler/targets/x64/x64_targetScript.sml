@@ -526,7 +526,9 @@ val mem_lem15 = Q.prove(
    )
 
 val cmp_lem1 =
-   blastLib.BBLAST_PROVE ``!a b: word64. (a + -1w * b = 0w) = (a = b)``
+   blastLib.BBLAST_PROVE
+      ``(!a b: word64. (a + -1w * b = 0w) = (a = b)) /\
+        (!a b: word64. (-1w * b + a = 0w) = (a = b))``
 
 val cmp_lem2 =
    blastLib.BBLAST_PROVE
@@ -534,11 +536,15 @@ val cmp_lem2 =
           0xFFFFFFFF8000000Dw <= c /\ c <= 0x80000004w ==>
           (sw2sw (w2w (c + 0xFFFFFFFFFFFFFFFBw): word32) = c - 5w)``
 
-val cmp_lem3 =
-   blastLib.BBLAST_PROVE
-      ``!a b: word64.
-          ((a + -1w * b) ' 63 <=/=>
-           (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) = a < b``
+val cmp_lem3 = Thm.CONJ
+  (blastLib.BBLAST_PROVE
+     ``!a b: word64.
+        ((-1w * b + a) ' 63 <=/=>
+         (a ' 63 <=/=> b ' 63) /\ ((-1w * b + a) ' 63 <=/=> a ' 63)) = a < b``)
+  (blastLib.BBLAST_PROVE
+     ``!a b: word64.
+        ((a + -1w * b) ' 63 <=/=>
+         (a ' 63 <=/=> b ' 63) /\ ((a + -1w * b) ' 63 <=/=> a ' 63)) = a < b``)
 
 val cmp_lem4 = Q.prove(
    `!w: word64 a b.

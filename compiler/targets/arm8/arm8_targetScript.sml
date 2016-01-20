@@ -1275,7 +1275,10 @@ val arm8_backend_correct = Count.apply Q.store_thm ("arm8_backend_correct",
             \\ state_tac [lsr, asr]
             >| [
                 imp_res_tac lsl,
-                imp_res_tac (lsl |> Q.SPEC `0w` |> SIMP_RULE (srw_ss()) []),
+                `n1 = 0`
+                by (SPOSE_NOT_THEN ASSUME_TAC
+                    \\ IMP_RES_TAC (DECIDE ``n <> 0n ==> 64 - n < 64``)
+                    \\ lfs [markerTheory.Abbrev_def]),
                 imp_res_tac asr2
             ]
             \\ simp []
