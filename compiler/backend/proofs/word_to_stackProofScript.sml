@@ -78,6 +78,14 @@ in
     \\ fs [NOT_LESS])
 end
 
+val alist_insert_append = Q.store_thm("alist_insert_append",
+  `∀a1 a2 s b1 b2.
+   LENGTH a1 = LENGTH a2 ⇒
+   alist_insert (a1++b1) (a2++b2) s =
+   alist_insert a1 a2 (alist_insert b1 b2 s)`,
+  ho_match_mp_tac alist_insert_ind
+  \\ simp[alist_insert_def,LENGTH_NIL_SYM]);
+
 val MIN_ADD = prove(
   ``MIN m1 m2 + n = MIN (m1 + n) (m2 + n)``,
   fs [MIN_DEF] \\ decide_tac);
@@ -1723,7 +1731,7 @@ val stack_rel_raise = prove(``
   Cases_on`LASTN (handler+1) stack`>>fs[stack_rel_aux_def]>>
   PairCases_on`h`>>Cases_on`h0`>>fs[stack_rel_aux_def]>>
   PairCases_on`x`>>fs[stack_rel_aux_def]>>
-  `FST (env_to_list (fromAList l) (K I)) = l` by 
+  `FST (env_to_list (fromAList l) (K I)) = l` by
    (Cases_on `env_to_list (fromAList l) (K I)` \\ fs []
     \\ imp_res_tac env_to_list_K_I_IMP \\ rw []
     \\ metis_tac [SORTED_FST_PERM_IMP_ALIST_EQ]) >>
@@ -1996,7 +2004,8 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
    ∃t'.
      evaluate (wMoveSingle (format_result k (y,x)) (k,f,f'), t) = (NONE,t') ∧
      state_rel k f f' (case y of NONE => s | SOME y => set_var (y*2) v s) t' lens ∧
-     (y = NONE ⇒ get_var (k+1) t' = SOME v)`,
+     (y = NONE ⇒ get_var (k+1) t' = SOME v) ∧
+     (y ≠ NONE ⇒ get_var (k+1) t' = get_var (k+1) t)`,
   rw[format_result_def,wMoveSingle_def]
   \\ Cases_on`y` \\ simp[format_var_def]
   \\ Cases_on`x` \\ fs[format_var_def]
@@ -2017,24 +2026,37 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
     rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
     >- (
       fs[stackSemTheory.get_var_def]
-      \\ match_mp_tac state_rel_set_var
-      \\ simp[] )
+      \\ conj_tac
+      >- (match_mp_tac state_rel_set_var
+          \\ simp[] )
+      \\ simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE] )
     \\ IF_CASES_TAC >- fs[state_rel_def]
     \\ IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def]
     \\ simp[]
-    \\ match_mp_tac state_rel_set_var2
-    \\ simp[])
+    \\ conj_tac
+    >- (
+      match_mp_tac state_rel_set_var2
+      \\ simp[])
+    \\ fs[stackSemTheory.get_var_def])
   >- (
     rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
     \\ TRY (
       imp_res_tac state_rel_get_var_imp \\ fs[]
-      \\ match_mp_tac state_rel_set_var
-      \\ simp[])
+      \\ conj_tac >- (
+           match_mp_tac state_rel_set_var
+          \\ simp[])
+      \\ fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+      \\ rw[]
+      \\ `F` by decide_tac)
     \\ (IF_CASES_TAC >- fs[state_rel_def])
     \\ (IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def])
     \\ fs[]
     >- (
       imp_res_tac state_rel_get_var_imp2
+      \\ reverse conj_tac
+      >- (
+        EVAL_TAC \\ rw[]
+        \\ `F` by decide_tac )
       \\ rw[]
       \\ simp[]
       \\ match_mp_tac state_rel_set_var \\ simp[])
@@ -2057,34 +2079,45 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
       \\ ntac 2 strip_tac
       \\ imp_res_tac state_rel_get_var_imp2
       \\ rveq
+      \\ reverse conj_tac
+      >- (
+        EVAL_TAC \\ rw[]
+        \\ `F` by decide_tac )
       \\ match_mp_tac state_rel_set_var2
       \\ simp[])))
 
-(*
 val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   `∀ms s t r.
-   state_rel k f f' s t ∧ 0 < f ∧
-   (∀i v. get_var i s = SOME v ⇒ r (SOME i) = v) ∧
-   (∀v. get_var (k+1) s = SOME v ⇒ r NONE = v) ∧
-   IS_SOME (get_vars (MAP THE (FILTER IS_SOME (MAP SND ms))) s)
-   (*∧
-   post_alloc_conventions k (Move pri moves) ∧
-   max_var (Move pri moves) ≤ 2 * f' + 2 * k ∧
-   get_vars (MAP SND moves) s = SOME x
-   *)
+   state_rel k f f' s t lens ∧ 0 < f ∧
+   (* these two probably need to be ⇔ *)
+   (∀i v. r (SOME i) = SOME v ⇒ get_var (2*i) s = SOME v) ∧
+   (∀v. r NONE = SOME v ⇒ get_var (k+1) t = SOME v) ∧
+   (∀v. r (SOME v) ≠ NONE) ∧
+   IS_SOME (get_vars (MAP ($* 2 o THE) (FILTER IS_SOME (MAP SND ms))) s) ∧
+   (case find_index NONE (MAP SND ms) 0 of
+    | NONE => T
+    | SOME i =>
+      case find_index NONE (MAP FST ms) 0 of
+      | NONE => IS_SOME (r NONE)
+      | SOME j => i ≤ j ⇒ IS_SOME (r NONE)) ∧
+   EVERY (λ(x,y). ∀a. (x = SOME a ∨ y = SOME a) ⇒ a < f' + k) ms ∧
+   (* this is for a seqsem lemma (unstated) *)
+   ALL_DISTINCT (MAP FST ms)
    ⇒
    ∃t'.
      evaluate (wMoveAux (MAP (format_result k) ms) (k,f,f'),t) = (NONE,t') ∧
      state_rel k f f'
        (set_vars
-         (MAP THE (FILTER IS_SOME (MAP SND ms)))
-         (MAP (seqsem ms r) (FILTER IS_SOME (MAP SND ms)))
-         s) t'`,
+         (MAP ($* 2 o THE) (FILTER IS_SOME (MAP FST (REVERSE ms))))
+         (MAP THE (MAP (seqsem (MAP (λ(x,y). (y,x)) ms) r) (FILTER IS_SOME (MAP FST (REVERSE ms)))))
+         s) t' lens`,
   Induct
   \\ simp[wMoveAux_thm]
   >- simp[set_vars_def,alist_insert_def]
-  \\ Cases
-  \\ rpt gen_tac \\ strip_tac
+  \\ qx_gen_tac`h`
+  \\ rpt gen_tac
+  \\ Cases_on`h`
+  \\ strip_tac
   \\ simp[]
   \\ simp[stackSemTheory.evaluate_def]
   \\ drule (GEN_ALL wMoveSingle_thm)
@@ -2094,7 +2127,112 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ disch_then(qspecl_then[`y`,`x`]mp_tac)
   \\ unabbrev_all_tac
   \\ fs[]
-*)
+  \\ qho_match_abbrev_tac`(∀v. P v ⇒ Q v) ⇒ _`
+  \\ `∃v. P v`
+  by (
+    simp[Abbr`P`,Abbr`Q`]
+    \\ simp[LEFT_EXISTS_AND_THM]
+    \\ conj_tac
+    >- (
+      BasicProvers.TOP_CASE_TAC \\ fs[]
+      >- (
+        `IS_SOME (r NONE)` suffices_by metis_tac[IS_SOME_EXISTS]
+        \\ fs[find_index_def]
+        \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+        \\ BasicProvers.FULL_CASE_TAC \\ fs[])
+      \\ fs[get_vars_def]
+      \\ pop_assum mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
+  \\ simp[Abbr`P`,Abbr`Q`] \\ fs[]
+  \\ disch_then drule
+  \\ strip_tac
+  \\ simp[]
+  \\ simp[parmoveTheory.seqsem_def]
+  \\ first_x_assum drule
+  \\ qpat_abbrev_tac`rr = (_ =+ r _) _`
+  \\ disch_then(qspec_then`rr`mp_tac)
+  \\ discharge_hyps
+  >- (
+    simp[Abbr`rr`,APPLY_UPDATE_THM]
+    \\ conj_tac
+    >- (
+      rw[]
+      >- (
+        EVAL_TAC
+        \\ simp[lookup_insert]
+        \\ fs[]
+        \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+        \\ res_tac \\ fs[] )
+      \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+      \\ EVAL_TAC
+      \\ simp[lookup_insert]
+      \\ fs[get_var_def] )
+    \\ conj_tac
+    >- (
+      rw[] \\ fs[] \\ rw[]
+      \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+      \\ res_tac
+      \\ fs[] )
+    \\ conj_tac
+    >- (
+      rw[]
+      \\ qpat_assum`option_CASE (find_index _ _ _) _ _`mp_tac
+      \\ simp[find_index_def]
+      \\ IF_CASES_TAC \\ simp[]
+      >- (
+        BasicProvers.CASE_TAC \\ simp[IS_SOME_EXISTS] \\ rw[] \\ rw[] )
+      \\ strip_tac
+      \\ metis_tac[option_CASES,NOT_SOME_NONE] )
+    \\ conj_tac
+    >- (
+      qpat_assum`IS_SOME _`mp_tac
+      \\ reverse IF_CASES_TAC \\ fs[get_vars_def]
+      >- (
+        BasicProvers.CASE_TAC \\ simp[]
+        \\ cheat )
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+      \\ cheat (* same as above *))
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ qpat_assum`option_CASE (find_index _ _ _) _ _`mp_tac
+    \\ simp[find_index_def]
+    \\ IF_CASES_TAC \\ fs[]
+    \\ IF_CASES_TAC \\ rw[]
+    >- (BasicProvers.TOP_CASE_TAC \\ fs[])
+    >- (
+      pop_assum mp_tac
+      \\ simp[Once find_index_shift_0]
+      \\ strip_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
+    >- (
+      fs[]
+      \\ qmatch_assum_rename_tac`ss ≠ NONE`
+      \\ Cases_on`r ss`
+      \\ Cases_on`ss`\\ fs[]
+      \\ BasicProvers.CASE_TAC \\ fs[]
+      \\ rfs[] )
+    >- (
+      pop_assum mp_tac
+      \\ simp[Once find_index_shift_0]
+      \\ simp[Once find_index_shift_0]
+      \\ strip_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[] ))
+  \\ strip_tac
+  \\ simp[]
+  \\ pop_assum mp_tac
+  \\ qmatch_abbrev_tac`a ⇒ b`
+  \\ `a = b` suffices_by rw[]
+  \\ unabbrev_all_tac
+  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ simp[set_vars_def]
+  \\ simp[state_component_equality,set_var_def]
+  \\ BasicProvers.CASE_TAC \\ simp[] \\ fs[FILTER_APPEND]
+  \\ simp[alist_insert_append]
+  \\ simp[alist_insert_def]
+  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ cheat);
 
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -2170,6 +2308,7 @@ val comp_correct = store_thm("comp_correct",
       \\ rator_x_assum`post_alloc_conventions`mp_tac
       \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
     \\ simp[wMove_def]
+
     \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
