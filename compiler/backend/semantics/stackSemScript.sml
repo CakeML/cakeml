@@ -17,15 +17,15 @@ val filter_bitmap_def = Define `
   (filter_bitmap _ _ = NONE)`
 
 val map_bitmap_def = Define `
-  (map_bitmap [] [] rs = SOME ([],rs)) /\
+  (map_bitmap [] ts rs = SOME ([],ts,rs)) /\
   (map_bitmap (F::bs) ts (r::rs) =
      case map_bitmap bs ts rs of
      | NONE => NONE
-     | SOME (xs,ys) => SOME (r::xs,ys)) /\
+     | SOME (xs,ys,zs) => SOME (r::xs,ys,zs)) /\
   (map_bitmap (T::bs) (t::ts) (r::rs) =
      case map_bitmap bs ts rs of
      | NONE => NONE
-     | SOME (ts,rs') => SOME (t::ts,rs')) /\
+     | SOME (xs,ys,zs) => SOME (t::xs,ys,zs)) /\
   (map_bitmap _ _ _ = NONE)`
 
 val filter_bitmap_LENGTH = prove(
@@ -37,14 +37,15 @@ val filter_bitmap_LENGTH = prove(
   \\ res_tac \\ decide_tac);
 
 val map_bitmap_LENGTH = prove(
-  ``!t1 t2 t3 x y. (map_bitmap t1 t2 t3 = SOME (x,y)) ==>
-                   LENGTH y <= LENGTH t3``,
+  ``!t1 t2 t3 x y z. (map_bitmap t1 t2 t3 = SOME (x,y,z)) ==>
+                   LENGTH y ≤ LENGTH t2 ∧
+                   LENGTH z <= LENGTH t3``,
   Induct \\ fs [map_bitmap_def] \\ Cases_on `t2` \\ Cases_on `t3`
   \\ TRY (Cases_on `h`)
   \\ fs [map_bitmap_def] \\ Cases \\ fs [map_bitmap_def]
   \\ REPEAT STRIP_TAC \\ RES_TAC \\ res_tac
   \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ SRW_TAC [] []
-  \\ res_tac \\ decide_tac);
+  \\ res_tac \\ fs[] \\ decide_tac);
 
 (* -- *)
 
@@ -195,20 +196,18 @@ val enc_stack_def = tDefine "enc_stack" `
   \\ fs [] \\ decide_tac)
 
 val dec_stack_def = tDefine "dec_stack" `
-  (dec_stack bitmaps [] [] = SOME []) /\
-  (dec_stack bitmaps [] (w::ws) = NONE) /\
-  (dec_stack bitmaps _ [] = NONE) /\
+  (dec_stack bitmaps _ [] = NONE) ∧
   (dec_stack bitmaps ts (w::ws) =
+    if w = Word 0w then (if ts = [] ∧ ws = [] then SOME [Word 0w] else NONE) else
      case full_read_bitmap bitmaps w of
      | NONE => NONE
      | SOME bs =>
-        if LENGTH ts < LENGTH bs then NONE else
-        case map_bitmap bs (TAKE (LENGTH bs) ts) ws of
+        case map_bitmap bs ts ws of
         | NONE => NONE
-        | SOME (ws1,ws2) =>
-           case dec_stack bitmaps (DROP (LENGTH bs) ts) ws2 of
+        | SOME (hd,ts',ws') =>
+           case dec_stack bitmaps ts' ws' of
            | NONE => NONE
-           | SOME ws3 => SOME ([w] ++ ws1 ++ ws3))`
+           | SOME rest => SOME ([w] ++ hd ++ rest))`
   (WF_REL_TAC `measure (LENGTH o SND o SND)` \\ rw []
    \\ IMP_RES_TAC map_bitmap_LENGTH
    \\ fs [LENGTH_NIL] \\ rw []

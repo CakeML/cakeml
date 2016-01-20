@@ -1061,19 +1061,171 @@ val IMP_enc_stack = prove(
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma>>
   simp[]);
 
-(*Might be wrong?*)
-val dec_stack_lemma = prove(
-  ``enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
+val map_bitmap_length = prove(``
+  ∀a b c x y z.
+  map_bitmap a b c = SOME(x,y,z) ⇒
+  LENGTH c = LENGTH x + LENGTH z ∧
+  LENGTH x = LENGTH a``,
+  Induct>>rw[]>>
+  Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
+  fs[map_bitmap_def]>>
+  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
+  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
+  fs[LENGTH_NIL]>>
+  pop_assum mp_tac>>EVERY_CASE_TAC>>rw[]>>res_tac>>
+  fs[]>>DECIDE_TAC);
+
+val dec_stack_length = prove(``
+  ∀bs enc orig_stack new_stack.
+  dec_stack bs enc orig_stack = SOME new_stack ⇒
+  LENGTH orig_stack = LENGTH new_stack``,
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
+  pop_assum mp_tac>>
+  Cases_on`w`>>fs[full_read_bitmap_def]>>
+  EVERY_CASE_TAC>>fs[]>>
+  rw[]>>
+  imp_res_tac map_bitmap_length>>
+  simp[]>>metis_tac[])
+
+val map_bitmap_success = prove(``
+  ∀bs stack a b ls.
+  filter_bitmap bs stack = SOME(a,b) ∧
+  LENGTH ls = LENGTH a ⇒
+  ∃x z.
+  map_bitmap bs ls stack = SOME(x,[],DROP (LENGTH bs) stack) ∧
+  filter_bitmap bs x = SOME(ls,[])``,
+  ho_match_mp_tac filter_bitmap_ind>>fs[filter_bitmap_def,map_bitmap_def]>>
+  rw[LENGTH_NIL]
+  >-
+    (res_tac>>fs[filter_bitmap_def])
+  >>
+    EVERY_CASE_TAC>>fs[]>>
+    rveq>>Cases_on`ls`>>fs[map_bitmap_def,filter_bitmap_def]>>
+    res_tac>>fs[filter_bitmap_def])
+
+(*Might need to extend c as well*)
+val map_bitmap_more = prove(``
+  ∀bs ls stack n a c ls'.
+  map_bitmap bs ls stack = SOME(a,[],c) ⇒
+  map_bitmap bs (ls++ls') stack = SOME(a,ls',c)``,
+  ho_match_mp_tac map_bitmap_ind>>fs[map_bitmap_def]>>rw[]>>
+  pop_assum mp_tac>>ntac 3 TOP_CASE_TAC>>fs[])
+
+val map_bitmap_more_simp = prove(``
+  map_bitmap bs (TAKE (LENGTH l) ls) stack = SOME (a,[],c) ⇒
+  map_bitmap bs ls stack = SOME (a,DROP (LENGTH l) ls,c)``,
+  metis_tac[TAKE_DROP,map_bitmap_more])
+
+(*Delete?*)
+val filter_bitmap_length = prove(``
+  ∀bs ls xs ys.
+  filter_bitmap bs ls = SOME(xs,ys) ⇒
+  LENGTH xs ≤ LENGTH bs``,
+  ho_match_mp_tac filter_bitmap_ind>>fs[filter_bitmap_def]>>rw[]>>
+  EVERY_CASE_TAC>>rveq>>fs[]>>res_tac>>
+  rveq>>fs[]>>DECIDE_TAC)
+
+(*Prove the inductive bits first...*)
+val dec_stack_lemma1 = prove(``
+  ∀bs (wstack:'a stack_frame list) sstack lens astack wdec ls.
+  good_dimindex(:'a) ∧
+  1 ≤ LENGTH bs ∧
+  HD bs = 4w ∧
+  (*The things going into GC are the same*)
+  abs_stack bs wstack sstack lens = SOME astack ∧
+  stack_rel_aux k len wstack astack ∧
+  (*The word stack is successfully decoded*)
+  dec_stack ls wstack = SOME wdec ⇒
+  ∃sdec bstack.
+  (*The stackLang stack is successfully decoded*)
+  dec_stack bs ls sstack = SOME sdec ∧
+  abs_stack bs wdec sdec lens = SOME bstack ∧
+  stack_rel_aux k len wdec bstack``,
+  ho_match_mp_tac (theorem "abs_stack_ind")>>
+  fs[dec_stack_def,enc_stack_def]>>
+  rw[]>>
+  fs[Once stackSemTheory.enc_stack_def,abs_stack_def]
+  >-
+    (rveq>>
+    Cases_on`ls`>>fs[dec_stack_def]>>
+    simp[stackSemTheory.dec_stack_def]>>rveq>>simp[abs_stack_def])
+  >-
+    (qpat_assum`A=SOME wdec` mp_tac>>
+    qpat_assum`A=SOME astack`mp_tac>>
+    rpt TOP_CASE_TAC>>fs[LET_THM]>>
+    TOP_CASE_TAC>>
+    rw[]>>rveq >>
+    simp[stackSemTheory.dec_stack_def]>>
+    Cases_on`w`>>fs[full_read_bitmap_def,stack_rel_aux_def]>>
+    imp_res_tac filter_bitmap_lemma>>
+    fs[MAP_SND_MAP_FST]>>
+    imp_res_tac map_bitmap_success>>
+    pop_assum kall_tac>>
+    pop_assum(qspec_then `TAKE (LENGTH l) ls` assume_tac)>>
+    `LENGTH l ≤ LENGTH ls` by DECIDE_TAC>>
+    fs[]>>
+    imp_res_tac map_bitmap_more_simp>>
+    simp[]>>
+    res_tac>>rveq>>fs[]>>
+    simp[abs_stack_def,full_read_bitmap_def]>>
+    imp_res_tac map_bitmap_length>>
+    simp[DROP_APPEND2]>>
+    simp[stack_rel_aux_def,TAKE_APPEND2]>>
+    (*looks true*)
+    cheat)
+  >>
+    (qpat_assum`A=SOME wdec` mp_tac>>
+    qpat_assum`A=SOME astack`mp_tac>>
+    rpt TOP_CASE_TAC>>fs[LET_THM]>>
+    TOP_CASE_TAC>>
+    rw[]>>rveq >>
+    simp[stackSemTheory.dec_stack_def]>>
+    fs[full_read_bitmap_def]>>Cases_on`bs`>>fs[]>>
+    imp_res_tac handler_bitmap_props>>
+    pop_assum(qspec_then`t'` assume_tac)>>fs[map_bitmap_def]>>
+    Cases_on`h''`>>PairCases_on`v0`>>
+    simp[stackSemTheory.dec_stack_def]>>
+    fs[full_read_bitmap_def,stack_rel_aux_def]>>
+    rfs[]>>
+    imp_res_tac filter_bitmap_lemma>>
+    fs[MAP_SND_MAP_FST]>>
+    imp_res_tac map_bitmap_success>>
+    pop_assum kall_tac>>
+    pop_assum(qspec_then `TAKE (LENGTH l) ls` assume_tac)>>
+    `LENGTH l ≤ LENGTH ls` by DECIDE_TAC>>
+    fs[]>>
+    imp_res_tac map_bitmap_more_simp>>
+    simp[]>>
+    res_tac>>rveq>>fs[]>>
+    simp[abs_stack_def,full_read_bitmap_def]>>
+    imp_res_tac map_bitmap_length>>
+    simp[DROP_APPEND2]>>
+    simp[stack_rel_aux_def,TAKE_APPEND2]>>
+    (*handler frame bit needs a separate lemma..*)
+    cheat))
+
+val dec_stack_lemma = prove(``
+  good_dimindex(:'a) ∧
+  1 ≤ LENGTH t1.bitmaps ∧
+  HD t1.bitmaps = 4w ∧
+  enc_stack t1.bitmaps (DROP t1.stack_space t1.stack) =
       SOME (enc_stack s1.stack) /\
     (dec_stack x0 s1.stack = SOME x) /\
     stack_rel k s1.handler s1.stack (SOME (t1.store ' Handler))
       (DROP t1.stack_space t1.stack) (LENGTH t1.stack) t1.bitmaps lens /\
     (LENGTH (enc_stack s1.stack) = LENGTH x0) ==>
-    ?yy. dec_stack t1.bitmaps x0 (DROP t1.stack_space t1.stack) = SOME yy /\
+    ?yy:'a word_loc list. dec_stack t1.bitmaps x0 (DROP t1.stack_space t1.stack) = SOME yy /\
          (t1.stack_space + LENGTH yy = LENGTH t1.stack) /\
          stack_rel k s1.handler x (SOME (t1.store ' Handler)) yy
             (LENGTH t1.stack) t1.bitmaps lens``,
-  cheat) |> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
+  rw[]>>
+  fs[stack_rel_def]>>
+  drule (GEN_ALL dec_stack_lemma1)>>
+  disch_then(qspecl_then [`LENGTH t1.stack`,`k`,`t1.bitmaps`] assume_tac)>>
+  rfs[]>>
+  res_tac>>fs[]>>rveq>>fs[]>>
+  cheat)|> INST_TYPE [beta|->``:'ffi``,gamma|->``:'ffi``];
 
 val gc_state_rel = prove(
   ``(gc (s1:('a,'ffi) wordSem$state) = SOME s2) /\ state_rel k 0 0 s1 t1 lens /\ (s1.locals = LN) ==>
@@ -1126,119 +1278,6 @@ val alloc_alt = prove(
   \\ BasicProvers.EVERY_CASE_TAC
    \\ fs [state_component_equality] \\ rw []
    \\ fs [state_component_equality] \\ rw []);
-
-val map_bitmap_remainder = prove(``
-  ∀a b c d e.
-  map_bitmap a b c = SOME (d,e) ⇒
-  e = DROP (LENGTH a) c``,
-  ho_match_mp_tac map_bitmap_ind>>rw[map_bitmap_def]>>
-  pop_assum mp_tac >> EVERY_CASE_TAC>>fs[])
-
-val map_bitmap_length = prove(``
-  ∀a b c x y.
-  map_bitmap a b c = SOME(x,y) ⇒
-  LENGTH c = LENGTH x + LENGTH y ∧
-  LENGTH x = LENGTH a``,
-  Induct>>rw[]>>
-  Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
-  fs[map_bitmap_def]>>
-  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
-  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
-  fs[LENGTH_NIL]>>
-  pop_assum mp_tac>>EVERY_CASE_TAC>>rw[]>>res_tac>>
-  fs[]>>DECIDE_TAC)
-
-val dec_stack_length = prove(``
-  ∀bs enc orig_stack new_stack.
-  dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack``,
-  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
-  fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
-  pop_assum mp_tac>>Cases_on`w`>>fs[full_read_bitmap_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  fs[map_bitmap_def]>>rveq>>
-  fs[]>>
-  rw[]>>
-  simp[]>>
-  imp_res_tac map_bitmap_length>>
-  metis_tac[])
-
-(*TODO: abs_stack changed
-val dec_stack_LIST_REL = prove(``
-  ∀enc orig_stack new_stack abs_orig abs_new.
-  stackSem$dec_stack enc orig_stack = SOME new_stack ∧
-  abs_stack orig_stack = SOME abs_orig
-  ⇒
-  ∃abs_new.
-  abs_stack new_stack = SOME abs_new ∧
-  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) abs_orig abs_new``,
-  cheat (*
-  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
-  rw[stackSemTheory.dec_stack_def]>>
-  pop_assum mp_tac>> simp[Once abs_stack_def]>>
-  Cases_on`orig_stack = [Word 0w]`>>fs[read_bitmap_def]
-  >-
-    (fs[Once bit_length_def]>>Cases_on`ts`>>fs[map_bitmap_def]>>
-    Cases_on`enc`>>fs[stackSemTheory.dec_stack_def,read_bitmap_def]>>
-    qpat_assum`A=new_stack` (SUBST_ALL_TAC o SYM)>>
-    fs[Once abs_stack_def]>>rw[]>>
-    match_mp_tac quotient_listTheory.LIST_REL_REFL>>
-    fs[FORALL_PROD,FUN_EQ_THM]>>metis_tac[])
-  >>
-    qpat_assum`A = SOME new_stack` mp_tac>>
-    ntac 6 FULL_CASE_TAC>>
-    fs[]>>
-    imp_res_tac map_bitmap_remainder>>
-    FULL_CASE_TAC>>fs[]>>rw[]>>
-    qabbrev_tac`ls = q'++q''++x`>>
-    simp[Once abs_stack_def]>>
-    `ls ≠ [] ∧ ls ≠ [Word 0w]` by cheat>>
-    imp_res_tac read_bitmap_replace>>
-    pop_assum(qspec_then`q''++x` assume_tac)>>fs[]>>
-    rfs[]>>
-    imp_res_tac map_bitmap_length>>
-    pop_assum(SUBST_ALL_TAC o SYM)>>
-    fs[DROP_LENGTH_APPEND]>>
-    DECIDE_TAC *))
-
-val gc_stack_shape = prove(``
-  gc s = SOME s' ∧
-  abs_stack (DROP s.stack_space s.stack) = SOME as
-  ⇒
-  s.stack_space = s'.stack_space ∧
-  LENGTH s.stack = LENGTH s'.stack ∧
-  ∃as'.
-  abs_stack (DROP s.stack_space s'.stack) = SOME as' ∧
-  LIST_REL (λ(a,b,c) (x,y,z). a = x ∧ b = y ∧ LENGTH c = LENGTH z) as as'``,
-  fs[stackSemTheory.gc_def,LET_THM]>>
-  EVERY_CASE_TAC>>rw[]>>
-  `s.stack_space ≤ LENGTH s.stack` by DECIDE_TAC>>
-  fs[DROP_TAKE_NIL,DROP_APPEND1]
-  >-
-    (imp_res_tac dec_stack_length>>fs[]>>DECIDE_TAC)
-  >>
-  metis_tac[dec_stack_LIST_REL,dec_stack_length])
-
-(*Will need a version of this for SOME ... cases*)
-val joined_ok_drop = prove(``
-  abs_stack ls = SOME x ∧
-  ls ≠ [] ∧ ls ≠ [Word 0w] ∧
-  read_bitmap ls = SOME (names, bmap , rest) ∧
-  join_stacks (StackFrame l NONE::s3.stack) x = SOME j ∧
-  joined_ok k j len ⇒
-  ∃y j'.
-  abs_stack (DROP (LENGTH names) (DROP (LENGTH bmap) ls)) = SOME y ∧
-  join_stacks s3.stack y = SOME j' ∧
-  joined_ok k j' len
-  ``,
-  simp[Once abs_stack_def,LET_THM]>>rw[]>>
-  qpat_assum`A=SOME x` mp_tac>>
-  ntac 2 FULL_CASE_TAC>>rw[]>>fs[]>>
-  imp_res_tac read_bitmap_split>>
-  fs[DROP_LENGTH_APPEND,join_stacks_def]>>
-  qpat_assum`A=SOME j` mp_tac>>FULL_CASE_TAC>>rw[]>>
-  fs[joined_ok_def])
-*)
 
 (*MEM to an EL characterization for index lists*)
 val MEM_index_list_LIM = prove(``
@@ -1355,14 +1394,15 @@ val alloc_IMP_alloc = prove(
     Cases_on`DROP t5.stack_space t5.stack`>>fs[]
     >- (fs [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)>>
     qpat_assum`A=SOME x'`mp_tac>>
-    Cases_on`q`>>simp[stackSemTheory.dec_stack_def]>>
-    ntac 5 TOP_CASE_TAC>>strip_tac>>rveq>>
+    simp[stackSemTheory.dec_stack_def]>>
+    rpt TOP_CASE_TAC>>strip_tac>>rveq
+    >-
+      simp[abs_stack_def,full_read_bitmap_def]>>
     fs[abs_stack_def,LET_THM]>>
     TOP_CASE_TAC>>simp[]>>
     strip_tac>>rveq>>
     simp[stack_rel_aux_def]>>
-    strip_tac>>
-    ntac 3 strip_tac>>
+    ntac 4 strip_tac>>
     `n ∈ domain (fromAList l)` by
       metis_tac[domain_lookup]>>
     `n ∈ domain names ∧ n ∈ domain s.locals` by
