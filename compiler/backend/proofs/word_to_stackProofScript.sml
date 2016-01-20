@@ -6,6 +6,8 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
 
+(* TODO: many things in this file need moving *)
+
 val get_var_set_var = store_thm("get_var_set_var[simp]",``
   stackSem$get_var k (set_var k v st) = SOME v``,
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
@@ -2086,6 +2088,16 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
       \\ match_mp_tac state_rel_set_var2
       \\ simp[])))
 
+val IS_SOME_get_vars_set_var = Q.store_thm("IS_SOME_get_vars_set_var",
+  `∀ls s.
+    IS_SOME (get_vars ls s) ⇒
+    IS_SOME (get_vars ls (set_var k v s))`,
+  Induct \\ simp[get_vars_def]
+  \\ rw[] \\ every_case_tac \\ fs[IS_SOME_EXISTS,PULL_EXISTS]
+  \\ rpt (pop_assum mp_tac)
+  \\ EVAL_TAC \\ simp[lookup_insert] \\ rw[]
+  \\ res_tac \\ fs[]);
+
 val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   `∀ms s t r.
    state_rel k f f' s t lens ∧ 0 < f ∧
@@ -2190,11 +2202,11 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       \\ reverse IF_CASES_TAC \\ fs[get_vars_def]
       >- (
         BasicProvers.CASE_TAC \\ simp[]
-        \\ cheat )
+        \\ metis_tac[IS_SOME_get_vars_set_var] )
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
-      \\ cheat (* same as above *))
+      \\ metis_tac[IS_SOME_get_vars_set_var,IS_SOME_EXISTS])
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ qpat_assum`option_CASE (find_index _ _ _) _ _`mp_tac
     \\ simp[find_index_def]
