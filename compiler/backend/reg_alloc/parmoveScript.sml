@@ -491,7 +491,7 @@ val tac =
   res_tac >> fsrw_tac[ARITH_ss][] >>
   metis_tac[SND,PAIR])
 
-val fstep_dstep = Q.prove(
+val fstep_dstep = Q.store_thm("fstep_dstep",
   `(∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s`,
   rw[fstep_def] >>
   every_case_tac >> fs[NULL_LENGTH,LENGTH_NIL] >>
@@ -540,7 +540,7 @@ val pmov_def = tDefine"pmov"`
 
 val pmov_ind = theorem"pmov_ind";
 
-val pmov_dsteps = Q.prove(
+val pmov_dsteps = Q.store_thm("pmov_dsteps",
   `∀s. s ↪* pmov s`,
   ho_match_mp_tac pmov_ind >>
   rw[] >> PairCases_on`s` >>
@@ -551,7 +551,7 @@ val pmov_dsteps = Q.prove(
   first_assum(match_exists_tac o concl) >> simp[] >>
   match_mp_tac fstep_dstep >> simp[])
 
-val pmov_final = Q.prove(
+val pmov_final = Q.store_thm("pmov_final",
   `∀s. ∃τ. pmov s = ([],[],τ)`,
   ho_match_mp_tac pmov_ind >>
   rw[] >> PairCases_on`s` >>

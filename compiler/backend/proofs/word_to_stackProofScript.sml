@@ -2470,6 +2470,8 @@ val OLEAST_SOME_IMP = Q.store_thm("OLEAST_SOME_IMP",
   simp[whileTheory.OLEAST_def]
   \\ metis_tac[whileTheory.LEAST_EXISTS_IMP]);
 
+(* TODO: move all this to parmoveTheory *)
+
 val MEM_MAP_FST_SND_SND_pmov = Q.store_thm("MEM_MAP_FST_SND_SND_pmov",
   `∀p x.
     MEM (SOME x) (MAP FST (SND(SND(pmov p)))) ⇒
@@ -2592,14 +2594,128 @@ val MEM_MAP_SND_parmove = Q.store_thm("MEM_MAP_SND_parmove",
   \\ rw[] \\ fs[]
   \\ metis_tac[])
 
-val parmove_NONE_lemma = Q.store_thm("parmove_NONE_lemma",
-  `case find_index NONE (MAP SND (parmove mvs)) 0 of
+val not_use_temp_before_assign_def = Define`
+   (not_use_temp_before_assign [] = T) ∧
+   (not_use_temp_before_assign ((d,NONE)::ls) = F) ∧
+   (not_use_temp_before_assign ((NONE,s)::ls) = T) ∧
+   (not_use_temp_before_assign ((d,s)::ls) = not_use_temp_before_assign ls)`
+val _ = export_rewrites["not_use_temp_before_assign_def"];
+
+val not_use_temp_before_assign_ind = theorem"not_use_temp_before_assign_ind";
+
+val not_use_temp_before_assign_append = Q.store_thm("not_use_temp_before_assign_append",
+  `∀l1 l2.
+   (not_use_temp_before_assign (l1 ++ l2) ⇔
+    not_use_temp_before_assign l1 ∧
+    (EVERY IS_SOME (MAP FST l1) ⇒ not_use_temp_before_assign l2))`,
+  ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]);
+
+val not_use_temp_before_assign_insert = Q.store_thm("not_use_temp_before_assign_insert",
+  `∀l1 l2.
+   not_use_temp_before_assign (l1 ++ l2) ⇒
+   not_use_temp_before_assign (l1 ++ [(SOME x, SOME y)] ++ l2)`,
+  ho_match_mp_tac not_use_temp_before_assign_ind \\ simp[]);
+
+val not_use_temp_before_assign_thm = Q.store_thm("not_use_temp_before_assign_thm",
+  `∀ls. not_use_temp_before_assign ls =
+    ∀i. find_index NONE (MAP SND ls) 0 = SOME i ⇒
+      ∃j. find_index NONE (MAP FST ls) 0 = SOME j ∧ j < i`,
+  ho_match_mp_tac not_use_temp_before_assign_ind
+  \\ simp[]
+  \\ simp[find_index_def]
+  \\ rw[find_index_APPEND]
+  >- (
+    imp_res_tac find_index_LESS_LENGTH
+    \\ decide_tac )
+  \\ qpat_abbrev_tac`l1 = MAP FST ls`
+  \\ qpat_abbrev_tac`l2 = MAP SND ls`
+  \\ Q.ISPECL_THEN[`l1`]mp_tac find_index_shift_0
+  \\ disch_then(qspecl_then[`NONE`,`1`]mp_tac)
+  \\ disch_then SUBST_ALL_TAC
+  \\ Q.ISPECL_THEN[`l2`]mp_tac find_index_shift_0
+  \\ disch_then(qspecl_then[`NONE`,`1`]mp_tac)
+  \\ disch_then SUBST_ALL_TAC
+  \\ rw[EQ_IMP_THM,PULL_EXISTS]);
+
+val step_not_use_temp_before_assign = Q.store_thm("step_not_use_temp_before_assign",
+  `∀s1 s2. s1 ▷ s2 ⇒
+    ⊢ s1 ∧
+    not_use_temp_before_assign (REVERSE(FST(SND s1) ++ SND(SND s1)))
+    ⇒
+    not_use_temp_before_assign (REVERSE(FST(SND s2) ++ SND(SND s2)))`,
+  ho_match_mp_tac parmoveTheory.step_ind
+  \\ simp[not_use_temp_before_assign_append]
+  \\ simp[MAP_REVERSE,EVERY_REVERSE,REVERSE_APPEND]
+  \\ conj_tac
+  >- ( rw[] \\ fs[parmoveTheory.wf_def,IS_SOME_EXISTS])
+  \\ conj_tac
+  >- ( rw[] \\ fs[parmoveTheory.wf_def,IS_SOME_EXISTS])
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ fs[parmoveTheory.wf_def,IS_SOME_EXISTS]
+    \\ fs[not_use_temp_before_assign_append]
+    \\ Cases_on`s` \\ fs[] )
+  \\ rw[]
+  \\ fs[parmoveTheory.wf_def,IS_SOME_EXISTS]
+  \\ fs[not_use_temp_before_assign_append]
+  \\ rfs[]
+  \\ rw[]
+  \\ fs[MAP_REVERSE,EVERY_REVERSE]);
+
+val steps_not_use_temp_before_assign = Q.store_thm("steps_not_use_temp_before_assign",
+  `∀s1 s2.
+    (λs1. ⊢ s1 ∧ not_use_temp_before_assign (REVERSE (FST (SND s1) ++ SND (SND s1)))) s1 ∧
+    s1 ▷* s2
+    ⇒
+    (λs1. ⊢ s1 ∧ not_use_temp_before_assign (REVERSE (FST (SND s1) ++ SND (SND s1)))) s2`,
+  match_mp_tac RTC_lifts_invariants
+  \\ simp[]
+  \\ metis_tac[parmoveTheory.wf_step,step_not_use_temp_before_assign]);
+
+val pmov_not_use_temp_before_assign = Q.store_thm("pmov_not_use_temp_before_assign",
+  `∀p i. ⊢ p ∧ not_use_temp_before_assign (REVERSE (FST (SND p) ++ SND (SND p)))
+    ⇒ not_use_temp_before_assign (REVERSE (FST (SND (pmov p)) ++ SND (SND (pmov p))))`,
+  rw[]
+  \\ qspec_then`p`assume_tac parmoveTheory.pmov_dsteps
+  \\ drule parmoveTheory.dsteps_steps
+  \\ simp[] \\ strip_tac
+  \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] steps_not_use_temp_before_assign)
+  \\ simp[]);
+
+val pmov_final = parmoveTheory.pmov_final;
+
+val parmove_not_use_temp_before_assign = Q.store_thm("parmove_not_use_temp_before_assign",
+  `windmill mvs ⇒
+   case find_index NONE (MAP SND (parmove mvs)) 0 of
       NONE => T
     | SOME i =>
       case find_index NONE (MAP FST (parmove mvs)) 0 of
         NONE => F
-      | SOME j => i ≤ j ⇒ F`,
-  cheat)
+      | SOME j => ¬(i ≤ j)`,
+  strip_tac
+  \\ simp[parmoveTheory.parmove_def]
+  \\ qpat_abbrev_tac`ls = REVERSE _`
+  \\ `not_use_temp_before_assign ls`
+  suffices_by (
+    simp[not_use_temp_before_assign_thm]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ simp[] )
+  \\ simp[Abbr`ls`]
+  \\ qpat_abbrev_tac`p = (_,_)`
+  \\ qspec_then`p`strip_assume_tac pmov_final
+  \\ qspec_then`p`mp_tac pmov_not_use_temp_before_assign
+  \\ fs[]
+  \\ disch_then match_mp_tac
+  \\ simp[Abbr`p`]
+  \\ simp[parmoveTheory.wf_def,MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP]
+  \\ fs[parmoveTheory.windmill_def]
+  \\ simp[MAP_MAP_o,o_DEF,UNCURRY]
+  \\ simp[GSYM MAP_MAP_o,GSYM o_DEF]
+  \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+  \\ simp[] );
+
+(* -- *)
 
 val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
   `FST o (f ## g) = f o FST ∧
@@ -2737,7 +2853,7 @@ val comp_correct = store_thm("comp_correct",
       >- (
         qpat_abbrev_tac`ff = IS_SOME _`
         \\ every_case_tac \\ fs[]
-        \\ Q.ISPEC_THEN`mvs`mp_tac(Q.GEN`mvs` parmove_NONE_lemma)
+        \\ Q.ISPEC_THEN`mvs`mp_tac(Q.GEN`mvs` parmove_not_use_temp_before_assign)
         \\ simp[] )
       \\ conj_tac
       >- (
