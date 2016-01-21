@@ -2016,6 +2016,10 @@ val SND_o_pair_swap = Q.store_thm("SND_o_pair_swap",
   `SND o pair_swap = DIV2 o FST`,
   simp[FUN_EQ_THM,FORALL_PROD,pair_swap_def,DIV2_def]);
 
+val FST_o_pair_swap = Q.store_thm("FST_o_pair_swap",
+  `FST o pair_swap = DIV2 o SND`,
+  simp[FUN_EQ_THM,FORALL_PROD,pair_swap_def,DIV2_def]);
+
 val EVEN_DIV2_INJ = Q.store_thm("EVEN_DIV2_INJ",
   `EVEN x ∧ EVEN y ∧ DIV2 x = DIV2 y ⇒ x = y`,
   rw[EVEN_EXISTS,DIV2_def,MULT_COMM]
@@ -2231,13 +2235,22 @@ val IS_SOME_get_vars_set_var = Q.store_thm("IS_SOME_get_vars_set_var",
   \\ EVAL_TAC \\ simp[lookup_insert] \\ rw[]
   \\ res_tac \\ fs[]);
 
+val IS_SOME_get_vars_EVERY = Q.store_thm("IS_SOME_get_vars_EVERY",
+  `∀xs s. IS_SOME (get_vars xs s) ⇔ EVERY (λx. IS_SOME (get_var x s)) xs`,
+  Induct \\ simp[get_vars_def,EVERY_MEM]
+  \\ rw[] \\ every_case_tac \\ fs[EVERY_MEM]
+  \\ metis_tac[IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES]);
+
+val seqsem_move_unchanged = Q.store_thm("seqsem_move_unchanged",
+  `∀ms r. ¬MEM k (MAP SND ms) ⇒ seqsem ms r k = r k`,
+  ho_match_mp_tac parmoveTheory.seqsem_ind
+  \\ rw[parmoveTheory.seqsem_def,APPLY_UPDATE_THM]);
+
 val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   `∀ms s t r.
    state_rel k f f' s t lens ∧ 0 < f ∧
-   (* these two probably need to be ⇔ *)
-   (∀i v. r (SOME i) = SOME v ⇒ get_var (2*i) s = SOME v) ∧
+   (∀i v. r (SOME i) = SOME v ⇔ get_var (2*i) s = SOME v) ∧
    (∀v. r NONE = SOME v ⇒ get_var (k+1) t = SOME v) ∧
-   (∀v. r (SOME v) ≠ NONE) ∧
    IS_SOME (get_vars (MAP ($* 2 o THE) (FILTER IS_SOME (MAP SND ms))) s) ∧
    (case find_index NONE (MAP SND ms) 0 of
     | NONE => T
@@ -2246,7 +2259,6 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       | NONE => IS_SOME (r NONE)
       | SOME j => i ≤ j ⇒ IS_SOME (r NONE)) ∧
    EVERY (λ(x,y). ∀a. (x = SOME a ∨ y = SOME a) ⇒ a < f' + k) ms ∧
-   (* this is for a seqsem lemma (unstated) *)
    ALL_DISTINCT (MAP FST ms)
    ⇒
    ∃t'.
@@ -2308,7 +2320,9 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
         \\ simp[lookup_insert]
         \\ fs[]
         \\ BasicProvers.FULL_CASE_TAC \\ fs[]
-        \\ res_tac \\ fs[] )
+        \\ rw[EQ_IMP_THM]
+        \\ fs[find_index_def]
+        \\ BasicProvers.FULL_CASE_TAC \\ fs[IS_SOME_EXISTS])
       \\ BasicProvers.FULL_CASE_TAC \\ fs[]
       \\ EVAL_TAC
       \\ simp[lookup_insert]
@@ -2319,16 +2333,6 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       \\ BasicProvers.FULL_CASE_TAC \\ fs[]
       \\ res_tac
       \\ fs[] )
-    \\ conj_tac
-    >- (
-      rw[]
-      \\ qpat_assum`option_CASE (find_index _ _ _) _ _`mp_tac
-      \\ simp[find_index_def]
-      \\ IF_CASES_TAC \\ simp[]
-      >- (
-        BasicProvers.CASE_TAC \\ simp[IS_SOME_EXISTS] \\ rw[] \\ rw[] )
-      \\ strip_tac
-      \\ metis_tac[option_CASES,NOT_SOME_NONE] )
     \\ conj_tac
     >- (
       qpat_assum`IS_SOME _`mp_tac
@@ -2357,7 +2361,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       \\ Cases_on`r ss`
       \\ Cases_on`ss`\\ fs[]
       \\ BasicProvers.CASE_TAC \\ fs[]
-      \\ rfs[] )
+      \\ res_tac \\ fs[])
     >- (
       pop_assum mp_tac
       \\ simp[Once find_index_shift_0]
@@ -2377,13 +2381,47 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ simp[alist_insert_append]
   \\ simp[alist_insert_def]
   \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
-  \\ cheat);
+  \\ qpat_abbrev_tac`mss = MAP _ ms`
+  \\ qmatch_assum_abbrev_tac`¬MEM kk _`
+  \\ `¬MEM kk (MAP SND mss)`
+  by simp[Abbr`mss`,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+  \\ qpat_abbrev_tac`rr = _ r`
+  \\ qispl_then[`kk`,`mss`,`rr`]mp_tac (Q.GEN`k`seqsem_move_unchanged)
+  \\ simp[] \\ disch_then kall_tac
+  \\ simp[Abbr`rr`,APPLY_UPDATE_THM]
+  \\ fs[find_index_def]
+  \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+  >- (
+    BasicProvers.FULL_CASE_TAC \\ fs[IS_SOME_EXISTS]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[] )
+  \\ qmatch_rename_tac`v = THE (r z)`
+  \\ Cases_on`z` \\ fs[]
+  \\ res_tac \\ fs[]);
+
+val MEM_MAP_SND_parmove = Q.store_thm("MEM_MAP_SND_parmove",
+  `MEM (SOME x) (MAP SND (parmove mvs)) ⇒ MEM x (MAP FST mvs)`,
+  rw[parmoveTheory.parmove_def]
+  \\ cheat)
+
+val MEM_MAP_FST_parmove = Q.store_thm("MEM_MAP_FST_parmove",
+  `MEM (SOME x) (MAP FST (parmove mvs)) ⇒ MEM x (MAP SND mvs)`,
+  rw[parmoveTheory.parmove_def]
+  \\ cheat)
+
+val parmove_NONE_lemma = Q.store_thm("parmove_NONE_lemma",
+  `case find_index NONE (MAP SND (parmove mvs)) 0 of
+      NONE => T
+    | SOME i =>
+      case find_index NONE (MAP FST (parmove mvs)) 0 of
+        NONE => F
+      | SOME j => i ≤ j ⇒ F`,
+  cheat)
 
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
       state_rel k f f' s t lens /\ post_alloc_conventions k prog /\
-      max_var prog <= 2 * f' + 2 * k /\
+      max_var prog < 2 * f' + 2 * k /\
       (~(is_tail_call prog) ==> 1 <= f /\ SND (comp prog bs (k,f,f')) ≼ t.bitmaps) ==>
       ?ck t1 res1.
         (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
@@ -2453,7 +2491,51 @@ val comp_correct = store_thm("comp_correct",
       \\ rator_x_assum`post_alloc_conventions`mp_tac
       \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
     \\ simp[wMove_def]
-
+    \\ qexists_tac`0` \\ simp[]
+    \\ drule evaluate_wMoveAux_seqsem
+    \\ simp[]
+    \\ disch_then(qspec_then`parmove mvs`mp_tac)
+    \\ disch_then(qspec_then`λx.
+         case x of NONE => get_var (k+1) t
+                 | SOME i => get_var (2*i) s`mp_tac)
+    \\ discharge_hyps
+    >- (
+      conj_tac >- simp[]
+      \\ conj_tac >- simp[]
+      \\ conj_tac
+      >- (
+        `IS_SOME (get_vars (MAP SND moves) s)` by metis_tac[IS_SOME_EXISTS]
+        \\ fs[IS_SOME_get_vars_EVERY]
+        \\ fs[EVERY_FILTER,EVERY_MEM,MEM_MAP,PULL_EXISTS]
+        \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+        \\ rw[] \\ imp_res_tac MEM_MAP_SND_parmove
+        \\ pop_assum mp_tac
+        \\ simp[Abbr`mvs`,MAP_MAP_o,FST_o_pair_swap]
+        \\ fs[IS_SOME_EXISTS]
+        \\ simp[MEM_MAP,PULL_EXISTS]
+        \\ simp[DIV2_def,bitTheory.DIV_MULT_THM2]
+        \\ rw[] \\ res_tac
+        \\ rator_x_assum`post_alloc_conventions`mp_tac
+        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2]
+        \\ simp[MEM_MAP,PULL_EXISTS] )
+      \\ conj_tac
+      >- (
+        qpat_abbrev_tac`ff = IS_SOME _`
+        \\ every_case_tac \\ fs[]
+        \\ Q.ISPEC_THEN`mvs`mp_tac(Q.GEN`mvs` parmove_NONE_lemma)
+        \\ simp[] )
+      \\ conj_tac
+      >- (
+        fs[EVERY_MEM,UNCURRY,PULL_FORALL]
+        \\ rw[]
+        \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_SND_parmove)
+        \\ imp_res_tac (SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
+        \\ rfs[]
+        \\ fs[Abbr`mvs`,MEM_MAP,EXISTS_PROD,pair_swap_def]
+        \\ fs[word_allocTheory.max_var_def]
+        \\ cheat )
+      \\ cheat )
+    \\ strip_tac \\ simp[]
     \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
