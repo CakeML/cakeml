@@ -2606,6 +2606,32 @@ val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
    SND o (f ## g) = g o SND`,
   simp[FUN_EQ_THM]);
 
+val evaluate_SeqStackFree = store_thm("evaluate_SeqStackFree",
+  ``s.use_stack /\ s.stack_space <= LENGTH s.stack ==>
+    evaluate (SeqStackFree n p,s) = evaluate (Seq (StackFree n) p,s)``,
+  RW_TAC std_ss [SeqStackFree_def,stackSemTheory.evaluate_def]
+  THEN1 (`F` by decide_tac)
+  \\ AP_TERM_TAC \\ fs [stackSemTheory.state_component_equality]);
+
+val call_dest_lemma = prove(
+  ``state_rel k f f' (s:('a,'ffi) state) t lens /\
+    call_dest dest args (k,f,f') = (q0,dest') ==>
+    ?t4. evaluate (q0,t) = (NONE,t4) /\
+         state_rel k f f' s t4 lens /\
+         !args real_args prog.
+            find_code dest (args:'a word_loc list) s.code = SOME (real_args,prog) ==>
+            ?bs bs2 stack_prog.
+              compile_prog prog (LENGTH real_args) k bs = (stack_prog,bs2) ∧
+              bs2 ≼ t4.bitmaps /\
+              find_code dest' t4.regs t4.code = SOME stack_prog``,
+  cheat);
+
+val compile_result_NOT_2 = prove(
+  ``good_dimindex (:'a) ==>
+    compile_result x ≠ Halt (Word (2w:'a word))``,
+  Cases_on `x` \\ fs [compile_result_def]
+  \\ rw [good_dimindex_def] \\ fs [dimword_def]);
+
 val comp_correct = store_thm("comp_correct",
   ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
       (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -2934,7 +2960,81 @@ val comp_correct = store_thm("comp_correct",
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
     \\ fs [domain_lookup] \\ res_tac
     \\ `~(n < k * 2)` by decide_tac \\ fs [])
-  \\ (* Call *) cheat);
+  \\ (* Call *) cheat)
+
+(*
+  \\ (* Call *)
+
+    (* gets us quickly to the Call case *)
+    reverse (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [is_tail_call_def])
+
+    simp [Once LET_DEF,comp_def]
+    \\ split_pair_tac \\ fs []
+    \\ Cases_on `ret` \\ fs []
+    THEN1
+     (fs [stackSemTheory.evaluate_def]
+      \\ drule call_dest_lemma \\ fs [] \\ strip_tac
+      \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
+      \\ fs [AC ADD_COMM ADD_ASSOC,LET_THM]
+      \\ disch_then kall_tac
+      \\ `!n p ck. evaluate (SeqStackFree n p,t4 with clock := ck) =
+                   evaluate (Seq (StackFree n) p,t4 with clock := ck)` by
+       (rw [] \\ match_mp_tac evaluate_SeqStackFree
+        \\ fs [state_rel_def] \\ decide_tac)
+      \\ `t4.clock = s.clock /\ t4.use_stack` by fs [state_rel_def] \\ fs []
+      \\ fs [stackSemTheory.evaluate_def]
+      \\ Cases_on `LENGTH t4.stack <
+           t4.stack_space + stack_free dest' (LENGTH args − 1) (k,f,f')` \\ fs []
+      THEN1
+       (fs [stack_free_def]
+        \\ Cases_on `dest'` \\ fs [stack_arg_count_def]
+        \\ fs [state_rel_def,LET_DEF] \\ `F` by decide_tac)
+      \\ fs [LET_THM,wordSemTheory.evaluate_def]
+      \\ qpat_assum `_ = (res,s1)` mp_tac
+      \\ TOP_CASE_TAC THEN1 rw []
+      \\ TOP_CASE_TAC THEN1 rw []
+      \\ TOP_CASE_TAC
+      \\ reverse TOP_CASE_TAC THEN1 rw []
+      \\ TOP_CASE_TAC \\ fs [add_ret_loc_def]
+      THEN1
+       (rw [] \\ qexists_tac `0` \\ fs [] \\ res_tac \\ fs [state_rel_def])
+      \\ TOP_CASE_TAC
+      \\ TOP_CASE_TAC THEN1 rw []
+      \\ strip_tac \\ rpt var_eq_tac \\ fs [] \\ rfs []
+      \\ res_tac \\ fs [stackSemTheory.dec_clock_def]
+      \\ fs [compile_prog_def,LET_THM]
+      \\ split_pair_tac \\ fs []
+      \\ rpt var_eq_tac \\ fs [] \\ rfs []
+      \\ fs [stackSemTheory.evaluate_def]
+      \\ qabbrev_tac `m = MAX (max_var r DIV 2 - k) (LENGTH q - k)` \\ rw []
+      \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args - 1) (k,f,f') <
+             m + 1 - (LENGTH q - k)` \\ fs []
+      THEN1 (* Hit stack limit case *)
+       (fs [state_rel_def]
+        \\ fs [compile_result_NOT_2]
+        \\ imp_res_tac stackPropsTheory.evaluate_io_events_mono
+        \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono
+        \\ fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def])
+      \\ (fn g =>
+           qabbrev_tac `t5 = ^((qexists_tac`0`
+           \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
+           |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
+      \\ `state_rel k (m+1) m (call_env q (dec_clock s)) t5 lens` by
+             cheat (* complicated? *)
+      \\ first_x_assum drule
+      \\ disch_then (qspec_then `bs'` mp_tac) \\ fs []
+      \\ discharge_hyps THEN1 cheat (* not too bad *)
+      \\ strip_tac \\ fs []
+      \\ qunabbrev_tac `t5` \\ fs []
+      \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
+      \\ qexists_tac `ck` \\ fs []
+      \\ Cases_on `res1` \\ fs []
+      \\ fs [EVAL ``(call_env q (dec_clock s)).handler``,AC ADD_COMM ADD_ASSOC])
+    \\ PairCases_on `x` \\ fs [LET_DEF]
+    \\ split_pair_tac \\ fs []
+    \\ split_pair_tac \\ fs []
+
+*)
 
 val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
@@ -2951,12 +3051,16 @@ val make_init_def = Define `
      ; be      := t.be
      ; ffi     := t.ffi |> `;
 
+val evaluate_Seq_Skip = prove(
+  ``stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)``,
+  fs [stackSemTheory.evaluate_def,LET_THM]);
+
 val comp_Call_lemma = comp_correct
   |> Q.SPEC `Call NONE (SOME start) [0] NONE`
-  |> SIMP_RULE std_ss [comp_def,stack_free_def,CallAny_def]
+  |> SIMP_RULE std_ss [comp_def,stack_free_def,call_dest_def,LET_THM]
   |> Q.SPECL [`s`,`k`,`0`,`0`]
   |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
-       list_max_def,is_tail_call_def,
+       list_max_def,is_tail_call_def,evaluate_Seq_Skip,
        EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
        word_allocTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 

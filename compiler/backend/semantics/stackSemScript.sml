@@ -410,7 +410,7 @@ val evaluate_def = tDefine "evaluate" `
      (NONE,set_var r (Loc l1 l2) s)) /\
   (evaluate (StackAlloc n,s) =
      if ~s.use_stack then (SOME Error,s) else
-     if s.stack_space < n then (SOME (Halt (Word 1w)),empty_env s) else
+     if s.stack_space < n then (SOME (Halt (Word 2w)),empty_env s) else
        (NONE, s with stack_space := s.stack_space - n)) /\
   (evaluate (StackFree n,s) =
      if ~s.use_stack then (SOME Error,s) else

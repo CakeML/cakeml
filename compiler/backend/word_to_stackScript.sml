@@ -107,18 +107,18 @@ val wLive_def = Define `
 val SeqStackFree_def = Define `
   SeqStackFree n p = if n = 0 then p else Seq (StackFree n) p`
 
-val CallAny_def = Define `
-  (CallAny ret (SOME pos) args handler kf =
-     Call ret (INL pos) handler) /\
-  (CallAny ret NONE args handler kf =
-     let (x1,r) = wReg1 (LAST args) kf in
-       wStackLoad x1 (Call ret (INR r) handler))`
+val call_dest_def = Define `
+  (call_dest (SOME pos) args kf = (Skip, INL pos)) /\
+  (call_dest NONE args kf =
+     if LENGTH args = 0 then (Skip, INL 0n) else
+       let (x1,r) = wReg2 (LAST args) kf in
+         (wStackLoad x1 Skip, INR r))`
 
 val stack_arg_count_def = Define `
   stack_arg_count dest arg_count k =
     case dest of
-    | SOME _ => (arg_count - k:num)
-    | NONE => ((arg_count - 1) - k:num)`
+    | INL _ => (arg_count - k:num)
+    | INR _ => ((arg_count - 1) - k:num)`
 
 val stack_free_def = Define `
   stack_free dest arg_count (k,f,f':num) =
@@ -142,7 +142,7 @@ val StackHandlerArgs_def = Define `
 val PushHandler_def = Define `
   PushHandler l1 l2 (k,f,f') =
     Seq (StackAlloc 3)
-   (Seq (Inst (Const 0 1w))
+   (Seq (Inst (Const k 1w))
    (Seq (StackStore 0 k)
    (Seq (Get k Handler)
    (Seq (StackStore 1 k)
@@ -175,23 +175,26 @@ val comp_def = Define `
   (comp (Get n name) bs kf =
      (wRegWrite1 (\r. Get r name) n kf,bs)) /\
   (comp (Call ret dest args handler) bs kf =
+     let (q0,dest) = call_dest dest args kf in
      case ret of
-     | NONE => (SeqStackFree (stack_free dest (LENGTH args - 1) kf)
-                 (CallAny NONE dest (TL args) NONE kf),bs)
+     | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args - 1) kf)
+                 (Call NONE dest NONE)),bs)
      | SOME (ret_var, live, ret_code, l1, l2) =>
          let (q1,bs) = wLive live bs kf in
          let (q2,bs) = comp ret_code bs kf in
            case handler of
-           | NONE => (Seq q1
+           | NONE => (Seq q0
+                     (Seq q1
                      (Seq (StackArgs dest (LENGTH args) kf)
-                          (CallAny (SOME (q2,0,l1,l2)) dest args NONE kf)),
+                          (Call (SOME (q2,0,l1,l2)) dest NONE))),
                       bs)
            | SOME (handle_var, handle_code, h1, h2) =>
                let (q3,bs) = comp handle_code bs kf in
+                (Seq q0
                 (Seq q1
                 (Seq (PushHandler h1 h2 kf)
                 (Seq (StackHandlerArgs dest (LENGTH args) kf)
-                     (CallAny (SOME (q2,0,l1,l2)) dest args (SOME (q3,h1,h2)) kf))),
+                     (Call (SOME (q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
                  bs)) /\
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
