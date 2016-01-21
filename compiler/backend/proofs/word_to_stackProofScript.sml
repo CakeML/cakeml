@@ -1358,8 +1358,17 @@ val dec_stack_lemma1 = prove(``
       pop_assum(qspec_then`v00+1` mp_tac)>>discharge_hyps>-
         DECIDE_TAC>>
       metis_tac[LIST_REL_abs_frame_eq_handler_val])
-    >-
-      cheat
+    >- (
+      imp_res_tac filter_bitmap_IMP_MAP_FST
+      \\ imp_res_tac filter_bitmap_IMP_MAP_SND
+      \\ fs[index_list_eq_ZIP,LENGTH_COUNT_LIST,MAP_ZIP]
+      \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[]
+      \\ match_mp_tac filter_bitmap_MAP_IMP
+      \\ simp[MAP_ZIP,LENGTH_COUNT_LIST]
+      \\ simp[MAP_FST_def,MAP_MAP_o,o_DEF,UNCURRY,ETA_AX]
+      \\ simp[MAP_ZIP]
+      \\ simp[GSYM o_DEF]
+      \\ simp[MAP_ZIP,MAP_MAP_o])
     >>
     fs[abs_frame_eq_def]>>
     simp[]))
