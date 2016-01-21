@@ -26,7 +26,7 @@ val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
 
 (* NONE is a temporary register; real registers are SOME x. *)
 
-val _ = temp_overload_on("NoRead",``λμ dn. ¬MEM dn (MAP FST μ)``);
+val _ = temp_overload_on("NoRead",``λμ dn. ¬MEM dn (MAP SND μ)``);
 
 fun replace_quote from to (QUOTE s) = QUOTE(replace_string from to s)
   | replace_quote _ _ x = x
@@ -35,13 +35,13 @@ val _ = add_infix("step",450,NONASSOC);
 
 val (step_rules,step_ind,step_cases) = (Hol_reln o List.map(replace_quote "\226\150\183" "step"))`
   ((μ1++[(r,r)]++μ2,σ,τ) ▷ (μ1++μ2,σ,τ)) ∧
-  ((μ1++[(s,d)]++μ2,[],τ) ▷ (μ1++μ2,[(s,d)],τ)) ∧
-  ((μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ▷ (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
-  ((μ,σ++[(s,d)],τ) ▷ (μ,σ++[(NONE,d)],[(s,NONE)]++τ)) ∧
+  ((μ1++[(d,s)]++μ2,[],τ) ▷ (μ1++μ2,[(d,s)],τ)) ∧
+  ((μ1++[(r,d)]++μ2,[(d,s)]++σ,τ) ▷ (μ1++μ2,[(r,d);(d,s)]++σ,τ)) ∧
+  ((μ,σ++[(d,s)],τ) ▷ (μ,σ++[(d,NONE)],[(NONE,s)]++τ)) ∧
   (NoRead μ dn ∧ dn ≠ s0 ⇒
-   (μ,[(sn,dn)]++σ++[(s0,d0)],τ) ▷ (μ,σ++[(s0,d0)],[(sn,dn)]++τ)) ∧
+   (μ,[(dn,sn)]++σ++[(d0,s0)],τ) ▷ (μ,σ++[(d0,s0)],[(dn,sn)]++τ)) ∧
   (NoRead μ d ⇒
-   (μ,[(s,d)],τ) ▷ (μ,[],[(s,d)]++τ))`;
+   (μ,[(d,s)],τ) ▷ (μ,[],[(d,s)]++τ))`;
 
 val _ = Unicode.uset_fixity"\226\150\183"(Infix(NONASSOC,450));
 val _ = Unicode.uoverload_on("\226\150\183",``$step``);
@@ -51,20 +51,20 @@ val _ = overload_on("\226\150\183*",``RTC $▷``);
 (* invariant on states *)
 
 val windmill_def = Define `
-  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP SND moves)`;
+  windmill (moves:('a # 'a) list) = ALL_DISTINCT (MAP FST moves)`;
 
 val windmill_cons = Q.store_thm("windmill_cons",
-  `windmill (x::ls) ⇔ ¬MEM (SND x) (MAP SND ls) ∧ windmill ls`,
+  `windmill (x::ls) ⇔ ¬MEM (FST x) (MAP FST ls) ∧ windmill ls`,
   rw[windmill_def])
 
 val path_def = Define`
   (path [] ⇔ T) ∧ (path [_] ⇔ T) ∧
-  (path ((b',c)::(a,b)::p) ⇔
-     (b = b') ∧ path ((a,b)::p))`;
+  (path ((c,b')::(b,a)::p) ⇔
+     (b = b') ∧ path ((b,a)::p))`;
 val _ = export_rewrites["path_def"];
 
 val path_change_start = Q.store_thm("path_change_start",
-  `∀y z x. path (SNOC x y) ∧ SND x = SND z ⇒ path (SNOC z y)`,
+  `∀y z x. path (SNOC x y) ∧ FST x = FST z ⇒ path (SNOC z y)`,
   simp[SNOC_APPEND] >>
   Induct >> simp[] >>
   Cases >> simp[] >>
@@ -79,15 +79,15 @@ val path_tail = Q.store_thm("path_tail",
 
 val path_imp_mem = Q.prove(
   `path (x::y) ⇒
-   ¬NULL y ⇒ MEM (FST x) (MAP SND y)`,
+   ¬NULL y ⇒ MEM (SND x) (MAP FST y)`,
   Induct_on`y`>>simp[]>>
   Cases_on`x`>>Cases>>fs[])
 
 val path_imp_mem2 = Q.prove(
   `path x ⇒
-   ∀y. MEM y (MAP FST x) ∧
-       y ≠ FST(LAST x) ⇒
-       MEM y (MAP SND x)`,
+   ∀y. MEM y (MAP SND x) ∧
+       y ≠ SND(LAST x) ⇒
+       MEM y (MAP FST x)`,
   Induct_on`x` >> simp[]>>
   Cases_on`x`>>Cases>>simp[]>>
   Cases_on`h`>>fs[] >>
@@ -96,8 +96,8 @@ val path_imp_mem2 = Q.prove(
 
 val NoRead_path = Q.prove(
   `∀σ. path σ ∧ windmill σ ∧ LENGTH σ ≥ 2 ∧
-   SND (HD σ) ≠ FST (LAST σ) ⇒
-   NoRead (TL σ) (SND (HD σ))`,
+   FST (HD σ) ≠ SND (LAST σ) ⇒
+   NoRead (TL σ) (FST (HD σ))`,
   Induct >> simp[] >> Cases >> simp[] >>
   Cases_on`σ`>>fs[]>> Cases_on`h`>>fs[]>>
   strip_tac >> var_eq_tac >> fs[] >>
@@ -115,8 +115,8 @@ val wf_def = Define`
     windmill (μ++σ) ∧
     EVERY IS_SOME (MAP FST μ) ∧
     EVERY IS_SOME (MAP SND μ) ∧
-    (¬NULL σ ⇒ EVERY IS_SOME (MAP FST (FRONT σ))) ∧
-    EVERY IS_SOME (MAP SND σ) ∧
+    (¬NULL σ ⇒ EVERY IS_SOME (MAP SND (FRONT σ))) ∧
+    EVERY IS_SOME (MAP FST σ) ∧
     path σ`;
 val _ = Unicode.uoverload_on(UnicodeChars.turnstile,``wf``);
 
@@ -135,7 +135,7 @@ val wf_step = Q.store_thm("wf_step",
   fs[wf_def,windmill_def,ALL_DISTINCT_APPEND] >>
   fs[GSYM SNOC_APPEND,FRONT_DEF] >>
   TRY (match_mp_tac path_change_start) >>
-  metis_tac[SND,path_tail]);
+  metis_tac[FST,path_tail]);
 
 val wf_steps = Q.store_thm("wf_steps",
   `∀s1 s2. ⊢ s1 ∧ s1 ▷* s2 ⇒ ⊢ s2`,
@@ -145,33 +145,33 @@ val wf_steps = Q.store_thm("wf_steps",
 (* semantics of moves *)
 
 val parsem_def = Define`
-  parsem μ ρ = ρ =++ (ZIP(MAP SND μ, MAP (ρ o FST) μ))`;
+  parsem μ ρ = ρ =++ (ZIP(MAP FST μ, MAP (ρ o SND) μ))`;
 
 val parsem_nil = Q.store_thm("parsem_nil[simp]",
   `parsem [] = I`,
   rw[parsem_def,FUN_EQ_THM,UPDATE_LIST_THM]);
 
 val parsem_cons = Q.store_thm("parsem_cons",
-  `¬MEM y (MAP SND μ) ⇒
-   parsem ((x,y)::μ) ρ = (y =+ ρ x) (parsem μ ρ)`,
+  `¬MEM x (MAP FST μ) ⇒
+   parsem ((x,y)::μ) ρ = (x =+ ρ y) (parsem μ ρ)`,
   rw[parsem_def,UPDATE_LIST_THM] >>
   simp[FUN_EQ_THM,APPLY_UPDATE_THM,APPLY_UPDATE_LIST_ALOOKUP] >>
   rw[] >> BasicProvers.CASE_TAC >>
   imp_res_tac ALOOKUP_MEM >> fs[MEM_MAP,MEM_ZIP,FORALL_PROD] >>
-  rw[] >> fs[MEM_EL,EL_MAP] >> metis_tac[PAIR,SND]);
+  rw[] >> fs[MEM_EL,EL_MAP] >> metis_tac[PAIR,FST]);
 
 val independence = Q.store_thm("independence",
   `∀μ1 s d μ2 μ.
-      windmill μ ∧ μ = μ1 ++ [(s,d)] ++ μ2 ⇒
-      parsem μ = parsem ([(s,d)]++μ1++μ2)`,
+      windmill μ ∧ μ = μ1 ++ [(d,s)] ++ μ2 ⇒
+      parsem μ = parsem ([(d,s)]++μ1++μ2)`,
   Induct >> simp[] >> Cases >> rw[] >>
   full_simp_tac std_ss [windmill_cons] >>
   simp[parsem_cons,FUN_EQ_THM] >>
-  `¬MEM d (MAP SND ((q,r)::(μ1 ++ μ2)))` by (
+  `¬MEM d (MAP FST ((q,r)::(μ1 ++ μ2)))` by (
     fs[windmill_def,ALL_DISTINCT_APPEND] ) >>
   simp[parsem_cons] >>
   full_simp_tac std_ss [MAP,MEM] >>
-  `¬MEM r (MAP SND (μ1 ++ μ2))` by fs[] >>
+  `¬MEM q (MAP FST (μ1 ++ μ2))` by fs[] >>
   simp[parsem_cons,APPLY_UPDATE_THM] >> rw[]);
 
 val parsem_perm = Q.store_thm("parsem_perm",
@@ -203,8 +203,8 @@ val parsem_perm = Q.store_thm("parsem_perm",
       qexists_tac`parsem ([(q,r)]++x1++x3++x2)` >>
       conj_tac >- (
         simp[GSYM CONS_APPEND] >>
-        `¬MEM r (MAP SND (x1++x2++x3)) ∧
-         ¬MEM r (MAP SND (x1++x3++x2))` by (
+        `¬MEM q (MAP FST (x1++x2++x3)) ∧
+         ¬MEM q (MAP FST (x1++x3++x2))` by (
           fs[windmill_def,ALL_DISTINCT_APPEND] >>
           metis_tac[] ) >>
         metis_tac[parsem_cons] ) >>
@@ -219,27 +219,27 @@ val parsem_perm = Q.store_thm("parsem_perm",
   simp[])
 
 val parsem_untouched = Q.store_thm("parsem_untouched",
-  `∀ρ μ x. windmill μ ∧ ¬MEM x (MAP SND μ) ⇒ parsem μ ρ x = ρ x`,
+  `∀ρ μ x. windmill μ ∧ ¬MEM x (MAP FST μ) ⇒ parsem μ ρ x = ρ x`,
   gen_tac >> Induct >> simp[] >>
   Cases >> rw[] >>
-  `¬MEM r (MAP SND μ)` by fs[windmill_def] >>
+  `¬MEM q (MAP FST μ)` by fs[windmill_def] >>
   simp[parsem_cons,APPLY_UPDATE_THM] >>
   first_x_assum match_mp_tac >>
   fs[windmill_def])
 
 val parsem_change_env = Q.store_thm("parsem_change_env",
-  `(¬MEM x (MAP SND μ) ⇒ ρ1 x = ρ2 x) ∧
-   MAP (ρ1 o FST) μ = MAP (ρ2 o FST) μ ⇒
+  `(¬MEM x (MAP FST μ) ⇒ ρ1 x = ρ2 x) ∧
+   MAP (ρ1 o SND) μ = MAP (ρ2 o SND) μ ⇒
    parsem μ ρ1 x = parsem μ ρ2 x`,
   rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP] >>
   BasicProvers.CASE_TAC >> first_x_assum match_mp_tac >>
   imp_res_tac ALOOKUP_FAILS >>
   fs[MEM_MAP,FORALL_PROD,MEM_ZIP,MEM_EL] >>
-  metis_tac[EL_MAP,SND])
+  metis_tac[EL_MAP,FST])
 
 val parsem_NoRead = Q.store_thm("parsem_NoRead",
-  `NoRead μ y ⇒
-   parsem ((x,y)::μ) ρ = parsem μ ((y =+ ρ x) ρ)`,
+  `NoRead μ x ⇒
+   parsem ((x,y)::μ) ρ = parsem μ ((x =+ ρ y) ρ)`,
   rw[parsem_def,APPLY_UPDATE_LIST_ALOOKUP,FUN_EQ_THM,ALOOKUP_APPEND,APPLY_UPDATE_THM,REVERSE_ZIP] >>
   simp[GSYM MAP_REVERSE,ALOOKUP_ZIP_MAP_SND] >>
   qpat_abbrev_tac`z = ALOOKUP X Y` >>
@@ -247,7 +247,7 @@ val parsem_NoRead = Q.store_thm("parsem_NoRead",
   fs[markerTheory.Abbrev_def] >>
   pop_assum(assume_tac o SYM) >>
   imp_res_tac ALOOKUP_MEM >>
-  qmatch_assum_rename_tac`NoRead μ (FST p)` >>
+  qmatch_assum_rename_tac`NoRead μ (SND p)` >>
   Cases_on`p`>>fs[]>>
   fs[MAP_REVERSE,GSYM REVERSE_ZIP] >>
   fs[MEM_ZIP,MEM_MAP,MEM_EL,EXISTS_PROD] >>
@@ -255,7 +255,7 @@ val parsem_NoRead = Q.store_thm("parsem_NoRead",
 
 val seqsem_def = Define`
   (seqsem [] ρ = ρ) ∧
-  (seqsem ((s,d)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))`;
+  (seqsem ((d,s)::τ) ρ = seqsem τ ((d =+ ρ s) ρ))`;
 
 val seqsem_append = Q.store_thm("seqsem_append",
   `∀l1 l2. seqsem (l1 ++ l2) = seqsem l2 o seqsem l1`,
@@ -295,7 +295,7 @@ val step_sem = Q.prove(
       match_mp_tac parsem_perm >> simp[] >>
       CONV_TAC(RAND_CONV(REWRITE_CONV[Once CONS_APPEND])) >>
       REWRITE_TAC[APPEND_ASSOC,PERM_APPEND_IFF,PERM_APPEND] ) >>
-    `¬MEM r (MAP SND (μ1++μ2++σ))` by
+    `¬MEM r (MAP FST (μ1++μ2++σ))` by
       (fs[windmill_def,ALL_DISTINCT_APPEND]>>metis_tac[]) >>
     simp[parsem_cons,FUN_EQ_THM,APPLY_UPDATE_THM] >> rw[] >>
     match_mp_tac (GSYM parsem_untouched) >>
@@ -313,10 +313,10 @@ val step_sem = Q.prove(
     metis_tac[PERM_APPEND,PERM_APPEND_IFF,APPEND_ASSOC] ) >>
   conj_tac >- (
     rw[sem_def,FUN_EQ_THM,wf_def,eqenv_def] >>
-    `∀s. parsem (μ ++ σ ++ [(s,d)]) = parsem ((s,d)::(μ++σ))` by (
+    `∀s. parsem (μ ++ σ ++ [(d,s)]) = parsem ((d,s)::(μ++σ))` by (
       gen_tac >> match_mp_tac parsem_perm >> simp[] >> fs[windmill_def] >>
       metis_tac[CONS_APPEND,APPEND_ASSOC,PERM_APPEND,PERM_APPEND_IFF] ) >>
-    `¬MEM d (MAP SND (μ++σ))` by fs[windmill_def,ALL_DISTINCT_APPEND] >>
+    `¬MEM d (MAP FST (μ++σ))` by fs[windmill_def,ALL_DISTINCT_APPEND] >>
     simp[parsem_cons,APPLY_UPDATE_THM] >>
     rw[seqsem_append,seqsem_def,APPLY_UPDATE_THM] >>
     fs[GSYM SNOC_APPEND] >>
@@ -326,18 +326,18 @@ val step_sem = Q.prove(
     metis_tac[IS_SOME_DEF] ) >>
   conj_tac >- (
     rw[sem_def,FUN_EQ_THM,wf_def,eqenv_def] >>
-    `parsem (μ ++ [(sn,dn)] ++ σ ++ [(s0,d0)]) =
-     parsem ((s0,d0)::((sn,dn)::(μ ++ σ)))` by (
+    `parsem (μ ++ [(dn,sn)] ++ σ ++ [(d0,s0)]) =
+     parsem ((d0,s0)::((dn,sn)::(μ ++ σ)))` by (
       match_mp_tac parsem_perm >> simp[] >>
       match_mp_tac PERM_TRANS >>
       metis_tac[CONS_APPEND,APPEND_ASSOC,PERM_APPEND,PERM_APPEND_IFF]) >>
     pop_assum (SUBST1_TAC) >>
-    `parsem (μ ++ σ ++ [(s0,d0)]) =
-     parsem ((s0,d0)::(μ++σ))` by (
+    `parsem (μ ++ σ ++ [(d0,s0)]) =
+     parsem ((d0,s0)::(μ++σ))` by (
       match_mp_tac parsem_perm >> fs[windmill_def,ALL_DISTINCT_APPEND] >>
       metis_tac[CONS_APPEND,APPEND_ASSOC,PERM_APPEND,PERM_APPEND_IFF]) >>
     pop_assum (SUBST1_TAC) >>
-    `¬MEM d0 (MAP SND (μ++σ)) ∧ ¬MEM d0 (MAP SND ((sn,dn)::(μ++σ)))` by (
+    `¬MEM d0 (MAP FST (μ++σ)) ∧ ¬MEM d0 (MAP FST ((dn,sn)::(μ++σ)))` by (
       fs[windmill_def,ALL_DISTINCT_APPEND] ) >>
     simp[parsem_cons,APPLY_UPDATE_THM] >>
     rw[seqsem_append,seqsem_def,APPLY_UPDATE_THM] >>
@@ -350,7 +350,7 @@ val step_sem = Q.prove(
     fs[windmill_def,ALL_DISTINCT_APPEND] >>
     simp[LAST_DEF] ) >>
   rw[sem_def,FUN_EQ_THM,wf_def,eqenv_def] >>
-  `parsem (μ ++ [(s,d)]) = parsem ((s,d)::μ)` by (
+  `parsem (μ ++ [(d,s)]) = parsem ((d,s)::μ)` by (
      match_mp_tac parsem_perm >> simp[] >>
      metis_tac[CONS_APPEND,APPEND_ASSOC,PERM_APPEND,PERM_APPEND_IFF]) >>
   pop_assum (SUBST1_TAC) >>
@@ -389,18 +389,18 @@ val _ = add_infix("dstep",450,NONASSOC);
 val (dstep_rules,dstep_ind,dstep_cases) = (Hol_reln o List.map(replace_quote "\226\134\170" "dstep"))`
   (([(r,r)]++μ,[],τ) ↪ (μ,[],τ)) ∧
   (s ≠ d ⇒
-   ([(s,d)]++μ,[],τ) ↪ (μ,[(s,d)],τ)) ∧
+   ([(d,s)]++μ,[],τ) ↪ (μ,[(d,s)],τ)) ∧
   (NoRead μ1 d ⇒
-   (μ1++[(d,r)]++μ2,[(s,d)]++σ,τ) ↪
-   (μ1++μ2,[(d,r);(s,d)]++σ,τ)) ∧
+   (μ1++[(r,d)]++μ2,[(d,s)]++σ,τ) ↪
+   (μ1++μ2,[(r,d);(d,s)]++σ,τ)) ∧
   (NoRead μ r ⇒
-   (μ,[(s,r)]++σ++[(r,d)],τ) ↪
-   (μ,σ++[(NONE,d)],[(s,r);(r,NONE)]++τ)) ∧
+   (μ,[(r,s)]++σ++[(d,r)],τ) ↪
+   (μ,σ++[(d,NONE)],[(r,s);(NONE,r)]++τ)) ∧
   (NoRead μ dn ∧ dn ≠ s0 ⇒
-   (μ,[(sn,dn)]++σ++[(s0,d0)],τ) ↪
-   (μ,σ++[(s0,d0)],[(sn,dn)]++τ)) ∧
+   (μ,[(dn,sn)]++σ++[(d0,s0)],τ) ↪
+   (μ,σ++[(d0,s0)],[(dn,sn)]++τ)) ∧
   (NoRead μ d ⇒
-   (μ,[(s,d)],τ) ↪ (μ,[],[(s,d)]++τ))`;
+   (μ,[(d,s)],τ) ↪ (μ,[],[(d,s)]++τ))`;
 
 val _ = Unicode.uset_fixity"\226\134\170"(Infix(NONASSOC,450));
 val _ = Unicode.uoverload_on("\226\134\170",``$dstep``);
@@ -433,20 +433,20 @@ val fstep_def = Define`
   fstep st =
   case st of
   | ([],[],_) => st
-  | ((s,d)::t,[],l) =>
+  | ((d,s)::t,[],l) =>
     if s = d
     then (t,[],l)
-    else (t,[(s,d)],l)
-  | (t,(s,d)::b,l) =>
-    splitAtPki (λi p. FST p = d)
+    else (t,[(d,s)],l)
+  | (t,(d,s)::b,l) =>
+    splitAtPki (λi p. SND p = d)
       (λt1 rt2.
         case rt2 of
-        | (dr::t2) => (t1++t2,dr::(s,d)::b,l)
-        | [] => if NULL b then (t,[],(s,d)::l) else
-                let (b',(s',d')) = (FRONT b,LAST b) in
+        | (rd::t2) => (t1++t2,rd::(d,s)::b,l)
+        | [] => if NULL b then (t,[],(d,s)::l) else
+                let (b',(d',s')) = (FRONT b,LAST b) in
                 if s' = d
-                then (t,SNOC (NONE,d') b',(s,d)::(d,NONE)::l)
-                else (t,b,(s,d)::l))
+                then (t,SNOC (d',NONE) b',(d,s)::(NONE,d)::l)
+                else (t,b,(d,s)::l))
       t`;
 
 val not_or = METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``;
@@ -459,7 +459,7 @@ val tac =
   rw[splitAtPki_EQN] >>
   BasicProvers.CASE_TAC >- (
       rw[dstep_cases] >>
-      TRY(map_every qexists_tac[`SND(LAST t')`,`FST(LAST t')`,`FRONT t'`]) >>
+      TRY(map_every qexists_tac[`FST(LAST t')`,`SND(LAST t')`,`FRONT t'`]) >>
       rw[APPEND_FRONT_LAST] >>
       fs[whileTheory.OLEAST_def,MEM_MAP,MEM_EL] >>
       metis_tac[] ) >>
@@ -489,7 +489,7 @@ val tac =
   simp[MEM_EL,not_or,EL_TAKE] >>
   rpt strip_tac >>
   res_tac >> fsrw_tac[ARITH_ss][] >>
-  metis_tac[FST,PAIR])
+  metis_tac[SND,PAIR])
 
 val fstep_dstep = Q.prove(
   `(∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s`,
