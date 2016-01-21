@@ -2864,7 +2864,16 @@ val comp_correct = store_thm("comp_correct",
         \\ rfs[]
         \\ fs[Abbr`mvs`,MEM_MAP,EXISTS_PROD]
         \\ fs[word_allocTheory.max_var_def]
-        \\ cheat )
+        \\ qmatch_assum_abbrev_tac`list_max ls < _`
+        \\ qspec_then`ls`strip_assume_tac list_max_max
+        \\ fs[EVERY_MEM,Abbr`ls`,MEM_MAP,PULL_EXISTS]
+        \\ res_tac \\ fs[]
+        \\ qmatch_abbrev_tac`DIV2 aa < bb`
+        \\ qmatch_assum_abbrev_tac`aa ≤ cc`
+        \\ `cc < 2 * bb` by simp[Abbr`bb`]
+        \\ `aa < 2 * bb` by metis_tac[LESS_EQ_LESS_TRANS]
+        \\ simp[DIV2_def]
+        \\ simp[DIV_LT_X])
       \\ cheat )
     \\ strip_tac \\ simp[]
     \\ first_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
