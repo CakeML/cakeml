@@ -2877,9 +2877,9 @@ val comp_Call_lemma = comp_correct
   |> SIMP_RULE std_ss [comp_def,stack_free_def,CallAny_def]
   |> Q.SPECL [`s`,`k`,`0`,`0`]
   |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
-       word_allocTheory.list_max_def,is_tail_call_def,
+       list_max_def,is_tail_call_def,
        EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
-       word_allocTheory.max_var_def,LET_DEF,word_allocTheory.max2_def] |> GEN_ALL
+       word_allocTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
 
 val comp_Call = prove(
   ``∀start (s:('a,'ffi) wordSem$state) k res s1 t lens.
