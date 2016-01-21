@@ -2330,7 +2330,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       | NONE => IS_SOME (r NONE)
       | SOME j => i ≤ j ⇒ IS_SOME (r NONE)) ∧
    EVERY (λ(x,y). ∀a. (x = SOME a ∨ y = SOME a) ⇒ a < f' + k) ms ∧
-   ALL_DISTINCT (MAP FST ms)
+   ALL_DISTINCT (FILTER IS_SOME (MAP FST ms))
    ⇒
    ∃t'.
      evaluate (wMoveAux (MAP (format_var k ## format_var k) ms) (k,f,f'),t) = (NONE,t') ∧
@@ -2351,7 +2351,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ drule (GEN_ALL wMoveSingle_thm)
   \\ simp[]
   \\ qpat_abbrev_tac`wms = wMoveSingle _`
-  \\ qmatch_assum_abbrev_tac`¬MEM (FST (y,x)) _`
+  \\ qmatch_assum_abbrev_tac`_ (y,x)`
   \\ disch_then(qspecl_then[`y`,`x`]mp_tac)
   \\ unabbrev_all_tac
   \\ fs[]
@@ -2415,6 +2415,10 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ metis_tac[IS_SOME_get_vars_set_var,IS_SOME_EXISTS])
+    \\ reverse conj_tac
+    >- (
+      rator_x_assum`ALL_DISTINCT`mp_tac
+      \\ IF_CASES_TAC \\ simp[] )
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ qpat_assum`option_CASE (find_index _ _ _) _ _`mp_tac
     \\ simp[find_index_def]
@@ -2454,6 +2458,7 @@ val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
   \\ qpat_abbrev_tac`rr = _ r`
   \\ qispl_then[`SOME x`,`ms`,`rr`]mp_tac (Q.GEN`k`seqsem_move_unchanged)
+  \\ discharge_hyps >- ( fs[MEM_FILTER] )
   \\ simp[] \\ disch_then kall_tac
   \\ simp[Abbr`rr`,APPLY_UPDATE_THM]
   \\ fs[find_index_def]
@@ -2715,6 +2720,56 @@ val parmove_not_use_temp_before_assign = Q.store_thm("parmove_not_use_temp_befor
   \\ match_mp_tac ALL_DISTINCT_MAP_INJ
   \\ simp[] );
 
+val ALL_DISTINCT_step = Q.store_thm("ALL_DISTINCT_step",
+  `∀s1 s2. s1 ▷ s2 ⇒
+    ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1))))) ⇒
+    ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s2 ++ FST (SND s2) ++ (SND (SND s2)))))`,
+  ho_match_mp_tac parmoveTheory.step_ind
+  \\ simp[]
+  \\ rpt conj_tac
+  \\ simp[FILTER_APPEND,ALL_DISTINCT_APPEND,MEM_FILTER]
+  \\ rw[] \\ fs[ALL_DISTINCT_APPEND,MEM_FILTER]
+  \\ metis_tac[IS_SOME_DEF]);
+
+val ALL_DISTINCT_steps = Q.store_thm("steps_not_use_temp_before_assign",
+  `∀s1 s2.
+    (λs1. ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1)))))) s1 ∧
+    s1 ▷* s2
+    ⇒
+    (λs1. ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST s1 ++ FST (SND s1) ++ (SND (SND s1)))))) s2`,
+  match_mp_tac RTC_lifts_invariants
+  \\ simp[]
+  \\ PROVE_TAC[ALL_DISTINCT_step,MAP_APPEND]);
+
+val ALL_DISTINCT_pmov = Q.store_thm("ALL_DISTINCT_pmov",
+  `∀p. ⊢p ∧ ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST p ++ FST (SND p) ++ SND (SND p)))) ⇒
+       ALL_DISTINCT (FILTER IS_SOME (MAP FST (FST (pmov p) ++ FST (SND (pmov p)) ++ SND (SND (pmov p)))))`,
+  rw[]
+  \\ qspec_then`p`assume_tac parmoveTheory.pmov_dsteps
+  \\ drule parmoveTheory.dsteps_steps
+  \\ simp[] \\ strip_tac
+  \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] ALL_DISTINCT_steps)
+  \\ simp[]);
+
+val ALL_DISTINCT_parmove = Q.store_thm("ALL_DISTINCT_parmove",
+  `ALL_DISTINCT (MAP FST mvs) ⇒
+   ALL_DISTINCT (FILTER IS_SOME (MAP FST (parmove mvs)))`,
+  rw[parmoveTheory.parmove_def,
+     FILTER_REVERSE,MAP_REVERSE,ALL_DISTINCT_REVERSE]
+  \\ qmatch_goalsub_abbrev_tac`pmov p`
+  \\ qspec_then`p`mp_tac ALL_DISTINCT_pmov
+  \\ discharge_hyps
+  >- (
+    simp[Abbr`p`,parmoveTheory.wf_def,parmoveTheory.windmill_def]
+    \\ simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP,FILTER_MAP]
+    \\ `FILTER (λx. T) mvs = mvs` by simp[FILTER_EQ_ID]
+    \\ simp[]
+    \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[] )
+  \\ qspec_then`p`strip_assume_tac pmov_final
+  \\ simp[]);
+
 (* -- *)
 
 val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
@@ -2748,25 +2803,25 @@ val compile_result_NOT_2 = prove(
   Cases_on `x` \\ fs [compile_result_def]
   \\ rw [good_dimindex_def] \\ fs [dimword_def]);
 
-val comp_correct = store_thm("comp_correct",
-  ``!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
-      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
-      state_rel k f f' s t lens /\ post_alloc_conventions k prog /\
-      max_var prog < 2 * f' + 2 * k /\
-      (~(is_tail_call prog) ==> 1 <= f /\ SND (comp prog bs (k,f,f')) ≼ t.bitmaps) ==>
-      ?ck t1 res1.
-        (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
-        if OPTION_MAP compile_result res <> res1
-        then res1 = SOME (Halt (Word 2w)) /\
-             t1.ffi.io_events ≼ s1.ffi.io_events /\
-             (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)
-        else
-          case res of
-          | NONE => state_rel k f f' s1 t1 lens
-          (*lens might be wrong*)
-          | SOME (Result _ _) => state_rel k 0 0 s1 t1 lens
-          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
-          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock``,
+val comp_correct = Q.store_thm("comp_correct",
+  `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
+     (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
+     state_rel k f f' s t lens /\ post_alloc_conventions k prog /\
+     max_var prog < 2 * f' + 2 * k /\
+     (~(is_tail_call prog) ==> 1 <= f /\ SND (comp prog bs (k,f,f')) ≼ t.bitmaps) ==>
+     ?ck t1 res1.
+       (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
+       if OPTION_MAP compile_result res <> res1
+       then res1 = SOME (Halt (Word 2w)) /\
+            t1.ffi.io_events ≼ s1.ffi.io_events /\
+            (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)
+       else
+         case res of
+         | NONE => state_rel k f f' s1 t1 lens
+         (*lens might be wrong*)
+         | SOME (Result _ _) => state_rel k 0 0 s1 t1 lens
+         | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
+         | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [is_tail_call_def]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
@@ -2874,7 +2929,8 @@ val comp_correct = store_thm("comp_correct",
         \\ `aa < 2 * bb` by metis_tac[LESS_EQ_LESS_TRANS]
         \\ simp[DIV2_def]
         \\ simp[DIV_LT_X])
-      \\ cheat )
+      \\ match_mp_tac ALL_DISTINCT_parmove
+      \\ fs[parmoveTheory.windmill_def])
     \\ strip_tac \\ simp[]
     \\ first_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
     \\ simp[parmoveTheory.eqenv_def]
