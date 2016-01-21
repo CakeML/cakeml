@@ -321,7 +321,7 @@ val state_rel_def = Define `
   state_rel k f f' (s:('a,'ffi) wordSem$state) (t:('a,'ffi) stackSem$state) lens ⇔
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
-    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 1 < k /\
+    (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 2 < k /\
     (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     (!n word_prog arg_count.
@@ -2445,6 +2445,7 @@ val comp_correct = store_thm("comp_correct",
     \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw []
     \\ `n = 2` by (fs [convs_def]) \\ rw []
+    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
     \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
        (fs [state_rel_def,get_var_def,LET_DEF]
@@ -2463,7 +2464,6 @@ val comp_correct = store_thm("comp_correct",
       fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
       rw[]>>res_tac>>DECIDE_TAC)
     \\ REPEAT STRIP_TAC \\ fs []
-    \\ `1 < k` by fs [state_rel_def] \\ res_tac
     \\ fs [stackSemTheory.evaluate_def,LET_THM]
     \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
     \\ Cases_on `alloc c t5` \\ fs []
@@ -2553,7 +2553,7 @@ val comp_correct = store_thm("comp_correct",
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
-    \\ `max_var c1 <= 2 * f' + 2 * k /\ max_var c2 <= 2 * f' + 2 * k` by
+    \\ `max_var c1 < 2 * f' + 2 * k /\ max_var c2 < 2 * f' + 2 * k` by
       (fs [word_allocTheory.max_var_def] \\ decide_tac)
     \\ `post_alloc_conventions k c1 /\
         post_alloc_conventions k c2` by fs [convs_def]
@@ -2596,6 +2596,7 @@ val comp_correct = store_thm("comp_correct",
   THEN1 (* Return *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def,wReg1_def]
+    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
     \\ Cases_on `get_var n s` \\ fs []
     \\ Cases_on `get_var m s` \\ fs [] \\ rw []
     \\ Cases_on `x` \\ fs []
@@ -2641,6 +2642,7 @@ val comp_correct = store_thm("comp_correct",
     \\ imp_res_tac DROP_DROP \\ fs [])
   THEN1 (* Raise *)
    (fs [wordSemTheory.evaluate_def,jump_exc_def]
+    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
     \\ qpat_assum `xxx = (aa,bb)` mp_tac
     \\ rpt (TOP_CASE_TAC \\ fs []) \\ rw []
     \\ pop_assum mp_tac
@@ -2780,6 +2782,7 @@ val comp_Call = prove(
           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)``,
   rw [] \\ drule comp_Call_lemma \\ fs []
   \\ disch_then drule \\ fs [] \\ strip_tac
+  \\ `0 < 2 * k` by (fs [state_rel_def] \\ decide_tac) \\ fs []
   \\ asm_exists_tac \\ fs []
   \\ conj_tac THEN1 (fs [state_rel_def,good_dimindex_def,dimword_def])
   \\ IF_CASES_TAC \\ fs []
@@ -3061,7 +3064,7 @@ val state_rel_IMP_semantics = Q.store_thm("state_rel_IMP_semantics",
 
 val init_state_ok_def = Define `
   init_state_ok k (t:('a,'ffi)stackSem$state) <=>
-    1n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
+    2n < k /\ good_dimindex (:'a) /\ 8 <= dimindex (:'a) /\
     t.stack_space <= LENGTH t.stack /\
     t.use_stack /\ t.use_store /\ t.use_alloc /\ gc_fun_ok t.gc_fun /\
     t.stack_space <= LENGTH t.stack /\
