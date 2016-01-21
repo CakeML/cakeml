@@ -43,7 +43,7 @@ val wStackStore_def = Define `
 
 val wMoveSingle_def = Define `
   wMoveSingle (x,y) (k,f,f':num) =
-    case (y,x) of
+    case (x,y) of
     | (INL r1, INL r2) => Inst (Arith (Binop Or r1 r2 (Reg r2)))
     | (INL r1, INR r2) => StackLoad r1 (f-1 - (r2 - k))
     | (INR r1, INL r2) => StackStore r2 (f-1 - (r1 - k))
@@ -55,19 +55,13 @@ val wMoveAux_def = Define `
   (wMoveAux [xy] kf = wMoveSingle xy kf) /\
   (wMoveAux (xy::xys) kf = Seq (wMoveSingle xy kf) (wMoveAux xys kf))`
 
-val pair_swap_def = Define `
-  pair_swap (x,y) = (y DIV 2, x DIV 2)`
-
 val format_var_def = Define `
   (format_var k NONE = INL (k+1)) /\
   (format_var k (SOME x) = if x < k:num then INL x else INR x)`;
 
-val format_result_def = Define `
-  format_result k (y,x) = (format_var k x, format_var k y)`;
-
 val wMove_def = Define `
   wMove xs (k,f:num,f':num) =
-    wMoveAux (MAP (format_result k) (parmove (MAP pair_swap xs))) (k,f,f')`;
+    wMoveAux (MAP (format_var k ## format_var k) (parmove (MAP (DIV2 ## DIV2) xs))) (k,f,f')`;
 
 val wInst_def = Define `
   (wInst Skip kf = Inst Skip) /\

@@ -555,9 +555,7 @@ in
     ,word_to_stackTheory.wStackStore_def
     ,word_to_stackTheory.wMoveSingle_def
     ,word_to_stackTheory.wMoveAux_def
-    ,word_to_stackTheory.pair_swap_def
     ,word_to_stackTheory.format_var_def
-    ,word_to_stackTheory.format_result_def
     ,word_to_stackTheory.wMove_def
     ,word_to_stackTheory.wInst_def
     ,word_to_stackTheory.bits_to_word_def
