@@ -566,24 +566,17 @@ val setup_ssa_def = Define`
   let args = even_list n in
     list_next_var_rename_move LN lim (even_list n)`
 
-val max2_def = Define`
-  max2 (x:num) y = if x > y then x else y`
-
 val max3_def = Define`
   max3 (x:num) y z = if x > y then (if z > x then z else x)
                      else (if z > y then z else y)`
 
-val _ = export_rewrites["max2_def","max3_def"];
-
-val list_max_def = Define`
-  (list_max [] acc:num = acc) ∧
-  (list_max (x::xs) acc = list_max xs (max2 x acc))`
+val _ = export_rewrites["max3_def"];
 
 (*Find the maximum variable*)
 val max_var_exp_def = tDefine "max_var_exp" `
   (max_var_exp (Var num) = num) ∧
   (max_var_exp (Load exp) = max_var_exp exp) ∧
-  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls) (0:num))∧
+  (max_var_exp (Op wop ls) = list_max (MAP (max_var_exp) ls))∧
   (max_var_exp (Shift sh exp nexp) = max_var_exp exp) ∧
   (max_var_exp exp = 0:num)`
 (WF_REL_TAC `measure (exp_size ARB )`
@@ -595,44 +588,44 @@ val max_var_inst_def = Define`
   (max_var_inst Skip = 0) ∧
   (max_var_inst (Const reg w) = reg) ∧
   (max_var_inst (Arith (Binop bop r1 r2 ri)) =
-    case ri of Reg r => max3 r1 r2 r | _ => max2 r1 r2) ∧
-  (max_var_inst (Arith (Shift shift r1 r2 n)) = max2 r1 r2) ∧
-  (max_var_inst (Mem Load r (Addr a w)) = max2 a r) ∧
-  (max_var_inst (Mem Store r (Addr a w)) = max2 a r) ∧
+    case ri of Reg r => max3 r1 r2 r | _ => MAX r1 r2) ∧
+  (max_var_inst (Arith (Shift shift r1 r2 n)) = MAX r1 r2) ∧
+  (max_var_inst (Mem Load r (Addr a w)) = MAX a r) ∧
+  (max_var_inst (Mem Store r (Addr a w)) = MAX a r) ∧
   (max_var_inst _ = 0)`
 
 val max_var_def = Define `
   (max_var Skip = 0) ∧
   (max_var (Move pri ls) =
-    list_max (MAP FST ls ++ MAP SND ls) 0) ∧
+    list_max (MAP FST ls ++ MAP SND ls)) ∧
   (max_var (Inst i) = max_var_inst i) ∧
-  (max_var (Assign num exp) = max2 num (max_var_exp exp)) ∧
+  (max_var (Assign num exp) = MAX num (max_var_exp exp)) ∧
   (max_var (Get num store) = num) ∧
-  (max_var (Store exp num) = max2 num (max_var_exp exp)) ∧
+  (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
   (max_var (Call ret dest args h) =
     let n =
     (case ret of
       NONE => 0
     | SOME (v,cutset,ret_handler,l1,l2) =>
       let ret_handler_max = max_var ret_handler in
-      let cutset_max = list_max (MAP FST (toAList cutset)) 0 in
+      let cutset_max = list_max (MAP FST (toAList cutset)) in
         max3 v ret_handler_max cutset_max) in
-    let n = max2 n (list_max args 0) in
+    let n = MAX n (list_max args) in
     case h of
       NONE => n
     | SOME (v,prog,l1,l2) =>
       let exc_handler_max = max_var prog in
       max3 n v exc_handler_max) ∧
-  (max_var (Seq s1 s2) = max2 (max_var s1) (max_var s2)) ∧
+  (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
   (max_var (If cmp r1 ri e2 e3) =
-    let r = case ri of Reg r => max2 r r1 | _ => r1 in
+    let r = case ri of Reg r => MAX r r1 | _ => r1 in
       max3 r (max_var e2) (max_var e3)) ∧
   (max_var (Alloc num numset) =
-    max2 num (list_max (MAP FST (toAList numset)) 0)) ∧
+    MAX num (list_max (MAP FST (toAList numset)))) ∧
   (max_var (FFI ffi_index ptr len numset) =
-    max3 ptr len (list_max (MAP FST (toAList numset)) 0)) ∧
+    max3 ptr len (list_max (MAP FST (toAList numset)))) ∧
   (max_var (Raise num) = num) ∧
-  (max_var (Return num1 num2) = max2 num1 num2) ∧
+  (max_var (Return num1 num2) = MAX num1 num2) ∧
   (max_var Tick = 0) ∧
   (max_var (Set n exp) = max_var_exp exp) ∧
   (max_var p = 0)`

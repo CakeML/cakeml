@@ -9,6 +9,11 @@ val _ = bring_to_front_overload"get_vars"{Name="get_vars",Thy="wordSem"};
 (*TODO: Fix all the list_insert theorem names to alist_insert*)
 (*TODO: refactor lemmas into Props etc. theories as appropriate *)
 
+val list_max_max = Q.store_thm("list_max_max",
+  `∀ls.  EVERY (λx. x ≤ list_max ls) ls`,
+  Induct>>fs[list_max_def,LET_THM]>>rw[]>>fs[EVERY_MEM]>>rw[]>>
+  res_tac >> decide_tac);
+
 val colouring_ok_def = Define`
   (colouring_ok f (Seq s1 s2) live =
     (*Normal live sets*)
@@ -4296,14 +4301,6 @@ val setup_ssa_props = prove(``
     `is_phy_var x` by is_phy_var_tac>>
     metis_tac[convention_partitions])
 
-val list_max_max = prove(``
-  ∀ls acc.
-  acc ≤ list_max ls acc ∧
-  EVERY (λx. x ≤ list_max ls acc) ls``,
-  Induct>>fs[list_max_def]>>rw[]>>
-  TRY(first_x_assum(qspec_then`h` assume_tac)>>fs[]>>DECIDE_TAC)>>
-  TRY(first_x_assum(qspec_then`acc` assume_tac)>>fs[]>>DECIDE_TAC))
-
 val max_var_exp_max = prove(``
   ∀exp.
     every_var_exp (λx. x≤ max_var_exp exp) exp``,
@@ -4313,7 +4310,7 @@ val max_var_exp_max = prove(``
   match_mp_tac every_var_exp_mono>>
   HINT_EXISTS_TAC>>rw[]>>
   qpat_abbrev_tac`ls':(num list) = MAP f ls`>>
-  Q.ISPECL_THEN [`ls'`,`0:num`] assume_tac list_max_max>>
+  Q.ISPECL_THEN [`ls'`] assume_tac list_max_max>>
   fs[EVERY_MEM,Abbr`ls'`,MEM_MAP,PULL_EXISTS]>>
   pop_assum(qspec_then`a` assume_tac)>>rfs[]>>
   DECIDE_TAC)
@@ -4337,7 +4334,7 @@ val max_var_max = store_thm("max_var_max",``
   rw[]>>TRY(fs[Abbr`r`])>>
   TRY(DECIDE_TAC)>>
   TRY
-  (Q.ISPECL_THEN [`MAP FST ls ++ MAP SND ls`,`0:num`] assume_tac list_max_max>>
+  (Q.ISPECL_THEN [`MAP FST ls ++ MAP SND ls`] assume_tac list_max_max>>
   rfs[])
   >- metis_tac[max_var_inst_max]>>
   TRY
@@ -4346,19 +4343,19 @@ val max_var_max = store_thm("max_var_max",``
     fs[max_var_exp_max]>>
     DECIDE_TAC)
   >-
-    (fs[LET_THM,EVERY_MEM]>>rw[]>>
+    (fs[LET_THM,EVERY_MEM,MAX_DEF]>>rw[]>>
     EVERY_CASE_TAC>>unabbrev_all_tac>>fs[]>>
-    `x ≤ list_max args 0` by
-       (Q.ISPECL_THEN [`args`,`0:num`] assume_tac list_max_max>>
+    `x ≤ list_max args` by
+       (Q.ISPECL_THEN [`args`] assume_tac list_max_max>>
        fs[EVERY_MEM])>>
     TRY(DECIDE_TAC))
   >-
-    (EVERY_CASE_TAC>>fs[every_name_def,EVERY_MEM,toAList_domain]>>
+    (EVERY_CASE_TAC>>fs[every_name_def,EVERY_MEM,toAList_domain,MAX_DEF]>>
     LET_ELIM_TAC>>
     TRY(
     `∀z. z ∈ domain q' ⇒ z ≤ cutset_max` by
       (rw[]>>
-      Q.ISPECL_THEN [`MAP FST(toAList q')`,`0:num`] assume_tac list_max_max>>
+      Q.ISPECL_THEN [`MAP FST(toAList q')`] assume_tac list_max_max>>
       fs[Abbr`cutset_max`,EVERY_MEM,MEM_MAP,PULL_EXISTS
         ,FORALL_PROD,MEM_toAList,domain_lookup]>>
       res_tac>>DECIDE_TAC)>>res_tac)>>
@@ -4375,8 +4372,8 @@ val max_var_max = store_thm("max_var_max",``
     DECIDE_TAC)
   >>
     qabbrev_tac`ls' = MAP FST (toAList numset)`>>
-    Q.ISPECL_THEN [`ls'`,`0:num`] assume_tac list_max_max>>
-    fs[every_name_def,Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup]>>rw[]>>
+    Q.ISPECL_THEN [`ls'`] assume_tac list_max_max>>
+    fs[every_name_def,Abbr`ls'`,EVERY_MEM,MEM_MAP,PULL_EXISTS,FORALL_PROD,MEM_toAList,domain_lookup,MAX_DEF]>>rw[]>>
     res_tac>>DECIDE_TAC)
 
 val limit_var_props = prove(``

@@ -376,9 +376,7 @@ in
     ,word_allocTheory.max_var_def
     ,word_allocTheory.max_var_inst_def
     ,word_allocTheory.max_var_exp_def
-    ,word_allocTheory.list_max_def
     ,word_allocTheory.max3_def
-    ,word_allocTheory.max2_def
     ,word_allocTheory.setup_ssa_def
     ,word_allocTheory.ssa_cc_trans_def
     ,word_allocTheory.oracle_colour_ok_def
@@ -710,6 +708,8 @@ in
   (*Missing def from miscTheory used in lab_to_target.
   TODO: Move into HOL or move into lab_to_target itself?*)
   ; add_thms[miscTheory.lookup_any_def]
+  (* TODO: should move into HOL *)
+  ; add_thms[miscTheory.list_max_def]
 
   (*asm -- 'a should be 64*)
   ; add_datatype ``:'a asm_config``
