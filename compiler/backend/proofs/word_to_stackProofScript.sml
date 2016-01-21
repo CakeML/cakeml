@@ -8,6 +8,139 @@ val _ = new_theory "word_to_stackProof";
 
 (* TODO: many things in this file need moving *)
 
+val index_list_def = Define `
+  (index_list [] n = []) /\
+  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
+
+val LENGTH_index_list = Q.store_thm("LENGTH_index_list",
+  `!l n. LENGTH (index_list l n) = LENGTH l`,
+  Induct \\ fs [index_list_def]);
+
+val EL_index_list = Q.store_thm("EL_index_list",
+  `!xs i. i < LENGTH xs ==>
+          (EL i (index_list xs k) = (k + LENGTH xs - i - 1, EL i xs))`,
+  Induct \\ fs [index_list_def]
+  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
+
+val EL_index_list2 = Q.store_thm("EL_index_list2",
+  `∀xs i. i < LENGTH xs ==>
+           (EL i (index_list xs k) = (k + LENGTH xs - (i+1), EL i xs))`,
+  Induct \\ fs [index_list_def]
+  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
+
+val MAP_SND_index_list = Q.store_thm("MAP_SND_index_list",
+  `!xs k. MAP SND (index_list xs k) = xs`,
+  Induct \\ fs [index_list_def]);
+
+val MAP_FST_index_list = Q.store_thm("MAP_FST_index_list",
+  `∀xs k. MAP FST (index_list xs k) = REVERSE (MAP ($+ k) (COUNT_LIST (LENGTH xs)))`,
+  Induct \\ simp[index_list_def,COUNT_LIST_def,MAP_MAP_o]
+  \\ simp[LIST_EQ_REWRITE] \\ rw[]
+  \\ Cases_on`x < LENGTH xs`
+  >- (
+    simp[EL_APPEND1,LENGTH_COUNT_LIST]
+    \\ simp[EL_REVERSE,LENGTH_COUNT_LIST]
+    \\ simp[EL_MAP,LENGTH_COUNT_LIST]
+    \\ simp[EL_COUNT_LIST]
+    \\ Cases_on`x` \\ simp[]
+    \\ simp[EL_REVERSE,LENGTH_COUNT_LIST]
+    \\ simp[EL_MAP,LENGTH_COUNT_LIST]
+    \\ simp[EL_COUNT_LIST]
+    \\ simp[PRE_SUB1] )
+  \\ fs[LENGTH_COUNT_LIST]
+  \\ simp[EL_APPEND2,LENGTH_COUNT_LIST]
+  \\ `x = LENGTH xs` by decide_tac
+  \\ Cases_on`LENGTH xs`
+  \\ simp[]
+  \\ simp[EL_REVERSE,LENGTH_COUNT_LIST]
+  \\ simp[COUNT_LIST_def]);
+
+val index_list_eq_ZIP = Q.store_thm("index_list_eq_ZIP",
+  `index_list xs k = ZIP(REVERSE(MAP($+ k)(COUNT_LIST (LENGTH xs))),xs)`,
+  metis_tac[MAP_FST_index_list,MAP_SND_index_list,ZIP_MAP_FST_SND_EQ]);
+
+val IMP_filter_bitmap_EQ_SOME_NIL = Q.store_thm("IMP_filter_bitmap_EQ_SOME_NIL",
+  `!xs ys zs.
+     (LENGTH xs = LENGTH ys) /\
+     zs = MAP FST (FILTER SND (ZIP (ys, xs))) ==>
+     (filter_bitmap xs ys = SOME (zs,[]))`,
+  Induct \\ Cases_on `ys` \\ fs [filter_bitmap_def]
+  \\ Cases \\ fs [filter_bitmap_def]);
+
+val filter_bitmap_length = Q.store_thm("filter_bitmap_length",
+  `∀bs ls xs ys.
+  filter_bitmap bs ls = SOME(xs,ys) ⇒
+  LENGTH xs ≤ LENGTH bs`,
+  ho_match_mp_tac filter_bitmap_ind>>fs[filter_bitmap_def]>>rw[]>>
+  EVERY_CASE_TAC>>rveq>>fs[]>>res_tac>>
+  rveq>>fs[]>>DECIDE_TAC)
+
+val filter_bitmap_length_input = Q.store_thm("filter_bitmap_length_input",
+  `∀xs ys ls. filter_bitmap xs ys = SOME ls ⇒ LENGTH xs ≤ LENGTH ys`,
+  ho_match_mp_tac filter_bitmap_ind
+  \\ simp[filter_bitmap_def,LENGTH_NIL_SYM]
+  \\ rw[]
+  \\ every_case_tac \\ fs[]);
+
+val filter_bitmap_MAP_IMP = Q.store_thm("filter_bitmap_MAP_IMP",
+  `∀ys xs l.
+    filter_bitmap ys (MAP SND xs) = SOME (MAP SND l,[]) ∧
+    filter_bitmap ys (MAP FST xs) = SOME (MAP FST l,[])
+    ⇒
+    filter_bitmap ys xs = SOME (l,[])`,
+  Induct \\ Cases_on`xs` \\ fs[filter_bitmap_def]
+  \\ Cases \\ fs[filter_bitmap_def] \\ rpt strip_tac
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ Cases_on`l` \\ fs[]
+  \\ rveq
+  \\ first_x_assum drule
+  \\ discharge_hyps >- metis_tac[]
+  \\ simp[]
+  \\ rw[]
+  \\ metis_tac[PAIR]);
+
+val filter_bitmap_IMP_MAP_SND = Q.store_thm("filter_bitmap_IMP_MAP_SND",
+  `!ys xs l.
+     filter_bitmap ys xs = SOME (l,[]) ==>
+     filter_bitmap ys (MAP SND xs) = SOME (MAP SND l,[])`,
+  Induct \\ Cases_on `xs` \\ fs [filter_bitmap_def]
+  \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ res_tac \\ fs []);
+
+val filter_bitmap_IMP_MAP_FST = Q.store_thm("filter_bitmap_IMP_MAP_FST",
+  `!ys xs l.
+     filter_bitmap ys xs = SOME (l,[]) ==>
+     filter_bitmap ys (MAP FST xs) = SOME (MAP FST l,[])`,
+  Induct \\ Cases_on `xs` \\ fs [filter_bitmap_def]
+  \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ res_tac \\ fs []);
+
+val filter_bitmap_TAKE_LENGTH_IMP = Q.store_thm("filter_bitmap_TAKE_LENGTH_IMP",
+  `!h5 x4 l.
+     filter_bitmap h5 (TAKE (LENGTH h5) x4) = SOME (MAP SND l,[]) ==>
+     filter_bitmap h5 x4 = SOME (MAP SND l,DROP (LENGTH h5) x4)`,
+  Induct \\ Cases_on `x4` \\ fs [filter_bitmap_def]
+  \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
+  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
+  \\ Cases_on `l` \\ fs [] \\ rw [] \\ res_tac \\ fs []);
+
+val filter_bitmap_lemma = Q.store_thm("filter_bitmap_lemma",
+  `filter_bitmap h5 (index_list (TAKE (LENGTH h5) x4) k) = SOME (l,[]) ==>
+   filter_bitmap h5 x4 = SOME (MAP SND l, DROP (LENGTH h5) x4)`,
+  rpt strip_tac \\ imp_res_tac filter_bitmap_IMP_MAP_SND
+  \\ fs [MAP_SND_index_list] \\ imp_res_tac filter_bitmap_TAKE_LENGTH_IMP);
+
+val filter_bitmap_MEM = Q.store_thm("filter_bitmap_MEM",
+  `∀b ls ls' x.
+  filter_bitmap b ls = SOME (ls',[]) ∧
+  MEM x ls' ⇒ MEM x ls`,
+  ho_match_mp_tac filter_bitmap_ind>>
+  rw[filter_bitmap_def]>>
+  EVERY_CASE_TAC>>fs[]>>rveq>>
+  fs[MEM])
+
 val get_var_set_var = store_thm("get_var_set_var[simp]",``
   stackSem$get_var k (set_var k v st) = SOME v``,
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
@@ -239,10 +372,6 @@ val abs_stack_def = Define`
                   | SOME ys => SOME ((SOME(loc,hv),bits,frame)::ys))
       | _ => NONE)) ∧
   (abs_stack bitmaps _ _ _ = NONE)`
-
-val index_list_def = Define `
-  (index_list [] n = []) /\
-  (index_list (x::xs) n = (n + LENGTH xs,x) :: index_list xs n)`
 
 val MAP_FST_def = Define `
   MAP_FST f xs = MAP (\(x,y). (f x, y)) xs`
@@ -617,18 +746,6 @@ val abs_stack_IMP_LENGTH = prove(
   \\ fs [abs_stack_def,LET_THM] \\ rpt strip_tac
   \\ EVERY_CASE_TAC \\ fs [] \\ rw [])
 
-val IMP_filter_bitmap_EQ_SOME_NIL = prove(
-  ``!xs ys zs.
-      (LENGTH xs = LENGTH ys) /\
-      zs = MAP FST (FILTER SND (ZIP (ys, xs))) ==>
-      (filter_bitmap xs ys = SOME (zs,[]))``,
-  Induct \\ Cases_on `ys` \\ fs [filter_bitmap_def]
-  \\ Cases \\ fs [filter_bitmap_def]);
-
-val LENGTH_index_list = prove(
-  ``!l n. LENGTH (index_list l n) = LENGTH l``,
-  Induct \\ fs [index_list_def]);
-
 val SORTED_FST_LESS_IMP = prove(
   ``!xs x.
       SORTED (\x y. FST x > FST y:num) (x::xs) ==>
@@ -685,18 +802,6 @@ val MEM_QSORT = SORTS_QSORT_key_val_compare
   |> SIMP_RULE std_ss [SORTS_DEF]
   |> SPEC_ALL |> CONJUNCT1
   |> MATCH_MP MEM_PERM |> GSYM |> GEN_ALL
-
-val EL_index_list = prove(
-  ``!xs i. i < LENGTH xs ==>
-           (EL i (index_list xs k) = (k + LENGTH xs - i - 1, EL i xs))``,
-  Induct \\ fs [index_list_def]
-  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
-
-val EL_index_list2 = prove(``
- ∀xs i. i < LENGTH xs ==>
-           (EL i (index_list xs k) = (k + LENGTH xs - (i+1), EL i xs))``,
-  Induct \\ fs [index_list_def]
-  \\ rpt strip_tac \\ Cases_on `i` \\ fs [] \\ decide_tac);
 
 val SORTED_weaken2 = Q.prove(`
   ∀ls. SORTED R ls ∧
@@ -946,34 +1051,6 @@ val state_rel_set_store = prove(
   \\ rpt strip_tac  THEN1 (Cases_on `x = Handler` \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM,DOMSUB_FAPPLY_THM]);
 
-val filter_bitmap_IMP_MAP_SND = prove(
-  ``!ys xs l.
-      filter_bitmap ys xs = SOME (l,[]) ==>
-      filter_bitmap ys (MAP SND xs) = SOME (MAP SND l,[])``,
-  Induct \\ Cases_on `xs` \\ fs [filter_bitmap_def]
-  \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
-  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
-  \\ res_tac \\ fs []);
-
-val MAP_SND_index_list = prove(
-  ``!xs k. MAP SND (index_list xs k) = xs``,
-  Induct \\ fs [index_list_def]);
-
-val filter_bitmap_TAKE_LENGTH_IMP = prove(
-  ``!h5 x4 l.
-      filter_bitmap h5 (TAKE (LENGTH h5) x4) = SOME (MAP SND l,[]) ==>
-      filter_bitmap h5 x4 = SOME (MAP SND l,DROP (LENGTH h5) x4)``,
-  Induct \\ Cases_on `x4` \\ fs [filter_bitmap_def]
-  \\ Cases \\ fs [filter_bitmap_def] \\ rpt strip_tac
-  \\ EVERY_CASE_TAC \\ fs [] \\ rw []
-  \\ Cases_on `l` \\ fs [] \\ rw [] \\ res_tac \\ fs []);
-
-val filter_bitmap_lemma = prove(
-  ``filter_bitmap h5 (index_list (TAKE (LENGTH h5) x4) k) = SOME (l,[]) ==>
-    filter_bitmap h5 x4 = SOME (MAP SND l, DROP (LENGTH h5) x4)``,
-  rpt strip_tac \\ imp_res_tac filter_bitmap_IMP_MAP_SND
-  \\ fs [MAP_SND_index_list] \\ imp_res_tac filter_bitmap_TAKE_LENGTH_IMP);
-
 val MAP_SND_MAP_FST = prove(
   ``!xs f. MAP SND (MAP_FST f xs) = MAP SND xs``,
   Induct \\ fs [MAP,MAP_FST_def,FORALL_PROD]);
@@ -1117,15 +1194,6 @@ val map_bitmap_more_simp = prove(``
   map_bitmap bs ls stack = SOME (a,DROP (LENGTH l) ls,c)``,
   metis_tac[TAKE_DROP,map_bitmap_more])
 
-(*Delete?*)
-val filter_bitmap_length = prove(``
-  ∀bs ls xs ys.
-  filter_bitmap bs ls = SOME(xs,ys) ⇒
-  LENGTH xs ≤ LENGTH bs``,
-  ho_match_mp_tac filter_bitmap_ind>>fs[filter_bitmap_def]>>rw[]>>
-  EVERY_CASE_TAC>>rveq>>fs[]>>res_tac>>
-  rveq>>fs[]>>DECIDE_TAC)
-
 (*These two are actually implied by s_key_eq*)
 val word_stack_dec_stack_shape = prove(``
   ∀ls wstack res n.
@@ -1234,9 +1302,20 @@ val dec_stack_lemma1 = prove(``
     imp_res_tac map_bitmap_length>>
     simp[DROP_APPEND2]>>
     simp[stack_rel_aux_def,TAKE_APPEND2]>>
-    CONJ_TAC>-
-      (*looks true*)
-      cheat>>
+    CONJ_TAC>- (
+      simp[ZIP_MAP,MAP_FST_def,MAP_MAP_o,o_DEF]
+      \\ imp_res_tac filter_bitmap_IMP_MAP_FST
+      \\ fs[index_list_eq_ZIP]
+      \\ fs[MAP_ZIP,LENGTH_COUNT_LIST]
+      \\ match_mp_tac filter_bitmap_MAP_IMP
+      \\ simp[MAP_ZIP,LENGTH_COUNT_LIST]
+      \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[]
+      \\ simp[MAP_MAP_o,o_DEF,ETA_AX]
+      \\ simp[MAP_ZIP]
+      \\ simp[GSYM o_DEF]
+      \\ ONCE_REWRITE_TAC[o_ASSOC]
+      \\ simp[MAP_ZIP]
+      \\ simp[MAP_FST_def,o_DEF,LAMBDA_PROD,MAP_MAP_o]) >>
     fs[abs_frame_eq_def]>>
     simp[])
   >>
@@ -1401,15 +1480,6 @@ val MEM_index_list_EL = prove(``
   `LENGTH ls +1 - (n-k+1) = SUC(LENGTH ls - (n-k+1))` by DECIDE_TAC>>
   pop_assum SUBST_ALL_TAC>>
   simp[])
-
-val filter_bitmap_MEM = prove(``
-  ∀b ls ls' x.
-  filter_bitmap b ls = SOME (ls',[]) ∧
-  MEM x ls' ⇒ MEM x ls``,
-  ho_match_mp_tac filter_bitmap_ind>>
-  rw[filter_bitmap_def]>>
-  EVERY_CASE_TAC>>fs[]>>rveq>>
-  fs[MEM])
 
 val alloc_IMP_alloc = prove(
   ``(wordSem$alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) /\
