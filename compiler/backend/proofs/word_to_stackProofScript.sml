@@ -2727,7 +2727,9 @@ val comp_correct = store_thm("comp_correct",
     \\ fs [comp_def,stackSemTheory.evaluate_def]
     \\ fs [stackSemTheory.get_var_def]
     \\ `FLOOKUP t.regs 1 = get_var 2 s /\
-        FLOOKUP t.regs 2 = get_var 4 s` by cheat \\ fs []
+        FLOOKUP t.regs 2 = get_var 4 s` by
+     (fs [state_rel_def,LET_DEF,wordSemTheory.get_var_def] \\ res_tac
+      \\ `4 < k * 2 /\ 1 < k` by decide_tac \\ fs [DIV_LT_X]) \\ fs []
     \\ `t.be = s.be /\ t.mdomain = s.mdomain /\
         s.memory = t.memory /\ s.ffi = t.ffi` by
           fs [state_rel_def] \\ fs [LET_THM]
