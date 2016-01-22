@@ -3171,6 +3171,10 @@ val MAP_OPTION_MAP_FILTER_IS_SOME = Q.store_thm("MAP_OPTION_MAP_FILTER_IS_SOME",
    FILTER IS_SOME (MAP (OPTION_MAP f) ls)`,
   match_mp_tac MAP_FILTER \\ Cases \\ simp[]);
 
+val MAP_FILTER_IS_SOME = Q.store_thm("MAP_FILTER_IS_SOME",
+  `MAP f (FILTER IS_SOME ls) = MAP (f o SOME o THE) (FILTER IS_SOME ls)`,
+  simp[MAP_EQ_f,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]);
+
 val TIMES2_DIV2_lemma = Q.prove(
   `windmill moves ∧
    EVERY EVEN (MAP FST moves) ∧
@@ -3291,6 +3295,151 @@ val parsem_parmove_DIV2_lemma = Q.prove(
   \\ disch_then drule
   \\ simp[] \\ disch_then kall_tac
   \\ rveq \\ fs[]);
+
+val ALOOKUP_MAP_any = Q.store_thm("ALOOKUP_MAP_any",
+  `∀f k h ls a x.
+   (INJ k (a INSERT (set (MAP FST ls))) UNIV) ∧
+   (∀x y. MEM (x,y) ls ⇒ f (x,y) = (k x, h (k x) y)) ∧ k a = x ⇒
+   ALOOKUP (MAP f ls) x = OPTION_MAP (h x) (ALOOKUP ls a)`,
+  ntac 3 gen_tac
+  \\ Induct \\ simp[]
+  \\ Cases \\ simp[]
+  \\ rw[]
+  >- (
+    `F` suffices_by rw[]
+    \\ rator_x_assum`INJ`mp_tac
+    \\ simp[INJ_DEF]
+    \\ PROVE_TAC[] )
+  \\ first_x_assum match_mp_tac
+  \\ simp[]
+  \\ rator_x_assum`INJ`mp_tac
+  \\ REWRITE_TAC[INJ_DEF,IN_INSERT,MEM_MAP]
+  \\ PROVE_TAC[FST,PAIR]);
+
+val wf_alist_insert = Q.store_thm("wf_alist_insert",
+  `∀xs ys z. wf z ⇒ wf (alist_insert xs ys z)`,
+  ho_match_mp_tac alist_insert_ind \\ rw[alist_insert_def] \\ fs[wf_insert]);
+
+val ALOOKUP_MAP_INJ_FST = Q.store_thm("ALOOKUP_MAP_INJ_FST",
+  `∀ls f x k.
+   INJ (FST o f) (x INSERT set ls) UNIV ∧
+   FST (f x) = k
+   ⇒
+   ALOOKUP (MAP f ls) k =
+   ALOOKUP (MAP (λx. (x, SND(f x))) ls) x`,
+  Induct \\ simp[]
+  \\ rpt gen_tac \\ strip_tac
+  \\ Cases_on`f h` \\ simp[]
+  \\ Cases_on`f x` \\ fs[]
+  \\ qmatch_assum_abbrev_tac`f h = v1`
+  \\ qmatch_assum_abbrev_tac`f x = v2`
+  \\ `h = x ⇔ FST v1 = FST v2`
+  by (
+    rator_x_assum`INJ`mp_tac
+    \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNIV,o_DEF]
+    \\ CONV_TAC(DEPTH_CONV BETA_CONV)
+    \\ metis_tac[] )
+  \\ fs[Abbr`v1`,Abbr`v2`]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ first_x_assum(qspecl_then[`f`,`x`]mp_tac)
+  \\ simp[] \\ disch_then match_mp_tac
+  \\ rator_x_assum`INJ`mp_tac
+  \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNIV]
+  \\ metis_tac[]);
+
+val ALOOKUP_ID_TABULATE = Q.store_thm("ALOOKUP_ID_TABULATE",
+  `ALOOKUP (MAP (λx. (x,x)) ls) x =
+   if MEM x ls then SOME x else NONE`,
+  Induct_on`ls`\\simp[]\\rw[]\\fs[]);
+
+val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
+  `∀moves s x ls.
+   ALL_DISTINCT (MAP FST moves) ∧
+   get_vars (MAP SND moves) s = SOME x ∧
+   ALL_DISTINCT (FILTER IS_SOME ls) ∧
+   wf s.locals ∧
+   (∀x. MEM (SOME x) ls ⇒ MEM x (MAP FST moves)) ∧
+   (∀x y. MEM (x,y) moves ∧ x ≠ y ⇒ MEM (SOME x) ls)
+   ⇒
+   alist_insert
+     (MAP THE (FILTER IS_SOME ls))
+     (MAP (λx. THE (get_var (THE (ALOOKUP moves (THE x))) s)) (FILTER IS_SOME ls)) s.locals =
+   alist_insert (MAP FST moves) x s.locals`,
+  Induct \\ simp[wordSemTheory.get_vars_def]
+  >- (
+    rw[]
+    \\ `FILTER IS_SOME ls = []`
+    by (
+      simp[FILTER_EQ_NIL,EVERY_MEM]
+      \\ Cases \\ simp[] )
+    \\ simp[] )
+  \\ Cases \\ simp[]
+  \\ rpt gen_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ strip_tac \\ rveq
+  \\ simp[alist_insert_def]
+  \\ fs[]
+  \\ first_x_assum drule
+  \\ qmatch_assum_rename_tac`get_var a s = SOME c`
+  \\ qmatch_assum_rename_tac`¬MEM b _`
+  \\ disch_then(qspec_then`FILTER ($<> (SOME b)) ls`mp_tac)
+  \\ discharge_hyps
+  >- (
+    simp[MEM_FILTER]
+    \\ conj_tac
+    >- (
+      simp[FILTER_FILTER]
+      \\ fs[ALL_DISTINCT_FILTER,MEM_FILTER]
+      \\ fs[FILTER_FILTER]
+      \\ rw[]
+      \\ res_tac
+      \\ qmatch_assum_abbrev_tac`FILTER p1 _ = _`
+      \\ qmatch_abbrev_tac`FILTER p2 _ = _`
+      \\ `p1 = p2`
+      by (
+        simp[Abbr`p1`,Abbr`p2`,FUN_EQ_THM]
+        \\ metis_tac[] )
+      \\ fs[])
+    \\ conj_tac >- metis_tac[]
+    \\ fs[MEM_MAP,PULL_EXISTS,EXISTS_PROD]
+    \\ metis_tac[] )
+  \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC o SYM)
+  \\ `a ≠ b ⇒ MEM (SOME b) ls` by metis_tac[]
+  \\ dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]
+  \\ simp[wf_alist_insert,wf_insert]
+  \\ simp[lookup_insert]
+  \\ simp[lookup_alist_insert]
+  \\ simp[ALOOKUP_ZIP_MAP_SND]
+  \\ simp[ZIP_MAP]
+  \\ qx_gen_tac`x`
+  \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP f ll)`
+  \\ qispl_then[`ll`,`f`,`SOME x`]mp_tac ALOOKUP_MAP_INJ_FST
+  \\ simp[]
+  \\ discharge_hyps
+  >- (
+    simp[INJ_DEF,Abbr`f`,Abbr`ll`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+    \\ rw[] \\ fs[] )
+  \\ simp[Abbr`f`]
+  \\ disch_then kall_tac
+  \\ simp[ALOOKUP_ID_TABULATE]
+  \\ simp[Abbr`ll`,MEM_FILTER]
+  \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP f ll)`
+  \\ qispl_then[`ll`,`f`,`SOME x`]mp_tac ALOOKUP_MAP_INJ_FST
+  \\ simp[]
+  \\ discharge_hyps
+  >- (
+    simp[INJ_DEF,Abbr`f`,Abbr`ll`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+    \\ rw[] \\ fs[] )
+  \\ simp[Abbr`f`]
+  \\ disch_then kall_tac
+  \\ simp[ALOOKUP_ID_TABULATE]
+  \\ simp[Abbr`ll`,MEM_FILTER]
+  \\ reverse(Cases_on`MEM (SOME x) ls`) \\ fs[]
+  >- (
+    IF_CASES_TAC \\ fs[]
+    \\ fs[get_var_def] )
+  \\ IF_CASES_TAC \\ fs[]);
 
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -3459,7 +3608,65 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ match_mp_tac ALL_DISTINCT_parmove
       \\ simp[] )
     \\ fs[]
-    \\ cheat)
+    \\ simp[parmoveTheory.parsem_def]
+    \\ simp[ZIP_MAP]
+    \\ simp[MAP_MAP_o]
+    \\ simp[o_DEF]
+    \\ `∀x. r (SOME x) = get_var (2 * x) s` by (simp[Abbr`r`] )
+    \\ simp[]
+    \\ simp[APPLY_UPDATE_LIST_ALOOKUP]
+    \\ qmatch_goalsub_abbrev_tac`ALOOKUP (REVERSE ll)`
+    \\ `ALL_DISTINCT (MAP FST ll)`
+    by (
+      simp[Abbr`ll`,MAP_MAP_o,o_DEF]
+      \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
+      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+      \\ simp[] )
+    \\ simp[alookup_distinct_reverse]
+    \\ simp[Abbr`ll`]
+    \\ qmatch_goalsub_abbrev_tac`ALOOKUP (MAP ff moves)`
+    \\ Q.ISPEC_THEN`ff`mp_tac ALOOKUP_MAP_any
+    \\ disch_then(qspec_then`SOME`mp_tac)
+    \\ simp[Abbr`ff`]
+    \\ disch_then(qspec_then`λx y. get_var (2 * DIV2 y) s`mp_tac)
+    \\ disch_then(qspec_then`moves`mp_tac)
+    \\ simp[INJ_DEF]
+    \\ strip_tac
+    \\ simp[Abbr`ls`]
+    \\ qpat_abbrev_tac`ignore = MAP _ _`
+    \\ simp[Once MAP_FILTER_IS_SOME]
+    \\ simp[o_DEF]
+    \\ qmatch_goalsub_abbrev_tac`MAP ff (FILTER _ _)`
+    \\ qpat_abbrev_tac`ls = FILTER _ _`
+    \\ `MAP ff ls =
+        MAP (λx. THE (get_var (THE (ALOOKUP moves (THE x))) s)) ls`
+    by (
+      simp[MAP_EQ_f]
+      \\ simp[Abbr`ls`,MEM_FILTER]
+      \\ simp[Abbr`ff`,IS_SOME_EXISTS,PULL_EXISTS]
+      \\ qx_gen_tac`z` \\ strip_tac
+      \\ Cases_on`ALOOKUP moves z`
+      >- (
+        fs[ALOOKUP_FAILS,MEM_MAP]
+        \\ imp_res_tac(SIMP_RULE std_ss [MEM_MAP,PULL_EXISTS] MEM_MAP_FST_parmove)
+        \\ fs[] \\ metis_tac[FST,PAIR] )
+      \\ simp[]
+      \\ AP_TERM_TAC \\ AP_THM_TAC
+      \\ AP_TERM_TAC
+      \\ simp[bitTheory.DIV_MULT_THM2,DIV2_def]
+      \\ imp_res_tac ALOOKUP_MEM
+      \\ fs[EVERY_MAP,EVERY_MEM]
+      \\ res_tac \\ fs[EVEN_MOD2] )
+    \\ pop_assum SUBST1_TAC
+    \\ simp[Abbr`ignore`]
+    \\ simp[Abbr`ls`]
+    \\ match_mp_tac alist_insert_get_vars
+    \\ conj_tac >- fs[parmoveTheory.windmill_def]
+    \\ simp[]
+    \\ conj_tac >- metis_tac[ALL_DISTINCT_parmove]
+    \\ conj_tac >- cheat (* need wf s.locals in state *)
+    \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
+    \\ cheat (* need parmove to preserve all (non-trivial) moves *))
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
   THEN1 (* Get *) cheat
