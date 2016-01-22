@@ -3115,6 +3115,96 @@ val TIMES2_DIV2_lemma = Q.prove(
   \\ simp[MEM_MAP,EXISTS_PROD]
   \\ metis_tac[]);
 
+val PAIR_MAP_SOME_SWAP = Q.store_thm("PAIR_MAP_SOME_SWAP",
+  `(SOME ## SOME) o (f ## g) = (OPTION_MAP f ## OPTION_MAP g) o (SOME ## SOME)`,
+  rw[FUN_EQ_THM,FORALL_PROD]);
+
+val parsem_MAP_INJ = Q.store_thm("parsem_MAP_INJ",
+  `∀ms. windmill ms ∧
+        INJ f (set (MAP FST ms ++ MAP SND ms)) UNIV ⇒
+        ∀x. MEM x (MAP FST ms) ⇒ parsem (MAP (f ## f) ms) r (f x) = parsem ms (r o f) x`,
+  simp[parmoveTheory.windmill_def]
+  \\ Induct \\ simp[]
+  \\ Cases \\ strip_tac \\ fs[]
+  \\ qmatch_assum_rename_tac`¬MEM x (MAP FST ms)`
+  \\ `¬MEM (f x) (MAP FST (MAP (f ## f) ms))`
+  by (
+    simp[MAP_MAP_o,o_PAIR_MAP] \\ fs[MEM_MAP]
+    \\ spose_not_then strip_assume_tac
+    \\ rator_x_assum`INJ`mp_tac
+    \\ simp[INJ_DEF]
+    \\ simp[MEM_MAP]
+    \\ metis_tac[] )
+  \\ simp[parmoveTheory.parsem_cons]
+  \\ simp[APPLY_UPDATE_THM]
+  \\ qx_gen_tac`y`
+  \\ strip_tac \\ rveq \\ simp[]
+  \\ `f x =  f y ⇒ x = y`
+  by  (
+    rator_x_assum`INJ`mp_tac
+    \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNION]
+    \\ metis_tac[] )
+  \\ rw[] \\ fs[]
+  \\ first_x_assum(match_mp_tac o MP_CANON)
+  \\ simp[]
+  \\ rator_x_assum`INJ`mp_tac
+  \\ REWRITE_TAC[INJ_DEF,IN_INSERT,IN_UNION]
+  \\ metis_tac[]);
+
+val IS_SOME_o_OPTION_MAP = Q.store_thm("IS_SOME_o_OPTION_MAP",
+  `IS_SOME o OPTION_MAP f = IS_SOME`,
+  simp[FUN_EQ_THM] \\ Cases \\ simp[]);
+
+val parsem_parmove_DIV2_lemma = Q.prove(
+  `windmill moves ∧
+   EVERY EVEN (MAP FST moves) ∧
+   EVERY EVEN (MAP SND moves) ⇒
+   MAP (parsem (MAP (SOME ## SOME) (MAP (DIV2 ## DIV2) moves)) r)
+      (FILTER IS_SOME (MAP FST (parmove (MAP (DIV2 ## DIV2) moves)))) =
+   (MAP (parsem (MAP (SOME ## SOME) moves) (r o OPTION_MAP DIV2))
+     (FILTER IS_SOME (MAP FST (parmove moves))))`,
+  rw[]
+  \\ drule(Q.ISPEC`DIV2`(Q.GEN`f`(ONCE_REWRITE_RULE[CONJ_COMM]parmove_MAP_INJ)))
+  \\ discharge_hyps
+  >- ( simp[] \\ rw[] \\ metis_tac[EVERY_MEM,EVEN_DIV2_INJ] )
+  \\ simp[]
+  \\ disch_then kall_tac
+  \\ simp[MAP_MAP_o,o_PAIR_MAP]
+  \\ simp[PAIR_MAP_SOME_SWAP]
+  \\ simp[FILTER_MAP]
+  \\ REWRITE_TAC[o_ASSOC]
+  \\ REWRITE_TAC[IS_SOME_o_OPTION_MAP]
+  \\ simp[MAP_MAP_o]
+  \\ simp[MAP_EQ_f]
+  \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+  \\ rw[]
+  \\ simp[GSYM MAP_MAP_o]
+  \\ qpat_abbrev_tac`mvs = MAP _ moves`
+  \\ `windmill mvs`
+  by (
+    fs[parmoveTheory.windmill_def,Abbr`mvs`]
+    \\ simp[MAP_MAP_o,o_PAIR_MAP]
+    \\ simp[GSYM MAP_MAP_o]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[] )
+  \\ qispl_then[`OPTION_MAP DIV2`,`r`]drule(Q.GENL[`r`,`f`]parsem_MAP_INJ)
+  \\ discharge_hyps
+  >- (
+    simp[INJ_DEF]
+    \\ Cases \\ simp[]
+    \\ Cases \\ simp[]
+    \\ fs[EVERY_MEM,Abbr`mvs`,MAP_MAP_o,o_PAIR_MAP,MEM_MAP,EXISTS_PROD]
+    \\ metis_tac[EVEN_DIV2_INJ,SOME_11] )
+  \\ simp[Abbr`mvs`,MEM_MAP,PULL_EXISTS]
+  \\ qmatch_assum_rename_tac`MEM e (parmove moves)`
+  \\ `MEM (FST e) (MAP FST (parmove moves))` by metis_tac[MEM_MAP]
+  \\ rfs[]
+  \\ imp_res_tac MEM_MAP_FST_parmove
+  \\ fs[MEM_MAP]
+  \\ disch_then drule
+  \\ simp[] \\ disch_then kall_tac
+  \\ rveq \\ fs[]);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -3266,6 +3356,10 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ simp[MAP_REVERSE,FILTER_REVERSE]
     \\ drule TIMES2_DIV2_lemma
     \\ simp[] \\ disch_then kall_tac
+    \\ simp[Abbr`mvs`]
+    \\ Q.ISPEC_THEN`r`drule (Q.GEN`r`parsem_parmove_DIV2_lemma)
+    \\ discharge_hyps >- simp[]
+    \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC)
     \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
