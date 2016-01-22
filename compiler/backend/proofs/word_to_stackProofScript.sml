@@ -465,6 +465,7 @@ val state_rel_def = Define `
     1 ≤ LENGTH t.bitmaps ∧ HD t.bitmaps = 4w ∧
     t.stack_space + f <= LENGTH t.stack /\ LENGTH t.stack < dimword (:'a) /\
     (if f' = 0 then f = 0 else (f = f' + 1)) /\
+    wf s.locals /\
     let stack = DROP t.stack_space t.stack in
     (*First f things on stack are the live stack vars*)
     let current_frame = TAKE f stack in
@@ -882,6 +883,7 @@ val evaluate_wLive = Q.prove(
     \\ match_mp_tac (GSYM DROP_list_LUPDATE_IGNORE |> Q.SPEC `[x]`
            |> SIMP_RULE std_ss [list_LUPDATE_def])
     \\ fs [] \\ decide_tac)
+  \\ fs[wf_def]
   \\ fs [stack_rel_def,stack_rel_aux_def,abs_stack_def]
   \\ Cases_on `DROP t.stack_space t.stack` \\ fs []
   THEN1 (fs [listTheory.DROP_NIL,DECIDE ``m>=n<=>n<=m:num``] \\ `F` by decide_tac)
@@ -1538,6 +1540,7 @@ val alloc_IMP_alloc = prove(
       (imp_res_tac dec_stack_length>>
       fs[LENGTH_DROP]>>
       DECIDE_TAC)>>
+    simp[wf_fromAList] >>
     CONJ_TAC>-
       (fs[stack_rel_def,LET_THM]>>
       qpat_assum`abs_stack A B C D = E` mp_tac>>
@@ -2153,7 +2156,7 @@ val state_rel_set_var = Q.store_thm("state_rel_set_var",
     state_rel k f f' (set_var (2*x) v s) (set_var x v t) lens`,
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ strip_tac
-  \\ fs[lookup_insert,FLOOKUP_UPDATE]
+  \\ fs[lookup_insert,FLOOKUP_UPDATE,wf_insert]
   \\ rpt gen_tac
   \\ IF_CASES_TAC \\ simp[]
   >- (
@@ -2173,7 +2176,7 @@ val state_rel_set_var2 = Q.store_thm("state_rel_set_var2",
     (t with stack := LUPDATE v (sp + (f + k − (x + 1))) st) lens`,
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ strip_tac
-  \\ fs[lookup_insert,FLOOKUP_UPDATE]
+  \\ fs[lookup_insert,FLOOKUP_UPDATE,wf_insert]
   \\ simp[DROP_LUPDATE]
   \\ rpt gen_tac
   \\ IF_CASES_TAC \\ simp[]
@@ -3205,6 +3208,31 @@ val parsem_parmove_DIV2_lemma = Q.prove(
   \\ simp[] \\ disch_then kall_tac
   \\ rveq \\ fs[]);
 
+val insert_swap = Q.store_thm("insert_swap",
+  `wf s ∧ a ≠ c ⇒ insert a b (insert c d s) = insert c d (insert a b s)`,
+  simp[spt_eq_thm,wf_insert,lookup_insert] \\ rw[] \\ rw[]);
+
+val wf_alist_insert = Q.store_thm("wf_alist_insert",
+  `∀xs ys z. wf z ⇒ wf (alist_insert xs ys z)`,
+  ho_match_mp_tac alist_insert_ind \\ rw[alist_insert_def] \\ fs[wf_insert]);
+
+val alist_insert_pull_insert = Q.store_thm("alist_insert_pull_insert",
+  `∀xs ys z. wf z ∧ ¬MEM x xs ⇒
+   alist_insert xs ys (insert x y z) =
+   insert x y (alist_insert xs ys z)`,
+  ho_match_mp_tac alist_insert_ind
+  \\ simp[alist_insert_def] \\ rw[] \\ fs[]
+  \\ metis_tac[insert_swap,wf_alist_insert]);
+
+val alist_insert_REVERSE = Q.store_thm("alist_insert_REVERSE",
+  `∀xs ys s.
+   wf s ∧ ALL_DISTINCT xs ∧ LENGTH xs = LENGTH ys ⇒
+   alist_insert (REVERSE xs) (REVERSE ys) s = alist_insert xs ys s`,
+  Induct \\ simp[alist_insert_def]
+  \\ gen_tac \\ Cases \\ simp[alist_insert_def]
+  \\ simp[alist_insert_append,alist_insert_def]
+  \\ rw[] \\ simp[alist_insert_pull_insert]);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -3360,6 +3388,19 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ Q.ISPEC_THEN`r`drule (Q.GEN`r`parsem_parmove_DIV2_lemma)
     \\ discharge_hyps >- simp[]
     \\ disch_then(CHANGED_TAC o SUBST_ALL_TAC)
+    \\ qpat_abbrev_tac`ls = FILTER _ _`
+    \\ simp[set_vars_def]
+    \\ simp[state_component_equality]
+    \\ dep_rewrite.DEP_REWRITE_TAC[alist_insert_REVERSE]
+    \\ conj_asm1_tac
+    >- (
+      conj_tac >- fs[state_rel_def] \\ simp[]
+      \\ simp[Abbr`ls`]
+      \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+      \\ simp[MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+      \\ match_mp_tac ALL_DISTINCT_parmove
+      \\ simp[] )
+    \\ fs[]
     \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
@@ -3440,7 +3481,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
-      \\ imp_res_tac DROP_DROP \\ fs [])
+      \\ imp_res_tac DROP_DROP \\ fs [wf_def])
     \\ `~(LENGTH t.stack < t.stack_space + (f -1 - (n DIV 2 - k))) /\
         (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = Loc l1 l2) /\
         (get_var 1 t = SOME x')` by
@@ -3463,7 +3504,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [state_rel_def,empty_env_def,call_env_def,LET_DEF,
            fromList2_def,lookup_def]
     \\ fs [AC ADD_ASSOC ADD_COMM]
-    \\ imp_res_tac DROP_DROP \\ fs [])
+    \\ imp_res_tac DROP_DROP \\ fs [wf_def])
   THEN1 (* Raise *)
    (fs [wordSemTheory.evaluate_def,jump_exc_def]
     \\ `1 < k` by (fs [state_rel_def] \\ decide_tac)
@@ -3518,7 +3559,7 @@ val comp_correct = Q.store_thm("comp_correct",
     discharge_hyps >- simp[]>>
     rw[] >>
     fs [FLOOKUP_UPDATE]>>
-    rfs[]
+    rfs[wf_def]
     \\ conj_tac THEN1
      (fs [sorted_env_def] \\ Cases_on `env_to_list (fromAList l) (K I)`
       \\ imp_res_tac env_to_list_K_I_IMP \\ fs [])
@@ -3559,6 +3600,8 @@ val comp_correct = Q.store_thm("comp_correct",
           fs [state_rel_def] \\ fs [LET_THM]
     \\ qexists_tac `0` \\ fs []
     \\ fs [state_rel_def,LET_THM]
+    \\ conj_tac
+    >- ( fs[cut_env_def] \\ rveq \\ simp[wf_inter] )
     \\ ntac 3 strip_tac
     \\ fs [cut_env_def] \\ rpt var_eq_tac
     \\ fs [lookup_inter_alt]
@@ -3992,7 +4035,7 @@ val init_state_ok_IMP_state_rel = prove(
   \\ fs [stack_rel_def,sorted_env_def,abs_stack_def,LET_THM]
   \\ fs [handler_val_def,LASTN_def,stack_rel_aux_def]
   \\ fs [filter_bitmap_def,MAP_FST_def,index_list_def]
-  \\ fs[flookup_thm] \\ every_case_tac \\ fs [] \\ decide_tac);
+  \\ fs[flookup_thm,wf_def] \\ every_case_tac \\ fs [] \\ decide_tac);
 
 val init_state_ok_semantics =
   state_rel_IMP_semantics |> Q.INST [`s`|->`make_init t code`]
