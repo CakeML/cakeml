@@ -562,7 +562,6 @@ in
     ,word_to_stackTheory.insert_bitmap_def
     ,word_to_stackTheory.wLive_def
     ,word_to_stackTheory.SeqStackFree_def
-    ,word_to_stackTheory.CallAny_def
     ,word_to_stackTheory.stack_arg_count_def
     ,word_to_stackTheory.stack_free_def
     ,word_to_stackTheory.stack_move_def_compute
