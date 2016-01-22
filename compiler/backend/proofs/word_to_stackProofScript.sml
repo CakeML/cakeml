@@ -2475,6 +2475,42 @@ val OLEAST_SOME_IMP = Q.store_thm("OLEAST_SOME_IMP",
   simp[whileTheory.OLEAST_def]
   \\ metis_tac[whileTheory.LEAST_EXISTS_IMP]);
 
+val splitAtPki_push = Q.store_thm("splitAtPki_push",
+  `f (splitAtPki P k l) = splitAtPki P (λl r. f (k l r)) l`,
+  rw[splitAtPki_EQN]
+  \\ BasicProvers.CASE_TAC \\ simp[]);
+
+val MAP_TAKE = Q.store_thm("MAP_TAKE",
+  `∀l i. MAP f (TAKE i l) = TAKE i (MAP f l)`,
+  Induct \\ simp[] \\ rw[]);
+
+val MAP_DROP = Q.store_thm("MAP_DROP",
+  `∀l i. MAP f (DROP i l) = DROP i (MAP f l)`,
+  Induct \\ simp[] \\ rw[]);
+
+val MAP_FRONT = Q.store_thm("MAP_FRONT",
+  `∀ls. ls ≠ [] ⇒ MAP f (FRONT ls) = FRONT (MAP f ls)`,
+  Induct \\ simp[] \\ Cases_on`ls`\\fs[])
+
+val LAST_MAP = Q.store_thm("LAST_MAP",
+  `∀ls. ls ≠ [] ⇒ LAST (MAP f ls) = f (LAST ls)`,
+  Induct \\ simp[] \\ Cases_on`ls`\\fs[])
+
+val splitAtPki_MAP = Q.store_thm("splitAtPki_MAP",
+  `splitAtPki P k (MAP f l) = splitAtPki (λi x. P i (f x)) (λl r. k (MAP f l) (MAP f r)) l`,
+  rw[splitAtPki_EQN,MAP_TAKE,MAP_DROP]
+  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ simp[FUN_EQ_THM]
+  \\ rw[EQ_IMP_THM] \\ rfs[EL_MAP]);
+
+val splitAtPki_change_predicate = Q.store_thm("splitAtPki_change_predicate",
+  `(∀i. i < LENGTH l ⇒ P1 i (EL i l) = P2 i (EL i l)) ⇒
+   splitAtPki P1 k l = splitAtPki P2 k l`,
+  rw[splitAtPki_EQN]
+  \\ rpt(AP_THM_TAC ORELSE AP_TERM_TAC)
+  \\ simp[FUN_EQ_THM]
+  \\ metis_tac[]);
+
 (* TODO: move all this to parmoveTheory *)
 
 val MEM_MAP_FST_SND_SND_pmov = Q.store_thm("MEM_MAP_FST_SND_SND_pmov",
@@ -2770,6 +2806,241 @@ val ALL_DISTINCT_parmove = Q.store_thm("ALL_DISTINCT_parmove",
   \\ qspec_then`p`strip_assume_tac pmov_final
   \\ simp[]);
 
+val state_to_list_def = Define`
+  state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)`;
+
+val map_state_def = Define`
+  map_state f = let m = MAP (f ## f) in m ## m ## m`;
+
+val inj_on_state_def = Define`
+  inj_on_state f p =
+     let ls0 = state_to_list p in
+     let ls = MAP FST ls0 ++ MAP SND ls0 in
+     (∀x y. MEM x ls ∧ MEM y ls ∧ f x = f y ⇒ x = y) ∧
+     (∀x. f x = NONE ⇔ x = NONE)`;
+
+val step_inj_on_state = Q.store_thm("step_inj_on_state",
+  `∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ inj_on_state f s2`,
+  ho_match_mp_tac parmoveTheory.step_ind
+  \\ rpt conj_tac
+  \\ simp[inj_on_state_def]
+  \\ rw[]
+  \\ TRY (
+    first_x_assum match_mp_tac
+    \\ fs[state_to_list_def]
+    \\ NO_TAC)
+  \\ (Cases_on`x=NONE` >- metis_tac[])
+  \\ (Cases_on`y=NONE` >- metis_tac[])
+  \\ first_x_assum match_mp_tac
+  \\ fs[state_to_list_def]);
+
+val steps_inj_on_state = Q.store_thm("steps_inj_on_state",
+  `∀s1 s2. inj_on_state f s1 ∧ s1 ▷* s2 ⇒ inj_on_state f s2`,
+  match_mp_tac RTC_lifts_invariants \\ metis_tac[step_inj_on_state]);
+
+val step_MAP_INJ = Q.store_thm("step_MAP_INJ",
+  `∀s1 s2. s1 ▷ s2 ⇒ inj_on_state f s1 ⇒ map_state f s1 ▷ map_state f s2`,
+  ho_match_mp_tac parmoveTheory.step_ind
+  \\ simp[map_state_def]
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ MATCH_ACCEPT_TAC (parmoveTheory.step_rules |> CONJUNCTS |> el 1))
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ MATCH_ACCEPT_TAC (parmoveTheory.step_rules |> CONJUNCTS |> el 2))
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ MATCH_ACCEPT_TAC (parmoveTheory.step_rules |> CONJUNCTS |> el 3 |> SIMP_RULE (srw_ss())[]))
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ `f NONE = NONE` by fs[inj_on_state_def,LET_THM] \\ simp[]
+    \\ MATCH_ACCEPT_TAC (parmoveTheory.step_rules |> CONJUNCTS |> el 4 |> SIMP_RULE (srw_ss())[]))
+  \\ conj_tac
+  >- (
+    rpt gen_tac \\ strip_tac
+    \\ strip_tac
+    \\ match_mp_tac (parmoveTheory.step_rules |> CONJUNCTS |> el 5 |> SIMP_RULE (srw_ss())[])
+    \\ CCONTR_TAC \\ reverse(fs[])
+    >- (
+      fs[inj_on_state_def,LET_THM]
+      \\ qpat_assum`_ ≠ _`mp_tac
+      \\ simp[]
+      \\ first_x_assum match_mp_tac
+      \\ simp[]
+      \\ simp[state_to_list_def] )
+    \\ fs[MEM_MAP,EXISTS_PROD]
+    \\ qmatch_assum_rename_tac`f a = f b`
+    \\ `a = b` suffices_by metis_tac[]
+    \\ fs[inj_on_state_def,LET_THM]
+    \\ first_x_assum match_mp_tac
+    \\ simp[]
+    \\ simp[state_to_list_def]
+    \\ simp[MEM_MAP,EXISTS_PROD]
+    \\ metis_tac[] )
+  \\ rpt gen_tac \\ ntac 2 strip_tac
+  \\ match_mp_tac (parmoveTheory.step_rules |> CONJUNCTS |> el 6 |> SIMP_RULE (srw_ss())[])
+  \\ fs[MEM_MAP,EXISTS_PROD]
+  \\ spose_not_then strip_assume_tac
+  \\ qmatch_assum_rename_tac`f a = f b`
+  \\ `a = b` suffices_by metis_tac[]
+  \\ fs[inj_on_state_def,LET_THM]
+  \\ first_x_assum match_mp_tac
+  \\ simp[]
+  \\ simp[state_to_list_def]
+  \\ simp[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[] )
+
+val steps_MAP_INJ = Q.prove(
+  `∀s1 s2. s1 ▷* s2 ⇒
+    inj_on_state f s1 ⇒
+    map_state f s1 ▷* map_state f s2`,
+  ho_match_mp_tac RTC_INDUCT
+  \\ rw[]
+  \\ imp_res_tac step_inj_on_state
+  \\ fs[]
+  \\ metis_tac[step_MAP_INJ,RTC_RULES]);
+
+val fstep_MAP_INJ = Q.store_thm("fstep_MAP_INJ",
+  `∀p. inj_on_state f p ⇒ fstep (map_state f p) = map_state f (fstep p)`,
+  gen_tac \\ strip_tac
+  \\ PairCases_on`p`
+  \\ simp[parmoveTheory.fstep_def]
+  \\ match_mp_tac EQ_SYM
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ simp[map_state_def]
+  >- (
+    BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ fs[inj_on_state_def,LET_THM]
+    \\ qmatch_goalsub_rename_tac`f x = f y`
+    \\ `f x = f y ⇔ x = y`
+    by (
+      rw[EQ_IMP_THM]
+      \\ first_x_assum match_mp_tac
+      \\ simp[state_to_list_def] )
+    \\ rw[] )
+  \\ CONV_TAC(LAND_CONV(REWR_CONV splitAtPki_push))
+  \\ simp[splitAtPki_MAP]
+  \\ qmatch_abbrev_tac`splitAtPki P1 k1 _ = splitAtPki P2 k2 _`
+  \\ `splitAtPki P2 k2 p0 = splitAtPki P1 k2 p0`
+  by (
+    match_mp_tac splitAtPki_change_predicate
+    \\ rator_x_assum`inj_on_state`mp_tac
+    \\ simp[Abbr`P1`,Abbr`P2`]
+    \\ simp[inj_on_state_def]
+    \\ rw[EQ_IMP_THM]
+    \\ first_x_assum match_mp_tac
+    \\ simp[]
+    \\ simp[state_to_list_def]
+    \\ simp[MEM_MAP,MEM_EL]
+    \\ metis_tac[] )
+  \\ simp[]
+  \\ AP_THM_TAC
+  \\ AP_TERM_TAC
+  \\ unabbrev_all_tac
+  \\ simp[FUN_EQ_THM]
+  \\ rpt gen_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+  \\ Cases_on`t`\\ simp[]
+  \\ simp[UNCURRY]
+  \\ CONV_TAC(LAND_CONV(REWR_CONV COND_RAND))
+  \\ simp[]
+  \\ simp[MAP_SNOC]
+  \\ AP_THM_TAC
+  \\ match_mp_tac(METIS_PROVE[]``x = x' ∧ y = y' ⇒ f x y = f x' y'``)
+  \\ simp[]
+  \\ REWRITE_TAC[GSYM MAP]
+  \\ simp[LAST_MAP]
+  \\ simp[MAP_FRONT]
+  \\ rator_x_assum`inj_on_state`mp_tac
+  \\ simp[inj_on_state_def]
+  \\ rw[EQ_IMP_THM]
+  \\ first_x_assum match_mp_tac
+  \\ simp[]
+  \\ simp[state_to_list_def]
+  \\ simp[MEM_MAP]
+  \\ qmatch_goalsub_rename_tac`LAST (h::t)`
+  \\ `MEM (LAST (h::t)) (h::t)` by simp[MEM_LAST]
+  \\ fs[]
+  \\ metis_tac[]);
+
+val pmov_MAP_INJ = Q.store_thm("pmov_MAP_INJ",
+  `∀p. ⊢ p ∧ inj_on_state f p
+  ⇒ pmov (map_state f p) = map_state f (pmov p)`,
+  ho_match_mp_tac parmoveTheory.pmov_ind
+  \\ gen_tac
+  \\ PairCases_on`p`
+  \\ simp[]
+  \\ strip_tac
+  \\ strip_tac
+  \\ simp[Once parmoveTheory.pmov_def]
+  \\ simp[Once parmoveTheory.pmov_def,SimpRHS]
+  \\ match_mp_tac EQ_SYM
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ TRY ( BasicProvers.TOP_CASE_TAC >- simp[map_state_def] )
+  \\ qmatch_assum_abbrev_tac`⊢ p`
+  \\ `p ▷* fstep p`
+  by (
+    match_mp_tac (MP_CANON parmoveTheory.dsteps_steps)
+    \\ simp[]
+    \\ match_mp_tac RTC_SUBSET
+    \\ match_mp_tac parmoveTheory.fstep_dstep
+    \\ simp[Abbr`p`] )
+  >- (
+    match_mp_tac EQ_SYM
+    \\ simp[Once map_state_def,Abbr`p`]
+    \\ simp[fstep_MAP_INJ]
+    \\ first_x_assum (match_mp_tac o MP_CANON)
+    \\ simp[]
+    \\ metis_tac[steps_inj_on_state,parmoveTheory.wf_steps] )
+  \\ fs[fstep_MAP_INJ]
+  \\ fs[map_state_def,LET_THM,Abbr`p`]
+  \\ match_mp_tac EQ_SYM
+  \\ first_x_assum match_mp_tac
+  \\ metis_tac[steps_inj_on_state,parmoveTheory.wf_steps] )
+
+val parmove_MAP_INJ = Q.store_thm("parmove_MAP_INJ",
+  `(let ls1 = MAP FST ls ++ MAP SND ls in (∀x y. MEM x ls1 ∧ MEM y ls1 ∧ f x = f y ⇒ x = y)) ∧
+   windmill ls
+   ⇒
+   parmove (MAP (f ## f) ls) = MAP (OPTION_MAP f ## OPTION_MAP f) (parmove ls)`,
+  rw[parmoveTheory.parmove_def,MAP_REVERSE]
+  \\ match_mp_tac EQ_SYM
+  \\ qmatch_goalsub_abbrev_tac`pmov p`
+  \\ match_mp_tac EQ_SYM
+  \\ qmatch_goalsub_abbrev_tac`pmov mp`
+  \\ `mp = map_state (OPTION_MAP f) p`
+  by (simp[Abbr`p`,Abbr`mp`,map_state_def,MAP_MAP_o,o_DEF,UNCURRY])
+  \\ fs[Abbr`mp`]
+  \\ `inj_on_state (OPTION_MAP f) p`
+  by (
+    simp[inj_on_state_def]
+    \\ fs[Abbr`p`,LET_THM]
+    \\ simp[state_to_list_def]
+    \\ fs[MAP_MAP_o,o_DEF,UNCURRY]
+    \\ fs[MEM_MAP,PULL_EXISTS]
+    \\ rpt gen_tac \\ strip_tac
+    \\ rveq
+    \\ pop_assum mp_tac \\ simp_tac(srw_ss())[]
+    \\ metis_tac[])
+  \\ `⊢ p` by (
+    simp[Abbr`p`]
+    \\ simp[parmoveTheory.wf_def,EVERY_MAP,UNCURRY]
+    \\ fs[parmoveTheory.windmill_def,MAP_MAP_o]
+    \\ simp[o_DEF,UNCURRY]
+    \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[] )
+  \\ imp_res_tac pmov_MAP_INJ
+  \\ simp[]
+  \\ qspec_then`p`strip_assume_tac pmov_final
+  \\ fs[]
+  \\ simp[map_state_def]);
+
 (* -- *)
 
 val o_PAIR_MAP = Q.store_thm("o_PAIR_MAP",
@@ -2802,6 +3073,47 @@ val compile_result_NOT_2 = prove(
     compile_result x ≠ Halt (Word (2w:'a word))``,
   Cases_on `x` \\ fs [compile_result_def]
   \\ rw [good_dimindex_def] \\ fs [dimword_def]);
+
+val MAP_o_THE_FILTER_IS_SOME = Q.store_thm("MAP_o_THE_FILTER_IS_SOME",
+  `MAP (f o THE) (FILTER IS_SOME ls) =
+   MAP (THE o OPTION_MAP f) (FILTER IS_SOME ls)`,
+  simp[MAP_EQ_f,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]);
+
+val MAP_OPTION_MAP_FILTER_IS_SOME = Q.store_thm("MAP_OPTION_MAP_FILTER_IS_SOME",
+  `MAP (OPTION_MAP (f:α->α)) (FILTER IS_SOME ls) =
+   FILTER IS_SOME (MAP (OPTION_MAP f) ls)`,
+  match_mp_tac MAP_FILTER \\ Cases \\ simp[]);
+
+val TIMES2_DIV2_lemma = Q.prove(
+  `windmill moves ∧
+   EVERY EVEN (MAP FST moves) ∧
+   EVERY EVEN (MAP SND moves) ⇒
+   MAP ($* 2 o THE) (FILTER IS_SOME (MAP FST (parmove (MAP (DIV2 ## DIV2) moves))))
+    = MAP THE (FILTER IS_SOME (MAP FST (parmove moves)))`,
+  strip_tac
+  \\ simp[MAP_o_THE_FILTER_IS_SOME]
+  \\ simp[GSYM MAP_MAP_o]
+  \\ simp[MAP_OPTION_MAP_FILTER_IS_SOME]
+  \\ ntac 2 AP_TERM_TAC
+  \\ qispl_then[`moves`,`DIV2`]mp_tac(Q.GENL[`f`,`ls`]parmove_MAP_INJ)
+  \\ discharge_hyps
+  >- (
+    simp[]
+    \\ fs[EVERY_MEM]
+    \\ metis_tac[EVEN_DIV2_INJ] )
+  \\ simp[]
+  \\ disch_then kall_tac
+  \\ simp[MAP_MAP_o,o_DEF]
+  \\ simp[MAP_EQ_f]
+  \\ simp[FORALL_PROD]
+  \\ Cases \\ simp[]
+  \\ rw[]
+  \\ simp[DIV2_def,bitTheory.DIV_MULT_THM2]
+  \\ `EVEN x` suffices_by metis_tac[EVEN_MOD2,SUB_0]
+  \\ `MEM x (MAP FST moves)` suffices_by metis_tac[EVERY_MEM]
+  \\ match_mp_tac MEM_MAP_FST_parmove
+  \\ simp[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
 
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -2866,16 +3178,19 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ strip_tac \\ rveq
     \\ simp[]
     \\ qabbrev_tac`mvs = MAP (DIV2 ## DIV2) moves`
-    \\ `windmill mvs`
+    \\ `windmill mvs ∧ windmill moves ∧ (EVERY EVEN (MAP FST moves) ∧ EVERY EVEN (MAP SND moves))`
     by (
       simp[parmoveTheory.windmill_def,Abbr`mvs`]
       \\ simp[MAP_MAP_o,o_PAIR_MAP]
       \\ simp[GSYM MAP_MAP_o]
+      \\ reverse conj_asm2_tac
+      >- (
+        rator_x_assum`post_alloc_conventions`mp_tac
+        \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
       \\ match_mp_tac ALL_DISTINCT_MAP_INJ
       \\ rw[]
       \\ match_mp_tac EVEN_DIV2_INJ \\ simp[]
-      \\ rator_x_assum`post_alloc_conventions`mp_tac
-      \\ simp[convs_def,EVERY_MEM,reg_allocTheory.is_phy_var_def,EVEN_MOD2] )
+      \\ fs[EVERY_MEM])
     \\ simp[wMove_def]
     \\ qexists_tac`0` \\ simp[]
     \\ drule evaluate_wMoveAux_seqsem
@@ -2932,8 +3247,25 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ match_mp_tac ALL_DISTINCT_parmove
       \\ fs[parmoveTheory.windmill_def])
     \\ strip_tac \\ simp[]
-    \\ first_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
+    \\ last_assum(Q.ISPEC_THEN`r`mp_tac o MATCH_MP parmoveTheory.parmove_correct)
     \\ simp[parmoveTheory.eqenv_def]
+    \\ strip_tac
+    \\ rator_x_assum`state_rel`mp_tac
+    \\ qmatch_abbrev_tac`_ _ _ _ a _ _ ⇒ _ _ _ _ b _ _`
+    \\ `a = b` suffices_by rw[]
+    \\ simp[Abbr`a`,Abbr`b`]
+    \\ qmatch_goalsub_abbrev_tac`MAP (seqsem _ _) ls`
+    \\ `MAP (seqsem (parmove mvs) r) ls =
+        MAP (parsem (MAP (SOME ## SOME) mvs) r) ls`
+    by (
+      fs[MAP_EQ_f,Abbr`ls`,MEM_FILTER,IS_SOME_EXISTS,PULL_EXISTS]
+      \\ rw[] \\ rpt (AP_THM_TAC ORELSE AP_TERM_TAC)
+      \\ simp[FUN_EQ_THM,FORALL_PROD])
+    \\ pop_assum SUBST_ALL_TAC
+    \\ simp[Abbr`ls`]
+    \\ simp[MAP_REVERSE,FILTER_REVERSE]
+    \\ drule TIMES2_DIV2_lemma
+    \\ simp[] \\ disch_then kall_tac
     \\ cheat)
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
