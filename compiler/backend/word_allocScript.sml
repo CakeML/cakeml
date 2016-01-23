@@ -461,6 +461,67 @@ val get_live_def = Define`
       case ret of NONE => args_set
                 | SOME (_,cutset,_) => union cutset args_set)`
 
+(*Dead instruction removal -- returns a flag if instruction is to be removed*)
+val remove_dead_inst_def = Define`
+  (remove_dead_inst Skip (live:num_set) = T) ∧
+  (remove_dead_inst (Const reg w) live = (lookup reg live = NONE)) ∧
+  (remove_dead_inst (Arith (Binop bop r1 r2 ri)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Arith (Shift shift r1 r2 n)) live = (lookup r1 live = NONE)) ∧
+  (remove_dead_inst (Mem Load r (Addr a w)) live = (lookup r live = NONE)) ∧
+  (*Catchall -- for other instructions*)
+  (remove_dead_inst x live = F)`
+
+(*Delete dead code, w.r.t. a set of live variables*)
+val remove_dead_def = Define`
+  (remove_dead Skip live = (Skip,live)) ∧
+  (remove_dead (Move pri ls) live =
+    let ls = FILTER (λx,y. lookup x live = SOME ()) ls in
+    if ls = [] then (Skip,live)
+    else
+    let killed = FOLDR delete live (MAP FST ls) in
+      (Move pri ls,numset_list_insert (MAP SND ls) killed)) ∧
+  (remove_dead (Inst i) live =
+    if remove_dead_inst i live then (Skip,live)
+                               else (Inst i,get_live_inst i live)) ∧
+  (remove_dead (Assign num exp) live =
+    (if lookup num live = NONE then
+      (Skip,live)
+    else
+      (Assign num exp, get_live (Assign num exp) live))) ∧
+  (remove_dead (Get num store) live =
+    if lookup num live = NONE then
+      (Skip,live)
+    else (Get num store,delete num live)) ∧
+  (remove_dead (Seq s1 s2) live =
+    let (s2,s2live) = remove_dead s2 live in
+    let (s1,s1live) = remove_dead s1 s2live in
+    if s2 = Skip then
+      (s1,s1live)
+    else if s1 = Skip then
+      (s2,s1live)
+    else
+      (Seq s1 s2,s1live)) ∧
+  (remove_dead (If cmp r1 ri e2 e3) live =
+    let (e2,e2_live) = remove_dead e2 live in
+    let (e3,e3_live) = remove_dead e3 live in
+    let union_live = union e2_live e3_live in
+    let liveset =
+       case ri of Reg r2 => insert r2 () (insert r1 () union_live)
+      | _ => insert r1 () union_live in
+    (If cmp r1 ri e2 e3,liveset)) ∧
+  (remove_dead (Call(SOME(v,cutset,ret_handler,l1,l2))dest args h) live =
+    (*top level*)
+    let args_set = numset_list_insert args LN in
+    let live_set = union cutset args_set in
+    let (ret_handler,_) = remove_dead ret_handler live in
+    let h =
+      (case h of
+        NONE => NONE
+      | SOME(v',prog,l1,l2) =>
+        SOME(v',FST (remove_dead prog live),l1,l2)) in
+    (Call (SOME (v,cutset,ret_handler,l1,l2)) dest args h,args_set)) ∧
+  (remove_dead prog live = (prog,get_live prog live))`
+
 (*Single step immediate writes by a prog*)
 val get_writes_def = Define`
   (get_writes (Move pri ls) = numset_list_insert (MAP FST ls) LN)∧
