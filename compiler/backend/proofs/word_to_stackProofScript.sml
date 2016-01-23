@@ -3512,9 +3512,8 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ imp_res_tac stack_evaluate_add_clock_NONE \\ fs []
     \\ pop_assum (qspec_then `ck'` assume_tac)
     \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
-    (*Not sure if already proved, handler is unchanged when
-    result is NONE*)
-    \\ `s.handler = s1'.handler` by cheat>>
+    \\ `s.handler = s1'.handler` by
+      (Q.ISPECL_THEN [`c1`,`s`] assume_tac evaluate_stack_swap>>rfs[])>>
     fs[])
   THEN1 (* Return *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,LET_DEF,
