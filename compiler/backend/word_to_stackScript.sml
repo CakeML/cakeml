@@ -177,7 +177,7 @@ val comp_def = Define `
   (comp (Call ret dest args handler) bs kf =
      let (q0,dest) = call_dest dest args kf in
      case ret of
-     | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args - 1) kf)
+     | NONE => (Seq q0 (SeqStackFree (stack_free dest (LENGTH args) kf)
                  (Call NONE dest NONE)),bs)
      | SOME (ret_var, live, ret_code, l1, l2) =>
          let (q1,bs) = wLive live bs kf in

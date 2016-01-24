@@ -1,6 +1,7 @@
 open preamble BasicProvers stackSemTheory wordSemTheory
      word_to_stackTheory wordPropsTheory stackPropsTheory
      word_allocProofTheory semanticsPropsTheory;
+open dep_rewrite;
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
@@ -3982,7 +3983,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ `t4.clock = s.clock /\ t4.use_stack` by fs [state_rel_def] \\ fs []
       \\ fs [stackSemTheory.evaluate_def]
       \\ Cases_on `LENGTH t4.stack <
-           t4.stack_space + stack_free dest' (LENGTH args − 1) (k,f,f')` \\ fs []
+           t4.stack_space + stack_free dest' (LENGTH args) (k,f,f')` \\ fs []
       THEN1
        (fs [stack_free_def]
         \\ Cases_on `dest'` \\ fs [stack_arg_count_def]
@@ -4005,7 +4006,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ rpt var_eq_tac \\ fs [] \\ rfs []
       \\ fs [stackSemTheory.evaluate_def]
       \\ qabbrev_tac `m = MAX (max_var r DIV 2 - k) (LENGTH q - k)` \\ rw []
-      \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args - 1) (k,f,f') <
+      \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
              m + 1 - (LENGTH q - k)` \\ fs []
       THEN1 (* Hit stack limit case *)
        (fs [state_rel_def]
@@ -4018,10 +4019,55 @@ val comp_correct = Q.store_thm("comp_correct",
            \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
            |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
       \\ `state_rel k (m+1) m (call_env q (dec_clock s)) t5 lens` by
-             cheat (* complicated? *)
+            (qpat_assum`!a b c d e g. P` kall_tac>>
+            fs[state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
+            fs[stack_free_def]>>
+            `stack_arg_count dest' (LENGTH args) k = (LENGTH q -k)` by
+              (simp[stack_arg_count_def]>>
+              qpat_assum`call_dest A B C =(q0,dest')` mp_tac>>
+              qpat_assum`A=SOME(q,r)` mp_tac>>
+              imp_res_tac get_vars_length_lemma>>
+              Cases_on`dest`>>simp[find_code_def,call_dest_def]>>
+              rpt TOP_CASE_TAC>>simp[]>>
+              rw[]>>split_pair_tac>>fs[]>>
+              Cases_on`x`>>fs[]>>
+              simp[])>>
+            (*obvious*)
+            `wf (fromList2 q)` by cheat>>fs[]>>
+            qpat_abbrev_tac`m' = m+1`>>
+            qpat_abbrev_tac`len = LENGTH q -k`>>
+            (*Because all the args must be in the current frame*)
+            `len ≤ f` by cheat>>
+            `len ≤ m'` by
+              (rpt (pop_assum kall_tac)>>
+              rw[MAX_DEF]>>DECIDE_TAC)>>
+            fs[DROP_DROP_EQ]>>simp[]>>
+            (*not sure..*)
+            CONJ_TAC>- cheat>>
+            ntac 3 strip_tac>>
+            imp_res_tac (GSYM domain_lookup)>>
+            imp_res_tac EVEN_fromList2>>fs[]>>
+            fs[word_allocTheory.post_alloc_conventions_def,word_allocTheory.call_arg_convention_def]>>
+            (*The vars produced by fromList2 is exactly same as args
+              Probably don't use the following cheat, but something about
+              get_vars args s = SOME x when args satisfies assumption 25
+            *)
+            `lookup n s.locals = SOME v` by cheat>>
+            IF_CASES_TAC>-
+              metis_tac[]>>
+            (*the frame here should be exactly the tail part of
+            the original stack frame i.e.
+            LASTN (m+1) (TAKE f (DROP t4.stack_space t4.stack))
+            *)
+            fs[el_opt_THM]>>
+            simp[Abbr`m'`]>>
+            cheat) (* complicated? *)
       \\ first_x_assum drule
       \\ disch_then (qspec_then `bs'` mp_tac) \\ fs []
-      \\ discharge_hyps THEN1 cheat (* not too bad *)
+      \\ discharge_hyps THEN1
+        (*need assumptions about conventions and is_tail_call
+        in the code table*)
+        cheat (* not too bad *)
       \\ strip_tac \\ fs []
       \\ qunabbrev_tac `t5` \\ fs []
       \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
@@ -4031,7 +4077,6 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
-
 *)
 
 val make_init_def = Define `
