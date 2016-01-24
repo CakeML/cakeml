@@ -2896,6 +2896,52 @@ val ALL_DISTINCT_parmove = Q.store_thm("ALL_DISTINCT_parmove",
 val state_to_list_def = Define`
   state_to_list p = APPEND (FST p) (FST(SND p)) ++ SND(SND p)`;
 
+val step_preserves_moves = Q.store_thm("step_preserves_moves",
+  `∀s1 s2. s1 ▷ s2 ⇒
+    ∀x. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y) ⇒
+        (∃y. MEM (x,y) (state_to_list s2) ∧ x ≠ y)`,
+  ho_match_mp_tac parmoveTheory.step_ind
+  \\ rw[state_to_list_def] \\ metis_tac[]);
+
+val steps_preserves_moves = Q.store_thm("steps_preserves_moves",
+  `∀s1 s2.
+    (λs1. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y)) s1 ∧
+    s1 ▷* s2
+    ⇒
+    (λs1. (∃y. MEM (x,y) (state_to_list s1) ∧ x ≠ y)) s2`,
+  match_mp_tac RTC_lifts_invariants \\ simp[]
+  \\ PROVE_TAC[step_preserves_moves]);
+
+val pmov_preserves_moves = Q.store_thm("pmov_preserves_moves",
+  `∀p. ⊢p ∧ MEM (x,y) (state_to_list p) ∧ x ≠ y ⇒
+    MEM x (MAP FST (state_to_list (pmov p)))`,
+  rw[]
+  \\ qspec_then`p`assume_tac parmoveTheory.pmov_dsteps
+  \\ drule parmoveTheory.dsteps_steps
+  \\ simp[] \\ strip_tac
+  \\ drule (ONCE_REWRITE_RULE[CONJ_COMM] steps_preserves_moves)
+  \\ simp[MEM_MAP,EXISTS_PROD]
+  \\ metis_tac[]);
+
+val parmove_preserves_moves = Q.store_thm("parmove_preserves_moves",
+  `windmill moves ∧ MEM (x,y) moves ∧ x ≠ y ⇒ MEM (SOME x) (MAP FST (parmove moves))`,
+  rw[parmoveTheory.parmove_def,MAP_REVERSE]
+  \\ qmatch_goalsub_abbrev_tac`pmov p`
+  \\ qspec_then`p`(mp_tac o Q.GENL[`y`,`x`]) pmov_preserves_moves
+  \\ qspec_then`p`strip_assume_tac pmov_final
+  \\ simp[state_to_list_def,Abbr`p`]
+  \\ disch_then(qspecl_then[`SOME x`,`SOME y`]mp_tac)
+  \\ discharge_hyps
+  >- (
+    simp[parmoveTheory.wf_def,EVERY_MAP,EVERY_MEM,IS_SOME_EXISTS,UNCURRY]
+    \\ simp[MEM_MAP,UNCURRY,EXISTS_PROD]
+    \\ fs[parmoveTheory.windmill_def]
+    \\ simp[MAP_MAP_o,o_DEF,UNCURRY]
+    \\ simp[GSYM o_DEF,GSYM MAP_MAP_o]
+    \\ match_mp_tac ALL_DISTINCT_MAP_INJ
+    \\ simp[] )
+  \\ simp[]);
+
 val map_state_def = Define`
   map_state f = let m = MAP (f ## f) in m ## m ## m`;
 
@@ -3666,7 +3712,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ conj_tac >- metis_tac[ALL_DISTINCT_parmove]
     \\ conj_tac >- cheat (* need wf s.locals in state *)
     \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
-    \\ cheat (* need parmove to preserve all (non-trivial) moves *))
+    \\ metis_tac[parmove_preserves_moves])
   THEN1 (* Inst *) cheat
   THEN1 (* Assign *) cheat
   THEN1 (* Get *) cheat
