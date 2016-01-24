@@ -3526,6 +3526,12 @@ val alist_insert_get_vars = Q.store_thm("alist_insert_get_vars",
     \\ fs[get_var_def] )
   \\ IF_CASES_TAC \\ fs[]);
 
+val wf_fromList2 = prove(``
+  ∀ls. wf(fromList2 ls)``,
+  ho_match_mp_tac SNOC_INDUCT>>
+  fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
+  split_pair_tac>>fs[wf_insert])
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -4032,14 +4038,14 @@ val comp_correct = Q.store_thm("comp_correct",
               rw[]>>split_pair_tac>>fs[]>>
               Cases_on`x`>>fs[]>>
               simp[])>>
-            (*obvious*)
-            `wf (fromList2 q)` by cheat>>fs[]>>
+            fs[wf_fromList2]>>
             qpat_abbrev_tac`m' = m+1`>>
             qpat_abbrev_tac`len = LENGTH q -k`>>
             (*Because all the args must be in the current frame*)
             `len ≤ f` by cheat>>
-            `len ≤ m'` by
-              (rpt (pop_assum kall_tac)>>
+            `len ≤ m ∧ m ≤ m'` by
+              (unabbrev_all_tac>>
+              rpt (pop_assum kall_tac)>>
               rw[MAX_DEF]>>DECIDE_TAC)>>
             fs[DROP_DROP_EQ]>>simp[]>>
             (*not sure..*)
@@ -4055,13 +4061,23 @@ val comp_correct = Q.store_thm("comp_correct",
             `lookup n s.locals = SOME v` by cheat>>
             IF_CASES_TAC>-
               metis_tac[]>>
-            (*the frame here should be exactly the tail part of
-            the original stack frame i.e.
-            LASTN (m+1) (TAKE f (DROP t4.stack_space t4.stack))
-            *)
             fs[el_opt_THM]>>
             simp[Abbr`m'`]>>
-            cheat) (* complicated? *)
+            fs[lookup_fromList2,lookup_fromList]>>
+            CONJ_ASM2_TAC
+            >-
+              (first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
+              simp[EL_TAKE,EL_DROP]>>
+              strip_tac>>
+              qpat_assum`A=v` mp_tac>>
+              simp[EL_TAKE,EL_DROP]>>
+              disch_then sym_sub_tac>>
+              AP_THM_TAC>>AP_TERM_TAC>>
+              `(n DIV 2 +1) ≤ f+k` by
+                (Cases_on`f'`>>fs[]>>
+                DECIDE_TAC)>>
+              simp[])>>
+            unabbrev_all_tac>>simp[])
       \\ first_x_assum drule
       \\ disch_then (qspec_then `bs'` mp_tac) \\ fs []
       \\ discharge_hyps THEN1
