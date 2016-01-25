@@ -4147,9 +4147,10 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ split_pair_tac \\ fs []
       \\ rpt var_eq_tac \\ fs [] \\ rfs []
       \\ fs [stackSemTheory.evaluate_def]
-      \\ qabbrev_tac `m = MAX (max_var r DIV 2 - k) (LENGTH q - k)` \\ rw []
+      \\ qabbrev_tac `m = MAX (max_var r DIV 2 - k) (LENGTH q - k)`
+      \\ qabbrev_tac `m' = (if m = 0 then 0 else m + 1)` \\ rw []
       \\ Cases_on `t4.stack_space + stack_free dest' (LENGTH args) (k,f,f') <
-             m + 1 - (LENGTH q - k)` \\ fs []
+             m' - (LENGTH q - k)` \\ fs []
       THEN1 (* Hit stack limit case *)
        (fs [state_rel_def]
         \\ fs [compile_result_NOT_2]
@@ -4160,8 +4161,8 @@ val comp_correct = Q.store_thm("comp_correct",
            qabbrev_tac `t5 = ^((qexists_tac`0`
            \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
            |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
-      \\ `state_rel k (m+1) m (call_env q (dec_clock s)) t5 lens` by
-            (qpat_assum`!a b c d e g. P` kall_tac>>
+      \\ `state_rel k m' m (call_env q (dec_clock s)) t5 lens` by
+           (qpat_assum`!a b c d e g. P` kall_tac>>
             fs[state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
             fs[stack_free_def]>>
             `stack_arg_count dest' (LENGTH args) k = (LENGTH q -k)` by
@@ -4175,7 +4176,6 @@ val comp_correct = Q.store_thm("comp_correct",
               Cases_on`x`>>fs[]>>
               simp[])>>
             fs[wf_fromList2]>>
-            qpat_abbrev_tac`m' = m+1`>>
             qpat_abbrev_tac`len = LENGTH q -k`>>
             (*Because all the args must be in the current frame*)
             `len ≤ f` by cheat>>
@@ -4183,9 +4183,18 @@ val comp_correct = Q.store_thm("comp_correct",
               (unabbrev_all_tac>>
               rpt (pop_assum kall_tac)>>
               rw[MAX_DEF]>>DECIDE_TAC)>>
-            fs[DROP_DROP_EQ]>>simp[]>>
-            (*not sure..*)
-            CONJ_TAC>- cheat>>
+            CONJ_TAC THEN1 decide_tac >>
+            CONJ_TAC THEN1 (unabbrev_all_tac>>
+              rpt (pop_assum kall_tac)>>
+              rw [] \\ decide_tac) >>
+            fs[DROP_DROP_EQ]>>
+            CONJ_TAC THEN1
+             (`m' + (t4.stack_space + (f-len)-(m'-len)) =
+               f + t4.stack_space` suffices_by fs []
+              \\ fs [NOT_LESS]
+              \\ rpt (qpat_assum `_ <= _:num` mp_tac)
+              \\ rpt (pop_assum kall_tac)
+              \\ fs [] \\ decide_tac) >>
             ntac 3 strip_tac>>
             imp_res_tac (GSYM domain_lookup)>>
             imp_res_tac EVEN_fromList2>>fs[]>>
@@ -4198,6 +4207,11 @@ val comp_correct = Q.store_thm("comp_correct",
             IF_CASES_TAC>-
               metis_tac[]>>
             fs[el_opt_THM]>>
+            Cases_on `m=0` \\ fs []
+            THEN1
+             (fs [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fs []
+              \\ fs [lookup_fromList2,lookup_fromList]
+              \\ decide_tac) >>
             simp[Abbr`m'`]>>
             fs[lookup_fromList2,lookup_fromList]>>
             CONJ_ASM2_TAC
@@ -4229,6 +4243,8 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
+
+
 *)
 
 val make_init_def = Define `
