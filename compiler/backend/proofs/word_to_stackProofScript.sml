@@ -3532,6 +3532,133 @@ val wf_fromList2 = prove(``
   fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
   split_pair_tac>>fs[wf_insert])
 
+val evaluate_wInst = Q.store_thm("evaluate_wInst",
+  `∀i s t s'.
+   inst i s = SOME s' ∧
+   every_var_inst is_phy_var i ∧
+   max_var_inst i < 2 * f' + 2 * k ∧ 0 < f ∧
+   state_rel k f f' s t lens
+  ⇒
+   ∃t'.
+     evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
+     state_rel k f f' s' t' lens`,
+  simp[inst_def]
+  \\ rpt gen_tac
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ simp[wInst_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+  \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def]
+  \\ rw[] \\ rw[]
+  >- (
+    fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ simp[wRegWrite1_def,LET_THM]
+    \\ ONCE_REWRITE_TAC[MULT_COMM] \\ simp[MULT_DIV]
+    \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def]
+    >- (match_mp_tac state_rel_set_var \\ rw[])
+    \\ IF_CASES_TAC >- fs[state_rel_def]
+    \\ IF_CASES_TAC >- (fs[state_rel_def] \\ decide_tac)
+    \\ simp[]
+    \\ match_mp_tac state_rel_set_var2
+    \\ fs[set_var_def]
+    \\ fs[GSYM LEFT_ADD_DISTRIB])
+  >- (
+    reverse BasicProvers.FULL_CASE_TAC
+    \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def]
+    >- (
+      fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+      \\ simp[wInst_def,wRegWrite1_def]
+      \\ ONCE_REWRITE_TAC[MULT_COMM] \\ simp[MULT_DIV]
+      \\ fs[GSYM LEFT_ADD_DISTRIB]
+      \\ fs[GSYM wordSemTheory.get_var_def]
+      \\ rveq
+      \\ qmatch_asmsub_rename_tac`get_var (2 * v) s`
+      \\ Cases_on`get_var (2 * v) s`\\fs[]
+      \\ split_pair_tac \\ fs[]
+      \\ fs[wReg1_def,LET_THM]
+      \\ pop_assum mp_tac
+      \\ ONCE_REWRITE_TAC[MULT_COMM] \\ simp[MULT_DIV]
+      \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ simp[wStackLoad_def]
+      \\ Cases_on`x`\\fs[]
+      \\ qpat_assum`_ _ _ _ = SOME _`mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ strip_tac
+      >- (
+        drule (GEN_ALL (ONCE_REWRITE_RULE[MULT_COMM]state_rel_get_var_imp))
+        \\ disch_then drule \\ simp[] \\ strip_tac
+        \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def]
+        >- (match_mp_tac state_rel_set_var \\ simp[])
+        \\ IF_CASES_TAC >- fs[state_rel_def]
+        \\ IF_CASES_TAC >- (fs[state_rel_def] \\ decide_tac)
+        \\ simp[]
+        \\ match_mp_tac state_rel_set_var2
+        \\ simp[] )
+      \\ drule (GEN_ALL (ONCE_REWRITE_RULE[MULT_COMM]state_rel_get_var_imp2))
+      \\ disch_then drule \\ simp[] \\ strip_tac
+      \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def]
+      \\ TRY (fs[state_rel_def]\\`F` by decide_tac)
+      \\ fs[stackSemTheory.set_var_def,FLOOKUP_UPDATE,stackSemTheory.get_var_def]
+      \\ rw[]
+      \\ TRY (fs[state_rel_def]\\`F` by decide_tac)
+      \\ cheat )
+    \\ Cases_on`r`
+    \\ fs[wordLangTheory.every_var_imm_def]
+    \\ fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,LET_THM]
+    \\ ntac 3 (BasicProvers.FULL_CASE_TAC \\ fs[])
+    >| [ntac 2 (BasicProvers.FULL_CASE_TAC \\ fs[]), ALL_TAC]
+    \\ rveq
+    \\ simp[wInst_def]
+    \\ split_pair_tac \\ fs[]
+    \\ TRY (split_pair_tac \\ fs[])
+    \\ cheat )
+  >- (
+    last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ fs[wordLangTheory.every_var_inst_def,word_allocTheory.max_var_inst_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ TRY(BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ strip_tac \\ rveq
+    \\ fs[wordSemTheory.word_exp_def,LET_THM]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+    \\ TRY (
+      qmatch_assum_rename_tac`mem_load x s = SOME v`
+      \\ `mem_load x t = SOME v`
+      by (
+        fs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
+        \\ fs[state_rel_def] ))
+    \\ fs[wordLangTheory.word_op_def]
+    \\ fs[GSYM wordSemTheory.get_var_def]
+    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,LET_THM]
+    \\ rveq
+    \\ fs[GSYM LEFT_ADD_DISTRIB]
+    \\ simp[wInst_def,wRegWrite1_def]
+    \\ split_pair_tac \\ fs[]
+    \\ fs[wReg1_def,LET_THM]
+    \\ pop_assum mp_tac
+    \\ ONCE_REWRITE_TAC[MULT_COMM] \\ simp[MULT_DIV]
+    \\ IF_CASES_TAC \\ fs[] \\ strip_tac \\ rveq \\ simp[wStackLoad_def]
+    \\ ((drule (GEN_ALL (ONCE_REWRITE_RULE[MULT_COMM]state_rel_get_var_imp))
+         \\ disch_then drule
+         \\ discharge_hyps >- simp[]
+         \\ strip_tac) ORELSE
+        (drule (GEN_ALL (ONCE_REWRITE_RULE[MULT_COMM] state_rel_get_var_imp2))
+         \\ disch_then drule
+         \\ discharge_hyps >- simp[]
+         \\ strip_tac))
+    \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.word_exp_def,LET_THM]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ TRY (fs[state_rel_def]\\`F` by decide_tac)
+    \\ TRY ( match_mp_tac state_rel_set_var \\ simp[] \\ NO_TAC)
+    \\ TRY ( IF_CASES_TAC >- fs[state_rel_def])
+    \\ TRY ( IF_CASES_TAC >- (fs[state_rel_def]\\`F`by decide_tac))
+    \\ simp[]
+    \\ TRY ( match_mp_tac state_rel_set_var2 \\ simp[] \\ NO_TAC)
+    \\ fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,stackSemTheory.mem_load_def,FLOOKUP_UPDATE]
+    \\ TRY ( IF_CASES_TAC >- (fs[state_rel_def]\\`F`by decide_tac))
+    \\ simp[]
+    \\ cheat ))
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -3758,7 +3885,16 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ conj_tac >- fs[state_rel_def]
     \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
     \\ metis_tac[parmove_preserves_moves])
-  THEN1 (* Inst *) cheat
+  THEN1 (* Inst *) (
+    fs[comp_def,wordSemTheory.evaluate_def]
+    \\ last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq
+    \\ qexists_tac`0` \\ simp[]
+    \\ fs[convs_def,word_allocTheory.max_var_def]
+    \\ drule evaluate_wInst \\ simp[]
+    \\ disch_then drule
+    \\ strip_tac \\ simp[])
   THEN1 (* Assign *) cheat
   THEN1 (* Get *) cheat
   THEN1 (* Set *) cheat
