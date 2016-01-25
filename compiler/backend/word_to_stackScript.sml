@@ -221,10 +221,13 @@ val raise_stub_def = Define `
     (Seq (StackFree 3)
          (Raise k))))))`;
 
+(*stack args are in wordLang vars 0,2,4,...,2*(k-1), 2*k , ...*)
+(*2*k and above are "stack" variables*)
+(*We always allocate enough space for the maximum stack var*)
 val compile_prog_def = Define `
   compile_prog (prog:'a wordLang$prog) arg_count reg_count bitmaps =
     let stack_arg_count = arg_count - reg_count in
-    let stack_var_count = MAX (max_var prog DIV 2 - reg_count) stack_arg_count in
+    let stack_var_count = MAX ((max_var prog DIV 2 + 1)- reg_count) stack_arg_count in
     let f = if stack_var_count = 0 then 0 else stack_var_count + 1 in
     let (q1,bitmaps) = comp prog bitmaps (reg_count,f,stack_var_count) in
       (Seq (StackAlloc (f - stack_arg_count)) q1, bitmaps)`
