@@ -4,16 +4,13 @@
 cd
 git clone https://github.com/polyml/polyml
 cd polyml
-## optionally switch to a released version, e.g., fixes-5.5.2
-# git checkout fixes-5.5.2
-./configure --enable-shared
+## optionally switch to a released version, e.g., fixes-5.6
+# git checkout fixes-5.6
+./configure
 ## optionally pass an installation prefix to configure
-# ./configure --enable-shared --prefix=<dir>
-## then you need to put <dir>/bin in your PATH
-##       and <dir>/lib in your {LD_,}LIBRARY_PATH
+# ./configure --prefix=<dir>
+## if necessary, put <dir>/bin in your PATH
 # export PATH=<dir>/bin:$PATH
-# export LIBRARY_PATH=<dir>/lib:$LIBRARY_PATH
-# export LD_LIBRARY_PATH=<dir>/lib:$LD_LIBRARY_PATH
 make
 make compiler
 make install
@@ -22,8 +19,8 @@ make install
 cd
 git clone https://github.com/HOL-Theorem-Prover/HOL
 cd HOL
-## optionally switch to a released version, e.g., kananaskis-10
-# git checkout kananaskis-10
+## optionally switch to a released version, e.g., kananaskis-11
+# git checkout k11-release-prep # kananaskis-11 when released
 poly < tools/smart-configure.sml
 bin/build
 ## optionally set HOLDIR to point to the HOL installation
