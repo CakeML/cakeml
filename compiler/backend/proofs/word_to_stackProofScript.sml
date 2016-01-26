@@ -946,7 +946,8 @@ val evaluate_wLive = Q.prove(
      state_rel k 0 0 (push_env env ^nn s with locals := LN) t5 (f'::lens) /\
      state_rel k f f' s t5 lens /\
      !i. i < k ==> get_var i t5 = get_var i t`,
-  fs [wLive_def,LET_THM] \\ rpt strip_tac
+  fs [wLive_def,LET_THM] \\ rpt strip_tac \\
+  `f ≠ 0` by DECIDE_TAC \\ fs[] \\ pop_assum kall_tac
   \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac
   \\ fs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
          stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_THM]
@@ -2162,6 +2163,7 @@ val wLive_isPREFIX = Q.store_thm("wLive_isPREFIX",
   rw[]
   \\ PairCases_on`c`
   \\ fs[wLive_def,LET_THM]
+  \\ Cases_on`c1=0` \\ fs[]
   \\ split_pair_tac \\ fs[]
   \\ rw[]
   \\ imp_res_tac insert_bitmap_isPREFIX);
@@ -3749,24 +3751,24 @@ val comp_correct = Q.store_thm("comp_correct",
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw [])
   THEN1 (* Alloc *)
-   (Cases_on`1 ≤ f`
-   >-
-     (qexists_tac `0`
-      \\ fs [wordSemTheory.evaluate_def,
-          stackSemTheory.evaluate_def,comp_def] \\ rw []
-      \\ `n = 2` by (fs [convs_def]) \\ rw []
-      \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
-      \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
-      \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
-         (fs [state_rel_def,get_var_def,LET_DEF]
-          \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-          \\ fs [stackSemTheory.get_var_def])
-      \\ Cases_on `cut_env names s.locals`
-      THEN1 fs [wordSemTheory.alloc_def]
-      \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
-      \\ Cases_on `wLive names bs (k,f,f')`
-      \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
-      \\ drule evaluate_wLive
+   (qexists_tac `0`
+    \\ fs [wordSemTheory.evaluate_def,
+        stackSemTheory.evaluate_def,comp_def] \\ rw []
+    \\ `n = 2` by (fs [convs_def]) \\ rw []
+    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
+    \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
+    \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
+       (fs [state_rel_def,get_var_def,LET_DEF]
+        \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+        \\ fs [stackSemTheory.get_var_def])
+    \\ Cases_on `cut_env names s.locals`
+    THEN1 fs [wordSemTheory.alloc_def]
+    \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
+    \\ Cases_on `wLive names bs (k,f,f')`
+    \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
+    \\ Cases_on`1 ≤ f`
+    THEN1
+      (drule evaluate_wLive
       \\ discharge_hyps_keep
       THEN1
         (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
@@ -3781,10 +3783,27 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
       \\ fs [] \\ REPEAT STRIP_TAC
       \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
-  >>
-    (*no stack var case -- note: this implies that
-    the cutset is empty (since it must always be full of stack vars)*)
-    cheat)
+    \\
+      `f=0` by DECIDE_TAC>>
+      fs[wLive_def]>>rveq>>fs[stackSemTheory.evaluate_def,LET_THM]>>
+      fs[cut_env_def]>>
+      `domain names = {}` by
+        (CCONTR_TAC>>fs[]>>
+        `∃x. x ∈ domain names` by fs[MEMBER_NOT_EMPTY]>>
+        fs[convs_def,GSYM toAList_domain]>>
+        assume_tac list_max_max>>
+        fs[EVERY_MEM]>>res_tac>>
+        fs[word_allocTheory.max_var_def]>>
+        `f' = 0` by fs[state_rel_def]>>
+        DECIDE_TAC)>>
+      (*TODO: might need wf assumption on the cutset?*)
+      fs[alloc_def,cut_env_def,stackSemTheory.alloc_def]>>
+      qpat_assum`A=(res,s1)` mp_tac>>
+      TOP_CASE_TAC>>fs[]>>
+      imp_res_tac gc_state_rel>>
+      (*abs_stack needs to account for empty wordLang stack frame
+      corresponding to nothing on stackLang's stack*)
+      cheat)
   THEN1 (* Move *) (
     simp[comp_def]
     \\ fs[evaluate_def]
