@@ -2,24 +2,10 @@ INCLUDES = pp
 
 OPTIONS = QUIT_ON_FAILURE
 
+all: pp.cgi regression.cgi
+.PHONY: all
+
 ifdef POLY
-pp.cgi : pp.o
-	cc -o $@ $< -lpolymain -lpolyml
-
-regression.cgi : regression.o
-	cc -o $@ $< -lpolymain -lpolyml
-
-buildPP.exe : buildPP.uo heap
-	$(HOLMOSMLC) -o $@ $<
-
-pp.o : buildPP.exe
-	./$<
-
-regression.o : buildPP.exe
-	./$<
-
-
-
 HOLHEAP = heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
@@ -29,4 +15,10 @@ DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
+
+pp.cgi : pp.sml $(HOLHEAP)
+	$(POLYC) -o $@ $<
+
+regression.cgi : regression.sml $(HOLHEAP)
+	$(POLYC) -o $@ $<
 endif
