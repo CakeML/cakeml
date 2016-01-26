@@ -3543,6 +3543,11 @@ val wf_fromList2 = prove(``
   fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
   split_pair_tac>>fs[wf_insert])
 
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
 val evaluate_wInst = Q.store_thm("evaluate_wInst",
   `∀i s t s'.
    inst i s = SOME s' ∧
@@ -3609,7 +3614,49 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ fs[stackSemTheory.set_var_def,FLOOKUP_UPDATE,stackSemTheory.get_var_def]
       \\ rw[]
       \\ TRY (fs[state_rel_def]\\`F` by decide_tac)
-      \\ cheat )
+      >- (
+        fs[state_rel_def,set_var_def,wf_insert]
+        \\ fs[LET_THM]
+        \\ conj_tac >- metis_tac[]
+        \\ fs[lookup_insert,FLOOKUP_UPDATE]
+        \\ rpt gen_tac
+        \\ IF_CASES_TAC
+        >- (
+          simp[]
+          \\ strip_tac \\ rveq
+          \\ ONCE_REWRITE_TAC[MULT_COMM]
+          \\ simp[MULT_DIV,EVEN_EXISTS]
+          \\ metis_tac[] )
+        \\ strip_tac
+        \\ first_x_assum drule
+        \\ strip_tac
+        \\ simp[]
+        \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
+        \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
+        \\ metis_tac[bitTheory.DIV_MULT_THM2,EVEN_MOD2,SUB_0])
+      \\ fs[state_rel_def,set_var_def,wf_insert]
+      \\ fs[LET_THM]
+      \\ conj_tac >- metis_tac[]
+      \\ fs[lookup_insert,FLOOKUP_UPDATE]
+      \\ simp[DROP_LUPDATE]
+      \\ rpt gen_tac
+      \\ IF_CASES_TAC
+      >- (
+        simp[]
+        \\ strip_tac \\ rveq
+        \\ ONCE_REWRITE_TAC[MULT_COMM]
+        \\ simp[MULT_DIV,EVEN_EXISTS]
+        \\ simp[el_opt_LUPDATE]
+        \\ metis_tac[])
+      \\ strip_tac
+      \\ first_x_assum drule
+      \\ strip_tac
+      \\ simp[el_opt_LUPDATE]
+      \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
+      \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
+      \\ fs[EVEN_EXISTS] \\ rveq
+      \\ fs[TWOxDIV2]
+      \\ Cases_on`m ≤ f' + k` >> fsrw_tac[ARITH_ss][])
     \\ Cases_on`r`
     \\ fs[wordLangTheory.every_var_imm_def]
     \\ fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,LET_THM]
@@ -3668,7 +3715,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,stackSemTheory.mem_load_def,FLOOKUP_UPDATE]
     \\ TRY ( IF_CASES_TAC >- (fs[state_rel_def]\\`F`by decide_tac))
     \\ simp[]
-    \\ cheat ))
+    \\ cheat (* try to pull out lemmas from previous case? *)))
 
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
