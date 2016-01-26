@@ -664,19 +664,16 @@ val max_var_def = Define `
   (max_var (Get num store) = num) ∧
   (max_var (Store exp num) = MAX num (max_var_exp exp)) ∧
   (max_var (Call ret dest args h) =
-    let n =
-    (case ret of
-      NONE => 0
-    | SOME (v,cutset,ret_handler,l1,l2) =>
-      let ret_handler_max = max_var ret_handler in
-      let cutset_max = list_max (MAP FST (toAList cutset)) in
-        max3 v ret_handler_max cutset_max) in
-    let n = MAX n (list_max args) in
-    case h of
+    let n = list_max args in
+    case ret of
       NONE => n
-    | SOME (v,prog,l1,l2) =>
-      let exc_handler_max = max_var prog in
-      max3 n v exc_handler_max) ∧
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      let cutset_max = MAX n (list_max (MAP FST (toAList cutset))) in
+      let ret_max = max3 v cutset_max (max_var ret_handler) in
+      (case h of
+        NONE => ret_max
+      | SOME (v,prog,l1,l2) =>
+        max3 v ret_max (max_var prog))) ∧
   (max_var (Seq s1 s2) = MAX (max_var s1) (max_var s2)) ∧
   (max_var (If cmp r1 ri e2 e3) =
     let r = case ri of Reg r => MAX r r1 | _ => r1 in

@@ -4352,17 +4352,17 @@ val max_var_max = store_thm("max_var_max",``
   >-
     (EVERY_CASE_TAC>>fs[every_name_def,EVERY_MEM,toAList_domain,MAX_DEF]>>
     LET_ELIM_TAC>>
+    qcase_tac`toAList tree`>>
     TRY(
-    `∀z. z ∈ domain q' ⇒ z ≤ cutset_max` by
+    `∀z. z ∈ domain tree ⇒ z ≤ cutset_max` by
       (rw[]>>
-      Q.ISPECL_THEN [`MAP FST(toAList q')`] assume_tac list_max_max>>
+      Q.ISPECL_THEN [`MAP FST(toAList tree)`] assume_tac list_max_max>>
       fs[Abbr`cutset_max`,EVERY_MEM,MEM_MAP,PULL_EXISTS
         ,FORALL_PROD,MEM_toAList,domain_lookup]>>
       res_tac>>DECIDE_TAC)>>res_tac)>>
     TRY(match_mp_tac every_var_mono>>
     TRY(HINT_EXISTS_TAC)>>
-    TRY(qexists_tac`λx.x ≤ ret_handler_max`>>fs[])>>
-    TRY(qexists_tac`λx.x ≤ exc_handler_max`>>fs[]))>>
+    TRY(qexists_tac`λx.x ≤ max_var q''''`>>fs[]))>>
     fs[every_name_def]>>
     unabbrev_all_tac>>EVERY_CASE_TAC>>fs[]>>DECIDE_TAC)
   >>
@@ -5085,5 +5085,38 @@ val full_ssa_cc_trans_distinct_tar_reg = store_thm("full_ssa_cc_trans_distinct_t
     (rfs[]>>match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>fs[]>>
     DECIDE_TAC)>>
   fs[]);
+
+val list_max_IMP = prove(``
+  ∀ls.
+  P 0 ∧ EVERY P ls ⇒ P (list_max ls)``,
+  Induct>>fs[list_max_def]>>rw[]>>
+  IF_CASES_TAC>>fs[])
+
+val max_var_exp_IMP = prove(``
+  ∀exp.
+  P 0 ∧ every_var_exp P exp ⇒
+  P (max_var_exp exp)``,
+  ho_match_mp_tac max_var_exp_ind>>fs[max_var_exp_def,every_var_exp_def]>>
+  rw[]>>
+  match_mp_tac list_max_IMP>>
+  fs[EVERY_MAP,EVERY_MEM])
+
+val max_var_IMP = store_thm("max_var_IMP",``
+  ∀prog.
+  P 0 ∧ every_var P prog ⇒
+  P (max_var prog)``,
+  ho_match_mp_tac max_var_ind>>
+  fs[every_var_def,max_var_def,max_var_exp_IMP,MAX_DEF]>>rw[]>>
+  TRY(metis_tac[max_var_exp_IMP])>>
+  TRY (match_mp_tac list_max_IMP>>fs[EVERY_APPEND,every_name_def])
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`m`)>>
+    fs[max_var_inst_def,every_var_inst_def,every_var_imm_def,MAX_DEF]>>
+    EVERY_CASE_TAC>>fs[every_var_imm_def])
+  >-
+    (TOP_CASE_TAC>>unabbrev_all_tac>>fs[list_max_IMP]>>
+    EVERY_CASE_TAC>>fs[LET_THM]>>rw[]>>
+    match_mp_tac list_max_IMP>>fs[EVERY_APPEND,every_name_def])
+  >> (unabbrev_all_tac>>EVERY_CASE_TAC>>fs[every_var_imm_def]))
 
 val _ = export_theory();
