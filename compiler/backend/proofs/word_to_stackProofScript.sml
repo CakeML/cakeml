@@ -2129,6 +2129,7 @@ val EVERY_IMP_EVERY_LASTN = prove(
   ``!xs ys P. EVERY P xs /\ LASTN n xs = ys ==> EVERY P ys``,
   fs [EVERY_MEM] \\ rw [] \\ imp_res_tac MEM_LASTN_ALT \\ res_tac \\ fs []);
 
+(*TODO: Maybe delete?*)
 val is_tail_call_def = Define `
   (is_tail_call (Call NONE _ [0] NONE) = T) /\
   (is_tail_call _ = F)`
@@ -2269,11 +2270,13 @@ val state_rel_set_var = Q.store_thm("state_rel_set_var",
   \\ fs[EVEN_MOD2]);
 
 val state_rel_set_var2 = Q.store_thm("state_rel_set_var2",
-   `state_rel k f f' s t lens ∧ ¬(x < k) ∧ 0 < f ∧ x < f' + k ∧ st = t.stack ∧ sp = t.stack_space ⇒
+   `state_rel k f f' s t lens ∧ ¬(x < k) ∧ x < f' + k ∧ st = t.stack ∧ sp = t.stack_space ⇒
     state_rel k f f' (set_var (2*x) v s)
     (t with stack := LUPDATE v (sp + (f + k − (x + 1))) st) lens`,
   simp[state_rel_def,stackSemTheory.set_var_def,wordSemTheory.set_var_def]
   \\ strip_tac
+  \\ `0<f` by
+      (Cases_on`f'`>>fs[]>>DECIDE_TAC)
   \\ fs[lookup_insert,FLOOKUP_UPDATE,wf_insert]
   \\ simp[DROP_LUPDATE]
   \\ CONJ_TAC THEN1 metis_tac[]
@@ -2308,7 +2311,7 @@ val state_rel_set_var2 = Q.store_thm("state_rel_set_var2",
   \\ fsrw_tac[ARITH_ss][]);
 
 val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
-  `state_rel k f f' s t lens ∧ 0 < f ∧
+  `state_rel k f f' s t lens ∧
    (case x of NONE => get_var (k+1) t = SOME v
     | SOME x => get_var (x * 2) s = SOME v ) ∧
    (case y of SOME x => x < f' + k | _ => T)
@@ -2421,7 +2424,7 @@ val seqsem_move_unchanged = Q.store_thm("seqsem_move_unchanged",
 
 val evaluate_wMoveAux_seqsem = Q.store_thm("evaluate_wMoveAux_seqsem",
   `∀ms s t r.
-   state_rel k f f' s t lens ∧ 0 < f ∧
+   state_rel k f f' s t lens ∧
    (∀i v. r (SOME i) = SOME v ⇔ get_var (2*i) s = SOME v) ∧
    (∀v. r NONE = SOME v ⇒ get_var (k+1) t = SOME v) ∧
    IS_SOME (get_vars (MAP ($* 2 o THE) (FILTER IS_SOME (MAP SND ms))) s) ∧
@@ -3552,7 +3555,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   `∀i s t s'.
    inst i s = SOME s' ∧
    every_var_inst is_phy_var i ∧
-   max_var_inst i < 2 * f' + 2 * k ∧ 0 < f ∧
+   max_var_inst i < 2 * f' + 2 * k ∧
    state_rel k f f' s t lens
   ⇒
    ∃t'.
@@ -3606,7 +3609,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         \\ IF_CASES_TAC >- (fs[state_rel_def] \\ decide_tac)
         \\ simp[]
         \\ match_mp_tac state_rel_set_var2
-        \\ simp[] )
+        \\ simp[])
       \\ drule (GEN_ALL (ONCE_REWRITE_RULE[MULT_COMM]state_rel_get_var_imp2))
       \\ disch_then drule \\ simp[] \\ strip_tac
       \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def]
@@ -3634,6 +3637,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
         \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
         \\ IF_CASES_TAC >> fsrw_tac[ARITH_ss][]
         \\ metis_tac[bitTheory.DIV_MULT_THM2,EVEN_MOD2,SUB_0])
+      \\ `0 < f` by
+         (Cases_on`f'`>>
+         fs[state_rel_def] >> DECIDE_TAC)
       \\ fs[state_rel_def,set_var_def,wf_insert]
       \\ fs[LET_THM]
       \\ conj_tac >- metis_tac[]
@@ -3724,7 +3730,7 @@ val comp_correct = Q.store_thm("comp_correct",
      post_alloc_conventions k prog /\
      flat_exp_conventions prog /\
      max_var prog < 2 * f' + 2 * k /\
-     (~(is_tail_call prog) ==> 1 <= f /\ SND (comp prog bs (k,f,f')) ≼ t.bitmaps) ==>
+     SND (comp prog bs (k,f,f')) ≼ t.bitmaps ==>
      ?ck t1 res1.
        (stackSem$evaluate (FST (comp prog bs (k,f,f')),t with clock := t.clock + ck) = (res1,t1)) /\
        if OPTION_MAP compile_result res <> res1
@@ -3738,41 +3744,47 @@ val comp_correct = Q.store_thm("comp_correct",
          | SOME (Result _ _) => state_rel k 0 0 s1 t1 lens
          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
-  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [is_tail_call_def]
+  recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
         stackSemTheory.evaluate_def,comp_def] \\ rw [])
   THEN1 (* Alloc *)
-   (qexists_tac `0`
-    \\ fs [wordSemTheory.evaluate_def,
-        stackSemTheory.evaluate_def,comp_def] \\ rw []
-    \\ `n = 2` by (fs [convs_def]) \\ rw []
-    \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
-    \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
-       (fs [state_rel_def,get_var_def,LET_DEF]
-        \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
-        \\ fs [stackSemTheory.get_var_def])
-    \\ Cases_on `cut_env names s.locals`
-    THEN1 fs [wordSemTheory.alloc_def]
-    \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
-    \\ Cases_on `wLive names bs (k,f,f')`
-    \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
-    \\ drule evaluate_wLive
-    \\ discharge_hyps_keep
-    THEN1
-      (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
-      fs[GSYM toAList_domain,EVERY_MEM]>>
-      fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
-      rw[]>>res_tac>>DECIDE_TAC)
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ fs [stackSemTheory.evaluate_def,LET_THM]
-    \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
-    \\ Cases_on `alloc c t5` \\ fs []
-    \\ qcase_tac `alloc c t5 = (res1,t1)` \\ fs []
-    \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
-    \\ fs [] \\ REPEAT STRIP_TAC
-    \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
+   (Cases_on`1 ≤ f`
+   >-
+     (qexists_tac `0`
+      \\ fs [wordSemTheory.evaluate_def,
+          stackSemTheory.evaluate_def,comp_def] \\ rw []
+      \\ `n = 2` by (fs [convs_def]) \\ rw []
+      \\ `1 < k` by (fs [state_rel_def] \\ decide_tac) \\ res_tac
+      \\ Cases_on `get_var 2 s` \\ fs [] \\ Cases_on `x` \\ fs []
+      \\ `t.use_alloc /\ (get_var 1 t = SOME (Word c))` by
+         (fs [state_rel_def,get_var_def,LET_DEF]
+          \\ res_tac \\ qpat_assum `!x.bbb` (K ALL_TAC) \\ rfs []
+          \\ fs [stackSemTheory.get_var_def])
+      \\ Cases_on `cut_env names s.locals`
+      THEN1 fs [wordSemTheory.alloc_def]
+      \\ Q.MATCH_ASSUM_RENAME_TAC `cut_env names s.locals = SOME env`
+      \\ Cases_on `wLive names bs (k,f,f')`
+      \\ qcase_tac `wLive names bs (k,f,f') = (wlive_prog,bs1)`
+      \\ drule evaluate_wLive
+      \\ discharge_hyps_keep
+      THEN1
+        (fs[convs_def,reg_allocTheory.is_phy_var_def,EVEN_MOD2]>>
+        fs[GSYM toAList_domain,EVERY_MEM]>>
+        fs[X_LE_DIV,reg_allocTheory.is_phy_var_def,LET_THM]>>
+        rw[]>>res_tac>>DECIDE_TAC)
+      \\ REPEAT STRIP_TAC \\ fs []
+      \\ fs [stackSemTheory.evaluate_def,LET_THM]
+      \\ `t5.use_alloc` by fs [state_rel_def] \\ fs [convs_def]
+      \\ Cases_on `alloc c t5` \\ fs []
+      \\ qcase_tac `alloc c t5 = (res1,t1)` \\ fs []
+      \\ drule alloc_IMP_alloc \\ discharge_hyps >- (fs[])
+      \\ fs [] \\ REPEAT STRIP_TAC
+      \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
+  >>
+    (*no stack var case -- note: this implies that
+    the cutset is empty (since it must always be full of stack vars)*)
+    cheat)
   THEN1 (* Move *) (
     simp[comp_def]
     \\ fs[evaluate_def]
@@ -3945,8 +3957,8 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ conj_tac >- fs[state_rel_def]
     \\ conj_tac >- metis_tac[MEM_MAP_FST_parmove]
     \\ metis_tac[parmove_preserves_moves])
-  THEN1 (* Inst *) (
-    fs[comp_def,wordSemTheory.evaluate_def]
+  THEN1 (* Inst *)
+    (fs[comp_def,wordSemTheory.evaluate_def]
     \\ last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq
@@ -3987,13 +3999,11 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ reverse (Cases_on `res' = NONE`) \\ fs [] \\ rpt var_eq_tac
     THEN1
      (first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-      \\ `¬is_tail_call c1 ⇒ SND (comp c1 bs (k,f,f')) ≼ t.bitmaps` by fs []
       \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
       \\ qexists_tac `ck` \\ fs [] \\ Cases_on `res` \\ fs []
       \\ Cases_on `res1 = NONE`
       \\ fs [stackSemTheory.evaluate_def,LET_THM])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ `¬is_tail_call c1 ⇒ SND (comp c1 bs (k,f,f')) ≼ t.bitmaps` by fs []
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
     \\ reverse (Cases_on `res1 = NONE`) \\ fs [] THEN1
      (qexists_tac `ck`
@@ -4005,7 +4015,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ imp_res_tac wordPropsTheory.evaluate_io_events_mono \\ fs []
       \\ rfs [] \\ fs [] \\ metis_tac [IS_PREFIX_TRANS])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
-    \\ `¬is_tail_call c2 ⇒ SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps` by
+    \\ `SND (comp c2 bs' (k,f,f')) ≼ t1.bitmaps` by
          (imp_res_tac stackPropsTheory.evaluate_consts \\ fs [])
     \\ first_x_assum drule \\ fs [] \\ rw [] \\ fs []
     \\ fs [stackSemTheory.evaluate_def,LET_THM]
@@ -4169,14 +4179,9 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs [EVERY_MEM,MEM_MAP,PULL_EXISTS,DIV_LT_X,FORALL_PROD,MEM_toAList]
     \\ fs [domain_lookup] \\ res_tac
     \\ `~(n < k * 2)` by decide_tac \\ fs [])
-  \\ (* Call *) cheat)
-
-(*
   \\ (* Call *)
-
-    (* gets us quickly to the Call case *)
-    reverse (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [is_tail_call_def])
-
+     (* gets us quickly to the Call case *)
+    (*reverse (recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs [])*)
     simp [Once LET_DEF,comp_def]
     \\ split_pair_tac \\ fs []
     \\ Cases_on `ret` \\ fs []
@@ -4257,7 +4262,7 @@ val comp_correct = Q.store_thm("comp_correct",
               rpt (pop_assum kall_tac)>>
               rw [] \\ decide_tac) >>
             fs[DROP_DROP_EQ]>>
-            CONJ_TAC THEN1 simp[]
+            CONJ_TAC THEN1 simp[]>>
             ntac 3 strip_tac>>
             imp_res_tac (GSYM domain_lookup)>>
             imp_res_tac EVEN_fromList2>>fs[]>>
@@ -4309,16 +4314,18 @@ val comp_correct = Q.store_thm("comp_correct",
           rw[]>>
           metis_tac[])>>
         CONJ_TAC>-
-          (*Implied by post_alloc_conventions*)
-          (`EVEN (max_var r)` by cheat>>
+          (`EVEN (max_var r)` by
+              (ho_match_mp_tac max_var_IMP>>
+              fs[convs_def]>>
+              match_mp_tac every_var_mono>>
+              HINT_EXISTS_TAC>>fs[reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
           unabbrev_all_tac>>fs[EVEN_EXISTS]>>
           rpt (pop_assum kall_tac)>>
           `m * 2 DIV 2 = m` by
             (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fs[])>>
           fs[MULT_COMM,MAX_DEF]>>rw[]>>
           DECIDE_TAC)>>
-        (*not sure*)
-        cheat)
+          fs[Abbr`t5`])
       \\ strip_tac \\ fs []
       \\ qunabbrev_tac `t5` \\ fs []
       \\ `ck + (s.clock - 1) = ck + s.clock - 1` by decide_tac
@@ -4328,9 +4335,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
-
-
-*)
+    \\ cheat)
 
 val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
@@ -4356,7 +4361,7 @@ val comp_Call_lemma = comp_correct
   |> SIMP_RULE std_ss [comp_def,stack_free_def,call_dest_def,LET_THM]
   |> Q.SPECL [`s`,`k`,`0`,`0`]
   |> SIMP_RULE std_ss [stack_arg_count_def,SeqStackFree_def,
-       list_max_def,is_tail_call_def,evaluate_Seq_Skip,
+       list_max_def,evaluate_Seq_Skip,
        EVAL  ``post_alloc_conventions k (Call NONE (SOME start) [0] NONE)``,
        EVAL  ``flat_exp_conventions (Call NONE (SOME start) [0] NONE)``,
        word_allocTheory.max_var_def,LET_DEF,MAX_DEF] |> GEN_ALL
@@ -4375,7 +4380,8 @@ val comp_Call = prove(
           t1.ffi.io_events ≼ s1.ffi.io_events /\
           (IS_SOME t1.ffi.final_event ⇒ t1.ffi = s1.ffi)``,
   rw [] \\ drule comp_Call_lemma \\ fs []
-  \\ disch_then drule \\ fs [] \\ strip_tac
+  \\ disch_then drule \\ disch_then(qspecl_then[`t.bitmaps`] mp_tac)
+  \\ fs [] \\ strip_tac
   \\ `0 < 2 * k` by (fs [state_rel_def] \\ decide_tac) \\ fs []
   \\ asm_exists_tac \\ fs []
   \\ conj_tac THEN1 (fs [state_rel_def,good_dimindex_def,dimword_def])
