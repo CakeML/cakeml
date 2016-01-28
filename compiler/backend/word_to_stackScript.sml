@@ -64,7 +64,6 @@ val wMove_def = Define `
     wMoveAux (MAP (format_var k ## format_var k) (parmove (MAP (DIV2 ## DIV2) xs))) (k,f,f')`;
 
 val wInst_def = Define `
-  (wInst Skip kf = Inst Skip) /\
   (wInst (Const n c) kf =
     wRegWrite1 (\n. Inst (Const n c)) n kf) /\
   (wInst (Arith (Binop bop n1 n2 (Imm imm))) kf =
@@ -80,10 +79,16 @@ val wInst_def = Define `
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
       (wRegWrite1 (\n1. Inst (Arith (Shift sh n1 n2 a))) n1 kf)) /\
-  (wInst (Mem mop n1 (Addr n2 offset)) kf =
+  (wInst (Mem Load n1 (Addr n2 offset)) kf =
     let (l,n2) = wReg1 n2 kf in
     wStackLoad l
-      (wRegWrite1 (\n1. Inst (Mem mop n1 (Addr n2 offset))) n1 kf))`
+      (wRegWrite1 (\n1. Inst (Mem Load n1 (Addr n2 offset))) n1 kf)) /\
+  (wInst (Mem Store n1 (Addr n2 offset)) kf =
+    let (l1,n2) = wReg1 n2 kf in
+    let (l2,n1) = wReg2 n1 kf in
+      wStackLoad (l1 ++ l2)
+        (Inst (Mem Store n1 (Addr n2 offset)))) /\
+  (wInst _ kf = Inst Skip)`
 
 val bits_to_word_def = Define `
   (bits_to_word [] = 0w) /\
