@@ -259,7 +259,10 @@ val state_rel_get_var_k = Q.store_thm("state_rel_get_var_k",
    ∃c:α word.
    get_var (k+1) t = SOME (Word c) ∧
    dimindex (:α) DIV 8 * max_stack_alloc ≤ w2n c ∧
-   get_var k t = SOME (Word (c + bytes_in_word * n2w s.stack_space))`,
+   get_var k t = SOME (Word (c + bytes_in_word * n2w s.stack_space)) ∧
+   (memory s.memory s.mdomain *
+    word_list (the_SOME_Word (FLOOKUP s.store BitmapBase) << word_shift (:α)) (MAP Word s.bitmaps) *
+    word_store c s.store * word_list c s.stack) (fun2set (t.memory,t.mdomain))`,
   rw[state_rel_def]
   \\ pop_assum mp_tac
   \\ CASE_TAC \\ fs[]
@@ -517,9 +520,49 @@ val comp_correct = Q.prove(
     \\ fs[state_rel_def]
     \\ BasicProvers.CASE_TAC \\ simp[]
     \\ BasicProvers.CASE_TAC \\ simp[])
-  THEN1 (* StackFree *) cheat
-  THEN1 (* StackLoad *) cheat
-  THEN1 (* StackLoadAny *) cheat
+  THEN1 (* StackFree *) (
+    simp[comp_def]
+    \\ simp[evaluate_def,inst_def,assign_def,word_exp_def]
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ fs[evaluate_def]
+    \\ every_case_tac \\ fs[]
+    \\ rator_x_assum`state_rel`mp_tac
+    \\ simp[state_rel_def,set_var_def,FLOOKUP_UPDATE]
+    \\ strip_tac
+    \\ rveq
+    \\ simp[]
+    \\ conj_tac >- metis_tac[]
+    \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ simp[word_offset_def,bytes_in_word_def,word_mul_n2w])
+  THEN1 (* StackLoad *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq
+    \\ simp[inst_def,assign_def,word_exp_def]
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ simp[mem_load_def]
+    \\ cheat (* ?? what does one do with fun2set ?? *))
+  THEN1 (* StackLoadAny *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq
+    \\ simp[inst_def,assign_def,word_exp_def]
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ cheat (* probably need better good_syntax, and then fun2set stuff *))
   THEN1 (* StackStore *) cheat
   THEN1 (* StackStoreAny *) cheat
   THEN1 (* StackGetSize *) cheat
