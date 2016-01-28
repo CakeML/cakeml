@@ -1136,7 +1136,7 @@ val push_env_set_store = prove(
     set_store AllocSize (Word c) (push_env env ^nn s)``,
   fs [push_env_def,set_store_def,env_to_list_def,LET_DEF])|> INST_TYPE [beta|-> alpha, gamma|->beta];
 
-val state_rel_set_store = prove(
+val state_rel_set_store_0 = prove(
   ``state_rel k 0 0 s5 t5 len ==>
     state_rel k 0 0 (set_store AllocSize w s5) (set_store AllocSize w t5) len``,
   rpt strip_tac
@@ -1607,7 +1607,7 @@ val alloc_IMP_alloc = prove(
   THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
   \\ fs [alloc_alt, stackSemTheory.alloc_def]
   \\ REPEAT STRIP_TAC \\ fs [push_env_set_store]
-  \\ imp_res_tac state_rel_set_store
+  \\ imp_res_tac state_rel_set_store_0
   \\ pop_assum (mp_tac o Q.SPEC `Word c`) \\ REPEAT STRIP_TAC
   \\ Cases_on `gc (set_store AllocSize (Word c)
                      (push_env env ^nn s with locals := LN))`
@@ -4260,6 +4260,24 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ match_mp_tac state_rel_with_memory
     \\ simp[]))
 
+val set_store_set_var = Q.store_thm("set_store_set_var",
+  `stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)`,
+  EVAL_TAC);
+
+val state_rel_set_store = Q.store_thm("state_rel_set_store",
+  `state_rel k f f' s t lens ∧ v ≠ Handler ⇒
+   state_rel k f f' (set_store v x s) (set_store v x t) lens`,
+  simp[state_rel_def]
+  \\ strip_tac
+  \\ fs[wordSemTheory.set_store_def,stackSemTheory.set_store_def]
+  \\ simp[FLOOKUP_UPDATE]
+  \\ conj_tac
+  >- (
+    simp[fmap_eq_flookup]
+    \\ simp[FLOOKUP_UPDATE,DOMSUB_FLOOKUP_THM]
+    \\ rw[] )
+  \\ metis_tac[]);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -4523,9 +4541,60 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ strip_tac \\ simp[])
   THEN1 (* Assign *)
     fs[flat_exp_conventions_def]
-  THEN1 (* Get *) cheat
-  THEN1 (* Set *)
-    (Cases_on`exp`>>fs[flat_exp_conventions_def]>>cheat)
+  THEN1 (* Get *) (
+    fs[flat_exp_conventions_def]
+    \\ fs[comp_def]
+    \\ fs[wordSemTheory.evaluate_def]
+    \\ last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq \\ simp[]
+    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ rw[]
+    \\ qexists_tac`0` \\ simp[]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`NONE` \\ simp[]
+    \\ match_mp_tac wRegWrite1_thm1
+    \\ simp[stackSemTheory.evaluate_def]
+    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+    \\ fs[state_rel_def]
+    \\ rfs[DOMSUB_FLOOKUP_THM])
+  THEN1 (* Set *) (
+    Cases_on`exp`>>fs[flat_exp_conventions_def]
+    \\ fs[comp_def,LET_THM]
+    \\ split_pair_tac \\ fs[]
+    \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+    \\ last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ simp[]
+    \\ qexists_tac`0` \\ simp[]
+    \\ CONV_TAC SWAP_EXISTS_CONV
+    \\ qexists_tac`NONE` \\ simp[]
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ rw[]
+    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+    \\ fs[word_allocTheory.max_var_exp_def]
+    \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
+    \\ fs[convs_def,wordLangTheory.every_var_exp_def]
+    \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ rveq \\ fs[]
+    \\ asm_exists_tac \\ simp[]
+    \\ asm_exists_tac \\ simp[]
+    \\ fs[GSYM wordSemTheory.get_var_def]
+    \\ drule (GEN_ALL state_rel_get_var_imp)
+    \\ ONCE_REWRITE_TAC[MULT_COMM]
+    \\ disch_then drule \\ strip_tac
+    \\ drule (GEN_ALL state_rel_get_var_imp2)
+    \\ ONCE_REWRITE_TAC[MULT_COMM]
+    \\ disch_then drule \\ strip_tac
+    \\ simp[stackSemTheory.evaluate_def]
+    \\ `t.use_store` by fs[state_rel_def]
+    \\ simp[]
+    \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
+    \\ simp[set_store_set_var]
+    \\ (Cases_on`v = Handler` >- cheat)
+    \\ metis_tac[state_rel_set_store])
   THEN1 (* Store *)
     fs[flat_exp_conventions_def]
   THEN1 (* Tick *)
