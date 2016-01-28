@@ -3562,7 +3562,7 @@ val wStackLoad_append = Q.store_thm("wStackLoad_append",
   \\ ho_match_mp_tac wStackLoad_ind
   \\ simp[wStackLoad_def]);
 
-val wRegWrite1_thm = Q.store_thm("wRegWrite1_thm",
+val wRegWrite1_thm1 = Q.store_thm("wRegWrite1_thm1",
   `state_rel k f f' s t lens ∧
    m < f' + k ∧
    (∀n.  n ≤ k ⇒
@@ -3579,6 +3579,102 @@ val wRegWrite1_thm = Q.store_thm("wRegWrite1_thm",
   \\ simp[]
   \\ match_mp_tac state_rel_set_var2
   \\ simp[]);
+
+val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
+  `state_rel k f f' s t lens ∧
+   mem_store a b s = SOME s' ⇒
+   ∃t'.
+     mem_store a b t = SOME t' ∧
+     state_rel k f f' s' t' lens`,
+  simp[state_rel_def,stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
+  \\ strip_tac \\ rveq \\ simp[] \\ metis_tac[]);
+
+(*
+val wRegWrite1_thm2 = Q.store_thm("wRegWrite1_thm2",
+  `state_rel k f f' s t lens ∧
+   m < f' + k ∧
+   get_var (2 * m) s = SOME w ∧
+   mem_store a w s = SOME s' ∧
+   (∀n. get_var n t = SOME w ⇒
+     evaluate (kont n, t) = (NONE, THE(mem_store a w t)))
+   ⇒
+   ∃t'.
+   evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
+   state_rel k f f' s' t' lens`,
+  rw[wRegWrite1_def,LET_THM,TWOxDIV2] \\ fs[]
+  >- (
+    drule (GEN_ALL state_rel_get_var_imp)
+    \\ ONCE_REWRITE_TAC[MULT_COMM]
+    \\ disch_then drule
+    \\ simp[GSYM stackSemTheory.get_var_def]
+    \\ imp_res_tac state_rel_mem_store
+    \\ simp[] )
+  \\ rw[stackSemTheory.evaluate_def]
+  \\ imp_res_tac state_rel_mem_store
+  \\ fs[] \\ rveq \\ fs[]
+  \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
+  \\ rveq \\ fs[]
+  \\ IF_CASES_TAC >- fs[state_rel_def]
+  \\ IF_CASES_TAC >- (fs[state_rel_def] \\ `F` by decide_tac)
+  \\ fs[stackSemTheory.get_var_def]
+  \\ qpat_abbrev_tac`w = EL _ _`
+  \\ qmatch_assum_abbrev_tac`state_rel _ _ _ _ t1 _`
+  \\ qmatch_abbrev_tac`state_rel _ _ _ _ t2 _`
+  \\ `t1 = t2`
+  by (
+    unabbrev_all_tac
+    \\ simp[stackSemTheory.state_component_equality]
+    \\ match_mp_tac (GSYM LUPDATE_SAME)
+    \\ fs[state_rel_def]
+    \\ Cases_on`f = 0`\\fs[]
+    \\ decide_tac )
+  \\ fs[]);
+*)
+
+(*
+val wRegWrite1_thm2 = Q.store_thm("wRegWrite1_thm2",
+  `state_rel k f f' s t lens ∧
+   mem_store a b s = SOME s' ∧
+   m < f' + k ∧
+   (∀n. n ≤ k ⇒
+      evaluate (kont n, t) =
+        (NONE, THE(mem_store a b (if n < k then t else set_var k (EL (t.stack_space + (f-1-(m-k))) t.stack) t))))
+   ⇒
+   ∃t'.
+   evaluate (wRegWrite1 kont (2 * m) (k,f,f'), t) = (NONE, t') ∧
+   state_rel k f f' s' t' lens`,
+  rw[wRegWrite1_def,LET_THM,TWOxDIV2]
+  \\ `s.memory = t.memory ∧ s.mdomain = t.mdomain` by fs[state_rel_def]
+  >- (
+    first_x_assum(qspec_then`m`mp_tac)
+    \\ simp[]
+    \\ fs[wordSemTheory.mem_store_def,stackSemTheory.mem_store_def]
+    \\ rw[]
+    \\ fs[state_rel_def]
+    \\ metis_tac[] )
+  \\ rw[stackSemTheory.evaluate_def]
+  \\ fs[wordSemTheory.mem_store_def,stackSemTheory.mem_store_def]
+  \\ IF_CASES_TAC >- fs[state_rel_def]
+  \\ IF_CASES_TAC >- (fs[state_rel_def] \\ `F` by decide_tac)
+  \\ simp[stackSemTheory.get_var_def,Once stackSemTheory.set_var_def,FLOOKUP_UPDATE]
+  \\ qmatch_goalsub_abbrev_tac`EL n t.stack`
+  \\ `n < LENGTH t.stack`
+  by (
+    fs[state_rel_def]
+    \\ simp[Abbr`n`]
+    \\ rw[]
+    \\ Cases_on`f'=0`\\fs[]
+    \\ decide_tac )
+  \\ simp[LUPDATE_SAME]
+  \\ qpat_abbrev_tac`t'':('a,'b)stackSem$state = _ _`
+  \\ `t'' = set_var k (EL n t.stack) (t with memory := (a =+ b) t.memory)`
+  by (
+    simp[Abbr`t''`,stackSemTheory.set_var_def,stackSemTheory.state_component_equality] )
+  \\ simp[]
+  \\ rveq
+  \\ fs[state_rel_def]
+  \\ metis_tac[]);
+*)
 
 val wStackLoad_thm1 = Q.store_thm("wStackLoad_thm1",
   `wReg1 (2 * n1) (k,f,f') = (l,n2) ∧
@@ -3887,7 +3983,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   >- (
     fs[assign_def,word_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
     \\ rveq
-    \\ match_mp_tac wRegWrite1_thm
+    \\ match_mp_tac wRegWrite1_thm1
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def] )
   >- (
@@ -3922,7 +4018,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ simp[] \\ disch_then drule
       \\ ntac 2 strip_tac
       \\ conj_tac \\ strip_tac \\ fs[]
-      \\ match_mp_tac wRegWrite1_thm
+      \\ match_mp_tac wRegWrite1_thm1
       \\ simp[]
       \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def]
       \\ simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE] )
@@ -3946,7 +4042,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ simp[Abbr`kont`]
     \\ conj_tac \\ strip_tac
     \\ TRY (
-      match_mp_tac wRegWrite1_thm
+      match_mp_tac wRegWrite1_thm1
       \\ simp[]
       \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def]
       \\ TRY (
@@ -3971,7 +4067,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ asm_exists_tac \\ simp[]
     \\ simp[Abbr`kont`]
     \\ conj_tac \\ strip_tac
-    \\ match_mp_tac wRegWrite1_thm
+    \\ match_mp_tac wRegWrite1_thm1
     \\ simp[]
     \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def]
     \\ gen_tac \\ strip_tac
@@ -4046,9 +4142,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ asm_exists_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
     \\ simp[Abbr`kont`]
-    \\ conj_tac \\ strip_tac
     \\ TRY (
-      match_mp_tac wRegWrite1_thm
+      conj_tac \\ strip_tac
+      \\ match_mp_tac wRegWrite1_thm1
       \\ simp[]
       \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def]
       \\ TRY (
@@ -4069,6 +4165,46 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ fs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def,state_rel_def]
       \\ fs[stackSemTheory.set_var_def]
       \\ NO_TAC)
+    (*
+    \\ conj_tac \\ strip_tac
+    \\ TRY (
+      drule (GEN_ALL word_exp_thm1)
+      \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
+              reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+              word_allocTheory.max_var_exp_def,list_max_def]
+      \\ simp[EQ_MULT_LCANCEL]
+      \\ strip_tac
+      \\ gen_tac \\ strip_tac
+      \\ qpat_abbrev_tac`t' = if n < k then t else _`
+      \\ first_x_assum(qspecl_then[`t'`,`lens`,`k`,`f'`,`f`]mp_tac)
+      \\ discharge_hyps
+      >- ( rw[TWOxDIV2] \\ fs[] \\ rw[Abbr`t'`] )
+      \\ strip_tac
+      \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+      \\ cheat )
+    \\ gen_tac \\ strip_tac
+    \\ qpat_abbrev_tac`t' = set_var k _ _`
+    \\ drule (GEN_ALL word_exp_thm2)
+    \\ simp[DIV2_def,TWOxDIV2,wordLangTheory.every_var_exp_def,
+            reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,
+            word_allocTheory.max_var_exp_def,list_max_def]
+    \\ simp[EQ_MULT_LCANCEL]
+    \\ disch_then(qspecl_then[`t'`,`lens`,`k`,`f'`,`f`]mp_tac)
+    \\ simp[]
+    \\ discharge_hyps >- simp[Abbr`t'`]
+    \\ strip_tac
+    \\ simp[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
+    \\ qmatch_assum_abbrev_tac`word_exp t'' _ = _`
+    \\ `t'' = t'`
+    by (
+      unabbrev_all_tac
+      \\ EVAL_TAC
+      \\ simp[stackSemTheory.state_component_equality] )
+    \\ qunabbrev_tac`t''` \\ fs[]
+    \\ qmatch_assum_abbrev_tac`Abbrev(t' = set_var k v t)`
+    \\
+    \\ simp[Abbr`t'`]
+    *)
     \\ cheat))
 
 val comp_correct = Q.store_thm("comp_correct",
