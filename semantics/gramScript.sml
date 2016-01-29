@@ -62,7 +62,7 @@ fun tokmap s =
 
 val ginfo = { tokmap = tokmap,
               tokty = ``:token``, nt_tyname = "MMLnonT",
-              start = "Type",
+              start = "REPLTop",
               gname = "cmlG", mkntname = (fn s => "n" ^ s) }
 
 val cmlG_def = mk_grammar_def ginfo
