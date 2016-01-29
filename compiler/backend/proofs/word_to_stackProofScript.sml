@@ -4320,7 +4320,7 @@ val list_max_APPEND = store_thm("list_max_APPEND",``
   Induct>>fs[list_max_def,LET_THM,MAX_DEF]>>rw[]>>
   DECIDE_TAC)
 
-val list_max_SNOC = prove("list_max_SNOC",``
+val list_max_SNOC = store_thm("list_max_SNOC",``
   list_max (SNOC x ls) = MAX x (list_max ls)``,
   fs[SNOC_APPEND,list_max_APPEND,list_max_def,LET_THM,MAX_DEF]>>
   DECIDE_TAC)
@@ -4333,7 +4333,7 @@ val list_max_GENLIST_evens = store_thm("list_max_GENLIST_evens",``
   DECIDE_TAC)
 
 val comp_correct = Q.store_thm("comp_correct",
-  `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' _tacres s1 t bs lens.
+  `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
      state_rel k f f' s t lens /\
      post_alloc_conventions k prog /\
