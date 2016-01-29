@@ -1,4 +1,4 @@
-open preamble
+open preamble BasicProvers
      wordLangTheory wordSemTheory
 
 (*
@@ -261,7 +261,7 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   fs [evaluate_def] >>
   rpt gen_tac >>
   rpt (pop_assum mp_tac) >>
-  rpt (BasicProvers.TOP_CASE_TAC >> fs []) >>
+  rpt (TOP_CASE_TAC >> fs []) >>
   rpt (disch_then strip_assume_tac ORELSE gen_tac) >> fs [] >>
   rveq >> fs[] >>
   imp_res_tac alloc_const >> fs[] >>
@@ -303,6 +303,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     Cases_on`opt`>>fs[markerTheory.Abbrev_def]>>
     (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
     Cases_on`cut_env names' s.locals`>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     CASE_TAC >> fs[] >>
     CASE_TAC >> fs[] >>
     CASE_TAC >> fs[] >>
@@ -345,6 +346,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     Cases_on`opt`>>fs[markerTheory.Abbrev_def]>>
     (fn g => subterm split_pair_case_tac (#2 g) g) >> fs[] >>
     Cases_on`cut_env names' s.locals`>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     CASE_TAC >> fs[] >>
     CASE_TAC >> fs[] >>
     CASE_TAC >> fs[] >>
@@ -987,6 +989,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
   >>
     (*Returning call*)
     PairCases_on`x'`>> fs[]>>
+    IF_CASES_TAC>>fs[]>>
     Cases_on`cut_env x'1 s.locals`>>fs[]>>
     Cases_on`s.clock=0`>-
       (fs[call_env_def,fromList2_def]>>rw[]>>
@@ -1497,10 +1500,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
   >- (*Call*)
     (fs[evaluate_def,LET_THM]>>
     fs[get_vars_perm]>>
-    Cases_on`get_vars args st`>>fs[]>>
-    Cases_on`find_code dest (add_ret_loc ret x) st.code`>>fs[]>>
-    Cases_on`x'`>>
-    Cases_on`ret`>>fs[]
+    ntac 4 (TOP_CASE_TAC>>fs[])
     >- (*Tail Call*)
       (every_case_tac>>
       TRY(qexists_tac`perm`>>
@@ -1512,24 +1512,23 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
       fs[state_component_equality,call_env_def]>>
       qpat_assum`A=res`(SUBST1_TAC o SYM)>>fs[])
     >>
-      PairCases_on`x'`>>fs[]>>
-      Cases_on`cut_env x'1 st.locals`>>fs[]>>
-      Cases_on`st.clock=0`>>fs[]
+      ntac 5 TOP_CASE_TAC>>fs[]>>
+      ntac 2 (TOP_CASE_TAC>>fs[])
       >-
         (fs[call_env_def]>>
         qexists_tac`perm`>>fs[state_component_equality])
       >>
       Cases_on`evaluate(r,call_env q (push_env x'
               handler (dec_clock st)))`>>
-      Cases_on`q'`>>fs[]>>
+      Cases_on`q'''''`>>fs[]>>
       Cases_on`x''`>>fs[]
       >-
         (qpat_assum`A=(res,rst)` mp_tac>>
         IF_CASES_TAC>>fs[]>>
         full_case_tac>>fs[]>>
         IF_CASES_TAC>>fs[]>>
-        Cases_on`evaluate(x'2,set_var x'0 w0 x'')`>>
-        Cases_on`q'`>>
+        Cases_on`evaluate(q''',set_var q' w0 x'')`>>
+        Cases_on`q'''''`>>
         TRY(Cases_on`x'''`)>>
         fs[]>>rw[]>>
         first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
@@ -1551,8 +1550,8 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         ntac 2 (IF_CASES_TAC>>fs[])>>
         rw[]>>
         Cases_on`res = SOME Error`>>fs[]>>
-        first_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
-        last_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
+        last_x_assum(qspec_then`perm`assume_tac)>>fs[]>>
+        first_x_assum(qspec_then`perm'`assume_tac)>>fs[]>>
         qexists_tac`λx. if x = 0 then st.permute 0 else perm'' (x-1)`>>
         fs[dec_clock_def,push_env_def,env_to_list_def,LET_THM]>>
         `(λn. perm'' n) = perm''` by fs[FUN_EQ_THM]>>
@@ -1702,7 +1701,7 @@ val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
     (qpat_assum`A= SOME w` mp_tac>>full_case_tac>>fs[mem_load_def])
   >-
     (qpat_assum`A= SOME w` mp_tac>>
-    BasicProvers.LET_ELIM_TAC>>
+    LET_ELIM_TAC>>
     Cases_on`EVERY IS_SOME ws`>>fs[]>>
     `ws = ws'` by
       (unabbrev_all_tac>>
@@ -1862,6 +1861,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       CASE_TAC>>fs[])
     >>
       PairCases_on`x'`>>fs[]>>
+      IF_CASES_TAC>>fs[]>>
       Cases_on`cut_env x'1' st.locals`>>fs[]>>
       imp_res_tac locals_rel_cut_env>>fs[]>>
       IF_CASES_TAC>-

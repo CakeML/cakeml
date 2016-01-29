@@ -539,6 +539,12 @@ val LAST_N_LENGTH2 = prove(``
   `LENGTH (x::xs) = LENGTH xs +1` by simp[]>>
   metis_tac[LAST_N_LENGTH])
 
+val toAList_not_empty = prove(``
+  domain t ≠ {} ⇒
+  toAList t ≠ []``,
+  CCONTR_TAC>>fs[GSYM MEMBER_NOT_EMPTY]>>
+  fs[GSYM toAList_domain])
+
 (*liveness theorem*)
 val evaluate_apply_colour = store_thm("evaluate_apply_colour",
 ``∀prog st cst f live.
@@ -766,6 +772,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     >>
     (*Returning calls*)
     PairCases_on`x'`>>fs[]>>
+    Cases_on`domain x'1 = {}`>>fs[]>>
     Cases_on`cut_env x'1 st.locals`>>fs[]>>
     imp_res_tac cut_env_lemma>>
     pop_assum kall_tac>>
@@ -776,7 +783,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       (fs[colouring_ok_def,LET_THM,domain_union]>>
       `domain x'1 ⊆ x'0 INSERT domain x'1` by fs[SUBSET_DEF]>>
       metis_tac[SUBSET_UNION,INJ_less,INSERT_UNION_EQ])>>
-    rw[]>>fs[]>>
+    rw[]>>
+    fs[domain_fromAList,toAList_not_empty]>>
     Cases_on`st.clock=0`>>fs[call_env_def,add_ret_loc_def]>>
     qpat_abbrev_tac`f_o0=
       case o0 of NONE => NONE
@@ -3032,10 +3040,9 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     simp_tac std_ss [ssa_cc_trans_def]>>
     LET_ELIM_TAC>>
     fs[evaluate_def,get_vars_perm,add_ret_loc_def]>>
-    Cases_on`get_vars l st`>>fs[]>>
-    Cases_on`find_code o1 (Loc x3 x4::x) st.code`>>fs[]>>
-    Cases_on`x'`>>
-    Cases_on`cut_env x1 st.locals`>>fs[]>>
+    ntac 5 (TOP_CASE_TAC>>fs[])>>
+    `domain stack_set ≠ {}` by
+      fs[Abbr`stack_set`,domain_fromAList,toAList_not_empty]>>
     Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`]
       mp_tac list_next_var_rename_move_preserve>>
     discharge_hyps>-

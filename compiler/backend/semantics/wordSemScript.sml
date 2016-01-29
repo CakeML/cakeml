@@ -445,6 +445,8 @@ val evaluate_def = tDefine "evaluate" `
      | NONE => (SOME Error, s)
      | SOME x => (NONE, set_var v x s)) /\
   (evaluate (Set v exp,s) =
+     if v = Handler then (SOME Error,s)
+     else
      case word_exp s exp of
      | NONE => (SOME Error, s)
      | SOME w => (NONE, set_store v (Word w) s)) /\
@@ -509,6 +511,8 @@ val evaluate_def = tDefine "evaluate" `
          | (SOME res,s) => (SOME res,s))
       else (SOME Error,s)
 	  | SOME (n,names,ret_handler,l1,l2) (* returning call, returns into var n *) =>
+    if domain names = {} then (SOME Error,s)
+    else
 	  (case cut_env names s.locals of
 		| NONE => (SOME Error,s)
 		| SOME env =>

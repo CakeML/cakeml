@@ -512,7 +512,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
     metis_tac[])
   >-
     (fs[evaluate_def]>>last_x_assum mp_tac>>
-    FULL_CASE_TAC>>fs[]>>strip_tac>>
+    ntac 2 FULL_CASE_TAC>>fs[]>>strip_tac>>
     fs[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
     imp_res_tac flatten_exp_every_var_exp>>
@@ -631,10 +631,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
       fs[call_env_def,dec_clock_def,state_component_equality,locals_rel_def])
     >>
       PairCases_on`x'`>>fs[add_ret_loc_def]>>
-      Cases_on `find_code dest (Loc x'3 x'4::x) st.code`>>fs []>>
-      PairCases_on`x'`>>fs[]>>
-      Cases_on`cut_env x'1 loc`>>fs[]>>
-      IF_CASES_TAC>-
+      ntac 5 (TOP_CASE_TAC>>fs[])>-
         fs[call_env_def,state_component_equality,locals_rel_def]
       >>
       fs[]>>
@@ -645,7 +642,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
         (unabbrev_all_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
         fs[call_env_def,push_env_def,dec_clock_def,push_env_def,LET_THM,env_to_list_def,state_component_equality])>>
-      Cases_on`evaluate(x'1',st'')`>>Cases_on`q`>>fs[]>>
+      Cases_on`evaluate(r,st'')`>>Cases_on`q'`>>fs[]>>
       Cases_on`x''`>>fs[]
       >-
         (IF_CASES_TAC>>fs[]>>
@@ -795,10 +792,9 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
       rfs[add_ret_loc_def]>>rw[]>>fs[]))
     >>
       PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
-      Cases_on`get_vars args s`>>fs[add_ret_loc_def]>>
-      Cases_on`find_code dest (Loc x3 x4::x) s.code`>>fs[]>>
-      Cases_on`x'`>>Cases_on`cut_env x1 s.locals`>>fs[]>>
-      IF_CASES_TAC>>fs[push_env_def,LET_THM]>>
+      TOP_CASE_TAC>>fs[add_ret_loc_def]>>
+      ntac 5 (TOP_CASE_TAC>>fs[])>>
+      fs[push_env_def,LET_THM]>>
       EVERY_CASE_TAC>>fs[]>>
       res_tac>>fs[]>>
       rfs[])
