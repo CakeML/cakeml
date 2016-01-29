@@ -2,11 +2,9 @@ structure asmLib :> asmLib =
 struct
 
 open HolKernel boolLib bossLib
-open lcsymtacs asmTheory asmSemTheory asmPropsTheory utilsLib
+open asmTheory asmSemTheory asmPropsTheory utilsLib
 
-(*
 val ERR = Feedback.mk_HOL_ERR "asmLib"
-*)
 
 (* compset support -------------------------------------------------------- *)
 
@@ -26,7 +24,7 @@ fun add_asm_compset cmp =
        alignmentTheory.aligned_extract] cmp
    ; utilsLib.add_datatypes
         (List.map asm_type0 ["cmp", "mem_op", "binop", "cmp", "shift"] @
-         List.map asm_type  ["asm_config", "asm"])
+         List.map asm_type  ["asm_config", "asm", "inst"])
         cmp
    )
 
@@ -162,11 +160,13 @@ in
 end
 
 local
-   fun dest_v2w_or_n2w tm =
-      bitstringSyntax.dest_v2w tm handle HOL_ERR _ => wordsSyntax.dest_n2w tm
-   val is_byte_eq =
-      Lib.can ((wordsSyntax.dest_word_extract ## dest_v2w_or_n2w) o
-               boolSyntax.dest_eq)
+   fun is_byte_eq tm =
+      let
+        val (l, r) = boolSyntax.dest_eq tm
+      in
+        (wordsSyntax.is_word_extract l orelse wordsSyntax.is_word_concat l)
+        andalso (bitstringSyntax.is_v2w r orelse wordsSyntax.is_n2w r)
+      end
    val conv =
       Conv.DEPTH_CONV
          (fn tm => if is_byte_eq tm
