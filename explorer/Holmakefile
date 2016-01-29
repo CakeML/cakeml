@@ -16,7 +16,7 @@ DEPS = $(patsubst %,%.uo,$(BARE_THYS))
 $(HOLHEAP): $(DEPS)
 	$(protect $(HOLDIR)/bin/buildheap) -o $(HOLHEAP) $(BARE_THYS)
 
-pp.cgi : pp.sml $(HOLHEAP)
+pp.cgi : pp.sml buildPP.uo $(HOLHEAP)
 	$(POLYC) -o $@ $<
 
 regression.cgi : regression.sml $(HOLHEAP)
