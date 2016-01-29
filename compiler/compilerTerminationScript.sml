@@ -9,9 +9,9 @@ val _ = new_theory "compilerTermination"
 val MEM_pair_MAP = store_thm(
 "MEM_pair_MAP",
 ``MEM (a,b) ls ==> MEM a (MAP FST ls) /\ MEM b (MAP SND ls)``,
-rw[MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
+srw_tac[][MEM_MAP,pairTheory.EXISTS_PROD] >> PROVE_TAC[])
 
-val tac = Induct >- rw[Cexp_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def]
+val tac = Induct >- srw_tac[][Cexp_size_def,Cv_size_def] >> srw_tac [ARITH_ss][Cexp_size_def,Cv_size_def]
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac)
 val Cexp1_size_thm = size_thm "Cexp1_size_thm" ``Cexp1_size`` ``Cexp2_size``
@@ -24,7 +24,7 @@ val SUM_MAP_Cexp3_size_thm = store_thm(
   SUM (MAP FST env)
 + SUM (MAP Cexp_size (MAP SND env))
 + LENGTH env``,
-Induct >- rw[Cexp_size_def] >> Cases >>
+Induct >- srw_tac[][Cexp_size_def] >> Cases >>
 srw_tac[ARITH_ss][Cexp_size_def])
 
 val SUM_MAP_Cexp2_size_thm = store_thm("SUM_MAP_Cexp2_size_thm",
@@ -32,7 +32,7 @@ val SUM_MAP_Cexp2_size_thm = store_thm("SUM_MAP_Cexp2_size_thm",
     SUM (MAP (option_size (pair_size (λx. x) (pair_size (list_size ccbind_size) (pair_size (list_size (λx. x)) (list_size (λx. x))))) o FST) defs) +
     SUM (MAP (Cexp3_size o SND) defs) +
     LENGTH defs``,
-  Induct >- rw[Cexp_size_def] >>
+  Induct >- srw_tac[][Cexp_size_def] >>
   qx_gen_tac`h` >> PairCases_on`h` >>
   Cases_on`h0`>>srw_tac[ARITH_ss][Cexp_size_def,basicSizeTheory.pair_size_def,arithmeticTheory.ADD1,basicSizeTheory.option_size_def])
 
@@ -44,7 +44,7 @@ gen_tac >> Induct >> srw_tac[ARITH_ss][list_size_def])
 val bc_value1_size_thm = store_thm(
 "bc_value1_size_thm",
 ``∀ls. bc_value1_size ls = SUM (MAP bc_value_size ls) + LENGTH ls``,
-Induct >- rw[bytecodeTheory.bc_value_size_def] >>
+Induct >- srw_tac[][bytecodeTheory.bc_value_size_def] >>
 srw_tac [ARITH_ss][bytecodeTheory.bc_value_size_def])
 
 (* termination proofs *)
@@ -66,7 +66,7 @@ val (free_vars_def, free_vars_ind) = register "free_vars" (
 val (no_closures_def, no_closures_ind) = register "no_closures" (
   tprove_no_defn ((no_closures_def, no_closures_ind),
   WF_REL_TAC `measure Cv_size` >>
-  rw[Cv1_size_thm] >>
+  srw_tac[][Cv1_size_thm] >>
   imp_res_tac SUM_MAP_MEM_bound >>
   pop_assum (qspec_then `Cv_size` mp_tac) >>
   srw_tac[ARITH_ss][]))
@@ -137,13 +137,13 @@ val (compile_def, compile_ind) = register "compile" (
 val _ = register "PushAnyInt" (
   tprove_no_defn ((PushAnyInt_def,PushAnyInt_ind),
     WF_REL_TAC`inv_image ($< LEX $<) (λx. (if x < 0 then 1:num else 0, Num(ABS x)))` >>
-    rw[] >- (
-      fs[maxPushInt_def] >>
+    srw_tac[][] >- (
+      full_simp_tac(srw_ss())[maxPushInt_def] >>
       disj1_tac >>
-      Cases_on`i < 0` >> rw[] >>
-      Cases_on`i` >> fs[] )
+      Cases_on`i < 0` >> srw_tac[][] >>
+      Cases_on`i` >> full_simp_tac(srw_ss())[] )
     >- (
-      Cases_on`i`>>fs[maxPushInt_def] >>
+      Cases_on`i`>>full_simp_tac(srw_ss())[maxPushInt_def] >>
       simp[integerTheory.INT_ABS_NUM] )
     >- intLib.COOPER_TAC))
 
@@ -176,17 +176,17 @@ val zero_vars_def = Lib.with_flag (computeLib.auto_import_definitions, false) (t
 val zero_vars_list_MAP = prove(
   ``(∀ls. (zero_vars_list ls = MAP (zero_vars) ls)) ∧
     (∀ls. (zero_vars_defs ls = MAP (zero_vars_def) ls))``,
-  conj_tac >> Induct >> rw[zero_vars_def])
+  conj_tac >> Induct >> srw_tac[][zero_vars_def])
 val _ = augment_srw_ss[rewrites [zero_vars_def,zero_vars_list_MAP]]
 
 val zero_vars_mkshift = prove(
   ``∀f k e. zero_vars (mkshift f k e) = zero_vars e``,
   ho_match_mp_tac mkshift_ind >>
-  rw[mkshift_def,MAP_MAP_o,combinTheory.o_DEF,LET_THM] >>
+  srw_tac[][mkshift_def,MAP_MAP_o,combinTheory.o_DEF,LET_THM] >>
   lrw[MAP_EQ_f,UNCURRY] >>
   BasicProvers.CASE_TAC >>
-  BasicProvers.CASE_TAC >> rw[] >>
-  BasicProvers.CASE_TAC >> rw[] >>
+  BasicProvers.CASE_TAC >> srw_tac[][] >>
+  BasicProvers.CASE_TAC >> srw_tac[][] >>
   fsrw_tac[ARITH_ss][])
 val _ = augment_srw_ss[rewrites [zero_vars_mkshift]]
 
@@ -211,7 +211,7 @@ val (label_closures_def,label_closures_ind) = register "label_closures" (
     qmatch_abbrev_tac`SUM (MAP f (FILTER P defs)) ≤ SUM (MAP g defs)` >>
     `MAP f (FILTER P defs) = MAP g (FILTER P defs)` by (
       lrw[MAP_EQ_f,MEM_FILTER,Abbr`f`,Abbr`g`,Abbr`P`] >>
-      PairCases_on`x`>>fs[]) >>
+      PairCases_on`x`>>full_simp_tac(srw_ss())[]) >>
     pop_assum SUBST1_TAC >>
     Induct_on`defs` >> simp[] >>
     qx_gen_tac`x` >> PairCases_on`x` >>
@@ -307,7 +307,7 @@ val (is_unconditional_def, is_unconditional_ind) =
   tprove_no_defn((is_unconditional_def, is_unconditional_ind),
   WF_REL_TAC`measure pat_i2_size` >> gen_tac >>
   Induct >> simp[pat_i2_size_def] >>
-  rw[] >> res_tac >> simp[pat_i2_size_def])
+  srw_tac[][] >> res_tac >> simp[pat_i2_size_def])
 val _ = register "is_unconditional" (is_unconditional_def, is_unconditional_ind);
 
 val (do_eq_exh_def, do_eq_exh_ind) =
@@ -363,7 +363,7 @@ val (exp_to_exh_def, exp_to_exh_ind) =
     | INR (INR (INL (_,pes))) => p2sz pes
     | INR (INR (INR (_,funs))) => f2sz funs)` >>
   simp[e2sz_def] >>
-  rw[add_default_def] >>
+  srw_tac[][add_default_def] >>
   simp[p2sz_append,e2sz_def])
 val _ = register "exp_to_exh" (exp_to_exh_def,exp_to_exh_ind);
 
@@ -464,19 +464,19 @@ open SatisfySimps arithmeticTheory miscTheory
 val the_find_index_suff = store_thm("the_find_index_suff",
   ``∀P d x ls n. (∀m. m < LENGTH ls ⇒ P (m + n)) ∧ MEM x ls ⇒
     P (the d (find_index x ls n))``,
-  rw[] >>
+  srw_tac[][] >>
   imp_res_tac find_index_MEM >>
   pop_assum(qspec_then`n`mp_tac) >>
   srw_tac[DNF_ss,ARITH_ss][])
 
 val set_lunion = store_thm("set_lunion",
   ``∀l1 l2. set (lunion l1 l2) = set l1 ∪ set l2``,
-  Induct >> simp[lunion_def] >> rw[EXTENSION] >> metis_tac[])
+  Induct >> simp[lunion_def] >> srw_tac[][EXTENSION] >> metis_tac[])
 val _ = export_rewrites["set_lunion"]
 
 val set_lshift = store_thm("set_lshift",
   ``∀ls n. set (lshift n ls) = { m-n | m | m ∈ set ls ∧ n ≤ m}``,
-  Induct >> rw[lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
+  Induct >> srw_tac[][lshift_def,EXTENSION,MEM_MAP,MEM_FILTER,EQ_IMP_THM] >>
   srw_tac[ARITH_ss,SATISFY_ss][] >> fsrw_tac[ARITH_ss][] >>
   TRY(qexists_tac`h`>>simp[]>>NO_TAC)>>
   TRY(qexists_tac`v`>>simp[]>>NO_TAC)>>
@@ -489,8 +489,8 @@ val sLet_pat_thm = store_thm("sLet_pat_thm",
     if ground_pat 0 e2 then
       if pure_pat e1 then e2 else Seq_pat e1 e2
     else Let_pat e1 e2``,
-  Cases_on`e2`>>rw[sLet_pat_def]>>
-  Cases_on`n`>>rw[sLet_pat_def])
+  Cases_on`e2`>>srw_tac[][sLet_pat_def]>>
+  Cases_on`n`>>srw_tac[][sLet_pat_def])
 
 (* constants that are just applications of higher-order operators *)
 
@@ -540,49 +540,49 @@ val local_labels_cons = store_thm("local_labels_cons",
               inst_uses_label ExplodeLab l
            then local_labels ls
            else l::(local_labels ls)``,
-  rw[local_labels_def] >> fs[])
+  srw_tac[][local_labels_def] >> full_simp_tac(srw_ss())[])
 
 val local_labels_append = store_thm("local_labels_append[simp]",
   ``∀l1 l2. local_labels (l1 ++ l2) = local_labels l1 ++ local_labels l2``,
-  rw[local_labels_def,rich_listTheory.FILTER_APPEND])
+  srw_tac[][local_labels_def,rich_listTheory.FILTER_APPEND])
 
 val local_labels_reverse = store_thm("local_labels_reverse[simp]",
   ``∀l1. local_labels (REVERSE l1) = REVERSE (local_labels l1)``,
-  rw[local_labels_def,FILTER_REVERSE])
+  srw_tac[][local_labels_def,FILTER_REVERSE])
 
 val FILTER_is_Label_local_labels = store_thm("FILTER_is_Label_local_labels[simp]",
   ``∀code. FILTER is_Label (local_labels code) = FILTER is_Label code``,
-  rw[local_labels_def,rich_listTheory.FILTER_FILTER] >>
-  rw[rich_listTheory.FILTER_EQ,bytecodeExtraTheory.is_Label_rwt,EQ_IMP_THM] >>
-  rw[])
+  srw_tac[][local_labels_def,rich_listTheory.FILTER_FILTER] >>
+  srw_tac[][rich_listTheory.FILTER_EQ,bytecodeExtraTheory.is_Label_rwt,EQ_IMP_THM] >>
+  srw_tac[][])
 
 val MEM_Label_local_labels = store_thm("MEM_Label_local_labels[simp]",
   ``∀l c. MEM (Label l) (local_labels c) ⇔ MEM (Label l) c``,
-  rw[local_labels_def,MEM_FILTER])
+  srw_tac[][local_labels_def,MEM_FILTER])
 
 val code_labels_ok_append_local = store_thm("code_labels_ok_append_local",
   ``∀l1 l2. code_labels_ok l1 ∧ code_labels_ok (local_labels l2) ∧
             contains_primitives l1 ⇒
             code_labels_ok (l1 ++ l2)``,
-  rw[bytecodeLabelsTheory.code_labels_ok_def,
+  srw_tac[][bytecodeLabelsTheory.code_labels_ok_def,
      bytecodeLabelsTheory.uses_label_thm] >-
   metis_tac[] >>
-  fs[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
+  full_simp_tac(srw_ss())[local_labels_def,EXISTS_MEM,MEM_FILTER,PULL_EXISTS] >>
   Cases_on`l = VfromListLab` >- (
-    fs[contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
+    full_simp_tac(srw_ss())[contains_primitives_def,toBytecodeTheory.VfromListCode_def] ) >>
   Cases_on`l = ImplodeLab` >- (
-    fs[contains_primitives_def,toBytecodeTheory.ImplodeCode_def] ) >>
+    full_simp_tac(srw_ss())[contains_primitives_def,toBytecodeTheory.ImplodeCode_def] ) >>
   Cases_on`l = ExplodeLab` >- (
-    fs[contains_primitives_def,toBytecodeTheory.ExplodeCode_def] ) >>
+    full_simp_tac(srw_ss())[contains_primitives_def,toBytecodeTheory.ExplodeCode_def] ) >>
   `¬inst_uses_label VfromListLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
+    Cases_on`e`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`l'`>>full_simp_tac(srw_ss())[]) >>
   `¬inst_uses_label ImplodeLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
+    Cases_on`e`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`l'`>>full_simp_tac(srw_ss())[]) >>
   `¬inst_uses_label ExplodeLab e` by (
-    Cases_on`e`>>fs[]>>
-    Cases_on`l'`>>fs[]) >>
+    Cases_on`e`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`l'`>>full_simp_tac(srw_ss())[]) >>
   metis_tac[])
 
 val code_labels_ok_microcode = store_thm("code_labels_ok_microcode",

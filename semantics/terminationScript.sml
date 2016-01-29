@@ -20,7 +20,7 @@ LIST_CONJ [pats_size_def,
 
 val _ = export_rewrites["size_abbrevs"];
 
-val tac = Induct >- rw[exp_size_def,pat_size_def,v_size_def,size_abbrevs] >>
+val tac = Induct >- srw_tac[][exp_size_def,pat_size_def,v_size_def,size_abbrevs] >>
   full_simp_tac (srw_ss()++ARITH_ss)[exp_size_def,pat_size_def,v_size_def, size_abbrevs];
 fun tm t1 t2 =  ``∀ls. ^t1 ls = SUM (MAP ^t2 ls) + LENGTH ls``;
 fun size_thm name t1 t2 = store_thm(name,tm t1 t2,tac);
@@ -38,7 +38,7 @@ val SUM_MAP_exp2_size_thm = store_thm(
 ``∀defs. SUM (MAP exp2_size defs) = SUM (MAP (list_size char_size) (MAP FST defs)) +
                                           SUM (MAP exp4_size (MAP SND defs)) +
                                           LENGTH defs``,
-Induct >- rw[exp_size_def] >>
+Induct >- srw_tac[][exp_size_def] >>
 qx_gen_tac `p` >>
 PairCases_on `p` >>
 srw_tac[ARITH_ss][exp_size_def])
@@ -48,7 +48,7 @@ val SUM_MAP_exp4_size_thm = store_thm(
 ``∀ls. SUM (MAP exp4_size ls) = SUM (MAP (list_size char_size) (MAP FST ls)) +
                                       SUM (MAP exp_size (MAP SND ls)) +
                                       LENGTH ls``,
-Induct >- rw[exp_size_def] >>
+Induct >- srw_tac[][exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
 val SUM_MAP_exp5_size_thm = store_thm(
@@ -56,7 +56,7 @@ val SUM_MAP_exp5_size_thm = store_thm(
 ``∀ls. SUM (MAP exp5_size ls) = SUM (MAP pat_size (MAP FST ls)) +
                                 SUM (MAP exp_size (MAP SND ls)) +
                                 LENGTH ls``,
-Induct >- rw[exp_size_def] >>
+Induct >- srw_tac[][exp_size_def] >>
 Cases >> srw_tac[ARITH_ss][exp_size_def])
 
 (*
@@ -65,7 +65,7 @@ val SUM_MAP_v2_size_thm = store_thm(
 ``∀env. SUM (MAP v2_size env) = SUM (MAP (list_size char_size) (MAP FST env)) +
                                 SUM (MAP v_size (MAP SND env)) +
                                 LENGTH env``,
-Induct >- rw[v_size_def] >>
+Induct >- srw_tac[][v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 *)
 
@@ -75,7 +75,7 @@ val SUM_MAP_v3_size_thm = store_thm(
 ``∀env f. SUM (MAP (v3_size f) env) = SUM (MAP (v_size f) (MAP FST env)) +
                                       SUM (MAP (option_size (pair_size (λx. x) f)) (MAP SND env)) +
                                       LENGTH env``,
-Induct >- rw[v_size_def] >>
+Induct >- srw_tac[][v_size_def] >>
 Cases >> srw_tac[ARITH_ss][v_size_def])
 *)
 
@@ -104,16 +104,16 @@ val _ = register "pmatch" pmatch_def pmatch_ind;
 val (contains_closure_def, contains_closure_ind) =
   tprove_no_defn ((contains_closure_def, contains_closure_ind),
   wf_rel_tac `measure v_size` >> conj_tac
-  THEN Induct_on `vs` THEN rw [v_size_def] THEN1 decide_tac
+  THEN Induct_on `vs` THEN srw_tac[] [v_size_def] THEN1 decide_tac
   THEN RES_TAC THEN TRY (POP_ASSUM (ASSUME_TAC o Q.SPEC `cn`)) THEN decide_tac);
 val _ = register "contains_closure" contains_closure_def contains_closure_ind;
 
 val (type_subst_def, type_subst_ind) =
   tprove_no_defn ((type_subst_def, type_subst_ind),
   WF_REL_TAC `measure (λ(x,y). t_size y)` >>
-  rw [] >>
+  srw_tac[] [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  srw_tac[] [t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "type_subst" type_subst_def type_subst_ind;
@@ -121,9 +121,9 @@ val _ = register "type_subst" type_subst_def type_subst_ind;
 val (type_name_subst_def, type_name_subst_ind) =
   tprove_no_defn ((type_name_subst_def, type_name_subst_ind),
   WF_REL_TAC `measure (λ(x,y). t_size y)` >>
-  rw [] >>
+  srw_tac[] [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  srw_tac[] [t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
@@ -131,9 +131,9 @@ val _ = register "type_name_subst" type_name_subst_def type_name_subst_ind;
 val (check_type_names_def, check_type_names_ind) =
   tprove_no_defn ((check_type_names_def, check_type_names_ind),
   WF_REL_TAC `measure (λ(x,y). t_size y)` >>
-  rw [] >>
+  srw_tac[] [] >>
   induct_on `ts` >>
-  rw [t_size_def] >>
+  srw_tac[] [t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "check_type_names" check_type_names_def check_type_names_ind;
@@ -141,9 +141,9 @@ val _ = register "check_type_names" check_type_names_def check_type_names_ind;
 val (deBruijn_subst_def, deBruijn_subst_ind) =
   tprove_no_defn ((deBruijn_subst_def, deBruijn_subst_ind),
   WF_REL_TAC `measure (λ(_,x,y). t_size y)` >>
-  rw [] >>
+  srw_tac[] [] >>
   induct_on `ts'` >>
-  rw [t_size_def] >>
+  srw_tac[] [t_size_def] >>
   res_tac >>
   decide_tac);
 val _ = register "deBruijn_subst" deBruijn_subst_def deBruijn_subst_ind;
@@ -202,14 +202,14 @@ val check_ctor_foldr_flat_map = Q.prove (
     =
     FLAT (MAP (\(tvs,tn,condefs). (MAP (λ(n,ts). n)) condefs) c)`,
 induct_on `c` >>
-rw [LET_THM] >>
+srw_tac[] [LET_THM] >>
 PairCases_on `h` >>
-fs [LET_THM] >>
+full_simp_tac (srw_ss()) [LET_THM] >>
 pop_assum (fn _ => all_tac) >>
 induct_on `h2` >>
-rw [] >>
+srw_tac[] [] >>
 PairCases_on `h` >>
-rw []);
+srw_tac[] []);
 
 val check_dup_ctors_thm = Q.store_thm ("check_dup_ctors_thm",
 `!tds.
