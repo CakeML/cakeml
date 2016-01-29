@@ -4278,8 +4278,62 @@ val state_rel_set_store = Q.store_thm("state_rel_set_store",
     \\ rw[] )
   \\ metis_tac[]);
 
+val get_vars_eq = prove(
+  ``∀ls z.
+  get_vars ls st = SOME z ⇒
+  let lookups = MAP (\x. lookup x st.locals) ls in
+  EVERY IS_SOME lookups ∧
+  z = MAP THE lookups``,
+  Induct>>fs[get_vars_def,get_var_def]>>rw[]>>unabbrev_all_tac>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[])
+
+val get_vars_fromList2_eq = prove(``
+    get_vars (GENLIST (λx. 2*x) (LENGTH args)) s = SOME x ∧
+    lookup n (fromList2 x) = SOME y ⇒
+    lookup n s.locals = SOME y``,
+    rw[]>>imp_res_tac get_vars_eq>>
+    fs[lookup_fromList2,lookup_fromList,LET_THM]>>
+    fs[EVERY_MAP,EVERY_GENLIST,MAP_GENLIST]>>rfs[EL_GENLIST]>>
+    qpat_assum`A=y` sym_sub_tac>>
+    res_tac>>
+    simp[option_CLAUSES]>>
+    AP_THM_TAC>>AP_TERM_TAC>>
+    Q.ISPECL_THEN [`2n`] assume_tac DIVISION>>fs[]>>
+    pop_assum(qspec_then`n` assume_tac)>>
+    fs[EVEN_MOD2]>>
+    simp[])
+
+val lookup_fromList2_prefix = prove(``
+  ∀x z y.
+  IS_PREFIX z x ∧
+  lookup n (fromList2 x) = SOME y ⇒
+  lookup n (fromList2 z) = SOME y``,
+  fs[lookup_fromList2,lookup_fromList]>>rw[]>>
+  imp_res_tac IS_PREFIX_LENGTH >- DECIDE_TAC>>
+  fs[IS_PREFIX_APPEND]>>
+  fs[EL_APPEND1])
+
+val list_max_APPEND = store_thm("list_max_APPEND",``
+  ∀a b.
+  list_max (a++b) = MAX (list_max a) (list_max b)``,
+  Induct>>fs[list_max_def,LET_THM,MAX_DEF]>>rw[]>>
+  DECIDE_TAC)
+
+val list_max_SNOC = prove("list_max_SNOC",``
+  list_max (SNOC x ls) = MAX x (list_max ls)``,
+  fs[SNOC_APPEND,list_max_APPEND,list_max_def,LET_THM,MAX_DEF]>>
+  DECIDE_TAC)
+
+val list_max_GENLIST_evens = store_thm("list_max_GENLIST_evens",``
+  ∀n. list_max (GENLIST (λx. 2*x) n) = 2*(n-1)``,
+  Induct>>
+  fs[list_max_def]>>rw[]>>
+  fs[GENLIST,list_max_SNOC,MAX_DEF]>>
+  DECIDE_TAC)
+
 val comp_correct = Q.store_thm("comp_correct",
-  `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
+  `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' _tacres s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
      state_rel k f f' s t lens /\
      post_alloc_conventions k prog /\
@@ -4565,6 +4619,7 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
     \\ last_x_assum mp_tac
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq \\ simp[]
     \\ qexists_tac`0` \\ simp[]
     \\ CONV_TAC SWAP_EXISTS_CONV
@@ -4593,7 +4648,6 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ simp[]
     \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
     \\ simp[set_store_set_var]
-    \\ (Cases_on`v = Handler` >- cheat)
     \\ metis_tac[state_rel_set_store])
   THEN1 (* Store *)
     fs[flat_exp_conventions_def]
@@ -4873,8 +4927,29 @@ val comp_correct = Q.store_thm("comp_correct",
               simp[])>>
             fs[wf_fromList2]>>
             qpat_abbrev_tac`len = LENGTH q -k`>>
-            (*Because all the args must be in the current frame*)
-            `len ≤ f` by cheat>>
+            (*This seems too long for a trivial property..*)
+            `len ≤ f` by
+              (fs[convs_def]>>
+              qpat_assum`args = A` SUBST_ALL_TAC>>
+              imp_res_tac get_vars_length_lemma>>
+              fs[word_allocTheory.max_var_def,LET_THM]>>
+              fs[list_max_GENLIST_evens]>>
+              `LENGTH q ≤ LENGTH args` by
+                (qpat_assum`A=SOME(q,r)` mp_tac>>
+                Cases_on`dest`>>fs[find_code_def]>>
+                EVERY_CASE_TAC>>rw[]>>
+                simp[LENGTH_FRONT])>>
+              `LENGTH args -1 +1 < f' +1 +k` by simp[]>>
+              Cases_on`f'`>-
+                (fs[]>>
+                `LENGTH args ≤ k` by DECIDE_TAC>>
+                unabbrev_all_tac>>
+                simp[])>>
+              `LENGTH args -1 +1 -k < SUC n +1` by DECIDE_TAC>>
+              fs[Abbr`len`]>>
+              ntac 5 (pop_assum mp_tac)>>
+              rpt (pop_assum kall_tac)>>
+              DECIDE_TAC)>>
             `len ≤ m ∧ m ≤ m'` by
               (unabbrev_all_tac>>
               rpt (pop_assum kall_tac)>>
@@ -4890,11 +4965,16 @@ val comp_correct = Q.store_thm("comp_correct",
             imp_res_tac (GSYM domain_lookup)>>
             imp_res_tac EVEN_fromList2>>fs[]>>
             fs[word_allocTheory.post_alloc_conventions_def,word_allocTheory.call_arg_convention_def]>>
-            (*The vars produced by fromList2 is exactly same as args
-              Probably don't use the following cheat, but something about
-              get_vars args s = SOME x when args satisfies assumption 25
-            *)
-            `lookup n s.locals = SOME v` by cheat>>
+            `lookup n s.locals = SOME v` by
+              (qpat_assum`args=A` SUBST_ALL_TAC>>
+              imp_res_tac get_vars_fromList2_eq>>
+              `isPREFIX q x` by
+                (qpat_assum`A=SOME(q,r)` mp_tac>>
+                Cases_on`dest`>>fs[find_code_def]>>
+                EVERY_CASE_TAC>>rw[]>>
+                Cases_on`x`>>fs[IS_PREFIX_BUTLAST])>>
+              imp_res_tac lookup_fromList2_prefix>>
+              metis_tac[])>>
             IF_CASES_TAC>-
               metis_tac[]>>
             fs[el_opt_THM]>>
