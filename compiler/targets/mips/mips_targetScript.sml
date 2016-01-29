@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs asmLib mips_stepLib;
+open asmLib mips_stepLib;
 
 val () = new_theory "mips_target"
 

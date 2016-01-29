@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs asmLib arm8_stepLib;
+open asmLib arm8_stepLib;
 
 val () = new_theory "arm8_target"
 

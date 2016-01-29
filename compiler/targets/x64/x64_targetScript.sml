@@ -1,5 +1,5 @@
 open HolKernel Parse boolLib bossLib
-open lcsymtacs asmLib x64_stepLib;
+open asmLib x64_stepLib;
 
 val () = new_theory "x64_target"
 
