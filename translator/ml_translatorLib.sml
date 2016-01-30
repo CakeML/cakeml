@@ -43,7 +43,7 @@ fun unpack_term th = th |> concl |> dest_eq |> fst;
 fun pack_thm th = PURE_ONCE_REWRITE_RULE [GSYM markerTheory.Abbrev_def] th |> DISCH_ALL;
 fun unpack_thm th = th |> UNDISCH_ALL |> PURE_ONCE_REWRITE_RULE [markerTheory.Abbrev_def];
 
-fun pack_string s = REFL (mk_var(s,``:bool``))
+fun pack_string s = REFL (mk_var(s,bool))
 fun unpack_string th = th |> concl |> dest_eq |> fst |> dest_var |> fst
 
 fun pack_list f xs = TRUTH :: map f xs |> LIST_CONJ |> PURE_ONCE_REWRITE_RULE [GSYM markerTheory.Abbrev_def];
@@ -106,17 +106,21 @@ fun auto_prove proof_name (goal,tac) = let
   in failwith("auto_prove failed for " ^ proof_name) end end
 
 structure astSyntax = struct
+  fun id_ty ty = mk_thy_type{Thy="ast",Tyop="id",Args=[ty]};
+  val str_id_ty = id_ty stringSyntax.string_ty;
   val pat_ty = mk_thy_type{Thy="ast",Tyop="pat",Args=[]};
   val exp_ty = mk_thy_type{Thy="ast",Tyop="exp",Args=[]};
   val pat_exp_ty = pairSyntax.mk_prod(pat_ty,exp_ty);
   val dec_ty = mk_thy_type{Thy="ast",Tyop="dec",Args=[]};
   val decs_ty = listSyntax.mk_list_type dec_ty;
   local val s = HolKernel.syntax_fns1 "ast" in
+  val (Short_tm,mk_Short,dest_Short,is_Short) = s "Short"
   val (Dtype_tm,mk_Dtype,dest_Dtype,is_Dtype) = s "Dtype"
   val (Dletrec_tm,mk_Dletrec,dest_Dletrec,is_Dletrec) = s "Dletrec"
   val (Pvar_tm,mk_Pvar,dest_Pvar,is_Pvar) = s "Pvar"
   end
   local val s = HolKernel.syntax_fns2 "ast" in
+  val (Long_tm,mk_Long,dest_Long,is_Long) = s "Long"
   val (Dexn_tm,mk_Dexn,dest_Dexn,is_Dexn) = s "Dexn"
   val (Dlet_tm,mk_Dlet,dest_Dlet,is_Dlet) = s "Dlet"
   val (Pcon_tm,mk_Pcon,dest_Pcon,is_Pcon) = s "Pcon"
@@ -148,10 +152,10 @@ local
   val abbrev_defs = ref ([]:thm list);
 in
   fun get_mn () = (!decl_exists) |> concl |> rator |> rand
-  fun INST_mn th = INST [``mn:string option`` |-> get_mn()] th
+  fun INST_mn th = INST [mk_var("mn",optionSyntax.mk_option(stringSyntax.string_ty)) |-> get_mn()] th
   fun full_id name =
-    ``Long ^(optionSyntax.dest_some (get_mn ())) ^name``
-    handle HOL_ERR _ => ``Short ^name``
+    astSyntax.mk_Long(optionSyntax.dest_some (get_mn ()),name)
+    handle HOL_ERR _ => astSyntax.mk_Short(name)
   fun translate_into_module name =
     if not (listSyntax.is_nil (!decl_term)) then
       failwith "translate_into_module can only be used on an empty translation"
@@ -164,9 +168,10 @@ in
   fun get_cenv_eq_thm () = !cenv_eq_thm
   fun get_cenv_names () = let
     val th = get_cenv_eq_thm ()
-    val pat = full_id ``(n:string)``
+    val n = mk_var("n",stringSyntax.string_ty)
+    val pat = full_id n
     val strs1 = find_terms (can (match_term pat)) (concl th) |> map rand
-    val pat = ``(n:string,x:'a)``
+    val pat = pairSyntax.mk_pair(n,mk_var("x",alpha))
     val strs2 = find_terms (can (match_term pat)) (concl th) |> map (rand o rator)
     val strs = strs1 @ strs2
     val names = map stringSyntax.fromHOLstring strs |> mk_set
@@ -535,12 +540,13 @@ in
   fun add_new_type_mapping ty target_ty =
     (type_mappings := (ty,target_ty) :: (!type_mappings))
   fun string_tl s = s |> explode |> tl |> implode
+  val word8 = wordsSyntax.mk_int_word_type 8
   fun type2t ty =
-    if ty = ``:bool`` then ``Tapp [] (TC_name (Short "bool"))`` else
-    if ty = ``:word8`` then ``Tapp [] TC_word8`` else
-    if ty = ``:int`` then ``Tapp [] TC_int`` else
-    if ty = ``:num`` then ``Tapp [] TC_int`` else
-    if ty = ``:char`` then ``Tapp [] TC_char`` else
+    if ty = bool then ``Tapp [] (TC_name (Short "bool"))`` else
+    if ty = word8 then ``Tapp [] TC_word8`` else
+    if ty = intSyntax.int_ty then ``Tapp [] TC_int`` else
+    if ty = numSyntax.num then ``Tapp [] TC_int`` else
+    if ty = stringSyntax.char_ty then ``Tapp [] TC_char`` else
     if can dest_vartype ty then
       mk_comb(``Tvar``,stringSyntax.fromMLstring ((* string_tl *) (dest_vartype ty)))
     else let
@@ -584,13 +590,13 @@ in
     if can dest_fun_type ty then let
       val (t1,t2) = dest_fun_type ty
       in ``Arrow (^(get_type_inv t1)) (^(get_type_inv t2))`` end else
-    if ty = ``:unit`` then ``UNIT_TYPE`` else
-    if ty = ``:bool`` then ``BOOL`` else
-    if ty = ``:word8`` then ``WORD8`` else
-    if ty = ``:num`` then ``NUM`` else
-    if ty = ``:int`` then ``INT`` else
-    if ty = ``:char`` then ``CHAR`` else
-    if ty = ``:mlstring`` then ``STRING_TYPE`` else
+    if ty = oneSyntax.one_ty then ``UNIT_TYPE`` else
+    if ty = bool then ``BOOL`` else
+    if ty = word8 then ``WORD8`` else
+    if ty = numSyntax.num then ``NUM`` else
+    if ty = intSyntax.int_ty then ``INT`` else
+    if ty = stringSyntax.char_ty then ``CHAR`` else
+    if ty = mlstringSyntax.mlstring_ty then ``STRING_TYPE`` else
     if can dest_vector_type ty then let
       val inv = get_type_inv (dest_vector_type ty)
       in VECTOR_TYPE_def |> ISPEC inv |> SPEC_ALL
@@ -990,11 +996,11 @@ fun list_dest f tm =
 
 fun define_ref_inv is_exn_type tys = let
   val is_pair_type =
-    (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
+    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
   val is_list_type =
-    (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
+    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
   val is_option_type =
-    (case tys of [ty] => can (match_type ty) ``:'a option`` | _ => false)
+    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
   fun get_name ty = clean_uppercase (full_name_of_type ty) ^ "_TYPE"
   val names = map get_name tys
   val name = hd names
@@ -1040,8 +1046,8 @@ fun define_ref_inv is_exn_type tys = let
       val tyi = if is_exn_type then ``TypeExn`` else ``TypeId``
       val tag_tm = if is_pair_type then ``NONE:(tvarN # tid_or_exn) option``
                    else if is_list_type orelse is_option_type then
-                     ``(SOME (^str, TypeId (Short ^str_ty_name)))``
-                   else ``(SOME (^str, ^tyi (^(full_id str_ty_name))))``
+                     optionSyntax.mk_some(pairSyntax.mk_pair(str, ``TypeId (Short ^str_ty_name)``))
+                   else optionSyntax.mk_some(pairSyntax.mk_pair(str, mk_icomb(tyi,full_id str_ty_name)))
       val tm = mk_conj(``v = Conv ^tag_tm ^vs``,tm)
       val tm = list_mk_exists (map (fn (_,z) => z) vars, tm)
       val tm = subst [input |-> x] (mk_eq(lhs,tm))
@@ -1157,7 +1163,7 @@ fun persistent_skip_case_const const = let
   val ty = (domain (type_of const))
   fun thy_name_to_string thy name =
     if thy = current_theory() then name else thy ^ "Theory." ^ name
-  val thm_name = if ty = ``:bool`` then "COND_DEF" else
+  val thm_name = if ty = bool then "COND_DEF" else
     DB.match [] (concl (TypeBase.case_def_of ty))
     |> map (fn ((thy,name),_) => thy_name_to_string thy name) |> hd
   val str = thm_name
@@ -1203,11 +1209,11 @@ fun derive_thms_for_type is_exn_type ty = let
   val is_record = 0 < length(TypeBase.fields_of ty)
   val tys = find_mutrec_types ty
   val is_pair_type =
-    (case tys of [ty] => can (match_type ty) ``:'a # 'b`` | _ => false)
+    (case tys of [ty] => can pairSyntax.dest_prod ty | _ => false)
   val is_list_type =
-    (case tys of [ty] => can (match_type ty) ``:'a list`` | _ => false)
+    (case tys of [ty] => listSyntax.is_list_type ty | _ => false)
   val is_option_type =
-    (case tys of [ty] => can (match_type ty) ``:'a option`` | _ => false)
+    (case tys of [ty] => optionSyntax.is_option ty | _ => false)
   val _ = map (fn ty => print ("Adding type " ^ type_to_string ty ^ "\n")) tys
   (* look up case theorems *)
   val case_thms = map (fn ty => (ty, get_nchotomy_of ty)) tys
@@ -1237,7 +1243,7 @@ fun derive_thms_for_type is_exn_type ty = let
                   |> rator |> rand |> type_of |> dest_type |> snd
                   |> map (stringSyntax.fromMLstring o (* string_tl o *) dest_vartype)
       val ts_tm = listSyntax.mk_list(ts,``:string``)
-      val dtype = ``(^ts_tm,^tyname,^lines)``
+      val dtype = pairSyntax.list_mk_pair[ts_tm,tyname,lines]
       in dtype end
     val dtype_parts = inv_defs |> map #2 |> map extract_dtype_part
     val dtype_list = listSyntax.mk_list(dtype_parts,type_of (hd dtype_parts))
@@ -1257,7 +1263,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val tyi = if is_exn_type then ``TypeExn`` else ``TypeId``
     val name = if is_exn_type then full_id x1 else smart_full_id tyname
     val env = mk_var("env",``:v environment``)
-    in ``lookup_cons ^x1 ^env = SOME (^l,^tyi ^name)`` end
+    in ``lookup_cons ^x1 ^env = SOME ^(pairSyntax.mk_pair(l,mk_icomb(tyi,name)))`` end
   val type_assum =
       dtype_list
       |> listSyntax.dest_list |> fst
@@ -1309,9 +1315,9 @@ fun derive_thms_for_type is_exn_type ty = let
     fun mk_vars ((f,tm),n) = let
       val xs = rev (free_vars tm)
       val fxs = list_app f xs
-      val pxs = list_app (mk_var("b" ^ int_to_string n,list_mk_type xs ``:bool``)) xs
+      val pxs = list_app (mk_var("b" ^ int_to_string n,list_mk_type xs bool)) xs
       val xs = map (fn x => let val s = str_tl (fst (dest_var x)) in
-                            (x,mk_var("n" ^ s,``:string``),
+                            (x,mk_var("n" ^ s,stringSyntax.string_ty),
                                mk_var("v" ^ s,``:v``)) end) xs
       val exp = mk_var("exp" ^ int_to_string n, astSyntax.exp_ty)
       in (n,f,fxs,pxs,tm,exp,xs) end
@@ -1333,7 +1339,7 @@ fun derive_thms_for_type is_exn_type ty = let
     val result = ``Eval env (Mat ^exp_var ^patterns) ^result``
     (* assums *)
     val vs = map (fn (n,f,fxs,pxs,tm,exp,xs) => map (fn (x,_,_) => x) xs) ts |> flatten
-    val b0 = mk_var("b0",``:bool``)
+    val b0 = mk_var("b0",bool)
     fun mk_container tm = mk_comb(``CONTAINER:bool->bool``,tm)
     val tm = b0::map (fn (n,f,fxs,pxs,tm,exp,xs) => mk_imp(mk_container(mk_eq(input_var,tm)),pxs)) ts
              |> list_mk_conj
@@ -1356,7 +1362,7 @@ fun derive_thms_for_type is_exn_type ty = let
       in tm end;
     (* all_distincts *)
     fun mk_alld (n,f,fxs,pxs,tm,exp,xs) = let
-      val tt = listSyntax.mk_list(map (fn (_,x,_) => x) xs,``:string``)
+      val tt = listSyntax.mk_list(map (fn (_,x,_) => x) xs,stringSyntax.string_ty)
       val tt = mk_comb(``ALL_DISTINCT:string list -> bool``,tt)
       in tt end
     val tt = list_mk_conj(map mk_alld ts) handle HOL_ERR _ => T
@@ -1542,7 +1548,7 @@ fun register_term_types tm = let
     ((if is_abs tm then every_term f (snd (dest_abs tm))
       else if is_comb tm then (every_term f (rand tm); every_term f (rator tm))
       else ()); f tm)
-  val special_types = [``:num``,``:int``,``:bool``,``:word8``,``:unit``,``:char``,``:mlstring``,``:'a vector``]
+  val special_types = [numSyntax.num,intSyntax.int_ty,bool,``:word8``,oneSyntax.one_ty,stringSyntax.char_ty,mlstringSyntax.mlstring_ty,``:'a vector``]
                       @ get_user_supplied_types ()
   fun ignore_type ty =
     if can (first (fn ty1 => can (match_type ty1) ty)) special_types then true else
@@ -1596,7 +1602,7 @@ fun inst_case_thm_for tm = let
     mk_var(prefix ^ implode (tl (explode (fst (dest_var v)))),ty)
   val ts = find_terms (can (match_term ``CONTAINER (b:bool)``)) (concl th)
            |> map (rand o rand)
-           |> map (fn tm => (tm,map (fn x => (x,rename_var "n" ``:string`` x,
+           |> map (fn tm => (tm,map (fn x => (x,rename_var "n" stringSyntax.string_ty x,
                                                 rename_var "v" ``:v`` x))
                     (dest_args tm handle HOL_ERR _ => [])))
   val ns = map (fn (tm,xs) => let
@@ -1738,7 +1744,7 @@ fun prove_EvalPatRel goal hol2deep = let
     goal |> rand |> dest_pabs |> snd |> hol2deep |> hyp
          |> filter (can (match_term lookup_cons_pat))
   val pat = ``~(x = y:'a)``
-  fun badtype ty = Lib.mem ty [``:'a list``,``:num``]
+  fun badtype ty = Lib.mem ty [``:'a list``,numSyntax.num]
   fun tac (hs,gg) = let
     val find_neg = find_term (fn tm => can (match_term pat) tm andalso
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
@@ -2016,9 +2022,9 @@ fun single_line_def def = let
        |> REWRITE_RULE [I_THM]
        |> ONCE_REWRITE_RULE [GSYM rw]
   in (new_def,NONE) end handle HOL_ERR _ => let
-  val v = mk_var("generated_definition",mk_type("fun",[``:unit``,type_of const]))
+  val v = mk_var("generated_definition",mk_type("fun",[oneSyntax.one_ty,type_of const]))
   val lemma  = def |> SPEC_ALL |> CONJUNCTS |> map SPEC_ALL |> LIST_CONJ
-  val def_tm = (subst [const|->mk_comb(v,``()``)] (concl lemma))
+  val def_tm = (subst [const|->mk_comb(v,oneSyntax.one_tm)] (concl lemma))
   val _ = Pmatch.with_classic_heuristic quietDefine [ANTIQUOTE def_tm]
   val curried = fetch "-" "generated_definition_curried_def"
   val c = curried |> SPEC_ALL |> concl |> dest_eq |> snd |> rand
@@ -2044,8 +2050,8 @@ fun single_line_def def = let
       val pre_tm = pattern_complete def vs
       in pre_tm end
   val vs = filter (fn x => not (mem x vs)) (free_vars goal)
-  val goal = subst (map (fn v => v |-> ``():unit``) vs) goal
-  val goal = subst [mk_comb(c1,``():unit``)|->const] goal
+  val goal = subst (map (fn v => v |-> oneSyntax.one_tm) vs) goal
+  val goal = subst [mk_comb(c1,oneSyntax.one_tm)|->const] goal
   val goal = mk_imp(pre_tm,goal)
   val lemma = (* auto_prove "single_line_def-2" *) prove(goal,
     SIMP_TAC std_ss [FUN_EQ_THM,FORALL_PROD,TRUE_def,FALSE_def] \\ SRW_TAC [] []
@@ -2180,7 +2186,7 @@ fun get_induction_for_def def = let
     val v = my_mk_var (type_of t)
     val args = xs @ [v] @ ys
     val P = mk_var("P" ^ (int_to_string (!index)) ,
-              list_mk_fun_type ((map type_of args) @ [``:bool``]))
+              list_mk_fun_type ((map type_of args) @ [bool]))
     val _ = (index := (!index) + 1)
     val prop = list_mk_comb(P,args)
     val goal = list_mk_forall(args,prop)
@@ -3296,7 +3302,7 @@ val _ = (max_print_depth := 25)
       val fname = fname |> stringLib.fromMLstring
       val name = v |> dest_var |> fst |> stringLib.fromMLstring
       val body = th |> UNDISCH_ALL |> concl |> rator |> rand
-      in ``(^fname,^name,^body)`` end
+      in pairSyntax.list_mk_pair[fname,name,body] end
     val parts = map mk_Recclosure_part thms
     val recc = listSyntax.mk_list(parts,type_of (hd parts))
     fun apply_recc (fname,def,th,v) = let
@@ -3431,7 +3437,7 @@ val (th,(fname,def,_,pre)) = hd (zip results thms)
     val recs = recc |> rand |> rator |> rand |> listSyntax.dest_list |> fst
     val Ps = results |> map (fn (_,_,th,_) => th |> concl |> rand)
     val Precs = zip Ps recs |> map (pairSyntax.mk_pair)
-                |> map (fn tm => pairSyntax.mk_pair(genvar(``:bool``),tm))
+                |> map (fn tm => pairSyntax.mk_pair(genvar(bool),tm))
     val Precs_tm = listSyntax.mk_list(Precs,type_of (hd Precs))
     (* introduce letrec declaration *)
     val lemma =
