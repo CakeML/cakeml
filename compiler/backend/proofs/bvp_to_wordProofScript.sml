@@ -2165,6 +2165,7 @@ val compile_correct = store_thm("compile_correct",
              wordSemTheory.dec_clock_def]
       \\ BasicProvers.EVERY_CASE_TAC \\ fs [mk_loc_def])
     \\ Cases_on `x` \\ fs [LET_DEF]
+    \\ `domain (adjust_set r) ≠ {}` by fs[adjust_set_def,domain_fromAList]
     \\ Cases_on `handler` \\ fs [wordSemTheory.evaluate_def]
     \\ Cases_on `get_vars args s.locals` \\ fs []
     \\ imp_res_tac state_rel_get_vars_IMP \\ fs []
