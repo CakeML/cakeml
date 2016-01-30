@@ -3317,7 +3317,7 @@ val call_dest_lemma = prove(
     fs[LENGTH_NIL,find_code_def,get_vars_def]>>
     metis_tac[])
   >-
-    fs[wReg2_def,TWOxDIV2,LET_THM]>>
+    (fs[wReg2_def,TWOxDIV2,LET_THM]>>
     split_pair_tac>>fs[]>>rveq>>
     EVERY_CASE_TAC>>rw[]
     >-
@@ -3370,7 +3370,7 @@ val call_dest_lemma = prove(
       rw[]>>
       `f + k - (LAST args DIV 2 +1) <f` by simp[]>>
       qpat_assum`A=Loc n 0` mp_tac>>
-      simp[EL_DROP]>>
+      simp[EL_DROP,EL_TAKE]>>
       fs[ADD_COMM])
   >>
     fs[stackSemTheory.evaluate_def,state_rel_def]>>
@@ -4967,7 +4967,11 @@ val comp_correct = Q.store_thm("comp_correct",
       DECIDE_TAC
     >>
       simp[LASTN_CONS])
-  THEN1 (* If *) cheat
+  THEN1 (* If *)
+    (fs[comp_def]>>
+    pop_assum mp_tac>>
+    LET_ELIM_TAC>>fs[]>>
+    cheat)
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
     \\ rw [] \\ fs [] \\ rw []
