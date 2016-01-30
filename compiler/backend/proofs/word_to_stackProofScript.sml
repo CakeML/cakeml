@@ -3284,18 +3284,102 @@ val evaluate_SeqStackFree = store_thm("evaluate_SeqStackFree",
   THEN1 (`F` by decide_tac)
   \\ AP_TERM_TAC \\ fs [stackSemTheory.state_component_equality]);
 
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
+val get_vars_eq = prove(
+  ``∀ls z.
+  get_vars ls st = SOME z ⇒
+  let lookups = MAP (\x. lookup x st.locals) ls in
+  EVERY IS_SOME lookups ∧
+  z = MAP THE lookups``,
+  Induct>>fs[get_vars_def,get_var_def]>>rw[]>>unabbrev_all_tac>>
+  EVERY_CASE_TAC>>fs[]>>
+  metis_tac[])
+
 val call_dest_lemma = prove(
   ``state_rel k f f' (s:('a,'ffi) state) t lens /\
     call_dest dest args (k,f,f') = (q0,dest') ==>
     ?t4. evaluate (q0,t) = (NONE,t4) /\
          state_rel k f f' s t4 lens /\
-         !args real_args prog.
-            find_code dest (args:'a word_loc list) s.code = SOME (real_args,prog) ==>
+         !args' real_args prog.
+            get_vars args s = SOME args' /\
+            find_code dest (args':'a word_loc list) s.code = SOME (real_args,prog) ==>
             ?bs bs2 stack_prog.
               compile_prog prog (LENGTH real_args) k bs = (stack_prog,bs2) ∧
               bs2 ≼ t4.bitmaps /\
               find_code dest' t4.regs t4.code = SOME stack_prog``,
-  cheat);
+  Cases_on`dest`>>fs[call_dest_def]>>rw[]
+  >-
+    (fs[stackSemTheory.evaluate_def,state_rel_def]>>
+    fs[LENGTH_NIL,find_code_def,get_vars_def]>>
+    metis_tac[])
+  >-
+    fs[wReg2_def,TWOxDIV2,LET_THM]>>
+    split_pair_tac>>fs[]>>rveq>>
+    EVERY_CASE_TAC>>rw[]
+    >-
+      (fs[wStackLoad_def,stackSemTheory.evaluate_def,state_rel_def]>>
+      CONJ_TAC>-
+        metis_tac[]>>
+      fs[find_code_def,stackSemTheory.find_code_def]>>
+      rw[]>>
+      pop_assum mp_tac>>
+      ntac 4 TOP_CASE_TAC>>rw[]>>
+      res_tac>>
+      simp[LENGTH_FRONT,PRE_SUB1]>>
+      `lookup (LAST args) s.locals = SOME (LAST args')` by
+        (imp_res_tac get_vars_eq>>
+        fs[LET_THM,LAST_MAP,MAP_MAP_o]>>
+        `IS_SOME (lookup (LAST args) s.locals)` by
+          (Cases_on`args`>>
+          FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_MAP]>>
+          metis_tac[MEM_LAST])>>
+        qpat_assum`A=Loc n 0` sym_sub_tac>>
+        simp[LAST_MAP,option_CLAUSES])>>
+      qexists_tac`bs`>>fs[LET_THM]>>
+      res_tac>>
+      qpat_assum`if A then B else C` mp_tac>>
+      IF_CASES_TAC>>fs[])
+    >>
+      rw[stackSemTheory.evaluate_def,wStackLoad_def]>>
+      TRY(fs[state_rel_def] \\ `F` by decide_tac)>>
+      fs[find_code_def,stackSemTheory.find_code_def,state_rel_def]>>
+      rw[]>>
+      pop_assum mp_tac>>
+      ntac 4 TOP_CASE_TAC>>rw[]>>
+      res_tac>>
+      simp[LENGTH_FRONT,PRE_SUB1]>>
+      `lookup (LAST args) s.locals = SOME (LAST args')` by
+        (imp_res_tac get_vars_eq>>
+        fs[LET_THM,LAST_MAP,MAP_MAP_o]>>
+        `IS_SOME (lookup (LAST args) s.locals)` by
+          (Cases_on`args`>>
+          FULL_SIMP_TAC std_ss [EVERY_MEM,MEM_MAP]>>
+          metis_tac[MEM_LAST])>>
+        qpat_assum`A=Loc n 0` sym_sub_tac>>
+        simp[LAST_MAP,option_CLAUSES])>>
+      qexists_tac`bs`>>fs[LET_THM]>>
+      res_tac>>
+      qpat_assum`if A then B else C` mp_tac>>
+      IF_CASES_TAC>>fs[]>>
+      simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE,el_opt_THM]>>
+      `k < LAST args DIV 2 +1` by DECIDE_TAC>>
+      rw[]>>
+      `f + k - (LAST args DIV 2 +1) <f` by simp[]>>
+      qpat_assum`A=Loc n 0` mp_tac>>
+      simp[EL_DROP]>>
+      fs[ADD_COMM])
+  >>
+    fs[stackSemTheory.evaluate_def,state_rel_def]>>
+    CONJ_TAC>-
+      metis_tac[]>>
+    fs[find_code_def,stackSemTheory.find_code_def]>>
+    ntac 2 TOP_CASE_TAC>>rw[]>>
+    res_tac>>
+    simp[]);
 
 val compile_result_NOT_2 = prove(
   ``good_dimindex (:'a) ==>
@@ -3623,11 +3707,6 @@ val wf_fromList2 = prove(``
   ho_match_mp_tac SNOC_INDUCT>>
   fs[fromList2_def,FOLDL_SNOC,wf_def]>>rw[]>>
   split_pair_tac>>fs[wf_insert])
-
-val TWOxDIV2 = Q.store_thm("TWOxDIV2",
-  `2 * x DIV 2 = x`,
-  ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]);
 
 val wStackLoad_append = Q.store_thm("wStackLoad_append",
   `wStackLoad (l1 ++ l2) = wStackLoad l1 o (wStackLoad l2)`,
@@ -4353,16 +4432,6 @@ val state_rel_set_store = Q.store_thm("state_rel_set_store",
     \\ simp[FLOOKUP_UPDATE,DOMSUB_FLOOKUP_THM]
     \\ rw[] )
   \\ metis_tac[]);
-
-val get_vars_eq = prove(
-  ``∀ls z.
-  get_vars ls st = SOME z ⇒
-  let lookups = MAP (\x. lookup x st.locals) ls in
-  EVERY IS_SOME lookups ∧
-  z = MAP THE lookups``,
-  Induct>>fs[get_vars_def,get_var_def]>>rw[]>>unabbrev_all_tac>>
-  EVERY_CASE_TAC>>fs[]>>
-  metis_tac[])
 
 val get_vars_fromList2_eq = prove(``
     get_vars (GENLIST (λx. 2*x) (LENGTH args)) s = SOME x ∧
