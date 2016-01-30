@@ -1720,6 +1720,82 @@ val alloc_IMP_alloc = prove(
   \\ imp_res_tac FLOOKUP_SUBMAP \\ fs [] \\ rw [] \\ fs []
   \\ fs [state_rel_def]);
 
+val word_gc_empty_frame = prove(``
+  gc (s with stack:= (StackFrame [] NONE::s.stack)) = SOME x ∧
+  pop_env x = SOME y ⇒
+  y.locals = LN ∧
+  gc s = SOME (y with locals:=s.locals)``,
+  fs[gc_def,enc_stack_def,dec_stack_def,LET_THM]>>EVERY_CASE_TAC>>
+  rw[]>>fs[pop_env_def]>>
+  rveq>>fs[fromAList_def]>>
+  rw[]>>rveq>>fs[pop_env_def]>>
+  fs[state_component_equality])
+
+val alloc_IMP_alloc2 = prove(``
+  (wordSem$alloc c names (s:('a,'ffi) wordSem$state) = (res:'a result option,s1)) ∧
+  state_rel k 0 0 s t lens ∧
+  domain names = {} ∧
+  res ≠ SOME Error ⇒
+  ∃t1 res1.
+    (stackSem$alloc c t = (res1:'a stackSem$result option,t1)) ∧
+    if res = NONE then
+      res1 = NONE ∧ state_rel k 0 0 s1 t1 lens
+    else
+      res = SOME NotEnoughSpace /\ res1 = SOME (Halt (Word 1w)) ∧
+      s1.clock = t1.clock /\ s1.ffi = t1.ffi``,
+  Cases_on `FST (alloc c names (s:('a,'ffi) wordSem$state)) = SOME (Error:'a result)`
+  THEN1 (rpt strip_tac \\ fs [] \\ rfs [])
+  \\ fs [alloc_alt, stackSemTheory.alloc_def]
+  \\ REPEAT STRIP_TAC \\ fs [push_env_set_store]
+  \\ imp_res_tac state_rel_set_store_0
+  \\ pop_assum (mp_tac o Q.SPEC `Word c`)
+  \\ REPEAT STRIP_TAC>>
+  qpat_assum`A=(res,s1)` mp_tac>>
+  ntac 2 TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[]>>
+  qmatch_assum_abbrev_tac`gc A = SOME x'`>>
+  qabbrev_tac`B = A with stack:= s.stack`>>
+  `A = B with stack:=StackFrame [] NONE::B.stack` by
+    (unabbrev_all_tac>>fs[state_component_equality,set_store_def]>>
+    fs [set_store_def,push_env_def,LET_THM,env_to_list_def]>>
+    fs[cut_env_def]>>
+    `domain x = {}` by
+      rveq>>fs[domain_inter]>>
+    `toAList x = []` by
+      (Cases_on`toAList x`>>fs[]>>
+      `MEM (FST h) (MAP FST(toAList x))` by fs[]>>
+      rfs[toAList_domain])>>
+    fs[]>>
+    EVAL_TAC)>>
+  fs[]>>imp_res_tac word_gc_empty_frame>>
+  imp_res_tac gc_state_rel>>
+  ntac 6 (pop_assum kall_tac)>>
+  pop_assum mp_tac>>
+  disch_then(qspecl_then [`set_store AllocSize (Word c) t`,`lens`,`k`] mp_tac)>>
+  discharge_hyps>-
+    (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def,state_rel_def,LET_THM,env_to_list_def,lookup_def]>>
+    fs[FUN_EQ_THM,wf_def]>>
+    metis_tac[])>>
+  discharge_hyps_keep>-
+    (fs[markerTheory.Abbrev_def,state_component_equality,set_store_def,push_env_def])>>
+  rw[]>>
+  fs[]>>
+  pop_assum mp_tac>>
+  ntac 2 TOP_CASE_TAC>>fs[]
+  \\ `x''.store SUBMAP t2.store` by
+    fs [state_rel_def,SUBMAP_DEF,DOMSUB_FAPPLY_THM]
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+  \\ fs [has_space_def,stackSemTheory.has_space_def]
+  \\ qpat_assum`Z=SOME x''''` mp_tac
+  \\ ntac 2 TOP_CASE_TAC>>fs[]
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+  \\ ntac 2 TOP_CASE_TAC \\ fs[]
+  \\ imp_res_tac FLOOKUP_SUBMAP \\ fs []
+  \\ TOP_CASE_TAC>>fs[]
+  \\ rw []
+  \\ fs [state_rel_def]
+  \\ metis_tac[])
+
 val compile_result_def = Define`
   (compile_result (Result w1 w2) = Result w1) ∧
   (compile_result (Exception w1 w2) = Exception w1) ∧
@@ -4392,6 +4468,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ fs [] \\ Cases_on `res = NONE` \\ fs [])
     \\
       `f=0` by DECIDE_TAC>>
+      `f' = 0` by fs[state_rel_def]>>
       fs[wLive_def]>>rveq>>fs[stackSemTheory.evaluate_def,LET_THM]>>
       fs[cut_env_def]>>
       `domain names = {}` by
@@ -4401,16 +4478,11 @@ val comp_correct = Q.store_thm("comp_correct",
         assume_tac list_max_max>>
         fs[EVERY_MEM]>>res_tac>>
         fs[word_allocTheory.max_var_def]>>
-        `f' = 0` by fs[state_rel_def]>>
         DECIDE_TAC)>>
-      (*TODO: might need wf assumption on the cutset?*)
-      fs[alloc_def,cut_env_def,stackSemTheory.alloc_def]>>
-      qpat_assum`A=(res,s1)` mp_tac>>
-      TOP_CASE_TAC>>fs[]>>
-      imp_res_tac gc_state_rel>>
-      (*abs_stack needs to account for empty wordLang stack frame
-      corresponding to nothing on stackLang's stack*)
-      cheat)
+      imp_res_tac alloc_IMP_alloc2>>
+      ntac 14 (pop_assum kall_tac)>>
+      fs[]>>
+      Cases_on`res=NONE`>>fs[])
   THEN1 (* Move *) (
     simp[comp_def]
     \\ fs[evaluate_def]
