@@ -1369,7 +1369,7 @@ fun derive_thms_for_type is_exn_type ty = let
     (* goal *)
     val hyps = map mk_hyp ts
     val x = mk_comb(rator (rator inv_lhs),input_var)
-    val hyp0 = ``TAG 0 (b0 ==> Eval env ^exp_var ^x)``
+    val hyp0 = ``TAG (0:num) (b0 ==> Eval env ^exp_var ^x)``
     val hyps = list_mk_conj(hyp0::hyps)
     val goal = mk_imp(type_assum,mk_imp(tt,mk_imp(hyps,result)))
     val evaluate_Mat =
@@ -1408,14 +1408,14 @@ fun derive_thms_for_type is_exn_type ty = let
                can (match_term ``TAG (0:num) (b:bool)``) tm orelse
                can (match_term ``TAG ^(numSyntax.term_of_int n) (b:bool)``) tm)
           \\ POP_ASSUM (fn th => FULL_SIMP_TAC (srw_ss()) [th])
-          \\ Q.PAT_ASSUM `TAG 0 bbb` (MP_TAC o
+          \\ Q.PAT_ASSUM `TAG (0:num) _` (MP_TAC o
                (CONV_RULE ((RAND_CONV o RAND_CONV) (ALPHA_CONV ``v:v``))) o
                REWRITE_RULE [TAG_def,Eval_def])
           \\ POP_ASSUM (MP_TAC o REWRITE_RULE [] o remove_primes o
                         SPEC_ALL o REWRITE_RULE [TAG_def])
           \\ STRIP_TAC \\ STRIP_TAC
           \\ POP_ASSUM (STRIP_ASSUME_TAC o REWRITE_RULE [inv_def] o UNDISCH)
-          \\ Q.PAT_ASSUM `TAG n bbb` (STRIP_ASSUME_TAC o UNDISCH_ALL o
+          \\ Q.PAT_ASSUM `TAG _ _` (STRIP_ASSUME_TAC o UNDISCH_ALL o
                 REWRITE_RULE [GSYM AND_IMP_INTRO] o remove_primes o
                 SPEC_ALL o REWRITE_RULE [TAG_def,Eval_def])
           \\ CONV_TAC (REWR_CONV Eval_def) \\ Q.EXISTS_TAC `res`
