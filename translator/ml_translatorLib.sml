@@ -1694,7 +1694,7 @@ local
     if aconv (snd (dest_pabs (rand tm))) T then let
       val t = combinSyntax.mk_K(T,fst (dest_pabs (rand tm))) |> rator
       val goal = mk_eq(rand tm,t)
-      val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+      val lemma = TAC_PROOF(([],goal),full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD])
       in (RAND_CONV (fn tm => lemma)) tm end
     else NO_CONV tm
 in
@@ -1736,31 +1736,31 @@ fun prove_EvalPatRel goal hol2deep = let
     val find_neg = find_term (fn tm => can (match_term pat) tm andalso
                                        not(badtype(type_of(boolSyntax.rhs(dest_neg tm)))))
     val tm = find_neg (first (can find_neg) hs)
-    in (Cases_on `^(tm |> rand |> rand)` \\ fs []) (hs,gg) end
+    in (Cases_on `^(tm |> rand |> rand)` \\ full_simp_tac(srw_ss())[]) (hs,gg) end
   (*
     set_goal(asms,goal)
   *)
   val th = TAC_PROOF((asms,goal),
     PairCases_on `env` >>
     simp[EvalPatRel_def,EXISTS_PROD] >>
-    SRW_TAC [] [] \\ fs [] >>
+    SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] >>
     POP_ASSUM MP_TAC >>
     REPEAT tac
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ REPEAT STRIP_TAC \\ fs [] >>
-    fs[Once evaluate_cases] >>
-    fs[lookup_cons_def] >>
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[Once evaluate_cases] >>
+    full_simp_tac(srw_ss())[lookup_cons_def] >>
     simp[LIST_TYPE_def,pmatch_def,same_tid_def,
          same_ctor_def,id_to_n_def,EXISTS_PROD,
          pat_bindings_def,lit_same_type_def] >>
-    fs[Once evaluate_cases] >>
-    rw[] >> simp[Once evaluate_cases] >>
-    fs [build_conv_def,do_con_check_def])
+    full_simp_tac(srw_ss())[Once evaluate_cases] >>
+    srw_tac[][] >> simp[Once evaluate_cases] >>
+    full_simp_tac(srw_ss())[build_conv_def,do_con_check_def])
   in th end handle HOL_ERR e =>
   (prove_EvalPatRel_fail := goal;
    failwith "prove_EvalPatRel failed");
 
-val IMP_EQ_T = prove(``a ==> (a <=> T)``,fs [])
+val IMP_EQ_T = prove(``a ==> (a <=> T)``,full_simp_tac(srw_ss())[])
 
 val prove_EvalPatBind_fail = ref T;
 val goal = !prove_EvalPatBind_fail;
@@ -1793,25 +1793,25 @@ fun prove_EvalPatBind goal hol2deep = let
   *)
   val th = TAC_PROOF (([],new_goal),
     NTAC (length vs) STRIP_TAC \\ STRIP_TAC
-    \\ fs [FORALL_PROD] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (D res) \\ fs []
-    \\ fs [EvalPatBind_def,Pmatch_def]
+    \\ full_simp_tac(srw_ss())[FORALL_PROD] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC (D res) \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[EvalPatBind_def,Pmatch_def]
     \\ REPEAT (POP_ASSUM MP_TAC)
     \\ NTAC (length vs) STRIP_TAC
     \\ CONV_TAC ((RATOR_CONV o RAND_CONV) EVAL)
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
-    \\ STRIP_TAC \\ fs [] \\ rfs []
-    \\ fs [Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
+    \\ full_simp_tac(srw_ss())[Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
+    \\ STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[Pmatch_def,PMATCH_option_case_rwt,LIST_TYPE_def,PAIR_TYPE_def]
     (*
     \\ TRY (SRW_TAC [] [Eval_Var_SIMP]
       \\ SRW_TAC [] [Eval_Var_SIMP]
       \\ EVAL_TAC \\ NO_TAC)
     *)
-    \\ BasicProvers.EVERY_CASE_TAC \\ fs []
+    \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ rpt(CHANGED_TAC(SRW_TAC [] [Eval_Var_SIMP,
              lookup_cons_write,lookup_var_write]))
     \\ TRY (first_x_assum match_mp_tac >> METIS_TAC[])
-    \\ fs[GSYM FORALL_PROD]
+    \\ full_simp_tac(srw_ss())[GSYM FORALL_PROD]
     \\ EVAL_TAC)
   in UNDISCH_ALL th end handle HOL_ERR e =>
   (prove_EvalPatBind_fail := goal;
@@ -1906,12 +1906,12 @@ local
   fun K_T_intro_conv tm = let
     val goal = combinSyntax.mk_K(T,fst (dest_pabs tm)) |> rator
     val goal = mk_eq(tm,goal)
-    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD,TRUE_def])
+    val lemma = TAC_PROOF(([],goal),full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD,TRUE_def])
     in lemma end handle HOL_ERR _ => NO_CONV tm
   val BINOP1_CONV = RATOR_CONV o RAND_CONV
   val pair_CASE_UNCURRY = prove(
     ``!x y. pair_CASE x y = UNCURRY y x``,
-    Cases \\ EVAL_TAC \\ fs []);
+    Cases \\ EVAL_TAC \\ full_simp_tac(srw_ss())[]);
   (* pabs_intro_conv: \x. case x of (x,y,z) => ... ---> \(x,y,z). ... *)
   fun pabs_intro_conv tm =
     (ABS_CONV (REWR_CONV pair_CASE_UNCURRY
@@ -1923,7 +1923,7 @@ local
     val (y1,y2) = dest_pabs y
     val i = fst (match_term x1 y1)
     val goal = mk_eq(x,mk_pabs(y1,subst i x2))
-    val lemma = TAC_PROOF(([],goal),fs [FUN_EQ_THM,FORALL_PROD])
+    val lemma = TAC_PROOF(([],goal),full_simp_tac(srw_ss())[FUN_EQ_THM,FORALL_PROD])
     in ((RATOR_CONV o RATOR_CONV o RAND_CONV) (K lemma)) tm end
     handle HOL_ERR _ => (print_term tm; NO_CONV tm)
   fun pmatch_row_preprocess_conv tm =
