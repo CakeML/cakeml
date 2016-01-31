@@ -5291,9 +5291,35 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ qexists_tac `ck` \\ fs []
       \\ Cases_on `res1` \\ fs []
       \\ fs [EVAL ``(call_env q (dec_clock s)).handler``,AC ADD_COMM ADD_ASSOC])
+
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
+    \\ rator_x_assum`wordSem$evaluate`mp_tac
+    \\ simp[wordSemTheory.evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    (* need another version of call_dest_lemma that allows add_ret_loc? *)
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      >- (
+        simp[stackSemTheory.evaluate_def]
+        \\ cheat (* need something about evaluate StackArgs *)
+        )
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ split_pair_tac \\ fs[]
+      \\ simp[stackSemTheory.evaluate_def]
+      \\ cheat (* need something about evaluate StackHandlerArgs *)
+      )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ cheat)
 
 val make_init_def = Define `
