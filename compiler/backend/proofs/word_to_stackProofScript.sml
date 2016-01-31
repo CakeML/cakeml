@@ -584,6 +584,7 @@ val convs_def = LIST_CONJ
    word_allocTheory.call_arg_convention_def,
    word_instProofTheory.flat_exp_conventions_def,
    wordLangTheory.every_var_def,
+   wordLangTheory.every_var_imm_def,
    wordLangTheory.every_stack_var_def,
    wordLangTheory.every_name_def]
 
@@ -4477,6 +4478,74 @@ val list_max_GENLIST_evens = store_thm("list_max_GENLIST_evens",``
   fs[GENLIST,list_max_SNOC,MAX_DEF]>>
   DECIDE_TAC)
 
+val evaluate_wStackLoad_seq = store_thm("evaluate_wStackLoad_seq",
+  ``∀ls prog s.
+  evaluate(wStackLoad ls prog,s) =
+  evaluate (Seq (wStackLoad ls Skip) prog,s)``,
+  Induct>>rw[]>>fs[stackSemTheory.evaluate_def,wStackLoad_def,LET_THM]>>rw[]>>
+  Cases_on`h`>>
+  simp[wStackLoad_def]>>
+  pop_assum (qspec_then`prog` assume_tac)>>
+  simp[stackSemTheory.evaluate_def]>>
+  EVERY_CASE_TAC>>fs[])
+
+val evaluate_wStackLoad_wReg1 = prove(``
+  wReg1 r (k,f,f') = (x ,r') ∧
+  EVEN r ∧
+  get_var r (s:('a,'ffi)state) = SOME (Word c) ∧
+  state_rel k f f' s t lens ⇒
+  ∃t'.
+  evaluate(wStackLoad x Skip,t) = (NONE,t') ∧
+  t.clock = t'.clock ∧
+  state_rel k f f' s t' lens ∧
+  r' ≠ k+1 ∧
+  get_var r' t' = SOME (Word c)``,
+  rw[wReg1_def,LET_THM,EVEN_EXISTS]>>
+  fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def]>>simp[]>-
+    (imp_res_tac state_rel_get_var_imp>>
+    first_assum match_mp_tac>>
+    simp[TWOxDIV2])>>
+  IF_CASES_TAC>-fs[state_rel_def]>>
+  IF_CASES_TAC>-
+    (fs[state_rel_def]>>
+    DECIDE_TAC)>>
+  imp_res_tac state_rel_get_var_imp2>>
+  fs[]>>
+  simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+  fs[MULT_COMM,TWOxDIV2])
+
+val evaluate_wStackLoad_clock = prove(``
+  ∀x t.
+  evaluate(wStackLoad x Skip,t with clock:= clk) =
+  (FST (evaluate(wStackLoad x Skip,t)),
+   (SND (evaluate(wStackLoad x Skip,t))) with clock:=clk)``,
+  Induct>>fs[wStackLoad_def,FORALL_PROD,stackSemTheory.evaluate_def,LET_THM]>>rw[])
+
+val evaluate_wStackLoad_wRegImm2 = prove(``
+  wRegImm2 ri (k,f,f') = (x,r') ∧
+  (case ri of Reg r => EVEN r | _ => T) ∧
+  get_var_imm ri (s:('a,'ffi)state) = SOME (Word c) ∧
+  state_rel k f f' s t lens ⇒
+  ∃t'.
+  evaluate(wStackLoad x Skip, t) = (NONE,t') ∧
+  t.clock = t'.clock ∧
+  get_var_imm r' t' = SOME(Word c) ∧
+  (∀r. r ≠ k+1 ⇒ get_var r t' = get_var r t) ∧
+  state_rel k f f' s t' lens``,
+  Cases_on`ri`>>rw[wRegImm2_def,LET_THM,wReg2_def,EVEN_EXISTS]>>
+  fs[wStackLoad_def,stackSemTheory.evaluate_def,LET_THM,stackSemTheory.get_var_def,stackSemTheory.get_var_imm_def,get_var_imm_def]>>simp[]>-
+    (imp_res_tac state_rel_get_var_imp>>
+    first_assum match_mp_tac>>
+    simp[TWOxDIV2])>>
+  IF_CASES_TAC>-fs[state_rel_def]>>
+  IF_CASES_TAC>-
+    (fs[state_rel_def]>>
+    DECIDE_TAC)>>
+  imp_res_tac state_rel_get_var_imp2>>
+  fs[]>>
+  simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
+  fs[MULT_COMM,TWOxDIV2])
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -4968,10 +5037,52 @@ val comp_correct = Q.store_thm("comp_correct",
     >>
       simp[LASTN_CONS])
   THEN1 (* If *)
-    (fs[comp_def]>>
-    pop_assum mp_tac>>
-    LET_ELIM_TAC>>fs[]>>
-    cheat)
+    (fs[comp_def]>> pop_assum mp_tac>>
+    LET_ELIM_TAC>>
+    fs[evaluate_def]>>
+    qpat_assum`A=(res,s1)`mp_tac>>
+    ntac 2 TOP_CASE_TAC>>fs[]>>
+    ntac 2 TOP_CASE_TAC>>fs[]>>
+    simp[evaluate_wStackLoad_seq,wStackLoad_append]>>
+    simp[Once stackSemTheory.evaluate_def,evaluate_wStackLoad_seq]>>
+    ntac 3 (simp[Once stackSemTheory.evaluate_def])>>
+    `EVEN r1 ∧ (case ri of Reg r => EVEN r | _ => T)` by
+      (Cases_on`ri`>>
+      fs[convs_def,EVEN_MOD2,reg_allocTheory.is_phy_var_def])>>
+    simp[evaluate_wStackLoad_clock]>>
+    drule evaluate_wStackLoad_wReg1>>
+    fs[]>>strip_tac>>
+    simp[]>>
+    drule (GEN_ALL evaluate_wStackLoad_wRegImm2)>>
+    disch_then (qspecl_then[`t'`,`s`,`lens`,`c'`] assume_tac)>>
+    rfs[]>>
+    fs[stackSemTheory.get_var_def]>>
+    rw[]>>fs[]
+    >-
+      (first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`lens`] mp_tac)>>
+      discharge_hyps>-
+       (fs[convs_def,word_allocTheory.max_var_def]>>CONJ_TAC
+       >-
+         (qpat_assum`A<B:num` mp_tac>>
+         rpt(pop_assum kall_tac)>>
+         fs[MAX_DEF,LET_THM]>>EVERY_CASE_TAC>>fs[]>>
+         DECIDE_TAC)
+       >>
+         metis_tac[IS_PREFIX_TRANS,comp_IMP_isPREFIX,evaluate_consts])>>
+      strip_tac>>qexists_tac`ck`>>rfs[]>>
+      fs[DECIDE ``A+B=B+A:num``])>>
+    first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs'`,`lens`] mp_tac)>>
+    discharge_hyps>-
+      (fs[convs_def,word_allocTheory.max_var_def]>>CONJ_TAC
+       >-
+         (qpat_assum`A<B:num` mp_tac>>
+         rpt(pop_assum kall_tac)>>
+         fs[MAX_DEF,LET_THM]>>EVERY_CASE_TAC>>fs[]>>
+         DECIDE_TAC)
+       >>
+         metis_tac[IS_PREFIX_TRANS,comp_IMP_isPREFIX,evaluate_consts])>>
+    strip_tac>>qexists_tac`ck`>>rfs[]>>
+    fs[DECIDE ``A+B=B+A:num``])
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
     \\ rw [] \\ fs [] \\ rw []
