@@ -624,6 +624,7 @@ val inst_select_thm = store_thm("inst_select_thm",``
     fs[LET_THM,evaluate_def,every_var_def]>>
     qpat_abbrev_tac `stt = st with locals := A`>>
     Cases_on`get_vars args stt`>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     Cases_on`ret`>>fs[add_ret_loc_def]
     >-(*Tail Call*)
       (Cases_on`find_code dest x st.code`>>Cases_on`handler`>>
@@ -793,7 +794,7 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
     >>
       PairCases_on`x`>>PairCases_on`x'`>>fs[]>>
       TOP_CASE_TAC>>fs[add_ret_loc_def]>>
-      ntac 5 (TOP_CASE_TAC>>fs[])>>
+      ntac 6 (TOP_CASE_TAC>>fs[])>>
       fs[push_env_def,LET_THM]>>
       EVERY_CASE_TAC>>fs[]>>
       res_tac>>fs[]>>

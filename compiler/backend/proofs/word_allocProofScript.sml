@@ -748,6 +748,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
   >- (*Call*)
     (fs[evaluate_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
+    Cases_on`bad_dest_args o1 l`>- fs[bad_dest_args_def]>>
+    `¬bad_dest_args o1 (MAP f l)` by fs[bad_dest_args_def]>>
     imp_res_tac strong_locals_rel_get_vars>>
     pop_assum kall_tac>>
     pop_assum mp_tac>>discharge_hyps>-
@@ -3018,6 +3020,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     fs[get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
     imp_res_tac ssa_locals_rel_get_vars>>
+    IF_CASES_TAC>>fs[]>>
+    `¬bad_dest_args o1 ls` by
+      (fs[Abbr`ls`,bad_dest_args_def]>>
+      Cases_on`l`>>fs[GENLIST_CONS])>>
     `get_vars ls (set_vars ls x cst) = SOME x` by
       (match_mp_tac get_vars_set_vars_eq>>
       fs[Abbr`ls`,get_vars_length_lemma,LENGTH_MAP]>>
@@ -3040,9 +3046,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     simp_tac std_ss [ssa_cc_trans_def]>>
     LET_ELIM_TAC>>
     fs[evaluate_def,get_vars_perm,add_ret_loc_def]>>
-    ntac 5 (TOP_CASE_TAC>>fs[])>>
+    ntac 6 (TOP_CASE_TAC>>fs[])>>
     `domain stack_set ≠ {}` by
       fs[Abbr`stack_set`,domain_fromAList,toAList_not_empty]>>
+    `¬bad_dest_args o1 conv_args` by
+      (fs[Abbr`conv_args`,Abbr`names`,bad_dest_args_def]>>
+      Cases_on`l`>>fs[GENLIST_CONS])>>
     Q.SPECL_THEN [`st`,`ssa`,`na+2`,`ls`,`cst`]
       mp_tac list_next_var_rename_move_preserve>>
     discharge_hyps>-

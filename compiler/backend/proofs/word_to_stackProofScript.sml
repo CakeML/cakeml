@@ -3300,23 +3300,27 @@ val get_vars_eq = prove(
   EVERY_CASE_TAC>>fs[]>>
   metis_tac[])
 
+val LAST_add_ret_loc = prove(``
+  args' ≠ [] ⇒
+  LAST (add_ret_loc ret args') =
+  LAST args'``,
+  Cases_on`ret`>>TRY(PairCases_on`x`)>>fs[add_ret_loc_def]>>
+  Cases_on`args'`>>fs[LAST_CONS])
+
 val call_dest_lemma = prove(
-  ``state_rel k f f' (s:('a,'ffi) state) t lens /\
+  ``¬bad_dest_args dest args /\
+    state_rel k f f' (s:('a,'ffi) state) t lens /\
     call_dest dest args (k,f,f') = (q0,dest') ==>
     ?t4. evaluate (q0,t) = (NONE,t4) /\
          state_rel k f f' s t4 lens /\
          !args' real_args prog.
             get_vars args s = SOME args' /\
-            find_code dest (args':'a word_loc list) s.code = SOME (real_args,prog) ==>
+            find_code dest (add_ret_loc (ret:(num#num_set#'a wordLang$prog#num#num)option) args':'a word_loc list) s.code = SOME (real_args,prog) ==>
             ?bs bs2 stack_prog.
               compile_prog prog (LENGTH real_args) k bs = (stack_prog,bs2) ∧
               bs2 ≼ t4.bitmaps /\
               find_code dest' t4.regs t4.code = SOME stack_prog``,
-  Cases_on`dest`>>fs[call_dest_def]>>rw[]
-  >-
-    (fs[stackSemTheory.evaluate_def,state_rel_def]>>
-    fs[LENGTH_NIL,find_code_def,get_vars_def]>>
-    metis_tac[])
+  Cases_on`dest`>>fs[call_dest_def,bad_dest_args_def,LENGTH_NIL]>>rw[]
   >-
     (fs[wReg2_def,TWOxDIV2,LET_THM]>>
     split_pair_tac>>fs[]>>rveq>>
@@ -3329,6 +3333,9 @@ val call_dest_lemma = prove(
       rw[]>>
       pop_assum mp_tac>>
       ntac 4 TOP_CASE_TAC>>rw[]>>
+      imp_res_tac get_vars_length_lemma>>
+      `args' ≠ []` by metis_tac[LENGTH_NIL]>>
+      fs[LAST_add_ret_loc]>>
       res_tac>>
       simp[LENGTH_FRONT,PRE_SUB1]>>
       `lookup (LAST args) s.locals = SOME (LAST args')` by
@@ -3351,6 +3358,9 @@ val call_dest_lemma = prove(
       rw[]>>
       pop_assum mp_tac>>
       ntac 4 TOP_CASE_TAC>>rw[]>>
+      imp_res_tac get_vars_length_lemma>>
+      `args' ≠ []` by metis_tac[LENGTH_NIL]>>
+      fs[LAST_add_ret_loc]>>
       res_tac>>
       simp[LENGTH_FRONT,PRE_SUB1]>>
       `lookup (LAST args) s.locals = SOME (LAST args')` by
@@ -5120,7 +5130,11 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ Cases_on `ret` \\ fs []
     THEN1
      (fs [stackSemTheory.evaluate_def]
-      \\ drule call_dest_lemma \\ fs [] \\ strip_tac
+      \\ `¬bad_dest_args dest args` by
+        (qpat_assum`A=(res,s1)` mp_tac \\
+        fs[evaluate_def]\\ntac 2 (TOP_CASE_TAC>>fs[]))
+      \\ imp_res_tac call_dest_lemma
+      \\ pop_assum(qspec_then`NONE` assume_tac) \\ fs[]
       \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
       \\ fs [AC ADD_COMM ADD_ASSOC,LET_THM]
       \\ disch_then kall_tac
@@ -5141,8 +5155,9 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ TOP_CASE_TAC THEN1 rw []
       \\ TOP_CASE_TAC THEN1 rw []
       \\ TOP_CASE_TAC
-      \\ reverse TOP_CASE_TAC THEN1 rw []
-      \\ TOP_CASE_TAC \\ fs [add_ret_loc_def]
+      \\ reverse TOP_CASE_TAC THEN1 rw[]
+      \\ last_x_assum(qspecl_then[`x`,`q`,`r`] assume_tac) \\ rfs[]
+      \\ TOP_CASE_TAC \\ fs []
       THEN1
        (rw [] \\ qexists_tac `0` \\ fs [] \\ res_tac \\ fs [state_rel_def])
       \\ TOP_CASE_TAC
@@ -5176,7 +5191,7 @@ val comp_correct = Q.store_thm("comp_correct",
               qpat_assum`call_dest A B C =(q0,dest')` mp_tac>>
               qpat_assum`A=SOME(q,r)` mp_tac>>
               imp_res_tac get_vars_length_lemma>>
-              Cases_on`dest`>>simp[find_code_def,call_dest_def]>>
+              Cases_on`dest`>>simp[find_code_def,call_dest_def,add_ret_loc_def]>>
               rpt TOP_CASE_TAC>>simp[]>>
               rw[]>>split_pair_tac>>fs[]>>
               Cases_on`x`>>fs[]>>
@@ -5192,7 +5207,7 @@ val comp_correct = Q.store_thm("comp_correct",
               fs[list_max_GENLIST_evens]>>
               `LENGTH q ≤ LENGTH args` by
                 (qpat_assum`A=SOME(q,r)` mp_tac>>
-                Cases_on`dest`>>fs[find_code_def]>>
+                Cases_on`dest`>>fs[find_code_def,add_ret_loc_def]>>
                 EVERY_CASE_TAC>>rw[]>>
                 simp[LENGTH_FRONT])>>
               `LENGTH args -1 +1 < f' +1 +k` by simp[]>>
@@ -5226,7 +5241,7 @@ val comp_correct = Q.store_thm("comp_correct",
               imp_res_tac get_vars_fromList2_eq>>
               `isPREFIX q x` by
                 (qpat_assum`A=SOME(q,r)` mp_tac>>
-                Cases_on`dest`>>fs[find_code_def]>>
+                Cases_on`dest`>>fs[find_code_def,add_ret_loc_def]>>
                 EVERY_CASE_TAC>>rw[]>>
                 Cases_on`x`>>fs[IS_PREFIX_BUTLAST])>>
               imp_res_tac lookup_fromList2_prefix>>
@@ -5291,7 +5306,6 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ qexists_tac `ck` \\ fs []
       \\ Cases_on `res1` \\ fs []
       \\ fs [EVAL ``(call_env q (dec_clock s)).handler``,AC ADD_COMM ADD_ASSOC])
-
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
@@ -5302,7 +5316,9 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ drule call_dest_lemma \\ strip_tac \\rfs[]
     (* need another version of call_dest_lemma that allows add_ret_loc? *)
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       strip_tac \\ rveq \\ fs[]

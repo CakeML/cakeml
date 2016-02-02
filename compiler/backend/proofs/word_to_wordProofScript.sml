@@ -177,6 +177,7 @@ val compile_single_correct = prove(``
   >- (*Call -- the hard case*)
     (fs[evaluate_def,LET_THM,get_vars_perm,get_vars_code_frame]>>
     TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>fs[]>>
     Cases_on`o'`>>fs[]>>
     Cases_on`x'`>>simp[]>>

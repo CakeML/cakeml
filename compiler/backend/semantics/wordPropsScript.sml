@@ -208,7 +208,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     PairCases_on`x''`>>PairCases_on`x`>>fs[]>>
     Cases_on`cut_env x1 s.locals`>>fs[]>>
     qpat_assum`A=(r,s')` mp_tac>>
-    TRY(IF_CASES_TAC>>fs[])>>
+    rpt(IF_CASES_TAC>>fs[])>>
     full_case_tac>>fs[]>>Cases_on`q`>>TRY(Cases_on `x''`)>>
     fsrw_tac[ARITH_ss][dec_clock_def]>>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>
@@ -226,7 +226,7 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     PairCases_on`x'''`>>fs[]>>
     Cases_on`cut_env x'''1 s.locals`>>fs[]>>
     qpat_assum`A=(r,s')` mp_tac>>
-    TRY(IF_CASES_TAC>>fs[])>>
+    rpt(IF_CASES_TAC>>fs[])>>
     Cases_on`evaluate (x''1,call_env x''0 (push_env x'' (SOME x) (dec_clock s)))`>>Cases_on`q`>>TRY(Cases_on`x'''`)>>
     fsrw_tac[ARITH_ss][dec_clock_def]>>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rw[]>>
@@ -292,6 +292,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   TRY (
     qcase_tac`find_code` >>
     Cases_on`get_vars args s`>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     Cases_on`ret`>>fs[] >- (
       every_case_tac >> fs[] >> rveq >>
       imp_res_tac evaluate_io_events_mono >> fs[] >>
@@ -335,6 +336,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   TRY (
     qcase_tac`find_code` >>
     Cases_on`get_vars args s`>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     Cases_on`ret`>>fs[] >- (
       every_case_tac >> fs[] >> rveq >>
       imp_res_tac evaluate_io_events_mono >> fs[] >>
@@ -965,6 +967,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
   >-(*Call*)
   (fs[evaluate_def]>>
   Cases_on`get_vars args s`>> fs[]>>
+  IF_CASES_TAC>>fs[]>>
   Cases_on`find_code dest (add_ret_loc ret x) s.code`>>fs[]>>
   Cases_on`x'`>>fs[]>>
   Cases_on`ret`>>fs[]
@@ -1410,7 +1413,7 @@ val jump_exc_perm = prove(``
   | SOME (x,l1,l2) => SOME (x with permute:=perm,l1,l2)``,
   fs[jump_exc_def]>>
   every_case_tac>>
-  fs[state_component_equality])
+  fs[state_component_equality]);
 
 (*For any target result permute, we can find an initial permute such that the resulting permutation is the same*)
 val permute_swap_lemma = store_thm("permute_swap_lemma",``
@@ -1500,7 +1503,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
   >- (*Call*)
     (fs[evaluate_def,LET_THM]>>
     fs[get_vars_perm]>>
-    ntac 4 (TOP_CASE_TAC>>fs[])
+    ntac 5 (TOP_CASE_TAC>>fs[])
     >- (*Tail Call*)
       (every_case_tac>>
       TRY(qexists_tac`perm`>>
@@ -1561,7 +1564,7 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
         perm_assum_tac>>
         Cases_on`handler`>>TRY(PairCases_on`x''`)>>
         fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def]>>
-        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]))
+        qpat_assum`A=res` (SUBST1_TAC o SYM)>>fs[]));
 
 (*Monotonicity*)
 val every_var_inst_mono = store_thm("every_var_inst_mono",``
@@ -1852,6 +1855,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (*Call*)
     (Cases_on`get_vars l st`>>fs[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>fs[]>>
+    IF_CASES_TAC>>fs[]>>
     Cases_on`find_code o1 (add_ret_loc o' x) st.code`>>
     TRY(PairCases_on`x'`)>>fs[]>>
     Cases_on`o'`>>fs[]

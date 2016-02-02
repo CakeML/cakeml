@@ -1208,6 +1208,12 @@ val find_code_thm_handler = prove(
                    |> SIMP_RULE std_ss [] |> GEN_ALL)
   \\ fs [] \\ metis_tac []) |> SPEC_ALL;
 
+val bvl_find_code = store_thm("bvl_find_code",
+  ``bvlSem$find_code dest xs code = SOME(ys,prog) ⇒
+  ¬bad_dest_args dest xs``,
+  Cases_on`dest`>>
+  fs[bvlSemTheory.find_code_def,wordSemTheory.bad_dest_args_def])
+
 val s_key_eq_LENGTH = prove(
   ``!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)``,
   Induct \\ Cases_on `ys` \\ fs [s_key_eq_def]);
@@ -2174,7 +2180,8 @@ val compile_correct = store_thm("compile_correct",
     \\ fs [bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
            wordSemTheory.add_ret_loc_def,get_vars_inc_clock]
     THEN1 (* ret = NONE *)
-     (Cases_on `get_vars args s.locals` \\ fs []
+      (fs[wordSemTheory.bad_dest_args_def] \\
+      Cases_on `get_vars args s.locals` \\ fs []
       \\ imp_res_tac state_rel_0_get_vars_IMP \\ fs []
       \\ Cases_on `find_code dest x s.code` \\ fs []
       \\ Cases_on `x'` \\ fs [] \\ Cases_on `handler` \\ fs []
@@ -2207,6 +2214,11 @@ val compile_correct = store_thm("compile_correct",
     \\ fs [wordSemTheory.add_ret_loc_def]
     THEN1 (* no handler *)
      (Cases_on `bvlSem$find_code dest x s.code` \\ fs [] \\ Cases_on `x'` \\ fs []
+      \\ imp_res_tac bvl_find_code
+      \\ `¬bad_dest_args dest (MAP adjust_var args)` by
+        (fs[wordSemTheory.bad_dest_args_def]>>
+        imp_res_tac get_vars_IMP_LENGTH>>
+        metis_tac[LENGTH_NIL])
       \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
       \\ Cases_on `bvpSem$cut_env r s.locals` \\ fs []
       \\ imp_res_tac cut_env_IMP_cut_env \\ fs [] \\ rw []
@@ -2256,6 +2268,11 @@ val compile_correct = store_thm("compile_correct",
     \\ `?prog1 h1. comp c x0 (l + 2) x1 = (prog1,h1)` by METIS_TAC [PAIR]
     \\ fs [wordSemTheory.evaluate_def,wordSemTheory.add_ret_loc_def]
     \\ Cases_on `bvlSem$find_code dest x' s.code` \\ fs [] \\ Cases_on `x` \\ fs []
+    \\ imp_res_tac bvl_find_code
+    \\ `¬bad_dest_args dest (MAP adjust_var args)` by
+        (fs[wordSemTheory.bad_dest_args_def]>>
+        imp_res_tac get_vars_IMP_LENGTH>>
+        metis_tac[LENGTH_NIL])
     \\ Q.MATCH_ASSUM_RENAME_TAC `bvlSem$find_code dest xs s.code = SOME (ys,prog)`
     \\ Cases_on `bvpSem$cut_env r s.locals` \\ fs []
     \\ imp_res_tac cut_env_IMP_cut_env \\ fs [] \\ rw []

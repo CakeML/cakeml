@@ -420,6 +420,10 @@ val add_ret_loc_def = Define `
   (add_ret_loc NONE xs = xs) /\
   (add_ret_loc (SOME (n,names,ret_handler,l1,l2)) xs = (Loc l1 l2)::xs)`
 
+(*Avoid case split*)
+val bad_dest_args_def = Define`
+  bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
   (evaluate (Alloc n names,s) =
@@ -499,6 +503,8 @@ val evaluate_def = tDefine "evaluate" `
     case get_vars args s of
     | NONE => (SOME Error,s)
     | SOME xs =>
+    if bad_dest_args dest args then (SOME Error,s)
+    else
     case find_code dest (add_ret_loc ret xs) s.code of
 	  | NONE => (SOME Error,s)
 	  | SOME (args1,prog) =>
