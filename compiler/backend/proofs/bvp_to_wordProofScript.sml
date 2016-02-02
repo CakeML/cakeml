@@ -381,39 +381,20 @@ val isWord_def = Define `
 
 val ptr_to_addr_def = Define `
   ptr_to_addr conf base (w:'a word) =
-    base + ((w >>> (conf.pad_bits + conf.len_bits + conf.tag_bits + 2))
-            << (dimindex (:'a) DIV 8))`
+    base + ((w >>> (shift_length conf)) * bytes_in_word)`
 
 val is_fwd_ptr_def = Define `
-  is_fwd_ptr w = ((w && 3w) = 3w)`;
+  (is_fwd_ptr (Word w) = ((w && 3w) = 3w)) /\
+  (is_fwd_ptr _ = F)`;
 
 val update_addr_def = Define `
   update_addr conf fwd_ptr (old_addr:'a word) =
-    let n = conf.pad_bits + conf.len_bits + conf.tag_bits + 2 in
-    ((dimindex(:'a) - 1) -- n) fwd_ptr ||
-    ((n - 1) -- 0) old_addr`
-
-val is_all_ones_def = Define `
-  is_all_ones m n w = ((all_ones m n && w) = all_ones m n)`;
-
-val decode_maxout_def = Define `
-  decode_maxout l n w =
-    if is_all_ones (n+l) n w then NONE else SOME (((n+l) -- n) w >> n)`
-
-val decode_addr_def = Define `
-  decode_addr conf w =
-    (decode_maxout conf.len_bits (conf.tag_bits + 2) w,
-     decode_maxout conf.tag_bits 2 w)`
-
-val has_header_def = Define `
-  has_header conf w <=>
-    decode_maxout conf.len_bits (conf.tag_bits + 2) w = NONE \/
-    decode_maxout conf.tag_bits 2 w = NONE`
+    (((dimindex(:'a) - 1) -- (shift_length conf)) fwd_ptr ||
+     ((shift_length conf - 1) -- 0) old_addr)`
 
 val decode_header_def = Define `
   decode_header conf w =
-    (w >>> (2 + conf.len_size),
-     ((conf.len_size + 1 -- 2) w) >>> 2)`;
+    (w >>> (2 + conf.len_size),((conf.len_size + 1 -- 2) w) >>> 2)`;
 
 val memcpy_def = Define `
   memcpy w a b m dm =
@@ -428,7 +409,7 @@ val word_gc_move_def = Define `
      if (w && 1w) = 0w then (Word w,i,pa,m,T) else
        let c = (ptr_to_addr conf old w IN dm) in
        let v = m (ptr_to_addr conf old w) in
-         if isWord v /\ is_fwd_ptr (theWord v) then
+         if is_fwd_ptr v then
            (Word (update_addr conf (theWord v) w),i,pa,m,c)
          else if has_header conf w then
            let hd_payload_addr = ptr_to_addr conf old w in
@@ -464,7 +445,7 @@ val word_gc_loop_def = Define `
     if pb = pa then (i,pa,m,c) else
       let c = (c /\ pb IN dm) in
       let w = m pb in
-        if isWord w /\ is_fwd_ptr (theWord w) then
+        if is_fwd_ptr w then
           let len = SND (decode_header conf (theWord w)) in
           let pb = pb + (len + 1w) * bytes_in_word in
             word_gc_loop conf (k-1) (pb,i,pa,old,m,dm,c)
@@ -492,9 +473,49 @@ val word_gc_fun_def = Define `
 
 (*
 
+val one_and_or_1 = prove(
+  ``(1w && (w || 1w)) = 1w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      wordsTheory.word_index] \\ rw [] \\ Cases_on `i=0` \\ fs []);
+
 val get_addr_and_1_not_0 = prove(
   ``(1w && get_addr conf k a) <> 0w``,
-  cheat);
+  Cases_on `a` \\ fs [get_addr_def,get_lowerbits_def]
+  \\ rewrite_tac [one_and_or_1,GSYM WORD_OR_ASSOC] \\ fs[]);
+
+val one_lsr_shift_length = prove(
+  ``1w >>> shift_length conf = 0w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
+  \\ Cases_on `i + shift_length conf < dimindex (:'a)` \\ fs []
+  \\ fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
+  \\ fs [shift_length_def]);
+
+val get_lowerbits_LSL_shift_length = prove(
+  ``get_lowerbits conf a >>> shift_length conf = 0w``,
+  Cases_on `a` \\ fs [get_lowerbits_def,one_lsr_shift_length]
+  \\ fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
+  \\ Cases_on `i + shift_length conf < dimindex (:'a)` \\ fs []
+  \\ fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [shift_length_def] \\ decide_tac);
+
+val ptr_to_addr_get_addr = prove(
+  ``ptr_to_addr conf curr (get_addr conf k a) =
+    curr + n2w (if bits_imp_header conf a then k + 1 else k) * bytes_in_word``,
+  fs [ptr_to_addr_def,bytes_in_word_def,WORD_MUL_LSL]
+  \\ AP_TERM_TAC \\ fs [get_addr_def,get_lowerbits_LSL_shift_length]
+  \\ cheat);
+
+val word_heap_APPEND = prove(
+  ``!xs ys a.
+      word_heap a (xs ++ ys) conf =
+      word_heap a xs conf *
+      word_heap (a + bytes_in_word * n2w (heap_length xs)) ys conf``,
+  Induct \\ fs [word_heap_def,heap_length_def,SEP_CLAUSES,STAR_ASSOC]
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
 val word_gc_move_thm = prove(
   ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
@@ -504,7 +525,7 @@ val word_gc_move_thm = prove(
     ?xs1.
       (word_heap curr heap1 c *
        word_heap pa h1 c *
-       word_list pa1 xs1) (fun2set (m,dm)) /\
+       word_list pa1 xs1) (fun2set (m1,dm)) /\
       c1``,
 
   reverse (Cases_on `x`) \\ fs [gc_move_def] THEN1
@@ -516,6 +537,9 @@ val word_gc_move_thm = prove(
   \\ Cases_on `x` \\ fs [] \\ rw [] \\ fs [word_addr_def]
   \\ pop_assum mp_tac \\ fs [word_gc_move_def,get_addr_and_1_not_0]
 
+    fs [ptr_to_addr_get_addr,word_heap_def,SEP_CLAUSES]
+    \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ rpt var_eq_tac
+    \\ fs [word_heap_APPEND,word_heap_def,word_el_def]
 
 
 

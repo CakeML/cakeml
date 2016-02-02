@@ -1429,15 +1429,37 @@ val pointer_bits_def = Define ` (* pointers have tag and len bits *)
         maxout_bits tag conf.tag_bits 2 || 1w
     | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
 
+val shift_length_def = Define `
+  shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
+
+val is_all_ones_def = Define `
+  is_all_ones m n w = ((all_ones m n && w) = all_ones m n)`;
+
+val decode_maxout_def = Define `
+  decode_maxout l n w =
+    if is_all_ones (n+l) n w then NONE else SOME (((n+l) -- n) w >> n)`
+
+val decode_addr_def = Define `
+  decode_addr conf w =
+    (decode_maxout conf.len_bits (conf.tag_bits + 2) w,
+     decode_maxout conf.tag_bits 2 w)`
+
+val has_header_def = Define `
+  has_header conf w <=>
+    decode_maxout conf.len_bits (conf.tag_bits + 2) w = NONE \/
+    decode_maxout conf.tag_bits 2 w = NONE`
+
 val get_lowerbits_def = Define `
-  (get_lowerbits conf (Word w) =
-    ((((1 + conf.pad_bits + conf.len_bits + conf.tag_bits) -- 0) w) || 1w)) /\
+  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
   (get_lowerbits conf _ = 1w)`;
+
+val bits_imp_header_def = Define `
+  bits_imp_header conf w = has_header conf (get_lowerbits conf w)`
 
 val get_addr_def = Define ` (* each pointer points at the first payload value *)
   get_addr conf n w =
-    ((n2w n << (2 + conf.pad_bits + conf.len_bits + conf.tag_bits)) ||
-     get_lowerbits conf w)`;
+    (n2w (if bits_imp_header conf w then n + 1 else n) << shift_length conf
+     || get_lowerbits conf w)`;
 
 val word_addr_def = Define `
   (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
@@ -1467,6 +1489,11 @@ val word_payload_def = Define `
      (SOME (n2w n << 2 || 3w), (* header: ...11 *)
       qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
 
+(*
+data pointers end in 01
+forward pointers and headers end in 11
+*)
+
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
     let h = (w >>> (3 + conf.len_size)) in
@@ -1476,15 +1503,10 @@ val decode_tag_bits_def = Define `
       if (h && 3w) = 3w then BytesTag (w2n (h >>> 2)) else
         BlockTag (w2n (h >>> 2))`
 
-(*
-data pointers end in 01
-forward pointers and headers end in 11
-*)
-
 val word_el_def = Define `
   (word_el a (Unused l) conf = word_list_exists a (l+1)) /\
   (word_el a (ForwardPointer n d l) conf =
-     word_list_exists a 1 *
+     one (a,Word (n2w n << 2 || 3w)) *
      if l = 0 then emp else
        one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
        word_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
