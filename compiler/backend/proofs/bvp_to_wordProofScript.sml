@@ -492,22 +492,33 @@ val word_gc_fun_def = Define `
 
 (*
 
+val get_addr_and_1_not_0 = prove(
+  ``(1w && get_addr conf k a) <> 0w``,
+  cheat);
+
 val word_gc_move_thm = prove(
   ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
-    (word_heap curr heap c heap * one_list pa xs) (fun2set (m,dm)) /\
-    (word_gc_move conf (word_addr conf heap x,i,pa,old,m,dm) =
-      (word_addr conf heap x1,i1,pa1,m1,c1)) ==>
+    (word_heap curr heap c * word_list pa xs) (fun2set (m,dm)) /\
+    (word_gc_move conf (word_addr conf x,i,pa,curr,m,dm) =
+      (word_addr conf x1,i1,pa1,m1,c1)) ==>
     ?xs1.
-      (word_heap curr heap1 c heap *
-       word_heap pa h1 c heap *
-       one_list pa1 xs1) (fun2set (m,dm)) /\
+      (word_heap curr heap1 c *
+       word_heap pa h1 c *
+       word_list pa1 xs1) (fun2set (m,dm)) /\
       c1``,
 
-  reverse (Cases_on `x`) \\ fs [gc_move_def]
+  reverse (Cases_on `x`) \\ fs [gc_move_def] THEN1
+   (rw [] \\ fs [word_heap_def,SEP_CLAUSES]
+    \\ Cases_on `a'` \\ fs [word_addr_def,word_gc_move_def]
+    \\ qexists_tac `xs` \\ fs [])
+  \\ CASE_TAC \\ fs []
+  \\ qcase_tac `heap_lookup k heap = SOME x`
+  \\ Cases_on `x` \\ fs [] \\ rw [] \\ fs [word_addr_def]
+  \\ pop_assum mp_tac \\ fs [word_gc_move_def,get_addr_and_1_not_0]
 
-    rw [] \\ fs [word_heap_def,SEP_CLAUSES]
-    \\ qexists_tac `xs` \\ fs []
-    \\ fs [word_addr_def]
+
+
+
 
 word_addr_def
 get_addr_def
