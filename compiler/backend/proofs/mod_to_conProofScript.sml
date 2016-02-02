@@ -4,14 +4,6 @@ open preamble
 
 val _ = new_theory "mod_to_conProof";
 
-(* TODO: move *)
-
-val with_same_v = Q.store_thm("with_same_v[simp]",
-  `((env:conSem$environment) with v := env.v) = env`,
-  rw[conSemTheory.environment_component_equality])
-
-(* -- *)
-
 (* invariants *)
 
 val _ = type_abbrev("gtagenv",``:conN # tid_or_exn |-> num # num``)

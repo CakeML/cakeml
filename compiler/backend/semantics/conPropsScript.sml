@@ -2,6 +2,10 @@ open preamble conSemTheory
 
 val _ = new_theory"conProps"
 
+val with_same_v = Q.store_thm("with_same_v[simp]",
+  `((env:conSem$environment) with v := env.v) = env`,
+  rw[conSemTheory.environment_component_equality])
+
 val do_app_cases = Q.store_thm("do_app_cases",
   `conSem$do_app s op vs = SOME x ⇒
     (∃z n1 n2. op = (Op (Opn z)) ∧ vs = [Litv (IntLit n1); Litv (IntLit n2)]) ∨
