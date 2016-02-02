@@ -5,6 +5,7 @@ open preamble
      set_sepTheory
      semanticsPropsTheory
      helperLib
+local open dep_rewrite in end
 
 val _ = new_theory"stack_removeProof";
 
@@ -31,6 +32,24 @@ val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
   \\ every_case_tac >> fs[] >> rw[]);
 
 (* --- *)
+
+val good_syntax_exp_def = tDefine"good_syntax_exp"`
+  (good_syntax_exp (Var n) k ⇔ n < k) ∧
+  (good_syntax_exp (Load e) k ⇔ good_syntax_exp e k) ∧
+  (good_syntax_exp (Shift _ e _) k ⇔ good_syntax_exp e k) ∧
+  (good_syntax_exp (Lookup _) _ ⇔ F) ∧
+  (good_syntax_exp (Op _ es) k ⇔ EVERY (λe. good_syntax_exp e k) es) ∧
+  (good_syntax_exp _ _ ⇔ T)`
+  (WF_REL_TAC`measure ((exp_size ARB) o FST)` \\ simp[]
+   \\ Induct \\ simp[wordLangTheory.exp_size_def]
+   \\ rw[] \\ res_tac \\ simp[]);
+val _ = export_rewrites["good_syntax_exp_def"];
+
+val good_syntax_inst_def = Define`
+  (good_syntax_inst (Mem _ _ (Addr a _)) k ⇔ a < k) ∧
+  (good_syntax_inst (Const n _) k ⇔ n < k) ∧
+  (good_syntax_inst _ _ ⇔ T)`;
+val _ = export_rewrites["good_syntax_inst_def"];
 
 val good_syntax_def = Define `
   (good_syntax (Halt v1) k <=>
@@ -62,6 +81,7 @@ val good_syntax_def = Define `
       | NONE => T) /\
      (case x2 of SOME (y,_,_) => good_syntax y k | NONE => T)) /\
   (good_syntax (BitmapLoad r v) k <=> r < k /\ v < k) /\
+  (good_syntax (Inst i) k <=> good_syntax_inst i k) /\
   (good_syntax _ k <=> T)`
 
 val memory_def = Define `
@@ -348,6 +368,77 @@ val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
   *)
   \\ cheat);
 
+val state_rel_mem_load_imp = Q.store_thm("state_rel_mem_load_imp",
+  `state_rel k s t ∧
+   mem_load x s = SOME w ⇒
+   mem_load x t = SOME w`,
+  rw[state_rel_def]
+  \\ every_case_tac \\ fs[]
+  \\ fs[mem_load_def]
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ drule fun2set_STAR_IMP \\ strip_tac
+  \\ fs[memory_def]
+  \\ fs[fun2set_def,EXTENSION,PULL_EXISTS,EXISTS_PROD,FORALL_PROD]
+  \\ metis_tac[]);
+
+val state_rel_word_exp = Q.store_thm("state_rel_word_exp",
+  `∀s e w.
+   state_rel k s t ∧
+   good_syntax_exp e k ∧
+   word_exp s e = SOME w ⇒
+   word_exp t e = SOME w`,
+  ho_match_mp_tac word_exp_ind
+  \\ simp[word_exp_def]
+  \\ rw[]
+  \\ imp_res_tac state_rel_mem_load_imp
+  \\ fs[state_rel_def]
+  \\ TRY(
+    qpat_assum`_ = SOME w`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq)
+  >- ( res_tac \\ simp[] )
+  >- (
+    fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS]
+    \\ metis_tac[] )
+  >- (
+    first_x_assum(CHANGED_TAC o SUBST1_TAC o GSYM)
+    \\ AP_TERM_TAC
+    \\ simp[MAP_EQ_f,MAP_MAP_o]
+    \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS]
+    \\ metis_tac[]));
+
+val state_rel_inst = Q.store_thm("state_rel_inst",
+  `state_rel k s t ∧
+   good_syntax_inst i k ∧
+   inst i s = SOME s'
+   ⇒
+   ∃t'.
+     inst i t = SOME t' ∧
+     state_rel k s' t'`,
+  simp[inst_def]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ fs[]
+  \\ strip_tac
+  \\ rveq \\ fs[]
+  \\ fs[assign_def]
+  >- (
+    pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac
+    \\ imp_res_tac state_rel_word_exp
+    \\ first_x_assum(qspec_then`Const c`mp_tac)
+    \\ simp_tac(srw_ss())[]
+    \\ disch_then drule
+    \\ simp_tac(srw_ss())[]
+    \\ rveq \\ simp[])
+  >- (
+    BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ cheat )
+  \\ cheat);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -367,7 +458,16 @@ val comp_correct = Q.prove(
     \\ every_case_tac \\ rw [] \\ fs []
     \\ fs[state_rel_def])
   THEN1 (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
-  THEN1 cheat (* easy but good_syntax needs updating *)
+  THEN1 (
+    fs[comp_def,evaluate_def]
+    \\ last_x_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq
+    \\ drule (GEN_ALL state_rel_inst)
+    \\ fs[good_syntax_def]
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ strip_tac \\ simp[])
   THEN1 (* Get *)
    (`s.use_store` by fs [state_rel_def]
     \\ fs [comp_def,evaluate_def,good_syntax_def]
