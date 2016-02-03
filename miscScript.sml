@@ -8,9 +8,76 @@ val _ = ParseExtras.temp_tight_equality()
 (* this is copied in preamble.sml, but needed here to avoid cyclic dep *)
 val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
 val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
+fun drule th =
+  first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
 (* -- *)
 
 (* TODO: move/categorize *)
+
+val IMAGE_I = store_thm("IMAGE_I[simp]",
+  ``IMAGE I s = s``,
+  fs [EXTENSION]);
+
+val MAP_KEYS_COMPOSE = Q.store_thm("MAP_KEYS_COMPOSE",
+  `BIJ (f:num->num) UNIV UNIV ==> MAP_KEYS f (MAP_KEYS (LINV f UNIV) t) = t`,
+  rw [finite_mapTheory.fmap_EXT,MAP_KEYS_def,PULL_EXISTS,GSYM IMAGE_COMPOSE]
+  \\ `f o LINV f UNIV = I` by
+    (imp_res_tac BIJ_LINV_INV \\ fs [combinTheory.o_DEF,FUN_EQ_THM])
+  \\ fs [] \\ fs [combinTheory.o_DEF,FUN_EQ_THM]
+  \\ imp_res_tac BIJ_LINV_BIJ \\ fs [BIJ_DEF]
+  \\ `INJ f (FDOM (MAP_KEYS (LINV f UNIV) t)) UNIV` by fs[INJ_DEF]
+  \\ drule (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
+  \\ `?y. x' = f y` by (fs [SURJ_DEF] \\ metis_tac []) \\ rw []
+  \\ pop_assum (qspec_then `y` mp_tac)
+  \\ discharge_hyps THEN1
+   (fs [MAP_KEYS_def] \\ qexists_tac `f y` \\ fs []
+    \\ imp_res_tac LINV_DEF \\ fs []) \\ rw []
+  \\ `INJ (LINV f UNIV) (FDOM t) UNIV` by
+    (qpat_assum `INJ (LINV f UNIV) UNIV UNIV` mp_tac \\ simp [INJ_DEF])
+  \\ imp_res_tac (MAP_KEYS_def |> SPEC_ALL |> CONJUNCT2 |> MP_CANON)
+  \\ imp_res_tac LINV_DEF \\ fs []);
+
+val BIJ_IMP_11 = store_thm("BIJ_IMP_11",
+  ``BIJ f UNIV UNIV ==> !x y. (f x = f y) = (x = y)``,
+  fs [BIJ_DEF,INJ_DEF] \\ metis_tac []);
+
+val FLOOKUP_MAP_KEYS = Q.store_thm("FLOOKUP_MAP_KEYS",
+  `INJ f (FDOM m) UNIV ⇒
+   FLOOKUP (MAP_KEYS f m) k =
+   OPTION_BIND (some x. k = f x ∧ x ∈ FDOM m) (FLOOKUP m)`,
+  strip_tac >> DEEP_INTRO_TAC some_intro >>
+  simp[FLOOKUP_DEF,MAP_KEYS_def]);
+
+val FLOOKUP_MAP_KEYS_MAPPED = Q.store_thm("FLOOKUP_MAP_KEYS_MAPPED",
+  `INJ f UNIV UNIV ⇒
+   FLOOKUP (MAP_KEYS f m) (f k) = FLOOKUP m k`,
+  strip_tac >>
+  `INJ f (FDOM m) UNIV` by metis_tac[INJ_SUBSET,SUBSET_UNIV,SUBSET_REFL] >>
+  simp[FLOOKUP_MAP_KEYS] >>
+  DEEP_INTRO_TAC some_intro >> rw[] >>
+  fs[INJ_DEF] >> fs[FLOOKUP_DEF] >> metis_tac[]);
+
+val DRESTRICT_MAP_KEYS_IMAGE = Q.store_thm("DRESTRICT_MAP_KEYS_IMAGE",
+  `INJ f UNIV UNIV ⇒
+   DRESTRICT (MAP_KEYS f fm) (IMAGE f s) = MAP_KEYS f (DRESTRICT fm s)`,
+  rw[fmap_eq_flookup,FLOOKUP_DRESTRICT] >>
+  dep_rewrite.DEP_REWRITE_TAC[FLOOKUP_MAP_KEYS,FDOM_DRESTRICT] >>
+  conj_tac >- ( metis_tac[IN_INTER,IN_UNIV,INJ_DEF] ) >>
+  DEEP_INTRO_TAC some_intro >>
+  DEEP_INTRO_TAC some_intro >>
+  rw[FLOOKUP_DRESTRICT] >> rw[] >> fs[] >>
+  metis_tac[INJ_DEF,IN_UNIV]);
+
+val DOMSUB_MAP_KEYS = Q.store_thm("DOMSUB_MAP_KEYS",
+  `BIJ f UNIV UNIV ⇒
+   (MAP_KEYS f fm) \\ (f s) = MAP_KEYS f (fm \\ s)`,
+  rw[fmap_domsub] >>
+  dep_rewrite.DEP_REWRITE_TAC[GSYM DRESTRICT_MAP_KEYS_IMAGE] >>
+  rw[] >- fs[BIJ_DEF] >>
+  AP_TERM_TAC >>
+  rw[EXTENSION] >>
+  fs[BIJ_DEF,INJ_DEF,SURJ_DEF] >>
+  metis_tac[]);
 
 val ALOOKUP_MAP_gen = Q.store_thm("ALOOKUP_MAP_gen",
   `∀f al x.
