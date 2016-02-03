@@ -3,14 +3,6 @@ open clos_relationTheory closSemTheory closPropsTheory;
 
 val _ = new_theory "clos_relationProps";
 
-val take_append_take_drop = Q.store_thm ("take_append_take_drop",
-`!m n l. TAKE m l ++ TAKE n (DROP m l) = TAKE (m + n) l`,
- Induct_on `l` >>
- rw [] >>
- fs [] >>
- `m - 1 + n = m + n - 1` by decide_tac >>
- rw []);
-
 val state_rel_ffi_mono = store_thm(
   "state_rel_ffi_mono[simp]",
   ``state_rel k (s1:'ffi closSem$state) s2 ⇒
@@ -562,7 +554,7 @@ val fn_add_arg_lem = Q.prove (
    >- full_simp_tac (srw_ss()++ ARITH_ss) []
    >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
    simp [GSYM REVERSE_APPEND] >>
-   simp [take_append_take_drop] >>
+   simp [GSYM TAKE_SUM] >>
    simp [dec_clock_def] >>
    fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
    first_x_assum (qspecl_then [`i''`,
