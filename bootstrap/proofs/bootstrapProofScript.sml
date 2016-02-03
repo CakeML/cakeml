@@ -792,14 +792,14 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
             INPUT_TYPE (SOME (ts,s)) new_inp /\
             COMPILER_RUN_INV (bs with refs := bs.refs |+ (iptr,ValueArray [inp_bc_val]))
               grd new_inp outp``,
-  rw[] >>
+  srw_tac[][] >>
   imp_res_tac COMPILER_RUN_INV_references >> simp[] >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
   fs[SUM_TYPE_def] >>
   fs[PAIR_TYPE_def] >>
-  rw[] >>
+  srw_tac[][] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
   simp[printingTheory.v_bv_def] >>
@@ -809,7 +809,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   simp conv_rws >> simp[PULL_EXISTS] >>
   simp conv_rws >> simp[PULL_EXISTS] >>
   simp conv_rws >> simp[PULL_EXISTS] >>
-  rw[] >>
+  srw_tac[][] >>
   first_assum(qspecl_then[`"Inr"`,`1`,`TypeId(Long"REPL""sum")`]mp_tac) >>
   discharge_hyps >- simp[sum_tags_exist] >>
   simp[Once UNCURRY] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -870,7 +870,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
     fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
-    HINT_EXISTS_TAC >> simp[] >> rw[] >>
+    HINT_EXISTS_TAC >> simp[] >> srw_tac[][] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>
     simp[] >>
     rpt conj_tac >>
@@ -878,8 +878,8 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     first_x_assum(qspec_then`n`mp_tac) >>
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
-    rw[Abbr`b`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def] >>
+    srw_tac[][Abbr`b`] >>
+    srw_tac[][errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def] >>
     NO_TAC) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
@@ -911,7 +911,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     first_x_assum(qspec_then`n`mp_tac) >>
     simp[Abbr`inp2`] >>
     assume_tac(CONJUNCT2 repl_env_def) >> rfs[] >>
-    rw[] >>
+    srw_tac[][] >>
     simp[modLangProofTheory.sv_to_i1_cases]) >>
   exists_suff_gen_then(mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[beta|->``:num``]to_i2_invariant_change_store) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
@@ -931,7 +931,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >>
-    rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
+    srw_tac[][] >> srw_tac[][conLangProofTheory.sv_to_i2_cases]) >>
   simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
   qmatch_assum_rename_tac`v_to_exh _ v22 v23` >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -940,14 +940,14 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
-    gen_tac >> strip_tac >> rw[]) >>
+    gen_tac >> strip_tac >> srw_tac[][]) >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   qmatch_assum_rename_tac`exh_Cv v23 v24` >>
   qexists_tac`LUPDATE (Refv v24) iloc Cs` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
-    gen_tac >> strip_tac >> rw[]) >>
+    gen_tac >> strip_tac >> srw_tac[][]) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   conj_tac >- (
     rator_x_assum`closed_vlabs`mp_tac >>
@@ -958,7 +958,7 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
     `vlabs v24 = {} ∧ all_vlabs v24` by (
       MATCH_MP_TAC (MP_CANON (GEN_ALL no_closures_vlabs)) >>
       fs[printingTheory.exh_Cv_def] >>
-      rw[Once CONJ_COMM] >>
+      srw_tac[][Once CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -966,28 +966,28 @@ val COMPILER_RUN_INV_INR = store_thm("COMPILER_RUN_INV_INR",
       METIS_TAC[INPUT_TYPE_no_closures]) >>
     conj_tac >- (
       fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-      rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
+      srw_tac[][] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
     fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-    rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
+    srw_tac[][] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bytecodeTheory.bc_state_component_equality] >>
   `iloc < LENGTH grd2.sm ∧ EL iloc grd2.sm = iptr` by simp[] >>
   `MEM iptr grd2.sm` by METIS_TAC[MEM_EL] >>
-  reverse conj_tac >- rw[] >>
+  reverse conj_tac >- srw_tac[][] >>
   fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def,bytecodeProofTheory.good_rd_def] >>
   conj_tac >- (
-    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
+    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> srw_tac[][] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[UNCURRY] >> strip_tac >>
     simp[finite_mapTheory.FLOOKUP_UPDATE] >>
-    rw[] >> fs[] ) >>
+    srw_tac[][] >> fs[] ) >>
   conj_tac >- fs[EVERY_MEM] >>
   fs[LIST_REL_EL_EQN,EL_MAP,EL_LUPDATE] >>
   simp[finite_mapTheory.FAPPLY_FUPDATE_THM] >>
-  rw[] >> fs[] >- METIS_TAC[EL_ALL_DISTINCT_EL_EQ] >>
+  srw_tac[][] >> fs[] >- METIS_TAC[EL_ALL_DISTINCT_EL_EQ] >>
   METIS_TAC[EL_MAP])
 
 val v_to_pat_Boolv = EVAL``v_to_pat (Boolv_exh b) = Boolv_pat b`` |> EQT_ELIM
@@ -1009,14 +1009,14 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
             INPUT_TYPE (SOME (ts,b,s)) new_inp /\
             COMPILER_RUN_INV (bs with refs := bs.refs |+ (iptr,ValueArray[inp_bc_val]))
               grd new_inp outp``,
-  rw[] >>
+  srw_tac[][] >>
   imp_res_tac COMPILER_RUN_INV_references >> simp[] >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- fs[finite_mapTheory.FLOOKUP_DEF] >>
   fs[OUTPUT_TYPE_def] >>
   fs[SUM_TYPE_def] >>
   fs[PAIR_TYPE_def] >>
-  rw[] >>
+  srw_tac[][] >>
   fs[LET_THM] >>
   rator_x_assum`v_bv`mp_tac >>
   simp[printingTheory.v_bv_def] >>
@@ -1026,7 +1026,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   simp conv_rws >> simp[PULL_EXISTS] >>
   simp conv_rws >> simp[PULL_EXISTS] >>
   simp conv_rws >> simp[PULL_EXISTS] >>
-  rw[] >>
+  srw_tac[][] >>
   first_assum(qspecl_then[`"Inl"`,`1`,`TypeId(Long"REPL""sum")`]mp_tac) >>
   discharge_hyps >- simp[sum_tags_exist] >>
   simp[Once UNCURRY] >> strip_tac >> BasicProvers.VAR_EQ_TAC >>
@@ -1073,7 +1073,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
       simp[EL_LUPDATE] >> METIS_TAC[] ) >>
     simp[semanticPrimitivesTheory.Boolv_def] >>
     conj_tac >- ( imp_res_tac INPUT_TYPE_closed >> fs[] ) >>
-    assume_tac (CONJUNCT2 repl_env_def) >> rfs[] >> rw[] >>
+    assume_tac (CONJUNCT2 repl_env_def) >> rfs[] >> srw_tac[][] >>
     fsrw_tac[boolSimps.DNF_ss][] ) >>
   exists_suff_gen_then (mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[alpha|->``:num``]to_i1_invariant_change_store) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
@@ -1090,7 +1090,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   `v_bv data w (BlockList (MAP BlockSym ts))` by (
     fs[INPUT_TYPE_def,OPTION_TYPE_def,PAIR_TYPE_def,Abbr`data`] >>
     MATCH_MP_TAC (MP_CANON LIST_TYPE_v_bv) >>
-    HINT_EXISTS_TAC >> simp[] >> rw[] >>
+    HINT_EXISTS_TAC >> simp[] >> srw_tac[][] >>
     match_mp_tac(MP_CANON (GEN_ALL LEXER_FUN_SYMBOL_TYPE_v_bv)) >>
     simp[] >>
     rpt conj_tac >>
@@ -1098,8 +1098,8 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     first_x_assum(qspec_then`n`mp_tac) >>
     disch_then(qspec_then`a`mp_tac o CONV_RULE(SWAP_FORALL_CONV)) >>
     simp[Abbr`n`,sym_tags_exist] >>
-    rw[Abbr`z`] >>
-    rw[errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def]) >>
+    srw_tac[][Abbr`z`] >>
+    srw_tac[][errors_tag_def,others_tag_def,longs_tag_def,numbers_tag_def,strings_tag_def,chars_tag_def]) >>
   qunabbrev_tac`data` >>
   pop_assum(strip_assume_tac o SIMP_RULE (srw_ss()) [printingTheory.v_bv_def]) >>
   CONV_TAC SWAP_EXISTS_CONV >>
@@ -1144,7 +1144,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     first_x_assum(qspec_then`n`mp_tac) >>
     simp[Abbr`inp2`] >>
     assume_tac(CONJUNCT2 repl_env_def) >> rfs[] >>
-    rw[] >>
+    srw_tac[][] >>
     simp[modLangProofTheory.sv_to_i1_cases]) >>
   exists_suff_gen_then(mp_tac o RW[GSYM AND_IMP_INTRO]) (INST_TYPE[beta|->``:num``]to_i2_invariant_change_store) >>
   disch_then(fn th => first_assum (mp_tac o MATCH_MP th)) >>
@@ -1164,7 +1164,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
     gen_tac >> strip_tac >>
-    rw[] >> rw[conLangProofTheory.sv_to_i2_cases]) >>
+    srw_tac[][] >> srw_tac[][conLangProofTheory.sv_to_i2_cases]) >>
   simp[miscTheory.LIST_REL_O,PULL_EXISTS,evalPropsTheory.sv_rel_O] >>
   qmatch_assum_rename_tac`v_to_exh _ v22 v23` >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
@@ -1173,14 +1173,14 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
   simp[RIGHT_EXISTS_AND_THM,GSYM CONJ_ASSOC] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
-    gen_tac >> strip_tac >> rw[]) >>
+    gen_tac >> strip_tac >> srw_tac[][]) >>
   CONV_TAC(RESORT_EXISTS_CONV List.rev) >>
   qmatch_assum_rename_tac`exh_Cv v23 v24` >>
   qexists_tac`LUPDATE (Refv v24) iloc Cs` >>
   simp[RIGHT_EXISTS_AND_THM] >>
   conj_tac >- (
     fs[LIST_REL_EL_EQN,EL_LUPDATE] >>
-    gen_tac >> strip_tac >> rw[]) >>
+    gen_tac >> strip_tac >> srw_tac[][]) >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   conj_tac >- (
     rator_x_assum`closed_vlabs`mp_tac >>
@@ -1191,7 +1191,7 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
     `vlabs v24 = {} ∧ all_vlabs v24` by (
       MATCH_MP_TAC (MP_CANON (GEN_ALL no_closures_vlabs)) >>
       fs[printingTheory.exh_Cv_def] >>
-      rw[Once CONJ_COMM] >>
+      srw_tac[][Once CONJ_COMM] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
       first_assum(match_exists_tac o concl) >> simp[] >>
@@ -1199,28 +1199,28 @@ val COMPILER_RUN_INV_INL = store_thm("COMPILER_RUN_INV_INL",
       METIS_TAC[INPUT_TYPE_no_closures]) >>
     conj_tac >- (
       fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-      rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
+      srw_tac[][] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[] ) >>
     fs[intLangExtraTheory.vlabs_list_MAP,PULL_EXISTS] >>
     fs[evalPropsTheory.store_vs_def,MEM_MAP,PULL_EXISTS,MEM_FILTER,MEM_FLAT] >>
-    rw[] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
+    srw_tac[][] >> imp_res_tac MEM_LUPDATE_E >> fs[] >> METIS_TAC[pred_setTheory.NOT_IN_EMPTY] ) >>
   qexists_tac`grd2` >>
   MATCH_MP_TAC bytecodeProofTheory.Cenv_bs_change_store >>
   first_assum(match_exists_tac o concl) >> simp[] >>
   simp[bytecodeTheory.bc_state_component_equality] >>
   `iloc < LENGTH grd2.sm ∧ EL iloc grd2.sm = iptr` by simp[] >>
   `MEM iptr grd2.sm` by METIS_TAC[MEM_EL] >>
-  reverse conj_tac >- rw[] >>
+  reverse conj_tac >- srw_tac[][] >>
   fs[bytecodeProofTheory.Cenv_bs_def,bytecodeProofTheory.s_refs_def,bytecodeProofTheory.good_rd_def] >>
   conj_tac >- (
-    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> rw[] >>
+    fs[finite_mapTheory.FEVERY_ALL_FLOOKUP] >> srw_tac[][] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[UNCURRY] >> strip_tac >>
     simp[finite_mapTheory.FLOOKUP_UPDATE] >>
-    rw[] >> fs[] ) >>
+    srw_tac[][] >> fs[] ) >>
   conj_tac >- fs[EVERY_MEM] >>
   fs[LIST_REL_EL_EQN,EL_MAP,EL_LUPDATE] >>
   simp[finite_mapTheory.FAPPLY_FUPDATE_THM] >>
-  rw[] >> fs[] >- METIS_TAC[EL_ALL_DISTINCT_EL_EQ] >>
+  srw_tac[][] >> fs[] >- METIS_TAC[EL_ALL_DISTINCT_EL_EQ] >>
   METIS_TAC[EL_MAP])
 
 val _ = export_theory()
