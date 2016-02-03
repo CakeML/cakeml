@@ -2938,6 +2938,32 @@ val type_specs_no_mod = Q.store_thm ("type_specs_no_mod",
  fs [union_decls_def]);
 
 (* ---------------- type_top, type_prog uniqueness flag ---------- *)
+
+val type_top_tenv_ok = store_thm("type_top_tenv_ok",
+  ``∀ch decls tenv top decls' env.
+    type_top ch decls tenv top decls' env ⇒
+    ∀tenvT' menv' cenv' tenv'.
+    env = (tenvT',menv',cenv',tenv') ⇒
+      num_tvs tenv.v = 0 ⇒
+      tenv_tabbrev_ok tenv.t ⇒
+      tenv_val_ok (bind_var_list2 tenv' Empty) ∧
+      FEVERY (λ(mn,tenv). tenv_val_ok (bind_var_list2 tenv Empty)) menv'``,
+  ho_match_mp_tac type_top_ind >>
+  rw[FEVERY_FEMPTY,FEVERY_FUPDATE,bind_var_list2_def,
+     typeSoundInvariantsTheory.tenv_val_ok_def] >>
+  imp_res_tac type_d_tenv_ok >>
+  TRY(qpat_assum`lift_new_dec_tenv A = B` (assume_tac o SYM)>>
+  PairCases_on`new_tenv`)>>
+  fs[check_signature_cases,lift_new_dec_tenv_def,FEVERY_FEMPTY] >>
+  imp_res_tac type_ds_tenv_ok >>
+  TRY(qpat_assum`mod_lift_new_dec_tenv A B = C` (assume_tac o SYM)>>
+  PairCases_on`new_tenv2`)>>
+  fs[mod_lift_new_dec_tenv_def,bind_var_list2_def,
+     typeSoundInvariantsTheory.tenv_val_ok_def]>>
+  fs[FEVERY_FEMPTY,FEVERY_FUPDATE] >>
+  PairCases_on`new_tenv1`>>fs[weak_new_dec_tenv_def] >>
+  imp_res_tac type_specs_tenv_ok >> fs[])
+
 val type_top_check_uniq = Q.store_thm ("type_top_check_uniq",
 `!uniq tdecs tenv top tdecs' new_tenv.
   type_top uniq tdecs tenv top tdecs' new_tenv
