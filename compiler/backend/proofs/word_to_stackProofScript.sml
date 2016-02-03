@@ -4556,6 +4556,35 @@ val evaluate_wStackLoad_wRegImm2 = prove(``
   simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE]>>
   fs[MULT_COMM,TWOxDIV2])
 
+val evaluate_call_dest_clock = prove(``
+  call_dest dest args (k,f,f') = (q0,dest') ⇒
+  evaluate(q0,t with clock := clk) =
+  (FST(evaluate(q0,t:('a,'ffi)stackSem$state)),
+   (SND(evaluate(q0,t))) with clock := clk)``,
+  Cases_on`dest`>>fs[call_dest_def,LET_THM]>>rw[]>>
+  simp[stackSemTheory.evaluate_def]>>
+  split_pair_tac>>fs[]>>rveq>>fs[evaluate_wStackLoad_clock])
+
+val evaluate_wLive_clock = prove(``
+  ∀x t q bs bs'.
+  wLive x bs kf = (q,bs') ⇒
+  evaluate(q, t with clock:= clk) =
+  (FST (evaluate(q,t:('a,'ffi)stackSem$state)),
+   (SND (evaluate(q,t)) with clock:=clk))``,
+  PairCases_on`kf`>>fs[wLive_def,LET_THM]>>rw[]
+  >-
+    simp[stackSemTheory.evaluate_def]
+  >>
+    split_pair_tac>>fs[]>>rveq>>
+    simp[stackSemTheory.evaluate_def,FORALL_PROD,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.set_var_def,stackSemTheory.word_exp_def,empty_env_def,stackSemTheory.get_var_def]>>
+    EVERY_CASE_TAC>>fs[])
+
+val evaluate_StackArgs_clock = prove(``
+  let prog = StackArgs dest n (k,f,f') in
+  evaluate (prog,t with clock:=clk) =
+  (FST (evaluate(prog,t:('a,'ffi)stackSem$state)),
+   (SND (evaluate(prog,t)) with clock:=clk))``,cheat)|>SIMP_RULE arith_ss [LET_THM]
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -5318,7 +5347,35 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ drule call_dest_lemma \\ strip_tac \\rfs[]
     (* need another version of call_dest_lemma that allows add_ret_loc? *)
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]>>
+    Cases_on`handler`>>simp[]
+    >-
+      (imp_res_tac evaluate_call_dest_clock>>
+      pop_assum(qspec_then`t` assume_tac)>>
+      first_assum (mp_tac o MATCH_MP ((GEN_ALL evaluate_wLive)|>REWRITE_RULE[GSYM AND_IMP_INTRO]))>>
+      disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
+      discharge_hyps>-
+        (*should be easy*)
+        (fs[]>>cheat)>>
+      strip_tac>>
+      imp_res_tac evaluate_wLive_clock>>
+      pop_assum(qspec_then`t4` assume_tac)>>
+      simp[stackSemTheory.evaluate_def]>>
+      (*Separate lemma needed, not sure of exact form, this is just to look at the rest of the goal*)
+      qpat_abbrev_tac`prog = StackArgs a b c`>>
+      `∃t6.
+        evaluate(prog,t5) = (NONE,t6)` by cheat>>
+      simp[evaluate_StackArgs_clock,Abbr`prog`]>>
+      (*Proof needs to show:
+      1. LAST args ≠ 0 (true by post_alloc_convs and args ≠ [])
+      2. find_code in the goal is the same as the one given by assumption 14
+        -- This is tricky, and all the proofs may need to be generalized:
+        -- The call_dest register argument (if it exists) is kept in register k+1, which is not touched by wLive or StackArgs
+      3. something that connects t6 to (call_env ...)
+        -- We should get a final state relation between call_env q (push_env ...) on the AFTER the set_var in the goal (and probably after the stack_alloc in compile_prog)
+        -- StackArgs just copies the callee's stack arguments into a new stack frame
+      *)
+      cheat)
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       strip_tac \\ rveq \\ fs[]
