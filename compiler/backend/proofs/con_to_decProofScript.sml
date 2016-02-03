@@ -5,19 +5,6 @@ open preamble
 
 val _ = new_theory "con_to_decProof";
 
-(* TODO: move? *)
-val GENLIST_eq_MAP_SOME = Q.store_thm("GENLIST_eq_MAP_SOME",
-  `GENLIST f n = MAP SOME ls ⇔
-   LENGTH ls = n ∧ ∀m. m < n ⇒ f m = SOME (EL m ls)`,
-  rw[LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP])
-
-val ALOOKUP_GENLIST = Q.store_thm("ALOOKUP_GENLIST",
-  `MAP FST ls = GENLIST f n ∧ ALL_DISTINCT (MAP FST ls) ⇒
-   m < n ⇒
-   ALOOKUP ls (f m) = SOME (SND (EL m ls))`,
-  metis_tac[ALOOKUP_ALL_DISTINCT_EL,EL_GENLIST,EL_MAP,LENGTH_MAP,LENGTH_GENLIST])
-(* -- *)
-
 (* relations *)
 
 val (result_rel_rules, result_rel_ind, result_rel_cases) = Hol_reln `
@@ -202,12 +189,14 @@ val compile_decs_correct = Q.store_thm("compile_decs_correct",
   imp_res_tac evaluate_globals >>
   disch_then(qspecl_then[`s.globals`]mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["genv"]))) >>
   simp[] >>
-  simp[GENLIST_eq_MAP_SOME] >>
+  simp[GENLIST_eq_MAP] >>
   qpat_abbrev_tac`f:num->string = _` >> simp[] >>
   qpat_abbrev_tac`ls = ZIP _` >>
   `MAP FST ls = GENLIST f (LENGTH a)` by simp[Abbr`ls`,MAP_ZIP] >>
   `ALL_DISTINCT (MAP FST ls)` by simp[ALL_DISTINCT_GENLIST,Abbr`f`] >>
-  imp_res_tac ALOOKUP_GENLIST >> simp[] >>
+  `∀m. m < LENGTH a ⇒ ALOOKUP ls (f m) = SOME (SND (EL m ls))`
+    by metis_tac[ALOOKUP_ALL_DISTINCT_EL,EL_GENLIST,EL_MAP,LENGTH_MAP,LENGTH_GENLIST] >>
+  simp[] >>
   unabbrev_all_tac >> simp[EL_ZIP] >>
   disch_then(qspec_then`a`mp_tac) >>
   simp[conLangTheory.num_defs_def] >>

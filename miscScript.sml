@@ -62,6 +62,11 @@ val el_opt_LUPDATE = store_thm("el_opt_LUPDATE",
   \\ Cases_on `i` \\ fs [el_opt_def,LUPDATE_def]
   \\ rpt strip_tac \\ rw [] \\ fs [] \\ `F` by decide_tac);
 
+val GENLIST_eq_MAP = Q.store_thm("GENLIST_eq_MAP",
+  `GENLIST f n = MAP g ls ⇔
+   LENGTH ls = n ∧ ∀m. m < n ⇒ f m = g (EL m ls)`,
+  rw[LIST_EQ_REWRITE,EQ_IMP_THM,EL_MAP])
+
 val GENLIST_ID = store_thm("GENLIST_ID",
   ``!x. GENLIST (\i. EL i x) (LENGTH x) = x``,
   HO_MATCH_MP_TAC SNOC_INDUCT
