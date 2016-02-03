@@ -5,14 +5,6 @@ open preamble
 
 val _ = new_theory"stack_allocProof";
 
-(* TODO: move *)
-
-val ALOOKUP_PREFIX = store_thm("ALOOKUP_PREFIX",
-  ``!xs. ALOOKUP ys n = ALOOKUP zs n ==>
-         ALOOKUP (xs ++ ys) n = ALOOKUP (xs ++ zs) n``,
-  Induct \\ fs [FORALL_PROD,ALOOKUP_def]);
-
-(* --- *)
 
 val good_syntax_def = Define `
   (good_syntax (Alloc v) <=> (v = 1)) /\
@@ -36,16 +28,6 @@ val prog_comp_lemma = prove(
   ``prog_comp = \(n,p). (n,FST (comp n (next_lab p) p))``,
   fs [FUN_EQ_THM,FORALL_PROD,prog_comp_def]);
 
-val ALOOKUP_MAP_ALT = prove(
-  ``(!x n y m. (f (x,n) = (y,m)) ==> x = y) ==>
-    (ALOOKUP (MAP f xs) n =
-     case ALOOKUP xs n of
-     | NONE => NONE
-     | SOME x => SOME (SND (f(n,x))))``,
-  Induct_on `xs` \\ fs [] \\ Cases \\ fs [ALOOKUP_def,FORALL_PROD]
-  \\ rw [] \\ fs [] \\ Cases_on `f (n,r)` \\ fs [ALOOKUP_def] \\ res_tac \\ fs []
-  \\ rw [] \\ fs [] \\ Cases_on `f (q,r)` \\ fs [ALOOKUP_def] \\ res_tac \\ fs [])
-
 val lookup_IMP_lookup_compile = prove(
   ``lookup dest s.code = SOME x /\ 30 <= dest ==>
     ?m1 n1. lookup dest (fromAList (compile c (toAList s.code))) =
@@ -53,7 +35,7 @@ val lookup_IMP_lookup_compile = prove(
   fs [lookup_fromAList,compile_def] \\ rw [ALOOKUP_APPEND]
   \\ `ALOOKUP (stubs c) dest = NONE` by
     (fs [stubs_def] \\ rw [] \\ fs [] \\ decide_tac) \\ fs []
-  \\ fs [prog_comp_lemma] \\ fs [ALOOKUP_MAP_ALT,ALOOKUP_toAList]
+  \\ fs [prog_comp_lemma] \\ fs [ALOOKUP_MAP_gen,ALOOKUP_toAList]
   \\ metis_tac []);
 
 val alloc_correct = prove(
@@ -479,7 +461,8 @@ val make_init_semantics = Q.store_thm("make_init_semantics",
   \\ disch_then (assume_tac o GSYM)
   \\ fs [] \\ AP_TERM_TAC \\ fs [state_component_equality]
   \\ fs [spt_eq_thm,wf_fromAList,lookup_fromAList,compile_def]
-  \\ rw [] \\ match_mp_tac ALOOKUP_PREFIX
+  \\ rw []
+  \\ rw[ALOOKUP_APPEND] \\ BasicProvers.CASE_TAC
   \\ simp[prog_comp_lambda,ALOOKUP_MAP_gen]
   \\ simp[ALOOKUP_toAList,lookup_fromAList]);
 
