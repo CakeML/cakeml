@@ -97,8 +97,8 @@ val generalise_list_length = Q.prove (
 `!min start s x.
   LENGTH x = LENGTH (SND (SND (generalise_list min start s (MAP f (MAP SND x)))))`,
 induct_on `x` >>
-rw [generalise_def] >>
-rw [] >>
+srw_tac[] [generalise_def] >>
+srw_tac[] [] >>
 metis_tac [SND]);
 
 val type_name_subst_side_thm = store_thm("type_name_subst_side_thm",
