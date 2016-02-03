@@ -3,56 +3,6 @@ open preamble totoTheory comparisonTheory mlstringTheory
 val _ = temp_tight_equality()
 val _ = new_theory"holSyntaxExtra"
 
-(* TODO: move *)
-val TotOrd_list_cmp = store_thm("TotOrd_list_cmp",
-  ``∀c. TotOrd c ⇒ TotOrd (list_cmp c)``,
-  rw[] >> imp_res_tac list_cmp_ListOrd >> simp[TO_ListOrd])
-
-val StrongLinearOrder_of_TO_TO_of_LinearOrder = store_thm("StrongLinearOrder_of_TO_TO_of_LinearOrder",
-  ``∀R. irreflexive R ⇒ (StrongLinearOrder_of_TO (TO_of_LinearOrder R) = R)``,
-  rw[irreflexive_def] >>
-  rw[FUN_EQ_THM,StrongLinearOrder_of_TO,TO_of_LinearOrder] >>
-  rw[])
-
-val TO_of_LinearOrder_LEX = store_thm("TO_of_LinearOrder_LEX",
-  ``∀R V. irreflexive R ∧ irreflexive V
-    ⇒ TO_of_LinearOrder (R LEX V) = (TO_of_LinearOrder R) lexTO (TO_of_LinearOrder V)``,
-  simp[lexTO,StrongLinearOrder_of_TO_TO_of_LinearOrder])
-
-val TO_of_LinearOrder_LLEX = store_thm("TO_of_LinearOrder_LLEX",
-  ``∀R. irreflexive R ⇒ (TO_of_LinearOrder (LLEX R) = list_cmp (TO_of_LinearOrder R))``,
-  rw[irreflexive_def] >>
-  simp[FUN_EQ_THM] >>
-  Induct >- (
-    Cases >> simp[list_cmp_def,TO_of_LinearOrder] ) >>
-  gen_tac >> Cases >>
-  simp[list_cmp_def,TO_of_LinearOrder] >>
-  pop_assum(assume_tac o GSYM) >> simp[] >>
-  rw[TO_of_LinearOrder] >> fs[] >> rfs[])
-
-val LLEX_EL_THM = store_thm("LLEX_EL_THM",
-  ``!R l1 l2. LLEX R l1 l2 <=>
-              ∃n. n <= LENGTH l1 /\ n < LENGTH l2 /\
-                  TAKE n l1 = TAKE n l2 /\
-                  (n < LENGTH l1 ==> R (EL n l1) (EL n l2))``,
-  GEN_TAC THEN Induct THEN Cases_on`l2` THEN SRW_TAC[][] THEN
-  SRW_TAC[][EQ_IMP_THM] THEN1 (
-    Q.EXISTS_TAC`0` THEN SRW_TAC[][] )
-  THEN1 (
-    Q.EXISTS_TAC`SUC n` THEN SRW_TAC[][] ) THEN
-  Cases_on`n` THEN FULL_SIMP_TAC(srw_ss())[] THEN
-  METIS_TAC[])
-
-local open pred_setTheory in
-val SUM_SET_IN_LT = store_thm("SUM_SET_IN_LT",
-  ``∀s x y. FINITE s ∧ x ∈ s ∧ y < x ⇒ y < SUM_SET s``,
-  simp[GSYM AND_IMP_INTRO,RIGHT_FORALL_IMP_THM] >>
-  ho_match_mp_tac FINITE_INDUCT >> simp[] >>
-  simp[SUM_SET_THM] >> rw[] >> simp[] >>
-  res_tac >> simp[SUM_SET_DELETE])
-end
-(* -- *)
-
 val type_ind = save_thm("type_ind",
   TypeBase.induction_of``:holSyntax$type``
   |> Q.SPECL[`P`,`EVERY P`]
