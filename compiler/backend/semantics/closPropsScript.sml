@@ -16,6 +16,10 @@ val revdroprev = Q.store_thm("revdroprev",
   simp[]);
 (* -- *)
 
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `(s:'ffi closSem$state) with clock := s.clock = s`,
+  rw[closSemTheory.state_component_equality])
+
 val dec_clock_code = Q.store_thm("dec_clock_code",
   `(dec_clock x y).code = y.code`,
   EVAL_TAC);

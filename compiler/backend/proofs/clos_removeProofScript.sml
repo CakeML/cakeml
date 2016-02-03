@@ -594,7 +594,7 @@ val unused_vars_correct = Q.store_thm(
                 >- (first_x_assum
                       (qspecl_then [`[e1]`, `env1`, `env2`, `s11`, `s21`,
                                     `kis`, `i`] mp_tac) >> simp[exp_size_def] >>
-                    fs[]) >>
+                    fs[] >> rveq >> simp[]) >>
                 `s21.clock < i` by simp[] >>
                 first_x_assum
                   (qspecl_then [`s21.clock`, `[e1]`, `env1`, `env2`, `s11`,
@@ -617,7 +617,7 @@ val unused_vars_correct = Q.store_thm(
             >- (first_x_assum
                   (qspecl_then [`[E]`, `env1`, `env2`, `s11`, `s21`,
                                 `kis`, `i`] mp_tac) >> simp[exp_size_def] >>
-                fs[]) >>
+                fs[] >> rveq >> simp[]) >>
             `s21.clock < i` by simp[] >>
             first_x_assum
               (qspecl_then [`s21.clock`, `[E]`, `env1`, `env2`, `s11`,

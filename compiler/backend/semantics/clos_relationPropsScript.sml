@@ -417,6 +417,7 @@ val app_combine = Q.store_thm ("app_combine",
    `s2.clock ≤ (s with clock := i').clock` by metis_tac [evaluate_clock] >>
    fs [] >>
    unabbrev_all_tac >>
+   ONCE_REWRITE_TAC[Once(GSYM with_same_clock)] >>
    first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
    qexists_tac `s2.clock` >>
    rw [] >>
@@ -443,6 +444,7 @@ val app_combine = Q.store_thm ("app_combine",
    `s1.clock ≤ s2.clock` by metis_tac [evaluate_clock] >>
    fs [] >>
    unabbrev_all_tac >>
+   ONCE_REWRITE_TAC[Once(GSYM with_same_clock)] >>
    first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
    qexists_tac `s1.clock` >>
    rw [] >>
