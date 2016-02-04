@@ -81,11 +81,8 @@ val heap_lookup_APPEND1 = prove(
   ``∀h1 z h2.
     heap_length h1 ≤ z ⇒
     (heap_lookup z (h1 ++ h2) = heap_lookup (z - heap_length h1) h2)``,
-  Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >- (
-    Cases_on`h`>>fs[el_length_def] )
-  >- (
-    fsrw_tac[ARITH_ss][] ) >>
-  simp[])
+  Induct >>fs[heap_lookup_def,heap_length_def] >> rw[] >>
+  Cases_on`h`>>fs[el_length_def] );
 
 val heap_lookup_APPEND2 = prove(
   ``∀h1 z h2.
