@@ -18,8 +18,6 @@ val _ = EVAL``partial_app_tag = closure_tag`` |> EQF_ELIM
 val _ = EVAL``clos_tag_shift nil_tag = nil_tag`` |> EQT_ELIM
   |> curry save_thm"clos_tag_shift_nil_tag[simp]";
 val _ = EVAL``clos_tag_shift cons_tag = cons_tag`` |> EQT_ELIM
-  |> curry save_thm"clos_tag_shift_eq_tag[simp]";
-val _ = EVAL``clos_tag_shift eq_tag = eq_tag`` |> EQT_ELIM
   |> curry save_thm"clos_tag_shift_cons_tag[simp]";
 val clos_tag_shift_inj = Q.store_thm("clos_tag_shift_inj",
   `clos_tag_shift n1 = clos_tag_shift n2 ⇒ n1 = n2`,
@@ -217,13 +215,10 @@ val ToList_code_def = Define`
          [Var 1; Var 0; Op (Cons cons_tag)
                            [Var 3; mk_el (Var 1) (Var 0)]])))`;
 
-val RaiseEq_def = Define`
-  RaiseEq = Raise (Op (Cons eq_tag) [])`;
-
 val check_closure_def = Define`
   check_closure v e =
-    If (Op (TagEq closure_tag) [Var v]) RaiseEq
-      (If (Op (TagEq partial_app_tag) [Var v]) RaiseEq e)`;
+    If (Op (TagEq closure_tag) [Var v]) (Bool T)
+      (If (Op (TagEq partial_app_tag) [Var v]) (Bool T) e)`;
 
 val equality_code_def = Define`
   equality_code = (2:num,

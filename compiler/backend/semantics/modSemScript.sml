@@ -80,13 +80,13 @@ val do_eq_def = tDefine"do_eq"`
    else
      Eq_val F)
   ∧
-  (do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure)
+  (do_eq (Closure _ _ _) (Closure _ _ _) = Eq_val T)
   ∧
-  (do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure)
+  (do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_val T)
   ∧
-  (do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure)
+  (do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val T)
   ∧
-  (do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure)
+  (do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val T)
   ∧
   (do_eq _ _ = Eq_type_error)
   ∧
@@ -94,7 +94,6 @@ val do_eq_def = tDefine"do_eq"`
   ∧
   (do_eq_list (v1::vs1) (v2::vs2) =
    (case do_eq v1 v2 of
-    | Eq_closure => Eq_closure
     | Eq_type_error => Eq_type_error
     | Eq_val r =>
       if r then
@@ -174,7 +173,6 @@ val do_app_def = Define `
   | (Equality, [v1; v2]) =>
     (case do_eq v1 v2 of
      | Eq_type_error => NONE
-     | Eq_closure => SOME ((s,t), Rerr (Rraise (prim_exn "Eq")))
      | Eq_val b => SOME ((s,t), Rval (Boolv b)))
   | (Opassign, [Loc lnum; v]) =>
     (case store_assign lnum (Refv v) s of

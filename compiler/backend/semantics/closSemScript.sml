@@ -49,7 +49,7 @@ val do_eq_def = tDefine "do_eq" `
                            else Eq_val F
           | Number _ => Eq_type_error
           | RefPtr _ => Eq_type_error
-          | _ => Eq_closure)
+          | _ => Eq_val T)
      | RefPtr i =>
          (case y of
           | RefPtr j => Eq_val (i = j)
@@ -58,7 +58,7 @@ val do_eq_def = tDefine "do_eq" `
          (case y of
           | Number _ => Eq_type_error
           | RefPtr _ => Eq_type_error
-          | _ => Eq_closure)) /\
+          | _ => Eq_val T)) /\
   (do_eq_list [] [] = Eq_val T) /\
   (do_eq_list (x::xs) (y::ys) =
      case do_eq x y of
@@ -159,7 +159,6 @@ val do_app_def = Define `
     | (Equal,[x1;x2]) =>
         (case do_eq x1 x2 of
          | Eq_val b => Rval (Boolv b, s)
-         | Eq_closure => Rerr (Rraise (Block eq_tag []))
          | _ => Error)
     | (Ref,xs) =>
         let ptr = (LEAST ptr. ~(ptr IN FDOM s.refs)) in
