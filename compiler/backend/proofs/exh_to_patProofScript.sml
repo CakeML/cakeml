@@ -7,6 +7,7 @@ val _ = new_theory"exh_to_patProof"
 
 val _ = temp_bring_to_front_overload"pure_op"{Name="pure_op",Thy="exh_to_pat"};
 val _ = temp_bring_to_front_overload"Loc"{Name="Loc",Thy="patSem"};
+val _ = Parse.hide"U";
 
 val pmatch_exh_def = exhSemTheory.pmatch_def
 
