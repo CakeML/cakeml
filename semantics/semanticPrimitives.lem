@@ -281,7 +281,6 @@ declare termination_argument find_recfun = automatic
 
 type eq_result =
   | Eq_val of bool
-  | Eq_closure
   | Eq_type_error
 
 val do_eq : v -> v -> eq_result
@@ -306,13 +305,13 @@ do_eq (Vectorv vs1) (Vectorv vs2) =
   else
     Eq_val false
 and
-do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure
+do_eq (Closure _ _ _) (Closure _ _ _) = Eq_val true
 and
-do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure
+do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
-do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure
+do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_val true
 and
-do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure
+do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_val true
 and
 do_eq _ _ = Eq_type_error
 and
@@ -320,7 +319,6 @@ do_eq_list [] [] = Eq_val true
 and
 do_eq_list (v1::vs1) (v2::vs2) =
   match do_eq v1 v2 with
-    | Eq_closure -> Eq_closure
     | Eq_type_error -> Eq_type_error
     | Eq_val r ->
         if not r then
@@ -430,7 +428,6 @@ let do_app ((s:store v),(t:ffi_state 'ffi)) op vs =
     | (Equality, [v1; v2]) ->
         match do_eq v1 v2 with
           | Eq_type_error -> Nothing
-          | Eq_closure -> Just ((s,t), Rerr (Rraise (prim_exn "Eq")))
           | Eq_val b -> Just ((s,t), Rval (Boolv b))
         end
     | (Opassign, [Loc lnum; v]) ->

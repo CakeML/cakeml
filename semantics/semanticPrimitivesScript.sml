@@ -347,7 +347,6 @@ val _ = Define `
 val _ = Hol_datatype `
  eq_result =
     Eq_val of bool
-  | Eq_closure
   | Eq_type_error`;
 
 
@@ -374,13 +373,13 @@ val _ = Hol_datatype `
   else
     Eq_val F))
 /\
-(do_eq (Closure _ _ _) (Closure _ _ _) = Eq_closure)
+(do_eq (Closure _ _ _) (Closure _ _ _) = (Eq_val T))
 /\
-(do_eq (Closure _ _ _) (Recclosure _ _ _) = Eq_closure)
+(do_eq (Closure _ _ _) (Recclosure _ _ _) = (Eq_val T))
 /\
-(do_eq (Recclosure _ _ _) (Closure _ _ _) = Eq_closure)
+(do_eq (Recclosure _ _ _) (Closure _ _ _) = (Eq_val T))
 /\
-(do_eq (Recclosure _ _ _) (Recclosure _ _ _) = Eq_closure)
+(do_eq (Recclosure _ _ _) (Recclosure _ _ _) = (Eq_val T))
 /\
 (do_eq _ _ = Eq_type_error)
 /\
@@ -388,8 +387,7 @@ val _ = Hol_datatype `
 /\
 (do_eq_list (v1::vs1) (v2::vs2) =  
 ((case do_eq v1 v2 of
-      Eq_closure => Eq_closure
-    | Eq_type_error => Eq_type_error
+      Eq_type_error => Eq_type_error
     | Eq_val r =>
         if ~ r then
           Eq_val F
@@ -522,7 +520,6 @@ val _ = Define `
     | (Equality, [v1; v2]) =>
         (case do_eq v1 v2 of
             Eq_type_error => NONE
-          | Eq_closure => SOME ((s,t), Rerr (Rraise (prim_exn "Eq")))
           | Eq_val b => SOME ((s,t), Rval (Boolv b))
         )
     | (Opassign, [Loc lnum; v]) =>

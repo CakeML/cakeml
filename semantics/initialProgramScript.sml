@@ -39,7 +39,6 @@ val _ = Define `
 ([Tdec (Dexn "Bind" []);
    Tdec (Dexn "Chr" []);
    Tdec (Dexn "Div" []);
-   Tdec (Dexn "Eq" []);
    Tdec (Dexn "Subscript" []);
    Tdec (Dtype [([], "bool", [("true", []); ("false", [])])]);
    Tdec (Dtype [(["'a"], "list", [("nil", []); ("::", [Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]) ])]);
