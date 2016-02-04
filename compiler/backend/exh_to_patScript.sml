@@ -19,51 +19,9 @@ val _ = Define `
      | Con t [] => if t = true_tag then e2 else e3
      | _ => If e1 e2 e3)`;
 
-val fo_def = Define `
-  (fo (Raise _) ⇔ T)
-  ∧
-  (fo (Handle e1 e2) ⇔ fo e1 ∧ fo e2)
-  ∧
-  (fo (Lit _) ⇔ T)
-  ∧
-  (fo (Con _ es) ⇔ fo_list es)
-  ∧
-  (fo (Var_local _) ⇔ F)
-  ∧
-  (fo (Var_global _) ⇔ F)
-  ∧
-  (fo (Fun _) ⇔ F)
-  ∧
-  (fo (App op es) ⇔
-       (op ≠ (Op (Op Opapp))) ∧
-       (op ≠ (Op (Op Opderef))) ∧
-       (op ≠ (Op (Op Asub))) ∧
-   (∀n. op ≠ El n) ∧
-   fo_list es)
-  ∧
-  (fo (If _ e2 e3) ⇔ fo e2 ∧ fo e3)
-  ∧
-  (fo (Let _ e2) ⇔ fo e2)
-  ∧
-  (fo (Seq _ e2) ⇔ fo e2)
-  ∧
-  (fo (Letrec _ e) ⇔ fo e)
-  ∧
-  (fo (Extend_global _) ⇔ T)
-  ∧
-  (fo_list [] ⇔ T)
-  ∧
-  (fo_list (e::es) ⇔ fo e ∧ fo_list es)`;
-
-val fo_list_EVERY = store_thm("fo_list_EVERY",
-  ``∀ls. fo_list ls ⇔ EVERY fo ls``,
-  Induct >> simp[fo_def])
-val _ = export_rewrites["fo_list_EVERY"]
-
 val _ = Define `
   pure_op_op op ⇔
     (op <> Opref) ∧
-    (op <> Equality) ∧
     (op <> Opapp) ∧
     (op <> Opassign) ∧
     (op <> Aw8update) ∧
@@ -102,9 +60,7 @@ val pure_def = Define `
   ∧
   (pure (Fun _) ⇔ T)
   ∧
-  (pure (App op es) ⇔
-   pure_list es ∧
-   (pure_op op ∨ ((op = Op(Op Equality)) ∧ fo_list es)))
+  (pure (App op es) ⇔ pure_list es ∧ pure_op op)
   ∧
   (pure (If e1 e2 e3) ⇔ pure e1 ∧ pure e2 ∧ pure e3)
   ∧
@@ -156,7 +112,7 @@ val ground_def = Define `
   ∧
   (ground_list n (e::es) ⇔ ground n e ∧ ground_list n es)`;
 
-val _ = export_rewrites["fo_def","pure_op_op_def","pure_op_def","pure_def","ground_def"];
+val _ = export_rewrites["pure_op_op_def","pure_op_def","pure_def","ground_def"];
 
 val ground_list_EVERY = store_thm("ground_list_EVERY",
   ``∀n ls. ground_list n ls ⇔ EVERY (ground n) ls``,

@@ -19,7 +19,6 @@ val pure_op_def = Define `
     | RefByte => F
     | RefArray => F
     | UpdateByte => F
-    | Equal => F
     | Ref => F
     | Update => F
     | _ => T

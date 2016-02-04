@@ -78,7 +78,6 @@ in
     [conLangTheory.bind_tag_def
     ,conLangTheory.chr_tag_def
     ,conLangTheory.div_tag_def
-    ,conLangTheory.eq_tag_def
     ,conLangTheory.subscript_tag_def
     ,conLangTheory.true_tag_def
     ,conLangTheory.false_tag_def
@@ -225,7 +224,6 @@ in
     ,clos_to_bvlTheory.block_equality_code_def
     ,clos_to_bvlTheory.equality_code_def
     ,clos_to_bvlTheory.check_closure_def
-    ,clos_to_bvlTheory.RaiseEq_def
     ,clos_to_bvlTheory.ToList_code_def
     ,clos_to_bvlTheory.generate_partial_app_closure_fn_def
     ,clos_to_bvlTheory.generate_generic_app_def
