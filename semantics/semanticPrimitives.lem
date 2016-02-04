@@ -279,21 +279,6 @@ let rec find_recfun n funs =
 
 declare termination_argument find_recfun = automatic
 
-(* Check whether a value contains a closure, but don't indirect through the store *)
-val contains_closure : v -> bool
-let rec
-contains_closure (Litv l) = false
-and
-contains_closure (Conv cn vs) = List.any contains_closure vs
-and
-contains_closure (Closure env n e) = true
-and
-contains_closure (Recclosure env funs n) = true
-and
-contains_closure (Loc n) = false
-and
-contains_closure (Vectorv vs) = List.any contains_closure vs
-
 type eq_result =
   | Eq_val of bool
   | Eq_closure

@@ -282,15 +282,6 @@ val EqualityType_NUM_BOOL = store_thm("EqualityType_NUM_BOOL",
     stringTheory.ORD_11,mlstringTheory.explode_11]
   \\ SRW_TAC [] [] \\ EVAL_TAC);
 
-val no_closures_IMP_NOT_contains_closure = store_thm(
-   "no_closures_IMP_NOT_contains_closure",
-  ``!res. no_closures res ==> ~contains_closure res``,
-  HO_MATCH_MP_TAC contains_closure_ind
-  \\ SIMP_TAC std_ss [no_closures_def,EVERY_MEM,contains_closure_def,
-       EXISTS_MEM] \\ REPEAT STRIP_TAC
-  \\ SIMP_TAC std_ss [METIS_PROVE [] ``~b \/ c <=> (b ==> c)``]
-  \\ REPEAT STRIP_TAC \\ RES_TAC);
-
 val types_match_list_length = prove(
   ``!vs1 vs2. types_match_list vs1 vs2 ==> LENGTH vs1 = LENGTH vs2``,
   Induct \\ Cases_on`vs2` \\ rw[types_match_def])

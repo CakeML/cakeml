@@ -344,24 +344,6 @@ val _ = Define `
   )))`;
 
 
-(* Check whether a value contains a closure, but don't indirect through the store *)
-(*val contains_closure : v -> bool*)
- val contains_closure_defn = Hol_defn "contains_closure" `
-
-(contains_closure (Litv l) = F)
-/\
-(contains_closure (Conv cn vs) = (EXISTS contains_closure vs))
-/\
-(contains_closure (Closure env n e) = T)
-/\
-(contains_closure (Recclosure env funs n) = T)
-/\
-(contains_closure (Loc n) = F)
-/\
-(contains_closure (Vectorv vs) = (EXISTS contains_closure vs))`;
-
-val _ = Lib.with_flag (computeLib.auto_import_definitions, false) Defn.save_defn contains_closure_defn;
-
 val _ = Hol_datatype `
  eq_result =
     Eq_val of bool
