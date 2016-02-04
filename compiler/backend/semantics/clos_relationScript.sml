@@ -991,33 +991,28 @@ val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
   LIST_REL (val_rel (:'ffi) i) vs2 vs2'
   ⇒
   do_eq_list vs1 vs2 = do_eq_list vs1' vs2')`,
- ho_match_mp_tac do_eq_ind >>
- rw [do_eq_def] >>
- rw [do_eq_def]
+ ho_match_mp_tac do_eq_ind
+ \\ conj_tac
  >- (
-   every_case_tac >>
-   fs [val_rel_rw, is_closure_def] >>
-   metis_tac [LIST_REL_LENGTH])
+   simp[PULL_FORALL]
+   \\ rpt gen_tac \\ strip_tac
+   \\ strip_tac
+   \\ Cases_on`v1`\\Cases_on`v1'`\\fs[val_rel_rw,is_closure_def]
+   \\ rw[do_eq_def]
+   \\ every_case_tac \\ fs[val_rel_rw,is_closure_def]
+   \\ metis_tac[LIST_REL_LENGTH] )
+ \\ conj_tac >- rw[do_eq_def]
+ \\ conj_tac
  >- (
-   Cases_on `v1` >>
-   Cases_on `y` >>
-   fs [val_rel_rw, is_closure_def] >>
-   Cases_on `v2` >>
-   Cases_on `y'` >>
-   fs [val_rel_rw, is_closure_def]
-   >- metis_tac [LIST_REL_LENGTH]
-   >- (
-     rw []
-     >- (
-       fs [] >>
-       first_x_assum (qspecl_then [`i`, `Block n l'`, `Block n l'''`] mp_tac) >>
-       simp [val_rel_rw] >>
-       rw [] >>
-       every_case_tac >>
-       rw [] >>
-       metis_tac [LIST_REL_LENGTH]) >>
-     metis_tac [LIST_REL_LENGTH])
-   >- metis_tac [LIST_REL_LENGTH]));
+   simp[PULL_FORALL]
+   \\ rpt gen_tac \\ strip_tac
+   \\ strip_tac \\ rveq
+   \\ simp[Once do_eq_def]
+   \\ simp[Once do_eq_def,SimpRHS]
+   \\ every_case_tac \\ fs[val_rel_rw,is_closure_def]
+   \\ metis_tac[LIST_REL_LENGTH,semanticPrimitivesTheory.eq_result_11,semanticPrimitivesTheory.eq_result_distinct] )
+ \\ rw[do_eq_def]
+ \\ rw[do_eq_def]);
 
 val get_global_state_rel = Q.store_thm ("get_global_state_rel",
 `!i (s : 'ffi closSem$state) s'.

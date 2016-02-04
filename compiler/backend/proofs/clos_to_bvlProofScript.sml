@@ -1155,7 +1155,7 @@ val do_eq_def = tDefine"do_eq"`
   (do_eq _ (RefPtr _) = Eq_type_error) ∧
   (do_eq (Block t1 l1) (Block t2 l2) =
    if (t1 = closure_tag) ∨ (t2 = closure_tag) ∨ (t1 = partial_app_tag) ∨ (t2 = partial_app_tag)
-   then Eq_closure
+   then Eq_val T
    else if (t1 = t2) ∧ (LENGTH l1 = LENGTH l2)
         then do_eq_list l1 l2
         else Eq_val F) ∧
@@ -1206,13 +1206,6 @@ val do_eq = prove(
 
 val do_eq_ind = theorem"do_eq_ind";
 
-val do_eq_imp_T = Q.prove(
-  `(∀x y. do_eq x y = Eq_val T ⇒ x = y) ∧
-   (∀x y. do_eq_list x y = Eq_val T ⇒ x = y)`,
-  ho_match_mp_tac do_eq_ind >> simp[] >>
-  rw[] >> fs[] >>
-  every_case_tac >> fs[])
-
 val do_eq_sym = Q.prove(
   `(∀x y. do_eq x y = do_eq y x) ∧
    (∀x y. do_eq_list x y = do_eq_list y x)`,
@@ -1225,6 +1218,13 @@ val do_eq_sym = Q.prove(
     rw[] >> fs[] ) >>
   rw[] >>
   every_case_tac >> fs[])
+
+val do_eq_list_T_every = Q.store_thm("do_eq_list_T_every",
+  `∀vs1 vs2. do_eq_list vs1 vs2 = Eq_val T ⇔ LIST_REL (λv1 v2. do_eq v1 v2 = Eq_val T) vs1 vs2`,
+  Induct \\ simp[do_eq_def]
+  \\ Cases_on`vs2`\\ simp[do_eq_def]
+  \\ rw[]
+  \\ every_case_tac \\  fs[]);
 
 (* correctness of implemented primitives *)
 
@@ -1252,7 +1252,6 @@ val ToList = Q.prove(
 
 val eq_res_def = Define`
   eq_res (Eq_val b) = Rval [bvlSem$Boolv b] ∧
-  eq_res Eq_closure = Rerr (Rraise (bvlSem$Block eq_tag[])) ∧
   eq_res _ = Rerr (Rabort Rtype_error)`;
 val _ = export_rewrites["eq_res_def"];
 
@@ -1266,10 +1265,10 @@ val evaluate_check_closure = Q.prove(
    ⇒
    evaluate ([check_closure n e],env,s) =
    if t = closure_tag ∨ t = partial_app_tag then
-     (eq_res Eq_closure,s)
+     (eq_res (Eq_val T),s)
    else
      evaluate ([e],env,s)`,
-  rw[check_closure_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def,RaiseEq_def] >>
+  rw[check_closure_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
   fs[])
 
 val s = ``s:'ffi bvlSem$state``
@@ -1282,17 +1281,18 @@ val equality = Q.prove(
      ∃ck.
      evaluate ([SND equality_code], [v1;v2], inc_clock ck s)
        = (eq_res (do_eq v1 v2),s)) ∧
-   (∀v1 v2 t vs ^s.
+   (∀v1 v2 t vs1 vs2 ^s.
      lookup equality_location s.code = SOME equality_code ∧
      lookup block_equality_location s.code = SOME block_equality_code ∧
+     (do_eq_list vs1 vs2 = Eq_val T) ∧
      (do_eq_list v1 v2 ≠ Eq_type_error) ∧
      LENGTH v1 = LENGTH v2 ⇒
      ∃ck.
      evaluate ([SND block_equality_code],
-               [Block t (vs++v1);
-                Block t (vs++v2);
-                Number(&LENGTH (vs++v1));
-                Number(&LENGTH vs)],
+               [Block t (vs1++v1);
+                Block t (vs2++v2);
+                Number(&LENGTH (vs1++v1));
+                Number(&LENGTH vs2)],
                inc_clock ck s)
        = (eq_res (do_eq_list v1 v2),s))`,
   ho_match_mp_tac do_eq_ind >> simp[] >>
@@ -1330,7 +1330,7 @@ val equality = Q.prove(
     simp[find_code_def] >>
     `block_equality_code = (4,SND block_equality_code)` by simp[block_equality_code_def] >>
     pop_assum SUBST1_TAC >> simp[] >>
-    first_x_assum(qspecl_then[`t1`,`[]`,`s`]mp_tac) >>
+    first_x_assum(qspecl_then[`t1`,`[]`,`[]`,`s`]mp_tac) >>
     discharge_hyps >- simp[] >> strip_tac >>
     qexists_tac`ck+1` >>
     fs[dec_clock_def,inc_clock_def]>>
@@ -1338,7 +1338,9 @@ val equality = Q.prove(
   conj_tac >- (
     rw[] >>
     simp[block_equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
-    qexists_tac`0`>>simp[]) >>
+    qexists_tac`0`>>simp[]
+    \\ imp_res_tac do_eq_list_T_every
+    \\ fs[LIST_REL_EL_EQN]) >>
   rw[] >>
   simp[block_equality_code_def,bvlSemTheory.evaluate_def,bvlSemTheory.do_app_def] >>
   simp[find_code_def] >>
@@ -1349,17 +1351,25 @@ val equality = Q.prove(
   discharge_hyps >- (
     simp[] >> spose_not_then strip_assume_tac >> fs[] ) >>
   strip_tac >>
-  reverse(Cases_on`do_eq v1 v2`)>>fs[]>-(
-    qexists_tac`ck+1`>>simp[dec_clock_def,inc_clock_def] >>
-    fsrw_tac[ARITH_ss][inc_clock_def] ) >>
+  reverse(Cases_on`do_eq v1 v2`)>>fs[]>>
   reverse(Cases_on`b`) >> fs[] >- (
     qexists_tac`ck+1`>>simp[dec_clock_def,inc_clock_def] >>
-    fsrw_tac[ARITH_ss][inc_clock_def] ) >>
-  imp_res_tac do_eq_imp_T >>
-  first_x_assum(qspecl_then[`t`,`vs++[v1]`,`s`]mp_tac) >>
-  discharge_hyps >- ( simp[inc_clock_def] ) >> strip_tac >>
+    fsrw_tac[ARITH_ss][inc_clock_def]>>
+    imp_res_tac do_eq_list_T_every >>
+    fsrw_tac[ARITH_ss][LIST_REL_EL_EQN]
+    \\ simp[EL_APPEND2]
+    \\ `equality_code = (2,SND equality_code)` by simp[equality_code_def]
+    \\ pop_assum SUBST1_TAC \\ simp[]) >>
+  first_x_assum(qspecl_then[`t`,`vs1++[v1]`,`vs2++[v2]`,`s`]mp_tac) >>
+  discharge_hyps >- (
+    simp[inc_clock_def]
+    \\ fs[do_eq_list_T_every]) >> strip_tac >>
   qexists_tac`ck+1+ck'+1` >>
+  `LENGTH vs1 = LENGTH vs2` by metis_tac[do_eq_list_T_every,LIST_REL_LENGTH] >>
   simp[inc_clock_def,dec_clock_def] >>
+  `equality_code = (2,SND equality_code)` by simp[equality_code_def] >>
+  pop_assum SUBST1_TAC \\ simp[] >>
+  simp[EL_APPEND2] >>
   imp_res_tac evaluate_add_clock >>fs[] >>
   first_x_assum(qspec_then`ck'+1`mp_tac) >>
   simp[inc_clock_def] >> disch_then kall_tac >>
@@ -1368,6 +1378,7 @@ val equality = Q.prove(
   simp[ADD1] >>
   fsrw_tac[ARITH_ss][inc_clock_def] >>
   `1 + &LENGTH vs = &(LENGTH vs + 1)` by ARITH_TAC >>
+  fsrw_tac[ARITH_ss][integerTheory.INT_ADD] >>
   metis_tac[CONS_APPEND,APPEND_ASSOC])
 
 (* compiler correctness *)

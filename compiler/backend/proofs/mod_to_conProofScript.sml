@@ -13,8 +13,7 @@ val has_exns_def = Define `
     FLOOKUP gtagenv ("Subscript", TypeExn (Short "Subscript")) = SOME (subscript_tag,0:num) ∧
     FLOOKUP gtagenv ("Bind", TypeExn (Short "Bind")) = SOME (bind_tag,0) ∧
     FLOOKUP gtagenv ("Chr", TypeExn (Short "Chr")) = SOME (chr_tag,0) ∧
-    FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0) ∧
-    FLOOKUP gtagenv ("Eq", TypeExn (Short "Eq")) = SOME (eq_tag,0)`;
+    FLOOKUP gtagenv ("Div", TypeExn (Short "Div")) = SOME (div_tag,0)`;
 
 val has_lists_def = Define `
   has_lists gtagenv ⇔

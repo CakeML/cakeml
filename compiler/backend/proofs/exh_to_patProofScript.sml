@@ -247,55 +247,6 @@ val s = mk_var("s",
   ``patSem$evaluate`` |> type_of |> strip_fun |> #1 |> el 2
   |> type_subst[alpha |-> ``:'ffi``])
 
-val fo_correct = prove(
-  ``(∀e. fo e ⇒
-       ∀env ^s s' v.
-         evaluate env s [e] = (s',Rval v) ⇒
-         EVERY no_closures v) ∧
-    (∀es. fo_list es ⇒
-       ∀env ^s s' vs.
-         (evaluate env s es = (s',Rval vs) ∨
-          evaluate env s (REVERSE es) = (s',Rval vs)) ⇒
-         EVERY no_closures vs)``,
-  ho_match_mp_tac(TypeBase.induction_of(``:patLang$exp``))>>
-  rw[patSemTheory.evaluate_def] >> fs[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  res_tac >> fs[ETA_AX,EVERY_REVERSE]
-  >- (
-    imp_res_tac patSemTheory.do_app_cases >>
-    fs[patSemTheory.do_app_def] >> rw[] >>
-    every_case_tac >>
-    fs[LET_THM,
-       semanticPrimitivesTheory.store_alloc_def,
-       semanticPrimitivesTheory.store_assign_def,
-       semanticPrimitivesTheory.store_lookup_def] >>
-    rw[] >>
-    every_case_tac >> fs[] >> rw[char_list_to_v_no_closures] >>
-    TRY (
-      fs[Once SWAP_REVERSE_SYM] >> rw[] >>
-      fs[EVERY_MEM,MEM_EL,PULL_EXISTS] >>
-      first_x_assum(match_mp_tac) >>
-      simp[] >> NO_TAC) >>
-    metis_tac[v_to_list_no_closures] )
-  >- (
-    fs[patSemTheory.do_if_def]>>
-    every_case_tac >> fs[] >>
-    metis_tac[] )
-  >>
-  pop_assum mp_tac >>
-  ONCE_REWRITE_TAC[CONS_APPEND] >>
-  strip_tac >>
-  imp_res_tac evaluate_append_Rval >>
-  fs[] >> metis_tac[EVERY_APPEND])
-  |> SIMP_RULE (srw_ss())[];
-
-val do_eq_no_closures = store_thm("do_eq_no_closures",
-  ``(∀v1 v2. no_closures v1 ∧ no_closures v2 ⇒ do_eq v1 v2 ≠ Eq_closure) ∧
-    (∀vs1 vs2. EVERY no_closures vs1 ∧ EVERY no_closures vs2 ⇒ do_eq_list vs1 vs2 ≠ Eq_closure)``,
-  ho_match_mp_tac patSemTheory.do_eq_ind >>
-  rw[patSemTheory.do_eq_def,ETA_AX] >> fs[] >>
-  BasicProvers.CASE_TAC >> rw[] >> fs[])
-
 val lemmas =
   [PAIR_EQ,
    semanticPrimitivesTheory.result_distinct,
@@ -324,19 +275,6 @@ val pure_correct = Q.store_thm("pure_correct",
     rfs[]>>rw[] >>
     first_x_assum(qspecl_then[`env`,`s`]mp_tac)>>rw[] >>
     every_case_tac >> fs[] >> rw[] >>
-    NO_TAC) >>
-  TRY (
-    qcase_tac`Op (Op Equality)` >>
-    fs[patSemTheory.do_app_def] >>
-    imp_res_tac fo_correct >>
-    Cases_on`REVERSE a`>>fs[]>>
-    fs[SWAP_REVERSE_SYM] >> rw[] >>
-    Cases_on`t`>>fs[]>>
-    reverse(Cases_on`t'`)>>fs[]>- (
-      every_case_tac >> fs[] ) >>
-    imp_res_tac do_eq_no_closures >>
-    every_case_tac >> fs[] >> rw[] >>
-    last_x_assum(qspecl_then[`env`,`s`]mp_tac)>>rw[] >>
     NO_TAC) >>
   TRY (
     qcase_tac`do_if (HD vs) e1 e2 = SOME ee` >>
@@ -1579,15 +1517,6 @@ val exp_rel_sIf = store_thm("exp_rel_sIf",
     pop_assum mp_tac >> simp[Once exp_rel_cases]) >>
   simp[Once exp_rel_cases])
 
-val exp_rel_fo = store_thm("exp_rel_fo",
-  ``∀z1 z2 V e1 e2. exp_rel z1 z2 V e1 e2 ⇒
-      (fo e1 ⇔ fo e2)``,
-  ho_match_mp_tac exp_rel_ind >>
-  simp[fo_def] >>
-  rw[EVERY_MEM,EVERY2_EVERY,EQ_IMP_THM] >>
-  rfs[MEM_ZIP,PULL_EXISTS] >>
-  rfs[MEM_EL,PULL_EXISTS] )
-
 val exp_rel_pure = store_thm("exp_rel_pure",
   ``∀z1 z2 V e1 e2. exp_rel z1 z2 V e1 e2 ⇒
     (pure e1 ⇔ pure e2)``,
@@ -1596,8 +1525,7 @@ val exp_rel_pure = store_thm("exp_rel_pure",
   rw[EVERY_MEM,EVERY2_EVERY,EQ_IMP_THM] >>
   rfs[MEM_ZIP,PULL_EXISTS] >>
   rfs[MEM_EL,PULL_EXISTS] >>
-  fs[] >> imp_res_tac exp_rel_fo >> rw[] >>
-  metis_tac[exp_rel_fo])
+  fs[] >> rw[] >> metis_tac[])
 
 val exp_rel_imp_ground = store_thm("exp_rel_imp_ground",
   ``∀z1 z2 V e1 e2. exp_rel z1 z2 V e1 e2 ⇒
