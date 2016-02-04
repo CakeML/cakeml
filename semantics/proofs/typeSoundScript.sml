@@ -846,14 +846,13 @@ val type_v_exn = SIMP_RULE (srw_ss()) [] (Q.prove (
   type_v tvs cenv senv (Conv (SOME ("Chr",TypeExn (Short "Chr"))) []) Texn ∧
   type_v tvs cenv senv (Conv (SOME ("Subscript",TypeExn (Short "Subscript"))) []) Texn ∧
   type_v tvs cenv senv (Conv (SOME ("Bind",TypeExn (Short "Bind"))) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME ("Div",TypeExn (Short "Div"))) []) Texn ∧
-  type_v tvs cenv senv (Conv (SOME ("Eq",TypeExn (Short "Eq"))) []) Texn`,
+  type_v tvs cenv senv (Conv (SOME ("Div",TypeExn (Short "Div"))) []) Texn`,
  ONCE_REWRITE_TAC [type_v_cases] >>
  rw [ctMap_has_exns_def, tid_exn_to_tc_def] >>
  metis_tac [type_v_rules]));
 
 val exn_tenvC_def = Define `
-exn_tenvC = ([],MAP (λcn. (cn,[],[],TypeExn (Short cn))) ["Bind"; "Div"; "Eq"])`;
+exn_tenvC = ([],MAP (λcn. (cn,[],[],TypeExn (Short cn))) ["Bind"; "Div"])`;
 
 val do_app_exn_tac =
  rw [Once context_invariant_cases, Once type_ctxts_cases, type_ctxt_cases] >>
@@ -1279,7 +1278,6 @@ val exp_type_preservation = Q.prove (
                  fs [] >>
                  metis_tac [bind_tvar_def, type_recfun_env, type_env_merge]))
          >- ( metis_tac [type_v_Boolv])
-         >- do_app_exn_tac
          >- (rw [Once type_v_cases_eqn] >>
              disj1_tac >>
              simp[PULL_EXISTS] >>
