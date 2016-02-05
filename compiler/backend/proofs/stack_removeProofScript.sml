@@ -127,6 +127,7 @@ val state_rel_def = Define `
        n < k ==>
        FLOOKUP s2.regs n = FLOOKUP s1.regs n) /\
     code_rel k s1.code s2.code /\
+    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
     FLOOKUP s2.regs (k+2) = FLOOKUP s1.store CurrHeap /\
     {k;k+1;k+2} SUBSET s2.ffi_save_regs /\
     is_SOME_Word (FLOOKUP s1.store BitmapBase) /\
@@ -150,6 +151,12 @@ val state_rel_get_var = prove(
 val state_rel_IMP = prove(
   ``state_rel k s t1 ==>
     state_rel k (dec_clock s) (dec_clock t1)``,
+  rw [] \\ fs [state_rel_def,dec_clock_def,empty_env_def] \\ rfs [] \\ fs []
+  \\ rw [] \\ res_tac \\ fs [])
+
+val state_rel_with_clock = prove(
+  ``state_rel k s t1 ==>
+    state_rel k (s with clock := c) (t1 with clock := c)``,
   rw [] \\ fs [state_rel_def,dec_clock_def,empty_env_def] \\ rfs [] \\ fs []
   \\ rw [] \\ res_tac \\ fs [])
 
@@ -308,24 +315,23 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   \\ `cc < c ⇔ s.stack_space < n`
   by (
     simp[Abbr`cc`,word_offset_def,bytes_in_word_def,word_mul_n2w,word_add_n2w]
-    \\ ONCE_REWRITE_TAC[WORD_SUB_INTRO]
-    \\ REWRITE_TAC[WORD_MULT_CLAUSES]
-    \\ ONCE_REWRITE_TAC[GSYM WORD_ADD_SUB_SYM]
-    \\ ONCE_REWRITE_TAC[WORD_ADD_SUB_ASSOC]
-    \\ REWRITE_TAC[GSYM word_mul_n2w]
-    \\ REWRITE_TAC[GSYM WORD_RIGHT_SUB_DISTRIB]
+    \\ Cases_on`c` \\ fs[]
+    \\ qpat_abbrev_tac`d = _ DIV 8`
+    \\ REWRITE_TAC[
+         wordsLib.WORD_DECIDE ``w + -1w * v + t = w + t - v``,
+         word_add_n2w]
     \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
     \\ IF_CASES_TAC \\ simp_tac bool_ss []
-    >- (
-      REWRITE_TAC[GSYM WORD_NEG_LMUL]
-      \\ REWRITE_TAC[WORD_SUB_INTRO]
-      \\ match_mp_tac WORD_LT_SUB_UPPER
-      \\ cheat (* word arith... *) )
     \\ cheat (* word arith... *))
   \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
   >- (
-    cheat (* run stack_err_lab *) )
+    rw[find_code_def]
+    \\ rator_x_assum`state_rel`mp_tac
+    \\ simp[Once state_rel_def]
+    \\ strip_tac
+    \\ simp[halt_inst_def,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,dec_clock_def,get_var_def,FLOOKUP_UPDATE]
+    \\ cheat (* need to be able to add to the clock *) )
   \\ rveq
   \\ fs[state_rel_def]
   \\ simp[FLOOKUP_UPDATE]
