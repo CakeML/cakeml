@@ -449,19 +449,18 @@ val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
      state_rel k s1 t1 /\ good_syntax p k ==>
-     ?r2 t2. evaluate (comp k p,t1) = (r2,t2) /\
-             (case r2 of
-               | SOME (Halt _) =>
-                   t2.ffi.io_events ≼ s2.ffi.io_events ∧
-                   (IS_SOME t2.ffi.final_event ⇒ t2.ffi = s2.ffi)
-               | SOME TimeOut => r2 = r /\ t2.ffi = s2.ffi
-               | _ =>  (r2 = r /\ state_rel k s2 t2))`,
+     ?t2. evaluate (comp k p,t1) = (r,t2) /\
+             (case r of
+               | SOME (Halt _) => t2.ffi = s2.ffi
+               | SOME TimeOut => t2.ffi = s2.ffi
+               | _ =>  (state_rel k s2 t2))`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
   THEN1
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ every_case_tac \\ rw [] \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ rw [] \\ fs []
+    \\ BasicProvers.TOP_CASE_TAC \\ rw [] \\ fs []
     \\ fs[state_rel_def])
   THEN1 (fs [comp_def,evaluate_def] \\ fs [state_rel_def])
   THEN1 (
@@ -534,17 +533,24 @@ val comp_correct = Q.prove(
       \\ pop_assum mp_tac >> CASE_TAC
       \\ rpt var_eq_tac >> fs[] )
     \\ first_x_assum drule >> simp[] >> strip_tac
-    \\ Cases_on `r2` \\ fs [] \\ rw []
+    \\ Cases_on `r` \\ fs [] \\ rw []
     \\ Cases_on`x`>>fs[]>>rw[]>>fs[]
     \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS])
   THEN1 (* Return *)
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ every_case_tac \\ rw [] \\ fs [])
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[])
   THEN1 (* Raise *)
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ every_case_tac \\ rw [] \\ fs [])
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[])
   THEN1 (* If *)
    (fs [] \\ simp [Once comp_def]
     \\ fs [evaluate_def,good_syntax_def]
@@ -676,7 +682,6 @@ val comp_correct = Q.prove(
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
     \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []
-    \\ qexists_tac `NONE` \\ fs []
     \\ fs [comp_def,list_Seq_def,stackSemTheory.evaluate_def]
     \\ `?ww. FLOOKUP s.store BitmapBase = SOME (Word ww)` by
      (fs [state_rel_def] \\ Cases_on `FLOOKUP s.store BitmapBase`
