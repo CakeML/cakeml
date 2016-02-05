@@ -141,15 +141,15 @@ val stack_free_def = Define `
     f - stack_arg_count dest arg_count k`
 
 val stack_move_def = Define `
-  (stack_move 0 k1 k2 i p = p) /\
-  (stack_move (SUC n) k1 k2 i p =
-     Seq (stack_move n (k1+1) (k2+1) i p)
-         (Seq (StackLoad i k1) (StackStore i k2)))`
+  (stack_move 0 start offset i p = p) /\
+  (stack_move (SUC n) start offset i p =
+     Seq (stack_move n (start+1) offset i p)
+         (Seq (StackLoad i (start+offset)) (StackStore i start)))`
 
 val StackArgs_def = Define `
   StackArgs dest arg_count (k,f,f':num) =
     let n = stack_arg_count dest arg_count k in
-      stack_move n f 0 k (StackAlloc n)`
+      stack_move n 0 f k (StackAlloc n)`
 
 val StackHandlerArgs_def = Define `
   StackHandlerArgs dest arg_count (k,f,f':num) =
