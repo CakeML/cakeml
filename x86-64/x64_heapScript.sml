@@ -9058,7 +9058,6 @@ gg goal
     \\ FULL_SIMP_TAC std_ss [LET_DEF,SEP_CLAUSES]
     \\ SIMP_TAC std_ss [zHEAP_def,SEP_IMP_def,SEP_CLAUSES,SEP_EXISTS_THM]
     \\ SIMP_TAC std_ss [PULL_EXISTS,PULL_FORALL] \\ REPEAT STRIP_TAC
-    THEN1 DECIDE_TAC
     \\ SIMP_TAC std_ss [PULL_IMP_EXISTS,PULL_EXISTS]
     \\ Q.EXISTS_TAC `vals with <| reg14 := n2w n << 4 + vals.reg0 << 14 ;
                                   reg15 := vals.reg0 << 14 |>`
@@ -11513,7 +11512,7 @@ val bc_value_inv_Unused = prove(
     \\ METIS_TAC [])
   \\ Q.PAT_ASSUM `xxx = SOME (BlockRep n xs)` (fn th => fs [GSYM th]
          THEN ASSUME_TAC th)
-  \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+  \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE (std_ss++ARITH_ss) [])
   \\ fs [] \\ EVAL_TAC) |> SIMP_RULE std_ss [];
 
 val abs_ml_inv_Num_BIG_lemma = prove(
@@ -11539,8 +11538,8 @@ val abs_ml_inv_Num_BIG_lemma = prove(
      (fs [heap_length_def,heap_length_APPEND,el_length_def,
            IntData_def,DataOnly_def]
       \\ fs [GSYM heap_length_def,mw_thm,num_size_def]
-      \\ REPEAT STRIP_TAC THEN1 DECIDE_TAC)
-    \\ MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData)
+      \\ REPEAT STRIP_TAC)
+    \\ MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData |> SIMP_RULE(std_ss++ARITH_ss)[])
     \\ fs [] \\ FIRST_X_ASSUM MATCH_MP_TAC
     \\ fs [IntData_def,DataOnly_def] \\ SRW_TAC [] []
     \\ fs [] \\ METIS_TAC [])
@@ -11556,11 +11555,11 @@ val abs_ml_inv_Num_BIG_lemma = prove(
   \\ fs [bc_stack_ref_inv_def]
   \\ Q.EXISTS_TAC `f` \\ fs []
   \\ fs [INJ_DEF] \\ REPEAT STRIP_TAC
-  THEN1 (MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData) \\ fs [])
+  THEN1 (MATCH_MP_TAC (MP_CANON isSomeDataElement_heap_lookup_IntData |> SIMP_RULE(std_ss++ARITH_ss)[]) \\ fs [])
   THEN1
    (Q.PAT_ASSUM `LIST_REL PP stack roots` MP_TAC
     \\ MATCH_MP_TAC EVERY2_MONO \\ fs []
-    \\ METIS_TAC [bc_value_inv_Unused])
+    \\ METIS_TAC [bc_value_inv_Unused|>SIMP_RULE(std_ss++ARITH_ss)[]])
   \\ fs [bc_ref_inv_def] \\ RES_TAC
   \\ Cases_on `FLOOKUP f n` \\ fs []
   \\ Cases_on `FLOOKUP refs n` \\ fs []
@@ -11568,18 +11567,18 @@ val abs_ml_inv_Num_BIG_lemma = prove(
   THEN1
    (Q.PAT_ASSUM `xxx = SOME (Bytes l')` (fn th => fs [GSYM th]
            THEN ASSUME_TAC th)
-    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE (std_ss++ARITH_ss) [])
     \\ fs [] \\ EVAL_TAC)
   \\ Q.EXISTS_TAC `zs` \\ fs []
   \\ REPEAT STRIP_TAC
   THEN1
    (Q.PAT_ASSUM `xxx = SOME (RefBlock zs)` (fn th => fs [GSYM th]
            THEN ASSUME_TAC th)
-    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE std_ss [])
+    \\ MATCH_MP_TAC (isSomeUsed_heap_lookup_IntData |> SIMP_RULE (std_ss++ARITH_ss) [])
     \\ fs [] \\ EVAL_TAC)
   \\ Q.PAT_ASSUM `LIST_REL xx yy tt` MP_TAC
   \\ MATCH_MP_TAC EVERY2_MONO \\ fs []
-  \\ METIS_TAC [bc_value_inv_Unused]);
+  \\ METIS_TAC [bc_value_inv_Unused|>SIMP_RULE(std_ss++ARITH_ss)[]]);
 
 val abs_ml_inv_Num_BIG = prove(
   ``abs_ml_inv (x1::stack) refs
@@ -11676,6 +11675,7 @@ val heap_lookup_DataOnly_in_split = prove(
        (Num (ABS i1)))]:(63,64) ml_heap)))) ys2' vs.current_heap vs.current_heap)`
   \\ fs [AC STAR_ASSOC STAR_COMM,mw_thm]);
 
+local fun fs x = full_simp_tac(srw_ss())x in
 val heap_lookup_DataOnly_in_split_two_lemma = prove(
   ``(heap_lookup ptr1 (ys1 ++ [Unused (sp − 1)] ++ ys2) =
       SOME (DataOnly (i1 < 0) (mw (Num (ABS i1))))) /\
@@ -11827,6 +11827,7 @@ val heap_lookup_DataOnly_in_split_two_lemma = prove(
   \\ fs [AC STAR_COMM STAR_ASSOC,word_add_n2w,AC ADD_COMM ADD_ASSOC]
   \\ fs [ADD_ASSOC]
   \\ fs [AC STAR_COMM STAR_ASSOC]);
+end
 
 val star_lemma = prove(
   ``a1 * a2 * a3 = STAR a1 (a3 * a2)``,
@@ -11943,6 +11944,9 @@ val zHEAP_PERFORM_BIGNUM = let
      x2,x3,x4,refs,stack,if n2iop (getNumber x4) <> Dec then s else
        s with output := s.output ++ int_to_str (getNumber (x1)),NONE) * ~zS * ^pc`
   val goal = th |> concl |> dest_imp |> fst
+  fun fs x = full_simp_tac (srw_ss()) x
+  fun rw x = srw_tac[]x
+  fun rfs x = rev_full_simp_tac (srw_ss()) x
 (*
   gg goal
 *)
@@ -17964,6 +17968,7 @@ val x64_code_def = zDefine `
   (x64_code i [] = []) /\
   (x64_code i (b::bs) = x64 i b ++ x64_code (i + x64_length b) bs)`;
 
+local val fs = fsrw_tac[] in
 val x64_code_EQ_x64 = prove(
   ``!bc_code p n.
       (bc_fetch_aux bc_code x64_inst_length (p - n) = SOME i) /\ n <= p ==>
@@ -17994,6 +17999,7 @@ val x64_code_EQ_x64 = prove(
   \\ REPEAT STRIP_TAC \\ fs [LENGTH_x64_DIV2_TIMES2]
   \\ DECIDE_TAC)
   |> Q.SPECL [`bc_code`,`p`,`0`] |> SIMP_RULE std_ss [];
+end
 
 val x64_code_APPEND = prove(
   ``!xs1 xs2 p.
@@ -19498,6 +19504,7 @@ val read_string_not_single = prove(``
   \\ Cases_on`y`\\ fs[] \\ rpt IF_CASES_TAC
   \\ strip_tac\\imp_res_tac read_string_length\\fs[]\\DECIDE_TAC)
 
+local val fs = fsrw_tac[] in
 val read_char_thm = prove(
   ``!s stack.
       ?ts.
@@ -19620,6 +19627,7 @@ val read_char_thm = prove(
    Cases_on`s''`>>fs[]>>
    Cases_on`t'`>>fs[]>>
    qexists_tac`h'''::h''''::t''`>>fs[])))
+end
 
 (* next symbol *)
 
@@ -23104,6 +23112,7 @@ val SEP_REFINE_DISJ = prove(
     SEP_REFINE q m1 m2 s \/ SEP_REFINE p m1 m2 s``,
   fs [SEP_REFINE_def,SEP_DISJ_def] \\ METIS_TAC []);
 
+local val fs = fsrw_tac[] in
 val TEMPORAL_LEMMA = prove(
   ``TEMPORAL m (c1 UNION c2) (T_IMPLIES (NOW p) (T_DISJ q (EVENTUALLY (NOW err)))) ==>
     SPEC m i (c1 UNION c2) (p \/ err) ==>
@@ -23127,6 +23136,7 @@ val TEMPORAL_LEMMA = prove(
   \\ fs [] \\ REPEAT STRIP_TAC
   THEN1 (DISJ1_TAC \\ Q.EXISTS_TAC `k` \\ fs [AC ADD_ASSOC ADD_COMM])
   \\ METIS_TAC []);
+end
 
 val TEMPORAL_THM = prove(
   ``TEMPORAL m c2 (T_IMPLIES (NOW p) (T_DISJ q (EVENTUALLY (NOW err)))) ==>
@@ -23185,8 +23195,8 @@ val zSTANDALONE_DIVERGES = curry save_thm "zSTANDALONE_DIVERGES" let
 
 val NEXT_N_thm = prove(
   ``!k p f s. N_NEXT k p f s = p f (\n. s (n + k))``,
-  Induct \\ fs [N_NEXT_def]
-  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [NEXT_def,ADD1,ADD_ASSOC]);
+  Induct \\ fsrw_tac[] [N_NEXT_def]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fsrw_tac[] [NEXT_def,ADD1,ADD_ASSOC]);
 
 val SPEC_N_IMP_SPEC = store_thm("SPEC_N_IMP_SPEC",
   ``SPEC_N n model pre code post err ==>
@@ -24464,7 +24474,7 @@ val TWICE_SUM = prove(
 val SUM_MAP_FILTER = prove(
   ``!xs f P.
       SUM (MAP f (FILTER P xs)) = SUM (MAP (\x. if P x then f x else 0) xs)``,
-  Induct \\ fs [] \\ SRW_TAC [] []);
+  Induct \\ fsrw_tac[] [] \\ SRW_TAC [] []);
 
 val TWO_TIMES_next_addr = prove(
   ``2 * next_addr x64_inst_length t1.code = LENGTH (x64_code 0 t1.code)``,
@@ -25727,6 +25737,7 @@ val all_the_code = let
   val th6 = th5 |> DISCH_ALL |> RW [lemma] |> UNDISCH_ALL
   in th6 |> RW [EVAL ``(full_cs init p).code_heap_ptr``] end
 
+local val fs = fsrw_tac[] in
 val DIV_COMPOSE_LEMMA = prove(
   ``let q1 = zBYTECODE_DIVERGED out (cs,w) in
       TEMPORAL m c (T_IMPLIES (NOW q) (T_DISJ q1 (EVENTUALLY (NOW err)))) ==>
@@ -25751,6 +25762,7 @@ val DIV_COMPOSE_LEMMA = prove(
   \\ fs [zBYTECODE_DIVERGED_def,ALWAYS_def,EVENTUALLY_def,NOW_def,
          SEP_CLAUSES,SEP_EXISTS_THM]
   \\ METIS_TAC [ADD_ASSOC]) |> SIMP_RULE std_ss [LET_DEF];
+end
 
 val x64_repl_implementation_thm = let
   val (_,_,code,_) = dest_spec (concl all_the_code)
@@ -25807,6 +25819,7 @@ val TEMPORAL_IMP = prove(
     TEMPORAL m code (T_IMPLIES p q2)``,
   PairCases_on `m` \\ fs [TEMPORAL_def,T_IMPLIES_def] \\ METIS_TAC [])
 
+local val fs = fsrw_tac[] in
 val zREPL_CORRECT = store_thm("zREPL_CORRECT",
   ``EVEN (w2n p) /\ EVEN (w2n init.init_code_heap_ptr) /\
     2048 <= w2n init.init_code_heap_size ==>
@@ -25832,6 +25845,7 @@ val zREPL_CORRECT = store_thm("zREPL_CORRECT",
   \\ Cases_on `basis_repl_fun init.init_input` \\ fs [LET_DEF]
   \\ REPEAT STRIP_TAC \\ fs []
   \\ Q.EXISTS_TAC `output` \\ fs [diverges_def,repl_output_def]);
+end
 
 (*
 
