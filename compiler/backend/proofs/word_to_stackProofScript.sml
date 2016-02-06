@@ -4679,7 +4679,7 @@ val comp_correct = Q.store_thm("comp_correct",
          case res of
          | NONE => state_rel k f f' s1 t1 lens
          (*lens might be wrong*)
-         | SOME (Result _ _) => state_rel k 0 0 s1 t1 lens
+         | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[]
@@ -5557,9 +5557,37 @@ val comp_correct = Q.store_thm("comp_correct",
           fs[state_rel_def,compile_result_NOT_2]>>
           metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])>>
         strip_tac>>
-        (*Second big cheat ?*)
-        `state_rel k f f' x'' t1 lens` by cheat>>
-        cheat)
+        (*Second big cheat -- use 65 to get rid of set_var*)
+        `state_rel k f f' (set_var x0 w0 x'') t1 lens` by cheat>>
+        imp_res_tac stackPropsTheory.evaluate_add_clock>>
+        ntac 3 (pop_assum kall_tac)>>
+        rveq>>fs[]>>
+        first_x_assum(qspecl_then[`k`,`f`,`f'`,`t1`,`bs'`,`lens`] mp_tac)>>
+        discharge_hyps>-
+          (fs[convs_def]>>rw[]
+          >-
+            (qpat_assum`A<B:num` mp_tac>>
+            simp[word_allocTheory.max_var_def])
+          >>
+            (*eval consts*)
+            cheat)>>
+        rw[]>>
+        qexists_tac`ck+ck'`>>
+        fs[Abbr`stack_state`]>>
+        first_x_assum(qspec_then`ck'` mp_tac)>>
+        simp[]>>
+        fs[ADD_COMM]>>
+        pop_assum mp_tac>>
+        simp[set_var_def]>>
+        `x''.handler = s.handler` by
+          (Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>
+          unabbrev_all_tac>>
+          rfs[]>>
+          (*Because the same frame gets popped, might need
+          to be proved elsewhere already*)
+          `r'.handler = x''.handler` by cheat>>
+          fs[]>>simp[call_env_def,push_env_def,env_to_list_def,dec_clock_def])>>
+        metis_tac[])
       >-
         (*Exception*)
         (strip_tac>>
