@@ -429,6 +429,15 @@ val word_gc_move_roots_def = Define `
      let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ws,i1,pa1,old,m1,dm) in
        (w1::ws2,i2,pa2,m2,c1 /\ c2))`
 
+val word_gc_move_list_def = Define `
+  word_gc_move_list conf (a:'a word,l:'a word,i,pa:'a word,old,m,dm) =
+   if l = 0w then (a,i,pa,m,T) else
+     let w = (m a):'a word_loc in
+     let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
+     let m1 = (a =+ w1) m1 in
+     let (a2,i2,pa2,m2,c2) = word_gc_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm) in
+       (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
+
 val word_gc_loop_def = Define `
   word_gc_loop conf k (pb,i,pa,old,m,dm,c) =
     if k = 0n then (i,pa,m,F) else
@@ -765,8 +774,7 @@ val word_gc_move_roots_thm = prove(
   Induct THEN1
    (fs [gc_move_list_def,word_gc_move_roots_def,word_heap_def,SEP_CLAUSES]
     \\ rw [] \\ qexists_tac `xs` \\ fs [])
-  \\ rw []
-  \\ fs [gc_move_list_def,LET_THM]
+  \\ rw [] \\ fs [gc_move_list_def,LET_THM]
   \\ split_pair_tac \\ fs []
   \\ split_pair_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
@@ -797,6 +805,64 @@ val word_gc_move_roots_thm = prove(
   \\ fs [word_heap_APPEND]
   \\ fs [AC STAR_COMM STAR_ASSOC]);
 
+val word_gc_move_list_thm = prove(
+  ``!x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 frame k k1.
+      (gc_move_list (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
+      heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+      (word_heap curr heap conf * word_list pa xs *
+       word_list k (MAP (word_addr conf) x) * frame) (fun2set (m,dm)) /\
+      (word_gc_move_list conf (k,n2w (LENGTH x),n2w a,pa,curr,m,dm) =
+        (k1,i1,pa1,m1,c1)) /\
+      LENGTH xs = n /\ LENGTH x < dimword (:'a) ==>
+      ?xs1.
+        (word_heap curr heap1 conf *
+         word_heap (pa:'a word) h1 conf *
+         word_list pa1 xs1 *
+         word_list k (MAP (word_addr conf) x1) * frame) (fun2set (m1,dm)) /\
+        heap_length heap1 = heap_length heap /\
+        c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1 /\
+        k1 = k + n2w (LENGTH x) * bytes_in_word``,
+  Induct THEN1
+   (fs [gc_move_list_def,Once word_gc_move_list_def,word_heap_def,SEP_CLAUSES]
+    \\ rw [] \\ qexists_tac `xs` \\ fs [])
+  \\ rw [] \\ fs [gc_move_list_def,LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [gc_move_list_ALT]
+  \\ fs [LET_THM] \\ split_pair_tac \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ qpat_assum `word_gc_move_list conf _ = _` mp_tac
+  \\ simp [Once word_gc_move_list_def,LET_THM] \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ fs [GSYM word_add_n2w,ADD1]
+  \\ split_pair_tac \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ `c'` by imp_res_tac gc_move_list_ok \\ fs [] \\ pop_assum kall_tac
+  \\ NTAC 2 (pop_assum mp_tac)
+  \\ fs [word_list_def] \\ SEP_R_TAC \\ rpt strip_tac
+  \\ drule (word_gc_move_thm |> GEN_ALL |> SIMP_RULE std_ss [])
+  \\ once_rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ disch_then drule \\ fs []
+  \\ strip_tac \\ SEP_F_TAC \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ first_x_assum drule
+  \\ qpat_assum `word_gc_move_list conf _ = _` mp_tac
+  \\ SEP_W_TAC \\ strip_tac
+  \\ once_rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM] \\ fs []
+  \\ disch_then imp_res_tac
+  \\ `LENGTH x < dimword (:'a)` by decide_tac \\ fs []
+  \\ pop_assum kall_tac
+  \\ SEP_F_TAC \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ qcase_tac `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
+  \\ qexists_tac `xs9` \\ fs []
+  \\ fs [word_heap_APPEND]
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ fs [WORD_LEFT_ADD_DISTRIB]);
 
 
 
