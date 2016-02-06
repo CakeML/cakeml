@@ -255,7 +255,7 @@ val types_match_def = tDefine "types_match" `
   (types_match (Litv l1) (Litv l2) = lit_same_type l1 l2) /\
   (types_match (Loc l1) (Loc l2) = T) /\
   (types_match (Conv cn1 vs1) (Conv cn2 vs2) =
-    ((cn1 <> cn2) \/ types_match_list vs1 vs2)) /\
+    (ctor_same_type cn1 cn2 /\ ((cn1 = cn2) ⇒ types_match_list vs1 vs2))) /\
   (types_match _ _ = F) /\
   (types_match_list [] [] = T) /\
   (types_match_list (v1::vs1) (v2::vs2) =
@@ -293,9 +293,8 @@ val type_match_implies_do_eq_succeeds = prove(``
   ho_match_mp_tac do_eq_ind
   \\ rw [do_eq_def, types_match_def]
   \\ imp_res_tac types_match_list_length
-  \\ fs[] \\ Cases_on `cn1` \\ Cases_on `cn2`
-  \\ rpt (pop_assum MP_TAC)
-  \\ EVAL_TAC \\ cheat);
+  \\ fs[] \\ Cases_on`cn1=cn2`\\fs[]
+  \\ imp_res_tac types_match_list_length);
 
 val do_eq_succeeds = prove(``
   (!a x1 v1 x2 v2. EqualityType a /\ a x1 v1 /\ a x2 v2 ==>
