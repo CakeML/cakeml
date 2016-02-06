@@ -4574,6 +4574,12 @@ val evaluate_wLive_clock = prove(``
     simp[stackSemTheory.evaluate_def,FORALL_PROD,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.set_var_def,stackSemTheory.word_exp_def,empty_env_def,stackSemTheory.get_var_def]>>
     EVERY_CASE_TAC>>fs[])
 
+val state_rel_IMP_LENGTH = prove(``
+  state_rel k f f' s t lens ⇒
+  LENGTH lens = LENGTH s.stack``,
+  fs[state_rel_def,stack_rel_def,LET_THM]>>rw[]>>
+  metis_tac[abs_stack_IMP_LENGTH])
+
 val evaluate_stack_move = prove(``
   ∀n tar t offset.
   t.use_stack ∧
@@ -4649,6 +4655,11 @@ val evaluate_stack_move_clock = prove(``
   simp[]>>
   (*get_var_set_var?*)
   fs[stackSemTheory.get_var_def,stackSemTheory.set_var_def,FLOOKUP_UPDATE])|>SIMP_RULE arith_ss [LET_THM]
+
+val pop_env_ffi = prove(``
+  pop_env s = SOME s' ⇒
+  s.ffi = s'.ffi``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
 
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
@@ -5421,8 +5432,12 @@ val comp_correct = Q.store_thm("comp_correct",
       disch_then ((qspecl_then [`t4`,`s`,`lens`,`x'`] mp_tac) o REWRITE_RULE[AND_IMP_INTRO])>>
       simp[]>>
       discharge_hyps_keep>-
-        (*should be easy*)
-        (fs[]>>cheat)>>
+        (CONJ_TAC>-
+          (*convs and x1 non empty*)
+          cheat>>
+        fs[comp_def,LET_THM]>>
+        imp_res_tac comp_IMP_isPREFIX>>
+        metis_tac[evaluate_consts,IS_PREFIX_TRANS])>>
       strip_tac>>
       imp_res_tac evaluate_wLive_clock>>
       pop_assum(qspec_then`t4` assume_tac)>>
@@ -5444,9 +5459,7 @@ val comp_correct = Q.store_thm("comp_correct",
         fs[dec_clock_def]>>rw[]>>
         imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
         fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-        `r'.ffi = x.ffi` by
-          fs[pop_env_def]>>EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>
-        metis_tac[IS_PREFIX_TRANS])>>
+        metis_tac[pop_env_ffi,IS_PREFIX_TRANS])>>
       qabbrev_tac`t6 = t5 with <|stack_space :=t5.stack_space -sargs|>`>>
       `!ck. t5 with <|stack_space:=t5.stack_space - sargs; clock:=ck+t.clock|> = t6 with clock:=ck+t.clock` by
         simp[stackSemTheory.state_component_equality,Abbr`t6`]>>
@@ -5454,10 +5467,11 @@ val comp_correct = Q.store_thm("comp_correct",
       Q.ISPECL_THEN [`sargs`,`0n`,`t6`,`f`] mp_tac evaluate_stack_move>>
       discharge_hyps>-
         (unabbrev_all_tac>>simp[]>>
+        fs[state_rel_def,ADD_COMM]>>
         (*conventions, probably*)
         cheat)>>
       strip_tac>>simp[]>>
-      (*use all the i ≠ k get_var assumption and LAST args ≠ 0*)
+      (*use the i ≠ k get_var assumptions and LAST args ≠ 0*)
       `find_code dest' (t'.regs \\0) t'.code =
        find_code dest' t4.regs t4.code` by cheat>>
       simp[]>>
@@ -5485,30 +5499,104 @@ val comp_correct = Q.store_thm("comp_correct",
         fs[dec_clock_def]>>rw[]>>
         imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
         fs [wordSemTheory.call_env_def,wordSemTheory.dec_clock_def,set_var_def]>>
-        `r'.ffi = x.ffi` by
-          fs[pop_env_def]>>EVERY_CASE_TAC>>fs[]>>rveq>>fs[]>>
-        metis_tac[IS_PREFIX_TRANS])>>
+        metis_tac[IS_PREFIX_TRANS,pop_env_ffi])>>
       simp[]>>
-      (*Finally, time to establish state_rel between t' and the call_env*)
-      cheat)
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    >- (
-      strip_tac \\ rveq \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      >- (
-        simp[stackSemTheory.evaluate_def]
-        \\ cheat (* need something about evaluate StackArgs *)
-        )
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ split_pair_tac \\ fs[]
-      \\ simp[stackSemTheory.evaluate_def]
-      \\ cheat (* need something about evaluate StackHandlerArgs *)
-      )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ cheat)
+      qpat_abbrev_tac`word_state = call_env q st`>>
+      qabbrev_tac`stack_state =
+        t' with <|regs:=t'.regs|+(0,Loc x3 x4);
+                  stack_space:=t'.stack_space - (m'-(LENGTH q-k));
+                  clock:=t.clock-1|>`>>
+      (*Most important cheat..., might be slightly off*)
+      `state_rel k m' m word_state stack_state (f::lens)` by cheat>>
+      Cases_on`evaluate(r,word_state)`>>fs[]>>
+      first_x_assum(qspecl_then[`k`,`m'`,`m`,`stack_state`,`bs'''`,`(f::lens)`] mp_tac)>>
+      Cases_on`q' = SOME Error`>>fs[]>>
+      discharge_hyps>-
+        (CONJ_ASM1_TAC>-
+          (qpat_assum`A=SOME(q,r)`mp_tac>>
+          Cases_on`dest`>>
+          fs[state_rel_def,find_code_def]>>
+          rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+        CONJ_TAC>-
+          (qpat_assum`A=SOME(q,r)`mp_tac>>
+          Cases_on`dest`>>
+          fs[state_rel_def,find_code_def]>>
+          rpt TOP_CASE_TAC>>rw[]>>metis_tac[])>>
+        CONJ_TAC>-
+          (`EVEN (max_var r)` by
+              (ho_match_mp_tac max_var_IMP>>
+              fs[convs_def]>>
+              match_mp_tac every_var_mono>>
+              HINT_EXISTS_TAC>>fs[reg_allocTheory.is_phy_var_def,EVEN_MOD2])>>
+          unabbrev_all_tac>>fs[EVEN_EXISTS]>>
+          rpt (pop_assum kall_tac)>>
+          `m * 2 DIV 2 = m` by
+            (Q.ISPECL_THEN[`2n`,`m`]assume_tac MULT_DIV>>fs[])>>
+          fs[MULT_COMM,MAX_DEF]>>rw[]>>
+          DECIDE_TAC)>>
+          unabbrev_all_tac>>fs[]>>
+          fs[stackSemTheory.state_component_equality]>>
+          metis_tac[evaluate_consts])>>
+      strip_tac>>
+      Cases_on`q'`>>simp[]>>
+      Cases_on`x''`>>simp[]
+      >-
+        (IF_CASES_TAC>>fs[]>>
+        Cases_on`pop_env r'`>>fs[]>>
+        IF_CASES_TAC>>fs[]>>
+        strip_tac>>
+        imp_res_tac wordPropsTheory.evaluate_io_events_mono>>
+        qpat_assum`if A then B else C` mp_tac>>
+        IF_CASES_TAC>>fs[]
+        >-
+          (*the stackLang evaluation halts*)
+          (rw[]>>
+          qexists_tac`ck`>>
+          fs[Abbr`stack_state`]>>
+          `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+          fs[state_rel_def,compile_result_NOT_2]>>
+          metis_tac[IS_PREFIX_TRANS,pop_env_ffi,wordPropsTheory.evaluate_io_events_mono])>>
+        strip_tac>>
+        (*Second big cheat ?*)
+        `state_rel k f f' x'' t1 lens` by cheat>>
+        cheat)
+      >-
+        (*Exception*)
+        (strip_tac>>
+        qexists_tac`ck`>>
+        fs[Abbr`stack_state`]>>
+        `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+        fs[]>>
+        rveq>>simp[]>>
+        qpat_assum `if A then B else C` mp_tac>>
+        IF_CASES_TAC>>fs[]>>rveq>>
+        fs[]>>
+        strip_tac>>
+        `word_state.handler = s.handler` by
+          simp[Abbr`word_state`,call_env_def,push_env_def,env_to_list_def,dec_clock_def]>>
+        imp_res_tac state_rel_IMP_LENGTH>>
+        Q.ISPECL_THEN [`r`,`word_state`] assume_tac evaluate_stack_swap>>rfs[]>>
+        fs[push_env_def,env_to_list_def,LET_THM]>>
+        `s.handler+1 ≤ LENGTH lens` by
+          (*because it can't be the top frame of word_state, which is NONE*)
+          (fs[ADD1]>>
+          cheat)>>
+        fs[LASTN_CONS])
+      >>
+        (*Timeout and Halt*)
+        (strip_tac>>
+        qexists_tac`ck`>>
+        fs[Abbr`stack_state`]>>
+        `t.clock -1 + ck = ck +t.clock -1` by DECIDE_TAC>>
+        fs[]>>
+        rveq>>simp[]>>
+        qpat_assum `if A then B else C` mp_tac>>
+        IF_CASES_TAC>>fs[]>>rveq>>
+        fs[]>>
+        strip_tac>>
+        fs[state_rel_def]))
+    >>
+    cheat);
 
 val make_init_def = Define `
   make_init (t:('a,'ffi)stackSem$state) code =
