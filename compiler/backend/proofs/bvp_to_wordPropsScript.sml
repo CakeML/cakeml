@@ -1416,11 +1416,6 @@ val maxout_bits_def = Define `
   maxout_bits n rep_len k =
     if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
 
-val has_header_def = Define `
-  (has_header conf (SOME (DataElement xs l (BlockTag tag,_))) <=>
-     LENGTH xs < 2 ** conf.len_bits - 1 ==> ~(tag < 2 ** conf.tag_bits - 1)) /\
-  (has_header _ _ <=> F)`
-
 val pointer_bits_def = Define ` (* pointers have tag and len bits *)
   pointer_bits conf abs_heap n =
     case heap_lookup n abs_heap of
@@ -1444,22 +1439,26 @@ val decode_addr_def = Define `
     (decode_maxout conf.len_bits (conf.tag_bits + 2) w,
      decode_maxout conf.tag_bits 2 w)`
 
+val get_lowerbits_def = Define `
+  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
+  (get_lowerbits conf _ = 1w)`;
+
+
+(*
+
+val bits_imp_header_def = Define `
+  bits_imp_header conf w = has_header conf (get_lowerbits conf w)`
+
 val has_header_def = Define `
   has_header conf w <=>
     decode_maxout conf.len_bits (conf.tag_bits + 2) w = NONE \/
     decode_maxout conf.tag_bits 2 w = NONE`
 
-val get_lowerbits_def = Define `
-  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
-  (get_lowerbits conf _ = 1w)`;
+*)
 
-val bits_imp_header_def = Define `
-  bits_imp_header conf w = has_header conf (get_lowerbits conf w)`
-
-val get_addr_def = Define ` (* each pointer points at the first payload value *)
+val get_addr_def = Define `
   get_addr conf n w =
-    (n2w (if bits_imp_header conf w then n + 1 else n) << shift_length conf
-     || get_lowerbits conf w)`;
+    ((n2w n << shift_length conf) || get_lowerbits conf w)`;
 
 val word_addr_def = Define `
   (word_addr conf (Data (Loc l1 l2)) = Loc l1 l2) /\
@@ -1470,23 +1469,25 @@ val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
+(*
      if (n < 2 ** conf.tag_bits - 1 /\
          LENGTH ys - 1 < 2 ** conf.len_bits - 1)
      then (NONE, (* no header *)
            MAP (word_addr conf) ys,
            (qs = []) /\ (LENGTH ys - 1 = l))
-     else (SOME (n2w n << 2), (* header: ...00 *)
-           MAP (word_addr conf) ys,
-           (qs = []) /\ (LENGTH ys = l))) /\
+     else
+*)   ((n2w n << 2), (* header: ...00 *)
+      MAP (word_addr conf) ys,
+      (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l (RefTag) qs conf =
-     (SOME 1w, (* header: ...01 *)
+     (1w, (* header: ...01 *)
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l) /\ l <> 0)) /\
   (word_payload ys l (NumTag b) qs conf =
-     (SOME (b2w b << 2 || 2w), (* header: ...110 or ...010 *)
+     ((b2w b << 2 || 2w), (* header: ...110 or ...010 *)
       qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0)) /\
   (word_payload ys l (BytesTag n) qs conf =
-     (SOME (n2w n << 2 || 3w), (* header: ...11 *)
+     ((n2w n << 2 || 3w), (* header: ...11 *)
       qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
 
 (*
@@ -1503,21 +1504,20 @@ val decode_tag_bits_def = Define `
       if (h && 3w) = 3w then BytesTag (w2n (h >>> 2)) else
         BlockTag (w2n (h >>> 2))`
 
+val can_select_def = Define `
+  can_select k n w <=> ((k - 1 -- n) (w << n) = w)`
+
 val word_el_def = Define `
-  (word_el a (Unused l) conf = word_list_exists a (l+1)) /\
+  (word_el a (Unused l) conf = word_list_exists (a:'a word) (l+1)) /\
   (word_el a (ForwardPointer n d l) conf =
-     one (a,Word (n2w n << 2 || 3w)) *
-     if l = 0 then emp else
-       one (a + bytes_in_word,Word (n2w n << 2 || 3w)) *
-       word_list_exists (a + 2w * bytes_in_word) (l - 1)) /\
+     one (a,Word (n2w n << 2)) *
+     word_list_exists (a + bytes_in_word) l) /\
   (word_el a (DataElement ys l (tag,qs)) conf =
-     case word_payload ys l tag qs conf of
-     | (NONE,ts,c) => word_list a ts * cond c
-     | (SOME h,ts,c) =>
-         let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
-           one (a,Word w) * word_list (a + bytes_in_word) ts *
-           cond (c /\ LENGTH ts < 2 ** conf.len_size /\
-                 decode_tag_bits conf w = tag))`;
+     let (h,ts,c) = word_payload ys l tag qs conf in
+     let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
+       word_list a (Word w :: ts) *
+       cond (c /\ can_select (conf.len_size+2) 2 (n2w (LENGTH ts):'a word) /\
+             decode_tag_bits conf w = tag))`;
 
 val word_heap_def = Define `
   (word_heap a ([]:'a ml_heap) conf = emp) /\

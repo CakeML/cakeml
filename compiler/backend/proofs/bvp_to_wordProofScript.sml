@@ -1,7 +1,8 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory word_to_wordProofTheory;
+     set_sepTheory semanticsPropsTheory word_to_wordProofTheory
+     helperLib;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -384,17 +385,17 @@ val ptr_to_addr_def = Define `
     base + ((w >>> (shift_length conf)) * bytes_in_word)`
 
 val is_fwd_ptr_def = Define `
-  (is_fwd_ptr (Word w) = ((w && 3w) = 3w)) /\
+  (is_fwd_ptr (Word w) = ((w && 3w) = 0w)) /\
   (is_fwd_ptr _ = F)`;
 
 val update_addr_def = Define `
   update_addr conf fwd_ptr (old_addr:'a word) =
-    (((dimindex(:'a) - 1) -- (shift_length conf)) fwd_ptr ||
+    ((fwd_ptr << (shift_length conf)) ||
      ((shift_length conf - 1) -- 0) old_addr)`
 
 val decode_header_def = Define `
   decode_header conf w =
-    (w >>> (2 + conf.len_size),((conf.len_size + 1 -- 2) w) >>> 2)`;
+    (w >>> (2 + conf.len_size),((conf.len_size + 1 -- 2) w))`;
 
 val memcpy_def = Define `
   memcpy w a b m dm =
@@ -410,27 +411,16 @@ val word_gc_move_def = Define `
        let c = (ptr_to_addr conf old w IN dm) in
        let v = m (ptr_to_addr conf old w) in
          if is_fwd_ptr v then
-           (Word (update_addr conf (theWord v) w),i,pa,m,c)
-         else if has_header conf w then
-           let hd_payload_addr = ptr_to_addr conf old w in
-           let header_addr = hd_payload_addr - bytes_in_word in
-           let v = ((i + 1w) << 2 || 3w) in
+           (Word (update_addr conf (theWord v >>> 2) w),i,pa,m,c)
+         else
+           let header_addr = ptr_to_addr conf old w in
            let c = (c /\ header_addr IN dm /\ isWord (m header_addr)) in
            let (_,len) = decode_header conf (theWord (m header_addr)) in
-           let i = i + len + 1w in
+           let v = i + len + 1w in
            let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
-           let c = (c /\ hd_payload_addr IN dm /\ c1) in
-           let m1 = (hd_payload_addr =+ Word v) m1 in
-             (Word (update_addr conf v w),i,pa1,m1,c)
-         else
-           let len = THE (SND (decode_addr conf w)) in
-           let v = (i << 2 || 3w) in
-           let i = i + len in
-           let hd_payload_addr = ptr_to_addr conf old w in
-           let (pa1,m1,c1) = memcpy len hd_payload_addr pa m dm in
-           let c = (c /\ hd_payload_addr IN dm /\ c1) in
-           let m1 = (hd_payload_addr =+ Word v) m1 in
-             (Word (update_addr conf v w),i,pa1,m1,c))`
+           let c = (c /\ header_addr IN dm /\ c1) in
+           let m1 = (header_addr =+ Word (i << 2)) m1 in
+             (Word (update_addr conf i w),v,pa1,m1,c))`
 
 val word_gc_move_roots_def = Define `
   (word_gc_move_roots conf ([],i,pa,old,m,dm) = ([],i,pa,m,T)) /\
@@ -471,12 +461,59 @@ val word_gc_fun_def = Define `
                      (Globals, HD roots1)] in
        if c then SOME (TL roots1,m1,s1) else NONE`
 
-(*
-
 val one_and_or_1 = prove(
   ``(1w && (w || 1w)) = 1w``,
   fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
       wordsTheory.word_index] \\ rw [] \\ Cases_on `i=0` \\ fs []);
+
+val one_and_or_3 = prove(
+  ``(3w && (w || 3w)) = 3w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      wordsTheory.word_index] \\ rw [] \\ rpt eq_tac \\ rw [] \\ fs []);
+
+val ODD_not_zero = prove(
+  ``ODD n ==> n2w n <> 0w``,
+  CCONTR_TAC \\ full_simp_tac std_ss []
+  \\ `((n2w n):'a word) ' 0 = (0w:'a word) ' 0` by metis_tac []
+  \\ fs [wordsTheory.word_index,bitTheory.BIT_def,bitTheory.BITS_THM]
+  \\ fs [dimword_def,bitTheory.ODD_MOD2_LEM])
+
+val three_not_0 = store_thm("three_not_0[simp]",
+  ``3w <> 0w``,
+  match_mp_tac ODD_not_zero \\ fs []);
+
+val DISJ_EQ_IMP = METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``
+
+val three_and_shift_2 = prove(
+  ``(3w && (w << 2)) = 0w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      wordsTheory.word_index,word_lsl_def,DISJ_EQ_IMP]
+  \\ CCONTR_TAC \\ fs [] \\ rfs[]);
+
+val shift_to_zero = prove(
+  ``3w >>> 2 = 0w``,
+  fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
+      DISJ_EQ_IMP] \\ rw [] \\ decide_tac)
+
+val shift_around_under_big_shift = prove(
+  ``!w n k. n <= k ==> (w << n >>> n << k = w << k)``,
+  fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
+      DISJ_EQ_IMP,word_lsl_def] \\ rw []
+  \\ Cases_on `k <= i` \\ fs []
+  \\ `i - k < dimindex (:'a) /\ i − k + n < dimindex (:'a)` by decide_tac \\ fs []
+  \\ fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
+      DISJ_EQ_IMP,word_lsl_def] \\ rw [])
+
+val select_shift_out = prove(
+  ``n <> 0 ==> ((n - 1 -- 0) (w || v << n) = (n - 1 -- 0) w)``,
+  fs [fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
+      DISJ_EQ_IMP,word_lsl_def,word_bits_def,word_or_def] \\ rw []
+  \\ eq_tac \\ rw []
+  \\ `i = 0` by decide_tac \\ fs []);
+
+val shift_length_NOT_ZERO = store_thm("shift_length_NOT_ZERO[simp]",
+  ``shift_length conf <> 0``,
+  fs [shift_length_def] \\ decide_tac);
 
 val get_addr_and_1_not_0 = prove(
   ``(1w && get_addr conf k a) <> 0w``,
@@ -502,13 +539,6 @@ val get_lowerbits_LSL_shift_length = prove(
          wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
   \\ CCONTR_TAC \\ fs [shift_length_def] \\ decide_tac);
 
-val ptr_to_addr_get_addr = prove(
-  ``ptr_to_addr conf curr (get_addr conf k a) =
-    curr + n2w (if bits_imp_header conf a then k + 1 else k) * bytes_in_word``,
-  fs [ptr_to_addr_def,bytes_in_word_def,WORD_MUL_LSL]
-  \\ AP_TERM_TAC \\ fs [get_addr_def,get_lowerbits_LSL_shift_length]
-  \\ cheat);
-
 val word_heap_APPEND = prove(
   ``!xs ys a.
       word_heap a (xs ++ ys) conf =
@@ -517,17 +547,132 @@ val word_heap_APPEND = prove(
   Induct \\ fs [word_heap_def,heap_length_def,SEP_CLAUSES,STAR_ASSOC]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
 
+val ptr_to_addr_get_addr = prove(
+  ``k * 2 ** shift_length conf < dimword (:'a) ==>
+    ptr_to_addr conf curr (get_addr conf k a) =
+    curr + n2w k * bytes_in_word:'a word``,
+  strip_tac
+  \\ fs [ptr_to_addr_def,bytes_in_word_def,WORD_MUL_LSL,get_addr_def]
+  \\ simp_tac std_ss [Once WORD_MULT_COMM] \\ AP_THM_TAC \\ AP_TERM_TAC
+  \\ fs [get_lowerbits_LSL_shift_length,word_mul_n2w]
+  \\ once_rewrite_tac [GSYM w2n_11]
+  \\ rewrite_tac [w2n_lsr] \\ fs []
+  \\ fs [MULT_DIV]
+  \\ Cases_on `2 ** shift_length conf` \\ fs []
+  \\ Cases_on `n` \\ fs [MULT_CLAUSES]
+  \\ decide_tac);
+
+val is_fws_ptr_OR_3 = prove(
+  ``is_fwd_ptr (Word (w << 2)) /\ ~is_fwd_ptr (Word (w || 3w))``,
+  fs [is_fwd_ptr_def] \\ rewrite_tac [one_and_or_3,three_and_shift_2]
+  \\ fs []);
+
+val select_get_lowerbits = prove(
+  ``(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
+    get_lowerbits conf a``,
+  Cases_on `a` \\ fs [get_lowerbits_def]
+  \\ fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ rw []
+  \\ rw [] \\ eq_tac \\ rw [] \\ fs []);
+
+val LE_DIV_LT_IMP = prove(
+  ``n <= l DIV 2 ** m /\ k < n ==> k * 2 ** m < l``,
+  rw[] \\ `k < l DIV 2 ** m` by decide_tac
+  \\ fs [X_LT_DIV,MULT_CLAUSES,GSYM ADD1]
+  \\ Cases_on `2 ** m` \\ fs []
+  \\ decide_tac);
+
+val word_bits_eq_slice_shift = store_thm("word_bits_eq_slice_shift",
+  ``((k -- n) w) = (((k '' n) w) >>> n)``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ rw []
+  \\ Cases_on `i + n < dimindex (:'a)` \\ fs []
+  \\ fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ decide_tac)
+
+val word_slice_or = prove(
+  ``(k '' n) (w || v) = ((k '' n) w || (k '' n) v)``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ rw []
+  \\ eq_tac \\ rw [] \\ fs []);
+
+val word_slice_lsl_eq_0 = prove(
+  ``(k '' n) (w << (k + 1)) = 0w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      word_lsr_def,word_index,word_slice_def,word_bits_def,word_lsl_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ decide_tac);
+
+val word_slice_2_3_eq_0 = prove(
+  ``(n '' 2) 3w = 0w``,
+  fs [fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
+      word_lsr_def,word_index,word_slice_def,word_bits_def,word_lsl_def] \\ rw []
+  \\ CCONTR_TAC \\ fs [] \\ decide_tac)
+
+val read_length_lemma = prove(
+  ``can_select (n+2) 2 (n2w k :'a word) ==>
+    (((n + 1 -- 2) (h ≪ (2 + n) ‖ n2w k ≪ 2 ‖ 3w)) = n2w k :'a word)``,
+  fs [word_bits_eq_slice_shift,word_slice_or,can_select_def,DECIDE ``n+2-1=n+1n``]
+  \\ fs [DECIDE ``2+n=n+1+1n``,word_slice_lsl_eq_0,word_slice_2_3_eq_0]);
+
+val memcpy_thm = prove(
+  ``!xs a:'a word c b m m1 dm b1 ys frame.
+      memcpy (n2w (LENGTH xs):'a word) a b m dm = (b1,m1,c) /\
+      (LENGTH ys = LENGTH xs) /\ LENGTH xs < dimword(:'a) /\
+      (frame * word_list a xs * word_list b ys) (fun2set (m,dm)) ==>
+      (frame * word_list a xs * word_list b xs) (fun2set (m1,dm)) /\
+      b1 = b + n2w (LENGTH xs) * bytes_in_word /\ c``,
+  Induct_on `xs` \\ Cases_on `ys`
+  THEN1 (simp [LENGTH,Once memcpy_def,LENGTH])
+  THEN1 (simp [LENGTH,Once memcpy_def,LENGTH])
+  THEN1 (rpt strip_tac \\ fs [LENGTH])
+  \\ rpt gen_tac \\ strip_tac
+  \\ qpat_assum `_ = (b1,m1,c)`  mp_tac
+  \\ once_rewrite_tac [memcpy_def]
+  \\ asm_rewrite_tac [n2w_11]
+  \\ drule LESS_MOD
+  \\ simp_tac (srw_ss()) [ADD1,GSYM word_add_n2w]
+  \\ pop_assum mp_tac
+  \\ simp_tac (srw_ss()) [word_list_def,LET_THM]
+  \\ split_pair_tac
+  \\ first_x_assum drule
+  \\ fs [] \\ NTAC 2 strip_tac
+  \\ qpat_assum `_ = (b1',m1',c1)` mp_tac
+  \\ SEP_W_TAC \\ SEP_F_TAC
+  \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ rpt (disch_then assume_tac)
+  \\ fs [] \\ imp_res_tac (DECIDE ``n+1n<k ==> n<k``) \\ fs []
+  \\ rpt var_eq_tac \\ SEP_R_TAC \\ fs [WORD_LEFT_ADD_DISTRIB]);
+
+val word_payload_IMP = prove(
+  ``word_payload addrs ll tags tt1 conf = (h,ts,T) ==> LENGTH ts = ll``,
+  Cases_on `tags` \\ fs [word_payload_def] \\ rw [] \\ fs []);
+
+val LESS_EQ_IMP_APPEND = prove(
+  ``!n xs. n <= LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n``,
+  Induct_on `xs` \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
+  \\ rw [] \\ res_tac \\ fs [] \\ rw []
+  \\ qexists_tac `h::ys` \\ fs []);
+
+val word_list_APPEND = store_thm("word_list_APPEND",
+  ``!xs ys a. word_list a (xs ++ ys) =
+              word_list a xs * word_list (a + n2w (LENGTH xs) * bytes_in_word) ys``,
+  Induct \\ fs [word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,
+                GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
 val word_gc_move_thm = prove(
   ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
-    (word_heap curr heap c * word_list pa xs) (fun2set (m,dm)) /\
-    (word_gc_move conf (word_addr conf x,i,pa,curr,m,dm) =
-      (word_addr conf x1,i1,pa1,m1,c1)) ==>
+    heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    (word_heap curr heap conf * word_list pa xs) (fun2set (m,dm)) /\
+    (word_gc_move conf (word_addr conf x,n2w a,pa,curr,m,dm) =
+      (w:'a word_loc,i1,pa1,m1,c1)) /\
+    LENGTH xs = n ==>
     ?xs1.
-      (word_heap curr heap1 c *
-       word_heap pa h1 c *
+      (word_heap curr heap1 conf *
+       word_heap pa h1 conf *
        word_list pa1 xs1) (fun2set (m1,dm)) /\
-      c1``,
-
+      (w = word_addr conf x1) /\
+      c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1``,
   reverse (Cases_on `x`) \\ fs [gc_move_def] THEN1
    (rw [] \\ fs [word_heap_def,SEP_CLAUSES]
     \\ Cases_on `a'` \\ fs [word_addr_def,word_gc_move_def]
@@ -536,26 +681,71 @@ val word_gc_move_thm = prove(
   \\ qcase_tac `heap_lookup k heap = SOME x`
   \\ Cases_on `x` \\ fs [] \\ rw [] \\ fs [word_addr_def]
   \\ pop_assum mp_tac \\ fs [word_gc_move_def,get_addr_and_1_not_0]
+  \\ imp_res_tac copying_gcTheory.heap_lookup_LESS
+  \\ drule LE_DIV_LT_IMP \\ fs [] \\ strip_tac
+  \\ fs [ptr_to_addr_get_addr,word_heap_def,SEP_CLAUSES]
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ rpt var_eq_tac
+  \\ fs [word_heap_APPEND,word_heap_def,word_el_def]
+  THEN1
+   (helperLib.SEP_R_TAC \\ fs [LET_THM,theWord_def,is_fws_ptr_OR_3]
+    \\ rw [] \\ qexists_tac `xs` \\ fs []
+    \\ fs [update_addr_def,shift_to_zero]
+    \\ `2 <= shift_length conf` by (fs [shift_length_def] \\ decide_tac)
+    \\ fs [shift_around_under_big_shift]
+    \\ fs [get_addr_def,select_shift_out]
+    \\ fs [select_get_lowerbits])
+  \\ qcase_tac `_ = SOME (DataElement addrs ll tt)`
+  \\ PairCases_on `tt`
+  \\ fs [word_el_def]
+  \\ `?h ts c5. word_payload addrs ll tt0 tt1 conf =
+         (h:'a word,ts,c5)` by METIS_TAC [PAIR]
+  \\ fs [LET_THM] \\ fs []
+  \\ full_simp_tac bool_ss [word_list_def]
+  \\ SEP_R_TAC
+  \\ full_simp_tac bool_ss [GSYM word_list_def]
+  \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,isWord_def,theWord_def]
+  \\ fs [decode_header_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
+  \\ imp_res_tac read_length_lemma \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ Q.ABBREV_TAC `header = (h ≪ (2 + conf.len_size) ‖ n2w (LENGTH ts) ≪ 2 ‖ 3w)`
+  \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word header::ts)):'a word` by
+        fs [LENGTH,ADD1,word_add_n2w]
+  \\ full_simp_tac bool_ss []
+  \\ drule memcpy_thm
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+  \\ fs [gc_forward_ptr_thm] \\ rfs []
+  \\ rpt var_eq_tac
+  \\ fs [heap_length_def,el_length_def]
+  \\ fs [GSYM heap_length_def]
+  \\ imp_res_tac word_payload_IMP
+  \\ rpt var_eq_tac
+  \\ drule LESS_EQ_IMP_APPEND \\ strip_tac
+  \\ fs [] \\ rpt var_eq_tac
+  \\ fs [word_list_APPEND]
+  \\ disch_then (qspec_then `ys` assume_tac)
+  \\ SEP_F_TAC
+  \\ discharge_hyps THEN1
+   (fs [ADD1,SUM_APPEND,X_LE_DIV,RIGHT_ADD_DISTRIB]
+    \\ Cases_on `2 ** shift_length conf` \\ fs []
+    \\ Cases_on `n` \\ fs [MULT_CLAUSES]
+    \\ Cases_on `n'` \\ fs [MULT_CLAUSES] \\ decide_tac)
+  \\ rpt strip_tac
+  \\ fs [word_addr_def,word_add_n2w,ADD_ASSOC] \\ rw []
+  \\ fs [word_heap_APPEND,word_heap_def,SEP_CLAUSES,word_el_def,LET_THM]
+  \\ fs [word_list_def]
+  \\ SEP_W_TAC \\ qexists_tac `zs` \\ fs []
+  \\ reverse conj_tac
+  THEN1 (fs [update_addr_def,get_addr_def,select_shift_out,select_get_lowerbits])
+  \\ pop_assum mp_tac
+  \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ fs [heap_length_def,SUM_APPEND,el_length_def,ADD1]
+  \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ rw [] \\ qexists_tac `ts`
+  \\ fs [AC STAR_ASSOC STAR_COMM,SEP_CLAUSES]);
 
-    fs [ptr_to_addr_get_addr,word_heap_def,SEP_CLAUSES]
-    \\ imp_res_tac heap_lookup_SPLIT \\ fs [] \\ rpt var_eq_tac
-    \\ fs [word_heap_APPEND,word_heap_def,word_el_def]
 
-
-
-
-word_addr_def
-get_addr_def
-word_gc_move_def
-word_addr_def
-gc_forward_ptr_def
-gc_move_def
-gc_move_list_def
-one_list_def
-word_heap_def
-word_el_def
-
-*)
 
 val heap_in_memory_store_def = Define `
   heap_in_memory_store heap a sp c s m dm limit =
