@@ -799,10 +799,11 @@ val word_gc_move_roots_thm = prove(
          word_list pa1 xs1 * frame) (fun2set (m1,dm)) /\
         (w = MAP (word_addr conf) x1) /\
         heap_length heap1 = heap_length heap /\
-        c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1``,
+        c1 /\ (i1 = n2w a1) /\ n1 = LENGTH xs1 /\
+        pa1 = pa + n2w (heap_length h1) * bytes_in_word``,
   Induct THEN1
    (fs [gc_move_list_def,word_gc_move_roots_def,word_heap_def,SEP_CLAUSES]
-    \\ rw [] \\ qexists_tac `xs` \\ fs [])
+    \\ rw [] \\ qexists_tac `xs` \\ fs [heap_length_def])
   \\ rw [] \\ fs [gc_move_list_def,LET_THM]
   \\ split_pair_tac \\ fs []
   \\ split_pair_tac \\ fs []
@@ -832,7 +833,8 @@ val word_gc_move_roots_thm = prove(
   \\ qcase_tac `_ = (xs7,xs8,a7,LENGTH xs9,heap7,T)`
   \\ qexists_tac `xs9` \\ fs []
   \\ fs [word_heap_APPEND]
-  \\ fs [AC STAR_COMM STAR_ASSOC]);
+  \\ fs [AC STAR_COMM STAR_ASSOC]
+  \\ fs [WORD_LEFT_ADD_DISTRIB,heap_length_def,SUM_APPEND,GSYM word_add_n2w]);
 
 val word_gc_move_list_thm = prove(
   ``!x a n heap limit pa x1 h1 a1 n1 heap1 pa1 m m1 xs i1 c1 frame k k1.
@@ -1021,6 +1023,110 @@ val word_gc_move_loop_thm = prove(
   \\ fs [word_heap_APPEND,heap_length_def,el_length_def,SUM_APPEND]
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB,SEP_CLAUSES]
   \\ fs [AC STAR_ASSOC STAR_COMM,word_heap_APPEND]);
+
+val word_list_exists_thm = store_thm("word_list_exists_thm",
+  ``(word_list_exists a 0 = emp) /\
+    (word_list_exists a (SUC n) =
+     SEP_EXISTS w. one (a,w) * word_list_exists (a + bytes_in_word) n)``,
+  fs [word_heap_def,word_list_exists_def,LENGTH_NIL,FUN_EQ_THM,ADD1,
+          SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES]
+  \\ rw [] \\ eq_tac \\ rw []
+  THEN1
+   (Cases_on `xs` \\ fs [ADD1] \\ fs [word_list_def]
+    \\ qexists_tac `h` \\ fs []
+    \\ qexists_tac `t` \\ fs [SEP_CLAUSES])
+  \\ qexists_tac `w::xs` \\ fs [word_list_def,ADD1,STAR_ASSOC,cond_STAR]);
+
+val word_list_exists_ADD = store_thm("word_list_exists_ADD",
+  ``!m n a.
+      word_list_exists a (m + n) =
+      word_list_exists a m *
+      word_list_exists (a + bytes_in_word * n2w m) n``,
+  Induct \\ fs [word_list_exists_thm,SEP_CLAUSES,ADD_CLAUSES]
+  \\ fs [STAR_ASSOC,ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
+val word_el_IMP_word_list_exists = prove(
+  ``!temp p curr.
+      (p * word_el curr temp conf) s ==>
+      (p * word_list_exists curr (el_length temp)) s``,
+  Cases \\ fs [word_el_def,el_length_def,GSYM ADD1,word_list_exists_thm]
+  THEN1 (fs [SEP_CLAUSES,SEP_EXISTS_THM] \\ metis_tac [])
+  \\ Cases_on `b`
+  \\ fs [word_el_def,el_length_def,GSYM ADD1,word_list_exists_thm,LET_THM]
+  \\ rw [] \\ split_pair_tac \\ fs []
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  \\ rw [] \\ fs [word_list_def,SEP_CLAUSES,SEP_EXISTS_THM,word_list_exists_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  \\ imp_res_tac word_payload_T_IMP \\ fs [] \\ rw []
+  \\ fs [STAR_ASSOC] \\ metis_tac []);
+
+val word_heap_IMP_word_list_exists = prove(
+  ``!temp p curr.
+      (p * word_heap curr temp conf) s ==>
+      (p * word_list_exists curr (heap_length temp)) s``,
+  Induct \\ fs [heap_length_def,word_heap_def,word_list_exists_thm]
+  \\ rw [] \\ fs [word_el_def,word_list_exists_ADD]
+  \\ fs [STAR_ASSOC] \\ res_tac
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ metis_tac [word_el_IMP_word_list_exists]);
+
+val word_heap_heap_expand = prove(
+  ``word_heap a (heap_expand n) conf = word_list_exists a n``,
+  Cases_on `n` \\ fs [heap_expand_def]
+  \\ fs [word_heap_def,word_list_exists_def,LENGTH_NIL,FUN_EQ_THM,ADD1,
+         SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES])
+
+val word_full_gc_thm = prove(
+  ``(full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\ limit <> 0 /\
+    heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
+    heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    (word_heap (curr:'a word) heap conf *
+     word_heap new [Unused (limit - 1)] conf * frame) (fun2set (m,dm)) /\
+    limit = heap_length heap /\ good_dimindex (:'a) /\
+    (word_full_gc conf (MAP (word_addr conf) roots,new,curr,m,dm) =
+       (rs1,i1,pa1,m1,c1)) ==>
+    (word_heap new (heap1 ++ heap_expand (limit - a1)) conf *
+     word_heap curr [Unused (limit - 1)] conf * frame) (fun2set (m1,dm)) /\
+    c1 /\ i1 = n2w a1 /\
+    rs1 = MAP (word_addr conf) roots1 /\
+    pa1 = new + bytes_in_word * n2w a1``,
+  strip_tac \\ fs [full_gc_def,LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ fs [word_heap_def,word_el_def]
+  \\ `heap_length heap - 1 + 1 = heap_length heap`  by decide_tac
+  \\ fs [SEP_CLAUSES] \\ pop_assum kall_tac
+  \\ imp_res_tac gc_move_loop_ok \\ fs[]
+  \\ drule word_gc_move_roots_thm
+  \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  \\ fs [word_full_gc_def,LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ disch_then drule \\ fs [] \\ strip_tac
+  \\ rpt var_eq_tac \\ fs []
+  \\ drule word_gc_move_loop_thm
+  \\ fs [heap_length_def]
+  \\ once_rewrite_tac [CONJ_COMM] \\ fs [GSYM CONJ_ASSOC]
+  \\ disch_then drule
+  \\ strip_tac \\ SEP_F_TAC
+  \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ strip_tac
+  \\ rpt var_eq_tac \\ fs [word_heap_APPEND]
+  \\ pop_assum mp_tac
+  \\ fs [STAR_ASSOC]
+  \\ CONV_TAC ((RATOR_CONV o RAND_CONV) (RATOR_CONV
+       (MOVE_OUT_CONV ``word_heap (curr:'a word) (temp:'a ml_heap)``)))
+  \\ strip_tac \\ drule word_heap_IMP_word_list_exists
+  \\ fs [word_heap_heap_expand]
+  \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ strip_tac
+  \\ qcase_tac `LENGTH ys = heap_length temp`
+  \\ qexists_tac `ys` \\ fs [heap_length_def]
+  \\ qexists_tac `xs1'` \\ fs []
+  \\ fs [AC STAR_ASSOC STAR_COMM]);
 
 
 
