@@ -438,21 +438,47 @@ val word_gc_move_list_def = Define `
      let (a2,i2,pa2,m2,c2) = word_gc_move_list conf (a+bytes_in_word,l-1w,i1,pa1,old,m1,dm) in
        (a2,i2,pa2,m2,a IN dm /\ c1 /\ c2)`
 
-val word_gc_loop_def = Define `
-  word_gc_loop conf k (pb,i,pa,old,m,dm,c) =
-    if k = 0n then (i,pa,m,F) else
-    if pb = pa then (i,pa,m,c) else
-      let c = (c /\ pb IN dm) in
-      let w = m pb in
-        if is_fwd_ptr w then
-          let len = SND (decode_header conf (theWord w)) in
-          let pb = pb + (len + 1w) * bytes_in_word in
-            word_gc_loop conf (k-1) (pb,i,pa,old,m,dm,c)
-        else
-          let (w1,i1,pa1,m1,c1) = word_gc_move conf (w,i,pa,old,m,dm) in
-          let m1 = (pb =+ w1) m1 in
-          let pb = pb + bytes_in_word in
-            word_gc_loop conf (k-1) (pb,i1,pa1,old,m1,dm,c /\ c1)`
+val word_gc_move_loop_def = Define `
+  word_gc_move_loop conf (pb,i,pa,old,m,dm,c) =
+    case
+      OWHILE (\(pb,i,pa,old,m,dm,c). pb <> pa)
+       (\(pb,i,pa,old,m,dm,c).
+        let w = m pb in
+        let c = (c /\ pb IN dm /\ isWord w) in
+        let (h,len) = decode_header conf (theWord w) in
+          if h ' 1 then
+            let pb = pb + (len + 1w) * bytes_in_word in
+              (pb,i,pa,old,m,dm,c)
+          else
+            let pb = pb + bytes_in_word in
+            let (pb,i1,pa1,m1,c1) = word_gc_move_list conf (pb,len,i,pa,old,m,dm) in
+              (pb,i1,pa1,old,m1,dm,c /\ c1)) (pb,i,pa,old,m,dm,c)
+    of NONE => (ARB,ARB,ARB,F)
+     | SOME (pb,i,pa,old,m,dm,c) => (i,pa,m,T)`
+
+val word_gc_move_loop_eq = store_thm("word_gc_move_loop_eq",
+  ``word_gc_move_loop conf (pb,i,pa,old,m,dm,c) =
+      if pa = pb then (i,pa,m,T) else
+        let w = m pb in
+        let c = (c /\ pb IN dm /\ isWord w) in
+        let (h,len) = decode_header conf (theWord w) in
+          if h ' 1 then
+            let pb = pb + (len + 1w) * bytes_in_word in
+              word_gc_move_loop conf (pb,i,pa,old,m,dm,c)
+          else
+            let pb = pb + bytes_in_word in
+            let (pb,i1,pa1,m1,c1) = word_gc_move_list conf (pb,len,i,pa,old,m,dm) in
+              word_gc_move_loop conf (pb,i1,pa1,old,m1,dm,c /\ c1)``,
+  simp [Once word_gc_move_loop_def]
+  \\ once_rewrite_tac [whileTheory.OWHILE_THM]
+  \\ fs [GSYM word_gc_move_loop_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ simp [Once word_gc_move_loop_def]
+  \\ simp [Once EQ_SYM_EQ]
+  \\ split_pair_tac \\ fs []
+  \\ CASE_TAC \\ fs []);
 
 val word_gc_fun_def = Define `
   (word_gc_fun (conf:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
@@ -462,13 +488,13 @@ val word_gc_fun_def = Define `
      let len = theWord (s ' HeapLength) in
      let all_roots = s ' Globals::roots in
      let (roots1,i1,pa1,m1,c1) = word_gc_move_roots conf (all_roots,0w,new,old,m,dm) in
-     let (_,pa1,m1,c) = word_gc_loop conf (dimword(:'a)) (new,i1,pa1,old,m1,dm,c1) in
+     let (i1,pa1,m1,c2) = word_gc_move_loop conf (new,i1,pa1,old,m1,dm,c1) in
      let s1 = s |++ [(CurrHeap, Word new);
                      (OtherHeap, Word old);
                      (NextFree, Word pa1);
                      (EndOfHeap, Word (new + len));
                      (Globals, HD roots1)] in
-       if c then SOME (TL roots1,m1,s1) else NONE`
+       if c2 then SOME (TL roots1,m1,s1) else NONE`
 
 val one_and_or_1 = prove(
   ``(1w && (w || 1w)) = 1w``,
