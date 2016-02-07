@@ -201,7 +201,7 @@ val comp_def = Define `
            case handler of
            | NONE => (Seq q0
                      (Seq q1
-                     (Seq (StackArgs dest (LENGTH args) kf)
+                     (Seq (StackArgs dest (LENGTH args + 1) kf)
                           (Call (SOME (q2,0,l1,l2)) dest NONE))),
                       bs)
            | SOME (handle_var, handle_code, h1, h2) =>
@@ -209,7 +209,7 @@ val comp_def = Define `
                 (Seq q0
                 (Seq q1
                 (Seq (PushHandler h1 h2 kf)
-                (Seq (StackHandlerArgs dest (LENGTH args) kf)
+                (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
                      (Call (SOME (q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
                  bs)) /\
   (comp (Alloc r live) bs kf =
