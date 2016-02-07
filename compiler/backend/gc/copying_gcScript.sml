@@ -142,10 +142,11 @@ val heap_expand_def = Define `
 
 val full_gc_def = Define `
   full_gc (roots,heap,limit) =
+    let c0 = (heap_length heap = limit) in
     let (roots,h2,a,n,heap,c) = gc_move_list (roots,[],0,limit,heap,T,limit) in
     let (heap,a,n,temp,c) = gc_move_loop ([],h2,a,n,heap,c,limit) in
-    let c = c /\ (a = heap_length heap) /\ (heap_length temp = limit) /\
-                 (n = limit - a) in
+    let c = (c /\ (a = heap_length heap) /\ (heap_length temp = limit) /\
+             c0 /\ (n = limit - a) /\ a <= limit) in
       (roots,heap,a,c)`;
 
 (* Invariant *)
@@ -662,8 +663,10 @@ val full_gc_thm = store_thm("full_gc_thm",
         (full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def] \\ metis_tac [])
   \\ full_simp_tac std_ss [] \\ reverse (rpt strip_tac)
   THEN1 metis_tac []
-  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL])
-  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL])
+  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL] \\ decide_tac)
+  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL] \\ decide_tac)
+  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL] \\ decide_tac)
+  THEN1 (full_simp_tac std_ss [gc_inv_def,APPEND_NIL] \\ decide_tac)
   \\ match_mp_tac ADDR_MAP_EQ
   \\ full_simp_tac std_ss [] \\ rpt strip_tac \\ res_tac
   \\ full_simp_tac std_ss [SUBMAP_DEF,heap_map1_def]);
@@ -873,5 +876,21 @@ val th = MP th lemma |> SIMP_RULE std_ss []
          |> Q.SPECL [`h1`,`h2`,`a`,`n`,`heap`,`c`,`limit`,`h1'`,`a'`,`n'`,`heap'`]
 
 val gc_move_loop_ok = save_thm("gc_move_loop_ok",th);
+
+val gc_move_list_IMP_LENGTH = store_thm("gc_move_list_IMP_LENGTH",
+  ``!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
+      (gc_move_list (l5,h,a,n,heap,c,k) =
+        (xs,ys,a1,xs1,heap1,c1)) ==> (LENGTH xs = LENGTH l5)``,
+  Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[] \\ rw []
+  \\ res_tac \\ fs []);
+
+val full_gc_IMP_LENGTH = store_thm("full_gc_IMP_LENGTH",
+  ``(full_gc (xs,heap,limit) = (roots2,heap2,h,T)) ==>
+    (LENGTH roots2 = LENGTH xs)``,
+  fs [full_gc_def,LET_THM]
+  \\ rpt (split_pair_tac \\ fs []) \\ rw []
+  \\ imp_res_tac gc_move_list_IMP_LENGTH \\ fs []);
 
 val _ = export_theory();

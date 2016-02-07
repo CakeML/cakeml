@@ -908,15 +908,6 @@ val word_payload_swap = prove(
     word_payload xs' (LENGTH l5) tag r conf = (h,MAP (word_addr conf) xs',T)``,
   Cases_on `tag` \\ fs [word_payload_def] \\ rw [] \\ fs [LENGTH_NIL]);
 
-val gc_move_list_IMP_LENGTH = store_thm("gc_move_list_IMP_LENGTH",
-  ``!l5 h a n heap c k xs ys a1 xs1 heap1 c1.
-      gc_move_list (l5,h,a,n,heap,c,k) =
-        (xs,ys,a1,xs1,heap1,c1) ==> LENGTH xs = LENGTH l5``,
-  Induct \\ fs [gc_move_list_def,LET_THM] \\ rw []
-  \\ split_pair_tac \\ fs[]
-  \\ split_pair_tac \\ fs[] \\ rw []
-  \\ res_tac \\ fs []);
-
 val word_gc_move_loop_thm = prove(
   ``!h1 h2 a n heap c0 limit h11 a1 n1 heap1 i1 pa1 m1 c1 xs frame m.
       (gc_move_loop (h1,h2,a,n,heap,c0,limit) = (h11,a1,n1,heap1,T)) /\ c0 /\
@@ -1078,16 +1069,16 @@ val word_heap_heap_expand = prove(
          SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES])
 
 val word_full_gc_thm = prove(
-  ``(full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\ limit <> 0 /\
+  ``(full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     (word_heap (curr:'a word) heap conf *
-     word_heap new [Unused (limit - 1)] conf * frame) (fun2set (m,dm)) /\
+     word_heap new (heap_expand limit) conf * frame) (fun2set (m,dm)) /\
     limit = heap_length heap /\ good_dimindex (:'a) /\
     (word_full_gc conf (MAP (word_addr conf) roots,new,curr,m,dm) =
        (rs1,i1,pa1,m1,c1)) ==>
     (word_heap new (heap1 ++ heap_expand (limit - a1)) conf *
-     word_heap curr [Unused (limit - 1)] conf * frame) (fun2set (m1,dm)) /\
+     word_heap curr (heap_expand limit) conf * frame) (fun2set (m1,dm)) /\
     c1 /\ i1 = n2w a1 /\
     rs1 = MAP (word_addr conf) roots1 /\
     pa1 = new + bytes_in_word * n2w a1``,
@@ -1096,11 +1087,10 @@ val word_full_gc_thm = prove(
   \\ split_pair_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
   \\ fs [word_heap_def,word_el_def]
-  \\ `heap_length heap - 1 + 1 = heap_length heap`  by decide_tac
-  \\ fs [SEP_CLAUSES] \\ pop_assum kall_tac
+  \\ fs [SEP_CLAUSES]
   \\ imp_res_tac gc_move_loop_ok \\ fs[]
   \\ drule word_gc_move_roots_thm
-  \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM]
+  \\ fs [word_list_exists_def,SEP_CLAUSES,SEP_EXISTS_THM,word_heap_heap_expand]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ fs [word_full_gc_def,LET_THM]
   \\ split_pair_tac \\ fs []
@@ -1113,8 +1103,8 @@ val word_full_gc_thm = prove(
   \\ disch_then drule
   \\ strip_tac \\ SEP_F_TAC
   \\ fs [AC STAR_ASSOC STAR_COMM]
-  \\ strip_tac
-  \\ rpt var_eq_tac \\ fs [word_heap_APPEND]
+  \\ strip_tac \\ rpt var_eq_tac
+  \\ fs [word_heap_APPEND,word_heap_heap_expand]
   \\ pop_assum mp_tac
   \\ fs [STAR_ASSOC]
   \\ CONV_TAC ((RATOR_CONV o RAND_CONV) (RATOR_CONV
@@ -1128,20 +1118,34 @@ val word_full_gc_thm = prove(
   \\ qexists_tac `xs1'` \\ fs []
   \\ fs [AC STAR_ASSOC STAR_COMM]);
 
-
-
 val heap_in_memory_store_def = Define `
-  heap_in_memory_store heap a sp c s m dm limit =
+  heap_in_memory_store heap a sp c s m dm limit <=>
+    heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
+    heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     ?curr other.
-      (FLOOKUP s CurrHeap = SOME (Word curr)) /\
+      (FLOOKUP s CurrHeap = SOME (Word (curr:'a word))) /\
       (FLOOKUP s OtherHeap = SOME (Word other)) /\
       (FLOOKUP s NextFree = SOME (Word (curr + bytes_in_word * n2w a))) /\
       (FLOOKUP s EndOfHeap = SOME (Word (curr + bytes_in_word * n2w (a + sp)))) /\
+      (FLOOKUP s HeapLength = SOME (Word (bytes_in_word * n2w limit))) /\
       (word_heap curr heap c *
-       word_heap other [Unused (limit-1)] c) (fun2set (m,dm))`
+       word_heap other (heap_expand limit) c) (fun2set (m,dm))`
+
+val LIST_REL_EQ_MAP = store_thm("LIST_REL_EQ_MAP",
+  ``!vs ws f. LIST_REL (λv w. f v = w) vs ws <=> ws = MAP f vs``,
+  Induct \\ fs []);
+
+val full_gc_IMP = prove(
+  ``full_gc (xs,heap,limit) = (t,heap2,n,T) ==>
+    n <= limit /\ limit = heap_length heap``,
+  fs [full_gc_def,LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ rw [] \\ fs []);
 
 val word_gc_fun_lemma = prove(
-  ``heap_in_memory_store heap a sp c s m dm limit /\
+  ``good_dimindex (:'a) /\
+    heap_in_memory_store heap a sp c s m dm limit /\
     abs_ml_inv (v::MAP FST stack) refs (hs,heap,be,a,sp) limit /\
     LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
     full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) ==>
@@ -1150,16 +1154,43 @@ val word_gc_fun_lemma = prove(
         word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
         heap_in_memory_store heap1 (heap_length heap2)
           (limit - heap_length heap2) c s1 m1 dm limit /\
-        LIST_REL (λv w. word_addr c v = w) roots2
+        LIST_REL (λv w. word_addr c v = (w:'a word_loc)) roots2
           (s1 ' Globals::MAP SND (ZIP (MAP FST stack,stack1))) /\
         LENGTH stack1 = LENGTH stack``,
-  cheat) |> GEN_ALL
+  strip_tac
+  \\ rewrite_tac [word_gc_fun_def] \\ fs []
+  \\ fs [heap_in_memory_store_def,FLOOKUP_DEF,theWord_def,LET_THM]
+  \\ split_pair_tac
+  \\ fs [finite_mapTheory.FDOM_FUPDATE_LIST,FUPDATE_LIST,FAPPLY_FUPDATE_THM]
+  \\ rpt var_eq_tac \\ fs []
+  \\ `s ' Globals::MAP SND stack = MAP (word_addr c) (v'::xs)` by
+    (fs [LIST_REL_EQ_MAP] \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs [])
+  \\ full_simp_tac std_ss [] \\ drule (GEN_ALL word_full_gc_thm)
+  \\ rewrite_tac [CONJ_ASSOC]
+  \\ once_rewrite_tac [CONJ_COMM]
+  \\ disch_then drule
+  \\ disch_then (qspec_then `emp` mp_tac)
+  \\ fs [SEP_CLAUSES]
+  \\ discharge_hyps
+  THEN1 (imp_res_tac full_gc_IMP \\ fs [])
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ imp_res_tac full_gc_IMP_LENGTH
+  \\ Cases_on `roots2` \\ fs []
+  \\ `LENGTH xs = LENGTH stack` by metis_tac [LENGTH_MAP] \\ fs []
+  \\ fs [listTheory.MAP_ZIP]
+  \\ fs [LIST_REL_EQ_MAP]
+  \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ fs []
+  \\ imp_res_tac full_gc_IMP \\ fs []
+  \\ rfs[heap_length_APPEND,heap_length_heap_expand]
+  \\ `heap_length heap2 + (heap_length heap - heap_length heap2) =
+      heap_length heap` by decide_tac \\ fs []) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
 val word_gc_fun_correct = prove(
-  ``heap_in_memory_store heap a sp c s m dm limit /\
-    word_ml_inv (heap,be,a,sp) limit c refs ((v,s ' Globals)::stack) ==>
-    ?stack1 m1 s1 heap1 a1 sp1 w.
+  ``good_dimindex (:'a) /\
+    heap_in_memory_store heap a sp c s m dm limit /\
+    word_ml_inv (heap:'a ml_heap,be,a,sp) limit c refs ((v,s ' Globals)::stack) ==>
+    ?stack1 m1 s1 heap1 a1 sp1.
       word_gc_fun c (MAP SND stack,m,dm,s) = SOME (stack1,m1,s1) /\
       heap_in_memory_store heap1 a1 sp1 c s1 m1 dm limit /\
       word_ml_inv (heap1,be,a1,sp1) limit c refs
@@ -2076,15 +2107,12 @@ val IMP_EQ_DISJ = METIS_PROVE [] ``(b1 ==> b2) <=> ~b1 \/ b2``
 val word_gc_fun_IMP_FILTER = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (stack1,m1,s1) ==>
     word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (FILTER isWord stack1,m1,s1)``,
-  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ UNABBREV_ALL_TAC \\ fs [] \\ rw []
-  \\ fs [word_gc_move_roots_def]
-  \\ Cases_on `word_gc_move c (s ' Globals,0w,theWord (s ' OtherHeap),
-                               theWord (s ' CurrHeap),m,dm)` \\ fs []
-  \\ PairCases_on `r` \\ fs [LET_DEF]
-  \\ Cases_on `word_gc_move_roots c (xs,r0,r1,theWord (s ' CurrHeap),r2,dm)`
-  \\ PairCases_on `r` \\ fs [LET_DEF]
+  fs [word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ fs [word_gc_move_roots_def,LET_THM]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ rpt var_eq_tac \\ fs []
   \\ imp_res_tac word_gc_move_roots_IMP_FILTER
   \\ fs [] \\ rw [] \\ rfs [] \\ fs [])
 
@@ -2121,17 +2149,14 @@ val word_gc_move_roots_IMP_FILTER = prove(
 val word_gc_fun_loc_merge = prove(
   ``word_gc_fun c (FILTER isWord xs,m,dm,s) = SOME (ys,m1,s1) ==>
     word_gc_fun c (xs,m,dm,s) = SOME (loc_merge xs ys,m1,s1)``,
-  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ UNABBREV_ALL_TAC \\ fs [] \\ rw []
-  \\ fs [word_gc_move_roots_def]
-  \\ Cases_on `word_gc_move c (s ' Globals,0w,theWord (s ' OtherHeap),
-                               theWord (s ' CurrHeap),m,dm)` \\ fs []
-  \\ PairCases_on `r` \\ fs [LET_DEF]
-  \\ Cases_on `word_gc_move_roots c (FILTER isWord xs,r0,r1,theWord (s ' CurrHeap),r2,dm)`
-  \\ PairCases_on `r` \\ fs [LET_DEF]
+  fs [word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ fs [word_gc_move_roots_def,LET_THM]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ rpt var_eq_tac \\ fs []
   \\ imp_res_tac word_gc_move_roots_IMP_FILTER
-  \\ fs [] \\ rw [] \\ fs []);
+  \\ fs [] \\ rw [] \\ rfs [] \\ fs []);
 
 val word_gc_fun_IMP = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (ys,m1,s1) ==>
@@ -2160,12 +2185,13 @@ val word_gc_move_roots_IMP_EVERY2 = prove(
 val word_gc_IMP_EVERY2 = prove(
   ``word_gc_fun c (xs,m,dm,st) = SOME (ys,m1,s1) ==>
     EVERY2 (\x y. (isWord x <=> isWord y) /\ (~isWord x ==> x = y)) xs ys``,
-  fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ fs [GSYM IMP_EQ_DISJ,word_gc_fun_def] \\ rw []
-  \\ Q.UNABBREV_TAC `all_roots`
-  \\ imp_res_tac word_gc_move_roots_IMP_EVERY2
-  \\ Cases_on `roots1` \\ fs []
-  \\ fs [IMP_EQ_DISJ,word_gc_fun_def] \\ rw []);
+  fs [word_gc_fun_def,LET_THM,word_gc_fun_def,word_full_gc_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ fs [word_gc_move_roots_def,LET_THM]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ rpt var_eq_tac \\ fs []
+  \\ imp_res_tac word_gc_move_roots_IMP_EVERY2);
 
 val word_gc_fun_LENGTH = prove(
   ``word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs``,
@@ -2394,8 +2420,8 @@ val state_rel_gc = prove(
   \\ Q.PAT_ABBREV_TAC `pat = join_env LN _` \\ rw []
   \\ `pat = []` by (UNABBREV_ALL_TAC \\ EVAL_TAC) \\ fs []
   \\ rfs [] \\ fs [] \\ pop_assum (K all_tac)
-  \\ first_x_assum (fn th1 => first_x_assum (fn th2 =>
-       mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 th2))))
+  \\ first_x_assum (fn th1 => first_x_assum (fn th2 => first_x_assum (fn th3 =>
+       mp_tac (MATCH_MP word_gc_fun_correct (CONJ th1 (CONJ th2 th3))))))
   \\ rw [] \\ fs []
   \\ imp_res_tac word_gc_fun_IMP_FILTER
   \\ imp_res_tac FILTER_enc_stack_lemma \\ fs []
