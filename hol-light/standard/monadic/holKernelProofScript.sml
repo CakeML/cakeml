@@ -311,7 +311,7 @@ val tyvars_thm = prove(
   \\ SIMP_TAC (srw_ss()) [Once itlist_def,FOLDR,MEM_union,MEM_LIST_UNION]
   \\ METIS_TAC []);
 
-val type_subst_thm = store_thm("type_subst",
+val type_subst_thm = store_thm("type_subst_thm",
   ``!i ty.
       (type_subst i ty = TYPE_SUBST i ty) /\
       (EVERY (\(x,y). TYPE s x /\ TYPE s y) i /\ TYPE s ty ==>
@@ -322,13 +322,13 @@ val type_subst_thm = store_thm("type_subst",
     \\ Induct_on `i` \\ TRY Cases \\ ONCE_REWRITE_TAC [rev_assocd_def]
     \\ SIMP_TAC (srw_ss()) [REV_ASSOCD,MAP]
     \\ IF_CASES_TAC \\ FULL_SIMP_TAC std_ss []) >>
-  rw[] >> rw[Once type_subst_def] >> rw[] >>
+  srw_tac[][] >> srw_tac[][Once type_subst_def] >> srw_tac[][] >>
   TRY(
     fs[markerTheory.Abbrev_def] >>
     TRY (match_mp_tac EQ_TRANS >>
          first_assum(match_exists_tac o concl)) >>
     rw[MAP_EQ_f] ) >>
-  fs[TYPE_def,type_ok_def,EVERY_MAP,EVERY_MEM])
+  fsrw_tac[][TYPE_def,type_ok_def,EVERY_MAP,EVERY_MEM])
 
 val mk_fun_ty_thm = store_thm("mk_fun_ty_thm",
   ``!ty1 ty2 s z s'.
