@@ -49,7 +49,13 @@ val alloc_correct = prove(
          (r,
           t with
            <|use_alloc := F; code := fromAList (compile c (toAList s.code))|>)``,
-  cheat (* correctness of stubs *));
+  simp[alloc_def,GSYM AND_IMP_INTRO]
+  \\ BasicProvers.CASE_TAC \\ simp[]
+  \\ BasicProvers.CASE_TAC \\ simp[]
+  \\ BasicProvers.CASE_TAC \\ simp[]
+  \\ simp[evaluate_def,find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND]
+  \\ simp[stubs_def]
+  \\ cheat (* correctness of (unimplemented) stubs *));
 
 val find_code_IMP_lookup = prove(
   ``find_code dest regs (s:'a num_map) = SOME x ==>
