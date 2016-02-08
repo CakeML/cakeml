@@ -2963,20 +2963,28 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
       res <> SOME (Rerr (Rabort Rtype_error)) /\
       state_rel c l1 l2 s t [] [] ==>
       ?ck t1 res1.
-        !perm.
-          (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
-             inc_clock ck t with permute := perm) = (res1,t1)) /\
-          (res1 = SOME NotEnoughSpace ==>
-             t1.ffi.io_events ≼ s1.ffi.io_events ∧
-             (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
-          (res1 <> SOME NotEnoughSpace ==>
-           case res of
-           | NONE => (res1 = NONE)
-           | SOME (Rval v) => t1.ffi = s1.ffi /\
-                              ?w. (res1 = SOME (Result (Loc l1 l2) w))
-           | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
-           | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
-  cheat); (* the theorem above needs adjusting *)
+            (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
+               inc_clock ck t) = (res1,t1)) /\
+            (res1 = SOME NotEnoughSpace ==>
+               t1.ffi.io_events ≼ s1.ffi.io_events ∧
+               (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
+            (res1 <> SOME NotEnoughSpace ==>
+             case res of
+            | NONE => (res1 = NONE)
+            | SOME (Rval v) => t1.ffi = s1.ffi /\
+                               ?w. (res1 = SOME (Result (Loc l1 l2) w))
+            | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
+            | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
+  rpt strip_tac
+  \\ drule compile_correct \\ fs []
+  \\ disch_then drule \\ fs [comp_def]
+  \\ strip_tac
+  \\ qexists_tac `ck`
+  \\ qexists_tac `t1`
+  \\ qexists_tac `res1`
+  \\ fs [] \\ strip_tac \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ fs [state_rel_def]);
 
 val state_rel_ext_def = Define `
   state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
@@ -3005,23 +3013,27 @@ val compile_correct = store_thm("compile_correct",
          | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   gen_tac \\ PairCases_on `x`
-  \\ fs [state_rel_ext_def,PULL_EXISTS]
-  \\ rw [] \\ drule compile_correct_lemma \\ fs []
-  \\ disch_then drule \\ strip_tac \\ fs []
+  \\ fs [state_rel_ext_def,PULL_EXISTS] \\ rw []
   \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
-  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF] \\ rfs[]
-  \\ `(!n v. lookup n (inc_clock ck t).code = SOME v ==>
+  \\ `(!n v. lookup n t.code = SOME v ==>
              ?x1 x2 x3 x4 x5.
                 lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
-        by (fs [inc_clock_def] \\ metis_tac [])
-  \\ drule compile_word_to_word_thm \\ rw []
-  \\ fs [GSYM PULL_FORALL] \\ fs [LET_DEF] \\ rfs[]
-  THEN1 (every_case_tac \\ fs [] \\ rfs [])
-  \\ split_pair_tac \\ fs [] \\ rw []
+        by (fs [] \\ metis_tac [])
+  \\ drule compile_word_to_word_thm_alt \\ rw []
+  \\ drule compile_correct_lemma \\ fs []
+  \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
+   (fs [state_rel_def] \\ rfs []
+    \\ Cases_on `s.stack` \\ fs [] \\ metis_tac [])
+  \\ disch_then drule \\ strip_tac
+  \\ first_x_assum (qspec_then `ck` mp_tac)
+  \\ fs [LET_THM] \\ split_pair_tac \\ fs []
+  \\ fs [LET_THM] \\ split_pair_tac \\ fs []
   \\ fs [inc_clock_def]
+  \\ rpt var_eq_tac \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  THEN1 (every_case_tac \\ fs [])
   \\ qexists_tac `ck` \\ fs []
-  \\ rw [] \\ fs []
-  \\ every_case_tac \\ fs []);
+  \\ rw [] \\ every_case_tac \\ fs []);
 
 val state_rel_ext_with_clock = prove(
   ``state_rel_ext a b c s1 s2 ==>
