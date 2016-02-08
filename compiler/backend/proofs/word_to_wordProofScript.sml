@@ -456,17 +456,4 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   Cases_on`res`>>TRY(Cases_on`x`)>>fs[])
   |> SIMP_RULE std_ss [Once LET_THM]
 
-val compile_word_to_word_thm_alt = store_thm("compile_word_to_word_thm_alt",
-  ``(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
-           ∃t k a c col.
-           lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
-    ?perm'.
-      !ck.
-        let prog = Call NONE (SOME start) [0] NONE in
-        let (res,rst) = evaluate (prog,inc_clock ck st with permute := perm') in
-          if res = SOME Error then T else
-            let (res1,rst1) = evaluate (prog,inc_clock ck st with code := l) in
-              res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,
-  cheat); (* the quantification over ck is needed for bvp-to-word composition *)
-
 val _ = export_theory();
