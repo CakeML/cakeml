@@ -876,6 +876,18 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     (fs[evaluate_def]>>every_case_tac>- fs[call_env_def,fromList2_def] >>
     fs[dec_clock_def,s_key_eq_refl]>>
     rpt strip_tac>>Q.EXISTS_TAC`xs`>>fs[s_key_eq_refl])
+  >- (*MustTerminate*)
+    (fs[evaluate_def]>>
+    LET_ELIM_TAC>> every_case_tac>>fs[]>>
+    TRY(rw[]>>res_tac>>simp[]>>metis_tac[])
+    >-
+      (qexists_tac`lss`>>simp[]>>
+      rw[]>>res_tac>>simp[]>>
+      metis_tac[])
+    >>
+    ntac 5 strip_tac>>
+    res_tac>>
+    rfs[]>>simp[])
   >-(*Seq*)
     (fs[evaluate_def]>>
     Cases_on`evaluate(c',s)`>>
@@ -1471,6 +1483,15 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     (qexists_tac`perm`>>
     every_case_tac>>fs[dec_clock_def,call_env_def]>>
     fs[state_component_equality])
+  >- (*MustTerminate*)
+    (fs[LET_THM]>>
+    qpat_assum`A=(res,rst)` mp_tac>>
+    TOP_CASE_TAC>>simp[]>>
+    split_pair_tac>>simp[]>>
+    TOP_CASE_TAC>>simp[]>>rw[]>>
+    first_x_assum(qspec_then`perm` assume_tac)>>fs[]>>
+    split_pair_tac>>fs[]>>rfs[]>>
+    qexists_tac`perm'`>>simp[])
   >- (*Seq*)
     (fs[evaluate_def,LET_THM]>>
     Cases_on`evaluate(prog,st)`>>fs[]>>
@@ -1676,6 +1697,7 @@ val every_inst_def = Define`
   (every_inst P (Inst i) ⇔ P i) ∧
   (every_inst P (Seq p1 p2) ⇔ (every_inst P p1 ∧ every_inst P p2)) ∧
   (every_inst P (If cmp r1 ri c1 c2) ⇔ every_inst P c1 ∧ every_inst P c2) ∧
+  (every_inst P (MustTerminate n p) ⇔ every_inst P p) ∧
   (every_inst P (Call ret dest args handler)
     ⇔ (case ret of
         NONE => T
@@ -1852,6 +1874,20 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     rfs[state_component_equality,mem_store_def]>>
     metis_tac[])
   >-
+    (fs[PULL_FORALL,GSYM AND_IMP_INTRO]>>
+    qpat_assum`A=(res,rst)` mp_tac>>
+    IF_CASES_TAC>>simp[]>>
+    split_pair_tac>>simp[]>>
+    IF_CASES_TAC>>simp[]>>
+    first_x_assum(qspec_then`p` mp_tac)>>
+    simp[prog_size_def]>>rw[]>>fs[every_var_def]>>
+    res_tac>>fs[]>>
+    first_x_assum(qspec_then`loc` mp_tac)>>
+    pop_assum kall_tac>>
+    simp[]>>strip_tac>>
+    simp[]>>
+    metis_tac[])
+  >-
     (*Call*)
     (Cases_on`get_vars l st`>>fs[every_var_def]>>
     imp_res_tac locals_rel_get_vars>>fs[]>>
@@ -1967,5 +2003,48 @@ val lookup_fromList2 = store_thm("lookup_fromList2",
   \\ fs [DIV_LT_X]
   \\ `n = LENGTH l * 2 + 1` by decide_tac
   \\ fs [MOD_TIMES]);
+
+(* This shows that eval doesn't change termdep and is invariant to
+  increments to termdep *)
+
+val evaluate_add_termdep = prove(``
+  ∀prog st res rst.
+  evaluate(prog,st) = (res,rst) ∧ res ≠ SOME Error ⇒
+  evaluate(prog,st with termdep := st.termdep + extra) =
+  (res,rst with termdep:= st.termdep+extra)``,
+  recInduct evaluate_ind>>rw[evaluate_def]>>
+  cheat)
+  (*Proof for MustTerminate case, rotate by 9 goals
+  qpat_assum`A=(res,rst)` mp_tac>>
+  simp[]>>split_pair_tac>>simp[]>>
+  IF_CASES_TAC>>fs[]>>
+  strip_tac>>
+  `res'' ≠ SOME Error` by metis_tac[]>>
+  fs[]>>
+  `s.termdep -1 + extra = s.termdep + extra-1`by DECIDE_TAC>>
+  fs[state_component_equality]*)
+
+(*This should allow us to delete MustTerminate and replace it with clock and termdeps*)
+
+val MustTerminate_to_clock = prove(``
+  evaluate(MustTerminate n prog,st) = (res,rst) ∧
+  res ≠ SOME Error ⇒
+  ∃ck ck' td.
+  evaluate(prog,st with clock:=st.clock+ck) =
+    (res,rst with <|clock:=ck';termdep:=st.termdep|>)``,
+  simp[evaluate_def]>>
+  split_pair_tac>>simp[]>>
+  EVERY_CASE_TAC>>rw[]>>fs[]>>
+  imp_res_tac evaluate_add_clock>>
+  fs[]>>
+  pop_assum(qspec_then`st.clock`assume_tac)>>
+  qexists_tac`n`>>simp[]>>
+  qexists_tac`s1.clock+st.clock` >>
+  imp_res_tac evaluate_add_termdep>>
+  pop_assum kall_tac>>
+  pop_assum(qspec_then`1` mp_tac)>>simp[]>>
+  disch_then (SUBST1_TAC o SYM)>>
+  AP_TERM_TAC>>AP_TERM_TAC>>
+  simp[state_component_equality])
 
 val _ = export_theory();

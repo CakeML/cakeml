@@ -44,6 +44,8 @@ val colouring_ok_def = Define`
     | SOME(v,prog,l1,l2) =>
         INJ f (domain (insert v () cutset)) UNIV ∧
         colouring_ok f prog live)) ∧
+  (colouring_ok f (MustTerminate n p) live =
+    colouring_ok f p live) ∧
   (colouring_ok f prog live =
     (*live before must be fine, and clash set must be fine*)
     let lset = get_live prog live in
@@ -69,7 +71,8 @@ val word_state_eq_rel_def = Define`
   t.clock = s.clock ∧
   t.code = s.code ∧
   t.ffi = s.ffi ∧
-  t.be = s.be`
+  t.be = s.be ∧
+  t.termdep = s.termdep`
 
 (*tlocs is a supermap of slocs under f for everything in a given
   live set*)
@@ -358,7 +361,8 @@ val gc_frame = store_thm("gc_frame",``
   st'.locals = st.locals ∧
   st'.be = st.be ∧
   st'.ffi = st.ffi ∧
-  st'.permute = st.permute``,
+  st'.permute = st.permute ∧
+  st'.termdep = st.termdep``,
   fs[gc_def,LET_THM]>>EVERY_CASE_TAC>>
   fs[state_component_equality])
 
@@ -745,6 +749,20 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     EVERY_CASE_TAC>>fs[]>>
     metis_tac[SUBSET_OF_INSERT,strong_locals_rel_subset
              ,domain_union,SUBSET_UNION])
+  >- (*MustTerminate*)
+    (first_x_assum(qspec_then`p` assume_tac)>>
+    fs[colouring_ok_def,evaluate_def,LET_THM,word_state_eq_rel_def]>>
+    IF_CASES_TAC>>simp[]>>
+    first_x_assum(qspecl_then[
+    `st with <|clock:=n;termdep:=st.termdep-1|>`,
+    `cst with <|clock:=n;termdep:=st.termdep-1|>`,`f`,`live`] mp_tac)>>
+    discharge_hyps>- size_tac>>
+    discharge_hyps>- fs[strong_locals_rel_def,get_live_def]>>
+    strip_tac>>
+    qexists_tac`perm'`>>simp[]>>
+    ntac 2 (split_pair_tac>>fs[])>>
+    IF_CASES_TAC>>fs[]>>
+    metis_tac[])
   >- (*Call*)
     (fs[evaluate_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>fs[]>>
@@ -1199,6 +1217,8 @@ val get_clash_sets_hd = prove(
   get_live prog live = hd``,
   Induct>>rw[get_clash_sets_def]>>fs[LET_THM]
   >-
+    fs[get_live_def]
+  >-
     (Cases_on`o'`>>fs[get_clash_sets_def,LET_THM]>>
     PairCases_on`x`>>fs[get_clash_sets_def,get_live_def]>>
     fs[LET_THM,UNCURRY]>>
@@ -1228,6 +1248,9 @@ val get_clash_sets_tl = prove(
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
   >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
+  >-
+    (first_x_assum(qspecl_then[`p`,`live`,`f`]mp_tac)>>
+    discharge_hyps>-size_tac>>rw[])
   >-
     (Cases_on`o'`>>fs[UNCURRY,get_clash_sets_def,LET_THM]
     >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION]
@@ -1366,6 +1389,10 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     HINT_EXISTS_TAC>>rw[in_clash_sets_def]>>
     qexists_tac`insert n () (union (get_live_exp e) live)`>>
     fs[domain_union])
+  >-
+    (first_x_assum(qspecl_then[`p`,`live`] mp_tac)>>discharge_hyps>-
+    size_tac>>
+    split_pair_tac>>simp[])
   >-
     (*Call*)
     (Cases_on`o'`>>fs1
@@ -2631,6 +2658,9 @@ val ssa_cc_trans_props = prove(``
     DECIDE_TAC)>>
   strip_tac >-
     (LET_ELIM_TAC>>fs[]>>
+    DECIDE_TAC)>>
+  strip_tac >-
+    (LET_ELIM_TAC>>fs[]>>
     imp_res_tac ssa_map_ok_more>>
     first_x_assum(qspec_then`na3` assume_tac)>>rfs[]>>
     fs[]>>
@@ -3007,6 +3037,22 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     qpat_assum`A=x'''` sym_sub_tac>>
     qpat_assum`A=x''` sym_sub_tac>>
     fs[])
+  >- (*MustTerminate*)
+    (fs[ssa_cc_trans_def,LET_THM]>>
+    Cases_on`ssa_cc_trans p ssa na`>>simp[]>>
+    Cases_on`r`>>fs[evaluate_def,LET_THM,word_state_eq_rel_def]>>
+    first_x_assum(qspecl_then[
+    `p`,`st with <|clock:=n;termdep:=st.termdep-1|>`,
+    `cst with <|clock:=n;termdep:=st.termdep-1|>`,`ssa`,`na`] mp_tac)>>
+    size_tac>>
+    discharge_hyps>-
+     fs[every_var_def]>>
+    strip_tac>>
+    qexists_tac`perm'`>>simp[]>>
+    IF_CASES_TAC>>fs[]>>
+    ntac 3 (split_pair_tac>>fs[])>>
+    IF_CASES_TAC>>fs[]>>
+    rveq>>fs[])
   >- (*Call*)
    (Cases_on`o'`
     >-
@@ -4511,6 +4557,9 @@ val ssa_cc_trans_pre_alloc_conventions = store_thm("ssa_cc_trans_pre_alloc_conve
   fs[ssa_cc_trans_def,pre_alloc_conventions_def]>>rw[]>>
   fs[call_arg_convention_def,every_stack_var_def]
   >-
+   (first_x_assum(qspecl_then [`p`,`ssa`,`na`] mp_tac)>>
+   size_tac>>simp[])
+  >-
   (Cases_on`o'`
   >-
     (fs[ssa_cc_trans_def]>>LET_ELIM_TAC>>
@@ -4997,6 +5046,8 @@ val ssa_cc_trans_distinct_tar_reg = prove(``
     first_x_assum match_mp_tac>>
     match_mp_tac every_var_mono >>
     HINT_EXISTS_TAC>>fs[]>>DECIDE_TAC)
+  >-
+    fs[every_var_def]
   >-
     (fs[every_var_def]>>qpat_assum`A = (B,C,D,E)`mp_tac>>fs[fix_inconsistencies_def,fake_moves_def]>>LET_ELIM_TAC>>
     fs[every_inst_def,EQ_SYM_EQ]>>

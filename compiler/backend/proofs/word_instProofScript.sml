@@ -614,6 +614,17 @@ val inst_select_thm = store_thm("inst_select_thm",``
     IF_CASES_TAC>>fs[]>>
     metis_tac[])
   >-
+    (fs[evaluate_def,LET_THM,every_var_def]>>
+    IF_CASES_TAC>>fs[]>>
+    ntac 2 (split_pair_tac>>fs[])>>
+    Cases_on`res' = SOME TimeOut`>>fs[]>>
+    rveq>>
+    res_tac>>
+    last_x_assum kall_tac>>
+    ntac 2 (pop_assum kall_tac)>>
+    pop_assum(qspec_then`loc` assume_tac)>>rfs[]>>
+    simp[state_component_equality])
+  >-
     (fs[evaluate_def]>>ntac 4 (pop_assum mp_tac)>>ntac 4 FULL_CASE_TAC>>
     fs[every_var_def]>>
     rw[]>> imp_res_tac locals_rel_get_var>>
@@ -682,6 +693,8 @@ val flat_exp_conventions_def = Define`
   (flat_exp_conventions (If cmp r1 ri e2 e3) =
     (flat_exp_conventions e2 ∧
     flat_exp_conventions e3)) ∧
+  (flat_exp_conventions (MustTerminate n p) =
+    flat_exp_conventions p) ∧
   (flat_exp_conventions (Call ret dest args h) =
     ((case ret of
       NONE => T
@@ -781,6 +794,13 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
     Cases_on`res'' = SOME Error`>>fs[]>>res_tac>>
     EVERY_CASE_TAC>>fs[]>>
     metis_tac[])
+  >-
+    (IF_CASES_TAC>>fs[LET_THM,every_inst_def]>>
+    ntac 2(split_pair_tac>>fs[])>>
+    Cases_on`res' = SOME TimeOut`>>fs[]>>rveq>>
+    res_tac>>
+    fs[]>>rveq>>
+    fs[])
   >>
     ntac 2 (pop_assum mp_tac)>>LET_ELIM_TAC>>fs[every_inst_def]>>
     unabbrev_all_tac>>
