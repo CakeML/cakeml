@@ -31,6 +31,51 @@ val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
   rw[ffiTheory.call_FFI_def]
   \\ every_case_tac >> fs[] >> rw[]);
 
+val n2w_lt = Q.store_thm("n2w_lt",
+  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
+   a < dimword (:'a) ∧ b < dimword (:'a)
+   ⇒
+   ((n2w a:'a word) < (n2w b:'a word) ⇔ a < b)`,
+  simp[word_lt_n2w]);
+
+val n2w_le = Q.store_thm("n2w_le",
+  `(0w:'a word) < n2w a ∧ (0w:'a word) < n2w b ∧
+   a < dimword (:'a) ∧ b < dimword (:'a)
+   ⇒
+   ((n2w a:'a word) ≤ (n2w b:'a word) ⇔ a ≤ b)`,
+  rw[WORD_LESS_OR_EQ,LESS_OR_EQ]
+  \\ metis_tac[n2w_lt]);
+
+val word_lt_0w = Q.store_thm("word_lt_0w",
+  `2 * n < dimword (:'a) ⇒ ((0w:'a word) < n2w n ⇔ 0 < n)`,
+  simp[WORD_LT]
+  \\ Cases_on`0 < n` \\ simp[]
+  \\ simp[word_msb_n2w_numeric]
+  \\ simp[NOT_LESS_EQUAL]
+  \\ simp[INT_MIN_def]
+  \\ simp[dimword_def]
+  \\ Cases_on`dimindex(:'a)`\\simp[]
+  \\ simp[EXP]);
+
+val word_sub_lt = Q.store_thm("word_sub_lt",
+  `0w < n ∧ 0w < m ∧ n ≤ m ⇒ m - n < m`,
+  rpt strip_tac
+  \\ Cases_on`m`>>Cases_on`n`
+  \\ qpat_assum`_ ≤ _`mp_tac
+  \\ asm_simp_tac std_ss [n2w_le]
+  \\ simp_tac std_ss [GSYM n2w_sub]
+  \\ strip_tac
+  \\ qmatch_assum_rename_tac`a:num ≤ b`
+  \\ Cases_on`a=b`>-fs[]
+  \\ `a < b` by simp[]
+  \\ `0 < a` by (Cases_on`a`\\fs[]\\metis_tac[WORD_LESS_REFL])
+  \\ `b - a < b` by simp[]
+  \\ Cases_on`0w < n2w (b - a)`
+  >- (
+    dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_lt]
+    \\ simp[])
+  \\ fs[word_lt_n2w,LET_THM]);
+
 (* --- *)
 
 val good_syntax_exp_def = tDefine"good_syntax_exp"`
@@ -322,6 +367,73 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
          word_add_n2w]
     \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
     \\ IF_CASES_TAC \\ simp_tac bool_ss []
+    \\ qmatch_assum_rename_tac`m < dimword _`
+    >- (
+      `m < (n - s.stack_space) * d` by decide_tac
+      \\ reverse (Cases_on `s.stack_space < n`)
+      >- (
+        `n - s.stack_space = 0` by decide_tac
+        \\ `m < 0 * d` by metis_tac[] \\ fs[] )
+      \\ simp[]
+      \\ `m + d * s.stack_space ≤ d * n` by decide_tac
+      \\ asm_simp_tac std_ss [n2w_sub]
+      \\ REWRITE_TAC[WORD_NEG_SUB]
+      \\ asm_simp_tac std_ss [GSYM n2w_sub]
+      \\ REWRITE_TAC[GSYM word_add_n2w]
+      \\ REWRITE_TAC[GSYM WORD_SUB_SUB]
+      \\ `d * s.stack_space ≤ d * n` by decide_tac
+      \\ asm_simp_tac std_ss [GSYM n2w_sub]
+      \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
+      \\ ONCE_REWRITE_TAC[MULT_COMM]
+      \\ qmatch_abbrev_tac`n2w m - n2w a < _`
+      \\ `d ≠ 0` by ( strip_tac \\ fs[Abbr`d`,Abbr`a`] )
+      \\ `0 < m` by (fs[max_stack_alloc_def,Abbr`d`] \\ decide_tac)
+      \\ cheat (* word problem: hard *))
+    \\ `(n - s.stack_space) * d ≤ m` by decide_tac
+    \\ qmatch_assum_abbrev_tac`a * d ≤ m`
+    \\ Cases_on`s.stack_space < n`
+    >- (
+      `s.stack_space ≤ n` by decide_tac
+      \\ `s.stack_space * d ≤ n * d` by metis_tac[LESS_MONO_MULT]
+      \\ asm_simp_tac std_ss [GSYM SUB_SUB]
+      \\ REWRITE_TAC[GSYM RIGHT_SUB_DISTRIB]
+      \\ simp[]
+      \\ asm_simp_tac std_ss [n2w_sub]
+      \\ qunabbrev_tac`a`
+      \\ qmatch_assum_abbrev_tac`a ≤ m`
+      \\ match_mp_tac word_sub_lt
+      \\ conj_asm1_tac
+      >- (
+        simp[WORD_LT]
+        \\ simp[Abbr`a`]
+        \\ simp[word_msb_neg,WORD_NOT_LESS]
+        \\ `n - s.stack_space ≠ 0` by simp[]
+        \\ `d ≠ 0` by (strip_tac \\ fs[Abbr`d`,state_rel_def,labPropsTheory.good_dimindex_def] \\ rfs[])
+        \\ reverse conj_tac >- metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
+        \\ simp[WORD_ZERO_LE]
+        \\ cheat )
+      \\ conj_asm1_tac
+      >- (
+        simp[WORD_LT]
+        \\ `d ≠ 0` by (
+          strip_tac
+          \\ fs[Abbr`d`,state_rel_def]
+          \\ fs[labPropsTheory.good_dimindex_def]
+          \\ rfs[] \\ rveq \\ fs[] \\ fs[markerTheory.Abbrev_def])
+        \\ `max_stack_alloc ≠ 0` by EVAL_TAC
+        \\ `0 < d * max_stack_alloc` by metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
+        \\ reverse conj_asm2_tac >- simp[]
+        \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
+        \\ cheat )
+      \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
+      \\ simp[])
+    \\ `n ≤ s.stack_space` by decide_tac
+    \\ simp[]
+    \\ `d * n ≤ d * s.stack_space` by metis_tac[LESS_MONO_MULT,MULT_COMM]
+    \\ asm_simp_tac std_ss [LESS_EQ_ADD_SUB]
+    \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
+    \\ REWRITE_TAC[WORD_NOT_LESS]
+    \\ REWRITE_TAC[GSYM word_add_n2w]
     \\ cheat (* word arith... *))
   \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
