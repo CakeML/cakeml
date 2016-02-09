@@ -193,7 +193,7 @@ val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   EVAL_TAC)
 
 val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
-  `∀p s r s'.
+  `∀p s r s' extra.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`,
   recInduct evaluate_ind >>
@@ -241,6 +241,13 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   imp_res_tac inst_const >> fs[] >>
   imp_res_tac mem_store_const >> fs[] >>
   simp[state_component_equality,dec_clock_def] >>
+  TRY
+   (qcase_tac `s.termdep <> 0`
+    \\ every_case_tac \\ fs []
+    \\ rpt var_eq_tac \\ fs []
+    THEN1 cheat (* this theorem needs to assume res <> SOME Error *)
+    \\ rfs []
+    \\ rpt var_eq_tac \\ fs []) >>
   fs[ffiTheory.call_FFI_def,LET_THM] >>
   every_case_tac >> fs[] >> rveq >> fs[] >> rveq >>
   simp[state_component_equality,dec_clock_def] >>
