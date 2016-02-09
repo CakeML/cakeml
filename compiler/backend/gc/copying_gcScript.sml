@@ -49,11 +49,13 @@ val _ = Datatype `
 
 val _ = Datatype `
   heap_element = Unused num
+               (*  *)
                | ForwardPointer num 'a num
+               (* pointers and more data; length; data  *)
                | DataElement (('a heap_address) list) num 'b`;
+(* references in DataElement *)
 
 (* The heap is accessed using the following lookup function. *)
-
 val el_length_def = Define `
   (el_length (Unused l) = l+1) /\
   (el_length (ForwardPointer n d l) = l+1) /\
@@ -76,6 +78,7 @@ val isSomeDataElement_def = Define `
 val heap_length_def = Define `
   heap_length heap = SUM (MAP el_length heap)`;
 
+(* roots are ok if they are a pointer they point to some DataElement *)
 val roots_ok_def = Define `
   roots_ok roots heap =
     !ptr u. MEM (Pointer ptr u) roots ==> isSomeDataElement (heap_lookup ptr heap)`;
@@ -87,13 +90,59 @@ val isForwardPointer_def = Define `
 val heap_ok_def = Define `
   heap_ok heap limit =
     (heap_length heap = limit) /\
+    (* no forward pointers *)
     (FILTER isForwardPointer heap = []) /\
+    (* all pointers in DataElements point to some DataElement *)
     (!ptr xs l d u. MEM (DataElement xs l d) heap /\ MEM (Pointer ptr u) xs ==>
                     isSomeDataElement (heap_lookup ptr heap))`;
+
+(* split heap into two 0-a, a-limit *)
+(* fail if a is not a "good location", *)
+(* meaning it is at some heap element not "between"? *)
+(* return option type? *)
+val heap_split_def = Define `
+  (heap_split 0 heap = ([], heap)) /\
+  (heap_split a (el::heap) =
+    let l = el_length el
+    in if a < l
+    then ([], el::heap)
+    else let (h1, h2) = heap_split (a - l) heap
+    in (el::h1, h2))`;
+
+(* segment heap into three 0-a, a-b, b-limit *)
+(* where a-b should could be the young generation *)
+(* in a generational garbage collector *)
+val heap_segment_def = Define `
+  heap_segment (a, b) heap =
+    let (h1, heap') = heap_split a heap
+    in let l = heap_length h1
+    in let (h2, h3) = heap_split (b - l) heap'
+    in (h1, h2, h3)`;
+
+(* assume heap_ok? for now, yes *)
+(* old generations 0-a *)
+(* current generation a-b *)
+(* references b-limit *)
+(* add that all references h2 are at end? *)
+(* or perhaps, after gc move b left and then this holds *)
+val heap_gen_ok_def = Define `
+  heap_gen_ok (a, b) isRef heap limit =
+    (a <= b) /\ (b <= limit) /\
+    ?h1 h2 h3.
+      ((h1, h2, h3) = heap_segment (a, b) heap) /\
+      (* h1 points only to itself and references *)
+      (!ptr xs l d u.
+        MEM (DataElement xs l d) h1 /\ MEM (Pointer ptr u) xs ==>
+          (ptr < a \/ b <= ptr)) /\
+      (* h1 contains no references *)
+      (!el. MEM el h1 ==> ~ (isRef el)) /\
+      (* h3 only contains references *)
+      (!el. MEM el h3 ==> isRef el)`;
 
 (* The GC is a copying collector which moves elements *)
 
 val gc_forward_ptr_def = Define `
+  (* replace cell at a with a forwardpointer to ptr *)
   (gc_forward_ptr a [] ptr d c = ([],F)) /\
   (gc_forward_ptr a (x::xs) ptr d c =
      if a = 0 then
@@ -102,52 +151,101 @@ val gc_forward_ptr_def = Define `
        let (xs,c) = gc_forward_ptr (a - el_length x) xs ptr d c in
          (x::xs,c))`;
 
+(* a - address to end of h2 *)
+(* n - amount of empty space *)
+(* r - adress to start of r2 *)
 val gc_move_def = Define `
-  (gc_move (Data d,h2,a,n,heap,c,limit) = (Data d,h2,a,n,heap,c)) /\
-  (gc_move (Pointer ptr d,h2,a,n,heap,c,limit) =
+  (gc_move isRef (Data d,h2,r2,a,n,r,heap,c,limit) = (Data d,h2,r2,a,n,r,heap,c)) /\
+  (gc_move isRef (Pointer ptr d,h2,r2,a,n,r,heap,c,limit) =
      case heap_lookup ptr heap of
      | SOME (DataElement xs l dd) =>
-         let c = c /\ l+1 <= n /\ (a + n = limit) in
-         let n = n - (l+1) in
-         let h2 = h2 ++ [DataElement xs l dd] in
-         let (heap,c) = gc_forward_ptr ptr heap a d c in
-           (Pointer a d,h2,a + (l+1),n,heap,c)
-     | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,h2,a,n,heap,c)
-     | _ => (ARB,h2,a,n,heap,F))`
+        if isRef (DataElement xs l dd) then
+          (* put refs in r2 *)
+          let c = c /\ l+1 <= n /\ (a + n + r = limit) in
+          let n = n - (l + 1) in                      (* TODO: update *)
+          let r2 = (DataElement xs l dd) :: r2 in
+          let (heap, c) = gc_forward_ptr ptr heap r d c in
+            (Pointer r d,h2,r2,a,n,r+(l+1),heap, c)
+        else
+          (* put data in h2 *)
+          let c = c /\ l+1 <= n /\ (a + n + r = limit) in
+          let n = n - (l+1) in
+          let h2 = h2 ++ [DataElement xs l dd] in
+          let (heap,c) = gc_forward_ptr ptr heap a d c in
+            (Pointer a d,h2,r2,a+(l+1),n,r,heap,c)
+     | SOME (ForwardPointer ptr _ l) => (Pointer ptr d,h2,r2,a,n,r,heap,c)
+     | _ => (ARB,h2,r2,a,n,r,heap,F))`;
 
+(* list argument are pointers from a DataElement *)
 val gc_move_list_def = Define `
-  (gc_move_list ([],h2,a,n,heap,c,limit) = ([],h2,a,n,heap,c)) /\
-  (gc_move_list (x::xs,h2,a,n,heap,c,limit) =
-     let (x,h2,a,n,heap,c) = gc_move (x,h2,a,n,heap,c,limit) in
-     let (xs,h2,a,n,heap,c) = gc_move_list (xs,h2,a,n,heap,c,limit) in
-       (x::xs,h2,a,n,heap,c))`;
+  (gc_move_list isRef ([],h2,r2,a,n,r,heap,c,limit) = ([],h2,r2,a,n,r,heap,c)) /\
+  (gc_move_list isRef (x::xs,h2,r2,a,n,r,heap,c,limit) =
+     let (x,h2,r2,a,n,r,heap,c) = gc_move isRef (x,h2,r2,a,n,r,heap,c,limit) in
+     let (xs,h2,r2,a,n,r,heap,c) = gc_move_list isRef (xs,h2,r2,a,n,r,heap,c,limit) in
+       (x::xs,h2,r2,a,n,r,heap,c))`;
 
-val gc_move_loop_def = tDefine "gc_move_loop" `
-  (gc_move_loop (h1,[],a,n,heap,c,limit) = (h1,a,n,heap,c)) /\
-  (gc_move_loop (h1,h::h2,a,n,heap,c,limit) =
-     if limit < heap_length (h1 ++ h::h2) then (h1,a,n,heap,F) else
+(* TODO: this was previously named gc_move_loop *)
+val gc_move_data_def = tDefine "gc_move_data" `
+  (gc_move_data isRef (h1,[],r2,a,n,r,heap,c,limit) = (h1,r2,a,n,r,heap,c)) /\
+  (gc_move_data isRef (h1,h::h2,r2,a,n,r,heap,c,limit) =
+     if limit < heap_length (h1 ++ h::h2) then (h1,r2,a,n,r,heap,F) else
        case h of
        | DataElement xs l d =>
-          let (xs,h2,a,n,heap,c) = gc_move_list (xs,h::h2,a,n,heap,c,limit) in
-          let c = c /\ h2 <> [] /\ (HD h2 = h) in
-          let h2 = TL h2 in
+          let (xs,h2,r2,a,n,r,heap,c) = gc_move_list isRef (xs,h2,r2,a,n,r,heap,c,limit) in
           let h1 = h1 ++ [DataElement xs l d] in
-            gc_move_loop (h1,h2,a,n,heap,c,limit)
-       | _ => (h1,a,n,heap,F))`
-  (WF_REL_TAC `measure (\(h1,h2,a,n,heap,c,limit). limit - heap_length h1)`
+            gc_move_data isRef (h1,h2,r2,a,n,r,heap,c,limit)
+       | _ => (h1,r2,a,n,r,heap,F))`
+  (WF_REL_TAC `measure (\(_,h1,h2,r4,a,n,r,heap,c,limit). limit - heap_length h1)`
    \\ SRW_TAC [] [heap_length_def,el_length_def,SUM_APPEND] \\ decide_tac);
+
+(* r4 - new references *)
+(* r3 - moved references *)
+(* r2 - references to move *)
+(* r1 - already done *)
+val gc_move_refs_def = Define `
+  (* maybe more refs (r4 could have more) *)
+  (gc_move_refs isRef (h2,r4,r3,[],r1,a,n,r,heap,c,limit) =
+    (h2,r4,r3++r1,a,n,r,heap,c)) /\
+  (* move a ref *)
+  (gc_move_refs isRef (h2,r4,r3,ref::r2,r1,a,n,r,heap,c,limit) =
+      case ref of
+      | DataElement xs l d =>
+        let (xs,h2,r4,a,n,r,heap,c) = gc_move_list isRef (xs,h2,r4,a,n,r,heap,c,limit) in
+        let r3 = r3 ++ [DataElement xs l d] in
+          gc_move_refs isRef (h2,r4,r3,r2,r1,a,n,r,heap,c,limit)
+      | _ => (h2,r4,r1,a,n,r,heap,F))`;
+
+(* The main gc loop, calls gc_move_data and gc_move_ref *)
+val gc_move_loop_def = Define `
+  gc_move_loop isRef (clock:num) (h1,h2,r2,r1,a,n,r,heap,c,limit) =
+    if clock = 0 then (h1,r1,a,n,r,heap,F) else
+      case (h2,r2) of
+      | ([],[]) => (h1,r1,a,n,r,heap,c)
+      | (h2,[]) => let (h1,r2,a,n,r,heap,c) =
+                     gc_move_data isRef (h1,h2,[],a,n,r,heap,c,limit) in
+                   gc_move_loop isRef (clock-1) (h1,[],r2,r1,a,n,r,heap,c,limit)
+      | (h2,r2) => let (h2,r2,r1,a,n,r,heap,c) =
+                     gc_move_refs isRef (h2,[],[],r2,r1,a,n,r,heap,c,limit) in
+                   gc_move_loop isRef (clock-1) (h1,h2,r2,r1,a,n,r,heap,c,limit)`
+
+(* Magnus: I've made the gc_move_loop clocked to make the termination
+           proof obvious. This clock can also become handy in the
+           refinement proofs later on (in other files). *)
 
 val heap_expand_def = Define `
   heap_expand n = if n = 0 then [] else [Unused (n-1)]`;
 
+
+(* TODO: when we have generations add function partial_gc that this
+one calls with bounds that are 0 and limit *)
 val full_gc_def = Define `
-  full_gc (roots,heap,limit) =
+  full_gc isRef (roots,heap,limit) =
     let c0 = (heap_length heap = limit) in
-    let (roots,h2,a,n,heap,c) = gc_move_list (roots,[],0,limit,heap,T,limit) in
-    let (heap,a,n,temp,c) = gc_move_loop ([],h2,a,n,heap,c,limit) in
-    let c = (c /\ (a = heap_length heap) /\ (heap_length temp = limit) /\
-             c0 /\ (n = limit - a) /\ a <= limit) in
-      (roots,heap,a,c)`;
+    let (roots,h2,r2,a,n,r,heap,c) = gc_move_list isRef (roots,[],[],0,limit,0,heap,T,limit) in
+    let (h1,r1,a,n,r,temp,c) = gc_move_loop isRef limit ([],h2,r2,[],a,n,r,heap,c,limit) in
+    let c = (c /\ (a = heap_length h1) /\ (r = heap_length r1) /\ (heap_length temp = limit) /\
+             c0 /\ (n = limit - a - r) /\ a + r <= limit) in
+      (roots,h1,r1,a,r,c)`;
 
 (* Invariant *)
 
@@ -187,34 +285,51 @@ val heaps_similar_def = Define `
                      (el_length h = el_length h0) /\ isDataElement h0
                    else (h = h0)) heap0 heap`
 
+(* heap - initial heap with fwd pointers *)
+(* heap0 - initial heap, unchanged *)
+(* h1 are moved elements, h2 can contain pointers to old heap *)
 val gc_inv_def = Define `
-  gc_inv (h1,h2,a,n,heap,c,limit) heap0 =
-    (a + n = limit) /\
+  gc_inv (h1,h2,r2,r1,a,n,r,heap,c,limit) heap0 =
+    (* heap' = current heap *)
+    let heap' = h1 ++ h2 ++ heap_expand n ++ r2 ++ r1 in
+    (a + n + r = limit) /\
     (a = heap_length (h1 ++ h2)) /\
-    (n = heap_length (FILTER (\h. ~(isForwardPointer h)) heap)) /\ c /\
+    (r = heap_length (r2 ++ r1)) /\
+    (* empty space in new heap = empty + reclaimed space in old heap *)
+    (n = heap_length (FILTER (\h. ~(isForwardPointer h)) heap)) /\
+    c /\
     (heap_length heap = limit) /\
     (* the initial heap is well-formed *)
     heap_ok heap0 limit /\
-    (* the initial heap is related to the current heap *)
+    (* ForwardPointers have the correct size *)
     heaps_similar heap0 heap /\
-    (* the new heap consists of only DataElements *)
+    (* the new heap consists of DataElements *)
     EVERY isDataElement h1 /\ EVERY isDataElement h2 /\
-    (* the forward pointers consitute a bijection into the new heap *)
-    BIJ (heap_map1 heap) (FDOM (heap_map 0 heap)) (heap_addresses 0 (h1 ++ h2)) /\
+    EVERY isDataElement r1 /\ EVERY isDataElement r2 /\
+    (* forward pointers consitute a bijection into the new heap *)
+    BIJ (heap_map1 heap) (FDOM (heap_map 0 heap)) (heap_addresses 0 heap') /\
+    (* HEJ *)
+    let h1p = heap_length h1 in
+    let r1p = limit - heap_length r1 in
     !i j. (FLOOKUP (heap_map 0 heap) i = SOME j) ==>
-          ?xs l d. (heap_lookup i heap0 = SOME (DataElement xs l d)) /\
-                   (heap_lookup j (h1++h2) =
-                     SOME (DataElement (if j < heap_length h1 then
-                                          ADDR_MAP (heap_map1 heap) xs else xs) l d)) /\
-                   !ptr d. MEM (Pointer ptr d) xs /\ j < heap_length h1 ==>
-                           ptr IN FDOM (heap_map 0 heap)`;
+       ?xs l d.
+         (heap_lookup i heap0 = SOME (DataElement xs l d)) /\
+         (heap_lookup j heap' =
+           SOME (DataElement
+                  (if j < h1p \/ r1p <= j
+                   then ADDR_MAP (heap_map1 heap) xs
+                   else xs) (* maybe element j is already moved *)
+                  l d)) /\
+         !ptr d.
+           MEM (Pointer ptr d) xs /\ (j < h1p \/ r1p <= j) ==>
+           ptr IN FDOM (heap_map 0 heap)`;
 
 (* Invariant maintained *)
 
 val heap_lookup_MEM = Q.store_thm("heap_lookup_MEM",
   `!heap n x. (heap_lookup n heap = SOME x) ==> MEM x heap`,
   Induct \\ full_simp_tac std_ss [heap_lookup_def] \\ SRW_TAC [] []
-  \\ res_tac \\ full_simp_tac std_ss []);
+  \\ res_tac \\ fs []);
 
 val DRESTRICT_heap_map = Q.prove(
   `!heap k. n < k ==> (DRESTRICT (heap_map k heap) (COMPL {n}) = heap_map k heap)`,
