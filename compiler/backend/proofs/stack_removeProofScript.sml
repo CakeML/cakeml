@@ -345,7 +345,8 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   `state_rel k s t1 ∧
    ((r,s2) = if s.stack_space < n
     then (SOME (Halt (Word 2w)),empty_env s)
-    else (NONE, s with stack_space := s.stack_space - n))
+    else (NONE, s with stack_space := s.stack_space - n)) ∧
+   n ≤ max_stack_alloc
    ⇒
    ∃t2.  evaluate (single_stack_alloc k n,t1) = (r,t2) ∧ state_rel k s2 t2`,
   simp[single_stack_alloc_def,evaluate_def,inst_def,assign_def,word_exp_def,
@@ -388,7 +389,9 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
       \\ qmatch_abbrev_tac`n2w m - n2w a < _`
       \\ `d ≠ 0` by ( strip_tac \\ fs[Abbr`d`,Abbr`a`] )
       \\ `0 < m` by (fs[max_stack_alloc_def,Abbr`d`] \\ decide_tac)
-      \\ cheat (* word problem: hard *))
+      \\ `d * max_stack_alloc < d * (n - s.stack_space)` by decide_tac
+      \\ `max_stack_alloc < n - s.stack_space` by metis_tac[LT_MULT_LCANCEL]
+      \\ decide_tac)
     \\ `(n - s.stack_space) * d ≤ m` by decide_tac
     \\ qmatch_assum_abbrev_tac`a * d ≤ m`
     \\ Cases_on`s.stack_space < n`
@@ -411,6 +414,8 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
         \\ `d ≠ 0` by (strip_tac \\ fs[Abbr`d`,state_rel_def,labPropsTheory.good_dimindex_def] \\ rfs[])
         \\ reverse conj_tac >- metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
         \\ simp[WORD_ZERO_LE]
+        \\ fs[INT_MIN_def,dimword_def]
+        \\ Cases_on`dimindex(:'a)`\\fs[EXP]
         \\ cheat )
       \\ conj_asm1_tac
       >- (
@@ -433,8 +438,9 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
     \\ asm_simp_tac std_ss [LESS_EQ_ADD_SUB]
     \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
     \\ REWRITE_TAC[WORD_NOT_LESS]
-    \\ REWRITE_TAC[GSYM word_add_n2w]
-    \\ cheat (* word arith... *))
+    \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
+    \\ simp[]
+    \\ cheat)
   \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
   >- (
