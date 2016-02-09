@@ -64,8 +64,8 @@ val LIST_TYPE_11 = prove(
     LIST_TYPE P ts v1 /\ LIST_TYPE P us v2 ==>
     types_match v1 v2 /\ ((v1 = v2) = (ts = us))``,
   STRIP_TAC \\ Induct \\ Cases_on `us` \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def,types_match_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,types_match_def]
+  \\ SIMP_TAC (srw_ss()) [LIST_TYPE_def,types_match_def,ctor_same_type_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [PULL_EXISTS,types_match_def,ctor_same_type_def]
   \\ METIS_TAC []);
 
 val CHAR_IMP_no_closures = prove(
@@ -83,10 +83,6 @@ val EqualityType_thm = prove(
                                                 (v1 = v2 <=> x1 = x2))``,
   SIMP_TAC std_ss [EqualityType_def] \\ METIS_TAC []);
 
-val LIST_TYPE_CHAR_LEMMA = prove(
-  ``EqualityType (LIST_TYPE CHAR)``,
-  METIS_TAC (eq_lemmas ()));
-
 val STRING_TYPE_lemma = prove(
   ``EqualityType (STRING_TYPE)``,
   METIS_TAC (eq_lemmas ()));
@@ -103,18 +99,16 @@ val EqualityType_TYPE = prove(
   \\ HO_MATCH_MP_TAC type_ind \\ reverse STRIP_TAC THEN1
    (REPEAT STRIP_TAC
     \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
-    \\ ASSUME_TAC LIST_TYPE_CHAR_LEMMA
+    \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
     \\ ASSUME_TAC STRING_TYPE_lemma
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC)
   \\ REPEAT GEN_TAC \\ STRIP_TAC \\ REPEAT GEN_TAC \\ STRIP_TAC
   \\ Cases_on `x2` \\ FULL_SIMP_TAC (srw_ss()) [TYPE_TYPE_def]
-  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def]
+  \\ FULL_SIMP_TAC (srw_ss()) [types_match_def,ctor_same_type_def]
   \\ MATCH_MP_TAC (METIS_PROVE [] ``(b1 /\ (x1 = y1)) /\ (b2 /\ (x2 = y2)) ==>
        (b1 /\ b2) /\ ((x1 /\ x2 <=> y1 /\ y2))``)
   \\ STRIP_TAC THEN1
-   (ASSUME_TAC LIST_TYPE_CHAR_LEMMA
-    \\ ASSUME_TAC STRING_TYPE_lemma
+   (ASSUME_TAC STRING_TYPE_lemma
     \\ FULL_SIMP_TAC std_ss [EqualityType_def] \\ RES_TAC
     \\ ASM_SIMP_TAC std_ss [])
   \\ MATCH_MP_TAC LIST_TYPE_11
