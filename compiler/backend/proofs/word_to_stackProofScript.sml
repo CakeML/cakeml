@@ -4720,6 +4720,20 @@ val stack_rel_cons_LEN = prove(``
   simp[stack_rel_def]>>Cases_on`sstack`>>simp[abs_stack_def]>>
   rpt TOP_CASE_TAC>>simp[])
 
+val state_rel_termdep = store_thm("state_rel_termdep[simp]",
+  ``(state_rel k f f' (s1 with termdep := x) t1 lens =
+     state_rel k f f' s1 t1 lens) /\
+    (state_rel k f f' (s1 with <| clock := c ; termdep := x |>) t1 lens =
+     state_rel k f f' (s1 with clock := c) t1 lens)``,
+  fs [state_rel_def]);
+
+val rewind_clock = prove( (* useful? *)
+  ``evaluate (prog,t with clock := t.clock + n + ck) = (res1,t1) /\
+    res1 <> SOME TimeOut ==>
+    ?n1. evaluate (prog,t with clock := t.clock + m) =
+           (res1,t1 with clock := t.clock)``,
+  cheat);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -4741,6 +4755,7 @@ val comp_correct = Q.store_thm("comp_correct",
          | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
+
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
@@ -5041,6 +5056,28 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs [] \\ rw []
     \\ fs [state_rel_def,wordSemTheory.dec_clock_def,stackSemTheory.dec_clock_def]
     \\ metis_tac[])
+
+  THEN1 (* MustTerminate *)
+   (fs [wordSemTheory.evaluate_def,LET_DEF,
+        stackSemTheory.evaluate_def,comp_def]
+    \\ Cases_on `s.termdep = 0` \\ fs []
+    \\ split_pair_tac \\ fs []
+    \\ qcase_tac `_ = (res2,s2)`
+    \\ Cases_on `res2 = SOME TimeOut` \\ fs []
+    \\ rpt var_eq_tac \\ fs []
+    \\ qpat_assum `!xx._` mp_tac
+    \\ rewrite_tac [CONJ_ASSOC]
+    \\ once_rewrite_tac [CONJ_COMM]
+    \\ `SND (comp p bs (k,f,f')) ≼ (t with clock := t.clock + n).bitmaps` by fs []
+    \\ disch_then drule
+    \\ fs [convs_def,word_allocTheory.max_var_def]
+    \\ disch_then (qspec_then `lens` mp_tac)
+    \\ discharge_hyps THEN1 (fs [state_rel_def] \\ metis_tac [])
+    \\ strip_tac \\ qexists_tac `n+ck` \\ fs [ADD_ASSOC]
+    \\ IF_CASES_TAC \\ fs []
+    \\ every_case_tac \\ fs []
+    \\ qpat_assum `state_rel k _ _ _ _ _` mp_tac
+    \\ cheat)
   THEN1 (* Seq *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]

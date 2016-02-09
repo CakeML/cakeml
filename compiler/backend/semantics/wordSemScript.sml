@@ -465,7 +465,8 @@ val evaluate_def = tDefine "evaluate" `
                     else (NONE,dec_clock s)) /\
   (evaluate (MustTerminate n p,s) =
      if s.termdep = 0 then (SOME Error, s) else
-       let (res,s1) = evaluate (p,s with <| clock := n; termdep := s.termdep-1 |>) in
+       let (res,s1) = evaluate
+              (p,s with <| clock := s.clock + n; termdep := s.termdep-1 |>) in
          if res = SOME TimeOut then (SOME Error, s)
          else (res,s1 with <| clock := s.clock; termdep := s.termdep |>)) /\
   (evaluate (Seq c1 c2,s) =
