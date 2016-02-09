@@ -81,6 +81,7 @@ val _ = Datatype `
      ; gc_fun  : 'a gc_fun_type
      ; handler : num (*position of current handle frame on stack*)
      ; clock   : num
+     ; termdep : num (* count of how many MustTerminates we can still enter *)
      ; code    : (num # ('a wordLang$prog)) num_map
      ; be      : bool (*is big-endian*)
      ; ffi     : 'ffi ffi_state |> `
@@ -103,23 +104,11 @@ val isException_def = Define `
 val dec_clock_def = Define `
   dec_clock (s:('a,'ffi) wordSem$state) = s with clock := s.clock - 1`;
 
-val check_clock_def = Define `
-  check_clock (s1:('a,'ffi) wordSem$state) (s2:('a,'ffi) wordSem$state) =
-    if s1.clock <= s2.clock then s1 else s1 with clock := s2.clock`;
-
-val check_clock_thm = prove(
-  ``(check_clock s1 s2).clock <= s2.clock /\
-    (s1.clock <= s2.clock ==> (check_clock s1 s2 = s1))``,
-  SRW_TAC [] [check_clock_def])
-
-val check_clock_lemma = prove(
-  ``b ==> ((check_clock s1 s).clock < s.clock \/
-          ((check_clock s1 s).clock = s.clock) /\ b)``,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
-
-val check_clock_IMP = prove(
-  ``n <= (check_clock r s).clock ==> n <= s.clock``,
-  SRW_TAC [] [check_clock_def] \\ DECIDE_TAC);
+val fix_clock_def = Define `
+  fix_clock old_s (res,new_s) =
+    (res,new_s with
+      <| clock := if old_s.clock < new_s.clock then old_s.clock else new_s.clock ;
+         termdep := old_s.termdep |>)`
 
 val is_word_def = Define `
   (is_word (Word w) = T) /\
@@ -424,6 +413,16 @@ val add_ret_loc_def = Define `
 val bad_dest_args_def = Define`
   bad_dest_args dest args ⇔ dest = NONE ∧ args = []`
 
+val termdep_rw = prove(
+  ``((call_env p_1 s).termdep = s.termdep) /\
+    ((dec_clock s).termdep = s.termdep) /\
+    ((set_var n v s).termdep = s.termdep)``,
+  EVAL_TAC \\ rw [] \\ fs []);
+
+val fix_clock_IMP_LESS_EQ = prove(
+  ``!x. fix_clock s x = (res,s1) ==> s1.clock <= s.clock /\ s1.termdep = s.termdep``,
+  fs [fix_clock_def,FORALL_PROD] \\ rw [] \\ fs [] \\ decide_tac);
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a wordLang$prog,s) = (NONE,s:('a,'ffi) wordSem$state)) /\
   (evaluate (Alloc n names,s) =
@@ -464,9 +463,14 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Tick,s) =
      if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := [])
                     else (NONE,dec_clock s)) /\
+  (evaluate (MustTerminate n p,s) =
+     if s.termdep = 0 then (SOME Error, s) else
+       let (res,s1) = evaluate (p,s with <| clock := n; termdep := s.termdep-1 |>) in
+         if res = SOME TimeOut then (SOME Error, s)
+         else (res,s1 with <| clock := s.clock; termdep := s.termdep |>)) /\
   (evaluate (Seq c1 c2,s) =
-     let (res,s1) = evaluate (c1,s) in
-       if res = NONE then evaluate (c2,check_clock s1 s) else (res,s1)) /\
+     let (res,s1) = fix_clock s (evaluate (c1,s)) in
+       if res = NONE then evaluate (c2,s1) else (res,s1)) /\
   (evaluate (Return n m,s) =
      case (get_var n s ,get_var m s) of
      | (SOME (Loc l1 l2),SOME y) => (SOME (Result (Loc l1 l2) y),call_env [] s)
@@ -523,8 +527,9 @@ val evaluate_def = tDefine "evaluate" `
 		| NONE => (SOME Error,s)
 		| SOME env =>
 	       if s.clock = 0 then (SOME TimeOut,call_env [] s with stack := []) else
-	       (case evaluate (prog, call_env args1
-		       (push_env env handler (dec_clock s))) of
+	       (case fix_clock (call_env args1 (push_env env handler (dec_clock s)))
+                       (evaluate (prog, call_env args1
+		               (push_env env handler (dec_clock s)))) of
 		| (SOME (Result x y),s2) =>
       if x ≠ Loc l1 l2 then (SOME Error,s2)
       else
@@ -532,7 +537,7 @@ val evaluate_def = tDefine "evaluate" `
 		    | NONE => (SOME Error,s2)
 		    | SOME s1 =>
 			(if domain s1.locals = domain env
-			 then evaluate(ret_handler,set_var n y (check_clock s1 s))
+			 then evaluate(ret_handler,set_var n y s1)
 			 else (SOME Error,s1)))
 		| (SOME (Exception x y),s2) =>
 		   (case handler of (* if handler is present, then handle exc *)
@@ -541,166 +546,93 @@ val evaluate_def = tDefine "evaluate" `
         if x ≠ Loc l1 l2 then (SOME Error,s2)
         else
           (if domain s2.locals = domain env
-           then evaluate (h, set_var n y (check_clock s2 s))
+           then evaluate (h, set_var n y s2)
            else (SOME Error,s2)))
         | (NONE,s) => (SOME Error,s)
-		| res => res))) `
-  (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
-                             (\(xs,(s:('a,'ffi) wordSem$state)). (s.clock,xs)))`
-   \\ REPEAT STRIP_TAC \\ TRY DECIDE_TAC
-   \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
-   \\ TRY
-     (fs[push_env_clock,call_env_def,dec_clock_def]\\DECIDE_TAC)
-   \\ EVAL_TAC
-    \\ Cases_on `s.clock <= s1.clock`
-  \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
-   \\ IMP_RES_TAC pop_env_clock \\ fs [] \\ SRW_TAC [] []
-   \\ Cases_on `s2.clock < s.clock` \\ fs [] \\ DECIDE_TAC)
+		| res => res)))`
+  (WF_REL_TAC `(inv_image (measure I LEX measure I LEX measure (prog_size (K 0)))
+                  (\(xs,(s:('a,'ffi) wordSem$state)). (s.termdep,s.clock,xs)))`
+   \\ REPEAT STRIP_TAC \\ TRY (fs [] \\ DECIDE_TAC)
+   \\ fs [termdep_rw] \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
+   \\ imp_res_tac (GSYM fix_clock_IMP_LESS_EQ)
+   \\ TRY (Cases_on `handler`) \\ TRY (PairCases_on `x`)
+   \\ fs [set_var_def,push_env_def,call_env_def,dec_clock_def,LET_THM]
+   \\ rpt (split_pair_tac \\ fs [])
+   \\ fs [pop_env_def] \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+   \\ decide_tac)
 
 val evaluate_ind = theorem"evaluate_ind";
 
-(* We prove that the clock never increases. *)
+(* We prove that the clock never increases and that termdep is constant. *)
 
 val gc_clock = store_thm("gc_clock",
-  ``!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock``,
+  ``!s1 s2. (gc s1 = SOME s2) ==> s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
   fs [gc_def,LET_DEF] \\ SRW_TAC [] []
   \\ every_case_tac >> fs[]
   \\ SRW_TAC [] [] \\ fs []);
 
 val alloc_clock = store_thm("alloc_clock",
-  ``!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==> s2.clock <= s1.clock``,
-  SIMP_TAC std_ss [alloc_def] \\ REPEAT STRIP_TAC
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
-  \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
-  \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs [call_env_def]
-  >- (IMP_RES_TAC gc_clock \\
-     fs[push_env_def,LET_THM,env_to_list_def] \\
-     unabbrev_all_tac>>fs[])
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
-  \\ POP_ASSUM MP_TAC \\ SRW_TAC [] []
-  \\ IMP_RES_TAC pop_env_clock \\ IMP_RES_TAC gc_clock
-  \\ fs [push_env_clock,set_store_def] \\ SRW_TAC [] []
-  \\ Cases_on `env_to_list s1.locals s1.permute` \\ fs [LET_DEF]\\rfs[]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ fs[call_env_def,state_component_equality]);
+  ``!xs s1 vs s2. (alloc x names s1 = (vs,s2)) ==>
+                  s2.clock <= s1.clock /\ s2.termdep = s1.termdep``,
+  SIMP_TAC std_ss [alloc_def] \\ rpt gen_tac
+  \\ rpt (BasicProvers.TOP_CASE_TAC \\ fs[])
+  \\ imp_res_tac gc_clock
+  \\ rpt (disch_then strip_assume_tac)
+  \\ rpt var_eq_tac \\ fs[]
+  \\ fs [push_env_def,set_store_def,call_env_def,LET_THM,pop_env_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ every_case_tac \\ fs[]
+  \\ rpt var_eq_tac \\ fs[]);
 
 val inst_clock = prove(
-  ``inst i s = SOME s2 ==> s2.clock <= s.clock``,
+  ``inst i s = SOME s2 ==> s2.clock <= s.clock /\ s2.termdep = s.termdep``,
   Cases_on `i` \\ fs [inst_def,assign_def]
   \\ every_case_tac
   \\ SRW_TAC [] [set_var_def] \\ fs []
   \\ fs [mem_store_def] \\ SRW_TAC [] []);
 
 val evaluate_clock = Q.store_thm("evaluate_clock",
-  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock`,
+  `!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==>
+                 s2.clock <= s1.clock /\ s2.termdep = s1.termdep`,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
-  \\ BasicProvers.EVERY_CASE_TAC
-  \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,call_env_def]
-  \\ IMP_RES_TAC inst_clock
-  \\ fs [call_env_def]
-  \\ RES_TAC \\ IMP_RES_TAC check_clock_IMP
-  \\ FULL_SIMP_TAC std_ss [PULL_FORALL] \\ RES_TAC
-  \\ IMP_RES_TAC check_clock_IMP
-  \\ IMP_RES_TAC alloc_clock
-  \\ FULL_SIMP_TAC (srw_ss()) [dec_clock_def,set_var_def,
-       jump_exc_def,get_var_def,push_env_clock,set_vars_def,
-       call_env_def,cut_state_def,set_store_def,mem_store_def]
-  \\ REV_FULL_SIMP_TAC std_ss [] \\ RES_TAC
-  \\ IMP_RES_TAC pop_env_clock
-  \\ TRY DECIDE_TAC
-  \\ SRW_TAC [] []
-  \\ Cases_on `evaluate (c1,s)` \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-  \\ NTAC 5 ((BasicProvers.EVERY_CASE_TAC)
-             \\ FULL_SIMP_TAC (srw_ss()) [] \\ SRW_TAC [] [])
-  \\ FULL_SIMP_TAC (srw_ss()) []
-  \\ IMP_RES_TAC check_clock_IMP
-  \\ RES_TAC \\ TRY(DECIDE_TAC) \\
-  Cases_on`call_FFI s.ffi ffi_index x'` \\ rw[] \\ fs[]\\rw[]);
+  \\ rpt (disch_then strip_assume_tac)
+  \\ fs [] \\ rpt var_eq_tac \\ fs[]
+  \\ rpt (pop_assum mp_tac)
+  \\ rpt (BasicProvers.TOP_CASE_TAC \\ fs[])
+  \\ rpt (disch_then strip_assume_tac)
+  \\ imp_res_tac alloc_clock \\ fs []
+  \\ rpt var_eq_tac \\ fs[]
+  \\ fs [set_vars_def,set_var_def,set_store_def]
+  \\ imp_res_tac inst_clock \\ fs []
+  \\ fs [mem_store_def,call_env_def,dec_clock_def]
+  \\ rpt var_eq_tac \\ fs[]
+  \\ fs [LET_THM] \\ rpt (split_pair_tac \\ fs [])
+  \\ fs [jump_exc_def,pop_env_def]
+  \\ every_case_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ imp_res_tac fix_clock_IMP_LESS_EQ \\ fs []
+  \\ imp_res_tac LESS_EQ_TRANS \\ fs []
+  \\ TRY (Cases_on `handler`)
+  \\ TRY (PairCases_on `x`)
+  \\ TRY (PairCases_on `x''`)
+  \\ fs [push_env_def,LET_THM]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ decide_tac);
 
-val evaluate_check_clock = prove(
-  ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
-  METIS_TAC [evaluate_clock,check_clock_thm]);
+val fix_clock_evaluate = prove(
+  ``fix_clock s (evaluate (c1,s)) = evaluate (c1,s)``,
+  Cases_on `evaluate (c1,s)` \\ fs [fix_clock_def]
+  \\ imp_res_tac evaluate_clock \\ fs [GSYM NOT_LESS]
+  \\ fs [state_component_equality]);
 
-(* Finally, we remove check_clock from the induction and definition theorems. *)
+(* We store the theorems without fix_clock *)
 
-val clean_term = term_rewrite
-  [``check_clock s1 s2 = s1:('a,'ffi) wordSem$state``,
-   ``(s.clock < k \/ b2) <=> (s:('a,'ffi) wordSem$state).clock < k:num``]
+val evaluate_ind = save_thm("evaluate_ind",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_ind);
 
-val set_var_check_clock = prove(
-  ``set_var v x (check_clock s1 s2) = check_clock (set_var v x s1) s2``,
-  SIMP_TAC std_ss [set_var_def,check_clock_def] \\ SRW_TAC [] []);
-
-val evaluate_ind = save_thm("evaluate_ind",let
-  val raw_ind = evaluate_ind
-  val goal = raw_ind |> concl |> clean_term
-  (* set_goal([],goal) *)
-  val ind = prove(goal,
-    STRIP_TAC \\ STRIP_TAC \\ MATCH_MP_TAC raw_ind
-    \\ reverse (REPEAT STRIP_TAC) \\ ASM_REWRITE_TAC []
-    THEN1 (FIRST_X_ASSUM MATCH_MP_TAC
-           \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
-           \\ IMP_RES_TAC evaluate_clock \\ SRW_TAC [] []
-           \\ TRY (`s2.clock <= s.clock` by
-            (fs [call_env_def,dec_clock_def,push_env_clock]
-             \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
-           \\ `s2 = check_clock s2 s` by fs [check_clock_def])
-           \\ TRY (`s1.clock <= s.clock` by
-             (fs [call_env_def,dec_clock_def,push_env_clock]
-             \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
-           \\ `s1 = check_clock s1 s` by fs[check_clock_def])
-           \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MATCH_MP_TAC)
-    \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
-    \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
-    \\ IMP_RES_TAC evaluate_clock
-    \\ IMP_RES_TAC (GSYM evaluate_clock)
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_thm,GSYM set_var_check_clock])
-  in ind |> SIMP_RULE std_ss [] end);
-
-val evaluate_def = save_thm("evaluate_def",let
-  val tm = definition"evaluate_AUX_def"
-           |> concl |> rand |> dest_abs |> snd |> rand |> rand
-  val tm = ``^tm evaluate (x,s)``
-  val rhs = SIMP_CONV std_ss [EVAL ``pair_CASE (x,y) f``] tm |> concl |> rand
-  val goal = ``!x s. evaluate (x,s) = ^rhs`` |> clean_term
-  (* set_goal([],goal) *)
-  val def = prove(goal,
-    recInduct evaluate_ind
-    \\ REPEAT STRIP_TAC
-    \\ SIMP_TAC (srw_ss()) []
-    \\ TRY (SIMP_TAC std_ss [Once evaluate_def] \\ NO_TAC)
-    \\ REPEAT (POP_ASSUM (K ALL_TAC))
-    \\ SIMP_TAC std_ss [Once evaluate_def]
-    \\ Cases_on `evaluate (c1,s)`
-    \\ Cases_on `evaluate (p,s)`
-    \\ Cases_on `evaluate (g,s)`
-    \\ FULL_SIMP_TAC (srw_ss()) [LET_DEF]
-    \\ IMP_RES_TAC evaluate_check_clock \\ FULL_SIMP_TAC std_ss []
-    \\ REPEAT BasicProvers.CASE_TAC
-    \\ SRW_TAC [] [] \\ IMP_RES_TAC evaluate_check_clock
-    \\ FULL_SIMP_TAC (srw_ss()) [check_clock_def]
-    \\ fs [pop_env_def,call_env_def,dec_clock_def,push_env_clock]
-    \\ SRW_TAC [] []
-    \\ IMP_RES_TAC evaluate_clock
-    \\ fs [call_env_def,dec_clock_def,push_env_clock]
-    \\ `x''.clock <= s.clock` by
-         (BasicProvers.EVERY_CASE_TAC>>fs[state_component_equality]>>
-         `F` by DECIDE_TAC) \\ fs[]
-    \\ TRY (`x''.clock = r'''''.clock` by
-       (BasicProvers.EVERY_CASE_TAC>>fs[state_component_equality]))
-    \\ TRY (`x''.clock = r''''''.clock` by
-       (BasicProvers.EVERY_CASE_TAC>>fs[state_component_equality]))
-    \\ `F` by DECIDE_TAC)
-  val new_def = evaluate_def |> CONJUNCTS |> map (fst o dest_eq o concl o SPEC_ALL)
-                  |> map (REWR_CONV def THENC SIMP_CONV (srw_ss()) [])
-                  |> LIST_CONJ
-  in new_def end);
+val evaluate_def = save_thm("evaluate_def",
+  REWRITE_RULE [fix_clock_evaluate] evaluate_def);
 
 (* observational semantics *)
 

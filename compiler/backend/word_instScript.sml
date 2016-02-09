@@ -201,6 +201,8 @@ val inst_select_def = Define`
       Seq prog (Inst (Mem Store var (Addr temp (0w))))) ∧
   (inst_select c temp (Seq p1 p2) =
     Seq (inst_select c temp p1) (inst_select c temp p2)) ∧
+  (inst_select c temp (MustTerminate n p1) =
+    MustTerminate n (inst_select c temp p1)) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
     If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
@@ -226,6 +228,8 @@ val three_to_two_reg_def = Define`
     Seq (Move 0 [r1,r2]) (Inst (Arith (Shift l r1 r1 n)))) ∧
   (three_to_two_reg (Seq p1 p2) =
     Seq (three_to_two_reg p1) (three_to_two_reg p2)) ∧
+  (three_to_two_reg (MustTerminate n p1) =
+    MustTerminate n (three_to_two_reg p1)) ∧
   (three_to_two_reg (If cmp r1 ri c1 c2) =
     If cmp r1 ri (three_to_two_reg c1) (three_to_two_reg c2)) ∧
   (three_to_two_reg (Call ret dest args handler) =
@@ -242,5 +246,3 @@ val three_to_two_reg_def = Define`
   (three_to_two_reg prog = prog)`
 
 val _ = export_theory();
-
-
