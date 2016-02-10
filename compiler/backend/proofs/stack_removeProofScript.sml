@@ -133,6 +133,8 @@ val good_syntax_def = Define `
      (case x2 of SOME (y,_,_) => good_syntax y k | NONE => T)) /\
   (good_syntax (BitmapLoad r v) k <=> r < k /\ v < k) /\
   (good_syntax (Inst i) k <=> good_syntax_inst i k) /\
+  (good_syntax (StackStore r _) k <=> r < k) /\
+  (good_syntax (StackSetSize r) k <=> r < k) /\
   (good_syntax _ k <=> T)`
 
 val memory_def = Define `
@@ -939,10 +941,61 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ cheat (* probably need better good_syntax, and then fun2set stuff *))
-  THEN1 (* StackStore *) cheat
+  THEN1 (* StackStore *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq
+    \\ simp[inst_def]
+    \\ fs[good_syntax_def]
+    \\ imp_res_tac state_rel_get_var
+    \\ fs[]
+    \\ simp[word_exp_def]
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ simp[mem_store_def]
+    \\ cheat)
   THEN1 (* StackStoreAny *) cheat
-  THEN1 (* StackGetSize *) cheat
-  THEN1 (* StackSetSize *) cheat
+  THEN1 (* StackGetSize *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq
+    \\ simp[inst_def,assign_def,word_exp_def]
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ qexists_tac`0` \\ simp[]
+    \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
+    \\ REWRITE_TAC[with_same_clock]
+    \\ cheat (* looks false *))
+  THEN1 (* StackSetSize *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq
+    \\ simp[inst_def,assign_def,word_exp_def]
+    \\ fs[good_syntax_def]
+    \\ imp_res_tac state_rel_get_var
+    \\ imp_res_tac state_rel_get_var_k
+    \\ fs[get_var_def]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ qexists_tac`0` \\ simp[]
+    \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
+    \\ REWRITE_TAC[with_same_clock]
+    \\ fs[state_rel_def]
+    \\ simp[set_var_def,FLOOKUP_UPDATE]
+    \\ conj_tac >- metis_tac[]
+    \\ cheat (* also looks false *))
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
     \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []
