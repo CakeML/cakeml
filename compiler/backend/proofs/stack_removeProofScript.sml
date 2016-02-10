@@ -350,7 +350,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
    ((r,s2) = if s.stack_space < n
     then (SOME (Halt (Word 2w)),empty_env s)
     else (NONE, s with stack_space := s.stack_space - n)) ∧
-   n ≤ max_stack_alloc
+   n ≠ 0 ∧ n ≤ max_stack_alloc
    ⇒
    ∃ck t2.
      evaluate (single_stack_alloc k n,t1 with clock := t1.clock + ck) = (r,t2) ∧
@@ -421,11 +421,14 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
         \\ reverse conj_tac >- metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
         \\ simp[WORD_ZERO_LE]
         \\ fs[INT_MIN_def,dimword_def]
-        \\ Cases_on`dimindex(:'a)`\\fs[EXP]
-        \\ cheat )
+        \\ `good_dimindex (:'a)` by fs[state_rel_def]
+        \\ fs[labPropsTheory.good_dimindex_def] \\ fs[Abbr`d`]
+        \\ fs[max_stack_alloc_def]
+        \\ decide_tac)
       \\ conj_asm1_tac
       >- (
         simp[WORD_LT]
+        \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
         \\ `d ≠ 0` by (
           strip_tac
           \\ fs[Abbr`d`,state_rel_def]
@@ -434,7 +437,6 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
         \\ `max_stack_alloc ≠ 0` by EVAL_TAC
         \\ `0 < d * max_stack_alloc` by metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
         \\ reverse conj_asm2_tac >- simp[]
-        \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
         \\ cheat )
       \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
       \\ simp[])
@@ -501,6 +503,8 @@ val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
   \\ simp[evaluate_def]
   \\ drule (GEN_ALL evaluate_single_stack_alloc)
   \\ disch_then(qspec_then`max_stack_alloc`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"])))
+  \\ simp[]
+  \\ `max_stack_alloc ≠ 0` by EVAL_TAC
   \\ simp[]
   \\ rw[]
   >- (
