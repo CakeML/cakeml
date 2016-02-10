@@ -249,6 +249,88 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   rev_full_simp_tac(srw_ss()++ARITH_ss)[]>>rveq>>fs[]>>
   metis_tac[]);
 
+(*This allows one to "count" the number of ticks made by a program*)
+val tac = EVERY_CASE_TAC>>fs[state_component_equality]
+val tac2 =
+  strip_tac>>rveq>>fs[]>>
+  imp_res_tac evaluate_clock>>fs[]>>
+  `¬ (s.clock ≤ r'.clock)` by DECIDE_TAC>>fs[]>>
+  `s.clock -1 -r'.clock = s.clock - r'.clock-1` by DECIDE_TAC>>fs[]
+
+val evaluate_dec_clock = Q.store_thm("evaluate_dec_clock",
+  `∀prog st res rst.
+  evaluate(prog,st) = (res,rst) ⇒
+  evaluate(prog,st with clock:=st.clock-rst.clock) = (res,rst with clock:=0)`,
+  recInduct evaluate_ind >>rw[evaluate_def]>>fs[call_env_def,dec_clock_def]
+  >- (tac>>imp_res_tac alloc_const>>fs[])
+  >- tac
+  >- (TOP_CASE_TAC>>fs[]>> assume_tac inst_const>>tac)
+  >- tac
+  >- tac
+  >- tac
+  >- (tac>>imp_res_tac mem_store_const>>fs[])
+  >- DECIDE_TAC
+  >- `F`by DECIDE_TAC
+  >- (fs[state_component_equality]>>DECIDE_TAC)
+  >- (rw[]>>fs[state_component_equality,LET_THM])
+  >-
+    (qpat_assum`A=(res,rst)` mp_tac>>simp[]>>split_pair_tac>>fs[]>>
+    IF_CASES_TAC>>fs[]
+    >-
+      (strip_tac>>fs[]>>
+      imp_res_tac evaluate_clock>>fs[]>>
+      imp_res_tac evaluate_add_clock>>fs[]>>
+      first_x_assum(qspec_then`s1'.clock - rst.clock` mp_tac)>>simp[])
+    >>
+      strip_tac>>fs[])
+  >- tac
+  >- (tac>>imp_res_tac jump_exc_const>>fs[])
+  >- tac
+  >- (tac>>fs[cut_env_def,LET_THM]>>split_pair_tac>>fs[state_component_equality]>>rveq>>fs[])
+  >>
+    qpat_assum`A=(res,rst)` mp_tac>>
+    ntac 5 (TOP_CASE_TAC>>fs[])
+    >-
+      (ntac 3 (TOP_CASE_TAC>>fs[state_component_equality])>>
+      TOP_CASE_TAC>>fs[]>>
+      tac2>>
+      first_x_assum(qspec_then`r'` assume_tac)>>rfs[])
+    >>
+      ntac 7 (TOP_CASE_TAC>>fs[])>-
+        (strip_tac>>rveq>>fs[])>>
+      ntac 2 (TOP_CASE_TAC>>fs[])>-
+        tac2>>
+      TOP_CASE_TAC
+      >-
+        (TOP_CASE_TAC>-tac2>>
+        TOP_CASE_TAC>-tac2>>
+        reverse TOP_CASE_TAC>-
+          (tac2>>imp_res_tac pop_env_const>>
+          rveq>>fs[])>>
+        strip_tac>>fs[]>>
+        rfs[]>>
+        imp_res_tac evaluate_clock>>fs[]>>
+        imp_res_tac evaluate_add_clock>>fs[]>>
+        imp_res_tac pop_env_const>>rveq>>fs[]>>
+        first_x_assum(qspec_then`r'.clock-rst.clock` kall_tac)>>
+        first_x_assum(qspec_then`r'.clock-rst.clock` mp_tac)>>
+        simp[])
+      >-
+        (TOP_CASE_TAC>-tac2>>
+        ntac 3 (TOP_CASE_TAC>>fs[])>>
+        TOP_CASE_TAC>-tac2>>
+        reverse TOP_CASE_TAC>- tac2>>
+        strip_tac>>fs[]>>
+        rfs[]>>
+        imp_res_tac evaluate_clock>>fs[]>>
+        imp_res_tac evaluate_add_clock>>fs[]>>
+        imp_res_tac pop_env_const>>rveq>>fs[]>>
+        first_x_assum(qspec_then`r'.clock-rst.clock` kall_tac)>>
+        first_x_assum(qspec_then`r'.clock-rst.clock` mp_tac)>>
+        simp[])
+      >>
+        tac2)
+
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `!exps s1 res s2.
     evaluate (exps,s1) = (res, s2)
@@ -2003,48 +2085,5 @@ val lookup_fromList2 = store_thm("lookup_fromList2",
   \\ fs [DIV_LT_X]
   \\ `n = LENGTH l * 2 + 1` by decide_tac
   \\ fs [MOD_TIMES]);
-
-(* This shows that eval doesn't change termdep and is invariant to
-  increments to termdep *)
-
-val evaluate_add_termdep = prove(``
-  ∀prog st res rst.
-  evaluate(prog,st) = (res,rst) ∧ res ≠ SOME Error ⇒
-  evaluate(prog,st with termdep := st.termdep + extra) =
-  (res,rst with termdep:= st.termdep+extra)``,
-  recInduct evaluate_ind>>rw[evaluate_def]>>
-  cheat)
-  (*Proof for MustTerminate case, rotate by 9 goals
-  qpat_assum`A=(res,rst)` mp_tac>>
-  simp[]>>split_pair_tac>>simp[]>>
-  IF_CASES_TAC>>fs[]>>
-  strip_tac>>
-  `res'' ≠ SOME Error` by metis_tac[]>>
-  fs[]>>
-  `s.termdep -1 + extra = s.termdep + extra-1`by DECIDE_TAC>>
-  fs[state_component_equality]*)
-
-(*This should allow us to delete MustTerminate and replace it with clock and termdeps*)
-
-val MustTerminate_to_clock = prove(``
-  evaluate(MustTerminate n prog,st) = (res,rst) ∧
-  res ≠ SOME Error ⇒
-  ∃ck ck' td.
-  evaluate(prog,st with clock:=st.clock+ck) =
-    (res,rst with <|clock:=ck';termdep:=st.termdep|>)``,
-  simp[evaluate_def]>>
-  split_pair_tac>>simp[]>>
-  EVERY_CASE_TAC>>rw[]>>fs[]>>
-  imp_res_tac evaluate_add_clock>>
-  fs[]>>
-  pop_assum(qspec_then`st.clock`assume_tac)>>
-  qexists_tac`n`>>simp[]>>
-  qexists_tac`s1.clock+st.clock` >>
-  imp_res_tac evaluate_add_termdep>>
-  pop_assum kall_tac>>
-  pop_assum(qspec_then`1` mp_tac)>>simp[]>>
-  disch_then (SUBST1_TAC o SYM)>>
-  AP_TERM_TAC>>AP_TERM_TAC>>
-  simp[state_component_equality])
 
 val _ = export_theory();

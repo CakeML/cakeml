@@ -161,6 +161,7 @@ val compile_single_correct = prove(``
           rst.code = st.code ∧
           rst1 = rst with code:=l``,
   (*recInduct doesn't seem to give a nice induction thm*)
+  completeInduct_on`((st:('a,'b)state).termdep)`>>
   completeInduct_on`((st:('a,'b)state).clock)`>>
   simp[PULL_FORALL]>>
   completeInduct_on`prog_size (K 0) (prog:'a wordLang$prog)`>>
@@ -174,6 +175,17 @@ val compile_single_correct = prove(``
   >- tac
   >- tac
   >- tac
+  >-
+    (fs[evaluate_def,LET_THM,AND_IMP_INTRO]>>
+    IF_CASES_TAC>>fs[]>>
+    last_x_assum(qspecl_then[`st with <|clock:=n;termdep:=st.termdep-1|>`,`p`,`l`] mp_tac)>>
+    discharge_hyps>-
+      simp[]>>
+    rw[]>>
+    qexists_tac`perm'`>>fs[]>>
+    split_pair_tac>>fs[]>>
+    split_pair_tac>>fs[]>>
+    IF_CASES_TAC>>fs[])
   >- (*Call -- the hard case*)
     (fs[evaluate_def,LET_THM,get_vars_perm,get_vars_code_frame]>>
     TOP_CASE_TAC>>fs[]>>
@@ -189,11 +201,10 @@ val compile_single_correct = prove(``
       >- simp[call_env_def,state_component_equality]>>
       qabbrev_tac`stt = call_env q(dec_clock st)`>>
       first_x_assum(qspecl_then[`stt`,`prog'`,`l`] mp_tac)>>
+      simp[AND_IMP_INTRO]>>
       discharge_hyps>-
-        (fs[Abbr`stt`,dec_clock_def]>>
+        (fs[Abbr`stt`,dec_clock_def,call_env_def]>>
         DECIDE_TAC)>>
-      discharge_hyps>-
-        (fs[Abbr`stt`,call_env_def,dec_clock_def])>>
       rw[]>>
       Q.ISPECL_THEN [`n`,`r`,`LENGTH q`,`stt with permute:=perm'`] mp_tac (Q.GEN `name` compile_single_lem)>>
       discharge_hyps>-
@@ -231,6 +242,9 @@ val compile_single_correct = prove(``
     discharge_hyps>-
       (fs[Abbr`stt`,dec_clock_def]>>
       DECIDE_TAC)>>
+    discharge_hyps>-
+      (fs[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def]>>
+      Cases_on`o0`>>TRY(PairCases_on`x''`)>>simp[push_env_def,env_to_list_def])>>
     discharge_hyps>-
       fs[Abbr`stt`,push_env_code_frame,call_env_def,dec_clock_def]>>
     rw[]>>
@@ -272,6 +286,7 @@ val compile_single_correct = prove(``
         fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
       >>
       split_pair_tac>>fs[]>>
+      last_x_assum(qspecl_then[`(set_var x''0 w0 x'') with permute:=rcst.permute`,`x''2`,`l`]kall_tac)>>
       last_x_assum(qspecl_then[`(set_var x''0 w0 x'') with permute:=rcst.permute`,`x''2`,`l`]mp_tac)>>
       discharge_hyps>-
         (simp[set_var_def]>>
@@ -283,6 +298,11 @@ val compile_single_correct = prove(``
         qpat_assum`A=SOME x''` mp_tac>>fs[pop_env_def]>>
         EVERY_CASE_TAC>>rw[state_component_equality]>>
         simp[])>>
+      discharge_hyps>-
+        (simp[set_var_def]>>
+        imp_res_tac evaluate_clock>>fs[]>>
+        (*pop_env termdep is constant, should be proved elsewhere already*)
+        cheat)>>
       discharge_hyps>-
         (simp[set_var_def]>>
         qsuff_tac`x''.code = st.code`>>fs[]>>
@@ -340,12 +360,17 @@ val compile_single_correct = prove(``
         fs[push_env_def,env_to_list_def,LET_THM,dec_clock_def,call_env_def,ETA_AX])
       >>
       split_pair_tac>>fs[]>>
+      last_x_assum(qspecl_then[`(set_var x''0' w0 rst) with permute:=rcst.permute`,`x''1'`,`l`]kall_tac)>>
       last_x_assum(qspecl_then[`(set_var x''0' w0 rst) with permute:=rcst.permute`,`x''1'`,`l`]mp_tac)>>
       discharge_hyps>-
         (simp[set_var_def]>>
         imp_res_tac evaluate_clock>>
         fs[call_env_def,dec_clock_def]>>
         DECIDE_TAC)>>
+      discharge_hyps>-
+        (*consts proved elsewhere*)
+        (imp_res_tac evaluate_clock>>
+        fs[set_var_def]>>cheat)>>
       discharge_hyps>-
         (simp[set_var_def]>>
         split_pair_tac>>fs[]>>rfs[]>>
@@ -392,7 +417,7 @@ val compile_single_correct = prove(``
     reverse (Cases_on`res`)>>fs[]
     >- (qexists_tac`perm'`>>fs[])>>
     (*Clock monotonicity*)
-    `rst.clock ≤ st.clock` by
+    `rst.clock ≤ st.clock ∧ rst.termdep = st.termdep` by
       (imp_res_tac evaluate_clock>>
       fs[state_component_equality])>>
     Cases_on`rst.clock = st.clock`>>

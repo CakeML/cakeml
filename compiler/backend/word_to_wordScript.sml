@@ -1,4 +1,4 @@
-open preamble asmTheory wordLangTheory word_allocTheory
+open preamble asmTheory wordLangTheory word_allocTheory word_removeTheory
 local open word_instTheory in (* word-to-word transformations *) end
 
 val _ = new_theory "word_to_word";
