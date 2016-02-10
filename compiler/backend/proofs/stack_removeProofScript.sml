@@ -76,6 +76,10 @@ val word_sub_lt = Q.store_thm("word_sub_lt",
     \\ simp[])
   \\ fs[word_lt_n2w,LET_THM]);
 
+val with_same_clock = Q.store_thm("with_same_clock[simp]",
+  `x with clock := x.clock = x`,
+  rw[state_component_equality]);
+
 (* --- *)
 
 val good_syntax_exp_def = tDefine"good_syntax_exp"`
@@ -348,7 +352,9 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
     else (NONE, s with stack_space := s.stack_space - n)) ∧
    n ≤ max_stack_alloc
    ⇒
-   ∃t2.  evaluate (single_stack_alloc k n,t1) = (r,t2) ∧ state_rel k s2 t2`,
+   ∃ck t2.
+     evaluate (single_stack_alloc k n,t1 with clock := t1.clock + ck) = (r,t2) ∧
+     if s.stack_space < n then t2.ffi = s2.ffi else state_rel k s2 t2`,
   simp[single_stack_alloc_def,evaluate_def,inst_def,assign_def,word_exp_def,
        wordLangTheory.word_op_def,GSYM get_var_def]
   \\ strip_tac
@@ -442,14 +448,15 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
     \\ simp[]
     \\ cheat)
   \\ simp[]
-  \\ IF_CASES_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
     rw[find_code_def]
     \\ rator_x_assum`state_rel`mp_tac
     \\ simp[Once state_rel_def]
     \\ strip_tac
     \\ simp[halt_inst_def,evaluate_def,inst_def,assign_def,word_exp_def,set_var_def,dec_clock_def,get_var_def,FLOOKUP_UPDATE]
-    \\ cheat (* need to be able to add to the clock *) )
+    \\ qexists_tac`1`
+    \\ simp[] )
   \\ rveq
   \\ fs[state_rel_def]
   \\ simp[FLOOKUP_UPDATE]
@@ -461,15 +468,17 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   \\ REWRITE_TAC[WORD_MULT_CLAUSES]
   \\ REWRITE_TAC[WORD_ADD_SUB_ASSOC]
   \\ dep_rewrite.DEP_REWRITE_TAC[GSYM n2w_sub]
-  \\ simp[])
+  \\ simp[]
+  \\ metis_tac[])
 
 val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
   `∀k n r s s2 t1.
    evaluate (StackAlloc n,s) = (r,s2) ∧ r ≠ SOME Error ∧
    state_rel k s t1
    ⇒
-   ∃t2. evaluate (stack_alloc k n,t1) = (r,t2) ∧
-        state_rel k s2 t2`,
+   ∃ck t2.
+     evaluate (stack_alloc k n,t1 with clock := ck + t1.clock) = (r,t2) ∧
+     if ∀w. r ≠ SOME (Halt w) then state_rel k s2 t2 else t2.ffi = s2.ffi`,
   ho_match_mp_tac stack_alloc_ind
   \\ rw[stackSemTheory.evaluate_def]
   \\ simp[Once stack_alloc_def]
@@ -477,20 +486,57 @@ val evaluate_stack_alloc = Q.store_thm("evaluate_stack_alloc",
   >- (
     rw[evaluate_def]
     \\ every_case_tac \\ fs[]
-    \\ rw[] \\ fs[state_rel_def] )
+    \\ rw[] \\ fs[state_rel_def]
+    \\ metis_tac[])
   \\ IF_CASES_TAC \\ fs[]
   >- (
-    match_mp_tac evaluate_single_stack_alloc
+    drule evaluate_single_stack_alloc
+    \\ discharge_hyps
+    >- ( rw[] \\ fs[] \\ fs[state_rel_def] )
     \\ simp[]
-    \\ every_case_tac \\ fs[] )
+    \\ strip_tac
+    \\ asm_exists_tac
+    \\ every_case_tac \\ fs[]
+    \\ rveq \\ fs[])
   \\ simp[evaluate_def]
-  \\ split_pair_tac \\ fs[]
-  (*
-  \\ drule (GEN_ALL evaluate_single_stack_alloc) not sure if this is correct here
+  \\ drule (GEN_ALL evaluate_single_stack_alloc)
   \\ disch_then(qspec_then`max_stack_alloc`mp_tac o CONV_RULE(RESORT_FORALL_CONV(sort_vars["n"])))
   \\ simp[]
-  *)
-  \\ cheat);
+  \\ rw[]
+  >- (
+    qexists_tac`ck`\\simp[]
+    \\ `s.stack_space < n` by decide_tac
+    \\ fs[]
+    \\ `s.use_stack` by fs[state_rel_def]
+    \\ fs[] \\ rw[] )
+  \\ `s.use_stack` by fs[state_rel_def]
+  \\ fs[]
+  \\ qabbrev_tac`s' =
+        if s.stack_space < n then empty_env (s with stack_space := s.stack_space - max_stack_alloc)
+        else s with stack_space := s.stack_space - n`
+  \\ `∃ck'. ∃t2'.
+        evaluate (stack_alloc k (n - max_stack_alloc), t2 with clock := ck' + t2.clock) =
+          (r,t2') ∧
+        if ∀w. r ≠ SOME (Halt w) then
+          state_rel k s' t2'
+       else t2'.ffi = s'.ffi`
+  by (
+    first_x_assum match_mp_tac
+    \\ simp[]
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac
+    \\ simp[]
+    \\ IF_CASES_TAC \\ fs[Abbr`s'`] )
+  \\ rator_x_assum`evaluate`mp_tac
+  \\ drule (GEN_ALL evaluate_add_clock)
+  \\ disch_then(qspec_then`ck'`mp_tac)
+  \\ simp[] \\ ntac 2 strip_tac
+  \\ qexists_tac`ck+ck'`\\simp[]
+  \\ rator_x_assum`COND`mp_tac
+  \\ simp[Abbr`s'`]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ rveq \\ simp[]);
 
 val state_rel_mem_load_imp = Q.store_thm("state_rel_mem_load_imp",
   `state_rel k s t ∧
@@ -567,16 +613,17 @@ val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
      state_rel k s1 t1 /\ good_syntax p k ==>
-     ?t2. evaluate (comp k p,t1) = (r,t2) /\
+     ?ck t2. evaluate (comp k p,t1 with clock := ck + t1.clock) = (r,t2) /\
              (case r of
                | SOME (Halt _) => t2.ffi = s2.ffi
                | SOME TimeOut => t2.ffi = s2.ffi
                | _ =>  (state_rel k s2 t2))`,
   recInduct evaluate_ind \\ rpt strip_tac
-  THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ fs [])
+  THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ qexists_tac`0` \\ fs [])
   THEN1
    (fs [comp_def,evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
+    \\ qexists_tac`0`
     \\ BasicProvers.TOP_CASE_TAC \\ rw [] \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ rw [] \\ fs []
     \\ fs[state_rel_def])
@@ -590,9 +637,14 @@ val comp_correct = Q.prove(
     \\ fs[good_syntax_def]
     \\ disch_then drule
     \\ disch_then drule
-    \\ strip_tac \\ simp[])
+    \\ strip_tac
+    \\ simp[]
+    \\ imp_res_tac inst_const
+    \\ qexists_tac`0` \\ simp[]
+    \\ metis_tac[with_same_clock])
   THEN1 (* Get *)
-   (`s.use_store` by fs [state_rel_def]
+   (qexists_tac`0`
+    \\ `s.use_store` by fs [state_rel_def]
     \\ fs [comp_def,evaluate_def,good_syntax_def]
     \\ every_case_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF]
@@ -610,7 +662,8 @@ val comp_correct = Q.prove(
     \\ fs [] \\ res_tac \\ fs [] \\ match_mp_tac state_rel_set_var
     \\ fs [state_rel_def] \\ fs [AC MULT_COMM MULT_ASSOC])
   THEN1 (* Set *)
-   (`s.use_store` by fs [state_rel_def]
+   (qexists_tac`0`
+    \\ `s.use_store` by fs [state_rel_def]
     \\ fs [comp_def,evaluate_def,good_syntax_def]
     \\ every_case_tac \\ fs [] \\ rw []
     \\ fs [evaluate_def,inst_def,assign_def,word_exp_def,LET_DEF,get_var_def]
@@ -637,7 +690,8 @@ val comp_correct = Q.prove(
     \\ SEP_W_TAC \\ fs[AC STAR_COMM STAR_ASSOC])
   THEN1 (* Tick *)
    (fs [comp_def,evaluate_def]
-    \\ `t1.clock = s.clock` by fs [state_rel_def] \\ fs []
+    \\ `s.clock = t1.clock` by fs [state_rel_def] \\ fs []
+    \\ qexists_tac`0` \\ fs[]
     \\ CASE_TAC \\ fs [] \\ rw []
     \\ imp_res_tac state_rel_IMP \\ fs [] \\ fs [state_rel_def])
   THEN1 (* Seq *)
@@ -649,13 +703,19 @@ val comp_correct = Q.prove(
       \\ first_x_assum drule >> simp[]
       \\ strip_tac >> fs[]
       \\ pop_assum mp_tac >> CASE_TAC
-      \\ rpt var_eq_tac >> fs[] )
+      \\ rpt var_eq_tac >> fs[]
+      \\ strip_tac
+      \\ qexists_tac`ck`\\simp[])
     \\ first_x_assum drule >> simp[] >> strip_tac
-    \\ Cases_on `r` \\ fs [] \\ rw []
-    \\ Cases_on`x`>>fs[]>>rw[]>>fs[]
-    \\ metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS])
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
+    \\ ntac 2 (pop_assum mp_tac)
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then(qspec_then`ck'`mp_tac)
+    \\ simp[] \\ ntac 3 strip_tac
+    \\ qexists_tac`ck+ck'`\\simp[])
   THEN1 (* Return *)
    (fs [comp_def,evaluate_def,good_syntax_def]
+    \\ qexists_tac`0`
     \\ imp_res_tac state_rel_get_var \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -664,6 +724,7 @@ val comp_correct = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC \\ fs[])
   THEN1 (* Raise *)
    (fs [comp_def,evaluate_def,good_syntax_def]
+    \\ qexists_tac`0`
     \\ imp_res_tac state_rel_get_var \\ fs []
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -673,8 +734,16 @@ val comp_correct = Q.prove(
    (fs [] \\ simp [Once comp_def]
     \\ fs [evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
-    \\ `get_var_imm ri t1 = get_var_imm ri s` by all_tac
-    \\ rpt (CASE_TAC \\ fs [])
+    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ fs[] \\ rfs[]
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
+    \\ qexists_tac`ck` \\ simp[]
+    \\ fs[get_var_def]
     \\ Cases_on `ri` \\ fs [get_var_imm_def]
     \\ imp_res_tac state_rel_get_var \\ fs [])
   THEN1 (* JumpLess *)
@@ -683,26 +752,30 @@ val comp_correct = Q.prove(
     \\ imp_res_tac state_rel_get_var \\ fs [find_code_def]
     \\ Cases_on `get_var r1 t1` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ Cases_on `get_var r2 t1` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ reverse (Cases_on `word_cmp Less c c'`) \\ fs [] THEN1 (rw [])
+    \\ reverse (Cases_on `word_cmp Less c c'`) \\ fs [] THEN1 (
+      rw [] \\ qexists_tac`0`\\simp[])
     \\ Cases_on `lookup dest s.code` \\ fs []
     \\ `lookup dest t1.code = SOME (comp k x) /\
         good_syntax x k /\ s.clock = t1.clock` by
      (qpat_assum `bb ==> bbb` (K all_tac)
       \\ fs [state_rel_def,code_rel_def] \\ res_tac \\ fs [] \\ fs [])
     \\ fs [] \\ Cases_on `t1.clock = 0` \\ fs []
-    THEN1 (rw [] \\ fs [state_rel_def,code_rel_def])
+    THEN1 (rw [] \\ qexists_tac`t1.clock` \\ fs [state_rel_def,code_rel_def])
     \\ first_assum(subterm split_pair_case_tac o concl) \\ fs []
     \\ Cases_on `v'` \\ fs [] \\ rw [] \\ fs []
     \\ `state_rel k (dec_clock s) (dec_clock t1)` by metis_tac [state_rel_IMP]
     \\ res_tac \\ fs [] \\ rw []
-    \\ Cases_on `r2'` \\ fs [])
+    \\ qexists_tac`ck`
+    \\ fsrw_tac[ARITH_ss][get_var_def,dec_clock_def]
+    \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[])
   THEN1 (* Call *)
    (Cases_on `ret` \\ fs [] THEN1
      (fs [evaluate_def]
       \\ Cases_on `find_code dest s.regs s.code` \\ fs []
       \\ Cases_on `handler` \\ fs []
       \\ Cases_on `s.clock = 0` \\ fs [] \\ rw [] THEN1
-       (fs [evaluate_def,Once comp_def,good_syntax_def]
+       (qexists_tac`0`
+        \\ fs [evaluate_def,Once comp_def,good_syntax_def]
         \\ imp_res_tac find_code_lemma \\ fs [] \\ pop_assum (K all_tac)
         \\ fs [state_rel_def,code_rel_def])
       \\ Cases_on `evaluate (x,dec_clock s)` \\ fs []
@@ -716,11 +789,13 @@ val comp_correct = Q.prove(
        (fs [state_rel_def,dec_clock_def] \\ rfs[] \\ metis_tac [])
       \\ first_x_assum drule \\ fs []
       \\ strip_tac \\ fs []
-      \\ BasicProvers.TOP_CASE_TAC \\ fs [])
+      \\ qexists_tac`ck`
+      \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def])
     \\ PairCases_on `x` \\ fs [good_syntax_def]
     \\ cheat)
   THEN1 (* FFI *)
    (simp [Once comp_def]
+    \\ qexists_tac`0`
     \\ fs [good_syntax_def,evaluate_def]
     \\ imp_res_tac state_rel_get_var \\ fs []
     \\ qpat_assum `xxx = (r,s2)` mp_tac
@@ -747,9 +822,10 @@ val comp_correct = Q.prove(
     \\ simp[]
     \\ disch_then drule
     \\ strip_tac \\ simp[]
-    \\ fs[state_rel_def]
-    \\ BasicProvers.CASE_TAC \\ simp[]
-    \\ BasicProvers.CASE_TAC \\ simp[])
+    \\ asm_exists_tac \\ simp[]
+    \\ BasicProvers.CASE_TAC \\ fs[]
+    \\ BasicProvers.CASE_TAC \\ fs[]
+    \\ fs[state_rel_def] )
   THEN1 (* StackFree *) (
     simp[comp_def]
     \\ simp[evaluate_def,inst_def,assign_def,word_exp_def]
@@ -765,7 +841,8 @@ val comp_correct = Q.prove(
     \\ simp[]
     \\ conj_tac >- metis_tac[]
     \\ simp[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
-    \\ simp[word_offset_def,bytes_in_word_def,word_mul_n2w])
+    \\ simp[word_offset_def,bytes_in_word_def,word_mul_n2w]
+    \\ metis_tac[])
   THEN1 (* StackLoad *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -778,7 +855,7 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ simp[mem_load_def]
-    \\ cheat (* ?? what does one do with fun2set ?? *))
+    \\ cheat)
   THEN1 (* StackLoadAny *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -817,6 +894,7 @@ val comp_correct = Q.prove(
           store_list_def,INDEX_FIND_def,word_store_def,GSYM word_mul_n2w,
           word_list_rev_def,bytes_in_word_def] \\ rfs[]
       \\ fs [mem_load_def] \\ SEP_R_TAC \\ fs [] \\ NO_TAC)
+    \\ qexists_tac`0`
     \\ fs [LET_THM,stackSemTheory.inst_def,stackSemTheory.assign_def,
            word_exp_def,set_var_def,FLOOKUP_UPDATE,get_var_def]
     \\ `FLOOKUP t1.regs v = SOME (Word c)` by metis_tac [state_rel_def] \\ fs []
