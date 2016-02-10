@@ -115,7 +115,7 @@ val good_syntax_def = Define `
      v1 < k) /\
   (good_syntax (Return v1 v2) k <=>
      v1 < k /\ v2 < k) /\
-  (good_syntax (JumpLess v1 v2 dest) k <=>
+  (good_syntax (JumpLower v1 v2 dest) k <=>
      v1 < k /\ v2 < k) /\
   (good_syntax ((Seq p1 p2):'a stackLang$prog) k <=>
      good_syntax p1 k /\ good_syntax p2 k) /\
@@ -817,7 +817,7 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ Cases_on `ri` \\ fs [get_var_imm_def]
     \\ imp_res_tac state_rel_get_var \\ fs [])
-  THEN1 (* JumpLess *)
+  THEN1 (* JumpLower *)
    (simp [Once comp_def]
     \\ fs [good_syntax_def,evaluate_def]
     \\ imp_res_tac state_rel_get_var \\ fs [find_code_def]

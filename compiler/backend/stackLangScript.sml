@@ -14,7 +14,7 @@ val _ = Datatype `
               (* handler: exception-handler code, labels l1,l2*)
        | Seq stackLang$prog stackLang$prog
        | If cmp num ('a reg_imm) stackLang$prog stackLang$prog
-       | JumpLess num num num (* reg, reg, target name *)
+       | JumpLower num num num (* reg, reg, target name *)
        | Alloc num
        | Raise num
        | Return num num

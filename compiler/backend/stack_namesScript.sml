@@ -49,7 +49,7 @@ val comp_def = Define `
               | NONE => NONE
               | SOME (p2,l1,l2) => SOME (comp f p2,l1,l2))
     | FFI i r1 r2 r3 => FFI i (find_name f r1) (find_name f r2) (find_name f r3)
-    | JumpLess r1 r2 dest => JumpLess (find_name f r1) (find_name f r2) dest
+    | JumpLower r1 r2 dest => JumpLower (find_name f r1) (find_name f r2) dest
     | p => p`
 
 val prog_comp_def = Define `

@@ -351,10 +351,10 @@ val evaluate_def = tDefine "evaluate" `
       if word_cmp cmp x y then evaluate (c1,s)
                           else evaluate (c2,s)
     | _ => (SOME Error,s))) /\
-  (evaluate (JumpLess r1 r2 dest,s) =
+  (evaluate (JumpLower r1 r2 dest,s) =
     case (get_var r1 s, get_var r2 s) of
     | SOME (Word x),SOME (Word y) =>
-      if word_cmp Less x y then
+      if word_cmp Lower x y then
        (case find_code (INL dest) s.regs s.code of
         | NONE => (SOME Error,s)
         | SOME prog =>

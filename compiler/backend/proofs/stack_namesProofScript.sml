@@ -151,7 +151,7 @@ val comp_correct = Q.prove(
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] )
-  (* JumpLess *)
+  (* JumpLower *)
   THEN1 (
     simp[Once comp_def] >>
     fs[evaluate_def] >>

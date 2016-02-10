@@ -779,10 +779,10 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[get_pc_value_def,upd_pc_def,dec_clock_def,inc_pc_def] >>
     qexists_tac`ck+1`>>simp[]>>
     qexists_tac`t2`>>simp[] ) >>
-  (* JumpLess *)
+  (* JumpLower *)
   conj_tac >- (
     rw[] >>
-    fs[Q.SPEC`JumpLess _ _ _`flatten_def] >>
+    fs[Q.SPEC`JumpLower _ _ _`flatten_def] >>
     rator_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
     Cases_on`get_var r1 s`>>fs[]>> Cases_on`x`>>fs[]>>

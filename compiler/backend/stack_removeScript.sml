@@ -42,12 +42,13 @@ val _ = map overload_on
    ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
    ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
    ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r v))``),
+   ("right_shift_inst",``\r v. Inst (Arith (Shift Lsr r r v))``),
    ("const_inst",``\r w. Inst (Const r w)``)]
 
 val single_stack_alloc_def = Define `
   single_stack_alloc k n =
     Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
-        (JumpLess k (k+1) stack_err_lab)`
+        (JumpLower k (k+1) stack_err_lab)`
 
 val stack_alloc_def = tDefine "stack_alloc" `
   stack_alloc k n =
@@ -89,8 +90,10 @@ val comp_def = Define `
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
                           (Seq (Inst (Mem Store r (Addr k 0w)))
                                (Inst (Arith (Binop Sub k k (Reg i)))))
-    | StackGetSize r => Inst (Arith (Binop Sub r k (Reg (k+1))))
-    | StackSetSize r => Inst (Arith (Binop Add k (k+1) (Reg r)))
+    | StackGetSize r => Seq (Inst (Arith (Binop Sub r k (Reg (k+1)))))
+                            (left_shift_inst r (word_shift (:'a)))
+    | StackSetSize r => Seq (Inst (Arith (Binop Add k (k+1) (Reg r))))
+                            (right_shift_inst r (word_shift (:'a)))
     | BitmapLoad r v =>
         list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
                   add_inst r v;

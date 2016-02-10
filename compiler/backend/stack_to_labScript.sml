@@ -76,8 +76,8 @@ val flatten_def = Define `
                   [LabAsm (Jump (Lab n m)) 0w [] 0;
                    Label k1 k2 0] ++ ys ++ [Label n m 0]),
            if IS_SOME handler then m+1 else m)
-    | JumpLess r1 r2 target =>
-        ([LabAsm (JumpCmp Less r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
+    | JumpLower r1 r2 target =>
+        ([LabAsm (JumpCmp Lower r1 (Reg r2) (Lab target 0)) 0w [] 0],m)
     | FFI ffi_index _ _ lr => ([LabAsm (LocValue lr (Lab n m)) 0w [] 0;
                                 LabAsm (CallFFI ffi_index) 0w [] 0;
                                 Label n m 0],m+1)
