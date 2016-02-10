@@ -97,6 +97,8 @@ val _ = export_rewrites["good_syntax_exp_def"];
 val good_syntax_inst_def = Define`
   (good_syntax_inst (Mem _ _ (Addr a _)) k ⇔ a < k) ∧
   (good_syntax_inst (Const n _) k ⇔ n < k) ∧
+  (good_syntax_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
+  (good_syntax_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
   (good_syntax_inst _ _ ⇔ T)`;
 val _ = export_rewrites["good_syntax_inst_def"];
 
@@ -609,8 +611,32 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ simp_tac(srw_ss())[]
     \\ rveq \\ simp[])
   >- (
-    BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ cheat )
+    reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      drule state_rel_word_exp
+      \\ qpat_assum`_ = SOME _`mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ strip_tac
+      \\ ONCE_REWRITE_TAC[CONJ_COMM]
+      \\ disch_then drule
+      \\ rw[] )
+    \\ qpat_abbrev_tac`c ⇔ _ ∧ _`
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      imp_res_tac state_rel_get_var
+      \\ fs[get_var_def]
+      \\ BasicProvers.CASE_TAC \\ fs[]
+      \\ rw[] )
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac
+    \\ drule state_rel_word_exp
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ disch_then drule
+    \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ rw[] )
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   \\ cheat);
 
 val comp_correct = Q.prove(
