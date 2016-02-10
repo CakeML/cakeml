@@ -539,7 +539,7 @@ val state_rel_def = Define `
     (s.clock = t.clock) /\ (s.gc_fun = t.gc_fun) /\ (s.permute = K I) /\
     (t.ffi = s.ffi) /\ t.use_stack /\ t.use_store /\ t.use_alloc /\
     (t.memory = s.memory) /\ (t.mdomain = s.mdomain) /\ 2 < k /\
-    (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\
+    (s.store = t.store \\ Handler) /\ gc_fun_ok t.gc_fun /\ s.termdep = 0 /\
     t.be = s.be /\ t.ffi = s.ffi /\ Handler ∈ FDOM t.store ∧
     (!n word_prog arg_count.
        (lookup n s.code = SOME (arg_count,word_prog)) ==>
@@ -4720,20 +4720,6 @@ val stack_rel_cons_LEN = prove(``
   simp[stack_rel_def]>>Cases_on`sstack`>>simp[abs_stack_def]>>
   rpt TOP_CASE_TAC>>simp[])
 
-val state_rel_termdep = store_thm("state_rel_termdep[simp]",
-  ``(state_rel k f f' (s1 with termdep := x) t1 lens =
-     state_rel k f f' s1 t1 lens) /\
-    (state_rel k f f' (s1 with <| clock := c ; termdep := x |>) t1 lens =
-     state_rel k f f' (s1 with clock := c) t1 lens)``,
-  fs [state_rel_def]);
-
-val rewind_clock = prove( (* useful? *)
-  ``evaluate (prog,t with clock := t.clock + n + ck) = (res1,t1) /\
-    res1 <> SOME TimeOut ==>
-    ?n1. evaluate (prog,t with clock := t.clock + m) =
-           (res1,t1 with clock := t.clock)``,
-  cheat);
-
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -5056,28 +5042,10 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ `s.clock = t.clock` by fs [state_rel_def] \\ fs [] \\ rw []
     \\ fs [state_rel_def,wordSemTheory.dec_clock_def,stackSemTheory.dec_clock_def]
     \\ metis_tac[])
-
   THEN1 (* MustTerminate *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
-    \\ Cases_on `s.termdep = 0` \\ fs []
-    \\ split_pair_tac \\ fs []
-    \\ qcase_tac `_ = (res2,s2)`
-    \\ Cases_on `res2 = SOME TimeOut` \\ fs []
-    \\ rpt var_eq_tac \\ fs []
-    \\ qpat_assum `!xx._` mp_tac
-    \\ rewrite_tac [CONJ_ASSOC]
-    \\ once_rewrite_tac [CONJ_COMM]
-    \\ `SND (comp p bs (k,f,f')) ≼ (t with clock := t.clock + n).bitmaps` by fs []
-    \\ disch_then drule
-    \\ fs [convs_def,word_allocTheory.max_var_def]
-    \\ disch_then (qspec_then `lens` mp_tac)
-    \\ discharge_hyps THEN1 (fs [state_rel_def] \\ metis_tac [])
-    \\ strip_tac \\ qexists_tac `n+ck` \\ fs [ADD_ASSOC]
-    \\ IF_CASES_TAC \\ fs []
-    \\ every_case_tac \\ fs []
-    \\ qpat_assum `state_rel k _ _ _ _ _` mp_tac
-    \\ cheat)
+    \\ Cases_on `s.termdep = 0` \\ fs [state_rel_def])
   THEN1 (* Seq *)
    (fs [wordSemTheory.evaluate_def,LET_DEF,
         stackSemTheory.evaluate_def,comp_def]
