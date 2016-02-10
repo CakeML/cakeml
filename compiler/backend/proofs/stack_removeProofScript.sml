@@ -95,7 +95,7 @@ val good_syntax_exp_def = tDefine"good_syntax_exp"`
 val _ = export_rewrites["good_syntax_exp_def"];
 
 val good_syntax_inst_def = Define`
-  (good_syntax_inst (Mem _ _ (Addr a _)) k ⇔ a < k) ∧
+  (good_syntax_inst (Mem _ n (Addr a _)) k ⇔ n < k ∧ a < k) ∧
   (good_syntax_inst (Const n _) k ⇔ n < k) ∧
   (good_syntax_inst (Arith (Shift _ n r2 _)) k ⇔ r2 < k ∧ n < k) ∧
   (good_syntax_inst (Arith (Binop _ n r2 ri)) k ⇔ r2 < k ∧ n < k ∧ (case ri of Reg r1 => r1 < k | _ => T)) ∧
@@ -586,6 +586,17 @@ val state_rel_word_exp = Q.store_thm("state_rel_word_exp",
     \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS]
     \\ metis_tac[]));
 
+val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
+  `state_rel k s t ∧
+   mem_store x y s = SOME s' ∧
+   mem_store x y t = SOME t' ⇒
+   state_rel k s' t'`,
+  fs[mem_store_def] \\ rw[]
+  \\ fs[state_rel_def]
+  \\ conj_tac >- metis_tac[]
+  \\ every_case_tac \\ fs[]
+  \\ cheat);
+
 val state_rel_inst = Q.store_thm("state_rel_inst",
   `state_rel k s t ∧
    good_syntax_inst i k ∧
@@ -637,7 +648,31 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[] )
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-  \\ cheat);
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ pop_assum mp_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ drule state_rel_word_exp
+  \\ ONCE_REWRITE_TAC[CONJ_COMM]
+  \\ disch_then drule
+  \\ simp[]
+  >- (
+    imp_res_tac state_rel_mem_load_imp
+    \\ simp[] \\ rw[] \\ rw[] )
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ imp_res_tac state_rel_get_var
+  \\ fs[] \\ rw[]
+  \\ qmatch_assum_rename_tac`mem_store x y s = SOME s'`
+  \\ `∃t'. mem_store x y t = SOME t'`
+  by (
+    fs[mem_store_def]
+    \\ fs[state_rel_def]
+    \\ every_case_tac \\ fs[]
+    \\ fs[GSYM STAR_ASSOC]
+    \\ drule (GEN_ALL memory_fun2set_IMP_read)
+    \\ metis_tac[] )
+  \\ simp[]
+  \\ imp_res_tac state_rel_mem_store);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
