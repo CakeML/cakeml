@@ -306,6 +306,7 @@ val FLOOKUP_ilist_to_fmap = store_thm("FLOOKUP_ilist_to_fmap",
   simp[FLOOKUP_DEF,FUN_FMAP_DEF] >>
   simp[Abbr`P`,Abbr`X`,Abbr`Y`,Abbr`f`])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val VSUBST_frees = store_thm("VSUBST_frees",
   ``∀tm il1 il2. (∀n ty. VFREE_IN (Var n ty) tm ⇒
                     (MEM (Var n ty) (MAP SND il1) ⇔ MEM (Var n ty) (MAP SND il2)) ∧
@@ -381,6 +382,7 @@ val VSUBST_frees = store_thm("VSUBST_frees",
   unabbrev_all_tac >> simp[] >>
   simp[MEM_MAP,MEM_FILTER,FORALL_PROD] >>
   simp[MAP_SND_FILTER_NEQ,FILTER_ALL_DISTINCT])
+end
 
 val ilist_to_fmap_DOMSUB = store_thm("ilist_to_fmap_DOMSUB",
   ``∀ilist x. ilist_to_fmap ilist \\ x = ilist_to_fmap (FILTER (λ(p,q). q ≠ Var (FST x) (SND x)) ilist)``,
@@ -449,6 +451,7 @@ val tyinst_TYPE_SUBST = store_thm("tyinst_TYPE_SUBST",
   rw[MAP_EQ_f,EVERY_MEM] >>
   metis_tac[])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
   ``∀env tyin tm.
       ALL_DISTINCT (bv_names tm ++ (MAP (FST o dest_var o SND) env)) ∧
@@ -504,6 +507,7 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
   fs[] >>
   qunabbrev_tac`ty'` >>
   metis_tac[tyinst_TYPE_SUBST])
+end
 
 val INST_simple_inst = store_thm("INST_simple_inst",
   ``∀tyin tm.
@@ -540,6 +544,7 @@ val FST_rename_bvars = store_thm("FST_rename_bvars",
   match_mp_tac DROP_DROP >>
   simp[])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
   ``∀names env tm.
     LENGTH (bv_names tm) ≤ LENGTH names ∧
@@ -606,6 +611,7 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
   simp[] >>
   fs[IN_DISJOINT,ALL_DISTINCT_APPEND] >>
   rfs[] >> metis_tac[])
+end
 
 val rename_bvars_ACONV = store_thm("rename_bvars_ACONV",
   ``∀names tm.
@@ -1092,6 +1098,7 @@ val dbVFREE_IN_dbVSUBST = store_thm("dbVFREE_IN_dbVSUBST",
                (REV_ASSOCD (dbVar y ty) ilist (dbVar y ty))``,
   Induct >> simp[] >> rw[] >> metis_tac[])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   ``∀tm ilist.
     (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty)
@@ -1181,6 +1188,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
   simp[Abbr`ilist'`,MAP_db_FILTER_neq,REV_ASSOCD_FILTER] >>
   rw[Abbr`x`] >>
   fs[dbVFREE_IN_bind])
+end
 
 val dbterm_def = Define`
   (dbterm env (Var s ty) =

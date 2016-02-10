@@ -793,6 +793,7 @@ val TYPE_SUBST_IMP = prove(
   disch_then(qspecl_then[`tyin1`,`EL n tys`,`tyin`,`defs`]mp_tac) >>
   simp[MEM_ZIP,GSYM LEFT_FORALL_IMP_THM])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val INST_CORE_IMP = prove(
   ``∀env tyin tm defs env1 tyin1 tm1.
       good_defs defs ∧
@@ -959,6 +960,7 @@ val INST_CORE_IMP = prove(
   Cases_on`tres''`>>Cases_on`tres'''`>>fs[]>>rfs[result_term_cases] >>
   simp[Once term_cases] >>
   METIS_TAC[TYPE_SUBST_IMP] )
+end
 
 val INST_IMP = prove(
   ``∀tm tyin defs tyin1 tm1.
@@ -1019,6 +1021,7 @@ val TYPE_SUBST_FILTER = store_thm("TYPE_SUBST_FILTER",
   rw[] >- rw[REV_ASSOCD_FILTER_vars] >>
   simp[MAP_EQ_f] >> fs[EVERY_MEM])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val INST_CORE_FILTER = store_thm("INST_CORE_FILTER",
   ``∀env tyin1 tm tyin2.
       (FILTER (λ(ty,s). ∃a. s = Tyvar a) tyin1
@@ -1040,6 +1043,7 @@ val INST_CORE_FILTER = store_thm("INST_CORE_FILTER",
   rw[] >> fs[] >>
   first_x_assum(qspec_then`tyin2`mp_tac) >> simp[] >>
   rw[] >> fs[] )
+end
 
 val INST_FILTER = store_thm("INST_FILTER",
   ``∀tyin1 tyin2 tm.
@@ -1180,7 +1184,7 @@ val TERM_UNION_FILTER_NIL = store_thm("TERM_UNION_FILTER_NIL",
   rw[holSyntaxTheory.TERM_UNION_def] >> rw[] >> fs[] >> TRY (
     qspecl_then[`l1`,`[h]`]mp_tac TERM_UNION_APPEND_SAME_NIL  >>
     simp[] ) >>
-  fs[EVERY_MEM,EXISTS_MEM,Abbr`subun`,MEM_FILTER] >>
+  fs[EVERY_MEM,EXISTS_MEM,MEM_FILTER] >>
   METIS_TAC[])
 val _ = export_rewrites["TERM_UNION_FILTER_NIL"]
 

@@ -2538,6 +2538,7 @@ val semantics_simple_subst = store_thm("semantics_simple_subst",
   simp[DOMSUB_FAPPLY_THM] >>
   PROVE_TAC[])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val has_meaning_VSUBST = store_thm("has_meaning_VSUBST",
   ``is_model M ⇒
     ∀tm ilist.
@@ -2572,6 +2573,7 @@ val has_meaning_VSUBST = store_thm("has_meaning_VSUBST",
   unabbrev_all_tac >>
   simp[MEM_FILTER] >>
   metis_tac[has_meaning_Var,has_type_cases])
+end
 
 val simple_subst_frees = store_thm("simple_subst_frees",
   ``∀tm s1 s2.
@@ -2605,6 +2607,7 @@ val closes_VSUBST_lookup = store_thm("closes_VSUBST_lookup",
   rw[VFREE_IN_VSUBST] >>
   metis_tac[])
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val tvars_subset_VSUBST = store_thm("tvars_subset_VSUBST",
   ``∀tm ilist.
     (∀k v. MEM (v,k) ilist ⇒ ∃x ty. k = Var x ty ∧ v has_type ty)
@@ -2625,6 +2628,7 @@ val tvars_subset_VSUBST = store_thm("tvars_subset_VSUBST",
   first_x_assum match_mp_tac >>
   simp[MEM_FILTER] >>
   metis_tac[has_type_cases])
+end
 
 val INST_correct = store_thm("INST_correct",
   ``is_model M ⇒
