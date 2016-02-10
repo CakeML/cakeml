@@ -402,6 +402,21 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
       \\ decide_tac)
     \\ `(n - s.stack_space) * d ≤ m` by decide_tac
     \\ qmatch_assum_abbrev_tac`a * d ≤ m`
+    \\ `0w < n2w m`
+    by (
+      cheat (* can this be added to state_rel? *)
+      (*
+      alternative approach (doesn't work):
+      simp[WORD_LT]
+      \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
+      \\ `d ≠ 0` by (
+        strip_tac
+        \\ fs[Abbr`d`,state_rel_def]
+        \\ fs[labPropsTheory.good_dimindex_def]
+        \\ rfs[] \\ rveq \\ fs[] \\ fs[markerTheory.Abbrev_def])
+      \\ `max_stack_alloc ≠ 0` by EVAL_TAC
+      \\ `0 < d * max_stack_alloc` by metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
+      \\ reverse conj_asm2_tac >- simp[] *))
     \\ Cases_on`s.stack_space < n`
     >- (
       `s.stack_space ≤ n` by decide_tac
@@ -427,19 +442,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
         \\ fs[labPropsTheory.good_dimindex_def] \\ fs[Abbr`d`]
         \\ fs[max_stack_alloc_def]
         \\ decide_tac)
-      \\ conj_asm1_tac
-      >- (
-        simp[WORD_LT]
-        \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
-        \\ `d ≠ 0` by (
-          strip_tac
-          \\ fs[Abbr`d`,state_rel_def]
-          \\ fs[labPropsTheory.good_dimindex_def]
-          \\ rfs[] \\ rveq \\ fs[] \\ fs[markerTheory.Abbrev_def])
-        \\ `max_stack_alloc ≠ 0` by EVAL_TAC
-        \\ `0 < d * max_stack_alloc` by metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
-        \\ reverse conj_asm2_tac >- simp[]
-        \\ cheat )
+      \\ conj_tac >- simp[]
       \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
       \\ simp[])
     \\ `n ≤ s.stack_space` by decide_tac
@@ -450,6 +453,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
     \\ REWRITE_TAC[WORD_NOT_LESS]
     \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
     \\ simp[]
+    \\ `a = 0` by all_tac \\ fs[Abbr`a`]
     \\ cheat)
   \\ simp[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
