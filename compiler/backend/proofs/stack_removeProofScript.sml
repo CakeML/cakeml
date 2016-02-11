@@ -239,6 +239,8 @@ val state_rel_def = Define `
     case FLOOKUP s2.regs (k+1) of
     | SOME (Word base) =>
       dimindex (:'a) DIV 8 * max_stack_alloc <= w2n base /\
+      s1.stack_space <= LENGTH s1.stack /\
+      w2n base + w2n (bytes_in_word:'a word) * LENGTH s1.stack < dimword (:'a) /\
       FLOOKUP s2.regs k =
         SOME (Word (base + bytes_in_word * n2w s1.stack_space)) /\
       (memory s1.memory s1.mdomain *
@@ -468,8 +470,14 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
     \\ `d * n ≤ d * s.stack_space` by metis_tac[LESS_MONO_MULT,MULT_COMM]
     \\ asm_simp_tac std_ss [LESS_EQ_ADD_SUB]
     \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
-    \\ Cases_on`m + d * (s.stack_space - n) < dimword (:'a)` >- simp[]
-    \\ cheat)
+    \\ `m + d * (s.stack_space - n) < dimword (:'a)` suffices_by (simp [])
+    \\ fs [LEFT_SUB_DISTRIB]
+    \\ fs [state_rel_def,bytes_in_word_def]
+    \\ `d < dimword (:α)` by (UNABBREV_ALL_TAC
+           \\ fs [labPropsTheory.good_dimindex_def,dimword_def]) \\ fs []
+    \\ qpat_assum `s.stack_space <= LENGTH s.stack` assume_tac
+    \\ drule LESS_EQUAL_ADD \\ strip_tac \\ rw []
+    \\ fs [LEFT_ADD_DISTRIB] \\ decide_tac)
   \\ simp[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
