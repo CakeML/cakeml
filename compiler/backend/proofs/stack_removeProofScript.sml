@@ -187,6 +187,10 @@ val good_syntax_def = Define `
   (good_syntax (StackStore r _) k <=> r < k) /\
   (good_syntax (StackSetSize r) k <=> r < k) /\
   (good_syntax (StackGetSize r) k <=> r < k) /\
+  (good_syntax (StackLoad r n) k <=> r < k) /\
+  (good_syntax (StackLoadAny r r2) k <=> r < k /\ r2 < k) /\
+  (good_syntax (StackStore r n) k <=> r < k) /\
+  (good_syntax (StackStoreAny r r2) k <=> r < k /\ r2 < k) /\
   (good_syntax _ k <=> T)`
 
 val memory_def = Define `
@@ -714,6 +718,15 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
   \\ simp[]
   \\ imp_res_tac state_rel_mem_store);
 
+val word_offset_eq = store_thm("word_offset_eq",
+  ``word_offset n = bytes_in_word * n2w n``,
+  fs [word_offset_def,word_mul_n2w,bytes_in_word_def]);
+
+val bytes_in_word_word_shift_left = store_thm("bytes_in_word_word_shift_left",
+  ``(dimindex (:α) DIV 8) * n < dimword (:'a) ==>
+    (bytes_in_word * n2w n) >>> word_shift (:α) = n2w n :'a word``,
+  cheat);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -961,7 +974,17 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ simp[mem_load_def]
     \\ fsrw_tac[ARITH_ss][NOT_LESS]
-    \\ cheat)
+    \\ `n + s.stack_space < LENGTH s.stack` by
+          cheat (* damn, this needs to be the test in the semantics *)
+    \\ imp_res_tac LESS_LENGTH_IMP_APPEND
+    \\ fs [word_list_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ pop_assum (fn th => fs [GSYM th])
+    \\ Cases_on `zs` \\ fs [word_list_def,word_offset_eq]
+    \\ fs [EL_LENGTH_APPEND] \\ SEP_R_TAC \\ fs []
+    \\ qexists_tac `0` \\ fs []
+    \\ `set_var r h t1 with clock := t1.clock = set_var r h t1` by fs [set_var_def]
+    \\ fs [] \\ match_mp_tac state_rel_set_var
+    \\ fs [good_syntax_def])
   THEN1 (* StackLoadAny *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1019,8 +1042,7 @@ val comp_correct = Q.prove(
     \\ dep_rewrite.DEP_REWRITE_TAC[bytes_in_word_word_shift]
     \\ rator_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
     \\ strip_tac
-    \\ conj_tac >- fs[state_rel_def]
-    \\ qpat_assum`¬_`kall_tac
+    (* use bytes_in_word_word_shift_left] *)
     \\ cheat (* need constraint on stack_space *))
   THEN1 (* StackSetSize *) (
     simp[comp_def]
