@@ -1047,10 +1047,247 @@ val comp_correct = Q.prove(
     \\ fs [labPropsTheory.good_dimindex_def,word_shift_def,FLOOKUP_UPDATE]
     \\ fs [mem_load_def] \\ fs [GSYM mem_load_def] \\ fs [GSYM set_var_def]));
 
-val compile_semantics = store_thm("compile_semantics",
-  ``state_rel k s1 s2 /\ semantics start s1 <> Fail ==>
-    semantics start s2 ∈ extend_with_resource_limit { semantics start s1 }``,
-  cheat);
+val compile_semantics = Q.store_thm("compile_semantics",
+  `state_rel k s1 s2 /\ semantics start s1 <> Fail ==>
+   semantics start s2 ∈ extend_with_resource_limit { semantics start s1 }`,
+  simp[GSYM AND_IMP_INTRO] \\ strip_tac
+  \\ simp[semantics_def]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ DEEP_INTRO_TAC some_intro \\ fs[]
+  \\ conj_tac
+  >- (
+    gen_tac >> ntac 2 strip_tac >>
+    IF_CASES_TAC >> fs[] >- (
+      first_x_assum(qspec_then`k''`mp_tac)>>simp[]>>
+      (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+      simp[] >>
+      qmatch_assum_rename_tac`_ = (res,_)` >>
+      Cases_on`res=SOME Error`>>simp[]>>
+      drule comp_correct >>
+      simp[good_syntax_def,RIGHT_FORALL_IMP_THM] >>
+      drule (GEN_ALL state_rel_with_clock)
+      \\ disch_then(qspec_then`k''`strip_assume_tac)
+      \\ disch_then drule
+      \\ simp[comp_def]
+      \\ strip_tac \\ fs[]
+      \\ qpat_assum`FST _ ≠ _`mp_tac
+      \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+      \\ drule (GEN_ALL evaluate_add_clock)
+      \\ fs[]
+      \\ disch_then(qspec_then`ck`mp_tac)
+      \\ simp[]) >>
+    DEEP_INTRO_TAC some_intro >> fs[] >>
+    conj_tac >- (
+      rw[] >>
+      Cases_on`r=TimeOut`>>fs[]>-(
+        qmatch_assum_abbrev_tac`evaluate (e,ss) = (SOME TimeOut,_)` >>
+        qspecl_then[`k''`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
+        simp[Abbr`ss`] >>
+        (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
+        simp[] >> strip_tac >>
+        drule comp_correct >>
+        drule (GEN_ALL state_rel_with_clock)
+        \\ disch_then(qspec_then`k'+k''`strip_assume_tac)
+        \\ ONCE_REWRITE_TAC[CONJ_COMM]
+        \\ simp[Once(GSYM AND_IMP_INTRO)]
+        \\ disch_then drule
+        \\ simp[AND_IMP_INTRO] >>
+        discharge_hyps >- (
+          simp[Abbr`e`,good_syntax_def] >>
+          rpt(first_x_assum(qspec_then`k'+k''`mp_tac))>>rw[] ) >>
+        simp[Abbr`e`,comp_def] >>
+        strip_tac >>
+        Cases_on`t.ffi.final_event`\\fs[]>>
+        Cases_on`t'.ffi.final_event`>>fs[] >- (
+          rveq
+          \\ `t2.ffi = r''.ffi` by (every_case_tac \\ fs[state_rel_def])
+          \\ ntac 2 (rator_x_assum`evaluate`mp_tac) >>
+          drule (GEN_ALL evaluate_add_clock) >>
+          disch_then(qspec_then`ck+k'`mp_tac) >>
+          simp[] >>
+          discharge_hyps >- (strip_tac >> fs[]) >>
+          simp[] >> ntac 3 strip_tac >>
+          rveq >> fs[] >> rfs[]) >>
+        rator_x_assum`evaluate`mp_tac >>
+        qmatch_assum_abbrev_tac`evaluate (e,ss) = (_,t')` >>
+        qspecl_then[`ck+k'`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
+        simp[Abbr`ss`] >>
+        ntac 2 strip_tac >> fs[] >>
+        `t2.ffi = r''.ffi` by (every_case_tac \\ fs[state_rel_def])
+        \\ fs[] \\ rfs[]
+        \\ simp[extend_with_resource_limit_def]) >>
+      rator_x_assum`evaluate`mp_tac >>
+      drule (GEN_ALL evaluate_add_clock) >>
+      disch_then(qspec_then`k''`mp_tac) >>
+      simp[] >> strip_tac >>
+      drule comp_correct >>
+      simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+      discharge_hyps >- (
+        rpt(first_x_assum(qspec_then`k'`mp_tac))>>rw[] ) >>
+      simp[good_syntax_def,comp_def] >>
+      drule (GEN_ALL state_rel_with_clock) >>
+      disch_then(qspec_then`k'+k''`strip_assume_tac) >>
+      disch_then drule >>
+      strip_tac >> fs[] >>
+      strip_tac >>
+      qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
+      qspecl_then[`ck+k'`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
+      simp[Abbr`ss`] >> strip_tac >>
+      drule (GEN_ALL evaluate_add_clock) >>
+      disch_then(qspec_then`ck+k'`mp_tac) >>
+      simp[] >>
+      Cases_on`t'.ffi.final_event`>>fs[]>- (
+        first_x_assum(qspec_then`k''`mp_tac)
+        \\ simp[]
+        \\ strip_tac \\ fs[]
+        \\ strip_tac \\ fs[] \\ rveq \\ fs[]
+        \\ `t.ffi = t'.ffi` by fs[state_rel_def]
+        \\ rfs[] \\ fs[]
+        \\ simp[extend_with_resource_limit_def] ) >>
+      `t.ffi = t'.ffi` by
+        (BasicProvers.FULL_CASE_TAC >> fs[] >> rfs[] >> fs[state_rel_def] ) >>
+      fs[extend_with_resource_limit_def] ) >>
+    strip_tac >>
+    drule comp_correct >>
+    simp[RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO,good_syntax_def] >>
+    discharge_hyps >- (
+      rpt(first_x_assum(qspec_then`k'`mp_tac))>>rw[]) >>
+    simp[comp_def] >>
+    drule (GEN_ALL state_rel_with_clock)
+    \\ disch_then(qspec_then`k'`strip_assume_tac)
+    \\ disch_then drule
+    \\ simp[] \\ strip_tac
+    \\ first_x_assum(qspec_then`ck+k'`mp_tac)
+    \\ simp[] >>
+    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    fs[extend_with_resource_limit_def] >>
+    first_x_assum(qspec_then`ck+k'`mp_tac) >>
+    simp[] >> strip_tac >> fs[] >>
+    BasicProvers.FULL_CASE_TAC >> fs[] >> rfs[]) >>
+  strip_tac
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    fs[extend_with_resource_limit_def]
+    \\ qpat_assum`_ ≠ _`mp_tac
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ strip_tac \\ fs[]
+    \\ last_x_assum(qspec_then`k'`mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ drule comp_correct
+    \\ qmatch_assum_rename_tac`_ = (res,_)`
+    \\ Cases_on`res=SOME Error`\\ fs[]
+    \\ drule (GEN_ALL state_rel_with_clock)
+    \\ disch_then(qspec_then`k'`strip_assume_tac)
+    \\ disch_then drule
+    \\ simp[good_syntax_def,comp_def]
+    \\ strip_tac
+    \\ first_x_assum(qspec_then`k'`mp_tac)
+    \\ simp[]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+    \\ BasicProvers.FULL_CASE_TAC \\ fs[]
+    \\ ntac 2 (rator_x_assum`evaluate`mp_tac)
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ simp[] )
+  \\ DEEP_INTRO_TAC some_intro \\ fs[]
+  \\ conj_tac >- (
+    rw[]
+    \\ fs[METIS_PROVE[]``¬a ∨ b ⇔ a ⇒ b``]
+    \\ fs[extend_with_resource_limit_def]
+    \\ last_assum(qspec_then`k'`mp_tac)
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g)
+    \\ qpat_assum`∀x y. _`(fn th => assume_tac th >> qspec_then`k'`mp_tac th)
+    \\ simp[]
+    \\ drule comp_correct
+    \\ qmatch_assum_rename_tac`_ = (res,_)`
+    \\ Cases_on`res=SOME Error`\\ fs[]
+    \\ drule (GEN_ALL state_rel_with_clock)
+    \\ disch_then(qspec_then`k'`strip_assume_tac)
+    \\ disch_then drule
+    \\ simp[good_syntax_def,comp_def]
+    \\ strip_tac
+    \\ qpat_assum`∀k. _ ∨ _`(fn th => assume_tac th >> qspec_then`ck+k'`mp_tac th)
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp_tac(srw_ss())[]
+    \\ strip_tac
+    \\ qpat_assum`option_CASE _ _ _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac
+    \\ `t2.ffi = r'.ffi`
+    by (
+      pop_assum mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ fs[state_rel_def] )
+    \\ fs[]
+    \\ qmatch_assum_abbrev_tac`evaluate (e,ss) = (_,t)`
+    \\ qspecl_then[`e`,`ss`](mp_tac o Q.GEN`extra`) evaluate_add_clock_io_events_mono
+    \\ disch_then(qspec_then`ck`mp_tac)
+    \\ simp[Abbr`ss`] \\ strip_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ Cases_on`t.ffi.final_event` \\ fs[] \\ rfs[]
+    \\ Cases_on`r = TimeOut` \\ fs[]
+    \\ imp_res_tac evaluate_add_clock \\ rfs[]
+    \\ first_x_assum(qspec_then`ck`mp_tac)
+    \\ simp[])
+  \\ simp[extend_with_resource_limit_def]
+  \\ strip_tac
+  \\ qmatch_abbrev_tac`build_lprefix_lub l1 = build_lprefix_lub l2`
+  \\ `(lprefix_chain l1 ∧ lprefix_chain l2) ∧ equiv_lprefix_chain l1 l2`
+       suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_new_chain,unique_lprefix_lub]
+  \\ conj_asm1_tac >- (
+    UNABBREV_ALL_TAC >>
+    conj_tac >>
+    Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF] >>
+    REWRITE_TAC[IMAGE_COMPOSE] >>
+    match_mp_tac prefix_chain_lprefix_chain >>
+    simp[prefix_chain_def,PULL_EXISTS] >>
+    qx_genl_tac[`k1`,`k2`] >>
+    qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES >>
+    metis_tac[
+      LESS_EQ_EXISTS,
+      evaluate_add_clock_io_events_mono
+        |> CONV_RULE(SWAP_FORALL_CONV)
+        |> Q.SPEC`s with <| use_alloc := F; clock := k; code := c|>`
+        |> SIMP_RULE(srw_ss())[],
+      evaluate_add_clock_io_events_mono
+        |> CONV_RULE(SWAP_FORALL_CONV)
+        |> Q.SPEC`s with <| clock := k |>`
+        |> SIMP_RULE(srw_ss())[]]) >>
+  simp[equiv_lprefix_chain_thm] >>
+  unabbrev_all_tac >> simp[PULL_EXISTS] >>
+  ntac 2 (pop_assum kall_tac) >>
+  simp[LNTH_fromList,PULL_EXISTS] >>
+  simp[GSYM FORALL_AND_THM] >>
+  rpt gen_tac >>
+  (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> fs[] >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> fs[] >>
+  drule comp_correct >>
+  simp[comp_def,good_syntax_def,RIGHT_FORALL_IMP_THM,GSYM AND_IMP_INTRO] >>
+  discharge_hyps >- (
+    rpt(first_x_assum(qspec_then`k'`mp_tac))>>rw[] ) >>
+  drule (GEN_ALL state_rel_with_clock) >>
+  disch_then(qspec_then`k'`strip_assume_tac) >>
+  disch_then drule >>
+  strip_tac >> fs[] >>
+  `t2.ffi = r'.ffi` by (
+    pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ simp[state_rel_def] ) >>
+  reverse conj_tac >- (
+    rw[] >>
+    qexists_tac`ck+k'`>>simp[] ) >>
+  rw[] >>
+  qexists_tac`k'`>>simp[] >>
+  ntac 2 (rator_x_assum`evaluate`mp_tac) >>
+  qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
+  qspecl_then[`ck`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
+  simp[Abbr`ss`] >>
+  ntac 3 strip_tac >> fs[] >>
+  rfs[] >>
+  fs[IS_PREFIX_APPEND] >>
+  simp[EL_APPEND1]);
 
 (* init code *)
 
