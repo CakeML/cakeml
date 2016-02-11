@@ -91,11 +91,45 @@ val set_var_set_var = Q.store_thm("set_var_set_var[simp]",
   `set_var x y (set_var x z w) = set_var x y w`,
   EVAL_TAC \\ rw[state_component_equality]);
 
+(*
 val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
   `good_dimindex(:'a) ⇒
    (bytes_in_word:'a word * n) << word_shift (:'a) = (if dimindex(:'a) = 32 then 16w else 64w) * n`,
   EVAL_TAC \\ rw[]
   \\ simp[WORD_MUL_LSL]);
+*)
+
+val lsl_lsr = Q.store_thm("lsl_lsr",
+  `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
+  Cases_on`n` \\ simp[]
+  \\ qmatch_assum_rename_tac`n < dimword _`
+  \\ rw[]
+  \\ REWRITE_TAC[GSYM wordsTheory.w2n_11]
+  \\ REWRITE_TAC[wordsTheory.w2n_lsr]
+  \\ simp[]
+  \\ simp[word_lsl_n2w]
+  \\ rw[]
+  >- (
+    simp[ZERO_DIV]
+    \\ Cases_on`n`
+    \\ fs[dimword_def]
+    \\ fs[bitTheory.LT_TWOEXP]
+    \\ fs[bitTheory.LOG2_def]
+    \\ qmatch_asmsub_rename_tac`SUC n * 2 ** a`
+    \\ qspecl_then[`a`,`2`,`SUC n`]mp_tac logrootTheory.LOG_EXP
+    \\ simp[] )
+  \\ simp[MULT_DIV]);
+
+val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
+  `good_dimindex(:'a) ∧ w2n (bytes_in_word:'a word) * w2n n < dimword(:'a) ⇒
+   (bytes_in_word:'a word * n) >>> word_shift (:'a) = n`,
+  EVAL_TAC \\ rw[] \\ pop_assum mp_tac
+  \\ blastLib.BBLAST_TAC \\ simp[]
+  \\ blastLib.BBLAST_TAC \\ rw[]
+  \\ match_mp_tac lsl_lsr
+  \\ simp[]
+  \\ Cases_on`n`\\fs[word_lsl_n2w]
+  \\ fs[dimword_def]);
 
 (* --- *)
 
@@ -152,6 +186,7 @@ val good_syntax_def = Define `
   (good_syntax (Inst i) k <=> good_syntax_inst i k) /\
   (good_syntax (StackStore r _) k <=> r < k) /\
   (good_syntax (StackSetSize r) k <=> r < k) /\
+  (good_syntax (StackGetSize r) k <=> r < k) /\
   (good_syntax _ k <=> T)`
 
 val memory_def = Define `
@@ -973,9 +1008,12 @@ val comp_correct = Q.prove(
     \\ simp[]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
-    \\ `good_dimindex(:'a)` by fs[state_rel_def]
-    \\ simp[bytes_in_word_word_shift]
-    \\ cheat (* looks false *))
+    \\ dep_rewrite.DEP_REWRITE_TAC[bytes_in_word_word_shift]
+    \\ rator_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
+    \\ strip_tac
+    \\ conj_tac >- fs[state_rel_def]
+    \\ qpat_assum`¬_`kall_tac
+    \\ cheat (* need constraint on stack_space *))
   THEN1 (* StackSetSize *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1005,7 +1043,7 @@ val comp_correct = Q.prove(
     \\ pop_assum kall_tac
     \\ fs[state_rel_def]
     \\ simp[set_var_def,FLOOKUP_UPDATE]
-    \\ cheat (* also looks false *))
+    \\ cheat (* looks false *))
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
     \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []

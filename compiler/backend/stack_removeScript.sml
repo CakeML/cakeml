@@ -91,9 +91,9 @@ val comp_def = Define `
                           (Seq (Inst (Mem Store r (Addr k 0w)))
                                (Inst (Arith (Binop Sub k k (Reg i)))))
     | StackGetSize r => Seq (Inst (Arith (Binop Sub r k (Reg (k+1)))))
-                            (left_shift_inst r (word_shift (:'a)))
-    | StackSetSize r => Seq (Inst (Arith (Binop Add k (k+1) (Reg r))))
                             (right_shift_inst r (word_shift (:'a)))
+    | StackSetSize r => Seq (Inst (Arith (Binop Add k (k+1) (Reg r))))
+                            (left_shift_inst r (word_shift (:'a)))
     | BitmapLoad r v =>
         list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
                   add_inst r v;
