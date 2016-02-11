@@ -5,7 +5,7 @@ open preamble
      set_sepTheory
      semanticsPropsTheory
      helperLib
-local open dep_rewrite in end
+local open dep_rewrite blastLib in end
 
 val _ = new_theory"stack_removeProof";
 
@@ -131,6 +131,10 @@ val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
   \\ Cases_on`n`\\fs[word_lsl_n2w]
   \\ fs[dimword_def]);
 
+val word_offset_eq = store_thm("word_offset_eq",
+  ``word_offset n = bytes_in_word * n2w n``,
+  fs [word_offset_def,word_mul_n2w,bytes_in_word_def]);
+
 (* --- *)
 
 val good_syntax_exp_def = tDefine"good_syntax_exp"`
@@ -240,10 +244,10 @@ val state_rel_def = Define `
     FLOOKUP s2.regs (k+2) = FLOOKUP s1.store CurrHeap /\
     {k;k+1;k+2} SUBSET s2.ffi_save_regs /\
     is_SOME_Word (FLOOKUP s1.store BitmapBase) /\
+    s1.stack_space <= LENGTH s1.stack /\
     case FLOOKUP s2.regs (k+1) of
     | SOME (Word base) =>
       dimindex (:'a) DIV 8 * max_stack_alloc <= w2n base /\
-      s1.stack_space <= LENGTH s1.stack /\
       w2n base + w2n (bytes_in_word:'a word) * LENGTH s1.stack < dimword (:'a) /\
       FLOOKUP s2.regs k =
         SOME (Word (base + bytes_in_word * n2w s1.stack_space)) /\
@@ -390,6 +394,7 @@ val state_rel_get_var_k = Q.store_thm("state_rel_get_var_k",
    ∃c:α word.
    get_var (k+1) t = SOME (Word c) ∧
    dimindex (:α) DIV 8 * max_stack_alloc ≤ w2n c ∧
+   w2n c + w2n (bytes_in_word:'a word) * LENGTH s.stack < dimword (:'a) ∧
    get_var k t = SOME (Word (c + bytes_in_word * n2w s.stack_space)) ∧
    (memory s.memory s.mdomain *
     word_list (the_SOME_Word (FLOOKUP s.store BitmapBase) << word_shift (:α)) (MAP Word s.bitmaps) *
@@ -718,15 +723,6 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
   \\ simp[]
   \\ imp_res_tac state_rel_mem_store);
 
-val word_offset_eq = store_thm("word_offset_eq",
-  ``word_offset n = bytes_in_word * n2w n``,
-  fs [word_offset_def,word_mul_n2w,bytes_in_word_def]);
-
-val bytes_in_word_word_shift_left = store_thm("bytes_in_word_word_shift_left",
-  ``(dimindex (:α) DIV 8) * n < dimword (:'a) ==>
-    (bytes_in_word * n2w n) >>> word_shift (:α) = n2w n :'a word``,
-  cheat);
-
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -1042,8 +1038,16 @@ val comp_correct = Q.prove(
     \\ dep_rewrite.DEP_REWRITE_TAC[bytes_in_word_word_shift]
     \\ rator_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
     \\ strip_tac
-    (* use bytes_in_word_word_shift_left] *)
-    \\ cheat (* need constraint on stack_space *))
+    \\ qpat_assum`¬_`kall_tac
+    \\ fs[state_rel_def]
+    \\ `s.stack_space MOD dimword (:'a) ≤ LENGTH s.stack`
+    by (
+      `0 < dimword (:'a)` by simp[]
+      \\ metis_tac[MOD_LESS_EQ,LESS_EQ_TRANS] )
+    \\ qmatch_assum_abbrev_tac`(a:num) + b * d < dw`
+    \\ qmatch_abbrev_tac`b * f < dw`
+    \\ `b * f ≤ b * d` by metis_tac[LESS_MONO_MULT,MULT_COMM]
+    \\ decide_tac)
   THEN1 (* StackSetSize *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1073,6 +1077,7 @@ val comp_correct = Q.prove(
     \\ pop_assum kall_tac
     \\ fs[state_rel_def]
     \\ simp[set_var_def,FLOOKUP_UPDATE]
+    \\ conj_tac >- metis_tac[]
     \\ cheat (* looks false *))
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
