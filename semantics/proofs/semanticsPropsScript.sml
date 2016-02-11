@@ -12,19 +12,19 @@ val evaluate_prog_io_events_chain = Q.store_thm("evaluate_prog_io_events_chain",
   ONCE_REWRITE_TAC[GSYM o_DEF] >>
   REWRITE_TAC[IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>
-  rw[prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> rw[] >>
+  srw_tac[][prefix_chain_def,Abbr`g`,evaluate_prog_with_clock_def] >> srw_tac[][] >>
   metis_tac[LESS_EQ_CASES,evaluate_prog_ffi_mono_clock,FST]);
 
 val semantics_prog_total = Q.store_thm("semantics_prog_total",
   `∀s e p. ∃b. semantics_prog s e p b`,
-  rw[] >>
+  srw_tac[][] >>
   Cases_on`∃k. SND(evaluate_prog_with_clock s e k p) = Rerr (Rabort Rtype_error)`
-  >- metis_tac[semantics_prog_def] >> fs[] >>
+  >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
   Cases_on`∃k ffi r.
     evaluate_prog_with_clock s e k p = (ffi,r) ∧
     r ≠ Rerr (Rabort Rtype_error) ∧
     (ffi.final_event = NONE ⇒ ∀a. r ≠ Rerr (Rabort a))`
-  >- metis_tac[semantics_prog_def] >> fs[] >>
+  >- metis_tac[semantics_prog_def] >> full_simp_tac(srw_ss())[] >>
   qexists_tac`Diverge (build_lprefix_lub (IMAGE (λk. fromList (FST (evaluate_prog_with_clock s e k p)).io_events) UNIV))` >>
   simp[semantics_prog_def] >>
   conj_tac >- (
@@ -57,21 +57,21 @@ val prog_clocked_timeout_smaller = Q.prove(
    ⇒
    b < a`,
   rpt strip_tac >>
-  CCONTR_TAC >> fs[NOT_LESS] >>
-  fs[LESS_EQ_EXISTS] >>
-  imp_res_tac prog_add_to_counter >> rfs[] >>
-  rw[] >>
+  CCONTR_TAC >> full_simp_tac(srw_ss())[NOT_LESS] >>
+  full_simp_tac(srw_ss())[LESS_EQ_EXISTS] >>
+  imp_res_tac prog_add_to_counter >> rev_full_simp_tac(srw_ss())[] >>
+  srw_tac[][] >>
   metis_tac[prog_determ,PAIR_EQ])
 
 val with_clock_ffi = Q.prove(
   `(s with clock := x).ffi = s.ffi`,EVAL_TAC)
 
 val tac0 =
-    fs[evaluate_prog_with_clock_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rpt var_eq_tac >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> fs[] >> rpt var_eq_tac >>
+    full_simp_tac(srw_ss())[evaluate_prog_with_clock_def,LET_THM] >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     imp_res_tac functional_evaluate_prog >>
-    fs[bigStepTheory.evaluate_whole_prog_def]
+    full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def]
 
 val tac1 =
     metis_tac[semanticPrimitivesTheory.result_11,
@@ -84,16 +84,16 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
     semantics_prog s e p b ∧ b ≠ Fail ∧
     semantics_prog s e p b' ∧ b' ≠ Fail ⇒
     b = b'`,
-  ntac 3 gen_tac >> reverse Cases >> rw[semantics_prog_def]
+  ntac 3 gen_tac >> reverse Cases >> srw_tac[][semantics_prog_def]
   >- (
-    Cases_on`b'`>>fs[semantics_prog_def]
+    Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
     >- tac1
     >- (
       tac0 >>
       qmatch_assum_abbrev_tac`if X then Y else Z` >>
-      reverse(Cases_on`X`)>>fs[Abbr`Y`,Abbr`Z`] >- (
-        rpt var_eq_tac >> fs[] ) >>
-      Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> fs[] >- (
+      reverse(Cases_on`X`)>>full_simp_tac(srw_ss())[Abbr`Y`,Abbr`Z`] >- (
+        rpt var_eq_tac >> full_simp_tac(srw_ss())[] ) >>
+      Cases_on`∃a a'. r = Rerr (Rabort a) ∧ r' = Rerr (Rabort a')` >> full_simp_tac(srw_ss())[] >- (
         metis_tac[LESS_EQ_CASES,
                   evaluate_prog_ffi_mono_clock,
                   FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
@@ -102,13 +102,13 @@ val semantics_prog_deterministic = Q.store_thm("semantics_prog_deterministic",
                   LESS_IMP_LESS_OR_EQ,
                   evaluate_prog_ffi_mono_clock,
                   FST,THE_DEF,IS_SOME_EXISTS,NOT_SOME_NONE,option_CASES] ) >>
-      imp_res_tac prog_clocked_min_counter >> fs[] >>
+      imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
       first_x_assum(mp_tac o MATCH_MP (REWRITE_RULE[GSYM AND_IMP_INTRO](GEN_ALL prog_clocked_zero_determ))) >>
       disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
       simp[semanticPrimitivesTheory.state_component_equality] >>
-      rw[] >> every_case_tac >> rfs[]))
+      srw_tac[][] >> every_case_tac >> rev_full_simp_tac(srw_ss())[]))
   >- (
-    Cases_on`b'`>>fs[semantics_prog_def]
+    Cases_on`b'`>>full_simp_tac(srw_ss())[semantics_prog_def]
     >- metis_tac[unique_lprefix_lub] >>
     tac1))
 
@@ -120,7 +120,7 @@ val clock_lemmas = Q.prove(
   `((x with clock := c).clock = c) ∧
    (((x with clock := c) with clock := d) = (x with clock := d)) ∧
    (x with clock := x.clock = x)`,
-  rw[semanticPrimitivesTheory.state_component_equality])
+  srw_tac[][semanticPrimitivesTheory.state_component_equality])
 
 val prog_diverges_semantics_prog = Q.prove(
   `prog_diverges st.sem_env st.sem_st prog ∧
@@ -135,13 +135,13 @@ val prog_diverges_semantics_prog = Q.prove(
    |> SIMP_RULE bool_ss []
    |> imp_res_tac) >>
   simp[semantics_prog_def,PULL_EXISTS] >>
-  rw[evaluate_prog_with_clock_def] >>
+  srw_tac[][evaluate_prog_with_clock_def] >>
   imp_res_tac functional_evaluate_prog >>
-  rfs[bigStepTheory.evaluate_whole_prog_def] >>
-  fs[prog_clocked_unclocked_equiv,FORALL_PROD] >>
-  imp_res_tac prog_clocked_min_counter >> fs[] >>
+  rev_full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def] >>
+  full_simp_tac(srw_ss())[prog_clocked_unclocked_equiv,FORALL_PROD] >>
+  imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
   spose_not_then strip_assume_tac >>
-  Cases_on`envC`>>fs[] >>
+  Cases_on`envC`>>full_simp_tac(srw_ss())[] >>
   metis_tac[clock_lemmas,
             semanticPrimitivesTheory.result_11,
             semanticPrimitivesTheory.error_result_11,
@@ -151,13 +151,13 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
   `state_invariant st ⇒
    semantics st prelude inp = Execute bs
    ⇒ ∃b. bs = {b} ∧ b ≠ Fail`,
-  rw[semantics_def] >> every_case_tac >> fs[] >> rw[] >>
+  srw_tac[][semantics_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   `∀b. semantics_prog st.sem_st st.sem_env (prelude ++ x) b ⇒ b ≠ Fail` by(
-    fs[can_type_prog_def,state_invariant_def] >>
+    full_simp_tac(srw_ss())[can_type_prog_def,state_invariant_def] >>
     Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)` >- (
       imp_res_tac prog_diverges_semantics_prog >> metis_tac[] ) >>
-    fs[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
-    CCONTR_TAC >> fs[] >>
+    full_simp_tac(srw_ss())[semantics_prog_def,evaluate_prog_with_clock_def,LET_THM] >>
+    CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
     first_assum(split_applied_pair_tac o rand o lhs o concl) >>
     imp_res_tac functional_evaluate_prog >>
     (whole_prog_type_soundness
@@ -165,11 +165,11 @@ val semantics_deterministic = Q.store_thm("semantics_deterministic",
      |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
     PairCases_on`new_tenv`>>
     disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-    simp[PULL_EXISTS] >> fs[] >>
-    rfs[bigStepTheory.evaluate_whole_prog_def] >>
+    simp[PULL_EXISTS] >> full_simp_tac(srw_ss())[] >>
+    rev_full_simp_tac(srw_ss())[bigStepTheory.evaluate_whole_prog_def] >>
     simp[prog_clocked_unclocked_equiv,PULL_EXISTS] >>
-    CCONTR_TAC >> fs[] >>
-    imp_res_tac prog_clocked_min_counter >> fs[] >>
+    CCONTR_TAC >> full_simp_tac(srw_ss())[] >>
+    imp_res_tac prog_clocked_min_counter >> full_simp_tac(srw_ss())[] >>
     metis_tac[prog_clocked_zero_determ,SND,PAIR_EQ,
               semanticPrimitivesTheory.result_11,
               semanticPrimitivesTheory.result_distinct,
@@ -192,34 +192,34 @@ val implements_def = Define `
 
 val implements_intro = store_thm("implements_intro",
   ``(b /\ x <> Fail ==> y = x) ==> b ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [extend_with_resource_limit_def]);
+  full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
 val implements_trivial_intro = store_thm("implements_trivial_intro",
   ``(y = x) ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [extend_with_resource_limit_def]);
+  full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
 val implements_intro_ext = store_thm("implements_intro_ext",
   ``(b /\ x <> Fail ==> y IN extend_with_resource_limit {x}) ==>
     b ==> implements {y} {x}``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [extend_with_resource_limit_def]);
+  full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
 val isPREFIX_IMP_LPREFIX = prove(
   ``!xs ys. isPREFIX xs ys ==> LPREFIX (fromList xs) (fromList ys)``,
-  fs [LPREFIX_def,llistTheory.from_toList]);
+  full_simp_tac(srw_ss())[LPREFIX_def,llistTheory.from_toList]);
 
 val implements_trans = store_thm("implements_trans",
   ``implements y z ==> implements x y ==> implements x z``,
-  fs [implements_def] \\ rw [] \\ fs []
-  \\ fs [extend_with_resource_limit_def]
-  \\ Cases_on `Fail IN y` \\ fs []
-  THEN1 (fs [SUBSET_DEF] \\ res_tac \\ fs [])
-  \\ fs [SUBSET_DEF] \\ rw [] \\ qcase_tac `a IN x`
-  \\ reverse (res_tac \\ fs [])
-  THEN1 (res_tac \\ fs [] \\ rw [] \\ metis_tac [])
-  \\ res_tac \\ fs [] \\ rw []
+  full_simp_tac(srw_ss())[implements_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
+  \\ Cases_on `Fail IN y` \\ full_simp_tac(srw_ss())[]
+  THEN1 (full_simp_tac(srw_ss())[SUBSET_DEF] \\ res_tac \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[SUBSET_DEF] \\ srw_tac[][] \\ qcase_tac `a IN x`
+  \\ reverse (res_tac \\ full_simp_tac(srw_ss())[])
+  THEN1 (res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac [])
+  \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac IS_PREFIX_TRANS
   \\ imp_res_tac isPREFIX_IMP_LPREFIX
   \\ imp_res_tac LPREFIX_TRANS

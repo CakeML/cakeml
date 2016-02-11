@@ -137,7 +137,7 @@ val to_target_def = Define`
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
-  rw[FUN_EQ_THM,compile_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      to_target_def,
      to_lab_def,
      to_stack_def,
@@ -152,7 +152,7 @@ val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
      to_con_def,
      to_mod_def] >>
   unabbrev_all_tac >>
-  rpt (CHANGED_TAC (rw[] >> fs[] >> rw[] >> rfs[])));
+  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
 val prim_config_def = Define`
   prim_config =
@@ -233,7 +233,7 @@ val from_source_def = Define`
 
 val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
   `compile = from_source`,
-  rw[FUN_EQ_THM,compile_def,
+  srw_tac[][FUN_EQ_THM,compile_def,
      from_source_def,
      from_lab_def,
      from_stack_def,
@@ -248,6 +248,6 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_con_def,
      from_mod_def] >>
   unabbrev_all_tac >>
-  rpt (CHANGED_TAC (rw[] >> fs[] >> rw[] >> rfs[])));
+  rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
 
 val _ = export_theory();
