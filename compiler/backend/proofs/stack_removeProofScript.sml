@@ -18,6 +18,13 @@ val word_list_APPEND = store_thm("word_list_APPEND",
   Induct \\ fs [word_list_def,SEP_CLAUSES,STAR_ASSOC,ADD1,GSYM word_add_n2w]
   \\ fs [WORD_LEFT_ADD_DISTRIB]);
 
+val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
+  `!xs n. n < LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n`,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
+  \\ rw [] \\ res_tac \\ rw []
+  \\ pop_assum (fn th => simp [Once th])
+  \\ qexists_tac `h::ys` \\ fs []);
+
 val read_bytearray_def = wordSemTheory.read_bytearray_def
 
 val read_bytearray_LENGTH = Q.store_thm("read_bytearray_LENGTH",
@@ -79,6 +86,16 @@ val word_sub_lt = Q.store_thm("word_sub_lt",
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `x with clock := x.clock = x`,
   rw[state_component_equality]);
+
+val set_var_set_var = Q.store_thm("set_var_set_var[simp]",
+  `set_var x y (set_var x z w) = set_var x y w`,
+  EVAL_TAC \\ rw[state_component_equality]);
+
+val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
+  `good_dimindex(:'a) ⇒
+   (bytes_in_word:'a word * n) << word_shift (:'a) = (if dimindex(:'a) = 32 then 16w else 64w) * n`,
+  EVAL_TAC \\ rw[]
+  \\ simp[WORD_MUL_LSL]);
 
 (* --- *)
 
@@ -233,13 +250,6 @@ val word_store_CurrHeap = prove(
   ``word_store base (s.store |+ (CurrHeap,x)) = word_store base s.store``,
   fs [word_store_def,store_list_def,FLOOKUP_UPDATE]);
 
-val LESS_LENGTH_IMP_APPEND = prove(
-  ``!xs n. n < LENGTH xs ==> ?ys zs. xs = ys ++ zs /\ LENGTH ys = n``,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL]
-  \\ rw [] \\ res_tac \\ rw []
-  \\ pop_assum (fn th => simp [Once th])
-  \\ qexists_tac `h::ys` \\ fs [])
-
 val memory_fun2set_IMP_read = prove(
   ``(memory m d * p) (fun2set (m1,d1)) /\ a IN d ==>
     a IN d1 /\ m1 a = m a``,
@@ -368,7 +378,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
   \\ simp[]
   \\ simp[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]
   \\ qpat_abbrev_tac`cc = c + _ + _`
-  \\ `cc < c ⇔ s.stack_space < n`
+  \\ `cc <+ c ⇔ s.stack_space < n`
   by (
     simp[Abbr`cc`,word_offset_def,bytes_in_word_def,word_mul_n2w,word_add_n2w]
     \\ Cases_on`c` \\ fs[]
@@ -377,8 +387,8 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
          wordsLib.WORD_DECIDE ``w + -1w * v + t = w + t - v``,
          word_add_n2w]
     \\ REWRITE_TAC[addressTheory.word_arith_lemma2]
-    \\ IF_CASES_TAC \\ simp_tac bool_ss []
     \\ qmatch_assum_rename_tac`m < dimword _`
+    \\ IF_CASES_TAC \\ simp_tac bool_ss []
     >- (
       `m < (n - s.stack_space) * d` by decide_tac
       \\ reverse (Cases_on `s.stack_space < n`)
@@ -396,7 +406,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
       \\ asm_simp_tac std_ss [GSYM n2w_sub]
       \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
       \\ ONCE_REWRITE_TAC[MULT_COMM]
-      \\ qmatch_abbrev_tac`n2w m - n2w a < _`
+      \\ qmatch_abbrev_tac`n2w m - n2w a <+ _`
       \\ `d ≠ 0` by ( strip_tac \\ fs[Abbr`d`,Abbr`a`] )
       \\ `0 < m` by (fs[max_stack_alloc_def,Abbr`d`] \\ decide_tac)
       \\ `d * max_stack_alloc < d * (n - s.stack_space)` by decide_tac
@@ -404,21 +414,7 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
       \\ decide_tac)
     \\ `(n - s.stack_space) * d ≤ m` by decide_tac
     \\ qmatch_assum_abbrev_tac`a * d ≤ m`
-    \\ `0w < n2w m`
-    by (
-      cheat (* can this be added to state_rel? *)
-      (*
-      alternative approach (doesn't work):
-      simp[WORD_LT]
-      \\ simp[word_msb_n2w_numeric,NOT_LESS_EQUAL]
-      \\ `d ≠ 0` by (
-        strip_tac
-        \\ fs[Abbr`d`,state_rel_def]
-        \\ fs[labPropsTheory.good_dimindex_def]
-        \\ rfs[] \\ rveq \\ fs[] \\ fs[markerTheory.Abbrev_def])
-      \\ `max_stack_alloc ≠ 0` by EVAL_TAC
-      \\ `0 < d * max_stack_alloc` by metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
-      \\ reverse conj_asm2_tac >- simp[] *))
+    \\ simp[WORD_LO]
     \\ Cases_on`s.stack_space < n`
     >- (
       `s.stack_space ≤ n` by decide_tac
@@ -426,36 +422,18 @@ val evaluate_single_stack_alloc = Q.store_thm("evaluate_single_stack_alloc",
       \\ asm_simp_tac std_ss [GSYM SUB_SUB]
       \\ REWRITE_TAC[GSYM RIGHT_SUB_DISTRIB]
       \\ simp[]
-      \\ asm_simp_tac std_ss [n2w_sub]
-      \\ qunabbrev_tac`a`
-      \\ qmatch_assum_abbrev_tac`a ≤ m`
-      \\ match_mp_tac word_sub_lt
-      \\ conj_asm1_tac
-      >- (
-        simp[WORD_LT]
-        \\ simp[Abbr`a`]
-        \\ simp[word_msb_neg,WORD_NOT_LESS]
-        \\ `n - s.stack_space ≠ 0` by simp[]
-        \\ `d ≠ 0` by (strip_tac \\ fs[Abbr`d`,state_rel_def,labPropsTheory.good_dimindex_def] \\ rfs[])
-        \\ reverse conj_tac >- metis_tac[ZERO_LESS_MULT,NOT_ZERO_LT_ZERO]
-        \\ simp[WORD_ZERO_LE]
-        \\ fs[INT_MIN_def,dimword_def]
-        \\ `good_dimindex (:'a)` by fs[state_rel_def]
-        \\ fs[labPropsTheory.good_dimindex_def] \\ fs[Abbr`d`]
-        \\ fs[max_stack_alloc_def]
-        \\ decide_tac)
-      \\ conj_tac >- simp[]
-      \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
-      \\ simp[])
+      \\ `d ≠ 0` by (strip_tac \\ fs[Abbr`d`,state_rel_def,labPropsTheory.good_dimindex_def] \\ rfs[])
+      \\ conj_asm1_tac >- simp[]
+      \\ fs[max_stack_alloc_def]
+      \\ simp[] )
+    \\ simp[]
+    \\ simp[NOT_LESS]
     \\ `n ≤ s.stack_space` by decide_tac
     \\ simp[]
     \\ `d * n ≤ d * s.stack_space` by metis_tac[LESS_MONO_MULT,MULT_COMM]
     \\ asm_simp_tac std_ss [LESS_EQ_ADD_SUB]
     \\ REWRITE_TAC[GSYM LEFT_SUB_DISTRIB]
-    \\ REWRITE_TAC[WORD_NOT_LESS]
-    \\ dep_rewrite.DEP_ONCE_REWRITE_TAC[n2w_le]
-    \\ simp[]
-    \\ `a = 0` by all_tac \\ fs[Abbr`a`]
+    \\ Cases_on`m + d * (s.stack_space - n) < dimword (:'a)` >- simp[]
     \\ cheat)
   \\ simp[]
   \\ BasicProvers.TOP_CASE_TAC \\ fs[]
@@ -592,6 +570,17 @@ val state_rel_word_exp = Q.store_thm("state_rel_word_exp",
     \\ fs[EVERY_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS]
     \\ metis_tac[]));
 
+val memory_write = Q.store_thm("memory_write",
+  `x IN sd /\ x IN dm /\
+  (memory sm sd * p) (fun2set (m,dm)) ==>
+  (memory ((x =+ y) sm) sd * p) (fun2set ((x =+ y) m,dm))`,
+  rw[STAR_def,memory_def]
+  \\ qexists_tac`v` \\ simp[]
+  \\ fs[SPLIT_def]
+  \\ fs[EXTENSION,IN_DISJOINT,IN_fun2set,FORALL_PROD]
+  \\ fs[APPLY_UPDATE_THM]
+  \\ metis_tac[]);
+
 val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
   `state_rel k s t ∧
    mem_store x y s = SOME s' ∧
@@ -601,7 +590,9 @@ val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
   \\ fs[state_rel_def]
   \\ conj_tac >- metis_tac[]
   \\ every_case_tac \\ fs[]
-  \\ cheat);
+  \\ fs[GSYM STAR_ASSOC]
+  \\ match_mp_tac memory_write
+  \\ fs[]);
 
 val state_rel_inst = Q.store_thm("state_rel_inst",
   `state_rel k s t ∧
@@ -823,7 +814,7 @@ val comp_correct = Q.prove(
     \\ imp_res_tac state_rel_get_var \\ fs [find_code_def]
     \\ Cases_on `get_var r1 t1` \\ fs [] \\ Cases_on `x` \\ fs []
     \\ Cases_on `get_var r2 t1` \\ fs [] \\ Cases_on `x` \\ fs []
-    \\ reverse (Cases_on `word_cmp Less c c'`) \\ fs [] THEN1 (
+    \\ reverse (Cases_on `word_cmp Lower c c'`) \\ fs [] THEN1 (
       rw [] \\ qexists_tac`0`\\simp[])
     \\ Cases_on `lookup dest s.code` \\ fs []
     \\ `lookup dest t1.code = SOME (comp k x) /\
@@ -926,6 +917,7 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ simp[mem_load_def]
+    \\ fsrw_tac[ARITH_ss][NOT_LESS]
     \\ cheat)
   THEN1 (* StackLoadAny *) (
     simp[comp_def]
@@ -971,8 +963,18 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
+    \\ simp[Once set_var_def,FLOOKUP_UPDATE]
+    \\ simp[wordSemTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ IF_CASES_TAC \\ simp[]
+    >- (
+      fs[word_shift_def]
+      \\ rfs[state_rel_def,labPropsTheory.good_dimindex_def]
+      \\ rfs[] )
+    \\ simp[]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
+    \\ `good_dimindex(:'a)` by fs[state_rel_def]
+    \\ simp[bytes_in_word_word_shift]
     \\ cheat (* looks false *))
   THEN1 (* StackSetSize *) (
     simp[comp_def]
@@ -990,11 +992,19 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
+    \\ simp[Once set_var_def,FLOOKUP_UPDATE]
+    \\ simp[wordSemTheory.word_sh_def,wordLangTheory.num_exp_def]
+    \\ IF_CASES_TAC \\ simp[]
+    >- (
+      fs[word_shift_def]
+      \\ rfs[state_rel_def,labPropsTheory.good_dimindex_def]
+      \\ rfs[] )
+    \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
+    \\ pop_assum kall_tac
     \\ fs[state_rel_def]
     \\ simp[set_var_def,FLOOKUP_UPDATE]
-    \\ conj_tac >- metis_tac[]
     \\ cheat (* also looks false *))
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
