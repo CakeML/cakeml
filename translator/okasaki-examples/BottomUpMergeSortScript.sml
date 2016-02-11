@@ -125,6 +125,7 @@ val mrg_bag = Q.prove (
 recInduct mrg_ind >>
 srw_tac [BAG_ss] [list_to_bag_def, mrg_def, BAG_INSERT_UNION]);
 
+local val rw = srw_tac[] val fs = fsrw_tac[] in
 val add_seg_sub_inv = Q.prove (
 `!leq size segs n seg.
   WeakLinearOrder leq ∧
@@ -168,6 +169,7 @@ rw [] >|
           fs [arithmeticTheory.EVEN_ADD] >>
           metis_tac [intLib.ARITH_PROVE
                      ``!n:num. ~EVEN n ⇒ (n DIV 2 + 1 = (n + 1) DIV 2)``]]]);
+end
 
 val add_seg_bag = Q.prove (
 `!leq size segs n seg SIZE.
