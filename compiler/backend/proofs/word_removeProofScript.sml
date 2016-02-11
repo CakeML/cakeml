@@ -2,23 +2,58 @@ open preamble BasicProvers word_removeTheory wordSemTheory wordPropsTheory;
 
 val _ = new_theory "word_removeProof";
 
-(* Seq and MustTerminate are the hard cases and they're done *)
+val alloc_termdep_code_frame = prove(``
+  alloc c names (s with <|termdep:=d;code:=l|>) =
+  (FST (alloc c names s),SND(alloc c names s) with <|termdep:=d;code:=l|>)``,
+  fs[alloc_def]>>TOP_CASE_TAC>>
+  fs[push_env_def,env_to_list_def,LET_THM,gc_def,set_store_def]>>
+  ntac 3(FULL_CASE_TAC>>fs[])
+  >-
+    (EVERY_CASE_TAC>>fs[])>>
+  FULL_CASE_TAC>>fs[pop_env_def]>>
+  ntac 3(FULL_CASE_TAC>>fs[call_env_def])>>
+  FULL_CASE_TAC>>fs[has_space_def]>>
+  EVERY_CASE_TAC>>fs[])|>INST_TYPE[beta|->alpha,gamma|->beta,delta|->alpha]
+
+val get_vars_termdep_code_frame = prove(``
+  ∀ls.
+  get_vars ls s = get_vars ls (s with <|termdep:=0;code:=l|>)``,
+  Induct>>fs[get_vars_def,get_var_def])
+
+val word_exp_termdep_code_frame = prove(``
+  ∀s exp.
+  word_exp s exp = word_exp (s with <|termdep:=0;code:=l|>) exp``,
+  ho_match_mp_tac word_exp_ind>>
+  fs[word_exp_def,LET_THM,mem_load_def]>>
+  fs[EVERY_MAP,EVERY_MEM]>>rw[]>>
+  AP_TERM_TAC>>AP_TERM_TAC>>
+  fs[MAP_EQ_f])
+
+val tac = (fs[GSYM word_exp_termdep_code_frame]>>EVERY_CASE_TAC>>fs[state_component_equality,set_store_def,mem_store_def])
+
 val word_remove_correct = store_thm("word_remove_correct",``
   ∀prog st res rst.
+  (!n v p. lookup n st.code = SOME (v,p) ==>
+         lookup n l = SOME (v,remove_must_terminate p)) ∧
   evaluate(prog,st) = (res,rst) ∧
   res ≠ SOME Error ⇒
   ∃clk.
-  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0|>) = (res,rst with termdep:=0)``,
+  evaluate(remove_must_terminate prog,st with <|clock:=st.clock+clk;termdep:=0;code:=l|>) = (res,rst with <|termdep:=0;code:=l|>)``,
   recInduct evaluate_ind>>
   fs[evaluate_def,remove_must_terminate_def,state_component_equality,call_env_def,get_var_def,set_var_def,dec_clock_def]>>rw[]
   >-
-    (EVERY_CASE_TAC>>fs[]>>cheat)
+    (EVERY_CASE_TAC>>fs[]>>
+    imp_res_tac alloc_const>>
+    simp[alloc_termdep_code_frame,state_component_equality])
+  >-
+    (simp[GSYM get_vars_termdep_code_frame]>>
+    EVERY_CASE_TAC>>
+    fs[set_vars_def,state_component_equality]>>rfs[])
   >- cheat
-  >- cheat
-  >- cheat
-  >- (EVERY_CASE_TAC>>fs[state_component_equality])
-  >- cheat
-  >- cheat
+  >- tac
+  >- tac
+  >- tac
+  >- (tac>>FULL_CASE_TAC>>fs[state_component_equality])
   >- (qexists_tac`0`>>simp[state_component_equality])
   >- (qexists_tac`0`>>simp[state_component_equality])
   >- (*hard*)
@@ -27,15 +62,20 @@ val word_remove_correct = store_thm("word_remove_correct",``
     IF_CASES_TAC>>fs[]>>
     strip_tac>>fs[]>>
     rveq>>
+    res_tac>>
     imp_res_tac evaluate_dec_clock>>fs[]>>
     imp_res_tac evaluate_add_clock>>fs[]>>
-    last_x_assum(qspec_then`s.clock` assume_tac)>>
+    pop_assum kall_tac>>
+    first_x_assum(qspec_then`s.clock` assume_tac)>>
     metis_tac[])
   >-
     (qpat_assum`A=(res,rst)`mp_tac>>simp[]>>
     split_pair_tac>>fs[]>>
     IF_CASES_TAC>>fs[]>-
       (strip_tac>>fs[]>>
+      (*eval const*)
+      `s1.code = s.code` by cheat>>
+      fs[]>>
       imp_res_tac evaluate_add_clock>>
       rfs[]>>pop_assum kall_tac>>
       qexists_tac`clk+clk'`>>ntac 2 strip_tac>>
@@ -47,9 +87,43 @@ val word_remove_correct = store_thm("word_remove_correct",``
       rw[]>>fs[]>>
       qexists_tac`clk`>>fs[ADD_COMM])
   >- (EVERY_CASE_TAC>>fs[state_component_equality,fromList2_def])
-  >- cheat
-  >- cheat
-  >- cheat
-  >- cheat)
+  >- (tac>>fs[jump_exc_def]>>tac)
+  >-
+    (Cases_on`ri`>>fs[get_var_imm_def,get_var_def]>>
+    ntac 5(TOP_CASE_TAC>>fs[]))
+  >-
+    (ntac 6(TOP_CASE_TAC>>fs[])>>
+    fs[LET_THM]>>split_pair_tac>>fs[state_component_equality]>>
+    rveq>>fs[])
+  >>
+    simp[markerTheory.Abbrev_def]>>
+    qpat_assum`A=(res,rst)` mp_tac>>
+    simp[evaluate_def,GSYM get_vars_termdep_code_frame]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    TOP_CASE_TAC>>fs[]>>
+    qpat_abbrev_tac `newprog = find_code dest aret l`>>
+    `newprog = SOME (q,remove_must_terminate r)` by
+      (Cases_on`ret`>>Cases_on`dest`>>
+      unabbrev_all_tac>>fs[find_code_def,add_ret_loc_def]>>
+      EVERY_CASE_TAC>>fs[add_ret_loc_def]>>
+      res_tac>>
+      rveq>>fs[]>>
+      metis_tac[NOT_NONE_SOME])>>
+    simp[]>>
+    TOP_CASE_TAC>-
+      (TOP_CASE_TAC>>fs[]>>
+      TOP_CASE_TAC>>fs[]
+      >-
+        (strip_tac>>qexists_tac`0`>>fs[call_env_def,state_component_equality])
+      >>
+      EVERY_CASE_TAC>>rw[]>>
+      first_x_assum(qspecl_then[`SOME x'`,`r'`] assume_tac)>>rfs[]>>
+      qexists_tac`clk`>>simp[dec_clock_def,call_env_def]>>
+      `clk + s.clock -1 = s.clock -1 + clk` by DECIDE_TAC>>
+      fs[])>>
+  (*Should be fine, but annoying*)
+  cheat)
 
 val _ = export_theory();

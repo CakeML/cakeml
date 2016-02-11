@@ -5912,7 +5912,8 @@ val make_init_def = Define `
      ; clock   := t.clock
      ; code    := code
      ; be      := t.be
-     ; ffi     := t.ffi |> `;
+     ; ffi     := t.ffi
+     ; termdep := 0 |> `;
 
 val evaluate_Seq_Skip = prove(
   ``stackSem$evaluate (Seq Skip p,s) = evaluate (p,s)``,
