@@ -28,7 +28,13 @@ val compile_single_def = Define`
   let prog = if two_reg_arith then three_to_two_reg ssa_prog
                               else ssa_prog in
   let reg_prog = word_alloc alg reg_count prog col_opt in
+  let rm_prog = remove_must_terminate reg_prog in
     (name_num,arg_count,reg_prog)`
+
+val full_compile_single_def = Define`
+  full_compile_single two_reg_arith reg_count alg c p =
+  let (name_num,arg_count,reg_prog) = compile_single two_reg_arith reg_count alg c p in
+    (name_num,arg_count,remove_must_terminate reg_prog)`
 
 val next_n_oracle_def = Define`
   next_n_oracle n (col:num ->(num num_map)option) =
@@ -39,6 +45,6 @@ val compile_def = Define `
     let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
-    (col,MAP (compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
+    (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`
 
 val _ = export_theory();

@@ -2918,25 +2918,14 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
   \\ every_case_tac \\ fs []
   \\ fs [state_rel_def]);
 
+(*The termdep assumption might want to be moved elsewhere, not sure*)
 val state_rel_ext_def = Define `
   state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
     ?t l.
       state_rel c l1 l2 s t [] [] /\
       (!n v. lookup n t.code = SOME v ==>
-             lookup n l = SOME (SND (compile_single t' k' a' c' ((n,v),col)))) /\
-      u = t with code := l`
-
-(*Temporary until proven in word_to_wordProof*)
-val compile_word_to_word_thm_alt = prove(``
-  (!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
-           ∃t k a c col.
-           lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
-    ?perm' clk.
-      let prog = Call NONE (SOME start) [0] NONE in
-      let (res,rst) = evaluate (prog,st with permute := perm') in
-        if res = SOME Error then T else
-          let (res1,rst1) = evaluate (prog,st with <|code := l;clock:=st.clock+clk|>) in
-            res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,cheat)
+             lookup n l = SOME (SND (full_compile_single t' k' a' c' ((n,v),col)))) /\
+      u = t with <|code := l;termdep:=0|>`
 
 val compile_correct = store_thm("compile_correct",
   ``!x (s:'ffi bvpSem$state) l1 l2 res s1 (t:('a,'ffi)wordSem$state) start.
@@ -2945,7 +2934,7 @@ val compile_correct = store_thm("compile_correct",
       state_rel_ext x l1 l2 s t ==>
       ?ck t1 res1.
         (wordSem$evaluate (Call NONE (SOME start) [0] NONE,
-           inc_clock ck t) = (res1,t1)) /\
+           (inc_clock ck t)) = (res1,t1)) /\
         (res1 = SOME NotEnoughSpace ==>
            t1.ffi.io_events ≼ s1.ffi.io_events ∧
            (IS_SOME t1.ffi.final_event ==> t1.ffi = s1.ffi)) /\
@@ -2961,9 +2950,9 @@ val compile_correct = store_thm("compile_correct",
   \\ qcase_tac `state_rel x0 l1 l2 s t [] []`
   \\ `(!n v. lookup n t.code = SOME v ==>
              ?x1 x2 x3 x4 x5.
-                lookup n l = SOME (SND (compile_single x1 x2 x3 x4 ((n,v),x5))))`
+                lookup n l = SOME (SND (full_compile_single x1 x2 x3 x4 ((n,v),x5))))`
         by (fs [] \\ metis_tac [])
-  \\ drule compile_word_to_word_thm_alt \\ rw []
+  \\ drule compile_word_to_word_thm \\ rw []
   \\ drule compile_correct_lemma \\ fs []
   \\ `state_rel x0 l1 l2 s (t with permute := perm') [] []` by
    (fs [state_rel_def] \\ rfs []
@@ -2974,6 +2963,10 @@ val compile_correct = store_thm("compile_correct",
   \\ fs [LET_THM] \\ strip_tac THEN1 (fs [] \\ every_case_tac \\ fs [])
   \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs []
   \\ fs[inc_clock_def]
+  \\ qpat_abbrev_tac`t' = t with <|clock:=t.clock+clk; code:=l|>`
+  \\ `t' = t with <|clock:=t.clock+clk;termdep:=0;code:=l|>` by
+    (simp[wordSemTheory.state_component_equality,state_rel_ext_def,Abbr`t'`])
+  \\ fs[]
   \\ strip_tac \\ rpt var_eq_tac \\ fs []
   \\ rw [] \\ every_case_tac \\ fs []);
 

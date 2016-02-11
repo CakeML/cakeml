@@ -1,5 +1,5 @@
 open preamble BasicProvers word_to_wordTheory wordSemTheory
-     wordPropsTheory word_allocProofTheory word_instProofTheory;
+     wordPropsTheory word_allocProofTheory word_instProofTheory word_removeProofTheory;
 
 val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
@@ -464,21 +464,35 @@ val compile_single_correct = prove(``
 val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   ``(!n v. lookup n (st:('a,'ffi)wordSem$state).code = SOME v ==>
            ∃t k a c col.
-           lookup n l = SOME (SND (compile_single t k a c ((n,v),col)))) ==>
-    ?perm'.
+           lookup n l = SOME (SND (full_compile_single t k a c ((n,v),col)))) ==>
+    ?perm' clk.
       let prog = Call NONE (SOME start) [0] NONE in
       let (res,rst) = evaluate (prog,st with permute := perm') in
         if res = SOME Error then T else
-          let (res1,rst1) = evaluate (prog,st with code := l) in
+          let (res1,rst1) = evaluate (prog,st with <|code := l;clock:=st.clock+clk;termdep:=0|>) in
             res1 = res /\ rst1.clock = rst.clock /\ rst1.ffi = rst.ffi``,
   simp[LET_THM]>>
   rw[]>>
-  imp_res_tac compile_single_correct>>
+  (*namely, l' is some map over st.code that replicates l everywhere except
+  it doesn't do the last remove_must_terminate*)
+  `∃l'.
+    (!n v p. lookup n l' = SOME (v,p) ==>
+     lookup n l = SOME (v,remove_must_terminate p)) ∧
+    !n v.
+      lookup n st.code = SOME v ⇒
+      ∃t k a c col.
+        lookup n l' = SOME (SND (compile_single t k a c ((n,v),col)))` by cheat>>
   qpat_abbrev_tac`prog = Call A B C D`>>
+  imp_res_tac compile_single_correct>>
   first_x_assum(qspec_then`prog` assume_tac)>>fs[LET_THM]>>
   qexists_tac`perm'`>>split_pair_tac>>fs[]>>
   split_pair_tac>>fs[]>>
-  Cases_on`res`>>TRY(Cases_on`x`)>>fs[])
-  |> SIMP_RULE std_ss [Once LET_THM]
-
+  Cases_on`res=SOME Error`>>fs[]>>
+  imp_res_tac word_remove_correct>>
+  pop_assum kall_tac>>
+  rfs[]>>
+  pop_assum(qspec_then`l` assume_tac)>>rfs[]>>
+  fs[Abbr`prog`,word_removeTheory.remove_must_terminate_def,LET_THM]>>
+  qexists_tac`clk`>>fs[ADD_COMM])
+  
 val _ = export_theory();
