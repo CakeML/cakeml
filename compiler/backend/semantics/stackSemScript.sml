@@ -424,9 +424,11 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (StackLoadAny r rn,s) =
      if ~s.use_stack then (SOME Error,s) else
        case get_var rn s of
-       | SOME (Word w) =>
-           if s.stack_space + w2n w < LENGTH s.stack
-           then (NONE, set_var r (EL (s.stack_space + w2n w) s.stack) s)
+       | SOME (Word (w:'a word)) =>
+         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+           if i < LENGTH s.stack /\
+              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+           then (NONE, set_var r (EL i s.stack) s)
            else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackStore r n,s) =
@@ -438,9 +440,12 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (StackStoreAny r rn,s) =
      if ~s.use_stack then (SOME Error,s) else
        case (get_var r s, get_var rn s) of
-       | (SOME v, SOME (Word w)) =>
-           if LENGTH s.stack ≤ s.stack_space + w2n w then (SOME Error,empty_env s)
-           else (NONE, s with stack := LUPDATE v (s.stack_space + w2n w) s.stack)
+       | (SOME v, SOME (Word (w:'a word))) =>
+         let i = s.stack_space + w2n (w >>> word_shift (:'a)) in
+           if i < LENGTH s.stack /\
+              ((w >>> word_shift (:'a)) << word_shift (:'a) = w)
+           then (NONE, s with stack := LUPDATE v i s.stack)
+           else (SOME Error,empty_env s)
        | _ => (SOME Error,empty_env s)) /\
   (evaluate (StackGetSize r,s) =
      if ~s.use_stack then (SOME Error,s) else
@@ -448,9 +453,10 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (StackSetSize r,s) =
      if ~s.use_stack then (SOME Error,s) else
      case get_var r s of
-     | SOME (Word w) =>
+     | SOME (Word (w:'a word)) =>
          if LENGTH s.stack ≤ w2n w then (SOME Error,empty_env s)
-         else (NONE, s with stack_space := w2n w)
+         else (NONE, set_var r (Word (w << word_shift (:'a)))
+                       (s with stack_space := w2n w))
      | _ => (SOME Error,s)) /\
   (evaluate (BitmapLoad r v,s) =
      if ~s.use_stack \/ r = v then (SOME Error,s) else
@@ -505,7 +511,7 @@ val evaluate_clock = store_thm("evaluate_clock",
   \\ IMP_RES_TAC alloc_clock
   \\ fs [set_var_def,set_store_def,dec_clock_def,jump_exc_def]
   \\ fs[LET_THM] >> TRY split_pair_tac >> fs[]
-  \\ simp[] \\ every_case_tac \\ fs[] \\ rw[]
+  \\ simp[] \\ every_case_tac \\ fs[set_var_def,empty_env_def] \\ rw[]
   \\ IMP_RES_TAC check_clock_IMP
   \\ res_tac \\ fs [] \\ TRY decide_tac
   \\ Cases_on `call_FFI s.ffi ffi_index x` \\ rw [] \\ fs [] \\ rw []);

@@ -63,13 +63,6 @@ val list_Seq_def = Define `
   (list_Seq [x] = x) /\
   (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
 
-val word_shift_def = Define `
-  word_shift (:'a) =
-    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
-       to be sure that LOG doesn't unecessarily end up in the
-       generated CakeML code *)
-    if dimindex (:'a) = 32 then 2 else 3:num`;
-
 val comp_def = Define `
   comp k (p:'a stackLang$prog) =
     case p of
@@ -92,8 +85,8 @@ val comp_def = Define `
                                (Inst (Arith (Binop Sub k k (Reg i)))))
     | StackGetSize r => Seq (Inst (Arith (Binop Sub r k (Reg (k+1)))))
                             (right_shift_inst r (word_shift (:'a)))
-    | StackSetSize r => Seq (Inst (Arith (Binop Add k (k+1) (Reg r))))
-                            (left_shift_inst k (word_shift (:'a)))
+    | StackSetSize r => Seq (left_shift_inst r (word_shift (:'a)))
+                            (Inst (Arith (Binop Add k (k+1) (Reg r))))
     | BitmapLoad r v =>
         list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
                   add_inst r v;

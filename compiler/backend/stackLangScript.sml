@@ -33,4 +33,11 @@ val _ = Datatype `
        | BitmapLoad num num     (* load word from read-only region *)
        | Halt num`;
 
+val word_shift_def = Define `
+  word_shift (:'a) =
+    (* this could be defined as LOG 2 (dimindex(:'a)) - 3, but I want
+       to be sure that LOG doesn't unecessarily end up in the
+       generated CakeML code *)
+    if dimindex (:'a) = 32 then 2 else 3:num`;
+
 val _ = export_theory();
