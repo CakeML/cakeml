@@ -91,6 +91,14 @@ val set_var_set_var = Q.store_thm("set_var_set_var[simp]",
   `set_var x y (set_var x z w) = set_var x y w`,
   EVAL_TAC \\ rw[state_component_equality]);
 
+val get_var_set_var_same = Q.store_thm("get_var_set_var_same[simp]",
+  `get_var x (set_var x y z) = SOME y`,
+  EVAL_TAC);
+
+val get_var_set_var = Q.store_thm("get_var_set_var",
+  `get_var x (set_var x' y z) = if x = x' then SOME y else get_var x z`,
+  EVAL_TAC \\ rw[]);
+
 (*
 val bytes_in_word_word_shift = Q.store_thm("bytes_in_word_word_shift",
   `good_dimindex(:'a) ⇒
@@ -723,6 +731,38 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
   \\ simp[]
   \\ imp_res_tac state_rel_mem_store);
 
+val stack_write = Q.store_thm("stack_write",
+  `∀stack base p m d a v.
+   (word_list base stack * p) (fun2set (m,d)) ∧ a < LENGTH stack ⇒
+   (word_list base (LUPDATE v a stack) * p) (fun2set ((base + bytes_in_word * (n2w a) =+ v) m,d))`,
+  Induct \\ simp[word_list_def] \\ rw[]
+  \\ Cases_on`a`\\fs[LUPDATE_def]
+  \\ fs[word_list_def] >- SEP_W_TAC
+  \\ SEP_F_TAC
+  \\ disch_then drule
+  \\ simp[ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ srw_tac[star_ss][]);
+
+val state_rel_stack_store = Q.store_thm("state_rel_stack_store",
+  `state_rel k s t ∧ st = s.stack ∧
+   FLOOKUP t.regs k = SOME (Word b) ∧
+   b + bytes_in_word * n2w n = a
+   ⇒
+   state_rel k (s with stack := LUPDATE x (n + s.stack_space) st)
+     (t with memory := (a =+ x) t.memory)`,
+  simp[state_rel_def]
+  \\ strip_tac
+  \\ conj_tac >- metis_tac[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ rveq
+  \\ REWRITE_TAC[GSYM WORD_LEFT_ADD_DISTRIB,GSYM WORD_ADD_ASSOC,word_add_n2w]
+  \\ REWRITE_TAC[Once STAR_COMM]
+  \\ REWRITE_TAC[Once ADD_COMM]
+  \\ match_mp_tac stack_write
+  \\ reverse conj_tac >- cheat (* strengthen state_rel? *)
+  \\ fsrw_tac[star_ss][]);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -992,7 +1032,20 @@ val comp_correct = Q.prove(
     \\ imp_res_tac state_rel_get_var_k
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
-    \\ cheat (* probably need better good_syntax, and then fun2set stuff *))
+    \\ fs[good_syntax_def,GSYM get_var_def]
+    \\ imp_res_tac state_rel_get_var \\ fs[]
+    \\ qexists_tac`0` \\ simp[]
+    \\ REWRITE_TAC[GSYM set_var_with_const]
+    \\ REWRITE_TAC[with_same_clock]
+    \\ simp[]
+    \\ simp[mem_load_def]
+    \\ simp[Once set_var_def]
+    \\ rpt(qpat_assum`∀x. _`kall_tac)
+    \\ imp_res_tac LESS_LENGTH_IMP_APPEND
+    \\ fs[word_list_APPEND]
+    \\ Cases_on`zs` \\ fs[word_list_def]
+    \\ fs[GSYM word_add_n2w]
+    \\ cheat (* bytes_in_word is missing; when fixed, do SEP_R_TAC *))
   THEN1 (* StackStore *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1010,8 +1063,39 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ simp[mem_store_def]
-    \\ cheat)
-  THEN1 (* StackStoreAny *) cheat
+    \\ fs[NOT_LESS_EQUAL]
+    \\ imp_res_tac LESS_LENGTH_IMP_APPEND
+    \\ fs[word_list_APPEND]
+    \\ Cases_on`zs`\\fs[word_list_def]
+    \\ fs[word_offset_eq,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ SEP_R_TAC \\ fs[]
+    \\ qexists_tac`0` \\ simp[]
+    \\ match_mp_tac (GEN_ALL state_rel_stack_store)
+    \\ simp[])
+  THEN1 (* StackStoreAny *) (
+    simp[comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ simp[]
+    \\ strip_tac \\ rveq \\ fs[good_syntax_def]
+    \\ qexists_tac`0`\\simp[]
+    \\ simp[inst_def,assign_def,word_exp_def,GSYM get_var_def]
+    \\ imp_res_tac state_rel_get_var_k \\ fs[]
+    \\ imp_res_tac state_rel_get_var \\ fs[]
+    \\ simp[wordLangTheory.word_op_def]
+    \\ REWRITE_TAC[GSYM set_var_with_const]
+    \\ REWRITE_TAC[with_same_clock]
+    \\ simp[get_var_set_var]
+    \\ pop_assum kall_tac
+    \\ fs[NOT_LESS_EQUAL]
+    \\ imp_res_tac LESS_LENGTH_IMP_APPEND
+    \\ fs[word_list_APPEND]
+    \\ Cases_on`zs` \\ fs[word_list_def]
+    \\ cheat (* same problem as StackLoadAny *))
   THEN1 (* StackGetSize *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1076,7 +1160,7 @@ val comp_correct = Q.prove(
     \\ fs[state_rel_def]
     \\ simp[set_var_def,FLOOKUP_UPDATE]
     \\ conj_tac >- metis_tac[]
-    \\ cheat (* looks false *))
+    \\ cheat (* word problem, possibly false *))
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
     \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []
