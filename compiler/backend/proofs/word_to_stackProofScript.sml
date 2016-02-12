@@ -7,6 +7,11 @@ val good_dimindex_def = labPropsTheory.good_dimindex_def;
 
 val _ = new_theory "word_to_stackProof";
 
+val TWOxDIV2 = Q.store_thm("TWOxDIV2",
+  `2 * x DIV 2 = x`,
+  ONCE_REWRITE_TAC[MULT_COMM]
+  \\ simp[MULT_DIV]);
+
 (*TODO: Simplify and move to HOL or miscLib*)
 (*This property is frequently used in other sptree proofs*)
 val splem1 = prove(``
@@ -953,7 +958,7 @@ val evaluate_wLive = Q.prove(
   \\ fs [stackSemTheory.evaluate_def,stackSemTheory.inst_def,
          stackSemTheory.assign_def,stackSemTheory.word_exp_def,LET_THM]
  \\ `t.stack_space <= LENGTH t.stack /\
-     t.use_stack /\ ~(LENGTH t.stack < t.stack_space)` by
+     t.use_stack /\ ~(LENGTH t.stack ≤ t.stack_space)` by
         (fs[state_rel_def,LET_THM,stack_rel_def] \\ decide_tac) \\ fs []
   \\ fs [stackSemTheory.set_var_def,stackSemTheory.get_var_def,
          FLOOKUP_UPDATE,DECIDE ``i<n ==> i<>n:num``]
@@ -2408,9 +2413,16 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
       imp_res_tac state_rel_get_var_imp
       \\ simp[] )
     \\ IF_CASES_TAC >- fs[state_rel_def]
-    \\ IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def]
-    \\ simp[]
-    \\ imp_res_tac state_rel_get_var_imp2 )
+    \\ IF_CASES_TAC
+    THEN1 (simp[]\\ imp_res_tac state_rel_get_var_imp2)
+    \\
+      fs[state_rel_def,LET_THM,get_var_def,TWOxDIV2]>>
+      res_tac>>
+      `x'*2 DIV 2 = x'` by metis_tac[TWOxDIV2,MULT_COMM]>>
+      fs[]>>
+      rfs[]>>
+      Cases_on`f'`>>fs[]>>
+      `F` by DECIDE_TAC)
   >- (
     rw[stackSemTheory.evaluate_def,stackSemTheory.inst_def]
     >- (
@@ -2420,7 +2432,10 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
           \\ simp[] )
       \\ simp[stackSemTheory.set_var_def,FLOOKUP_UPDATE] )
     \\ IF_CASES_TAC >- fs[state_rel_def]
-    \\ IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def]
+    \\ IF_CASES_TAC >-
+      (fs[state_rel_def,LET_THM]>>
+      Cases_on`f'`>>fs[]>>
+      `F` by DECIDE_TAC)
     \\ simp[]
     \\ conj_tac
     >- (
@@ -2438,7 +2453,15 @@ val wMoveSingle_thm = Q.store_thm("wMoveSingle_thm",
       \\ rw[]
       \\ `F` by decide_tac)
     \\ (IF_CASES_TAC >- fs[state_rel_def])
-    \\ (IF_CASES_TAC >- fsrw_tac[ARITH_ss][state_rel_def])
+    \\ IF_CASES_TAC
+    \\
+    TRY(
+      fs[state_rel_def,LET_THM,get_var_def]>>
+      res_tac>>
+      `x''*2 DIV 2 = x''` by metis_tac[MULT_COMM,TWOxDIV2]>>
+      fs[]>>rfs[]>>
+      Cases_on`f'`>>fs[]>>
+      `F` by DECIDE_TAC>>NO_TAC)
     \\ fs[]
     >- (
       imp_res_tac state_rel_get_var_imp2
@@ -3280,11 +3303,6 @@ val evaluate_SeqStackFree = store_thm("evaluate_SeqStackFree",
   THEN1 (`F` by decide_tac)
   \\ AP_TERM_TAC \\ fs [stackSemTheory.state_component_equality]);
 
-val TWOxDIV2 = Q.store_thm("TWOxDIV2",
-  `2 * x DIV 2 = x`,
-  ONCE_REWRITE_TAC[MULT_COMM]
-  \\ simp[MULT_DIV]);
-
 val get_vars_eq = prove(
   ``∀ls z.
   get_vars ls st = SOME z ⇒
@@ -3348,8 +3366,9 @@ val call_dest_lemma = prove(
       IF_CASES_TAC>>fs[])
     >>
       rw[stackSemTheory.evaluate_def,wStackLoad_def]>>
-      TRY(fs[state_rel_def] \\ `F` by decide_tac)>>
-      fs[find_code_def,stackSemTheory.find_code_def,state_rel_def]>>
+      TRY(fs[state_rel_def] \\ `F` by decide_tac)
+      >-
+      (fs[find_code_def,stackSemTheory.find_code_def,state_rel_def]>>
       rw[]>>
       pop_assum mp_tac>>
       ntac 4 TOP_CASE_TAC>>rw[]>>
@@ -3378,6 +3397,9 @@ val call_dest_lemma = prove(
       qpat_assum`A=Loc n 0` mp_tac>>
       simp[EL_DROP,EL_TAKE]>>
       fs[ADD_COMM])
+      >>
+      (*Need to assume every elem of args is in s.locals*)
+      cheat)
   >>
     fs[stackSemTheory.evaluate_def,state_rel_def]>>
     CONJ_TAC>-
@@ -3736,7 +3758,10 @@ val wRegWrite1_thm1 = Q.store_thm("wRegWrite1_thm1",
   >- ( metis_tac[ state_rel_set_var, LESS_OR_EQ] )
   \\ rw[stackSemTheory.evaluate_def]
   \\ IF_CASES_TAC >- fs[state_rel_def]
-  \\ IF_CASES_TAC >- (fs[state_rel_def] \\ `F` by decide_tac)
+  \\ IF_CASES_TAC >-
+    (fs[state_rel_def]>>
+    Cases_on`f'`>>fs[]>>
+    `F` by decide_tac)
   \\ simp[]
   \\ match_mp_tac state_rel_set_var2
   \\ simp[]);
@@ -3850,7 +3875,11 @@ val wStackLoad_thm1 = Q.store_thm("wStackLoad_thm1",
   simp[wReg1_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
   \\ rw[stackSemTheory.evaluate_def]
-  \\ TRY(fs[state_rel_def] \\ `F` by decide_tac));
+  \\ fs[state_rel_def,LET_THM]
+  \\ Cases_on`f'`>>fs[]
+  (*there's a stack variable, f can't be 0, but need other assumption*)
+  >- cheat
+  \\ `F` by decide_tac);
 
 val wStackLoad_thm2 = Q.store_thm("wStackLoad_thm2",
   `wReg2 (2 * n1) (k,f,f') = (l,n2) ∧
@@ -3865,7 +3894,11 @@ val wStackLoad_thm2 = Q.store_thm("wStackLoad_thm2",
   simp[wReg2_def,TWOxDIV2]
   \\ rw[] \\ rw[wStackLoad_def] \\ fs[]
   \\ rw[stackSemTheory.evaluate_def]
-  \\ TRY(fs[state_rel_def] \\ `F` by decide_tac));
+  \\ fs[state_rel_def,LET_THM]
+  \\ Cases_on`f'`>>fs[]
+  (*see above?*)
+  >- cheat
+  \\ `F` by decide_tac);
 
 val map_var_def = tDefine"map_var"`
   (map_var f (Var num) = Var (f num)) ∧
@@ -4540,8 +4573,10 @@ val evaluate_wStackLoad_wReg1 = prove(``
     first_assum match_mp_tac>>
     simp[TWOxDIV2])>>
   IF_CASES_TAC>-fs[state_rel_def]>>
-  IF_CASES_TAC>-
-    (fs[state_rel_def]>>
+  reverse IF_CASES_TAC>-
+    (fs[state_rel_def,LET_THM,get_var_def]>>
+    res_tac>>fs[TWOxDIV2]>>rfs[]>>
+    Cases_on`f'`>>fs[]>>
     DECIDE_TAC)>>
   imp_res_tac state_rel_get_var_imp2>>
   fs[]>>
@@ -4572,8 +4607,10 @@ val evaluate_wStackLoad_wRegImm2 = prove(``
     first_assum match_mp_tac>>
     simp[TWOxDIV2])>>
   IF_CASES_TAC>-fs[state_rel_def]>>
-  IF_CASES_TAC>-
-    (fs[state_rel_def]>>
+  reverse IF_CASES_TAC>-
+    (fs[state_rel_def,LET_THM,get_var_def]>>
+    res_tac>>fs[TWOxDIV2]>>rfs[]>>
+    Cases_on`f'`>>fs[]>>
     DECIDE_TAC)>>
   imp_res_tac state_rel_get_var_imp2>>
   fs[]>>
@@ -4637,7 +4674,7 @@ val evaluate_stack_move = prove(``
   discharge_hyps>-
     simp[]>>
   strip_tac>>fs[stackSemTheory.state_component_equality]>>
-  IF_CASES_TAC>-
+  reverse IF_CASES_TAC>-
     `F` by DECIDE_TAC>>
   fs[stackSemTheory.set_var_def]>>
   IF_CASES_TAC>-
@@ -4741,7 +4778,6 @@ val comp_correct = Q.store_thm("comp_correct",
          | SOME (Result _ y) => state_rel k 0 0 s1 t1 lens /\ FLOOKUP t1.regs 1 = SOME y
          | SOME (Exception _ _) => state_rel k 0 0 (push_locals s1) t1 (LASTN (s.handler+1) lens)
          | SOME _ => s1.ffi = t1.ffi /\ s1.clock = t1.clock`,
-
   recInduct evaluate_ind \\ REPEAT STRIP_TAC \\ fs[]
   THEN1 (* Skip *)
    (qexists_tac `0` \\ fs [wordSemTheory.evaluate_def,
@@ -5115,7 +5151,7 @@ val comp_correct = Q.store_thm("comp_correct",
              fromList2_def,lookup_def]
       \\ fs [AC ADD_ASSOC ADD_COMM]
       \\ imp_res_tac DROP_DROP \\ fs [wf_def] \\ metis_tac[])
-    \\ `~(LENGTH t.stack < t.stack_space + (f -1 - (n DIV 2 - k))) /\
+    \\ `(t.stack_space + (f -1 - (n DIV 2 - k)) < LENGTH t.stack) /\
         (EL (t.stack_space + (f -1 - (n DIV 2 - k))) t.stack = Loc l1 l2) /\
         (get_var 1 t = SOME x')` by
      (fs [state_rel_def,get_var_def,LET_DEF]
@@ -5180,9 +5216,9 @@ val comp_correct = Q.store_thm("comp_correct",
          rw[]>>
          decide_tac)
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
-    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ reverse IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,stackSemTheory.set_store_def]
-    \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
+    \\ reverse IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ IF_CASES_TAC \\ fs [] THEN1 decide_tac
     \\ fs [stackSemTheory.get_var_def,FLOOKUP_UPDATE,push_locals_def,lookup_def]
     \\ imp_res_tac stack_rel_raise \\
@@ -5714,6 +5750,7 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[EL_TAKE,EL_DROP]>>
         first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
         qpat_assum`DROP A B = DROP C D` mp_tac>>
+        `k < (n DIV 2+1)` by DECIDE_TAC>>
         simp[EL_TAKE]>>
         disch_then sym_sub_tac>>
         simp[EL_DROP]>>
