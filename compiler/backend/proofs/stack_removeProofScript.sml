@@ -1052,7 +1052,11 @@ val comp_correct = Q.prove(
     \\ fs[word_list_APPEND]
     \\ Cases_on`zs` \\ fs[word_list_def]
     \\ fs[GSYM word_add_n2w]
-    \\ cheat (* bytes_in_word is missing; when fixed, do SEP_R_TAC *))
+    \\ fs [WORD_LEFT_ADD_DISTRIB]
+    \\ pop_assum (fn th => fs [GSYM th,EL_LENGTH_APPEND])
+    \\ `bytes_in_word * c >>> word_shift (:'a) = c` by
+          rfs [lsl_word_shift,state_rel_def]
+    \\ fs [] \\ SEP_R_TAC \\ fs [])
   THEN1 (* StackStore *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1102,7 +1106,20 @@ val comp_correct = Q.prove(
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
     \\ fs[word_list_APPEND]
     \\ Cases_on`zs` \\ fs[word_list_def]
-    \\ cheat (* same problem as StackLoadAny *))
+    \\ `bytes_in_word * c >>> word_shift (:'a) = c` by
+          rfs [lsl_word_shift,state_rel_def]
+    \\ fs [] \\ fs [mem_store_def,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
+    \\ SEP_R_TAC \\ fs [set_var_def,get_var_def,FLOOKUP_UPDATE]
+    \\ fs [DECIDE ``n<m:num ==> n<>m``]
+    \\ pop_assum (fn th => fs [GSYM th,EL_LENGTH_APPEND] \\ mp_tac th)
+    \\ pop_assum (fn th => fs [GSYM th,EL_LENGTH_APPEND] \\ mp_tac th)
+    \\ strip_tac \\ strip_tac
+    \\ fs [state_rel_def,FLOOKUP_UPDATE,DECIDE ``n<m:num ==> n<>m``]
+    \\ rfs [ADD1,AC ADD_COMM ADD_ASSOC,word_list_def,word_list_APPEND]
+    \\ fs [WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
+    \\ qabbrev_tac `m = t1.memory`
+    \\ qabbrev_tac `dm = t1.mdomain`
+    \\ SEP_WRITE_TAC)
   THEN1 (* StackGetSize *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
