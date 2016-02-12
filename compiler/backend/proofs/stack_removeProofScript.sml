@@ -1,5 +1,6 @@
 open preamble
      stack_removeTheory
+     stackLangTheory
      stackSemTheory
      stackPropsTheory
      set_sepTheory
@@ -763,6 +764,12 @@ val state_rel_stack_store = Q.store_thm("state_rel_stack_store",
   \\ match_mp_tac stack_write
   \\ fsrw_tac[star_ss][AC ADD_COMM ADD_ASSOC]);
 
+val lsl_word_shift = store_thm("lsl_word_shift",
+  ``good_dimindex (:'a) ==>
+    w ≪ word_shift (:α) = w * bytes_in_word:'a word``,
+  rw [WORD_MUL_LSL,word_shift_def,bytes_in_word_def,
+      labPropsTheory.good_dimindex_def]);
+
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
      evaluate (p,s1) = (r,s2) /\ r <> SOME Error /\
@@ -1152,15 +1159,15 @@ val comp_correct = Q.prove(
     >- (
       fs[word_shift_def]
       \\ rfs[state_rel_def,labPropsTheory.good_dimindex_def]
-      \\ rfs[] )
+      \\ rfs[])
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ ONCE_REWRITE_TAC[GSYM set_var_with_const]
     \\ REWRITE_TAC[with_same_clock]
+    \\ simp [set_var_def,FLOOKUP_UPDATE]
     \\ pop_assum kall_tac
     \\ fs[state_rel_def]
     \\ simp[set_var_def,FLOOKUP_UPDATE]
-    \\ conj_tac >- metis_tac[]
-    \\ cheat (* word problem, possibly false *))
+    \\ rfs [lsl_word_shift])
   THEN1 (* BitmapLoad *)
    (fs [stackSemTheory.evaluate_def] \\ every_case_tac
     \\ fs [good_syntax_def,GSYM NOT_LESS] \\ rw []
