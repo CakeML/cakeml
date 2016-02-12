@@ -746,6 +746,7 @@ val stack_write = Q.store_thm("stack_write",
 val state_rel_stack_store = Q.store_thm("state_rel_stack_store",
   `state_rel k s t ∧ st = s.stack ∧
    FLOOKUP t.regs k = SOME (Word b) ∧
+   s.stack_space + n < LENGTH st ∧
    b + bytes_in_word * n2w n = a
    ⇒
    state_rel k (s with stack := LUPDATE x (n + s.stack_space) st)
@@ -760,8 +761,7 @@ val state_rel_stack_store = Q.store_thm("state_rel_stack_store",
   \\ REWRITE_TAC[Once STAR_COMM]
   \\ REWRITE_TAC[Once ADD_COMM]
   \\ match_mp_tac stack_write
-  \\ reverse conj_tac >- cheat (* strengthen state_rel? *)
-  \\ fsrw_tac[star_ss][]);
+  \\ fsrw_tac[star_ss][AC ADD_COMM ADD_ASSOC]);
 
 val comp_correct = Q.prove(
   `!p s1 r s2 t1 k.
