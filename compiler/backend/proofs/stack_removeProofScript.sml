@@ -970,8 +970,6 @@ val comp_correct = Q.prove(
     \\ simp[wordLangTheory.word_op_def]
     \\ simp[mem_load_def]
     \\ fsrw_tac[ARITH_ss][NOT_LESS]
-    \\ `n + s.stack_space < LENGTH s.stack` by
-          cheat (* damn, this needs to be the test in the semantics *)
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
     \\ fs [word_list_APPEND,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
     \\ pop_assum (fn th => fs [GSYM th])

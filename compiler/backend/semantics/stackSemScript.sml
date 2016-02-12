@@ -418,8 +418,9 @@ val evaluate_def = tDefine "evaluate" `
        (NONE, s with stack_space := s.stack_space + n)) /\
   (evaluate (StackLoad r n,s) =
      if ~s.use_stack then (SOME Error,s) else
-     if LENGTH s.stack < s.stack_space + n then (SOME Error,empty_env s) else
-       (NONE, set_var r (EL (s.stack_space + n) s.stack) s)) /\
+     if s.stack_space + n < LENGTH s.stack
+       then (NONE, set_var r (EL (s.stack_space + n) s.stack) s)
+     else (SOME Error,empty_env s)) /\
   (evaluate (StackLoadAny r rn,s) =
      if ~s.use_stack then (SOME Error,s) else
        case get_var rn s of
