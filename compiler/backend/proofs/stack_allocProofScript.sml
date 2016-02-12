@@ -2,6 +2,7 @@ open preamble
      stack_allocTheory
      stackSemTheory
      stackPropsTheory
+     bvp_to_wordProofTheory
 
 val _ = new_theory"stack_allocProof";
 
@@ -37,6 +38,130 @@ val lookup_IMP_lookup_compile = prove(
     (fs [stubs_def] \\ rw [] \\ fs [] \\ decide_tac) \\ fs []
   \\ fs [prog_comp_lemma] \\ fs [ALOOKUP_MAP_gen,ALOOKUP_toAList]
   \\ metis_tac []);
+
+val word_gc_fun_lemma = word_gc_fun_def
+  |> SIMP_RULE std_ss [word_full_gc_def]
+  |> SIMP_RULE std_ss [Once LET_THM]
+  |> SIMP_RULE std_ss [Once LET_THM]
+  |> SIMP_RULE std_ss [Once LET_THM]
+  |> SIMP_RULE std_ss [Once LET_THM]
+  |> SIMP_RULE std_ss [Once LET_THM,word_gc_move_roots_def]
+
+val word_gc_fun_thm = prove(
+  ``word_gc_fun conf (roots,m,dm,s) =
+      let (w1,i1,pa1,m1,c1) =
+            word_gc_move conf
+              (s ' Globals,0w,theWord (s ' OtherHeap),
+               theWord (s ' CurrHeap),m,dm) in
+      let (ws2,i2,pa2,m2,c2) =
+            word_gc_move_roots conf
+              (roots,i1,pa1,theWord (s ' CurrHeap),m1,dm) in
+      let (i1,pa1,m1,c2) =
+            word_gc_move_loop conf
+              (theWord (s ' OtherHeap),i2,pa2,
+               theWord (s ' CurrHeap),m2,dm,c1 /\ c2) in
+      let s1 =
+            s |++
+            [(CurrHeap,Word (theWord (s ' OtherHeap)));
+             (OtherHeap,Word (theWord (s ' CurrHeap)));
+             (NextFree,Word pa1);
+             (EndOfHeap,
+              Word
+                (theWord (s ' OtherHeap) +
+                 theWord (s ' HeapLength))); (Globals,w1)]
+      in
+        if c2 then SOME (ws2,m1,s1) else NONE``,
+  fs [word_gc_fun_lemma,LET_THM]
+  \\ rpt (split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs [])
+  \\ IF_CASES_TAC \\ fs []);
+
+val gc_lemma = gc_def
+  |> SPEC_ALL
+  |> DISCH ``s.gc_fun = word_gc_fun conf``
+  |> SIMP_RULE std_ss [] |> UNDISCH
+  |> SIMP_RULE std_ss [word_gc_fun_thm] |> DISCH_ALL
+
+val word_gc_move_roots_bitmaps_def = Define `
+  word_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm) =
+    case enc_stack bitmaps stack of
+    | NONE => (ARB,ARB,ARB,ARB,F)
+    | SOME wl_list =>
+        let (wl,i2,pa2,m2,c2) =
+            word_gc_move_roots conf (wl_list,i1,pa1,curr,m,dm) in
+          case dec_stack bitmaps wl stack of
+          | NONE => (ARB,ARB,ARB,ARB,F)
+          | SOME stack => (stack,i2,pa2,m2,c2)`
+
+val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
+  ``word_gc_move_loop conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
+  cheat);
+
+val gc_thm = prove(
+  ``s.gc_fun = word_gc_fun conf ⇒
+   gc s =
+   if LENGTH s.stack < s.stack_space then NONE else
+     let unused = TAKE s.stack_space s.stack in
+     let stack = DROP s.stack_space s.stack in
+     let (w1,i1,pa1,m1,c1) =
+              word_gc_move conf
+                (s.store ' Globals,0w,
+                 theWord (s.store ' OtherHeap),
+                 theWord (s.store ' CurrHeap),s.memory,s.mdomain) in
+     let (stack,i2,pa2,m2,c2) =
+           word_gc_move_roots_bitmaps conf
+             (stack,s.bitmaps,i1,pa1,
+              theWord (s.store ' CurrHeap),m1,s.mdomain) in
+     let (i1,pa1,m1,c2) =
+           word_gc_move_loop conf
+             (theWord (s.store ' OtherHeap),i2,pa2,
+              theWord (s.store ' CurrHeap),m2,s.mdomain,
+              c1 ∧ c2) in
+     let s1 =
+           s.store |++
+           [(CurrHeap,Word (theWord (s.store ' OtherHeap)));
+            (OtherHeap,Word (theWord (s.store ' CurrHeap)));
+            (NextFree,Word pa1);
+            (EndOfHeap,
+             Word
+               (theWord (s.store ' OtherHeap) +
+                theWord (s.store ' HeapLength)));
+            (Globals,w1)] in
+       if c2 then SOME (s with
+                       <|stack := unused ++ stack; store := s1;
+                         regs := FEMPTY; memory := m1|>) else NONE``,
+  strip_tac \\ drule gc_lemma
+  \\ disch_then (fn th => fs [th])
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [LET_THM,word_gc_move_roots_bitmaps_def]
+  \\ CASE_TAC \\ fs []
+  THEN1
+   (rpt (split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs [])
+    \\ imp_res_tac word_gc_move_loop_ok)
+  \\ rpt (split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs [])
+  \\ Cases_on `dec_stack s.bitmaps ws2 (DROP s.stack_space s.stack)`
+  THEN1
+   (fs [] \\ rpt var_eq_tac \\ fs []
+    \\ imp_res_tac word_gc_move_loop_ok \\ fs []
+    \\ IF_CASES_TAC \\ fs [])
+  \\ fs [] \\ rpt var_eq_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []);
+
+
+(*
+
+enc_stack_def
+full_read_bitmap_def
+read_bitmap_def
+dec_stack_def
+map_bitmap_def
+word_gc_move_roots_def
+word_gc_move_loop_def
+word_gc_move_def
+memcpy_def
+word_gc_move_roots_bitmaps_def
+
+*)
+
 
 val alloc_correct = prove(
   ``alloc w s = (r,t) /\ r <> SOME Error /\
