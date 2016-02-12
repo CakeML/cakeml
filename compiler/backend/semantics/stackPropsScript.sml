@@ -35,7 +35,8 @@ val set_var_const = Q.store_thm("set_var_const[simp]",
   EVAL_TAC);
 
 val set_var_with_const = Q.store_thm("set_var_with_const[simp]",
-  `set_var x y (z with clock := k) = set_var x y z with clock := k`,
+  `set_var x y (z with clock := k) = set_var x y z with clock := k ∧
+   set_var x y (z with stack_space := k) = set_var x y z with stack_space := k`,
   EVAL_TAC);
 
 val get_var_imm_with_const = Q.store_thm("get_var_imm_with_const[simp]",
