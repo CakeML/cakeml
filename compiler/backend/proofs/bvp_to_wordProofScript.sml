@@ -2918,7 +2918,6 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
   \\ every_case_tac \\ fs []
   \\ fs [state_rel_def]);
 
-(*The termdep assumption might want to be moved elsewhere, not sure*)
 val state_rel_ext_def = Define `
   state_rel_ext (c,t',k',a',c',col) l1 l2 s u <=>
     ?t l.
@@ -2963,10 +2962,6 @@ val compile_correct = store_thm("compile_correct",
   \\ fs [LET_THM] \\ strip_tac THEN1 (fs [] \\ every_case_tac \\ fs [])
   \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs []
   \\ fs[inc_clock_def]
-  \\ qpat_abbrev_tac`t' = t with <|clock:=t.clock+clk; code:=l|>`
-  \\ `t' = t with <|clock:=t.clock+clk;termdep:=0;code:=l|>` by
-    (simp[wordSemTheory.state_component_equality,state_rel_ext_def,Abbr`t'`])
-  \\ fs[]
   \\ strip_tac \\ rpt var_eq_tac \\ fs []
   \\ rw [] \\ every_case_tac \\ fs []);
 
