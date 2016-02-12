@@ -254,6 +254,8 @@ val comp_correct = prove(
     \\ fs [state_component_equality,empty_env_def,LET_DEF])
   \\ qexists_tac `0` \\ fs [Once comp_def,evaluate_def,get_var_def,set_var_def]
   \\ every_case_tac \\ fs [] \\ rw [] \\ fs [get_var_def]
+  \\ fs [state_component_equality,empty_env_def,LET_DEF]
+  \\ rw [] \\ fs [] \\ rw []
   \\ fs [state_component_equality,empty_env_def,LET_DEF]);
 
 val compile_semantics = Q.store_thm("compile_semantics",
