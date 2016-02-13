@@ -262,6 +262,10 @@ val do_app_def = Define `
               | NONE => NONE
               | SOME s' => SOME (s with refs := s', Rval (Conv tuple_tag [])))
      | _ => NONE)
+  | (W8fromInt, [Litv (IntLit i)]) =>
+    SOME (s, Rval (Litv (Word8 (i2w i))))
+  | (W8toInt, [Litv (Word8 w)]) =>
+    SOME (s, Rval (Litv (IntLit (int_of_num (w2n w)))))
   | (Ord, [Litv (Char c)]) =>
     SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
   | (Chr, [Litv (IntLit i)]) =>
@@ -361,6 +365,8 @@ val do_app_cases = Q.store_thm("do_app_cases",
     (∃lnum i. op = (Op Aw8sub) ∧ vs = [Loc lnum; Litv (IntLit i)]) ∨
     (∃n. op = (Op Aw8length) ∧ vs = [Loc n]) ∨
     (∃lnum i w. op = (Op Aw8update) ∧ vs = [Loc lnum; Litv (IntLit i); Litv (Word8 w)]) ∨
+    (∃w. op = (Op W8toInt) ∧ vs = [Litv (Word8 w)]) ∨
+    (∃n. op = (Op W8fromInt) ∧ vs = [Litv (IntLit n)]) ∨
     (∃c. op = (Op Ord) ∧ vs = [Litv (Char c)]) ∨
     (∃n. op = (Op Chr) ∧ vs = [Litv (IntLit n)]) ∨
     (∃z c1 c2. op = (Op (Chopb z)) ∧ vs = [Litv (Char c1); Litv (Char c2)]) ∨
