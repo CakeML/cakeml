@@ -4,28 +4,28 @@ val _ = new_theory "clos_relation";
 
 val refl_list_rel_refl = Q.store_thm ("refl_list_rel_refl",
 `!r. (!x. r x x) ⇒ !l. LIST_REL r l l`,
- rw [] >>
+ srw_tac[][] >>
  match_mp_tac EVERY2_refl >>
- rw []);
+ srw_tac[][]);
 
 val bool_case_eq = Q.prove(
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  rw[] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]);
 
 val pair_case_eq = Q.prove (
 `pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
  Cases_on `x` >>
- rw []);
+ srw_tac[][]);
 
 val butlastn_nil = Q.store_thm ("butlastn_nil",
 `!n l. n ≤ LENGTH l ⇒ (BUTLASTN n l = [] ⇔ LENGTH l = n)`,
  Induct_on `n` >>
- rw [BUTLASTN]
- >- (Cases_on `l` >> rw []) >>
+ srw_tac[][BUTLASTN]
+ >- (Cases_on `l` >> srw_tac[][]) >>
  `l = [] ∨ ?x y. l = SNOC x y` by metis_tac [SNOC_CASES] >>
  ASM_REWRITE_TAC [BUTLASTN] >>
  simp [] >>
- fs [ADD1]);
+ full_simp_tac(srw_ss())[ADD1]);
 
 val _ = Datatype `
 val_or_exp =
@@ -51,13 +51,13 @@ val evaluate_ev_def = Define `
 val evaluate_ev_clock = Q.store_thm ("evaluate_ev_clock",
 `!x s1 vs s2. evaluate_ev c x s1 = (vs,s2) ⇒ s2.clock ≤ c`,
  Cases_on `x` >>
- rw [evaluate_ev_def] >>
- rw [] >>
+ srw_tac[][evaluate_ev_def] >>
+ srw_tac[][] >>
  BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac evaluate_clock >>
- fs [] >>
- rw [] >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
  decide_tac);
 
 val OPTREL_Cong = Q.store_thm(
@@ -149,14 +149,14 @@ val val_rel_def = tDefine "val_rel" `
                      | INR (INL (i,st,st')) => (i,3,0)
                      | INR (INR (INL (_,i,rv,rv'))) => (i,1,0)
                      | INR (INR (INR (i,s,s'))) => (i,2,0)` >>
- rw [] >>
+ srw_tac[][] >>
  rpt (first_x_assum (mp_tac o GSYM)) >>
- rw [] >>
+ srw_tac[][] >>
  imp_res_tac evaluate_ev_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  TRY decide_tac
  >- (Induct_on `vs` >>
-     rw [v_size_def] >>
+     srw_tac[][v_size_def] >>
      res_tac >>
      decide_tac));
 
@@ -188,12 +188,12 @@ val res_rel_rw = Q.store_thm ("res_rel_rw",
  (res_rel (Rerr (Rabort Rtimeout_error), s) x ⇔
    ?s'. x = (Rerr (Rabort Rtimeout_error), s') ∧ state_rel s.clock s s') ∧
  (res_rel (Rerr (Rabort Rtype_error), s) x ⇔ T)`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `x` >>
  Cases_on `q` >>
  TRY (Cases_on `e`) >>
  TRY (Cases_on `a`) >>
- fs [res_rel_def] >>
+ full_simp_tac(srw_ss())[res_rel_def] >>
  metis_tac []);
 
 val exp_rel_def = Define `
@@ -207,7 +207,7 @@ val val_rel_ind = theorem "val_rel_ind";
 
 val fun_lemma = Q.prove (
 `!f x. (\a a'. f x a a') = f x`,
- rw [FUN_EQ_THM]);
+ srw_tac[][FUN_EQ_THM]);
 
 fun find_clause good_const =
   good_const o fst o strip_comb o fst o dest_eq o snd o strip_forall o concl;
@@ -219,15 +219,15 @@ val result_store_cases = Q.store_thm ("result_store_cases",
   (r = (Rerr (Rabort Rtimeout_error), s)) ∨
   (r = (Rerr (Rabort Rtype_error), s))`,
  Cases_on `r` >>
- rw [] >>
+ srw_tac[][] >>
  qexists_tac `r'` >>
- rw [] >>
+ srw_tac[][] >>
  Cases_on `q` >>
- rw [] >>
+ srw_tac[][] >>
  Cases_on `e` >>
- rw [] >>
+ srw_tac[][] >>
  Cases_on `a` >>
- rw []);
+ srw_tac[][]);
 
 val val_rel_rw =
   let val clauses = CONJUNCTS val_rel_def
@@ -255,33 +255,33 @@ val ref_v_rel_rw = Q.store_thm ("ref_v_rel_rw",
    ?vs'. x = ValueArray vs' ∧
          LIST_REL (val_rel (:'ffi) c) vs vs')`,
  Cases_on `x` >>
- fs [Once val_rel_def, fun_lemma] >>
- fs [Once val_rel_def, fun_lemma] >>
+ full_simp_tac(srw_ss())[Once val_rel_def, fun_lemma] >>
+ full_simp_tac(srw_ss())[Once val_rel_def, fun_lemma] >>
  metis_tac []);
 
 val exec_rel_rw = Q.store_thm ("exec_rel_rw",
 `exec_rel i (x,s) (x',s') ⇔
   !i'. i' ≤ i ⇒
   res_rel (evaluate_ev i' x s) (evaluate_ev i' x' s')`,
- rw [] >>
+ srw_tac[][] >>
  ONCE_REWRITE_TAC [val_rel_def] >>
- rw [fun_lemma] >>
+ srw_tac[][fun_lemma] >>
  eq_tac >>
- fs [] >>
- rw []
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][]
  >- (strip_assume_tac (Q.ISPEC `evaluate_ev i' x s` result_store_cases) >>
      strip_assume_tac (Q.ISPEC `evaluate_ev i' x' s'` result_store_cases) >>
      simp [res_rel_rw] >>
      res_tac >>
-     fs [])
+     full_simp_tac(srw_ss())[])
  >- (first_x_assum (qspec_then `i'` mp_tac) >>
-     rw [] >>
+     srw_tac[][] >>
      strip_assume_tac (Q.ISPEC `evaluate_ev i' x s` result_store_cases) >>
      strip_assume_tac (Q.ISPEC `evaluate_ev i' x' s'` result_store_cases) >>
-     fs [] >>
-     rw [] >>
-     fs [res_rel_rw] >>
-     fs []));
+     full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[res_rel_rw] >>
+     full_simp_tac(srw_ss())[]));
 
 val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
 `!c v v'.
@@ -316,10 +316,10 @@ val val_rel_cl_rw = Q.store_thm ("val_rel_cl_rw",
         T
     else
       F)`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `v` >>
  Cases_on `v'` >>
- fs [val_rel_rw, is_closure_def] >>
+ full_simp_tac(srw_ss())[val_rel_rw, is_closure_def] >>
  metis_tac []);
 
 val val_rel_mono = Q.store_thm ("val_rel_mono",
@@ -328,11 +328,11 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
  (!(ffi:'ffi itself) i rv rv'. ref_v_rel ffi i rv rv' ⇒ !i'. i' ≤ i ⇒ ref_v_rel ffi i' rv rv') ∧
  (!i (s:'ffi closSem$state) s'. state_rel i s s' ⇒ !i'. i' ≤ i ⇒ state_rel i' s s')`,
  ho_match_mp_tac val_rel_ind >>
- rw [val_rel_rw, exec_rel_rw] >>
- fs [is_closure_def] >>
- rw []
- >- (fs [LIST_REL_EL_EQN] >>
-     rw [] >>
+ srw_tac[][val_rel_rw, exec_rel_rw] >>
+ full_simp_tac(srw_ss())[is_closure_def] >>
+ srw_tac[][]
+ >- (full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
+     srw_tac[][] >>
      metis_tac [MEM_EL])
  >- (first_x_assum match_mp_tac >>
      simp [])
@@ -340,17 +340,17 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
      simp [])
  >- (first_x_assum match_mp_tac >>
      simp [])
- >- fs [state_rel_rw]
- >- (fs [state_rel_rw, LIST_REL_EL_EQN] >>
-     rw [] >>
+ >- full_simp_tac(srw_ss())[state_rel_rw]
+ >- (full_simp_tac(srw_ss())[state_rel_rw, LIST_REL_EL_EQN] >>
+     srw_tac[][] >>
      metis_tac [MEM_EL])
- >- fs [state_rel_rw]
- >- fs [state_rel_rw]
+ >- full_simp_tac(srw_ss())[state_rel_rw]
+ >- full_simp_tac(srw_ss())[state_rel_rw]
  >- (qpat_assum `state_rel P1 P2 P3` mp_tac >>
      ONCE_REWRITE_TAC [state_rel_rw] >>
-     rw []
-     >- (fs [LIST_REL_EL_EQN] >>
-         rw [] >>
+     srw_tac[][]
+     >- (full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
+         srw_tac[][] >>
          qcase_tac `OPTREL (val_rel (:'ffi) N)
                       (EL idx s1.globals) (EL idx s2.globals)` >>
          first_x_assum (qspec_then `idx` mp_tac) >> simp[] >>
@@ -360,11 +360,11 @@ val val_rel_mono = Q.store_thm ("val_rel_mono",
      >- (imp_res_tac ((GEN_ALL o SIMP_RULE (srw_ss()) [AND_IMP_INTRO]) fmap_rel_mono) >>
          pop_assum kall_tac >>
          pop_assum match_mp_tac >>
-         rw [] >>
+         srw_tac[][] >>
          PairCases_on `x` >>
          PairCases_on `y` >>
-         fs [] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[] >>
+         srw_tac[][] >>
          `i'' < i` by decide_tac >>
          metis_tac [])));
 
@@ -373,16 +373,16 @@ val val_rel_mono_list = Q.store_thm ("val_rel_mono_list",
   i' ≤ i ∧ LIST_REL (val_rel (:'ffi) i) vs1 vs2
   ⇒
   LIST_REL (val_rel (:'ffi) i') vs1 vs2`,
- rw [LIST_REL_EL_EQN] >>
+ srw_tac[][LIST_REL_EL_EQN] >>
  metis_tac [val_rel_mono]);
 
 val state_rel_clock = Q.store_thm ("state_rel_clock[simp]",
 `!c1 c2 s s'.
   (state_rel c1 (s with clock := c2) s' ⇔ state_rel c1 s s') ∧
   (state_rel c1 s (s' with clock := c2) ⇔ state_rel c1 s s')`,
- rw [] >>
+ srw_tac[][] >>
  ONCE_REWRITE_TAC [state_rel_rw] >>
- rw []);
+ srw_tac[][]);
 
 val find_code_related = Q.store_thm ("find_code_related",
 `!c n vs (s:'ffi closSem$state) args e vs' s'.
@@ -394,23 +394,23 @@ val find_code_related = Q.store_thm ("find_code_related",
     find_code n vs' s'.code = SOME (args',e') ∧
     LIST_REL (val_rel (:'ffi) c) args args' ∧
     (c ≠ 0 ⇒ exec_rel (c-1) (Exp [e] args, s) (Exp [e'] args', s'))`,
- rw [find_code_def] >>
+ srw_tac[][find_code_def] >>
  `c-1 ≤ c` by decide_tac >>
  `state_rel (c-1) s s'` by metis_tac [val_rel_mono] >>
  qpat_assum `state_rel c s s'` mp_tac >>
  simp [Once state_rel_rw, fmap_rel_OPTREL_FLOOKUP] >>
- rw [] >>
+ srw_tac[][] >>
  first_assum (qspec_then `n` mp_tac) >>
  Cases_on `FLOOKUP s.code n` >>
- fs [OPTREL_SOME] >>
- rw [] >>
+ full_simp_tac(srw_ss())[OPTREL_SOME] >>
+ srw_tac[][] >>
  Cases_on `x` >>
  Cases_on `z` >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  simp [] >>
- rw []
+ srw_tac[][]
  >- metis_tac [LIST_REL_LENGTH] >>
- fs [AND_IMP_INTRO] >>
+ full_simp_tac(srw_ss())[AND_IMP_INTRO] >>
  first_x_assum match_mp_tac >>
  simp [] >>
  `c-1 ≤ c` by decide_tac >>
@@ -425,54 +425,54 @@ val dest_closure_opt = Q.store_thm ("dest_closure_opt",
   dest_closure loc v vs = SOME x
   ⇒
   ?x'. dest_closure loc v' vs' = SOME x'`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `loc`
  >- (Cases_on `v` >>
      Cases_on `v'` >>
-     fs [dest_closure_def, check_closures_def, is_closure_def, clo_to_num_params_def,
+     full_simp_tac(srw_ss())[dest_closure_def, check_closures_def, is_closure_def, clo_to_num_params_def,
          clo_to_partial_args_def, clo_can_apply_def, check_loc_def, rec_clo_ok_def,
          clo_to_loc_def]
      >- metis_tac []
      >- (Cases_on `EL n' l1` >>
          simp [] >>
-         rw [] >>
-         fs [NOT_LESS_EQUAL] >>
+         srw_tac[][] >>
+         full_simp_tac(srw_ss())[NOT_LESS_EQUAL] >>
          metis_tac [])
      >- (Cases_on `EL n l1` >>
          simp [] >>
-         rw [] >>
-         fs [LET_THM] >>
+         srw_tac[][] >>
+         full_simp_tac(srw_ss())[LET_THM] >>
          metis_tac [NOT_LESS_EQUAL])
      >- (Cases_on `EL n l1` >>
          Cases_on `EL n' l1'` >>
-         fs [LET_THM] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[LET_THM] >>
+         srw_tac[][] >>
          metis_tac [NOT_LESS_EQUAL])) >>
  Cases_on `v` >>
  Cases_on `v'` >>
- fs [dest_closure_def, check_loc_def, is_closure_def, check_closures_def, clo_to_loc_def,
+ full_simp_tac(srw_ss())[dest_closure_def, check_loc_def, is_closure_def, check_closures_def, clo_to_loc_def,
      clo_can_apply_def, clo_to_num_params_def, clo_to_partial_args_def, rec_clo_ok_def] >>
- rfs [] >>
+ rev_full_simp_tac(srw_ss())[] >>
  simp []
  >- metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM]
  >- (Cases_on `EL n' l1` >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      Cases_on `o''` >>
-     fs [] >>
-     rw [] >>
+     full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL])
  >- (Cases_on `EL n l1` >>
-     fs [LET_THM] >>
-     rfs [] >>
-     rw [] >>
-     fs [OPTION_MAP_DEF] >>
+     full_simp_tac(srw_ss())[LET_THM] >>
+     rev_full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[OPTION_MAP_DEF] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL])
  >- (Cases_on `EL n l1` >>
      Cases_on `EL n' l1'` >>
-     fs [LET_THM] >>
-     rfs [] >>
-     rw [] >>
-     fs [OPTION_MAP_DEF] >>
+     full_simp_tac(srw_ss())[LET_THM] >>
+     rev_full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[OPTION_MAP_DEF] >>
      metis_tac [NOT_SOME_NONE, LENGTH_EQ_NUM, NOT_LESS_EQUAL]));
 
 val dest_closure_full_split = Q.prove (
@@ -485,18 +485,18 @@ val dest_closure_full_split = Q.prove (
  simp [dest_closure_def] >>
  Cases_on `v1` >>
  simp [] >>
- fs [check_loc_def]
+ full_simp_tac(srw_ss())[check_loc_def]
  >- (DISCH_TAC >>
      Cases_on `LENGTH l + LENGTH vs < n` >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      simp [] >>
      full_simp_tac (srw_ss()++ARITH_ss) [DROP_NIL] >>
      Cases_on `LENGTH vs − LENGTH rest + LENGTH l < n` >>
      simp [] >>
-     rw [] >>
-     fs []
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[]
      >- decide_tac >>
-     fs [REVERSE_DROP] >>
+     full_simp_tac(srw_ss())[REVERSE_DROP] >>
      simp [] >>
      qabbrev_tac `i = n - LENGTH l` >>
      `0 < i` by decide_tac >>
@@ -504,19 +504,19 @@ val dest_closure_full_split = Q.prove (
      simp [TAKE_REVERSE, DROP_REVERSE, LENGTH_LASTN, LASTN_LASTN, BUTLASTN_LASTN_NIL] >>
      simp [BUTLASTN_TAKE, Abbr `i`])
  >- (Cases_on `EL n l1` >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      DISCH_TAC >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      Cases_on `LENGTH l + LENGTH vs < q` >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      simp [] >>
      full_simp_tac (srw_ss()++ARITH_ss) [DROP_NIL] >>
      Cases_on `LENGTH vs − LENGTH rest + LENGTH l < q` >>
      simp [] >>
-     rw [] >>
-     fs []
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[]
      >- decide_tac >>
-     fs [REVERSE_DROP] >>
+     full_simp_tac(srw_ss())[REVERSE_DROP] >>
      simp [] >>
      qabbrev_tac `i = q - LENGTH l` >>
      `0 < i` by decide_tac >>
@@ -567,42 +567,42 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
   ⇒
   res_rel (evaluate_app loc v vs s) (evaluate_app loc v' vs' s')`,
  qx_gen_tac `c` >> completeInduct_on `c` >>
- rw [] >>
- `vs' ≠ []` by (Cases_on `vs'` >> fs []) >>
- rw [evaluate_app_rw] >>
+ srw_tac[][] >>
+ `vs' ≠ []` by (Cases_on `vs'` >> full_simp_tac(srw_ss())[]) >>
+ srw_tac[][evaluate_app_rw] >>
  Cases_on `dest_closure loc v vs` >>
  simp [res_rel_rw] >>
  qcase_tac `dest_closure loc v vs = SOME c` >>
  `is_closure v ∧ is_closure v' ∧ check_closures v v'`
           by (Cases_on `v` >>
               Cases_on `v'` >>
-              fs [val_rel_rw, dest_closure_def, is_closure_def]) >>
+              full_simp_tac(srw_ss())[val_rel_rw, dest_closure_def, is_closure_def]) >>
  imp_res_tac LIST_REL_LENGTH >>
  `?c'. dest_closure loc v' vs' = SOME c'` by metis_tac [dest_closure_opt] >>
  simp [] >>
- `LENGTH vs ≠ 0` by (Cases_on `vs` >> fs []) >>
+ `LENGTH vs ≠ 0` by (Cases_on `vs` >> full_simp_tac(srw_ss())[]) >>
  Cases_on `s'.clock = 0` >>
- rw []
+ srw_tac[][]
  >- (Cases_on `c` >>
      Cases_on `c'` >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      imp_res_tac dest_closure_full_length >>
-     rw [res_rel_rw, dec_clock_def] >>
-     fs [] >>
+     srw_tac[][res_rel_rw, dec_clock_def] >>
+     full_simp_tac(srw_ss())[] >>
      TRY decide_tac
      >- (`LENGTH vs' + LENGTH (clo_to_partial_args v') < clo_to_num_params v' + LENGTH l0`
                    by decide_tac >>
-         rfs [])
+         rev_full_simp_tac(srw_ss())[])
      >- (`LENGTH vs' + LENGTH (clo_to_partial_args v') < clo_to_num_params v' + LENGTH l0'`
                 by decide_tac >>
-         rfs [])) >>
- Cases_on `c` >> Cases_on `c'` >> fs []
+         rev_full_simp_tac(srw_ss())[])) >>
+ Cases_on `c` >> Cases_on `c'` >> full_simp_tac(srw_ss())[]
  >- ((* Partial, Partial *)
      `loc = NONE` by metis_tac [dest_closure_none_loc] >>
      Cases_on `s'.clock < LENGTH vs'` >>
      simp [res_rel_rw, dec_clock_def]
      >- metis_tac [val_rel_mono, ZERO_LESS_EQ]
-     >- (fs [val_rel_cl_rw] >>
+     >- (full_simp_tac(srw_ss())[val_rel_cl_rw] >>
          `s'.clock - LENGTH vs ≤ s'.clock` by decide_tac >>
          first_x_assum
            (qspecl_then [`s'.clock - 1`, `vs`, `vs'`, `s`, `s'`, `NONE`]
@@ -635,7 +635,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
        by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
      pop_assum SUBST_ALL_TAC >>
      `0 < LENGTH used'` by lfs[] >>
-     `used' ≠ []` by (Cases_on `used'` >> fs[]) >>
+     `used' ≠ []` by (Cases_on `used'` >> full_simp_tac(srw_ss())[]) >>
      full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >> rveq >>
      simp[dec_clock_def] >>
@@ -645,7 +645,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      `is_closure cl0` by metis_tac[dest_closure_partial_is_closure] >>
      `LENGTH used' = LENGTH used`
         by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
-     `used ≠ []` by (spose_not_then assume_tac >> fs[]) >> fs[] >> rveq >>
+     `used ≠ []` by (spose_not_then assume_tac >> full_simp_tac(srw_ss())[]) >> full_simp_tac(srw_ss())[] >> rveq >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
      `LIST_REL (val_rel (:'ffi) st.clock) rest rest' ∧
       LIST_REL (val_rel (:'ffi) st.clock) used used'`
@@ -660,7 +660,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      IMP_RES_THEN strip_assume_tac val_rel_mono_list' >> simp[] >>
      simp[exec_rel_rw, evaluate_ev_def] >>
      disch_then (qspec_then `s0'.clock - 1` mp_tac) >> simp[] >>
-     Cases_on `LENGTH rest = 0` >- (fs[LENGTH_NIL] >> simp[]) >>
+     Cases_on `LENGTH rest = 0` >- (full_simp_tac(srw_ss())[LENGTH_NIL] >> simp[]) >>
      qabbrev_tac `
        ev0 = evaluate([b'],env',s0' with clock := s0'.clock - LENGTH used)` >>
      reverse
@@ -675,8 +675,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      qmatch_abbrev_tac `res_rel LHS (evaluate_app NONE rv' rest' s1')` >>
      `LHS = evaluate_app NONE cl0 rest (s0 with clock := s1'.clock)`
      suffices_by
-       (strip_tac >> simp[] >> first_assum irule >- (fs[LENGTH_NIL]) >>
-        simp[] >> strip_tac >> fs[] >> strip_tac >> fs[]) >>
+       (strip_tac >> simp[] >> first_assum irule >- (full_simp_tac(srw_ss())[LENGTH_NIL]) >>
+        simp[] >> strip_tac >> full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[]) >>
      qunabbrev_tac `LHS` >>
      `rest ≠ []` by metis_tac [LENGTH] >>
      `dest_closure NONE cl0 rest =
@@ -685,7 +685,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      simp[evaluate_app_rw] >> simp[dec_clock_def] >>
      qcase_tac `s0'.clock < LENGTH rr + LENGTH uu` >>
      `s0'.clock < LENGTH rr + LENGTH uu ⇔ s1'.clock < LENGTH rr` by simp[] >>
-     simp[] >> rw[] >>
+     simp[] >> srw_tac[][] >>
      Q.PAT_ASSUM `X = s1'.clock` (mp_tac o SYM) >> simp[])
  >- ((* Full, Partial *)
      qcase_tac `dest_closure loc v vs = SOME (Full_app b env rest)` >>
@@ -707,7 +707,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
        by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
      pop_assum SUBST_ALL_TAC >>
      `0 < LENGTH used` by lfs[] >>
-     `used ≠ []` by (Cases_on `used` >> fs[]) >>
+     `used ≠ []` by (Cases_on `used` >> full_simp_tac(srw_ss())[]) >>
      full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >> rveq >>
      simp[dec_clock_def] >>
@@ -717,7 +717,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      `is_closure cl0'` by metis_tac[dest_closure_partial_is_closure] >>
      `LENGTH used' = LENGTH used`
         by (first_x_assum (mp_tac o Q.AP_TERM `LENGTH`) >> simp[]) >>
-     `used' ≠ []` by (spose_not_then assume_tac >> fs[]) >> fs[] >> rveq >>
+     `used' ≠ []` by (spose_not_then assume_tac >> full_simp_tac(srw_ss())[]) >> full_simp_tac(srw_ss())[] >> rveq >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
      `LIST_REL (val_rel (:'ffi) st.clock) rest rest' ∧
       LIST_REL (val_rel (:'ffi) st.clock) used used'`
@@ -732,7 +732,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      IMP_RES_THEN strip_assume_tac val_rel_mono_list' >> simp[] >>
      simp[exec_rel_rw, evaluate_ev_def] >>
      disch_then (qspec_then `s0'.clock - 1` mp_tac) >> simp[] >>
-     Cases_on `LENGTH rest = 0` >- (fs[LENGTH_NIL] >> simp[]) >>
+     Cases_on `LENGTH rest = 0` >- (full_simp_tac(srw_ss())[LENGTH_NIL] >> simp[]) >>
      qabbrev_tac `
        ev0 = evaluate([b],env,s0 with clock := s0'.clock - LENGTH used)` >>
      reverse
@@ -747,8 +747,8 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
      qmatch_abbrev_tac `res_rel (evaluate_app NONE rv rest s1) RHS` >>
      `RHS = evaluate_app NONE cl0' rest' (s0' with clock := s1.clock)`
      suffices_by
-       (strip_tac >> simp[] >> first_assum irule >- (fs[LENGTH_NIL]) >>
-        simp[] >> strip_tac >> fs[]) >>
+       (strip_tac >> simp[] >> first_assum irule >- (full_simp_tac(srw_ss())[LENGTH_NIL]) >>
+        simp[] >> strip_tac >> full_simp_tac(srw_ss())[]) >>
      qunabbrev_tac `RHS` >>
      `rest' ≠ []` by metis_tac [LENGTH] >>
      `dest_closure NONE cl0' rest' =
@@ -769,14 +769,14 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
        by (ntac 2 (first_x_assum (assume_tac o Q.AP_TERM `list$LENGTH`)) >>
            rpt strip_tac >> lfs[]) >>
      `0 < LENGTH used1 ∧ 0 < LENGTH used2`
-         by (Cases_on `used1` >> Cases_on `used2` >> fs[]) >>
+         by (Cases_on `used1` >> Cases_on `used2` >> full_simp_tac(srw_ss())[]) >>
      rveq >> lfs[] >>
      rpt (Q.UNDISCH_THEN `bool$T` kall_tac) >>
      `LENGTH used1 = LENGTH used2 ∨ LENGTH used1 < LENGTH used2 ∨
       LENGTH used2 < LENGTH used1` by decide_tac
      >- ((* lengths equal *)
          full_simp_tac (srw_ss() ++ ARITH_ss ++ numSimps.ARITH_NORM_ss) [] >>
-         rw[] >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
+         srw_tac[][] >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, ZERO_LESS_EQ]) >>
          `LIST_REL (val_rel (:'ffi) s'.clock) rest1 rest2 ∧
           LIST_REL (val_rel (:'ffi) s'.clock) used1 used2`
            by metis_tac[EVERY2_APPEND, LENGTH_APPEND] >>
@@ -793,7 +793,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          disch_then (qspec_then `s'.clock - 1` mp_tac) >>
          simp[dec_clock_def, evaluate_def] >>
          Cases_on `rest1 = []`
-         >- (fs[LENGTH_NIL, LENGTH_NIL_SYM] >> rveq >> fs[evaluate_def]) >>
+         >- (full_simp_tac(srw_ss())[LENGTH_NIL, LENGTH_NIL_SYM] >> rveq >> full_simp_tac(srw_ss())[evaluate_def]) >>
          `(∃r1 s1.
             evaluate ([b1], env1, s with clock := s'.clock - LENGTH used2) =
             (r1, s1)) ∧
@@ -828,11 +828,11 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          qabbrev_tac `usfx2 = DROP (LENGTH used2 - LENGTH used1) used2` >>
          `LENGTH usfx2 = LENGTH used1` by simp[Abbr`usfx2`] >>
          `used2 = upfx2 ++ usfx2` by simp[Abbr`upfx2`, Abbr`usfx2`] >>
-         `usfx2 ≠ []` by (strip_tac >> fs[]) >>
-         markerLib.RM_ALL_ABBREVS_TAC >> rveq >> fs[] >>
-         full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> fs[] >>
+         `usfx2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
+         markerLib.RM_ALL_ABBREVS_TAC >> rveq >> full_simp_tac(srw_ss())[] >>
+         full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> full_simp_tac(srw_ss())[] >>
          simp[] >>
-         `upfx2 ≠ []` by (strip_tac >> fs[]) >>
+         `upfx2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
          `∃cl2. dest_closure NONE v' usfx2 = SOME (Partial_app cl2) ∧
                 dest_closure NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
            by metis_tac[dest_closure_NONE_Full_to_Partial] >>
@@ -871,7 +871,7 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
              disch_then SUBST1_TAC >> first_assum irule
              >- first_x_assum ACCEPT_TAC >>
              simp[] >> metis_tac[val_rel_mono_list, DECIDE ``x:num - y ≤ x``])>>
-         simp[Abbr`RHS`] >> fs[] >>
+         simp[Abbr`RHS`] >> full_simp_tac(srw_ss())[] >>
          simp[Once evaluate_app_rw, SimpRHS] >>
          Q.UNDISCH_THEN
            `dest_closure NONE cl2 upfx2 = SOME (Full_app b2 env2 [])`
@@ -881,10 +881,10 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                                       th)) >>
          disch_then (qspec_then `rest2` mp_tac) >>
          `LENGTH rest2 + LENGTH upfx2 ≤ max_app`
-           by (imp_res_tac dest_closure_full_maxapp >> fs[] >> simp[]) >>
+           by (imp_res_tac dest_closure_full_maxapp >> full_simp_tac(srw_ss())[] >> simp[]) >>
          simp[dec_clock_def] >>
          `LENGTH rest1 + LENGTH used1 - LENGTH rest2 =
-           LENGTH upfx2 + LENGTH used1` by simp[] >> simp[] >> rw[] >>
+           LENGTH upfx2 + LENGTH used1` by simp[] >> simp[] >> srw_tac[][] >>
          `s2.clock - (LENGTH upfx2 + LENGTH used1) =
           LENGTH rest2 + s2.clock - (LENGTH rest1 + LENGTH used1)` by simp[] >>
           simp[]
@@ -901,11 +901,11 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          qabbrev_tac `usfx1 = DROP (LENGTH used1 - LENGTH used2) used1` >>
          `LENGTH usfx1 = LENGTH used2` by simp[Abbr`usfx1`] >>
          `used1 = upfx1 ++ usfx1` by simp[Abbr`upfx1`, Abbr`usfx1`] >>
-         `usfx1 ≠ []` by (strip_tac >> fs[]) >>
-         markerLib.RM_ALL_ABBREVS_TAC >> rveq >> fs[] >>
-         full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> fs[] >>
+         `usfx1 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
+         markerLib.RM_ALL_ABBREVS_TAC >> rveq >> full_simp_tac(srw_ss())[] >>
+         full_simp_tac (srw_ss() ++ numSimps.ARITH_NORM_ss) [] >> full_simp_tac(srw_ss())[] >>
          simp[] >>
-         `upfx1 ≠ []` by (strip_tac >> fs[]) >>
+         `upfx1 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
          `∃cl1. dest_closure NONE v usfx1 = SOME (Partial_app cl1) ∧
                 dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
            by metis_tac[dest_closure_NONE_Full_to_Partial] >>
@@ -937,14 +937,14 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
          dsimp[SimpL ``$==>``, res_rel_rw, bool_case_eq, eqs, pair_case_eq] >>
          simp[] >> strip_tac >>
          qmatch_abbrev_tac `res_rel LHS (evaluate_app NONE rv2 rest2 s2)` >>
-         fs[] >> qcase_tac `state_rel s2.clock s1 s2` >>
+         full_simp_tac(srw_ss())[] >> qcase_tac `state_rel s2.clock s1 s2` >>
          `LHS = evaluate_app NONE cl1 (rest1 ++ upfx1)
                    (s1 with clock := s2.clock)`
            suffices_by (
              disch_then SUBST1_TAC >> first_assum irule
-             >- fs[LENGTH_NIL] >>
+             >- full_simp_tac(srw_ss())[LENGTH_NIL] >>
              simp[] >> metis_tac[val_rel_mono_list, DECIDE ``x:num - y ≤ x``])>>
-         simp[Abbr`LHS`] >> fs[] >>
+         simp[Abbr`LHS`] >> full_simp_tac(srw_ss())[] >>
          simp[Once evaluate_app_rw, SimpRHS] >>
          Q.UNDISCH_THEN
            `dest_closure NONE cl1 upfx1 = SOME (Full_app b1 env1 [])`
@@ -954,10 +954,10 @@ val res_rel_evaluate_app = Q.store_thm ("res_rel_evaluate_app",
                                       th)) >>
          disch_then (qspec_then `rest1` mp_tac) >>
          `LENGTH rest1 + LENGTH upfx1 ≤ max_app`
-           by (imp_res_tac dest_closure_full_maxapp >> fs[] >> simp[]) >>
+           by (imp_res_tac dest_closure_full_maxapp >> full_simp_tac(srw_ss())[] >> simp[]) >>
          simp[dec_clock_def] >>
          `s'.clock < LENGTH upfx1 + LENGTH used2 ⇔ s2.clock < LENGTH upfx1`
-            by simp[] >> simp[] >> rw[] >>
+            by simp[] >> simp[] >> srw_tac[][] >>
          `s'.clock - (LENGTH upfx1 + LENGTH used2) = s2.clock - LENGTH upfx1`
             by simp[] >>
          simp[]
@@ -973,12 +973,12 @@ val state_rel_refs = Q.prove (
   ?rv'.
     FLOOKUP s'.refs p = SOME rv' ∧
     ref_v_rel (:'ffi) c rv rv'`,
- rw [Once state_rel_rw] >>
- fs [fmap_rel_OPTREL_FLOOKUP] >>
+ srw_tac[][Once state_rel_rw] >>
+ full_simp_tac(srw_ss())[fmap_rel_OPTREL_FLOOKUP] >>
  last_x_assum (qspec_then `p` mp_tac) >>
- fs [OPTREL_SOME] >>
- rw [] >>
- fs []);
+ full_simp_tac(srw_ss())[OPTREL_SOME] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[]);
 
 val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
 `(!v1 v2 i v1' v2' res.
@@ -997,11 +997,11 @@ val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
    simp[PULL_FORALL]
    \\ rpt gen_tac \\ strip_tac
    \\ strip_tac
-   \\ Cases_on`v1`\\Cases_on`v1'`\\fs[val_rel_rw,is_closure_def]
-   \\ rw[do_eq_def]
-   \\ every_case_tac \\ fs[val_rel_rw,is_closure_def]
+   \\ Cases_on`v1`\\Cases_on`v1'`\\full_simp_tac(srw_ss())[val_rel_rw,is_closure_def]
+   \\ srw_tac[][do_eq_def]
+   \\ every_case_tac \\ full_simp_tac(srw_ss())[val_rel_rw,is_closure_def]
    \\ metis_tac[LIST_REL_LENGTH] )
- \\ conj_tac >- rw[do_eq_def]
+ \\ conj_tac >- srw_tac[][do_eq_def]
  \\ conj_tac
  >- (
    simp[PULL_FORALL]
@@ -1009,20 +1009,20 @@ val do_eq_val_rel = Q.store_thm ("do_eq_val_rel",
    \\ strip_tac \\ rveq
    \\ simp[Once do_eq_def]
    \\ simp[Once do_eq_def,SimpRHS]
-   \\ every_case_tac \\ fs[val_rel_rw,is_closure_def]
+   \\ every_case_tac \\ full_simp_tac(srw_ss())[val_rel_rw,is_closure_def]
    \\ metis_tac[LIST_REL_LENGTH,semanticPrimitivesTheory.eq_result_11,semanticPrimitivesTheory.eq_result_distinct] )
- \\ rw[do_eq_def]
- \\ rw[do_eq_def]);
+ \\ srw_tac[][do_eq_def]
+ \\ srw_tac[][do_eq_def]);
 
 val get_global_state_rel = Q.store_thm ("get_global_state_rel",
 `!i (s : 'ffi closSem$state) s'.
   state_rel i s s'
   ⇒
   OPTREL (OPTREL (val_rel (:'ffi) i)) (get_global n s.globals) (get_global n s'.globals)`,
- rw [Once state_rel_rw, get_global_def] >>
- fs [quotient_optionTheory.OPTION_REL_def] >>
+ srw_tac[][Once state_rel_rw, get_global_def] >>
+ full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def] >>
  imp_res_tac LIST_REL_LENGTH >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  metis_tac [LIST_REL_EL_EQN]);
 
 val v_to_list_val_rel = Q.store_thm ("v_to_list_val_rel",
@@ -1031,15 +1031,15 @@ val v_to_list_val_rel = Q.store_thm ("v_to_list_val_rel",
   ⇒
   OPTREL (LIST_REL (val_rel (:'ffi) i)) (v_to_list v) (v_to_list v')`,
  ho_match_mp_tac v_to_list_ind >>
- rw [v_to_list_def] >>
+ srw_tac[][v_to_list_def] >>
  Cases_on `v'` >>
- rw [v_to_list_def] >>
- fs [val_rel_rw, is_closure_def] >>
- rw [v_to_list_def, OPTREL_SOME] >>
+ srw_tac[][v_to_list_def] >>
+ full_simp_tac(srw_ss())[val_rel_rw, is_closure_def] >>
+ srw_tac[][v_to_list_def, OPTREL_SOME] >>
  TRY (simp [OPTREL_def] >> NO_TAC) >>
  every_case_tac >>
- rw [] >>
- fs [OPTREL_def] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[OPTREL_def] >>
  metis_tac [NOT_SOME_NONE, SOME_11]);
 
 val list_to_v_val_rel = Q.store_thm ("list_to_v_val_rel",
@@ -1048,8 +1048,8 @@ val list_to_v_val_rel = Q.store_thm ("list_to_v_val_rel",
   ⇒
   val_rel (:'ffi) i (list_to_v vs) (list_to_v vs')`,
  Induct_on `vs` >>
- rw [list_to_v_def, val_rel_rw] >>
- rw [list_to_v_def, val_rel_rw]);
+ srw_tac[][list_to_v_def, val_rel_rw] >>
+ srw_tac[][list_to_v_def, val_rel_rw]);
 
 val res_rel_do_app = Q.store_thm ("res_rel_do_app",
 `!c op vs vs' (s:'ffi closSem$state) s'.
@@ -1065,224 +1065,224 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
   (case do_app op (REVERSE vs') s' of
      Rval (v,s') => (Rval [v],s')
    | Rerr err => (Rerr err,s'))`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `do_app op (REVERSE vs) s`
  >- (`?v s'. a = (v,s')` by metis_tac [pair_CASES] >>
-     rw [] >>
-     rw [res_rel_rw] >>
+     srw_tac[][] >>
+     srw_tac[][res_rel_rw] >>
      imp_res_tac do_app_cases_val >>
-     fs [] >>
-     rw [] >>
-     fs [do_app_def, val_rel_rw]
+     full_simp_tac(srw_ss())[] >>
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[do_app_def, val_rel_rw]
      >- ((* global lookup *)
        imp_res_tac get_global_state_rel >>
        pop_assum (qspec_then `n` mp_tac) >>
        simp [OPTREL_SOME] >>
-       rw [] >>
-       rw [])
+       srw_tac[][] >>
+       srw_tac[][])
      >- ((* global init *)
        imp_res_tac get_global_state_rel >>
        pop_assum (qspec_then `n'` mp_tac) >>
        simp [OPTREL_SOME] >>
-       rw [] >>
-       rw [] >>
-       fs [OPTREL_def, val_rel_rw, Unit_def] >>
+       srw_tac[][] >>
+       srw_tac[][] >>
+       full_simp_tac(srw_ss())[OPTREL_def, val_rel_rw, Unit_def] >>
        rpt (pop_assum mp_tac) >>
        ONCE_REWRITE_TAC [state_rel_rw] >>
-       rw [] >>
+       srw_tac[][] >>
        match_mp_tac EVERY2_LUPDATE_same >>
-       rw [OPTREL_SOME])
+       srw_tac[][OPTREL_SOME])
      >- ((* global extend *)
-       rw [Unit_def, val_rel_rw] >>
+       srw_tac[][Unit_def, val_rel_rw] >>
        rpt (pop_assum mp_tac) >>
        ONCE_REWRITE_TAC [state_rel_rw] >>
-       rw [] >>
-       rw [OPTREL_def])
-     >- rw [EVERY2_REVERSE]
-     >- (fs [SWAP_REVERSE_SYM] >>
+       srw_tac[][] >>
+       srw_tac[][OPTREL_def])
+     >- srw_tac[][EVERY2_REVERSE]
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [] >>
-         fs [LIST_REL_EL_EQN] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][] >>
+         full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
          decide_tac)
      >- (Cases_on `y` >>
-         fs [val_rel_rw, LIST_REL_EL_EQN])
+         full_simp_tac(srw_ss())[val_rel_rw, LIST_REL_EL_EQN])
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
          imp_res_tac state_rel_refs >>
-         fs [val_rel_rw, ref_v_rel_rw] >>
-         rw [val_rel_rw] >>
-         fs [LIST_REL_EL_EQN])
+         full_simp_tac(srw_ss())[val_rel_rw, ref_v_rel_rw] >>
+         srw_tac[][val_rel_rw] >>
+         full_simp_tac(srw_ss())[LIST_REL_EL_EQN])
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
          imp_res_tac state_rel_refs >>
-         fs [val_rel_rw, ref_v_rel_rw] >>
-         rw [val_rel_rw, LIST_REL_EL_EQN])
-     >- (fs [LET_THM, SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw, ref_v_rel_rw] >>
+         srw_tac[][val_rel_rw, LIST_REL_EL_EQN])
+     >- (full_simp_tac(srw_ss())[LET_THM, SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw] >>
          `(LEAST ptr. ptr ∉ FDOM s.refs) = LEAST ptr. ptr ∉ FDOM s'.refs`
-                by fs [Once state_rel_rw, fmap_rel_def] >>
-         fs [Once state_rel_rw] >>
+                by full_simp_tac(srw_ss())[Once state_rel_rw, fmap_rel_def] >>
+         full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
-         rw [ref_v_rel_rw])
-     >- (fs [LET_THM, SWAP_REVERSE_SYM] >>
+         srw_tac[][ref_v_rel_rw])
+     >- (full_simp_tac(srw_ss())[LET_THM, SWAP_REVERSE_SYM] >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw] >>
          `(LEAST ptr. ptr ∉ FDOM s.refs) = LEAST ptr. ptr ∉ FDOM s'.refs`
-                by fs [Once state_rel_rw, fmap_rel_def] >>
-         fs [Once state_rel_rw] >>
+                by full_simp_tac(srw_ss())[Once state_rel_rw, fmap_rel_def] >>
+         full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
-         rw [ref_v_rel_rw, LIST_REL_REPLICATE_same])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         srw_tac[][ref_v_rel_rw, LIST_REL_REPLICATE_same])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw] >>
          imp_res_tac state_rel_refs >>
-         fs [ref_v_rel_rw] >>
-         rw [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[ref_v_rel_rw] >>
+         srw_tac[][val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
          Cases_on `y''` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw] >>
          imp_res_tac state_rel_refs >>
-         fs [ref_v_rel_rw] >>
-         rw [val_rel_rw, Unit_def] >>
-         fs [Once state_rel_rw] >>
+         full_simp_tac(srw_ss())[ref_v_rel_rw] >>
+         srw_tac[][val_rel_rw, Unit_def] >>
+         full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
          simp [state_rel_rw])
      >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>
        simp [OPTREL_SOME] >>
-       rw [] >>
-       rw [val_rel_rw])
+       srw_tac[][] >>
+       srw_tac[][val_rel_rw])
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
          metis_tac [list_to_v_val_rel])
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw, Boolv_def] >>
-         fs [LIST_REL_EL_EQN])
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw, Boolv_def] >>
+         full_simp_tac(srw_ss())[LIST_REL_EL_EQN])
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw, Boolv_def])
-     >- (fs [LET_THM] >>
-         rw [val_rel_rw] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw, Boolv_def])
+     >- (full_simp_tac(srw_ss())[LET_THM] >>
+         srw_tac[][val_rel_rw] >>
          `(LEAST ptr. ptr ∉ FDOM s.refs) = LEAST ptr. ptr ∉ FDOM s'.refs`
-                by fs [Once state_rel_rw, fmap_rel_def] >>
-         fs [Once state_rel_rw] >>
+                by full_simp_tac(srw_ss())[Once state_rel_rw, fmap_rel_def] >>
+         full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
-         rw [ref_v_rel_rw, EVERY2_REVERSE])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         srw_tac[][ref_v_rel_rw, EVERY2_REVERSE])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][] >>
          imp_res_tac state_rel_refs >>
-         fs [ref_v_rel_rw, LIST_REL_EL_EQN] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[ref_v_rel_rw, LIST_REL_EL_EQN] >>
+         srw_tac[][] >>
          `Num i < LENGTH xs` by intLib.ARITH_TAC
          >- metis_tac [MEM_EL] >>
          intLib.ARITH_TAC)
-     >- (fs [SWAP_REVERSE_SYM] >>
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y'` >>
          Cases_on `y''` >>
-         fs [val_rel_rw] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][] >>
          imp_res_tac state_rel_refs >>
-         fs [ref_v_rel_rw, LIST_REL_EL_EQN] >>
-         rw [val_rel_rw, Unit_def]
-         >- (fs [Once state_rel_rw] >>
+         full_simp_tac(srw_ss())[ref_v_rel_rw, LIST_REL_EL_EQN] >>
+         srw_tac[][val_rel_rw, Unit_def]
+         >- (full_simp_tac(srw_ss())[Once state_rel_rw] >>
              match_mp_tac fmap_rel_FUPDATE_same >>
-             rw [ref_v_rel_rw] >>
+             srw_tac[][ref_v_rel_rw] >>
              match_mp_tac EVERY2_LUPDATE_same >>
-             rw [LIST_REL_EL_EQN])
+             srw_tac[][LIST_REL_EL_EQN])
          >- intLib.ARITH_TAC)
      >- (Cases_on `y` >>
-         fs [val_rel_rw] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][] >>
          imp_res_tac state_rel_refs >>
-         fs [ref_v_rel_rw, LIST_REL_EL_EQN] >>
-         rw [] >>
-         `s'.ffi = s.ffi` by fs [Once state_rel_rw] >>
-         rw [Unit_def, val_rel_rw] >>
-         fs [Once state_rel_rw] >>
+         full_simp_tac(srw_ss())[ref_v_rel_rw, LIST_REL_EL_EQN] >>
+         srw_tac[][] >>
+         `s'.ffi = s.ffi` by full_simp_tac(srw_ss())[Once state_rel_rw] >>
+         srw_tac[][Unit_def, val_rel_rw] >>
+         full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
-         rw [ref_v_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         srw_tac[][ref_v_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `do_eq x1 x2` >>
-         fs [] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[] >>
+         srw_tac[][] >>
          `do_eq y' y = Eq_val b` by metis_tac [do_eq_val_rel] >>
-         rw [val_rel_rw, Boolv_def])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         srw_tac[][val_rel_rw, Boolv_def])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw] >>
-         rw [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw] >>
+         srw_tac[][val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw, Boolv_def] >>
-         rw [val_rel_rw])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def] >>
+         srw_tac[][val_rel_rw])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw, Boolv_def])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw, Boolv_def])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw, Boolv_def])
-     >- (fs [SWAP_REVERSE_SYM] >>
+         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def])
+     >- (full_simp_tac(srw_ss())[SWAP_REVERSE_SYM] >>
          Cases_on `y` >>
          Cases_on `y'` >>
-         fs [val_rel_rw, Boolv_def]))
+         full_simp_tac(srw_ss())[val_rel_rw, Boolv_def]))
  >- (Cases_on `e` >>
-     rw [res_rel_rw]
+     srw_tac[][res_rel_rw]
      >- (imp_res_tac do_app_cases_err >>
-         fs [] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[] >>
+         srw_tac[][] >>
          Cases_on `do_eq x1 x2` >>
-         fs [] >>
+         full_simp_tac(srw_ss())[] >>
          `vs = REVERSE [x1;x2]` by metis_tac [REVERSE_REVERSE] >>
-         rw [] >>
-         fs [] >>
-         rw [do_app_def] >>
+         srw_tac[][] >>
+         full_simp_tac(srw_ss())[] >>
+         srw_tac[][do_app_def] >>
          imp_res_tac do_eq_val_rel >>
          every_case_tac >>
-         fs [val_rel_rw])
+         full_simp_tac(srw_ss())[val_rel_rw])
      >- (Cases_on `a` >>
-         fs [res_rel_rw] >>
+         full_simp_tac(srw_ss())[res_rel_rw] >>
          imp_res_tac do_app_cases_timeout >>
-         fs [] >>
-         rw [] >>
+         full_simp_tac(srw_ss())[] >>
+         srw_tac[][] >>
          Cases_on `do_eq x1 x2` >>
-         fs [])));
+         full_simp_tac(srw_ss())[])));
 
 val val_rel_lookup_vars = Q.store_thm ("val_rel_lookup_vars",
 `!c vars vs1 vs1' vs2.
@@ -1293,15 +1293,15 @@ val val_rel_lookup_vars = Q.store_thm ("val_rel_lookup_vars",
     lookup_vars vars vs1' = SOME vs2' ∧
     LIST_REL (val_rel (:'ffi) c) vs2 vs2'`,
  Induct_on `vars` >>
- fs [lookup_vars_def] >>
- rw [] >>
+ full_simp_tac(srw_ss())[lookup_vars_def] >>
+ srw_tac[][] >>
  every_case_tac >>
- fs []
- >- (res_tac >> fs []) >>
+ full_simp_tac(srw_ss())[]
+ >- (res_tac >> full_simp_tac(srw_ss())[]) >>
  imp_res_tac LIST_REL_LENGTH >>
- fs [] >>
- rw []
- >- (fs [LIST_REL_EL_EQN] >> metis_tac [MEM_EL]) >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][]
+ >- (full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> metis_tac [MEM_EL]) >>
  metis_tac [SOME_11]);
 
 val val_rel_clos_env = Q.store_thm ("val_rel_clos_env",
@@ -1312,13 +1312,13 @@ val val_rel_clos_env = Q.store_thm ("val_rel_clos_env",
   ?vs2'.
     clos_env restrict vars vs1' = SOME vs2' ∧
     LIST_REL (val_rel (:'ffi) c) vs2 vs2'`,
- rw [clos_env_def] >>
- rw [] >>
+ srw_tac[][clos_env_def] >>
+ srw_tac[][] >>
  metis_tac [val_rel_lookup_vars]);
 
 val compat_nil = Q.store_thm ("compat_nil",
 `exp_rel (:'ffi) [] []`,
- rw [exp_rel_def, exec_rel_rw, evaluate_def, res_rel_rw, evaluate_ev_def] >>
+ srw_tac[][exp_rel_def, exec_rel_rw, evaluate_def, res_rel_rw, evaluate_ev_def] >>
  metis_tac [val_rel_mono]);
 
 val compat_cons = Q.store_thm ("compat_cons",
@@ -1327,48 +1327,48 @@ val compat_cons = Q.store_thm ("compat_cons",
   exp_rel (:'ffi) es es'
   ⇒
   exp_rel (:'ffi) (e::es) (e'::es')`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_ev_def] >>
  ONCE_REWRITE_TAC [evaluate_CONS] >>
- rw [] >>
+ srw_tac[][] >>
  `exec_rel i' (Exp [e] env, s with clock := i') (Exp [e'] env', s' with clock := i')`
          by metis_tac [val_rel_mono_list, val_rel_mono, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [exec_rel_rw, evaluate_ev_def] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  reverse ((Q.ISPEC_THEN `evaluate ([e],env,s with clock := i')`strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  first_x_assum (qspecl_then [`s''.clock`, `env`, `env'`, `s''`, `s'''`] mp_tac) >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  `LIST_REL (val_rel (:'ffi) s'''.clock) env env'` by metis_tac [val_rel_mono_list] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `s'''.clock` mp_tac) >>
- rw [clock_lemmas] >>
+ srw_tac[][clock_lemmas] >>
  `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  reverse (Q.ISPEC_THEN `evaluate (es,env,s'')` strip_assume_tac result_store_cases) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac evaluate_SING >>
- fs [] >>
- rw [] >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
  metis_tac [val_rel_mono]);
 
 val compat_var = Q.store_thm ("compat_var",
 `!n. exp_rel (:'ffi) [Var n] [Var n]`,
- rw [exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
- rw [res_rel_rw] >>
- fs [LIST_REL_EL_EQN] >>
+ srw_tac[][exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
  metis_tac [MEM_EL, val_rel_mono]);
 
 val compat_if = Q.store_thm ("compat_if",
@@ -1378,32 +1378,32 @@ val compat_if = Q.store_thm ("compat_if",
   exp_rel (:'ffi) [e3] [e3']
   ⇒
   exp_rel (:'ffi) [If e1 e2 e3] [If e1' e2' e3']`,
- rw [Boolv_def, exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
- fs [PULL_FORALL] >>
+ srw_tac[][Boolv_def, exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
+ full_simp_tac(srw_ss())[PULL_FORALL] >>
  imp_res_tac val_rel_mono >>
  imp_res_tac val_rel_mono_list >>
  last_x_assum (qspecl_then [`i'`, `env`, `env'`, `s`, `s'`, `i'`] mp_tac) >>
  reverse ((Q.ISPEC_THEN `evaluate ([e1],env,s with clock := i')`strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
+ srw_tac[][res_rel_rw] >>
  simp []
  >- metis_tac [] >>
  `?v v'. vs = [v] ∧ vs' = [v']` by metis_tac [evaluate_SING] >>
- fs [] >>
- rw [] >>
- fs [val_rel_rw]
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[val_rel_rw]
  >- (imp_res_tac evaluate_clock >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      metis_tac [val_rel_mono_list, LESS_EQ_REFL, clock_lemmas])
  >- (Cases_on `v'` >>
-     fs [val_rel_rw] >>
-     fs [])
+     full_simp_tac(srw_ss())[val_rel_rw] >>
+     full_simp_tac(srw_ss())[])
  >- (imp_res_tac evaluate_clock >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      metis_tac [val_rel_mono_list, LESS_EQ_REFL, clock_lemmas])
  >- (Cases_on `v'` >>
-     fs [val_rel_rw] >>
-     fs []));
+     full_simp_tac(srw_ss())[val_rel_rw] >>
+     full_simp_tac(srw_ss())[]));
 
 val compat_let = Q.store_thm ("compat_let",
 `!e es e' es'.
@@ -1411,24 +1411,24 @@ val compat_let = Q.store_thm ("compat_let",
   exp_rel (:'ffi) [e] [e']
   ⇒
   exp_rel (:'ffi) [Let es e] [Let es' e']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_ev_def, evaluate_def] >>
- rw [] >>
+ srw_tac[][] >>
  `exec_rel i' (Exp es env, s with clock := i') (Exp es' env', s' with clock := i')`
          by metis_tac [val_rel_mono_list, val_rel_mono, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  reverse ((Q.ISPEC_THEN `evaluate (es,env,s with clock := i')`strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  first_x_assum (qspecl_then [`s''.clock`, `vs++env`, `vs'++env'`, `s''`, `s'''`] mp_tac) >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  `LIST_REL (val_rel (:'ffi) s'''.clock) env env'` by metis_tac [val_rel_mono_list] >>
  imp_res_tac EVERY2_APPEND >>
  simp [evaluate_ev_def, exec_rel_rw] >>
@@ -1439,23 +1439,23 @@ val compat_raise = Q.store_thm ("compat_raise",
   exp_rel (:'ffi) [e] [e']
   ⇒
   exp_rel (:'ffi) [Raise e] [Raise e']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [evaluate_def] >>
+ srw_tac[][evaluate_def] >>
  `exec_rel i' (Exp [e] env, s with clock := i') (Exp [e'] env', s' with clock := i')`
          by metis_tac [val_rel_mono, val_rel_mono_list, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  reverse ((Q.ISPEC_THEN `evaluate ([e],env,s with clock := i')`strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  imp_res_tac evaluate_SING >>
- fs []);
+ full_simp_tac(srw_ss())[]);
 
 val compat_handle = Q.store_thm ("compat_handle",
 `!e1 e2 e1' e2'.
@@ -1463,86 +1463,86 @@ val compat_handle = Q.store_thm ("compat_handle",
   exp_rel (:'ffi) [e2] [e2']
   ⇒
   exp_rel (:'ffi) [Handle e1 e2] [Handle e1' e2']`,
- rw [exp_rel_def] >>
- rw [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
+ srw_tac[][exp_rel_def] >>
+ srw_tac[][evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  `exec_rel i' (Exp [e1] env,s with clock := i') (Exp [e1'] env',s' with clock := i')`
          by metis_tac [val_rel_mono, val_rel_mono_list, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  reverse ((Q.ISPEC_THEN `evaluate ([e1],env,s with clock := i')` strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw] >>
- rw [] >>
- fs [] >>
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac val_rel_mono_list >>
  first_x_assum (qspecl_then [`s''.clock`, `v::env`, `v'::env'`, `s''`, `s'''`] mp_tac) >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `s'''.clock` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
- fs [clock_lemmas] >>
+ full_simp_tac(srw_ss())[clock_lemmas] >>
  reverse (strip_assume_tac (Q.ISPEC `evaluate ([e2],v::env,s'')`
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]);
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]);
 
 val compat_tick = Q.store_thm ("compat_tick",
 `!e e'.
   exp_rel (:'ffi) [e] [e']
   ⇒
   exp_rel (:'ffi) [Tick e] [Tick e']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [evaluate_def, res_rel_rw]
+ srw_tac[][evaluate_def, res_rel_rw]
  >- (`0 ≤ i` by decide_tac >>
      metis_tac [val_rel_mono]) >>
- fs [dec_clock_def] >>
+ full_simp_tac(srw_ss())[dec_clock_def] >>
  `exec_rel i' (Exp [e] env,s with clock := i'-1) (Exp [e'] env',s' with clock := i'-1)`
          by metis_tac [val_rel_mono, val_rel_mono_list, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw []);
+ srw_tac[][]);
 
 val compat_call = Q.store_thm ("compat_call",
 `!n es es'.
   exp_rel (:'ffi) es es'
   ⇒
   exp_rel (:'ffi) [Call n es] [Call n es']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
- rw [] >>
+ srw_tac[][] >>
  `exec_rel i' (Exp es env, s with clock := i') (Exp es' env', s' with clock := i')`
          by metis_tac [val_rel_mono_list, val_rel_mono, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
+ srw_tac[][] >>
  reverse ((Q.ISPEC_THEN `evaluate (es,env,s with clock := i')`strip_assume_tac
                          result_store_cases)) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  Cases_on `find_code n vs s''.code` >>
- fs [res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw] >>
  `?args e. x = (args,e)` by metis_tac [pair_CASES] >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  `?args' e'.
    find_code n vs' s'''.code = SOME (args',e') ∧
    LIST_REL (val_rel (:'ffi) s'''.clock) args args' ∧
    (s'''.clock ≠ 0 ⇒ exec_rel (s'''.clock − 1) (Exp [e] args,s'') (Exp [e'] args',s'''))`
          by metis_tac [find_code_related] >>
- rw [res_rel_rw]
+ srw_tac[][res_rel_rw]
  >- (`0 ≤ i` by decide_tac >>
      metis_tac [val_rel_mono]) >>
- fs [evaluate_ev_def, exec_rel_rw, dec_clock_def] >>
+ full_simp_tac(srw_ss())[evaluate_ev_def, exec_rel_rw, dec_clock_def] >>
  `s'''.clock - 1 ≤ s'''.clock - 1` by decide_tac >>
  metis_tac []);
 
@@ -1552,7 +1552,7 @@ val compat_app = Q.store_thm ("compat_app",
   exp_rel (:'ffi) es es'
   ⇒
   exp_rel (:'ffi) [App loc e es] [App loc e' es']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [evaluate_ev_def, exec_rel_rw, evaluate_def] >>
  Cases_on `LENGTH es > 0` >>
  simp [res_rel_rw] >>
@@ -1563,39 +1563,39 @@ val compat_app = Q.store_thm ("compat_app",
  imp_res_tac val_rel_mono_list >>
  simp [evaluate_ev_def, exec_rel_rw] >>
  disch_then (qspec_then `j` assume_tac) >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  reverse ((Q.ISPEC_THEN `evaluate (es,env,s with clock := j)`strip_assume_tac
                          result_store_cases)) >>
- fs [res_rel_rw]
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- (Cases_on `es'` >>
-     rw [] >>
-     fs [evaluate_def])
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[evaluate_def])
  >- (Cases_on `es'` >>
-     rw [] >>
-     fs [evaluate_def]) >>
+     srw_tac[][] >>
+     full_simp_tac(srw_ss())[evaluate_def]) >>
  imp_res_tac evaluate_IMP_LENGTH >>
  imp_res_tac LIST_REL_LENGTH >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  first_x_assum (qspecl_then [`s''.clock`, `env`, `env'`, `s''`, `s'''`] mp_tac) >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  `s''.clock ≤ i` by decide_tac >>
  imp_res_tac val_rel_mono_list >>
  simp [evaluate_ev_def, exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `s'''.clock` assume_tac) >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  reverse ((Q.ISPEC_THEN `evaluate ([e],env,s'')` strip_assume_tac result_store_cases)) >>
- fs [res_rel_rw, clock_lemmas] >>
+ full_simp_tac(srw_ss())[res_rel_rw, clock_lemmas] >>
  `(s'' with clock := s'''.clock) = s''` by metis_tac [clock_lemmas] >>
- fs [res_rel_rw]
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  `?v v'. vs'' = [v] ∧ vs''' = [v']` by metis_tac [evaluate_SING] >>
- rw [] >>
- fs [] >>
- `vs ≠ []` by (Cases_on `vs` >> fs []) >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[] >>
+ `vs ≠ []` by (Cases_on `vs` >> full_simp_tac(srw_ss())[]) >>
  imp_res_tac evaluate_clock >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  metis_tac [res_rel_evaluate_app]);
 
 val fn_partial_arg = Q.store_thm ("fn_partial_arg",
@@ -1610,19 +1610,19 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
   (Closure NONE args (vs ++ env) num_args e)
   (Closure NONE (args' ++ vs') env' (num_args + LENGTH vs') e')`,
  completeInduct_on `i'` >>
- rw [val_rel_rw, is_closure_def] >>
+ srw_tac[][val_rel_rw, is_closure_def] >>
  imp_res_tac LIST_REL_LENGTH
  >- simp [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
           clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
  Cases_on `locopt` >>
  simp [dest_closure_def, check_loc_def] >>
- rw [] >>
+ srw_tac[][] >>
  TRY decide_tac >>
- rw [exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
- fs [NOT_LESS] >>
- rw [res_rel_rw]
+ srw_tac[][exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
+ full_simp_tac(srw_ss())[NOT_LESS] >>
+ srw_tac[][res_rel_rw]
  >- (
-   fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+   full_simp_tac(srw_ss())[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
    first_x_assum (qspecl_then [`i''`,
                            `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs'')) ++ args ++ vs ++ env`,
                            `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env'`,
@@ -1633,28 +1633,28 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
             (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs''')) ++ args' ++ vs' ++ env')` by (
      match_mp_tac EVERY2_APPEND_suff >>
      `i'' ≤ i` by decide_tac >>
-     reverse (rw [])
+     reverse (srw_tac[][])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
-     reverse (rw [])
+     reverse (srw_tac[][])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
-     rw [LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
+     srw_tac[][LIST_REL_REVERSE_EQ, EVERY2_TAKE] >>
      metis_tac [val_rel_mono_list]) >>
    simp [] >>
    disch_then (qspec_then `i''' + (LENGTH args' + 1) − num_args` mp_tac) >>
    simp [] >>
-   rw [] >>
+   srw_tac[][] >>
    every_case_tac >>
    simp [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
-   fs [res_rel_rw] >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
    TRY (qcase_tac `(Rerr error, r)`)
    >- (
      Cases_on `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs'')) = []`
      >- (
        `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs''')) = []` by (
-         fs [DROP_NIL] >>
+         full_simp_tac(srw_ss())[DROP_NIL] >>
          decide_tac) >>
        simp [evaluate_def, res_rel_rw] >>
        metis_tac []) >>
@@ -1663,15 +1663,15 @@ val fn_partial_arg = Q.store_thm ("fn_partial_arg",
      match_mp_tac EVERY2_DROP >>
      simp [LIST_REL_REVERSE_EQ] >>
      imp_res_tac evaluate_clock >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      `r'.clock ≤ i''` by decide_tac >>
      metis_tac [val_rel_mono_list])
   >- (
     Cases_on `error` >>
-    fs [res_rel_rw] >>
+    full_simp_tac(srw_ss())[res_rel_rw] >>
     qcase_tac `(Rerr (Rabort abort), r)` >>
     Cases_on `abort` >>
-    fs [res_rel_rw]))
+    full_simp_tac(srw_ss())[res_rel_rw]))
  >- metis_tac [ZERO_LESS_EQ, val_rel_mono]
  >- (
    first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
@@ -1692,10 +1692,10 @@ val compat_closure_none = Q.prove (
   LIST_REL (val_rel (:'ffi) i) args args'
   ⇒
   val_rel (:'ffi) i (Closure NONE args env num_args e) (Closure NONE args' env' num_args e')`,
- rw [] >>
+ srw_tac[][] >>
  qspecl_then [`i`, `i`, `[]`, `[]`, `env`, `env'`, `args`, `args'`]
        (match_mp_tac o SIMP_RULE (srw_ss()) []) fn_partial_arg >>
- rw []);
+ srw_tac[][]);
 
 val compat_closure_some = Q.prove (
 `!i l env env' args args' num_args e e'.
@@ -1705,46 +1705,46 @@ val compat_closure_some = Q.prove (
   ⇒
   val_rel (:'ffi) i (Closure (SOME l) args env num_args e) (Closure (SOME l) args' env' num_args e')`,
  completeInduct_on `i` >>
- rw [val_rel_rw, is_closure_def] >>
+ srw_tac[][val_rel_rw, is_closure_def] >>
  imp_res_tac LIST_REL_LENGTH
  >- (
-   rw [check_closures_def, clo_can_apply_def, clo_to_num_params_def,
+   srw_tac[][check_closures_def, clo_can_apply_def, clo_to_num_params_def,
        clo_to_partial_args_def, rec_clo_ok_def, clo_to_loc_def] >>
-   fs []) >>
+   full_simp_tac(srw_ss())[]) >>
  `(?l. locopt = SOME l) ∨ locopt = NONE` by metis_tac [option_nchotomy]
  >- (
    simp [dest_closure_def, check_loc_def] >>
-   rw [] >>
-   fs [exec_rel_rw, evaluate_ev_def] >>
-   reverse (rw [res_rel_rw])
+   srw_tac[][] >>
+   full_simp_tac(srw_ss())[exec_rel_rw, evaluate_ev_def] >>
+   reverse (srw_tac[][res_rel_rw])
    >- metis_tac [val_rel_mono, ZERO_LESS_EQ] >>
-   fs [REVERSE_DROP, LASTN, res_rel_rw, TAKE_REVERSE, LASTN_LENGTH_ID] >>
+   full_simp_tac(srw_ss())[REVERSE_DROP, LASTN, res_rel_rw, TAKE_REVERSE, LASTN_LENGTH_ID] >>
    `LASTN (LENGTH vs') vs = vs` by metis_tac [LASTN_LENGTH_ID] >>
-   fs [] >>
+   full_simp_tac(srw_ss())[] >>
    `exec_rel (i'' − (LENGTH vs' − 1))
              (Exp [e] (vs++args++env),s with clock := i'' − (LENGTH vs' − 1))
              (Exp [e'] (vs'++args'++env'),s' with clock := i'' − (LENGTH vs' − 1))`
    by (
-     fs [exp_rel_def] >>
+     full_simp_tac(srw_ss())[exp_rel_def] >>
      first_x_assum match_mp_tac >>
-     rw [] >>
+     srw_tac[][] >>
      `i'' − (LENGTH vs' − 1) ≤ i' ∧ i'' − (LENGTH vs' − 1) ≤ i` by decide_tac >>
      metis_tac [val_rel_mono_list, EVERY2_APPEND, val_rel_mono]) >>
-   fs [exec_rel_rw, evaluate_ev_def] >>
+   full_simp_tac(srw_ss())[exec_rel_rw, evaluate_ev_def] >>
    pop_assum (qspec_then `i'' - (LENGTH vs' - 1)` mp_tac) >>
    simp [] >>
-   rw [] >>
+   srw_tac[][] >>
    every_case_tac >>
-   fs [res_rel_rw] >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
    imp_res_tac evaluate_SING >>
-   fs []) >>
+   full_simp_tac(srw_ss())[]) >>
  simp [dest_closure_def, check_loc_def] >>
- rw [] >>
- rw [exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
- fs [NOT_LESS] >>
- rw [res_rel_rw]
+ srw_tac[][] >>
+ srw_tac[][exec_rel_rw, evaluate_ev_def, evaluate_def, check_loc_def] >>
+ full_simp_tac(srw_ss())[NOT_LESS] >>
+ srw_tac[][res_rel_rw]
  >- (
-   fs [exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
+   full_simp_tac(srw_ss())[exp_rel_def, exec_rel_rw, evaluate_ev_def] >>
    first_x_assum (qspecl_then [`i'`,
                            `REVERSE (TAKE (num_args - LENGTH args') (REVERSE vs)) ++ args ++ env`,
                            `REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args' ++ env'`,
@@ -1755,29 +1755,29 @@ val compat_closure_some = Q.prove (
             (REVERSE (TAKE (num_args − LENGTH args') (REVERSE vs')) ++ args' ++ env')` by (
      match_mp_tac EVERY2_APPEND_suff >>
      `i' ≤ i` by decide_tac >>
-     reverse (rw [])
+     reverse (srw_tac[][])
      >- metis_tac [val_rel_mono_list] >>
      match_mp_tac EVERY2_APPEND_suff >>
-     reverse (rw [])
+     reverse (srw_tac[][])
      >- metis_tac [val_rel_mono_list] >>
-     rw [LIST_REL_REVERSE_EQ] >>
+     srw_tac[][LIST_REL_REVERSE_EQ] >>
      match_mp_tac EVERY2_TAKE >>
-     rw [LIST_REL_REVERSE_EQ] >>
+     srw_tac[][LIST_REL_REVERSE_EQ] >>
      metis_tac [val_rel_mono_list]) >>
    simp [] >>
    disch_then (qspec_then `i'' + (LENGTH args' + 1) − num_args` mp_tac) >>
    simp [] >>
-   rw [] >>
+   srw_tac[][] >>
    every_case_tac >>
    simp [res_rel_rw] >>
    imp_res_tac evaluate_SING >>
-   fs [res_rel_rw] >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
    TRY (qcase_tac `(Rerr error, r)`)
    >- (
      Cases_on `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs)) = []`
      >- (
        `REVERSE (DROP (num_args − LENGTH args') (REVERSE vs')) = []` by (
-         fs [DROP_NIL] >>
+         full_simp_tac(srw_ss())[DROP_NIL] >>
          decide_tac) >>
        simp [evaluate_def, res_rel_rw] >>
        metis_tac []) >>
@@ -1786,15 +1786,15 @@ val compat_closure_some = Q.prove (
      match_mp_tac EVERY2_DROP >>
      simp [LIST_REL_REVERSE_EQ] >>
      imp_res_tac evaluate_clock >>
-     fs [] >>
+     full_simp_tac(srw_ss())[] >>
      `r'.clock ≤ i''` by decide_tac >>
      metis_tac [val_rel_mono_list])
   >- (
     Cases_on `error` >>
-    fs [res_rel_rw] >>
+    full_simp_tac(srw_ss())[res_rel_rw] >>
     qcase_tac `(Rerr (Rabort abort), r)` >>
     Cases_on `abort` >>
-    fs [res_rel_rw]))
+    full_simp_tac(srw_ss())[res_rel_rw]))
  >- metis_tac [ZERO_LESS_EQ, val_rel_mono]
  >- (
    first_x_assum (match_mp_tac o SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO]) >>
@@ -1813,7 +1813,7 @@ val compat_closure = Q.store_thm ("compat_closure",
  exp_rel (:'ffi) [e] [e']
  ⇒
  val_rel (:'ffi) i (Closure l args env num_args e) (Closure l args' env' num_args e')`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `l` >>
  metis_tac [compat_closure_some, compat_closure_none]);
 
@@ -1823,20 +1823,20 @@ val compat_fn = Q.store_thm ("compat_fn",
   ⇒
   exp_rel (:'ffi) [Fn loc vars num_args e] [Fn loc vars num_args e']`,
  rpt strip_tac >>
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
- rw [res_rel_rw] >>
+ srw_tac[][res_rel_rw] >>
  Cases_on `vars` >>
- fs []
+ full_simp_tac(srw_ss())[]
  >- (
-   reverse (rw [res_rel_rw])
+   reverse (srw_tac[][res_rel_rw])
    >- metis_tac [val_rel_mono] >>
    metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL])
  >- (
    Cases_on `lookup_vars x env` >>
-   fs [res_rel_rw] >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
    imp_res_tac val_rel_lookup_vars >>
-   reverse (rw [])
+   reverse (srw_tac[][])
    >- metis_tac [val_rel_mono] >>
    metis_tac [compat_closure, val_rel_mono_list, LIST_REL_NIL]));
 
@@ -1882,7 +1882,7 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
       qcase_tac `loc ≠ NONE` >> strip_tac >>
       `FR (EL idx funs1) (EL idx funs2)` by metis_tac[LIST_REL_EL_EQN] >>
       pop_assum mp_tac >> simp[Abbr`FR`, UNCURRY] >> strip_tac >>
-      Cases_on `loc` >> fs[]) >>
+      Cases_on `loc` >> full_simp_tac(srw_ss())[]) >>
   qcase_tac `Recclosure loc args1 env1 funs1 idx` >>
   qcase_tac `LIST_REL _ funs1 funs2` >>
   qcase_tac `LIST_REL _ env1 env2` >>
@@ -1908,7 +1908,7 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
   simp[dest_closure_def, revdroprev, revtakerev, exec_rel_rw,
        evaluate_ev_def] >>
   qx_gen_tac `k`
-  >- (reverse (rw[])
+  >- (reverse (srw_tac[][])
       >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono]) >>
       qmatch_abbrev_tac `
         res_rel (pair_CASE (evaluate ([fe1], ENV1, _)) _)
@@ -1936,21 +1936,21 @@ val compat_recclosure = Q.store_thm ("compat_recclosure",
            by metis_tac[TypeBase.nchotomy_of ``:('a,'b) result``, pair_CASES,
                         evaluate_SING])
       >- (Cases_on `err` >> simp[res_rel_rw]
-          >- (rpt strip_tac >> simp[] >> fs[]) >>
+          >- (rpt strip_tac >> simp[] >> full_simp_tac(srw_ss())[]) >>
           qcase_tac `ev1 = (Rerr (Rabort a), s1)` >>
           Cases_on `a` >> simp[res_rel_rw] >> rpt strip_tac >> simp[] >>
-          fs[]) >>
+          full_simp_tac(srw_ss())[]) >>
       simp[res_rel_rw] >> dsimp[] >> rpt strip_tac >>
       qcase_tac `evaluate([fe2], ENV2, _) = (Rval [rv2], s2')` >>
       qmatch_abbrev_tac `res_rel (evaluate_app _ _ (TAKE N vs1) _) _` >>
       `N ≤ LENGTH vs1` by simp[Abbr`N`] >>
-      Cases_on `N = 0` >- (simp[res_rel_rw] >> fs[]) >>
+      Cases_on `N = 0` >- (simp[res_rel_rw] >> full_simp_tac(srw_ss())[]) >>
       irule res_rel_evaluate_app
-      >- (Cases_on `N` >> fs[] >> Cases_on `vs1` >> fs[]) >>
+      >- (Cases_on `N` >> full_simp_tac(srw_ss())[] >> Cases_on `vs1` >> full_simp_tac(srw_ss())[]) >>
       simp[] >> irule EVERY2_TAKE >>
       irule val_rel_mono_list >> qexists_tac `j` >> simp[] >>
-      imp_res_tac evaluate_clock >> fs[] >> simp[Abbr`CK`]) >>
-  reverse (rw[])
+      imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >> simp[Abbr`CK`]) >>
+  reverse (srw_tac[][])
   >- (simp[res_rel_rw] >> metis_tac[DECIDE ``0n ≤ x``, val_rel_mono]) >>
   simp[res_rel_rw] >> conj_tac
   >- (first_x_assum irule >> simp[]
@@ -1967,78 +1967,78 @@ val compat_letrec = Q.store_thm ("compat_letrec",
   ⇒
   exp_rel (:'ffi) [Letrec loc vars funs e] [Letrec loc vars funs' e']`,
  rpt strip_tac >>
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def, evaluate_ev_def] >>
- reverse (rw [res_rel_rw])
+ reverse (srw_tac[][res_rel_rw])
  >- (
    full_simp_tac std_ss [LIST_REL_EL_EQN, EVERY_EL] >>
-   fs [] >>
+   full_simp_tac(srw_ss())[] >>
    Cases_on `EL n funs` >>
    Cases_on `EL n funs'` >>
-   fs [] >>
+   full_simp_tac(srw_ss())[] >>
    rpt (first_x_assum (qspec_then `n` mp_tac)) >>
-   rw []) >>
+   srw_tac[][]) >>
  Cases_on `vars` >>
- fs []
+ full_simp_tac(srw_ss())[]
  >- (
    `exec_rel i' (Exp [e] (GENLIST (Recclosure loc [] env funs) (LENGTH funs) ++ env), s)
                 (Exp [e'] (GENLIST (Recclosure loc [] env' funs') (LENGTH funs') ++ env'), s')`
    by (
-     fs [exp_rel_def] >>
+     full_simp_tac(srw_ss())[exp_rel_def] >>
      first_x_assum match_mp_tac >>
-     rw []
+     srw_tac[][]
      >- metis_tac [val_rel_mono] >>
      match_mp_tac EVERY2_APPEND_suff >>
      reverse conj_tac
      >- metis_tac [val_rel_mono_list] >>
      imp_res_tac LIST_REL_LENGTH >>
-     rw [LIST_REL_GENLIST] >>
+     srw_tac[][LIST_REL_GENLIST] >>
      match_mp_tac compat_recclosure >>
-     rw [exp_rel_def] >>
+     srw_tac[][exp_rel_def] >>
      metis_tac [val_rel_mono_list]) >>
-   fs [exec_rel_rw, evaluate_ev_def])
+   full_simp_tac(srw_ss())[exec_rel_rw, evaluate_ev_def])
  >- (
    Cases_on `lookup_vars x env` >>
-   fs [res_rel_rw] >>
+   full_simp_tac(srw_ss())[res_rel_rw] >>
    imp_res_tac val_rel_lookup_vars >>
-   rw [] >>
+   srw_tac[][] >>
    `exec_rel i' (Exp [e] (GENLIST (Recclosure loc [] x' funs) (LENGTH funs) ++ env), s)
                 (Exp [e'] (GENLIST (Recclosure loc [] vs2'' funs') (LENGTH funs') ++ env'), s')`
    by (
-     fs [exp_rel_def] >>
+     full_simp_tac(srw_ss())[exp_rel_def] >>
      first_x_assum match_mp_tac >>
-     rw []
+     srw_tac[][]
      >- metis_tac [val_rel_mono] >>
      match_mp_tac EVERY2_APPEND_suff >>
      reverse conj_tac
      >- metis_tac [val_rel_mono_list] >>
      imp_res_tac LIST_REL_LENGTH >>
-     rw [LIST_REL_GENLIST] >>
+     srw_tac[][LIST_REL_GENLIST] >>
      match_mp_tac compat_recclosure >>
-     rw [exp_rel_def] >>
+     srw_tac[][exp_rel_def] >>
      metis_tac [val_rel_mono_list]) >>
-   fs [exec_rel_rw, evaluate_ev_def]));
+   full_simp_tac(srw_ss())[exec_rel_rw, evaluate_ev_def]));
 
 val compat_op = Q.store_thm ("compat_op",
 `!op es es'.
   exp_rel (:'ffi) es es'
   ⇒
   exp_rel (:'ffi) [Op op es] [Op op es']`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  simp [exec_rel_rw, evaluate_def] >>
- rw [] >>
+ srw_tac[][] >>
  `exec_rel i' (Exp es env, s with clock := i') (Exp es' env', s' with clock := i')`
          by metis_tac [val_rel_mono_list, val_rel_mono, state_rel_clock] >>
  pop_assum mp_tac >>
  simp [exec_rel_rw] >>
- rw [] >>
+ srw_tac[][] >>
  pop_assum (qspec_then `i'` mp_tac) >>
- rw [] >>
- fs [evaluate_ev_def, evaluate_def] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[evaluate_ev_def, evaluate_def] >>
  reverse (Q.ISPEC_THEN `evaluate (es,env,s with clock := i')` strip_assume_tac
                          result_store_cases) >>
- rw [res_rel_rw] >>
- fs [res_rel_rw]
+ srw_tac[][res_rel_rw] >>
+ full_simp_tac(srw_ss())[res_rel_rw]
  >- metis_tac [] >>
  metis_tac [res_rel_do_app]);
 
@@ -2053,40 +2053,40 @@ val exp_rel_refl = Q.store_thm ("exp_rel_refl",
  (!(ne :num # closLang$exp). FST ne = FST ne ∧ exp_rel (:'ffi) [SND ne] [SND ne]) ∧
  (!funs. LIST_REL (\(n:num,e) (n',e'). n = n' ∧ exp_rel (:'ffi) [e] [e']) funs funs)`,
  Induct >>
- rw [] >>
+ srw_tac[][] >>
  TRY (PairCases_on `ne`) >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  metis_tac [compat]);
 
 val val_rel_refl = Q.store_thm ("val_rel_refl",
 `(!v. val_rel (:'ffi) i v v) ∧
  (!vs. LIST_REL (val_rel (:'ffi) i) vs vs)`,
  ho_match_mp_tac v_induction >>
- rw []
- >- rw [val_rel_rw]
- >- rw [val_rel_rw]
- >- rw [val_rel_rw]
+ srw_tac[][]
+ >- srw_tac[][val_rel_rw]
+ >- srw_tac[][val_rel_rw]
+ >- srw_tac[][val_rel_rw]
  >- metis_tac [exp_rel_refl, compat_closure]
  >- metis_tac [exp_rel_refl, compat_recclosure]);
 
 val ref_v_rel_refl = Q.store_thm ("ref_v_rel_refl",
 `!i rv. ref_v_rel (:'ffi) i rv rv`,
- rw [] >>
+ srw_tac[][] >>
  Cases_on `rv` >>
- rw [ref_v_rel_rw] >>
+ srw_tac[][ref_v_rel_rw] >>
  metis_tac [val_rel_refl, refl_list_rel_refl]);
 
 val state_rel_refl = Q.store_thm ("state_rel_refl",
 `(!i s. state_rel i s s)`,
- rw [Once state_rel_rw]
+ srw_tac[][Once state_rel_rw]
  >- metis_tac [refl_list_rel_refl, val_rel_refl, OPTREL_refl]
  >- metis_tac [fmap_rel_refl, ref_v_rel_refl]
  >- (
    match_mp_tac fmap_rel_refl >>
    simp [FORALL_PROD] >>
-   rw [] >>
+   srw_tac[][] >>
    `exp_rel (:'a) [p_2] [p_2]` by metis_tac [exp_rel_refl] >>
-   fs [exp_rel_def]));
+   full_simp_tac(srw_ss())[exp_rel_def]));
 
 val val_rel_closure = Q.store_thm(
   "val_rel_closure",
@@ -2131,28 +2131,28 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
  (!i (s1 : 'ffi closSem$state) s2.
     state_rel i s1 s2 ⇒ !s3. state_rel i s2 s3 ⇒ state_rel i s1 s3)`,
  ho_match_mp_tac val_rel_ind >>
- rw [is_closure_def]
- >- fs [val_rel_rw]
+ srw_tac[][is_closure_def]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
  >- (
-   fs [val_rel_rw] >>
+   full_simp_tac(srw_ss())[val_rel_rw] >>
    Cases_on `v3` >>
-   fs [val_rel_rw] >>
+   full_simp_tac(srw_ss())[val_rel_rw] >>
    match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] LIST_REL_trans) >>
    metis_tac [LIST_REL_LENGTH, MEM_EL, LIST_REL_EL_EQN])
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
- >- fs [val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
+ >- full_simp_tac(srw_ss())[val_rel_rw]
  >- (
-  RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [val_rel_rw]) >> fs[]
+  RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [val_rel_rw]) >> full_simp_tac(srw_ss())[]
  )
  (* Closure *)
  >- (
@@ -2187,7 +2187,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
   simp[SimpL ``$==>``, optCASE_NONE_F] >>
   disch_then (qx_choose_then `dcres2` mp_tac) >>
-  `vs2 ≠ []` by (strip_tac >> fs[]) >>
+  `vs2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
   Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        strip_assume_tac th) >>
@@ -2242,7 +2242,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   disch_then (qspecl_then [`j`, `vs1`, `vs2`, `s1`, `s2`, `clocopt`] mp_tac) >>
   simp[SimpL ``$==>``, optCASE_NONE_F] >>
   disch_then (qx_choose_then `dcres2` mp_tac) >>
-  `vs2 ≠ []` by (strip_tac >> fs[]) >>
+  `vs2 ≠ []` by (strip_tac >> full_simp_tac(srw_ss())[]) >>
   Cases_on `dcres` >> Cases_on `dcres2` >> simp[SimpL ``$==>``] >>
   disch_then (fn th => RULE_ASSUM_TAC (SIMP_RULE (srw_ss()) [th]) >>
                        strip_assume_tac th) >>
@@ -2263,7 +2263,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
   simp[])
  >- ((* exec_rel *)
   qcase_tac `exec_rel i (e0,s0) es` >>
-  `∃e2 s2. es = (e2,s2)` by (Cases_on `es` >> simp[]) >> rw[] >>
+  `∃e2 s2. es = (e2,s2)` by (Cases_on `es` >> simp[]) >> srw_tac[][] >>
   qmatch_assum_rename_tac `exec_rel i (e0,s0) (e1,s1)` >>
   simp[exec_rel_rw] >> qx_gen_tac `j` >> strip_tac >>
   Q.UNDISCH_THEN `exec_rel i (e0,s0) (e1,s1)` mp_tac >>
@@ -2275,48 +2275,48 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
        simp[] >> strip_tac) >>
 
   `∃r0 s0'. evaluate_ev j e0 s0 = (r0,s0')`
-    by (Cases_on `evaluate_ev j e0 s0` >> simp[]) >> fs[] >>
+    by (Cases_on `evaluate_ev j e0 s0` >> simp[]) >> full_simp_tac(srw_ss())[] >>
   `∃r1 s1'. evaluate_ev j e1 s1 = (r1,s1')`
-    by (Cases_on `evaluate_ev j e1 s1` >> simp[]) >> fs[] >>
+    by (Cases_on `evaluate_ev j e1 s1` >> simp[]) >> full_simp_tac(srw_ss())[] >>
 
   qpat_assum `exec_rel i (e1,s1) _` mp_tac >>
   simp[exec_rel_rw] >> disch_then (qspec_then `j` mp_tac) >> simp[] >>
   strip_tac >>
 
-  reverse (Cases_on `r0`) >> fs[]
+  reverse (Cases_on `r0`) >> full_simp_tac(srw_ss())[]
   >- (qcase_tac `evaluate_ev _ _ s0 = (Rerr ee, _)` >>
-      reverse (Cases_on `ee`) >> fs[]
+      reverse (Cases_on `ee`) >> full_simp_tac(srw_ss())[]
       >- (qcase_tac `evaluate_ev _ _ _ = (Rerr (Rabort abt), _)` >>
-          Cases_on `abt` >> fs[res_rel_rw] >> rw[] >>
-          fs[res_rel_rw] >>
+          Cases_on `abt` >> full_simp_tac(srw_ss())[res_rel_rw] >> srw_tac[][] >>
+          full_simp_tac(srw_ss())[res_rel_rw] >>
           `s1'.clock = s0'.clock`
             by (imp_res_tac evaluate_ev_timeout_clocks0 >> simp[]) >>
           metis_tac[]) >>
-      fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> metis_tac[]) >>
-  fs[res_rel_rw] >> rw[] >> fs[res_rel_rw] >> reverse conj_tac >- metis_tac[] >>
-  fs[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
- >- fs [ref_v_rel_rw]
+      full_simp_tac(srw_ss())[res_rel_rw] >> srw_tac[][] >> full_simp_tac(srw_ss())[res_rel_rw] >> metis_tac[]) >>
+  full_simp_tac(srw_ss())[res_rel_rw] >> srw_tac[][] >> full_simp_tac(srw_ss())[res_rel_rw] >> reverse conj_tac >- metis_tac[] >>
+  full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> metis_tac[MEM_EL])
+ >- full_simp_tac(srw_ss())[ref_v_rel_rw]
  >- (
    Cases_on `rv3` >>
-   fs [ref_v_rel_rw] >>
+   full_simp_tac(srw_ss())[ref_v_rel_rw] >>
    match_mp_tac (SIMP_RULE (srw_ss()) [PULL_FORALL, AND_IMP_INTRO] LIST_REL_trans) >>
    metis_tac [LIST_REL_LENGTH, MEM_EL, LIST_REL_EL_EQN])
- >- fs [ref_v_rel_rw]
- >- fs [ref_v_rel_rw]
+ >- full_simp_tac(srw_ss())[ref_v_rel_rw]
+ >- full_simp_tac(srw_ss())[ref_v_rel_rw]
  >- ( (* state_rel *)
    pop_assum mp_tac >>
    pop_assum mp_tac >>
    ONCE_REWRITE_TAC [state_rel_rw] >>
-   rw []
+   srw_tac[][]
    >- (rpt (first_x_assum
               (kall_tac o
                assert (can (find_term (same_const fmap_rel_t)) o concl))) >>
-       fs[LIST_REL_EL_EQN] >> qx_gen_tac `idx` >> strip_tac >>
+       full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> qx_gen_tac `idx` >> strip_tac >>
        qcase_tac `OPTREL (val_rel (:'ffi) N)
                     (EL idx s1.globals) (EL idx s3.globals)` >>
-       fs[] >> rfs[] >> res_tac >>
+       full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> res_tac >>
        Cases_on `EL idx s1.globals` >> Cases_on `EL idx s3.globals` >>
-       fs[OPTREL_def] >> fs[] >> metis_tac[MEM_EL])
+       full_simp_tac(srw_ss())[OPTREL_def] >> full_simp_tac(srw_ss())[] >> metis_tac[MEM_EL])
    >- (irule fmap_rel_trans >> metis_tac[])
    >- (irule fmap_rel_trans
        >- (simp_tac (srw_ss()) [FORALL_PROD] >> rpt strip_tac >>
@@ -2333,7 +2333,7 @@ val val_rel_trans = Q.store_thm ("val_rel_trans",
 
 val exp_rel_trans = Q.store_thm ("exp_rel_trans",
 `!e1 e2 e3. exp_rel (:'ffi) e1 e2 ∧ exp_rel (:'ffi) e2 e3 ⇒ exp_rel (:'ffi) e1 e3`,
- rw [exp_rel_def] >>
+ srw_tac[][exp_rel_def] >>
  `!i. state_rel i s' s' ∧ LIST_REL (val_rel (:'ffi) i) env' env'` by metis_tac [val_rel_refl, state_rel_refl] >>
  metis_tac [val_rel_trans]);
 

@@ -140,15 +140,15 @@ val cut_state_opt_def = Define `
 
 val pop_env_clock = prove(
   ``(pop_env s = SOME s1) ==> (s1.clock = s.clock)``,
-  fs [pop_env_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ SRW_TAC [] [] \\ fs []);
+  full_simp_tac(srw_ss())[pop_env_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val push_env_clock = prove(
   ``(push_env env b s).clock = s.clock``,
-  Cases_on `b` \\ fs [push_env_def]
-  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ fs []
-  \\ SRW_TAC [] [] \\ fs []);
+  Cases_on `b` \\ full_simp_tac(srw_ss())[push_env_def]
+  \\ REPEAT BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip,s) = (NONE,s:'ffi bvpSem$state)) /\
@@ -238,8 +238,8 @@ val evaluate_def = tDefine "evaluate" `
    \\ TRY (MATCH_MP_TAC check_clock_lemma \\ DECIDE_TAC)
    \\ EVAL_TAC \\ Cases_on `s.clock <= s1.clock`
    \\ FULL_SIMP_TAC (srw_ss()) [push_env_clock]
-   \\ IMP_RES_TAC pop_env_clock \\ fs [] \\ SRW_TAC [] []
-   \\ Cases_on `s2.clock < s.clock` \\ fs [] \\ DECIDE_TAC)
+   \\ IMP_RES_TAC pop_env_clock \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+   \\ Cases_on `s2.clock < s.clock` \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
 
 val evaluate_ind = theorem"evaluate_ind";
 
@@ -248,26 +248,26 @@ val evaluate_ind = theorem"evaluate_ind";
 val do_app_clock = store_thm("do_app_clock",
   ``(bvpSem$do_app op args s1 = Rval (res,s2)) ==> s2.clock <= s1.clock``,
   SIMP_TAC std_ss [do_app_def,do_space_def,consume_space_def]
-  \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ fs [])
-  \\ IMP_RES_TAC bviSemTheory.do_app_const \\ fs []
-  \\ fs [bvp_to_bvi_def,bvi_to_bvp_def] \\ SRW_TAC [] []);
+  \\ SRW_TAC [] [] \\ REPEAT (BasicProvers.FULL_CASE_TAC \\ full_simp_tac(srw_ss())[])
+  \\ IMP_RES_TAC bviSemTheory.do_app_const \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[bvp_to_bvi_def,bvi_to_bvp_def] \\ SRW_TAC [] []);
 
 val evaluate_clock = store_thm("evaluate_clock",
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
   \\ simp[]
-  \\ every_case_tac >> simp[] >> rw[]
-  \\ fs[set_var_def,cut_state_opt_def,cut_state_def,call_env_def,dec_clock_def,
+  \\ every_case_tac >> simp[] >> srw_tac[][]
+  \\ full_simp_tac(srw_ss())[set_var_def,cut_state_opt_def,cut_state_def,call_env_def,dec_clock_def,
         add_space_def,jump_exc_def,push_env_clock]
-  \\ every_case_tac >> simp[] >> rw[] >> simp[]
+  \\ every_case_tac >> simp[] >> srw_tac[][] >> simp[]
   \\ imp_res_tac pop_env_clock
-  \\ imp_res_tac do_app_clock >> fs[] >> rfs[]
-  \\ imp_res_tac check_clock_IMP >> fs[] >> simp[]
-  \\ imp_res_tac check_clock_IMP >> fs[] >> simp[]
-  \\ first_assum(split_applied_pair_tac o lhs o concl) >> fs[]
-  \\ every_case_tac >> fs[]
-  \\ imp_res_tac check_clock_IMP >> fs[] >> simp[]);
+  \\ imp_res_tac do_app_clock >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]
+  \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]
+  \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]
+  \\ first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[]
+  \\ every_case_tac >> full_simp_tac(srw_ss())[]
+  \\ imp_res_tac check_clock_IMP >> full_simp_tac(srw_ss())[] >> simp[]);
 
 val evaluate_check_clock = prove(
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> (check_clock s2 s1 = s2)``,
@@ -294,11 +294,11 @@ val evaluate_ind = save_thm("evaluate_ind",let
            \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC
            \\ IMP_RES_TAC evaluate_clock \\ SRW_TAC [] []
            \\ `s2.clock <= s.clock` by
-            (fs [call_env_def,push_env_def,dec_clock_def]
+            (full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
              \\ IMP_RES_TAC pop_env_clock \\ DECIDE_TAC)
-           \\ `s2 = check_clock s2 s` by fs [check_clock_def]
+           \\ `s2 = check_clock s2 s` by full_simp_tac(srw_ss())[check_clock_def]
            \\ POP_ASSUM (fn th => ONCE_REWRITE_TAC [th])
-           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [])
+           \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[])
     \\ FIRST_X_ASSUM (MATCH_MP_TAC)
     \\ ASM_REWRITE_TAC [] \\ REPEAT STRIP_TAC \\ RES_TAC
     \\ REPEAT (Q.PAT_ASSUM `!x.bbb` (K ALL_TAC))
@@ -314,16 +314,16 @@ val evaluate_def = save_thm("evaluate_def",let
     REPEAT STRIP_TAC
     \\ SIMP_TAC (srw_ss()) []
     \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [evaluate_def] \\ rfs []
+    \\ full_simp_tac(srw_ss())[evaluate_def] \\ rev_full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [] \\ SRW_TAC [] []
     \\ IMP_RES_TAC evaluate_check_clock
     \\ IMP_RES_TAC evaluate_clock
-    \\ fs [check_clock_thm]
-    \\ rfs [check_clock_thm]
-    \\ fs [check_clock_thm]
-    \\ fs [call_env_def,push_env_def]
+    \\ full_simp_tac(srw_ss())[check_clock_thm]
+    \\ rev_full_simp_tac(srw_ss())[check_clock_thm]
+    \\ full_simp_tac(srw_ss())[check_clock_thm]
+    \\ full_simp_tac(srw_ss())[call_env_def,push_env_def]
     \\ IMP_RES_TAC LESS_EQ_dec_clock
-    \\ fs [check_clock_thm])
+    \\ full_simp_tac(srw_ss())[check_clock_thm])
   in def end);
 
 (* observational semantics *)

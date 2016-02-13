@@ -18,7 +18,7 @@ val revdroprev = Q.store_thm("revdroprev",
 
 val with_same_clock = Q.store_thm("with_same_clock[simp]",
   `(s:'ffi closSem$state) with clock := s.clock = s`,
-  rw[closSemTheory.state_component_equality])
+  srw_tac[][closSemTheory.state_component_equality])
 
 val dec_clock_code = Q.store_thm("dec_clock_code",
   `(dec_clock x y).code = y.code`,
@@ -37,7 +37,7 @@ val _ = export_rewrites["ref_rel_def"];
 val ref_rel_simp = Q.store_thm("ref_rel_simp[simp]",
   `(ref_rel R (ValueArray vs) y ⇔ ∃ws. y = ValueArray ws ∧ LIST_REL R vs ws) ∧
    (ref_rel R (ByteArray bs) y ⇔ y = ByteArray bs)`,
-  Cases_on`y`>>simp[ref_rel_def] >> rw[EQ_IMP_THM])
+  Cases_on`y`>>simp[ref_rel_def] >> srw_tac[][EQ_IMP_THM])
 
 val code_locs_def = tDefine "code_locs" `
   (code_locs [] = []) /\
@@ -85,7 +85,7 @@ val code_locs_def = tDefine "code_locs" `
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
-   fs [exp_size_def] >>
+   full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
 val code_locs_cons = store_thm("code_locs_cons",
@@ -100,8 +100,8 @@ val code_locs_append = store_thm("code_locs_append",
 
 val code_locs_map = store_thm("code_locs_map",
   ``!xs f. code_locs (MAP f xs) = FLAT (MAP (\x. code_locs [f x]) xs)``,
-  Induct \\ fs [code_locs_def]
-  \\ ONCE_REWRITE_TAC [code_locs_cons] \\ fs [code_locs_def]);
+  Induct \\ full_simp_tac(srw_ss())[code_locs_def]
+  \\ ONCE_REWRITE_TAC [code_locs_cons] \\ full_simp_tac(srw_ss())[code_locs_def]);
 
 val contains_App_SOME_def = tDefine "contains_App_SOME" `
   (contains_App_SOME [] ⇔ F) /\
@@ -141,13 +141,13 @@ val contains_App_SOME_def = tDefine "contains_App_SOME" `
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
-   fs [exp_size_def] >>
+   full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 
 val contains_App_SOME_EXISTS = store_thm("contains_App_SOME_EXISTS",
   ``∀ls. contains_App_SOME ls ⇔ EXISTS (λx. contains_App_SOME [x]) ls``,
   Induct >> simp[contains_App_SOME_def] >>
-  Cases_on`ls`>>fs[contains_App_SOME_def])
+  Cases_on`ls`>>full_simp_tac(srw_ss())[contains_App_SOME_def])
 
 val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
   (every_Fn_SOME [] ⇔ T) ∧
@@ -188,14 +188,14 @@ val every_Fn_SOME_def = tDefine "every_Fn_SOME" `
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
-   fs [exp_size_def] >>
+   full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 val _ = export_rewrites["every_Fn_SOME_def"];
 
 val every_Fn_SOME_EVERY = store_thm("every_Fn_SOME_EVERY",
   ``∀ls. every_Fn_SOME ls ⇔ EVERY (λx. every_Fn_SOME [x]) ls``,
   Induct >> simp[every_Fn_SOME_def] >>
-  Cases_on`ls`>>fs[every_Fn_SOME_def])
+  Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_SOME_def])
 
 val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
   (every_Fn_vs_NONE [] ⇔ T) ∧
@@ -236,14 +236,14 @@ val every_Fn_vs_NONE_def = tDefine "every_Fn_vs_NONE" `
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
-   fs [exp_size_def] >>
+   full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_NONE_def"];
 
 val every_Fn_vs_NONE_EVERY = store_thm("every_Fn_vs_NONE_EVERY",
   ``∀ls. every_Fn_vs_NONE ls ⇔ EVERY (λx. every_Fn_vs_NONE [x]) ls``,
   Induct >> simp[every_Fn_vs_NONE_def] >>
-  Cases_on`ls`>>fs[every_Fn_vs_NONE_def])
+  Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_NONE_def])
 
 val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
   (every_Fn_vs_SOME [] ⇔ T) ∧
@@ -284,14 +284,14 @@ val every_Fn_vs_SOME_def = tDefine "every_Fn_vs_SOME" `
    Induct_on `fns` >>
    srw_tac [ARITH_ss] [exp_size_def] >>
    Cases_on `h` >>
-   fs [exp_size_def] >>
+   full_simp_tac(srw_ss())[exp_size_def] >>
    decide_tac);
 val _ = export_rewrites["every_Fn_vs_SOME_def"];
 
 val every_Fn_vs_SOME_EVERY = store_thm("every_Fn_vs_SOME_EVERY",
   ``∀ls. every_Fn_vs_SOME ls ⇔ EVERY (λx. every_Fn_vs_SOME [x]) ls``,
   Induct >> simp[every_Fn_vs_SOME_def] >>
-  Cases_on`ls`>>fs[every_Fn_vs_SOME_def])
+  Cases_on`ls`>>full_simp_tac(srw_ss())[every_Fn_vs_SOME_def])
 
 val fv_def = tDefine "fv" `
   (fv n [] <=> F) /\
@@ -336,10 +336,10 @@ val do_app_err = Q.store_thm("do_app_err",
      do_app op ls s = Rerr e ⇒
      (op ≠ Equal ⇒ ∃a. e = Rabort a)`,
   Cases >>
-  rw[do_app_def] >>
-  every_case_tac >> fs[LET_THM] >> rw[])
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >> srw_tac[][])
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
+val Boolv_11 = store_thm("Boolv_11[simp]",``closSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
 
 val do_eq_list_rel = store_thm("do_eq_list_rel",
   ``∀l1 l2 l3 l4.
@@ -351,7 +351,7 @@ val do_eq_list_rel = store_thm("do_eq_list_rel",
    gen_tac >> Cases >> simp[PULL_EXISTS] >>
    Cases >> simp[LENGTH_NIL_SYM] >>
    Cases >> simp[CONJUNCT2 do_eq_def] >>
-   strip_tac >> BasicProvers.CASE_TAC >> rw[]);
+   strip_tac >> BasicProvers.CASE_TAC >> srw_tac[][]);
 
 val evaluate_LENGTH_ind =
   evaluate_ind
@@ -364,9 +364,9 @@ val evaluate_LENGTH_ind =
 
 val evaluate_LENGTH = prove(evaluate_LENGTH_ind |> concl |> rand,
   MATCH_MP_TAC evaluate_LENGTH_ind
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs [LET_THM]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs [] \\ fs [])
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[])
   |> SIMP_RULE std_ss [FORALL_PROD]
 
 val _ = save_thm("evaluate_LENGTH", evaluate_LENGTH);
@@ -375,18 +375,18 @@ val evaluate_IMP_LENGTH = store_thm("evaluate_IMP_LENGTH",
   ``(evaluate (xs,s,env) = (Rval res,s1)) ==> (LENGTH xs = LENGTH res)``,
   REPEAT STRIP_TAC
   \\ (evaluate_LENGTH |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`s`,`env`] MP_TAC)
-  \\ fs []);
+  \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_app_IMP_LENGTH = store_thm("evaluate_app_IMP_LENGTH",
   ``(evaluate_app x1 x2 x3 x4 = (Rval res,s1)) ==> (LENGTH res = 1)``,
   REPEAT STRIP_TAC
   \\ (evaluate_LENGTH |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] MP_TAC)
-  \\ fs []);
+  \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_SING = store_thm("evaluate_SING",
   ``(evaluate ([x],s,env) = (Rval r,s2)) ==> ?r1. r = [r1]``,
   REPEAT STRIP_TAC \\ IMP_RES_TAC evaluate_IMP_LENGTH
-  \\ Cases_on `r` \\ fs [] \\ Cases_on `t` \\ fs []);
+  \\ Cases_on `r` \\ full_simp_tac(srw_ss())[] \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_CONS = store_thm("evaluate_CONS",
   ``evaluate (x::xs,env,s) =
@@ -396,12 +396,12 @@ val evaluate_CONS = store_thm("evaluate_CONS",
           | (Rval vs,s1) => (Rval (HD v::vs),s1)
           | t => t)
       | t => t``,
-  Cases_on `xs` \\ fs [evaluate_def]
-  \\ Cases_on `evaluate ([x],env,s)` \\ fs [evaluate_def]
-  \\ Cases_on `q` \\ fs [evaluate_def]
+  Cases_on `xs` \\ full_simp_tac(srw_ss())[evaluate_def]
+  \\ Cases_on `evaluate ([x],env,s)` \\ full_simp_tac(srw_ss())[evaluate_def]
+  \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ IMP_RES_TAC evaluate_IMP_LENGTH
-  \\ Cases_on `a` \\ fs []
-  \\ Cases_on `t` \\ fs []);
+  \\ Cases_on `a` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `t` \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_SNOC = store_thm("evaluate_SNOC",
   ``!xs env s x.
@@ -413,17 +413,17 @@ val evaluate_SNOC = store_thm("evaluate_SNOC",
           | t => t)
       | t => t``,
   Induct THEN1
-   (fs [SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
-    \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ fs [])
-  \\ fs [SNOC_APPEND,APPEND]
+   (full_simp_tac(srw_ss())[SNOC_APPEND,evaluate_def] \\ REPEAT STRIP_TAC
+    \\ Cases_on `evaluate ([x],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[SNOC_APPEND,APPEND]
   \\ ONCE_REWRITE_TAC [evaluate_CONS]
   \\ REPEAT STRIP_TAC
-  \\ Cases_on `evaluate ([h],env,s)` \\ Cases_on `q` \\ fs []
-  \\ Cases_on `evaluate (xs,env,r)` \\ Cases_on `q` \\ fs []
-  \\ Cases_on `evaluate ([x],env,r')` \\ Cases_on `q` \\ fs [evaluate_def]
+  \\ Cases_on `evaluate ([h],env,s)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `evaluate (xs,env,r)` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `evaluate ([x],env,r')` \\ Cases_on `q` \\ full_simp_tac(srw_ss())[evaluate_def]
   \\ IMP_RES_TAC evaluate_IMP_LENGTH
-  \\ Cases_on `a''` \\ fs [LENGTH]
-  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ fs []);
+  \\ Cases_on `a''` \\ full_simp_tac(srw_ss())[LENGTH]
+  \\ REV_FULL_SIMP_TAC std_ss [LENGTH_NIL] \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_const_ind =
   evaluate_ind
@@ -437,11 +437,11 @@ val evaluate_const_ind =
 val evaluate_const_lemma = prove(
   evaluate_const_ind |> concl |> rand,
   MATCH_MP_TAC evaluate_const_ind
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ ONCE_REWRITE_TAC [evaluate_def] \\ fs [LET_THM]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rfs []
-  \\ IMP_RES_TAC do_app_const \\ fs [dec_clock_def])
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+  \\ ONCE_REWRITE_TAC [evaluate_def] \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+  \\ IMP_RES_TAC do_app_const \\ full_simp_tac(srw_ss())[dec_clock_def])
   |> SIMP_RULE std_ss [FORALL_PROD]
 
 val evaluate_const = store_thm("evaluate_const",
@@ -449,14 +449,14 @@ val evaluate_const = store_thm("evaluate_const",
       (s1.code = s.code)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT1 |> Q.ISPECL_THEN [`xs`,`env`,`s`] mp_tac)
-  \\ fs []);
+  \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_app_const = store_thm("evaluate_app_const",
   ``(evaluate_app x1 x2 x3 x4 = (res,s1)) ==>
       (s1.code = x4.code)``,
   REPEAT STRIP_TAC
   \\ (evaluate_const_lemma |> CONJUNCT2 |> Q.ISPECL_THEN [`x1`,`x2`,`x3`,`x4`] mp_tac)
-  \\ fs []);
+  \\ full_simp_tac(srw_ss())[]);
 
 val evaluate_MAP_Op_Const = store_thm("evaluate_MAP_Op_Const",
   ``∀f env s ls.
@@ -477,37 +477,37 @@ val evaluate_REPLICATE_Op_AllocGlobal = store_thm("evaluate_REPLICATE_Op_AllocGl
 
 val lookup_vars_NONE = store_thm("lookup_vars_NONE",
   ``!vs. (lookup_vars vs env = NONE) <=> ?v. MEM v vs /\ LENGTH env <= v``,
-  Induct \\ fs [lookup_vars_def]
-  \\ REPEAT STRIP_TAC \\ fs []
-  \\ Cases_on `h < LENGTH env` \\ fs [NOT_LESS]
-  \\ Cases_on `lookup_vars vs env` \\ fs []
+  Induct \\ full_simp_tac(srw_ss())[lookup_vars_def]
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `h < LENGTH env` \\ full_simp_tac(srw_ss())[NOT_LESS]
+  \\ Cases_on `lookup_vars vs env` \\ full_simp_tac(srw_ss())[]
   THEN1 METIS_TAC []
-  \\ CCONTR_TAC \\ fs [] \\ METIS_TAC [NOT_LESS]);
+  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [NOT_LESS]);
 
 val lookup_vars_SOME = store_thm("lookup_vars_SOME",
   ``!vs env xs.
       (lookup_vars vs env = SOME xs) ==>
       (LENGTH vs = LENGTH xs)``,
-  Induct \\ fs [lookup_vars_def] \\ REPEAT STRIP_TAC
-  \\ Cases_on `lookup_vars vs env` \\ fs [] \\ SRW_TAC [] [] \\ RES_TAC);
+  Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ REPEAT STRIP_TAC
+  \\ Cases_on `lookup_vars vs env` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ RES_TAC);
 
 val lookup_vars_MEM = prove(
   ``!ys n x (env2:closSem$v list).
       (lookup_vars ys env2 = SOME x) /\ n < LENGTH ys ==>
       (EL n ys) < LENGTH env2 /\
       (EL n x = EL (EL n ys) env2)``,
-  Induct \\ fs [lookup_vars_def] \\ NTAC 5 STRIP_TAC
-  \\ Cases_on `lookup_vars ys env2` \\ fs []
-  \\ Cases_on `n` \\ fs [] \\ SRW_TAC [] [] \\ fs []) |> SPEC_ALL
+  Induct \\ full_simp_tac(srw_ss())[lookup_vars_def] \\ NTAC 5 STRIP_TAC
+  \\ Cases_on `lookup_vars ys env2` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]) |> SPEC_ALL
   |> curry save_thm "lookup_vars_MEM";
 
 val bool_case_eq = Q.prove(
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  rw[] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]);
 
 val clock_lemmas = Q.store_thm ("clock_lemmas",
 `!s. (s with clock := s.clock) = s`,
- rw [state_component_equality]);
+ srw_tac[][state_component_equality]);
 
 val evaluate_app_rw = Q.store_thm ("evaluate_app_rw",
 `(!args loc_opt f s.
@@ -528,7 +528,7 @@ val evaluate_app_rw = Q.store_thm ("evaluate_app_rw",
                     evaluate_app loc_opt v rest_args s1
                 | res => res)`,
  Cases_on `args` >>
- fs [evaluate_def]);
+ full_simp_tac(srw_ss())[evaluate_def]);
 
 val op_thms = { nchotomy = op_nchotomy, case_def = op_case_def}
 val list_thms = { nchotomy = list_nchotomy, case_def = list_case_def}
@@ -552,15 +552,15 @@ val _ = save_thm ("eqs", eqs);
 val pair_case_eq = Q.prove (
 `pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
  Cases_on `x` >>
- rw []);
+ srw_tac[][]);
 
 val bool_case_eq = Q.prove(
   `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
-  rw[] >> metis_tac[]);
+  srw_tac[][] >> metis_tac[]);
 
 val pair_lam_lem = Q.prove (
 `!f v z. (let (x,y) = z in f x y) = v ⇔ ∃x1 x2. z = (x1,x2) ∧ (f x1 x2 = v)`,
- rw []);
+ srw_tac[][]);
 
 val do_app_cases_val = save_thm ("do_app_cases_val",
 ``do_app op vs s = Rval (v,s')`` |>
@@ -594,15 +594,15 @@ val dest_closure_none_loc = Q.store_thm ("dest_closure_none_loc",
  simp [dest_closure_def] >>
  Cases_on `cl` >>
  simp [] >>
- rw [] >>
+ srw_tac[][] >>
  Cases_on `l` >>
- fs [check_loc_def] >>
- rw [] >>
- rfs [DROP_NIL] >>
+ full_simp_tac(srw_ss())[check_loc_def] >>
+ srw_tac[][] >>
+ rev_full_simp_tac(srw_ss())[DROP_NIL] >>
  Cases_on `EL n l1` >>
- fs [] >>
- rw [] >>
- rfs [DROP_NIL]);
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
+ rev_full_simp_tac(srw_ss())[DROP_NIL]);
 
 val is_closure_def = Define `
 (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
@@ -646,13 +646,13 @@ val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
  rpt gen_tac >>
  simp [dest_closure_def] >>
  BasicProvers.EVERY_CASE_TAC >>
- fs [is_closure_def, clo_to_partial_args_def, clo_to_num_params_def, clo_to_env_def]
+ full_simp_tac(srw_ss())[is_closure_def, clo_to_partial_args_def, clo_to_num_params_def, clo_to_env_def]
  >- (`n - LENGTH l' ≤ LENGTH vs` by decide_tac >>
-     rw [] >>
+     srw_tac[][] >>
      simp [LENGTH_TAKE]) >>
  Cases_on `EL n l1` >>
- fs [] >>
- rw [] >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
  simp []);
 
 val evaluate_app_clock_less = Q.store_thm ("evaluate_app_clock_less",
@@ -661,26 +661,26 @@ val evaluate_app_clock_less = Q.store_thm ("evaluate_app_clock_less",
   evaluate_app loc_opt f args s1 = (Rval vs, s2)
   ⇒
   s2.clock < s1.clock`,
- rw [] >>
- rfs [evaluate_app_rw] >>
+ srw_tac[][] >>
+ rev_full_simp_tac(srw_ss())[evaluate_app_rw] >>
  BasicProvers.EVERY_CASE_TAC >>
- fs [] >>
- rw [] >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][] >>
  TRY decide_tac >>
  imp_res_tac evaluate_SING >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  imp_res_tac evaluate_clock >>
- fs [dec_clock_def] >>
+ full_simp_tac(srw_ss())[dec_clock_def] >>
  imp_res_tac dest_closure_full_length >>
  TRY decide_tac >>
  Cases_on `args` >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  decide_tac);
 
 val clo_add_partial_args_nil = Q.store_thm ("clo_add_partial_args_nil[simp]",
 `!x. is_closure x ⇒ clo_add_partial_args [] x = x`,
  Cases_on `x` >>
- rw [is_closure_def, clo_add_partial_args_def]);
+ srw_tac[][is_closure_def, clo_add_partial_args_def]);
 
 val clo_can_apply_def = Define `
 clo_can_apply loc cl num_args ⇔
@@ -711,13 +711,13 @@ val evaluate_app_clock0 = Q.store_thm(
   "evaluate_app_clock0",
   `s0.clock = 0 ∧ args ≠ [] ⇒
    evaluate_app lopt r args s0 ≠ (Rval vs, s)`,
-  strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> fs[]) >>
+  strip_tac >> `∃a1 args0. args = a1::args0` by (Cases_on `args` >> full_simp_tac(srw_ss())[]) >>
   simp[evaluate_def] >>
   Cases_on `dest_closure lopt r (a1::args0)` >> simp[] >>
   qcase_tac `dest_closure lopt r (a1::args0) = SOME c` >>
   Cases_on `c` >> simp[] >>
   qcase_tac `dest_closure lopt r (a1::args0) = SOME (Full_app b env rest)` >>
-  rw[] >>
+  srw_tac[][] >>
   `SUC (LENGTH args0) ≤ LENGTH rest` by simp[] >>
   imp_res_tac dest_closure_full_length >> lfs[])
 
@@ -730,15 +730,15 @@ val evaluate_app_clock_drop = Q.store_thm(
   full_simp_tac (srw_ss() ++ DNF_ss) [] >> qx_gen_tac `args` >>
   `args = [] ∨ ∃a1 as. args = a1::as` by (Cases_on `args` >> simp[]) >>
   dsimp[evaluate_def, eqs, bool_case_eq, pair_case_eq, dec_clock_def] >>
-  rpt strip_tac >> imp_res_tac evaluate_SING >> fs[] >> rw[] >>
+  rpt strip_tac >> imp_res_tac evaluate_SING >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   qcase_tac `evaluate_app lopt r1 args' s1` >>
   Cases_on `args' = []`
-  >- (fs[evaluate_def] >> rw[] >> imp_res_tac evaluate_clock >> fs[] >> simp[])
+  >- (full_simp_tac(srw_ss())[evaluate_def] >> srw_tac[][] >> imp_res_tac evaluate_clock >> full_simp_tac(srw_ss())[] >> simp[])
   >- (`SUC (LENGTH as) ≤ LENGTH args' + s0.clock` by simp[] >>
       `LENGTH args' < SUC (LENGTH as)`
         by (imp_res_tac dest_closure_full_length >> lfs[]) >>
       `s.clock + LENGTH args' ≤ s1.clock` by metis_tac[] >>
-      imp_res_tac evaluate_clock  >> fs[] >> simp[]))
+      imp_res_tac evaluate_clock  >> full_simp_tac(srw_ss())[] >> simp[]))
 
 val dest_closure_is_closure = Q.store_thm(
   "dest_closure_is_closure",
@@ -775,37 +775,37 @@ val evaluate_append = Q.store_thm  ("evaluate_append",
          | x => x)
     | x => x`,
  Induct_on `es1` >>
- rw [evaluate_def]
+ srw_tac[][evaluate_def]
  >- (
    every_case_tac >>
-   rw []) >>
+   srw_tac[][]) >>
  ONCE_REWRITE_TAC [evaluate_CONS] >>
  every_case_tac >>
- rw []);
+ srw_tac[][]);
 
 val evaluate_length_imp = Q.store_thm ("evaluate_length_imp",
 `evaluate (es,env,s1) = (Rval vs, s2) ⇒ LENGTH es = LENGTH vs`,
- rw [] >>
+ srw_tac[][] >>
  Q.ISPECL_THEN [`es`, `env`, `s1`] mp_tac (hd (CONJUNCTS evaluate_LENGTH)) >>
- rw []);
+ srw_tac[][]);
 
 val evaluate_app_length_imp = Q.store_thm ("evaluate_app_length_imp",
 `evaluate_app l f args s = (Rval vs, s2) ⇒ LENGTH vs = 1`,
- rw [] >>
+ srw_tac[][] >>
  Q.ISPECL_THEN [`l`, `f`, `args`, `s`] mp_tac (hd (tl (CONJUNCTS evaluate_LENGTH))) >>
- rw []);
+ srw_tac[][]);
 
 val dest_closure_none_append = Q.store_thm ("dest_closure_none_append",
 `!l f args1 args2.
   dest_closure NONE f args2 = NONE ⇒
   dest_closure NONE f (args1 ++ args2) = NONE`,
- rw [dest_closure_def] >>
+ srw_tac[][dest_closure_def] >>
  Cases_on `f` >>
- fs [check_loc_def] >>
- rw [] >>
- fs [LET_THM] >>
+ full_simp_tac(srw_ss())[check_loc_def] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[LET_THM] >>
  every_case_tac >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  simp []);
 
 val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
@@ -813,13 +813,13 @@ val dest_closure_none_append2 = Q.store_thm ("dest_closure_none_append2",
   LENGTH args1 + LENGTH args2 ≤ max_app ∧
   dest_closure NONE f (args1 ++ args2) = NONE ⇒
   dest_closure NONE f args2 = NONE`,
- rw [dest_closure_def] >>
+ srw_tac[][dest_closure_def] >>
  Cases_on `f` >>
- fs [check_loc_def] >>
- rw [] >>
- fs [LET_THM] >>
+ full_simp_tac(srw_ss())[check_loc_def] >>
+ srw_tac[][] >>
+ full_simp_tac(srw_ss())[LET_THM] >>
  every_case_tac >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  simp []);
 
 val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
@@ -827,9 +827,9 @@ val dest_closure_rest_length = Q.store_thm ("dest_closure_rest_length",
  simp [dest_closure_def] >>
  Cases_on `f` >>
  simp [check_loc_def]
- >- (rw [] >> simp []) >>
+ >- (srw_tac[][] >> simp []) >>
  Cases_on `EL n l1`
- >- (rw [] >> simp []));
+ >- (srw_tac[][] >> simp []));
 
 val dest_closure_partial_twice = Q.store_thm ("dest_closure_partial_twice",
 `∀f args1 args2 cl res.
@@ -844,38 +844,38 @@ val dest_closure_partial_twice = Q.store_thm ("dest_closure_partial_twice",
  >- (
    Cases_on `cl` >>
    simp [] >>
-   TRY (rw [] >> NO_TAC) >>
-   rw [] >>
+   TRY (srw_tac[][] >> NO_TAC) >>
+   srw_tac[][] >>
    simp [TAKE_APPEND, DROP_APPEND] >>
    full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL]
    >- (
      Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-     rw [] >>
+     srw_tac[][] >>
      full_simp_tac (srw_ss()++ARITH_ss) [])
    >- (
      Q.ISPECL_THEN [`REVERSE args2`, `n - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-     rw [] >>
+     srw_tac[][] >>
      full_simp_tac (srw_ss()++ARITH_ss) []) >>
    CCONTR_TAC >>
-   fs [] >>
-   rw [] >>
+   full_simp_tac(srw_ss())[] >>
+   srw_tac[][] >>
    full_simp_tac (srw_ss()++ARITH_ss) []) >>
  Cases_on `EL n l1` >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  Cases_on `cl` >>
  simp [] >>
- TRY (rw [] >> NO_TAC) >>
- rw [] >>
+ TRY (srw_tac[][] >> NO_TAC) >>
+ srw_tac[][] >>
  simp [TAKE_APPEND, DROP_APPEND] >>
  full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS, NOT_LESS_EQUAL] >>
- rw []
+ srw_tac[][]
  >- (
    Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac TAKE_LENGTH_TOO_LONG >>
-   rw [] >>
+   srw_tac[][] >>
    full_simp_tac (srw_ss()++ARITH_ss) [])
  >- (
    Q.ISPECL_THEN [`REVERSE args2`, `q - LENGTH l`] mp_tac DROP_LENGTH_TOO_LONG >>
-   rw [] >>
+   srw_tac[][] >>
    full_simp_tac (srw_ss()++ARITH_ss) []));
 
 val evaluate_app_append = Q.store_thm ("evaluate_app_append",
@@ -887,26 +887,26 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
     | err => err`,
  gen_tac >>
  completeInduct_on `LENGTH args2` >>
- rw [] >>
+ srw_tac[][] >>
  Cases_on `args1++args2 = []`
- >- fs [evaluate_def, APPEND_eq_NIL] >>
+ >- full_simp_tac(srw_ss())[evaluate_def, APPEND_eq_NIL] >>
  Cases_on `args2 = []`
- >- fs [evaluate_def, APPEND_eq_NIL] >>
- rw [evaluate_app_rw] >>
+ >- full_simp_tac(srw_ss())[evaluate_def, APPEND_eq_NIL] >>
+ srw_tac[][evaluate_app_rw] >>
  `dest_closure NONE f args2 = NONE ∨ ?x. dest_closure NONE f args2 = SOME x` by metis_tac [option_nchotomy] >>
- fs []
+ full_simp_tac(srw_ss())[]
  >- (
    imp_res_tac dest_closure_none_append >>
-   rw []) >>
+   srw_tac[][]) >>
  Cases_on `x` >>
- fs []
+ full_simp_tac(srw_ss())[]
  >- ( (* args2 partial app *)
    `dest_closure NONE f (args1++args2) = NONE ∨
     ?x. dest_closure NONE f (args1++args2) = SOME x` by metis_tac [option_nchotomy] >>
    simp []
-   >- (imp_res_tac dest_closure_none_append2 >> fs []) >>
+   >- (imp_res_tac dest_closure_none_append2 >> full_simp_tac(srw_ss())[]) >>
    imp_res_tac dest_closure_partial_twice >>
-   rw [] >>
+   srw_tac[][] >>
    simp [] >>
    Cases_on `x` >>
    simp [] >>
@@ -915,24 +915,24 @@ val evaluate_app_append = Q.store_thm ("evaluate_app_append",
    full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS] >>
    Cases_on `args1 = []` >>
    full_simp_tac (srw_ss()++ARITH_ss) [] >>
-   fs [evaluate_app_rw, dec_clock_def] >>
+   full_simp_tac(srw_ss())[evaluate_app_rw, dec_clock_def] >>
    simp [evaluate_def] >>
-   rw [] >>
+   srw_tac[][] >>
    full_simp_tac (srw_ss()++ARITH_ss) [NOT_LESS])
  >- ( (* args2 full app *)
    imp_res_tac dest_closure_full_addargs >>
    simp [] >>
-   rw [] >>
+   srw_tac[][] >>
    every_case_tac >>
    imp_res_tac evaluate_SING >>
-   fs [] >>
-   rw [] >>
+   full_simp_tac(srw_ss())[] >>
+   srw_tac[][] >>
    first_x_assum (qspec_then `LENGTH l0` mp_tac) >>
-   rw [] >>
+   srw_tac[][] >>
    `LENGTH l0 < LENGTH args2` by metis_tac [dest_closure_rest_length] >>
-   fs [] >>
+   full_simp_tac(srw_ss())[] >>
    first_x_assum (qspec_then `l0` mp_tac) >>
-   rw [] >>
+   srw_tac[][] >>
    pop_assum (qspecl_then [`h`, `args1`, `r`] mp_tac) >>
    simp []));
 
@@ -984,22 +984,22 @@ val dest_closure_partial_split = Q.store_thm (
   ?v3.
     dest_closure NONE v1 (DROP n vs) = SOME (Partial_app v3) ∧
     v2 = clo_add_partial_args (TAKE n vs) v3`,
- rw [dest_closure_def] >>
+ srw_tac[][dest_closure_def] >>
  Cases_on `v1` >>
  simp [] >>
- fs [check_loc_def]
+ full_simp_tac(srw_ss())[check_loc_def]
  >- (Cases_on `LENGTH vs + LENGTH l < n'` >>
-     fs [] >>
-     rw [clo_add_partial_args_def] >>
+     full_simp_tac(srw_ss())[] >>
+     srw_tac[][clo_add_partial_args_def] >>
      decide_tac) >>
- fs [LET_THM] >>
+ full_simp_tac(srw_ss())[LET_THM] >>
  Cases_on `EL n' l1` >>
- fs [] >>
- rw [clo_add_partial_args_def] >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
+ srw_tac[][clo_add_partial_args_def] >>
+ full_simp_tac(srw_ss())[] >>
  simp [] >>
  Cases_on `LENGTH vs + LENGTH l < q` >>
- fs [] >>
+ full_simp_tac(srw_ss())[] >>
  decide_tac);
 
 val dest_closure_partial_split' = Q.store_thm(
@@ -1023,9 +1023,9 @@ val dest_closure_NONE_Full_to_Partial = Q.store_thm(
         dest_closure NONE cl l1 = SOME (Full_app b env [])`,
   Cases_on `v` >>
   dsimp[dest_closure_def, bool_case_eq, revnil, DROP_NIL, GREATER_EQ,
-        check_loc_def, UNCURRY] >> rw[] >>
-  `0 < LENGTH l1` by (Cases_on `l1` >> fs[]) >> simp[] >>
-  simp[TAKE_APPEND2] >> Cases_on `l2` >> fs[]);
+        check_loc_def, UNCURRY] >> srw_tac[][] >>
+  `0 < LENGTH l1` by (Cases_on `l1` >> full_simp_tac(srw_ss())[]) >> simp[] >>
+  simp[TAKE_APPEND2] >> Cases_on `l2` >> full_simp_tac(srw_ss())[]);
 
 val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
   `dec_clock s with clock := y = s with clock := y`,
@@ -1038,16 +1038,16 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   TRY(qcase_tac`Rerr e`>>Cases_on`e`)>>
   TRY(qcase_tac`Rval a`>>Cases_on`a`)>>
   TRY(qcase_tac`Rabort a`>>Cases_on`a`)>>
-  fs[do_app_cases_val,do_app_cases_err,do_app_cases_timeout] >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[do_app_cases_val,do_app_cases_err,do_app_cases_timeout] >>
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >>
-  rw[] >>
-  every_case_tac >> fs[] >>
+  srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
   pop_assum(fn th => strip_assume_tac(CONV_RULE(REWR_CONV do_app_cases_type_error)th)) >>
-  fs[do_app_def] >>
-  every_case_tac >> fs[]);
+  full_simp_tac(srw_ss())[do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[]);
 
 val s = ``s:'ffi closSem$state``
 
@@ -1064,48 +1064,48 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
        evaluate_app loc_opt v rest_args (s with clock := s.clock + extra) =
          (r,s' with clock := s'.clock + extra))`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >> fs[evaluate_def] >>
+  srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[evaluate_def] >>
   TRY (
     qcase_tac`Boolv T` >>
-    first_assum(split_pair_case_tac o lhs o concl) >> fs[] >>
-    BasicProvers.CASE_TAC >> fs[] >>
-    reverse(BasicProvers.CASE_TAC) >> fs[] >- (
-      every_case_tac >> fs[] >> rw[] >> fs[] ) >>
-    rw[] >> fs[] >- (
-      every_case_tac >> fs[] >> rw[] )
+    first_assum(split_pair_case_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    reverse(BasicProvers.CASE_TAC) >> full_simp_tac(srw_ss())[] >- (
+      every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] ) >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[] >- (
+      every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
     >- (
       qpat_assum`_ = (r,_)`mp_tac >>
-      BasicProvers.CASE_TAC >> fs[] )
-    >> ( every_case_tac >> fs[] >> rw[] )) >>
+      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] )
+    >> ( every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] )) >>
   TRY (
     qcase_tac`dest_closure` >>
-    BasicProvers.CASE_TAC >> fs[] >>
-    BasicProvers.CASE_TAC >> fs[] >>
-    BasicProvers.CASE_TAC >> fs[] >>
-    every_case_tac >> fs[] >> rw[] >>
+    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
     imp_res_tac evaluate_length_imp >>
-    fsrw_tac[ARITH_ss][] >> rfs[] >>
-    fs[dec_clock_def] >>
+    fsrw_tac[ARITH_ss][] >> rev_full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[dec_clock_def] >>
     simp[state_component_equality] >>
     qcase_tac`extra + (s.clock - (SUC n - m))` >>
     `extra + (s.clock - (SUC n - m)) = extra + s.clock - (SUC n - m)` by DECIDE_TAC >>
-    fs[] >> rw[] ) >>
+    full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   unabbrev_all_tac >>
-  every_case_tac >> fs[do_app_add_to_clock,LET_THM] >> rw[] >> rfs[] >>
-  every_case_tac >> fs[do_app_add_to_clock,LET_THM] >> rw[] >> rfs[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock,LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock,LET_THM] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
 val do_app_io_events_mono = Q.prove(
   `do_app op vs s = Rval(v,s') ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  rw[do_app_cases_val] >>
-  fs[LET_THM,
+  srw_tac[][do_app_cases_val] >>
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  fs[ffiTheory.call_FFI_def] >>
-  every_case_tac >> fs[] >> rw[]);
+     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀p. ((SND(SND p)):'ffi closSem$state).ffi.io_events ≼ (SND (evaluate p)).ffi.io_events ∧
@@ -1113,8 +1113,8 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
    (∀loc_opt v rest ^s.
      s.ffi.io_events ≼ (SND(evaluate_app loc_opt v rest s)).ffi.io_events ∧
      (IS_SOME s.ffi.final_event ⇒ (SND(evaluate_app loc_opt v rest s)).ffi = s.ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >> rfs[] >> fs[dec_clock_def] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]);
 
 val evaluate_io_events_mono_imp = Q.prove(
@@ -1129,10 +1129,10 @@ val lemma = DECIDE``¬(x < y - z) ⇒ ((a:num) + x - (y - z) = x - (y - z) + a)`
 val lemma2 = DECIDE``x ≠ 0n ⇒ a + (x - 1) = a + x - 1``
 
 val tac =
-  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >>
-  imp_res_tac evaluate_io_events_mono_imp >> fs[] >> rw[] >> rfs[] >>
-  fs[dec_clock_def] >> fs[do_app_add_to_clock] >>
-  TRY(first_assum(split_applied_pair_tac o rhs o concl) >> fs[]) >>
+  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock] >>
+  TRY(first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   fsrw_tac[ARITH_ss][AC ADD_ASSOC ADD_COMM] >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,SND,IS_PREFIX_TRANS,lemma,Boolv_11,lemma2]
@@ -1151,20 +1151,20 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
      (IS_SOME((SND(evaluate_app l v r s)).ffi.final_event) ⇒
        (SND(evaluate_app l v r (s with clock := s.clock + extra))).ffi
        = (SND(evaluate_app l v r s)).ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
   TRY (
     qcase_tac`Boolv T` >>
     qmatch_assum_rename_tac`IS_SOME _.ffi.final_event` >>
-    ntac 6 (BasicProvers.CASE_TAC >> fs[] >> rfs[]) >>
-    rw[] >> fs[] >> rfs[] >> tac) >>
+    ntac 6 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> tac) >>
   TRY (
     qcase_tac`dest_closure` >>
-    ntac 4 (BasicProvers.CASE_TAC >> fs[] >> rfs[dec_clock_ffi]) >>
-    every_case_tac >> fs[] >> rfs[] >> fs[dec_clock_def] >>
-    imp_res_tac lemma >> fs[] >>
+    ntac 4 (BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[dec_clock_ffi]) >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
+    imp_res_tac lemma >> full_simp_tac(srw_ss())[] >>
     fsrw_tac[ARITH_ss][] >> tac) >>
-  unabbrev_all_tac >> fs[LET_THM] >>
-  every_case_tac >> fs[evaluate_def] >>
+  unabbrev_all_tac >> full_simp_tac(srw_ss())[LET_THM] >>
+  every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
   tac)
 
 val do_app_never_timesout = Q.store_thm(
