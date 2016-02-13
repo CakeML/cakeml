@@ -31,6 +31,15 @@ val word_exp_termdep_code_frame = prove(``
 
 val tac = (fs[GSYM word_exp_termdep_code_frame]>>EVERY_CASE_TAC>>fs[state_component_equality,set_store_def,mem_store_def])
 
+val push_env_code = prove(``
+  (push_env x handler s).code = s.code``,
+  Cases_on`handler`>>TRY(PairCases_on`x'`)>>fs[push_env_def,LET_THM,env_to_list_def])
+
+val pop_env_termdep_code_frame = prove(``
+  pop_env (r' with <|termdep:=0; code:=l|>) =
+  lift (λs. s with <|termdep:=0;code:=l|>) (pop_env r')``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[])
+
 val word_remove_correct = store_thm("word_remove_correct",``
   ∀prog st res rst.
   (!n v p. lookup n st.code = SOME (v,p) ==>
@@ -49,7 +58,9 @@ val word_remove_correct = store_thm("word_remove_correct",``
     (simp[GSYM get_vars_termdep_code_frame]>>
     EVERY_CASE_TAC>>
     fs[set_vars_def,state_component_equality]>>rfs[])
-  >- cheat
+  >-
+    (Cases_on`i`>>fs[inst_def,state_component_equality,assign_def,GSYM word_exp_termdep_code_frame,get_var_def]>>
+    rpt(TOP_CASE_TAC>>fs[set_var_def,state_component_equality,mem_load_def,get_var_def,mem_store_def]))
   >- tac
   >- tac
   >- tac
@@ -73,8 +84,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
     split_pair_tac>>fs[]>>
     IF_CASES_TAC>>fs[]>-
       (strip_tac>>fs[]>>
-      (*eval const*)
-      `s1.code = s.code` by cheat>>
+      imp_res_tac evaluate_code_const>>
       fs[]>>
       imp_res_tac evaluate_add_clock>>
       rfs[]>>pop_assum kall_tac>>
@@ -86,7 +96,7 @@ val word_remove_correct = store_thm("word_remove_correct",``
     >>
       rw[]>>fs[]>>
       qexists_tac`clk`>>fs[ADD_COMM])
-  >- (EVERY_CASE_TAC>>fs[state_component_equality,fromList2_def])
+  >- tac
   >- (tac>>fs[jump_exc_def]>>tac)
   >-
     (Cases_on`ri`>>fs[get_var_imm_def,get_var_def]>>
@@ -123,7 +133,43 @@ val word_remove_correct = store_thm("word_remove_correct",``
       qexists_tac`clk`>>simp[dec_clock_def,call_env_def]>>
       `clk + s.clock -1 = s.clock -1 + clk` by DECIDE_TAC>>
       fs[])>>
-  (*Should be fine, but annoying*)
-  cheat)
+    ntac 7 (TOP_CASE_TAC>>fs[])>-
+      (rw[]>>qexists_tac`0`>>fs[call_env_def,state_component_equality])>>
+    ntac 3 (TOP_CASE_TAC>>fs[])
+    >-
+      (ntac 3 (TOP_CASE_TAC>>fs[])>>
+      Cases_on`handler`>>TRY(PairCases_on`x'''`)>>fs[push_env_def,LET_THM,env_to_list_def,dec_clock_def,call_env_def]>>rfs[]>>rw[]>>
+      imp_res_tac evaluate_code_const>>
+      imp_res_tac pop_env_code_clock>>
+      fs[]>>rfs[]>>
+      qexists_tac`clk+clk'`>>
+      imp_res_tac evaluate_add_clock>>
+      fs[]>>
+      pop_assum kall_tac>>
+      pop_assum (qspec_then`clk'` mp_tac)>>simp[]>>
+      fs[pop_env_termdep_code_frame,set_var_def]>>
+      fs[ADD_COMM])
+    >-
+      (Cases_on`handler`>>TRY(PairCases_on`x''`)>>fs[push_env_def,LET_THM,env_to_list_def,dec_clock_def,call_env_def]>>rfs[]
+      >-
+        (rw[]>>qexists_tac`clk`>>
+        `s.clock -1 + clk = clk + s.clock-1`by DECIDE_TAC>>
+        rveq>>fs[])
+      >>
+        ntac 2 (TOP_CASE_TAC>>fs[])>>rw[]>>
+        imp_res_tac evaluate_code_const>>
+        imp_res_tac pop_env_code_clock>>
+        fs[]>>rfs[]>>
+        qexists_tac`clk+clk'`>>
+        imp_res_tac evaluate_add_clock>>
+        fs[]>>
+        ntac 2 (pop_assum kall_tac)>>
+        pop_assum (qspec_then`clk'` mp_tac)>>simp[]>>
+        fs[ADD_COMM,set_var_def])
+    >>
+      Cases_on`handler`>>TRY(PairCases_on`x''`)>>fs[push_env_def,LET_THM,env_to_list_def,dec_clock_def,call_env_def]>>rfs[]>>strip_tac>>
+      qexists_tac`clk`>>
+      `s.clock -1 + clk = clk + s.clock-1`by DECIDE_TAC>>
+      rveq>>fs[])
 
 val _ = export_theory();

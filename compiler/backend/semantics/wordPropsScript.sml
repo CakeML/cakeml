@@ -480,6 +480,46 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   imp_res_tac evaluate_io_events_mono >> rfs[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
+(*code is unchanged across eval*)
+val pop_env_code_clock = store_thm("pop_env_code_clock",``
+  pop_env r = SOME x ⇒
+  r.code = x.code ∧
+  r.clock = x.clock``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
+
+val alloc_code_const = store_thm("alloc_code_const",``
+  alloc x names s = (res,t) ⇒
+  t.code = s.code``,
+  fs[alloc_def,gc_def,LET_THM]>>EVERY_CASE_TAC>>
+  fs[call_env_def,push_env_def,LET_THM,env_to_list_def,set_store_def,state_component_equality]>>
+  imp_res_tac pop_env_code_clock>>fs[])
+
+val inst_code_const = prove(``
+  inst i s = SOME t ⇒ s.code = t.code``,
+  Cases_on`i`>>fs[inst_def,assign_def]>>EVERY_CASE_TAC>>fs[set_var_def,state_component_equality,mem_store_def])
+
+val evaluate_code_const = store_thm("evaluate_code_const",``
+  ∀xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s1.code = s2.code``,
+  recInduct evaluate_ind>>fs[evaluate_def,LET_THM]>>reverse (rw[])
+  >-
+    (qcase_tac `bad_dest_args _ _`>>
+    pop_assum mp_tac>>
+    ntac 5 (TOP_CASE_TAC>>fs[])
+    >-
+      (rpt(TOP_CASE_TAC>>fs[call_env_def,state_component_equality,dec_clock_def]))
+    >>
+      ntac 6 (TOP_CASE_TAC>>fs[])>>
+      Cases_on`handler`>>TRY(PairCases_on`x''`)>>fs[state_component_equality,call_env_def,push_env_def,LET_THM,env_to_list_def,dec_clock_def]>>
+      TOP_CASE_TAC>>fs[state_component_equality]>>
+      ntac 6 (TOP_CASE_TAC>>fs[set_var_def])>>
+      imp_res_tac pop_env_code_clock>>fs[])
+  >>
+    fs[jump_exc_def]>>
+    EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
+    TRY(split_pair_tac>>fs[state_component_equality])>>
+    EVERY_CASE_TAC>>fs[set_vars_def,state_component_equality,set_var_def,set_store_def,mem_store_def,call_env_def,dec_clock_def]>>
+    metis_tac[alloc_code_const,inst_code_const])
+
 (* -- *)
 
 val get_vars_length_lemma = store_thm("get_vars_length_lemma",

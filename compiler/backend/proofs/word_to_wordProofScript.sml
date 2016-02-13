@@ -147,6 +147,10 @@ val push_env_code_frame = prove(``
   (push_env a b c).code = c.code``,
   Cases_on`b`>>TRY(PairCases_on`x`)>>fs[push_env_def,LET_THM,env_to_list_def])
 
+val pop_env_termdep = prove(``
+  pop_env rst = SOME x ⇒ x.termdep = rst.termdep``,
+  fs[pop_env_def]>>EVERY_CASE_TAC>>fs[state_component_equality])
+
 val compile_single_correct = prove(``
   ∀prog st l.
   (!n v. lookup n st.code = SOME v ==>
@@ -301,8 +305,10 @@ val compile_single_correct = prove(``
       discharge_hyps>-
         (simp[set_var_def]>>
         imp_res_tac evaluate_clock>>fs[]>>
-        (*pop_env termdep is constant, should be proved elsewhere already*)
-        cheat)>>
+        imp_res_tac evaluate_clock>>
+        Cases_on`o0`>>TRY(PairCases_on`x'''`)>>fs[call_env_def,push_env_def,LET_THM,dec_clock_def,env_to_list_def]>>
+        imp_res_tac pop_env_termdep>>
+        fs[])>>
       discharge_hyps>-
         (simp[set_var_def]>>
         qsuff_tac`x''.code = st.code`>>fs[]>>
@@ -368,9 +374,8 @@ val compile_single_correct = prove(``
         fs[call_env_def,dec_clock_def]>>
         DECIDE_TAC)>>
       discharge_hyps>-
-        (*consts proved elsewhere*)
         (imp_res_tac evaluate_clock>>
-        fs[set_var_def]>>cheat)>>
+        fs[set_var_def,call_env_def,push_env_def,dec_clock_def,LET_THM,env_to_list_def])>>
       discharge_hyps>-
         (simp[set_var_def]>>
         split_pair_tac>>fs[]>>rfs[]>>
