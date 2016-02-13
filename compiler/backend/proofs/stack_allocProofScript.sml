@@ -146,6 +146,139 @@ val gc_thm = prove(
   \\ fs [] \\ rpt var_eq_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []);
 
+val word_gc_move_bitmaps_def = Define `
+  word_gc_move_bitmaps conf (w,stack,bitmaps,i1,pa1,curr,m,dm) =
+    case full_read_bitmap bitmaps w of
+    | NONE => NONE
+    | SOME bs =>
+      case filter_bitmap bs stack of
+      | NONE => NONE
+      | SOME (ts,ws) =>
+        let (wl,i2,pa2,m2,c2) =
+                word_gc_move_roots conf (ts,i1,pa1,curr,m,dm) in
+          case map_bitmap bs wl stack of
+          | NONE => NONE
+          | SOME (hd,ts1,ws') =>
+              SOME (w::hd,ws,i2,pa2,m2,c2)`
+
+val word_gc_move_roots_APPEND = prove(
+  ``!xs ys i1 pa1 m.
+      word_gc_move_roots conf (xs++ys,i1,pa1,curr,m,dm) =
+        let (ws1,i1,pa1,m1,c1) = word_gc_move_roots conf (xs,i1,pa1,curr,m,dm) in
+        let (ws2,i2,pa2,m2,c2) = word_gc_move_roots conf (ys,i1,pa1,curr,m1,dm) in
+          (ws1++ws2,i2,pa2,m2,c1 /\ c2)``,
+  Induct \\ fs [word_gc_move_roots_def,LET_THM]
+  \\ rw [] \\ split_pair_tac \\ fs []
+  \\ Cases_on `word_gc_move conf (h,i1,pa1,curr,m,dm)` \\ PairCases_on `r` \\ fs []
+  \\ Cases_on `word_gc_move_roots conf (xs,r0,r1,curr,r2,dm)`
+  \\ PairCases_on `r` \\ fs []
+  \\ Cases_on `word_gc_move_roots conf (ys,r0',r1',curr,r2',dm)`
+  \\ PairCases_on `r` \\ fs []
+  \\ EQ_TAC \\ fs []);
+
+val map_bitmap_APPEND = prove(
+  ``!x q stack p0 p1.
+      filter_bitmap x stack = SOME (p0,p1) /\
+      LENGTH q = LENGTH p0 ==>
+      map_bitmap x (q ++ q') stack =
+      case map_bitmap x q stack of
+      | NONE => NONE
+      | SOME (hd,ts,ws) => SOME (hd,ts++q',ws)``,
+  Induct \\ fs [map_bitmap_def]
+  \\ reverse (Cases \\ Cases_on `stack`)
+  \\ fs [map_bitmap_def,filter_bitmap_def]
+  THEN1 (rw [] \\ rpt (CASE_TAC \\ fs []))
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ Cases \\ fs [map_bitmap_def]
+  \\ every_case_tac \\ fs []);
+
+val word_gc_move_roots_IMP_LENGTH = store_thm("word_gc_move_roots_IMP_LENGTH",
+  ``!xs r0 r1 curr r2 dm ys i2 pa2 m2 c conf.
+      word_gc_move_roots conf (xs,r0,r1,curr,r2,dm) = (ys,i2,pa2,m2,c) ==>
+      LENGTH ys = LENGTH xs``,
+  Induct \\ fs [word_gc_move_roots_def,LET_THM] \\ rw []
+  \\ rpt (split_pair_tac \\ fs []) \\ rpt var_eq_tac \\ fs []
+  \\ res_tac);
+
+val filter_bitmap_map_bitmap = store_thm("filter_bitmap_map_bitmap",
+  ``!x t q xs xs1 z ys ys1.
+      filter_bitmap x t = SOME (xs,xs1) /\
+      LENGTH q = LENGTH xs /\
+      map_bitmap x q t = SOME (ys,z,ys1) ==>
+      z = [] /\ ys1 = xs1``,
+  Induct
+  THEN1 (Cases_on `q` \\ Cases_on `t` \\ fs [filter_bitmap_def,map_bitmap_def])
+  \\ Cases_on `t` \\ Cases_on `q` \\ Cases
+  \\ rewrite_tac [filter_bitmap_def] \\ simp_tac std_ss [map_bitmap_def]
+  THEN1
+   (Cases_on `xs` \\ simp_tac std_ss [map_bitmap_def,LENGTH,ADD1]
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+    \\ simp_tac (srw_ss()) [map_bitmap_def,LENGTH,ADD1]
+    \\ ntac 2 strip_tac \\ first_x_assum drule
+    \\ disch_then (qspec_then `[]` mp_tac) \\ fs [])
+  THEN1
+   (CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+    \\ simp_tac (srw_ss()) [map_bitmap_def,LENGTH,ADD1]
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+    \\ simp_tac (srw_ss()) [map_bitmap_def,LENGTH,ADD1]
+    \\ metis_tac [])
+  \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+  \\ simp_tac (srw_ss()) []
+  \\ rpt gen_tac \\ strip_tac
+  \\ first_x_assum match_mp_tac
+  \\ qexists_tac `t'` \\ fs []
+  \\ qexists_tac `h'::t` \\ fs []);
+
+val word_gc_move_roots_bitmaps = prove(
+  ``!stack i1 pa1 m stack2 i2 pa2 m2.
+      (word_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm) =
+        (stack2,i2,pa2,m2,T)) ==>
+      word_gc_move_roots_bitmaps conf (stack,bitmaps,i1,pa1,curr,m,dm) =
+      case stack of
+      | [] => (ARB,ARB,ARB,ARB,F)
+      | (w::ws) =>
+        if w = Word 0w then (stack,i1,pa1,m,ws = []) else
+          case word_gc_move_bitmaps conf (w,ws,bitmaps,i1,pa1,curr,m,dm) of
+          | NONE => (ARB,ARB,ARB,ARB,F)
+          | SOME (new,stack,i2,pa2,m2,c2) =>
+              let (stack,i,pa,m,c2) =
+                word_gc_move_roots_bitmaps conf (stack,bitmaps,i2,pa2,curr,m2,dm) in
+                  (new++stack,i,pa,m,c2)``,
+  Cases THEN1 (fs [word_gc_move_roots_bitmaps_def,enc_stack_def])
+  \\ rpt strip_tac \\ pop_assum mp_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  THEN1 (fs [word_gc_move_roots_bitmaps_def,enc_stack_def]
+         \\ IF_CASES_TAC \\ fs [word_gc_move_roots_def,LET_THM,dec_stack_def])
+  \\ fs [word_gc_move_roots_bitmaps_def,word_gc_move_bitmaps_def,enc_stack_def]
+  \\ Cases_on `full_read_bitmap bitmaps h` \\ fs []
+  \\ Cases_on `filter_bitmap x t` \\ fs []
+  \\ qcase_tac `_ = SOME filter_res` \\ PairCases_on `filter_res` \\ fs []
+  \\ Cases_on `enc_stack bitmaps filter_res1` \\ fs []
+  \\ qcase_tac `_ = SOME enc_rest` \\ fs [word_gc_move_roots_APPEND]
+  \\ simp [Once LET_DEF]
+  \\ Cases_on `word_gc_move_roots conf (filter_res0,i1,pa1,curr,m,dm)` \\ fs []
+  \\ PairCases_on `r` \\ fs [dec_stack_def]
+  \\ Cases_on `word_gc_move_roots conf (enc_rest,r0,r1,curr,r2,dm)` \\ fs []
+  \\ PairCases_on `r` \\ fs []
+  \\ CASE_TAC \\ fs [] \\ qcase_tac `_ = SOME map_rest` \\ fs []
+  \\ PairCases_on `map_rest` \\ fs []
+  \\ imp_res_tac word_gc_move_roots_IMP_LENGTH \\ fs []
+  \\ drule (GEN_ALL map_bitmap_APPEND) \\ fs []
+  \\ disch_then (mp_tac o SPEC_ALL) \\ fs []
+  \\ fs [] \\ pop_assum kall_tac
+  \\ CASE_TAC \\ fs []
+  \\ qcase_tac `_ = SOME z` \\ fs [] \\ PairCases_on `z` \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ imp_res_tac word_gc_move_roots_IMP_LENGTH \\ fs []
+  \\ drule filter_bitmap_map_bitmap
+  \\ disch_then drule \\ fs []
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []);
+
+
+
 
 (*
 
