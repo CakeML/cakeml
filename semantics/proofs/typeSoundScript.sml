@@ -1388,6 +1388,10 @@ val exp_type_preservation = Q.prove (
              metis_tac[])
          >- (srw_tac[][Once type_v_cases_eqn] >>
              metis_tac[])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[])
+         >- (srw_tac[][Once type_v_cases_eqn] >>
+             metis_tac[])
          >- do_app_exn_tac
          >- do_app_exn_tac
          >- (metis_tac[type_v_Boolv])
@@ -1401,7 +1405,8 @@ val exp_type_preservation = Q.prove (
              srw_tac[][] >>
              full_simp_tac(srw_ss())[EVERY_LIST_REL] >>
              full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >>
-             `Num (ABS i''') < LENGTH vs` by decide_tac >>
+             qmatch_asmsub_rename_tac`Num (ABS ii)` >>
+             `Num (ABS ii) < LENGTH vs` by decide_tac >>
              res_tac >>
              metis_tac [EL_REPLICATE])
          >- do_app_exn_tac
@@ -1444,7 +1449,8 @@ val exp_type_preservation = Q.prove (
              qpat_assum `type_v x0 x1 x2 (Loc l) x3` (assume_tac o SIMP_RULE (srw_ss()) [Once type_v_cases_eqn]) >>
              disj1_tac >>
              full_simp_tac(srw_ss())[type_s_def] >>
-             `Num (ABS i'''') < LENGTH vs` by decide_tac >>
+             qmatch_asmsub_rename_tac`Num (ABS ii)` >>
+             `Num (ABS ii) < LENGTH vs` by decide_tac >>
              res_tac >>
              every_case_tac >>
              full_simp_tac(srw_ss())[] >>

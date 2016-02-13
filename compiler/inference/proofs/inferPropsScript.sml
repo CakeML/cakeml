@@ -469,7 +469,7 @@ val lookup_tenvC_st_ex_success = Q.prove (
  fs [st_ex_return_def]);
 
 val op_case_expand = Q.prove (
-`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 op st v st'.
+`!f1 f2 f3 f4 f5 f6 f7 f8 f9 f10 f11 f12 f13 f14 f15 f16 f17 f18 f19 f20 f21 f22 f23 f24 f25 f26 f27 op st v st'.
   ((case op of
        Opn opn => f1
      | Opb opb => f2
@@ -495,7 +495,9 @@ val op_case_expand = Q.prove (
      | Aalloc => f22
      | Asub => f23
      | Aupdate => f24
-     | FFI n => f25) st
+     | FFI n => f25
+     | W8fromInt => f26
+     | W8toInt => f27) st
    = (Success v, st'))
   =
   ((?opn. (op = Opn opn) ∧ (f1 st = (Success v, st'))) ∨
@@ -511,6 +513,8 @@ val op_case_expand = Q.prove (
    ((op = Aw8update) ∧ (f11 st = (Success v, st'))) ∨
    ((op = Ord) ∧ (f12 st = (Success v, st'))) ∨
    ((op = Chr) ∧ (f13 st = (Success v, st'))) ∨
+   ((op = W8fromInt) ∧ (f26 st = (Success v, st'))) ∨
+   ((op = W8toInt) ∧ (f27 st = (Success v, st'))) ∨
    (?opb. (op = Chopb opb)) ∧ (f14 st = (Success v, st')) ∨
    ((op = Explode) ∧ (f15 st = (Success v, st'))) ∨
    ((op = Implode) ∧ (f16 st = (Success v, st'))) ∨
@@ -1377,7 +1381,7 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
  (!ienv funs st st' ts'.
     (infer_funs ienv funs st = (Success ts', st')) ∧
     check_menv ienv.inf_m ∧
-    check_env (count st.next_uvar) ienv.inf_v 
+    check_env (count st.next_uvar) ienv.inf_v
     ⇒
     EVERY (check_t 0 (count st'.next_uvar)) ts')`,
 ho_match_mp_tac infer_e_ind >>
@@ -1482,6 +1486,16 @@ val constrain_op_check_s = Q.prove (
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
  >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     `check_s tvs (count st.next_uvar) s'`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
+ >- (`check_s tvs (count st.next_uvar) s`
+            by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
+     `check_s tvs (count st.next_uvar) s'`
             by metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0] >>
      metis_tac [t_unify_wfs, t_unify_check_s, check_t_more2, arithmeticTheory.ADD_0])
  >- (`check_s tvs (count st.next_uvar) s`
@@ -2603,7 +2617,7 @@ val infer_top_invariant = Q.store_thm ("infer_top_invariant",
          fs [success_eqns] >>
          `flat_tenv_tabbrev_ok (FEMPTY:flat_tenv_tabbrev) ∧ check_flat_cenv ([]:flat_tenv_ctor) ∧ check_env {} ([]:(tvarN, num # infer_t) alist)`
                    by rw [check_env_def, check_flat_cenv_def, flat_tenv_tabbrev_ok_def, FEVERY_FEMPTY] >>
-         `flat_tenv_tabbrev_ok tenvT''' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by 
+         `flat_tenv_tabbrev_ok tenvT''' ∧ check_flat_cenv cenv''' ∧ check_env {} env'''` by
          metis_tac [check_specs_check] >>
          rw [check_menv_def, check_env_def] >>
          fs [check_env_def, check_cenv_def, tenv_tabbrev_ok_def, FEVERY_FEMPTY, FEVERY_FUPDATE]))

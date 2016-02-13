@@ -85,6 +85,9 @@ val _ = Hol_datatype `
   | Aw8sub
   | Aw8length
   | Aw8update
+  (* Word8 operations *)
+  | W8fromInt
+  | W8toInt
   (* Char operations *)
   | Ord
   | Chr

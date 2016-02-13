@@ -306,6 +306,14 @@ constrain_op op ts =
           () <- add_constraint t3 (Infer_Tapp [] TC_word8);
           return (Infer_Tapp [] TC_tup)
         od
+   | (W8fromInt, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_int);
+          return (Infer_Tapp [] TC_word8)
+       od
+   | (W8toInt, [t]) =>
+       do () <- add_constraint t (Infer_Tapp [] TC_word8);
+          return (Infer_Tapp [] TC_int)
+       od
    | (Chr, [t]) =>
        do () <- add_constraint t (Infer_Tapp [] TC_int);
           return (Infer_Tapp [] TC_char)

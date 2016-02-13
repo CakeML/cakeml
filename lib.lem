@@ -85,7 +85,7 @@ declare hol target_rep function lcons = `LCONS`
 
 
 (* TODO: proper support for words... *)
-open import {hol} `wordsTheory`
+open import {hol} `wordsTheory` `integer_wordTheory`
 type word8
 declare hol target_rep type word8 = `word8`
 val natFromWord8 : word8 -> nat
@@ -94,6 +94,10 @@ val word_to_hex_string : word8 -> string
 declare hol target_rep function word_to_hex_string = `word_to_hex_string`
 val word8FromNat : nat -> word8
 declare hol target_rep function word8FromNat = `n2w`
+val word8FromInteger : integer -> word8
+declare hol target_rep function word8FromInteger = `i2w`
+val integerFromWord8 : word8 -> integer
+declare hol target_rep function integerFromWord8 = `w2i`
 instance (Numeral word8)
   let fromNumeral w = word8FromNat (fromNumeral w)
 end

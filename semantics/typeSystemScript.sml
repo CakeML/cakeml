@@ -309,6 +309,8 @@ val _ = Define `
     | (Aw8sub, [Tapp [] TC_word8array; Tapp [] TC_int]) => (t = Tapp [] TC_word8)
     | (Aw8length, [Tapp [] TC_word8array]) => (t = Tapp [] TC_int)
     | (Aw8update, [Tapp [] TC_word8array; Tapp [] TC_int; Tapp [] TC_word8]) => t = Tapp [] TC_tup
+    | (W8fromInt, [Tapp [] TC_int]) => t = Tapp [] TC_word8
+    | (W8toInt, [Tapp [] TC_word8]) => t = Tapp [] TC_int
     | (Chr, [Tapp [] TC_int]) => (t = Tchar)
     | (Ord, [Tapp [] TC_char]) => (t = Tint)
     | (Chopb _, [Tapp [] TC_char; Tapp [] TC_char]) => (t = Tapp [] (TC_name (Short "bool")))

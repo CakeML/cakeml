@@ -849,6 +849,14 @@ t = convert_t (t_walkstar s' t')``,
      unconversion_tac >>
      qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
      pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
+  >-(fs[Tchar_def] >>
+     unconversion_tac >>
+     qpat_abbrev_tac `ls = [(h,Infer_Tapp [] A)]`>>
+     pac_tac)
   >-(fs[Tchar_def] >> unconversion_tac >>
      qexists_tac`Infer_Tapp [] (TC_name(Short"bool"))` >>
      fs[pure_add_constraints_combine] >>
