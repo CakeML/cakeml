@@ -159,7 +159,7 @@ val word_gc_move_bitmaps_def = Define `
           case map_bitmap bs wl stack of
           | NONE => NONE
           | SOME (hd,ts1,ws') =>
-              SOME (w::hd,ws,i2,pa2,m2,c2)`
+              SOME (hd,ws,i2,pa2,m2,c2)`
 
 val word_gc_move_roots_APPEND = prove(
   ``!xs ys i1 pa1 m.
@@ -244,7 +244,7 @@ val word_gc_move_roots_bitmaps = prove(
           | SOME (new,stack,i2,pa2,m2,c2) =>
               let (stack,i,pa,m,c2) =
                 word_gc_move_roots_bitmaps conf (stack,bitmaps,i2,pa2,curr,m2,dm) in
-                  (new++stack,i,pa,m,c2)``,
+                  (w::new++stack,i,pa,m,c2)``,
   Cases THEN1 (fs [word_gc_move_roots_bitmaps_def,enc_stack_def])
   \\ rpt strip_tac \\ pop_assum mp_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
@@ -277,21 +277,139 @@ val word_gc_move_roots_bitmaps = prove(
   \\ disch_then drule \\ fs []
   \\ strip_tac \\ rpt var_eq_tac \\ fs []);
 
+val get_bits_def = Define `
+  get_bits w = GENLIST (\i. w ' i) (bit_length w − 1)`
 
+val word_gc_move_bitmap_def = Define `
+  word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
+    let bs = get_bits w in
+      case filter_bitmap bs stack of
+      | NONE => NONE
+      | SOME (ts,ws) =>
+         let (wl,i2,pa2,m2,c2) = word_gc_move_roots conf (ts,i1,pa1,curr,m,dm) in
+           case map_bitmap bs wl stack of
+           | NONE => NONE
+           | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)`
 
+val word_msb_IMP_bit_length = prove(
+  ``!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))``,
+  cheat);
+
+val get_bits_intro = prove(
+  ``word_msb (h:'a word) ==>
+    GENLIST (\i. h ' i) (dimindex (:'a) - 1) = get_bits h``,
+  fs [get_bits_def,word_msb_IMP_bit_length]);
+
+val DROP_IMP_LESS_LENGTH = prove(
+  ``!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs``,
+  Induct \\ fs [DROP_def] \\ rw [] \\ res_tac \\ decide_tac);
+
+val DROP_EQ_CONS_IMP_DROP_SUC = prove(
+  ``!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys``,
+  Induct \\ fs [DROP_def] \\ rw [] \\ res_tac \\ fs [ADD1]
+  \\ `n - 1 + 1 = n` by decide_tac \\ fs []);
+
+val filter_bitmap_APPEND = prove(
+  ``!xs stack ys.
+      filter_bitmap (xs ++ ys) stack =
+      case filter_bitmap xs stack of
+      | NONE => NONE
+      | SOME (zs,rs) =>
+        case filter_bitmap ys rs of
+        | NONE => NONE
+        | SOME (zs2,rs) => SOME (zs ++ zs2,rs)``,
+  Induct \\ Cases_on `stack` \\ fs [filter_bitmap_def]
+  THEN1 (rw [] \\ every_case_tac \\ fs [])
+  THEN1 (rw [] \\ every_case_tac \\ fs [])
+  \\ Cases \\ fs [filter_bitmap_def] \\ rw [] \\ rpt (CASE_TAC \\ fs []));
+
+val map_bitmap_APPEND_APPEND = prove(
+  ``!vs1 stack x0 x1 ws2 vs2 ws1.
+      filter_bitmap vs1 stack = SOME (x0,x1) /\
+      LENGTH x0 = LENGTH ws1 ==>
+      map_bitmap (vs1 ++ vs2) (ws1 ++ ws2) stack =
+      case map_bitmap vs1 ws1 stack of
+      | NONE => NONE
+      | SOME (ts1,ts2,ts3) =>
+        case map_bitmap vs2 ws2 ts3 of
+        | NONE => NONE
+        | SOME (us1,us2,us3) => SOME (ts1++us1,ts2++us2,us3)``,
+  cheat) |> SIMP_RULE std_ss [];
+
+val word_gc_move_bitmaps_unroll = prove(
+  ``LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
+    word_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,curr,m,dm) = SOME x ==>
+    word_gc_move_bitmaps conf (Word w,stack,bitmaps,i1,pa1,curr,m,dm) =
+    case DROP (w2n (w - 1w:'a word)) bitmaps of
+    | [] => NONE
+    | (y::ys) =>
+      case word_gc_move_bitmap conf (y,stack,i1,pa1,curr,m,dm) of
+      | NONE => NONE
+      | SOME (hd,ws,i2,pa2,m2,c2) =>
+          if ~(word_msb y) then SOME (hd,ws,i2,pa2,m2,c2) else
+            case word_gc_move_bitmaps conf (Word (w+1w),ws,bitmaps,i2,pa2,curr,m2,dm) of
+            | NONE => NONE
+            | SOME (hd3,ws3,i3,pa3,m3,c3) =>
+                SOME (hd++hd3,ws3,i3,pa3,m3,c2 /\ c3)``,
+  fs [word_gc_move_bitmaps_def,full_read_bitmap_def]
+  \\ Cases_on `w = 0w` \\ fs []
+  \\ Cases_on `DROP (w2n (w + -1w)) bitmaps` \\ fs [read_bitmap_def]
+  \\ reverse (Cases_on `word_msb h`)
+  THEN1
+   (fs [word_gc_move_bitmap_def,get_bits_def,LET_THM]
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ fs []
+    \\ split_pair_tac \\ fs []
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ fs []
+    \\ strip_tac \\ rpt var_eq_tac \\ fs [])
+  \\ fs [] \\ Cases_on `read_bitmap t` \\ fs []
+  \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ fs [LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ CASE_TAC \\ qcase_tac `_ = SOME z` \\ PairCases_on `z` \\ fs [LET_THM]
+  \\ fs [word_gc_move_bitmap_def,LET_THM] \\ rfs [get_bits_intro]
+  \\ strip_tac \\ rpt var_eq_tac
+  \\ IF_CASES_TAC THEN1
+   (`F` by all_tac
+    \\ fs [wordsLib.WORD_DECIDE ``w+1w=0w <=> (w = -1w)``]
+    \\ rpt var_eq_tac \\ fs [labPropsTheory.good_dimindex_def]
+    \\ fs [word_2comp_def] \\ fs [dimword_def]
+    \\ imp_res_tac DROP_IMP_LESS_LENGTH \\ decide_tac)
+  \\ `DROP (w2n w) bitmaps = t` by
+   (`w2n w = SUC (w2n (w + -1w))` suffices_by
+      metis_tac [DROP_EQ_CONS_IMP_DROP_SUC]
+    \\ Cases_on `w` \\ fs [word_add_n2w]
+    \\ `~(n < 1) /\ n - 1 < dimword (:'a)` by decide_tac
+    \\ full_simp_tac std_ss [GSYM word_sub_def,addressTheory.word_arith_lemma2]
+    \\ fs [] \\ decide_tac) \\ fs [] \\ pop_assum kall_tac
+  \\ fs [filter_bitmap_APPEND]
+  \\ CASE_TAC \\ fs []
+  \\ PairCases_on `x` \\ fs []
+  \\ Cases_on `filter_bitmap x' x1` \\ fs []
+  \\ PairCases_on `x` \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ fs [word_gc_move_roots_APPEND,LET_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ qpat_assum `filter_bitmap (get_bits h) stack = SOME (x0,x1)` assume_tac
+  \\ drule (map_bitmap_APPEND_APPEND |> GEN_ALL)
+  \\ `LENGTH x0 = LENGTH ws1` by (imp_res_tac word_gc_move_roots_IMP_LENGTH \\ fs [])
+  \\ disch_then drule
+  \\ disch_then (qspecl_then [`ws2`,`x'`] mp_tac)
+  \\ strip_tac \\ fs [] \\ pop_assum kall_tac
+  \\ CASE_TAC \\ fs []
+  \\ PairCases_on `x` \\ fs []
+  \\ drule filter_bitmap_map_bitmap
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ]
+  \\ disch_then drule
+  \\ strip_tac \\ rpt var_eq_tac \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ PairCases_on `x` \\ fs []);
 
 (*
 
-enc_stack_def
-full_read_bitmap_def
-read_bitmap_def
-dec_stack_def
-map_bitmap_def
-word_gc_move_roots_def
-word_gc_move_loop_def
-word_gc_move_def
-memcpy_def
-word_gc_move_roots_bitmaps_def
+word_gc_move_bitmap_def
 
 *)
 
