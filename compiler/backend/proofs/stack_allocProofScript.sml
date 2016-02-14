@@ -6,13 +6,14 @@ open preamble
 
 val _ = new_theory"stack_allocProof";
 
-
 val good_syntax_def = Define `
   (good_syntax (Alloc v) <=> (v = 1)) /\
   (good_syntax ((Seq p1 p2):'a stackLang$prog) <=>
      good_syntax p1 /\ good_syntax p2) /\
   (good_syntax ((If c r ri p1 p2):'a stackLang$prog) <=>
      good_syntax p1 /\ good_syntax p2) /\
+  (good_syntax (While c r ri p1) <=>
+     good_syntax p1) /\
   (good_syntax (Call x1 _ x2) <=>
      (case x1 of | SOME (y,r,_,_) => good_syntax y | NONE => T) /\
      (case x2 of SOME (y,_,_) => good_syntax y | NONE => T)) /\
@@ -629,7 +630,37 @@ val comp_correct = prove(
     \\ strip_tac \\ fs [] \\ rfs []
     \\ qexists_tac `ck` \\ fs [AC ADD_COMM ADD_ASSOC])
   THEN1 (* While *)
-    cheat
+   (simp [Once comp_def] \\ fs [evaluate_def,get_var_def]
+    \\ split_pair_tac \\ fs []
+    \\ reverse every_case_tac \\ fs []
+    \\ fs [evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
+    \\ rpt var_eq_tac \\ fs []
+    THEN1 (qexists_tac `0` \\ fs [state_component_equality])
+    \\ fs [LET_THM] \\ split_pair_tac \\ fs []
+    \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
+    \\ discharge_hyps THEN1 (fs [] \\ rpt strip_tac \\ res_tac \\ fs [])
+    \\ fs [] \\ strip_tac \\ fs []
+    \\ Cases_on `res <> NONE` \\ fs []
+    THEN1 (rpt var_eq_tac \\ fs []
+      \\ qexists_tac `ck` \\ fs [AC ADD_COMM ADD_ASSOC])
+    \\ Cases_on `s1.clock = 0` \\ fs []
+    THEN1 (rpt var_eq_tac \\ fs []
+      \\ qexists_tac `ck` \\ fs [AC ADD_COMM ADD_ASSOC,empty_env_def])
+    \\ fs [STOP_def]
+    \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
+    \\ discharge_hyps
+    THEN1 (fs [good_syntax_def] \\ rpt strip_tac \\ res_tac \\ fs []
+           \\ imp_res_tac evaluate_consts \\ fs [] \\ res_tac)
+    \\ once_rewrite_tac [comp_def] \\ fs [LET_THM]
+    \\ strip_tac \\ fs []
+    \\ qexists_tac `ck+ck'`
+    \\ pop_assum mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
+    \\ disch_then (qspec_then `ck'` assume_tac)
+    \\ fs [dec_clock_def] \\ strip_tac
+    \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ `ck' + (s1.clock - 1) = ck' + s1.clock - 1` by decide_tac \\ fs []
+    \\ imp_res_tac evaluate_consts \\ fs [])
   THEN1 (* JumpLower *)
    (fs [evaluate_def,get_var_def] \\ simp [Once comp_def]
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [good_syntax_def]
