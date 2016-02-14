@@ -29,6 +29,8 @@ val good_syntax_def = Define `
   (good_syntax ((If c r ri p1 p2):'a stackLang$prog) ptr len ret <=>
      good_syntax p1 ptr len ret /\
      good_syntax p2 ptr len ret) /\
+  (good_syntax (While c r ri p1) ptr len ret <=>
+     good_syntax p1 ptr len ret) /\
   (good_syntax (Halt n) ptr len ret <=> (n = len)) /\
   (good_syntax (FFI ffi_index ptr' len' ret') ptr len ret <=>
      ptr' = ptr /\ len' = len /\ ret' = ret) /\
@@ -779,6 +781,8 @@ val flatten_correct = Q.store_thm("flatten_correct",
     simp[get_pc_value_def,upd_pc_def,dec_clock_def,inc_pc_def] >>
     qexists_tac`ck+1`>>simp[]>>
     qexists_tac`t2`>>simp[] ) >>
+  (* While *)
+  conj_tac >- cheat >>
   (* JumpLower *)
   conj_tac >- (
     rw[] >>

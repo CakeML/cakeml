@@ -186,6 +186,9 @@ val good_syntax_def = Define `
   (good_syntax ((If c r ri p1 p2):'a stackLang$prog) k <=>
      r < k /\ (case ri of Reg n => n < k | _ => T) /\
      good_syntax p1 k /\ good_syntax p2 k) /\
+  (good_syntax (While c r ri p1) k <=>
+     r < k /\ (case ri of Reg n => n < k | _ => T) /\
+     good_syntax p1 k) /\
   (good_syntax (Halt n) k <=> n < k) /\
   (good_syntax (FFI ffi_index ptr' len' ret') k <=>
      ptr' < k /\ len' < k /\ ret' < k) /\
@@ -907,6 +910,8 @@ val comp_correct = Q.prove(
     \\ fs[get_var_def]
     \\ Cases_on `ri` \\ fs [get_var_imm_def]
     \\ imp_res_tac state_rel_get_var \\ fs [])
+  THEN1 (* While *)
+    cheat
   THEN1 (* JumpLower *)
    (simp [Once comp_def]
     \\ fs [good_syntax_def,evaluate_def]

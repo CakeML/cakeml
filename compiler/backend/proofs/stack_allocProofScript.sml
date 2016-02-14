@@ -628,6 +628,8 @@ val comp_correct = prove(
     \\ TRY (rw [] \\ res_tac \\ fs [] \\ NO_TAC)
     \\ strip_tac \\ fs [] \\ rfs []
     \\ qexists_tac `ck` \\ fs [AC ADD_COMM ADD_ASSOC])
+  THEN1 (* While *)
+    cheat
   THEN1 (* JumpLower *)
    (fs [evaluate_def,get_var_def] \\ simp [Once comp_def]
     \\ every_case_tac \\ fs [] \\ rw [] \\ fs [good_syntax_def]
