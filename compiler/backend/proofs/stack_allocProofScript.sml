@@ -464,6 +464,11 @@ val bit_length_eq_1 = store_thm("bit_length_eq_1",
   \\ Cases_on `n'` \\ fs []
   \\ fs [DIV_EQ_X] \\ decide_tac);
 
+val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff",
+  ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,
+  fs [fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,word_0]
+  \\ fs [word_index]);
+
 val word_gc_move_bitmap_unroll = prove(
   ``word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
     if w = 0w:'a word then SOME ([],stack,i1,pa1,m,T) else
@@ -471,7 +476,7 @@ val word_gc_move_bitmap_unroll = prove(
       case stack of
       | [] => NONE
       | (x::xs) =>
-        if ~(w ' 0) then
+        if (w && 1w) = 0w then
           case word_gc_move_bitmap conf (w >>> 1,xs,i1,pa1,curr,m,dm) of
           | NONE => NONE
           | SOME (new,stack,i1,pa1,m,c) => SOME (x::new,stack,i1,pa1,m,c)
@@ -480,7 +485,8 @@ val word_gc_move_bitmap_unroll = prove(
           case word_gc_move_bitmap conf (w >>> 1,xs,i1,pa1,curr,m1,dm) of
           | NONE => NONE
           | SOME (new,stack,i1,pa1,m,c) => SOME (x1::new,stack,i1,pa1,m,c1 /\ c)``,
-  simp [Once word_gc_move_bitmap_def,get_bits_def]
+  simp [word_and_one_eq_0_iff]
+  \\ simp [Once word_gc_move_bitmap_def,get_bits_def]
   \\ IF_CASES_TAC
   \\ fs [EVAL ``bit_length 0w``,filter_bitmap_def,
          map_bitmap_def,word_gc_move_roots_def]
@@ -513,11 +519,7 @@ val word_gc_move_bitmap_unroll = prove(
   \\ fs [map_bitmap_def]
   \\ rpt (CASE_TAC \\ fs[]));
 
-(*
 
-word_gc_move_bitmap_def
-
-*)
 
 
 val alloc_correct = prove(
