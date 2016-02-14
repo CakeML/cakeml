@@ -291,9 +291,41 @@ val word_gc_move_bitmap_def = Define `
            | NONE => NONE
            | SOME (hd,v2) => SOME (hd,ws,i2,pa2,m2,c2)`
 
+val bit_length_thm = store_thm("bit_length_thm",
+  ``!w. ((w >>> bit_length w) = 0w) /\ !n. n < bit_length w ==> (w >>> n) <> 0w``,
+  HO_MATCH_MP_TAC bit_length_ind \\ rw []
+  \\ once_rewrite_tac [bit_length_def]
+  \\ rw [] \\ fs [AC ADD_COMM ADD_ASSOC]
+  \\ Cases_on `w = 0w` \\ fs [EVAL ``bit_length 0w``]
+  \\ Cases_on `n` \\ fs []
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ once_rewrite_tac [bit_length_def]
+  \\ fs [ADD1] \\ rw []);
+
+val word_lsr_dimindex = prove(
+  ``(w:'a word) >>> dimindex (:'a) = 0w``,
+  fs []);
+
+val bit_length_LESS_EQ_dimindex = store_thm("bit_length_LESS_EQ_dimindex",
+  ``bit_length (w:'a word) <= dimindex (:'a)``,
+  CCONTR_TAC \\ fs [GSYM NOT_LESS] \\ imp_res_tac bit_length_thm
+  \\ fs [word_lsr_dimindex]);
+
+val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
+  ``(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n``,
+  fs [fcpTheory.CART_EQ,word_0,word_lsr_def,fcpTheory.FCP_BETA,word_msb_def]
+  \\ rw [] \\ CCONTR_TAC \\ fs [] \\ fs [GSYM NOT_LESS]
+  \\ qpat_assum `!xx.bb` mp_tac \\ fs []
+  \\ qexists_tac `dimindex (:α) - 1 - n`
+  \\ `dimindex (:α) - 1 - n + n = dimindex (:α) - 1` by decide_tac \\ fs []
+  \\ decide_tac);
+
 val word_msb_IMP_bit_length = prove(
   ``!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))``,
-  cheat);
+  rw [] \\ imp_res_tac shift_to_zero_word_msb \\ CCONTR_TAC
+  \\ imp_res_tac (DECIDE ``n<>m ==> n < m \/ m < n:num``)
+  \\ qspec_then `h` mp_tac bit_length_thm
+  \\ strip_tac \\ res_tac \\ fs [word_lsr_dimindex] \\ decide_tac);
 
 val get_bits_intro = prove(
   ``word_msb (h:'a word) ==>
@@ -334,7 +366,17 @@ val map_bitmap_APPEND_APPEND = prove(
         case map_bitmap vs2 ws2 ts3 of
         | NONE => NONE
         | SOME (us1,us2,us3) => SOME (ts1++us1,ts2++us2,us3)``,
-  cheat) |> SIMP_RULE std_ss [];
+  Induct \\ fs [map_bitmap_def] THEN1
+   (Cases \\ fs [filter_bitmap_def]
+    \\ once_rewrite_tac [EQ_SYM_EQ] \\ fs [LENGTH_NIL]
+    \\ rw [] \\ every_case_tac \\ fs [])
+  \\ Cases_on `stack` \\ fs [filter_bitmap_def]
+  \\ reverse Cases \\ fs [filter_bitmap_def,map_bitmap_def]
+  THEN1 (rw [] \\ every_case_tac \\ fs [])
+  \\ CASE_TAC \\ fs []
+  \\ CASE_TAC \\ fs []
+  \\ Cases_on `ws1` \\ fs [LENGTH,map_bitmap_def]
+  \\ rw [] \\ every_case_tac \\ fs []) |> SIMP_RULE std_ss [];
 
 val word_gc_move_bitmaps_unroll = prove(
   ``LENGTH bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
@@ -399,13 +441,76 @@ val word_gc_move_bitmaps_unroll = prove(
   \\ CASE_TAC \\ fs []
   \\ PairCases_on `x` \\ fs []
   \\ drule filter_bitmap_map_bitmap
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ disch_then drule
-  \\ once_rewrite_tac [EQ_SYM_EQ]
-  \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
+  \\ once_rewrite_tac [EQ_SYM_EQ] \\ disch_then drule
   \\ strip_tac \\ rpt var_eq_tac \\ fs []
   \\ CASE_TAC \\ fs []
   \\ PairCases_on `x` \\ fs []);
+
+val bit_length_minus_1 = store_thm("bit_length_minus_1",
+  ``w <> 0w ==> bit_length w − 1 = bit_length (w >>> 1)``,
+  simp [Once bit_length_def]);
+
+val bit_length_eq_1 = store_thm("bit_length_eq_1",
+  ``bit_length w = 1 <=> w = 1w``,
+  Cases_on `w = 1w` \\ fs [] THEN1 (EVAL_TAC \\ fs [])
+  \\ once_rewrite_tac [bit_length_def] \\ rw []
+  \\ once_rewrite_tac [bit_length_def] \\ rw []
+  \\ pop_assum mp_tac
+  \\ simp_tac std_ss [GSYM w2n_11,w2n_lsr]
+  \\ Cases_on `w` \\ fs []
+  \\ Cases_on `n` \\ fs []
+  \\ Cases_on `n'` \\ fs []
+  \\ fs [DIV_EQ_X] \\ decide_tac);
+
+val word_gc_move_bitmap_unroll = prove(
+  ``word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
+    if w = 0w:'a word then SOME ([],stack,i1,pa1,m,T) else
+    if w = 1w then SOME ([],stack,i1,pa1,m,T) else
+      case stack of
+      | [] => NONE
+      | (x::xs) =>
+        if ~(w ' 0) then
+          case word_gc_move_bitmap conf (w >>> 1,xs,i1,pa1,curr,m,dm) of
+          | NONE => NONE
+          | SOME (new,stack,i1,pa1,m,c) => SOME (x::new,stack,i1,pa1,m,c)
+        else
+          let (x1,i1,pa1,m1,c1) = word_gc_move conf (x,i1,pa1,curr,m,dm) in
+          case word_gc_move_bitmap conf (w >>> 1,xs,i1,pa1,curr,m1,dm) of
+          | NONE => NONE
+          | SOME (new,stack,i1,pa1,m,c) => SOME (x1::new,stack,i1,pa1,m,c1 /\ c)``,
+  simp [Once word_gc_move_bitmap_def,get_bits_def]
+  \\ IF_CASES_TAC
+  \\ fs [EVAL ``bit_length 0w``,filter_bitmap_def,
+         map_bitmap_def,word_gc_move_roots_def]
+  \\ IF_CASES_TAC
+  \\ fs [EVAL ``bit_length 1w``,filter_bitmap_def,
+         map_bitmap_def,word_gc_move_roots_def]
+  \\ simp [bit_length_minus_1]
+  \\ fs [GSYM bit_length_eq_1]
+  \\ pop_assum (fn th => mp_tac (ONCE_REWRITE_RULE [bit_length_def] th))
+  \\ fs [] \\ strip_tac
+  \\ Cases_on `bit_length (w >>> 1)` \\ fs []
+  \\ fs [GENLIST_CONS,o_DEF,ADD1,filter_bitmap_def]
+  \\ Cases_on `stack` \\ fs [] \\ fs [filter_bitmap_def]
+  \\ `get_bits (w >>> 1) = GENLIST (\x. w ' (x + 1)) n` by
+   (fs [get_bits_def,GENLIST_FUN_EQ] \\ rw []
+    \\ `n + 1 <= dimindex (:'a)` by metis_tac [bit_length_LESS_EQ_dimindex]
+    \\ `x < dimindex (:'a)` by decide_tac
+    \\ fs [word_lsr_def,fcpTheory.FCP_BETA]
+    \\ eq_tac \\ fs[] \\ rw [] \\ decide_tac)
+  \\ IF_CASES_TAC \\ fs [filter_bitmap_def,map_bitmap_def]
+  THEN1
+   (fs [word_gc_move_bitmap_def,LET_THM]
+    \\ ntac 2 (CASE_TAC \\ fs [])
+    \\ split_pair_tac \\ fs []
+    \\ rpt (CASE_TAC \\ fs []))
+  \\ fs [word_gc_move_bitmap_def,LET_THM]
+  \\ CASE_TAC \\ fs [] THEN1 (split_pair_tac \\ fs [])
+  \\ CASE_TAC \\ fs [word_gc_move_roots_def,LET_THM]
+  \\ ntac 3 (split_pair_tac \\ fs []) \\ rpt var_eq_tac \\ fs []
+  \\ fs [map_bitmap_def]
+  \\ rpt (CASE_TAC \\ fs[]));
 
 (*
 
