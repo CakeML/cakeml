@@ -119,6 +119,11 @@ val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
   `MAP FST (stack_names$compile f c) = MAP FST c`,
   rw[compile_def,MAP_MAP_o,MAP_EQ_f,prog_comp_def,FORALL_PROD]);
 
+val comp_STOP_While = prove(
+  ``comp f (STOP (While cmp r1 ri c1)) =
+    STOP (While cmp (find_name f r1) (ri_find_name f ri) (comp f c1))``,
+  simp [Once comp_def] \\ fs [STOP_def]);
+
 val comp_correct = Q.prove(
   `!p s r t.
      evaluate (p,s) = (r,t) /\ BIJ (find_name f) UNIV UNIV /\
@@ -151,7 +156,17 @@ val comp_correct = Q.prove(
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] )
-  THEN1 (* While *) cheat
+  THEN1 (* While *)
+   (simp [Once comp_def] \\ fs [evaluate_def,get_var_def]
+    \\ reverse every_case_tac
+    \\ fs [LET_THM] \\ split_pair_tac \\ fs []
+    \\ Cases_on `res = NONE` \\ fs []
+    \\ Cases_on `s1.clock = 0` \\ fs []
+    THEN1 (rpt var_eq_tac \\ fs [rename_state_def,empty_env_def])
+    \\ `(rename_state f s1).clock <> 0` by fs [rename_state_def] \\ fs []
+    \\ fs [comp_STOP_While] \\ rfs []
+    \\ fs [dec_clock_def,rename_state_def]
+    \\ imp_res_tac evaluate_consts \\ fs [])
   (* JumpLower *)
   THEN1 (
     simp[Once comp_def] >>
