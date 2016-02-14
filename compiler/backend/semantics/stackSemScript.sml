@@ -313,6 +313,8 @@ val fix_clock_IMP = prove(
   ``fix_clock s x = (res,s1) ==> s1.clock <= s.clock``,
   Cases_on `x` \\ fs [fix_clock_def] \\ rw [] \\ fs []);
 
+val STOP_def = Define `STOP x = x`;
+
 val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
@@ -365,7 +367,7 @@ val evaluate_def = tDefine "evaluate" `
       then let (res,s1) = fix_clock s (evaluate (c1,s)) in
              if res <> NONE then (res,s1) else
              if s1.clock = 0 then (SOME TimeOut,empty_env s1) else
-               evaluate (While cmp r1 ri c1,dec_clock s1)
+               evaluate (STOP (While cmp r1 ri c1),dec_clock s1)
       else (NONE,s)
     | _ => (SOME Error,s))) /\
   (evaluate (JumpLower r1 r2 dest,s) =
@@ -486,7 +488,7 @@ val evaluate_def = tDefine "evaluate" `
   (WF_REL_TAC `(inv_image (measure I LEX measure (prog_size (K 0)))
                              (\(xs,(s:('a,'ffi) stackSem$state)). (s.clock,xs)))`
    \\ rpt strip_tac
-   \\ fs[empty_env_def,dec_clock_def,set_var_def]
+   \\ fs[empty_env_def,dec_clock_def,set_var_def,STOP_def]
    \\ imp_res_tac fix_clock_IMP \\ fs []
    \\ imp_res_tac (GSYM fix_clock_IMP) \\ fs [] \\ decide_tac)
 
@@ -521,7 +523,7 @@ val evaluate_clock = store_thm("evaluate_clock",
   ``!xs s1 vs s2. (evaluate (xs,s1) = (vs,s2)) ==> s2.clock <= s1.clock``,
   recInduct evaluate_ind \\ REPEAT STRIP_TAC
   \\ POP_ASSUM MP_TAC \\ ONCE_REWRITE_TAC [evaluate_def]
-  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def]
+  \\ FULL_SIMP_TAC std_ss [cut_state_opt_def,STOP_def]
   \\ TRY BasicProvers.TOP_CASE_TAC \\ fs []
   \\ rpt (every_case_tac \\ fs []
     \\ REPEAT STRIP_TAC \\ SRW_TAC [] [check_clock_def,empty_env_def]
