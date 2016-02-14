@@ -163,7 +163,9 @@ val PushHandler_def = Define `
    (Seq (LocValue k l1 l2)
    (Seq (StackStore k 1)
    (Seq (Get k Handler)
-        (StackStore k 2))))))`
+   (Seq (StackStore k 2)
+   (Seq (StackGetSize k)
+        (Set Handler k))))))))`
 
 val comp_def = Define `
   (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\

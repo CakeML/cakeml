@@ -4803,7 +4803,7 @@ val evaluate_PushHandler = prove(``
   state_rel k 0 0 (push_env x' NONE s with locals:=LN) t (f'::lens) ⇒
   ∃t'.
   evaluate(PushHandler (x''2:num) (x''3:num) (k,f:num,f'),t) = (NONE,t') ∧
-  t' = t with <|stack_space:=t'.stack_space; regs:=t'.regs;stack:=t'.stack|> ∧
+  t' = t with <|stack_space:=t'.stack_space; regs:=t'.regs;stack:=t'.stack;store:=t'.store|> ∧
   (∀i. i ≠ k ⇒ get_var i t' = get_var i t) ∧
   t'.stack_space +3 = t.stack_space ∧
   LENGTH t'.stack = LENGTH t.stack ∧
@@ -4812,7 +4812,7 @@ val evaluate_PushHandler = prove(``
   `t.use_stack ∧ t.use_store ∧ t.stack_space -3 < LENGTH t.stack ∧ ∃h. FLOOKUP t.store Handler = SOME h` by
     (fs[state_rel_def,flookup_thm]>>
     simp[])>>
-  simp[PushHandler_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>
+  simp[PushHandler_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,stackSemTheory.set_store_def]>>
   fs[state_rel_def]>>
   simp[FLOOKUP_UPDATE]>>
   fs[push_env_def,env_to_list_def,LET_THM,lookup_def]>>
@@ -4849,11 +4849,7 @@ val evaluate_PushHandler = prove(``
     imp_res_tac abs_stack_to_stack_LENGTH>>
     simp[]>>
     qpat_assum `A=h'::t'` (mp_tac o Q.AP_TERM `LENGTH`)>>
-    simp[]>>strip_tac>>
-    `LENGTH t.stack = 1 + LENGTH t' +t.stack_space` by simp[ADD1]>>
-    simp[]>>
-    (*h needs to be set to what's in the goal*)
-    cheat)
+    simp[])
   >>
   fs[stack_rel_aux_def]>>
   rw[]>>
@@ -4870,7 +4866,7 @@ val evaluate_PushHandler_clock = prove(``
   evaluate (prog,t with clock:=clk) =
   (FST (evaluate(prog,t:('a,'ffi)stackSem$state)),
    (SND (evaluate(prog,t)) with clock:=clk))``,
-  simp[PushHandler_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def]>>rw[]>>
+  simp[PushHandler_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def,stackSemTheory.assign_def,stackSemTheory.word_exp_def,stackSemTheory.get_var_def,stackSemTheory.set_var_def,stackSemTheory.set_store_def]>>rw[]>>
   TOP_CASE_TAC>>fs[empty_env_def,FLOOKUP_UPDATE]>>
   rpt(TOP_CASE_TAC>>fs[]))|>SIMP_RULE arith_ss [LET_THM]
 
