@@ -486,7 +486,28 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
     !n v.
       lookup n st.code = SOME v ⇒
       ∃t k a c col.
-        lookup n l' = SOME (SND (compile_single t k a c ((n,v),col)))` by cheat>>
+        lookup n l' = SOME (SND (compile_single t k a c ((n,v),col)))` by
+      (qexists_tac`
+      let ls = toAList st.code in
+      let ls' = MAP (λn,v.
+        n, @res.
+        ∃t k a c col. lookup n l = SOME (SND (full_compile_single t k a c ((n,v),col))) ∧
+        res = SND(compile_single t k a c ((n,v),col))) ls in
+          fromAList ls'`>>
+      simp[lookup_fromAList]>>rw[]
+      >-
+        (imp_res_tac ALOOKUP_MEM>>
+        fs[MEM_MAP]>>split_pair_tac>>
+        fs[]>>
+        qpat_assum`(v,p) = A` mp_tac>>
+        SELECT_ELIM_TAC>>rw[]>>
+        fs[MEM_toAList,full_compile_single_def,LET_THM]>>
+        split_pair_tac>>fs[])
+      >>
+        res_tac>>
+        simp[ALOOKUP_MAP_gen,ALOOKUP_toAList]>>
+        SELECT_ELIM_TAC>>rw[]>>
+        metis_tac[])>>
   qpat_abbrev_tac`prog = Call A B C D`>>
   imp_res_tac compile_single_correct>>
   first_x_assum(qspec_then`prog` assume_tac)>>fs[LET_THM]>>
@@ -499,5 +520,5 @@ val compile_word_to_word_thm = store_thm("compile_word_to_word_thm",
   pop_assum(qspec_then`l` assume_tac)>>rfs[]>>
   fs[Abbr`prog`,word_removeTheory.remove_must_terminate_def,LET_THM]>>
   qexists_tac`clk`>>fs[ADD_COMM])
-  
+
 val _ = export_theory();
