@@ -210,7 +210,7 @@ val do_app_def = Define `
     | (Op (Op W8fromInt), [Litv (IntLit i)]) =>
       SOME (s, Rval (Litv (Word8 (i2w i))))
     | (Op (Op W8toInt), [Litv (Word8 w)]) =>
-      SOME (s, Rval (Litv (IntLit (int_of_num (w2n w)))))
+      SOME (s, Rval (Litv (IntLit (w2i w))))
     | (Op (Op Ord), [Litv (Char c)]) =>
           SOME (s, Rval (Litv(IntLit(int_of_num(ORD c)))))
     | (Op (Op Chr), [Litv (IntLit i)]) =>
