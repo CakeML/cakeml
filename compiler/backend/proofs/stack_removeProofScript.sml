@@ -782,7 +782,7 @@ val comp_correct = Q.prove(
                | SOME (Halt _) => t2.ffi = s2.ffi
                | SOME TimeOut => t2.ffi = s2.ffi
                | _ =>  (state_rel k s2 t2))`,
-  recInduct evaluate_ind \\ rpt strip_tac
+ recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [comp_def,evaluate_def] \\ rpt var_eq_tac \\ qexists_tac`0` \\ fs [])
   THEN1
    (fs [comp_def,evaluate_def,good_syntax_def]
@@ -911,7 +911,52 @@ val comp_correct = Q.prove(
     \\ Cases_on `ri` \\ fs [get_var_imm_def]
     \\ imp_res_tac state_rel_get_var \\ fs [])
   THEN1 (* While *)
-    cheat
+   (qpat_assum `evaluate _ = _` mp_tac
+    \\ simp [Once evaluate_def,get_var_def]
+    \\ ntac 4 (BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ `get_var_imm ri s = get_var_imm ri t1 /\
+        get_var r1 s = get_var r1 t1` by
+     (Cases_on `ri` \\ fs [get_var_imm_def,good_syntax_def]
+      \\ imp_res_tac state_rel_get_var \\ fs [get_var_def])
+    \\ reverse (BasicProvers.TOP_CASE_TAC \\ fs[])
+    THEN1
+     (strip_tac \\ rpt var_eq_tac \\ fs []
+      \\ qexists_tac `0`
+      \\ simp [Once comp_def,evaluate_def]
+      \\ fs [good_syntax_def,get_var_def])
+    \\ strip_tac \\ split_pair_tac \\ fs []
+    \\ rfs [get_var_def] \\ fs []
+    \\ qpat_assum `SOME (Word _) = _` (assume_tac o GSYM) \\ fs []
+    \\ Cases_on `res <> NONE` \\ fs []
+    THEN1
+     (rpt var_eq_tac \\ fs [] \\ simp [Once comp_def]
+      \\ fs [evaluate_def,get_var_def,LET_THM]
+      \\ rfs [] \\ first_x_assum drule \\ fs [good_syntax_def]
+      \\ strip_tac \\ fs []
+      \\ qexists_tac `ck` \\ fs [])
+    \\ Cases_on `s1.clock = 0` \\ fs []
+    THEN1
+     (rpt var_eq_tac \\ fs [] \\ simp [Once comp_def]
+      \\ fs [evaluate_def,get_var_def,LET_THM]
+      \\ rfs [] \\ first_x_assum drule \\ fs [good_syntax_def]
+      \\ strip_tac \\ fs []
+      \\ qexists_tac `ck` \\ fs []
+      \\ fs [state_rel_def])
+    \\ rpt var_eq_tac \\ fs [] \\ simp [Once comp_def]
+    \\ fs [evaluate_def,get_var_def,LET_THM] \\ fs [STOP_def]
+    \\ first_x_assum drule \\ fs [good_syntax_def]
+    \\ strip_tac \\ rfs []
+    \\ qcase_tac `state_rel k s3 t3`
+    \\ `state_rel k (dec_clock s3) (dec_clock t3)` by
+        (fs [state_rel_def,dec_clock_def] \\ rfs [] \\ NO_TAC)
+    \\ first_x_assum drule \\ fs []
+    \\ strip_tac \\ fs[] \\ ntac 2 (pop_assum mp_tac)
+    \\ drule (GEN_ALL evaluate_add_clock) \\ fs []
+    \\ disch_then (qspec_then `ck'` assume_tac)
+    \\ simp [Once comp_def] \\ rpt strip_tac \\ fs[]
+    \\ qexists_tac `ck+ck'` \\ fs [AC ADD_COMM ADD_ASSOC]
+    \\ `t3.clock <> 0` by fs [state_rel_def] \\ fs [dec_clock_def]
+    \\ `ck' + (t3.clock - 1) = ck' + t3.clock - 1` by decide_tac \\ fs [])
   THEN1 (* JumpLower *)
    (simp [Once comp_def]
     \\ fs [good_syntax_def,evaluate_def]
