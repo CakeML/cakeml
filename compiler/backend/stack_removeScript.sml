@@ -95,6 +95,7 @@ val comp_def = Define `
     (* for the rest, just leave it unchanged *)
     | Seq p1 p2 => Seq (comp k p1) (comp k p2)
     | If c r ri p1 p2 => If c r ri (comp k p1) (comp k p2)
+    | While c r ri p1 => While c r ri (comp k p1)
     | Call ret dest exc =>
         Call (case ret of
               | NONE => NONE

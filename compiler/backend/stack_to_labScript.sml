@@ -62,6 +62,10 @@ val flatten_def = Define `
             ([LabAsm (JumpCmp c r ri (Lab n m)) 0w [] 0] ++ ys ++
              [LabAsm (Jump (Lab n (m+1))) 0w [] 0; Label n m 0] ++ xs ++
              [Label n (m+1) 0],m+2)
+    | While c r ri p1 =>
+        let (xs,m) = flatten p1 n m in
+          ([Label n m 0; LabAsm (JumpCmp (negate c) r ri (Lab n (m+1))) 0w [] 0] ++
+           xs ++ [LabAsm (Jump (Lab n m)) 0w [] 0; Label n (m+1) 0],m+2)
     | Raise r => ([Asm (JumpReg r) [] 0],m)
     | Return r _ => ([Asm (JumpReg r) [] 0],m)
     | Call NONE dest _ => ([compile_jump dest],m)

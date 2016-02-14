@@ -28,6 +28,9 @@ val comp_def = Define `
         let (q1,m) = comp n m p1 in
         let (q2,m) = comp n m p2 in
           (If c r ri q1 q2,m)
+    | While c r ri p1 =>
+        let (q1,m) = comp n m p1 in
+          (While c r ri q1,m)
     | Call NONE dest exc => (Call NONE dest NONE,m)
     | Call (SOME (p1,lr,l1,l2)) dest exc =>
         let (q1,m) = comp n m p1 in
