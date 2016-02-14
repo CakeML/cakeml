@@ -160,9 +160,9 @@ val PushHandler_def = Define `
     Seq (StackAlloc 3)
    (Seq (Inst (Const k 1w))
    (Seq (StackStore k 0)
-   (Seq (Get k Handler)
-   (Seq (StackStore k 1)
    (Seq (LocValue k l1 l2)
+   (Seq (StackStore k 1)
+   (Seq (Get k Handler)
         (StackStore k 2))))))`
 
 val comp_def = Define `
