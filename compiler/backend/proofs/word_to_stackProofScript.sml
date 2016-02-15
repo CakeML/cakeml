@@ -4911,6 +4911,11 @@ val evaluate_PopHandler_seq = prove(``
   rw[]>>EVERY_CASE_TAC>>fs[]>>
   EVERY_CASE_TAC>>fs[])
 
+val word_cmp_Word_Word = prove(
+  ``word_cmp cmp (Word c) (Word c') = SOME (word_cmp cmp c c')``,
+  Cases_on `cmp`
+  \\ rw [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def]);
+
 val comp_correct = Q.store_thm("comp_correct",
   `!(prog:'a wordLang$prog) (s:('a,'ffi) wordSem$state) k f f' res s1 t bs lens.
      (wordSem$evaluate (prog,s) = (res,s1)) /\ res <> SOME Error /\
@@ -5425,7 +5430,7 @@ val comp_correct = Q.store_thm("comp_correct",
     drule (GEN_ALL evaluate_wStackLoad_wRegImm2)>>
     disch_then (qspecl_then[`t'`,`s`,`lens`,`c'`] assume_tac)>>
     rfs[]>>
-    fs[stackSemTheory.get_var_def]>>
+    fs[stackSemTheory.get_var_def,word_cmp_Word_Word]>>
     rw[]>>fs[]
     >-
       (first_x_assum(qspecl_then[`k`,`f`,`f'`,`t''`,`bs`,`lens`] mp_tac)>>
