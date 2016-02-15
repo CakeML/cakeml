@@ -1158,6 +1158,9 @@ val res_rel_do_app = Q.store_thm ("res_rel_do_app",
          full_simp_tac(srw_ss())[Once state_rel_rw] >>
          match_mp_tac fmap_rel_FUPDATE_same >>
          simp [state_rel_rw])
+     >- (Cases_on `y` >>
+         fs [val_rel_rw] >>
+         metis_tac [list_to_v_val_rel])
      >- (
        imp_res_tac v_to_list_val_rel >>
        pop_assum mp_tac >>

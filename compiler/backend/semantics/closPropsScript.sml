@@ -1046,8 +1046,8 @@ val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   srw_tac[][] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   pop_assum(fn th => strip_assume_tac(CONV_RULE(REWR_CONV do_app_cases_type_error)th)) >>
-  full_simp_tac(srw_ss())[do_app_def] >>
-  every_case_tac >> full_simp_tac(srw_ss())[]);
+  fsrw_tac[][do_app_def] >>
+  every_case_tac >> fsrw_tac[][] >> srw_tac[][] >> fsrw_tac[][]);
 
 val s = ``s:'ffi closSem$state``
 

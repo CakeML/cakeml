@@ -22,6 +22,7 @@ val _ = Datatype `
      | RefArray      (* makes an array by replicating a value *)
      | DerefByte     (* loads a byte from a byte array *)
      | UpdateByte    (* updates a byte array *)
+     | W8FromInt     (* convert integer to (signed) word8 *)
      | FromList num  (* convert list to packed Block *)
      | ToList        (* convert packed Block to list *)
      | TagLenEq num num (* check Block's tag and length *)

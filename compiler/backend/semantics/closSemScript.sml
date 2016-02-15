@@ -1,6 +1,10 @@
-open preamble closLangTheory conLangTheory pat_to_closTheory
+open preamble closLangTheory conLangTheory
 
 val _ = new_theory"closSem"
+
+(* TODO: move *)
+val _ = export_rewrites["integer_word.w2i_11","integer_word.i2w_w2i"];
+(* -- *)
 
 (* differs from store_v by removing the single value Refv *)
 val _ = Datatype `
@@ -119,10 +123,10 @@ val do_app_def = Define `
               Rval (Number (&LENGTH xs), s)
           | _ => Error)
     | (RefByte,[Number i;Number b]) =>
-         if 0 ≤ i ∧ 0 ≤ b ∧ b < 256 then
+         if 0 ≤ i ∧ (∃w:word8. b = w2i w) then
            let ptr = (LEAST ptr. ¬(ptr IN FDOM s.refs)) in
              Rval (RefPtr ptr, s with refs := s.refs |+
-               (ptr,ByteArray (REPLICATE (Num i) (n2w (Num b)))))
+               (ptr,ByteArray (REPLICATE (Num i) (i2w b))))
          else Error
     | (RefArray,[Number i;v]) =>
         if 0 ≤ i then
@@ -134,18 +138,19 @@ val do_app_def = Define `
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray ws) =>
             (if 0 ≤ i ∧ i < &LENGTH ws
-             then Rval (Number (&(w2n (EL (Num i) ws))),s)
+             then Rval (Number (w2i (EL (Num i) ws)),s)
              else Error)
          | _ => Error)
     | (UpdateByte,[RefPtr ptr; Number i; Number b]) =>
         (case FLOOKUP s.refs ptr of
          | SOME (ByteArray bs) =>
-            (if 0 ≤ i ∧ i < &LENGTH bs ∧ 0 ≤ b ∧ b < 256
+            (if 0 ≤ i ∧ i < &LENGTH bs ∧ (∃w:word8. b = w2i w)
              then
                Rval (Unit, s with refs := s.refs |+
-                 (ptr, ByteArray (LUPDATE (n2w (Num b)) (Num i) bs)))
+                 (ptr, ByteArray (LUPDATE (i2w b) (Num i) bs)))
              else Error)
          | _ => Error)
+    | (W8FromInt,[Number i]) => Rval (Number (w2i((i2w i):word8)), s)
     | (FromList n,[lv]) =>
         (case v_to_list lv of
          | SOME vs => Rval (Block n vs, s)

@@ -9,7 +9,7 @@ val _ = new_theory"pat_to_closProof"
 
 val compile_v_def = tDefine"compile_v"`
   (compile_v (Litv (IntLit i)) = (Number i):closSem$v) ∧
-  (compile_v (Litv (Word8 w)) = (Number (&w2n w))) ∧
+  (compile_v (Litv (Word8 w)) = (Number (w2i w))) ∧
   (compile_v (Litv (Char c)) = (Number (& ORD c))) ∧
   (compile_v (Litv (StrLit s)) =
     (Block string_tag (MAP (Number o $& o ORD) s))) ∧
@@ -251,9 +251,10 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       >- (
         rw[Once evaluate_CONS,evaluate_def] >>
         rw[do_app_def] )
-      >- (
+      >> (
         rw[] >> fs[LENGTH_eq,evaluate_def,ETA_AX,MAP_REVERSE] >>
-        rw[] >> fs[] )) >>
+        rw[] >> fs[] >>
+        fs[do_app_def])) >>
     BasicProvers.CASE_TAC >> fs[] >>
     BasicProvers.CASE_TAC >> fs[] >>
     imp_res_tac patSemTheory.do_app_cases >>
@@ -349,8 +350,7 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
       fs[store_alloc_def,LET_THM] >>
       Cases_on`n<0`>>fs[prim_exn_def] >- srw_tac[ARITH_ss][] >>
       `0 ≤ n` by COOPER_TAC >>
-      Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
-      simp[wordsTheory.dimword_8] >> strip_tac >>
+      simp[PULL_EXISTS] >>
       rpt BasicProvers.VAR_EQ_TAC >> simp[] >>
       simp[compile_state_def,true_neq_false] >>
       conj_asm1_tac >- (
@@ -407,15 +407,23 @@ val compile_evaluate = Q.store_thm("compile_evaluate",
         arw[prim_exn_def] ) >>
       simp[ALOOKUP_GENLIST,compile_sv_def] >>
       fs[store_assign_def,store_v_same_type_def] >>
-      Q.ISPEC_THEN`w`mp_tac wordsTheory.w2n_lt >>
-      simp[wordsTheory.dimword_8] >> strip_tac >>
       rw[fmap_eq_flookup,FLOOKUP_UPDATE] >>
       simp[ALOOKUP_GENLIST] >>
       rw[] >> fs[EL_LUPDATE,compile_sv_def,dec_to_exhTheory.tuple_tag_def,true_neq_false])
-    >- ( (* wrong args for Ord *)
+    >- ( (* wrong args for W8toInt *)
       imp_res_tac evaluate_length >> fs[] )
-    >- ( Cases_on`es`>>fs[LENGTH_NIL] )
+    >- ( (* W8toInt *)
+      Cases_on`es`>>fs[LENGTH_NIL])
+    >- ( (* wrong args for W8fromInt *)
+      imp_res_tac evaluate_length >> fs[] )
+    >- ( (* W8fromInt *)
+      Cases_on`es`>>fs[LENGTH_NIL]>>
+      rw[evaluate_def,do_app_def])
+    >- ( (* wrong args for Chr *)
+      imp_res_tac evaluate_length >> fs[] )
     >- ( (* Chr *)
+      Cases_on`es`>>fs[LENGTH_NIL])
+    >- (
       fs[MAP_REVERSE] >>
       simp[evaluate_def,ETA_AX,do_app_def,prim_exn_def])
     >- (
