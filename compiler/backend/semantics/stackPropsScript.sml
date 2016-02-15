@@ -183,8 +183,6 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   `∀p s r s'.
     evaluate (p,s) = (r,s') ∧ r ≠ SOME TimeOut ⇒
     evaluate (p,s with clock := s.clock + extra) = (r,s' with clock := s'.clock + extra)`,
-  cheat (* due to addition of While *)
-(*
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY (
@@ -225,6 +223,23 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
     every_case_tac >> full_simp_tac(srw_ss())[] >>
     rveq >> fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
+  TRY (
+    qcase_tac`While`
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[get_var_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ qpat_assum`_ = (_,_)`mp_tac
+    \\ split_pair_tac \\ fs[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ fs[]
+      \\ split_pair_tac \\ fs[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- ( strip_tac \\ rveq \\ fs[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ fs[] \\ rfs[]
+    \\ fsrw_tac[ARITH_ss][dec_clock_def] ) >>
   TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
   full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[] >>
@@ -234,7 +249,11 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   TRY (
     qcase_tac`call_FFI` >>
     split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
-  metis_tac[] *));
+  metis_tac[]);
+
+val with_clock_ffi = Q.store_thm("with_clock_ffi",
+  `(s with clock := k).ffi = s.ffi`,
+  EVAL_TAC);
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
   `∀e s.
@@ -242,11 +261,30 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
      (IS_SOME((SND(evaluate(e,s))).ffi.final_event) ⇒
       (SND(evaluate(e,s with clock := s.clock + extra))).ffi =
       (SND(evaluate(e,s))).ffi)`,
-  cheat (* due to addition of While *)
-(*
   recInduct evaluate_ind >>
   srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
   TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  TRY (
+    qcase_tac`While`
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ split_pair_tac \\ fs[]
+    \\ split_pair_tac \\ fs[]
+    \\ fsrw_tac[ARITH_ss][dec_clock_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ imp_res_tac evaluate_io_events_mono \\ fs[]
+    \\ imp_res_tac evaluate_add_clock \\ fs[]
+    \\ Cases_on`res=NONE` \\fs[]
+    \\ rpt(first_x_assum(qspec_then`extra`mp_tac))\\ simp[]
+    \\ TRY (
+      strip_tac \\ CHANGED_TAC rveq \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ metis_tac[evaluate_io_events_mono,PAIR,with_clock_ffi] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi] ) >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[dec_clock_def] >>
@@ -257,7 +295,7 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
     CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
     every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
     rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
-  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR] *));
+  metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR]);
 
 val clock_neutral_def = Define `
   (clock_neutral (Seq p1 p2) <=> clock_neutral p1 /\ clock_neutral p2) /\
