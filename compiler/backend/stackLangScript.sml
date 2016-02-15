@@ -41,4 +41,22 @@ val word_shift_def = Define `
        generated CakeML code *)
     if dimindex (:'a) = 32 then 2 else 3:num`;
 
+val _ = map overload_on
+  [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
+   ("sub_1_inst",``\r1. Inst (Arith (Binop Sub r1 r1 (Imm 1w)))``),
+   ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
+   ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
+   ("add_bytes_in_word_inst",``\r1. Inst (Arith (Binop Add r1 r1 (Imm (bytes_in_word))))``),
+   ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
+   ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r v))``),
+   ("right_shift_inst",``\r v. Inst (Arith (Shift Lsr r r v))``),
+   ("const_inst",``\r w. Inst (Const r w)``),
+   ("load_inst",``\r a. Inst (Mem Load r (Addr a 0w))``),
+   ("store_inst",``\r a. Inst (Mem Store r (Addr a 0w))``)]
+
+val list_Seq_def = Define `
+  (list_Seq [] = Skip) /\
+  (list_Seq [x] = x) /\
+  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
+
 val _ = export_theory();

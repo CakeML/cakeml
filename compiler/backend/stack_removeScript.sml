@@ -35,16 +35,6 @@ val stack_err_lab_def = Define `
     k+2 is CurrHeap (which is kept in a register for improved speed)
 *)
 
-val _ = map overload_on
-  [("move",``\dest src. Inst (Arith (Binop Or dest src (Reg src)))``),
-   ("sub_inst",``\r1 r2. Inst (Arith (Binop Sub r1 r1 (Reg r2)))``),
-   ("add_inst",``\r1 r2. Inst (Arith (Binop Add r1 r1 (Reg r2)))``),
-   ("and_inst",``\r1 r2. Inst (Arith (Binop And r1 r1 (Reg r2)))``),
-   ("div2_inst",``\r. Inst (Arith (Shift Lsr r r 1))``),
-   ("left_shift_inst",``\r v. Inst (Arith (Shift Lsl r r v))``),
-   ("right_shift_inst",``\r v. Inst (Arith (Shift Lsr r r v))``),
-   ("const_inst",``\r w. Inst (Const r w)``)]
-
 val single_stack_alloc_def = Define `
   single_stack_alloc k n =
     Seq (Inst (Arith (Binop Sub k k (Imm (word_offset n)))))
@@ -57,11 +47,6 @@ val stack_alloc_def = tDefine "stack_alloc" `
       Seq (single_stack_alloc k max_stack_alloc)
           (stack_alloc k (n - max_stack_alloc))`
  (WF_REL_TAC `measure SND` \\ fs [max_stack_alloc_def] \\ decide_tac)
-
-val list_Seq_def = Define `
-  (list_Seq [] = Skip) /\
-  (list_Seq [x] = x) /\
-  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`;
 
 val comp_def = Define `
   comp k (p:'a stackLang$prog) =

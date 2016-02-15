@@ -1,5 +1,6 @@
 open preamble
      stack_allocTheory
+     stackLangTheory
      stackSemTheory
      stackPropsTheory
      bvp_to_wordProofTheory
@@ -519,6 +520,81 @@ val word_gc_move_bitmap_unroll = prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
+
+
+val memcpy_code_def = Define `
+  memcpy_code =
+    While NotEqual 0 (Imm 0w)
+      (list_Seq [load_inst 1 2;
+                 add_bytes_in_word_inst 2;
+                 sub_1_inst 0;
+                 store_inst 1 3;
+                 add_bytes_in_word_inst 3])`
+
+val split_num_forall_to_10 = prove(
+  ``($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
+               P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)``,
+  fs [GSYM (RAND_CONV ETA_CONV ``!x. P x``)]
+  \\ eq_tac \\ rw []
+  \\ Cases_on `x` \\ fs []
+  \\ ntac 5 (Cases_on `n` \\ fs [] \\ Cases_on `n'` \\ fs [])
+  \\ fs [ADD1,GSYM ADD_ASSOC]
+  \\ pop_assum match_mp_tac \\ decide_tac);
+
+val nine_less = DECIDE
+  ``9 < n ==> n <> 0 /\ n <> 1 /\ n <> 2 /\ n <> 3 /\ n <> 4 /\
+              n <> 5 /\ n <> 6 /\ n <> 7 /\ n <> 8 /\ n <> 9n``
+
+val memcpy_code_thm = store_thm("memcpy_code_thm",
+  ``!n a b m dm b1 m1 s.
+      memcpy ((n2w n):'a word) a b m dm = (b1:'a word,m1,T) /\
+      n < dimword (:'a) /\
+      s.memory = m /\ s.mdomain = dm /\
+      get_var 0 s = SOME (Word (n2w n)) /\
+      1 IN FDOM s.regs /\
+      get_var 2 s = SOME (Word a) /\
+      get_var 3 s = SOME (Word b) ==>
+      ?ck r1 r2.
+        evaluate (memcpy_code,s with clock := s.clock + n) =
+          (NONE,s with <| memory := m1;
+                          regs := s.regs |++ [(0,Word 0w);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word b1)] |>)``,
+  Induct THEN1
+   (simp [Once memcpy_def]
+    \\ rw [] \\ fs [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
+    \\ fs [EVAL ``word_cmp NotEqual 0w 0w``]
+    \\ fs [state_component_equality]
+    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+  \\ simp [Once memcpy_def]
+  \\ rpt gen_tac \\ strip_tac \\ fs []
+  \\ fs [ADD1,GSYM word_add_n2w]
+  \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs []
+  \\ simp [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
+  \\ fs [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def,word_add_n2w,get_var_def]
+  \\ simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       FLOOKUP_UPDATE,mem_store_def,dec_clock_def]
+  \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; memory := _; clock := _ |>`
+  \\ `memcpy ((n2w n):'a word) (a + bytes_in_word) (b + bytes_in_word)
+         (s3 with clock := s3.clock - n).memory
+         (s3 with clock := s3.clock - n).mdomain = (b1,m1,T)` by
+       (unabbrev_all_tac \\ fs [])
+  \\ first_x_assum drule \\ fs []
+  \\ discharge_hyps THEN1
+    (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
+  \\ strip_tac
+  \\ `s3 with clock := s3.clock − n + n = s3` by
+   (unabbrev_all_tac \\ fs [state_component_equality] \\ decide_tac)
+  \\ fs [memcpy_code_def,list_Seq_def,STOP_def]
+  \\ unabbrev_all_tac
+  \\ fs [state_component_equality]
+  \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
 
 
 
