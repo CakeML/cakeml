@@ -545,7 +545,17 @@ val nine_less = DECIDE
   ``9 < n ==> n <> 0 /\ n <> 1 /\ n <> 2 /\ n <> 3 /\ n <> 4 /\
               n <> 5 /\ n <> 6 /\ n <> 7 /\ n <> 8 /\ n <> 9n``
 
-val memcpy_code_thm = store_thm("memcpy_code_thm",
+val word_shift_not_0 = store_thm("word_shift_not_0",
+  ``word_shift (:'a) <> 0``,
+  rw [stackLangTheory.word_shift_def] \\ fs []);
+
+val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
+       asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
+
+val memcpy_code_thm = prove(
   ``!n a b m dm b1 m1 s.
       memcpy ((n2w n):'a word) a b m dm = (b1:'a word,m1,T) /\
       n < dimword (:'a) /\
@@ -554,12 +564,12 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
       1 IN FDOM s.regs /\
       get_var 2 s = SOME (Word a) /\
       get_var 3 s = SOME (Word b) ==>
-      ?ck r1 r2.
+      ?r1.
         evaluate (memcpy_code,s with clock := s.clock + n) =
           (NONE,s with <| memory := m1;
                           regs := s.regs |++ [(0,Word 0w);
                                               (1,r1);
-                                              (2,r2);
+                                              (2,Word (a + n2w n * bytes_in_word));
                                               (3,Word b1)] |>)``,
   Induct THEN1
    (simp [Once memcpy_def]
@@ -575,9 +585,7 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
   \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs []
   \\ simp [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
   \\ fs [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def,word_add_n2w,get_var_def]
-  \\ simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
-       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
-       FLOOKUP_UPDATE,mem_store_def,dec_clock_def]
+  \\ tac
   \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; memory := _; clock := _ |>`
   \\ `memcpy ((n2w n):'a word) (a + bytes_in_word) (b + bytes_in_word)
          (s3 with clock := s3.clock - n).memory
@@ -587,16 +595,197 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
   \\ discharge_hyps THEN1
     (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
   \\ strip_tac
-  \\ `s3 with clock := s3.clock − n + n = s3` by
+  \\ `s3 with clock := s3.clock - n + n = s3` by
    (unabbrev_all_tac \\ fs [state_component_equality] \\ decide_tac)
   \\ fs [memcpy_code_def,list_Seq_def,STOP_def]
   \\ unabbrev_all_tac
   \\ fs [state_component_equality]
   \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less]
+  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+
+val memcpy_code_thm = store_thm("memcpy_code_thm",
+  ``!w a b m dm b1 m1 s.
+      memcpy (w:'a word) a b m dm = (b1:'a word,m1,T) /\
+      s.memory = m /\ s.mdomain = dm /\
+      get_var 0 s = SOME (Word w) /\
+      1 IN FDOM s.regs /\
+      get_var 2 s = SOME (Word a) /\
+      get_var 3 s = SOME (Word b) ==>
+      ?r1.
+        evaluate (memcpy_code,s with clock := s.clock + w2n w) =
+          (NONE,s with <| memory := m1;
+                          regs := s.regs |++ [(0,Word 0w);
+                                              (1,r1);
+                                              (2,Word (a + w * bytes_in_word));
+                                              (3,Word b1)] |>)``,
+  Cases \\ fs [] \\ pop_assum mp_tac \\ qspec_tac (`n`,`n`) \\ fs [PULL_FORALL]
+  \\ rpt strip_tac
+  \\ match_mp_tac (memcpy_code_thm |> SIMP_RULE (srw_ss()) [])
+  \\ metis_tac [])
+
+val select_lower_lemma = store_thm("select_lower_lemma",
+  ``(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)``,
+  fs [fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsl_def,
+      word_lsr_def] \\ rw []
+  \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)` \\ fs []
+  THEN1 (fs [fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ rw [] \\ decide_tac)
+  \\ CCONTR_TAC \\ fs [] \\ decide_tac);
+
+val select_eq_select_0 = store_thm("select_eq_select_0",
+  ``k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)``,
+  fs [fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsr_def] \\ rw []
+  \\ eq_tac \\ fs [] \\ rw [] \\ decide_tac);
+
+val clear_top_inst_def = Define `
+  clear_top_inst i n =
+    Seq (left_shift_inst i (dimindex(:'a) - n - 1))
+        (right_shift_inst i (dimindex(:'a) - n - 1)):'a stackLang$prog`;
+
+val word_gc_move_code_def = Define `
+  word_gc_move_code conf =
+    If Test 5 (Imm (1w:'a word)) Skip
+      (list_Seq
+        [move 0 5;
+         right_shift_inst 0 (shift_length conf);
+         left_shift_inst 0 (word_shift (:'a));
+         add_inst 0 6; (* here 0 is ptr_to_addr conf old w *)
+         load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
+         If Test 1 (Imm 3w)
+           (list_Seq [right_shift_inst 1 2;
+                      left_shift_inst 1 (shift_length conf);
+                      clear_top_inst 5 (shift_length conf - 1);
+                      or_inst 5 1])
+           (list_Seq [(* get len+1w *)
+                      right_shift_inst 1 2;
+                      clear_top_inst 1 (conf.len_size - 1);
+                      add_1_inst 1;
+                      (* store len+1w for later *)
+                      move 7 1;
+                      (* memcpy *)
+                      move 2 0;
+                      move 0 1;
+                      memcpy_code;
+                      (* compute original header_addr *)
+                      move 0 7;
+                      left_shift_inst 0 (word_shift (:'a));
+                      sub_inst 2 0;
+                      (* store i << 2 into header_addr *)
+                      move 0 4;
+                      left_shift_inst 0 2;
+                      store_inst 0 2;
+                      (* compute update_addr conf i w, where i in 4 and w in 5 *)
+                      move 1 4;
+                      clear_top_inst 5 (shift_length conf - 1);
+                      left_shift_inst 1 (shift_length conf);
+                      or_inst 5 1;
+                      (* add to i in 4 *)
+                      add_inst 4 7])])`
+
+val is_fwd_ptr_iff = prove(
+  ``!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w``,
+  Cases \\ fs [is_fwd_ptr_def]);
+
+val isWord_thm = prove(
+  ``!w. isWord w = ?v. w = Word v``,
+  Cases \\ fs [isWord_def]);
+
+val decode_header_lemma = prove(
+  ``conf.len_size <> 0 ==>
+    decode_header conf w =
+     (w ⋙ (2 + conf.len_size), (conf.len_size - 1 -- 0) (w >>> 2))``,
+  fs [bvp_to_wordPropsTheory.decode_header_def] \\ rw []
+  \\ `2 <= conf.len_size + 1` by decide_tac
+  \\ drule select_eq_select_0 \\ fs [] \\ rw []
+  \\ fs [DECIDE ``n+1-2 = n-1n``]);
+
+val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
+  ``word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
+    ~(shift_length conf >= dimindex (:'a)) /\
+    ~(word_shift (:α) >= dimindex (:α)) /\
+    ~(2 ≥ dimindex (:α)) /\ conf.len_size <> 0 /\
+    (!w:'a word. w << word_shift (:α) = w * bytes_in_word) /\
+    s.memory = m /\ s.mdomain = dm /\
+    0 IN FDOM s.regs /\
+    1 IN FDOM s.regs /\
+    2 IN FDOM s.regs /\
+    get_var 3 s = SOME (Word pa) /\
+    get_var 4 s = SOME (Word (i:'a word)) /\
+    get_var 5 s = SOME w /\
+    get_var 6 s = SOME (Word old) /\
+    7 IN FDOM s.regs ==>
+    ?ck r0 r1 r2 r7.
+      evaluate (word_gc_move_code conf,s with clock := s.clock + ck) =
+        (NONE,s with <| memory := m1;
+                        regs := s.regs |++ [(0,r0);
+                                            (1,r1);
+                                            (2,r2);
+                                            (3,Word pa1);
+                                            (4,Word i1);
+                                            (5,w1);
+                                            (6,Word old);
+                                            (7,r7)] |>)``,
+  reverse (Cases_on `w`) \\ fs [word_gc_move_def] THEN1
+   (rw [word_gc_move_code_def,evaluate_def] \\ fs [get_var_def] \\ tac
+    \\ cheat (* semantics of Test needs updating in stackSem *))
+  \\ fs [get_var_def,word_gc_move_code_def,evaluate_def] \\ tac
+  \\ IF_CASES_TAC \\ fs [] THEN1
+   (tac \\ strip_tac \\ rpt var_eq_tac \\ fs []
+    \\ qexists_tac `0` \\ fs [state_component_equality]
+    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+  \\ IF_CASES_TAC THEN1
+   (fs [ptr_to_addr_def] \\ tac
+    \\ strip_tac \\ rpt var_eq_tac \\ tac
+    \\ fs [is_fwd_ptr_iff] \\ tac
+    \\ fs [clear_top_inst_def,evaluate_def] \\ tac
+    \\ qexists_tac `0` \\ fs [theWord_def]
+    \\ fs [update_addr_def,select_lower_lemma]
+    \\ fs [state_component_equality]
+    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs [ptr_to_addr_def,isWord_thm]
+  \\ strip_tac \\ rpt var_eq_tac \\ tac
+  \\ fs [is_fwd_ptr_def,theWord_def,clear_top_inst_def] \\ tac
+  \\ fs [GSYM select_lower_lemma]
+  \\ qexists_tac `w2n (len + 1w)`
+  \\ drule memcpy_code_thm
+  \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; clock := _ |>`
+  \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac) \\ fs []
+  \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
+       (unabbrev_all_tac \\ fs [AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+  \\ fs [] \\ discharge_hyps THEN1
+    (unabbrev_all_tac \\ fs [get_var_def] \\ tac
+     \\ fs [decode_header_lemma] \\ rpt var_eq_tac \\ fs [] \\ tac
+     \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``])
+  \\ strip_tac \\ fs [FUPDATE_LIST]
+  \\ unabbrev_all_tac \\ fs [] \\ tac
+  \\ fs [decode_header_lemma] \\ rpt var_eq_tac \\ fs [] \\ tac
+  \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+  \\ tac \\ fs [] \\ tac \\ fs [update_addr_def]
+  \\ fs [state_component_equality]
+  \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less]
+  \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
+  \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
 
+(*
+
+word_gc_move_def
+print_find "decode_header_def"
+word_gc_move_list_def
+word_gc_move_loop_eq
+
+
+ptr_to_addr_def
+
+*)
 
 val alloc_correct = prove(
   ``alloc w s = (r,t) /\ r <> SOME Error /\

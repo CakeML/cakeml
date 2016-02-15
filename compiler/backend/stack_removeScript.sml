@@ -133,8 +133,8 @@ val init_code_def = Define `
         If NotLower temp1 (Reg heap_end) Skip (halt_inst 12w);
         (* assert heap_start, heap_end, stack_end are word aligned *)
         move temp1 heap_start;
-        and_inst temp1 heap_end;
-        and_inst temp1 stack_end;
+        add_inst temp1 heap_end;
+        add_inst temp1 stack_end;
         If Test temp1 (Imm (word_offset 1)) Skip (halt_inst 13w);
         (* initialise sp and bp *)
         move sp stack_end;
