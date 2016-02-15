@@ -167,6 +167,13 @@ val PushHandler_def = Define `
    (Seq (StackGetSize k)
         (Set Handler k))))))))`
 
+val PopHandler_def = Define`
+  PopHandler (k,f,f') prog =
+   Seq (StackLoad k 2)
+  (Seq (Set Handler k)
+  (Seq (StackFree 3)
+  prog))`
+
 val comp_def = Define `
   (comp (Skip:'a wordLang$prog) bs kf = (Skip:'a stackLang$prog,bs)) /\
   (comp (Move _ xs) bs kf = (wMove xs kf,bs)) /\
@@ -213,7 +220,7 @@ val comp_def = Define `
                 (Seq q1
                 (Seq (PushHandler h1 h2 kf)
                 (Seq (StackHandlerArgs dest (LENGTH args + 1) kf)
-                     (Call (SOME (q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
+                     (Call (SOME (PopHandler kf q2,0,l1,l2)) dest (SOME (q3,h1,h2)))))),
                  bs)) /\
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
