@@ -356,9 +356,11 @@ val evaluate_def = tDefine "evaluate" `
      | _ => (SOME Error,s)) /\
   (evaluate (If cmp r1 ri c1 c2,s) =
     (case (get_var r1 s,get_var_imm ri s)of
-    | SOME (Word x),SOME (Word y) =>
-      if word_cmp cmp x y then evaluate (c1,s)
-                          else evaluate (c2,s)
+    | SOME x,SOME y =>
+     (case labSem$word_cmp cmp x y of
+      | SOME T => evaluate (c1,s)
+      | SOME F => evaluate (c2,s)
+      | NONE => (SOME Error,s))
     | _ => (SOME Error,s))) /\
   (evaluate (While cmp r1 ri c1,s) =
     (case (get_var r1 s,get_var_imm ri s)of

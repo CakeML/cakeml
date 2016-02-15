@@ -553,6 +553,7 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       labSemTheory.word_cmp_def,
        wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 val memcpy_code_thm = prove(
@@ -728,7 +729,10 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
                                             (7,r7)] |>)``,
   reverse (Cases_on `w`) \\ fs [word_gc_move_def] THEN1
    (rw [word_gc_move_code_def,evaluate_def] \\ fs [get_var_def] \\ tac
-    \\ cheat (* semantics of Test needs updating in stackSem *))
+    \\ fs [state_component_equality]
+    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
   \\ fs [get_var_def,word_gc_move_code_def,evaluate_def] \\ tac
   \\ IF_CASES_TAC \\ fs [] THEN1
    (tac \\ strip_tac \\ rpt var_eq_tac \\ fs []
@@ -774,16 +778,12 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
   \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
-
 (*
 
-word_gc_move_def
-print_find "decode_header_def"
 word_gc_move_list_def
 word_gc_move_loop_eq
-
-
-ptr_to_addr_def
+word_gc_move_bitmap_unroll
+word_gc_move_bitmaps_unroll
 
 *)
 
