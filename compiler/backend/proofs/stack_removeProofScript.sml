@@ -782,7 +782,7 @@ val comp_correct = Q.prove(
                | SOME (Halt _) => t2.ffi = s2.ffi
                | SOME TimeOut => t2.ffi = s2.ffi
                | _ =>  (state_rel k s2 t2))`,
- recInduct evaluate_ind \\ rpt strip_tac
+  recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (full_simp_tac(srw_ss())[comp_def,evaluate_def] \\ rpt var_eq_tac \\ qexists_tac`0` \\ full_simp_tac(srw_ss())[])
   THEN1
    (full_simp_tac(srw_ss())[comp_def,evaluate_def,good_syntax_def]
@@ -899,7 +899,6 @@ val comp_correct = Q.prove(
     \\ full_simp_tac(srw_ss())[evaluate_def,good_syntax_def]
     \\ imp_res_tac state_rel_get_var \\ full_simp_tac(srw_ss())[]
     \\ qpat_assum`_ = (r,_)`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
