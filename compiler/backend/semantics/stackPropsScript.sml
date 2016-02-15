@@ -71,16 +71,16 @@ val alloc_const = Q.store_thm("alloc_const",
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps`,
-  rw[alloc_def,gc_def,LET_THM] >>
-  every_case_tac >> fs[] >> rw[]);
+  srw_tac[][alloc_def,gc_def,LET_THM] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val gc_with_const = Q.store_thm("gc_with_const[simp]",
   `gc (x with clock := k) = OPTION_MAP (λs. s with clock := k) (gc x)`,
-   rw[gc_def] >> every_case_tac >> fs[]);
+   srw_tac[][gc_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
 val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
   `alloc x (y with clock := z) = (I ## (λs. s with clock := z))(alloc x y)`,
-  rw[alloc_def] >> every_case_tac >> fs[] >> rfs[]);
+  srw_tac[][alloc_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]);
 
 val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
   `mem_load x (y with clock := k) = mem_load x y`,
@@ -88,22 +88,22 @@ val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
 
 val mem_load_with_const = Q.store_thm("mem_load_with_const[simp]",
   `mem_store x y (z with clock := k) = OPTION_MAP(λs. s with clock := k)(mem_store x y z)`,
-  EVAL_TAC >> rw[]);
+  EVAL_TAC >> srw_tac[][]);
 
 val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
   `∀s y k. word_exp (s with clock := k) y = word_exp s y`,
-  ho_match_mp_tac word_exp_ind >> rw[word_exp_def] >>
-  every_case_tac >> fs[] >>
-  fs[EVERY_MEM,EXISTS_MEM] >>
+  ho_match_mp_tac word_exp_ind >> srw_tac[][word_exp_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[EVERY_MEM,EXISTS_MEM] >>
   unabbrev_all_tac >>
-  fs[MEM_MAP,PULL_EXISTS] >>
-  res_tac >> fs[IS_SOME_EXISTS] >> fs[] >>
+  full_simp_tac(srw_ss())[MEM_MAP,PULL_EXISTS] >>
+  res_tac >> full_simp_tac(srw_ss())[IS_SOME_EXISTS] >> full_simp_tac(srw_ss())[] >>
   rpt AP_TERM_TAC >>
   simp[MAP_EQ_f]);
 
 val assign_with_const = Q.store_thm("assign_with_const[simp]",
   `assign x y (s with clock := k) = OPTION_MAP (λs. s with clock := k) (assign x y s)`,
-  rw[assign_def] >> every_case_tac >> fs[]);
+  srw_tac[][assign_def] >> every_case_tac >> full_simp_tac(srw_ss())[]);
 
 val inst_const = Q.store_thm("inst_const",
   `inst i s = SOME t ⇒
@@ -117,15 +117,15 @@ val inst_const = Q.store_thm("inst_const",
     t.gc_fun = s.gc_fun ∧
     t.mdomain = s.mdomain ∧
     t.bitmaps = s.bitmaps`,
-  Cases_on`i`>>rw[inst_def,assign_def] >>
-  every_case_tac >> fs[set_var_def,word_exp_def,LET_THM] >> rw[] >>
-  fs[mem_store_def] >> rw[]);
+  Cases_on`i`>>srw_tac[][inst_def,assign_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[set_var_def,word_exp_def,LET_THM] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[mem_store_def] >> srw_tac[][]);
 
 val inst_with_const = Q.store_thm("inst_with_const[simp]",
   `inst i (s with clock := k) = OPTION_MAP (λs. s with clock := k) (inst i s)`,
-  rw[inst_def] >>
-  CASE_TAC >> fs[] >>
-  every_case_tac >> fs[get_var_def] >> rveq >> fs[]);
+  srw_tac[][inst_def] >>
+  CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[]);
 
 val dec_clock_const = Q.store_thm("dec_clock_const[simp]",
   `(dec_clock s).ffi = s.ffi ∧
@@ -155,10 +155,10 @@ val evaluate_consts = store_thm("evaluate_consts",
   simp[evaluate_def] >>
   rpt gen_tac >>
   rpt (
-    (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> fs[]) ORELSE
-    (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> fs[]) ORELSE
-    (strip_tac >> var_eq_tac >> rveq >> fs[]) ORELSE
-    (CASE_TAC >> fs[]) ORELSE
+    (strip_tac >> CHANGED_TAC(imp_res_tac alloc_const) >> full_simp_tac(srw_ss())[]) ORELSE
+    (strip_tac >> CHANGED_TAC(imp_res_tac inst_const) >> full_simp_tac(srw_ss())[]) ORELSE
+    (strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[]) ORELSE
+    (CASE_TAC >> full_simp_tac(srw_ss())[]) ORELSE
     (split_pair_tac >> simp[])));
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
@@ -168,15 +168,15 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
     s1.ffi.io_events ≼ s2.ffi.io_events ∧
     (IS_SOME s1.ffi.final_event ⇒ s2.ffi = s1.ffi)`,
   recInduct evaluate_ind >>
-  rw [evaluate_def] >>
-  every_case_tac >> fs[LET_THM] >>
-  TRY split_pair_tac >> fs[] >>
-  imp_res_tac alloc_const >> fs[] >>
-  imp_res_tac inst_const >> fs[] >>
-  fs[set_var_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  TRY (CHANGED_TAC(fs[ffiTheory.call_FFI_def]) >>
-       every_case_tac >> fs[] >> rw[] ) >>
+  srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[LET_THM] >>
+  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[set_var_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  TRY (CHANGED_TAC(full_simp_tac(srw_ss())[ffiTheory.call_FFI_def]) >>
+       every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
   metis_tac[IS_PREFIX_TRANS]);
 
 val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
@@ -186,54 +186,54 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   cheat (* due to addition of While *)
 (*
   recInduct evaluate_ind >>
-  rw[evaluate_def] >> fs[LET_THM] >>
+  srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM] >>
   TRY (
     qcase_tac`find_code dest (_ \\ _)` >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >- (
-      BasicProvers.TOP_CASE_TAC >> fs[] >>
-      BasicProvers.TOP_CASE_TAC >> fs[] >>
-      every_case_tac >> fs[] >> rveq >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
+      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
       fsrw_tac[ARITH_ss][dec_clock_def] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-    ntac 3 BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    ntac 3 BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     fsrw_tac[ARITH_ss][dec_clock_def] >>
-    reverse BasicProvers.TOP_CASE_TAC >> fs[] >> fs[] >- (
-      BasicProvers.TOP_CASE_TAC >> fs[] >>
-      BasicProvers.FULL_CASE_TAC >> fs[] >>
-      every_case_tac >> fs[] >> rveq >> fs[] >>
+    reverse BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >- (
+      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       fsrw_tac[ARITH_ss][] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
     qpat_assum`_ = (_,_)`mp_tac >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    every_case_tac >> fs[] >> strip_tac >> rveq >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq >>
     fsrw_tac[ARITH_ss][] >> rveq >>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
     NO_TAC) >>
   TRY (
     qcase_tac`find_code` >>
-    fs[get_var_def] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >> fs[] >>
-    every_case_tac >> fs[] >>
+    full_simp_tac(srw_ss())[get_var_def] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>
     rveq >> fsrw_tac[ARITH_ss][dec_clock_def] >>
     rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
-  TRY split_pair_tac >> fs[] >>
-  every_case_tac >> fs[] >> rveq >>
-  fs[get_var_def] >> rveq >> fs[] >>
-  imp_res_tac alloc_const >> fs[] >>
-  imp_res_tac inst_const >> fs[] >>
+  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+  full_simp_tac(srw_ss())[get_var_def] >> rveq >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
   fsrw_tac[ARITH_ss][dec_clock_def] >>
   TRY (
     qcase_tac`call_FFI` >>
-    split_pair_tac >> fs[] >> rveq >> simp[] ) >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >> simp[] ) >>
   metis_tac[] *));
 
 val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_events_mono",
@@ -245,18 +245,18 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   cheat (* due to addition of While *)
 (*
   recInduct evaluate_ind >>
-  rw[evaluate_def] >> fs[LET_THM,get_var_def] >>
-  TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
-  every_case_tac >> fs[] >>
-  imp_res_tac evaluate_add_clock >> fs[] >>
-  imp_res_tac evaluate_io_events_mono >> fs[dec_clock_def] >>
+  srw_tac[][evaluate_def] >> full_simp_tac(srw_ss())[LET_THM,get_var_def] >>
+  TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[dec_clock_def] >>
   rveq >> fsrw_tac[ARITH_ss][] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
-  rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])>> fs[] >>
+  rpt(first_x_assum(qspec_then`extra`mp_tac)>>simp[])>> full_simp_tac(srw_ss())[] >>
   TRY(
     CHANGED_TAC(simp[ffiTheory.call_FFI_def,get_var_def]) >>
-    every_case_tac >> fs[get_var_def] >>
-    rveq >> fs[] >> rveq >> fs[] >> rveq >> fs[]) >>
+    every_case_tac >> full_simp_tac(srw_ss())[get_var_def] >>
+    rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[]) >>
   metis_tac[IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR] *));
 
 val clock_neutral_def = Define `
@@ -271,42 +271,42 @@ val clock_neutral_def = Define `
 val inst_clock_neutral = prove(
   ``(inst i s = SOME t ==> inst i (s with clock := k) = SOME (t with clock := k)) /\
     (inst i s = NONE ==> inst i (s with clock := k) = NONE)``,
-  Cases_on `i` \\ fs [inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
-  \\ rw [state_component_equality]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [word_exp_def]
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [word_exp_def]
-  \\ fs [mem_load_def,get_var_def,mem_store_def]
-  \\ rw [state_component_equality]);
+  Cases_on `i` \\ full_simp_tac(srw_ss())[inst_def,assign_def,word_exp_def,set_var_def,LET_DEF]
+  \\ srw_tac[][state_component_equality]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[word_exp_def]
+  \\ full_simp_tac(srw_ss())[mem_load_def,get_var_def,mem_store_def]
+  \\ srw_tac[][state_component_equality]);
 
 val evaluate_clock_neutral = store_thm("evaluate_clock_neutral",
   ``!prog s res t.
       evaluate (prog,s) = (res,t) /\ clock_neutral prog ==>
       evaluate (prog,s with clock := c) = (res,t with clock := c)``,
-  recInduct evaluate_ind \\ rw [] \\ fs []
-  \\ fs [evaluate_def,get_var_def,clock_neutral_def]
-  THEN1 (every_case_tac \\ fs [] \\ rw [] \\ fs [])
-  THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral \\ fs [])
-  THEN1 (Cases_on `evaluate (c1,s)` \\ fs [LET_THM] \\ every_case_tac \\ fs[])
+  recInduct evaluate_ind \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,clock_neutral_def]
+  THEN1 (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[])
+  THEN1 (every_case_tac \\ imp_res_tac inst_clock_neutral \\ full_simp_tac(srw_ss())[])
+  THEN1 (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[LET_THM] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ `get_var_imm ri (s with clock := c) = get_var_imm ri s` by
-         (Cases_on `ri` \\ fs [get_var_imm_def,get_var_def])
-  \\ every_case_tac \\ fs [] \\ rw [] \\ fs [set_var_def]);
+         (Cases_on `ri` \\ full_simp_tac(srw_ss())[get_var_imm_def,get_var_def])
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]);
 
 val semantics_Terminate_IMP_PREFIX = store_thm("semantics_Terminate_IMP_PREFIX",
   ``semantics start s1 = Terminate x l ==> isPREFIX s1.ffi.io_events l``,
-  fs [semantics_def,LET_DEF] \\ IF_CASES_TAC \\ fs []
-  \\ DEEP_INTRO_TAC some_intro \\ fs [] \\ rw []
-  \\ imp_res_tac evaluate_io_events_mono \\ fs []);
+  full_simp_tac(srw_ss())[semantics_def,LET_DEF] \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
+  \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ imp_res_tac evaluate_io_events_mono \\ full_simp_tac(srw_ss())[]);
 
 val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
   `semantics start s1 = Diverge l ==> LPREFIX (fromList s1.ffi.io_events) l`,
-  simp[semantics_def] >> IF_CASES_TAC >> fs[] >>
-  DEEP_INTRO_TAC some_intro >> rw[] >>
+  simp[semantics_def] >> IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
+  DEEP_INTRO_TAC some_intro >> srw_tac[][] >>
   qmatch_abbrev_tac`LPREFIX l1 (build_lprefix_lub l2)` >>
   `l1 ∈ l2 ∧ lprefix_chain l2` suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_def] >>
   conj_tac >- (
     unabbrev_all_tac >> simp[] >>
-    qexists_tac`0`>>fs[evaluate_def] >>
-    CASE_TAC >> fs[] ) >>
+    qexists_tac`0`>>full_simp_tac(srw_ss())[evaluate_def] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] ) >>
   simp[Abbr`l2`] >>
   simp[Once(GSYM o_DEF),IMAGE_COMPOSE] >>
   match_mp_tac prefix_chain_lprefix_chain >>

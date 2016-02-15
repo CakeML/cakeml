@@ -4,12 +4,12 @@ val _ = new_theory"exhProps";
 
 val build_rec_env_merge = store_thm("build_rec_env_merge",
   ``build_rec_env funs cle env = MAP (λ(f,cdr). (f, (Recclosure cle funs f))) funs ++ env``,
-  rw[build_rec_env_def] >>
+  srw_tac[][build_rec_env_def] >>
   qho_match_abbrev_tac `FOLDR (f funs) env funs = MAP (g funs) funs ++ env` >>
-  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- rw[]  >>
+  qsuff_tac `∀funs env funs0. FOLDR (f funs0) env funs = MAP (g funs0) funs ++ env` >- srw_tac[][]  >>
   unabbrev_all_tac >> simp[] >>
-  Induct >> rw[] >>
-  PairCases_on`h` >> rw[])
+  Induct >> srw_tac[][] >>
+  PairCases_on`h` >> srw_tac[][])
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``exhSem$Boolv T = Boolv F``);
 
@@ -19,11 +19,11 @@ val pmatch_any_match = store_thm("pmatch_any_match",
     (∀s ps vs env env'. pmatch_list s ps vs env = Match env' ⇒
        ∀env. ∃env'. pmatch_list s ps vs env = Match env')``,
   ho_match_mp_tac pmatch_ind >>
-  rw[pmatch_def] >>
+  srw_tac[][pmatch_def] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
+  full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
 val pmatch_any_no_match = store_thm("pmatch_any_no_match",
@@ -32,11 +32,11 @@ val pmatch_any_no_match = store_thm("pmatch_any_no_match",
     (∀s ps vs env. pmatch_list s ps vs env = No_match ⇒
        ∀env. pmatch_list s ps vs env = No_match)``,
   ho_match_mp_tac pmatch_ind >>
-  rw[pmatch_def] >>
+  srw_tac[][pmatch_def] >>
   pop_assum mp_tac >>
   BasicProvers.CASE_TAC >>
-  fs[] >> strip_tac >> fs[] >>
-  BasicProvers.CASE_TAC >> fs[] >>
+  full_simp_tac(srw_ss())[] >> strip_tac >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   imp_res_tac pmatch_any_match >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct])
 
@@ -45,7 +45,7 @@ val pmatch_any_match_error = store_thm("pmatch_any_match_error",
        ∀env. pmatch s p v env = Match_type_error) ∧
     (∀s ps vs env. pmatch_list s ps vs env = Match_type_error ⇒
        ∀env. pmatch_list s ps vs env = Match_type_error)``,
-  rw[] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> fs[markerTheory.Abbrev_def] >>
+  srw_tac[][] >> qmatch_abbrev_tac`X = Y` >> Cases_on`X` >> full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
   metis_tac[semanticPrimitivesTheory.match_result_distinct
            ,pmatch_any_no_match,pmatch_any_match]);
 
@@ -68,7 +68,7 @@ val pmatch_list_snoc = store_thm("pmatch_list_snoc",
       case pmatch_list s ps vs env of
       | Match env' => pmatch s p v env'
       | res => res``,
-  Induct >> Cases_on`vs` >> simp[pmatch_def] >> rw[] >>
+  Induct >> Cases_on`vs` >> simp[pmatch_def] >> srw_tac[][] >>
   BasicProvers.CASE_TAC)
 
 val pmatch_append = store_thm("pmatch_append",
@@ -79,11 +79,11 @@ val pmatch_append = store_thm("pmatch_append",
       (pmatch_list s ps vs env =
        map_match (combin$C APPEND (DROP n env)) (pmatch_list s ps vs (TAKE n env))))``,
   ho_match_mp_tac pmatch_ind >>
-  rw[pmatch_def]
-  >- ( BasicProvers.CASE_TAC >> fs[] >>
-       BasicProvers.CASE_TAC >> fs[]) >>
+  srw_tac[][pmatch_def]
+  >- ( BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) >>
   pop_assum (qspec_then`n`mp_tac) >>
-  Cases_on `pmatch s p v (TAKE n env)`>>fs[] >>
+  Cases_on `pmatch s p v (TAKE n env)`>>full_simp_tac(srw_ss())[] >>
   strip_tac >> res_tac >>
   qmatch_assum_rename_tac`pmatch s p v (TAKE n env) = Match env1` >>
   pop_assum(qspec_then`LENGTH env1`mp_tac) >>
@@ -108,8 +108,8 @@ val evaluate_length = Q.store_thm("evaluate_length",
    (∀env (s:'ffi exhSem$state) v pes s' vs.
       evaluate_match env s v pes = (s', Rval vs) ⇒ LENGTH vs = 1)`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[]);
+  srw_tac[][evaluate_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -119,29 +119,29 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
        | (s,Rval vs) => (s,Rval (v++vs))
        | r => r)
     | r => r)`,
-  Cases_on`es`>>rw[evaluate_def] >>
-  every_case_tac >> fs[evaluate_def] >>
-  imp_res_tac evaluate_length >> fs[SING_HD]);
+  Cases_on`es`>>srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
+  imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[SING_HD]);
 
 val evaluate_sing = Q.store_thm("evaluate_sing",
   `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
    (evaluate_match env s v pes = (s',Rval vs) ⇒ ∃y. vs = [y])`,
-  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
+  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
     OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
-  fs[do_app_def] >>
-  BasicProvers.CASE_TAC >> fs[]>-( every_case_tac >> fs[] ) >>
-  reverse(Cases_on`op`>>fs[]) >- ( every_case_tac >> fs[] ) >>
+  full_simp_tac(srw_ss())[do_app_def] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]>-( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+  reverse(Cases_on`op`>>full_simp_tac(srw_ss())[]) >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   qmatch_goalsub_rename_tac`op:ast$op` >>
-  Cases_on`op`>>fs[] >>
+  Cases_on`op`>>full_simp_tac(srw_ss())[] >>
   every_case_tac >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >>
-  rw[]);
+  srw_tac[][]);
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `(∀env (s:'ffi exhSem$state) es s' r.
@@ -155,23 +155,23 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
        evaluate_match env (s with clock := s.clock + extra) pes v =
          (s' with clock := s'.clock + extra,r))`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >>
-  every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
+  srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
 val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  rw[] >> imp_res_tac do_app_cases >> fs[do_app_def] >>
+  srw_tac[][] >> imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >>
   every_case_tac >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  fs[ffiTheory.call_FFI_def] >>
-  every_case_tac >> fs[] >> rw[]);
+     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `(∀env (s:'ffi exhSem$state) es s' r.
@@ -182,9 +182,9 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
       evaluate_match env s pes v = (s',r) ⇒
       s.ffi.io_events ≼ s'.ffi.io_events ∧
       (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >> rw[] >> rfs[] >> fs[dec_clock_def] >>
-  imp_res_tac do_app_io_events_mono >> fs[] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
+  imp_res_tac do_app_io_events_mono >> full_simp_tac(srw_ss())[] >>
   metis_tac[IS_PREFIX_TRANS]);
 
 val with_clock_ffi = Q.prove(
@@ -203,11 +203,11 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
        (IS_SOME((FST(evaluate_match env s pes v)).ffi.final_event) ⇒
         (FST(evaluate_match env (s with clock := s.clock + extra) pes v)).ffi =
         (FST(evaluate_match env s pes v)).ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >>
-  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >> fs[] >> rw[] >>
-  imp_res_tac evaluate_io_events_mono >> fs[] >> fs[dec_clock_def] >>
-  fs[do_app_add_to_clock,UNCURRY] >> rw[] >> fs[] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
+  full_simp_tac(srw_ss())[do_app_add_to_clock,UNCURRY] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   TRY(last_x_assum(qspec_then`extra`mp_tac)>>simp[]>>NO_TAC) >>
   metis_tac[FST,IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi,do_app_io_events_mono]);
 

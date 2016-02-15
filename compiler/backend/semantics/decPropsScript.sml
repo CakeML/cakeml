@@ -11,7 +11,7 @@ val map_state_def = Define`
 
 val map_state_clock = Q.store_thm("map_state_clock[simp]",
   `(map_state f s).clock = s.clock`,
-  rw[map_state_def]);
+  srw_tac[][map_state_def]);
 
 val state_every_def = Define`
   state_every P s ⇔ EVERY (sv_every P) s.refs ∧ EVERY (OPTION_EVERY P) s.globals`
@@ -19,8 +19,8 @@ val state_every_def = Define`
 val do_app_genv_weakening = prove(
   ``decSem$do_app x op vs = SOME (x',c) ⇒
     do_app (x with globals := x.globals ++ y) op vs = SOME (x' with globals := x'.globals ++ y,c)``,
-  rw[do_app_def] >>
-  every_case_tac >> fs[] >> rw[] >>
+  srw_tac[][do_app_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   fsrw_tac[ARITH_ss][EL_APPEND1,LUPDATE_APPEND1,state_component_equality])
 
 val s = ``s:'ffi decSem$state``
@@ -39,11 +39,11 @@ val evaluate_genv_weakening = Q.store_thm ("evaluate_genv_weakening",
        evaluate_match env (s with globals := s.globals++GENLIST (\x.NONE) l) v pes err_v =
          (s' with globals := s'.globals++GENLIST (\x.NONE) l,r))`,
   ho_match_mp_tac evaluate_ind >>
-  rw [evaluate_def] >>
-  every_case_tac >> fs[] >> rw[] >> rfs[] >>
-  fsrw_tac[ARITH_ss][EL_APPEND1] >> rfs[] >>
-  imp_res_tac do_app_genv_weakening >> fs[] >>
-  fs[dec_clock_def] >>
+  srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+  fsrw_tac[ARITH_ss][EL_APPEND1] >> rev_full_simp_tac(srw_ss())[] >>
+  imp_res_tac do_app_genv_weakening >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[dec_clock_def] >>
   simp[state_component_equality,K_DEF,GSYM GENLIST_APPEND])
 
 val evaluate_extend_genv = Q.store_thm ("evaluate_extend_genv",
@@ -52,7 +52,7 @@ val evaluate_extend_genv = Q.store_thm ("evaluate_extend_genv",
     ⇔
     r = Rval [Conv NONE []] ∧
     s' = (s with globals := s.globals ++ GENLIST (\x. NONE) n)`,
-  rw [evaluate_def] >>
+  srw_tac[][evaluate_def] >>
   metis_tac []);
 
 val prompt_num_defs_def = Define `
@@ -64,8 +64,8 @@ val evaluate_length = Q.store_thm("evaluate_length",
    (∀env (s:'ffi decSem$state) v pes ev s' vs.
       evaluate_match env s v pes ev = (s', Rval vs) ⇒ LENGTH vs = 1)`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[]);
+  srw_tac[][evaluate_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -75,29 +75,29 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
        | (s,Rval vs) => (s,Rval (v++vs))
        | r => r)
     | r => r)`,
-  Cases_on`es`>>rw[evaluate_def] >>
-  every_case_tac >> fs[evaluate_def] >>
-  imp_res_tac evaluate_length >> fs[SING_HD]);
+  Cases_on`es`>>srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
+  imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[SING_HD]);
 
 val evaluate_sing = Q.store_thm("evaluate_sing",
   `(evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]) ∧
    (evaluate_match env s v pes ev = (s',Rval vs) ⇒ ∃y. vs = [y])`,
-  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
+  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
     OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
-  fs[do_app_def] >>
-  BasicProvers.CASE_TAC >> fs[]>-( every_case_tac >> fs[] ) >>
-  reverse(Cases_on`op`>>fs[]) >- ( every_case_tac >> fs[] ) >>
+  full_simp_tac(srw_ss())[do_app_def] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]>-( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+  reverse(Cases_on`op`>>full_simp_tac(srw_ss())[]) >- ( every_case_tac >> full_simp_tac(srw_ss())[] ) >>
   qmatch_goalsub_rename_tac`op:ast$op` >>
-  Cases_on`op`>>fs[] >>
+  Cases_on`op`>>full_simp_tac(srw_ss())[] >>
   every_case_tac >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
      semanticPrimitivesTheory.store_assign_def] >>
-  rw[]);
+  srw_tac[][]);
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `(∀env (s:'ffi decSem$state) es s' r.
@@ -111,15 +111,15 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
        evaluate_match env (s with clock := s.clock + extra) pes v err_v =
          (s' with clock := s'.clock + extra,r))`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >>
-  every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
+  srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
 val do_app_io_events_mono = Q.store_thm("do_app_io_events_mono",
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  rw[do_app_def] >> every_case_tac >> fs[] >> rw[] >>
+  srw_tac[][do_app_def] >> every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
   imp_res_tac conPropsTheory.do_app_io_events_mono);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
@@ -131,9 +131,9 @@ val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
       evaluate_match env s pes v err_v = (s',r) ⇒
       s.ffi.io_events ≼ s'.ffi.io_events ∧
       (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >> rw[] >> rfs[] >> fs[dec_clock_def] >>
-  imp_res_tac do_app_io_events_mono >> fs[] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
+  imp_res_tac do_app_io_events_mono >> full_simp_tac(srw_ss())[] >>
   metis_tac[IS_PREFIX_TRANS]);
 
 val with_clock_ffi = Q.prove(
@@ -152,11 +152,11 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
        (IS_SOME((FST(evaluate_match env s pes v err_v)).ffi.final_event) ⇒
         (FST(evaluate_match env (s with clock := s.clock + extra) pes v err_v)).ffi =
         (FST(evaluate_match env s pes v err_v)).ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >>
-  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >> fs[] >> rw[] >>
-  imp_res_tac evaluate_io_events_mono >> fs[] >> fs[dec_clock_def] >>
-  fs[do_app_add_to_clock,UNCURRY] >> rw[] >> fs[] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac evaluate_io_events_mono >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
+  full_simp_tac(srw_ss())[do_app_add_to_clock,UNCURRY] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
   TRY(last_x_assum(qspec_then`extra`mp_tac)>>simp[]>>NO_TAC) >>
   metis_tac[FST,IS_PREFIX_TRANS,evaluate_io_events_mono,PAIR,with_clock_ffi,do_app_io_events_mono]);
 

@@ -5,7 +5,7 @@ val _ = new_theory"patProps"
 val evaluate_lit = save_thm("evaluate_lit[simp]",
       EVAL``patSem$evaluate env s [Lit l]``)
 
-val Boolv_11 = store_thm("Boolv_11[simp]",``patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>rw[]);
+val Boolv_11 = store_thm("Boolv_11[simp]",``patSem$Boolv b1 = Boolv b2 ⇔ b1 = b2``,EVAL_TAC>>srw_tac[][]);
 
 val Boolv_disjoint = save_thm("Boolv_disjoint",EVAL``patSem$Boolv T = Boolv F``);
 
@@ -22,7 +22,7 @@ val no_closures_def = tDefine"no_closures"`
   (no_closures (Loc _) = T) ∧
   (no_closures (Vectorv vs) ⇔ EVERY no_closures vs)`
 (WF_REL_TAC`measure v_size`>>CONJ_TAC >|[all_tac,gen_tac]>>Induct>>
- simp[v_size_def]>>rw[]>>res_tac>>simp[])
+ simp[v_size_def]>>srw_tac[][]>>res_tac>>simp[])
 val _ = export_rewrites["no_closures_def"];
 
 val no_closures_Boolv = store_thm("no_closures_Boolv[simp]",
@@ -31,24 +31,24 @@ val no_closures_Boolv = store_thm("no_closures_Boolv[simp]",
 
 val evaluate_raise_rval = store_thm("evaluate_raise_rval",
   ``∀env s e s' v. patSem$evaluate env s [Raise e] ≠ (s', Rval v)``,
-  EVAL_TAC >> rw[] >> every_case_tac >> simp[])
+  EVAL_TAC >> srw_tac[][] >> every_case_tac >> simp[])
 val _ = export_rewrites["evaluate_raise_rval"]
 
 val evaluate_length = store_thm("evaluate_length",
   ``∀env s ls s' vs.
       evaluate env s ls = (s',Rval vs) ⇒ LENGTH vs = LENGTH ls``,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  imp_res_tac do_app_cases >> fs[do_app_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  fs[LET_THM,
+  srw_tac[][evaluate_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  fs[] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  fs[] >> rw[]);
+     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_cons = Q.store_thm("evaluate_cons",
   `evaluate env s (e::es) =
@@ -58,13 +58,13 @@ val evaluate_cons = Q.store_thm("evaluate_cons",
        | (s,Rval vs) => (s,Rval (v++vs))
        | r => r)
     | r => r)`,
-  Cases_on`es`>>rw[evaluate_def] >>
-  every_case_tac >> fs[evaluate_def] >>
-  imp_res_tac evaluate_length >> fs[SING_HD]);
+  Cases_on`es`>>srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[evaluate_def] >>
+  imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[SING_HD]);
 
 val evaluate_sing = Q.store_thm("evaluate_sing",
   `evaluate env s [e] = (s',Rval vs) ⇒ ∃y. vs = [y]`,
-  rw[] >> imp_res_tac evaluate_length >> fs[] >> metis_tac[SING_HD])
+  srw_tac[][] >> imp_res_tac evaluate_length >> full_simp_tac(srw_ss())[] >> metis_tac[SING_HD])
 
 val evaluate_append_Rval = store_thm("evaluate_append_Rval",
   ``∀l1 env s l2 s' vs.
@@ -73,9 +73,9 @@ val evaluate_append_Rval = store_thm("evaluate_append_Rval",
                evaluate env s1 l2 = (s',Rval v2) ∧
                vs = v1++v2``,
   Induct >> simp[evaluate_def,Once evaluate_cons] >>
-  rw[] >> simp[Once evaluate_cons] >>
-  every_case_tac >> fs[] >> rw[] >> res_tac >>
-  rw[] >> fs[] >> rw[]);
+  srw_tac[][] >> simp[Once evaluate_cons] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> res_tac >>
+  srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_append_Rval_iff = store_thm("evaluate_append_Rval_iff",
   ``∀l1 env s l2 s' vs.
@@ -83,13 +83,13 @@ val evaluate_append_Rval_iff = store_thm("evaluate_append_Rval_iff",
     ∃s1 v1 v2. evaluate env s l1 = (s1,Rval v1) ∧
                evaluate env s1 l2 = (s',Rval v2) ∧
                vs = v1++v2``,
-  rw[] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
+  srw_tac[][] >> EQ_TAC >- MATCH_ACCEPT_TAC evaluate_append_Rval >>
   map_every qid_spec_tac[`vs`,`s`] >>
-  Induct_on`l1`>>rw[evaluate_def,Once evaluate_cons] >> rw[] >>
-  rw[Once evaluate_cons] >>
-  every_case_tac >> fs[] >> rw[] >>
-  fs[PULL_EXISTS] >>
-  res_tac >> fs[]);
+  Induct_on`l1`>>srw_tac[][evaluate_def,Once evaluate_cons] >> srw_tac[][] >>
+  srw_tac[][Once evaluate_cons] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[PULL_EXISTS] >>
+  res_tac >> full_simp_tac(srw_ss())[]);
 
 val evaluate_append_Rerr = store_thm("evaluate_append_Rerr",
   ``∀l1 env s l2 s' e.
@@ -98,14 +98,14 @@ val evaluate_append_Rerr = store_thm("evaluate_append_Rerr",
        ∃s1 v1.
          evaluate env s l1 = (s1, Rval v1) ∧
          evaluate env s1 l2 = (s', Rerr e))``,
-  Induct >> rw[evaluate_def] >>
-  rw[Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
-  rw[Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
+  Induct >> srw_tac[][evaluate_def] >>
+  srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
+  srw_tac[][Once evaluate_cons] >> MATCH_MP_TAC EQ_SYM >>
   every_case_tac >> simp[] >>
-  rw[Once evaluate_cons] >>
+  srw_tac[][Once evaluate_cons] >>
   TRY EQ_TAC >>
-  spose_not_then strip_assume_tac >> rw[] >> fs[] >>
-  fs[evaluate_append_Rval_iff] >>
+  spose_not_then strip_assume_tac >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[evaluate_append_Rval_iff] >>
   first_x_assum(qspecl_then[`env`,`q`,`l2`]mp_tac) >>
   simp[] >> metis_tac[]);
 
@@ -118,14 +118,14 @@ val evaluate_append = Q.store_thm("evaluate_append",
       | r => r)
    | r => r`,
   map_every qid_spec_tac[`l2`,`s`] >> Induct_on`l1` >>
-  rw[evaluate_def] >- (
-    every_case_tac >> fs[] ) >>
-  rw[Once evaluate_cons] >>
+  srw_tac[][evaluate_def] >- (
+    every_case_tac >> full_simp_tac(srw_ss())[] ) >>
+  srw_tac[][Once evaluate_cons] >>
   match_mp_tac EQ_SYM >>
-  rw[Once evaluate_cons] >>
-  BasicProvers.CASE_TAC >> fs[] >>
-  Cases_on`r`>>fs[] >>
-  every_case_tac  >> fs[]);
+  srw_tac[][Once evaluate_cons] >>
+  BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  Cases_on`r`>>full_simp_tac(srw_ss())[] >>
+  every_case_tac  >> full_simp_tac(srw_ss())[]);
 
 val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
   `dec_clock s with clock := y = s with clock := y`,
@@ -134,11 +134,11 @@ val dec_clock_with_clock = Q.store_thm("dec_clock_with_clock[simp]",
 val do_app_add_to_clock = Q.store_thm("do_app_add_to_clock",
   `(do_app (s with clock := s.clock + extra) op vs =
     OPTION_MAP (λ(s',r). (s' with clock := s'.clock + extra,r)) (do_app s op vs))`,
-  fs[do_app_def] >> every_case_tac >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[do_app_def] >> every_case_tac >>
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> rw[]);
+     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][]);
 
 val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
   `∀env s es s' r.
@@ -147,29 +147,29 @@ val evaluate_add_to_clock = Q.store_thm("evaluate_add_to_clock",
       evaluate env (s with clock := s.clock + extra) es =
         (s' with clock := s'.clock + extra,r)`,
   ho_match_mp_tac evaluate_ind >>
-  rw[evaluate_def] >>
-  every_case_tac >> fs[do_app_add_to_clock] >> rw[] >> rfs[] >>
+  srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[do_app_add_to_clock] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
   rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def]);
 
 val do_app_io_events_mono = Q.prove(
   `do_app s op vs = SOME(s',r) ⇒
    s.ffi.io_events ≼ s'.ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ s'.ffi = s.ffi)`,
-  rw[] >> imp_res_tac do_app_cases >> fs[do_app_def] >>
+  srw_tac[][] >> imp_res_tac do_app_cases >> full_simp_tac(srw_ss())[do_app_def] >>
   every_case_tac >>
-  fs[LET_THM,
+  full_simp_tac(srw_ss())[LET_THM,
      semanticPrimitivesTheory.store_alloc_def,
      semanticPrimitivesTheory.store_lookup_def,
-     semanticPrimitivesTheory.store_assign_def] >> rw[] >>
-  every_case_tac >> fs[] >> rw[] >>
-  fs[ffiTheory.call_FFI_def] >>
-  every_case_tac >> fs[] >> rw[]);
+     semanticPrimitivesTheory.store_assign_def] >> srw_tac[][] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]);
 
 val evaluate_io_events_mono = Q.store_thm("evaluate_io_events_mono",
   `∀env s es. s.ffi.io_events ≼ (FST (evaluate env s es)).ffi.io_events ∧
    (IS_SOME s.ffi.final_event ⇒ (FST (evaluate env s es)).ffi = s.ffi)`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >> rfs[] >> fs[dec_clock_def] >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[dec_clock_def] >>
   metis_tac[IS_PREFIX_TRANS,do_app_io_events_mono]);
 
 val evaluate_io_events_mono_imp = Q.prove(
@@ -189,12 +189,12 @@ val evaluate_add_to_clock_io_events_mono = Q.store_thm("evaluate_add_to_clock_io
     (IS_SOME((FST(evaluate env s es)).ffi.final_event) ⇒
      (FST(evaluate env (s with clock := s.clock + extra) es)).ffi
      = ((FST(evaluate env s es)).ffi))`,
-  ho_match_mp_tac evaluate_ind >> rw[evaluate_def] >>
-  every_case_tac >> fs[] >>
-  imp_res_tac evaluate_add_to_clock >> rfs[] >> fs[] >> rw[] >>
-  imp_res_tac evaluate_io_events_mono_imp >> fs[] >> rw[] >> rfs[] >>
-  fs[dec_clock_def] >> fs[do_app_add_to_clock] >>
-  TRY(first_assum(split_applied_pair_tac o rhs o concl) >> fs[]) >>
+  ho_match_mp_tac evaluate_ind >> srw_tac[][evaluate_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac evaluate_add_to_clock >> rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac evaluate_io_events_mono_imp >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[dec_clock_def] >> full_simp_tac(srw_ss())[do_app_add_to_clock] >>
+  TRY(first_assum(split_applied_pair_tac o rhs o concl) >> full_simp_tac(srw_ss())[]) >>
   imp_res_tac do_app_io_events_mono >>
   metis_tac[evaluate_io_events_mono,with_clock_ffi,FST,IS_PREFIX_TRANS,lemma])
 
@@ -207,20 +207,20 @@ val not_evaluate_list_append = store_thm("not_evaluate_list_append",
          evaluate_list ck env s l1 (s1, Rval v1) ∧
          (∀res. ¬evaluate_list ck env s1 l2 res))``,
   Induct >- (
-    rw[EQ_IMP_THM] >- (
-      fs[Once(CONJUNCT2(evaluate_cases))] >>
+    srw_tac[][EQ_IMP_THM] >- (
+      full_simp_tac(srw_ss())[Once(CONJUNCT2(evaluate_cases))] >>
       simp[Once(CONJUNCT2(evaluate_cases))] >>
       simp[Once(CONJUNCT2(evaluate_cases))] >>
-      rw[] >> metis_tac[] )
+      srw_tac[][] >> metis_tac[] )
     >- (
-      fs[Once(CONJUNCT2(evaluate_cases))] ) >>
-    fs[Once(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_cases)))] >>
-    rw[] ) >>
-  fs[Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_cases))] >>
-  rw[PULL_EXISTS] >>
+      full_simp_tac(srw_ss())[Once(CONJUNCT2(evaluate_cases))] ) >>
+    full_simp_tac(srw_ss())[Once(Q.SPECL[`ck`,`env`,`s`,`[]`](CONJUNCT2(evaluate_cases)))] >>
+    srw_tac[][] ) >>
+  full_simp_tac(srw_ss())[Q.SPECL[`ck`,`env`,`s`,`X::Y`](CONJUNCT2(evaluate_cases))] >>
+  srw_tac[][PULL_EXISTS] >>
   reverse(Cases_on`∃res. evaluate ck env s h res`) >- (
     metis_tac[] ) >>
-  fs[] >>
+  full_simp_tac(srw_ss())[] >>
   `∃s1 r1. res = (s1,r1)` by metis_tac[PAIR] >>
   reverse (Cases_on`r1`) >- (
     srw_tac[boolSimps.DNF_ss][] >>
@@ -229,11 +229,11 @@ val not_evaluate_list_append = store_thm("not_evaluate_list_append",
   srw_tac[boolSimps.DNF_ss][] >>
   first_x_assum(qspecl_then[`ck`,`env`,`s1`,`l2`]strip_assume_tac) >>
   Cases_on`∀res. ¬evaluate_list ck env s1 (l1++l2) res` >- (
-    fs[] >>
+    full_simp_tac(srw_ss())[] >>
     metis_tac[evaluate_determ,PAIR_EQ,
               semanticPrimitivesTheory.result_11,
               semanticPrimitivesTheory.result_distinct] ) >>
-  FULL_SIMP_TAC pure_ss [] >> fs[] >>
+  FULL_SIMP_TAC pure_ss [] >> full_simp_tac(srw_ss())[] >>
   `∃s2 r2. res = (s2,r2)` by metis_tac[PAIR] >>
   Cases_on`r2` >>
   metis_tac[evaluate_determ,PAIR_EQ,pair_CASES,

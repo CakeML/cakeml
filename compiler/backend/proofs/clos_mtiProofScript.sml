@@ -10,7 +10,7 @@ val collect_args_correct = Q.prove (
   ⇒
   exp_rel (:'ffi) [Fn NONE NONE num_args e] [Fn NONE NONE num_args' e'']`,
  ho_match_mp_tac collect_args_ind >>
- rw [collect_args_def]
+ srw_tac[][collect_args_def]
  >- metis_tac [fn_add_arg, exp_rel_trans, exp_rel_refl] >>
  metis_tac [compat]);
 
@@ -22,7 +22,7 @@ val collect_apps_correct = Q.prove (
   ⇒
   exp_rel (:'ffi) [App NONE e args] [App NONE e'' args'']`,
  ho_match_mp_tac collect_apps_ind >>
- rw [collect_apps_def]
+ srw_tac[][collect_apps_def]
  >- (
    `exp_rel (:'ffi) [App NONE (App NONE e es) args] [App NONE e (args++es)]`
    by (
@@ -34,7 +34,7 @@ val collect_apps_correct = Q.prove (
 val intro_multi_correct = Q.store_thm ("intro_multi_correct",
 `!es. exp_rel (:'ffi) es (intro_multi es)`,
  ho_match_mp_tac intro_multi_ind >>
- rw [intro_multi_def, compat_nil, compat_var]
+ srw_tac[][intro_multi_def, compat_nil, compat_var]
  >- metis_tac [compat_cons, intro_multi_sing, HD]
  >- metis_tac [compat_if, intro_multi_sing, HD]
  >- metis_tac [compat_let, intro_multi_sing, HD]
@@ -59,32 +59,32 @@ val contains_App_SOME_collect_args = Q.store_thm("contains_App_SOME_collect_args
   `∀x y a b. collect_args x y = (a,b) ⇒
     (contains_App_SOME [y] ⇔ contains_App_SOME [b])`,
   ho_match_mp_tac collect_args_ind >>
-  rw[collect_args_def,contains_App_SOME_def] >>
-  rw[contains_App_SOME_def]);
+  srw_tac[][collect_args_def,contains_App_SOME_def] >>
+  srw_tac[][contains_App_SOME_def]);
 
 val contains_App_SOME_collect_apps = Q.store_thm("contains_App_SOME_collect_apps",
   `∀x y a b. collect_apps x y = (a,b) ⇒
     (max_app < LENGTH x ∨ contains_App_SOME x ∨ contains_App_SOME [y] ⇔
      max_app < LENGTH a ∨ contains_App_SOME a ∨ contains_App_SOME [b])`,
   ho_match_mp_tac collect_apps_ind >>
-  rw[collect_apps_def,contains_App_SOME_def] >>
-  rw[contains_App_SOME_def] >> fs[] >>
-  Cases_on`max_app < LENGTH x`>>fs[] >- DECIDE_TAC >>
-  Cases_on`max_app < LENGTH es`>>fs[] >- DECIDE_TAC >>
-  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >> rw[] >>
+  srw_tac[][collect_apps_def,contains_App_SOME_def] >>
+  srw_tac[][contains_App_SOME_def] >> full_simp_tac(srw_ss())[] >>
+  Cases_on`max_app < LENGTH x`>>full_simp_tac(srw_ss())[] >- DECIDE_TAC >>
+  Cases_on`max_app < LENGTH es`>>full_simp_tac(srw_ss())[] >- DECIDE_TAC >>
+  rev_full_simp_tac(srw_ss()++ARITH_ss)[] >> srw_tac[][] >>
   rpt (pop_assum mp_tac) >>
-  ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> rw[] >>
+  ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> srw_tac[][] >>
   metis_tac[]);
 
 val contains_App_SOME_intro_multi = Q.store_thm("contains_App_SOME_intro_multi[simp]",
   `∀es. contains_App_SOME (intro_multi es) ⇔ contains_App_SOME es`,
   ho_match_mp_tac intro_multi_ind >>
-  rw[intro_multi_def,contains_App_SOME_def] >>
+  srw_tac[][intro_multi_def,contains_App_SOME_def] >>
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
-  fs[HD_intro_multi] >>
-  fs[contains_App_SOME_def,HD_intro_multi,intro_multi_length]
-  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> rw[] )
+  full_simp_tac(srw_ss())[HD_intro_multi] >>
+  full_simp_tac(srw_ss())[contains_App_SOME_def,HD_intro_multi,intro_multi_length]
+  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[contains_App_SOME_EXISTS] >> srw_tac[][] )
   >- metis_tac[contains_App_SOME_collect_apps]
   >- metis_tac[contains_App_SOME_collect_args]
   >- (
@@ -105,24 +105,24 @@ val every_Fn_vs_NONE_collect_apps = Q.prove(
   (every_Fn_vs_NONE x ∧ every_Fn_vs_NONE [y] ⇔
    every_Fn_vs_NONE es ∧ every_Fn_vs_NONE [e])`,
   ho_match_mp_tac collect_apps_ind >>
-  rw[collect_apps_def] >> fs[] >>
+  srw_tac[][collect_apps_def] >> full_simp_tac(srw_ss())[] >>
   ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >>
-  rw[] >> metis_tac[])
+  srw_tac[][] >> metis_tac[])
 
 val every_Fn_vs_NONE_collect_args = Q.prove(
   `∀es e x y. collect_args es e = (x,y) ⇒
     (every_Fn_vs_NONE [y] ⇔ every_Fn_vs_NONE [e])`,
   ho_match_mp_tac collect_args_ind >>
-  rw[collect_args_def] >> fs[])
+  srw_tac[][collect_args_def] >> full_simp_tac(srw_ss())[])
 
 val every_Fn_vs_NONE_intro_multi = Q.store_thm("every_Fn_vs_NONE_intro_multi[simp]",
   `∀es. every_Fn_vs_NONE (intro_multi es) = every_Fn_vs_NONE es`,
   ho_match_mp_tac intro_multi_ind >>
-  rw[intro_multi_def] >>
+  srw_tac[][intro_multi_def] >>
   ONCE_REWRITE_TAC[CONS_APPEND] >>
   REWRITE_TAC[HD_intro_multi] >>
-  fs[HD_intro_multi]
-  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >> rw[] )
+  full_simp_tac(srw_ss())[HD_intro_multi]
+  >- ( rpt (pop_assum mp_tac) >> ONCE_REWRITE_TAC[every_Fn_vs_NONE_EVERY] >> srw_tac[][] )
   >- metis_tac[every_Fn_vs_NONE_collect_apps]
   >- metis_tac[every_Fn_vs_NONE_collect_args] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY] >>
