@@ -86,26 +86,26 @@ val env_ok_EXTEND = prove(
     (l1 <= n ==> env_ok m l i env1' env2' (n - l1)) ==>
     env_ok m (l + l1) i (env1 ++ env1') (env2 ++ env2') n``,
   SRW_TAC [] [] \\ SIMP_TAC std_ss [env_ok_def]
-  \\ Cases_on `n < LENGTH env1` \\ fs [] THEN1
+  \\ Cases_on `n < LENGTH env1` \\ full_simp_tac(srw_ss())[] THEN1
    (DISJ2_TAC \\ DISJ1_TAC \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC EVERY2_LENGTH
-    \\ fs [rich_listTheory.EL_APPEND1]
-    \\ IMP_RES_TAC EVERY2_EL \\ fs [] \\ DECIDE_TAC)
-  \\ fs [NOT_LESS]
-  \\ fs [env_ok_def]
+    \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND1]
+    \\ IMP_RES_TAC EVERY2_EL \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+  \\ full_simp_tac(srw_ss())[NOT_LESS]
+  \\ full_simp_tac(srw_ss())[env_ok_def]
   THEN1 (DISJ1_TAC \\ DECIDE_TAC)
   THEN1
    (DISJ2_TAC \\ DISJ1_TAC
     \\ IMP_RES_TAC EVERY2_LENGTH
-    \\ fs [rich_listTheory.EL_APPEND2]
+    \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND2]
     \\ DECIDE_TAC)
-  \\ DISJ2_TAC \\ DISJ2_TAC \\ Q.EXISTS_TAC `v` \\ fs []
+  \\ DISJ2_TAC \\ DISJ2_TAC \\ Q.EXISTS_TAC `v` \\ full_simp_tac(srw_ss())[]
   \\ IMP_RES_TAC EVERY2_LENGTH
-  \\ fs [rich_listTheory.EL_APPEND2]
-  \\ `n - (l + LENGTH env2) = n - LENGTH env2 - l` by DECIDE_TAC \\ fs []
+  \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND2]
+  \\ `n - (l + LENGTH env2) = n - LENGTH env2 - l` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
   \\ `LENGTH env2 <= l + LENGTH env2 + v` by DECIDE_TAC
-  \\ fs [rich_listTheory.EL_APPEND2]
-  \\ `l + LENGTH env2 + v - LENGTH env2 = l + v` by DECIDE_TAC \\ fs []
+  \\ full_simp_tac(srw_ss())[rich_listTheory.EL_APPEND2]
+  \\ `l + LENGTH env2 + v - LENGTH env2 = l + v` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
   \\ DECIDE_TAC);
 
 val env_ok_cons = env_ok_EXTEND
@@ -145,7 +145,7 @@ val state_rel_def = Define `
 val list_to_v = prove(
   ``!l' l. LIST_REL v_rel l' l ==>
            v_rel (list_to_v l') (list_to_v l)``,
-  Induct \\ Cases_on `l` \\ fs [list_to_v_def,v_rel_simp]);
+  Induct \\ Cases_on `l` \\ full_simp_tac(srw_ss())[list_to_v_def,v_rel_simp]);
 
 val v_to_list = prove(
   ``!h h'.
@@ -156,14 +156,14 @@ val v_to_list = prove(
              (v_to_list h' = SOME x') /\
              EVERY2 v_rel x x'``,
   HO_MATCH_MP_TAC v_to_list_ind
-  \\ fs [v_rel_simp]
-  \\ fs [v_to_list_def]
+  \\ full_simp_tac(srw_ss())[v_rel_simp]
+  \\ full_simp_tac(srw_ss())[v_to_list_def]
   \\ REPEAT STRIP_TAC \\ SRW_TAC [] []
-  \\ fs [v_to_list_def]
-  \\ Cases_on `v_to_list h'` \\ fs []
-  \\ Cases_on `v_to_list y'` \\ fs []
-  \\ CCONTR_TAC \\ RES_TAC \\ fs []
-  \\ RES_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []);
+  \\ full_simp_tac(srw_ss())[v_to_list_def]
+  \\ Cases_on `v_to_list h'` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `v_to_list y'` \\ full_simp_tac(srw_ss())[]
+  \\ CCONTR_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+  \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]);
 
 val do_eq = prove(
   ``(!h1 u1 h2 u2.
@@ -173,19 +173,19 @@ val do_eq = prove(
       EVERY2 v_rel h1 h2 /\ EVERY2 v_rel u1 u2 ==>
       (do_eq_list h1 u1 = do_eq_list h2 u2))``,
   HO_MATCH_MP_TAC do_eq_ind
-  \\ REPEAT STRIP_TAC \\ fs []
+  \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
   \\ ONCE_REWRITE_TAC [do_eq_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [v_rel_simp]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[v_rel_simp]
   \\ RES_TAC \\ SRW_TAC [] []
-  \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+  \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
   \\ Q.PAT_ASSUM `xx = do_eq y y'` (ASSUME_TAC o GSYM)
-  \\ fs []) |> CONJUNCT1 ;
+  \\ full_simp_tac(srw_ss())[]) |> CONJUNCT1 ;
 
 val do_app_IMP_case = prove(
   ``(do_app UpdateByte xs s1 = Rval x) ==>
     ?x1 x2 x3. xs = [RefPtr x1; Number x2; Number x3]``,
-  fs [do_app_def]
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs []);
+  full_simp_tac(srw_ss())[do_app_def]
+  \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]);
 
 val do_app_thm = Q.prove(
   `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
@@ -193,256 +193,256 @@ val do_app_thm = Q.prove(
    ?w t2. (do_app op ys t1 = Rval (w,t2)) /\
           v_rel v w /\ state_rel s2 t2`,
   reverse (Cases_on `op`) \\ rpt STRIP_TAC
-  \\ TRY (fs[do_app_def] >> NO_TAC)
+  \\ TRY (full_simp_tac(srw_ss())[do_app_def] >> NO_TAC)
   THEN1 (* GreaterEq *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Greater *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* LessEq *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Less *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Mod *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Div *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Mult *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Sub *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Add *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* Const *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs [] \\ fs[v_rel_simp])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* Equal *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC do_eq \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ TRY (Cases_on `b`) \\ EVAL_TAC \\ fs [v_rel_simp])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC do_eq \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ TRY (Cases_on `b`) \\ EVAL_TAC \\ full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* FFI *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ rfs[state_rel_def]
-    \\ res_tac >> fs[FLOOKUP_UPDATE] >> rw[] >> fs[] >>
-    fs[FLOOKUP_DEF] >> rfs[])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ rev_full_simp_tac(srw_ss())[state_rel_def]
+    \\ res_tac >> full_simp_tac(srw_ss())[FLOOKUP_UPDATE] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[FLOOKUP_DEF] >> rev_full_simp_tac(srw_ss())[])
   THEN1 (* Update *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ fs [state_rel_def,FLOOKUP_DEF]
-    \\ rfs [] \\ fs []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
     \\ TRY (Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
-            \\ rfs [] \\ POP_ASSUM MP_TAC
-            \\ fs []
+            \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM MP_TAC
+            \\ full_simp_tac(srw_ss())[]
             \\ REPEAT STRIP_TAC
-            \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [] \\ NO_TAC)
-    \\ STRIP_TAC \\ Cases_on `n' = n` \\ fs []
-    \\ fs [FAPPLY_FUPDATE_THM] \\ fs []
-    \\ MATCH_MP_TAC EVERY2_LUPDATE_same \\ fs [] >>
+            \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    \\ STRIP_TAC \\ Cases_on `n' = n` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[FAPPLY_FUPDATE_THM] \\ full_simp_tac(srw_ss())[]
+    \\ MATCH_MP_TAC EVERY2_LUPDATE_same \\ full_simp_tac(srw_ss())[] >>
     first_x_assum(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
     simp[])
   THEN1 (* Deref *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ fs [state_rel_def,FLOOKUP_DEF]
-    \\ rfs [] \\ fs []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF]
+    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
     \\ TRY (Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
-            \\ rfs [] \\ POP_ASSUM MP_TAC
-            \\ fs []
+            \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM MP_TAC
+            \\ full_simp_tac(srw_ss())[]
             \\ REPEAT STRIP_TAC
-            \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [] \\ NO_TAC)
+            \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
     \\ Q.PAT_ASSUM `!x. bb ==> bbb` IMP_RES_TAC
-    \\ rfs [] \\ POP_ASSUM MP_TAC
-    \\ fs [] \\ REPEAT STRIP_TAC
+    \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM MP_TAC
+    \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC EVERY2_EL
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `Num i < LENGTH l` by intLib.COOPER_TAC
     \\ RES_TAC >>
-    fs[LIST_REL_EL_EQN] >> METIS_TAC[])
+    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> METIS_TAC[])
   THEN1 (* Ref *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ fs [state_rel_def]
-    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
-    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
-    \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[])
   THEN1 (* TagEq *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
   THEN1 (* TagLenEq *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] [] \\ fs[v_rel_simp]
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ METIS_TAC[LIST_REL_LENGTH])
   THEN1 (* ToList *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [v_rel_simp] \\ rw[] \\ SRW_TAC [] [list_to_v])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ srw_tac[][] \\ SRW_TAC [] [list_to_v])
   THEN1 (* FromList *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC v_to_list \\ fs []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC v_to_list \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [])
   THEN1 (* UpdateByte *)
    (rpt strip_tac >>IMP_RES_TAC do_app_IMP_case
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [] \\ SRW_TAC [] []
-    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ fs [v_rel_simp]
-    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
-    \\ SRW_TAC [] [] \\ fs []
-    \\ RES_TAC \\ fs [] \\ rfs [])
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp]
+    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
   THEN1 (* DerefByte *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* RefArray *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ fs [state_rel_def]
-    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
-    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
-    \\ fs [LIST_REL_REPLICATE_same])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[LIST_REL_REPLICATE_same])
   THEN1 (* RefByte *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ fs []
-    \\ fs [v_rel_simp,LET_DEF] \\ SRW_TAC [] []
-    \\ fs [state_rel_def]
-    \\ fs [FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
-    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ fs []
-    \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp,LET_DEF] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[FLOOKUP_DEF,FAPPLY_FUPDATE_THM] \\ STRIP_TAC
+    \\ Cases_on `n = (LEAST ptr. ptr NOTIN FDOM t1.refs)` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[])
   THEN1 (* LengthByte *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* Length *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ fs [state_rel_def] \\ RES_TAC \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* LengthBlock *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs []
-    \\ fs [v_rel_simp] \\ fs [] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* El *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs []
-    \\ fs [v_rel_simp] \\ fs [] \\ SRW_TAC [] []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ IMP_RES_TAC EVERY2_EL
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs [])
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[])
   THEN1 (* Cons *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs [])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[])
   THEN1 (* AllocGlobal *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs []
-    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
-    \\ fs [quotient_optionTheory.OPTION_REL_def])
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[state_rel_def,get_global_def] \\ RES_TAC
+    \\ full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def])
   THEN1 (* SetGlobal *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs []
-    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[state_rel_def,get_global_def] \\ RES_TAC
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC EVERY2_EL
-    \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
-    \\ rfs [quotient_optionTheory.OPTION_REL_def]
+    \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM IMP_RES_TAC
+    \\ rev_full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def]
     \\ MATCH_MP_TAC EVERY2_LUPDATE_same
-    \\ fs [quotient_optionTheory.OPTION_REL_def])
+    \\ full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def])
   THEN1 (* Global *)
-   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
-    \\ SRW_TAC [] [v_rel_simp] \\ fs []
-    \\ fs [state_rel_def,get_global_def] \\ RES_TAC
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+   (full_simp_tac(srw_ss())[do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ SRW_TAC [] [v_rel_simp] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[state_rel_def,get_global_def] \\ RES_TAC
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC EVERY2_EL
-    \\ rfs [] \\ POP_ASSUM IMP_RES_TAC
-    \\ rfs [quotient_optionTheory.OPTION_REL_def]));
+    \\ rev_full_simp_tac(srw_ss())[] \\ POP_ASSUM IMP_RES_TAC
+    \\ rev_full_simp_tac(srw_ss())[quotient_optionTheory.OPTION_REL_def]));
 
 val do_app_err_thm = Q.prove(
   `state_rel s1 t1 /\ EVERY2 v_rel xs ys /\
    do_app op xs s1 = Rerr err /\ (err <> Rabort Rtype_error) ==>
      ?w. (do_app op ys t1 = Rerr w) /\
           exc_rel v_rel err w`,
-  rw[] >>
-  imp_res_tac do_app_err >> fs[] >>
-  Cases_on`op`>>fs[do_app_def]
-  >- (every_case_tac >> fs[])
-  >- (every_case_tac >> fs[])
-  >- (every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[LET_THM]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >- (fs[LET_THM]>>every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      every_case_tac >> fs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[v_rel_simp] >>
-      rw[] >> fs[state_rel_def] >> res_tac >> fs[] >>
-      rw[] >> rfs[])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
-      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
-  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
-  >> (Cases_on`xs`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t`>>fs[]>>
-      Cases_on`h`>>fs[]>>
-      Cases_on`t'`>>fs[] >>
-      every_case_tac >> fs[]));
+  srw_tac[][] >>
+  imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
+  Cases_on`op`>>full_simp_tac(srw_ss())[do_app_def]
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
+      every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
+      every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      every_case_tac >> full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >> rev_full_simp_tac(srw_ss())[])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >> imp_res_tac do_eq >> full_simp_tac(srw_ss())[v_rel_simp])
+  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
+  >> (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`t'`>>full_simp_tac(srw_ss())[] >>
+      every_case_tac >> full_simp_tac(srw_ss())[]));
 
 (* compiler correctness *)
 
 val lookup_EL_shifted_env = prove(
   ``!y n k. n < LENGTH y /\ ALL_DISTINCT y ==>
             (lookup (EL n y) (shifted_env k y) = SOME (k + n))``,
-  Induct \\ fs [] \\ Cases_on `n` \\ fs [shifted_env_def,lookup_insert]
+  Induct \\ full_simp_tac(srw_ss())[] \\ Cases_on `n` \\ full_simp_tac(srw_ss())[shifted_env_def,lookup_insert]
   \\ SRW_TAC [] [ADD1,AC ADD_COMM ADD_ASSOC]
-  \\ fs [MEM_EL] \\ METIS_TAC []);
+  \\ full_simp_tac(srw_ss())[MEM_EL] \\ METIS_TAC []);
 
 val env_ok_shifted_env = prove(
   ``env_ok m l i env env2 k /\ MEM k live /\ ALL_DISTINCT live /\
@@ -452,40 +452,40 @@ val env_ok_shifted_env = prove(
   REPEAT STRIP_TAC
   \\ Q.ABBREV_TAC `y = FILTER (\n. n < m + l) live`
   \\ `ALL_DISTINCT y` by
-       (UNABBREV_ALL_TAC \\ MATCH_MP_TAC FILTER_ALL_DISTINCT \\ fs [])
-  \\ Cases_on `~(k < m + l)` THEN1 (fs [env_ok_def,NOT_LESS] \\ DECIDE_TAC)
-  \\ fs []
-  \\ `MEM k y` by (UNABBREV_ALL_TAC \\ fs [MEM_FILTER])
+       (UNABBREV_ALL_TAC \\ MATCH_MP_TAC FILTER_ALL_DISTINCT \\ full_simp_tac(srw_ss())[])
+  \\ Cases_on `~(k < m + l)` THEN1 (full_simp_tac(srw_ss())[env_ok_def,NOT_LESS] \\ DECIDE_TAC)
+  \\ full_simp_tac(srw_ss())[]
+  \\ `MEM k y` by (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MEM_FILTER])
   \\ POP_ASSUM MP_TAC
   \\ simp [MEM_EL] \\ STRIP_TAC
   \\ POP_ASSUM (ASSUME_TAC o GSYM)
   \\ Q.PAT_ASSUM `MEM k live` (K ALL_TAC)
   \\ Q.PAT_ASSUM `Abbrev vvv` (K ALL_TAC)
   \\ `(EL n (MAP (get_var m l i) y) = get_var m l i k) /\
-      n < LENGTH (MAP (get_var m l i) y)` by fs [EL_MAP]
+      n < LENGTH (MAP (get_var m l i) y)` by full_simp_tac(srw_ss())[EL_MAP]
   \\ Q.ABBREV_TAC `ys = (MAP (get_var m l i) y)`
-  \\ MP_TAC lookup_vars_MEM \\ fs [] \\ STRIP_TAC
+  \\ MP_TAC lookup_vars_MEM \\ full_simp_tac(srw_ss())[] \\ STRIP_TAC
   \\ `v_rel (EL k env) (EL (get_var m l i k) env2)` by
-   (fs [env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ fs [get_var_def]
-    \\ `~(k < l)` by DECIDE_TAC \\ fs [tlookup_def])
-  \\ Q.PAT_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ fs []
-  \\ fs [env_ok_def] \\ DISJ2_TAC
-  \\ TRY (`k < l + m` by DECIDE_TAC) \\ fs []
-  \\ SRW_TAC [] [] \\ fs [lookup_EL_shifted_env]
-  \\ IMP_RES_TAC lookup_vars_SOME \\ fs []);
+   (full_simp_tac(srw_ss())[env_ok_def] THEN1 (`F` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ `~(k < l)` by DECIDE_TAC \\ full_simp_tac(srw_ss())[tlookup_def])
+  \\ Q.PAT_ASSUM `EL n x = yy` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[env_ok_def] \\ DISJ2_TAC
+  \\ TRY (`k < l + m` by DECIDE_TAC) \\ full_simp_tac(srw_ss())[]
+  \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[lookup_EL_shifted_env]
+  \\ IMP_RES_TAC lookup_vars_SOME \\ full_simp_tac(srw_ss())[]);
 
 val EL_shift_free = prove(
   ``!fns index.
      index < LENGTH fns ==>
      ([EL index (shift (FST (free fns)) l m i)] =
       (shift (FST (free [EL index fns])) l m i))``,
-  Induct \\ fs [] \\ REPEAT STRIP_TAC
+  Induct \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
   \\ ONCE_REWRITE_TAC [free_CONS]
   \\ SIMP_TAC std_ss [Once shift_CONS]
-  \\ Cases_on `index` \\ fs []
-  \\ fs [LET_DEF,free_def]
+  \\ Cases_on `index` \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[LET_DEF,free_def]
   \\ REPEAT (AP_TERM_TAC ORELSE AP_THM_TAC)
-  \\ fs [SING_HD,LENGTH_FST_free]);
+  \\ full_simp_tac(srw_ss())[SING_HD,LENGTH_FST_free]);
 
 val shift_correct = Q.prove(
   `(!xs env (s1:'ffi closSem$state) env' t1 res s2 m l i.
@@ -511,520 +511,520 @@ val shift_correct = Q.prove(
                              |> SIMP_RULE std_ss [FORALL_PROD])
   \\ REPEAT STRIP_TAC
   THEN1 (* NIL *)
-   (fs [free_def,shift_def,evaluate_def]
+   (full_simp_tac(srw_ss())[free_def,shift_def,evaluate_def]
     \\ SRW_TAC [] [])
   THEN1 (* CONS *)
-   (fs [free_def,evaluate_def]
+   (full_simp_tac(srw_ss())[free_def,evaluate_def]
     \\ `?y1 l1. free [x] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
-    \\ `?y2 l2. free (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ fs []
-    \\ fs [LET_DEF]
-    \\ `?r1 s2. evaluate ([x],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ `?y2 l2. free (y::xs) = (y2,l2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ `?r1 s2. evaluate ([x],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `?y3 y4. y2 = y3::y4` by
      (IMP_RES_TAC free_LENGTH
-      \\ Cases_on `y2` \\ fs [has_var_def,fv_def])
-    \\ fs [shift_def]
-    \\ Cases_on `r1` \\ fs []
+      \\ Cases_on `y2` \\ full_simp_tac(srw_ss())[has_var_def,fv_def])
+    \\ full_simp_tac(srw_ss())[shift_def]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `?t. shift [y1] m l i = [t]` by METIS_TAC [shift_SING]
-    \\ fs [] \\ ONCE_REWRITE_TAC [evaluate_CONS]
+    \\ full_simp_tac(srw_ss())[] \\ ONCE_REWRITE_TAC [evaluate_CONS]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`])
     \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`])
     \\ `fv_set [x] SUBSET env_ok m l i env env' /\
         fv_set (y::xs) SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ fs [] \\ REPEAT STRIP_TAC \\ fs []
-    \\ `?r2 s3. evaluate (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ fs []
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ `?r2 s3. evaluate (y::xs,env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`])
     \\ imp_res_tac evaluate_const
-    \\ Cases_on `r2` \\ fs []
-    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
-    \\ IMP_RES_TAC evaluate_SING \\ fs [])
+    \\ Cases_on `r2` \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ POP_ASSUM (MP_TAC o Q.SPECL [`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[])
   THEN1 (* Var *)
    (Cases_on `n < LENGTH env`
-    \\ fs [free_def,evaluate_def,shift_def]
-    \\ fs [SUBSET_DEF,IN_DEF,fv_def]
+    \\ full_simp_tac(srw_ss())[free_def,evaluate_def,shift_def]
+    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def]
     \\ Cases_on `l + m <= n`
-    THEN1 (fs [env_ok_def] \\ rfs [] \\ `F` by DECIDE_TAC)
+    THEN1 (full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[] \\ `F` by DECIDE_TAC)
     \\ reverse (`get_var m l i n < LENGTH env' /\
         v_rel (EL n env) (EL (get_var m l i n) env')` by ALL_TAC)
-    THEN1 (fs [] \\ SRW_TAC [] [] \\ fs [])
-    \\ fs [get_var_def,env_ok_def]
-    \\ Cases_on `n < l` \\ fs [tlookup_def]
+    THEN1 (full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[get_var_def,env_ok_def]
+    \\ Cases_on `n < l` \\ full_simp_tac(srw_ss())[tlookup_def]
     \\ `F` by DECIDE_TAC)
   THEN1 (* If *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free [x1] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
     \\ `?y3 l3. free [x3] = ([y3],l3)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set [x1] SUBSET env_ok m l i env env' /\
         fv_set [x2] SUBSET env_ok m l i env env' /\
         fv_set [x3] SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC evaluate_SING \\ fs [] \\ SRW_TAC [] []
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ imp_res_tac evaluate_const
-    \\ fs [] \\ SRW_TAC [] []
-    \\ fs [v_rel_simp] \\ SRW_TAC [] []
-    \\ Cases_on `r1 = Boolv T` \\ fs [v_rel_simp]
-    \\ Cases_on `r1 = Boolv F` \\ fs [v_rel_simp])
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
+    \\ Cases_on `r1 = Boolv T` \\ full_simp_tac(srw_ss())[v_rel_simp]
+    \\ Cases_on `r1 = Boolv F` \\ full_simp_tac(srw_ss())[v_rel_simp])
   THEN1 (* Let *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ FIRST_X_ASSUM (qspecl_then[`v'++env'`,`t2`,
          `m`,`l + LENGTH y1`,`i`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ fs [] \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
     \\ IMP_RES_TAC free_LENGTH
     \\ IMP_RES_TAC EVERY2_LENGTH
     \\ IMP_RES_TAC evaluate_IMP_LENGTH
     \\ IMP_RES_TAC evaluate_const
-    \\ fs [shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
-    \\ MATCH_MP_TAC env_ok_EXTEND \\ fs []
-    \\ fs [fv_def]
+    \\ full_simp_tac(srw_ss())[shift_LENGTH_LEMMA,AC ADD_COMM ADD_ASSOC]
+    \\ MATCH_MP_TAC env_ok_EXTEND \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[fv_def]
     \\ REPEAT STRIP_TAC
     \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
-    \\ `x - LENGTH v' + LENGTH v' = x` by DECIDE_TAC \\ fs [])
+    \\ `x - LENGTH v' + LENGTH v' = x` by DECIDE_TAC \\ full_simp_tac(srw_ss())[])
   THEN1 (* Raise *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free [x1] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set [x1] SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC evaluate_SING \\ fs [])
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[])
   THEN1 (* Handle *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free [x1] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
     \\ `?y2 l2. free [x2] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate ([x1],env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set [x1] SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac evaluate_const
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ Cases_on `e` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`v'::env'`,`t2`,`m`,`l+1`,`i`]) \\ fs []
-    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC \\ fs []
-    \\ fs [AC ADD_ASSOC ADD_COMM,ADD1]
-    \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC env_ok_cons \\ fs []
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on `e` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`v'::env'`,`t2`,`m`,`l+1`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM,ADD1]
+    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+    \\ MATCH_MP_TAC env_ok_cons \\ full_simp_tac(srw_ss())[]
     \\ RES_TAC \\ REPEAT STRIP_TAC
-    \\ fs [fv_def]
-    \\ Cases_on `x` \\ fs []
+    \\ full_simp_tac(srw_ss())[fv_def]
+    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     \\ Q.PAT_ASSUM `!x.bbb` (K ALL_TAC)
-    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs [ADD1])
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[ADD1])
   THEN1 (* Op *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] [] >>
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] >>
     last_x_assum mp_tac >>
     reverse BasicProvers.CASE_TAC >- (
-      rw[] >>
-      IMP_RES_TAC do_app_err >> fs[] >> rw[] >>
+      srw_tac[][] >>
+      IMP_RES_TAC do_app_err >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
       imp_res_tac EVERY2_REVERSE >>
-      IMP_RES_TAC do_app_err_thm >> rfs[] ) >>
-    BasicProvers.CASE_TAC >> rw[] >>
+      IMP_RES_TAC do_app_err_thm >> rev_full_simp_tac(srw_ss())[] ) >>
+    BasicProvers.CASE_TAC >> srw_tac[][] >>
     IMP_RES_TAC EVERY2_REVERSE
-    \\ IMP_RES_TAC do_app_thm \\ fs [])
+    \\ IMP_RES_TAC do_app_thm \\ full_simp_tac(srw_ss())[])
   THEN1 (* Fn *)
-   (fs [free_def,evaluate_def]
-    \\ fs [clos_env_def]
+   (full_simp_tac(srw_ss())[free_def,evaluate_def]
+    \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `?y1 l1. free [exp] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
-    \\ Cases_on `num_args <= max_app` \\ fs []
-    \\ Cases_on `num_args <> 0` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [shift_def,LET_DEF,evaluate_def,clos_env_def,
+    \\ Cases_on `num_args <= max_app` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `num_args <> 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,clos_env_def,
            PULL_EXISTS,v_rel_simp]
     \\ Q.ABBREV_TAC `live =
           FILTER (\n. n < m + l) (vars_to_list (Shift num_args l1))`
-    \\ fs [MAP_MAP_o,o_DEF]
+    \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
     \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
-    \\ fs [] THEN1
-     (fs [SUBSET_DEF,IN_DEF,fv_def]
-      \\ fs [lookup_vars_NONE] \\ UNABBREV_ALL_TAC
-      \\ fs [MEM_FILTER,MEM_vars_to_list,MEM_MAP]
+    \\ full_simp_tac(srw_ss())[] THEN1
+     (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def]
+      \\ full_simp_tac(srw_ss())[lookup_vars_NONE] \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[MEM_FILTER,MEM_vars_to_list,MEM_MAP]
       \\ MP_TAC (Q.SPEC`[exp]` free_thm)
-      \\ fs [LET_DEF] \\ CCONTR_TAC \\ fs [] \\ RES_TAC
+      \\ full_simp_tac(srw_ss())[LET_DEF] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ RES_TAC
       \\ SRW_TAC [] []
-      \\ fs [env_ok_def] \\ rfs []
-      \\ fs [get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
       \\ DECIDE_TAC)
-    \\ Q.EXISTS_TAC `shifted_env 0 live` \\ fs []
-    \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ fs []
+    \\ Q.EXISTS_TAC `shifted_env 0 live` \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ Cases_on `n` \\ full_simp_tac(srw_ss())[]
     \\ MP_TAC (Q.SPEC `[exp]` free_thm)
-    \\ fs [LET_DEF] \\ STRIP_TAC
-    \\ fs [SUBSET_DEF,IN_DEF,fv_def]
-    \\ fs [ADD1] \\ RES_TAC \\ UNABBREV_ALL_TAC
+    \\ full_simp_tac(srw_ss())[LET_DEF] \\ STRIP_TAC
+    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def]
+    \\ full_simp_tac(srw_ss())[ADD1] \\ RES_TAC \\ UNABBREV_ALL_TAC
     \\ Q.ABBREV_TAC `live = vars_to_list (Shift num_args l1)`
     \\ MATCH_MP_TAC (GEN_ALL env_ok_shifted_env)
-    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
+    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ full_simp_tac(srw_ss())[]
     \\ `n' + 1 = (n' + 1 - num_args) + num_args` by DECIDE_TAC
     \\ STRIP_TAC THEN1 METIS_TAC []
-    \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ fs [MEM_vars_to_list] \\ METIS_TAC [])
-    \\ UNABBREV_ALL_TAC \\ fs [ALL_DISTINCT_vars_to_list])
+    \\ STRIP_TAC THEN1 (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MEM_vars_to_list] \\ METIS_TAC [])
+    \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[ALL_DISTINCT_vars_to_list])
   THEN1 (* Letrec *)
-   (fs [free_def,evaluate_def]
-    \\ fs [clos_env_def]
+   (full_simp_tac(srw_ss())[free_def,evaluate_def]
+    \\ full_simp_tac(srw_ss())[clos_env_def]
     \\ SRW_TAC [] [] \\ SRW_TAC [] [markerTheory.Abbrev_def]
     \\ `EVERY (\(num_args,e). num_args <= max_app /\
                               num_args <> 0) fns` by
       (CCONTR_TAC \\ FULL_SIMP_TAC std_ss [])
-    \\ Cases_on `build_recc F loc env names fns` \\ fs []
+    \\ Cases_on `build_recc F loc env names fns` \\ full_simp_tac(srw_ss())[]
     \\ Q.ABBREV_TAC `rec_res = MAP
                         (\(n,x).
                            (let (c,l) = free [x] in
                               ((n,HD c),Shift (n + LENGTH fns) l))) fns`
     \\ `?y2 l2. free [exp] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [shift_def,LET_DEF,evaluate_def,build_recc_def,clos_env_def,
+    \\ full_simp_tac(srw_ss())[shift_def,LET_DEF,evaluate_def,build_recc_def,clos_env_def,
            shift_LENGTH_LEMMA]
     \\ Q.PAT_ABBREV_TAC `ev = EVERY PP xx`
     \\ `ev` by
-     (UNABBREV_ALL_TAC \\ fs [MAP_MAP_o,o_DEF]
-      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ fs [EVERY_MAP]
-      \\ fs [EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC)
-    \\ fs [] \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
+     (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
+      \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) \\ full_simp_tac(srw_ss())[EVERY_MAP]
+      \\ full_simp_tac(srw_ss())[EVERY_MEM,FORALL_PROD] \\ REPEAT STRIP_TAC \\ RES_TAC)
+    \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC) \\ POP_ASSUM (K ALL_TAC)
     \\ Q.ABBREV_TAC `live = FILTER (\n. n < m + l)
           (vars_to_list (list_mk_Union (MAP SND rec_res)))`
     \\ Cases_on `lookup_vars (MAP (get_var m l i) live) env'`
-    \\ fs [] THEN1
-     (fs [SUBSET_DEF,IN_DEF,fv_def]
-      \\ fs [lookup_vars_NONE] \\ UNABBREV_ALL_TAC
-      \\ fs [MEM_FILTER,MEM_vars_to_list,MEM_MAP]
-      \\ fs [EXISTS_MEM,PULL_EXISTS,EXISTS_PROD]
+    \\ full_simp_tac(srw_ss())[] THEN1
+     (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def]
+      \\ full_simp_tac(srw_ss())[lookup_vars_NONE] \\ UNABBREV_ALL_TAC
+      \\ full_simp_tac(srw_ss())[MEM_FILTER,MEM_vars_to_list,MEM_MAP]
+      \\ full_simp_tac(srw_ss())[EXISTS_MEM,PULL_EXISTS,EXISTS_PROD]
       \\ NTAC 3 (POP_ASSUM MP_TAC)
-      \\ fs [MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
+      \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF,MEM_MAP,EXISTS_PROD]
       \\ REPEAT STRIP_TAC
       \\ Q.MATCH_ASSUM_RENAME_TAC `MEM (p_11,p_21) fns`
-      \\ Cases_on `free [p_21]` \\ fs [] \\ SRW_TAC [] [] \\ fs []
+      \\ Cases_on `free [p_21]` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ MP_TAC (Q.SPEC`[p_21]` free_thm)
-      \\ fs [LET_DEF] \\ CCONTR_TAC
-      \\ fs [AC ADD_ASSOC ADD_COMM] \\ RES_TAC
-      \\ SRW_TAC [] [] \\ fs []
-      \\ fs [env_ok_def] \\ rfs []
-      \\ fs [get_var_def,tlookup_def]
+      \\ full_simp_tac(srw_ss())[LET_DEF] \\ CCONTR_TAC
+      \\ full_simp_tac(srw_ss())[AC ADD_ASSOC ADD_COMM] \\ RES_TAC
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[env_ok_def] \\ rev_full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[get_var_def,tlookup_def]
       \\ DECIDE_TAC)
     \\ FIRST_X_ASSUM MATCH_MP_TAC
-    \\ IMP_RES_TAC free_LENGTH \\ fs []
+    \\ IMP_RES_TAC free_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `LENGTH rec_res = LENGTH x` by ALL_TAC THEN1
-      (UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs [])
-    \\ STRIP_TAC THEN1 (fs [AC ADD_COMM ADD_ASSOC,Abbr`rec_res`])
-    \\ fs [SUBSET_DEF,IN_DEF,fv_def]
+      (UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+    \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,Abbr`rec_res`])
+    \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def]
     \\ REPEAT STRIP_TAC
-    \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ fs []
+    \\ MATCH_MP_TAC (env_ok_EXTEND |> GEN_ALL) \\ full_simp_tac(srw_ss())[]
     \\ reverse (REPEAT STRIP_TAC) THEN1
      (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ2_TAC
-      \\ UNABBREV_ALL_TAC \\ fs [] \\ SRW_TAC [] [] \\ fs []
-      \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ fs [])
+      \\ UNABBREV_ALL_TAC \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``) \\ full_simp_tac(srw_ss())[])
     \\ SRW_TAC [] []
-    \\ fs [LIST_REL_GENLIST] \\ REPEAT STRIP_TAC
-    \\ fs [v_rel_simp]
+    \\ full_simp_tac(srw_ss())[LIST_REL_GENLIST] \\ REPEAT STRIP_TAC
+    \\ full_simp_tac(srw_ss())[v_rel_simp]
     \\ Q.UNABBREV_TAC `rec_res`
-    \\ fs [EVERY2_MAP]
+    \\ full_simp_tac(srw_ss())[EVERY2_MAP]
     \\ MATCH_MP_TAC listTheory.EVERY2_refl
     \\ REPEAT STRIP_TAC
-    \\ PairCases_on `x` \\ fs []
+    \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
     \\ `?y1 y2. free [x1] = ([y1],y2)` by METIS_TAC [free_SING,PAIR]
-    \\ fs [] \\ Q.EXISTS_TAC `shifted_env 0 live`
+    \\ full_simp_tac(srw_ss())[] \\ Q.EXISTS_TAC `shifted_env 0 live`
     \\ STRIP_TAC THEN1 SIMP_TAC std_ss [AC ADD_COMM ADD_ASSOC]
     \\ reverse strip_tac >- (
-         fs[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
-         res_tac >> fs[] )
+         full_simp_tac(srw_ss())[Once every_Fn_vs_NONE_EVERY,EVERY_MAP,EVERY_MEM] >>
+         res_tac >> full_simp_tac(srw_ss())[] )
     \\ REPEAT STRIP_TAC
     \\ UNABBREV_ALL_TAC
     \\ MATCH_MP_TAC (GEN_ALL env_ok_shifted_env)
-    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ fs []
-    \\ fs [AC ADD_COMM ADD_ASSOC,ALL_DISTINCT_vars_to_list]
-    \\ fs [MEM_vars_to_list]
+    \\ Q.LIST_EXISTS_TAC [`i`,`env'`] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,ALL_DISTINCT_vars_to_list]
+    \\ full_simp_tac(srw_ss())[MEM_vars_to_list]
     \\ STRIP_TAC THEN1
      (FIRST_X_ASSUM MATCH_MP_TAC \\ DISJ1_TAC
-      \\ fs [EXISTS_MEM,EXISTS_PROD]
-      \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ fs []
-      \\ fs [MEM_EL,PULL_EXISTS]
+      \\ full_simp_tac(srw_ss())[EXISTS_MEM,EXISTS_PROD]
+      \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[MEM_EL,PULL_EXISTS]
       \\ `x0 + (n - (x0 + LENGTH fns) + LENGTH fns) = n` by DECIDE_TAC
       \\ METIS_TAC [])
-    \\ fs [EXISTS_MEM,EXISTS_PROD,PULL_EXISTS]
-    \\ fs [MEM_MAP,EXISTS_PROD,PULL_EXISTS]
-    \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV)) \\ fs []
-    \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ fs []
+    \\ full_simp_tac(srw_ss())[EXISTS_MEM,EXISTS_PROD,PULL_EXISTS]
+    \\ full_simp_tac(srw_ss())[MEM_MAP,EXISTS_PROD,PULL_EXISTS]
+    \\ CONV_TAC (DEPTH_CONV (PairRules.PBETA_CONV)) \\ full_simp_tac(srw_ss())[]
+    \\ Q.LIST_EXISTS_TAC [`x0`,`x1`] \\ full_simp_tac(srw_ss())[]
     \\ MP_TAC (Q.SPEC `[x1]` free_thm)
     \\ IMP_RES_TAC (DECIDE ``n <= m:num <=> (m - n + n = m)``)
-    \\ fs [LET_DEF] \\ STRIP_TAC \\ fs [])
+    \\ full_simp_tac(srw_ss())[LET_DEF] \\ STRIP_TAC \\ full_simp_tac(srw_ss())[])
   THEN1 (* App *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR]
     \\ `?y2 l2. free [x1] = ([y2],l2)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
-    \\ `?r2 s3. evaluate ([x1],env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ fs []
-    \\ fs [shift_LENGTH_LEMMA]
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ `?r2 s3. evaluate ([x1],env,s2') = (r2,s3)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[shift_LENGTH_LEMMA]
     \\ IMP_RES_TAC free_LENGTH
-    \\ Cases_on `LENGTH xs > 0` \\ fs []
+    \\ Cases_on `LENGTH xs > 0` \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env' /\
         fv_set [x1] SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ `?r2 s2. evaluate ([x1],env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ fs []
-    \\ `r2 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ `?r2 s2. evaluate ([x1],env,s1) = (r2,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
+    \\ `r2 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac evaluate_const
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r2` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ IMP_RES_TAC evaluate_SING \\ fs [] \\ SRW_TAC [] [])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t2`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r2` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ IMP_RES_TAC evaluate_SING \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [])
   THEN1 (* Tick *)
-   (fs [free_def,evaluate_def]
+   (full_simp_tac(srw_ss())[free_def,evaluate_def]
     \\ `?y1 l1. free [x] = ([y1],l1)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `t1.clock = s1.clock` by fs [state_rel_def] \\ fs []
-    \\ Cases_on `s1.clock = 0` \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `t1.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] []
     \\ `fv_set [x] SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ imp_res_tac evaluate_const \\ fs[Once dec_clock_def]
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[Once dec_clock_def]
     \\ `state_rel (dec_clock 1 s1) (dec_clock 1 t1)` by
-          fs [state_rel_def,dec_clock_def] \\ RES_TAC
-    \\ STRIP_ASSUME_TAC (shift_SING |> Q.INST [`x`|->`y1`]) \\ fs [])
+          full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ RES_TAC
+    \\ STRIP_ASSUME_TAC (shift_SING |> Q.INST [`x`|->`y1`]) \\ full_simp_tac(srw_ss())[])
   THEN1 (* Call *)
-   (fs [free_def]
+   (full_simp_tac(srw_ss())[free_def]
     \\ `?y1 l1. free xs = (y1,l1)` by METIS_TAC [PAIR,free_SING]
-    \\ fs [LET_DEF,shift_def,evaluate_def]
-    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ fs []
+    \\ full_simp_tac(srw_ss())[LET_DEF,shift_def,evaluate_def]
+    \\ `?r1 s2. evaluate (xs,env,s1) = (r1,s2)` by METIS_TAC [PAIR] \\ full_simp_tac(srw_ss())[]
     \\ `fv_set xs SUBSET env_ok m l i env env'` by
-      (fs [SUBSET_DEF,IN_DEF,fv_def])
-    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ fs []
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ Cases_on `r1` \\ fs [] \\ SRW_TAC [] []
-    \\ fs [] \\ SRW_TAC [] []
-    \\ Cases_on `find_code dest a s2'.code` \\ fs []
-    \\ Cases_on `x` \\ fs []
-    \\ fs [find_code_def]
-    \\ Cases_on `FLOOKUP s2'.code dest` \\ fs []
-    \\ Cases_on `x` \\ fs [] \\ SRW_TAC [] []
+      (full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,fv_def])
+    \\ `r1 <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`env'`,`t1`,`m`,`l`,`i`]) \\ full_simp_tac(srw_ss())[]
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `r1` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ Cases_on `find_code dest a s2'.code` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[find_code_def]
+    \\ Cases_on `FLOOKUP s2'.code dest` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ `?c2. shift (FST (free [r])) 0 (LENGTH a) LN = [c2] /\
              FLOOKUP t2.code dest = SOME (LENGTH a,c2)` by
-         (fs [state_rel_def] \\ RES_TAC \\ NO_TAC)
-    \\ fs [] \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-    \\ `s2'.clock = t2.clock` by fs [state_rel_def] \\ fs []
-    \\ Cases_on `t2.clock = 0` \\ fs []
+         (full_simp_tac(srw_ss())[state_rel_def] \\ RES_TAC \\ NO_TAC)
+    \\ full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
+    \\ `s2'.clock = t2.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `t2.clock = 0` \\ full_simp_tac(srw_ss())[]
     THEN1 (SRW_TAC [] [])
     \\ FIRST_X_ASSUM (qspecl_then[`v'`,`dec_clock 1 t2`,`0`,
          `LENGTH v'`,`LN`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (imp_res_tac evaluate_const
-      \\ fs [] \\ reverse (REPEAT STRIP_TAC)
-      THEN1 (fs [state_rel_def,dec_clock_def])
-      THEN1 (fs [state_rel_def,dec_clock_def])
-      THEN1 ( fs[FEVERY_ALL_FLOOKUP] >> res_tac >> fs[] )
-      \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+      \\ full_simp_tac(srw_ss())[] \\ reverse (REPEAT STRIP_TAC)
+      THEN1 (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
+      THEN1 (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
+      THEN1 ( full_simp_tac(srw_ss())[FEVERY_ALL_FLOOKUP] >> res_tac >> full_simp_tac(srw_ss())[] )
+      \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
       \\ SIMP_TAC std_ss [env_ok_def]
-      \\ reverse (Cases_on `x < LENGTH v'`) \\ fs [] THEN1 DECIDE_TAC
+      \\ reverse (Cases_on `x < LENGTH v'`) \\ full_simp_tac(srw_ss())[] THEN1 DECIDE_TAC
       \\ IMP_RES_TAC EVERY2_EL \\ METIS_TAC [])
-    \\ REPEAT STRIP_TAC \\ fs [] \\ rfs [])
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[])
   THEN1 (* evaluate_app NIL *)
-   (fs [] \\ SRW_TAC [] []
-    \\ fs [evaluate_def] \\ SRW_TAC [] [])
+   (full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+    \\ full_simp_tac(srw_ss())[evaluate_def] \\ SRW_TAC [] [])
   THEN1 (* evaluate_app CONS *)
-   (fs [evaluate_def]
-    \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ fs []
-    \\ Cases_on `x` \\ fs []
+   (full_simp_tac(srw_ss())[evaluate_def]
+    \\ Cases_on `dest_closure loc_opt f (v41::v42)` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
     THEN1 (* Partial_app *)
      (reverse (`?z. (dest_closure loc_opt f' (y::ys) = SOME (Partial_app z)) /\
            v_rel v z` by ALL_TAC) THEN1
-       (fs [] \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-        \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
-        \\ SRW_TAC [] [] \\ fs [] \\ SRW_TAC [] []
-        \\ fs [state_rel_def,dec_clock_def])
-      \\ fs [dest_closure_def]
-      \\ Cases_on `f` \\ fs []
-      \\ TRY (Cases_on `EL n l1`) \\ fs [LET_DEF]
-      \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
+       (full_simp_tac(srw_ss())[] \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
+        \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+        \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+        \\ full_simp_tac(srw_ss())[state_rel_def,dec_clock_def])
+      \\ full_simp_tac(srw_ss())[dest_closure_def]
+      \\ Cases_on `f` \\ full_simp_tac(srw_ss())[]
+      \\ TRY (Cases_on `EL n l1`) \\ full_simp_tac(srw_ss())[LET_DEF]
+      \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
               (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
-      \\ SRW_TAC [] [] \\ fs [v_rel_simp]
-      \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
+      \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
       THEN1
-       (fs [PULL_EXISTS] \\ Q.EXISTS_TAC `i` \\ fs []
+       (full_simp_tac(srw_ss())[PULL_EXISTS] \\ Q.EXISTS_TAC `i` \\ full_simp_tac(srw_ss())[]
         \\ REPEAT STRIP_TAC
-        \\ TRY (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs [])
-        \\ rfs [] \\ DECIDE_TAC)
-      \\ Cases_on `EL n cs'` \\ fs []
-      \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
+        \\ TRY (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
+        \\ rev_full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+      \\ Cases_on `EL n cs'` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
               (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
-      \\ `n < LENGTH l1` by fs []
-      \\ IMP_RES_TAC EVERY2_EL \\ rfs[]
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs [])
+      \\ `n < LENGTH l1` by full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC EVERY2_EL \\ rev_full_simp_tac(srw_ss())[]
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[])
     (* Full_app *)
-    \\ Cases_on `f` \\ fs [dest_closure_def]
-    \\ TRY (Cases_on `EL n l1`) \\ fs [LET_DEF]
-    \\ TRY (Cases_on `EL n cs'`) \\ fs [LET_DEF]
-    \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
+    \\ Cases_on `f` \\ full_simp_tac(srw_ss())[dest_closure_def]
+    \\ TRY (Cases_on `EL n l1`) \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ TRY (Cases_on `EL n cs'`) \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = SOME y) <=>
             (b /\ (x1 = SOME y)) \/ (~b /\ (x2 = SOME y))``]
     THEN1
-     (SRW_TAC [] [] \\ fs [v_rel_simp]
-      \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
-      \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
-      \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
+     (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
+      \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
+      \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
-      \\ SRW_TAC [] [] \\ fs []
-      \\ TRY (fs [state_rel_def] \\ NO_TAC) \\ rfs []
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ TRY (full_simp_tac(srw_ss())[state_rel_def] \\ NO_TAC) \\ rev_full_simp_tac(srw_ss())[]
       \\ Q.ABBREV_TAC `env3 =
          REVERSE (TAKE (n - LENGTH vals') (REVERSE v42 ++ [v41])) ++
             l' ++ l0'`
       \\ Q.ABBREV_TAC `n3 =
            (SUC (LENGTH ys) - (LENGTH ys + 1 - (n - LENGTH vals')))`
-      \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ fs []
-      \\ `q <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
+      \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ full_simp_tac(srw_ss())[]
+      \\ `q <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
       \\ Q.ABBREV_TAC `env3' =
            REVERSE (TAKE (n - LENGTH vals') (REVERSE ys ++ [y])) ++
            vals' ++ env'`
       \\ FIRST_X_ASSUM (qspecl_then [`env3'`,`dec_clock n3 s1'`,
            `LENGTH (l0':closSem$v list)`,`n`,`i`]mp_tac)
-      \\ imp_res_tac evaluate_const \\ fs[Once dec_clock_def]
-      \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+      \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[Once dec_clock_def]
+      \\ full_simp_tac(srw_ss())[] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       THEN1
        (REPEAT STRIP_TAC
-        \\ TRY (fs [state_rel_def,dec_clock_def] \\ NO_TAC)
-        THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-        \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+        \\ TRY (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ NO_TAC)
+        THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+        \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
         \\ Q.UNABBREV_TAC `env3`
         \\ Q.UNABBREV_TAC `env3'`
         \\ MATCH_MP_TAC env_ok_some
-        \\ Q.EXISTS_TAC `0` \\ fs []
+        \\ Q.EXISTS_TAC `0` \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC (METIS_PROVE []
              ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
-        \\ fs [] \\ REPEAT STRIP_TAC
-        THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+        \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
+        THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC EVERY2_REVERSE
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
-      \\ REPEAT STRIP_TAC \\ fs []
-      \\ reverse (Cases_on `q`) \\ fs []
-      \\ SRW_TAC [] [] \\ fs []
-      \\ reverse (Cases_on `a`) \\ fs []
-      \\ SRW_TAC [] [] \\ fs []
-      \\ reverse (Cases_on `t`) \\ fs []
-      \\ SRW_TAC [] [] \\ fs []
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
+        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+      \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+      \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ reverse (Cases_on `a`) \\ full_simp_tac(srw_ss())[]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ reverse (Cases_on `t`) \\ full_simp_tac(srw_ss())[]
+      \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
-      \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
+      \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
       \\ MATCH_MP_TAC EVERY2_REVERSE
       \\ MATCH_MP_TAC EVERY2_DROP
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
-      \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
-    \\ SRW_TAC [] [] \\ fs [v_rel_simp]
-    \\ Cases_on `EL n cs'` \\ fs []
-    \\ IMP_RES_TAC EVERY2_LENGTH \\ fs []
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
+      \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[v_rel_simp]
+    \\ Cases_on `EL n cs'` \\ full_simp_tac(srw_ss())[]
+    \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
     \\ `q' = q` by
-     (`n < LENGTH l1` by fs []
-      \\ IMP_RES_TAC EVERY2_EL \\ rfs []) \\ fs []
-    \\ fs [METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
+     (`n < LENGTH l1` by full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC EVERY2_EL \\ rev_full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[METIS_PROVE [] ``((if b then x1 else x2) = y) <=>
               (b /\ (x1 = y)) \/ (~b /\ (x2 = y))``]
-    \\ `s1'.clock = s1.clock` by fs [state_rel_def] \\ fs []
-    THEN1 (SRW_TAC [] [] \\ fs [state_rel_def])
+    \\ `s1'.clock = s1.clock` by full_simp_tac(srw_ss())[state_rel_def] \\ full_simp_tac(srw_ss())[]
+    THEN1 (SRW_TAC [] [] \\ full_simp_tac(srw_ss())[state_rel_def])
     \\ Q.ABBREV_TAC `env3 =
          REVERSE (TAKE (q - LENGTH vals') (REVERSE v42 ++ [v41])) ++
             l' ++ GENLIST (Recclosure o' [] l0' l1) (LENGTH cs') ++ l0'`
     \\ Q.ABBREV_TAC `n3 =
            (SUC (LENGTH ys) - (LENGTH ys + 1 - (q - LENGTH vals')))`
-    \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ fs []
-    \\ `q'' <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ fs [])
+    \\ Cases_on `evaluate ([e],env3,dec_clock n3 s1)` \\ full_simp_tac(srw_ss())[]
+    \\ `q'' <> Rerr(Rabort Rtype_error)` by (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[])
     \\ Q.ABBREV_TAC `env3' =
            REVERSE (TAKE (q - LENGTH vals') (REVERSE ys ++ [y])) ++ vals' ++
            GENLIST (Recclosure o' [] env' cs') (LENGTH cs') ++ env'`
-    \\ `n < LENGTH l1` by fs []
+    \\ `n < LENGTH l1` by full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC EVERY2_EL
-    \\ rfs []
+    \\ rev_full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (qspecl_then [`env3'`,`dec_clock n3 s1'`,
            `LENGTH (l0':closSem$v list)`,
            `LENGTH (cs') + q`,`i`]mp_tac)
-    \\ fs [] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
+    \\ full_simp_tac(srw_ss())[] \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     THEN1
      (REPEAT STRIP_TAC
-      \\ TRY (fs [state_rel_def,dec_clock_def] \\ NO_TAC)
-      THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-      \\ fs [SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
+      \\ TRY (full_simp_tac(srw_ss())[state_rel_def,dec_clock_def] \\ NO_TAC)
+      THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+      \\ full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF] \\ REPEAT STRIP_TAC
       \\ Q.UNABBREV_TAC `env3`
       \\ Q.UNABBREV_TAC `env3'`
       \\ MATCH_MP_TAC env_ok_some
-      \\ Q.EXISTS_TAC `0` \\ fs []
+      \\ Q.EXISTS_TAC `0` \\ full_simp_tac(srw_ss())[]
       \\ MATCH_MP_TAC (METIS_PROVE []
            ``b1 /\ (b1 ==> b2) ==> b1 /\ b2``)
-      \\ fs [] \\ REPEAT STRIP_TAC
-      THEN1 (fs [LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
-      \\ TRY (fs [AC ADD_COMM ADD_ASSOC]
-        \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
-        \\ fs [AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
-      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+      \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
+      THEN1 (full_simp_tac(srw_ss())[LENGTH_TAKE_EQ] \\ SRW_TAC [] [] \\ DECIDE_TAC)
+      \\ TRY (full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+        \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
+        \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+      \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
       \\ REPEAT STRIP_TAC THEN1
-       (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
+       (MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
         \\ MATCH_MP_TAC EVERY2_REVERSE
         \\ MATCH_MP_TAC EVERY2_TAKE
-        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
-        \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs [])
-      \\ fs [LIST_REL_GENLIST]
-      \\ fs [v_rel_simp] \\ REPEAT STRIP_TAC
-      \\ fs [])
-    \\ REPEAT STRIP_TAC \\ fs []
-    \\ reverse (Cases_on `q''`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ reverse (Cases_on `a`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
-    \\ reverse (Cases_on `t`) \\ fs []
-    \\ SRW_TAC [] [] \\ fs []
+        \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
+        \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[])
+      \\ full_simp_tac(srw_ss())[LIST_REL_GENLIST]
+      \\ full_simp_tac(srw_ss())[v_rel_simp] \\ REPEAT STRIP_TAC
+      \\ full_simp_tac(srw_ss())[])
+    \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ reverse (Cases_on `q''`) \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ reverse (Cases_on `a`) \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+    \\ reverse (Cases_on `t`) \\ full_simp_tac(srw_ss())[]
+    \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
     \\ Q.MATCH_ASSUM_RENAME_TAC `v_rel h h'`
-    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ fs []
-    \\ imp_res_tac evaluate_const \\ fs[dec_clock_def]
+    \\ FIRST_X_ASSUM MATCH_MP_TAC \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac evaluate_const \\ full_simp_tac(srw_ss())[dec_clock_def]
     \\ MATCH_MP_TAC EVERY2_REVERSE
     \\ MATCH_MP_TAC EVERY2_DROP
-    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ fs []
-    \\ MATCH_MP_TAC EVERY2_REVERSE \\ fs []));
+    \\ MATCH_MP_TAC rich_listTheory.EVERY2_APPEND_suff \\ full_simp_tac(srw_ss())[]
+    \\ MATCH_MP_TAC EVERY2_REVERSE \\ full_simp_tac(srw_ss())[]));
 
 val env_set_default = prove(
   ``x SUBSET env_ok 0 0 LN [] env'``,
-  fs [SUBSET_DEF,IN_DEF,env_ok_def]);
+  full_simp_tac(srw_ss())[SUBSET_DEF,IN_DEF,env_ok_def]);
 
 val annotate_correct = save_thm("annotate_correct",
   shift_correct |> CONJUNCT1
@@ -1035,25 +1035,25 @@ val annotate_correct = save_thm("annotate_correct",
 
 val every_Fn_vs_SOME_shift = Q.store_thm("every_Fn_vs_SOME_shift[simp]",
   `∀a b c d. every_Fn_vs_SOME (shift a b c d)`,
-  ho_match_mp_tac shift_ind >> rw[shift_def] >> rw[] >>
+  ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
   rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
-  fs[Once every_Fn_vs_SOME_EVERY] >>
-  rw[] >>
+  full_simp_tac(srw_ss())[Once every_Fn_vs_SOME_EVERY] >>
+  srw_tac[][] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP] >>
   simp[EVERY_MEM,FORALL_PROD] >>
   simp[Once every_Fn_vs_SOME_EVERY]);
 
 val every_Fn_vs_SOME_annotate = Q.store_thm("every_Fn_vs_SOME_annotate[simp]",
-  `every_Fn_vs_SOME (annotate es)`, rw[annotate_def]);
+  `every_Fn_vs_SOME (annotate es)`, srw_tac[][annotate_def]);
 
 val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
   `∀a b c d. every_Fn_SOME (shift a b c d) ⇔ every_Fn_SOME a`,
-  ho_match_mp_tac shift_ind >> rw[shift_def] >> rw[] >>
+  ho_match_mp_tac shift_ind >> srw_tac[][shift_def] >> srw_tac[][] >>
   rpt(qpat_assum`Abbrev _`(strip_assume_tac o SYM o REWRITE_RULE[markerTheory.Abbrev_def])) >>
   imp_res_tac shift_SING >>
-  fs[Once every_Fn_SOME_EVERY] >>
-  rw[] >>
+  full_simp_tac(srw_ss())[Once every_Fn_SOME_EVERY] >>
+  srw_tac[][] >>
   simp[MAP_MAP_o,o_DEF,UNCURRY,EVERY_MAP] >>
   simp[EVERY_MEM,FORALL_PROD] >>
   simp[Once every_Fn_SOME_EVERY] >>
@@ -1063,21 +1063,21 @@ val every_Fn_SOME_shift = Q.store_thm("every_Fn_SOME_shift[simp]",
 val every_Fn_SOME_free = Q.store_thm("every_Fn_SOME_free[simp]",
   `∀es. every_Fn_SOME (FST (free es)) = every_Fn_SOME es`,
   ho_match_mp_tac free_ind >>
-  rw[free_def] >> fs[] >>
-  imp_res_tac free_SING >> fs[] >>
-  unabbrev_all_tac >> fs[] >>
+  srw_tac[][free_def] >> full_simp_tac(srw_ss())[] >>
+  imp_res_tac free_SING >> full_simp_tac(srw_ss())[] >>
+  unabbrev_all_tac >> full_simp_tac(srw_ss())[] >>
   simp[MAP_MAP_o,UNCURRY,o_DEF] >>
   rpt (pop_assum mp_tac) >>
   ONCE_REWRITE_TAC[every_Fn_SOME_EVERY] >>
-  rw[EVERY_MAP] >>
-  rw[EVERY_MEM] >>
+  srw_tac[][EVERY_MAP] >>
+  srw_tac[][EVERY_MEM] >>
   rpt(AP_TERM_TAC ORELSE AP_THM_TAC) >>
   simp[FUN_EQ_THM] >>
-  fs[GSYM every_Fn_SOME_EVERY] >>
+  full_simp_tac(srw_ss())[GSYM every_Fn_SOME_EVERY] >>
   metis_tac[free_SING,HD,FST,PAIR]);
 
 val every_Fn_SOME_annotate = Q.store_thm("every_Fn_SOME_annotate[simp]",
-  `every_Fn_SOME (annotate es) ⇔ every_Fn_SOME es`, rw[annotate_def]);
+  `every_Fn_SOME (annotate es) ⇔ every_Fn_SOME es`, srw_tac[][annotate_def]);
 
 val IF_MAP_EQ = MAP_EQ_f |> SPEC_ALL |> EQ_IMP_RULE |> snd;
 
@@ -1085,26 +1085,26 @@ val shift_code_locs = prove(
   ``!xs env s1 env'. code_locs (shift xs env s1 env') = code_locs xs``,
   ho_match_mp_tac shift_ind
   \\ simp[shift_def,code_locs_def,shift_LENGTH_LEMMA]
-  \\ rw[code_locs_append]
-  \\ fs [MAP_MAP_o,o_DEF]
+  \\ srw_tac[][code_locs_append]
+  \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
   \\ ONCE_REWRITE_TAC [code_locs_map]
-  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD])
+  \\ AP_TERM_TAC \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD])
 
 val free_code_locs = prove(
   ``!xs. code_locs (FST (free xs)) = code_locs xs``,
   ho_match_mp_tac free_ind >>
-  simp[free_def,code_locs_def,UNCURRY] >> rw[]
-  \\ Cases_on `free [x]` \\ fs [code_locs_append,HD_FST_free]
-  \\ Cases_on `free [x1]` \\ fs [code_locs_append,HD_FST_free]
-  \\ Cases_on `free [x2]` \\ fs [code_locs_append,HD_FST_free]
-  \\ Cases_on `free xs` \\ fs [code_locs_append,HD_FST_free]
-  \\ fs [MAP_MAP_o,o_DEF]
+  simp[free_def,code_locs_def,UNCURRY] >> srw_tac[][]
+  \\ Cases_on `free [x]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
+  \\ Cases_on `free [x1]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
+  \\ Cases_on `free [x2]` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
+  \\ Cases_on `free xs` \\ full_simp_tac(srw_ss())[code_locs_append,HD_FST_free]
+  \\ full_simp_tac(srw_ss())[MAP_MAP_o,o_DEF]
   \\ ONCE_REWRITE_TAC [code_locs_map] \\ AP_TERM_TAC
-  \\ MATCH_MP_TAC IF_MAP_EQ \\ fs [FORALL_PROD,HD_FST_free]
-  \\ REPEAT STRIP_TAC \\ RES_TAC \\ fs [])
+  \\ MATCH_MP_TAC IF_MAP_EQ \\ full_simp_tac(srw_ss())[FORALL_PROD,HD_FST_free]
+  \\ REPEAT STRIP_TAC \\ RES_TAC \\ full_simp_tac(srw_ss())[])
 
 val annotate_code_locs = store_thm("annotate_code_locs",
   ``!ls. code_locs (annotate ls) = code_locs ls``,
-  rw[annotate_def,shift_code_locs,free_code_locs])
+  srw_tac[][annotate_def,shift_code_locs,free_code_locs])
 
 val _ = export_theory()
