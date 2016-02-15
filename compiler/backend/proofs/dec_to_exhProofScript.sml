@@ -385,6 +385,8 @@ val do_app_lem = Q.prove (
   >- tac
   >- tac
   >- tac
+  >- tac
+  >- tac
   >- ( tac >> metis_tac[char_list_to_v] )
   >- ( imp_res_tac v_to_char_list >> tac)
   >- tac

@@ -177,6 +177,8 @@ val do_app = prove(
   >- tac
   >- tac
   >- tac
+  >- tac
+  >- tac
   >- (tac >> simp[char_list_to_v])
   >- (imp_res_tac v_to_char_list >> tac)
   >- tac
