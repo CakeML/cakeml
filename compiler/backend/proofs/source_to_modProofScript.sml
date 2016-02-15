@@ -557,9 +557,15 @@ val do_app = Q.prove (
       full_simp_tac(srw_ss())[LIST_REL_EL_EQN, sv_rel_cases] >>
       res_tac >>
       srw_tac[][] >>
-      full_simp_tac(srw_ss())[] >>
+      fsrw_tac[][] >>
       srw_tac[][markerTheory.Abbrev_def, EL_LUPDATE] >>
       srw_tac[][])
+  >- ((* W8fromInt *)
+    srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
+    \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
+  >- ((* W8toInt *)
+    srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def,vs_rel_list_rel]
+    \\ fsrw_tac[][v_rel_eqns] \\ srw_tac[][result_rel_cases,v_rel_eqns] )
   >- ((* Ord *)
       srw_tac[][evalPropsTheory.do_app_cases, modSemTheory.do_app_def, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def] >>
       full_simp_tac(srw_ss())[v_rel_eqns, result_rel_cases, semanticPrimitivesTheory.prim_exn_def, modSemTheory.prim_exn_def])

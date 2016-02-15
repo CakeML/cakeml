@@ -292,6 +292,9 @@ val do_app_thm = Q.prove(
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
     \\ IMP_RES_TAC v_to_list \\ full_simp_tac(srw_ss())[]
     \\ SRW_TAC [] [])
+  THEN1 (* W8FromInt *)
+   (fs [do_app_def] \\ BasicProvers.EVERY_CASE_TAC
+    \\ fs [v_rel_simp] \\ SRW_TAC [] [])
   THEN1 (* UpdateByte *)
    (rpt strip_tac >>IMP_RES_TAC do_app_IMP_case
     \\ full_simp_tac(srw_ss())[v_rel_simp] \\ SRW_TAC [] []
@@ -379,61 +382,62 @@ val do_app_err_thm = Q.prove(
      ?w. (do_app op ys t1 = Rerr w) /\
           exc_rel v_rel err w`,
   srw_tac[][] >>
-  imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
-  Cases_on`op`>>full_simp_tac(srw_ss())[do_app_def]
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-      every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[LET_THM]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (full_simp_tac(srw_ss())[LET_THM]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-      every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      every_case_tac >> full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[v_rel_simp] >>
-      srw_tac[][] >> full_simp_tac(srw_ss())[state_rel_def] >> res_tac >> full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> rev_full_simp_tac(srw_ss())[])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[] >>
-      srw_tac[][] >> imp_res_tac do_eq >> full_simp_tac(srw_ss())[v_rel_simp])
-  >- (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>every_case_tac >> full_simp_tac(srw_ss())[])
-  >> (Cases_on`xs`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`h`>>full_simp_tac(srw_ss())[]>>
-      Cases_on`t'`>>full_simp_tac(srw_ss())[] >>
-      every_case_tac >> full_simp_tac(srw_ss())[]));
+  imp_res_tac do_app_err >> fsrw_tac[][] >>
+  Cases_on`op`>>fsrw_tac[][do_app_def]
+  >- (every_case_tac >> fs[])
+  >- (every_case_tac >> fs[])
+  >- (every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[LET_THM]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[LET_THM]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >- (fs[LET_THM]>>every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      every_case_tac >> fs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[v_rel_simp] >>
+      rw[] >> fs[state_rel_def] >> res_tac >> fs[] >>
+      rw[] >> rfs[])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[] >>
+      rw[] >> imp_res_tac do_eq >> fs[v_rel_simp])
+  >- (Cases_on`xs`>>fs[]>>every_case_tac >> fs[])
+  >> (Cases_on`xs`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t`>>fs[]>>
+      Cases_on`h`>>fs[]>>
+      Cases_on`t'`>>fs[] >>
+      every_case_tac >> fs[]));
 
 (* compiler correctness *)
 

@@ -464,7 +464,10 @@ val do_app = prove(
     simp[FLOOKUP_UPDATE] >> srw_tac[][] >>
     simp[OPTREL_def] )
   >- (
-    Cases_on`t` >> full_simp_tac(srw_ss())[v_rel_simp]>>
+    BasicProvers.TOP_CASE_TAC \\ fsrw_tac[][v_rel_simp]
+    \\ BasicProvers.TOP_CASE_TAC \\ fsrw_tac[][v_rel_simp] )
+  >- (
+    Cases_on`t` >> fsrw_tac[][v_rel_simp]>>
     imp_res_tac v_to_list >>
     every_case_tac >> full_simp_tac(srw_ss())[OPTREL_def] >>
     simp[v_rel_simp] )

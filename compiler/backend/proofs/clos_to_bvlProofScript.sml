@@ -1024,9 +1024,12 @@ val do_app = Q.prove(
     every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
     imp_res_tac v_to_list >> full_simp_tac(srw_ss())[] >> srw_tac[][] )
   >- (
-    every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
-    full_simp_tac(srw_ss())[LIST_REL_EL_EQN] >> metis_tac[clos_tag_shift_inj])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
+    every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
+    imp_res_tac v_to_list >> fsrw_tac[][] >> srw_tac[][] )
+  >- (
+    every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
+    fsrw_tac[][LIST_REL_EL_EQN] >> metis_tac[clos_tag_shift_inj])
+  >- ( every_case_tac >> fsrw_tac[][v_rel_SIMP] >> srw_tac[][v_rel_SIMP] >>
        metis_tac[clos_tag_shift_inj])
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[v_rel_SIMP]>>
@@ -1082,13 +1085,14 @@ val do_app_err = Q.prove(
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
   >- ( every_case_tac >> full_simp_tac(srw_ss())[] )
   >- (
-    Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    Cases_on`t'`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    every_case_tac >> full_simp_tac(srw_ss())[LET_THM])
-  >- ( every_case_tac >> full_simp_tac(srw_ss())[LET_THM])
+    Cases_on`xs`>>fsrw_tac[][]>>srw_tac[][]>>
+    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
+    Cases_on`t`>>fsrw_tac[][]>>srw_tac[][]>>
+    Cases_on`h`>>fsrw_tac[][]>>srw_tac[][]>>
+    Cases_on`t'`>>fsrw_tac[][]>>srw_tac[][]>>
+    every_case_tac >> fsrw_tac[][LET_THM])
+  >- ( every_case_tac >> fsrw_tac[][LET_THM])
+  >- ( every_case_tac >> fsrw_tac[][] )
   >- (
     Cases_on`xs`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
     Cases_on`h`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
@@ -2788,7 +2792,8 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
       Cases_on`a`>>full_simp_tac(srw_ss())[]>> rpt var_eq_tac >>
       full_simp_tac(srw_ss())[v_rel_SIMP,LET_THM] >> rpt var_eq_tac >>
       simp[PULL_EXISTS] >>
-      IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+      qpat_assum`_ = Rval _`mp_tac >>
+      IF_CASES_TAC >> fsrw_tac[][] >> fsrw_tac[][] >> srw_tac[][] >>
       qpat_abbrev_tac`pp = $LEAST P` >>
       qpat_abbrev_tac`qq = $LEAST P` >>
       simp[v_rel_SIMP] >>
@@ -2868,9 +2873,10 @@ val compile_exps_correct = Q.store_thm("compile_exps_correct",
               METIS_TAC [state_rel_def]
       \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
       \\ simp[PULL_EXISTS]
-      \\ srw_tac[][] >> full_simp_tac(srw_ss())[]
-      \\ IMP_RES_TAC EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
-      \\ Q.EXISTS_TAC `f2` \\ full_simp_tac(srw_ss())[]
+      \\ qpat_assum`_ = Rval _`mp_tac
+      \\ srw_tac[][] >> fsrw_tac[][]
+      \\ IMP_RES_TAC EVERY2_LENGTH \\ fsrw_tac[][]
+      \\ Q.EXISTS_TAC `f2` \\ fsrw_tac[][]
       \\ rpt var_eq_tac >> simp[]
       \\ conj_tac >-
        (full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE] \\ REPEAT STRIP_TAC
