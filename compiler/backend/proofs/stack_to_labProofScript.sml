@@ -76,17 +76,16 @@ val word_cmp_not_NONE = Q.store_thm("word_cmp_not_NONE[simp]",
   Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]);
 
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
-  `word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2`,
+  `asmSem$word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2`,
   Cases_on`cmp`>>EVAL_TAC);
 
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
-  `word_cmp (negate cmp) (Word w1) (Word w2) =
-   OPTION_MAP $~ (word_cmp cmp (Word w1) (Word w2))`,
-  Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[]>>
-  Cases_on`word_cmp (negate cmp) (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
-  Cases_on`x`>>full_simp_tac(srw_ss())[word_cmp_word_cmp]>>
-  Cases_on`x'`>>full_simp_tac(srw_ss())[word_cmp_word_cmp]>>
-  Cases_on`cmp`>>full_simp_tac(srw_ss())[word_cmp_def]);
+  `labSem$word_cmp (negate cmp) (w1) (w2) =
+   OPTION_MAP $~ (labSem$word_cmp cmp (w1) (w2))`,
+  Cases_on`word_cmp cmp (w1) (w2)`>>fs[]>>
+  Cases_on`word_cmp (negate cmp) (w1) (w2)`>>fs[] >>
+  Cases_on`w1`>>Cases_on`w2`>>fs[word_cmp_def]>>
+  Cases_on`cmp`>>fs[word_cmp_def]>>rw[]);
 
 (* -- *)
 
@@ -474,16 +473,18 @@ val flatten_correct = Q.store_thm("flatten_correct",
     metis_tac[]) >>
   (* If *)
   conj_tac >- (
-    srw_tac[][] >>
-    full_simp_tac(srw_ss())[stackSemTheory.evaluate_def] >>
-    Cases_on`get_var r1 s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`get_var_imm ri s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
-    split_pair_tac >> full_simp_tac(srw_ss())[] >>
-    Cases_on`c1=Skip`>>full_simp_tac(srw_ss())[]>-(
-      Cases_on`c2=Skip`>>full_simp_tac(srw_ss())[] >- (
-        full_simp_tac(srw_ss())[Q.SPEC`Skip`flatten_def]>>
+    rw[] >>
+    fs[stackSemTheory.evaluate_def] >>
+    Cases_on`get_var r1 s`>>fs[]>>
+    Cases_on`get_var_imm ri s`>>fs[]>>
+    qpat_assum`_ = (r,_)`mp_tac >>
+    BasicProvers.TOP_CASE_TAC >> simp[] >> strip_tac >>
+    fs[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
+    split_pair_tac >> fs[] >>
+    split_pair_tac >> fs[] >>
+    Cases_on`c1=Skip`>>fs[]>-(
+      Cases_on`c2=Skip`>>fs[] >- (
+        fs[Q.SPEC`Skip`flatten_def]>>
         rpt var_eq_tac >>
         full_simp_tac(srw_ss())[stackSemTheory.evaluate_def]>>
         rpt var_eq_tac >> simp[] >>
@@ -496,18 +497,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
-        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
-        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        full_simp_tac(srw_ss())[state_rel_def] >>
-        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
-      rev_full_simp_tac(srw_ss())[] >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
-      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      Cases_on`x`>>full_simp_tac(srw_ss())[] >- (
+      qmatch_goalsub_rename_tac`if xx then _ else _` >>
+      Cases_on`xx`>>fs[] >- (
         rpt var_eq_tac >> simp[] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
@@ -530,13 +526,16 @@ val flatten_correct = Q.store_thm("flatten_correct",
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
       simp[dec_clock_def,ADD1] >>
-      full_simp_tac(srw_ss())[inc_pc_def,upd_pc_def] >>
-      Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
+      fs[inc_pc_def,upd_pc_def] >>
+      Cases_on`r`>>fs[] >- (
+        first_x_assum(drule)>>simp[]>>
+        simp[FILTER_APPEND]>> strip_tac >>
         qexists_tac`ck`>>simp[] >>
-        qexists_tac`t2`>>full_simp_tac(srw_ss())[FILTER_APPEND] ) >>
-      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+        qexists_tac`t2`>>fs[] ) >>
+      CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[dec_clock_def,inc_pc_def] >>
+      first_x_assum(drule)>>simp[]>> strip_tac >>
       qexists_tac`ck`>>simp[] >>
       qexists_tac`t2`>>simp[]) >>
     Cases_on`c2=Skip`>>full_simp_tac(srw_ss())[]>-(
@@ -547,18 +546,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
-        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
-        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        full_simp_tac(srw_ss())[state_rel_def] >>
-        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
-      rev_full_simp_tac(srw_ss())[] >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
-      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      reverse(Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
+      qmatch_asmsub_rename_tac`if xx then _ else _` >>
+      reverse(Cases_on`xx`)>>fs[] >- (
         rpt var_eq_tac >> simp[] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
@@ -581,11 +575,15 @@ val flatten_correct = Q.store_thm("flatten_correct",
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
       simp[dec_clock_def,ADD1] >>
-      full_simp_tac(srw_ss())[inc_pc_def,upd_pc_def] >>
-      Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
+      fs[inc_pc_def,upd_pc_def] >>
+      Cases_on`r`>>fs[] >- (
+        first_x_assum drule >>
+        simp[] >> strip_tac >>
         qexists_tac`ck`>>simp[] >>
-        qexists_tac`t2`>>full_simp_tac(srw_ss())[FILTER_APPEND] ) >>
-      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+        qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
+      first_x_assum drule >>
+      simp[] >> strip_tac >>
+      CASE_TAC >> fs[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[dec_clock_def,inc_pc_def] >>
       qexists_tac`ck`>>simp[] >>
@@ -594,18 +592,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
-        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
-        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        full_simp_tac(srw_ss())[state_rel_def] >>
-        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
-      rev_full_simp_tac(srw_ss())[] >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
-      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      (Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
+      qmatch_asmsub_rename_tac`if xx then _ else _` >>
+      (Cases_on`xx`)>>fs[] >- (
         `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
@@ -617,7 +610,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
-        strip_tac >>
+        strip_tac >> rfs[] >>
         first_x_assum drule >>
         full_simp_tac(srw_ss())[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
@@ -638,6 +631,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
       drule state_rel_with_pc >> strip_tac >>
+      rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
@@ -659,18 +653,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
-        qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
-        qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        full_simp_tac(srw_ss())[state_rel_def] >>
-        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
-      rev_full_simp_tac(srw_ss())[] >>
+        fs[state_rel_def] >>
+        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+      rfs[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-      qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
-      qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      reverse (Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
+      qmatch_asmsub_rename_tac`if xx then _ else _` >>
+      reverse (Cases_on`xx`)>>fs[] >- (
         `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
         full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
@@ -682,7 +671,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
-        strip_tac >>
+        strip_tac >> rfs[] >>
         first_x_assum drule >>
         full_simp_tac(srw_ss())[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
@@ -702,7 +691,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[code_installed_def] >>
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
-      drule state_rel_with_pc >> strip_tac >>
+      drule state_rel_with_pc >> strip_tac >> rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
@@ -723,18 +712,13 @@ val flatten_correct = Q.store_thm("flatten_correct",
     full_simp_tac(srw_ss())[code_installed_def] >>
     `get_var r1 s = SOME (read_reg r1 t1) ∧
      get_var_imm ri s = SOME (reg_imm ri t1)` by (
-      qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
-      qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-      full_simp_tac(srw_ss())[state_rel_def] >>
-      Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
-    rev_full_simp_tac(srw_ss())[] >>
+      fs[state_rel_def] >>
+      Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
+    rfs[] >>
     ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-    full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
-    qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
-    qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-    Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    Cases_on`x`>>full_simp_tac(srw_ss())[] >- (
+    qmatch_asmsub_rename_tac`if xx then _ else _` >>
+    Cases_on`xx`>>fs[] >- (
       simp[get_pc_value_def] >>
       imp_res_tac code_installed_append_imp >>
       imp_res_tac code_installed_append_imp >>
@@ -742,7 +726,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       full_simp_tac(srw_ss())[code_installed_def] >>
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
-      drule state_rel_with_pc >> strip_tac >>
+      drule state_rel_with_pc >> strip_tac >> rfs[] >>
       first_x_assum drule >>
       full_simp_tac(srw_ss())[good_syntax_def] >>
       full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
@@ -766,7 +750,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     full_simp_tac(srw_ss())[code_installed_def] >>
     simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
     qpat_abbrev_tac`pc = t1.pc + 1` >>
-    drule state_rel_with_pc >> strip_tac >>
+    drule state_rel_with_pc >> strip_tac >> rfs[] >>
     first_x_assum drule >>
     full_simp_tac(srw_ss())[good_syntax_def] >>
     full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
