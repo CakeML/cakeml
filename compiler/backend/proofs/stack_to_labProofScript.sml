@@ -15,12 +15,12 @@ val _ = new_theory"stack_to_labProof";
 
 val word_sh_word_shift = Q.store_thm("word_sh_word_shift",
   `word_sh a b c = SOME z ⇒ z = word_shift a b c`,
-  EVAL_TAC >> rw[] >> every_case_tac >> fs[] >>
-  EVAL_TAC >> rw[]);
+  EVAL_TAC >> srw_tac[][] >> every_case_tac >> full_simp_tac(srw_ss())[] >>
+  EVAL_TAC >> srw_tac[][]);
 
 val assert_T = Q.store_thm("assert_T[simp]",
   `assert T s = s`,
-  rw[assert_def,state_component_equality]);
+  srw_tac[][assert_def,state_component_equality]);
 
 val good_syntax_def = Define `
   (good_syntax ((Seq p1 p2):'a stackLang$prog) ptr len ret <=>
@@ -43,14 +43,14 @@ val good_syntax_def = Define `
 
 val word_cmp_word_cmp = Q.store_thm("word_cmp_word_cmp",
   `(word_cmp cmp (Word w1) (Word w2) = SOME T) ⇔ word_cmp cmp w1 w2`,
-  Cases_on`cmp`>>rw[labSemTheory.word_cmp_def]>>
-  rw[asmSemTheory.word_cmp_def]);
+  Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]>>
+  srw_tac[][asmSemTheory.word_cmp_def]);
 
 val asm_fetch_aux_no_label = Q.store_thm("asm_fetch_aux_no_label",
   `∀pc code.
    asm_fetch_aux pc code = SOME (Label l1 l2 x) ⇒ F`,
   ho_match_mp_tac asm_fetch_aux_ind >>
-  rw[asm_fetch_aux_def] >> Cases_on`y`>>fs[]);
+  srw_tac[][asm_fetch_aux_def] >> Cases_on`y`>>full_simp_tac(srw_ss())[]);
 
 val dest_to_loc_def = Define`
   dest_to_loc regs dest =
@@ -64,8 +64,8 @@ val find_code_lookup = Q.store_thm("find_code_lookup",
   `find_code dest regs code = SOME p ⇒
     lookup (dest_to_loc regs dest) code = SOME p ∧
     (∀r. dest = INR r ⇒ r ∈ FDOM regs)`,
-  Cases_on`dest`>>rw[find_code_def,dest_to_loc_def] >>
-  every_case_tac >> fs[] >> fs[FLOOKUP_DEF] >> rw[]);
+  Cases_on`dest`>>srw_tac[][find_code_def,dest_to_loc_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[FLOOKUP_DEF] >> srw_tac[][]);
 
 val not_is_Label_compile_jump = Q.store_thm("not_is_Label_compile_jump[simp]",
   `is_Label (compile_jump dest) ⇔ F`,
@@ -73,7 +73,7 @@ val not_is_Label_compile_jump = Q.store_thm("not_is_Label_compile_jump[simp]",
 
 val word_cmp_not_NONE = Q.store_thm("word_cmp_not_NONE[simp]",
   `word_cmp cmp (Word w1) (Word w2) ≠ NONE`,
-  Cases_on`cmp`>>rw[labSemTheory.word_cmp_def]);
+  Cases_on`cmp`>>srw_tac[][labSemTheory.word_cmp_def]);
 
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
   `word_cmp (negate cmp) w1 w2 ⇔ ¬word_cmp cmp w1 w2`,
@@ -82,11 +82,11 @@ val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
 val word_cmp_negate = Q.store_thm("word_cmp_negate[simp]",
   `word_cmp (negate cmp) (Word w1) (Word w2) =
    OPTION_MAP $~ (word_cmp cmp (Word w1) (Word w2))`,
-  Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[]>>
-  Cases_on`word_cmp (negate cmp) (Word w1) (Word w2)`>>fs[] >>
-  Cases_on`x`>>fs[word_cmp_word_cmp]>>
-  Cases_on`x'`>>fs[word_cmp_word_cmp]>>
-  Cases_on`cmp`>>fs[word_cmp_def]);
+  Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[]>>
+  Cases_on`word_cmp (negate cmp) (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
+  Cases_on`x`>>full_simp_tac(srw_ss())[word_cmp_word_cmp]>>
+  Cases_on`x'`>>full_simp_tac(srw_ss())[word_cmp_word_cmp]>>
+  Cases_on`cmp`>>full_simp_tac(srw_ss())[word_cmp_def]);
 
 (* -- *)
 
@@ -104,7 +104,7 @@ val code_installed_append_imp = Q.store_thm("code_installed_append_imp",
   `∀l1 pc l2 code. code_installed pc (l1 ++ l2) code ⇒
    code_installed pc l1 code ∧
    code_installed (pc+LENGTH (FILTER ($~ o is_Label) l1)) l2 code`,
-  Induct>>simp[code_installed_def]>>rw[] >>
+  Induct>>simp[code_installed_def]>>srw_tac[][] >>
   res_tac >> fsrw_tac[ARITH_ss][ADD1]);
 
 val state_rel_def = Define`
@@ -130,23 +130,23 @@ val state_rel_def = Define`
 
 val state_rel_dec_clock = Q.store_thm("state_rel_dec_clock",
   `state_rel s t ⇒ state_rel (dec_clock s) (dec_clock t)`,
-  rw[state_rel_def,stackSemTheory.dec_clock_def,labSemTheory.dec_clock_def] >>
+  srw_tac[][state_rel_def,stackSemTheory.dec_clock_def,labSemTheory.dec_clock_def] >>
   metis_tac[])
 
 val state_rel_with_pc = Q.store_thm("state_rel_with_pc",
   `state_rel s t ⇒ state_rel s (upd_pc pc t)`,
-  rw[state_rel_def,upd_pc_def] >>
+  srw_tac[][state_rel_def,upd_pc_def] >>
   metis_tac[])
 
 val state_rel_with_clock = Q.store_thm("state_rel_with_clock",
   `state_rel s t ⇒ state_rel (s with clock := k) (t with clock := k)`,
-  rw[state_rel_def] >> metis_tac[])
+  srw_tac[][state_rel_def] >> metis_tac[])
 
 val set_var_upd_reg = Q.store_thm("set_var_upd_reg",
   `state_rel s t ⇒
    state_rel (set_var a b s) (upd_reg a b t)`,
-  rw[state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FLOOKUP_UPDATE] >>
-  rw[]>>fs[]>>rfs[] \\ metis_tac [])
+  srw_tac[][state_rel_def,upd_reg_def,set_var_def,FUN_EQ_THM,APPLY_UPDATE_THM,FLOOKUP_UPDATE] >>
+  srw_tac[][]>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[] \\ metis_tac [])
 
 val set_var_Word_upd_reg = Q.store_thm("set_var_Word_upd_reg[simp]",
   `state_rel s t ⇒
@@ -156,20 +156,20 @@ val set_var_Word_upd_reg = Q.store_thm("set_var_Word_upd_reg[simp]",
 val mem_store_upd_mem = Q.store_thm("mem_store_upd_mem",
   `state_rel s t ∧ mem_store x y s = SOME s1 ⇒
    state_rel s1 (upd_mem x y t)`,
-  rw[state_rel_def,upd_mem_def,stackSemTheory.mem_store_def,FUN_EQ_THM,APPLY_UPDATE_THM] >>
-  rw[APPLY_UPDATE_THM] >> rfs[] >> metis_tac []);
+  srw_tac[][state_rel_def,upd_mem_def,stackSemTheory.mem_store_def,FUN_EQ_THM,APPLY_UPDATE_THM] >>
+  srw_tac[][APPLY_UPDATE_THM] >> rev_full_simp_tac(srw_ss())[] >> metis_tac []);
 
 val state_rel_read_reg_FLOOKUP_regs = Q.store_thm("state_rel_read_reg_FLOOKUP_regs",
   `state_rel s t ∧
    FLOOKUP s.regs x = SOME y ⇒
    y = read_reg x t`,
-  rw[state_rel_def]>>fs[FLOOKUP_DEF]);
+  srw_tac[][state_rel_def]>>full_simp_tac(srw_ss())[FLOOKUP_DEF]);
 
 val state_rel_get_var_imm = Q.store_thm("state_rel_get_var_imm",
   `state_rel s t ∧
    get_var_imm r s = SOME x ⇒
    reg_imm r t = x`,
-  Cases_on`r` \\ rw[get_var_imm_def] \\ fs[get_var_def]
+  Cases_on`r` \\ srw_tac[][get_var_imm_def] \\ full_simp_tac(srw_ss())[get_var_def]
   \\ metis_tac[state_rel_read_reg_FLOOKUP_regs])
 
 val inst_correct = Q.store_thm("inst_correct",
@@ -177,33 +177,33 @@ val inst_correct = Q.store_thm("inst_correct",
    state_rel s1 t1 ⇒
    state_rel s2 (asm_inst i t1)`,
   simp[inst_def] >>
-  every_case_tac >> fs[] >>
-  rw[assign_def,word_exp_def] >> rw[] >>
-  fs[LET_THM] >>
-  every_case_tac >> fs[] >> rw[] >>
-  imp_res_tac state_rel_read_reg_FLOOKUP_regs >> fs[] >> rfs[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  srw_tac[][assign_def,word_exp_def] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[LET_THM] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  imp_res_tac state_rel_read_reg_FLOOKUP_regs >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
   imp_res_tac word_sh_word_shift >>
-  fs[wordLangTheory.num_exp_def,wordLangTheory.word_op_def] >> rw[] >>
-  TRY ( fs[binop_upd_def] >> match_mp_tac set_var_upd_reg >> fs[] >> NO_TAC) >>
-  TRY ( Cases_on`b`>>fs[binop_upd_def] >> NO_TAC) >>
+  full_simp_tac(srw_ss())[wordLangTheory.num_exp_def,wordLangTheory.word_op_def] >> srw_tac[][] >>
+  TRY ( full_simp_tac(srw_ss())[binop_upd_def] >> match_mp_tac set_var_upd_reg >> full_simp_tac(srw_ss())[] >> NO_TAC) >>
+  TRY ( Cases_on`b`>>full_simp_tac(srw_ss())[binop_upd_def] >> NO_TAC) >>
   TRY (
     qcase_tac `mem_load` >>
-    fs[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
-    fs [word_exp_def,LET_DEF] \\ every_case_tac \\ fs []>>
-    res_tac \\ fs [wordLangTheory.word_op_def] \\ rw [] \\ fs [] >>
-    qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[] >>
-    `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( fs[state_rel_def] ) >> fs[] >>
+    full_simp_tac(srw_ss())[stackSemTheory.mem_load_def,labSemTheory.mem_load_def,labSemTheory.addr_def] >>
+    full_simp_tac(srw_ss())[word_exp_def,LET_DEF] \\ every_case_tac \\ full_simp_tac(srw_ss())[]>>
+    res_tac \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
+    qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
     `w2n (c + c') MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
-    fs [] \\ match_mp_tac set_var_upd_reg \\ fs []) >>
-  fs[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
-  every_case_tac >> fs[] >> rpt var_eq_tac >>
-  fs[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
+    full_simp_tac(srw_ss())[] \\ match_mp_tac set_var_upd_reg \\ full_simp_tac(srw_ss())[]) >>
+  full_simp_tac(srw_ss())[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+  full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
   res_tac >>
-  qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[] >>
-  `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( fs[state_rel_def] ) >> fs[] >>
-  fs[labSemTheory.mem_store_def,labSemTheory.addr_def] >>
+  qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+  `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
+  full_simp_tac(srw_ss())[labSemTheory.mem_store_def,labSemTheory.addr_def] >>
   qmatch_assum_abbrev_tac`mem_store cc _ _ = _` >>
-  `cc ∈ s1.mdomain` by fs[stackSemTheory.mem_store_def] >>
+  `cc ∈ s1.mdomain` by full_simp_tac(srw_ss())[stackSemTheory.mem_store_def] >>
   first_assum(fn th => first_assum(
     tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
   simp[] >>
@@ -211,24 +211,24 @@ val inst_correct = Q.store_thm("inst_correct",
 
 val flatten_leq = Q.store_thm("flatten_leq",
   `∀x y z. z ≤ SND (flatten x y z)`,
-  ho_match_mp_tac flatten_ind >> rw[]>>
+  ho_match_mp_tac flatten_ind >> srw_tac[][]>>
   ONCE_REWRITE_TAC[flatten_def] >>
-  CASE_TAC >> simp[] >> fs[] >>
-  TRY CASE_TAC >> fs[] >>
-  every_case_tac >> fs[] >>
-  split_pair_tac >> fs[] >>
-  TRY split_pair_tac >> fs[] >>
+  CASE_TAC >> simp[] >> full_simp_tac(srw_ss())[] >>
+  TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >>
+  split_pair_tac >> full_simp_tac(srw_ss())[] >>
+  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
   simp[]);
 
 val no_ret_correct = Q.store_thm("no_ret_correct",
   `∀p. no_ret p ⇒ ∀s. IS_SOME (FST (evaluate (p,s)))`,
-  ho_match_mp_tac no_ret_ind >> rw[] >>
+  ho_match_mp_tac no_ret_ind >> srw_tac[][] >>
   Cases_on`p`>>simp[stackSemTheory.evaluate_def] >>
-  fs[Once no_ret_def] >>
-  fs[GSYM no_ret_def] >>
-  every_case_tac >> fs[] >> rw[] >>
-  rfs[IS_SOME_EXISTS] >>
-  TRY split_pair_tac >> fs[] >>
+  full_simp_tac(srw_ss())[Once no_ret_def] >>
+  full_simp_tac(srw_ss())[GSYM no_ret_def] >>
+  every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+  rev_full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
+  TRY split_pair_tac >> full_simp_tac(srw_ss())[] >>
   METIS_TAC[NOT_SOME_NONE,FST,option_CASES] );
 
 val compile_jump_correct = Q.store_thm("compile_jump_correct",
@@ -238,12 +238,12 @@ val compile_jump_correct = Q.store_thm("compile_jump_correct",
    s.pc = pc ∧ s.code = code ∧ s.regs = regs ∧ s.clock ≠ 0
    ⇒
    evaluate s = evaluate (upd_pc pc' (dec_clock s))`,
-  Cases_on`dest`>>rw[compile_jump_def,dest_to_loc'_def] >>
+  Cases_on`dest`>>srw_tac[][compile_jump_def,dest_to_loc'_def] >>
   simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
-  CASE_TAC >> fs[]);
+  CASE_TAC >> full_simp_tac(srw_ss())[]);
 
 val finish_tac =
-  BasicProvers.TOP_CASE_TAC >> fs[] >>
+  BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
   simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
   simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
   TRY (
@@ -253,11 +253,11 @@ val finish_tac =
     first_x_assum(qspec_then`ss`mp_tac) >>
     discharge_hyps >- (
       simp[Abbr`ss`] >>
-      rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-      fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-      fs[FLOOKUP_DEF] >>
-      fs[state_rel_def,FLOOKUP_DEF] >>
-      every_case_tac >> fs[]) >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+      full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+      full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+      full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+      every_case_tac >> full_simp_tac(srw_ss())[]) >>
     simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
     strip_tac >>
     last_x_assum(qspec_then`ck1+ck'`mp_tac) >>
@@ -269,11 +269,11 @@ val finish_tac =
     first_x_assum(qspec_then`ss`mp_tac) >>
     discharge_hyps >- (
       simp[Abbr`ss`] >>
-      rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-      fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-      fs[FLOOKUP_DEF] >>
-      fs[state_rel_def,FLOOKUP_DEF] >>
-      every_case_tac >> fs[]) >>
+      srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+      full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+      full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+      full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+      every_case_tac >> full_simp_tac(srw_ss())[]) >>
     simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
     strip_tac >>
     last_x_assum(qspec_then`ck'`mp_tac) >>
@@ -319,85 +319,85 @@ val flatten_correct = Q.store_thm("flatten_correct",
        | _ => F`,
   recInduct stackSemTheory.evaluate_ind >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
     qexists_tac`0`>>simp[] >>
     METIS_TAC[with_same_clock,state_rel_def] ) >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`get_var v s`>>fs[] >> rpt var_eq_tac >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var v s`>>full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
     simp[] >>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     qexists_tac`1`>>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    fs[get_var_def] >>
-    fs [good_syntax_def,state_rel_def] >> rfs [] >>
-    res_tac >> fs[] >>
-    every_case_tac >> fs []) >>
+    full_simp_tac(srw_ss())[get_var_def] >>
+    full_simp_tac(srw_ss())[good_syntax_def,state_rel_def] >> rev_full_simp_tac(srw_ss())[] >>
+    res_tac >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[]) >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    fs[state_rel_def] ) >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`inst i s`>>fs[]>>rpt var_eq_tac>>simp[]>>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`inst i s`>>full_simp_tac(srw_ss())[]>>rpt var_eq_tac>>simp[]>>
     imp_res_tac inst_correct >>
     qexists_tac`1`>>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    Cases_on`(asm_inst i t1).failed` >- fs[state_rel_def] >>
+    Cases_on`(asm_inst i t1).failed` >- full_simp_tac(srw_ss())[state_rel_def] >>
     simp[dec_clock_def,asm_inst_consts] >>
     qexists_tac`inc_pc (asm_inst i t1)` >>
     simp[inc_pc_def,asm_inst_consts] >>
-    fs[state_rel_def,asm_inst_consts] >>
+    full_simp_tac(srw_ss())[state_rel_def,asm_inst_consts] >>
     METIS_TAC[]) >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    fs[state_rel_def] ) >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    fs[state_rel_def] ) >>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] ) >>
   (* Tick *)
   conj_tac >- (
     simp[stackSemTheory.evaluate_def,flatten_def] >>
     rpt gen_tac >> strip_tac >>
-    fs[code_installed_def] >>
-    Cases_on`s.clock=0`>>fs[]>>rpt var_eq_tac>>fs[]>-(
+    full_simp_tac(srw_ss())[code_installed_def] >>
+    Cases_on`s.clock=0`>>full_simp_tac(srw_ss())[]>>rpt var_eq_tac>>full_simp_tac(srw_ss())[]>-(
       qexists_tac`1`>>simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      Cases_on`t1.failed`>>fs[]>-fs[state_rel_def]>>
+      Cases_on`t1.failed`>>full_simp_tac(srw_ss())[]>-full_simp_tac(srw_ss())[state_rel_def]>>
       simp[dec_clock_def] >>
-      `t1.clock = 0` by fs[state_rel_def] >>
+      `t1.clock = 0` by full_simp_tac(srw_ss())[state_rel_def] >>
       qexists_tac`inc_pc t1` >>
       simp[inc_pc_def,empty_env_def] >>
-      fs[state_rel_def]) >>
+      full_simp_tac(srw_ss())[state_rel_def]) >>
     qexists_tac`0`>>simp[] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    Cases_on`t1.failed`>>fs[]>-fs[state_rel_def]>>
+    Cases_on`t1.failed`>>full_simp_tac(srw_ss())[]>-full_simp_tac(srw_ss())[state_rel_def]>>
     qexists_tac`inc_pc (dec_clock t1)` >>
-    fs[inc_pc_def,stackSemTheory.dec_clock_def,labSemTheory.dec_clock_def] >>
-    fs[state_rel_def] >>
+    full_simp_tac(srw_ss())[inc_pc_def,stackSemTheory.dec_clock_def,labSemTheory.dec_clock_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
     fsrw_tac[ARITH_ss][] >>
     metis_tac[]) >>
   (* Seq *)
   conj_tac >- (
-    rw[] >>
+    srw_tac[][] >>
     rator_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
     strip_tac >>
-    split_pair_tac >> fs[] >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
     rator_x_assum`code_installed`mp_tac >>
     simp[Once flatten_def] >>
     simp[UNCURRY] >> strip_tac >>
     imp_res_tac code_installed_append_imp >>
-    fs[Q.SPEC`Seq _ _`next_lab_def] >>
-    fs[good_syntax_def] >>
-    reverse (Cases_on`res`)>>fs[]>-(
-      rpt var_eq_tac >> fs[] >>
+    full_simp_tac(srw_ss())[Q.SPEC`Seq _ _`next_lab_def] >>
+    full_simp_tac(srw_ss())[good_syntax_def] >>
+    reverse (Cases_on`res`)>>full_simp_tac(srw_ss())[]>-(
+      rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
       first_x_assum drule >>
       disch_then drule >>
       disch_then drule >>
       strip_tac >>
-      CASE_TAC >> fs[] >>
-      TRY CASE_TAC >> fs[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
       res_tac >>
       qexists_tac`ck`>>fsrw_tac[ARITH_ss][]>>
       TRY ( qexists_tac`t2` >> simp[] >> NO_TAC) >>
@@ -412,106 +412,106 @@ val flatten_correct = Q.store_thm("flatten_correct",
     fsrw_tac[ARITH_ss][] >>
     disch_then drule >>
     strip_tac >>
-    CASE_TAC >> fs[] >- (
+    CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
       asm_exists_tac >> simp[] >>
       simp[Q.SPEC`Seq _ _`flatten_def,UNCURRY] >>
-      qexists_tac`ck+ck'`>>simp[FILTER_APPEND]>>rw[] >>
+      qexists_tac`ck+ck'`>>simp[FILTER_APPEND]>>srw_tac[][] >>
       last_x_assum(qspec_then`ck1+ck'`strip_assume_tac) >>
       fsrw_tac[ARITH_ss][]) >>
-    CASE_TAC >> fs[] >>
-    TRY CASE_TAC >> fs[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
     res_tac >>
     ((CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
       asm_exists_tac >> simp[] ) ORELSE
      (CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`t2'` >> simp[])) >>
-    qexists_tac`ck+ck'`>>simp[]>>rw[] >>
+    qexists_tac`ck+ck'`>>simp[]>>srw_tac[][] >>
     last_x_assum(qspec_then`ck1+ck'`strip_assume_tac) >>
     fsrw_tac[ARITH_ss][] ) >>
   (* Return *)
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`get_var n s`>>fs[]>> Cases_on`x`>>fs[]>>
-    Cases_on`get_var m s`>>fs[]>>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var n s`>>full_simp_tac(srw_ss())[]>> Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var m s`>>full_simp_tac(srw_ss())[]>>
     rpt var_eq_tac >> simp[] >>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     `get_var n s = SOME (read_reg n t1)` by (
-      fs[state_rel_def,get_var_def] >>
-      fs[FLOOKUP_DEF] ) >>
-    fs[] >>
-    qexists_tac`1`>>simp[] >> rfs[] >>
-    CASE_TAC >> fs[] >- (
+      full_simp_tac(srw_ss())[state_rel_def,get_var_def] >>
+      full_simp_tac(srw_ss())[FLOOKUP_DEF] ) >>
+    full_simp_tac(srw_ss())[] >>
+    qexists_tac`1`>>simp[] >> rev_full_simp_tac(srw_ss())[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       qexists_tac`t1 with clock := t1.clock + 1` >> simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] ) >>
     simp[dec_clock_def] >>
     qmatch_assum_rename_tac`_ = SOME pc` >>
     qexists_tac`upd_pc pc t1` >>
     simp[upd_pc_def] >>
-    fs[state_rel_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
     metis_tac[]) >>
   (* Raise *)
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`get_var n s`>>fs[]>>
-    Cases_on`x`>>fs[]>>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var n s`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     rpt var_eq_tac >> simp[] >>
     qexists_tac`1`>>simp[]>>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     `get_var n s = SOME (read_reg n t1)` by (
-      fs[state_rel_def,get_var_def] >>
-      fs[FLOOKUP_DEF] ) >>
-    fs[] >>
-    CASE_TAC >> fs[] >- (
+      full_simp_tac(srw_ss())[state_rel_def,get_var_def] >>
+      full_simp_tac(srw_ss())[FLOOKUP_DEF] ) >>
+    full_simp_tac(srw_ss())[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       qexists_tac`t1 with clock := t1.clock + 1` >> simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] ) >>
     simp[dec_clock_def] >>
     qmatch_assum_rename_tac`_ = SOME pc` >>
     qexists_tac`upd_pc pc t1` >>
     simp[upd_pc_def] >>
-    fs[state_rel_def] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
     metis_tac[]) >>
   (* If *)
   conj_tac >- (
-    rw[] >>
-    fs[stackSemTheory.evaluate_def] >>
-    Cases_on`get_var r1 s`>>fs[]>>Cases_on`x`>>fs[]>>
-    Cases_on`get_var_imm ri s`>>fs[]>>Cases_on`x`>>fs[]>>
-    fs[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
-    split_pair_tac >> fs[] >>
-    split_pair_tac >> fs[] >>
-    Cases_on`c1=Skip`>>fs[]>-(
-      Cases_on`c2=Skip`>>fs[] >- (
-        fs[Q.SPEC`Skip`flatten_def]>>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[stackSemTheory.evaluate_def] >>
+    Cases_on`get_var r1 s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var_imm ri s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`flatten_def,LET_THM] >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    Cases_on`c1=Skip`>>full_simp_tac(srw_ss())[]>-(
+      Cases_on`c2=Skip`>>full_simp_tac(srw_ss())[] >- (
+        full_simp_tac(srw_ss())[Q.SPEC`Skip`flatten_def]>>
         rpt var_eq_tac >>
-        fs[stackSemTheory.evaluate_def]>>
+        full_simp_tac(srw_ss())[stackSemTheory.evaluate_def]>>
         rpt var_eq_tac >> simp[] >>
         map_every qexists_tac[`0`,`t1`] >>
         simp[] ) >>
-      fs[Q.SPEC`Skip`flatten_def]>>
+      full_simp_tac(srw_ss())[Q.SPEC`Skip`flatten_def]>>
       rpt var_eq_tac >>
-      fs[stackSemTheory.evaluate_def]>>
-      fs[code_installed_def] >>
+      full_simp_tac(srw_ss())[stackSemTheory.evaluate_def]>>
+      full_simp_tac(srw_ss())[code_installed_def] >>
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
         qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
         qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        fs[state_rel_def] >>
-        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
-      rfs[] >>
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
+      rev_full_simp_tac(srw_ss())[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      fs[GSYM word_cmp_word_cmp] >>
+      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
       qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
       qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      Cases_on`x`>>fs[] >- (
+      Cases_on`x`>>full_simp_tac(srw_ss())[] >- (
         rpt var_eq_tac >> simp[] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
-        fs[code_installed_def] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def] >>
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
@@ -521,48 +521,48 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      fs[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
-      fs[good_syntax_def] >>
+      full_simp_tac(srw_ss())[good_syntax_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
       simp[dec_clock_def,ADD1] >>
-      fs[inc_pc_def,upd_pc_def] >>
-      Cases_on`r`>>fs[] >- (
+      full_simp_tac(srw_ss())[inc_pc_def,upd_pc_def] >>
+      Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
         qexists_tac`ck`>>simp[] >>
-        qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
-      CASE_TAC >> fs[] >>
+        qexists_tac`t2`>>full_simp_tac(srw_ss())[FILTER_APPEND] ) >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[dec_clock_def,inc_pc_def] >>
       qexists_tac`ck`>>simp[] >>
       qexists_tac`t2`>>simp[]) >>
-    Cases_on`c2=Skip`>>fs[]>-(
-      fs[Q.SPEC`Skip`flatten_def]>>
+    Cases_on`c2=Skip`>>full_simp_tac(srw_ss())[]>-(
+      full_simp_tac(srw_ss())[Q.SPEC`Skip`flatten_def]>>
       rpt var_eq_tac >>
-      fs[stackSemTheory.evaluate_def]>>
-      fs[code_installed_def] >>
+      full_simp_tac(srw_ss())[stackSemTheory.evaluate_def]>>
+      full_simp_tac(srw_ss())[code_installed_def] >>
       Ho_Rewrite.ONCE_REWRITE_TAC[EXISTS_NUM] >> disj2_tac >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
         qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
         qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        fs[state_rel_def] >>
-        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
-      rfs[] >>
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
+      rev_full_simp_tac(srw_ss())[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      fs[GSYM word_cmp_word_cmp] >>
+      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
       qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
       qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      reverse(Cases_on`x`)>>fs[] >- (
+      reverse(Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
         rpt var_eq_tac >> simp[] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
-        fs[code_installed_def] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def] >>
         qpat_abbrev_tac`pc = LENGTH _ + _` >>
         drule state_rel_with_pc >> strip_tac >>
@@ -572,58 +572,58 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
-      fs[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _`next_lab_def] >>
       drule (GEN_ALL state_rel_with_pc) >>
       disch_then(qspec_then`t1.pc+1`strip_assume_tac) >>
       first_x_assum drule >>
-      fs[good_syntax_def] >>
+      full_simp_tac(srw_ss())[good_syntax_def] >>
       imp_res_tac code_installed_append_imp >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
       strip_tac >>
       simp[dec_clock_def,ADD1] >>
-      fs[inc_pc_def,upd_pc_def] >>
-      Cases_on`r`>>fs[] >- (
+      full_simp_tac(srw_ss())[inc_pc_def,upd_pc_def] >>
+      Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
         qexists_tac`ck`>>simp[] >>
-        qexists_tac`t2`>>fs[FILTER_APPEND] ) >>
-      CASE_TAC >> fs[] >>
+        qexists_tac`t2`>>full_simp_tac(srw_ss())[FILTER_APPEND] ) >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[dec_clock_def,inc_pc_def] >>
       qexists_tac`ck`>>simp[] >>
       qexists_tac`t2`>>simp[]) >>
-    Cases_on`no_ret c1`>>fs[] >- (
-      fs[code_installed_def] >>
+    Cases_on`no_ret c1`>>full_simp_tac(srw_ss())[] >- (
+      full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
         qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
         qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        fs[state_rel_def] >>
-        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
-      rfs[] >>
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
+      rev_full_simp_tac(srw_ss())[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      fs[GSYM word_cmp_word_cmp] >>
+      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
       qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
       qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      (Cases_on`x`)>>fs[] >- (
+      (Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
         `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
-        fs[IS_SOME_EXISTS] >>
+        full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
-        fs[code_installed_def] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
         strip_tac >>
         first_x_assum drule >>
-        fs[good_syntax_def] >>
+        full_simp_tac(srw_ss())[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-        fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+        full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
         simp[upd_pc_def] >> strip_tac >>
-        CASE_TAC >> fs[] >- (
+        CASE_TAC >> full_simp_tac(srw_ss())[] >- (
           qexists_tac`ck+1`>>simp[] >>
           qexists_tac`t2`>>simp[] ) >>
         qexists_tac`ck+1`>>simp[] >>
@@ -634,20 +634,20 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[get_pc_value_def] >>
       imp_res_tac code_installed_append_imp >>
       imp_res_tac code_installed_append_imp >>
-      fs[code_installed_def] >>
+      full_simp_tac(srw_ss())[code_installed_def] >>
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
-      fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-      fs[FILTER_APPEND] >>
+      full_simp_tac(srw_ss())[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
       strip_tac >>
-      fs[upd_pc_def] >>
-      CASE_TAC >> fs[] >>
-      TRY CASE_TAC >> fs[] >- (
+      full_simp_tac(srw_ss())[upd_pc_def] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY CASE_TAC >> full_simp_tac(srw_ss())[] >- (
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
@@ -655,40 +655,40 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[get_pc_value_def,upd_pc_def,dec_clock_def] >>
       qexists_tac`ck`>>simp[]>>
       qexists_tac`t2`>>simp[] ) >>
-    Cases_on`no_ret c2`>>fs[] >- (
-      fs[code_installed_def] >>
+    Cases_on`no_ret c2`>>full_simp_tac(srw_ss())[] >- (
+      full_simp_tac(srw_ss())[code_installed_def] >>
       `get_var r1 s = SOME (read_reg r1 t1) ∧
        get_var_imm ri s = SOME (reg_imm ri t1)` by (
         qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
         qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-        fs[state_rel_def] >>
-        Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
-      rfs[] >>
+        full_simp_tac(srw_ss())[state_rel_def] >>
+        Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
+      rev_full_simp_tac(srw_ss())[] >>
       ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-      fs[GSYM word_cmp_word_cmp] >>
+      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
       qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
       qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+      Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      reverse (Cases_on`x`)>>fs[] >- (
+      reverse (Cases_on`x`)>>full_simp_tac(srw_ss())[] >- (
         `IS_SOME r` by metis_tac[no_ret_correct,FST] >>
-        fs[IS_SOME_EXISTS] >>
+        full_simp_tac(srw_ss())[IS_SOME_EXISTS] >>
         rpt var_eq_tac >> simp[] >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
         simp[get_pc_value_def] >>
         imp_res_tac code_installed_append_imp >>
         imp_res_tac code_installed_append_imp >>
-        fs[code_installed_def] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
         drule (GEN_ALL state_rel_with_pc) >>
         disch_then(qspec_then`t1.pc+1`mp_tac) >>
         strip_tac >>
         first_x_assum drule >>
-        fs[good_syntax_def] >>
+        full_simp_tac(srw_ss())[good_syntax_def] >>
         disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
-        fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+        full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
         simp[upd_pc_def] >> strip_tac >>
-        CASE_TAC >> fs[] >- (
+        CASE_TAC >> full_simp_tac(srw_ss())[] >- (
           qexists_tac`ck+1`>>simp[] >>
           qexists_tac`t2`>>simp[] ) >>
         qexists_tac`ck+1`>>simp[] >>
@@ -699,20 +699,20 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[get_pc_value_def] >>
       imp_res_tac code_installed_append_imp >>
       imp_res_tac code_installed_append_imp >>
-      fs[code_installed_def] >>
+      full_simp_tac(srw_ss())[code_installed_def] >>
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
-      fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-      fs[FILTER_APPEND] >>
+      full_simp_tac(srw_ss())[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
       strip_tac >>
-      fs[upd_pc_def] >>
-      CASE_TAC >> fs[] >>
-      TRY CASE_TAC >> fs[] >- (
+      full_simp_tac(srw_ss())[upd_pc_def] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY CASE_TAC >> full_simp_tac(srw_ss())[] >- (
         qexists_tac`ck`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
@@ -720,39 +720,39 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[get_pc_value_def,upd_pc_def,dec_clock_def] >>
       qexists_tac`ck`>>simp[]>>
       qexists_tac`t2`>>simp[] ) >>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     `get_var r1 s = SOME (read_reg r1 t1) ∧
      get_var_imm ri s = SOME (reg_imm ri t1)` by (
       qpat_assum`word_cmp _ _ _ ⇒ _`kall_tac >>
       qpat_assum`¬word_cmp _ _ _ ⇒ _`kall_tac >>
-      fs[state_rel_def] >>
-      Cases_on`ri`>>fs[get_var_def,get_var_imm_def] ) >>
-    rfs[] >>
+      full_simp_tac(srw_ss())[state_rel_def] >>
+      Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_def,get_var_imm_def] ) >>
+    rev_full_simp_tac(srw_ss())[] >>
     ntac 2 (pop_assum (mp_tac o SYM)) >> ntac 2 strip_tac >>
-    fs[GSYM word_cmp_word_cmp] >>
+    full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
     qmatch_assum_rename_tac`read_reg _ _ = Word w1` >>
     qmatch_assum_rename_tac`reg_imm _ _ = Word w2` >>
-    Cases_on`word_cmp cmp (Word w1) (Word w2)`>>fs[] >>
+    Cases_on`word_cmp cmp (Word w1) (Word w2)`>>full_simp_tac(srw_ss())[] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    Cases_on`x`>>fs[] >- (
+    Cases_on`x`>>full_simp_tac(srw_ss())[] >- (
       simp[get_pc_value_def] >>
       imp_res_tac code_installed_append_imp >>
       imp_res_tac code_installed_append_imp >>
       imp_res_tac code_installed_append_imp >>
-      fs[code_installed_def] >>
+      full_simp_tac(srw_ss())[code_installed_def] >>
       simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
       qpat_abbrev_tac`pc = LENGTH _ + _` >>
       drule state_rel_with_pc >> strip_tac >>
       first_x_assum drule >>
-      fs[good_syntax_def] >>
-      fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+      full_simp_tac(srw_ss())[good_syntax_def] >>
+      full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-      fs[FILTER_APPEND] >>
+      full_simp_tac(srw_ss())[FILTER_APPEND] >>
       fsrw_tac[ARITH_ss][] >>
       strip_tac >>
-      fs[upd_pc_def] >>
-      CASE_TAC >> fs[] >>
-      TRY CASE_TAC >> fs[] >- (
+      full_simp_tac(srw_ss())[upd_pc_def] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY CASE_TAC >> full_simp_tac(srw_ss())[] >- (
         qexists_tac`ck+1`>>simp[] >>
         qexists_tac`t2`>>simp[] >>
         simp[Abbr`pc`,FILTER_APPEND] ) >>
@@ -763,18 +763,18 @@ val flatten_correct = Q.store_thm("flatten_correct",
     imp_res_tac code_installed_append_imp >>
     imp_res_tac code_installed_append_imp >>
     imp_res_tac code_installed_append_imp >>
-    fs[code_installed_def] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     simp[dec_clock_def,ADD1,upd_pc_def,inc_pc_def] >>
     qpat_abbrev_tac`pc = t1.pc + 1` >>
     drule state_rel_with_pc >> strip_tac >>
     first_x_assum drule >>
-    fs[good_syntax_def] >>
-    fs[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
+    full_simp_tac(srw_ss())[good_syntax_def] >>
+    full_simp_tac(srw_ss())[Q.SPEC`If _ _ _ _ _ `next_lab_def] >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
     strip_tac >>
-    fs[upd_pc_def] >>
-    CASE_TAC >> fs[] >>
-    TRY CASE_TAC >> fs[] >- (
+    full_simp_tac(srw_ss())[upd_pc_def] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY CASE_TAC >> full_simp_tac(srw_ss())[] >- (
       qexists_tac`ck+2`>>simp[] >>
       first_x_assum(strip_assume_tac o CONV_RULE(HO_REWR_CONV FORALL_NUM)) >>
       fsrw_tac[ARITH_ss][ADD1] >>
@@ -790,32 +790,32 @@ val flatten_correct = Q.store_thm("flatten_correct",
     qexists_tac`t2`>>simp[] ) >>
   (* While *)
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def]
+    srw_tac[][stackSemTheory.evaluate_def]
     \\ qpat_assum`_ = (r,_)`mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ simp[]
-    \\ split_pair_tac \\ fs[]
-    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
-      strip_tac \\ rveq \\ fs[]
+      strip_tac \\ rveq \\ full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ fs[]
+      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def] \\ strip_tac
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-      \\ fs[get_var_def]
+      \\ full_simp_tac(srw_ss())[get_var_def]
       \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
       \\ imp_res_tac state_rel_get_var_imm
       \\ qpat_assum`_ = read_reg _  _`(assume_tac o SYM)
       \\ simp[]
-      \\ fs[GSYM word_cmp_word_cmp]
-      \\ CASE_TAC \\ fs[] \\ fs[]
+      \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
+      \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
       \\ simp[get_pc_value_def]
       \\ imp_res_tac code_installed_append_imp
-      \\ fs[code_installed_def]
+      \\ full_simp_tac(srw_ss())[code_installed_def]
       \\ simp[Once flatten_def]
       \\ simp[FILTER_APPEND]
       \\ qexists_tac`1` \\ simp[]
@@ -824,80 +824,80 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ simp[GSYM upd_pc_def]
       \\ match_mp_tac state_rel_with_pc
       \\ simp[] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
-      strip_tac \\ rveq \\ fs[]
-      \\ rfs[]
+      strip_tac \\ rveq \\ full_simp_tac(srw_ss())[]
+      \\ rev_full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ fs[]
+      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def]
       \\ strip_tac
       \\ simp[flatten_def,FILTER_APPEND]
       \\ imp_res_tac code_installed_append_imp
-      \\ fs[code_installed_def]
+      \\ full_simp_tac(srw_ss())[code_installed_def]
       \\ first_x_assum(qspecl_then[`n`,`l`,`upd_pc (t1.pc +1) t1`]mp_tac)
-      \\ fs[good_syntax_def]
+      \\ full_simp_tac(srw_ss())[good_syntax_def]
       \\ discharge_hyps >- metis_tac[state_rel_with_pc]
       \\ strip_tac
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ fs[get_var_def]
+      \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[get_var_def]
       \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
       \\ pop_assum (assume_tac o SYM)
       \\ imp_res_tac state_rel_get_var_imm
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-      \\ CASE_TAC \\ fs[get_pc_value_def]
+      \\ CASE_TAC \\ full_simp_tac(srw_ss())[get_pc_value_def]
       \\ rveq
-      \\ imp_res_tac word_cmp_word_cmp \\ fs[]
+      \\ imp_res_tac word_cmp_word_cmp \\ full_simp_tac(srw_ss())[]
       \\ qexists_tac`ck+1` \\ simp[]
       \\ fsrw_tac[ARITH_ss][dec_clock_def,inc_pc_def,upd_pc_def]
       \\ qexists_tac`t2` \\ simp[] )
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     >- (
-      strip_tac \\ rveq \\ fs[]
+      strip_tac \\ rveq \\ full_simp_tac(srw_ss())[]
       \\ rator_x_assum`code_installed`mp_tac
       \\ simp[Once flatten_def]
-      \\ split_pair_tac \\ fs[]
+      \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
       \\ simp[code_installed_def] \\ strip_tac
       \\ imp_res_tac code_installed_append_imp
-      \\ fs[code_installed_def]
+      \\ full_simp_tac(srw_ss())[code_installed_def]
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-      \\ fs[get_var_def]
+      \\ full_simp_tac(srw_ss())[get_var_def]
       \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
       \\ imp_res_tac state_rel_get_var_imm
       \\ qpat_assum`_ = read_reg _  _`(assume_tac o SYM)
       \\ simp[]
-      \\ fs[GSYM word_cmp_word_cmp]
+      \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
       \\ first_x_assum(qspecl_then[`n`,`l`,`inc_pc t1`]mp_tac)
-      \\ simp[] \\ fs[good_syntax_def]
+      \\ simp[] \\ full_simp_tac(srw_ss())[good_syntax_def]
       \\ discharge_hyps
       >- ( simp[inc_pc_def,GSYM upd_pc_def] \\ metis_tac[state_rel_with_pc] )
       \\ strip_tac
       \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def]
       \\ qexists_tac`ck+1`\\simp[]
       \\ qexists_tac`t2` \\ simp[]
-      \\ fs[state_rel_def] )
-    \\ strip_tac \\ fs[] \\ rfs[]
-    \\ fs[STOP_def]
+      \\ full_simp_tac(srw_ss())[state_rel_def] )
+    \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[STOP_def]
     \\ rator_x_assum`code_installed`mp_tac
     \\ simp[Once flatten_def]
-    \\ split_pair_tac \\ fs[]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
     \\ simp[code_installed_def] \\ strip_tac
     \\ imp_res_tac code_installed_append_imp
-    \\ fs[code_installed_def]
+    \\ full_simp_tac(srw_ss())[code_installed_def]
     \\ first_x_assum(qspecl_then[`n`,`l`,`inc_pc t1`]mp_tac)
     \\ discharge_hyps
     >- (
       simp[inc_pc_def,GSYM upd_pc_def,state_rel_with_pc]
-      \\ fs[good_syntax_def] )
+      \\ full_simp_tac(srw_ss())[good_syntax_def] )
     \\ strip_tac
     \\ `s.clock ≠ 0`
     by (
       imp_res_tac stackSemTheory.evaluate_clock
       \\ decide_tac )
-    \\ `t1.clock ≠ 0` by fs[state_rel_def]
-    \\ `t2.clock ≠ 0` by fs[state_rel_def]
+    \\ `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def]
+    \\ `t2.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def]
     \\ first_x_assum(qspecl_then[`n`,`l`,`dec_clock (upd_pc t1.pc t2)`]mp_tac)
     \\ discharge_hyps
     >- (
@@ -906,100 +906,100 @@ val flatten_correct = Q.store_thm("flatten_correct",
       \\ match_mp_tac state_rel_with_pc
       \\ simp[] )
     \\ strip_tac
-    \\ fs[get_var_def]
+    \\ full_simp_tac(srw_ss())[get_var_def]
     \\ imp_res_tac state_rel_read_reg_FLOOKUP_regs
     \\ imp_res_tac state_rel_get_var_imm
     \\ qpat_assum`_ = read_reg _  _`(assume_tac o SYM)
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    \\ TRY BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
     \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def]
-    \\ fs[get_pc_value_def]
-    \\ fs[GSYM word_cmp_word_cmp]
+    \\ full_simp_tac(srw_ss())[get_pc_value_def]
+    \\ full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp]
     \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def,upd_pc_def]
     \\ ((CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``state_rel`` o fst o strip_comb))) >>
         asm_exists_tac >> simp[] ) ORELSE
         (CONV_TAC SWAP_EXISTS_CONV >> qexists_tac`t2'` >> simp[]))
     \\ TRY (
-      qexists_tac`ck+ck'+1`>>simp[]>>rw[]
+      qexists_tac`ck+ck'+1`>>simp[]>>srw_tac[][]
       \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def]
       \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def,upd_pc_def]
       \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[]
       \\ NO_TAC)
-    \\ qexists_tac`ck+1+ck'`>>simp[]>>rw[]
+    \\ qexists_tac`ck+1+ck'`>>simp[]>>srw_tac[][]
     \\ last_x_assum(qspec_then`ck'+ck1`mp_tac) \\ simp[] \\ strip_tac
     \\ simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def]
     \\ fsrw_tac[ARITH_ss][inc_pc_def,dec_clock_def,upd_pc_def]
     \\ first_x_assum(qspec_then`ck1`mp_tac) \\ simp[]) >>
   (* JumpLower *)
   conj_tac >- (
-    rw[] >>
-    fs[Q.SPEC`JumpLower _ _ _`flatten_def] >>
+    srw_tac[][] >>
+    full_simp_tac(srw_ss())[Q.SPEC`JumpLower _ _ _`flatten_def] >>
     rator_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
-    Cases_on`get_var r1 s`>>fs[]>> Cases_on`x`>>fs[]>>
-    Cases_on`get_var r2 s`>>fs[]>> Cases_on`x`>>fs[]>>
-    fs[code_installed_def] >>
+    Cases_on`get_var r1 s`>>full_simp_tac(srw_ss())[]>> Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var r2 s`>>full_simp_tac(srw_ss())[]>> Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     `get_var r1 s = SOME (read_reg r1 t1) ∧
      get_var r2 s = SOME (read_reg r2 t1)` by (
-      fs[state_rel_def,get_var_def] >>
-      fs[FLOOKUP_DEF] ) >>
-    reverse IF_CASES_TAC >> fs[] >- (
-      rw[] >> simp[] >>
+      full_simp_tac(srw_ss())[state_rel_def,get_var_def] >>
+      full_simp_tac(srw_ss())[FLOOKUP_DEF] ) >>
+    reverse IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
+      srw_tac[][] >> simp[] >>
       qexists_tac`1`>>simp[]>>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-      fs[GSYM word_cmp_word_cmp] >>
-      CASE_TAC >> fs[] >>
+      full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       qexists_tac`inc_pc t1` >>
       simp[dec_clock_def,inc_pc_def]>>
-      fs[state_rel_def] >>
+      full_simp_tac(srw_ss())[state_rel_def] >>
       metis_tac[]) >>
-    ntac 2 CASE_TAC >> fs[] >- (
-      rw[] >> simp[empty_env_def] >>
-      `t1.clock = 0` by fs[state_rel_def] >>
+    ntac 2 CASE_TAC >> full_simp_tac(srw_ss())[] >- (
+      srw_tac[][] >> simp[empty_env_def] >>
+      `t1.clock = 0` by full_simp_tac(srw_ss())[state_rel_def] >>
       qexists_tac`0`>>simp[]>>
       qexists_tac`t1`>>simp[]>>
-      fs[state_rel_def] ) >>
-    ntac 2 CASE_TAC >> fs[]>>
-    rw[] >> simp[] >> fs[] >>
-    fs[find_code_def] >>
+      full_simp_tac(srw_ss())[state_rel_def] ) >>
+    ntac 2 CASE_TAC >> full_simp_tac(srw_ss())[]>>
+    srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[find_code_def] >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
     imp_res_tac state_rel_dec_clock >>
     drule state_rel_with_pc >>
     pop_assum kall_tac >> strip_tac >>
-    first_x_assum drule >> fs[] >>
+    first_x_assum drule >> full_simp_tac(srw_ss())[] >>
     disch_then drule >> simp[] >>
     strip_tac >>
-    CASE_TAC >> fs[] >>
-    TRY CASE_TAC >> fs[] >>
+    CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
-    fs[GSYM word_cmp_word_cmp,get_pc_value_def] >>
-    `t1.clock ≠ 0` by fs[state_rel_def] >> simp[] >>
-    fs[dec_clock_def,upd_pc_def] >>
+    full_simp_tac(srw_ss())[GSYM word_cmp_word_cmp,get_pc_value_def] >>
+    `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >> simp[] >>
+    full_simp_tac(srw_ss())[dec_clock_def,upd_pc_def] >>
     qexists_tac`ck`>>
     fsrw_tac[ARITH_ss][] >>
     qexists_tac`t2` >>
     simp[] ) >>
   (* Call *)
   conj_tac >- (
-    rw[] >>
+    srw_tac[][] >>
     rator_x_assum`code_installed`mp_tac >>
     simp[Once flatten_def] >> strip_tac >>
     rator_x_assum`evaluate`mp_tac >>
     simp[Once stackSemTheory.evaluate_def] >>
-    BasicProvers.TOP_CASE_TAC>>fs[]>-(
-      BasicProvers.TOP_CASE_TAC>>fs[]>>
-      BasicProvers.TOP_CASE_TAC>>fs[]>>
-      IF_CASES_TAC >> fs[] >- (
-        rw[] >> simp[] >>
+    BasicProvers.TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>-(
+      BasicProvers.TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+      BasicProvers.TOP_CASE_TAC>>full_simp_tac(srw_ss())[]>>
+      IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
+        srw_tac[][] >> simp[] >>
         map_every qexists_tac[`0`,`t1`] >>
-        fs[] >> fs[state_rel_def,empty_env_def] ) >>
-      `t1.clock ≠ 0` by fs[state_rel_def] >>
-      CASE_TAC >> fs[] >>
-      CASE_TAC >> fs[] >>
-      rw[] >> simp[] >> fs[] >>
+        full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[state_rel_def,empty_env_def] ) >>
+      `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >> simp[] >> full_simp_tac(srw_ss())[] >>
       imp_res_tac state_rel_dec_clock >>
-      Cases_on`dest`>>fs[find_code_def,compile_jump_def,code_installed_def] >- (
+      Cases_on`dest`>>full_simp_tac(srw_ss())[find_code_def,compile_jump_def,code_installed_def] >- (
         first_assum(fn th => first_assum(
           tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
         drule state_rel_with_pc >>
@@ -1008,18 +1008,18 @@ val flatten_correct = Q.store_thm("flatten_correct",
         first_x_assum drule >>
         simp[] >>
         disch_then drule >> simp[] >>
-        strip_tac >> fs[] >>
-        `t1.clock = s.clock` by fs[state_rel_def] >>
-        CASE_TAC >> fs[] >>
-        TRY CASE_TAC >> fs[] >>
+        strip_tac >> full_simp_tac(srw_ss())[] >>
+        `t1.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] >>
+        CASE_TAC >> full_simp_tac(srw_ss())[] >>
+        TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
         simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
-        fs[dec_clock_def,upd_pc_def] >>
-        map_every qexists_tac[`ck`,`t2`]>>fs[]>>
+        full_simp_tac(srw_ss())[dec_clock_def,upd_pc_def] >>
+        map_every qexists_tac[`ck`,`t2`]>>full_simp_tac(srw_ss())[]>>
         rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
       qpat_assum`_ = SOME _`mp_tac >>
-      CASE_TAC >> fs[] >>
-      CASE_TAC >> fs[] >>
-      CASE_TAC >> fs[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       strip_tac >>
       first_assum(fn th => first_assum(
         tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
@@ -1029,30 +1029,30 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum drule >>
       simp[] >>
       disch_then drule >> simp[] >>
-      strip_tac >> fs[] >>
+      strip_tac >> full_simp_tac(srw_ss())[] >>
       qmatch_assum_rename_tac`FLOOKUP s.regs r = SOME _` >>
       `read_reg r t1 = Loc n 0` by (
-        fs[state_rel_def,FLOOKUP_DEF] ) >>
-      `t1.clock = s.clock` by fs[state_rel_def] >>
-      CASE_TAC >> fs[] >>
-      TRY CASE_TAC >> fs[] >>
+        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] ) >>
+      `t1.clock = s.clock` by full_simp_tac(srw_ss())[state_rel_def] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY CASE_TAC >> full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def,get_pc_value_def] >>
-      fs[dec_clock_def,upd_pc_def] >>
-      map_every qexists_tac[`ck`,`t2`]>>fs[] >>
+      full_simp_tac(srw_ss())[dec_clock_def,upd_pc_def] >>
+      map_every qexists_tac[`ck`,`t2`]>>full_simp_tac(srw_ss())[] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[]) >>
     (fn g => subterm split_pair_case_tac (#2 g) g) >>
-    var_eq_tac >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    IF_CASES_TAC >> fs[] >- (
-      rw[] >> rw[] >>
+    var_eq_tac >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
+      srw_tac[][] >> srw_tac[][] >>
       map_every qexists_tac[`0`,`t1`] >>
-      fs[] >> fs[state_rel_def,empty_env_def] ) >>
-    `t1.clock ≠ 0` by fs[state_rel_def] >>
+      full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[state_rel_def,empty_env_def] ) >>
+    `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >>
     (fn g => subterm split_pair_case_tac (#2 g) g) >>
     simp[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    split_pair_tac >> fs[] >>
-    fs[code_installed_def] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[code_installed_def] >>
     strip_tac >>
     qho_match_abbrev_tac`∃ck t2.
       case r of NONE => P ck t2 r | SOME (Result _) => P ck t2 r | SOME (Halt w) => PH ck t2 w | SOME TimeOut => P ck t2 r
@@ -1065,16 +1065,16 @@ val flatten_correct = Q.store_thm("flatten_correct",
     suffices_by (CASE_TAC >> simp[] >> CASE_TAC >> simp[] ) >>
     simp[Abbr`P`,Abbr`PH`] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def,lab_to_loc_def] >>
-    fs[good_syntax_def] >> var_eq_tac >>
+    full_simp_tac(srw_ss())[good_syntax_def] >> var_eq_tac >>
     simp[inc_pc_def,dec_clock_def,upd_reg_def] >>
     imp_res_tac find_code_lookup >>
     `dest_to_loc (s.regs \\ t1.link_reg) dest = dest_to_loc' t1.regs dest` by (
       EVAL_TAC >>
-      CASE_TAC >> fs[] >>
+      CASE_TAC >> full_simp_tac(srw_ss())[] >>
       rator_x_assum`state_rel`mp_tac >>
       simp[DOMSUB_FAPPLY_THM] >>
       simp[state_rel_def,FLOOKUP_DEF] ) >>
-    fs[] >>
+    full_simp_tac(srw_ss())[] >>
     first_assum(fn th => first_assum(
       tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
     qpat_abbrev_tac`regs = _ t1.regs` >>
@@ -1084,7 +1084,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       rator_x_assum`loc_to_pc`mp_tac >>
       simp[dest_to_loc'_def] >>
       CASE_TAC >> simp[] >>
-      fs[Abbr`regs`,APPLY_UPDATE_THM] ) >>
+      full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] ) >>
     drule(GEN_ALL compile_jump_correct) >>
     disch_then drule >>
     strip_tac >>
@@ -1092,15 +1092,15 @@ val flatten_correct = Q.store_thm("flatten_correct",
     last_x_assum(qspecl_then[`nx`,`lx`,`t1 with <| pc := pc; regs := regs; clock := s.clock-1 |>`]mp_tac) >>
     discharge_hyps >- (
       simp[] >>
-      conj_tac >- ( strip_tac >> fs[] ) >>
+      conj_tac >- ( strip_tac >> full_simp_tac(srw_ss())[] ) >>
       ntac 2 (last_x_assum(qspec_then`ARB`kall_tac)) >>
       qpat_assum`_ ⇒ ∀x. _`kall_tac >>
-      fs[state_rel_def,stackSemTheory.dec_clock_def,set_var_def,FLOOKUP_UPDATE] >>
-      simp[Abbr`regs`,APPLY_UPDATE_THM] >> rw[] >>
+      full_simp_tac(srw_ss())[state_rel_def,stackSemTheory.dec_clock_def,set_var_def,FLOOKUP_UPDATE] >>
+      simp[Abbr`regs`,APPLY_UPDATE_THM] >> srw_tac[][] >>
       metis_tac[] ) >>
     strip_tac >>
     `t1.clock = s.clock` by metis_tac[state_rel_def] >>
-    Cases_on`r`>>fs[] >- (
+    Cases_on`r`>>full_simp_tac(srw_ss())[] >- (
       first_x_assum(qspec_then`t1 with <| regs := regs; pc := t1.pc+1; clock := ck + (ck1+t1.clock)|>`
         (mp_tac o Q.GENL[`ck1`,`ck`])) >> simp[] >>
       simp[RIGHT_FORALL_IMP_THM] >>
@@ -1109,31 +1109,31 @@ val flatten_correct = Q.store_thm("flatten_correct",
         qpat_assum`_ ⇒ ∀x. _`kall_tac >>
         qpat_assum`_ _ _ _`kall_tac >>
         qpat_assum`_ = (_,_)`kall_tac >>
-        rpt strip_tac >> fs[] >>
+        rpt strip_tac >> full_simp_tac(srw_ss())[] >>
         simp[Abbr`regs`,APPLY_UPDATE_THM] >>
-        fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        fs[FLOOKUP_DEF] >>
-        fs[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> fs[]) >>
+        full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+        full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+        every_case_tac >> full_simp_tac(srw_ss())[]) >>
       strip_tac >>
       CONV_TAC(HO_REWR_CONV EXISTS_NUM) >> disj2_tac >>
       simp[ADD1] >> pop_assum kall_tac >>
       simp[dec_clock_def,upd_pc_def] >>
-      first_x_assum(fn th => mp_tac th >> BasicProvers.TOP_CASE_TAC) >> fs[] >>
-      BasicProvers.TOP_CASE_TAC >> fs[] >>
-      TRY BasicProvers.TOP_CASE_TAC >> fs[] >>
-      rw[] >- (
+      first_x_assum(fn th => mp_tac th >> BasicProvers.TOP_CASE_TAC) >> full_simp_tac(srw_ss())[] >>
+      BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      TRY BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+      srw_tac[][] >- (
         qpat_assum`_ = (_,_)`mp_tac >>
         IF_CASES_TAC >> simp[] >> strip_tac >>
         qpat_assum`¬ _`mp_tac >> simp_tac bool_ss [] >> strip_tac >> rveq >>
-        rfs[] >>
+        rev_full_simp_tac(srw_ss())[] >>
         first_x_assum drule >>
-        simp[] >> fs[] >>
+        simp[] >> full_simp_tac(srw_ss())[] >>
         disch_then drule >> simp[] >>
         imp_res_tac code_installed_append_imp >>
         disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
         strip_tac >>
-        Cases_on`handler`>>fs[]>-(
+        Cases_on`handler`>>full_simp_tac(srw_ss())[]>-(
           qexists_tac`ck+ck'` >>
           qexists_tac`t2'` >>
           conj_tac >- (
@@ -1145,11 +1145,11 @@ val flatten_correct = Q.store_thm("flatten_correct",
           simp[Once flatten_def,ADD1] ) >>
         qexists_tac`ck+ck'+1` >>
         simp[Once flatten_def] >>
-        (fn g => subterm (split_pair_case_tac o assert (C free_in (#2 g))) (#2 g) g) >> fs[] >>
-        split_pair_tac >> fs[] >>
-        fs[code_installed_def] >>
+        (fn g => subterm (split_pair_case_tac o assert (C free_in (#2 g))) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
+        split_pair_tac >> full_simp_tac(srw_ss())[] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         imp_res_tac code_installed_append_imp >>
-        fs[code_installed_def] >>
+        full_simp_tac(srw_ss())[code_installed_def] >>
         simp[ADD1,FILTER_APPEND] >>
         qpat_abbrev_tac`pc3 = LENGTH _ + _` >>
         qexists_tac`t2' with pc := pc3` >> simp[] >>
@@ -1157,19 +1157,19 @@ val flatten_correct = Q.store_thm("flatten_correct",
           gen_tac >>
           first_x_assum(qspec_then`ck1+1`mp_tac) >>
           first_x_assum(qspec_then`ck1+ck'+1`mp_tac) >>
-          simp[] >> rw[] >>
+          simp[] >> srw_tac[][] >>
           fsrw_tac[ARITH_ss][] >>
           simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
           simp[get_pc_value_def,upd_pc_def,dec_clock_def,Abbr`pc3`] >>
           qpat_assum`_ = t2.pc`(assume_tac o SYM) >> simp[] ) >>
         imp_res_tac state_rel_with_pc >>
-        fs[upd_pc_def] ) >>
-      rfs[] >>
-      first_x_assum(fn th => mp_tac th >> BasicProvers.TOP_CASE_TAC >> fs[]) >>
+        full_simp_tac(srw_ss())[upd_pc_def] ) >>
+      rev_full_simp_tac(srw_ss())[] >>
+      first_x_assum(fn th => mp_tac th >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]) >>
       BasicProvers.TOP_CASE_TAC >> simp[] >>
       BasicProvers.TOP_CASE_TAC >> simp[] >>
-      BasicProvers.TOP_CASE_TAC >> simp[] >> rw[] >> fs[] >>
-      split_pair_tac >> fs[] >> rfs[] >>
+      BasicProvers.TOP_CASE_TAC >> simp[] >> srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+      split_pair_tac >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] >>
       imp_res_tac code_installed_append_imp >>
       fsrw_tac[ARITH_ss][code_installed_def] >>
       imp_res_tac code_installed_append_imp >>
@@ -1187,7 +1187,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
       simp[] ) >>
     qpat_assum`_ = (SOME _,_)`mp_tac >>
     rveq >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     TRY (
       strip_tac >> var_eq_tac >> rveq >> simp[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
@@ -1197,11 +1197,11 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum(qspec_then`ss`mp_tac) >>
       discharge_hyps >- (
         simp[Abbr`ss`] >>
-        rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-        fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        fs[FLOOKUP_DEF] >>
-        fs[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> fs[]) >>
+        srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+        full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+        full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+        every_case_tac >> full_simp_tac(srw_ss())[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       rev_full_simp_tac(srw_ss()++ARITH_ss)[] >>
       NO_TAC) >>
@@ -1216,27 +1216,27 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum(qspec_then`ss`mp_tac) >>
       discharge_hyps >- (
         simp[Abbr`ss`] >>
-        rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-        fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        fs[FLOOKUP_DEF] >>
-        fs[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> fs[]) >>
+        srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+        full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+        full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+        every_case_tac >> full_simp_tac(srw_ss())[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
       NO_TAC)
     >- (
-      IF_CASES_TAC >> simp[] >> strip_tac >> rfs[] >> rveq >>
-      first_x_assum drule >> simp[] >> rfs[] >>
+      IF_CASES_TAC >> simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >> rveq >>
+      first_x_assum drule >> simp[] >> rev_full_simp_tac(srw_ss())[] >>
       disch_then drule >> simp[] >>
       disch_then(qspecl_then[`n`,`l`]mp_tac)>>simp[] >>
-      qpat_assum`_ = t2.pc`(assume_tac o SYM) >> fs[] >>
-      imp_res_tac code_installed_append_imp >> fs[] >> strip_tac >>
+      qpat_assum`_ = t2.pc`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+      imp_res_tac code_installed_append_imp >> full_simp_tac(srw_ss())[] >> strip_tac >>
       finish_tac ) >>
     qcase_tac`SOME (Exception w)` >>
     BasicProvers.TOP_CASE_TAC >>
-    ((strip_tac >> var_eq_tac >> rveq >> fs[] >>
-      every_case_tac >> fs[] >> rw[] >>
-      rfs[] >>
+    ((strip_tac >> var_eq_tac >> rveq >> full_simp_tac(srw_ss())[] >>
+      every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
+      rev_full_simp_tac(srw_ss())[] >>
       simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
       simp[upd_reg_def,dec_clock_def,inc_pc_def,lab_to_loc_def] >>
       qexists_tac`ck+1`>>simp[] >>
@@ -1246,76 +1246,76 @@ val flatten_correct = Q.store_thm("flatten_correct",
       first_x_assum(qspec_then`ss`mp_tac) >>
       discharge_hyps >- (
         simp[Abbr`ss`] >>
-        rw[] >> fs[Abbr`regs`,APPLY_UPDATE_THM] >>
-        fs[find_code_def,DOMSUB_FLOOKUP_THM] >>
-        fs[FLOOKUP_DEF] >>
-        fs[state_rel_def,FLOOKUP_DEF] >>
-        every_case_tac >> fs[]) >>
+        srw_tac[][] >> full_simp_tac(srw_ss())[Abbr`regs`,APPLY_UPDATE_THM] >>
+        full_simp_tac(srw_ss())[find_code_def,DOMSUB_FLOOKUP_THM] >>
+        full_simp_tac(srw_ss())[FLOOKUP_DEF] >>
+        full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DEF] >>
+        every_case_tac >> full_simp_tac(srw_ss())[]) >>
       simp[upd_pc_def,dec_clock_def,Abbr`ss`] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
       first_x_assum(qspec_then`ck1`mp_tac)>>simp[] >>
       NO_TAC) ORELSE
      (ntac 2 BasicProvers.TOP_CASE_TAC >>
-      IF_CASES_TAC >> fs[] >> strip_tac >> rveq)) >>
-    split_pair_tac >> fs[] >>
+      IF_CASES_TAC >> full_simp_tac(srw_ss())[] >> strip_tac >> rveq)) >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
     imp_res_tac code_installed_append_imp >>
     pop_assum mp_tac >>
     simp_tac(srw_ss()++ARITH_ss)[code_installed_def] >>
     strip_tac >>
     qpat_assum`∀x. (loc_to_pc _ _ _ = _) ⇒ _`mp_tac >>
-    simp[] >> strip_tac >> rfs[] >>
+    simp[] >> strip_tac >> rev_full_simp_tac(srw_ss())[] >>
     first_x_assum drule >>
     disch_then(qspecl_then[`n`,`m'`]mp_tac)>>simp[] >>
     discharge_hyps >- (
       qpat_assum`_ = t2.pc`(assume_tac o SYM) >>
       imp_res_tac code_installed_append_imp >>
-      fs[code_installed_def] ) >>
+      full_simp_tac(srw_ss())[code_installed_def] ) >>
     strip_tac >>
     finish_tac) >>
   (* FFI *)
   conj_tac >- (
-    rw[stackSemTheory.evaluate_def,flatten_def] >>
-    Cases_on`get_var ptr s`>>fs[]>>Cases_on`x`>>fs[]>>
-    Cases_on`get_var len s`>>fs[]>>Cases_on`x`>>fs[]>>
+    srw_tac[][stackSemTheory.evaluate_def,flatten_def] >>
+    Cases_on`get_var ptr s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
+    Cases_on`get_var len s`>>full_simp_tac(srw_ss())[]>>Cases_on`x`>>full_simp_tac(srw_ss())[]>>
     last_x_assum mp_tac >> CASE_TAC >> simp[] >>
-    split_pair_tac >> simp[] >> rw[] >> simp[] >>
-    fs[code_installed_def,good_syntax_def] >>
+    split_pair_tac >> simp[] >> srw_tac[][] >> simp[] >>
+    full_simp_tac(srw_ss())[code_installed_def,good_syntax_def] >>
     qexists_tac`2` >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def] >>
     rpt var_eq_tac >>
     simp[lab_to_loc_def] >>
     simp[Once labSemTheory.evaluate_def,asm_fetch_def,upd_reg_def,dec_clock_def,inc_pc_def,APPLY_UPDATE_THM] >>
-    IF_CASES_TAC >- fs[state_rel_def] >>
-    IF_CASES_TAC >- fs[state_rel_def] >>
+    IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
+    IF_CASES_TAC >- full_simp_tac(srw_ss())[state_rel_def] >>
     `get_var t1.ptr_reg s = SOME (read_reg t1.ptr_reg t1) ∧
      get_var t1.len_reg s = SOME (read_reg t1.len_reg t1)` by (
-      fs[state_rel_def,get_var_def] >> res_tac >> fs[] ) >>
-    fs[] >>
-    `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by fs[state_rel_def] >>
-    fs[] >>
-    split_pair_tac >> fs[] >>
+      full_simp_tac(srw_ss())[state_rel_def,get_var_def] >> res_tac >> full_simp_tac(srw_ss())[] ) >>
+    full_simp_tac(srw_ss())[] >>
+    `s.memory = t1.mem ∧ s.mdomain = t1.mem_domain ∧ s.be = t1.be` by full_simp_tac(srw_ss())[state_rel_def] >>
+    full_simp_tac(srw_ss())[] >>
+    split_pair_tac >> full_simp_tac(srw_ss())[] >>
     (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
-    fs[state_rel_def,FLOOKUP_DRESTRICT] >> rfs[] >>
+    full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT] >> rev_full_simp_tac(srw_ss())[] >>
     reverse conj_tac
-    >- (fs [targetSemTheory.shift_seq_def] >>
-        rw [] >> res_tac >> fs []) >>
+    >- (full_simp_tac(srw_ss())[targetSemTheory.shift_seq_def] >>
+        srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[]) >>
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>
     res_tac >>
-    Cases_on `t1.io_regs 0 k` >> fs [get_reg_value_def] >>
-    rw [] >> fs []) >>
+    Cases_on `t1.io_regs 0 k` >> full_simp_tac(srw_ss())[get_reg_value_def] >>
+    srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
   conj_tac >-
-   (rw[stackSemTheory.evaluate_def]
-    \\ fs [flatten_def,code_installed_def]
+   (srw_tac[][stackSemTheory.evaluate_def]
+    \\ full_simp_tac(srw_ss())[flatten_def,code_installed_def]
     \\ simp [Once evaluate_def] \\ qexists_tac `1`
-    \\ fs [asm_fetch_def,lab_to_loc_def]
-    \\ fs [inc_pc_def,dec_clock_def,upd_reg_def]
+    \\ full_simp_tac(srw_ss())[asm_fetch_def,lab_to_loc_def]
+    \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,upd_reg_def]
     \\ (fn g => subterm (fn tm =>
          qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g))
-    \\ fs [state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
-    \\ rw [] \\ res_tac) >>
-  rw[stackSemTheory.evaluate_def] >>
-  fs[state_rel_def]);
+    \\ full_simp_tac(srw_ss())[state_rel_def,set_var_def,FLOOKUP_UPDATE,APPLY_UPDATE_THM]
+    \\ srw_tac[][] \\ res_tac) >>
+  srw_tac[][stackSemTheory.evaluate_def] >>
+  full_simp_tac(srw_ss())[state_rel_def]);
 
 val flatten_call_correct = Q.store_thm("flatten_call_correct",
   `evaluate (Call NONE (INL start) NONE,s1) = (res,s2) ∧
@@ -1343,41 +1343,41 @@ val flatten_call_correct = Q.store_thm("flatten_call_correct",
      t2.ffi = s2.ffi ∧
      r2 ≠ Error ∧ (res = SOME TimeOut ⇒ r2 = TimeOut)
      (* (FST (evaluate (t1 with clock := t1.clock - 1 + ck)) ≠ Error)*)`,
-  rw[stackSemTheory.evaluate_def] >>
+  srw_tac[][stackSemTheory.evaluate_def] >>
   last_x_assum mp_tac >>
-  BasicProvers.TOP_CASE_TAC >> fs[] >>
-  BasicProvers.TOP_CASE_TAC >> fs[] >- (
-    rw[] >> qexists_tac`0`>>simp[] >>
-    fs[state_rel_def] >>
+  BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >- (
+    srw_tac[][] >> qexists_tac`0`>>simp[] >>
+    full_simp_tac(srw_ss())[state_rel_def] >>
     simp[Once labSemTheory.evaluate_def] ) >>
-  BasicProvers.TOP_CASE_TAC >> fs[] >>
-  BasicProvers.TOP_CASE_TAC >> fs[] >>
-  rw[] >> rw[] >>
-  fs[find_code_def] >>
+  BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  srw_tac[][] >> srw_tac[][] >>
+  full_simp_tac(srw_ss())[find_code_def] >>
   first_assum(fn th => first_assum(
     tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
-  fs[] >> rveq >>
+  full_simp_tac(srw_ss())[] >> rveq >>
   drule flatten_correct >> simp[] >>
   imp_res_tac state_rel_dec_clock >>
   disch_then drule >> simp[] >>
   disch_then drule >> simp[] >>
   simp[dec_clock_def] >>
-  `t1.clock ≠ 0` by fs[state_rel_def] >>
+  `t1.clock ≠ 0` by full_simp_tac(srw_ss())[state_rel_def] >>
   fsrw_tac[ARITH_ss][] >>
-  reverse BasicProvers.TOP_CASE_TAC >> fs[] >> rw[] >- (
+  reverse BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >- (
     qexists_tac`ck`>>simp[]>>
-    first_x_assum(qspec_then`0`mp_tac)>>rw[]>>
+    first_x_assum(qspec_then`0`mp_tac)>>srw_tac[][]>>
     simp[Once labSemTheory.evaluate_def]) >>
   first_x_assum(qspec_then`r with clock := r.clock+1`mp_tac) >>
   discharge_hyps >- (
-    imp_res_tac stackPropsTheory.evaluate_consts >> fs[] ) >>
+    imp_res_tac stackPropsTheory.evaluate_consts >> full_simp_tac(srw_ss())[] ) >>
   BasicProvers.TOP_CASE_TAC >> simp[] >>
   BasicProvers.TOP_CASE_TAC >> simp[] >>
   BasicProvers.TOP_CASE_TAC >> simp[] >>
   strip_tac >>
   first_assum(fn th => first_assum(
     tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
-  rfs[] >> fs[] >>
+  rev_full_simp_tac(srw_ss())[] >> full_simp_tac(srw_ss())[] >>
   rveq >>
   drule flatten_correct >> simp[] >>
   simp[stackSemTheory.dec_clock_def] >>
@@ -1400,69 +1400,69 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[GSYM AND_IMP_INTRO] >> strip_tac >>
   ntac 2 strip_tac >>
   simp[stackSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >>
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> simp[] >>
   conj_tac >- (
-    rw[] >>
+    srw_tac[][] >>
     simp[labSemTheory.semantics_def] >>
-    IF_CASES_TAC >> fs[] >- (
+    IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
       rator_x_assum`stackSem$evaluate`kall_tac >>
       last_x_assum(qspec_then`k'+1`mp_tac)>>simp[] >>
       (fn g => subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) (#2 g) g) >>
-      spose_not_then strip_assume_tac >> fs[] >>
+      spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] >>
       drule (GEN_ALL flatten_call_correct) >>
       imp_res_tac state_rel_with_clock >>
       first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
       disch_then drule >>
       discharge_hyps >- (
-        rw[] >> TRY strip_tac >> fs[] >>
-        Cases_on`q = SOME (Result (Loc 1 0))`>>fs[]>>
+        srw_tac[][] >> TRY strip_tac >> full_simp_tac(srw_ss())[] >>
+        Cases_on`q = SOME (Result (Loc 1 0))`>>full_simp_tac(srw_ss())[]>>
         metis_tac[]) >>
       strip_tac >>
       (Q.ISPEC_THEN`s2 with clock := k'`mp_tac)labPropsTheory.evaluate_ADD_clock >>
-      simp[] >> fs[] >>
+      simp[] >> full_simp_tac(srw_ss())[] >>
       srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
       qexists_tac`ck`>> spose_not_then strip_assume_tac >>
       fsrw_tac[ARITH_ss][] ) >>
     DEEP_INTRO_TAC some_intro >> simp[] >>
     conj_tac >- (
-      rw[] >>
+      srw_tac[][] >>
       qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
       qmatch_assum_abbrev_tac`labSem$evaluate l = _` >>
       qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
       qispl_then[`l`](mp_tac o Q.GEN`extra`) labPropsTheory.evaluate_add_clock_io_events_mono >>
       simp[Abbr`s`,Abbr`l`] >>
       ntac 2 strip_tac >>
-      Cases_on`t.ffi.final_event`>>fs[]>-(
-        Cases_on`t'.ffi.final_event`>>fs[]>-(
+      Cases_on`t.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
+        Cases_on`t'.ffi.final_event`>>full_simp_tac(srw_ss())[]>-(
           unabbrev_all_tac >>
           drule (GEN_ALL flatten_call_correct) >>
           drule state_rel_with_clock >> strip_tac >>
           disch_then drule >>
           discharge_hyps >- (
-            rw[] >> TRY strip_tac >> fs[] >>
+            srw_tac[][] >> TRY strip_tac >> full_simp_tac(srw_ss())[] >>
             last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-            rw[] >> metis_tac[]) >>
-          strip_tac >> fs[] >>
+            srw_tac[][] >> metis_tac[]) >>
+          strip_tac >> full_simp_tac(srw_ss())[] >>
           drule labPropsTheory.evaluate_ADD_clock >>
           disch_then(qspec_then`k'`mp_tac) >>
           discharge_hyps >- (
             last_x_assum(qspec_then`k`mp_tac)>>simp[] >>
-            strip_tac >> fs[] >> rw[] ) >>
+            strip_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][] ) >>
           simp[] >>
           rator_x_assum`labSem$evaluate`mp_tac >>
           drule labPropsTheory.evaluate_ADD_clock >>
           disch_then(qspec_then`k-1+ck`mp_tac) >>
           simp[]  >>
           ntac 3 strip_tac >>
-          `k' + (k - 1 + ck) = k - 1 + ck + k'` by decide_tac >> fs[] >>
-          fs[state_component_equality] >>
+          `k' + (k - 1 + ck) = k - 1 + ck + k'` by decide_tac >> full_simp_tac(srw_ss())[] >>
+          full_simp_tac(srw_ss())[state_component_equality] >>
           last_x_assum(qspec_then`k`mp_tac)>>
           asm_simp_tac std_ss [] >>
-          strip_tac >> fs[] >> rveq >>
-          rw[] >> fs[]) >>
+          strip_tac >> full_simp_tac(srw_ss())[] >> rveq >>
+          srw_tac[][] >> full_simp_tac(srw_ss())[]) >>
         first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
-        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+        first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
         unabbrev_all_tac >>
         drule (GEN_ALL flatten_call_correct) >>
         imp_res_tac state_rel_with_clock >>
@@ -1471,18 +1471,18 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
         discharge_hyps >- (
           simp[] >> rveq >>
           last_x_assum(qspec_then`k'+1+k`mp_tac) >>
-          simp[] >> rw[] ) >>
+          simp[] >> srw_tac[][] ) >>
         strip_tac >>
         rator_x_assum`stackSem$evaluate`mp_tac >>
         drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
         disch_then(qspec_then`k'+1`mp_tac) >>
-        discharge_hyps >- (strip_tac >> fs[]) >>
+        discharge_hyps >- (strip_tac >> full_simp_tac(srw_ss())[]) >>
         simp[] >> ntac 2 strip_tac >>
-        fsrw_tac[ARITH_ss][] >> rveq >> fs[] >>
+        fsrw_tac[ARITH_ss][] >> rveq >> full_simp_tac(srw_ss())[] >>
         qpat_assum`∀extra. _ ∧ _`(qspec_then`ck+k`mp_tac)>>simp[]>>
-        strip_tac >> fs[]) >>
+        strip_tac >> full_simp_tac(srw_ss())[]) >>
       first_x_assum(qspec_then`k'+1`strip_assume_tac) >>
-      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> fs[] >>
+      first_assum(subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) o concl) >> full_simp_tac(srw_ss())[] >>
       unabbrev_all_tac >>
       drule (GEN_ALL flatten_call_correct) >>
       imp_res_tac state_rel_with_clock >>
@@ -1490,21 +1490,21 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
       disch_then drule >>
       simp[] >>
       discharge_hyps >- (
-        last_x_assum(qspec_then`k'+1+k`mp_tac) >> rw[] ) >>
+        last_x_assum(qspec_then`k'+1+k`mp_tac) >> srw_tac[][] ) >>
       strip_tac >>
       fsrw_tac[ARITH_ss][] >>
-      reverse(Cases_on`t'.ffi.final_event`)>>fs[]>>rfs[]>- (
+      reverse(Cases_on`t'.ffi.final_event`)>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>- (
         qpat_assum`∀extra. _ ∧ _`(qspec_then`ck+k`mp_tac) >>
         fsrw_tac[ARITH_ss][ADD1] >> strip_tac >>
-        fs[state_rel_def] >> rfs[] ) >>
+        full_simp_tac(srw_ss())[state_rel_def] >> rev_full_simp_tac(srw_ss())[] ) >>
       rator_x_assum`labSem$evaluate`mp_tac >>
       drule labPropsTheory.evaluate_ADD_clock >>
       disch_then(qspec_then`ck+k`mp_tac)>>simp[] >>
       ntac 2 strip_tac >> rveq >>
-      fs[] >> rfs[]) >>
+      full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[]) >>
     qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
     qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
-    disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
+    disch_then(qspec_then`1`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
     first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
     unabbrev_all_tac >>
     drule (GEN_ALL flatten_call_correct) >> simp[] >>
@@ -1512,18 +1512,18 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     disch_then(qspec_then`k+1`strip_assume_tac) >>
     disch_then drule >> simp[] >>
     discharge_hyps >- (
-      last_x_assum(qspec_then`k+1`mp_tac) >>fs[]>> rw[]) >>
+      last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
     strip_tac >>
-    asm_exists_tac >> simp[] >> fs[] >>
+    asm_exists_tac >> simp[] >> full_simp_tac(srw_ss())[] >>
     last_x_assum(qspec_then`k+1`mp_tac)>>simp[]>>
-    strip_tac >> fs[] >>
-    every_case_tac >> fs[] >>rveq >> fs[]>>
+    strip_tac >> full_simp_tac(srw_ss())[] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >>rveq >> full_simp_tac(srw_ss())[]>>
     drule (GEN_ALL stackPropsTheory.evaluate_add_clock) >>
     simp[] >>
     qexists_tac`1`>>simp[]) >>
   strip_tac >>
   simp[labSemTheory.semantics_def] >>
-  IF_CASES_TAC >> fs[] >- (
+  IF_CASES_TAC >> full_simp_tac(srw_ss())[] >- (
     last_x_assum(qspec_then`k+1`mp_tac) >>
     (fn g => subterm(fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
     simp[] >> spose_not_then strip_assume_tac >>
@@ -1533,19 +1533,19 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     disch_then drule >> simp[] >>
     conj_tac >- (
       spose_not_then strip_assume_tac >>
-      first_x_assum(qspec_then`k+1`mp_tac) >> fs[] >>
-      Cases_on`q`>>fs[]>>
-      Cases_on`x`>>fs[]>>rfs[]>>
+      first_x_assum(qspec_then`k+1`mp_tac) >> full_simp_tac(srw_ss())[] >>
+      Cases_on`q`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`x`>>full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[]>>
       last_x_assum(qspec_then`s`mp_tac)>>simp[]>>
       metis_tac[]) >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
-    Cases_on`q`>>fs[]>>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
-    BasicProvers.TOP_CASE_TAC >> fs[] >>
+    Cases_on`q`>>full_simp_tac(srw_ss())[]>>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     qmatch_assum_abbrev_tac`FST p = _` >>
-    Cases_on`p`>>fs[markerTheory.Abbrev_def] >>
+    Cases_on`p`>>full_simp_tac(srw_ss())[markerTheory.Abbrev_def] >>
     pop_assum (assume_tac o SYM) >>
     drule labPropsTheory.evaluate_ADD_clock >> simp[] >>
     qexists_tac`ck`>>simp[]) >>
@@ -1562,19 +1562,19 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
     disch_then(qspec_then`k+1`strip_assume_tac) >>
     disch_then drule >> simp[] >>
     conj_tac >- (
-      Cases_on`q`>>fs[]>>
-      Cases_on`x'`>>fs[]>> rw[]>>
+      Cases_on`q`>>full_simp_tac(srw_ss())[]>>
+      Cases_on`x'`>>full_simp_tac(srw_ss())[]>> srw_tac[][]>>
       metis_tac[FST,SND,PAIR]) >>
     srw_tac[QUANT_INST_ss[pair_default_qp]][] >>
     spose_not_then strip_assume_tac >>
     last_x_assum(qspec_then`k+1`mp_tac)>>simp[] >>
-    Cases_on`q`>>fs[]>>
-    BasicProvers.TOP_CASE_TAC >> fs[]>>
-    BasicProvers.TOP_CASE_TAC >> fs[]>>
-    reverse(Cases_on`t.ffi.final_event`)>>fs[]>-(
+    Cases_on`q`>>full_simp_tac(srw_ss())[]>>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]>>
+    BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]>>
+    reverse(Cases_on`t.ffi.final_event`)>>full_simp_tac(srw_ss())[]>-(
       qispl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono) >>
       simp[] >>
-      spose_not_then strip_assume_tac >> fs[] ) >>
+      spose_not_then strip_assume_tac >> full_simp_tac(srw_ss())[] ) >>
     rator_x_assum`labSem$evaluate`mp_tac >>
     drule(labPropsTheory.evaluate_ADD_clock)>>
     disch_then(qspec_then`ck`mp_tac)>>simp[]) >>
@@ -1609,11 +1609,11 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   simp[LNTH_fromList,PULL_EXISTS] >>
   simp[GSYM FORALL_AND_THM] >>
   rpt gen_tac >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> fs[] >>
-  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> fs[] >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (can dest_prod o type_of) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
+  (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)` g) (#2 g)) >> full_simp_tac(srw_ss())[] >>
   qmatch_assum_abbrev_tac`stackSem$evaluate (e,s) = _` >>
   qispl_then[`e`,`s`](mp_tac o Q.GEN`extra`) stackPropsTheory.evaluate_add_clock_io_events_mono >>
-  disch_then(qspec_then`1`strip_assume_tac) >> rfs[] >>
+  disch_then(qspec_then`1`strip_assume_tac) >> rev_full_simp_tac(srw_ss())[] >>
   first_assum(subterm (fn tm => Cases_on`^(assert(has_pair_type)tm)`) o concl) >>
   unabbrev_all_tac >>
   drule (GEN_ALL flatten_call_correct) >> simp[] >>
@@ -1621,16 +1621,16 @@ val flatten_semantics = Q.store_thm("flatten_semantics",
   disch_then(qspec_then`k+1`strip_assume_tac) >>
   disch_then drule >> simp[] >>
   discharge_hyps >- (
-    last_x_assum(qspec_then`k+1`mp_tac) >>fs[]>> rw[]) >>
+    last_x_assum(qspec_then`k+1`mp_tac) >>full_simp_tac(srw_ss())[]>> srw_tac[][]) >>
   strip_tac >>
   reverse conj_tac >> strip_tac >- (
-    qexists_tac`ck+k`>>simp[]>>fs[]>>
-    fs[IS_PREFIX_APPEND]>>rfs[]>>simp[]>>
+    qexists_tac`ck+k`>>simp[]>>full_simp_tac(srw_ss())[]>>
+    full_simp_tac(srw_ss())[IS_PREFIX_APPEND]>>rev_full_simp_tac(srw_ss())[]>>simp[]>>
     simp[EL_APPEND1])>>
   qispl_then[`ck`,`s2 with clock := k`]mp_tac(GEN_ALL labPropsTheory.evaluate_add_clock_io_events_mono)>>
   simp[]>>strip_tac>>
-  qexists_tac`k+1`>>fs[]>>
-  fs[IS_PREFIX_APPEND]>> simp[]>>
+  qexists_tac`k+1`>>full_simp_tac(srw_ss())[]>>
+  full_simp_tac(srw_ss())[IS_PREFIX_APPEND]>> simp[]>>
   simp[EL_APPEND1]);
 
 val make_init_def = Define `

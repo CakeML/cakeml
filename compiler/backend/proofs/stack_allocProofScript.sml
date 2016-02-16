@@ -534,11 +534,11 @@ val memcpy_code_def = Define `
 val split_num_forall_to_10 = prove(
   ``($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
                P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)``,
-  fs [GSYM (RAND_CONV ETA_CONV ``!x. P x``)]
-  \\ eq_tac \\ rw []
-  \\ Cases_on `x` \\ fs []
-  \\ ntac 5 (Cases_on `n` \\ fs [] \\ Cases_on `n'` \\ fs [])
-  \\ fs [ADD1,GSYM ADD_ASSOC]
+  full_simp_tac(srw_ss())[GSYM (RAND_CONV ETA_CONV ``!x. P x``)]
+  \\ eq_tac \\ srw_tac[][]
+  \\ Cases_on `x` \\ full_simp_tac(srw_ss())[]
+  \\ ntac 5 (Cases_on `n` \\ full_simp_tac(srw_ss())[] \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[ADD1,GSYM ADD_ASSOC]
   \\ pop_assum match_mp_tac \\ decide_tac);
 
 val nine_less = DECIDE
@@ -547,7 +547,7 @@ val nine_less = DECIDE
 
 val word_shift_not_0 = store_thm("word_shift_not_0",
   ``word_shift (:'a) <> 0``,
-  rw [stackLangTheory.word_shift_def] \\ fs []);
+  srw_tac[][stackLangTheory.word_shift_def] \\ full_simp_tac(srw_ss())[]);
 
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
@@ -574,37 +574,37 @@ val memcpy_code_thm = prove(
                                               (3,Word b1)] |>)``,
   Induct THEN1
    (simp [Once memcpy_def]
-    \\ rw [] \\ fs [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
-    \\ fs [EVAL ``word_cmp NotEqual 0w 0w``]
-    \\ fs [state_component_equality]
-    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
+    \\ full_simp_tac(srw_ss())[EVAL ``word_cmp NotEqual 0w 0w``]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less])
   \\ simp [Once memcpy_def]
-  \\ rpt gen_tac \\ strip_tac \\ fs []
-  \\ fs [ADD1,GSYM word_add_n2w]
-  \\ split_pair_tac \\ fs [] \\ rpt var_eq_tac \\ fs []
+  \\ rpt gen_tac \\ strip_tac \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[ADD1,GSYM word_add_n2w]
+  \\ split_pair_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ simp [memcpy_code_def,evaluate_def,get_var_def,get_var_imm_def]
-  \\ fs [labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def,word_add_n2w,get_var_def]
+  \\ full_simp_tac(srw_ss())[labSemTheory.word_cmp_def,asmSemTheory.word_cmp_def,word_add_n2w,get_var_def]
   \\ tac
   \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; memory := _; clock := _ |>`
   \\ `memcpy ((n2w n):'a word) (a + bytes_in_word) (b + bytes_in_word)
          (s3 with clock := s3.clock - n).memory
          (s3 with clock := s3.clock - n).mdomain = (b1,m1,T)` by
-       (unabbrev_all_tac \\ fs [])
-  \\ first_x_assum drule \\ fs []
+       (unabbrev_all_tac \\ full_simp_tac(srw_ss())[])
+  \\ first_x_assum drule \\ full_simp_tac(srw_ss())[]
   \\ discharge_hyps THEN1
-    (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
+    (unabbrev_all_tac \\ full_simp_tac(srw_ss())[FLOOKUP_UPDATE,GSYM word_add_n2w] \\ decide_tac)
   \\ strip_tac
   \\ `s3 with clock := s3.clock - n + n = s3` by
-   (unabbrev_all_tac \\ fs [state_component_equality] \\ decide_tac)
-  \\ fs [memcpy_code_def,list_Seq_def,STOP_def]
+   (unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_component_equality] \\ decide_tac)
+  \\ full_simp_tac(srw_ss())[memcpy_code_def,list_Seq_def,STOP_def]
   \\ unabbrev_all_tac
-  \\ fs [state_component_equality]
-  \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less]
-  \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+  \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less]
+  \\ full_simp_tac(srw_ss())[GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
 
 val memcpy_code_thm = store_thm("memcpy_code_thm",
   ``!w a b m dm b1 m1 s.
@@ -621,23 +621,23 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
                                               (1,r1);
                                               (2,Word (a + w * bytes_in_word));
                                               (3,Word b1)] |>)``,
-  Cases \\ fs [] \\ pop_assum mp_tac \\ qspec_tac (`n`,`n`) \\ fs [PULL_FORALL]
+  Cases \\ full_simp_tac(srw_ss())[] \\ pop_assum mp_tac \\ qspec_tac (`n`,`n`) \\ full_simp_tac(srw_ss())[PULL_FORALL]
   \\ rpt strip_tac
   \\ match_mp_tac (memcpy_code_thm |> SIMP_RULE (srw_ss()) [])
   \\ metis_tac [])
 
 val select_lower_lemma = store_thm("select_lower_lemma",
   ``(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)``,
-  fs [fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsl_def,
-      word_lsr_def] \\ rw []
-  \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)` \\ fs []
-  THEN1 (fs [fcpTheory.FCP_BETA] \\ rw [] \\ eq_tac \\ rw [] \\ decide_tac)
-  \\ CCONTR_TAC \\ fs [] \\ decide_tac);
+  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsl_def,
+      word_lsr_def] \\ srw_tac[][]
+  \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)` \\ full_simp_tac(srw_ss())[]
+  THEN1 (full_simp_tac(srw_ss())[fcpTheory.FCP_BETA] \\ srw_tac[][] \\ eq_tac \\ srw_tac[][] \\ decide_tac)
+  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
 
 val select_eq_select_0 = store_thm("select_eq_select_0",
   ``k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)``,
-  fs [fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsr_def] \\ rw []
-  \\ eq_tac \\ fs [] \\ rw [] \\ decide_tac);
+  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsr_def] \\ srw_tac[][]
+  \\ eq_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ decide_tac);
 
 val clear_top_inst_def = Define `
   clear_top_inst i n =
@@ -686,20 +686,20 @@ val word_gc_move_code_def = Define `
 
 val is_fwd_ptr_iff = prove(
   ``!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w``,
-  Cases \\ fs [is_fwd_ptr_def]);
+  Cases \\ full_simp_tac(srw_ss())[is_fwd_ptr_def]);
 
 val isWord_thm = prove(
   ``!w. isWord w = ?v. w = Word v``,
-  Cases \\ fs [isWord_def]);
+  Cases \\ full_simp_tac(srw_ss())[isWord_def]);
 
 val decode_header_lemma = prove(
   ``conf.len_size <> 0 ==>
     decode_header conf w =
      (w ⋙ (2 + conf.len_size), (conf.len_size - 1 -- 0) (w >>> 2))``,
-  fs [bvp_to_wordPropsTheory.decode_header_def] \\ rw []
+  full_simp_tac(srw_ss())[bvp_to_wordPropsTheory.decode_header_def] \\ srw_tac[][]
   \\ `2 <= conf.len_size + 1` by decide_tac
-  \\ drule select_eq_select_0 \\ fs [] \\ rw []
-  \\ fs [DECIDE ``n+1-2 = n-1n``]);
+  \\ drule select_eq_select_0 \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[DECIDE ``n+1-2 = n-1n``]);
 
 val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   ``word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
@@ -727,56 +727,56 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
                                             (5,w1);
                                             (6,Word old);
                                             (7,r7)] |>)``,
-  reverse (Cases_on `w`) \\ fs [word_gc_move_def] THEN1
-   (rw [word_gc_move_code_def,evaluate_def] \\ fs [get_var_def] \\ tac
-    \\ fs [state_component_equality]
-    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+  reverse (Cases_on `w`) \\ full_simp_tac(srw_ss())[word_gc_move_def] THEN1
+   (srw_tac[][word_gc_move_code_def,evaluate_def] \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
-  \\ fs [get_var_def,word_gc_move_code_def,evaluate_def] \\ tac
-  \\ IF_CASES_TAC \\ fs [] THEN1
-   (tac \\ strip_tac \\ rpt var_eq_tac \\ fs []
-    \\ qexists_tac `0` \\ fs [state_component_equality]
-    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less])
+  \\ full_simp_tac(srw_ss())[get_var_def,word_gc_move_code_def,evaluate_def] \\ tac
+  \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[] THEN1
+   (tac \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less])
   \\ IF_CASES_TAC THEN1
-   (fs [ptr_to_addr_def] \\ tac
+   (full_simp_tac(srw_ss())[ptr_to_addr_def] \\ tac
     \\ strip_tac \\ rpt var_eq_tac \\ tac
-    \\ fs [is_fwd_ptr_iff] \\ tac
-    \\ fs [clear_top_inst_def,evaluate_def] \\ tac
-    \\ qexists_tac `0` \\ fs [theWord_def]
-    \\ fs [update_addr_def,select_lower_lemma]
-    \\ fs [state_component_equality]
-    \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+    \\ full_simp_tac(srw_ss())[is_fwd_ptr_iff] \\ tac
+    \\ full_simp_tac(srw_ss())[clear_top_inst_def,evaluate_def] \\ tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[theWord_def]
+    \\ full_simp_tac(srw_ss())[update_addr_def,select_lower_lemma]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-    \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less])
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs [ptr_to_addr_def,isWord_thm]
+    \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less])
+  \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ split_pair_tac \\ full_simp_tac(srw_ss())[ptr_to_addr_def,isWord_thm]
   \\ strip_tac \\ rpt var_eq_tac \\ tac
-  \\ fs [is_fwd_ptr_def,theWord_def,clear_top_inst_def] \\ tac
-  \\ fs [GSYM select_lower_lemma]
+  \\ full_simp_tac(srw_ss())[is_fwd_ptr_def,theWord_def,clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[GSYM select_lower_lemma]
   \\ qexists_tac `w2n (len + 1w)`
   \\ drule memcpy_code_thm
   \\ qpat_abbrev_tac `s3 = s with <| regs := _ ; clock := _ |>`
-  \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac) \\ fs []
+  \\ disch_then (qspec_then `s3 with clock := s.clock` mp_tac) \\ full_simp_tac(srw_ss())[]
   \\ `s3 with clock := s.clock + w2n (len + 1w) = s3` by
-       (unabbrev_all_tac \\ fs [AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
-  \\ fs [] \\ discharge_hyps THEN1
-    (unabbrev_all_tac \\ fs [get_var_def] \\ tac
-     \\ fs [decode_header_lemma] \\ rpt var_eq_tac \\ fs [] \\ tac
-     \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``])
-  \\ strip_tac \\ fs [FUPDATE_LIST]
-  \\ unabbrev_all_tac \\ fs [] \\ tac
-  \\ fs [decode_header_lemma] \\ rpt var_eq_tac \\ fs [] \\ tac
-  \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
-  \\ tac \\ fs [] \\ tac \\ fs [update_addr_def]
-  \\ fs [state_component_equality]
-  \\ fs [FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+       (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
+  \\ full_simp_tac(srw_ss())[] \\ discharge_hyps THEN1
+    (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
+     \\ full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ tac
+     \\ full_simp_tac(srw_ss())[select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``])
+  \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
+  \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[] \\ tac
+  \\ full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ tac
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
+  \\ tac \\ full_simp_tac(srw_ss())[] \\ tac \\ full_simp_tac(srw_ss())[update_addr_def]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
-  \\ once_rewrite_tac [split_num_forall_to_10] \\ fs [nine_less]
+  \\ once_rewrite_tac [split_num_forall_to_10] \\ full_simp_tac(srw_ss())[nine_less]
   \\ `shift_length conf <> 0` by (EVAL_TAC \\ decide_tac)
-  \\ fs [select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
+  \\ full_simp_tac(srw_ss())[select_lower_lemma,DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
 (*
 
