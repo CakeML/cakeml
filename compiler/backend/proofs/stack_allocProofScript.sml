@@ -553,7 +553,7 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
-       labSemTheory.word_cmp_def,
+       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordSemTheory.word_sh_def,word_shift_not_0,FLOOKUP_UPDATE]
 
 val memcpy_code_thm = prove(
@@ -704,10 +704,9 @@ val decode_header_lemma = prove(
 
 val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   ``word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
-    ~(shift_length conf >= dimindex (:'a)) /\
-    ~(word_shift (:α) >= dimindex (:α)) /\
-    ~(2 ≥ dimindex (:α)) /\ conf.len_size <> 0 /\
-    (!w:'a word. w << word_shift (:α) = w * bytes_in_word) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
     FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
     s.memory = m /\ s.mdomain = dm /\
     0 IN FDOM s.regs /\
@@ -790,22 +789,101 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
-
-(*
-
 val word_gc_move_list_code_def = Define `
   word_gc_move_list_code conf =
-    While NotEqual 8 (Imm (1w:'a word)) Skip
-      (list_Seq
+    While NotEqual 7 (Imm (0w:'a word))
+      (list_Seq [load_inst 5 8;
+                 sub_1_inst 7;
+                 word_gc_move_code conf;
+                 store_inst 5 8;
+                 add_bytes_in_word_inst 8])`
 
-*)
-
+val word_gc_move_list_code_thm = store_thm("word_gc_move_code_thm",
+  ``!l a (s:('a,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
+      word_gc_move_list conf (a:'a word,l,i,pa,old,m,dm) = (a1,i1,pa1,m1,T) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      FLOOKUP s.store CurrHeap = SOME (Word old) /\ s.use_store /\
+      s.memory = m /\ s.mdomain = dm /\
+       0 IN FDOM s.regs /\
+      1 IN FDOM s.regs /\
+      2 IN FDOM s.regs /\
+      get_var 3 s = SOME (Word pa) /\
+      get_var 4 s = SOME (Word (i:'a word)) /\
+      5 IN FDOM s.regs ==>
+      6 IN FDOM s.regs ==>
+      get_var 7 s = SOME (Word l) /\
+      get_var 8 s = SOME (Word a) ==>
+      ?ck r0 r1 r2 r5 r6.
+        evaluate (word_gc_move_list_code conf,s with clock := s.clock + ck) =
+          (NONE,s with <| memory := m1;
+                          regs := s.regs |++ [(0,r0);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word pa1);
+                                              (4,Word i1);
+                                              (5,r5);
+                                              (6,r6);
+                                              (7,Word 0w);
+                                              (8,Word a1)] |>)``,
+  Cases \\ Induct_on `n` \\ simp [] THEN1
+   (fs [Once word_gc_move_list_def] \\ rw []
+    \\ qexists_tac `0`
+    \\ fs [word_gc_move_list_code_def,get_var_def] \\ tac
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ once_rewrite_tac [word_gc_move_list_def] \\ simp [LET_THM]
+  \\ rpt strip_tac \\ simp [LET_THM]
+  \\ qpat_assum `_ = (a1,i1,pa1,m1,T)` mp_tac
+  \\ `n2w (SUC n) + -1w = n2w n` by fs [ADD1,GSYM word_add_n2w]
+  \\ split_pair_tac \\ simp []
+  \\ split_pair_tac \\ simp []
+  \\ strip_tac
+  \\ rpt var_eq_tac
+  \\ `n < dimword (:'a)` by decide_tac
+  \\ first_x_assum drule
+  \\ disch_then drule
+  \\ fs [] \\ strip_tac
+  \\ rpt var_eq_tac \\ fs []
+  \\ simp [word_gc_move_list_code_def,evaluate_def]
+  \\ fs [GSYM word_gc_move_list_code_def,get_var_def,get_var_imm_def]
+  \\ tac
+  \\ drule (word_gc_move_code_thm |> GEN_ALL)
+  \\ fs [ADD1,GSYM word_add_n2w]
+  \\ `FLOOKUP ((s:('a,'b)stackSem$state) with
+           <|regs := s.regs |+ (5,s.memory a) |+ (7,Word (n2w n)) |>).store
+       CurrHeap  = SOME (Word old)` by fs []
+  \\ disch_then drule \\ fs [get_var_def] \\ tac \\ strip_tac
+  \\ fs []
+  \\ first_x_assum (qspec_then `s with
+        <|regs :=
+            s.regs |+ (5,s.memory a) |+ (7,Word (n2w n)) |+ (0,r0) |+
+            (1,r1) |+ (2,r2) |+ (3,Word pa1') |+ (4,Word i1') |+
+            (5,w1) |+ (6,r6) |+ (8,Word (a + bytes_in_word));
+          memory := (a =+ w1) m1' |>` mp_tac)
+  \\ rpt (discharge_hyps THEN1 (fs [] \\ tac)) \\ fs []
+  \\ strip_tac \\ fs []
+  \\ qexists_tac `ck+ck'+1` \\ fs []
+  \\ pop_assum mp_tac
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck'+1` strip_assume_tac)
+  \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
+  \\ strip_tac
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck` strip_assume_tac)
+  \\ fs [AC ADD_COMM ADD_ASSOC] \\ tac
+  \\ fs [STOP_def]
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less])
 
 (*
-
-word_gc_move_list_def
-
-
 
 word_gc_move_loop_eq
 word_gc_move_bitmap_unroll
