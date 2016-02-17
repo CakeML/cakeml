@@ -5487,7 +5487,7 @@ val comp_correct = Q.store_thm("comp_correct",
        (rw [] \\ qexists_tac `0` \\ fsrw_tac[] [] \\ res_tac \\ fsrw_tac[] [state_rel_def])
       \\ TOP_CASE_TAC
       \\ TOP_CASE_TAC THEN1 rw []
-      \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs[]
+      \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] []
       \\ res_tac \\ fsrw_tac[] [stackSemTheory.dec_clock_def]
       \\ fsrw_tac[] [compile_prog_def,LET_THM]
       \\ split_pair_tac \\ fsrw_tac[] []
@@ -5845,7 +5845,7 @@ val comp_correct = Q.store_thm("comp_correct",
         `isPREFIX q (Loc x3 x4::x)` by
            (qpat_assum`A=SOME(q,r)` mp_tac>>
            Cases_on`dest`>>fsrw_tac[][find_code_def,add_ret_loc_def]>>
-           EVERY_CASE_TAC>>rw[]>>
+           EVERY_CASE_TAC>>srw_tac[][]>>
            Cases_on`x`>>fsrw_tac[][IS_PREFIX_BUTLAST])>>
         imp_res_tac lookup_fromList2_prefix>>
         Cases_on`n=0`>-
@@ -5866,9 +5866,8 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[el_opt_THM]>>
         Cases_on `m=0` \\ fsrw_tac[] []
         THEN1
-         (fsrw_tac[] [markerTheory.Abbrev_def] \\ rpt var_eq_tac \\ fsrw_tac[] []
-          \\ fsrw_tac[] [lookup_fromList2,lookup_fromList]
-          \\ decide_tac) >>
+          (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
+          decide_tac)
         simp[Abbr`m'`]>>
         fsrw_tac[][el_opt_THM,lookup_fromList2,lookup_fromList]>>
         (*Slow...*)
@@ -5882,6 +5881,7 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[EL_DROP]>>
         strip_tac>>
         qpat_assum`!x. A ⇒ B = C` mp_tac>>
+        rpt(qpat_assum`!n.P` kall_tac)>>
         simp[EL_DROP]>>
         disch_then(qspec_then`LENGTH q - (n DIV 2 +1)` mp_tac)>>
         ntac 30 (pop_assum mp_tac)>>
@@ -6203,8 +6203,8 @@ val comp_correct = Q.store_thm("comp_correct",
         rw[]>>
         simp[])>>
       fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
-      simp[dec_clock_def,call_env_def,push_env_def]>>
-      simp[env_to_list_def]>>
+      fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
+         ##simp[env_to_list_def]>>
       fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
       `sargs ≤ m ∧ m ≤ m'` by
          (unabbrev_all_tac>>
@@ -6216,8 +6216,6 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[FUN_EQ_THM]>>
       CONJ_TAC>-
         fsrw_tac[][push_env_def,env_to_list_def,LET_THM]>>
-      CONJ_TAC>-
-        metis_tac[]>>
       CONJ_ASM1_TAC>-
         DECIDE_TAC>>
       CONJ_TAC>-
@@ -6226,8 +6224,7 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[wf_fromList2]>>
       fsrw_tac[][DROP_DROP_EQ]>>
       CONJ_TAC>-
-        (fsrw_tac[][LET_THM]>>
-        qpat_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
+        (qpat_assum`stack_rel A B C D E G H (f'::lens)` mp_tac>>
         simp[push_env_def,env_to_list_def]>>
         qpat_assum`DROP A B = DROP C D` mp_tac>>
         simp[])>>
@@ -6254,9 +6251,11 @@ val comp_correct = Q.store_thm("comp_correct",
           (Cases_on`n`>>simp[]>>
           Cases_on`n'`>>fsrw_tac[][]>>
           simp[ADD_DIV_RWT,ADD1])>>
-        simp[FLOOKUP_UPDATE]>>
+        rw[FLOOKUP_UPDATE]>>
         fsrw_tac[][stackSemTheory.get_var_def,FLOOKUP_UPDATE]>>
         metis_tac[])>>
+      ntac 3 (qpat_assum`!a b.P` kall_tac)>>
+      fsrw_tac[][]>>
       simp[el_opt_THM]>>
       Cases_on `m=0` \\ fsrw_tac[] []
       THEN1
@@ -6266,17 +6265,20 @@ val comp_correct = Q.store_thm("comp_correct",
      (*Extremely slow*)
      simp[Abbr`m'`]>>
      fsrw_tac[][el_opt_THM,lookup_fromList2,lookup_fromList]>>
-     ntac 60 (last_x_assum kall_tac)>>
+     ntac 80 (last_x_assum kall_tac)>>
      simp[EL_TAKE,EL_DROP]>>
      first_x_assum(qspecl_then[`n`,`v`] kall_tac)>>
      first_x_assum(qspecl_then[`n`,`v`] mp_tac)>>
+     rpt(qpat_assum`!a b. P` kall_tac)>>
      fsrw_tac[][]>>
      simp[EL_TAKE]>>
-     ntac 3 (qpat_assum`!n.P` kall_tac)>>
      qpat_assum`DROP A B = DROP C D` mp_tac>>
      `k < (n DIV 2+1)` by simp[]>>
      simp[]>>
      disch_then sym_sub_tac>>
+     qpat_assum`!x. A ⇒ B = C` mp_tac>>
+     rpt(qpat_assum`!n.P` kall_tac)>>
+     strip_tac>>
      simp[EL_DROP]>>
      strip_tac>>
      `n DIV 2 + 1 < f +k` by
