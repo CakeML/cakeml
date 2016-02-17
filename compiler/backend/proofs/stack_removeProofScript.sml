@@ -1639,6 +1639,112 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* init code *)
 
+val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
+       wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
+       FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
+       asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
+       labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
+       wordSemTheory.word_sh_def]
+
+val store_list_code_def = Define `
+  (store_list_code a t [] = Skip) /\
+  (store_list_code a t (INL w::xs) =
+    Seq (list_Seq [const_inst t w; store_inst t a; add_bytes_in_word_inst a])
+        (store_list_code a t xs)) /\
+  (store_list_code a t (INR i::xs) =
+    Seq (list_Seq [store_inst i a; add_bytes_in_word_inst a])
+        (store_list_code a t xs))`
+
+val mem_val_def = Define `
+  (mem_val regs (INL w) = Word w) /\
+  (mem_val (regs:num |-> 'a word_loc) (INR n) = regs ' n)`
+
+val store_list_code_thm = store_thm("store_list_code_thm",
+  ``!xs s w frame ys.
+      (word_list w ys * frame) (fun2set (s.memory,s.mdomain)) /\
+      (LENGTH ys = LENGTH xs) /\ a <> t /\
+      get_var a s = SOME (Word w) /\ t IN FDOM s.regs /\
+      EVERY (\x. !n. (INR n = x) ==> n <> a /\ n <> t /\ n IN FDOM s.regs) xs ==>
+      ?r1 m1.
+        (word_list w (MAP (mem_val s.regs) xs) * frame) (fun2set (m1,s.mdomain)) /\
+        evaluate (store_list_code a t xs,s) =
+          (NONE,s with <| memory := m1;
+                          regs := s.regs |++
+            [(a,Word (w + bytes_in_word * n2w (LENGTH xs)));(t,r1)] |>)``,
+  Induct \\ fs [] THEN1
+   (fs [word_list_def,SEP_CLAUSES,store_list_code_def,LENGTH_NIL]
+    \\ tac
+    \\ fs [finite_mapTheory.fmap_EXT,state_component_equality]
+    \\ rw [] \\ qexists_tac `s.regs ' t`
+    \\ fs [EXTENSION,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
+    \\ metis_tac [])
+  \\ Cases_on `ys` \\ Cases \\ fs [mem_val_def]
+  \\ fs [word_list_def,SEP_CLAUSES,store_list_code_def,LENGTH_NIL]
+  THEN1
+   (tac \\ fs [store_list_code_def]
+    \\ rpt strip_tac
+    \\ SEP_R_TAC \\ fs []
+    \\ fs [FLOOKUP_UPDATE]
+    \\ qabbrev_tac `m = s.memory`
+    \\ qabbrev_tac `dm = s.mdomain`
+    \\ SEP_W_TAC
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [GSYM STAR_ASSOC]
+    \\ once_rewrite_tac [STAR_COMM]
+    \\ once_rewrite_tac [GSYM STAR_ASSOC]
+    \\ qpat_abbrev_tac `s4 = s with <| regs := _; memory := _ |>`
+    \\ first_x_assum (qspec_then `s4` mp_tac)
+    \\ unabbrev_all_tac \\ fs []
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ discharge_hyps
+    THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
+    \\ strip_tac
+    \\ fs [state_component_equality,ADD1,GSYM word_add_n2w,
+           WORD_LEFT_ADD_DISTRIB]
+    \\ qexists_tac `r1` \\ fs []
+    \\ `MAP (mem_val (s.regs |+ (t,Word x) |+ (a,Word (w + bytes_in_word)))) xs =
+        MAP (mem_val s.regs) xs` by
+     (fs [MAP_EQ_f,EVERY_MEM]
+      \\ Cases \\ fs [mem_val_def]
+      \\ rw [] \\ res_tac \\ fs [FAPPLY_FUPDATE_THM])
+    \\ fs []
+    \\ fs [finite_mapTheory.fmap_EXT,state_component_equality,
+           FAPPLY_FUPDATE_THM,FUPDATE_LIST,EXTENSION]
+    \\ metis_tac [])
+  THEN1
+   (tac \\ fs [store_list_code_def]
+    \\ rpt strip_tac \\ SEP_R_TAC \\ fs []
+    \\ fs [FLOOKUP_UPDATE]
+    \\ fs [FLOOKUP_DEF]
+    \\ qabbrev_tac `m = s.memory`
+    \\ qabbrev_tac `dm = s.mdomain`
+    \\ SEP_W_TAC
+    \\ pop_assum mp_tac
+    \\ once_rewrite_tac [GSYM STAR_ASSOC]
+    \\ once_rewrite_tac [STAR_COMM]
+    \\ once_rewrite_tac [GSYM STAR_ASSOC]
+    \\ qpat_abbrev_tac `s4 = s with <| regs := _; memory := _ |>`
+    \\ first_x_assum (qspec_then `s4` mp_tac)
+    \\ unabbrev_all_tac \\ fs []
+    \\ rpt strip_tac \\ first_x_assum drule
+    \\ discharge_hyps
+    THEN1 (fs [get_var_def,FLOOKUP_UPDATE,EVERY_MEM])
+    \\ strip_tac
+    \\ fs [state_component_equality,ADD1,GSYM word_add_n2w,
+           WORD_LEFT_ADD_DISTRIB]
+    \\ qexists_tac `r1` \\ fs []
+    \\ `MAP (mem_val (s.regs |+ (a,Word (w + bytes_in_word)))) xs =
+        MAP (mem_val s.regs) xs` by
+     (fs [MAP_EQ_f,EVERY_MEM]
+      \\ Cases \\ fs [mem_val_def]
+      \\ rw [] \\ res_tac \\ fs [FAPPLY_FUPDATE_THM])
+    \\ fs []
+    \\ fs [finite_mapTheory.fmap_EXT,state_component_equality,
+           FAPPLY_FUPDATE_THM,FUPDATE_LIST,EXTENSION]))
+
+
+
+
 val make_init_store_def = Define `
   (make_init_store w m [] s = s) /\
   (make_init_store w m (n::ns) s =
