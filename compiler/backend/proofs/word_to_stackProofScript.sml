@@ -5487,7 +5487,7 @@ val comp_correct = Q.store_thm("comp_correct",
        (rw [] \\ qexists_tac `0` \\ fsrw_tac[] [] \\ res_tac \\ fsrw_tac[] [state_rel_def])
       \\ TOP_CASE_TAC
       \\ TOP_CASE_TAC THEN1 rw []
-      \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] []
+      \\ strip_tac \\ rpt var_eq_tac \\ fsrw_tac[] [] \\ rfs []
       \\ res_tac \\ fsrw_tac[] [stackSemTheory.dec_clock_def]
       \\ fsrw_tac[] [compile_prog_def,LET_THM]
       \\ split_pair_tac \\ fsrw_tac[] []
@@ -5508,8 +5508,7 @@ val comp_correct = Q.store_thm("comp_correct",
            \\ qmatch_goalsub_abbrev_tac `stackSem$evaluate (_,t5)`) g
            |> #1 |> hd |> #1 |> hd |> rand |> rhs)` g)
       \\ `state_rel k m' m (call_env q (dec_clock s)) t5 lens` by
-           (qpat_assum`!a b c d e g. P` kall_tac>>
-            fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
+           (fsrw_tac[][state_rel_def,LET_THM,Abbr`t5`,call_env_def,dec_clock_def]>>
             fsrw_tac[][stack_free_def]>>
             `stack_arg_count dest' (LENGTH args) k = (LENGTH q -k)` by
               (simp[stack_arg_count_def]>>
@@ -5867,7 +5866,7 @@ val comp_correct = Q.store_thm("comp_correct",
         Cases_on `m=0` \\ fsrw_tac[] []
         THEN1
           (fsrw_tac[] [lookup_fromList2,lookup_fromList,Abbr`m'`]>>
-          decide_tac)
+          decide_tac)>>
         simp[Abbr`m'`]>>
         fsrw_tac[][el_opt_THM,lookup_fromList2,lookup_fromList]>>
         (*Slow...*)
@@ -6204,7 +6203,6 @@ val comp_correct = Q.store_thm("comp_correct",
         simp[])>>
       fsrw_tac[][state_rel_def,Abbr`word_state`,Abbr`stack_state`]>>
       fsrw_tac[][dec_clock_def,call_env_def,push_env_def,env_to_list_def,LET_THM]>>
-         ##simp[env_to_list_def]>>
       fsrw_tac[][Abbr`t6`,stackSemTheory.state_component_equality]>>
       `sargs ≤ m ∧ m ≤ m'` by
          (unabbrev_all_tac>>
