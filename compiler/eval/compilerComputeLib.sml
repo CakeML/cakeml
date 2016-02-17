@@ -542,6 +542,7 @@ in
 
   (*stackLang*)
   ; add_datatype``:'a stackLang$prog``
+  ; add_thms[stackLangTheory.list_Seq_def]
   (*word_to_stack*)
   ; add_thms
     [word_to_stackTheory.wReg1_def
@@ -592,7 +593,6 @@ in
     ,stack_removeTheory.stack_alloc_def
     ,stack_removeTheory.comp_def
     ,stack_removeTheory.prog_comp_def
-    ,stack_removeTheory.list_Seq_def
     ,stack_removeTheory.halt_inst_def
     ,stack_removeTheory.init_code_def
     ,stack_removeTheory.init_code_def
