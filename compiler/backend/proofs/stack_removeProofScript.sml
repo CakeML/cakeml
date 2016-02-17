@@ -297,6 +297,18 @@ val find_code_lemma = prove(
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac);
 
+val find_code_lemma2 = prove(
+  ``state_rel k s t1 /\
+    (case dest of INL v2 => T | INR i => i < k) /\
+    find_code dest (s.regs \\ x1) s.code = SOME x ==>
+    find_code dest (t1.regs \\ x1) t1.code = SOME (comp k x) /\ good_syntax x k``,
+  CASE_TAC \\ full_simp_tac(srw_ss())[find_code_def,state_rel_def,code_rel_def]
+  \\ strip_tac \\ res_tac
+  \\ fs[DOMSUB_FLOOKUP_THM]
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ res_tac);
+
 val state_rel_set_var = store_thm("state_rel_set_var[simp]",
   ``state_rel k s t1 /\ v < k ==>
     state_rel k (set_var v x s) (set_var v x t1)``,
@@ -1002,7 +1014,115 @@ val comp_correct = Q.prove(
       \\ qexists_tac`ck`
       \\ rev_full_simp_tac(srw_ss()++ARITH_ss)[dec_clock_def])
     \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[good_syntax_def]
-    \\ cheat)
+    \\ simp[Once comp_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ simp[Once evaluate_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ drule (GEN_ALL find_code_lemma2)
+    \\ disch_then drule
+    \\ disch_then drule
+    \\ strip_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq
+      \\ simp[evaluate_def]
+      \\ qexists_tac`0`\\simp[]
+      \\ `t1.clock = 0` by fs[state_rel_def]
+      \\ simp[] \\ fs[state_rel_def] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ simp[Once evaluate_def]
+    \\ `t1.clock = s.clock` by fs[state_rel_def]
+    \\ simp[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ qmatch_assum_rename_tac`_ = (SOME res,_)`
+    \\ Cases_on`res = TimeOut` \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ ss _`
+      \\ (fn g => subterm (fn tm => (`state_rel k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      >- (
+        simp[Abbr`ss`,dec_clock_def]
+        \\ match_mp_tac state_rel_with_clock
+        \\ match_mp_tac state_rel_set_var
+        \\ simp[] )
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ strip_tac
+      \\ fs[dec_clock_def]
+      \\ qexists_tac`ck'`\\simp[] )
+    \\ Cases_on`∃w. res = Halt w` \\ fs[]
+    >- (
+      strip_tac \\ rveq \\ fs[]
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ ss _`
+      \\ (fn g => subterm (fn tm => (`state_rel k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      >- (
+        simp[Abbr`ss`,dec_clock_def]
+        \\ match_mp_tac state_rel_with_clock
+        \\ match_mp_tac state_rel_set_var
+        \\ simp[] )
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ strip_tac
+      \\ fs[dec_clock_def]
+      \\ qexists_tac`ck'`\\simp[] )
+    \\ Cases_on`∃l. res = Result l` \\ fs[]
+    >- (
+      BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ strip_tac \\ fs[] \\ rfs[]
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ (dec_clock sss) _`
+      \\ qabbrev_tac`ss = dec_clock sss`
+      \\ (fn g => subterm (fn tm => (`state_rel k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      >- (
+        simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
+        \\ match_mp_tac state_rel_with_clock
+        \\ match_mp_tac state_rel_set_var
+        \\ simp[] )
+      \\ first_x_assum drule \\ simp[] \\ strip_tac
+      \\ first_x_assum drule \\ simp[] \\ strip_tac
+      \\ fs[dec_clock_def]
+      \\ rator_x_assum`evaluate`mp_tac
+      \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
+      \\ drule (GEN_ALL evaluate_add_clock)
+      \\ disch_then(qspec_then`ck2`mp_tac)
+      \\ simp[] \\ ntac 2 strip_tac
+      \\ qexists_tac`ck' + ck2` \\  simp[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      strip_tac \\ rveq
+      \\ qmatch_asmsub_abbrev_tac`state_rel _ ss _`
+      \\ (fn g => subterm (fn tm => (`state_rel k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+      >- (
+        simp[Abbr`ss`,dec_clock_def]
+        \\ match_mp_tac state_rel_with_clock
+        \\ match_mp_tac state_rel_set_var
+        \\ simp[] )
+      \\ first_x_assum drule
+      \\ simp[]
+      \\ strip_tac
+      \\ fs[dec_clock_def]
+      \\ qexists_tac`ck'`\\simp[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ fs[] \\ rfs[]
+    \\ qmatch_asmsub_abbrev_tac`state_rel _ (dec_clock sss) _`
+    \\ qabbrev_tac`ss = dec_clock sss`
+    \\ (fn g => subterm (fn tm => (`state_rel k ss (^tm with clock := s.clock - 1)` by all_tac) g) (#2 g))
+    >- (
+      simp[Abbr`ss`,dec_clock_def,Abbr`sss`]
+      \\ match_mp_tac state_rel_with_clock
+      \\ match_mp_tac state_rel_set_var
+      \\ simp[] )
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
+    \\ first_x_assum drule \\ simp[] \\ strip_tac
+    \\ fs[dec_clock_def]
+    \\ rator_x_assum`evaluate`mp_tac
+    \\ qmatch_goalsub_rename_tac`ck2 + t2.clock`
+    \\ drule (GEN_ALL evaluate_add_clock)
+    \\ disch_then(qspec_then`ck2`mp_tac)
+    \\ simp[] \\ ntac 2 strip_tac
+    \\ qexists_tac`ck' + ck2` \\  simp[] )
   THEN1 (* FFI *)
    (simp [Once comp_def]
     \\ qexists_tac`0`
