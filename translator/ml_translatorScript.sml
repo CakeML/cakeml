@@ -991,8 +991,7 @@ val Eval_sub = store_thm("Eval_sub",
   first_assum(match_exists_tac o concl) >> simp[] >>
   qexists_tac`EL n l'` >>
   fs [LIST_REL_EL_EQN] >> res_tac >> fs [INT_ABS_NUM,GSYM NOT_LESS] >>
-  conj_tac >- record_simp_failure_tac >>
-  decide_tac);
+  record_simp_failure_tac);
 
 val Eval_vector = store_thm("Eval_vector",
  ``!env x1 a l.
