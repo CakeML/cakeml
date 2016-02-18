@@ -1,4 +1,4 @@
-open preamble ffiTheory
+open preamble ffiTheory BasicProvers
      wordSemTheory labSemTheory labPropsTheory
      lab_to_targetTheory lab_filterProofTheory
      asmTheory asmSemTheory asmPropsTheory
@@ -1010,7 +1010,36 @@ val Inst_lemma = Q.prove(
     conj_tac >- ( srw_tac[][] >> first_x_assum drule >> simp[] ) >>
     match_mp_tac arith_upd_lemma >> srw_tac[][])
   \\ strip_tac >>
-  cheat (* long and messy, use set_byte_get_byte lemmas for memop cases *));
+  Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
+  >-
+    (*Load*)
+    cheat
+  >-
+    (*Load8*)
+    (Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    ntac 2 (pop_assum mp_tac)>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    ntac 2 strip_tac>>
+    res_tac>>fs[word_loc_val_byte_def]>>
+    FULL_CASE_TAC>>fs[]>>
+    first_assum(qspec_then`n'` assume_tac)>>
+    qpat_assum`A=Word c'` SUBST_ALL_TAC>>
+    fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
+    rw[]
+    >- metis_tac[]
+    >-
+      (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+      fs[read_mem_def]>>
+      rfs[word_loc_val_def]))
+  >-
+    (*Store*)
+    cheat
+  >-
+    (*Store8*)
+    cheat);
+  (* long and messy, use set_byte_get_byte lemmas for memop cases *)
 
 val state_rel_ignore_io_events = prove(
   ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
