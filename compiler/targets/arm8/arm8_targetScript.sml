@@ -697,7 +697,8 @@ val lsl = Q.prove(
    \\ simp [and_max ``:64``, lsl_lem3]
    \\ Cases_on `n = 0`
    >- (fs [] \\ CONV_TAC ev \\ simp [and_max ``:64``])
-   \\ fs [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
+   \\ full_simp_tac (srw_ss())
+         [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
           wordsTheory.word_add_n2w, lsl_lem4, lsl_lem6]
    \\ `PAD_LEFT F 64 (PAD_LEFT T (64 - n) []) =
        fixwidth (dimindex(:64)) (PAD_LEFT F 64 (PAD_LEFT T (64 - n) []))`
@@ -757,7 +758,8 @@ val lsr = Q.prove(
    \\ simp [bitstringTheory.length_pad_left, replicate1, lsl_lem1]
    \\ Cases_on `n = 0`
    >- (fs [] \\ CONV_TAC ev \\ simp [and_max ``:64``])
-   \\ fs [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
+   \\ full_simp_tac (srw_ss())
+         [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
           wordsTheory.word_add_n2w, lsr_lem1, lsl_lem4, lsl_lem5, lsl_lem6,
           lsr_lem2]
    \\ srw_tac [fcpLib.FCP_ss]
@@ -789,7 +791,8 @@ val asr2 = Q.prove(
    \\ simp [bitstringTheory.length_pad_left, replicate1, lsl_lem1]
    \\ Cases_on `n = 0`
    >- (fs [] \\ CONV_TAC ev \\ simp [and_max ``:64``])
-   \\ fs [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
+   \\ full_simp_tac (srw_ss())
+         [DECIDE ``n <> 0n ==> 64 - n < 64``, arithmeticTheory.LESS_MOD,
           wordsTheory.word_add_n2w, lsr_lem1, lsl_lem4, lsl_lem5, lsl_lem6,
           lsr_lem2, asr_lem1, and_max ``:64``]
    \\ `0x10000000000000000 - 2 ** (64 - n) = (2 ** n - 1) * 2 ** (64 - n)`
@@ -828,6 +831,9 @@ val enc_ok_rwts =
 val dec_rwts = [arm8_dec_def, decode_word_def, fetch_word_def]
 
 (* some custom tactics ----------------------------------------------------- *)
+
+val fs = full_simp_tac (srw_ss())
+val rfs = rev_full_simp_tac (srw_ss())
 
 val bytes_in_memory_thm = Q.prove(
    `!s state a b c d.

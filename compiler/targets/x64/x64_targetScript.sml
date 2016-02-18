@@ -669,6 +669,8 @@ val dec_rwts =
 
 (* some custom tactics ---------------------------------------------------- *)
 
+val rfs = rev_full_simp_tac (srw_ss())
+
 local
    val rip = ``state.RIP``
    val pc = ``s.pc: word64``
@@ -750,7 +752,7 @@ end
 val next_state_tac0 =
    next_state_tac hd (fn s => s = "v" orelse s = "wv") `ms`
    \\ bytes_in_memory_tac
-   \\ fs []
+   \\ fsrw_tac [] []
 
 fun next_state_tac_cmp n =
    bytes_in_memory_tac
@@ -842,7 +844,7 @@ local
             else ls_tac (full_simp_tac (srw_ss()++wordsLib.WORD_EXTRACT_ss) [])
          fun tac2 not5 =
            Cases_on `(2 >< 0) r2 = 4w: word3`
-           \\ fs enc_rwts
+           \\ fsrw_tac [] enc_rwts
            >| [
               (if low_r2
                   then assume_tac (Q.SPECL [`n'`, `r2`] mem_lem10)
@@ -851,8 +853,10 @@ local
               \\ `zR12 = num2Zreg n'` by imp_res_tac mem_lem9
               \\ (if decode then simp dec_rwts else all_tac),
               (if not5
-                  then `r2 = RegNot4or5 r2` by (fs [] \\ imp_res_tac mem_lem6)
-               else `r2 = RegNot4 r2` by (fs [] \\ imp_res_tac mem_lem7))
+                  then `r2 = RegNot4or5 r2`
+                       by (fsrw_tac [] [] \\ imp_res_tac mem_lem6)
+               else `r2 = RegNot4 r2`
+                    by (fsrw_tac [] [] \\ imp_res_tac mem_lem7))
               \\ (if decode
                      then pop_assum (fn th => SUBST1_TAC th
                                               \\ simp dec_rwts
@@ -874,14 +878,14 @@ local
                 then `~r2 ' 3` by imp_res_tac mem_lem12
              else all_tac)
          \\ Cases_on `(c = 0w) /\ (2 >< 0) r2 <> 5w: word3`
-         \\ asmLib.using_first 1 (fn thms => fs (loc_lem2 :: thms))
+         \\ asmLib.using_first 1 (fn thms => fsrw_tac [] (loc_lem2 :: thms))
          >- tac2 true
          \\ pop_assum (K all_tac)
          \\ Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7Fw`
-         \\ asmLib.using_first 1 (fn thms => fs thms)
+         \\ asmLib.using_first 1 (fn thms => fsrw_tac [] thms)
          >- tac2 false
          \\ pop_assum (K all_tac)
-         \\ fs [const_lem2]
+         \\ fsrw_tac [] [const_lem2]
          \\ tac2 false
         ) (asl, g)
       end
@@ -894,13 +898,13 @@ end
 val cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
    \\ asmLib.using_first 1
-        (fn thms => fs ([const_lem2, jump_lem1, jump_lem4,
+        (fn thms => fsrw_tac [] ([const_lem2, jump_lem1, jump_lem4,
                          asmPropsTheory.all_pcs_def] @ thms))
    >- (
       rule_assum_tac (REWRITE_RULE [cmp_lem4])
       \\ next_state_tac_cmp 4
       \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem5, fun2set_eq] [`r1`]
-      \\ fs []
+      \\ fsrw_tac [] []
       \\ blastLib.FULL_BBLAST_TAC
       )
    \\ pop_assum (K all_tac)
@@ -926,7 +930,7 @@ fun decode_tac1 l =
 val decode_cmp_tac =
    Cases_on `0xFFFFFFFFFFFFFF80w <= c' /\ c' <= 0x7fw`
    \\ asmLib.using_first 1
-        (fn thms => fs ([const_lem2, jump_lem1, jump_lem4] @ thms))
+        (fn thms => fsrw_tac [] ([const_lem2, jump_lem1, jump_lem4] @ thms))
    >- (
       rule_assum_tac (REWRITE_RULE [cmp_lem4])
       \\ decode_tac1 [`r1`]
@@ -982,7 +986,7 @@ val x64_encoding = Count.apply Q.prove (
                \\ Cases_on `(b = Or) /\ (n0 = n')`
                >- decode_tac0 [`r1`, `r2`, `r3`]
                \\ Cases_on `b`
-               \\ fs []
+               \\ fsrw_tac [] []
                \\ decode_tac0 [`r2`, `r3`],
                (* Imm *)
                Cases_on `b`
@@ -1003,9 +1007,9 @@ val x64_encoding = Count.apply Q.prove (
             \\ Cases_on `s`
             \\ lfs ([loc_lem2] @ enc_rwts)
             \\ imp_res_tac binop_lem9
-            \\ fs []
+            \\ fsrw_tac [] []
             \\ Cases_on `n1 = 1`
-            \\ fs []
+            \\ fsrw_tac [] []
             \\ decode_tac0 [`i`, `r2`]
          )
       \\ print_tac "Mem"
@@ -1014,9 +1018,11 @@ val x64_encoding = Count.apply Q.prove (
       \\ qabbrev_tac `r2 = n2w n' : word4`
       \\ strip_tac
       \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
-      by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`] \\ fs enc_rwts)
+      by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`]
+          \\ fsrw_tac [] enc_rwts)
       \\ `RexReg (r1 ' 3,(2 >< 0) r1) = num2Zreg n`
-      by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r1`] \\ fs enc_rwts)
+      by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r1`]
+          \\ fsrw_tac [] enc_rwts)
       \\ Cases_on `m`
       \\ lfs enc_rwts
       >- (
@@ -1039,7 +1045,7 @@ val x64_encoding = Count.apply Q.prove (
            --------------*)
          print_tac "Load32"
          \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-         >- (fs [] \\ load_store_tac)
+         >- (fsrw_tac [] [] \\ load_store_tac)
          \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                     (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
          by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1075,7 +1081,7 @@ val x64_encoding = Count.apply Q.prove (
            --------------*)
       \\ print_tac "Store32"
       \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-      >- (fs [] \\ load_store_tac)
+      >- (fsrw_tac [] [] \\ load_store_tac)
       \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                  (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
       by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1105,10 +1111,10 @@ val x64_encoding = Count.apply Q.prove (
          \\ REPEAT strip_tac
          \\ `RexReg (r1 ' 3,v2w [r1 ' 2; r1 ' 1; r1 ' 0]) = num2Zreg n`
          by (simp [mem_lem4, loc_lem3, x64Theory.RexReg_def, Abbr `r1`]
-          \\ fs enc_rwts)
+          \\ fsrw_tac [] enc_rwts)
          \\ `RexReg (r2 ' 3,v2w [r2 ' 2; r2 ' 1; r2 ' 0]) = num2Zreg n'`
          by (simp [mem_lem4, loc_lem3, x64Theory.RexReg_def, Abbr `r2`]
-             \\ fs enc_rwts)
+             \\ fsrw_tac [] enc_rwts)
          \\ decode_tac1 [`r1`, `r2`]
          )
          (* Imm *)
@@ -1117,7 +1123,7 @@ val x64_encoding = Count.apply Q.prove (
       \\ REPEAT strip_tac
       \\ `RexReg (r1 ' 3,v2w [r1 ' 2; r1 ' 1; r1 ' 0]) = num2Zreg n`
       by (simp [mem_lem4, loc_lem3, x64Theory.RexReg_def, Abbr `r1`]
-          \\ fs enc_rwts)
+          \\ fsrw_tac [] enc_rwts)
       >| [decode_cmp_tac, decode_cmp_tac, decode_cmp_tac, all_tac,
           decode_cmp_tac, decode_cmp_tac, decode_cmp_tac, all_tac]
       \\ (
@@ -1130,7 +1136,7 @@ val x64_encoding = Count.apply Q.prove (
         --------------*)
    >- (
       print_tac "Call"
-      \\ fs enc_rwts
+      \\ fsrw_tac [] enc_rwts
       )
    >- (
       (*--------------
@@ -1185,7 +1191,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
              Skip
            --------------*)
          print_tac "Skip"
-         \\ fs enc_rwts
+         \\ fsrw_tac [] enc_rwts
          \\ next_state_tac0
          \\ state_tac [] []
          )
@@ -1224,7 +1230,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
                    \\ next_state_tac0
                    \\ state_tac [] [`r1`, `r2`])
                \\ Cases_on `b`
-               \\ fs []
+               \\ fsrw_tac [] []
                \\ (lfs ([loc_lem2] @ enc_rwts)
                    \\ next_state_tac0
                    \\ state_tac [] [`r1`, `r2`, `r3`]),
@@ -1233,12 +1239,12 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
                \\ lfs ([loc_lem2, binop_lem1] @ enc_rwts)
                \\ (
                    Cases_on `0xFFFFFFFFFFFFFF80w <= c /\ c <= 0x7fw`
-                   \\ asmLib.using_first 1 fs
+                   \\ asmLib.using_first 1 (fsrw_tac [])
                    >- (rule_assum_tac (REWRITE_RULE [binop_lem5])
                        \\ next_state_tac0
                        \\ state_tac [] [`r1`, `r2`])
                    \\ Cases_on `is_rax (reg n0)`
-                   \\ fs [const_lem2]
+                   \\ fsrw_tac [] [const_lem2]
                    \\ next_state_tac0
                    \\ state_tac [] [`r1`, `r2`]
                    )
@@ -1252,9 +1258,9 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
             \\ Cases_on `s`
             \\ lfs ([loc_lem2] @ enc_rwts)
             \\ imp_res_tac binop_lem9
-            \\ fs []
+            \\ fsrw_tac [] []
             \\ Cases_on `n1 = 1`
-            \\ fs []
+            \\ fsrw_tac [] []
             \\ rule_assum_tac (REWRITE_RULE [binop_lem5])
             \\ next_state_tac0
             \\ state_tac [] [`r1`, `r2`]
@@ -1266,7 +1272,8 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
          \\ qabbrev_tac `r1 = n2w n : word4`
          \\ qabbrev_tac `r2 = n2w n' : word4`
          \\ `RexReg (r2 ' 3,(2 >< 0) r2) = num2Zreg n'`
-         by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`] \\ fs enc_rwts)
+         by (simp [mem_lem4, x64Theory.RexReg_def, Abbr `r2`]
+             \\ fsrw_tac [] enc_rwts)
          \\ Cases_on `m`
          \\ lfs enc_rwts
          \\ rfs []
@@ -1304,7 +1311,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
             by (imp_res_tac (Q.SPECL [`c`, `n'`, `s1`, `ms`] mem_lem2)
                 \\ simp [])
             \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-            >- (fs [] \\ load_tac)
+            >- (fsrw_tac [] [] \\ load_tac)
             \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                        (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
             by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1346,7 +1353,7 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
          \\ `?wv. read_mem32 ms.MEM (ms.REG (num2Zreg n') + c) = wv`
          by metis_tac [mem_lem2]
          \\ Cases_on `((3 >< 3) r1 = 0w: word1) /\ ((3 >< 3) r2 = 0w: word1)`
-         >- (fs [] \\ store_tac)
+         >- (fsrw_tac [] [] \\ store_tac)
          \\ `(7w && (0w: word1) @@ (3 >< 3) (r1: word4) @@
                     (0w: word1) @@ (3 >< 3) (r2: word4)) <> (0w: word4)`
          by (pop_assum mp_tac \\ blastLib.BBLAST_TAC)
@@ -1387,19 +1394,19 @@ val x64_backend_correct = Count.apply Q.store_thm("x64_backend_correct",
           cmp_tac, cmp_tac, cmp_tac, all_tac]
       \\ (
          Cases_on `n = 0`
-         \\ fs [const_lem2, jump_lem5, jump_lem6, cmp_lem7,
-                asmPropsTheory.all_pcs_def]
+         \\ fsrw_tac [] [const_lem2, jump_lem5, jump_lem6, cmp_lem7,
+                         asmPropsTheory.all_pcs_def]
          >| [next_state_tac_cmp 6, next_state_tac_cmp 7]
          \\ state_tac [cmp_lem1, cmp_lem3, cmp_lem6, fun2set_eq,
                        x64Theory.num2Zreg_thm] [`r1`]
-         \\ fs []
+         \\ fsrw_tac [] []
          \\ blastLib.FULL_BBLAST_TAC
          )
       )
       (*--------------
           no Call
         --------------*)
-   >- fs enc_rwts
+   >- fsrw_tac [] enc_rwts
    >- (
       (*--------------
           JumpReg

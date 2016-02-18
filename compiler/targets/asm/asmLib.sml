@@ -153,7 +153,7 @@ in
             once_rewrite_tac (bit_mod_thms i)
             \\ qabbrev_tac `m = n MOD ^s`
             \\ `m < ^s` by simp [Abbr `m`]
-            \\ fs [wordsTheory.NUMERAL_LESS_THM]
+            \\ full_simp_tac std_ss [wordsTheory.NUMERAL_LESS_THM]
             \\ EVAL_TAC
             ) |> GEN_ALL
       end
