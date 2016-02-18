@@ -1926,18 +1926,126 @@ val jump_exc_inc_clock_EQ_NONE = prove(
   full_simp_tac(srw_ss())[mk_loc_def,wordSemTheory.jump_exc_def,inc_clock_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[mk_loc_def]);
 
-val assign_thm = prove(
-  ``state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
-    (op_space_reset op ==> names_opt <> NONE) /\
-    cut_state_opt names_opt s = SOME x /\
-    get_vars args x.locals = SOME vals /\
-    do_app op vals x = Rval (v,s2) ==>
-    ?q r.
-      evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
-      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
-      (q <> SOME NotEnoughSpace ==>
-      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)``,
-  cheat);
+val state_rel_lookup_globals = Q.store_thm("state_rel_lookup_globals",
+  `state_rel c l1 l2 s t v1 locs ∧ s.global = SOME g (* ∧
+   FLOOKUP s.refs g = SOME (ValueArray gs) *)
+   ⇒
+   ∃x u.
+   FLOOKUP t.store Globals = SOME (Word (get_addr c x u))`,
+  rw[state_rel_def]
+  \\ fs[the_global_def,libTheory.the_def]
+  \\ qmatch_assum_abbrev_tac`word_ml_inv heapp limit c refs _`
+  \\ qmatch_asmsub_abbrev_tac`[gg]`
+  \\ `∃rest. word_ml_inv heapp limit c refs (gg::rest)`
+  by (
+    qmatch_asmsub_abbrev_tac`a1 ++ [gg] ++ a2`
+    \\ qexists_tac`a1++a2`
+    \\ simp[Abbr`heapp`]
+    \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac
+    \\ simp[] \\ metis_tac[] )
+  \\ fs[word_ml_inv_def,Abbr`heapp`]
+  \\ fs[abs_ml_inv_def]
+  \\ fs[bc_stack_ref_inv_def]
+  \\ fs[Abbr`gg`,v_inv_def]
+  \\ simp[FLOOKUP_DEF]
+  \\ first_assum(CHANGED_TAC o SUBST1_TAC o SYM)
+  \\ rveq
+  \\ simp_tac(srw_ss())[word_addr_def]
+  \\ metis_tac[]);
+
+val assign_thm = Q.prove(
+  `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
+   (op_space_reset op ==> names_opt <> NONE) /\
+   cut_state_opt names_opt s = SOME x /\
+   get_vars args x.locals = SOME vals /\
+   do_app op vals x = Rval (v,s2) ==>
+   ?q r.
+     evaluate (FST (assign c n l dest op args names_opt),t) = (q,r) /\
+     (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
+     (q <> SOME NotEnoughSpace ==>
+     state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)`,
+  Cases_on`op`
+  \\ TRY (
+    qcase_tac`Global g`
+    \\ simp[bvpSemTheory.do_app_def,do_space_def,
+            bvp_spaceTheory.op_space_req_def,
+            bvi_to_bvpTheory.op_space_reset_def,
+            bviSemTheory.do_app_def,
+            bviSemTheory.do_app_aux_def,
+            bvlSemTheory.do_app_def,
+            closSemTheory.get_global_def]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ rpt strip_tac \\ rveq
+    \\ simp[bviPropsTheory.bvl_to_bvi_id]
+    \\ cheat (* looks pretty unlikely *) )
+  \\ TRY (
+    qcase_tac`SetGlobal g`
+    \\ simp[bvpSemTheory.do_app_def,do_space_def,
+            bvp_spaceTheory.op_space_req_def,
+            bvi_to_bvpTheory.op_space_reset_def,
+            bviSemTheory.do_app_def,
+            bviSemTheory.do_app_aux_def,
+            bvlSemTheory.do_app_def,
+            closSemTheory.get_global_def]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ rpt strip_tac \\ rveq
+    \\ cheat (* problem with globals *))
+  \\ TRY (
+    qcase_tac`GlobalsPtr`
+    \\ simp[bvpSemTheory.do_app_def,do_space_def,
+            bvp_spaceTheory.op_space_req_def,
+            bvi_to_bvpTheory.op_space_reset_def,
+            bviSemTheory.do_app_def,
+            bviSemTheory.do_app_aux_def,
+            bvlSemTheory.do_app_def]
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ pop_assum mp_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ strip_tac \\ rveq
+    \\ strip_tac \\ rveq
+    \\ fs[]
+    \\ fs[bvp_to_bvi_def]
+    \\ simp[assign_def]
+    \\ simp[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+    \\ imp_res_tac cut_state_opt_const \\ fs[]
+    \\ imp_res_tac state_rel_lookup_globals
+    \\ simp[]
+    \\ cheat (* what is the appropriate state_rel set_var theorem? *))
+  \\ cheat);
 
 val jump_exc_push_env_NONE_simp = prove(
   ``(jump_exc (dec_clock t) = NONE <=> jump_exc t = NONE) /\

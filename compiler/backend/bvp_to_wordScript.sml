@@ -25,6 +25,7 @@ val assign_def = Define `
         if i < 0
         then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
+    | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | _ => (Skip:'a wordLang$prog,l)`;
 
 val comp_def = Define `

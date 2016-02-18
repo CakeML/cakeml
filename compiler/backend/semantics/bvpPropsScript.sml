@@ -3,6 +3,10 @@ local open bviPropsTheory in end;
 
 val _ = new_theory"bvpProps";
 
+val bvi_to_bvp_id = Q.store_thm("bvi_to_bvp_id[simp]",
+  `bvi_to_bvp (bvp_to_bvi x) x = x`,
+  EVAL_TAC \\ rw[state_component_equality]);
+
 val initial_state_simp = Q.store_thm("initial_state_simp[simp]",
   `(initial_state f c k).clock = k ∧
    (initial_state f c k).locals = LN ∧
@@ -708,7 +712,8 @@ val set_var_with_const = Q.store_thm("set_var_with_const",
 
 val cut_state_opt_const = Q.store_thm("cut_state_opt_const",
   `cut_state_opt x y = SOME z ⇒
-   z.ffi = y.ffi`,
+   z.ffi = y.ffi ∧
+   z.global = y.global`,
    EVAL_TAC >>
    every_case_tac >> EVAL_TAC >>
    srw_tac[][] >> srw_tac[][]);
