@@ -1797,6 +1797,16 @@ val init_memory_def = Define `
               store_inst 0 k;
               store_list_code (k+1) 0 xs]`;
 
+val store_init_def = Define `
+  store_init (k:num) =
+    (K (INL 0w)) =++
+      [(CurrHeap,INR (k+2));
+       (NextFree,INR (k+2));
+       (EndOfHeap,INR 2);
+       (HeapLength,INR 5);
+       (OtherHeap,INR 2);
+       (BitmapBase,INR 3)]`
+
 (* init code assumes:
     reg 1: start of program
     reg 2: first address in heap
@@ -1817,12 +1827,18 @@ val init_code_def = Define `
                 move 0 3;
                 sub_inst 0 2;
                 const_inst 5 (n2w max_heap * bytes_in_word);
-                If Lower 5 (Reg 2) (halt_inst 3w) Skip;
+                If Lower 5 (Reg 0) (halt_inst 3w) Skip;
+                (* check max_stack_alloc *)
+                move 0 3;
+                const_inst 5 (n2w (min_stack-1) * bytes_in_word);
+                add_inst 0 5;
+                const_inst 5 (n2w (max_stack_alloc) * bytes_in_word);
+                If Lower 0 (Reg 5) (halt_inst 4w) Skip;
                 (* check that stack size is big enough *)
                 move 0 4;
                 sub_inst 0 3;
                 const_inst 5 (n2w min_stack * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 4w) Skip;
+                If Lower 0 (Reg 5) (halt_inst 5w) Skip;
                 (* split heap into two, store heap length in 5 *)
                 move 5 3;
                 sub_inst 5 2;
@@ -1833,18 +1849,14 @@ val init_code_def = Define `
                 or_inst 0 4;
                 or_inst 0 5;
                 If Test 0 (Imm 7w) Skip (halt_inst 5w);
-                (* setup bitmaps, store and stack *)
+                (* setup bitmaps, store, stack *)
                 move (k+2) 2;
                 add_inst 2 5;
                 move k 4;
                 move (k+1) 3;
+                right_shift_inst 3 (word_shift (:'a));
                 init_memory k (MAP INL bitmaps ++
-                  MAP ((K (INL 0w)) =++
-                         [(NextFree,INR (k+2));
-                          (EndOfHeap,INR 2);
-                          (HeapLength,INR 5);
-                          (OtherHeap,INR 2);
-                          (BitmapBase,INR 4)]) store_list)]`
+                  MAP (store_init k) (REVERSE store_list))]`
 
 val halt_tac =
   tac \\ fs [labPropsTheory.good_dimindex_def]
@@ -1872,9 +1884,9 @@ val addresses_def = Define `
   (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)`
 
 val init_reduce_def = Define `
-  init_reduce k code (s:('a,'ffi)stackSem$state) =
+  init_reduce k code bitmaps (s:('a,'ffi)stackSem$state) =
     let heap_ptr = theWord (s.regs ' (k + 2)) in
-    let bitmap_ptr = theWord (s.regs ' 4) in
+    let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
     let stack_ptr = theWord (s.regs ' k) in
     let base_ptr = theWord (s.regs ' (k + 1)) in
     let heap_sp = w2n (bitmap_ptr - heap_ptr) DIV (dimindex (:'a) DIV 8) in
@@ -1882,47 +1894,156 @@ val init_reduce_def = Define `
       s with
       <| use_stack := T;
          use_store := T;
+         bitmaps := bitmaps;
          mdomain := addresses heap_ptr heap_sp;
          code := code;
          stack_space := stack_sp;
          stack := read_mem base_ptr s.memory (stack_sp + 1);
-         store := FEMPTY |>`
+         store := FEMPTY |++ (MAP (\n. case store_init k n of
+                                       | INL w => (n,Word w)
+                                       | INR i => (n,s.regs ' i))
+                               (CurrHeap::store_list)) |>`
 
 val init_prop_def = Define `
-  init_prop s =
-    (* TODO: need to know that memory is a heap shape *)
-    (* TODO: need to know that store is setup well *)
-    ?w. FLOOKUP s.regs 4 = SOME (Word w)`
+  init_prop (s:('a,'ffi)stackSem$state) =
+    ?curr other bitmap_base len.
+       FLOOKUP s.store CurrHeap = SOME (Word curr) /\
+       FLOOKUP s.store NextFree = SOME (Word curr) /\
+       FLOOKUP s.store EndOfHeap = SOME (Word other) /\
+       FLOOKUP s.store OtherHeap = SOME (Word other) /\
+       FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
+       FLOOKUP s.store HeapLength = SOME (Word (n2w len * bytes_in_word)) /\
+       FLOOKUP s.store ProgStart = SOME (Word 0w) /\
+       FLOOKUP s.store AllocSize = SOME (Word 0w) /\
+       FLOOKUP s.store Globals = SOME (Word 0w) /\
+       FLOOKUP s.store Handler = SOME (Word 0w) /\
+       (word_list_exists curr len * word_list_exists other len)
+          (fun2set (s.memory,s.mdomain))`
 
 val LENGTH_read_mem = prove(
   ``!n a m. LENGTH (read_mem a m n) = n``,
   Induct \\ fs [read_mem_def]);
 
 val init_reduce_stack_space = prove(
-  ``(init_reduce k code s8).stack_space <=
-    LENGTH (init_reduce k code s8).stack``,
+  ``(init_reduce k code bitmaps s8).stack_space <=
+    LENGTH (init_reduce k code bitmap s8).stack``,
   fs [init_reduce_def,LENGTH_read_mem]);
 
+val IN_addresses = prove(
+  ``!n a x. x IN addresses a n <=>
+            ?i. i < n /\ x = a + n2w i * bytes_in_word``,
+  Induct \\ fs [addresses_def]
+  \\ rw [] \\ eq_tac \\ rw []
+  THEN1 (qexists_tac `0` \\ fs [])
+  THEN1 (qexists_tac `SUC i`
+         \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB])
+  \\ Cases_on `i` \\ fs []
+  \\ fs [ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ metis_tac []);
+
 val memory_addresses = prove(
-  ``!n a m. memory m (addresses a n) = word_list a (read_mem a m n)``,
+  ``!n (a:'a word) (m:'a word -> 'a word_loc).
+      n * (dimindex (:'a) DIV 8) < dimword (:'a) /\ good_dimindex (:'a) ==>
+      memory m (addresses a n) = word_list a (read_mem a m n)``,
+  once_rewrite_tac [EQ_SYM_EQ]
+  \\ Induct \\ fs [addresses_def,read_mem_def,word_list_def]
+  THEN1 (fs [memory_def,FUN_EQ_THM,fun2set_def,emp_def])
+  \\ simp [memory_def,Once FUN_EQ_THM,one_STAR]
+  \\ rw []
+  \\ fs [MULT_CLAUSES]
+  \\ `n * (dimindex (:α) DIV 8) < dimword (:α)` by decide_tac
+  \\ res_tac \\ fs []
+  \\ fs [fun2set_def,memory_def]
+  \\ fs [EXTENSION,FORALL_PROD]
+  \\ fs [IN_addresses]
+  \\ eq_tac \\ fs [] \\ strip_tac \\ fs [] THEN1 metis_tac []
+  \\ rw [] \\ eq_tac \\ fs []
+  \\ rw [] \\ fs []
+  THEN1 metis_tac []
+  THEN1 metis_tac []
+  \\ full_simp_tac std_ss [GSYM WORD_ADD_ASSOC,addressTheory.WORD_EQ_ADD_CANCEL,
+       bytes_in_word_def,word_add_n2w,word_mul_n2w]
+  \\ `i * (dimindex (:α) DIV 8) + dimindex (:α) DIV 8 < dimword (:α)` by all_tac
+  \\ fs[]
+  \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
+  \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
+
+val MOD_LESS_EQ_MOD_IMP = prove(
+  ``m MOD k <= n MOD k /\ m < k /\ n < k ==> m <= n``,
+  rw [] \\ fs [])
+
+val MAP_mem_val_MAP_INL = prove(
+  ``!ws f. MAP (mem_val f) (MAP INL ws) = MAP Word ws``,
+  Induct \\ fs [mem_val_def]);
+
+val word_list_EQ_rev = store_thm("word_list_EQ_rev",
+  ``!xs a. word_list a xs =
+           word_list_rev (a + n2w (LENGTH xs) * bytes_in_word) (REVERSE xs)``,
+  recInduct SNOC_INDUCT \\ fs [REVERSE_SNOC]
+  \\ fs [SNOC_APPEND,word_list_APPEND,word_list_rev_def,word_list_def]
+  \\ rw [SEP_CLAUSES,ADD1,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [AC STAR_COMM STAR_ASSOC])
+
+val word_list_and_rev_join_lemma = prove(
+  ``(b = a + n2w (LENGTH xs + LENGTH ys) * bytes_in_word) /\
+    (p * word_list a (xs ++ REVERSE ys) * q) ss /\ b1 ==>
+    (p * word_list a xs * word_list_rev b ys * q) ss /\ b1``,
+  fs [word_list_APPEND,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [word_list_EQ_rev] \\ rw []
+  \\ fs [AC STAR_COMM STAR_ASSOC,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]);
+
+val word_list_IMP_read_mem = prove(
+  ``!xs a p.
+      (p * word_list a xs) (fun2set (m,dm)) ==>
+      read_mem a m (LENGTH xs) = xs``,
+  Induct \\ fs [read_mem_def,word_list_def,STAR_ASSOC]
+  \\ rw [] \\ res_tac \\ SEP_R_TAC);
+
+val INSERT_DELETE_EQ_DELETE = prove(
+  ``(x INSERT s) DELETE x = s DELETE x``,
+  fs [EXTENSION] \\ metis_tac []);
+
+val word_list_exists_addresses = prove(
+  ``!n a. (dimindex(:'a) DIV 8) * n < dimword (:'a) /\
+          good_dimindex (:'a) ==>
+          word_list_exists a n (fun2set (m1,addresses (a:'a word) n))``,
+  Induct
+  THEN1 (fs [word_list_exists_thm,fun2set_def,emp_def,addresses_def])
+  \\ fs [word_list_exists_thm,emp_def,addresses_def,INSERT_DELETE_EQ_DELETE,
+         SEP_EXISTS_THM,MULT_CLAUSES,set_sepTheory.one_fun2set]
+  \\ rw [] \\ imp_res_tac (DECIDE ``m+n<k:num ==> m < k``) \\ res_tac
+  \\ `addresses (a + bytes_in_word) n DELETE a =
+      addresses (a + bytes_in_word) n` by all_tac \\ fs []
+  \\ fs [EXTENSION] \\ rw [] \\ eq_tac \\ fs []
+  \\ fs [IN_addresses,PULL_EXISTS]
+  \\ full_simp_tac std_ss [addressTheory.WORD_EQ_ADD_CANCEL,GSYM WORD_ADD_ASSOC]
+  \\ rw [] \\ fs [bytes_in_word_def,word_mul_n2w,word_add_n2w]
+  \\ `(i * (dimindex (:'a) DIV 8) + dimindex (:'a) DIV 8)
+      < dimword (:'a)` by all_tac \\ fs []
+  \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ fs []);
+
+val init_code_pre_def = Define `
+  init_code_pre k s <=>
+    ?ptr2 ptr3 ptr4.
+      good_dimindex (:'a) /\ 10 <= k /\
+      lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+      {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
+      ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
+      FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
+      FLOOKUP s.regs 3 = SOME (Word ptr3) /\
+      FLOOKUP s.regs 4 = SOME (Word ptr4) /\
+      (word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
+        (fun2set (s.memory,s.mdomain))`
 
 val init_code_thm = store_thm("init_code_thm",
-  ``good_dimindex (:'a) /\ 10 <= k /\ code_rel k code s.code /\
-    lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
-    {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
-    ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
-    FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
-    FLOOKUP s.regs 3 = SOME (Word ptr3) /\
-    FLOOKUP s.regs 4 = SOME (Word ptr4) /\
-    (word_list_exists ptr2 (w2n (ptr4 - ptr2) DIV w2n (bytes_in_word:'a word)))
-      (fun2set (s.memory,s.mdomain)) ==>
+  ``init_code_pre k s /\ code_rel k code s.code ==>
     case evaluate (init_code max_heap bitmaps k,s) of
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) =>
-         state_rel k (init_reduce k code t) t /\
-         init_prop (init_reduce k code t)``,
-  strip_tac
+         state_rel k (init_reduce k code bitmaps t) t /\ t.ffi = s.ffi /\
+         init_prop (init_reduce k code bitmaps t)``,
+  simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]
   \\ qabbrev_tac `min_stack = LENGTH bitmaps + LENGTH store_list + 1`
@@ -1939,6 +2060,8 @@ val init_code_thm = store_thm("init_code_thm",
   \\ qcase_tac `FLOOKUP s.regs 3 = SOME (Word (n2w ptr3))`
   \\ Cases_on `ptr4` \\ fs []
   \\ qcase_tac `FLOOKUP s.regs 4 = SOME (Word (n2w ptr4))`
+  \\ `~(dimindex (:'a) <= word_shift (:'a))` by
+    fs [labPropsTheory.good_dimindex_def,dimword_def,word_shift_def]
   \\ fs [WORD_LO,NOT_LESS]
   \\ `-1w * n2w ptr2 + n2w ptr3 = n2w (ptr3 - ptr2):'a word /\
       -1w * n2w ptr3 + n2w ptr4 = n2w (ptr4 - ptr3):'a word /\
@@ -2051,16 +2174,84 @@ val init_code_thm = store_thm("init_code_thm",
     (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST] \\ NO_TAC)
   \\ fs [init_reduce_stack_space,INSERT_SUBSET]
   \\ fs [init_reduce_def]
+  \\ rpt (qpat_assum `evaluate _ = _` kall_tac)
+  \\ drule MOD_LESS_EQ_MOD_IMP
+  \\ discharge_hyps THEN1
+   (unabbrev_all_tac
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def,max_stack_alloc_def]
+    \\ rfs [] \\ decide_tac) \\ strip_tac
   \\ qunabbrev_tac `s8`
   \\ qunabbrev_tac `s7`
-  \\ conj_tac THEN1 cheat
   \\ fs [FUPDATE_LIST,FAPPLY_FUPDATE_THM,theWord_def,FLOOKUP_UPDATE]
+  \\ fs [store_init_def,store_list_def,UPDATE_LIST_def,APPLY_UPDATE_THM,
+         FLOOKUP_UPDATE,word_store_def]
   \\ `LENGTH xs = LENGTH bitst` by
     (unabbrev_all_tac \\ fs [] \\ NO_TAC)
   \\ fs [FLOOKUP_DEF,GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV,LENGTH_read_mem,
-         theWord_def]
-  \\ cheat);
+         theWord_def,init_prop_def,the_SOME_Word_def,is_SOME_Word_def,
+         FLOOKUP_UPDATE]
+  \\ fs [GSYM CONJ_ASSOC]
+  \\ conj_tac THEN1
+   (pop_assum (assume_tac o GSYM) \\ fs []
+    \\ unabbrev_all_tac \\ fs [])
+  \\ `read_mem (n2w (d * h2)) m1 (LENGTH heap) = heap` by
+   (fs [AC STAR_ASSOC STAR_COMM]
+    \\ imp_res_tac (ONCE_REWRITE_RULE [STAR_COMM] word_list_IMP_read_mem)
+    \\ fs [] \\ NO_TAC)
+  \\ qunabbrev_tac `xs`
+  \\ fs [mem_val_def,APPLY_UPDATE_THM,FAPPLY_FUPDATE_THM]
+  \\ rfs [MAP_mem_val_MAP_INL]
+  \\ `word_list
+       (n2w (d * h2) + n2w (d * LENGTH bitst) + n2w (d * LENGTH heap)) rest1 *
+      one (n2w (d * h2) + n2w (d * LENGTH bitst) +
+        n2w (d * LENGTH heap) + n2w (d * LENGTH rest1):'a word,Word 0w) =
+      word_list (n2w (d * h2) + n2w (d * LENGTH bitst) + n2w (d * LENGTH heap))
+         (rest1 ++ [Word 0w])` by
+   (fs [word_list_APPEND,word_list_def,SEP_CLAUSES,bytes_in_word_def,
+        word_add_n2w,word_mul_n2w] \\ NO_TAC)
+  \\ pop_assum (fn th => full_simp_tac std_ss [th])
+  \\ fs [word_add_n2w]
+  \\ `n2w (d * h2 + d * LENGTH heap) >>> word_shift (:'a) =
+      n2w (h2 + LENGTH heap):'a word` by
+   (simp_tac std_ss [GSYM w2n_11,w2n_lsr] \\ fs []
+    \\ `2 ** word_shift (:'a) = d` by
+     (unabbrev_all_tac
+      \\ fs [labPropsTheory.good_dimindex_def,word_shift_def])
+    \\ fs [GSYM LEFT_ADD_DISTRIB,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+    \\ Cases_on `d` \\ fs [MULT_CLAUSES] \\ decide_tac)
+  \\ fs []
+  \\ `!ww:'a word. ww << word_shift (:'a) = ww * n2w d` by
+   (`2 ** word_shift (:'a) = d` by
+     (unabbrev_all_tac
+      \\ fs [labPropsTheory.good_dimindex_def,word_shift_def])
+    \\ fs [WORD_MUL_LSL] \\ NO_TAC)
+  \\ fs [GSYM word_add_n2w,GSYM word_mul_n2w,WORD_LEFT_ADD_DISTRIB]
+  \\ fs [word_mul_n2w,ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]
+  \\ `(LENGTH heap) * (dimindex (:'a) DIV 8) < dimword (:'a)` by rfs []
+  \\ drule memory_addresses \\ fs []
+  \\ disch_then kall_tac
+  \\ match_mp_tac word_list_and_rev_join_lemma
+  \\ conj_tac THEN1
+   (qpat_assum `_ = LENGTH bitst` (assume_tac o GSYM)
+    \\ fs [bytes_in_word_def,word_mul_n2w])
+  \\ full_simp_tac std_ss [STAR_ASSOC]
+  \\ drule word_list_IMP_read_mem
+  \\ fs [LENGTH,LENGTH_APPEND,ADD1]
+  \\ disch_then kall_tac
+  \\ fs [AC STAR_ASSOC STAR_COMM]
+  \\ qexists_tac `hi`
+  \\ fs [bytes_in_word_def,word_mul_n2w]
+  \\ `n2w d = bytes_in_word` by fs [bytes_in_word_def]
+  \\ fs [GSYM word_mul_n2w,GSYM word_list_exists_ADD]
+  \\ `2 * hi = LENGTH heap` by
+   (fs [DIV_EQ_X]
+    \\ unabbrev_all_tac
+    \\ fs [labPropsTheory.good_dimindex_def,bytes_in_word_def]
+    \\ rfs [dimword_def] \\ fs [])
+  \\ fs [] \\ match_mp_tac word_list_exists_addresses \\ fs []
+  \\ match_mp_tac LESS_EQ_LESS_TRANS
+  \\ qexists_tac `d * max_heap` \\ fs []);
 
 *)
 
