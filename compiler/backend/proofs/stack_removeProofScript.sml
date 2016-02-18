@@ -1690,14 +1690,9 @@ val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordSemTheory.word_sh_def,halt_inst_def]
 
-val store_list_code_def = Define `
-  (store_list_code a t [] = Skip) /\
-  (store_list_code a t (INL w::xs) =
-    Seq (list_Seq [const_inst t w; store_inst t a; add_bytes_in_word_inst a])
-        (store_list_code a t xs)) /\
-  (store_list_code a t (INR i::xs) =
-    Seq (list_Seq [store_inst i a; add_bytes_in_word_inst a])
-        (store_list_code a t xs))`
+
+
+
 
 val mem_val_def = Define `
   (mem_val regs (INL w) = Word w) /\
@@ -1788,76 +1783,6 @@ val store_list_code_thm = store_thm("store_list_code_thm",
     \\ fs [finite_mapTheory.fmap_EXT,state_component_equality,
            FAPPLY_FUPDATE_THM,FUPDATE_LIST,EXTENSION]))
 
-(* k+1 is base, k is stack pointer, discards 0 *)
-val init_memory_def = Define `
-  init_memory k xs =
-    list_Seq [const_inst 0 bytes_in_word;
-              sub_inst k 0;
-              const_inst 0 0w;
-              store_inst 0 k;
-              store_list_code (k+1) 0 xs]`;
-
-val store_init_def = Define `
-  store_init (k:num) =
-    (K (INL 0w)) =++
-      [(CurrHeap,INR (k+2));
-       (NextFree,INR (k+2));
-       (EndOfHeap,INR 2);
-       (HeapLength,INR 5);
-       (OtherHeap,INR 2);
-       (BitmapBase,INR 3)]`
-
-(* init code assumes:
-    reg 1: start of program
-    reg 2: first address in heap
-    reg 3: first address in stack (and one past last address of heap)
-    reg 4: one past last address of stack *)
-
-val init_code_def = Define `
-  init_code max_heap bitmaps k =
-    let min_stack = LENGTH bitmaps + LENGTH store_list + 1 in
-      if dimword (:'a) <= (dimindex (:'a) DIV 8) * min_stack \/
-         dimword (:'a) <= (dimindex (:'a) DIV 8) * max_heap then
-        halt_inst (10w:'a word)
-      else
-        list_Seq [(* check that pointers are in order *)
-                If Lower 3 (Reg 2) (halt_inst 7w) Skip;
-                If Lower 4 (Reg 3) (halt_inst 8w) Skip;
-                (* check that heap size isn't too big *)
-                move 0 3;
-                sub_inst 0 2;
-                const_inst 5 (n2w max_heap * bytes_in_word);
-                If Lower 5 (Reg 0) (halt_inst 3w) Skip;
-                (* check max_stack_alloc *)
-                move 0 3;
-                const_inst 5 (n2w (min_stack-1) * bytes_in_word);
-                add_inst 0 5;
-                const_inst 5 (n2w (max_stack_alloc) * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 4w) Skip;
-                (* check that stack size is big enough *)
-                move 0 4;
-                sub_inst 0 3;
-                const_inst 5 (n2w min_stack * bytes_in_word);
-                If Lower 0 (Reg 5) (halt_inst 5w) Skip;
-                (* split heap into two, store heap length in 5 *)
-                move 5 3;
-                sub_inst 5 2;
-                right_shift_inst 5 1;
-                (* check that all values are aligned *)
-                move 0 2;
-                or_inst 0 3;
-                or_inst 0 4;
-                or_inst 0 5;
-                If Test 0 (Imm 7w) Skip (halt_inst 5w);
-                (* setup bitmaps, store, stack *)
-                move (k+2) 2;
-                add_inst 2 5;
-                move k 4;
-                move (k+1) 3;
-                right_shift_inst 3 (word_shift (:'a));
-                init_memory k (MAP INL bitmaps ++
-                  MAP (store_init k) (REVERSE store_list))]`
-
 val halt_tac =
   tac \\ fs [labPropsTheory.good_dimindex_def]
   \\ rw [] \\ fs [dimword_def]
@@ -1882,43 +1807,6 @@ val read_mem_def = Define `
 val addresses_def = Define `
   (addresses a 0 = {}) /\
   (addresses a (SUC n) = a INSERT addresses (a + bytes_in_word) n)`
-
-val init_reduce_def = Define `
-  init_reduce k code bitmaps (s:('a,'ffi)stackSem$state) =
-    let heap_ptr = theWord (s.regs ' (k + 2)) in
-    let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
-    let stack_ptr = theWord (s.regs ' k) in
-    let base_ptr = theWord (s.regs ' (k + 1)) in
-    let heap_sp = w2n (bitmap_ptr - heap_ptr) DIV (dimindex (:'a) DIV 8) in
-    let stack_sp = w2n (stack_ptr - base_ptr) DIV (dimindex (:'a) DIV 8) in
-      s with
-      <| use_stack := T;
-         use_store := T;
-         bitmaps := bitmaps;
-         mdomain := addresses heap_ptr heap_sp;
-         code := code;
-         stack_space := stack_sp;
-         stack := read_mem base_ptr s.memory (stack_sp + 1);
-         store := FEMPTY |++ (MAP (\n. case store_init k n of
-                                       | INL w => (n,Word w)
-                                       | INR i => (n,s.regs ' i))
-                               (CurrHeap::store_list)) |>`
-
-val init_prop_def = Define `
-  init_prop (s:('a,'ffi)stackSem$state) =
-    ?curr other bitmap_base len.
-       FLOOKUP s.store CurrHeap = SOME (Word curr) /\
-       FLOOKUP s.store NextFree = SOME (Word curr) /\
-       FLOOKUP s.store EndOfHeap = SOME (Word other) /\
-       FLOOKUP s.store OtherHeap = SOME (Word other) /\
-       FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
-       FLOOKUP s.store HeapLength = SOME (Word (n2w len * bytes_in_word)) /\
-       FLOOKUP s.store ProgStart = SOME (Word 0w) /\
-       FLOOKUP s.store AllocSize = SOME (Word 0w) /\
-       FLOOKUP s.store Globals = SOME (Word 0w) /\
-       FLOOKUP s.store Handler = SOME (Word 0w) /\
-       (word_list_exists curr len * word_list_exists other len)
-          (fun2set (s.memory,s.mdomain))`
 
 val LENGTH_read_mem = prove(
   ``!n a m. LENGTH (read_mem a m n) = n``,
@@ -2022,6 +1910,46 @@ val word_list_exists_addresses = prove(
       < dimword (:'a)` by all_tac \\ fs []
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rfs [] \\ fs []);
 
+val init_reduce_def = Define `
+  init_reduce k code bitmaps (s:('a,'ffi)stackSem$state) =
+    let heap_ptr = theWord (s.regs ' (k + 2)) in
+    let bitmap_ptr = theWord (s.regs ' 3) << word_shift (:'a) in
+    let stack_ptr = theWord (s.regs ' k) in
+    let base_ptr = theWord (s.regs ' (k + 1)) in
+    let heap_sp = w2n (bitmap_ptr - heap_ptr) DIV (dimindex (:'a) DIV 8) in
+    let stack_sp = w2n (stack_ptr - base_ptr) DIV (dimindex (:'a) DIV 8) in
+      s with
+      <| use_stack := T;
+         use_store := T;
+         bitmaps := bitmaps;
+         mdomain := addresses heap_ptr heap_sp;
+         code := code;
+         stack_space := stack_sp;
+         stack := read_mem base_ptr s.memory (stack_sp + 1);
+         store := FEMPTY |++ (MAP (\n. case store_init k n of
+                                       | INL w => (n,Word w)
+                                       | INR i => (n,s.regs ' i))
+                               (CurrHeap::store_list)) |>`
+
+val init_prop_def = Define `
+  init_prop max_heap (s:('a,'ffi)stackSem$state) =
+    ?curr other bitmap_base len.
+       FLOOKUP s.store CurrHeap = SOME (Word curr) /\
+       FLOOKUP s.store NextFree = SOME (Word curr) /\
+       FLOOKUP s.store EndOfHeap = SOME (Word other) /\
+       FLOOKUP s.store OtherHeap = SOME (Word other) /\
+       FLOOKUP s.store BitmapBase = SOME (Word bitmap_base) /\
+       FLOOKUP s.store HeapLength = SOME (Word (n2w len * bytes_in_word)) /\
+       FLOOKUP s.store ProgStart = SOME (Word 0w) /\
+       FLOOKUP s.store AllocSize = SOME (Word 0w) /\
+       FLOOKUP s.store Globals = SOME (Word 0w) /\
+       FLOOKUP s.store Handler = SOME (Word 0w) /\
+       LAST s.stack = Word 0w /\
+       LENGTH s.stack = SUC s.stack_space /\
+       len + len <= max_heap /\
+       (word_list_exists curr len * word_list_exists other len)
+          (fun2set (s.memory,s.mdomain))`
+
 val init_code_pre_def = Define `
   init_code_pre k s <=>
     ?ptr2 ptr3 ptr4.
@@ -2042,7 +1970,7 @@ val init_code_thm = store_thm("init_code_thm",
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
     | (NONE,t) =>
          state_rel k (init_reduce k code bitmaps t) t /\ t.ffi = s.ffi /\
-         init_prop (init_reduce k code bitmaps t)``,
+         init_prop max_heap (init_reduce k code bitmaps t)``,
   simp_tac std_ss [init_code_pre_def] \\ strip_tac
   \\ `k <> 3 /\ k <> 4 /\ k <> 5` by decide_tac
   \\ full_simp_tac std_ss [init_code_def,LET_DEF]

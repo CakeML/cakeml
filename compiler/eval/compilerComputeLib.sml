@@ -594,7 +594,9 @@ in
     ,stack_removeTheory.comp_def
     ,stack_removeTheory.prog_comp_def
     ,stack_removeTheory.halt_inst_def
-    ,stack_removeTheory.init_code_def
+    ,stack_removeTheory.store_list_code_def
+    ,stack_removeTheory.init_memory_def
+    ,stack_removeTheory.store_init_def
     ,stack_removeTheory.init_code_def
     ,stack_removeTheory.init_stubs_def
     ,stack_removeTheory.compile_def

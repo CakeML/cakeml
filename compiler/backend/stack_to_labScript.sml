@@ -1,5 +1,6 @@
 open preamble stackLangTheory labLangTheory;
-local open stack_allocTheory stack_removeTheory stack_namesTheory in end
+local open stack_allocTheory stack_removeTheory stack_namesTheory
+           word_to_stackTheory in end
 
 val _ = new_theory "stack_to_lab";
 
@@ -94,13 +95,13 @@ val prog_to_section_def = Define `
 val _ = Datatype`config =
   <| reg_names : num num_map
    ; stack_ptr : num
-   ; max_heap_bytes : num
+   ; max_heap : num
    |>`;
 
 val compile_def = Define `
-  compile start c c2 prog =
+  compile start c c2 c3 prog =
     let prog = stack_alloc$compile c2 prog in
-    let prog = stack_remove$compile (n2w c.max_heap_bytes) c.stack_ptr start prog in
+    let prog = stack_remove$compile c.max_heap c3.bitmaps c.stack_ptr start prog in
     let prog = stack_names$compile c.reg_names prog in
       MAP prog_to_section prog`;
 
