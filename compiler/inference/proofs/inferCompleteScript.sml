@@ -57,7 +57,7 @@ val generalise_no_uvars = Q.prove (
   ⇒
   generalise_list m n s ts = (0,s,ts))`,
  ho_match_mp_tac infer_tTheory.infer_t_induction >>
- rw [generalise_def, check_t_def]
+ srw_tac[] [generalise_def, check_t_def]
  >- metis_tac [PAIR_EQ] >>
  rw [PULL_FORALL] >>
  res_tac >>
@@ -493,7 +493,7 @@ val infer_d_complete = Q.store_thm ("infer_d_complete",
      simp[EVERY_MAP,check_t_def] >>
      simp[EVERY_MEM,MEM_COUNT_LIST] >>
      imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
-     fs[]>>rw[]>- DECIDE_TAC >>
+     fs[]>>rw[]>>
      `t_wfs FEMPTY` by fs[t_wfs_def]>>
      imp_res_tac infer_e_wfs>>
      rfs[]>>

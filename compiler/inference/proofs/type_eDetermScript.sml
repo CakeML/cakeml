@@ -652,10 +652,9 @@ val infer_funs_complete = Q.store_thm("infer_funs_complete",
      simp[Abbr`ls`,EVERY_MEM,MEM_ZIP,LENGTH_COUNT_LIST,EL_MAP,PULL_EXISTS,EL_COUNT_LIST] >>
      simp[check_t_def] >>
      imp_res_tac (last(CONJUNCTS infer_e_next_uvar_mono)) >>
-     rw[] >- DECIDE_TAC >>
+     rw[] >>
      imp_res_tac(last(CONJUNCTS infer_e_check_t)) >>
-     fs[EVERY_MEM,PULL_EXISTS,MEM_EL] >>
-     res_tac >> imp_res_tac check_t_more2 >> fs[])
+     fs[EVERY_MEM,PULL_EXISTS,MEM_EL])
 
 val _ = export_theory ();
 

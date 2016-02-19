@@ -823,11 +823,11 @@ val check_weakE_sound = Q.prove (
   ho_match_mp_tac check_weakE_ind >>
   conj_tac >- (
     rw[anub_def,weakE_def,convert_env2_def] ) >>
-  rw[] >>
+  srw_tac[][] >>
   imp_res_tac(check_weakE_EVERY |> SPEC_ALL |> EQ_IMP_RULE |> fst |> SIMP_RULE(srw_ss())[PULL_EXISTS]) >>
-  rfs[] >>
-  Cases_on`ALOOKUP tenv1 n` >> fs[] >>
-  `?tvs_impl t_impl. x = (tvs_impl,t_impl)` by metis_tac[PAIR] >> fs[] >>
+  REV_FULL_SIMP_TAC(srw_ss())[] >>
+  Cases_on`ALOOKUP tenv1 n` >> fsrw_tac[][] >>
+  `?tvs_impl t_impl. x = (tvs_impl,t_impl)` by metis_tac[PAIR] >> fsrw_tac[][] >>
   rator_x_assum`EVERY`(mp_tac o CONV_RULE(REWR_CONV(GSYM check_weakE_EVERY))) >>
   strip_tac >>
   imp_res_tac anub_tl_anub >>
@@ -1085,7 +1085,7 @@ val infer_top_sound = Q.store_thm ("infer_top_sound",
      >- (fs [success_eqns] >>
          rw [convert_decls_def] >>
          first_x_assum(mp_tac o MATCH_MP(ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] infer_ds_sound)) >>
-         disch_then(qspecl_then[`tenv`] mp_tac) >> 
+         disch_then(qspecl_then[`tenv`] mp_tac) >>
          discharge_hyps>-
            simp[env_rel_def]>>
          simp[] >> strip_tac >>
