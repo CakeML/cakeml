@@ -74,7 +74,8 @@ val word_gc_fun_thm = prove(
       in
         if c2 then SOME (ws2,m1,s1) else NONE``,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
 
 val gc_lemma = gc_def
@@ -97,7 +98,10 @@ val word_gc_move_roots_bitmaps_def = Define `
 val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
   ``!k conf pb i pa old m dm i1 pa1 m1 c1.
       word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
-  Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ cheat);
+  Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ rw []
+  \\ split_pair_tac \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ split_pair_tac \\ fs []);
 
 val gc_thm = prove(
   ``s.gc_fun = word_gc_fun conf ⇒
@@ -138,9 +142,11 @@ val gc_thm = prove(
   \\ full_simp_tac(srw_ss())[LET_THM,word_gc_move_roots_bitmaps_def]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   THEN1
-   (rpt (split_pair_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
+   (rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
     \\ imp_res_tac word_gc_move_loop_ok)
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
+          \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `dec_stack s.bitmaps ws2 (DROP s.stack_space s.stack)`
   THEN1
    (full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -172,7 +178,8 @@ val word_gc_move_roots_APPEND = prove(
           (ws1++ws2,i2,pa2,m2,c1 /\ c2)``,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
   \\ srw_tac[][] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `word_gc_move conf (h,i1,pa1,curr,m,dm)` \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `word_gc_move conf (h,i1,pa1,curr,m,dm)`
+  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `word_gc_move_roots conf (xs,r0,r1,curr,r2,dm)`
   \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `word_gc_move_roots conf (ys,r0',r1',curr,r2',dm)`
@@ -201,8 +208,8 @@ val word_gc_move_roots_IMP_LENGTH = store_thm("word_gc_move_roots_IMP_LENGTH",
       word_gc_move_roots conf (xs,r0,r1,curr,r2,dm) = (ys,i2,pa2,m2,c) ==>
       LENGTH ys = LENGTH xs``,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM] \\ srw_tac[][]
-  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]) \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-  \\ res_tac);
+  \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[])
+  \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[] \\ res_tac);
 
 val filter_bitmap_map_bitmap = store_thm("filter_bitmap_map_bitmap",
   ``!x t q xs xs1 z ys ys1.
@@ -211,7 +218,8 @@ val filter_bitmap_map_bitmap = store_thm("filter_bitmap_map_bitmap",
       map_bitmap x q t = SOME (ys,z,ys1) ==>
       z = [] /\ ys1 = xs1``,
   Induct
-  THEN1 (Cases_on `q` \\ Cases_on `t` \\ full_simp_tac(srw_ss())[filter_bitmap_def,map_bitmap_def])
+  THEN1 (Cases_on `q` \\ Cases_on `t`
+         \\ full_simp_tac(srw_ss())[filter_bitmap_def,map_bitmap_def])
   \\ Cases_on `t` \\ Cases_on `q` \\ Cases
   \\ rewrite_tac [filter_bitmap_def] \\ simp_tac std_ss [map_bitmap_def]
   THEN1
@@ -248,7 +256,8 @@ val word_gc_move_roots_bitmaps = prove(
               let (stack,i,pa,m,c2) =
                 word_gc_move_roots_bitmaps conf (stack,bitmaps,i2,pa2,curr,m2,dm) in
                   (w::new++stack,i,pa,m,c2)``,
-  Cases THEN1 (full_simp_tac(srw_ss())[word_gc_move_roots_bitmaps_def,enc_stack_def])
+  Cases THEN1 (full_simp_tac(srw_ss())[word_gc_move_roots_bitmaps_def,
+                 enc_stack_def])
   \\ rpt strip_tac \\ pop_assum mp_tac \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
   THEN1 (full_simp_tac(srw_ss())[word_gc_move_roots_bitmaps_def,enc_stack_def]
@@ -311,16 +320,20 @@ val word_lsr_dimindex = prove(
 
 val bit_length_LESS_EQ_dimindex = store_thm("bit_length_LESS_EQ_dimindex",
   ``bit_length (w:'a word) <= dimindex (:'a)``,
-  CCONTR_TAC \\ full_simp_tac(srw_ss())[GSYM NOT_LESS] \\ imp_res_tac bit_length_thm
+  CCONTR_TAC \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
+  \\ imp_res_tac bit_length_thm
   \\ full_simp_tac(srw_ss())[word_lsr_dimindex]);
 
 val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
   ``(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_0,word_lsr_def,fcpTheory.FCP_BETA,word_msb_def]
-  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
+  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_0,word_lsr_def,
+        fcpTheory.FCP_BETA,word_msb_def]
+  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
   \\ qpat_assum `!xx.bb` mp_tac \\ full_simp_tac(srw_ss())[]
   \\ qexists_tac `dimindex (:α) - 1 - n`
-  \\ `dimindex (:α) - 1 - n + n = dimindex (:α) - 1` by decide_tac \\ full_simp_tac(srw_ss())[]
+  \\ `dimindex (:α) - 1 - n + n = dimindex (:α) - 1` by decide_tac
+  \\ full_simp_tac(srw_ss())[]
   \\ decide_tac);
 
 val word_msb_IMP_bit_length = prove(
@@ -328,7 +341,8 @@ val word_msb_IMP_bit_length = prove(
   srw_tac[][] \\ imp_res_tac shift_to_zero_word_msb \\ CCONTR_TAC
   \\ imp_res_tac (DECIDE ``n<>m ==> n < m \/ m < n:num``)
   \\ qspec_then `h` mp_tac bit_length_thm
-  \\ strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[word_lsr_dimindex] \\ decide_tac);
+  \\ strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[word_lsr_dimindex]
+  \\ decide_tac);
 
 val get_bits_intro = prove(
   ``word_msb (h:'a word) ==>
@@ -337,11 +351,13 @@ val get_bits_intro = prove(
 
 val DROP_IMP_LESS_LENGTH = prove(
   ``!xs n y ys. DROP n xs = y::ys ==> n < LENGTH xs``,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][] \\ res_tac \\ decide_tac);
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ decide_tac);
 
 val DROP_EQ_CONS_IMP_DROP_SUC = prove(
   ``!xs n y ys. DROP n xs = y::ys ==> DROP (SUC n) xs = ys``,
-  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
+  Induct \\ full_simp_tac(srw_ss())[DROP_def] \\ srw_tac[][]
+  \\ res_tac \\ full_simp_tac(srw_ss())[ADD1]
   \\ `n - 1 + 1 = n` by decide_tac \\ full_simp_tac(srw_ss())[]);
 
 val filter_bitmap_APPEND = prove(
@@ -356,7 +372,8 @@ val filter_bitmap_APPEND = prove(
   Induct \\ Cases_on `stack` \\ full_simp_tac(srw_ss())[filter_bitmap_def]
   THEN1 (srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   THEN1 (srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
-  \\ Cases \\ full_simp_tac(srw_ss())[filter_bitmap_def] \\ srw_tac[][] \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
+  \\ Cases \\ full_simp_tac(srw_ss())[filter_bitmap_def] \\ srw_tac[][]
+  \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
 val map_bitmap_APPEND_APPEND = prove(
   ``!vs1 stack x0 x1 ws2 vs2 ws1.
@@ -379,7 +396,8 @@ val map_bitmap_APPEND_APPEND = prove(
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `ws1` \\ full_simp_tac(srw_ss())[LENGTH,map_bitmap_def]
-  \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[]) |> SIMP_RULE std_ss [];
+  \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+  |> SIMP_RULE std_ss [];
 
 val word_gc_move_bitmaps_Loc =
   ``word_gc_move_bitmaps conf (Loc l1 l2,stack,bitmaps,i1,pa1,curr,m,dm)``
@@ -402,18 +420,24 @@ val word_gc_move_bitmaps_unroll = prove(
                 SOME (hd++hd3,ws3,i3,pa3,m3,c2 /\ c3)``,
   full_simp_tac(srw_ss())[word_gc_move_bitmaps_def,full_read_bitmap_def]
   \\ Cases_on `w = 0w` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `DROP (w2n (w + -1w)) bitmaps` \\ full_simp_tac(srw_ss())[read_bitmap_def]
+  \\ Cases_on `DROP (w2n (w + -1w)) bitmaps`
+  \\ full_simp_tac(srw_ss())[read_bitmap_def]
   \\ reverse (Cases_on `word_msb h`)
   THEN1
    (full_simp_tac(srw_ss())[word_gc_move_bitmap_def,get_bits_def,LET_THM]
-    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[]
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+    \\ full_simp_tac(srw_ss())[]
     \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[]
+    \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y`
+    \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[] \\ Cases_on `read_bitmap t` \\ full_simp_tac(srw_ss())[]
-  \\ CASE_TAC \\ qcase_tac `_ = SOME y` \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ full_simp_tac(srw_ss())[] \\ Cases_on `read_bitmap t`
+  \\ full_simp_tac(srw_ss())[]
+  \\ CASE_TAC \\ qcase_tac `_ = SOME y`
+  \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[LET_THM]
   \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ CASE_TAC \\ qcase_tac `_ = SOME z` \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[LET_THM]
+  \\ CASE_TAC \\ qcase_tac `_ = SOME z`
+  \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[LET_THM]
   \\ full_simp_tac(srw_ss())[word_gc_move_bitmap_def,LET_THM] \\ rev_full_simp_tac(srw_ss())[get_bits_intro]
   \\ strip_tac \\ rpt var_eq_tac
   \\ IF_CASES_TAC THEN1
