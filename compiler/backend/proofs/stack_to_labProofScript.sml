@@ -1683,7 +1683,7 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
   val th = from_alloc |> DISCH_ALL |> REWRITE_RULE lemmas
            |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
            |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
-           |> Q.INST [`code1`|->`compile max_heap_bytes k start (compile c code4)`]
+           |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
   val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand

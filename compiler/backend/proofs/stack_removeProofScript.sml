@@ -1681,18 +1681,12 @@ val compile_semantics = Q.store_thm("compile_semantics",
 
 (* init code *)
 
-(*
-
 val tac = simp [list_Seq_def,evaluate_def,inst_def,word_exp_def,get_var_def,
        wordLangTheory.word_op_def,mem_load_def,assign_def,set_var_def,
        FLOOKUP_UPDATE,mem_store_def,dec_clock_def,get_var_imm_def,
        asmSemTheory.word_cmp_def,wordLangTheory.num_exp_def,
        labSemTheory.word_cmp_def,GREATER_EQ,GSYM NOT_LESS,FUPDATE_LIST,
        wordSemTheory.word_sh_def,halt_inst_def]
-
-
-
-
 
 val mem_val_def = Define `
   (mem_val regs (INL w) = Word w) /\
@@ -1812,11 +1806,6 @@ val LENGTH_read_mem = prove(
   ``!n a m. LENGTH (read_mem a m n) = n``,
   Induct \\ fs [read_mem_def]);
 
-val init_reduce_stack_space = prove(
-  ``(init_reduce k code bitmaps s8).stack_space <=
-    LENGTH (init_reduce k code bitmap s8).stack``,
-  fs [init_reduce_def,LENGTH_read_mem]);
-
 val IN_addresses = prove(
   ``!n a x. x IN addresses a n <=>
             ?i. i < n /\ x = a + n2w i * bytes_in_word``,
@@ -1929,7 +1918,12 @@ val init_reduce_def = Define `
          store := FEMPTY |++ (MAP (\n. case store_init k n of
                                        | INL w => (n,Word w)
                                        | INR i => (n,s.regs ' i))
-                               (CurrHeap::store_list)) |>`
+                               (CurrHeap::store_list)) |>
+`
+val init_reduce_stack_space = prove(
+  ``(init_reduce k code bitmaps s8).stack_space <=
+    LENGTH (init_reduce k code bitmap s8).stack``,
+  fs [init_reduce_def,LENGTH_read_mem]);
 
 val init_prop_def = Define `
   init_prop max_heap (s:('a,'ffi)stackSem$state) =
@@ -1954,7 +1948,6 @@ val init_code_pre_def = Define `
   init_code_pre k s <=>
     ?ptr2 ptr3 ptr4.
       good_dimindex (:'a) /\ 10 <= k /\
-      lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
       {k; k + 1; k + 2} SUBSET s.ffi_save_regs /\
       ~s.use_stack /\ ~s.use_store /\ ~s.use_alloc /\
       FLOOKUP s.regs 2 = SOME (Word (ptr2:'a word)) /\
@@ -1964,7 +1957,8 @@ val init_code_pre_def = Define `
         (fun2set (s.memory,s.mdomain))`
 
 val init_code_thm = store_thm("init_code_thm",
-  ``init_code_pre k s /\ code_rel k code s.code ==>
+  ``init_code_pre k s /\ code_rel k code s.code /\
+    lookup stack_err_lab s.code = SOME (halt_inst 2w) ==>
     case evaluate (init_code max_heap bitmaps k,s) of
     | (SOME res,t) =>
          ?w. (res = Halt (Word w)) /\ w <> 0w /\ t.ffi = s.ffi
@@ -2181,89 +2175,68 @@ val init_code_thm = store_thm("init_code_thm",
   \\ match_mp_tac LESS_EQ_LESS_TRANS
   \\ qexists_tac `d * max_heap` \\ fs []);
 
-*)
-
-
-val make_init_store_def = Define `
-  (make_init_store w m [] s = s) /\
-  (make_init_store w m (n::ns) s =
-     make_init_store (w - bytes_in_word) m ns s
-       |+ (n,m (w - bytes_in_word)))`
-
 val make_init_opt_def = Define `
-  make_init_opt k max s code =
-    case evaluate (init_code max k,s) of
-    | (NONE,t) =>
-       (case (FLOOKUP t.regs (k+1),FLOOKUP t.regs (k+2)) of
-        | (SOME (Word w),SOME d) =>
-          let store = FEMPTY |+ (CurrHeap,d) in
-          let store = make_init_store w t.memory store_list store in
-          let last_store = w - word_offset (LENGTH store_list) in
-            SOME (t with
-                  <| use_stack := T; use_store := T;
-                     code := code; store := store;
-                     mdomain := s.mdomain INTER { a |a| a <+ last_store } |>)
-        | _ => NONE)
-    | _ => NONE`
+  make_init_opt max_heap bitmaps k code (s:('a,'ffi)stackSem$state) =
+    case evaluate (init_code max_heap bitmaps k,s) of
+    | (NONE,t) => SOME (init_reduce k code bitmaps t)
+    | (SOME _,t) => NONE`
 
 val init_pre_def = Define `
-  init_pre k max start s <=>
-    lookup 0 s.code = SOME (Seq (init_code max k)
+  init_pre max_heap bitmaps k start s <=>
+    lookup 0 s.code = SOME (Seq (init_code max_heap bitmaps k)
                                 (Call NONE (INL start) NONE)) /\
     (* TODO: remove: *) s.ffi.final_event = NONE /\
-    ?prog_start heap_start heap_end stack_end anything.
-      4n < k /\
-      FLOOKUP s.regs 1 = SOME (Word (prog_start)) /\
-      FLOOKUP s.regs 2 = SOME (Word (heap_start)) /\
-      FLOOKUP s.regs 3 = SOME (Word (heap_end)) /\
-      FLOOKUP s.regs 4 = SOME (Word (stack_end)) /\
-      word_offset (LENGTH anything) = stack_end - heap_start /\
-      (word_list heap_start anything) (fun2set (s.memory,s.mdomain))`
-
-val push_if = prove(
-  ``(if b then f x else f y) = f (if b then x else y) /\
-    (if b then f x else g x) = (if b then f else g) x``,
-  Cases_on `b` \\ full_simp_tac(srw_ss())[]);
+    init_code_pre k s`
 
 val evaluate_init_code = store_thm("evaluate_init_code",
-  ``init_pre k max start s /\ code_rel k code s.code ==>
-    case evaluate (init_code max k,s) of
+  ``init_pre max_heap bitmaps k start s /\
+    lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+    code_rel k code s.code ==>
+    case evaluate (init_code max_heap bitmaps k,s) of
     | (SOME (Halt (Word w)),t) =>
-        w <> 0w /\ t.ffi = s.ffi /\ make_init_opt k max s code = NONE
-    | (NONE,t) => ?r. make_init_opt k max s code = SOME r /\
+        w <> 0w /\ t.ffi = s.ffi /\ make_init_opt max_heap bitmaps k code s = NONE
+    | (NONE,t) => ?r. make_init_opt max_heap bitmaps k code s = SOME r /\
                       state_rel k r t /\ t.ffi = s.ffi
     | _ => F``,
-  full_simp_tac(srw_ss())[init_code_def,LET_DEF,halt_inst_def,init_pre_def] \\ srw_tac[][]
-  \\ once_rewrite_tac [list_Seq_def]
-  \\ full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def]
-  \\ once_rewrite_tac [list_Seq_def]
-  \\ full_simp_tac(srw_ss())[evaluate_def,inst_def,assign_def,word_exp_def,LET_THM,set_var_def,
-         FLOOKUP_UPDATE,wordLangTheory.word_op_def,get_var_def,get_var_imm_def,
-         asmSemTheory.word_cmp_def,push_if]
-  \\ cheat);
+  strip_tac \\ fs [init_pre_def]
+  \\ drule init_code_thm \\ fs []
+  \\ CASE_TAC \\ CASE_TAC
+  \\ fs [make_init_opt_def]
+  \\ strip_tac \\ fs[]);
+
+val clock_neutral_store_list_code = store_thm("clock_neutral_store_list_code",
+  ``!xs n k. clock_neutral (store_list_code n k xs)``,
+  Induct \\ fs [clock_neutral_def,store_list_code_def]
+  \\ Cases \\ fs [clock_neutral_def,store_list_code_def,list_Seq_def]);
 
 val evaluate_init_code_clock = prove(
-  ``evaluate (init_code max k,s) = (res,t) ==>
-    evaluate (init_code max k,s with clock := c) = (res,t with clock := c)``,
-  srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ full_simp_tac(srw_ss())[] \\ EVAL_TAC);
+  ``evaluate (init_code max_heap bitmaps k,s) = (res,t) ==>
+    evaluate (init_code max_heap bitmaps k,s with clock := c) =
+      (res,t with clock := c)``,
+  srw_tac[][] \\ match_mp_tac evaluate_clock_neutral \\ fs []
+  \\ fs [clock_neutral_def,init_code_def] \\ rw []
+  \\ fs [clock_neutral_def,init_code_def,halt_inst_def,
+         list_Seq_def,init_memory_def,clock_neutral_store_list_code]);
 
 val init_semantics = store_thm("init_semantics",
-  ``init_pre k max start s /\ code_rel k code s.code ==>
-    case evaluate (init_code max k,s) of
+  ``lookup stack_err_lab s.code = SOME (halt_inst 2w) /\
+    code_rel k code s.code /\
+    init_pre max_heap bitmaps k start s ==>
+    case evaluate (init_code max_heap bitmaps k,s) of
     | (SOME (Halt _),t) =>
         (semantics 0 s = Terminate Resource_limit_hit s.ffi.io_events) /\
-        make_init_opt k max s code = NONE
+        make_init_opt max_heap bitmaps k code s = NONE
     | (NONE,t) =>
         (semantics 0 s = semantics start t) /\
-        ?r. make_init_opt k max s code = SOME r /\ state_rel k r t
+        ?r. make_init_opt max_heap bitmaps k code s = SOME r /\ state_rel k r t
     | _ => F``,
-  srw_tac[][] \\ `s.ffi.final_event = NONE /\
-            lookup 0 s.code = SOME (Seq (init_code max k)
-              (Call NONE (INL start) NONE))` by full_simp_tac(srw_ss())[init_pre_def]
+  srw_tac[][]
+  \\ pop_assum (fn th => assume_tac th \\ mp_tac th)
+  \\ simp_tac std_ss [init_pre_def] \\ rw []
   \\ imp_res_tac evaluate_init_code
-  \\ pop_assum (assume_tac o SPEC_ALL)
   \\ reverse every_case_tac \\ full_simp_tac(srw_ss())[] THEN1
-   (full_simp_tac(srw_ss())[semantics_def |> Q.SPEC `0`,LET_DEF,evaluate_def,find_code_def]
+   (full_simp_tac(srw_ss())[semantics_def |> Q.SPEC `0`,LET_DEF,
+           evaluate_def,find_code_def]
     \\ match_mp_tac (METIS_PROVE [] ``~b /\ y = z ==> (if b then x else y) = z``)
     \\ conj_tac THEN1
      (full_simp_tac(srw_ss())[] \\ srw_tac[][dec_clock_def]
@@ -2271,7 +2244,8 @@ val init_semantics = store_thm("init_semantics",
     \\ DEEP_INTRO_TAC some_intro \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ full_simp_tac(srw_ss())[dec_clock_def]
     \\ imp_res_tac evaluate_init_code_clock \\ full_simp_tac(srw_ss())[]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
     \\ qexists_tac `1` \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[semantics_def |> Q.SPEC `0`,LET_DEF]
   \\ once_rewrite_tac [evaluate_def] \\ full_simp_tac(srw_ss())[find_code_def]
@@ -2294,23 +2268,34 @@ val init_semantics = store_thm("init_semantics",
   \\ match_mp_tac (METIS_PROVE []
       ``x1 = x2 /\ y1 = y2 /\ z1 = z2 ==> f x1 y1 z1 = f x2 y2 z2``)
   \\ conj_tac \\ full_simp_tac(srw_ss())[] THEN1
-   (AP_TERM_TAC \\ full_simp_tac(srw_ss())[FUN_EQ_THM] \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
+   (AP_TERM_TAC \\ full_simp_tac(srw_ss())[FUN_EQ_THM]
+    \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
     THEN1 (qexists_tac `k' + 1` \\ full_simp_tac(srw_ss())[])
     \\ qexists_tac `k' - 1` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `k' = 0` \\ full_simp_tac(srw_ss())[] THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def] \\ rev_full_simp_tac(srw_ss())[])
+    \\ Cases_on `k' = 0` \\ full_simp_tac(srw_ss())[]
+     THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[empty_env_def]
+            \\ rev_full_simp_tac(srw_ss())[])
     \\ Cases_on `evaluate (Call NONE (INL start) NONE,r with clock := k' - 1)`
-    \\ full_simp_tac(srw_ss())[] \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[] \\ Cases_on `q`
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
     \\ first_x_assum (qspec_then`k'-1`mp_tac) \\ full_simp_tac(srw_ss())[])
-  \\ AP_TERM_TAC \\ full_simp_tac(srw_ss())[EXTENSION] \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
-  THEN1 (full_simp_tac(srw_ss())[] \\ qexists_tac `k' + 1` \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[] \\ qexists_tac `k' - 1` \\ full_simp_tac(srw_ss())[]
+  \\ AP_TERM_TAC \\ full_simp_tac(srw_ss())[EXTENSION]
+  \\ srw_tac[][] \\ reverse EQ_TAC \\ strip_tac
+  THEN1 (full_simp_tac(srw_ss())[] \\ qexists_tac `k' + 1`
+         \\ full_simp_tac(srw_ss())[] \\ every_case_tac
+         \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[] \\ qexists_tac `k' - 1`
+  \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `k' = 0` \\ full_simp_tac(srw_ss())[]
-  THEN1 (full_simp_tac(srw_ss())[evaluate_def,empty_env_def] \\ every_case_tac \\ full_simp_tac(srw_ss())[])
+  THEN1 (full_simp_tac(srw_ss())[evaluate_def,empty_env_def]
+         \\ every_case_tac \\ full_simp_tac(srw_ss())[])
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]);
 
 val make_init_opt_SOME_semantics = store_thm("make_init_opt_SOME_semantics",
-  ``init_pre k max start s2 /\ code_rel k code s2.code /\
-    make_init_opt k max s2 code = SOME s1 /\ semantics start s1 <> Fail ==>
+  ``init_pre max_heap bitmaps k start s2 /\ code_rel k code s2.code /\
+    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
+    make_init_opt max_heap bitmaps k code s2 = SOME s1 /\
+    semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
   srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
   \\ every_case_tac \\ full_simp_tac(srw_ss())[]
@@ -2318,91 +2303,56 @@ val make_init_opt_SOME_semantics = store_thm("make_init_opt_SOME_semantics",
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ metis_tac []);
 
 val make_init_opt_NONE_semantics = store_thm("make_init_opt_NONE_semantics",
-  ``init_pre k max start s2 /\ code_rel k code s2.code /\ s2.ffi = s1.ffi /\
-    make_init_opt k max s2 code = NONE /\ semantics start s1 <> Fail ==>
-    semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
+  ``init_pre max_heap bitmaps k start s2 /\ code_rel k code s2.code /\
+    lookup stack_err_lab s2.code = SOME (halt_inst 2w) /\
+    make_init_opt max_heap bitmaps k code s2 = NONE ==>
+    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events``,
   srw_tac[][] \\ imp_res_tac init_semantics \\ pop_assum (assume_tac o SPEC_ALL)
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]
-  \\ Cases_on `semantics start s1` \\ full_simp_tac(srw_ss())[] \\ rpt disj2_tac
-  \\ imp_res_tac semantics_Terminate_IMP_PREFIX
-  \\ imp_res_tac semantics_Diverge_IMP_LPREFIX \\ full_simp_tac(srw_ss())[]);
-
-val default_state_def = Define `
-  default_state s =
-    s with <| store   := FEMPTY
-            ; memory  := K (Word 0w)
-            ; mdomain := UNIV
-            ; regs    := FEMPTY |+ (1,Word 0w) |+ (2,Word 0w)
-                                |+ (3,Word 32w) |+ (4,Word 256w) |>`;
-
-val lemma = prove(
-  ``(k+1=2<=>k=1n) /\
-    (4=k+1<=>k=3n) /\
-    (3=k+1<=>k=2n) /\
-    (k+2=4<=>k=2n) /\
-    (k+2=3<=>k=1) /\
-    (1=k+1<=>k=0n)``,
-  decide_tac);
-
-val default_state_NOT_NONE = prove(
-  ``(* good_dimindex (:'a) /\ ~(MEM k [0;1;2;3;4]) ==> *)
-    make_init_opt k max (default_state (s2:('a,'ffi) stackSem$state)) code <> NONE``,
-  full_simp_tac(srw_ss())[make_init_opt_def,init_code_def,default_state_def,LET_DEF,
-      labPropsTheory.good_dimindex_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[dimword_def] \\ EVAL_TAC
-  \\ cheat); (* could default_state be changed to make this proof simpler? *)
-
-val make_init_def = Define `
-  make_init k max s code =
-    case make_init_opt k max s code of
-    | SOME t => t
-    | NONE => THE (make_init_opt k max (default_state s) code)`
-
-val make_init_opt_SOME_IMP = store_thm("make_init_opt_SOME_IMP",
-  ``make_init_opt k max s1 code = SOME s2 ==>
-    s2.ffi = s1.ffi /\ s2.code = code /\ s2.use_alloc = s1.use_alloc``,
-  cheat);
-
-val make_init_consts = store_thm("make_init_consts[simp]",
-  ``(make_init k max s code).ffi = s.ffi /\
-    (make_init k max s code).code = code /\
-    (make_init k max s code).use_alloc = s.use_alloc``,
-  full_simp_tac(srw_ss())[make_init_def] \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac make_init_opt_SOME_IMP \\ full_simp_tac(srw_ss())[]
-  \\ `make_init_opt k max (default_state s) code <> NONE` by
-       full_simp_tac(srw_ss())[default_state_NOT_NONE]
-  \\ Cases_on `make_init_opt k max (default_state s) code` \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac make_init_opt_SOME_IMP \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[default_state_def]);
+  \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[extend_with_resource_limit_def]);
 
 val prog_comp_eta = Q.store_thm("prog_comp_eta",
-  `prog_comp = λk (n,p). (n,comp k p)`,
+  `prog_comp = \k (n,p). (n,comp k p)`,
   srw_tac[][FUN_EQ_THM,prog_comp_def,FORALL_PROD,LAMBDA_PROD]);
 
 val IMP_code_rel = Q.prove(
   `EVERY (\(n,p). good_syntax p k /\ 3 < n) code1 /\
-   code2 = fromAList (compile max_heap_bytes k start code1) ==>
+   code2 = fromAList (compile max_heap bitmaps k start code1) ==>
    code_rel k (fromAList code1) code2`,
-  full_simp_tac(srw_ss())[code_rel_def,lookup_fromAList] \\ strip_tac \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[ALOOKUP_def,compile_def,init_stubs_def] \\ srw_tac[][]
+  full_simp_tac(srw_ss())[code_rel_def,lookup_fromAList]
+  \\ strip_tac \\ rpt var_eq_tac
+  \\ full_simp_tac(srw_ss())[ALOOKUP_def,compile_def,init_stubs_def] \\ rw []
   \\ imp_res_tac ALOOKUP_MEM
   \\ imp_res_tac EVERY_MEM \\ full_simp_tac(srw_ss())[]
   \\ simp[prog_comp_eta,ALOOKUP_MAP_gen]);
 
 val make_init_semantics = store_thm("make_init_semantics",
-  ``init_pre k max start s2 /\
+  ``init_pre max_heap bitmaps k start s2 /\
     EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
-    s2.code = fromAList (compile max_heap_bytes k start code) /\
-    make_init k max s2 (fromAList code) = s1 /\
+    s2.code = fromAList (compile max_heap bitmaps k start code) /\
+    IS_SOME (make_init_opt max_heap bitmaps k (fromAList code) s2) /\
+    THE (make_init_opt max_heap bitmaps k (fromAList code) s2) = s1 /\
     semantics start s1 <> Fail ==>
     semantics 0 s2 IN extend_with_resource_limit {semantics start s1}``,
-  full_simp_tac(srw_ss())[make_init_def] \\ reverse CASE_TAC \\ srw_tac[][]
+  Cases_on `make_init_opt max_heap bitmaps k (fromAList code) s2` \\ fs []
+  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ imp_res_tac IMP_code_rel
-  THEN1 imp_res_tac make_init_opt_SOME_semantics
-  \\ match_mp_tac (GEN_ALL make_init_opt_NONE_semantics) \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-  \\ Cases_on `make_init_opt k max (default_state s2) (fromAList code)`
-  \\ full_simp_tac(srw_ss())[default_state_NOT_NONE]
-  \\ imp_res_tac make_init_opt_SOME_IMP
-  \\ full_simp_tac(srw_ss())[default_state_def] \\ metis_tac []);
+  \\ drule (make_init_opt_SOME_semantics |> GEN_ALL)
+  \\ fs [init_pre_def]
+  \\ disch_then match_mp_tac \\ fs []
+  \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
+  \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
+
+val make_init_semantics_fail = store_thm("make_init_semantics_fail",
+  ``init_pre max_heap bitmaps k start s2 /\
+    EVERY (\(n,p). good_syntax p k /\ 3 < n) code /\
+    s2.code = fromAList (compile max_heap bitmaps k start code) /\
+    make_init_opt max_heap bitmaps k (fromAList code) s2 = NONE ==>
+    semantics 0 s2 = Terminate Resource_limit_hit s2.ffi.io_events``,
+  rw [] \\ drule (GEN_ALL make_init_opt_NONE_semantics)
+  \\ disch_then match_mp_tac \\ fs []
+  \\ qexists_tac `fromAList code` \\ fs [] \\ rfs []
+  \\ imp_res_tac IMP_code_rel \\ rfs []
+  \\ fs [compile_def,init_stubs_def,lookup_fromAList,stack_err_lab_def]);
 
 val _ = export_theory();
