@@ -2727,12 +2727,30 @@ fun hol2deep tm =
     val th1 = hol2deep x1
     val result = MATCH_MP Eval_Num_ABS th1
     in check_inv "num_abs" tm result end else
-  (* w2n *)
+  (* i2w8 *)
+  if integer_wordSyntax.is_i2w tm andalso (type_of tm = ``:word8``) then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_i2w8 th1
+    in check_inv "i2w8" tm result end else
+  (* n2w8 *)
+  if wordsSyntax.is_n2w tm andalso (type_of tm = ``:word8``) then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_n2w8 th1
+    in check_inv "n2w8" tm result end else
+  (* w82i *)
+  if integer_wordSyntax.is_w2i tm andalso (type_of (rand tm) = ``:word8``) then let
+    val x1 = tm |> rand
+    val th1 = hol2deep x1
+    val result = MATCH_MP Eval_w82i th1
+    in check_inv "w82i" tm result end else
+  (* w82n *)
   if wordsSyntax.is_w2n tm andalso (type_of (rand tm) = ``:word8``) then let
     val x1 = tm |> rand
     val th1 = hol2deep x1
-    val result = MATCH_MP Eval_w2n th1
-    in check_inv "w2n" tm result end else
+    val result = MATCH_MP Eval_w82n th1
+    in check_inv "w82n" tm result end else
   (* &n *)
   if can (match_term int_of_num_pat) tm then let
     val x1 = tm |> rand

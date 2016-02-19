@@ -18,6 +18,18 @@ val ZIP4_def = Define `
 
 val res = translate ZIP4_def;
 
+val char_to_byte_def = Define`
+  char_to_byte c = (n2w (ORD c) : word8)`;
+
+val res = translate char_to_byte_def;
+
+(* TODO: why doesn't this work?
+val string_to_bytes_def = Define`
+  string_to_bytes s = MAP char_to_byte (mlstring$explode s)`;
+
+val res = translate string_to_bytes_def;
+*)
+
 val _ = (print_asts := true);
 
 val _ = export_theory();
