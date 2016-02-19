@@ -157,18 +157,18 @@ val pure_add_constraints_exists = store_thm ("pure_add_constraints_exists",
   let extension = ZIP (tys,targs) in
   pure_add_constraints s constraints (s|++extension)``,
   induct_on`ts`>>
-  rw[] >>unabbrev_all_tac>>
-  rw [COUNT_LIST_def, pure_add_constraints_def]>-rw[FUPDATE_LIST]>>
-  fs[LET_THM,MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = (SUC x) + y``] >>
-  fs[t_unify_eqn]>>
-  fs[t_walk_eqn,Once t_vwalk_eqn] >>
+  srw_tac[][] >>unabbrev_all_tac>>
+  srw_tac[] [COUNT_LIST_def, pure_add_constraints_def]>-rw[FUPDATE_LIST]>>
+  fsrw_tac[][LET_THM,MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = (SUC x) + y``] >>
+  fsrw_tac[][t_unify_eqn]>>
+  fsrw_tac[][t_walk_eqn,Once t_vwalk_eqn] >>
   `FLOOKUP s next_uvar = NONE ` by
     (fs[FLOOKUP_DEF,count_def,SUBSET_DEF]>>
     first_x_assum (qspec_then `next_uvar` mp_tac)>>DECIDE_TAC)>>
-  fs[t_ext_s_check_eqn]>>
+  fsrw_tac[][t_ext_s_check_eqn]>>
   imp_res_tac check_freevars_to_check_t>>
   Cases_on`unconvert_t h`>>
-  fs[t_walk_eqn]>>
+  fsrw_tac[][t_walk_eqn]>>
   imp_res_tac not_t_oc
   >-
     (`t_wfs (s |+ (next_uvar,Infer_Tvar_db n))` by
@@ -177,7 +177,7 @@ val pure_add_constraints_exists = store_thm ("pure_add_constraints_exists",
       simp[]>>
       pop_assum (qspec_then `Infer_Tvar_db n` assume_tac)>>
       res_tac>>
-      fs[FUPDATE_LIST_THM,DECIDE ``SUC x + n = n + SUC x``])
+      fsrw_tac[][FUPDATE_LIST_THM,DECIDE ``SUC x + n = n + SUC x``])
   >-
     (`t_wfs (s |+ (next_uvar,Infer_Tapp l t))` by metis_tac[t_wfs_eqn,extend_t_vR_WF]>>
     imp_res_tac FDOM_extend>>simp[]>>
@@ -613,7 +613,7 @@ val extend_multi_props = store_thm("extend_multi_props",
   t_walkstar s' (Infer_Tuvar (st.next_uvar+n)) = EL n targs) ∧
   ∀uv. uv ∈ FDOM s' ⇒ check_t n {} (t_walkstar s' (Infer_Tuvar uv))``,
   rpt strip_tac>>
-  fs[LET_THM]>>CONJ_ASM1_TAC>-
+  fsrw_tac[][LET_THM]>>CONJ_ASM1_TAC>-
     (imp_res_tac pure_add_constraints_exists>>
     fs[LET_THM])>>
   CONJ_ASM1_TAC>-
@@ -625,7 +625,7 @@ val extend_multi_props = store_thm("extend_multi_props",
   CONJ_ASM1_TAC>-
     metis_tac[pure_add_constraints_success]>>
   CONJ_ASM1_TAC>-
-    (fs[FDOM_FUPDATE_LIST,count_def,EXTENSION]>>rw[]>>
+    (fsrw_tac[][FDOM_FUPDATE_LIST,count_def,EXTENSION]>>srw_tac[][]>>
     qpat_abbrev_tac `ls1 = MAP (\n.st.next_uvar+n) A`>>
     qpat_abbrev_tac `ls2 = MAP unconvert_t ts`>>
     `LENGTH ls1 = LENGTH ls2` by metis_tac[LENGTH_MAP,LENGTH_COUNT_LIST]>>
@@ -643,8 +643,8 @@ val extend_multi_props = store_thm("extend_multi_props",
       Q.EXISTS_TAC`LENGTH ts -p`>>
       DECIDE_TAC)>>
   CONJ_ASM1_TAC>-
-    (rw[]>>
-    fs[t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
+    (srw_tac[][]>>
+    fsrw_tac[][t_walkstar_eqn,t_walk_eqn,Once t_vwalk_eqn]>>
     qpat_abbrev_tac `s' = s|++A`>>
     `FLOOKUP s' (st.next_uvar+n') = SOME (EL n' (MAP unconvert_t ts))` by
       (fs[Abbr`s'`,flookup_update_list_some]>>
@@ -655,9 +655,9 @@ val extend_multi_props = store_thm("extend_multi_props",
     simp[]>>
     `check_t n {} (EL n' (MAP unconvert_t ts))` by
       metis_tac[check_freevars_to_check_t,EL_MAP,EVERY_MEM,MEM_EL]>>
-    every_case_tac>>fs[check_t_def]>>
-    fs[MAP_EQ_ID]>>rw[]>>metis_tac[EVERY_MEM,t_walkstar_no_vars])>>
-  rw[]>>Cases_on`uv ∈ FDOM s`
+    every_case_tac>>fsrw_tac[][check_t_def]>>
+    fsrw_tac[][MAP_EQ_ID]>>srw_tac[][]>>metis_tac[EVERY_MEM,t_walkstar_no_vars])>>
+  srw_tac[][]>>Cases_on`uv ∈ FDOM s`
       >-
         (rfs[]>>
         res_tac>>
@@ -1184,10 +1184,14 @@ val infer_p_complete = store_thm("infer_p_complete",
           (fs[EL_MAP]>>
           metis_tac[EVERY_EL,check_freevars_empty_convert_unconvert_id])>>
         fs[]>>
-        pop_assum kall_tac>>
-        pop_assum (SUBST1_TAC o SYM)>>
+        first_x_assum (CHANGED_TAC o SUBST1_TAC o SYM)>>
         rpt AP_TERM_TAC>>
-        DECIDE_TAC)
+        match_mp_tac EQ_SYM >>
+        match_mp_tac (GEN_ALL check_t_empty_unconvert_convert_id) >>
+        simp[EL_MAP] >>
+        qexists_tac`tvs` >>
+        match_mp_tac check_freevars_to_check_t >>
+        fs[EVERY_MEM,MEM_EL,PULL_EXISTS])
   >-
     (first_x_assum(qspecl_then [`s`,`st`,`constraints`] assume_tac)>>
     rfs[]>>
@@ -2321,7 +2325,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        ntac 5 (pop_assum kall_tac)>>
        fs[tenv_invC_def,Abbr`new_tenv`]>>
        qpat_abbrev_tac `ls = MAP2 (λ(f,x,e) uvar. (f,0:num,uvar)) funs
-                            (MAP (λn. Infer_Tuvar (st.next_uvar + n))
+                            (MAP (λn. Infer_Tuvar (n+st.next_uvar ))
                             (COUNT_LIST (LENGTH funs)))`>>
        `LENGTH ls = LENGTH funs` by
          fs[Abbr`ls`,LENGTH_MAP2,LENGTH_COUNT_LIST]>>
@@ -2392,7 +2396,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
    qunabbrev_tac `fun_tys`>>
    rw[]>>
    fs[PULL_EXISTS]>>
-   qpat_abbrev_tac `ls=ZIP(MAP (λn.Infer_Tuvar(st.next_uvar+n))A,env')`>>
+   qpat_abbrev_tac `ls=ZIP(MAP (λn.Infer_Tuvar(n+st.next_uvar))A,env')`>>
    imp_res_tac infer_funs_length>>
    fs[LENGTH_COUNT_LIST]>>
    pure_add_constraints_ignore_tac `s''`>-
@@ -2402,7 +2406,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
        (qpat_assum `MAP FST funs = B` (assume_tac o Q.AP_TERM`LENGTH`)>>
        fs[LENGTH_MAP])>>
     imp_res_tac infer_e_check_t>>
-    first_x_assum(qspec_then `Infer_Tuvar (st.next_uvar+n)` (SUBST_ALL_TAC o SYM))>>
+    first_x_assum(qspec_then `Infer_Tuvar (n+st.next_uvar)` (SUBST_ALL_TAC o SYM))>>
      last_x_assum(qspec_then `n` assume_tac)>>
      fs[]>>rfs[]>>
      qunabbrev_tac`targs`>>
@@ -2413,7 +2417,7 @@ val infer_e_complete = Q.store_thm ("infer_e_complete",
      imp_res_tac sub_completion_completes>>
      imp_res_tac check_t_empty_unconvert_convert_id>>
      simp[]>>
-     metis_tac[t_walkstar_no_vars])>>
+     simp[t_walkstar_idempotent])>>
    pure_add_constraints_combine_tac ``st''`` ``constraints''`` ``s''``>>
    pop_assum mp_tac >>discharge_hyps_keep>-
      metis_tac[infer_e_wfs]>>

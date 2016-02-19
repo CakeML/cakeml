@@ -295,10 +295,6 @@ SIMP_TAC (srw_ss()) [t_vars_eqn, generalise_def, infer_subst_def] >|
                rw [INTER_UNION] >>
                fs [SUBMAP_DEF] >>
                res_tac >>
-               decide_tac,
-           res_tac >>
-               rw [INTER_UNION] >>
-               fs [SUBMAP_DEF] >>
                decide_tac],
       metis_tac [],
       metis_tac [],
@@ -892,8 +888,7 @@ val check_t_more2 = Q.store_thm ("check_t_more2",
 `(!t tvs uvs. check_t tvs uvs t ⇒ !tvs'. check_t (tvs' + tvs) uvs t) ∧
  (!ts tvs uvs. EVERY (check_t tvs uvs) ts ⇒ !tvs'. EVERY (check_t (tvs' + tvs) uvs) ts)`,
 ho_match_mp_tac infer_t_induction >>
-rw [check_t_def] >-
-decide_tac >>
+rw [check_t_def] >>
 metis_tac []);
 
 val check_t_more3 = Q.prove (
@@ -1239,7 +1234,10 @@ rw [check_freevars_def, check_t_def, infer_type_subst_def] >|
      rw [COUNT_LIST_def, check_t_def] >>
      qpat_assum `!uvs. P uvs` (mp_tac o Q.SPEC `SUC uvs`) >>
      rw [MAP_MAP_o, combinTheory.o_DEF] >>
-     fs [DECIDE ``SUC a + b = a + SUC b``],
+     qmatch_asmsub_abbrev_tac`MAP f1 _` >>
+     qmatch_goalsub_abbrev_tac`MAP f2 _` >>
+     `f1 = f2` by (unabbrev_all_tac \\ simp[FUN_EQ_THM]) >>
+     fs[ADD1],
  metis_tac [EVERY_MAP]]);
 
 val infer_p_check_s = Q.store_thm ("infer_p_check_s",
@@ -1268,14 +1266,14 @@ rw [] >|
      res_tac >>
      imp_res_tac infer_p_wfs >>
      `st'''.next_uvar ≤ st'''.next_uvar + LENGTH (FST v')` by decide_tac >>
-     `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2] >>
+     `check_s tvs (count st'.next_uvar) st'''.subst` by metis_tac [check_s_more2,ADD_COMM] >>
      match_mp_tac pure_add_constraints_check_s >>
      qexists_tac `st'''.subst` >>
      qexists_tac `(ZIP (v''0, MAP (infer_type_subst (ZIP (FST v', MAP (λn. Infer_Tuvar (st'''.next_uvar + n)) (COUNT_LIST (LENGTH (FST v')))))) (FST (SND v'))))` >>
      rw [] >>
      rw [EVERY_CONJ, every_shim2, every_zip_fst, every_zip_snd, EVERY_MAP] >-
      metis_tac [check_t_more2, arithmeticTheory.ADD_0, check_t_more4, infer_p_next_uvar_mono,
-                arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t] >>
+                arithmeticTheory.LESS_EQ_TRANS, infer_p_check_t, ADD_COMM] >>
      PairCases_on `v'` >>
      fs [] >>
      imp_res_tac check_cenv_lookup >>
@@ -1311,8 +1309,7 @@ rw [COUNT_LIST_def, check_env_def] >>
 cases_on `funs` >>
 fs [COUNT_LIST_def, check_env_def] >>
 PairCases_on `h` >>
-rw [check_t_def] >-
-decide_tac >>
+rw [check_t_def] >>
 rw [] >>
 PairCases_on `h'` >>
 fs [check_t_def] >>
@@ -1320,14 +1317,9 @@ eq_tac >>
 srw_tac [ARITH_ss] [] >>
 fs [MAP_MAP_o, combinTheory.o_DEF] >|
 [qpat_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
-     rw [] >>
-     fs [DECIDE ``SUC (SUC x) + y = y + 1 + SUC x``] >>
-     decide_tac,
+     rw [] >> fs[ ADD1],
  qpat_assum `!x. P x` (mp_tac o Q.SPECL [`uvs`, `uvs' + 1`]) >>
-     rw [] >>
-     fs [DECIDE ``SUC (SUC x) + y = y + 1 + SUC x``,
-         DECIDE ``x + (SUC (SUC y)) = x + 1 + SUC y``] >>
-     metis_tac []]);
+     rw [] >> fs[ADD1]])
 
 val check_t_infer_db_subst = Q.prove (
 `(!t uvs tvs.
@@ -1355,8 +1347,6 @@ val check_t_infer_db_subst2 = Q.store_thm ("check_t_infer_db_subst2",
 ho_match_mp_tac infer_t_induction >>
 rw [check_t_def, infer_deBruijn_subst_def, LENGTH_COUNT_LIST,
     EL_MAP, EL_COUNT_LIST, EVERY_MAP] >-
-decide_tac >-
-decide_tac >-
 metis_tac []);
 
 val infer_e_check_t = Q.store_thm ("infer_e_check_t",
@@ -1385,14 +1375,14 @@ val infer_e_check_t = Q.store_thm ("infer_e_check_t",
     ⇒
     EVERY (check_t 0 (count st'.next_uvar)) ts')`,
 ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem] >>
-fs [check_t_def] >>
+srw_tac[] [infer_e_def, constrain_op_success, success_eqns, remove_pair_lem] >>
+fsrw_tac[] [check_t_def] >>
 imp_res_tac infer_e_next_uvar_mono >>
-fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >|
+fsrw_tac[] [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_subst] >|
 [metis_tac [check_t_more4],
  PairCases_on `v'` >>
      imp_res_tac check_env_lookup >>
-     rw [] >>
+     srw_tac[] [] >>
      metis_tac [check_t_more3],
  PairCases_on `v'` >>
      imp_res_tac check_menv_lookup >>
@@ -1424,7 +1414,7 @@ fs [EVERY_MAP, check_t_def, check_env_bind, check_env_merge, check_t_infer_db_su
      rw [check_env_bind] >>
      metis_tac [check_env_more, DECIDE ``x:num ≤ x + 1``],
  res_tac >>
-     fs [check_env_merge, check_env_letrec_lem] >>
+     fsrw_tac[] [check_env_merge, check_env_letrec_lem] >>
      metis_tac [check_env_more, DECIDE ``x + y ≤ z ⇒ x ≤ z:num``],
  res_tac >>
      fs [] >>
@@ -1625,8 +1615,8 @@ val infer_e_check_s = Q.store_thm ("infer_e_check_s",
     ⇒
     check_s tvs (count st'.next_uvar) st'.subst)`,
 ho_match_mp_tac infer_e_ind >>
-rw [infer_e_def, success_eqns, remove_pair_lem] >>
-rw [] >|
+srw_tac[] [infer_e_def, success_eqns, remove_pair_lem] >>
+srw_tac[] [] >|
 [`t_wfs st''.subst` by (metis_tac [infer_e_wfs]) >>
      match_mp_tac check_s_more >>
      match_mp_tac t_unify_check_s >>
@@ -1752,12 +1742,12 @@ rw [] >|
      metis_tac [infer_e_wfs],
  `check_env (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar)
             (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ ienv.inf_v)`
-                 by (rw [check_env_merge] >>
-                     rw [check_env_letrec_lem] >>
+                 by (srw_tac[] [check_env_merge] >>
+                     srw_tac[] [check_env_letrec_lem] >>
                      metis_tac [check_env_more, DECIDE ``x ≤ x + y:num``]) >>
      `check_s tvs (count (st with next_uvar := st.next_uvar + LENGTH funs).next_uvar) st.subst`
                  by metis_tac [infer_st_rewrs, check_s_more2, DECIDE ``x ≤ x + y:num``] >>
-     fs[infer_st_rewrs]>>
+     fsrw_tac[][infer_st_rewrs]>>
      `check_s tvs (count st'''.next_uvar) st'''.subst`
                  by metis_tac [infer_st_rewrs]>>
      `t_wfs st'''.subst` by metis_tac [infer_e_wfs, infer_st_rewrs] >>
@@ -2913,16 +2903,16 @@ val tenv_inv_letrec_merge = Q.store_thm ("tenv_inv_letrec_merge",
   tenv_inv s (MAP2 (λ(f,x,e) uvar. (f,0,uvar)) funs (MAP (λn. Infer_Tuvar (st.next_uvar + n)) (COUNT_LIST (LENGTH funs))) ++ env)
              (bind_var_list 0 (MAP2 (λ(f,x,e) t. (f,t)) funs (MAP (λn. convert_t (t_walkstar s (Infer_Tuvar (st.next_uvar + n)))) (COUNT_LIST (LENGTH funs)))) tenv)`,
   induct_on `funs` >>
-  rw [COUNT_LIST_def, bind_var_list_def] >>
+  srw_tac[] [COUNT_LIST_def, bind_var_list_def] >>
   PairCases_on `h` >>
-  rw [bind_var_list_def] >>
+  srw_tac[] [bind_var_list_def] >>
   match_mp_tac tenv_inv_extend0 >>
-  fs [] >>
-  rw [check_t_def] >>
+  fsrw_tac[] [] >>
+  srw_tac[] [check_t_def] >>
   res_tac >>
   pop_assum (mp_tac o Q.SPEC `st with next_uvar := st.next_uvar + 1`) >>
   strip_tac >>
-  fs [] >>
+  fsrw_tac[] [] >>
   metis_tac [MAP_MAP_o, combinTheory.o_DEF, DECIDE ``x + SUC y = x + 1 + y``]);
 
 val tenv_inv_merge = Q.store_thm ("tenv_inv_merge",
@@ -3176,24 +3166,24 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     (∀x. x ∈ FDOM b ⇒  EL (b ' x) (subst++subst') = t_walkstar s (Infer_Tuvar x)))``,
   strip_tac>>
   ho_match_mp_tac infer_tTheory.infer_t_induction>>
-  rw[]>>
-  fs[check_t_def]
+  srw_tac[][]>>
+  fsrw_tac[][check_t_def]
   >-
-    (fs[generalise_def]>>
+    (fsrw_tac[][generalise_def]>>
     qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
-    fs[]>>
+    fsrw_tac[][]>>
     first_assum match_mp_tac>>
     ntac 2 HINT_EXISTS_TAC >>
-    fs[EVERY_MEM,t_vars_eqn,SUBSET_DEF,MEM_MAP]>>
+    fsrw_tac[][EVERY_MEM,t_vars_eqn,SUBSET_DEF,MEM_MAP]>>
     metis_tac[])
   >-
     (imp_res_tac generalise_subst>>
-    fs[generalise_def]>>
-    full_case_tac>>fs[]
+    fsrw_tac[][generalise_def]>>
+    full_case_tac>>fsrw_tac[][]
     >-
       (qexists_tac`[t_walkstar s (Infer_Tuvar n)]`>>
       qpat_assum`A=b` sym_sub_tac>>
-      rw[]
+      srw_tac[][]
       >-
         (simp[FAPPLY_FUPDATE_THM]>>
         `x ≠ n` by
@@ -3211,7 +3201,7 @@ val generalise_subst_exist = store_thm("generalise_subst_exist",``
     (fs[generalise_def]>>
     qexists_tac`[]`>>fs[])
   >>
-    fs[generalise_def]>>
+    fsrw_tac[][generalise_def]>>
     qpat_assum`A=(a,b,t')` mp_tac>>BasicProvers.LET_ELIM_TAC>>
     imp_res_tac generalise_subst>>
     first_x_assum(qspecl_then[`subst`,`smap`,`num_gen`,`s'`,`t'`] assume_tac)>>
