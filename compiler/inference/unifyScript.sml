@@ -903,6 +903,10 @@ rw [] >>
 metis_tac [decode_right_inverse, decode_left_inverse, t_wfs_def,
            encode_walkstar]);
 
+val t_walkstar_idempotent = Q.store_thm("t_walkstar_idempotent",
+  `∀s. t_wfs s ⇒ ∀t. t_walkstar s (t_walkstar s t) = t_walkstar s t`,
+  metis_tac[decode_right_inverse, decode_left_inverse, walkstar_idempotent, t_wfs_def, encode_walkstar]);
+
 (* ---------- Lemmas about unification that don't need to go into the encoding ----------*)
 
 val t_unify_apply = Q.store_thm ("t_unify_apply",
