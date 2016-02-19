@@ -15,6 +15,8 @@ val adjust_set_def = Define `
   adjust_set (names:'a num_map) =
     (fromAList ((0,()):: MAP (\(n,k). (adjust_var n,())) (toAList names))):num_set`
 
+val Unit_def = Define`Unit = Const 2w`;
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -27,7 +29,7 @@ val assign_def = Define `
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
-                            (Assign (adjust_var dest) (Const 0w (* TODO: Unit *))),l)
+                            (Assign (adjust_var dest) Unit),l)
     | El => (Assign (adjust_var dest) (Load (Op Add (MAP (Var o adjust_var) args))),l)
     | _ => (Skip:'a wordLang$prog,l)`;
 
