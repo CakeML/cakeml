@@ -51,7 +51,7 @@ val word_gc_fun_lemma = word_gc_fun_def
 
 val word_gc_fun_thm = prove(
   ``word_gc_fun conf (roots,m,dm,s) =
-      let (w1,i1,pa1,m1,c1) =
+      let (w1,i1:'a word,pa1,m1,c1) =
             word_gc_move conf
               (s ' Globals,0w,theWord (s ' OtherHeap),
                theWord (s ' CurrHeap),m,dm) in
@@ -59,7 +59,7 @@ val word_gc_fun_thm = prove(
             word_gc_move_roots conf
               (roots,i1,pa1,theWord (s ' CurrHeap),m1,dm) in
       let (i1,pa1,m1,c2) =
-            word_gc_move_loop conf
+            word_gc_move_loop (dimword (:'a)) conf
               (theWord (s ' OtherHeap),i2,pa2,
                theWord (s ' CurrHeap),m2,dm,c1 /\ c2) in
       let s1 =
@@ -95,12 +95,13 @@ val word_gc_move_roots_bitmaps_def = Define `
           | SOME stack => (stack,i2,pa2,m2,c2)`
 
 val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
-  ``word_gc_move_loop conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
-  cheat);
+  ``!k conf pb i pa old m dm i1 pa1 m1 c1.
+      word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
+  Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ cheat);
 
 val gc_thm = prove(
   ``s.gc_fun = word_gc_fun conf ⇒
-   gc s =
+   gc (s:('a,'b)stackSem$state) =
    if LENGTH s.stack < s.stack_space then NONE else
      let unused = TAKE s.stack_space s.stack in
      let stack = DROP s.stack_space s.stack in
@@ -114,7 +115,7 @@ val gc_thm = prove(
              (stack,s.bitmaps,i1,pa1,
               theWord (s.store ' CurrHeap),m1,s.mdomain) in
      let (i1,pa1,m1,c2) =
-           word_gc_move_loop conf
+           word_gc_move_loop (dimword(:'a)) conf
              (theWord (s.store ' OtherHeap),i2,pa2,
               theWord (s.store ' CurrHeap),m2,s.mdomain,
               c1 ∧ c2) in
@@ -524,8 +525,6 @@ val word_gc_move_bitmap_unroll = prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-
-
 val memcpy_code_def = Define `
   memcpy_code =
     While NotEqual 0 (Imm 0w)
@@ -898,89 +897,52 @@ val word_gc_move_loop_code_def = Define `
                 clear_top_inst 0 (conf.len_size - 1);
                 If Test 1 (Imm 1w) ARB ARB])`
 
-val (guard_tm,step_tm) = let
-  val tm = word_gc_move_loop_def
-   |> SPEC_ALL |> concl |> rand |> rator |> rator |> rand |> rator
-  in (tm |> rator |> rand, tm |> rand) end
-
-val word_gc_move_loop_OWHILE = prove(
-  ``!x y.
-      OWHILE ^guard_tm ^step_tm x = SOME y ==>
-      !pb1 i1 pa1 old1 m1 dm1 c1 pb2 i2 pa2 old2 m2 dm2 c2 s.
-        (x = (pb1,i1,pa1,old1,m1,dm1,c1)) /\
-        (y = (pb2,i2,pa2,old2,m2,dm2,c2)) /\
-        shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
-        2 < dimindex (:'a) /\ conf.len_size <> 0 /\
-        (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
-        FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
-        s.memory = m1 /\ s.mdomain = dm1 /\
-        0 IN FDOM s.regs /\
-        1 IN FDOM s.regs /\
-        2 IN FDOM s.regs /\
-        get_var 3 s = SOME (Word pa1) /\
-        get_var 4 s = SOME (Word (i1:'a word)) /\
-        5 IN FDOM s.regs ==>
-        6 IN FDOM s.regs ==>
-        7 IN FDOM s.regs ==>
-        get_var 8 s = SOME (Word pb1) /\ c1 /\ c2 ==>
-        ?ck r0 r1 r2 r5 r6 r7.
-          evaluate (word_gc_move_loop_code conf,s with clock := s.clock + ck) =
-            (NONE,s with <| memory := m1;
-                            regs := s.regs |++ [(0,r0);
-                                                (1,r1);
-                                                (2,r2);
-                                                (3,Word pa2);
-                                                (4,Word i2);
-                                                (5,r5);
-                                                (6,r6);
-                                                (7,r7);
-                                                (8,Word pb2)] |>)``,
-  HO_MATCH_MP_TAC whileTheory.OWHILE_IND \\ rpt strip_tac
-  THEN1 (fs [] \\ rpt var_eq_tac
+val word_gc_move_loop_code_thm = prove(
+  ``!k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'b)stackSem$state).
+      word_gc_move_loop k conf (pb1,i1,pa1,old1,m1,dm1,c1) = (i2,pa2,m2,T) /\
+      shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+      2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+      FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
+      s.memory = m1 /\ s.mdomain = dm1 /\
+      0 IN FDOM s.regs /\
+      1 IN FDOM s.regs /\
+      2 IN FDOM s.regs /\
+      get_var 3 s = SOME (Word pa1) /\
+      get_var 4 s = SOME (Word (i1:'a word)) /\
+      5 IN FDOM s.regs ==>
+      6 IN FDOM s.regs ==>
+      7 IN FDOM s.regs ==>
+      get_var 8 s = SOME (Word pb1) /\ c1 /\ c2 ==>
+      ?ck r0 r1 r2 r5 r6 r7.
+        evaluate (word_gc_move_loop_code conf,s with clock := s.clock + ck) =
+          (NONE,s with <| memory := m1;
+                          regs := s.regs |++ [(0,r0);
+                                              (1,r1);
+                                              (2,r2);
+                                              (3,Word pa2);
+                                              (4,Word i2);
+                                              (5,r5);
+                                              (6,r6);
+                                              (7,r7);
+                                              (8,Word pa2)] |>)``,
+  strip_tac \\ completeInduct_on `k` \\ rpt strip_tac
+  \\ qpat_assum `word_gc_move_loop _ _ _ = _` mp_tac
+  \\ once_rewrite_tac [word_gc_move_loop_def]
+  \\ IF_CASES_TAC THEN1
+   (fs [] \\ rw [] \\ fs [] \\ rpt var_eq_tac
     \\ fs [word_gc_move_loop_code_def,get_var_def] \\ tac
     \\ full_simp_tac(srw_ss())[state_component_equality]
     \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
     \\ once_rewrite_tac [split_num_forall_to_10]
     \\ full_simp_tac(srw_ss())[nine_less])
+  \\ IF_CASES_TAC \\ fs []
+  \\ `k-1 < k` by decide_tac
+  \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
+  \\ split_pair_tac \\ fs []
   \\ cheat);
-
-val OOWHILE_def = Define `
-  OOWHILE g f x =
-    case OWHILE (\x. case x of NONE => F | SOME y => g y)
-           (\x. case x of NONE => NONE
-                        | SOME y => f y) (SOME x) of
-    | NONE => NONE
-    | SOME NONE => NONE
-    | SOME (SOME x) => SOME x`
-
-val OOWHILE_THM = prove(
-  ``OOWHILE g f x =
-      if g x then
-        (case f x of
-         | NONE => NONE
-         | SOME y => OOWHILE g f y)
-      else SOME x``,
-  simp [Once OOWHILE_def]
-  \\ once_rewrite_tac [whileTheory.OWHILE_THM]
-  \\ rewrite_tac [OOWHILE_def]
-  \\ fs [] \\ rw []
-  \\ Cases_on `f x` \\ fs []
-  \\ once_rewrite_tac [whileTheory.OWHILE_THM]
-  \\ fs []);
-
-val OOWHILE_IND = prove(
-  ``∀P G f.
-     (∀s. ¬G s ⇒ P s s) ∧
-     (∀s1 si s2. G s1 /\ f s1 = SOME si ∧ P si s2 ⇒ P s1 s2) ⇒
-     ∀s1 s2. OOWHILE G f s1 = SOME s2 ⇒ P s1 s2``,
-  cheat);
-
-
-
-
-
 
 (*
 
