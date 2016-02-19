@@ -40,38 +40,36 @@ val asm_mem_ignore_new_pc = store_thm("asm_mem_ignore_new_pc",
   Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
-local
-  val SND_read_mem_word_consts = prove(
-    ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
-              ((SND (read_mem_word a n s)).lr = s.lr) /\
-              ((SND (read_mem_word a n s)).align = s.align) /\
-              ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
-    Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
-    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-    \\ full_simp_tac(srw_ss())[assert_def])
-  val write_mem_word_consts = prove(
-    ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
-                ((write_mem_word a n w s).lr = s.lr) /\
-                ((write_mem_word a n w s).align = s.align) /\
-                ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
-    Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
-in
-  val asm_consts = store_thm("asm_consts[simp]",
-    ``!i w s. ((asm i w s).be = s.be) /\
-              ((asm i w s).lr = s.lr) /\
-              ((asm i w s).align = s.align) /\
-              ((asm i w s).mem_domain = s.mem_domain)``,
-    Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-    \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
-    \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
-    \\ TRY (Cases_on `m`)
-    \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[arith_upd_def,mem_op_def]
-    \\ TRY (Cases_on `b`)
-    \\ TRY (Cases_on `r`)
-    \\ EVAL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
-    \\ full_simp_tac(srw_ss())[SND_read_mem_word_consts,write_mem_word_consts])
-end
+val SND_read_mem_word_consts = prove(
+  ``!n a s. ((SND (read_mem_word a n s)).be = s.be) /\
+            ((SND (read_mem_word a n s)).lr = s.lr) /\
+            ((SND (read_mem_word a n s)).align = s.align) /\
+            ((SND (read_mem_word a n s)).mem_domain = s.mem_domain)``,
+  Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ full_simp_tac(srw_ss())[assert_def])
+val write_mem_word_consts = prove(
+  ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
+              ((write_mem_word a n w s).lr = s.lr) /\
+              ((write_mem_word a n w s).align = s.align) /\
+              ((write_mem_word a n w s).mem_domain = s.mem_domain)``,
+  Induct \\ full_simp_tac(srw_ss())[write_mem_word_def,LET_DEF,assert_def,upd_mem_def])
+
+val asm_consts = store_thm("asm_consts[simp]",
+  ``!i w s. ((asm i w s).be = s.be) /\
+            ((asm i w s).lr = s.lr) /\
+            ((asm i w s).align = s.align) /\
+            ((asm i w s).mem_domain = s.mem_domain)``,
+  Cases \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ TRY (Cases_on `i'`) \\ full_simp_tac(srw_ss())[inst_def]
+  \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,jump_to_offset_def,upd_reg_def]
+  \\ TRY (Cases_on `m`)
+  \\ TRY (Cases_on `a`) \\ full_simp_tac(srw_ss())[arith_upd_def,mem_op_def]
+  \\ TRY (Cases_on `b`)
+  \\ TRY (Cases_on `r`)
+  \\ EVAL_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
+  \\ full_simp_tac(srw_ss())[SND_read_mem_word_consts,write_mem_word_consts])
 
 val EXP_IMP_ZERO_LT = Q.prove(
   `(2n ** y = x) ⇒ 0 < x`,
@@ -1012,10 +1010,78 @@ val Inst_lemma = Q.prove(
   \\ strip_tac >>
   Cases_on`m`>>fs[mem_op_def,labSemTheory.assert_def]
   >-
-    (*Load*)
-    cheat
-  >-
-    (*Load8*)
+    (`good_dimindex(:'a)` by fs[state_rel_def]>>
+    fs[good_dimindex_def]>>
+    Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def,labSemTheory.mem_load_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+    ntac 2 strip_tac>>fs[state_rel_def]>>
+    `t1.regs n' = c'` by
+      (first_x_assum(qspec_then`n'` assume_tac)>>
+      rfs[word_loc_val_def])>>
+    fs[]
+    >-
+      ((*alignment stuff..*)
+      `aligned 2 x` by cheat>>
+      (* True? *)
+      `byte_align x = x ∧
+       byte_align (x+1w) = x ∧
+       byte_align (x+2w) = x ∧
+       byte_align (x+3w) = x` by cheat>>
+      `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+         (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+          fs[read_mem_def]>>
+          res_tac>>
+          fs[word_loc_val_byte_def]>>
+          ntac 4 (FULL_CASE_TAC>>fs[])>>
+          rfs[get_byte_def,byte_index_def]>>rveq>>
+          (*Looks plausible, not sure how to deal with shifts*)
+          cheat)))
+    >>
+      `aligned 3 x` by cheat>>
+      `byte_align x = x ∧
+       byte_align (x+1w) = x ∧
+       byte_align (x+2w) = x ∧
+       byte_align (x+3w) = x ∧
+       byte_align (x+4w) = x ∧
+       byte_align (x+5w) = x ∧
+       byte_align (x+6w) = x ∧
+       byte_align (x+7w) = x` by cheat>>
+      `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align (x+4w) ∈ s1.mem_domain ∧
+       byte_align (x+5w) ∈ s1.mem_domain ∧
+       byte_align (x+6w) ∈ s1.mem_domain ∧
+       byte_align (x+7w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+         (Cases_on`n=r`>>fs[APPLY_UPDATE_THM,word_loc_val_def]>>
+          fs[read_mem_def]>>
+          res_tac>>
+          fs[word_loc_val_byte_def]>>
+          ntac 8 (FULL_CASE_TAC>>fs[])>>
+          rfs[get_byte_def,byte_index_def]>>rveq>>
+          (*Looks plausible, not sure how to deal with shifts*)
+          cheat)))
+  >- (*Load8*)
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
     ntac 2 (TOP_CASE_TAC>>fs[])>>
@@ -1037,8 +1103,37 @@ val Inst_lemma = Q.prove(
     (*Store*)
     cheat
   >-
-    (*Store8*)
-    cheat);
+    (Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
+    ntac 3 (TOP_CASE_TAC>>fs[])>>
+    ntac 3 (pop_assum mp_tac)>>
+    ntac 2 (TOP_CASE_TAC>>fs[])>>
+    ntac 3 strip_tac>>
+    fs[state_rel_def]>>
+    res_tac>>fs[word_loc_val_byte_def]>>
+    FULL_CASE_TAC>>fs[]>>
+    first_assum(qspec_then`n'` assume_tac)>>
+    qpat_assum`A=Word c''` SUBST_ALL_TAC>>
+    fs[word_loc_val_def,GSYM word_add_n2w,alignmentTheory.aligned_extract]>>
+    rw[]
+    >-
+      (fs[APPLY_UPDATE_THM]>>
+      IF_CASES_TAC>>fs[])
+    >- metis_tac[]
+    >-
+      (simp[APPLY_UPDATE_THM]>>
+      IF_CASES_TAC>>fs[word_loc_val_def]>>
+      IF_CASES_TAC>>fs[]
+      >-
+        (simp[get_byte_set_byte]>>
+        first_x_assum(qspec_then`n` assume_tac)>>rfs[word_loc_val_def])
+      >>
+      simp[get_byte_set_byte_diff]>>
+      first_x_assum(qspec_then`a` mp_tac)>>
+      TOP_CASE_TAC>>rfs[word_loc_val_def])
+    >-
+    (*something about not overwriting memory*)
+    cheat))
   (* long and messy, use set_byte_get_byte lemmas for memop cases *)
 
 val state_rel_ignore_io_events = prove(
