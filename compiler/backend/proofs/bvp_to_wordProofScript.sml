@@ -436,7 +436,7 @@ val word_gc_move_list_def = Define `
 
 val word_gc_move_loop_def = Define `
   word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) =
-    if pb = pa then (i,pa,m,T) else
+    if pb = pa then (i,pa,m,c) else
     if k = 0 then (i,pa,m,F) else
       let w = m pb in
       let c = (c /\ pb IN dm /\ isWord w) in
