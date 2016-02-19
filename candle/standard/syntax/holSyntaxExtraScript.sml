@@ -582,7 +582,7 @@ val orda_thm = prove(
   CONV_TAC(LAND_CONV(REWR_CONV orda_def)) >>
   reverse IF_CASES_TAC >- rw[] >> rw[] >>
   BasicProvers.CASE_TAC >> rw[ordav_def] >>
-  fs[Abbr`c`,GSYM RACONV_eq_orda,RACONV_REFL])
+  fs[GSYM RACONV_eq_orda,RACONV_REFL])
 
 val ordav_lx_trans = prove(
   ``∀t1 t2 t3 env1 env2.
@@ -1587,7 +1587,7 @@ val VSUBST_dbVSUBST = store_thm("VSUBST_dbVSUBST",
     metis_tac[] ) >>
   gen_tac >> simp[GSYM AND_IMP_INTRO] >>
   disch_then(qx_choosel_then[`b`,`bty`]strip_assume_tac) >>
-  rw[VSUBST_def] >>
+  srw_tac[][VSUBST_def] >>
   reverse(rw[]) >- (
     first_x_assum(qspec_then`ilist'`mp_tac) >>
     discharge_hyps >- (
@@ -2014,7 +2014,7 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
     metis_tac[] ) >>
   conj_tac >- simp[INST_CORE_def] >>
   conj_tac >- (
-    rw[INST_CORE_def] >>
+    srw_tac[][INST_CORE_def] >>
     `sres = Result (simple_inst tyin tm)` by (
       first_x_assum match_mp_tac >>
       fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
@@ -2025,7 +2025,7 @@ val INST_CORE_simple_inst = store_thm("INST_CORE_simple_inst",
       fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
       metis_tac[] ) >>
     unabbrev_all_tac >> simp[] ) >>
-  rw[INST_CORE_def] >>
+  srw_tac[][INST_CORE_def] >>
   fs[] >>
   rpt BasicProvers.VAR_EQ_TAC >>
   fs[] >>rfs[] >>
@@ -2133,7 +2133,7 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
     fs[IN_DISJOINT,ALL_DISTINCT_APPEND] >>
     metis_tac[] ) >>
   conj_tac >- (
-    rw[UNCURRY] >>
+    srw_tac[][UNCURRY] >>
     simp[RACONV] >>
     conj_tac >> first_x_assum (match_mp_tac o MP_CANON) >>
     fs[ALL_DISTINCT_APPEND,IN_DISJOINT] >>
@@ -2144,7 +2144,6 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
       first_assum (assume_tac o Q.AP_TERM`LENGTH`) >>
       fs[LENGTH_DROP] >>
       `LENGTH (bv_names tm) ≤ LENGTH names` by DECIDE_TAC >>
-      conj_tac >- DECIDE_TAC >>
       conj_tac >- (
         rw[] >> spose_not_then strip_assume_tac >>
         imp_res_tac rich_listTheory.MEM_DROP >>
@@ -2157,7 +2156,7 @@ val rename_bvars_RACONV = store_thm("rename_bvars_RACONV",
       rw[] >> spose_not_then strip_assume_tac >>
       imp_res_tac rich_listTheory.MEM_DROP >>
       metis_tac[]) >>
-    conj_tac >- DECIDE_TAC >> metis_tac[]) >>
+    metis_tac[]) >>
   rw[UNCURRY] >>
   rw[RACONV] >> fs[] >>
   first_x_assum match_mp_tac >>
@@ -2180,7 +2179,7 @@ val rename_bvars_ACONV = store_thm("rename_bvars_ACONV",
 val rename_bvars_has_type = store_thm("rename_bvars_has_type",
   ``∀names env tm ty. tm has_type ty ⇒ SND (rename_bvars names env tm) has_type ty``,
   ho_match_mp_tac(theorem"rename_bvars_ind") >>
-  rw[rename_bvars_def] >> rw[] >> fs[]
+  srw_tac[][rename_bvars_def] >> rw[] >> fs[]
   >- fs[Once has_type_cases] >>
   qpat_assum`X has_type Y`mp_tac >>
   simp[Once has_type_cases] >> strip_tac >>
@@ -2353,7 +2352,7 @@ val variant_def = tDefine "variant" `
   (WF_REL_TAC `measure (\(avoid,v).
      let n = SUM_SET (BIGUNION (set (MAP (λa. {strlen x + 1 | ∃ty. VFREE_IN (Var x ty) a}) avoid))) in
        n - (case v of Var x ty => strlen x | _ => 0))` >>
-   gen_tac >> Cases >> rw[strlen_def,strcat_def,explode_implode] >>
+   gen_tac >> Cases >> srw_tac[][strlen_def,strcat_def,explode_implode] >>
    qsuff_tac`STRLEN s' < n` >- simp[] >>
    simp[Abbr`n`] >> fs[GSYM vfree_in_thm,EXISTS_MEM] >>
    match_mp_tac SUM_SET_IN_LT >>
@@ -2947,20 +2946,20 @@ val updates_theory_ok = store_thm("updates_theory_ok",
     simp[] >>
     conj_tac >- (
       match_mp_tac term_ok_VSUBST >>
-      simp[Abbr`ilist`,MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases,term_ok_def] >>
+      simp[MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases,term_ok_def] >>
       conj_tac >- metis_tac[term_ok_extend,SUBMAP_REFL] >>
       simp[Abbr`tms'`,FLOOKUP_FUNION,ALOOKUP_MAP,FORALL_PROD] >> rw[] >>
       imp_res_tac ALOOKUP_ALL_DISTINCT_MEM >> rw[] >>
       fs[EVERY_MEM,term_ok_def,FORALL_PROD] >>
       metis_tac[is_instance_refl] ) >>
     match_mp_tac VSUBST_HAS_TYPE >>
-    simp[Abbr`ilist`,MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases] ) >>
+    simp[MEM_MAP,PULL_EXISTS,UNCURRY,Once has_type_cases] ) >>
   strip_tac >- (
     rw[conexts_of_upd_def] >>
     fs[theory_ok_def] >>
     `tysof ctxt ⊑ tysof ctxt |+ (name,arity)` by simp[] >>
     metis_tac[is_std_sig_extend,term_ok_extend,type_ok_extend,SUBMAP_REFL] ) >>
-  rw[conexts_of_upd_def] >>
+  srw_tac[][conexts_of_upd_def] >>
   fs[theory_ok_def] >>
   Q.PAT_ABBREV_TAC`tms' = X ⊌ tmsof ctxt` >>
   Q.PAT_ABBREV_TAC`tys' = tysof ctxt |+ X` >>
@@ -3047,7 +3046,7 @@ val is_std_sig_extends = store_thm("is_std_sig_extends",
   ho_match_mp_tac extends_ind >>
   REWRITE_TAC[GSYM AND_IMP_INTRO] >>
   ho_match_mp_tac updates_ind >>
-  rw[is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
+  srw_tac[][is_std_sig_def,FLOOKUP_UPDATE,FLOOKUP_FUNION] >>
   TRY BasicProvers.CASE_TAC >>
   imp_res_tac ALOOKUP_MEM >>
   fs[MEM_MAP,FORALL_PROD,EXISTS_PROD] >>
