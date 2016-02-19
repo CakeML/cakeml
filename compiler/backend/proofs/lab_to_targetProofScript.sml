@@ -4,6 +4,8 @@ open preamble ffiTheory BasicProvers
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory targetPropsTheory;
 
+val aligned_w2n = stack_removeProofTheory.aligned_w2n;
+
 val _ = new_theory "lab_to_targetProof";
 
 (* TODO: move *)
@@ -969,6 +971,74 @@ val arith_upd_lemma = Q.prove(
     first_x_assum(qspec_then`r`mp_tac) >>
     simp[] >> EVAL_TAC >> srw_tac[][] ));
 
+val aligned_IMP_ADD_LESS_dimword = prove(
+  ``aligned k x ==> w2n x + (2 ** k - 1) < dimword (:'a)``,
+  cheat);
+
+val aligned_2_imp = store_thm("aligned_2_imp",
+  ``aligned 2 (x:'a word) /\ dimindex (:'a) = 32 ==>
+    byte_align x = x ∧
+    byte_align (x + 1w) = x ∧
+    byte_align (x + 2w) = x ∧
+    byte_align (x + 3w) = x``,
+  strip_tac
+  \\ drule aligned_IMP_ADD_LESS_dimword
+  \\ Cases_on `x`
+  \\ fs [alignmentTheory.byte_align_def]
+  \\ fs [alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]
+  \\ fs [MOD_EQ_0_DIVISOR]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
+         ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+
+val aligned_3_imp = store_thm("aligned_3_imp",
+  ``aligned 3 (x:'a word) /\ dimindex (:'a) = 64 ==>
+    byte_align x = x ∧
+    byte_align (x + 1w) = x ∧
+    byte_align (x + 2w) = x ∧
+    byte_align (x + 3w) = x ∧
+    byte_align (x + 4w) = x ∧
+    byte_align (x + 5w) = x ∧
+    byte_align (x + 6w) = x ∧
+    byte_align (x + 7w) = x``,
+  strip_tac
+  \\ drule aligned_IMP_ADD_LESS_dimword
+  \\ Cases_on `x`
+  \\ fs [alignmentTheory.byte_align_def]
+  \\ fs [alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]
+  \\ fs [MOD_EQ_0_DIVISOR]
+  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
+         ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+
+val ADD_MOD_EQ_LEMMA = prove(
+  ``k MOD d = 0 /\ n < d ==> (k + n) MOD d = n``,
+  rw [] \\ `0 < d` by decide_tac
+  \\ fs [MOD_EQ_0_DIVISOR]
+  \\ pop_assum kall_tac
+  \\ drule MOD_MULT
+  \\ fs []);
+
+val dimword_eq_32_imp_or_bytes = prove(
+  ``dimindex (:'a) = 32 ==>
+    (w2w ((w2w (x:'a word)):word8) ‖
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
+     w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x``,
+  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
+      word_lsl_def,word_lsr_def] \\ cheat);
+
+val dimword_eq_64_imp_or_bytes = prove(
+  ``dimindex (:'a) = 64 ==>
+    (w2w ((w2w (x:'a word)):word8) ‖
+     w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
+     w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
+     w2w ((w2w (x ⋙ 24)):word8) ≪ 24 ‖
+     w2w ((w2w (x ⋙ 32)):word8) ≪ 32 ‖
+     w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ‖
+     w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ‖
+     w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x``,
+  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
+      word_lsl_def,word_lsr_def] \\ cheat);
+
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
    state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
@@ -1023,12 +1093,10 @@ val Inst_lemma = Q.prove(
     fs[]
     >-
       ((*alignment stuff..*)
-      `aligned 2 x` by cheat>>
+      `aligned 2 x` by fs [aligned_w2n]>>
       (* True? *)
-      `byte_align x = x ∧
-       byte_align (x+1w) = x ∧
-       byte_align (x+2w) = x ∧
-       byte_align (x+3w) = x` by cheat>>
+       drule aligned_2_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
        byte_align (x+3w) ∈ s1.mem_domain ∧
@@ -1046,18 +1114,18 @@ val Inst_lemma = Q.prove(
           fs[word_loc_val_byte_def]>>
           ntac 4 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
-          (*Looks plausible, not sure how to deal with shifts*)
-          cheat)))
+          Cases_on `c + t1.regs n'`>>
+          qcase_tac `k < dimword (:α)`>>
+          drule aligned_IMP_ADD_LESS_dimword >>
+          full_simp_tac std_ss [] \\ fs [] >>
+          strip_tac \\ fs [word_add_n2w] >>
+          rfs [ADD_MOD_EQ_LEMMA] >>
+          rpt (qpat_assum `w2w _ = _` (mp_tac o GSYM)) >>
+          imp_res_tac dimword_eq_32_imp_or_bytes >> fs [])))
     >>
-      `aligned 3 x` by cheat>>
-      `byte_align x = x ∧
-       byte_align (x+1w) = x ∧
-       byte_align (x+2w) = x ∧
-       byte_align (x+3w) = x ∧
-       byte_align (x+4w) = x ∧
-       byte_align (x+5w) = x ∧
-       byte_align (x+6w) = x ∧
-       byte_align (x+7w) = x` by cheat>>
+      `aligned 3 x` by fs [aligned_w2n]>>
+       drule aligned_3_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
        byte_align (x+2w) ∈ s1.mem_domain ∧
        byte_align (x+3w) ∈ s1.mem_domain ∧
@@ -1079,8 +1147,14 @@ val Inst_lemma = Q.prove(
           fs[word_loc_val_byte_def]>>
           ntac 8 (FULL_CASE_TAC>>fs[])>>
           rfs[get_byte_def,byte_index_def]>>rveq>>
-          (*Looks plausible, not sure how to deal with shifts*)
-          cheat)))
+          Cases_on `c + t1.regs n'`>>
+          qcase_tac `k < dimword (:α)`>>
+          drule aligned_IMP_ADD_LESS_dimword >>
+          full_simp_tac std_ss [] \\ fs [] >>
+          strip_tac \\ fs [word_add_n2w] >>
+          rfs [ADD_MOD_EQ_LEMMA] >>
+          rpt (qpat_assum `w2w _ = _` (mp_tac o GSYM)) >>
+          imp_res_tac dimword_eq_64_imp_or_bytes >> fs [])))
   >- (*Load8*)
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_load_byte_def,labSemTheory.assert_def,labSemTheory.upd_reg_def,dec_clock_def,state_rel_def,assert_def,read_mem_word_def_compute,mem_load_def,upd_reg_def,upd_pc_def,mem_load_byte_aux_def,labSemTheory.addr_def,addr_def,read_reg_def]>>
