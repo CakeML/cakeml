@@ -972,10 +972,24 @@ val arith_upd_lemma = Q.prove(
     first_x_assum(qspec_then`r`mp_tac) >>
     simp[] >> EVAL_TAC >> srw_tac[][] ));
 
+val MULT_ADD_LESS_MULT = prove(
+  ``!m n k l j. m < l /\ n < k /\ j <= k ==> m * j + n < l * k:num``,
+  rpt strip_tac
+  \\ `SUC m <= l` by asm_rewrite_tac [GSYM LESS_EQ]
+  \\ `m * k + k <= l * k` by asm_simp_tac bool_ss [LE_MULT_RCANCEL,GSYM MULT]
+  \\ `m * j <= m * k` by asm_simp_tac bool_ss [LE_MULT_LCANCEL]
+  \\ decide_tac);
+
 val aligned_IMP_ADD_LESS_dimword = prove(
   ``aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
     w2n x + (2 ** k - 1) < dimword (:'a)``,
-  cheat);
+  Cases_on `x` \\ fs [aligned_w2n,dimword_def] \\ rw []
+  \\ full_simp_tac std_ss [ONCE_REWRITE_RULE [ADD_COMM]LESS_EQ_EXISTS]
+  \\ pop_assum (fn th => full_simp_tac std_ss [th])
+  \\ full_simp_tac std_ss [MOD_EQ_0_DIVISOR]
+  \\ var_eq_tac
+  \\ full_simp_tac std_ss [EXP_ADD]
+  \\ match_mp_tac MULT_ADD_LESS_MULT \\ fs []);
 
 val aligned_2_imp = store_thm("aligned_2_imp",
   ``aligned 2 (x:'a word) /\ dimindex (:'a) = 32 ==>
