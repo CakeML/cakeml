@@ -973,9 +973,9 @@ val arith_upd_lemma = Q.prove(
     simp[] >> EVAL_TAC >> srw_tac[][] ));
 
 val aligned_IMP_ADD_LESS_dimword = prove(
-  ``aligned k (x:'a word) ==> w2n x + (2 ** k - 1) < dimword (:'a)``,
-  rw[alignmentTheory.aligned_def,alignmentTheory.align_def]
-  \\ cheat);
+  ``aligned k (x:'a word) /\ k <= dimindex (:'a) ==>
+    w2n x + (2 ** k - 1) < dimword (:'a)``,
+  cheat);
 
 val aligned_2_imp = store_thm("aligned_2_imp",
   ``aligned 2 (x:'a word) /\ dimindex (:'a) = 32 ==>
