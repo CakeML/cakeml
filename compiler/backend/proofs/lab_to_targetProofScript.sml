@@ -2,7 +2,8 @@ open preamble ffiTheory BasicProvers
      wordSemTheory labSemTheory labPropsTheory
      lab_to_targetTheory lab_filterProofTheory
      asmTheory asmSemTheory asmPropsTheory
-     targetSemTheory targetPropsTheory;
+     targetSemTheory targetPropsTheory
+local open stack_removeProofTheory in end
 
 val aligned_w2n = stack_removeProofTheory.aligned_w2n;
 
@@ -972,8 +973,9 @@ val arith_upd_lemma = Q.prove(
     simp[] >> EVAL_TAC >> srw_tac[][] ));
 
 val aligned_IMP_ADD_LESS_dimword = prove(
-  ``aligned k x ==> w2n x + (2 ** k - 1) < dimword (:'a)``,
-  cheat);
+  ``aligned k (x:'a word) ==> w2n x + (2 ** k - 1) < dimword (:'a)``,
+  rw[alignmentTheory.aligned_def,alignmentTheory.align_def]
+  \\ cheat);
 
 val aligned_2_imp = store_thm("aligned_2_imp",
   ``aligned 2 (x:'a word) /\ dimindex (:'a) = 32 ==>
@@ -1024,7 +1026,11 @@ val dimword_eq_32_imp_or_bytes = prove(
      w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
      w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x``,
   fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
-      word_lsl_def,word_lsr_def] \\ cheat);
+      word_lsl_def,word_lsr_def]
+  \\ ntac 3 strip_tac
+  \\ Cases_on`i<8`\\simp[w2w]
+  \\ Cases_on`i<16`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<24`\\simp[w2w,fcpTheory.FCP_BETA]);
 
 val dimword_eq_64_imp_or_bytes = prove(
   ``dimindex (:'a) = 64 ==>
@@ -1037,7 +1043,15 @@ val dimword_eq_64_imp_or_bytes = prove(
      w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ‖
      w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x``,
   fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
-      word_lsl_def,word_lsr_def] \\ cheat);
+      word_lsl_def,word_lsr_def]
+  \\ ntac 3 strip_tac
+  \\ Cases_on`i<8`\\simp[w2w]
+  \\ Cases_on`i<16`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<24`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<32`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<40`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<48`\\simp[w2w,fcpTheory.FCP_BETA]
+  \\ Cases_on`i<56`\\simp[w2w,fcpTheory.FCP_BETA]);
 
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
