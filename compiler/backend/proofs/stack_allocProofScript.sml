@@ -95,13 +95,17 @@ val word_gc_move_roots_bitmaps_def = Define `
           | NONE => (ARB,ARB,ARB,ARB,F)
           | SOME stack => (stack,i2,pa2,m2,c2)`
 
-val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
+val word_gc_move_loop_F = store_thm("word_gc_move_loop_F",
   ``!k conf pb i pa old m dm i1 pa1 m1 c1.
       word_gc_move_loop k conf (pb,i,pa,old,m,dm,F) = (i1,pa1,m1,c1) ==> ~c1``,
   Induct \\ once_rewrite_tac [word_gc_move_loop_def] \\ fs [] \\ rw []
   \\ split_pair_tac \\ fs []
   \\ IF_CASES_TAC \\ fs []
   \\ split_pair_tac \\ fs []);
+
+val word_gc_move_loop_ok = store_thm("word_gc_move_loop_ok",
+  ``word_gc_move_loop k conf (pb,i,pa,old,m,dm,c) = (i1,pa1,m1,c1) ==> c1 ==> c``,
+  Cases_on `c` \\ fs [] \\ rw [] \\ imp_res_tac word_gc_move_loop_F \\ fs []);
 
 val gc_thm = prove(
   ``s.gc_fun = word_gc_fun conf ⇒
@@ -144,13 +148,13 @@ val gc_thm = prove(
   THEN1
    (rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
-    \\ imp_res_tac word_gc_move_loop_ok)
+    \\ imp_res_tac word_gc_move_loop_F)
   \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
           \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `dec_stack s.bitmaps ws2 (DROP s.stack_space s.stack)`
   THEN1
    (full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac word_gc_move_loop_ok \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac word_gc_move_loop_F \\ full_simp_tac(srw_ss())[]
     \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[])
   \\ full_simp_tac(srw_ss())[] \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]);
@@ -913,19 +917,25 @@ val word_gc_move_list_code_thm = store_thm("word_gc_move_code_thm",
 val word_gc_move_loop_code_def = Define `
   word_gc_move_loop_code conf =
     While NotEqual 3 (Reg 8)
-     (list_Seq [load_inst 0 8;
-                move 1 0;
-                (* following decodes header h in 1, len in 0 *)
-                right_shift_inst 1 (2 + conf.len_size);
-                right_shift_inst 0 2;
-                clear_top_inst 0 (conf.len_size - 1);
-                If Test 1 (Imm 1w) ARB ARB])`
+     (list_Seq [load_inst 7 8;
+                move 0 7;
+                (* following decodes header h in 0, len in 7 *)
+                right_shift_inst 0 (2 + conf.len_size);
+                right_shift_inst 7 2;
+                clear_top_inst 7 (conf.len_size - 1);
+                If Test 0 (Imm 1w)
+                  (list_Seq [add_bytes_in_word_inst 8;
+                             word_gc_move_list_code conf])
+                  (list_Seq [add_1_inst 7;
+                             left_shift_inst 7 (word_shift (:'a));
+                             add_inst 8 7])]):'a stackLang$prog`
 
 val word_gc_move_loop_code_thm = prove(
   ``!k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'b)stackSem$state).
       word_gc_move_loop k conf (pb1,i1,pa1,old1,m1,dm1,c1) = (i2,pa2,m2,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
       2 < dimindex (:'a) /\ conf.len_size <> 0 /\
+      conf.len_size + 2 < dimindex (:'a) /\
       (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
       FLOOKUP s.store CurrHeap = SOME (Word old1) /\ s.use_store /\
       s.memory = m1 /\ s.mdomain = dm1 /\
@@ -937,10 +947,10 @@ val word_gc_move_loop_code_thm = prove(
       5 IN FDOM s.regs ==>
       6 IN FDOM s.regs ==>
       7 IN FDOM s.regs ==>
-      get_var 8 s = SOME (Word pb1) /\ c1 /\ c2 ==>
+      get_var 8 s = SOME (Word pb1) /\ c1 ==>
       ?ck r0 r1 r2 r5 r6 r7.
         evaluate (word_gc_move_loop_code conf,s with clock := s.clock + ck) =
-          (NONE,s with <| memory := m1;
+          (NONE,s with <| memory := m2;
                           regs := s.regs |++ [(0,r0);
                                               (1,r1);
                                               (2,r2);
@@ -966,11 +976,82 @@ val word_gc_move_loop_code_thm = prove(
   \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ split_pair_tac \\ fs []
-  \\ cheat);
+  \\ Cases_on `h ' 0` \\ fs [] THEN1
+   (strip_tac
+    \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
+    \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
+    \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
+    \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
+    \\ rev_full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
+    \\ full_simp_tac(srw_ss())[] \\ tac
+    \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
+         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
+    \\ `(v ⋙ (conf.len_size + 2) && 1w) <> 0w` by
+         full_simp_tac std_ss [word_and_one_eq_0_iff] \\ fs []
+    \\ qabbrev_tac `ww = bytes_in_word * (v ⋙ (conf.len_size + 2) + 1w)`
+    \\ qpat_abbrev_tac `w2 = v ⋙ 2 ≪ _ ⋙ _`
+    \\ qabbrev_tac `s5 = s with
+        <|regs :=
+            s.regs |+ (7,Word v) |+
+            (0,Word (v ⋙ (conf.len_size + 2))) |+
+            (7,Word (bytes_in_word * (w2 + 1w))) |+
+            (8,Word (pb1 + bytes_in_word * (w2 + 1w))) |>`
+    \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
+         (unabbrev_all_tac \\ fs [])
+    \\ fs [] \\ first_x_assum drule \\ fs []
+    \\ fs [AND_IMP_INTRO] \\ discharge_hyps
+    THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE])
+    \\ strip_tac \\ qexists_tac `ck + 1` \\ fs []
+    \\ qunabbrev_tac `s5` \\ fs []
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+    \\ once_rewrite_tac [split_num_forall_to_10]
+    \\ full_simp_tac(srw_ss())[nine_less])
+  \\ split_pair_tac \\ fs []
+  \\ strip_tac
+  \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
+  \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
+  \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
+  \\ rev_full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
+  \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
+  \\ full_simp_tac(srw_ss())[] \\ tac
+  \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
+       DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
+  \\ `(v ⋙ (conf.len_size + 2) && 1w) = 0w` by
+       full_simp_tac std_ss [word_and_one_eq_0_iff] \\ fs []
+  \\ qabbrev_tac `ww = bytes_in_word * (v ⋙ (conf.len_size + 2) + 1w)`
+  \\ qpat_abbrev_tac `w2 = v ⋙ 2 ≪ _ ⋙ _`
+  \\ qabbrev_tac `s5 = s with
+        <|regs :=
+            s.regs |+ (7,Word v) |+
+            (0,Word (v ⋙ (conf.len_size + 2))) |+ (7,Word w2) |+
+            (8,Word (pb1 + bytes_in_word)) |>`
+  \\ drule word_gc_move_list_code_thm
+  \\ disch_then (qspec_then `s5` mp_tac)
+  \\ fs [AND_IMP_INTRO] \\ discharge_hyps
+  THEN1 (unabbrev_all_tac \\ fs [FLOOKUP_UPDATE,get_var_def])
+  \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
+  \\ pop_assum mp_tac
+  \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
+  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by cheat
+  \\ qpat_assum `Abbrev _` assume_tac
+  \\ fs [] \\ qpat_assum `_ = _` kall_tac
+  \\ first_x_assum drule \\ discharge_hyps
+  THEN1 (unabbrev_all_tac \\ fs [FUPDATE_LIST,FLOOKUP_UPDATE])
+  \\ rpt strip_tac \\ qexists_tac `ck + ck' + 1`
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck'+1` mp_tac) \\ fs []
+  \\ qunabbrev_tac `s5` \\ fs [] \\ strip_tac
+  \\ qunabbrev_tac `s6`
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+         FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less]);
 
 (*
 
-word_gc_move_loop_eq
 word_gc_move_bitmap_unroll
 word_gc_move_bitmaps_unroll
 word_gc_move_roots_bitmaps
