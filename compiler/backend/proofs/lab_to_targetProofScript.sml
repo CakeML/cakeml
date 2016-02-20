@@ -1443,7 +1443,8 @@ val Inst_lemma = Q.prove(
 val state_rel_ignore_io_events = prove(
   ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
     state_rel (mc_conf,code2,labs,p,T) (s1 with ffi := io) t1 ms1``,
-  full_simp_tac(srw_ss())[state_rel_def] \\ rpt strip_tac \\ res_tac \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]);
+  full_simp_tac(srw_ss())[state_rel_def] \\ rpt strip_tac
+  \\ res_tac \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]);
 
 val compile_correct = Q.prove(
   `!^s1 res (mc_conf: ('a,'state,'b) machine_config) s2 code2 labs t1 ms1.
@@ -1695,14 +1696,16 @@ val compile_correct = Q.prove(
     \\ mp_tac (Q.INST [`l`|->`ww`,`n`|->`len`]
                IMP_bytes_in_memory_LocValue) \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
-    THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
+    THEN1 (full_simp_tac(srw_ss())[state_rel_def]
+           \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac \\ pop_assum mp_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Loc reg lll` \\ rpt strip_tac
     \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
          asm_step_IMP_evaluate_step_nop) \\ full_simp_tac(srw_ss())[]
     \\ strip_tac \\ pop_assum (mp_tac o Q.SPEC `bytes'`)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
-     (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF] \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[]
+     (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF]
+      \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[asm_step_nop_def,asm_def,LET_DEF]
       \\ full_simp_tac(srw_ss())[asm_def,upd_pc_def,upd_reg_def])
     \\ rpt strip_tac
@@ -1711,7 +1714,8 @@ val compile_correct = Q.prove(
          `(asm jj (t1.pc + n2w (LENGTH (bytes':word8 list))) t1)`,`ms2`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (unabbrev_all_tac
-      \\ full_simp_tac(srw_ss())[shift_interfer_def,state_rel_def,asm_def,LET_DEF] \\ rev_full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[shift_interfer_def,state_rel_def,asm_def,LET_DEF]
+      \\ rev_full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[asmSemTheory.upd_pc_def,asmSemTheory.assert_def,
              asmSemTheory.read_reg_def, dec_clock_def,labSemTheory.upd_pc_def,
              labSemTheory.assert_def,asm_def,
@@ -1724,11 +1728,13 @@ val compile_correct = Q.prove(
       \\ res_tac \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `lab_lookup l1 l2 labs` \\ full_simp_tac(srw_ss())[]
       \\ imp_res_tac lab_lookup_IMP \\ srw_tac[][])
-    \\ rpt strip_tac \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
+    \\ rpt strip_tac
+    \\ full_simp_tac(srw_ss())[inc_pc_def,dec_clock_def,labSemTheory.upd_reg_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN`s1.clock - 1 + k`mp_tac)
     \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l - 1` \\ full_simp_tac(srw_ss())[]
-    \\ `s1.clock - 1 + k + l = s1.clock + (k + l - 1)` by decide_tac \\ full_simp_tac(srw_ss())[])
+    \\ `s1.clock - 1 + k + l = s1.clock + (k + l - 1)` by decide_tac
+    \\ full_simp_tac(srw_ss())[])
   THEN1 (* CallFFI *)
    (qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm (CallFFI n') l1 l2 l3)`
     \\ qmatch_assum_rename_tac
@@ -1736,7 +1742,8 @@ val compile_correct = Q.prove(
     \\ Cases_on `s1.regs s1.len_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `read_bytearray c' (w2n c) s1.mem s1.mem_domain s1.be` \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `read_bytearray c' (w2n c) s1.mem s1.mem_domain s1.be`
+    \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
          `read_bytearray c1 (w2n c2) s1.mem s1.mem_domain s1.be = SOME x`
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
@@ -1745,7 +1752,8 @@ val compile_correct = Q.prove(
          `call_FFI s1.ffi index x = (new_ffi,new_bytes)`
     \\ mp_tac IMP_bytes_in_memory_CallFFI \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
-    THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
+    THEN1 (full_simp_tac(srw_ss())[state_rel_def]
+           \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
     \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
@@ -1754,9 +1762,11 @@ val compile_correct = Q.prove(
      (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF]
       \\ full_simp_tac(srw_ss())[asm_step_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+           asmSemTheory.upd_pc_def]
       \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
-      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def,asm_def])
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+           asmSemTheory.upd_pc_def,asm_def])
     \\ rpt strip_tac
     \\ Cases_on `loc_to_pc n1 n2 s1.code` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac `loc_to_pc n1 n2 s1.code = SOME new_pc`
@@ -1766,7 +1776,8 @@ val compile_correct = Q.prove(
       \\ full_simp_tac(srw_ss())[backend_correct_def]
       \\ Q.PAT_ASSUM `!ms s. mc_conf.target.state_rel s ms ==> bbb` imp_res_tac
       \\ full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
-      \\ full_simp_tac(srw_ss())[asm_def,asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
+      \\ full_simp_tac(srw_ss())[asm_def,asmSemTheory.jump_to_offset_def,
+           asmSemTheory.upd_pc_def]
       \\ rewrite_tac [GSYM word_sub_def,WORD_SUB_PLUS,
            GSYM word_add_n2w,WORD_ADD_SUB]) \\ full_simp_tac(srw_ss())[]
     \\ `has_io_index index s1.code` by
@@ -1790,7 +1801,8 @@ val compile_correct = Q.prove(
       \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[state_rel_def,asm_def,
            jump_to_offset_def,asmSemTheory.upd_pc_def,AND_IMP_INTRO]
       \\ rpt strip_tac \\ first_x_assum match_mp_tac
-      \\ full_simp_tac(srw_ss())[reg_ok_def] \\ NO_TAC) \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[reg_ok_def] \\ NO_TAC)
+    \\ full_simp_tac(srw_ss())[]
     \\ `(t1.regs mc_conf.ptr_reg = c1) /\
         (t1.regs mc_conf.len_reg = c2)` by
      (full_simp_tac(srw_ss())[state_rel_def]
@@ -1800,15 +1812,19 @@ val compile_correct = Q.prove(
           \\ MP_TAC (Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).len_reg` th))
       \\ Q.PAT_ASSUM `xx = s1.ptr_reg` (ASSUME_TAC o GSYM)
       \\ Q.PAT_ASSUM `xx = s1.len_reg` (ASSUME_TAC o GSYM)
-      \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC) \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ NO_TAC)
+    \\ full_simp_tac(srw_ss())[]
     \\ imp_res_tac read_bytearray_state_rel \\ full_simp_tac(srw_ss())[]
     \\ reverse(Cases_on `new_ffi.final_event = NONE`) THEN1
-     (imp_res_tac evaluate_pres_final_event \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+     (imp_res_tac evaluate_pres_final_event \\ full_simp_tac(srw_ss())[]
+      \\ rev_full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ rpt strip_tac
       \\ Q.EXISTS_TAC `l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
-      \\ once_rewrite_tac [targetSemTheory.evaluate_def] \\ full_simp_tac(srw_ss())[]
+      \\ once_rewrite_tac [targetSemTheory.evaluate_def]
+      \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[shift_interfer_def,LET_DEF]
-      \\ BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
+      \\ BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[])
+      \\ full_simp_tac(srw_ss())[]
     \\ FIRST_X_ASSUM (Q.SPECL_THEN [
          `shift_interfer l' mc_conf with
           ffi_interfer := shift_seq 1 mc_conf.ffi_interfer`,
@@ -1819,10 +1835,12 @@ val compile_correct = Q.prove(
          `mc_conf.ffi_interfer 0 index new_bytes ms2`]mp_tac)
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
      (rpt strip_tac
-      THEN1 (full_simp_tac(srw_ss())[backend_correct_def,shift_interfer_def] \\ metis_tac [])
+      THEN1 (full_simp_tac(srw_ss())[backend_correct_def,shift_interfer_def]
+             \\ metis_tac [])
       \\ unabbrev_all_tac
       \\ imp_res_tac bytes_in_mem_asm_write_bytearray
-      \\ full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def,asm_def,jump_to_offset_def,
+      \\ full_simp_tac(srw_ss())[state_rel_def,shift_interfer_def,
+             asm_def,jump_to_offset_def,
              asmSemTheory.upd_pc_def] \\ rev_full_simp_tac(srw_ss())[]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
             WORD_ADD_SUB] \\ full_simp_tac(srw_ss())[get_pc_value_def]
@@ -1830,10 +1848,12 @@ val compile_correct = Q.prove(
             WORD_ADD_SUB] \\ full_simp_tac(srw_ss())[get_pc_value_def]
       \\ `interference_ok (shift_seq l' mc_conf.next_interfer)
             (mc_conf.target.proj t1.mem_domain)` by
-               (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def] \\ NO_TAC) \\ full_simp_tac(srw_ss())[]
+               (full_simp_tac(srw_ss())[interference_ok_def,shift_seq_def]
+                \\ NO_TAC) \\ full_simp_tac(srw_ss())[]
       \\ `p + n2w (pos_val new_pc 0 code2) = t1.regs s1.link_reg` by
        (Q.PAT_ASSUM `!r. word_loc_val p labs (s1.regs r) = SOME (t1.regs r)`
-           (Q.SPEC_THEN `s1.link_reg`mp_tac) \\ full_simp_tac(srw_ss())[word_loc_val_def]
+           (Q.SPEC_THEN `s1.link_reg`mp_tac)
+        \\ full_simp_tac(srw_ss())[word_loc_val_def]
         \\ Cases_on `lab_lookup n1 n2 labs` \\ full_simp_tac(srw_ss())[]
         \\ ONCE_REWRITE_TAC [EQ_SYM_EQ] \\ full_simp_tac(srw_ss())[]
         \\ res_tac \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
@@ -1842,10 +1862,12 @@ val compile_correct = Q.prove(
         \\ imp_res_tac call_FFI_LENGTH \\ full_simp_tac(srw_ss())[])
       \\ res_tac \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac
       THEN1
-       (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO] \\ rev_full_simp_tac(srw_ss())[]
+       (full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO]
+        \\ rev_full_simp_tac(srw_ss())[]
         \\ Q.PAT_ASSUM `t1.regs s1.ptr_reg = c1` (ASSUME_TAC o GSYM)
         \\ full_simp_tac(srw_ss())[] \\ first_x_assum match_mp_tac
-        \\ full_simp_tac(srw_ss())[] \\ qexists_tac `new_io` \\ full_simp_tac(srw_ss())[option_ldrop_0])
+        \\ full_simp_tac(srw_ss())[] \\ qexists_tac `new_io`
+        \\ full_simp_tac(srw_ss())[option_ldrop_0])
       THEN1
        (full_simp_tac(srw_ss())[shift_seq_def,PULL_FORALL,AND_IMP_INTRO])
       THEN1 res_tac
@@ -1855,22 +1877,26 @@ val compile_correct = Q.prove(
       \\ qpat_assum `!a.
            byte_align a IN s1.mem_domain ==> bbb` (MP_TAC o Q.SPEC `a`)
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ match_mp_tac (SIMP_RULE std_ss [] CallFFI_bytearray_lemma) \\ full_simp_tac(srw_ss())[])
+      \\ match_mp_tac (SIMP_RULE std_ss [] CallFFI_bytearray_lemma)
+      \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock + k`mp_tac) \\ rpt strip_tac
     \\ Q.EXISTS_TAC `k + l'` \\ full_simp_tac(srw_ss())[ADD_ASSOC]
     \\ Q.LIST_EXISTS_TAC [`ms2'`] \\ full_simp_tac(srw_ss())[]
     \\ simp_tac std_ss [Once evaluate_def]
     \\ full_simp_tac(srw_ss())[shift_interfer_def]
-    \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC] \\ rev_full_simp_tac(srw_ss())[LET_DEF]
-    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,AC MULT_COMM MULT_ASSOC]
+    \\ rev_full_simp_tac(srw_ss())[LET_DEF]
+    \\ `k + s1.clock - 1 = k + (s1.clock - 1)` by decide_tac
+    \\ full_simp_tac(srw_ss())[])
   THEN1 (* Halt *)
    (srw_tac[][]
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l1 l2 l3)`
     \\ qmatch_assum_rename_tac `asm_fetch s1 = SOME (LabAsm Halt l bytes n)`
     \\ mp_tac IMP_bytes_in_memory_Halt \\ full_simp_tac(srw_ss())[]
     \\ match_mp_tac IMP_IMP \\ strip_tac
-    THEN1 (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
+    THEN1 (full_simp_tac(srw_ss())[state_rel_def]
+           \\ imp_res_tac bytes_in_mem_IMP \\ full_simp_tac(srw_ss())[])
     \\ rpt strip_tac \\ pop_assum mp_tac
     \\ qpat_abbrev_tac `jj = asm$Jump lll` \\ rpt strip_tac
     \\ (Q.ISPECL_THEN [`mc_conf`,`t1`,`ms1`,`s1.ffi`,`jj`]mp_tac
@@ -1879,9 +1905,11 @@ val compile_correct = Q.prove(
      (full_simp_tac(srw_ss())[state_rel_def,asm_def,LET_DEF]
       \\ full_simp_tac(srw_ss())[asm_step_def,asm_def,LET_DEF]
       \\ imp_res_tac bytes_in_mem_IMP
-      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def]
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+            asmSemTheory.upd_pc_def]
       \\ rev_full_simp_tac(srw_ss())[] \\ unabbrev_all_tac
-      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,asmSemTheory.upd_pc_def,asm_def])
+      \\ full_simp_tac(srw_ss())[asmSemTheory.jump_to_offset_def,
+            asmSemTheory.upd_pc_def,asm_def])
     \\ rpt strip_tac
     \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[asm_def]
     \\ FIRST_X_ASSUM (Q.SPEC_THEN `s1.clock`mp_tac) \\ srw_tac[][]
@@ -1889,20 +1917,29 @@ val compile_correct = Q.prove(
     \\ once_rewrite_tac [evaluate_def] \\ full_simp_tac(srw_ss())[]
     \\ full_simp_tac(srw_ss())[shift_interfer_def]
     \\ `mc_conf.target.get_pc ms2 = mc_conf.halt_pc` by
-     (full_simp_tac(srw_ss())[backend_correct_def] \\ res_tac \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[jump_to_offset_def,asmSemTheory.upd_pc_def] \\ full_simp_tac(srw_ss())[state_rel_def]
+     (full_simp_tac(srw_ss())[backend_correct_def] \\ res_tac
+      \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[jump_to_offset_def,asmSemTheory.upd_pc_def]
+      \\ full_simp_tac(srw_ss())[state_rel_def]
       \\ rewrite_tac [GSYM word_add_n2w,GSYM word_sub_def,WORD_SUB_PLUS,
            WORD_ADD_SUB] \\ full_simp_tac(srw_ss())[])
-    \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by full_simp_tac(srw_ss())[state_rel_def]
-    \\ full_simp_tac(srw_ss())[state_rel_def,jump_to_offset_def,asmSemTheory.upd_pc_def]
+    \\ `~(mc_conf.target.get_pc ms2 IN t1.mem_domain)` by
+            full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[state_rel_def,jump_to_offset_def,
+          asmSemTheory.upd_pc_def]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
-    \\ `word_loc_val p labs (s1.regs s1.ptr_reg) = SOME (t1.regs s1.ptr_reg)` by full_simp_tac(srw_ss())[]
-    \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ srw_tac[][]
-    \\ `s1 = s2` by (Cases_on `t1.regs s1.ptr_reg = 0w` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]) \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[backend_correct_def] \\ res_tac \\ full_simp_tac(srw_ss())[]
+    \\ `word_loc_val p labs (s1.regs s1.ptr_reg) =
+         SOME (t1.regs s1.ptr_reg)` by full_simp_tac(srw_ss())[]
+    \\ Cases_on `s1.regs s1.ptr_reg`
+    \\ full_simp_tac(srw_ss())[word_loc_val_def] \\ srw_tac[][]
+    \\ `s1 = s2` by (Cases_on `t1.regs s1.ptr_reg = 0w`
+    \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]) \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[backend_correct_def]
+    \\ res_tac \\ full_simp_tac(srw_ss())[]
     \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
     \\ pop_assum (qspec_then `s1.ptr_reg` mp_tac)
-    \\ full_simp_tac(srw_ss())[reg_ok_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]));
+    \\ full_simp_tac(srw_ss())[reg_ok_def]
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]));
 
 (* relating observable semantics *)
 
@@ -1936,7 +1973,8 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
   >- (
     qx_gen_tac`ffi`>>strip_tac>> full_simp_tac(srw_ss())[]
     \\ drule compile_correct \\ full_simp_tac(srw_ss())[]
-    \\ `r ≠ Error` by (Cases_on`r`>>every_case_tac>>full_simp_tac(srw_ss())[]>>metis_tac[FST]) >> simp[]
+    \\ `r ≠ Error` by (Cases_on`r`>>every_case_tac>>
+                    full_simp_tac(srw_ss())[]>>metis_tac[FST]) >> simp[]
     \\ disch_then drule
     \\ imp_res_tac state_rel_clock
     \\ pop_assum (qspec_then `k` assume_tac)
@@ -2119,7 +2157,8 @@ val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
    pop_assum(SUBST1_TAC o SYM) >>
    match_mp_tac EVERY2_APPEND_suff >>
    qispl_then[`m`,`ls`]strip_assume_tac TAKE_DROP >>
-   pop_assum(fn th => last_x_assum(fn a => assume_tac(ONCE_REWRITE_RULE[SYM th]a))) >>
+   pop_assum(fn th => last_x_assum(fn a =>
+     assume_tac(ONCE_REWRITE_RULE[SYM th]a))) >>
    drule LIST_REL_APPEND_IMP >>
    (discharge_hyps >- simp[] ) >>
    strip_tac >> full_simp_tac(srw_ss())[] >>
@@ -2267,17 +2306,21 @@ val code_similar_loc_to_pc = Q.store_thm("code_similar_loc_to_pc",
   \\ match_mp_tac COND_CONG
   \\ conj_asm1_tac >- (
     Cases_on`h`>>Cases_on`y`>>full_simp_tac(srw_ss())[line_similar_def] )
-  \\ srw_tac[][] >> full_simp_tac(srw_ss())[] >> rveq >> rev_full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] >> full_simp_tac(srw_ss())[] >>
+  rveq >> rev_full_simp_tac(srw_ss())[]
   \\ TRY (ntac 2 AP_THM_TAC >> AP_TERM_TAC)
   \\ first_x_assum (match_mp_tac o MP_CANON)
   \\ srw_tac[][code_similar_def]);
 
 val loc_to_pc_all_lengths_update = Q.store_thm("loc_to_pc_all_lengths_update[simp]",
-  `∀l1 l2 code a. loc_to_pc l1 l2 (all_lengths_update a code) = loc_to_pc l1 l2 code`,
-  metis_tac[code_similar_loc_to_pc,code_similar_all_lengths_update,code_similar_refl]);
+  `∀l1 l2 code a.
+    loc_to_pc l1 l2 (all_lengths_update a code) = loc_to_pc l1 l2 code`,
+  metis_tac[code_similar_loc_to_pc,code_similar_all_lengths_update,
+    code_similar_refl]);
 
 val loc_to_pc_enc_secs_again = Q.store_thm("loc_to_pc_enc_secs_again[simp]",
-  `∀l1 l2 code a b c. loc_to_pc l1 l2 (enc_secs_again a b c code) = loc_to_pc l1 l2 code`,
+  `∀l1 l2 code a b c.
+    loc_to_pc l1 l2 (enc_secs_again a b c code) = loc_to_pc l1 l2 code`,
   metis_tac[code_similar_loc_to_pc,code_similar_enc_secs_again,code_similar_refl]);
 
 val LENGTH_pad_bytes = Q.store_thm("LENGTH_pad_bytes",
@@ -2435,7 +2478,8 @@ val make_init_def = Define `
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
 val good_init_state_def = Define `
-  good_init_state (mc_conf: ('a,'state,'b) machine_config) t ms ffi_index_limit bytes io_regs save_regs <=>
+  good_init_state (mc_conf: ('a,'state,'b) machine_config) t ms
+        ffi_index_limit bytes io_regs save_regs <=>
     mc_conf.target.state_rel t ms /\ ~t.failed /\
     good_dimindex (:'a) /\
     mc_conf.prog_addresses = t.mem_domain /\
@@ -2495,12 +2539,15 @@ val IMP_state_rel_make_init = prove(
     enc_ok mc_conf.target.encode mc_conf.target.config /\
     remove_labels mc_conf.target.config mc_conf.target.encode code l =
       SOME (code2,labs) /\
-    good_init_state mc_conf t ms ffi_index_limit (prog_to_bytes code2) io_regs save_regs ==>
+    good_init_state mc_conf t ms ffi_index_limit
+      (prog_to_bytes code2) io_regs save_regs ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms,T)
       (make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t ms code) t ms``,
-  srw_tac[][] \\ drule remove_labels_thm \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,word_loc_val_def,PULL_EXISTS]
+  srw_tac[][] \\ drule remove_labels_thm
+  \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
+  \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,
+        word_loc_val_def,PULL_EXISTS]
   \\ full_simp_tac(srw_ss())[good_init_state_def]
   \\ cheat);
 
@@ -2534,18 +2581,14 @@ val semantics_compile = store_thm("semantics_compile",
     machine_sem mc_conf ffi ms =
     {semantics (make_init mc_conf ffi save_regs io_regs t ms code)}``,
   full_simp_tac(srw_ss())[compile_def,compile_lab_def,GSYM AND_IMP_INTRO]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\  PairCases_on `x` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ pop_assum mp_tac
   \\ once_rewrite_tac [GSYM make_init_filter_skip] \\ srw_tac[][]
   \\ match_mp_tac (GEN_ALL semantics_make_init) \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[backend_correct_def]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
-
-(*
-
-  TODO: remove ffi_index_limit
-
-*)
 
 val _ = export_theory();
