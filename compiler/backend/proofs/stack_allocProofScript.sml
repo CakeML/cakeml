@@ -1034,7 +1034,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ strip_tac \\ fs [GSYM CONJ_ASSOC]
   \\ pop_assum mp_tac
   \\ qpat_abbrev_tac `s6 = s5 with <|regs := _ ; memory := _ |>`
-  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by cheat
+  \\ `s.mdomain = s6.mdomain /\ m1 = s6.memory` by (unabbrev_all_tac \\ fs [])
   \\ qpat_assum `Abbrev _` assume_tac
   \\ fs [] \\ qpat_assum `_ = _` kall_tac
   \\ first_x_assum drule \\ discharge_hyps
