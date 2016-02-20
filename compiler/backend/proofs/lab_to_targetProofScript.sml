@@ -1109,16 +1109,30 @@ val byte_align_64_eq = prove(``
   fs[]>>disch_then (Q.SPEC_THEN`n` assume_tac)>>
   simp[])
 
-(*cheats to deal with modulus, probably use the above characterization*)
 val byte_align_32_IMP = prove(``
   dimindex(:'a) = 32 ⇒
-  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 4 = 3) ∧
-  (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 4 = 2) ∧
+  (byte_align a = a ⇒ w2n a MOD 4 = 0) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 4 = 1) ∧
-  (byte_align a = a ⇒ w2n a MOD 4 = 0)``,
-  rw[]>>
-  imp_res_tac byte_align_32_eq>>fs[]>>
-  cheat)
+  (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 4 = 2) ∧
+  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 4 = 3)``,
+  rw[]>>imp_res_tac byte_align_32_eq>>fs[]>>
+  qpat_assum`A=a` mp_tac>>
+  qabbrev_tac`ba = byte_align a`>>
+  qabbrev_tac`ca = w2n a MOD 4`>>
+  first_x_assum(qspec_then`a` (SUBST1_TAC o SYM))>>
+  unabbrev_all_tac>>
+  fs[dimword_def,addressTheory.WORD_EQ_ADD_CANCEL]>>
+  Q.ISPECL_THEN[`32n`,`w2n a MOD 4`] assume_tac bitTheory.MOD_ZERO_GT>>
+  fs[]>>
+  Q.ISPECL_THEN [`w2n a`,`4n`] assume_tac MOD_LESS>>
+  DECIDE_TAC)
+
+val MOD4_CASES = prove(``
+  ∀n. n MOD 4 = 0 ∨ n MOD 4 = 1 ∨ n MOD 4 = 2 ∨ n MOD 4 = 3``,
+  rw[]>>`n MOD 4 < 4` by fs []
+  \\ IMP_RES_TAC (DECIDE
+       ``n < 4 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num)``)
+  \\ fs [])
 
 val byte_align_32_CASES = prove(``
   dimindex(:'a) = 32 ⇒
@@ -1126,11 +1140,19 @@ val byte_align_32_CASES = prove(``
   byte_align a + (2w:'a word) = a ∨
   byte_align a + (1w:'a word) = a ∨
   byte_align a = a``,
-  Cases_on`a`>>
-  rw[alignmentTheory.byte_align_def]>>
-  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
-  rfs[dimword_def]>>fs[]>>
-  cheat)
+  rw[]>>imp_res_tac byte_align_32_eq>>
+  pop_assum(qspec_then`a` assume_tac)>>
+  Q.SPEC_THEN `w2n a` mp_tac MOD4_CASES>>rw[]>>
+  fs[])
+
+val MOD8_CASES = prove(``
+  ∀n. n MOD 8 = 0 ∨ n MOD 8 = 1 ∨ n MOD 8 = 2 ∨ n MOD 8 = 3 ∨
+      n MOD 8 = 4 ∨ n MOD 8 = 5 ∨ n MOD 8 = 6 ∨ n MOD 8 = 7``,
+  rw[]>>`n MOD 8 < 8` by fs []
+  \\ IMP_RES_TAC (DECIDE
+       ``n < 8 ==> (n = 0) \/ (n = 1) \/ (n = 2) \/ (n = 3:num) \/
+                   (n = 4) \/ (n = 5) \/ (n = 6) \/ (n = 7)``)
+  \\ fs [])
 
 val byte_align_64_CASES = prove(``
   dimindex(:'a) = 64 ⇒
@@ -1142,11 +1164,10 @@ val byte_align_64_CASES = prove(``
   byte_align a + (2w:'a word) = a ∨
   byte_align a + (1w:'a word) = a ∨
   byte_align a = a``,
-  Cases_on`a`>>
-  rw[alignmentTheory.byte_align_def]>>
-  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
-  rfs[dimword_def]>>fs[]>>
-  cheat)
+  rw[]>>imp_res_tac byte_align_64_eq>>
+  pop_assum(qspec_then`a` assume_tac)>>
+  Q.SPEC_THEN `w2n a` mp_tac MOD8_CASES>>rw[]>>
+  fs[])
 
 val byte_align_64_IMP = prove(``
   dimindex(:'a) = 64 ⇒
@@ -1158,11 +1179,17 @@ val byte_align_64_IMP = prove(``
   (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 8 = 2) ∧
   (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 8 = 1) ∧
   (byte_align a = a ⇒ w2n a MOD 8 = 0)``,
-  Cases_on`a`>>
-  rw[alignmentTheory.byte_align_def]>>
-  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
-  rfs[dimword_def]>>fs[]>>
-  cheat)
+  rw[]>>imp_res_tac byte_align_64_eq>>fs[]>>
+  qpat_assum`A=a` mp_tac>>
+  qabbrev_tac`ba = byte_align a`>>
+  qabbrev_tac`ca = w2n a MOD 8`>>
+  first_x_assum(qspec_then`a` (SUBST1_TAC o SYM))>>
+  unabbrev_all_tac>>
+  fs[dimword_def,addressTheory.WORD_EQ_ADD_CANCEL]>>
+  Q.ISPECL_THEN[`64n`,`w2n a MOD 8`] assume_tac bitTheory.MOD_ZERO_GT>>
+  fs[]>>
+  Q.ISPECL_THEN [`w2n a`,`8n`] assume_tac MOD_LESS>>
+  DECIDE_TAC)
 
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
@@ -1412,7 +1439,6 @@ val Inst_lemma = Q.prove(
       (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
       rw[APPLY_UPDATE_THM]>>
       rfs[])))
-  (* long and messy, use set_byte_get_byte lemmas for memop cases *)
 
 val state_rel_ignore_io_events = prove(
   ``state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 ==>
