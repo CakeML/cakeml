@@ -1006,6 +1006,15 @@ val aligned_2_imp = store_thm("aligned_2_imp",
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
          ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
 
+val aligned_2_not_eq = store_thm("aligned_2_not_eq",
+  ``aligned 2 (x:'a word) ∧ dimindex(:'a) = 32 ∧
+    x ≠ byte_align a ⇒
+    x ≠ a ∧
+    x+1w ≠ a ∧
+    x+2w ≠ a ∧
+    x+3w ≠ a``,
+  metis_tac[aligned_2_imp])
+
 val aligned_3_imp = store_thm("aligned_3_imp",
   ``aligned 3 (x:'a word) /\ dimindex (:'a) = 64 ==>
     byte_align x = x ∧
@@ -1024,6 +1033,19 @@ val aligned_3_imp = store_thm("aligned_3_imp",
   \\ fs [MOD_EQ_0_DIVISOR]
   \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
          ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+
+val aligned_3_not_eq = store_thm("aligned_3_not_eq",
+  ``aligned 3 (x:'a word) ∧ dimindex(:'a) = 64 ∧
+    x ≠ byte_align a ⇒
+    x ≠ a ∧
+    x+1w ≠ a ∧
+    x+2w ≠ a ∧
+    x+3w ≠ a ∧
+    x+4w ≠ a ∧
+    x+5w ≠ a ∧
+    x+6w ≠ a ∧
+    x+7w ≠ a``,
+    metis_tac[aligned_3_imp])
 
 val ADD_MOD_EQ_LEMMA = prove(
   ``k MOD d = 0 /\ n < d ==> (k + n) MOD d = n``,
@@ -1066,6 +1088,81 @@ val dimword_eq_64_imp_or_bytes = prove(
   \\ Cases_on`i<40`\\simp[w2w,fcpTheory.FCP_BETA]
   \\ Cases_on`i<48`\\simp[w2w,fcpTheory.FCP_BETA]
   \\ Cases_on`i<56`\\simp[w2w,fcpTheory.FCP_BETA]);
+
+val byte_align_32_eq = prove(``
+  dimindex (:'a) = 32 ⇒
+  byte_align (a:'a word) +n2w (w2n a MOD 4) = a``,
+  Cases_on`a`>>
+  rw[alignmentTheory.byte_align_def]>>
+  fs[alignmentTheory.align_w2n,word_add_n2w]>>rfs[dimword_def]>>
+  Q.SPEC_THEN `4n` mp_tac DIVISION>>
+  fs[]>>disch_then (Q.SPEC_THEN`n` assume_tac)>>
+  simp[])
+
+val byte_align_64_eq = prove(``
+  dimindex (:'a) = 64 ⇒
+  byte_align (a:'a word) +n2w (w2n a MOD 8) = a``,
+  Cases_on`a`>>
+  rw[alignmentTheory.byte_align_def]>>
+  fs[alignmentTheory.align_w2n,word_add_n2w]>>rfs[dimword_def]>>
+  Q.SPEC_THEN `8n` mp_tac DIVISION>>
+  fs[]>>disch_then (Q.SPEC_THEN`n` assume_tac)>>
+  simp[])
+
+(*cheats to deal with modulus, probably use the above characterization*)
+val byte_align_32_IMP = prove(``
+  dimindex(:'a) = 32 ⇒
+  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 4 = 3) ∧
+  (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 4 = 2) ∧
+  (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 4 = 1) ∧
+  (byte_align a = a ⇒ w2n a MOD 4 = 0)``,
+  rw[]>>
+  imp_res_tac byte_align_32_eq>>fs[]>>
+  cheat)
+
+val byte_align_32_CASES = prove(``
+  dimindex(:'a) = 32 ⇒
+  byte_align a + (3w:'a word) = a ∨
+  byte_align a + (2w:'a word) = a ∨
+  byte_align a + (1w:'a word) = a ∨
+  byte_align a = a``,
+  Cases_on`a`>>
+  rw[alignmentTheory.byte_align_def]>>
+  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
+  rfs[dimword_def]>>fs[]>>
+  cheat)
+
+val byte_align_64_CASES = prove(``
+  dimindex(:'a) = 64 ⇒
+  byte_align a + (7w:'a word) = a ∨
+  byte_align a + (6w:'a word) = a ∨
+  byte_align a + (5w:'a word) = a ∨
+  byte_align a + (4w:'a word) = a ∨
+  byte_align a + (3w:'a word) = a ∨
+  byte_align a + (2w:'a word) = a ∨
+  byte_align a + (1w:'a word) = a ∨
+  byte_align a = a``,
+  Cases_on`a`>>
+  rw[alignmentTheory.byte_align_def]>>
+  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
+  rfs[dimword_def]>>fs[]>>
+  cheat)
+
+val byte_align_64_IMP = prove(``
+  dimindex(:'a) = 64 ⇒
+  (byte_align a + (7w:'a word) = a ⇒ w2n a MOD 8 = 7) ∧
+  (byte_align a + (6w:'a word) = a ⇒ w2n a MOD 8 = 6) ∧
+  (byte_align a + (5w:'a word) = a ⇒ w2n a MOD 8 = 5) ∧
+  (byte_align a + (4w:'a word) = a ⇒ w2n a MOD 8 = 4) ∧
+  (byte_align a + (3w:'a word) = a ⇒ w2n a MOD 8 = 3) ∧
+  (byte_align a + (2w:'a word) = a ⇒ w2n a MOD 8 = 2) ∧
+  (byte_align a + (1w:'a word) = a ⇒ w2n a MOD 8 = 1) ∧
+  (byte_align a = a ⇒ w2n a MOD 8 = 0)``,
+  Cases_on`a`>>
+  rw[alignmentTheory.byte_align_def]>>
+  fs[alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]>>
+  rfs[dimword_def]>>fs[]>>
+  cheat)
 
 val Inst_lemma = Q.prove(
   `~(asm_inst i s1).failed /\
@@ -1120,9 +1217,7 @@ val Inst_lemma = Q.prove(
       rfs[word_loc_val_def])>>
     fs[]
     >-
-      ((*alignment stuff..*)
-      `aligned 2 x` by fs [aligned_w2n]>>
-      (* True? *)
+      (`aligned 2 x` by fs [aligned_w2n]>>
        drule aligned_2_imp>>
        disch_then (strip_assume_tac o UNDISCH)>>
       `byte_align (x+1w) ∈ s1.mem_domain ∧
@@ -1203,7 +1298,87 @@ val Inst_lemma = Q.prove(
       rfs[word_loc_val_def]))
   >-
     (*Store*)
-    cheat
+    (`good_dimindex(:'a)` by fs[state_rel_def]>>
+    fs[good_dimindex_def]>>
+    Cases_on`a`>>last_x_assum mp_tac>>
+    fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def,labSemTheory.mem_store_def,read_reg_def,labSemTheory.upd_mem_def]>>
+    TOP_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>TOP_CASE_TAC>>fs[]>>
+    ntac 2 strip_tac>>fs[state_rel_def]>>
+    `t1.regs n' = c'` by
+      (first_x_assum(qspec_then`n'` assume_tac)>>
+      rfs[word_loc_val_def])>>
+    fs[]
+    >-
+      (`aligned 2 x` by fs [aligned_w2n]>>
+       drule aligned_2_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
+       `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         (simp[APPLY_UPDATE_THM]>>
+         res_tac>>fs[]>>
+         rpt(IF_CASES_TAC>>fs[]))
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
+         IF_CASES_TAC>>fs[]
+         >-
+           (fs[get_byte_def,byte_index_def]>>
+           drule byte_align_32_IMP>>
+           rpt IF_CASES_TAC>>fs[]>>
+           metis_tac[byte_align_32_CASES])
+         >>
+           res_tac>>
+           imp_res_tac aligned_2_not_eq>>fs[word_loc_val_byte_def])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[])))
+     >>
+       (`aligned 3 x` by fs [aligned_w2n]>>
+       drule aligned_3_imp>>
+       disch_then (strip_assume_tac o UNDISCH)>>
+       `byte_align (x+1w) ∈ s1.mem_domain ∧
+       byte_align (x+2w) ∈ s1.mem_domain ∧
+       byte_align (x+3w) ∈ s1.mem_domain ∧
+       byte_align (x+4w) ∈ s1.mem_domain ∧
+       byte_align (x+5w) ∈ s1.mem_domain ∧
+       byte_align (x+6w) ∈ s1.mem_domain ∧
+       byte_align (x+7w) ∈ s1.mem_domain ∧
+       byte_align x ∈ s1.mem_domain` by fs[]>>
+       IF_CASES_TAC>>simp[GSYM word_add_n2w]>>
+       (rw[]
+       >-
+         (simp[APPLY_UPDATE_THM]>>
+         res_tac>>fs[]>>
+         rpt(IF_CASES_TAC>>fs[]))
+       >-
+         metis_tac[]
+       >-
+         metis_tac[]
+       >-
+         (simp[word_loc_val_byte_def,APPLY_UPDATE_THM]>>
+         IF_CASES_TAC>>fs[]
+         >-
+           (fs[get_byte_def,byte_index_def]>>
+           drule byte_align_64_IMP>>
+           rpt IF_CASES_TAC>>fs[]>>
+           metis_tac[byte_align_64_CASES])
+         >>
+           res_tac>>
+           imp_res_tac aligned_3_not_eq>>fs[word_loc_val_byte_def])
+       >-
+         (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+         rw[APPLY_UPDATE_THM]>>
+         rfs[]))))
   >-
     (Cases_on`a`>>last_x_assum mp_tac>>
     fs[mem_store_byte_def,labSemTheory.assert_def,mem_store_byte_aux_def,mem_store_def,labSemTheory.addr_def,addr_def,write_mem_word_def_compute,upd_pc_def,read_reg_def,assert_def,upd_mem_def,dec_clock_def]>>
@@ -1234,8 +1409,9 @@ val Inst_lemma = Q.prove(
       first_x_assum(qspec_then`a` mp_tac)>>
       TOP_CASE_TAC>>rfs[word_loc_val_def])
     >-
-    (*something about not overwriting memory*)
-    cheat))
+      (match_mp_tac (GEN_ALL bytes_in_mem_asm_write_bytearray_lemma|>REWRITE_RULE[AND_IMP_INTRO])>>HINT_EXISTS_TAC>>fs[]>>
+      rw[APPLY_UPDATE_THM]>>
+      rfs[])))
   (* long and messy, use set_byte_get_byte lemmas for memop cases *)
 
 val state_rel_ignore_io_events = prove(
