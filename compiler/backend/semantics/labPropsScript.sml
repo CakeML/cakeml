@@ -51,11 +51,13 @@ val update_simps = store_thm("update_simps[simp]",
     ((labSem$upd_pc x s).pc = x) /\
     ((labSem$dec_clock s).pc = s.pc) /\
     ((labSem$upd_pc x s).clock = s.clock) /\
+    ((labSem$upd_pc x s).ffi = s.ffi) /\
     ((labSem$dec_clock s).clock = s.clock - 1) /\
     ((labSem$dec_clock s).len_reg = s.len_reg) ∧
     ((labSem$dec_clock s).link_reg = s.link_reg) ∧
     ((labSem$dec_clock s).code = s.code) ∧
     ((labSem$dec_clock s).ptr_reg = s.ptr_reg) ∧
+    ((labSem$dec_clock s).ffi = s.ffi) ∧
     ((labSem$upd_pc x s).len_reg = s.len_reg) ∧
     ((labSem$upd_pc x s).link_reg = s.link_reg) ∧
     ((labSem$upd_pc x s).code = s.code) ∧
@@ -65,6 +67,7 @@ val update_simps = store_thm("update_simps[simp]",
     ((labSem$upd_pc x s).be = s.be) ∧
     ((labSem$upd_pc x s).mem = s.mem) ∧
     ((labSem$upd_pc x s).regs = s.regs) ∧
+    ((labSem$upd_pc x s).ffi = s.ffi) ∧
     ((labSem$inc_pc s).ptr_reg = s.ptr_reg) ∧
     ((labSem$inc_pc s).len_reg = s.len_reg) ∧
     ((labSem$inc_pc s).link_reg = s.link_reg) ∧
@@ -74,7 +77,8 @@ val update_simps = store_thm("update_simps[simp]",
     ((labSem$inc_pc s).mem_domain = s.mem_domain) ∧
     ((labSem$inc_pc s).io_regs = s.io_regs) ∧
     ((labSem$inc_pc s).mem = s.mem) ∧
-    ((labSem$inc_pc s).pc = s.pc + 1)``,
+    ((labSem$inc_pc s).pc = s.pc + 1) ∧
+    ((labSem$inc_pc s).ffi = s.ffi)``,
   EVAL_TAC);
 
 val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
@@ -86,7 +90,8 @@ val binop_upd_consts = Q.store_thm("binop_upd_consts[simp]",
    (labSem$binop_upd a b c d x).be = x.be ∧
    (labSem$binop_upd a b c d x).mem = x.mem ∧
    (labSem$binop_upd a b c d x).io_regs = x.io_regs ∧
-   (labSem$binop_upd a b c d x).pc = x.pc`,
+   (labSem$binop_upd a b c d x).pc = x.pc ∧
+   (labSem$binop_upd a b c d x).ffi = x.ffi`,
   Cases_on`b`>>EVAL_TAC);
 
 val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
@@ -98,7 +103,8 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
    (labSem$arith_upd a x).be = x.be ∧
    (labSem$arith_upd a x).mem = x.mem ∧
    (labSem$arith_upd a x).io_regs = x.io_regs ∧
-   (labSem$arith_upd a x).pc = x.pc`,
+   (labSem$arith_upd a x).pc = x.pc ∧
+   (labSem$arith_upd a x).ffi = x.ffi`,
   Cases_on`a` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
 
