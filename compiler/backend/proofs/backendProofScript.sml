@@ -13,7 +13,7 @@ open preamble initSemEnvTheory semanticsPropsTheory
      word_to_stackProofTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
-local open compilerComputeLib in end
+local open compilerComputeLib bvpPropsTheory in end
 
 val _ = new_theory"backendProof";
 
@@ -46,6 +46,18 @@ val from_stack = let
     |> Q.INST [`code`|->`code1`]
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1 end
 
+val from_stack_fail = let
+  val lemma1 = lab_to_targetProofTheory.semantics_compile
+    |> REWRITE_RULE [CONJ_ASSOC]
+    |> MATCH_MP implements_intro_final
+    |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
+    |> Q.INST [`code`|->`code2`]
+  val lemma2 = stack_to_labProofTheory.full_make_init_semantics_fail |> UNDISCH
+    |> Q.INST [`code`|->`code1`]
+  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t ms code2).ffi``
+  in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
+     |> REWRITE_RULE [th] end
+
 val from_word = let
   val lemma1 = word_to_stackProofTheory.compile_semantics
     |> REWRITE_RULE [CONJ_ASSOC]
@@ -61,6 +73,15 @@ val from_bvp = let
     |> REWRITE_RULE [GSYM CONJ_ASSOC] |> UNDISCH_ALL
     |> Q.INST [`code`|->`code4`]
   in simple_match_mp (MATCH_MP implements_trans lemma1) from_word end
+
+val from_bvp_fail = let
+  val th = bvpPropsTheory.Resource_limit_hit_implements_semantics
+  val th = MATCH_MP implements_trans th
+  val th = MATCH_MP th from_stack_fail
+  val target = from_bvp |> concl
+  val curr = concl th
+  val i = fst (match_term curr target)
+  in INST i th end
 
 val full_make_init_code =
   ``(^(full_make_init_def |> SPEC_ALL |> concl |> dest_eq |> fst)).code``

@@ -1,4 +1,4 @@
-open preamble bvpTheory bvpSemTheory;
+open preamble bvpTheory bvpSemTheory semanticsPropsTheory;
 local open bviPropsTheory in end;
 
 val _ = new_theory"bvpProps";
@@ -811,5 +811,22 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   imp_res_tac evaluate_add_clock >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
+
+val semantics_Div_IMP_LPREFIX = store_thm("semantics_Div_IMP_LPREFIX",
+  ``semantics ffi prog start = Diverge l ==> LPREFIX (fromList ffi.io_events) l``,
+  cheat (* simple property about the semantics *));
+
+val semantics_Term_IMP_PREFIX = store_thm("semantics_Term_IMP_PREFIX",
+  ``semantics ffi prog start = Terminate tt l ==> ffi.io_events ≼ l``,
+  cheat (* simple property about the semantics *));
+
+val Resource_limit_hit_implements_semantics =
+  store_thm("Resource_limit_hit_implements_semantics",
+  ``implements {Terminate Resource_limit_hit ffi.io_events}
+       {semantics ffi (fromAList prog) start}``,
+  fs [implements_def,extend_with_resource_limit_def]
+  \\ Cases_on `semantics ffi (fromAList prog) start` \\ fs []
+  \\ imp_res_tac semantics_Div_IMP_LPREFIX \\ fs []
+  \\ imp_res_tac semantics_Term_IMP_PREFIX \\ fs []);
 
 val _ = export_theory();
