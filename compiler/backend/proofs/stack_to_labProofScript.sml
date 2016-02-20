@@ -1655,6 +1655,18 @@ val from_remove = let
   val lemma2 = from_names |> Q.INST [`start`|->`0`]
   in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2 end
 
+val from_remove_fail = let
+  val lemma1 =
+    stack_removeProofTheory.make_init_semantics_fail |> REWRITE_RULE [CONJ_ASSOC]
+    |> GEN_ALL |> SIMP_RULE std_ss [] |> SPEC_ALL
+    |> UNDISCH |> MATCH_MP implements_trivial_intro
+    |> Q.INST [`code`|->`code3`]
+  val lemma2 = from_names |> Q.INST [`start`|->`0`]
+  val th = EVAL ``(make_init f c
+             (make_init code2 regs save_regs s)).ffi.io_events``
+  in simple_match_mp (MATCH_MP implements_trans lemma1) lemma2
+     |> REWRITE_RULE [th] end
+
 val from_alloc = let
   val lemma1 =
     stack_allocProofTheory.make_init_semantics |> REWRITE_RULE [CONJ_ASSOC]
@@ -1690,5 +1702,15 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
   val def = define_abbrev "full_make_init" tm
   val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
   in th |> REWRITE_RULE [GSYM def,GSYM pre] end);
+
+val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
+  val th = from_remove_fail |> DISCH_ALL |> REWRITE_RULE lemmas
+           |> GEN_ALL |> SIMP_RULE (srw_ss()) [] |> SPEC_ALL
+           |> Q.INST [`code3`|->`compile c code4`] |> REWRITE_RULE []
+           |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
+           |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
+           |> Q.INST [`code4`|->`code`]
+  val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
+  in th |> REWRITE_RULE [GSYM pre] end);
 
 val _ = export_theory();
