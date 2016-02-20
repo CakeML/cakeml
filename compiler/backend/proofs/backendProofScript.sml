@@ -87,18 +87,46 @@ val full_make_init_code =
   ``(^(full_make_init_def |> SPEC_ALL |> concl |> dest_eq |> fst)).code``
   |> SIMP_CONV (srw_ss()) [full_make_init_def,stack_allocProofTheory.make_init_def]
 
-val machine_sem_implements_bvp_sem_RAW = save_thm("machine_sem_implements_bvp_sem_RAW",let
+fun define_abbrev name tm = let
+  val vs = free_vars tm |> sort
+    (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
+  val vars = foldr mk_pair (last vs) (butlast vs)
+  val n = mk_var(name,mk_type("fun",[type_of vars, type_of tm]))
+  in Define `^n ^vars = ^tm` end
+
+val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",let
   val th = from_bvp |> DISCH_ALL
            |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
            |> Q.INST [`code1`|->`SND (compile asm_conf code3)`]
-           |> REWRITE_RULE []
+           |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+  val th_fail = from_bvp_fail |> DISCH_ALL
+           |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC,full_make_init_code]
+           |> Q.INST [`code1`|->`codeN`]
+           |> REWRITE_RULE [GSYM AND_IMP_INTRO] |> UNDISCH_ALL
+  val hs1 = hyp th
+  val hs2 = hyp th_fail
+  fun inter xs ys = filter (fn y => mem y ys) xs
+  fun diff xs ys = filter (fn y => not (mem y ys)) xs
+  val hs = inter hs1 hs2
+  fun disch_assums thi =
+    foldr (fn (tm,th) => DISCH tm th) thi (diff (hyp thi) hs)
+     |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+  val th1 = disch_assums th
+  val th2 = disch_assums th_fail
+  val lemma = METIS_PROVE [] ``(b1 ==> x) /\ (b2 ==> x) ==> (b1 \/ b2 ==> x)``
+  val th = simple_match_mp lemma (CONJ th1 th2)
+           |> DISCH_ALL
+           |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
   val vs = diff (free_vars lhs) (free_vars rhs) |> sort
     (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
   val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
-  in GENL vs th |> SIMP_RULE std_ss [lemma] end);
-
+  val th = GENL vs th |> SIMP_RULE std_ss [lemma]
+  val def = define_abbrev "machine_sem_implements_bvp_pre"
+               (th |> concl |> dest_imp |> fst)
+  val th = th |> REWRITE_RULE [GSYM def]
+  in th end);
 
 (* --- composing source-to-target --- *)
 
