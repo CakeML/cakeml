@@ -255,11 +255,6 @@ val MEM_LASTN_ALT = prove(
   ``!xs n x. MEM x (LASTN n xs) ==> MEM x xs``,
   fs [LASTN_def] \\ rw [] \\ imp_res_tac MEM_TAKE \\ fs []);
 
-(* TODO: remove LASTN, only use LAST_N *)
-val LAST_N_LASTN_eq = store_thm("LAST_N_LASTN_eq[simp]",
-  ``∀ls n. LAST_N n ls = LASTN n ls``,
-  fs[LAST_N_def,LASTN_def])
-
 val clock_add_0 = store_thm("clock_add_0[simp]",
   ``((t with clock := t.clock + 0) = t:('a,'ffi) stackSem$state) /\
     ((t with clock := t.clock) = t:('a,'ffi) stackSem$state)``,
@@ -5377,7 +5372,7 @@ val comp_correct = Q.store_thm("comp_correct",
       SUC(LENGTH rest) - (h1+1) = SUC(LENGTH rest - (h1+1))` by DECIDE_TAC>>
       fs[]
       \\ rfs[]
-      \\ `h1 <= LENGTH (LAST_N (s.handler+1) stack)` by all_tac
+      \\ `h1 <= LENGTH (LASTN (s.handler+1) stack)` by all_tac
       \\ fs [LASTN_CONS]
       \\ imp_res_tac abs_stack_IMP_LENGTH \\ fs[]
       >> simp[LASTN_CONS])

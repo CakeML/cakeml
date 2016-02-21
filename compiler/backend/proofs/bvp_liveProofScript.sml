@@ -322,8 +322,8 @@ val evaluate_compile = Q.prove(
       \\ NTAC 2 BasicProvers.CASE_TAC \\ STRIP_TAC
       \\ `s.handler < LENGTH s.stack` by ALL_TAC THEN1
        (Cases_on `s.handler = LENGTH s.stack`
-        \\ fs [LAST_N_LEMMA] \\ DECIDE_TAC)
-      \\ IMP_RES_TAC LAST_N_TL \\ fs []
+        \\ fs [LASTN_LEMMA] \\ DECIDE_TAC)
+      \\ IMP_RES_TAC LASTN_TL \\ fs []
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
       \\ SIMP_TAC std_ss [Once jump_exc_def]
       \\ NTAC 2 BasicProvers.CASE_TAC \\ fs [] \\ STRIP_TAC
@@ -331,7 +331,7 @@ val evaluate_compile = Q.prove(
           LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
       \\ ASM_SIMP_TAC (srw_ss()) [Once jump_exc_def]
       \\ `t1.handler < LENGTH t1.stack` by (fs [] \\ NO_TAC)
-      \\ IMP_RES_TAC LAST_N_TL \\ fs [] \\ REPEAT STRIP_TAC
+      \\ IMP_RES_TAC LASTN_TL \\ fs [] \\ REPEAT STRIP_TAC
       \\ Q.ABBREV_TAC `env = Env ((inter t1.locals
                                  (inter names (delete v l2))))`
       \\ `t1 with <| locals := fromList q; stack := env::t1.stack;
@@ -403,7 +403,7 @@ val evaluate_compile = Q.prove(
   \\ NTAC 3 (SIMP_TAC std_ss [Once call_env_def])
   \\ fs [] \\ SIMP_TAC (srw_ss()) [Once jump_exc_def]
   \\ `LENGTH s.stack = LENGTH t1.stack` by fs [state_rel_def]
-  \\ fs [LAST_N_LEMMA]
+  \\ fs [LASTN_LEMMA]
   \\ `(call_env q (push_env (inter s.locals names) T (dec_clock s)) with
        stack := Exc (inter t1.locals
           (inter names (union (delete v l2) (delete var l6))))
@@ -418,19 +418,19 @@ val evaluate_compile = Q.prove(
   \\ STRIP_TAC THEN1
    (fs [state_rel_def,set_var_def,lookup_insert,call_env_def,
       push_env_def,dec_clock_def,jump_exc_def]
-    \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs [LAST_N_LEMMA]
+    \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs [LASTN_LEMMA]
     \\ SRW_TAC [] [] \\ fs []
     \\ Q.PAT_ASSUM `inter s.locals names = r'.locals` (ASSUME_TAC o GSYM)
     \\ fs [] \\ fs [lookup_inter_alt,domain_inter,domain_union,
          domain_delete,domain_list_insert] \\ SRW_TAC [] [])
   \\ fs [state_rel_def,set_var_def,lookup_insert,call_env_def,
       push_env_def,dec_clock_def,jump_exc_def]
-  \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs [LAST_N_LEMMA]
+  \\ POP_ASSUM (ASSUME_TAC o GSYM) \\ fs [LASTN_LEMMA]
   \\ SRW_TAC [] [] \\ fs []
-  \\ Cases_on `LAST_N (r'.handler + 1) r'.stack` \\ fs []
+  \\ Cases_on `LASTN (r'.handler + 1) r'.stack` \\ fs []
   \\ Cases_on `h` \\ fs []
   \\ SRW_TAC [] [] \\ fs []
-  \\ Cases_on `LAST_N (t1.handler + 1) t1.stack` \\ fs []
+  \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ fs []
   \\ Cases_on `h` \\ fs []
   \\ SRW_TAC [] [] \\ fs []);
 

@@ -114,7 +114,7 @@ val pop_env_def = Define `
 val jump_exc_def = Define `
   jump_exc s =
     if s.handler < LENGTH s.stack then
-      case LAST_N (s.handler+1) s.stack of
+      case LASTN (s.handler+1) s.stack of
       | Exc e n :: xs =>
           SOME (s with <| handler := n ; locals := e ; stack := xs |>)
       | _ => NONE

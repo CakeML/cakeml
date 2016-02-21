@@ -622,7 +622,7 @@ val compile_correct = Q.prove(
           \\ Cases_on `jump_exc t2` \\ full_simp_tac(srw_ss())[]
           \\ IMP_RES_TAC jump_exc_IMP
           \\ SIMP_TAC (srw_ss()) [jump_exc_def,FUNPOW_dec_clock_code]
-          \\ IMP_RES_TAC LAST_N_TL \\ full_simp_tac(srw_ss())[]
+          \\ IMP_RES_TAC LASTN_TL \\ full_simp_tac(srw_ss())[]
           \\ DECIDE_TAC)
       \\ STRIP_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
@@ -647,11 +647,11 @@ val compile_correct = Q.prove(
         \\ SIMP_TAC (srw_ss()) [jump_exc_def]
         \\ full_simp_tac(srw_ss())[FUNPOW_dec_clock_code]
         \\ Cases_on `t2.handler = LENGTH t2.stack` THEN1
-         (FULL_SIMP_TAC std_ss [Q.SPEC `x::xs` LAST_N_LENGTH
+         (FULL_SIMP_TAC std_ss [Q.SPEC `x::xs` LASTN_LENGTH_ID
              |> SIMP_RULE std_ss [LENGTH,ADD1]] \\ full_simp_tac(srw_ss())[])
         \\ `t2.handler < LENGTH t2.stack` by DECIDE_TAC
         \\ FULL_SIMP_TAC std_ss []
-        \\ IMP_RES_TAC LAST_N_TL
+        \\ IMP_RES_TAC LASTN_TL
         \\ FULL_SIMP_TAC (srw_ss()) [])
       \\ `pop_env t2' = SOME (t2' with
          <| stack := t2.stack; locals := env2 |>)` by ALL_TAC THEN1
@@ -755,7 +755,7 @@ val compile_correct = Q.prove(
          (FULL_SIMP_TAC (srw_ss()) [state_rel_def,bvpSemTheory.dec_clock_def,
             bviSemTheory.dec_clock_def,var_corr_def,get_var_def,LIST_REL_REVERSE_EQ,
             LIST_REL_lookup_fromList,lookup_fromList_outside,push_env_def,call_env_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
+          \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]])
         \\ REPEAT STRIP_TAC
         \\ Cases_on `pres` \\ full_simp_tac(srw_ss())[]
         \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
@@ -770,7 +770,7 @@ val compile_correct = Q.prove(
         \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC THEN1
          (full_simp_tac(srw_ss())[var_corr_def,state_rel_def,set_var_def,lookup_insert,get_var_def]
           \\ full_simp_tac(srw_ss())[jump_exc_def,call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `env2 = t2'.locals` (ASSUME_TAC o GSYM) \\ full_simp_tac(srw_ss())[]
           \\ Q.UNABBREV_TAC `env2` \\ full_simp_tac(srw_ss())[lookup_inter_alt]
@@ -787,20 +787,20 @@ val compile_correct = Q.prove(
             \\ Cases_on `n' = n1` \\ RES_TAC \\ full_simp_tac(srw_ss())[]
             \\ Cases_on `lookup n' t1.locals` \\ full_simp_tac(srw_ss())[]
             \\ RES_TAC \\ full_simp_tac(srw_ss())[] \\ Cases_on `lookup n' t2.locals` \\ full_simp_tac(srw_ss())[])
-          \\ Cases_on `LAST_N (t2'.handler + 1) t2'.stack` \\ full_simp_tac(srw_ss())[]
+          \\ Cases_on `LASTN (t2'.handler + 1) t2'.stack` \\ full_simp_tac(srw_ss())[]
           \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
         \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[GSYM ADD1, FUNPOW_SUC]
         \\ reverse (Cases_on `q`) \\ full_simp_tac(srw_ss())[] THEN1
          (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpSemTheory.dec_clock_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ NTAC 2 (POP_ASSUM MP_TAC)
           \\ Q.PAT_ASSUM `xxx = t2'` (fn th => ONCE_REWRITE_TAC [GSYM th]) \\ full_simp_tac(srw_ss())[])
         \\ Cases_on `res` \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
         \\ `(t2'.stack = t2.stack) /\ (t2'.handler = t2.handler)` by ALL_TAC THEN1
          (REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpSemTheory.dec_clock_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
         \\ Cases_on `tail` \\ full_simp_tac(srw_ss())[evaluate_def]
         THEN1
@@ -823,17 +823,17 @@ val compile_correct = Q.prove(
           \\ UNABBREV_ALL_TAC
           \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[set_var_def,jump_exc_def,call_env_def,
             push_env_def,bvpSemTheory.dec_clock_def]
-          \\ full_simp_tac(srw_ss())[jump_exc_def,LAST_N_LENGTH |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
+          \\ full_simp_tac(srw_ss())[jump_exc_def,LASTN_LENGTH_ID |> Q.SPEC `x::xs` |> RW [LENGTH,ADD1]]
           \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
           \\ Q.PAT_ASSUM `xxx = t2'.locals` (ASSUME_TAC o GSYM)
           \\ full_simp_tac(srw_ss())[lookup_inter_alt]
           \\ full_simp_tac(srw_ss())[domain_lookup,lookup_list_to_num_set] \\ METIS_TAC [])
         \\ full_simp_tac(srw_ss())[set_var_def]
         \\ full_simp_tac(srw_ss())[jump_exc_def]
-        \\ Cases_on `LAST_N (t1.handler + 1) t1.stack` \\ full_simp_tac(srw_ss())[]
+        \\ Cases_on `LASTN (t1.handler + 1) t1.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,bvpSemTheory.dec_clock_def]
-        \\ Cases_on `LAST_N (r'.handler + 1) r'.stack` \\ full_simp_tac(srw_ss())[]
+        \\ Cases_on `LASTN (r'.handler + 1) r'.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
       \\ `(res4,r4) = (res,s2)` by ALL_TAC
       THEN1 (Cases_on `res4` \\ full_simp_tac(srw_ss())[] \\ Cases_on`e` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
@@ -852,7 +852,7 @@ val compile_correct = Q.prove(
           \\ Cases_on `jump_exc t2` \\ full_simp_tac(srw_ss())[]
           \\ IMP_RES_TAC jump_exc_IMP
           \\ SIMP_TAC (srw_ss()) [jump_exc_def]
-          \\ IMP_RES_TAC LAST_N_TL \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
+          \\ IMP_RES_TAC LASTN_TL \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
       \\ STRIP_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
       \\ MP_TAC (Q.SPECL [`prog`,`call_env args
          (push_env env2 T (FUNPOW dec_clock (ticks+1) t2))`]
@@ -919,7 +919,7 @@ val compile_correct = Q.prove(
         \\ METIS_TAC [])
       THEN1
        (full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[jump_exc_def] \\ rev_full_simp_tac(srw_ss())[]
-        \\ Cases_on `LAST_N (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
+        \\ Cases_on `LASTN (t2.handler + 1) t2.stack` \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `h` \\ full_simp_tac(srw_ss())[])
       \\ REPEAT (FULL_SIMP_TAC (srw_ss()) [var_corr_def,get_var_def,lookup_insert,
                 call_env_def,push_env_def,bvpSemTheory.dec_clock_def,

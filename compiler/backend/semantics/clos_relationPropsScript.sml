@@ -308,9 +308,9 @@ val exp_rel_rtc_semantics = Q.store_thm(
 
 val rev_take_rev_all = Q.prove (
 `n = LENGTH l ⇒ REVERSE (TAKE n (REVERSE l)) = l`,
- `LAST_N (LENGTH l) l = l` by simp [LAST_N_LENGTH] >>
+ `LASTN (LENGTH l) l = l` by simp [LASTN_LENGTH_ID] >>
  rev_full_simp_tac(srw_ss())[] >>
- simp [GSYM LAST_N_def, LAST_N_LENGTH]);
+ simp [GSYM LASTN_def, LASTN_LENGTH_ID]);
 
 val rev_drop_rev_all = Q.prove (
 `n = LENGTH l ⇒ REVERSE (DROP n (REVERSE l)) = []`,

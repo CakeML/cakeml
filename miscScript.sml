@@ -1570,44 +1570,34 @@ val _ = augment_srw_ss [rewrites [map_some_eq,map_some_eq_append]];
 
 (* list misc *)
 
-val LAST_N_def = Define `
-  LAST_N n xs = REVERSE (TAKE n (REVERSE xs))`;
+val LASTN_LEMMA = store_thm("LASTN_LEMMA",
+  ``(LASTN (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
+    (LASTN (LENGTH xs + 1) (x::xs) = x::xs)``,
+  MP_TAC (Q.SPEC `x::y::xs` LASTN_LENGTH_ID)
+  \\ MP_TAC (Q.SPEC `x::xs` LASTN_LENGTH_ID) \\ full_simp_tac(srw_ss())[ADD1]);
 
-val LAST_N_LENGTH = store_thm("LAST_N_LENGTH",
-  ``!xs. LAST_N (LENGTH xs) xs = xs``,
-  full_simp_tac(srw_ss())[LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
-  \\ SIMP_TAC std_ss [TAKE_LENGTH_ID] \\ full_simp_tac(srw_ss())[]);
+val LASTN_TL = save_thm("LASTN_TL",
+  LASTN_CONS |> Q.SPECL[`n+1`,`xs`]
+  |> C MP (DECIDE``n < LENGTH xs ⇒ n + 1 ≤ LENGTH xs`` |> UNDISCH)
+  |> SPEC_ALL |> DISCH_ALL);
 
-val LAST_N_LEMMA = store_thm("LAST_N_LEMMA",
-  ``(LAST_N (LENGTH xs + 1 + 1) (x::y::xs) = x::y::xs) /\
-    (LAST_N (LENGTH xs + 1) (x::xs) = x::xs)``,
-  MP_TAC (Q.SPEC `x::y::xs` LAST_N_LENGTH)
-  \\ MP_TAC (Q.SPEC `x::xs` LAST_N_LENGTH) \\ full_simp_tac(srw_ss())[ADD1]);
-
-val LAST_N_TL = store_thm("LAST_N_TL",
-  ``n < LENGTH xs ==>
-    (LAST_N (n+1) (x::xs) = LAST_N (n+1) xs)``,
-  full_simp_tac(srw_ss())[LAST_N_def] \\ REPEAT STRIP_TAC
-  \\ `n+1 <= LENGTH (REVERSE xs)` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
-  \\ imp_res_tac TAKE_APPEND1 \\ full_simp_tac(srw_ss())[]);
-
-val LAST_N_LENGTH_LESS_EQ = store_thm("LAST_N_LENGTH_LESS_EQ",
-  ``!xs n. LENGTH xs <= n ==> LAST_N n xs = xs``,
-  full_simp_tac(srw_ss())[LAST_N_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
+val LASTN_LENGTH_LESS_EQ = store_thm("LASTN_LENGTH_LESS_EQ",
+  ``!xs n. LENGTH xs <= n ==> LASTN n xs = xs``,
+  full_simp_tac(srw_ss())[LASTN_def] \\ ONCE_REWRITE_TAC [GSYM LENGTH_REVERSE]
   \\ SIMP_TAC std_ss [listTheory.TAKE_LENGTH_TOO_LONG] \\ full_simp_tac(srw_ss())[]);
 
-val LAST_N = store_thm("LAST_N",
-  ``(LAST_N n [] = []) /\
-    (LAST_N n (x::xs) = if LENGTH (x::xs) <= n then x::xs else LAST_N n xs)``,
-  srw_tac[][] THEN1 (full_simp_tac(srw_ss())[LAST_N_def])
-  THEN1 (match_mp_tac LAST_N_LENGTH_LESS_EQ \\ full_simp_tac(srw_ss())[])
-  \\ full_simp_tac(srw_ss())[LAST_N_def] \\ REPEAT STRIP_TAC
+val LASTN_ALT = store_thm("LASTN_ALT",
+  ``(LASTN n [] = []) /\
+    (LASTN n (x::xs) = if LENGTH (x::xs) <= n then x::xs else LASTN n xs)``,
+  srw_tac[][] THEN1 (full_simp_tac(srw_ss())[LASTN_def])
+  THEN1 (match_mp_tac LASTN_LENGTH_LESS_EQ \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[LASTN_def] \\ REPEAT STRIP_TAC
   \\ `n <= LENGTH (REVERSE xs)` by (full_simp_tac(srw_ss())[] \\ DECIDE_TAC)
   \\ imp_res_tac TAKE_APPEND1 \\ full_simp_tac(srw_ss())[]);
 
-val LENGTH_LAST_N_LESS = store_thm("LENGTH_LAST_N_LESS",
-  ``!xs n. LENGTH (LAST_N n xs) <= LENGTH xs``,
-  Induct \\ full_simp_tac(srw_ss())[LAST_N] \\ srw_tac[][]
+val LENGTH_LASTN_LESS = store_thm("LENGTH_LASTN_LESS",
+  ``!xs n. LENGTH (LASTN n xs) <= LENGTH xs``,
+  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][]
   \\ first_x_assum (qspec_then `n` assume_tac)
   \\ decide_tac);
 

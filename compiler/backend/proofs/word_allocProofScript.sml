@@ -538,10 +538,10 @@ val setup_tac = Cases_on`word_exp st exp`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac apply_colour_exp_lemma>>
       pop_assum(qspecl_then[`f`,`cst`]mp_tac)>>unabbrev_all_tac;
 
-val LAST_N_LENGTH2 = prove(``
-  LAST_N (LENGTH xs +1) (x::xs) = x::xs``,
+val LASTN_LENGTH2 = prove(``
+  LASTN (LENGTH xs +1) (x::xs) = x::xs``,
   `LENGTH (x::xs) = LENGTH xs +1` by simp[]>>
-  metis_tac[LAST_N_LENGTH])
+  metis_tac[LASTN_LENGTH_ID])
 
 val toAList_not_empty = prove(``
   domain t ≠ {} ⇒
@@ -922,7 +922,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     >-
     (*Exceptions*)
     (full_simp_tac(srw_ss())[]>>strip_tac>>
-    imp_res_tac s_val_eq_LAST_N_exists>>
+    imp_res_tac s_val_eq_LASTN_exists>>
     first_x_assum(qspecl_then[`envy.stack`,`e'`,`ls'`] assume_tac)>>
     rev_full_simp_tac(srw_ss())[]>>
     Cases_on`o0`
@@ -935,12 +935,12 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM]>>
         Cases_on`st.handler < LENGTH st.stack`
         >-
-          (imp_res_tac LAST_N_TL>>
+          (imp_res_tac LASTN_TL>>
           rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[])
         >>
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
-          rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
-          simp[LAST_N_LENGTH_cond])>>
+          rpt (qpat_assum `LASTN A B = C` mp_tac)>-
+          simp[LASTN_LENGTH_cond])>>
       rev_full_simp_tac(srw_ss())[]>>
       `lss = lss'` by
         (match_mp_tac LIST_EQ_MAP_PAIR>>full_simp_tac(srw_ss())[]>>
@@ -950,10 +950,10 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         `st.handler < LENGTH st.stack` by
           (SPOSE_NOT_THEN assume_tac>>
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
-          ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
-          simp[LAST_N_LENGTH2])>>
-        ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
-        full_simp_tac(srw_ss())[LAST_N_TL])>>
+          ntac 2 (qpat_assum`LASTN A B = C` mp_tac)>>
+          simp[LASTN_LENGTH2])>>
+        ntac 2 (qpat_assum`LASTN A B = C` mp_tac)>>
+        full_simp_tac(srw_ss())[LASTN_TL])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (*Handler*)
@@ -962,8 +962,8 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
       IF_CASES_TAC>-
         (qexists_tac`perm`>>full_simp_tac(srw_ss())[])>>
-      rpt (qpat_assum `LAST_N A B = C` mp_tac)>>
-      simp[LAST_N_LENGTH_cond]>>
+      rpt (qpat_assum `LASTN A B = C` mp_tac)>>
+      simp[LASTN_LENGTH_cond]>>
       rpt strip_tac>>
       full_simp_tac(srw_ss())[domain_fromAList]>>
       imp_res_tac list_rearrange_keys>>
@@ -3360,7 +3360,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >-
       (*Excepting without handler*)
       (full_simp_tac(srw_ss())[]>>strip_tac>>
-      imp_res_tac s_val_eq_LAST_N_exists>>
+      imp_res_tac s_val_eq_LASTN_exists>>
       first_x_assum(qspecl_then[`envy.stack`,`e'`,`ls'`] assume_tac)>>
       rev_full_simp_tac(srw_ss())[]>>
       qexists_tac`perm`>>
@@ -3369,12 +3369,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM]>>
         Cases_on`st.handler < LENGTH st.stack`
         >-
-          (imp_res_tac miscTheory.LAST_N_TL>>
+          (imp_res_tac LASTN_TL>>
           rev_full_simp_tac(srw_ss())[]>>full_simp_tac(srw_ss())[])
         >>
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
-          rpt (qpat_assum `LAST_N A B = C` mp_tac)>-
-          simp[LAST_N_LENGTH_cond])>>
+          rpt (qpat_assum `LASTN A B = C` mp_tac)>-
+          simp[LASTN_LENGTH_cond])>>
       full_simp_tac(srw_ss())[]>>
       `lss = lss'` by
         (match_mp_tac LIST_EQ_MAP_PAIR>>full_simp_tac(srw_ss())[]>>
@@ -3384,10 +3384,10 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
         `st.handler < LENGTH st.stack` by
           (SPOSE_NOT_THEN assume_tac>>
           `st.handler = LENGTH st.stack` by DECIDE_TAC>>
-          ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
-          simp[LAST_N_LENGTH2])>>
-        ntac 2 (qpat_assum`LAST_N A B = C` mp_tac)>>
-        full_simp_tac(srw_ss())[LAST_N_TL])>>
+          ntac 2 (qpat_assum`LASTN A B = C` mp_tac)>>
+          simp[LASTN_LENGTH2])>>
+        ntac 2 (qpat_assum`LASTN A B = C` mp_tac)>>
+        full_simp_tac(srw_ss())[LASTN_TL])>>
       metis_tac[s_val_and_key_eq,s_key_eq_sym,s_key_eq_trans])
     >>
       (* 3 subgoals *)
@@ -3661,13 +3661,13 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >-
       (*Excepting with handler*)
       (full_simp_tac(srw_ss())[]>>strip_tac>>
-      imp_res_tac s_val_eq_LAST_N_exists>>
+      imp_res_tac s_val_eq_LASTN_exists>>
       first_x_assum(qspecl_then[`envy.stack`,`e'`,`ls'`] assume_tac)>>
       rev_full_simp_tac(srw_ss())[]>>
       unabbrev_all_tac>>
       full_simp_tac(srw_ss())[push_env_def,LET_THM,env_to_list_def]>>
-      rpt (qpat_assum `LAST_N A B = C` mp_tac)>>
-      simp[LAST_N_LENGTH_cond]>>
+      rpt (qpat_assum `LASTN A B = C` mp_tac)>>
+      simp[LASTN_LENGTH_cond]>>
       rpt strip_tac>>
       full_simp_tac(srw_ss())[domain_fromAList]>>
       imp_res_tac list_rearrange_keys>>

@@ -245,17 +245,17 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[] THEN1
      (full_simp_tac(srw_ss())[pop_env_def,call_env_def,push_env_def,set_var_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[jump_exc_def]
-      \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LAST_N_LEMMA]
+      \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LASTN_LEMMA]
       \\ `s.handler < LENGTH s.stack` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
-      \\ IMP_RES_TAC LAST_N_TL \\ full_simp_tac(srw_ss())[]
-      \\ Cases_on `LAST_N (s.handler + 1) s.stack` \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC LASTN_TL \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `LASTN (s.handler + 1) s.stack` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ Q.PAT_ASSUM `!xs s7.bbb` (MP_TAC o Q.SPECL [`Env x'::xs`,
            `s7 with clock := s7.clock - 1`])
       \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ IMP_RES_TAC LAST_N_TL \\ full_simp_tac(srw_ss())[]
+      \\ IMP_RES_TAC LASTN_TL \\ full_simp_tac(srw_ss())[]
       \\ every_case_tac \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality])
     \\ Cases_on `x''` \\ full_simp_tac(srw_ss())[]
@@ -266,10 +266,10 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `res` \\ full_simp_tac(srw_ss())[]
     THEN1 (* NONE *)
      (STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
-          push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+          push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
           \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
-          push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+          push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
            (dec_clock (s with stack := xs)))).stack`)
@@ -278,9 +278,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by ALL_TAC
       THEN1 full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,jump_exc_def,
-           LAST_N_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
+           LASTN_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
       \\ Q.PAT_ASSUM `LENGTH s.stack = LENGTH xs` (ASSUME_TAC o GSYM)
-      \\ full_simp_tac(srw_ss())[LAST_N_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[LASTN_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
@@ -288,10 +288,10 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
     \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[]
     THEN1 (* SOME Rval *)
      (STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
-          push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+          push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
           \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ STRIP_TAC THEN1 (full_simp_tac(srw_ss())[set_var_def,pop_env_def,jump_exc_def,call_env_def,
-          push_env_def,LAST_N_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
+          push_env_def,LASTN_LEMMA,dec_clock_def] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[])
       \\ REPEAT STRIP_TAC
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `(call_env q (push_env x8 T
            (dec_clock (s with stack := xs)))).stack`)
@@ -300,9 +300,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by ALL_TAC
       THEN1 full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,jump_exc_def,
-           LAST_N_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
+           LASTN_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
       \\ Q.PAT_ASSUM `LENGTH s.stack = LENGTH xs` (ASSUME_TAC o GSYM)
-      \\ full_simp_tac(srw_ss())[LAST_N_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[LASTN_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
@@ -320,12 +320,12 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
       \\ SIMP_TAC std_ss [Once push_env_def]
       \\ SIMP_TAC std_ss [Once call_env_def]
       \\ SIMP_TAC std_ss [Once jump_exc_def]
-      \\ SIMP_TAC (srw_ss()) [LAST_N_LEMMA] \\ REPEAT STRIP_TAC
+      \\ SIMP_TAC (srw_ss()) [LASTN_LEMMA] \\ REPEAT STRIP_TAC
       \\ full_simp_tac(srw_ss())[bvpSemTheory.state_component_equality]
       \\ Q.PAT_ASSUM `jump_exc (set_var q'' b s9) = SOME s2'` MP_TAC
       \\ SIMP_TAC std_ss [Once set_var_def]
       \\ SIMP_TAC (srw_ss()) [Once jump_exc_def]
-      \\ Cases_on `LAST_N (s9.handler + 1) s9.stack` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `LASTN (s9.handler + 1) s9.stack` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `h` \\ full_simp_tac(srw_ss())[] \\ SIMP_TAC std_ss [Once EQ_SYM_EQ]
       \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[] \\ POP_ASSUM (K ALL_TAC)
       \\ SIMP_TAC std_ss [Once jump_exc_def] \\ full_simp_tac(srw_ss())[]
@@ -337,12 +337,12 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by ALL_TAC
       THEN1 full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,jump_exc_def,
-           LAST_N_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
+           LASTN_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
       \\ Q.PAT_ASSUM `LENGTH s.stack = LENGTH xs` (ASSUME_TAC o GSYM)
-      \\ full_simp_tac(srw_ss())[LAST_N_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[LASTN_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
-      \\ Cases_on `LAST_N (s9.handler + 1) xs` \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `LASTN (s9.handler + 1) xs` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]
       \\ `s9 with <|locals := insert q'' b s9.locals; stack := xs;
              handler := s9.handler|> =
@@ -359,9 +359,9 @@ val evaluate_stack_swap = Q.store_thm("evaluate_stack_swap",
           (call_env q (push_env x8 T (dec_clock (s with stack := xs))))` by ALL_TAC
       THEN1 full_simp_tac(srw_ss())[call_env_def,push_env_def,dec_clock_def]
       \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[call_env_def,push_env_def,jump_exc_def,
-           LAST_N_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
+           LASTN_LEMMA,dec_clock_def,set_var_def] \\ REPEAT STRIP_TAC
       \\ Q.PAT_ASSUM `LENGTH s.stack = LENGTH xs` (ASSUME_TAC o GSYM)
-      \\ full_simp_tac(srw_ss())[LAST_N_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[LASTN_LEMMA] \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `xs`)
       \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[] \\ REV_FULL_SIMP_TAC std_ss []
       \\ POP_ASSUM (fn th => full_simp_tac(srw_ss())[GSYM th])
@@ -612,10 +612,10 @@ val jump_exc_NONE = store_thm("jump_exc_NONE",
 val jump_exc_IMP = store_thm("jump_exc_IMP",
   ``(jump_exc s = SOME t) ==>
     s.handler < LENGTH s.stack /\
-    ?n e xs. (LAST_N (s.handler + 1) s.stack = Exc e n::xs) /\
+    ?n e xs. (LASTN (s.handler + 1) s.stack = Exc e n::xs) /\
              (t = s with <|handler := n; locals := e; stack := xs|>)``,
   SIMP_TAC std_ss [jump_exc_def]
-  \\ Cases_on `LAST_N (s.handler + 1) s.stack` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `LASTN (s.handler + 1) s.stack` \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `h` \\ full_simp_tac(srw_ss())[]);
 
 val do_app_Rerr = store_thm("do_app_Rerr",

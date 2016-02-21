@@ -781,11 +781,11 @@ val s_val_eq_TAKE = prove(
   srw_tac[][]>>full_simp_tac(srw_ss())[s_val_eq_def]>>IF_CASES_TAC>>
   full_simp_tac(srw_ss())[s_val_eq_def])
 
-val s_val_eq_LAST_N = prove(
+val s_val_eq_LASTN = prove(
   ``!s t n. s_val_eq s t
-    ==> s_val_eq (LAST_N n s) (LAST_N n t)``,
+    ==> s_val_eq (LASTN n s) (LASTN n t)``,
   ho_match_mp_tac (fetch "-" "s_val_eq_ind")>>
-  srw_tac[][LAST_N_def]>>full_simp_tac(srw_ss())[s_val_eq_def]>>
+  srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq [x] [y]` by full_simp_tac(srw_ss())[s_val_eq_def]>>
   `s_val_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_val_eq_APPEND,s_val_eq_REVERSE]>>
@@ -808,11 +808,11 @@ val s_key_eq_TAKE = prove(
   srw_tac[][]>>full_simp_tac(srw_ss())[s_key_eq_def]>>IF_CASES_TAC>>
   full_simp_tac(srw_ss())[s_key_eq_def])
 
-val s_key_eq_LAST_N = prove(
+val s_key_eq_LASTN = prove(
   ``!s t n. s_key_eq s t
-    ==> s_key_eq (LAST_N n s) (LAST_N n t)``,
+    ==> s_key_eq (LASTN n s) (LASTN n t)``,
   ho_match_mp_tac (fetch "-" "s_key_eq_ind")>>
-  srw_tac[][LAST_N_def]>>full_simp_tac(srw_ss())[s_key_eq_def]>>
+  srw_tac[][LASTN_def]>>full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq [x] [y]` by full_simp_tac(srw_ss())[s_key_eq_def]>>
   `s_key_eq (REVERSE s ++ [x]) (REVERSE t ++[y])` by
     full_simp_tac(srw_ss())[s_key_eq_APPEND,s_key_eq_REVERSE]>>
@@ -827,35 +827,35 @@ val s_val_eq_tail = prove(
  ``!a b c d. s_val_eq (a::b) (c::d) ==> s_val_eq b d``,
   full_simp_tac(srw_ss())[s_val_eq_def])
 
-val s_key_eq_LAST_N_exists = prove(
+val s_key_eq_LASTN_exists = prove(
   ``!s t n e y xs. s_key_eq s t /\
-    LAST_N n s = StackFrame e (SOME y)::xs
-    ==> ?e' ls. LAST_N n t = StackFrame e' (SOME y)::ls
+    LASTN n s = StackFrame e (SOME y)::xs
+    ==> ?e' ls. LASTN n t = StackFrame e' (SOME y)::ls
         /\ MAP FST e' = MAP FST e
         /\ s_key_eq xs ls``,
    rpt strip_tac>>
-   IMP_RES_TAC s_key_eq_LAST_N>>
+   IMP_RES_TAC s_key_eq_LASTN>>
    first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
-   Cases_on`LAST_N n t`>>
+   Cases_on`LASTN n t`>>
    full_simp_tac(srw_ss())[s_key_eq_def]>>
    Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def])
 
-val s_val_eq_LAST_N_exists = store_thm("s_val_eq_LAST_N_exists",
+val s_val_eq_LASTN_exists = store_thm("s_val_eq_LASTN_exists",
   ``!s t n e y xs. s_val_eq s t /\
-   LAST_N n s = StackFrame e (SOME y)::xs
-    ==> ?e' ls. LAST_N n t = StackFrame e' (SOME y)::ls
+   LASTN n s = StackFrame e (SOME y)::xs
+    ==> ?e' ls. LASTN n t = StackFrame e' (SOME y)::ls
        /\ MAP SND e' = MAP SND e
        /\ s_val_eq xs ls``,
   rpt strip_tac>>
-  IMP_RES_TAC s_val_eq_LAST_N>>
+  IMP_RES_TAC s_val_eq_LASTN>>
   first_x_assum (qspec_then `n` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
-  Cases_on`LAST_N n t`>>
+  Cases_on`LASTN n t`>>
   full_simp_tac(srw_ss())[s_val_eq_def]>>
   Cases_on`h`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_val_eq_def])
 
-val LAST_N_LENGTH_cond = store_thm("LAST_N_LENGTH_cond",
-  ``!n xs. n = LENGTH xs ==> LAST_N n xs =xs``,
-  metis_tac[LAST_N_LENGTH] )
+val LASTN_LENGTH_cond = store_thm("LASTN_LENGTH_cond",
+  ``!n xs. n = LENGTH xs ==> LASTN n xs =xs``,
+  metis_tac[LASTN_LENGTH_ID] )
 
 val handler_eq = prove(
   ``x with handler := x.handler = x``, full_simp_tac(srw_ss())[state_component_equality])
@@ -891,12 +891,12 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
       | (SOME (Exception x y),s1) =>
             (s.handler<LENGTH s.stack) /\ (*precondition for jump_exc*)
             (?e n ls lss.
-                (LAST_N (s.handler+1) s.stack = StackFrame e (SOME n)::ls) /\
+                (LASTN (s.handler+1) s.stack = StackFrame e (SOME n)::ls) /\
                 (MAP FST e = MAP FST lss /\
                    s1.locals = fromAList lss) /\
                 (s_key_eq s1.stack ls) /\ (s1.handler = case n of(a,b,c)=>a) /\
                 (!xs e' ls'.
-                           (LAST_N (s.handler+1) xs =
+                           (LASTN (s.handler+1) xs =
                              StackFrame e' (SOME n):: ls') /\
                            (s_val_eq s.stack xs) ==> (*this implies n=n'*)
                            ?st locs.
@@ -1024,7 +1024,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
         first_x_assum(qspec_then `xs` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
         first_x_assum(qspec_then `st` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
         HINT_EXISTS_TAC>>metis_tac[s_key_eq_trans])>-
-        (ASSUME_TAC (INST_TYPE [``:'b``|->``:'a``]s_key_eq_LAST_N_exists)>>
+        (ASSUME_TAC (INST_TYPE [``:'b``|->``:'a``]s_key_eq_LASTN_exists)>>
         (*get the result stack from first eval*)
         IMP_RES_TAC s_key_eq_length>>full_simp_tac(srw_ss())[]>>
         first_x_assum(qspecl_then [`r.stack`,`s.stack`,`s.handler+1`,`e`,`n`,`ls`] assume_tac)>>
@@ -1034,7 +1034,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
         rpt strip_tac>>
         first_x_assum(qspec_then `xs` assume_tac)>>
         rev_full_simp_tac(srw_ss())[]>>
-        IMP_RES_TAC s_key_eq_LAST_N_exists>>
+        IMP_RES_TAC s_key_eq_LASTN_exists>>
         last_x_assum(qspecl_then [`st`,`e'''`,`ls'''`] assume_tac)>>
         rev_full_simp_tac(srw_ss())[]>>
         HINT_EXISTS_TAC>>
@@ -1071,8 +1071,8 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     IMP_RES_TAC s_val_eq_length>>full_simp_tac(srw_ss())[EQ_SYM_EQ,state_component_equality]>>
     full_simp_tac(srw_ss())[s_key_eq_refl]>>
     `s.handler + 1<= LENGTH s.stack` by metis_tac[arithmeticTheory.LESS_OR,arithmeticTheory.ADD1]>>
-    rpt (qpat_assum `a = LAST_N b c` (ASSUME_TAC o SYM))>>
-    IMP_RES_TAC s_val_eq_LAST_N>>
+    rpt (qpat_assum `a = LASTN b c` (ASSUME_TAC o SYM))>>
+    IMP_RES_TAC s_val_eq_LASTN>>
     first_x_assum(qspec_then `s.handler+1` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     IMP_RES_TAC s_val_eq_tail>>
     full_simp_tac(srw_ss())[s_val_eq_def,s_frame_val_eq_def]>>
@@ -1087,7 +1087,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     full_simp_tac(srw_ss())[get_var_def]>>Cases_on`ri`>>full_simp_tac(srw_ss())[get_var_imm_def,get_var_def]>>
     HINT_EXISTS_TAC>>metis_tac[s_key_eq_trans])>>
     qexists_tac`lss`>>full_simp_tac(srw_ss())[]>>srw_tac[][]>>
-    IMP_RES_TAC s_val_eq_LAST_N_exists>>
+    IMP_RES_TAC s_val_eq_LASTN_exists>>
     last_x_assum(qspecl_then [`xs`,`e'''`,`ls'''`] assume_tac)>>
     Cases_on`ri`>>rev_full_simp_tac(srw_ss())[get_var_def,get_var_imm_def]>>
     HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[]>>
@@ -1206,7 +1206,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
           full_simp_tac(srw_ss())[state_component_equality])>>
         CONJ_ASM1_TAC >- metis_tac[s_key_eq_length]>>
         `s_key_eq x''.stack s.stack` by metis_tac[s_key_eq_sym]>>
-        IMP_RES_TAC s_key_eq_LAST_N_exists>>
+        IMP_RES_TAC s_key_eq_LASTN_exists>>
         full_simp_tac(srw_ss())[]>>
         (*check*)
         qexists_tac`lss`>>full_simp_tac(srw_ss())[]>>
@@ -1235,7 +1235,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
         full_simp_tac(srw_ss())[state_component_equality]>>
         IMP_RES_TAC s_val_eq_tail>>
         first_x_assum(qspec_then `t` assume_tac)>> rev_full_simp_tac(srw_ss())[]>>
-        IMP_RES_TAC s_key_eq_LAST_N_exists>>
+        IMP_RES_TAC s_key_eq_LASTN_exists>>
         first_x_assum(qspecl_then[`e''''`,`ls''''`] assume_tac)>>rev_full_simp_tac(srw_ss())[]
         >-
           (`x'' with <|locals := insert x'0 w0 x''.locals; stack := t|> =
@@ -1296,19 +1296,19 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
        (full_simp_tac(srw_ss())[call_env_def,push_env_def,env_to_list_def,dec_clock_def,LET_THM]>>
        CONJ_ASM1_TAC>-
        (IMP_RES_TAC prim_recTheory.LESS_LEMMA1>>
-       qpat_assum `LAST_N a as=b` mp_tac>>simp[]>>
+       qpat_assum `LASTN a as=b` mp_tac>>simp[]>>
        qpat_abbrev_tac `frame = StackFrame a b`>>
        `LENGTH s.stack+1 = LENGTH (frame::s.stack) ` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
-       pop_assum SUBST1_TAC>> full_simp_tac(srw_ss())[LAST_N_LENGTH]>>
+       pop_assum SUBST1_TAC>> full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
        Q.UNABBREV_TAC`frame`>>full_simp_tac(srw_ss())[option_nchotomy])>>
-       full_simp_tac(srw_ss())[GEN_ALL LAST_N_TL]>>
+       full_simp_tac(srw_ss())[GEN_ALL LASTN_TL]>>
        Q.EXISTS_TAC`lss`>>full_simp_tac(srw_ss())[]>>rpt strip_tac>>
        assume_tac get_vars_stack_swap_simp>>
        first_x_assum(qspec_then `args` assume_tac)>>full_simp_tac(srw_ss())[]>>
        qpat_abbrev_tac `frame = StackFrame a b`>>
        `s.handler < LENGTH xs` by (IMP_RES_TAC s_val_eq_length>>full_simp_tac(srw_ss())[])>>
        first_x_assum(qspecl_then [`frame::xs`,`e'`,`ls'`] assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-       IMP_RES_TAC (GEN_ALL LAST_N_TL)>>
+       IMP_RES_TAC (GEN_ALL LASTN_TL)>>
        last_x_assum(qspec_then `frame` assume_tac)>>
        full_simp_tac(srw_ss())[]>> rev_full_simp_tac(srw_ss())[]>>
        `s_val_eq (frame::s.stack) (frame::xs)` by
@@ -1326,7 +1326,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            (QSORT key_val_compare (toAList x')))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
          pop_assum SUBST_ALL_TAC>>
-         full_simp_tac(srw_ss())[LAST_N_LENGTH]>>
+         full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
          metis_tac[s_key_eq_trans,s_key_eq_sym])>>
        TRY
          (qho_match_abbrev_tac`A ∧ B /\ C` >> unabbrev_all_tac>>
@@ -1336,7 +1336,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            (QSORT key_val_compare (toAList x')))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
          pop_assum SUBST_ALL_TAC>>
-         full_simp_tac(srw_ss())[LAST_N_LENGTH]>>
+         full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
          metis_tac[s_key_eq_trans,s_key_eq_sym])>>
          rpt strip_tac>>
          assume_tac get_vars_stack_swap_simp>>
@@ -1344,14 +1344,14 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
          qpat_abbrev_tac`frame = StackFrame c d`>>
          `s_val_eq (frame::s.stack) (frame::xs)` by
            metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
-         IMP_RES_TAC s_val_eq_LAST_N_exists>>
+         IMP_RES_TAC s_val_eq_LASTN_exists>>
          `LENGTH s.stack = LENGTH xs` by full_simp_tac(srw_ss())[s_val_eq_length] >>
          first_x_assum(qspec_then`frame::xs` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
          first_x_assum(qspecl_then [`frame::xs`,`e'`,`ls'`] assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
          `LENGTH s.stack +1 = LENGTH (frame::s.stack) /\
           LENGTH s.stack +1 = LENGTH (frame::xs)` by
            full_simp_tac(srw_ss())[arithmeticTheory.ADD1,s_val_eq_length]>>
-          full_simp_tac(srw_ss())[LAST_N_LENGTH_cond]>>
+          full_simp_tac(srw_ss())[LASTN_LENGTH_cond]>>
           `MAP FST lss = MAP FST lss'` by metis_tac[EQ_SYM_EQ]>>
           `lss = lss'` by full_simp_tac(srw_ss())[LIST_EQ_MAP_PAIR]>>
           full_simp_tac(srw_ss())[]>>
@@ -1364,10 +1364,10 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            (QSORT key_val_compare (toAList x')))
            (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
-           full_simp_tac(srw_ss())[LAST_N_LENGTH]>>
+           full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
            `LENGTH ls = LENGTH r'.stack` by full_simp_tac(srw_ss())[s_key_eq_length]>>
            full_simp_tac(srw_ss())[])>>
-           IMP_RES_TAC s_key_eq_LAST_N_exists>>
+           IMP_RES_TAC s_key_eq_LASTN_exists>>
            Q.EXISTS_TAC`e''`>>
            Q.EXISTS_TAC`n`>>
            Q.EXISTS_TAC`ls''`>>
@@ -1380,7 +1380,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
              (QSORT key_val_compare (toAList x')))
              (SOME (s.handler,x''2,x''3))::s.stack)` by full_simp_tac(srw_ss())[arithmeticTheory.ADD1]>>
            pop_assum SUBST_ALL_TAC>>
-           full_simp_tac(srw_ss())[LAST_N_LENGTH]>>
+           full_simp_tac(srw_ss())[LASTN_LENGTH_ID]>>
            `LENGTH ls = LENGTH r'.stack` by full_simp_tac(srw_ss())[s_key_eq_length]>>
            full_simp_tac(srw_ss())[EQ_SYM_EQ])>>
            full_simp_tac(srw_ss())[]>>
@@ -1391,7 +1391,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            qpat_abbrev_tac`frame = StackFrame c d`>>
            `s_val_eq (frame::s.stack) (frame::xs)` by
              metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
-           IMP_RES_TAC s_val_eq_LAST_N_exists>>
+           IMP_RES_TAC s_val_eq_LASTN_exists>>
            pop_assum kall_tac>>
            first_x_assum(qspec_then `frame::xs` assume_tac)>>
            rev_full_simp_tac(srw_ss())[]>>
@@ -1401,11 +1401,11 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            `LENGTH s.stack +1 = LENGTH (frame::s.stack) /\
             LENGTH s.stack +1 = LENGTH (frame::xs)` by
              full_simp_tac(srw_ss())[arithmeticTheory.ADD1,s_val_eq_length]>>
-           full_simp_tac(srw_ss())[LAST_N_LENGTH_cond]>>
+           full_simp_tac(srw_ss())[LASTN_LENGTH_cond]>>
            `MAP FST lss = MAP FST lss''` by metis_tac[EQ_SYM_EQ]>>
            `lss'' = lss` by full_simp_tac(srw_ss())[LIST_EQ_MAP_PAIR]>>
            full_simp_tac(srw_ss())[]>>
-           IMP_RES_TAC s_key_eq_LAST_N_exists>>
+           IMP_RES_TAC s_key_eq_LASTN_exists>>
            first_x_assum (qspecl_then [`st`,`e'''''''`,`ls'''''''`] assume_tac)>>
            rev_full_simp_tac(srw_ss())[]>>
            full_simp_tac(srw_ss())[handler_eq]>>
@@ -1423,14 +1423,14 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
            qpat_abbrev_tac`frame = StackFrame c d`>>
            `s_val_eq (frame::s.stack) (frame::xs)` by
              metis_tac[s_val_eq_def,s_frame_val_eq_def]>>
-           IMP_RES_TAC s_val_eq_LAST_N_exists>>
+           IMP_RES_TAC s_val_eq_LASTN_exists>>
            `LENGTH s.stack = LENGTH xs` by full_simp_tac(srw_ss())[s_val_eq_length] >>
            first_x_assum(qspec_then`frame::xs` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
            first_x_assum(qspecl_then [`frame::xs`,`e'`,`ls'`] assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
            `LENGTH s.stack +1 = LENGTH (frame::s.stack) /\
             LENGTH s.stack +1 = LENGTH (frame::xs)` by
               full_simp_tac(srw_ss())[arithmeticTheory.ADD1,s_val_eq_length]>>
-            full_simp_tac(srw_ss())[LAST_N_LENGTH_cond]>>
+            full_simp_tac(srw_ss())[LASTN_LENGTH_cond]>>
             `MAP FST lss = MAP FST lss'` by metis_tac[EQ_SYM_EQ]>>
             `lss = lss'` by full_simp_tac(srw_ss())[LIST_EQ_MAP_PAIR]>>
             pop_assum (SUBST1_TAC o SYM)>>

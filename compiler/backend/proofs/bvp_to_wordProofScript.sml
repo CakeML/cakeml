@@ -69,28 +69,28 @@ val LAST_EQ = prove(
     (FRONT (x::xs) = if xs = [] then [] else x::FRONT xs)``,
   Cases_on `xs` \\ full_simp_tac(srw_ss())[]);
 
-val LAST_N_LIST_REL_LEMMA = prove(
+val LASTN_LIST_REL_LEMMA = prove(
   ``!xs1 ys1 xs n y ys x P.
-      LAST_N n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
-      ?y ys. LAST_N n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys``,
-  Induct \\ Cases_on `ys1` \\ full_simp_tac(srw_ss())[LAST_N] \\ rpt strip_tac
+      LASTN n xs1 = x::xs /\ LIST_REL P xs1 ys1 ==>
+      ?y ys. LASTN n ys1 = y::ys /\ P x y /\ LIST_REL P xs ys``,
+  Induct \\ Cases_on `ys1` \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ rpt strip_tac
   \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ `F` by decide_tac);
 
-val LAST_N_CONS_IMP_LENGTH = store_thm("LAST_N_CONS_IMP_LENGTH",
+val LASTN_CONS_IMP_LENGTH = store_thm("LASTN_CONS_IMP_LENGTH",
   ``!xs n y ys.
       n <= LENGTH xs ==>
-      (LAST_N n xs = y::ys) ==> LENGTH (y::ys) = n``,
-  Induct \\ full_simp_tac(srw_ss())[LAST_N] \\ srw_tac[][] THEN1 decide_tac \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]);
+      (LASTN n xs = y::ys) ==> LENGTH (y::ys) = n``,
+  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] THEN1 decide_tac \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]);
 
-val LAST_N_IMP_APPEND = store_thm("LAST_N_IMP_APPEND",
+val LASTN_IMP_APPEND = store_thm("LASTN_IMP_APPEND",
   ``!xs n ys.
-      n <= LENGTH xs /\ (LAST_N n xs = ys) ==>
+      n <= LENGTH xs /\ (LASTN n xs = ys) ==>
       ?zs. xs = zs ++ ys /\ LENGTH ys = n``,
-  Induct \\ full_simp_tac(srw_ss())[LAST_N] \\ srw_tac[][] THEN1 decide_tac
+  Induct \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] THEN1 decide_tac
   \\ `n <= LENGTH xs` by decide_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
-  \\ qpat_assum `xs = zs ++ LAST_N n xs` (fn th => simp [Once th]));
+  \\ qpat_assum `xs = zs ++ LASTN n xs` (fn th => simp [Once th]));
 
 val NOT_NIL_IMP_LAST = prove(
   ``!xs x. xs <> [] ==> LAST (x::xs) = LAST xs``,
@@ -1355,7 +1355,7 @@ val jump_exc_dec_clock = prove(
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.dec_clock_def]
   \\ srw_tac[][] \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[mk_loc_def]);
 
-val LAST_N_ADD1 = miscTheory.LAST_N_LENGTH
+val LASTN_ADD1 = LASTN_LENGTH_ID
   |> Q.SPEC `x::xs` |> SIMP_RULE (srw_ss()) [ADD1]
 
 val jump_exc_push_env_NONE = prove(
@@ -1363,12 +1363,12 @@ val jump_exc_push_env_NONE = prove(
     mk_loc (jump_exc (s:('a,'b) wordSem$state))``,
   full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.jump_exc_def]
   \\ Cases_on `env_to_list y s.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LAST_N_ADD1]
+  \\ Cases_on `s.handler = LENGTH s.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(s.handler < LENGTH s.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   THEN1 (`F` by DECIDE_TAC)
-  \\ `LAST_N (s.handler + 1) (StackFrame q NONE::s.stack) =
-      LAST_N (s.handler + 1) s.stack` by
-    (match_mp_tac miscTheory.LAST_N_TL \\ decide_tac)
+  \\ `LASTN (s.handler + 1) (StackFrame q NONE::s.stack) =
+      LASTN (s.handler + 1) s.stack` by
+    (match_mp_tac LASTN_TL \\ decide_tac)
   \\ every_case_tac \\ srw_tac[][mk_loc_def]
   \\ `F` by decide_tac);
 
@@ -1439,25 +1439,25 @@ val state_rel_jump_exc = prove(
     jump_exc s = SOME s1 ==>
     ?t1 d1 d2 l5 l6 ll.
       jump_exc t = SOME (t1,d1,d2) /\
-      LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
+      LASTN (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
       !i. state_rel c l5 l6 (set_var i x s1) (set_var (adjust_var i) w t1) [] ll``,
   full_simp_tac(srw_ss())[jump_exc_def] \\ rpt CASE_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[state_rel_def]
   \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,set_var_def]
   \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
   \\ imp_res_tac word_ml_inv_get_var_IMP
-  \\ imp_res_tac LAST_N_LIST_REL_LEMMA
+  \\ imp_res_tac LASTN_LIST_REL_LEMMA
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[stack_rel_def]
   \\ Cases_on `y'` \\ full_simp_tac(srw_ss())[contains_loc_def]
   \\ `s.handler + 1 <= LENGTH s.stack` by decide_tac
-  \\ imp_res_tac LAST_N_CONS_IMP_LENGTH \\ full_simp_tac(srw_ss())[ADD1]
+  \\ imp_res_tac LASTN_CONS_IMP_LENGTH \\ full_simp_tac(srw_ss())[ADD1]
   \\ imp_res_tac EVERY2_LENGTH \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[lookup_insert,adjust_var_11]
   \\ full_simp_tac(srw_ss())[contains_loc_def,lookup_fromAList] \\ srw_tac[][]
   \\ first_assum (match_exists_tac o concl) \\ full_simp_tac(srw_ss())[] (* asm_exists_tac *)
   \\ `s.handler + 1 <= LENGTH s.stack /\
       s.handler + 1 <= LENGTH t.stack` by decide_tac
-  \\ imp_res_tac LAST_N_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
+  \\ imp_res_tac LASTN_IMP_APPEND \\ full_simp_tac(srw_ss())[ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[flat_APPEND,flat_def]
   \\ `word_ml_inv (heap,F,a,sp) limit c s.refs
        ((x,w)::(join_env s' l ++
@@ -1827,10 +1827,10 @@ val s_key_eq_LENGTH = prove(
   ``!xs ys. s_key_eq xs ys ==> (LENGTH xs = LENGTH ys)``,
   Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[s_key_eq_def]);
 
-val s_key_eq_LAST_N = prove(
-  ``!xs ys n. s_key_eq xs ys ==> s_key_eq (LAST_N n xs) (LAST_N n ys)``,
-  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[s_key_eq_def,LAST_N]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[s_key_eq_def,LAST_N] \\ res_tac
+val s_key_eq_LASTN = prove(
+  ``!xs ys n. s_key_eq xs ys ==> s_key_eq (LASTN n xs) (LASTN n ys)``,
+  Induct \\ Cases_on `ys` \\ full_simp_tac(srw_ss())[s_key_eq_def,LASTN_ALT]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[s_key_eq_def,LASTN_ALT] \\ res_tac
   \\ imp_res_tac s_key_eq_LENGTH \\ full_simp_tac(srw_ss())[] \\ `F` by decide_tac);
 
 val evaluate_mk_loc_EQ = prove(
@@ -1839,7 +1839,7 @@ val evaluate_mk_loc_EQ = prove(
   qspecl_then [`q`,`t`] mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def]
   \\ imp_res_tac s_key_eq_LENGTH \\ full_simp_tac(srw_ss())[]
-  \\ srw_tac[][] \\ imp_res_tac s_key_eq_LAST_N
+  \\ srw_tac[][] \\ imp_res_tac s_key_eq_LASTN
   \\ pop_assum (qspec_then `t.handler + 1` mp_tac)
   \\ every_case_tac \\ full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,mk_loc_def])
 
@@ -1854,11 +1854,11 @@ val mk_loc_eq_push_env_exc_Exception = prove(
        mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.dec_clock_def]
-  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LAST_N_ADD1]
+  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def]
   \\ first_assum (qspec_then `t1.stack` mp_tac)
   \\ imp_res_tac s_key_eq_LENGTH \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ imp_res_tac s_key_eq_LAST_N
+  \\ imp_res_tac s_key_eq_LASTN
   \\ pop_assum (qspec_then `t.handler+1` mp_tac) \\ srw_tac[][]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def,mk_loc_def]);
 
@@ -1889,9 +1889,9 @@ val evaluate_IMP_domain_EQ_Exc = prove(
      mp_tac wordPropsTheory.evaluate_stack_swap \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.call_env_def,wordSemTheory.push_env_def,
          wordSemTheory.dec_clock_def]
-  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LAST_N_ADD1] \\ srw_tac[][]
+  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LASTN_ADD1] \\ srw_tac[][]
   \\ first_x_assum (qspec_then `t1.stack` mp_tac) \\ srw_tac[][]
-  \\ imp_res_tac s_key_eq_LAST_N \\ full_simp_tac(srw_ss())[]
+  \\ imp_res_tac s_key_eq_LASTN \\ full_simp_tac(srw_ss())[]
   \\ first_x_assum (qspec_then `t.handler+1` mp_tac) \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[wordSemTheory.env_to_list_def,LET_DEF] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[s_frame_key_eq_def,domain_fromAList] \\ srw_tac[][]
@@ -1908,7 +1908,7 @@ val mk_loc_jump_exc = prove(
   full_simp_tac(srw_ss())[wordSemTheory.push_env_def,wordSemTheory.call_env_def,
       wordSemTheory.jump_exc_def]
   \\ Cases_on `env_to_list y (dec_clock t).permute`
-  \\ full_simp_tac(srw_ss())[LET_DEF,LAST_N_ADD1,mk_loc_def]);
+  \\ full_simp_tac(srw_ss())[LET_DEF,LASTN_ADD1,mk_loc_def]);
 
 val inc_clock_def = Define `
   inc_clock n (t:('a,'ffi) wordSem$state) = t with clock := t.clock + n`;
@@ -2332,16 +2332,16 @@ val jump_exc_push_env_NONE_simp = prove(
       wordSemTheory.dec_clock_def] \\ srw_tac[][] THEN1 every_case_tac
   \\ full_simp_tac(srw_ss())[wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LAST_N_ADD1]
+  \\ Cases_on `t.handler = LENGTH t.stack` \\ full_simp_tac(srw_ss())[LASTN_ADD1]
   \\ Cases_on `~(t.handler < LENGTH t.stack)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   THEN1 (`F` by DECIDE_TAC)
-  \\ `LAST_N (t.handler + 1) (StackFrame q NONE::t.stack) =
-      LAST_N (t.handler + 1) t.stack` by
-    (match_mp_tac miscTheory.LAST_N_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[]
+  \\ `LASTN (t.handler + 1) (StackFrame q NONE::t.stack) =
+      LASTN (t.handler + 1) t.stack` by
+    (match_mp_tac LASTN_TL \\ decide_tac) \\ full_simp_tac(srw_ss())[]
   \\ every_case_tac \\ CCONTR_TAC
   \\ full_simp_tac(srw_ss())[NOT_LESS]
   \\ `SUC (LENGTH t.stack) <= t.handler + 1` by decide_tac
-  \\ imp_res_tac (LAST_N_LENGTH_LESS_EQ |> Q.SPEC `x::xs`
+  \\ imp_res_tac (LASTN_LENGTH_LESS_EQ |> Q.SPEC `x::xs`
        |> SIMP_RULE std_ss [LENGTH]) \\ full_simp_tac(srw_ss())[]);
 
 val s_key_eq_handler_eq_IMP = prove(
@@ -2350,7 +2350,7 @@ val s_key_eq_handler_eq_IMP = prove(
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def] \\ srw_tac[][]
   \\ imp_res_tac s_key_eq_LENGTH \\ full_simp_tac(srw_ss())[]
   \\ Cases_on `t1.handler < LENGTH t1.stack` \\ full_simp_tac(srw_ss())[]
-  \\ imp_res_tac s_key_eq_LAST_N
+  \\ imp_res_tac s_key_eq_LASTN
   \\ pop_assum (qspec_then `t1.handler + 1` mp_tac)
   \\ every_case_tac \\ full_simp_tac(srw_ss())[s_key_eq_def,s_frame_key_eq_def]);
 
@@ -2363,7 +2363,7 @@ val jump_exc_push_env_SOME = prove(
   ``jump_exc (push_env y (SOME (x,prog1,l1,l2)) t) <> NONE``,
   full_simp_tac(srw_ss())[wordSemTheory.jump_exc_def,wordSemTheory.push_env_def]
   \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF]
-  \\ full_simp_tac(srw_ss())[LAST_N_ADD1]);
+  \\ full_simp_tac(srw_ss())[LASTN_ADD1]);
 
 val eval_push_env_T_Raise_IMP_stack_length = prove(
   ``evaluate (p,call_env ys (push_env x T (dec_clock s))) =
@@ -2372,7 +2372,7 @@ val eval_push_env_T_Raise_IMP_stack_length = prove(
   qspecl_then [`p`,`call_env ys (push_env x T (dec_clock s))`]
     mp_tac bvpPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dec_clock_def,LAST_N_ADD1]
+  \\ full_simp_tac(srw_ss())[call_env_def,jump_exc_def,push_env_def,dec_clock_def,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val eval_push_env_SOME_exc_IMP_s_key_eq = prove(
@@ -2383,9 +2383,9 @@ val eval_push_env_SOME_exc_IMP_s_key_eq = prove(
     mp_tac wordPropsTheory.evaluate_stack_swap
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.call_env_def,wordSemTheory.jump_exc_def,
-         wordSemTheory.push_env_def,wordSemTheory.dec_clock_def,LAST_N_ADD1]
+         wordSemTheory.push_env_def,wordSemTheory.dec_clock_def,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LAST_N_ADD1]
+  \\ Cases_on `env_to_list y t.permute` \\ full_simp_tac(srw_ss())[LET_DEF,LASTN_ADD1]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
 val eval_exc_stack_shorter = prove(
@@ -2398,11 +2398,11 @@ val eval_exc_stack_shorter = prove(
   \\ full_simp_tac(srw_ss())[bvpSemTheory.jump_exc_def,call_env_def,push_env_def,dec_clock_def]
   \\ qpat_assum `xx = SOME s2` mp_tac
   \\ rpt (pop_assum (K all_tac))
-  \\ full_simp_tac(srw_ss())[LAST_N] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[ADD1]
+  \\ full_simp_tac(srw_ss())[LASTN_ALT] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[ADD1]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ match_mp_tac LESS_LESS_EQ_TRANS
-  \\ qexists_tac `LENGTH (LAST_N (s.handler + 1) s.stack)`
-  \\ full_simp_tac(srw_ss())[LENGTH_LAST_N_LESS]);
+  \\ qexists_tac `LENGTH (LASTN (s.handler + 1) s.stack)`
+  \\ full_simp_tac(srw_ss())[LENGTH_LASTN_LESS]);
 
 val alloc_size_def = Define `
   alloc_size k = (if k * (dimindex (:'a) DIV 8) < dimword (:α) then
@@ -2955,7 +2955,7 @@ val compile_correct = store_thm("compile_correct",
              ?w l5 l6 ll.
                (res1 = SOME (Exception (mk_loc (jump_exc t)) w)) /\
                (jump_exc t <> NONE ==>
-                LAST_N (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
+                LASTN (LENGTH s1.stack + 1) locs = (l5,l6)::ll /\
                 !i. state_rel c l5 l6 (set_var i v s1)
                        (set_var (adjust_var i) w t1) [] ll)
          | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
@@ -3178,7 +3178,7 @@ val compile_correct = store_thm("compile_correct",
         \\ Cases_on `jump_exc t = NONE` \\ full_simp_tac(srw_ss())[]
         \\ full_simp_tac(srw_ss())[jump_exc_push_env_NONE_simp]
         \\ `LENGTH r'.stack < LENGTH locs` by ALL_TAC
-        \\ imp_res_tac LAST_N_TL \\ full_simp_tac(srw_ss())[]
+        \\ imp_res_tac LASTN_TL \\ full_simp_tac(srw_ss())[]
         \\ `LENGTH locs = LENGTH s.stack` by
            (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
         \\ imp_res_tac eval_exc_stack_shorter)
@@ -3234,7 +3234,7 @@ val compile_correct = store_thm("compile_correct",
     \\ imp_res_tac eval_push_env_T_Raise_IMP_stack_length
     \\ `LENGTH s.stack = LENGTH locs` by
          (full_simp_tac(srw_ss())[state_rel_def] \\ imp_res_tac LIST_REL_LENGTH \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[LAST_N_ADD1] \\ srw_tac[][]
+    \\ full_simp_tac(srw_ss())[LASTN_ADD1] \\ srw_tac[][]
     \\ first_x_assum (qspec_then `x0` assume_tac)
     \\ res_tac (* inst ind hyp *)
     \\ pop_assum (qspecl_then [`x0`,`l+2`] strip_assume_tac) \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]

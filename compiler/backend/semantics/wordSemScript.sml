@@ -265,7 +265,7 @@ val pop_env_clock = Q.prove(
 val jump_exc_def = Define `
   jump_exc s =
     if s.handler < LENGTH s.stack then
-      case LAST_N (s.handler+1) s.stack of
+      case LASTN (s.handler+1) s.stack of
       | StackFrame e (SOME (n,l1,l2)) :: xs =>
           SOME (s with <| handler := n ; locals := fromAList e ; stack := xs |>,l1,l2)
       | _ => NONE
