@@ -2487,6 +2487,7 @@ val good_init_state_def = Define `
     t.be = mc_conf.target.config.big_endian /\
     t.pc = mc_conf.target.get_pc ms /\
     t.align = mc_conf.target.config.code_alignment /\
+    (1w && mc_conf.target.get_pc ms) = 0w /\
     (n2w (2 ** t.align - 1) && mc_conf.target.get_pc ms) = 0w /\
     reg_ok mc_conf.ptr_reg mc_conf.target.config /\
     reg_ok mc_conf.len_reg mc_conf.target.config /\
@@ -2534,12 +2535,30 @@ val good_init_state_def = Define `
                   | SOME n => n)|>)
          (mc_conf.ffi_interfer k index new_bytes ms2))`
 
+val find_ffi_index_limit_def = Define `
+  (find_ffi_index_limit [] = 0) /\
+  (find_ffi_index_limit (Section k []::rest) =
+     find_ffi_index_limit rest) /\
+  (find_ffi_index_limit (Section k (x::xs)::rest) =
+     MAX (find_ffi_index_limit (Section k xs::rest))
+         (case x of LabAsm (CallFFI i) _ _ _ => i+1 | _ => 0n))`
+
+val LESS_find_ffi_index_limit = store_thm("LESS_find_ffi_index_limit",
+  ``!code i. has_io_index i code ==> i < find_ffi_index_limit code``,
+  recInduct (theorem "find_ffi_index_limit_ind")
+  \\ fs [find_ffi_index_limit_def,has_io_index_def]
+  \\ rpt strip_tac \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []);
+
+val aligned_1_intro = prove(
+  ``((1w && w) = 0w) <=> aligned 1 w``,
+  fs [alignmentTheory.aligned_bitwise_and]);
+
 val IMP_state_rel_make_init = prove(
   ``good_syntax mc_conf code l /\
     enc_ok mc_conf.target.encode mc_conf.target.config /\
     remove_labels mc_conf.target.config mc_conf.target.encode code l =
       SOME (code2,labs) /\
-    good_init_state mc_conf t ms ffi_index_limit
+    good_init_state mc_conf t ms (find_ffi_index_limit code)
       (prog_to_bytes code2) io_regs save_regs ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms,T)
@@ -2548,7 +2567,12 @@ val IMP_state_rel_make_init = prove(
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,
         word_loc_val_def,PULL_EXISTS]
-  \\ full_simp_tac(srw_ss())[good_init_state_def]
+  \\ full_simp_tac(srw_ss())[good_init_state_def,LESS_find_ffi_index_limit]
+  \\ fs [aligned_1_intro]
+  \\ `aligned 1 (mc_conf.target.get_pc ms)` by
+         fs [alignmentTheory.aligned_bitwise_and]
+  \\ fs [alignmentTheory.aligned_add_sub]
+  \\ fs [alignmentTheory.aligned_1_lsb]
   \\ cheat);
 
 val semantics_make_init = save_thm("semantics_make_init",
@@ -2569,6 +2593,13 @@ val make_init_filter_skip = store_thm("make_init_filter_skip",
     semantics (make_init mc_conf ffi save_regs io_regs t ms code)``,
   match_mp_tac filter_skip_semantics \\ full_simp_tac(srw_ss())[make_init_def]);
 
+val find_ffi_index_limit_filter_skip = store_thm("find_ffi_index_limit_filter_skip",
+  ``!code. find_ffi_index_limit (filter_skip code) = find_ffi_index_limit code``,
+  recInduct (theorem "find_ffi_index_limit_ind")
+  \\ fs [lab_filterTheory.filter_skip_def,find_ffi_index_limit_def]
+  \\ rpt strip_tac \\ every_case_tac
+  \\ fs [lab_filterTheory.not_skip_def,find_ffi_index_limit_def]);
+
 val semantics_compile = store_thm("semantics_compile",
   ``ffi.final_event = NONE /\
     backend_correct mc_conf.target /\
@@ -2576,7 +2607,8 @@ val semantics_compile = store_thm("semantics_compile",
     c.asm_conf = mc_conf.target.config /\
     c.encoder = mc_conf.target.encode /\
     compile c code = SOME (bytes,c2) /\
-    good_init_state mc_conf t ms ffi_index_limit bytes io_regs save_regs /\
+    good_init_state mc_conf t ms (find_ffi_index_limit code)
+       bytes io_regs save_regs /\
     semantics (make_init mc_conf ffi save_regs io_regs t ms code) <> Fail ==>
     machine_sem mc_conf ffi ms =
     {semantics (make_init mc_conf ffi save_regs io_regs t ms code)}``,
@@ -2589,6 +2621,6 @@ val semantics_compile = store_thm("semantics_compile",
   \\ match_mp_tac (GEN_ALL semantics_make_init) \\ full_simp_tac(srw_ss())[]
   \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[backend_correct_def]
-  \\ asm_exists_tac \\ full_simp_tac(srw_ss())[])
+  \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip])
 
 val _ = export_theory();
