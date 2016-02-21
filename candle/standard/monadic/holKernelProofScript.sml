@@ -321,7 +321,7 @@ val type_subst_thm = store_thm("type_subst",
     \\ Induct_on `i` \\ TRY Cases \\ ONCE_REWRITE_TAC [rev_assocd_def]
     \\ SIMP_TAC (srw_ss()) [REV_ASSOCD,MAP]
     \\ IF_CASES_TAC \\ FULL_SIMP_TAC std_ss []) >>
-  rw[] >> rw[Once type_subst_def] >> rw[] >>
+  srw_tac[][] >> srw_tac[][Once type_subst_def] >> srw_tac[][] >>
   TRY(
     fs[markerTheory.Abbrev_def] >>
     TRY (match_mp_tac EQ_TRANS >>
