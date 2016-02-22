@@ -31,6 +31,22 @@ val collect_apps_correct = Q.prove (
    metis_tac [exp_rel_trans]) >>
  metis_tac [compat]);
 
+val collect_args_max_app = Q.store_thm(
+  "collect_args_max_app",
+  `∀e e' n n'. n ≤ max_app ∧ collect_args n e = (n', e') ⇒ n' ≤ max_app`,
+  Induct >> simp[collect_args_def] >> rpt gen_tac >>
+  qcase_tac `Fn opt1 opt2 nn body` >>
+  Cases_on `opt1` >> Cases_on `opt2` >>
+  simp[collect_args_def] >> rw[] >> metis_tac[]);
+
+val collect_args_never_decreases = Q.store_thm(
+  "collect_args_never_decreases",
+  `∀e e' n n'. collect_args n e = (n', e') ⇒ n ≤ n'`,
+  Induct >> simp[collect_args_def] >> rpt gen_tac >>
+  qcase_tac `Fn opt1 opt2 nn body` >>
+  Cases_on `opt1` >> Cases_on `opt2` >>
+  simp[collect_args_def] >> rw[] >> res_tac >> simp[]);
+
 val intro_multi_correct = Q.store_thm ("intro_multi_correct",
 `!es. exp_rel (:'ffi) es (intro_multi es)`,
  ho_match_mp_tac intro_multi_ind >>
@@ -48,7 +64,23 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  >- metis_tac [compat_fn, intro_multi_sing, HD]
  >- metis_tac [compat_fn, intro_multi_sing, HD]
  (* Letrec *)
- >- cheat
+ >- (qcase_tac `Letrec loc fvs fns body` >>
+     simp[exp_rel_def, exec_rel_rw, evaluate_ev_def,
+          closSemTheory.evaluate_def] >>
+     qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >> strip_tac >>
+     qx_gen_tac `j` >> strip_tac >>
+     reverse (Cases_on `EVERY (λ(nn,e). nn ≤ max_app ∧ nn ≠ 0) fns`) >>
+     simp[] >- simp[res_rel_rw] >>
+     simp[EVERY_MAP] >> fs[EVERY_MEM, FORALL_PROD] >>
+     qmatch_abbrev_tac `res_rel _ (if GUARD then _ else _)` >>
+     `GUARD`
+       by (simp[Abbr`GUARD`] >> qx_genl_tac [`n`, `e`] >> strip_tac >>
+           `∃n' e'. collect_args n e = (n', e')`
+             by (Cases_on `collect_args n e` >> simp[]) >> simp[] >>
+           res_tac >> conj_tac >- metis_tac[collect_args_max_app] >>
+           imp_res_tac collect_args_never_decreases >> strip_tac >> fs[]) >>
+     simp[] >>
+     Cases_on `fvs` >> simp[] >> cheat)
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
 val HD_intro_multi = Q.prove(
