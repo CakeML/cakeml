@@ -80,7 +80,26 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
            res_tac >> conj_tac >- metis_tac[collect_args_max_app] >>
            imp_res_tac collect_args_never_decreases >> strip_tac >> fs[]) >>
      simp[] >>
-     Cases_on `fvs` >> simp[] >> cheat)
+     Cases_on `fvs` >> simp[]
+     >- (qpat_assum `exp_rel _ _ _` mp_tac >>
+         simp[exp_rel_def, exec_rel_rw, evaluate_ev_def, PULL_FORALL] >>
+         `∃body'. intro_multi [body] = [body']`
+           by metis_tac[intro_multi_sing] >> simp[] >>
+         disch_then irule >> qexists_tac `i` >> simp[] >>
+         simp[LIST_REL_EL_EQN] >>
+         `LENGTH env2 = LENGTH env1` by fs[LIST_REL_EL_EQN] >> simp[] >>
+         qx_gen_tac `n` >> strip_tac >> reverse (Cases_on `n < LENGTH fns`)
+         >- (simp[EL_APPEND2] >> fs[LIST_REL_EL_EQN]) >>
+         simp[EL_APPEND1, val_rel_rw, is_closure_def] >>
+         conj_tac
+         >- (simp[check_closures_def, clo_can_apply_def,
+                  clo_to_num_params_def, clo_to_partial_args_def,
+                  rec_clo_ok_def, clo_to_loc_def, EL_MAP] >>
+             `∃nn ee. EL n fns = (nn,ee)`
+               by (Cases_on `EL n fns` >> simp[]) >> simp[] >>
+             simp[FORALL_OPTION, PULL_EXISTS]
+
+)
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
 val HD_intro_multi = Q.prove(
