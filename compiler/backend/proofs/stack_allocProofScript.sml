@@ -182,13 +182,10 @@ val word_gc_move_roots_APPEND = prove(
           (ws1++ws2,i2,pa2,m2,c1 /\ c2)``,
   Induct \\ full_simp_tac(srw_ss())[word_gc_move_roots_def,LET_THM]
   \\ srw_tac[][] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `word_gc_move conf (h,i1,pa1,curr,m,dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `word_gc_move_roots conf (xs,r0,r1,curr,r2,dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `word_gc_move_roots conf (ys,r0',r1',curr,r2',dm)`
-  \\ PairCases_on `r` \\ full_simp_tac(srw_ss())[]
-  \\ EQ_TAC \\ full_simp_tac(srw_ss())[]);
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ EQ_TAC \\ fs[] \\ rw[]);
 
 val map_bitmap_APPEND = prove(
   ``!x q stack p0 p1.
@@ -1264,7 +1261,7 @@ val comp_correct = prove(
       \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
               \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ srw_tac[][]
       \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-      \\ TRY (PairCases_on `x'` \\ ntac 2 (split_pair_tac \\ full_simp_tac(srw_ss())[]))
+      \\ TRY (PairCases_on `x'` \\ fs[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[])
       \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
       \\ first_assum (mp_tac o Q.SPEC `ck` o
              MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO]

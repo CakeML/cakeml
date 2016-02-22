@@ -5512,7 +5512,7 @@ val comp_correct = Q.store_thm("comp_correct",
               imp_res_tac get_vars_length_lemma>>
               Cases_on`dest`>>simp[find_code_def,call_dest_def,add_ret_loc_def]>>
               rpt TOP_CASE_TAC>>simp[]>>
-              rw[]>>split_pair_tac>>fsrw_tac[][]>>
+              rw[]>>TRY split_pair_tac>>fsrw_tac[][]>>
               Cases_on`x`>>fsrw_tac[][]>>
               simp[])>>
             fsrw_tac[][wf_fromList2]>>

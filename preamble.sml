@@ -252,9 +252,16 @@ val preamble_ERR = mk_HOL_ERR"preamble"
 
 fun subterm f = partial(preamble_ERR"subterm""not found") (bvk_find_term (K true) f)
 
+local
+val find_and_split_pair = partial(preamble_ERR"find_and_split_pair""not found")
+  (bvk_find_term
+    (fn (ls,tm) => is_comb tm andalso List.all (not o curry HOLset.member(FVL[rand tm]empty_tmset)) ls)
+    split_applied_pair_tac)
+in
 val split_pair_tac =
-  first_assum(subterm split_applied_pair_tac o concl) ORELSE
-  (fn g => subterm split_applied_pair_tac (#2 g) g)
+  first_assum(find_and_split_pair o concl) ORELSE
+  (fn g => find_and_split_pair (#2 g) g)
+end
 
 val asm_exists_tac = first_assum(match_exists_tac o concl)
 
