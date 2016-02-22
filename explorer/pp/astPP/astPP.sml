@@ -148,7 +148,11 @@ val _=add_astPP("reftypeprint",``TC_ref``,genPrint (deftypePrint "ref"));
 val _=add_astPP("fntypeprint",``TC_fn``,genPrint (deftypePrint ""));
 val _=add_astPP("tuptypeprint",``TC_tup``,genPrint (deftypePrint ""));
 val _=add_astPP("exntypeprint",``TC_exn``,genPrint (deftypePrint "exn"));
-
+val _=add_astPP("chartypeprint",``TC_char``,genPrint (deftypePrint "char"));
+val _=add_astPP("word8typeprint",``TC_word8``,genPrint (deftypePrint "Word8.word"));
+val _=add_astPP("word8arraytypeprint",``TC_word8array``,genPrint (deftypePrint "Word8Array.array"));
+val _=add_astPP("vectortypeprint",``TC_vector``,genPrint (deftypePrint "Vector.vector"));
+val _=add_astPP("chartypeprint",``TC_array``,genPrint (deftypePrint "Array.array"));
 
 (*TC_name*)
 fun tcnamelongPrint sys d t pg str brk blk =
