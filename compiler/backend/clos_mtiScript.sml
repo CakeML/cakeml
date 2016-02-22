@@ -108,12 +108,14 @@ val intro_multi_def = tDefine "intro_multi"`
       [Fn NONE NONE num_args' (HD (intro_multi [e']))]) ∧
   (intro_multi [Fn loc fvs num_args e] =
       [Fn loc fvs num_args (HD (intro_multi [e]))]) ∧
-  (intro_multi [Letrec loc fvs funs e] =
-    [Letrec loc fvs (MAP (\(num_args, e).
-                           let (num_args', e') = collect_args num_args e in
-                             (num_args', HD (intro_multi [e'])))
-                         funs)
-        (HD (intro_multi [e]))]) ∧
+  (intro_multi [Letrec NONE fvs funs e] =
+    [Letrec NONE fvs (MAP (\(num_args, e).
+                            let (num_args', e') = collect_args num_args e in
+                              (num_args', HD (intro_multi [e'])))
+                          funs)
+            (HD (intro_multi [e]))]) ∧
+  (intro_multi [Letrec (SOME loc) fvs funs e] =
+     [Letrec (SOME loc) fvs funs (HD (intro_multi [e]))]) ∧
   (intro_multi [Op op es] =
     [Op op (intro_multi es)])`
   (WF_REL_TAC `measure exp3_size` >>
@@ -146,6 +148,7 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   srw_tac[][intro_multi_def] >>
   TRY (qcase_tac `App loc e es` >> Cases_on `loc`) >>
   TRY (qcase_tac `Fn loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
+  TRY (qcase_tac `Letrec locopt _ _ _` >> Cases_on `locopt`) >>
   srw_tac[][intro_multi_def] >>
   TRY (Cases_on `collect_args num_args e`) >>
   TRY (Cases_on `collect_apps es e`) >>
@@ -159,17 +162,18 @@ val collect_args_idem = Q.prove (
   ho_match_mp_tac collect_args_ind >>
   srw_tac[][collect_args_def, intro_multi_def] >>
   srw_tac[][collect_args_def, intro_multi_def] >>
-  full_simp_tac(srw_ss())[NOT_LESS_EQUAL] 
+  full_simp_tac(srw_ss())[NOT_LESS_EQUAL]
   >- (
     `num_args'' < num_args'` by decide_tac >>
     `num_args' ≤ num_args''` by metis_tac [collect_args_more] >>
-    full_simp_tac (srw_ss()++ARITH_ss) []) >>
- qcase_tac `App loc e es` >>
- Cases_on `loc` >>
- srw_tac[][collect_args_def, intro_multi_def] >>
- srw_tac[][collect_args_def, intro_multi_def]);
+    full_simp_tac (srw_ss()++ARITH_ss) [])
+ >- (qcase_tac `App loc e es` >>
+     Cases_on `loc` >>
+     srw_tac[][collect_args_def, intro_multi_def] >>
+     srw_tac[][collect_args_def, intro_multi_def])
+ >- (qcase_tac `Letrec locopt` >> Cases_on `locopt` >>
+     rw[intro_multi_def, collect_args_def]));
 
-val collect_apps_idem = Q.prove (
   `!args e args' e'.
     collect_apps args e = (args', e')
     ⇒
@@ -177,17 +181,22 @@ val collect_apps_idem = Q.prove (
   ho_match_mp_tac collect_apps_ind >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
   srw_tac[][collect_apps_def, intro_multi_def] >>
-  full_simp_tac(srw_ss())[NOT_LESS_EQUAL] 
+  full_simp_tac(srw_ss())[NOT_LESS_EQUAL]
   >- (
     full_simp_tac(srw_ss())[intro_multi_length] >>
     `LENGTH es' < LENGTH es` by decide_tac >>
     `LENGTH es ≤ LENGTH es'` by metis_tac [collect_apps_more] >>
     full_simp_tac (srw_ss()++ARITH_ss) []) >>
- qcase_tac `Fn loc vars _ _` >>
- Cases_on `loc` >>
- Cases_on `vars` >>
- srw_tac[][collect_apps_def, intro_multi_def] >>
- srw_tac[][collect_apps_def, intro_multi_def]);
+ FIRST [
+   qcase_tac `Fn loc vars _ _` >>
+   Cases_on `loc` >>
+   Cases_on `vars` >>
+   srw_tac[][collect_apps_def, intro_multi_def] >>
+   srw_tac[][collect_apps_def, intro_multi_def]
+ ,
+   qcase_tac `Letrec locopt` >> Cases_on `locopt` >>
+   simp[collect_apps_def, intro_multi_def]
+ ]);
 
 val intro_multi_idem = Q.store_thm("intro_multi_idem",
   `!e. intro_multi (intro_multi e) = intro_multi e`,
@@ -207,8 +216,8 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
   >- metis_tac [intro_multi_sing, HD, collect_apps_idem, PAIR_EQ]
   >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
-  >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
-  >- metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ]
+  >- metis_tac [intro_multi_sing, HD]
+  >- metis_tac [intro_multi_sing, HD]
   >- (srw_tac[][LET_THM, MAP_MAP_o, combinTheory.o_DEF, UNCURRY] >>
       srw_tac[][MAP_EQ_f] >>
       PairCases_on `x` >>
@@ -218,7 +227,7 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
       res_tac >>
       rev_full_simp_tac(srw_ss())[] >>
       metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ, FST, SND])
-  >- metis_tac [intro_multi_sing, HD, collect_args_idem]);
+  >- metis_tac [intro_multi_sing, HD, collect_args_idem]
+  >- metis_tac [intro_multi_sing, HD]);
 
 val _ = export_theory()
-
