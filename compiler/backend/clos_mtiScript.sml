@@ -154,7 +154,8 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   TRY (Cases_on `collect_apps es e`) >>
   full_simp_tac(srw_ss())[]);
 
-val collect_args_idem = Q.prove (
+val collect_args_idem = Q.store_thm (
+  "collect_args_idem",
   `!num_args e num_args' e'.
     collect_args num_args e = (num_args', e')
     ⇒
@@ -174,6 +175,8 @@ val collect_args_idem = Q.prove (
  >- (qcase_tac `Letrec locopt` >> Cases_on `locopt` >>
      rw[intro_multi_def, collect_args_def]));
 
+val collect_apps_idem = Q.store_thm (
+  "collect_apps_idem",
   `!args e args' e'.
     collect_apps args e = (args', e')
     ⇒
