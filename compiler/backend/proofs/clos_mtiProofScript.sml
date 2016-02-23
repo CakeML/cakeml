@@ -47,6 +47,11 @@ val collect_args_never_decreases = Q.store_thm(
   Cases_on `opt1` >> Cases_on `opt2` >>
   simp[collect_args_def] >> rw[] >> res_tac >> simp[]);
 
+val check_loc_NONE_increases = Q.store_thm(
+  "check_loc_NONE_increases",
+  `check_loc locopt NONE n m p ∧ n ≤ n' ⇒ check_loc locopt NONE n' m p`,
+  Cases_on `locopt` >> simp[closSemTheory.check_loc_def]);
+
 val intro_multi_correct = Q.store_thm ("intro_multi_correct",
 `!es. exp_rel (:'ffi) es (intro_multi es)`,
  ho_match_mp_tac intro_multi_ind >>
@@ -63,8 +68,8 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
  >- metis_tac [collect_args_correct, intro_multi_sing, HD]
  >- metis_tac [compat_fn, intro_multi_sing, HD]
  >- metis_tac [compat_fn, intro_multi_sing, HD]
- (* Letrec *)
- >- (qcase_tac `Letrec loc fvs fns body` >>
+ (* Letrec with loc = NONE *)
+ >- (qcase_tac `Letrec NONE fvs fns body` >>
      simp[exp_rel_def, exec_rel_rw, evaluate_ev_def,
           closSemTheory.evaluate_def] >>
      qx_genl_tac [`i`, `env1`, `env2`, `s1`, `s2`] >> strip_tac >>
@@ -97,9 +102,32 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
                   rec_clo_ok_def, clo_to_loc_def, EL_MAP] >>
              `∃nn ee. EL n fns = (nn,ee)`
                by (Cases_on `EL n fns` >> simp[]) >> simp[] >>
-             simp[FORALL_OPTION, PULL_EXISTS]
-
-)
+             Cases_on `collect_args nn ee` >> simp[] >>
+             imp_res_tac collect_args_never_decreases >> simp[]) >>
+         simp[closSemTheory.dest_closure_def] >>
+         qx_genl_tac [`k`, `vs1`, `vs2`, `s11`, `s12`, `locopt`] >>
+         strip_tac >>
+         `∃nn ee. EL n fns = (nn,ee)` by (Cases_on `EL n fns` >> simp[]) >>
+         simp[] >> `MEM (nn,ee) fns` by metis_tac[MEM_EL] >>
+         `nn ≠ 0` by metis_tac[] >> simp[EL_MAP] >>
+         rw[]
+         >- (`∃nn1 ee1. collect_args nn ee = (nn1,ee1)`
+               by (Cases_on `collect_args nn ee` >> simp[]) >> simp[] >>
+             `LENGTH vs2 = LENGTH vs1` by fs[LIST_REL_EL_EQN] >> simp[] >>
+             `nn ≤ nn1` by metis_tac[collect_args_never_decreases] >> simp[] >>
+             `check_loc locopt NONE nn1 (LENGTH vs1) 0`
+               by metis_tac[check_loc_NONE_increases] >>
+             simp[] >> rw[]
+             >- (simp[revtakerev, revdroprev] >>
+                 simp[exec_rel_rw, evaluate_ev_def] >> cheat) >>
+             cheat) >>
+         cheat) >>
+     cheat)
+ >- (reverse (irule compat_letrec)
+     >- metis_tac[intro_multi_sing, HD] >>
+     simp[LIST_REL_EL_EQN] >> qx_gen_tac `n` >>
+     qcase_tac `EL mm fns` >>
+     Cases_on `EL mm fns` >> simp[exp_rel_refl])
  >- metis_tac [compat_op, intro_multi_sing, HD]);
 
 val HD_intro_multi = Q.prove(
