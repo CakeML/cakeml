@@ -1565,9 +1565,41 @@ val word_gc_move_roots_bitmaps_code_thm =
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
+val word_gc_code_def = Define `
+  word_gc_code conf =
+    (list_Seq [const_inst 0 0w;
+               move 1 0;
+               move 2 0;
+               move 3 0;
+               move 4 0;
+               Get 5 Globals;
+               move 6 0;
+               word_gc_move_code conf;
+               Set Globals 5;
+               const_inst 7 0w;
+               StackLoadAny 9 8;
+               move 8 7;
+               word_gc_move_roots_bitmaps_code conf;
+               Get 8 OtherHeap;
+               word_gc_move_loop_code conf;
+               Get 0 CurrHeap;
+               Get 1 OtherHeap;
+               Get 2 HeapLength;
+               add_inst 2 1;
+               Set CurrHeap 1;
+               Set OtherHeap 0;
+               Set NextFree 8;
+               Set EndOfHeap 2])`
+
 (*
 
+word_gc_move_code_thm
+word_gc_move_roots_bitmaps_code_thm
+word_gc_move_loop_code_thm
+
 gc_thm
+alloc_def
+has_space_def
 
 *)
 
