@@ -20,7 +20,7 @@ open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
 open parmoveTheory reg_allocTheory state_transformerTheory
-open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory
+open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory word_removeTheory
 open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 open backendTheory
@@ -51,6 +51,7 @@ in
     add_datatype``:clos_to_bvl$config``;
     add_datatype``:bvp_to_word$config``;
     add_datatype``:word_to_word$config``;
+    add_datatype``:'a word_to_stack$config``;
     add_datatype``:stack_to_lab$config``;
     add_datatype``:'a lab_to_target$config``;
     add_datatype``:'a asm_config``;
@@ -345,13 +346,18 @@ in
     ,bvp_to_wordTheory.assign_def
     ,bvp_to_wordTheory.comp_def
     ,bvp_to_wordTheory.adjust_set_def
+    ,bvp_to_wordTheory.Unit_def
     ]
   (*wordLang word_to_word*)
   ; add_thms
     [word_to_wordTheory.compile_single_def
+    ,word_to_wordTheory.full_compile_single_def
     ,word_to_wordTheory.next_n_oracle_def
     ,word_to_wordTheory.compile_def
     ]
+  (*wordLang remove must terminate*)
+  ; add_thms
+    [word_removeTheory.remove_must_terminate_def]
   (*wordLang inst_select and inst flattening*)
   ; add_thms
     [word_instTheory.three_to_two_reg_def
@@ -542,7 +548,10 @@ in
 
   (*stackLang*)
   ; add_datatype``:'a stackLang$prog``
-  ; add_thms[stackLangTheory.list_Seq_def]
+  ; add_thms
+  [stackLangTheory.list_Seq_def
+  ,stackLangTheory.word_shift_def
+  ]
   (*word_to_stack*)
   ; add_thms
     [word_to_stackTheory.wReg1_def
@@ -571,6 +580,10 @@ in
     ,word_to_stackTheory.compile_prog_def
     ,word_to_stackTheory.compile_word_to_stack_def
     ,word_to_stackTheory.compile_def
+    ,word_to_stackTheory.call_dest_def
+    ,word_to_stackTheory.StackHandlerArgs_def
+    ,word_to_stackTheory.PopHandler_def
+    ,word_to_stackTheory.PushHandler_def
     ]
   (*stack_alloc*)
   ; add_thms
@@ -707,7 +720,10 @@ in
     ]
   (*Missing def from miscTheory used in lab_to_target.
   TODO: Move into HOL or move into lab_to_target itself?*)
-  ; add_thms[miscTheory.lookup_any_def]
+  ; add_thms[
+    miscTheory.lookup_any_def
+    ,miscTheory.bytes_in_word_def
+    ,miscTheory.UPDATE_LIST_THM]
   (* TODO: should move into HOL *)
   ; add_thms[miscTheory.list_max_def]
 
