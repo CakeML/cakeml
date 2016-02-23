@@ -239,6 +239,7 @@ val has_space_def = Define `
 
 val alloc_def = Define `
   alloc (w:'a word) (s:('a,'ffi) stackSem$state) =
+    if w = -1w then (SOME (Halt (Word 1w)),empty_env s) else
     (* perform garbage collection *)
       case gc (set_store AllocSize (Word w) s) of
       | NONE => (SOME Error,s)
@@ -507,7 +508,7 @@ val gc_clock = store_thm("gc_clock",
 val alloc_clock = store_thm("alloc_clock",
   ``!xs s1 vs s2. (alloc x s1 = (vs,s2)) ==> s2.clock <= s1.clock``,
   SIMP_TAC std_ss [alloc_def] \\ REPEAT STRIP_TAC
-  \\ every_case_tac \\ SRW_TAC [] [] \\ fs []
+  \\ every_case_tac \\ SRW_TAC [] [] \\ fs [] \\ fs [empty_env_def]
   \\ Q.ABBREV_TAC `s3 = set_store AllocSize (Word x) s1`
   \\ `s3.clock=s1.clock` by Q.UNABBREV_TAC`s3`>>fs[set_store_def]
   \\ IMP_RES_TAC gc_clock \\ fs []

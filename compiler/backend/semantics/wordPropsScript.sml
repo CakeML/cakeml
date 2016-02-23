@@ -93,12 +93,7 @@ val alloc_with_const = Q.store_thm("alloc_with_const[simp]",
   `alloc c names (s with clock := k) =
    (λ(r,s). (r,s with clock := k)) (alloc c names s)`,
   srw_tac[][alloc_def] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[] >>
-  CASE_TAC >> full_simp_tac(srw_ss())[]);
+  rpt (CASE_TAC >> full_simp_tac(srw_ss())[] >> srw_tac[][]));
 
 val get_var_with_const = Q.store_thm("get_var_with_const[simp]",
   `get_var x (y with clock := k) = get_var x y`,

@@ -175,7 +175,7 @@ val gc_thm = prove(
             (Globals,w1)] in
        if c2 then SOME (s with
                        <|stack := unused ++ stack; store := s1;
-                         regs := FEMPTY; memory := m1|>) else NONE``,
+                         memory := m1|>) else NONE``,
   strip_tac \\ drule gc_lemma
   \\ disch_then (fn th => full_simp_tac(srw_ss())[th])
   \\ IF_CASES_TAC \\ full_simp_tac(srw_ss())[]
@@ -1565,9 +1565,11 @@ val word_gc_move_roots_bitmaps_code_thm =
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
-val word_gc_code_def = Define `
-  word_gc_code conf =
-    (list_Seq [const_inst 0 0w;
+val word_alloc_code_def = Define `
+  word_alloc_code conf =
+     list_Seq [const_inst 2 (-1w);
+               If Equal 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip;
+               const_inst 0 0w;
                move 1 0;
                move 2 0;
                move 3 0;
@@ -1585,21 +1587,56 @@ val word_gc_code_def = Define `
                Get 0 CurrHeap;
                Get 1 OtherHeap;
                Get 2 HeapLength;
+               Get 3 AllocSize;
                add_inst 2 1;
                Set CurrHeap 1;
                Set OtherHeap 0;
                Set NextFree 8;
-               Set EndOfHeap 2])`
+               Set EndOfHeap 2;
+               sub_inst 2 8;
+               If Lower 2 (Reg 3) (Seq (const_inst 1 1w) (Halt 1)) Skip;
+               const_inst 0 0w;
+               move 1 0;
+               move 2 0;
+               move 3 0;
+               move 4 0;
+               move 5 0;
+               move 6 0;
+               move 7 0;
+               move 8 0;
+               move 9 0]`
+
+val word_alloc_code_thm = store_thm("word_alloc_code_thm",
+  ``alloc w (s:('a,'b)stackSem$state) = (r,t) /\
+    r <> SOME Error /\ s.gc_fun = word_gc_fun conf /\
+    LENGTH s.bitmaps < dimword (:'a) - 1 /\ good_dimindex (:'a) /\
+    shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
+    2 < dimindex (:'a) /\ conf.len_size <> 0 /\ good_dimindex (:'a) /\
+    (!w:'a word. w << word_shift (:'a) = w * bytes_in_word) /\
+    FLOOKUP s.regs 1 = SOME (Word w) ==>
+    ?ck. evaluate (word_alloc_code conf,
+           s with <|use_alloc := F; clock := s.clock + ck; code := c |>) =
+         (r, t with <|use_alloc := F; code := c|>)``,
+  fs [alloc_def] \\ IF_CASES_TAC THEN1
+   (fs [word_alloc_code_def] \\ rpt strip_tac \\ rpt var_eq_tac \\ fs []
+    \\ tac \\ fs [empty_env_def] \\ cheat)
+  \\ CASE_TAC THEN1 (rw [] \\ fs []) \\ pop_assum mp_tac
+  \\ Cases_on `s.gc_fun = word_gc_fun conf` \\ fs []
+  \\ `(set_store AllocSize (Word w) s).gc_fun =
+      word_gc_fun conf` by fs [set_store_def]
+  \\ drule gc_thm
+  \\ fs [] \\ disch_then kall_tac \\ fs [set_store_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ strip_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs [] \\ tac
+  \\ fs [has_space_def] \\ tac \\ fs [FAPPLY_FUPDATE_THM]
+  \\ cheat)
 
 (*
 
 word_gc_move_code_thm
 word_gc_move_roots_bitmaps_code_thm
 word_gc_move_loop_code_thm
-
-gc_thm
-alloc_def
-has_space_def
 
 *)
 
@@ -1615,11 +1652,6 @@ val alloc_correct = prove(
           t with
            <|use_alloc := F; code := fromAList (compile c (toAList s.code))|>)``,
   simp[alloc_def,GSYM AND_IMP_INTRO]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ simp[evaluate_def,find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND]
-  \\ simp[stubs_def]
   \\ cheat (* correctness of (unimplemented) stubs *));
 
 val find_code_IMP_lookup = prove(

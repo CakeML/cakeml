@@ -347,6 +347,7 @@ val alloc_def = Define `
     case cut_env names s.locals of
     | NONE => (SOME Error,s)
     | SOME env =>
+     if w = -1w then (SOME NotEnoughSpace,call_env [] s with stack:= []) else
      (* perform garbage collection *)
      (case gc (push_env env (NONE:(num # 'a wordLang$prog # num # num) option) (set_store AllocSize (Word w) s)) of
       | NONE => (SOME Error,s)
