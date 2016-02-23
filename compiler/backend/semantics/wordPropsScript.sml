@@ -916,7 +916,7 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
     (full_simp_tac(srw_ss())[evaluate_def,s_key_eq_refl]>>srw_tac[][]>>HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[s_key_eq_refl])
   >-(*Alloc*)
     (full_simp_tac(srw_ss())[evaluate_def,alloc_def]>>reverse every_case_tac>>
-    (every_case_tac>>
+    TRY(every_case_tac>>
     IMP_RES_TAC gc_s_key_eq>>
     IMP_RES_TAC push_env_pop_env_s_key_eq>>
     `s_key_eq s.stack y.stack` by full_simp_tac(srw_ss())[set_store_def]>>
@@ -947,10 +947,14 @@ val evaluate_stack_swap = store_thm("evaluate_stack_swap",``
       metis_tac[s_frame_val_and_key_eq,s_frame_key_eq_sym])>>
     full_simp_tac(srw_ss())[pop_env_def] >>Cases_on`h'`>>Cases_on`o'`>>full_simp_tac(srw_ss())[s_frame_key_eq_def]>>
     full_simp_tac(srw_ss())[state_component_equality]>>
-    full_simp_tac(srw_ss())[has_space_def])>-full_simp_tac(srw_ss())[state_component_equality]>>
-    Q.EXISTS_TAC`t'`>>
-    full_simp_tac(srw_ss())[state_component_equality]>>
-    metis_tac[s_val_eq_def,s_key_eq_sym])
+    full_simp_tac(srw_ss())[has_space_def])
+    >- full_simp_tac(srw_ss())[state_component_equality]
+    >-
+      (Q.EXISTS_TAC`t'`>>
+      full_simp_tac(srw_ss())[state_component_equality]>>
+      metis_tac[s_val_eq_def,s_key_eq_sym])
+    >>
+      fs[get_var_def,call_env_def,fromList2_def])
   >-(*Move*)
     (full_simp_tac(srw_ss())[evaluate_def]>>every_case_tac>>
     full_simp_tac(srw_ss())[set_vars_def,s_key_eq_refl]>>
@@ -1557,13 +1561,13 @@ val permute_swap_lemma = store_thm("permute_swap_lemma",``
     metis_tac[ignore_perm]
   >-
     (full_simp_tac(srw_ss())[alloc_def]>>
-    qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
     full_simp_tac(srw_ss())[get_var_perm]>>
     full_case_tac>>full_case_tac>>full_simp_tac(srw_ss())[]
-    >-
-      (Cases_on`x`>>full_simp_tac(srw_ss())[])
-    >>
+    >- (Cases_on`x`>>full_simp_tac(srw_ss())[])>>
     full_case_tac>>full_simp_tac(srw_ss())[]>>
+    TOP_CASE_TAC>>fs[call_env_def]
+    >- (rveq>>fs[state_component_equality])>>
+    qexists_tac`λx. if x = 0 then st.permute 0 else perm (x-1)`>>
     Cases_on`gc (push_env x NONE (set_store AllocSize (Word c) st))`>>
     full_simp_tac(srw_ss())[push_env_def,env_to_list_def,LET_THM,set_store_def]>>
     imp_res_tac gc_perm>>full_simp_tac(srw_ss())[pop_env_perm]>>
@@ -2061,7 +2065,11 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
     (*alloc*)
     (every_case_tac>>imp_res_tac locals_rel_get_var>>rev_full_simp_tac(srw_ss())[every_var_def]>>
     full_simp_tac(srw_ss())[alloc_def]>>qpat_assum`A=(res,rst)` mp_tac>>
-    ntac 6 (full_case_tac>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
+    ntac 3 (TOP_CASE_TAC>>fs[])>>
+    TRY(imp_res_tac locals_rel_cut_env>>
+      fs[call_env_def,state_component_equality]>>
+      NO_TAC)>>
+    ntac 3 (full_case_tac>>full_simp_tac(srw_ss())[])>>srw_tac[][]>>
     imp_res_tac locals_rel_cut_env>>
     full_simp_tac(srw_ss())[]>>
     qpat_assum` A = SOME x'` mp_tac>>
