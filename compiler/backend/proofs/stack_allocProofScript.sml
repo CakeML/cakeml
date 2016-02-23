@@ -1425,7 +1425,12 @@ val word_gc_move_roots_bitmaps_code_def = Define `
                  word_gc_move_bitmaps_code conf;
                  StackLoadAny 9 8])`
 
-val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
+val EL_LENGTH_ADD_LEMMA = prove(
+  ``!n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y``,
+  fs [EL_LENGTH_APPEND]);
+
+val word_gc_move_roots_bitmaps_code_thm =
+        store_thm("word_gc_move_roots_bitmaps_code_thm",
   ``!bitmaps (s:('a,'b)stackSem$state) i pa curr m dm new
          stack1 a1 i1 pa1 m1 old.
       word_gc_move_roots_bitmaps conf (stack,bitmaps,i,pa,curr,m,dm) =
@@ -1449,7 +1454,7 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
       s.stack = init ++ old ++ stack /\
       s.stack_space = LENGTH init /\
       (dimindex (:'a) DIV 8) * LENGTH s.stack < dimword (:'a) ==>
-      ?ck r0 r1 r2 r5 r6 r7 r9.
+      ?ck r0 r1 r2 r5 r6 r7 r8 r9.
         evaluate (word_gc_move_roots_bitmaps_code conf,
             s with clock := s.clock + ck) =
           (NONE,s with <| memory := m1;
@@ -1463,11 +1468,10 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
                                               (5,r5);
                                               (6,r6);
                                               (7,r7);
-                              (8,Word (bytes_in_word * n2w (LENGTH old)));
+                                              (8,r8);
                                               (9,Word 0w)] |>)``,
   completeInduct_on `LENGTH stack`
   \\ rpt strip_tac \\ fs [PULL_FORALL]
-  \\ qpat_assum `!v. _` kall_tac
   \\ rpt var_eq_tac \\ fs []
   \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _`
         (fn th => assume_tac th \\ mp_tac th)
@@ -1495,7 +1499,71 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ reverse (Cases_on `hd`) \\ fs []
   THEN1 (fs[word_gc_move_roots_bitmaps_def,enc_stack_def,full_read_bitmap_def])
   \\ tac
-  \\ cheat);
+  \\ qabbrev_tac `s2 = s with
+      <| clock := s.clock ;
+         regs := s.regs |+ (0,Word c) |+ (9,Word (c + -1w)) |+
+         (8, Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |>`
+  \\ `s.memory = s2.memory /\ s.mdomain = s2.mdomain /\ s.bitmaps = s2.bitmaps` by
+        (unabbrev_all_tac \\ fs []) \\ fs []
+  \\ drule (word_gc_move_bitmaps_code_thm |> SIMP_RULE std_ss [])
+  \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
+  \\ disch_then (qspecl_then [`c`,`old ++ [Word c]`] mp_tac)
+  \\ discharge_hyps THEN1
+   (unabbrev_all_tac \\ rpt strip_tac
+    \\ fs [RIGHT_ADD_DISTRIB]
+    \\ rfs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
+    \\ fs [get_var_def] \\ tac)
+  \\ strip_tac \\ fs []
+  \\ unabbrev_all_tac \\ fs [] \\ tac
+  \\ `(bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1))) ⋙ word_shift (:α) =
+      n2w (LENGTH old + (LENGTH x0 + 1)):'a word` by
+   (match_mp_tac bytes_in_word_word_shift_n2w
+    \\ imp_res_tac word_gc_move_bitmaps_LENGTH
+    \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []) \\ fs []
+  \\ `(LENGTH old + (LENGTH x0 + 1)) < dimword (:α)` by
+   (imp_res_tac word_gc_move_bitmaps_LENGTH
+    \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
+    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[]) \\ fs []
+  \\ `0 < LENGTH x1` by
+   (Cases_on `x1` \\ fs [word_gc_move_roots_bitmaps_def,enc_stack_def])
+  \\ fs [STOP_def] \\ Cases_on `x1` \\ fs []
+  \\ `EL (LENGTH init + (LENGTH old + (LENGTH x0 + 1)))
+                (init ++ old ++ [Word c] ++ x0 ++ h::t) = h` by
+         (match_mp_tac EL_LENGTH_ADD_LEMMA \\ fs []) \\ fs []
+  \\ qabbrev_tac `s8 = s with
+       <|regs :=
+         s.regs |+ (0,Word c) |+ (9,Word (c + -1w)) |+
+         (8,Word (bytes_in_word + bytes_in_word * n2w (LENGTH old))) |+
+         (0,r0) |+ (1,r1) |+ (2,r2) |+ (3,Word x3) |+ (4,Word x2) |+
+         (5,r5) |+ (6,r6) |+ (7,r7) |+
+         (8,Word (bytes_in_word * n2w (LENGTH old + (LENGTH x0 + 1)))) |+
+         (9,h); stack := init ++ old ++ [Word c] ++ x0 ++ h::t ;
+         memory := x4 |>`
+  \\ `LENGTH (h::t) < SUC (LENGTH stack)` by
+   (imp_res_tac word_gc_move_bitmaps_LENGTH
+    \\ rfs [RIGHT_ADD_DISTRIB] \\ fs [])
+  \\ first_x_assum drule
+  \\ `x4 = s8.memory /\ s.mdomain = s8.mdomain /\ s.bitmaps = s8.bitmaps` by
+        (unabbrev_all_tac \\ fs [] \\ NO_TAC) \\ fs []
+  \\ disch_then drule
+  \\ ntac 3 (pop_assum (fn th => fs [GSYM th]))
+  \\ disch_then (qspec_then `old ++ Word c::x0` mp_tac)
+  \\ discharge_hyps THEN1
+   (unabbrev_all_tac \\ fs [] \\ tac \\ fs [ADD1,RIGHT_ADD_DISTRIB]
+    \\ rfs [] \\ imp_res_tac word_gc_move_bitmaps_LENGTH
+    \\ rfs [RIGHT_ADD_DISTRIB] \\ fs []
+    \\ rfs [labPropsTheory.good_dimindex_def] \\ rfs [] \\ fs[])
+  \\ strip_tac \\ unabbrev_all_tac \\ fs []
+  \\ qexists_tac `ck + ck' + 1` \\ fs []
+  \\ pop_assum mp_tac
+  \\ drule (evaluate_add_clock |> GEN_ALL)
+  \\ disch_then (qspec_then `ck' + 1` assume_tac)
+  \\ fs [] \\ tac \\ rpt strip_tac
+  \\ full_simp_tac(srw_ss())[state_component_equality]
+  \\ full_simp_tac(srw_ss())[FUPDATE_LIST,GSYM fmap_EQ,FLOOKUP_DEF,EXTENSION,
+           FUN_EQ_THM,FAPPLY_FUPDATE_THM]
+  \\ once_rewrite_tac [split_num_forall_to_10]
+  \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
 (*
 
