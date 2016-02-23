@@ -1,7 +1,17 @@
 open preamble;
 open clos_relationTheory clos_relationPropsTheory closPropsTheory clos_mtiTheory;
+open closSemTheory
 
 val _ = new_theory "clos_mtiProof";
+
+val bool_case_eq = Q.prove(
+  `COND b t f = v ⇔ b /\ v = t ∨ ¬b ∧ v = f`,
+  srw_tac[][] >> metis_tac[]);
+
+val pair_case_eq = Q.prove (
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ srw_tac[][]);
 
 val collect_args_correct = Q.prove (
 `!num_args e num_args' e' e''.
@@ -52,6 +62,76 @@ val check_loc_NONE_increases = Q.store_thm(
   `check_loc locopt NONE n m p ∧ n ≤ n' ⇒ check_loc locopt NONE n' m p`,
   Cases_on `locopt` >> simp[closSemTheory.check_loc_def]);
 
+val check_loc_second_NONE = Q.store_thm(
+  "check_loc_second_NONE",
+  `check_loc locopt NONE nps nargs sofar ⇔ locopt = NONE ∧ nargs ≤ max_app`,
+  Cases_on `locopt` >> simp[closSemTheory.check_loc_def]);
+
+val option_CASE_NONE_T = Q.store_thm(
+  "option_CASE_NONE_T",
+  `option_CASE x T f ⇔ x = NONE ∨ ∃y. x = SOME y ∧ f y`,
+  Cases_on `x` >> simp[]);
+
+val dest_closure_Recclosure_EQ_NONE = Q.store_thm(
+  "dest_closure_Recclosure_EQ_NONE",
+  `dest_closure locopt (Recclosure loc argE cloE fns i) args = NONE ⇔
+     LENGTH fns ≤ i ∨ FST (EL i fns) ≤ LENGTH argE ∨
+     ¬check_loc locopt (lift ($+ i) loc) (FST (EL i fns))
+         (LENGTH args) (LENGTH argE)`,
+  simp[dest_closure_def, UNCURRY] >> rw[] >>
+  Cases_on `LENGTH fns ≤ i` >> simp[] >>
+  Cases_on `FST (EL i fns) ≤ LENGTH argE` >> simp[]);
+
+
+(*
+
+(* play with a concrete intro_multi example and their respective evaluations *)
+val e1 = ``Letrec NONE NONE [(1, Fn NONE NONE 1 (Op (Const 3) []))] (Var 0)``
+val intro_multi_e2 = EVAL ``intro_multi [^e1]``
+
+val exp_rel = ASSUME ``exp_rel (:'ffi) [^e1] ^(rhs (concl intro_multi_e2))``
+
+val result =
+    exp_rel |> SIMP_RULE (srw_ss()) [exp_rel_def]
+            |> Q.SPEC `i`
+            |> Q.SPECL [`env`, `env`, `s`, `s`]
+            |> SIMP_RULE (srw_ss()) [val_rel_refl, state_rel_refl]
+            |> SIMP_RULE (srw_ss()) [exec_rel_rw, evaluate_ev_def]
+            |> Q.SPEC `i`
+            |> SIMP_RULE (srw_ss() ++ ARITH_ss)
+                  [evaluate_def, LET_THM, closLangTheory.max_app_def]
+            |> SIMP_RULE (srw_ss())
+                 [res_rel_rw, state_rel_refl, val_rel_rw, is_closure_def,
+                  check_closures_def, clo_can_apply_def,
+                  clo_to_num_params_def, clo_to_partial_args_def,
+                  rec_clo_ok_def, clo_to_loc_def, option_CASE_NONE_T]
+            |> Q.SPECL [`j`, `[v1;v2]`, `[v1;v2]`, `s2`, `s2`]
+            |> SIMP_RULE (srw_ss())
+                 [val_rel_refl, state_rel_refl,
+                  option_case_NONE_F, dest_closure_Recclosure_EQ_NONE,
+                  check_loc_second_NONE, closLangTheory.max_app_def]
+            |> SIMP_RULE (srw_ss()) [dest_closure_def, LET_THM,
+                                     check_loc_second_NONE,
+                                     closLangTheory.max_app_def,
+                                     exec_rel_rw, evaluate_ev_def]
+            |> UNDISCH_ALL
+            |> Q.SPEC `0`
+            |> SIMP_RULE (srw_ss()) [evaluate_def, closLangTheory.max_app_def,
+                                     dest_closure_def, check_loc_second_NONE]
+*)
+
+
+(* IH is unhelpful here because of the way application to multiple arguments
+   gets split across two evaluations in the evaluate_ev-Exp1 case:
+     1. the body gets evaluated in an environment including the other
+        recursive functions
+     2. if the function now has more arguments, then these are available when
+        the body is evaluated, and less are available when the evaluate_app
+        gets called.
+     3. The IH saying that the recclosure bodies are exp-related is not
+        pertinent because the respective bodies are evaluated in environments
+        of different lengths
+*)
 val intro_multi_correct = Q.store_thm ("intro_multi_correct",
 `!es. exp_rel (:'ffi) es (intro_multi es)`,
  ho_match_mp_tac intro_multi_ind >>
@@ -84,7 +164,7 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
              by (Cases_on `collect_args n e` >> simp[]) >> simp[] >>
            res_tac >> conj_tac >- metis_tac[collect_args_max_app] >>
            imp_res_tac collect_args_never_decreases >> strip_tac >> fs[]) >>
-     simp[] >>
+     simp[] >> Q.UNABBREV_TAC `GUARD` >>
      Cases_on `fvs` >> simp[]
      >- (qpat_assum `exp_rel _ _ _` mp_tac >>
          simp[exp_rel_def, exec_rel_rw, evaluate_ev_def, PULL_FORALL] >>
@@ -104,20 +184,22 @@ val intro_multi_correct = Q.store_thm ("intro_multi_correct",
                by (Cases_on `EL n fns` >> simp[]) >> simp[] >>
              Cases_on `collect_args nn ee` >> simp[] >>
              imp_res_tac collect_args_never_decreases >> simp[]) >>
-         simp[closSemTheory.dest_closure_def] >>
-         qx_genl_tac [`k`, `vs1`, `vs2`, `s11`, `s12`, `locopt`] >>
-         strip_tac >>
+         simp[option_case_NONE_F, option_CASE_NONE_T,
+              dest_closure_Recclosure_EQ_NONE] >>
          `∃nn ee. EL n fns = (nn,ee)` by (Cases_on `EL n fns` >> simp[]) >>
          simp[] >> `MEM (nn,ee) fns` by metis_tac[MEM_EL] >>
-         `nn ≠ 0` by metis_tac[] >> simp[EL_MAP] >>
-         rw[]
+         `nn ≠ 0 ∧ nn ≤ max_app` by metis_tac[] >> simp[] >>
+         simp[check_loc_second_NONE] >>
+         qx_genl_tac [`k`, `vs1`, `vs2`, `s11`, `s12`] >> strip_tac >>
+         Cases_on `LENGTH vs1 ≤ max_app` >> simp[] >>
+         `LENGTH vs2 = LENGTH vs1` by fs[LIST_REL_EL_EQN] >>
+         simp[dest_closure_def, EL_MAP, revtakerev, revdroprev, bool_case_eq,
+              check_loc_second_NONE] >>
+         Cases_on `nn ≤ LENGTH vs1` >> simp[]
          >- (`∃nn1 ee1. collect_args nn ee = (nn1,ee1)`
                by (Cases_on `collect_args nn ee` >> simp[]) >> simp[] >>
-             `LENGTH vs2 = LENGTH vs1` by fs[LIST_REL_EL_EQN] >> simp[] >>
              `nn ≤ nn1` by metis_tac[collect_args_never_decreases] >> simp[] >>
-             `check_loc locopt NONE nn1 (LENGTH vs1) 0`
-               by metis_tac[check_loc_NONE_increases] >>
-             simp[] >> rw[]
+             Cases_on `nn1 ≤ LENGTH vs1` >> simp[]
              >- (simp[revtakerev, revdroprev] >>
                  simp[exec_rel_rw, evaluate_ev_def] >> cheat) >>
              cheat) >>
