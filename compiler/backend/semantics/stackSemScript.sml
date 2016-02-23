@@ -229,7 +229,6 @@ val gc_def = Define `
             | SOME stack =>
                 SOME (s with <| stack := unused ++ stack
                               ; store := st
-                              ; regs := FEMPTY
                               ; memory := m |>))`
 
 val has_space_def = Define `
@@ -252,7 +251,8 @@ val alloc_def = Define `
            (case has_space w s.store of
             | NONE => (SOME Error, s)
             | SOME T => (* success there is that much space *)
-                        (NONE,s)
+                        (NONE,s with regs := s.regs |++
+                                  MAP (\x.(x,Word 0w)) [0;1;2;3;4;5;6;7;8;9])
             | SOME F => (* fail, GC didn't free up enough space *)
                         (SOME (Halt (Word 1w)),empty_env s)))`
 
