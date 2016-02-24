@@ -2,7 +2,14 @@ structure arm6_targetLib :> arm6_targetLib =
 struct
 
 open HolKernel boolLib bossLib
-open armTheory arm6_targetTheory utilsLib asmLib
+open armTheory arm6_targetTheory arm6_eval_encodeTheory utilsLib asmLib
+
+structure Parse = struct
+  open Parse
+  val (Type, Term) =
+    parse_from_grammars arm6_eval_encodeTheory.arm6_eval_encode_grammars
+end
+open Parse
 
 (*
 val ERR = Feedback.mk_HOL_ERR "arm6_targetLib"
@@ -20,14 +27,14 @@ val aligned =
 
 fun add_arm6_encode_compset cmp =
    ( computeLib.add_thms
-       [arm6_enc_def, arm6_bop_def, arm6_sh_def, arm6_cmp_def, arm6_encode_def,
-        encode_def, e_branch_def, e_data_def, e_load_def, e_store_def,
-        EncodeImmShift_def, EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
-        valid_immediate_def, arm6_config_def, aligned] cmp
+       [arm6_bop_def, arm6_sh_def, arm6_cmp_def, EncodeImmShift_def,
+        EncodeARMImmediate_def, EncodeARMImmediate_aux_def,
+        valid_immediate_def, arm6_config_def, aligned, arm6_encode_rwts] cmp
    ; utilsLib.add_datatypes
-       (List.map arm_type
-           ["instruction", "Branch", "Data", "Load", "Store",
-            "offset1", "SRType", "MachineCode"]) cmp
+       (List.map arm_type ["instruction", "offset1", "SRType", "MachineCode"])
+       cmp
+   ; computeLib.add_conv
+       (bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV) cmp
    )
 
 fun add_arm6_decode_compset cmp =
@@ -38,27 +45,27 @@ fun add_arm6_decode_compset cmp =
         ConditionPassed_def, CurrentCond_def, SetPassCondition_def, Do_def,
         boolify28_n2w, boolify4_n2w] cmp
    ; utilsLib.add_datatypes
-       (List.map arm_type ["arm_state", "PSR", "Architecture"]) cmp
-   ; computeLib.add_conv
-       (bitstringSyntax.v2w_tm, 1, bitstringLib.v2w_n2w_CONV) cmp
+       (List.map arm_type
+          ["arm_state", "PSR", "Architecture", "InstrSet", "Branch", "Data",
+           "Load", "Store"]) cmp
    )
 
 val arm6_encode_decode_conv =
    let
       val cmp = wordsLib.words_compset ()
-      val () = utilsLib.add_base_datatypes cmp
-      val () = asmLib.add_asm_compset cmp
-      val () = add_arm6_encode_compset cmp
-      val () = add_arm6_decode_compset cmp
    in
-      computeLib.CBV_CONV cmp
+      utilsLib.add_base_datatypes cmp
+    ; asmLib.add_asm_compset cmp
+    ; add_arm6_encode_compset cmp
+    ; add_arm6_decode_compset cmp
+    ; computeLib.CBV_CONV cmp
    end
 
 (* Testing
 
 open arm6_targetLib
 
-arm6_encode_decode_conv
+Count.apply arm6_encode_decode_conv
    ``MAP (\i. let l = arm6_enc i in (asm_ok i arm6_config, l, arm6_dec l))
       [ Inst Skip
       ; Inst (Const 0 0w)
@@ -80,6 +87,7 @@ arm6_encode_decode_conv
       ; Jump 12w
       ; JumpCmp Less 0 (Reg 1) 12w
       ; JumpCmp Less 0 (Imm 1w) 12w
+      ; Call 100w
       ; JumpReg 1
       ; Loc 1 4w
       ]``

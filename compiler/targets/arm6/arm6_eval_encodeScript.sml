@@ -1,0 +1,64 @@
+(* --------------------------------------------------------------------------
+   Pre-evaluate encoder (to help speed up EVAL)
+   -------------------------------------------------------------------------- *)
+
+open HolKernel Parse boolLib bossLib
+open armTheory arm6_targetTheory alignmentTheory
+
+val () = new_theory "arm6_eval_encode"
+
+val () = Feedback.set_trace "TheoryPP.include_docs" 0
+
+local
+  val l = Drule.CONJUNCTS arm6_enc_def
+  val thm =  Q.SPEC `f` boolTheory.LET_THM
+in
+  val enc_rwts =
+    [encode_def, arm6_encode_def, arm_stepTheory.Aligned,
+     alignmentTheory.aligned_numeric, alignmentTheory.aligned_0]
+  fun enc_thm i rwts =
+    SIMP_RULE
+      (srw_ss()++bitstringLib.BITSTRING_GROUND_ss++bitstringLib.v2w_n2w_ss++
+       wordsLib.WORD_EXTRACT_ss)
+      (enc_rwts @ rwts) (List.nth (l, i))
+  fun mk_let_thm q = Q.ISPEC q thm
+end
+
+val skip_rwt = enc_thm 0 [e_data_def]
+val const_rwt = enc_thm 1 [e_load_def, e_branch_def, e_data_def]
+val binop_rwt = enc_thm 2 [e_data_def, EncodeImmShift_def, boolTheory.LET_DEF]
+val binop_imm_rwt = enc_thm 3 [e_data_def]
+val shift_rwt = enc_thm 4 [e_data_def]
+
+val load_rwt = enc_thm 5 [e_load_def]
+val load32_rwt = enc_thm 6 [e_load_def]
+val load8_rwt = enc_thm 7
+  [e_load_def, mk_let_thm `1w: word1`, mk_let_thm `0w : word1`,
+   mk_let_thm `v2w [x]: word1`]
+
+val store_rwt = enc_thm 8 [e_store_def]
+val store32_rwt = enc_thm 9 [e_store_def]
+val store8_rwt = enc_thm 10 [e_store_def]
+
+val jump_rwt = enc_thm 11 [e_branch_def]
+val jump_cmp_rwt = enc_thm 12
+  [e_branch_def, e_data_def, EncodeImmShift_def,
+   mk_let_thm `(0w: word2, 0w: word5)`]
+val jump_cmp_imm_rwt = enc_thm 13 [e_branch_def, e_data_def]
+
+val call_rwt = enc_thm 14 [e_branch_def]
+
+val jump_reg_rwt = enc_thm 15 [e_branch_def]
+
+val loc_rwt = enc_thm 16
+  [e_data_def,
+   mk_let_thm `(15 >< 8) (imm32 : word32) || 3072w : word12`,
+   mk_let_thm `(7 >< 0) (imm32 : word32) : word12`]
+
+val arm6_encode_rwts = Theory.save_thm("arm6_encode_rwts",
+  Drule.LIST_CONJ
+    [skip_rwt, const_rwt, binop_rwt, binop_imm_rwt, shift_rwt, load_rwt,
+     load32_rwt, load8_rwt, store_rwt, store32_rwt, store8_rwt, jump_rwt,
+     jump_cmp_rwt, jump_cmp_imm_rwt, call_rwt, jump_reg_rwt, loc_rwt])
+
+val () = export_theory ()
