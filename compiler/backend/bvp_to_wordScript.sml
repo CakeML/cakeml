@@ -17,6 +17,9 @@ val adjust_set_def = Define `
 
 val Unit_def = Define`Unit = Const 2w`;
 
+val GiveUp_def = Define `
+  GiveUp = Seq (Assign 1 (Const (-1w))) (Alloc 1 LN) :'a wordLang$prog`
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -27,11 +30,12 @@ val assign_def = Define `
         if i < 0
         then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
+    | _ => (GiveUp,l)
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
     | El => (Assign (adjust_var dest) (Load (Op Add (MAP (Var o adjust_var) args))),l)
-    | _ => (Skip:'a wordLang$prog,l)`;
+    | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
   comp c (n:num) (l:num) (p:bvp$prog) =
