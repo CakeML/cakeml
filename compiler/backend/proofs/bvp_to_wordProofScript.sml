@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory word_to_wordProofTheory
+     set_sepTheory semanticsPropsTheory (* word_to_wordProofTheory *)
      helperLib;
 
 val _ = new_theory "bvp_to_wordProof";
@@ -2100,6 +2100,79 @@ val state_rel_cut_state_opt_get_var = Q.store_thm("state_rel_cut_state_opt_get_v
   \\ imp_res_tac state_rel_cut_env
   \\ metis_tac[] );
 
+val do_app = LIST_CONJ [bvpSemTheory.do_app_def,do_space_def,
+  bvp_spaceTheory.op_space_req_def,
+  bvi_to_bvpTheory.op_space_reset_def, bviSemTheory.do_app_def,
+  bviSemTheory.do_app_aux_def, bvlSemTheory.do_app_def]
+
+val FORALL_WORD = store_thm("FORALL_WORD",
+  ``(!v:'a word. P v) <=> !n. n < dimword (:'a) ==> P (n2w n)``,
+  eq_tac \\ rw [] \\ Cases_on `v` \\ fs []);
+
+val word_ml_inv_num_lemma = prove(
+  ``good_dimindex (:'a) ==> (-2w && 4w * v) = 4w * v:'a word``,
+  `!w:word64. (-2w && 4w * w) = 4w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && 4w * w) = 4w * w` by blastLib.BBLAST_TAC
+  \\ rfs [dimword_def,FORALL_WORD]
+  \\ fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ Cases_on `v` \\ fs [word_mul_n2w,word_and_n2w,word_2comp_n2w]
+  \\ rfs [dimword_def]);
+
+val word_ml_inv_num = prove(
+  ``word_ml_inv (heap,F,a,sp) limit c s.refs ws /\
+    good_dimindex (:'a) /\
+    small_enough_int (&n) ==>
+    word_ml_inv (heap,F,a,sp) limit c s.refs
+      ((Number (&n),Word (n2w (4 * n):'a word))::ws)``,
+  fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
+  \\ qexists_tac `Data (Word (Smallnum (&n)))`
+  \\ qexists_tac `hs` \\ fs [] \\ conj_tac
+  THEN1
+   (match_mp_tac abs_ml_inv_Num \\ fs []
+    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [small_int_def,Smallnum_def]
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
+  \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
+  \\ match_mp_tac word_ml_inv_num_lemma \\ fs []);
+
+val word_ml_inv_zero =
+  word_ml_inv_num |> Q.INST [`n`|->`0`] |> SIMP_RULE (srw_ss()) []
+
+val word_ml_inv_neg_num_lemma = prove(
+  ``good_dimindex (:'a) ==> (-2w && -4w * v) = -4w * v:'a word``,
+  `!w:word64. (-2w && -4w * w) = -4w * w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && -4w * w) = -4w * w` by blastLib.BBLAST_TAC
+  \\ rfs [dimword_def,FORALL_WORD]
+  \\ fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ Cases_on `v` \\ fs [word_mul_n2w,word_and_n2w,word_2comp_n2w]
+  \\ rfs [dimword_def]);
+
+val word_ml_inv_neg_num = prove(
+  ``word_ml_inv (heap,F,a,sp) limit c s.refs ws /\
+    good_dimindex (:'a) /\
+    small_enough_int (-&n) /\ n <> 0 ==>
+    word_ml_inv (heap,F,a,sp) limit c s.refs
+      ((Number (-&n),Word (-n2w (4 * n):'a word))::ws)``,
+  fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
+  \\ qexists_tac `Data (Word (Smallnum (-&n)))`
+  \\ qexists_tac `hs` \\ fs [] \\ conj_tac
+  THEN1
+   (match_mp_tac abs_ml_inv_Num \\ fs []
+    \\ fs [bviSemTheory.small_enough_int_def]
+    \\ fs [small_int_def,Smallnum_def]
+    \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [])
+  \\ fs [word_addr_def,Smallnum_def,GSYM word_mul_n2w]
+  \\ match_mp_tac word_ml_inv_neg_num_lemma \\ fs []);
+
+val state_rel_cut_IMP = store_thm("state_rel_cut_IMP",
+  ``state_rel c l1 l2 s t [] locs /\ cut_state_opt names_opt s = SOME x ==>
+    state_rel c l1 l2 x t [] locs``,
+  Cases_on `names_opt` \\ fs [bvpSemTheory.cut_state_opt_def]
+  THEN1 (rw [] \\ fs [])
+  \\ fs [bvpSemTheory.cut_state_def]
+  \\ every_case_tac \\ fs [] \\ rw [] \\ fs []
+  \\ imp_res_tac state_rel_cut_env);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -2111,6 +2184,28 @@ val assign_thm = Q.prove(
      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)`,
+  Cases_on `?i. op = Const i` \\ fs [] THEN1
+   (var_eq_tac \\ fs [do_app]
+    \\ every_case_tac \\ fs []
+    \\ strip_tac \\ rpt var_eq_tac
+    \\ fs [bvp_to_wordTheory.assign_def]
+    \\ imp_res_tac state_rel_cut_IMP
+    \\ Cases_on `i` \\ fs []
+    \\ fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+    \\ fs [state_rel_def,wordSemTheory.set_var_def,set_var_def,
+          lookup_insert,adjust_var_11]
+    \\ rw [] \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac word_ml_inv_insert \\ fs []
+    \\ TRY (match_mp_tac word_ml_inv_zero) \\ fs []
+    \\ TRY (match_mp_tac word_ml_inv_num) \\ fs []
+    \\ TRY (match_mp_tac word_ml_inv_neg_num) \\ fs [])
+  \\ `assign c n l dest op args names_opt = (GiveUp,l)` by
+        (Cases_on `op` \\ fs [assign_def] \\ NO_TAC)
+  \\ fs [] \\ rpt strip_tac
+  \\ cheat
+(*
   Cases_on`op`
   \\ TRY (
     qcase_tac`Global g`
@@ -2322,7 +2417,7 @@ val assign_thm = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC
     \\ strip_tac \\ rveq
     \\ cheat (* not sure how length is encoded *))
-  \\ cheat);
+  \\ cheat *));
 
 val jump_exc_push_env_NONE_simp = prove(
   ``(jump_exc (dec_clock t) = NONE <=> jump_exc t = NONE) /\
@@ -3004,13 +3099,15 @@ val compile_correct = store_thm("compile_correct",
     \\ full_simp_tac(srw_ss())[call_env_def,wordSemTheory.call_env_def]
     \\ Q.LIST_EXISTS_TAC [`heap`,`limit`,`a`,`sp`] \\ full_simp_tac(srw_ss())[])
   THEN1 (* MakeSpace *)
-   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,wordSemTheory.evaluate_def,
+   (full_simp_tac(srw_ss())[comp_def,bvpSemTheory.evaluate_def,
+        wordSemTheory.evaluate_def,
         GSYM alloc_size_def,LET_DEF,wordSemTheory.word_exp_def,
         wordLangTheory.word_op_def,wordSemTheory.get_var_imm_def]
     \\ `?end next.
           FLOOKUP t.store EndOfHeap = SOME (Word end) /\
           FLOOKUP t.store NextFree = SOME (Word next)` by
-            full_simp_tac(srw_ss())[state_rel_def,heap_in_memory_store_def] \\ full_simp_tac(srw_ss())[]
+            full_simp_tac(srw_ss())[state_rel_def,heap_in_memory_store_def]
+    \\ full_simp_tac(srw_ss())[wordSemTheory.the_words_def]
     \\ reverse CASE_TAC THEN1
      (every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
       \\ full_simp_tac(srw_ss())[wordSemTheory.set_var_def,state_rel_insert_1]

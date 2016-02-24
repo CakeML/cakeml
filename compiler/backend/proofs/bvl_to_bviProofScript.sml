@@ -447,18 +447,18 @@ val compile_int_thm = prove(
   \\ reverse (Cases_on `i`) \\ full_simp_tac(srw_ss())[] THEN1 EVAL_TAC
   \\ (ONCE_REWRITE_TAC [compile_int_def] \\ full_simp_tac(srw_ss())[LET_DEF]
     \\ SRW_TAC [] [] THEN1
-     (`n <= 1073741823` by DECIDE_TAC
+     (`n <= 268435457` by DECIDE_TAC
       \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def])
-    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 1000000000)`,`env`,`s`])
+    \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`&(n DIV 268435457)`,`env`,`s`])
     \\ MATCH_MP_TAC IMP_IMP \\ STRIP_TAC
     THEN1 (full_simp_tac(srw_ss())[integerTheory.INT_ABS_NUM,DIV_LT_X] \\ intLib.COOPER_TAC)
     \\ REPEAT STRIP_TAC \\ full_simp_tac(srw_ss())[]
-    \\ `n MOD 1000000000 < 1000000000` by full_simp_tac(srw_ss())[MOD_LESS]
-    \\ `n MOD 1000000000 <= 1073741823` by DECIDE_TAC
+    \\ `n MOD 268435457 < 268435457` by full_simp_tac(srw_ss())[MOD_LESS]
+    \\ `n MOD 268435457 <= 268435457` by DECIDE_TAC
     \\ full_simp_tac(srw_ss())[evaluate_def,bviSemTheory.do_app_def,do_app_aux_def,small_enough_int_def,bvlSemTheory.do_app_def]
     \\ full_simp_tac(srw_ss())[bvl_to_bvi_id]
     \\ STRIP_ASSUME_TAC
-         (MATCH_MP DIVISION (DECIDE ``0 < 1000000000:num``) |> Q.SPEC `n`)
+         (MATCH_MP DIVISION (DECIDE ``0 < 268435457:num``) |> Q.SPEC `n`)
     \\ intLib.COOPER_TAC));
 
 val iEval_bVarBound = Q.prove(

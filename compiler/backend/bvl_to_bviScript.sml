@@ -7,7 +7,7 @@ val destLet_def = Define `
   (destLet ((Let xs b):bvl$exp) = (xs,b)) /\
   (destLet _ = ([],Var 0))`;
 
-val large_int = ``1000000000:int``
+val large_int = ``268435457:int`` (* 2**28-1 *)
 
 val compile_int_def = tDefine "compile_int" `
   compile_int (i:int) =

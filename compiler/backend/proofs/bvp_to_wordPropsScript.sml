@@ -66,7 +66,8 @@ val Smallnum_def = Define `
     if i < 0 then 0w - n2w (Num (4 * (0 - i))) else n2w (Num (4 * i))`;
 
 val small_int_def = Define `
-  small_int (:'a) i <=> w2i (((Smallnum i) >> 2):'a word) = i`;
+  small_int (:'a) i <=>
+    -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
 
 val BlockNil_def = Define `
   BlockNil n = n2w n << 2 + 2w`;
@@ -1403,6 +1404,16 @@ val LESS_LENGTH = store_thm("LESS_LENGTH",
   \\ rpt strip_tac \\ res_tac \\ full_simp_tac std_ss [CONS_11]
   \\ qexists_tac `h::ys1` \\ full_simp_tac std_ss [LENGTH,APPEND]
   \\ srw_tac [] [ADD1]);
+
+val abs_ml_inv_Num = store_thm("abs_ml_inv_Num",
+  ``abs_ml_inv stack refs (roots,heap,be,a,sp) limit /\ small_int (:α) i ==>
+    abs_ml_inv (Number i::stack) refs
+      (Data (Word ((Smallnum i):'a word))::roots,heap,be,a,sp) limit``,
+  fs [abs_ml_inv_def,roots_ok_def,bc_stack_ref_inv_def,v_inv_def]
+  \\ fs [reachable_refs_def]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ qexists_tac `f` \\ fs []
+  \\ rw [] \\ fs [get_refs_def] \\ metis_tac []);
 
 
 (* -------------------------------------------------------
