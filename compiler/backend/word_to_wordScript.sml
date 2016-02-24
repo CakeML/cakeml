@@ -28,7 +28,6 @@ val compile_single_def = Define`
   let prog = if two_reg_arith then three_to_two_reg ssa_prog
                               else ssa_prog in
   let reg_prog = word_alloc alg reg_count prog col_opt in
-  let rm_prog = remove_must_terminate reg_prog in
     (name_num,arg_count,reg_prog)`
 
 val full_compile_single_def = Define`

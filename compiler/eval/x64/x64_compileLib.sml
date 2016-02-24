@@ -78,15 +78,108 @@ val test = eval``
 
 val rconc = rhs o concl
 
+(*Evaluate bvp_to_word partially until the livesets are visible*)
+val test1 = Count.apply eval``
+  let (c,p) = ^(rconc test) in
+  let (bvp_conf,word_conf,asm_conf,p) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf,p) in
+  (*The next element is massive*)
+  let p = MAP (compile_part bvp_conf) (TAKE 18 p) in
+  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith,asm_conf.reg_count − 4) in
+  (*This is compile_single, less the word_alloc step*)
+  let p = (MAP (\(name_num,arg_count,prog).
+  let maxv = max_var prog + 1 in
+  let inst_prog = inst_select asm_conf maxv prog in
+  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+  let prog = if two_reg_arith then three_to_two_reg ssa_prog
+                              else ssa_prog in (name_num,arg_count,prog)) p) in
+  let clashmov = MAP (\(name_num,arg_count,prog). ((\h,tl. h::tl)(get_clash_sets prog LN),get_prefs prog [])) p in
+  (c,reg_count,clashmov,p)``
+
+(*Should be in unverified/reg_alloc, but that would make the folder depend on HOL*)
+open reg_alloc
+open sptreeSyntax numSyntax listSyntax
+
+fun dest_unit_sptree tm =
+ case Lib.total boolSyntax.dest_strip_comb tm of
+    SOME ("sptree$LN", []) => Ln
+  | SOME ("sptree$LS", [t]) => Ls ()
+  | SOME ("sptree$BN", [t1, t2]) => Bn (dest_unit_sptree t1, dest_unit_sptree t2)
+  | SOME ("sptree$BS", [t1, v, t2]) => Bs (dest_unit_sptree t1, (), dest_unit_sptree t2)
+  | _ => raise ERR "dest_unit_sptree" "";
+
+(*Int ML sptree to HOL num sptree*)
+fun mk_num_sptree t =
+ case t of
+    Ln => mk_ln ``:num``
+  | Ls a => mk_ls (term_of_int a)
+  | Bn (Ln, t2) =>
+       let
+          val tm = mk_num_sptree t2
+       in
+          mk_bn (mk_ln ``:num``, tm)
+       end
+  | Bn (t1, Ln) =>
+       let
+          val tm = mk_num_sptree t1
+       in
+          mk_bn (tm, mk_ln (sptree_ty_of tm))
+       end
+  | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
+  | Bs (t1, a, t2) =>
+       let
+          val ln = mk_ln ``:num``
+          val tm1 = if t1 = Ln then ln else mk_num_sptree t1
+          val tm2 = if t2 = Ln then ln else mk_num_sptree t2
+       in
+          mk_bs (tm1, (term_of_int a), tm2)
+       end;
+
+(*List of clash sets in HOL to unit sptree*)
+fun dest_clash_set_list tm =
+  let val (ls,_) = dest_list tm in
+      map dest_unit_sptree ls
+  end;
+
+fun tup3 [x,y,z] =(x,(y,z))
+
+fun dest_moves tm =
+  let val (ls,_) = dest_list tm
+      val split = map pairSyntax.strip_pair ls in
+  map
+  (fn p => tup3 (map int_of_term p)) split end
+
+(*Main thing to call for external allocator*)
+fun alloc_all k [] = []
+|   alloc_all k ((clash_sets,moves)::xs) =
+  let val clash_sets_poly = dest_clash_set_list clash_sets
+      val moves_poly = dest_moves moves in
+      irc_alloc clash_sets_poly k moves_poly :: alloc_all k xs
+  end;
+
+(*Extracted clashmov*)
+val clash_mov_ls = map pairSyntax.dest_pair (fst(listSyntax.dest_list (rconc (EVAL``(FST (SND (SND ^(rconc test1))))``))))
+
+val k_poly = int_of_term (rconc(EVAL ``FST (SND ^(rconc test1))``))
+val alloc = listSyntax.mk_list (map mk_num_sptree (alloc_all k_poly clash_mov_ls),``:num num_map``)
+
+val oracle = ``let alloc = ^(alloc) in
+               \n. if n >= LENGTH alloc then NONE else SOME(EL n alloc)``
+
+val test_oracle = Count.apply eval``
+  let (c,reg_count,clashmov,p) = ^(rconc test1) in
+  let (n_oracles,col) = next_n_oracle (LENGTH p) ^(oracle) in
+  let merge = ZIP(n_oracles,ZIP(MAP FST clashmov,MAP (SND o SND)p)) in
+  MAP (\col_opt,sets,prog. oracle_colour_ok reg_count col_opt sets prog) merge``
+
 (*reg_alloc doesn't eval properly yet -- throw away most of the progs generated*)
-val test2 = eval``
+val test2 = Count.apply eval``
     let (c,p) = ^(rconc test) in
-    let p = TAKE 2 p in
+    let p = TAKE 18 p in
     let (col,p) = bvp_to_word$compile c.bvp_conf c.word_to_word_conf c.lab_conf.asm_conf p in
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     (c,p)``
 
-val test3 = eval``
+val test3 = Count.apply eval``
     let (c,p) = ^(rconc test2) in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
