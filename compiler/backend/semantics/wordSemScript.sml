@@ -139,29 +139,29 @@ val word_sh_def = Define `
       | Lsr => SOME (w >>> n)
       | Asr => SOME (w >> n)`;
 
+val the_words_def = Define `
+  (the_words [] = SOME []) /\
+  (the_words (w::ws) =
+     case (w,the_words ws) of
+     | SOME (Word x), SOME xs => SOME (x::xs)
+     | _ => NONE)`
+
 val word_exp_def = tDefine "word_exp" `
-  (word_exp s (Const w) = SOME w) /\
-  (word_exp s (Var v) =
-     case lookup v s.locals of
-     | SOME (Word w) => SOME w
-     | _ => NONE) /\
-  (word_exp s (Lookup name) =
-     case FLOOKUP s.store name of
-     | SOME (Word w) => SOME w
-     | _ => NONE) /\
+  (word_exp s (Const w) = SOME (Word w)) /\
+  (word_exp s (Var v) = lookup v s.locals) /\
+  (word_exp s (Lookup name) = FLOOKUP s.store name) /\
   (word_exp s (Load addr) =
      case word_exp s addr of
-     | SOME w => (case mem_load w s of
-                  | SOME (Word w) => SOME w
-                  | _ => NONE)
+     | SOME (Word w) => mem_load w s
      | _ => NONE) /\
   (word_exp s (Op op wexps) =
-     let ws = MAP (word_exp s) wexps in
-       if EVERY IS_SOME ws then word_op op (MAP THE ws) else NONE) /\
+     case the_words (MAP (word_exp s) wexps) of
+     | SOME ws => (OPTION_MAP Word (word_op op ws))
+     | _ => NONE) /\
   (word_exp s (Shift sh wexp nexp) =
      case word_exp s wexp of
-     | NONE => NONE
-     | SOME w => word_sh sh w (num_exp nexp))`
+     | SOME (Word w) => OPTION_MAP Word (word_sh sh w (num_exp nexp))
+     | _ => NONE)`
   (WF_REL_TAC `measure (exp_size ARB o SND)`
    \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
    \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
@@ -371,7 +371,7 @@ val assign_def = Define `
   assign reg exp s =
     case word_exp s exp of
      | NONE => NONE
-     | SOME w => SOME (set_var reg (Word w) s)`;
+     | SOME w => SOME (set_var reg w s)`;
 
 val inst_def = Define `
   inst i s =
@@ -387,14 +387,14 @@ val inst_def = Define `
           (Shift sh (Var r2) (Nat n)) s
     | Mem Load r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
-        | NONE => NONE
-        | SOME w =>
-            case mem_load w s of
+        | SOME (Word w) =>
+           (case mem_load w s of
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
-        | (SOME a, SOME w) =>
+        | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
              | NONE => NONE)
@@ -442,7 +442,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Assign v exp,s) =
      case word_exp s exp of
      | NONE => (SOME Error, s)
-     | SOME w => (NONE, set_var v (Word w) s)) /\
+     | SOME w => (NONE, set_var v w s)) /\
   (evaluate (Get v name,s) =
      case FLOOKUP s.store name of
      | NONE => (SOME Error, s)
@@ -452,10 +452,10 @@ val evaluate_def = tDefine "evaluate" `
      else
      case word_exp s exp of
      | NONE => (SOME Error, s)
-     | SOME w => (NONE, set_store v (Word w) s)) /\
+     | SOME w => (NONE, set_store v w s)) /\
   (evaluate (Store exp v,s) =
      case (word_exp s exp, get_var v s) of
-     | (SOME a, SOME w) =>
+     | (SOME (Word a), SOME w) =>
          (case mem_store a w s of
           | SOME s1 => (NONE, s1)
           | NONE => (SOME Error, s))
