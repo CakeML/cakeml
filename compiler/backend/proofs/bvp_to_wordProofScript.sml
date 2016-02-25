@@ -2808,6 +2808,17 @@ val FORALL_WORD = store_thm("FORALL_WORD",
   ``(!v:'a word. P v) <=> !n. n < dimword (:'a) ==> P (n2w n)``,
   eq_tac \\ rw [] \\ Cases_on `v` \\ fs []);
 
+val BlockNil_and_lemma = prove(
+  ``good_dimindex (:'a) ==>
+    (-2w && 16w * tag + 2w) = 16w * tag + 2w:'a word``,
+  `!w:word64. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
+  \\ `!w:word32. (-2w && 16w * w + 2w) = 16w * w + 2w` by blastLib.BBLAST_TAC
+  \\ fs [GSYM word_mul_n2w,GSYM word_add_n2w]
+  \\ rfs [dimword_def,FORALL_WORD]
+  \\ Cases_on `tag` \\ fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ fs [word_mul_n2w,word_add_n2w,word_2comp_n2w,word_and_n2w]
+  \\ rfs [dimword_def] \\ fs []);
+
 val word_ml_inv_num_lemma = prove(
   ``good_dimindex (:'a) ==> (-2w && 4w * v) = 4w * v:'a word``,
   `!w:word64. (-2w && 4w * w) = 4w * w` by blastLib.BBLAST_TAC
@@ -2897,6 +2908,12 @@ val heap_in_memory_store_UPDATE = store_thm("heap_in_memory_store_UPDATE[simp]",
     heap_in_memory_store heap a sp c s m md l``,
   fs [heap_in_memory_store_def,FLOOKUP_UPDATE]);
 
+val clean_tac = rpt var_eq_tac \\ rpt (qpat_assum `T` kall_tac)
+
+val eval_tac = fs [wordSemTheory.evaluate_def,wordSemTheory.word_exp_def,
+  wordSemTheory.set_var_def,set_var_def,bvi_to_bvp_def,
+  bviSemTheory.bvl_to_bvi_def,bvp_to_bvi_def,bviSemTheory.bvi_to_bvl_def]
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -2977,7 +2994,22 @@ val assign_thm = Q.prove(
      (fs [bvp_to_wordTheory.assign_def] \\ IF_CASES_TAC \\ fs []
       \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
       \\ fs [do_app] \\ every_case_tac \\ fs []
-      \\ cheat)
+      \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
+      \\ Cases_on `vals` \\ fs [] \\ clean_tac
+      \\ eval_tac \\ clean_tac
+      \\ fs [state_rel_def,lookup_insert,adjust_var_11]
+      \\ rw [] \\ fs []
+      \\ asm_exists_tac \\ fs []
+      \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+      \\ match_mp_tac word_ml_inv_insert \\ fs []
+      \\ fs [word_ml_inv_def,PULL_EXISTS] \\ rw []
+      \\ qexists_tac `Data (Word (n2w (16 * tag + 2)))`
+      \\ qexists_tac `hs` \\ fs [word_addr_def]
+      \\ reverse conj_tac
+      THEN1 (fs [GSYM word_mul_n2w,GSYM word_add_n2w,BlockNil_and_lemma])
+      \\ `n2w (16 * tag + 2) = BlockNil tag : 'a word` by
+           fs [BlockNil_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
+      \\ fs [cons_thm_EMPTY])
     \\ fs [bvp_to_wordTheory.assign_def])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
