@@ -70,7 +70,7 @@ val small_int_def = Define `
     -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
 
 val BlockNil_def = Define `
-  BlockNil n = n2w n << 2 + 2w`;
+  BlockNil n = n2w n << 4 + 2w`;
 
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
@@ -709,8 +709,7 @@ val cons_thm = store_thm("cons_thm",
   \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma)
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
-  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit /\
-    tag < 2 ** 61 ==>
+  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
     abs_ml_inv ((Block tag [])::stack) refs
                 (Data (Word (BlockNil tag))::roots,heap,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac

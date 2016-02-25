@@ -37,6 +37,11 @@ val assign_def = Define `
     | Global _ => (Skip,l)
     | SetGlobal _ => (Skip,l)
     | AllocGlobal => (Skip,l)
+    | Cons tag => if LENGTH args = 0 then
+                    if 16 * tag < dimword (:'a) then
+                      (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
+                    else (GiveUp,l) (* tag is too big to be represented *)
+                  else (GiveUp,l)
     | _ => (GiveUp,l)
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
