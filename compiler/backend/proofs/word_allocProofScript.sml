@@ -485,40 +485,29 @@ val apply_colour_exp_lemma = prove(
     ⇒
     word_exp cst (apply_colour_exp f w) = SOME res``,
   ho_match_mp_tac word_exp_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[word_exp_def,apply_colour_exp_def,strong_locals_rel_def
-    ,get_live_exp_def,word_state_eq_rel_def]
-  >-
-    (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+  full_simp_tac(srw_ss())[word_exp_def,apply_colour_exp_def,strong_locals_rel_def,get_live_exp_def,word_state_eq_rel_def]
   >-
     (Cases_on`word_exp st w`>>full_simp_tac(srw_ss())[]>>
-    `mem_load x st = mem_load x cst` by
-      full_simp_tac(srw_ss())[mem_load_def]>>full_simp_tac(srw_ss())[])
+    FULL_CASE_TAC>>fs[]>>
+    qsuff_tac`mem_load c st = mem_load c cst`>>fs[mem_load_def])
   >-
-    (full_simp_tac(srw_ss())[LET_THM]>>
+    (qpat_assum`A=SOME res` mp_tac>>TOP_CASE_TAC>>rw[]>>
     `MAP (\a.word_exp st a) wexps =
      MAP (\a.word_exp cst a) (MAP (\a. apply_colour_exp f a) wexps)` by
-       (simp[MAP_MAP_o] >>
-       simp[MAP_EQ_f] >>
-       gen_tac >>
-       strip_tac >>
-       first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
-       full_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,PULL_EXISTS
-         ,miscTheory.IS_SOME_EXISTS] >>
-       first_assum(fn th => first_x_assum(mp_tac o C MATCH_MP th)) >>
-       strip_tac >>
-       disch_then(qspecl_then[`cst`,`f`,`x`]mp_tac) >>
-       discharge_hyps
-       >-
-         (full_simp_tac(srw_ss())[]>>
-         imp_res_tac domain_FOLDR_union_subset>>
-         srw_tac[][]>>
-         metis_tac[SUBSET_DEF])>>
-       full_simp_tac(srw_ss())[]) >>
-     pop_assum(SUBST1_TAC o SYM) >>
-     simp[EQ_SYM_EQ])
+       (imp_res_tac the_words_EVERY_IS_SOME>>
+      fs[MAP_MAP_o,MAP_EQ_f]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>
+      rpt(first_x_assum(qspec_then`a` mp_tac))>>
+      rw[IS_SOME_EXISTS]>>
+      simp[Once EQ_SYM_EQ]>>
+      first_assum match_mp_tac>>
+      fs[]>>imp_res_tac domain_FOLDR_union_subset>>
+      metis_tac[SUBSET_DEF])>>
+    fs[])
   >>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>res_tac>>full_simp_tac(srw_ss())[]>>
-    metis_tac[])
+    qpat_assum`A=SOME res`mp_tac>>TOP_CASE_TAC>>rw[]>>
+    fs[])
 
 (*Frequently used tactics*)
 val exists_tac = qexists_tac`cst.permute`>>
@@ -680,18 +669,18 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         metis_tac[])>>
       full_simp_tac(srw_ss())[])
     >-
-      (full_simp_tac(srw_ss())[mem_load_def]>> full_simp_tac(srw_ss())[GSYM mem_load_def]>>
-      qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
+      (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
       discharge_hyps>-
         (full_simp_tac(srw_ss())[get_live_exp_def]>>
         `{n'} ⊆ n' INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
-      srw_tac[][strong_locals_rel_def]>>
-      BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[]>>
+      Cases_on`x`>>simp[]>>
+      fs[mem_load_def]>>
+      IF_CASES_TAC>>fs[]>>
+      rw[strong_locals_rel_def]>>
       full_simp_tac(srw_ss())[lookup_insert]>>
-      rpt strip_tac >>
       Cases_on`n''=n`>>full_simp_tac(srw_ss())[]>>
       `f n'' ≠ f n` by
         (full_simp_tac(srw_ss())[domain_union,get_writes_def,get_writes_inst_def]>>
@@ -708,10 +697,13 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         `{n'} ⊆ n' INSERT n INSERT domain live` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
         metis_tac[strong_locals_rel_subset])>>
       full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      Cases_on`x`>>simp[]>>
       srw_tac[][get_var_perm]>>
       Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
       imp_res_tac strong_locals_rel_get_var>>
-      Cases_on`mem_store x x' st`>>full_simp_tac(srw_ss())[mem_store_def,strong_locals_rel_def]))
+      fs[]>>
+      Cases_on`mem_store c x' st`>>full_simp_tac(srw_ss())[mem_store_def,strong_locals_rel_def]>>
+      IF_CASES_TAC>>fs[]))
   >- (*Assign*)
     (exists_tac>>exists_tac_2>>
     srw_tac[][word_state_eq_rel_def,set_var_perm,set_var_def]>>
@@ -764,7 +756,7 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     metis_tac[])
   >- (*Call*)
-    (full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
+    (goalStack.print_tac"Slow evaluate_apply_colour Call proof" >>full_simp_tac(srw_ss())[evaluate_def,LET_THM,colouring_ok_def,get_live_def,get_vars_perm]>>
     Cases_on`get_vars l st`>>full_simp_tac(srw_ss())[]>>
     Cases_on`bad_dest_args o1 l`>- full_simp_tac(srw_ss())[bad_dest_args_def]>>
     `¬bad_dest_args o1 (MAP f l)` by full_simp_tac(srw_ss())[bad_dest_args_def]>>
@@ -2838,28 +2830,26 @@ val ssa_cc_trans_exp_correct = prove(
   full_simp_tac(srw_ss())[word_exp_def,ssa_cc_trans_exp_def]>>
   qpat_assum`A=SOME res` mp_tac
   >-
-    (EVERY_CASE_TAC>>full_simp_tac(srw_ss())[ssa_locals_rel_def,word_state_eq_rel_def]>>
-    res_tac>>
-    full_simp_tac(srw_ss())[domain_lookup]>>
-    qpat_assum`A = SOME v` SUBST_ALL_TAC>>
-    rev_full_simp_tac(srw_ss())[])
+    (TOP_CASE_TAC>>fs[ssa_locals_rel_def,word_state_eq_rel_def]>>rw[]>>
+    res_tac>>rpt(qpat_assum`!x.P` kall_tac)>>
+    fs[domain_lookup]>>
+    rfs[])
   >-
     full_simp_tac(srw_ss())[word_state_eq_rel_def]
   >-
     (Cases_on`word_exp st w`>>
     res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def])
   >-
-    (LET_ELIM_TAC>>
-    qpat_assum`A=SOME res` mp_tac>>
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    `ws = ws'` by
-      (unabbrev_all_tac>>
-      simp[MAP_MAP_o,MAP_EQ_f]>>
-      srw_tac[][]>>
-      full_simp_tac(srw_ss())[EVERY_MEM,MEM_MAP,PULL_EXISTS]>>
-      res_tac>>
-      full_simp_tac(srw_ss())[IS_SOME_EXISTS])>>
-    full_simp_tac(srw_ss())[])
+    (qpat_abbrev_tac`ls = MAP A B`>>
+    qpat_abbrev_tac`ls' = MAP A B`>>
+    TOP_CASE_TAC>>simp[]>>
+    `ls = ls'` by
+      (imp_res_tac the_words_EVERY_IS_SOME>>
+      unabbrev_all_tac>>fs[MAP_EQ_f,MAP_MAP_o]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>res_tac>>
+      fs[IS_SOME_EXISTS])>>
+    fs[])
   >-
     (Cases_on`word_exp st w`>>
     res_tac>>full_simp_tac(srw_ss())[word_state_eq_rel_def,mem_load_def]))
@@ -3006,6 +2996,7 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     >-
       (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
       setup_tac>>
+      Cases_on`x`>>
       full_simp_tac(srw_ss())[mem_load_def]>> full_simp_tac(srw_ss())[GSYM mem_load_def]>>
       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
       match_mp_tac ssa_locals_rel_set_var>>
@@ -3014,10 +3005,12 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
       full_simp_tac(srw_ss())[get_var_perm]>>
       setup_tac>>
+      Cases_on`x`>>fs[]>>
       Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>imp_res_tac ssa_locals_rel_get_var>>
       full_simp_tac(srw_ss())[option_lookup_def]>>
-      Cases_on`mem_store x x' st`>>
-      full_simp_tac(srw_ss())[mem_store_def]))
+      Cases_on`mem_store c x' st`>>
+      full_simp_tac(srw_ss())[mem_store_def]>>
+      IF_CASES_TAC>>fs[]))
   >-(*Assign*)
     exp_tac
   >-(*Get*)
@@ -3054,7 +3047,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
     IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
     rveq>>full_simp_tac(srw_ss())[])
   >- (*Call*)
-   (Cases_on`o'`
+   (goalStack.print_tac"Slow ssa_cc_trans_correct Call proof">>
+   Cases_on`o'`
     >-
     (*Tail call*)
     (exists_tac>>
