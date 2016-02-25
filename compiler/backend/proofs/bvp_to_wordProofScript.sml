@@ -2900,6 +2900,28 @@ val assign_thm = Q.prove(
     \\ TRY (match_mp_tac word_ml_inv_zero) \\ fs []
     \\ TRY (match_mp_tac word_ml_inv_num) \\ fs []
     \\ TRY (match_mp_tac word_ml_inv_neg_num) \\ fs [])
+  \\ Cases_on `op = GlobalsPtr` \\ fs [] THEN1
+   (var_eq_tac \\ fs [do_app]
+    \\ every_case_tac \\ fs []
+    \\ strip_tac \\ rpt var_eq_tac
+    \\ fs [bvp_to_wordTheory.assign_def]
+    \\ imp_res_tac state_rel_cut_IMP
+    \\ fs [bvp_to_bvi_def]
+    \\ fs[wordSemTheory.evaluate_def,wordSemTheory.word_exp_def]
+    \\ pop_assum mp_tac \\ simp [state_rel_def]
+    \\ strip_tac \\ fs [the_global_def,libTheory.the_def]
+    \\ fs [FLOOKUP_DEF,wordSemTheory.set_var_def,lookup_insert,
+           adjust_var_11,libTheory.the_def,set_var_def]
+    \\ rw [] \\ fs []
+    \\ asm_exists_tac \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac word_ml_inv_insert \\ fs []
+    \\ first_x_assum (fn th => mp_tac th THEN match_mp_tac word_ml_inv_rearrange)
+    \\ fs [] \\ rw [] \\ fs [])
+  \\ Cases_on `op = SetGlobalsPtr` \\ fs [] THEN1
+
+    cheat
+
   \\ `assign c n l dest op args names_opt = (GiveUp,l)` by
         (Cases_on `op` \\ fs [assign_def] \\ NO_TAC)
   \\ fs [] \\ rpt strip_tac

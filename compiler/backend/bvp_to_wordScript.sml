@@ -31,11 +31,10 @@ val assign_def = Define `
         if i < 0
         then (Assign (adjust_var dest) (Const (0w - n2w (Num (4 * (0 - i))))),l)
         else (Assign (adjust_var dest) (Const (n2w (Num (4 * i)))),l)
-    | _ => (GiveUp,l)
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
-    | El => (Assign (adjust_var dest) (Load (Op Add (MAP (Var o adjust_var) args))),l)
+    | _ => (GiveUp,l)
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
