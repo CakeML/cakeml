@@ -53,6 +53,9 @@ val do_app_aux_def = Define `
         (case xs of
          | [RefPtr p] => SOME (SOME (Unit, s with global := SOME p))
          | _ => NONE)
+    | (Global n, _) => NONE
+    | (SetGlobal n, _) => NONE
+    | (AllocGlobal, _) => NONE
     | _ => SOME NONE`
 
 val do_app_def = Define `

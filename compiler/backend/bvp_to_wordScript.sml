@@ -34,6 +34,9 @@ val assign_def = Define `
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
+    | Global _ => (Skip,l)
+    | SetGlobal _ => (Skip,l)
+    | AllocGlobal => (Skip,l)
     | _ => (GiveUp,l)
     | _ => (GiveUp:'a wordLang$prog,l)`;
 

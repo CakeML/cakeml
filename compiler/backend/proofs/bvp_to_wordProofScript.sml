@@ -2975,6 +2975,9 @@ val assign_thm = Q.prove(
     \\ match_mp_tac word_ml_inv_Unit
     \\ pop_assum mp_tac \\ fs []
     \\ match_mp_tac word_ml_inv_rearrange \\ rw [] \\ fs [])
+  \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
+  \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
+  \\ Cases_on `?i. op = SetGlobal i` \\ fs [] THEN1 (fs [do_app])
   \\ `assign c n l dest op args names_opt = (GiveUp,l)` by
         (Cases_on `op` \\ fs [assign_def] \\ NO_TAC)
   \\ fs [] \\ rpt strip_tac
