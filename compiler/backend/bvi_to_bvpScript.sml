@@ -8,6 +8,12 @@ val _ = new_theory "bvi_to_bvp";
 val op_space_reset_def = Define `
   (op_space_reset Add = T) /\
   (op_space_reset Sub = T) /\
+  (op_space_reset Mult = T) /\
+  (op_space_reset Div = T) /\
+  (op_space_reset Mod = T) /\
+  (op_space_reset (FromList _) = T) /\
+  (op_space_reset RefArray = T) /\
+  (op_space_reset RefByte = T) /\
   (op_space_reset _ = F)`;
 
 val iAssign_def = Define `
@@ -15,7 +21,7 @@ val iAssign_def = Define `
     if op_space_reset op then
       Assign n1 op vs (SOME (list_to_num_set (vs++live++env)))
     else
-      let k = op_space_req op in
+      let k = op_space_req op (LENGTH vs) in
         if k = 0 then Assign n1 op vs NONE
           else Seq (MakeSpace k (list_to_num_set (vs++live++env)))
                    (Assign n1 op vs NONE)`;

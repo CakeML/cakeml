@@ -49,14 +49,14 @@ val consume_space_def = Define `
     if s.space < k then NONE else SOME (s with space := s.space - k)`;
 
 val do_space_def = Define `
-  do_space op s =
+  do_space op l s =
     if op_space_reset op then SOME (s with space := 0)
-    else if op_space_req op = 0 then SOME s
-         else consume_space (op_space_req op) s`;
+    else if op_space_req op l = 0 then SOME s
+         else consume_space (op_space_req op l) s`;
 
 val do_app_def = Define `
   do_app op vs (s:'ffi bvpSem$state) =
-    case do_space op s of
+    case do_space op (LENGTH vs) s of
     | NONE => Rerr(Rabort Rtype_error)
     | SOME s1 => (case bviSem$do_app op vs (bvp_to_bvi s1) of
                   | Rerr e => Rerr e
