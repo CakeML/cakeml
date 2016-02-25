@@ -146,10 +146,12 @@ val word_exp_with_const = Q.store_thm("word_exp_with_const[simp]",
   recInduct word_exp_ind >>
   srw_tac[][word_exp_def] >>
   every_case_tac >> full_simp_tac(srw_ss())[] >>
-  unabbrev_all_tac >>
-  full_simp_tac(srw_ss())[EVERY_MEM,EXISTS_MEM,MEM_MAP,PULL_EXISTS,IS_SOME_EXISTS,MAP_MAP_o,o_DEF] >>
-  res_tac >> rev_full_simp_tac(srw_ss())[] >>
-  AP_TERM_TAC >> simp[MAP_EQ_f]);
+  ntac 2 (pop_assum mp_tac)>>
+  qpat_abbrev_tac`ls = MAP A B`>>
+  qpat_abbrev_tac`ls' = MAP A B`>>
+  `ls = ls'` by
+    unabbrev_all_tac>>fs[MAP_EQ_f]>>
+  rw[])
 
 val assign_const = Q.store_thm("assign_const",
   `assign x y z = SOME a ⇒
@@ -239,9 +241,10 @@ val evaluate_add_clock = Q.store_thm("evaluate_add_clock",
   TRY split_pair_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
   imp_res_tac alloc_const >> full_simp_tac(srw_ss())[] >>
   imp_res_tac inst_const >> full_simp_tac(srw_ss())[] >>
-  imp_res_tac mem_store_const >> full_simp_tac(srw_ss())[] >>
+  TRY(Cases_on`mem_store c x s`)>>
+  imp_res_tac mem_store_const >> fs[]>>
   simp[state_component_equality,dec_clock_def] >>
-  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,LET_THM] >>
+  full_simp_tac(srw_ss())[ffiTheory.call_FFI_def,LET_THM] >>rfs[]>>
   every_case_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >> rveq >>
   simp[state_component_equality,dec_clock_def] >>
   imp_res_tac jump_exc_const >> full_simp_tac(srw_ss())[] >>
@@ -864,12 +867,16 @@ val handler_eq = prove(
 val word_exp_stack_swap = prove(
   ``!s e st. word_exp s e = word_exp (s with stack:=st) e``,
   ho_match_mp_tac word_exp_ind>>
-  srw_tac[][word_exp_def]>-
-  (first_x_assum(qspec_then `st` SUBST1_TAC)>>
-  every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])>-
-  (`ws = ws'` by
-  (bossLib.UNABBREV_ALL_TAC>>
-  full_simp_tac(srw_ss())[MEM_MAP,EVERY_MEM,MAP_EQ_f])>>full_simp_tac(srw_ss())[])>>
+  srw_tac[][word_exp_def]
+  >-
+    (first_x_assum(qspec_then `st` SUBST1_TAC)>>
+    every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
+  >-
+    (qpat_abbrev_tac`ls = MAP A B`>>
+    qpat_abbrev_tac`ls' = MAP A B`>>
+    (`ls = ls'` by
+      unabbrev_all_tac>>fs[MEM_MAP,MAP_EQ_f])>>
+    fs[])>>
   every_case_tac>>full_simp_tac(srw_ss())[])
 
 (*Stack swap theorem for evaluate*)
@@ -1527,10 +1534,10 @@ val word_exp_perm = store_thm("word_exp_perm",``
   >-
     (every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
   >>
-    `ws=ws'` by
-      (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[MAP_EQ_f])>>
-    full_simp_tac(srw_ss())[])
+    qpat_abbrev_tac`ls = MAP A B`>>
+    qpat_abbrev_tac`ls' = MAP A B`>>
+    `ls = ls'` by
+      (unabbrev_all_tac>>fs[MAP_EQ_f])>> fs[])
 
 val mem_store_perm = prove(``
   mem_store a (w:'a word_loc) (s with permute:=perm) =
@@ -1833,6 +1840,14 @@ val every_inst_def = Define`
 val locals_rel_def = Define`
   locals_rel temp (s:'a word_loc num_map) t ⇔ (∀x. x < temp ⇒ lookup x s = lookup x t)`
 
+val the_words_EVERY_IS_SOME = store_thm("the_words_EVERY_IS_SOME",
+  ``∀ls x.
+  the_words ls = SOME x ⇒
+  EVERY IS_SOME ls``,
+  Induct>>fs[]>>Cases>>fs[the_words_def]>>
+  TOP_CASE_TAC>>fs[]>>
+  TOP_CASE_TAC>>fs[])
+
 val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
   ∀s exp w.
   every_var_exp (λx. x < temp) exp ∧
@@ -1848,13 +1863,16 @@ val locals_rel_word_exp = store_thm("locals_rel_word_exp",``
     (qpat_assum`A= SOME w` mp_tac>>full_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
   >-
     (qpat_assum`A= SOME w` mp_tac>>
-    LET_ELIM_TAC>>
-    Cases_on`EVERY IS_SOME ws`>>full_simp_tac(srw_ss())[]>>
-    `ws = ws'` by
-      (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[LIST_EQ,MAP_EQ_f,EVERY_MEM,MEM_MAP,IS_SOME_EXISTS]>>srw_tac[][]>>
-      res_tac>>full_simp_tac(srw_ss())[])>>
-    metis_tac[])
+    qpat_abbrev_tac`ls = MAP A B`>>
+    qpat_abbrev_tac`ls' = MAP A B`>>
+    TOP_CASE_TAC>>rw[]>>
+    `ls = ls'` by
+      (imp_res_tac the_words_EVERY_IS_SOME>>
+      unabbrev_all_tac>>fs[MAP_EQ_f]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>res_tac>>
+      fs[IS_SOME_EXISTS])>>
+    fs[])
   >>
     every_case_tac>>res_tac>>full_simp_tac(srw_ss())[])
 
@@ -1977,6 +1995,7 @@ val locals_rel_evaluate_thm = store_thm("locals_rel_evaluate_thm",``
       rev_full_simp_tac(srw_ss())[every_var_exp_def,every_var_imm_def]>>
       full_simp_tac(srw_ss())[set_var_def,mem_store_def,mem_load_def]>>
       full_simp_tac(srw_ss())[state_component_equality]>>
+      EVERY_CASE_TAC>>fs[state_component_equality]>>
       metis_tac[locals_rel_set_var])
   >-
     (every_case_tac>>imp_res_tac locals_rel_word_exp>>full_simp_tac(srw_ss())[every_var_def]>>
