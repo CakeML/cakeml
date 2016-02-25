@@ -18,7 +18,8 @@ val adjust_set_def = Define `
 val Unit_def = Define`Unit = Const 2w`;
 
 val GiveUp_def = Define `
-  GiveUp = Seq (Assign 1 (Const (-1w))) (Alloc 1 LN) :'a wordLang$prog`
+  GiveUp = Seq (Assign 1 (Const (-1w)))
+               (Alloc 1 (adjust_set (LN:num_set))) :'a wordLang$prog`
 
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
