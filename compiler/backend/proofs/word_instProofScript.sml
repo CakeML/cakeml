@@ -206,38 +206,50 @@ val optimize_consts_ok = prove(``
     metis_tac[PERM_APPEND])
 
 val pull_exp_ok = prove(``
-  ∀exp s.
-  word_exp s exp ≠ NONE ⇒
-  word_exp s exp = word_exp s (pull_exp exp)``,
-  (*weakened precondition*)
-  cheat)
-  (*ho_match_mp_tac pull_exp_ind>>srw_tac[][]>>
+  ∀exp s x.
+  word_exp s exp = SOME x ⇒
+  word_exp s (pull_exp exp) = SOME x``,
+  ho_match_mp_tac pull_exp_ind>>srw_tac[][]>>
   full_simp_tac(srw_ss())[pull_exp_def,LET_THM]>>
   TRY(full_simp_tac(srw_ss())[op_consts_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>
-    FULL_CASE_TAC>>fs[]
-    FULL_CASE_TAC>>fs[]
-    TOP_CASE_TAC>>fs[]
-    NO_TAC)
+    FULL_CASE_TAC>>fs[]>>
+    FULL_CASE_TAC>>fs[]>>NO_TAC)
   >-
-    (simp[convert_sub_ok,word_exp_def,MAP_MAP_o]>>
+    (fs[convert_sub_ok,word_exp_def,MAP_MAP_o]>>
+    pop_assum mp_tac>>
     qpat_abbrev_tac`ws = MAP f ls`>>
     qpat_abbrev_tac`ws = MAP f ls`>>
+    TOP_CASE_TAC>>fs[]>>
     `ws = ws'` by
-      (match_mp_tac LIST_EQ>>unabbrev_all_tac>>full_simp_tac(srw_ss())[EL_MAP,EL_MEM])>>
-    full_simp_tac(srw_ss())[GSYM MAP_MAP_o])
+      (imp_res_tac the_words_EVERY_IS_SOME>>
+      unabbrev_all_tac>>fs[MAP_EQ_f,MAP_MAP_o]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>res_tac>>
+      fs[IS_SOME_EXISTS])>>
+    fs[])
   >>
-  TRY(full_simp_tac(srw_ss())[pull_exp_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-  first_x_assum(qspec_then `s` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-  pop_assum sym_sub_tac>>full_simp_tac(srw_ss())[IS_SOME_EXISTS]>>NO_TAC)>>
-  assume_tac binop_distinct>>
-  full_simp_tac(srw_ss())[optimize_consts_ok,pull_ops_ok]>>
-  qpat_abbrev_tac`ls = A::B::C`>>
-  `MAP (λa. word_exp s a) ls = MAP (λa. word_exp s a) (MAP pull_exp ls)` by
-    (match_mp_tac LIST_EQ>>unabbrev_all_tac>>srw_tac[][]>>
-    Cases_on`x`>>full_simp_tac(srw_ss())[]>>
-    Cases_on`n`>>full_simp_tac(srw_ss())[]>>
-    full_simp_tac(srw_ss())[EL_MAP,EL_MEM])>>
-  unabbrev_all_tac>>full_simp_tac(srw_ss())[word_exp_def,ETA_AX]*)
+  fs[optimize_consts_ok,pull_ops_ok]>>
+  fs[word_exp_def,the_words_def]>>
+  (*4 goals*)
+  TRY(pop_assum mp_tac>>
+    ntac 5(FULL_CASE_TAC>>fs[])>>
+    rw[]>>
+    fs[DISJ_IMP_THM,FORALL_AND_THM]>>
+    res_tac>>fs[]>>
+    qpat_assum`A=SOME x'` mp_tac>>
+    qpat_abbrev_tac`ws = MAP f ls`>>
+    qpat_abbrev_tac`ws = MAP f ls`>>
+    strip_tac>>
+    `ws = ws'` by
+     (imp_res_tac the_words_EVERY_IS_SOME>>
+      unabbrev_all_tac>>fs[MAP_EQ_f,MAP_MAP_o]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>res_tac>>
+      fs[IS_SOME_EXISTS])>>
+    fs[])>>
+  EVERY_CASE_TAC>>fs[]>>
+  res_tac>>fs[]>>
+  rfs[])
 
 val convert_sub_every_var_exp = prove(``
   ∀ls.
@@ -277,26 +289,35 @@ val pull_exp_every_var_exp = prove(``
 (*First step: Make op expressions have exactly 2 args*)
 (*Semantics*)
 val flatten_exp_ok = prove(``
-  ∀exp s.
-  word_exp s exp ≠ NONE ⇒
-  word_exp s exp = word_exp s (flatten_exp exp)``,
-  (*weakened precondition*)
-  cheat)
-  (*ho_match_mp_tac flatten_exp_ind>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[flatten_exp_def]
+  ∀exp s x.
+  word_exp s exp = SOME x ⇒
+  word_exp s (flatten_exp exp) = SOME x``,
+  ho_match_mp_tac flatten_exp_ind>>srw_tac[][]>>
+  fs[word_exp_def,flatten_exp_def]
   >-
-    (full_simp_tac(srw_ss())[flatten_exp_def,word_exp_def]>>
+    (pop_assum mp_tac>>
+    TOP_CASE_TAC>>fs[]>>
+    pop_assum mp_tac>>
     qpat_abbrev_tac`ls = MAP A B`>>
     qpat_abbrev_tac`ls' = MAP A B`>>
+    rw[]>>
     `ls = ls'` by
-      (unabbrev_all_tac>>fs[MAP_EQ_f,MAP_MAP_o])>>
-    simp[])
+      (imp_res_tac the_words_EVERY_IS_SOME>>
+      unabbrev_all_tac>>fs[MAP_EQ_f,MAP_MAP_o]>>
+      fs[EVERY_MAP,EVERY_MEM]>>
+      rw[]>>res_tac>>
+      fs[IS_SOME_EXISTS])>>
+    fs[])
   >>
     fs[op_consts_def,word_exp_def,LET_THM,word_op_def,the_words_def]>>
-    TOP_CASE_TAC>>fs[]
-    IF_CASES_TAC>>full_simp_tac(srw_ss())[]>>
-    TRY(first_x_assum(qspec_then `s` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
-    pop_assum sym_sub_tac>>full_simp_tac(srw_ss())[])>>metis_tac[option_CLAUSES]*)
+    Cases_on`word_exp s exp`>>fs[]>>Cases_on`x'`>>fs[]>>
+    (*4 cases*)
+    TRY(qpat_assum`A=SOME x` mp_tac>>qcase_tac`word_exp s exp'`>>
+    Cases_on`word_exp s exp'`>>fs[]>>Cases_on`x'`>>fs[]>>
+    FULL_CASE_TAC>>fs[]>>
+    first_x_assum(qspec_then`s` assume_tac)>>rfs[]>>
+    first_x_assum(qspec_then`s` assume_tac)>>rfs[])>>
+    res_tac>>fs[])
 
 (*All ops are 2 args. Technically, we should probably check that Sub has 2 args. However, the semantics already checks that and it will get removed later*)
 val binary_branch_exp_def = tDefine "binary_branch_exp" `
@@ -336,8 +357,8 @@ val inst_select_exp_thm = prove(``
   ∀x.
     if x = tar then lookup x loc' = SOME w
     else if x < temp then lookup x loc' = lookup x s.locals
-    else T``,cheat)
-  (*completeInduct_on`exp_size (K 0) exp`>>
+    else T``,
+  completeInduct_on`exp_size (K 0) exp`>>
   rpt strip_tac>>
   Cases_on`exp`>>
   full_simp_tac(srw_ss())[evaluate_def,binary_branch_exp_def,every_var_exp_def]
@@ -374,7 +395,7 @@ val inst_select_exp_thm = prove(``
         disch_then (qspec_then`e`mp_tac)>>
         discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
         full_simp_tac(srw_ss())[binary_branch_exp_def,every_var_exp_def,the_words_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[IS_SOME_EXISTS]>>rev_full_simp_tac(srw_ss())[]>>
-        qpat_assum`A=SOME (Word w)` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
+        qpat_assum`A=SOME w` mp_tac>>simp[Once word_exp_def]>>FULL_CASE_TAC>>
         FULL_CASE_TAC>>fs[]>>
         srw_tac[][]>>res_tac>>
         pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
@@ -411,7 +432,8 @@ val inst_select_exp_thm = prove(``
       disch_then assume_tac>> first_assum mp_tac>>
       disch_then (qspec_then`e1`mp_tac)>>
         discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
-      qpat_assum`
+      Cases_on`word_exp s e1`>>fs[]>>Cases_on`x`>>
+      Cases_on`word_exp s e2`>>fs[]>>Cases_on`x`>>fs[]>>
       strip_tac>>res_tac>>
       pop_assum(qspecl_then[`temp`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
       Cases_on`∃w. e2 = Const w`
@@ -419,29 +441,29 @@ val inst_select_exp_thm = prove(``
         (full_simp_tac(srw_ss())[]>>IF_CASES_TAC
         >-
           (full_simp_tac(srw_ss())[evaluate_def]>>
-          simp[LET_THM,inst_def,mem_load_def,word_exp_def,assign_def]>>
-          `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
+          simp[LET_THM,inst_def,mem_load_def,word_exp_def,assign_def,the_words_def]>>
+          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
           full_simp_tac(srw_ss())[word_op_def]>>
           Cases_on`b`>>
           full_simp_tac(srw_ss())[set_var_def,state_component_equality,lookup_insert,word_exp_def]>>
-          srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
+          srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>metis_tac[])
         >> IF_CASES_TAC
         >-
-          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
-          `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
+          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert,the_words_def]>>
+          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
           full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[word_exp_def,word_op_def]>>
           full_simp_tac(srw_ss())[state_component_equality,lookup_insert]>>srw_tac[][]>>
           DISJ2_TAC>>strip_tac>>
-          `x'' ≠ temp` by DECIDE_TAC>>
+          `x ≠ temp` by DECIDE_TAC>>
           metis_tac[])
         >>
-          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert]>>
-          `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
+          (simp[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def,set_var_def,lookup_insert,the_words_def]>>
+          `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
           full_simp_tac(srw_ss())[]>>rev_full_simp_tac(srw_ss())[word_exp_def]>>
           full_simp_tac(srw_ss())[state_component_equality,lookup_insert]>>
           srw_tac[][]>>
           DISJ2_TAC>>strip_tac>-`F` by DECIDE_TAC>>
-          `x'' ≠ temp` by DECIDE_TAC>>
+          `x ≠ temp` by DECIDE_TAC>>
           `¬ (temp+1 < temp)` by DECIDE_TAC>>
           metis_tac[]))
       >>
@@ -454,7 +476,7 @@ val inst_select_exp_thm = prove(``
         full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>
         first_x_assum(qspecl_then[`e2`] mp_tac)>>
         simp[exp_size_def]>>
-        disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`x'`,`loc''`] mp_tac)>>
+        disch_then(qspecl_then [`c`,`temp+1`,`temp+1`,`s with locals:=loc''`,`Word c''`,`loc''`] mp_tac)>>
         discharge_hyps>-
           (srw_tac[][locals_rel_def]>-(Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def])
           >-
@@ -464,25 +486,25 @@ val inst_select_exp_thm = prove(``
             (*word_exp invariant under extra locals*)
             match_mp_tac locals_rel_word_exp>>
             full_simp_tac(srw_ss())[locals_rel_def]>>
-            srw_tac[][]>>`x'' ≠ temp` by DECIDE_TAC>>
+            srw_tac[][]>>`x ≠ temp` by DECIDE_TAC>>
             metis_tac[])>>
         strip_tac>>full_simp_tac(srw_ss())[word_exp_def]>>
-        `lookup temp loc''' = SOME (Word x) ∧
-         lookup (temp+1) loc''' = SOME (Word x')` by
+        `lookup temp loc''' = SOME (Word c') ∧
+         lookup (temp+1) loc''' = SOME (Word c'')` by
          (first_assum(qspecl_then[`temp`] assume_tac)>>
          first_x_assum(qspecl_then[`temp+1`] assume_tac)>>
          `temp ≠ temp+1` by DECIDE_TAC>>
          full_simp_tac(srw_ss())[]>>metis_tac[])>>
         rev_full_simp_tac(srw_ss())[]>>
-        simp[inst_def,assign_def,word_exp_def,LET_THM,state_component_equality,set_var_def,lookup_insert]>>
+        simp[inst_def,assign_def,word_exp_def,LET_THM,state_component_equality,set_var_def,lookup_insert,the_words_def]>>
         srw_tac[][]>>DISJ2_TAC>>strip_tac>>
-        `x''<temp+1 ∧ x'' ≠ temp ∧ x'' ≠ temp+1` by DECIDE_TAC>>
+        `x<temp+1 ∧ x ≠ temp ∧ x≠ temp+1` by DECIDE_TAC>>
         metis_tac[])
     >>
       (Cases_on`b`>>full_simp_tac(srw_ss())[binary_branch_exp_def,word_exp_def,the_words_def,word_op_def]>>
       Cases_on`l`>>fs[the_words_def]>>
       TRY(Cases_on`t`>>full_simp_tac(srw_ss())[]>>Cases_on`t'`>>full_simp_tac(srw_ss())[])>>
-      qpat_assum`A=SOME(Word w)` mp_tac>>
+      qpat_assum`A=SOME w` mp_tac>>
       Cases_on`word_exp s h`>>fs[]>>
       Cases_on`x`>>fs[]>>
       Cases_on`t`>>fs[the_words_def]>>
@@ -491,17 +513,20 @@ val inst_select_exp_thm = prove(``
       Cases_on`t'`>>fs[the_words_def]>>
       EVERY_CASE_TAC>>fs[]))
   >-
+    (*Shift*)
     (simp[inst_select_exp_def]>>last_x_assum mp_tac>>simp[Once PULL_FORALL]>>disch_then (qspec_then`e`mp_tac)>>discharge_hyps>-(full_simp_tac(srw_ss())[exp_size_def]>>DECIDE_TAC)>>
     full_simp_tac(srw_ss())[LET_THM,word_exp_def]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
     >-
-      (`word_sh s' x (num_exp n) = SOME x` by
-        (full_simp_tac(srw_ss())[word_sh_def]>>EVERY_CASE_TAC)>>
+      (`word_sh s' c' (num_exp n) = SOME c'` by
+        (full_simp_tac(srw_ss())[word_sh_def]>>EVERY_CASE_TAC>>
+        fs[])>>
       srw_tac[][]>>res_tac>>
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       full_simp_tac(srw_ss())[evaluate_def,LET_THM,get_vars_def,get_var_def]>>
       `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
       full_simp_tac(srw_ss())[set_vars_def,alist_insert_def,state_component_equality,lookup_insert]>>
-      srw_tac[][]>>rev_full_simp_tac(srw_ss())[]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+      srw_tac[][]>>rev_full_simp_tac(srw_ss())[]>>
+      `x ≠ temp` by DECIDE_TAC>>metis_tac[])
     >-
       (assume_tac DIMINDEX_GT_0>>
       `0 ≠ dimindex(:'a)` by DECIDE_TAC>>full_simp_tac(srw_ss())[])
@@ -509,13 +534,13 @@ val inst_select_exp_thm = prove(``
       (srw_tac[][]>>res_tac>>
       first_assum(qspecl_then[`temp`,`c`] assume_tac)>>
       full_simp_tac(srw_ss())[evaluate_def,LET_THM,inst_def,mem_load_def,assign_def,word_exp_def]>>
-      `lookup temp loc'' = SOME (Word x)` by metis_tac[]>>
+      `lookup temp loc'' = SOME (Word c')` by metis_tac[]>>
       full_simp_tac(srw_ss())[num_exp_def,set_var_def,state_component_equality,lookup_insert]>>
-      srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x' ≠ temp` by DECIDE_TAC>>
+      srw_tac[][]>>DISJ2_TAC>>strip_tac>>`x ≠ temp` by DECIDE_TAC>>
       metis_tac[])
     >-
       (`num_exp n ≥ dimindex(:'a)` by DECIDE_TAC>>
-      full_simp_tac(srw_ss())[word_sh_def]))*)
+      full_simp_tac(srw_ss())[word_sh_def])))
 
 val locals_rm = prove(``
   D with locals := D.locals = D``,
@@ -543,29 +568,26 @@ val inst_select_thm = store_thm("inst_select_thm",``
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
     imp_res_tac flatten_exp_every_var_exp>>
-    `word_exp st exp ≠ NONE` by fs[]>>
     imp_res_tac pull_exp_ok>>
-    fs[]>>
     imp_res_tac flatten_exp_ok>>
+    fs[]>>
     assume_tac flatten_exp_binary_branch_exp>>
     pop_assum(qspec_then`pull_exp exp` assume_tac)>>
-    rveq>>
     imp_res_tac inst_select_exp_thm>>rev_full_simp_tac(srw_ss())[]>>
-    last_x_assum(qspec_then`x` mp_tac)>>discharge_hyps>-simp[]>>
-    disch_then(qspecl_then[`c'`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
+    first_x_assum(qspecl_then[`c'`,`c`] assume_tac)>>full_simp_tac(srw_ss())[]>>
     simp[state_component_equality,set_var_def,locals_rel_def]>>
     srw_tac[][]>>full_simp_tac(srw_ss())[lookup_insert]>>
-    Cases_on`x'=c'`>>full_simp_tac(srw_ss())[]>>
+    IF_CASES_TAC>>fs[]>>
     metis_tac[])
   >-
-    cheat
-    (*full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
+    (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 2 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     full_simp_tac(srw_ss())[every_var_def]>>
     imp_res_tac pull_exp_every_var_exp>>
     imp_res_tac flatten_exp_every_var_exp>>
-    full_simp_tac(srw_ss())[Once pull_exp_ok]>>
-    full_simp_tac(srw_ss())[Once flatten_exp_ok]>>
+    imp_res_tac pull_exp_ok>>
+    imp_res_tac flatten_exp_ok>>
+    fs[]>>
     assume_tac flatten_exp_binary_branch_exp>>
     pop_assum(qspec_then`pull_exp exp` assume_tac)>>
     imp_res_tac inst_select_exp_thm>>rev_full_simp_tac(srw_ss())[]>>
@@ -573,10 +595,9 @@ val inst_select_thm = store_thm("inst_select_thm",``
     full_simp_tac(srw_ss())[LET_THM,evaluate_def,word_exp_def]>>
     first_assum(qspec_then`temp` assume_tac)>>full_simp_tac(srw_ss())[set_store_def]>>
     full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-    srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[]*)
-  >-
-    cheat
-    (*full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
+    srw_tac[][]>>`x' ≠ temp` by DECIDE_TAC>>metis_tac[])
+  >-(*Set has optimizations*)
+    (full_simp_tac(srw_ss())[evaluate_def]>>last_x_assum mp_tac>>
     ntac 3 FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>strip_tac>>
     qpat_abbrev_tac`expr = flatten_exp (pull_exp exp)`>>
     Cases_on`∃w exp'. expr = Op Add [exp';Const w]`>>
@@ -586,47 +607,53 @@ val inst_select_thm = store_thm("inst_select_thm",``
       >-
         (full_simp_tac(srw_ss())[Abbr`expr`,every_var_def]>>
         imp_res_tac pull_exp_every_var_exp>>
-        full_simp_tac(srw_ss())[Once pull_exp_ok]>>
-        full_simp_tac(srw_ss())[Once flatten_exp_ok,word_exp_def,LET_THM,IS_SOME_EXISTS]>>
-        imp_res_tac flatten_exp_every_var_exp>>rev_full_simp_tac(srw_ss())[every_var_exp_def]>>
-        full_simp_tac(srw_ss())[]>>
-        imp_res_tac inst_select_exp_thm>> ntac 5 (pop_assum kall_tac)>>
+        imp_res_tac pull_exp_ok>>
+        imp_res_tac flatten_exp_ok>>
+        rfs[word_exp_def,the_words_def]>>
+        Cases_on`word_exp st exp'`>>fs[]>>Cases_on`x'`>>fs[]>>
+        imp_res_tac inst_select_exp_thm>>
+        pop_assum kall_tac>>
+        fs[AND_IMP_INTRO]>>
         pop_assum mp_tac>>discharge_hyps>-
           (assume_tac flatten_exp_binary_branch_exp>>
-          pop_assum(qspec_then`pull_exp exp` mp_tac)>>simp[binary_branch_exp_def])>>
+          pop_assum(qspec_then`pull_exp exp` mp_tac)>>simp[binary_branch_exp_def]>>
+          imp_res_tac flatten_exp_every_var_exp>>
+          rfs[every_var_exp_def])>>
         srw_tac[][]>>
         full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>first_x_assum(qspecl_then [`temp`,`c`] assume_tac)>>
-        full_simp_tac(srw_ss())[inst_def,word_exp_def]>>
-        `lookup temp loc' = SOME(Word x''')` by metis_tac[]>>
-        simp[LET_THM]>>
+        fs[inst_def,word_exp_def,the_words_def]>>
+        `lookup temp loc' = SOME(Word c'')` by metis_tac[]>>
         `get_var var (st with locals := loc') = SOME x` by
           (full_simp_tac(srw_ss())[get_var_def]>>
           `var ≠ temp` by DECIDE_TAC>>metis_tac[])>>
-        full_simp_tac(srw_ss())[mem_store_def]>>
-        full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-        srw_tac[][]>>`x'' ≠ temp` by DECIDE_TAC>>metis_tac[])
+        fs[mem_store_def]>>
+        IF_CASES_TAC>>fs[state_component_equality]>>
+        TOP_CASE_TAC>>fs[locals_rel_def]>>
+        rw[]>>
+        `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
       >>
         qpat_assum`expr =A` sym_sub_tac>>
-        full_simp_tac(srw_ss())[Once pull_exp_ok]>>
-        full_simp_tac(srw_ss())[Once flatten_exp_ok]>>
+        imp_res_tac pull_exp_ok>>
+        imp_res_tac flatten_exp_ok>>
         imp_res_tac inst_select_exp_thm>>
-        full_simp_tac(srw_ss())[AND_IMP_INTRO]>> pop_assum mp_tac>>
-        discharge_hyps
-        >-
+        full_simp_tac(srw_ss())[AND_IMP_INTRO]>>
+        ntac 2 (pop_assum kall_tac)>>
+        pop_assum mp_tac>>
+        discharge_hyps>-
           (full_simp_tac(srw_ss())[every_var_def,Abbr`expr`]>>
-          metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp,pull_exp_every_var_exp])
-        >>
+          metis_tac[flatten_exp_every_var_exp,flatten_exp_binary_branch_exp,pull_exp_every_var_exp])>>
         disch_then (qspecl_then [`temp`,`c`] assume_tac)>>
         full_simp_tac(srw_ss())[evaluate_def,LET_THM,inst_def,word_exp_def]>>
-        `lookup temp loc' = SOME (Word x')` by metis_tac[]>>
-        full_simp_tac(srw_ss())[word_op_def]>>
+        full_simp_tac(srw_ss())[word_op_def,the_words_def,Abbr`expr`]>>
+        `lookup temp loc' = SOME (Word c')` by metis_tac[]>>
         `get_var var (st with locals := loc') = SOME x` by
           (full_simp_tac(srw_ss())[get_var_def,every_var_def]>>
           `var ≠ temp` by DECIDE_TAC>>
           metis_tac[])>>
-        full_simp_tac(srw_ss())[mem_store_def]>>
-        full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>
-        srw_tac[][]>>`x''' ≠ temp` by DECIDE_TAC>>metis_tac[])
+        fs[mem_store_def]>>
+        IF_CASES_TAC>>fs[state_component_equality,locals_rel_def]>>
+        TOP_CASE_TAC>>rw[]>>
+        `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
     >>
       `inst_select c temp (Store exp var) =
         Seq(inst_select_exp c temp temp expr)
@@ -634,25 +661,28 @@ val inst_select_thm = store_thm("inst_select_thm",``
         (full_simp_tac(srw_ss())[inst_select_def,LET_THM]>>
         EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])>>
       full_simp_tac(srw_ss())[inst_select_def,LET_THM,Abbr`expr`]>>
-      full_simp_tac(srw_ss())[Once pull_exp_ok]>>
-      full_simp_tac(srw_ss())[Once flatten_exp_ok]>>
+      imp_res_tac pull_exp_ok>>
+      imp_res_tac flatten_exp_ok>>
       imp_res_tac inst_select_exp_thm>>
-      full_simp_tac(srw_ss())[AND_IMP_INTRO]>> pop_assum mp_tac>>
+      full_simp_tac(srw_ss())[AND_IMP_INTRO]>>
+      ntac 2 (pop_assum kall_tac)>>
+      pop_assum mp_tac>>
       discharge_hyps
       >-
         (full_simp_tac(srw_ss())[every_var_def]>>
         metis_tac[pull_exp_every_var_exp,flatten_exp_every_var_exp,flatten_exp_binary_branch_exp])
       >>
       disch_then(qspecl_then [`temp`,`c`] assume_tac)>>
-      full_simp_tac(srw_ss())[evaluate_def,LET_THM,inst_def,word_exp_def]>>
-      `lookup temp loc' = SOME (Word x')` by metis_tac[]>>
+      fs[evaluate_def,inst_def,word_exp_def,the_words_def]>>
+      `lookup temp loc' = SOME (Word c')` by metis_tac[]>>
       full_simp_tac(srw_ss())[word_op_def,every_var_def]>>
       `get_var var (st with locals := loc') = SOME x` by
         (full_simp_tac(srw_ss())[get_var_def]>>`var ≠ temp` by DECIDE_TAC>>
         metis_tac[])>>
       full_simp_tac(srw_ss())[mem_store_def]>>
-      full_simp_tac(srw_ss())[state_component_equality,locals_rel_def]>>srw_tac[][]>>
-      `x''' ≠ temp` by DECIDE_TAC>>metis_tac[]*)
+      IF_CASES_TAC>>fs[state_component_equality]>>
+      FULL_CASE_TAC>>fs[locals_rel_def]>>rw[]>>
+      `x' ≠ temp` by DECIDE_TAC>>metis_tac[])
   >-
     (*Seq*)
     (full_simp_tac(srw_ss())[evaluate_def,LET_THM]>>Cases_on`evaluate(prog,st)`>>
