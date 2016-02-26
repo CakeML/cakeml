@@ -26,7 +26,8 @@ val word_exp_termdep_code_frame = prove(``
   ho_match_mp_tac word_exp_ind>>
   full_simp_tac(srw_ss())[word_exp_def,LET_THM,mem_load_def]>>
   full_simp_tac(srw_ss())[EVERY_MAP,EVERY_MEM]>>srw_tac[][]>>
-  AP_TERM_TAC>>AP_TERM_TAC>>
+  AP_THM_TAC >> AP_THM_TAC >>
+  AP_TERM_TAC>> AP_TERM_TAC>>
   full_simp_tac(srw_ss())[MAP_EQ_f])
 
 val tac = (full_simp_tac(srw_ss())[GSYM word_exp_termdep_code_frame]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[state_component_equality,set_store_def,mem_store_def])
