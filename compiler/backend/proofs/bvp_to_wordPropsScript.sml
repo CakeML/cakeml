@@ -807,7 +807,7 @@ val RefBlock_inv_def = Define `
     (!n x. (heap_lookup n heap2 = SOME x) /\ ~(isRefBlock x) ==>
            (heap_lookup n heap = SOME x))`;
 
-val heap_store_RefBlock_thm = prove(
+val heap_store_RefBlock_thm = store_thm("heap_store_RefBlock_thm",
   ``!ha. (LENGTH x = LENGTH y) ==>
          (heap_store (heap_length ha) [RefBlock x] (ha ++ RefBlock y::hb) =
            (ha ++ RefBlock x::hb,T))``,
@@ -995,7 +995,7 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
     ==>
     ?p rs roots2 vs1 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
-      (heap_deref p heap = SOME vs1) /\
+      (heap_deref p heap = SOME vs1) /\ LENGTH vs1 = LENGTH xs1 /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
         (roots,heap2,be,a,sp) limit``,
@@ -1019,6 +1019,8 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ full_simp_tac std_ss [] \\ simp[LENGTH_LUPDATE]
   \\ strip_tac \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
+  \\ strip_tac THEN1
+   (imp_res_tac EVERY2_LENGTH \\ fs [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [roots_ok_def] \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1

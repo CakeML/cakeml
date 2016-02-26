@@ -95,7 +95,9 @@ val assign_def = Define `
              | _ => (Skip,l))
     | Update => (case args of
              | [v1;v2;v3] =>
-                 (Seq (Store (Op Add [real_addr c v1; real_offset c v2]) v3)
+                 (Seq (Store (Op Add [real_addr c (adjust_var v1);
+                                      real_offset c (adjust_var v2)])
+                             (adjust_var v3))
                       (Assign (adjust_var dest) Unit),l)
              | _ => (Skip,l))
     | Cons tag => if LENGTH args = 0 then
