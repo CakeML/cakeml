@@ -3904,8 +3904,16 @@ val map_var_def = tDefine"map_var"`
  \\ EVAL_TAC \\ simp[] \\ res_tac \\ simp[]);
 val _ = export_rewrites["map_var_def"];
 
+val the_words_EVERY_IS_SOME_Word = Q.store_thm("the_words_EVERY_IS_SOME_Word",
+  `∀ls x. the_words ls = SOME x ⇒ ∀a. MEM a ls ⇒ ∃w. a = SOME (Word w)`,
+  Induct \\ EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[]);
+
+val the_words_SOME_eq = Q.store_thm("the_words_SOME_eq",
+  `∀ls x. the_words ls = SOME x ⇒ x = MAP (λx. case x of SOME (Word y) => y) ls`,
+  Induct \\ EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[]);
+
 val word_exp_thm1 = Q.store_thm("word_exp_thm1",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    every_var_exp is_phy_var e ∧
    DIV2 (max_var_exp e) < k ∧
    state_rel k f f' s t lens ⇒
@@ -3915,6 +3923,30 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS]
+  \\ TRY (
+    qmatch_assum_rename_tac`option_CASE (the_words _) _ _ = SOME (Word _)`
+    \\ qpat_assum`_ = SOME (Word _)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ imp_res_tac the_words_EVERY_IS_SOME_Word
+    \\ fs[MEM_MAP,PULL_EXISTS] )
+  \\ TRY (
+    first_x_assum drule
+    \\ ntac 2 strip_tac
+    \\ last_x_assum drule
+    \\ disch_then drule
+    \\ discharge_hyps
+    >- (
+      qmatch_asmsub_abbrev_tac`list_max ls`
+      \\ qspec_then`ls`mp_tac list_max_max
+      \\ simp[EVERY_MEM,Abbr`ls`,EVERY_MAP]
+      \\ disch_then drule
+      \\ qspec_then`2`mp_tac DIV_LE_MONOTONE
+      \\ simp[]
+      \\ fs[DIV2_def]
+      \\ ntac 2 strip_tac
+      \\ first_x_assum drule
+      \\ decide_tac )
+    \\ simp[] )
   \\ TRY(
     first_x_assum drule \\ strip_tac
     \\ first_x_assum drule \\ simp[] \\ strip_tac
@@ -3944,10 +3976,12 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
     \\ fs[DIV2_def,TWOxDIV2]
     \\ first_x_assum drule
     \\ simp[TWOxDIV2] )
+  \\ strip_tac
   \\ fs[MAP_MAP_o,o_DEF]
   \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
   \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
+  \\ imp_res_tac the_words_SOME_eq \\ rw[]
+  \\ simp[MAP_EQ_f,MAP_MAP_o]
   \\ rw[]
   \\ res_tac \\ simp[]
   \\ qmatch_asmsub_abbrev_tac`list_max ls`
