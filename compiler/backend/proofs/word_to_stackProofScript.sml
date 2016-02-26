@@ -3912,6 +3912,14 @@ val the_words_SOME_eq = Q.store_thm("the_words_SOME_eq",
   `∀ls x. the_words ls = SOME x ⇒ x = MAP (λx. case x of SOME (Word y) => y) ls`,
   Induct \\ EVAL_TAC \\ rw[] \\ every_case_tac \\ fs[]);
 
+val the_words_MAP_exists = Q.store_thm("the_words_MAP_exists",
+  `∀ls x a f.
+  the_words (MAP f ls) = SOME x ∧
+  MEM a ls ⇒
+  ∃w. f a = SOME (Word w)`,
+  Induct>>EVAL_TAC>>rw[]>>
+  every_case_tac>>fs[])
+
 val word_exp_thm1 = Q.store_thm("word_exp_thm1",
   `∀s e x. word_exp s e = SOME (Word x) ∧
    every_var_exp is_phy_var e ∧
@@ -3996,7 +4004,7 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
   \\ simp[])
 
 val word_exp_thm2 = Q.store_thm("word_exp_thm2",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    state_rel k f f' s t lens ∧
    every_var_exp ($= (2 * v)) e ∧
    ¬(v < k) ⇒
@@ -4006,11 +4014,6 @@ val word_exp_thm2 = Q.store_thm("word_exp_thm2",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ TRY(
-    first_x_assum drule \\ strip_tac
-    \\ first_x_assum drule \\ simp[] \\ strip_tac
-    \\ first_x_assum drule \\ simp[]
-    \\ NO_TAC)
   \\ TRY (
     qmatch_abbrev_tac`hide`
     \\ qpat_assum`_ = SOME _`mp_tac
@@ -4025,15 +4028,24 @@ val word_exp_thm2 = Q.store_thm("word_exp_thm2",
     \\ simp[TWOxDIV2]
     \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
-  \\ fs[MAP_MAP_o,o_DEF]
-  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
-  \\ rw[]
-  \\ res_tac \\ simp[]);
+  >-
+    (strip_tac>>
+    fs[PULL_FORALL,AND_IMP_INTRO]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>metis_tac[])
+  >>
+    qpat_assum`A=SOME(Word x)` mp_tac>>TOP_CASE_TAC>>fs[]>>
+    disch_then sym_sub_tac>>
+    AP_TERM_TAC>>
+    imp_res_tac the_words_SOME_eq>>
+    simp[MAP_EQ_f,MAP_MAP_o,o_DEF]>>
+    rw[]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>
+    simp[]);
 
 val word_exp_thm3 = Q.store_thm("word_exp_thm3",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    state_rel k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    v1 < k ∧ ¬(v2 < k)
@@ -4046,11 +4058,6 @@ val word_exp_thm3 = Q.store_thm("word_exp_thm3",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ TRY(
-    first_x_assum drule \\ strip_tac
-    \\ first_x_assum drule \\ simp[] \\ strip_tac
-    \\ first_x_assum drule \\ simp[]
-    \\ NO_TAC)
   \\ TRY (
     qmatch_abbrev_tac`hide`
     \\ qpat_assum`_ = SOME _`mp_tac
@@ -4065,15 +4072,24 @@ val word_exp_thm3 = Q.store_thm("word_exp_thm3",
     \\ simp[TWOxDIV2]
     \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
-  \\ fs[MAP_MAP_o,o_DEF]
-  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
-  \\ rw[]
-  \\ res_tac \\ simp[]);
+  >-
+    (strip_tac>>
+    fs[PULL_FORALL,AND_IMP_INTRO]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>metis_tac[])
+  >>
+    qpat_assum`A=SOME(Word x)` mp_tac>>TOP_CASE_TAC>>fs[]>>
+    disch_then sym_sub_tac>>
+    AP_TERM_TAC>>
+    imp_res_tac the_words_SOME_eq>>
+    simp[MAP_EQ_f,MAP_MAP_o,o_DEF]>>
+    rw[]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>
+    simp[]);
 
 val word_exp_thm4 = Q.store_thm("word_exp_thm4",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    state_rel k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    v1 < k ∧ ¬(v2 < k)
@@ -4086,11 +4102,6 @@ val word_exp_thm4 = Q.store_thm("word_exp_thm4",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ TRY(
-    first_x_assum drule \\ strip_tac
-    \\ first_x_assum drule \\ simp[] \\ strip_tac
-    \\ first_x_assum drule \\ simp[]
-    \\ NO_TAC)
   \\ TRY (
     qmatch_abbrev_tac`hide`
     \\ qpat_assum`_ = SOME _`mp_tac
@@ -4105,15 +4116,24 @@ val word_exp_thm4 = Q.store_thm("word_exp_thm4",
     \\ simp[TWOxDIV2]
     \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
-  \\ fs[MAP_MAP_o,o_DEF]
-  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
-  \\ rw[]
-  \\ res_tac \\ simp[]);
+  >-
+    (strip_tac>>
+    fs[PULL_FORALL,AND_IMP_INTRO]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>metis_tac[])
+  >>
+    qpat_assum`A=SOME(Word x)` mp_tac>>TOP_CASE_TAC>>fs[]>>
+    disch_then sym_sub_tac>>
+    AP_TERM_TAC>>
+    imp_res_tac the_words_SOME_eq>>
+    simp[MAP_EQ_f,MAP_MAP_o,o_DEF]>>
+    rw[]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>
+    simp[])
 
 val word_exp_thm5 = Q.store_thm("word_exp_thm5",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    state_rel k f f' s t lens ∧
    every_var_exp (λx. x = 2*v1 ∨ x = 2*v2) e ∧
    ¬(v1 < k) ∧ ¬(v2 < k)
@@ -4127,11 +4147,6 @@ val word_exp_thm5 = Q.store_thm("word_exp_thm5",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ TRY(
-    first_x_assum drule \\ strip_tac
-    \\ first_x_assum drule \\ simp[] \\ strip_tac
-    \\ first_x_assum drule \\ simp[]
-    \\ NO_TAC)
   \\ TRY (
     qmatch_abbrev_tac`hide`
     \\ qpat_assum`_ = SOME _`mp_tac
@@ -4146,15 +4161,24 @@ val word_exp_thm5 = Q.store_thm("word_exp_thm5",
     \\ simp[TWOxDIV2]
     \\ simp[el_opt_THM,EL_TAKE,EL_DROP]
     \\ simp[ADD_COMM] )
-  \\ fs[MAP_MAP_o,o_DEF]
-  \\ first_x_assum(CHANGED_TAC o SUBST1_TAC o SYM)
-  \\ AP_TERM_TAC
-  \\ simp[MAP_EQ_f]
-  \\ rw[]
-  \\ res_tac \\ simp[]);
+  >-
+    (strip_tac>>
+    fs[PULL_FORALL,AND_IMP_INTRO]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>metis_tac[])
+  >>
+    qpat_assum`A=SOME(Word x)` mp_tac>>TOP_CASE_TAC>>fs[]>>
+    disch_then sym_sub_tac>>
+    AP_TERM_TAC>>
+    imp_res_tac the_words_SOME_eq>>
+    simp[MAP_EQ_f,MAP_MAP_o,o_DEF]>>
+    rw[]>>
+    imp_res_tac the_words_MAP_exists>>
+    fs[]>>res_tac>>
+    simp[])
 
 val word_exp_thm6 = Q.store_thm("word_exp_thm6",
-  `∀s e x. word_exp s e = SOME x ∧
+  `∀s e x. word_exp s e = SOME (Word x) ∧
    state_rel k f f' s t lens ∧
    e = Op b [Var (2 * v1); Var (2 * v1)] ∧
    ¬(v1 < k)
@@ -4168,12 +4192,9 @@ val word_exp_thm6 = Q.store_thm("word_exp_thm6",
   \\ rw[wordLangTheory.every_var_exp_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,word_allocTheory.max_var_exp_def]
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
-  \\ fs[wordSemTheory.word_exp_def]
-  \\ qmatch_abbrev_tac`hide`
+  \\ fs[wordSemTheory.word_exp_def,the_words_def]
   \\ rpt(qpat_assum`_ = SOME _`mp_tac)
-  \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
-  \\ rpt strip_tac \\ rveq
-  \\ simp[Abbr`hide`]
+  \\ rpt(FULL_CASE_TAC>>fs[])
   \\ fs[state_rel_def,LET_THM]
   \\ rfs[DOMSUB_FLOOKUP_THM]
   \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
@@ -4216,8 +4237,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   ⇒
    ∃t'.
      evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens`,
-  simp[inst_def]
+     state_rel k f f' s' t' lens`,cheat)
+  (*simp[inst_def]
   \\ rpt gen_tac
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[wInst_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def]
@@ -4485,7 +4506,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ rveq \\ simp[]
     \\ simp[set_var_with_memory]
     \\ match_mp_tac state_rel_with_memory
-    \\ simp[]))
+    \\ simp[])*)
 
 val set_store_set_var = Q.store_thm("set_store_set_var",
   `stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)`,
@@ -5219,12 +5240,6 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ qexists_tac`0` \\ simp[]
     \\ CONV_TAC SWAP_EXISTS_CONV
     \\ qexists_tac`NONE` \\ simp[]
-    \\ pop_assum mp_tac
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-    \\ rw[]
-    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
-    \\ fs[word_allocTheory.max_var_exp_def]
     \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
     \\ fs[convs_def,wordLangTheory.every_var_exp_def]
     \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS,get_var_def]
@@ -5483,7 +5498,8 @@ val comp_correct = Q.store_thm("comp_correct",
     \\ split_pair_tac \\ fs []
     \\ Cases_on `ret` \\ fs []
     THEN1
-     (fsrw_tac[] [stackSemTheory.evaluate_def]
+     (goalStack.print_tac "comp_correct tail call case">>
+     fsrw_tac[] [stackSemTheory.evaluate_def]
       \\ `¬bad_dest_args dest args` by
         (qpat_assum`A=(res,s1)` mp_tac \\
         fsrw_tac[][evaluate_def]\\ntac 2 (TOP_CASE_TAC>>fsrw_tac[][]))
@@ -5660,6 +5676,7 @@ val comp_correct = Q.store_thm("comp_correct",
       \\ qexists_tac `ck` \\ fsrw_tac[] []
       \\ Cases_on `res1` \\ fsrw_tac[] []
       \\ fsrw_tac[] [EVAL ``(call_env q (dec_clock s)).handler``,AC ADD_COMM ADD_ASSOC])
+    \\ goalStack.print_tac "comp_correct returning call case(s)"
     \\ PairCases_on `x` \\ fs [LET_DEF]
     \\ split_pair_tac \\ fs []
     \\ split_pair_tac \\ fs []
@@ -5716,7 +5733,8 @@ val comp_correct = Q.store_thm("comp_correct",
     pop_assum(qspec_then`t4` assume_tac)>>
     Cases_on`handler`>>simp[]
     >-
-      (simp[stackSemTheory.evaluate_def]>>
+      (goalStack.print_tac"No handler case">>
+      simp[stackSemTheory.evaluate_def]>>
       simp[StackArgs_def,evaluate_stack_move_seq]>>
       qpat_abbrev_tac`sargs = stack_arg_count A B C`>>
       simp[stackSemTheory.evaluate_def]>>
@@ -6088,6 +6106,7 @@ val comp_correct = Q.store_thm("comp_correct",
         strip_tac>>
         fs[state_rel_def]))
     >>
+    goalStack.print_tac"Handler case">>
     PairCases_on`x''`>>simp[]>>
     split_pair_tac>>simp[stackSemTheory.evaluate_def]>>
     reverse(Cases_on`3 ≤ t5.stack_space`)>-
