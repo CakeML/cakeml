@@ -1,7 +1,7 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
-     set_sepTheory semanticsPropsTheory (* word_to_wordProofTheory *)
+     set_sepTheory semanticsPropsTheory word_to_wordProofTheory
      helperLib;
 
 val _ = new_theory "bvp_to_wordProof";
