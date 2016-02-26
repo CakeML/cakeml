@@ -90,7 +90,8 @@ val assign_def = Define `
              | _ => (Skip,l))
     | Deref => (case args of
              | [v1;v2] => (Assign (adjust_var dest)
-                            (Load (Op Add [real_addr c v1; real_offset c v2])),l)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           real_offset c (adjust_var v2)])),l)
              | _ => (Skip,l))
     | Update => (case args of
              | [v1;v2;v3] =>
