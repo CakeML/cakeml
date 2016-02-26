@@ -81,10 +81,9 @@ val word_exp_code_frame = prove(``
   >-
     (every_case_tac>>full_simp_tac(srw_ss())[mem_load_def])
   >>
-    `ws=ws'` by
-      (unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[MAP_EQ_f])>>
-    full_simp_tac(srw_ss())[])
+    ntac 2 AP_THM_TAC >>
+    ntac 2 AP_TERM_TAC >>
+    full_simp_tac(srw_ss())[MAP_EQ_f])
 
 val tac =
     full_simp_tac(srw_ss())[evaluate_def,LET_THM,state_component_equality]>>
