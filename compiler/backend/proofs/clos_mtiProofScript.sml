@@ -132,6 +132,122 @@ val result =
         pertinent because the respective bodies are evaluated in environments
         of different lengths
 *)
+val dest_addarg_Fn_def = Define`
+  (dest_addarg_Fn n (Fn NONE NONE m body) =
+     if n + m ≤ max_app then SOME (m, body) else NONE) ∧
+  (dest_addarg_Fn _ _ = NONE)
+`;
+val _ = augment_srw_ss [rewrites [dest_addarg_Fn_def]]
+
+val recClosure_add_arg = Q.store_thm(
+  "recClosure_add_arg",
+  `LIST_REL (λ(n,e) (n',e').
+               n ≠ 0 ∧
+               case dest_addarg_Fn n e of
+                   SOME(m,e0) => exp_rel (:'ffi) [e0] [e'] ∧ n' = n + m
+                 | NONE => n = n' ∧ exp_rel (:'ffi) [e] [e'])
+            fns fns'
+    ⇒
+      exp_rel (:'ffi) [Letrec NONE fvs fns body] [Letrec NONE fvs fns' body]`,
+  strip_tac >>
+  `LIST_REL (λp1 p2. FST p1 ≤ FST p2) fns fns'`
+    by (pop_assum mp_tac >> match_mp_tac LIST_REL_mono >>
+        simp[FORALL_PROD] >> rpt gen_tac >> qcase_tac `dest_addarg_Fn _ f` >>
+        Cases_on `f` >> simp[dest_addarg_Fn_def] >>
+        qcase_tac `Fn opt1 opt2` >> Cases_on `opt1` >> Cases_on `opt2` >>
+        simp[] >> rw[]) >>
+  simp[exp_rel_def, exec_rel_rw, evaluate_ev_def, evaluate_def] >>
+  qabbrev_tac `nargs_ok = λ(n,e:closLang$exp). n ≤ max_app ∧ n ≠ 0` >>
+  `EVERY nargs_ok fns' ⇔ EVERY nargs_ok fns`
+    by (fs[LIST_REL_EL_EQN, EVERY_MEM, FORALL_PROD, EQ_IMP_THM] >>
+        rpt strip_tac
+        >- (qcase_tac `nargs_ok (n,b)` >>
+            `∃i. i < LENGTH fns ∧ EL i fns = (n,b)` by metis_tac[MEM_EL] >>
+            `∃n' b'. EL i fns' = (n',b')` by (Cases_on `EL i fns'` >> simp[]) >>
+            `MEM (n',b') fns'` by metis_tac[MEM_EL] >>
+            qpat_assum `∀n. n < LENGTH _ ⇒ _ (EL n fns) (EL n fns')`
+              (qspec_then `i` mp_tac) >> rfs[] >>
+            first_x_assum (qspecl_then [`n'`, `b'`] mp_tac) >>
+            simp[Abbr`nargs_ok`] >>
+            Cases_on `b` >> simp[] >>
+            qcase_tac `Fn opt1 opt2` >> Cases_on `opt1` >> simp[] >>
+            Cases_on `opt2` >> simp[] >> rw[])
+        >- (qcase_tac `nargs_ok (n',b')` >>
+            `∃i. i < LENGTH fns ∧ EL i fns' = (n',b')` by metis_tac[MEM_EL] >>
+            `∃n b. EL i fns = (n,b)` by (Cases_on `EL i fns` >> simp[]) >>
+            `MEM (n,b) fns` by metis_tac[MEM_EL] >>
+            qpat_assum `∀n. n < LENGTH _ ⇒ _ (EL n fns) (EL n fns')`
+              (qspec_then `i` mp_tac) >> rfs[] >>
+            first_x_assum (qspecl_then [`n`, `b`] mp_tac) >>
+            simp[Abbr`nargs_ok`] >>
+            Cases_on `b` >> simp[] >>
+            qcase_tac `Fn opt1 opt2` >> Cases_on `opt1` >> simp[] >>
+            Cases_on `opt2` >> simp[] >> rw[])) >>
+  reverse (Cases_on `EVERY nargs_ok fns`) >> simp[]
+  >- simp[res_rel_rw] >>
+  Cases_on `fvs` >> simp[PULL_FORALL, AND_IMP_INTRO]
+  >- (`exp_rel (:'ffi) [body] [body]` by metis_tac[exp_rel_refl] >>
+      pop_assum mp_tac >>
+      CONV_TAC (LAND_CONV
+        (SIMP_CONV (srw_ss()) [
+           exp_rel_def, exec_rel_rw, evaluate_ev_def, PULL_FORALL,
+           AND_IMP_INTRO])) >>
+      rpt strip_tac >> first_x_assum match_mp_tac >> qexists_tac `i` >>
+      simp[] >>
+      irule EVERY2_APPEND_suff >> simp[] >>
+      qpat_assum `LIST_REL _ env env'` mp_tac >>
+      rpt (first_x_assum (kall_tac o assert (free_in ``i:num`` o concl))) >>
+      `∀E1 E2 V1 V2.
+         LIST_REL (val_rel (:'ffi) i) E1 E2 ∧
+         LIST_REL (val_rel (:'ffi) i) V1 V2 ⇒
+         LIST_REL (val_rel (:'ffi) i)
+           (GENLIST (Recclosure NONE V1 E1 fns) (LENGTH fns))
+           (GENLIST (Recclosure NONE V2 E2 fns') (LENGTH fns'))`
+        suffices_by metis_tac[LIST_REL_NIL] >>
+      completeInduct_on `i` >> rpt strip_tac >>
+      simp[LIST_REL_EL_EQN] >>
+      `LENGTH fns' = LENGTH fns` by fs[LIST_REL_EL_EQN] >> simp[] >>
+      qx_gen_tac `fidx` >> strip_tac >>
+      simp[val_rel_rw, is_closure_def, check_closures_def, clo_can_apply_def,
+           clo_to_partial_args_def, clo_to_num_params_def, clo_to_loc_def,
+           rec_clo_ok_def] >>
+      `∃fina fib fina' fib'.
+         EL fidx fns = (fina,fib) ∧ EL fidx fns' = (fina',fib')`
+        by metis_tac[pair_CASES] >> simp[] >>
+      `MEM (fina,fib) fns ∧ MEM (fina',fib') fns'` by metis_tac[MEM_EL] >>
+      `0 < fina ∧ 0 < fina'`
+        by (fs[EVERY_MEM] >> res_tac >> fs[Abbr`nargs_ok`]) >>
+      simp[] >>
+      simp[option_CASE_NONE_T, option_case_NONE_F,
+           dest_closure_Recclosure_EQ_NONE, check_loc_second_NONE] >>
+      `fina ≤ fina'` by (fs[LIST_REL_EL_EQN] >> metis_tac[FST]) >>
+      `LENGTH V2 = LENGTH V1` by fs[LIST_REL_EL_EQN] >> simp[] >>
+      qx_genl_tac [`j`, `vs1`, `vs2`, `s1`, `s2`] >> strip_tac >>
+      Cases_on `LENGTH vs1 ≤ max_app` >> simp[] >>
+      Cases_on `LENGTH V1 < fina` >> simp[] >>
+      simp[dest_closure_def, revtakerev, revdroprev, check_loc_second_NONE] >>
+      `LENGTH vs2 = LENGTH vs1` by fs[LIST_REL_EL_EQN] >> simp[] >>
+      Cases_on `LENGTH V1 + LENGTH vs1 < fina` >> simp[]
+      >- (simp[exec_rel_rw, evaluate_ev_def] >> qx_gen_tac `k` >>
+          reverse (rw[])
+          >- (simp[res_rel_rw] >> metis_tac[val_rel_mono, DECIDE``0n≤j``]) >>
+          simp[res_rel_rw] >> reverse conj_tac
+          >- (irule (last (CONJUNCTS val_rel_mono)) >> qexists_tac `j` >>
+              simp[]) >>
+          first_x_assum (qspec_then `k - (LENGTH vs1 - 1)` mp_tac) >> simp[] >>
+          disch_then
+            (qspecl_then [`E1`, `E2`, `vs1 ++ V1`, `vs2 ++ V2`] mp_tac) >>
+          discharge_hyps
+          >- (conj_tac
+              >- (irule val_rel_mono_list >> qexists_tac `i` >> simp[]) >>
+              irule EVERY2_APPEND_suff >>
+              irule val_rel_mono_list
+              >- (qexists_tac `j` >> simp[]) >> qexists_tac `i` >> simp[]) >>
+          simp[LIST_REL_EL_EQN]) >>
+      cheat) >>
+  cheat)
+
+
 val intro_multi_correct = Q.store_thm ("intro_multi_correct",
 `!es. exp_rel (:'ffi) es (intro_multi es)`,
  ho_match_mp_tac intro_multi_ind >>
