@@ -1434,9 +1434,6 @@ val pointer_bits_def = Define ` (* pointers have tag and len bits *)
         maxout_bits tag conf.tag_bits 2 || 1w
     | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
 
-val shift_length_def = Define `
-  shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
-
 val is_all_ones_def = Define `
   is_all_ones m n w = ((all_ones m n && w) = all_ones m n)`;
 

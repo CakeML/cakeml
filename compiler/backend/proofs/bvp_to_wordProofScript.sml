@@ -2925,6 +2925,7 @@ val assign_thm = Q.prove(
      (q = SOME NotEnoughSpace ==> r.ffi = t.ffi) /\
      (q <> SOME NotEnoughSpace ==>
      state_rel c l1 l2 (set_var dest v s2) r [] locs /\ q = NONE)`,
+
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
@@ -3010,7 +3011,8 @@ val assign_thm = Q.prove(
       \\ `n2w (16 * tag + 2) = BlockNil tag : 'a word` by
            fs [BlockNil_def,WORD_MUL_LSL,word_mul_n2w,word_add_n2w]
       \\ fs [cons_thm_EMPTY])
-    \\ fs [bvp_to_wordTheory.assign_def])
+    \\ cheat)
+  \\ Cases_on `op = Ref` \\ fs [] THEN1 cheat
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = SetGlobal i` \\ fs [] THEN1 (fs [do_app])

@@ -6,7 +6,7 @@ val _ = new_theory "bvp_space";
 
 val op_space_req_def = Define `
   (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
-  (op_space_req Ref _ = 2) /\
+  (op_space_req Ref l = l + 1) /\
   (op_space_req _ _ = 0)`;
 
 val pMakeSpace_def = Define `
