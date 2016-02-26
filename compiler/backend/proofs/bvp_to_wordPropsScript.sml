@@ -1512,7 +1512,8 @@ val word_el_def = Define `
      let (h,ts,c) = word_payload ys l tag qs conf in
      let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
        word_list a (Word w :: ts) *
-       cond (decode_header conf w = (h,n2w (LENGTH ts)) /\
+       cond (LENGTH ts < 2 ** (dimindex (:'a) - 4) /\
+             decode_header conf w = (h,n2w (LENGTH ts)) /\
              decode_tag_bits conf w = tag /\ c))`;
 
 val word_heap_def = Define `

@@ -53,16 +53,18 @@ val shift_length_def = Define `
 val real_addr_def = Define `
   (real_addr (conf:bvp_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
-      if k <= conf.pad_bits + 1 then
+   (* if k <= conf.pad_bits + 1 then
         Op Add [Lookup CurrHeap;
                 Shift Lsr (Var r) (Nat (shift_length conf - k))]
-      else
+      else *)
         Op Add [Lookup CurrHeap;
-                Shift Lsl (Shift Lsr (Var r) (Nat (shift_length conf))) (Nat k)]`
+                Shift Lsl (Shift Lsr (Var r)
+                  (Nat (shift_length conf))) (Nat k)]`
 
 val real_offset_def = Define `
   (real_offset (conf:bvp_to_word$config) r): 'a wordLang$exp =
-     if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)`
+     Op Add [Const bytes_in_word;
+             if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
 
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
@@ -83,7 +85,8 @@ val assign_def = Define `
     | AllocGlobal => (Skip,l)
     | El => (case args of
              | [v1;v2] => (Assign (adjust_var dest)
-                            (Load (Op Add [real_addr c v1; real_offset c v2])),l)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           real_offset c (adjust_var v2)])),l)
              | _ => (Skip,l))
     | Deref => (case args of
              | [v1;v2] => (Assign (adjust_var dest)
