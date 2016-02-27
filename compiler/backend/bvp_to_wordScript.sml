@@ -37,11 +37,6 @@ val list_Seq_def = Define `
 val shift_def = Define `
   shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
 
-val next_free_addr_def = Define `
-  next_free_addr n =
-    Op Add [Shift Lsl (Var n) (Nat (shift (:'a)));
-            Lookup CurrHeap] :'a exp`
-
 val StoreEach_def = Define `
   (StoreEach v [] offset = Skip) /\
   (StoreEach v (x::xs) (offset:'a word) =
