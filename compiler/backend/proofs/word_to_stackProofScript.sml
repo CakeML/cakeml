@@ -4228,6 +4228,10 @@ val set_var_cancel = Q.store_thm("set_var_cancel",
   `stackSem$set_var a b (set_var a b c) = set_var a b c`,
   EVAL_TAC \\ simp[stackSemTheory.state_component_equality]);
 
+val word_exp_Op_SOME_Word = Q.store_thm("word_exp_Op_SOME_Word",
+  `word_exp s (Op op wexps) = SOME x ⇒ ∃w. x = Word w`,
+  rw[word_exp_def] \\ every_case_tac \\ fs[]);
+
 val evaluate_wInst = Q.store_thm("evaluate_wInst",
   `∀i s t s'.
    inst i s = SOME s' ∧
@@ -4237,8 +4241,8 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
   ⇒
    ∃t'.
      evaluate (wInst i (k,f,f'), t) = (NONE,t') ∧
-     state_rel k f f' s' t' lens`,cheat)
-  (*simp[inst_def]
+     state_rel k f f' s' t' lens`,
+  simp[inst_def]
   \\ rpt gen_tac
   \\ BasicProvers.TOP_CASE_TAC
   \\ simp[wInst_def,stackSemTheory.evaluate_def,stackSemTheory.inst_def]
@@ -4274,13 +4278,12 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ pop_assum mp_tac
       \\ BasicProvers.TOP_CASE_TAC \\ simp[]
       \\ pop_assum mp_tac
-      \\ BasicProvers.TOP_CASE_TAC \\ simp[]
-      \\ ntac 2 strip_tac \\ rveq
+      \\ strip_tac \\ rveq
       \\ drule (GEN_ALL state_rel_get_var_imp)
       \\ simp[] \\ disch_then drule
       \\ drule (GEN_ALL state_rel_get_var_imp2)
       \\ simp[] \\ disch_then drule
-      \\ ntac 2 strip_tac
+      \\ ntac 3 strip_tac
       \\ conj_tac \\ strip_tac \\ fs[]
       \\ match_mp_tac wRegWrite1_thm1
       \\ simp[]
@@ -4293,6 +4296,7 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ strip_tac \\ rveq
     \\ fs[reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ imp_res_tac word_exp_Op_SOME_Word
     \\ rveq
     \\ fs[GSYM LEFT_ADD_DISTRIB]
     \\ simp[wInst_def]
@@ -4301,9 +4305,12 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧ _ t'`
     \\ simp[]
     \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
-    \\ `∃x. get_var (2*m') s = SOME x` by
+    \\ `∃x. get_var (2*m') s = SOME (Word x)` by
         (fs[word_exp_def,get_var_def,LET_THM]>>
-        EVERY_CASE_TAC>>fs[])
+         qpat_assum`_ = SOME _`mp_tac >>
+         BasicProvers.TOP_CASE_TAC \\ simp[]
+         \\ imp_res_tac the_words_EVERY_IS_SOME_Word
+         \\ fs[])
     \\ asm_exists_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
     \\ simp[Abbr`kont`]
@@ -4332,7 +4339,10 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ match_mp_tac (GEN_ALL wStackLoad_thm2)
     \\ `∃x. get_var (2*m'') s = SOME x` by
        (fs[word_exp_def,get_var_def,LET_THM]>>
-        EVERY_CASE_TAC>>fs[])
+         qpat_assum`option_CASE _ _ _ = SOME _`mp_tac >>
+         BasicProvers.TOP_CASE_TAC \\ simp[]
+         \\ imp_res_tac the_words_EVERY_IS_SOME_Word
+         \\ fsrw_tac[DNF_ss][])
     \\ asm_exists_tac \\ simp[Abbr`tt`]
     \\ asm_exists_tac \\ simp[]
     \\ simp[Abbr`kont`]
@@ -4411,9 +4421,12 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n2),t) = (NONE,t') ∧ _ t'`
     \\ simp[]
     \\ match_mp_tac (GEN_ALL wStackLoad_thm1)
-    \\`∃x. get_var (2*m') s = SOME x` by
+    \\ `∃x. get_var (2*m') s = SOME x` by
       (fs[word_exp_def,get_var_def,LET_THM]>>
-      EVERY_CASE_TAC>>fs[])
+       qpat_assum`option_CASE (the_words _) _ _ = SOME _`mp_tac >>
+       BasicProvers.TOP_CASE_TAC \\ simp[]
+       \\ imp_res_tac the_words_EVERY_IS_SOME_Word
+       \\ fsrw_tac[DNF_ss][])
     \\ asm_exists_tac \\ simp[]
     \\ asm_exists_tac \\ simp[]
     \\ simp[Abbr`kont`]
@@ -4447,7 +4460,10 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ match_mp_tac (GEN_ALL wStackLoad_thm2)
     \\ `∃x. get_var (2*m) s = SOME x` by
        (fs[word_exp_def,get_var_def,LET_THM]>>
-       EVERY_CASE_TAC>>fs[])
+         qpat_assum`option_CASE (the_words _) _ _ = SOME _`mp_tac >>
+         BasicProvers.TOP_CASE_TAC \\ simp[]
+         \\ imp_res_tac the_words_EVERY_IS_SOME_Word
+         \\ fsrw_tac[DNF_ss][])
     \\ asm_exists_tac \\ simp[Abbr`tt`]
     \\ asm_exists_tac \\ simp[Abbr`l`]
     \\ simp[Abbr`kont`]
@@ -4478,6 +4494,9 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
       \\ rveq \\ simp[]
       \\ simp[set_var_with_memory]
+      \\ BasicProvers.CASE_TAC \\ fs[]
+      \\ rveq \\ simp[]
+      \\ simp[set_var_with_memory]
       \\ match_mp_tac state_rel_with_memory
       \\ simp[])
     \\ drule (GEN_ALL word_exp_thm2)
@@ -4504,9 +4523,11 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ `s.mdomain = t.mdomain ∧ s.memory = t.memory` by ( fs[state_rel_def])
     \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
     \\ rveq \\ simp[]
+    \\ BasicProvers.CASE_TAC \\ fs[]
+    \\ rveq \\ simp[]
     \\ simp[set_var_with_memory]
     \\ match_mp_tac state_rel_with_memory
-    \\ simp[])*)
+    \\ simp[]))
 
 val set_store_set_var = Q.store_thm("set_store_set_var",
   `stackSem$set_store a b (set_var c d e) = set_var c d (set_store a b e)`,
