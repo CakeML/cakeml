@@ -23,10 +23,10 @@ val GiveUp_def = Define `
 
 val encode_header_def = Define `
   encode_header (conf:bvp_to_word$config) tag len =
-    if tag < 2 ** (dimindex (:'a) - conf.len_size - 4) /\
+    if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
        len < 2 ** (dimindex (:'a) - 4) /\
        len < 2 ** conf.len_size
-    then SOME (n2w tag << (conf.len_size + 4) || n2w len << 2 || 3w:'a word)
+    then SOME (n2w tag << (conf.len_size + 2) || n2w len << 2 || 3w:'a word)
     else NONE`
 
 val list_Seq_def = Define `
@@ -115,6 +115,7 @@ val assign_def = Define `
                          StoreEach 1 (3::args) 0w;
                          Set NextFree (Op Add [Var 1;
                            Const (n2w (LENGTH args))])],l))
+    | Ref => ARB
     | _ => (GiveUp,l)
     | _ => (GiveUp:'a wordLang$prog,l)`;
 

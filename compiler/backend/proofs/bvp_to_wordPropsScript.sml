@@ -1071,7 +1071,7 @@ val new_ref_thm = store_thm("new_ref_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
     ?p rs roots2 heap2.
-      (roots = rs ++ roots2) /\
+      (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
                  (rs ++ Pointer (a+sp-(LENGTH xs + 1)) u::roots2,heap2,be,a,
@@ -1492,13 +1492,13 @@ val word_payload_def = Define `
   (word_payload ys l (RefTag) qs conf =
      (2w, (* header: ...10 *)
       MAP (word_addr conf) ys,
-      (qs = []) /\ (LENGTH ys = l) /\ l <> 0)) /\
+      (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l (NumTag b) qs conf =
      ((b2w b << 2 || 1w), (* header: ...101 or ...001 *)
-      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0)) /\
+      qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
      ((n2w n << 2 || 3w), (* header: ...11 *)
-      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
+      qs, (ys = []) /\ (LENGTH qs = l)))`;
 
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
