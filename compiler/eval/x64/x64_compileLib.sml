@@ -3,7 +3,7 @@ struct
 
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_targetLib asmLib;
-open compilerComputeLib;
+open compute_compilerLib;
 open x64DisassembleLib
 
 (* open x64_targetTheory *)
@@ -83,7 +83,7 @@ val test1 = Count.apply eval``
   let (c,p) = ^(rconc test) in
   let (bvp_conf,word_conf,asm_conf,p) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf,p) in
   (*The next element is massive*)
-  let p = MAP (compile_part bvp_conf) (TAKE 18 p) in
+  let p = MAP (compile_part bvp_conf) (TAKE 2 p) in p``
   let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith,asm_conf.reg_count − 4) in
   (*This is compile_single, less the word_alloc step*)
   let p = (MAP (\(name_num,arg_count,prog).
@@ -95,7 +95,7 @@ val test1 = Count.apply eval``
   let clashmov = MAP (\(name_num,arg_count,prog). ((\h,tl. h::tl)(get_clash_sets prog LN),get_prefs prog [])) p in
   (c,reg_count,clashmov,p)``
 
-(*Should be in unverified/reg_alloc, but that would make the folder depend on HOL*)
+(*TODO: Move to compute_reg_alloc*)
 open reg_alloc
 open sptreeSyntax numSyntax listSyntax
 

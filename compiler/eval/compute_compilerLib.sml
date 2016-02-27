@@ -1,4 +1,4 @@
-structure compilerComputeLib :> compilerComputeLib =
+structure compute_compilerLib :> compute_compilerLib =
 struct
 
 local
@@ -19,12 +19,11 @@ open clos_removeTheory
 open bvlTheory clos_to_bvlTheory
 open bviTheory bvl_to_bviTheory bvl_inlineTheory bvl_constTheory bvl_handleTheory bvl_jumpTheory
 open bvpTheory bvi_to_bvpTheory bvp_simpTheory bvp_liveTheory bvp_spaceTheory
-open parmoveTheory reg_allocTheory state_transformerTheory
 open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory word_removeTheory
 open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 open backendTheory
-open compute_semanticsLib
+open compute_semanticsLib compute_reg_allocLib
 
 (*Order of thms shown below:
 First, all the small compilation steps between ILs + IL to IL transforms
@@ -414,139 +413,7 @@ in
     ,word_allocTheory.post_alloc_conventions_def
     ,word_allocTheory.apply_nummap_key_def
     ]
-    (*Not needed word_allocTheory.pre_alloc_conventions_def"*)
-
-  (*reg_alloc TODO: maybe make a top level computelib for reg_alloc itself*)
-  ; add_datatype ``:ra_state``
-  (*monadic*)
-  ; add_thms
-    [state_transformerTheory.MWHILE_DEF
-    ,state_transformerTheory.BIND_DEF
-    ,state_transformerTheory.UNIT_DEF
-    ,state_transformerTheory.FOREACH_def
-    ,pairTheory.UNCURRY_DEF
-    ,state_transformerTheory.IGNORE_BIND_DEF
-    ]
-
-  (*sorting*)
-  ; add_thms
-    [sortingTheory.PARTITION_DEF
-    ,sortingTheory.PART_DEF
-    ,sortingTheory.QSORT_DEF
-    ]
-
-  ; add_thms
-    [reg_allocTheory.is_stack_var_def
-    ,reg_allocTheory.undir_move_insert_def
-    ,reg_allocTheory.reg_alloc_def
-    ,reg_allocTheory.maybe_flip_def
-    ,reg_allocTheory.briggs_coalesce_def
-    ,reg_allocTheory.do_briggs_step_def
-    ,reg_allocTheory.briggs_has_work_def
-    ,reg_allocTheory.total_colour_def
-    ,reg_allocTheory.aux_move_pref_def
-    ,reg_allocTheory.move_pref_def
-    ,reg_allocTheory.first_match_col_def
-    ,reg_allocTheory.resort_moves_def
-    ,reg_allocTheory.moves_to_sp_def
-    ,reg_allocTheory.unspill_def
-    ,reg_allocTheory.pri_move_insert_def
-    ,reg_allocTheory.aux_pref_def
-    ,reg_allocTheory.rpt_do_step2_def
-    ,reg_allocTheory.do_step2_def
-    ,reg_allocTheory.full_simplify_def
-    ,reg_allocTheory.full_coalesce_def
-    ,reg_allocTheory.full_coalesce_aux_def
-    ,reg_allocTheory.deg_comparator_def
-    ,reg_allocTheory.sec_ra_state_def
-    ,reg_allocTheory.rpt_do_step_def
-    ,reg_allocTheory.has_work_def
-    ,reg_allocTheory.do_step_def
-    ,reg_allocTheory.get_clock_def
-    ,reg_allocTheory.dec_clock_def
-    ,reg_allocTheory.coalesce_def
-    ,reg_allocTheory.respill_def
-    ,reg_allocTheory.pair_rename_def
-    ,reg_allocTheory.do_coalesce_def
-    ,reg_allocTheory.force_add_def
-    ,reg_allocTheory.split_avail_def
-    ,reg_allocTheory.is_coalesceable_move_def
-    ,reg_allocTheory.is_valid_move_def
-    ,reg_allocTheory.george_ok_def
-    ,reg_allocTheory.briggs_ok_def
-    ,reg_allocTheory.freeze_def
-    ,reg_allocTheory.spill_def
-    ,reg_allocTheory.max_non_coalesced_def
-    ,reg_allocTheory.simplify_def
-    ,reg_allocTheory.set_unavail_moves_def
-    ,reg_allocTheory.revive_moves_def
-    ,reg_allocTheory.dec_deg_def
-    ,reg_allocTheory.dec_one_def
-    ,reg_allocTheory.inc_one_def
-    ,reg_allocTheory.get_edges_def
-    ,reg_allocTheory.add_coalesce_def
-    ,reg_allocTheory.freeze_node_def
-    ,reg_allocTheory.add_unavail_moves_def
-    ,reg_allocTheory.set_move_rel_def
-    ,reg_allocTheory.get_unavail_moves_def
-    ,reg_allocTheory.add_avail_moves_def
-    ,reg_allocTheory.add_avail_moves_pri_def
-    ,reg_allocTheory.set_avail_moves_def
-    ,reg_allocTheory.set_avail_moves_pri_def
-    ,reg_allocTheory.get_avail_moves_def
-    ,reg_allocTheory.get_avail_moves_pri_def
-    ,reg_allocTheory.set_coalesced_def
-    ,reg_allocTheory.get_coalesced_def
-    ,reg_allocTheory.set_deg_def
-    ,reg_allocTheory.get_move_rel_def
-    ,reg_allocTheory.get_colours_def
-    ,reg_allocTheory.set_freeze_worklist_def
-    ,reg_allocTheory.get_freeze_worklist_def
-    ,reg_allocTheory.set_simp_worklist_def
-    ,reg_allocTheory.get_simp_worklist_def
-    ,reg_allocTheory.get_spill_worklist_def
-    ,reg_allocTheory.set_spill_worklist_def
-    ,reg_allocTheory.add_freeze_worklist_def
-    ,reg_allocTheory.add_spill_worklist_def
-    ,reg_allocTheory.add_simp_worklist_def
-    ,reg_allocTheory.spill_colouring_def
-    ,reg_allocTheory.get_deg_def
-    ,reg_allocTheory.get_degs_def
-    ,reg_allocTheory.push_stack_def
-    ,reg_allocTheory.get_graph_def
-    ,reg_allocTheory.get_stack_def
-    ,reg_allocTheory.init_ra_state_def
-    ,reg_allocTheory.split_priority_def
-    ,reg_allocTheory.considered_var_def
-    ,reg_allocTheory.in_moves_set_def
-    ,reg_allocTheory.in_moves_def
-    ,reg_allocTheory.count_degrees_def
-    ,reg_allocTheory.option_filter_def
-    ,reg_allocTheory.assign_colour2_def
-    ,reg_allocTheory.remove_colours_def
-    ,reg_allocTheory.unbound_colours_def
-    ,reg_allocTheory.alloc_colouring_def
-    ,reg_allocTheory.id_colour_def
-    ,reg_allocTheory.alloc_colouring_aux_def
-    ,reg_allocTheory.assign_colour_def
-    ,reg_allocTheory.list_g_insert_def
-    ,reg_allocTheory.clash_sets_to_sp_g_def
-    ,reg_allocTheory.clique_g_insert_def
-    ,reg_allocTheory.lookup_g_def
-    ,reg_allocTheory.undir_g_insert_def
-    ,reg_allocTheory.dir_g_insert_def
-    ,reg_allocTheory.is_alloc_var_def
-    ,reg_allocTheory.is_phy_var_def
-    ]
-
-  (*parmove -- same TODO as allocator*)
-  ; add_thms
-    [parmoveTheory.pmov_def
-    ,parmoveTheory.parmove_def
-    ,parmoveTheory.fstep_def
-    ,listTheory.splitAtPki_DEF
-    ]
-
+    (*Not needed: word_allocTheory.pre_alloc_conventions_def"*)
   (*stackLang*)
   ; add_datatype``:'a stackLang$prog``
   ; add_thms
@@ -719,15 +586,6 @@ in
     ,backendTheory.to_con_def
     ,backendTheory.to_dec_def
     ]
-  (*Missing def from miscTheory used in lab_to_target.
-  TODO: Move into HOL or move into lab_to_target itself?*)
-  ; add_thms[
-    miscTheory.lookup_any_def
-    ,miscTheory.bytes_in_word_def
-    ,miscTheory.UPDATE_LIST_THM]
-  (* TODO: should move into HOL *)
-  ; add_thms[miscTheory.list_max_def]
-
   (*asm -- 'a should be 64*)
   ; add_datatype ``:'a asm_config``
   ; add_datatype ``:'a reg_imm``
@@ -745,6 +603,7 @@ val the_compiler_compset =
   let
     val c = compute_basicLib.the_basic_compset
     val () = compute_semanticsLib.add_ast_compset c
+    val () = compute_reg_allocLib.add_reg_alloc_compset c
     val () = add_compiler_compset c
   in
     c

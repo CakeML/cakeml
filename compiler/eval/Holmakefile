@@ -13,7 +13,7 @@ PARENT_HOLHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
-BARE_THYS = ../../semantics/terminationTheory ../targets/asm/asmTheory ../backend/reg_alloc/reg_allocTheory
+BARE_THYS = ../../semantics/terminationTheory ../targets/asm/asmTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 
 $(HOLHEAP): $(DEPS)
