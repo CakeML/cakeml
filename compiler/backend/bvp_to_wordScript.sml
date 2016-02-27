@@ -109,14 +109,27 @@ val assign_def = Define `
                     (case encode_header c (4 * tag) (LENGTH args) of
                      | NONE => (GiveUp,l)
                      | SOME (header:'a word) => (list_Seq
-                        [Assign 5 (Lookup NextFree);
-                         Assign 1 (next_free_addr 5);
+                        [Assign 1 (Op Sub [Lookup EndOfHeap;
+                            Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                         Set EndOfHeap (Var 1);
                          Assign 3 (Const header);
                          StoreEach 1 (3::args) 0w;
-                         Set NextFree (Op Add [Var 1;
-                           Const (n2w (LENGTH args))])],l))
-    | Ref => ARB
-    | _ => (GiveUp,l)
+                         Assign (adjust_var dest)
+                           (Op Or [Shift Lsl (Var 1)
+                                     (Nat (shift_length c − shift (:'a)));
+                                   Const 1w])],l))
+    | Ref => (case encode_header c 2 (LENGTH args) of
+              | NONE => (GiveUp,l)
+              | SOME (header:'a word) => (list_Seq
+                 [Assign 1 (Op Sub [Lookup EndOfHeap;
+                     Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                  Set EndOfHeap (Var 1);
+                  Assign 3 (Const header);
+                  StoreEach 1 (3::args) 0w;
+                  Assign (adjust_var dest)
+                    (Op Or [Shift Lsl (Var 1)
+                              (Nat (shift_length c − shift (:'a)));
+                            Const 1w])],l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
