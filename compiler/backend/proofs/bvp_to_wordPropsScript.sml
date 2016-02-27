@@ -1416,6 +1416,14 @@ val abs_ml_inv_Num = store_thm("abs_ml_inv_Num",
   \\ qexists_tac `f` \\ fs []
   \\ rw [] \\ fs [get_refs_def] \\ metis_tac []);
 
+val heap_store_unused_IMP_length = store_thm("heap_store_unused_IMP_length",
+  ``heap_store_unused a sp' x heap = (heap2,T) ==>
+    heap_length heap2 = heap_length heap``,
+  fs [heap_store_unused_def] \\ IF_CASES_TAC \\ fs []
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma]
+  \\ rw [] \\ fs [] \\ fs [heap_length_APPEND,el_length_def,heap_length_def]);
+
 
 (* -------------------------------------------------------
     representation in memory
@@ -1515,8 +1523,7 @@ val word_el_def = Define `
      let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
        word_list a (Word w :: ts) *
        cond (LENGTH ts < 2 ** (dimindex (:'a) - 4) /\
-             decode_header conf w = (h,n2w (LENGTH ts)) /\
-             decode_tag_bits conf w = tag /\ c))`;
+             decode_header conf w = (h,n2w (LENGTH ts)) /\ c))`;
 
 val word_heap_def = Define `
   (word_heap a ([]:'a ml_heap) conf = emp) /\
