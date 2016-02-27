@@ -286,6 +286,25 @@ val adjust_var_NEQ_1 = prove(
   \\ `EVEN (adjust_var n) = EVEN 1` by full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[EVEN_adjust_var]);
 
+val adjust_var_NEQ = store_thm("adjust_var_NEQ[simp]",
+  ``adjust_var n <> 0 /\
+    adjust_var n <> 1 /\
+    adjust_var n <> 3 /\
+    adjust_var n <> 5 /\
+    adjust_var n <> 7 /\
+    adjust_var n <> 9 /\
+    adjust_var n <> 11 /\
+    adjust_var n <> 13``,
+  rpt strip_tac \\ fs [adjust_var_NEQ_0]
+  \\ `EVEN (adjust_var n) = EVEN 1` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 3` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 5` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 7` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 9` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 11` by full_simp_tac(srw_ss())[]
+  \\ `EVEN (adjust_var n) = EVEN 13` by full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[EVEN_adjust_var]);
+
 val unit_opt_eq = prove(
   ``(x = y:unit option) <=> (IS_SOME x <=> IS_SOME y)``,
   Cases_on `x` \\ Cases_on `y` \\ full_simp_tac(srw_ss())[]);
@@ -3277,7 +3296,8 @@ val encode_header_IMP = prove(
     len < 2 ** (dimindex (:'a) - 4) /\
     decode_header c hd = (n2w tag,n2w len)``,
   fs [encode_header_def] \\ rw [decode_header_def]
-  \\ cheat (* annoying word proofs *));
+  \\ cheat (* the format of the header will probably change, so
+              no point in proving this now *));
 
 val store_list_thm = store_thm("store_list_thm",
   ``!xs a frame m dm.
@@ -3362,7 +3382,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
 
 val memory_rel_Ref = store_thm("memory_rel_Ref",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
-    LENGTH vals = LENGTH (ws:'a word_loc list) /\ vals <> [] /\
+    LENGTH vals = LENGTH (ws:'a word_loc list) /\
     encode_header c 2 (LENGTH ws) = SOME hd /\ ~(new IN FDOM refs) /\
     LENGTH ws < sp /\ good_dimindex (:'a) ==>
     ?eoh (curr:'a word) m1.
@@ -3372,7 +3392,7 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
         store_list w (Word hd::ws) m dm = SOME m1 /\
         memory_rel c be (refs |+ (new,ValueArray vals)) (sp - (LENGTH ws + 1))
           (st |+ (EndOfHeap,Word w)) m1 dm
-          ((RefPtr new,make_ptr c (w - curr) tag (LENGTH ws))::vars)``,
+          ((RefPtr new,make_ptr c (w - curr) 0w (LENGTH ws))::vars)``,
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -3448,6 +3468,72 @@ val reorder_lemma = prove(
     memory_rel c F x.refs x.space t.store t.memory t.mdomain (x3::x1::x2::xs)``,
   match_mp_tac memory_rel_rearrange \\ fs [] \\ rw [] \\ fs []);
 
+val evaluate_StoreEach = store_thm("evaluate_StoreEach",
+  ``!xs ys t offset m1.
+      store_list (a + offset) ys t.memory t.mdomain = SOME m1 /\
+      get_vars xs t = SOME ys /\
+      get_var i t = SOME (Word a) ==>
+      evaluate (StoreEach i xs offset, t) = (NONE,t with memory := m1)``,
+  Induct
+  \\ fs [store_list_def,StoreEach_def] \\ eval_tac
+  \\ fs [wordSemTheory.state_component_equality,
+           wordSemTheory.get_vars_def,store_list_def,
+           wordSemTheory.get_var_def]
+  \\ rw [] \\ fs [] \\ CASE_TAC \\ fs []
+  \\ Cases_on `get_vars xs t` \\ fs [] \\ clean_tac
+  \\ fs [store_list_def,wordSemTheory.mem_store_def]
+  \\ `(t with memory := m1) =
+      (t with memory := (a + offset =+ x) t.memory) with memory := m1` by
+       (fs [wordSemTheory.state_component_equality] \\ NO_TAC)
+  \\ pop_assum (fn th => rewrite_tac [th])
+  \\ first_x_assum match_mp_tac \\ fs []
+  \\ asm_exists_tac \\ fs []
+  \\ qcase_tac `get_vars qs t = SOME ts`
+  \\ pop_assum mp_tac
+  \\ qspec_tac (`ts`,`ts`)
+  \\ qspec_tac (`qs`,`qs`)
+  \\ Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]
+  \\ rw [] \\ every_case_tac \\ fs [])
+  |> Q.SPECL [`xs`,`ys`,`t`,`0w`] |> SIMP_RULE (srw_ss()) [] |> GEN_ALL;
+
+val domain_adjust_set_EVEN = store_thm("domain_adjust_set_EVEN",
+  ``k IN domain (adjust_set s) ==> EVEN k``,
+  fs [adjust_set_def,domain_lookup,lookup_fromAList] \\ rw [] \\ fs []
+  \\ imp_res_tac ALOOKUP_MEM \\ fs [MEM_MAP]
+  \\ split_pair_tac \\ fs [EVEN_adjust_var]);
+
+val inter_insert_ODD_adjust_set = store_thm("inter_insert_ODD_adjust_set",
+  ``!k. ODD k ==>
+      inter (insert (adjust_var dest) w (insert k v s)) (adjust_set t) =
+      inter (insert (adjust_var dest) w s) (adjust_set t)``,
+  fs [spt_eq_thm,wf_inter,lookup_inter_alt,lookup_insert]
+  \\ rw [] \\ rw [] \\ fs []
+  \\ imp_res_tac domain_adjust_set_EVEN \\ fs [EVEN_ODD]);
+
+val get_vars_adjust_var = prove(
+  ``ODD k ==>
+    get_vars (MAP adjust_var args) (t with locals := insert k w s) =
+    get_vars (MAP adjust_var args) (t with locals := s)``,
+  Induct_on `args`
+  \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def,lookup_insert]
+  \\ rw [] \\ fs [ODD_EVEN,EVEN_adjust_var]);
+
+val get_vars_with_store = store_thm("get_vars_with_store",
+  ``!args. get_vars args (t with <| locals := t.locals ; store := s |>) =
+           get_vars args t``,
+  Induct \\ fs [wordSemTheory.get_vars_def,wordSemTheory.get_var_def]);
+
+val LEAST_NOT_IN_FDOM = prove(
+  ``~((LEAST (ptr:num). ~(ptr IN FDOM refs)) IN FDOM refs)``,
+  qabbrev_tac `p = \ptr. ~(ptr IN FDOM refs)`
+  \\ `p ($LEAST p)` by all_tac
+  \\ TRY (unabbrev_all_tac \\ fs [] \\ NO_TAC)
+  \\ match_mp_tac LEAST_INTRO \\ unabbrev_all_tac \\ fs []
+  \\ assume_tac (MATCH_MP INFINITE_DIFF_FINITE (CONJ INFINITE_NUM_UNIV
+     (FDOM_FINITE |> Q.SPEC `refs`
+        |> INST_TYPE [``:'a``|->``:num``,``:'b``|->``:'a``])))
+  \\ fs [EXTENSION] \\ metis_tac []);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -3472,7 +3558,30 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule (memory_rel_get_vars_IMP |> GEN_ALL)
     \\ disch_then drule \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
-    \\ cheat)
+    \\ strip_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ qabbrev_tac `new = LEAST ptr. ptr ∉ FDOM x.refs`
+    \\ `new ∉ FDOM x.refs` by metis_tac [LEAST_NOT_IN_FDOM]
+    \\ rpt_drule memory_rel_Ref \\ strip_tac
+    \\ fs [list_Seq_def] \\ eval_tac
+    \\ fs [wordSemTheory.set_store_def]
+    \\ qpat_abbrev_tac `t5 = t with <| locals := _ ; store := _ |>`
+    \\ split_pair_tac \\ fs []
+    \\ `t.memory = t5.memory /\ t.mdomain = t5.mdomain` by
+         (unabbrev_all_tac \\ fs []) \\ fs []
+    \\ ntac 2 (pop_assum kall_tac)
+    \\ drule evaluate_StoreEach
+    \\ disch_then (qspecl_then [`3::MAP adjust_var args`,`1`] mp_tac)
+    \\ discharge_hyps THEN1
+     (fs [wordSemTheory.get_vars_def,Abbr`t5`,wordSemTheory.get_var_def,
+          lookup_insert,get_vars_with_store,get_vars_adjust_var] \\ NO_TAC)
+    \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
+    \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
+    \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ fs [make_ptr_def])
   \\ Cases_on `op = Update` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [do_app] \\ every_case_tac \\ fs [] \\ clean_tac
@@ -3613,7 +3722,6 @@ val assign_thm = Q.prove(
     \\ pop_assum mp_tac \\ fs []
     \\ match_mp_tac word_ml_inv_rearrange \\ rw [] \\ fs [])
   \\ Cases_on `?tag. op = Cons tag` \\ fs [] \\ fs [] THEN1
-
    (Cases_on `LENGTH args = 0` THEN1
      (fs [assign_def] \\ IF_CASES_TAC \\ fs []
       \\ fs [LENGTH_NIL] \\ rpt var_eq_tac
@@ -3643,7 +3751,29 @@ val assign_thm = Q.prove(
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule (memory_rel_get_vars_IMP |> GEN_ALL)
     \\ disch_then drule \\ fs [NOT_LESS,DECIDE ``n + 1 <= m <=> n < m:num``]
-    \\ cheat)
+    \\ strip_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ `vals <> []` by fs [GSYM LENGTH_NIL]
+    \\ rpt_drule memory_rel_Cons \\ strip_tac
+    \\ fs [list_Seq_def] \\ eval_tac
+    \\ fs [wordSemTheory.set_store_def]
+    \\ qpat_abbrev_tac `t5 = t with <| locals := _ ; store := _ |>`
+    \\ split_pair_tac \\ fs []
+    \\ `t.memory = t5.memory /\ t.mdomain = t5.mdomain` by
+         (unabbrev_all_tac \\ fs []) \\ fs []
+    \\ ntac 2 (pop_assum kall_tac)
+    \\ drule evaluate_StoreEach
+    \\ disch_then (qspecl_then [`3::MAP adjust_var args`,`1`] mp_tac)
+    \\ discharge_hyps THEN1
+     (fs [wordSemTheory.get_vars_def,Abbr`t5`,wordSemTheory.get_var_def,
+          lookup_insert,get_vars_with_store,get_vars_adjust_var] \\ NO_TAC)
+    \\ clean_tac \\ fs [] \\ UNABBREV_ALL_TAC
+    \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
+    \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ fs [make_ptr_def])
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])

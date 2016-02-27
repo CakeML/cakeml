@@ -113,9 +113,9 @@ val assign_def = Define `
                             Const (bytes_in_word * n2w (LENGTH args + 1))]);
                          Set EndOfHeap (Var 1);
                          Assign 3 (Const header);
-                         StoreEach 1 (3::args) 0w;
+                         StoreEach 1 (3::MAP adjust_var args) 0w;
                          Assign (adjust_var dest)
-                           (Op Or [Shift Lsl (Var 1)
+                           (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                                      (Nat (shift_length c − shift (:'a)));
                                    Const 1w])],l))
     | Ref => (case encode_header c 2 (LENGTH args) of
@@ -125,9 +125,9 @@ val assign_def = Define `
                      Const (bytes_in_word * n2w (LENGTH args + 1))]);
                   Set EndOfHeap (Var 1);
                   Assign 3 (Const header);
-                  StoreEach 1 (3::args) 0w;
+                  StoreEach 1 (3::MAP adjust_var args) 0w;
                   Assign (adjust_var dest)
-                    (Op Or [Shift Lsl (Var 1)
+                    (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
