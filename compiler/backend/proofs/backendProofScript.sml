@@ -13,7 +13,7 @@ open preamble initSemEnvTheory semanticsPropsTheory
      word_to_stackProofTheory
      stack_to_labProofTheory
      lab_to_targetProofTheory
-local open compilerComputeLib bvpPropsTheory in end
+local open compute_compilerLib bvpPropsTheory in end
 
 val _ = new_theory"backendProof";
 
@@ -130,7 +130,7 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
 
 (* --- composing source-to-target --- *)
 
-val c = compilerComputeLib.the_compiler_compset
+val c = compute_compilerLib.the_compiler_compset
 val () = computeLib.add_thms[prim_config_def] c
 val () = computeLib.add_thms[initialProgramTheory.prim_types_program_def] c
 

@@ -1,4 +1,4 @@
-INCLUDES = ../../..
+INCLUDES = ../../.. ../../../unverified/reg_alloc
 OPTIONS = QUIT_ON_FAILURE
 
 ifdef POLY

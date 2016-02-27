@@ -340,13 +340,21 @@ in
   (* bvp_to_word *)
   ; add_thms
     [bvp_to_wordTheory.adjust_var_def
-    ,bvp_to_wordTheory.adjust_set_def
-    ,bvp_to_wordTheory.Unit_def
-    ,bvp_to_wordTheory.GiveUp_def
-    ,bvp_to_wordTheory.assign_def
-    ,bvp_to_wordTheory.comp_def
-    ,bvp_to_wordTheory.compile_part_def
+    ,bvp_to_wordTheory.shift_length_def
     ,bvp_to_wordTheory.compile_def
+    ,bvp_to_wordTheory.compile_part_def
+    ,bvp_to_wordTheory.comp_def
+    ,bvp_to_wordTheory.assign_def
+    ,bvp_to_wordTheory.real_offset_def
+    ,bvp_to_wordTheory.real_addr_def
+    ,bvp_to_wordTheory.next_free_addr_def
+    ,bvp_to_wordTheory.StoreEach_def
+    ,bvp_to_wordTheory.shift_def
+    ,bvp_to_wordTheory.encode_header_def
+    ,bvp_to_wordTheory.list_Seq_def
+    ,bvp_to_wordTheory.GiveUp_def
+    ,bvp_to_wordTheory.Unit_def
+    ,bvp_to_wordTheory.adjust_set_def
     ]
   (*wordLang word_to_word*)
   ; add_thms

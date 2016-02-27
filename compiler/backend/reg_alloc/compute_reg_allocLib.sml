@@ -5,6 +5,8 @@ local
 
 open HolKernel boolLib bossLib computeLib
 open parmoveTheory reg_allocTheory state_transformerTheory
+open reg_alloc
+open sptreeSyntax numSyntax listSyntax
 
 in
 
@@ -133,6 +135,79 @@ val the_reg_alloc_compset =
     c
   end
 
-end
+(* unit sptree to ML unit sptree_spt*)
+fun dest_unit_sptree tm =
+ case Lib.total boolSyntax.dest_strip_comb tm of
+    SOME ("sptree$LN", []) => Ln
+  | SOME ("sptree$LS", [t]) => Ls ()
+  | SOME ("sptree$BN", [t1, t2]) => Bn (dest_unit_sptree t1, dest_unit_sptree t2)
+  | SOME ("sptree$BS", [t1, v, t2]) => Bs (dest_unit_sptree t1, (), dest_unit_sptree t2)
+  | _ => raise ERR "dest_unit_sptree" "";
 
+(*Int ML sptree to HOL num sptree*)
+fun mk_num_sptree t =
+ case t of
+    Ln => mk_ln ``:num``
+  | Ls a => mk_ls (term_of_int a)
+  | Bn (Ln, t2) =>
+       let
+          val tm = mk_num_sptree t2
+       in
+          mk_bn (mk_ln ``:num``, tm)
+       end
+  | Bn (t1, Ln) =>
+       let
+          val tm = mk_num_sptree t1
+       in
+          mk_bn (tm, mk_ln (sptree_ty_of tm))
+       end
+  | Bn (t1, t2) => mk_bn (mk_num_sptree t1, mk_num_sptree t2)
+  | Bs (t1, a, t2) =>
+       let
+          val ln = mk_ln ``:num``
+          val tm1 = if t1 = Ln then ln else mk_num_sptree t1
+          val tm2 = if t2 = Ln then ln else mk_num_sptree t2
+       in
+          mk_bs (tm1, (term_of_int a), tm2)
+       end;
+
+(*List of clash sets in HOL to unit sptree*)
+fun dest_clash_set_list tm =
+  let val (ls,_) = dest_list tm in
+      map dest_unit_sptree ls
+  end;
+
+fun tup3 [x,y,z] =(x,(y,z))
+
+fun dest_moves tm =
+  let val (ls,_) = dest_list tm
+      val split = map pairSyntax.strip_pair ls in
+  map
+  (fn p => tup3 (map int_of_term p)) split end
+
+fun alloc_aux k [] = []
+|   alloc_aux k ((clash_sets,moves)::xs) =
+  let val clash_sets_poly = dest_clash_set_list clash_sets
+      val moves_poly = dest_moves moves in
+      irc_alloc clash_sets_poly k moves_poly :: alloc_aux k xs
+  end;
+
+(*Main thing to call for external allocator
+  Should be passed a term of the form (k,(clashsetlist,moves) list)
+*)
+fun alloc_all t =
+  let val (k,ls) = pairSyntax.dest_pair t 
+    val clash_mov_ls = map pairSyntax.dest_pair (fst(listSyntax.dest_list ls)) in
+    alloc_aux (int_of_term k) clash_mov_ls
+  end
+
+fun get_oracle t =
+  let val cols = alloc_all t
+      val alloc = listSyntax.mk_list (map mk_num_sptree cols,``:num num_map``) in
+  ``let alloc = ^(alloc) in
+    \n. if n >= LENGTH alloc then NONE else SOME(EL n alloc)``
+  end
+
+(* get_oracle ``(5n,[([LN;LN],[]);([LN;LN],[])])`` *)
+end
 end
