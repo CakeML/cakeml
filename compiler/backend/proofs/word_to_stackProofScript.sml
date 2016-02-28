@@ -4454,6 +4454,10 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ fs[stackSemTheory.set_var_def]
       \\ NO_TAC)
     \\ simp[Abbr`l`]
+    \\ TRY (
+      qpat_assum`word_loc_CASE _ _ _ = SOME _`mp_tac
+      \\ BasicProvers.TOP_CASE_TAC
+      \\ strip_tac )
     \\ conj_tac \\ strip_tac
     \\ qho_match_abbrev_tac`∃t'. evaluate (wStackLoad l (kont n1),tt) = (NONE,t') ∧ _ t'`
     \\ simp[]
@@ -4490,11 +4494,12 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
       \\ drule (GEN_ALL state_rel_get_var_imp2)
       \\ disch_then drule \\ strip_tac
       \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
-      \\ `s.mdomain = t.mdomain ∧ s.memory = t.memory` by ( fs[state_rel_def])
-      \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
+      \\ `s.mdomain = t.mdomain ∧ s.memory = t.memory ∧ s.be = t.be` by ( fs[state_rel_def])
+      \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def,wordSemTheory.mem_store_byte_aux_def]
       \\ rveq \\ simp[]
       \\ simp[set_var_with_memory]
       \\ BasicProvers.CASE_TAC \\ fs[]
+      \\ TRY BasicProvers.CASE_TAC \\ fs[]
       \\ rveq \\ simp[]
       \\ simp[set_var_with_memory]
       \\ match_mp_tac state_rel_with_memory
@@ -4520,10 +4525,11 @@ val evaluate_wInst = Q.store_thm("evaluate_wInst",
     \\ disch_then drule \\ strip_tac
     \\ conj_tac \\ strip_tac \\ fs[stackSemTheory.get_var_def]
     \\ TRY (simp[Once stackSemTheory.set_var_def] \\ CHANGED_TAC(simp[FLOOKUP_UPDATE]))
-    \\ `s.mdomain = t.mdomain ∧ s.memory = t.memory` by ( fs[state_rel_def])
-    \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def]
+    \\ `s.mdomain = t.mdomain ∧ s.memory = t.memory ∧ s.be = t.be` by ( fs[state_rel_def])
+    \\ fs[stackSemTheory.mem_store_def,wordSemTheory.mem_store_def,wordSemTheory.mem_store_byte_aux_def]
     \\ rveq \\ simp[]
     \\ BasicProvers.CASE_TAC \\ fs[]
+    \\ TRY BasicProvers.CASE_TAC \\ fs[]
     \\ rveq \\ simp[]
     \\ simp[set_var_with_memory]
     \\ match_mp_tac state_rel_with_memory
