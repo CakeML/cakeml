@@ -5489,6 +5489,16 @@ val comp_correct = Q.store_thm("comp_correct",
       (fs[convs_def,word_allocTheory.max_var_def]
        >> metis_tac[IS_PREFIX_TRANS,comp_IMP_isPREFIX,evaluate_consts])>>
     strip_tac>>qexists_tac`ck`>>rfs[])
+  THEN1 (* LocValue *) (
+    qexists_tac`0` \\ simp[]
+    \\ fs[wordSemTheory.evaluate_def]
+    \\ rw[comp_def,stackSemTheory.evaluate_def]
+    \\ fs[convs_def,reg_allocTheory.is_phy_var_def,GSYM EVEN_MOD2,EVEN_EXISTS]
+    \\ simp[TWOxDIV2]
+    \\ match_mp_tac state_rel_set_var
+    \\ fs[word_allocTheory.max_var_def,GSYM LEFT_ADD_DISTRIB]
+    \\ rveq \\ fs[]
+    \\ cheat (* syntactic conventions not good enough? *))
   THEN1 (* FFI *)
    (fs [EVAL ``post_alloc_conventions k (FFI ffi_index ptr len names)``]
     \\ rw [] \\ fs [] \\ rw []
