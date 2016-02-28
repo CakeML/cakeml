@@ -724,8 +724,7 @@ val word_gc_move_code_def = Define `
                       clear_top_inst 5 (shift_length conf - 1);
                       or_inst 5 1])
            (list_Seq [(* get len+1w *)
-                      right_shift_inst 1 2;
-                      clear_top_inst 1 (conf.len_size - 1);
+                      right_shift_inst 1 (dimindex (:'a) - conf.len_size);
                       add_1_inst 1;
                       (* store len+1w for later *)
                       move 6 1;
@@ -756,15 +755,6 @@ val is_fwd_ptr_iff = prove(
 val isWord_thm = prove(
   ``!w. isWord w = ?v. w = Word v``,
   Cases \\ full_simp_tac(srw_ss())[isWord_def]);
-
-val decode_header_lemma = prove(
-  ``conf.len_size <> 0 ==>
-    decode_header conf w =
-     (w ⋙ (2 + conf.len_size), (conf.len_size - 1 -- 0) (w >>> 2))``,
-  full_simp_tac(srw_ss())[bvp_to_wordPropsTheory.decode_header_def] \\ srw_tac[][]
-  \\ `2 <= conf.len_size + 1` by decide_tac
-  \\ drule select_eq_select_0 \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[DECIDE ``n+1-2 = n-1n``]);
 
 val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   ``word_gc_move conf (w,i,pa,old,m,dm) = (w1,i1,pa1,m1,T) /\
@@ -832,13 +822,12 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
        (unabbrev_all_tac \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC] \\ NO_TAC)
   \\ full_simp_tac(srw_ss())[] \\ discharge_hyps THEN1
     (unabbrev_all_tac \\ full_simp_tac(srw_ss())[get_var_def] \\ tac
-     \\ full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
-  \\ full_simp_tac(srw_ss())[] \\ tac
-     \\ full_simp_tac(srw_ss())[select_lower_lemma,
-          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``])
+     \\ fs [bvp_to_wordPropsTheory.decode_header_def])
   \\ strip_tac \\ full_simp_tac(srw_ss())[FUPDATE_LIST]
   \\ unabbrev_all_tac \\ full_simp_tac(srw_ss())[] \\ tac
-  \\ full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
+  \\ `len = v ⋙ (dimindex (:α) − conf.len_size)` by
+    (fs [LET_THM,bvp_to_wordPropsTheory.decode_header_def] \\ NO_TAC)
+  \\ fs [] \\ tac \\ rpt var_eq_tac
   \\ full_simp_tac(srw_ss())[] \\ tac
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]
@@ -953,9 +942,8 @@ val word_gc_move_loop_code_def = Define `
      (list_Seq [load_inst 7 8;
                 move 0 7;
                 (* following decodes header h in 0, len in 7 *)
-                right_shift_inst 0 (2 + conf.len_size);
-                right_shift_inst 7 2;
-                clear_top_inst 7 (conf.len_size - 1);
+                right_shift_inst 0 2;
+                right_shift_inst 7 (dimindex (:α) - conf.len_size);
                 If Test 0 (Imm 1w)
                   (list_Seq [add_bytes_in_word_inst 8;
                              word_gc_move_list_code conf])
@@ -1015,20 +1003,20 @@ val word_gc_move_loop_code_thm = prove(
     \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
     \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
     \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
-    \\ rev_full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
+    \\ rev_full_simp_tac(srw_ss())
+         [bvp_to_wordPropsTheory.decode_header_def,LET_THM] \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[] \\ tac
     \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
          DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
-    \\ `(v ⋙ (conf.len_size + 2) && 1w) <> 0w` by
-         full_simp_tac std_ss [word_and_one_eq_0_iff] \\ fs []
-    \\ qabbrev_tac `ww = bytes_in_word * (v ⋙ (conf.len_size + 2) + 1w)`
-    \\ qpat_abbrev_tac `w2 = v ⋙ 2 ≪ _ ⋙ _`
+    \\ `((v ⋙ 2) && 1w) <> 0w` by
+     (full_simp_tac std_ss [word_and_one_eq_0_iff,word_lsr_def]
+      \\ fs [fcpTheory.FCP_BETA,word_bits_def])
+    \\ fs []
+    \\ qabbrev_tac `ww = bytes_in_word *
+          (v ⋙ (dimindex (:α) − conf.len_size) + 1w)`
     \\ qabbrev_tac `s5 = s with
-        <|regs :=
-            s.regs |+ (7,Word v) |+
-            (0,Word (v ⋙ (conf.len_size + 2))) |+
-            (7,Word (bytes_in_word * (w2 + 1w))) |+
-            (8,Word (pb1 + bytes_in_word * (w2 + 1w))) |>`
+        <|regs := s.regs |+ (7,Word v) |+ (0,Word (v ⋙ 2)) |+
+                            (7,Word ww) |+ (8,Word (pb1 + ww)) |>`
     \\ `s.memory = s5.memory /\ s.mdomain = s5.mdomain` by
          (unabbrev_all_tac \\ fs [])
     \\ fs [] \\ first_x_assum drule \\ fs []
@@ -1046,19 +1034,18 @@ val word_gc_move_loop_code_thm = prove(
   \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []
   \\ asm_simp_tac std_ss[word_gc_move_loop_code_def,evaluate_def]
   \\ asm_simp_tac std_ss[GSYM word_gc_move_loop_code_def,STOP_def]
-  \\ rev_full_simp_tac(srw_ss())[decode_header_lemma] \\ rpt var_eq_tac
+  \\ rev_full_simp_tac(srw_ss())[] \\ rpt var_eq_tac
   \\ fs [get_var_def,isWord_thm,clear_top_inst_def] \\ tac
   \\ full_simp_tac(srw_ss())[] \\ tac
   \\ rev_full_simp_tac(srw_ss())[select_lower_lemma,
        DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``,theWord_def]
-  \\ `(v ⋙ (conf.len_size + 2) && 1w) = 0w` by
-       full_simp_tac std_ss [word_and_one_eq_0_iff] \\ fs []
-  \\ qabbrev_tac `ww = bytes_in_word * (v ⋙ (conf.len_size + 2) + 1w)`
-  \\ qpat_abbrev_tac `w2 = v ⋙ 2 ≪ _ ⋙ _`
+  \\ rev_full_simp_tac(srw_ss())
+         [bvp_to_wordPropsTheory.decode_header_def,LET_THM] \\ rpt var_eq_tac
+  \\ `((v ⋙ 2) && 1w) = 0w` by cheat \\ fs []
   \\ qabbrev_tac `s5 = s with
         <|regs :=
-            s.regs |+ (7,Word v) |+
-            (0,Word (v ⋙ (conf.len_size + 2))) |+ (7,Word w2) |+
+            s.regs |+ (7,Word v) |+ (0,Word (v ⋙ 2)) |+
+            (7,Word (v ⋙ (dimindex (:'a) − conf.len_size))) |+
             (8,Word (pb1 + bytes_in_word)) |>`
   \\ drule word_gc_move_list_code_thm
   \\ disch_then (qspec_then `s5` mp_tac)

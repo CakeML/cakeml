@@ -772,10 +772,12 @@ val word_gc_move_thm = prove(
   \\ full_simp_tac bool_ss [GSYM word_list_def]
   \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,isWord_def,theWord_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
-  \\ imp_res_tac read_length_lemma \\ full_simp_tac(srw_ss())[]
+  \\ `~(is_fwd_ptr (Word (make_header conf h (LENGTH ts))))` by
+       (full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,
+           isWord_def,theWord_def,make_header_def,LET_DEF] \\ NO_TAC) \\ fs []
   \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
   \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ Q.ABBREV_TAC `header = (h ≪ (2 + conf.len_size) ‖ n2w (LENGTH ts) ≪ 2 ‖ 3w)`
+  \\ Q.ABBREV_TAC `header = make_header conf h (LENGTH ts)`
   \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word header::ts)):'a word` by
         full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
   \\ full_simp_tac bool_ss []
@@ -3295,9 +3297,8 @@ val encode_header_IMP = prove(
   ``encode_header c tag len = SOME (hd:'a word) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
     decode_header c hd = (n2w tag,n2w len)``,
-  fs [encode_header_def] \\ rw [decode_header_def]
-  \\ cheat (* the format of the header will probably change, so
-              no point in proving this now *));
+  fs [encode_header_def] \\ rw [decode_header_def,make_header_def]
+  \\ cheat (* needs more conditions *));
 
 val store_list_thm = store_thm("store_list_thm",
   ``!xs a frame m dm.
@@ -3363,7 +3364,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def,
          SEP_CLAUSES,word_heap_heap_expand]
   \\ fs [word_list_exists_ADD |> Q.SPECL [`m`,`n+1`]]
-  \\ `(n2w tag ≪ (c.len_size + 4) ‖ n2w (LENGTH ws) ≪ 2 ‖ 3w) = hd` by
+  \\ `(make_header c (n2w tag << 2) (LENGTH ws)) = hd` by
        (fs [encode_header_def] \\ every_case_tac \\ fs []
         \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
   \\ fs [] \\ imp_res_tac encode_header_IMP
@@ -3425,7 +3426,7 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
          SEP_CLAUSES,word_heap_heap_expand,RefBlock_def,el_length_def,
          heap_length_APPEND,heap_length_heap_expand]
   \\ fs [word_list_exists_ADD |> Q.SPECL [`m`,`n+1`]]
-  \\ `(n2w (LENGTH ws) ≪ 2 ‖ 2w ≪ (c.len_size + 2) ‖ 3w) = hd` by
+  \\ `make_header c 2w (LENGTH ws) = hd` by
        (fs [encode_header_def] \\ every_case_tac \\ fs []
         \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
   \\ fs [] \\ imp_res_tac encode_header_IMP

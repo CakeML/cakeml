@@ -3,13 +3,6 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
 
 val _ = new_theory "bvp_to_wordProps";
 
-(* -------------------------------------------------------------
-    TODO:
-     - put length into higher bits of block headers
-       (make byte array length easy to retrieve)
-     - consider putting information in the abstract pointers?
-   ------------------------------------------------------------- *)
-
 val _ = Datatype `
   tag = BlockTag num | RefTag | BytesTag num | NumTag bool`;
 
@@ -1502,7 +1495,7 @@ val word_payload_def = Define `
 
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
-    let h = (w >>> (3 + conf.len_size)) in
+    let h = (w >>> 2) in
       if h = 0b010w then RefTag else
       if h = 0b101w then NumTag T else
       if h = 0b001w then NumTag F else
@@ -1510,8 +1503,9 @@ val decode_tag_bits_def = Define `
         BlockTag (w2n (h >>> 2))`
 
 val decode_header_def = Define `
-  decode_header conf w =
-    (w >>> (2 + conf.len_size),((conf.len_size + 1 -- 2) w))`;
+  decode_header conf (w:'a word) =
+    let l = dimindex (:'a) - conf.len_size in
+      ((l - 1 -- 2) w, w >>> l)`;
 
 val word_el_def = Define `
   (word_el a (Unused l) conf = word_list_exists (a:'a word) (l+1)) /\
@@ -1520,7 +1514,7 @@ val word_el_def = Define `
      word_list_exists (a + bytes_in_word) l) /\
   (word_el a (DataElement ys l (tag,qs)) conf =
      let (h,ts,c) = word_payload ys l tag qs conf in
-     let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
+     let w = make_header conf h (LENGTH ts) in
        word_list a (Word w :: ts) *
        cond (LENGTH ts < 2 ** (dimindex (:'a) - 4) /\
              decode_header conf w = (h,n2w (LENGTH ts)) /\ c))`;

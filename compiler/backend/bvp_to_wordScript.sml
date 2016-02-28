@@ -21,12 +21,17 @@ val GiveUp_def = Define `
   GiveUp = Seq (Assign 1 (Const (-1w)))
                (Alloc 1 (adjust_set (LN:num_set))) :'a wordLang$prog`
 
+val make_header_def = Define `
+  make_header conf tag len =
+    let l = dimindex (:'a) - conf.len_size in
+      (n2w len << l || tag << 2 || 3w:'a word)`
+
 val encode_header_def = Define `
   encode_header (conf:bvp_to_word$config) tag len =
     if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
        len < 2 ** (dimindex (:'a) - 4) /\
        len < 2 ** conf.len_size
-    then SOME (n2w tag << (conf.len_size + 2) || n2w len << 2 || 3w:'a word)
+    then SOME ((make_header conf (n2w tag) len):'a word)
     else NONE`
 
 val list_Seq_def = Define `
