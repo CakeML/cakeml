@@ -21,8 +21,8 @@ val _ = Datatype `
        | Return num num
        | FFI num num num num (* FFI index, array_ptr, array_len, ret_addr *)
        | Tick
-       (* new in stackLang, compared to wordLang, below *)
        | LocValue num num num   (* assign v1 := Loc v2 v3 *)
+       (* new in stackLang, compared to wordLang, below *)
        | StackAlloc num         (* allocate n slots on the stack *)
        | StackFree num          (* free n slots on the stack *)
        | StackStore num num     (* offset, fast *)
