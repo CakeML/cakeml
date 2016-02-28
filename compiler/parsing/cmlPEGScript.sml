@@ -1,7 +1,5 @@
 open HolKernel Parse boolLib bossLib
-
-open gramTheory pegexecTheory pegTheory
-
+     gramTheory pegexecTheory pegTheory
 local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
@@ -172,7 +170,7 @@ val peg_StructName_def = Define`
 
 val cmlPEG_def = zDefine`
   cmlPEG = <|
-    start := pnt nREPLTop;
+    start := pnt nTopLevelDecs;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nTyvarN, pegf (tok isTyvarT mktokLf) (bindNT nTyvarN));
@@ -428,7 +426,7 @@ val cmlPEG_def = zDefine`
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
                pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
-(*            (mkNT nTopLevelDecs,
+              (mkNT nTopLevelDecs,
                rpt (pnt nTopLevelDec)
                    (λtds. [FOLDR
                              (λtd acc.
@@ -436,15 +434,16 @@ val cmlPEG_def = zDefine`
                                      (case td of
                                           [] => [acc] (* shouldn't happen *)
                                         | tdh::_ => [tdh; acc]))
-                             (Nd (mkNT nTopLevelDecs) []) tds]));
+                             (Nd (mkNT nTopLevelDecs) []) tds]))
+(*
               (mkNT nREPLPhrase,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
                         seql [pnt nTopLevelDecs; tokeq SemicolonT]
-                             (bindNT nREPLPhrase)]); *)
+                             (bindNT nREPLPhrase)]);
               (mkNT nREPLTop,
                choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLTop);
                         seql [pnt nTopLevelDec; tokeq SemicolonT]
-                             (bindNT nREPLTop)])
+                             (bindNT nREPLTop)]) *)
              ] |>
 `;
 
@@ -508,9 +507,6 @@ val cmlPEG_exec_thm = save_thm(
 val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
-
-
-open lcsymtacs
 
 val frange_image = prove(
   ``FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)``,
@@ -690,8 +686,8 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, (* ``nTopLevelDecs``, ``nREPLPhrase``, *)
-                ``nREPLTop``]
+                ``nTopLevelDec``, ``nTopLevelDecs`` (*, ``nREPLPhrase``,
+                ``nREPLTop``*)]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",
@@ -731,19 +727,19 @@ val PEG_wellformed = store_thm(
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 val _ = export_rewrites ["PEG_wellformed"]
 
-val parse_REPLTop_total = save_thm(
-  "parse_REPLTop_total",
+val parse_TopLevelDecs_total = save_thm(
+  "parse_TopLevelDecs_total",
   MATCH_MP peg_exec_total PEG_wellformed
            |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val coreloop_REPLTop_total = save_thm(
-  "coreloop_REPLTop_total",
+val coreloop_TopLevelDecs_total = save_thm(
+  "coreloop_TopLevelDecs_total",
   MATCH_MP coreloop_total PEG_wellformed
     |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val owhile_REPLTop_total = save_thm(
-  "owhile_REPLTop_total",
-  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLTop_total);
+val owhile_TopLevelDecs_total = save_thm(
+  "owhile_TopLevelDecs_total",
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_TopLevelDecs_total);
 
 local
   val c = concl FDOM_cmlPEG

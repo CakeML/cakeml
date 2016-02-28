@@ -1,9 +1,4 @@
-open HolKernel Parse boolLib bossLib;
-
-open pred_setTheory
-open pegTheory cmlPEGTheory gramTheory gramPropsTheory
-open lcsymtacs boolSimps
-open preamble
+open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
 
 val _ = new_theory "pegSound";
 
@@ -297,6 +292,7 @@ val peg_sound = store_thm(
   simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
   simp[cmlPEGTheory.cmlpeg_rules_applied]
+  (*
   >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`
@@ -304,13 +300,13 @@ val peg_sound = store_thm(
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
       dsimp[cmlG_applied, cmlG_FDOM])
-  (*>- (print_tac "nREPLPhrase" >>
+  >- (print_tac "nREPLPhrase" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLPhrase) ∧
        NT_rank (mkNT nTopLevelDecs) < NT_rank (mkNT nREPLPhrase)`
           by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM])*)
   >- (print_tac "nTopLevelDecs" >>
       qmatch_abbrev_tac `peg_eval cmlPEG (i0, rpt NNN FF) (SOME(i,pts)) ⇒ QQ`>>
       map_every markerLib.UNABBREV_TAC ["NNN", "QQ"] >>
@@ -342,7 +338,7 @@ val peg_sound = store_thm(
       first_x_assum (erule mp_tac) >>
       disch_then (qxchl [`ds_pt`] strip_assume_tac) >>
       disch_then (qxchl [`d_pt`] strip_assume_tac) >> simp[] >>
-      dsimp[cmlG_applied, cmlG_FDOM]) *)
+      dsimp[cmlG_applied, cmlG_FDOM])
   >- (print_tac "nTopLevelDec" >>
       `NT_rank (mkNT nStructure) < NT_rank (mkNT nTopLevelDec) ∧
        NT_rank (mkNT nDecl) < NT_rank (mkNT nTopLevelDec)`
