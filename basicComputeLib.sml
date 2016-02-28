@@ -1,4 +1,4 @@
-structure compute_basicLib :> compute_basicLib =
+structure basicComputeLib :> basicComputeLib =
 struct
 
 open HolKernel boolLib bossLib lcsymtacs

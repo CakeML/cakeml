@@ -1,10 +1,10 @@
-structure compute_interpLib = struct
+structure interpComputeLib = struct
 open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory
 
-  val add_datatype = compute_basicLib.add_datatype
+  val add_datatype = basicComputeLib.add_datatype
   fun add_interp_compset compset = let
     local open interpTheory in
-      val () = compute_semanticsLib.add_ast_compset compset
+      val () = semanticsComputeLib.add_ast_compset compset
 
       val () = add_datatype compset ``:'ffi state``
       val () = computeLib.add_thms

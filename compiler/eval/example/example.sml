@@ -66,7 +66,7 @@ val test1 = Count.apply eval``
   let clashmov = MAP (\(name_num,arg_count,prog). ((\h,tl. h::tl)(get_clash_sets prog LN),get_prefs prog [])) p in
   ((reg_count,clashmov),c,p)``
 
-val oracles = compute_reg_allocLib.get_oracle (fst (pairSyntax.dest_pair (rconc test1)))
+val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test1)))
 
 val test_oracle = Count.apply eval``
   let ((reg_count,clashmov),c,p) = ^(rconc test1) in

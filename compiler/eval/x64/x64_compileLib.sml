@@ -3,7 +3,7 @@ struct
 
 open HolKernel boolLib bossLib lcsymtacs;
 open x64_targetLib asmLib;
-open compute_compilerLib;
+open compilerComputeLib;
 open x64DisassembleLib
 
 (* open x64_targetTheory *)

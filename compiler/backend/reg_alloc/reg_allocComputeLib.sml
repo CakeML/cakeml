@@ -1,4 +1,4 @@
-structure compute_reg_allocLib =
+structure reg_allocComputeLib =
 struct
 
 local
@@ -12,7 +12,7 @@ in
 
 fun add_reg_alloc_compset compset =
 let
-  val add_datatype = compute_basicLib.add_datatype compset
+  val add_datatype = basicComputeLib.add_datatype compset
   val add_thms = Lib.C computeLib.add_thms compset
 in
   add_datatype ``:ra_state``
@@ -129,7 +129,7 @@ in
 
 val the_reg_alloc_compset =
   let
-    val c = compute_basicLib.the_basic_compset
+    val c = basicComputeLib.the_basic_compset
     val () = add_reg_alloc_compset c
   in
     c

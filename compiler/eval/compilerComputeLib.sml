@@ -1,4 +1,4 @@
-structure compute_compilerLib :> compute_compilerLib =
+structure compilerComputeLib :> compilerComputeLib =
 struct
 
 local
@@ -23,7 +23,7 @@ open wordLangTheory bvp_to_wordTheory word_instTheory word_allocTheory word_remo
 open stackLangTheory word_to_wordTheory word_to_stackTheory stack_removeTheory stack_namesTheory db_varsTheory
 open labLangTheory stack_to_labTheory lab_filterTheory
 open backendTheory
-open compute_semanticsLib compute_reg_allocLib
+open semanticsComputeLib reg_allocComputeLib
 
 (*Order of thms shown below:
 First, all the small compilation steps between ILs + IL to IL transforms
@@ -40,7 +40,7 @@ in
 
 fun add_compiler_compset compset =
 let
-  val add_datatype = compute_basicLib.add_datatype compset
+  val add_datatype = basicComputeLib.add_datatype compset
   val add_thms = Lib.C computeLib.add_thms compset
 in
     add_thms [indexedListsTheory.MAPi_ACC_def];
@@ -608,9 +608,9 @@ in
 
 val the_compiler_compset =
   let
-    val c = compute_basicLib.the_basic_compset
-    val () = compute_semanticsLib.add_ast_compset c
-    val () = compute_reg_allocLib.add_reg_alloc_compset c
+    val c = basicComputeLib.the_basic_compset
+    val () = semanticsComputeLib.add_ast_compset c
+    val () = reg_allocComputeLib.add_reg_alloc_compset c
     val () = add_compiler_compset c
   in
     c
