@@ -575,6 +575,69 @@ val get_clash_sets_def = Define`
     let i_set = union (get_writes prog) live in
       (get_live prog live,[i_set]))`
 
+(* Potentially more efficient liveset representation for checking / allocation*)
+val get_delta_inst_def = Define`
+  (get_delta_inst Skip = Delta [] []) ∧
+  (get_delta_inst (Const reg w) = Delta [reg] []) ∧
+  (get_delta_inst (Arith (Binop bop r1 r2 ri)) =
+    case ri of Reg r3 => Delta [r1] [r2;r3]
+                  | _ => Delta [r1] [r2]) ∧
+  (get_delta_inst (Arith (Shift shift r1 r2 n)) = Delta [r1] [r2]) ∧
+  (get_delta_inst (Mem Load r (Addr a w)) = Delta [r] [a]) ∧
+  (get_delta_inst (Mem Store r (Addr a w)) = Delta [] [r;a]) ∧
+  (*Catchall -- for future instructions to be added*)
+  (get_delta_inst x = Delta [] [])`
+
+val get_reads_exp_def = tDefine "get_reads_exp" `
+  (get_reads_exp (Var num) = [num]) ∧
+  (get_reads_exp (Load exp) = get_reads_exp exp) ∧
+  (get_reads_exp (Op wop ls) =
+      FLAT (MAP get_reads_exp ls)) ∧
+  (get_reads_exp (Shift sh exp nexp) = get_reads_exp exp) ∧
+  (get_reads_exp expr = [])`
+  (WF_REL_TAC `measure (exp_size ARB)`
+  \\ REPEAT STRIP_TAC \\ IMP_RES_TAC MEM_IMP_exp_size
+  \\ TRY (FIRST_X_ASSUM (ASSUME_TAC o Q.SPEC `ARB`))
+  \\ DECIDE_TAC)
+
+val get_clash_tree_def = Define`
+  (get_clash_tree Skip = Delta [] []) ∧
+  (get_clash_tree (Move pri ls) =
+    Delta (MAP FST ls) (MAP SND ls)) ∧
+  (get_clash_tree (Inst i) = get_delta_inst i) ∧
+  (get_clash_tree (Assign num exp) = Delta [num] (get_reads_exp exp)) ∧
+  (get_clash_tree (Get num store) = Delta [num] []) ∧
+  (get_clash_tree (Store exp num) = Delta [] (num::get_reads_exp exp)) ∧
+  (get_clash_tree (Seq s1 s2) = Seq (get_clash_tree s1) (get_clash_tree s2)) ∧
+  (get_clash_tree (If cmp r1 ri e2 e3) =
+    let e2t = get_clash_tree e2 in
+    let e3t = get_clash_tree e3 in
+    case ri of
+      Reg r2 => Seq (Delta [] [r1;r2]) (Branch NONE e2t e3t)
+    | _      => Seq (Delta [] [r1]) (Branch NONE e2t e3t)) ∧
+  (get_clash_tree (MustTerminate n s) =
+    get_clash_tree s) ∧
+  (get_clash_tree (Alloc num numset) =
+    Seq (Delta [] [num]) (Set numset)) ∧
+  (get_clash_tree (FFI ffi_index ptr len numset) =
+    Seq (Delta [] [ptr;len]) (Set numset)) ∧
+  (get_clash_tree (Raise num) = Delta [] [num]) ∧
+  (get_clash_tree (Return num1 num2) = Delta [] [num1;num2]) ∧
+  (get_clash_tree Tick = Delta [] []) ∧
+  (get_clash_tree (Set n exp) = Delta [] (get_reads_exp exp)) ∧
+  (get_clash_tree (Call ret dest args h) =
+    let args_set = numset_list_insert args LN in
+    case ret of
+      NONE => Set (numset_list_insert args LN)
+    | SOME (v,cutset,ret_handler,_,_) =>
+      let live_set = union cutset args_set in
+      let ret_tree = Seq (Delta [] [v]) (get_clash_tree ret_handler) in
+      case h of
+        NONE => Seq (Set live_set) ret_tree
+      | SOME (v',prog,_,_) =>
+        let handler_tree = Seq (Delta [] [v']) (get_clash_tree prog) in
+        Branch (SOME live_set) ret_tree handler_tree)`
+
 (*Preference edges*)
 val get_prefs_def = Define`
   (get_prefs (Move pri ls) acc = (MAP (λx,y. (pri,x,y)) ls) ++ acc) ∧
