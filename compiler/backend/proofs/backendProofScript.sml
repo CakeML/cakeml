@@ -156,12 +156,12 @@ val COND_eq_SOME = Q.store_thm("COND_eq_SOME",
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
-   c.mod_conf = prim_config.mod_conf ∧ c.clos_conf = prim_config.clos_conf ∧
+   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧ c.clos_conf = (prim_config:'a backend$config).clos_conf ∧
    good_dimindex (:α) ∧
    ¬semantics_prog s env prog Fail ∧
    compile c prog = SOME (bytes,c') ∧
    machine_sem_implements_bvp_pre (ffi,mc,ms,SND(to_bvp c prog),(FST(to_bvp c prog)).clos_conf.start) ⇒
-     machine_sem mc ffi ms ⊆
+     machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
   drule(GEN_ALL(MATCH_MP SWAP_IMP source_to_modProofTheory.compile_correct)) >>

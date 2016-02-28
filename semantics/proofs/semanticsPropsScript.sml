@@ -122,7 +122,7 @@ val clock_lemmas = Q.prove(
    (x with clock := x.clock = x)`,
   srw_tac[][semanticPrimitivesTheory.state_component_equality])
 
-val prog_diverges_semantics_prog = Q.prove(
+val prog_diverges_semantics_prog = Q.store_thm("prog_diverges_semantics_prog",
   `prog_diverges st.sem_env st.sem_st prog ∧
    no_dup_mods prog st.sem_st.defined_mods ∧
    no_dup_top_types prog st.sem_st.defined_types ⇒

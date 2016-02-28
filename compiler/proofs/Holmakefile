@@ -1,5 +1,5 @@
 OPTIONS = QUIT_ON_FAILURE
-INCLUDES = .. ../../semantics ../../semantics/proofs ../parsing/proofs ../inference/proofs ../targets #../backend/proofs
+INCLUDES = .. ../../semantics ../../semantics/proofs ../parsing/proofs ../inference/proofs ../targets ../backend/proofs
 
 all: compilerProofTheory.uo
 .PHONY: all
@@ -7,7 +7,7 @@ all: compilerProofTheory.uo
 ifdef POLY
 HOLHEAP = heap
 PARENT_HOLHEAP = ../heap
-#PARENT_HOLHEAP = ../backend/proofs/heap
+PARENT_HOLHEAP = ../backend/proofs/heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 all: $(HOLHEAP)
 
@@ -17,8 +17,8 @@ BARE_THYS = ../../semantics/semanticsTheory\
 						../parsing/proofs/pegCompleteTheory\
 						../inference/proofs/inferSoundTheory\
 						../inference/proofs/inferCompleteTheory\
-						../targets/targetPropsTheory
-#					../backend/proofs/source_to_targetProofTheory
+						../targets/targetPropsTheory\
+						../backend/proofs/backendProofTheory
 
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENT_HOLHEAP)
 $(HOLHEAP): $(DEPS)
