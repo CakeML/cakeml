@@ -130,6 +130,37 @@ val check_clash_tree_def = Define`
     | SOME t2_out =>
       check_clash_tree f t1 t2_out)`
 
+(* cli are the starting vertices of a clique in G*)
+val extend_clique_def = Define`
+  (extend_clique [] cli G = (G,cli)) ∧
+  (extend_clique (x::xs) cli G =
+    extend_clique xs (x::cli) (list_g_insert x cli G))`
+
+(*G should always contain liveout as a clique,
+  live here use a LIST representation instead of sptrees
+*)
+val clash_tree_to_spg_def = Define`
+  (clash_tree_to_spg (Delta writes reads) liveout G =
+    let (G,live) = extend_clique writes liveout G in
+    let live = FILTER (λx. ¬MEM x writes) live in
+    let (G,livein) = extend_clique reads live G in
+      (G,livein)) ∧
+  (clash_tree_to_spg (Set t) liveout G =
+    let live = (MAP FST (toAList t)) in
+      (clique_g_insert live G,live)) ∧
+  (clash_tree_to_spg (Branch topt t1 t2) live G =
+    let (G,t2_live) = clash_tree_to_spg t2 live G in
+    let (G,t1_live) = clash_tree_to_spg t1 live G in
+    case topt of
+      NONE =>
+        extend_clique t1_live t2_live G
+    | SOME t =>
+      let clashes = (MAP FST (toAList t)) in
+      (clique_g_insert clashes G,clashes)) ∧
+  (clash_tree_to_spg (Seq t1 t2) liveout G =
+    let (G,live) = clash_tree_to_spg t2 liveout G in
+    clash_tree_to_spg t1 live G)`
+
 (*--End Initial Definitions--*)
 
 
