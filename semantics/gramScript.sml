@@ -62,7 +62,7 @@ fun tokmap s =
 
 val ginfo = { tokmap = tokmap,
               tokty = ``:token``, nt_tyname = "MMLnonT",
-              start = "REPLTop",
+              start = "TopLevelDecs",
               gname = "cmlG", mkntname = (fn s => "n" ^ s) }
 
 val cmlG_def = mk_grammar_def ginfo
@@ -171,8 +171,8 @@ val cmlG_def = mk_grammar_def ginfo
  OptionalSignatureAscription ::= ":>" SignatureValue | ;
  Structure ::= "structure" StructName OptionalSignatureAscription "=" "struct" Decls "end";
  TopLevelDec ::= Structure | Decl;
- TopLevelDecs ::= TopLevelDec TopLevelDecs | ";" TopLevelDecs | ;
- REPLTop ::= TopLevelDec ";" | E ";" ;
+ TopLevelDecs ::= E ";" TopLevelDecs | TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
+ NonETopLevelDecs ::= TopLevelDec NonETopLevelDecs | ";" TopLevelDecs | ;
 `;
 
 val _ = type_abbrev("NT", ``:MMLnonT inf``)

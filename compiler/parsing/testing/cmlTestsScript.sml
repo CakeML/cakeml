@@ -99,6 +99,41 @@ val tytest = parsetest ``nType`` ``ptree_Type nType``
 
 val elab_decls = ``OPTION_MAP (elab_decs NONE [] []) o ptree_Decls``
 
+val _ = parsetest0 ``nTopLevelDec`` ``ptree_TopLevelDec``
+          "val x = 10"
+          (SOME ``Tdec (Dlet (Pvar "x") (Lit (IntLit 10)))``)
+
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+          "val x = 10"
+          (SOME ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 10)))]``)
+
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+          "val x = 10 val y = 20; print (x + y); val z = 30"
+          (SOME ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 10)));
+                   Tdec (Dlet (Pvar "y") (Lit (IntLit 20)));
+                   Tdec
+                     (Dlet (Pvar "it")
+                           (App Opapp
+                                [Var (Short "print");
+                                 vbinop (Short "+")
+                                        (Var (Short "x"))
+                                        (Var (Short "y"))]));
+                   Tdec (Dlet (Pvar "z") (Lit (IntLit 30)))]``)
+
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+          "; ; val x = 10"
+          (SOME ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 10)))]``)
+
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs``
+          "; ; val x = 10;"
+          (SOME ``[Tdec (Dlet (Pvar "x") (Lit (IntLit 10)))]``)
+
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "; ; "
+                   (SOME ``[] : top list``)
+val _ = parsetest0 ``nTopLevelDecs`` ``ptree_TopLevelDecs`` ""
+                   (SOME ``[] : top list``)
+
+
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn x => x"
                    (SOME ``Fun "x" (Var (Short "x"))``)
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "fn (x,y) => x + y"
@@ -280,7 +315,7 @@ val _ = tytest "'a list"
 val _ = tytest "'a list list"
 val _ = tytest "bool list list"
 val _ = tytest "('a,bool list)++"
-val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
+(*val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
           "case g of C p1 => e1 | p2 => e2;"
           (SOME ``Tdec
                      (Dlet
@@ -297,6 +332,7 @@ val _ = parsetest0 ``nREPLTop`` ``ptree_REPLTop``
                  Stype_opq ["'b"; "'c"] "u";
                  Sval "z" (Tapp [Tvar "'a"] (SOME (Short "t")))])
           []``)
+*)
 
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "4 handle IntError x => 3 + 4"
                    (SOME ``Handle (Lit (IntLit 4))
@@ -323,12 +359,12 @@ val _ = parsetest ``nE`` ``ptree_Expr nE``
 val _ = parsetest0 ``nE`` ``ptree_Expr nE`` "C(3)"
                    (SOME ``Con (SOME (Short "C")) [Lit (IntLit 3)]``)
 
-val _ = parsetest ``nREPLTop`` ``ptree_REPLTop``
+val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs``
                   "val x = z : S.ty -> bool;"
-val _ = parsetest ``nREPLTop`` ``ptree_REPLTop``
+val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs``
                   "val S.C x = z;"
-val _ = parsetest ``nREPLTop`` ``ptree_REPLTop`` "val x = str.y;"
-val _ = parsetest ``nREPLTop`` ``ptree_REPLTop`` "x + 10;"
+val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "val x = str.y;"
+val _ = parsetest ``nTopLevelDecs`` ``ptree_TopLevelDecs`` "x + 10;"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``
                   "structure s = struct val x = 3 end"
 val _ = parsetest ``nTopLevelDec`` ``ptree_TopLevelDec``

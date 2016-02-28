@@ -110,7 +110,6 @@ open HolKernel boolLib bossLib lcsymtacs
     local open cmlPtreeConversionTheory in
       val () = computeLib.add_thms
       [tuplify_def
-      ,ptree_REPLTop_def
       ,ptree_TopLevelDecs_def
       ,ptree_TopLevelDec_def
       ,ptree_Structure_def

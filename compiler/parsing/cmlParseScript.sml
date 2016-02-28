@@ -23,26 +23,6 @@ val cmlParseExpr_def = Define`
   od
 `;
 
-val cmlParseREPLTop_def = Define`
-  cmlParseREPLTop toks = do
-    (toks', pts) <- destResult (cmlpegexec nREPLTop toks);
-    pt <- oHD pts;
-    ast <- ptree_REPLTop pt;
-    SOME(toks',ast)
-  od
-`
-
-(* This function parses a single declaration followed by a semicolon.
-   No junk is allowed at the end.
-   It is used in repl/repl_funScript.sml. *)
-val parse_top_def = Define `
-  (parse_top : token list -> top option) tokens =
-    do
-      (ts,top) <- cmlParseREPLTop tokens;
-      if ts <> [] then NONE else SOME top
-    od
-`;
-
 val parse_prog_def = Define`
   parse_prog toks =
     do

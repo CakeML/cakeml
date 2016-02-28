@@ -172,7 +172,7 @@ val peg_StructName_def = Define`
 
 val cmlPEG_def = zDefine`
   cmlPEG = <|
-    start := pnt nREPLTop;
+    start := pnt nTopLevelDecs;
     rules := FEMPTY |++
              [(mkNT nV, peg_V);
               (mkNT nTyvarN, pegf (tok isTyvarT mktokLf) (bindNT nTyvarN));
@@ -428,23 +428,22 @@ val cmlPEG_def = zDefine`
                     (bindNT nStructure));
               (mkNT nTopLevelDec,
                pegf (choicel [pnt nStructure; pnt nDecl]) (bindNT nTopLevelDec));
-(*            (mkNT nTopLevelDecs,
-               rpt (pnt nTopLevelDec)
-                   (λtds. [FOLDR
-                             (λtd acc.
-                                  Nd (mkNT nTopLevelDecs)
-                                     (case td of
-                                          [] => [acc] (* shouldn't happen *)
-                                        | tdh::_ => [tdh; acc]))
-                             (Nd (mkNT nTopLevelDecs) []) tds]));
-              (mkNT nREPLPhrase,
-               choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLPhrase);
-                        seql [pnt nTopLevelDecs; tokeq SemicolonT]
-                             (bindNT nREPLPhrase)]); *)
-              (mkNT nREPLTop,
-               choicel [seql [pnt nE; tokeq SemicolonT] (bindNT nREPLTop);
-                        seql [pnt nTopLevelDec; tokeq SemicolonT]
-                             (bindNT nREPLTop)])
+              (mkNT nTopLevelDecs,
+               choicel [
+                 seql [pnt nE; tokeq SemicolonT; pnt nTopLevelDecs]
+                      (bindNT nTopLevelDecs);
+                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                      (bindNT nTopLevelDecs);
+                 seql [tokeq SemicolonT; pnt nTopLevelDecs]
+                      (bindNT nTopLevelDecs);
+                 pegf (empty []) (bindNT nTopLevelDecs)]);
+              (mkNT nNonETopLevelDecs,
+               choicel [
+                 seql [pnt nTopLevelDec; pnt nNonETopLevelDecs]
+                      (bindNT nNonETopLevelDecs);
+                 seql [tokeq SemicolonT; pnt nTopLevelDecs]
+                      (bindNT nNonETopLevelDecs);
+                 pegf (empty []) (bindNT nNonETopLevelDecs)])
              ] |>
 `;
 
@@ -690,8 +689,7 @@ val topo_nts = [``nV``, ``nTyvarN``, ``nTypeDec``, ``nTypeAbbrevDec``, ``nDecl``
                 ``nDecls``, ``nDconstructor``, ``nAndFDecls``, ``nSpecLine``,
                 ``nSpecLineList``, ``nSignatureValue``,
                 ``nOptionalSignatureAscription``, ``nStructure``,
-                ``nTopLevelDec``, (* ``nTopLevelDecs``, ``nREPLPhrase``, *)
-                ``nREPLTop``]
+                ``nTopLevelDec``, ``nTopLevelDecs``, ``nNonETopLevelDecs``]
 
 val cml_wfpeg_thm = save_thm(
   "cml_wfpeg_thm",

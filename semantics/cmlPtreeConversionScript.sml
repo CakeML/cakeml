@@ -98,6 +98,7 @@ val mpop_namedscope_def = Define`
 val _ = overload_on ("monad_bind", ``OPTION_BIND``)
 val _ = overload_on ("monad_unitbind", ``OPTION_IGNORE_BIND``)
 val _ = temp_overload_on ("return", ``SOME``)
+val _ = temp_overload_on ("fail", ``NONE``)
 
 val _ = computeLib.add_persistent_funs ["option.OPTION_BIND_def",
                                         "option.OPTION_IGNORE_BIND_def",
@@ -1281,37 +1282,43 @@ val ptree_TopLevelDec_def = Define`
 `
 
 val ptree_TopLevelDecs_def = Define`
-  ptree_TopLevelDecs (Lf _) = NONE ∧
-  ptree_TopLevelDecs (Nd nt args) =
-    if nt <> mkNT nTopLevelDecs then NONE
-    else
-      case args of
-          [] => SOME []
-        | [td_pt; tds_pt] =>
-          if td_pt = Lf (TOK SemicolonT) then ptree_TopLevelDecs tds_pt
-          else
-          do
-            td <- ptree_TopLevelDec td_pt;
-            tds <- ptree_TopLevelDecs tds_pt;
-            SOME(td::tds)
-          od
-        | _ => NONE
+  ptree_TopLevelDecs (Lf _) = fail ∧
+  (ptree_TopLevelDecs (Nd nt args) =
+     if nt <> mkNT nTopLevelDecs then fail
+     else
+       case args of
+           [] => return []
+         | [td_pt; tds_pt] =>
+           if td_pt = Lf (TOK SemicolonT) then ptree_TopLevelDecs tds_pt
+           else
+             do
+               td <- ptree_TopLevelDec td_pt;
+               tds <- ptree_NonETopLevelDecs tds_pt;
+               return(td::tds)
+             od
+         | [e_pt; semitok; tds_pt] =>
+           do
+             assert (semitok = Lf (TOK SemicolonT));
+             e <- ptree_Expr nE e_pt;
+             tds <- ptree_TopLevelDecs tds_pt;
+             return (Tdec (Dlet (Pvar "it") e) :: tds)
+           od
+         | _ => NONE) ∧
+  (ptree_NonETopLevelDecs (Lf _) = fail) ∧
+  (ptree_NonETopLevelDecs (Nd nt args) =
+     if nt <> mkNT nNonETopLevelDecs then fail
+     else
+       case args of
+         [] => return []
+       | [pt1 ; pt2] =>
+         if pt1 = Lf (TOK SemicolonT) then ptree_TopLevelDecs pt2
+         else
+           do
+             td <- ptree_TopLevelDec pt1 ;
+             tds <- ptree_NonETopLevelDecs pt2 ;
+             return (td :: tds)
+           od
+       | _ => fail)
 `;
-
-val ptree_REPLTop_def = Define`
-  ptree_REPLTop (Lf _) = NONE ∧
-  ptree_REPLTop (Nd nt args) =
-    if nt <> mkNT nREPLTop then NONE
-    else
-      case args of
-          [pt; semitok] =>
-            ptree_TopLevelDec pt ++
-            do
-              e <- ptree_Expr nE pt;
-              SOME(Tdec (Dlet (Pvar "it") e))
-            od
-         | _ => NONE
-`;
-
 
 val _ = export_theory()
