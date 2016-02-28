@@ -3535,6 +3535,23 @@ val LEAST_NOT_IN_FDOM = prove(
         |> INST_TYPE [``:'a``|->``:num``,``:'b``|->``:'a``])))
   \\ fs [EXTENSION] \\ metis_tac []);
 
+val word_addr_eq_Loc = prove(
+  ``word_addr c v = Loc l1 l2 <=> v = Data (Loc l1 l2)``,
+  Cases_on `v` \\ fs [word_addr_def]
+  \\ Cases_on `a` \\ fs [word_addr_def]);
+
+val memory_rel_CodePtr = prove(
+  ``memory_rel c be refs sp st m dm vars ==>
+    memory_rel c be refs sp st m dm ((CodePtr lab,Loc lab 0)::vars)``,
+  fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS,word_addr_eq_Loc]
+  \\ once_rewrite_tac [CONJ_COMM] \\ asm_exists_tac \\ fs []
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,
+         roots_ok_def,reachable_refs_def]
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []
+  \\ asm_exists_tac \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
+  \\ fs [get_refs_def] \\ res_tac);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -3549,6 +3566,15 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
+   (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
+    \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ fs [lookup_insert,FAPPLY_FUPDATE_THM,adjust_var_11,FLOOKUP_UPDATE]
+    \\ rw [] \\ fs [] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac memory_rel_CodePtr \\ fs [])
   \\ Cases_on `op = Ref` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs []
     \\ fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []

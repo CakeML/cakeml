@@ -1,4 +1,5 @@
 open preamble wordLangTheory bvpTheory word_to_wordTheory;
+local open bvl_to_bviTheory in end
 
 val _ = new_theory "bvp_to_word";
 
@@ -130,7 +131,7 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
-    | _ => (GiveUp:'a wordLang$prog,l)`;
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)    | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
   comp c (n:num) (l:num) (p:bvp$prog) =
