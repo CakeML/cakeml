@@ -88,6 +88,15 @@ val wInst_def = Define `
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store n1 (Addr n2 offset)))) /\
+  (wInst (Mem Load8 n1 (Addr n2 offset)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Mem Load8 n1 (Addr n2 offset))) n1 kf)) /\
+  (wInst (Mem Store8 n1 (Addr n2 offset)) kf =
+    let (l1,n2) = wReg1 n2 kf in
+    let (l2,n1) = wReg2 n1 kf in
+      wStackLoad (l1 ++ l2)
+        (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
   (wInst _ kf = Inst Skip)`
 
 val bits_to_word_def = Define `

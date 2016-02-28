@@ -79,6 +79,8 @@ val every_var_inst_def = Define`
   (every_var_inst P (Arith (Shift shift r1 r2 n)) = (P r1 ∧ P r2)) ∧
   (every_var_inst P (Mem Load r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P (Mem Store r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Load8 r (Addr a w)) = (P r ∧ P a)) ∧
+  (every_var_inst P (Mem Store8 r (Addr a w)) = (P r ∧ P a)) ∧
   (every_var_inst P inst = T)` (*catchall*)
 
 val every_name_def = Define`
