@@ -15,7 +15,7 @@ val with_same_clock = Q.store_thm("with_same_clock",
 (* -- *)
 
 val initial_condition_def = Define`
-  initial_condition (st:'ffi top_state) (cc:α compiler$config) (prelude:top list) ⇔
+  initial_condition (st:'ffi top_state) (cc:α compiler$config) ⇔
     (st.sem_st,st.sem_env) = THE (prim_sem_env st.sem_st.ffi) ∧
     type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (st.tdecs,st.tenv,st.sem_st,st.sem_env) ∧
     env_rel st.tenv cc.inferencer_config.inf_env ∧
@@ -75,7 +75,12 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ metis_tac[]);
 
 val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
-  `env_rel st.tenv c.inf_env ∧ st.tdecs = convert_decls c.inf_decls ⇒
+  `env_rel st.tenv c.inf_env ∧
+   st.tdecs = convert_decls c.inf_decls ∧
+   st.sem_st.defined_mods = st.tdecs.defined_mods ∧
+   consistent_decls st.sem_st.defined_types decls_no_sig ∧
+   weak_decls_only_mods decls_no_sig st.tdecs
+   ⇒
    ∃c'. infertype_prog c p = if can_type_prog st p then SOME c' else NONE`,
   strip_tac
   \\ simp[inferTheory.infertype_prog_def]
@@ -90,8 +95,13 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
     \\ drule infer_prog_sound
     \\ disch_then drule
     \\ strip_tac
-    \\ conj_tac >- cheat (* infertype_prog should check this? *)
-    \\ conj_tac >- cheat (* infertype_prog should check this? *)
+    \\ conj_tac >- ( drule type_no_dup_mods \\ fs[] )
+    \\ conj_tac
+    >- (
+      match_mp_tac (GEN_ALL type_no_dup_top_types)
+      \\ asm_exists_tac \\ simp[]
+      \\ asm_exists_tac \\ simp[]
+      \\ rfs[] )
     \\ asm_exists_tac
     \\ simp[] )
   \\ simp[]
@@ -105,7 +115,7 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
 
 val compile_correct = Q.store_thm("compile_correct",
   `∀(st:'ffi top_state) (cc:α compiler$config) prelude input.
-    initial_condition st cc prelude ⇒
+    initial_condition st cc ⇒
     case compiler$compile cc prelude input of
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure TypeError => semantics st prelude input = IllTyped
@@ -127,6 +137,9 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ drule (GEN_ALL infertype_prog_correct)
   \\ simp[]
   \\ disch_then(qspec_then`prelude++x`mp_tac)
+  \\ rator_assum`type_sound_invariants`(strip_assume_tac o SIMP_RULE std_ss [typeSoundInvariantsTheory.type_sound_invariants_def])
+  \\ rfs[]
+  \\ disch_then drule \\ simp[]
   \\ strip_tac \\ simp[]
   \\ IF_CASES_TAC \\ fs[]
   \\ BasicProvers.CASE_TAC \\ simp[]
