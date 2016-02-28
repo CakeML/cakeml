@@ -392,11 +392,25 @@ val inst_def = Define `
             | NONE => NONE
             | SOME w => SOME (set_var r w s))
         | _ => NONE)
+    | Mem Load8 r (Addr a w) =>
+       (case word_exp s (Op Add [Var a; Const w]) of
+        | SOME (Word w) =>
+           (case mem_load_byte_aux w s.memory s.mdomain s.be of
+            | NONE => NONE
+            | SOME w => SOME (set_var r (Word (w2w w)) s))
+        | _ => NONE)
     | Mem Store r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME w) =>
             (case mem_store a w s of
              | SOME s1 => SOME s1
+             | NONE => NONE)
+        | _ => NONE)
+    | Mem Store8 r (Addr a w) =>
+       (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
+        | (SOME (Word a), SOME (Word w)) =>
+            (case mem_store_byte_aux a (w2w w) s.memory s.mdomain s.be of
+             | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
     | _ => NONE`
