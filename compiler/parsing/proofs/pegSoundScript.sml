@@ -297,51 +297,64 @@ val peg_sound = store_thm(
   simp[peg_eval_NT_SOME, cmlPEGTheory.FDOM_cmlPEG] >>
   disch_then (CONJUNCTS_THEN2 strip_assume_tac mp_tac) >> rveq >>
   simp[cmlPEGTheory.cmlpeg_rules_applied]
-  >- (print_tac "nREPLTop">>
+  >- (print_tac "nNonETopLevelDecs" >>
+      `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nNonETopLevelDecs)`
+        by simp[NT_rank_def] >>
+      strip_tac >> rveq >> dsimp[cmlG_FDOM, cmlG_applied]
+      >- (first_x_assum (erule strip_assume_tac) >> rveq >> csimp[] >>
+          qcase_tac
+           `peg_eval _ (inp0, nt (mkNT nTopLevelDec) _) (SOME (inp1,_))` >>
+          `LENGTH inp1 < LENGTH inp0`
+            by metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec] >>
+          csimp[PULL_EXISTS] >> metis_tac[])
+      >- (fs[] >> csimp[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``]))
+  >- (print_tac "nTopLevelDecs" >>
+      `NT_rank (mkNT nE) < NT_rank (mkNT nTopLevelDecs) ∧
+       NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nTopLevelDecs)`
+          by simp[NT_rank_def] >>
+      strip_tac >> rveq >> simp[cmlG_FDOM, cmlG_applied]
+      >- (dsimp[APPEND_EQ_CONS] >> csimp[] >>
+          first_x_assum (erule strip_assume_tac) >> rveq >> simp[] >>
+          qcase_tac `peg_eval _ (inp0, _) (SOME(SemicolonT::inp1,_))` >>
+          `LENGTH (SemicolonT :: inp1) < LENGTH inp0`
+            by metis_tac[not_peg0_LENGTH_decreases, peg0_nE] >>
+          fs[] >> metis_tac[DECIDE ``SUC x < y ⇒ x < y``])
+      >- (first_x_assum (erule strip_assume_tac) >> rveq >> dsimp[] >>
+          csimp[] >>
+          qcase_tac
+            `peg_eval _ (inp0, nt (mkNT nTopLevelDec) I) (SOME(inp1,_))` >>
+          `LENGTH inp1 < LENGTH inp0` suffices_by metis_tac[] >>
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (qcase_tac `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
+          first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
+          simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
+          `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (qcase_tac `peg_eval _ (ip0,nt (mkNT nTopLevelDec) _) (SOME(ip1,pt))`>>
+          first_x_assum(qspecl_then [`mkNT nTopLevelDec`, `ip1`, `pt`] mp_tac)>>
+          simp[] >> strip_tac >> rveq >> dsimp[] >> csimp[] >>
+          `LENGTH ip1 < LENGTH ip0` suffices_by metis_tac[] >>
+          metis_tac[not_peg0_LENGTH_decreases, peg0_nTopLevelDec])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``])
+      >- (dsimp[] >> csimp[] >> fs[] >> metis_tac[DECIDE ``x < SUC x``]))
+  (* >- (print_tac "nREPLTop">>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLTop) ∧
        NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nREPLTop)`
           by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
-      dsimp[cmlG_applied, cmlG_FDOM])
+      dsimp[cmlG_applied, cmlG_FDOM]) *)
   (*>- (print_tac "nREPLPhrase" >>
       `NT_rank (mkNT nE) < NT_rank (mkNT nREPLPhrase) ∧
        NT_rank (mkNT nTopLevelDecs) < NT_rank (mkNT nREPLPhrase)`
           by simp[NT_rank_def] >>
       strip_tac >> rveq >> simp[] >>
       first_x_assum (erule strip_assume_tac) >> rveq >>
-      dsimp[cmlG_applied, cmlG_FDOM])
-  >- (print_tac "nTopLevelDecs" >>
-      qmatch_abbrev_tac `peg_eval cmlPEG (i0, rpt NNN FF) (SOME(i,pts)) ⇒ QQ`>>
-      map_every markerLib.UNABBREV_TAC ["NNN", "QQ"] >>
-      `(FF [] = [Nd (mkNT nTopLevelDecs) []]) ∧
-       ∀h t. FF ([h]::t) = [Nd (mkNT nTopLevelDecs) [h; HD (FF t)]]`
-        by simp[Abbr`FF`] >>
-      markerLib.RM_ABBREV_TAC "FF" >> simp[peg_eval_rpt] >>
-      disch_then (qxchl [`tds`] mp_tac) >>
-      Q.SUBGOAL_THEN
-        `∃ii. ii = i0 ∧ (LENGTH ii < LENGTH i0 \/ ii = i0)`
-        (qxchl [`ii`] (CONJUNCTS_THEN assume_tac)) >- simp[] >>
-      Q.UNDISCH_THEN `ii = i0` (SUBST1_TAC o SYM) >>
-      pop_assum mp_tac >>
-      map_every qid_spec_tac [`ii`, `i`, `pts`, `tds`] >> simp[] >>
-      Induct_on `tds`
-      >- simp[Once peg_eval_cases, cmlG_applied, cmlG_FDOM] >>
-      map_every qx_gen_tac [`h`, `i`, `ii`] >> strip_tac >>
-      simp[Once peg_eval_cases] >>
-      disch_then (qxchl [`i1`] strip_assume_tac) >| [
-        ALL_TAC,
-        `NT_rank (mkNT nTopLevelDec) < NT_rank (mkNT nTopLevelDecs)`
-          by simp[NT_rank_def]
-      ] >>
-      first_x_assum (erule mp_tac) >>
-      `LENGTH i1 < LENGTH ii`
-        by metis_tac[peg0_nTopLevelDec, not_peg0_LENGTH_decreases] >> rveq >>
-      `LENGTH i1 < LENGTH i0` by decide_tac >>
-      fs[DISJ_IMP_THM, FORALL_AND_THM] >>
-      first_x_assum (erule mp_tac) >>
-      disch_then (qxchl [`ds_pt`] strip_assume_tac) >>
-      disch_then (qxchl [`d_pt`] strip_assume_tac) >> simp[] >>
       dsimp[cmlG_applied, cmlG_FDOM]) *)
   >- (print_tac "nTopLevelDec" >>
       `NT_rank (mkNT nStructure) < NT_rank (mkNT nTopLevelDec) ∧
