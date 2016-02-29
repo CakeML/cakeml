@@ -114,19 +114,35 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
   val th1 = disch_assums th
   val th2 = disch_assums th_fail
   val lemma = METIS_PROVE [] ``(b1 ==> x) /\ (b2 ==> x) ==> (b1 \/ b2 ==> x)``
+  val lemma2 = METIS_PROVE []
+    ``(!x. P x ==> R x ==> Q x) ==> (!x. P x /\ R x) ==> !x. R x ==> Q x``
   val th = simple_match_mp lemma (CONJ th1 th2)
            |> DISCH_ALL
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
+           |> UNDISCH_ALL
+           |> Q.INST [`c`|->`c1`,
+                `start`|->`(ff:'b backend$config).clos_conf.start`]
+           |> DISCH ``from_bvp (c:'b backend$config) prog = SOME (bytes,ffi_limit)``
+           |> Q.INST [`ff`|->`c`]
+           |> DISCH_ALL
+           |> INST_TYPE [``:'a``|->``:'ffi``,
+                         ``:'b``|->``:'a``,
+                         ``:'c``|->``:'b``,
+                         ``:'d``|->``:'c``]
+           |> Q.GEN `prog` |> HO_MATCH_MP lemma2
   val (lhs,rhs) = dest_imp (concl th)
   fun diff xs ys = filter (fn x => not (mem x ys)) xs
   val vs = diff (free_vars lhs) (free_vars rhs) |> sort
     (fn v1 => fn v2 => fst (dest_var v1) <= fst (dest_var v2))
   val lemma = METIS_PROVE [] ``(!x. P x ==> Q) <=> ((?x. P x) ==> Q)``
   val th = GENL vs th |> SIMP_RULE std_ss [lemma]
-  val def = define_abbrev "machine_sem_implements_bvp_pre"
+  val def = define_abbrev "code_installed"
                (th |> concl |> dest_imp |> fst)
   val th = th |> REWRITE_RULE [GSYM def]
+              |> SIMP_RULE std_ss [PULL_FORALL] |> SPEC_ALL
   in th end);
+
+val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
 
 (* --- composing source-to-target --- *)
 
@@ -147,20 +163,21 @@ val option_CASE_eq_SOME = Q.prove(
 
 val else_NONE_eq_SOME = Q.store_thm("else_NONE_eq_SOME",
   `(((if t then y else NONE) = SOME z) ⇔ (t ∧ (y = SOME z)))`,
-  rw[])
+  rw[]);
 
 val COND_eq_SOME = Q.store_thm("COND_eq_SOME",
   `((if t then SOME a else b) = SOME x) ⇔ ((t ∧ (a = x)) ∨ (¬t ∧ b = SOME x))`,
-  rw[])
+  rw[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
    (c:'a backend$config).source_conf = (prim_config:'a backend$config).source_conf ∧
-   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧ c.clos_conf = (prim_config:'a backend$config).clos_conf ∧
+   c.mod_conf = (prim_config:'a backend$config).mod_conf ∧
+   c.clos_conf = (prim_config:'a backend$config).clos_conf ∧
    good_dimindex (:α) ∧
    ¬semantics_prog s env prog Fail ∧
-   compile c prog = SOME (bytes,c') ∧
-   machine_sem_implements_bvp_pre (ffi,mc,ms,SND(to_bvp c prog),(FST(to_bvp c prog)).clos_conf.start) ⇒
+   compile c prog = SOME (bytes,ffi_limit) ∧
+   code_installed (bytes,c,ffi,ffi_limit,mc,ms) ⇒
      machine_sem (mc:(α,β,γ) machine_config) ffi ms ⊆
        extend_with_resource_limit (semantics_prog s env prog)`,
   srw_tac[][compile_eq_from_source,from_source_def] >>
@@ -231,7 +248,7 @@ val compile_correct = Q.store_thm("compile_correct",
     srw_tac[QUANT_INST_ss[std_qp]][]) >>
   disch_then drule >> strip_tac >>
   rator_x_assum`from_mod`mp_tac >>
-  srw_tac[][from_mod_def,Abbr`c'''`,mod_to_conTheory.compile_def] >>
+  srw_tac[][from_mod_def,Abbr`c''`,mod_to_conTheory.compile_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   qmatch_assum_abbrev_tac`semantics_prog s env prog sem2` >>
   `sem2 ≠ Fail` by metis_tac[] >>
@@ -263,7 +280,7 @@ val compile_correct = Q.store_thm("compile_correct",
     rw[DRESTRICT_DRESTRICT] >> rw[]) >>
   strip_tac >>
   pop_assum(assume_tac o SYM) >> simp[] >>
-  qunabbrev_tac`c''''`>>
+  qunabbrev_tac`c'''`>>
   rator_x_assum`from_con`mp_tac >>
   srw_tac[][from_con_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
@@ -293,13 +310,13 @@ val compile_correct = Q.store_thm("compile_correct",
   rator_x_assum`from_dec`mp_tac >> srw_tac[][from_dec_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   rator_x_assum`con_to_dec$compile`mp_tac >>
-  `c''.next_global = 0` by (
+  `c'.next_global = 0` by (
     fs[source_to_modTheory.compile_def,LET_THM] >>
     split_pair_tac >> fs[] >>
     split_pair_tac >> fs[] >>
     rveq >> simp[prim_config_eq] ) >> fs[] >>
   strip_tac >> fs[] >>
-  qunabbrev_tac`c'''`>>fs[] >>
+  qunabbrev_tac`c''`>>fs[] >>
   qmatch_abbrev_tac`_ ⊆ _ { decSem$semantics env3 st3 es3 }` >>
   (dec_to_exhProofTheory.compile_exp_semantics
     |> Q.GENL[`sth`,`envh`,`es`,`st`,`env`]
@@ -386,7 +403,7 @@ val compile_correct = Q.store_thm("compile_correct",
   srw_tac[][from_bvl_def] >>
   pop_assum mp_tac >> BasicProvers.LET_ELIM_TAC >>
   Q.ISPEC_THEN`s2.ffi`drule(Q.GEN`ffi0` bvl_to_bviProofTheory.compile_semantics) >>
-  qunabbrev_tac`c''''`>>fs[] >>
+  qunabbrev_tac`c'''`>>fs[] >>
   discharge_hyps >- (
     (clos_to_bvlProofTheory.compile_all_distinct_locs
      |> ONCE_REWRITE_RULE[CONJ_ASSOC,CONJ_COMM]
@@ -406,15 +423,17 @@ val compile_correct = Q.store_thm("compile_correct",
    |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
   discharge_hyps >- simp[] >>
   disch_then (SUBST_ALL_TAC o SYM) >>
-  drule machine_sem_implements_bvp_sem
+  `code_installed (bytes,c'''',ffi,ffi_limit,mc,ms)` by cheat
+  \\ drule (GEN_ALL machine_sem_implements_bvp_sem)
+  \\ disch_then drule
   \\ simp[implements_def]
-  \\ `to_bvp c prog = (c''''',p'''')`
+  \\ `to_bvp c prog = (c'''',p'''')`
   by (
     simp[to_bvp_def,to_bvi_def,to_bvl_def,to_clos_def,to_pat_def,to_exh_def,to_dec_def,to_con_def,to_mod_def]
     \\ fs[mod_to_conTheory.compile_def]
     \\ fs[clos_to_bvlTheory.compile_def]
     \\ unabbrev_all_tac \\ fs[exh_to_patTheory.compile_def] )
-  \\ simp[Abbr`c'''''`]
+  \\ simp[Abbr`c''''`]
   \\ disch_then match_mp_tac
   \\ spose_not_then (strip_assume_tac o SYM)
   \\ fs[]

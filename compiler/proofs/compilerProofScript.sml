@@ -121,8 +121,8 @@ val compile_correct = Q.store_thm("compile_correct",
     | Success (bytes,cc') =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
-        ∀(mc:(α,β,γ) machine_config) ms.
-          machine_sem_implements_bvp_pre (st.sem_st.ffi, mc, ms, prog, cc'.backend_config.clos_conf.start) ⇒
+        ∀mc ms.
+          code_installed (bytes,cc.backend_config,st.sem_st.ffi,cc'.backend_config, mc, ms) ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
@@ -143,7 +143,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ BasicProvers.CASE_TAC \\ simp[]
   \\ rpt strip_tac
-  \\ (compile_correct
+  \\ (backendProofTheory.compile_correct
       |> SIMP_RULE std_ss [LET_THM,UNCURRY]
       |> GEN_ALL
       |> drule)
@@ -155,7 +155,7 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ qpat_assum`_ = THE _`(assume_tac o SYM)
   \\ simp[]
   \\ disch_then (match_mp_tac o MP_CANON)
-  \\ conj_tac >- cheat (* want machine_sem_implements_bvp_pre to talk about a different prog? *)
+  \\ conj_tac >- fs []
   \\ fs[can_type_prog_def]
   \\ Cases_on`prog_diverges st.sem_env st.sem_st (prelude ++ x)`
   >- metis_tac[semanticsPropsTheory.prog_diverges_semantics_prog]
