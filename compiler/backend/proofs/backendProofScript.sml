@@ -120,10 +120,8 @@ val machine_sem_implements_bvp_sem = save_thm("machine_sem_implements_bvp_sem",l
            |> DISCH_ALL
            |> PURE_REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]
            |> UNDISCH_ALL
-           |> Q.INST [`c`|->`c1`,
-                `start`|->`(ff:'b backend$config).clos_conf.start`]
+           |> Q.INST [`c`|->`c1`,`start`|->`InitGlobals_location`]
            |> DISCH ``from_bvp (c:'b backend$config) prog = SOME (bytes,ffi_limit)``
-           |> Q.INST [`ff`|->`c`]
            |> DISCH_ALL
            |> INST_TYPE [``:'a``|->``:'ffi``,
                          ``:'b``|->``:'a``,
@@ -168,6 +166,19 @@ val else_NONE_eq_SOME = Q.store_thm("else_NONE_eq_SOME",
 val COND_eq_SOME = Q.store_thm("COND_eq_SOME",
   `((if t then SOME a else b) = SOME x) ⇔ ((t ∧ (a = x)) ∨ (¬t ∧ b = SOME x))`,
   rw[]);
+
+val from_bvp_ignore = prove(
+  ``from_bvp (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
+    from_bvp c prog``,
+  fs [from_bvp_def,from_word_def,from_stack_def,from_lab_def]
+  \\ rpt (split_pair_tac \\ fs [])
+  \\ cheat (* this can be solved *));
+
+val code_installed_ignore = prove(
+  ``code_installed
+      (bytes, c with <|source_conf := x; mod_conf := y; clos_conf := z |>,
+       ffi,ffi_limit,mc,ms) = code_installed (bytes,c,ffi,ffi_limit,mc,ms)``,
+  fs [code_installed_def,from_bvp_ignore]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `let (s,env) = THE (prim_sem_env (ffi:'ffi ffi_state)) in
@@ -422,8 +433,12 @@ val compile_correct = Q.store_thm("compile_correct",
    |> CONV_RULE(RESORT_FORALL_CONV(sort_vars["prog","start"]))
    |> qispl_then[`p3`,`s3`,`ffi`]mp_tac) >>
   discharge_hyps >- simp[] >>
-  disch_then (SUBST_ALL_TAC o SYM) >>
-  `code_installed (bytes,c'''',ffi,ffi_limit,mc,ms)` by cheat
+  disch_then (SUBST_ALL_TAC o SYM)
+  \\ `s3 = InitGlobals_location` by
+   (fs [bvl_to_bviTheory.compile_def,bvl_to_bviTheory.compile_prog_def]
+    \\ split_pair_tac \\ fs [])
+  \\ `code_installed (bytes,c'''',ffi,ffi_limit,mc,ms)` by
+        (fs [Abbr`c''''`,code_installed_ignore] \\ NO_TAC)
   \\ drule (GEN_ALL machine_sem_implements_bvp_sem)
   \\ disch_then drule
   \\ simp[implements_def]
