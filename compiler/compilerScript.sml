@@ -24,9 +24,6 @@ val compile_def = Define`
        | SOME ic =>
           case backend$compile c.backend_config (prelude ++ prog) of
           | NONE => Failure CompileError
-          | SOME (bytes,bc) =>
-            Success (bytes, <| inferencer_config := ic
-                             ; backend_config := bc
-                             |>)`;
+          | SOME (bytes,limit) => Success (bytes,limit)`;
 
 val _ = export_theory();

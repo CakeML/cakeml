@@ -171,8 +171,7 @@ val from_bvp_ignore = prove(
   ``from_bvp (c with <|source_conf := x; mod_conf := y; clos_conf := z|>) prog =
     from_bvp c prog``,
   fs [from_bvp_def,from_word_def,from_stack_def,from_lab_def]
-  \\ rpt (split_pair_tac \\ fs [])
-  \\ cheat (* this can be solved *));
+  \\ rpt (split_pair_tac \\ fs []));
 
 val code_installed_ignore = prove(
   ``code_installed

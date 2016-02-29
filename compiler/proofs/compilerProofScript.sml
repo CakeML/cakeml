@@ -118,11 +118,11 @@ val compile_correct = Q.store_thm("compile_correct",
     | Failure ParseError => semantics st prelude input = CannotParse
     | Failure TypeError => semantics st prelude input = IllTyped
     | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
-    | Success (bytes,cc') =>
+    | Success (bytes,ffi_limit) =>
       ∃behaviours.
         (semantics st prelude input = Execute behaviours) ∧
         ∀mc ms.
-          code_installed (bytes,cc.backend_config,st.sem_st.ffi,cc'.backend_config, mc, ms) ⇒
+          code_installed (bytes,cc.backend_config,st.sem_st.ffi,ffi_limit,mc,ms) ⇒
             machine_sem mc st.sem_st.ffi ms ⊆
               extend_with_resource_limit behaviours
               (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,

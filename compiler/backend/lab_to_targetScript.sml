@@ -237,11 +237,20 @@ val _ = Datatype`
             ; asm_conf : 'a asm_config
             |>`;
 
+val find_ffi_index_limit_def = Define `
+  (find_ffi_index_limit [] = 0) /\
+  (find_ffi_index_limit (Section k []::rest) =
+     find_ffi_index_limit rest) /\
+  (find_ffi_index_limit (Section k (x::xs)::rest) =
+     MAX (find_ffi_index_limit (Section k xs::rest))
+         (case x of LabAsm (CallFFI i) _ _ _ => i+1 | _ => 0n))`
+
 val compile_lab_def = Define `
   compile_lab c sec_list =
-    case remove_labels c.asm_conf c.encoder sec_list c.labels of
-    | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,c with labels := l1)
-    | NONE => NONE`;
+    let limit = find_ffi_index_limit sec_list in
+      case remove_labels c.asm_conf c.encoder sec_list c.labels of
+      | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
+      | NONE => NONE`;
 
 (* compile labLang *)
 

@@ -48,8 +48,7 @@ val compile_def = Define`
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
     let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
-    let bc' = lab_to_target$compile c.lab_conf p in
-      OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
+      lab_to_target$compile c.lab_conf p`;
 
 val to_mod_def = Define`
   to_mod c p =
@@ -132,8 +131,7 @@ val to_lab_def = Define`
 val to_target_def = Define`
   to_target c p =
   let (c,p) = to_lab c p in
-  let bc' = lab_to_target$compile c.lab_conf p in
-  OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
+    lab_to_target$compile c.lab_conf p`;
 
 val compile_eq_to_target = Q.store_thm("compile_eq_to_target",
   `compile = to_target`,
@@ -161,8 +159,7 @@ val prim_config_def = Define`
 
 val from_lab_def = Define`
   from_lab c p =
-  let bc' = lab_to_target$compile c.lab_conf p in
-  OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
+    lab_to_target$compile c.lab_conf p`;
 
 val from_stack_def = Define`
   from_stack c p =

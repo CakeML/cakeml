@@ -2473,7 +2473,7 @@ val make_init_def = Define `
      ; ptr_reg    := mc_conf.ptr_reg
      ; len_reg    := mc_conf.len_reg
      ; link_reg   := case mc_conf.target.config.link_reg of SOME n => n | _ => 0
-     |>`
+     |>`;
 
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
@@ -2535,17 +2535,9 @@ val good_init_state_def = Define `
                   | SOME n => n)|>)
          (mc_conf.ffi_interfer k index new_bytes ms2))`
 
-val find_ffi_index_limit_def = Define `
-  (find_ffi_index_limit [] = 0) /\
-  (find_ffi_index_limit (Section k []::rest) =
-     find_ffi_index_limit rest) /\
-  (find_ffi_index_limit (Section k (x::xs)::rest) =
-     MAX (find_ffi_index_limit (Section k xs::rest))
-         (case x of LabAsm (CallFFI i) _ _ _ => i+1 | _ => 0n))`
-
 val LESS_find_ffi_index_limit = store_thm("LESS_find_ffi_index_limit",
   ``!code i. has_io_index i code ==> i < find_ffi_index_limit code``,
-  recInduct (theorem "find_ffi_index_limit_ind")
+  recInduct find_ffi_index_limit_ind
   \\ fs [find_ffi_index_limit_def,has_io_index_def]
   \\ rpt strip_tac \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []);
 
@@ -2595,7 +2587,7 @@ val make_init_filter_skip = store_thm("make_init_filter_skip",
 
 val find_ffi_index_limit_filter_skip = store_thm("find_ffi_index_limit_filter_skip",
   ``!code. find_ffi_index_limit (filter_skip code) = find_ffi_index_limit code``,
-  recInduct (theorem "find_ffi_index_limit_ind")
+  recInduct find_ffi_index_limit_ind
   \\ fs [lab_filterTheory.filter_skip_def,find_ffi_index_limit_def]
   \\ rpt strip_tac \\ every_case_tac
   \\ fs [lab_filterTheory.not_skip_def,find_ffi_index_limit_def]);
@@ -2606,14 +2598,13 @@ val semantics_compile = store_thm("semantics_compile",
     good_syntax mc_conf code c.labels /\
     c.asm_conf = mc_conf.target.config /\
     c.encoder = mc_conf.target.encode /\
-    compile c code = SOME (bytes,c2) /\
-    good_init_state mc_conf t ms (find_ffi_index_limit code)
-       bytes io_regs save_regs /\
+    compile c code = SOME (bytes,ffi_limit) /\
+    good_init_state mc_conf t ms ffi_limit bytes io_regs save_regs /\
     semantics (make_init mc_conf ffi save_regs io_regs t ms code) <> Fail ==>
     machine_sem mc_conf ffi ms =
     {semantics (make_init mc_conf ffi save_regs io_regs t ms code)}``,
   full_simp_tac(srw_ss())[compile_def,compile_lab_def,GSYM AND_IMP_INTRO]
-  \\ CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ CASE_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ pop_assum mp_tac

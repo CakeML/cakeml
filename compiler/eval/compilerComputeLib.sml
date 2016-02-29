@@ -563,6 +563,7 @@ in
     ,lab_to_targetTheory.enc_sec_list_def
     ,lab_to_targetTheory.enc_sec_def
     ,lab_to_targetTheory.enc_line_def
+    ,lab_to_targetTheory.find_ffi_index_limit_def
     ]
   (*Everything in backend theory*)
   ; add_thms
