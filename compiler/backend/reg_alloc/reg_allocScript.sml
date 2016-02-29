@@ -93,48 +93,59 @@ val check_col_def = Define`
   check_col f t =
     let names = MAP (f o FST) (toAList t) in
     if ALL_DISTINCT names then
-      SOME (fromAList (MAP (λx. (x,())) names))
+      SOME (t,fromAList (MAP (λx. (x,())) names))
     else NONE`
 
 val check_partial_col_def = Define`
-  (check_partial_col f [] t = SOME t) ∧
-  (check_partial_col f (x::xs) t =
-    case lookup (f x) t of
-      NONE => check_partial_col f xs (insert (f x) () t)
+  (check_partial_col f [] t ft = SOME (t,ft)) ∧
+  (check_partial_col f (x::xs) t ft =
+    case lookup x t of
+      SOME () => check_partial_col f xs t ft
+    | NONE =>
+    case lookup (f x) ft of
+      NONE => check_partial_col f xs (insert x () t) (insert (f x) () ft)
     | SOME () => NONE)`
 
-(* Here, live tracks the COLORED liveset *)
+(* live = the liveset, flive = the liveset with f applied over it*)
 val check_clash_tree_def = Define`
-  (check_clash_tree f (Delta writes reads) live =
-    case check_partial_col f writes live of
+  (check_clash_tree f (Delta writes reads) live flive =
+    case check_partial_col f writes live flive of
       NONE => NONE
     | SOME _ =>
-    let del_writes = (numset_list_delete (MAP f writes) live) in
-    check_partial_col f reads del_writes) ∧
-  (check_clash_tree f (Set t) live = check_col f t) ∧
-  (check_clash_tree f (Branch topt t1 t2) live =
-    case check_clash_tree f t1 live of
+    let del_writes = (numset_list_delete writes live) in
+    let fdel_writes = (numset_list_delete (MAP f writes) live) in
+    check_partial_col f reads del_writes fdel_writes) ∧
+  (check_clash_tree f (Set t) live flive = check_col f t) ∧
+  (check_clash_tree f (Branch topt t1 t2) live flive =
+    case check_clash_tree f t1 live flive of
       NONE => NONE
-    | SOME t1_out =>
-    case check_clash_tree f t2 live of
+    | SOME (t1_out,ft1_out) =>
+    case check_clash_tree f t2 live flive of
       NONE => NONE
-    | SOME t2_out =>
+    | SOME (t2_out,ft2_out) =>
     case topt of
       NONE =>
-        if inter t1_out t2_out = LN then SOME (union t1_out t2_out)
+        if inter ft1_out ft2_out = LN then
+          SOME (union t1_out t2_out,union ft1_out ft2_out)
         else NONE
     | SOME t => check_col f t) ∧
-  (check_clash_tree f (Seq t1 t2) live =
-    case check_clash_tree f t2 live of
+  (check_clash_tree f (Seq t1 t2) live flive =
+    case check_clash_tree f t2 live flive of
       NONE => NONE
-    | SOME t2_out =>
-      check_clash_tree f t1 t2_out)`
+    | SOME (t2_out,ft2_out) =>
+      check_clash_tree f t1 t2_out ft2_out)`
 
-(* cli are the starting vertices of a clique in G*)
+(* cli are the starting vertices of a clique in G
+TODO: Can be made more efficient by tracking membership with sptree
+*)
 val extend_clique_def = Define`
   (extend_clique [] cli G = (G,cli)) ∧
   (extend_clique (x::xs) cli G =
-    extend_clique xs (x::cli) (list_g_insert x cli G))`
+    if MEM x cli
+    then
+      extend_clique xs cli G
+    else
+      extend_clique xs (x::cli) (list_g_insert x cli G))`
 
 (*G should always contain liveout as a clique,
   live here use a LIST representation instead of sptrees

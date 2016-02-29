@@ -1,6 +1,7 @@
 open preamble
 open monadsyntax state_transformerTheory
 open reg_allocTheory
+open BasicProvers
 
 val _ = ParseExtras.temp_tight_equality ();
 
@@ -1575,7 +1576,7 @@ val reg_alloc_satisfactory = store_thm ("reg_alloc_satisfactory",``
   let col = reg_alloc alg G k moves in
   (domain G ⊆ domain col ∧
   partial_colouring_satisfactory col G)``,
-  rpt strip_tac>>full_simp_tac(srw_ss())[reg_alloc_def]>>BasicProvers.LET_ELIM_TAC>>
+  rpt strip_tac>>full_simp_tac(srw_ss())[reg_alloc_def]>>LET_ELIM_TAC>>
   `satisfactory_pref pref` by
     (every_case_tac>>full_simp_tac(srw_ss())[Abbr`pref`,aux_pref_satisfactory,move_pref_satisfactory,aux_move_pref_satisfactory])>>
   `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by
@@ -1649,7 +1650,7 @@ val reg_alloc_conventional = store_thm("reg_alloc_conventional" ,``
     full_simp_tac(srw_ss())[SUBSET_DEF]>>
   full_simp_tac(srw_ss())[domain_lookup]>>rev_full_simp_tac(srw_ss())[]>>unabbrev_all_tac>>
   full_simp_tac(srw_ss())[reg_alloc_def]>>pop_assum mp_tac>>
-  BasicProvers.LET_ELIM_TAC>>
+  LET_ELIM_TAC>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
   `undir_graph s''.graph ∧ is_subgraph_edges G s''.graph` by
     (every_case_tac>>full_simp_tac(srw_ss())[]>>
@@ -1773,6 +1774,53 @@ val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
   full_simp_tac(srw_ss())[clique_g_insert_domain]>>
   full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
 
+(*Less restrictive subgraph definition,
+  maybe update is_subgraph edges to be a restriction of this
+*)
+val is_subgraph_def = Define`
+  is_subgraph G H ⇔
+  ∀x y. lookup_g x y G ⇒ lookup_g x y H`
+
+val is_subgraph_refl = prove(``is_subgraph G G``, fs[is_subgraph_def])
+
+val is_subgraph_trans = prove(``
+  is_subgraph A B ∧ is_subgraph B C ⇒
+  is_subgraph A C``,
+  fs[is_subgraph_def])
+
+(*can also assume ¬MEM h live*)
+val list_g_insert_props = prove(``
+  ∀live h G G'.
+  sp_g_is_clique live G ∧
+  undir_graph G ⇒
+  let G' = list_g_insert h live G in
+  is_subgraph G G' ∧
+  undir_graph G' ∧
+  sp_g_is_clique (h::live) G'``,cheat)
+
+(* The result is undirected, contains a clique and is a subgraph *)
+val extend_clique_props = prove(``
+  ∀l live G G' live'.
+  sp_g_is_clique live G ∧
+  undir_graph G ∧
+  ALL_DISTINCT live ∧
+  extend_clique l live G = (G',live') ⇒
+  ALL_DISTINCT live' ∧
+  undir_graph G' ∧
+  sp_g_is_clique live' G' ∧
+  is_subgraph G G' ∧
+  set live' = set (live++l)``,
+  Induct>>fs[extend_clique_def,is_subgraph_refl]>>
+  ntac 5 strip_tac>> IF_CASES_TAC>>strip_tac
+  >-
+    (res_tac>>fs[EXTENSION]>>
+    metis_tac[])
+  >>
+    (imp_res_tac list_g_insert_props>>first_x_assum (qspec_then`h` assume_tac)>>
+    fs[]>>
+    first_x_assum(qspecl_then[`h::live`,`list_g_insert h live G`,`G'`,`live'`] assume_tac)>>
+    rfs[is_subgraph_def]>>
+    fs[EXTENSION]>>metis_tac[]))
 
 val colouring_satisfactory_subgraph_edges = prove(``
   undir_graph G ∧ is_subgraph_edges G H ∧
@@ -1780,34 +1828,121 @@ val colouring_satisfactory_subgraph_edges = prove(``
   colouring_satisfactory col G``,
   cheat)
 
+(*TODO: this is in word_allocProof*)
+val INJ_less = prove(``
+  INJ f s' UNIV ∧ s ⊆ s'
+  ⇒
+  INJ f s UNIV``,
+  metis_tac[INJ_DEF,SUBSET_DEF])
+
+(*Form up the entire clique, then check*)
+val check_partial_col_success = prove(``
+  ∀ls live flive col.
+  domain flive = IMAGE col (domain live) ∧
+  INJ col (set ls ∪ domain live) UNIV
+  ⇒
+  ∃x.
+  check_partial_col col ls live flive = SOME x``,cheat)
+  Induct>>fs[check_partial_col_def]>>rw[]>>
+  TOP_CASE_TAC>>fs[]
+  >-
+    (`h ∉ domain live` by fs[domain_lookup]>>
+    `lookup (col h) flive = NONE` by
+      (
+      (*TOO LONG*)
+      CCONTR_TAC>>
+      `∃s. lookup(col h) flive = SOME s` by
+        Cases_on`lookup (col h) flive`>>fs[]>>
+      last_x_assum kall_tac>>
+      fs[EXTENSION,domain_lookup]>>
+      first_x_assum(qspec_then`col h` mp_tac)>>
+      rw[EQ_IMP_THM]>>
+      Cases_on`h=x'`>>fs[]>>
+      Cases_on`lookup x' live = SOME ()`>>fs[]>>
+      FULL_SIMP_TAC bool_ss[INJ_DEF]>>
+      first_x_assum(qspecl_then[`h`,`x'`] assume_tac)>>
+      fs[domain_lookup]>>
+      metis_tac[])>>
+    fs[]>>
+    first_assum match_mp_tac>>fs[]>>
+    match_mp_tac (GEN_ALL INJ_less)>>
+    HINT_EXISTS_TAC>>fs[SUBSET_DEF])
+  >>
+  first_assum match_mp_tac>>fs[]>>
+  match_mp_tac (GEN_ALL INJ_less)>>
+  HINT_EXISTS_TAC>>fs[SUBSET_DEF])
+
+val ALL_DISTINCT_set_INJ = prove(``
+  ∀ls col.
+  ALL_DISTINCT (MAP col ls) ⇒
+  INJ col (set ls) UNIV``,
+  Induct>>fs[INJ_DEF]>>rw[]>>
+  fs[MEM_MAP]>>
+  metis_tac[])
+
+val ALL_DISTINCT_IMP_INJ = prove(``
+  ALL_DISTINCT (MAP col live') ∧
+  set live' = set livelist ∪ set l ⇒
+  INJ col (set l ∪ set livelist) UNIV``,
+  rw[]>>
+  imp_res_tac ALL_DISTINCT_set_INJ>>
+  metis_tac[UNION_COMM])
+
 val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_colouring_ok_check_clash_tree",``
-  ∀ct G livelist live col.
+  ∀ct G livelist live flive col.
   domain live = set livelist ∧
+  ALL_DISTINCT livelist ∧
   sp_g_is_clique livelist G ∧
+  undir_graph G ∧
+  domain flive = IMAGE col (domain live) ∧
   colouring_satisfactory col (FST (clash_tree_to_spg ct livelist G))
   ⇒
-  ∃x. check_clash_tree col ct live = SOME x``,
+  ∃x. check_clash_tree col ct live flive = SOME x``,
   Induct>>rw[clash_tree_to_spg_def,check_clash_tree_def]
   >-
     (split_pair_tac>>fs[]>>
+    imp_res_tac extend_clique_props>>
+    ntac 5 (pop_assum kall_tac)>>
     split_pair_tac>>fs[]>>
+    Q.ISPECL_THEN [`l0`,`FILTER (λx. ¬MEM x l) live'`,`G'`,`G''`,`livein` ] mp_tac extend_clique_props>>
+    discharge_hyps>-
+      (fs[FILTER_ALL_DISTINCT]>>
+      (*shorter list is always a clique*)
+      cheat)>>
+    strip_tac>>
+    imp_res_tac colouring_satisfactory_cliques>>
+    ntac 5 (pop_assum kall_tac)>>
+    pop_assum mp_tac>>
+    discharge_hyps>-
+      (*G is a subgraph*)
+      cheat>>
+    strip_tac>>
+    `∃v. check_partial_col col l live flive = SOME v` by
+      (match_mp_tac check_partial_col_success>>fs[]>>
+      metis_tac[ALL_DISTINCT_IMP_INJ])>>
+    fs[]>>
+    match_mp_tac check_partial_col_success>>fs[]>>
+    CONJ_TAC>-
+      cheat>>
+    (*use ALL_DISTINCT_IMP_INJ*)
     cheat)
   >-
     (fs[check_col_def,GSYM MAP_MAP_o]>>
     qpat_abbrev_tac`ls = MAP FST A`>>
     Q.ISPECL_THEN [`ls`,`G`] assume_tac clique_g_insert_is_clique>>
     match_mp_tac colouring_satisfactory_cliques>>fs[]>>
-    HINT_EXISTS_TAC>>fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList])
+    qexists_tac`clique_g_insert ls G`>>
+    fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList])
   >-
     cheat
   >>
     split_pair_tac>>fs[]>>
-    first_x_assum(qspecl_then[`G`,`livelist`,`live`,`col`] mp_tac)>>
+    first_x_assum(qspecl_then[`G`,`livelist`,`live`,`flive`,`col`] mp_tac)>>
     discharge_hyps>-
       (fs[]>>
-      match_mp_tac (GEN_ALL colouring_satisfactory_subgraph_edges)>>
       cheat)>>
     rw[]>>fs[]>>
+    FULL_CASE_TAC>>fs[]>>
     first_assum match_mp_tac>>fs[]>>
     qexists_tac`G'`>>
     qexists_tac`live'`>>
