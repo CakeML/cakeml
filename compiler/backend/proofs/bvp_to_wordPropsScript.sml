@@ -39,9 +39,19 @@ val words_of_bytes_def = tDefine "words_of_bytes" `
        word_of_bytes be 0w xs :: words_of_bytes be ys)`
  (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
 
+val write_byte_def = Define `
+  write_byte (a:'a word) b ws be =
+    let n = w2n (a >>> shift (:'a)) in
+      LUPDATE (set_byte a b (EL n ws) be) n ws`
+
+val write_bytes_def = Define `
+  (write_bytes a [] ws be = ws) /\
+  (write_bytes a (b::bs) ws be =
+     write_byte a b (write_bytes (a+1w) bs ws be) be)`;
+
 val Bytes_def = Define`
-  ((Bytes is_bigendian (bs:word8 list)):'a ml_el) =
-    let ws = words_of_bytes is_bigendian bs in
+  ((Bytes is_bigendian (bs:word8 list) (ws:'a word list)):'a ml_el) =
+    let ws = write_bytes 0w bs ws is_bigendian in
       DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), MAP Word ws)`
 
 val words_of_int_def = Define `
@@ -79,6 +89,7 @@ val v_size_LEMMA = prove(
 val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
+       F /\ (* TODO: remove this line, so that bignums are allowed *)
        ?ptr u. (x = Pointer ptr u) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
   (v_inv (CodePtr n) (x,f,heap) <=>
      (x = Data (Loc n 0))) /\
@@ -119,8 +130,9 @@ val bc_ref_inv_def = Define `
     | (SOME x, SOME (ValueArray ys)) =>
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv y (z,f,heap)) zs ys)
-    | (SOME x, SOME (ByteArray ws)) =>
-        (heap_lookup x heap = SOME (Bytes be ws))
+    | (SOME x, SOME (ByteArray bs)) =>
+        ?ws. LENGTH bs DIV (dimindex (:α) DIV 8) = LENGTH ws + 1 /\
+             (heap_lookup x heap = SOME (Bytes be bs (ws:'a word list)))
     | _ => F`;
 
 val bc_stack_ref_inv_def = Define `
@@ -321,7 +333,8 @@ val bc_ref_inv_related = prove(
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF,f_o_f_DEF]
   \\ Cases_on `x'` \\ full_simp_tac (srw_ss()) []
-  \\ TRY (fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def] >> NO_TAC)
+  \\ TRY (fs[Bytes_def,LET_THM] >> res_tac >> simp[ADDR_MAP_def]
+          \\ rw [] \\ qexists_tac `ws` \\ fs [] >> NO_TAC)
   \\ res_tac \\ full_simp_tac (srw_ss()) [LENGTH_ADDR_MAP,EVERY2_ADDR_MAP]
   \\ rpt strip_tac \\ qpat_assum `EVERY2 qqq zs l` MP_TAC
   \\ match_mp_tac EVERY2_IMP_EVERY2 \\ simp_tac std_ss [] \\ rpt strip_tac
@@ -699,7 +712,8 @@ val cons_thm = store_thm("cons_thm",
     \\ match_mp_tac EVERY2_IMP_EVERY2 \\ full_simp_tac (srw_ss()) []
     \\ rpt strip_tac \\ res_tac \\ imp_res_tac v_inv_SUBMAP
     \\ `f SUBMAP f` by full_simp_tac std_ss [SUBMAP_REFL] \\ res_tac)
-  \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma)
+  \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma
+  \\ metis_tac [])
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
   ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
@@ -1157,6 +1171,7 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
   \\ reverse (Cases_on `x'`) \\ full_simp_tac (srw_ss()) []
   THEN1 (
+    qexists_tac `ws` >>
     fs[Bytes_def,LET_THM] >>
     imp_res_tac heap_store_rel_lemma )
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by

@@ -3552,6 +3552,36 @@ val memory_rel_CodePtr = prove(
   \\ asm_exists_tac \\ fs [PULL_EXISTS] \\ rw [] \\ fs []
   \\ fs [get_refs_def] \\ res_tac);
 
+val get_addr_0 = store_thm("get_addr_0",
+  ``get_addr c n u ' 0``,
+  Cases_on `u` \\ fs [get_addr_def,get_lowerbits_def,
+     word_or_def,fcpTheory.FCP_BETA,word_index]);
+
+val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
+  ``good_dimindex (:'a) /\
+    memory_rel c be refs sp st m dm ((Block tag vals,v:'a word_loc)::vars) ==>
+    ?w. v = Word w /\
+        if vals = [] then
+          w = n2w tag * 16w + 2w
+        else
+          ?a x.
+            w ' 0 /\
+            get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
+            decode_header c x = (n2w tag << 2, n2w (LENGTH vals)) /\
+            LENGTH vals < 2 ** (dimindex (:'a) − 4)``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def,v_inv_def]
+  \\ CASE_TAC \\ fs [] \\ rw []
+  THEN1 (fs [word_addr_def,BlockNil_def,WORD_MUL_LSL,GSYM word_mul_n2w,
+             GSYM word_add_n2w,BlockNil_and_lemma])
+  \\ fs [word_addr_def,heap_in_memory_store_def]
+  \\ rpt_drule get_real_addr_get_addr \\ disch_then kall_tac
+  \\ imp_res_tac heap_lookup_SPLIT \\ clean_tac
+  \\ fs [word_heap_APPEND,word_heap_def,BlockRep_def,word_el_def,
+         word_payload_def,word_list_def]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
+  \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0])
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
