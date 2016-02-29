@@ -36,16 +36,12 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
     rpt strip_tac
     \\ drule completeness
     \\ simp[]
-    \\ disch_then(qspec_then`[]`mp_tac)
-    \\ simp[]
-    \\ discharge_hyps >- cheat (* cmlPEG has slightly wrong FDOM *)
     \\ strip_tac
     \\ assume_tac cmlPEGTheory.PEG_wellformed
     \\ drule (GEN_ALL pegexecTheory.peg_eval_executed)
     \\ qmatch_asmsub_abbrev_tac`peg_eval _ (s,e) r`
     \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
     \\ simp[Abbr`e`,GSYM cmlPEGTheory.pnt_def]
-    \\ discharge_hyps >- cheat (* same problem as above; use start_IN_Gexprs and cmlPEG_def *)
     \\ strip_tac
     \\ simp[cmlParseTheory.destResult_def,Abbr`r`,
             cmlPtreeConversionTheory.oHD_def (* TODO: should not be defined there! *)]
@@ -61,7 +57,9 @@ val parse_prog_correct = Q.store_thm("parse_prog_correct",
   \\ qmatch_asmsub_rename_tac`pegexec$Result r`
   \\ disch_then(qspecl_then[`s`,`r`,`e`]mp_tac)
   \\ fs[markerTheory.Abbrev_def]
-  \\ discharge_hyps >- cheat (* same problem as above; use start_IN_Gexprs and cmlPEG_def *)
+  \\ discharge_hyps >- (
+      metis_tac[pegTheory.start_IN_Gexprs,
+                SIMP_CONV (srw_ss()) [cmlPEGTheory.cmlPEG_def]``cmlPEG.start``])
   \\ strip_tac
   \\ rveq
   \\ fs[cmlPEGTheory.pnt_def]
