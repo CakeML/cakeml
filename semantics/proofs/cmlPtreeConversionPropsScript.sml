@@ -509,19 +509,22 @@ val TopLevelDec_OK = store_thm(
 
 val TopLevelDecs_OK = store_thm(
   "TopLevelDecs_OK",
-  ``valid_ptree cmlG pt ∧ ptree_head pt = NN nTopLevelDecs ∧
-    MAP TK toks = ptree_fringe pt ⇒
-    ∃ts. ptree_TopLevelDecs pt = SOME ts``,
+  ``valid_ptree cmlG pt ∧ MAP TK toks = ptree_fringe pt ⇒
+    (ptree_head pt = NN nTopLevelDecs ⇒ ∃ts. ptree_TopLevelDecs pt = SOME ts) ∧
+    (ptree_head pt = NN nNonETopLevelDecs ⇒
+     ∃ts. ptree_NonETopLevelDecs pt = SOME ts)``,
   map_every qid_spec_tac [`toks`, `pt`] >>
   ho_match_mp_tac grammarTheory.ptree_ind >>
   dsimp[] >> rpt strip_tac >> fs[MAP_EQ_CONS, cmlG_applied, cmlG_FDOM] >>
   rpt (Q.PAT_ASSUM `X = ptree_head Y` (assume_tac o SYM)) >>
   rveq >> dsimp[ptree_TopLevelDecs_def] >>
   fs[DISJ_IMP_THM, FORALL_AND_THM, MAP_EQ_APPEND] >>
-  TRY (Cases_on`toks`>>fs[]>>metis_tac[]) >>
-  first_x_assum (erule strip_assume_tac) >>
-  erule strip_assume_tac (n TopLevelDec_OK) >> simp[]>> rw[]);
+  TRY (Cases_on`toks`>>fs[]>>metis_tac[])
+  >- (fs[MAP_EQ_CONS] >> rveq >> metis_tac[E_OK])
+  >- (rw[] >> fs[] >> metis_tac[TopLevelDec_OK])
+  >- (rw[] >> fs[] >> metis_tac[TopLevelDec_OK]))
 
+(*
 val REPLTop_OK = store_thm(
   "REPLTop_OK",
   ``valid_ptree cmlG pt ∧ ptree_head pt = NN nREPLTop ∧
@@ -533,5 +536,6 @@ val REPLTop_OK = store_thm(
   qcase_tac `ptree_TopLevelDec pt0` >>
   Cases_on `ptree_TopLevelDec pt0` >> simp[] >>
   erule strip_assume_tac (n E_OK) >> simp[]);
+*)
 
 val _ = export_theory();
