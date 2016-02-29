@@ -47,7 +47,7 @@ val compile_def = Define`
     let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
     let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
     let c = c with word_conf := c' in
-    let p = stack_to_lab$compile c.clos_conf.start c.stack_conf c.bvp_conf c.word_conf p in
+    let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
     let bc' = lab_to_target$compile c.lab_conf p in
       OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'`;
 
@@ -126,7 +126,7 @@ val to_stack_def = Define`
 val to_lab_def = Define`
   to_lab c p =
   let (c,p) = to_stack c p in
-  let p = stack_to_lab$compile c.clos_conf.start c.stack_conf c.bvp_conf c.word_conf p in
+  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
   (c,p)`;
 
 val to_target_def = Define`
@@ -166,7 +166,7 @@ val from_lab_def = Define`
 
 val from_stack_def = Define`
   from_stack c p =
-  let p = stack_to_lab$compile c.clos_conf.start c.stack_conf c.bvp_conf c.word_conf p in
+  let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
   from_lab c p`;
 
 val from_word_def = Define`

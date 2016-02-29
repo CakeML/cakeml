@@ -1698,6 +1698,7 @@ val full_make_init_semantics = save_thm("full_make_init_semantics",let
            |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
+           |> Q.INST [`start`|->`InitGlobals_location`]
   val tm = concl th |> snd o dest_imp |> rand |> rator |> rand |> rand
   val def = define_abbrev "full_make_init" tm
   val pre = define_abbrev "full_init_pre" (th |> concl |> dest_imp |> fst)
@@ -1710,6 +1711,7 @@ val full_make_init_semantics_fail = save_thm("full_make_init_semantics_fail",let
            |> Q.INST [`code1`|->`compile max_heap bitmaps k start (compile c code4)`]
            |> REWRITE_RULE (AND_IMP_INTRO::GSYM CONJ_ASSOC::lemmas)
            |> Q.INST [`code4`|->`code`]
+           |> Q.INST [`start`|->`InitGlobals_location`]
   val pre = define_abbrev "full_init_pre_fail" (th |> concl |> dest_imp |> fst)
   in th |> REWRITE_RULE [GSYM pre] end);
 
