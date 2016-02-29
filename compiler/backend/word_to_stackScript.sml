@@ -234,7 +234,7 @@ val comp_def = Define `
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
-  (comp (LocValue r l1 l2) bs kf = (LocValue (r DIV 2) l1 l2,bs)) /\
+  (comp (LocValue r l1 l2) bs kf = (wRegWrite1 (λr. LocValue r l1 l2) r kf,bs)) /\
   (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 
