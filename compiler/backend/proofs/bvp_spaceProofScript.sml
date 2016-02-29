@@ -14,6 +14,11 @@ val mk_wf_inter = prove(
   ``!t1 t2. inter t1 t2 = mk_wf (inter t1 t2)``,
   full_simp_tac(srw_ss())[]);
 
+val get_vars_IMP_LENGTH = store_thm("get_vars_IMP_LENGTH",
+  ``!xs s l. get_vars xs s = SOME l ==> (LENGTH l = LENGTH xs)``,
+  Induct \\ fs [get_vars_def] \\ rw [] \\ every_case_tac \\ fs []
+  \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+
 val evaluate_compile = Q.prove(
   `!c s res s2 vars l.
      res <> SOME (Rerr(Rabort Rtype_error)) /\ (evaluate (c,s) = (res,s2)) /\
@@ -35,15 +40,18 @@ val evaluate_compile = Q.prove(
     \\ METIS_TAC [])
   THEN1 (* Assign *)
    (Cases_on `names_opt` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `op_space_reset op` \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
-     (Cases_on `get_vars args s.locals` \\ full_simp_tac(srw_ss())[cut_state_opt_def]
+    \\ Cases_on `op_space_reset op`
+    \\ full_simp_tac(srw_ss())[cut_state_opt_def] THEN1
+     (Cases_on `get_vars args s.locals`
+      \\ full_simp_tac(srw_ss())[cut_state_opt_def]
       \\ `get_vars args l =
           get_vars args s.locals` by
        (MATCH_MP_TAC EVERY_get_vars
         \\ full_simp_tac(srw_ss())[EVERY_MEM,locals_ok_def]
         \\ REPEAT STRIP_TAC \\ IMP_RES_TAC get_vars_IMP_domain
         \\ full_simp_tac(srw_ss())[domain_lookup])
-      \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x s`) \\ full_simp_tac(srw_ss())[] >- (
+      \\ full_simp_tac(srw_ss())[] \\ reverse(Cases_on `do_app op x s`)
+      \\ full_simp_tac(srw_ss())[] >- (
            imp_res_tac do_app_err >> full_simp_tac(srw_ss())[] >>
            Cases_on`a`>>full_simp_tac(srw_ss())[] >> srw_tac[][] >>
            full_simp_tac(srw_ss())[do_app_def,do_space_def,op_space_req_def,
@@ -68,37 +76,45 @@ val evaluate_compile = Q.prove(
     \\ SRW_TAC [] [state_component_equality])
   THEN1 (* Tick *)
    (Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
-    \\ full_simp_tac(srw_ss())[locals_ok_def,call_env_def,EVAL ``fromList []``,lookup_def,
-           dec_clock_def] \\ METIS_TAC [])
+    \\ full_simp_tac(srw_ss())[locals_ok_def,call_env_def,
+         EVAL ``fromList []``,lookup_def,dec_clock_def] \\ METIS_TAC [])
   THEN1 (* MakeSpace *)
    (Cases_on `cut_env names s.locals` \\ full_simp_tac(srw_ss())[]
     \\ IMP_RES_TAC locals_ok_cut_env
-    \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,state_component_equality,locals_ok_def])
+    \\ full_simp_tac(srw_ss())[LET_DEF,add_space_def,
+         state_component_equality,locals_ok_def])
   THEN1 (* Raise *)
    (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ `jump_exc (s with locals := l) = jump_exc s` by
-         full_simp_tac(srw_ss())[jump_exc_def] \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[]
+         full_simp_tac(srw_ss())[jump_exc_def]
+    \\ Cases_on `jump_exc s` \\ full_simp_tac(srw_ss())[]
     \\ `get_var n l = SOME x` by
-         full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
+         full_simp_tac(srw_ss())[locals_ok_def,get_var_def]
+    \\ full_simp_tac(srw_ss())[]
     \\ srw_tac [] [] \\ Q.EXISTS_TAC `s2.locals`
     \\ full_simp_tac(srw_ss())[locals_ok_def])
   THEN1 (* Return *)
    (Cases_on `get_var n s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
     \\ `get_var n l = SOME x` by
-         full_simp_tac(srw_ss())[locals_ok_def,get_var_def] \\ full_simp_tac(srw_ss())[]
+         full_simp_tac(srw_ss())[locals_ok_def,get_var_def]
+    \\ full_simp_tac(srw_ss())[]
     \\ srw_tac [] [call_env_def]
     \\ full_simp_tac(srw_ss())[locals_ok_def,call_env_def,lookup_fromList,
            dec_clock_def])
   THEN1 (* Seq *)
-   (full_simp_tac(srw_ss())[LET_DEF] \\ Cases_on `space c2` \\ full_simp_tac(srw_ss())[] THEN1
+   (full_simp_tac(srw_ss())[LET_DEF] \\ Cases_on `space c2`
+    \\ full_simp_tac(srw_ss())[] THEN1
      (Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `c1` \\ full_simp_tac(srw_ss())[pMakeSpace_def]
       THEN1 (full_simp_tac(srw_ss())[evaluate_def])
-      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))` \\ full_simp_tac(srw_ss())[]
-      \\ SIMP_TAC std_ss [Once evaluate_def] \\ full_simp_tac(srw_ss())[space_def,pMakeSpace_def]
+      \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
+      \\ full_simp_tac(srw_ss())[]
+      \\ SIMP_TAC std_ss [Once evaluate_def]
+      \\ full_simp_tac(srw_ss())[space_def,pMakeSpace_def]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`)
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ full_simp_tac(srw_ss())[LET_DEF,Seq_Skip] \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+      \\ full_simp_tac(srw_ss())[LET_DEF,Seq_Skip]
+      \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Q.EXISTS_TAC `w` \\ full_simp_tac(srw_ss())[])
     \\ PairCases_on `y` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `evaluate (c1,s)` \\ full_simp_tac(srw_ss())[]
@@ -109,7 +125,8 @@ val evaluate_compile = Q.prove(
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ full_simp_tac(srw_ss())[] \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+      \\ full_simp_tac(srw_ss())[] \\ Cases_on `q`
+      \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
       \\ Q.EXISTS_TAC `w` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
     THEN1 (* MakeSpace *)
      (full_simp_tac(srw_ss())[pMakeSpace_def,space_def,Seq_Skip]
@@ -120,18 +137,21 @@ val evaluate_compile = Q.prove(
       \\ REPEAT STRIP_TAC \\ SRW_TAC [] [] \\ full_simp_tac(srw_ss())[]
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `w`) \\ full_simp_tac(srw_ss())[]
       \\ ONCE_REWRITE_TAC [evaluate_def] \\ full_simp_tac(srw_ss())[LET_DEF]
-      \\ full_simp_tac(srw_ss())[evaluate_def] \\ Cases_on `cut_env y1 w` \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[evaluate_def]
+      \\ Cases_on `cut_env y1 w` \\ full_simp_tac(srw_ss())[]
       \\ REPEAT STRIP_TAC
       \\ `cut_env (inter s' y1) l = SOME x'` by
        (full_simp_tac(srw_ss())[cut_env_def] \\ SRW_TAC [] []
-        \\ full_simp_tac(srw_ss())[state_component_equality,add_space_def] \\ SRW_TAC [] []
+        \\ full_simp_tac(srw_ss())[state_component_equality,add_space_def]
+        \\ SRW_TAC [] []
         \\ full_simp_tac(srw_ss())[SUBSET_DEF,domain_inter,lookup_inter_alt]
-        \\ Cases_on `x IN domain y1` \\ full_simp_tac(srw_ss())[]) \\ full_simp_tac(srw_ss())[]
+        \\ Cases_on `x IN domain y1` \\ full_simp_tac(srw_ss())[])
+        \\ full_simp_tac(srw_ss())[]
       \\ full_simp_tac(srw_ss())[]
       \\ `(add_space (s with locals := l) y0 with locals := x') =
           (add_space (r with locals := w) y0 with locals := x')` by
-       (full_simp_tac(srw_ss())[state_component_equality,add_space_def] \\ SRW_TAC [] []
-        \\ DECIDE_TAC)
+       (full_simp_tac(srw_ss())[state_component_equality,add_space_def]
+        \\ SRW_TAC [] [] \\ DECIDE_TAC)
       \\ full_simp_tac(srw_ss())[] \\ METIS_TAC [])
     THEN1 (* Seq *)
      (full_simp_tac(srw_ss())[pMakeSpace_def]
@@ -140,13 +160,15 @@ val evaluate_compile = Q.prove(
       \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `l`) \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `q = SOME (Rerr(Rabort Rtype_error))`
       \\ full_simp_tac(srw_ss())[] \\ REPEAT STRIP_TAC
-      \\ full_simp_tac(srw_ss())[] \\ Cases_on `q` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ METIS_TAC [])
+      \\ full_simp_tac(srw_ss())[] \\ Cases_on `q`
+      \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] [] \\ METIS_TAC [])
     THEN1 (* Assign *)
      (full_simp_tac(srw_ss())[pMakeSpace_def,space_def] \\ reverse (Cases_on `o0`)
       \\ full_simp_tac(srw_ss())[evaluate_def,cut_state_opt_def] THEN1
        (full_simp_tac(srw_ss())[pMakeSpace_def,space_def,evaluate_def,
             cut_state_opt_def,cut_state_def]
-        \\ Cases_on `cut_env x s.locals` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
+        \\ Cases_on `cut_env x s.locals`
+        \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []
         \\ IMP_RES_TAC locals_ok_cut_env \\ full_simp_tac(srw_ss())[]
         \\ Cases_on `get_vars l' x'` \\ full_simp_tac(srw_ss())[]
         \\ SRW_TAC [] []
@@ -193,10 +215,14 @@ val evaluate_compile = Q.prove(
       \\ full_simp_tac(srw_ss())[do_app_def,do_space_alt]
       \\ REV_FULL_SIMP_TAC std_ss []
       \\ full_simp_tac(srw_ss())[consume_space_def]
-      \\ Cases_on `s.space < op_space_req o'` \\ full_simp_tac(srw_ss())[]
-      \\ `(bvp_to_bvi (s with space := s.space - op_space_req o')) =
-           bvp_to_bvi s` by (full_simp_tac(srw_ss())[bvp_to_bvi_def] \\ NO_TAC) \\ full_simp_tac(srw_ss())[]
-      \\ `~(op_space_req o' + y0 < op_space_req o')` by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
+      \\ Cases_on `s.space < op_space_req o' (LENGTH l')`
+      \\ full_simp_tac(srw_ss())[]
+      \\ `(bvp_to_bvi (s with space := s.space - op_space_req o' (LENGTH l'))) =
+           bvp_to_bvi s` by (full_simp_tac(srw_ss())[bvp_to_bvi_def] \\ NO_TAC)
+      \\ full_simp_tac(srw_ss())[]
+      \\ `~(op_space_req o' (LENGTH l') + y0 < op_space_req o' (LENGTH l'))`
+            by DECIDE_TAC \\ full_simp_tac(srw_ss())[]
+      \\ imp_res_tac get_vars_IMP_LENGTH \\ fs []
       \\ full_simp_tac(srw_ss())[bvp_to_bvi_ignore]
       \\ Cases_on `do_app o' x (bvp_to_bvi s)` \\ full_simp_tac(srw_ss())[]
       \\ Cases_on `a` \\ full_simp_tac(srw_ss())[] \\ SRW_TAC [] []

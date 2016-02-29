@@ -1,7 +1,7 @@
 open preamble;
 open libTheory astTheory bigStepTheory semanticPrimitivesTheory initialProgramTheory;
 open evalPropsTheory determTheory bigClockTheory interpTheory;
-open compute_interpLib;
+open interpComputeLib;
 open terminationTheory;
 open boolSimps;
 

@@ -23,7 +23,7 @@ HOLHEAP = heap
 PARENTHEAP = ../heap
 EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
 
-BARE_THYS = ../../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../compute_semanticsLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
+BARE_THYS = ../../libTheory ../bigStepTheory ../typeSystemTheory ../tokensTheory ../gramTheory ../smallStepTheory ../terminationTheory ../semanticsComputeLib $(HOLDIR)/examples/formal-languages/context-free/NTpropertiesTheory
 DEPS = $(patsubst %,%.uo,$(BARE_THYS)) $(PARENTHEAP)
 
 $(HOLHEAP): $(DEPS)

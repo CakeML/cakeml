@@ -116,9 +116,9 @@ val do_app_locals = store_thm("do_app_locals",
   \\ full_simp_tac(srw_ss())[bvi_to_bvp_def,state_component_equality]);
 
 val do_space_alt = store_thm("do_space_alt",
-  ``do_space op s =
+  ``do_space op l s =
       if op_space_reset op then SOME (s with space := 0)
-      else consume_space (op_space_req op) s``,
+      else consume_space (op_space_req op l) s``,
   full_simp_tac(srw_ss())[do_space_def] \\ SRW_TAC [] [consume_space_def]
   \\ full_simp_tac(srw_ss())[state_component_equality] \\ full_simp_tac(srw_ss())[] \\ DECIDE_TAC);
 

@@ -462,6 +462,7 @@ val compile_single_correct = prove(``
   >- tac
   >- tac
   >- tac
+  >- tac
   >- (tac>>
      Cases_on`call_FFI st.ffi n x'`>>simp[]));
 

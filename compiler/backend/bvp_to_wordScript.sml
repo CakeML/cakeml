@@ -1,4 +1,5 @@
 open preamble wordLangTheory bvpTheory word_to_wordTheory;
+local open bvl_to_bviTheory in end
 
 val _ = new_theory "bvp_to_word";
 
@@ -21,6 +22,52 @@ val GiveUp_def = Define `
   GiveUp = Seq (Assign 1 (Const (-1w)))
                (Alloc 1 (adjust_set (LN:num_set))) :'a wordLang$prog`
 
+val make_header_def = Define `
+  make_header conf tag len =
+    let l = dimindex (:'a) - conf.len_size in
+      (n2w len << l || tag << 2 || 3w:'a word)`
+
+val encode_header_def = Define `
+  encode_header (conf:bvp_to_word$config) tag len =
+    if tag < 2 ** (dimindex (:'a) - conf.len_size - 2) /\
+       len < 2 ** (dimindex (:'a) - 4) /\
+       len < 2 ** conf.len_size
+    then SOME ((make_header conf (n2w tag) len):'a word)
+    else NONE`
+
+val list_Seq_def = Define `
+  (list_Seq [] = wordLang$Skip) /\
+  (list_Seq [x] = x) /\
+  (list_Seq (x::y::xs) = Seq x (list_Seq (y::xs)))`
+
+val shift_def = Define `
+  shift (:'a) = if dimindex (:'a) = 32 then 2 else 3n`;
+
+val StoreEach_def = Define `
+  (StoreEach v [] offset = Skip) /\
+  (StoreEach v (x::xs) (offset:'a word) =
+     Seq (Store (Op Add [Var v; Const offset]) x)
+         (StoreEach v xs (offset + bytes_in_word)))`
+
+val shift_length_def = Define `
+  shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
+
+val real_addr_def = Define `
+  (real_addr (conf:bvp_to_word$config) r): 'a wordLang$exp =
+    let k = shift (:'a) in
+   (* if k <= conf.pad_bits + 1 then
+        Op Add [Lookup CurrHeap;
+                Shift Lsr (Var r) (Nat (shift_length conf - k))]
+      else *)
+        Op Add [Lookup CurrHeap;
+                Shift Lsl (Shift Lsr (Var r)
+                  (Nat (shift_length conf))) (Nat k)]`
+
+val real_offset_def = Define `
+  (real_offset (conf:bvp_to_word$config) r): 'a wordLang$exp =
+     Op Add [Const bytes_in_word;
+             if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -34,11 +81,57 @@ val assign_def = Define `
     | GlobalsPtr => (Assign (adjust_var dest) (Lookup Globals),l)
     | SetGlobalsPtr => (Seq (Set Globals (Var (adjust_var (HD args))))
                             (Assign (adjust_var dest) Unit),l)
+    | ToList => (Skip,l)
     | Global _ => (Skip,l)
     | SetGlobal _ => (Skip,l)
     | AllocGlobal => (Skip,l)
-    | _ => (GiveUp,l)
-    | _ => (GiveUp:'a wordLang$prog,l)`;
+    | El => (case args of
+             | [v1;v2] => (Assign (adjust_var dest)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           real_offset c (adjust_var v2)])),l)
+             | _ => (Skip,l))
+    | Deref => (case args of
+             | [v1;v2] => (Assign (adjust_var dest)
+                            (Load (Op Add [real_addr c (adjust_var v1);
+                                           real_offset c (adjust_var v2)])),l)
+             | _ => (Skip,l))
+    | Update => (case args of
+             | [v1;v2;v3] =>
+                 (Seq (Store (Op Add [real_addr c (adjust_var v1);
+                                      real_offset c (adjust_var v2)])
+                             (adjust_var v3))
+                      (Assign (adjust_var dest) Unit),l)
+             | _ => (Skip,l))
+    | Cons tag => if LENGTH args = 0 then
+                    if 16 * tag < dimword (:'a) then
+                      (Assign (adjust_var dest) (Const (n2w (16 * tag + 2))),l)
+                    else (GiveUp,l) (* tag is too big to be represented *)
+                  else
+                    (case encode_header c (4 * tag) (LENGTH args) of
+                     | NONE => (GiveUp,l)
+                     | SOME (header:'a word) => (list_Seq
+                        [Assign 1 (Op Sub [Lookup EndOfHeap;
+                            Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                         Set EndOfHeap (Var 1);
+                         Assign 3 (Const header);
+                         StoreEach 1 (3::MAP adjust_var args) 0w;
+                         Assign (adjust_var dest)
+                           (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                                     (Nat (shift_length c − shift (:'a)));
+                                   Const 1w])],l))
+    | Ref => (case encode_header c 2 (LENGTH args) of
+              | NONE => (GiveUp,l)
+              | SOME (header:'a word) => (list_Seq
+                 [Assign 1 (Op Sub [Lookup EndOfHeap;
+                     Const (bytes_in_word * n2w (LENGTH args + 1))]);
+                  Set EndOfHeap (Var 1);
+                  Assign 3 (Const header);
+                  StoreEach 1 (3::MAP adjust_var args) 0w;
+                  Assign (adjust_var dest)
+                    (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
+                              (Nat (shift_length c − shift (:'a)));
+                            Const 1w])],l))
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)    | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
   comp c (n:num) (l:num) (p:bvp$prog) =

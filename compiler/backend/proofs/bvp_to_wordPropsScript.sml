@@ -3,13 +3,6 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
 
 val _ = new_theory "bvp_to_wordProps";
 
-(* -------------------------------------------------------------
-    TODO:
-     - put length into higher bits of block headers
-       (make byte array length easy to retrieve)
-     - consider putting information in the abstract pointers?
-   ------------------------------------------------------------- *)
-
 val _ = Datatype `
   tag = BlockTag num | RefTag | BytesTag num | NumTag bool`;
 
@@ -70,7 +63,7 @@ val small_int_def = Define `
     -&(dimword (:'a) DIV 8) <= i /\ i < &(dimword (:'a) DIV 8)`
 
 val BlockNil_def = Define `
-  BlockNil n = n2w n << 2 + 2w`;
+  BlockNil n = n2w n << 4 + 2w`;
 
 val v_size_LEMMA = prove(
   ``!vs v. MEM v vs ==> v_size v <= v1_size vs``,
@@ -709,8 +702,7 @@ val cons_thm = store_thm("cons_thm",
   \\ fs[Bytes_def,LET_THM] >> imp_res_tac heap_store_rel_lemma)
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
-  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit /\
-    tag < 2 ** 61 ==>
+  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
     abs_ml_inv ((Block tag [])::stack) refs
                 (Data (Word (BlockNil tag))::roots,heap,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
@@ -808,7 +800,7 @@ val RefBlock_inv_def = Define `
     (!n x. (heap_lookup n heap2 = SOME x) /\ ~(isRefBlock x) ==>
            (heap_lookup n heap = SOME x))`;
 
-val heap_store_RefBlock_thm = prove(
+val heap_store_RefBlock_thm = store_thm("heap_store_RefBlock_thm",
   ``!ha. (LENGTH x = LENGTH y) ==>
          (heap_store (heap_length ha) [RefBlock x] (ha ++ RefBlock y::hb) =
            (ha ++ RefBlock x::hb,T))``,
@@ -996,7 +988,7 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
     ==>
     ?p rs roots2 vs1 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
-      (heap_deref p heap = SOME vs1) /\
+      (heap_deref p heap = SOME vs1) /\ LENGTH vs1 = LENGTH xs1 /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
         (roots,heap2,be,a,sp) limit``,
@@ -1020,6 +1012,8 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ full_simp_tac std_ss [] \\ simp[LENGTH_LUPDATE]
   \\ strip_tac \\ full_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [FLOOKUP_DEF]
+  \\ strip_tac THEN1
+   (imp_res_tac EVERY2_LENGTH \\ fs [])
   \\ strip_tac THEN1
    (full_simp_tac std_ss [roots_ok_def] \\ fs [] \\ metis_tac [])
   \\ strip_tac THEN1
@@ -1070,7 +1064,7 @@ val new_ref_thm = store_thm("new_ref_thm",
   ``abs_ml_inv (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
     ?p rs roots2 heap2.
-      (roots = rs ++ roots2) /\
+      (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
                  (rs ++ Pointer (a+sp-(LENGTH xs + 1)) u::roots2,heap2,be,a,
@@ -1415,6 +1409,14 @@ val abs_ml_inv_Num = store_thm("abs_ml_inv_Num",
   \\ qexists_tac `f` \\ fs []
   \\ rw [] \\ fs [get_refs_def] \\ metis_tac []);
 
+val heap_store_unused_IMP_length = store_thm("heap_store_unused_IMP_length",
+  ``heap_store_unused a sp' x heap = (heap2,T) ==>
+    heap_length heap2 = heap_length heap``,
+  fs [heap_store_unused_def] \\ IF_CASES_TAC \\ fs []
+  \\ imp_res_tac heap_lookup_SPLIT \\ fs []
+  \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND,heap_store_lemma]
+  \\ rw [] \\ fs [] \\ fs [heap_length_APPEND,el_length_def,heap_length_def]);
+
 
 (* -------------------------------------------------------
     representation in memory
@@ -1434,9 +1436,6 @@ val pointer_bits_def = Define ` (* pointers have tag and len bits *)
         maxout_bits (LENGTH xs) conf.len_bits (conf.tag_bits + 2) ||
         maxout_bits tag conf.tag_bits 2 || 1w
     | _ => all_ones (conf.len_bits + conf.tag_bits + 1) 0`
-
-val shift_length_def = Define `
-  shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
 val is_all_ones_def = Define `
   is_all_ones m n w = ((all_ones m n && w) = all_ones m n)`;
@@ -1486,17 +1485,17 @@ val word_payload_def = Define `
   (word_payload ys l (RefTag) qs conf =
      (2w, (* header: ...10 *)
       MAP (word_addr conf) ys,
-      (qs = []) /\ (LENGTH ys = l) /\ l <> 0)) /\
+      (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l (NumTag b) qs conf =
      ((b2w b << 2 || 1w), (* header: ...101 or ...001 *)
-      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0)) /\
+      qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
      ((n2w n << 2 || 3w), (* header: ...11 *)
-      qs, (ys = []) /\ (LENGTH qs = l) /\ l <> 0))`;
+      qs, (ys = []) /\ (LENGTH qs = l)))`;
 
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
-    let h = (w >>> (3 + conf.len_size)) in
+    let h = (w >>> 2) in
       if h = 0b010w then RefTag else
       if h = 0b101w then NumTag T else
       if h = 0b001w then NumTag F else
@@ -1504,8 +1503,9 @@ val decode_tag_bits_def = Define `
         BlockTag (w2n (h >>> 2))`
 
 val decode_header_def = Define `
-  decode_header conf w =
-    (w >>> (2 + conf.len_size),((conf.len_size + 1 -- 2) w))`;
+  decode_header conf (w:'a word) =
+    let l = dimindex (:'a) - conf.len_size in
+      ((l - 1 -- 2) w, w >>> l)`;
 
 val word_el_def = Define `
   (word_el a (Unused l) conf = word_list_exists (a:'a word) (l+1)) /\
@@ -1514,10 +1514,10 @@ val word_el_def = Define `
      word_list_exists (a + bytes_in_word) l) /\
   (word_el a (DataElement ys l (tag,qs)) conf =
      let (h,ts,c) = word_payload ys l tag qs conf in
-     let w = (h << (2 + conf.len_size) || n2w (LENGTH ts) << 2 || 3w) in
+     let w = make_header conf h (LENGTH ts) in
        word_list a (Word w :: ts) *
-       cond (decode_header conf w = (h,n2w (LENGTH ts)) /\
-             decode_tag_bits conf w = tag /\ c))`;
+       cond (LENGTH ts < 2 ** (dimindex (:'a) - 4) /\
+             decode_header conf w = (h,n2w (LENGTH ts)) /\ c))`;
 
 val word_heap_def = Define `
   (word_heap a ([]:'a ml_heap) conf = emp) /\

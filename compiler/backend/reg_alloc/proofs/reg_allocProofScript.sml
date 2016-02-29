@@ -1773,4 +1773,45 @@ val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
   full_simp_tac(srw_ss())[clique_g_insert_domain]>>
   full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
 
+
+val colouring_satisfactory_subgraph_edges = prove(``
+  undir_graph G ∧ is_subgraph_edges G H ∧
+  colouring_satisfactory col H ⇒
+  colouring_satisfactory col G``,
+  cheat)
+
+val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_colouring_ok_check_clash_tree",``
+  ∀ct G livelist live col.
+  domain live = set livelist ∧
+  sp_g_is_clique livelist G ∧
+  colouring_satisfactory col (FST (clash_tree_to_spg ct livelist G))
+  ⇒
+  ∃x. check_clash_tree col ct live = SOME x``,
+  Induct>>rw[clash_tree_to_spg_def,check_clash_tree_def]
+  >-
+    (split_pair_tac>>fs[]>>
+    split_pair_tac>>fs[]>>
+    cheat)
+  >-
+    (fs[check_col_def,GSYM MAP_MAP_o]>>
+    qpat_abbrev_tac`ls = MAP FST A`>>
+    Q.ISPECL_THEN [`ls`,`G`] assume_tac clique_g_insert_is_clique>>
+    match_mp_tac colouring_satisfactory_cliques>>fs[]>>
+    HINT_EXISTS_TAC>>fs[Abbr`ls`,ALL_DISTINCT_MAP_FST_toAList])
+  >-
+    cheat
+  >>
+    split_pair_tac>>fs[]>>
+    first_x_assum(qspecl_then[`G`,`livelist`,`live`,`col`] mp_tac)>>
+    discharge_hyps>-
+      (fs[]>>
+      match_mp_tac (GEN_ALL colouring_satisfactory_subgraph_edges)>>
+      cheat)>>
+    rw[]>>fs[]>>
+    first_assum match_mp_tac>>fs[]>>
+    qexists_tac`G'`>>
+    qexists_tac`live'`>>
+    fs[]>>
+    cheat)
+
 val _ = export_theory()

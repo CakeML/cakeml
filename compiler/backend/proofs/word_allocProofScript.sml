@@ -689,7 +689,29 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         discharge_hyps>-srw_tac[][]>>
         metis_tac[])>>
       full_simp_tac(srw_ss())[strong_locals_rel_def])
-    >>
+    >-
+      (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
+      setup_tac>>
+      discharge_hyps>-
+        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        `{n'} ⊆ n' INSERT domain live DELETE n` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      Cases_on`x`>>simp[]>>
+      fs[mem_load_byte_aux_def]>>
+      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      IF_CASES_TAC>>fs[]>>
+      rw[strong_locals_rel_def]>>
+      full_simp_tac(srw_ss())[lookup_insert]>>
+      Cases_on`n''=n`>>full_simp_tac(srw_ss())[]>>
+      `f n'' ≠ f n` by
+        (full_simp_tac(srw_ss())[domain_union,get_writes_def,get_writes_inst_def]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF]>>
+        first_x_assum(qspecl_then[`n''`,`n`]mp_tac)>>
+        discharge_hyps>-srw_tac[][]>>
+        metis_tac[])>>
+      full_simp_tac(srw_ss())[strong_locals_rel_def])
+    >-
       (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
       setup_tac>>
       discharge_hyps>-
@@ -703,7 +725,22 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       imp_res_tac strong_locals_rel_get_var>>
       fs[]>>
       Cases_on`mem_store c x' st`>>full_simp_tac(srw_ss())[mem_store_def,strong_locals_rel_def]>>
-      IF_CASES_TAC>>fs[]))
+      IF_CASES_TAC>>fs[])
+    >>
+      (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
+      setup_tac>>
+      discharge_hyps>-
+        (full_simp_tac(srw_ss())[get_live_exp_def]>>
+        `{n'} ⊆ n' INSERT n INSERT domain live` by full_simp_tac(srw_ss())[SUBSET_DEF]>>
+        metis_tac[strong_locals_rel_subset])>>
+      full_simp_tac(srw_ss())[word_state_eq_rel_def,LET_THM,set_var_def]>>
+      Cases_on`x`>>simp[]>>
+      srw_tac[][get_var_perm]>>
+      Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>
+      imp_res_tac strong_locals_rel_get_var>>
+      fs[]>>
+      Cases_on`x`>>fs[]>>
+      FULL_CASE_TAC>>fs[strong_locals_rel_def]))
   >- (*Assign*)
     (exists_tac>>exists_tac_2>>
     srw_tac[][word_state_eq_rel_def,set_var_perm,set_var_def]>>
@@ -1167,9 +1204,9 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
         rev_full_simp_tac(srw_ss())[state_component_equality]>>
         metis_tac[s_val_and_key_eq,s_key_eq_sym
           ,s_val_eq_sym,s_key_eq_trans])>>
-    full_simp_tac(srw_ss())[word_state_eq_rel_def]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[has_space_def]>>
-    Cases_on`x'''`>>
-    EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def])
+      full_simp_tac(srw_ss())[word_state_eq_rel_def]>>FULL_CASE_TAC>>full_simp_tac(srw_ss())[has_space_def]>>
+      Cases_on`x'''`>>
+      EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def])
     >- (* Raise *)
       (exists_tac>>
       Cases_on`get_var n st`>>full_simp_tac(srw_ss())[get_var_perm]>>
@@ -1184,6 +1221,18 @@ val evaluate_apply_colour = store_thm("evaluate_apply_colour",
       TOP_CASE_TAC>>full_simp_tac(srw_ss())[])
     >- (* Tick *)
       (exists_tac>>IF_CASES_TAC>>full_simp_tac(srw_ss())[call_env_def,dec_clock_def])
+    >- (*LocValue*)
+      (exists_tac>>fs[set_var_def,strong_locals_rel_def]>>rw[]>>
+      fs[lookup_insert]>>
+      Cases_on`n'=n`>>fs[]>>
+      `f n ≠ f n'` by
+        (fs[get_writes_def]>>
+        FULL_SIMP_TAC bool_ss [INJ_DEF,domain_union,domain_insert]>>
+        first_x_assum(qspecl_then[`n`,`n'`] assume_tac)>>
+        ntac 4 (pop_assum mp_tac)>>
+        rpt (pop_assum kall_tac)>>
+        simp[])>>
+      fs[])
     >> (* FFI *)
       (exists_tac>>Cases_on`get_var n0 st`>>Cases_on`get_var n1 st`>>
       full_simp_tac(srw_ss())[get_writes_def,LET_THM,get_var_perm]>>
@@ -1253,9 +1302,10 @@ val get_clash_sets_tl = prove(
     full_simp_tac(srw_ss())[get_clash_sets_def,UNCURRY,LET_THM]>>
     Cases_on`o0`>>TRY (PairCases_on`x`)>>full_simp_tac(srw_ss())[])
   >>
-    (first_x_assum(qspecl_then[`p0`,`live`,`f`]mp_tac)>>
+    TRY(first_x_assum(qspecl_then[`p0`,`live`,`f`]mp_tac)>>
     discharge_hyps>-size_tac>>srw_tac[][]>>
-    full_simp_tac(srw_ss())[UNCURRY]))
+    full_simp_tac(srw_ss())[UNCURRY])
+  >- metis_tac[INJ_UNION,domain_union,INJ_SUBSET,SUBSET_UNION])
 
 val colouring_ok_alt_thm = store_thm("colouring_ok_alt_thm",
 ``∀f prog live.
@@ -1489,8 +1539,210 @@ val every_var_in_get_clash_set = store_thm("every_var_in_get_clash_set",
     (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
     qexists_tac`insert n () (insert n0 () live)`>>full_simp_tac(srw_ss())[])
   >-
+    (rw[]>>
+    (qexists_tac`union (insert n () LN) live`>>fs[domain_union]))
+  >-
     (srw_tac[][]>-(HINT_EXISTS_TAC>>full_simp_tac(srw_ss())[])>>
     qexists_tac`insert n0 () (insert n1 () s)`>>full_simp_tac(srw_ss())[]))
+
+val check_col_INJ = store_thm("check_col_INJ",
+  ``
+  check_col f numset = SOME x ⇒
+  INJ f (domain numset) UNIV ∧
+  domain x = IMAGE f (domain numset)``,
+  rw[check_col_def,GSYM MAP_MAP_o]
+  >-
+    (fs[INJ_DEF,domain_lookup,FORALL_PROD,GSYM MEM_toAList]>>rw[]>>
+    fs[EL_ALL_DISTINCT_EL_EQ,MEM_EL,EL_MAP]>>
+    metis_tac[FST])
+  >>
+    fs[domain_fromAList,EXTENSION,MEM_MAP,EXISTS_PROD,MEM_toAList]>>
+    fs[domain_lookup])
+
+val check_partial_col_INJ = store_thm("check_partial_col_INJ",
+  ``∀ls f live flive flive'.
+  domain flive = IMAGE f (domain live) ∧
+  INJ f (domain live) UNIV ∧
+  check_partial_col f ls flive = SOME flive' ⇒
+  INJ f (domain (numset_list_insert ls live)) UNIV ∧
+  domain flive' = IMAGE f (domain (numset_list_insert ls live))``,
+  Induct>>fs[check_partial_col_def,numset_list_insert_def]>>
+  ntac 5 strip_tac>>
+  TOP_CASE_TAC>>fs[]>>strip_tac>>
+  first_x_assum (qspecl_then [`f`,`insert h () live`,`insert (f h) () flive`,`flive'`] mp_tac)>>
+  discharge_hyps>-
+    (fs[INJ_DEF]>>rw[]>>fs[]
+    >-
+      (`f y ∈ domain flive` by fs[]>>
+      fs[domain_lookup])
+    >-
+      (`f h ∈ domain flive` by
+        (fs[]>>metis_tac[])>>
+      fs[domain_lookup]))>>
+  fs[domain_numset_list_insert,INSERT_UNION_EQ])
+
+val domain_insert_eq_union = prove(``
+  domain (insert num () live) = domain (union (insert num () LN) live)``,
+  fs[domain_union,domain_insert,UNION_COMM,EXTENSION]>>
+  metis_tac[])
+
+val domain_numset_list_insert_eq_union = prove(``
+  domain (numset_list_insert ls live) = domain (union (numset_list_insert ls LN) live)``,
+  fs[domain_union,domain_numset_list_insert,UNION_COMM])
+
+val clash_tree_colouring_ok_exp = prove(``
+  ∀exp live flive f flivein.
+  domain flive = IMAGE f (domain live) ∧
+  INJ f (domain live) UNIV ∧
+  check_partial_col f (get_reads_exp exp) flive = SOME flivein ⇒
+  INJ f (domain (union (get_live_exp exp) live)) UNIV ∧
+  domain flivein = IMAGE f (domain (union (get_live_exp exp) live))``,
+  ho_match_mp_tac get_reads_exp_ind>>fs[get_live_exp_def,get_reads_exp_def]>>
+  CONJ_TAC>-
+    (ntac 6 strip_tac>>
+    imp_res_tac check_partial_col_INJ>>
+    fs[domain_numset_list_insert_eq_union,numset_list_insert_def])>>
+  CONJ_TAC>-
+    cheat>>
+  fs[check_partial_col_def])
+
+val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
+  ∀prog f live flive flivein.
+  domain flive = IMAGE f (domain live) ∧
+  INJ f (domain live) UNIV ∧
+  check_clash_tree f (get_clash_tree prog) flive = SOME flivein ⇒
+  colouring_ok f prog live ∧
+  domain flivein = IMAGE f (domain (get_live prog live))``,
+  ho_match_mp_tac get_clash_tree_ind>>fs[get_clash_tree_def,check_clash_tree_def,colouring_ok_def,get_live_def,get_writes_def]>>
+  CONJ_TAC>-
+    fs[numset_list_delete_def,check_partial_col_def]>>
+  CONJ_TAC>-
+    (ntac 5 strip_tac>>TOP_CASE_TAC>>fs[]>>strip_tac>>
+    drule check_partial_col_INJ>>
+    disch_then (qspecl_then[`MAP FST ls`,`x`] assume_tac)>>
+    rfs[GSYM domain_numset_list_insert_eq_union]>>
+    cheat)>>
+  CONJ_TAC>-
+    (*Inst*)
+    cheat>>
+  CONJ_TAC>-
+    (ntac 6 strip_tac>>FULL_CASE_TAC>>strip_tac>>
+    imp_res_tac check_partial_col_INJ>>
+    ntac 6 (pop_assum kall_tac)>>
+    fs[numset_list_insert_def,domain_insert_eq_union]>>
+    fs[numset_list_delete_def]>>
+    match_mp_tac clash_tree_colouring_ok_exp>>
+    qexists_tac`delete (f num) flive`>>rw[]
+    >-
+      (fs[EXTENSION,EQ_IMP_THM]>>rw[]
+      >- metis_tac[]
+      >- metis_tac[]
+      >>
+        rpt(qpat_assum`!P. Q` kall_tac)>>
+        fs[INJ_DEF]>>
+        first_x_assum(qspecl_then[`x''`,`num`] mp_tac)>>
+        ntac 2(pop_assum mp_tac)>>
+        rpt (pop_assum kall_tac)>>
+        fs[domain_union])
+    >>
+      match_mp_tac (GEN_ALL INJ_less)>>
+      qexists_tac`domain live`>>fs[])>>
+  CONJ_TAC>-
+    (ntac 6 strip_tac>>FULL_CASE_TAC>>
+    imp_res_tac check_partial_col_INJ>>
+    fs[numset_list_insert_def,domain_insert_eq_union,numset_list_delete_def,check_partial_col_def]>>
+    qpat_assum`A=flivein` sym_sub_tac>>rw[]
+    >-
+      (match_mp_tac (GEN_ALL INJ_less)>>
+      qexists_tac`domain live`>>fs[])
+    >>
+      fs[EXTENSION,EQ_IMP_THM]>>rw[]
+      >- metis_tac[]
+      >- metis_tac[]
+      >>
+        ntac 2 (pop_assum mp_tac)>>
+        rpt(qpat_assum`INJ f A B` mp_tac)>>
+        rpt(pop_assum kall_tac)>>
+        rw[INJ_DEF]>>
+        first_x_assum(qspecl_then[`x''`,`num`] mp_tac)>>
+        fs[domain_union])>>
+  CONJ_TAC>-
+    cheat>>
+  CONJ_TAC>- (*Seq*)
+    (ntac 8 strip_tac>>FULL_CASE_TAC>>fs[]>>
+    first_x_assum (qspecl_then[`f`,`live`,`flive`,`x`] assume_tac)>>rfs[]>>
+    first_x_assum (qspecl_then[`f`,`get_live prog' live`,`x`,`flivein`] mp_tac)>>
+    discharge_hyps>-
+      (*implied by colouring_ok*)
+      (fs[]>>cheat)>>
+    strip_tac>>fs[]>>
+    (*same*)
+    cheat)>>
+  CONJ_TAC>- (*If*)
+    (ntac 9 strip_tac>> TOP_CASE_TAC>>fs[check_clash_tree_def]
+    >-
+      (ntac 4 (FULL_CASE_TAC>>fs[])>> strip_tac>>
+      res_tac>>
+      fs[check_partial_col_def,numset_list_delete_def]>>
+      ntac 2 FULL_CASE_TAC>>fs[]>>
+      CONJ_TAC>-
+        (*f is injective and disjoint over the union by assumption 4*)
+        cheat>>
+      pop_assum sym_sub_tac>>fs[domain_union])
+    >>
+      ntac 4 (FULL_CASE_TAC>>fs[])>> strip_tac>>
+      res_tac>>
+      fs[check_partial_col_def,numset_list_delete_def]>>
+      FULL_CASE_TAC>>fs[]>>
+      CONJ_TAC>-
+        (* see above*)
+        cheat>>
+      pop_assum sym_sub_tac>>fs[domain_union])>>
+  CONJ_TAC>- (*Alloc*)
+    (ntac 6 strip_tac>>ntac 2 (TOP_CASE_TAC>>fs[])>>
+    strip_tac>>
+    imp_res_tac check_col_INJ>>
+    imp_res_tac check_partial_col_INJ>>
+    fs[numset_list_delete_def,check_partial_col_def,numset_list_insert_def])>>
+  CONJ_TAC>- (*FFI*)
+    (ntac 7 strip_tac>>ntac 2 (TOP_CASE_TAC>>fs[])>>
+    strip_tac>>
+    imp_res_tac check_col_INJ>>
+    imp_res_tac check_partial_col_INJ>>
+    fs[numset_list_delete_def,check_partial_col_def,numset_list_insert_def])>>
+  CONJ_TAC>-
+    (ntac 6 strip_tac>>FULL_CASE_TAC>>fs[]>>
+    imp_res_tac check_partial_col_INJ>>fs[check_partial_col_def,numset_list_delete_def,numset_list_insert_def])>>
+  CONJ_TAC>-
+    (ntac 6 strip_tac>>FULL_CASE_TAC>>fs[]>>
+    strip_tac>>
+    imp_res_tac check_partial_col_INJ>>fs[check_partial_col_def,numset_list_delete_def,numset_list_insert_def])>>
+  CONJ_TAC>-
+    fs[numset_list_delete_def,check_partial_col_def]>>
+  CONJ_TAC>-
+    (ntac 5 strip_tac>>TOP_CASE_TAC>>fs[numset_list_delete_def]>>strip_tac>>
+    imp_res_tac check_partial_col_INJ>>fs[numset_list_delete_def,numset_list_insert_def,check_partial_col_def]>>
+    fs[GSYM domain_insert_eq_union]>>
+    rw[]>-
+      (match_mp_tac (GEN_ALL INJ_less)>>
+      HINT_EXISTS_TAC>>fs[])>>
+    fs[EXTENSION]>>rw[EQ_IMP_THM]
+    >- metis_tac[]
+    >- metis_tac[]
+    >>
+      ntac 2 (pop_assum mp_tac)>>
+      rpt(qpat_assum`INJ f A B` mp_tac)>>
+      rpt(pop_assum kall_tac)>>
+      FULL_SIMP_TAC std_ss [INJ_DEF]>>
+      disch_then kall_tac>>
+      strip_tac>>
+      first_x_assum(qspecl_then[`x''`,`r`] mp_tac)>>
+      rw[]>>
+      fs[])>>
+  CONJ_TAC>-
+    cheat>>
+  (*Call*)
+  cheat)
 
 (*DONE Liveness Proof*)
 
@@ -2677,6 +2929,8 @@ val ssa_cc_trans_props = prove(``
   strip_tac >-
     exp_tac>>
   strip_tac >-
+    exp_tac>>
+  strip_tac >-
     (full_simp_tac(srw_ss())[list_next_var_rename_move_def]>>LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     `∀naa. ssa_map_ok naa ssa''' ⇒ ssa_map_ok naa ssa_cut` by
       (srw_tac[][Abbr`ssa_cut`,ssa_map_ok_def,lookup_inter]>>
@@ -3001,7 +3255,16 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
       match_mp_tac ssa_locals_rel_set_var>>
       full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
-    >>
+    >-
+      (qpat_abbrev_tac`exp=((Op Add [Var n';A]))`>>
+      setup_tac>>
+      Cases_on`x`>>
+      full_simp_tac(srw_ss())[mem_load_byte_aux_def]>>
+      Cases_on`st.memory (byte_align c')`>>fs[]>>
+      IF_CASES_TAC>>fs[]>>
+      match_mp_tac ssa_locals_rel_set_var>>
+      full_simp_tac(srw_ss())[every_var_inst_def,every_var_def])
+    >-
       (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
       full_simp_tac(srw_ss())[get_var_perm]>>
       setup_tac>>
@@ -3010,7 +3273,15 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
       full_simp_tac(srw_ss())[option_lookup_def]>>
       Cases_on`mem_store c x' st`>>
       full_simp_tac(srw_ss())[mem_store_def]>>
-      IF_CASES_TAC>>fs[]))
+      IF_CASES_TAC>>fs[])
+    >-
+      (qpat_abbrev_tac`exp=Op Add [Var n';A]`>>
+      full_simp_tac(srw_ss())[get_var_perm]>>
+      setup_tac>>
+      Cases_on`x`>>fs[]>>
+      Cases_on`get_var n st`>>full_simp_tac(srw_ss())[]>>imp_res_tac ssa_locals_rel_get_var>>
+      Cases_on`x`>>fs[option_lookup_def]>>
+      CASE_TAC>>fs[]))
   >-(*Assign*)
     exp_tac
   >-(*Get*)
@@ -4147,6 +4418,8 @@ val ssa_cc_trans_correct = store_thm("ssa_cc_trans_correct",
   >- (* Tick *)
     (exists_tac>>
     EVERY_CASE_TAC>>full_simp_tac(srw_ss())[call_env_def,dec_clock_def])
+  >-
+    exp_tac
   >>
     (*FFI*)
     exists_tac>>

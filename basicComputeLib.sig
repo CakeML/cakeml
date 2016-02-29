@@ -1,4 +1,4 @@
-signature compute_basicLib =
+signature basicComputeLib =
 sig
    val add_basic_compset : computeLib.compset -> unit
    val add_datatype : computeLib.compset -> Type.hol_type -> unit

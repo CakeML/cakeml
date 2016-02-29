@@ -77,6 +77,90 @@ val clash_sets_to_sp_g_def = Define`
     let clashes = (MAP FST (toAList x)) in
     clique_g_insert clashes subgraph)`
 
+val _ = Datatype`
+  clash_tree = Delta (num list) (num list) (* (Writes list, Reads list) *)
+             | Set num_set (* Fixed set *)
+             | Branch (num_set option) clash_tree clash_tree
+             | Seq clash_tree clash_tree`
+             (* Binary branch, with an optional liveset at the head*)
+
+val numset_list_delete_def = Define`
+  (numset_list_delete [] t = t) ∧
+  (numset_list_delete (x::xs) t = numset_list_delete xs (delete x t))`
+
+(*Check that a numset is injective over the clash sets in an interpreted tree*)
+val check_col_def = Define`
+  check_col f t =
+    let names = MAP (f o FST) (toAList t) in
+    if ALL_DISTINCT names then
+      SOME (fromAList (MAP (λx. (x,())) names))
+    else NONE`
+
+val check_partial_col_def = Define`
+  (check_partial_col f [] t = SOME t) ∧
+  (check_partial_col f (x::xs) t =
+    case lookup (f x) t of
+      NONE => check_partial_col f xs (insert (f x) () t)
+    | SOME () => NONE)`
+
+(* Here, live tracks the COLORED liveset *)
+val check_clash_tree_def = Define`
+  (check_clash_tree f (Delta writes reads) live =
+    case check_partial_col f writes live of
+      NONE => NONE
+    | SOME _ =>
+    let del_writes = (numset_list_delete (MAP f writes) live) in
+    check_partial_col f reads del_writes) ∧
+  (check_clash_tree f (Set t) live = check_col f t) ∧
+  (check_clash_tree f (Branch topt t1 t2) live =
+    case check_clash_tree f t1 live of
+      NONE => NONE
+    | SOME t1_out =>
+    case check_clash_tree f t2 live of
+      NONE => NONE
+    | SOME t2_out =>
+    case topt of
+      NONE =>
+        if inter t1_out t2_out = LN then SOME (union t1_out t2_out)
+        else NONE
+    | SOME t => check_col f t) ∧
+  (check_clash_tree f (Seq t1 t2) live =
+    case check_clash_tree f t2 live of
+      NONE => NONE
+    | SOME t2_out =>
+      check_clash_tree f t1 t2_out)`
+
+(* cli are the starting vertices of a clique in G*)
+val extend_clique_def = Define`
+  (extend_clique [] cli G = (G,cli)) ∧
+  (extend_clique (x::xs) cli G =
+    extend_clique xs (x::cli) (list_g_insert x cli G))`
+
+(*G should always contain liveout as a clique,
+  live here use a LIST representation instead of sptrees
+*)
+val clash_tree_to_spg_def = Define`
+  (clash_tree_to_spg (Delta writes reads) liveout G =
+    let (G,live) = extend_clique writes liveout G in
+    let live = FILTER (λx. ¬MEM x writes) live in
+    let (G,livein) = extend_clique reads live G in
+      (G,livein)) ∧
+  (clash_tree_to_spg (Set t) liveout G =
+    let live = (MAP FST (toAList t)) in
+      (clique_g_insert live G,live)) ∧
+  (clash_tree_to_spg (Branch topt t1 t2) live G =
+    let (G,t2_live) = clash_tree_to_spg t2 live G in
+    let (G,t1_live) = clash_tree_to_spg t1 live G in
+    case topt of
+      NONE =>
+        extend_clique t1_live t2_live G
+    | SOME t =>
+      let clashes = (MAP FST (toAList t)) in
+      (clique_g_insert clashes G,clashes)) ∧
+  (clash_tree_to_spg (Seq t1 t2) liveout G =
+    let (G,live) = clash_tree_to_spg t2 liveout G in
+    clash_tree_to_spg t1 live G)`
+
 (*--End Initial Definitions--*)
 
 

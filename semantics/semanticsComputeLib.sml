@@ -1,12 +1,12 @@
-structure compute_semanticsLib =
+structure semanticsComputeLib =
 struct
 
 open HolKernel boolLib bossLib lcsymtacs
 
   fun add_ast_compset compset =
   let
-    val add_datatype = compute_basicLib.add_datatype compset
-    val () = compute_basicLib.add_basic_compset compset
+    val add_datatype = basicComputeLib.add_datatype compset
+    val () = basicComputeLib.add_basic_compset compset
 
     val () = computeLib.add_thms
     [gramTheory.nt_distinct_ths
@@ -66,10 +66,10 @@ open HolKernel boolLib bossLib lcsymtacs
   end
 
   fun add_lexparse_compset compset = let
-    val add_datatype = compute_basicLib.add_datatype compset
+    val add_datatype = basicComputeLib.add_datatype compset
 
     local open lexer_funTheory in
-      val () = compute_basicLib.add_basic_compset compset
+      val () = basicComputeLib.add_basic_compset compset
       val () = computeLib.add_thms
       [next_token_def
       ,next_sym_def

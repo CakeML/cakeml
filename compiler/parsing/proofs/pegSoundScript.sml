@@ -1,9 +1,4 @@
-open HolKernel Parse boolLib bossLib;
-
-open pred_setTheory
-open pegTheory cmlPEGTheory gramTheory gramPropsTheory
-open lcsymtacs boolSimps
-open preamble
+open preamble pegTheory cmlPEGTheory gramTheory gramPropsTheory
 
 val _ = new_theory "pegSound";
 

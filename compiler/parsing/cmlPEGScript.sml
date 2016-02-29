@@ -1,7 +1,5 @@
 open HolKernel Parse boolLib bossLib
-
-open gramTheory pegexecTheory pegTheory
-
+     gramTheory pegexecTheory pegTheory
 local open monadsyntax in end
 
 fun Store_thm(n,t,tac) = store_thm(n,t,tac) before export_rewrites [n]
@@ -508,9 +506,6 @@ val _ = computeLib.add_persistent_funs ["cmlPEG_exec_thm"]
 
 val test1 = time EVAL ``peg_exec cmlPEG (pnt nErel) [IntT 3; StarT; IntT 4; SymbolT "/"; IntT (-2); SymbolT ">"; AlphaT "x"] [] done failed``
 
-
-open lcsymtacs
-
 val frange_image = prove(
   ``FRANGE fm = IMAGE (FAPPLY fm) (FDOM fm)``,
   simp[finite_mapTheory.FRANGE_DEF, pred_setTheory.EXTENSION] >> metis_tac[]);
@@ -729,19 +724,19 @@ val PEG_wellformed = store_thm(
   simp(cml_wfpeg_thm :: wfpeg_rwts @ peg0_rwts @ npeg0_rwts));
 val _ = export_rewrites ["PEG_wellformed"]
 
-val parse_REPLTop_total = save_thm(
-  "parse_REPLTop_total",
+val parse_TopLevelDecs_total = save_thm(
+  "parse_TopLevelDecs_total",
   MATCH_MP peg_exec_total PEG_wellformed
            |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val coreloop_REPLTop_total = save_thm(
-  "coreloop_REPLTop_total",
+val coreloop_TopLevelDecs_total = save_thm(
+  "coreloop_TopLevelDecs_total",
   MATCH_MP coreloop_total PEG_wellformed
     |> REWRITE_RULE [peg_start] |> Q.GEN `i`);
 
-val owhile_REPLTop_total = save_thm(
-  "owhile_REPLTop_total",
-  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_REPLTop_total);
+val owhile_TopLevelDecs_total = save_thm(
+  "owhile_TopLevelDecs_total",
+  SIMP_RULE (srw_ss()) [coreloop_def] coreloop_TopLevelDecs_total);
 
 local
   val c = concl FDOM_cmlPEG

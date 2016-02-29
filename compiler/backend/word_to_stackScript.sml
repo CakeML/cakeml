@@ -88,6 +88,15 @@ val wInst_def = Define `
     let (l2,n1) = wReg2 n1 kf in
       wStackLoad (l1 ++ l2)
         (Inst (Mem Store n1 (Addr n2 offset)))) /\
+  (wInst (Mem Load8 n1 (Addr n2 offset)) kf =
+    let (l,n2) = wReg1 n2 kf in
+    wStackLoad l
+      (wRegWrite1 (\n1. Inst (Mem Load8 n1 (Addr n2 offset))) n1 kf)) /\
+  (wInst (Mem Store8 n1 (Addr n2 offset)) kf =
+    let (l1,n2) = wReg1 n2 kf in
+    let (l2,n1) = wReg2 n1 kf in
+      wStackLoad (l1 ++ l2)
+        (Inst (Mem Store8 n1 (Addr n2 offset)))) /\
   (wInst _ kf = Inst Skip)`
 
 val bits_to_word_def = Define `
@@ -225,6 +234,7 @@ val comp_def = Define `
   (comp (Alloc r live) bs kf =
      let (q1,bs) = wLive live bs kf in
        (Seq q1 (Alloc 1),bs)) /\
+  (comp (LocValue r l1 l2) bs kf = (LocValue (r DIV 2) l1 l2,bs)) /\
   (comp (FFI i r1 r2 live) bs kf = (FFI i (r1 DIV 2) (r2 DIV 2) 0,bs)) /\
   (comp _ bs kf = (Skip,bs) (* impossible *))`
 

@@ -1,10 +1,10 @@
-structure compute_inferenceLib = struct
+structure inferenceComputeLib = struct
   open HolKernel boolLib bossLib lcsymtacs
 
   fun add_inference_compset compset =
   let
 
-    val () = compute_semanticsLib.add_ast_compset compset
+    val () = semanticsComputeLib.add_ast_compset compset
 
     val get_wfs = unifyLib.add_unify_compset compset
 
@@ -55,10 +55,10 @@ structure compute_inferenceLib = struct
     ,alistTheory.ALOOKUP_def
     ] compset
 
-    val () = compute_basicLib.add_datatype ``:infer_t`` compset
-    val () = compute_basicLib.add_datatype ``:atom`` compset
-    val () = compute_basicLib.add_datatype ``:('a,'b)exc`` compset
-    val () = compute_basicLib.add_datatype ``:'a infer_st`` compset
+    val () = basicComputeLib.add_datatype ``:infer_t`` compset
+    val () = basicComputeLib.add_datatype ``:atom`` compset
+    val () = basicComputeLib.add_datatype ``:('a,'b)exc`` compset
+    val () = basicComputeLib.add_datatype ``:'a infer_st`` compset
   in
    get_wfs
   end

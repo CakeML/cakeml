@@ -1,7 +1,7 @@
-structure compute_parsingLib = struct
+structure parsingComputeLib = struct
 open HolKernel boolLib bossLib lcsymtacs
 
-  val add_datatype = compute_basicLib.add_datatype
+  val add_datatype = basicComputeLib.add_datatype
 
   fun add_parsing_compset compset = let
 
@@ -49,8 +49,8 @@ open HolKernel boolLib bossLib lcsymtacs
 
   val the_parsing_compset = let
     val c = wordsLib.words_compset ()
-    val () = compute_semanticsLib.add_ast_compset c
-    val () = compute_semanticsLib.add_lexparse_compset c
+    val () = semanticsComputeLib.add_ast_compset c
+    val () = semanticsComputeLib.add_lexparse_compset c
     val () = add_parsing_compset c
     in
       c

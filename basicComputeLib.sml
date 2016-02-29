@@ -1,11 +1,10 @@
-structure compute_basicLib :> compute_basicLib =
+structure basicComputeLib :> basicComputeLib =
 struct
 
 open HolKernel boolLib bossLib lcsymtacs
-
 (*
 open miscTheory intReduce stringLib optionLib combinLib finite_mapLib wordsLib
-     spteeLib pegLib
+     spteeLib pegLib sortingTheory
 *)
 
 fun add_datatype compset tm =
@@ -32,13 +31,35 @@ fun add_basic_compset compset =
   ; finite_mapLib.add_finite_map_compset compset
   ; sptreeLib.add_sptree_compset compset
   ; pegLib.add_peg_compset compset
+    (*Missing from lists*)
+  ; computeLib.add_thms
+    [listTheory.splitAtPki_DEF] compset
+    (*sorting*)
+  ; computeLib.add_thms
+    [sortingTheory.PARTITION_DEF
+    ,sortingTheory.PART_DEF
+    ,sortingTheory.QSORT_DEF
+    ] compset
+  (*monadic*)
+  ; computeLib.add_thms
+    [state_transformerTheory.MWHILE_DEF
+    ,state_transformerTheory.BIND_DEF
+    ,state_transformerTheory.UNIT_DEF
+    ,state_transformerTheory.FOREACH_def
+    ,pairTheory.UNCURRY_DEF
+    ,state_transformerTheory.IGNORE_BIND_DEF
+    ]
+  (* From misc *)
   ; computeLib.add_thms
       [miscTheory.find_index_def,
        miscTheory.LEAST_thm,
        miscTheory.least_from_thm,
        miscTheory.lookup_any_def,
        miscTheory.list_insert_def,
-       miscTheory.list_to_num_set_def
+       miscTheory.list_to_num_set_def,
+       miscTheory.bytes_in_word_def,
+       miscTheory.UPDATE_LIST_THM,
+       miscTheory.list_max_def
       ] compset
   )
 

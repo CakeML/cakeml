@@ -2729,7 +2729,7 @@ val type_no_dup_top_types_lem2 = Q.prove (
  full_simp_tac(srw_ss())[mk_id_def] >>
  metis_tac []);
 
-val type_no_dup_top_types = Q.prove (
+val type_no_dup_top_types = Q.store_thm("type_no_dup_top_types",
 `!decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
   type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv') ∧
   consistent_decls decls2 decls_no_sig ∧
@@ -2769,7 +2769,7 @@ val type_no_dup_mods_lem = Q.prove (
  >- (full_simp_tac(srw_ss())[union_decls_def, DISJOINT_DEF, EXTENSION] >>
      metis_tac []));
 
-val type_no_dup_mods = Q.prove (
+val type_no_dup_mods = Q.store_thm ("type_no_dup_mods",
 `!uniq decls1 tenv prog decls1' tenvT' tenvM' tenvC' tenv'.
   type_prog uniq decls1 tenv prog decls1' (tenvT',tenvM',tenvC',tenv')
   ⇒

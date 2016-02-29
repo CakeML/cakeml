@@ -5,9 +5,9 @@ val _ = new_theory "bvp_space";
 (* BVP optimisation that lumps together MakeSpace operations. *)
 
 val op_space_req_def = Define `
-  (op_space_req (Cons k) = (k+1)) /\
-  (op_space_req Ref = 2) /\
-  (op_space_req x = 0)`;
+  (op_space_req (Cons _) l = if l = 0n then 0 else l+1) /\
+  (op_space_req Ref l = l + 1) /\
+  (op_space_req _ _ = 0)`;
 
 val pMakeSpace_def = Define `
   (pMakeSpace (INL c) = c) /\
@@ -32,7 +32,8 @@ val space_def = Define `
                INR (k2,insert src () (delete dest names2),
                     Seq (Move dest src) c4)
            | Assign dest op args NONE =>
-               INR (op_space_req op + k2,list_insert args (delete dest names2),
+               INR (op_space_req op (LENGTH args) + k2,
+                    list_insert args (delete dest names2),
                     Seq (Assign dest op args NONE) c4)
            | _ => INL (Seq d1 (pMakeSpace x2)))) /\
   (space (If n c2 c3) =
