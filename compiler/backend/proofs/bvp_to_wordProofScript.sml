@@ -2075,40 +2075,6 @@ val state_rel_get_var_RefPtr = Q.store_thm("state_rel_get_var_RefPtr",
   \\ simp[word_addr_def]
   \\ metis_tac[]);
 
-val state_rel_get_var_Number = Q.store_thm("state_rel_get_var_Number",
-  `state_rel c l1 l2 s t v1 locs ∧
-   get_var n s.locals = SOME (Number i) ⇒
-   ∃w. get_var (adjust_var n) t = SOME (Word w)`,
-  rw[]
-  \\ imp_res_tac state_rel_get_var_IMP
-  \\ fs[state_rel_def,wordSemTheory.get_var_def,bvpSemTheory.get_var_def]
-  \\ full_simp_tac std_ss [Once (GSYM APPEND_ASSOC)]
-  \\ drule (GEN_ALL word_ml_inv_lookup)
-  \\ disch_then drule
-  \\ disch_then drule
-  \\ REWRITE_TAC[GSYM APPEND_ASSOC]
-  \\ qmatch_goalsub_abbrev_tac`v1 ++ (rr ++ ls)`
-  \\ qmatch_abbrev_tac`P (v1 ++ (rr ++ ls)) ⇒ _`
-  \\ strip_tac
-  \\ `P (rr ++ v1 ++ ls)`
-  by (
-    unabbrev_all_tac
-    \\ match_mp_tac (GEN_ALL (MP_CANON word_ml_inv_rearrange))
-    \\ ONCE_REWRITE_TAC[CONJ_COMM]
-    \\ asm_exists_tac
-    \\ simp[] \\ metis_tac[] )
-  \\ pop_assum mp_tac
-  \\ pop_assum kall_tac
-  \\ simp[Abbr`P`,Abbr`rr`,word_ml_inv_def]
-  \\ strip_tac \\ rveq
-  \\ fs[abs_ml_inv_def]
-  \\ fs[bc_stack_ref_inv_def]
-  \\ fs[v_inv_def]
-  \\ rator_x_assum`COND`mp_tac
-  \\ IF_CASES_TAC \\ simp[word_addr_def]
-  \\ strip_tac \\ rveq
-  \\ simp[word_addr_def]);
-
 val state_rel_get_var_Block = Q.store_thm("state_rel_get_var_Block",
   `state_rel c l1 l2 s t v1 locs ∧
    get_var n s.locals = SOME (Block tag vs) ⇒
@@ -3581,6 +3547,29 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
          word_payload_def,word_list_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0])
+
+val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
+  ``good_dimindex (:'a) /\
+    memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
+    v = Word (if i < 0 then -n2w (4 * Num (-i)) else n2w (4 * Num i)) /\
+    small_int (:'a) i``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def,v_inv_def] \\ rw []
+  \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
+  \\ Cases_on `i`
+  \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
+
+val IMP_memory_rel_Number = store_thm("IMP_memory_rel_Number",
+  ``good_dimindex (:'a) /\ small_int (:'a) i /\
+    memory_rel c be refs sp st m dm vars ==>
+    memory_rel c be refs sp st m dm
+     ((Number i,(Word (Smallnum i):'a word_loc))::vars)``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS] \\ rpt strip_tac
+  \\ asm_exists_tac \\ fs []
+  \\ rpt_drule abs_ml_inv_Num
+  \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
+  \\ fs [Smallnum_def] \\ Cases_on `i`
+  \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
 
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
