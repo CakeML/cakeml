@@ -113,7 +113,7 @@ val check_clash_tree_def = Define`
       NONE => NONE
     | SOME _ =>
     let del_writes = (numset_list_delete writes live) in
-    let fdel_writes = (numset_list_delete (MAP f writes) live) in
+    let fdel_writes = (numset_list_delete (MAP f writes) flive) in
     check_partial_col f reads del_writes fdel_writes) ∧
   (check_clash_tree f (Set t) live flive = check_col f t) ∧
   (check_clash_tree f (Branch topt t1 t2) live flive =
@@ -125,9 +125,11 @@ val check_clash_tree_def = Define`
     | SOME (t2_out,ft2_out) =>
     case topt of
       NONE =>
-        if inter ft1_out ft2_out = LN then
-          SOME (union t1_out t2_out,union ft1_out ft2_out)
-        else NONE
+        (*TODO: A better check here:
+          Everything in t1 not already in t2
+          should not have a colour in ft2_out
+        *)
+        check_col f (union t1_out t2_out)
     | SOME t => check_col f t) ∧
   (check_clash_tree f (Seq t1 t2) live flive =
     case check_clash_tree f t2 live flive of
@@ -160,8 +162,8 @@ val clash_tree_to_spg_def = Define`
     let live = (MAP FST (toAList t)) in
       (clique_g_insert live G,live)) ∧
   (clash_tree_to_spg (Branch topt t1 t2) live G =
-    let (G,t2_live) = clash_tree_to_spg t2 live G in
     let (G,t1_live) = clash_tree_to_spg t1 live G in
+    let (G,t2_live) = clash_tree_to_spg t2 live G in
     case topt of
       NONE =>
         extend_clique t1_live t2_live G
