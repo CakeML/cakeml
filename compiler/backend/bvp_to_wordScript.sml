@@ -160,6 +160,24 @@ val assign_def = Define `
                               (Assign (adjust_var dest) FALSE_CONST)
                               (Assign (adjust_var dest) TRUE_CONST),l)
                | _ => (Skip,l))
+    | LengthBlock => (case args of
+               | [v1] => (If Test (adjust_var v1) (Imm 1w)
+                           (Assign (adjust_var dest) (Const 0w))
+                           (Assign (adjust_var dest)
+                              (let addr = real_addr c (adjust_var v1) in
+                               let header = Load addr in
+                               let k = dimindex (:'a) - c.len_size in
+                               let len = Shift Lsr header (Nat k) in
+                                 (Shift Lsl len (Nat 2)))),l)
+               | _ => (Skip,l))
+    | Length => (case args of
+               | [v1] => (Assign (adjust_var dest)
+                              (let addr = real_addr c (adjust_var v1) in
+                               let header = Load addr in
+                               let k = dimindex (:'a) - c.len_size in
+                               let len = Shift Lsr header (Nat k) in
+                                 (Shift Lsl len (Nat 2))),l)
+               | _ => (Skip,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
