@@ -1309,28 +1309,46 @@ val pop_thm = store_thm("pop_thm",
 val ref_eq_thm = store_thm("ref_eq_thm",
   ``abs_ml_inv (RefPtr p1::RefPtr p2::stack) refs
       (r1::r2::roots,heap,be,a,sp) limit ==>
-    ((p1 = p2) <=> (r1 = r2))``,
+    ((p1 = p2) <=> (r1 = r2)) /\
+    ?p1 p2. r1 = Pointer p1 (Word 0w) /\ r2 = Pointer p2 (Word 0w)``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ fs [v_inv_def,INJ_DEF] \\ res_tac \\ fs [] \\ fs []
   \\ eq_tac \\ rw [] \\ fs []);
 
-val n2w_eq_minus_n2w = store_thm("n2w_eq_minus_n2w",
-  ``2 * n < dimword (:'a) /\ 2 * m <= dimword (:'a) /\ n <> 0 /\ m <> 0 ==>
-    (n2w n <> -n2w m :'a word)``,
-  fs [word_2comp_n2w]);
-
 val num_eq_thm = store_thm("num_eq_thm",
   ``abs_ml_inv (Number i1::Number i2::stack) refs
       (r1::r2::roots,heap,be,a,sp) limit ==>
-    ((i1 = i2) <=> (r1 = r2))``,
+    ((i1 = i2) <=> (r1 = r2)) /\
+    r1 = Data (Word (Smallnum i1)) /\
+    r2 = Data (Word (Smallnum i2))``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ fs [v_inv_def,INJ_DEF] \\ fs [Smallnum_def]
-  \\ Cases_on `i1` \\ Cases_on `i2` \\ fs [small_int_def,X_LT_DIV,X_LE_DIV]
-  \\ TRY (match_mp_tac n2w_eq_minus_n2w \\ fs [] \\ NO_TAC)
-  \\ TRY (match_mp_tac (GSYM n2w_eq_minus_n2w) \\ fs [] \\ NO_TAC)
-  \\ fs [WORD_EQ_NEG] \\ once_rewrite_tac [GSYM WORD_NEG_NEG]
-  \\ once_rewrite_tac [WORD_EQ_NEG]
-  \\ rewrite_tac [WORD_NEG_NEG,WORD_NEG_0] \\ fs []);
+  \\ Cases_on `i1` \\ Cases_on `i2`
+  \\ fs [small_int_def,X_LT_DIV,X_LE_DIV] \\ fs [word_2comp_n2w]);
+
+val Smallnum_i2w = store_thm("Smallnum_i2w",
+  ``Smallnum i = i2w (4 * i)``,
+  fs [Smallnum_def,integer_wordTheory.i2w_def]
+  \\ Cases_on `i` \\ fs []
+  \\ reverse IF_CASES_TAC \\ fs [WORD_EQ_NEG]
+  THEN1 (`F` by intLib.COOPER_TAC)
+  \\ AP_THM_TAC \\ AP_TERM_TAC \\ intLib.COOPER_TAC);
+
+val small_int_IMP_MIN_MAX = store_thm("small_int_IMP_MIN_MAX",
+  ``good_dimindex (:'a) /\ small_int (:'a) i ==>
+    INT_MIN (:'a) <= 4 * i ∧ 4 * i <= INT_MAX (:'a)``,
+  fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ rfs [small_int_def,dimword_def,
+       wordsTheory.INT_MIN_def,wordsTheory.INT_MAX_def]
+  \\ intLib.COOPER_TAC);
+
+val num_less_thm = store_thm("num_less_thm",
+  ``good_dimindex (:'a) /\ small_int (:'a) i1 /\ small_int (:'a) i2 ==>
+    ((i1 < i2) <=> (Smallnum i1 < Smallnum i2:'a word))``,
+  fs [integer_wordTheory.WORD_LTi,Smallnum_i2w] \\ strip_tac
+  \\ imp_res_tac small_int_IMP_MIN_MAX
+  \\ fs [integer_wordTheory.w2i_i2w]
+  \\ intLib.COOPER_TAC);
 
 (* permute stack *)
 

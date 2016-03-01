@@ -3004,8 +3004,8 @@ val memory_rel_insert = prove(
 
 val memory_rel_rearrange = prove(
   ``(∀x. MEM x ys ⇒ MEM x xs) ⇒
-    memory_rel c F refs sp st m dm xs ==>
-    memory_rel c F refs sp st m dm ys``,
+    memory_rel c be refs sp st m dm xs ==>
+    memory_rel c be refs sp st m dm ys``,
   fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
   \\ qpat_assum `word_ml_inv _ _ _ _ _` mp_tac
   \\ match_mp_tac word_ml_inv_rearrange \\ fs []);
@@ -3367,7 +3367,7 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL new_ref_thm)
-  \\ disch_then (qspecl_then [`Word 0w`,`new`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`new`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
@@ -3551,8 +3551,7 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
 val memory_rel_Number_IMP = store_thm("memory_rel_Number_IMP",
   ``good_dimindex (:'a) /\
     memory_rel c be refs sp st m dm ((Number i,v:'a word_loc)::vars) ==>
-    v = Word (if i < 0 then -n2w (4 * Num (-i)) else n2w (4 * Num i)) /\
-    small_int (:'a) i``,
+    v = Word (Smallnum i) /\ small_int (:'a) i``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def] \\ rw []
   \\ fs [word_addr_def,Smallnum_def,integer_wordTheory.i2w_def]
@@ -3571,6 +3570,72 @@ val IMP_memory_rel_Number = store_thm("IMP_memory_rel_Number",
   \\ fs [Smallnum_def] \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
 
+val memory_rel_tail = store_thm("memory_rel_tail",
+  ``memory_rel c be refs sp st m dm (v::vars) ==>
+    memory_rel c be refs sp st m dm vars``,
+  match_mp_tac memory_rel_rearrange \\ fs []);
+
+val memory_rel_Number_EQ = store_thm("memory_rel_Number_EQ",
+  ``memory_rel c be refs sp st m dm
+      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)``,
+  strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ fs [] \\ fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
+  \\ drule num_eq_thm \\ rw []);
+
+val memory_rel_Number_LESS = store_thm("memory_rel_Number_LESS",
+  ``memory_rel c be refs sp st m dm
+      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 < (v2:'a word) <=> i1 < i2)``,
+  strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP
+  \\ fs [] \\ fs [memory_rel_def] \\ rw [] \\ fs [num_less_thm]);
+
+val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
+  ``memory_rel c be refs sp st m dm
+      ((Number i1,w1)::(Number i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 <= (v2:'a word) <=> i1 <= i2)``,
+  rw [] \\ drule memory_rel_Number_LESS \\ fs [] \\ rw [] \\ fs []
+  \\ drule memory_rel_Number_EQ \\ fs [] \\ rw [] \\ fs []
+  \\ fs [WORD_LESS_OR_EQ,integerTheory.INT_LE_LT]);
+
+val memory_rel_RefPtr_EQ = store_thm("memory_rel_RefPtr_EQ",
+  ``memory_rel c be refs sp st m dm
+      ((RefPtr i1,w1)::(RefPtr i2,w2)::vars) /\ good_dimindex (:'a) ==>
+      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 = v2 <=> i1 = i2)``,
+  fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
+  \\ drule ref_eq_thm \\ rw [] \\ clean_tac
+  \\ fs [word_addr_def,get_addr_def]
+  \\ eq_tac \\ rw [] \\ fs [get_lowerbits_def]
+  \\ cheat (* need to have limit for p1 and p2 *));
+
+val memory_rel_Boolv_T = store_thm("memory_rel_Boolv_T",
+  ``memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
+    memory_rel c be refs sp st m dm ((Boolv T,Word (2w:'a word))::vars)``,
+  fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `0` assume_tac)
+  \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
+  \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
+
+val memory_rel_Boolv_F = store_thm("memory_rel_Boolv_F",
+  ``memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
+    memory_rel c be refs sp st m dm ((Boolv F,Word (18w:'a word))::vars)``,
+  fs [memory_rel_def] \\ rw [] \\ asm_exists_tac \\ fs []
+  \\ fs [word_ml_inv_def,PULL_EXISTS,EVAL ``Boolv F``,EVAL ``Boolv T``]
+  \\ rpt_drule cons_thm_EMPTY \\ disch_then (qspec_then `1` assume_tac)
+  \\ asm_exists_tac \\ fs [] \\ fs [word_addr_def,BlockNil_def]
+  \\ EVAL_TAC \\ fs [labPropsTheory.good_dimindex_def,dimword_def]);
+
+val word_less_lemma1 = prove(
+  ``v2 < (v1:'a word) <=> ~(v1 <= v2)``,
+  metis_tac [WORD_NOT_LESS]);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -3585,6 +3650,122 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `op = GreaterEq` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ rpt_drule memory_rel_Number_LESS \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
+    \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ fs [assign_def] \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ fs [intLib.COOPER_PROVE `` i >= j:int <=> ~(i < j)``]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
+  \\ Cases_on `op = Greater` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ rpt_drule memory_rel_Number_LESS_EQ \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
+    \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ fs [assign_def] \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ simp [word_less_lemma1]
+    \\ fs [intLib.COOPER_PROVE `` i > j:int <=> ~(i <= j)``]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
+  \\ Cases_on `op = LessEq` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ rpt_drule memory_rel_Number_LESS_EQ \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
+    \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ fs [assign_def] \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ fs [WORD_NOT_LESS,intLib.COOPER_PROVE ``~(i < j) <=> j <= i:int``]
+    \\ simp [word_less_lemma1]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
+  \\ Cases_on `op = Less` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ rpt_drule memory_rel_Number_LESS \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
+    \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ fs [assign_def] \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
+  \\ Cases_on `op = Equal` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ TRY (rpt_drule memory_rel_Number_EQ) \\ rw [] \\ fs []
+    \\ TRY (rpt_drule memory_rel_RefPtr_EQ) \\ rw [] \\ fs []
+    \\ fs [wordSemTheory.get_vars_def] \\ every_case_tac
+    \\ fs [wordSemTheory.get_var_imm_def] \\ clean_tac
+    \\ fs [assign_def] \\ eval_tac
+    \\ fs [wordSemTheory.get_var_imm_def,asmSemTheory.word_cmp_def]
+    \\ IF_CASES_TAC \\ fs []
+    \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ TRY (match_mp_tac memory_rel_Boolv_T \\ fs [] \\ NO_TAC)
+    \\ TRY (match_mp_tac memory_rel_Boolv_F \\ fs [] \\ NO_TAC))
   \\ Cases_on `?lab. op = Label lab` \\ fs [] THEN1
    (fs [assign_def] \\ fs [do_app] \\ every_case_tac \\ fs []
     \\ imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ clean_tac
