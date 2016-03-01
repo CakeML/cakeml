@@ -68,6 +68,9 @@ val real_offset_def = Define `
      Op Add [Const bytes_in_word;
              if dimindex (:'a) = 32 then Var r else Shift Lsl (Var r) (Nat 1)]`
 
+val _ = temp_overload_on("FALSE_CONST",``Const (n2w 18)``)
+val _ = temp_overload_on("TRUE_CONST",``Const (n2w 2)``)
+
 val assign_def = Define `
   assign (c:bvp_to_word$config) (n:num) (l:num) (dest:num) (op:closLang$op)
     (args:num list) (names:num_set option) =
@@ -131,7 +134,33 @@ val assign_def = Define `
                     (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                               (Nat (shift_length c − shift (:'a)));
                             Const 1w])],l))
-    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)    | _ => (GiveUp:'a wordLang$prog,l)`;
+    | Label n => (LocValue (adjust_var dest) (2 * n + bvl_to_bvi$num_stubs) 0,l)
+    | Equal => (case args of
+               | [v1;v2] => (If Equal (adjust_var v1) (Reg (adjust_var v2))
+                              (Assign (adjust_var dest) TRUE_CONST)
+                              (Assign (adjust_var dest) FALSE_CONST),l)
+                | _ => (Skip,l))
+    | Less => (case args of
+               | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
+                              (Assign (adjust_var dest) TRUE_CONST)
+                              (Assign (adjust_var dest) FALSE_CONST),l)
+               | _ => (Skip,l))
+    | LessEq => (case args of
+               | [v1;v2] => (If Less (adjust_var v2) (Reg (adjust_var v1))
+                              (Assign (adjust_var dest) FALSE_CONST)
+                              (Assign (adjust_var dest) TRUE_CONST),l)
+               | _ => (Skip,l))
+    | Greater => (case args of
+               | [v1;v2] => (If Less (adjust_var v2) (Reg (adjust_var v1))
+                              (Assign (adjust_var dest) TRUE_CONST)
+                              (Assign (adjust_var dest) FALSE_CONST),l)
+               | _ => (Skip,l))
+    | GreaterEq => (case args of
+               | [v1;v2] => (If Less (adjust_var v1) (Reg (adjust_var v2))
+                              (Assign (adjust_var dest) FALSE_CONST)
+                              (Assign (adjust_var dest) TRUE_CONST),l)
+               | _ => (Skip,l))
+    | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
   comp c (n:num) (l:num) (p:bvp$prog) =
