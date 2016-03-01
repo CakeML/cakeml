@@ -90,11 +90,12 @@ val v_inv_def = tDefine "v_inv" `
   (v_inv (Number i) (x,f,heap:'a ml_heap) <=>
      if small_int (:'a) i then (x = Data (Word (Smallnum i))) else
        F /\ (* TODO: remove this line, so that bignums are allowed *)
-       ?ptr u. (x = Pointer ptr u) /\ (heap_lookup ptr heap = SOME (Bignum i))) /\
+       ?ptr. (x = Pointer ptr (Word 0w)) /\
+             (heap_lookup ptr heap = SOME (Bignum i))) /\
   (v_inv (CodePtr n) (x,f,heap) <=>
      (x = Data (Loc n 0))) /\
   (v_inv (RefPtr n) (x,f,heap) <=>
-     ?u. (x = Pointer (f ' n) u) /\ n IN FDOM f) /\
+     (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
      if vs = [] then (x = Data (Word (BlockNil n))) else
        ?ptr u xs.
@@ -1081,7 +1082,7 @@ val new_ref_thm = store_thm("new_ref_thm",
       (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
       abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
-                 (rs ++ Pointer (a+sp-(LENGTH xs + 1)) u::roots2,heap2,be,a,
+                 (rs ++ Pointer (a+sp-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1)) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -1302,6 +1303,34 @@ val pop_thm = store_thm("pop_thm",
   \\ imp_res_tac EVERY2_APPEND \\ full_simp_tac std_ss []
   \\ rpt strip_tac
   \\ full_simp_tac std_ss [reachable_refs_def,MEM_APPEND] \\ metis_tac []);
+
+(* equality *)
+
+val ref_eq_thm = store_thm("ref_eq_thm",
+  ``abs_ml_inv (RefPtr p1::RefPtr p2::stack) refs
+      (r1::r2::roots,heap,be,a,sp) limit ==>
+    ((p1 = p2) <=> (r1 = r2))``,
+  full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
+  \\ fs [v_inv_def,INJ_DEF] \\ res_tac \\ fs [] \\ fs []
+  \\ eq_tac \\ rw [] \\ fs []);
+
+val n2w_eq_minus_n2w = store_thm("n2w_eq_minus_n2w",
+  ``2 * n < dimword (:'a) /\ 2 * m <= dimword (:'a) /\ n <> 0 /\ m <> 0 ==>
+    (n2w n <> -n2w m :'a word)``,
+  fs [word_2comp_n2w]);
+
+val num_eq_thm = store_thm("num_eq_thm",
+  ``abs_ml_inv (Number i1::Number i2::stack) refs
+      (r1::r2::roots,heap,be,a,sp) limit ==>
+    ((i1 = i2) <=> (r1 = r2))``,
+  full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
+  \\ fs [v_inv_def,INJ_DEF] \\ fs [Smallnum_def]
+  \\ Cases_on `i1` \\ Cases_on `i2` \\ fs [small_int_def,X_LT_DIV,X_LE_DIV]
+  \\ TRY (match_mp_tac n2w_eq_minus_n2w \\ fs [] \\ NO_TAC)
+  \\ TRY (match_mp_tac (GSYM n2w_eq_minus_n2w) \\ fs [] \\ NO_TAC)
+  \\ fs [WORD_EQ_NEG] \\ once_rewrite_tac [GSYM WORD_NEG_NEG]
+  \\ once_rewrite_tac [WORD_EQ_NEG]
+  \\ rewrite_tac [WORD_NEG_NEG,WORD_NEG_0] \\ fs []);
 
 (* permute stack *)
 
