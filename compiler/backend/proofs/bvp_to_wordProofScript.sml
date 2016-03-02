@@ -10,8 +10,7 @@ val _ = new_theory "bvp_to_wordProof";
 
 val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
   ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,word_0]
-  \\ full_simp_tac(srw_ss())[word_index]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index])
 
 val lsl_lsr = Q.store_thm("lsl_lsr", (* TODO: delete, use from stack_removeProof *)
   `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
@@ -530,13 +529,11 @@ val word_gc_fun_def = Define `
 
 val one_and_or_1 = prove(
   ``(1w && (w || 1w)) = 1w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      wordsTheory.word_index] \\ srw_tac[][] \\ Cases_on `i=0` \\ full_simp_tac(srw_ss())[]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val one_and_or_3 = prove(
   ``(3w && (w || 3w)) = 3w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      wordsTheory.word_index] \\ srw_tac[][] \\ rpt eq_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val ODD_not_zero = prove(
   ``ODD n ==> n2w n <> 0w``,
@@ -553,30 +550,19 @@ val DISJ_EQ_IMP = METIS_PROVE [] ``(~b \/ c) <=> (b ==> c)``
 
 val three_and_shift_2 = prove(
   ``(3w && (w << 2)) = 0w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      wordsTheory.word_index,word_lsl_def,DISJ_EQ_IMP]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val shift_to_zero = prove(
   ``3w >>> 2 = 0w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
-      DISJ_EQ_IMP] \\ srw_tac[][] \\ decide_tac)
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val shift_around_under_big_shift = prove(
   ``!w n k. n <= k ==> (w << n >>> n << k = w << k)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
-      DISJ_EQ_IMP,word_lsl_def] \\ srw_tac[][]
-  \\ Cases_on `k <= i` \\ full_simp_tac(srw_ss())[]
-  \\ `i - k < dimindex (:'a) /\ i − k + n < dimindex (:'a)` by decide_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
-      DISJ_EQ_IMP,word_lsl_def] \\ srw_tac[][])
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val select_shift_out = prove(
   ``n <> 0 ==> ((n - 1 -- 0) (w || v << n) = (n - 1 -- 0) w)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_lsr_def,fcpTheory.FCP_BETA,wordsTheory.word_index,
-      DISJ_EQ_IMP,word_lsl_def,word_bits_def,word_or_def] \\ srw_tac[][]
-  \\ eq_tac \\ srw_tac[][]
-  \\ `i = 0` by decide_tac \\ full_simp_tac(srw_ss())[]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val shift_length_NOT_ZERO = store_thm("shift_length_NOT_ZERO[simp]",
   ``shift_length conf <> 0``,
@@ -589,22 +575,14 @@ val get_addr_and_1_not_0 = prove(
 
 val one_lsr_shift_length = prove(
   ``1w >>> shift_length conf = 0w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      wordsTheory.word_index,word_lsr_def,word_bits_def] \\ srw_tac[][]
-  \\ Cases_on `i + shift_length conf < dimindex (:'a)` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[shift_length_def]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+    [word_index, shift_length_def])
 
 val get_lowerbits_LSL_shift_length = prove(
   ``get_lowerbits conf a >>> shift_length conf = 0w``,
-  Cases_on `a` \\ full_simp_tac(srw_ss())[get_lowerbits_def,one_lsr_shift_length]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ srw_tac[][]
-  \\ Cases_on `i + shift_length conf < dimindex (:'a)` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ srw_tac[][]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[shift_length_def] \\ decide_tac);
+  Cases_on `a`
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+       [word_index, get_lowerbits_def, shift_length_def])
 
 val word_heap_APPEND = prove(
   ``!xs ys a.
@@ -637,10 +615,12 @@ val is_fws_ptr_OR_3 = prove(
 val select_get_lowerbits = prove(
   ``(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
     get_lowerbits conf a``,
-  Cases_on `a` \\ full_simp_tac(srw_ss())[get_lowerbits_def]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         wordsTheory.word_index,word_lsr_def,word_bits_def] \\ srw_tac[][]
-  \\ srw_tac[][] \\ eq_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  Cases_on `a`
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
+  \\ eq_tac
+  \\ rw []
+  \\ fs []
+  )
 
 val LE_DIV_LT_IMP = prove(
   ``n <= l DIV 2 ** m /\ k < n ==> k * 2 ** m < l``,
@@ -651,30 +631,26 @@ val LE_DIV_LT_IMP = prove(
 
 val word_bits_eq_slice_shift = store_thm("word_bits_eq_slice_shift",
   ``((k -- n) w) = (((k '' n) w) >>> n)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ srw_tac[][]
-  \\ Cases_on `i + n < dimindex (:'a)` \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ srw_tac[][]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac)
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index]
+  \\ Cases_on `i + n < dimindex (:'a)`
+  \\ fs []
+  )
 
 val word_slice_or = prove(
   ``(k '' n) (w || v) = ((k '' n) w || (k '' n) v)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-         word_lsr_def,word_index,word_slice_def,word_bits_def] \\ srw_tac[][]
-  \\ eq_tac \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index]
+  \\ eq_tac
+  \\ rw []
+  \\ fs []
+  )
 
 val word_slice_lsl_eq_0 = prove(
   ``(k '' n) (w << (k + 1)) = 0w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      word_lsr_def,word_index,word_slice_def,word_bits_def,word_lsl_def] \\ srw_tac[][]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val word_slice_2_3_eq_0 = prove(
   ``(n '' 2) 3w = 0w``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_or_def,word_and_def,fcpTheory.FCP_BETA,
-      word_lsr_def,word_index,word_slice_def,word_bits_def,word_lsl_def] \\ srw_tac[][]
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac)
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [word_index])
 
 val can_select_def = Define `
   can_select k n w <=> ((k - 1 -- n) (w << n) = w)`
