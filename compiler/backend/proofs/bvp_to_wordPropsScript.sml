@@ -132,7 +132,7 @@ val bc_ref_inv_def = Define `
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray bs)) =>
-        ?ws. LENGTH bs DIV (dimindex (:α) DIV 8) = LENGTH ws + 1 /\
+        ?ws. LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
              (heap_lookup x heap = SOME (Bytes be bs (ws:'a word list)))
     | _ => F`;
 
@@ -1539,6 +1539,12 @@ val word_addr_def = Define `
 
 val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 
+val byte_length_extra_def = Define `
+  byte_length_extra conf n =
+    (if dimindex (:'a) = 32
+     then n2w (n MOD 4) << (dimindex (:α) - 6 - conf.len_size)
+     else n2w (n MOD 8) << (dimindex (:α) - 7 - conf.len_size)):'a word`
+
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
      ((n2w n << 2), (* header: ...00 *)
@@ -1552,7 +1558,7 @@ val word_payload_def = Define `
      ((b2w b << 2 || 1w), (* header: ...101 or ...001 *)
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     ((n2w n << 2 || 3w), (* header: ...11 *)
+     ((byte_length_extra conf n << 2 || 3w), (* header: ...11 *)
       qs, (ys = []) /\ (LENGTH qs = l)))`;
 
 val decode_tag_bits_def = Define `

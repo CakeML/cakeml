@@ -178,6 +178,17 @@ val assign_def = Define `
                                let len = Shift Lsr header (Nat k) in
                                  (Shift Lsl len (Nat 2))),l)
                | _ => (Skip,l))
+    | LengthByte => (case args of
+               | [v1] => (Assign (adjust_var dest)
+                              (let addr = real_addr c (adjust_var v1) in
+                               let header = Load addr in
+                               let k = dimindex (:'a) - c.len_size in
+                               let extra = if dimindex (:'a) = 32 then 2 else 3 in
+                               let len = Shift Lsr header (Nat (k - extra)) in
+                                 (Op Sub [Shift Lsl len (Nat 2);
+                                          Const (if dimindex (:'a) = 32
+                                                 then 16w else 32w)])),l)
+               | _ => (Skip,l))
     | IsBlock => (case args of
                | [v1] => (If Test (adjust_var v1) (Imm 1w)
                            (If Test (adjust_var v1) (Imm 2w)

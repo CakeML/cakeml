@@ -295,7 +295,8 @@ val adjust_var_DIV_2 = prove(
 
 val EVEN_adjust_var = prove(
   ``EVEN (adjust_var n)``,
-  full_simp_tac(srw_ss())[adjust_var_def,EVEN_MOD2,ONCE_REWRITE_RULE[MULT_COMM]MOD_TIMES]);
+  full_simp_tac(srw_ss())[adjust_var_def,EVEN_MOD2,
+    ONCE_REWRITE_RULE[MULT_COMM]MOD_TIMES]);
 
 val adjust_var_NEQ_0 = prove(
   ``adjust_var n <> 0``,
@@ -1180,7 +1181,7 @@ val heap_in_memory_store_def = Define `
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length c /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
-    c.len_size + 5 < dimindex (:'a) /\
+    c.len_size + 6 < dimindex (:'a) /\
     ?curr other.
       (FLOOKUP s CurrHeap = SOME (Word (curr:'a word))) /\
       (FLOOKUP s OtherHeap = SOME (Word other)) /\
@@ -3581,12 +3582,21 @@ val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
 
+val LENGTH_write_bytes = prove(
+  ``!xs a ws be. LENGTH (write_bytes a xs ws be) = LENGTH ws``,
+  Induct \\ fs [write_bytes_def,write_byte_def]);
+
 val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
     FLOOKUP refs p = SOME (ByteArray vals) /\ good_dimindex (:'a) ==>
     ?w a x l.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\
-      get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm``,
+      get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
+      LENGTH vals < 2 ** (dimindex (:'a) - 3) /\
+      if dimindex (:'a) = 32 then
+        x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4)
+      else
+        x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
   \\ `bc_ref_inv p refs (f,heap,be)` by
@@ -3601,9 +3611,23 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
          word_payload_def,word_list_def,Bytes_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0]
-  \\ fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
-  \\ fs [labPropsTheory.good_dimindex_def]
-  \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  \\ rpt strip_tac
+  THEN1 (fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
+    \\ fs [labPropsTheory.good_dimindex_def]
+    \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
+  THEN1 cheat (* inv needs new assumption *)
+  \\ fs [labPropsTheory.good_dimindex_def,make_header_def,
+         byte_length_extra_def,LENGTH_write_bytes] \\ rfs []
+  THEN1
+   (`c.len_size <= 30` by decide_tac \\ pop_assum mp_tac
+    \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
+    \\ `32 = p' + c.len_size + 2 /\ 2 <= p'` by decide_tac \\ fs []
+    \\ cheat) (* true, but terrible word proof *)
+  THEN1
+   (`c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
+    \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
+    \\ `64 = p' + c.len_size + 3 /\ 3 <= p'` by decide_tac \\ fs []
+    \\ cheat) (* true, but terrible word proof *))
 
 val memory_rel_RefPtr_IMP_lemma = prove(
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
@@ -3648,6 +3672,17 @@ val IMP_memory_rel_Number = store_thm("IMP_memory_rel_Number",
   \\ strip_tac \\ asm_exists_tac \\ fs [word_addr_def]
   \\ fs [Smallnum_def] \\ Cases_on `i`
   \\ fs [GSYM word_mul_n2w,word_ml_inv_num_lemma,word_ml_inv_neg_num_lemma])
+
+val IMP_memory_rel_Number_num3 = store_thm("IMP_memory_rel_Number_num3",
+  ``good_dimindex (:'a) /\ n < 2 ** (dimindex (:'a) - 3) /\
+    memory_rel c be refs sp st m dm vars ==>
+    memory_rel c be refs sp st m dm
+     ((Number (&n),Word ((n2w n << 2):'a word))::vars)``,
+  strip_tac \\ mp_tac (IMP_memory_rel_Number |> Q.INST [`i`|->`&n`]) \\ fs []
+  \\ fs [Smallnum_def,WORD_MUL_LSL,word_mul_n2w]
+  \\ disch_then match_mp_tac
+  \\ fs [small_int_def,dimword_def]
+  \\ fs [labPropsTheory.good_dimindex_def] \\ rfs [])
 
 val IMP_memory_rel_Number_num = store_thm("IMP_memory_rel_Number_num",
   ``good_dimindex (:'a) /\ n < 2 ** (dimindex (:'a) - 4) /\
@@ -3748,6 +3783,38 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `op = LengthByte` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_1] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ fs [state_rel_thm] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac
+    \\ rpt_drule memory_rel_ByteArray_IMP \\ fs [] \\ rw []
+    \\ fs [assign_def]
+    \\ fs [wordSemTheory.get_vars_def]
+    \\ Cases_on `get_var (adjust_var a1) t` \\ fs [] \\ clean_tac
+    \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def]
+    \\ fs [asmSemTheory.word_cmp_def,word_and_one_eq_0_iff
+             |> SIMP_RULE (srw_ss()) []]
+    \\ `shift_length c < dimindex (:α)` by (fs [memory_rel_def] \\ NO_TAC)
+    \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
+         (match_mp_tac (GEN_ALL get_real_addr_lemma)
+          \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
+    \\ `2 < dimindex (:'a)` by cheat
+    \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
+    \\ fs [WORD_MUL_LSL,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]
+    \\ fs [word_mul_n2w]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ match_mp_tac (IMP_memory_rel_Number_num3
+         |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs [])
   \\ Cases_on `op = IsBlock` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
