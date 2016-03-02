@@ -178,6 +178,16 @@ val assign_def = Define `
                                let len = Shift Lsr header (Nat k) in
                                  (Shift Lsl len (Nat 2))),l)
                | _ => (Skip,l))
+    | IsBlock => (case args of
+               | [v1] => (If Test (adjust_var v1) (Imm 1w)
+                           (If Test (adjust_var v1) (Imm 2w)
+                             (Assign (adjust_var dest) FALSE_CONST)
+                             (Assign (adjust_var dest) TRUE_CONST))
+                           (Seq (Assign 1 (Load (real_addr c (adjust_var v1))))
+                             (If Test 1 (Imm 8w)
+                               (Assign (adjust_var dest) TRUE_CONST)
+                               (Assign (adjust_var dest) FALSE_CONST))),l)
+               | _ => (Skip,l))
     | _ => (GiveUp:'a wordLang$prog,l)`;
 
 val comp_def = Define `
