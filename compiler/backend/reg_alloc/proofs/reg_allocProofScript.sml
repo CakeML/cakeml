@@ -46,6 +46,30 @@ val lookup_dir_g_insert_correct = prove(``
     full_case_tac>>
     full_simp_tac(srw_ss())[domain_insert,lookup_insert,lookup_def])
 
+val undir_g_insert_domain = prove(``
+  domain (undir_g_insert x y G) =
+  {x;y} ∪ domain G``,
+  srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
+  full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>
+  metis_tac[])
+
+val list_g_insert_domain = prove(``
+  ∀ls.
+  domain(list_g_insert q ls G) =
+  domain G ∪ set ls ∪ {q}``,
+  Induct>>full_simp_tac(srw_ss())[list_g_insert_def]>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[EXTENSION,undir_g_insert_domain]>>
+  every_case_tac>>full_simp_tac(srw_ss())[domain_insert,domain_lookup,lookup_insert]>>
+  metis_tac[])
+
+val clique_g_insert_domain = prove(``
+  ∀ls.
+  domain (clique_g_insert ls G) =
+  domain G ∪ set ls``,
+  Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[list_g_insert_domain]>>
+  srw_tac[][EXTENSION]>>metis_tac[])
+
 val list_g_insert_correct = prove(``
   ∀ls x g.
   let g' = list_g_insert x ls g in
@@ -73,8 +97,9 @@ val clique_g_insert_correct = prove(``
 (*Cliques in sp_g*)
 val sp_g_is_clique_def = Define`
   (sp_g_is_clique ls g =
-    !x y. MEM x ls ∧ MEM y ls ∧ x ≠ y⇒
-      lookup_g x y g ∧ lookup_g y x g)`
+    (set ls ⊆ domain g ∧
+    !x y. MEM x ls ∧ MEM y ls ∧ x ≠ y ⇒
+      lookup_g x y g ∧ lookup_g y x g))`
 
 (*colouring_satisfactory for sp_graphs*)
 val colouring_satisfactory_def = Define `
@@ -89,7 +114,8 @@ val clique_g_insert_is_clique = prove(``
   sp_g_is_clique ls (clique_g_insert ls g)``,
   Induct>>
   srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
-  TRY (metis_tac[list_g_insert_correct])
+  fs[list_g_insert_domain,clique_g_insert_domain,SUBSET_DEF]>>
+  TRY (metis_tac[list_g_insert_correct,list_g_insert_domain])
   >>
     full_simp_tac(srw_ss())[sp_g_is_clique_def]>>
     metis_tac[list_g_insert_correct])
@@ -101,6 +127,7 @@ val clique_g_insert_preserves_clique = prove(``
   sp_g_is_clique ls (clique_g_insert ls' g)``,
   Induct>>
   srw_tac[][clique_g_insert_def,sp_g_is_clique_def]>>
+  fs[clique_g_insert_domain,SUBSET_DEF]>>
   metis_tac[clique_g_insert_correct])
 
 val clash_sets_clique = store_thm("clash_sets_clique",``
@@ -936,22 +963,6 @@ val undir_g_preserve = prove(``
     (first_x_assum(qspec_then`y` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     full_simp_tac(srw_ss())[Abbr`tree`]))
 
-val undir_g_insert_domain = prove(``
-  domain (undir_g_insert x y G) =
-  {x;y} ∪ domain G``,
-  srw_tac[][undir_g_insert_def,dir_g_insert_def]>>
-  full_simp_tac(srw_ss())[domain_insert,EXTENSION]>>
-  metis_tac[])
-
-val list_g_insert_domain = prove(``
-  ∀ls.
-  domain(list_g_insert q ls G) =
-  domain G ∪ set ls ∪ {q}``,
-  Induct>>full_simp_tac(srw_ss())[list_g_insert_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[EXTENSION,undir_g_insert_domain]>>
-  every_case_tac>>full_simp_tac(srw_ss())[domain_insert,domain_lookup,lookup_insert]>>
-  metis_tac[])
-
 val finish_tac =
   last_x_assum(qspec_then`v` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
   first_x_assum(qspec_then`v'` assume_tac)>>rev_full_simp_tac(srw_ss())[domain_lookup]>>
@@ -1758,14 +1769,6 @@ val clash_sets_to_sp_g_undir = store_thm("clash_sets_to_sp_g_undir",``
   unabbrev_all_tac>>
   full_simp_tac(srw_ss())[ALL_DISTINCT_MAP_FST_toAList])
 
-val clique_g_insert_domain = prove(``
-  ∀ls.
-  domain (clique_g_insert ls G) =
-  domain G ∪ set ls``,
-  Induct>>full_simp_tac(srw_ss())[clique_g_insert_def]>>srw_tac[][]>>
-  full_simp_tac(srw_ss())[list_g_insert_domain]>>
-  srw_tac[][EXTENSION]>>metis_tac[])
-
 val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
 ∀ls x.
   in_clash_sets ls x ⇒
@@ -1775,10 +1778,11 @@ val clash_sets_to_sp_g_domain = store_thm("clash_sets_to_sp_g_domain",``
   full_simp_tac(srw_ss())[domain_lookup,MEM_MAP,MEM_toAList,EXISTS_PROD])
 
 (*Less restrictive subgraph definition,
-  maybe update is_subgraph edges to be a restriction of this
+  maybe update is_subgraph_edges to be a restriction of this
 *)
 val is_subgraph_def = Define`
   is_subgraph G H ⇔
+  domain G ⊆ domain H ∧
   ∀x y. lookup_g x y G ⇒ lookup_g x y H`
 
 val is_subgraph_refl = prove(``is_subgraph G G``, fs[is_subgraph_def])
@@ -1786,7 +1790,8 @@ val is_subgraph_refl = prove(``is_subgraph G G``, fs[is_subgraph_def])
 val is_subgraph_trans = prove(``
   is_subgraph A B ∧ is_subgraph B C ⇒
   is_subgraph A C``,
-  fs[is_subgraph_def])
+  fs[is_subgraph_def]>>
+  metis_tac[SUBSET_TRANS])
 
 val list_g_insert_props = prove(``
   ∀live h G.
@@ -1800,8 +1805,8 @@ val list_g_insert_props = prove(``
   ntac 4 strip_tac>>
   Q.ISPECL_THEN [`live`,`h`,`G`] assume_tac list_g_insert_correct>>
   Q.ISPECL_THEN [`h`,`live`,`G`] assume_tac (GEN_ALL list_g_insert_undir)>>
-  fs[is_subgraph_def,sp_g_is_clique_def]>>
-  metis_tac[])
+  fs[is_subgraph_def,sp_g_is_clique_def,list_g_insert_domain]>>
+  metis_tac[SUBSET_UNION,UNION_COMM,UNION_ASSOC])
 
 val clique_g_insert_subgraph = prove(``
   ∀live G.
@@ -1809,7 +1814,7 @@ val clique_g_insert_subgraph = prove(``
   is_subgraph G (clique_g_insert live G)``,
   rw[]>>
   imp_res_tac clique_g_insert_correct>>
-  fs[is_subgraph_def])
+  fs[is_subgraph_def,clique_g_insert_domain])
 
 (* The result is undirected, contains a clique and is a subgraph *)
 val extend_clique_props = prove(``
@@ -1833,7 +1838,7 @@ val extend_clique_props = prove(``
     fs[]>>
     first_x_assum(qspecl_then[`h::live`,`list_g_insert h live G`,`G'`,`live'`] assume_tac)>>
     rfs[is_subgraph_def]>>
-    fs[EXTENSION]>>metis_tac[]))
+    fs[EXTENSION]>>metis_tac[SUBSET_TRANS]))
 
 val colouring_satisfactory_subgraph = prove(``
   is_subgraph G H ∧
@@ -1917,8 +1922,9 @@ val sp_g_is_clique_subgraph = prove(``
   sp_g_is_clique ls G ∧
   is_subgraph G G' ⇒
   sp_g_is_clique ls G'``,
-  Induct>>fs[sp_g_is_clique_def]>>
-  ntac 5 strip_tac>>fs[is_subgraph_def])
+  Induct>>fs[sp_g_is_clique_def,SUBSET_DEF]>>
+  ntac 5 strip_tac>>fs[is_subgraph_def,SUBSET_DEF]>>
+  metis_tac[])
 
 (*More generally, any LIST SUBSET satisfies this*)
 val sp_g_is_clique_FILTER = prove(``
@@ -1926,11 +1932,12 @@ val sp_g_is_clique_FILTER = prove(``
   sp_g_is_clique ls G ⇒
   sp_g_is_clique (FILTER P ls) G``,
   Induct>>fs[sp_g_is_clique_def]>>
-  ntac 5 strip_tac>>
+  strip_tac>>
   cases_on`P h`>>
-  fs[MEM_FILTER])
+  fs[MEM_FILTER]>>
+  metis_tac[])
 
-val domain_numset_list_delete = prove(``
+val domain_numset_list_delete = store_thm("domain_numset_list_delete",``
   ∀l live.
   domain (numset_list_delete l live) =
   domain live DIFF set l``,
@@ -1997,7 +2004,7 @@ val sp_g_is_clique_swap = prove(``
   sp_g_is_clique ls G ∧
   (∀x. MEM x ls ⇔ MEM x ls') ⇒
   sp_g_is_clique ls' G``,
-  fs[sp_g_is_clique_def])
+  fs[sp_g_is_clique_def,SUBSET_DEF])
 
 val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_colouring_check_clash_tree",``
   ∀ct G livelist live flive col G' live'.
@@ -2135,5 +2142,77 @@ val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_
     qexists_tac`G''`>>
     qexists_tac`live''`>>
     fs[]>>metis_tac[clash_tree_to_spg_props])
+
+val in_clash_tree_def = Define`
+  (in_clash_tree (Delta w r) x ⇔ MEM x w ∨ MEM x r) ∧
+  (in_clash_tree (Set names) x ⇔ x ∈ domain names) ∧
+  (in_clash_tree (Branch name_opt t1 t2) x ⇔
+    in_clash_tree t1 x ∨
+    in_clash_tree t2 x ∨
+    case name_opt of
+      SOME names => x ∈ domain names
+    | NONE => F) ∧
+  (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)`
+
+(*Not all the assumptions are needed...*)
+val clash_tree_to_spg_domain = prove(``
+  ∀ct live G G' live'.
+  undir_graph G ∧
+  ALL_DISTINCT live ∧
+  sp_g_is_clique live G ∧
+  set live ⊆ domain G ∧
+  clash_tree_to_spg ct live G = (G',live') ⇒
+  ∀x.
+  in_clash_tree ct x ⇒
+  x ∈ domain G'``,
+  Induct>>fs[in_clash_tree_def,clash_tree_to_spg_def]
+  >-
+    (rw[]>>split_pair_tac>>fs[]>>split_pair_tac>>fs[]>>
+    imp_res_tac extend_clique_props>>
+    rfs[FILTER_ALL_DISTINCT,sp_g_is_clique_FILTER]>>
+    rpt (qpat_assum`!a b c.P` kall_tac)>>
+    fs[is_subgraph_def,EXTENSION,SUBSET_DEF,sp_g_is_clique_def])
+  >-
+    (rw[]>>
+    fs[clique_g_insert_domain,toAList_domain])
+  >-
+    (ntac 6 strip_tac>>
+    split_pair_tac>>fs[]>>
+    last_x_assum(qspecl_then[`live`,`G`,`G''`,`t1_live`] assume_tac)>>
+    rfs[]>>
+    imp_res_tac clash_tree_to_spg_props>>
+    ntac 4 (pop_assum kall_tac)>>
+    rpt(qpat_assum `A ⇒ B` kall_tac)>>
+    split_pair_tac>>fs[]>>
+    last_x_assum(qspecl_then[`live`,`G''`,`G'''`,`t2_live`] assume_tac)>>
+    rfs[]>>
+    imp_res_tac sp_g_is_clique_subgraph>>
+    `set live ⊆ domain G''` by
+      metis_tac[is_subgraph_def,SUBSET_TRANS]>>
+    fs[]>>
+    imp_res_tac clash_tree_to_spg_props>>
+    rpt (qpat_assum `!a b c. P` kall_tac)>>
+    rpt (qpat_assum `Q ⇒P` kall_tac)>>
+    Cases_on`o'`>>fs[]
+    >-
+      (imp_res_tac extend_clique_props>>
+      rpt (qpat_assum `!a b c. P` kall_tac)>>
+      fs[is_subgraph_def,SUBSET_DEF,sp_g_is_clique_def]>>
+      metis_tac[])
+    >>
+    rveq>>fs[clique_g_insert_domain]>>
+    rw[]>>fs[is_subgraph_def,SUBSET_DEF,toAList_domain])
+  >>
+    ntac 5 strip_tac>>
+    split_pair_tac>>fs[]>>
+    first_x_assum(qspecl_then[`live`,`G`,`G''`,`live''`] assume_tac)>>
+    rfs[]>>
+    imp_res_tac clash_tree_to_spg_props>>
+    rpt (qpat_assum `Q ⇒P` kall_tac)>>
+    rpt (qpat_assum `!a b c. P⇒Q⇒R` kall_tac)>>
+    first_x_assum(qspecl_then[`live''`,`G''`,`G'`,`live'`] assume_tac)>>
+    rfs[sp_g_is_clique_def]>>
+    fs[is_subgraph_def,SUBSET_DEF]>>
+    metis_tac[])
 
 val _ = export_theory()

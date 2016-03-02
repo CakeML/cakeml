@@ -698,15 +698,15 @@ val every_even_colour_def = Define`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
-  oracle_colour_ok k col_opt ls prog ⇔
+  oracle_colour_ok k col_opt tree prog ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
-     if every_even_colour col ∧
-        check_colouring_ok_alt (total_colour col) ls
+     let tcol = total_colour col in
+     if (every_even_colour col ∧
+        check_clash_tree tcol tree LN LN ≠ NONE)
      then
-       let col = total_colour col in
-       let col_prog = apply_colour col prog in
+       let col_prog = apply_colour tcol prog in
        if post_alloc_conventions k col_prog
        then
          SOME col_prog
@@ -720,14 +720,13 @@ val oracle_colour_ok_def = Define`
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
   word_alloc alg k prog col_opt =
-  let (hd,tl) = get_clash_sets prog LN in
-  case oracle_colour_ok k col_opt (hd::tl) prog of
+  let tree = get_clash_tree prog in
+  let moves = get_prefs prog [] in
+  case oracle_colour_ok k col_opt tree prog of
     NONE =>
-      (*Oracle colour doesn't work, call the allocator*)
-      let clash_graph = clash_sets_to_sp_g (hd::tl) in
-      let moves = get_prefs prog [] in
-      let col = reg_alloc alg clash_graph k moves in
-        apply_colour (total_colour col) prog
+    let (clash_graph,_) = clash_tree_to_spg tree [] LN in
+    let col = reg_alloc alg clash_graph k moves in
+      apply_colour (total_colour col) prog
   | SOME col_prog =>
       col_prog`
 
