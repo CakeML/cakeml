@@ -17,6 +17,16 @@ val rename_state_with_clock = Q.store_thm("rename_state_with_clock",
   `rename_state f (s with clock := k) = rename_state f s with clock := k`,
   EVAL_TAC);
 
+val rename_state_const = Q.store_thm("rename_state_const[simp]",
+  `(rename_state f s).memory = s.memory ∧
+   (rename_state f s).be = s.be ∧
+   (rename_state f s).mdomain = s.mdomain`,
+  EVAL_TAC);
+
+val rename_state_with_memory = Q.store_thm("rename_state_with_memory",
+  `rename_state f (s with memory := k) = rename_state f s with memory := k`,
+  EVAL_TAC);
+
 val dec_clock_rename_state = Q.store_thm("dec_clock_rename_state",
   `dec_clock (rename_state x y) = rename_state x (dec_clock y)`,
   EVAL_TAC >> simp[state_component_equality]);
@@ -113,7 +123,8 @@ val inst_rename = Q.store_thm("inst_rename",
   every_case_tac >> fs[LET_THM,word_exp_def,ri_find_name_def,wordLangTheory.num_exp_def] >>
   rw[] >> fs[] >> rfs[] >> rw[set_var_find_name]
   \\ every_case_tac \\ fs [wordLangTheory.word_op_def]
-  \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac \\ fs [])
+  \\ rw [] \\ fs [] \\ fs [BIJ_DEF,INJ_DEF] \\ res_tac
+  \\ fs [rename_state_with_memory]);
 
 val MAP_FST_compile = Q.store_thm("MAP_FST_compile[simp]",
   `MAP FST (stack_names$compile f c) = MAP FST c`,
@@ -263,10 +274,10 @@ val comp_correct = Q.prove(
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
-    simp[Once rename_state_def] >>
-    simp[Once rename_state_def] >>
-    simp[Once rename_state_def] >>
     BasicProvers.TOP_CASE_TAC >> fs[] >>
+    simp[Once rename_state_def] >>
+    simp[Once rename_state_def] >>
+    simp[Once rename_state_def] >>
     fs[LET_THM] >>
     simp[EVAL``(rename_state f s).ffi``] >>
     split_pair_tac >> fs[] >> rveq >>
