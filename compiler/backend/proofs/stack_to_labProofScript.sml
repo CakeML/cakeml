@@ -192,21 +192,74 @@ val inst_correct = Q.store_thm("inst_correct",
     res_tac \\ full_simp_tac(srw_ss())[wordLangTheory.word_op_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] >>
     qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
     `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
-    `w2n (c + c') MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
+    qmatch_assum_rename_tac`c1 + c2 ∈ s1.mdomain` >>
+    `w2n (c1 + c2) MOD (dimindex (:'a) DIV 8) = 0` by metis_tac [state_rel_def] >>
     full_simp_tac(srw_ss())[] \\ match_mp_tac set_var_upd_reg \\ full_simp_tac(srw_ss())[]) >>
-  full_simp_tac(srw_ss())[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
-  every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
-  full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
-  res_tac >>
-  qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
-  `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[labSemTheory.mem_store_def,labSemTheory.addr_def] >>
-  qmatch_assum_abbrev_tac`mem_store cc _ _ = _` >>
-  `cc ∈ s1.mdomain` by full_simp_tac(srw_ss())[stackSemTheory.mem_store_def] >>
-  first_assum(fn th => first_assum(
-    tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
-  simp[] >>
-  imp_res_tac mem_store_upd_mem);
+  TRY (
+    qcase_tac`mem_store` >>
+    full_simp_tac(srw_ss())[stackSemTheory.word_exp_def,LET_THM,IS_SOME_EXISTS] >>
+    every_case_tac >> full_simp_tac(srw_ss())[] >> rpt var_eq_tac >>
+    full_simp_tac(srw_ss())[wordLangTheory.word_op_def,stackSemTheory.get_var_def] >> rpt var_eq_tac >>
+    res_tac >>
+    qpat_assum`Word _ = _`(assume_tac o SYM) >> full_simp_tac(srw_ss())[] >>
+    `t1.mem_domain = s1.mdomain ∧ t1.mem = s1.memory` by ( full_simp_tac(srw_ss())[state_rel_def] ) >> full_simp_tac(srw_ss())[] >>
+    full_simp_tac(srw_ss())[labSemTheory.mem_store_def,labSemTheory.addr_def] >>
+    qmatch_assum_abbrev_tac`mem_store cc _ _ = _` >>
+    `cc ∈ s1.mdomain` by full_simp_tac(srw_ss())[stackSemTheory.mem_store_def] >>
+    first_assum(fn th => first_assum(
+      tryfind (strip_assume_tac o C MATCH_MP th) o CONJUNCTS o CONV_RULE (REWR_CONV state_rel_def))) >>
+    simp[] >>
+    imp_res_tac mem_store_upd_mem >>
+    qpat_assum`Word _ = _`(assume_tac o SYM) >> fs[]) >>
+  TRY (
+    qcase_tac`mem_store_byte_aux`
+    \\ fs[wordSemTheory.mem_store_byte_aux_def]
+    \\ every_case_tac \\ fs[]
+    \\ fs[mem_store_byte_def,addr_def]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
+    \\ disch_then (assume_tac o SYM)
+    \\ fs[]
+    \\ fs[get_var_def]
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ rator_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ disch_then drule
+    \\ disch_then (assume_tac o SYM)
+    \\ simp[wordSemTheory.mem_store_byte_aux_def]
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac
+    \\ rveq
+    \\ fs[GSYM upd_mem_def]
+    \\ match_mp_tac (GEN_ALL mem_store_upd_mem)
+    \\ asm_exists_tac
+    \\ simp[stackSemTheory.mem_store_def]
+    \\ simp[stackSemTheory.state_component_equality]
+    \\ rveq \\ simp[]) >>
+  TRY (
+    rator_x_assum`mem_load_byte_aux`mp_tac
+    \\ fs[wordSemTheory.mem_load_byte_aux_def,labSemTheory.mem_load_byte_def,labSemTheory.addr_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ fs[word_exp_def,wordLangTheory.word_op_def]
+    \\ qpat_assum`IS_SOME _`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ disch_then drule
+    \\ disch_then (assume_tac o SYM) \\ fs[]
+    \\ fs[get_var_def]
+    \\ drule (GEN_ALL state_rel_read_reg_FLOOKUP_regs)
+    \\ rator_x_assum`FLOOKUP`mp_tac
+    \\ match_mp_tac SWAP_IMP
+    \\ TRY (
+         disch_then drule
+         \\ disch_then (assume_tac o SYM) \\ fs[] )
+    \\ `s1.memory = t1.mem ∧ t1.mem_domain = s1.mdomain ∧ t1.be = s1.be` by fs[state_rel_def]
+    \\ fs[] \\ strip_tac));
 
 val flatten_leq = Q.store_thm("flatten_leq",
   `∀x y z. z ≤ SND (flatten x y z)`,
