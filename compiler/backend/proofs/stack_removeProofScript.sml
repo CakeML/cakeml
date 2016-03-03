@@ -712,6 +712,27 @@ val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
   \\ match_mp_tac memory_write
   \\ full_simp_tac(srw_ss())[]);
 
+val state_rel_mem_store_byte_aux = Q.store_thm("state_rel_mem_store_byte_aux",
+  `state_rel k s t ∧ mem_store_byte_aux a b s.memory s.mdomain s.be = SOME z ⇒
+   ∃y. mem_store_byte_aux a b t.memory t.mdomain t.be = SOME y ∧
+       state_rel k (s with memory := z) (t with memory := y)`,
+  rw[state_rel_def,wordSemTheory.mem_store_byte_aux_def]
+  \\ ntac 2 (pop_assum mp_tac)
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac
+  \\ fs[GSYM STAR_ASSOC]
+  \\ drule (GEN_ALL memory_fun2set_IMP_read)
+  \\ disch_then drule
+  \\ strip_tac \\ simp[]
+  \\ rveq
+  \\ simp[CONJ_ASSOC]
+  \\ conj_tac >- metis_tac[]
+  \\ match_mp_tac memory_write
+  \\ simp[]);
+
 val state_rel_inst = Q.store_thm("state_rel_inst",
   `state_rel k s t ∧
    good_syntax_inst i k ∧
@@ -771,23 +792,29 @@ val state_rel_inst = Q.store_thm("state_rel_inst",
   \\ ONCE_REWRITE_TAC[CONJ_COMM]
   \\ disch_then drule
   \\ simp[]
-  >- (
+  \\ imp_res_tac mem_load_byte_aux_IMP \\ fs[]
+  >> TRY (
     imp_res_tac state_rel_mem_load_imp
-    \\ simp[] \\ srw_tac[][] \\ srw_tac[][] )
+    \\ simp[] \\ srw_tac[][] \\ srw_tac[][] \\ NO_TAC)
   \\ BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac state_rel_get_var
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ qmatch_assum_rename_tac`mem_store x y s = SOME s'`
-  \\ `∃t'. mem_store x y t = SOME t'`
-  by (
-    full_simp_tac(srw_ss())[mem_store_def]
-    \\ full_simp_tac(srw_ss())[state_rel_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC]
-    \\ drule (GEN_ALL memory_fun2set_IMP_read)
-    \\ metis_tac[] )
-  \\ simp[]
-  \\ imp_res_tac state_rel_mem_store);
+  \\ TRY (
+    qmatch_assum_rename_tac`mem_store x y s = SOME s'`
+    \\ `∃t'. mem_store x y t = SOME t'`
+    by (
+      full_simp_tac(srw_ss())[mem_store_def]
+      \\ full_simp_tac(srw_ss())[state_rel_def]
+      \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+      \\ full_simp_tac(srw_ss())[GSYM STAR_ASSOC]
+      \\ drule (GEN_ALL memory_fun2set_IMP_read)
+      \\ metis_tac[] )
+    \\ simp[]
+    \\ imp_res_tac state_rel_mem_store)
+  \\ drule (GEN_ALL state_rel_mem_store_byte_aux)
+  \\ disch_then drule
+  \\ strip_tac \\ simp[]);
 
 val stack_write = Q.store_thm("stack_write",
   `∀stack base p m d a v.
