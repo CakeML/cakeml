@@ -2,7 +2,7 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
      int_bitwiseTheory bvp_to_wordPropsTheory finite_mapTheory
      bvp_to_wordTheory wordPropsTheory labPropsTheory whileTheory
      set_sepTheory semanticsPropsTheory word_to_wordProofTheory
-     helperLib;
+     helperLib alignmentTheory;
 
 val _ = new_theory "bvp_to_wordProof";
 
@@ -3589,7 +3589,7 @@ val write_bytes_APPEND = store_thm("write_bytes_APPEND",
       write_bytes vals (xs ++ (ys:'a word list)) be =
       write_bytes vals xs be ++
       write_bytes (DROP ((dimindex (:α) DIV 8) * LENGTH xs) vals) ys be``,
-  cheat);
+  Induct \\ fs [write_bytes_def,ADD1,RIGHT_ADD_DISTRIB,DROP_DROP_T]);
 
 val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
 val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
@@ -3640,6 +3640,66 @@ val get_byte_bytes_to_word = prove(
              alignmentTheory.align_w2n]))
   \\ rfs [labPropsTheory.good_dimindex_def]);
 
+val pow_eq_0 = store_thm("pow_eq_0",
+  ``dimindex (:'a) <= k ==> (n2w (2 ** k) = 0w:'a word)``,
+  fs [dimword_def] \\ fs [LESS_EQ_EXISTS]
+  \\ rw [] \\ fs [EXP_ADD,MOD_EQ_0]);
+
+val aligned_pow = store_thm("aligned_pow",
+  ``aligned k (n2w (2 ** k))``,
+  Cases_on `k < dimindex (:'a)`
+  \\ fs [NOT_LESS,pow_eq_0,aligned_0]
+  \\ `2 ** k < dimword (:'a)` by fs [dimword_def]
+  \\ fs [aligned_def,align_w2n])
+
+local
+  val aligned_add_mult_lemma = prove(
+    ``aligned k (w + n2w (2 ** k)) = aligned k w``,
+    fs [aligned_add_sub,aligned_pow]) |> GEN_ALL
+  val aligned_add_mult_any = prove(
+    ``!n w. aligned k (w + n2w (n * 2 ** k)) = aligned k w``,
+    Induct \\ fs [MULT_CLAUSES,GSYM word_add_n2w] \\ rw []
+    \\ pop_assum (qspec_then `w + n2w (2 ** k)` mp_tac)
+    \\ fs [aligned_add_mult_lemma]) |> GEN_ALL
+in
+  val aligned_add_pow = save_thm("aligned_add_pow[simp]",
+    CONJ aligned_add_mult_lemma aligned_add_mult_any)
+end
+
+val MOD_MULT_MOD_LEMMA = prove(
+  ``k MOD n = 0 /\ x MOD n = t /\ 0 < k /\ 0 < n /\ n <= k ==>
+    x MOD k MOD n = t``,
+  rw [] \\ drule DIVISION
+  \\ disch_then (qspec_then `k` mp_tac) \\ strip_tac
+  \\ qpat_assum `_ = _` (fn th => once_rewrite_tac [th])
+  \\ fs [] \\ Cases_on `0 < k DIV n` \\ fs [MOD_MULT_MOD]
+  \\ fs [DIV_EQ_X] \\ rfs [DIV_EQ_X]);
+
+val w2n_add_byte_align_lemma = prove(
+  ``good_dimindex (:'a) ==>
+    w2n (a' + byte_align (a:'a word)) MOD (dimindex (:'a) DIV 8) =
+    w2n a' MOD (dimindex (:'a) DIV 8)``,
+  Cases_on `a'` \\ Cases_on `a`
+  \\ fs [byte_align_def,align_w2n]
+  \\ fs [labPropsTheory.good_dimindex_def] \\ rw []
+  \\ fs [word_add_n2w] \\ fs [dimword_def]
+  \\ match_mp_tac MOD_MULT_MOD_LEMMA \\ fs []
+  \\ once_rewrite_tac [MULT_COMM]
+  \\ once_rewrite_tac [ADD_COMM]
+  \\ fs [MOD_TIMES]);
+
+val get_byte_byte_align = prove(
+  ``good_dimindex (:'a) ==>
+    get_byte (a' + byte_align a) w be = get_byte a' (w:'a word) be``,
+  fs [wordSemTheory.get_byte_def] \\ rw [] \\ rpt AP_TERM_TAC
+  \\ fs [wordSemTheory.byte_index_def,w2n_add_byte_align_lemma]);
+
+val get_byte_eq = prove(
+  ``good_dimindex (:'a) /\ a = byte_align a + a' ==>
+    get_byte a w be = get_byte a' (w:'a word) be``,
+  rw [] \\ pop_assum (fn th => once_rewrite_tac [th])
+  \\ fs [get_byte_byte_align]);
+
 val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
     FLOOKUP refs p = SOME (ByteArray vals) /\ good_dimindex (:'a) ==>
@@ -3679,25 +3739,58 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ qabbrev_tac `k = LOG2 (dimindex (:α) DIV 8)`
     \\ `dimindex (:α) DIV 8 = 2 ** k` by
          (rfs [labPropsTheory.good_dimindex_def,Abbr`k`] \\ NO_TAC) \\ fs []
-    \\ `(align k (curr + n2w i + n2w (2 ** k) +
-                  n2w (heap_length ha) * n2w (2 ** k)) =
-         curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
-                  n2w (heap_length ha) * n2w (2 ** k))` by cheat \\ fs []
+    \\ `(align k (curr + n2w (2 ** k) +
+                  n2w (heap_length ha) * n2w (2 ** k) + n2w i) =
+         curr + n2w (2 ** k) + n2w (heap_length ha) * n2w (2 ** k) +
+         n2w (i DIV 2 ** k * 2 ** k))` by
+     (`0n < 2 ** k` by fs []
+      \\ drule DIVISION
+      \\ disch_then (qspec_then `i` strip_assume_tac)
+      \\ qpat_assum `_ = _` (fn th => simp_tac std_ss [Once th]
+            THEN assume_tac (GSYM th))
+      \\ simp_tac std_ss [GSYM word_add_n2w,WORD_ADD_ASSOC]
+      \\ match_mp_tac align_add_aligned
+      \\ fs [aligned_add_pow,word_mul_n2w,byte_aligned_def]
+      \\ `i MOD 2 ** k < dimword (:'a)` by all_tac \\ fs []
+      \\ match_mp_tac LESS_LESS_EQ_TRANS \\ qexists_tac `2 ** k` \\ fs []
+      \\ fs [dimword_def]
+      \\ fs [labPropsTheory.good_dimindex_def] \\ rfs []
+      \\ Cases_on `k` \\ fs []
+      \\ Cases_on `n` \\ fs []
+      \\ Cases_on `n'` \\ fs []
+      \\ Cases_on `n` \\ fs []
+      \\ fs [ADD1,EXP_ADD] \\ NO_TAC)
     \\ `!v. get_byte
              (curr + n2w i + n2w (2 ** k) +
               n2w (heap_length ha) * n2w (2 ** k)) v be =
-            get_byte (n2w (i MOD 2 ** k)) v be` by cheat \\ fs []
-    \\ `(curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
-          n2w (heap_length ha) * n2w (2 ** k) IN dm) /\
-        m (curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
-          n2w (heap_length ha) * n2w (2 ** k)) =
-        (EL (i DIV 2 ** k) (MAP Word (write_bytes vals ws be)))` by cheat
+            get_byte (n2w (i MOD 2 ** k)) v be` by
+     (rw [] \\ match_mp_tac get_byte_eq
+      \\ fs [byte_align_def]
+      \\ `0n < 2 ** k` by fs []
+      \\ drule DIVISION
+      \\ disch_then (qspec_then `i` strip_assume_tac)
+      \\ qpat_assum `_ = _` (fn th => simp_tac std_ss [Once th])
+      \\ Cases_on `curr` \\ fs [word_add_n2w,word_mul_n2w] \\ NO_TAC)
+    \\ fs []
     \\ `i DIV 2 ** k < LENGTH ws` by
         (fs [DIV_LT_X,RIGHT_ADD_DISTRIB]
          \\ `0n < 2 ** k` by fs []
          \\ rpt_drule DIVISION
          \\ disch_then (qspec_then `LENGTH vals` strip_assume_tac)
          \\ decide_tac)
+    \\ `(curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
+          n2w (heap_length ha) * n2w (2 ** k) IN dm) /\
+        m (curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
+          n2w (heap_length ha) * n2w (2 ** k)) =
+        (EL (i DIV 2 ** k) (MAP Word (write_bytes vals ws be)))` by
+     (`i DIV 2 ** k < LENGTH (MAP Word (write_bytes vals ws be))` by
+                (fs [] \\ decide_tac)
+      \\ drule LESS_LENGTH_IMP \\ strip_tac \\ clean_tac
+      \\ fs [word_list_def,word_list_APPEND,bytes_in_word_def,word_mul_n2w]
+      \\ SEP_R_TAC \\ fs []
+      \\ pop_assum (fn th => rewrite_tac [GSYM th])
+      \\ simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+      \\ fs [EL_LENGTH_APPEND])
     \\ fs [EL_MAP,LENGTH_write_bytes]
     \\ drule LESS_LENGTH_IMP \\ strip_tac \\ clean_tac
     \\ fs [write_bytes_APPEND]
@@ -3706,7 +3799,13 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL_DEF,write_bytes_def,LET_DEF]
     \\ fs [] \\ pop_assum (fn th => fs [GSYM th]) \\ fs []
     \\ `EL i vals =
-        EL (i MOD 2 ** k) (DROP (i DIV 2 ** k * 2 ** k) vals)` by cheat
+        EL (i MOD 2 ** k) (DROP (i DIV 2 ** k * 2 ** k) vals)` by
+     (`0n < 2 ** k` by fs []
+      \\ rpt_drule DIVISION
+      \\ disch_then (qspec_then `i` strip_assume_tac)
+      \\ qpat_assum `_ = _` (fn th => simp [Once th] THEN assume_tac (GSYM th))
+      \\ once_rewrite_tac [ADD_COMM]
+      \\ match_mp_tac (GSYM EL_DROP) \\ decide_tac)
     \\ fs [] \\ match_mp_tac get_byte_bytes_to_word \\ fs []
     \\ `0n < 2 ** k` by fs []
     \\ rpt_drule DIVISION
