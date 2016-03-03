@@ -997,14 +997,9 @@ val aligned_2_imp = store_thm("aligned_2_imp",
     byte_align (x + 1w) = x ∧
     byte_align (x + 2w) = x ∧
     byte_align (x + 3w) = x``,
-  strip_tac
-  \\ drule aligned_IMP_ADD_LESS_dimword
-  \\ Cases_on `x`
-  \\ fs [alignmentTheory.byte_align_def]
-  \\ fs [alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]
-  \\ fs [MOD_EQ_0_DIVISOR]
-  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
-         ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+  rw [alignmentTheory.byte_align_def, GSYM alignmentTheory.aligned_def]
+  \\ match_mp_tac alignmentTheory.align_add_aligned
+  \\ simp [wordsTheory.dimword_def])
 
 val aligned_2_not_eq = store_thm("aligned_2_not_eq",
   ``aligned 2 (x:'a word) ∧ dimindex(:'a) = 32 ∧
@@ -1025,14 +1020,9 @@ val aligned_3_imp = store_thm("aligned_3_imp",
     byte_align (x + 5w) = x ∧
     byte_align (x + 6w) = x ∧
     byte_align (x + 7w) = x``,
-  strip_tac
-  \\ drule aligned_IMP_ADD_LESS_dimword
-  \\ Cases_on `x`
-  \\ fs [alignmentTheory.byte_align_def]
-  \\ fs [alignmentTheory.align_w2n,word_add_n2w,aligned_w2n]
-  \\ fs [MOD_EQ_0_DIVISOR]
-  \\ fs [ONCE_REWRITE_RULE [MULT_COMM] ADD_DIV_ADD_DIV,
-         ONCE_REWRITE_RULE [MULT_COMM] MULT_DIV]);
+  rw [alignmentTheory.byte_align_def, GSYM alignmentTheory.aligned_def]
+  \\ match_mp_tac alignmentTheory.align_add_aligned
+  \\ simp [wordsTheory.dimword_def])
 
 val aligned_3_not_eq = store_thm("aligned_3_not_eq",
   ``aligned 3 (x:'a word) ∧ dimindex(:'a) = 64 ∧
@@ -1061,12 +1051,7 @@ val dimword_eq_32_imp_or_bytes = prove(
      w2w ((w2w (x ⋙ 8)):word8) ≪ 8 ‖
      w2w ((w2w (x ⋙ 16)):word8) ≪ 16 ‖
      w2w ((w2w (x ⋙ 24)):word8) ≪ 24) = x``,
-  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
-      word_lsl_def,word_lsr_def]
-  \\ ntac 3 strip_tac
-  \\ Cases_on`i<8`\\simp[w2w]
-  \\ Cases_on`i<16`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<24`\\simp[w2w,fcpTheory.FCP_BETA]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 
 val dimword_eq_64_imp_or_bytes = prove(
   ``dimindex (:'a) = 64 ==>
@@ -1078,16 +1063,7 @@ val dimword_eq_64_imp_or_bytes = prove(
      w2w ((w2w (x ⋙ 40)):word8) ≪ 40 ‖
      w2w ((w2w (x ⋙ 48)):word8) ≪ 48 ‖
      w2w ((w2w (x ⋙ 56)):word8) ≪ 56) = x``,
-  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,w2w,
-      word_lsl_def,word_lsr_def]
-  \\ ntac 3 strip_tac
-  \\ Cases_on`i<8`\\simp[w2w]
-  \\ Cases_on`i<16`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<24`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<32`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<40`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<48`\\simp[w2w,fcpTheory.FCP_BETA]
-  \\ Cases_on`i<56`\\simp[w2w,fcpTheory.FCP_BETA]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [])
 
 val byte_align_32_eq = prove(``
   dimindex (:'a) = 32 ⇒

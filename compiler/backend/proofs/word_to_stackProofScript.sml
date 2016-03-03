@@ -651,15 +651,16 @@ val LESS_EQ_LENGTH = prove(
 
 val word_or_eq_0 = prove(
   ``((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)``,
-  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_0]
-  \\ metis_tac []);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ metis_tac [])
 
 val shift_shift_lemma = prove(
   ``~(word_msb w) ==> (w ≪ 1 ⋙ 1 = w)``,
-  fs [fcpTheory.CART_EQ,word_lsl_def,word_lsr_def,fcpTheory.FCP_BETA,word_msb_def]
-  \\ rpt strip_tac \\ Cases_on `i + 1 < dimindex (:α)`
-  \\ fs [fcpTheory.FCP_BETA] \\ fs [NOT_LESS]
-  \\ `i = dimindex (:'a) - 1` by decide_tac \\ fs []);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ Cases_on `i + 1 < dimindex (:α)`
+  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [NOT_LESS]
+  \\ `i = dimindex (:'a) - 1` by decide_tac
+  \\ simp [])
 
 val bit_length_bits_to_word = prove(
   ``!qs.

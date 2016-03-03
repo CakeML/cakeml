@@ -8,22 +8,14 @@ val _ = new_theory "bvp_to_wordProof";
 
 (* TODO: move *)
 
-val BIT_TWO_POW = prove(
-  ``BIT n (2 ** m) <=> (m = n)``,
-  Cases_on `n = m` \\ fs [bitTheory.BIT_B,bitTheory.BIT_B_NEQ]);
-
 val word_index_test = store_thm("word_index_test",
-  ``n < dimindex (:'a) ==>
-    (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))``,
-  fs [word_and_def,word_index,fcpTheory.FCP_BETA,fcpTheory.CART_EQ,
-      BIT_TWO_POW,word_bit_def]
-  \\ eq_tac \\ rw [] \\ rw [DIMINDEX_GT_0]);
+  ``n < dimindex (:'a) ==> (w ' n <=> ((w && n2w (2 ** n)) <> 0w:'a word))``,
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val word_bit_test = store_thm("word_bit_test",
   ``word_bit n w <=> ((w && n2w (2 ** n)) <> 0w:'a word)``,
-  fs [word_and_def,word_index,fcpTheory.FCP_BETA,fcpTheory.CART_EQ,
-      BIT_TWO_POW,word_bit_def]
-  \\ eq_tac \\ rw [] \\ rw [DIMINDEX_GT_0]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss]
+    [wordsTheory.word_index, DECIDE ``0n < d ==> (n <= d - 1) = (n < d)``])
 
 val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff", (* same in stack_alloc *)
   ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,

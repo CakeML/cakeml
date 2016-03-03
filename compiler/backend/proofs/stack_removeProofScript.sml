@@ -14,11 +14,9 @@ val _ = new_theory"stack_removeProof";
 
 val aligned_or = store_thm("aligned_or", (* TODO: move *)
   ``aligned n (w || v) <=> aligned n w /\ aligned n v``,
-  fs [alignmentTheory.aligned_extract]
-  \\ Cases_on `n = 0` \\ fs []
-  \\ fs [fcpTheory.CART_EQ,word_extract_def,w2w,word_bits_def,
-         fcpTheory.FCP_BETA,word_0,word_or_def]
-  \\ metis_tac []);
+  Cases_on `n = 0`
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [alignmentTheory.aligned_extract]
+  \\ metis_tac [])
 
 val aligned_w2n = store_thm("aligned_w2n",
   ``aligned k w <=> w2n (w:'a word) MOD 2 ** k = 0``,

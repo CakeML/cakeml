@@ -363,15 +363,12 @@ val bit_length_LESS_EQ_dimindex = store_thm("bit_length_LESS_EQ_dimindex",
 
 val shift_to_zero_word_msb = store_thm("shift_to_zero_word_msb",
   ``(w:'a word) >>> n = 0w /\ word_msb w ==> dimindex (:'a) <= n``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_0,word_lsr_def,
-        fcpTheory.FCP_BETA,word_msb_def]
-  \\ srw_tac[][] \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac(srw_ss())[GSYM NOT_LESS]
-  \\ qpat_assum `!xx.bb` mp_tac \\ full_simp_tac(srw_ss())[]
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] []
+  \\ CCONTR_TAC
+  \\ qpat_assum `!xx.bb` mp_tac
+  \\ fs [GSYM NOT_LESS]
   \\ qexists_tac `dimindex (:α) - 1 - n`
-  \\ `dimindex (:α) - 1 - n + n = dimindex (:α) - 1` by decide_tac
-  \\ full_simp_tac(srw_ss())[]
-  \\ decide_tac);
+  \\ simp [])
 
 val word_msb_IMP_bit_length = prove(
   ``!h. word_msb (h:'a word) ==> (bit_length h = dimindex (:'a))``,
@@ -533,8 +530,7 @@ val bit_length_eq_1 = store_thm("bit_length_eq_1",
 
 val word_and_one_eq_0_iff = store_thm("word_and_one_eq_0_iff",
   ``!w. ((w && 1w) = 0w) <=> ~(w ' 0)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_and_def,fcpTheory.FCP_BETA,word_0]
-  \\ full_simp_tac(srw_ss())[word_index]);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val word_gc_move_bitmap_unroll = prove(
   ``word_gc_move_bitmap conf (w,stack,i1,pa1,curr,m,dm) =
@@ -692,16 +688,14 @@ val memcpy_code_thm = store_thm("memcpy_code_thm",
 
 val select_lower_lemma = store_thm("select_lower_lemma",
   ``(n -- 0) w = ((w:'a word) << (dimindex(:'a)-n-1)) >>> (dimindex(:'a)-n-1)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsl_def,
-      word_lsr_def] \\ srw_tac[][]
-  \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)` \\ full_simp_tac(srw_ss())[]
-  THEN1 (full_simp_tac(srw_ss())[fcpTheory.FCP_BETA] \\ srw_tac[][] \\ eq_tac \\ srw_tac[][] \\ decide_tac)
-  \\ CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ decide_tac);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss, boolSimps.CONJ_ss] [wordsTheory.word_index]
+  \\ Cases_on `i + (dimindex (:α) - n - 1) < dimindex (:α)`
+  \\ fs []
+  )
 
 val select_eq_select_0 = store_thm("select_eq_select_0",
   ``k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)``,
-  full_simp_tac(srw_ss())[fcpTheory.CART_EQ,word_bits_def,fcpTheory.FCP_BETA,word_lsr_def] \\ srw_tac[][]
-  \\ eq_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ decide_tac);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw [])
 
 val clear_top_inst_def = Define `
   clear_top_inst i n =
@@ -1258,9 +1252,7 @@ val DROP_IMP_EL = store_thm("DROP_IMP_EL",
 
 val word_msb_IFF_lsr_EQ_0 = store_thm("word_msb_IFF_lsr_EQ_0",
   ``word_msb h <=> (h >>> (dimindex (:'a) - 1) <> 0w:'a word)``,
-  fs [word_msb_def,fcpTheory.CART_EQ,word_0] \\ rw [] \\ eq_tac \\ rw []
-  THEN1 (qexists_tac `0` \\ fs [word_lsr_def,fcpTheory.FCP_BETA])
-  \\ rfs [word_lsr_def,fcpTheory.FCP_BETA] \\ fs []);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [])
 
 val map_bitmap_IMP_LENGTH = store_thm("map_bitmap_IMP_LENGTH",
   ``!x wl stack xs ys.
