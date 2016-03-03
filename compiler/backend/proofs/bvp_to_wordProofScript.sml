@@ -3755,11 +3755,18 @@ val word_less_lemma1 = prove(
 
 val Smallnum_bits = store_thm("Smallnum_bits",
   ``(1w && Smallnum i) = 0w /\ (2w && Smallnum i) = 0w``,
-  cheat);
+  Cases_on `i`
+  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
+             [Smallnum_def, GSYM wordsTheory.word_mul_n2w]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val IsBlock_word_lemma = prove(
   ``good_dimindex (:'a) ==> (2w && 16w * n2w n' + 2w) <> 0w :'a word``,
-  fs [labPropsTheory.good_dimindex_def] \\ rw [] \\ cheat);
+  `!a : 'a word. (a << 4 + 2w) = (a << 4 || 2w)`
+  by (strip_tac \\ match_mp_tac wordsTheory.WORD_ADD_OR
+      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss] [labPropsTheory.good_dimindex_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
 
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
