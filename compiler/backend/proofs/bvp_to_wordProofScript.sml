@@ -1175,6 +1175,7 @@ val heap_in_memory_store_def = Define `
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
     c.len_size + 6 < dimindex (:'a) /\
     ?curr other.
+      byte_aligned curr /\ byte_aligned other /\
       (FLOOKUP s CurrHeap = SOME (Word (curr:'a word))) /\
       (FLOOKUP s OtherHeap = SOME (Word other)) /\
       (FLOOKUP s NextFree = SOME (Word (curr + bytes_in_word * n2w a))) /\
@@ -3574,9 +3575,70 @@ val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
 
-val LENGTH_write_bytes = prove(
-  ``!xs a ws be. LENGTH (write_bytes a xs ws be) = LENGTH ws``,
-  Induct \\ fs [write_bytes_def,write_byte_def]);
+val LENGTH_write_bytes = store_thm("LENGTH_write_bytes[simp]",
+  ``!ws bs be. LENGTH (write_bytes bs ws be) = LENGTH ws``,
+  Induct \\ fs [write_bytes_def]);
+
+val LESS_LENGTH_IMP = prove(
+  ``!xs n. n < LENGTH xs ==> ?ys t ts. xs = ys ++ t::ts /\ LENGTH ys = n``,
+  Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL] \\ rw []
+  \\ res_tac \\ clean_tac \\ qexists_tac `h::ys` \\ fs []);
+
+val write_bytes_APPEND = store_thm("write_bytes_APPEND",
+  ``!xs ys vals be.
+      write_bytes vals (xs ++ (ys:'a word list)) be =
+      write_bytes vals xs be ++
+      write_bytes (DROP ((dimindex (:α) DIV 8) * LENGTH xs) vals) ys be``,
+  cheat);
+
+val LESS_4 = DECIDE ``i < 4 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n)``
+val LESS_8 = DECIDE ``i < 8 <=> (i = 0) \/ (i = 1) \/ (i = 2) \/ (i = 3n) \/
+                                (i = 4) \/ (i = 5) \/ (i = 6) \/ (i = 7)``
+
+val expand_num =
+  DECIDE ``4 = SUC 3 /\ 3 = SUC 2 /\ 2 = SUC 1 /\ 1 = SUC 0 /\
+           5 = SUC 4 /\ 6 = SUC 5 /\ 7 = SUC 6 /\ 8 = SUC 7``
+
+val get_byte_set_byte_alt = prove(
+  ``good_dimindex (:'a) /\ w <> v /\ byte_align w = byte_align v /\
+    get_byte w s be = x ==>
+    get_byte w (set_byte v b (s:'a word) be) be = x``,
+  rw [] \\ rpt_drule labPropsTheory.get_byte_set_byte_diff \\ fs []);
+
+val get_byte_bytes_to_word = prove(
+  ``∀zs (t:'a word).
+      i < LENGTH zs /\ i < 2 ** k /\
+      2 ** k = dimindex(:'a) DIV 8 /\ good_dimindex (:'a) ⇒
+      get_byte (n2w i) (bytes_to_word (2 ** k) 0w zs t be) be = EL i zs``,
+  rw [] \\ fs [] \\ Cases_on `dimindex (:α) = 32` \\ fs [] THEN1
+   (fs [LESS_4] \\ fs []
+    \\ Cases_on `zs` \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ TRY (Cases_on `t''`) \\ fs []
+    \\ TRY (Cases_on `t`) \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ rewrite_tac [expand_num,bytes_to_word_def]
+    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+      \\ match_mp_tac get_byte_set_byte_alt
+      \\ fs [dimword_def,alignmentTheory.byte_align_def,
+             alignmentTheory.align_w2n]))
+  \\ fs [] \\ Cases_on `dimindex (:α) = 64` \\ fs [] THEN1
+   (fs [LESS_8] \\ fs []
+    \\ Cases_on `zs` \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ TRY (Cases_on `t''`) \\ fs []
+    \\ TRY (Cases_on `t`) \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ TRY (Cases_on `t`) \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ TRY (Cases_on `t`) \\ fs []
+    \\ TRY (Cases_on `t'`) \\ fs []
+    \\ rewrite_tac [expand_num,bytes_to_word_def]
+    \\ rpt (fs [labPropsTheory.get_byte_set_byte]
+      \\ match_mp_tac get_byte_set_byte_alt
+      \\ fs [dimword_def,alignmentTheory.byte_align_def,
+             alignmentTheory.align_w2n]))
+  \\ rfs [labPropsTheory.good_dimindex_def]);
 
 val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
@@ -3585,6 +3647,9 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
       v = Word w /\ w ' 0 /\ word_bit 3 x /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
       LENGTH vals < 2 ** (dimindex (:'a) - 3) /\
+      (!i. i < LENGTH vals ==>
+           mem_load_byte_aux (a + bytes_in_word + n2w i) m dm be =
+           SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
         x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4)
       else
@@ -3608,6 +3673,45 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
   THEN1 cheat (* inv needs new assumption *)
+  THEN1
+   (fs [wordSemTheory.mem_load_byte_aux_def]
+    \\ fs [alignmentTheory.byte_align_def,bytes_in_word_def]
+    \\ qabbrev_tac `k = LOG2 (dimindex (:α) DIV 8)`
+    \\ `dimindex (:α) DIV 8 = 2 ** k` by
+         (rfs [labPropsTheory.good_dimindex_def,Abbr`k`] \\ NO_TAC) \\ fs []
+    \\ `(align k (curr + n2w i + n2w (2 ** k) +
+                  n2w (heap_length ha) * n2w (2 ** k)) =
+         curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
+                  n2w (heap_length ha) * n2w (2 ** k))` by cheat \\ fs []
+    \\ `!v. get_byte
+             (curr + n2w i + n2w (2 ** k) +
+              n2w (heap_length ha) * n2w (2 ** k)) v be =
+            get_byte (n2w (i MOD 2 ** k)) v be` by cheat \\ fs []
+    \\ `(curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
+          n2w (heap_length ha) * n2w (2 ** k) IN dm) /\
+        m (curr + n2w (i DIV 2 ** k * 2 ** k) + n2w (2 ** k) +
+          n2w (heap_length ha) * n2w (2 ** k)) =
+        (EL (i DIV 2 ** k) (MAP Word (write_bytes vals ws be)))` by cheat
+    \\ `i DIV 2 ** k < LENGTH ws` by
+        (fs [DIV_LT_X,RIGHT_ADD_DISTRIB]
+         \\ `0n < 2 ** k` by fs []
+         \\ rpt_drule DIVISION
+         \\ disch_then (qspec_then `LENGTH vals` strip_assume_tac)
+         \\ decide_tac)
+    \\ fs [EL_MAP,LENGTH_write_bytes]
+    \\ drule LESS_LENGTH_IMP \\ strip_tac \\ clean_tac
+    \\ fs [write_bytes_APPEND]
+    \\ `i DIV 2 ** k = LENGTH (write_bytes vals ys' be)` by
+          metis_tac [LENGTH_write_bytes]
+    \\ full_simp_tac std_ss [EL_LENGTH_APPEND,NULL_DEF,write_bytes_def,LET_DEF]
+    \\ fs [] \\ pop_assum (fn th => fs [GSYM th]) \\ fs []
+    \\ `EL i vals =
+        EL (i MOD 2 ** k) (DROP (i DIV 2 ** k * 2 ** k) vals)` by cheat
+    \\ fs [] \\ match_mp_tac get_byte_bytes_to_word \\ fs []
+    \\ `0n < 2 ** k` by fs []
+    \\ rpt_drule DIVISION
+    \\ disch_then (qspec_then `i` strip_assume_tac)
+    \\ decide_tac)
   \\ fs [labPropsTheory.good_dimindex_def,make_header_def,
          byte_length_extra_def,LENGTH_write_bytes] \\ rfs []
   THEN1

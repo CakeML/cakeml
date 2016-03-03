@@ -39,19 +39,22 @@ val words_of_bytes_def = tDefine "words_of_bytes" `
        word_of_bytes be 0w xs :: words_of_bytes be ys)`
  (WF_REL_TAC `measure (LENGTH o SND)` \\ fs [])
 
-val write_byte_def = Define `
-  write_byte (a:'a word) b ws be =
-    let n = w2n (a >>> shift (:'a)) in
-      LUPDATE (set_byte a b (EL n ws) be) n ws`
+val bytes_to_word_def = Define `
+  (bytes_to_word 0 a bs w be = w) /\
+  (bytes_to_word (SUC k) a [] w be = w) /\
+  (bytes_to_word (SUC k) a (b::bs) w be =
+     set_byte a b (bytes_to_word k (a+1w) bs w be) be)`
 
 val write_bytes_def = Define `
-  (write_bytes a [] ws be = ws) /\
-  (write_bytes a (b::bs) ws be =
-     write_byte a b (write_bytes (a+1w) bs ws be) be)`;
+  (write_bytes bs [] be = []) /\
+  (write_bytes bs ((w:'a word)::ws) be =
+     let k = dimindex (:'a) DIV 8 in
+       bytes_to_word k 0w bs w be
+          :: write_bytes (DROP k bs) ws be)`
 
 val Bytes_def = Define`
   ((Bytes is_bigendian (bs:word8 list) (ws:'a word list)):'a ml_el) =
-    let ws = write_bytes 0w bs ws is_bigendian in
+    let ws = write_bytes bs ws is_bigendian in
       DataElement [] (LENGTH ws) (BytesTag (LENGTH bs), MAP Word ws)`
 
 val words_of_int_def = Define `
