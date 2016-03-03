@@ -3575,10 +3575,6 @@ val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
   \\ fs [labPropsTheory.good_dimindex_def]
   \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
 
-val LENGTH_write_bytes = store_thm("LENGTH_write_bytes[simp]",
-  ``!ws bs be. LENGTH (write_bytes bs ws be) = LENGTH ws``,
-  Induct \\ fs [write_bytes_def]);
-
 val LESS_LENGTH_IMP = prove(
   ``!xs n. n < LENGTH xs ==> ?ys t ts. xs = ys ++ t::ts /\ LENGTH ys = n``,
   Induct \\ fs [] \\ Cases_on `n` \\ fs [LENGTH_NIL] \\ rw []
@@ -3732,7 +3728,6 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   THEN1 (fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
-  THEN1 cheat (* inv needs new assumption *)
   THEN1
    (fs [wordSemTheory.mem_load_byte_aux_def]
     \\ fs [alignmentTheory.byte_align_def,bytes_in_word_def]
@@ -3811,6 +3806,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ rpt_drule DIVISION
     \\ disch_then (qspec_then `i` strip_assume_tac)
     \\ decide_tac)
+  \\ qpat_assum `LENGTH vals < 2 ** (_ + _)` assume_tac
   \\ fs [labPropsTheory.good_dimindex_def,make_header_def,
          byte_length_extra_def,LENGTH_write_bytes] \\ rfs []
   THEN1
@@ -4008,7 +4004,8 @@ val assign_thm = Q.prove(
     \\ `word_exp t (real_addr c (adjust_var a1)) = SOME (Word a)` by
          (match_mp_tac (GEN_ALL get_real_addr_lemma)
           \\ fs [wordSemTheory.get_var_def] \\ NO_TAC) \\ fs []
-    \\ `2 < dimindex (:'a)` by cheat
+    \\ `2 < dimindex (:'a)` by
+         (fs [labPropsTheory.good_dimindex_def] \\ fs [])
     \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ fs [WORD_MUL_LSL,WORD_LEFT_ADD_DISTRIB,GSYM word_add_n2w]

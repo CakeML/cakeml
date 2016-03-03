@@ -135,7 +135,8 @@ val bc_ref_inv_def = Define `
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray bs)) =>
-        ?ws. LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
+        ?ws. LENGTH bs < 2 ** (dimindex (:'a) - 3) /\
+             LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
              (heap_lookup x heap = SOME (Bytes be bs (ws:'a word list)))
     | _ => F`;
 
@@ -1076,6 +1077,107 @@ val update_ref_thm1 = store_thm("update_ref_thm1",
   \\ Cases_on `refs ' n` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [INJ_DEF] \\ metis_tac [])
 
+(* update byte ref *)
+
+val LENGTH_write_bytes = store_thm("LENGTH_write_bytes[simp]",
+  ``!ws bs be. LENGTH (write_bytes bs ws be) = LENGTH ws``,
+  Induct \\ fs [write_bytes_def]);
+
+val LIST_REL_IMP_LIST_REL = prove(
+  ``!xs ys.
+      (!x y. MEM x xs ==> P x y ==> Q x y) ==>
+      LIST_REL P xs ys ==> LIST_REL Q xs ys``,
+  Induct \\ fs [PULL_EXISTS]);
+
+val v_size_LESS_EQ = prove(
+  ``!l x. MEM x l ==> v_size x <= v1_size l``,
+  Induct \\ fs [v_size_def] \\ rw [] \\ fs [] \\ res_tac \\ fs []);
+
+val v_inv_IMP = prove(
+  ``∀y x f ha.
+      v_inv y (x,f,ha ++ [Bytes be xs ws] ++ hb) ⇒
+      v_inv y (x,f,ha ++ [Bytes be ys ws] ++ hb)``,
+  completeInduct_on `v_size y` \\ rw [] \\ fs [PULL_FORALL]
+  \\ Cases_on `y` \\ fs [v_inv_def] \\ rw [] \\ fs []
+  \\ qexists_tac `xs'` \\ fs [PULL_FORALL,AND_IMP_INTRO]
+  \\ conj_tac THEN1
+   (qpat_assum `LIST_REL _ _ _` mp_tac
+    \\ match_mp_tac LIST_REL_IMP_LIST_REL \\ fs []
+    \\ rpt strip_tac \\ first_x_assum match_mp_tac \\ fs []
+    \\ fs [v_size_def] \\ imp_res_tac v_size_LESS_EQ \\ fs [])
+  \\ fs [Bytes_def,heap_lookup_APPEND,heap_lookup_def,BlockRep_def,
+         heap_length_APPEND,heap_length_def,SUM_APPEND,el_length_def]
+  \\ rw [] \\ fs []);
+
+val update_byte_ref_thm = store_thm("update_byte_ref_thm",
+  ``abs_ml_inv ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
+    (FLOOKUP refs ptr = SOME (ByteArray xs)) /\ (LENGTH xs = LENGTH ys) ==>
+    ?roots2 h1 h2 ws.
+      (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
+      heap = h1 ++ [Bytes be xs ws] ++ h2 /\
+      LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
+      abs_ml_inv ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray ys))
+        (roots,h1 ++ [Bytes be ys ws] ++ h2,be,a,sp) limit``,
+  simp_tac std_ss [abs_ml_inv_def]
+  \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
+  \\ Cases_on `roots` \\ fs [v_inv_def] \\ rpt var_eq_tac \\ fs []
+  \\ `reachable_refs (RefPtr ptr::stack) refs ptr` by
+   (full_simp_tac std_ss [reachable_refs_def] \\ qexists_tac `RefPtr ptr`
+    \\ full_simp_tac (srw_ss()) [get_refs_def] \\ NO_TAC)
+  \\ res_tac \\ fs []
+  \\ pop_assum mp_tac \\ simp_tac std_ss [Once bc_ref_inv_def]
+  \\ fs [FLOOKUP_DEF] \\ rw []
+  \\ drule heap_lookup_SPLIT \\ rw [] \\ fs []
+  \\ qexists_tac `ha` \\ fs []
+  \\ qexists_tac `ws` \\ fs [PULL_EXISTS]
+  \\ qexists_tac `f` \\ fs []
+  \\ `!a. isSomeDataElement (heap_lookup a (ha ++ [Bytes be ys ws] ++ hb)) =
+          isSomeDataElement (heap_lookup a (ha ++ [Bytes be xs ws] ++ hb))` by
+   (rw [] \\ fs [isSomeDataElement_def] \\ rw []
+    \\ fs [heap_lookup_APPEND] \\ rw [] \\ rw [] \\ fs []
+    \\ fs [heap_length_def,Bytes_def,el_length_def,heap_lookup_def])
+  \\ `ptr INSERT FDOM refs = FDOM refs` by (fs [EXTENSION] \\ metis_tac [])
+  \\ fs [] \\ rpt strip_tac
+  THEN1 (fs [roots_ok_def] \\ rw [] \\ fs [] \\ metis_tac [])
+  THEN1
+   (fs [heap_ok_def]
+    \\ fs [heap_length_def,Bytes_def,el_length_def,heap_lookup_def,
+           FILTER_APPEND,FILTER,isForwardPointer_def]
+    \\ rfs [] \\ fs [] \\ rpt strip_tac
+    \\ first_x_assum match_mp_tac \\ metis_tac [])
+  THEN1
+   (fs [unused_space_inv_def,heap_lookup_APPEND,heap_length_def]
+    \\ fs [heap_length_def,Bytes_def,el_length_def,heap_lookup_def,
+           FILTER_APPEND,FILTER,isForwardPointer_def]
+    \\ rfs [] \\ fs [] \\ rw [] \\ fs [])
+  THEN1
+   (qpat_assum `LIST_REL _ _ _` mp_tac
+    \\ match_mp_tac LIST_REL_mono \\ fs []
+    \\ metis_tac [v_inv_IMP])
+  \\ `reachable_refs (RefPtr ptr::stack) refs n` by cheat
+  \\ Cases_on `n = ptr` \\ fs [] THEN1
+   (fs [] \\ rw [bc_ref_inv_def,FLOOKUP_DEF]
+    \\ fs [heap_lookup_APPEND,heap_length_APPEND,Bytes_def,
+           heap_length_def,el_length_def,heap_lookup_def]
+    \\ asm_exists_tac \\ fs [])
+  \\ first_x_assum drule
+  \\ fs [bc_ref_inv_def]
+  \\ strip_tac \\ CASE_TAC \\ fs []
+  \\ fs [FLOOKUP_UPDATE] \\ rfs [] \\ fs []
+  \\ CASE_TAC \\ fs [] \\ CASE_TAC \\ fs []
+  THEN1
+   (once_rewrite_tac [CONJ_COMM] \\ qexists_tac `zs` \\ fs []
+    \\ conj_tac THEN1 (pop_assum mp_tac
+      \\ match_mp_tac LIST_REL_mono \\ fs [] \\ metis_tac [v_inv_IMP])
+    \\ fs [heap_lookup_def,heap_lookup_APPEND,Bytes_def,
+           el_length_def,SUM_APPEND,RefBlock_def,heap_length_APPEND]
+    \\ rw [] \\ fs [] \\ rfs [heap_length_def,el_length_def] \\ fs [NOT_LESS])
+  \\ asm_exists_tac \\ fs []
+  \\ Cases_on `x = heap_length ha`
+  THEN1 (fs [INJ_DEF,FLOOKUP_DEF] \\ metis_tac [])
+  \\ fs [heap_lookup_APPEND,Bytes_def,heap_length_def,el_length_def,SUM_APPEND]
+  \\ rfs [] \\ rw [] \\ fs [] \\ rfs [heap_lookup_def])
+
 (* new ref *)
 
 val new_ref_thm = store_thm("new_ref_thm",
@@ -1174,10 +1276,8 @@ val new_ref_thm = store_thm("new_ref_thm",
   \\ Cases_on `FLOOKUP refs n` \\ full_simp_tac (srw_ss()) []
   \\ full_simp_tac (srw_ss()) [FDOM_FUPDATE,FAPPLY_FUPDATE_THM,FLOOKUP_DEF]
   \\ reverse (Cases_on `x'`) \\ full_simp_tac (srw_ss()) []
-  THEN1 (
-    qexists_tac `ws` >>
-    fs[Bytes_def,LET_THM] >>
-    imp_res_tac heap_store_rel_lemma )
+  THEN1 (asm_exists_tac \\ fs []
+         \\ imp_res_tac heap_store_rel_lemma \\ fs [Bytes_def])
   \\ `isSomeDataElement (heap_lookup (f ' n) heap)` by
     (full_simp_tac std_ss [RefBlock_def] \\ EVAL_TAC
      \\ simp_tac (srw_ss()) [] \\ NO_TAC)
@@ -1561,8 +1661,9 @@ val word_payload_def = Define `
      ((b2w b << 2 || 1w), (* header: ...101 or ...001 *)
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     ((byte_length_extra conf n << 2 || 3w), (* header: ...11 *)
-      qs, (ys = []) /\ (LENGTH qs = l)))`;
+     ((byte_length_extra conf n << 2 || 3w:'a word), (* header: ...11 *)
+      qs, (ys = []) /\ (LENGTH qs = l) /\
+          n < 2 ** (conf.len_size + if dimindex (:'a) = 32 then 2 else 3)))`;
 
 val decode_tag_bits_def = Define `
   decode_tag_bits conf w =
