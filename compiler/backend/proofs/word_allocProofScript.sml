@@ -1659,22 +1659,32 @@ val get_reads_exp_get_live_exp = prove(``
   fs[]>>
   metis_tac[])
 
-val clash_tree_colouring_ok_exp = prove(``
-  ∀exp live flive f flivein.
-  domain flive = IMAGE f (domain live) ∧
-  INJ f (domain live) UNIV ∧
-  check_partial_col f (get_reads_exp exp) live flive = SOME (livein,flivein) ⇒
-  livein = 
-  INJ f (domain (union (get_live_exp exp) live)) UNIV ∧
-  domain flivein = IMAGE f (domain (union (get_live_exp exp) live))``,
-  ho_match_mp_tac get_reads_exp_ind>>fs[get_live_exp_def,get_reads_exp_def]>>
-  CONJ_TAC>-
-    (ntac 6 strip_tac>>
-    imp_res_tac check_partial_col_INJ>>
-    fs[domain_numset_list_insert_eq_union,numset_list_insert_def])>>
-  CONJ_TAC>-
-    cheat>>
-  fs[check_partial_col_def])
+val lookup_numset_list_insert = prove(``
+  ∀ls n t.
+  lookup n (numset_list_insert ls t) =
+  if MEM n ls then SOME () else lookup n t``,
+  Induct>>fs[numset_list_insert_def,lookup_insert]>>rw[]>>
+  fs[])
+
+val numset_list_insert_eq_UNION = prove(``
+  ∀t t' ls.
+  wf t ∧ wf t' ∧
+  domain t' = set ls ⇒
+  numset_list_insert ls t =
+  union t' t``,
+  rw[]>>
+  dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm]>>
+  fs[numset_list_insert_swap,wf_union,EXTENSION]>>rw[]>>
+  fs[lookup_numset_list_insert]>>
+  IF_CASES_TAC
+  >-
+    (`n ∈ domain t'` by fs[]>>
+    fs[lookup_union,domain_lookup])
+  >>
+  `n ∉ domain t'` by fs[]>>
+  `lookup n t' = NONE` by
+    metis_tac[domain_lookup,option_CASES]>>
+  fs[lookup_union,domain_lookup])
 
 val wf_delete_swap = prove(``
   wf t ⇒
@@ -1704,20 +1714,37 @@ val wf_numset_list_delete_eq = prove(``
 val hide_def = Define`
   hide x = x`
 
+val INJ_IMP_IMAGE_DIFF = prove(``
+  INJ f (s ∪ t) UNIV ⇒
+  IMAGE f (s DIFF t) = (IMAGE f s) DIFF (IMAGE f t)``,
+  rw[EXTENSION,EQ_IMP_THM]>> TRY (metis_tac[])>>
+  fs[INJ_DEF]>>
+  metis_tac[])
+
+val wf_get_live_exp = prove(``
+  ∀exp. wf(get_live_exp exp)``,
+  ho_match_mp_tac get_live_exp_ind>>fs[get_live_exp_def,wf_insert,wf_def]>>
+  rw[]>>
+  Induct_on`ls`>>rw[wf_def,wf_union])
+
 val start_tac =
   FULL_CASE_TAC>>fs[]>>Cases_on`x`>>
   imp_res_tac check_partial_col_INJ>>
   rfs[numset_list_delete_swap,domain_numset_list_delete,AND_IMP_INTRO]>>
   TRY(pop_assum mp_tac>>
-  discharge_hyps_keep>-
-    (*This is pretty big*)
-    cheat)>>
+  discharge_hyps_keep)>>
   fs[domain_numset_list_delete,domain_numset_list_insert,hide_def]>>
   rfs[GSYM domain_numset_list_insert_eq_union,wf_numset_list_delete_eq]>>
-  fs[domain_numset_list_delete,domain_numset_list_insert]
+  fs[domain_numset_list_delete,domain_numset_list_insert,numset_list_delete_def,numset_list_insert_def]
+
+val subset_tac =
+  match_mp_tac (GEN_ALL INJ_less)>>
+  HINT_EXISTS_TAC>>fs[domain_numset_list_insert_eq_union,SUBSET_DEF]>>
+  simp[domain_union]
 
 val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
   ∀prog f live flive livein flivein.
+  wf_cutsets prog ∧
   wf live ∧
   domain flive = IMAGE f (domain live) ∧
   INJ f (domain live) UNIV ∧
@@ -1730,28 +1757,49 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
   domain flivein = IMAGE f (domain livein))``,
   ho_match_mp_tac get_clash_tree_ind>>fs[get_clash_tree_def,check_clash_tree_def,colouring_ok_def,get_live_def,get_writes_def]>>rw[]
   >-
-    fs[hide_def,numset_list_delete_def,check_partial_col_def,hwf_def]
+    fs[hide_def,numset_list_delete_def,check_partial_col_def]
   >-
-    start_tac
+    (start_tac>>
+    CONJ_TAC>-
+      subset_tac>>
+    fs[LIST_TO_SET_MAP]>>
+    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
+    fs[])
   >- (*Inst*)
     cheat
   >-
-    (start_tac>>strip_tac>>
+    (start_tac
+    >-
+      (CONJ_TAC>-
+        subset_tac>>
+      `{f num} = IMAGE f {num}` by fs[]>>
+      pop_assum SUBST1_TAC>>
+      match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
+      fs[])
+    >>
+    strip_tac>>
     fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp,DELETE_DEF]>>
-    cheat)
+    match_mp_tac numset_list_insert_eq_UNION>>
+    fs[get_reads_exp_get_live_exp,wf_delete,wf_get_live_exp])
   >-
     (start_tac>>strip_tac>>
-    fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp,DELETE_DEF]>>
-    fs[numset_list_delete_def,numset_list_insert_def])
+    fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp,DELETE_DEF]
+    >-
+      subset_tac>>
+    `{f num} = IMAGE f {num}` by fs[]>>
+    pop_assum SUBST1_TAC>>
+    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
+    fs[])
   >-
     (start_tac>>
     CONJ_TAC>-
       metis_tac[INSERT_UNION_EQ,UNION_COMM,domain_union,get_reads_exp_get_live_exp]>>
-    fs[numset_list_delete_def,numset_list_insert_def]>>
-    cheat)
+    AP_TERM_TAC>>
+    match_mp_tac numset_list_insert_eq_UNION>>
+    fs[get_reads_exp_get_live_exp,wf_delete,wf_get_live_exp])
   >-
     (*Seq*)
-    (EVERY_CASE_TAC>>fs[]>>
+    (EVERY_CASE_TAC>>fs[wf_cutsets_def]>>
     res_tac>>
     rpt (qpat_assum `!P. Q` kall_tac)>>
     fs[hide_def]>>
@@ -1760,17 +1808,7 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     (*IF*)
     cheat
   >-
-    (EVERY_CASE_TAC>>fs[]>>
-    imp_res_tac check_col_INJ>>
-    fs[numset_list_delete_def]>>
-    imp_res_tac check_partial_col_INJ>>
-    rpt (qpat_assum `!P. Q` kall_tac)>>
-    rfs[AND_IMP_INTRO]>>
-    (*Argh, this means that all numsets in program must be wf,
-    which is annoying to carry around-- maybe avoid by using mk_wf
-    OR dispensing with the wfs altogether*)
-    `wf numset` by cheat>>
-    fs[hide_def,numset_list_insert_def])
+    metis_tac[wf_cutsets_def]
   >-
     (EVERY_CASE_TAC>>fs[]>>
     imp_res_tac check_col_INJ>>
@@ -1778,9 +1816,15 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     imp_res_tac check_partial_col_INJ>>
     rpt (qpat_assum `!P. Q` kall_tac)>>
     rfs[AND_IMP_INTRO]>>
-    (*See above*)
-    `wf numset` by cheat>>
-    fs[hide_def,numset_list_insert_def])
+    fs[hide_def,numset_list_insert_def,wf_cutsets_def])
+  >-
+    (EVERY_CASE_TAC>>fs[]>>
+    imp_res_tac check_col_INJ>>
+    fs[numset_list_delete_def]>>
+    imp_res_tac check_partial_col_INJ>>
+    rpt (qpat_assum `!P. Q` kall_tac)>>
+    rfs[AND_IMP_INTRO]>>
+    fs[hide_def,numset_list_insert_def,wf_cutsets_def])
   >-
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def]>>
@@ -1796,13 +1840,19 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     fs[numset_list_delete_def,numset_list_insert_def])
   >-
     (start_tac>>
-    fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM])
+    fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM]>>
+    CONJ_TAC>- subset_tac>>
+    `{f r} = IMAGE f {r}` by fs[]>>
+    pop_assum SUBST1_TAC>>
+    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
+    fs[])
   >-
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM,get_reads_exp_get_live_exp]>>
-    cheat)
+    match_mp_tac numset_list_insert_eq_UNION>>
+    fs[wf_get_live_exp,get_reads_exp_get_live_exp])
   >-
-    (*mess*)
+    (*Call*)
     cheat)
 
 (*DONE Liveness Proof*)

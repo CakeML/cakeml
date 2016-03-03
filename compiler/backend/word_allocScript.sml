@@ -48,6 +48,28 @@ val post_alloc_conventions_def = Define`
     every_stack_var (λx. x ≥ 2*k) prog ∧
     call_arg_convention prog)`
 
+(*Useful convention*)
+val wf_cutsets = Define`
+  (wf_cutsets (Alloc n s) = wf s) ∧
+  (wf_cutsets (Call ret dest args h) =
+    (case ret of
+      NONE => T
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      wf cutset ∧
+      wf_cutsets ret_handler ∧
+      (case h of
+        NONE => T
+      | SOME (v,prog,l1,l2) =>
+        wf_cutsets prog))) ∧
+  (wf_cutsets (FFI x y z args) = wf args) ∧
+  (wf_cutsets (MustTerminate _ s) = wf_cutsets s) ∧
+  (wf_cutsets (Seq s1 s2) =
+    (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
+  (wf_cutsets (If cmp r1 ri e2 e3) =
+    (wf_cutsets e2 ∧
+     wf_cutsets e3)) ∧
+  (wf_cutsets _ = T)`
+
 (*SSA form*)
 val apply_nummap_key_def = Define`
   apply_nummap_key f names =
@@ -707,7 +729,10 @@ val oracle_colour_ok_def = Define`
         check_clash_tree tcol tree LN LN ≠ NONE)
      then
        let col_prog = apply_colour tcol prog in
-       if post_alloc_conventions k col_prog
+       if
+         every_var is_phy_var prog ∧
+         every_stack_var (λx. x ≥ 2*k) prog
+         (*call_arg_conv is automatically satisfied*)
        then
          SOME col_prog
        else
