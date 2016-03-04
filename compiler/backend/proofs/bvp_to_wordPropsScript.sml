@@ -1184,7 +1184,12 @@ val update_byte_ref_thm = store_thm("update_byte_ref_thm",
    (qpat_assum `LIST_REL _ _ _` mp_tac
     \\ match_mp_tac LIST_REL_mono \\ fs []
     \\ metis_tac [v_inv_IMP])
-  \\ `reachable_refs (RefPtr ptr::stack) refs n` by cheat
+  \\ `reachable_refs (RefPtr ptr::stack) refs n` by
+   (pop_assum mp_tac
+    \\ `ref_edge (refs |+ (ptr,ByteArray ys)) = ref_edge refs` by all_tac
+    \\ simp [reachable_refs_def]
+    \\ fs [ref_edge_def,FUN_EQ_THM,FLOOKUP_UPDATE]
+    \\ rw [] \\ fs [FLOOKUP_DEF])
   \\ Cases_on `n = ptr` \\ fs [] THEN1
    (fs [] \\ rw [bc_ref_inv_def,FLOOKUP_DEF]
     \\ fs [heap_lookup_APPEND,heap_length_APPEND,Bytes_def,
