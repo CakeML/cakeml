@@ -812,13 +812,36 @@ val evaluate_add_clock_io_events_mono = Q.store_thm("evaluate_add_clock_io_event
   imp_res_tac evaluate_io_events_mono >> rev_full_simp_tac(srw_ss())[] >>
   metis_tac[evaluate_io_events_mono,IS_PREFIX_TRANS,SND,PAIR]);
 
-val semantics_Div_IMP_LPREFIX = store_thm("semantics_Div_IMP_LPREFIX",
-  ``semantics ffi prog start = Diverge l ==> LPREFIX (fromList ffi.io_events) l``,
-  cheat (* simple property about the semantics *));
+val semantics_Div_IMP_LPREFIX = Q.store_thm("semantics_Div_IMP_LPREFIX",
+  `semantics ffi prog start = Diverge l ==> LPREFIX (fromList ffi.io_events) l`,
+  simp[semantics_def]
+  \\ IF_CASES_TAC \\ fs[]
+  \\ DEEP_INTRO_TAC some_intro \\ fs[]
+  \\ rw[]
+  \\ qmatch_abbrev_tac`LPREFIX l1 (build_lprefix_lub l2)`
+  \\ `l1 ∈ l2 ∧ lprefix_chain l2` suffices_by metis_tac[build_lprefix_lub_thm,lprefix_lub_def]
+  \\ conj_tac
+  >- (
+    unabbrev_all_tac >> simp[]
+    \\ qexists_tac`0`>>fs[evaluate_def]
+    \\ CASE_TAC >> fs[]
+    \\ CASE_TAC >> fs[]
+    \\ CASE_TAC >> fs[] )
+  \\ simp[Abbr`l2`]
+  \\ simp[Once(GSYM o_DEF),IMAGE_COMPOSE]
+  \\ match_mp_tac prefix_chain_lprefix_chain
+  \\ simp[prefix_chain_def,PULL_EXISTS]
+  \\ qx_genl_tac[`k1`,`k2`]
+  \\ qspecl_then[`k1`,`k2`]mp_tac LESS_EQ_CASES
+  \\ simp[LESS_EQ_EXISTS]
+  \\ metis_tac[evaluate_add_clock_io_events_mono,
+               initial_state_simp,initial_state_with_simp]);
 
-val semantics_Term_IMP_PREFIX = store_thm("semantics_Term_IMP_PREFIX",
-  ``semantics ffi prog start = Terminate tt l ==> ffi.io_events ≼ l``,
-  cheat (* simple property about the semantics *));
+val semantics_Term_IMP_PREFIX = Q.store_thm("semantics_Term_IMP_PREFIX",
+  `semantics ffi prog start = Terminate tt l ==> ffi.io_events ≼ l`,
+  simp[semantics_def] \\ IF_CASES_TAC \\ fs[]
+  \\ DEEP_INTRO_TAC some_intro \\ fs[] \\ rw[]
+  \\ imp_res_tac evaluate_io_events_mono \\ fs[]);
 
 val Resource_limit_hit_implements_semantics =
   store_thm("Resource_limit_hit_implements_semantics",
