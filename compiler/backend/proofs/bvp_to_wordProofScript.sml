@@ -370,7 +370,7 @@ val word_gc_move_def = Define `
          else
            let header_addr = ptr_to_addr conf old w in
            let c = (c /\ header_addr IN dm /\ isWord (m header_addr)) in
-           let (_,len) = decode_header conf (theWord (m header_addr)) in
+           let len = decode_length conf (theWord (m header_addr)) in
            let v = i + len + 1w in
            let (pa1,m1,c1) = memcpy (len+1w) header_addr pa m dm in
            let c = (c /\ header_addr IN dm /\ c1) in
@@ -399,8 +399,8 @@ val word_gc_move_loop_def = Define `
     if k = 0 then (i,pa,m,F) else
       let w = m pb in
       let c = (c /\ pb IN dm /\ isWord w) in
-      let (h,len) = decode_header conf (theWord w) in
-        if h ' 0 then
+      let len = decode_length conf (theWord w) in
+        if word_bit 3 (theWord w) then
           let pb = pb + (len + 1w) * bytes_in_word in
             word_gc_move_loop (k-1n) conf (pb,i,pa,old,m,dm,c)
         else
@@ -501,6 +501,12 @@ val is_fws_ptr_OR_3 = prove(
   full_simp_tac(srw_ss())[is_fwd_ptr_def] \\ rewrite_tac [one_and_or_3,three_and_shift_2]
   \\ full_simp_tac(srw_ss())[]);
 
+val is_fws_ptr_OR_15 = prove(
+  ``~is_fwd_ptr (Word (w || 15w))``,
+  full_simp_tac(srw_ss())[is_fwd_ptr_def]
+  \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [word_index, get_lowerbits_def]
+  \\ qexists_tac `0` \\ fs []);
+
 val select_get_lowerbits = prove(
   ``(shift_length conf − 1 -- 0) (get_lowerbits conf a) =
     get_lowerbits conf a``,
@@ -589,6 +595,12 @@ val LESS_EQ_IMP_APPEND = prove(
   \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
+val NOT_is_fwd_ptr = prove(
+  ``word_payload addrs ll tag tt1 conf = (h,ts,c5) ==> ~is_fwd_ptr (Word h)``,
+  Cases_on `tag` \\ fs [word_payload_def] \\ rw []
+  \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,is_fws_ptr_OR_15,
+      isWord_def,theWord_def,make_header_def,LET_DEF,make_byte_header_def]);
+
 val word_gc_move_thm = prove(
   ``(gc_move (x,[],a,n,heap,T,limit) = (x1,h1,a1,n1,heap1,T)) /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
@@ -636,13 +648,11 @@ val word_gc_move_thm = prove(
   \\ full_simp_tac bool_ss [GSYM word_list_def]
   \\ full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,isWord_def,theWord_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR,SEP_CLAUSES]
-  \\ `~(is_fwd_ptr (Word (make_header conf h (LENGTH ts))))` by
-       (full_simp_tac std_ss [GSYM WORD_OR_ASSOC,is_fws_ptr_OR_3,
-           isWord_def,theWord_def,make_header_def,LET_DEF] \\ NO_TAC) \\ fs []
+  \\ `~is_fwd_ptr (Word h)` by (imp_res_tac NOT_is_fwd_ptr \\ fs [])
+  \\ fs []
   \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
   \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ Q.ABBREV_TAC `header = make_header conf h (LENGTH ts)`
-  \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word header::ts)):'a word` by
+  \\ `n2w (LENGTH ts) + 1w = n2w (LENGTH (Word h::ts)):'a word` by
         full_simp_tac(srw_ss())[LENGTH,ADD1,word_add_n2w]
   \\ full_simp_tac bool_ss []
   \\ drule memcpy_thm
@@ -665,11 +675,13 @@ val word_gc_move_thm = prove(
     \\ Cases_on `n'` \\ full_simp_tac(srw_ss())[MULT_CLAUSES] \\ decide_tac)
   \\ rpt strip_tac
   \\ full_simp_tac(srw_ss())[word_addr_def,word_add_n2w,ADD_ASSOC] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,SEP_CLAUSES,word_el_def,LET_THM]
+  \\ full_simp_tac(srw_ss())[word_heap_APPEND,word_heap_def,
+       SEP_CLAUSES,word_el_def,LET_THM]
   \\ full_simp_tac(srw_ss())[word_list_def]
   \\ SEP_W_TAC \\ qexists_tac `zs` \\ full_simp_tac(srw_ss())[]
   \\ reverse conj_tac THEN1
-   (full_simp_tac(srw_ss())[update_addr_def,get_addr_def,select_shift_out,select_get_lowerbits,ADD1])
+   (full_simp_tac(srw_ss())[update_addr_def,get_addr_def,
+       select_shift_out,select_get_lowerbits,ADD1])
   \\ pop_assum mp_tac
   \\ full_simp_tac(srw_ss())[AC STAR_ASSOC STAR_COMM]
   \\ full_simp_tac(srw_ss())[heap_length_def,SUM_APPEND,el_length_def,ADD1]
@@ -789,13 +801,6 @@ val word_gc_move_list_thm = prove(
   \\ full_simp_tac(srw_ss())[WORD_LEFT_ADD_DISTRIB,heap_length_def,
         SUM_APPEND,GSYM word_add_n2w]);
 
-val word_payload_T_IMP = prove(
-  ``word_payload l5 n5 tag r conf = (h,ts,T) ==>
-    n5 = LENGTH ts /\ if h ' 0 then l5 = [] else ts = MAP (word_addr conf) l5``,
-  Cases_on `tag` \\ full_simp_tac(srw_ss())[word_payload_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[LENGTH_NIL]
-  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,wordsTheory.word_index]);
-
 val word_payload_swap = prove(
   ``word_payload l5 (LENGTH l5) tag r conf = (h,MAP (word_addr conf) l5,T) /\
     LENGTH xs' = LENGTH l5 ==>
@@ -879,7 +884,7 @@ val word_gc_move_loop_thm = prove(
   \\ `k <> 0` by
    (fs [heap_length_APPEND,el_length_def,heap_length_def] \\ decide_tac)
   \\ full_simp_tac std_ss []
-  \\ Cases_on `h ' 0` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `word_bit 3 h` \\ full_simp_tac(srw_ss())[]
   \\ strip_tac \\ full_simp_tac(srw_ss())[]
   THEN1
    (full_simp_tac(srw_ss())[gc_move_list_def] \\ rpt var_eq_tac
@@ -2928,7 +2933,7 @@ val assign_thm = Q.prove(
     \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
-    \\ fs [decode_header_def]
+    \\ fs [decode_length_def]
     \\ match_mp_tac IMP_memory_rel_Number_num \\ fs [])
   \\ Cases_on `op = LengthBlock` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
@@ -2970,7 +2975,7 @@ val assign_thm = Q.prove(
     \\ fs [] \\ fs [lookup_insert,adjust_var_11] \\ rw [] \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
-    \\ fs [decode_header_def]
+    \\ fs [decode_length_def]
     \\ match_mp_tac IMP_memory_rel_Number_num \\ fs [])
   \\ Cases_on `op = GreaterEq` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []

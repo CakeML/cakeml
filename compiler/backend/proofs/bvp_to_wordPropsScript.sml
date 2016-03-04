@@ -161,7 +161,7 @@ val bc_ref_inv_def = Define `
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
               EVERY2 (\z y. v_inv y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray bs)) =>
-        ?ws. LENGTH bs < 2 ** (dimindex (:'a) - 3) /\
+        ?ws. LENGTH bs + 8 < 2 ** (dimindex (:'a) - 3) /\
              LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
              (heap_lookup x heap = SOME (Bytes be bs (ws:'a word list)))
     | _ => F`;
@@ -1653,19 +1653,6 @@ val get_lowerbits_def = Define `
   (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
   (get_lowerbits conf _ = 1w)`;
 
-
-(*
-
-val bits_imp_header_def = Define `
-  bits_imp_header conf w = has_header conf (get_lowerbits conf w)`
-
-val has_header_def = Define `
-  has_header conf w <=>
-    decode_maxout conf.len_bits (conf.tag_bits + 2) w = NONE \/
-    decode_maxout conf.tag_bits 2 w = NONE`
-
-*)
-
 val get_addr_def = Define `
   get_addr conf n w =
     ((n2w n << shift_length conf) || get_lowerbits conf w)`;
@@ -1677,42 +1664,44 @@ val word_addr_def = Define `
 
 val b2w_def = Define `(b2w T = 1w) /\ (b2w F = 0w)`;
 
-val byte_length_extra_def = Define `
-  byte_length_extra conf n =
+val make_byte_header_def = Define `
+  make_byte_header conf len =
     (if dimindex (:'a) = 32
-     then n2w (n MOD 4) << (dimindex (:α) - 6 - conf.len_size)
-     else n2w (n MOD 8) << (dimindex (:α) - 7 - conf.len_size)):'a word`
+     then n2w (len + 4) << (dimindex (:α) - 2 - conf.len_size) || 15w
+     else n2w (len + 8) << (dimindex (:α) - 3 - conf.len_size) || 15w):'a word`
 
 val word_payload_def = Define `
   (word_payload ys l (BlockTag n) qs conf =
-     ((n2w n << 2), (* header: ...00 *)
+     (* header: ...00 *)
+     (make_header conf (n2w n << 2) (LENGTH ys),
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l (RefTag) qs conf =
-     (2w, (* header: ...10 *)
+     (* header: ...10 *)
+     (make_header conf 2w (LENGTH ys),
       MAP (word_addr conf) ys,
       (qs = []) /\ (LENGTH ys = l))) /\
   (word_payload ys l (NumTag b) qs conf =
-     ((b2w b << 2 || 1w), (* header: ...101 or ...001 *)
+     (* header: ...101 or ...001 *)
+     (make_header conf (b2w b << 2 || 1w) (LENGTH qs),
       qs, (ys = []) /\ (LENGTH qs = l))) /\
   (word_payload ys l (BytesTag n) qs conf =
-     ((byte_length_extra conf n << 2 || 3w:'a word), (* header: ...11 *)
+     (* header: ...11 *)
+     ((make_byte_header conf n):'a word,
       qs, (ys = []) /\ (LENGTH qs = l) /\
           n < 2 ** (conf.len_size + if dimindex (:'a) = 32 then 2 else 3)))`;
 
-val decode_tag_bits_def = Define `
-  decode_tag_bits conf w =
-    let h = (w >>> 2) in
-      if h = 0b010w then RefTag else
-      if h = 0b101w then NumTag T else
-      if h = 0b001w then NumTag F else
-      if (h && 3w) = 3w then BytesTag (w2n (h >>> 2)) else
-        BlockTag (w2n (h >>> 2))`
+val word_payload_T_IMP = store_thm("word_payload_T_IMP",
+  ``word_payload l5 n5 tag r conf = (h,ts,T) ==>
+    n5 = LENGTH ts /\
+    if word_bit 3 h then l5 = [] else ts = MAP (word_addr conf) l5``,
+  Cases_on `tag` \\ full_simp_tac(srw_ss())[word_payload_def]
+  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[LENGTH_NIL]
+  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,wordsTheory.word_index]
+  \\ cheat);
 
-val decode_header_def = Define `
-  decode_header conf (w:'a word) =
-    let l = dimindex (:'a) - conf.len_size in
-      ((l - 1 -- 2) w, w >>> l)`;
+val decode_length_def = Define `
+  decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)`;
 
 val word_el_def = Define `
   (word_el a (Unused l) conf = word_list_exists (a:'a word) (l+1)) /\
@@ -1721,10 +1710,9 @@ val word_el_def = Define `
      word_list_exists (a + bytes_in_word) l) /\
   (word_el a (DataElement ys l (tag,qs)) conf =
      let (h,ts,c) = word_payload ys l tag qs conf in
-     let w = make_header conf h (LENGTH ts) in
-       word_list a (Word w :: ts) *
+       word_list a (Word h :: ts) *
        cond (LENGTH ts < 2 ** (dimindex (:'a) - 4) /\
-             decode_header conf w = (h,n2w (LENGTH ts)) /\ c))`;
+             decode_length conf h = n2w (LENGTH ts) /\ c))`;
 
 val word_heap_def = Define `
   (word_heap a ([]:'a ml_heap) conf = emp) /\
@@ -2229,8 +2217,8 @@ val bytes_in_word_mul_eq_shift = store_thm("bytes_in_word_mul_eq_shift",
 val encode_header_IMP = prove(
   ``encode_header c tag len = SOME (hd:'a word) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
-    decode_header c hd = (n2w tag,n2w len)``,
-  fs [encode_header_def] \\ rw [decode_header_def,make_header_def]
+    decode_length c hd = n2w len``,
+  fs [encode_header_def] \\ rw [make_header_def]
   \\ cheat (* needs more conditions *));
 
 val word_list_exists_thm = store_thm("word_list_exists_thm",
@@ -2308,8 +2296,8 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ qpat_abbrev_tac `ll = el_length _`
   \\ `ll = LENGTH ws + 1` by (UNABBREV_ALL_TAC \\ EVAL_TAC \\ fs [] \\ NO_TAC)
   \\ UNABBREV_ALL_TAC \\ fs []
-  \\ `n2w (a + sp' − (LENGTH ws + 1)) =
-      n2w (a + sp') − n2w (LENGTH ws + 1):'a word`
+  \\ `n2w (a + sp' - (LENGTH ws + 1)) =
+      n2w (a + sp') - n2w (LENGTH ws + 1):'a word`
           by fs [addressTheory.word_arith_lemma2]
   \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
@@ -2329,7 +2317,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
          SEP_CLAUSES,word_heap_heap_expand]
   \\ fs [word_list_exists_ADD |> Q.SPECL [`m`,`n+1`]]
   \\ `(make_header c (n2w tag << 2) (LENGTH ws)) = hd` by
-       (fs [encode_header_def] \\ every_case_tac \\ fs []
+       (fs [encode_header_def,make_header_def] \\ every_case_tac \\ fs []
         \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
   \\ fs [] \\ imp_res_tac encode_header_IMP
   \\ simp [WORD_MUL_LSL,word_mul_n2w]
@@ -2439,7 +2427,7 @@ val memory_rel_Block_IMP = store_thm("memory_rel_Block_IMP",
           ?a x.
             w ' 0 /\ ~(word_bit 3 x) /\
             get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
-            decode_header c x = (n2w tag << 2, n2w (LENGTH vals)) /\
+            decode_length c x = n2w (LENGTH vals) /\
             LENGTH vals < 2 ** (dimindex (:'a) − 4)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def]
@@ -2468,7 +2456,7 @@ val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
     ?w a x.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
-      decode_header c x = (2w, n2w (LENGTH vals)) /\
+      decode_length c x = n2w (LENGTH vals) /\
       LENGTH vals < 2 ** (dimindex (:'a) − 4)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
@@ -2615,13 +2603,14 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     ?w a x l.
       v = Word w /\ w ' 0 /\ word_bit 3 x /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
-      LENGTH vals < 2 ** (dimindex (:'a) - 3) /\
       (!i. i < LENGTH vals ==>
            mem_load_byte_aux (a + bytes_in_word + n2w i) m dm be =
            SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
+        LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
         x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4)
       else
+        LENGTH vals + 8 < 2 ** (dimindex (:'a) - 3) /\
         x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
@@ -2638,7 +2627,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
   \\ imp_res_tac EVERY2_LENGTH \\ SEP_R_TAC \\ fs [get_addr_0]
   \\ rpt strip_tac
-  THEN1 (fs [make_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
+  THEN1 (fs [make_byte_header_def,word_bit_def,word_or_def,fcpTheory.FCP_BETA]
     \\ fs [labPropsTheory.good_dimindex_def]
     \\ fs [fcpTheory.FCP_BETA,word_lsl_def,word_index])
   THEN1
@@ -2720,18 +2709,20 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ disch_then (qspec_then `i` strip_assume_tac)
     \\ decide_tac)
   \\ qpat_assum `LENGTH vals < 2 ** (_ + _)` assume_tac
-  \\ fs [labPropsTheory.good_dimindex_def,make_header_def,
-         byte_length_extra_def,LENGTH_write_bytes] \\ rfs []
+  \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
+         LENGTH_write_bytes] \\ rfs []
   THEN1
-   (`c.len_size <= 30` by decide_tac \\ pop_assum mp_tac
+   (`4 <= 30 - c.len_size` by decide_tac
+    \\ `c.len_size <= 30` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ `32 = p' + c.len_size + 2 /\ 2 <= p'` by decide_tac \\ fs []
-    \\ cheat) (* true, but terrible word proof *)
+    \\ qcase_tac `4n <= k`
+    \\ cheat (* word proof, use lsl_lsr thm? *))
   THEN1
-   (`c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
+   (`4 <= 61 - c.len_size` by decide_tac
+    \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ `64 = p' + c.len_size + 3 /\ 3 <= p'` by decide_tac \\ fs []
-    \\ cheat) (* true, but terrible word proof *))
+    \\ qcase_tac `4n <= k`
+    \\ cheat (* word proof, use lsl_lsr thm? *)))
 
 val memory_rel_RefPtr_IMP_lemma = store_thm("memory_rel_RefPtr_IMP_lemma",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>
