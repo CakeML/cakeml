@@ -685,11 +685,15 @@ val get_clash_tree_def = Define`
       NONE => Set (numset_list_insert args LN)
     | SOME (v,cutset,ret_handler,_,_) =>
       let live_set = union cutset args_set in
-      let ret_tree = Seq (Delta [] [v]) (get_clash_tree ret_handler) in
+      (*Might be inefficient..*)
+      let ret_tree = Seq (Set (insert v () cutset)) (get_clash_tree ret_handler) in
       case h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
-        let handler_tree = Seq (Delta [] [v']) (get_clash_tree prog) in
+        let handler_tree =
+          (*They will actually always be equal if call_arg_conv is met*)
+          if v = v' then get_clash_tree prog
+          else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)`
 
 (*Preference edges*)
@@ -728,13 +732,13 @@ val oracle_colour_ok_def = Define`
      if (every_even_colour col ∧
         check_clash_tree tcol tree LN LN ≠ NONE)
      then
-       let col_prog = apply_colour tcol prog in
+       let prog = apply_colour tcol prog in
        if
          every_var is_phy_var prog ∧
          every_stack_var (λx. x ≥ 2*k) prog
          (*call_arg_conv is automatically satisfied*)
        then
-         SOME col_prog
+         SOME prog 
        else
          NONE
      else NONE`

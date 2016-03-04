@@ -1721,6 +1721,13 @@ val INJ_IMP_IMAGE_DIFF = prove(``
   fs[INJ_DEF]>>
   metis_tac[])
 
+val INJ_IMP_IMAGE_DIFF_single = prove(``
+  INJ f (s ∪ {n}) UNIV ⇒
+  (IMAGE f s) DIFF {f n} = IMAGE f (s DIFF {n})``,
+  rw[]>>
+  `{f n} = IMAGE f {n}` by fs[]>>
+  fs[INJ_IMP_IMAGE_DIFF])
+
 val wf_get_live_exp = prove(``
   ∀exp. wf(get_live_exp exp)``,
   ho_match_mp_tac get_live_exp_ind>>fs[get_live_exp_def,wf_insert,wf_def]>>
@@ -1762,20 +1769,59 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     (start_tac>>
     CONJ_TAC>-
       subset_tac>>
-    fs[LIST_TO_SET_MAP]>>
-    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
-    fs[])
+    fs[LIST_TO_SET_MAP,INJ_IMP_IMAGE_DIFF])
   >- (*Inst*)
-    cheat
+    (Cases_on`i`>>TRY(Cases_on`a`)>>
+    fs[get_delta_inst_def,get_live_inst_def,get_writes_inst_def,check_clash_tree_def]
+    >-
+      fs[hide_def,check_partial_col_def,numset_list_delete_def]
+    >-
+      (start_tac
+      >-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single])>>
+      fs[domain_union,UNION_COMM,DELETE_DEF])
+    >-
+      (Cases_on`r`>>FULL_CASE_TAC>>fs[check_clash_tree_def]>>start_tac>>
+      TRY (*2 cases*)
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])
+      >> (*2 cases*)
+        (strip_tac>>CONJ_TAC>-
+          (match_mp_tac (GEN_ALL INJ_less)>>
+          qpat_assum`INJ f A B` kall_tac>>
+          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
+        fs[domain_union,UNION_COMM]))
+    >-
+      (start_tac>-
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single])
+      >>
+      fs[domain_union,UNION_COMM,DELETE_DEF,INSERT_UNION_EQ])
+    >>
+      Cases_on`m`>>fs[check_clash_tree_def,get_delta_inst_def,get_live_inst_def,get_writes_inst_def]>>
+      start_tac>>
+      fs[INJ_IMP_IMAGE_DIFF_single]>>
+      (*2 cases*)
+      TRY subset_tac>>
+      TRY (*2 cases*)
+        (CONJ_TAC>-
+          subset_tac>>
+        fs[INJ_IMP_IMAGE_DIFF_single,wf_insert_swap])>>
+      (strip_tac>>CONJ_TAC>-
+          (match_mp_tac (GEN_ALL INJ_less)>>
+          qpat_assum`INJ f A B` kall_tac>>
+          HINT_EXISTS_TAC>>fs[DELETE_DEF])>>
+      fs[domain_union,UNION_COMM]))
   >-
     (start_tac
     >-
       (CONJ_TAC>-
         subset_tac>>
-      `{f num} = IMAGE f {num}` by fs[]>>
-      pop_assum SUBST1_TAC>>
-      match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
-      fs[])
+      fs[INJ_IMP_IMAGE_DIFF_single])
     >>
     strip_tac>>
     fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp,DELETE_DEF]>>
@@ -1786,10 +1832,7 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     fs[domain_union,UNION_COMM,get_reads_exp_get_live_exp,DELETE_DEF]
     >-
       subset_tac>>
-    `{f num} = IMAGE f {num}` by fs[]>>
-    pop_assum SUBST1_TAC>>
-    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
-    fs[])
+    fs[INJ_IMP_IMAGE_DIFF_single])
   >-
     (start_tac>>
     CONJ_TAC>-
@@ -1805,8 +1848,30 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     fs[hide_def]>>
     metis_tac[])
   >-
-    (*IF*)
-    cheat
+    (*If*)
+    (EVERY_CASE_TAC>>fs[check_clash_tree_def]>>
+    EVERY_CASE_TAC>>fs[]>>
+    fs[wf_cutsets_def]>>res_tac>>
+    ntac 2(last_x_assum kall_tac)>>
+    fs[hide_def]>>
+    (fs[numset_list_delete_def]>>
+    qpat_assum`A=SOME x`mp_tac>>
+    simp[Once check_partial_col_def]>>
+    strip_tac>>
+    rveq>>
+    imp_res_tac check_col_INJ>>
+    imp_res_tac check_partial_col_INJ>>
+    rpt (qpat_assum `!P. Q` kall_tac)>>
+    rfs[AND_IMP_INTRO]>>
+    pop_assum mp_tac>>discharge_hyps_keep>-
+      fs[wf_union]>>
+    strip_tac>>
+    fs[domain_numset_list_insert,domain_union]>>
+    CONJ_TAC>-
+      (match_mp_tac (GEN_ALL INJ_less)>>
+      HINT_EXISTS_TAC>>
+      fs[SUBSET_DEF])>>
+    fs[numset_list_insert_def,wf_insert_swap]))
   >-
     metis_tac[wf_cutsets_def]
   >-
@@ -1842,10 +1907,7 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM]>>
     CONJ_TAC>- subset_tac>>
-    `{f r} = IMAGE f {r}` by fs[]>>
-    pop_assum SUBST1_TAC>>
-    match_mp_tac (GSYM INJ_IMP_IMAGE_DIFF)>>
-    fs[])
+    fs[INJ_IMP_IMAGE_DIFF_single])
   >-
     (start_tac>>
     fs[numset_list_delete_def,numset_list_insert_def,domain_union,DELETE_DEF,UNION_COMM,get_reads_exp_get_live_exp]>>
@@ -1853,7 +1915,37 @@ val clash_tree_colouring_ok = store_thm("clash_tree_colouring_ok",``
     fs[wf_get_live_exp,get_reads_exp_get_live_exp])
   >-
     (*Call*)
-    cheat)
+    (Cases_on`ret`>>fs[]
+    >-
+      (fs[check_clash_tree_def,hide_def,wf_cutsets_def,colouring_ok_def,get_live_def,get_writes_def]>>
+      imp_res_tac check_col_INJ>>
+      fs[]>>
+      rveq>>fs[]>>
+      metis_tac[numset_list_insert_swap,wf_def])
+    >>
+    PairCases_on`x`>>Cases_on`h`>>fs[check_clash_tree_def,colouring_ok_def]
+    >-
+      (EVERY_CASE_TAC>>
+      fs[wf_cutsets_def]>>
+      res_tac>>
+      rpt (qpat_assum `!P. Q` kall_tac)>>
+      fs[hide_def,numset_list_delete_def]>>
+      rveq>>
+      imp_res_tac check_col_INJ>>
+      rveq>>
+      fs[numset_list_insert_swap,wf_def,wf_union])
+    >>
+      PairCases_on`x`>>fs[check_clash_tree_def]>>
+      EVERY_CASE_TAC>>
+      fs[wf_cutsets_def,check_clash_tree_def]>>
+      TRY(EVERY_CASE_TAC>>fs[])>>
+      res_tac>>
+      rpt (qpat_assum `!P. Q` kall_tac)>>
+      fs[hide_def,numset_list_delete_def]>>
+      rveq>>
+      imp_res_tac check_col_INJ>>
+      rveq>>
+      fs[numset_list_insert_swap,wf_def,wf_union]))
 
 (*DONE Liveness Proof*)
 
@@ -5103,6 +5195,30 @@ val full_ssa_cc_trans_pre_alloc_conventions = store_thm("full_ssa_cc_trans_pre_a
   Q.ISPECL_THEN [`prog`,`ssa`,`na`] assume_tac ssa_cc_trans_pre_alloc_conventions>>
   rev_full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,LET_THM])
 
+val fake_moves_wf_cutsets = prove(``
+  ∀ls A B C L R D E G.
+  fake_moves ls A B C = (L,R,D,E,G) ⇒
+  wf_cutsets L ∧ wf_cutsets R``,
+  Induct>>fs[fake_moves_def,wf_cutsets_def]>>rw[]>>
+  split_pair_tac>>fs[]>>EVERY_CASE_TAC>>fs[]>>
+  rveq>>fs[wf_cutsets_def,fake_move_def]>>
+  metis_tac[])
+
+val ssa_cc_trans_wf_cutsets = prove(``
+  ∀prog ssa na.
+  let (prog',ssa',na') = ssa_cc_trans prog ssa na in
+  wf_cutsets prog'``,
+  ho_match_mp_tac ssa_cc_trans_ind>>fs[wf_cutsets_def,ssa_cc_trans_def,fix_inconsistencies_def,list_next_var_rename_move_def]>>
+  rw[]>>
+  rpt(split_pair_tac>>fs[])>>rveq>>fs[wf_cutsets_def]>>
+  fs[wf_fromAList,fake_moves_wf_cutsets]
+  >-
+    metis_tac[fake_moves_wf_cutsets]
+  >>
+  EVERY_CASE_TAC>>fs[]>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  rpt(split_pair_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
+  metis_tac[fake_moves_wf_cutsets])
+
 (* No longer needed
 val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live hd tl spg.
@@ -5226,32 +5342,84 @@ val every_stack_var_apply_colour = store_thm("every_stack_var_apply_colour",``
     srw_tac[][]>>full_simp_tac(srw_ss())[domain_fromAList,MEM_MAP,ZIP_MAP]>>
     Cases_on`y'`>>full_simp_tac(srw_ss())[MEM_toAList,domain_lookup]))
 
+
+val every_var_exp_get_reads_exp = prove(``
+  ∀exp. every_var_exp (λx. MEM x (get_reads_exp exp)) exp``,
+  assume_tac every_var_exp_get_live_exp>>
+  rw[]>>pop_assum(qspec_then`exp` assume_tac)>>
+  ho_match_mp_tac every_var_exp_mono>>
+  HINT_EXISTS_TAC>>fs[get_reads_exp_get_live_exp])
+
+val exp_tac =
+  assume_tac (Q.SPEC `exp` every_var_exp_get_reads_exp)>>
+  ho_match_mp_tac every_var_exp_mono>>
+  HINT_EXISTS_TAC>>fs[in_clash_tree_def]
+
+val every_var_in_get_clash_tree = prove(``
+  ∀prog.
+  every_var (in_clash_tree (get_clash_tree prog)) prog``,
+  ho_match_mp_tac get_clash_tree_ind>>rw[get_clash_tree_def]>>
+  fs[every_var_def,in_clash_tree_def,EVERY_MEM,in_clash_tree_def,every_name_def,toAList_domain]>>
+  TRY(exp_tac)
+  >-
+    (Cases_on`i`>>TRY(Cases_on`a`)>>TRY(Cases_on`r`)>>TRY(Cases_on`m`)>>fs[every_var_imm_def,get_delta_inst_def,every_var_inst_def,in_clash_tree_def])
+  >-
+    metis_tac[every_var_mono,in_clash_tree_def]
+  >-
+    (Cases_on`ri`>>fs[every_var_imm_def]>>
+    rw[]>>
+    `MEM r1 [r1]` by fs[]>>
+    `MEM r1 [r1;n] ∧ MEM n [r1;n]` by fs[]>>
+    metis_tac[every_var_mono,in_clash_tree_def])
+  >>
+    EVERY_CASE_TAC>>
+    fs[in_clash_tree_def,domain_numset_list_insert,domain_union]>>
+    metis_tac[every_var_mono,in_clash_tree_def])
+
+val every_var_T = prove(``
+  ∀prog.
+  every_var (λx. T) prog``,
+  rw[]>>
+  mp_tac (Q.SPEC`prog` max_var_max)>>
+  rw[]>>
+  ho_match_mp_tac every_var_mono>>HINT_EXISTS_TAC>>
+  fs[])
+
 val oracle_colour_ok_conventions = prove(``
-  oracle_colour_ok k col_opt ls prog = SOME x ⇒
+  pre_alloc_conventions prog ∧
+  oracle_colour_ok k col_opt (get_clash_tree prog) prog = SOME x ⇒
   post_alloc_conventions k x``,
-  full_simp_tac(srw_ss())[oracle_colour_ok_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-  metis_tac[])
+  fs[oracle_colour_ok_def]>>EVERY_CASE_TAC>>fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
+  rw[]>>fs[]>>
+  match_mp_tac call_arg_convention_preservation>>fs[]>>
+  ho_match_mp_tac every_var_mono>>
+  qexists_tac`λx. T`>>fs[every_var_T]>>
+  rw[total_colour_def]>>FULL_CASE_TAC>>
+  fs[every_even_colour_def]>>
+  fs[GSYM MEM_toAList]>>
+  fs[EVERY_MEM,FORALL_PROD])
 
 val pre_post_conventions_word_alloc = prove(``
   ∀alg prog k col_opt.
-  pre_alloc_conventions prog ⇒ (*this is generated by ssa form*)
+  pre_alloc_conventions prog ⇒
   post_alloc_conventions k (word_alloc alg k prog col_opt)``,
-  full_simp_tac(srw_ss())[pre_alloc_conventions_def,post_alloc_conventions_def,word_alloc_def]>>
-  srw_tac[][]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-  imp_res_tac oracle_colour_ok_conventions >>full_simp_tac(srw_ss())[post_alloc_conventions_def]>>
+  fs[post_alloc_conventions_def,word_alloc_def]>>
+  rw[]>>
+  FULL_CASE_TAC>>fs[]>>
+  imp_res_tac oracle_colour_ok_conventions >>
+  fs[post_alloc_conventions_def,pre_alloc_conventions_def]>>
+  split_pair_tac>>fs[]>>
   `undir_graph clash_graph` by
-    metis_tac[clash_sets_to_sp_g_undir]>>
+    (imp_res_tac clash_tree_to_spg_props>>
+    fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
   imp_res_tac reg_alloc_conventional>>
-  pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
-  `every_var (in_clash_sets (hd::tl)) prog` by
-     (Q.ISPECL_THEN [`prog`,`LN:num_set`] assume_tac
-       every_var_in_get_clash_set>>
-     rev_full_simp_tac(srw_ss())[LET_THM])>>
+  pop_assum(qspecl_then[`get_prefs prog []`,`k`,`alg`] assume_tac)>>rev_full_simp_tac(srw_ss())[LET_THM]>>
+  assume_tac (Q.SPEC`prog`every_var_in_get_clash_tree)>>
   `every_var (λx. x ∈ domain clash_graph) prog` by
     (match_mp_tac every_var_mono>>
     HINT_EXISTS_TAC>>srw_tac[][]>>
-    metis_tac[clash_sets_to_sp_g_domain])>>
+    imp_res_tac clash_tree_to_spg_domain>>
+    fs[sp_g_is_clique_def,undir_graph_def,lookup_def])>>
   full_simp_tac(srw_ss())[colouring_conventional_def,LET_THM]
   >-
     (match_mp_tac every_var_apply_colour>>
@@ -5286,6 +5454,7 @@ val INJ_ALL_DISTINCT_MAP = prove(``
   Induct>>full_simp_tac(srw_ss())[INJ_DEF]>>srw_tac[][]>>
   metis_tac[MEM_MAP])
 
+(* Not needed
 val check_colouring_ok_alt_INJ = prove(``
   ∀ls.
   check_colouring_ok_alt f ls ⇒
@@ -5294,6 +5463,7 @@ val check_colouring_ok_alt_INJ = prove(``
   full_simp_tac(srw_ss())[GSYM MAP_MAP_o]>>
   imp_res_tac INJ_ALL_DISTINCT_MAP>>
   full_simp_tac(srw_ss())[set_toAList_keys])
+*)
 
 val oracle_colour_ok_correct = prove(``
   ∀prog k col_opt st hd tl x.
@@ -5337,7 +5507,8 @@ val oracle_colour_ok_correct = prove(``
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = store_thm("word_alloc_correct",``
   ∀alg prog k col_opt st.
-  even_starting_locals st.locals
+  even_starting_locals st.locals ∧
+  wf_cutsets prog
   ⇒
   ∃perm'.
   let (res,rst) = evaluate(prog,st with permute:=perm') in
@@ -5354,20 +5525,43 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
   pop_assum mp_tac>>LET_ELIM_TAC>>
   pop_assum mp_tac>>reverse FULL_CASE_TAC>>strip_tac
   >-
-    (imp_res_tac oracle_colour_ok_correct>>full_simp_tac(srw_ss())[LET_THM,Abbr`cprog`]>>
-    qexists_tac`perm'`>>srw_tac[][]>>full_simp_tac(srw_ss())[])
+    (fs[oracle_colour_ok_def]>>
+    EVERY_CASE_TAC>>fs[]>>
+    fs[GSYM quantHeuristicsTheory.IS_SOME_EQ_NOT_NONE,IS_SOME_EXISTS]>>
+    Cases_on`x''`>>
+    Q.ISPECL_THEN [`prog`,`total_colour x'`,`LN:num_set`,`LN:num_set`,`q`,`r`] mp_tac clash_tree_colouring_ok>>
+    fs[wf_def,hide_def]>> rw[]>>
+    Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`] mp_tac evaluate_apply_colour>>
+    discharge_hyps>-
+      (fs[word_state_eq_rel_def,strong_locals_rel_def,even_starting_locals_def]>>rw[]>>
+      fs[domain_lookup,every_even_colour_def,total_colour_def]>>
+      last_x_assum(qspec_then`n` assume_tac)>>rfs[]>>
+      fs[GSYM MEM_toAList]>>FULL_CASE_TAC>>fs[]>>
+      fs[EVERY_MEM,FORALL_PROD,GSYM MEM_toAList]>>
+      metis_tac[])>>
+    srw_tac[][]>>
+    qexists_tac`perm'`>>srw_tac[][]>>
+    full_simp_tac(srw_ss())[LET_THM]>>
+    FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
   >>
   Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour col`,`LN:num_set`] mp_tac evaluate_apply_colour>>
   discharge_hyps>-
     (srw_tac[][]
     >-
       (*Prove that the colors are okay*)
-      (match_mp_tac colouring_ok_alt_thm>>
-      match_mp_tac (colouring_satisfactory_colouring_ok_alt|>rm_let)>>
-      unabbrev_all_tac>>
-      full_simp_tac(srw_ss())[]>>
-      match_mp_tac (reg_alloc_total_satisfactory|>rm_let)>>
-      full_simp_tac(srw_ss())[clash_sets_to_sp_g_undir])
+      (imp_res_tac clash_tree_to_spg_props>>
+      pop_assum mp_tac>>fs[AND_IMP_INTRO]>> discharge_hyps_keep>-
+        fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>
+      fs[]>>
+      imp_res_tac (reg_alloc_total_satisfactory|>rm_let)>>
+      pop_assum(qspecl_then[`moves`,`k`,`alg`] assume_tac)>>
+      rfs[]>>
+      imp_res_tac colouring_satisfactory_check_clash_tree>>
+      pop_assum(qspecl_then[`LN`,`LN`] mp_tac)>>
+      ntac 40 (pop_assum kall_tac)>>
+      fs[sp_g_is_clique_def,undir_graph_def,lookup_def]>>rw[]>>
+      Q.ISPECL_THEN [`prog`,`total_colour col`,`LN:num_set`,`LN:num_set`,`livein`,`flivein`] mp_tac clash_tree_colouring_ok>>
+      fs[wf_def,hide_def])
     >-
       full_simp_tac(srw_ss())[word_state_eq_rel_def]
     >>
@@ -5378,7 +5572,8 @@ val word_alloc_correct = store_thm("word_alloc_correct",``
       rev_full_simp_tac(srw_ss())[]>>
       Q.ISPECL_THEN[`alg`,`clash_graph`,`k`,`moves`] mp_tac (reg_alloc_conventional_phy_var|>rm_let)>>
       discharge_hyps>-
-        (srw_tac[][Abbr`clash_graph`]>>full_simp_tac(srw_ss())[clash_sets_to_sp_g_undir])
+        (imp_res_tac clash_tree_to_spg_props>>
+        fs[sp_g_is_clique_def,undir_graph_def,lookup_def])
       >>
       srw_tac[][colouring_conventional_def,LET_THM])
   >>

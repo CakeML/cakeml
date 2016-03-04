@@ -1945,8 +1945,7 @@ val domain_numset_list_delete = store_thm("domain_numset_list_delete",``
   fs[EXTENSION]>>
   metis_tac[])
 
-(*TODO: Make sure this is true if it isn't already*)
-val clash_tree_to_spg_props = prove(``
+val clash_tree_to_spg_props = store_thm("clash_tree_to_spg_props",``
   ∀ct live G G' live'.
   undir_graph G ∧
   ALL_DISTINCT live ∧
@@ -2006,7 +2005,7 @@ val sp_g_is_clique_swap = prove(``
   sp_g_is_clique ls' G``,
   fs[sp_g_is_clique_def,SUBSET_DEF])
 
-val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_colouring_check_clash_tree",``
+val colouring_satisfactory_check_clash_tree = store_thm("colouring_satisfactory_check_clash_tree",``
   ∀ct G livelist live flive col G' live'.
   domain live = set livelist ∧
   ALL_DISTINCT livelist ∧
@@ -2155,7 +2154,7 @@ val in_clash_tree_def = Define`
   (in_clash_tree (Seq t t') x ⇔ in_clash_tree t x ∨ in_clash_tree t' x)`
 
 (*Not all the assumptions are needed...*)
-val clash_tree_to_spg_domain = prove(``
+val clash_tree_to_spg_domain = store_thm("clash_tree_to_spg_domain",``
   ∀ct live G G' live'.
   undir_graph G ∧
   ALL_DISTINCT live ∧
