@@ -35,14 +35,20 @@ val compile_single_lem = prove(``
   Q.ISPECL_THEN [`a`,`p3`,`k`,`col`,`st`] mp_tac word_alloc_correct>>
   (discharge_hyps>-
       (full_simp_tac(srw_ss())[even_starting_locals_def]>>
-      srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]>>
-      is_phy_var_tac)>>srw_tac[][LET_THM]>>
+      srw_tac[][word_allocTheory.even_list_def,MEM_GENLIST,reg_allocTheory.is_phy_var_def]
+      >-
+        is_phy_var_tac
+      >>
+        unabbrev_all_tac>>fs[full_ssa_cc_trans_wf_cutsets]>>
+        ho_match_mp_tac three_to_two_reg_wf_cutsets>>
+        fs[full_ssa_cc_trans_wf_cutsets]))>>
+  rw[LET_THM]>>
   Q.ISPECL_THEN [`p1`,`st with permute:= perm'`,`n`] assume_tac full_ssa_cc_trans_correct>>
   rev_full_simp_tac(srw_ss())[LET_THM]>>
   qexists_tac`perm''`>>
   Cases_on`evaluate(prog,st with permute:=perm'')`>>
   Cases_on`q=SOME Error`>>full_simp_tac(srw_ss())[]>>
-  Q.ISPECL_THEN [`c`,`max_var prog +1`,`prog`,`st with permute:=perm''`,`q`,`r`,`st.locals`] mp_tac inst_select_thm)>>
+  Q.ISPECL_THEN [`c`,`max_var prog +1`,`prog`,`st with permute:=perm''`,`q`,`r`,`st.locals`] mp_tac inst_select_thm>>
   (discharge_hyps>-
     (simp[locals_rel_def]>>
     Q.SPEC_THEN `prog` assume_tac max_var_max>>

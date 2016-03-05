@@ -48,6 +48,28 @@ val post_alloc_conventions_def = Define`
     every_stack_var (λx. x ≥ 2*k) prog ∧
     call_arg_convention prog)`
 
+(*Useful convention*)
+val wf_cutsets = Define`
+  (wf_cutsets (Alloc n s) = wf s) ∧
+  (wf_cutsets (Call ret dest args h) =
+    (case ret of
+      NONE => T
+    | SOME (v,cutset,ret_handler,l1,l2) =>
+      wf cutset ∧
+      wf_cutsets ret_handler ∧
+      (case h of
+        NONE => T
+      | SOME (v,prog,l1,l2) =>
+        wf_cutsets prog))) ∧
+  (wf_cutsets (FFI x y z args) = wf args) ∧
+  (wf_cutsets (MustTerminate _ s) = wf_cutsets s) ∧
+  (wf_cutsets (Seq s1 s2) =
+    (wf_cutsets s1 ∧ wf_cutsets s2)) ∧
+  (wf_cutsets (If cmp r1 ri e2 e3) =
+    (wf_cutsets e2 ∧
+     wf_cutsets e3)) ∧
+  (wf_cutsets _ = T)`
+
 (*SSA form*)
 val apply_nummap_key_def = Define`
   apply_nummap_key f names =
@@ -570,6 +592,7 @@ val get_writes_def = Define`
   (get_writes (LocValue r l1 l2) = insert r () LN) ∧
   (get_writes prog = LN)`
 
+(* Old representation *)
 val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
@@ -663,11 +686,15 @@ val get_clash_tree_def = Define`
       NONE => Set (numset_list_insert args LN)
     | SOME (v,cutset,ret_handler,_,_) =>
       let live_set = union cutset args_set in
-      let ret_tree = Seq (Delta [] [v]) (get_clash_tree ret_handler) in
+      (*Might be inefficient..*)
+      let ret_tree = Seq (Set (insert v () cutset)) (get_clash_tree ret_handler) in
       case h of
         NONE => Seq (Set live_set) ret_tree
       | SOME (v',prog,_,_) =>
-        let handler_tree = Seq (Delta [] [v']) (get_clash_tree prog) in
+        let handler_tree =
+          (*They will actually always be equal if call_arg_conv is met*)
+          if v = v' then get_clash_tree prog
+          else Seq (Set (insert v' () cutset)) (get_clash_tree prog) in
         Branch (SOME live_set) ret_tree handler_tree)`
 
 (*Preference edges*)
@@ -698,18 +725,21 @@ val every_even_colour_def = Define`
 
 (*Check that the oracle provided colour (if it exists) is okay*)
 val oracle_colour_ok_def = Define`
-  oracle_colour_ok k col_opt ls prog ⇔
+  oracle_colour_ok k col_opt tree prog ⇔
   case col_opt of
     NONE => NONE
   | SOME col =>
-     if every_even_colour col ∧
-        check_colouring_ok_alt (total_colour col) ls
+     let tcol = total_colour col in
+     if (every_even_colour col ∧
+        check_clash_tree tcol tree LN LN ≠ NONE)
      then
-       let col = total_colour col in
-       let col_prog = apply_colour col prog in
-       if post_alloc_conventions k col_prog
+       let prog = apply_colour tcol prog in
+       if
+         every_var is_phy_var prog ∧
+         every_stack_var (λx. x ≥ 2*k) prog
+         (*call_arg_conv is automatically satisfied*)
        then
-         SOME col_prog
+         SOME prog
        else
          NONE
      else NONE`
@@ -720,14 +750,13 @@ val oracle_colour_ok_def = Define`
   col_opt is an optional oracle colour*)
 val word_alloc_def = Define`
   word_alloc alg k prog col_opt =
-  let (hd,tl) = get_clash_sets prog LN in
-  case oracle_colour_ok k col_opt (hd::tl) prog of
+  let tree = get_clash_tree prog in
+  let moves = get_prefs prog [] in
+  case oracle_colour_ok k col_opt tree prog of
     NONE =>
-      (*Oracle colour doesn't work, call the allocator*)
-      let clash_graph = clash_sets_to_sp_g (hd::tl) in
-      let moves = get_prefs prog [] in
-      let col = reg_alloc alg clash_graph k moves in
-        apply_colour (total_colour col) prog
+    let (clash_graph,_) = clash_tree_to_spg tree [] LN in
+    let col = reg_alloc alg clash_graph k moves in
+      apply_colour (total_colour col) prog
   | SOME col_prog =>
       col_prog`
 

@@ -883,10 +883,38 @@ val three_to_two_reg_correct = store_thm("three_to_two_reg_correct",``
       rev_full_simp_tac(srw_ss())[])
 
 (*Syntactic correctness*)
-val three_to_two_reg_syn = prove(``
+val three_to_two_reg_two_reg_inst = store_thm("three_to_two_reg_two_reg_inst",``
   ∀prog. every_inst two_reg_inst (three_to_two_reg prog)``,
   ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>full_simp_tac(srw_ss())[every_inst_def,two_reg_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
 
+val three_to_two_reg_wf_cutsets = store_thm("three_to_two_reg_wf_cutsets",
+  ``∀prog. wf_cutsets prog ⇒ wf_cutsets (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[wf_cutsets_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+
+val three_to_two_reg_pre_alloc_conventions = store_thm("three_to_two_reg_pre_alloc_conventions",
+  ``∀prog. pre_alloc_conventions prog ⇒ pre_alloc_conventions (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[pre_alloc_conventions_def,every_stack_var_def,call_arg_convention_def,three_to_two_reg_def,LET_THM]>>
+  FULL_CASE_TAC>>fs[]>>
+  PairCases_on`x`>>fs[]>>
+  FULL_CASE_TAC>>fs[]>>
+  PairCases_on`x`>>fs[])
+
+val three_to_two_reg_flat_exp_conventions = store_thm("three_to_two_reg_flat_exp_conventions",
+  ``∀prog. flat_exp_conventions prog ⇒ flat_exp_conventions (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[flat_exp_conventions_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[])
+
+val three_to_two_reg_inst_ok_less = store_thm("three_to_two_reg_inst_ok_less",
+  ``∀prog. every_inst (inst_ok_less c) prog ⇒
+  every_inst (inst_ok_less c) (three_to_two_reg prog)``,
+  ho_match_mp_tac three_to_two_reg_ind>>srw_tac[][]>>
+  full_simp_tac(srw_ss())[every_inst_def,three_to_two_reg_def,LET_THM]>>EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]
+  >-
+    (Cases_on`bop`>>Cases_on`ri`>>fs[inst_ok_less_def])
+  >>
+    Cases_on`n`>>fs[inst_ok_less_def])
 (*word_alloc preserves syntactic conventions*)
 val word_alloc_two_reg_inst_lem = prove(``
   ∀f prog.
@@ -899,7 +927,7 @@ val word_alloc_two_reg_inst_lem = prove(``
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def])
 
-val word_alloc_two_reg_inst = prove(``
+val word_alloc_two_reg_inst = store_thm("word_alloc_two_reg_inst",``
   ∀alg k prog col_opt.
   every_inst two_reg_inst prog ⇒
   every_inst two_reg_inst (word_alloc alg k prog col_opt)``,
@@ -917,7 +945,7 @@ val word_alloc_flat_exp_conventions_lem = prove(``
   >>
     Cases_on`exp`>>full_simp_tac(srw_ss())[flat_exp_conventions_def])
 
-val word_alloc_flat_exp_conventions = prove(``
+val word_alloc_flat_exp_conventions = store_thm("word_alloc_flat_exp_conventions",``
   ∀alg k prog col_opt.
   flat_exp_conventions prog ⇒
   flat_exp_conventions (word_alloc alg k prog col_opt)``,
@@ -936,7 +964,7 @@ val word_alloc_inst_ok_less_lem = prove(``
   >>
     EVERY_CASE_TAC>>unabbrev_all_tac>>full_simp_tac(srw_ss())[every_inst_def])
 
-val word_alloc_inst_ok_less = prove(``
+val word_alloc_inst_ok_less = store_thm("word_alloc_inst_ok_less",``
   ∀alg k prog col_opt c.
   every_inst (inst_ok_less c) prog ⇒
   every_inst (inst_ok_less c) (word_alloc alg k prog col_opt)``,
@@ -993,7 +1021,7 @@ val ssa_cc_trans_flat_exp_conventions = prove(``
       rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
       metis_tac[fake_moves_conventions,flat_exp_conventions_def])
 
-val full_ssa_cc_trans_flat_exp_conventions = prove(``
+val full_ssa_cc_trans_flat_exp_conventions = store_thm("full_ssa_cc_trans_flat_exp_conventions",``
   ∀prog n.
   flat_exp_conventions prog ⇒
   flat_exp_conventions (full_ssa_cc_trans n prog)``,
@@ -1027,7 +1055,7 @@ val ssa_cc_trans_inst_ok_less = prove(``
     rpt (pop_assum mp_tac)>> LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
     metis_tac[fake_moves_conventions,every_inst_def])
 
-val full_ssa_cc_trans_inst_ok_less = prove(``
+val full_ssa_cc_trans_inst_ok_less = store_thm("full_ssa_cc_trans_inst_ok_less",``
   ∀prog n c.
   every_inst (inst_ok_less c) prog ⇒
   every_inst (inst_ok_less c) (full_ssa_cc_trans n prog)``,

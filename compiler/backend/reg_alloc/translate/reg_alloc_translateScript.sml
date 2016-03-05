@@ -152,8 +152,8 @@ val sec_ra_state_side_def = prove(``
 
 (*Specialized interface to allocator for unverified translation*)
 val irc_alloc_def = Define`
-  irc_alloc clash_sets k moves =
-  let G = clash_sets_to_sp_g clash_sets in
+  irc_alloc clash_tree k moves =
+  let G =  FST(clash_tree_to_spg clash_tree [] LN) in
   let moves = MAP maybe_flip moves in
   let s = init_ra_state G k moves in
   let ((),s) = rpt_do_step s in
@@ -168,8 +168,8 @@ val irc_alloc_def = Define`
 
 (*Prove that irc alloc is an instance of the actual algorithm*)
 val irc_alloc_reg_alloc_3 = prove(``
-  ∀G k moves.
-  irc_alloc ls k moves = reg_alloc 3 (clash_sets_to_sp_g ls) k moves``,
+  ∀G k moves ct.
+  irc_alloc ct k moves = reg_alloc 3 (FST (clash_tree_to_spg ct [] LN)) k moves`,
   fs[irc_alloc_def,reg_alloc_def])
 
 val _ = translate irc_alloc_def
