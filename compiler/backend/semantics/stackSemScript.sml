@@ -333,7 +333,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (Skip:'a stackLang$prog,s) = (NONE,s:('a,'ffi) stackSem$state)) /\
   (evaluate (Halt v,s) =
      case get_var v s of
-     | SOME w => (SOME (Halt w), s)
+     | SOME w => (SOME (Halt w), empty_env s)
      | NONE => (SOME Error, s)) /\
   (evaluate (Alloc n,s) =
      if ~s.use_alloc then (SOME Error,s) else
