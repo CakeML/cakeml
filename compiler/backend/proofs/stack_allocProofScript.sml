@@ -582,15 +582,6 @@ val word_gc_move_bitmap_unroll = prove(
   \\ full_simp_tac(srw_ss())[map_bitmap_def]
   \\ rpt (CASE_TAC \\ full_simp_tac(srw_ss())[]));
 
-val memcpy_code_def = Define `
-  memcpy_code =
-    While NotEqual 0 (Imm 0w)
-      (list_Seq [load_inst 1 2;
-                 add_bytes_in_word_inst 2;
-                 sub_1_inst 0;
-                 store_inst 1 3;
-                 add_bytes_in_word_inst 3])`
-
 val split_num_forall_to_10 = prove(
   ``($! P) <=> P 0 /\ P 1 /\ P 2 /\ P 3 /\ P 4 /\ P 5 /\
                P 6 /\ P 7 /\ P 8 /\ P 9 /\ !x. 9 < x ==> P (x:num)``,
@@ -697,51 +688,6 @@ val select_eq_select_0 = store_thm("select_eq_select_0",
   ``k <= n ==> (n -- k) w = (n - k -- 0) (w >>> k)``,
   srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ eq_tac \\ rw [])
 
-val clear_top_inst_def = Define `
-  clear_top_inst i n =
-    Seq (left_shift_inst i (dimindex(:'a) - n - 1))
-        (right_shift_inst i (dimindex(:'a) - n - 1)):'a stackLang$prog`;
-
-val word_gc_move_code_def = Define `
-  word_gc_move_code conf =
-    If Test 5 (Imm (1w:'a word)) Skip
-      (list_Seq
-        [move 0 5;
-         Get 1 CurrHeap;
-         right_shift_inst 0 (shift_length conf);
-         left_shift_inst 0 (word_shift (:'a));
-         add_inst 0 1; (* here 0 is ptr_to_addr conf old w *)
-         load_inst 1 0; (* here 1 is m (ptr_to_addr conf old w) *)
-         If Test 1 (Imm 3w)
-           (list_Seq [right_shift_inst 1 2;
-                      left_shift_inst 1 (shift_length conf);
-                      clear_top_inst 5 (shift_length conf - 1);
-                      or_inst 5 1])
-           (list_Seq [(* get len+1w *)
-                      right_shift_inst 1 (dimindex (:'a) - conf.len_size);
-                      add_1_inst 1;
-                      (* store len+1w for later *)
-                      move 6 1;
-                      (* memcpy *)
-                      move 2 0;
-                      move 0 1;
-                      memcpy_code;
-                      (* compute original header_addr *)
-                      move 0 6;
-                      left_shift_inst 0 (word_shift (:'a));
-                      sub_inst 2 0;
-                      (* store i << 2 into header_addr *)
-                      move 0 4;
-                      left_shift_inst 0 2;
-                      store_inst 0 2;
-                      (* compute update_addr conf i w, where i in 4 and w in 5 *)
-                      move 1 4;
-                      clear_top_inst 5 (shift_length conf - 1);
-                      left_shift_inst 1 (shift_length conf);
-                      or_inst 5 1;
-                      (* add to i in 4 *)
-                      add_inst 4 6])])`
-
 val is_fwd_ptr_iff = prove(
   ``!w. is_fwd_ptr w <=> ?v. w = Word v /\ (v && 3w) = 0w``,
   Cases \\ full_simp_tac(srw_ss())[is_fwd_ptr_def]);
@@ -836,15 +782,6 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
-val word_gc_move_list_code_def = Define `
-  word_gc_move_list_code conf =
-    While NotEqual 7 (Imm (0w:'a word))
-      (list_Seq [load_inst 5 8;
-                 sub_1_inst 7;
-                 word_gc_move_code conf;
-                 store_inst 5 8;
-                 add_bytes_in_word_inst 8])`
-
 val word_gc_move_list_code_thm = store_thm("word_gc_move_code_thm",
   ``!l a (s:('a,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
       word_gc_move_list conf (a:'a word,l,i,pa,old,m,dm) = (a1,i1,pa1,m1,T) /\
@@ -929,19 +866,6 @@ val word_gc_move_list_code_thm = store_thm("word_gc_move_code_thm",
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less])
-
-val word_gc_move_loop_code_def = Define `
-  word_gc_move_loop_code conf =
-    While NotEqual 3 (Reg 8)
-     (list_Seq [load_inst 7 8;
-                If Test 7 (Imm 8w)
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
-                             add_bytes_in_word_inst 8;
-                             word_gc_move_list_code conf])
-                  (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
-                             add_1_inst 7;
-                             left_shift_inst 7 (word_shift (:'a));
-                             add_inst 8 7])]):'a stackLang$prog`
 
 val word_gc_move_loop_code_thm = prove(
   ``!k pb1 i1 pa1 old1 m1 dm1 c1 i2 pa2 m2 (s:('a,'b)stackSem$state).
@@ -1056,19 +980,6 @@ val word_gc_move_loop_code_thm = prove(
          FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less]);
-
-(* 7 is w, 8 is index into stack, 5 is input to word_gc_move_code *)
-val word_gc_move_bitmap_code_def = Define `
-  word_gc_move_bitmap_code conf =
-    While NotLower 7 (Imm 2w)
-     (If Test 7 (Imm 1w)
-        (list_Seq [right_shift_inst 7 1;
-                   add_bytes_in_word_inst 8])
-        (list_Seq [StackLoadAny 5 8;
-                   right_shift_inst 7 1;
-                   word_gc_move_code conf;
-                   StackStoreAny 5 8;
-                   add_bytes_in_word_inst 8]))`
 
 val lower_2w_eq = prove(
   ``!w:'a word. good_dimindex (:'a) ==> (w <+ 2w <=> w = 0w \/ w = 1w)``,
@@ -1229,16 +1140,6 @@ val word_gc_move_bitmap_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
-(* 9 is w, 8 is index into stack *)
-val word_gc_move_bitmaps_code_def = Define `
-  (word_gc_move_bitmaps_code conf):'a stackLang$prog =
-    While NotTest 0 (Reg 0)
-      (list_Seq [BitmapLoad 7 9;
-                 word_gc_move_bitmap_code conf;
-                 BitmapLoad 0 9;
-                 add_1_inst 9;
-                 right_shift_inst 0 (dimindex (:'a) - 1)])`
-
 val DROP_IMP_EL = store_thm("DROP_IMP_EL",
   ``!xs n h t. DROP n xs = h::t ==> (EL n xs = h)``,
   Induct \\ fs [DROP_def] \\ Cases_on `n` \\ fs []);
@@ -1387,16 +1288,6 @@ val word_gc_move_bitmaps_code_thm = store_thm("word_gc_move_bitmap_code_thm",
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
 
-(* 9 is w, 8 is index into stack *)
-val word_gc_move_roots_bitmaps_code_def = Define `
-  (word_gc_move_roots_bitmaps_code conf):'a stackLang$prog =
-    While NotTest 9 (Reg 9)
-      (list_Seq [move 0 9;
-                 sub_1_inst 9;
-                 add_bytes_in_word_inst 8;
-                 word_gc_move_bitmaps_code conf;
-                 StackLoadAny 9 8])`
-
 val EL_LENGTH_ADD_LEMMA = prove(
   ``!n xs y ys. LENGTH xs = n ==> EL n (xs ++ y::ys) = y``,
   fs [EL_LENGTH_APPEND]);
@@ -1536,38 +1427,6 @@ val word_gc_move_roots_bitmaps_code_thm =
            FUN_EQ_THM,FAPPLY_FUPDATE_THM]
   \\ once_rewrite_tac [split_num_forall_to_10]
   \\ full_simp_tac(srw_ss())[nine_less] \\ fs [])
-
-val word_gc_code_def = Define `
-  word_gc_code conf =
-    (list_Seq [Set AllocSize 1;
-               Set NextFree 0;
-               const_inst 1 0w;
-               move 2 1;
-               Get 3 OtherHeap;
-               move 4 1;
-               Get 5 Globals;
-               move 6 1;
-               move 8 1;
-               word_gc_move_code conf;
-               Set Globals 5;
-               const_inst 7 0w;
-               StackLoadAny 9 8;
-               move 8 7;
-               word_gc_move_roots_bitmaps_code conf;
-               Get 8 OtherHeap;
-               word_gc_move_loop_code conf;
-               Get 0 CurrHeap;
-               Get 1 OtherHeap;
-               Get 2 HeapLength;
-               add_inst 2 1;
-               Set CurrHeap 1;
-               Set OtherHeap 0;
-               Get 0 NextFree;
-               Set NextFree 8;
-               Set EndOfHeap 2;
-               Get 1 AllocSize;
-               sub_inst 2 8;
-               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
 
 fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
