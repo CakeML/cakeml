@@ -13,6 +13,7 @@ open preamble
      stack_to_labTheory
      lab_to_targetTheory
 local open initialProgramTheory in end
+open word_to_wordTheory
 
 val _ = new_theory"backend";
 
@@ -246,5 +247,92 @@ val compile_eq_from_source = Q.store_thm("compile_eq_from_source",
      from_mod_def] >>
   unabbrev_all_tac >>
   rpt (CHANGED_TAC (srw_tac[][] >> full_simp_tac(srw_ss())[] >> srw_tac[][] >> rev_full_simp_tac(srw_ss())[])));
+
+val to_livesets_def = Define`
+  to_livesets c p =
+  let (c',p) = to_bvp c p in
+  let (bvp_conf,word_conf,asm_conf) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let p = MAP (compile_part bvp_conf) p in
+  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
+  let p =
+    MAP (λ(name_num,arg_count,prog).
+    let maxv = max_var prog + 1 in
+    let inst_prog = inst_select asm_conf maxv prog in
+    let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
+    let prog = if two_reg_arith then three_to_two_reg ssa_prog
+                                else ssa_prog in
+     (name_num,arg_count,prog)) p in
+  let clashmov = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog []) p in
+  ((reg_count,clashmov),c,p)`
+
+val from_livesets_def = Define`
+  from_livesets ((k,clashmov),c,p) =
+  let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
+  let (n_oracles,col) = next_n_oracle (LENGTH p) word_conf.col_oracle in
+  let alg = word_conf.reg_alg in
+  let prog_with_oracles = ZIP (n_oracles,ZIP(clashmov,p)) in
+  let p =
+    MAP (λ(col_opt,((tree,moves),name_num,arg_count,prog)).
+      case oracle_colour_ok k col_opt tree prog of
+        NONE =>
+          (let (clash_graph,_) = clash_tree_to_spg tree [] LN in
+             let col = reg_alloc alg clash_graph k moves
+             in
+               (name_num,arg_count,remove_must_terminate (apply_colour (total_colour col) prog)))
+      | SOME col_prog => (name_num,arg_count,remove_must_terminate col_prog)) prog_with_oracles in
+  let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
+  from_word c p`
+
+val compile_oracle = store_thm("compile_oracle",``
+  from_livesets (to_livesets c p) = compile c p``,
+  srw_tac[][FUN_EQ_THM,
+     to_bvp_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_pat_def,
+     to_exh_def,
+     to_dec_def,
+     to_con_def,
+     to_mod_def,to_livesets_def] >>
+  fs[compile_def]>>
+  split_pair_tac>>
+  fs[bvp_to_wordTheory.compile_def,word_to_wordTheory.compile_def]>>
+  fs[from_livesets_def,from_word_def,from_stack_def,from_lab_def]>>
+  unabbrev_all_tac>>fs[]>>
+  split_pair_tac>>fs[]>>
+  split_pair_tac>>fs[]>>
+  split_pair_tac>>fs[]>>
+  rveq>>fs[]>>
+  ntac 2 (pop_assum mp_tac)>>
+  qpat_abbrev_tac`progs = MAP A B`>>
+  qpat_abbrev_tac`progs' = MAP A B`>>
+  qsuff_tac `progs = progs'`>>rw[]>>
+  unabbrev_all_tac>>
+  fs[next_n_oracle_def]>>
+  rveq>>fs[]>>
+  match_mp_tac LIST_EQ>>
+  rw[]>>fs[EL_MAP,EL_ZIP,full_compile_single_def,compile_single_def]>>
+  rpt(split_pair_tac>>fs[])>>
+  fs[word_to_wordTheory.compile_single_def,word_allocTheory.word_alloc_def]>>
+  rveq>>fs[]>>
+  BasicProvers.EVERY_CASE_TAC>>fs[])
+
+val to_livesets_invariant = store_thm("to_livesets_invariant",``
+  to_livesets (c with word_conf:=wc) p =
+  let (rcm,c,p) = to_livesets c p in
+    (rcm,c with word_conf:=wc,p)``,
+  srw_tac[][FUN_EQ_THM,
+     to_bvp_def,
+     to_bvi_def,
+     to_bvl_def,
+     to_clos_def,
+     to_pat_def,
+     to_exh_def,
+     to_dec_def,
+     to_con_def,
+     to_mod_def,to_livesets_def] >>
+  unabbrev_all_tac>>fs[]>>
+  rpt(rfs[]>>fs[]))
 
 val _ = export_theory();

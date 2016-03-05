@@ -30,47 +30,15 @@ val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20
 val _ = PolyML.print_depth 20;
 
-val test = eval``
-    let (c,p) = (^(conf),^(prog)) in
-    let (c',p) = source_to_mod$compile c.source_conf p in
-    let c = c with source_conf := c' in
-    let (c',p) = mod_to_con$compile c.mod_conf p in
-    let c = c with mod_conf := c' in
-    let (n,e) = con_to_dec$compile c.source_conf.next_global p in
-    let c = c with source_conf updated_by (λc. c with next_global := n) in
-    let e = dec_to_exh$compile_exp c.mod_conf.exh_ctors_env e in
-    let e = exh_to_pat$compile e in
-    let e = pat_to_clos$compile e in
-    let (c',p) = clos_to_bvl$compile c.clos_conf e in
-    let c = c with clos_conf := c' in
-    let (s,p,n) = bvl_to_bvi$compile c.clos_conf.start c.clos_conf.next_loc p in
-    let c = c with clos_conf updated_by (λc. c with <| start := s; next_loc := n |>) in
-    let p = bvi_to_bvp$compile_prog p in (c,p)``
+val test = eval``to_livesets ^(conf) ^(prog)``
 
 val rconc = rhs o concl
 
-(*Evaluate bvp_to_word partially until the livesets are visible*)
-val test1 = Count.apply eval``
-  let (c,p) = ^(rconc test) in
-  let (bvp_conf,word_conf,asm_conf,p) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf,p) in
-  (*The next element is massive*)
-  let p:(num,num#64 wordLang$prog)alist = MAP (compile_part bvp_conf) p in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith,asm_conf.reg_count − 4) in
-  (*This is compile_single, less the word_alloc step*)
-  let p = (MAP (\(name_num,arg_count,prog).
-  let maxv = max_var prog + 1 in
-  let inst_prog = inst_select asm_conf maxv prog in
-  let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
-  let prog = if two_reg_arith then three_to_two_reg ssa_prog
-                              else ssa_prog in (name_num,arg_count,prog)) p) in
-  let clashmov = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog []) p in
-  ((reg_count,clashmov),c,p)``
-
-val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test1)))
+val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
 
 (*The custom eval takes forever here...*)
 val test_oracle = EVAL``
-  let ((reg_count,clashmov),c,p) = ^(rconc test1) in
+  let ((reg_count,clashmov),c,p) = ^(rconc test) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) ^(oracles) in
   let merge = ZIP(n_oracles,ZIP(MAP FST clashmov,MAP (SND o SND)p)) in
   MAP (\col_opt,sets,prog. oracle_colour_ok reg_count col_opt sets prog) merge``
@@ -97,10 +65,4 @@ val foo = Count.apply eval``
 
 val foo2 = Count.apply EVAL``
   check_clash_tree I ^(tree) LN LN``
-
-Count.apply eval ``numset_list_insert [1;2;3;4;5;6;7;8;9;10] LN``
-(* Rest of lab_to_target (after stack_to_lab$compile)
-    let bc' = lab_to_target$compile c.lab_conf p in
-      OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'``;*)
-
 

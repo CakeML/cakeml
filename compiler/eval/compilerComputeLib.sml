@@ -593,6 +593,8 @@ in
     ,backendTheory.to_exh_def
     ,backendTheory.to_con_def
     ,backendTheory.to_dec_def
+    ,backendTheory.to_livesets_def
+    ,backendTheory.from_livesets_def
     ]
   (*asm -- 'a should be 64*)
   ; add_datatype ``:'a asm_config``
