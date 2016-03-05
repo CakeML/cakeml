@@ -1451,6 +1451,8 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
            <| use_store := T; use_stack := T; use_alloc := F;
               code := fromAList (compile c (toAList s.code));
               regs := l2 |>) /\
+       (r <> NONE ==> r = SOME (Halt (Word 1w))) /\
+       t.regs SUBMAP l2 /\
        (r = NONE ==> FLOOKUP l2 0 = SOME ret)``,
   Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
   \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
@@ -1554,26 +1556,35 @@ val alloc_correct_lemma = store_thm("alloc_correct_lemma",
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
   \\ fs [fmap_EXT,EXTENSION]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs [])
+  \\ fs [SUBMAP_DEF] \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs [])
 
 val alloc_correct = prove(
-  ``alloc w s = (r,t) /\ r <> SOME Error /\
-    FLOOKUP s.regs 1 = SOME (Word w) ==>
-    ?ck. evaluate
+  ``alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+    s.gc_fun = word_gc_fun c /\
+    LENGTH s.bitmaps < dimword (:'a) - 1 /\
+    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    FLOOKUP l 1 = SOME (Word w) ==>
+    ?ck l2.
+       evaluate
           (Call (SOME (Skip,0,n',m)) (INL 10) NONE,
            s with
-           <|use_alloc := F; clock := s.clock + ck;
-             code := fromAList (compile c (toAList s.code))|>) =
+           <| use_store := T; use_stack := T; use_alloc := F;
+              use_alloc := F; clock := s.clock + ck; regs := l;
+              code := fromAList (compile c (toAList s.code))|>) =
          (r,
           t with
-           <|use_alloc := F; code := fromAList (compile c (toAList s.code))|>)``,
-  simp[alloc_def,GSYM AND_IMP_INTRO]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ BasicProvers.CASE_TAC \\ simp[]
-  \\ simp[evaluate_def,find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND]
-  \\ simp[stubs_def]
-  \\ cheat (* correctness of (unimplemented) stubs *));
+           <| use_store := T; use_stack := T; use_alloc := F;
+              use_alloc := F; code := fromAList (compile c (toAList s.code));
+              regs := l2|>) /\ t.regs SUBMAP l2``,
+  `find_code (INL 10) (l \\ 0) (fromAList (compile c (toAList s.code))) =
+      SOME (Seq (word_gc_code c) (Return 0 0))` by
+     simp[find_code_def,lookup_fromAList,compile_def,ALOOKUP_APPEND,stubs_def]
+  \\ tac \\ fs [] \\ strip_tac
+  \\ mp_tac (Q.GENL [`ret`,`l`,`conf`] alloc_correct_lemma) \\ fs []
+  \\ disch_then (qspecl_then [`c`,`l |+ (0,Loc n' m)`] mp_tac)
+  \\ fs [FLOOKUP_UPDATE] \\ strip_tac
+  \\ qexists_tac `ck+1` \\ fs []
+  \\ Cases_on `r` \\ fs [state_component_equality]);
 
 val find_code_IMP_lookup = prove(
   ``find_code dest regs (s:'a num_map) = SOME x ==>
@@ -1582,7 +1593,51 @@ val find_code_IMP_lookup = prove(
   Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
-val comp_correct = prove(
+val comp_correct = store_thm("comp_correct",
+  ``!p (s:('a,'b)stackSem$state) r t m n c regs.
+      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
+      (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) /\
+      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
+      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+      s.regs SUBMAP regs ==>
+      ?ck regs1.
+        evaluate (FST (comp n m p),
+           s with <| use_store := T; use_stack := T; use_alloc := F;
+                     clock := s.clock + ck; regs := regs;
+                     code := fromAList (stack_alloc$compile c (toAList s.code)) |>) =
+          (r, t with
+              <| use_store := T; use_stack := T; use_alloc := F; regs := regs1;
+                 code := fromAList (stack_alloc$compile c (toAList s.code)) |>) /\
+        t.regs SUBMAP regs1``,
+  recInduct evaluate_ind \\ rpt strip_tac
+  THEN1 (* Skip *)
+   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def]
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
+  THEN1 (* Halt *)
+   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
+    \\ Cases_on `FLOOKUP s.regs v` \\ fs [] \\ rw []
+    \\ fs [FLOOKUP_DEF,SUBMAP_DEF,empty_env_def]
+    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
+  THEN1 (* Alloc *)
+   (full_simp_tac(srw_ss())[evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs []
+    \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
+    \\ fs [good_syntax_def] \\ rw []
+    \\ drule (GEN_ALL alloc_correct) \\ fs []
+    \\ `word_gc_fun c = word_gc_fun c` by fs []
+    \\ disch_then drule
+    \\ disch_then (qspecl_then [`n'`,`m`,`regs`] mp_tac) \\ fs []
+    \\ discharge_hyps THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
+    \\ strip_tac \\ qexists_tac `ck` \\ fs []
+    \\ fs [state_component_equality])
+  \\ cheat (* the proof below needs to be updated so that it fits here *));
+
+val comp_correct_thm =
+  comp_correct |> SPEC_ALL
+  |> Q.INST [`regs`|->`s.regs`]
+  |> REWRITE_RULE [SUBMAP_REFL]
+
+val comp_correct = store_thm("comp_correct", (* old proof, delete once the one above is complete *)
   ``!p s r t m n c.
       evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
       (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) ==>
@@ -1604,7 +1659,7 @@ val comp_correct = prove(
    (full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
     \\ every_case_tac \\ full_simp_tac(srw_ss())[good_syntax_def] \\ srw_tac[][]
-    \\ drule alloc_correct \\ full_simp_tac(srw_ss())[])
+    \\ cheat)
   THEN1 (* Inst *)
    (full_simp_tac(srw_ss())[Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,inst_def]
     \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -1810,6 +1865,9 @@ val comp_correct = prove(
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `(!k prog. lookup k s.code = SOME prog ==> 30 ≤ k /\ good_syntax prog) /\
+   (* also needs to assume:
+        s.gc_fun = word_gc_fun c /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
+        LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\ *)
    semantics start s <> Fail
    ==>
    semantics start (s with <|

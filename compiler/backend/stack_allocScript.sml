@@ -146,7 +146,7 @@ val word_gc_code_def = Define `
                If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
 
 val stubs_def = Define `
-  stubs conf = [(10n,word_gc_code conf)]`
+  stubs conf = [(10n,Seq (word_gc_code conf) (Return 0 0))]`
 
 (* compiler *)
 
