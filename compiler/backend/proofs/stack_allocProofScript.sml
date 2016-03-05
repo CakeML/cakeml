@@ -108,7 +108,7 @@ val word_gc_fun_thm = prove(
                 (theWord (s ' OtherHeap) +
                  theWord (s ' HeapLength))); (Globals,w1)]
       in
-        if c2 then SOME (ws2,m1,s1) else NONE``,
+        if word_gc_fun_assum conf s /\ c2 then SOME (ws2,m1,s1) else NONE``,
   full_simp_tac(srw_ss())[word_gc_fun_lemma,LET_THM]
   \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
@@ -173,7 +173,7 @@ val gc_thm = prove(
                (theWord (s.store ' OtherHeap) +
                 theWord (s.store ' HeapLength)));
             (Globals,w1)] in
-       if c2 then SOME (s with
+       if word_gc_fun_assum conf s.store /\ c2 then SOME (s with
                        <|stack := unused ++ stack; store := s1;
                          regs := FEMPTY; memory := m1|>) else NONE``,
   strip_tac \\ drule gc_lemma
@@ -184,7 +184,7 @@ val gc_thm = prove(
   THEN1
    (rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
     \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
-    \\ imp_res_tac word_gc_move_loop_F)
+    \\ imp_res_tac word_gc_move_loop_F \\ fs [])
   \\ rpt (split_pair_tac \\ full_simp_tac(srw_ss())[]
           \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[])
   \\ Cases_on `dec_stack s.bitmaps ws2 (DROP s.stack_space s.stack)`
@@ -1432,7 +1432,7 @@ fun abbrev_under_exists tm tac =
   (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
         (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
 
-val alloc_correct = store_thm("alloc_correct",
+val alloc_correct_lemma = store_thm("alloc_correct_lemma",
   ``alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
     s.gc_fun = word_gc_fun conf /\
     LENGTH s.bitmaps < dimword (:'a) - 1 /\
@@ -1458,6 +1458,12 @@ val alloc_correct = store_thm("alloc_correct",
   \\ drule gc_thm \\ fs [] \\ disch_then kall_tac
   \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
   \\ fs [FAPPLY_FUPDATE_THM]
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ reverse IF_CASES_TAC THEN1 rw [] \\ fs []
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
+  \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
   \\ `{Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s.store /\
       isWord (s.store ' OtherHeap) /\
       isWord (s.store ' CurrHeap) /\
@@ -1465,7 +1471,8 @@ val alloc_correct = store_thm("alloc_correct",
       good_dimindex (:'a) /\
       conf.len_size + 2 < dimindex (:'a) /\
       shift_length conf < dimindex (:'a) /\
-      conf.len_size <> 0` by cheat
+      conf.len_size <> 0` by
+        (fs [word_gc_fun_assum_def,set_store_def,FAPPLY_FUPDATE_THM] \\ NO_TAC)
   \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
       !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
    (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
@@ -1474,15 +1481,9 @@ val alloc_correct = store_thm("alloc_correct",
   \\ qcase_tac `s.store ' OtherHeap = Word other`
   \\ qcase_tac `s.store ' CurrHeap = Word curr`
   \\ qcase_tac `s.store ' HeapLength = Word len`
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs []
-  \\ split_pair_tac \\ fs []
-  \\ reverse IF_CASES_TAC \\ fs [] THEN1 rw []
-  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
-  \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
   \\ fs [word_gc_code_def,list_Seq_def] \\ tac
   \\ fs [set_store_def,FLOOKUP_UPDATE] \\ tac
-  \\ fs [FLOOKUP_DEF]
+  \\ fs [FLOOKUP_DEF] \\ rfs []
   \\ imp_res_tac word_gc_move_loop_ok
   \\ fs [] \\ rpt var_eq_tac \\ fs []
   \\ abbrev_under_exists ``s3:('a,'b)stackSem$state``
@@ -1553,8 +1554,7 @@ val alloc_correct = store_thm("alloc_correct",
   \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
   \\ fs [fmap_EXT,EXTENSION]
   \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
-  \\ rw [] \\ fs [] \\ TRY (eq_tac \\ strip_tac \\ fs [])
-  \\ cheat); (* stackLang semantics at end of alloc is wrong w.r.t. stack *)
+  \\ rw [] \\ fs [] \\ eq_tac \\ strip_tac \\ fs [])
 
 val alloc_correct = prove(
   ``alloc w s = (r,t) /\ r <> SOME Error /\
