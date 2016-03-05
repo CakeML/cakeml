@@ -5219,6 +5219,16 @@ val ssa_cc_trans_wf_cutsets = prove(``
   rpt(split_pair_tac>>fs[])>>rveq>>fs[wf_cutsets_def,wf_fromAList]>>
   metis_tac[fake_moves_wf_cutsets])
 
+val full_ssa_cc_trans_wf_cutsets = store_thm("full_ssa_cc_trans_wf_cutsets",``
+  ∀n prog.
+  wf_cutsets (full_ssa_cc_trans n prog)``,
+  fs[full_ssa_cc_trans_def,setup_ssa_def,list_next_var_rename_move_def]>>
+  rw[]>>split_pair_tac>>fs[]>>
+  split_pair_tac>>fs[]>>
+  split_pair_tac>>rveq>>fs[wf_cutsets_def]>>
+  Q.ISPECL_THEN [`prog`,`ssa`,`n'`] assume_tac ssa_cc_trans_wf_cutsets>>
+  rfs[])
+
 (* No longer needed
 val colouring_satisfactory_colouring_ok_alt = prove(``
   ∀prog f live hd tl spg.
@@ -5464,45 +5474,6 @@ val check_colouring_ok_alt_INJ = prove(``
   imp_res_tac INJ_ALL_DISTINCT_MAP>>
   full_simp_tac(srw_ss())[set_toAList_keys])
 *)
-
-val oracle_colour_ok_correct = prove(``
-  ∀prog k col_opt st hd tl x.
-  even_starting_locals st.locals ∧
-  get_clash_sets prog LN = (hd,tl) ∧
-  oracle_colour_ok k col_opt (hd::tl) prog = SOME x ⇒
-  ∃perm'.
-  let (res,rst) = evaluate(prog,st with permute:=perm') in
-  if (res = SOME Error) then T else
-  let (res',rcst) = evaluate(x,st) in
-    res = res' ∧
-    word_state_eq_rel rst rcst ∧
-    case res of
-      NONE => T
-    | SOME _ => rst.locals = rcst.locals``,
-  srw_tac[][oracle_colour_ok_def]>>full_simp_tac(srw_ss())[LET_THM]>>
-  EVERY_CASE_TAC>>full_simp_tac(srw_ss())[]>>
-  Q.ISPECL_THEN[`prog`,`st`,`st`,`total_colour x'`,`LN:num_set`] mp_tac evaluate_apply_colour>>
-  discharge_hyps>-
-    (full_simp_tac(srw_ss())[word_state_eq_rel_def,strong_locals_rel_def]>>
-    srw_tac[][]
-    >-
-      (match_mp_tac colouring_ok_alt_thm>>
-      full_simp_tac(srw_ss())[colouring_ok_alt_def,LET_THM]>>
-      qabbrev_tac`ls = hd::tl`>>
-      imp_res_tac check_colouring_ok_alt_INJ>>
-      full_simp_tac(srw_ss())[Abbr`ls`])
-    >>
-      full_simp_tac(srw_ss())[every_even_colour_def]>>
-      full_simp_tac(srw_ss())[total_colour_def]>>FULL_CASE_TAC>>
-      full_simp_tac(srw_ss())[even_starting_locals_def]>>
-      full_simp_tac(srw_ss())[GSYM MEM_toAList]>>
-      full_simp_tac(srw_ss())[EVERY_MEM]>>
-      res_tac>>
-      full_simp_tac(srw_ss())[]>>
-      full_simp_tac(srw_ss())[MEM_toAList,domain_lookup])>>
-  srw_tac[][]>>qexists_tac`perm'`>>pop_assum mp_tac>>
-  LET_ELIM_TAC>>full_simp_tac(srw_ss())[]>>
-  FULL_CASE_TAC>>full_simp_tac(srw_ss())[])
 
 (*Prove the full correctness theorem for word_alloc*)
 val word_alloc_correct = store_thm("word_alloc_correct",``

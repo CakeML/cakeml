@@ -592,6 +592,7 @@ val get_writes_def = Define`
   (get_writes (LocValue r l1 l2) = insert r () LN) ∧
   (get_writes prog = LN)`
 
+(* Old representation *)
 val get_clash_sets_def = Define`
   (get_clash_sets (Seq s1 s2) live =
     let (hd,ls) = get_clash_sets s2 live in
@@ -738,7 +739,7 @@ val oracle_colour_ok_def = Define`
          every_stack_var (λx. x ≥ 2*k) prog
          (*call_arg_conv is automatically satisfied*)
        then
-         SOME prog 
+         SOME prog
        else
          NONE
      else NONE`
