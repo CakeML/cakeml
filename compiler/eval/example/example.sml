@@ -63,17 +63,42 @@ val test1 = Count.apply eval``
   let ssa_prog = full_ssa_cc_trans arg_count inst_prog in
   let prog = if two_reg_arith then three_to_two_reg ssa_prog
                               else ssa_prog in (name_num,arg_count,prog)) p) in
-  let clashmov = MAP (\(name_num,arg_count,prog). ((\h,tl. h::tl)(get_clash_sets prog LN),get_prefs prog [])) p in
+  let clashmov = MAP (\(name_num,arg_count,prog). (get_clash_tree prog),get_prefs prog []) p in
   ((reg_count,clashmov),c,p)``
 
 val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test1)))
 
-val test_oracle = Count.apply eval``
+(*The custom eval takes forever here...*)
+val test_oracle = EVAL``
   let ((reg_count,clashmov),c,p) = ^(rconc test1) in
   let (n_oracles,col) = next_n_oracle (LENGTH p) ^(oracles) in
   let merge = ZIP(n_oracles,ZIP(MAP FST clashmov,MAP (SND o SND)p)) in
   MAP (\col_opt,sets,prog. oracle_colour_ok reg_count col_opt sets prog) merge``
 
+(* Testing eval of check_clash_tree
+  The custom eval appears to use more Prims than EVAL?
+*)
+
+val tree = ``
+  Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
+  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1]) (Set (numset_list_insert [1;2;3;4;5] LN))))))))))))``
+
+val foo = Count.apply eval``
+  check_clash_tree I ^(tree) LN LN``
+
+val foo2 = Count.apply EVAL``
+  check_clash_tree I ^(tree) LN LN``
+
+Count.apply eval ``numset_list_insert [1;2;3;4;5;6;7;8;9;10] LN``
 (* Rest of lab_to_target (after stack_to_lab$compile)
     let bc' = lab_to_target$compile c.lab_conf p in
       OPTION_MAP (λ(b,c'). (b,c with lab_conf := c')) bc'``;*)
