@@ -1539,13 +1539,15 @@ val word_gc_move_roots_bitmaps_code_thm =
 
 val word_gc_code_def = Define `
   word_gc_code conf =
-    (list_Seq [const_inst 0 0w;
-               move 1 0;
-               move 2 0;
-               move 3 0;
-               move 4 0;
+    (list_Seq [Set AllocSize 1;
+               Set NextFree 0;
+               const_inst 1 0w;
+               move 2 1;
+               Get 3 OtherHeap;
+               move 4 1;
                Get 5 Globals;
-               move 6 0;
+               move 6 1;
+               move 8 1;
                word_gc_move_code conf;
                Set Globals 5;
                const_inst 7 0w;
@@ -1560,20 +1562,140 @@ val word_gc_code_def = Define `
                add_inst 2 1;
                Set CurrHeap 1;
                Set OtherHeap 0;
+               Get 0 NextFree;
                Set NextFree 8;
-               Set EndOfHeap 2])`
+               Set EndOfHeap 2;
+               Get 1 AllocSize;
+               sub_inst 2 8;
+               If Lower 2 (Reg 1) (Seq (const_inst 1 1w) (Halt 1)) Skip ])`
 
-(*
+fun abbrev_under_exists tm tac =
+  (fn state => (`?^(tm). ^(hd (fst (hd (fst (tac state)))))` by
+        (fs [markerTheory.Abbrev_def] \\ NO_TAC)) state)
 
-word_gc_move_code_thm
-word_gc_move_roots_bitmaps_code_thm
-word_gc_move_loop_code_thm
-
-gc_thm
-alloc_def
-has_space_def
-
-*)
+val alloc_correct = store_thm("alloc_correct",
+  ``alloc w (s:('a,'b)stackSem$state) = (r,t) /\ r <> SOME Error /\
+    s.gc_fun = word_gc_fun conf /\
+    LENGTH s.bitmaps < dimword (:'a) - 1 /\
+    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    FLOOKUP l 0 = SOME ret /\
+    FLOOKUP l 1 = SOME (Word w) ==>
+    ?ck l2.
+      evaluate
+        (word_gc_code conf,
+         s with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              clock := s.clock + ck; regs := l;
+              code := fromAList (compile c (toAList s.code))|>) =
+        (r,
+         t with
+           <| use_store := T; use_stack := T; use_alloc := F;
+              code := fromAList (compile c (toAList s.code));
+              regs := l2 |>) /\
+       (r = NONE ==> FLOOKUP l2 0 = SOME ret)``,
+  Cases_on `s.gc_fun = word_gc_fun conf` \\ fs [] \\ fs [alloc_def]
+  \\ `(set_store AllocSize (Word w) s).gc_fun = word_gc_fun conf` by
+        (fs [set_store_def] \\ NO_TAC)
+  \\ drule gc_thm \\ fs [] \\ disch_then kall_tac
+  \\ fs [set_store_def] \\ IF_CASES_TAC THEN1 (fs [] \\ rw [] \\ fs [])
+  \\ fs [FAPPLY_FUPDATE_THM]
+  \\ `{Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s.store /\
+      isWord (s.store ' OtherHeap) /\
+      isWord (s.store ' CurrHeap) /\
+      isWord (s.store ' HeapLength) /\
+      good_dimindex (:'a) /\
+      conf.len_size + 2 < dimindex (:'a) /\
+      shift_length conf < dimindex (:'a) /\
+      conf.len_size <> 0` by cheat
+  \\ `word_shift (:'a) < dimindex (:'a) /\ 2 < dimindex (:'a) /\
+      !w:'a word. w ≪ word_shift (:'a) = w * bytes_in_word` by
+   (fs [word_shift_def,bytes_in_word_def,labPropsTheory.good_dimindex_def]
+    \\ fs [WORD_MUL_LSL] \\ NO_TAC)
+  \\ fs [isWord_thm] \\ fs [theWord_def]
+  \\ qcase_tac `s.store ' OtherHeap = Word other`
+  \\ qcase_tac `s.store ' CurrHeap = Word curr`
+  \\ qcase_tac `s.store ' HeapLength = Word len`
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ reverse IF_CASES_TAC \\ fs [] THEN1 rw []
+  \\ fs [FLOOKUP_UPDATE,FUPDATE_LIST,has_space_def]
+  \\ rpt var_eq_tac \\ strip_tac \\ fs [NOT_LESS]
+  \\ fs [word_gc_code_def,list_Seq_def] \\ tac
+  \\ fs [set_store_def,FLOOKUP_UPDATE] \\ tac
+  \\ fs [FLOOKUP_DEF]
+  \\ imp_res_tac word_gc_move_loop_ok
+  \\ fs [] \\ rpt var_eq_tac \\ fs []
+  \\ abbrev_under_exists ``s3:('a,'b)stackSem$state``
+   (qexists_tac `0` \\ fs []
+    \\ qpat_abbrev_tac `(s3:('a,'b)stackSem$state) = _`)
+  \\ drule (GEN_ALL word_gc_move_code_thm)
+  \\ disch_then (qspec_then `s3` mp_tac)
+  \\ discharge_hyps THEN1
+   (unabbrev_all_tac \\ fs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM,FLOOKUP_DEF])
+  \\ strip_tac \\ fs []
+  \\ `s.stack_space < LENGTH s.stack` by
+   (CCONTR_TAC \\ fs [NOT_LESS]
+    \\ imp_res_tac DROP_LENGTH_TOO_LONG
+    \\ fs [word_gc_move_roots_bitmaps_def,enc_stack_def] \\ NO_TAC)
+  \\ abbrev_under_exists ``s4:('a,'b)stackSem$state``
+   (qexists_tac `ck` \\ fs []
+    \\ unabbrev_all_tac \\ fs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM]
+    \\ qpat_abbrev_tac `(s4:('a,'b)stackSem$state) = _`)
+  \\ qpat_assum `word_gc_move_roots_bitmaps _ _ = _` assume_tac
+  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH
+  \\ strip_tac \\ fs []
+  \\ `DROP s.stack_space (ys1 ++ ys2) = ys2` by
+       metis_tac [DROP_LENGTH_APPEND] \\ fs []
+  \\ drule (GEN_ALL word_gc_move_roots_bitmaps_code_thm
+           |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+  \\ fs [AND_IMP_INTRO]
+  \\ disch_then (qspecl_then [`ys1`,`s4`,`[]`] mp_tac)
+  \\ discharge_hyps THEN1
+    (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
+     \\ fs [FLOOKUP_DEF] \\ Cases_on `ys2` \\ fs []
+     \\ metis_tac [EL_LENGTH_APPEND,NULL,HD])
+  \\ strip_tac \\ fs [FAPPLY_FUPDATE_THM]
+  \\ pop_assum mp_tac
+  \\ drule (GEN_ALL evaluate_add_clock)
+  \\ disch_then (qspec_then `ck'` mp_tac)
+  \\ fs [] \\ rpt strip_tac
+  \\ abbrev_under_exists ``s5:('a,'b)stackSem$state``
+   (qexists_tac `ck+ck'` \\ fs []
+    \\ unabbrev_all_tac \\ fs [] \\ tac
+    \\ fs [FAPPLY_FUPDATE_THM]
+    \\ qpat_abbrev_tac `(s5:('a,'b)stackSem$state) = _`)
+  \\ drule (GEN_ALL word_gc_move_loop_code_thm
+           |> REWRITE_RULE [GSYM AND_IMP_INTRO])
+  \\ fs [AND_IMP_INTRO]
+  \\ disch_then (qspec_then `s5` mp_tac)
+  \\ discharge_hyps THEN1
+    (fs [] \\ unabbrev_all_tac \\ fs [get_var_def,FLOOKUP_UPDATE]
+     \\ fs [FLOOKUP_DEF,FDOM_FUPDATE,FUPDATE_LIST,FAPPLY_FUPDATE_THM])
+  \\ strip_tac \\ pop_assum mp_tac
+  \\ drule (GEN_ALL evaluate_add_clock)
+  \\ disch_then (qspec_then `ck''` mp_tac)
+  \\ qpat_assum `evaluate _ = _` kall_tac
+  \\ drule (GEN_ALL evaluate_add_clock)
+  \\ disch_then (qspec_then `ck''` mp_tac)
+  \\ rpt strip_tac \\ fs []
+  \\ qexists_tac `ck+ck'+ck''` \\ fs []
+  \\ unabbrev_all_tac \\ fs [] \\ tac
+  \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+  \\ fs [labSemTheory.word_cmp_def]
+  \\ IF_CASES_TAC \\ fs [WORD_LO,GSYM NOT_LESS]
+  \\ fs [empty_env_def,state_component_equality]
+  \\ rpt var_eq_tac \\ fs []
+  \\ fs [FAPPLY_FUPDATE_THM,FUPDATE_LIST]
+  \\ rpt (qpat_assum `evaluate _ = _` kall_tac)
+  \\ qpat_assum `_ = t.store` (fn th => fs [GSYM th])
+  \\ `TAKE t.stack_space (ys1 ++ ys2) = ys1` by metis_tac [TAKE_LENGTH_APPEND]
+  \\ fs [fmap_EXT,EXTENSION]
+  \\ rw [] \\ fs [FAPPLY_FUPDATE_THM]
+  \\ rw [] \\ fs [] \\ TRY (eq_tac \\ strip_tac \\ fs [])
+  \\ cheat); (* stackLang semantics at end of alloc is wrong w.r.t. stack *)
 
 val alloc_correct = prove(
   ``alloc w s = (r,t) /\ r <> SOME Error /\
