@@ -3974,11 +3974,11 @@ val word_exp_thm1 = Q.store_thm("word_exp_thm1",
       \\ decide_tac )
     \\ simp[] )
   \\ TRY (
-    qmatch_abbrev_tac`hide`
+    qmatch_abbrev_tac`hidee`
     \\ qpat_assum`_ = SOME _`mp_tac
     \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ simp[Abbr`hide`]
+    \\ simp[Abbr`hidee`]
     \\ fs[state_rel_def,LET_THM]
     \\ rfs[DOMSUB_FLOOKUP_THM]
     \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
@@ -4016,11 +4016,11 @@ val word_exp_thm2 = Q.store_thm("word_exp_thm2",
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
-    qmatch_abbrev_tac`hide`
+    qmatch_abbrev_tac`hidee`
     \\ qpat_assum`_ = SOME _`mp_tac
     \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ simp[Abbr`hide`]
+    \\ simp[Abbr`hidee`]
     \\ fs[state_rel_def,LET_THM]
     \\ rfs[DOMSUB_FLOOKUP_THM]
     \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
@@ -4060,11 +4060,11 @@ val word_exp_thm3 = Q.store_thm("word_exp_thm3",
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
-    qmatch_abbrev_tac`hide`
+    qmatch_abbrev_tac`hidee`
     \\ qpat_assum`_ = SOME _`mp_tac
     \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ simp[Abbr`hide`]
+    \\ simp[Abbr`hidee`]
     \\ fs[state_rel_def,LET_THM]
     \\ rfs[DOMSUB_FLOOKUP_THM]
     \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
@@ -4104,11 +4104,11 @@ val word_exp_thm4 = Q.store_thm("word_exp_thm4",
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
-    qmatch_abbrev_tac`hide`
+    qmatch_abbrev_tac`hidee`
     \\ qpat_assum`_ = SOME _`mp_tac
     \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ simp[Abbr`hide`]
+    \\ simp[Abbr`hidee`]
     \\ fs[state_rel_def,LET_THM]
     \\ rfs[DOMSUB_FLOOKUP_THM]
     \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
@@ -4149,11 +4149,11 @@ val word_exp_thm5 = Q.store_thm("word_exp_thm5",
   \\ fs[EVERY_MAP,EVERY_MEM] \\ rw[]
   \\ fs[IS_SOME_EXISTS,stackSemTheory.set_var_def,FLOOKUP_UPDATE]
   \\ TRY (
-    qmatch_abbrev_tac`hide`
+    qmatch_abbrev_tac`hidee`
     \\ qpat_assum`_ = SOME _`mp_tac
     \\ rpt ( BasicProvers.TOP_CASE_TAC \\ fs[])
     \\ rpt strip_tac \\ rveq
-    \\ simp[Abbr`hide`]
+    \\ simp[Abbr`hidee`]
     \\ fs[state_rel_def,LET_THM]
     \\ rfs[DOMSUB_FLOOKUP_THM]
     \\ rfs[wordSemTheory.mem_load_def,stackSemTheory.mem_load_def]
