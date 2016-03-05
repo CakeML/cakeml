@@ -782,7 +782,7 @@ val word_gc_move_code_thm = store_thm("word_gc_move_code_thm",
   \\ full_simp_tac(srw_ss())[select_lower_lemma,
         DECIDE ``n<>0 ==> m-(n-1)-1=m-n:num``]);
 
-val word_gc_move_list_code_thm = store_thm("word_gc_move_code_thm",
+val word_gc_move_list_code_thm = store_thm("word_gc_move_list_code_thm",
   ``!l a (s:('a,'b)stackSem$state) pa1 pa old m1 m i1 i dm conf a1.
       word_gc_move_list conf (a:'a word,l,i,pa,old,m,dm) = (a1,i1,pa1,m1,T) /\
       shift_length conf < dimindex (:'a) /\ word_shift (:'a) < dimindex (:'a) /\
@@ -1650,11 +1650,8 @@ val comp_correct = store_thm("comp_correct", (* old proof, delete once the one a
               <| code := fromAList (stack_alloc$compile c (toAList s.code));
                  use_alloc := F |>)``,
   recInduct evaluate_ind \\ rpt strip_tac
-  THEN1 (* Skip *)
-   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
-  THEN1 (* Halt *)
-   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
+  THEN1 (* Skip *) cheat
+  THEN1 (* Halt *) cheat
   THEN1 (* Alloc *)
    (full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
