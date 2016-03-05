@@ -71,7 +71,7 @@ val test3 = Count.apply EVAL``
   (c,p)``
 
 (*Didn't finish after 10mins*)
-val test4 = Count.apply EVAL
+val test4 = Count.apply eval
   ``let (c,p) = ^(rconc test3) in
   lab_to_target$compile c.lab_conf p``
 
