@@ -1726,6 +1726,7 @@ val heap_in_memory_store_def = Define `
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
     shift (:'a) <= shift_length c /\ c.len_size <> 0 /\
     c.len_size + 6 < dimindex (:'a) /\
+    shift_length c < dimindex (:'a) /\ Globals ∈ FDOM s /\
     ?curr other.
       byte_aligned curr /\ byte_aligned other /\
       (FLOOKUP s CurrHeap = SOME (Word (curr:'a word))) /\
@@ -2866,11 +2867,6 @@ val IsBlock_word_lemma = store_thm("IsBlock_word_lemma",
       \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
   \\ srw_tac [wordsLib.WORD_MUL_LSL_ss] [labPropsTheory.good_dimindex_def]
   \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
-
-val heap_in_memory_store_UPDATE = store_thm("heap_in_memory_store_UPDATE[simp]",
-  ``heap_in_memory_store heap a sp c (s |+ (Globals,h)) m md l =
-    heap_in_memory_store heap a sp c s m md l``,
-  fs [heap_in_memory_store_def,FLOOKUP_UPDATE]);
 
 val word_ml_inv_SP_LIMIT = store_thm("word_ml_inv_SP_LIMIT",
   ``word_ml_inv (heap,be,a,sp) limit c refs stack ==> sp <= limit``,

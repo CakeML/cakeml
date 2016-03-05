@@ -415,9 +415,20 @@ val word_full_gc_def = Define `
           word_gc_move_loop (dimword(:'a)) conf (new,i1,pa1,old,m1,dm,c1)
     in (rs,i1,pa1,m1,c2)`
 
+val word_gc_fun_assum_def = Define `
+  word_gc_fun_assum (conf:bvp_to_word$config) (s:store_name |-> 'a word_loc) <=>
+    {Globals; CurrHeap; OtherHeap; HeapLength} SUBSET FDOM s /\
+    isWord (s ' OtherHeap) /\
+    isWord (s ' CurrHeap) /\
+    isWord (s ' HeapLength) /\
+    good_dimindex (:'a) /\
+    conf.len_size <> 0 /\
+    conf.len_size + 2 < dimindex (:'a) /\
+    shift_length conf < dimindex (:'a)`
+
 val word_gc_fun_def = Define `
   (word_gc_fun (conf:bvp_to_word$config)):'a gc_fun_type = \(roots,m,dm,s).
-     let c = (Globals IN FDOM s) in
+     let c = word_gc_fun_assum conf s in
      let new = theWord (s ' OtherHeap) in
      let old = theWord (s ' CurrHeap) in
      let len = theWord (s ' HeapLength) in
@@ -428,7 +439,7 @@ val word_gc_fun_def = Define `
                      (NextFree, Word pa1);
                      (EndOfHeap, Word (new + len));
                      (Globals, HD roots1)] in
-       if c2 then SOME (TL roots1,m1,s1) else NONE`
+       if c /\ c2 then SOME (TL roots1,m1,s1) else NONE`
 
 val one_and_or_1 = prove(
   ``(1w && (w || 1w)) = 1w``,
@@ -1060,14 +1071,16 @@ val word_gc_fun_lemma = prove(
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac full_gc_IMP_LENGTH
   \\ Cases_on `roots2` \\ full_simp_tac(srw_ss())[]
-  \\ `LENGTH xs = LENGTH stack` by metis_tac [LENGTH_MAP] \\ full_simp_tac(srw_ss())[]
+  \\ `LENGTH xs = LENGTH stack` by metis_tac [LENGTH_MAP]
+  \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[listTheory.MAP_ZIP]
   \\ full_simp_tac(srw_ss())[LIST_REL_EQ_MAP]
   \\ CONV_TAC (DEPTH_CONV ETA_CONV) \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac full_gc_IMP \\ full_simp_tac(srw_ss())[]
   \\ rev_full_simp_tac(srw_ss())[heap_length_APPEND,heap_length_heap_expand]
   \\ `heap_length heap2 + (heap_length heap - heap_length heap2) =
-      heap_length heap` by decide_tac \\ full_simp_tac(srw_ss())[]) |> GEN_ALL
+      heap_length heap` by decide_tac \\ full_simp_tac(srw_ss())[]
+  \\ fs [word_gc_fun_assum_def,isWord_def]) |> GEN_ALL
   |> SIMP_RULE (srw_ss()) [LET_DEF,PULL_EXISTS,GSYM CONJ_ASSOC] |> SPEC_ALL;
 
 val word_gc_fun_correct = prove(
@@ -2790,6 +2803,11 @@ val word_less_lemma1 = prove(
   ``v2 < (v1:'a word) <=> ~(v1 <= v2)``,
   metis_tac [WORD_NOT_LESS]);
 
+val heap_in_memory_store_IMP_UPDATE = prove(
+  ``heap_in_memory_store heap a sp c st m dm l ==>
+    heap_in_memory_store heap a sp c (st |+ (Globals,h)) m dm l``,
+  fs [heap_in_memory_store_def] \\ cheat);
+
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
    (op_space_reset op ==> names_opt <> NONE) /\
@@ -3263,7 +3281,9 @@ val assign_thm = Q.prove(
     \\ fs [state_rel_def,wordSemTheory.set_var_def,lookup_insert,
            adjust_var_11,libTheory.the_def,set_var_def,bvi_to_bvp_def,
            wordSemTheory.set_store_def,bvp_to_bvi_def]
-    \\ rw [] \\ fs [heap_in_memory_store_UPDATE]
+    \\ rpt_drule heap_in_memory_store_IMP_UPDATE
+    \\ disch_then (qspec_then `h` assume_tac)
+    \\ rw [] \\ fs []
     \\ asm_exists_tac \\ fs [the_global_def,libTheory.the_def]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ drule (GEN_ALL word_ml_inv_get_vars_IMP)
