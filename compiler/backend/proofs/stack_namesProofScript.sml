@@ -142,7 +142,8 @@ val comp_correct = Q.prove(
      evaluate (comp f p, rename_state f s) = (r, rename_state f t)`,
   recInduct evaluate_ind \\ rpt strip_tac
   THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac)
-  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs [])
+  THEN1 (fs [evaluate_def,comp_def] \\ rpt var_eq_tac \\ CASE_TAC \\ fs []
+         \\ rw [] \\ fs [rename_state_def,empty_env_def])
   THEN1 (fs [evaluate_def,comp_def,rename_state_def] \\ rpt var_eq_tac \\ fs [])
   THEN1 (fs [evaluate_def,comp_def] >>
     every_case_tac >> fs[] >> rveq >> fs[] >>
