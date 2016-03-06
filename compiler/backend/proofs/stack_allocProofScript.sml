@@ -1593,33 +1593,40 @@ val find_code_IMP_lookup = prove(
   Cases_on `dest` \\ full_simp_tac(srw_ss())[find_code_def,FUN_EQ_THM]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
-val comp_correct = store_thm("comp_correct",
-  ``!p (s:('a,'b)stackSem$state) r t m n c regs.
-      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
-      (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) /\
-      s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
-      LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
-      s.regs SUBMAP regs ==>
-      ?ck regs1.
-        evaluate (FST (comp n m p),
-           s with <| use_store := T; use_stack := T; use_alloc := F;
-                     clock := s.clock + ck; regs := regs;
-                     code := fromAList (stack_alloc$compile c (toAList s.code)) |>) =
-          (r, t with
-              <| use_store := T; use_stack := T; use_alloc := F; regs := regs1;
-                 code := fromAList (stack_alloc$compile c (toAList s.code)) |>) /\
-        t.regs SUBMAP regs1``,
-  recInduct evaluate_ind \\ rpt strip_tac
-  THEN1 (* Skip *)
+val alloc_length_stack = Q.store_thm("alloc_length_stack",
+  `alloc c s = (r,t) ∧
+   LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) ⇒
+   LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a)`,
+   cheat);
+
+val comp_correct = Q.store_thm("comp_correct",
+  `!p (s:('a,'b)stackSem$state) r t m n c regs.
+     evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
+     (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) /\
+     s.gc_fun = word_gc_fun c ∧ LENGTH s.bitmaps < dimword (:'a) - 1 /\
+     LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+     s.regs SUBMAP regs ==>
+     ?ck regs1.
+       evaluate (FST (comp n m p),
+          s with <| use_store := T; use_stack := T; use_alloc := F;
+                    clock := s.clock + ck; regs := regs;
+                    code := fromAList (stack_alloc$compile c (toAList s.code)) |>) =
+         (r, t with
+             <| use_store := T; use_stack := T; use_alloc := F; regs := regs1;
+                code := fromAList (stack_alloc$compile c (toAList s.code)) |>) /\
+       t.regs SUBMAP regs1 ∧
+       LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a)`,
+  recInduct evaluate_ind
+  \\ conj_tac THEN1 (* Skip *)
    (full_simp_tac(srw_ss())[Once comp_def,evaluate_def]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
-  THEN1 (* Halt *)
-   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
+  \\ conj_tac THEN1 (* Halt *)
+   (rpt strip_tac \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
     \\ Cases_on `FLOOKUP s.regs v` \\ fs [] \\ rw []
     \\ fs [FLOOKUP_DEF,SUBMAP_DEF,empty_env_def]
     \\ srw_tac[][] \\ full_simp_tac(srw_ss())[state_component_equality])
-  THEN1 (* Alloc *)
-   (full_simp_tac(srw_ss())[evaluate_def,get_var_def]
+  \\ conj_tac THEN1 (* Alloc *)
+   (rpt strip_tac \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
     \\ every_case_tac \\ fs []
     \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
     \\ fs [good_syntax_def] \\ rw []
@@ -1629,8 +1636,251 @@ val comp_correct = store_thm("comp_correct",
     \\ disch_then (qspecl_then [`n'`,`m`,`regs`] mp_tac) \\ fs []
     \\ discharge_hyps THEN1 (fs [FLOOKUP_DEF,SUBMAP_DEF] \\ rfs [])
     \\ strip_tac \\ qexists_tac `ck` \\ fs []
-    \\ fs [state_component_equality])
-  \\ cheat (* the proof below needs to be updated so that it fits here *));
+    \\ fs [state_component_equality]
+    \\ metis_tac[alloc_length_stack])
+  \\ conj_tac (* Inst *) >- (
+    rpt strip_tac
+    \\ fs[Once comp_def] \\ fs[evaluate_def,inst_def]
+    \\ CASE_TAC \\ fs[] \\ rw[]
+    \\ fs[assign_def,word_exp_def,set_var_def,mem_load_def,get_var_def,mem_store_def]
+    \\ rw[] \\ fs[] \\ fs[state_component_equality]
+    \\ TRY (
+      match_mp_tac SUBMAP_mono_FUPDATE
+      \\ rw[GSYM SUBMAP_DOMSUB_gen]
+      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
+    >- (
+      every_case_tac \\ fs[] \\ rw[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+      \\ rw[] \\ fs[word_exp_def]
+      \\ every_case_tac \\ fs[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+      \\ fs[state_component_equality]
+      \\ match_mp_tac SUBMAP_mono_FUPDATE
+      \\ rw[GSYM SUBMAP_DOMSUB_gen]
+      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ rw[]
+    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    \\ rw[] \\ fs[]
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[])
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    \\ rw[] \\ fs[]
+    \\ rfs[]
+    \\ spose_not_then strip_assume_tac \\ fs[] \\ rw[]
+    \\ rfs[]
+    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
+    \\ res_tac \\ fs[] \\ rw[] \\ fs[]
+    \\ fs[state_component_equality]
+    \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
+    \\ TRY (
+      qpat_assum`¬_`mp_tac \\ simp[]
+      \\ match_mp_tac SUBMAP_mono_FUPDATE
+      \\ rw[GSYM SUBMAP_DOMSUB_gen]
+      \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
+    \\ TRY (
+      rfs[]
+      \\ BasicProvers.CASE_TAC
+      \\ BasicProvers.CASE_TAC
+      \\ spose_not_then strip_assume_tac \\ rw[]
+      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
+      \\ TRY(first_x_assum(fn th => mp_tac th \\ BasicProvers.TOP_CASE_TAC \\ fs[]))
+      \\ res_tac \\ fs[] \\ rw[]
+      \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
+      \\ res_tac \\ fs[] \\ rw[] \\ fs[]
+      \\ spose_not_then strip_assume_tac \\ fs[]
+      \\ rw[] \\ fs[] \\ rfs[])
+    \\ strip_tac \\ rw[] \\ fs[]
+    \\ Q.ISPEC_THEN`regs`assume_tac SUBMAP_REFL
+    \\ res_tac \\ fs[] \\ rw[] \\ fs[] )
+  \\ conj_tac (* Get *) >- (
+    fs[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ full_simp_tac(srw_ss())[state_component_equality]
+    \\ qpat_assum`_ = t.regs`(assume_tac o SYM) \\ fs[]
+    \\ match_mp_tac SUBMAP_mono_FUPDATE
+    \\ rw[GSYM SUBMAP_DOMSUB_gen]
+    \\ metis_tac[SUBMAP_TRANS,SUBMAP_DOMSUB] )
+  \\ conj_tac (* Set *) >- (
+    fs[Once comp_def,evaluate_def,get_var_def,set_store_def]
+    \\ every_case_tac \\ fs[] \\ rw[] \\ fs[set_var_def]
+    \\ qpat_assum`_ = (_,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[] \\ rw[]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    \\ full_simp_tac(srw_ss())[state_component_equality] )
+  \\ conj_tac (* Tick *) >- (
+    rpt strip_tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,dec_clock_def]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
+    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
+  \\ conj_tac (* Seq *) >- (
+    rpt strip_tac
+    \\ simp [Once comp_def,dec_clock_def] \\ full_simp_tac(srw_ss())[evaluate_def]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
+    \\ full_simp_tac(srw_ss())[good_syntax_def,evaluate_def]
+    \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    THEN1 (CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ res_tac)
+    \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
+    \\ reverse (Cases_on `res`) \\ full_simp_tac(srw_ss())[]
+    THEN1 (qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][]
+           \\ qexists_tac`regs1`\\simp[])
+    \\ first_x_assum (qspecl_then[`m'`,`n`,`c`,`regs1`]mp_tac)
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    THEN1 (srw_tac[][] \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[])
+    \\ strip_tac \\ rator_x_assum`evaluate`mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock) \\ simp []
+    \\ disch_then (qspec_then `ck'`assume_tac) \\ strip_tac
+    \\ qexists_tac `ck + ck'` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+    \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac \\ simp[])
+  \\ conj_tac (* Return *) >- (
+    rpt strip_tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\ rw[]
+    \\ simp[state_component_equality] )
+  \\ conj_tac (* Raise *) >- (
+    rpt strip_tac
+    \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
+  \\ conj_tac (* If *) >- (
+    rpt strip_tac
+    \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac
+    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
+    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
+    \\ rev_full_simp_tac(srw_ss())[]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    THENL [first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac),
+           first_x_assum (qspecl_then[`m'`,`n`,`c`,`regs`]mp_tac)]
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
+    \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+    \\ BasicProvers.CASE_TAC \\ fs[]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    \\ simp[state_component_equality])
+  \\ conj_tac (* While *) >- (
+    rpt strip_tac
+    \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
+    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
+    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ imp_res_tac FLOOKUP_SUBMAP
+    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
+    \\ strip_tac
+    \\ BasicProvers.TOP_CASE_TAC
+    >- (
+      pop_assum mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      pop_assum mp_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] )
+    \\ qmatch_assum_rename_tac`_ _ _ _ = SOME (Word w1)`
+    \\ qpat_assum`_ = _ (Word w1)`mp_tac
+    \\ qmatch_assum_rename_tac`_ _ _ _ = SOME (Word w2)`
+    \\ strip_tac
+    \\ `w1 = w2`
+    by (
+      every_case_tac \\ fs[]
+      \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[] \\ rw[]
+      \\ rpt(first_x_assum(qspec_then`regs`mp_tac)\\simp[]) )
+    \\ fs[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ full_simp_tac(srw_ss())[]
+    >- simp[state_component_equality]
+    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+    \\ split_pair_tac \\ fs[]
+    \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs`]mp_tac)
+    \\ discharge_hyps THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
+    \\ Cases_on `res <> NONE` \\ full_simp_tac(srw_ss())[]
+    THEN1 (rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+      \\ fs[state_component_equality])
+    \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
+    THEN1 (rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
+      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,empty_env_def]
+      \\ fs[state_component_equality])
+    \\ full_simp_tac(srw_ss())[STOP_def]
+    \\ first_x_assum (qspecl_then[`m`,`n`,`c`,`regs1`]mp_tac)
+    \\ discharge_hyps
+    THEN1 (full_simp_tac(srw_ss())[good_syntax_def] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
+           \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac
+           \\ fs[dec_clock_def])
+    \\ once_rewrite_tac [comp_def] \\ full_simp_tac(srw_ss())[LET_THM]
+    \\ strip_tac \\ full_simp_tac(srw_ss())[]
+    \\ qexists_tac `ck+ck'`
+    \\ rator_x_assum`evaluate` mp_tac
+    \\ drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
+    \\ disch_then (qspec_then `ck'` assume_tac)
+    \\ full_simp_tac(srw_ss())[dec_clock_def] \\ strip_tac
+    \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+    \\ `ck' + (s1.clock - 1) = ck' + s1.clock - 1` by decide_tac \\ full_simp_tac(srw_ss())[]
+    \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
+    \\ fs[state_component_equality])
+  \\ conj_tac (* JumpLower *) >- (
+    rpt strip_tac
+    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def] \\ simp [Once comp_def]
+    \\ qpat_assum`_ = (r,_)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ imp_res_tac FLOOKUP_SUBMAP \\ fs[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      rw[evaluate_def,get_var_def,state_component_equality] \\ fs[] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ fs[find_code_def]
+    \\ res_tac
+    \\ imp_res_tac lookup_IMP_lookup_compile
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      rw[evaluate_def,get_var_def,find_code_def]
+      \\ first_x_assum(qspec_then`c`strip_assume_tac) \\ fs[]
+      \\ qexists_tac`0` \\ fs[]
+      \\ fs[state_component_equality,empty_env_def] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ rw[evaluate_def,get_var_def,find_code_def]
+    \\ first_x_assum(qspec_then`c`strip_assume_tac) \\ fs[]
+    \\ fs[PULL_FORALL,dec_clock_def]
+    \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`,`regs`]mp_tac)
+    \\ match_mp_tac IMP_IMP \\ conj_tac
+    \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
+    \\ strip_tac \\ full_simp_tac(srw_ss())[]
+    \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
+    \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
+    \\ simp[state_component_equality])
+  \\ cheat)
 
 val comp_correct_thm =
   comp_correct |> SPEC_ALL
