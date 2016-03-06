@@ -24,7 +24,9 @@ val conf = ``<|source_conf:=^(source_conf);
 
 (*val y = (fn x => x)*)
 
-val prog = ``[Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))))]``
+val prog = ``
+[Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))));
+ Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))))]``
 
 val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20
@@ -70,10 +72,28 @@ val test3 = Count.apply EVAL``
   let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
   (c,p)``
 
-(*Didn't finish after 10mins*)
+val _ = Globals.max_print_depth := 5;
+
+(*approx. 4 minutes*)
 val test4 = Count.apply eval
   ``let (c,p) = ^(rconc test3) in
-  lab_to_target$compile c.lab_conf p``
+  let p = filter_skip p in
+  let c = c.lab_conf in
+  let limit = find_ffi_index_limit p in
+  let (c,enc,l) = (c.asm_conf,c.encoder,c.labels) in
+  (c,enc,l,enc_sec_list enc p)``
+
+(*approx. 2 minutes*)
+val test5 = Count.apply eval
+``
+  let (c,enc,l,sec_list) = ^(rconc test4) in
+  remove_labels_loop 20 c enc sec_list l``
+
+(* Fast *)
+val test6 = Count.apply eval
+ ``
+ case ^(rconc test5) of
+ SOME (sec_list,l1) => SOME(prog_to_bytes sec_list)``
 
 (* Testing eval of check_clash_tree
   The custom eval appears to use more Prims than EVAL?
