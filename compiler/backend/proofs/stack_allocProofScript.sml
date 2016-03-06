@@ -1594,6 +1594,17 @@ val find_code_IMP_lookup = prove(
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ metis_tac []);
 
 val alloc_length_stack = Q.store_thm("alloc_length_stack",
+  `alloc c s = (r,t) /\ s.gc_fun = word_gc_fun conf /\
+   (!w. r <> SOME (Halt w)) ==>
+   LENGTH t.stack = LENGTH s.stack`,
+  fs [alloc_def,gc_def,set_store_def] \\ rw [] \\ fs []
+  \\ every_case_tac \\ fs []
+  \\ rw [] \\ drule word_gc_fun_LENGTH \\ rw [] \\ fs [NOT_LESS]
+  \\ drule bvp_to_wordPropsTheory.LESS_EQ_LENGTH \\ strip_tac \\ fs []
+  \\ pop_assum (fn th => fs [GSYM th]) \\ fs [DROP_LENGTH_APPEND]
+  \\ metis_tac [dec_stack_length]);
+
+val alloc_length_stack = Q.store_thm("alloc_length_stack", (* TODO: delete *)
   `alloc c s = (r,t) ∧
    LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:'a) ⇒
    LENGTH t.stack * (dimindex (:'a) DIV 8) < dimword (:'a)`,

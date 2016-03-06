@@ -357,4 +357,17 @@ val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
             EVAL``(s with clock := k).clock``,
             EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
+val dec_stack_length = store_thm("dec_stack_length",``
+  ∀bs enc orig_stack new_stack.
+  dec_stack bs enc orig_stack = SOME new_stack ⇒
+  LENGTH orig_stack = LENGTH new_stack``,
+  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
+  fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
+  pop_assum mp_tac>>
+  Cases_on`w`>>fs[full_read_bitmap_def]>>
+  every_case_tac>>fs[]>>
+  rw[]>>
+  imp_res_tac map_bitmap_length>>
+  simp[]>>metis_tac[])
+
 val _ = export_theory();

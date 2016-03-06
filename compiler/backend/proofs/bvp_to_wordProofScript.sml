@@ -2210,7 +2210,7 @@ val word_gc_IMP_EVERY2 = prove(
   \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac word_gc_move_roots_IMP_EVERY2);
 
-val word_gc_fun_LENGTH = prove(
+val word_gc_fun_LENGTH = store_thm("word_gc_fun_LENGTH",
   ``word_gc_fun c (xs,m,dm,s) = SOME (zs,m1,s1) ==> LENGTH xs = LENGTH zs``,
   srw_tac[][] \\ drule word_gc_IMP_EVERY2 \\ srw_tac[][] \\ imp_res_tac EVERY2_LENGTH);
 

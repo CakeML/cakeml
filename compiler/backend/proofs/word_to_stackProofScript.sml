@@ -1237,7 +1237,7 @@ val IMP_enc_stack = prove(
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma>>
   simp[]);
 
-val map_bitmap_length = prove(``
+val map_bitmap_length = store_thm("map_bitmap_length",``
   ∀a b c x y z.
   map_bitmap a b c = SOME(x,y,z) ⇒
   LENGTH c = LENGTH x + LENGTH z ∧
@@ -1250,19 +1250,6 @@ val map_bitmap_length = prove(``
   fs[LENGTH_NIL]>>
   pop_assum mp_tac>>EVERY_CASE_TAC>>rw[]>>res_tac>>
   fs[]>>DECIDE_TAC);
-
-val dec_stack_length = prove(``
-  ∀bs enc orig_stack new_stack.
-  dec_stack bs enc orig_stack = SOME new_stack ⇒
-  LENGTH orig_stack = LENGTH new_stack``,
-  ho_match_mp_tac stackSemTheory.dec_stack_ind>>
-  fs[stackSemTheory.dec_stack_def,LENGTH_NIL]>>rw[]>>
-  pop_assum mp_tac>>
-  Cases_on`w`>>fs[full_read_bitmap_def]>>
-  EVERY_CASE_TAC>>fs[]>>
-  rw[]>>
-  imp_res_tac map_bitmap_length>>
-  simp[]>>metis_tac[])
 
 val map_bitmap_success = prove(``
   ∀bs stack a b ls.
