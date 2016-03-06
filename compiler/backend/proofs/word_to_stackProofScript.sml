@@ -1237,20 +1237,6 @@ val IMP_enc_stack = prove(
   \\ fs [stack_rel_def] \\ imp_res_tac enc_stack_lemma>>
   simp[]);
 
-val map_bitmap_length = store_thm("map_bitmap_length",``
-  ∀a b c x y z.
-  map_bitmap a b c = SOME(x,y,z) ⇒
-  LENGTH c = LENGTH x + LENGTH z ∧
-  LENGTH x = LENGTH a``,
-  Induct>>rw[]>>
-  Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
-  fs[map_bitmap_def]>>
-  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
-  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
-  fs[LENGTH_NIL]>>
-  pop_assum mp_tac>>EVERY_CASE_TAC>>rw[]>>res_tac>>
-  fs[]>>DECIDE_TAC);
-
 val map_bitmap_success = prove(``
   ∀bs stack a b ls.
   filter_bitmap bs stack = SOME(a,b) ∧

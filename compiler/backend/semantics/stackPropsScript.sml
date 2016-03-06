@@ -357,6 +357,20 @@ val semantics_Diverge_IMP_LPREFIX = Q.store_thm("semantics_Diverge_IMP_LPREFIX",
             EVAL``(s with clock := k).clock``,
             EVAL``((s with clock := k) with clock := k2) = (s with clock := k2)``]);
 
+val map_bitmap_length = store_thm("map_bitmap_length",``
+  ∀a b c x y z.
+  map_bitmap a b c = SOME(x,y,z) ⇒
+  LENGTH c = LENGTH x + LENGTH z ∧
+  LENGTH x = LENGTH a``,
+  Induct>>rw[]>>
+  Cases_on`b`>>TRY(Cases_on`h`)>>Cases_on`c`>>
+  fs[map_bitmap_def]>>
+  TRY(qpat_assum`A=x` (SUBST_ALL_TAC o SYM))>>
+  TRY(qpat_assum`A=y` (SUBST_ALL_TAC o SYM))>>
+  fs[LENGTH_NIL]>>
+  pop_assum mp_tac>>every_case_tac>>rw[]>>res_tac>>
+  fs[]>>DECIDE_TAC);
+
 val dec_stack_length = store_thm("dec_stack_length",``
   ∀bs enc orig_stack new_stack.
   dec_stack bs enc orig_stack = SOME new_stack ⇒
