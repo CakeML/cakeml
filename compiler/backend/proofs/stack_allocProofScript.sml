@@ -2057,241 +2057,25 @@ val comp_correct_thm =
   |> Q.INST [`regs`|->`s.regs`]
   |> REWRITE_RULE [SUBMAP_REFL]
 
-val comp_correct = store_thm("comp_correct", (* old proof, delete once the one above is complete *)
-  ``!p s r t m n c.
-      evaluate (p,s) = (r,t) /\ r <> SOME Error /\ good_syntax p /\
-      (!k prog. lookup k s.code = SOME prog ==> 30 <= k /\ good_syntax prog) ==>
-      ?ck.
-        evaluate (FST (comp n m p),
-           s with <| clock := s.clock + ck;
-                     code := fromAList (stack_alloc$compile c (toAList s.code));
-                     use_alloc := F |>) =
-          (r, t with
-              <| code := fromAList (stack_alloc$compile c (toAList s.code));
-                 use_alloc := F |>)``,
-  recInduct evaluate_ind \\ rpt strip_tac
-  THEN1 (* Skip *) cheat
-  THEN1 (* Halt *) cheat
-  THEN1 (* Alloc *)
-   (full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ full_simp_tac(srw_ss())[Once comp_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[good_syntax_def] \\ srw_tac[][]
-    \\ cheat)
-  THEN1 (* Inst *)
-   (full_simp_tac(srw_ss())[Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,inst_def]
-    \\ CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ full_simp_tac(srw_ss())[assign_def,word_exp_def,set_var_def,mem_load_def,
-         get_var_def,mem_store_def]
-    \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[state_component_equality]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[markerTheory.Abbrev_def,LET_DEF,word_exp_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality] \\ srw_tac[][])
-  THEN1 (* Get *)
-   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality])
-  THEN1 (* Set *)
-   (full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_store_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality])
-  THEN1 (* Tick *)
-   (qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,dec_clock_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[set_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
-  THEN1 (* Seq *)
-   (simp [Once comp_def,dec_clock_def] \\ full_simp_tac(srw_ss())[evaluate_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[LET_DEF]
-    \\ full_simp_tac(srw_ss())[good_syntax_def,evaluate_def]
-    \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    THEN1 (CCONTR_TAC \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[] \\ res_tac)
-    \\ strip_tac \\ rev_full_simp_tac(srw_ss())[]
-    \\ reverse (Cases_on `res`) \\ full_simp_tac(srw_ss())[]
-    THEN1 (qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,LET_DEF] \\ srw_tac[][])
-    \\ first_x_assum (qspecl_then[`m'`,`n`,`c`]mp_tac)
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    THEN1 (srw_tac[][] \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac \\ full_simp_tac(srw_ss())[])
-    \\ strip_tac \\ pop_assum mp_tac
-    \\ drule (GEN_ALL evaluate_add_clock) \\ simp []
-    \\ disch_then (qspec_then `ck'`assume_tac) \\ strip_tac
-    \\ qexists_tac `ck + ck'` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
-    \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[])
-  THEN1 (* Return *)
-   (qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
-  THEN1 (* Raise *)
-   (qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
-  THEN1 (* If *)
-   (simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
-    \\ rev_full_simp_tac(srw_ss())[]
-    THENL [first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac),
-           first_x_assum (qspecl_then[`m'`,`n`,`c`]mp_tac)]
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-    \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-    \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
-  THEN1 (* While *)
-   (simp [Once comp_def] \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ reverse every_case_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def,get_var_imm_case,good_syntax_def]
-    \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-    THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[state_component_equality])
-    \\ full_simp_tac(srw_ss())[LET_THM] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
-    \\ discharge_hyps THEN1 (full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[])
-    \\ full_simp_tac(srw_ss())[] \\ strip_tac \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `res <> NONE` \\ full_simp_tac(srw_ss())[]
-    THEN1 (rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
-    \\ Cases_on `s1.clock = 0` \\ full_simp_tac(srw_ss())[]
-    THEN1 (rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC,empty_env_def])
-    \\ full_simp_tac(srw_ss())[STOP_def]
-    \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
-    \\ discharge_hyps
-    THEN1 (full_simp_tac(srw_ss())[good_syntax_def] \\ rpt strip_tac \\ res_tac \\ full_simp_tac(srw_ss())[]
-           \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[] \\ res_tac)
-    \\ once_rewrite_tac [comp_def] \\ full_simp_tac(srw_ss())[LET_THM]
-    \\ strip_tac \\ full_simp_tac(srw_ss())[]
-    \\ qexists_tac `ck+ck'`
-    \\ pop_assum mp_tac
-    \\ drule (GEN_ALL evaluate_add_clock) \\ full_simp_tac(srw_ss())[]
-    \\ disch_then (qspec_then `ck'` assume_tac)
-    \\ full_simp_tac(srw_ss())[dec_clock_def] \\ strip_tac
-    \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
-    \\ `ck' + (s1.clock - 1) = ck' + s1.clock - 1` by decide_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[])
-  THEN1 (* JumpLower *)
-   (full_simp_tac(srw_ss())[evaluate_def,get_var_def] \\ simp [Once comp_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[good_syntax_def]
-    \\ full_simp_tac(srw_ss())[evaluate_def,get_var_def] \\ full_simp_tac(srw_ss())[find_code_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def] \\ res_tac
-    \\ imp_res_tac lookup_IMP_lookup_compile
-    \\ pop_assum (qspec_then `c` strip_assume_tac) \\ full_simp_tac(srw_ss())[]
-    THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def])
-    \\ rev_full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[PULL_FORALL,dec_clock_def]
-    \\ first_x_assum (qspecl_then[`m1`,`n1`,`c`]mp_tac)
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ strip_tac \\ full_simp_tac(srw_ss())[]
-    \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
-    \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
-  THEN1 (* Call *)
-   (full_simp_tac(srw_ss())[evaluate_def] \\ Cases_on `ret` \\ full_simp_tac(srw_ss())[] THEN1
-     (Cases_on `find_code dest s.regs s.code` \\ full_simp_tac(srw_ss())[]
-      \\ every_case_tac \\ full_simp_tac(srw_ss())[empty_env_def] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[good_syntax_def] \\ simp [Once comp_def,evaluate_def]
-      \\ drule find_code_IMP_lookup \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[]
-      \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
-      \\ pop_assum (strip_assume_tac o SPEC_ALL) \\ full_simp_tac(srw_ss())[]
-      THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
-      THEN1 (qexists_tac `0` \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
-      \\ full_simp_tac(srw_ss())[dec_clock_def]
-      \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
-      \\ match_mp_tac IMP_IMP \\ conj_tac
-      \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ `ck + s.clock - 1 = ck + (s.clock - 1)` by decide_tac
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC])
-    \\ qmatch_assum_rename_tac `good_syntax (Call (SOME z) dest handler)`
-    \\ PairCases_on `z` \\ full_simp_tac(srw_ss())[] \\ simp [Once comp_def] \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `find_code dest (s.regs \\ z1) s.code` \\ full_simp_tac(srw_ss())[]
-    \\ drule find_code_IMP_lookup \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-    \\ res_tac \\ imp_res_tac lookup_IMP_lookup_compile
-    \\ pop_assum (qspec_then`c`strip_assume_tac) \\ full_simp_tac(srw_ss())[good_syntax_def]
-    \\ Cases_on `s.clock = 0` \\ full_simp_tac(srw_ss())[] THEN1
-     (srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ every_case_tac \\ full_simp_tac(srw_ss())[]
-      \\ TRY split_pair_tac \\ full_simp_tac(srw_ss())[evaluate_def]
-      \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[]
-      \\ full_simp_tac(srw_ss())[empty_env_def,state_component_equality])
-    \\ Cases_on `evaluate (x,dec_clock (set_var z1 (Loc z2 z3) s))`
-    \\ Cases_on `q` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `x'` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ TRY
-     (every_case_tac \\ full_simp_tac(srw_ss())[] \\ TRY split_pair_tac
-      \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
-      \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
-      \\ match_mp_tac IMP_IMP \\ conj_tac
-      \\ TRY (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ strip_tac \\ full_simp_tac(srw_ss())[]
-      \\ `ck + s.clock - 1 = s.clock - 1 + ck` by decide_tac
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-    THEN1
-     (Cases_on `w = Loc z2 z3` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-      \\ first_x_assum (qspecl_then[`m`,`n`,`c`]mp_tac)
-      \\ match_mp_tac IMP_IMP \\ conj_tac
-      \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-              \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC)
-      \\ strip_tac \\ full_simp_tac(srw_ss())[] \\ rev_full_simp_tac(srw_ss())[]
-      \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
-      \\ match_mp_tac IMP_IMP \\ conj_tac
-      \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-              \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ srw_tac[][]
-      \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-      \\ TRY (PairCases_on `x'` \\ fs[] \\ split_pair_tac \\ full_simp_tac(srw_ss())[])
-      \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
-      \\ first_assum (mp_tac o Q.SPEC `ck` o
-             MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO]
-             (evaluate_add_clock |> GEN_ALL))) \\ full_simp_tac(srw_ss())[]
-      \\ srw_tac[][] \\ qexists_tac `ck' + ck` \\ full_simp_tac(srw_ss())[AC ADD_COMM ADD_ASSOC]
-      \\ `ck + (ck' + (s.clock - 1)) = ck + (ck' + s.clock) - 1` by decide_tac
-      \\ full_simp_tac(srw_ss())[] \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[])
-    \\ Cases_on `handler` \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
-    THEN1
-     (first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
-      \\ match_mp_tac IMP_IMP \\ conj_tac
-      \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-              \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ srw_tac[][]
-      \\ `ck + s.clock - 1 = s.clock - 1 + ck` by decide_tac
-      \\ qexists_tac `ck` \\ full_simp_tac(srw_ss())[])
-    \\ PairCases_on `x'` \\ full_simp_tac(srw_ss())[]
-    \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-    \\ full_simp_tac(srw_ss())[evaluate_def,dec_clock_def,set_var_def]
-    \\ Cases_on `w = Loc x'1 x'2` \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ first_x_assum (qspecl_then[`n1`,`m1`,`c`]mp_tac)
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-            \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ srw_tac[][] \\ rev_full_simp_tac(srw_ss())[]
-    \\ first_x_assum (qspecl_then[`m'`,`n`,`c`]mp_tac)
-    \\ match_mp_tac IMP_IMP \\ conj_tac
-    \\ TRY (imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[]
-            \\ srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[] \\ NO_TAC) \\ srw_tac[][]
-    \\ ntac 2 (pop_assum mp_tac)
-    \\ first_assum (mp_tac o Q.SPEC `ck'` o
-             MATCH_MP (REWRITE_RULE [GSYM AND_IMP_INTRO]
-             (evaluate_add_clock |> GEN_ALL))) \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-    \\ qexists_tac `ck+ck'` \\ full_simp_tac(srw_ss())[]
-    \\ `ck + ck' + s.clock - 1 = s.clock - 1 + ck + ck'` by decide_tac \\ full_simp_tac(srw_ss())[]
-    \\ imp_res_tac evaluate_consts \\ full_simp_tac(srw_ss())[])
-  THEN1 (* FFI *)
-   (qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def]
-    \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-    \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF])
-  \\ qexists_tac `0` \\ full_simp_tac(srw_ss())[Once comp_def,evaluate_def,get_var_def,set_var_def]
-  \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[get_var_def]
-  \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
-  \\ full_simp_tac(srw_ss())[state_component_equality,empty_env_def,LET_DEF]);
+val with_same_regs_lemma = Q.prove(
+  `s with <| regs := s.regs; use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |> =
+   s with <| use_stack := T; use_store := T; use_alloc := F; clock := k; code := c |>`,
+  simp[state_component_equality])
+val _ = augment_srw_ss[rewrites[with_same_regs_lemma]];
 
 val compile_semantics = Q.store_thm("compile_semantics",
   `(!k prog. lookup k s.code = SOME prog ==> 30 ≤ k /\ good_syntax prog) /\
-   (* also needs to assume:
-        s.gc_fun = word_gc_fun c /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
-        LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\ *)
+   s.gc_fun = (word_gc_fun c:α gc_fun_type) /\ LENGTH s.bitmaps < dimword (:'a) - 1 /\
+   LENGTH s.stack * (dimindex (:'a) DIV 8) < dimword (:α) /\
    semantics start s <> Fail
    ==>
    semantics start (s with <|
                       code := fromAList (stack_alloc$compile c (toAList s.code));
+                      use_store := T;
+                      use_stack := T;
                       use_alloc := F |>) =
    semantics start s`,
-  simp[GSYM AND_IMP_INTRO] >> strip_tac >>
+  simp[GSYM AND_IMP_INTRO] >> ntac 4 strip_tac >>
   simp[semantics_def] >>
   IF_CASES_TAC >> full_simp_tac(srw_ss())[] >>
   DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
@@ -2303,17 +2087,17 @@ val compile_semantics = Q.store_thm("compile_semantics",
       simp[] >>
       qmatch_assum_rename_tac`_ = (res,_)` >>
       Cases_on`res=SOME Error`>>simp[]>>
-      drule comp_correct >>
+      drule comp_correct_thm >>
       simp[good_syntax_def,RIGHT_FORALL_IMP_THM] >>
       discharge_hyps >- metis_tac[] >>
       simp[comp_def] >>
-      disch_then(qspec_then`c`strip_assume_tac) >>
+      strip_tac >>
       qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
       (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
       strip_tac >>
       drule (Q.GEN`extra`evaluate_add_clock) >>
       disch_then(qspec_then`ck`mp_tac) >> full_simp_tac(srw_ss())[] >>
-      strip_tac >> fsrw_tac[ARITH_ss][] >> srw_tac[][]) >>
+      fs[]) >>
     DEEP_INTRO_TAC some_intro >> full_simp_tac(srw_ss())[] >>
     conj_tac >- (
       srw_tac[][] >>
@@ -2323,14 +2107,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
         simp[Abbr`ss`] >>
         (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
         simp[] >> strip_tac >>
-        drule comp_correct >>
+        drule comp_correct_thm >>
         simp[RIGHT_FORALL_IMP_THM] >>
         discharge_hyps >- (
           simp[Abbr`e`,good_syntax_def] >>
           reverse conj_tac >- metis_tac[] >>
           rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
         simp[Abbr`e`,comp_def] >>
-        disch_then(qspec_then`c`strip_assume_tac) >>
+        strip_tac >>
         Cases_on`t'.ffi.final_event`>>full_simp_tac(srw_ss())[] >- (
           ntac 2 (rator_x_assum`evaluate`mp_tac) >>
           drule (GEN_ALL evaluate_add_clock) >>
@@ -2354,14 +2138,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
       drule (GEN_ALL evaluate_add_clock) >>
       disch_then(qspec_then`k'`mp_tac) >>
       simp[] >> strip_tac >>
-      drule comp_correct >>
+      drule comp_correct_thm >>
       simp[RIGHT_FORALL_IMP_THM] >>
       discharge_hyps >- (
         simp[good_syntax_def] >>
         reverse conj_tac >- metis_tac[] >>
         rpt(first_x_assum(qspec_then`k+k'`mp_tac))>>srw_tac[][] ) >>
       simp[comp_def] >>
-      disch_then(qspec_then`c`strip_assume_tac) >>
+      strip_tac >>
       strip_tac >>
       qmatch_assum_abbrev_tac`evaluate (e,ss) = _` >>
       qspecl_then[`ck+k`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
@@ -2374,14 +2158,14 @@ val compile_semantics = Q.store_thm("compile_semantics",
       strip_tac >> full_simp_tac(srw_ss())[] >> rveq >> full_simp_tac(srw_ss())[] >>
       `t.ffi = t'.ffi` by full_simp_tac(srw_ss())[state_component_equality] >>
       BasicProvers.FULL_CASE_TAC >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[] ) >>
-    drule comp_correct >>
+    drule comp_correct_thm >>
     simp[RIGHT_FORALL_IMP_THM] >>
     discharge_hyps >- (
       simp[good_syntax_def] >>
       reverse conj_tac >- metis_tac[] >>
       rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][]) >>
     simp[comp_def] >>
-    disch_then(qspec_then`c`strip_assume_tac) >>
+    strip_tac >>
     asm_exists_tac >> simp[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
     BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]) >>
@@ -2392,9 +2176,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >>
     simp[] >>
     srw_tac[][] >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    drule comp_correct >>
+    drule comp_correct_thm >>
     simp[good_syntax_def,comp_def] >>
-    qexists_tac`c`>>simp[] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     qpat_assum`_ ≠ SOME TimeOut`mp_tac >>
@@ -2410,9 +2193,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
     last_x_assum mp_tac >>
     last_x_assum(qspec_then`k`mp_tac) >>
     srw_tac[][] >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] >>
-    drule comp_correct >>
+    drule comp_correct_thm >>
     simp[good_syntax_def,comp_def] >>
-    qexists_tac`c`>>simp[] >>
     conj_tac >- metis_tac[] >>
     srw_tac[][] >>
     Cases_on`r=TimeOut`>>full_simp_tac(srw_ss())[]>-(
@@ -2420,7 +2202,8 @@ val compile_semantics = Q.store_thm("compile_semantics",
       qspecl_then[`ck`,`e`,`ss`]mp_tac(GEN_ALL evaluate_add_clock_io_events_mono)>>
       simp[Abbr`ss`] >>
       Cases_on`t.ffi.final_event`>>full_simp_tac(srw_ss())[] >>
-      rpt strip_tac >> full_simp_tac(srw_ss())[] ) >>
+      rpt strip_tac >> full_simp_tac(srw_ss())[] >>
+      spose_not_then strip_assume_tac \\ fs[]) >>
     rator_x_assum`evaluate`mp_tac >>
     drule (GEN_ALL evaluate_add_clock) >>
     disch_then(qspec_then`ck`mp_tac)>>simp[] ) >>
@@ -2441,7 +2224,7 @@ val compile_semantics = Q.store_thm("compile_semantics",
       LESS_EQ_EXISTS,
       evaluate_add_clock_io_events_mono
         |> CONV_RULE(SWAP_FORALL_CONV)
-        |> Q.SPEC`s with <| use_alloc := F; clock := k; code := c|>`
+        |> Q.SPEC`s with <| use_stack := T; use_store := T; use_alloc := F; clock := k; code := c|>`
         |> SIMP_RULE(srw_ss())[],
       evaluate_add_clock_io_events_mono
         |> CONV_RULE(SWAP_FORALL_CONV)
@@ -2455,13 +2238,13 @@ val compile_semantics = Q.store_thm("compile_semantics",
   rpt gen_tac >>
   (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
   (fn g => subterm (fn tm => Cases_on`^(assert (fn tm => has_pair_type tm andalso free_in tm (#2 g)) tm)`) (#2 g) g) >> full_simp_tac(srw_ss())[] >>
-  drule comp_correct >>
+  drule comp_correct_thm >>
   simp[comp_def,RIGHT_FORALL_IMP_THM] >>
   discharge_hyps >- (
     simp[good_syntax_def] >>
     reverse conj_tac >- metis_tac[] >>
     rpt(first_x_assum(qspec_then`k`mp_tac))>>srw_tac[][] ) >>
-  disch_then(qspec_then`c`strip_assume_tac) >>
+  strip_tac >>
   reverse conj_tac >- (
     srw_tac[][] >>
     qexists_tac`ck+k`>>simp[] ) >>
@@ -2484,11 +2267,14 @@ val prog_comp_lambda = Q.store_thm("prog_comp_lambda",
 
 val make_init_semantics = Q.store_thm("make_init_semantics",
   `(!k prog. ALOOKUP code k = SOME prog ==> 30 ≤ k /\ good_syntax prog) /\
-   ~s.use_alloc /\ s.code = fromAList (compile c code) /\
+   s.use_stack ∧ s.use_store ∧ ~s.use_alloc /\ s.code = fromAList (compile c code) /\
+   LENGTH s.bitmaps < dimword (:α) - 1 ∧
+   LENGTH s.stack * (dimindex (:α) DIV 8) < dimword (:α) ∧
+   s.gc_fun = (word_gc_fun c:α gc_fun_type) ∧
    ALL_DISTINCT (MAP FST code) /\
    semantics start (make_init (fromAList code) s) <> Fail ==>
    semantics start s = semantics start (make_init (fromAList code) s)`,
-  srw_tac[][] \\ drule (ONCE_REWRITE_RULE[CONJ_COMM]compile_semantics)
+  srw_tac[][] \\ drule (CONV_RULE(LAND_CONV(lift_conjunct_conv(can dest_neg)))compile_semantics)
   \\ full_simp_tac(srw_ss())[make_init_def,lookup_fromAList]
   \\ discharge_hyps THEN1 (srw_tac[][] \\ res_tac \\ full_simp_tac(srw_ss())[])
   \\ disch_then (assume_tac o GSYM)
