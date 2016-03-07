@@ -24,9 +24,51 @@ val conf = ``<|source_conf:=^(source_conf);
 
 (*val y = (fn x => x)*)
 
-val prog = ``
-[Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))));
- Tdec (Dlet (Pvar "y") (Fun "x" (Var (Short "x"))))]``
+val prog = ``[
+Tdec (Dlet (Pvar "hd")
+  (Fun "x1"
+     (Mat (Var (Short "x1"))
+        [(Pcon (SOME (Short "nil")) [],
+          Raise (Con (SOME (Short "Bind")) []));
+         (Pcon (SOME (Short "::")) [Pvar "v2"; Pvar "v1"],
+          Var (Short "v2"))])));
+
+Tdec (Dlet (Pvar "tl")
+  (Fun "x1"
+     (Mat (Var (Short "x1"))
+        [(Pcon (SOME (Short "nil")) [],
+          Raise (Con (SOME (Short "Bind")) []));
+         (Pcon (SOME (Short "::")) [Pvar "v2"; Pvar "v1"],
+          Var (Short "v1"))])));
+
+Tdec (Dletrec
+  [("append","v3",
+    Fun "v4"
+      (Mat (Var (Short "v3"))
+         [(Pcon (SOME (Short "nil")) [],Var (Short "v4"));
+          (Pcon (SOME (Short "::")) [Pvar "v2"; Pvar "v1"],
+           Con (SOME (Short "::"))
+             [Var (Short "v2");
+              App Opapp
+                [App Opapp [Var (Short "append"); Var (Short "v1")];
+                 Var (Short "v4")]])]))]);
+
+Tdec (Dletrec
+  [("rev","v4",
+    Fun "v3"
+      (Mat (Var (Short "v4"))
+         [(Pcon (SOME (Short "nil")) [],Var (Short "v3"));
+          (Pcon (SOME (Short "::")) [Pvar "v2"; Pvar "v1"],
+           App Opapp
+             [App Opapp [Var (Short "rev"); Var (Short "v1")];
+              Con (SOME (Short "::"))
+                [Var (Short "v2"); Var (Short "v3")]])]))]);
+
+Tdec (Dlet (Pvar "reverse")
+  (Fun "v1"
+     (App Opapp
+        [App Opapp [Var (Short "rev"); Var (Short "v1")];
+         Con (SOME (Short "nil")) []])))]``
 
 val _ = PolyML.timing true;
 val _ = Globals.max_print_depth := 20
@@ -46,7 +88,7 @@ val test_oracle = EVAL``
   EVERY IS_SOME(MAP (\col_opt,sets,prog. oracle_colour_ok reg_count col_opt sets prog) merge)``
 
 (*Here, we re-eval with the oracle attached*)
-
+(* EVAL is used instead of eval because eval is really slow here *)
 val test2= EVAL``
   let ((k,clashmov),c,p) = ^(rconc test) in
   let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
@@ -65,8 +107,10 @@ val test2= EVAL``
   let c = c with word_to_word_conf updated_by (λc. c with col_oracle := col) in
   (c,p)``
 
-val test3 = Count.apply EVAL``
+(*~1m 20s*)
+val test3 = Count.apply eval``
   let (c,p) = ^(rconc test2) in
+  (*unverified: let p = MAP (λa,b,prog. a,b,FST(remove_dead prog LN)) p in*)
   let (c',p) = word_to_stack$compile c.lab_conf.asm_conf p in
   let c = c with word_conf := c' in
   let p = stack_to_lab$compile c.stack_conf c.bvp_conf c.word_conf p in
@@ -74,7 +118,7 @@ val test3 = Count.apply EVAL``
 
 val _ = Globals.max_print_depth := 5;
 
-(*approx. 4 minutes*)
+(*~4m 35s*)
 val test4 = Count.apply eval
   ``let (c,p) = ^(rconc test3) in
   let p = filter_skip p in
@@ -83,11 +127,11 @@ val test4 = Count.apply eval
   let (c,enc,l) = (c.asm_conf,c.encoder,c.labels) in
   (c,enc,l,enc_sec_list enc p)``
 
-(*approx. 2 minutes*)
+(*3m 26s*)
 val test5 = Count.apply eval
 ``
   let (c,enc,l,sec_list) = ^(rconc test4) in
-  remove_labels_loop 20 c enc sec_list l``
+  remove_labels_loop 1000000 c enc sec_list l``
 
 (* Fast *)
 val test6 = Count.apply eval

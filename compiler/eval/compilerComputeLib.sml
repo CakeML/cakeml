@@ -171,6 +171,7 @@ in
   ; add_thms
     [clos_mtiTheory.intro_multi_def
     ,clos_mtiTheory.collect_args_def
+    ,clos_mtiTheory.collect_apps_def
     ]
   (* clos_number *)
   ; add_thms
@@ -462,11 +463,20 @@ in
     ]
   (*stack_alloc*)
   ; add_thms
-    [stack_allocTheory.stubs_def
-    ,stack_allocTheory.next_lab_def
-    ,stack_allocTheory.comp_def
-    ,stack_allocTheory.prog_comp_def
-    ,stack_allocTheory.compile_def
+    [stack_allocTheory.memcpy_code_def,
+    stack_allocTheory.word_gc_move_loop_code_def,
+    stack_allocTheory.compile_def,
+    stack_allocTheory.prog_comp_def,
+    stack_allocTheory.comp_def,
+    stack_allocTheory.next_lab_def,
+    stack_allocTheory.stubs_def,
+    stack_allocTheory.word_gc_code_def,
+    stack_allocTheory.word_gc_move_roots_bitmaps_code_def,
+    stack_allocTheory.word_gc_move_bitmaps_code_def,
+    stack_allocTheory.word_gc_move_bitmap_code_def,
+    stack_allocTheory.word_gc_move_code_def,
+    stack_allocTheory.word_gc_move_list_code_def,
+    stack_allocTheory.clear_top_inst_def
     ]
   (*stack_remove*)
   ; add_thms
