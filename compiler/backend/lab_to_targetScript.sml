@@ -166,28 +166,35 @@ val pad_bytes_def = Define `
       if len <= len_bytes then bytes else
         TAKE len (bytes ++ FLAT (REPLICATE len nop))`
 
+val add_nop_def = Define `
+  (add_nop nop [] = []) /\
+  (add_nop nop ((Label l1 l2 len)::xs) =
+    (Label l1 l2 len)::add_nop nop xs) /\
+  (add_nop nop ((Asm x bytes len)::xs) =
+    Asm x (bytes ++ [nop]) (len+1) :: xs) /\
+  (add_nop nop ((LabAsm y w bytes len)::xs) =
+    LabAsm y w (bytes ++ [nop]) (len+1) :: xs)`;
+
+val append_nop_def = Define `
+  append_nop nop xs = REVERSE (add_nop nop (REVERSE xs))`
+
 val pad_section_def = Define `
   (pad_section nop n [] aux = REVERSE aux) /\
   (pad_section nop n ((Label l1 l2 len)::xs) aux =
-     pad_section nop (n+len) xs ((Label l1 l2 0)::aux)) /\
+     pad_section nop (n+len) xs ((Label l1 l2 0)::
+     if len = 0 then aux else add_nop (HD nop) aux)) /\
   (pad_section nop n ((Asm x bytes len)::xs) aux =
-     let len = len + n in
-       pad_section nop 0 xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
+     pad_section nop 0 xs (Asm x (pad_bytes bytes len nop) (len+n)::aux)) /\
   (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
-     let len = len + n in
-       pad_section nop 0 xs (LabAsm y w (pad_bytes bytes len nop) len::aux))`
+     pad_section nop 0 xs (LabAsm y w (pad_bytes bytes len nop) (len+n)::aux))`
 
 val pad_code_def = Define `
   (pad_code nop [] = []) /\
   (pad_code nop ((Section n xs)::ys) =
-     let k = if EVEN (sec_length xs 0) then 0 else 1 in
-       Section n (pad_section nop k xs []) :: pad_code nop ys)`
+     let f = if EVEN (sec_length xs 0) then I else append_nop (HD nop) in
+       Section n (f (pad_section nop 0 xs [])) :: pad_code nop ys)`
 
 (* top-level assembler function *)
-
-val filter_labs_def = Define `
-  filter_labs f = map (\t. case lookup 0 t of NONE => LN
-                           | SOME x => insert 0 x LN) f`
 
 val remove_labels_loop_def = Define `
   remove_labels_loop clock c enc sec_list l =
@@ -198,7 +205,7 @@ val remove_labels_loop_def = Define `
     (* check length annotations *)
     if all_lengths_ok 0 xs then
       if all_asm_ok c xs then
-        SOME (pad_code (enc (Inst Skip)) xs,filter_labs labs)
+        SOME (pad_code (enc (Inst Skip)) xs,labs)
       else NONE
     else
     (* update length annotations *)

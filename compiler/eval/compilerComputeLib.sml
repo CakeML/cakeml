@@ -549,10 +549,12 @@ in
     ,lab_to_targetTheory.line_bytes_def
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.remove_labels_loop_def
-    ,lab_to_targetTheory.filter_labs_def
     ,lab_to_targetTheory.pad_code_def
     ,lab_to_targetTheory.pad_section_def
     ,lab_to_targetTheory.pad_bytes_def
+    ,lab_to_targetTheory.pad_bytes_def
+    ,lab_to_targetTheory.add_nop_def
+    ,lab_to_targetTheory.append_nop_def
     ,lab_to_targetTheory.all_asm_ok_def
     ,lab_to_targetTheory.sec_asm_ok_def
     ,lab_to_targetTheory.all_lengths_update_def
