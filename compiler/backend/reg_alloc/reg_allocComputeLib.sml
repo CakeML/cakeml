@@ -192,8 +192,7 @@ fun dest_clash_tree tm =
       Branch (SOME((dest_unit_sptree o optionSyntax.dest_some) opt),dest_clash_tree t1,dest_clash_tree t2)
   | _ => raise ERR "dest_clash_tree" "";
 
-
-fun tup3 [x,y,z] =(x,(y,z))
+fun tup3 l = case l of [a, b, c] => (a, (b, c)) | _ => raise General.Bind
 
 fun dest_moves tm =
   let val (ls,_) = dest_list tm

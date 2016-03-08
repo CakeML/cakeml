@@ -48,7 +48,7 @@ fun add_basic_compset compset =
     ,state_transformerTheory.FOREACH_def
     ,pairTheory.UNCURRY_DEF
     ,state_transformerTheory.IGNORE_BIND_DEF
-    ]
+    ] compset
   (* From misc *)
   ; computeLib.add_thms
       [miscTheory.find_index_def,
