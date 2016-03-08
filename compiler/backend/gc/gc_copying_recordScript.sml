@@ -55,6 +55,46 @@ val _ = Datatype `
                | DataElement (('a heap_address) list) num 'b`;
 (* references in DataElement *)
 
+
+val _ = Datatype `
+  gc_state =
+    <| h1 : ('a, 'b) heap_element list (* final left heap *)
+     ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
+
+     ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
+     ; r3 : ('a, 'b) heap_element list (* temp. final right heap *)
+     ; r2 : ('a, 'b) heap_element list (* temp. not updated right heap *)
+     ; r1 : ('a, 'b) heap_element list (* final right heap *)
+
+     ; a : num                         (* heap_length (h1 ++ h2) *)
+     ; n : num                         (* unused heap space *)
+     ; r : num                         (* heap_length (r4 ++ r3 ++ r2 ++ r1) *)
+     ; c : bool                        (* OK *)
+     ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
+     |>`;
+
+val starting_state_def = Define `
+  starting_state =
+    <| h1 := []
+     ; h2 := []
+     ; r4 := []
+     ; r3 := []
+     ; r2 := []
+     ; r1 := []
+     ; a := 0
+     ; n := 0
+     ; r := 0
+     ; c := T
+     ; heap := []
+     |>`;
+
+val _ = Datatype `
+  gc_conf =
+    <| limit : num              (* end of heap *)
+     ; isRef : ('a, 'b) heap_element -> bool
+     |>`;
+
+
 (* The heap is accessed using the following lookup function. *)
 val el_length_def = Define `
   (el_length (Unused l) = l+1) /\
@@ -151,45 +191,6 @@ val gc_forward_ptr_def = Define `
        let (xs,c) = gc_forward_ptr (a - el_length x) xs ptr d c in
          (x::xs,c))`;
 
-
-val _ = Datatype `
-  gc_state =
-    <| h1 : ('a, 'b) heap_element list (* final left heap *)
-     ; h2 : ('a, 'b) heap_element list (* not updated left heap *)
-
-     ; r4 : ('a, 'b) heap_element list (* not updated right heap *)
-     ; r3 : ('a, 'b) heap_element list (* temp. final right heap *)
-     ; r2 : ('a, 'b) heap_element list (* temp. not updated right heap *)
-     ; r1 : ('a, 'b) heap_element list (* final right heap *)
-
-     ; a : num                         (* heap_length (h1 ++ h2) *)
-     ; n : num                         (* unused heap space *)
-     ; r : num                         (* heap_length (r4 ++ r3 ++ r2 ++ r1) *)
-     ; c : bool                        (* OK *)
-     ; heap : ('a, 'b) heap_element list (* old heap (w/ fwd pointers) *)
-     |>`;
-
-val starting_state_def = Define `
-  starting_state =
-    <| h1 := []
-     ; h2 := []
-     ; r4 := []
-     ; r3 := []
-     ; r2 := []
-     ; r1 := []
-     ; a := 0
-     ; n := 0
-     ; r := 0
-     ; c := T
-     ; heap := []
-     |>`;
-
-val _ = Datatype `
-  gc_conf =
-    <| limit : num              (* end of heap *)
-     ; isRef : ('a, 'b) heap_element -> bool
-     |>`;
-
 (* a - address to end of h2 *)
 (* n - amount of empty space *)
 (* r - adress to start of r2 *)
@@ -203,8 +204,8 @@ val gc_move_def = Define `
         if conf.isRef (DataElement xs l dd) then
           (* put refs in r4 *)
           let r4 = (DataElement xs l dd) :: state.r4 in
-          let (heap, c) = gc_forward_ptr ptr state.heap (conf.limit - state.r) d c in
           let r = state.r + l + 1 in
+          let (heap, c) = gc_forward_ptr ptr state.heap (conf.limit - r) d c in
             (Pointer r d,state with <| r4 := r4; n := n; r := r; heap := heap; c := c |>)
         else
           (* put data in h2 *)
@@ -252,7 +253,6 @@ val gc_move_list_h1 = prove(
   \\ rpt var_eq_tac
   \\ drule (GSYM gc_move_h1)
   \\ metis_tac []);
-
 
 (* TODO: this was previously named gc_move_loop *)
 val gc_move_data_def = tDefine "gc_move_data" `
@@ -385,7 +385,7 @@ val gc_inv_def = Define `
                 state.r3 ++ state.r2 ++ state.r1 in
     (state.a + state.n + state.r = conf.limit) /\
     (state.a = heap_length (state.h1 ++ state.h2)) /\
-    (state.r = heap_length (state.r2 ++ state.r1)) /\
+    (state.r = heap_length (state.r4 ++ state.r3 ++ state.r2 ++ state.r1)) /\
     (* empty space in new heap = empty + reclaimed space in old heap *)
     (state.n = heap_length (FILTER (\h. ~(isForwardPointer h)) state.heap)) /\
     state.c /\
@@ -455,6 +455,17 @@ val gc_forward_ptr_thm = store_thm("gc_forward_ptr_thm",
   \\ Cases_on `h`
   \\ full_simp_tac std_ss [el_length_def]
   \\ decide_tac);
+
+val gc_forward_ptr_thm2 = prove(
+  ``!ha. gc_forward_ptr (heap_length ha) (ha ++ [DataElement ys l d] ++ hb) a u c =
+            (ha ++ [ForwardPointer a u l] ++ hb,c)``,
+  Induct
+  \\ fs [heap_length_def,gc_forward_ptr_def,el_length_def,isDataElement_def]
+  \\ rw []
+  \\ Cases_on `h`
+  \\ fs [heap_length_def,el_length_def]
+  \\ decide_tac);
+
 
 val heap_lookup_FLOOKUP = prove(
   ``!heap n k.
@@ -683,11 +694,11 @@ val gc_move_thm = prove(
   (* \\ full_simp_tac std_ss [FAPPLY_FUPDATE_THM] \\ metis_tac []); *)
 
 val gc_move_list_thm = prove(
-  ``!xs state. (* h2. *)
+  ``!xs state.
     gc_inv conf state heap0 /\
     (!ptr u. MEM (Pointer ptr u) (xs:'a heap_address list) ==>
              isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
-    ?state'. (* h23 r23 a3 n3 r3 heap3 c3. *)
+    ?state'.
       (gc_move_list conf state xs =
         (ADDR_MAP (heap_map1 state'.heap) xs,state')) /\
       (!ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM (heap_map 0 state'.heap)) /\
@@ -929,14 +940,17 @@ val gc_inv_imp_n = prove(
   \\ strip_tac
   \\ decide_tac);
 
-(* next? *)
 val full_gc_thm = store_thm("full_gc_thm",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
       ?state.
         (full_gc conf (roots : 'a heap_address list,heap) =
           (ADDR_MAP (heap_map1 state.heap) roots,state.h1,state.r1,state.a,state.r,T)) /\
         (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM (heap_map 0 state.heap)) /\
-        gc_inv conf state heap``,
+        gc_inv conf state heap /\
+        (state.h2 = []) /\
+        (state.r4 = []) /\
+        (state.r3 = []) /\
+        (state.r2 = [])``,
   rpt strip_tac
   \\ imp_res_tac gc_inv_init
   \\ fs [full_gc_def]
@@ -1017,35 +1031,36 @@ val full_gc_LENGTH = store_thm("full_gc_LENGTH",
     ?roots2 h12 r12.
       (full_gc conf (roots:'a heap_address list,heap) =
         (roots2,h12,r12,heap_length h12,heap_length r12,T))``,
-
-rpt strip_tac
-mp_tac full_gc_thm
-fs []
-rpt strip_tac
-qexists_tac `ADDR_MAP (heap_map1 state.heap) roots`
-qexists_tac `state.h1`
-qexists_tac `state.r1`
-fs [gc_inv_def]
-
-fs [gc_inv_def]
-qexists_tac `state`
-rpt strip_tac \\ fs []
-
-
-  cheat);
-  (* rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss [] *)
-  (* \\ rpt strip_tac \\ full_simp_tac std_ss [gc_inv_def,APPEND_NIL]); *)
+  rw []
+  \\ imp_res_tac full_gc_thm
+  \\ fs []
+  \\ rpt strip_tac
+  \\ fs [full_gc_def,gc_inv_def,LET_THM]);
 
 val full_gc_ok = store_thm("full_gc_ok",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
     ?roots2 state.
-      let heap' = state.h1 ++ heap_expand (conf.limit - state.a - state.r) ++ state.r1 in
+      let heap' = state.h1 ++ heap_expand state.n ++ state.r1 in
       (full_gc conf (roots:'a heap_address list,heap) =
         (roots2,state.h1,state.r1,state.a,state.r,T)) /\
-      state.a + state.r <= limit /\
+      state.a + state.r <= conf.limit /\
       roots_ok roots2 heap' /\
       heap_ok heap' conf.limit``,
-  cheat);
+  rpt strip_tac
+  \\ imp_res_tac full_gc_thm
+  \\ fs [LET_THM]
+  \\ qexists_tac `state`
+  \\ fs []
+  \\ rw []
+  THEN1
+    (fs [gc_inv_def,LET_THM]
+    \\ decide_tac)
+  THEN1
+    (fs [roots_ok_def,isSomeDataElement_def,gc_inv_def,LET_THM]
+    \\ rpt strip_tac
+    \\ fs [FLOOKUP_DEF]
+    \\ cheat)
+  \\ cheat);
   (* rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss [] \\ strip_tac *)
   (* \\ full_simp_tac std_ss [] \\ full_simp_tac std_ss [gc_inv_def] *)
   (* \\ full_simp_tac std_ss [APPEND_NIL] \\ strip_tac THEN1 decide_tac *)
