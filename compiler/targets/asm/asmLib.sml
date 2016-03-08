@@ -23,7 +23,7 @@ fun add_asm_compset cmp =
        mem_op_def, is_test_def, inst_def, jump_to_offset_def, asm_def,
        alignmentTheory.aligned_extract] cmp
    ; utilsLib.add_datatypes
-        (List.map asm_type0 ["cmp", "mem_op", "binop", "cmp", "shift"] @
+        (List.map asm_type0 ["cmp", "mem_op", "binop", "shift"] @
          List.map asm_type  ["asm_config", "asm", "inst"])
         cmp
    )
