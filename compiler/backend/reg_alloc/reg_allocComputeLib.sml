@@ -201,11 +201,12 @@ fun dest_moves tm =
   map
   (fn p => tup3 (map int_of_term p)) split end
 
-fun alloc_aux k [] = []
-|   alloc_aux k ((clash_tree,moves)::xs) =
-  let val clash_tree_poly = dest_clash_tree clash_tree
+fun alloc_aux k [] n = (print"\n";[])
+|   alloc_aux k ((clash_tree,moves)::xs) n =
+  let val _ = print (strcat (Int.toString n) " ")
+      val clash_tree_poly = dest_clash_tree clash_tree
       val moves_poly = dest_moves moves in
-      irc_alloc clash_tree_poly k moves_poly :: alloc_aux k xs
+      irc_alloc clash_tree_poly k moves_poly :: alloc_aux k xs (n+1)
   end;
 
 (*Main thing to call for external allocator
@@ -214,7 +215,7 @@ fun alloc_aux k [] = []
 fun alloc_all t =
   let val (k,ls) = pairSyntax.dest_pair t
     val clash_mov_ls = map pairSyntax.dest_pair (fst(listSyntax.dest_list ls)) in
-    alloc_aux (int_of_term k) clash_mov_ls
+    alloc_aux (int_of_term k) clash_mov_ls 0
   end
 
 fun get_oracle t =
