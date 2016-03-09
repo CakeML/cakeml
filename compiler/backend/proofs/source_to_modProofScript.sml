@@ -1720,7 +1720,45 @@ val compile_decs_correct = Q.prove (
   fs [] >>
   rw []
   >- rw [evaluate_decs_def, v_rel_eqns]
-  >- cheat
+  >- (
+    ntac 4 (split_pair_tac \\ fs[])
+    \\ rveq
+    \\ simp[evaluate_decs_def]
+    \\ qpat_assum`_ = (_,_,r)`mp_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      rw[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ rfs[] \\ first_x_assum drule
+      \\ disch_then drule \\ simp[]
+      \\ simp[evaluate_decs_def,PULL_EXISTS]
+      \\ rpt gen_tac
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
+    (* The inductive hypothesis (Assumption 10) looks too weak:
+         is (extend_dec_env a q' env).v really going to be []?
+       Do we need to use that assumption, or not?  *)
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ rw[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ rfs[] \\ first_x_assum drule
+    \\ disch_then drule \\ simp[]
+    \\ simp[evaluate_decs_def,PULL_EXISTS]
+    \\ rpt gen_tac
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ qmatch_asmsub_rename_tac`res ≠ Rerr (Rabort Rtype_error)`
+    \\ Cases_on`res = Rerr (Rabort Rtype_error)`
+    >- fs[combine_dec_result_def] \\ fs[]
+    \\ fs[extend_dec_env_def]
+    \\ cheat)
   >- (
     every_case_tac >>
     fs [] >>
@@ -1823,7 +1861,7 @@ val compile_decs_correct = Q.prove (
     >- fs [v_rel_eqns]
     >- rfs [s_rel_cases])
   >- (
-    simp [evaluate_decs_def, evaluate_dec_def, PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def, 
+    simp [evaluate_decs_def, evaluate_dec_def, PULL_EXISTS, type_defs_to_new_tdecs_def, build_tdefs_def,
           check_dup_ctors_def, env_rel_list_rel] >>
     fs [s_rel_cases, v_rel_eqns])
   >- (
