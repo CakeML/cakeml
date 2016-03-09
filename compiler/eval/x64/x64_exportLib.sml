@@ -46,8 +46,8 @@ fun cake_boilerplate_lines stack_mb heap_mb ffi_count = let
    "     movq    %rsp, %rbp  # save stack pointer",
    "     leaq    cake_main(%rip), %rdi   # arg1: entry address",
    "     leaq    cake_heap(%rip), %rsi   # arg2: first address of heap",
-   "     leaq    cake_stack(%rip), %rdx  # arg3: first address of stack",
-   "     leaq    cake_end(%rip), %rcx    # arg4: first address past the stack",
+   "     leaq    cake_stack(%rip), %rbx  # arg3: first address of stack",
+   "     leaq    cake_end(%rip), %rdx    # arg4: first address past the stack",
    "     jmp     cake_main",
    "",
    "#### CakeML FFI interface (each block is 8 bytes long)",
@@ -79,13 +79,13 @@ fun byte_list_to_asm_lines bytes = let
     in "0x" ^ fill "0" "" 2 s end
   fun commas [] = ""
     | commas [x] = x
-    | commas (x::xs) = x ^ ", " ^ commas xs
+    | commas (x::xs) = x ^ "," ^ commas xs
   fun take_drop n [] = ([],[])
     | take_drop n xs =
         if n = 0 then ([],xs) else let
           val (ys,zs) = take_drop (n-1) (tl xs)
           in (hd xs :: ys, zs) end
-  val bytes_per_line = 8
+  val bytes_per_line = 12
   fun bytes_to_strings [] = []
     | bytes_to_strings xs = let
         val (ys,zs) = take_drop bytes_per_line xs
@@ -99,16 +99,18 @@ fun cake_lines stack_mb heap_mb ffi_count bytes_tm =
 
 fun write_cake_S stack_mb heap_mb ffi_count bytes_tm path = let
   val lines = cake_lines stack_mb heap_mb ffi_count bytes_tm
-  val _ = print ("Generated cake.S (" ^ int_to_string (length lines) ^ " lines)\n")
   val f = TextIO.openOut (path ^ "cake.S")
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)
   val _ = each (fn line => TextIO.output (f,line)) lines
   val _ = TextIO.closeOut f
+  val _ = print ("Generated cake.S (" ^ int_to_string (length lines) ^ " lines)\n")
   in () end
 
 (*
-    write_cake_S stack_mb heap_mb ffi_count bytes_tm ""
+
+val _ = write_cake_S 50 50 0 bytes_tm ""
+
 *)
 
 end
