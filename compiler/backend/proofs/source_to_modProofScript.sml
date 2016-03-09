@@ -1691,7 +1691,6 @@ val compile_decs_correct = Q.prove (
   `!mn s env ds mods tops env_i1 s' r s_i1 next' tops' ds_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
     funBigStep$evaluate_decs mn s env ds = (s',cenv',r) ∧
-    env.v = [] ∧
     global_env_inv s_i1.globals mods tops env.m {} env.v ∧
     env_all_rel s_i1.globals mods tops env env_i1 {} ∧
     s_rel s s_i1 ∧
@@ -1716,12 +1715,15 @@ val compile_decs_correct = Q.prove (
           result_rel (\a b c. T) s_i1.globals (Rerr err) (Rerr err_i1) ∧
           s_rel s' s'_i1)`,
   ho_match_mp_tac funBigStepTheory.evaluate_decs_ind >>
-  rw [funBigStepTheory.evaluate_decs_def, compile_dec_def, compile_decs_def] >>
-  fs [] >>
-  rw []
-  >- rw [evaluate_decs_def, v_rel_eqns]
+  simp [funBigStepTheory.evaluate_decs_def] >>
+  conj_tac
+  >- ntac 2 (rw [compile_dec_def, compile_decs_def, evaluate_decs_def, v_rel_eqns]) >>
+  conj_tac
   >- (
-    ntac 4 (split_pair_tac \\ fs[])
+    rpt gen_tac >>
+    qspec_tac (`d2::ds`, `ds`) >>
+    rw [compile_decs_def, compile_dec_def] >>
+    ntac 2 (split_pair_tac \\ fs[])
     \\ rveq
     \\ simp[evaluate_decs_def]
     \\ qpat_assum`_ = (_,_,r)`mp_tac
@@ -1737,9 +1739,6 @@ val compile_decs_correct = Q.prove (
       \\ rpt gen_tac
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
       \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
-    (* The inductive hypothesis (Assumption 10) looks too weak:
-         is (extend_dec_env a q' env).v really going to be []?
-       Do we need to use that assumption, or not?  *)
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[]
@@ -1755,10 +1754,14 @@ val compile_decs_correct = Q.prove (
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ qmatch_asmsub_rename_tac`res ≠ Rerr (Rabort Rtype_error)`
+    \\ qmatch_asmsub_rename_tac `_ _ _ (ds) = (new_s, new_cenv, _)`
+    \\ qmatch_asmsub_rename_tac `_ _ _ (ds') = (new_s', new_cenv', new_env', res')`
     \\ Cases_on`res = Rerr (Rabort Rtype_error)`
-    >- fs[combine_dec_result_def] \\ fs[]
-    \\ fs[extend_dec_env_def]
-    \\ cheat)
+    >- fs[combine_dec_result_def]
+    \\ fs []
+    \\ fs [extend_dec_env_def]
+    \\ cheat) >>
+  rw [compile_dec_def, compile_decs_def]
   >- (
     every_case_tac >>
     fs [] >>
