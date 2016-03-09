@@ -97,14 +97,14 @@ fun cake_lines stack_mb heap_mb ffi_count bytes_tm =
   cake_boilerplate_lines stack_mb heap_mb ffi_count @
   byte_list_to_asm_lines bytes_tm;
 
-fun write_cake_S stack_mb heap_mb ffi_count bytes_tm path = let
+fun write_cake_S stack_mb heap_mb ffi_count bytes_tm filename = let
   val lines = cake_lines stack_mb heap_mb ffi_count bytes_tm
-  val f = TextIO.openOut (path ^ "cake.S")
+  val f = TextIO.openOut filename
   fun each g [] = ()
     | each g (x::xs) = (g x; each g xs)
   val _ = each (fn line => TextIO.output (f,line)) lines
   val _ = TextIO.closeOut f
-  val _ = print ("Generated cake.S (" ^ int_to_string (length lines) ^ " lines)\n")
+  val _ = print ("Generated " ^ filename ^ " (" ^ int_to_string (length lines) ^ " lines)\n")
   in () end
 
 (*
