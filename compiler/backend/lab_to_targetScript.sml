@@ -35,7 +35,7 @@ val enc_sec_list_def = Define `
 val asm_line_labs_def = Define `
   (asm_line_labs pos [] acc = (acc,pos)) /\
   (asm_line_labs pos ((Label k1 k2 l)::xs) acc =
-     asm_line_labs (pos+l) xs (insert (k2+1) (pos+l) acc)) /\
+     asm_line_labs (pos+l) xs (insert k2 (pos+l) acc)) /\
   (asm_line_labs pos ((Asm _ _ l)::xs) acc =
      asm_line_labs (pos+l) xs acc) /\
   (asm_line_labs pos ((LabAsm _ _ _ l)::xs) acc =
