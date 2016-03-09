@@ -1072,7 +1072,11 @@ THEN1
   (fs [roots_ok_def,isSomeDataElement_def]
   \\ rpt strip_tac
   \\ fs [heap_map1_def]
-  \\ cheat)                     (* CHEAT CHEAT!! *)
+  \\ imp_res_tac MEM_ADDR_MAP
+  \\ res_tac
+  \\ (`FLOOKUP (heap_map 0 state.heap) y = SOME ptr` by
+    fs [FLOOKUP_DEF])
+  \\ metis_tac [])
 \\ fs [heap_ok_def]
 \\ rpt strip_tac
 THEN1
