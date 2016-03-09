@@ -86,4 +86,29 @@ val x64_names_def = Define `
 val x64_names_def = save_thm("x64_names_def",
   CONV_RULE (RAND_CONV EVAL) x64_names_def);
 
+val arm_names_def = Define `
+  arm_names =
+    (* source can use 14 regs (0-13),
+       target's r13 must be avoided,
+       source 0 must represent r14 (link register) *)
+    (insert 0 14 o
+     insert 1 0 o
+     insert 2 1 o
+     insert 3 2 o
+     insert 4 3 o
+     insert 5 4 o
+     insert 6 5 o
+     insert 7 6 o
+     insert 8 7 o
+     insert 9 8 o
+     insert 10 9 o
+     insert 11 10 o
+     insert 12 11 o
+     insert 13 12 o
+     (* the rest just ensures that the mapping is well-formed *)
+     insert 14 13) LN:num num_map`
+
+val arm_names_def = save_thm("arm_names_def",
+  CONV_RULE (RAND_CONV EVAL) arm_names_def);
+
 val _ = export_theory();
