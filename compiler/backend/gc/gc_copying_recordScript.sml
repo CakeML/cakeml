@@ -601,19 +601,17 @@ val FDOM_heap_map = prove(
   |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [];
 
 val gc_move_thm = prove(
-  ``gc_inv conf state heap0 /\
-    (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
-    ?x3 h23 r23 a3 n3 r3 heap3 c3.
-      let state' =
-        state with
-          <| h2 := h23; r2 := r23; heap := heap3; a := a3; n := n3; r := r3; c := c3 |> in
-      (gc_move conf state x =
-        (ADDR_APPLY (heap_map1 heap3) x,state')) /\
-      (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM (heap_map 0 heap3)) /\
-      (!ptr. isSomeDataOrForward (heap_lookup ptr heap) =
-             isSomeDataOrForward (heap_lookup ptr heap3)) /\
-      ((heap_map 0 heap) SUBMAP (heap_map 0 heap3)) /\
-      gc_inv conf state' heap0``,
+  ``!x state.
+       gc_inv conf state heap0 /\
+       (!ptr u. (x = Pointer ptr u) ==> isSomeDataOrForward (heap_lookup ptr state.heap)) ==>
+       ?state'. (* x3 h23 r23 a3 n3 r3 heap3 c3. *)
+         (gc_move conf state x =
+         (ADDR_APPLY (heap_map1 state'.heap) x,state')) /\
+         (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM (heap_map 0 state'.heap)) /\
+         (!ptr. isSomeDataOrForward (heap_lookup ptr state.heap) =
+                isSomeDataOrForward (heap_lookup ptr state'.heap)) /\
+         ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
+         gc_inv conf state' heap0``,
   cheat);
   (* Cases_on `x` *)
   (* \\ simp_tac (srw_ss()) [gc_move_def,ADDR_APPLY_def] *)
@@ -708,11 +706,9 @@ val gc_move_list_thm = prove(
       gc_inv conf state' heap0``,
 
 Induct
-THEN1 fs [gc_move_list_def,ADDR_MAP_def]
+  THEN1 fs [gc_move_list_def,ADDR_MAP_def]
+\\ fs [gc_move_list_def,LET_THM]
 \\ rpt strip_tac
-\\ fs [gc_move_list_def]
-\\ fs [LET_THM]
-
 
   \\ cheat);
   (* Induct THEN1 (full_simp_tac std_ss [gc_move_list_def,ADDR_MAP_def,MEM,SUBMAP_REFL]) *)
@@ -1046,8 +1042,7 @@ val FILTER_isForward_heap_expand_lemma = prove(
 
 val MEM_heap_expand_FALSE = prove(
   ``!n. ~(MEM (DataElement xs l d) (heap_expand n))``,
-  Cases
-  \\ fs [MEM,heap_expand_def]);
+  Cases \\ fs [MEM,heap_expand_def]);
 
 val heap_lookup_AND_APPEND_IMP = prove(
   ``!xs n ys d d1.
@@ -1178,12 +1173,39 @@ val gc_related_def = Define `
       !ptr u. MEM (Pointer ptr u) xs ==> ptr IN FDOM f`;
 
 val full_gc_related = store_thm("full_gc_related",
-  ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) limit ==>
-    ?state heap2 a2 f.
+  ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
+    ?state f.
       (full_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state.h1,state.r1,state.a,state.r,T)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       gc_related f heap (state.h1 ++ heap_expand (conf.limit - state.a - state.r) ++ state.r1)``,
+
+strip_tac
+mp_tac full_gc_thm
+fs []
+rpt strip_tac
+qexists_tac `state`
+qexists_tac `heap_map 0 state.heap`
+fs []
+`FAPPLY (heap_map 0 state.heap) = heap_map1 state.heap` by all_tac
+THEN1 fs [heap_map1_def,FUN_EQ_THM]
+fs [gc_related_def,gc_inv_def,BIJ_DEF,LET_THM]
+rpt strip_tac
+THEN1 metis_tac []
+THEN1
+  fs [INJ_DEF]
+  rpt strip_tac
+  `(FLOOKUP (heap_map 0 state.heap) x = SOME (heap_map1 state.heap x))` by all_tac
+  THEN1 fs [FLOOKUP_DEF,heap_map1_def]
+  res_tac
+  THEN1                         (* state.h1 *)
+    fs []
+    imp_res_tac heap_lookup_LESS
+    imp_res_tac heap_lookup_EXTEND
+    fs [isSomeDataElement_def]
+
+  (* WORKING *)
+
   cheat);
   (* strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss [] *)
   (* \\ rpt strip_tac \\ full_simp_tac std_ss [] *)
