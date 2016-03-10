@@ -1696,7 +1696,7 @@ val compile_decs_correct = Q.prove (
     s_rel s s_i1 ∧
     compile_decs (LENGTH s_i1.globals) mn mods tops ds = (next',tops',ds_i1)
     ⇒
-    ?s'_i1 cenv' env'_i1 r_i1.
+    ?s'_i1 env'_i1 r_i1.
       evaluate_decs env_i1 s_i1 ds_i1 = (s'_i1,cenv',MAP SND env'_i1,r_i1) ∧
       (!env'.
         r = Rval env'
@@ -1712,7 +1712,7 @@ val compile_decs_correct = Q.prove (
         ⇒
         ?err_i1.
           r_i1 = SOME err_i1 ∧
-          result_rel (\a b c. T) s_i1.globals (Rerr err) (Rerr err_i1) ∧
+          result_rel (\a b c. T) (s_i1.globals ++ MAP SOME (MAP SND env'_i1)) (Rerr err) (Rerr err_i1) ∧
           s_rel s' s'_i1)`,
   ho_match_mp_tac funBigStepTheory.evaluate_decs_ind >>
   simp [funBigStepTheory.evaluate_decs_def] >>
@@ -1738,7 +1738,8 @@ val compile_decs_correct = Q.prove (
       \\ simp[evaluate_decs_def,PULL_EXISTS]
       \\ rpt gen_tac
       \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[] )
+      \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+      \\ rw[] \\ fs[])
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     \\ rw[]
@@ -1779,7 +1780,6 @@ val compile_decs_correct = Q.prove (
       match_mp_tac (GEN_ALL global_env_inv_extend2)
       \\ simp[] \\ metis_tac[v_rel_weakening])
     \\ rw[Abbr`cx`]
-    \\ `cenv'' = q'` by cheat (* not sure if this is reasonable *)
     \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc1 _ ds'`
     \\ rator_x_assum`modSem$evaluate_decs`mp_tac
     \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc2 _ ds'`
@@ -1797,9 +1797,6 @@ val compile_decs_correct = Q.prove (
     \\ qmatch_goalsub_abbrev_tac`MAP SND www`
     \\ qexists_tac`www` \\ fs[Abbr`www`]
     \\ reverse (Cases_on`res`) \\ fs[combine_dec_result_def]
-    >- (
-      fs[result_rel_cases] \\ rw[]
-      \\ cheat (* seems wrong *))
     \\ conj_tac
     >- (
       simp[REVERSE_APPEND]
