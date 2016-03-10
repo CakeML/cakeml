@@ -7,7 +7,7 @@ val clos_conf = ``<|next_loc := 0 ; start:=0|>``
 val bvp_conf = ``<| tag_bits:=8; len_bits:=8; pad_bits:=0; len_size:=16|>``
 val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
-val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;max_heap:=1000|>``
+val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;max_heap:=1000000|>``
 (*??*)
 val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config|>``
 
@@ -507,6 +507,4 @@ val _ = dump_file "fib" bytes_tm
 
 open x64_exportLib
 
-val _ = x64_exportLib.write_cake_S 50 50 0 bytes_tm "cake.S"
-
-
+val _ = x64_exportLib.write_cake_S 1 1 0 bytes_tm "cake.S"
