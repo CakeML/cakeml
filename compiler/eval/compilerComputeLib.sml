@@ -43,24 +43,21 @@ let
   val add_datatype = basicComputeLib.add_datatype compset
   val add_thms = Lib.C computeLib.add_thms compset
 in
-    add_thms [indexedListsTheory.MAPi_ACC_def,
-              miscTheory.tlookup_def,
-              sptreeTheory.toListA_def
-    ];
+    add_thms [indexedListsTheory.MAPi_ACC_def]
   (*configurations*)
-    add_datatype``:source_to_mod$config``;
-    add_datatype``:mod_to_con$config``;
-    add_datatype``:clos_to_bvl$config``;
-    add_datatype``:bvp_to_word$config``;
-    add_datatype``:word_to_word$config``;
-    add_datatype``:'a word_to_stack$config``;
-    add_datatype``:stack_to_lab$config``;
-    add_datatype``:'a lab_to_target$config``;
-    add_datatype``:'a asm_config``;
-    add_datatype``:'a backend$config``;
+  ; add_datatype``:source_to_mod$config``
+  ; add_datatype``:mod_to_con$config``
+  ; add_datatype``:clos_to_bvl$config``
+  ; add_datatype``:bvp_to_word$config``
+  ; add_datatype``:word_to_word$config``
+  ; add_datatype``:'a word_to_stack$config``
+  ; add_datatype``:stack_to_lab$config``
+  ; add_datatype``:'a lab_to_target$config``
+  ; add_datatype``:'a asm_config``
+  ; add_datatype``:'a backend$config``
 
   (* modLang *)
-    add_datatype ``:modLang$exp``
+  ; add_datatype ``:modLang$exp``
   ; add_datatype ``:modLang$dec``
   ; add_datatype ``:modLang$prompt``
   (* source_to_mod *)
