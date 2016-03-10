@@ -85,7 +85,7 @@ val enc_line_again_def = Define `
          (LabAsm a w bytes l)::enc_line_again labs (pos + l) enc xs
        else
          let bs = enc (lab_inst w1 a) in
-         let l = LENGTH bs in
+         let l = MAX (LENGTH bs) l in
            LabAsm a w1 bs l::enc_line_again labs (pos + l) enc xs)`
 
 val sec_length_def = Define `
