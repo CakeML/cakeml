@@ -40,8 +40,22 @@ fun to_bytes prog =
   val _ = println "External oracle"
   val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
   val _ = println "Eval with oracle attached"
-  (* EVAL is used instead of eval because eval is really slow here *)
-  val test2 = Count.apply EVAL``
+  val test2 = Count.apply eval``
+    let (rcm,c,p) = ^(rconc test) in
+    from_livesets (rcm,c with word_to_word_conf:= <|reg_alg:=1;col_oracle:= ^(oracles)|>,p)``
+  in
+    test2
+  end
+
+fun to_bytes_verbose prog =
+  let
+  val prog = ``^(initial_prog) ++ ^(prog)``
+  val _ = println "Compile to livesets"
+  val test = Count.apply eval``to_livesets ^(conf) ^(prog)``
+  val _ = println "External oracle"
+  val oracles = reg_allocComputeLib.get_oracle (fst (pairSyntax.dest_pair (rconc test)))
+  val _ = println "Eval with oracle attached"
+  val test2 = Count.apply eval``
     let ((k,clashmov),c,p) = ^(rconc test) in
     let (word_conf,asm_conf) = (c.word_to_word_conf,c.lab_conf.asm_conf) in
     let (n_oracles,col) = next_n_oracle (LENGTH p) ^(oracles) in
@@ -472,40 +486,27 @@ Tdec
   (Dlet (Pvar "test")
      (App Opapp [Var (Short "use_fib"); Lit (IntLit 31)]))]``
 
-val _ = Globals.max_print_depth := ~1;
-val _ = PolyML.print_depth 5;
-
 val fib_bytes = to_bytes fib
 val qsort_bytes = to_bytes qsort
 val queue_bytes = to_bytes queue
 val btree_bytes = to_bytes btree
 
-(*
-val code = snd(pairSyntax.dest_pair (rconc test3))
-val f = TextIO.openOut ("asm_dump")
-val _ = TextIO.output(f,term_to_string code)
-val _ = TextIO.closeOut f
-*)
-(* Testing eval of check_clash_tree
-  The custom eval appears to use more Prims than EVAL?
-*)
+fun dump_file file t =
+  let
+    val f = TextIO.openOut (file)
+  in
+    TextIO.output(f,term_to_string t);
+    TextIO.closeOut f
+  end
 
-val tree = ``
-  Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1])
-  (Seq (Delta [1;2;3;4;5;6;7] [5;4;3;2;1]) (Set (numset_list_insert [1;2;3;4;5] LN))))))))))))``
+val _ = Globals.max_print_depth := ~1;
+val _ = PolyML.print_depth 5;
 
-val foo = Count.apply eval``
-  check_clash_tree I ^(tree) LN LN``
+val bytes_tm = fst(pairSyntax.dest_pair(optionSyntax.dest_some(rconc fib_bytes)))
+val _ = dump_file "fib" bytes_tm
 
-val foo2 = Count.apply EVAL``
-  check_clash_tree I ^(tree) LN LN``
+open x64_exportLib
+
+val _ = x64_exportLib.write_cake_S 50 50 0 bytes_tm "cake.S"
+
 

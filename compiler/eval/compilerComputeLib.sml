@@ -44,7 +44,8 @@ let
   val add_thms = Lib.C computeLib.add_thms compset
 in
     add_thms [indexedListsTheory.MAPi_ACC_def,
-              miscTheory.tlookup_def
+              miscTheory.tlookup_def,
+              sptreeTheory.toListA_def
     ];
   (*configurations*)
     add_datatype``:source_to_mod$config``;
