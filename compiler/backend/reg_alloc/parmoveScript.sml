@@ -495,7 +495,7 @@ val fstep_dstep = Q.store_thm("fstep_dstep",
   `(∀τ. s ≠ ([],[],τ)) ⇒ s ↪ fstep s`,
   rw[fstep_def] >>
   every_case_tac >> fs[NULL_LENGTH,LENGTH_NIL] >>
-  simp[splitAtPki_DEF]
+  simp[splitAtPki_def]
   >- ( simp[UNCURRY] >> simp[dstep_cases] )
   >- (
     simp[UNCURRY] >> rw[] >>
@@ -512,17 +512,17 @@ val pmov_def = tDefine"pmov"`
     | _ => pmov (fstep s)`
   (WF_REL_TAC`measure (λ(μ,σ,τ). 2 * LENGTH μ + LENGTH σ)` >>
    rw[fstep_def] >- (
-     fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_DEF] >>
+     fs[NULL_LENGTH,LENGTH_NIL,splitAtPki_def] >>
      simp[UNCURRY] >> rw[] >>
      simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] )
    >- (
-     simp[splitAtPki_DEF,UNCURRY] >>
+     simp[splitAtPki_def,UNCURRY] >>
      rw[] >> simp[] >>
      fs[NULL_LENGTH,LENGTH_NIL] >>
      simp[LENGTH_FRONT,PRE_SUB1,LENGTH_NOT_NULL,NULL_LENGTH,LENGTH_NIL] )
    >> (
-     every_case_tac >> simp[splitAtPki_DEF,UNCURRY] >>
-     rw[] >> simp[splitAtPki_DEF,UNCURRY] >>
+     every_case_tac >> simp[splitAtPki_def,UNCURRY] >>
+     rw[] >> simp[splitAtPki_def,UNCURRY] >>
      simp[splitAtPki_EQN] >>
      every_case_tac >> simp[] >>
      TRY (
