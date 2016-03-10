@@ -1760,7 +1760,56 @@ val compile_decs_correct = Q.prove (
     >- fs[combine_dec_result_def]
     \\ fs []
     \\ fs [extend_dec_env_def]
-    \\ cheat) >>
+    \\ imp_res_tac evaluate_dec_globals \\ fs[]
+    \\ first_x_assum(drule o CONV_RULE(STRIP_QUANT_CONV(LAND_CONV(
+         lift_conjunct_conv(equal "s_rel" o #1 o dest_const o #1 o strip_comb)))))
+    \\ simp[]
+    \\ disch_then (drule o REWRITE_RULE[GSYM AND_IMP_INTRO]) (* TODO: why is REWRITE_RULE necessary? *)
+    \\ fs[Q.ISPECL[`FST`,`SND`]FOLDL_FUPDATE_LIST |> SIMP_RULE(srw_ss())[LAMBDA_PROD]]
+    \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
+    \\ simp[env_all_rel_cases,PULL_EXISTS]
+    \\ simp[semanticPrimitivesTheory.environment_component_equality]
+    \\ qmatch_goalsub_abbrev_tac`merge_alist_mod_env cx env.c`
+    \\ disch_then(qspec_then`<|v := []; m := env.m; c := merge_alist_mod_env cx env.c|>`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+    \\ simp[Once env_rel_list_rel]
+    \\ disch_then(qspec_then`<|v := []; c := merge_alist_mod_env cx env.c|>`mp_tac)
+    \\ simp[]
+    \\ discharge_hyps
+    >- (
+      match_mp_tac (GEN_ALL global_env_inv_extend2)
+      \\ simp[] \\ metis_tac[v_rel_weakening])
+    \\ rw[Abbr`cx`]
+    \\ `cenv'' = q'` by cheat (* not sure if this is reasonable *)
+    \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc1 _ ds'`
+    \\ rator_x_assum`modSem$evaluate_decs`mp_tac
+    \\ qmatch_asmsub_abbrev_tac`evaluate_decs cc2 _ ds'`
+    \\ `cc1 = cc2`
+    by (
+      unabbrev_all_tac
+      \\ simp[environment_component_equality]
+      \\ rator_x_assum`env_all_rel`mp_tac
+      \\ simp[env_all_rel_cases] \\ strip_tac
+      \\ simp[]
+      \\ rfs[env_rel_list_rel] )
+    \\ fs[Abbr`cc2`,Abbr`cc1`]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ full_simp_tac std_ss [GSYM MAP_APPEND]
+    \\ qmatch_goalsub_abbrev_tac`MAP SND www`
+    \\ qexists_tac`www` \\ fs[Abbr`www`]
+    \\ reverse (Cases_on`res`) \\ fs[combine_dec_result_def]
+    >- (
+      fs[result_rel_cases] \\ rw[]
+      \\ cheat (* seems wrong *))
+    \\ conj_tac
+    >- (
+      simp[REVERSE_APPEND]
+      \\ match_mp_tac env_rel_append
+      \\ simp[]
+      \\ metis_tac[v_rel_weakening] )
+    \\ simp[FUPDATE_LIST_APPEND]
+    \\ match_mp_tac (GEN_ALL global_env_inv_extend2)
+    \\ simp[]
+    \\ metis_tac[v_rel_weakening]) >>
   rw [compile_dec_def, compile_decs_def]
   >- (
     every_case_tac >>
