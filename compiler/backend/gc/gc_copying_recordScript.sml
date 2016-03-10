@@ -1057,7 +1057,6 @@ val full_gc_ok = store_thm("full_gc_ok",
       state.a + state.r <= conf.limit /\
       roots_ok roots2 heap' /\
       heap_ok heap' conf.limit``,
-
 rpt strip_tac
 \\ mp_tac full_gc_thm
 \\ fs [LET_THM]
@@ -1084,26 +1083,37 @@ THEN1
 THEN1
   (fs [FILTER_APPEND,EVERY_isDataElement_IMP_LEMMA]
   \\ fs [FILTER_isForward_heap_expand_lemma])
-THEN1
-  (fs [isSomeDataElement_def]
-  \\ (`?j. heap_lookup j state.h1 = SOME (DataElement xs l d)` by
-    metis_tac [MEM_IMP_heap_lookup])
-  \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME ptr)` by
+\\ Q.ABBREV_TAC `heap' = state.h1 ++ heap_expand state.n ++ state.r1`
+THEN1                           (* in h1 heap *)
+  (`?j. heap_lookup j state.h1 = SOME (DataElement xs l d)` by all_tac
+  THEN1 metis_tac [MEM_IMP_heap_lookup,MEM_APPEND]
+  \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME j)` by all_tac
+  THEN1
     (imp_res_tac heap_lookup_IMP_heap_addresses
-    \\ fs [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF]
-    \\ cheat)                   (* CHEAT!! *)
-  \\ metis_tac [])
-THEN1
+    \\ fs [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF])
+  \\ res_tac
+  \\ `is_final conf.limit state.h1 [] [] state.r1 j` by all_tac
+  THEN1
+    (simp [is_final_def,LET_THM]
+    \\ imp_res_tac heap_lookup_LESS
+    \\ fs [])
+  \\ fs []
+
+  (* HERE *)
+
+  \\ cheat)
+THEN1                           (* in Unused heap *)
   fs [MEM_heap_expand_FALSE]
-THEN1
+THEN1                           (* in r1 heap *)
   (fs [isSomeDataElement_def]
-  \\ (`?j. heap_lookup j state.r1 = SOME (DataElement xs l d)` by
-    metis_tac [MEM_IMP_heap_lookup])
-  \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME ptr)` by
+  \\ `?j. heap_lookup j heap' = SOME (DataElement xs l d)` by
+    (cheat)
+  \\ `?i. (FLOOKUP (heap_map 0 state.heap) i = SOME j)` by all_tac
+  THEN1
     (imp_res_tac heap_lookup_IMP_heap_addresses
     \\ fs [BIJ_DEF,SURJ_DEF,heap_map1_def,FLOOKUP_DEF]
-    \\ cheat)                   (* CHEAT!! *)
-  \\ metis_tac []));
+    \\ cheat)
+  \\ cheat));
 
   (* rpt strip_tac \\ mp_tac full_gc_thm \\ full_simp_tac std_ss [] \\ strip_tac *)
   (* \\ full_simp_tac std_ss [] \\ full_simp_tac std_ss [gc_inv_def] *)
