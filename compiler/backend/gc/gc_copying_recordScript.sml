@@ -1,6 +1,6 @@
 open preamble wordsTheory wordsLib integer_wordTheory;
 
-val _ = new_theory "copying_gc_record";
+val _ = new_theory "gc_copying_record";
 
 (* TODO: move *)
 
