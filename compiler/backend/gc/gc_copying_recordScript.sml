@@ -745,6 +745,7 @@ val gc_move_ALT = store_thm("gc_move_ALT",
   \\ rw []
   \\ rw []
   \\ unabbrev_all_tac
+  \\ split_pair_tac \\ fs []
   \\ fs [fetch "-" "gc_state_component_equality"]);
 
 val gc_move_list_ALT = store_thm("gc_move_list_ALT",
@@ -975,7 +976,7 @@ val full_gc_thm = store_thm("full_gc_thm",
     \\ fs [heap_map1_def,SUBMAP_DEF]
     \\ metis_tac [])
   \\ TRY (fs [heap_ok_def,gc_inv_def,LET_THM] \\ NO_TAC)
-  THEN1 (imp_res_tac gc_inv_imp_n)
+  THEN1 (imp_res_tac gc_inv_imp_n \\ fs [])
   THEN1
     (imp_res_tac gc_inv_imp_n \\ decide_tac)
   \\ rpt strip_tac
@@ -1048,6 +1049,12 @@ val MEM_heap_expand_FALSE = prove(
   Cases
   \\ fs [MEM,heap_expand_def]);
 
+val heap_lookup_AND_APPEND_IMP = prove(
+  ``!xs n ys d d1.
+      (heap_lookup n xs = SOME d) /\
+      (heap_lookup n (xs++ys) = SOME d1) ==> (d1 = d)``,
+  cheat);
+
 val full_gc_ok = store_thm("full_gc_ok",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
     ?roots2 state.
@@ -1057,6 +1064,7 @@ val full_gc_ok = store_thm("full_gc_ok",
       state.a + state.r <= conf.limit /\
       roots_ok roots2 heap' /\
       heap_ok heap' conf.limit``,
+
 rpt strip_tac
 \\ mp_tac full_gc_thm
 \\ fs [LET_THM]
@@ -1065,8 +1073,6 @@ rpt strip_tac
 \\ qexists_tac `state`
 \\ fs [gc_inv_def,LET_THM]
 \\ rpt strip_tac
-THEN1
-  decide_tac
 THEN1
   (fs [roots_ok_def,isSomeDataElement_def]
   \\ rpt strip_tac
@@ -1098,6 +1104,16 @@ THEN1                           (* in h1 heap *)
     \\ imp_res_tac heap_lookup_LESS
     \\ fs [])
   \\ fs []
+  \\ unabbrev_all_tac
+  \\ full_simp_tac bool_ss [GSYM APPEND_ASSOC]
+  \\ imp_res_tac heap_lookup_AND_APPEND_IMP
+  \\ fs [] \\ rpt var_eq_tac \\ fs []
+  \\ ntac 2 (pop_assum kall_tac)
+  \\ drule MEM_ADDR_MAP \\ strip_tac \\ var_eq_tac
+  \\ res_tac \\ rfs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ fs [heap_map1_def,FLOOKUP_DEF]
+  \\ qpat_assum `!ii:num. _ ==> _` drule
 
   (* HERE *)
 
