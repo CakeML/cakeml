@@ -1201,7 +1201,7 @@ val full_gc_related = store_thm("full_gc_related",
       (full_gc conf (roots:'a heap_address list,heap) =
          (ADDR_MAP (FAPPLY f) roots,state.h1,state.r1,state.a,state.r,T)) /\
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
-      gc_related f heap (state.h1 ++ heap_expand (conf.limit - state.a - state.r) ++ state.r1)``,
+      gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
 
 strip_tac
 mp_tac full_gc_thm
