@@ -1272,17 +1272,15 @@ val comp_correct = Q.prove(
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ strip_tac \\ rveq
     \\ simp[inst_def,assign_def,word_exp_def]
+    \\ fs[good_syntax_def]
+    \\ imp_res_tac state_rel_get_var
     \\ imp_res_tac state_rel_get_var_k
-    \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
+    \\ `r ≠ k` by fs[]
     \\ simp[wordLangTheory.word_op_def]
-    \\ full_simp_tac(srw_ss())[good_syntax_def,GSYM get_var_def]
-    \\ imp_res_tac state_rel_get_var \\ full_simp_tac(srw_ss())[]
+    \\ fs[FLOOKUP_UPDATE]
     \\ qexists_tac`0` \\ simp[]
-    \\ REWRITE_TAC[GSYM set_var_with_const]
-    \\ REWRITE_TAC[with_same_clock]
-    \\ simp[]
     \\ simp[mem_load_def]
-    \\ simp[Once set_var_def]
     \\ rpt(qpat_assum`∀x. _`kall_tac)
     \\ imp_res_tac LESS_LENGTH_IMP_APPEND
     \\ full_simp_tac(srw_ss())[word_list_APPEND]
@@ -1292,7 +1290,8 @@ val comp_correct = Q.prove(
     \\ pop_assum (fn th => full_simp_tac(srw_ss())[GSYM th,EL_LENGTH_APPEND])
     \\ `bytes_in_word * c >>> word_shift (:'a) = c` by
           rev_full_simp_tac(srw_ss())[lsl_word_shift,state_rel_def]
-    \\ full_simp_tac(srw_ss())[] \\ SEP_R_TAC \\ full_simp_tac(srw_ss())[])
+    \\ full_simp_tac(srw_ss())[] \\ SEP_R_TAC \\ full_simp_tac(srw_ss())[]
+    \\ simp[GSYM set_var_def])
   THEN1 (* StackStore *) (
     simp[comp_def]
     \\ rator_x_assum`evaluate`mp_tac
@@ -1364,7 +1363,8 @@ val comp_correct = Q.prove(
     \\ strip_tac \\ rveq
     \\ simp[inst_def,assign_def,word_exp_def]
     \\ imp_res_tac state_rel_get_var_k
-    \\ full_simp_tac(srw_ss())[get_var_def]
+    \\ full_simp_tac(srw_ss())[get_var_def,set_var_def,FLOOKUP_UPDATE]
+    \\ `r ≠ k+1` by fs[good_syntax_def]
     \\ simp[wordLangTheory.word_op_def]
     \\ qexists_tac`0` \\ simp[]
     \\ simp[Once set_var_def,FLOOKUP_UPDATE]
@@ -1381,14 +1381,20 @@ val comp_correct = Q.prove(
     \\ rator_x_assum`good_syntax`mp_tac \\simp[good_syntax_def]
     \\ strip_tac
     \\ qpat_assum`¬_`kall_tac
-    \\ full_simp_tac(srw_ss())[state_rel_def]
+    \\ full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_UPDATE]
+    \\ `r ≠ k+2` by fs[] \\ rfs[]
     \\ `s.stack_space MOD dimword (:'a) ≤ LENGTH s.stack`
     by (
       `0 < dimword (:'a)` by simp[]
       \\ metis_tac[MOD_LESS_EQ,LESS_EQ_TRANS] )
     \\ qmatch_assum_abbrev_tac`(a:num) + b * d < dw`
-    \\ qmatch_abbrev_tac`b * f < dw`
-    \\ `b * f ≤ b * d` by metis_tac[LESS_MONO_MULT,MULT_COMM]
+    \\ qmatch_abbrev_tac`d * f < dw`
+    \\ `f ≤ s.stack_space ∧ f ≤ b` by
+      (unabbrev_all_tac>>
+      CONJ_ASM1_TAC>>fs[]>>
+      match_mp_tac MOD_LESS_EQ>>
+      fs[labPropsTheory.good_dimindex_def,dimword_def])
+    \\ `d * f ≤ d * b ` by metis_tac[LESS_MONO_MULT,MULT_COMM]
     \\ decide_tac)
   THEN1 (* StackSetSize *) (
     simp[comp_def]
