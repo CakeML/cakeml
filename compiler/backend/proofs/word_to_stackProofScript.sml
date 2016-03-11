@@ -2691,7 +2691,7 @@ val MEM_MAP_FST_SND_SND_pmov = Q.store_thm("MEM_MAP_FST_SND_SND_pmov",
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     >- (rw[] \\ fs[])
-    \\ simp[splitAtPki_DEF]
+    \\ simp[splitAtPki_def]
     \\ IF_CASES_TAC \\ simp[]
     >- ( rw[] \\ fs[] )
     \\ simp[splitAtPki_EQN]
@@ -2752,7 +2752,7 @@ val MEM_MAP_SND_SND_SND_pmov = Q.store_thm("MEM_MAP_SND_SND_SND_pmov",
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     \\ BasicProvers.TOP_CASE_TAC \\ simp[]
     >- (rw[] \\ fs[])
-    \\ simp[splitAtPki_DEF]
+    \\ simp[splitAtPki_def]
     \\ IF_CASES_TAC \\ simp[]
     >- ( rw[] \\ fs[] )
     \\ simp[splitAtPki_EQN]

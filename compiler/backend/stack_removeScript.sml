@@ -65,15 +65,15 @@ val comp_def = Define `
     | StackAlloc n => stack_alloc k n
     | StackStore r n => Inst (Mem Store r (Addr k (word_offset n)))
     | StackLoad r n => Inst (Mem Load r (Addr k (word_offset n)))
-    | StackLoadAny r i => Seq (Inst (Arith (Binop Add r i (Reg k))))
+    | StackLoadAny r i => Seq (Seq (move r i) (add_inst r k))
                               (Inst (Mem Load r (Addr r 0w)))
     | StackStoreAny r i => Seq (Inst (Arith (Binop Add k k (Reg i))))
                           (Seq (Inst (Mem Store r (Addr k 0w)))
                                (Inst (Arith (Binop Sub k k (Reg i)))))
-    | StackGetSize r => Seq (Inst (Arith (Binop Sub r k (Reg (k+1)))))
+    | StackGetSize r => Seq (Seq (move r k) (sub_inst r (k+1)))
                             (right_shift_inst r (word_shift (:'a)))
     | StackSetSize r => Seq (left_shift_inst r (word_shift (:'a)))
-                            (Inst (Arith (Binop Add k (k+1) (Reg r))))
+                            (Seq (move k (k+1)) (add_inst k r))
     | BitmapLoad r v =>
         list_Seq [Inst (Mem Load r (Addr (k+1) (store_offset BitmapBase)));
                   add_inst r v;
