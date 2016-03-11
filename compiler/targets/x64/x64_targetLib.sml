@@ -17,7 +17,7 @@ fun x64_type s = Type.mk_thy_type {Thy = "x64", Tyop = s, Args = []}
 
 val add_x64_datatypes =
   utilsLib.add_datatypes
-    (``:asm$cmp``::
+    ([``:asm$cmp``, ``:asm$binop``] @
      List.map x64_type
        ["instruction", "Zcond", "Zdest_src", "Zrm", "Zsize", "Zbase",
         "Zreg", "Zbinop_name"])
