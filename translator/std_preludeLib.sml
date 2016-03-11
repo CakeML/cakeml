@@ -108,7 +108,7 @@ val res = translate FRONT_DEF;
 val res = translate ZIP;
 val res = translate EL;
 val res = translate LAST_DEF;
-val res = translate (splitAtPki_DEF |> REWRITE_RULE [SUC_LEMMA])
+val res = translate (splitAtPki_def |> REWRITE_RULE [SUC_LEMMA])
 
 val front_side_def = prove(
   ``!xs. front_side xs = ~(xs = [])``,
