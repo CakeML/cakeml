@@ -1309,31 +1309,22 @@ val gc_move_ok = store_thm("gc_move_ok",
     \\ metis_tac []));
 
 val gc_move_list_ok = store_thm("gc_move_list_ok",
-  ``!xs conf state state'.
-      (gc_move_list conf state xs = (xs',state')) /\ (state'.c = T) ==>
+  ``!xs xs' state state'.
+      (gc_move_list conf state xs = (xs',state')) /\ state'.c ==>
       state.c /\
       ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\
       ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4))``,
-  cheat);
-  (* ``!xs h2 a n heap c limit xs' h2' a' n' heap' c'. *)
-  (*     (gc_move_list (xs,h2,a,n,heap,c,limit) = (xs',h2',a',n',heap',T)) ==> *)
-  (*     c /\ *)
-  (*     ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))``, *)
-  (* Induct \\ simp_tac std_ss [gc_move_list_def] \\ rpt strip_tac *)
-  (* THENL [all_tac, pop_assum mp_tac] *)
-  (* \\ pop_assum mp_tac *)
-  (* \\ `? x' h2' a' n' heap' c'. gc_move (h,h2,a,n,heap,c,limit) = *)
-  (*      (x',h2',a',n',heap',c')` by metis_tac [PAIR] *)
-  (* \\ pop_assum (fn th => ASSUME_TAC th THEN once_rewrite_tac [th]) *)
-  (* \\ simp_tac std_ss [LET_DEF] *)
-  (* \\ `? xs1 h21 a1 n1 heap1 c1. gc_move_list (xs,h2'',a'',n'',heap'',c',limit) = *)
-  (*      (xs1,h21,a1,n1,heap1,c1)` by metis_tac [PAIR] *)
-  (* \\ pop_assum (fn th => ASSUME_TAC th THEN once_rewrite_tac [th]) *)
-  (* \\ simp_tac std_ss [LET_DEF] *)
-  (* \\ Cases_on `c1` \\ simp_tac std_ss [] \\ `c'` by metis_tac [] *)
-  (* \\ pop_assum mp_tac \\ Cases_on `c'` \\ simp_tac std_ss [] *)
-  (* \\ once_rewrite_tac [EQ_SYM_EQ] \\ simp_tac std_ss [] \\ res_tac *)
-  (* \\ imp_res_tac gc_move_ok \\ metis_tac []); *)
+  Induct
+  \\ fs [gc_move_list_def]
+  \\ rpt strip_tac
+  \\ split_pair_tac \\ fs []
+  \\ split_pair_tac \\ fs []
+  \\ rpt var_eq_tac \\ fs []
+  \\ qpat_assum `!xs'. _` (qspecl_then [`xs''`, `state''`,`state'`] mp_tac)
+  \\ strip_tac
+  \\ res_tac
+  \\ fs []
+  \\ drule gc_move_ok \\ strip_tac \\ fs []);
 
 (* Let's only prove the following once they are needed.
 
