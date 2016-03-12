@@ -1252,32 +1252,61 @@ val full_gc_related = store_thm("full_gc_related",
 (* Lemmas about ok and a *)
 
 val gc_forward_ptr_ok = store_thm("gc_forward_ptr_ok",
-  ``!heap n a c x. (gc_forward_ptr n heap a d c = (x,T)) ==> c``,
-  Induct \\ simp_tac std_ss [Once gc_forward_ptr_def] \\ rpt strip_tac
-  \\ Cases_on `n = 0` \\ full_simp_tac std_ss []
-  \\ Cases_on `n < el_length h` \\ full_simp_tac std_ss []
+  ``!heap n a d c x. (gc_forward_ptr n heap a d c = (x,T)) ==> c``,
+  Induct
+  \\ simp_tac std_ss [Once gc_forward_ptr_def]
+  \\ rpt strip_tac
+  \\ Cases_on `n = 0`
+  \\ full_simp_tac std_ss []
+  \\ Cases_on `n < el_length h`
+  \\ full_simp_tac std_ss []
   \\ Cases_on `gc_forward_ptr (n - el_length h) heap a d c`
-  \\ full_simp_tac std_ss [LET_DEF] \\ Cases_on `r`
-  \\ full_simp_tac std_ss [] \\ res_tac);
+  \\ full_simp_tac std_ss [LET_DEF]
+  \\ Cases_on `r`
+  \\ full_simp_tac std_ss []
+  \\ res_tac);
 
 val gc_move_ok = store_thm("gc_move_ok",
   ``(gc_move conf state x = (x',state')) /\ state'.c ==>
     state.c /\
     ((state.a = b + heap_length state.h2) ==> (state'.a = b + heap_length state'.h2)) /\
     ((state.r = c + heap_length state.r4) ==> (state'.r = c + heap_length state'.r4))``,
-  cheat);
-  (*   ((a = b + heap_length h2) ==> (a' = b + heap_length h2'))``, *)
-  (* simp_tac std_ss [Once EQ_SYM_EQ] \\ Cases_on `x` *)
-  (* \\ full_simp_tac std_ss [gc_move_def] *)
-  (* \\ Cases_on `heap_lookup n'' heap` \\ full_simp_tac (srw_ss()) [] *)
-  (* \\ Cases_on `x` \\ full_simp_tac (srw_ss()) [LET_DEF] *)
-  (* \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV) *)
-  (* \\ once_rewrite_tac [EQ_SYM_EQ] \\ full_simp_tac std_ss [] *)
-  (* \\ rpt strip_tac \\ imp_res_tac gc_forward_ptr_ok *)
-  (* \\ rpt (pop_assum mp_tac) *)
-  (* \\ once_rewrite_tac [EQ_SYM_EQ] \\ full_simp_tac std_ss [] *)
-  (* \\ full_simp_tac (srw_ss()) [heap_length_APPEND,heap_length_def, *)
-  (*      el_length_def,ADD_ASSOC]); *)
+  Cases_on `x`
+  \\ fs [gc_move_def]
+  \\ Cases_on `heap_lookup n state.heap`
+  \\ fs []
+  \\ rpt strip_tac
+  \\ fs [fetch "-" "gc_state_component_equality"]
+  \\ Cases_on `x`
+  \\ fs [fetch "-" "gc_state_component_equality",LET_THM]
+  THEN1
+    (split_pair_tac
+    \\ Cases_on `conf.isRef (DataElement l n' b)` \\ fs []
+    \\ TRY split_pair_tac
+    \\ fs [fetch "-" "gc_state_component_equality"]
+    \\ rpt var_eq_tac
+    \\ imp_res_tac gc_forward_ptr_ok)
+  THEN1
+    metis_tac []
+  THEN1
+    (split_pair_tac
+    \\ Cases_on `conf.isRef (DataElement l n' b')` \\ fs []
+    \\ TRY split_pair_tac
+    \\ fs [fetch "-" "gc_state_component_equality"]
+    THEN1 metis_tac []
+    \\ qpat_assum `_ = state'.h2` (mp_tac o GSYM)
+    \\ strip_tac
+    \\ fs [heap_length_APPEND,heap_length_def,el_length_def,SUM_APPEND])
+  THEN1
+    metis_tac []
+  THEN1
+    (Cases_on `conf.isRef (DataElement l n' b)` \\ fs []
+    \\ TRY split_pair_tac \\ fs [fetch "-" "gc_state_component_equality"]
+    THEN1
+      (rpt var_eq_tac \\ fs []
+      \\ qpat_assum `_ = state'.r4` (mp_tac o GSYM) \\ strip_tac
+      \\ fs [heap_length_APPEND,heap_length_def,el_length_def,SUM_APPEND])
+    \\ metis_tac []));
 
 val gc_move_list_ok = store_thm("gc_move_list_ok",
   ``!xs conf state state'.
