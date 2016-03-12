@@ -5,6 +5,19 @@ val _ = new_theory"lab_to_target";
 val ffi_offset_def = Define `
   ffi_offset = 8:num`;
 
+(* length of a section *)
+
+val sec_length_def = Define `
+  (sec_length [] k = k) /\
+  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
+  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
+  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
+
+val full_sec_length_def = Define `
+  full_sec_length xs =
+    let k = sec_length xs 0 in
+      if ODD k then k+1 else k`;
+
 (* basic assemble function *)
 
 val lab_inst_def = Define `
@@ -52,6 +65,7 @@ val compute_labels_def = Define `
   (compute_labels pos [] aux = aux) /\
   (compute_labels pos ((Section k lines)::rest) aux =
      let (labs,new_pos) = sec_labs pos lines in
+     let new_pos = pos + full_sec_length lines in
        compute_labels new_pos rest (insert k labs aux))`
 
 (* update code, but not label lengths *)
@@ -93,17 +107,6 @@ val enc_lines_again_def = Define `
          let l1 = MAX (LENGTH bs) l in
            enc_lines_again labs (pos + l1) enc xs
              ((LabAsm a w1 bs l1)::acc, ok /\ (l1 = l)))`
-
-val sec_length_def = Define `
-  (sec_length [] k = k) /\
-  (sec_length ((Label _ _ l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((Asm x1 x2 l)::xs) k = sec_length xs (k+l)) /\
-  (sec_length ((LabAsm a w bytes l)::xs) k = sec_length xs (k+l))`
-
-val full_sec_length_def = Define `
-  full_sec_length xs =
-    let k = sec_length xs 0 in
-      if ODD k then k+1 else k`;
 
 val enc_secs_again_def = Define `
   (enc_secs_again pos labs enc [] = ([],T)) /\
@@ -244,9 +247,9 @@ val pad_code_def = Define `
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
-  remove_labels_loop clock c enc sec_list l =
+  remove_labels_loop clock c enc sec_list =
     (* compute labels *)
-    let labs = compute_labels 0 sec_list l in
+    let labs = compute_labels 0 sec_list LN in
     (* update encodings and lengths (but not label lengths) *)
     let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
       (* done ==> labs are still fine *)
@@ -254,7 +257,7 @@ val remove_labels_loop_def = Define `
         (* adjust label lengths *)
         let sec_list = upd_lab_len 0 sec_list in
         (* compute labels a last time *)
-        let labs = compute_labels 0 sec_list l in
+        let labs = compute_labels 0 sec_list LN in
         (* update encodings *)
         let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
         (* move label padding into instructions *)
@@ -266,7 +269,7 @@ val remove_labels_loop_def = Define `
       else
         (* repeat *)
         if clock = 0:num then NONE else
-          remove_labels_loop (clock-1) c enc sec_list l`
+          remove_labels_loop (clock-1) c enc sec_list`
 
 val remove_labels_def = Define `
   remove_labels init_clock c enc sec_list =
@@ -311,7 +314,7 @@ val find_ffi_index_limit_def = Define `
 val compile_lab_def = Define `
   compile_lab c sec_list =
     let limit = find_ffi_index_limit sec_list in
-      case remove_labels c.init_clock c.asm_conf c.encoder sec_list c.labels of
+      case remove_labels c.init_clock c.asm_conf c.encoder sec_list of
       | SOME (sec_list,l1) => SOME (prog_to_bytes sec_list,limit)
       | NONE => NONE`;
 

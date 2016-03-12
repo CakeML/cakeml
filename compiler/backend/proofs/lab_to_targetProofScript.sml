@@ -2040,7 +2040,7 @@ val machine_sem_EQ_sem = Q.store_thm("machine_sem_EQ_sem",
 (* syntactic properties of remove_labels *)
 
 val good_syntax_def = Define `
-  good_syntax mc_conf (code:'a sec list) l = T` (* needs completing *)
+  good_syntax mc_conf (code:'a sec list) (l:num_set) = T`
 
 val good_syntax_filter_skip = store_thm("good_syntax_filter_skip[simp]",
   ``good_syntax c (filter_skip prog) l = good_syntax c prog l``,
@@ -2155,17 +2155,25 @@ val pos_val_0_0 = Q.store_thm("pos_val_0_0",
   >> srw_tac[][line_length_def]);
 
 val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[simp]",
- `∀nop k xs aux. EVERY label_zero aux ⇒
-       EVERY label_zero (pad_section nop k xs aux)`,
+  `∀nop k xs aux.
+     EVERY label_zero aux ⇒
+     EVERY label_zero (pad_section nop k xs aux)`,
   cheat (* ho_match_mp_tac pad_section_ind
   >> srw_tac[][pad_section_def]
   >> srw_tac[][EVERY_REVERSE] *));
 
+val EVERY_label_zero_add_nop = prove(
+  ``!xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs``,
+  Induct \\ fs [append_nop_def,add_nop_def,EVERY_REVERSE]
+  \\ Cases \\ fs [append_nop_def,add_nop_def,EVERY_REVERSE]);
+
 val EVERY_sec_label_zero_pad_code = Q.store_thm("EVERY_sec_label_zero_pad_code[simp]",
   `∀nop ls. EVERY sec_label_zero (pad_code nop ls)`,
-  cheat (* ho_match_mp_tac pad_code_ind
-  >> srw_tac[][pad_code_def]
-  >> srw_tac[][sec_label_zero_def] *));
+  ho_match_mp_tac pad_code_ind
+  \\ srw_tac[][pad_code_def] \\ fs []
+  \\ srw_tac[][sec_label_zero_def]
+  \\ unabbrev_all_tac \\ fs []
+  \\ fs [append_nop_def,EVERY_REVERSE,EVERY_label_zero_add_nop]);
 
 val sec_length_add = Q.store_thm("sec_length_add",
   `∀ls n m. sec_length ls (n+m) = sec_length ls n + m`,
@@ -2295,8 +2303,8 @@ val code_similar_upd_lab_len = prove(
   \\ rw [] \\ fs [line_similar_lines_upd_lab_len]);
 
 val enc_secs_again_T_IMP = prove(
-  ``enc_secs_again pos (compute_labels pos code l) enc code = (sec_list,T) ==>
-    compute_labels pos code l = compute_labels pos sec_list l``,
+  ``enc_secs_again pos (compute_labels pos code LN) enc code = (sec_list,T) ==>
+    compute_labels pos code LN = compute_labels pos sec_list LN``,
   cheat);
 
 val pos_val_pad_code = prove(
@@ -2310,9 +2318,9 @@ val lab_lookup_compute_labels = prove(
   cheat);
 
 val remove_labels_loop_thm = Q.prove(
-  `∀n c e code l code2 labs.
-    remove_labels_loop n c e code l = SOME (code2,labs) ∧
-    good_syntax mc_conf code l ∧
+  `∀n c e code code2 labs.
+    remove_labels_loop n c e code = SOME (code2,labs) ∧
+    good_syntax mc_conf code LN ∧
     c = mc_conf.target.config ∧
     e = mc_conf.target.encode ∧
     enc_ok mc_conf.target.encode mc_conf.target.config
@@ -2385,9 +2393,9 @@ simp[enc_sec_list_def]
   >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] *));
 
 val remove_labels_thm = Q.store_thm("remove_labels_thm",
-  `good_syntax mc_conf code l /\
+  `good_syntax mc_conf code LN /\
    enc_ok mc_conf.target.encode mc_conf.target.config /\
-   remove_labels clock mc_conf.target.config mc_conf.target.encode code l =
+   remove_labels clock mc_conf.target.config mc_conf.target.encode code =
      SOME (code2,labs) ==>
    all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
    code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
@@ -2512,9 +2520,9 @@ val aligned_1_intro = prove(
   fs [alignmentTheory.aligned_bitwise_and]);
 
 val IMP_state_rel_make_init = prove(
-  ``good_syntax mc_conf code l /\
+  ``good_syntax mc_conf code LN /\
     enc_ok mc_conf.target.encode mc_conf.target.config /\
-    remove_labels clock mc_conf.target.config mc_conf.target.encode code l =
+    remove_labels clock mc_conf.target.config mc_conf.target.encode code =
       SOME (code2,labs) /\
     good_init_state mc_conf t m ms (find_ffi_index_limit code)
       (prog_to_bytes code2) io_regs save_regs ==>
@@ -2561,7 +2569,7 @@ val find_ffi_index_limit_filter_skip = store_thm("find_ffi_index_limit_filter_sk
 val semantics_compile = store_thm("semantics_compile",
   ``ffi.final_event = NONE /\
     backend_correct mc_conf.target /\
-    good_syntax mc_conf code c.labels /\
+    good_syntax mc_conf code LN /\
     c.asm_conf = mc_conf.target.config /\
     c.encoder = mc_conf.target.encode /\
     compile c code = SOME (bytes,ffi_limit) /\
@@ -2573,14 +2581,14 @@ val semantics_compile = store_thm("semantics_compile",
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
-  \\ pop_assum mp_tac
   \\ once_rewrite_tac [GSYM make_init_filter_skip] \\ srw_tac[][]
   \\ match_mp_tac (GEN_ALL semantics_make_init) \\ full_simp_tac(srw_ss())[]
-  \\ asm_exists_tac \\ full_simp_tac(srw_ss())[]
+  \\ fs []
   \\ qexists_tac `x1`
   \\ qexists_tac `x0`
   \\ qexists_tac `c.init_clock`
   \\ full_simp_tac(srw_ss())[backend_correct_def]
-  \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip])
+  \\ full_simp_tac(srw_ss())[find_ffi_index_limit_filter_skip]
+  \\ fs [make_init_filter_skip])
 
 val _ = export_theory();
