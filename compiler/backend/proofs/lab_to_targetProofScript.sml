@@ -2362,9 +2362,9 @@ val make_word_def = Define `
                             m (a+4w); m (a+5w); m (a+6w); m (a+7w)]) `
 
 val make_init_def = Define `
-  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t (ms:'state) code =
+  make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t m (ms:'state) code =
     <| regs       := \k. Word ((t.regs k):'a word)
-     ; mem        := make_word mc_conf.target.config.big_endian t.mem
+     ; mem        := m
      ; mem_domain := { t.regs mc_conf.ptr_reg + w |w| w <+ t.regs mc_conf.len_reg }
      ; pc         := 0
      ; be         := mc_conf.target.config.big_endian
@@ -2381,7 +2381,7 @@ val make_init_def = Define `
 val IMP_LEMMA = METIS_PROVE [] ``(a ==> b) ==> (b ==> c) ==> (a ==> c)``
 
 val good_init_state_def = Define `
-  good_init_state (mc_conf: ('a,'state,'b) machine_config) t ms
+  good_init_state (mc_conf: ('a,'state,'b) machine_config) t m ms
         ffi_index_limit bytes io_regs save_regs <=>
     mc_conf.target.state_rel t ms /\ ~t.failed /\
     good_dimindex (:'a) /\
@@ -2436,7 +2436,14 @@ val good_init_state_def = Define `
            mem := asm_write_bytearray (t1.regs mc_conf.ptr_reg) new_bytes t1.mem;
            pc := t1.regs (case mc_conf.target.config.link_reg of NONE => 0
                   | SOME n => n)|>)
-         (mc_conf.ffi_interfer k index new_bytes ms2))`
+        (mc_conf.ffi_interfer k index new_bytes ms2)) /\
+    !a w labs.
+      byte_align a = w + t.regs mc_conf.ptr_reg /\
+      w <+ t.regs mc_conf.len_reg ==>
+      ?w'.
+        (a = w' + t.regs mc_conf.ptr_reg /\ w' <+ t.regs mc_conf.len_reg) /\
+        word_loc_val_byte (mc_conf.target.get_pc ms) labs m a
+          mc_conf.target.config.big_endian = SOME (t.mem a)`
 
 val LESS_find_ffi_index_limit = store_thm("LESS_find_ffi_index_limit",
   ``!code i. has_io_index i code ==> i < find_ffi_index_limit code``,
@@ -2453,11 +2460,11 @@ val IMP_state_rel_make_init = prove(
     enc_ok mc_conf.target.encode mc_conf.target.config /\
     remove_labels clock mc_conf.target.config mc_conf.target.encode code l =
       SOME (code2,labs) /\
-    good_init_state mc_conf t ms (find_ffi_index_limit code)
+    good_init_state mc_conf t m ms (find_ffi_index_limit code)
       (prog_to_bytes code2) io_regs save_regs ==>
     state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,
         mc_conf.target.get_pc ms,T)
-      (make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t ms code) t ms``,
+      (make_init mc_conf (ffi:'ffi ffi_state) save_regs io_regs t m ms code) t ms``,
   srw_tac[][] \\ drule remove_labels_thm
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[state_rel_def,make_init_def,
@@ -2468,10 +2475,7 @@ val IMP_state_rel_make_init = prove(
          fs [alignmentTheory.aligned_bitwise_and]
   \\ fs [alignmentTheory.aligned_add_sub]
   \\ fs [alignmentTheory.aligned_1_lsb]
-  \\ conj_tac THEN1 cheat (* should be true with current goal *)
-  \\ fs [word_loc_val_byte_def,word_loc_val_def,make_word_def,good_dimindex_def]
-  \\ rw [set_bytes_def]
-  \\ cheat (* messy set_byte/get_byte reasoning *));
+  \\ cheat (* should be true with current goal *));
 
 val semantics_make_init = save_thm("semantics_make_init",
   machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]
@@ -2481,14 +2485,14 @@ val semantics_make_init = save_thm("semantics_make_init",
   |> Q.GEN `t1` |> Q.SPEC `t`
   |> Q.SPEC `(mc_conf: ('a,'state,'b) machine_config).target.get_pc ms`
   |> Q.SPEC `make_init (mc_conf: ('a,'state,'b) machine_config)
-       ffi save_regs io_regs t (ms:'state) code`
-  |> SIMP_RULE std_ss [EVAL ``(make_init mc_conf ffi s i t ms code).ffi``]
+       ffi save_regs io_regs t m (ms:'state) code`
+  |> SIMP_RULE std_ss [EVAL ``(make_init mc_conf ffi s i t m ms code).ffi``]
   |> UNDISCH |> MATCH_MP (MATCH_MP IMP_LEMMA IMP_state_rel_make_init)
   |> DISCH_ALL |> REWRITE_RULE [AND_IMP_INTRO,GSYM CONJ_ASSOC]);
 
 val make_init_filter_skip = store_thm("make_init_filter_skip",
-  ``semantics (make_init mc_conf ffi save_regs io_regs t ms (filter_skip code)) =
-    semantics (make_init mc_conf ffi save_regs io_regs t ms code)``,
+  ``semantics (make_init mc_conf ffi save_regs io_regs t m ms (filter_skip code)) =
+    semantics (make_init mc_conf ffi save_regs io_regs t m ms code)``,
   match_mp_tac filter_skip_semantics \\ full_simp_tac(srw_ss())[make_init_def]);
 
 val find_ffi_index_limit_filter_skip = store_thm("find_ffi_index_limit_filter_skip",
@@ -2505,10 +2509,10 @@ val semantics_compile = store_thm("semantics_compile",
     c.asm_conf = mc_conf.target.config /\
     c.encoder = mc_conf.target.encode /\
     compile c code = SOME (bytes,ffi_limit) /\
-    good_init_state mc_conf t ms ffi_limit bytes io_regs save_regs /\
-    semantics (make_init mc_conf ffi save_regs io_regs t ms code) <> Fail ==>
+    good_init_state mc_conf t m ms ffi_limit bytes io_regs save_regs /\
+    semantics (make_init mc_conf ffi save_regs io_regs t m ms code) <> Fail ==>
     machine_sem mc_conf ffi ms =
-    {semantics (make_init mc_conf ffi save_regs io_regs t ms code)}``,
+    {semantics (make_init mc_conf ffi save_regs io_regs t m ms code)}``,
   full_simp_tac(srw_ss())[compile_def,compile_lab_def,GSYM AND_IMP_INTRO]
   \\ CASE_TAC \\ full_simp_tac(srw_ss())[LET_DEF]
   \\ PairCases_on `x` \\ full_simp_tac(srw_ss())[]

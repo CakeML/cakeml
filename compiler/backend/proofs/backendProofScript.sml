@@ -54,7 +54,7 @@ val from_stack_fail = let
     |> Q.INST [`code`|->`code2`]
   val lemma2 = stack_to_labProofTheory.full_make_init_semantics_fail |> UNDISCH
     |> Q.INST [`code`|->`code1`]
-  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t ms code2).ffi``
+  val th = EVAL ``(make_init mc_conf ffi save_regs io_regs t m ms code2).ffi``
   in simple_match_mp (MATCH_MP implements_trans lemma2) lemma1
      |> REWRITE_RULE [th] end
 
