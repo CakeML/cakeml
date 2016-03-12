@@ -108,11 +108,6 @@ val arith_upd_consts = Q.store_thm("arith_upd_consts[simp]",
   Cases_on`a` >> EVAL_TAC >>
   every_case_tac >> EVAL_TAC >> rw[]);
 
-val line_length_def = Define `
-  (line_length (Label k1 k2 l) = if l = 0 then 0 else 1) /\
-  (line_length (Asm b bytes l) = LENGTH bytes) /\
-  (line_length (LabAsm a w bytes l) = LENGTH bytes)`
-
 val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
   `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);

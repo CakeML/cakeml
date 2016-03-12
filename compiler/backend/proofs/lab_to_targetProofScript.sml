@@ -80,14 +80,6 @@ val EXP_IMP_ZERO_LT = Q.prove(
 
 (* -- *)
 
-val enc_with_nop_def = Define `
-  enc_with_nop enc (b:'a asm) bytes =
-    let init = enc b in
-    let step = enc (asm$Inst Skip) in
-      if LENGTH step = 0 then bytes = init else
-        let n = (LENGTH bytes - LENGTH init) DIV LENGTH step in
-          bytes = init ++ FLAT (REPLICATE n step)`
-
 val FLAT_REPLICATE_NIL = store_thm("FLAT_REPLICATE_NIL",
   ``!n. FLAT (REPLICATE n []) = []``,
   Induct \\ fs [REPLICATE]);
@@ -265,56 +257,11 @@ val option_ldrop_lemma = prove(
 
 val IMP_IMP2 = METIS_PROVE [] ``a /\ (a /\ b ==> c) ==> ((a ==> b) ==> c)``
 
-val lab_lookup_def = Define `
-  lab_lookup k1 k2 labs =
-    case lookup k1 labs of
-    | NONE => NONE
-    | SOME f => lookup k2 f`
-
 val lab_lookup_IMP = prove(
   ``(lab_lookup l1 l2 labs = SOME x) ==>
     (find_pos (Lab l1 l2) labs = x)``,
   full_simp_tac(srw_ss())[lab_lookup_def,find_pos_def,lookup_any_def]
   \\ BasicProvers.EVERY_CASE_TAC);
-
-val line_ok_def = Define `
-  (line_ok (c:'a asm_config) enc labs pos (Label _ _ l) <=>
-     EVEN pos /\ (l = 0)) /\
-  (line_ok c enc labs pos (Asm b bytes l) <=>
-     enc_with_nop enc b bytes /\
-     (LENGTH bytes = l) /\ asm_ok b c) /\
-  (line_ok c enc labs pos (LabAsm Halt w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm ClearCache w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + 2 * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (CallFFI index) w bytes l) <=>
-     let w1 = (0w:'a word) - n2w (pos + (3 + index) * ffi_offset) in
-       enc_with_nop enc (Jump w1) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (Jump w1) c) /\
-  (line_ok c enc labs pos (LabAsm (Call v24) w bytes l) <=>
-     F (* Call not yet supported *)) /\
-  (line_ok c enc labs pos (LabAsm a w bytes l) <=>
-     let target = find_pos (get_label a) labs in
-     let w1 = n2w target - n2w pos in
-       enc_with_nop enc (lab_inst w1 a) bytes /\
-       (LENGTH bytes = l) /\ asm_ok (lab_inst w1 a) c /\
-       (case get_label a of Lab l1 l2 => (lab_lookup l1 l2 labs <> NONE)))`
-
-val line_ok_ind = theorem"line_ok_ind";
-
-val all_enc_ok_def = Define `
-  (all_enc_ok c enc labs pos [] = T) /\
-  (all_enc_ok c enc labs pos ((Section k [])::xs) <=>
-     EVEN pos /\ all_enc_ok c enc labs pos xs) /\
-  (all_enc_ok c enc labs pos ((Section k (y::ys))::xs) <=>
-     line_ok c enc labs pos y /\
-     all_enc_ok c enc labs (pos + line_length y) ((Section k ys)::xs))`
-
-val all_enc_ok_ind = theorem"all_enc_ok_ind";
 
 val has_odd_inst_def = Define `
   (has_odd_inst [] = F) /\
