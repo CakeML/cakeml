@@ -51,6 +51,7 @@ val SND_read_mem_word_consts = prove(
   Induct \\ full_simp_tac(srw_ss())[read_mem_word_def,LET_DEF]
   \\ CONV_TAC (DEPTH_CONV PairRules.PBETA_CONV)
   \\ full_simp_tac(srw_ss())[assert_def])
+
 val write_mem_word_consts = prove(
   ``!n a w s. ((write_mem_word a n w s).be = s.be) /\
               ((write_mem_word a n w s).lr = s.lr) /\
@@ -281,6 +282,8 @@ val code_similar_def = Define `
      code_similar rest1 rest2 /\
      EVERY2 line_similar lines1 lines2 /\ (s1 = s2)) /\
   (code_similar _ _ = F)`
+
+val code_similar_ind = theorem "code_similar_ind";
 
 val word_loc_val_def = Define `
   (word_loc_val p labs (Word w) = SOME w) /\
@@ -2154,8 +2157,7 @@ val pos_val_0_0 = Q.store_thm("pos_val_0_0",
 val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[simp]",
  `∀nop k xs aux. EVERY label_zero aux ⇒
        EVERY label_zero (pad_section nop k xs aux)`,
-  cheat (*
-  ho_match_mp_tac pad_section_ind
+  cheat (* ho_match_mp_tac pad_section_ind
   >> srw_tac[][pad_section_def]
   >> srw_tac[][EVERY_REVERSE] *));
 
@@ -2250,12 +2252,61 @@ val enc_secs_again_IMP_similar = prove(
   ``enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1``,
   cheat);
 
+val line_similar_trans = prove(
+  ``line_similar x y /\ line_similar y z ==> line_similar x z``,
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]);
+
+val EVERY2_TRANS = prove(
+  ``!xs ys zs. EVERY2 P xs ys /\ EVERY2 P ys zs /\
+               (!x y z. P x y /\ P y z ==> P x z) ==> EVERY2 P xs zs``,
+  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac \\ fs []);
+
 val code_similar_trans = store_thm("code_similar_trans",
-  ``code_similar c1 c2 /\ code_similar c2 c3 ==> code_similar c1 c3``,
-  cheat);
+  ``!c1 c2 c3. code_similar c1 c2 /\ code_similar c2 c3 ==> code_similar c1 c3``,
+  HO_MATCH_MP_TAC code_similar_ind \\ fs [] \\ rw []
+  \\ Cases_on `c3` \\ fs [code_similar_def] \\ rw []
+  \\ Cases_on `h` \\ fs [code_similar_def] \\ rw []
+  \\ metis_tac [line_similar_trans,EVERY2_TRANS]);
+
+val lines_upd_lab_len_AUX = prove(
+  ``!l aux pos.
+      REVERSE aux ++ lines_upd_lab_len pos l [] =
+      lines_upd_lab_len pos l aux``,
+  Induct \\ fs [lines_upd_lab_len_def]
+  \\ Cases \\ simp_tac std_ss [lines_upd_lab_len_def,LET_DEF]
+  \\ pop_assum (fn th => once_rewrite_tac [GSYM th]) \\ fs []) |> GSYM
+
+val line_similar_lines_upd_lab_len = prove(
+  ``!l aux pos l1.
+      LIST_REL line_similar (lines_upd_lab_len pos l []) l1 =
+      LIST_REL line_similar l l1``,
+  Induct \\ fs [lines_upd_lab_len_def]
+  \\ Cases \\ fs [lines_upd_lab_len_def]
+  \\ once_rewrite_tac [lines_upd_lab_len_AUX]
+  \\ fs [] \\ rw [] \\ eq_tac \\ rw []
+  \\ Cases_on `y` \\ fs [line_similar_def]);
 
 val code_similar_upd_lab_len = prove(
-  ``code_similar (upd_lab_len pos code) code1 = code_similar code code1``,
+  ``!code pos code1.
+      code_similar (upd_lab_len pos code) code1 = code_similar code code1``,
+  Induct \\ fs [code_similar_def] \\ Cases
+  \\ Cases_on `code1` \\ fs [upd_lab_len_def,code_similar_def]
+  \\ Cases_on `h` \\ fs [upd_lab_len_def,code_similar_def]
+  \\ rw [] \\ fs [line_similar_lines_upd_lab_len]);
+
+val enc_secs_again_T_IMP = prove(
+  ``enc_secs_again pos (compute_labels pos code l) enc code = (sec_list,T) ==>
+    compute_labels pos code l = compute_labels pos sec_list l``,
+  cheat);
+
+val pos_val_pad_code = prove(
+  ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
+  cheat (* probably needs to assume more *));
+
+val lab_lookup_compute_labels = prove(
+  ``loc_to_pc l1 l2 sec_list = SOME x2 ==>
+    lab_lookup l1 l2 (compute_labels 0 sec_list l) =
+    SOME (pos_val x2 0 sec_list)``,
   cheat);
 
 val remove_labels_loop_thm = Q.prove(
@@ -2299,7 +2350,12 @@ val remove_labels_loop_thm = Q.prove(
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
   \\ rw []
-  \\ cheat (* ought to be true *));
+  \\ imp_res_tac enc_secs_again_T_IMP
+  \\ fs [pos_val_pad_code]
+  \\ imp_res_tac enc_secs_again_IMP_similar
+  \\ fs [code_similar_upd_lab_len]
+  \\ match_mp_tac lab_lookup_compute_labels
+  \\ metis_tac [code_similar_trans,code_similar_loc_to_pc]);
 
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.

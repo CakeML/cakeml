@@ -181,7 +181,7 @@ val loc_to_pc_def = Define `
        case xs of
        | [] => loc_to_pc n1 n2 ys
        | (z::zs) =>
-         if (?k. z = Label n1 (n2-1) k) /\ n2 <> 0 then SOME 0 else
+         if (?k. z = Label n1 n2 k) /\ n2 <> 0 then SOME 0 else
            if is_Label z then loc_to_pc n1 n2 ((Section k zs)::ys)
            else
              case loc_to_pc n1 n2 ((Section k zs)::ys) of
