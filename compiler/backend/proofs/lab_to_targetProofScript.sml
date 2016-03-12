@@ -2287,8 +2287,6 @@ val remove_labels_loop_thm = Q.prove(
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ split_pair_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
-  \\ conj_asm1_tac
-  THEN1 cheat (* should be checked by the exit code of the loop *)
   \\ conj_tac
   THEN1 (match_mp_tac code_similar_pad_code
          \\ imp_res_tac enc_secs_again_IMP_similar
