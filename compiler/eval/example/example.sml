@@ -9,7 +9,7 @@ val word_to_word_conf = ``<| reg_alg:=1; col_oracle := λn. NONE |>``
 (*val word_conf = ``<| bitmaps := [] |>``*)
 val stack_conf = ``<|reg_names:=x64_names;stack_ptr:=5;max_heap:=1000000|>``
 (*??*)
-val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config|>``
+val lab_conf = ``<|encoder:=x64_enc;labels:=LN;asm_conf:=x64_config;init_clock:=5|>``
 
 val conf = ``<|source_conf:=^(source_conf);
                mod_conf:=^(mod_conf);

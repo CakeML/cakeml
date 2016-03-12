@@ -542,39 +542,36 @@ in
   (*lab_to_target*)
   ; add_thms
     [lab_to_targetTheory.ffi_offset_def
-    ,lab_to_targetTheory.sec_lengths_update_def
-    ,lab_to_targetTheory.compile_def
-    ,lab_to_targetTheory.compile_lab_def
-    ,lab_to_targetTheory.prog_to_bytes_def
-    ,lab_to_targetTheory.line_bytes_def
-    ,lab_to_targetTheory.remove_labels_def
-    ,lab_to_targetTheory.remove_labels_loop_def
-    ,lab_to_targetTheory.pad_code_def
-    ,lab_to_targetTheory.pad_section_def
-    ,lab_to_targetTheory.pad_bytes_def
+    ,lab_to_targetTheory.lab_inst_def
+    ,lab_to_targetTheory.enc_line_def
+    ,lab_to_targetTheory.enc_sec_def
+    ,lab_to_targetTheory.enc_sec_list_def
+    ,lab_to_targetTheory.asm_line_labs_def
+    ,lab_to_targetTheory.sec_labs_def
+    ,lab_to_targetTheory.compute_labels_def
+    ,lab_to_targetTheory.find_pos_def
+    ,lab_to_targetTheory.get_label_def
+    ,lab_to_targetTheory.get_jump_offset_def
+    ,lab_to_targetTheory.enc_lines_again_def
+    ,lab_to_targetTheory.sec_length_def
+    ,lab_to_targetTheory.full_sec_length_def
+    ,lab_to_targetTheory.enc_secs_again_def
+    ,lab_to_targetTheory.lines_upd_lab_len_def
+    ,lab_to_targetTheory.upd_lab_len_def
+    ,lab_to_targetTheory.sec_asm_ok_def
+    ,lab_to_targetTheory.all_asm_ok_def
     ,lab_to_targetTheory.pad_bytes_def
     ,lab_to_targetTheory.add_nop_def
     ,lab_to_targetTheory.append_nop_def
-    ,lab_to_targetTheory.all_asm_ok_def
-    ,lab_to_targetTheory.sec_asm_ok_def
-    ,lab_to_targetTheory.all_lengths_update_def
-    ,lab_to_targetTheory.sec_length_def
-    ,lab_to_targetTheory.all_lengths_ok_def
-    ,lab_to_targetTheory.sec_lengths_ok_def
-    ,lab_to_targetTheory.enc_secs_again_def
-    ,lab_to_targetTheory.full_sec_length_def
-    ,lab_to_targetTheory.find_pos_def
-    ,lab_to_targetTheory.enc_line_again_def
-    ,lab_to_targetTheory.get_jump_offset_def
-    ,lab_to_targetTheory.get_label_def
-    ,lab_to_targetTheory.lab_inst_def
-    ,lab_to_targetTheory.compute_labels_def
-    ,lab_to_targetTheory.sec_labs_def
-    ,lab_to_targetTheory.asm_line_labs_def
-    ,lab_to_targetTheory.enc_sec_list_def
-    ,lab_to_targetTheory.enc_sec_def
-    ,lab_to_targetTheory.enc_line_def
+    ,lab_to_targetTheory.pad_section_def
+    ,lab_to_targetTheory.pad_code_def
+    ,lab_to_targetTheory.remove_labels_loop_def
+    ,lab_to_targetTheory.remove_labels_def
+    ,lab_to_targetTheory.line_bytes_def
+    ,lab_to_targetTheory.prog_to_bytes_def
     ,lab_to_targetTheory.find_ffi_index_limit_def
+    ,lab_to_targetTheory.compile_lab_def
+    ,lab_to_targetTheory.compile_def
     ]
   (*Everything in backend theory*)
   ; add_thms
