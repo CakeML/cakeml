@@ -1203,32 +1203,29 @@ val full_gc_related = store_thm("full_gc_related",
       (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM f) /\
       gc_related f heap (state.h1 ++ heap_expand state.n ++ state.r1)``,
 
-strip_tac
-mp_tac full_gc_thm
-fs []
-rpt strip_tac
-qexists_tac `state`
-qexists_tac `heap_map 0 state.heap`
-fs []
-`FAPPLY (heap_map 0 state.heap) = heap_map1 state.heap` by all_tac
-THEN1 fs [heap_map1_def,FUN_EQ_THM]
-fs [gc_related_def,gc_inv_def,BIJ_DEF,LET_THM]
-rpt strip_tac
-THEN1 metis_tac []
-THEN1
-  fs [INJ_DEF]
-  rpt strip_tac
-  `(FLOOKUP (heap_map 0 state.heap) x = SOME (heap_map1 state.heap x))` by all_tac
-  THEN1 fs [FLOOKUP_DEF,heap_map1_def]
-  res_tac
-  THEN1                         (* state.h1 *)
-    fs []
-    imp_res_tac heap_lookup_LESS
-    imp_res_tac heap_lookup_EXTEND
-    fs [isSomeDataElement_def]
-
-  (* WORKING *)
-
+(* strip_tac *)
+(* mp_tac full_gc_thm *)
+(* fs [] *)
+(* rpt strip_tac *)
+(* qexists_tac `state` *)
+(* qexists_tac `heap_map 0 state.heap` *)
+(* fs [] *)
+(* `FAPPLY (heap_map 0 state.heap) = heap_map1 state.heap` by all_tac *)
+(* THEN1 fs [heap_map1_def,FUN_EQ_THM] *)
+(* fs [gc_related_def,gc_inv_def,BIJ_DEF,LET_THM] *)
+(* rpt strip_tac *)
+(* THEN1 metis_tac [] *)
+(* THEN1 *)
+(*   fs [INJ_DEF] *)
+(*   rpt strip_tac *)
+(*   `(FLOOKUP (heap_map 0 state.heap) x = SOME (heap_map1 state.heap x))` by all_tac *)
+(*   THEN1 fs [FLOOKUP_DEF,heap_map1_def] *)
+(*   res_tac *)
+(*   THEN1                         (* state.h1 *) *)
+(*     fs [] *)
+(*     imp_res_tac heap_lookup_LESS *)
+(*     imp_res_tac heap_lookup_EXTEND *)
+(*     fs [isSomeDataElement_def] *)
   cheat);
   (* strip_tac \\ mp_tac full_gc_thm \\ asm_simp_tac std_ss [] *)
   (* \\ rpt strip_tac \\ full_simp_tac std_ss [] *)
