@@ -1020,13 +1020,19 @@ val MEM_IMP_heap_lookup = store_thm("MEM_IMP_heap_lookup",
   \\ qexists_tac `j + el_length h` \\ full_simp_tac std_ss [] \\ SRW_TAC [] []
   \\ Cases_on `h` \\ full_simp_tac std_ss [el_length_def] \\ `F` by decide_tac);
 
-val heap_lookup_IMP_heap_addresses = prove(
+val heap_lookup_IMP_heap_addresses_GEN = prove(
   ``!xs n x j. (heap_lookup j xs = SOME x) ==> n + j IN heap_addresses n xs``,
   Induct \\ full_simp_tac std_ss [MEM,heap_lookup_def,heap_addresses_def]
   \\ SRW_TAC [] [] \\ res_tac
   \\ pop_assum (mp_tac o Q.SPEC `n + el_length h`)
   \\ `n + el_length h + (j - el_length h) = n + j` by decide_tac
-  \\ metis_tac []) |> Q.SPECL [`xs`,`0`] |> SIMP_RULE std_ss [] |> GEN_ALL;
+  \\ metis_tac []);
+
+val heap_lookup_IMP_heap_addresses =
+    heap_lookup_IMP_heap_addresses_GEN
+      |> Q.SPECL [`xs`,`0`]
+      |> SIMP_RULE std_ss []
+      |> GEN_ALL;
 
 val full_gc_LENGTH = store_thm("full_gc_LENGTH",
   ``roots_ok roots heap /\
@@ -1091,8 +1097,8 @@ val heap_lookup_IMP_heap_addresses2 = prove(
     (heap_lookup j ys = SOME x) ==>
     (heap_length xs + j) IN heap_addresses (heap_length xs) ys``,
   rpt strip_tac
-  \\ imp_res_tac heap_lookup_IMP_heap_addresses2
-  \\ pop_assum (mp_tac o Q.SPECL [`xs`]) \\ strip_tac);
+  \\ imp_res_tac heap_lookup_IMP_heap_addresses_GEN
+  \\ pop_assum (mp_tac o Q.SPEC `heap_length xs`) \\ strip_tac);
 
 val full_gc_ok = store_thm("full_gc_ok",
   ``roots_ok roots heap /\ heap_ok (heap:('a,'b) heap_element list) conf.limit ==>
