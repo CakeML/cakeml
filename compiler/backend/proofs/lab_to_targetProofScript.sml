@@ -2079,51 +2079,95 @@ val line_similar_refl = Q.store_thm("line_similar_refl[simp]",
   `∀l. line_similar l l`,
   Cases >> EVAL_TAC);
 
+val line_similar_trans = prove(
+  ``line_similar x y /\ line_similar y z ==> line_similar x z``,
+  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]);
+
+val EVERY2_TRANS = prove(
+  ``!xs ys zs. EVERY2 P xs ys /\ EVERY2 P ys zs /\
+               (!x y z. P x y /\ P y z ==> P x z) ==> EVERY2 P xs zs``,
+  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac \\ fs []);
+
+val code_similar_trans = store_thm("code_similar_trans",
+  ``!c1 c2 c3. code_similar c1 c2 /\ code_similar c2 c3 ==> code_similar c1 c3``,
+  HO_MATCH_MP_TAC code_similar_ind \\ fs [] \\ rw []
+  \\ Cases_on `c3` \\ fs [code_similar_def] \\ rw []
+  \\ Cases_on `h` \\ fs [code_similar_def] \\ rw []
+  \\ metis_tac [line_similar_trans,EVERY2_TRANS]);
+
 val code_similar_refl = Q.store_thm("code_similar_refl[simp]",
   `∀code. code_similar code code`,
   Induct >> simp[code_similar_def] >>
   Cases >> simp[code_similar_def] >>
   match_mp_tac EVERY2_refl >> simp[]);
 
+val line_similar_add_nop = prove(``
+  ∀ls ls' h.
+  LIST_REL line_similar ls ls' ⇒
+  LIST_REL line_similar ls (add_nop h ls')``,
+  Induct_on`ls`>>rw[add_nop_def]>>
+  Cases_on`y`>>Cases_on`h`>>fs[add_nop_def,line_similar_def])
+
 val line_similar_pad_section = Q.store_thm("line_similar_pad_section",
   `∀nop n l2 aux l1.
      LIST_REL line_similar l1 (REVERSE aux ++ l2) ⇒
      LIST_REL line_similar l1 (pad_section nop n l2 aux)`,
-  cheat
-(*
-      ho_match_mp_tac pad_section_ind >>
+   ho_match_mp_tac pad_section_ind >>
    srw_tac[][pad_section_def] >>
-   first_x_assum match_mp_tac >>
+   first_x_assum match_mp_tac>>
    imp_res_tac LIST_REL_LENGTH >> full_simp_tac(srw_ss())[] >>
    qmatch_assum_rename_tac`LIST_REL _ ls (_ ++ _)` >>
    qmatch_assum_abbrev_tac`LENGTH ls = m + _` >>
    qispl_then[`m`,`ls`]strip_assume_tac TAKE_DROP >>
    ONCE_REWRITE_TAC[GSYM APPEND_ASSOC] >>
-   pop_assum(SUBST1_TAC o SYM) >>
+   `m < LENGTH ls` by DECIDE_TAC>>
+   qpat_assum`LIST_REL A B C` mp_tac>>
+   first_x_assum (SUBST1_TAC o SYM) >>
+   strip_tac>>
    match_mp_tac EVERY2_APPEND_suff >>
-   qispl_then[`m`,`ls`]strip_assume_tac TAKE_DROP >>
-   pop_assum(fn th => last_x_assum(fn a =>
-     assume_tac(ONCE_REWRITE_RULE[SYM th]a))) >>
    drule LIST_REL_APPEND_IMP >>
-   (discharge_hyps >- simp[] ) >>
-   strip_tac >> full_simp_tac(srw_ss())[] >>
-   qmatch_rename_tac`line_similar line _` >>
-   Cases_on`line`>>full_simp_tac(srw_ss())[line_similar_def] *));
+   rw[]
+   >-
+     (`LIST_REL line_similar aux (add_nop (HD nop) aux)` by
+       (match_mp_tac line_similar_add_nop>>
+       match_mp_tac EVERY2_refl>>
+       fs[line_similar_refl])>>
+      ho_match_mp_tac LIST_REL_trans>>HINT_EXISTS_TAC>>
+      metis_tac[line_similar_trans,LIST_REL_REVERSE_EQ])
+   >>
+     TRY(Cases_on`x`)>>TRY(Cases_on`x'`)>>fs[line_similar_def]);
+
+val line_similar_append_nop = prove(``
+  LIST_REL line_similar ls ls' ⇒
+  LIST_REL line_similar ls (append_nop nop ls')``,
+  rw[append_nop_def]>>
+  `ls = REVERSE (REVERSE ls)` by fs[]>>
+  pop_assum SUBST1_TAC>>
+  fs[LIST_REL_REVERSE_EQ]>>
+  match_mp_tac line_similar_add_nop>>
+  fs[LIST_REL_REVERSE_EQ])
 
 val code_similar_pad_code = Q.store_thm("code_similar_pad_code",
   `∀code1 code2.
    code_similar code1 code2 ⇒
    code_similar code1 (pad_code nop code2)`,
-  cheat
-(*
   Induct
   >- ( Cases >> simp[code_similar_def,pad_code_def] )
   >> Cases_on`code2` >- simp[code_similar_def]
   >> Cases >> simp[code_similar_def]
   >> Cases_on`h` >> simp[code_similar_def,pad_code_def]
-  >> strip_tac >> rveq
-  >> match_mp_tac line_similar_pad_section
-  >> simp[] *));
+  >> strip_tac >> rveq >>
+  IF_CASES_TAC>>fs[]>>
+  TRY(match_mp_tac line_similar_append_nop)>>
+  match_mp_tac line_similar_pad_section>>
+  simp[]);
+
+val LIST_REL_enc_line = prove(``
+  ∀ls ls'.
+  LIST_REL line_similar ls ls' ⇔
+  LIST_REL line_similar (MAP (enc_line enc len) ls) ls'`` ,
+  Induct>>rw[]>>Cases_on`h`>>rw[enc_line_def,EQ_IMP_THM]>>Cases_on`y`>>
+  fs[line_similar_def])
 
 val code_similar_enc_sec_list = Q.store_thm("code_similar_enc_sec_list[simp]",
   `∀code1 code2 n.
@@ -2133,8 +2177,9 @@ val code_similar_enc_sec_list = Q.store_thm("code_similar_enc_sec_list[simp]",
    >> Induct >> simp[]
    >> Cases_on`code2`>>simp[code_similar_def]
    >> Cases_on`h`>>simp[code_similar_def]
-   >> Cases>>simp[code_similar_def,enc_sec_def]
-   >> cheat);
+   >> Cases>>simp[code_similar_def,enc_sec_def]>>
+   rw[EQ_IMP_THM]>>
+   metis_tac[LIST_REL_enc_line])
 
 val label_zero_def = Define`
   (label_zero (Label _ _ n) ⇔ n = 0) ∧
@@ -2154,13 +2199,21 @@ val pos_val_0_0 = Q.store_thm("pos_val_0_0",
   >> Cases_on`h`>>full_simp_tac(srw_ss())[]
   >> srw_tac[][line_length_def]);
 
+val add_nop_label_zero = prove(``
+  ∀ls.
+  EVERY label_zero ls ⇒
+  EVERY label_zero (add_nop nop ls)``,
+  Induct>>fs[add_nop_def]>>rw[]>>
+  Cases_on`h`>>fs[add_nop_def]);
+
 val EVERY_label_zero_pad_section = Q.store_thm("EVERY_label_zero_pad_section[simp]",
   `∀nop k xs aux.
      EVERY label_zero aux ⇒
      EVERY label_zero (pad_section nop k xs aux)`,
-  cheat (* ho_match_mp_tac pad_section_ind
+  ho_match_mp_tac pad_section_ind
   >> srw_tac[][pad_section_def]
-  >> srw_tac[][EVERY_REVERSE] *));
+  >> srw_tac[][EVERY_REVERSE]>>
+  first_assum match_mp_tac>>fs[add_nop_label_zero]);
 
 val EVERY_label_zero_add_nop = prove(
   ``!xs. EVERY label_zero (add_nop nop xs) = EVERY label_zero xs``,
@@ -2256,25 +2309,27 @@ val has_odd_inst_alignment = Q.store_thm("has_odd_inst_alignment",
   \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ metis_tac[line_ok_alignment,ODD_EVEN]);
 
+val enc_lines_again_IMP_similar = prove(``
+  ∀labs pos enc lines acc ok lines' ok' curr.
+  enc_lines_again labs pos enc lines (acc,ok) = (lines',ok') ⇒
+  LIST_REL line_similar curr (REVERSE acc) ⇒
+  LIST_REL line_similar (curr++lines) lines'``,
+  Induct_on`lines`>>fs[enc_lines_again_def]>>rw[]>>
+  fs[AND_IMP_INTRO]>>
+  `curr ++ h ::lines = SNOC h curr ++ lines` by fs[]>>
+  pop_assum SUBST1_TAC>>
+  first_assum match_mp_tac>>
+  Cases_on`h`>>fs[enc_lines_again_def]>>EVERY_CASE_TAC>>
+  asm_exists_tac>>fs[SNOC_APPEND,line_similar_def])
+
 val enc_secs_again_IMP_similar = prove(
-  ``enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1``,
-  cheat);
-
-val line_similar_trans = prove(
-  ``line_similar x y /\ line_similar y z ==> line_similar x z``,
-  Cases_on `x` \\ Cases_on `y` \\ Cases_on `z` \\ fs[line_similar_def]);
-
-val EVERY2_TRANS = prove(
-  ``!xs ys zs. EVERY2 P xs ys /\ EVERY2 P ys zs /\
-               (!x y z. P x y /\ P y z ==> P x z) ==> EVERY2 P xs zs``,
-  Induct \\ fs [PULL_EXISTS] \\ rw [] \\ res_tac \\ fs []);
-
-val code_similar_trans = store_thm("code_similar_trans",
-  ``!c1 c2 c3. code_similar c1 c2 /\ code_similar c2 c3 ==> code_similar c1 c3``,
-  HO_MATCH_MP_TAC code_similar_ind \\ fs [] \\ rw []
-  \\ Cases_on `c3` \\ fs [code_similar_def] \\ rw []
-  \\ Cases_on `h` \\ fs [code_similar_def] \\ rw []
-  \\ metis_tac [line_similar_trans,EVERY2_TRANS]);
+  ``∀pos labs enc code code1 ok.
+  enc_secs_again pos labs enc code = (code1,ok) ==> code_similar code code1``,
+  ho_match_mp_tac enc_secs_again_ind>>fs[enc_secs_again_def]>>rw[]>>
+  ntac 2 (split_pair_tac>>fs[])>>
+  rveq>>fs[code_similar_def]>>
+  imp_res_tac enc_lines_again_IMP_similar>>
+  fs[]);
 
 val lines_upd_lab_len_AUX = prove(
   ``!l aux pos.
@@ -2302,17 +2357,53 @@ val code_similar_upd_lab_len = prove(
   \\ Cases_on `h` \\ fs [upd_lab_len_def,code_similar_def]
   \\ rw [] \\ fs [line_similar_lines_upd_lab_len]);
 
-val enc_secs_again_T_IMP = prove(
-  ``enc_secs_again pos (compute_labels pos code LN) enc code = (sec_list,T) ==>
-    compute_labels pos code LN = compute_labels pos sec_list LN``,
-  cheat);
+val enc_lines_again_T_IMP = prove(``
+  enc_lines_again labs pos enc lines (acc,ok) = (lines',T) ∧
+  sec_labs pos lines = (labs,new_pos) ∧
+  sec_labs pos lines' = (labs',new_pos) ⇒
+  compute_labels (pos + full_
+  
+
+  `
+  ∀labs pos enc lines acc ok lines' ok' curr.
+  enc_lines_again labs pos enc lines (acc,ok) = (lines',ok') ⇒
+  LIST_REL line_similar curr (REVERSE acc) ⇒
+  LIST_REL line_similar (curr++lines) lines'`
+enc_lines_again_def
+
+val enc_secs_again_T_IMP = prove(``
+  ∀pos code enc code sec_list acc.
+  enc_secs_again pos (compute_labels pos code acc) enc code = (sec_list,T) ⇒
+  compute_labels pos code acc = compute_labels pos sec_list acc``,
+  Induct_on`code`>>fs[enc_secs_again_def]>>
+  Induct>>fs[]>>
+  strip_tac>>
+  Induct>>fs[compute_labels_def]>>rw[]>>
+  split_pair_tac>>fs[enc_secs_again_def]>>
+  ntac 2 (split_pair_tac>>fs[])>>
+  fs[full_sec_length_def,sec_length_def,compute_labels_def,enc_lines_again_def]>>
+  rveq>>
+  fs[compute_labels_def,full_sec_length_def,sec_length_def]
+
+
+  rveq>>fs[compute_labels_def]>>
+  split_pair_tac>>fs[]>>
+  
+  
+  full_sec_length_def
+  sec_length_def
+  sec_labs_def
+  asm_line_labs_def
+  
+  cheat)
 
 val pos_val_pad_code = prove(
   ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
   cheat (* probably needs to assume more *));
 
 val lab_lookup_compute_labels = prove(
-  ``loc_to_pc l1 l2 sec_list = SOME x2 ==>
+  ``∀l1 l2 sec_list x2 l.
+    loc_to_pc l1 l2 sec_list = SOME x2 ==>
     lab_lookup l1 l2 (compute_labels 0 sec_list l) =
     SOME (pos_val x2 0 sec_list)``,
   cheat);
@@ -2368,9 +2459,7 @@ val remove_labels_loop_thm = Q.prove(
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
      loc_to_pc l1 l2 (enc_sec_list e code) = loc_to_pc l1 l2 code`,
-  cheat
-(*
-simp[enc_sec_list_def]
+  simp[enc_sec_list_def]
   >> ho_match_mp_tac loc_to_pc_ind
   >> srw_tac[][]
   >> srw_tac[][Once loc_to_pc_def,enc_sec_def]
@@ -2390,7 +2479,7 @@ simp[enc_sec_list_def]
   >> IF_CASES_TAC
   >- ( Cases_on`h`>>full_simp_tac(srw_ss())[enc_line_def,LET_THM] )
   >> full_simp_tac(srw_ss())[] >> rev_full_simp_tac(srw_ss())[enc_sec_def]
-  >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[] *));
+  >> BasicProvers.TOP_CASE_TAC >> full_simp_tac(srw_ss())[]);
 
 val remove_labels_thm = Q.store_thm("remove_labels_thm",
   `good_syntax mc_conf code LN /\
