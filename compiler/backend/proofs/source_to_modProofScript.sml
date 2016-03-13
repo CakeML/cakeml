@@ -2034,7 +2034,7 @@ val compile_decs_dec = Q.prove(
    compile_decs next mn menv env [d] = (x,y,[z])`,
   rw[compile_decs_def]);
 
-val compile_top_decs = Q.prove(
+val compile_top_decs = Q.store_thm("compile_top_decs",
   `compile_top n menv env top =
    let (mno,ds) = case top of Tmod mn _ ds => (SOME mn,ds) | Tdec d => (NONE,[d]) in
    let (next,new_env,ds) = compile_decs n mno menv env ds in
@@ -2047,14 +2047,64 @@ val compile_top_decs = Q.prove(
   \\ fs[Q.ISPEC`I:α#β -> α#β`LAMBDA_PROD |> GSYM |> SIMP_RULE (srw_ss())[]]
   \\ imp_res_tac compile_decs_dec \\ fs[]);
 
-(* STOP
+val evaluate_tops_decs = Q.store_thm("evaluate_tops_decs",
+  `evaluate_tops st env (top::prog) =
+   let (mno,ds) = case top of Tmod mn _ ds => (SOME mn,ds) | Tdec d => (NONE,[d]) in
+   let (st',new_ctors,r) = funBigStep$evaluate_decs mno st env ds in
+   let (st',new_ctors,r) =
+     case mno of SOME mn =>
+       if mn ∉ st.defined_mods ∧ no_dup_types ds
+       then (st' with defined_mods := {mn} ∪ st'.defined_mods, ([(mn,new_ctors)],[]),r)
+       else (st,([],[]),Rerr (Rabort Rtype_error))
+     | _ => (st',([],new_ctors),r) in
+   case r of
+   | Rerr err => (st',new_ctors,Rerr err)
+   | Rval new_vals =>
+       let (new_mods,new_vals) = case mno of SOME mn => ([(mn,new_vals)],[]) | _ => ([],new_vals) in
+       let (st'',new_ctors',r) = evaluate_tops st' (extend_top_env new_mods new_vals new_ctors env) prog in
+         (st'',merge_alist_mod_env new_ctors' new_ctors,combine_mod_result new_mods new_vals r)`,
+  Cases_on`prog` \\ simp[funBigStepTheory.evaluate_tops_def]
+  \\ rpt (split_pair_tac \\ fs[])
+  >- (
+    every_case_tac \\ fs[]
+    \\ rw[funBigStepTheory.evaluate_tops_def,combine_mod_result_def]
+    \\ Cases_on`d` \\ fs[funBigStepTheory.evaluate_decs_def]
+    \\ every_case_tac \\ fs[] )
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ Cases_on`top`\\fs[]\\rw[]\\fs[]\\rw[]
+  \\ fs[funBigStepTheory.evaluate_tops_def]
+  \\ every_case_tac \\ fs[] \\ rw[]
+  \\ Cases_on`d` \\ fs[funBigStepTheory.evaluate_decs_def]
+  \\ every_case_tac \\ fs[] );
+
+val evaluate_decs_to_dummy_env = Q.store_thm("evaluate_decs_to_dummy_env",
+  `∀ds env s s' cenv env' r.
+    modSem$evaluate_decs env s ds = (s',cenv,env',r) ∧
+    r ≠ SOME (Rabort Rtype_error) ⇒
+   if r = NONE then LENGTH env' = decs_to_dummy_env ds else LENGTH env' ≤ decs_to_dummy_env ds`,
+  Induct \\ simp[evaluate_decs_def,decs_to_dummy_env_def]
+  \\ rpt gen_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ TRY BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ res_tac
+  \\ rw[] \\ fs[]
+  \\ last_x_assum kall_tac
+  \\ Cases_on`h` \\ fs[evaluate_dec_def,dec_to_dummy_env_def]
+  \\ rw[] \\ fs[]
+  \\ every_case_tac \\ fs[] \\ rw[]);
 
 val compile_prog_correct = Q.store_thm ("compile_prog_correct",
   `!mods tops ck env s prog s' r s_i1 next' tops' mods'  cenv' prog_i1.
-    r ≠ Rerr (Rabort Rtype_error) ∧
     evaluate_tops s env prog = (s',cenv',r) ∧
+    compile_prog (LENGTH s_i1.globals) mods tops prog = (next',mods',tops',prog_i1) ∧
     invariant mods tops env.m env.v s s_i1 s.defined_mods ∧
-    compile_prog (LENGTH s_i1.globals) mods tops prog = (next',mods',tops',prog_i1)
+    r ≠ Rerr (Rabort Rtype_error)
     ⇒
     ∃s'_i1 new_genv r_i1.
      evaluate_prompts <|c := env.c; v := []|> s_i1 prog_i1 =
@@ -2116,83 +2166,88 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ every_case_tac \\ fs[] )
   \\ split_pair_tac \\ fs[]
   \\ strip_tac
-
-....
-    \\ every_case_tac \\ fs[] \\ rw[] \\ fs[evaluate_prompt_def]
-    \\ every_case_tac \\ fs[] \\ TRY split_pair_tac \\ fs[]
-    \\ rw[mod_cenv_def]
-    \\ imp_res_tac compile_decs_num_bindings \\ fs[] \\ rw[]
-    \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
-    \\ simp[AND_IMP_INTRO]
-    \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(
-         equal"compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
-    \\ disch_then drule
-    \\ disch_then(qspec_then`<|c := env.c; v := []|>`mp_tac)
+  \\ fs[evaluate_tops_decs]
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
+  \\ simp[AND_IMP_INTRO]
+  \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(
+       equal"compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
+  \\ disch_then drule
+  \\ disch_then(qspec_then`<|c := env.c; v := []|>`mp_tac)
+  \\ discharge_hyps
+  >- (
+    fs[invariant_def]
+    \\ simp[env_all_rel_cases,env_rel_list_rel]
+    \\ srw_tac[QI_ss][]
+    \\ simp[semanticPrimitivesTheory.environment_component_equality]
+    \\ spose_not_then strip_assume_tac \\ rw[]
+    \\ Cases_on`mno`\\fs[]\\rw[]\\fs[]
+    \\ pop_assum mp_tac \\ rw[]
+    \\ spose_not_then strip_assume_tac \\ fs[]
+    \\ rw[] \\ fs[])
+  \\ strip_tac \\ fs[]
+  \\ rveq
+  \\ qpat_assum`_ = (_,_,r)`mp_tac
+  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
+  >- (
+    strip_tac \\ rveq \\ fs[]
+    \\ last_x_assum kall_tac
+    \\ every_case_tac \\ fs[] \\ rw[mod_cenv_def]
+    \\ fs[result_rel_cases]
+    \\ metis_tac[v_rel_weakening] )
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ strip_tac \\ rveq \\ fs[]
+  \\ first_x_assum drule
+  \\ qmatch_goalsub_abbrev_tac`evaluate_prompts _ s2 _`
+  \\ `next = LENGTH s2.globals`
+  by (
+    simp[Abbr`s2`]
+    \\ imp_res_tac compile_decs_num_bindings
+    \\ simp[]
+    \\ imp_res_tac evaluate_decs_to_dummy_env
+    \\ rw[] \\ fs[]
+    \\ qpat_assum`_ ⇒ _`mp_tac
     \\ discharge_hyps
     >- (
-      fs[invariant_def]
-      \\ simp[env_all_rel_cases,env_rel_list_rel]
-      \\ srw_tac[QI_ss][]
-      \\ simp[semanticPrimitivesTheory.environment_component_equality] )
-    \\ strip_tac \\ fs[] \\ rw[]
-
+      strip_tac \\ fs[]
+      \\ fs[result_rel_cases]
+      \\ Cases_on`r''`\\fs[] \\ rw[]
+      \\ every_case_tac \\ fs[] )
+    \\ simp[] )
+  \\ rveq
+  \\ disch_then drule
+  \\ discharge_hyps
   >- (
-    first_assum(split_pair_case_tac o lhs o concl) \\ fs[]
-    \\ Cases_on`h` \\ fs[funBigStepTheory.evaluate_tops_def,compile_top_def]
-    \\ split_pair_tac \\ fs[] \\ rw[]
+    reverse conj_tac
     >- (
-      first_x_assum(fn th => mp_tac th \\ reverse IF_CASES_TAC)
-      >- ( simp[] \\ strip_tac \\ rveq \\ fs[] )
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ BasicProvers.TOP_CASE_TAC \\ fs[]
-      \\ strip_tac \\ rveq
-      \\ drule(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_decs_correct))
-      \\ rator_x_assum`invariant`mp_tac
-      \\ simp[Once invariant_def] \\ strip_tac
-      \\ disch_then drule \\ simp[]
-      \\ simp[evaluate_prompts_def]
-
-      \\ BasicProvers.TOP_CASE_TAC \\ rw[] \\ fs[] \\ rw[]
-      \\ every_case_tac \\ fs[] \\ rw[]
-      \\ simp[AND_IMP_INTRO]
-      \\ CONV_TAC(LAND_CONV(STRIP_QUANT_CONV(LAND_CONV(lift_conjunct_conv(
-           equal"compile_decs" o #1 o dest_const o #1 o strip_comb o lhs)))))
-      \\ disch_then drule
-      \\ disch_then(qspec_then`[]`mp_tac)
-      invariant_def
-      global_env_inv
-
-      compile_top_def
-
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-  first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-  full_simp_tac(srw_ss())[] >>
-  srw_tac[][] >>
-  rator_x_assum `bigStep$evaluate_prog` (mp_tac o SIMP_RULE (srw_ss()) [Once bigStepTheory.evaluate_prog_cases]) >>
-  srw_tac[][] >>
-  srw_tac[][Once modSemTheory.evaluate_prog_cases] >>
-  srw_tac[][]
+      strip_tac \\ fs[]
+      \\ every_case_tac \\ fs[]
+      \\ rw[] \\ fs[combine_mod_result_def] )
+    \\ rator_x_assum`invariant`mp_tac
+    \\ simp[extend_top_env_def,invariant_def]
+    \\ fs[Abbr`s2`]
+    \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
+    \\ cheat )
+  \\ strip_tac
+  \\ fs[extend_top_env_def]
+  \\ `new_ctors' = mod_cenv mno cenv`
+  by (
+    Cases_on`mno`\\fs[mod_cenv_def]
+    \\ every_case_tac \\ fs[] )
+  \\ rveq \\ fs[]
+  \\ reverse(Cases_on`r''`)\\fs[]
+  >- ( every_case_tac \\ fs[] )
+  \\ rveq \\ fs[]
+  \\ fs[combine_mod_result_def]
+  \\ reverse BasicProvers.TOP_CASE_TAC \\ fs[]
   >- (
-    first_x_assum(
-      mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]compile_top_correct))) >>
-    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> simp[] >> strip_tac >>
-    first_x_assum(fn th => first_x_assum(
-      mp_tac o MATCH_MP(REWRITE_RULE[GSYM AND_IMP_INTRO](ONCE_REWRITE_RULE[CONJ_COMM]th)))) >>
-    simp[extend_top_env_def] >>
-    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >> full_simp_tac(srw_ss())[] >>
-    discharge_hyps >- (Cases_on `r'` >> full_simp_tac(srw_ss())[combine_mod_result_def]) >>
-    srw_tac[boolSimps.DNF_ss][] >> disj1_tac >>
-    CONV_TAC(STRIP_QUANT_CONV(lift_conjunct_conv(same_const``modSem$evaluate_prog`` o fst o strip_comb))) >>
-    first_assum(match_exists_tac o concl) >> simp[] >>
-    cases_on `r'` >> full_simp_tac(srw_ss())[combine_mod_result_def] >>
-    Cases_on`a`>>full_simp_tac(srw_ss())[] >> simp[] )
-  >- (imp_res_tac compile_top_correct >>
-      pop_assum mp_tac >>
-      srw_tac[][] >>
-      full_simp_tac(srw_ss())[result_rel_cases] >>
-      srw_tac[][] >>
-      metis_tac [v_rel_weakening, APPEND_ASSOC, LENGTH_APPEND]));
+    fs[result_rel_cases]
+    \\ rveq \\ fs[Abbr`s2`] )
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]);
 
+(*
 val compile_top_correct = Q.store_thm ("compile_top_correct",
   `!mods tops t ck env s s' r genv s_i1 next' tops' mods' prompt_i1 cenv'.
     r ≠ Rerr (Rabort Rtype_error) ∧
