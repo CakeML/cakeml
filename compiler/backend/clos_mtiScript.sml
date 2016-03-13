@@ -108,14 +108,16 @@ val intro_multi_def = tDefine "intro_multi"`
       [Fn NONE NONE num_args' (HD (intro_multi [e']))]) ∧
   (intro_multi [Fn loc fvs num_args e] =
       [Fn loc fvs num_args (HD (intro_multi [e]))]) ∧
-  (intro_multi [Letrec NONE fvs funs e] =
-    [Letrec NONE fvs (MAP (\(num_args, e).
+  (intro_multi [Letrec NONE NONE funs e] =
+    [Letrec NONE NONE (MAP (\(num_args, e).
                             let (num_args', e') = collect_args num_args e in
                               (num_args', HD (intro_multi [e'])))
                           funs)
             (HD (intro_multi [e]))]) ∧
   (intro_multi [Letrec (SOME loc) fvs funs e] =
      [Letrec (SOME loc) fvs funs (HD (intro_multi [e]))]) ∧
+  (intro_multi [Letrec NONE (SOME fvs) funs e] =
+     [Letrec NONE (SOME fvs) funs (HD (intro_multi [e]))]) ∧
   (intro_multi [Op op es] =
     [Op op (intro_multi es)])`
   (WF_REL_TAC `measure exp3_size` >>
@@ -149,6 +151,7 @@ val intro_multi_sing = Q.store_thm ("intro_multi_sing",
   TRY (qcase_tac `App loc e es` >> Cases_on `loc`) >>
   TRY (qcase_tac `Fn loc vars num_args e` >> Cases_on `loc` >> Cases_on `vars`) >>
   TRY (qcase_tac `Letrec locopt _ _ _` >> Cases_on `locopt`) >>
+  TRY (qcase_tac `Letrec _ fvopt _ _` >> Cases_on `fvopt`) >>
   srw_tac[][intro_multi_def] >>
   TRY (Cases_on `collect_args num_args e`) >>
   TRY (Cases_on `collect_apps es e`) >>
@@ -172,7 +175,8 @@ val collect_args_idem = Q.store_thm (
      Cases_on `loc` >>
      srw_tac[][collect_args_def, intro_multi_def] >>
      srw_tac[][collect_args_def, intro_multi_def])
- >- (qcase_tac `Letrec locopt` >> Cases_on `locopt` >>
+ >- (qcase_tac `Letrec locopt fvsopt` >>
+     Cases_on `locopt` >> Cases_on `fvsopt` >>
      rw[intro_multi_def, collect_args_def]));
 
 val collect_apps_idem = Q.store_thm (
@@ -197,7 +201,8 @@ val collect_apps_idem = Q.store_thm (
    srw_tac[][collect_apps_def, intro_multi_def] >>
    srw_tac[][collect_apps_def, intro_multi_def]
  ,
-   qcase_tac `Letrec locopt` >> Cases_on `locopt` >>
+   qcase_tac `Letrec locopt fvsopt` >>
+   Cases_on `locopt` >> Cases_on `fvsopt` >>
    simp[collect_apps_def, intro_multi_def]
  ]);
 
@@ -230,7 +235,8 @@ val intro_multi_idem = Q.store_thm("intro_multi_idem",
       res_tac >>
       rev_full_simp_tac(srw_ss())[] >>
       metis_tac [intro_multi_sing, HD, collect_args_idem, PAIR_EQ, FST, SND])
-  >- metis_tac [intro_multi_sing, HD, collect_args_idem]
+  >- metis_tac [intro_multi_sing, HD]
+  >- metis_tac [intro_multi_sing, HD]
   >- metis_tac [intro_multi_sing, HD]);
 
 val _ = export_theory()
