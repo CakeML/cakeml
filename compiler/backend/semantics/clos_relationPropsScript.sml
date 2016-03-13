@@ -778,4 +778,78 @@ val exp_rel_semantics = Q.store_thm("exp_rel_semantics",
   srw_tac[][state_rel_refl]);
 *)
 
+
+
+val pair_case_eq = Q.prove (
+`pair_CASE x f = v ⇔ ?x1 x2. x = (x1,x2) ∧ f x1 x2 = v`,
+ Cases_on `x` >>
+ srw_tac[][]);
+
+val res_rel_val2 = Q.store_thm(
+  "res_rel_val2",
+  `res_rel v (Rval l2, (s2:'ffi closSem$state)) ⇔
+     (∃s1. v = (Rerr (Rabort Rtype_error), s1)) ∨
+     (∃l1 s1. v = (Rval l1, s1) ∧ LIST_REL (val_rel (:'ffi) s1.clock) l1 l2 ∧
+              s1.clock = s2.clock ∧ state_rel s1.clock s1 s2)`,
+  Cases_on `v` >> qcase_tac `res_rel (res,s1)` >> Cases_on `res` >>
+  simp[res_rel_rw] >- metis_tac[] >>
+  qcase_tac `Rerr err` >> Cases_on `err` >> simp[res_rel_rw] >>
+  qcase_tac `Rabort abt` >> Cases_on `abt` >> simp[res_rel_rw]);
+
+val exp_rel_thm = save_thm(
+  "exp_rel_thm",
+  exp_rel_def
+      |> SIMP_RULE (srw_ss() ++ DNF_ss) [exec_rel_rw, evaluate_ev_def,
+                                         AND_IMP_INTRO])
+
+val exp_rel_NIL_CONS = Q.store_thm(
+  "exp_rel_NIL_CONS[simp]",
+  `exp_rel (:'ffi) [] (e::es) ⇔ F`,
+  simp[exp_rel_thm, evaluate_def] >>
+  simp[Once evaluate_CONS, res_rel_rw, pair_case_eq, eqs] >>
+  metis_tac[val_rel_refl, state_rel_refl, DECIDE ``n:num ≤ n``]);
+
+val res_rel_Rerr_Rval = Q.store_thm(
+  "res_rel_Rerr_Rval[simp]",
+  `res_rel (Rerr e, s1) (Rval rv, s2) ⇔ e = Rabort Rtype_error`,
+  Cases_on `e` >> simp[res_rel_rw] >>
+  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw]);
+
+val res_rel_Rval_Rerr = Q.store_thm(
+  "res_rel_Rval_Rerr[simp]",
+  `res_rel (Rval rv, s1) (Rerr e, s2) = F`,
+  Cases_on `e` >> simp[res_rel_rw]);
+
+val res_rel_cases = Q.store_thm(
+  "res_rel_cases",
+  `res_rel v1 v2 ⇔
+     (∃s1. v1 = (Rerr (Rabort Rtype_error), s1)) ∨
+     (∃rv1 rv2 (s1:'ffi closSem$state) s2.
+       v1 = (Rval rv1, s1) ∧ v2 = (Rval rv2, s2) ∧
+       state_rel s2.clock s1 s2 ∧ LIST_REL (val_rel (:'ffi) s2.clock) rv1 rv2 ∧
+       s1.clock = s2.clock) ∨
+     (∃exn1 exn2 (s1:'ffi closSem$state) s2.
+       v1 = (Rerr (Rraise exn1), s1) ∧ v2 = (Rerr (Rraise exn2), s2) ∧
+       val_rel (:'ffi) s2.clock exn1 exn2 ∧ state_rel s2.clock s1 s2 ∧
+       s1.clock = s2.clock) ∨
+     (∃s1 s2. v1 = (Rerr (Rabort Rtimeout_error), s1) ∧
+              v2 = (Rerr (Rabort Rtimeout_error), s2) ∧
+              state_rel s1.clock s1 s2)`,
+  Cases_on `v1` >> qcase_tac `res_rel (res1, s1)` >>
+  Cases_on `v2` >> qcase_tac `res_rel _ (res2, s2)` >>
+  Cases_on `res1` >> simp[] >> Cases_on `res2` >> simp[res_rel_rw]
+  >- metis_tac[] >>
+  qcase_tac `Rerr e1` >> Cases_on `e1` >> simp[res_rel_rw] >- metis_tac[] >>
+  qcase_tac `Rabort a` >> Cases_on `a` >> simp[res_rel_rw])
+
+val res_rel_typeerror = Q.store_thm(
+  "res_rel_typeerror[simp]",
+  `res_rel (Rerr (Rabort Rtype_error), s) v = T`,
+  simp[res_rel_rw]);
+
+val val_rel_bool = Q.store_thm(
+  "val_rel_bool[simp]",
+  `val_rel (:'ffi) c (Boolv b) v ⇔ v = Boolv b`,
+  Cases_on `v` >> simp[val_rel_rw, Boolv_def] >> metis_tac[]);
+
 val _ = export_theory();
