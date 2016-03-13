@@ -608,33 +608,40 @@ val is_closure_def = Define `
 (is_closure (Closure _ _ _ _ _) ⇔ T) ∧
 (is_closure (Recclosure _ _ _ _ _) ⇔ T) ∧
 (is_closure _ ⇔ F)`;
+val _ = export_rewrites ["is_closure_def"]
 
 val clo_to_loc_def = Define `
 (clo_to_loc (Closure l _ _ _ _) = l) ∧
 (clo_to_loc (Recclosure l _ _ _ i) = OPTION_MAP ((+) i) l)`;
+val _ = export_rewrites ["clo_to_loc_def"]
 
 val clo_to_env_def = Define `
 (clo_to_env (Closure _ _ env _ _) = env) ∧
 (clo_to_env (Recclosure loc _ env fns _) =
   GENLIST (Recclosure loc [] env fns) (LENGTH fns) ++ env)`;
+val _ = export_rewrites ["clo_to_env_def"]
 
 val clo_to_partial_args_def = Define `
 (clo_to_partial_args (Closure _ args _ _ _) = args) ∧
 (clo_to_partial_args (Recclosure _ args _ _ _) = args)`;
+val _ = export_rewrites ["clo_to_partial_args_def"]
 
 val clo_add_partial_args_def = Define `
 (clo_add_partial_args args (Closure x1 args' x2 x3 x4) =
   Closure x1 (args ++ args') x2 x3 x4) ∧
 (clo_add_partial_args args (Recclosure x1 args' x2 x3 x4) =
   Recclosure x1 (args ++ args') x2 x3 x4)`;
+val _ = export_rewrites ["clo_add_partial_args_def"]
 
 val clo_to_num_params_def = Define `
 (clo_to_num_params (Closure _ _ _ n _) = n) ∧
 (clo_to_num_params (Recclosure _ _ _ fns i) = FST (EL i fns))`;
+val _ = export_rewrites ["clo_to_num_params_def"]
 
 val rec_clo_ok_def = Define `
 (rec_clo_ok (Recclosure _ _ _ fns i) ⇔ i < LENGTH fns) ∧
 (rec_clo_ok (Closure _ _ _ _ _) ⇔ T)`;
+val _ = export_rewrites ["rec_clo_ok_def"]
 
 val dest_closure_full_length = Q.store_thm ("dest_closure_full_length",
 `!l v vs e args rest.
