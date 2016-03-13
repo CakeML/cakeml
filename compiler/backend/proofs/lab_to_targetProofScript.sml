@@ -2357,56 +2357,85 @@ val code_similar_upd_lab_len = prove(
   \\ Cases_on `h` \\ fs [upd_lab_len_def,code_similar_def]
   \\ rw [] \\ fs [line_similar_lines_upd_lab_len]);
 
-val enc_lines_again_T_IMP = prove(``
-  enc_lines_again labs pos enc lines (acc,ok) = (lines',T) ∧
-  sec_labs pos lines = (labs,new_pos) ∧
-  sec_labs pos lines' = (labs',new_pos) ⇒
-  compute_labels (pos + full_
-  
+(*Remove tail recursion*)
+val enc_lines_again_simp_def = Define`
+  (enc_lines_again_simp labs pos enc [] = ([],T)) ∧
+  (enc_lines_again_simp labs pos enc (LabAsm a w bytes l::xs) =
+    let w1 = get_jump_offset a labs pos
+    in
+      if w = w1 then
+        let (rest,ok) = enc_lines_again_simp labs (pos + l) enc xs in
+          (LabAsm a w bytes l::rest,ok)
+      else
+        let bs = enc (lab_inst w1 a) in
+        let l1 = MAX (LENGTH bs) l in
+        let (rest,ok) = enc_lines_again_simp labs (pos + l1) enc xs in
+          (LabAsm a w1 bs l1::rest,l1 = l ∧ ok)) ∧
+  (enc_lines_again_simp labs pos enc (Label k1 k2 l::xs) =
+    let (rest,ok) = enc_lines_again_simp labs (pos + l) enc xs in
+    (Label k1 k2 l::rest,ok)) ∧
+  (enc_lines_again_simp labs pos enc (Asm x1 x2 l::xs) =
+    let (rest,ok) = enc_lines_again_simp labs (pos + l) enc xs in
+    (Asm x1 x2 l::rest,ok))`
 
-  `
-  ∀labs pos enc lines acc ok lines' ok' curr.
-  enc_lines_again labs pos enc lines (acc,ok) = (lines',ok') ⇒
-  LIST_REL line_similar curr (REVERSE acc) ⇒
-  LIST_REL line_similar (curr++lines) lines'`
-enc_lines_again_def
+val enc_lines_again_simp_EQ = prove(``
+  ∀labs pos enc ls acc b.
+  let (ls',flag) = enc_lines_again_simp labs pos enc ls in
+  enc_lines_again labs pos enc ls (acc,b) = (REVERSE acc ++ ls',b ∧ flag)``,
+  ho_match_mp_tac (fetch "-" "enc_lines_again_simp_ind")>>
+  fs[enc_lines_again_simp_def,enc_lines_again_def]>>rw[]>>
+  split_pair_tac>>fs[]>>
+  rw[EQ_IMP_THM]>>fs[])
+
+val enc_lines_again_simp_lemma = prove(``
+  ∀labs pos enc lines lines' acc n.
+  enc_lines_again_simp labs pos enc lines = (lines',T) ⇒
+  asm_line_labs pos lines acc = asm_line_labs pos lines' acc ∧
+  sec_length lines n = sec_length lines' n``,
+  ho_match_mp_tac (fetch "-" "enc_lines_again_simp_ind")>>
+  fs[enc_lines_again_simp_def]>>rw[]>>
+  split_pair_tac>>fs[]>>
+  rveq>>fs[asm_line_labs_def,full_sec_length_def]>>
+  fs[sec_length_def])
+
+val enc_lines_again_T_IMP = prove(``
+  enc_lines_again labs pos enc lines ([],T) = (lines',T) ⇒
+  sec_labs pos lines = sec_labs pos lines' ∧
+  full_sec_length lines = full_sec_length lines'``,
+  strip_tac>>
+  Q.ISPECL_THEN[`labs`,`pos`,`enc`,`lines`,`[]:'a line list`,`T`] assume_tac enc_lines_again_simp_EQ>>
+  fs[]>>split_pair_tac>>fs[]>>
+  `flag = T` by fs[]>>
+  pop_assum SUBST_ALL_TAC>>
+  imp_res_tac enc_lines_again_simp_lemma>>
+  fs[sec_labs_def,full_sec_length_def])
 
 val enc_secs_again_T_IMP = prove(``
-  ∀pos code enc code sec_list acc.
-  enc_secs_again pos (compute_labels pos code acc) enc code = (sec_list,T) ⇒
+  ∀pos code enc labs sec_list acc.
+  enc_secs_again pos labs enc code = (sec_list,T) ⇒
   compute_labels pos code acc = compute_labels pos sec_list acc``,
-  Induct_on`code`>>fs[enc_secs_again_def]>>
-  Induct>>fs[]>>
-  strip_tac>>
-  Induct>>fs[compute_labels_def]>>rw[]>>
+  Induct_on`code`>>fs[enc_secs_again_def]>>rw[]>>
+  Cases_on`h`>>fs[compute_labels_def]>>
   split_pair_tac>>fs[enc_secs_again_def]>>
   ntac 2 (split_pair_tac>>fs[])>>
-  fs[full_sec_length_def,sec_length_def,compute_labels_def,enc_lines_again_def]>>
-  rveq>>
-  fs[compute_labels_def,full_sec_length_def,sec_length_def]
-
-
   rveq>>fs[compute_labels_def]>>
   split_pair_tac>>fs[]>>
-  
-  
-  full_sec_length_def
-  sec_length_def
-  sec_labs_def
-  asm_line_labs_def
-  
-  cheat)
+  imp_res_tac enc_lines_again_T_IMP>>
+  fs[]>>
+  res_tac>>
+  fs[])
 
 val pos_val_pad_code = prove(
   ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
   cheat (* probably needs to assume more *));
 
+(*don't think this is right, probably needs all_enc_ok..*)
 val lab_lookup_compute_labels = prove(
-  ``∀l1 l2 sec_list x2 l.
+  ``∀l1 l2 sec_list x2p l pos.
     loc_to_pc l1 l2 sec_list = SOME x2 ==>
-    lab_lookup l1 l2 (compute_labels 0 sec_list l) =
-    SOME (pos_val x2 0 sec_list)``,
-  cheat);
+    lab_lookup l1 l2 (compute_labels pos sec_list l) =
+    SOME (pos_val x2 pos sec_list)``,
+    cheat)
 
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code code2 labs.
