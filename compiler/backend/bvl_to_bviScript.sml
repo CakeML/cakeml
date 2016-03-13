@@ -57,9 +57,15 @@ val CopyGlobals_code_def = Define`
       (If (Op Equal [Op(Const 0)[]; Var 3]) (Var 0)
         (Call 0 (SOME CopyGlobals_location) [Var 1; Var 2; Op Sub [Op(Const 1)[];Var 3]] NONE)))`;
 
+(* TODO: move this constant into the config *)
+val init_number_of_globals_def = Define `
+  init_number_of_globals = (30:num)`;
+
 val InitGlobals_code_def = Define`
   InitGlobals_code start = (0:num,
-    Let [Op SetGlobalsPtr [Op RefArray [Op (Const 1) []; Op (Const 1) []]]]
+    Let [Op SetGlobalsPtr
+          [Op Ref ((REPLICATE init_number_of_globals (Op (Const 0) [])) ++
+                   [Op (Const 1) []])]]
      (Call 0 (SOME start) [] (SOME (Var 0))))`;
 
 val bvi_stubs_def = Define `

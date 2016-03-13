@@ -9,6 +9,18 @@ in end;
 
 val _ = new_theory"bvl_to_bviProof";
 
+(* TODO: move *)
+
+val SNOC_REPLICATE = store_thm("SNOC_REPLICATE",
+  ``!n x. SNOC x (REPLICATE n x) = REPLICATE (SUC n) x``,
+  Induct \\ fs [REPLICATE]);
+
+val REVERSE_REPLICATE = store_thm("REVERSE_REPLICATE",
+  ``!n x. REVERSE (REPLICATE n x) = REPLICATE n x``,
+  Induct \\ fs [REPLICATE] \\ fs [GSYM REPLICATE,GSYM SNOC_REPLICATE]);
+
+(* --- *)
+
 (* value relation *)
 
 val adjust_bv_def = tDefine "adjust_bv" `
@@ -1739,10 +1751,19 @@ val compile_single_evaluate = Q.store_thm("compile_single_evaluate",
   Cases_on`res`>>simp[] >- METIS_TAC[] >>
   Cases_on`e`>>simp[] >> METIS_TAC[]);
 
+val evaluate_REPLICATE_0 = prove(
+  ``!n. evaluate (REPLICATE n (Op (Const 0) []),env,s) =
+          (Rval (REPLICATE n (Number 0)),s)``,
+  Induct \\ fs [evaluate_def,REPLICATE]
+  \\ once_rewrite_tac [evaluate_CONS]
+  \\ fs [evaluate_def,REPLICATE,do_app_def,do_app_aux_def]
+  \\ fs [EVAL ``small_enough_int 0``]);
+
 val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   `∀start ffi0 code k. 0 < k ∧ num_stubs ≤ start ⇒
   let t0 = <| global := SOME 0; ffi := ffi0; clock := k; code := fromAList (bvi_stubs start ++ code);
-              refs := FEMPTY |+ (0,ValueArray [Number 1]) |> in
+              refs := FEMPTY |+ (0,ValueArray ([Number 1] ++
+                             REPLICATE init_number_of_globals (Number 0))) |> in
    evaluate ([Call 0 (SOME InitGlobals_location) [] NONE],[],initial_state ffi0 (fromAList (bvi_stubs start ++ code)) (k+1)) =
    let (r,s) = evaluate ([Call 0 (SOME start) [] NONE],[],t0) in
      ((case r of Rerr(Rraise v) => Rval [v] | _ => r), s)`,
@@ -1751,6 +1772,8 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   TRY (pop_assum(assume_tac o CONV_RULE EVAL)>>full_simp_tac(srw_ss())[]>>NO_TAC) >>
   simp[InitGlobals_code_def] >>
   simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def] >>
+  once_rewrite_tac [evaluate_SNOC |> REWRITE_RULE [SNOC_APPEND]] >>
+  simp[bviSemTheory.evaluate_def,bviSemTheory.do_app_def,bviSemTheory.do_app_aux_def,small_enough_int_def,evaluate_REPLICATE_0] >>
   simp[bvlSemTheory.do_app_def,find_code_def,lookup_fromAList,ALOOKUP_APPEND] >>
   reverse BasicProvers.CASE_TAC >- (
     `F` suffices_by srw_tac[][] >>
@@ -1769,7 +1792,7 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
     full_simp_tac(srw_ss())[Abbr`t0`,lookup_fromAList,ALOOKUP_APPEND] >>
     rpt var_eq_tac >>
     simp[bviSemTheory.state_component_equality] >>
-    unabbrev_all_tac >> EVAL_TAC >> simp[] ) >>
+    unabbrev_all_tac >> EVAL_TAC >> simp[]) >>
   simp[] >>
   var_eq_tac >>
   simp[Once bviSemTheory.dec_clock_def] >>
@@ -1781,6 +1804,7 @@ val bvi_stubs_evaluate = Q.store_thm("bvi_stubs_evaluate",
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[] >>
   BasicProvers.CASE_TAC >> full_simp_tac(srw_ss())[] >>
+  rfs [] \\ fs [REVERSE_APPEND] \\ rfs [REVERSE_REPLICATE] \\ fs [] >>
   rpt var_eq_tac >> full_simp_tac(srw_ss())[]);
 
 val sorted_lt_append =
@@ -1971,7 +1995,7 @@ val compile_prog_evaluate = Q.store_thm("compile_prog_evaluate",
   simp[Once state_rel_def,FLOOKUP_UPDATE] >>
   discharge_hyps >- (
     conj_tac >- (
-      qexists_tac`1`>>simp[]>>EVAL_TAC ) >>
+      qexists_tac`init_number_of_globals+1`>>simp[]>>EVAL_TAC ) >>
     rpt var_eq_tac >>
     simp[lookup_fromAList,ALOOKUP_APPEND] >>
     simp[bvi_stubs_def] >>
