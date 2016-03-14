@@ -2502,7 +2502,8 @@ val IS_SOME_lab_lookup_compute_labels = prove(
 
 val MEM_all_labels = prove(
   ``MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos``,
-  cheat (* easy *));
+  rw[lab_lookup_def,all_labels_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_toAList,EXISTS_PROD]
+  \\ CASE_TAC);
 
 val loc_to_pc_comp_thm = prove(
   ``!l1 l2 sec_list.
