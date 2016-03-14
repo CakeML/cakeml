@@ -2885,7 +2885,7 @@ val word_or_eq_0 = prove(
 
 val Smallnum_test = prove(
   ``((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
-    good_dimindex (:'a) ==>
+    good_dimindex (:'a) /\ small_int (:'a) i ==>
     ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)``,
   cheat (* self-contained word proof *));
 
