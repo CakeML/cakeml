@@ -2417,14 +2417,6 @@ val enc_secs_again_T_IMP = prove(``
   res_tac>>
   fs[])
 
-val pos_val_pad_code = prove(
-  ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
-  cheat (* needs to assume that label lengths are 0 or 1,
-           and they are only 1 if the label is at an ODD position,
-           this is true because upd_lab_len has been run and
-           no lengths were updated enc_secs_again because
-           return T in its second argument *));
-
 val compute_labels_simp_def = Define`
   (compute_labels_simp pos [] = LN) ∧
   (compute_labels_simp pos (Section k lines::rest) =
@@ -2504,6 +2496,53 @@ val asm_line_labs_acc = Q.store_thm("asm_line_labs_acc",
   \\ first_x_assum match_mp_tac
   \\ rw[lookup_union]);
 
+val has_label_def = Define `
+  (has_label l1 l2 [] = F) /\
+  (has_label l1 l2 (Section k xs::rest) <=>
+     k = l1 /\ l2 = 0 \/
+     has_label l1 l2 rest \/
+     ?k. MEM (Label l1 l2 k) xs)`
+
+val compute_labels_has_label = prove(
+  ``has_label l1 l2 sec_list ==>
+    IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
+  qspecl_then[`pos`,`sec_list`,`LN`]mp_tac compute_labels_simp_EQ
+  \\ rw[CONJUNCT1 wf_def]
+  \\ pop_assum mp_tac
+  \\ rpt (pop_assum kall_tac)
+  \\ map_every qid_spec_tac [`l2`,`l1`,`sec_list`,`pos`]
+  \\ recInduct (theorem "compute_labels_simp_ind")
+  \\ rpt strip_tac
+  \\ fs [compute_labels_simp_def,lab_lookup_def,lookup_def,has_label_def]
+  \\ split_pair_tac \\ fs []
+  \\ cheat (* not true if there are multiple sections with the same name *));
+
+val loc_to_pc_has_label = prove(
+  ``!l1 l2 sec_list.
+      IS_SOME (loc_to_pc l1 l2 sec_list) ==> has_label l1 l2 sec_list``,
+  ho_match_mp_tac loc_to_pc_ind \\ rpt strip_tac \\ fs []
+  \\ pop_assum mp_tac
+  \\ once_rewrite_tac [loc_to_pc_def] \\ fs []
+  \\ Cases_on `l2 = 0` \\ fs []
+  THEN1
+   (IF_CASES_TAC \\ fs [has_label_def]
+    \\ Cases_on `xs` \\ fs []
+    \\ Cases_on `h` \\ fs [is_Label_def]
+    \\ rw [] \\ fs [] THEN1 (metis_tac [])
+    \\ every_case_tac \\ fs [] \\ metis_tac [])
+  \\ Cases_on `xs` \\ fs []
+  \\ strip_tac \\ fs []
+  \\ fs [has_label_def]
+  \\ Cases_on `h` \\ fs [is_Label_def]
+  \\ every_case_tac \\ fs [] \\ metis_tac []);
+
+val IS_SOME_lab_lookup_compute_labels = prove(
+  ``IS_SOME (loc_to_pc l1 l2 sec_list) ==>
+    IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
+  metis_tac [compute_labels_has_label,loc_to_pc_has_label]);
+
+(*
+
 val IS_SOME_lab_lookup_compute_labels = prove(
   ``IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN)) <=>
     IS_SOME (loc_to_pc l1 l2 sec_list)``,
@@ -2533,7 +2572,7 @@ val IS_SOME_lab_lookup_compute_labels = prove(
       \\ fs[sec_labs_def,asm_line_labs_def]
       \\ rw[lookup_insert,lookup_def]
       \\ Cases_on`loc_to_pc k l2 sec_list`\\fs[]
-      \\ cheat )
+      \\ ... )
     \\ BasicProvers.TOP_CASE_TAC \\ fs[]
     >- (
       rw[]
@@ -2543,8 +2582,10 @@ val IS_SOME_lab_lookup_compute_labels = prove(
       \\ fs[lookup_union,lookup_insert,lookup_def]
       \\ first_x_assum(qspec_then`l2`mp_tac o CONV_RULE SWAP_FORALL_CONV)
       \\ simp[] )
-    \\ cheat )
-  \\ cheat);
+    \\ ... )
+  \\ ...);
+
+*)
 
 val MEM_all_labels = prove(
   ``MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos``,
@@ -2568,7 +2609,7 @@ val lab_lookup_compute_labels_test = prove(
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
       lab_lookup l1 l2 (compute_labels 0 sec_list LN) =
       SOME (pos_val x2 0 sec_list)``,
-  fs [EVERY_MEM, FORALL_PROD, MEM_all_labels,IS_SOME_lab_lookup_compute_labels]
+  fs [EVERY_MEM, FORALL_PROD, MEM_all_labels]
   \\ rw [] \\ fs [IS_SOME_EXISTS,PULL_EXISTS] \\ res_tac
   \\ Cases_on `lab_lookup l1 l2 (compute_labels 0 sec_list LN)` \\ fs []
   THEN1 (metis_tac [IS_SOME_DEF,IS_SOME_lab_lookup_compute_labels])
@@ -2618,12 +2659,17 @@ val remove_labels_loop_thm = Q.prove(
   \\ rw []
   THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
          \\ res_tac \\ fs [check_lab_def])
-  \\ imp_res_tac enc_secs_again_T_IMP
-  \\ fs [pos_val_pad_code]
+  \\ imp_res_tac enc_secs_again_T_IMP \\ fs []
+  \\ qpat_assum `_ = compute_labels 0 sec_list LN` (fn th => fs [GSYM th])
+  \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
+  \\ fs [code_similar_upd_lab_len]
+  \\ qpat_assum `_ = SOME x2` (fn th => fs [GSYM th])
+  \\ match_mp_tac code_similar_loc_to_pc
+  \\ match_mp_tac code_similar_sym
+  \\ match_mp_tac code_similar_pad_code
   \\ imp_res_tac enc_secs_again_IMP_similar
   \\ fs [code_similar_upd_lab_len]
-  \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
-  \\ fs [] \\ metis_tac [code_similar_trans,code_similar_loc_to_pc]);
+  \\ metis_tac [code_similar_trans]);
 
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.

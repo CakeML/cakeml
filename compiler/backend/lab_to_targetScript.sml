@@ -299,15 +299,17 @@ val remove_labels_loop_def = Define `
       if done then
         (* adjust label lengths *)
         let sec_list = upd_lab_len 0 sec_list in
-        (* compute labels a last time *)
+        (* compute labels again *)
         let labs = compute_labels 0 sec_list LN in
         (* update encodings *)
-        let (sec_list',done) = enc_secs_again 0 labs enc sec_list in
+        let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
         (* move label padding into instructions *)
-        let sec_list = pad_code (enc (Inst Skip)) sec_list' in
+        let sec_list = pad_code (enc (Inst Skip)) sec_list in
+        (* compute the labels again, redundant TODO: remove *)
+        let labs2 = compute_labels 0 sec_list LN in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list /\
-             EVERY (check_lab sec_list') (all_labels labs)
+          if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs /\
+             EVERY (check_lab sec_list) (all_labels labs)
           then SOME (sec_list,labs)
           else NONE
       else
