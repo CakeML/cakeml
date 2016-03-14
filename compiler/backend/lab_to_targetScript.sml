@@ -66,7 +66,7 @@ val compute_labels_def = Define `
   (compute_labels pos ((Section k lines)::rest) aux =
      let (labs,new_pos) = sec_labs pos lines in
      let new_pos = pos + full_sec_length lines in
-       compute_labels new_pos rest (insert k labs aux))`
+       compute_labels new_pos rest (union aux (insert k labs LN)))`
 
 (* update code, but not label lengths *)
 

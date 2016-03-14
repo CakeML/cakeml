@@ -4,6 +4,7 @@ open preamble ffiTheory BasicProvers
      asmTheory asmSemTheory asmPropsTheory
      targetSemTheory targetPropsTheory
 local open stack_removeProofTheory in end
+open dep_rewrite
 
 val aligned_w2n = stack_removeProofTheory.aligned_w2n;
 
@@ -2429,9 +2430,64 @@ val pos_val_pad_code = prove(
   ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
   cheat (* probably needs to assume more *));
 
-(*don't think this is right, probably needs all_enc_ok..*)
+val compute_labels_simp_def = Define`
+  (compute_labels_simp pos [] = LN) ∧
+  (compute_labels_simp pos (Section k lines::rest) =
+    let (labs,new_pos) = sec_labs pos lines in
+    let new_pos' = pos + full_sec_length lines in
+    let result = compute_labels_simp new_pos' rest in
+      insert k labs result)`
+
+val compute_labels_simp_EQ = prove(``
+  ∀pos ls acc.
+   wf acc ⇒
+  let res = compute_labels pos ls acc in
+  let res' = (compute_labels_simp pos ls) in
+  wf res ∧
+  wf res' ∧
+  res = union acc res'``,
+  HO_MATCH_MP_TAC compute_labels_ind>>fs[compute_labels_simp_def,compute_labels_def,wf_def]>>
+  ntac 7 strip_tac>>
+  split_pair_tac>>fs[]>>
+  dep_rewrite.DEP_REWRITE_TAC[spt_eq_thm] >>
+  fs[wf_union,wf_insert,wf_def]>>
+  fs[lookup_union,lookup_insert,lookup_def]>>
+  rw[]>>EVERY_CASE_TAC>>fs[])
+
+(*Extract only the bytes part of all_enc_ok*)
+val bytes_len_match_def = Define`
+  (bytes_len_match (Label _ _ l) ⇔ l = 0) ∧
+  (bytes_len_match (Asm _ b l) ⇔ LENGTH b = l) ∧
+  (bytes_len_match (LabAsm _ _ b l) ⇔ LENGTH b = l)`
+
+val all_bytes_len_match_def = Define`
+  (all_bytes_len_match [] = T) ∧
+  (all_bytes_len_match (Section k ls ::xs) ⇔
+  EVERY bytes_len_match ls ∧ all_bytes_len_match xs)`
+
+val all_bytes_len_match_pos_val_0 = prove(``
+  ∀ls pos.
+  all_bytes_len_match ls ⇒
+  pos_val 0 pos ls = pos``,
+  Induct>>fs[pos_val_def]>>Induct>>Induct_on`l`>>fs[pos_val_def,all_bytes_len_match_def]>>rw[]>>
+  Cases_on`h`>>
+  fs[line_length_def,bytes_len_match_def,is_Label_def])
+
+val lab_lookup_compute_labels_simp_lemma = prove(``
+  ∀l1 l2 sec_list x2 conf enc labs nop pos l.
+  all_bytes_len_match sec_list ∧
+  loc_to_pc l1 l2 sec_list = SOME x2 ==>
+  lab_lookup l1 l2 (compute_labels_simp pos sec_list) =
+  SOME (pos_val x2 pos sec_list)``,
+  ho_match_mp_tac loc_to_pc_ind>>fs[Once loc_to_pc_def]>>
+  rw[]>>
+  pop_assum mp_tac>>
+  simp[Once loc_to_pc_def]>>
+  cheat)
+
 val lab_lookup_compute_labels = prove(
-  ``∀l1 l2 sec_list x2p l pos.
+  ``∀l1 l2 sec_list x2 conf enc labs nop pos l.
+    all_enc_ok conf enc labs pos (pad_code nop sec_list) ∧
     loc_to_pc l1 l2 sec_list = SOME x2 ==>
     lab_lookup l1 l2 (compute_labels pos sec_list l) =
     SOME (pos_val x2 pos sec_list)``,
@@ -2451,8 +2507,7 @@ val remove_labels_loop_thm = Q.prove(
     !l1 l2 x2.
       loc_to_pc l1 l2 code = SOME x2 ==>
       lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)`,
-  HO_MATCH_MP_TAC remove_labels_loop_ind
-  >> rpt gen_tac >> strip_tac
+  HO_MATCH_MP_TAC remove_labels_loop_ind  >> rpt gen_tac >> strip_tac
   >> simp[Once remove_labels_loop_def]
   >> rpt gen_tac
   >> split_pair_tac \\ fs []
