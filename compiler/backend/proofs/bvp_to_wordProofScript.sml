@@ -2806,7 +2806,13 @@ val word_less_lemma1 = prove(
 val heap_in_memory_store_IMP_UPDATE = prove(
   ``heap_in_memory_store heap a sp c st m dm l ==>
     heap_in_memory_store heap a sp c (st |+ (Globals,h)) m dm l``,
-  fs [heap_in_memory_store_def] \\ cheat);
+  fs [heap_in_memory_store_def,FLOOKUP_UPDATE]);
+
+val get_vars_2_imp = prove(
+  ``wordSem$get_vars [x1;x2] s = SOME [y1;y2] ==>
+    wordSem$get_var x1 s = SOME y1 /\
+    wordSem$get_var x2 s = SOME y2``,
+  fs [wordSemTheory.get_vars_def] \\ every_case_tac \\ fs []);
 
 val assign_thm = Q.prove(
   `state_rel c l1 l2 s (t:('a,'ffi) wordSem$state) [] locs /\
@@ -2822,6 +2828,79 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
+  \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1 cheat
+  \\ Cases_on `?tag len. op = TagLenEq tag len` \\ fs [] THEN1 cheat
+  \\ Cases_on `op = BlockCmp` \\ fs [] THEN1 cheat
+  \\ Cases_on `op = Add` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ qpat_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+    \\ strip_tac
+    \\ simp_tac std_ss [state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac \\ fs []
+    \\ rpt_drule memory_rel_Number_IMP_Word_2
+    \\ strip_tac \\ clean_tac
+    \\ rpt_drule memory_rel_Add \\ fs [] \\ strip_tac
+    \\ fs [assign_def]
+    \\ imp_res_tac get_vars_2_imp
+    \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def]
+    \\ eval_tac
+    \\ fs [asmSemTheory.word_cmp_def]
+    \\ reverse IF_CASES_TAC \\ fs []
+    THEN1
+      (rpt_drule (evaluate_GiveUp
+         |> Q.INST [`t`|->`(t with locals := insert 1 x t.locals)`]
+         |> REWRITE_RULE [state_rel_insert_1])
+       \\ disch_then (qspec_then `Word (w1 ‖ w2)` strip_assume_tac) \\ fs [])
+    \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
+    \\ rw [] \\ fs []
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ drule memory_rel_zero_space \\ fs [])
+  \\ Cases_on `op = Sub` \\ fs [] THEN1
+   (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
+    \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
+    \\ clean_tac \\ fs []
+    \\ imp_res_tac state_rel_get_vars_IMP
+    \\ fs [LENGTH_EQ_2] \\ clean_tac
+    \\ fs [get_var_def]
+    \\ qpat_assum `state_rel c l1 l2 x t [] locs` (fn th => NTAC 2 (mp_tac th))
+    \\ strip_tac
+    \\ simp_tac std_ss [state_rel_thm] \\ strip_tac \\ fs [] \\ eval_tac
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ rpt_drule (memory_rel_get_vars_IMP |> GEN_ALL)
+    \\ strip_tac \\ fs []
+    \\ rpt_drule memory_rel_Number_IMP_Word_2
+    \\ strip_tac \\ clean_tac
+    \\ rpt_drule memory_rel_Sub \\ fs [] \\ strip_tac
+    \\ fs [assign_def]
+    \\ imp_res_tac get_vars_2_imp
+    \\ eval_tac
+    \\ fs [wordSemTheory.get_var_def,wordSemTheory.get_var_imm_def]
+    \\ eval_tac
+    \\ fs [asmSemTheory.word_cmp_def]
+    \\ reverse IF_CASES_TAC \\ fs []
+    THEN1
+      (rpt_drule (evaluate_GiveUp
+         |> Q.INST [`t`|->`(t with locals := insert 1 x t.locals)`]
+         |> REWRITE_RULE [state_rel_insert_1])
+       \\ disch_then (qspec_then `Word (w1 ‖ w2)` strip_assume_tac) \\ fs [])
+    \\ fs [lookup_insert,adjust_var_NEQ,adjust_var_11]
+    \\ rw [] \\ fs []
+    \\ fs [inter_insert_ODD_adjust_set]
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
+    \\ match_mp_tac memory_rel_insert \\ fs []
+    \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
+    \\ drule memory_rel_zero_space \\ fs [])
   \\ Cases_on `op = LengthByte` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
