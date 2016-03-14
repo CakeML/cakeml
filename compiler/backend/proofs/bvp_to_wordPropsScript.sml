@@ -1695,10 +1695,12 @@ val word_payload_T_IMP = store_thm("word_payload_T_IMP",
   ``word_payload l5 n5 tag r conf = (h,ts,T) ==>
     n5 = LENGTH ts /\
     if word_bit 3 h then l5 = [] else ts = MAP (word_addr conf) l5``,
-  Cases_on `tag` \\ full_simp_tac(srw_ss())[word_payload_def]
-  \\ srw_tac[][] \\ full_simp_tac(srw_ss())[LENGTH_NIL]
-  \\ fs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,wordsTheory.word_index]
-  \\ cheat);
+  Cases_on `tag`
+  \\ full_simp_tac(srw_ss())[word_payload_def,make_header_def,
+       make_byte_header_def,LET_THM]
+  \\ rw [] \\ fs [] \\ fs [word_bit_def]
+  \\ rfs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,wordsTheory.word_index]
+  \\ cheat (* something is wrong here... *));
 
 val decode_length_def = Define `
   decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)`;
@@ -2219,7 +2221,7 @@ val encode_header_IMP = prove(
   ``encode_header c tag len = SOME (hd:'a word) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
     decode_length c hd = n2w len``,
-  fs [encode_header_def] \\ rw [make_header_def]
+  fs [encode_header_def] \\ rw [make_header_def] \\ fs [decode_length_def]
   \\ cheat (* needs more conditions *));
 
 val word_list_exists_thm = store_thm("word_list_exists_thm",
@@ -2876,5 +2878,96 @@ val word_ml_inv_SP_LIMIT = store_thm("word_ml_inv_SP_LIMIT",
   \\ imp_res_tac heap_lookup_SPLIT \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[heap_length_APPEND,
         heap_length_def,el_length_def] \\ decide_tac);
+
+val word_or_eq_0 = prove(
+  ``((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)``,
+  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_0] \\ metis_tac []);
+
+val Smallnum_test = prove(
+  ``((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
+    good_dimindex (:'a) /\ small_int (:'a) i ==>
+    ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)``,
+  cheat (* self-contained word proof *));
+
+val memory_rel_Add = store_thm("memory_rel_Add",
+  ``memory_rel c be refs sp st m dm
+      ((Number i,Word wi)::(Number j,Word wj)::vars) /\
+    good_dimindex (:'a) /\
+    (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
+    memory_rel c be refs sp st m dm
+      ((Number (i + j),Word (wi + wj:'a word))::vars)``,
+  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ fs [WORD_LEFT_AND_OVER_OR]
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ rpt strip_tac
+  \\ `Smallnum i + Smallnum j = (Smallnum (i + j)):'a word` by
+   (`~(i + j < 0)` by intLib.COOPER_TAC
+    \\ fs [Smallnum_def] \\ fs [word_add_n2w]
+    \\ AP_THM_TAC \\ AP_TERM_TAC \\ intLib.COOPER_TAC)
+  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
+  \\ imp_res_tac memory_rel_tail \\ fs []
+  \\ fs [small_int_def]
+  \\ fs [labPropsTheory.good_dimindex_def]
+  \\ rfs [dimword_def]
+  \\ intLib.COOPER_TAC);
+
+val exists_num = prove(
+  ``~(i < 0i) <=> ?n. i = &n``,
+  Cases_on `i` \\ fs []);
+
+val memory_rel_Sub = store_thm("memory_rel_Sub",
+  ``memory_rel c be refs sp st m dm
+       ((Number i,Word wi)::(Number j,Word wj)::vars) /\
+    good_dimindex (:'a) /\
+    (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
+    memory_rel c be refs sp st m dm
+       ((Number (i - j),Word (wi - wj:'a word))::vars)``,
+  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ fs [WORD_LEFT_AND_OVER_OR]
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ rpt strip_tac
+  \\ `Smallnum i - Smallnum j = (Smallnum (i - j)):'a word` by
+   (`i − j < 0 <=> i < j` by intLib.COOPER_TAC \\ fs [Smallnum_def]
+    \\ fs [exists_num] \\ rpt var_eq_tac \\ fs []
+    \\ full_simp_tac std_ss [SIMP_CONV (srw_ss()) [] ``w - x:'a word`` |> GSYM,
+         addressTheory.word_arith_lemma2]
+    \\ IF_CASES_TAC \\ fs []
+    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ intLib.COOPER_TAC)
+  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
+  \\ imp_res_tac memory_rel_tail \\ fs []
+  \\ fs [small_int_def]
+  \\ fs [labPropsTheory.good_dimindex_def]
+  \\ rfs [dimword_def]
+  \\ intLib.COOPER_TAC);
+
+val memory_rel_Number_IMP_Word = store_thm("memory_rel_Number_IMP_Word",
+  ``memory_rel c be refs sp st m dm ((Number i,v)::vars) ==> ?w. v = Word w``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def,v_inv_def] \\ rw [] \\ fs [word_addr_def]);
+
+val memory_rel_Number_IMP_Word_2 = store_thm("memory_rel_Number_IMP_Word_2",
+  ``memory_rel c be refs sp st m dm ((Number i,v)::(Number j,w)::vars) ==>
+    ?w1 w2. v = Word w1 /\ w = Word w2``,
+  fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
+      bc_stack_ref_inv_def,v_inv_def] \\ rw [] \\ fs [word_addr_def]);
+
+val memory_rel_zero_space = store_thm("memory_rel_zero_space",
+  ``memory_rel c be refs sp st m dm vars ==>
+    memory_rel c be refs 0 st m dm vars``,
+  fs [memory_rel_def,heap_in_memory_store_def]
+  \\ rw [] \\ fs [] \\ rpt (asm_exists_tac \\ fs []) \\ metis_tac []);
 
 val _ = export_theory();

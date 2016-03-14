@@ -346,6 +346,7 @@ in
     ,bvp_to_wordTheory.Unit_def
     ,bvp_to_wordTheory.GiveUp_def
     ,bvp_to_wordTheory.make_header_def
+    ,bvp_to_wordTheory.tag_mask_def
     ,bvp_to_wordTheory.encode_header_def
     ,bvp_to_wordTheory.list_Seq_def
     ,bvp_to_wordTheory.shift_def

@@ -2495,14 +2495,61 @@ val lab_lookup_compute_labels = prove(
 
 *)
 
+val asm_line_labs_acc = Q.store_thm("asm_line_labs_acc",
+  `∀pos xs acc acc' pos'.
+     asm_line_labs pos xs acc = (acc',pos') ⇒
+     ∀k v. lookup k acc = SOME v ⇒ lookup k acc' = SOME v`,
+  ho_match_mp_tac asm_line_labs_ind
+  \\ rw[asm_line_labs_def] \\ fs[]
+  \\ first_x_assum match_mp_tac
+  \\ rw[lookup_union]);
+
 val IS_SOME_lab_lookup_compute_labels = prove(
   ``IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN)) <=>
     IS_SOME (loc_to_pc l1 l2 sec_list)``,
-  cheat (* easy *));
+  qspecl_then[`pos`,`sec_list`,`LN`]mp_tac compute_labels_simp_EQ
+  \\ rw[CONJUNCT1 wf_def]
+  \\ rpt (pop_assum kall_tac)
+  \\ map_every qid_spec_tac [`pos`,`sec_list`,`l2`,`l1`]
+  \\ ho_match_mp_tac loc_to_pc_ind
+  \\ rw[compute_labels_simp_def]
+  >- ( EVAL_TAC \\ simp[lookup_def] )
+  \\ split_pair_tac \\ fs[]
+  \\ fs[lab_lookup_def]
+  \\ simp[lookup_insert]
+  \\ IF_CASES_TAC \\ fs[]
+  >- (
+    rveq
+    \\ simp[Once loc_to_pc_def]
+    \\ IF_CASES_TAC \\ fs[]
+    >- (
+      fs[sec_labs_def]
+      \\ imp_res_tac asm_line_labs_acc
+      \\ fs[lookup_insert,lookup_def] )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      first_assum(qspec_then`pos`mp_tac)
+      \\ BasicProvers.CASE_TAC \\ fs[]
+      \\ fs[sec_labs_def,asm_line_labs_def]
+      \\ rw[lookup_insert,lookup_def]
+      \\ Cases_on`loc_to_pc k l2 sec_list`\\fs[]
+      \\ cheat )
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    >- (
+      rw[]
+      \\ fs[sec_labs_def]
+      \\ fs[asm_line_labs_def]
+      \\ imp_res_tac asm_line_labs_acc
+      \\ fs[lookup_union,lookup_insert,lookup_def]
+      \\ first_x_assum(qspec_then`l2`mp_tac o CONV_RULE SWAP_FORALL_CONV)
+      \\ simp[] )
+    \\ cheat )
+  \\ cheat);
 
 val MEM_all_labels = prove(
   ``MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos``,
-  cheat (* easy *));
+  rw[lab_lookup_def,all_labels_def,MEM_FLAT,MEM_MAP,PULL_EXISTS,MEM_toAList,EXISTS_PROD]
+  \\ CASE_TAC);
 
 val loc_to_pc_comp_thm = prove(
   ``!l1 l2 sec_list.
