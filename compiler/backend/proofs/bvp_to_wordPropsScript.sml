@@ -2879,6 +2879,16 @@ val word_ml_inv_SP_LIMIT = store_thm("word_ml_inv_SP_LIMIT",
   \\ full_simp_tac(srw_ss())[heap_length_APPEND,
         heap_length_def,el_length_def] \\ decide_tac);
 
+val word_or_eq_0 = prove(
+  ``((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)``,
+  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_0] \\ metis_tac []);
+
+val Smallnum_test = prove(
+  ``((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
+    good_dimindex (:'a) ==>
+    ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)``,
+  cheat (* self-contained word proof *));
+
 val memory_rel_Add = store_thm("memory_rel_Add",
   ``memory_rel c be refs sp st m dm
       ((Number i,Word wi)::(Number j,Word wj)::vars) /\
@@ -2886,7 +2896,30 @@ val memory_rel_Add = store_thm("memory_rel_Add",
     (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
     memory_rel c be refs sp st m dm
       ((Number (i + j),Word (wi + wj:'a word))::vars)``,
-  cheat);
+  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ fs [WORD_LEFT_AND_OVER_OR]
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ rpt strip_tac
+  \\ `Smallnum i + Smallnum j = (Smallnum (i + j)):'a word` by
+   (`~(i + j < 0)` by intLib.COOPER_TAC
+    \\ fs [Smallnum_def] \\ fs [word_add_n2w]
+    \\ AP_THM_TAC \\ AP_TERM_TAC \\ intLib.COOPER_TAC)
+  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
+  \\ imp_res_tac memory_rel_tail \\ fs []
+  \\ fs [small_int_def]
+  \\ fs [labPropsTheory.good_dimindex_def]
+  \\ rfs [dimword_def]
+  \\ intLib.COOPER_TAC);
+
+val exists_num = prove(
+  ``~(i < 0i) <=> ?n. i = &n``,
+  Cases_on `i` \\ fs []);
 
 val memory_rel_Sub = store_thm("memory_rel_Sub",
   ``memory_rel c be refs sp st m dm
@@ -2895,7 +2928,30 @@ val memory_rel_Sub = store_thm("memory_rel_Sub",
     (((wi || wj) && (~0w << (dimindex (:'a)-2))) = 0w) ==>
     memory_rel c be refs sp st m dm
        ((Number (i - j),Word (wi - wj:'a word))::vars)``,
-  cheat);
+  rw [] \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ fs [WORD_LEFT_AND_OVER_OR]
+  \\ drule memory_rel_tail \\ strip_tac
+  \\ imp_res_tac memory_rel_Number_IMP \\ fs []
+  \\ rpt var_eq_tac \\ fs [word_or_eq_0]
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ drule Smallnum_test \\ fs []
+  \\ qpat_assum `_ = 0w` kall_tac
+  \\ rpt strip_tac
+  \\ `Smallnum i - Smallnum j = (Smallnum (i - j)):'a word` by
+   (`i − j < 0 <=> i < j` by intLib.COOPER_TAC \\ fs [Smallnum_def]
+    \\ fs [exists_num] \\ rpt var_eq_tac \\ fs []
+    \\ full_simp_tac std_ss [SIMP_CONV (srw_ss()) [] ``w - x:'a word`` |> GSYM,
+         addressTheory.word_arith_lemma2]
+    \\ IF_CASES_TAC \\ fs []
+    \\ rpt (AP_TERM_TAC ORELSE AP_THM_TAC)
+    \\ intLib.COOPER_TAC)
+  \\ fs [] \\ match_mp_tac IMP_memory_rel_Number
+  \\ imp_res_tac memory_rel_tail \\ fs []
+  \\ fs [small_int_def]
+  \\ fs [labPropsTheory.good_dimindex_def]
+  \\ rfs [dimword_def]
+  \\ intLib.COOPER_TAC);
 
 val memory_rel_Number_IMP_Word = store_thm("memory_rel_Number_IMP_Word",
   ``memory_rel c be refs sp st m dm ((Number i,v)::vars) ==> ?w. v = Word w``,
