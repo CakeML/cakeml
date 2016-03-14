@@ -2219,12 +2219,56 @@ val bytes_in_word_mul_eq_shift = store_thm("bytes_in_word_mul_eq_shift",
   fs [bytes_in_word_def,shift_def,WORD_MUL_LSL,word_mul_n2w]
   \\ fs [labPropsTheory.good_dimindex_def,dimword_def] \\ rw [] \\ rfs []);
 
+val n2w_lsr_eq_0 = store_thm("n2w_lsr_eq_0",
+  ``n DIV 2 ** k = 0 /\ n < dimword (:'a) ==> n2w n >>> k = 0w:'a word``,
+  rw [] \\ simp_tac std_ss [GSYM w2n_11,w2n_lsr] \\ fs []);
+
+val LESS_EXO_SUB = prove(
+  ``n < 2 ** (k - m) ==> n < 2n ** k``,
+  rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ asm_exists_tac \\ fs []);
+
+val LESS_EXO_SUB_ALT = prove(
+  ``m <= k ==> n < 2 ** (k - m) ==> n * 2 ** m < 2n ** k``,
+  rw [] \\ match_mp_tac LESS_LESS_EQ_TRANS
+  \\ qexists_tac `2 ** (k - m) * 2 ** m`
+  \\ fs [GSYM EXP_ADD]);
+
+val less_pow_dimindex_sub_imp = prove(
+  ``n < 2 ** (dimindex (:'a) - k) ==> n < dimword (:'a)``,
+  fs [dimword_def] \\ metis_tac [LESS_EXO_SUB]);
+
 val encode_header_IMP = prove(
-  ``encode_header c tag len = SOME (hd:'a word) ==>
+  ``encode_header c tag len = SOME (hd:'a word) /\
+    c.len_size + 6 < dimindex (:'a) /\ good_dimindex (:'a) ==>
     len < 2 ** (dimindex (:'a) - 4) /\
     decode_length c hd = n2w len``,
   fs [encode_header_def] \\ rw [make_header_def] \\ fs [decode_length_def]
-  \\ cheat (* needs more conditions *));
+  \\ `3w >>> (dimindex (:α) − c.len_size) = 0w:'a word` by
+      (match_mp_tac n2w_lsr_eq_0
+       \\ fs [labPropsTheory.good_dimindex_def,dimword_def]
+       \\ fs [DIV_EQ_X]
+       \\ match_mp_tac LESS_LESS_EQ_TRANS
+       \\ qexists_tac `2 ** 2`
+       \\ strip_tac \\ TRY (EVAL_TAC \\ NO_TAC)
+       \\ simp_tac std_ss [EXP_BASE_LE_IFF] \\ fs [])
+  \\ `n2w tag << 2 ⋙ (dimindex (:α) - c.len_size) = 0w:'a word` by
+      (fs [WORD_MUL_LSL,word_mul_n2w]
+       \\ match_mp_tac n2w_lsr_eq_0
+       \\ rpt strip_tac \\ TRY (match_mp_tac LESS_DIV_EQ_ZERO)
+       \\ `2 ** (dimindex (:α) − c.len_size) =
+           2n ** 2 * 2 ** (dimindex (:α) − (c.len_size + 2))` by
+              (full_simp_tac std_ss [GSYM EXP_ADD] \\ fs []) \\ fs []
+       \\ `4 * tag = tag * 2 ** 2` by fs []
+       \\ asm_rewrite_tac [dimword_def]
+       \\ match_mp_tac (MP_CANON LESS_EXO_SUB_ALT)
+       \\ full_simp_tac std_ss [SUB_PLUS |> ONCE_REWRITE_RULE [ADD_COMM]]
+       \\ imp_res_tac LESS_EXO_SUB \\ fs [])
+  \\ fs [] \\ match_mp_tac lsl_lsr
+  \\ imp_res_tac less_pow_dimindex_sub_imp \\ fs []
+  \\ `dimword (:'a) = 2 ** c.len_size * 2 ** (dimindex (:α) − c.len_size)`
+        suffices_by fs []
+  \\ fs [GSYM EXP_ADD,dimword_def]);
 
 val word_list_exists_thm = store_thm("word_list_exists_thm",
   ``(word_list_exists a 0 = emp) /\
@@ -2324,7 +2368,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ `(make_header c (n2w tag << 2) (LENGTH ws)) = hd` by
        (fs [encode_header_def,make_header_def] \\ every_case_tac \\ fs []
         \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
-  \\ fs [] \\ imp_res_tac encode_header_IMP
+  \\ fs [] \\ drule encode_header_IMP \\ fs [] \\ strip_tac
   \\ simp [WORD_MUL_LSL,word_mul_n2w]
   \\ fs [SEP_CLAUSES,STAR_ASSOC]
   \\ `LENGTH ws + 1 = LENGTH (Word hd::ws)` by fs []
@@ -2386,7 +2430,7 @@ val memory_rel_Ref = store_thm("memory_rel_Ref",
   \\ `make_header c 2w (LENGTH ws) = hd` by
        (fs [encode_header_def] \\ every_case_tac \\ fs []
         \\ fs [WORD_MUL_LSL,word_mul_n2w,EXP_ADD] \\ NO_TAC)
-  \\ fs [] \\ imp_res_tac encode_header_IMP
+  \\ fs [] \\ drule encode_header_IMP \\ fs [] \\ strip_tac
   \\ fs [SEP_CLAUSES,STAR_ASSOC]
   \\ `LENGTH ws + 1 = LENGTH (Word hd::ws)` by fs []
   \\ full_simp_tac std_ss []
