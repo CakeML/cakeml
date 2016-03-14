@@ -606,4 +606,17 @@ val evaluate_dec_globals = Q.store_thm("evaluate_dec_globals",
   imp_res_tac evaluate_globals >>
   every_case_tac >> full_simp_tac(srw_ss())[]);
 
+val evaluate_decs_globals = Q.store_thm("evaluate_decs_globals",
+  `∀decs env st res. evaluate_decs env st decs = res ⇒
+      (FST res).globals = st.globals ++ MAP SOME (FST(SND(SND res)))`,
+  Induct \\ rw[evaluate_decs_def] \\ rw[]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ imp_res_tac evaluate_dec_globals
+  \\ reverse BasicProvers.TOP_CASE_TAC >- fs[]
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ BasicProvers.TOP_CASE_TAC
+  \\ res_tac
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+  \\ BasicProvers.TOP_CASE_TAC \\ fs[]);
+
 val _ = export_theory()

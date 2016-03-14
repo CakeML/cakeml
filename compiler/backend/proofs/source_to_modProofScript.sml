@@ -2228,8 +2228,34 @@ val compile_prog_correct = Q.store_thm ("compile_prog_correct",
     \\ rator_x_assum`invariant`mp_tac
     \\ simp[extend_top_env_def,invariant_def]
     \\ fs[Abbr`s2`]
+    \\ imp_res_tac funBigStepEquivTheory.functional_evaluate_decs
+    \\ imp_res_tac eval_ds_no_new_mods \\ fs[]
     \\ Cases_on`mno`\\fs[]\\rveq\\fs[] \\ strip_tac
-    \\ cheat )
+    \\ Cases_on`h` \\ fs[] \\ rveq
+    >- (
+      conj_tac
+      >- (
+        match_mp_tac (GEN_ALL global_env_inv_extend2)
+        \\ fs[]
+        \\ metis_tac[v_rel_weakening] )
+      \\ fs[s_rel_cases,update_mod_state_def]
+      \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
+      \\ ONCE_REWRITE_TAC[CONJ_COMM]
+      \\ asm_exists_tac \\ rw[]
+      \\ imp_res_tac evaluate_decs_globals
+      \\ fs[] )
+    \\ qpat_assum`_ = (_,_,Rval _)`mp_tac
+    \\ IF_CASES_TAC \\ fs[]
+    \\ strip_tac \\ rveq \\ fs[]
+    \\ conj_tac >- fs[SUBSET_DEF]
+    \\ conj_tac
+    >- ( match_mp_tac global_env_inv_extend_mod \\ fs[] )
+    \\ fs[s_rel_cases,update_mod_state_def]
+    \\ match_mp_tac (GEN_ALL (MP_CANON LIST_REL_mono))
+    \\ ONCE_REWRITE_TAC[CONJ_COMM]
+    \\ asm_exists_tac \\ rw[]
+    \\ imp_res_tac evaluate_decs_globals
+    \\ fs[] )
   \\ strip_tac
   \\ fs[extend_top_env_def]
   \\ `new_ctors' = mod_cenv mno cenv`
