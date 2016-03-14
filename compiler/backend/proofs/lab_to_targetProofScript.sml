@@ -312,15 +312,6 @@ val bytes_in_mem_IMP = prove(
   ``!xs p. bytes_in_mem p xs m dm dm1 ==> bytes_in_memory p xs m dm``,
   Induct \\ full_simp_tac(srw_ss())[bytes_in_mem_def,bytes_in_memory_def]);
 
-val pos_val_def = Define `
-  (pos_val i pos [] = pos) /\
-  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
-  (pos_val i pos ((Section k (y::ys))::xs) =
-     if is_Label y
-     then pos_val i (pos + line_length y) ((Section k ys)::xs)
-     else if i = 0:num then pos
-          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
-
 val has_io_index_def = Define `
   (has_io_index index [] = F) /\
   (has_io_index index ((Section k [])::xs) = has_io_index index xs) /\
@@ -718,7 +709,7 @@ val pos_val_MOD_0 = prove(
       (pos_val x pos code2 MOD 2 ** mc_conf.target.config.code_alignment = 0)``,
   reverse (Cases_on `backend_correct mc_conf.target`)
   \\ asm_simp_tac pure_ss [] THEN1 full_simp_tac(srw_ss())[]
-  \\ HO_MATCH_MP_TAC (theorem "pos_val_ind")
+  \\ HO_MATCH_MP_TAC pos_val_ind
   \\ rpt strip_tac \\ full_simp_tac(srw_ss())[pos_val_def] \\ full_simp_tac(srw_ss())[all_enc_ok_def]
   THEN1 (srw_tac[][] \\ full_simp_tac(srw_ss())[PULL_FORALL,AND_IMP_INTRO,has_odd_inst_def])
   \\ Cases_on `is_Label y` \\ full_simp_tac(srw_ss())[]
@@ -2428,7 +2419,11 @@ val enc_secs_again_T_IMP = prove(``
 
 val pos_val_pad_code = prove(
   ``pos_val x2 0 (pad_code skip sec_list) = pos_val x2 0 sec_list``,
-  cheat (* probably needs to assume more *));
+  cheat (* needs to assume that label lengths are 0 or 1,
+           and they are only 1 if the label is at an ODD position,
+           this is true because upd_lab_len has been run and
+           no lengths were updated enc_secs_again because
+           return T in its second argument *));
 
 val compute_labels_simp_def = Define`
   (compute_labels_simp pos [] = LN) ∧
@@ -2473,6 +2468,8 @@ val all_bytes_len_match_pos_val_0 = prove(``
   Cases_on`h`>>
   fs[line_length_def,bytes_len_match_def,is_Label_def])
 
+(*
+
 val lab_lookup_compute_labels_simp_lemma = prove(``
   ∀l1 l2 sec_list x2 conf enc labs nop pos l.
   all_bytes_len_match sec_list ∧
@@ -2482,16 +2479,54 @@ val lab_lookup_compute_labels_simp_lemma = prove(``
   ho_match_mp_tac loc_to_pc_ind>>fs[Once loc_to_pc_def]>>
   rw[]>>
   pop_assum mp_tac>>
-  simp[Once loc_to_pc_def]>>
-  cheat)
+  simp[Once loc_to_pc_def]
+  \\ IF_CASES_TAC \\ fs []
+  \\ fs [compute_labels_simp_def]
+  \\ split_pair_tac \\ fs []
+  \\ ...)
 
 val lab_lookup_compute_labels = prove(
-  ``∀l1 l2 sec_list x2 conf enc labs nop pos l.
-    all_enc_ok conf enc labs pos (pad_code nop sec_list) ∧
-    loc_to_pc l1 l2 sec_list = SOME x2 ==>
-    lab_lookup l1 l2 (compute_labels pos sec_list l) =
-    SOME (pos_val x2 pos sec_list)``,
-    cheat)
+  ``∀l1 l2 sec_list x2 conf enc labs nop pos.
+   (* all_enc_ok conf enc labs pos (pad_code nop sec_list) ∧ *)
+      loc_to_pc l1 l2 sec_list = SOME x2 ==>
+      lab_lookup l1 l2 (compute_labels pos sec_list LN) =
+      SOME (pos_val x2 pos sec_list)``,
+  ...)
+
+*)
+
+val IS_SOME_lab_lookup_compute_labels = prove(
+  ``IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN)) <=>
+    IS_SOME (loc_to_pc l1 l2 sec_list)``,
+  cheat (* easy *));
+
+val MEM_all_labels = prove(
+  ``MEM (l1,l2,pos) (all_labels labs) <=> lab_lookup l1 l2 labs = SOME pos``,
+  cheat (* easy *));
+
+val loc_to_pc_comp_thm = prove(
+  ``!l1 l2 sec_list.
+      loc_to_pc_comp l1 l2 sec_list = loc_to_pc l1 l2 sec_list``,
+  recInduct loc_to_pc_comp_ind \\ rw []
+  \\ once_rewrite_tac [loc_to_pc_def,loc_to_pc_comp_def] \\ fs []
+  \\ IF_CASES_TAC \\ fs []
+  \\ TOP_CASE_TAC \\ fs [CONJ_ASSOC]
+  \\ TOP_CASE_TAC \\ fs [CONJ_ASSOC]
+  \\ TOP_CASE_TAC \\ fs [CONJ_ASSOC])
+
+val lab_lookup_compute_labels_test = prove(
+  ``∀l1 l2 sec_list x2 conf enc labs nop pos.
+      EVERY (check_lab sec_list)
+        (all_labels (compute_labels 0 sec_list LN)) /\
+      loc_to_pc l1 l2 sec_list = SOME x2 ==>
+      lab_lookup l1 l2 (compute_labels 0 sec_list LN) =
+      SOME (pos_val x2 0 sec_list)``,
+  fs [EVERY_MEM, FORALL_PROD, MEM_all_labels,IS_SOME_lab_lookup_compute_labels]
+  \\ rw [] \\ fs [IS_SOME_EXISTS,PULL_EXISTS] \\ res_tac
+  \\ Cases_on `lab_lookup l1 l2 (compute_labels 0 sec_list LN)` \\ fs []
+  THEN1 (metis_tac [IS_SOME_DEF,IS_SOME_lab_lookup_compute_labels])
+  \\ res_tac \\ fs [check_lab_def]
+  \\ qpat_assum `!x._` kall_tac \\ rfs [loc_to_pc_comp_thm]);
 
 val remove_labels_loop_thm = Q.prove(
   `∀n c e code code2 labs.
@@ -2504,6 +2539,7 @@ val remove_labels_loop_thm = Q.prove(
     all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
     code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
     (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
+    (!l1 l2 x. lab_lookup l1 l2 labs = SOME x ==> EVEN x) /\
     !l1 l2 x2.
       loc_to_pc l1 l2 code = SOME x2 ==>
       lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)`,
@@ -2533,12 +2569,14 @@ val remove_labels_loop_thm = Q.prove(
     \\ asm_exists_tac \\ srw_tac[][]
     \\ asm_exists_tac \\ srw_tac[][])
   \\ rw []
+  THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
+         \\ res_tac \\ fs [check_lab_def])
   \\ imp_res_tac enc_secs_again_T_IMP
   \\ fs [pos_val_pad_code]
   \\ imp_res_tac enc_secs_again_IMP_similar
   \\ fs [code_similar_upd_lab_len]
-  \\ match_mp_tac lab_lookup_compute_labels
-  \\ metis_tac [code_similar_trans,code_similar_loc_to_pc]);
+  \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
+  \\ fs [] \\ metis_tac [code_similar_trans,code_similar_loc_to_pc]);
 
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
@@ -2573,6 +2611,7 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
    all_enc_ok mc_conf.target.config mc_conf.target.encode labs 0 code2 /\
    code_similar code code2 /\ (pos_val 0 0 code2 = 0) /\
    (has_odd_inst code2 ⇒ mc_conf.target.config.code_alignment = 0) /\
+   (!l1 l2 x. lab_lookup l1 l2 labs = SOME x ==> EVEN x) /\
    !l1 l2 x2.
      loc_to_pc l1 l2 code = SOME x2 ==>
      lab_lookup l1 l2 labs = SOME (pos_val x2 0 code2)`,
@@ -2582,7 +2621,8 @@ val remove_labels_thm = Q.store_thm("remove_labels_thm",
   >> disch_then(qspec_then`mc_conf`mp_tac)
   >> discharge_hyps
   >- ( simp[good_syntax_def] )
-  >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]);
+  >> strip_tac >> simp[] >> full_simp_tac(srw_ss())[]
+  >> rw [] >> res_tac);
 
 (* introducing make_init *)
 
@@ -2712,7 +2752,7 @@ val IMP_state_rel_make_init = prove(
          fs [alignmentTheory.aligned_bitwise_and]
   \\ fs [alignmentTheory.aligned_add_sub]
   \\ fs [alignmentTheory.aligned_1_lsb]
-  \\ cheat (* should be true with current goal *));
+  \\ fs [EVEN_ODD]);
 
 val semantics_make_init = save_thm("semantics_make_init",
   machine_sem_EQ_sem |> SPEC_ALL |> REWRITE_RULE [GSYM AND_IMP_INTRO]

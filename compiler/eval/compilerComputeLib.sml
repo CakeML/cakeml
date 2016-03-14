@@ -571,6 +571,11 @@ in
     ,lab_to_targetTheory.append_nop_def
     ,lab_to_targetTheory.pad_section_def
     ,lab_to_targetTheory.pad_code_def
+    ,lab_to_targetTheory.loc_to_pc_comp_def
+    ,lab_to_targetTheory.is_Label_def
+    ,lab_to_targetTheory.pos_val_def
+    ,lab_to_targetTheory.check_lab_def
+    ,lab_to_targetTheory.all_labels_def
     ,lab_to_targetTheory.remove_labels_loop_def
     ,lab_to_targetTheory.remove_labels_def
     ,lab_to_targetTheory.line_bytes_def

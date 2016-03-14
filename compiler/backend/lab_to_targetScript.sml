@@ -244,6 +244,49 @@ val pad_code_def = Define `
      let f = if EVEN (sec_length xs 0) then I else append_nop (HD nop) in
        Section n (f (pad_section nop 0 xs [])) :: pad_code nop ys)`
 
+(* some final checks on the result *)
+
+val loc_to_pc_comp_def = Define `
+  loc_to_pc_comp n1 n2 [] = NONE /\
+  loc_to_pc_comp n1 n2 (Section k xs::ys) =
+    if k = n1 ∧ n2 = 0 then SOME 0n
+    else
+      case xs of
+        [] => loc_to_pc_comp n1 n2 ys
+      | z::zs =>
+        case z of
+        | Label k1 k2 _ =>
+            if k1 = n1 /\ k2 = n2 /\ n2 <> 0 then SOME 0
+            else loc_to_pc_comp n1 n2 (Section k zs::ys)
+        | _ => case loc_to_pc_comp n1 n2 (Section k zs::ys) of
+                 NONE => NONE
+               | SOME pos => SOME (pos + 1)`
+
+val is_Label_def = Define `
+  (is_Label (Label _ _ _) = T) /\
+  (is_Label _ = F)`;
+val _ = export_rewrites["is_Label_def"];
+
+val pos_val_def = Define `
+  (pos_val i pos [] = (pos:num)) /\
+  (pos_val i pos ((Section k [])::xs) = pos_val i pos xs) /\
+  (pos_val i pos ((Section k (y::ys))::xs) =
+     if is_Label y
+     then pos_val i (pos + line_length y) ((Section k ys)::xs)
+     else if i = 0:num then pos
+          else pos_val (i-1) (pos + line_length y) ((Section k ys)::xs))`;
+
+val check_lab_def = Define `
+  check_lab sec_list (l1,l2,pos) <=>
+    EVEN pos /\
+    case loc_to_pc_comp l1 l2 sec_list of
+    | NONE => T
+    | SOME x2 => pos_val x2 0 sec_list = pos`
+
+val all_labels_def = Define `
+  all_labels labs =
+    FLAT (MAP (\(n,t). MAP (\x. (n, x)) (toAList t)) (toAList labs))`
+
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
@@ -259,12 +302,13 @@ val remove_labels_loop_def = Define `
         (* compute labels a last time *)
         let labs = compute_labels 0 sec_list LN in
         (* update encodings *)
-        let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
+        let (sec_list',done) = enc_secs_again 0 labs enc sec_list in
         (* move label padding into instructions *)
-        let sec_list = pad_code (enc (Inst Skip)) sec_list in
+        let sec_list = pad_code (enc (Inst Skip)) sec_list' in
         (* it ought to be impossible for done to be false here *)
-          if done /\ all_enc_ok c enc labs 0 sec_list then
-            SOME (sec_list,labs)
+          if done /\ all_enc_ok c enc labs 0 sec_list /\
+             EVERY (check_lab sec_list') (all_labels labs)
+          then SOME (sec_list,labs)
           else NONE
       else
         (* repeat *)
