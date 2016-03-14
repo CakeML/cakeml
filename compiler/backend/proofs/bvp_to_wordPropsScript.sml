@@ -2827,15 +2827,40 @@ val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
   \\ drule memory_rel_Number_EQ \\ fs [] \\ rw [] \\ fs []
   \\ fs [WORD_LESS_OR_EQ,integerTheory.INT_LE_LT]);
 
+val memory_rel_RefPtr_EQ_lemma = prove(
+  ``n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
+    (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m``,
+  cheat (* self-contained word proof *));
+
 val memory_rel_RefPtr_EQ = store_thm("memory_rel_RefPtr_EQ",
   ``memory_rel c be refs sp st m dm
       ((RefPtr i1,w1)::(RefPtr i2,w2)::vars) /\ good_dimindex (:'a) ==>
-      ?v1 v2. w1 = Word v1 /\ w2 = Word v2 /\ (v1 = v2 <=> i1 = i2)``,
+      ?v1 v2. w1 = Word v1 /\ w2 = Word (v2:'a word) /\ (v1 = v2 <=> i1 = i2)``,
   fs [memory_rel_def] \\ rw [] \\ fs [word_ml_inv_def] \\ clean_tac
   \\ drule ref_eq_thm \\ rw [] \\ clean_tac
   \\ fs [word_addr_def,get_addr_def]
   \\ eq_tac \\ rw [] \\ fs [get_lowerbits_def]
-  \\ cheat (* need to have limit for p1 and p2 *));
+  \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
+  \\ `bc_ref_inv i1 refs (f,heap,be) /\
+      bc_ref_inv i2 refs (f,heap,be)` by
+   (rpt strip_tac \\ first_x_assum match_mp_tac
+    \\ fs [reachable_refs_def]
+    \\ metis_tac [get_refs_def,MEM,RTC_DEF])
+  \\ fs [bc_ref_inv_def,FLOOKUP_DEF] \\ rfs [SUBSET_DEF]
+  \\ NTAC 2 (pop_assum mp_tac) \\ fs []
+  \\ rpt strip_tac
+  \\ `?x1 x2. heap_lookup (f ' i1) heap = SOME x1 /\
+              heap_lookup (f ' i2) heap = SOME x2` by
+          (every_case_tac \\ fs [] \\ NO_TAC)
+  \\ `f ' i1 < dimword (:'a) DIV 2 ** shift_length c /\
+      f ' i2 < dimword (:'a) DIV 2 ** shift_length c` by
+    (imp_res_tac heap_lookup_LESS \\ fs [heap_in_memory_store_def])
+  \\ `0 < shift_length c` by fs [shift_length_def]
+  \\ `f ' i1 * 2 ** shift_length c < dimword (:'a) /\
+      f ' i2 * 2 ** shift_length c < dimword (:'a)` by
+    (fs [X_LT_DIV,RIGHT_ADD_DISTRIB]
+     \\ Cases_on `2 ** shift_length c` \\ fs []) \\ fs []
+  \\ imp_res_tac memory_rel_RefPtr_EQ_lemma \\ rfs[]);
 
 val memory_rel_Boolv_T = store_thm("memory_rel_Boolv_T",
   ``memory_rel c be refs sp st m dm vars /\ good_dimindex (:'a) ==>
