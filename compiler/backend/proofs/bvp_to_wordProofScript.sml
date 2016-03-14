@@ -400,7 +400,7 @@ val word_gc_move_loop_def = Define `
       let w = m pb in
       let c = (c /\ pb IN dm /\ isWord w) in
       let len = decode_length conf (theWord w) in
-        if word_bit 3 (theWord w) then
+        if word_bit 2 (theWord w) then
           let pb = pb + (len + 1w) * bytes_in_word in
             word_gc_move_loop (k-1n) conf (pb,i,pa,old,m,dm,c)
         else
@@ -824,6 +824,7 @@ val word_gc_move_loop_thm = prove(
       (gc_move_loop (h1,h2,a,n,heap,c0,limit) = (h11,a1,n1,heap1,T)) /\ c0 /\
       heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
       heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+      conf.len_size + 2 < dimindex (:'a) /\
       (word_heap curr heap conf *
        word_heap new (h1 ++ h2) conf *
        word_list (new + n2w (heap_length (h1++h2)) * bytes_in_word) xs * frame)
@@ -892,11 +893,12 @@ val word_gc_move_loop_thm = prove(
   \\ rev_full_simp_tac(srw_ss())[]
   \\ qcase_tac `word_payload _ _ tag _ conf = _`
   \\ drule word_payload_T_IMP
+  \\ discharge_hyps THEN1 (fs []) \\ strip_tac
   \\ `k <> 0` by
    (fs [heap_length_APPEND,el_length_def,heap_length_def] \\ decide_tac)
   \\ full_simp_tac std_ss []
-  \\ Cases_on `word_bit 3 h` \\ full_simp_tac(srw_ss())[]
-  \\ strip_tac \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `word_bit 2 h` \\ full_simp_tac(srw_ss())[]
+  \\ full_simp_tac(srw_ss())[]
   THEN1
    (full_simp_tac(srw_ss())[gc_move_list_def] \\ rpt var_eq_tac
     \\ full_simp_tac(srw_ss())[]
@@ -953,12 +955,10 @@ val word_el_IMP_word_list_exists = prove(
   \\ Cases_on `b`
   \\ fs[word_el_def,el_length_def,GSYM ADD1,word_list_exists_thm,LET_THM]
   \\ srw_tac[][] \\ split_pair_tac \\ full_simp_tac(srw_ss())[]
-  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ srw_tac[][]
+  \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR] \\ srw_tac[][]
   \\ fs[word_list_def,SEP_CLAUSES,SEP_EXISTS_THM,word_list_exists_def]
   \\ full_simp_tac (std_ss++sep_cond_ss) [cond_STAR]
-  \\ imp_res_tac word_payload_T_IMP \\ full_simp_tac(srw_ss())[] \\ rw[]
-  \\ full_simp_tac(srw_ss())[STAR_ASSOC] \\ metis_tac []);
+  \\ imp_res_tac word_payload_IMP \\ asm_exists_tac \\ fs [] \\ metis_tac []);
 
 val word_heap_IMP_word_list_exists = prove(
   ``!temp p curr.
@@ -976,6 +976,7 @@ val word_full_gc_thm = prove(
   ``(full_gc (roots,heap,limit) = (roots1,heap1,a1,T)) /\
     heap_length heap <= dimword (:'a) DIV 2 ** shift_length conf /\
     heap_length heap * (dimindex (:'a) DIV 8) < dimword (:'a) /\
+    conf.len_size + 2 < dimindex (:'a) /\
     (word_heap (curr:'a word) heap conf *
      word_heap new (heap_expand limit) conf * frame) (fun2set (m,dm)) /\
     limit = heap_length heap /\ good_dimindex (:'a) /\
@@ -1067,7 +1068,7 @@ val word_gc_fun_lemma = prove(
   \\ disch_then (qspec_then `emp` mp_tac)
   \\ full_simp_tac(srw_ss())[SEP_CLAUSES]
   \\ discharge_hyps
-  THEN1 (imp_res_tac full_gc_IMP \\ full_simp_tac(srw_ss())[])
+  THEN1 (imp_res_tac full_gc_IMP \\ fs [])
   \\ strip_tac \\ rpt var_eq_tac \\ full_simp_tac(srw_ss())[]
   \\ imp_res_tac full_gc_IMP_LENGTH
   \\ Cases_on `roots2` \\ full_simp_tac(srw_ss())[]

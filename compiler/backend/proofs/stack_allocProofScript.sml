@@ -923,7 +923,7 @@ val word_gc_move_loop_code_thm = prove(
   \\ first_x_assum drule \\ ntac 2 (pop_assum kall_tac) \\ strip_tac
   \\ rpt var_eq_tac \\ fs []
   \\ split_pair_tac \\ fs []
-  \\ Cases_on `word_bit 3 (theWord (s.memory pb1))`
+  \\ Cases_on `word_bit 2 (theWord (s.memory pb1))`
   \\ fs [word_bit_test] THEN1
    (strip_tac
     \\ drule word_gc_move_loop_ok \\ fs [] \\ strip_tac \\ fs []

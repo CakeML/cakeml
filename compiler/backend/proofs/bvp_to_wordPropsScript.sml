@@ -1692,15 +1692,17 @@ val word_payload_def = Define `
           n < 2 ** (conf.len_size + if dimindex (:'a) = 32 then 2 else 3)))`;
 
 val word_payload_T_IMP = store_thm("word_payload_T_IMP",
-  ``word_payload l5 n5 tag r conf = (h,ts,T) ==>
+  ``word_payload l5 n5 tag r conf = (h:'a word,ts,T) /\
+    good_dimindex (:'a) /\ conf.len_size + 2 < dimindex (:'a) ==>
     n5 = LENGTH ts /\
-    if word_bit 3 h then l5 = [] else ts = MAP (word_addr conf) l5``,
+    if word_bit 2 h then l5 = [] else ts = MAP (word_addr conf) l5``,
   Cases_on `tag`
   \\ full_simp_tac(srw_ss())[word_payload_def,make_header_def,
        make_byte_header_def,LET_THM]
   \\ rw [] \\ fs [] \\ fs [word_bit_def]
   \\ rfs [word_or_def,fcpTheory.FCP_BETA,word_lsl_def,wordsTheory.word_index]
-  \\ cheat (* something is wrong here... *));
+  \\ fs [labPropsTheory.good_dimindex_def,fcpTheory.FCP_BETA,
+         word_index] \\ rfs []);
 
 val decode_length_def = Define `
   decode_length conf (w:'a word) = w >>> (dimindex (:'a) - conf.len_size)`;

@@ -71,7 +71,7 @@ val word_gc_move_loop_code_def = Define `
   word_gc_move_loop_code conf =
     While NotEqual 3 (Reg 8)
      (list_Seq [load_inst 7 8;
-                If Test 7 (Imm 8w)
+                If Test 7 (Imm 4w)
                   (list_Seq [right_shift_inst 7 (dimindex (:α) - conf.len_size);
                              add_bytes_in_word_inst 8;
                              word_gc_move_list_code conf])
