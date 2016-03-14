@@ -2383,8 +2383,8 @@ val compile_prog_mods_ok = Q.prove (
 
 val whole_compile_prog_correct = Q.store_thm ("whole_compile_prog_correct",
   `evaluate_prog s env prog = (s',cenv',r) ∧
-   compile_prog (LENGTH s_i1.globals) mods tops prog = (next',mods',tops',prog_i1) ∧
    invariant mods tops env.m env.v s s_i1 s.defined_mods ∧
+   compile_prog (LENGTH s_i1.globals) mods tops prog = (next',mods',tops',prog_i1) ∧
    r ≠ Rerr (Rabort Rtype_error)
    ⇒
     ∃(s'_i1:'a modSem$state) r_i1.
@@ -2420,49 +2420,127 @@ val precondition_def = Define`
     s2.defined_mods = s1.defined_mods ∧
     s2.defined_types = s1.defined_types ∧
     env2.c = env1.c ∧
+    env2.v = [] ∧
     c.next_global = LENGTH s2.globals`;
+
+val SND_eq = Q.prove(
+  `SND x = y ⇔ ∃a. x = (a,y)`,
+  Cases_on`x`\\rw[]);
 
 val compile_correct = Q.store_thm("compile_correct",
   `precondition s1 env1 c s2 env2 ⇒
    ¬semantics_prog s1 env1 prog Fail ⇒
    semantics_prog s1 env1 prog (semantics env2 s2 (SND (compile c prog)))`,
-  (*
-  `∃genv cenv st tids mods. s2 = (genv,cenv,st,tids,mods)` by metis_tac[PAIR] >>
-  srw_tac[][precondition_def,compile_def] >>
-  Cases_on`∃k ffi r.
-            evaluate_prog_with_clock s1 k prog = (ffi,r) ∧
-            r ≠ Rerr (Rabort Rtimeout_error)` >> full_simp_tac(srw_ss())[] >- (
-    full_simp_tac(srw_ss())[semanticsTheory.evaluate_prog_with_clock_def,LET_THM] >>
-    first_assum(split_applied_pair_tac o lhs o concl) >> full_simp_tac(srw_ss())[] >>
-    imp_res_tac functional_evaluate_prog >>
-    (whole_compile_prog_correct
-     |> ONCE_REWRITE_RULE[CONJ_COMM]
-     |> REWRITE_RULE[GSYM AND_IMP_INTRO]
-     |> (fn th => first_x_assum(mp_tac o MATCH_MP th))) >>
-    simp[] >>
-    imp_res_tac invariant_change_clock >>
-    pop_assum(qspec_then`k`strip_assume_tac) >>
-    disch_then(fn th => first_x_assum(mp_tac o MATCH_MP th)) >>
-    simp[] >>
-    discharge_hyps_keep >- (
-      full_simp_tac(srw_ss())[semantics_prog_def] >>
-      first_x_assum(qspec_then`k`mp_tac) >>
-      simp[evaluate_prog_with_clock_def] ) >>
-    strip_tac >>
-    srw_tac[][modSemTheory.semantics_def] >- (
-      full_simp_tac(srw_ss())[modSemTheory.evaluate_prog_with_clock_def] >>
-      cheat (* need determinism of modSem$evaluate_whole_prog *) ) >>
-    DEEP_INTRO_TAC some_intro >>
-    simp[modSemTheory.evaluate_prog_with_clock_def,PULL_EXISTS] >>
-    conj_tac >- (
-      srw_tac[][] >>
-      simp[semanticsTheory.semantics_prog_def] >>
-      simp[semanticsTheory.evaluate_prog_with_clock_def] >>
-      qexists_tac`k`>>simp[] >>
-      cheat ) >>
-    srw_tac[][semantics_prog_def] >>
-    cheat ) >>
-    *)
-  cheat);
+  rw[semantics_prog_def,SND_eq,precondition_def,compile_def]
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ simp[modSemTheory.semantics_def]
+  \\ IF_CASES_TAC \\ fs[SND_eq]
+  >- (
+    fs[semantics_prog_def,SND_eq]
+    \\ first_x_assum(qspec_then`k`mp_tac)
+    \\ simp[]
+    \\ (fn g => subterm (fn tm => Cases_on`^(assert has_pair_type tm)`) (#2 g) g) \\ fs[]
+    \\ spose_not_then strip_assume_tac \\ fs[]
+    \\ fs[evaluate_prog_with_clock_def]
+    \\ split_pair_tac \\ fs[] \\ rw[]
+    \\ drule (GEN_ALL whole_compile_prog_correct)
+    \\ imp_res_tac invariant_change_clock
+    \\ first_x_assum(qspec_then`k`strip_assume_tac)
+    \\ fs[]
+    \\ asm_exists_tac \\ fs[]
+    \\ qmatch_goalsub_abbrev_tac`modSem$evaluate_prog env2'`
+    \\ `env2' = env2`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ fs[]
+    \\ Cases_on`r`\\fs[result_rel_cases] )
+  \\ DEEP_INTRO_TAC some_intro \\ fs[]
+  \\ conj_tac
+  >- (
+    rw[] \\ rw[semantics_prog_def]
+    \\ fs[evaluate_prog_with_clock_def]
+    \\ qexists_tac`k`
+    \\ split_pair_tac \\ fs[]
+    \\ drule (GEN_ALL whole_compile_prog_correct)
+    \\ imp_res_tac invariant_change_clock
+    \\ first_x_assum(qspec_then`k`strip_assume_tac)
+    \\ fs[]
+    \\ disch_then drule \\ fs[]
+    \\ discharge_hyps
+    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
+    \\ qmatch_goalsub_abbrev_tac`modSem$evaluate_prog env2'`
+    \\ `env2' = env2`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ strip_tac
+    \\ fs[invariant_def,s_rel_cases]
+    \\ rveq \\ fs[]
+    \\ every_case_tac \\ fs[]
+    \\ rw[]
+    \\ strip_tac \\ fs[result_rel_cases] )
+  \\ rw[]
+  \\ simp[semantics_prog_def]
+  \\ conj_tac
+  >- (
+    rw[]
+    \\ fs[evaluate_prog_with_clock_def]
+    \\ split_pair_tac \\ fs[]
+    \\ drule (GEN_ALL whole_compile_prog_correct)
+    \\ imp_res_tac invariant_change_clock
+    \\ first_x_assum(qspec_then`k`strip_assume_tac)
+    \\ fs[]
+    \\ disch_then drule \\ fs[]
+    \\ discharge_hyps
+    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
+    \\ qmatch_goalsub_abbrev_tac`modSem$evaluate_prog env2'`
+    \\ `env2' = env2`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ strip_tac
+    \\ first_x_assum(qspec_then`k`mp_tac)
+    \\ rveq \\ fs[]
+    \\ BasicProvers.TOP_CASE_TAC \\ fs[]
+    \\ strip_tac \\ fs[]
+    \\ rveq
+    \\ fs[result_rel_cases]
+    \\ fs[s_rel_cases]
+    \\ last_x_assum(qspec_then`k`mp_tac)
+    \\ simp[]
+    \\ Cases_on`r`\\fs[]
+    \\ Cases_on`a`\\fs[])
+  \\ qmatch_abbrev_tac`lprefix_lub l1 (build_lprefix_lub l2)`
+  \\ `l2 = l1`
+  by (
+    unabbrev_all_tac
+    \\ AP_THM_TAC
+    \\ AP_TERM_TAC
+    \\ simp[FUN_EQ_THM]
+    \\ fs[evaluate_prog_with_clock_def]
+    \\ gen_tac
+    \\ split_pair_tac \\ fs[]
+    \\ AP_TERM_TAC
+    \\ drule (GEN_ALL whole_compile_prog_correct)
+    \\ imp_res_tac invariant_change_clock
+    \\ first_x_assum(qspec_then`k`strip_assume_tac)
+    \\ fs[]
+    \\ disch_then drule \\ fs[]
+    \\ discharge_hyps
+    >- ( rpt(first_x_assum(qspec_then`k`mp_tac))\\fs[] )
+    \\ qmatch_goalsub_abbrev_tac`modSem$evaluate_prog env2'`
+    \\ `env2' = env2`
+    by ( unabbrev_all_tac \\ rw[environment_component_equality])
+    \\ rveq
+    \\ strip_tac
+    \\ fs[]
+    \\ fs[s_rel_cases] )
+  \\ fs[Abbr`l1`,Abbr`l2`]
+  \\ match_mp_tac build_lprefix_lub_thm
+  \\ Ho_Rewrite.ONCE_REWRITE_TAC[GSYM o_DEF]
+  \\ REWRITE_TAC[IMAGE_COMPOSE]
+  \\ match_mp_tac prefix_chain_lprefix_chain
+  \\ simp[prefix_chain_def,PULL_EXISTS]
+  \\ simp[evaluate_prog_with_clock_def]
+  \\ qx_genl_tac[`k1`,`k2`]
+  \\ split_pair_tac \\ fs[]
+  \\ split_pair_tac \\ fs[]
+  \\ metis_tac[funBigStepPropsTheory.evaluate_prog_ffi_mono_clock,LESS_EQ_CASES,FST]);
 
 val _ = export_theory ();
