@@ -290,6 +290,7 @@ in
     ,bvl_to_bviTheory.compile_int_def
     ,bvl_to_bviTheory.compile_exps_def
     ,bvl_to_bviTheory.optimise_def
+    ,bvl_to_bviTheory.init_number_of_globals_def
     ]
 
   (* bvp *)

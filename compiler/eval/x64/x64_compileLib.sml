@@ -11,7 +11,7 @@ open x64DisassembleLib
 val compset = the_compiler_compset
 val () = add_x64_encode_compset compset
 val () = add_asm_compset compset
-val _ = computeLib.add_funs [x64Theory.e_imm32_def,x64Theory.encode_def];
+(*val _ = computeLib.add_thms [] compset;*)
 
 val eval = computeLib.CBV_CONV compset
 
