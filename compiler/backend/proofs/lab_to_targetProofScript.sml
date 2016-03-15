@@ -2417,6 +2417,12 @@ val enc_secs_again_T_IMP = prove(``
   res_tac>>
   fs[])
 
+val lab_lookup_insert = store_thm("lab_lookup_insert",
+  ``lab_lookup l1 l2 (lab_insert k1 k2 pos labs) =
+    if k1 = l1 /\ k2 = l2 then SOME pos else lab_lookup l1 l2 labs``,
+  fs [lab_lookup_def,lab_insert_def,lookup_insert]
+  \\ Cases_on `l1 = k1` \\ fs [lookup_insert] \\ rw []
+  \\ every_case_tac \\ fs [] \\ fs [lookup_def]);
 
 val compute_labels_simp_def = Define`
   (compute_labels_simp pos [] = LN) ∧
@@ -2512,6 +2518,8 @@ val sec_names_compute_labels_simp = prove(``
   rw[compute_labels_simp_def,sec_names_def]>>
   split_pair_tac>>fs[])
 
+(*
+
 val compute_labels_simp_has_label = prove(``
   ∀pos sec_list l1 l2.
   ALL_DISTINCT(sec_names sec_list) ∧
@@ -2533,27 +2541,48 @@ val compute_labels_simp_has_label = prove(``
     IF_CASES_TAC>>fs[]
     >-
       (*should be true because of asm_line_labs*)
-      cheat
+      ...
     >>
     (*probably false*)
-    cheat)
+    ...)
+
+*)
+
+val lab_lookup_sec_labels = prove(
+  ``!lines pos labs l1 l2.
+      lab_lookup l1 l2 (section_labels pos lines labs) =
+      case lab_lookup l1 l2 (section_labels pos lines LN) of
+      | SOME x => SOME x
+      | NONE => lab_lookup l1 l2 labs``,
+  once_rewrite_tac [EQ_SYM_EQ]
+  \\ Induct \\ fs [] \\ fs [section_labels_def]
+  THEN1 (fs [lab_lookup_def,lookup_def])
+  \\ rw [] \\ Cases_on `h`
+  \\ simp_tac std_ss [section_labels_def,lab_lookup_insert]
+  \\ TRY IF_CASES_TAC \\ asm_rewrite_tac [] \\ fs []);
 
 val compute_labels_has_label = prove(
-  ``
-    ALL_DISTINCT(sec_names sec_list) ∧
-    has_label l1 l2 sec_list ==>
-    IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
-  qspecl_then[`pos`,`sec_list`,`LN`]mp_tac compute_labels_simp_EQ
-  \\ rw[CONJUNCT1 wf_def]
+  ``!sec_list pos l1 l2.
+      has_label l1 l2 sec_list ==>
+      IS_SOME (lab_lookup l1 l2 (compute_labels_alt pos sec_list))``,
+  Induct THEN1 (fs [has_label_def])
+  \\ Cases \\ fs [has_label_def] \\ rpt gen_tac
+  \\ Cases_on `l2 = 0` \\ fs [] THEN1
+   (fs [compute_labels_alt_def,LET_THM,lab_lookup_insert]
+    \\ IF_CASES_TAC \\ fs [] \\ rw [] \\ res_tac
+    \\ once_rewrite_tac [lab_lookup_sec_labels]
+    \\ every_case_tac \\ fs [])
+  \\ strip_tac THEN1
+   (fs [compute_labels_alt_def,LET_THM,lab_lookup_insert]
+    \\ once_rewrite_tac [lab_lookup_sec_labels]
+    \\ every_case_tac \\ fs [])
   \\ pop_assum mp_tac
-  \\ pop_assum mp_tac
-  \\ rpt (pop_assum kall_tac)
-  \\ map_every qid_spec_tac [`l2`,`l1`,`sec_list`,`pos`]
-  \\ recInduct (theorem "compute_labels_simp_ind")
-  \\ rpt strip_tac
-  \\ fs [compute_labels_simp_def,lab_lookup_def,lookup_def,has_label_def,sec_names_def]
-  \\ split_pair_tac \\ fs []
-  \\ cheat (* not true if there are multiple sections with the same name *));
+  \\ fs [compute_labels_alt_def,LET_THM,lab_lookup_insert]
+  \\ qspec_tac (`compute_labels_alt (full_sec_length l) sec_list`,`labs`)
+  \\ qspec_tac (`pos`,`pos`)
+  \\ Induct_on `l` \\ fs []
+  \\ Cases \\ fs [section_labels_def,lab_lookup_insert]
+  \\ rw [] \\ fs []);
 
 val loc_to_pc_has_label = prove(
   ``!l1 l2 sec_list.
@@ -2575,10 +2604,9 @@ val loc_to_pc_has_label = prove(
   \\ every_case_tac \\ fs [] \\ metis_tac []);
 
 val IS_SOME_lab_lookup_compute_labels = prove(
-  ``
-    ALL_DISTINCT (sec_names sec_list) ∧
+  ``ALL_DISTINCT (sec_names sec_list) ∧
     IS_SOME (loc_to_pc l1 l2 sec_list) ==>
-    IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
+    IS_SOME (lab_lookup l1 l2 (compute_labels_alt pos sec_list))``,
   metis_tac [compute_labels_has_label,loc_to_pc_has_label]);
 
 (*
@@ -2645,14 +2673,14 @@ val loc_to_pc_comp_thm = prove(
 val lab_lookup_compute_labels_test = prove(
   ``∀l1 l2 sec_list x2 conf enc labs nop pos.
       EVERY (check_lab sec_list)
-        (all_labels (compute_labels 0 sec_list LN)) /\
+        (all_labels (compute_labels_alt 0 sec_list)) /\
       ALL_DISTINCT (sec_names sec_list) /\
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
-      lab_lookup l1 l2 (compute_labels 0 sec_list LN) =
+      lab_lookup l1 l2 (compute_labels_alt 0 sec_list) =
       SOME (pos_val x2 0 sec_list)``,
   fs [EVERY_MEM, FORALL_PROD, MEM_all_labels]
   \\ rw [] \\ fs [IS_SOME_EXISTS,PULL_EXISTS] \\ res_tac
-  \\ Cases_on `lab_lookup l1 l2 (compute_labels 0 sec_list LN)` \\ fs []
+  \\ Cases_on `lab_lookup l1 l2 (compute_labels_alt 0 sec_list)` \\ fs []
   THEN1 (metis_tac [IS_SOME_DEF,IS_SOME_lab_lookup_compute_labels])
   \\ res_tac \\ fs [check_lab_def]
   \\ qpat_assum `!x._` kall_tac \\ rfs [loc_to_pc_comp_thm]);
@@ -2699,7 +2727,7 @@ val remove_labels_loop_thm = Q.prove(
   THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
          \\ res_tac \\ fs [check_lab_def])
   \\ imp_res_tac enc_secs_again_T_IMP \\ fs []
-  \\ qpat_assum `_ = compute_labels 0 sec_list LN` (fn th => fs [GSYM th])
+  \\ qpat_assum `_ = compute_labels_alt 0 sec_list` (fn th => fs [GSYM th])
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs [code_similar_upd_lab_len]
   \\ qpat_assum `_ = SOME x2` (fn th => fs [GSYM th])
@@ -2709,7 +2737,7 @@ val remove_labels_loop_thm = Q.prove(
   \\ imp_res_tac enc_secs_again_IMP_similar
   \\ fs [code_similar_upd_lab_len]
   \\ metis_tac [code_similar_trans]);
-  
+
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
      loc_to_pc l1 l2 (enc_sec_list e code) = loc_to_pc l1 l2 code`,

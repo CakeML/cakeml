@@ -68,6 +68,29 @@ val compute_labels_def = Define `
      let new_pos = pos + full_sec_length lines in
        compute_labels new_pos rest (union aux (insert k labs LN)))`
 
+val lab_insert_def = Define `
+  lab_insert l1 l2 pos labs =
+    insert l1 (insert l2 pos
+      (case lookup l1 labs of
+       | NONE => LN
+       | SOME t => t)) labs`
+
+val section_labels_def = Define `
+  (section_labels pos [] labs = labs) /\
+  (section_labels pos (Label l1 l2 len :: xs) labs =
+     lab_insert l1 l2 pos (section_labels (pos+len) xs labs)) /\
+  (section_labels pos (Asm _ _ len :: xs) labs =
+     section_labels (pos+len) xs labs) /\
+  (section_labels pos (LabAsm _ _ _ len :: xs) labs =
+     section_labels (pos+len) xs labs)`
+
+val compute_labels_alt_def = Define `
+  (compute_labels_alt pos [] = LN) /\
+  (compute_labels_alt pos (Section k lines::rest) =
+    let new_pos = full_sec_length lines in
+    let labs = compute_labels_alt new_pos rest in
+      lab_insert k 0 pos (section_labels pos lines labs))`
+
 (* update code, but not label lengths *)
 
 val find_pos_def = Define `
@@ -296,7 +319,7 @@ val sec_names_def = Define`
 val remove_labels_loop_def = Define `
   remove_labels_loop clock c enc sec_list =
     (* compute labels *)
-    let labs = compute_labels 0 sec_list LN in
+    let labs = compute_labels_alt 0 sec_list in
     (* update encodings and lengths (but not label lengths) *)
     let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
       (* done ==> labs are still fine *)
@@ -304,13 +327,13 @@ val remove_labels_loop_def = Define `
         (* adjust label lengths *)
         let sec_list = upd_lab_len 0 sec_list in
         (* compute labels again *)
-        let labs = compute_labels 0 sec_list LN in
+        let labs = compute_labels_alt 0 sec_list in
         (* update encodings *)
         let (sec_list,done) = enc_secs_again 0 labs enc sec_list in
         (* move label padding into instructions *)
         let sec_list = pad_code (enc (Inst Skip)) sec_list in
         (* compute the labels again, redundant TODO: remove *)
-        let labs2 = compute_labels 0 sec_list LN in
+        let labs2 = compute_labels_alt 0 sec_list in
         (* it ought to be impossible for done to be false here *)
           if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs /\
              EVERY (check_lab sec_list) (all_labels labs) /\

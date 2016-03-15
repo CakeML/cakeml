@@ -551,6 +551,9 @@ in
     ,lab_to_targetTheory.asm_line_labs_def
     ,lab_to_targetTheory.sec_labs_def
     ,lab_to_targetTheory.compute_labels_def
+    ,lab_to_targetTheory.lab_insert_def
+    ,lab_to_targetTheory.section_labels_def
+    ,lab_to_targetTheory.compute_labels_alt_def
     ,lab_to_targetTheory.find_pos_def
     ,lab_to_targetTheory.get_label_def
     ,lab_to_targetTheory.get_jump_offset_def
