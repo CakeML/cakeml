@@ -287,6 +287,10 @@ val all_labels_def = Define `
   all_labels labs =
     FLAT (MAP (\(n,t). MAP (\x. (n, x)) (toAList t)) (toAList labs))`
 
+val sec_names_def = Define`
+  (sec_names [] = []) ∧
+  (sec_names ((Section k _)::xs) = k::sec_names xs)`
+
 (* top-level assembler function *)
 
 val remove_labels_loop_def = Define `
@@ -309,7 +313,8 @@ val remove_labels_loop_def = Define `
         let labs2 = compute_labels 0 sec_list LN in
         (* it ought to be impossible for done to be false here *)
           if done /\ all_enc_ok c enc labs 0 sec_list /\ labs2 = labs /\
-             EVERY (check_lab sec_list) (all_labels labs)
+             EVERY (check_lab sec_list) (all_labels labs) /\
+             ALL_DISTINCT (sec_names sec_list)
           then SOME (sec_list,labs)
           else NONE
       else

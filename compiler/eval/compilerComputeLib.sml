@@ -585,6 +585,7 @@ in
     ,lab_to_targetTheory.find_ffi_index_limit_def
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
+    ,lab_to_targetTheory.sec_names_def
     ]
   (*Everything in backend theory*)
   ; add_thms

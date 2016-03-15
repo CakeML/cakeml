@@ -2417,6 +2417,7 @@ val enc_secs_again_T_IMP = prove(``
   res_tac>>
   fs[])
 
+
 val compute_labels_simp_def = Define`
   (compute_labels_simp pos [] = LN) ∧
   (compute_labels_simp pos (Section k lines::rest) =
@@ -2501,19 +2502,56 @@ val has_label_def = Define `
   (has_label l1 l2 (Section k xs::rest) <=>
      k = l1 /\ l2 = 0 \/
      has_label l1 l2 rest \/
-     ?k. MEM (Label l1 l2 k) xs)`
+     l2 ≠ 0 ∧ ?x. MEM (Label l1 l2 x) xs)`
+
+val sec_names_compute_labels_simp = prove(``
+  ∀n ls x.
+  MEM x (sec_names ls) ⇔
+  x ∈ domain (compute_labels_simp n ls)``,
+  ho_match_mp_tac (theorem "compute_labels_simp_ind")>>
+  rw[compute_labels_simp_def,sec_names_def]>>
+  split_pair_tac>>fs[])
+
+val compute_labels_simp_has_label = prove(``
+  ∀pos sec_list l1 l2.
+  ALL_DISTINCT(sec_names sec_list) ∧
+  has_label l1 l2 sec_list ⇒
+  IS_SOME (lab_lookup l1 l2 (compute_labels_simp pos sec_list))``,
+  ho_match_mp_tac (theorem "compute_labels_simp_ind")>>
+  rw[compute_labels_simp_def,sec_names_def,has_label_def]>>
+  split_pair_tac>>fs[lab_lookup_def,sec_labs_def]>>
+  imp_res_tac asm_line_labs_acc>>
+  fs[lookup_insert]
+  >-
+    (pop_assum(qspecl_then[`pos`,`0n`] assume_tac)>>rfs[])
+  >-
+    (res_tac>>pop_assum mp_tac>>
+    FULL_CASE_TAC>>fs[]>> strip_tac>>
+    IF_CASES_TAC>>fs[]>>
+    metis_tac[domain_lookup,sec_names_compute_labels_simp])
+  >>
+    IF_CASES_TAC>>fs[]
+    >-
+      (*should be true because of asm_line_labs*)
+      cheat
+    >>
+    (*probably false*)
+    cheat)
 
 val compute_labels_has_label = prove(
-  ``has_label l1 l2 sec_list ==>
+  ``
+    ALL_DISTINCT(sec_names sec_list) ∧
+    has_label l1 l2 sec_list ==>
     IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
   qspecl_then[`pos`,`sec_list`,`LN`]mp_tac compute_labels_simp_EQ
   \\ rw[CONJUNCT1 wf_def]
+  \\ pop_assum mp_tac
   \\ pop_assum mp_tac
   \\ rpt (pop_assum kall_tac)
   \\ map_every qid_spec_tac [`l2`,`l1`,`sec_list`,`pos`]
   \\ recInduct (theorem "compute_labels_simp_ind")
   \\ rpt strip_tac
-  \\ fs [compute_labels_simp_def,lab_lookup_def,lookup_def,has_label_def]
+  \\ fs [compute_labels_simp_def,lab_lookup_def,lookup_def,has_label_def,sec_names_def]
   \\ split_pair_tac \\ fs []
   \\ cheat (* not true if there are multiple sections with the same name *));
 
@@ -2528,8 +2566,8 @@ val loc_to_pc_has_label = prove(
    (IF_CASES_TAC \\ fs [has_label_def]
     \\ Cases_on `xs` \\ fs []
     \\ Cases_on `h` \\ fs [is_Label_def]
-    \\ rw [] \\ fs [] THEN1 (metis_tac [])
-    \\ every_case_tac \\ fs [] \\ metis_tac [])
+    \\ rw [] \\ fs []
+    \\ every_case_tac \\ fs [])
   \\ Cases_on `xs` \\ fs []
   \\ strip_tac \\ fs []
   \\ fs [has_label_def]
@@ -2537,7 +2575,9 @@ val loc_to_pc_has_label = prove(
   \\ every_case_tac \\ fs [] \\ metis_tac []);
 
 val IS_SOME_lab_lookup_compute_labels = prove(
-  ``IS_SOME (loc_to_pc l1 l2 sec_list) ==>
+  ``
+    ALL_DISTINCT (sec_names sec_list) ∧
+    IS_SOME (loc_to_pc l1 l2 sec_list) ==>
     IS_SOME (lab_lookup l1 l2 (compute_labels pos sec_list LN))``,
   metis_tac [compute_labels_has_label,loc_to_pc_has_label]);
 
@@ -2606,6 +2646,7 @@ val lab_lookup_compute_labels_test = prove(
   ``∀l1 l2 sec_list x2 conf enc labs nop pos.
       EVERY (check_lab sec_list)
         (all_labels (compute_labels 0 sec_list LN)) /\
+      ALL_DISTINCT (sec_names sec_list) /\
       loc_to_pc l1 l2 sec_list = SOME x2 ==>
       lab_lookup l1 l2 (compute_labels 0 sec_list LN) =
       SOME (pos_val x2 0 sec_list)``,
@@ -2645,11 +2686,9 @@ val remove_labels_loop_thm = Q.prove(
     >> metis_tac [code_similar_trans,code_similar_loc_to_pc])
   \\ split_pair_tac \\ fs []
   \\ rpt var_eq_tac \\ fs []
-  \\ conj_tac
-  THEN1 (match_mp_tac code_similar_pad_code
-         \\ imp_res_tac enc_secs_again_IMP_similar
-         \\ fs [code_similar_upd_lab_len]
-         \\ metis_tac [code_similar_trans,code_similar_sym])
+  \\ conj_asm1_tac
+  THEN1 (imp_res_tac enc_secs_again_IMP_similar \\
+         metis_tac [code_similar_trans,code_similar_sym,code_similar_upd_lab_len,code_similar_pad_code])
   \\ conj_tac THEN1 (match_mp_tac pos_val_0_0 \\ simp[])
   \\ conj_tac THEN1
    (strip_tac
@@ -2670,7 +2709,7 @@ val remove_labels_loop_thm = Q.prove(
   \\ imp_res_tac enc_secs_again_IMP_similar
   \\ fs [code_similar_upd_lab_len]
   \\ metis_tac [code_similar_trans]);
-
+  
 val loc_to_pc_enc_sec_list = Q.store_thm("loc_to_pc_enc_sec_list[simp]",
   `∀l1 l2 code.
      loc_to_pc l1 l2 (enc_sec_list e code) = loc_to_pc l1 l2 code`,
