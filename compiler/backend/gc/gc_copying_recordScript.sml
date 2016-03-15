@@ -705,27 +705,29 @@ val gc_move_list_thm = prove(
              isSomeDataOrForward (heap_lookup ptr state'.heap)) /\
       ((heap_map 0 state.heap) SUBMAP (heap_map 0 state'.heap)) /\
       gc_inv conf state' heap0``,
-
-Induct
-  THEN1 fs [gc_move_list_def,ADDR_MAP_def]
-\\ fs [gc_move_list_def,LET_THM]
-\\ rpt strip_tac
-
-  \\ cheat);
-  (* Induct THEN1 (full_simp_tac std_ss [gc_move_list_def,ADDR_MAP_def,MEM,SUBMAP_REFL]) *)
-  (* \\ full_simp_tac std_ss [MEM,gc_move_list_def,LET_DEF] \\ rpt strip_tac *)
-  (* \\ Q.ABBREV_TAC `x = h` \\ pop_assum (K all_tac) *)
-  (* \\ mp_tac gc_move_thm \\ full_simp_tac std_ss [] *)
-  (* \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 (rw [] \\ fs []) *)
-  (* \\ strip_tac \\ full_simp_tac std_ss [] *)
-  (* \\ first_assum (mp_tac o Q.SPECL [`h23`,`a3`,`n3`,`heap3`,`c3`]) *)
-  (* \\ match_mp_tac IMP_IMP \\ strip_tac THEN1 (rw [] \\ fs [] \\ metis_tac []) *)
-  (* \\ full_simp_tac std_ss [] \\ strip_tac \\ full_simp_tac std_ss [] *)
-  (* \\ imp_res_tac SUBMAP_TRANS \\ full_simp_tac std_ss [] *)
-  (* \\ strip_tac THEN1 *)
-  (*  (Cases_on `x` \\ full_simp_tac (srw_ss()) [ADDR_APPLY_def,ADDR_MAP_def] *)
-  (*   \\ full_simp_tac std_ss [heap_map1_def,SUBMAP_DEF]) *)
-  (* \\ full_simp_tac std_ss [SUBMAP_DEF] \\ metis_tac []); *)
+  Induct
+  THEN1 fs [gc_move_list_def,ADDR_MAP_def,MEM,SUBMAP_REFL]
+  \\ fs [MEM,gc_move_list_def,LET_THM]
+  \\ rpt strip_tac
+  \\ mp_tac gc_move_thm
+  \\ disch_then (mp_tac o Q.SPECL [`h`, `state`])
+  \\ rpt strip_tac
+  \\ rfs []
+  \\ qpat_assum `!state : ('a,'b) gc_state. _` (qspec_then `state'` mp_tac)
+  \\ rpt strip_tac
+  \\ rfs []
+  \\ `∀ptr u. MEM (Pointer ptr u) xs ==> isSomeDataOrForward (heap_lookup ptr state'.heap)` by all_tac
+  THEN1
+    (rpt strip_tac
+    \\ metis_tac [])
+  \\ res_tac
+  \\ qexists_tac `state''`
+  \\ rpt strip_tac
+  THEN1
+    (Cases_on `h`
+    \\ fs [ADDR_APPLY_def,ADDR_MAP_def,SUBMAP_DEF,heap_map1_def])
+  \\ fs [SUBMAP_DEF,heap_map1_def]
+  \\ metis_tac []);
 
 val APPEND_NIL_LEMMA = METIS_PROVE [APPEND_NIL] ``?xs1. xs = xs ++ xs1:'a list``
 
