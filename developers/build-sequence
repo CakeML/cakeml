@@ -16,7 +16,7 @@ compiler/backend
 compiler/targets/asm
 compiler/targets
 compiler/targets/x64/proof
-compiler/targets/arm6
+compiler/targets/arm6/proof
 compiler/targets/arm8
 compiler/targets/mips
 
