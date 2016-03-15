@@ -589,6 +589,7 @@ in
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ,lab_to_targetTheory.sec_names_def
+    ,lab_to_targetTheory.all_enc_ok_def
     ]
   (*Everything in backend theory*)
   ; add_thms

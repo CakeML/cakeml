@@ -87,7 +87,7 @@ val section_labels_def = Define `
 val compute_labels_alt_def = Define `
   (compute_labels_alt pos [] = LN) /\
   (compute_labels_alt pos (Section k lines::rest) =
-    let new_pos = full_sec_length lines in
+    let new_pos = sec_length lines 0 in
     let labs = compute_labels_alt new_pos rest in
       lab_insert k 0 pos (section_labels pos lines labs))`
 
@@ -257,15 +257,16 @@ val pad_section_def = Define `
      pad_section nop (n+len) xs ((Label l1 l2 0)::
      if len = 0 then aux else add_nop (HD nop) aux)) /\
   (pad_section nop n ((Asm x bytes len)::xs) aux =
-     pad_section nop 0 xs (Asm x (pad_bytes bytes len nop) (len+n)::aux)) /\
+     pad_section nop (n+len) xs (Asm x (pad_bytes bytes len nop) len::aux)) /\
   (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
-     pad_section nop 0 xs (LabAsm y w (pad_bytes bytes len nop) (len+n)::aux))`
+     pad_section nop (n+len) xs (LabAsm y w (pad_bytes bytes len nop)
+len::aux))`
+
 
 val pad_code_def = Define `
-  (pad_code nop [] = []) /\
-  (pad_code nop ((Section n xs)::ys) =
-     let f = if EVEN (sec_length xs 0) then I else append_nop (HD nop) in
-       Section n (f (pad_section nop 0 xs [])) :: pad_code nop ys)`
+(pad_code nop [] = []) /\
+(pad_code nop ((Section n xs)::ys) =
+  Section n (pad_section nop 0 xs []) :: pad_code nop ys)`
 
 (* some final checks on the result *)
 
