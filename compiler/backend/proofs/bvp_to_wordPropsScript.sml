@@ -1,6 +1,6 @@
 open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
-     int_bitwiseTheory wordSemTheory bvp_to_wordTheory set_sepTheory labSemTheory
-     whileTheory helperLib alignmentTheory;
+     int_bitwiseTheory wordSemTheory bvp_to_wordTheory set_sepTheory
+     labSemTheory whileTheory helperLib alignmentTheory;
 
 val _ = new_theory "bvp_to_wordProps";
 
@@ -2762,9 +2762,17 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
          LENGTH_write_bytes] \\ rfs []
   THEN1
    (`4 <= 30 - c.len_size` by decide_tac
-    \\ `c.len_size <= 30` by decide_tac \\ pop_assum mp_tac
+    \\ `c.len_size <= 30` by decide_tac
+    \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
     \\ qcase_tac `4n <= k`
+    \\ `15w >>> k = 0w`
+    by (srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+        \\ Cases_on `i + k < 32`
+        \\ simp [wordsTheory.word_index])
+    \\ simp []
+    \\ match_mp_tac lsl_lsr
+    \\ simp [wordsTheory.dimword_def]
     \\ cheat (* word proof, use lsl_lsr thm? *))
   THEN1
    (`4 <= 61 - c.len_size` by decide_tac
@@ -2876,7 +2884,18 @@ val memory_rel_Number_LESS_EQ = store_thm("memory_rel_Number_LESS_EQ",
 val memory_rel_RefPtr_EQ_lemma = prove(
   ``n * 2 ** k < dimword (:'a) /\ m * 2 ** k < dimword (:'a) /\ 0 < k /\
     (n2w n << k || 1w) = (n2w m << k || 1w:'a word) ==> n = m``,
-  cheat (* self-contained word proof *));
+  `!n a b. 0n < n ==> (a * n = b * n) = (a = b)`
+  by (Cases \\ simp [])
+  \\ rw []
+  \\ `(n2w n << k || 1w) = (n2w n << k + 1w)`
+  by (match_mp_tac (GSYM wordsTheory.WORD_ADD_OR)
+      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+  \\ `(n2w m << k || 1w) = (n2w m << k + 1w)`
+  by (match_mp_tac (GSYM wordsTheory.WORD_ADD_OR)
+      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index])
+  \\ fs [addressTheory.word_LSL_n2w]
+  \\ rfs []
+  )
 
 val memory_rel_RefPtr_EQ = store_thm("memory_rel_RefPtr_EQ",
   ``memory_rel c be refs sp st m dm
@@ -2952,13 +2971,82 @@ val word_ml_inv_SP_LIMIT = store_thm("word_ml_inv_SP_LIMIT",
 
 val word_or_eq_0 = prove(
   ``((w || v) = 0w) <=> (w = 0w) /\ (v = 0w)``,
-  fs [fcpTheory.CART_EQ,word_or_def,fcpTheory.FCP_BETA,word_0] \\ metis_tac []);
+  srw_tac [wordsLib.WORD_BIT_EQ_ss] [] \\ metis_tac [])
+
+val lt8 =
+  DECIDE ``(n < 8n) = (n = 0 \/ n = 1 \/ n = 2 \/ n = 3 \/
+                       n = 4 \/ n = 5 \/ n = 6 \/ n = 7)``
 
 val Smallnum_test = prove(
   ``((Smallnum i && -1w ≪ (dimindex (:'a) − 2)) = 0w:'a word) /\
     good_dimindex (:'a) /\ small_int (:'a) i ==>
     ~(i < 0) /\ i < 2 ** (dimindex (:'a) - 4)``,
-  cheat (* self-contained word proof *));
+  Tactical.REVERSE (Cases_on `i`)
+  \\ srw_tac [wordsLib.WORD_MUL_LSL_ss]
+      [Smallnum_def, small_int_def, labPropsTheory.good_dimindex_def,
+       wordsTheory.dimword_def, GSYM wordsTheory.word_mul_n2w]
+  >- (Cases_on `n <= 2n ** dimindex(:'a) DIV 8`
+      \\ simp [wordsTheory.word_2comp_n2w, wordsTheory.dimword_def]
+      \\ Cases_on `dimindex(:'a) = 32`
+      \\ fs []
+      >- (`3758096384 <= 4294967296 - n /\ 4294967296 - n < 4294967296`
+          by decide_tac
+          \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+          \\ qabbrev_tac `x = 4294967296 - n`
+          \\ `BITS 31 29 x = 7`
+          by (imp_res_tac
+                (bitTheory.BITS_ZEROL |> Q.SPEC `31` |> numLib.REDUCE_RULE)
+              \\ fs [bitTheory.BIT_COMP_THM3
+                     |> Q.SPECL [`31`, `28`, `0`] |> numLib.REDUCE_RULE |> GSYM]
+              \\ assume_tac
+                   (bitTheory.BITSLT_THM2
+                    |> Q.SPECL [`28`, `0`, `x`] |> numLib.REDUCE_RULE)
+              \\ assume_tac
+                   (bitTheory.BITSLT_THM
+                    |> Q.SPECL [`31`, `29`, `x`] |> numLib.REDUCE_RULE)
+              \\ fs [lt8]
+             )
+          \\ simp [bitTheory.BIT_OF_BITS_THM
+                   |> Q.SPECL [`0`, `31`, `29`] |> numLib.REDUCE_RULE |> GSYM]
+         )
+      \\ Cases_on `dimindex(:'a) = 64`
+      \\ fs []
+      \\ `16140901064495857664 <= 18446744073709551616 - n /\
+          18446744073709551616 - n < 18446744073709551616`
+      by decide_tac
+      \\ srw_tac [wordsLib.WORD_BIT_EQ_ss] [wordsTheory.word_index]
+      \\ qabbrev_tac `x = 18446744073709551616 - n`
+      \\ `BITS 63 61 x = 7`
+      by (imp_res_tac
+            (bitTheory.BITS_ZEROL |> Q.SPEC `63` |> numLib.REDUCE_RULE)
+          \\ fs [bitTheory.BIT_COMP_THM3
+                 |> Q.SPECL [`63`, `60`, `0`] |> numLib.REDUCE_RULE |> GSYM]
+          \\ assume_tac
+               (bitTheory.BITSLT_THM2
+                |> Q.SPECL [`60`, `0`, `x`] |> numLib.REDUCE_RULE)
+          \\ assume_tac
+               (bitTheory.BITSLT_THM
+                |> Q.SPECL [`63`, `60`, `x`] |> numLib.REDUCE_RULE)
+          \\ fs [lt8]
+         )
+      \\ simp [bitTheory.BIT_OF_BITS_THM
+               |> Q.SPECL [`0`, `63`, `61`] |> numLib.REDUCE_RULE |> GSYM]
+     )
+  \\ full_simp_tac (srw_ss()++wordsLib.WORD_BIT_EQ_ss) [wordsTheory.word_index]
+  \\ rfs [bitTheory.BIT_def, bitTheory.NOT_BITS2]
+  >- (imp_res_tac
+        (bitTheory.BITS_ZEROL |> Q.SPEC `28` |> numLib.REDUCE_RULE |> GSYM)
+      \\ pop_assum SUBST1_TAC
+      \\ simp [bitTheory.BIT_COMP_THM3
+               |> Q.SPECL [`28`, `27`, `0`] |> numLib.REDUCE_RULE |> GSYM,
+               bitTheory.BITSLT_THM2 |> Q.SPEC `27` |> numLib.REDUCE_RULE])
+  >- (imp_res_tac
+        (bitTheory.BITS_ZEROL |> Q.SPEC `60` |> numLib.REDUCE_RULE |> GSYM)
+      \\ pop_assum SUBST1_TAC
+      \\ simp [bitTheory.BIT_COMP_THM3
+               |> Q.SPECL [`60`, `59`, `0`] |> numLib.REDUCE_RULE |> GSYM,
+               bitTheory.BITSLT_THM2 |> Q.SPEC `59` |> numLib.REDUCE_RULE])
+  )
 
 val memory_rel_Add = store_thm("memory_rel_Add",
   ``memory_rel c be refs sp st m dm
