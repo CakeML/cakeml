@@ -91,7 +91,8 @@ val flatten_def = Define `
 
 val prog_to_section_def = Define `
   prog_to_section (n,p) =
-    Section n (FST (flatten p n (next_lab p)))`
+    let (lines,m) = (flatten p n (next_lab p)) in
+    Section n (lines++[Label n m 0])`
 
 val _ = Datatype`config =
   <| reg_names : num num_map

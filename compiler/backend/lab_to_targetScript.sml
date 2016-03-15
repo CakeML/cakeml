@@ -78,7 +78,7 @@ val lab_insert_def = Define `
 val section_labels_def = Define `
   (section_labels pos [] labs = labs) /\
   (section_labels pos (Label l1 l2 len :: xs) labs =
-     lab_insert l1 l2 pos (section_labels (pos+len) xs labs)) /\
+     lab_insert l1 l2 (pos+len) (section_labels (pos+len) xs labs)) /\
   (section_labels pos (Asm _ _ len :: xs) labs =
      section_labels (pos+len) xs labs) /\
   (section_labels pos (LabAsm _ _ _ len :: xs) labs =
@@ -135,7 +135,7 @@ val enc_secs_again_def = Define `
   (enc_secs_again pos labs enc [] = ([],T)) /\
   (enc_secs_again pos labs enc ((Section s lines)::rest) =
      let (lines1,ok) = enc_lines_again labs pos enc lines ([],T) in
-     let pos1 = pos + full_sec_length lines1 in
+     let pos1 = pos + sec_length lines1 0 in
      let (rest1,ok1) = enc_secs_again pos1 labs enc rest in
        ((Section s lines1)::rest1,ok /\ ok1))`
 
@@ -155,7 +155,7 @@ val upd_lab_len_def = Define `
   (upd_lab_len pos [] = []) /\
   (upd_lab_len pos ((Section s lines)::rest) =
      let lines1 = lines_upd_lab_len pos lines [] in
-     let pos1 = pos + full_sec_length lines1 in
+     let pos1 = pos + sec_length lines1 0 in
      let rest1 = upd_lab_len pos1 rest in
        (Section s lines1)::rest1)`
 

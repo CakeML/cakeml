@@ -253,7 +253,7 @@ val to_livesets_def = Define`
   let (c',p) = to_bvp c p in
   let (bvp_conf,word_conf,asm_conf) = (c.bvp_conf,c.word_to_word_conf,c.lab_conf.asm_conf) in
   let p = MAP (compile_part bvp_conf) p in
-  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
+  let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
   let p =
     MAP (λ(name_num,arg_count,prog).
     let maxv = max_var prog + 1 in
