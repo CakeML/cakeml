@@ -88,7 +88,7 @@ val compute_labels_alt_def = Define `
   (compute_labels_alt pos [] = LN) /\
   (compute_labels_alt pos (Section k lines::rest) =
     let new_pos = sec_length lines 0 in
-    let labs = compute_labels_alt new_pos rest in
+    let labs = compute_labels_alt (pos+new_pos) rest in
       lab_insert k 0 pos (section_labels pos lines labs))`
 
 (* update code, but not label lengths *)
@@ -261,7 +261,6 @@ val pad_section_def = Define `
   (pad_section nop n ((LabAsm y w bytes len)::xs) aux =
      pad_section nop (n+len) xs (LabAsm y w (pad_bytes bytes len nop)
 len::aux))`
-
 
 val pad_code_def = Define `
 (pad_code nop [] = []) /\
