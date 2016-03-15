@@ -43,7 +43,8 @@ let
   val add_datatype = basicComputeLib.add_datatype compset
   val add_thms = Lib.C computeLib.add_thms compset
 in
-    add_thms [indexedListsTheory.MAPi_ACC_def]
+    add_thms [indexedListsTheory.MAPi_ACC_def,
+              miscTheory.tlookup_def]
   (*configurations*)
   ; add_datatype``:source_to_mod$config``
   ; add_datatype``:mod_to_con$config``
