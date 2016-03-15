@@ -44,7 +44,7 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
                          <| m := []; c := ([],[]); v := [] |>)
                         prim_types_program``
   |> SIMP_CONV(srw_ss())[interp_add_to_sem_env_def,prim_types_program_def]
-  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset)
+  |> CONV_RULE interp_conv
   |> MATCH_MP interp_add_to_sem_env_thm
   |> (fn th => let
         val pth = SPEC_ALL prim_sem_env_def
@@ -55,7 +55,7 @@ val prim_sem_env_eq = save_thm ("prim_sem_env_eq",
 val basis_sem_env_eq = save_thm ("basis_sem_env_eq",
   ``basis_sem_env``
   |> SIMP_CONV(srw_ss())[basis_sem_env_def,add_to_sem_env_def,basis_program_def, mk_binop_def, mk_unop_def, prim_sem_env_eq]
-  |> CONV_RULE(computeLib.CBV_CONV the_interp_compset));
+  |> CONV_RULE interp_conv);
   *)
 
 
@@ -80,7 +80,7 @@ end;
 
 fun do1_tac t =
   (REWRITE_TAC [Once run_eval_prog_def, run_eval_top_def, Once run_eval_decs_def, run_eval_dec_def] >>
-   CONV_TAC (RAND_CONV (LAND_CONV (CASE_CONV (computeLib.CBV_CONV the_interp_compset)))) >>
+   CONV_TAC (RAND_CONV (LAND_CONV (CASE_CONV interp_conv))) >>
    simp [extend_top_env_def, extend_dec_env_def, combine_dec_result_def, merge_alist_mod_env_def,pmatch_def, pat_bindings_def]) t;
 
 val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
@@ -104,6 +104,6 @@ val basis_sem_env_SOME = Q.store_thm ("basis_sem_env_SOME",
      pop_assum mp_tac >>
      match_mp_tac (METIS_PROVE [] ``~x ⇒ (x ⇒ y)``) >>
      rw [mk_binop_def, mk_unop_def] >>
-     CONV_TAC (computeLib.CBV_CONV the_interp_compset)));
+     CONV_TAC interp_conv));
 
 val _ = export_theory ();

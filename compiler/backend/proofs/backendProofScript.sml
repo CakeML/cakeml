@@ -144,12 +144,12 @@ val code_installed_def = fetch "-" "code_installed_def" |> SPEC_ALL
 
 (* --- composing source-to-target --- *)
 
-val c = compilerComputeLib.the_compiler_compset
-val () = computeLib.add_thms[prim_config_def] c
-val () = computeLib.add_thms[initialProgramTheory.prim_types_program_def] c
+val cnv = computeLib.compset_conv (wordsLib.words_compset())
+  [computeLib.Extenders [compilerComputeLib.add_compiler_compset],
+   computeLib.Defs
+     [prim_config_def, initialProgramTheory.prim_types_program_def]]
 
-val prim_config_eq = save_thm("prim_config_eq",
-  computeLib.CBV_CONV c ``prim_config``);
+val prim_config_eq = save_thm("prim_config_eq", cnv ``prim_config``);
 
 val id_CASE_eq_SOME = Q.prove(
   `id_CASE x f (λa b. NONE) = SOME z ⇔ ∃y. x = Short y ∧ f y = SOME z`,

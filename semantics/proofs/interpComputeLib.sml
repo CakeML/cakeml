@@ -1,13 +1,11 @@
 structure interpComputeLib = struct
-open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory
+open HolKernel boolLib bossLib
+open semanticPrimitivesTheory bigStepTheory interpTheory
 
-  val add_datatype = basicComputeLib.add_datatype
-  fun add_interp_compset compset = let
-    local open interpTheory in
-      val () = semanticsComputeLib.add_ast_compset compset
-
-      val () = add_datatype compset ``:'ffi state``
-      val () = computeLib.add_thms
+  val add_interp_compset = computeLib.extend_compset
+    [computeLib.Extenders [semanticsComputeLib.add_ast_compset]
+    ,computeLib.Tys [``:'ffi state``]
+    ,computeLib.Defs
       [run_eval_def
       ,run_eval_dec_def
       ,run_eval_decs_def
@@ -25,17 +23,11 @@ open HolKernel boolLib bossLib lcsymtacs semanticPrimitivesTheory bigStepTheory
       ,prog_to_top_types_def
       ,extend_top_env_def
       ,extend_dec_env_def
-      ] compset
-    end
-    in
-      ()
-    end
+      ]
+    ]
 
-  val the_interp_compset = let
-    val c = wordsLib.words_compset ()
-    val () = add_interp_compset c
-    in
-      c
-    end
+  val interp_conv = computeLib.compset_conv (wordsLib.words_compset())
+    [computeLib.Extenders
+       [basicComputeLib.add_basic_compset, add_interp_compset]]
 
 end

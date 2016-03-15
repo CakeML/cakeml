@@ -11,15 +11,10 @@ open basicComputeLib
 
 in
 
-fun add_reg_alloc_compset compset =
-let
-  val add_datatype = basicComputeLib.add_datatype compset
-  val add_thms = Lib.C computeLib.add_thms compset
-in
-  add_datatype ``:ra_state``;
-  add_datatype ``:clash_tree``
-  ; add_thms
-    [reg_allocTheory.is_stack_var_def,
+val add_reg_alloc_compset = extend_compset
+  [Tys [``:ra_state``, ``:clash_tree``],
+   Defs
+   [reg_allocTheory.is_stack_var_def,
     reg_allocTheory.undir_move_insert_def,
     reg_allocTheory.reg_alloc_def,
     reg_allocTheory.maybe_flip_def,
@@ -125,23 +120,12 @@ in
     reg_allocTheory.undir_g_insert_def,
     reg_allocTheory.dir_g_insert_def,
     reg_allocTheory.is_alloc_var_def,
-    reg_allocTheory.is_phy_var_def
-    ]
-  (*parmove*)
-  ; add_thms
-    [parmoveTheory.pmov_def
-    ,parmoveTheory.parmove_def
-    ,parmoveTheory.fstep_def
-    ]
-  end
-
-val the_reg_alloc_compset =
-  let
-    val c = basicComputeLib.the_basic_compset
-    val () = add_reg_alloc_compset c
-  in
-    c
-  end
+    reg_allocTheory.is_phy_var_def,
+    (*parmove*)
+    parmoveTheory.pmov_def,
+    parmoveTheory.parmove_def,
+    parmoveTheory.fstep_def
+    ]]
 
 (* unit sptree to ML unit sptree_spt*)
 fun dest_unit_sptree tm =

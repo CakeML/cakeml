@@ -1,14 +1,14 @@
 structure semanticsComputeLib =
 struct
 
-open HolKernel boolLib bossLib lcsymtacs
+open HolKernel boolLib bossLib
+(*
+open astTheory gramTheory semanticPrimitivesTheory terminationTheory
+     lexer_funTheory tokenUtilsTheory cmlPtreeConversionTheory
+*)
 
-  fun add_ast_compset compset =
-  let
-    val add_datatype = basicComputeLib.add_datatype compset
-    val () = basicComputeLib.add_basic_compset compset
-
-    val () = computeLib.add_thms
+val add_ast_compset = computeLib.extend_compset
+  [computeLib.Defs
     [gramTheory.nt_distinct_ths
     ,libTheory.opt_bind_def
     ,terminationTheory.is_value_def
@@ -45,32 +45,28 @@ open HolKernel boolLib bossLib lcsymtacs
     ,astTheory.Tstring_def
     ,astTheory.Tword8_def
     ,astTheory.Tword8array_def
-    ] compset
-    val () = add_datatype ``:MMLnonT``
-    val () = add_datatype ``:ast$top``
-    val () = add_datatype ``:ast$dec``
-    val () = add_datatype ``:ast$pat``
-    val () = add_datatype ``:ast$exp``
-    val () = add_datatype ``:tid_or_exn``
-    val () = add_datatype ``:ast$op``
-    val () = add_datatype ``:ast$lop``
-    val () = add_datatype ``:ast$lit``
-    val () = add_datatype ``:opb``
-    val () = add_datatype ``:opn``
-    val () = add_datatype ``:'a ast$id``
-    val () = add_datatype ``:eq_result``
-    val () = add_datatype ``:ast$tctor``
-    val () = add_datatype ``:'a environment``
-  in
-    ()
-  end
+    ],
+   computeLib.Tys
+    [``:MMLnonT``
+    ,``:ast$top``
+    ,``:ast$dec``
+    ,``:ast$pat``
+    ,``:ast$exp``
+    ,``:tid_or_exn``
+    ,``:ast$op``
+    ,``:ast$lop``
+    ,``:ast$lit``
+    ,``:opb``
+    ,``:opn``
+    ,``:'a ast$id``
+    ,``:eq_result``
+    ,``:ast$tctor``
+    ,``:'a environment``
+    ]]
 
-  fun add_lexparse_compset compset = let
-    val add_datatype = basicComputeLib.add_datatype compset
-
-    local open lexer_funTheory in
-      val () = basicComputeLib.add_basic_compset compset
-      val () = computeLib.add_thms
+val add_lexparse_compset = computeLib.extend_compset
+  [computeLib.Defs
+    let open lexer_funTheory in
       [next_token_def
       ,next_sym_def
       ,token_of_sym_def
@@ -81,11 +77,10 @@ open HolKernel boolLib bossLib lcsymtacs
       ,isAlphaNumPrime_def
       ,is_single_char_symbol_def
       ,processIdent_def
-      ] compset
-    end
-
-    local open tokenUtilsTheory in
-      val () = computeLib.add_thms
+      ]
+    end,
+   computeLib.Defs
+    let open tokenUtilsTheory in
       [isInt_def
       ,isTyvarT_def
       ,destStringT_def
@@ -102,13 +97,14 @@ open HolKernel boolLib bossLib lcsymtacs
       ,isAlphaSym_def
       ,isSymbolT_def
       ,isAlphaT_def
-      ] compset
-    end
-    val () = add_datatype ``:symbol``
-    val () = add_datatype ``:token``
-
-    local open cmlPtreeConversionTheory in
-      val () = computeLib.add_thms
+      ]
+    end,
+   computeLib.Tys
+    [``:symbol``
+    ,``:token``
+    ],
+   computeLib.Defs
+    let open cmlPtreeConversionTheory in
       [tuplify_def
       ,ptree_TopLevelDecs_def
       ,ptree_TopLevelDec_def
@@ -143,18 +139,11 @@ open HolKernel boolLib bossLib lcsymtacs
       ,ptree_OptTypEqn_def
       ,safeTL_def
       ,oHD_def
-      ] compset
+      ]
     end
-    in
-      ()
-    end
+  ]
 
-  val the_semantics_compset = let
-    val c = wordsLib.words_compset ()
-    val () = add_ast_compset c
-    val () = add_lexparse_compset c
-    in
-      c
-    end
+val add_semantics_compset = computeLib.extend_compset
+  [computeLib.Extenders [add_ast_compset, add_lexparse_compset]]
 
 end

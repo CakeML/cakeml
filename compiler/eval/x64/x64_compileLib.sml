@@ -1,19 +1,23 @@
 structure x64_compileLib =
 struct
 
-open HolKernel boolLib bossLib lcsymtacs;
+open HolKernel boolLib bossLib
 open x64_targetLib asmLib;
 open compilerComputeLib;
 open x64DisassembleLib
 
 (* open x64_targetTheory *)
 
-val compset = the_compiler_compset
-val () = add_x64_encode_compset compset
-val () = add_asm_compset compset
-(*val _ = computeLib.add_thms [] compset;*)
+val cmp = wordsLib.words_compset ()
+val () = computeLib.extend_compset
+    [computeLib.Extenders
+      [compilerComputeLib.add_compiler_compset
+      ,x64_targetLib.add_x64_encode_compset
+      ,asmLib.add_asm_compset
+      ]
+    ] cmp
 
-val eval = computeLib.CBV_CONV compset
+val eval = computeLib.CBV_CONV cmp
 
 fun print_asm res =
   let val res = (rand o concl) res
@@ -24,12 +28,14 @@ fun print_asm res =
       |   pad n = (print" ";pad (n-1))
       fun printAsm [] = ()
       |   printAsm (x::xs) = case x of (hex,dis) =>
-          (print hex;pad (maxlen-String.size hex);print dis;print"\n";printAsm xs)
+          ( print hex
+          ; pad (maxlen-String.size hex)
+          ; print dis;print"\n"
+          ; printAsm xs)
       in
         print"Bytes";pad (maxlen -5);print"Instruction\n";
         printAsm dis
       end
-
 
 (*
 open x64_targetTheory lab_to_targetTheory;
