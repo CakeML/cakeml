@@ -3437,7 +3437,7 @@ val assign_thm = Q.prove(
 
 val none = ``NONE:(num # ('a wordLang$prog) # num # num) option``
 
-val compile_correct = store_thm("compile_correct",
+val bvp_compile_correct = store_thm("bvp_compile_correct",
   ``!prog (s:'ffi bvpSem$state) c n l l1 l2 res s1 (t:('a,'ffi)wordSem$state) locs.
       (bvpSem$evaluate (prog,s) = (res,s1)) /\
       res <> SOME (Rerr (Rabort Rtype_error)) /\
@@ -3751,7 +3751,7 @@ val compile_correct_lemma = store_thm("compile_correct_lemma",
         | SOME (Rerr (Rraise v)) => (?v w. res1 = SOME (Exception v w))
         | SOME (Rerr (Rabort e)) => (res1 = SOME TimeOut) /\ t1.ffi = s1.ffi)``,
   rpt strip_tac
-  \\ drule compile_correct \\ full_simp_tac(srw_ss())[]
+  \\ drule bvp_compile_correct \\ full_simp_tac(srw_ss())[]
   \\ disch_then drule \\ full_simp_tac(srw_ss())[comp_def]
   \\ strip_tac
   \\ qexists_tac `t1`
