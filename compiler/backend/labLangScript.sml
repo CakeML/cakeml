@@ -35,7 +35,6 @@ val () = Datatype `
 
 (* A full assembly program consists of a list of sections. *)
 
-(* TODO: this needs to be copied elsewhere until HOL issue #168 is closed *)
-val () = Parse.temp_type_abbrev ("prog", ``:('a sec) list``);
+val () = Parse.type_abbrev ("prog", ``:('a sec) list``);
 
 val _ = export_theory();

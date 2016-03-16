@@ -3,9 +3,6 @@ local open alignmentTheory targetSemTheory in end;
 
 val _ = new_theory"labSem";
 
-(* TODO: awaiting HOL issue #168 *)
-val () = Parse.temp_type_abbrev ("prog", ``:('a labLang$sec) list``);
-
 val _ = Datatype `
   word8_loc = Byte word8 | LocByte num num num`;
 
