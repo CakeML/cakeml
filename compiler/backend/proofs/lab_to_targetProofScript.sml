@@ -2149,8 +2149,6 @@ val code_similar_pad_code = Q.store_thm("code_similar_pad_code",
   >> Cases >> simp[code_similar_def]
   >> Cases_on`h` >> simp[code_similar_def,pad_code_def]
   >> strip_tac >> rveq >>
-  IF_CASES_TAC>>fs[]>>
-  TRY(match_mp_tac line_similar_append_nop)>>
   match_mp_tac line_similar_pad_section>>
   simp[]);
 
@@ -2402,6 +2400,7 @@ val enc_lines_again_T_IMP = prove(``
   imp_res_tac enc_lines_again_simp_lemma>>
   fs[sec_labs_def,full_sec_length_def])
 
+(*
 val enc_secs_again_T_IMP = prove(``
   ∀pos code enc labs sec_list acc.
   enc_secs_again pos labs enc code = (sec_list,T) ⇒
@@ -2415,7 +2414,10 @@ val enc_secs_again_T_IMP = prove(``
   imp_res_tac enc_lines_again_T_IMP>>
   fs[]>>
   res_tac>>
+  fs[full_sec_length_def,]
+  metis_tac[]
   fs[])
+*)
 
 val lab_lookup_insert = store_thm("lab_lookup_insert",
   ``lab_lookup l1 l2 (lab_insert k1 k2 pos labs) =
@@ -2578,7 +2580,7 @@ val compute_labels_has_label = prove(
     \\ every_case_tac \\ fs [])
   \\ pop_assum mp_tac
   \\ fs [compute_labels_alt_def,LET_THM,lab_lookup_insert]
-  \\ qspec_tac (`compute_labels_alt (full_sec_length l) sec_list`,`labs`)
+  \\ qspec_tac (`compute_labels_alt (pos + sec_length l 0) sec_list`,`labs`)
   \\ qspec_tac (`pos`,`pos`)
   \\ Induct_on `l` \\ fs []
   \\ Cases \\ fs [section_labels_def,lab_lookup_insert]
@@ -2726,7 +2728,7 @@ val remove_labels_loop_thm = Q.prove(
   \\ rw []
   THEN1 (fs [EVERY_MEM,MEM_all_labels,FORALL_PROD]
          \\ res_tac \\ fs [check_lab_def])
-  \\ imp_res_tac enc_secs_again_T_IMP \\ fs []
+  \\ fs []
   \\ qpat_assum `_ = compute_labels_alt 0 sec_list` (fn th => fs [GSYM th])
   \\ fs [] \\ match_mp_tac (lab_lookup_compute_labels_test |> GEN_ALL)
   \\ fs [code_similar_upd_lab_len]

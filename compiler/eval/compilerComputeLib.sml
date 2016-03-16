@@ -58,7 +58,8 @@ val add_compiler_compset = computeLib.extend_compset
     ]
   ,computeLib.Defs
     [ (* ---- source_to_mod ---- *)
-      source_to_modTheory.compile_prog_def
+     miscTheory.tlookup_def (* not sure if this is needed *)
+    ,source_to_modTheory.compile_prog_def
     ,source_to_modTheory.compile_top_def
     ,source_to_modTheory.compile_decs_def
     ,source_to_modTheory.compile_dec_def
@@ -554,6 +555,7 @@ val add_compiler_compset = computeLib.extend_compset
     ,lab_to_targetTheory.compile_lab_def
     ,lab_to_targetTheory.compile_def
     ,lab_to_targetTheory.sec_names_def
+    ,lab_to_targetTheory.all_enc_ok_def
       (* ---- Everything in backend theory ---- *)
     ,backendTheory.to_mod_def
     ,backendTheory.to_target_def

@@ -704,10 +704,28 @@ val inst_select_thm = store_thm("inst_select_thm",``
     pop_assum(qspec_then`loc` assume_tac)>>rev_full_simp_tac(srw_ss())[]>>
     simp[state_component_equality])
   >-
-    (full_simp_tac(srw_ss())[evaluate_def]>>ntac 4 (pop_assum mp_tac)>>ntac 4 FULL_CASE_TAC>>
-    full_simp_tac(srw_ss())[every_var_def]>>
-    srw_tac[][]>> imp_res_tac locals_rel_get_var>>
-    imp_res_tac locals_rel_get_var_imm>>full_simp_tac(srw_ss())[GSYM AND_IMP_INTRO,every_var_def])
+    (TOP_CASE_TAC>>TRY(IF_CASES_TAC)>>fs[evaluate_def]>>
+    qpat_assum`A=(res,rst)` mp_tac>>
+    fs[get_var_imm_def]
+    >-
+      (ntac 4(TOP_CASE_TAC>>fs[])>>
+      fs[every_var_def,every_var_imm_def]>>
+      srw_tac[][]>> imp_res_tac locals_rel_get_var>>
+      fs[GSYM AND_IMP_INTRO,every_var_def])
+    >-
+      (ntac 3(TOP_CASE_TAC>>fs[])>>
+      fs[every_var_def,every_var_imm_def]>>
+      srw_tac[][]>> imp_res_tac locals_rel_get_var>>
+      fs[GSYM AND_IMP_INTRO,every_var_def])
+    >-
+      (ntac 2(TOP_CASE_TAC>>fs[])>>
+      fs[inst_def,assign_def,word_exp_def]>>
+      imp_res_tac locals_rel_get_var>>fs[every_var_def,every_var_imm_def]>>
+      rfs[get_var_def,set_var_def,lookup_insert]>>
+      rw[]>>
+      fs[AND_IMP_INTRO,every_var_def]>>
+      first_assum match_mp_tac>>
+      fs[locals_rel_def,lookup_insert]))
   >>
     imp_res_tac locals_rel_evaluate_thm>>
     ntac 14 (pop_assum kall_tac)>>
@@ -801,7 +819,7 @@ val inst_select_flat_exp_conventions = prove(``
 
 (*Less restrictive version of inst_ok guaranteed by inst_select*)
 (*Note: We carry the assumption that 0 addr offsets are allowed by the config*)
-
+(*Note: Need to do more for Ifs*)
 val inst_ok_less_def = Define`
   (inst_ok_less (c:'a asm_config) (Arith (Binop b r1 r2 (Imm w)))=
     c.valid_imm (INL b) w) ∧

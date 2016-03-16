@@ -204,7 +204,16 @@ val inst_select_def = Define`
   (inst_select c temp (MustTerminate n p1) =
     MustTerminate n (inst_select c temp p1)) ∧
   (inst_select c temp (If cmp r1 ri c1 c2) =
-    If cmp r1 ri (inst_select c temp c1) (inst_select c temp c2)) ∧
+    case ri of
+      Imm w =>
+      if c.valid_imm (INR cmp) w
+      then
+        If cmp r1 (Imm w) (inst_select c temp c1) (inst_select c temp c2)
+      else
+        Seq (Inst (Const temp w))
+        (If cmp r1 (Reg temp) (inst_select c temp c1) (inst_select c temp c2))
+    | Reg r =>
+      If cmp r1 (Reg r) (inst_select c temp c1) (inst_select c temp c2)) ∧
   (inst_select c temp (Call ret dest args handler) =
     let retsel =
       case ret of

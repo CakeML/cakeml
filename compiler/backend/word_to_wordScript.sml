@@ -41,7 +41,7 @@ val next_n_oracle_def = Define`
 
 val compile_def = Define `
   compile word_conf (asm_conf:'a asm_config) progs =
-    let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - 4) in
+    let (two_reg_arith,reg_count) = (asm_conf.two_reg_arith, asm_conf.reg_count - (5+LENGTH asm_conf.avoid_regs)) in
     let (n_oracles,col) = next_n_oracle (LENGTH progs) word_conf.col_oracle in
     let progs = ZIP (progs,n_oracles) in
     (col,MAP (full_compile_single two_reg_arith reg_count word_conf.reg_alg asm_conf) progs)`

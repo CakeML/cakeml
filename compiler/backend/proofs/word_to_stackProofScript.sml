@@ -7016,13 +7016,13 @@ val compile_word_to_stack_IMP_ALOOKUP = prove(
 
 val compile_semantics = store_thm("compile_semantics",
   ``(t:(α,'ffi)stackSem$state).code = fromAList (SND (compile asm_conf code)) /\
-    init_state_ok (asm_conf.reg_count - 4) t /\ (ALOOKUP code 5 = NONE) /\
+    init_state_ok (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) t /\ (ALOOKUP code 5 = NONE) /\
     (FST (compile asm_conf code)).bitmaps ≼ t.bitmaps /\
-    EVERY (λn,m,prog. flat_exp_conventions prog /\ post_alloc_conventions (asm_conf.reg_count -4) prog) code /\
+    EVERY (λn,m,prog. flat_exp_conventions prog /\ post_alloc_conventions (asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)) prog) code /\
     semantics (make_init t (fromAList code)) start <> Fail ==>
     semantics start t IN
     extend_with_resource_limit {semantics (make_init t (fromAList code)) start}``,
-  qabbrev_tac `k = asm_conf.reg_count - 4`
+  qabbrev_tac `k = asm_conf.reg_count - (5 + LENGTH asm_conf.avoid_regs)`
   \\ rw [compile_def] \\ match_mp_tac (GEN_ALL init_state_ok_semantics)
   \\ qexists_tac `k` \\ fs []
   \\ fs [compile_word_to_stack_def,lookup_fromAList,LET_THM] \\ rw [] \\ fs []
