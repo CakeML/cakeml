@@ -12,7 +12,93 @@ val _ = new_theory"compilerProof";
 val with_same_clock = Q.store_thm("with_same_clock",
   `(st:'ffi semanticPrimitives$state) with clock := st.clock = st`,
   rw[semanticPrimitivesTheory.state_component_equality])
+
+val prim_tdecs_def = Define
+  `prim_tdecs =
+    <|defined_mods := {};
+      defined_exns :=
+        {Short"Subscript"
+        ;Short"Div"
+        ;Short"Chr"
+        ;Short"Bind"};
+      defined_types :=
+        {Short"option"
+        ;Short"list"
+        ;Short"bool"}|>`;
+
+val prim_tenv_def = Define`
+  prim_tenv = <|c := ([],[]); m := FEMPTY; v := Empty; t := (FEMPTY,FEMPTY)|>`;
+
+val prim_type_sound_invariants = Q.store_thm("prim_type_sound_invariants",
+  `(sem_st,sem_env) = THE (prim_sem_env ffi) ⇒
+   type_sound_invariants (NONE:(unit,v) semanticPrimitives$result option) (prim_tdecs,prim_tenv,sem_st,sem_env)`,
+  rw[typeSoundInvariantsTheory.type_sound_invariants_def,
+     initSemEnvTheory.prim_sem_env_eq,prim_tdecs_def,prim_tenv_def]
+  \\ EVAL_TAC \\ simp[]
+  \\ simp[RES_FORALL]
+  \\ srw_tac[DNF_ss][]
+  \\ simp[FEVERY_ALL_FLOOKUP,
+          typeSoundInvariantsTheory.tenv_tabbrev_ok_def,
+          typeSoundInvariantsTheory.flat_tenv_tabbrev_ok_def]
+  \\ qexists_tac`FEMPTY |++ [
+      (("Bind",TypeExn (Short "Bind")) , ([],[]));
+      (("Chr",TypeExn (Short "Chr")) , ([],[]));
+      (("Div",TypeExn (Short "Div")) , ([],[]));
+      (("Subscript",TypeExn (Short "Subscript")) , ([],[]));
+      (("nil",TypeId (Short "list")) , (["'a"],[]));
+      (("::",TypeId (Short "list")) , (["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))]));
+      (("true",TypeId (Short "bool")) , ([],[]));
+      (("false",TypeId (Short "bool")) , ([],[]));
+      (("SOME",TypeId (Short "option")), (["'a"],[Tvar "'a"]));
+      (("NONE",TypeId (Short "option")), (["'a"],[]))]`
+  \\ EVAL_TAC \\ simp[]
+  \\ srw_tac[DNF_ss][]
+  \\ simp[Once typeSoundInvariantsTheory.type_v_cases]
+  \\ simp[Once typeSoundInvariantsTheory.type_v_cases]
+  \\ qexists_tac`FEMPTY` \\ simp[]
+  \\ qexists_tac`prim_tdecs`
+  \\ simp[prim_tdecs_def]
+  \\ qexists_tac`([],[
+       ("false",[],[],TypeId(Short"bool"));
+       ("true",[],[],TypeId(Short"bool"));
+       ("::",["'a"],[Tvar "'a"; Tapp [Tvar "'a"] (TC_name (Short "list"))],TypeId(Short "list"));
+       ("nil",["'a"],[],TypeId(Short "list"));
+       ("Subscript",[],[],TypeExn (Short "Subscript"));
+       ("Div",[],[],TypeExn (Short "Div"));
+       ("Chr",[],[],TypeExn (Short "Chr"));
+       ("Bind",[],[],TypeExn (Short "Bind"));
+       ("NONE",["'a"],[],TypeId (Short "option"));
+       ("SOME",["'a"],[Tvar "'a"],TypeId (Short "option"))])`
+  \\ rw[UNCURRY]
+  \\ EVAL_TAC \\ rw[]
+  \\ TRY (
+    qmatch_abbrev_tac`_ ≠ SOME _`
+    \\ BasicProvers.TOP_CASE_TAC
+    \\ rw[] \\ fs[])
+  \\ rw[SUBSET_DEF] \\ fs[GSPECIFICATION]
+  \\ Cases_on`cn` \\ fs[] \\ EVAL_TAC \\ rw[]);
+
+(* the other semantics maybe should be renamed? *)
+val semantics_init_def = Define`
+  semantics_init ffi =
+    semantics <| sem_st := FST(THE (prim_sem_env ffi));
+                 sem_env := SND(THE (prim_sem_env ffi));
+                 tdecs := prim_tdecs;
+                 tenv := prim_tenv |>`;
+
+(* the real code_installed should do this? *)
+val code_installed_cc_def = Define`
+  code_installed_cc (a,b,c,d,e,f) = code_installed (a,b.backend_config,c,d,e,f)`;
 (* -- *)
+
+val config_ok_def = Define`
+  config_ok (cc:α compiler$config) ⇔
+    env_rel prim_tenv cc.inferencer_config.inf_env ∧
+    prim_tdecs = convert_decls cc.inferencer_config.inf_decls ∧
+    cc.backend_config.source_conf = (prim_config:α backend$config).source_conf ∧
+    cc.backend_config.mod_conf = (prim_config:α backend$config).mod_conf ∧
+    cc.backend_config.clos_conf = (prim_config:α backend$config).clos_conf ∧
+    good_dimindex (:α)`;
 
 val initial_condition_def = Define`
   initial_condition (st:'ffi top_state) (cc:α compiler$config) ⇔
@@ -111,7 +197,7 @@ val infertype_prog_correct = Q.store_thm("infertype_prog_correct",
   \\ disch_then(qspec_then`init_infer_state`mp_tac)
   \\ strip_tac \\ fs[]);
 
-val compile_correct = Q.store_thm("compile_correct",
+val compile_correct_gen = Q.store_thm("compile_correct_gen",
   `∀(st:'ffi top_state) (cc:α compiler$config) prelude input.
     initial_condition st cc ⇒
     case compiler$compile cc prelude input of
@@ -178,5 +264,32 @@ val compile_correct = Q.store_thm("compile_correct",
   \\ rpt gen_tac \\ strip_tac
   \\ imp_res_tac determTheory.prog_determ
   \\ fs[]);
+
+val compile_correct = Q.store_thm("compile_correct",
+  `∀(ffi:'ffi ffi_state) prelude input (cc:α compiler$config).
+    config_ok cc ⇒
+    case compiler$compile cc prelude input of
+    | Failure ParseError => semantics_init ffi prelude input = CannotParse
+    | Failure TypeError => semantics_init ffi prelude input = IllTyped
+    | Failure CompileError => T (* see theorem about to_lab to avoid CompileError *)
+    | Success (bytes,ffi_limit) =>
+      ∃behaviours.
+        (semantics_init ffi prelude input = Execute behaviours) ∧
+        ∀mc ms.
+          code_installed_cc (bytes,cc,ffi,ffi_limit,mc,ms) ⇒
+            machine_sem mc ffi ms ⊆
+              extend_with_resource_limit behaviours
+              (* see theorem about to_bvp to avoid extend_with_resource_limit *)`,
+  rw[semantics_init_def]
+  \\ qmatch_goalsub_abbrev_tac`semantics$semantics st`
+  \\ `(FST(THE(prim_sem_env ffi))).ffi = ffi` by simp[initSemEnvTheory.prim_sem_env_eq]
+  \\ Q.ISPEC_THEN`st`mp_tac compile_correct_gen
+  \\ fs[Abbr`st`,code_installed_cc_def]
+  \\ disch_then match_mp_tac
+  \\ fs[initial_condition_def,config_ok_def]
+  \\ qpat_assum`prim_tdecs = _`(SUBST1_TAC o SYM)
+  \\ Cases_on`THE (prim_sem_env ffi)`
+  \\ match_mp_tac prim_type_sound_invariants
+  \\ simp[] );
 
 val _ = export_theory();
