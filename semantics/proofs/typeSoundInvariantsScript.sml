@@ -486,7 +486,6 @@ val _ = Define `
 ((FLOOKUP ctMap ("Bind", TypeExn (Short "Bind")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Chr", TypeExn (Short "Chr")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Div", TypeExn (Short "Div")) = SOME ([],[])) /\
-  (FLOOKUP ctMap ("Eq", TypeExn (Short "Eq")) = SOME ([],[])) /\
   (FLOOKUP ctMap ("Subscript", TypeExn (Short "Subscript")) = SOME ([],[]))))`;
 
 
@@ -580,7 +579,7 @@ val _ = Define `
 ((case r of
        Rval (new_mods, new_vals) =>
          (union_decls decls1' decls1,
-          <| t := (merge_mod_env tenvT' tenv.t); 
+          <| t := (merge_mod_env tenvT' tenv.t);
              m := (FUNION tenvM' tenv.m);
              c := (merge_alist_mod_env tenvC' tenv.c);
              v := (bind_var_list2 tenv' tenv.v) |>,

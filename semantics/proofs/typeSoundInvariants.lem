@@ -534,7 +534,6 @@ let ctMap_has_exns ctMap =
   (Map.lookup ("Bind", TypeExn (Short "Bind")) ctMap = Just ([],[])) &&
   (Map.lookup ("Chr", TypeExn (Short "Chr")) ctMap = Just ([],[])) &&
   (Map.lookup ("Div", TypeExn (Short "Div")) ctMap = Just ([],[])) &&
-  (Map.lookup ("Eq", TypeExn (Short "Eq")) ctMap = Just ([],[])) &&
   (Map.lookup ("Subscript", TypeExn (Short "Subscript")) ctMap = Just ([],[]))
 
 (* The global constructor type environment has the list primitives in it *)
@@ -612,7 +611,7 @@ let update_type_sound_inv ((decls1:decls),(tenv:type_environment),(st:state 'ffi
   match r with
      | Rval (new_mods, new_vals) ->
          (union_decls decls1' decls1,
-          <| t = merge_mod_env tenvT' tenv.t; 
+          <| t = merge_mod_env tenvT' tenv.t;
              m = Map.(union) tenvM' tenv.m;
              c = merge_alist_mod_env tenvC' tenv.c;
              v = bind_var_list2 tenv' tenv.v |>,
