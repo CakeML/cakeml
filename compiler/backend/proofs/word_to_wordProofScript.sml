@@ -12,7 +12,7 @@ val is_phy_var_tac =
     metis_tac[arithmeticTheory.MOD_EQ_0];
 
 (*Chains up compile_single theorems*)
-val compile_single_lem = prove(``
+val compile_single_lem = store_thm("compile_single_lem",``
   ∀prog n st.
   domain st.locals = set(even_list n)
   ⇒
