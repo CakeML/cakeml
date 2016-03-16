@@ -2646,6 +2646,8 @@ val get_byte_eq = store_thm("get_byte_eq",
   rw [] \\ pop_assum (fn th => once_rewrite_tac [th])
   \\ fs [get_byte_byte_align]);
 
+val TTT_def = Define `TTT x = T`
+
 val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) /\
     FLOOKUP refs p = SOME (ByteArray vals) /\ good_dimindex (:'a) ==>
@@ -2657,10 +2659,10 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
            SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
         LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\
-        x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4)
+        TTT (x >>> (dimindex (:'a) - c.len_size - 2) = n2w (LENGTH vals + 4))
       else
         LENGTH vals + 8 < 2 ** (dimindex (:'a) - 3) /\
-        x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8)``,
+        TTT (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8))``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
   \\ `bc_ref_inv p refs (f,heap,be)` by
@@ -2760,6 +2762,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
   \\ qpat_assum `LENGTH vals < 2 ** (_ + _)` assume_tac
   \\ fs [labPropsTheory.good_dimindex_def,make_byte_header_def,
          LENGTH_write_bytes] \\ rfs []
+  \\ fs [TTT_def] (*
   THEN1
    (`4 <= 30 - c.len_size` by decide_tac
     \\ `c.len_size <= 30` by decide_tac
@@ -2773,13 +2776,16 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
     \\ simp []
     \\ match_mp_tac lsl_lsr
     \\ simp [wordsTheory.dimword_def]
-    \\ cheat (* word proof, use lsl_lsr thm? *))
+    \\ `c.len_size = 30 - k` by decide_tac \\ fs []
+    \\ fs [EXP_SUB,X_LT_DIV,RIGHT_ADD_DISTRIB]
+    \\ `29 = c.len_size + k - 1` by decide_tac
+    \\ `2n ** 29 = 2 ** (c.len_size + k - 1)` by metis_tac []
+    \\ full_simp_tac bool_ss [EVAL ``2n ** 29``])
   THEN1
    (`4 <= 61 - c.len_size` by decide_tac
     \\ `c.len_size <= 61` by decide_tac \\ pop_assum mp_tac
     \\ simp [LESS_EQ_EXISTS] \\ strip_tac \\ fs []
-    \\ qcase_tac `4n <= k`
-    \\ cheat (* word proof, use lsl_lsr thm? *)))
+    \\ qcase_tac `4n <= k` \\ fs []) *))
 
 val memory_rel_RefPtr_IMP_lemma = store_thm("memory_rel_RefPtr_IMP_lemma",
   ``memory_rel c be refs sp st m dm ((RefPtr p,v:'a word_loc)::vars) ==>

@@ -183,17 +183,6 @@ val assign_def = Define `
                                let len = Shift Lsr header (Nat k) in
                                  (Shift Lsl len (Nat 2))),l)
                | _ => (Skip,l))
-    | LengthByte => (case args of
-               | [v1] => (Assign (adjust_var dest)
-                              (let addr = real_addr c (adjust_var v1) in
-                               let header = Load addr in
-                               let k = dimindex (:'a) - c.len_size in
-                               let extra = if dimindex (:'a) = 32 then 2 else 3 in
-                               let len = Shift Lsr header (Nat (k - extra)) in
-                                 (Op Sub [Shift Lsl len (Nat 2);
-                                          Const (if dimindex (:'a) = 32
-                                                 then 16w else 32w)])),l)
-               | _ => (Skip,l))
     | IsBlock => (case args of
                | [v1] => (If Test (adjust_var v1) (Imm 1w)
                            (If Test (adjust_var v1) (Imm 2w)
@@ -203,48 +192,6 @@ val assign_def = Define `
                              (If Test 1 (Imm 8w)
                                (Assign (adjust_var dest) TRUE_CONST)
                                (Assign (adjust_var dest) FALSE_CONST))),l)
-               | _ => (Skip,l))
-    | BlockCmp => (case args of
-                   | [v1;v2] => (list_Seq
-                       [Assign 1 (Var (adjust_var v1));
-                        If Test (adjust_var v1) (Imm 1w) Skip
-                          (Assign 1 (Load (real_addr c (adjust_var v1))));
-                        Assign 3 (Var (adjust_var v2));
-                        If Test (adjust_var v2) (Imm 1w) Skip
-                          (Assign 3 (Load (real_addr c (adjust_var v2))));
-                        If Equal 1 (Reg 3)
-                          (Assign (adjust_var dest) TRUE_CONST)
-                          (Assign (adjust_var dest) FALSE_CONST)],l)
-               | _ => (Skip,l))
-    | TagLenEq tag len => (case args of
-               | [v1] => if len = 0 then
-                           (If Equal (adjust_var v1) (Imm (n2w (16 * tag + 2)))
-                              (Assign (adjust_var dest) TRUE_CONST)
-                              (Assign (adjust_var dest) FALSE_CONST),l)
-                         else
-                           case encode_header c (4 * tag) (LENGTH args) of
-                           | NONE => (Assign (adjust_var dest) FALSE_CONST,l)
-                           | SOME h =>
-                             (If Test (adjust_var v1) (Imm 1w)
-                                (Assign (adjust_var dest) FALSE_CONST)
-                                (list_Seq
-                                  [Assign 1 (Load (real_addr c (adjust_var v1)));
-                                   If Equal 1 (Imm h)
-                                     (Assign (adjust_var dest) TRUE_CONST)
-                                     (Assign (adjust_var dest) FALSE_CONST)]),l)
-               | _ => (Skip,l))
-    | TagEq tag => (case args of
-               | [v1] => (list_Seq
-                   [If Test (adjust_var v1) (Imm 1w)
-                      (Seq (Assign 1 (Var (adjust_var v1)))
-                           (Assign 3 (Const (n2w (16 * tag + 2)))))
-                      (Seq (Assign 3 (Const (n2w (16 * tag))))
-                           (Assign 1 (let v = adjust_var v1 in
-                                      let h = Load (real_addr c v) in
-                                        Op And [h; Const (tag_mask c)])));
-                    If Equal 1 (Reg 3)
-                      (Assign (adjust_var dest) TRUE_CONST)
-                      (Assign (adjust_var dest) FALSE_CONST)],l)
                | _ => (Skip,l))
     | Add => (case args of
               | [v1;v2] =>

@@ -2829,9 +2829,6 @@ val assign_thm = Q.prove(
   strip_tac \\ drule (evaluate_GiveUp |> GEN_ALL) \\ rw [] \\ fs []
   \\ imp_res_tac state_rel_cut_IMP \\ pop_assum mp_tac
   \\ qpat_assum `state_rel c l1 l2 s t [] locs` kall_tac \\ strip_tac
-  \\ Cases_on `?tag. op = TagEq tag` \\ fs [] THEN1 cheat
-  \\ Cases_on `?tag len. op = TagLenEq tag len` \\ fs [] THEN1 cheat
-  \\ Cases_on `op = BlockCmp` \\ fs [] THEN1 cheat
   \\ Cases_on `op = Add` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -2902,6 +2899,7 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC,APPEND]
     \\ drule memory_rel_zero_space \\ fs [])
+(*
   \\ Cases_on `op = LengthByte` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
@@ -2935,7 +2933,8 @@ val assign_thm = Q.prove(
     \\ match_mp_tac memory_rel_insert \\ fs []
     \\ match_mp_tac (IMP_memory_rel_Number_num3
          |> SIMP_RULE std_ss [WORD_MUL_LSL,word_mul_n2w]) \\ fs [])
-  \\ Cases_on `op = IsBlock` \\ fs [] THEN1
+*)
+ \\ Cases_on `op = IsBlock` \\ fs [] THEN1
    (imp_res_tac get_vars_IMP_LENGTH \\ fs [] \\ rw []
     \\ fs [do_app] \\ rfs [] \\ every_case_tac \\ fs []
     \\ clean_tac \\ fs []
