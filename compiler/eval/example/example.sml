@@ -77,18 +77,14 @@ val remove_labels_loop_nc_def = Define `
         if clock = 0:num then NONE else
           remove_labels_loop_nc (clock-1) c enc sec_list`
 
-val cmp = wordsLib.words_compset ()
-val () = computeLib.extend_compset
+val eval = computeLib.compset_conv (wordsLib.words_compset())
     [computeLib.Extenders
       [compilerComputeLib.add_compiler_compset
       ,x64_targetLib.add_x64_encode_compset
       ,asmLib.add_asm_compset
-      ]
-    ] cmp
-
-val _ = computeLib.add_thms [remove_labels_loop_nc_def] cmp;
-
-val eval = computeLib.CBV_CONV cmp
+      ],
+     computeLib.Defs [remove_labels_loop_nc_def]
+    ]
 
 (*to_bytes without the final check*)
 fun to_bytes_verbose prog =
