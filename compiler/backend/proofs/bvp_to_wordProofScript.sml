@@ -1042,7 +1042,7 @@ val full_gc_IMP = prove(
 val word_gc_fun_lemma = prove(
   ``good_dimindex (:'a) /\
     heap_in_memory_store heap a sp c s m dm limit /\
-    abs_ml_inv (v::MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+    abs_ml_inv c (v::MAP FST stack) refs (hs,heap,be,a,sp) limit /\
     LIST_REL (\v w. word_addr c v = w) hs (s ' Globals::MAP SND stack) /\
     full_gc (hs,heap,limit) = (roots2,heap2,heap_length heap2,T) ==>
     let heap1 = heap2 ++ heap_expand (limit - heap_length heap2) in
@@ -3426,7 +3426,7 @@ val assign_thm = Q.prove(
     \\ fs [inter_insert_ODD_adjust_set]
     \\ full_simp_tac std_ss [GSYM APPEND_ASSOC]
     \\ match_mp_tac memory_rel_insert \\ fs []
-    \\ fs [make_ptr_def])
+    \\ fs [make_cons_ptr_def,get_lowerbits_def])
   \\ Cases_on `op = ToList` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `op = AllocGlobal` \\ fs [] THEN1 (fs [do_app])
   \\ Cases_on `?i. op = Global i` \\ fs [] THEN1 (fs [do_app])

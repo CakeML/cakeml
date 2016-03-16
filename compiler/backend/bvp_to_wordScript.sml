@@ -57,6 +57,18 @@ val StoreEach_def = Define `
 val shift_length_def = Define `
   shift_length conf = 1 + conf.pad_bits + conf.len_bits + conf.tag_bits + 1`;
 
+val all_ones_def = Define `
+  all_ones m n = (m - 1 -- n) (~0w)`
+
+val maxout_bits_def = Define `
+  maxout_bits n rep_len k =
+    if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
+
+val ptr_bits_def = Define `
+  ptr_bits conf tag len =
+    (maxout_bits tag conf.tag_bits (1 + conf.len_bits) ||
+     maxout_bits len conf.len_bits 1)`
+
 val real_addr_def = Define `
   (real_addr (conf:bvp_to_word$config) r): 'a wordLang$exp =
     let k = shift (:'a) in
@@ -126,7 +138,9 @@ val assign_def = Define `
                          Assign (adjust_var dest)
                            (Op Or [Shift Lsl (Op Sub [Var 1; Lookup CurrHeap])
                                      (Nat (shift_length c − shift (:'a)));
-                                   Const 1w])],l))
+                                   Const (1w ||
+                                           (shift_length c − 1 -- 0)
+                                              (ptr_bits c tag (LENGTH args)))])],l))
     | Ref => (case encode_header c 2 (LENGTH args) of
               | NONE => (GiveUp,l)
               | SOME (header:'a word) => (list_Seq

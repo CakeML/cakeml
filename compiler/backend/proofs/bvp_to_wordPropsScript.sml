@@ -4,6 +4,10 @@ open preamble bvlSemTheory bvpSemTheory bvpPropsTheory copying_gcTheory
 
 val _ = new_theory "bvp_to_wordProps";
 
+val get_lowerbits_def = Define `
+  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
+  (get_lowerbits conf _ = 1w)`;
+
 (* TODO: move or delete *)
 
 val lsl_lsr = Q.store_thm("lsl_lsr", (* TODO: delete, use from stack_removeProof *)
@@ -127,9 +131,10 @@ val v_inv_def = tDefine "v_inv" `
      (x = Pointer (f ' n) (Word 0w)) /\ n IN FDOM f) /\
   (v_inv (Block n vs) (x,f,heap) <=>
      if vs = [] then (x = Data (Word (BlockNil n))) else
-       ?ptr u xs.
+       ?ptr xs.
          EVERY2 (\v x. v_inv v (x,f,heap)) vs xs /\
-         (x = Pointer ptr u) /\ (heap_lookup ptr heap = SOME (BlockRep n xs)))`
+         (x = Pointer ptr (Word (ptr_bits conf n (LENGTH xs)))) /\
+         (heap_lookup ptr heap = SOME (BlockRep n xs)))`
  (WF_REL_TAC `measure (v_size o FST)` \\ rpt strip_tac
   \\ imp_res_tac v_size_LEMMA \\ DECIDE_TAC);
 
@@ -155,11 +160,11 @@ val RefBlock_def = Define `
   RefBlock xs = DataElement xs (LENGTH xs) (RefTag,[])`;
 
 val bc_ref_inv_def = Define `
-  bc_ref_inv n refs (f,heap,be) =
+  bc_ref_inv conf n refs (f,heap,be) =
     case (FLOOKUP f n, FLOOKUP refs n) of
     | (SOME x, SOME (ValueArray ys)) =>
         (?zs. (heap_lookup x heap = SOME (RefBlock zs)) /\
-              EVERY2 (\z y. v_inv y (z,f,heap)) zs ys)
+              EVERY2 (\z y. v_inv conf y (z,f,heap)) zs ys)
     | (SOME x, SOME (ByteArray bs)) =>
         ?ws. LENGTH bs + 8 < 2 ** (dimindex (:'a) - 3) /\
              LENGTH ws = LENGTH bs DIV (dimindex (:α) DIV 8) + 1 /\
@@ -167,21 +172,21 @@ val bc_ref_inv_def = Define `
     | _ => F`;
 
 val bc_stack_ref_inv_def = Define `
-  bc_stack_ref_inv stack refs (roots, heap, be) =
+  bc_stack_ref_inv conf stack refs (roots, heap, be) =
     ?f. INJ (FAPPLY f) (FDOM f) { a | isSomeDataElement (heap_lookup a heap) } /\
         FDOM f SUBSET FDOM refs /\
-        EVERY2 (\v x. v_inv v (x,f,heap)) stack roots /\
-        !n. reachable_refs stack refs n ==> bc_ref_inv n refs (f,heap,be)`;
+        EVERY2 (\v x. v_inv conf v (x,f,heap)) stack roots /\
+        !n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,heap,be)`;
 
 val unused_space_inv_def = Define `
   unused_space_inv ptr l heap <=>
     (l <> 0 ==> (heap_lookup ptr heap = SOME (Unused (l-1))))`;
 
 val abs_ml_inv_def = Define `
-  abs_ml_inv stack refs (roots,heap,be,a,sp) limit <=>
+  abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit <=>
     roots_ok roots heap /\ heap_ok heap limit /\
     unused_space_inv a sp heap /\
-    bc_stack_ref_inv stack refs (roots,heap,be)`;
+    bc_stack_ref_inv conf stack refs (roots,heap,be)`;
 
 (* --- *)
 
@@ -302,8 +307,8 @@ val v_inv_related = prove(
   ``!w x f.
       gc_related g heap1 (heap2:'a ml_heap) /\
       (!ptr u. (x = Pointer ptr u) ==> ptr IN FDOM g) /\
-      v_inv w (x,f,heap1) ==>
-      v_inv w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,heap2) /\
+      v_inv conf w (x,f,heap1) ==>
+      v_inv conf w (ADDR_APPLY (FAPPLY g) x,g f_o_f f,heap2) /\
       EVERY (\n. f ' n IN FDOM g) (get_refs w)``,
   completeInduct_on `v_size w` \\ NTAC 5 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
@@ -359,8 +364,8 @@ val EVERY2_ADDR_MAP = prove(
 
 val bc_ref_inv_related = prove(
   ``gc_related g heap1 heap2 /\
-    bc_ref_inv n refs (f,heap1,be) /\ (f ' n) IN FDOM g ==>
-    bc_ref_inv n refs (g f_o_f f,heap2,be)``,
+    bc_ref_inv conf n refs (f,heap1,be) /\ (f ' n) IN FDOM g ==>
+    bc_ref_inv conf n refs (g f_o_f f,heap2,be)``,
   full_simp_tac std_ss [bc_ref_inv_def] \\ strip_tac \\ full_simp_tac std_ss []
   \\ MP_TAC v_inv_related \\ asm_simp_tac std_ss []
   \\ full_simp_tac (srw_ss()) [f_o_f_DEF,gc_related_def,RefBlock_def] \\ res_tac
@@ -378,7 +383,7 @@ val bc_ref_inv_related = prove(
 
 val RTC_lemma = prove(
   ``!r n. RTC (ref_edge refs) r n ==>
-          (!m. RTC (ref_edge refs) r m ==> bc_ref_inv m refs (f,heap,be)) /\
+          (!m. RTC (ref_edge refs) r m ==> bc_ref_inv conf m refs (f,heap,be)) /\
           gc_related g heap heap2 /\
           f ' r IN FDOM g ==> f ' n IN FDOM g``,
   ho_match_mp_tac RTC_INDUCT \\ full_simp_tac std_ss [] \\ rpt strip_tac
@@ -412,8 +417,8 @@ val RTC_lemma = prove(
 
 val reachable_refs_lemma = prove(
   ``gc_related g heap heap2 /\
-    EVERY2 (\v x. v_inv v (x,f,heap)) stack roots /\
-    (!n. reachable_refs stack refs n ==> bc_ref_inv n refs (f,heap,be)) /\
+    EVERY2 (\v x. v_inv conf v (x,f,heap)) stack roots /\
+    (!n. reachable_refs stack refs n ==> bc_ref_inv conf n refs (f,heap,be)) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
     (!n. reachable_refs stack refs n ==> n IN FDOM f /\ (f ' n) IN FDOM g)``,
   NTAC 3 strip_tac \\ full_simp_tac std_ss [reachable_refs_def,PULL_EXISTS]
@@ -425,15 +430,16 @@ val reachable_refs_lemma = prove(
   \\ `n IN FDOM f` by ALL_TAC THEN1 (CCONTR_TAC
     \\ full_simp_tac (srw_ss()) [bc_ref_inv_def,FLOOKUP_DEF])
   \\ full_simp_tac std_ss []
-  \\ `bc_ref_inv r refs (f,heap,be)` by metis_tac [RTC_REFL]
-  \\ `(!m. RTC (ref_edge refs) r m ==> bc_ref_inv m refs (f,heap,be))` by ALL_TAC
+  \\ `bc_ref_inv conf r refs (f,heap,be)` by metis_tac [RTC_REFL]
+  \\ `(!m. RTC (ref_edge refs) r m ==>
+           bc_ref_inv conf m refs (f,heap,be))` by ALL_TAC
   THEN1 metis_tac [] \\ imp_res_tac RTC_lemma);
 
 val bc_stack_ref_inv_related = prove(
   ``gc_related g heap1 heap2 /\
-    bc_stack_ref_inv stack refs (roots,heap1,be) /\
+    bc_stack_ref_inv conf stack refs (roots,heap1,be) /\
     (!ptr u. MEM (Pointer ptr u) roots ==> ptr IN FDOM g) ==>
-    bc_stack_ref_inv stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)``,
+    bc_stack_ref_inv conf stack refs (ADDR_MAP (FAPPLY g) roots,heap2,be)``,
   rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
   \\ qexists_tac `g f_o_f f` \\ rpt strip_tac
   THEN1 (full_simp_tac (srw_ss()) [INJ_DEF,gc_related_def,f_o_f_DEF])
@@ -450,10 +456,10 @@ val bc_stack_ref_inv_related = prove(
   \\ metis_tac [reachable_refs_lemma]);
 
 val full_gc_thm = store_thm("full_gc_thm",
-  ``abs_ml_inv stack refs (roots,heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit ==>
     ?roots2 heap2 a2.
       (full_gc (roots,heap,limit) = (roots2,heap2,a2,T)) /\
-      abs_ml_inv stack refs
+      abs_ml_inv conf stack refs
         (roots2,heap2 ++ heap_expand (limit - a2),be,a2,limit - a2) limit /\
       (heap_length heap2 = a2)``,
   simp_tac std_ss [abs_ml_inv_def,GSYM CONJ_ASSOC]
@@ -660,8 +666,8 @@ val heap_store_rel_lemma = prove(
 val v_inv_SUBMAP = prove(
   ``!w x.
       f SUBMAP f1 /\ heap_store_rel heap heap1 /\
-      v_inv w (x,f,heap) ==>
-      v_inv w (x,f1,heap1) ``,
+      v_inv conf w (x,f,heap) ==>
+      v_inv conf w (x,f1,heap1) ``,
   completeInduct_on `v_size w` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `w` THEN1
    (full_simp_tac std_ss [v_inv_def,Bignum_def] \\ srw_tac [] []
@@ -685,14 +691,17 @@ val v_inv_SUBMAP = prove(
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF] \\ rw []));
 
 val cons_thm = store_thm("cons_thm",
-  ``abs_ml_inv (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
     LENGTH xs < sp /\ xs <> [] ==>
     ?rs roots2 heap2.
       (roots = rs ++ roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_store_unused a sp (BlockRep tag rs) heap = (heap2,T)) /\
-      abs_ml_inv ((Block tag xs)::stack) refs
-                 (Pointer (a + sp - el_length (BlockRep tag rs)) u::roots2,heap2,be,a,
-                  sp-el_length (BlockRep tag rs)) limit``,
+      abs_ml_inv conf
+        ((Block tag xs)::stack) refs
+        (Pointer (a + sp - el_length (BlockRep tag rs))
+           (Word (ptr_bits conf tag (LENGTH xs)))::roots2,
+         heap2,be,a,
+         sp-el_length (BlockRep tag rs)) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ imp_res_tac EVERY2_APPEND_IMP \\ full_simp_tac std_ss []
@@ -751,9 +760,9 @@ val cons_thm = store_thm("cons_thm",
   \\ metis_tac [])
 
 val cons_thm_EMPTY = store_thm("cons_thm_EMPTY",
-  ``abs_ml_inv stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
-    abs_ml_inv ((Block tag [])::stack) refs
-                (Data (Word (BlockNil tag))::roots,heap,be,a,sp) limit``,
+  ``abs_ml_inv conf stack refs (roots,heap:'a ml_heap,be,a,sp) limit ==>
+    abs_ml_inv conf ((Block tag [])::stack) refs
+                     (Data (Word (BlockNil tag))::roots,heap,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [bc_stack_ref_inv_def,LIST_REL_def]
   \\ full_simp_tac (srw_ss()) [roots_ok_def,MEM]
@@ -922,7 +931,7 @@ val NOT_isRefBlock = prove(
 
 val v_inv_Ref = prove(
   ``RefBlock_inv heap heap2 ==>
-    !x h f. (v_inv x (h,f,heap2) = v_inv x (h,f,heap))``,
+    !x h f. (v_inv conf x (h,f,heap2) = v_inv conf x (h,f,heap))``,
   strip_tac \\ completeInduct_on `v_size x` \\ NTAC 3 strip_tac
   \\ full_simp_tac std_ss [PULL_FORALL] \\ Cases_on `x` THEN1
    (full_simp_tac std_ss [v_inv_def] \\ srw_tac [] []
@@ -967,12 +976,12 @@ val v_inv_Ref = prove(
   THEN1 (full_simp_tac (srw_ss()) [v_inv_def,SUBMAP_DEF]));
 
 val update_ref_thm = store_thm("update_ref_thm",
-  ``abs_ml_inv (xs ++ (RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ (LENGTH xs = LENGTH xs1) ==>
     ?p rs roots2 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\
       (heap_store p [RefBlock rs] heap = (heap2,T)) /\
-      abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
+      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
         (roots,heap2,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -1032,14 +1041,14 @@ val heap_deref_def = Define `
     | _ => NONE)`;
 
 val update_ref_thm1 = store_thm("update_ref_thm1",
-  ``abs_ml_inv (xs ++ RefPtr ptr::stack) refs (roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ RefPtr ptr::stack) refs (roots,heap,be,a,sp) limit /\
     (FLOOKUP refs ptr = SOME (ValueArray xs1)) /\ i < LENGTH xs1 /\ 0 < LENGTH xs
     ==>
     ?p rs roots2 vs1 heap2 u.
       (roots = rs ++ Pointer p u :: roots2) /\ (LENGTH rs = LENGTH xs) /\
       (heap_deref p heap = SOME vs1) /\ LENGTH vs1 = LENGTH xs1 /\
       (heap_store p [RefBlock (LUPDATE (HD rs) i vs1)] heap = (heap2,T)) /\
-      abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
+      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray (LUPDATE (HD xs) i xs1)))
         (roots,heap2,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -1125,8 +1134,8 @@ val v_size_LESS_EQ = prove(
 
 val v_inv_IMP = prove(
   ``∀y x f ha.
-      v_inv y (x,f,ha ++ [Bytes be xs ws] ++ hb) ⇒
-      v_inv y (x,f,ha ++ [Bytes be ys ws] ++ hb)``,
+      v_inv conf y (x,f,ha ++ [Bytes be xs ws] ++ hb) ⇒
+      v_inv conf y (x,f,ha ++ [Bytes be ys ws] ++ hb)``,
   completeInduct_on `v_size y` \\ rw [] \\ fs [PULL_FORALL]
   \\ Cases_on `y` \\ fs [v_inv_def] \\ rw [] \\ fs []
   \\ qexists_tac `xs'` \\ fs [PULL_FORALL,AND_IMP_INTRO]
@@ -1140,13 +1149,13 @@ val v_inv_IMP = prove(
   \\ rw [] \\ fs []);
 
 val update_byte_ref_thm = store_thm("update_byte_ref_thm",
-  ``abs_ml_inv ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf ((RefPtr ptr)::stack) refs (roots,heap,be,a,sp) limit /\
     (FLOOKUP refs ptr = SOME (ByteArray xs)) /\ (LENGTH xs = LENGTH ys) ==>
     ?roots2 h1 h2 ws.
       (roots = Pointer (heap_length h1) ((Word 0w):'a word_loc) :: roots2) /\
       heap = h1 ++ [Bytes be xs ws] ++ h2 /\
       LENGTH ws = LENGTH xs DIV (dimindex (:α) DIV 8) + 1 /\
-      abs_ml_inv ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray ys))
+      abs_ml_inv conf ((RefPtr ptr)::stack) (refs |+ (ptr,ByteArray ys))
         (roots,h1 ++ [Bytes be ys ws] ++ h2,be,a,sp) limit``,
   simp_tac std_ss [abs_ml_inv_def]
   \\ rpt strip_tac \\ full_simp_tac std_ss [bc_stack_ref_inv_def]
@@ -1216,12 +1225,12 @@ val update_byte_ref_thm = store_thm("update_byte_ref_thm",
 (* new ref *)
 
 val new_ref_thm = store_thm("new_ref_thm",
-  ``abs_ml_inv (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ stack) refs (roots,heap,be,a,sp) limit /\
     ~(ptr IN FDOM refs) /\ LENGTH xs + 1 <= sp ==>
     ?p rs roots2 heap2.
       (roots = rs ++ roots2) /\ LENGTH rs = LENGTH xs /\
       (heap_store_unused a sp (RefBlock rs) heap = (heap2,T)) /\
-      abs_ml_inv (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
+      abs_ml_inv conf (xs ++ (RefPtr ptr)::stack) (refs |+ (ptr,ValueArray xs))
                  (rs ++ Pointer (a+sp-(LENGTH xs + 1)) (Word 0w)::roots2,heap2,be,a,
                   sp - (LENGTH xs + 1)) limit``,
   simp_tac std_ss [abs_ml_inv_def]
@@ -1342,7 +1351,7 @@ val heap_el_def = Define `
   (heap_el _ _ _ = (ARB,F))`;
 
 val deref_thm = store_thm("deref_thm",
-  ``abs_ml_inv (RefPtr ptr::stack) refs (roots,heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf (RefPtr ptr::stack) refs (roots,heap,be,a,sp) limit ==>
     ?r roots2.
       (roots = r::roots2) /\ ptr IN FDOM refs /\
       case refs ' ptr of
@@ -1350,7 +1359,7 @@ val deref_thm = store_thm("deref_thm",
       | ValueArray ts =>
       !n. n < LENGTH ts ==>
           ?y. (heap_el r n heap = (y,T)) /\
-                abs_ml_inv (EL n ts::RefPtr ptr::stack) refs
+                abs_ml_inv conf (EL n ts::RefPtr ptr::stack) refs
                   (y::roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
@@ -1395,10 +1404,12 @@ val deref_thm = store_thm("deref_thm",
 (* el *)
 
 val el_thm = store_thm("el_thm",
-  ``abs_ml_inv (Block n xs::stack) refs (roots,heap,be,a,sp) limit /\ i < LENGTH xs ==>
+  ``abs_ml_inv conf (Block n xs::stack) refs (roots,heap,be,a,sp) limit /\
+    i < LENGTH xs ==>
     ?r roots2 y.
       (roots = r :: roots2) /\ (heap_el r i heap = (y,T)) /\
-      abs_ml_inv (EL i xs::Block n xs::stack) refs (y::roots,heap,be,a,sp) limit``,
+      abs_ml_inv conf (EL i xs::Block n xs::stack) refs
+                      (y::roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def]
   \\ rpt strip_tac \\ Cases_on `roots` \\ full_simp_tac (srw_ss()) [LIST_REL_def]
   \\ full_simp_tac std_ss [v_inv_def]
@@ -1412,7 +1423,7 @@ val el_thm = store_thm("el_thm",
     \\ rpt strip_tac \\ res_tac
     \\ imp_res_tac heap_lookup_MEM
     \\ full_simp_tac std_ss [BlockRep_def]
-    \\ `MEM (Pointer ptr' u') xs'` by ALL_TAC \\ res_tac
+    \\ `?u'. MEM (Pointer ptr' u') xs'` by ALL_TAC \\ res_tac
     \\ full_simp_tac std_ss [MEM_EL] \\ metis_tac [])
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
   \\ strip_tac THEN1 (full_simp_tac std_ss [EVERY2_EVERY,EVERY_MEM,MEM_ZIP,PULL_EXISTS])
@@ -1431,9 +1442,9 @@ val el_thm = store_thm("el_thm",
 (* pop *)
 
 val pop_thm = store_thm("pop_thm",
-  ``abs_ml_inv (xs ++ stack) refs (rs ++ roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp) limit /\
     (LENGTH xs = LENGTH rs) ==>
-    abs_ml_inv (stack) refs (roots,heap,be,a,sp) limit``,
+    abs_ml_inv conf (stack) refs (roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def,MEM_APPEND]
   THEN1 (rw [] \\ res_tac \\ fs [])
@@ -1445,7 +1456,7 @@ val pop_thm = store_thm("pop_thm",
 (* equality *)
 
 val ref_eq_thm = store_thm("ref_eq_thm",
-  ``abs_ml_inv (RefPtr p1::RefPtr p2::stack) refs
+  ``abs_ml_inv conf (RefPtr p1::RefPtr p2::stack) refs
       (r1::r2::roots,heap,be,a,sp) limit ==>
     ((p1 = p2) <=> (r1 = r2)) /\
     ?p1 p2. r1 = Pointer p1 (Word 0w) /\ r2 = Pointer p2 (Word 0w)``,
@@ -1454,7 +1465,7 @@ val ref_eq_thm = store_thm("ref_eq_thm",
   \\ eq_tac \\ rw [] \\ fs []);
 
 val num_eq_thm = store_thm("num_eq_thm",
-  ``abs_ml_inv (Number i1::Number i2::stack) refs
+  ``abs_ml_inv conf (Number i1::Number i2::stack) refs
       (r1::r2::roots,heap,be,a,sp) limit ==>
     ((i1 = i2) <=> (r1 = r2)) /\
     r1 = Data (Word (Smallnum i1)) /\
@@ -1492,9 +1503,9 @@ val num_less_thm = store_thm("num_less_thm",
 
 val abs_ml_inv_stack_permute = store_thm("abs_ml_inv_stack_permute",
   ``!xs ys.
-      abs_ml_inv (MAP FST xs ++ stack) refs (MAP SND xs ++ roots,heap,be,a,sp) limit /\
+      abs_ml_inv conf (MAP FST xs ++ stack) refs (MAP SND xs ++ roots,heap,be,a,sp) limit /\
       set ys SUBSET set xs ==>
-      abs_ml_inv (MAP FST ys ++ stack) refs (MAP SND ys ++ roots,heap,be,a,sp) limit``,
+      abs_ml_inv conf (MAP FST ys ++ stack) refs (MAP SND ys ++ roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def]
   THEN1 (full_simp_tac std_ss [MEM_APPEND,SUBSET_DEF,MEM_MAP] \\ metis_tac [])
@@ -1508,9 +1519,9 @@ val abs_ml_inv_stack_permute = store_thm("abs_ml_inv_stack_permute",
 (* duplicate *)
 
 val duplicate_thm = store_thm("duplicate_thm",
-  ``abs_ml_inv (xs ++ stack) refs (rs ++ roots,heap,be,a,sp) limit /\
+  ``abs_ml_inv conf (xs ++ stack) refs (rs ++ roots,heap,be,a,sp) limit /\
     (LENGTH xs = LENGTH rs) ==>
-    abs_ml_inv (xs ++ xs ++ stack) refs (rs ++ rs ++ roots,heap,be,a,sp) limit``,
+    abs_ml_inv conf (xs ++ xs ++ stack) refs (rs ++ rs ++ roots,heap,be,a,sp) limit``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
   \\ qexists_tac `f` \\ full_simp_tac std_ss []
@@ -1531,13 +1542,13 @@ val EVERY2_APPEND_IMP = prove(
 
 val move_thm = store_thm("move_thm",
   ``!xs1 rs1 xs2 rs2 xs3 rs3.
-      abs_ml_inv (xs1 ++ xs2 ++ xs3 ++ stack) refs
-                 (rs1 ++ rs2 ++ rs3 ++ roots,heap,be,a,sp) limit /\
+      abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs
+                      (rs1 ++ rs2 ++ rs3 ++ roots,heap,be,a,sp) limit /\
       (LENGTH xs1 = LENGTH rs1) /\
       (LENGTH xs2 = LENGTH rs2) /\
       (LENGTH xs3 = LENGTH rs3) ==>
-      abs_ml_inv (xs1 ++ xs3 ++ xs2 ++ stack) refs
-                 (rs1 ++ rs3 ++ rs2 ++ roots,heap,be,a,sp) limit``,
+      abs_ml_inv conf (xs1 ++ xs3 ++ xs2 ++ stack) refs
+                      (rs1 ++ rs3 ++ rs2 ++ roots,heap,be,a,sp) limit``,
   REPEAT GEN_TAC
   \\ full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def] \\ rpt strip_tac
   \\ full_simp_tac std_ss [roots_ok_def] THEN1 metis_tac [MEM_APPEND]
@@ -1564,20 +1575,20 @@ val EVERY2_APPEND1 = prove(
   \\ Q.LIST_EXISTS_TAC [`h::ys1`,`ys2`] \\ full_simp_tac (srw_ss()) []);
 
 val split1_thm = store_thm("split1_thm",
-  ``abs_ml_inv (xs1 ++ stack) refs (roots,heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf (xs1 ++ stack) refs (roots,heap,be,a,sp) limit ==>
     ?rs1 roots1. (roots = rs1 ++ roots1) /\ (LENGTH rs1 = LENGTH xs1)``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
   \\ rpt strip_tac \\ NTAC 5 (imp_res_tac EVERY2_APPEND1) \\ metis_tac []);
 
 val split2_thm = store_thm("split2_thm",
-  ``abs_ml_inv (xs1 ++ xs2 ++ stack) refs (roots,heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf (xs1 ++ xs2 ++ stack) refs (roots,heap,be,a,sp) limit ==>
     ?rs1 rs2 roots1. (roots = rs1 ++ rs2 ++ roots1) /\
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2)``,
   full_simp_tac std_ss [abs_ml_inv_def,bc_stack_ref_inv_def,GSYM APPEND_ASSOC]
   \\ rpt strip_tac \\ NTAC 5 (imp_res_tac EVERY2_APPEND1) \\ metis_tac []);
 
 val split3_thm = store_thm("split3_thm",
-  ``abs_ml_inv (xs1 ++ xs2 ++ xs3 ++ stack) refs (roots,heap,be,a,sp) limit ==>
+  ``abs_ml_inv conf (xs1 ++ xs2 ++ xs3 ++ stack) refs (roots,heap,be,a,sp) limit ==>
     ?rs1 rs2 rs3 roots1. (roots = rs1 ++ rs2 ++ rs3 ++ roots1) /\
       (LENGTH rs1 = LENGTH xs1) /\ (LENGTH rs2 = LENGTH xs2) /\
       (LENGTH rs3 = LENGTH xs3)``,
@@ -1600,8 +1611,8 @@ val LESS_LENGTH = store_thm("LESS_LENGTH",
   \\ srw_tac [] [ADD1]);
 
 val abs_ml_inv_Num = store_thm("abs_ml_inv_Num",
-  ``abs_ml_inv stack refs (roots,heap,be,a,sp) limit /\ small_int (:α) i ==>
-    abs_ml_inv (Number i::stack) refs
+  ``abs_ml_inv conf stack refs (roots,heap,be,a,sp) limit /\ small_int (:α) i ==>
+    abs_ml_inv conf (Number i::stack) refs
       (Data (Word ((Smallnum i):'a word))::roots,heap,be,a,sp) limit``,
   fs [abs_ml_inv_def,roots_ok_def,bc_stack_ref_inv_def,v_inv_def]
   \\ fs [reachable_refs_def]
@@ -1622,13 +1633,6 @@ val heap_store_unused_IMP_length = store_thm("heap_store_unused_IMP_length",
     representation in memory
    ------------------------------------------------------- *)
 
-val all_ones_def = Define `
-  all_ones m n = (m -- n) (~0w)`
-
-val maxout_bits_def = Define `
-  maxout_bits n rep_len k =
-    if n < 2 ** rep_len then n2w n << k else all_ones (k + rep_len) k`
-
 val pointer_bits_def = Define ` (* pointers have tag and len bits *)
   pointer_bits conf abs_heap n =
     case heap_lookup n abs_heap of
@@ -1648,10 +1652,6 @@ val decode_addr_def = Define `
   decode_addr conf w =
     (decode_maxout conf.len_bits (conf.tag_bits + 2) w,
      decode_maxout conf.tag_bits 2 w)`
-
-val get_lowerbits_def = Define `
-  (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
-  (get_lowerbits conf _ = 1w)`;
 
 val get_addr_def = Define `
   get_addr conf n w =
@@ -1743,7 +1743,7 @@ val heap_in_memory_store_def = Define `
 
 val word_ml_inv_def = Define `
   word_ml_inv (heap,be,a,sp) limit c refs stack <=>
-    ?hs. abs_ml_inv (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
+    ?hs. abs_ml_inv c (MAP FST stack) refs (hs,heap,be,a,sp) limit /\
          EVERY2 (\v w. word_addr c v = w) hs (MAP SND stack)`
 
 val IMP_THE_EQ = store_thm("IMP_THE_EQ",
@@ -1806,7 +1806,7 @@ val word_ml_inv_rearrange = store_thm("word_ml_inv_rearrange",
     \\ srw_tac[][] \\ qexists_tac `n'` \\ full_simp_tac(srw_ss())[EL_MAP]
     \\ match_mp_tac IMP_THE_EQ
     \\ imp_res_tac ALOOKUP_ZIP_EL)
-  \\ qpat_assum `abs_ml_inv (MAP FST xs) refs (hs,heap,be,a,sp) limit` mp_tac
+  \\ qpat_assum `abs_ml_inv c (MAP FST xs) refs (hs,heap,be,a,sp) limit` mp_tac
   \\ `MAP FST ys = MAP FST (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys) /\
       MAP (λy. THE (ALOOKUP (ZIP (xs,hs)) y)) ys =
         MAP SND (MAP (\y. FST y, THE (ALOOKUP (ZIP (xs,hs)) y)) ys)` by
@@ -2022,7 +2022,7 @@ val memory_rel_El = store_thm("memory_rel_El",
   \\ disch_then kall_tac
   \\ `word_addr c v' = Word (n2w (4 * index))` by
    (imp_res_tac heap_lookup_SPLIT
-    \\ qpat_assum `abs_ml_inv _ _ _ _` kall_tac
+    \\ qpat_assum `abs_ml_inv _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -2040,7 +2040,7 @@ val memory_rel_El = store_thm("memory_rel_El",
   \\ imp_res_tac heap_lookup_SPLIT
   \\ qcase_tac `heap = ha ++ DataElement (ys1 ++ y::ys2) tt yy::hb`
   \\ PairCases_on `yy`
-  \\ qpat_assum `abs_ml_inv _ _ _ _` kall_tac
+  \\ qpat_assum `abs_ml_inv _ _ _ _ _` kall_tac
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
   \\ clean_tac
   \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -2076,7 +2076,7 @@ val memory_rel_Deref = store_thm("memory_rel_Deref",
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
   \\ `word_addr c v' = Word (n2w (4 * index))` by
-   (qpat_assum `abs_ml_inv _ _ _ _` kall_tac
+   (qpat_assum `abs_ml_inv _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -2159,7 +2159,7 @@ val memory_rel_Update = store_thm("memory_rel_Update",
   \\ rpt_drule get_real_addr_get_addr \\ fs []
   \\ disch_then kall_tac
   \\ `word_addr c v'' = Word (n2w (4 * index)) /\ n = LENGTH l` by
-   (qpat_assum `abs_ml_inv _ _ _ _` kall_tac
+   (qpat_assum `abs_ml_inv _ _ _ _ _` kall_tac
     \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def,BlockRep_def]
     \\ clean_tac
     \\ fs [word_heap_APPEND,word_heap_def,word_el_def,word_payload_def]
@@ -2197,6 +2197,11 @@ val memory_rel_Update = store_thm("memory_rel_Update",
   \\ fs [GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ SEP_R_TAC \\ fs []
   \\ SEP_W_TAC \\ fs [AC STAR_ASSOC STAR_COMM]);
+
+val make_cons_ptr_def = Define `
+  make_cons_ptr conf nf tag len =
+    Word (nf << (shift_length conf - shift (:'a)) || (1w:'a word)
+            || get_lowerbits conf (Word (ptr_bits conf tag len)))`;
 
 val make_ptr_def = Define `
   make_ptr conf nf tag len =
@@ -2316,6 +2321,10 @@ val word_heap_heap_expand = store_thm("word_heap_heap_expand",
   \\ fs [word_heap_def,word_list_exists_def,LENGTH_NIL,FUN_EQ_THM,ADD1,
          SEP_EXISTS_THM,cond_STAR,word_list_def,word_el_def,SEP_CLAUSES])
 
+val get_lowerbits_or_1 = prove(
+  ``get_lowerbits c v = (get_lowerbits c v || 1w)``,
+  Cases_on `v` \\ fs [get_lowerbits_def]);
+
 val memory_rel_Cons = store_thm("memory_rel_Cons",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
     LENGTH vals = LENGTH (ws:'a word_loc list) /\ vals <> [] /\
@@ -2328,7 +2337,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
         store_list w (Word hd::ws) m dm = SOME m1 /\
         memory_rel c be refs (sp - (LENGTH ws + 1))
           (st |+ (EndOfHeap,Word w)) m1 dm
-          ((Block tag vals,make_ptr c (w - curr) tag (LENGTH ws))::vars)``,
+          ((Block tag vals,make_cons_ptr c (w - curr) tag (LENGTH ws))::vars)``,
   simp_tac std_ss [LET_THM]
   \\ rewrite_tac [CONJ_ASSOC]
   \\ once_rewrite_tac [CONJ_COMM]
@@ -2336,7 +2345,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ fs [word_ml_inv_def,PULL_EXISTS] \\ clean_tac
   \\ fs [MAP_ZIP]
   \\ drule (GEN_ALL cons_thm)
-  \\ disch_then (qspecl_then [`Word 0w`,`tag`] strip_assume_tac)
+  \\ disch_then (qspecl_then [`tag`] strip_assume_tac)
   \\ rfs [] \\ fs [] \\ clean_tac
   \\ rewrite_tac [GSYM CONJ_ASSOC]
   \\ once_rewrite_tac [METIS_PROVE [] ``b1 /\ b2 /\ b3 <=> b2 /\ b1 /\ b3:bool``]
@@ -2348,7 +2357,7 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
   \\ `n2w (a + sp' - (LENGTH ws + 1)) =
       n2w (a + sp') - n2w (LENGTH ws + 1):'a word`
           by fs [addressTheory.word_arith_lemma2]
-  \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_ptr_def,get_lowerbits_def]
+  \\ fs [WORD_LEFT_ADD_DISTRIB,get_addr_def,make_cons_ptr_def,get_lowerbits_def]
   \\ fs [el_length_def,BlockRep_def]
   \\ imp_res_tac heap_store_unused_IMP_length \\ fs []
   \\ fs [copying_gcTheory.EVERY2_APPEND,minus_lemma]
@@ -2380,7 +2389,9 @@ val memory_rel_Cons = store_thm("memory_rel_Cons",
          GSYM word_add_n2w,WORD_LEFT_ADD_DISTRIB]
   \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
   \\ pop_assum mp_tac \\ CONV_TAC (DEPTH_CONV ETA_CONV)
-  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]);
+  \\ fs [AC STAR_ASSOC STAR_COMM] \\ fs [STAR_ASSOC]
+  \\ rpt strip_tac
+  \\ simp [Once get_lowerbits_or_1]);
 
 val memory_rel_Ref = store_thm("memory_rel_Ref",
   ``memory_rel c be refs sp st m dm (ZIP (vals,ws) ++ vars) /\
@@ -2509,7 +2520,7 @@ val memory_rel_ValueArray_IMP = store_thm("memory_rel_ValueArray_IMP",
       LENGTH vals < 2 ** (dimindex (:'a) − 4)``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
-  \\ `bc_ref_inv p refs (f,heap,be)` by
+  \\ `bc_ref_inv c p refs (f,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
      \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
   \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
@@ -2665,7 +2676,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
         TTT (x >>> (dimindex (:'a) - c.len_size - 3) = n2w (LENGTH vals + 8))``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw [get_addr_0]
-  \\ `bc_ref_inv p refs (f,heap,be)` by
+  \\ `bc_ref_inv c p refs (f,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
      \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
   \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
@@ -2792,7 +2803,7 @@ val memory_rel_RefPtr_IMP_lemma = store_thm("memory_rel_RefPtr_IMP_lemma",
     ?res. FLOOKUP refs p = SOME res``,
   fs [memory_rel_def,word_ml_inv_def,PULL_EXISTS,abs_ml_inv_def,
       bc_stack_ref_inv_def,v_inv_def,word_addr_def] \\ rw []
-  \\ `bc_ref_inv p refs (f,heap,be)` by
+  \\ `bc_ref_inv c p refs (f,heap,be)` by
     (first_x_assum match_mp_tac \\ fs [reachable_refs_def]
      \\ qexists_tac `RefPtr p` \\ fs [get_refs_def])
   \\ pop_assum mp_tac \\ simp [bc_ref_inv_def]
@@ -2912,8 +2923,8 @@ val memory_rel_RefPtr_EQ = store_thm("memory_rel_RefPtr_EQ",
   \\ fs [word_addr_def,get_addr_def]
   \\ eq_tac \\ rw [] \\ fs [get_lowerbits_def]
   \\ fs [abs_ml_inv_def,bc_stack_ref_inv_def,v_inv_def]
-  \\ `bc_ref_inv i1 refs (f,heap,be) /\
-      bc_ref_inv i2 refs (f,heap,be)` by
+  \\ `bc_ref_inv c i1 refs (f,heap,be) /\
+      bc_ref_inv c i2 refs (f,heap,be)` by
    (rpt strip_tac \\ first_x_assum match_mp_tac
     \\ fs [reachable_refs_def]
     \\ metis_tac [get_refs_def,MEM,RTC_DEF])

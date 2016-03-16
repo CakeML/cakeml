@@ -333,6 +333,9 @@ val add_compiler_compset = computeLib.extend_compset
     ,bvp_to_wordTheory.shift_length_def
     ,bvp_to_wordTheory.real_addr_def
     ,bvp_to_wordTheory.real_offset_def
+    ,bvp_to_wordTheory.all_ones_def
+    ,bvp_to_wordTheory.maxout_bits_def
+    ,bvp_to_wordTheory.ptr_bits_def
     ,bvp_to_wordTheory.assign_def
     ,bvp_to_wordTheory.comp_def
     ,bvp_to_wordTheory.compile_part_def
