@@ -107,7 +107,7 @@ val mem_load_byte_def = Define `
     case addr a s of
     | NONE => assert F s
     | SOME w =>
-        case mem_load_byte_aux w s.mem s.mem_domain s.be of
+        case mem_load_byte_aux s.mem s.mem_domain s.be w of
         | SOME v => upd_reg r (Word (w2w v)) s
         | NONE => assert F s`
 
@@ -118,7 +118,7 @@ val mem_store_byte_def = Define `
     | SOME w =>
         case read_reg r s of
         | Word b =>
-           (case mem_store_byte_aux w (w2w b) s.mem s.mem_domain s.be of
+           (case mem_store_byte_aux s.mem s.mem_domain s.be w (w2w b) of
             | SOME m => (s with mem := m)
             | NONE => assert F s)
         | _ => assert F s`
@@ -277,7 +277,7 @@ val evaluate_def = tDefine "evaluate" `
     | SOME (LabAsm (CallFFI ffi_index) _ _ _) =>
        (case (s.regs s.len_reg,s.regs s.ptr_reg,s.regs s.link_reg) of
         | (Word w, Word w2, Loc n1 n2) =>
-         (case (read_bytearray w2 (w2n w) s.mem s.mem_domain s.be,
+         (case (read_bytearray w2 (w2n w) (mem_load_byte_aux s.mem s.mem_domain s.be),
                 loc_to_pc n1 n2 s.code) of
           | (SOME bytes, SOME new_pc) =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in

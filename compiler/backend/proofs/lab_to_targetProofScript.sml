@@ -734,15 +734,15 @@ val state_rel_weaken = prove(
 val read_bytearray_state_rel = prove(
   ``!n a x.
       state_rel (mc_conf,code2,labs,p,T) s1 t1 ms1 /\
-      (read_bytearray a n s1.mem s1.mem_domain s1.be = SOME x) ==>
+      (read_bytearray a n (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
       (read_bytearray a n
         (\a. if a IN mc_conf.prog_addresses then SOME (t1.mem a) else NONE) =
        SOME x)``,
   Induct
-  \\ full_simp_tac(srw_ss())[wordSemTheory.read_bytearray_def,targetSemTheory.read_bytearray_def]
+  \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ rpt strip_tac
-  \\ Cases_on `mem_load_byte_aux a s1.mem s1.mem_domain s1.be` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `read_bytearray (a + 1w) n s1.mem s1.mem_domain s1.be` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `mem_load_byte_aux s1.mem s1.mem_domain s1.be a` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `read_bytearray (a + 1w) n (mem_load_byte_aux s1.mem s1.mem_domain s1.be)` \\ full_simp_tac(srw_ss())[]
   \\ res_tac \\ full_simp_tac(srw_ss())[] \\ full_simp_tac(srw_ss())[state_rel_def,mem_load_byte_aux_def]
   \\ Cases_on `s1.mem (byte_align a)` \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPEC `a`) \\ full_simp_tac(srw_ss())[]
@@ -770,7 +770,7 @@ val bytes_in_mem_asm_write_bytearray_lemma = prove(
 
 val bytes_in_mem_asm_write_bytearray = prove(
   ``state_rel ((mc_conf: ('a,'state,'b) machine_config),code2,labs,p,T) s1 t1 ms1 /\
-    (read_bytearray c1 (LENGTH new_bytes) s1.mem s1.mem_domain s1.be = SOME x) ==>
+    (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) ==>
     bytes_in_mem p xs t1.mem t1.mem_domain s1.mem_domain ==>
     bytes_in_mem p xs
       (asm_write_bytearray c1 new_bytes t1.mem) t1.mem_domain s1.mem_domain``,
@@ -782,7 +782,7 @@ val bytes_in_mem_asm_write_bytearray = prove(
   \\ Induct_on `new_bytes`
   \\ full_simp_tac(srw_ss())[asm_write_bytearray_def]
   \\ REPEAT STRIP_TAC
-  \\ full_simp_tac(srw_ss())[wordSemTheory.read_bytearray_def]
+  \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ BasicProvers.EVERY_CASE_TAC \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ full_simp_tac(srw_ss())[PULL_FORALL]
   \\ res_tac
@@ -807,7 +807,7 @@ val CallFFI_bytearray_lemma = prove(
     a IN t1.mem_domain /\
     a IN s1.mem_domain /\
     (s1.be = mc_conf.target.config.big_endian) /\
-    (read_bytearray c1 (LENGTH new_bytes) s1.mem s1.mem_domain s1.be = SOME x) /\
+    (read_bytearray c1 (LENGTH new_bytes) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x) /\
     (word_loc_val_byte p labs s1.mem a mc_conf.target.config.big_endian =
        SOME (t1.mem a)) ==>
     (word_loc_val_byte p labs (write_bytearray c1 new_bytes s1.mem s1.mem_domain s1.be) a
@@ -815,13 +815,13 @@ val CallFFI_bytearray_lemma = prove(
      SOME (asm_write_bytearray c1 new_bytes t1.mem a))``,
   Q.SPEC_TAC (`s1`,`s1`) \\ Q.SPEC_TAC (`t1`,`t1`) \\ Q.SPEC_TAC (`c1`,`c1`)
   \\ Q.SPEC_TAC (`x`,`x`) \\ Q.SPEC_TAC (`new_bytes`,`xs`) \\ Induct
-  \\ full_simp_tac(srw_ss())[asm_write_bytearray_def,write_bytearray_def,wordSemTheory.read_bytearray_def]
+  \\ full_simp_tac(srw_ss())[asm_write_bytearray_def,write_bytearray_def,read_bytearray_def]
   \\ rpt strip_tac
-  \\ Cases_on `mem_load_byte_aux c1 s1.mem s1.mem_domain s1.be` \\ full_simp_tac(srw_ss())[]
-  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) s1.mem s1.mem_domain s1.be`
+  \\ Cases_on `mem_load_byte_aux s1.mem s1.mem_domain s1.be c1` \\ full_simp_tac(srw_ss())[]
+  \\ Cases_on `read_bytearray (c1 + 1w) (LENGTH xs) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
   \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
   \\ qmatch_assum_rename_tac
-       `read_bytearray (c1 + 1w) (LENGTH xs) s1.mem s1.mem_domain s1.be = SOME y`
+       `read_bytearray (c1 + 1w) (LENGTH xs) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME y`
   \\ FIRST_X_ASSUM (MP_TAC o Q.SPECL [`y`,`c1+1w`,`t1`,`s1`])
   \\ full_simp_tac(srw_ss())[] \\ rpt strip_tac \\ full_simp_tac(srw_ss())[mem_store_byte_aux_def]
   \\ reverse (Cases_on `(write_bytearray (c1 + 1w)
@@ -1677,10 +1677,10 @@ val compile_correct = Q.prove(
     \\ Cases_on `s1.regs s1.len_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.link_reg` \\ full_simp_tac(srw_ss())[]
     \\ Cases_on `s1.regs s1.ptr_reg` \\ full_simp_tac(srw_ss())[]
-    \\ Cases_on `read_bytearray c' (w2n c) s1.mem s1.mem_domain s1.be`
+    \\ Cases_on `read_bytearray c' (w2n c) (mem_load_byte_aux s1.mem s1.mem_domain s1.be)`
     \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac
-         `read_bytearray c1 (w2n c2) s1.mem s1.mem_domain s1.be = SOME x`
+         `read_bytearray c1 (w2n c2) (mem_load_byte_aux s1.mem s1.mem_domain s1.be) = SOME x`
     \\ qmatch_assum_rename_tac `s1.regs s1.link_reg = Loc n1 n2`
     \\ Cases_on `call_FFI s1.ffi index x` \\ full_simp_tac(srw_ss())[]
     \\ qmatch_assum_rename_tac

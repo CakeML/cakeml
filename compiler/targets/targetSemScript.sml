@@ -2,24 +2,6 @@ open preamble ffiTheory asmPropsTheory;
 
 val _ = new_theory "targetSem";
 
-(* TODO: move? *)
-
-val _ = Parse.temp_overload_on("list_find",``λx ls. find_index x ls 0``);
-
-val read_bytearray_def = Define `
-  (read_bytearray a 0 get_byte = SOME []) /\
-  (read_bytearray a (SUC n) get_byte =
-     case get_byte a of
-     | NONE => NONE
-     | SOME b => case read_bytearray (a+1w) n get_byte of
-                 | NONE => NONE
-                 | SOME bs => SOME (b::bs))`
-
-val shift_seq_def = Define `
-  shift_seq k s = \i. s (i + k:num)`;
-
-(* -- *)
-
 (* -- execute target machine with interference from environement -- *)
 
 val () = Datatype `
@@ -59,7 +41,7 @@ val evaluate_def = Define `
         (if config.target.get_reg ms config.ptr_reg = 0w
          then Halt Success else Halt Resource_limit_hit,ms,ffi)
       else
-        case list_find (config.target.get_pc ms) config.ffi_entry_pcs of
+        case find_index (config.target.get_pc ms) config.ffi_entry_pcs 0 of
         | NONE => (Error,ms,ffi)
         | SOME ffi_index =>
           case read_bytearray (config.target.get_reg ms config.ptr_reg)

@@ -66,14 +66,6 @@ val LESS_LENGTH_IMP_APPEND = Q.store_thm("LESS_LENGTH_IMP_APPEND",
   \\ pop_assum (fn th => simp [Once th])
   \\ qexists_tac `h::ys` \\ full_simp_tac(srw_ss())[]);
 
-val read_bytearray_def = wordSemTheory.read_bytearray_def
-
-val read_bytearray_LENGTH = Q.store_thm("read_bytearray_LENGTH",
-  `!n a m d y be. (read_bytearray a n m d be = SOME y) ==> (LENGTH y = n)`,
-  Induct >> srw_tac[][read_bytearray_def,LENGTH_NIL]
-  \\ every_case_tac >> full_simp_tac(srw_ss())[] >> srw_tac[][]
-  \\ res_tac);
-
 val call_FFI_LENGTH = Q.store_thm("call_FFI_LENGTH",
   `(call_FFI s i xs = (n,ys)) ==> (LENGTH ys = LENGTH xs)`,
   srw_tac[][ffiTheory.call_FFI_def]
@@ -373,8 +365,8 @@ val state_rel_read = prove(
 
 val mem_load_byte_aux_IMP = prove(
   ``state_rel k s t /\
-    mem_load_byte_aux a s.memory s.mdomain s.be = SOME x ==>
-    mem_load_byte_aux a t.memory t.mdomain t.be = SOME x``,
+    mem_load_byte_aux s.memory s.mdomain s.be a = SOME x ==>
+    mem_load_byte_aux t.memory t.mdomain t.be a = SOME x``,
   full_simp_tac(srw_ss())[wordSemTheory.mem_load_byte_aux_def] \\ srw_tac[][]
   \\ `s.be = t.be` by full_simp_tac(srw_ss())[state_rel_def]
   \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ srw_tac[][]
@@ -384,9 +376,9 @@ val mem_load_byte_aux_IMP = prove(
 val read_bytearray_IMP_read_bytearray = prove(
   ``!n a k s t x.
       state_rel k s t /\
-      read_bytearray a n s.memory s.mdomain s.be = SOME x ==>
-      read_bytearray a n t.memory t.mdomain t.be = SOME x``,
-  Induct \\ full_simp_tac(srw_ss())[wordSemTheory.read_bytearray_def]
+      read_bytearray a n (mem_load_byte_aux s.memory s.mdomain s.be) = SOME x ==>
+      read_bytearray a n (mem_load_byte_aux t.memory t.mdomain t.be) = SOME x``,
+  Induct \\ full_simp_tac(srw_ss())[read_bytearray_def]
   \\ srw_tac[][] \\ every_case_tac \\ full_simp_tac(srw_ss())[] \\ res_tac \\ srw_tac[][]
   \\ imp_res_tac mem_load_byte_aux_IMP \\ full_simp_tac(srw_ss())[] \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]);
 
@@ -401,10 +393,10 @@ val write_bytearray_IGNORE_non_aligned = prove(
 val write_bytearray_IGNORE = prove(
   ``!new_bytes a x xx.
       d1 SUBSET d /\
-      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x /\ xx ∉ d1 ==>
+      read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME x /\ xx ∉ d1 ==>
       write_bytearray a new_bytes m d be xx = m xx``,
   Induct_on `new_bytes`
-  \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,wordSemTheory.read_bytearray_def]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,read_bytearray_def]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_load_byte_aux_def]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_store_byte_aux_def]
   \\ rpt gen_tac \\ every_case_tac
@@ -414,11 +406,11 @@ val write_bytearray_IGNORE = prove(
 val write_bytearray_EQ = prove(
   ``!new_bytes a m1 m y x.
       d1 SUBSET d /\ (!a. a IN d1 ==> m1 a = m a /\ a IN d) /\
-      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME y /\ m1 x = m x ==>
+      read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME y /\ m1 x = m x ==>
       write_bytearray a new_bytes m1 d1 be x =
       write_bytearray a new_bytes m d be x``,
   Induct_on `new_bytes`
-  \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,wordSemTheory.read_bytearray_def]
+  \\ full_simp_tac(srw_ss())[wordSemTheory.write_bytearray_def,read_bytearray_def]
   \\ rpt gen_tac \\ ntac 2 BasicProvers.TOP_CASE_TAC \\ srw_tac[][] \\ full_simp_tac(srw_ss())[]
   \\ res_tac \\ full_simp_tac(srw_ss())[]
   \\ full_simp_tac(srw_ss())[wordSemTheory.mem_store_byte_aux_def]
@@ -435,7 +427,7 @@ val write_bytearray_EQ = prove(
 val write_bytearray_lemma = prove(
   ``!new_bytes a m1 d1 be x p m d.
       (memory m1 d1 * p) (fun2set (m,d)) /\
-      read_bytearray a (LENGTH new_bytes) m1 d1 be = SOME x ==>
+      read_bytearray a (LENGTH new_bytes) (mem_load_byte_aux m1 d1 be) = SOME x ==>
       (memory (write_bytearray a new_bytes m1 d1 be) d1 * p)
         (fun2set (write_bytearray a new_bytes m d be,d))``,
   simp [STAR_def,set_sepTheory.SPLIT_EQ,memory_def]
@@ -711,8 +703,8 @@ val state_rel_mem_store = Q.store_thm("state_rel_mem_store",
   \\ full_simp_tac(srw_ss())[]);
 
 val state_rel_mem_store_byte_aux = Q.store_thm("state_rel_mem_store_byte_aux",
-  `state_rel k s t ∧ mem_store_byte_aux a b s.memory s.mdomain s.be = SOME z ⇒
-   ∃y. mem_store_byte_aux a b t.memory t.mdomain t.be = SOME y ∧
+  `state_rel k s t ∧ mem_store_byte_aux s.memory s.mdomain s.be a b = SOME z ⇒
+   ∃y. mem_store_byte_aux t.memory t.mdomain t.be a b = SOME y ∧
        state_rel k (s with memory := z) (t with memory := y)`,
   rw[state_rel_def,wordSemTheory.mem_store_byte_aux_def]
   \\ ntac 2 (pop_assum mp_tac)

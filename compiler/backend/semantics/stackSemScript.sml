@@ -289,7 +289,7 @@ val inst_def = Define `
     | Mem Load8 r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME w =>
-           (case mem_load_byte_aux w s.memory s.mdomain s.be of
+           (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
@@ -303,7 +303,7 @@ val inst_def = Define `
     | Mem Store8 r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME a, SOME (Word w)) =>
-            (case mem_store_byte_aux a (w2w w) s.memory s.mdomain s.be of
+            (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
@@ -433,7 +433,7 @@ val evaluate_def = tDefine "evaluate" `
   (evaluate (FFI ffi_index ptr len ret,s) =
     case (get_var ptr s, get_var len s) of
     | SOME (Word w),SOME (Word w2) =>
-         (case read_bytearray w2 (w2n w) s.memory s.mdomain s.be of
+         (case read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be) of
           | SOME bytes =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
               let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in

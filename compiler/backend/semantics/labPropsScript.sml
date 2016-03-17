@@ -112,12 +112,6 @@ val LENGTH_line_bytes = Q.store_thm("LENGTH_line_bytes[simp]",
   `!x2. ~is_Label x2 ==> (LENGTH (line_bytes x2) = line_length x2)`,
   Cases \\ fs [is_Label_def,line_bytes_def,line_length_def] \\ rw []);
 
-val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
-  ``!n a s x.
-      (read_bytearray a n m dm be = SOME x) ==> (LENGTH x = n)``,
-  Induct \\ fs [read_bytearray_def] \\ REPEAT STRIP_TAC
-  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac);
-
 val good_dimindex_def = Define `
   good_dimindex (:'a) <=> dimindex (:'a) = 32 \/ dimindex (:'a) = 64`;
 

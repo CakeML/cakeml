@@ -14,6 +14,24 @@ fun drule th =
 
 (* TODO: move/categorize *)
 
+val read_bytearray_def = Define `
+  (read_bytearray a 0 get_byte = SOME []) /\
+  (read_bytearray a (SUC n) get_byte =
+     case get_byte a of
+     | NONE => NONE
+     | SOME b => case read_bytearray (a+1w) n get_byte of
+                 | NONE => NONE
+                 | SOME bs => SOME (b::bs))`
+
+val read_bytearray_LENGTH = store_thm("read_bytearray_LENGTH",
+  ``!n a f x.
+      (read_bytearray a n f = SOME x) ==> (LENGTH x = n)``,
+  Induct \\ fs [read_bytearray_def] \\ REPEAT STRIP_TAC
+  \\ BasicProvers.EVERY_CASE_TAC \\ fs [] \\ rw [] \\ res_tac);
+
+val shift_seq_def = Define `
+  shift_seq k s = \i. s (i + k:num)`;
+
 val TotOrd_list_cmp = store_thm("TotOrd_list_cmp",
   ``∀c. TotOrd c ⇒ TotOrd (list_cmp c)``,
   srw_tac[][] >> imp_res_tac list_cmp_ListOrd >> simp[TO_ListOrd])

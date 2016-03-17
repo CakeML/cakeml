@@ -1334,7 +1334,7 @@ val flatten_correct = Q.store_thm("flatten_correct",
     (fn g => subterm (fn tm => qexists_tac `^tm with <| clock := t1.clock|>` g) (#2 g)) >> simp[] >>
     full_simp_tac(srw_ss())[state_rel_def,FLOOKUP_DRESTRICT] >> rev_full_simp_tac(srw_ss())[] >>
     reverse conj_tac
-    >- (full_simp_tac(srw_ss())[targetSemTheory.shift_seq_def] >>
+    >- (full_simp_tac(srw_ss())[shift_seq_def] >>
         srw_tac[][] >> res_tac >> full_simp_tac(srw_ss())[]) >>
     rpt strip_tac >>
     qmatch_assum_rename_tac `FLOOKUP s.regs k = SOME v` >>

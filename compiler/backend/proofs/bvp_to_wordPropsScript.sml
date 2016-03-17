@@ -2666,7 +2666,7 @@ val memory_rel_ByteArray_IMP = store_thm("memory_rel_ByteArray_IMP",
       v = Word w /\ w ' 0 /\ word_bit 3 x /\
       get_real_addr c st w = SOME a /\ m a = Word x /\ a IN dm /\
       (!i. i < LENGTH vals ==>
-           mem_load_byte_aux (a + bytes_in_word + n2w i) m dm be =
+           mem_load_byte_aux m dm be (a + bytes_in_word + n2w i) =
            SOME (EL i vals)) /\
       if dimindex (:'a) = 32 then
         LENGTH vals + 4 < 2 ** (dimindex (:'a) - 3) /\

@@ -26,24 +26,15 @@ val set_byte_def = Define `
        || word_slice_alt i 0 w)`;
 
 val mem_load_byte_aux_def = Define `
-  mem_load_byte_aux w m dm be =
+  mem_load_byte_aux m dm be w =
     case m (byte_align w) of
     | Loc _ _ => NONE
     | Word v =>
         if byte_align w IN dm
         then SOME (get_byte w v be) else NONE`
 
-val read_bytearray_def = Define `
-  (read_bytearray a 0 m dm be = SOME []) /\
-  (read_bytearray a (SUC n) m dm be =
-     case mem_load_byte_aux a m dm be of
-     | NONE => NONE
-     | SOME b => case read_bytearray (a + 1w) n m dm be of
-                 | NONE => NONE
-                 | SOME bs => SOME (b::bs))`
-
 val mem_store_byte_aux_def = Define `
-  mem_store_byte_aux w b m dm be =
+  mem_store_byte_aux m dm be w b =
     case m (byte_align w) of
     | Word v =>
         if byte_align w IN dm
@@ -54,7 +45,7 @@ val mem_store_byte_aux_def = Define `
 val write_bytearray_def = Define `
   (write_bytearray a [] m dm be = m) /\
   (write_bytearray a (b::bs) m dm be =
-     case mem_store_byte_aux a b (write_bytearray (a+1w) bs m dm be) dm be of
+     case mem_store_byte_aux (write_bytearray (a+1w) bs m dm be) dm be a b of
      | SOME m => m
      | NONE => m)`;
 
@@ -395,7 +386,7 @@ val inst_def = Define `
     | Mem Load8 r (Addr a w) =>
        (case word_exp s (Op Add [Var a; Const w]) of
         | SOME (Word w) =>
-           (case mem_load_byte_aux w s.memory s.mdomain s.be of
+           (case mem_load_byte_aux s.memory s.mdomain s.be w of
             | NONE => NONE
             | SOME w => SOME (set_var r (Word (w2w w)) s))
         | _ => NONE)
@@ -409,7 +400,7 @@ val inst_def = Define `
     | Mem Store8 r (Addr a w) =>
        (case (word_exp s (Op Add [Var a; Const w]), get_var r s) of
         | (SOME (Word a), SOME (Word w)) =>
-            (case mem_store_byte_aux a (w2w w) s.memory s.mdomain s.be of
+            (case mem_store_byte_aux s.memory s.mdomain s.be a (w2w w) of
              | SOME new_m => SOME (s with memory := new_m)
              | NONE => NONE)
         | _ => NONE)
@@ -510,7 +501,7 @@ val evaluate_def = tDefine "evaluate" `
       (case cut_env names s.locals of
       | NONE => (SOME Error,s)
       | SOME env =>
-         (case read_bytearray w2 (w2n w) s.memory s.mdomain s.be of
+         (case read_bytearray w2 (w2n w) (mem_load_byte_aux s.memory s.mdomain s.be) of
           | SOME bytes =>
               let (new_ffi,new_bytes) = call_FFI s.ffi ffi_index bytes in
               let new_m = write_bytearray w2 new_bytes s.memory s.mdomain s.be in
