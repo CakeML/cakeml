@@ -8,31 +8,6 @@ val get_lowerbits_def = Define `
   (get_lowerbits conf (Word w) = ((((shift_length conf - 1) -- 0) w) || 1w)) /\
   (get_lowerbits conf _ = 1w)`;
 
-(* TODO: move or delete *)
-
-val lsl_lsr = Q.store_thm("lsl_lsr", (* TODO: delete, use from stack_removeProof *)
-  `w2n ((n:'a word)) * 2 ** a < dimword (:'a) ⇒ n << a >>> a = n`,
-  Cases_on`n` \\ simp[]
-  \\ qmatch_assum_rename_tac`n < dimword _`
-  \\ srw_tac[][]
-  \\ REWRITE_TAC[GSYM wordsTheory.w2n_11]
-  \\ REWRITE_TAC[wordsTheory.w2n_lsr]
-  \\ simp[]
-  \\ simp[word_lsl_n2w]
-  \\ srw_tac[][]
-  >- (
-    simp[ZERO_DIV]
-    \\ Cases_on`n`
-    \\ full_simp_tac(srw_ss())[dimword_def]
-    \\ full_simp_tac(srw_ss())[bitTheory.LT_TWOEXP]
-    \\ full_simp_tac(srw_ss())[bitTheory.LOG2_def]
-    \\ qmatch_asmsub_rename_tac`SUC n * 2 ** a`
-    \\ qspecl_then[`a`,`2`,`SUC n`]mp_tac logrootTheory.LOG_EXP
-    \\ simp[] )
-  \\ simp[MULT_DIV]);
-
-(* -- *)
-
 val _ = Datatype `
   tag = BlockTag num | RefTag | BytesTag num | NumTag bool`;
 
