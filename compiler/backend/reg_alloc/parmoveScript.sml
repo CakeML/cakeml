@@ -28,7 +28,7 @@ val NULL_APPEND = Q.store_thm("NULL_APPEND[simp]",
 
 val _ = temp_overload_on("NoRead",``λμ dn. ¬MEM dn (MAP SND μ)``);
 
-fun replace_quote from to (QUOTE s) = QUOTE(replace_string from to s)
+fun replace_quote from to (QUOTE s) = QUOTE(Portable.replace_string {from=from,to=to} s)
   | replace_quote _ _ x = x
 
 val _ = add_infix("step",450,NONASSOC);

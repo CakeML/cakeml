@@ -21,45 +21,32 @@ val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"go
 
 val has_pair_type = can dest_prod o type_of
 
-(* TODO: move any useful functions below into HOL
-         good candidates:
-           match_exists_tac,
-           split_applied_pair_tac,
-           join_EVERY,
-           lift_conjunct_conv,
-           sort_vars,
-           discharge_hyps *)
-
-fun replace_string from to =
-  let
-    val next = Substring.position from
-    val drop = Substring.triml (String.size from)
-    val to = Substring.full to
-    fun f acc s =
-      let
-        val (prefix,s) = next s
-        val acc = prefix::acc
-      in
-        if Substring.isEmpty s then
-          Substring.concat(List.rev acc)
-        else
-          f (to::acc) (drop s)
-      end
-  in
-    f [] o Substring.full
-  end
-
 (* treat the given eq_tms (list of equations) as rewrite thereoms,
    return the resulting term, note we can't return a theorem because
    the equations might not be theorems -- indeed, in many cases they
-   won't be theorems. *)
+   won't be theorems.
+*)
 fun term_rewrite eq_tms tm = let
   fun get_rw_thm eq_tm =
     ASSUME (list_mk_forall (free_vars eq_tm, eq_tm))
   in tm |> QCONV (PURE_REWRITE_CONV (map get_rw_thm eq_tms))
         |> concl |> dest_eq |> snd end
+(*
+TODO: The above term_rewrite doesn't work as often because it universally
+quantifies variables that should remain free. Maybe? But the below version does
+not work with universally quantified equations at all. botworld_quoteTheory
+fails with the above version but works with the below.
+
+fun term_rewrite eqs tm =
+  let
+    fun match_and_subst tm eq =
+      let val (s1,s2) = match_term (lhs eq) tm in mk_thm([],subst s1 (inst s2 eq)) end
+    fun rw1 tm = tryfind (match_and_subst tm) eqs
+  in tm |> QCONV (DEPTH_CONV rw1) |> concl |> rhs end
+*)
 
 (* replace (syntactically equal) subterms of one term by another *)
+(* TODO: can Term.subst be used instead always? If so, delete. *)
 fun replace_term from to =
   let
     fun f tm =
@@ -72,6 +59,7 @@ fun replace_term from to =
     f
   end
 
+(* TODO: replace these with qhdtm_assum etc. *)
 local
   fun find t asl =
     case total (first (can (match_term t) o fst o strip_comb)) asl of SOME x => x
@@ -83,27 +71,20 @@ in
   fun RATOR_ASSUM t ttac (g as (asl,w)) = ttac (ASSUME (find t asl)) g
   fun rator_assum q ttac = Q_TAC (C RATOR_ASSUM ttac) q
 end
+(* -- *)
 
+(* TODO: replace these with impl_tac etc. *)
 val IMP_IMP = METIS_PROVE[]``(P /\ (Q ==> R)) ==> ((P ==> Q) ==> R)``
 val discharge_hyps = match_mp_tac IMP_IMP >> conj_tac
 val discharge_hyps_keep = match_mp_tac IMP_IMP >> conj_asm1_tac
+(* -- *)
+
 val SWAP_IMP = PROVE[]``(P ==> Q ==> R) ==> (Q ==> P ==> R)``
 
 (* TODO: this doesn't prove the hyps if there's more than one *)
 fun prove_hyps_by tac th = PROVE_HYP (prove(list_mk_conj (hyp th),tac)) th
 
-(* from theorems of the form |- P x1, |- P x2, ..., produce |- EVERY P [x1,x2,...] *)
-fun join_EVERY P =
-  let
-    val nilth = listTheory.EVERY_DEF |> CONJUNCT1 |> ISPEC P |> EQT_ELIM
-    val consth = listTheory.EVERY_DEF |> CONJUNCT2 |> ISPEC P |> SPEC_ALL |> EQ_IMP_RULE |> snd
-                 |> CONV_RULE(REWR_CONV(GSYM AND_IMP_INTRO))
-    fun f [] = nilth
-      | f (t::ts) = MATCH_MP (MATCH_MP consth t) (f ts)
-  in
-    f
-  end
-
+(* TODO: replace with markerLib.move_conj_left *)
 (* resort conjuncts so that one satisfying P appears first *)
 local
   val finish = TRY_CONV (REWR_CONV (GSYM CONJ_ASSOC))
@@ -123,36 +104,11 @@ in
       W loop
     end
 end
+(* -- *)
 
-fun sort_vars [] l2 = l2
-  | sort_vars (s::l1) l2 =
-    let
-      val (s,l2) = partition (equal s o fst o dest_var) l2
-    in
-      s @ (sort_vars l1 l2)
-    end
-
-(* provide witnesses to make the first conjunct under the goal's existential
-   prefix match the given term *)
-fun match_exists_tac tm (g as (_,w)) =
-  let
-    val (vs,b) = strip_exists w
-    val vs = map (fst o dest_var o variant (free_vars tm)) vs
-    fun k (g as (_,w)) =
-      let
-        val (_,b) = strip_exists w
-        val cs = strip_conj b val c = hd cs
-        val (tms,_) = match_term c tm
-        val xs = map #redex tms
-        val ys = map #residue tms
-        fun sorter ls = xs@(List.filter(not o Lib.C Lib.mem xs)ls)
-      in
-        CONV_TAC(RESORT_EXISTS_CONV sorter) >>
-        map_every exists_tac ys
-      end g
-  in
-    CONV_TAC(RENAME_VARS_CONV vs) >> k
-  end g
+(* TODO: move to HOL? *)
+val match_exists_tac = part_match_exists_tac (hd o strip_conj)
+val asm_exists_tac = first_assum(match_exists_tac o concl)
 
 (* if the first conjunct under the goal's existential prefix matches the term
    except for some places where it has structure and the term just has variables,
@@ -172,6 +128,7 @@ fun split_pair_match tm (g as (_,w)) =
     map_every (TRY o PairCases_on) (map (C cons [] o ANTIQUOTE) vs)
   end g
 
+(* TODO: move to HOL? and others below... *)
 fun split_applied_pair_tac tm =
   let
     val (f,p) = dest_comb tm
@@ -242,8 +199,6 @@ val split_pair_tac =
   first_assum(find_and_split_pair o concl) ORELSE
   (fn g => find_and_split_pair (#2 g) g)
 end
-
-val asm_exists_tac = first_assum(match_exists_tac o concl)
 
 fun drule th =
   first_assum(mp_tac o MATCH_MP (ONCE_REWRITE_RULE[GSYM AND_IMP_INTRO] th))
