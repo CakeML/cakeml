@@ -21,26 +21,6 @@ val _ = set_trace"Goalstack.print_goal_at_top"0 handle HOL_ERR _ => set_trace"go
 
 val has_pair_type = can dest_prod o type_of
 
-(* TODO: copied from pairLib. export? *)
-fun variant_of_term vs t =
-let
-   val check_vars = free_vars t;
-   val (_,sub) =
-      foldl (fn (v, (vs,sub)) =>
-	  let
-             val v' = variant vs v;
-             val vs' = v'::vs;
-             val sub' = if (aconv v v') then sub else
-			(v |-> v')::sub;
-          in
-             (vs',sub')
-          end) (vs,[]) check_vars;
-  val t' = subst sub t
-in
-  (t', sub)
-end;
-(* -- *)
-
 (* TODO: move any useful functions below into HOL
          good candidates:
            match_exists_tac,
