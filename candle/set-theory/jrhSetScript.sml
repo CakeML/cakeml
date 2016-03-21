@@ -1,5 +1,6 @@
 open HolKernel boolLib boolSimps bossLib lcsymtacs pred_setTheory cardinalTheory pairTheory
 val _ = temp_tight_equality()
+val _ = numLib.prefer_num()
 val _ = new_theory"jrhSet"
 
 val ind_model_exists = prove(
